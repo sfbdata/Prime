@@ -151,6 +151,43 @@ Autorização pontual dada pelo dono em 29/07/2026. **Não abra o JusPrime no na
 **Critério de conclusão:** os 22 casos com `esperado` preenchido e `capturadoEm` datado. Nenhum
 código PHP escrito nesta parte.
 
+### ✅ Executada em 29/07/2026 — o que as partes seguintes precisam saber
+
+Entregue: `casos-referencia-tjdft.json` (22 casos), `medicoes-auxiliares-tjdft.json` (5 medições
+extras) e `LEIA-ME.md` na mesma pasta. **Leia o `LEIA-ME.md` antes da Parte 3** — ele traz o mapa da
+tela, a decomposição já provada da fórmula e a armadilha de captura.
+
+**Divergências entre a spec e a tela real** (corrigem a spec §5.1; afetam as Partes 3, 5 e 6):
+
+1. **Custas têm `Data início`** e **recebem correção monetária** a partir dela. O que o manual veda
+   (p. 21) é juros e multa, não a correção. A spec descrevia custas como `Valor` + `Descrição`.
+2. **Multa monetária tem data própria e juros próprios** (acordeão `Juros da multa`), não só o
+   honorário em R$ como a spec previa.
+3. O rótulo do termo inicial é **`A partir da data dos valores`**, não "A partir do(s) Valor(es)
+   Devido(s)".
+4. O **gerador de parcelas mensais não é um botão separado**: `Adicionar valor` mantém valor e
+   descrição e avança a data um mês a cada clique.
+5. A correção é **mensal, sem pró-rata** (`proRata: false`), e **para no mês anterior** ao da data
+   final (`31/12/2025` → correção até `11/2025`).
+
+**O que já está provado sobre a fórmula** (aritmética conferida, não suposição):
+
+- juros legais **simples**, incidindo sobre o valor **já corrigido** (caso 6: 1.218,02 × 15% = 182,70);
+- os segmentos de juros **somam-se linearmente** na virada (caso 2 = aux-02a + aux-02b, na última casa);
+- **os juros têm pró-rata por dia**; a correção monetária **não tem**;
+- **custas não recebem juros nem multa** — a multa de 10% do caso 20 deu R$ 231,46 (10% só dos
+  valores), não R$ 300,94 (10% incluindo as custas).
+
+**Armadilha de captura, se for preciso recapturar.** O campo de percentual dos juros mostrava
+`2,00%` na tela e mandava `0,01` ao servidor: o componente só commita no evento `change`, que
+mudança programática de foco não dispara. O caso 10 entrou errado na primeira rodada sem que nada
+acusasse — o número era plausível e a soma fechava. Cada caso guarda por isso o `payloadEnviado`, e
+a conferência campo a campo dele contra a `entrada` declarada é obrigatória. **Não confie na tela.**
+
+**Pendência para a Parte 3:** o caso 22 foi capturado com data final em branco, então o resultado é
+o do dia 29/07/2026. O motor precisa de **relógio injetável** e o teste tem de fixá-lo nessa data,
+senão o caso passa a falhar sozinho no dia seguinte.
+
 **Como abrir o chat:**
 > Leia `docs/specs/cobranca-simular-acordo-atualizacao-monetaria.md` e a Parte 1 de
 > `docs/gestao-cobrancas/PLANO_SIMULAR_ACORDO.md`. Execute a Parte 1.
@@ -467,7 +504,7 @@ Cada chat atualiza esta tabela ao terminar sua parte. É o que permite ao próxi
 
 | Parte | Status | Commit | Suíte | Notas |
 |---|---|---|---|---|
-| 1 | ⬜ não iniciada | — | — | |
+| 1 | ✅ concluída (29/07/2026) | `662b070` esqueleto · segundo commit com a captura | n/a (sem código) | 22 casos + 5 medições auxiliares + LEIA-ME. 5 divergências entre spec e tela real registradas acima |
 | 2 | ⬜ não iniciada | — | — | |
 | 3 | ⬜ não iniciada | — | — | |
 | 4 | ⬜ não iniciada | — | — | |

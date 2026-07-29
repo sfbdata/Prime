@@ -1,0 +1,154 @@
+[
+  {
+    "id": "aux-06a-so-periodo-0-5-pct",
+    "descricao": "Mesmo valor do caso 06 com data final em 10/01/2003, o ultimo dia do periodo de 0,5% a.m. Isola o segmento de 0,5%",
+    "paraQualCaso": "06-virada-juros-05-para-1-pct",
+    "capturadoEm": "2026-07-29",
+    "entrada": {
+      "dataFinalCalculo": "2003-01-10",
+      "indice": "OFICIAIS_TJDFT",
+      "valores": [{ "valorCentavos": 100000, "data": "2002-07-10", "descricao": "Parcela 1" }],
+      "juros": { "tipo": "LEGAIS", "termoInicial": "VALORES", "dataInicial": null, "percentual": null, "dataFinal": null },
+      "multas": [], "honorarios": [], "consectario523": null, "custas": []
+    },
+    "esperado": {
+      "principalCentavos": 100000,
+      "correcaoCentavos": 10940,
+      "jurosCentavos": 3883,
+      "multasCentavos": 0,
+      "honorariosCentavos": 0,
+      "consectario523Centavos": 0,
+      "custasCentavos": 0,
+      "totalCentavos": 114823
+    },
+    "observacoes": {
+      "dataFinalDaCorrecao": "12/2002",
+      "indicesDeCorrecao": ["INPC de 07/2002 ate 12/2002"],
+      "fatorDeCorrecao": "0.10940226826",
+      "percentualDeJurosAcumulado": "0.035",
+      "valorDosJuros": "38.83"
+    }
+  },
+  {
+    "id": "aux-06b-so-periodo-1-pct",
+    "descricao": "Valor lancado em 11/01/2003, o primeiro dia do periodo de 1% a.m., ate 31/12/2003. Isola o segmento de 1%",
+    "paraQualCaso": "06-virada-juros-05-para-1-pct",
+    "capturadoEm": "2026-07-29",
+    "entrada": {
+      "dataFinalCalculo": "2003-12-31",
+      "indice": "OFICIAIS_TJDFT",
+      "valores": [{ "valorCentavos": 100000, "data": "2003-01-11", "descricao": "Parcela 1" }],
+      "juros": { "tipo": "LEGAIS", "termoInicial": "VALORES", "dataInicial": null, "percentual": null, "dataFinal": null },
+      "multas": [], "honorarios": [], "consectario523": null, "custas": []
+    },
+    "esperado": {
+      "principalCentavos": 100000,
+      "correcaoCentavos": 9791,
+      "jurosCentavos": 13175,
+      "multasCentavos": 0,
+      "honorariosCentavos": 0,
+      "consectario523Centavos": 0,
+      "custasCentavos": 0,
+      "totalCentavos": 122966
+    },
+    "observacoes": {
+      "dataFinalDaCorrecao": "11/2003",
+      "indicesDeCorrecao": ["INPC de 01/2003 ate 11/2003"],
+      "fatorDeCorrecao": "0.09791021747",
+      "percentualDeJurosAcumulado": "0.12",
+      "valorDosJuros": "131.75"
+    }
+  },
+  {
+    "id": "aux-04a-so-inpc-antes-da-virada",
+    "descricao": "Mesmo valor do caso 04 com data final em 01/09/2024. Isola a parte em INPC antes da troca para IPCA",
+    "paraQualCaso": "04-virada-inpc-ipca-oficiais-tjdft",
+    "capturadoEm": "2026-07-29",
+    "entrada": {
+      "dataFinalCalculo": "2024-09-01",
+      "indice": "OFICIAIS_TJDFT",
+      "valores": [{ "valorCentavos": 100000, "data": "2024-08-01", "descricao": "Parcela 1" }],
+      "juros": { "tipo": "SEM_JUROS", "termoInicial": "VALORES", "dataInicial": null, "percentual": null, "dataFinal": null },
+      "multas": [], "honorarios": [], "consectario523": null, "custas": []
+    },
+    "esperado": {
+      "principalCentavos": 100000,
+      "correcaoCentavos": 0,
+      "jurosCentavos": 0,
+      "multasCentavos": 0,
+      "honorariosCentavos": 0,
+      "consectario523Centavos": 0,
+      "custasCentavos": 0,
+      "totalCentavos": 100000
+    },
+    "observacoes": {
+      "dataFinalDaCorrecao": "08/2024",
+      "indicesDeCorrecao": ["INPC de 08/2024 ate 08/2024"],
+      "fatorDeCorrecao": "0.00",
+      "percentualDeJurosAcumulado": "0.00",
+      "valorDosJuros": "0.00",
+      "nota": "Faixa cuja competencia inicial e igual a final rendeu fator ZERO. E o dado que decide se a competencia de ponta entra ou nao no produtorio - a Parte 3 nao deve deduzir isso da string 'de 08/2024 ate 08/2024'."
+    }
+  },
+  {
+    "id": "aux-02a-so-periodo-1-pct-ate-a-taxa-legal",
+    "descricao": "Mesmo valor do caso 02 com data final em 30/08/2024, o dia em que comeca a taxa legal. Isola o segmento de 1% a.m.",
+    "paraQualCaso": "02-valor-unico-juros-legais",
+    "capturadoEm": "2026-07-29",
+    "entrada": {
+      "dataFinalCalculo": "2024-08-30",
+      "indice": "OFICIAIS_TJDFT",
+      "valores": [{ "valorCentavos": 100000, "data": "2020-01-10", "descricao": "Parcela 1" }],
+      "juros": { "tipo": "LEGAIS", "termoInicial": "VALORES", "dataInicial": null, "percentual": null, "dataFinal": null },
+      "multas": [], "honorarios": [], "consectario523": null, "custas": []
+    },
+    "esperado": {
+      "principalCentavos": 100000,
+      "correcaoCentavos": 31372,
+      "jurosCentavos": 73102,
+      "multasCentavos": 0,
+      "honorariosCentavos": 0,
+      "consectario523Centavos": 0,
+      "custasCentavos": 0,
+      "totalCentavos": 204474
+    },
+    "observacoes": {
+      "dataFinalDaCorrecao": "07/2024",
+      "indicesDeCorrecao": ["INPC de 01/2020 ate 07/2024"],
+      "fatorDeCorrecao": "0.31371896202",
+      "percentualDeJurosAcumulado": "0.556451613",
+      "valorDosJuros": "731.02",
+      "nota": "55,645161% nao e multiplo de 1%: e 55% dos meses cheios mais 0,6451613%, que e 20/31 de um mes. Os JUROS tem pro rata por dia no fechamento do periodo - a correcao monetaria nao tem (proRata: false)."
+    }
+  },
+  {
+    "id": "aux-02b-so-taxa-legal-desde-30-08-2024",
+    "descricao": "Valor lancado em 30/08/2024, o primeiro dia da taxa legal, ate 31/12/2025. Isola o segmento de taxa legal",
+    "paraQualCaso": "02-valor-unico-juros-legais",
+    "capturadoEm": "2026-07-29",
+    "entrada": {
+      "dataFinalCalculo": "2025-12-31",
+      "indice": "OFICIAIS_TJDFT",
+      "valores": [{ "valorCentavos": 100000, "data": "2024-08-30", "descricao": "Parcela 1" }],
+      "juros": { "tipo": "LEGAIS", "termoInicial": "VALORES", "dataInicial": null, "percentual": null, "dataFinal": null },
+      "multas": [], "honorarios": [], "consectario523": null, "custas": []
+    },
+    "esperado": {
+      "principalCentavos": 100000,
+      "correcaoCentavos": 5772,
+      "jurosCentavos": 11558,
+      "multasCentavos": 0,
+      "honorariosCentavos": 0,
+      "consectario523Centavos": 0,
+      "custasCentavos": 0,
+      "totalCentavos": 117330
+    },
+    "observacoes": {
+      "dataFinalDaCorrecao": "11/2025",
+      "indicesDeCorrecao": ["INPC de 08/2024 ate 08/2024", "IPCA de 09/2024 ate 11/2025"],
+      "fatorDeCorrecao": "0.05772224435",
+      "percentualDeJurosAcumulado": "0.109272984",
+      "valorDosJuros": "115.58"
+    }
+  }
+]

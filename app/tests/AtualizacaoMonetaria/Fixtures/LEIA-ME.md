@@ -19,6 +19,18 @@ produziu** (`payloadEnviado`) e a **resposta do servidor**, e é dela que sai o 
 dois erros: inventar um payload que a interface nunca geraria, e transcrever número já arredondado
 da tela quando a resposta traz mais casas.
 
+### A interface mentiu uma vez — por isso cada caso tem `payloadEnviado`
+
+No campo de percentual dos juros fixos, a tela mostrava `2,00%` e o servidor recebia `0,01`. O
+componente só leva o valor digitado para o payload quando o campo dispara **`change`**, e mudança
+programática de foco não dispara `change` — só a saída de foco de verdade (Tab). O caso 10 foi
+capturado errado na primeira rodada e passou despercebido: o número era plausível, a soma fechava,
+nada acusava.
+
+O que pegou foi **conferir o `payloadEnviado` contra a `entrada` declarada**, campo a campo, nos 22
+casos. É por isso que `payloadEnviado` ficou gravado aqui: sem ele não há como saber se o caso mede
+o que diz medir. Quem recapturar deve refazer essa conferência — não confie na tela.
+
 ## Mapa da tela (medido em 29/07/2026)
 
 | Seção | Componente Angular | Campos |
@@ -74,6 +86,30 @@ dinheiro em algum lugar e a Parte 3 precisa descobrir onde antes de confiar no c
 `observacoes` também guarda o que permite descobrir a fórmula quando o total não bater: os índices
 aplicados por período (`indicesDeCorrecao`), o fator de correção com 11 casas
 (`valorDoFatorDeCorrecao`), o percentual de juros acumulado, e a `dataFinalDaCorrecao`.
+
+## As medições auxiliares — e o que já se sabe da fórmula
+
+O plano (passo 4 da Parte 1) pedia o **subtotal por período** nos casos 4, 5 e 6. O demonstrativo
+**não publica subtotal por período**: publica as faixas (`INPC de 01/2020 até 08/2024`) e um único
+fator acumulado. Para não deixar a Parte 3 deduzindo a composição no escuro, foram feitas cinco
+medições extras na mesma calculadora, isolando cada trecho, em
+[`medicoes-auxiliares-tjdft.json`](medicoes-auxiliares-tjdft.json). Elas **não** fazem parte dos 22
+casos e não devem entrar no `DataProvider` do teste de fidelidade.
+
+O que essas medições já provam (conferido por aritmética, não por suposição):
+
+- **Os juros legais são simples e incidem sobre o valor já corrigido.** Caso 6: base corrigida
+  R$ 1.218,02 × 15% = R$ 182,70, exatamente o transcrito. Não há capitalização — o próprio payload
+  confirma (`capitalizado: false`).
+- **Os segmentos de juros somam-se linearmente na virada.** Caso 2 = 0,665724597; aux-02a
+  (1% até 30/08/2024) = 0,556451613; aux-02b (taxa legal a partir de 30/08/2024) = 0,109272984. A
+  soma dá o valor do caso 2 **na última casa decimal**.
+- **Os juros têm pró-rata por dia; a correção monetária não.** O 55,645161% do aux-02a é 55% de
+  meses cheios + 0,6451613%, que é 20/31 de um mês. Já a correção vem com `proRata: false` e
+  `periodizacao: "Mensal"`.
+- **Uma faixa de correção cuja competência inicial é igual à final rende fator zero** (aux-04a). É o
+  dado que decide se a competência de ponta entra no produtório — não dá para inferir isso do texto
+  `de 08/2024 até 08/2024`.
 
 ## O caso 22 depende do dia
 
