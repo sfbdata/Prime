@@ -3,11 +3,14 @@
 {% block title %}Crie sua conta e seu escritório{% endblock %}
 
 {% block stylesheets %}
+{% include '_fundo_auth.html.twig' %}
 <style>
 .cadastro-wrap { max-width: 560px; }
 .cadastro-card {
     border: 1px solid var(--bs-border-color); border-radius: 1rem;
-    background: var(--bs-body-bg); box-shadow: 0 6px 24px rgba(0,0,0,.06); overflow: hidden;
+    background: var(--bs-body-bg);
+    /* Sombra mais firme que a original: sobre o céu, a sombra fraca sumia. */
+    box-shadow: 0 18px 48px rgba(1,42,70,.22); overflow: hidden;
 }
 .cadastro-head {
     text-align: center; padding: 2rem 1.5rem 1.25rem;

@@ -1,0 +1,33 @@
+{#
+    Fundo das telas de entrada (login e cadastro).
+
+    O fundo vai no `.no-sidebar` — o container que o base.html.twig cria para as
+    páginas de usuário deslogado — e não no <body>. Motivo: o <body> recebe
+    `bg-body-tertiary` do base (utilitário do Bootstrap, com !important) e, quando
+    o fundo do body é propagado para o canvas, qualquer camada nossa presa ao body
+    passa a depender da ordem de pintura. Preso a um elemento real, não depende.
+#}
+<style>
+.no-sidebar {
+    min-height: 100vh;
+    background-color: #b7dcfd; /* cor média da imagem: segura o visual até o JPEG chegar */
+    background-image: url('/images/fundo/fundo-ceu-azul.jpg');
+    background-size: cover;
+    background-position: center center;
+    background-repeat: no-repeat;
+    background-attachment: fixed; /* o cadastro rola; o céu fica parado */
+}
+
+/* `background-attachment: fixed` é instável no Safari do iOS (estica e trava a
+   rolagem). Em ponteiro grosso, deixa rolar junto — a tela é curta, não aparece. */
+@media (pointer: coarse) {
+    .no-sidebar { background-attachment: scroll; }
+}
+
+/* No tema escuro o cartão é escuro: sem escurecer o céu, o entorno vira clarão. */
+[data-bs-theme="dark"] .no-sidebar {
+    background-image:
+        linear-gradient(rgba(9, 18, 30, .72), rgba(9, 18, 30, .72)),
+        url('/images/fundo/fundo-ceu-azul.jpg');
+}
+</style>

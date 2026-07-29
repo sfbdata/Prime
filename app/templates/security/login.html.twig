@@ -3,6 +3,7 @@
 {% block title %}Entrar — BlueJus{% endblock %}
 
 {% block stylesheets %}
+{% include '_fundo_auth.html.twig' %}
 <style>
 .login-wrap {
     min-height: calc(100vh - 120px);
@@ -11,7 +12,8 @@
 .login-card {
     width: 100%; max-width: 420px; border: 1px solid var(--bs-border-color);
     border-radius: 1rem; background: var(--bs-body-bg);
-    box-shadow: 0 10px 34px rgba(1,60,90,.10); overflow: hidden;
+    /* Sombra mais firme que a original: sobre o céu, a sombra fraca sumia. */
+    box-shadow: 0 18px 48px rgba(1,42,70,.22); overflow: hidden;
 }
 .login-head {
     text-align: center; padding: 2rem 1.75rem 1.25rem;
