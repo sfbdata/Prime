@@ -268,6 +268,70 @@ dev, rodar de novo não muda nada, e os testes da pasta passam.
 > Leia `docs/specs/cobranca-simular-acordo-atualizacao-monetaria.md` (§7.1 e §8) e a Parte 2 de
 > `docs/gestao-cobrancas/PLANO_SIMULAR_ACORDO.md`. Execute a Parte 2.
 
+### ✅ Executada em 29/07/2026 — o que as partes seguintes precisam saber
+
+Entregue: enum `SerieIndice`, `ClienteSgsBcb` (+ `ClienteSgsBcbInterface`), entidade
+`IndiceMonetario`, `IndiceMonetarioRepository`, `TabelaIndices`, command
+`app:importar-indices-monetarios`, migration `Version20260729142925` e 30 testes
+(`tests/AtualizacaoMonetaria/{Unit,Functional}`). Suíte completa 2876/2876.
+
+**🚨 BLOQUEIA A PARTE 3 — `bcmath` NÃO está instalado na imagem.** Medido: `php -m` no
+`jusprime_php_dev` não lista `bcmath`, e o `Dockerfile` (estágio `base`, o mesmo de dev e prod) não o
+instala. As Restrições globais deste plano mandam "cálculo intermediário em BCMath com escala 10" —
+o motor da Parte 3 **não compila sem isso**. A Parte 2 foi escrita sem depender de BCMath (a
+comparação de índices usa canonização de string para a forma de `numeric(12,6)`), mas a Parte 3 não
+tem essa saída. Correção = uma palavra no `Dockerfile` + rebuild em dev **e em prod** — decisão do
+dono, registrada como pendência.
+
+**Divergência da spec §7.1 aplicada aqui (a Parte 4 precisa seguir a mesma):** a spec pede `id`
+**uuid**; ficou **`integer` auto-increment**, porque `symfony/uid` não está instalado e nenhuma das
+~40 entidades do projeto usa UUID. A tabela é global e nunca aparece por id em URL. Se o dono
+preferir uuid, é troca de uma linha na entidade + a migration — mas então `simulacao_acordo` (Parte
+4) tem de ir junto, para não ficar meio a meio.
+
+**Contratos entregues** (o que a Parte 3 consome):
+
+```php
+IndiceMonetarioRepository::carregarTabela(): TabelaIndices
+IndiceMonetarioRepository::ultimaCompetenciaPublicada(SerieIndice $serie): ?\DateTimeImmutable
+
+TabelaIndices::variacao(SerieIndice $serie, \DateTimeImmutable $competencia): ?string  // null = não publicada
+TabelaIndices::temCompetencia(...): bool
+TabelaIndices::ultimaCompetencia(SerieIndice $serie): ?\DateTimeImmutable
+TabelaIndices::primeiraCompetencia(...) · competencias(...) · quantidade(...) · vazia()
+```
+
+`TabelaIndices` é imutável e sem I/O; qualquer dia do mês resolve para a competência (um valor de
+15/01/2020 acha o índice de 01/2020). Variações são **string** do BCB ao motor, nunca float.
+
+**Fatos medidos que valem para as partes seguintes:**
+
+1. **A última competência publicada é POR SÉRIE, não global.** Em 29/07/2026 a taxa legal já tinha
+   `07/2026` enquanto INPC e IPCA paravam em `06/2026`. A guarda do índice não publicado (spec §8)
+   tem de perguntar pela série que vai usar.
+2. **Carga real conferida no dev:** INPC 390 meses (`1994-01` → `2026-06`), IPCA 390 idem,
+   TAXA_LEGAL 24 (`2024-08` → `2026-07`), **sem buracos** nas três (contagem = meses do intervalo).
+   INPC `01/1994` = `41.32`, batendo com o valor medido no plano. Rodar de novo: 804 inalterados,
+   0 novos, 0 revisões — idempotência provada contra a API real, não só contra mock.
+3. **A armadilha dos filtros de data confirmada e travada por teste:** `ClienteSgsBcbTest` assere a
+   URL exata e que ela **não** contém `dataInicial`/`dataFinal`.
+4. **Série vazia → exit `FAILURE`**, sem apagar nem zerar nada. É o modo de falha mais perigoso
+   (tabela silenciosamente incompleta = correção monetária a menos, sem nada acusando), então alarma
+   o cron em vez de passar como sucesso.
+5. **Revisão de índice já gravado** é aplicada **e registrada** (tela + log, com anterior→novo).
+   Reimportar valor igual é no-op de verdade: não mexe nem no `importado_em`.
+6. **Os testes foram provados por injeção de defeito.** Neutralizar a guarda de série vazia e a de
+   no-op derrubou exatamente 2 testes, os certos — não é suíte verde por acaso.
+
+**Onde o banco de dev realmente está.** `app/.env.local` (gitignored) aponta `DATABASE_URL` para
+**`saas_ux`**, não `saas` — a migration e a carga foram para lá, que é o que o `localhost:8080` lê.
+O banco de teste é `saas_test` (o Symfony ignora `.env.local` sob `APP_ENV=test`), e a migration
+também foi aplicada nele. O banco `saas` **não** recebeu nada.
+
+**Cron mensal ainda NÃO agendado** — o command existe e é idempotente, mas ninguém o chama sozinho.
+Agendar no mesmo padrão do cron do DJEN, depois do dia 10 (o INPC do mês sai por volta do dia 7–10
+do mês seguinte).
+
 ---
 
 ## Parte 3 — Motor de cálculo
@@ -505,7 +569,7 @@ Cada chat atualiza esta tabela ao terminar sua parte. É o que permite ao próxi
 | Parte | Status | Commit | Suíte | Notas |
 |---|---|---|---|---|
 | 1 | ✅ concluída (29/07/2026) | `662b070` esqueleto · segundo commit com a captura | n/a (sem código) | 22 casos + 5 medições auxiliares + LEIA-ME. 5 divergências entre spec e tela real registradas acima |
-| 2 | ⬜ não iniciada | — | — | |
+| 2 | ✅ concluída (29/07/2026) | `35475d0` cliente · segundo commit com tabela/importador | 2876/2876 | Migration `Version20260729142925`. **Bloqueia a Parte 3: `bcmath` não está instalado na imagem** — ver abaixo |
 | 3 | ⬜ não iniciada | — | — | |
 | 4 | ⬜ não iniciada | — | — | |
 | 5 | ⬜ não iniciada | — | — | |

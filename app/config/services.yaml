@@ -88,6 +88,9 @@ services:
     # web service oficial. Trocar aqui quando houver backend real.
     App\Auth\Service\OabWebServiceClientInterface: '@App\Auth\Service\ClienteOabIndisponivel'
 
+    # Cliente das séries do Banco Central (índices da calculadora de atualização monetária).
+    App\AtualizacaoMonetaria\Service\ClienteSgsBcbInterface: '@App\AtualizacaoMonetaria\Service\ClienteSgsBcb'
+
     # Cliente do DJEN: injeta a implementação concreta via interface (integração desacoplada).
     App\Djen\Service\DjenClientInterface: '@App\Djen\Service\DjenClient'
     App\Djen\Service\NotificadorPublicacoesDjenInterface: '@App\Djen\Service\NotificadorPublicacoesDjen'

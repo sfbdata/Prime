@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Auditoria\Functional;
 
+use App\AtualizacaoMonetaria\Entity\IndiceMonetario;
 use App\Auth\Entity\CadastroPendente;
 use App\Cliente\Entity\Cliente;
 use App\Cliente\Entity\ClienteDocumento;
@@ -83,6 +84,12 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // histórico de negócio visível ao usuário, distinto da auditoria técnica (invariável 26).
         // Auditar o log seria log de log. CasoCobranca/Obrigacao (que tocam dinheiro) SÃO Auditavel.
         EventoHistorico::class,
+
+        // Tabela GLOBAL de referência (spec §7.1 da calculadora de atualização monetária): índice
+        // oficial do BCB, sem tenant_id e sem dado de escritório. Ninguém a edita pela aplicação —
+        // a única escrita é o cron `app:importar-indices-monetarios`, que já registra na tela e no
+        // log toda revisão de índice já gravado. Auditar por usuário não teria usuário nenhum.
+        IndiceMonetario::class,
     ];
 
     private EntityManagerInterface $em;

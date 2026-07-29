@@ -100,6 +100,12 @@ doctrine:
                 dir: '%kernel.project_dir%/src/Sync/Entity'
                 prefix: 'App\Sync\Entity'
                 alias: AppSync
+            AppAtualizacaoMonetaria:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/AtualizacaoMonetaria/Entity'
+                prefix: 'App\AtualizacaoMonetaria\Entity'
+                alias: AppAtualizacaoMonetaria
         controller_resolver:
             auto_mapping: false
         dql:

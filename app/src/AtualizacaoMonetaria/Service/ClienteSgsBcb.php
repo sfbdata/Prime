@@ -22,7 +22,7 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  * 01/1994 = 41,32). Confiar na janela produziria importação silenciosamente vazia. Por isso aqui se
  * baixa a série INTEIRA e o recorte é feito em PHP.
  */
-final class ClienteSgsBcb
+final class ClienteSgsBcb implements ClienteSgsBcbInterface
 {
     private const CAMINHO_SERIE = '/dados/serie/bcdata.sgs.%s/dados';
     private const TIMEOUT_SEGUNDOS = 30.0;
