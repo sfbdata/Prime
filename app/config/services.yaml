@@ -23,6 +23,11 @@ parameters:
     cobrancas_uploads_dir: '%kernel.project_dir%/public/uploads/cobrancas'
     ghostscript_bin: '%env(default:default_ghostscript_bin:GHOSTSCRIPT_BIN)%'
     default_ghostscript_bin: '/usr/bin/gs'
+    # API pública do SGS do Banco Central (índices INPC/IPCA/taxa legal da calculadora de atualização
+    # monetária). Endereço estável e sem chave — por isso o default mora AQUI e não no .env: o build
+    # de produção faz `rm .env`, então default nenhum daquele arquivo chega em prod.
+    bcb_sgs_base_url: '%env(default:default_bcb_sgs_base_url:BCB_SGS_BASE_URL)%'
+    default_bcb_sgs_base_url: 'https://api.bcb.gov.br'
     # Limite de escritórios que um usuário pode CRIAR (ser dono). Sobrescrevível por env
     # em produção, sem deploy de código. Escritórios excluídos (soft delete) não contam.
     tenant_max_por_usuario: '%env(default:default_tenant_max_por_usuario:int:TENANT_MAX_POR_USUARIO)%'
@@ -64,6 +69,7 @@ services:
             string $fotosPerfilDir: '%fotos_perfil_dir%'
             string $cobrancasUploadsDir: '%cobrancas_uploads_dir%'
             string $ghostscriptBin: '%ghostscript_bin%'
+            string $bcbSgsBaseUrl: '%bcb_sgs_base_url%'
             int $tenantMaxPorUsuario: '%tenant_max_por_usuario%'
             int $carenciaPurgaDias: '%tenant_carencia_purga_dias%'
             $googleDriveCredentials: '%google_drive_credentials%'
