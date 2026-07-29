@@ -1,6 +1,6 @@
 ---
 name: criar-entity
-description: "Padrões para criar ou refatorar Entidades Doctrine do jusprime: UUID, multi-tenant, enums, lifecycle, entidade rica vs anêmica. Carregue ao criar, editar ou revisar arquivos *.php em app/src/<Dominio>/Entity/."
+description: "Padrões para criar ou refatorar Entidades Doctrine do jusprime: PK integer, multi-tenant, enums, lifecycle, entidade rica vs anêmica. Carregue ao criar, editar ou revisar arquivos *.php em app/src/<Dominio>/Entity/."
 ---
 
 # Entity/ — Regras de Entidades Doctrine
@@ -17,17 +17,15 @@ declare(strict_types=1);
 namespace App\<Dominio>\Entity;
 
 use Doctrine\ORM\Mapping as ORM;
-use Symfony\Bridge\Doctrine\Types\UuidType;
-use Symfony\Component\Uid\Uuid;
 
 #[ORM\Entity(repositoryClass: <Nome>Repository::class)]
 #[ORM\Table(name: '<nome_tabela>')]
 class <Nome>  // não use `final` — Doctrine gera proxies via herança
 {
-    #[ORM\Id, ORM\Column(type: UuidType::NAME, unique: true)]
-    #[ORM\GeneratedValue(strategy: 'CUSTOM')]
-    #[ORM\CustomIdGenerator('doctrine.uuid_generator')]
-    private ?Uuid $id = null;
+    #[ORM\Id]
+    #[ORM\GeneratedValue]
+    #[ORM\Column(type: 'integer')]
+    private ?int $id = null;
 
     public function __construct(
         #[ORM\ManyToOne(targetEntity: Tenant::class)]
@@ -40,6 +38,22 @@ class <Nome>  // não use `final` — Doctrine gera proxies via herança
 ```
 
 > O `$id` fica fora do construtor porque é gerado pelo Doctrine após persist — essa é a única exceção à regra de constructor property promotion.
+
+### PK é `integer` auto-increment, não UUID
+
+Esta skill mandava UUID (`UuidType` + `CustomIdGenerator`) até 29/07/2026, e **nenhuma** das ~40
+entidades do projeto jamais fez isso — `symfony/uid` sequer está instalado. Uma entidade nova escrita
+pela orientação antiga não compilaria, ou entraria como a única de formato diferente no repositório
+inteiro. Corrigido para descrever o que a casa realmente faz.
+
+O que o UUID compraria é id **não-enumerável** em URL. Não é dele que vem a proteção aqui: quem
+impede o acesso cruzado é o **guarda de posse** — recurso de outro escritório responde **404, nunca
+403**, para não revelar sequer que existe. Um id sequencial atrás desse guarda não vaza nada; um UUID
+sem esse guarda vaza tudo. Confundir os dois é o erro comum.
+
+Migrar o projeto para UUID continua sendo uma discussão legítima — mas é **decisão do projeto
+inteiro**, tomada de uma vez, não escolha de quem está criando a próxima entidade. Meio a meio é o
+pior dos dois mundos. *(Contexto da decisão: `docs/specs/cobranca-simular-acordo-atualizacao-monetaria.md`, nota de PK em §7.1.)*
 
 ## Regras críticas
 
@@ -140,9 +154,9 @@ isolar o mapeamento.
 
 Escreva a entidade à mão a partir do esqueleto acima.
 
-O gerador até sabe fazer id UUID (é uma das opções), mas grava em `src/Entity/` — não em
-`app/src/<Dominio>/Entity/` — e produz uma classe anêmica sem `tenant`, sem `#[ORM\Table(name:)]`
-em `snake_case` e sem as invariantes de domínio. Sobra mais trabalho de correção do que de escrita.
+O gerador grava em `src/Entity/` — não em `app/src/<Dominio>/Entity/` — e produz uma classe anêmica
+sem `tenant`, sem `#[ORM\Table(name:)]` em `snake_case` e sem as invariantes de domínio. Sobra mais
+trabalho de correção do que de escrita.
 
 Comandos que **valem** nesta camada: `doctrine:mapping:info` (o que está mapeado de fato),
 `doctrine:schema:validate --skip-sync` (acima) e `make:migration` depois de alterar o mapeamento —
