@@ -1,0 +1,622 @@
+[
+  {
+    "id": "01-valor-unico-so-correcao",
+    "descricao": "R$ 1.000,00 de 10/01/2020, indices oficiais TJDFT, sem juros, ate 31/12/2025",
+    "capturadoEm": null,
+    "entrada": {
+      "dataFinalCalculo": "2025-12-31",
+      "indice": "OFICIAIS_TJDFT",
+      "valores": [
+        { "valorCentavos": 100000, "data": "2020-01-10", "descricao": "Parcela 1" }
+      ],
+      "juros": { "tipo": "SEM_JUROS", "termoInicial": "VALORES", "dataInicial": null, "percentual": null, "dataFinal": null },
+      "multas": [],
+      "honorarios": [],
+      "consectario523": null,
+      "custas": []
+    },
+    "esperado": {
+      "principalCentavos": 0,
+      "correcaoCentavos": 0,
+      "jurosCentavos": 0,
+      "multasCentavos": 0,
+      "honorariosCentavos": 0,
+      "consectario523Centavos": 0,
+      "custasCentavos": 0,
+      "totalCentavos": 0
+    }
+  },
+  {
+    "id": "02-valor-unico-juros-legais",
+    "descricao": "R$ 1.000,00 de 10/01/2020, indices oficiais TJDFT, juros legais a partir da data dos valores, ate 31/12/2025 (atravessa a virada de 30/08/2024 para a taxa legal)",
+    "capturadoEm": null,
+    "entrada": {
+      "dataFinalCalculo": "2025-12-31",
+      "indice": "OFICIAIS_TJDFT",
+      "valores": [
+        { "valorCentavos": 100000, "data": "2020-01-10", "descricao": "Parcela 1" }
+      ],
+      "juros": { "tipo": "LEGAIS", "termoInicial": "VALORES", "dataInicial": null, "percentual": null, "dataFinal": null },
+      "multas": [],
+      "honorarios": [],
+      "consectario523": null,
+      "custas": []
+    },
+    "esperado": {
+      "principalCentavos": 0,
+      "correcaoCentavos": 0,
+      "jurosCentavos": 0,
+      "multasCentavos": 0,
+      "honorariosCentavos": 0,
+      "consectario523Centavos": 0,
+      "custasCentavos": 0,
+      "totalCentavos": 0
+    }
+  },
+  {
+    "id": "03-varios-valores-datas-diferentes",
+    "descricao": "Tres valores em datas diferentes (10/01/2020, 15/06/2021, 20/03/2023), indices oficiais TJDFT, juros legais a partir da data dos valores",
+    "capturadoEm": null,
+    "entrada": {
+      "dataFinalCalculo": "2025-12-31",
+      "indice": "OFICIAIS_TJDFT",
+      "valores": [
+        { "valorCentavos": 100000, "data": "2020-01-10", "descricao": "Parcela 1" },
+        { "valorCentavos": 250000, "data": "2021-06-15", "descricao": "Parcela 2" },
+        { "valorCentavos": 75000, "data": "2023-03-20", "descricao": "Parcela 3" }
+      ],
+      "juros": { "tipo": "LEGAIS", "termoInicial": "VALORES", "dataInicial": null, "percentual": null, "dataFinal": null },
+      "multas": [],
+      "honorarios": [],
+      "consectario523": null,
+      "custas": []
+    },
+    "esperado": {
+      "principalCentavos": 0,
+      "correcaoCentavos": 0,
+      "jurosCentavos": 0,
+      "multasCentavos": 0,
+      "honorariosCentavos": 0,
+      "consectario523Centavos": 0,
+      "custasCentavos": 0,
+      "totalCentavos": 0
+    }
+  },
+  {
+    "id": "04-virada-inpc-ipca-oficiais-tjdft",
+    "descricao": "R$ 1.000,00 de 01/08/2024 ate 31/12/2024 na opcao Indices oficiais TJDFT: deve trocar de INPC para IPCA em 01/09/2024. Sem juros, para isolar a correcao",
+    "capturadoEm": null,
+    "entrada": {
+      "dataFinalCalculo": "2024-12-31",
+      "indice": "OFICIAIS_TJDFT",
+      "valores": [
+        { "valorCentavos": 100000, "data": "2024-08-01", "descricao": "Parcela 1" }
+      ],
+      "juros": { "tipo": "SEM_JUROS", "termoInicial": "VALORES", "dataInicial": null, "percentual": null, "dataFinal": null },
+      "multas": [],
+      "honorarios": [],
+      "consectario523": null,
+      "custas": []
+    },
+    "esperado": {
+      "principalCentavos": 0,
+      "correcaoCentavos": 0,
+      "jurosCentavos": 0,
+      "multasCentavos": 0,
+      "honorariosCentavos": 0,
+      "consectario523Centavos": 0,
+      "custasCentavos": 0,
+      "totalCentavos": 0
+    }
+  },
+  {
+    "id": "05-virada-inpc-todo-periodo",
+    "descricao": "Mesma entrada do caso 04, mas na opcao INPC (durante todo o periodo): deve seguir em INPC depois de 01/09/2024, sem trocar para IPCA",
+    "capturadoEm": null,
+    "entrada": {
+      "dataFinalCalculo": "2024-12-31",
+      "indice": "INPC_TODO_PERIODO",
+      "valores": [
+        { "valorCentavos": 100000, "data": "2024-08-01", "descricao": "Parcela 1" }
+      ],
+      "juros": { "tipo": "SEM_JUROS", "termoInicial": "VALORES", "dataInicial": null, "percentual": null, "dataFinal": null },
+      "multas": [],
+      "honorarios": [],
+      "consectario523": null,
+      "custas": []
+    },
+    "esperado": {
+      "principalCentavos": 0,
+      "correcaoCentavos": 0,
+      "jurosCentavos": 0,
+      "multasCentavos": 0,
+      "honorariosCentavos": 0,
+      "consectario523Centavos": 0,
+      "custasCentavos": 0,
+      "totalCentavos": 0
+    }
+  },
+  {
+    "id": "06-virada-juros-05-para-1-pct",
+    "descricao": "R$ 1.000,00 de 10/07/2002 ate 31/12/2003, juros legais: atravessa a virada de 0,5% a.m. (ate 10/01/2003) para 1% a.m. (a partir de 11/01/2003). E o caso que decide se os juros sao simples ou compostos",
+    "capturadoEm": null,
+    "entrada": {
+      "dataFinalCalculo": "2003-12-31",
+      "indice": "OFICIAIS_TJDFT",
+      "valores": [
+        { "valorCentavos": 100000, "data": "2002-07-10", "descricao": "Parcela 1" }
+      ],
+      "juros": { "tipo": "LEGAIS", "termoInicial": "VALORES", "dataInicial": null, "percentual": null, "dataFinal": null },
+      "multas": [],
+      "honorarios": [],
+      "consectario523": null,
+      "custas": []
+    },
+    "esperado": {
+      "principalCentavos": 0,
+      "correcaoCentavos": 0,
+      "jurosCentavos": 0,
+      "multasCentavos": 0,
+      "honorariosCentavos": 0,
+      "consectario523Centavos": 0,
+      "custasCentavos": 0,
+      "totalCentavos": 0
+    }
+  },
+  {
+    "id": "07-taxa-legal-apos-30-08-2024",
+    "descricao": "R$ 1.000,00 de 01/09/2024 ate 31/12/2025: periodo inteiro sob a taxa legal da Lei 14.905/2024, sem mistura com o 1% a.m.",
+    "capturadoEm": null,
+    "entrada": {
+      "dataFinalCalculo": "2025-12-31",
+      "indice": "OFICIAIS_TJDFT",
+      "valores": [
+        { "valorCentavos": 100000, "data": "2024-09-01", "descricao": "Parcela 1" }
+      ],
+      "juros": { "tipo": "LEGAIS", "termoInicial": "VALORES", "dataInicial": null, "percentual": null, "dataFinal": null },
+      "multas": [],
+      "honorarios": [],
+      "consectario523": null,
+      "custas": []
+    },
+    "esperado": {
+      "principalCentavos": 0,
+      "correcaoCentavos": 0,
+      "jurosCentavos": 0,
+      "multasCentavos": 0,
+      "honorariosCentavos": 0,
+      "consectario523Centavos": 0,
+      "custasCentavos": 0,
+      "totalCentavos": 0
+    }
+  },
+  {
+    "id": "08-juros-a-partir-da-citacao",
+    "descricao": "Dois valores, um anterior e outro posterior a citacao de 01/01/2022. Prova a regra do manual p. 13: o anterior conta juros da citacao, o posterior conta do proprio vencimento",
+    "capturadoEm": null,
+    "entrada": {
+      "dataFinalCalculo": "2025-12-31",
+      "indice": "OFICIAIS_TJDFT",
+      "valores": [
+        { "valorCentavos": 100000, "data": "2020-01-10", "descricao": "Anterior a citacao" },
+        { "valorCentavos": 100000, "data": "2023-01-10", "descricao": "Posterior a citacao" }
+      ],
+      "juros": { "tipo": "LEGAIS", "termoInicial": "CITACAO_OU_OUTRA_DATA", "dataInicial": "2022-01-01", "percentual": null, "dataFinal": null },
+      "multas": [],
+      "honorarios": [],
+      "consectario523": null,
+      "custas": []
+    },
+    "esperado": {
+      "principalCentavos": 0,
+      "correcaoCentavos": 0,
+      "jurosCentavos": 0,
+      "multasCentavos": 0,
+      "honorariosCentavos": 0,
+      "consectario523Centavos": 0,
+      "custasCentavos": 0,
+      "totalCentavos": 0
+    }
+  },
+  {
+    "id": "09-juros-data-fixa",
+    "descricao": "Os mesmos dois valores do caso 08, mas com juros a partir de uma data fixa (01/01/2022): a mesma data vale para as duas parcelas, inclusive a posterior",
+    "capturadoEm": null,
+    "entrada": {
+      "dataFinalCalculo": "2025-12-31",
+      "indice": "OFICIAIS_TJDFT",
+      "valores": [
+        { "valorCentavos": 100000, "data": "2020-01-10", "descricao": "Anterior a data fixa" },
+        { "valorCentavos": 100000, "data": "2023-01-10", "descricao": "Posterior a data fixa" }
+      ],
+      "juros": { "tipo": "LEGAIS", "termoInicial": "DATA_FIXA", "dataInicial": "2022-01-01", "percentual": null, "dataFinal": null },
+      "multas": [],
+      "honorarios": [],
+      "consectario523": null,
+      "custas": []
+    },
+    "esperado": {
+      "principalCentavos": 0,
+      "correcaoCentavos": 0,
+      "jurosCentavos": 0,
+      "multasCentavos": 0,
+      "honorariosCentavos": 0,
+      "consectario523Centavos": 0,
+      "custasCentavos": 0,
+      "totalCentavos": 0
+    }
+  },
+  {
+    "id": "10-juros-percentual-fixo",
+    "descricao": "R$ 1.000,00 de 10/01/2020, juros por percentual fixo de 2,00% (a interface nao diz a periodicidade no rotulo; o resultado capturado e que revela se e ao mes)",
+    "capturadoEm": null,
+    "entrada": {
+      "dataFinalCalculo": "2025-12-31",
+      "indice": "OFICIAIS_TJDFT",
+      "valores": [
+        { "valorCentavos": 100000, "data": "2020-01-10", "descricao": "Parcela 1" }
+      ],
+      "juros": { "tipo": "PERCENTUAL_FIXO", "termoInicial": "VALORES", "dataInicial": null, "percentual": "2.00", "dataFinal": null },
+      "multas": [],
+      "honorarios": [],
+      "consectario523": null,
+      "custas": []
+    },
+    "esperado": {
+      "principalCentavos": 0,
+      "correcaoCentavos": 0,
+      "jurosCentavos": 0,
+      "multasCentavos": 0,
+      "honorariosCentavos": 0,
+      "consectario523Centavos": 0,
+      "custasCentavos": 0,
+      "totalCentavos": 0
+    }
+  },
+  {
+    "id": "11-sem-juros-com-multa",
+    "descricao": "Sem juros convivendo com outra verba: R$ 5.000,00 de 15/03/2021 com multa percentual de 2%. Prova que o ramo SEM_JUROS nao zera a multa",
+    "capturadoEm": null,
+    "entrada": {
+      "dataFinalCalculo": "2025-12-31",
+      "indice": "OFICIAIS_TJDFT",
+      "valores": [
+        { "valorCentavos": 500000, "data": "2021-03-15", "descricao": "Parcela unica" }
+      ],
+      "juros": { "tipo": "SEM_JUROS", "termoInicial": "VALORES", "dataInicial": null, "percentual": null, "dataFinal": null },
+      "multas": [
+        { "tipo": "PERCENTUAL", "percentual": "2.00", "valorCentavos": null, "data": null, "descricao": "Multa contratual", "juros": null }
+      ],
+      "honorarios": [],
+      "consectario523": null,
+      "custas": []
+    },
+    "esperado": {
+      "principalCentavos": 0,
+      "correcaoCentavos": 0,
+      "jurosCentavos": 0,
+      "multasCentavos": 0,
+      "honorariosCentavos": 0,
+      "consectario523Centavos": 0,
+      "custasCentavos": 0,
+      "totalCentavos": 0
+    }
+  },
+  {
+    "id": "12-multa-percentual",
+    "descricao": "R$ 1.000,00 de 10/01/2020, juros legais, multa percentual de 10%. Revela a base sobre a qual a multa percentual incide",
+    "capturadoEm": null,
+    "entrada": {
+      "dataFinalCalculo": "2025-12-31",
+      "indice": "OFICIAIS_TJDFT",
+      "valores": [
+        { "valorCentavos": 100000, "data": "2020-01-10", "descricao": "Parcela 1" }
+      ],
+      "juros": { "tipo": "LEGAIS", "termoInicial": "VALORES", "dataInicial": null, "percentual": null, "dataFinal": null },
+      "multas": [
+        { "tipo": "PERCENTUAL", "percentual": "10.00", "valorCentavos": null, "data": null, "descricao": "Multa 10%", "juros": null }
+      ],
+      "honorarios": [],
+      "consectario523": null,
+      "custas": []
+    },
+    "esperado": {
+      "principalCentavos": 0,
+      "correcaoCentavos": 0,
+      "jurosCentavos": 0,
+      "multasCentavos": 0,
+      "honorariosCentavos": 0,
+      "consectario523Centavos": 0,
+      "custasCentavos": 0,
+      "totalCentavos": 0
+    }
+  },
+  {
+    "id": "13-multa-monetaria",
+    "descricao": "R$ 1.000,00 de 10/01/2020, juros legais, multa monetaria de R$ 200,00 com data 10/01/2020. A multa monetaria tem juros proprios; foi mantido o padrao da tela (juros legais)",
+    "capturadoEm": null,
+    "entrada": {
+      "dataFinalCalculo": "2025-12-31",
+      "indice": "OFICIAIS_TJDFT",
+      "valores": [
+        { "valorCentavos": 100000, "data": "2020-01-10", "descricao": "Parcela 1" }
+      ],
+      "juros": { "tipo": "LEGAIS", "termoInicial": "VALORES", "dataInicial": null, "percentual": null, "dataFinal": null },
+      "multas": [
+        { "tipo": "MONETARIA", "percentual": null, "valorCentavos": 20000, "data": "2020-01-10", "descricao": "Multa em reais", "juros": { "tipo": "LEGAIS", "percentual": null } }
+      ],
+      "honorarios": [],
+      "consectario523": null,
+      "custas": []
+    },
+    "esperado": {
+      "principalCentavos": 0,
+      "correcaoCentavos": 0,
+      "jurosCentavos": 0,
+      "multasCentavos": 0,
+      "honorariosCentavos": 0,
+      "consectario523Centavos": 0,
+      "custasCentavos": 0,
+      "totalCentavos": 0
+    }
+  },
+  {
+    "id": "14-duas-multas-mesmo-calculo",
+    "descricao": "Duas multas no mesmo calculo: uma percentual de 10% e uma monetaria de R$ 150,00 em 10/01/2020",
+    "capturadoEm": null,
+    "entrada": {
+      "dataFinalCalculo": "2025-12-31",
+      "indice": "OFICIAIS_TJDFT",
+      "valores": [
+        { "valorCentavos": 100000, "data": "2020-01-10", "descricao": "Parcela 1" }
+      ],
+      "juros": { "tipo": "LEGAIS", "termoInicial": "VALORES", "dataInicial": null, "percentual": null, "dataFinal": null },
+      "multas": [
+        { "tipo": "PERCENTUAL", "percentual": "10.00", "valorCentavos": null, "data": null, "descricao": "Multa 10%", "juros": null },
+        { "tipo": "MONETARIA", "percentual": null, "valorCentavos": 15000, "data": "2020-01-10", "descricao": "Multa em reais", "juros": { "tipo": "LEGAIS", "percentual": null } }
+      ],
+      "honorarios": [],
+      "consectario523": null,
+      "custas": []
+    },
+    "esperado": {
+      "principalCentavos": 0,
+      "correcaoCentavos": 0,
+      "jurosCentavos": 0,
+      "multasCentavos": 0,
+      "honorariosCentavos": 0,
+      "consectario523Centavos": 0,
+      "custasCentavos": 0,
+      "totalCentavos": 0
+    }
+  },
+  {
+    "id": "15-honorario-percentual",
+    "descricao": "R$ 1.000,00 de 10/01/2020, juros legais, honorario percentual de 10% sobre o total do debito atualizado",
+    "capturadoEm": null,
+    "entrada": {
+      "dataFinalCalculo": "2025-12-31",
+      "indice": "OFICIAIS_TJDFT",
+      "valores": [
+        { "valorCentavos": 100000, "data": "2020-01-10", "descricao": "Parcela 1" }
+      ],
+      "juros": { "tipo": "LEGAIS", "termoInicial": "VALORES", "dataInicial": null, "percentual": null, "dataFinal": null },
+      "multas": [],
+      "honorarios": [
+        { "tipo": "PERCENTUAL", "percentual": "10.00", "valorCentavos": null, "data": null, "descricao": "Honorarios 10%", "juros": null }
+      ],
+      "consectario523": null,
+      "custas": []
+    },
+    "esperado": {
+      "principalCentavos": 0,
+      "correcaoCentavos": 0,
+      "jurosCentavos": 0,
+      "multasCentavos": 0,
+      "honorariosCentavos": 0,
+      "consectario523Centavos": 0,
+      "custasCentavos": 0,
+      "totalCentavos": 0
+    }
+  },
+  {
+    "id": "16-honorario-monetario-termos-proprios",
+    "descricao": "Honorario em R$ 500,00 com termo inicial proprio (15/06/2022), distinto do termo do calculo principal (10/01/2020), e juros legais proprios",
+    "capturadoEm": null,
+    "entrada": {
+      "dataFinalCalculo": "2025-12-31",
+      "indice": "OFICIAIS_TJDFT",
+      "valores": [
+        { "valorCentavos": 100000, "data": "2020-01-10", "descricao": "Parcela 1" }
+      ],
+      "juros": { "tipo": "LEGAIS", "termoInicial": "VALORES", "dataInicial": null, "percentual": null, "dataFinal": null },
+      "multas": [],
+      "honorarios": [
+        { "tipo": "MONETARIO", "percentual": null, "valorCentavos": 50000, "data": "2022-06-15", "descricao": "Honorarios contratados", "juros": { "tipo": "LEGAIS", "percentual": null } }
+      ],
+      "consectario523": null,
+      "custas": []
+    },
+    "esperado": {
+      "principalCentavos": 0,
+      "correcaoCentavos": 0,
+      "jurosCentavos": 0,
+      "multasCentavos": 0,
+      "honorariosCentavos": 0,
+      "consectario523Centavos": 0,
+      "custasCentavos": 0,
+      "totalCentavos": 0
+    }
+  },
+  {
+    "id": "17-art523-so-multa",
+    "descricao": "Consectario do art. 523 CPC apenas na forma de multa de 10%",
+    "capturadoEm": null,
+    "entrada": {
+      "dataFinalCalculo": "2025-12-31",
+      "indice": "OFICIAIS_TJDFT",
+      "valores": [
+        { "valorCentavos": 100000, "data": "2020-01-10", "descricao": "Parcela 1" }
+      ],
+      "juros": { "tipo": "LEGAIS", "termoInicial": "VALORES", "dataInicial": null, "percentual": null, "dataFinal": null },
+      "multas": [],
+      "honorarios": [],
+      "consectario523": { "tipo": "MULTA", "percentual": "10.00", "descricao": "Multa art. 523" },
+      "custas": []
+    },
+    "esperado": {
+      "principalCentavos": 0,
+      "correcaoCentavos": 0,
+      "jurosCentavos": 0,
+      "multasCentavos": 0,
+      "honorariosCentavos": 0,
+      "consectario523Centavos": 0,
+      "custasCentavos": 0,
+      "totalCentavos": 0
+    }
+  },
+  {
+    "id": "18-art523-so-honorario",
+    "descricao": "Consectario do art. 523 CPC apenas na forma de honorario de cumprimento de sentenca de 10%",
+    "capturadoEm": null,
+    "entrada": {
+      "dataFinalCalculo": "2025-12-31",
+      "indice": "OFICIAIS_TJDFT",
+      "valores": [
+        { "valorCentavos": 100000, "data": "2020-01-10", "descricao": "Parcela 1" }
+      ],
+      "juros": { "tipo": "LEGAIS", "termoInicial": "VALORES", "dataInicial": null, "percentual": null, "dataFinal": null },
+      "multas": [],
+      "honorarios": [],
+      "consectario523": { "tipo": "HONORARIO", "percentual": "10.00", "descricao": "Honorario art. 523" },
+      "custas": []
+    },
+    "esperado": {
+      "principalCentavos": 0,
+      "correcaoCentavos": 0,
+      "jurosCentavos": 0,
+      "multasCentavos": 0,
+      "honorariosCentavos": 0,
+      "consectario523Centavos": 0,
+      "custasCentavos": 0,
+      "totalCentavos": 0
+    }
+  },
+  {
+    "id": "19-art523-ambas",
+    "descricao": "Consectario do art. 523 CPC nas duas formas ao mesmo tempo: multa de 10% e honorario de 10%",
+    "capturadoEm": null,
+    "entrada": {
+      "dataFinalCalculo": "2025-12-31",
+      "indice": "OFICIAIS_TJDFT",
+      "valores": [
+        { "valorCentavos": 100000, "data": "2020-01-10", "descricao": "Parcela 1" }
+      ],
+      "juros": { "tipo": "LEGAIS", "termoInicial": "VALORES", "dataInicial": null, "percentual": null, "dataFinal": null },
+      "multas": [],
+      "honorarios": [],
+      "consectario523": { "tipo": "AMBAS", "percentual": "10.00", "descricao": "Multa e honorario art. 523" },
+      "custas": []
+    },
+    "esperado": {
+      "principalCentavos": 0,
+      "correcaoCentavos": 0,
+      "jurosCentavos": 0,
+      "multasCentavos": 0,
+      "honorariosCentavos": 0,
+      "consectario523Centavos": 0,
+      "custasCentavos": 0,
+      "totalCentavos": 0
+    }
+  },
+  {
+    "id": "20-custas-sem-juros-nem-multa",
+    "descricao": "Custas de R$ 500,00 em 10/01/2020 num calculo que TEM juros legais e multa de 10%. E o caso que prova a regra do manual p. 21: sobre custas nao incide juros nem multa",
+    "capturadoEm": null,
+    "entrada": {
+      "dataFinalCalculo": "2025-12-31",
+      "indice": "OFICIAIS_TJDFT",
+      "valores": [
+        { "valorCentavos": 100000, "data": "2020-01-10", "descricao": "Parcela 1" }
+      ],
+      "juros": { "tipo": "LEGAIS", "termoInicial": "VALORES", "dataInicial": null, "percentual": null, "dataFinal": null },
+      "multas": [
+        { "tipo": "PERCENTUAL", "percentual": "10.00", "valorCentavos": null, "data": null, "descricao": "Multa 10%", "juros": null }
+      ],
+      "honorarios": [],
+      "consectario523": null,
+      "custas": [
+        { "valorCentavos": 50000, "data": "2020-01-10", "descricao": "Custas iniciais" }
+      ]
+    },
+    "esperado": {
+      "principalCentavos": 0,
+      "correcaoCentavos": 0,
+      "jurosCentavos": 0,
+      "multasCentavos": 0,
+      "honorariosCentavos": 0,
+      "consectario523Centavos": 0,
+      "custasCentavos": 0,
+      "totalCentavos": 0
+    }
+  },
+  {
+    "id": "21-gerador-parcelas-mensais",
+    "descricao": "Seis parcelas iguais de R$ 300,00 com vencimentos mensais de 10/01/2023 a 10/06/2023, geradas pelo botao Adicionar valor (que avanca a data um mes a cada clique)",
+    "capturadoEm": null,
+    "entrada": {
+      "dataFinalCalculo": "2025-12-31",
+      "indice": "OFICIAIS_TJDFT",
+      "valores": [
+        { "valorCentavos": 30000, "data": "2023-01-10", "descricao": "Parcela mensal" },
+        { "valorCentavos": 30000, "data": "2023-02-10", "descricao": "Parcela mensal" },
+        { "valorCentavos": 30000, "data": "2023-03-10", "descricao": "Parcela mensal" },
+        { "valorCentavos": 30000, "data": "2023-04-10", "descricao": "Parcela mensal" },
+        { "valorCentavos": 30000, "data": "2023-05-10", "descricao": "Parcela mensal" },
+        { "valorCentavos": 30000, "data": "2023-06-10", "descricao": "Parcela mensal" }
+      ],
+      "juros": { "tipo": "LEGAIS", "termoInicial": "VALORES", "dataInicial": null, "percentual": null, "dataFinal": null },
+      "multas": [],
+      "honorarios": [],
+      "consectario523": null,
+      "custas": []
+    },
+    "esperado": {
+      "principalCentavos": 0,
+      "correcaoCentavos": 0,
+      "jurosCentavos": 0,
+      "multasCentavos": 0,
+      "honorariosCentavos": 0,
+      "consectario523Centavos": 0,
+      "custasCentavos": 0,
+      "totalCentavos": 0
+    }
+  },
+  {
+    "id": "22-data-final-em-branco",
+    "descricao": "Data final do calculo em branco: o TJDFT calcula ate a data da conta. Resultado amarrado ao dia da captura (ver capturadoEm) - o teste da Parte 3 precisa fixar o relogio nessa data",
+    "capturadoEm": null,
+    "entrada": {
+      "dataFinalCalculo": null,
+      "indice": "OFICIAIS_TJDFT",
+      "valores": [
+        { "valorCentavos": 100000, "data": "2020-01-10", "descricao": "Parcela 1" }
+      ],
+      "juros": { "tipo": "SEM_JUROS", "termoInicial": "VALORES", "dataInicial": null, "percentual": null, "dataFinal": null },
+      "multas": [],
+      "honorarios": [],
+      "consectario523": null,
+      "custas": []
+    },
+    "esperado": {
+      "principalCentavos": 0,
+      "correcaoCentavos": 0,
+      "jurosCentavos": 0,
+      "multasCentavos": 0,
+      "honorariosCentavos": 0,
+      "consectario523Centavos": 0,
+      "custasCentavos": 0,
+      "totalCentavos": 0
+    }
+  }
+]
