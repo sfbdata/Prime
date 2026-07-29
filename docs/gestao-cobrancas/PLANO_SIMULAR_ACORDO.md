@@ -275,13 +275,17 @@ Entregue: enum `SerieIndice`, `ClienteSgsBcb` (+ `ClienteSgsBcbInterface`), enti
 `app:importar-indices-monetarios`, migration `Version20260729142925` e 30 testes
 (`tests/AtualizacaoMonetaria/{Unit,Functional}`). Suíte completa 2876/2876.
 
-**🚨 BLOQUEIA A PARTE 3 — `bcmath` NÃO está instalado na imagem.** Medido: `php -m` no
-`jusprime_php_dev` não lista `bcmath`, e o `Dockerfile` (estágio `base`, o mesmo de dev e prod) não o
-instala. As Restrições globais deste plano mandam "cálculo intermediário em BCMath com escala 10" —
-o motor da Parte 3 **não compila sem isso**. A Parte 2 foi escrita sem depender de BCMath (a
-comparação de índices usa canonização de string para a forma de `numeric(12,6)`), mas a Parte 3 não
-tem essa saída. Correção = uma palavra no `Dockerfile` + rebuild em dev **e em prod** — decisão do
-dono, registrada como pendência.
+**`bcmath` estava AUSENTE da imagem e foi instalado (commit `6b38d39`).** As Restrições globais deste
+plano mandam "cálculo intermediário em BCMath com escala 10", mas o `Dockerfile` (estágio `base`, o
+mesmo de dev e prod) não instalava a extensão — o motor da Parte 3 não rodaria. Corrigido: `bcmath`
+entrou no `docker-php-ext-install`, imagem de dev **já reconstruída e conferida**
+(`bcadd('0.1','0.2',10)` = `0.3000000000`), suíte 2876/2876 na imagem nova.
+**⏳ Pendente: prod.** A imagem de produção só ganha a extensão no próximo
+`./scripts/deploy-prod-tls.sh` na VPS (o script já faz rebuild). Enquanto isso não acontecer, **não
+suba nada que dependa do motor de cálculo** — o código quebraria em runtime lá, não aqui.
+
+A Parte 2 em si não usa BCMath: a comparação de índices é feita por canonização de string para a
+forma de `numeric(12,6)`. A escolha foi deliberada, para a Parte 2 não ficar refém do rebuild.
 
 **Divergência da spec §7.1 aplicada aqui (a Parte 4 precisa seguir a mesma):** a spec pede `id`
 **uuid**; ficou **`integer` auto-increment**, porque `symfony/uid` não está instalado e nenhuma das
@@ -569,7 +573,7 @@ Cada chat atualiza esta tabela ao terminar sua parte. É o que permite ao próxi
 | Parte | Status | Commit | Suíte | Notas |
 |---|---|---|---|---|
 | 1 | ✅ concluída (29/07/2026) | `662b070` esqueleto · segundo commit com a captura | n/a (sem código) | 22 casos + 5 medições auxiliares + LEIA-ME. 5 divergências entre spec e tela real registradas acima |
-| 2 | ✅ concluída (29/07/2026) | `35475d0` cliente · segundo commit com tabela/importador | 2876/2876 | Migration `Version20260729142925`. **Bloqueia a Parte 3: `bcmath` não está instalado na imagem** — ver abaixo |
+| 2 | ✅ concluída (29/07/2026) | `35475d0` · `7238298` · `6b38d39` (bcmath) | 2876/2876 | Migration `Version20260729142925`. `bcmath` instalado na imagem — **falta o rebuild em PROD** |
 | 3 | ⬜ não iniciada | — | — | |
 | 4 | ⬜ não iniciada | — | — | |
 | 5 | ⬜ não iniciada | — | — | |
