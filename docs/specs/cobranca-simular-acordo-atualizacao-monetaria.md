@@ -181,14 +181,23 @@ impresso, dizendo que é simulação por índice oficial e que não substitui o 
 
 | Coluna | Tipo | Nota |
 |---|---|---|
-| `id` | uuid | |
+| `id` | integer | ver a nota de PK abaixo |
 | `serie` | varchar(20) | `INPC` · `IPCA` · `TAXA_LEGAL` (enum PHP) |
 | `competencia` | date | sempre o dia 1 do mês |
 | `variacao_pct` | numeric(12,6) | variação percentual do mês, como o BCB publica |
 | `fonte` | varchar(40) | ex.: `BCB/SGS/188` |
-| `importado_em` | timestamptz | |
+| `importado_em` | timestamp | `datetime_immutable`, a convenção do projeto; migração para `datetimetz_immutable` é backlog do repositório inteiro, não desta feature |
 
-`UNIQUE (serie, competencia)`.
+`UNIQUE (serie, competencia)` — que serve também de índice das duas consultas quentes (série inteira
+em ordem, e última competência publicada da série). Um índice extra nas mesmas colunas seria
+redundante e o Doctrine o descarta ao gerar a migration.
+
+> **Nota de PK — `integer`, não `uuid` (decisão do dono, 29/07/2026).** As duas tabelas desta feature
+> usam `integer` auto-increment. Esta spec pedia `uuid`, mas `symfony/uid` não está instalado e
+> nenhuma das ~40 entidades do projeto usa UUID. O que o uuid compraria é id não-enumerável em URL —
+> e disso quem cuida é o guarda cross-tenant que o §7.2 exige (404, nunca 403, para não revelar
+> existência), que é defesa mais forte e já obrigatória. Adotar uuid em uma feature só deixaria o
+> repositório meio a meio; se for para migrar, é decisão do projeto inteiro, não desta frente.
 
 > **Exceção consciente à regra de isolamento multi-tenant.** O `CLAUDE.md` exige filtro de tenant em
 > toda query, e a regra continua valendo para tudo o mais nesta feature. Índice oficial de inflação
@@ -201,14 +210,19 @@ impresso, dizendo que é simulação por índice oficial e que não substitui o 
 
 | Coluna | Tipo | Nota |
 |---|---|---|
-| `id` | uuid | |
-| `tenant_id` | uuid | filtro obrigatório |
-| `objeto_id` | uuid | FK para o objeto de cobrança |
-| `criado_por_id` | uuid | usuário |
-| `criado_em` / `atualizado_em` | timestamptz | |
+| `id` | integer | ver a nota de PK em §7.1 |
+| `tenant_id` | FK | filtro obrigatório |
+| `objeto_id` | FK | para o objeto de cobrança |
+| `criado_por_id` | FK | usuário |
+| `criado_em` / `atualizado_em` | timestamp | `datetime_immutable`, como o resto do projeto |
 | `descricao` | varchar(255) | rótulo da proposta |
 | `entrada_json` | jsonb | todos os parâmetros do cálculo |
 | `resultado_json` | jsonb | demonstrativo **congelado** |
+
+> **O id aparece em URL** (excluir, reabrir), e ele é sequencial. A proteção **não** é a
+> imprevisibilidade do número: é o guarda de posse — acesso a simulação de outro escritório devolve
+> **404, nunca 403**, para não revelar sequer que o registro existe. Isso é requisito de teste da
+> Parte 4 do plano, não recomendação.
 
 > **Por que congelar o resultado.** O IBGE revisa índice publicado, e a tabela pode mudar depois.
 > Uma proposta enviada ao devedor tem de continuar mostrando o número que mostrou no dia. O
@@ -232,14 +246,34 @@ INPC e IPCA além da taxa legal. Endpoint:
 existam (buscando a série inteira, 01/1994 = 41,32). O importador deve **baixar a série completa e
 filtrar em PHP**. Confiar na janela produziria importação silenciosamente vazia.
 
-**Command `app:importar-indices-monetarios`** — idempotente, roda a carga histórica (a partir de
-01/1994) e o incremento mensal. Agendado em cron mensal, no mesmo padrão dos crons que o projeto já
-tem. Não sobrescreve valor já gravado sem registrar a alteração.
+**Command `app:importar-indices-monetarios`** — idempotente (reimportar valor igual não duplica, não
+altera e não mexe nem no `importado_em`), roda a carga histórica (a partir de 01/1994) e o incremento
+mensal com o mesmo comando. Opções: `--serie` e `--dry-run`. Lock por `flock`, como o cron do DJEN.
+Não sobrescreve valor já gravado sem registrar a alteração — cada revisão sai na tela e no log com o
+valor anterior e o novo. Sai com `FAILURE` quando qualquer série falha **ou volta vazia**, para o
+cron alarmar em vez de deixar a tabela silenciosamente incompleta.
+
+**Cron mensal** (decisão do dono, 29/07/2026), no dia 11 — o INPC do mês sai por volta do dia 7–10 do
+mês seguinte. Mesmo padrão do cron do DJEN, no host da VPS:
+
+```
+0 4 11 * * docker exec -w /var/www/app jusprime_php_prod php bin/console app:importar-indices-monetarios >> /var/log/jusprime-indices.log 2>&1
+```
+
+> ⏳ **Só instalar depois do deploy** — o comando ainda não existe na imagem de produção. E vale saber
+> o que a escolha mensal implica: uma execução falha deixa a tabela um mês parada, e a guarda abaixo
+> passa a recusar cálculo que deveria funcionar. Por isso o `FAILURE` no exit importa aqui mais do
+> que num cron diário: o log é o único aviso. Recuperação é manual e barata — rodar o comando à mão.
 
 **Guarda do índice não publicado.** O INPC de um mês sai por volta do dia 7–10 do mês seguinte —
 medido: em 29/07/2026 o último INPC disponível era **06/2026**. A calculadora **recusa** data final
 posterior à última competência publicada, explicando qual é o último mês disponível. Nunca extrapola
 nem repete o último índice.
+
+⚠️ **A última competência publicada é por SÉRIE, não global** (medido em 29/07/2026: a taxa legal já
+tinha `07/2026` enquanto INPC e IPCA paravam em `06/2026`). A guarda tem de perguntar pela série que
+o cálculo vai usar — uma "última competência" global recusaria data válida ou, pior, aceitaria data
+sem índice.
 
 ## 9. Como a fidelidade será provada
 

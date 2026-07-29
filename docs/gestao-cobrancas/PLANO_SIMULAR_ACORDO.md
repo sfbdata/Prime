@@ -287,11 +287,10 @@ suba nada que dependa do motor de cálculo** — o código quebraria em runtime 
 A Parte 2 em si não usa BCMath: a comparação de índices é feita por canonização de string para a
 forma de `numeric(12,6)`. A escolha foi deliberada, para a Parte 2 não ficar refém do rebuild.
 
-**Divergência da spec §7.1 aplicada aqui (a Parte 4 precisa seguir a mesma):** a spec pede `id`
-**uuid**; ficou **`integer` auto-increment**, porque `symfony/uid` não está instalado e nenhuma das
-~40 entidades do projeto usa UUID. A tabela é global e nunca aparece por id em URL. Se o dono
-preferir uuid, é troca de uma linha na entidade + a migration — mas então `simulacao_acordo` (Parte
-4) tem de ir junto, para não ficar meio a meio.
+**PK = `integer`, não uuid — DECIDIDO pelo dono em 29/07/2026, e a spec §7.1/§7.2 já foi corrigida.**
+`symfony/uid` não está instalado e nenhuma das ~40 entidades do projeto usa UUID. O que o uuid
+compraria (id não-enumerável em URL) fica por conta do guarda cross-tenant que a Parte 4 já exige por
+teste: 404, nunca 403. **A Parte 4 usa `integer` na `simulacao_acordo`** — não reabra isso.
 
 **Contratos entregues** (o que a Parte 3 consome):
 
@@ -332,9 +331,10 @@ TabelaIndices::primeiraCompetencia(...) · competencias(...) · quantidade(...) 
 O banco de teste é `saas_test` (o Symfony ignora `.env.local` sob `APP_ENV=test`), e a migration
 também foi aplicada nele. O banco `saas` **não** recebeu nada.
 
-**Cron mensal ainda NÃO agendado** — o command existe e é idempotente, mas ninguém o chama sozinho.
-Agendar no mesmo padrão do cron do DJEN, depois do dia 10 (o INPC do mês sai por volta do dia 7–10
-do mês seguinte).
+**Cron mensal DECIDIDO (dono, 29/07/2026) e ainda NÃO instalado** — a linha está escrita na spec §8,
+para rodar no dia 11 às 4h. Só entra depois do deploy: o comando não existe na imagem de produção.
+Enquanto isso, quem quiser a tabela em dia roda `app:importar-indices-monetarios` à mão (é
+idempotente, não custa nada rodar por engano).
 
 ---
 
