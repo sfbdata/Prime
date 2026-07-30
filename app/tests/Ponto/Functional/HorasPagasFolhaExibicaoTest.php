@@ -12,6 +12,7 @@ use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Entity\Tenant\TenantRolePermission;
 use App\Ponto\Controller\PontoController;
+use App\Ponto\Entity\JornadaColaborador;
 use App\Ponto\Entity\LancamentoHorasPagas;
 use App\Ponto\Entity\RegistroPonto;
 use App\Tests\Functional\JusPrimeWebTestCase;
@@ -68,6 +69,101 @@ final class HorasPagasFolhaExibicaoTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         $conteudo = (string) $client->getResponse()->getContent();
         self::assertStringNotContainsString('Horas pagas', $conteudo, 'sem lançamento a tela tem de ficar igual à de antes desta tarefa');
+        self::assertStringNotContainsString('Saldo do banco de horas', $conteudo, 'o bloco de totais inteiro tem de sumir junto com a linha, não só ela');
+    }
+
+    #[TestDox('colaborador ve o bloco de totais: saldo do mes, horas pagas e a soma dos dois')]
+    public function testColaboradorVeOBlocoDeTotaisComASoma(): void
+    {
+        // Sem o bloco, o colaborador via o saldo do mês na última célula da coluna "Banco de Horas",
+        // a linha de horas pagas logo abaixo e NENHUMA soma — tinha de fazer a conta de cabeça.
+        // Jornada com `diasSemana = []` de propósito: a carga esperada vira 0 em qualquer dia da
+        // semana, então as 2h batidas valem +120min independentemente de quando o teste rodar.
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $colaborador = $this->criarColaboradorComum($tenant);
+        $autor = $this->criarColaborador($tenant);
+        $agora = new \DateTimeImmutable();
+        $ano = (int) $agora->format('Y');
+        $mes = (int) $agora->format('n');
+        $primeiroDia = $agora->format('Y-m-01');
+
+        $this->criarJornadaSemDiasDeTrabalho($colaborador);
+        $this->criarRegistro($colaborador, $tenant, $primeiroDia . ' 09:00:00');
+        $this->criarRegistro($colaborador, $tenant, $primeiroDia . ' 11:00:00', RegistroPonto::TIPO_SAIDA);
+        $this->criarLancamento($tenant, $colaborador, $autor, $ano, $mes, -600);
+
+        $this->logarComTenant($client, $colaborador, $tenant);
+        $client->request('GET', '/ponto/');
+
+        self::assertResponseIsSuccessful();
+        $this->assertBlocoTotaisPresente(
+            (string) $client->getResponse()->getContent(),
+            '+2h00m',
+            '-10h00m',
+            '-8h00m',
+        );
+    }
+
+    #[TestDox('ficha do admin mostra o MESMO bloco de totais (as duas telas incluem o mesmo partial)')]
+    public function testFichaDoAdminMostraOMesmoBlocoDeTotais(): void
+    {
+        // A armadilha desta frente: `_folha_table.html.twig` é incluído por ponto/index.html.twig E
+        // por tenant/edit_user_role.html.twig, cada um com `only`. `saldoMesMinutos` passado só num
+        // deles faria o outro exibir "Saldo do mês 0h00m" e um total ERRADO (aqui, -10h00m em vez de
+        // -8h00m) — sem erro nenhum, porque o partial se protege com `is defined`.
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $admin = $this->criarAdmin($tenant);
+        $colaborador = $this->criarColaborador($tenant);
+        $autor = $this->criarColaborador($tenant);
+        $agora = new \DateTimeImmutable();
+        $ano = (int) $agora->format('Y');
+        $mes = (int) $agora->format('n');
+        $primeiroDia = $agora->format('Y-m-01');
+
+        $this->criarJornadaSemDiasDeTrabalho($colaborador);
+        $this->criarRegistro($colaborador, $tenant, $primeiroDia . ' 09:00:00');
+        $this->criarRegistro($colaborador, $tenant, $primeiroDia . ' 11:00:00', RegistroPonto::TIPO_SAIDA);
+        $this->criarLancamento($tenant, $colaborador, $autor, $ano, $mes, -600);
+
+        $this->logarComTenant($client, $admin, $tenant);
+        $client->request('GET', sprintf('/tenant/%d/user/%d/edit-role', $tenant->getId(), $colaborador->getId()));
+
+        self::assertResponseIsSuccessful();
+        $this->assertBlocoTotaisPresente(
+            (string) $client->getResponse()->getContent(),
+            '+2h00m',
+            '-10h00m',
+            '-8h00m',
+        );
+    }
+
+    #[TestDox('mes sem batida nenhuma: o bloco trata o saldo do mes como zero e o total vira o proprio lancamento')]
+    public function testBlocoDeTotaisEmMesSemBatidaTrataSaldoDoMesComoZero(): void
+    {
+        // Nenhuma linha da folha tem saldo apurado (`saldoAcumuladoFinal` devolve null). Some o total
+        // seria pior do que somar zero: é justamente o mês em que só existe o lançamento.
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $colaborador = $this->criarColaboradorComum($tenant);
+        $autor = $this->criarColaborador($tenant);
+        $agora = new \DateTimeImmutable();
+        $ano = (int) $agora->format('Y');
+        $mes = (int) $agora->format('n');
+
+        $this->criarLancamento($tenant, $colaborador, $autor, $ano, $mes, -600);
+
+        $this->logarComTenant($client, $colaborador, $tenant);
+        $client->request('GET', '/ponto/');
+
+        self::assertResponseIsSuccessful();
+        $this->assertBlocoTotaisPresente(
+            (string) $client->getResponse()->getContent(),
+            '0h00m',
+            '-10h00m',
+            '-10h00m',
+        );
     }
 
     #[TestDox('dois lancamentos que se anulam na mesma competencia NAO produzem linha fantasma')]
@@ -456,6 +552,36 @@ final class HorasPagasFolhaExibicaoTest extends JusPrimeWebTestCase
         );
     }
 
+    /**
+     * Confere as TRÊS linhas do bloco de totais do rodapé (spec §7), na ordem, com os valores
+     * exatos: "Saldo do mês", "Horas pagas" e o total "Saldo do banco de horas". Verificar só a
+     * soma não bastaria — o total certo com as parcelas erradas continua enganando quem confere.
+     */
+    private function assertBlocoTotaisPresente(
+        string $conteudo,
+        string $saldoMesEsperado,
+        string $horasPagasEsperado,
+        string $totalEsperado,
+    ): void {
+        $padrao = '/<span class="text-muted">Saldo do mês<\/span>\s*<span class="fw-semibold[^"]*">\s*'
+            . preg_quote($saldoMesEsperado, '/') . '\s*<\/span>'
+            . '.*?<span class="text-muted">Horas pagas<\/span>\s*<span class="fw-semibold[^"]*">\s*'
+            . preg_quote($horasPagasEsperado, '/') . '\s*<\/span>'
+            . '.*?<span class="text-muted">Saldo do banco de horas<\/span>\s*<span class="fw-bold[^"]*">\s*'
+            . preg_quote($totalEsperado, '/') . '\s*<\/span>/s';
+
+        self::assertMatchesRegularExpression(
+            $padrao,
+            $conteudo,
+            sprintf(
+                'o bloco de totais tem de sair "%s" + "%s" = "%s", nas três linhas e nesta ordem',
+                $saldoMesEsperado,
+                $horasPagasEsperado,
+                $totalEsperado,
+            ),
+        );
+    }
+
     // ----------------------------------------------------------------- helpers
 
     private function criarTenant(): Tenant
@@ -565,14 +691,32 @@ final class HorasPagasFolhaExibicaoTest extends JusPrimeWebTestCase
         return $user;
     }
 
-    private function criarRegistro(User $user, Tenant $tenant, string $dataHora): RegistroPonto
+    /**
+     * Jornada sem nenhum dia de trabalho: a carga esperada do dia vira 0 em qualquer dia da semana
+     * (`CalculadoraJornada::calcularSaldoDia`), então o saldo do dia é exatamente o que foi batido —
+     * o único jeito de fixar o "Saldo do mês" num teste que roda em qualquer data do calendário.
+     * Também garante `getJornadaColaborador() !== null`, sem o que a ficha do admin nem apura saldo.
+     */
+    private function criarJornadaSemDiasDeTrabalho(User $user): void
+    {
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $jornada = new JornadaColaborador();
+        $jornada->setUser($user);
+        $jornada->setDiasSemana([]);
+        $em->persist($jornada);
+        $user->setJornadaColaborador($jornada);
+        $em->flush();
+    }
+
+    private function criarRegistro(User $user, Tenant $tenant, string $dataHora, string $tipo = RegistroPonto::TIPO_ENTRADA): RegistroPonto
     {
         $em = static::getContainer()->get(EntityManagerInterface::class);
 
         $registro = new RegistroPonto();
         $registro->setUser($user);
         $registro->setTenant($tenant);
-        $registro->setTipo(RegistroPonto::TIPO_ENTRADA);
+        $registro->setTipo($tipo);
         $registro->setDataHora(new \DateTime($dataHora));
         $registro->setSedeNomeSnapshot('Teste');
         $em->persist($registro);

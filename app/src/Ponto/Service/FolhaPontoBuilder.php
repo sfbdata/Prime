@@ -206,6 +206,33 @@ class FolhaPontoBuilder
     }
 
     /**
+     * Saldo do mês exibido: o ÚLTIMO `saldoAcumulado` não-nulo das linhas da folha — exatamente o
+     * número que a última linha preenchida da coluna "Banco de Horas" mostra. `null` quando nenhuma
+     * linha tem saldo apurado (mês sem batida nenhuma; dia em aberto, sem saída, devolve `null` e
+     * por isso a varredura é de trás para frente, como já fazem `calcularSaldoAteMes` e
+     * `calcularSaldoAnual` por dentro).
+     *
+     * Atenção ao escopo: é o saldo DAQUELE MÊS, não o banco acumulado — `buildRows` faz o
+     * `saldoAcumulado` nascer em zero no primeiro dia do intervalo pedido.
+     *
+     * Mora aqui, e não em cada controller, porque as DUAS telas que incluem
+     * `ponto/_folha_table.html.twig` (o `/ponto` do colaborador e a ficha do admin) precisam do
+     * mesmo número; duplicar a varredura nos dois convidaria as duas telas a divergirem.
+     *
+     * @param array<int, array<string, mixed>> $rows linhas de `buildRows()`
+     */
+    public function saldoAcumuladoFinal(array $rows): ?int
+    {
+        foreach (array_reverse($rows) as $row) {
+            if (($row['saldoAcumulado'] ?? null) !== null) {
+                return (int) $row['saldoAcumulado'];
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Indica se o dia teve ao menos uma batida em home office (para o selo no espelho).
      *
      * @param array<string, RegistroPonto> $batidasDoDia

@@ -666,6 +666,11 @@ final class TenantController extends AbstractController
             'mesCompetenciaPonto'    => $mesCompetenciaPonto,
             'anoCompetenciaPonto'    => $anoCompetenciaPonto,
             'horasPagasMinutosPonto' => $horasPagasMinutosPonto,
+            // Bloco de totais do rodapé da folha (spec §7). O partial é o MESMO do /ponto do
+            // colaborador: toda variável nova tem de sair dos DOIS renders, senão o outro quebra.
+            // `$folhaRowsPonto` é `[]` em competência sem batida — o helper devolve null e o rodapé
+            // trata como saldo do mês zerado.
+            'saldoMesMinutosPonto'   => $folhaPontoBuilder->saldoAcumuladoFinal($folhaRowsPonto),
             'jornadaInfo'            => $jornadaInfoUsuario,
             'justificativas'         => $justificativas,
             'tiposJustificativa'     => TipoJustificativa::asPlanarChoices(),

@@ -179,6 +179,9 @@ final class PontoController extends AbstractController
             'pontoHoje' => $pontoHoje,
             'saldoMes' => $saldoMes,
             'horasPagasMinutos' => $horasPagasMinutos,
+            // Bloco de totais do rodapé da folha (spec §7). Vem pronto do controller de propósito:
+            // no Twig, "último saldoAcumulado não-nulo" viraria laço com estado dentro do template.
+            'saldoMesMinutos' => $folhaPontoBuilder->saldoAcumuladoFinal($folhaRows),
             'jornadaInfo' => $jornadaInfo,
             'minimoMinutosRepouso'           => $jornadaTenant?->getMinimoMinutosRepouso() ?? 60,
             'validacaoRepousoHabilitada'     => $jornadaTenant?->isValidacaoRepousoHabilitada() ?? true,

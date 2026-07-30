@@ -392,6 +392,53 @@ final class FolhaPontoBuilderHorasPagasTest extends TestCase
     }
 
     // ──────────────────────────────────────────────────────────────────
+    // saldoAcumuladoFinal — o "saldo do mês" do bloco de totais da tela
+    // ──────────────────────────────────────────────────────────────────
+
+    #[TestDox('saldoAcumuladoFinal devolve o ultimo saldo apurado, pulando o dia em aberto no fim')]
+    public function testSaldoAcumuladoFinalPulaOTrechoSemSaldoNoFim(): void
+    {
+        // O dia de hoje sem batida de saída sai com saldoAcumulado null (buildRows:157). Pegar
+        // ingenuamente a ÚLTIMA linha devolveria null e o bloco de totais da folha exibiria "Saldo
+        // do mês 0h00m" num mês que fechou em +2h — errando o total logo abaixo.
+        $builder = $this->builderComLancamentos([]);
+
+        $saldo = $builder->saldoAcumuladoFinal([
+            ['saldoAcumulado' => 60],
+            ['saldoAcumulado' => 120],
+            ['saldoAcumulado' => null],
+        ]);
+
+        self::assertSame(120, $saldo);
+    }
+
+    #[TestDox('saldoAcumuladoFinal devolve null quando nenhuma linha tem saldo apurado')]
+    public function testSaldoAcumuladoFinalSemNenhumSaldoApurado(): void
+    {
+        $builder = $this->builderComLancamentos([]);
+
+        self::assertNull($builder->saldoAcumuladoFinal([]), 'mês sem nenhuma linha (competência sem batida)');
+        self::assertNull(
+            $builder->saldoAcumuladoFinal([['saldoAcumulado' => null], ['saldoAcumulado' => null]]),
+            'linhas existem, mas nenhuma tem saldo apurado',
+        );
+        self::assertNull(
+            $builder->saldoAcumuladoFinal([['diaMes' => '01']]),
+            'linha sem a chave saldoAcumulado não pode estourar aviso nem virar 0',
+        );
+    }
+
+    #[TestDox('saldoAcumuladoFinal preserva o zero, que nao e a mesma coisa que nao apurado')]
+    public function testSaldoAcumuladoFinalPreservaOZero(): void
+    {
+        // Mês trabalhado exatamente na jornada fecha em 0 — e 0 é um saldo apurado. Confundi-lo com
+        // "não apurado" não muda o total exibido, mas muda o rótulo de cor/sinal da linha.
+        $builder = $this->builderComLancamentos([]);
+
+        self::assertSame(0, $builder->saldoAcumuladoFinal([['saldoAcumulado' => 0]]));
+    }
+
+    // ──────────────────────────────────────────────────────────────────
     // Interação real: saldo de batidas + lançamento na MESMA chamada
     // ──────────────────────────────────────────────────────────────────
 

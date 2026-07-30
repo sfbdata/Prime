@@ -276,13 +276,41 @@
         {% endif %}
     </div>
 
+    {# Bloco de totais do rodapé (spec §7): sem ele o colaborador vê o saldo do mês na última célula
+       da coluna "Banco de Horas", a linha de horas pagas logo abaixo, e nenhuma soma — teria de
+       fazer a conta de cabeça num número que é salário.
+
+       `saldoMesMinutos` vem PRONTO dos dois controllers que incluem este partial
+       (PontoController::index e TenantController::editUserRole); `null` = nenhuma linha com saldo
+       apurado (mês sem batida), tratado como zero para que a soma continue existindo justamente no
+       mês em que só há o lançamento. #}
     {% if horasPagasMinutos is defined and horasPagasMinutos != 0 %}
+        {% set saldoMesMinutos = saldoMesMinutos is defined and saldoMesMinutos is not null ? saldoMesMinutos : 0 %}
+        {% set totalBancoMinutos = saldoMesMinutos + horasPagasMinutos %}
+        {% set absSaldoMes = saldoMesMinutos < 0 ? -saldoMesMinutos : saldoMesMinutos %}
         {% set absHp = horasPagasMinutos < 0 ? -horasPagasMinutos : horasPagasMinutos %}
-        <div class="d-flex justify-content-end gap-3 px-3 py-2 border-top small">
-            <span class="text-muted">Horas pagas</span>
-            <span class="fw-semibold {{ horasPagasMinutos < 0 ? 'text-danger' : 'text-success' }}">
-                {{ horasPagasMinutos < 0 ? '-' : '+' }}{{ (absHp // 60) }}h{{ '%02d'|format(absHp % 60) }}m
-            </span>
+        {% set absTotal = totalBancoMinutos < 0 ? -totalBancoMinutos : totalBancoMinutos %}
+        <div class="px-3 py-2 border-top small">
+            <div class="ms-auto" style="max-width: 24rem;">
+                <div class="d-flex justify-content-between gap-3">
+                    <span class="text-muted">Saldo do mês</span>
+                    <span class="fw-semibold {{ saldoMesMinutos < 0 ? 'text-danger' : (saldoMesMinutos > 0 ? 'text-success' : 'text-muted') }}">
+                        {{ saldoMesMinutos < 0 ? '-' : (saldoMesMinutos > 0 ? '+' : '') }}{{ (absSaldoMes // 60) }}h{{ '%02d'|format(absSaldoMes % 60) }}m
+                    </span>
+                </div>
+                <div class="d-flex justify-content-between gap-3">
+                    <span class="text-muted">Horas pagas</span>
+                    <span class="fw-semibold {{ horasPagasMinutos < 0 ? 'text-danger' : 'text-success' }}">
+                        {{ horasPagasMinutos < 0 ? '-' : '+' }}{{ (absHp // 60) }}h{{ '%02d'|format(absHp % 60) }}m
+                    </span>
+                </div>
+                <div class="d-flex justify-content-between gap-3 border-top mt-1 pt-1">
+                    <span class="text-muted">Saldo do banco de horas</span>
+                    <span class="fw-bold {{ totalBancoMinutos < 0 ? 'text-danger' : (totalBancoMinutos > 0 ? 'text-success' : 'text-muted') }}">
+                        {{ totalBancoMinutos < 0 ? '-' : (totalBancoMinutos > 0 ? '+' : '') }}{{ (absTotal // 60) }}h{{ '%02d'|format(absTotal % 60) }}m
+                    </span>
+                </div>
+            </div>
         </div>
     {% endif %}
 </div>
