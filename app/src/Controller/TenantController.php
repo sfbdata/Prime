@@ -24,6 +24,7 @@ use App\Cliente\Repository\ClienteRepository;
 use App\Pasta\Repository\PastaRepository;
 use App\Ponto\Repository\FeriadoRepository;
 use App\Ponto\Repository\JustificativaPontoRepository;
+use App\Ponto\Repository\LancamentoHorasPagasRepository;
 use App\Ponto\Repository\RegistroPontoRepository;
 use App\Processo\Repository\ProcessoRepository;
 use App\Repository\ResourceAccessRepository;
@@ -465,6 +466,7 @@ final class TenantController extends AbstractController
         RegistroPontoRepository $registroPontoRepository,
         FeriadoRepository $feriadoRepository,
         JustificativaPontoRepository $justificativaRepository,
+        LancamentoHorasPagasRepository $lancamentoHorasPagasRepository,
         PermissionChecker $permissionChecker,
         FolhaPontoBuilder $folhaPontoBuilder,
         CargoRepository $cargoRepository,
@@ -601,6 +603,7 @@ final class TenantController extends AbstractController
             'jornadaInfo'            => $jornadaInfoUsuario,
             'justificativas'         => $justificativas,
             'tiposJustificativa'     => TipoJustificativa::asPlanarChoices(),
+            'lancamentosHorasPagas'  => $lancamentoHorasPagasRepository->listarPorUser($user, $tenant),
             'comSegundos'            => $this->deveMostrarSegundosBatida(),
             'colegas'                => $colegas,
             'formDadosPessoais'      => $formDadosPessoais->createView(),
