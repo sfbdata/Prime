@@ -64,6 +64,88 @@ final class LancamentoHorasPagasRepositoryTest extends JusPrimeWebTestCase
         self::assertSame(0, $repo->somarPorCompetencia($alvo, $tenantA, 2026, 8));
     }
 
+    #[TestDox('somarPorPeriodo inclui as DUAS pontas e ignora os meses de fora')]
+    public function testSomarPorPeriodoIncluiAsDuasPontas(): void
+    {
+        static::createClient();
+        $tenant = $this->criarTenant();
+        $admin  = $this->criarAdmin($tenant);
+        $alvo   = $this->criarUsuario($tenant);
+
+        $this->gravarLancamento($tenant, $alvo, $admin, 2026, 2, -100); // ponta inicial: entra
+        $this->gravarLancamento($tenant, $alvo, $admin, 2026, 3, -200); // meio: entra
+        $this->gravarLancamento($tenant, $alvo, $admin, 2026, 5, -400); // ponta final: entra
+        $this->gravarLancamento($tenant, $alvo, $admin, 2026, 1, -800); // antes do intervalo: fora
+        $this->gravarLancamento($tenant, $alvo, $admin, 2026, 6, -1600); // depois do intervalo: fora
+        $this->gravarLancamento($tenant, $alvo, $admin, 2025, 3, -3200); // outro ano: fora
+
+        $repo = static::getContainer()->get(LancamentoHorasPagasRepository::class);
+
+        self::assertSame(-700, $repo->somarPorPeriodo($alvo, $tenant, 2026, 2, 5));
+    }
+
+    #[TestDox('somarPorPeriodo de um mes so devolve so aquele mes')]
+    public function testSomarPorPeriodoDeUmMesSo(): void
+    {
+        static::createClient();
+        $tenant = $this->criarTenant();
+        $admin  = $this->criarAdmin($tenant);
+        $alvo   = $this->criarUsuario($tenant);
+
+        $this->gravarLancamento($tenant, $alvo, $admin, 2026, 3, -200);
+        $this->gravarLancamento($tenant, $alvo, $admin, 2026, 4, -400);
+
+        $repo = static::getContainer()->get(LancamentoHorasPagasRepository::class);
+
+        self::assertSame(-200, $repo->somarPorPeriodo($alvo, $tenant, 2026, 3, 3));
+    }
+
+    #[TestDox('somarPorPeriodo retorna 0 sem nenhuma linha (SUM do Postgres devolve NULL)')]
+    public function testSomarPorPeriodoSemLinhasRetornaZero(): void
+    {
+        static::createClient();
+        $tenant = $this->criarTenant();
+        $alvo   = $this->criarUsuario($tenant);
+
+        $repo = static::getContainer()->get(LancamentoHorasPagasRepository::class);
+
+        self::assertSame(0, $repo->somarPorPeriodo($alvo, $tenant, 2026, 1, 12));
+    }
+
+    #[TestDox('somarPorPeriodo nao enxerga lancamento de outro tenant')]
+    public function testSomarPorPeriodoIsolaEntreTenants(): void
+    {
+        static::createClient();
+        $tenantA = $this->criarTenant();
+        $tenantB = $this->criarTenant();
+        $admin   = $this->criarAdmin($tenantB);
+        $alvo    = $this->criarUsuario($tenantA);
+
+        // mesmo colaborador, lançamento gravado sob o tenant B
+        $this->gravarLancamento($tenantB, $alvo, $admin, 2026, 3, 999);
+
+        $repo = static::getContainer()->get(LancamentoHorasPagasRepository::class);
+
+        self::assertSame(0, $repo->somarPorPeriodo($alvo, $tenantA, 2026, 1, 12));
+        self::assertSame(999, $repo->somarPorPeriodo($alvo, $tenantB, 2026, 1, 12));
+    }
+
+    #[TestDox('somarPorPeriodo nao mistura colaboradores do mesmo escritorio')]
+    public function testSomarPorPeriodoIsolaEntreColaboradores(): void
+    {
+        static::createClient();
+        $tenant = $this->criarTenant();
+        $admin  = $this->criarAdmin($tenant);
+        $alvo   = $this->criarUsuario($tenant);
+        $colega = $this->criarUsuario($tenant);
+
+        $this->gravarLancamento($tenant, $colega, $admin, 2026, 3, -600);
+
+        $repo = static::getContainer()->get(LancamentoHorasPagasRepository::class);
+
+        self::assertSame(0, $repo->somarPorPeriodo($alvo, $tenant, 2026, 1, 12));
+    }
+
     #[TestDox('buscarDoTenant devolve null para lancamento de outro tenant')]
     public function testBuscarDoTenantNaoVazaEntreEscritorios(): void
     {

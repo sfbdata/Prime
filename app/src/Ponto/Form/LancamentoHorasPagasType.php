@@ -24,6 +24,11 @@ final class LancamentoHorasPagasType extends AbstractType
                     'Maio' => 5, 'Junho' => 6, 'Julho' => 7, 'Agosto' => 8,
                     'Setembro' => 9, 'Outubro' => 10, 'Novembro' => 11, 'Dezembro' => 12,
                 ],
+                // Campo ausente/vazio vira um valor FORA do catálogo: a transformação falha, o
+                // formulário fica inválido e o motivo vai para o flash. Sem isto, o ChoiceType
+                // devolveria null e estouraria um TypeError (500) ao escrever em `public int $mes`.
+                'empty_data'      => '0',
+                'invalid_message' => 'Selecione o mês da competência.',
             ])
             ->add('ano', IntegerType::class, [
                 'label'      => 'Ano',
@@ -38,6 +43,11 @@ final class LancamentoHorasPagasType extends AbstractType
                     'Descontar do banco'   => LancamentoHorasPagasInput::OPERACAO_DESCONTAR,
                     'Acrescentar ao banco' => LancamentoHorasPagasInput::OPERACAO_ACRESCENTAR,
                 ],
+                // Nenhum radio marcado NÃO pode virar um sentido padrão: é o campo que decide se o
+                // banco de horas sobe ou desce. O valor fora do catálogo força a recusa explícita
+                // (e evita o TypeError de escrever null em `public string $operacao`).
+                'empty_data'      => 'nao_informada',
+                'invalid_message' => 'Selecione a operação (descontar ou acrescentar).',
             ])
             ->add('horas', IntegerType::class, [
                 'label'      => 'Horas',

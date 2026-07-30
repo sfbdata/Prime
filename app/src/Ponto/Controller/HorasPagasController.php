@@ -207,8 +207,12 @@ final class HorasPagasController extends AbstractController
 
     /**
      * Re-aponta o TenantFilter para o tenant da URL, como em TenantController::escoparFiltroNoTenant
-     * (`TenantController.php:448`): é o cinto da trava automática (TenantUrlScopeListener). Chamar
-     * SEMPRE depois do guard de acesso ao tenant e antes de qualquer query.
+     * (`TenantController.php:448`): é o cinto da trava automática (TenantUrlScopeListener).
+     *
+     * Chamar SEMPRE depois do guard de acesso ao tenant e antes de tocar em entidade TenantAware. As
+     * duas queries que rodam antes dele (`Tenant` por id da URL e o vínculo do próprio autor) não
+     * dependem do filtro: `Tenant` não é TenantAware, e o vínculo é consultado com o tenant
+     * explícito — é justamente o resultado delas que diz qual tenant fixar.
      */
     private function escoparFiltroNoTenant(Tenant $tenant): void
     {

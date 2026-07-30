@@ -269,6 +269,55 @@ final class FolhaPontoBuilderHorasPagasTest extends TestCase
         self::assertSame(0, $saldo, 'sem tenant não há como filtrar com segurança: não soma');
     }
 
+    #[TestDox('calcularSaldoAteMes pede UMA soma de periodo (jan ate o mes), nao uma por mes')]
+    public function testSaldoAteMesUsaUmaQuerySoComOIntervaloCerto(): void
+    {
+        // Mock (não stub): prova que o agregador resolve o intervalo numa chamada só e com as
+        // pontas certas. O painel /ponto é caminho quente — voltar ao laço mês a mês (12
+        // round-trips por load) faria este teste falhar por excesso de chamadas.
+        $user   = $this->userComJornada();
+        $tenant = $this->tenant();
+
+        $repo = $this->createMock(LancamentoHorasPagasRepository::class);
+        $repo->expects(self::once())
+            ->method('somarPorPeriodo')
+            ->with($user, $tenant, 2026, 1, 4)
+            ->willReturn(-600);
+
+        $builder = new FolhaPontoBuilder(
+            new CalculadoraJornada(new JornadaResolver()),
+            $this->createStub(RegistroPontoRepository::class),
+            $this->createStub(JustificativaPontoRepository::class),
+            $repo,
+        );
+
+        $saldo = $builder->calcularSaldoAteMes($user, 2026, 4, [], null, null, $tenant);
+
+        self::assertSame(-600, $saldo);
+    }
+
+    #[TestDox('calcularSaldoAnual pede UMA soma de periodo cobrindo o ano inteiro')]
+    public function testSaldoAnualUsaUmaQuerySoComOAnoInteiro(): void
+    {
+        $user   = $this->userComJornada();
+        $tenant = $this->tenant();
+
+        $repo = $this->createMock(LancamentoHorasPagasRepository::class);
+        $repo->expects(self::once())
+            ->method('somarPorPeriodo')
+            ->with($user, $tenant, 2026, 1, 12)
+            ->willReturn(-600);
+
+        $builder = new FolhaPontoBuilder(
+            new CalculadoraJornada(new JornadaResolver()),
+            $this->createStub(RegistroPontoRepository::class),
+            $this->createStub(JustificativaPontoRepository::class),
+            $repo,
+        );
+
+        self::assertSame(-600, $builder->calcularSaldoAnual($user, 2026, [], null, null, $tenant));
+    }
+
     #[TestDox('somarHorasPagasDaCompetencia devolve o valor do repositorio na competencia certa')]
     public function testSomarHorasPagasDaCompetenciaCaminhoFeliz(): void
     {
@@ -370,8 +419,9 @@ final class FolhaPontoBuilderHorasPagasTest extends TestCase
         $registroRepo->method('findByUserAndCompetencia')->willReturn([$entrada, $saida]);
 
         $lancamentoRepo = $this->createStub(LancamentoHorasPagasRepository::class);
-        $lancamentoRepo->method('somarPorCompetencia')->willReturnCallback(
-            static fn (User $u, Tenant $t, int $ano, int $mes): int => ($ano === 2020 && $mes === 1) ? -300 : 0
+        $lancamentoRepo->method('somarPorPeriodo')->willReturnCallback(
+            static fn (User $u, Tenant $t, int $ano, int $mesInicial, int $mesFinal): int
+                => ($ano === 2020 && $mesInicial <= 1 && $mesFinal >= 1) ? -300 : 0
         );
 
         $builder = new FolhaPontoBuilder(
@@ -403,6 +453,19 @@ final class FolhaPontoBuilderHorasPagasTest extends TestCase
         $repo = $this->createStub(LancamentoHorasPagasRepository::class);
         $repo->method('somarPorCompetencia')->willReturnCallback(
             static fn (User $u, Tenant $t, int $ano, int $mes): int => $porAnoMes[$ano][$mes] ?? 0
+        );
+        // Os agregadores usam somarPorPeriodo (uma query por intervalo, não uma por mês). O stub
+        // reproduz a mesma semântica somando o intervalo INCLUSIVE nas duas pontas — se o builder
+        // pedir um intervalo errado, o valor esperado do teste não fecha.
+        $repo->method('somarPorPeriodo')->willReturnCallback(
+            static function (User $u, Tenant $t, int $ano, int $mesInicial, int $mesFinal) use ($porAnoMes): int {
+                $total = 0;
+                for ($mes = $mesInicial; $mes <= $mesFinal; $mes++) {
+                    $total += $porAnoMes[$ano][$mes] ?? 0;
+                }
+
+                return $total;
+            }
         );
 
         return new FolhaPontoBuilder(

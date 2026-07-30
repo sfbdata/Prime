@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace App\Tests\Ponto\Functional;
 
+use App\Entity\Audit\AuditLog;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
+use App\Entity\Permission\Permission;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
+use App\Entity\Tenant\TenantRolePermission;
 use App\Ponto\Controller\HorasPagasController;
 use App\Ponto\Entity\LancamentoHorasPagas;
 use App\Tests\Functional\JusPrimeWebTestCase;
@@ -41,6 +44,89 @@ final class HorasPagasControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseStatusCodeSame(403, 'sem admin.users.manage não se lança horas pagas');
         self::assertSame(0, $this->contarLancamentos($colaborador), 'nada pode ter sido gravado sem permissão');
+    }
+
+    #[TestDox('perfil com OUTRA permissao (sem admin.users.manage) recebe 403 e nada e gravado')]
+    public function testPerfilComOutraPermissaoRetorna403(): void
+    {
+        // O caso "sem TenantRole nenhum" acima morre no primeiro `if` do PermissionChecker e não
+        // prova QUAL permissão protege a rota: trocar 'admin.users.manage' por qualquer outra
+        // string o manteria verde. Aqui o usuário tem perfil de verdade (não-isSystem) com uma
+        // permissão real do catálogo — só não é a que esta rota exige.
+        $client = static::createClient();
+        $this->instalarCsrfStorage();
+        $tenant      = $this->criarTenant();
+        $quaseAdmin  = $this->criarUsuarioComPermissao($tenant, 'modules.ponto.view');
+        $colaborador = $this->criarUsuario($tenant);
+
+        $this->logarComTenant($client, $quaseAdmin, $tenant);
+        $client->request('POST', $this->rotaLancar($tenant, $colaborador), $this->payload($this->tokenLancar($colaborador)));
+
+        self::assertResponseStatusCodeSame(403, 'ver o módulo Ponto não dá poder de mexer no banco de horas alheio');
+        self::assertSame(0, $this->contarLancamentos($colaborador), 'nada pode ter sido gravado sem admin.users.manage');
+    }
+
+    #[TestDox('editar exige admin.users.manage: perfil com outra permissao recebe 403 e nada muda')]
+    public function testEdicaoSemPermissaoRetorna403(): void
+    {
+        $client = static::createClient();
+        $this->instalarCsrfStorage();
+        $tenant      = $this->criarTenant();
+        $admin       = $this->criarAdmin($tenant);
+        $quaseAdmin  = $this->criarUsuarioComPermissao($tenant, 'modules.ponto.view');
+        $colaborador = $this->criarUsuario($tenant);
+        $lancamento  = $this->criarLancamento($tenant, $colaborador, $admin, -600);
+        $lancamentoId = (int) $lancamento->getId();
+
+        $this->logarComTenant($client, $quaseAdmin, $tenant);
+        $client->request(
+            'POST',
+            $this->rotaEditar($tenant, $colaborador, $lancamentoId),
+            $this->payload('TOKEN_horas_pagas_editar_' . $lancamentoId, ['horas' => 2, 'minutos' => 0]),
+        );
+
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame(-600, $this->recarregarLancamento($lancamentoId)->getMinutos(), 'o valor não pode mudar sem permissão');
+    }
+
+    #[TestDox('excluir exige admin.users.manage: perfil com outra permissao recebe 403 e nada some')]
+    public function testExclusaoSemPermissaoRetorna403(): void
+    {
+        $client = static::createClient();
+        $this->instalarCsrfStorage();
+        $tenant      = $this->criarTenant();
+        $admin       = $this->criarAdmin($tenant);
+        $quaseAdmin  = $this->criarUsuarioComPermissao($tenant, 'modules.ponto.view');
+        $colaborador = $this->criarUsuario($tenant);
+        $lancamento  = $this->criarLancamento($tenant, $colaborador, $admin, -600);
+        $lancamentoId = (int) $lancamento->getId();
+
+        $this->logarComTenant($client, $quaseAdmin, $tenant);
+        $client->request(
+            'POST',
+            $this->rotaExcluir($tenant, $colaborador, $lancamentoId),
+            ['_token' => 'TOKEN_horas_pagas_excluir_' . $lancamentoId],
+        );
+
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame(1, $this->contarLancamentos($colaborador), 'nada pode ser apagado sem permissão');
+    }
+
+    #[TestDox('POST com token CSRF ERRADO retorna 403 e nada e gravado')]
+    public function testTokenCsrfErradoRetorna403(): void
+    {
+        // Sem este caso, degradar a checagem para "token não-vazio" deixaria a suíte verde.
+        $client = static::createClient();
+        $this->instalarCsrfStorage();
+        $tenant      = $this->criarTenant();
+        $admin       = $this->criarAdmin($tenant);
+        $colaborador = $this->criarUsuario($tenant);
+
+        $this->logarComTenant($client, $admin, $tenant);
+        $client->request('POST', $this->rotaLancar($tenant, $colaborador), $this->payload('TOKEN_de_outra_intencao'));
+
+        self::assertResponseStatusCodeSame(403, 'token preenchido mas de outra intenção não vale');
+        self::assertSame(0, $this->contarLancamentos($colaborador));
     }
 
     #[TestDox('POST sem token CSRF retorna 403, com a mensagem, e nada e gravado')]
@@ -329,6 +415,95 @@ final class HorasPagasControllerTest extends JusPrimeWebTestCase
         self::assertSame(-600, $this->recarregarLancamento($lancamentoId)->getMinutos());
     }
 
+    #[TestDox('POST sem o mes e sem a operacao devolve flash, nao 500, e nada e gravado')]
+    public function testCamposDeEscolhaAusentesNaoQuebram(): void
+    {
+        // `mes` e `operacao` são ChoiceType: campo ausente vira null e estouraria TypeError ao ser
+        // escrito nas propriedades tipadas do DTO — 500 no log de uma rota de ponto, onde deveria
+        // haver flash. Nenhum sentido de operação pode ser assumido por omissão.
+        $client = static::createClient();
+        $this->instalarCsrfStorage();
+        $tenant      = $this->criarTenant();
+        $admin       = $this->criarAdmin($tenant);
+        $colaborador = $this->criarUsuario($tenant);
+        [$ano] = $this->competenciaPassada();
+
+        $this->logarComTenant($client, $admin, $tenant);
+        $client->request('POST', $this->rotaLancar($tenant, $colaborador), [
+            'lancamento_horas_pagas' => [
+                'ano'     => $ano,
+                'horas'   => 10,
+                'minutos' => 0,
+                'motivo'  => 'Horas pagas na folha',
+            ],
+            '_token' => $this->tokenLancar($colaborador),
+        ]);
+
+        self::assertResponseRedirects();
+        self::assertSame(0, $this->contarLancamentos($colaborador), 'sem mês e sem operação não se grava nada');
+
+        $flashes = $client->getRequest()->getSession()->getFlashBag()->peekAll()['error'] ?? [];
+        self::assertNotEmpty($flashes, 'campo de escolha faltando tem de virar aviso, não erro de servidor');
+    }
+
+    #[TestDox('lancar, editar e excluir deixam rastro no audit_log')]
+    public function testAsTresOperacoesGeramAuditLog(): void
+    {
+        // O dono optou por editar/excluir sem histórico dentro do produto; o audit_log é a
+        // mitigação que substituiu esse histórico. Se ele não nascer, não sobra prova nenhuma de
+        // uma alteração de verba trabalhista.
+        $client = static::createClient();
+        // Três requisições no mesmo teste: sem desligar o reboot, o kernel é recriado a cada uma e
+        // o storage de CSRF falso instalado abaixo se perde (a 2ª requisição levaria 403).
+        $client->disableReboot();
+        $this->instalarCsrfStorage();
+        $tenant      = $this->criarTenant();
+        $admin       = $this->criarAdmin($tenant);
+        $colaborador = $this->criarUsuario($tenant);
+
+        $this->logarComTenant($client, $admin, $tenant);
+
+        // 1. criar pela rota
+        $client->request('POST', $this->rotaLancar($tenant, $colaborador), $this->payload($this->tokenLancar($colaborador)));
+        self::assertResponseRedirects();
+
+        $lancamentoId = (int) $this->lancamentosDe($colaborador)[0]->getId();
+
+        // No INSERT o subscriber ainda não tem o id (o Doctrine só o atribui depois do onFlush),
+        // então a linha de `create` nasce com `entity_id` nulo — vale para toda entidade do
+        // sistema, não é particularidade daqui. O que identifica a linha é o payload.
+        $criacoes = $this->auditsDaClasse('create');
+        self::assertCount(1, $criacoes, 'o lançamento novo tem de deixar rastro');
+        self::assertStringContainsString(
+            'Horas pagas na folha',
+            json_encode($criacoes[0]->getChanges(), JSON_UNESCAPED_UNICODE) ?: '',
+            'o rastro da criação tem de guardar o estado gravado',
+        );
+        self::assertSame($admin->getId(), $criacoes[0]->getActorUserId(), 'o rastro tem de apontar quem lançou');
+
+        // 2. editar pela rota
+        $client->request(
+            'POST',
+            $this->rotaEditar($tenant, $colaborador, $lancamentoId),
+            $this->payload('TOKEN_horas_pagas_editar_' . $lancamentoId, ['horas' => 2, 'minutos' => 0]),
+        );
+        self::assertResponseRedirects();
+        self::assertNotEmpty($this->auditsDoLancamento($lancamentoId, 'update'), 'a edição tem de deixar rastro');
+
+        // 3. excluir pela rota
+        $client->request(
+            'POST',
+            $this->rotaExcluir($tenant, $colaborador, $lancamentoId),
+            ['_token' => 'TOKEN_horas_pagas_excluir_' . $lancamentoId],
+        );
+        self::assertResponseRedirects();
+        self::assertSame(0, $this->contarLancamentos($colaborador));
+
+        $exclusoes = $this->auditsDoLancamento($lancamentoId, 'delete');
+        self::assertNotEmpty($exclusoes, 'a exclusão tem de deixar rastro — é a única prova que sobra');
+        self::assertSame($admin->getId(), $exclusoes[0]->getActorUserId(), 'o rastro tem de apontar quem excluiu');
+    }
+
     #[TestDox('competencia futura e recusada e nada e gravado')]
     public function testCompetenciaFuturaRecusada(): void
     {
@@ -511,6 +686,69 @@ final class HorasPagasControllerTest extends JusPrimeWebTestCase
         $em->flush();
 
         return $user;
+    }
+
+    /**
+     * Colaborador com `TenantRole` de verdade (NÃO-isSystem, logo sem bypass) carregando uma
+     * permissão real do catálogo — que não é a exigida pela rota.
+     */
+    private function criarUsuarioComPermissao(Tenant $tenant, string $codigoPermissao): User
+    {
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $permissao = $em->getRepository(Permission::class)->findOneBy(['code' => $codigoPermissao]);
+        if ($permissao === null) {
+            $permissao = new Permission();
+            $permissao->setCode($codigoPermissao);
+            $permissao->setDescription('Permissão de teste ' . $codigoPermissao);
+            $permissao->setGroup(explode('.', $codigoPermissao)[0]);
+            $em->persist($permissao);
+        }
+
+        $role = new TenantRole();
+        $role->setTenant($tenant);
+        $role->setName('Perfil limitado ' . uniqid());
+        $role->setIsSystem(false);
+        $em->persist($role);
+
+        $vinculoPermissao = new TenantRolePermission();
+        $vinculoPermissao->setTenantRole($role);
+        $vinculoPermissao->setPermission($permissao);
+        $em->persist($vinculoPermissao);
+        $role->getTenantRolePermissions()->add($vinculoPermissao);
+
+        $user = new User();
+        $user->setEmail('limitado_' . uniqid() . '@test.com');
+        $user->setFullName('Colaborador Limitado');
+        $user->setRoles(['ROLE_USER']);
+        $user->setIsActive(true);
+        $em->persist($user);
+
+        $userTenant = new UserTenant($user, $tenant);
+        $userTenant->setTenantRole($role);
+        $em->persist($userTenant);
+        $em->flush();
+
+        return $user;
+    }
+
+    /** @return AuditLog[] */
+    private function auditsDoLancamento(int $lancamentoId, string $acao): array
+    {
+        return array_values($this->emSemFiltro()->getRepository(AuditLog::class)->findBy([
+            'entityClass' => LancamentoHorasPagas::class,
+            'entityId'    => (string) $lancamentoId,
+            'action'      => $acao,
+        ]));
+    }
+
+    /** @return AuditLog[] */
+    private function auditsDaClasse(string $acao): array
+    {
+        return array_values($this->emSemFiltro()->getRepository(AuditLog::class)->findBy([
+            'entityClass' => LancamentoHorasPagas::class,
+            'action'      => $acao,
+        ]));
     }
 
     private function criarLancamento(Tenant $tenant, User $colaborador, User $autor, int $minutos): LancamentoHorasPagas

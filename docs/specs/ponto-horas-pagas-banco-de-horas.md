@@ -90,8 +90,8 @@ Consequência visual assumida: a **última linha da tabela** do mês mostra o ac
 `LancamentoHorasPagasRepository` é injetado no construtor de `FolhaPontoBuilder`, ao lado dos repositórios de
 batida e justificativa que já estão lá. Os dois agregadores passam a somar os lançamentos:
 
-- `calcularSaldoAnual(...)` — `FolhaPontoBuilder.php:336`
-- `calcularSaldoAteMes(...)` — `FolhaPontoBuilder.php:247`
+- `calcularSaldoAnual(...)` — `FolhaPontoBuilder.php:362`
+- `calcularSaldoAteMes(...)` — `FolhaPontoBuilder.php:269`
 
 **As duas assinaturas ganham um parâmetro final `Tenant|null|false $tenant = false`** — a mesma sentinela do
 `$inicioContagem` (`FolhaPontoBuilder.php:230`), e pelo mesmo motivo. `false` significa **não informado**, é
@@ -105,7 +105,7 @@ entre escritórios, o que é pior do que não somar).
 > sem log, com a folha aparentemente normal.
 
 **Os dois chamadores passam o tenant** desde a Tarefa 4: `PontoController.php:140` (`calcularSaldoAnual`, do
-painel) e `PontoController.php:998` (`calcularSaldoAteMes`, do "Saldo anterior" do espelho/PDF/XLSX).
+painel) e `PontoController.php:1001` (`calcularSaldoAteMes`, do "Saldo anterior" do espelho/PDF/XLSX).
 (`TenantController.php:566` chama só `buildRows`, que não muda — não é chamador dos agregadores.)
 
 Método público novo, para as telas exibirem a linha:
@@ -116,10 +116,10 @@ public function somarHorasPagasDaCompetencia(User $user, ?Tenant $tenant, int $a
 
 ### 4.3 Regra que impede horas de sumirem caladas
 
-Os dois agregadores têm saídas antecipadas: colaborador sem `JornadaColaborador` (`:256` em
-`calcularSaldoAteMes`, `:345` em `calcularSaldoAnual`), sem nenhuma batida (`:263`, `:352`), e
+Os dois agregadores têm saídas antecipadas: colaborador sem `JornadaColaborador` (`:279` em
+`calcularSaldoAteMes`, `:372` em `calcularSaldoAnual`), sem nenhuma batida (`:286`, `:379`), e
 `$inicio > $fim` quando a varredura mensal — que só percorre de `max(início da contagem, 01/jan)` até
-`min(hoje, fim do período)` — fecha vazia (`:275`, `:363`).
+`min(hoje, fim do período)` — fecha vazia (`:298`, `:390`).
 
 **A soma dos lançamentos (`$horasPagas`) acontece FORA e ANTES dessas condições**, e cada uma delas retorna
 `$horasPagas` em vez de `0`. Um lançamento numa competência anterior à primeira batida, ou de um colaborador
@@ -127,7 +127,7 @@ sem jornada configurada, **ainda conta**. Perder horas em silêncio é pior do q
 precise explicar.
 
 **Corolário para os chamadores:** ninguém pode repetir a condição do lado de fora. `montarDadosFolha`
-(`PontoController.php:997`) chamava `calcularSaldoAteMes` apenas quando `$jornada !== null` e usava `0` no
+(`PontoController.php:907`) chamava `calcularSaldoAteMes` apenas quando `$jornada !== null` e usava `0` no
 resto — exatamente o guard que o método já faz por dentro, só que sem devolver os lançamentos. O efeito era
 600 minutos de diferença entre o painel `/ponto` e o "Saldo anterior" do espelho para o mesmo colaborador. A
 chamada é **incondicional** (corrigido na Tarefa 4, coberto por
@@ -182,9 +182,14 @@ Esta frente cria o primeiro `UseCase/` do domínio em vez de engordar `TenantCon
 ### Repository (filtro de tenant obrigatório)
 
 ```php
-public function somarPorCompetencia(User $user, int $ano, int $mes): int;
-public function listarPorUser(User $user): array;   // ordenado por ano/mês desc, para a ficha do admin
+public function somarPorCompetencia(User $user, Tenant $tenant, int $ano, int $mes): int;                 // linha "Horas pagas" do mês exibido
+public function somarPorPeriodo(User $user, Tenant $tenant, int $ano, int $mesInicial, int $mesFinal): int; // agregadores; UMA query, pontas inclusivas
+public function listarPorUser(User $user, Tenant $tenant): array;  // ordenado por ano/mês desc, para a ficha do admin
+public function buscarDoTenant(int $id, Tenant $tenant): ?LancamentoHorasPagas; // nunca find() por id da URL
 ```
+
+O `somarPorPeriodo` existe porque `calcularSaldoAnual` roda no painel `/ponto` — caminho quente, aberto
+várias vezes por dia por todo funcionário. Somar mês a mês custaria 12 round-trips por load.
 
 ### DTO / Form
 

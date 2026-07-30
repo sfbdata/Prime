@@ -44,6 +44,35 @@ class LancamentoHorasPagasRepository extends ServiceEntityRepository
     }
 
     /**
+     * Soma, com sinal, os lançamentos de um intervalo de meses do MESMO ano — inclusive nas duas
+     * pontas. Uma query só: o painel `/ponto` é caminho quente (todo funcionário abre várias vezes
+     * por dia) e o agregador anual varria janeiro a dezembro com um SELECT por mês.
+     *
+     * `SUM` sem nenhuma linha devolve NULL no Postgres; o cast para int transforma em 0.
+     *
+     * Filtro de tenant explícito além do TenantFilter: é dado de ponto (risco ALTO).
+     */
+    public function somarPorPeriodo(User $user, Tenant $tenant, int $ano, int $mesInicial, int $mesFinal): int
+    {
+        $soma = $this->createQueryBuilder('l')
+            ->select('SUM(l.minutos)')
+            ->andWhere('l.user = :user')
+            ->andWhere('l.tenant = :tenant')
+            ->andWhere('l.ano = :ano')
+            ->andWhere('l.mes >= :mesInicial')
+            ->andWhere('l.mes <= :mesFinal')
+            ->setParameter('user', $user)
+            ->setParameter('tenant', $tenant)
+            ->setParameter('ano', $ano)
+            ->setParameter('mesInicial', $mesInicial)
+            ->setParameter('mesFinal', $mesFinal)
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        return (int) $soma;
+    }
+
+    /**
      * Lançamentos do colaborador no escritório, mais recentes primeiro. Alimenta a ficha do admin.
      *
      * @return LancamentoHorasPagas[]

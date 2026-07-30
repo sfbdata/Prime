@@ -455,6 +455,9 @@ class FolhaPontoBuilder
 
     /**
      * Soma os lançamentos de um intervalo de meses do mesmo ano (inclusive nas duas pontas).
+     *
+     * Uma query só (`somarPorPeriodo`), não uma por mês: `calcularSaldoAnual` roda no painel
+     * `/ponto`, que todo funcionário abre várias vezes por dia — eram 12 round-trips por load.
      */
     private function somarHorasPagasDoPeriodo(User $user, ?Tenant $tenant, int $ano, int $mesInicial, int $mesFinal): int
     {
@@ -462,11 +465,6 @@ class FolhaPontoBuilder
             return 0;
         }
 
-        $total = 0;
-        for ($mes = $mesInicial; $mes <= $mesFinal; $mes++) {
-            $total += $this->lancamentoHorasPagasRepository->somarPorCompetencia($user, $tenant, $ano, $mes);
-        }
-
-        return $total;
+        return $this->lancamentoHorasPagasRepository->somarPorPeriodo($user, $tenant, $ano, $mesInicial, $mesFinal);
     }
 }
