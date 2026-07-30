@@ -3,12 +3,14 @@
 namespace App\Ponto\Service;
 
 use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
 use App\Ponto\Entity\JornadaColaborador;
 use App\Ponto\Entity\Feriado;
 use App\Ponto\Entity\JornadaTenant;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\Repository\JustificativaPontoRepository;
+use App\Ponto\Repository\LancamentoHorasPagasRepository;
 use App\Ponto\Repository\RegistroPontoRepository;
 
 class FolhaPontoBuilder
@@ -17,6 +19,7 @@ class FolhaPontoBuilder
         private readonly CalculadoraJornada $calculadora,
         private readonly RegistroPontoRepository $registroPontoRepository,
         private readonly JustificativaPontoRepository $justificativaPontoRepository,
+        private readonly LancamentoHorasPagasRepository $lancamentoHorasPagasRepository,
     ) {}
 
     /**
@@ -241,20 +244,24 @@ class FolhaPontoBuilder
      *
      * @param Feriado[] $feriados
      */
-    public function calcularSaldoAteMes(User $user, int $ano, int $mes, array $feriados, ?JornadaTenant $jornadaTenant = null, \DateTimeInterface|null|false $inicioContagem = false): int
+    public function calcularSaldoAteMes(User $user, int $ano, int $mes, array $feriados, ?JornadaTenant $jornadaTenant = null, \DateTimeInterface|null|false $inicioContagem = false, ?Tenant $tenant = null): int
     {
         $this->exigirInicioContagem($inicioContagem, __FUNCTION__);
 
+        // Horas pagas somam SEMPRE, antes de qualquer saída antecipada: um lançamento numa competência
+        // anterior à primeira batida, ou de colaborador sem jornada, continua valendo.
+        $horasPagas = $this->somarHorasPagasDoPeriodo($user, $tenant, $ano, 1, $mes);
+
         $jornada = $user->getJornadaColaborador();
         if ($jornada === null) {
-            return 0;
+            return $horasPagas;
         }
 
         $hoje = new \DateTimeImmutable('today');
 
         // Sem nenhum registro de ponto não há o que contar.
         if ($inicioContagem === null) {
-            return 0;
+            return $horasPagas;
         }
         $inicioContagemNorm = \DateTimeImmutable::createFromInterface($inicioContagem)->setTime(0, 0, 0);
 
@@ -266,7 +273,7 @@ class FolhaPontoBuilder
         $fim = $hoje < $limiteMax ? $hoje : $limiteMax;
 
         if ($inicio > $fim) {
-            return 0;
+            return $horasPagas;
         }
 
         $saldoTotal = 0;
@@ -314,7 +321,7 @@ class FolhaPontoBuilder
             }
         }
 
-        return $saldoTotal;
+        return $saldoTotal + $horasPagas;
     }
 
     /**
@@ -326,20 +333,24 @@ class FolhaPontoBuilder
      *
      * @param Feriado[] $feriados
      */
-    public function calcularSaldoAnual(User $user, int $ano, array $feriados, ?JornadaTenant $jornadaTenant = null, \DateTimeInterface|null|false $inicioContagem = false): int
+    public function calcularSaldoAnual(User $user, int $ano, array $feriados, ?JornadaTenant $jornadaTenant = null, \DateTimeInterface|null|false $inicioContagem = false, ?Tenant $tenant = null): int
     {
         $this->exigirInicioContagem($inicioContagem, __FUNCTION__);
 
+        // Horas pagas somam SEMPRE, antes de qualquer saída antecipada: um lançamento numa competência
+        // anterior à primeira batida, ou de colaborador sem jornada, continua valendo.
+        $horasPagas = $this->somarHorasPagasDoPeriodo($user, $tenant, $ano, 1, 12);
+
         $jornada = $user->getJornadaColaborador();
         if ($jornada === null) {
-            return 0;
+            return $horasPagas;
         }
 
         $hoje = new \DateTimeImmutable('today');
 
         // Sem nenhum registro de ponto não há o que contar.
         if ($inicioContagem === null) {
-            return 0;
+            return $horasPagas;
         }
         $inicioContagemNorm = \DateTimeImmutable::createFromInterface($inicioContagem)->setTime(0, 0, 0);
 
@@ -350,7 +361,7 @@ class FolhaPontoBuilder
         $fim = $hoje < $fimAno ? $hoje : $fimAno;
 
         if ($inicio > $fim) {
-            return 0;
+            return $horasPagas;
         }
 
         $saldoTotal = 0;
@@ -399,6 +410,36 @@ class FolhaPontoBuilder
             }
         }
 
-        return $saldoTotal;
+        return $saldoTotal + $horasPagas;
+    }
+
+    /**
+     * Soma, com sinal, os lançamentos de horas pagas do colaborador numa competência.
+     * Público porque as telas precisam exibir a linha "Horas pagas" do mês exibido.
+     */
+    public function somarHorasPagasDaCompetencia(User $user, ?Tenant $tenant, int $ano, int $mes): int
+    {
+        if ($tenant === null) {
+            return 0;
+        }
+
+        return $this->lancamentoHorasPagasRepository->somarPorCompetencia($user, $tenant, $ano, $mes);
+    }
+
+    /**
+     * Soma os lançamentos de um intervalo de meses do mesmo ano (inclusive nas duas pontas).
+     */
+    private function somarHorasPagasDoPeriodo(User $user, ?Tenant $tenant, int $ano, int $mesInicial, int $mesFinal): int
+    {
+        if ($tenant === null) {
+            return 0;
+        }
+
+        $total = 0;
+        for ($mes = $mesInicial; $mes <= $mesFinal; $mes++) {
+            $total += $this->lancamentoHorasPagasRepository->somarPorCompetencia($user, $tenant, $ano, $mes);
+        }
+
+        return $total;
     }
 }

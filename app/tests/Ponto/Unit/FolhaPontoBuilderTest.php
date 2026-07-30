@@ -10,6 +10,7 @@ use App\Ponto\Entity\JornadaColaborador;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\Repository\JustificativaPontoRepository;
+use App\Ponto\Repository\LancamentoHorasPagasRepository;
 use App\Ponto\Repository\RegistroPontoRepository;
 use App\Ponto\Service\CalculadoraJornada;
 use App\Ponto\Service\FolhaPontoBuilder;
@@ -28,6 +29,7 @@ final class FolhaPontoBuilderTest extends TestCase
             new CalculadoraJornada(new JornadaResolver()),
             $this->createStub(RegistroPontoRepository::class),
             $this->createStub(JustificativaPontoRepository::class),
+            $this->createStub(LancamentoHorasPagasRepository::class),
         );
     }
 
