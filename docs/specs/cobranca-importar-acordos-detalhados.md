@@ -66,8 +66,15 @@ Para cada NN da seção "contas originais":
 - Se **não existe** → **não cria**. Reporta como "conta original ausente do sistema".
 
 **Nunca apaga** (invariável 14 — a obrigação fica no histórico, marcada). O mecanismo é o mesmo que o
-`CriarAcordoUseCase` já usa quando um acordo nasce pela tela; `acordoSubstituto` é honrado em todo o
-`ObrigacaoRepository` e no `MontarDetalheCasoUseCase` (verificado), então marcar de fato tira do saldo.
+`CriarAcordoUseCase` já usa quando um acordo nasce pela tela.
+
+**Prova de que marcar resolve** (lida em `ObrigacaoRepository::doCasoExigiveis`, a fonte do saldo —
+SPEC §12, invariável 15): a query exclui `asub.id IS NOT NULL AND asub.status` vigente, isto é, uma
+obrigação marcada com `acordoSubstituto` de acordo **Ativo/Cumprido** sai do saldo. A mesma query
+descarta parcelas de acordo **Rompido/Cancelado** e, por derivação, restaura as originais
+(invariável 20). Logo, o cenário temido — romper o acordo e passar a contar original + parcela — **já
+está coberto** e não exige mecanismo novo. O teste de regressão de §9 existe para não deixar isso
+regredir.
 
 > **Decisão consciente — não criar as 18 contas ausentes.** Criar dívida morta só para anulá-la em
 > seguida inventa passivo que nunca foi importado, e alimenta exatamente a classe de bug já vista neste
