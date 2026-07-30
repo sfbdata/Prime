@@ -119,8 +119,10 @@ final class HorasPagasFolhaExibicaoTest extends JusPrimeWebTestCase
 
         self::assertResponseIsSuccessful('a ficha do admin não pode quebrar quando a folha do colaborador ganha o rodapé de horas pagas');
         $conteudo = (string) $client->getResponse()->getContent();
-        self::assertStringContainsString('Horas pagas', $conteudo, 'a mesma linha também deve aparecer na aba de batidas da ficha do admin');
-        self::assertStringContainsString('+8h00m', $conteudo, 'o lançamento positivo (acrescentar) tem de aparecer com o sinal certo');
+        // Não basta procurar "+8h00m" solto: a aba "Horas pagas" da Tarefa 5 já lista o MESMO
+        // lançamento com a MESMA formatação, incondicionalmente — o rodapé precisa ser verificado
+        // no seu próprio marcador HTML, senão a asserção passa mesmo com o rodapé quebrado.
+        $this->assertRodapeHorasPagasPresente($conteudo, '+8h00m');
     }
 
     #[TestDox('colaborador SEM nenhuma batida: admin e colaborador veem a mesma linha na competencia atual')]
@@ -154,13 +156,87 @@ final class HorasPagasFolhaExibicaoTest extends JusPrimeWebTestCase
         );
 
         // Caminho 2 — a ficha do mesmo colaborador vista pelo admin, mesma competência (corrente).
+        //
+        // ⚠️ Nem "Horas pagas" solto nem "-10h00m" solto provam algo aqui: a aba "Horas pagas" da
+        // Tarefa 5 (`_horas_pagas_tab.html.twig`) lista o MESMO lançamento, com a MESMA formatação
+        // ("-10h00m"), de forma INCONDICIONAL em toda resposta 200 dessa rota. Reverter a correção
+        // do `TenantController` mantém as duas strings na página e o teste passaria mesmo quebrado
+        // — só o marcador HTML exclusivo do rodapé da folha (Tarefa 6) prova o caminho certo.
         $this->logarComTenant($client, $admin, $tenant);
         $client->request('GET', sprintf('/tenant/%d/user/%d/edit-role', $tenant->getId(), $colaborador->getId()));
         self::assertResponseIsSuccessful();
-        self::assertStringContainsString(
-            'Horas pagas',
+        $this->assertRodapeHorasPagasPresente(
             (string) $client->getResponse()->getContent(),
-            'a ficha do admin não pode divergir do /ponto do próprio colaborador para o mesmo lançamento',
+            '-10h00m',
+        );
+    }
+
+    #[TestDox('competencia malformada na querystring nao derruba a ficha do admin (cai no fallback, sem 500)')]
+    public function testCompetenciaMalformadaNaQuerystringNaoQuebra(): void
+    {
+        // Regressão introduzida pela própria correção do achado 2 (rodada 1): promover o `explode`
+        // para fora do `if` de validação fez a ficha do admin rodar `explode('-', 'julho')` direto —
+        // sem hífen, o destructuring deixa o mês `null` e `somarHorasPagasDaCompetencia(..., int $mes)`
+        // estoura TypeError (500). "2026-" e "abc-def" NÃO reproduzem (têm dois elementos); só
+        // valores sem hífen — daí o valor de teste escolhido a dedo.
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $admin = $this->criarAdmin($tenant);
+        $colaborador = $this->criarColaborador($tenant);
+
+        $this->logarComTenant($client, $admin, $tenant);
+        $client->request('GET', sprintf('/tenant/%d/user/%d/edit-role?competencia=julho', $tenant->getId(), $colaborador->getId()));
+
+        self::assertResponseIsSuccessful('competência sem hífen na querystring tem de cair no fallback do mês corrente, não estourar 500');
+    }
+
+    #[TestDox('colaborador com batida so em mes antigo: o mes corrente ainda aparece como opcao no seletor do admin')]
+    public function testMesCorrenteApareceNoSeletorMesmoComBatidaSoEmMesAntigo(): void
+    {
+        // O buraco maior do achado 3: `findCompetenciasComRegistroPorUsuario` só devolve
+        // competências COM batida. Colaborador com última batida há meses e lançamento no mês
+        // corrente — sem injetar o mês corrente na lista, o admin só alcança aquela competência
+        // editando a URL na mão; o <select> nem oferece a opção.
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $admin = $this->criarAdmin($tenant);
+        $colaborador = $this->criarColaborador($tenant);
+        $autor = $this->criarColaborador($tenant);
+        $agora = new \DateTimeImmutable();
+        $competenciaAtual = $agora->format('Y-m');
+
+        $mesAntigo = $agora->modify('-3 months');
+        $this->criarRegistro($colaborador, $tenant, $mesAntigo->format('Y-m-d') . ' 09:00:00');
+        $this->criarLancamento($tenant, $colaborador, $autor, (int) $agora->format('Y'), (int) $agora->format('n'), -600);
+
+        $this->logarComTenant($client, $admin, $tenant);
+        $client->request('GET', sprintf('/tenant/%d/user/%d/edit-role', $tenant->getId(), $colaborador->getId()));
+
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString(
+            sprintf('value="%s"', $competenciaAtual),
+            (string) $client->getResponse()->getContent(),
+            'o seletor de competência tem de oferecer o mês corrente, mesmo sem batida nele',
+        );
+    }
+
+    /**
+     * Confere o valor exatamente dentro do marcador HTML exclusivo do rodapé "Horas pagas" da folha
+     * (`_folha_table.html.twig:282`) — `<span class="text-muted">Horas pagas</span>` seguido do
+     * `<span class="fw-semibold ...">valor</span>`. Não existe em nenhum outro template: a aba
+     * "Horas pagas" da Tarefa 5 (`_horas_pagas_tab.html.twig`) usa outra marcação e lista o MESMO
+     * lançamento com a MESMA formatação de valor — checar só a substring do valor (ou só a palavra
+     * "Horas pagas") colide com aquela aba e prova exatamente nada sobre o rodapé desta tarefa.
+     */
+    private function assertRodapeHorasPagasPresente(string $conteudo, string $valorEsperado): void
+    {
+        $padrao = '/<span class="text-muted">Horas pagas<\/span>\s*<span class="fw-semibold[^"]*">\s*'
+            . preg_quote($valorEsperado, '/') . '\s*<\/span>/';
+
+        self::assertMatchesRegularExpression(
+            $padrao,
+            $conteudo,
+            'o rodapé da folha (Tarefa 6) tem de mostrar o valor exato — não basta a aba de lançamentos (Tarefa 5) mostrar o mesmo número em outro lugar da página',
         );
     }
 

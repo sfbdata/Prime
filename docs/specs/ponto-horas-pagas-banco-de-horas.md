@@ -106,7 +106,8 @@ entre escritórios, o que é pior do que não somar).
 
 **Os dois chamadores passam o tenant** desde a Tarefa 4: `PontoController.php:140` (`calcularSaldoAnual`, do
 painel) e `PontoController.php:1001` (`calcularSaldoAteMes`, do "Saldo anterior" do espelho/PDF/XLSX).
-(`TenantController.php:566` chama só `buildRows`, que não muda — não é chamador dos agregadores.)
+(Na Tarefa 6, `TenantController.php:587` também passou a chamar `somarHorasPagasDaCompetencia` — a ficha do
+admin precisou da mesma soma para exibir a linha "Horas pagas" na aba de batidas.)
 
 Método público novo, para as telas exibirem a linha:
 

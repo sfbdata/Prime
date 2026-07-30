@@ -544,20 +544,38 @@ final class TenantController extends AbstractController
         );
 
         $competenciasPonto = $registroPontoRepository->findCompetenciasComRegistroPorUsuario($user, $tenant);
-        $competenciaSelecionada = (string) $request->query->get('competencia', '');
-        $competenciasDisponiveis = array_column($competenciasPonto, 'valor');
+        // Lista de competências que REALMENTE têm batida — decide, mais abaixo, se a tabela é
+        // montada. Guardada antes de qualquer injeção para não virar um proxy falso.
+        $competenciasComBatida = array_column($competenciasPonto, 'valor');
 
+        // O seletor só listava meses com batida: um lançamento de horas pagas no mês corrente sem
+        // NENHUMA batida ficava inalcançável pelo dropdown (só editando a URL na mão) — mesma classe
+        // de problema que faz o /ponto do colaborador (PontoController::index()) sempre injetar o mês
+        // corrente na lista. Aqui só a lista de OPÇÕES ganha a entrada; `$competenciasComBatida` (acima)
+        // continua intocada, então "zero batida" continua decidindo não montar a tabela.
+        $competenciaAtualPonto = (new \DateTimeImmutable())->format('Y-m');
+        if (!in_array($competenciaAtualPonto, $competenciasComBatida, true)) {
+            $competenciasPonto[] = [
+                'valor' => $competenciaAtualPonto,
+                'label' => (new \DateTimeImmutable())->format('m/Y'),
+            ];
+        }
+        $competenciasSelecionaveis = array_column($competenciasPonto, 'valor');
+
+        $competenciaSelecionada = (string) $request->query->get('competencia', '');
         if ($competenciaSelecionada === '' && !empty($competenciasPonto)) {
             $competenciaSelecionada = (string) $competenciasPonto[0]['valor'];
         }
 
-        // Sem NENHUM registro de ponto (colaborador recém-admitido, por exemplo), a lista de
-        // competências fica vazia e $competenciaSelecionada continuaria '' — igual ao PontoController
-        // (que sempre resolve para o mês corrente), a ficha do admin também precisa de uma
-        // competência default para poder somar as horas pagas: sem isso, o `/ponto` do colaborador
-        // mostra o lançamento e a mesma competência na ficha do admin não mostra nada.
-        if ($competenciaSelecionada === '') {
-            $competenciaSelecionada = (new \DateTimeImmutable())->format('Y-m');
+        // Formato inválido (ex.: "julho", vindo de querystring adulterada) não pode chegar ao
+        // `explode` abaixo: sem hífen, o destructuring deixa o mês `null` e estoura TypeError em
+        // `somarHorasPagasDaCompetencia`. Mesma validação de formato que o
+        // `PontoController::index()` já faz antes de destructurar.
+        if (
+            !preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $competenciaSelecionada)
+            || !in_array($competenciaSelecionada, $competenciasSelecionaveis, true)
+        ) {
+            $competenciaSelecionada = $competenciaAtualPonto;
         }
 
         $jornadaTenant = $tenant->getJornadaTenant();
@@ -568,7 +586,7 @@ final class TenantController extends AbstractController
         [$anoSelecionado, $mesSelecionado] = array_map('intval', explode('-', $competenciaSelecionada));
         $horasPagasMinutosPonto = $folhaPontoBuilder->somarHorasPagasDaCompetencia($user, $tenant, $anoSelecionado, $mesSelecionado);
 
-        if (in_array($competenciaSelecionada, $competenciasDisponiveis, true)) {
+        if (in_array($competenciaSelecionada, $competenciasComBatida, true)) {
             $batidasPonto = $registroPontoRepository->findByUserAndCompetencia($user, $anoSelecionado, $mesSelecionado);
 
             $inicioMes = new \DateTimeImmutable(sprintf('%04d-%02d-01 00:00:00', $anoSelecionado, $mesSelecionado));
