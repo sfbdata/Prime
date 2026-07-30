@@ -93,18 +93,20 @@ batida e justificativa que já estão lá. Os dois agregadores passam a somar os
 - `calcularSaldoAnual(...)` — `FolhaPontoBuilder.php:336`
 - `calcularSaldoAteMes(...)` — `FolhaPontoBuilder.php:247`
 
-**As duas assinaturas ganham um parâmetro final `?Tenant $tenant = null`.** Diferente do sentinela de
-`$inicioContagem` (`FolhaPontoBuilder.php:230`, valor obrigatório sem default), aqui o default existe **de
-propósito**: sem tenant não há como filtrar com segurança — filtrar lançamento sem tenant vazaria dado entre
-escritórios, o que é pior do que simplesmente não somar. Por isso **sem tenant o método devolve 0 de
-lançamentos** (soma continua 0, sem lançar exceção), e o parâmetro é opcional só para não quebrar a
-compilação dos dois chamadores existentes — não porque seja dispensável.
+**As duas assinaturas ganham um parâmetro final `Tenant|null|false $tenant = false`** — a mesma sentinela do
+`$inicioContagem` (`FolhaPontoBuilder.php:230`), e pelo mesmo motivo. `false` significa **não informado**, é
+erro de chamada e **lança `\InvalidArgumentException`**; `null` significa **"não há tenant"** e então os
+lançamentos não somam (devolve 0 de horas pagas, sem exceção — filtrar lançamento sem tenant vazaria dado
+entre escritórios, o que é pior do que não somar).
 
-**Os chamadores existentes precisam ser alterados para passar o tenant** (Tarefa 4 desta frente) — são
-**dois**, ambos em `PontoController.php:140` e `PontoController.php:998`. (`TenantController.php:566` chama
-só `buildRows`, que não muda — não é chamador dos agregadores.) Até a Tarefa 4 rodar, esses dois pontos
-continuam sem tenant e por isso não refletem lançamento nenhum — comportamento idêntico ao que existia antes
-desta tarefa (regressão zero, recurso ainda não plugado).
+> A Tarefa 3 nasceu com `?Tenant $tenant = null` para não quebrar a compilação dos dois chamadores
+> existentes. **A Tarefa 4 endureceu a assinatura** depois de ligar os dois: enquanto houvesse default,
+> qualquer chamador futuro que esquecesse o tenant perderia os lançamentos **em silêncio** — sem exceção,
+> sem log, com a folha aparentemente normal.
+
+**Os dois chamadores passam o tenant** desde a Tarefa 4: `PontoController.php:140` (`calcularSaldoAnual`, do
+painel) e `PontoController.php:998` (`calcularSaldoAteMes`, do "Saldo anterior" do espelho/PDF/XLSX).
+(`TenantController.php:566` chama só `buildRows`, que não muda — não é chamador dos agregadores.)
 
 Método público novo, para as telas exibirem a linha:
 
@@ -123,6 +125,13 @@ Os dois agregadores têm saídas antecipadas: colaborador sem `JornadaColaborado
 `$horasPagas` em vez de `0`. Um lançamento numa competência anterior à primeira batida, ou de um colaborador
 sem jornada configurada, **ainda conta**. Perder horas em silêncio é pior do que exibir um saldo que o admin
 precise explicar.
+
+**Corolário para os chamadores:** ninguém pode repetir a condição do lado de fora. `montarDadosFolha`
+(`PontoController.php:997`) chamava `calcularSaldoAteMes` apenas quando `$jornada !== null` e usava `0` no
+resto — exatamente o guard que o método já faz por dentro, só que sem devolver os lançamentos. O efeito era
+600 minutos de diferença entre o painel `/ponto` e o "Saldo anterior" do espelho para o mesmo colaborador. A
+chamada é **incondicional** (corrigido na Tarefa 4, coberto por
+`app/tests/Ponto/Functional/SaldoAnteriorHorasPagasTest.php`).
 
 O formulário recusa competência futura, por higiene — mas o cálculo não depende dessa recusa.
 

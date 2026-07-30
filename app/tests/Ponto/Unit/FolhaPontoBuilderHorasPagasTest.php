@@ -151,7 +151,7 @@ final class FolhaPontoBuilderHorasPagasTest extends TestCase
         self::assertSame(0, $saldo);
     }
 
-    #[TestDox('sem tenant informado o lancamento e ignorado, sem quebrar')]
+    #[TestDox('tenant null (nao ha tenant) ignora o lancamento, sem quebrar')]
     public function testSemTenantIgnoraLancamento(): void
     {
         $builder = $this->builderComLancamentos([2026 => [1 => -600]]);
@@ -159,6 +159,27 @@ final class FolhaPontoBuilderHorasPagasTest extends TestCase
         $saldo = $builder->calcularSaldoAnual($this->userComJornada(), 2026, [], null, null, null);
 
         self::assertSame(0, $saldo, 'sem tenant não há como filtrar com segurança: não soma');
+    }
+
+    #[TestDox('omitir o tenant em calcularSaldoAnual falha em vez de perder o lancamento calado')]
+    public function testOmitirTenantNoSaldoAnualFalha(): void
+    {
+        // `null` é resposta ("não há tenant"); OMITIR é erro de chamada. Sem esta sentinela, um
+        // chamador futuro que esquecesse o tenant zeraria as horas pagas em silêncio — sem
+        // exceção, sem log, com o banco de horas errado na tela do colaborador.
+        $builder = $this->builderComLancamentos([2026 => [1 => -600]]);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $builder->calcularSaldoAnual($this->userComJornada(), 2026, [], null, new \DateTimeImmutable('2026-01-01'));
+    }
+
+    #[TestDox('omitir o tenant em calcularSaldoAteMes falha em vez de perder o lancamento calado')]
+    public function testOmitirTenantNoSaldoAteMesFalha(): void
+    {
+        $builder = $this->builderComLancamentos([2026 => [1 => -600]]);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $builder->calcularSaldoAteMes($this->userComJornada(), 2026, 3, [], null, new \DateTimeImmutable('2026-01-01'));
     }
 
     // ──────────────────────────────────────────────────────────────────

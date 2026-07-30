@@ -199,7 +199,9 @@ final class FolhaPontoBuilderTest extends TestCase
         $user->setEmail('a@b.com')->setFullName('Teste');
 
         // Início da contagem válido: isola o guard de jornada como ÚNICO motivo do zero.
-        $resultado = $this->builder->calcularSaldoAteMes($user, 2026, 3, [], null, $this->contagemAntiga());
+        // Tenant null = "não há tenant": nenhum lançamento de horas pagas soma, então o zero
+        // continua vindo só do guard de jornada, que é o que este teste prova.
+        $resultado = $this->builder->calcularSaldoAteMes($user, 2026, 3, [], null, $this->contagemAntiga(), null);
 
         self::assertSame(0, $resultado);
     }
@@ -314,8 +316,10 @@ final class FolhaPontoBuilderTest extends TestCase
         // Cenário do veterano: admitido há anos, mas só passou a registrar ponto no fim de 2025.
         $user = $this->usuarioComJornada();
 
-        $soNovembroEDezembro = $this->builder->calcularSaldoAnual($user, 2025, [], null, new \DateTimeImmutable('2025-11-01'));
-        $anoInteiro          = $this->builder->calcularSaldoAnual($user, 2025, [], null, new \DateTimeImmutable('2025-01-01'));
+        // Tenant null (= "não há tenant") mantém a comparação isolada nas batidas: sem lançamento
+        // de horas pagas no meio, a diferença medida vem só da janela de contagem.
+        $soNovembroEDezembro = $this->builder->calcularSaldoAnual($user, 2025, [], null, new \DateTimeImmutable('2025-11-01'), null);
+        $anoInteiro          = $this->builder->calcularSaldoAnual($user, 2025, [], null, new \DateTimeImmutable('2025-01-01'), null);
 
         self::assertLessThan(0, $soNovembroEDezembro);
         // Contar o ano inteiro seria MUITO mais negativo — é exatamente o débito fantasma que a regra evita.
@@ -326,14 +330,14 @@ final class FolhaPontoBuilderTest extends TestCase
     {
         $user = $this->usuarioComJornada();
 
-        self::assertSame(0, $this->builder->calcularSaldoAnual($user, 2025, [], null, null));
+        self::assertSame(0, $this->builder->calcularSaldoAnual($user, 2025, [], null, null, null));
     }
 
     public function testCalcularSaldoAteMesSemPrimeiroRegistroRetornaZero(): void
     {
         $user = $this->usuarioComJornada();
 
-        self::assertSame(0, $this->builder->calcularSaldoAteMes($user, 2026, 3, [], null, null));
+        self::assertSame(0, $this->builder->calcularSaldoAteMes($user, 2026, 3, [], null, null, null));
     }
 
     // ──────────────────────────────────────────────────────────────────

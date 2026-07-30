@@ -137,7 +137,7 @@ final class PontoController extends AbstractController
         }
 
         $anoAtual = (int) $agora->format('Y');
-        $saldoMes = $folhaPontoBuilder->calcularSaldoAnual($user, $anoAtual, $feriados, $jornadaTenant, $inicioContagem);
+        $saldoMes = $folhaPontoBuilder->calcularSaldoAnual($user, $anoAtual, $feriados, $jornadaTenant, $inicioContagem, $tenant);
 
         $jornadaInfo = $this->resolverJornadaInfo($user, $jornadaTenant);
         $duracaoJornadaDiariaMinutos = $this->resolverDuracaoJornadaDiaria($user, $agora, $jornadaTenant);
@@ -994,9 +994,19 @@ final class PontoController extends AbstractController
             $mesAnterior = 12;
             $anoAnterior--;
         }
-        $saldoBancoAnteriorMinutos = $jornada !== null
-            ? $builder->calcularSaldoAteMes($targetUser, $anoAnterior, $mesAnterior, $feriados, $jornadaTenant, $inicioContagem)
-            : 0;
+        // Sem condicional em $jornada de propósito: calcularSaldoAteMes já se protege sozinho
+        // (devolve só os lançamentos quando não há jornada). Curto-circuitar aqui com `: 0`
+        // apagaria as horas pagas de quem não tem JornadaColaborador — o painel /ponto mostraria
+        // -10h00 e o espelho do mês seguinte, "Saldo anterior: 0h00", para o mesmo colaborador.
+        $saldoBancoAnteriorMinutos = $builder->calcularSaldoAteMes(
+            $targetUser,
+            $anoAnterior,
+            $mesAnterior,
+            $feriados,
+            $jornadaTenant,
+            $inicioContagem,
+            $tenant,
+        );
 
         $enderecoPartes = array_filter([
             $tenant?->getLogradouro(),

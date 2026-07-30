@@ -239,18 +239,41 @@ class FolhaPontoBuilder
     }
 
     /**
+     * Mesma sentinela do $inicioContagem, e pelo mesmo motivo: distingue "não informado" (erro de
+     * chamada) de `null` ("não há tenant"). Enquanto o parâmetro tinha default `null`, qualquer
+     * chamador que esquecesse o tenant perdia os lançamentos de horas pagas em SILÊNCIO — sem
+     * exceção, sem log, com a folha aparentemente normal e o banco de horas errado.
+     */
+    private function exigirTenant(Tenant|null|false $tenant, string $metodo): ?Tenant
+    {
+        if ($tenant === false) {
+            throw new \InvalidArgumentException(sprintf(
+                '%s: informe $tenant (escritório do colaborador). '
+                . 'null significa "não há tenant" — e então os lançamentos de horas pagas não somam.',
+                $metodo
+            ));
+        }
+
+        return $tenant;
+    }
+
+    /**
      * Calcula o saldo acumulado do banco de horas até o último dia do mês informado.
      * Útil para obter o "saldo anterior" antes da competência exportada.
      *
      * @param Feriado[] $feriados
+     * @param Tenant|null|false $tenant Escritório do colaborador, obrigatório: `false` (omitido) é erro
+     *                                  de chamada e lança; `null` significa "não há tenant" e então os
+     *                                  lançamentos de horas pagas não somam.
      */
-    public function calcularSaldoAteMes(User $user, int $ano, int $mes, array $feriados, ?JornadaTenant $jornadaTenant = null, \DateTimeInterface|null|false $inicioContagem = false, ?Tenant $tenant = null): int
+    public function calcularSaldoAteMes(User $user, int $ano, int $mes, array $feriados, ?JornadaTenant $jornadaTenant = null, \DateTimeInterface|null|false $inicioContagem = false, Tenant|null|false $tenant = false): int
     {
         $this->exigirInicioContagem($inicioContagem, __FUNCTION__);
+        $tenantNorm = $this->exigirTenant($tenant, __FUNCTION__);
 
         // Horas pagas somam SEMPRE, antes de qualquer saída antecipada: um lançamento numa competência
         // anterior à primeira batida, ou de colaborador sem jornada, continua valendo.
-        $horasPagas = $this->somarHorasPagasDoPeriodo($user, $tenant, $ano, 1, $mes);
+        $horasPagas = $this->somarHorasPagasDoPeriodo($user, $tenantNorm, $ano, 1, $mes);
 
         $jornada = $user->getJornadaColaborador();
         if ($jornada === null) {
@@ -332,14 +355,18 @@ class FolhaPontoBuilder
      * - Termina no min(hoje, 31/12/ano) — dias futuros nunca contam
      *
      * @param Feriado[] $feriados
+     * @param Tenant|null|false $tenant Escritório do colaborador, obrigatório: `false` (omitido) é erro
+     *                                  de chamada e lança; `null` significa "não há tenant" e então os
+     *                                  lançamentos de horas pagas não somam.
      */
-    public function calcularSaldoAnual(User $user, int $ano, array $feriados, ?JornadaTenant $jornadaTenant = null, \DateTimeInterface|null|false $inicioContagem = false, ?Tenant $tenant = null): int
+    public function calcularSaldoAnual(User $user, int $ano, array $feriados, ?JornadaTenant $jornadaTenant = null, \DateTimeInterface|null|false $inicioContagem = false, Tenant|null|false $tenant = false): int
     {
         $this->exigirInicioContagem($inicioContagem, __FUNCTION__);
+        $tenantNorm = $this->exigirTenant($tenant, __FUNCTION__);
 
         // Horas pagas somam SEMPRE, antes de qualquer saída antecipada: um lançamento numa competência
         // anterior à primeira batida, ou de colaborador sem jornada, continua valendo.
-        $horasPagas = $this->somarHorasPagasDoPeriodo($user, $tenant, $ano, 1, 12);
+        $horasPagas = $this->somarHorasPagasDoPeriodo($user, $tenantNorm, $ano, 1, 12);
 
         $jornada = $user->getJornadaColaborador();
         if ($jornada === null) {
