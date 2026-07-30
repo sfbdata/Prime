@@ -276,21 +276,35 @@ final class HorasPagasFolhaExibicaoTest extends JusPrimeWebTestCase
         $colaborador = $this->criarColaborador($tenant);
         $autor = $this->criarColaborador($tenant);
 
-        $mesDoLancamento = (new \DateTimeImmutable())->modify('-2 months')->format('Y-m');
+        $primeiroDiaDesteMes = (new \DateTimeImmutable())->modify('first day of this month');
+        $mesDoLancamento = $primeiroDiaDesteMes->modify('-2 months')->format('Y-m');
         [$anoLancamento, $mesLancamento] = array_map('intval', explode('-', $mesDoLancamento));
         $this->criarLancamento($tenant, $colaborador, $autor, $anoLancamento, $mesLancamento, -600);
+
+        // ⚠️ A batida do mês corrente existe para que o mês do lançamento NÃO seja o mês padrão de
+        // abertura da ficha. Sem ela, o padrão (último mês com dado) já cairia no mês do lançamento e
+        // a etapa 2 viraria tautologia: passaria mesmo que o controller ignorasse a querystring por
+        // completo. O mês do LANÇAMENTO continua sem batida nenhuma — que é o ponto do cenário.
+        $this->criarRegistro($colaborador, $tenant, $primeiroDiaDesteMes->format('Y-m-d') . ' 09:00:00');
 
         $this->logarComTenant($client, $admin, $tenant);
 
         // 1. Sem selecionar nada: a competência do lançamento (sem batida nenhuma) tem de existir
         //    como opção no <select> — antes desta correção, não existia jeito de alcançá-la senão
-        //    editando a URL na mão.
+        //    editando a URL na mão. E o padrão de abertura é o mês CORRENTE (o mais recente com
+        //    dado), não o do lançamento: é isso que dá sentido à etapa 2.
         $client->request('GET', sprintf('/tenant/%d/user/%d/edit-role', $tenant->getId(), $colaborador->getId()));
         self::assertResponseIsSuccessful();
+        $conteudoSemQuerystring = (string) $client->getResponse()->getContent();
         self::assertStringContainsString(
             sprintf('<option value="%s"', $mesDoLancamento),
-            (string) $client->getResponse()->getContent(),
+            $conteudoSemQuerystring,
             'a competência do lançamento (sem nenhuma batida) tem de aparecer como opção no seletor',
+        );
+        self::assertStringContainsString(
+            sprintf('<option value="%s" selected>', $primeiroDiaDesteMes->format('Y-m')),
+            $conteudoSemQuerystring,
+            'sem querystring a ficha abre no mês corrente (o mais recente com dado) — o mês do lançamento é OUTRO',
         );
 
         // 2. Selecionando-a explicitamente: a folha mostra a linha "Horas pagas".
@@ -381,6 +395,45 @@ final class HorasPagasFolhaExibicaoTest extends JusPrimeWebTestCase
             $conteudo,
             'o mês corrente não tem dado nenhum — não pode ser o de abertura',
         );
+    }
+
+    #[TestDox('mes com lancamento e SEM batida: o titulo do card nomeia a competencia mesmo assim')]
+    public function testTituloDoCardNomeiaACompetenciaEmMesComLancamentoESemBatida(): void
+    {
+        // `mesCompetenciaPonto`/`anoCompetenciaPonto` (únicas fontes do "- MM/AAAA" do título, em
+        // tenant/edit_user_role.html.twig) só eram preenchidas quando a competência tinha batida.
+        // Como a ficha agora pode ABRIR num mês com lançamento e sem batida nenhuma (rescisão,
+        // afastamento), o card saía "Batidas de ponto" seco, com a linha "Horas pagas -10h00m"
+        // logo abaixo: dinheiro exibido sem dizer de que mês é.
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $admin = $this->criarAdmin($tenant);
+        $colaborador = $this->criarColaborador($tenant);
+        $autor = $this->criarColaborador($tenant);
+        $mesDoLancamento = (new \DateTimeImmutable())->modify('first day of this month')->modify('-2 months');
+
+        // Nenhuma batida em lugar nenhum — só o lançamento.
+        $this->criarLancamento(
+            $tenant,
+            $colaborador,
+            $autor,
+            (int) $mesDoLancamento->format('Y'),
+            (int) $mesDoLancamento->format('n'),
+            -600,
+        );
+
+        $this->logarComTenant($client, $admin, $tenant);
+        $client->request('GET', sprintf('/tenant/%d/user/%d/edit-role', $tenant->getId(), $colaborador->getId()));
+
+        self::assertResponseIsSuccessful();
+        $conteudo = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString(
+            sprintf('<h3 class="card-title mb-0">Batidas de ponto - %s</h3>', $mesDoLancamento->format('m/Y')),
+            $conteudo,
+            'o card tem de nomear a competência exibida mesmo quando ela não tem batida nenhuma',
+        );
+        // E é mesmo o mês do lançamento que está sendo exibido (o rodapé com o valor prova).
+        $this->assertRodapeHorasPagasPresente($conteudo, '-10h00m');
     }
 
     /**

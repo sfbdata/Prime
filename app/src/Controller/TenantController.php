@@ -610,9 +610,18 @@ final class TenantController extends AbstractController
         $jornadaTenant = $tenant->getJornadaTenant();
 
         $folhaRowsPonto = [];
-        $mesCompetenciaPonto = null;
-        $anoCompetenciaPonto = null;
         [$anoSelecionado, $mesSelecionado] = array_map('intval', explode('-', $competenciaSelecionada));
+
+        // Estas duas variáveis alimentam SÓ o título do card ("Batidas de ponto - MM/AAAA", montado
+        // em tenant/edit_user_role.html.twig:274-279 — é o único consumidor no projeto). Eram
+        // preenchidas apenas dentro do `if` de "competência com batida"; agora que a ficha pode abrir
+        // num mês com LANÇAMENTO e sem batida nenhuma (rescisão, afastamento), o card saía como
+        // "Batidas de ponto", sem mês, com a linha "Horas pagas -10h00m" logo abaixo — dinheiro
+        // exibido sob um card que não diz de que competência é. A competência selecionada é conhecida
+        // sempre, então o título passa a nomeá-la sempre.
+        $mesCompetenciaPonto = $mesSelecionado;
+        $anoCompetenciaPonto = $anoSelecionado;
+
         $horasPagasMinutosPonto = $folhaPontoBuilder->somarHorasPagasDaCompetencia($user, $tenant, $anoSelecionado, $mesSelecionado);
 
         if (in_array($competenciaSelecionada, $competenciasComBatida, true)) {
@@ -624,8 +633,6 @@ final class TenantController extends AbstractController
             $justificativasDoMes = $justificativaRepository->findByUserAndCompetenciaIndexed($user, $anoSelecionado, $mesSelecionado);
             $inicioContagemPonto = $this->inicioContagemResolver->resolver($user, $tenant);
             $folhaRowsPonto = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidasPonto, true, false, $jornada, $feriados, $justificativasDoMes, $jornadaTenant, $inicioContagemPonto);
-            $mesCompetenciaPonto = $mesSelecionado;
-            $anoCompetenciaPonto = $anoSelecionado;
         }
 
         $jornadaInfoUsuario = $this->resolverJornadaInfoAdmin($user, $jornadaTenant);
