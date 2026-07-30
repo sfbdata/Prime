@@ -138,6 +138,7 @@ final class PontoController extends AbstractController
 
         $anoAtual = (int) $agora->format('Y');
         $saldoMes = $folhaPontoBuilder->calcularSaldoAnual($user, $anoAtual, $feriados, $jornadaTenant, $inicioContagem, $tenant);
+        $horasPagasMinutos = $folhaPontoBuilder->somarHorasPagasDaCompetencia($user, $tenant, $anoSelecionado, $mesSelecionado);
 
         $jornadaInfo = $this->resolverJornadaInfo($user, $jornadaTenant);
         $duracaoJornadaDiariaMinutos = $this->resolverDuracaoJornadaDiaria($user, $agora, $jornadaTenant);
@@ -177,6 +178,7 @@ final class PontoController extends AbstractController
             'competenciaSelecionada' => $competenciaSelecionada,
             'pontoHoje' => $pontoHoje,
             'saldoMes' => $saldoMes,
+            'horasPagasMinutos' => $horasPagasMinutos,
             'jornadaInfo' => $jornadaInfo,
             'minimoMinutosRepouso'           => $jornadaTenant?->getMinimoMinutosRepouso() ?? 60,
             'validacaoRepousoHabilitada'     => $jornadaTenant?->isValidacaoRepousoHabilitada() ?? true,
@@ -1008,6 +1010,8 @@ final class PontoController extends AbstractController
             $tenant,
         );
 
+        $horasPagasMinutos = $builder->somarHorasPagasDaCompetencia($targetUser, $tenant, $ano, $mes);
+
         $enderecoPartes = array_filter([
             $tenant?->getLogradouro(),
             $tenant?->getNumero() ? ', ' . $tenant->getNumero() : null,
@@ -1055,6 +1059,7 @@ final class PontoController extends AbstractController
             'totalHorasExtras'        => $this->formatarMinutos($totalMinutosExtras ?: null),
             'saldoBancoAnterior'      => $this->formatarSaldo($saldoBancoAnteriorMinutos),
             'saldoBancoAtual'         => $this->formatarSaldo($saldoBancoAtualMinutos),
+            'horasPagasMinutos'       => $horasPagasMinutos,
             'horasACompensar'         => ($saldoBancoAtualMinutos !== null && $saldoBancoAtualMinutos < 0)
                 ? $this->formatarMinutos(abs($saldoBancoAtualMinutos))
                 : '–',

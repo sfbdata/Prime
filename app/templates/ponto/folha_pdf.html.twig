@@ -276,6 +276,10 @@
                     <span class="bi-linha"><span class="bi-label">Detalhe de Horas Trabalhadas no M&#234;s:</span> {{ totalHorasTrabalhadas }}</span>
                     <span class="bi-linha"><span class="bi-label">Total de Horas Extras no M&#234;s:</span> {{ totalHorasExtras }}</span>
                     <span class="bi-linha"><span class="bi-label">Saldo do Banco de Horas Anterior:</span> {{ saldoBancoAnterior }}</span>
+                    {% if horasPagasMinutos is defined and horasPagasMinutos != 0 %}
+                        {% set absHpPdf = horasPagasMinutos < 0 ? -horasPagasMinutos : horasPagasMinutos %}
+                        <span class="bi-linha"><span class="bi-label">Horas pagas:</span> {{ horasPagasMinutos < 0 ? '-' : '+' }}{{ (absHpPdf // 60) }}h{{ '%02d'|format(absHpPdf % 60) }}m</span>
+                    {% endif %}
                     <span class="bi-linha"><span class="bi-label">Saldo do Banco de Horas Atual:</span> {{ saldoBancoAtual }}</span>
                     <span class="bi-linha"><span class="bi-label">Horas a Compensar:</span> {{ horasACompensar }}</span>
                 </div>

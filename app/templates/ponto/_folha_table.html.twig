@@ -275,6 +275,16 @@
             </table>
         {% endif %}
     </div>
+
+    {% if horasPagasMinutos is defined and horasPagasMinutos != 0 %}
+        {% set absHp = horasPagasMinutos < 0 ? -horasPagasMinutos : horasPagasMinutos %}
+        <div class="d-flex justify-content-end gap-3 px-3 py-2 border-top small">
+            <span class="text-muted">Horas pagas</span>
+            <span class="fw-semibold {{ horasPagasMinutos < 0 ? 'text-danger' : 'text-success' }}">
+                {{ horasPagasMinutos < 0 ? '-' : '+' }}{{ (absHp // 60) }}h{{ '%02d'|format(absHp % 60) }}m
+            </span>
+        </div>
+    {% endif %}
 </div>
 
 {% if exportarFolhaHabilitado %}

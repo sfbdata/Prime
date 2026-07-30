@@ -556,6 +556,7 @@ final class TenantController extends AbstractController
         $folhaRowsPonto = [];
         $mesCompetenciaPonto = null;
         $anoCompetenciaPonto = null;
+        $horasPagasMinutosPonto = 0;
         if ($competenciaSelecionada !== '' && in_array($competenciaSelecionada, $competenciasDisponiveis, true)) {
             [$anoSelecionado, $mesSelecionado] = array_map('intval', explode('-', $competenciaSelecionada));
             $batidasPonto = $registroPontoRepository->findByUserAndCompetencia($user, $anoSelecionado, $mesSelecionado);
@@ -568,6 +569,7 @@ final class TenantController extends AbstractController
             $folhaRowsPonto = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidasPonto, true, false, $jornada, $feriados, $justificativasDoMes, $jornadaTenant, $inicioContagemPonto);
             $mesCompetenciaPonto = $mesSelecionado;
             $anoCompetenciaPonto = $anoSelecionado;
+            $horasPagasMinutosPonto = $folhaPontoBuilder->somarHorasPagasDaCompetencia($user, $tenant, $anoSelecionado, $mesSelecionado);
         }
 
         $jornadaInfoUsuario = $this->resolverJornadaInfoAdmin($user, $jornadaTenant);
@@ -600,6 +602,7 @@ final class TenantController extends AbstractController
             'folhaRowsPonto'         => $folhaRowsPonto,
             'mesCompetenciaPonto'    => $mesCompetenciaPonto,
             'anoCompetenciaPonto'    => $anoCompetenciaPonto,
+            'horasPagasMinutosPonto' => $horasPagasMinutosPonto,
             'jornadaInfo'            => $jornadaInfoUsuario,
             'justificativas'         => $justificativas,
             'tiposJustificativa'     => TipoJustificativa::asPlanarChoices(),
