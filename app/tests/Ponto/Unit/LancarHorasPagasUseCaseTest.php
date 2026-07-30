@@ -12,6 +12,7 @@ use App\Ponto\Exception\HorasPagasInvalidaException;
 use App\Ponto\UseCase\EditarHorasPagasUseCase;
 use App\Ponto\UseCase\ExcluirHorasPagasUseCase;
 use App\Ponto\UseCase\LancarHorasPagasUseCase;
+use App\Repository\UserTenantRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -73,6 +74,44 @@ final class LancarHorasPagasUseCaseTest extends TestCase
         );
     }
 
+    #[TestDox('operacao fora de descontar/acrescentar e recusada')]
+    public function testOperacaoInvalidaRecusada(): void
+    {
+        $this->expectException(HorasPagasInvalidaException::class);
+        $this->expectExceptionMessage('Operação inválida.');
+
+        ($this->useCase())($this->input(operacao: 'desconto'), $this->user(2), $this->user(1), $this->tenant(1));
+    }
+
+    #[TestDox('competencia do mes corrente e permitida')]
+    public function testCompetenciaMesCorrentePermitida(): void
+    {
+        $mesAtual = new \DateTimeImmutable('first day of this month');
+
+        $lancamento = ($this->useCase())(
+            $this->input(ano: (int) $mesAtual->format('Y'), mes: (int) $mesAtual->format('n')),
+            $this->user(2),
+            $this->user(1),
+            $this->tenant(1),
+        );
+
+        self::assertInstanceOf(LancamentoHorasPagas::class, $lancamento);
+    }
+
+    #[TestDox('colaborador sem vinculo ativo com o tenant e recusado')]
+    public function testColaboradorSemVinculoRecusado(): void
+    {
+        $em = $this->createMock(EntityManagerInterface::class);
+        $em->expects(self::never())->method('persist');
+
+        $useCase = new LancarHorasPagasUseCase($em, $this->userTenantRepository(false));
+
+        $this->expectException(HorasPagasInvalidaException::class);
+        $this->expectExceptionMessage('Colaborador não pertence a este escritório.');
+
+        $useCase($this->input(), $this->user(2), $this->user(1), $this->tenant(1));
+    }
+
     #[TestDox('ninguem lanca horas pagas para si mesmo')]
     public function testAutoLancamentoRecusado(): void
     {
@@ -106,7 +145,7 @@ final class LancarHorasPagasUseCaseTest extends TestCase
         $colaborador = $this->user(2);
         $tenant      = $this->tenant(1);
 
-        $lancamento = (new LancarHorasPagasUseCase($em))(
+        $lancamento = (new LancarHorasPagasUseCase($em, $this->userTenantRepository()))(
             $this->input(operacao: 'descontar', horas: 100, minutos: 0, motivo: 'Pago na folha de agosto'),
             $colaborador,
             $autor,
@@ -170,13 +209,30 @@ final class LancarHorasPagasUseCaseTest extends TestCase
         $lancamento->setUser($this->user(2));
 
         $this->expectException(HorasPagasInvalidaException::class);
+        $this->expectExceptionMessage('Lançamento não pertence a este escritório.');
 
         (new ExcluirHorasPagasUseCase($em))($lancamento, $this->user(1), $this->tenant(1));
     }
 
     private function useCase(): LancarHorasPagasUseCase
     {
-        return new LancarHorasPagasUseCase($this->createStub(EntityManagerInterface::class));
+        return new LancarHorasPagasUseCase(
+            $this->createStub(EntityManagerInterface::class),
+            $this->userTenantRepository(),
+        );
+    }
+
+    /**
+     * Stub do vínculo user_tenant. Por padrão simula colaborador com vínculo ativo — só os testes
+     * que exercitam especificamente a guarda de posse (`testColaboradorSemVinculoRecusado`) pedem
+     * `false` explicitamente.
+     */
+    private function userTenantRepository(bool $vinculoAtivo = true): UserTenantRepository
+    {
+        $repositorio = $this->createStub(UserTenantRepository::class);
+        $repositorio->method('existeVinculoAtivo')->willReturn($vinculoAtivo);
+
+        return $repositorio;
     }
 
     private function input(
