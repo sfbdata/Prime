@@ -551,14 +551,24 @@ final class TenantController extends AbstractController
             $competenciaSelecionada = (string) $competenciasPonto[0]['valor'];
         }
 
+        // Sem NENHUM registro de ponto (colaborador recém-admitido, por exemplo), a lista de
+        // competências fica vazia e $competenciaSelecionada continuaria '' — igual ao PontoController
+        // (que sempre resolve para o mês corrente), a ficha do admin também precisa de uma
+        // competência default para poder somar as horas pagas: sem isso, o `/ponto` do colaborador
+        // mostra o lançamento e a mesma competência na ficha do admin não mostra nada.
+        if ($competenciaSelecionada === '') {
+            $competenciaSelecionada = (new \DateTimeImmutable())->format('Y-m');
+        }
+
         $jornadaTenant = $tenant->getJornadaTenant();
 
         $folhaRowsPonto = [];
         $mesCompetenciaPonto = null;
         $anoCompetenciaPonto = null;
-        $horasPagasMinutosPonto = 0;
-        if ($competenciaSelecionada !== '' && in_array($competenciaSelecionada, $competenciasDisponiveis, true)) {
-            [$anoSelecionado, $mesSelecionado] = array_map('intval', explode('-', $competenciaSelecionada));
+        [$anoSelecionado, $mesSelecionado] = array_map('intval', explode('-', $competenciaSelecionada));
+        $horasPagasMinutosPonto = $folhaPontoBuilder->somarHorasPagasDaCompetencia($user, $tenant, $anoSelecionado, $mesSelecionado);
+
+        if (in_array($competenciaSelecionada, $competenciasDisponiveis, true)) {
             $batidasPonto = $registroPontoRepository->findByUserAndCompetencia($user, $anoSelecionado, $mesSelecionado);
 
             $inicioMes = new \DateTimeImmutable(sprintf('%04d-%02d-01 00:00:00', $anoSelecionado, $mesSelecionado));
@@ -569,7 +579,6 @@ final class TenantController extends AbstractController
             $folhaRowsPonto = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidasPonto, true, false, $jornada, $feriados, $justificativasDoMes, $jornadaTenant, $inicioContagemPonto);
             $mesCompetenciaPonto = $mesSelecionado;
             $anoCompetenciaPonto = $anoSelecionado;
-            $horasPagasMinutosPonto = $folhaPontoBuilder->somarHorasPagasDaCompetencia($user, $tenant, $anoSelecionado, $mesSelecionado);
         }
 
         $jornadaInfoUsuario = $this->resolverJornadaInfoAdmin($user, $jornadaTenant);

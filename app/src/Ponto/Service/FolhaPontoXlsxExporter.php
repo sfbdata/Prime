@@ -387,10 +387,11 @@ final class FolhaPontoXlsxExporter
             'Saldo do Banco de Horas Anterior:  '     . ($c['saldoBancoAnterior'] ?? '–'),
         ];
 
+        // Mesma notação "+H:MM" das linhas vizinhas de saldo (não o "Xh:MMm" da tela web).
         $horasPagasMinutos = (int) ($c['horasPagasMinutos'] ?? 0);
         if ($horasPagasMinutos !== 0) {
             $absHp = abs($horasPagasMinutos);
-            $resumo[] = 'Horas pagas:  ' . ($horasPagasMinutos < 0 ? '-' : '+') . sprintf('%dh%02dm', intdiv($absHp, 60), $absHp % 60);
+            $resumo[] = 'Horas pagas:  ' . ($horasPagasMinutos < 0 ? '-' : '+') . sprintf('%d:%02d', intdiv($absHp, 60), $absHp % 60);
         }
 
         $resumo[] = 'Saldo do Banco de Horas Atual:  ' . ($c['saldoBancoAtual'] ?? '–');

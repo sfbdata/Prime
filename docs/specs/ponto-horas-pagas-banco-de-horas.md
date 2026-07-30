@@ -240,10 +240,10 @@ A linha **só aparece quando há lançamento na competência** — mês sem lan�
 hoje. Sem motivo, sem quem lançou.
 
 Mesma linha em `app/templates/ponto/folha_pdf.html.twig` e em
-`app/src/Ponto/Service/FolhaPontoXlsxExporter.php`. Em `montarDadosFolha()` (`PontoController.php:907`) entram
-as chaves `horasPagasMinutos` (competência exibida) e `horasPagasAnterioresMinutos` (embutido no
-`saldoBancoAnteriorMinutos`, que já vem de `calcularSaldoAteMes` e portanto já inclui os lançamentos
-anteriores).
+`app/src/Ponto/Service/FolhaPontoXlsxExporter.php`. Em `montarDadosFolha()` (`PontoController.php:907`) entra
+a chave `horasPagasMinutos` (competência exibida). Não existe chave própria para os lançamentos de meses
+anteriores: eles já vêm embutidos em `saldoBancoAnteriorMinutos`, que passa por `calcularSaldoAteMes` e
+portanto já soma os lançamentos anteriores — somar de novo aqui seria contar em dobro.
 
 O card de saldo em `app/templates/ponto/index.html.twig:30-35` vem de `calcularSaldoAnual` e passa a refletir
 o lançamento **sem alteração de template**.

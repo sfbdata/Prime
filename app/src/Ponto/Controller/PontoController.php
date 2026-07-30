@@ -1012,6 +1012,15 @@ final class PontoController extends AbstractController
 
         $horasPagasMinutos = $builder->somarHorasPagasDaCompetencia($targetUser, $tenant, $ano, $mes);
 
+        // O total do bloco assinado (PDF/XLSX) tem de somar as horas pagas da própria competência:
+        // $saldoBancoAtualMinutos vem só das batidas (saldoAcumulado da última linha da tabela, que
+        // é por dia); sem somar aqui, "Saldo atual" de janeiro e "Saldo anterior" de fevereiro
+        // (que passa por calcularSaldoAteMes, e esse já soma os lançamentos) divergem em exatos os
+        // minutos lançados — o papel assinado não fecha nem com o mês seguinte.
+        $saldoBancoAtualComHorasPagasMinutos = ($saldoBancoAtualMinutos !== null || $horasPagasMinutos !== 0)
+            ? ($saldoBancoAtualMinutos ?? 0) + $horasPagasMinutos
+            : null;
+
         $enderecoPartes = array_filter([
             $tenant?->getLogradouro(),
             $tenant?->getNumero() ? ', ' . $tenant->getNumero() : null,
@@ -1058,10 +1067,10 @@ final class PontoController extends AbstractController
             'totalHorasTrabalhadas'   => $this->formatarMinutos($totalMinutosTrabalhados ?: null),
             'totalHorasExtras'        => $this->formatarMinutos($totalMinutosExtras ?: null),
             'saldoBancoAnterior'      => $this->formatarSaldo($saldoBancoAnteriorMinutos),
-            'saldoBancoAtual'         => $this->formatarSaldo($saldoBancoAtualMinutos),
+            'saldoBancoAtual'         => $this->formatarSaldo($saldoBancoAtualComHorasPagasMinutos),
             'horasPagasMinutos'       => $horasPagasMinutos,
-            'horasACompensar'         => ($saldoBancoAtualMinutos !== null && $saldoBancoAtualMinutos < 0)
-                ? $this->formatarMinutos(abs($saldoBancoAtualMinutos))
+            'horasACompensar'         => ($saldoBancoAtualComHorasPagasMinutos !== null && $saldoBancoAtualComHorasPagasMinutos < 0)
+                ? $this->formatarMinutos(abs($saldoBancoAtualComHorasPagasMinutos))
                 : '–',
             'feriadosTrabalhados'     => $feriadosTrabalhados,
             'finaisSemanasTrabalhados' => $finaisSemanasTrabalhados,
