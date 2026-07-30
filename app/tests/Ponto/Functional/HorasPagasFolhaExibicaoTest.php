@@ -183,11 +183,20 @@ final class HorasPagasFolhaExibicaoTest extends JusPrimeWebTestCase
         $tenant = $this->criarTenant();
         $admin = $this->criarAdmin($tenant);
         $colaborador = $this->criarColaborador($tenant);
+        $competenciaAtual = (new \DateTimeImmutable())->format('Y-m');
 
         $this->logarComTenant($client, $admin, $tenant);
         $client->request('GET', sprintf('/tenant/%d/user/%d/edit-role?competencia=julho', $tenant->getId(), $colaborador->getId()));
 
         self::assertResponseIsSuccessful('competência sem hífen na querystring tem de cair no fallback do mês corrente, não estourar 500');
+        // Só o 200 não prova a SEMÂNTICA do fallback — poderia ter caído em qualquer outra
+        // competência (ou em nenhuma) e o teste continuaria verde. Conferir que o mês CORRENTE
+        // aparece marcado como selecionado no `<select>` prova o fallback exato.
+        self::assertStringContainsString(
+            sprintf('<option value="%s" selected>', $competenciaAtual),
+            (string) $client->getResponse()->getContent(),
+            'competência malformada tem de cair especificamente no mês corrente, marcado como selecionado no seletor',
+        );
     }
 
     #[TestDox('colaborador com batida so em mes antigo: o mes corrente ainda aparece como opcao no seletor do admin')]
@@ -213,11 +222,81 @@ final class HorasPagasFolhaExibicaoTest extends JusPrimeWebTestCase
         $client->request('GET', sprintf('/tenant/%d/user/%d/edit-role', $tenant->getId(), $colaborador->getId()));
 
         self::assertResponseIsSuccessful();
+        // ⚠️ `value="2026-07"` solto casaria com QUALQUER atributo `value` da página que tenha o
+        // mesmo conteúdo — o campo oculto `modalAddCompetencia` (que espelha `competenciaSelecionada`)
+        // é um candidato real quando a competência selecionada é a corrente. Ancorar em
+        // `<option value="…"` prova que a competência está especificamente entre as OPÇÕES do `<select>`.
         self::assertStringContainsString(
-            sprintf('value="%s"', $competenciaAtual),
+            sprintf('<option value="%s"', $competenciaAtual),
             (string) $client->getResponse()->getContent(),
             'o seletor de competência tem de oferecer o mês corrente, mesmo sem batida nele',
         );
+    }
+
+    #[TestDox('competencia bem formada, sem batida e sem lancamento, PERMANECE selecionada — nao salta para o mes corrente')]
+    public function testCompetenciaValidaSemBatidaNemLancamentoPermanece(): void
+    {
+        // O caso que motivou relaxar a validação (achado 1, rodada 3): antes, exigir pertencimento
+        // à lista de "com batida" fazia a ficha SALTAR de mês sozinha sempre que a competência pedida
+        // não tinha batida — inclusive ao excluir a ÚLTIMA batida de um mês (o redirect da exclusão
+        // manda de volta ?competencia=<aquele mês>, que passou a não ter mais batida nenhuma) ou ao
+        // reabrir uma competência de lançamento retroativo sem nenhuma batida. Formato bem-formado
+        // basta agora: o cálculo é seguro (devolve zero, tabela vazia, sem erro).
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $admin = $this->criarAdmin($tenant);
+        $colaborador = $this->criarColaborador($tenant);
+        $competenciaAtual = (new \DateTimeImmutable())->format('Y-m');
+        $competenciaSemNada = (new \DateTimeImmutable())->modify('-6 months')->format('Y-m');
+        self::assertNotSame($competenciaAtual, $competenciaSemNada, 'a competência do teste precisa ser diferente da corrente');
+
+        $this->logarComTenant($client, $admin, $tenant);
+        $client->request('GET', sprintf('/tenant/%d/user/%d/edit-role?competencia=%s', $tenant->getId(), $colaborador->getId(), $competenciaSemNada));
+
+        self::assertResponseIsSuccessful();
+        // O campo oculto `modalAddCompetencia` espelha `competenciaSelecionada` diretamente — é o
+        // jeito certo de conferir o valor INTERNO efetivamente usado, independente de a competência
+        // aparecer ou não como opção no `<select>` (ela não aparece: nem tem batida, nem lançamento).
+        self::assertStringContainsString(
+            sprintf('id="modalAddCompetencia" value="%s"', $competenciaSemNada),
+            (string) $client->getResponse()->getContent(),
+            'a competência pedida (sem batida e sem lançamento) tem de permanecer selecionada, não saltar para o mês corrente',
+        );
+    }
+
+    #[TestDox('lancamento em mes sem nenhuma batida: opcao existe no seletor e, selecionada, a folha mostra a linha')]
+    public function testLancamentoEmMesSemBatidaApareceNoSeletorEMostraALinhaQuandoSelecionado(): void
+    {
+        // Fecha o "buraco maior" do achado 2 (rodada 3): não bastava injetar o mês CORRENTE na
+        // lista — um lançamento num mês PASSADO sem nenhuma batida (ajuste retroativo) também
+        // precisa ser alcançável pelo seletor do admin, e mostrar a linha quando selecionado.
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $admin = $this->criarAdmin($tenant);
+        $colaborador = $this->criarColaborador($tenant);
+        $autor = $this->criarColaborador($tenant);
+
+        $mesDoLancamento = (new \DateTimeImmutable())->modify('-2 months')->format('Y-m');
+        [$anoLancamento, $mesLancamento] = array_map('intval', explode('-', $mesDoLancamento));
+        $this->criarLancamento($tenant, $colaborador, $autor, $anoLancamento, $mesLancamento, -600);
+
+        $this->logarComTenant($client, $admin, $tenant);
+
+        // 1. Sem selecionar nada: a competência do lançamento (sem batida nenhuma) tem de existir
+        //    como opção no <select> — antes desta correção, não existia jeito de alcançá-la senão
+        //    editando a URL na mão.
+        $client->request('GET', sprintf('/tenant/%d/user/%d/edit-role', $tenant->getId(), $colaborador->getId()));
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString(
+            sprintf('<option value="%s"', $mesDoLancamento),
+            (string) $client->getResponse()->getContent(),
+            'a competência do lançamento (sem nenhuma batida) tem de aparecer como opção no seletor',
+        );
+
+        // 2. Selecionando-a explicitamente: a folha mostra a linha "Horas pagas".
+        $client->request('GET', sprintf('/tenant/%d/user/%d/edit-role?competencia=%s', $tenant->getId(), $colaborador->getId(), $mesDoLancamento));
+        self::assertResponseIsSuccessful();
+        $this->assertRodapeHorasPagasPresente((string) $client->getResponse()->getContent(), '-10h00m');
     }
 
     /**

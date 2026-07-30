@@ -38,9 +38,11 @@ final class HorasPagasTabTenantControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseIsSuccessful();
         $body = (string) $client->getResponse()->getContent();
-        self::assertStringContainsString('text-danger', $body, 'valor negativo tem de vir com a cor de perigo');
-        self::assertStringContainsString('-10h30m', $body, 'o sinal e o total em h/m têm de bater com os minutos gravados');
-        self::assertStringContainsString('Desconto combinado com o colaborador', $body, 'o motivo tem de aparecer na aba do admin');
+        // ⚠️ "text-danger"/"-10h30m" soltos NÃO provam que vieram da aba: a folha (Tarefa 6) tem um
+        // rodapé próprio que usa a MESMA classe de cor e o MESMO formato de valor para o mês
+        // selecionado por padrão. Ancorar cor+valor+motivo na MESMA linha da tabela prova a aba —
+        // o motivo só existe aqui (é a única tela onde ele aparece).
+        $this->assertLinhaDaAbaHorasPagas($body, 'text-danger', '-10h30m', 'Desconto combinado com o colaborador');
         self::assertStringContainsString($admin->getFullName(), $body, 'quem lançou tem de aparecer como autor');
     }
 
@@ -58,9 +60,7 @@ final class HorasPagasTabTenantControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseIsSuccessful();
         $body = (string) $client->getResponse()->getContent();
-        self::assertStringContainsString('text-success', $body, 'valor positivo tem de vir com a cor de sucesso');
-        self::assertStringContainsString('+8h00m', $body, 'o sinal e o total em h/m têm de bater com os minutos gravados');
-        self::assertStringContainsString('Bonificação por plantão extra', $body);
+        $this->assertLinhaDaAbaHorasPagas($body, 'text-success', '+8h00m', 'Bonificação por plantão extra');
     }
 
     #[TestDox('sem nenhum lançamento, a aba mostra o estado vazio')]
@@ -77,6 +77,31 @@ final class HorasPagasTabTenantControllerTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         $body = (string) $client->getResponse()->getContent();
         self::assertStringContainsString('Nenhum lançamento de horas pagas para este colaborador.', $body);
+    }
+
+    /**
+     * Ancora cor + valor + motivo dentro da MESMA linha (`<tr>...</tr>`) da tabela da aba "Horas
+     * pagas" — checar `text-danger`/`text-success` e o valor formatado (`-10h30m`/`+8h00m`) soltos
+     * não prova que vieram desta aba: o rodapé "Horas pagas" da folha (Tarefa 6,
+     * `_folha_table.html.twig`) usa a MESMA classe de cor e o MESMO formato de valor para a
+     * competência selecionada por padrão na aba "Batidas de Ponto" (a mesma resposta HTTP contém as
+     * DUAS abas, só a exibição é trocada por CSS/JS no cliente). O motivo do lançamento só existe
+     * nesta aba — amarrar os três garante que a correspondência não pode vir de outro lugar.
+     */
+    private function assertLinhaDaAbaHorasPagas(string $body, string $classeCor, string $valorEsperado, string $motivoEsperado): void
+    {
+        $padrao = sprintf(
+            '/<span class="%s">\s*%s\s*<\/span>.*?%s/s',
+            preg_quote($classeCor, '/'),
+            preg_quote($valorEsperado, '/'),
+            preg_quote($motivoEsperado, '/'),
+        );
+
+        self::assertMatchesRegularExpression(
+            $padrao,
+            $body,
+            'cor, valor e motivo têm de estar na MESMA linha da aba "Horas pagas" — a folha (Tarefa 6) tem um rodapé com a mesma classe de cor e o mesmo formato de valor',
+        );
     }
 
     // ----------------------------------------------------------------- helpers

@@ -543,38 +543,54 @@ final class TenantController extends AbstractController
             $processoRepository,
         );
 
-        $competenciasPonto = $registroPontoRepository->findCompetenciasComRegistroPorUsuario($user, $tenant);
+        $competenciasComRegistro = $registroPontoRepository->findCompetenciasComRegistroPorUsuario($user, $tenant);
         // Lista de competências que REALMENTE têm batida — decide, mais abaixo, se a tabela é
-        // montada. Guardada antes de qualquer injeção para não virar um proxy falso.
-        $competenciasComBatida = array_column($competenciasPonto, 'valor');
+        // montada. Guardada antes de qualquer injeção/mescla para não virar um proxy falso.
+        $competenciasComBatida = array_column($competenciasComRegistro, 'valor');
 
-        // O seletor só listava meses com batida: um lançamento de horas pagas no mês corrente sem
-        // NENHUMA batida ficava inalcançável pelo dropdown (só editando a URL na mão) — mesma classe
-        // de problema que faz o /ponto do colaborador (PontoController::index()) sempre injetar o mês
-        // corrente na lista. Aqui só a lista de OPÇÕES ganha a entrada; `$competenciasComBatida` (acima)
-        // continua intocada, então "zero batida" continua decidindo não montar a tabela.
-        $competenciaAtualPonto = (new \DateTimeImmutable())->format('Y-m');
-        if (!in_array($competenciaAtualPonto, $competenciasComBatida, true)) {
-            $competenciasPonto[] = [
-                'valor' => $competenciaAtualPonto,
-                'label' => (new \DateTimeImmutable())->format('m/Y'),
-            ];
+        // O seletor só listava meses com BATIDA. Dois lançamentos de horas pagas ficavam
+        // inalcançáveis pelo dropdown (só editando a URL na mão): o do mês corrente sem nenhuma
+        // batida ainda, e qualquer lançamento num mês PASSADO sem batida nenhuma (ex.: ajuste
+        // retroativo). `listarCompetenciasComLancamento` cobre o segundo caso; o mês corrente cobre
+        // o primeiro. A lista de opções mescla as três fontes, sem duplicar, mais recente primeiro —
+        // mesma ordem que o `PontoController::index()` usa (mês corrente sempre no topo).
+        // `$competenciasComBatida` (acima) fica intocada: só ela decide se a tabela é montada.
+        $competenciasParaSelecao = [];
+        foreach ($competenciasComRegistro as $c) {
+            $competenciasParaSelecao[$c['valor']] = $c['label'];
         }
-        $competenciasSelecionaveis = array_column($competenciasPonto, 'valor');
+        foreach ($lancamentoHorasPagasRepository->listarCompetenciasComLancamento($user, $tenant) as $valorLancamento) {
+            if (!isset($competenciasParaSelecao[$valorLancamento])) {
+                [$anoLancamento, $mesLancamento] = array_map('intval', explode('-', $valorLancamento));
+                $competenciasParaSelecao[$valorLancamento] = sprintf('%02d/%04d', $mesLancamento, $anoLancamento);
+            }
+        }
+        $competenciaAtualPonto = (new \DateTimeImmutable())->format('Y-m');
+        if (!isset($competenciasParaSelecao[$competenciaAtualPonto])) {
+            $competenciasParaSelecao[$competenciaAtualPonto] = (new \DateTimeImmutable())->format('m/Y');
+        }
+        krsort($competenciasParaSelecao);
+
+        $competenciasPonto = [];
+        foreach ($competenciasParaSelecao as $valor => $label) {
+            $competenciasPonto[] = ['valor' => $valor, 'label' => $label];
+        }
 
         $competenciaSelecionada = (string) $request->query->get('competencia', '');
         if ($competenciaSelecionada === '' && !empty($competenciasPonto)) {
             $competenciaSelecionada = (string) $competenciasPonto[0]['valor'];
         }
 
+        // Só o FORMATO é validado (não mais o pertencimento à lista): o cálculo de horas pagas é
+        // seguro para qualquer ano/mês (devolve zero) e a tabela fica vazia sem erro para uma
+        // competência sem batida. Exigir pertencimento fazia a ficha SALTAR de mês sozinha ao
+        // excluir a última batida de uma competência (ela some da lista de "com batida" e o
+        // `in_array` rejeitava o valor que o próprio redirect da exclusão mandava de volta).
         // Formato inválido (ex.: "julho", vindo de querystring adulterada) não pode chegar ao
         // `explode` abaixo: sem hífen, o destructuring deixa o mês `null` e estoura TypeError em
         // `somarHorasPagasDaCompetencia`. Mesma validação de formato que o
         // `PontoController::index()` já faz antes de destructurar.
-        if (
-            !preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $competenciaSelecionada)
-            || !in_array($competenciaSelecionada, $competenciasSelecionaveis, true)
-        ) {
+        if (!preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $competenciaSelecionada)) {
             $competenciaSelecionada = $competenciaAtualPonto;
         }
 

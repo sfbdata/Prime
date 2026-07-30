@@ -92,6 +92,36 @@ class LancamentoHorasPagasRepository extends ServiceEntityRepository
     }
 
     /**
+     * Competências (formato `'YYYY-MM'`) em que o colaborador tem AO MENOS UM lançamento de horas
+     * pagas — inclusive meses sem nenhuma batida, que `RegistroPontoRepository::
+     * findCompetenciasComRegistroPorUsuario` nunca devolve. Alimenta o seletor da ficha do admin:
+     * sem isto, um lançamento num mês sem nenhuma batida fica inalcançável pelo dropdown — o admin
+     * só chegaria lá editando a URL na mão.
+     *
+     * Filtro de tenant explícito além do TenantFilter: é dado de ponto (risco ALTO).
+     *
+     * @return string[] 'YYYY-MM', mais recente primeiro
+     */
+    public function listarCompetenciasComLancamento(User $user, Tenant $tenant): array
+    {
+        $linhas = $this->createQueryBuilder('l')
+            ->select('DISTINCT l.ano AS ano', 'l.mes AS mes')
+            ->andWhere('l.user = :user')
+            ->andWhere('l.tenant = :tenant')
+            ->setParameter('user', $user)
+            ->setParameter('tenant', $tenant)
+            ->orderBy('l.ano', 'DESC')
+            ->addOrderBy('l.mes', 'DESC')
+            ->getQuery()
+            ->getArrayResult();
+
+        return array_map(
+            static fn (array $linha): string => sprintf('%04d-%02d', (int) $linha['ano'], (int) $linha['mes']),
+            $linhas,
+        );
+    }
+
+    /**
      * Busca por id EXIGINDO o tenant — nunca buscar lançamento só por id vindo da URL (IDOR).
      */
     public function buscarDoTenant(int $id, Tenant $tenant): ?LancamentoHorasPagas

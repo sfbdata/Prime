@@ -39,7 +39,16 @@ final class SaldoAnteriorHorasPagasTest extends JusPrimeWebTestCase
         $colaborador = $this->criarColaboradorSemJornada($tenant);
         $autor = $this->criarColaboradorSemJornada($tenant);
         $anoAtual = (int) (new \DateTimeImmutable())->format('Y');
-        $this->criarLancamento($tenant, $colaborador, $autor, $anoAtual, 1, -600);
+
+        // O lançamento NUNCA pode cair no mês corrente: `/ponto` resolve a competência exibida para
+        // o mês corrente por padrão, e o rodapé "Horas pagas" (Tarefa 6) formata o valor com a MESMA
+        // string ("-10h00m") que o card "Banco de horas" deste teste. Se coincidissem (lançamento
+        // feito em janeiro rodando a suíte em janeiro, por exemplo), a asserção do painel passaria
+        // por causa do rodapé, mesmo com `calcularSaldoAnual` quebrado — verde por sorte de
+        // calendário. Escolher um mês sempre diferente do corrente fecha essa brecha.
+        $mesAtual = (int) (new \DateTimeImmutable())->format('n');
+        $mesLancamento = $mesAtual === 1 ? 2 : 1;
+        $this->criarLancamento($tenant, $colaborador, $autor, $anoAtual, $mesLancamento, -600);
 
         // Caminho 1 — painel do colaborador (calcularSaldoAnual).
         $this->logarComTenant($client, $colaborador, $tenant);
@@ -53,8 +62,8 @@ final class SaldoAnteriorHorasPagasTest extends JusPrimeWebTestCase
         );
 
         // Caminho 2 — "Saldo anterior" do espelho/PDF/XLSX (calcularSaldoAteMes), pelo método
-        // privado que os dois exportadores usam. Fevereiro: o mês anterior é o do lançamento.
-        $dados = $this->montarDadosFolha($colaborador, $tenant, $anoAtual, 2);
+        // privado que os dois exportadores usam, no mês seguinte ao do lançamento.
+        $dados = $this->montarDadosFolha($colaborador, $tenant, $anoAtual, $mesLancamento + 1);
 
         self::assertSame(
             '-10:00',
@@ -63,13 +72,13 @@ final class SaldoAnteriorHorasPagasTest extends JusPrimeWebTestCase
         );
 
         // Caminho 3 — a chave que o rodapé "Horas pagas" (Tarefa 6) do PDF/XLSX consome, na própria
-        // competência do lançamento (janeiro). Sem esta asserção, renomear/remover a chave em
+        // competência do lançamento. Sem esta asserção, renomear/remover a chave em
         // montarDadosFolha faria a linha sumir dos dois exportadores sem nenhum teste vermelho —
         // PDF e XLSX leem essa chave com `?? 0`/`is defined`, fail-open por natureza.
-        $dadosJaneiro = $this->montarDadosFolha($colaborador, $tenant, $anoAtual, 1);
+        $dadosDoMesDoLancamento = $this->montarDadosFolha($colaborador, $tenant, $anoAtual, $mesLancamento);
         self::assertSame(
             -600,
-            $dadosJaneiro['horasPagasMinutos'],
+            $dadosDoMesDoLancamento['horasPagasMinutos'],
             'a chave horasPagasMinutos tem de refletir o lançamento da própria competência exibida',
         );
     }
