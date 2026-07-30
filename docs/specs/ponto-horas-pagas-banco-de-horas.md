@@ -90,29 +90,39 @@ Consequência visual assumida: a **última linha da tabela** do mês mostra o ac
 `LancamentoHorasPagasRepository` é injetado no construtor de `FolhaPontoBuilder`, ao lado dos repositórios de
 batida e justificativa que já estão lá. Os dois agregadores passam a somar os lançamentos:
 
-- `calcularSaldoAnual(...)` — `FolhaPontoBuilder.php:329`
-- `calcularSaldoAteMes(...)` — `FolhaPontoBuilder.php:244`
+- `calcularSaldoAnual(...)` — `FolhaPontoBuilder.php:336`
+- `calcularSaldoAteMes(...)` — `FolhaPontoBuilder.php:247`
 
-**Nenhuma assinatura pública muda**, e por isso **não é preciso sentinela** (o padrão `false` de
-`$inicioContagem`, `FolhaPontoBuilder.php:227`): não há parâmetro novo que um chamador possa esquecer. Os três
-chamadores existentes — `PontoController.php:140`, `PontoController.php:998` e `TenantController.php:566` —
-passam a refletir o lançamento sem alteração de código.
+**As duas assinaturas ganham um parâmetro final `?Tenant $tenant = null`.** Diferente do sentinela de
+`$inicioContagem` (`FolhaPontoBuilder.php:230`, valor obrigatório sem default), aqui o default existe **de
+propósito**: sem tenant não há como filtrar com segurança — filtrar lançamento sem tenant vazaria dado entre
+escritórios, o que é pior do que simplesmente não somar. Por isso **sem tenant o método devolve 0 de
+lançamentos** (soma continua 0, sem lançar exceção), e o parâmetro é opcional só para não quebrar a
+compilação dos dois chamadores existentes — não porque seja dispensável.
+
+**Os chamadores existentes precisam ser alterados para passar o tenant** (Tarefa 4 desta frente) — são
+**dois**, ambos em `PontoController.php:140` e `PontoController.php:998`. (`TenantController.php:566` chama
+só `buildRows`, que não muda — não é chamador dos agregadores.) Até a Tarefa 4 rodar, esses dois pontos
+continuam sem tenant e por isso não refletem lançamento nenhum — comportamento idêntico ao que existia antes
+desta tarefa (regressão zero, recurso ainda não plugado).
 
 Método público novo, para as telas exibirem a linha:
 
 ```php
-public function somarHorasPagasDaCompetencia(User $user, int $ano, int $mes): int
+public function somarHorasPagasDaCompetencia(User $user, ?Tenant $tenant, int $ano, int $mes): int
 ```
 
 ### 4.3 Regra que impede horas de sumirem caladas
 
-Os dois agregadores hoje têm saídas antecipadas que retornam `0`: colaborador sem `JornadaColaborador`
-(`:249`, `:334`), sem nenhuma batida (`:256`, `:341`), e a varredura mensal só percorre de
-`max(início da contagem, 01/jan)` até `min(hoje, fim do período)` (`:262-270`, `:347-354`).
+Os dois agregadores têm saídas antecipadas: colaborador sem `JornadaColaborador` (`:256` em
+`calcularSaldoAteMes`, `:345` em `calcularSaldoAnual`), sem nenhuma batida (`:263`, `:352`), e
+`$inicio > $fim` quando a varredura mensal — que só percorre de `max(início da contagem, 01/jan)` até
+`min(hoje, fim do período)` — fecha vazia (`:275`, `:363`).
 
-**A soma dos lançamentos acontece FORA e ANTES dessas condições.** Um lançamento numa competência anterior à
-primeira batida, ou de um colaborador sem jornada configurada, **ainda conta**. Perder horas em silêncio é
-pior do que exibir um saldo que o admin precise explicar.
+**A soma dos lançamentos (`$horasPagas`) acontece FORA e ANTES dessas condições**, e cada uma delas retorna
+`$horasPagas` em vez de `0`. Um lançamento numa competência anterior à primeira batida, ou de um colaborador
+sem jornada configurada, **ainda conta**. Perder horas em silêncio é pior do que exibir um saldo que o admin
+precise explicar.
 
 O formulário recusa competência futura, por higiene — mas o cálculo não depende dessa recusa.
 
