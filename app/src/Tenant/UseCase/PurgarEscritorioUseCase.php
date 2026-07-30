@@ -118,6 +118,11 @@ final class PurgarEscritorioUseCase
         ['jornada_tenant', 'tenant_id = :tenant'],
         ['justificativa_ponto', 'tenant_id = :tenant'],
         ['registro_ponto', 'tenant_id = :tenant'],
+        // Horas pagas (ajuste manual do banco de horas): FK tenant_id/user_id NOT DEFERRABLE, sem
+        // ON DELETE CASCADE (NO ACTION) — deleção explícita, no mesmo bloco das outras tabelas de
+        // ponto e ANTES da Fase 4 (que apaga o tenant). Nada referencia esta tabela, então a posição
+        // relativa às demais entradas não importa, só precisa vir antes do DELETE FROM tenant.
+        ['ponto_lancamento_horas_pagas', 'tenant_id = :tenant'],
         ['home_office_config', 'tenant_id = :tenant'],
         ['feriado', 'tenant_id = :tenant'],
         // Fase 3 — estruturais / permissões do tenant.
