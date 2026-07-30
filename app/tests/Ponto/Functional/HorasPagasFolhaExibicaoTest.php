@@ -299,6 +299,90 @@ final class HorasPagasFolhaExibicaoTest extends JusPrimeWebTestCase
         $this->assertRodapeHorasPagasPresente((string) $client->getResponse()->getContent(), '-10h00m');
     }
 
+    #[TestDox('ficha do admin ABRE no ultimo mes COM BATIDA, nao no mes corrente vazio')]
+    public function testFichaAbreNoUltimoMesComBatidaNaoNoMesCorrente(): void
+    {
+        // O mês padrão de abertura da ficha SEMPRE foi o mais recente com dado. A lista de opções
+        // ganhou (nesta frente) o mês corrente injetado e passou a ser ordenada por `krsort` — se o
+        // padrão sair do índice 0 dessa lista, ele vira o mês corrente e a ficha de quem parou de
+        // bater ponto (afastado, férias, desligado) abre vazia, com "Não há batidas para a
+        // competência selecionada". Este teste trava o padrão contra essa regressão.
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $admin = $this->criarAdmin($tenant);
+        $colaborador = $this->criarColaborador($tenant);
+        $agora = new \DateTimeImmutable();
+        $competenciaAtual = $agora->format('Y-m');
+        $mesAntigo = $agora->modify('first day of this month')->modify('-4 months');
+        $competenciaAntiga = $mesAntigo->format('Y-m');
+
+        $this->criarRegistro($colaborador, $tenant, $mesAntigo->format('Y-m-d') . ' 09:00:00');
+
+        $this->logarComTenant($client, $admin, $tenant);
+        $client->request('GET', sprintf('/tenant/%d/user/%d/edit-role', $tenant->getId(), $colaborador->getId()));
+
+        self::assertResponseIsSuccessful();
+        $conteudo = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString(
+            sprintf('<option value="%s" selected>', $competenciaAntiga),
+            $conteudo,
+            'sem ?competencia= na URL, a ficha tem de abrir no último mês COM BATIDA',
+        );
+        self::assertStringNotContainsString(
+            sprintf('<option value="%s" selected>', $competenciaAtual),
+            $conteudo,
+            'o mês corrente continua sendo uma OPÇÃO, mas não pode ser o mês de abertura quando não tem dado nenhum',
+        );
+    }
+
+    #[TestDox('lancamento de horas pagas mais recente que a ultima batida vira o mes de abertura')]
+    public function testFichaAbreNoMesDoLancamentoQuandoEleEMaisRecenteQueAUltimaBatida(): void
+    {
+        // A parte nova (e desejada) da regra: mês com LANÇAMENTO de horas pagas também conta como
+        // "mês com dado". Batida em -5 meses, lançamento em -2 meses, hoje é o mês corrente: a ficha
+        // abre no mês do lançamento — nem no mês da batida (dado mais velho), nem no corrente (vazio).
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $admin = $this->criarAdmin($tenant);
+        $colaborador = $this->criarColaborador($tenant);
+        $autor = $this->criarColaborador($tenant);
+        $agora = new \DateTimeImmutable();
+        $primeiroDia = $agora->modify('first day of this month');
+        $mesDaBatida = $primeiroDia->modify('-5 months');
+        $mesDoLancamento = $primeiroDia->modify('-2 months');
+
+        $this->criarRegistro($colaborador, $tenant, $mesDaBatida->format('Y-m-d') . ' 09:00:00');
+        $this->criarLancamento(
+            $tenant,
+            $colaborador,
+            $autor,
+            (int) $mesDoLancamento->format('Y'),
+            (int) $mesDoLancamento->format('n'),
+            -600,
+        );
+
+        $this->logarComTenant($client, $admin, $tenant);
+        $client->request('GET', sprintf('/tenant/%d/user/%d/edit-role', $tenant->getId(), $colaborador->getId()));
+
+        self::assertResponseIsSuccessful();
+        $conteudo = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString(
+            sprintf('<option value="%s" selected>', $mesDoLancamento->format('Y-m')),
+            $conteudo,
+            'o mês do lançamento é o dado mais recente — é nele que a ficha tem de abrir',
+        );
+        self::assertStringNotContainsString(
+            sprintf('<option value="%s" selected>', $mesDaBatida->format('Y-m')),
+            $conteudo,
+            'o mês da batida é mais antigo que o do lançamento — não pode ser o de abertura',
+        );
+        self::assertStringNotContainsString(
+            sprintf('<option value="%s" selected>', $agora->format('Y-m')),
+            $conteudo,
+            'o mês corrente não tem dado nenhum — não pode ser o de abertura',
+        );
+    }
+
     /**
      * Confere o valor exatamente dentro do marcador HTML exclusivo do rodapé "Horas pagas" da folha
      * (`_folha_table.html.twig:282`) — `<span class="text-muted">Horas pagas</span>` seguido do

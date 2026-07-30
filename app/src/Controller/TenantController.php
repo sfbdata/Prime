@@ -559,7 +559,8 @@ final class TenantController extends AbstractController
         foreach ($competenciasComRegistro as $c) {
             $competenciasParaSelecao[$c['valor']] = $c['label'];
         }
-        foreach ($lancamentoHorasPagasRepository->listarCompetenciasComLancamento($user, $tenant) as $valorLancamento) {
+        $competenciasComLancamento = $lancamentoHorasPagasRepository->listarCompetenciasComLancamento($user, $tenant);
+        foreach ($competenciasComLancamento as $valorLancamento) {
             if (!isset($competenciasParaSelecao[$valorLancamento])) {
                 [$anoLancamento, $mesLancamento] = array_map('intval', explode('-', $valorLancamento));
                 $competenciasParaSelecao[$valorLancamento] = sprintf('%02d/%04d', $mesLancamento, $anoLancamento);
@@ -576,9 +577,21 @@ final class TenantController extends AbstractController
             $competenciasPonto[] = ['valor' => $valor, 'label' => $label];
         }
 
+        // Mês em que a ficha ABRE quando não vem `?competencia=` na URL: o mais recente COM DADO —
+        // batida OU lançamento de horas pagas. NÃO pode sair de `$competenciasPonto[0]`: aquela é a
+        // lista de OPÇÕES, que recebe o mês corrente injetado só para ficar selecionável e, depois do
+        // `krsort`, quase sempre o deixa no índice 0. Tirar o padrão de lá fazia a ficha de quem tem a
+        // última batida em 03/2026 abrir em julho, vazia ("Não há batidas para a competência
+        // selecionada") — atinge afastado, férias, desligado e todo dia 1º antes da primeira batida.
+        // O mês corrente só vira padrão quando ele PRÓPRIO é o mais recente com dado, ou quando não há
+        // dado nenhum (colaborador recém-cadastrado).
+        $competenciasComDado = array_unique(array_merge($competenciasComBatida, $competenciasComLancamento));
+        rsort($competenciasComDado); // 'YYYY-MM' zero-padded: ordem lexicográfica == cronológica
+        $competenciaPadraoPonto = $competenciasComDado[0] ?? $competenciaAtualPonto;
+
         $competenciaSelecionada = (string) $request->query->get('competencia', '');
-        if ($competenciaSelecionada === '' && !empty($competenciasPonto)) {
-            $competenciaSelecionada = (string) $competenciasPonto[0]['valor'];
+        if ($competenciaSelecionada === '') {
+            $competenciaSelecionada = $competenciaPadraoPonto;
         }
 
         // Só o FORMATO é validado (não mais o pertencimento à lista): o cálculo de horas pagas é

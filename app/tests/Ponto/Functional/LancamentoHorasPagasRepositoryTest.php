@@ -146,6 +146,46 @@ final class LancamentoHorasPagasRepositoryTest extends JusPrimeWebTestCase
         self::assertSame(0, $repo->somarPorPeriodo($alvo, $tenant, 2026, 1, 12));
     }
 
+    #[TestDox('listarCompetenciasComLancamento nao enxerga competencia de outro tenant')]
+    public function testListarCompetenciasComLancamentoIsolaEntreTenants(): void
+    {
+        static::createClient();
+        $tenantA = $this->criarTenant();
+        $tenantB = $this->criarTenant();
+        $admin   = $this->criarAdmin($tenantB);
+        $alvo    = $this->criarUsuario($tenantA);
+
+        // mesmo colaborador, lançamento gravado sob o tenant B: a ficha aberta pelo tenant A não
+        // pode oferecer essa competência no seletor (ela revela em que mês o OUTRO escritório pagou).
+        $this->gravarLancamento($tenantB, $alvo, $admin, 2026, 8, 999);
+
+        $repo = static::getContainer()->get(LancamentoHorasPagasRepository::class);
+
+        self::assertSame([], $repo->listarCompetenciasComLancamento($alvo, $tenantA));
+        self::assertSame(['2026-08'], $repo->listarCompetenciasComLancamento($alvo, $tenantB));
+    }
+
+    #[TestDox('listarCompetenciasComLancamento nao mistura colaboradores do mesmo escritorio')]
+    public function testListarCompetenciasComLancamentoIsolaEntreColaboradores(): void
+    {
+        static::createClient();
+        $tenant = $this->criarTenant();
+        $admin  = $this->criarAdmin($tenant);
+        $alvo   = $this->criarUsuario($tenant);
+        $colega = $this->criarUsuario($tenant);
+
+        // O filtro global de tenant NÃO cobre este caso — ele filtra escritório, não usuário. Sem o
+        // `andWhere('l.user = :user')`, o seletor da ficha do ALVO passaria a listar as competências
+        // em que o COLEGA recebeu horas pagas.
+        $this->gravarLancamento($tenant, $colega, $admin, 2026, 3, -600);
+        $this->gravarLancamento($tenant, $alvo, $admin, 2026, 5, -120);
+
+        $repo = static::getContainer()->get(LancamentoHorasPagasRepository::class);
+
+        self::assertSame(['2026-05'], $repo->listarCompetenciasComLancamento($alvo, $tenant));
+        self::assertSame(['2026-03'], $repo->listarCompetenciasComLancamento($colega, $tenant));
+    }
+
     #[TestDox('buscarDoTenant devolve null para lancamento de outro tenant')]
     public function testBuscarDoTenantNaoVazaEntreEscritorios(): void
     {
