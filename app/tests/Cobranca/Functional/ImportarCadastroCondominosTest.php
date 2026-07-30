@@ -55,7 +55,7 @@ final class ImportarCadastroCondominosTest extends KernelTestCase
     {
         $leitura = $this->adapter->ler(self::FIXTURE);
 
-        self::assertCount(6, $leitura->importaveis, '5 proprietários + 1 pessoa relacionada');
+        self::assertCount(7, $leitura->importaveis, '6 proprietários + 1 pessoa relacionada');
         self::assertGreaterThanOrEqual(1, count($leitura->rejeitadas), 'a linha sem nome é rejeitada');
         self::assertGreaterThan(0, $leitura->linhasIgnoradas, 'cabeçalho, rodapé e papel desconhecido');
 
@@ -84,6 +84,21 @@ final class ImportarCadastroCondominosTest extends KernelTestCase
         $carla = $this->porNome($leitura->importaveis, 'CARLA EXEMPLO LIMA');
 
         self::assertCount(2, $carla->telefones);
+    }
+
+    #[TestDox('Lixo convivendo com telefone bom na mesma célula também é reportado')]
+    public function testLixoJuntoComTelefoneBomEhReportado(): void
+    {
+        $leitura = $this->adapter->ler(self::FIXTURE);
+        $gina = $this->porNome($leitura->importaveis, 'GINA EXEMPLO CASTRO');
+
+        self::assertSame(['+55 (61) 900000007'], $gina->telefones, 'o número bom entra');
+
+        $motivos = array_map(static fn ($r): string => $r->motivo, $leitura->rejeitadas);
+        self::assertNotEmpty(
+            array_filter($motivos, static fn (string $m): bool => str_contains($m, 'descartado')),
+            'descartar em silêncio é o defeito — mesmo quando sobrou telefone bom',
+        );
     }
 
     #[TestDox('Endereço é parseado de trás para frente (com e sem complemento)')]
@@ -122,13 +137,13 @@ final class ImportarCadastroCondominosTest extends KernelTestCase
 
         $resultado = $this->importar->confirmar($carteira, $this->adapter->ler(self::FIXTURE), $tenant, $user);
 
-        self::assertSame(5, $resultado->totalObjetosCriados(), '5 unidades distintas (a 6ª linha repete a 01/01)');
-        self::assertSame(6, $resultado->totalPessoasCriadas());
-        self::assertSame(6, $resultado->totalVinculosCriados());
+        self::assertSame(6, $resultado->totalObjetosCriados(), '6 unidades distintas (a linha da relacionada repete a 01/01)');
+        self::assertSame(7, $resultado->totalPessoasCriadas());
+        self::assertSame(7, $resultado->totalVinculosCriados());
 
-        self::assertSame(5, $this->em->getRepository(ObjetoCobranca::class)->count(['tenant' => $tenant]));
-        self::assertSame(6, $this->em->getRepository(Pessoa::class)->count(['tenant' => $tenant]));
-        self::assertSame(6, $this->em->getRepository(VinculoPessoaObjeto::class)->count(['tenant' => $tenant]));
+        self::assertSame(6, $this->em->getRepository(ObjetoCobranca::class)->count(['tenant' => $tenant]));
+        self::assertSame(7, $this->em->getRepository(Pessoa::class)->count(['tenant' => $tenant]));
+        self::assertSame(7, $this->em->getRepository(VinculoPessoaObjeto::class)->count(['tenant' => $tenant]));
 
         // A unidade 01/01 tem DUAS pessoas: proprietária e relacionada, ambas com vínculo aberto.
         $objeto = $this->em->getRepository(ObjetoCobranca::class)->findOneBy(['tenant' => $tenant, 'identificacao' => 'QUADRA 01 CHACARA 01/01']);
@@ -156,8 +171,8 @@ final class ImportarCadastroCondominosTest extends KernelTestCase
         self::assertSame(0, $segunda->emailsAcrescentados);
         self::assertSame(0, $segunda->enderecosAcrescentados);
 
-        self::assertSame(5, $this->em->getRepository(ObjetoCobranca::class)->count(['tenant' => $tenant]));
-        self::assertSame(6, $this->em->getRepository(VinculoPessoaObjeto::class)->count(['tenant' => $tenant]));
+        self::assertSame(6, $this->em->getRepository(ObjetoCobranca::class)->count(['tenant' => $tenant]));
+        self::assertSame(7, $this->em->getRepository(VinculoPessoaObjeto::class)->count(['tenant' => $tenant]));
 
         $carla = $this->em->getRepository(Pessoa::class)->findOneBy(['tenant' => $tenant, 'nome' => 'CARLA EXEMPLO LIMA']);
         self::assertCount(2, $carla?->getTelefones(), 'continuam 2 telefones, não 4');
@@ -201,8 +216,8 @@ final class ImportarCadastroCondominosTest extends KernelTestCase
 
         $previa = $this->importar->prever($carteira, $this->adapter->ler(self::FIXTURE), $tenant);
 
-        self::assertSame(5, $previa->totalObjetosCriados());
-        self::assertSame(6, $previa->totalPessoasCriadas());
+        self::assertSame(6, $previa->totalObjetosCriados());
+        self::assertSame(7, $previa->totalPessoasCriadas());
         self::assertSame(0, $this->em->getRepository(ObjetoCobranca::class)->count(['tenant' => $tenant]), 'prévia não grava');
         self::assertSame(0, $this->em->getRepository(Pessoa::class)->count(['tenant' => $tenant]));
     }

@@ -88,9 +88,14 @@ O modelo de qualificação já é aditivo ("nada é apagado ao atualizar, só ad
 `Pessoa`). Telefone/e-mail/endereço novo entra na lista e vira o **atual**; o anterior permanece no
 histórico. É o que torna a reimportação mensal segura.
 
-### 5.3. Lixo é rejeitado, não gravado
-`null () null` e variações não viram telefone. A linha não é perdida: entra em `LinhaRejeitada` com
-motivo e aparece no resumo.
+### 5.3. Lixo é rejeitado, não gravado — e **todo** descarte é reportado
+`null () null` e variações não viram telefone. O descarte nunca é silencioso: entra em `LinhaRejeitada`
+com motivo e aparece no resumo.
+
+**Reportar SEMPRE que houve descarte, mesmo quando sobrou telefone bom na mesma célula.** Medido no dado
+real: são **3 linhas de lixo em 2 células** — a terceira (QUADRA 05 CHACARA 03/08) convive com um número
+válido. A primeira versão só reportava células 100% lixo, e essa terceira sumia calada. Foi a conferência
+dos totais contra a fonte (331 telefones × 3 lixos × 2 rejeições) que expôs a diferença de um.
 
 ### 5.4. Telefone múltiplo
 Célula com quebra de linha vira **N** `PessoaTelefone`; o primeiro é marcado atual.

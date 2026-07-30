@@ -172,7 +172,15 @@ final class CadastroCondominosAdapter
             $numeros[] = $bruto;
         }
 
-        $motivo = ($numeros === [] && $lixo > 0) ? 'Telefone inválido na fonte ("null () null") — pessoa importada sem telefone.' : null;
+        // Reporta SEMPRE que houve descarte, mesmo quando sobrou telefone bom na mesma célula. Medido no
+        // dado real: são 3 linhas de lixo em 2 células — a terceira convive com um número válido, e
+        // reportar só as células 100% lixo a descartaria em silêncio.
+        $motivo = null;
+        if ($lixo > 0) {
+            $motivo = $numeros === []
+                ? 'Telefone inválido na fonte ("null () null") — pessoa importada sem telefone.'
+                : sprintf('%d telefone(s) inválido(s) na fonte descartado(s); os %d válidos foram importados.', $lixo, count($numeros));
+        }
 
         return [$numeros, $motivo];
     }
