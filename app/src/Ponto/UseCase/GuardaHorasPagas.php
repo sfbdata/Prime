@@ -46,8 +46,30 @@ final class GuardaHorasPagas
             throw new HorasPagasInvalidaException('Informe uma quantidade de horas maior que zero.');
         }
 
-        if (trim($input->motivo) === '') {
+        // Teto de SANIDADE (não de negócio, que o dono recusou): sem ele, `horas=100000000` gera
+        // 6.000.000.000 minutos, estoura o `integer` do Postgres no INSERT e o admin leva um 500 no
+        // lugar de uma recusa legível. A mesma regra está no DTO — aqui porque quem valida
+        // quantidade/competência é o UseCase, e o formulário não é a única porta.
+        if ($input->horas > LancamentoHorasPagasInput::HORAS_MAXIMAS) {
+            throw new HorasPagasInvalidaException(sprintf(
+                'A quantidade de horas não pode passar de %d.',
+                LancamentoHorasPagasInput::HORAS_MAXIMAS,
+            ));
+        }
+
+        $motivo = trim($input->motivo);
+
+        if ($motivo === '') {
             throw new HorasPagasInvalidaException('Informe o motivo do lançamento.');
+        }
+
+        // Mínimo da spec §3: o motivo é a única defesa documental de um lançamento que altera verba
+        // trabalhista. Conta DEPOIS do trim — senão "  x" passaria com um caractere só.
+        if (mb_strlen($motivo) < LancamentoHorasPagasInput::MOTIVO_MINIMO) {
+            throw new HorasPagasInvalidaException(sprintf(
+                'O motivo precisa ter ao menos %d caracteres.',
+                LancamentoHorasPagasInput::MOTIVO_MINIMO,
+            ));
         }
 
         $competencia = new \DateTimeImmutable(sprintf('%04d-%02d-01', $input->ano, $input->mes));

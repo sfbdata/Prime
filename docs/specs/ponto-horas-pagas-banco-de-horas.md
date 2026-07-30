@@ -18,7 +18,7 @@ O escritório precisa acertar o banco de horas de um colaborador por fora das ba
 
 Hoje **não existe caminho para nenhum dos dois.** O banco de horas nunca é gravado: é recalculado do zero a
 cada leitura por `FolhaPontoBuilder`. O único ponto em que minutos entram no saldo é o abono parcial de uma
-justificativa (`FolhaPontoBuilder.php:165`), que exige um intervalo hora-início→hora-fim dentro de **um único
+justificativa (`FolhaPontoBuilder.php:168`), que exige um intervalo hora-início→hora-fim dentro de **um único
 dia** e nunca produz crédito além do déficit daquele dia. Os tipos de justificativa com nome sugestivo
 (`compensacao_horas`, `hora_extra_autorizada`, `ajuste_manual_autorizado`) são apenas rótulos: no cálculo
 todos caem no mesmo ramo genérico, que zera dia negativo e nada mais.
@@ -37,10 +37,15 @@ Decisões tomadas pelo dono do sistema e pelo responsável, com o que cada uma d
 | Rótulo único "Horas pagas" para os dois sentidos | Dois rótulos ("Horas pagas" / "Bonificação") |
 | Visível ao colaborador: rótulo e valor | Invisível; ou com o motivo à mostra |
 | Motivo visível só para o admin | Motivo na folha do colaborador |
-| Sem teto de horas por lançamento | Teto de 24h como rede contra erro de digitação |
+| Sem teto **de negócio** para as horas (ver nota abaixo) | Teto de 24h como rede contra erro de digitação |
 | Sem trava e sem aviso se o saldo ficar negativo | Bloquear; ou avisar e confirmar |
 | Editar e excluir livremente | Cancelamento com rastro preservado |
 | Auto-lançamento **bloqueado** | Permitir, como já ocorre em batidas e abonos |
+
+**Nota sobre o teto de horas.** O dono recusou teto de **negócio** de propósito. Existe, ainda assim, um teto
+de **sanidade** de `100.000` horas (`LancamentoHorasPagasInput::HORAS_MAXIMAS`, ~11 anos ininterruptos):
+acima dele o total em minutos estoura o `integer` do Postgres e o admin levava um **erro 500** no INSERT em
+vez de uma recusa legível. É guarda contra estouro, não regra de negócio — e é inclusivo (100.000h grava).
 
 **Ressalva registrada, não bloqueante.** Editar/excluir sem rastro num valor que altera verba trabalhista é
 difícil de defender numa contestação. Mitigação de custo zero adotada: **toda criação, edição e exclusão grava
@@ -90,11 +95,11 @@ Consequência visual assumida: a **última linha da tabela** do mês mostra o ac
 `LancamentoHorasPagasRepository` é injetado no construtor de `FolhaPontoBuilder`, ao lado dos repositórios de
 batida e justificativa que já estão lá. Os dois agregadores passam a somar os lançamentos:
 
-- `calcularSaldoAnual(...)` — `FolhaPontoBuilder.php:362`
-- `calcularSaldoAteMes(...)` — `FolhaPontoBuilder.php:269`
+- `calcularSaldoAnual(...)` — `FolhaPontoBuilder.php:389`
+- `calcularSaldoAteMes(...)` — `FolhaPontoBuilder.php:296`
 
 **As duas assinaturas ganham um parâmetro final `Tenant|null|false $tenant = false`** — a mesma sentinela do
-`$inicioContagem` (`FolhaPontoBuilder.php:230`), e pelo mesmo motivo. `false` significa **não informado**, é
+`$inicioContagem` (`FolhaPontoBuilder.php:257`), e pelo mesmo motivo. `false` significa **não informado**, é
 erro de chamada e **lança `\InvalidArgumentException`**; `null` significa **"não há tenant"** e então os
 lançamentos não somam (devolve 0 de horas pagas, sem exceção — filtrar lançamento sem tenant vazaria dado
 entre escritórios, o que é pior do que não somar).
@@ -105,8 +110,8 @@ entre escritórios, o que é pior do que não somar).
 > sem log, com a folha aparentemente normal.
 
 **Os dois chamadores passam o tenant** desde a Tarefa 4: `PontoController.php:140` (`calcularSaldoAnual`, do
-painel) e `PontoController.php:1001` (`calcularSaldoAteMes`, do "Saldo anterior" do espelho/PDF/XLSX).
-(Na Tarefa 6, `TenantController.php:587` também passou a chamar `somarHorasPagasDaCompetencia` — a ficha do
+painel) e `PontoController.php:1006` (`calcularSaldoAteMes`, do "Saldo anterior" do espelho/PDF/XLSX).
+(Na Tarefa 6, `TenantController.php:625` também passou a chamar `somarHorasPagasDaCompetencia` — a ficha do
 admin precisou da mesma soma para exibir a linha "Horas pagas" na aba de batidas.)
 
 Método público novo, para as telas exibirem a linha:
@@ -117,10 +122,10 @@ public function somarHorasPagasDaCompetencia(User $user, ?Tenant $tenant, int $a
 
 ### 4.3 Regra que impede horas de sumirem caladas
 
-Os dois agregadores têm saídas antecipadas: colaborador sem `JornadaColaborador` (`:279` em
-`calcularSaldoAteMes`, `:372` em `calcularSaldoAnual`), sem nenhuma batida (`:286`, `:379`), e
+Os dois agregadores têm saídas antecipadas: colaborador sem `JornadaColaborador` (`:307` em
+`calcularSaldoAteMes`, `:400` em `calcularSaldoAnual`), sem nenhuma batida (`:314`, `:407`), e
 `$inicio > $fim` quando a varredura mensal — que só percorre de `max(início da contagem, 01/jan)` até
-`min(hoje, fim do período)` — fecha vazia (`:298`, `:390`).
+`min(hoje, fim do período)` — fecha vazia (`:326`, `:418`).
 
 **A soma dos lançamentos (`$horasPagas`) acontece FORA e ANTES dessas condições**, e cada uma delas retorna
 `$horasPagas` em vez de `0`. Um lançamento numa competência anterior à primeira batida, ou de um colaborador
@@ -128,7 +133,7 @@ sem jornada configurada, **ainda conta**. Perder horas em silêncio é pior do q
 precise explicar.
 
 **Corolário para os chamadores:** ninguém pode repetir a condição do lado de fora. `montarDadosFolha`
-(`PontoController.php:907`) chamava `calcularSaldoAteMes` apenas quando `$jornada !== null` e usava `0` no
+(`PontoController.php:912`) chamava `calcularSaldoAteMes` apenas quando `$jornada !== null` e usava `0` no
 resto — exatamente o guard que o método já faz por dentro, só que sem devolver os lançamentos. O efeito era
 600 minutos de diferença entre o painel `/ponto` e o "Saldo anterior" do espelho para o mesmo colaborador. A
 chamada é **incondicional** (corrigido na Tarefa 4, coberto por
@@ -204,8 +209,10 @@ Quantidade:   [ 100 ] h  [ 30 ] min
 Motivo:       [ Horas pagas na folha de agosto/2026                 ]
 ```
 
-O DTO converte para `minutos` com sinal. Validação: quantidade total `> 0` (o sinal decide o resto),
-competência não futura, motivo não vazio.
+O DTO converte para `minutos` com sinal. Validação: quantidade total `> 0` (o sinal decide o resto) e `horas`
+dentro do teto de sanidade de `100.000`, competência não futura, motivo com **ao menos 3 caracteres depois do
+`trim`**. Cada regra vale nas **duas** camadas — `Assert\*` no DTO (com `normalizer: 'trim'`, senão `"  x  "`
+passa) e `GuardaHorasPagas::validarInput()`, que é o gate real: o formulário não é a única porta.
 
 ### Rotas
 
@@ -237,14 +244,42 @@ Abaixo da tabela do mês, em `app/templates/ponto/_folha_table.html.twig`:
   Saldo do banco de horas .....  -88h00
 ```
 
-A linha **só aparece quando há lançamento na competência** — mês sem lançamento fica exatamente como está
-hoje. Sem motivo, sem quem lançou.
+O bloco **só aparece quando há lançamento na competência** — mês sem lançamento fica exatamente como está
+hoje, sem nenhuma das três linhas. Sem motivo, sem quem lançou.
 
-Mesma linha em `app/templates/ponto/folha_pdf.html.twig` e em
-`app/src/Ponto/Service/FolhaPontoXlsxExporter.php`. Em `montarDadosFolha()` (`PontoController.php:907`) entra
+O "Saldo do mês" do bloco é o **último `saldoAcumulado` não-nulo** das linhas da tabela (o mesmo número da
+última célula preenchida da coluna "Banco de Horas"), calculado por
+`FolhaPontoBuilder::saldoAcumuladoFinal()` e passado **pronto** pelos controllers — no Twig viraria laço com
+estado. Competência sem batida nenhuma devolve `null` e o bloco trata como zero, para que a soma continue
+existindo justamente no mês em que só há o lançamento.
+
+> ⚠️ **Armadilha, custou rodadas nesta frente:** `_folha_table.html.twig` é incluído por **dois** lugares —
+> `app/templates/ponto/index.html.twig` (via `PontoController::index()`) e
+> `app/templates/tenant/edit_user_role.html.twig` (via `TenantController::editUserRole()`), cada um com
+> `only`. Toda variável nova do partial precisa sair dos **dois** renders; o partial se protege com
+> `is defined`, então esquecer um deles **não quebra a página** — só mostra número errado em silêncio.
+
+**PDF e XLSX ganham APENAS a linha "Horas pagas"** (`app/templates/ponto/folha_pdf.html.twig` e
+`app/src/Ponto/Service/FolhaPontoXlsxExporter.php`). Em `montarDadosFolha()` (`PontoController.php:912`) entra
 a chave `horasPagasMinutos` (competência exibida). Não existe chave própria para os lançamentos de meses
 anteriores: eles já vêm embutidos em `saldoBancoAnteriorMinutos`, que passa por `calcularSaldoAteMes` e
 portanto já soma os lançamentos anteriores — somar de novo aqui seria contar em dobro.
+
+**Decisão do dono (onda final de correção): o lançamento NÃO entra em "Saldo do Banco de Horas Atual" nem em
+"Horas a Compensar" do bloco assinado.** Uma rodada anterior somou, e estava errado. Esses dois campos
+derivam do `saldoAcumulado` da última linha da tabela, e `buildRows` faz esse acumulado **nascer em zero no
+primeiro dia do intervalo pedido** (o PDF chama `buildRows($inicioMes, $fimMes, …)`): apesar do rótulo, o
+número é o saldo **daquele mês**, não o banco acumulado. Somar um lançamento mensal a um saldo mensal que não
+representa o banco produzia número sem significado — colaborador acumula 100h, o escritório paga em dinheiro
+e lança `-6000` em agosto, agosto é trabalhado na jornada exata, e o papel passava a dizer
+**"Horas a Compensar: 100:00"**, cobrando de volta o que acabou de ser pago. Coberto por
+`app/tests/Ponto/Functional/HorasPagasTotalAssinadoTest.php`, que inclui esse caso e um cenário de
+não-regressão para tenant **sem nenhum lançamento** (os quatro campos idênticos aos de produção).
+
+> **Follow-up conhecido, fora desta frente:** o rótulo **"Saldo do Banco de Horas Atual"** do PDF é
+> **enganoso** desde antes desta feature — ele mostra o saldo do mês exportado, não o banco acumulado.
+> Corrigi-lo (renomear o rótulo ou passar a calcular o acumulado de verdade) muda o documento assinado de
+> **todos os escritórios** e exige decisão própria do dono: é frente separada, não remendo desta.
 
 O card de saldo em `app/templates/ponto/index.html.twig:30-35` vem de `calcularSaldoAnual` e passa a refletir
 o lançamento **sem alteração de template**.

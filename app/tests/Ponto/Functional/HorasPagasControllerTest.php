@@ -553,6 +553,72 @@ final class HorasPagasControllerTest extends JusPrimeWebTestCase
         self::assertSame(0, $this->contarLancamentos($colaborador), 'competência futura não pode gravar');
     }
 
+    #[TestDox('motivo com menos de 3 caracteres uteis e recusado e nada e gravado')]
+    public function testMotivoCurtoRecusadoNoHttp(): void
+    {
+        // Spec §3: mínimo de 3 caracteres DEPOIS do trim. "  x  " passa pelo NotBlank cru (não é
+        // string vazia) e tem 5 caracteres brutos — só o normalizador `trim` do DTO o pega.
+        $client = static::createClient();
+        $this->instalarCsrfStorage();
+        $tenant      = $this->criarTenant();
+        $admin       = $this->criarAdmin($tenant);
+        $colaborador = $this->criarUsuario($tenant);
+
+        $this->logarComTenant($client, $admin, $tenant);
+        $client->request(
+            'POST',
+            $this->rotaLancar($tenant, $colaborador),
+            $this->payload($this->tokenLancar($colaborador), ['motivo' => '  x  ']),
+        );
+
+        self::assertResponseRedirects();
+        self::assertSame(0, $this->contarLancamentos($colaborador), 'motivo curto não pode gravar');
+    }
+
+    #[TestDox('quantidade de horas absurda e recusada com mensagem, sem 500 do banco')]
+    public function testHorasAbsurdasNaoDerrubamComErro500(): void
+    {
+        // 100.000.000 horas = 6.000.000.000 minutos, muito acima do `integer` do Postgres: antes do
+        // teto de sanidade, o INSERT estourava e o admin levava um 500. O dono recusou teto de
+        // NEGÓCIO de propósito; isto é guarda contra estouro.
+        $client = static::createClient();
+        $this->instalarCsrfStorage();
+        $tenant      = $this->criarTenant();
+        $admin       = $this->criarAdmin($tenant);
+        $colaborador = $this->criarUsuario($tenant);
+
+        $this->logarComTenant($client, $admin, $tenant);
+        $client->request(
+            'POST',
+            $this->rotaLancar($tenant, $colaborador),
+            $this->payload($this->tokenLancar($colaborador), ['horas' => 100000000, 'minutos' => 0]),
+        );
+
+        self::assertResponseRedirects(null, null, 'a recusa é por redirect com flash, nunca por erro 500');
+        self::assertSame(0, $this->contarLancamentos($colaborador), 'quantidade absurda não pode gravar');
+    }
+
+    #[TestDox('lancamento grande porem dentro do teto de sanidade continua sendo aceito')]
+    public function testHorasNoTetoDeSanidadeAindaGravam(): void
+    {
+        // O teto não pode virar teto de negócio disfarçado: 100.000h (o limite) ainda grava.
+        $client = static::createClient();
+        $this->instalarCsrfStorage();
+        $tenant      = $this->criarTenant();
+        $admin       = $this->criarAdmin($tenant);
+        $colaborador = $this->criarUsuario($tenant);
+
+        $this->logarComTenant($client, $admin, $tenant);
+        $client->request(
+            'POST',
+            $this->rotaLancar($tenant, $colaborador),
+            $this->payload($this->tokenLancar($colaborador), ['horas' => 100000, 'minutos' => 0]),
+        );
+
+        self::assertResponseRedirects();
+        self::assertSame(-6000000, $this->lancamentosDe($colaborador)[0]->getMinutos(), 'o limite é inclusivo');
+    }
+
     // ----------------------------------------------------------------- helpers
 
     private function rotaLancar(Tenant $tenant, User $colaborador): string

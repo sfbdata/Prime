@@ -58,6 +58,56 @@ final class LancarHorasPagasUseCaseTest extends TestCase
         ($this->useCase())($this->input(motivo: '   '), $this->user(2), $this->user(1), $this->tenant(1));
     }
 
+    #[TestDox('motivo com menos de 3 caracteres uteis e recusado')]
+    public function testMotivoCurtoRecusado(): void
+    {
+        // Spec §3: mínimo de 3 caracteres DEPOIS do trim. "  x  " tem 5 caracteres brutos e um só
+        // útil — contar sem trim deixaria passar. O motivo é a única defesa documental de um
+        // lançamento que altera verba trabalhista.
+        $this->expectException(HorasPagasInvalidaException::class);
+        $this->expectExceptionMessage('O motivo precisa ter ao menos 3 caracteres.');
+
+        ($this->useCase())($this->input(motivo: '  x  '), $this->user(2), $this->user(1), $this->tenant(1));
+    }
+
+    #[TestDox('motivo com exatamente 3 caracteres uteis e aceito (limite inclusivo)')]
+    public function testMotivoComTresCaracteresAceito(): void
+    {
+        $lancamento = ($this->useCase())(
+            $this->input(motivo: ' abc '),
+            $this->user(2),
+            $this->user(1),
+            $this->tenant(1),
+        );
+
+        self::assertSame('abc', $lancamento->getMotivo(), 'o limite é inclusivo e o motivo é gravado sem os espaços');
+    }
+
+    #[TestDox('quantidade de horas absurda e recusada com mensagem, nao com 500 do banco')]
+    public function testHorasAcimaDoTetoDeSanidadeRecusadas(): void
+    {
+        // NÃO é teto de negócio (o dono recusou um): é guarda contra estouro. 100.000.001 horas
+        // viram 6.000.000.060 minutos, acima do `integer` do Postgres — sem esta recusa o admin
+        // levava um 500 no INSERT.
+        $this->expectException(HorasPagasInvalidaException::class);
+        $this->expectExceptionMessage('A quantidade de horas não pode passar de 100000.');
+
+        ($this->useCase())($this->input(horas: 100000001), $this->user(2), $this->user(1), $this->tenant(1));
+    }
+
+    #[TestDox('quantidade de horas no teto de sanidade ainda e aceita (limite inclusivo)')]
+    public function testHorasNoTetoDeSanidadeAceitas(): void
+    {
+        $lancamento = ($this->useCase())(
+            $this->input(operacao: 'descontar', horas: 100000, minutos: 0),
+            $this->user(2),
+            $this->user(1),
+            $this->tenant(1),
+        );
+
+        self::assertSame(-6000000, $lancamento->getMinutos(), 'o teto é inclusivo e cabe folgado no integer do Postgres');
+    }
+
     #[TestDox('competencia futura e recusada')]
     public function testCompetenciaFuturaRecusada(): void
     {

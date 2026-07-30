@@ -70,7 +70,7 @@ final class HorasPagasController extends AbstractController
         if (!$form->isSubmitted() || !$form->isValid()) {
             $this->addFlash('error', $this->primeiroErro($form));
 
-            return $this->voltarParaFicha($tenantId, $id, $request);
+            return $this->voltarParaFicha($tenantId, $id);
         }
 
         try {
@@ -80,7 +80,7 @@ final class HorasPagasController extends AbstractController
             $this->addFlash('error', $excecao->getMessage());
         }
 
-        return $this->voltarParaFicha($tenantId, $id, $request);
+        return $this->voltarParaFicha($tenantId, $id);
     }
 
     #[Route(
@@ -108,7 +108,7 @@ final class HorasPagasController extends AbstractController
         if (!$form->isSubmitted() || !$form->isValid()) {
             $this->addFlash('error', $this->primeiroErro($form));
 
-            return $this->voltarParaFicha($tenantId, $id, $request);
+            return $this->voltarParaFicha($tenantId, $id);
         }
 
         try {
@@ -118,7 +118,7 @@ final class HorasPagasController extends AbstractController
             $this->addFlash('error', $excecao->getMessage());
         }
 
-        return $this->voltarParaFicha($tenantId, $id, $request);
+        return $this->voltarParaFicha($tenantId, $id);
     }
 
     #[Route(
@@ -146,7 +146,7 @@ final class HorasPagasController extends AbstractController
             $this->addFlash('error', $excecao->getMessage());
         }
 
-        return $this->voltarParaFicha($tenantId, $id, $request);
+        return $this->voltarParaFicha($tenantId, $id);
     }
 
     /**
@@ -242,19 +242,17 @@ final class HorasPagasController extends AbstractController
         return 'Erro ao registrar horas pagas. Verifique os campos.';
     }
 
-    private function voltarParaFicha(int $tenantId, int $colaboradorId, Request $request): Response
+    private function voltarParaFicha(int $tenantId, int $colaboradorId): Response
     {
-        $parametros = [
+        // Sem `competencia` de propósito: nenhum formulário desta tela envia o campo (a aba
+        // "Horas pagas" não tem seletor de mês), então o `?competencia=` montado a partir do POST
+        // era código morto — e código morto que monta querystring convida a acreditar que a ficha
+        // volta no mês do lançamento, o que nunca aconteceu. A ficha reabre no seu padrão: o mês
+        // mais recente COM DADO, que passa a incluir o lançamento recém-criado.
+        return $this->redirectToRoute('app_tenant_user_edit_role', [
             'tenantId' => $tenantId,
             'id'       => $colaboradorId,
             'tab'      => 'horas-pagas',
-        ];
-
-        $competencia = (string) $request->request->get('competencia', '');
-        if ($competencia !== '') {
-            $parametros['competencia'] = $competencia;
-        }
-
-        return $this->redirectToRoute('app_tenant_user_edit_role', $parametros);
+        ]);
     }
 }
