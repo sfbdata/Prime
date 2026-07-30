@@ -79,6 +79,8 @@ final class ImportarRelatorioCarteiraUseCase
 
         $criadas = [];
         $atualizadas = [];
+        $referenciasReutilizadas = [];
+        $vencimentosAlterados = [];
         $divergentes = [];
         $objetosNovos = [];
         $temCasoPorObjeto = [];   // identificacao => bool (caso ativo real ou simulado nesta prévia)
@@ -113,18 +115,29 @@ final class ImportarRelatorioCarteiraUseCase
                 $nomesPorObjeto[$identif][] = $nomeBoleto;
             }
 
-            $jaExiste = $caso !== null
-                && $this->obrigacaoRepository->findOnePorReferenciaExternaNoCaso($caso, $boleto->nn) !== null;
-            if ($jaExiste) {
+            // Chave (caso, NN, competência) — ver `cobranca-importar-chave-competencia.md`. Mesmo NN com
+            // competência diferente é OUTRA dívida: a prévia tem de mostrá-la como criação, não como
+            // atualização, senão o operador confirma sem saber que vai nascer uma obrigação a mais.
+            $existente = $caso !== null
+                ? $this->obrigacaoRepository->findOnePorReferenciaECompetenciaNoCaso($caso, $boleto->nn, $boleto->competencia)
+                : null;
+            if ($existente !== null) {
                 $atualizadas[] = $boleto->nn;
+                if ($this->vencimentoMudou($existente, $boleto)) {
+                    $vencimentosAlterados[] = $boleto->nn;
+                }
 
                 continue;
+            }
+
+            if ($caso !== null && $this->obrigacaoRepository->findOnePorReferenciaExternaNoCaso($caso, $boleto->nn) !== null) {
+                $referenciasReutilizadas[] = $boleto->nn;
             }
 
             $criadas[] = $boleto->nn;
         }
 
-        return new ResultadoImportacao($criadas, $atualizadas, $leitura->rejeitadas, $leitura->linhasIgnoradas, count($objetosNovos), $pessoasNovas, $casosNovos, $divergentes);
+        return new ResultadoImportacao($criadas, $atualizadas, $leitura->rejeitadas, $leitura->linhasIgnoradas, count($objetosNovos), $pessoasNovas, $casosNovos, $divergentes, $referenciasReutilizadas, $vencimentosAlterados);
     }
 
     /**
@@ -144,6 +157,8 @@ final class ImportarRelatorioCarteiraUseCase
         return $this->em->wrapInTransaction(function () use ($carteira, $leitura, $tenant, $user, $referencia): ResultadoImportacao {
             $criadas = [];
             $atualizadas = [];
+            $referenciasReutilizadas = [];
+            $vencimentosAlterados = [];
             $divergentes = [];
             $objetosCriados = 0;
             $pessoasCriadas = 0;
@@ -179,8 +194,16 @@ final class ImportarRelatorioCarteiraUseCase
                     ? $this->resolverOuCriarAcordo($carteira, $caso, $boleto, $tenant, $user)
                     : null;
 
-                $obrigacao = $this->obrigacaoRepository->findOnePorReferenciaExternaNoCaso($caso, $boleto->nn);
+                // Chave (caso, NN, competência) — `cobranca-importar-chave-competencia.md`. Buscar só pelo
+                // NN engolia o boleto novo quando a contábil reaproveitava o número, e ainda gravava os
+                // encargos dele sobre a dívida antiga.
+                $obrigacao = $this->obrigacaoRepository->findOnePorReferenciaECompetenciaNoCaso($caso, $boleto->nn, $boleto->competencia);
                 if ($obrigacao === null) {
+                    if ($this->obrigacaoRepository->findOnePorReferenciaExternaNoCaso($caso, $boleto->nn) !== null) {
+                        // Mesmo NN, competência diferente: outra dívida. Nasce separada e o operador
+                        // precisa ver isso no resumo — silêncio aqui é o defeito que a spec corrige.
+                        $referenciasReutilizadas[] = $boleto->nn;
+                    }
                     $obrigacao = $this->registrarObrigacao->executar($this->obrigacaoInput($caso->getId(), $boleto), $tenant, $user);
                     if ($acordo !== null) {
                         $obrigacao->setAcordoOrigem($acordo);
@@ -200,13 +223,21 @@ final class ImportarRelatorioCarteiraUseCase
                     $this->obrigacaoRepository->salvar($obrigacao, true);
                 }
 
+                // Boleto reemitido: mesma dívida (mesma competência) com vencimento novo. A data gravada
+                // NÃO é alterada — o importado preserva o cadastro (invariável 20) —, mas o operador tem
+                // de ficar sabendo, porque os encargos passam a correr sobre uma data que não é a do
+                // documento que ele tem em mãos.
+                if ($this->vencimentoMudou($obrigacao, $boleto)) {
+                    $vencimentosAlterados[] = $boleto->nn;
+                }
+
                 // Reimportação idempotente: atualiza SÓ os encargos ao snapshot novo e RE-CONGELA na data
                 // nova (spec §9). Preserva o valorOriginal (invariável 20) e não duplica.
                 $this->materializarEncargosImportados($obrigacao, $boleto, $referencia);
                 $atualizadas[] = $boleto->nn;
             }
 
-            return new ResultadoImportacao($criadas, $atualizadas, $leitura->rejeitadas, $leitura->linhasIgnoradas, $objetosCriados, $pessoasCriadas, $casosCriados, $divergentes);
+            return new ResultadoImportacao($criadas, $atualizadas, $leitura->rejeitadas, $leitura->linhasIgnoradas, $objetosCriados, $pessoasCriadas, $casosCriados, $divergentes, $referenciasReutilizadas, $vencimentosAlterados);
         });
     }
 
@@ -393,6 +424,17 @@ final class ImportarRelatorioCarteiraUseCase
         return $input;
     }
 
+    /**
+     * O relatório traz vencimento diferente do que está gravado? Acontece quando a contábil REEMITE o
+     * boleto para o devedor conseguir pagar: mesmo NN, mesma competência, data nova. É a mesma dívida
+     * (por isso não duplica), mas o operador precisa ver — os encargos passam a correr de uma data que
+     * não é a do documento em mãos.
+     */
+    private function vencimentoMudou(Obrigacao $obrigacao, BoletoImportavel $boleto): bool
+    {
+        return $obrigacao->getVencimentoOriginal()->format('Y-m-d') !== $boleto->vencimento->format('Y-m-d');
+    }
+
     private function obrigacaoInput(?int $casoId, BoletoImportavel $boleto): RegistrarObrigacaoInput
     {
         $descricao = $boleto->descricao();
@@ -406,6 +448,7 @@ final class ImportarRelatorioCarteiraUseCase
         $input->descricao = mb_substr($descricao, 0, 255);
         $input->vencimentoOriginal = $boleto->vencimento;
         $input->referenciaExterna = $boleto->nn;
+        $input->competencia = $boleto->competencia;
 
         if ($boleto->acordo !== null) {
             // Parcela de acordo (§3.2.3): valorOriginal É o principal NEGOCIADO — soma da coluna Valor

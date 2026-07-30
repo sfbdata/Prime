@@ -43,6 +43,14 @@ final class RegistrarObrigacaoInput
     public ?string $referenciaExterna = null;
 
     /**
+     * Competência (`MM/AAAA`) — o mês a que a dívida se refere. Junto da referência externa forma a chave
+     * de idempotência da importação (spec `cobranca-importar-chave-competencia.md`). Nula em cadastro
+     * manual; a entidade normaliza e descarta formato inválido.
+     */
+    #[Assert\Regex(pattern: '#^\d{2}/\d{4}$#', message: 'A competência deve estar no formato MM/AAAA.')]
+    public ?string $competencia = null;
+
+    /**
      * Taxas por-obrigação (spec taxa-por-obrigacao). Por encargo: `modo` ('herda'|'percent'|'reais'),
      * o bp (quando %) e o R$ em centavos (quando R$). O UseCase chama `entradaTaxas()` e o
      * ConversorTaxaEncargo grava o override. Default 'herda' = usa a taxa do caso. Nada é obrigatório.

@@ -37,6 +37,10 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Entity(repositoryClass: ObrigacaoRepository::class)]
 #[ORM\Table(name: 'cobranca_obrigacao')]
 #[ORM\Index(name: 'idx_cobranca_obrigacao_tenant_caso', columns: ['tenant_id', 'caso_id'])]
+// A chave de idempotência da importação — (caso, NN, competência) — é um índice ÚNICO PARCIAL com
+// `NULLS NOT DISTINCT`, criado por SQL cru na Version20260730120000. O Doctrine não representa índice
+// parcial nem essa cláusula, então ele NÃO é declarado aqui de propósito: declarar geraria um índice
+// duplicado e sem as duas propriedades que importam.
 #[ORM\HasLifecycleCallbacks]
 class Obrigacao implements TenantAware, Auditavel
 {
@@ -151,6 +155,21 @@ class Obrigacao implements TenantAware, Auditavel
     /** Referência da fonte externa (importação), para deduplicação intra-tenant. */
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $referenciaExterna = null;
+
+    /**
+     * Competência: o MÊS a que a dívida se refere, formato `MM/AAAA`. Junto de `referenciaExterna` forma a
+     * chave de idempotência da importação (spec `cobranca-importar-chave-competencia.md`).
+     *
+     * O NN sozinho NÃO identifica a dívida — a contábil o reaproveita (medido em produção: o NN 61457 é
+     * uma taxa de 08/2022 na TOP LIFE I e outra de 07/2026 na TOP LIFE 2). E o VENCIMENTO não serve como
+     * discriminador: boleto reemitido para o devedor pagar mantém o NN e muda a data, então casar por data
+     * duplicaria a dívida. A competência não muda — taxa de 08/2022 reemitida continua sendo de 08/2022.
+     *
+     * Nula em obrigação cadastrada à mão e em dado anterior ao backfill: nesse caso a importação cai no
+     * comportamento antigo (casa só pelo NN), sem regredir.
+     */
+    #[ORM\Column(length: 7, nullable: true)]
+    private ?string $competencia = null;
 
     /** Acordo que GEROU esta obrigação como parcela (SPEC §12); nulo se não é parcela de acordo. */
     #[ORM\ManyToOne(targetEntity: Acordo::class, inversedBy: 'parcelas')]
@@ -591,6 +610,22 @@ class Obrigacao implements TenantAware, Auditavel
     public function setReferenciaExterna(?string $referenciaExterna): self
     {
         $this->referenciaExterna = $referenciaExterna;
+
+        return $this;
+    }
+
+    public function getCompetencia(): ?string
+    {
+        return $this->competencia;
+    }
+
+    /** Normaliza para `MM/AAAA`; qualquer outra coisa (inclusive string vazia) vira null. */
+    public function setCompetencia(?string $competencia): self
+    {
+        $competencia = $competencia === null ? null : trim($competencia);
+        $this->competencia = ($competencia !== null && preg_match('#^\d{2}/\d{4}$#', $competencia) === 1)
+            ? $competencia
+            : null;
 
         return $this;
     }

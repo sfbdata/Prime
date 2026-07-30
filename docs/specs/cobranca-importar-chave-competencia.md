@@ -82,8 +82,46 @@ A competência **existe** hoje, mas só como texto dentro de `descricao`, montad
 (`BoletoImportavel::descricao()`): `"<classes> — competência MM/AAAA"`.
 
 - **Coluna nova** `competencia` em `cobranca_obrigacao` — `varchar(7)`, nullable, formato `MM/AAAA`.
-- **Índice** `(tenant_id, referencia_externa, competencia)`.
 - **Backfill** por regex sobre `descricao`: `compet.ncia ([0-9]{2}/[0-9]{4})`.
+- **Troca do índice ÚNICO parcial** (ver abaixo).
+
+### 5.1. O índice único que a implementação revelou
+
+A `Version20260710160000` já criava, por SQL cru, um índice **único parcial**:
+
+```sql
+CREATE UNIQUE INDEX uniq_cobranca_obrigacao_ref_externa ON cobranca_obrigacao
+  (caso_id, referencia_externa) WHERE referencia_externa IS NOT NULL
+```
+
+Ele impõe **no banco** exatamente a suposição que esta spec derruba: um boleto por (caso, NN). Sem
+trocá-lo, a segunda dívida bate em `UniqueConstraintViolationException` e a importação inteira aborta
+(a confirmação roda em transação única).
+
+Isto **não estava previsto** na versão de 30/07 desta spec — foi o teste
+`testMesmoNnCompetenciaDiferenteCriaAsDuas` que expôs, ao falhar com violação de unicidade em vez da
+asserção. Registro porque é o argumento concreto a favor de escrever o teste antes: a leitura do código
+não mostrou o índice, que mora numa migration antiga e é invisível ao mapeamento Doctrine.
+
+Substituição:
+
+```sql
+CREATE UNIQUE INDEX uniq_cobranca_obrigacao_ref_competencia ON cobranca_obrigacao
+  (caso_id, referencia_externa, competencia) NULLS NOT DISTINCT
+  WHERE referencia_externa IS NOT NULL
+```
+
+**`NULLS NOT DISTINCT` (PostgreSQL 15+; medido: 15.17) é obrigatório.** Sem ele o Postgres trata cada
+NULL como valor distinto, e duas obrigações com o mesmo NN e competência nula passariam — justamente as
+mais antigas, que o backfill não alcança. Coberto por `testDuasCompetenciasNulasNaoDuplicam`.
+
+O índice **não é declarado** no atributo `#[ORM\Index]` da entidade: o Doctrine não representa índice
+parcial nem `NULLS NOT DISTINCT`, e declará-lo geraria um segundo índice sem as duas propriedades que
+importam.
+
+**Invariante que muda:** de "no máximo uma obrigação por (caso, NN)" para "por (caso, NN, competência),
+contando nulos como iguais". O teste `testIndiceUnicoBloqueiaObrigacaoDuplicada` foi atualizado para
+provar a nova forma.
 
 **Cobertura do backfill medida em produção:** 3.270 de 3.300 obrigações (**99,1%**). As 30 restantes são
 cadastro manual — ficam com `competencia` nula e caem na regra da última linha de §4, isto é, exatamente o

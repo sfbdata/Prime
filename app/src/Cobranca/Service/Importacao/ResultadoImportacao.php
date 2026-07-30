@@ -15,7 +15,11 @@ final class ResultadoImportacao
      * @param list<string>         $obrigacoesCriadas     NNs de boletos que viram Obrigação nova
      * @param list<string>         $obrigacoesAtualizadas NNs de boletos já existentes (reimportação idempotente)
      * @param list<LinhaRejeitada> $rejeitadas
-     * @param list<string>         $sacadosDivergentes    objetos onde o Sacado do relatório difere da pessoa cobrada atual
+     * @param list<string>         $sacadosDivergentes       objetos onde o Sacado do relatório difere da pessoa cobrada atual
+     * @param list<string>         $referenciasReutilizadas  NNs que já existiam no caso com OUTRA competência — dívida
+     *                                                       diferente com o mesmo número, nasceu separada
+     * @param list<string>         $vencimentosAlterados     NNs cuja dívida é a mesma (competência igual) mas o relatório
+     *                                                       trouxe vencimento novo — boleto reemitido
      */
     public function __construct(
         public readonly array $obrigacoesCriadas,
@@ -26,7 +30,19 @@ final class ResultadoImportacao
         public readonly int $pessoasCriadas,
         public readonly int $casosCriados,
         public readonly array $sacadosDivergentes,
+        public readonly array $referenciasReutilizadas = [],
+        public readonly array $vencimentosAlterados = [],
     ) {
+    }
+
+    /**
+     * Houve NN reutilizado ou vencimento alterado? São os dois avisos que a spec da chave
+     * (`cobranca-importar-chave-competencia.md`) exige mostrar: o defeito que ela corrige era justamente
+     * o silêncio nesses casos.
+     */
+    public function temAvisos(): bool
+    {
+        return $this->referenciasReutilizadas !== [] || $this->vencimentosAlterados !== [];
     }
 
     public function totalImportadas(): int
