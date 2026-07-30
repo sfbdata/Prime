@@ -16,17 +16,28 @@ O acordo já entra no sistema pela coluna "Informações do acordo" da inadimpl�
    o acordo; o importador não apaga o que sumiu. Se uma importação anterior já as tinha criado, elas
    ficam **abertas para sempre**, somando junto com a parcela do acordo.
 
-O item 2 **não é hipótese**. Medido contra o banco de **produção** em 2026-07-29:
+O item 2 **não é hipótese**. Medido contra o banco de **produção** — números **revisados em 2026-07-30**,
+depois que a investigação da chave de importação (`cobranca-importar-chave-competencia.md`) mostrou que o
+NN se repete entre carteiras:
 
 | Acordo | Unidade / Sacado | NNs indevidos abertos | Principal duplicado |
 |---|---|---|---|
-| 28 | QUADRA 01 CHACARA 01/09 — Francisco de Carvalho Coutinho | 60490 | R$ 145,00 |
-| 31 | QUADRA 04 CHACARA 02/23 — Alilson Pereira de Sousa | 60049, 60240 | R$ 290,00 |
 | 37 | QUADRA 05 CHACARA 03/04 — Gessi Pereira dos Santos | 60145, 60334, 60812, 61326 | R$ 680,00 |
 
-**Total: R$ 1.115,00 de principal**, e crescendo — juros, multa e honorários são calculados ao vivo e
-seguem correndo sobre dívida já renegociada. Das 25 contas originais dos 7 acordos, só essas 7 existem
-no banco; as outras 18 nunca foram importadas.
+**Total: R$ 680,00 de principal, 1 sacado**, e crescendo — juros, multa e honorários são calculados ao
+vivo e seguem correndo sobre dívida já renegociada.
+
+> **Correção de um erro desta spec.** A versão de 29/07 afirmava **R$ 1.115,00 em 3 sacados**, incluindo os
+> acordos 28 e 31. Estava errado. Os NNs 60049, 60240 e 60490 que apareciam no banco são dívidas de
+> **competência 2022, R$ 145,00, da carteira TOP LIFE I** — outros boletos, que apenas repetem o número dos
+> boletos de 2026 dos acordos 28 e 31. Não são as contas originais desses acordos, e **não podem ser
+> tocadas**: marcá-las como substituídas apagaria R$ 435,00 de cobrança legítima de terceiros.
+>
+> O erro veio de casar boletos **só pelo NN**. É a mesma causa raiz da spec da chave — por isso ela é
+> pré-requisito desta.
+
+Das 25 contas originais dos 7 acordos, **4 existem** no banco (todas do acordo 37, conferidas por NN +
+competência + vencimento + valor); as outras **21 nunca foram importadas**.
 
 Portanto: **isto é a correção de um bug de dinheiro em produção**, não uma melhoria de rastreabilidade.
 
@@ -60,8 +71,10 @@ Parcela da planilha sem `Obrigacao` de mesmo NN na carteira → cria:
 
 ### 3.2. Reconciliar contas originais — **a correção**
 Para cada NN da seção "contas originais":
-- Se **existe** `Obrigacao` com esse `referencia_externa` na carteira **e** `acordo_substituto_id` é
-  nulo → `setAcordoSubstituto(<acordo>)`.
+- Se **existe** `Obrigacao` com esse `referencia_externa` **E a mesma competência** na carteira, **e**
+  `acordo_substituto_id` é nulo → `setAcordoSubstituto(<acordo>)`. **O casamento por NN sozinho é
+  proibido aqui** (ver `cobranca-importar-chave-competencia.md`): foi o que quase marcou 3 dívidas de
+  2022 da TOP LIFE I como substituídas por acordos de 2026 da TOP LIFE 2.
 - Se já está marcada → no-op.
 - Se **não existe** → **cria, já nascendo substituída** (§3.2.1).
 
@@ -76,14 +89,14 @@ descarta parcelas de acordo **Rompido/Cancelado** e, por derivação, restaura a
 está coberto** e não exige mecanismo novo. O teste de regressão de §9 existe para não deixar isso
 regredir.
 
-### 3.2.1. Criar as 18 contas ausentes (decisão do dono, 2026-07-30 — reverte recomendação anterior)
+### 3.2.1. Criar as 21 contas ausentes (decisão do dono, 2026-07-30 — reverte recomendação anterior)
 
-Das 25 contas originais dos 7 acordos, **7 existem** no banco de produção e **18 nunca foram
-importadas** (viraram acordo na contábil antes de qualquer importação passar por elas). Elas são
-criadas, **já com `acordoSubstituto` preenchido no mesmo fluxo** — nascem substituídas e portanto
+Das 25 contas originais dos 7 acordos, **4 existem** no banco de produção (todas do acordo 37) e **21
+nunca foram importadas** (viraram acordo na contábil antes de qualquer importação passar por elas). Elas
+são criadas, **já com `acordoSubstituto` preenchido no mesmo fluxo** — nascem substituídas e portanto
 **nunca entram no saldo** (§3.2, `doCasoExigiveis`). Nenhum saldo muda hoje por causa delas.
 
-**Valor histórico envolvido: R$ 3.060,00** (18 × R$ 170,00, valores da planilha).
+**Valor histórico envolvido: R$ 3.570,00** (21 × R$ 170,00, valores da planilha).
 
 **Por que reverti minha recomendação.** Eu havia recomendado não criá-las, com o argumento de que
 seria "inventar passivo". O argumento estava errado: a dívida **foi real** — o condômino devia aqueles
@@ -92,12 +105,11 @@ mostra "1 substituída" onde o documento da contábil diz 6, e ninguém consegue
 veio.
 
 **Risco aceito pelo dono, explicitamente.** Se um desses acordos for **rompido**, `doCasoExigiveis`
-restaura as originais para a cobrança (invariável 20 — comportamento correto e desejado). Com as 18
-criadas, voltariam R$ 3.060,00 com juros e multa retroativos ao vencimento original, e com **valor
-vindo da planilha, não de um boleto importado**. Isso importa porque as duas fontes já divergem em 3
-casos (§4: R$ 145,00 no banco × R$ 170,00 na planilha). Consequência prática: num rompimento, o valor
-restaurado pode não ser exatamente o que a contábil reemitiria — a conferência com a contábil passa a
-ser obrigatória nesse cenário.
+restaura as originais para a cobrança (invariável 20 — comportamento correto e desejado). Com as 21
+criadas, voltariam R$ 3.570,00 com juros e multa retroativos ao vencimento original, e com **valor
+vindo da planilha, não de um boleto importado** — nunca conferido contra um boleto real. Consequência
+prática: num rompimento, o valor restaurado pode não ser exatamente o que a contábil reemitiria, e a
+conferência com a contábil passa a ser obrigatória nesse cenário.
 
 **Marcação de procedência (obrigatória).** A obrigação criada por este caminho registra na `observacao`
 que veio da planilha de acordos, com a data de emissão do relatório. Sem isso não há como distinguir,
@@ -108,16 +120,26 @@ distinção é exatamente o que alguém vai precisar no dia do rompimento.
 `Situação:` do cabeçalho → `StatusAcordo`. Mapeamento a fechar na implementação; `Em andamento` → `Ativo`
 é o único caso presente no dado atual. Situação desconhecida **não** altera o status: reporta e mantém.
 
-## 4. Divergência de valor entre as fontes
+## 4. A "divergência de valor" não existia — era casamento errado
 
-Medido: 3 dos 7 NNs valem **R$ 145,00** no banco de produção e **R$ 170,00** na planilha de acordos
-(60049, 60240, 60490).
+A versão de 29/07 desta spec registrava uma divergência: 3 NNs valendo **R$ 145,00** no banco e
+**R$ 170,00** na planilha (60049, 60240, 60490), e criava uma regra de "não sobrescrever valor" para
+lidar com ela.
 
-**Regra: não sobrescrever.** A obrigação existente mantém seu valor; só é marcada como substituída, e a
-divergência entra no resumo. O valor em produção pode refletir pagamento parcial ou a taxa vigente à
-época; alterá-lo mexeria em dinheiro sem base documental.
+**A investigação de 30/07 dissolveu a divergência: não eram os mesmos boletos.** Os do banco são de
+competência 2022, carteira TOP LIFE I; os da planilha são de competência 2026, carteira TOP LIFE 2. Duas
+dívidas distintas com o mesmo número. Não há divergência a tratar — havia um casamento errado a corrigir.
 
-Corolário: o casamento é **por NN**, nunca por valor.
+Regras que ficam:
+
+- **Casar por NN + competência**, dentro da carteira. Nunca por NN sozinho, nunca por valor.
+- **Não sobrescrever o valor** de obrigação existente. A regra sobrevive, agora como princípio geral (a
+  planilha não é autoridade sobre dinheiro já lançado), não como remendo para uma divergência inexistente.
+- Qualquer diferença de valor entre as fontes para um par (NN, competência) que **realmente** case entra no
+  resumo como divergência — e aí é sinal de problema de verdade, não de ruído.
+
+**Lição que a spec preserva:** um número igual não prova que é a mesma coisa. Antes de agir sobre dinheiro
+a partir de um casamento, verifique um segundo campo independente — aqui, competência e carteira.
 
 ## 5. Fora de escopo (decisão do dono, 2026-07-29)
 
@@ -152,12 +174,12 @@ Segunda execução do mesmo arquivo não altera nada.
 
 ## 8. Impacto operacional (comunicar antes de rodar em prod)
 
-O saldo devedor de **três unidades reais cai** ao confirmar (R$ 1.115,00 de principal, mais os encargos
-que vinham correndo em cima). Relatórios gerenciais já emitidos passam a discordar do sistema. Isso é o
-comportamento correto aparecendo — mas a equipe de cobrança precisa ser avisada, porque são sacados com
-quem se negocia.
+O saldo devedor de **uma unidade real cai** ao confirmar — QUADRA 05 CHACARA 03/04, Gessi Pereira dos
+Santos: R$ 680,00 de principal, mais os encargos que vinham correndo em cima. Relatórios gerenciais já
+emitidos passam a discordar do sistema. Isso é o comportamento correto aparecendo — mas a equipe de
+cobrança precisa ser avisada, porque é um sacado com quem se negocia.
 
-As **18 contas reconstruídas (§3.2.1) não mexem em saldo nenhum** hoje: nascem substituídas. Elas
+As **21 contas reconstruídas (§3.2.1) não mexem em saldo nenhum** hoje: nascem substituídas. Elas
 aparecem no histórico do acordo e só voltariam a contar num rompimento — ver o risco aceito em §3.2.1.
 
 Ordem recomendada: rodar o dry-run, conferir a tabela contra §1, confirmar, e só então emitir novo
@@ -174,7 +196,7 @@ relatório.
   - **conta original ausente é criada JÁ substituída** e **não aparece no saldo** (§3.2.1) — o teste
     tem de asserir o saldo, não só a existência da linha;
   - **conta reconstruída não é recriada** na segunda execução (idempotência por NN);
-  - **rompimento:** ao romper o acordo, as 25 originais (7 reais + 18 reconstruídas) voltam ao saldo e
+  - **rompimento:** ao romper o acordo, as 25 originais (4 reais + 21 reconstruídas) voltam ao saldo e
     as parcelas saem — uma vez cada, sem dobrar. Este é o teste que cobre o risco aceito em §3.2.1;
   - a obrigação reconstruída carrega a **marcação de procedência** na observação;
   - conta original **inexistente não é criada**;
