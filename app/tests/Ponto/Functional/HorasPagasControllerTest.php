@@ -66,6 +66,31 @@ final class HorasPagasControllerTest extends JusPrimeWebTestCase
         self::assertSame(0, $this->contarLancamentos($colaborador), 'nada pode ter sido gravado sem admin.users.manage');
     }
 
+    #[TestDox('perfil customizado COM admin.users.manage (sem bypass de role de sistema) lanca')]
+    public function testPerfilCustomizadoComAPermissaoCertaLanca(): void
+    {
+        // Ancoragem da string exigida. Os casos negativos provam que a rota NÃO aceita outra
+        // permissão; sem este positivo, renomear 'admin.users.manage' num refactor deixaria a
+        // suíte verde e tiraria o acesso, em silêncio, de todo escritório que usa perfil
+        // CUSTOMIZADO — o `criarAdmin()` dos demais testes tem `isSystem = true` e passa por
+        // bypass no PermissionChecker, então não ancora string nenhuma.
+        $client = static::createClient();
+        $this->instalarCsrfStorage();
+        $tenant      = $this->criarTenant();
+        $gestor      = $this->criarUsuarioComPermissao($tenant, 'admin.users.manage');
+        $colaborador = $this->criarUsuario($tenant);
+
+        $this->logarComTenant($client, $gestor, $tenant);
+        $client->request('POST', $this->rotaLancar($tenant, $colaborador), $this->payload($this->tokenLancar($colaborador)));
+
+        self::assertResponseRedirects();
+
+        $lancamentos = $this->lancamentosDe($colaborador);
+        self::assertCount(1, $lancamentos, 'perfil customizado com a permissão certa tem de conseguir lançar');
+        self::assertSame(-630, $lancamentos[0]->getMinutos());
+        self::assertSame($gestor->getId(), $lancamentos[0]->getCriadoPor()?->getId());
+    }
+
     #[TestDox('editar exige admin.users.manage: perfil com outra permissao recebe 403 e nada muda')]
     public function testEdicaoSemPermissaoRetorna403(): void
     {
@@ -609,6 +634,17 @@ final class HorasPagasControllerTest extends JusPrimeWebTestCase
         return $lancamento;
     }
 
+    /**
+     * ⚠️ Desabilita o `TenantFilter` no EntityManager COMPARTILHADO com a aplicação — é de propósito:
+     * aqui a leitura é a conferência do teste ("o que existe mesmo no banco?"), não a visão do
+     * usuário. Combinado com `disableReboot()`, o filtro fica desligado também nas requisições
+     * SEGUINTES do mesmo teste (o kernel não é recriado; quem o religa é o listener de cada
+     * request).
+     *
+     * **Não use este helper em teste de isolamento entre escritórios.** Ali ele produziria verde
+     * falso: o vazamento cross-tenant que o teste deveria pegar passaria despercebido justamente
+     * porque o filtro foi desligado pelo próprio teste.
+     */
     private function emSemFiltro(): EntityManagerInterface
     {
         $em = static::getContainer()->get(EntityManagerInterface::class);
