@@ -34,8 +34,26 @@ Valem para **toda** tarefa; não se repetem em cada passo.
 - `===`/`!==` sempre. Linha em branco antes do `return`. Nunca `else`/`elseif` depois de `if` que retorna ou lança.
 - Código, comentários e mensagens de commit em **português brasileiro**. Commit no imperativo, máx. 72 chars, sem ponto final.
 - Nomes: `camelCase` métodos/variáveis, `PascalCase` classes, `snake_case` rotas/templates/colunas.
-- **Todo comando PHP roda dentro do container:** `docker exec jusprime_php_dev bash -c 'cd app && <cmd>'`.
-  Nunca rodar `php`/`composer`/`bin/console` fora dele.
+- **Todo comando PHP roda dentro do container.** Nunca rodar `php`/`composer`/`bin/console` fora dele.
+- ⚠️ **O comando padrão do projeto (`cd app && ...`) dá VERDE FALSO nesta frente.** O container monta a
+  raiz do repositório, e `cd app` cai no **checkout principal** — que está noutra branch. Trabalhamos numa
+  worktree, então todo comando tem de apontar para ela:
+
+  ```bash
+  # testes da frente (código da frente, banco da frente):
+  scripts/frente-testar.sh ponto-horas-pagas                      # suíte completa
+  scripts/frente-testar.sh ponto-horas-pagas --filter <Nome>       # um teste
+
+  # console/composer da frente:
+  docker exec jusprime_php_dev bash -c 'cd /var/www/.claude/worktrees/ponto-horas-pagas/app && <cmd>'
+  ```
+
+  Os scripts rodam a partir da raiz do repositório (`/home/prime/projetos/jusprime`). A frente tem banco de
+  teste próprio (`saas_testponto-horas-pagas`, via `TEST_TOKEN`), já clonado — não mexa nos bancos das
+  outras frentes.
+- **A migration é aplicada no banco de DEV compartilhado.** Isso é esperado e é o padrão do projeto, mas
+  significa que o dev fica incompatível com o `master` até a frente ser integrada. Aplicar em produção é do
+  humano.
 - **Toda query filtra por tenant explicitamente**, além do `TenantFilter` do Doctrine — é dado de ponto, risco ALTO.
 - A suíte roda com `failOnDeprecation/Notice/Warning`: um deprecation derruba tudo.
 - **`git push`, `merge`, `rebase` e `reset` são proibidos.** Commits locais são permitidos e esperados ao fim de cada tarefa.
