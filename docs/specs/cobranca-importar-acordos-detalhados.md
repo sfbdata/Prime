@@ -63,7 +63,7 @@ Para cada NN da seção "contas originais":
 - Se **existe** `Obrigacao` com esse `referencia_externa` na carteira **e** `acordo_substituto_id` é
   nulo → `setAcordoSubstituto(<acordo>)`.
 - Se já está marcada → no-op.
-- Se **não existe** → **não cria**. Reporta como "conta original ausente do sistema".
+- Se **não existe** → **cria, já nascendo substituída** (§3.2.1).
 
 **Nunca apaga** (invariável 14 — a obrigação fica no histórico, marcada). O mecanismo é o mesmo que o
 `CriarAcordoUseCase` já usa quando um acordo nasce pela tela.
@@ -76,10 +76,33 @@ descarta parcelas de acordo **Rompido/Cancelado** e, por derivação, restaura a
 está coberto** e não exige mecanismo novo. O teste de regressão de §9 existe para não deixar isso
 regredir.
 
-> **Decisão consciente — não criar as 18 contas ausentes.** Criar dívida morta só para anulá-la em
-> seguida inventa passivo que nunca foi importado, e alimenta exatamente a classe de bug já vista neste
-> domínio (acordo rompido restaurando originais e contando o dinheiro 2×). Elas ficam fora, contadas
-> no resumo.
+### 3.2.1. Criar as 18 contas ausentes (decisão do dono, 2026-07-30 — reverte recomendação anterior)
+
+Das 25 contas originais dos 7 acordos, **7 existem** no banco de produção e **18 nunca foram
+importadas** (viraram acordo na contábil antes de qualquer importação passar por elas). Elas são
+criadas, **já com `acordoSubstituto` preenchido no mesmo fluxo** — nascem substituídas e portanto
+**nunca entram no saldo** (§3.2, `doCasoExigiveis`). Nenhum saldo muda hoje por causa delas.
+
+**Valor histórico envolvido: R$ 3.060,00** (18 × R$ 170,00, valores da planilha).
+
+**Por que reverti minha recomendação.** Eu havia recomendado não criá-las, com o argumento de que
+seria "inventar passivo". O argumento estava errado: a dívida **foi real** — o condômino devia aqueles
+boletos e o acordo os substituiu. Registrar isso é histórico, não invenção. Sem elas, o card do acordo
+mostra "1 substituída" onde o documento da contábil diz 6, e ninguém consegue auditar de onde o acordo
+veio.
+
+**Risco aceito pelo dono, explicitamente.** Se um desses acordos for **rompido**, `doCasoExigiveis`
+restaura as originais para a cobrança (invariável 20 — comportamento correto e desejado). Com as 18
+criadas, voltariam R$ 3.060,00 com juros e multa retroativos ao vencimento original, e com **valor
+vindo da planilha, não de um boleto importado**. Isso importa porque as duas fontes já divergem em 3
+casos (§4: R$ 145,00 no banco × R$ 170,00 na planilha). Consequência prática: num rompimento, o valor
+restaurado pode não ser exatamente o que a contábil reemitiria — a conferência com a contábil passa a
+ser obrigatória nesse cenário.
+
+**Marcação de procedência (obrigatória).** A obrigação criada por este caminho registra na `observacao`
+que veio da planilha de acordos, com a data de emissão do relatório. Sem isso não há como distinguir,
+depois, o que foi boleto importado de verdade do que foi reconstruído a partir de documento — e essa
+distinção é exatamente o que alguém vai precisar no dia do rompimento.
 
 ### 3.3. Situação do acordo
 `Situação:` do cabeçalho → `StatusAcordo`. Mapeamento a fechar na implementação; `Em andamento` → `Ativo`
@@ -103,8 +126,10 @@ Corolário: o casamento é **por NN**, nunca por valor.
   muito a perder (baixa de pagamento é irreversível na prática). O resumo avisa "N parcelas constam
   liquidadas na planilha, confira à mão". **Reavaliar quando a planilha vier com parcelas pagas.**
 - Criar acordo que não veio pela inadimplência (§3.1).
-- Reconstruir contas originais ausentes (§3.2).
 - Leitor de boleto.
+
+> Reconstruir as contas originais ausentes **saiu do fora-de-escopo** em 2026-07-30 e virou §3.2.1, por
+> decisão do dono.
 
 ## 6. Entrega
 
@@ -120,14 +145,20 @@ escrita.
 - Parcela: por NN.
 - Acordo: por `numero_externo` + carteira (nunca cria).
 - Substituição: só quando `acordo_substituto_id` é nulo.
+- Conta original reconstruída (§3.2.1): por NN — se já existe (criada por execução anterior **ou**
+  importada de verdade depois), **não recria**. É o ponto mais fácil de duplicar dinheiro nesta entrega.
 
 Segunda execução do mesmo arquivo não altera nada.
 
 ## 8. Impacto operacional (comunicar antes de rodar em prod)
 
-O saldo devedor de **três unidades reais cai** ao confirmar. Relatórios gerenciais já emitidos passam a
-discordar do sistema. Isso é o comportamento correto aparecendo — mas a equipe de cobrança precisa ser
-avisada, porque são sacados com quem se negocia.
+O saldo devedor de **três unidades reais cai** ao confirmar (R$ 1.115,00 de principal, mais os encargos
+que vinham correndo em cima). Relatórios gerenciais já emitidos passam a discordar do sistema. Isso é o
+comportamento correto aparecendo — mas a equipe de cobrança precisa ser avisada, porque são sacados com
+quem se negocia.
+
+As **18 contas reconstruídas (§3.2.1) não mexem em saldo nenhum** hoje: nascem substituídas. Elas
+aparecem no histórico do acordo e só voltariam a contar num rompimento — ver o risco aceito em §3.2.1.
 
 Ordem recomendada: rodar o dry-run, conferir a tabela contra §1, confirmar, e só então emitir novo
 relatório.
@@ -140,6 +171,12 @@ relatório.
   - parcela ausente é criada com honorários 0 e `acordoOrigem` correto;
   - conta original existente e aberta é marcada com `acordoSubstituto`;
   - conta já marcada não é remarcada (idempotência);
+  - **conta original ausente é criada JÁ substituída** e **não aparece no saldo** (§3.2.1) — o teste
+    tem de asserir o saldo, não só a existência da linha;
+  - **conta reconstruída não é recriada** na segunda execução (idempotência por NN);
+  - **rompimento:** ao romper o acordo, as 25 originais (7 reais + 18 reconstruídas) voltam ao saldo e
+    as parcelas saem — uma vez cada, sem dobrar. Este é o teste que cobre o risco aceito em §3.2.1;
+  - a obrigação reconstruída carrega a **marcação de procedência** na observação;
   - conta original **inexistente não é criada**;
   - divergência de valor é **reportada e não aplicada**;
   - acordo inexistente → aba ignorada e reportada, sem escrita.
