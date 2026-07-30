@@ -237,15 +237,45 @@ com ações editar e excluir. **É a única tela em que o motivo aparece.**
 Abaixo da tabela do mês, em `app/templates/ponto/_folha_table.html.twig`:
 
 ```
-  Horas trabalhadas ...........  176h00
   Saldo do mês ................  +12h00
   Horas pagas .................  -100h00
   ------------------------------------------
-  Saldo do banco de horas .....  -88h00
+  Total do mês ................  -88h00
 ```
 
 O bloco **só aparece quando há lançamento na competência** — mês sem lançamento fica exatamente como está
 hoje, sem nenhuma das três linhas. Sem motivo, sem quem lançou.
+
+**São três linhas, não quatro.** Uma versão anterior desta spec abria o bloco com "Horas trabalhadas"; ela
+nunca foi implementada e foi retirada do desenho — o dado já está na tabela logo acima, e a linha não entra
+em nenhuma conta do bloco.
+
+**O total chama-se "Total do mês", e o rótulo é decisão, não estilo.** A re-revisão da onda final mostrou que
+chamá-lo de "Saldo do banco de horas" colocava **dois números diferentes com o mesmo nome na mesma página**:
+o card do topo (`ponto/index.html.twig:30-35`, vindo de `calcularSaldoAnual`) mostra o banco **acumulado**,
+enquanto este bloco soma o saldo **daquele mês** com o lançamento. No caso de uso nº 1 — 100h acumuladas,
+pagas em dinheiro, quitadas com `-6000` em agosto, agosto trabalhado na jornada exata — o card exibia
+`+0h00m` (certo) e o rodapé `-100h00m`, cobrando de volta o que acabou de ser pago. É a **mesma** cobrança
+indevida que motivou a reversão da soma no bloco assinado, apenas mudada de superfície. O rótulo está
+ancorado por `assertBlocoTotaisPresente()` em `app/tests/Ponto/Functional/HorasPagasFolhaExibicaoTest.php`.
+
+> **Dívida registrada pelo dono (2026-07-30), NÃO corrigida nesta frente — anterior a ela.** O "Saldo do mês"
+> desta tela pode **subestimar o déficit**, e o bloco novo tornou isso visível em vez de criá-lo.
+> `PontoController::index()` chama `buildRows` com `$includeEmptyDays = false` (`PontoController.php:120`),
+> enquanto a ficha do admin, o PDF e o XLSX usam `true` (`TenantController.php:635`, `PontoController.php:802`
+> e `:886`). Em `FolhaPontoBuilder.php:176-195` o dia sem batida **entra no acumulado** (`$saldoAcumulado +=
+> $saldoDia`) e só **depois** é descartado pelo `continue`; como `saldoAcumuladoFinal()` devolve o acumulado da
+> última linha **presente**, faltas no **fim** do mês somem da conta na tela do colaborador e permanecem nas
+> demais. Jornada 8h/dia, mês exato até 24/07 e faltas em 27, 28 e 29: `/ponto` mostra "Saldo do mês 0h00m",
+> a ficha do admin mostra `-24h00m` — 1440 minutos de divergência, que num desligamento no meio do mês passa
+> de 4000. O mesmo desvio já existia na última célula da coluna "Banco de Horas"; corrigi-lo muda o saldo que
+> **todo colaborador** lê na tela, então é frente própria, com decisão e deploy próprios.
+>
+> Fica também registrado que `testFichaDoAdminMostraOMesmoBlocoDeTotais`
+> (`HorasPagasFolhaExibicaoTest.php`) **não** prova a paridade que o comentário dele afirma: usa
+> `criarJornadaSemDiasDeTrabalho()`, em que `cargaEsperada = 0` e um dia ausente pesa zero — exatamente a
+> configuração que exclui a divergência. Ele segue válido para o que de fato pega (variável esquecida em um
+> dos dois renders do partial).
 
 O "Saldo do mês" do bloco é o **último `saldoAcumulado` não-nulo** das linhas da tabela (o mesmo número da
 última célula preenchida da coluna "Banco de Horas"), calculado por

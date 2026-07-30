@@ -69,7 +69,7 @@ final class HorasPagasFolhaExibicaoTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         $conteudo = (string) $client->getResponse()->getContent();
         self::assertStringNotContainsString('Horas pagas', $conteudo, 'sem lançamento a tela tem de ficar igual à de antes desta tarefa');
-        self::assertStringNotContainsString('Saldo do banco de horas', $conteudo, 'o bloco de totais inteiro tem de sumir junto com a linha, não só ela');
+        self::assertStringNotContainsString('Total do mês', $conteudo, 'o bloco de totais inteiro tem de sumir junto com a linha, não só ela');
     }
 
     #[TestDox('colaborador ve o bloco de totais: saldo do mes, horas pagas e a soma dos dois')]
@@ -554,8 +554,12 @@ final class HorasPagasFolhaExibicaoTest extends JusPrimeWebTestCase
 
     /**
      * Confere as TRÊS linhas do bloco de totais do rodapé (spec §7), na ordem, com os valores
-     * exatos: "Saldo do mês", "Horas pagas" e o total "Saldo do banco de horas". Verificar só a
+     * exatos: "Saldo do mês", "Horas pagas" e o total "Total do mês". Verificar só a
      * soma não bastaria — o total certo com as parcelas erradas continua enganando quem confere.
+     *
+     * O rótulo do total é "Total do mês" de propósito, e o teste ancora a string: chamá-lo de
+     * "banco de horas" colidiria com o card do topo da mesma página, que mostra o banco ACUMULADO
+     * (ver o comentário em `_folha_table.html.twig` e a spec §7).
      */
     private function assertBlocoTotaisPresente(
         string $conteudo,
@@ -567,7 +571,7 @@ final class HorasPagasFolhaExibicaoTest extends JusPrimeWebTestCase
             . preg_quote($saldoMesEsperado, '/') . '\s*<\/span>'
             . '.*?<span class="text-muted">Horas pagas<\/span>\s*<span class="fw-semibold[^"]*">\s*'
             . preg_quote($horasPagasEsperado, '/') . '\s*<\/span>'
-            . '.*?<span class="text-muted">Saldo do banco de horas<\/span>\s*<span class="fw-bold[^"]*">\s*'
+            . '.*?<span class="text-muted">Total do mês<\/span>\s*<span class="fw-bold[^"]*">\s*'
             . preg_quote($totalEsperado, '/') . '\s*<\/span>/s';
 
         self::assertMatchesRegularExpression(
