@@ -54,10 +54,16 @@ Nenhuma regra de negócio nova. Reaproveita os UseCases existentes:
 
 ## 5. Decisões
 
-### 5.1. Todas as 229 unidades (decisão do dono, 2026-07-29)
-Objetos são criados também para as **110 unidades adimplentes**. Motivo: quando uma delas ficar
-inadimplente, o cadastro já está pronto. Custo aceito: a carteira passa a listar 229 objetos, 110 sem
-nenhuma obrigação.
+### 5.1. Todas as 229 unidades (decisão do dono, 2026-07-29, ratificada em 2026-07-30)
+Objetos são criados também para as **110 unidades adimplentes**. Dois motivos, ambos do dono:
+
+1. **Elas podem ficar inadimplentes depois** — o cadastro (CPF, telefone, e-mail) já estará pronto no
+   dia em que a cobrança começar, em vez de virar corrida atrás de dado.
+2. **A carteira passa a saber quantas unidades ela tem, no total.** Hoje o sistema só enxerga quem
+   deve, então não há como responder "quantas unidades existem" nem calcular taxa de inadimplência
+   (119 de 229 = 52%). Objeto sem dívida não é ruído: é o denominador.
+
+Custo aceito: a carteira lista 229 objetos, 110 com saldo zero.
 
 **Consequência a verificar na revisão:** telas e totais da carteira precisam continuar corretos com
 objetos de saldo zero. Um objeto sem obrigação não pode quebrar `MontarVisaoCarteiraUseCase` nem inflar
