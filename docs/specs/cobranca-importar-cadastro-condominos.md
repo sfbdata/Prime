@@ -28,8 +28,22 @@ Uma aba (`Relatório`). L1–L2 institucional; L4 título; L6 "Total de unidades
 | G | E-mail | pode vir vazio |
 | H | Telefone | **pode conter vários**, separados por quebra de linha; contém lixo literal `null () null` |
 
-Volumes: **229 unidades**, das quais **119 têm dívida** e **110 são adimplentes**. **13 unidades têm duas
-pessoas** (co-proprietários).
+Volumes medidos: **245 linhas de dado** = 229 `Proprietário` + 13 `Pessoa relacionada` + 3 de rodapé.
+Das 229 unidades, **119 têm dívida** e **110 são adimplentes**.
+
+**Endereço (coluna F)** vem numa string só, separada por ` - `, e tem **7 segmentos** (229 linhas) ou
+**6** (as 13 de `Pessoa relacionada`, sem a referência da unidade):
+
+```
+Área Rural - S/N - CHACARA 01/02 - LAGO CORUMBA IV - Santo Antônio do Descoberto - GO - CEP: 72908-899
+logradouro  nº    complemento     bairro             cidade                        uf   cep
+```
+
+Parsear **de trás para frente** (CEP, UF, cidade, bairro fixos no fim; logradouro e número no começo; o
+que sobrar no meio é complemento) — contar segmentos da esquerda quebra nas 13 linhas curtas.
+
+**Telefones (coluna H)** por célula: 19 vazias · 119 com um · 106 com dois · 1 com três.
+**Documentos:** 234 CPF · 8 CNPJ · 3 vazios (que são o rodapé).
 
 ## 3. Chave de vínculo
 
@@ -81,15 +95,48 @@ motivo e aparece no resumo.
 ### 5.4. Telefone múltiplo
 Célula com quebra de linha vira **N** `PessoaTelefone`; o primeiro é marcado atual.
 
-### 5.5. Co-proprietários (13 unidades)
-Primeira pessoa da unidade → `Proprietario`; demais → `Coproprietario`. Ambas com vínculo **aberto**
-(`dataFim` nula). **Nenhuma vira "pessoa cobrada" automaticamente** — isso permanece decisão humana na
-tela (`AlterarPessoaCobradaUseCase`).
+### 5.5. O papel vem da planilha — e "Pessoa relacionada" NÃO é co-proprietário
 
-### 5.6. Dedup de pessoa
-Por `(tenant + CPF)` ou `(tenant + CNPJ)` — índices que já existem em `cobranca_pessoa`. **Sem
-documento, não casa por nome**: cria nova e deixa o `SugerirPessoasDuplicadasUseCase` apontar depois.
-Casar por nome arriscaria fundir homônimos, falha já vista neste domínio.
+**Correção da versão de 29/07**, que mandava tratar a segunda pessoa da unidade como `Coproprietario`.
+A coluna C **declara o papel**, e a medição do dado real mostra só dois valores:
+
+| Coluna "Sacado" | Ocorrências | `TipoVinculo` |
+|---|---|---|
+| `Proprietário` | 229 | `Proprietario` |
+| `Pessoa relacionada` | 13 | `Outro` |
+
+"Pessoa relacionada" **não afirma co-propriedade** — afirma que existe algum vínculo. Mapear para
+`Coproprietario` gravaria no banco uma informação que a fonte não dá, indistinguível de fato apurado.
+`Outro` é o que o documento sustenta. (Mesmo princípio da `Version20260728160000`, que recusou inferir o
+tipo do telefone por contagem de dígitos.)
+
+Papel desconhecido → linha **rejeitada** com motivo, nunca adivinhada.
+
+Ambas com vínculo **aberto** (`dataFim` nula). **Nenhuma vira "pessoa cobrada" automaticamente** — isso
+permanece decisão humana na tela (`AlterarPessoaCobradaUseCase`).
+
+### 5.7. Rodapé
+As 3 últimas linhas (`Filtros:`, endereço da contábil, `Emissão:`) ocupam a coluna A e não têm papel.
+São **ignoradas** (contam em `linhasIgnoradas`, não em rejeitadas — não são dados malformados, não são
+dados). Critério: linha sem papel reconhecido.
+
+### 5.6. Dedup de pessoa — dois níveis
+
+1. **Por documento**, no tenant: `(tenant + CPF)` ou `(tenant + CNPJ)`, via
+   `PessoaRepository::buscarPossiveisDuplicadas`, que compara por dígitos e já tinha sido escrito
+   prevendo este importador.
+2. **Sem documento: por NOME dentro do OBJETO**, entre quem já tem vínculo aberto naquela unidade — a
+   mesma "decisão A" do importador de inadimplência. Só casa com pessoa que **também** não tem
+   documento: se a cadastrada tem CPF e a do relatório não, são pessoas diferentes até prova em
+   contrário.
+
+**Correção da versão de 29/07**, que dizia "sem documento, não casa por nome: cria nova". Estava errado
+e o teste `testReimportacaoEhIdempotente` provou: a pessoa sem CPF (3 no dado real) nasceria **de novo a
+cada rodada mensal**, empilhando duplicatas — o oposto do que a regra queria evitar.
+
+O que continua proibido é casar por nome **no tenant inteiro**: aí sim fundiria homônimos, falha já
+corrigida neste domínio em `PessoaRepository::opcoesDoTenant`. O escopo do objeto é o que torna o
+casamento seguro — dois "José da Silva" em unidades diferentes seguem sendo duas pessoas.
 
 ## 6. Entrega
 
