@@ -12,6 +12,8 @@ use App\Cobranca\Enum\ModoCarteira;
 use App\Cobranca\Enum\TipoVinculo;
 use App\Cobranca\Exception\CarteiraNaoEncontradaException;
 use App\Cobranca\Service\Importacao\CadastroCondominosAdapter;
+use App\Cobranca\Service\Importacao\CondominoImportavel;
+use App\Cobranca\Service\Importacao\ResultadoLeituraCadastro;
 use App\Cobranca\UseCase\ImportarCadastroCondominosUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
@@ -220,6 +222,63 @@ final class ImportarCadastroCondominosTest extends KernelTestCase
         self::assertSame(7, $previa->totalPessoasCriadas());
         self::assertSame(0, $this->em->getRepository(ObjetoCobranca::class)->count(['tenant' => $tenant]), 'prévia não grava');
         self::assertSame(0, $this->em->getRepository(Pessoa::class)->count(['tenant' => $tenant]));
+    }
+
+    /**
+     * O defeito que só apareceu rodando a planilha REAL (31/07): a prévia previu 215 vínculos e a
+     * confirmação abriu 242; previu 292 telefones e acrescentou 290. Dois cenários da fonte real,
+     * ambos invisíveis para a fixture de 7 linhas:
+     *
+     * 1. **a mesma pessoa em DUAS unidades** — a prévia contava o vínculo só na primeira linha, porque
+     *    a segunda caía no ramo "documento já visto no arquivo" e saía sem contar nada;
+     * 2. **o mesmo telefone repetido na célula** — a prévia somava a lista crua, a confirmação
+     *    deduplicava por dígitos.
+     *
+     * O que este teste guarda não é um número: é a IGUALDADE entre o que a prévia promete e o que a
+     * confirmação faz. É o número que o operador olha antes de mandar gravar em cima de dinheiro.
+     */
+    #[TestDox('A prévia promete exatamente o que a confirmação faz (mesma pessoa em 2 unidades, telefone repetido)')]
+    public function testPreviaBateComAConfirmacao(): void
+    {
+        $tenant = $this->criarTenant();
+        $user = $this->criarUser($tenant);
+        $carteira = $this->criarCarteira($tenant);
+
+        $leitura = new ResultadoLeituraCadastro([
+            $this->condomino('LOTE 01', 'ANA EXEMPLO', cpf: '11122233344', telefones: ['(61) 90000-0001', '61900000001'], email: 'ana@exemplo.test'),
+            $this->condomino('LOTE 02', 'ANA EXEMPLO', cpf: '11122233344', telefones: ['61900000001'], email: 'ana@exemplo.test'),
+            $this->condomino('LOTE 02', 'BENTO SEM CPF'),
+            $this->condomino('LOTE 03', 'BENTO SEM CPF'),
+        ], [], 0);
+
+        $previa = $this->importar->prever($carteira, $leitura, $tenant);
+        $feito = $this->importar->confirmar($carteira, $leitura, $tenant, $user);
+
+        self::assertSame($previa->objetosCriados, $feito->objetosCriados);
+        self::assertSame($previa->pessoasCriadas, $feito->pessoasCriadas);
+        self::assertSame($previa->vinculosCriados, $feito->vinculosCriados, 'a mesma pessoa em duas unidades abre DOIS vínculos');
+        self::assertSame($previa->telefonesAcrescentados, $feito->telefonesAcrescentados, 'o mesmo número duas vezes é UM telefone');
+        self::assertSame($previa->emailsAcrescentados, $feito->emailsAcrescentados);
+        self::assertSame($previa->enderecosAcrescentados, $feito->enderecosAcrescentados);
+        self::assertSame($previa->pessoasReaproveitadas, $feito->pessoasReaproveitadas);
+
+        // E o que a confirmação relatou é o que o banco mostra — senão a igualdade acima só provaria
+        // que as duas contas estão erradas do mesmo jeito.
+        self::assertSame(4, $feito->totalVinculosCriados());
+        self::assertSame(4, $this->em->getRepository(VinculoPessoaObjeto::class)->count(['tenant' => $tenant]));
+        self::assertSame(3, $this->em->getRepository(Pessoa::class)->count(['tenant' => $tenant]), 'BENTO sem CPF em 2 unidades são 2 pessoas; ANA com CPF é 1');
+        self::assertSame(3, $this->em->getRepository(ObjetoCobranca::class)->count(['tenant' => $tenant]));
+
+        $ana = $this->em->getRepository(Pessoa::class)->findOneBy(['tenant' => $tenant, 'nome' => 'ANA EXEMPLO']);
+        self::assertCount(1, $ana?->getTelefones(), 'o número repetido não vira dois');
+        self::assertSame(1, $feito->telefonesAcrescentados);
+        self::assertSame(1, $feito->emailsAcrescentados, 'o mesmo e-mail nas duas linhas é um só');
+    }
+
+    /** @param list<string> $telefones */
+    private function condomino(string $unidade, string $nome, ?string $cpf = null, array $telefones = [], ?string $email = null): CondominoImportavel
+    {
+        return new CondominoImportavel($unidade, $nome, TipoVinculo::Proprietario, $cpf, null, $email, $telefones, []);
     }
 
     /** @param list<\App\Cobranca\Service\Importacao\CondominoImportavel> $lista */

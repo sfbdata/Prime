@@ -19,6 +19,7 @@ use App\Cobranca\Repository\ObjetoCobrancaRepository;
 use App\Cobranca\Repository\PessoaRepository;
 use App\Cobranca\Repository\VinculoPessoaObjetoRepository;
 use App\Cobranca\Service\Importacao\CondominoImportavel;
+use App\Cobranca\Service\Importacao\PessoaEmImportacao;
 use App\Cobranca\Service\Importacao\ResultadoImportacaoCadastro;
 use App\Cobranca\Service\Importacao\ResultadoLeituraCadastro;
 use App\Cobranca\Service\NormalizadorNome;
@@ -45,6 +46,9 @@ use Doctrine\ORM\EntityManagerInterface;
  * Dedup de pessoa em dois níveis (§5.6): por DOCUMENTO no tenant; **sem documento**, por NOME dentro do
  * OBJETO, entre quem já tem vínculo aberto ali (a "decisão A" que o importador de inadimplência usa).
  * Nunca por nome no tenant inteiro — isso fundiria homônimos, falha já corrigida neste domínio.
+ *
+ * 3. **A prévia é a confirmação sem escrita** (`processar()`, `$usuario === null`). Ver o porquê lá: as
+ *    duas já foram escritas separadas e divergiram na planilha real.
  */
 final class ImportarCadastroCondominosUseCase
 {
@@ -66,60 +70,98 @@ final class ImportarCadastroCondominosUseCase
     /**
      * Dry-run: projeta o que aconteceria, sem persistir. Read-only.
      *
-     * A projeção acompanha o que JÁ foi visto no próprio arquivo (unidades e documentos), senão duas
-     * linhas da mesma unidade contariam dois objetos novos — número que faria o operador desconfiar do
-     * resumo com razão.
+     * O que ela promete é literalmente o que `confirmar()` faz — as duas percorrem `processar()`.
      */
     public function prever(int $carteiraId, ResultadoLeituraCadastro $leitura, Tenant $tenant): ResultadoImportacaoCadastro
     {
+        return $this->processar($carteiraId, $leitura, $tenant, null);
+    }
+
+    /** Persiste numa transação única (ou tudo, ou nada). */
+    public function confirmar(int $carteiraId, ResultadoLeituraCadastro $leitura, Tenant $tenant, User $user): ResultadoImportacaoCadastro
+    {
+        return $this->em->wrapInTransaction(
+            fn (): ResultadoImportacaoCadastro => $this->processar($carteiraId, $leitura, $tenant, $user),
+        );
+    }
+
+    /**
+     * Prévia e confirmação percorrem ESTE mesmo método — `$usuario === null` é o dry-run. O mesmo padrão
+     * do `ImportarAcordosDetalhadosUseCase`, e pela mesma razão: aqui havia duas implementações da mesma
+     * decisão, e elas divergiram na planilha real de 31/07 (a prévia prometeu 215 vínculos onde a
+     * confirmação abriu 242, e 292 telefones onde ela acrescentou 290). Nenhum teste pegava, porque
+     * ambas estavam internamente coerentes — só discordavam entre si.
+     *
+     * A decisão de cada linha é tomada UMA vez e usada para as duas coisas: contar e (se houver usuário)
+     * escrever. O estado do que já foi visto no próprio arquivo vive em `PessoaEmImportacao` e em
+     * `$objetos`, para que a projeção enxergue o que as linhas anteriores fariam — sem isso a mesma
+     * pessoa em duas unidades some da prévia, que foi exatamente o defeito.
+     */
+    private function processar(int $carteiraId, ResultadoLeituraCadastro $leitura, Tenant $tenant, ?User $usuario): ResultadoImportacaoCadastro
+    {
         $carteira = $this->resolverCarteira($carteiraId, $tenant);
 
-        $objetosNovos = [];
-        $pessoasNovas = [];
-        $vinculosNovos = [];
+        $objetosCriados = [];
+        $pessoasCriadas = [];
+        $vinculosCriados = [];
         $reaproveitadas = 0;
         $telefones = 0;
         $emails = 0;
         $enderecos = 0;
-        $documentosVistos = [];
+
+        /** @var array<string, ObjetoCobranca|null> $objetos unidade → objeto (null quando o dry-run só o projetou) */
+        $objetos = [];
+        /** @var array<string, PessoaEmImportacao> $pessoas */
+        $pessoas = [];
 
         foreach ($leitura->importaveis as $condomino) {
-            $objeto = $this->objetoRepository->findOnePorIdentificacaoNaCarteira($carteira, $condomino->unidade, $tenant);
-            if ($objeto === null && !isset($objetosNovos[$condomino->unidade])) {
-                $objetosNovos[$condomino->unidade] = true;
-            }
+            $objeto = $this->resolverObjeto($carteira, $condomino, $tenant, $usuario, $objetos, $objetosCriados);
 
-            $documento = $condomino->documento();
-            $pessoa = $this->pessoaPorDocumento($tenant, $condomino, $objeto);
-            $jaVistaNoArquivo = $documento !== null && isset($documentosVistos[$documento]);
+            $chave = $this->chavePessoa($condomino);
+            $conhecida = isset($pessoas[$chave]);
+            $estado = $pessoas[$chave] ??= $this->estadoDaPessoa($tenant, $condomino, $objeto);
 
-            if ($pessoa === null && !$jaVistaNoArquivo) {
-                $pessoasNovas[] = $condomino->nome;
-                $vinculosNovos[] = $condomino->unidade . ' → ' . $condomino->nome;
-                $telefones += count($condomino->telefones);
-                $emails += $condomino->email !== null ? 1 : 0;
-                $enderecos += $condomino->temEndereco() ? 1 : 0;
+            if (!$conhecida && $estado->nasceuNestaImportacao()) {
+                $pessoasCriadas[] = $condomino->nome;
             } else {
                 ++$reaproveitadas;
-                if ($pessoa !== null) {
-                    if ($objeto !== null && !$this->temVinculoAberto($pessoa, $objeto)) {
-                        $vinculosNovos[] = $condomino->unidade . ' → ' . $condomino->nome;
-                    }
-                    $telefones += count($this->telefonesAusentes($pessoa, $condomino));
-                    $emails += $this->emailAusente($pessoa, $condomino) ? 1 : 0;
-                    $enderecos += $this->enderecoAusente($pessoa, $condomino) ? 1 : 0;
-                }
             }
 
-            if ($documento !== null) {
-                $documentosVistos[$documento] = true;
+            $abreVinculo = !$this->temVinculoAberto($estado, $condomino->unidade, $objeto);
+            $telefonesNovos = $estado->telefonesAusentes($condomino);
+            $emailNovo = $estado->emailAusente($condomino);
+            $enderecoNovo = $estado->enderecoAusente($condomino);
+
+            if ($abreVinculo) {
+                $vinculosCriados[] = $condomino->unidade . ' → ' . $condomino->nome;
+            }
+            $telefones += count($telefonesNovos);
+            $emails += $emailNovo ? 1 : 0;
+            $enderecos += $enderecoNovo ? 1 : 0;
+
+            if ($usuario !== null) {
+                $this->aplicar($estado, $condomino, $objeto, $abreVinculo, $telefonesNovos, $emailNovo, $enderecoNovo, $tenant, $usuario);
+            }
+
+            // O estado projetado avança nos DOIS modos — é o que faz a linha seguinte decidir igual.
+            if ($abreVinculo) {
+                $estado->registrarVinculo($condomino->unidade);
+            }
+            foreach ($telefonesNovos as $numero) {
+                $estado->registrarTelefone($numero);
+            }
+            if ($emailNovo) {
+                $estado->registrarEmail((string) $condomino->email);
+            }
+            if ($enderecoNovo) {
+                $estado->registrarEndereco($condomino->endereco);
             }
         }
 
         return new ResultadoImportacaoCadastro(
-            array_keys($objetosNovos),
-            $pessoasNovas,
-            $vinculosNovos,
+            $objetosCriados,
+            $pessoasCriadas,
+            $vinculosCriados,
             $telefones,
             $emails,
             $enderecos,
@@ -129,85 +171,116 @@ final class ImportarCadastroCondominosUseCase
         );
     }
 
-    /** Persiste numa transação única (ou tudo, ou nada). */
-    public function confirmar(int $carteiraId, ResultadoLeituraCadastro $leitura, Tenant $tenant, User $user): ResultadoImportacaoCadastro
-    {
-        $carteira = $this->resolverCarteira($carteiraId, $tenant);
-
-        return $this->em->wrapInTransaction(function () use ($carteira, $leitura, $tenant, $user): ResultadoImportacaoCadastro {
-            $objetosCriados = [];
-            $pessoasCriadas = [];
-            $vinculosCriados = [];
-            $reaproveitadas = 0;
-            $telefones = 0;
-            $emails = 0;
-            $enderecos = 0;
-
-            foreach ($leitura->importaveis as $condomino) {
-                $objeto = $this->resolverObjeto($carteira, $condomino, $tenant, $user, $objetosCriados);
-                $pessoa = $this->pessoaPorDocumento($tenant, $condomino, $objeto);
-
-                if ($pessoa === null) {
-                    // Nasce já vinculada, com contato e endereço — um único UseCase, as mesmas regras da tela.
-                    $vinculo = $this->criarPessoaVinculada->executar(
-                        $this->inputPessoaVinculada($condomino),
-                        (int) $objeto->getId(),
-                        $tenant,
-                        $user,
-                    );
-                    $pessoa = $vinculo->getPessoa();
-                    $pessoasCriadas[] = $condomino->nome;
-                    $vinculosCriados[] = $condomino->unidade . ' → ' . $condomino->nome;
-                    $telefones += count($condomino->telefones) > 0 ? 1 : 0;
-                    $emails += $condomino->email !== null ? 1 : 0;
-                    $enderecos += $condomino->temEndereco() ? 1 : 0;
-
-                    // O input leva UM telefone (o primeiro); os demais entram na lista logo abaixo.
-                    $telefones += $this->acrescentarTelefones($pessoa, $condomino, $tenant, $user);
-
-                    continue;
-                }
-
-                ++$reaproveitadas;
-                if (!$this->temVinculoAberto($pessoa, $objeto)) {
-                    $this->vincular->executar($this->inputVinculo($condomino, $pessoa, $objeto), $tenant, $user);
-                    $vinculosCriados[] = $condomino->unidade . ' → ' . $condomino->nome;
-                }
-
-                $telefones += $this->acrescentarTelefones($pessoa, $condomino, $tenant, $user);
-                $emails += $this->acrescentarEmail($pessoa, $condomino, $tenant, $user);
-                $enderecos += $this->acrescentarEndereco($pessoa, $condomino, $tenant, $user);
-            }
-
-            return new ResultadoImportacaoCadastro(
-                $objetosCriados,
-                $pessoasCriadas,
-                $vinculosCriados,
-                $telefones,
-                $emails,
-                $enderecos,
-                $reaproveitadas,
-                $leitura->rejeitadas,
-                $leitura->linhasIgnoradas,
-            );
-        });
-    }
-
-    /** @param list<string> $objetosCriados acumulador (por referência) das unidades criadas nesta execução */
-    private function resolverObjeto(Carteira $carteira, CondominoImportavel $condomino, Tenant $tenant, User $user, array &$objetosCriados): ObjetoCobranca
-    {
-        $objeto = $this->objetoRepository->findOnePorIdentificacaoNaCarteira($carteira, $condomino->unidade, $tenant);
-        if ($objeto !== null) {
-            return $objeto;
+    /**
+     * A ESCRITA, e só ela — as decisões já vieram tomadas de `processar()`. Nada aqui pode contar nem
+     * decidir: se contasse, voltaria a existir uma segunda opinião sobre o que a linha faz.
+     *
+     * @param list<string> $telefonesNovos
+     */
+    private function aplicar(
+        PessoaEmImportacao $estado,
+        CondominoImportavel $condomino,
+        ?ObjetoCobranca $objeto,
+        bool $abreVinculo,
+        array $telefonesNovos,
+        bool $emailNovo,
+        bool $enderecoNovo,
+        Tenant $tenant,
+        User $usuario,
+    ): void {
+        if ($objeto === null) {
+            // Impossível por construção: com usuário, `resolverObjeto` cria a unidade que faltava.
+            throw new \LogicException(sprintf('Unidade "%s" não resolvida na confirmação.', $condomino->unidade));
         }
 
-        $input = new CriarObjetoInput();
-        $input->carteiraId = (int) $carteira->getId();
-        $input->identificacao = $condomino->unidade;
-        $objeto = $this->criarObjeto->executar($input, $tenant, $user);
-        $objetosCriados[] = $condomino->unidade;
+        $pessoa = $estado->pessoa();
+        if ($pessoa === null) {
+            // Nasce já vinculada, com o primeiro telefone, o e-mail e o endereço — um único UseCase,
+            // as mesmas regras da tela.
+            $vinculo = $this->criarPessoaVinculada->executar(
+                $this->inputPessoaVinculada($condomino, $telefonesNovos[0] ?? null),
+                (int) $objeto->getId(),
+                $tenant,
+                $usuario,
+            );
+            $pessoa = $vinculo->getPessoa();
+            $estado->definirPessoa($pessoa);
 
-        return $objeto;
+            $telefonesNovos = array_slice($telefonesNovos, 1); // o primeiro já entrou no cadastro
+            $emailNovo = false;
+            $enderecoNovo = false;
+        } elseif ($abreVinculo) {
+            $this->vincular->executar($this->inputVinculo($condomino, $pessoa, $objeto), $tenant, $usuario);
+        }
+
+        foreach ($telefonesNovos as $numero) {
+            $input = new AdicionarTelefonePessoaInput();
+            $input->pessoaId = (int) $pessoa->getId();
+            $input->numero = $numero;
+            $this->adicionarTelefone->executar($input, $tenant, $usuario);
+        }
+
+        if ($emailNovo) {
+            $input = new AdicionarEmailPessoaInput();
+            $input->pessoaId = (int) $pessoa->getId();
+            $input->email = $condomino->email;
+            $this->adicionarEmail->executar($input, $tenant, $usuario);
+        }
+
+        if ($enderecoNovo) {
+            $this->acrescentarEndereco($pessoa, $condomino, $tenant, $usuario);
+        }
+    }
+
+    /**
+     * Identidade da pessoa DENTRO desta execução. Espelha exatamente o casamento do §5.6: documento no
+     * tenant, ou nome dentro da unidade. Precisa espelhar — se a chave fosse mais larga que o casamento,
+     * a prévia fundiria pessoas que a confirmação criaria separadas.
+     */
+    private function chavePessoa(CondominoImportavel $condomino): string
+    {
+        $documento = $condomino->documento();
+        if ($documento !== null) {
+            return 'doc:' . $documento;
+        }
+
+        return 'nome:' . $condomino->unidade . '|' . (NormalizadorNome::normalizar($condomino->nome) ?? mb_strtolower($condomino->nome));
+    }
+
+    private function estadoDaPessoa(Tenant $tenant, CondominoImportavel $condomino, ?ObjetoCobranca $objeto): PessoaEmImportacao
+    {
+        $pessoa = $this->pessoaCadastrada($tenant, $condomino, $objeto);
+
+        return $pessoa !== null ? PessoaEmImportacao::existente($pessoa) : PessoaEmImportacao::nova();
+    }
+
+    /**
+     * Resolve a unidade. Com usuário, cria a que faltava; no dry-run devolve null e apenas anota — é
+     * legítimo, porque nada que dependa do objeto muda de resposta por ele ainda não existir: unidade
+     * que não está no banco não tem vínculo nem pessoa vinculada.
+     *
+     * @param array<string, ObjetoCobranca|null> $objetos        cache da execução (por referência)
+     * @param list<string>                       $objetosCriados acumulador das unidades novas (por referência)
+     */
+    private function resolverObjeto(Carteira $carteira, CondominoImportavel $condomino, Tenant $tenant, ?User $usuario, array &$objetos, array &$objetosCriados): ?ObjetoCobranca
+    {
+        if (array_key_exists($condomino->unidade, $objetos)) {
+            return $objetos[$condomino->unidade];
+        }
+
+        $objeto = $this->objetoRepository->findOnePorIdentificacaoNaCarteira($carteira, $condomino->unidade, $tenant);
+        if ($objeto === null) {
+            $objetosCriados[] = $condomino->unidade;
+
+            if ($usuario !== null) {
+                $input = new CriarObjetoInput();
+                $input->carteiraId = (int) $carteira->getId();
+                $input->identificacao = $condomino->unidade;
+                $objeto = $this->criarObjeto->executar($input, $tenant, $usuario);
+            }
+        }
+
+        return $objetos[$condomino->unidade] = $objeto;
     }
 
     /**
@@ -222,7 +295,7 @@ final class ImportarCadastroCondominosUseCase
      * sendo duas pessoas. Casar por nome no tenant inteiro fundiria homônimos, falha já corrigida neste
      * domínio em `opcoesDoTenant`.
      */
-    private function pessoaPorDocumento(Tenant $tenant, CondominoImportavel $condomino, ?ObjetoCobranca $objeto = null): ?Pessoa
+    private function pessoaCadastrada(Tenant $tenant, CondominoImportavel $condomino, ?ObjetoCobranca $objeto = null): ?Pessoa
     {
         if ($condomino->documento() !== null) {
             return $this->pessoaRepository->buscarPossiveisDuplicadas($tenant, $condomino->cpf, $condomino->cnpj)[0] ?? null;
@@ -249,8 +322,22 @@ final class ImportarCadastroCondominosUseCase
         return null;
     }
 
-    private function temVinculoAberto(Pessoa $pessoa, ObjetoCobranca $objeto): bool
+    /**
+     * A unidade já tem vínculo aberto com esta pessoa? Pergunta ao estado da execução primeiro (o que as
+     * linhas anteriores fariam) e só então ao banco. Pessoa ou unidade que ainda não existem no banco não
+     * podem ter vínculo — por isso o dry-run responde igual sem precisar de entidade.
+     */
+    private function temVinculoAberto(PessoaEmImportacao $estado, string $unidade, ?ObjetoCobranca $objeto): bool
     {
+        if ($estado->temVinculoAberto($unidade)) {
+            return true;
+        }
+
+        $pessoa = $estado->pessoa();
+        if ($pessoa === null || $objeto === null) {
+            return false;
+        }
+
         foreach ($this->vinculoRepository->todosDoObjetoComPessoa($objeto) as $vinculo) {
             if ($vinculo->getPessoa()?->getId() === $pessoa->getId() && $vinculo->getDataFim() === null) {
                 return true;
@@ -260,97 +347,8 @@ final class ImportarCadastroCondominosUseCase
         return false;
     }
 
-    /** @return list<string> telefones do relatório que a pessoa ainda NÃO tem (comparação por dígitos) */
-    private function telefonesAusentes(Pessoa $pessoa, CondominoImportavel $condomino): array
+    private function acrescentarEndereco(Pessoa $pessoa, CondominoImportavel $condomino, Tenant $tenant, User $user): void
     {
-        $existentes = [];
-        foreach ($pessoa->getTelefones() as $telefone) {
-            $existentes[] = preg_replace('/\D/', '', (string) $telefone->getNumero());
-        }
-
-        $ausentes = [];
-        foreach ($condomino->telefones as $numero) {
-            $digitos = preg_replace('/\D/', '', $numero);
-            if ($digitos !== '' && !in_array($digitos, $existentes, true)) {
-                $ausentes[] = $numero;
-                $existentes[] = $digitos; // o próprio relatório pode repetir o número
-            }
-        }
-
-        return $ausentes;
-    }
-
-    private function acrescentarTelefones(Pessoa $pessoa, CondominoImportavel $condomino, Tenant $tenant, User $user): int
-    {
-        $acrescentados = 0;
-        foreach ($this->telefonesAusentes($pessoa, $condomino) as $numero) {
-            $input = new AdicionarTelefonePessoaInput();
-            $input->pessoaId = (int) $pessoa->getId();
-            $input->numero = $numero;
-            $this->adicionarTelefone->executar($input, $tenant, $user);
-            ++$acrescentados;
-        }
-
-        return $acrescentados;
-    }
-
-    private function emailAusente(Pessoa $pessoa, CondominoImportavel $condomino): bool
-    {
-        if ($condomino->email === null) {
-            return false;
-        }
-
-        foreach ($pessoa->getEmails() as $email) {
-            if (mb_strtolower((string) $email->getEmail()) === mb_strtolower($condomino->email)) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    private function acrescentarEmail(Pessoa $pessoa, CondominoImportavel $condomino, Tenant $tenant, User $user): int
-    {
-        if (!$this->emailAusente($pessoa, $condomino)) {
-            return 0;
-        }
-
-        $input = new AdicionarEmailPessoaInput();
-        $input->pessoaId = (int) $pessoa->getId();
-        $input->email = $condomino->email;
-        $this->adicionarEmail->executar($input, $tenant, $user);
-
-        return 1;
-    }
-
-    private function enderecoAusente(Pessoa $pessoa, CondominoImportavel $condomino): bool
-    {
-        if (!$condomino->temEndereco()) {
-            return false;
-        }
-
-        $novo = $this->chaveEndereco($condomino->endereco);
-        foreach ($pessoa->getEnderecos() as $endereco) {
-            $atual = $this->chaveEndereco([
-                'logradouro' => (string) $endereco->getLogradouro(),
-                'numero' => (string) $endereco->getNumero(),
-                'complemento' => (string) $endereco->getComplemento(),
-                'cep' => (string) $endereco->getCep(),
-            ]);
-            if ($atual === $novo) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    private function acrescentarEndereco(Pessoa $pessoa, CondominoImportavel $condomino, Tenant $tenant, User $user): int
-    {
-        if (!$this->enderecoAusente($pessoa, $condomino)) {
-            return 0;
-        }
-
         $input = new AdicionarEnderecoPessoaInput();
         $input->pessoaId = (int) $pessoa->getId();
         $input->logradouro = $condomino->endereco['logradouro'] ?? null;
@@ -361,31 +359,17 @@ final class ImportarCadastroCondominosUseCase
         $input->uf = $condomino->endereco['uf'] ?? null;
         $input->cep = $condomino->endereco['cep'] ?? null;
         $this->adicionarEndereco->executar($input, $tenant, $user);
-
-        return 1;
     }
 
-    /** @param array<string, string> $endereco */
-    private function chaveEndereco(array $endereco): string
-    {
-        $partes = [
-            $endereco['logradouro'] ?? '',
-            $endereco['numero'] ?? '',
-            $endereco['complemento'] ?? '',
-            preg_replace('/\D/', '', $endereco['cep'] ?? '') ?? '',
-        ];
-
-        return mb_strtolower(trim(implode('|', array_map('trim', $partes))));
-    }
-
-    private function inputPessoaVinculada(CondominoImportavel $condomino): CriarPessoaVinculadaInput
+    /** @param string|null $telefone o primeiro número que a pessoa ainda não tem — não a célula crua */
+    private function inputPessoaVinculada(CondominoImportavel $condomino, ?string $telefone): CriarPessoaVinculadaInput
     {
         $input = new CriarPessoaVinculadaInput();
         $input->nome = $condomino->nome;
         $input->cpf = $condomino->cpf;
         $input->cnpj = $condomino->cnpj;
         $input->email = $condomino->email;
-        $input->telefone = $condomino->telefones[0] ?? null;
+        $input->telefone = $telefone;
         $input->tipoVinculo = $condomino->tipoVinculo;
 
         if ($condomino->temEndereco()) {
