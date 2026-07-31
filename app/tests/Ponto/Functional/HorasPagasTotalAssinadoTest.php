@@ -149,12 +149,10 @@ final class HorasPagasTotalAssinadoTest extends JusPrimeWebTestCase
     }
 
     /**
-     * Sem nenhum lançamento e sem competência anterior, o acumulado é só o saldo do mês — ou seja,
-     * quem nunca usou a feature vê os mesmos números de antes.
-     *
-     * A exceção deliberada é a última linha: mês sem saldo apurado (nenhuma batida) exibia '–' e
-     * passa a exibir '+0:00', porque o acumulado existe mesmo quando o mês não tem movimento. É a
-     * consequência assumida de o campo deixar de ser mensal.
+     * Estes casos rodam em JANEIRO, quando o banco acabou de zerar e portanto não há anterior: o
+     * acumulado é só o saldo do mês. Não confundir com prova de não-regressão para produção — de
+     * fevereiro em diante o anterior é ≠ 0 para quase todo mundo, e é justamente aí que o campo muda
+     * de valor para quem nunca usou horas pagas. Essa mudança é a consequência aceita da decisão.
      */
     #[DataProvider('saldosSemLancamento')]
     #[TestDox('sem lancamento nenhum, o acumulado e o proprio saldo do mes')]
@@ -184,8 +182,88 @@ final class HorasPagasTotalAssinadoTest extends JusPrimeWebTestCase
             'saldo do mes positivo'   => [120, '+2:00', '–'],
             'saldo do mes negativo'   => [-600, '-10:00', '10:00'],
             'saldo do mes zerado'     => [0, '+0:00', '–'],
-            'mes sem saldo apurado'   => [null, '+0:00', '–'],
+            'mes sem saldo apurado'   => [null, '–', '–'],
         ];
+    }
+
+    /**
+     * O banco de horas ZERA em 1º de janeiro (regra do dono). Logo janeiro não tem competência
+     * anterior: o que ficou para trás foi extinto pela virada, e o documento assinado não pode
+     * ressuscitá-lo.
+     *
+     * Sem esta prova, o chamador voltar a pedir (dezembro, ano-1) passa despercebido — e aí o
+     * "anterior" salta do ano passado INTEIRO em janeiro para só janeiro em fevereiro.
+     */
+    #[TestDox('o banco zera na virada: lancamento de dezembro nao entra no PDF de janeiro')]
+    public function testLancamentoDoAnoAnteriorNaoEntraNoSaldoDeJaneiro(): void
+    {
+        $tenant = $this->criarTenant();
+        $colaborador = $this->criarColaborador($tenant);
+        $autor = $this->criarColaborador($tenant);
+
+        $this->criarLancamento($tenant, $colaborador, $autor, 2025, 12, 6000);   // +100h em dezembro
+        $dados = $this->montarDadosFolha($colaborador, $tenant, 2026, 1, $this->folhaRowsComSaldoAcumulado(2026, 1, 0));
+
+        self::assertSame(
+            '+0:00',
+            $dados['saldoBancoAnterior'],
+            'janeiro não tem anterior: o banco zerou em 1º/jan e dezembro do ano passado ficou para trás',
+        );
+        self::assertSame(
+            '+0:00',
+            $dados['saldoBancoAtual'],
+            'o acumulado de janeiro começa do zero, sem herdar o saldo do ano anterior',
+        );
+    }
+
+    /**
+     * O par do teste acima: DENTRO do mesmo ano o anterior conta normalmente. Os dois juntos fixam a
+     * fronteira — sem o segundo, zerar o "anterior" em todo mês passaria igual.
+     */
+    #[TestDox('dentro do mesmo ano o lancamento do mes passado entra no anterior de fevereiro')]
+    public function testLancamentoDeJaneiroEntraNoSaldoAnteriorDeFevereiro(): void
+    {
+        $tenant = $this->criarTenant();
+        $colaborador = $this->criarColaborador($tenant);
+        $autor = $this->criarColaborador($tenant);
+
+        $this->criarLancamento($tenant, $colaborador, $autor, 2026, 1, -600);    // -10h em janeiro
+        $dados = $this->montarDadosFolha($colaborador, $tenant, 2026, 2, $this->folhaRowsComSaldoAcumulado(2026, 2, 0));
+
+        self::assertSame(
+            '-10:00',
+            $dados['saldoBancoAnterior'],
+            'fevereiro herda janeiro: dentro do ano o acumulado corre normalmente',
+        );
+        self::assertSame(
+            '-10:00',
+            $dados['saldoBancoAtual'],
+            'e o acumulado de fevereiro carrega o que veio de janeiro',
+        );
+        self::assertSame('10:00', $dados['horasACompensar'], 'a compensação acompanha o acumulado negativo');
+    }
+
+    /**
+     * Mês não apurável (nenhuma linha com saldo — sem batida, ou colaborador sem `JornadaColaborador`)
+     * mantém o '–' de sempre, em vez de o papel assinado AFIRMAR "+0:00" a partir do nada. Mas se
+     * houver lançamento, o total sai: perder horas em silêncio é pior (spec §4.3).
+     */
+    #[TestDox('mes nao apuravel com lancamento mostra o total em vez de sumir com as horas')]
+    public function testMesNaoApuravelComLancamentoAindaMostraOTotal(): void
+    {
+        $tenant = $this->criarTenant();
+        $colaborador = $this->criarColaborador($tenant);
+        $autor = $this->criarColaborador($tenant);
+
+        $this->criarLancamento($tenant, $colaborador, $autor, 2026, 3, -600);
+        $dados = $this->montarDadosFolha($colaborador, $tenant, 2026, 3, $this->folhaRowsComSaldoAcumulado(2026, 3, null));
+
+        self::assertSame(
+            '-10:00',
+            $dados['saldoBancoAtual'],
+            'o mês não apurado vale zero na soma quando há lançamento — a hora lançada não pode sumir',
+        );
+        self::assertSame('10:00', $dados['horasACompensar'], 'e a compensação acompanha');
     }
 
     /**

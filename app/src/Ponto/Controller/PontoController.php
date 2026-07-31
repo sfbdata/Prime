@@ -995,25 +995,31 @@ final class PontoController extends AbstractController
             }
         }
 
-        $mesAnterior = $mes - 1;
-        $anoAnterior = $ano;
-        if ($mesAnterior < 1) {
-            $mesAnterior = 12;
-            $anoAnterior--;
-        }
-        // Sem condicional em $jornada de propósito: calcularSaldoAteMes já se protege sozinho
-        // (devolve só os lançamentos quando não há jornada). Curto-circuitar aqui com `: 0`
-        // apagaria as horas pagas de quem não tem JornadaColaborador — o painel /ponto mostraria
-        // -10h00 e o espelho do mês seguinte, "Saldo anterior: 0h00", para o mesmo colaborador.
-        $saldoBancoAnteriorMinutos = $builder->calcularSaldoAteMes(
-            $targetUser,
-            $anoAnterior,
-            $mesAnterior,
-            $feriados,
-            $jornadaTenant,
-            $inicioContagem,
-            $tenant,
-        );
+        // O BANCO DE HORAS ZERA EM 1º DE JANEIRO (regra do dono, confirmada em 2026-07-31). Por isso
+        // janeiro não tem competência anterior: pedir dezembro do ano passado traria para o documento
+        // assinado um saldo que a virada do ano extinguiu.
+        //
+        // Isto NÃO é detalhe de exibição, é o que mantém o campo coerente de um mês para o outro.
+        // `calcularSaldoAteMes` nunca olha antes de 1º/jan do ano que recebe (`FolhaPontoBuilder`
+        // limita o início em `$inicioAno`, e `somarPorPeriodo` filtra `l.ano = :ano`). Pedindo
+        // (dezembro, ano-1) em janeiro e (mês-1, ano) nos demais, o "anterior" saltava do ano passado
+        // INTEIRO em janeiro para só janeiro em fevereiro: uma dívida de 100h aparecia num papel
+        // assinado e sumia no seguinte, sem nenhuma hora trabalhada que explicasse.
+        $saldoBancoAnteriorMinutos = $mes === 1
+            ? 0
+            // Sem condicional em $jornada de propósito: calcularSaldoAteMes já se protege sozinho
+            // (devolve só os lançamentos quando não há jornada). Curto-circuitar aqui com `: 0`
+            // apagaria as horas pagas de quem não tem JornadaColaborador — o painel /ponto mostraria
+            // -10h00 e o espelho do mês seguinte, "Saldo anterior: 0h00", para o mesmo colaborador.
+            : $builder->calcularSaldoAteMes(
+                $targetUser,
+                $ano,
+                $mes - 1,
+                $feriados,
+                $jornadaTenant,
+                $inicioContagem,
+                $tenant,
+            );
 
         $horasPagasMinutos = $builder->somarHorasPagasDaCompetencia($targetUser, $tenant, $ano, $mes);
 
@@ -1037,7 +1043,17 @@ final class PontoController extends AbstractController
         //
         // ⚠️ Muda o PDF de TODOS os escritórios, inclusive os que nunca usaram horas pagas — o campo
         // deixa de ser mensal e passa a ser acumulado. Consequência aceita e explícita da decisão.
-        $saldoBancoAtualMinutos = $saldoBancoAnteriorMinutos + ($saldoDoMesMinutos ?? 0) + $horasPagasMinutos;
+        //
+        // `$saldoDoMesMinutos` é null quando NENHUMA linha teve saldo apurado — sem batida no mês, ou
+        // colaborador sem `JornadaColaborador` (aí `buildRows` não calcula saldo em dia nenhum). Nesse
+        // caso o mês é DESCONHECIDO, não zero, e o documento assinado não pode afirmar "+0:00" a
+        // partir do nada: mantém o '–' de antes. Mas só quando não há mais nada a reportar — havendo
+        // saldo anterior ou lançamento, o total sai, porque perder horas em silêncio é pior (spec §4.3).
+        $nadaApurado = $saldoDoMesMinutos === null && $saldoBancoAnteriorMinutos === 0 && $horasPagasMinutos === 0;
+
+        $saldoBancoAtualMinutos = $nadaApurado
+            ? null
+            : $saldoBancoAnteriorMinutos + ($saldoDoMesMinutos ?? 0) + $horasPagasMinutos;
 
         $enderecoPartes = array_filter([
             $tenant?->getLogradouro(),

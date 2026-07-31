@@ -315,11 +315,39 @@ tem **cinco linhas fixas**, sem linha própria de horas pagas:
 Em `montarDadosFolha()` (`PontoController.php:912`):
 
 ```php
-$saldoBancoAtualMinutos = $saldoBancoAnteriorMinutos + ($saldoDoMesMinutos ?? 0) + $horasPagasMinutos;
+$saldoBancoAnteriorMinutos = $mes === 1 ? 0 : $builder->calcularSaldoAteMes($user, $ano, $mes - 1, …);
+
+$nadaApurado = $saldoDoMesMinutos === null && $saldoBancoAnteriorMinutos === 0 && $horasPagasMinutos === 0;
+$saldoBancoAtualMinutos = $nadaApurado
+    ? null
+    : $saldoBancoAnteriorMinutos + ($saldoDoMesMinutos ?? 0) + $horasPagasMinutos;
 ```
 
 e `horasACompensar` é o módulo desse total quando negativo. A chave `horasPagasMinutos` **não é mais
 publicada** no array — nada a consome depois da remoção das duas linhas.
+
+**O banco de horas ZERA em 1º de janeiro** (regra do dono, confirmada em 2026-07-31). Por isso janeiro
+**não tem competência anterior**: o chamador devolve `0` em vez de pedir dezembro do ano passado.
+
+Isto não é detalhe de exibição — é o que mantém o campo coerente de um mês para o outro. `calcularSaldoAteMes`
+**nunca olha antes de 1º/jan do ano que recebe**: `FolhaPontoBuilder` limita o início em `$inicioAno`
+(`:318-319`) e `somarPorPeriodo` filtra `l.ano = :ano` (`LancamentoHorasPagasRepository:61`). A versão que
+pedia `(dezembro, ano−1)` em janeiro fazia o "anterior" saltar do **ano passado inteiro** em janeiro para
+**só janeiro** em fevereiro: uma dívida de 100h aparecia num papel assinado e sumia no seguinte, sem nenhuma
+hora trabalhada que explicasse — e, se o pagamento em dinheiro cruzasse a virada, fevereiro **cobrava de
+volta** as horas pagas em janeiro. Coberto pelo par de testes `testLancamentoDoAnoAnteriorNaoEntraNoSaldoDeJaneiro`
+(a fronteira) e `testLancamentoDeJaneiroEntraNoSaldoAnteriorDeFevereiro` (o outro lado dela — sem o segundo,
+zerar o anterior em TODO mês passaria despercebido).
+
+> **Consequência da regra:** horas acumuladas num ano e pagas em dinheiro no seguinte precisam ser lançadas na
+> competência do ano em que foram **acumuladas**. Lançar em janeiro o pagamento de horas de dezembro cria
+> dívida onde não há, porque o crédito que a financiava foi extinto pela virada.
+
+**Mês não apurável continua exibindo `–`.** `saldoDoMesMinutos` é `null` quando nenhuma linha teve saldo —
+sem batida no mês **ou** colaborador sem `JornadaColaborador` (aí `buildRows` não calcula saldo em dia
+nenhum). Nesse caso o mês é **desconhecido, não zero**, e o documento assinado não pode afirmar `+0:00` a
+partir do nada. Mas o `–` só vale quando não há mais nada a reportar: havendo saldo anterior ou lançamento,
+o total sai, porque perder horas em silêncio é pior (§4.3).
 
 **Por que a base tinha de mudar junto.** Até aqui `saldoBancoAtual` era o `saldoAcumulado` da última linha da
 tabela, e `buildRows` faz esse acumulado **nascer em zero no primeiro dia do intervalo pedido** (o PDF chama
@@ -339,10 +367,9 @@ dinheiro e lança `-6000` em agosto, agosto é trabalhado na jornada exata (sald
 `somarHorasPagasDaCompetencia` soma os **desta**. As faixas não se sobrepõem.
 
 ⚠️ **Muda o PDF de TODOS os escritórios, inclusive os que nunca usaram horas pagas** — o campo deixa de ser
-mensal e passa a ser acumulado. Consequência aceita e explícita: foi por causa dela que essa correção estava
-registrada como follow-up de frente própria, e o dono optou por trazê-la para cá em vez de deployar um
-comportamento e desfazê-lo no deploy seguinte. Mudança de exibição secundária: mês **sem saldo apurado**
-(nenhuma batida) exibia `–` e passa a exibir `+0:00`, porque o acumulado existe mesmo sem movimento no mês.
+mensal e passa a ser acumulado (dentro do ano). Consequência aceita e explícita: foi por causa dela que essa
+correção estava registrada como follow-up de frente própria, e o dono optou por trazê-la para cá em vez de
+deployar um comportamento e desfazê-lo no deploy seguinte.
 
 Coberto por `app/tests/Ponto/Functional/HorasPagasTotalAssinadoTest.php` (as três parcelas, o caso de uso nº 1
 ponta a ponta e a tabela de saldos sem lançamento) e por `SaldoAnteriorHorasPagasTest`, que prova que o
