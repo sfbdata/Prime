@@ -232,6 +232,118 @@ final class HorasPagasControllerTest extends JusPrimeWebTestCase
         self::assertSame(480, $this->lancamentosDe($colaborador)[0]->getMinutos(), 'acrescentar tem de somar, não descontar');
     }
 
+    /**
+     * O banco de horas ZERA em 1º de janeiro, então horas acumuladas num ano e pagas em dinheiro no
+     * seguinte precisam ser lançadas na competência do ano em que foram ACUMULADAS. A competência
+     * natural (o mês corrente) é justamente a errada, e nada no caminho de escrita impede.
+     *
+     * Decisão do dono: AVISAR, sem bloquear — o lançamento já está gravado quando o aviso aparece.
+     */
+    #[TestDox('desconto que deixa o ano negativo grava e AVISA, sem bloquear')]
+    public function testDescontoQueNaoCabeNoAnoAvisaSemBloquear(): void
+    {
+        $client = static::createClient();
+        $this->instalarCsrfStorage();
+        $tenant      = $this->criarTenant();
+        $admin       = $this->criarAdmin($tenant);
+        $colaborador = $this->criarUsuario($tenant);
+
+        $this->logarComTenant($client, $admin, $tenant);
+        $client->request('POST', $this->rotaLancar($tenant, $colaborador), $this->payload($this->tokenLancar($colaborador)));
+
+        self::assertResponseRedirects();
+        self::assertCount(1, $this->lancamentosDe($colaborador), 'o aviso NÃO pode bloquear a gravação');
+
+        $avisos = $client->getRequest()->getSession()->getFlashBag()->peekAll()['warning'] ?? [];
+        self::assertCount(1, $avisos, 'descontar 10h30 de um ano sem saldo tem de avisar');
+        self::assertStringContainsString('-10h30', $avisos[0], 'o aviso tem de dizer em quanto o ano ficou');
+        self::assertStringContainsString('zera em 1º de janeiro', $avisos[0], 'e explicar o porquê, senão o admin não sabe o que fazer');
+    }
+
+    #[TestDox('bonificacao nunca avisa: acrescentar nao tem como nao caber')]
+    public function testBonificacaoNaoAvisa(): void
+    {
+        $client = static::createClient();
+        $this->instalarCsrfStorage();
+        $tenant      = $this->criarTenant();
+        $admin       = $this->criarAdmin($tenant);
+        $colaborador = $this->criarUsuario($tenant);
+
+        $this->logarComTenant($client, $admin, $tenant);
+        $client->request(
+            'POST',
+            $this->rotaLancar($tenant, $colaborador),
+            $this->payload($this->tokenLancar($colaborador), ['operacao' => 'acrescentar', 'horas' => 8, 'minutos' => 0]),
+        );
+
+        self::assertResponseRedirects();
+        self::assertSame([], $client->getRequest()->getSession()->getFlashBag()->peekAll()['warning'] ?? []);
+    }
+
+    /**
+     * O outro lado da fronteira: quando o ano COMPORTA o desconto, não pode haver aviso — senão ele
+     * vira ruído e o admin aprende a ignorar justamente o caso que importa.
+     */
+    /**
+     * A guarda "só desconto" não é redundante com a checagem do saldo: aqui o ano JÁ está negativo, e
+     * mesmo assim a bonificação não pode avisar — o aviso é sobre tirar do que não tem, não sobre o
+     * banco estar no vermelho (o dono recusou aviso de saldo negativo em §2).
+     */
+    #[TestDox('bonificacao em ano negativo tambem nao avisa')]
+    public function testBonificacaoEmAnoNegativoNaoAvisa(): void
+    {
+        $client = static::createClient();
+        $this->instalarCsrfStorage();
+        $tenant      = $this->criarTenant();
+        $admin       = $this->criarAdmin($tenant);
+        $colaborador = $this->criarUsuario($tenant);
+
+        $this->criarLancamento($tenant, $colaborador, $admin, -6000);   // ano já em -100h
+
+        $this->logarComTenant($client, $admin, $tenant);
+        $client->request(
+            'POST',
+            $this->rotaLancar($tenant, $colaborador),
+            $this->payload($this->tokenLancar($colaborador), ['operacao' => 'acrescentar', 'horas' => 8, 'minutos' => 0]),
+        );
+
+        self::assertResponseRedirects();
+        self::assertSame(
+            [],
+            $client->getRequest()->getSession()->getFlashBag()->peekAll()['warning'] ?? [],
+            'acrescentar nunca avisa, mesmo com o ano no vermelho',
+        );
+    }
+
+    #[TestDox('desconto que cabe no saldo do ano nao avisa')]
+    public function testDescontoQueCabeNoAnoNaoAvisa(): void
+    {
+        $client = static::createClient();
+        $this->instalarCsrfStorage();
+        $tenant      = $this->criarTenant();
+        $admin       = $this->criarAdmin($tenant);
+        $colaborador = $this->criarUsuario($tenant);
+
+        // Crédito de 20h já existente na MESMA competência, gravado direto: a rota só é exercitada
+        // pelo desconto, que é o que precisa (ou não) avisar. Duas requisições numa mesma prova
+        // esbarrariam no storage falso de CSRF, que não sobrevive ao reinício do kernel.
+        // Crédito de 20h já existente na MESMA competência, pelo helper do próprio arquivo: a rota é
+        // exercitada só pelo desconto, que é o que precisa (ou não) avisar. Duas requisições na mesma
+        // prova esbarrariam no storage falso de CSRF, que não sobrevive ao reinício do kernel.
+        $this->criarLancamento($tenant, $colaborador, $admin, 1200);
+
+        $this->logarComTenant($client, $admin, $tenant);
+        $client->request('POST', $this->rotaLancar($tenant, $colaborador), $this->payload($this->tokenLancar($colaborador)));
+
+        self::assertResponseRedirects();
+        self::assertCount(2, $this->lancamentosDe($colaborador));
+        self::assertSame(
+            [],
+            $client->getRequest()->getSession()->getFlashBag()->peekAll()['warning'] ?? [],
+            'com 20h de crédito no ano, descontar 10h30 não deixa nada negativo — nada a avisar',
+        );
+    }
+
     #[TestDox('operacao fora do catalogo nao grava nada (o sinal nao pode ser invertido por typo)')]
     public function testOperacaoInvalidaNaoGrava(): void
     {

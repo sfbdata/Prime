@@ -10,7 +10,10 @@ use App\Ponto\DTO\LancamentoHorasPagasInput;
 use App\Ponto\Entity\LancamentoHorasPagas;
 use App\Ponto\Exception\HorasPagasInvalidaException;
 use App\Ponto\Form\LancamentoHorasPagasType;
+use App\Ponto\Repository\FeriadoRepository;
 use App\Ponto\Repository\LancamentoHorasPagasRepository;
+use App\Ponto\Service\FolhaPontoBuilder;
+use App\Ponto\Service\InicioContagemResolver;
 use App\Ponto\UseCase\EditarHorasPagasUseCase;
 use App\Ponto\UseCase\ExcluirHorasPagasUseCase;
 use App\Ponto\UseCase\LancarHorasPagasUseCase;
@@ -45,6 +48,9 @@ final class HorasPagasController extends AbstractController
         private readonly UserTenantRepository $userTenantRepository,
         private readonly PermissionChecker $permissionChecker,
         private readonly LancamentoHorasPagasRepository $lancamentoRepository,
+        private readonly FolhaPontoBuilder $folhaPontoBuilder,
+        private readonly FeriadoRepository $feriadoRepository,
+        private readonly InicioContagemResolver $inicioContagemResolver,
     ) {}
 
     #[Route(
@@ -76,6 +82,7 @@ final class HorasPagasController extends AbstractController
         try {
             $lancarHorasPagas($input, $colaborador, $autor, $tenant);
             $this->addFlash('success', 'Lançamento de horas pagas registrado.');
+            $this->avisarSeODescontoNaoCabeNoAno($input, $colaborador, $tenant);
         } catch (HorasPagasInvalidaException $excecao) {
             $this->addFlash('error', $excecao->getMessage());
         }
@@ -114,6 +121,7 @@ final class HorasPagasController extends AbstractController
         try {
             $editarHorasPagas($lancamento, $input, $autor, $tenant);
             $this->addFlash('success', 'Lançamento de horas pagas atualizado.');
+            $this->avisarSeODescontoNaoCabeNoAno($input, $colaborador, $tenant);
         } catch (HorasPagasInvalidaException $excecao) {
             $this->addFlash('error', $excecao->getMessage());
         }
@@ -147,6 +155,59 @@ final class HorasPagasController extends AbstractController
         }
 
         return $this->voltarParaFicha($tenantId, $id);
+    }
+
+    /**
+     * AVISA — não bloqueia — quando o desconto tira do ano mais do que o ano tem.
+     *
+     * Decisão do dono (2026-07-31), depois que a revisão mostrou a armadilha: o banco de horas ZERA em
+     * 1º de janeiro, então horas acumuladas num ano e pagas em dinheiro no seguinte precisam ser
+     * lançadas na competência do ano em que foram ACUMULADAS. Lançar em janeiro/2027 o pagamento de
+     * 100h juntadas em 2026 cria dívida do nada: o crédito que a financiava foi extinto pela virada, e
+     * o documento assinado passa a cobrar 100h de quem acabou de recebê-las.
+     *
+     * Nada no caminho de escrita impedia isso, e a competência natural (o mês corrente) é justamente a
+     * errada. O dono recusou trava — aqui e na decisão original de §2 —, então o aviso é informativo:
+     * o lançamento JÁ FOI gravado quando ele aparece, e editar/excluir são livres.
+     *
+     * Só dispara em desconto. Bonificação não tem como "não caber".
+     */
+    private function avisarSeODescontoNaoCabeNoAno(
+        LancamentoHorasPagasInput $input,
+        User $colaborador,
+        Tenant $tenant,
+    ): void {
+        if ($input->minutosComSinal() >= 0) {
+            return;
+        }
+
+        // Mesmo cálculo que alimenta o "Saldo do Banco de Horas Anterior" do documento assinado, já
+        // com o lançamento recém-gravado dentro: `calcularSaldoAteMes` nunca atravessa o ano, então o
+        // número abaixo é exatamente o banco DAQUELE ano até a competência lançada.
+        $saldoDoAno = $this->folhaPontoBuilder->calcularSaldoAteMes(
+            $colaborador,
+            $input->ano,
+            $input->mes,
+            $this->feriadoRepository->findByTenant($tenant),
+            $tenant->getJornadaTenant(),
+            $this->inicioContagemResolver->resolver($colaborador, $tenant),
+            $tenant,
+        );
+
+        if ($saldoDoAno >= 0) {
+            return;
+        }
+
+        $abs = abs($saldoDoAno);
+
+        $this->addFlash('warning', sprintf(
+            'Atenção: com este lançamento o banco de horas de %d ficou em -%dh%02d. '
+            . 'O banco zera em 1º de janeiro — se as horas pagas foram acumuladas em outro ano, '
+            . 'lance na competência daquele ano.',
+            $input->ano,
+            intdiv($abs, 60),
+            $abs % 60,
+        ));
     }
 
     /**

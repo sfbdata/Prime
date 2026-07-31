@@ -342,6 +342,15 @@ zerar o anterior em TODO mês passaria despercebido).
 > **Consequência da regra:** horas acumuladas num ano e pagas em dinheiro no seguinte precisam ser lançadas na
 > competência do ano em que foram **acumuladas**. Lançar em janeiro o pagamento de horas de dezembro cria
 > dívida onde não há, porque o crédito que a financiava foi extinto pela virada.
+>
+> **O sistema AVISA, sem bloquear** (decisão do dono, 2026-07-31, depois que a revisão mostrou que a regra
+> existia só neste documento). `HorasPagasController::avisarSeODescontoNaoCabeNoAno()` roda depois de gravar,
+> em `lancar` e `editar`: se o lançamento é **desconto** e o banco daquele ano fica **negativo**, entra um
+> flash `warning` dizendo em quanto o ano ficou e lembrando que o banco zera em 1º de janeiro. Não avisa em
+> bonificação — nem quando o ano já está no vermelho —, porque o aviso é sobre **tirar do que não tem**, não
+> sobre saldo negativo, que o dono recusou avisar em §2. O lançamento **já está gravado** quando o aviso
+> aparece; editar e excluir são livres. Coberto por quatro testes em `HorasPagasControllerTest`, os dois
+> lados de cada fronteira.
 
 **Mês não apurável continua exibindo `–`.** `saldoDoMesMinutos` é `null` quando nenhuma linha teve saldo
 apurado. **Não é o mesmo que "mês sem batida":** dia útil sem batida dentro da contagem recebe `saldoDia`
