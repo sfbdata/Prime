@@ -8,7 +8,7 @@
 
 ```bash
 cd /home/prime/projetos/jusprime                                  # o script roda do checkout PRINCIPAL
-scripts/frente-testar.sh cobranca-importar-cadastro-acordos       # último verde: 2983/2983
+scripts/frente-testar.sh cobranca-importar-cadastro-acordos       # último verde: 2988/2988
 cd .claude/worktrees/cobranca-importar-cadastro-acordos && git log --oneline -5
 ```
 
@@ -247,6 +247,23 @@ importam foram os mesmos dois modos de falha que a frente já conhecia:
 | 6 | Assimetria: a conta reconstruída não tem a guarda de NN ambíguo que a parcela tem | Deliberado; agora **escrito** no docblock, com o risco residual |
 | 7 | Handoff desatualizado (3 números de suíte diferentes, contagem de commits errada) | Corrigido; o número da suíte vive num lugar só |
 | 8 | A prévia não mostrava que os encargos de contas reais seriam reescritos | Rótulo da tabela do comando explicita |
+
+### A revisão foi em QUATRO passadas, e cada uma achou a camada seguinte do MESMO defeito
+
+Vale registrar porque é a lição da frente. O defeito era sempre "a prévia não enxerga o que a própria
+execução já fez", e ele reapareceu em três lugares diferentes depois de eu declarar cada um resolvido:
+
+1. **1ª passada** — o importador de acordos não tinha estado nenhum. Corrigido com um acumulador por
+   `(caso, NN, competência)`.
+2. **2ª passada** — o acumulador registrava **criação** e ignorava **mutação**. Marcar uma conta sem
+   registrar fazia a prévia somar o mesmo principal duas vezes.
+3. **3ª passada** — o acumulador tinha a chave errada em dois caminhos: o **fallback do legado** (dois
+   trios → uma obrigação) e a **guarda de ambiguidade** (pergunta por NN, sem competência). Viraram
+   `ObrigacoesTocadasNaImportacao`, com três índices e o porquê de cada um.
+4. **4ª passada** — a invariante que sustenta o índice novo (`obr:`) morava só no adapter. Passou a ser
+   exigida no construtor do VO (`CompetenciaImportada`).
+
+**Aprovado na 4ª**, com a conta batendo ao centavo contra a fonte real e o `saas_ux`.
 
 🔑 **Achado medido pelo revisor, que vale mais que os 8:** no `saas_ux` **não há nenhuma obrigação com
 `competencia IS NULL`**. Ou seja, o replay que provou a spec **não exercitou o fallback legado nenhuma
