@@ -1005,12 +1005,21 @@ final class PontoController extends AbstractController
         // (dezembro, ano-1) em janeiro e (mês-1, ano) nos demais, o "anterior" saltava do ano passado
         // INTEIRO em janeiro para só janeiro em fevereiro: uma dívida de 100h aparecia num papel
         // assinado e sumia no seguinte, sem nenhuma hora trabalhada que explicasse.
+        // Guarda própria, não herdada: hoje os dois chamadores (`:789` e `:873`) já fazem
+        // `max(1, min(12, ...))`, mas o `$mes - 1` abaixo depende disso silenciosamente. Um chamador
+        // novo que esquecesse o clamp levaria `mes = 0` a somar período vazio e devolver ZERO SEM
+        // BARULHO — número errado num documento assinado —, e `mes = 13` a estourar 500 lá dentro.
+        if ($mes < 1 || $mes > 12) {
+            throw new \InvalidArgumentException(sprintf('montarDadosFolha: mês fora de 1..12 (%d)', $mes));
+        }
+
+        // Nota sobre o ramo `? 0`: ele é a regra do reset, não um curto-circuito de jornada. O ramo de
+        // baixo NÃO condiciona em $jornada de propósito — `calcularSaldoAteMes` já se protege sozinho
+        // (devolve só os lançamentos quando não há jornada), e curto-circuitar ali apagaria as horas
+        // pagas de quem não tem JornadaColaborador: o painel /ponto mostraria -10h00 e o espelho do mês
+        // seguinte "Saldo anterior: 0h00", para o mesmo colaborador.
         $saldoBancoAnteriorMinutos = $mes === 1
             ? 0
-            // Sem condicional em $jornada de propósito: calcularSaldoAteMes já se protege sozinho
-            // (devolve só os lançamentos quando não há jornada). Curto-circuitar aqui com `: 0`
-            // apagaria as horas pagas de quem não tem JornadaColaborador — o painel /ponto mostraria
-            // -10h00 e o espelho do mês seguinte, "Saldo anterior: 0h00", para o mesmo colaborador.
             : $builder->calcularSaldoAteMes(
                 $targetUser,
                 $ano,
@@ -1044,10 +1053,15 @@ final class PontoController extends AbstractController
         // ⚠️ Muda o PDF de TODOS os escritórios, inclusive os que nunca usaram horas pagas — o campo
         // deixa de ser mensal e passa a ser acumulado. Consequência aceita e explícita da decisão.
         //
-        // `$saldoDoMesMinutos` é null quando NENHUMA linha teve saldo apurado — sem batida no mês, ou
-        // colaborador sem `JornadaColaborador` (aí `buildRows` não calcula saldo em dia nenhum). Nesse
-        // caso o mês é DESCONHECIDO, não zero, e o documento assinado não pode afirmar "+0:00" a
-        // partir do nada: mantém o '–' de antes. Mas só quando não há mais nada a reportar — havendo
+        // `$saldoDoMesMinutos` é null quando NENHUMA linha teve saldo apurado. NÃO confundir com "mês
+        // sem batida": dia útil sem batida dentro da contagem recebe `saldoDia` negativo normalmente
+        // (`CalculadoraJornada::calcularSaldoDia` devolve `trabalhado - carga`), então um mês inteiro
+        // de faltas sai como número, não como null. Os gatilhos reais são: colaborador sem
+        // `JornadaColaborador` (`buildRows` não calcula saldo em dia nenhum), mês inteiramente FUTURO,
+        // mês inteiro anterior ao início da contagem, e o caso "só hoje, ainda sem saída".
+        //
+        // Nesses casos o mês é DESCONHECIDO, não zero, e o documento assinado não pode afirmar "+0:00"
+        // a partir do nada: mantém o '–' de antes. Mas só quando não há mais nada a reportar — havendo
         // saldo anterior ou lançamento, o total sai, porque perder horas em silêncio é pior (spec §4.3).
         $nadaApurado = $saldoDoMesMinutos === null && $saldoBancoAnteriorMinutos === 0 && $horasPagasMinutos === 0;
 

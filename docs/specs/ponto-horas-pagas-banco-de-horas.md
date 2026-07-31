@@ -343,11 +343,18 @@ zerar o anterior em TODO mês passaria despercebido).
 > competência do ano em que foram **acumuladas**. Lançar em janeiro o pagamento de horas de dezembro cria
 > dívida onde não há, porque o crédito que a financiava foi extinto pela virada.
 
-**Mês não apurável continua exibindo `–`.** `saldoDoMesMinutos` é `null` quando nenhuma linha teve saldo —
-sem batida no mês **ou** colaborador sem `JornadaColaborador` (aí `buildRows` não calcula saldo em dia
-nenhum). Nesse caso o mês é **desconhecido, não zero**, e o documento assinado não pode afirmar `+0:00` a
-partir do nada. Mas o `–` só vale quando não há mais nada a reportar: havendo saldo anterior ou lançamento,
-o total sai, porque perder horas em silêncio é pior (§4.3).
+**Mês não apurável continua exibindo `–`.** `saldoDoMesMinutos` é `null` quando nenhuma linha teve saldo
+apurado. **Não é o mesmo que "mês sem batida":** dia útil sem batida dentro da contagem recebe `saldoDia`
+negativo normalmente, então um mês inteiro de faltas sai como número. Os gatilhos reais são: colaborador sem
+`JornadaColaborador`, mês inteiramente **futuro**, mês inteiro anterior ao início da contagem, e o caso "só
+hoje, ainda sem saída". Nesses casos o mês é **desconhecido, não zero**, e o documento assinado não pode
+afirmar `+0:00` a partir do nada. Mas o `–` só vale quando não há mais nada a reportar: havendo saldo anterior
+ou lançamento, o total sai, porque perder horas em silêncio é pior (§4.3) — o mês desconhecido entra como zero
+nessa soma, tradeoff assumido.
+
+`montarDadosFolha` valida `1 ≤ $mes ≤ 12` e lança `\InvalidArgumentException`. Os dois chamadores já fazem o
+clamp, mas sem a guarda um chamador novo levaria `mes = 0` a devolver **zero em silêncio** num documento
+assinado, e `mes = 13` a estourar 500 dentro do builder.
 
 **Por que a base tinha de mudar junto.** Até aqui `saldoBancoAtual` era o `saldoAcumulado` da última linha da
 tabela, e `buildRows` faz esse acumulado **nascer em zero no primeiro dia do intervalo pedido** (o PDF chama
