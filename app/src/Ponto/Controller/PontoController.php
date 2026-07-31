@@ -947,7 +947,9 @@ final class PontoController extends AbstractController
         $intrajornadaConforme    = true;
         $interjornadaConforme    = true;
         $ultimaSaidaTs           = null;
-        $saldoBancoAtualMinutos  = null;
+        // Saldo DAQUELE MÊS: `buildRows` faz o acumulado nascer em zero no dia 1º do intervalo
+        // pedido. É uma das três parcelas do "Saldo do Banco de Horas Atual" montado adiante.
+        $saldoDoMesMinutos       = null;
 
         foreach ($folhaRows as $row) {
             $row['horasTrabalhadas'] = $this->formatarMinutos($row['minutosTrabalhadosDia'] ?? null);
@@ -989,7 +991,7 @@ final class PontoController extends AbstractController
             }
 
             if ($row['saldoAcumulado'] !== null) {
-                $saldoBancoAtualMinutos = $row['saldoAcumulado'];
+                $saldoDoMesMinutos = $row['saldoAcumulado'];
             }
         }
 
@@ -1015,21 +1017,27 @@ final class PontoController extends AbstractController
 
         $horasPagasMinutos = $builder->somarHorasPagasDaCompetencia($targetUser, $tenant, $ano, $mes);
 
-        // DECISÃO DO DONO (onda final): o lançamento NÃO entra em "Saldo atual" nem em "Horas a
-        // Compensar". Esses dois campos derivam do `saldoAcumulado` da última linha da tabela, e
-        // `buildRows` faz esse acumulado NASCER EM ZERO no primeiro dia do intervalo pedido — aqui,
-        // o dia 1º do mês exportado. Ou seja: apesar do rótulo "Saldo do Banco de Horas Atual", o
-        // número é o saldo DAQUELE MÊS, não o banco acumulado (rótulo enganoso preexistente;
-        // corrigi-lo é frente própria, porque muda o PDF de todos os escritórios).
+        // DECISÃO DO DONO (2026-07-31, após o smoke): "Saldo do Banco de Horas Atual" passa a ser o
+        // banco ACUMULADO de verdade — anterior + saldo do mês + horas pagas da competência — e o
+        // bloco assinado deixa de ter linha própria "Horas pagas".
         //
-        // Somar o lançamento nele produzia número sem significado: colaborador com 100h de banco
-        // acumulado recebe as 100h em dinheiro, o admin lança -6000 em agosto, agosto foi trabalhado
-        // na jornada exata (saldo do mês = 0) — e o papel passava a dizer "Horas a Compensar:
-        // 100:00", cobrando de volta exatamente o que acabou de ser pago.
+        // Até aqui este campo era o `saldoAcumulado` da última linha da tabela, e `buildRows` faz
+        // esse acumulado NASCER EM ZERO no dia 1º do intervalo pedido: apesar do rótulo, o número era
+        // o saldo DAQUELE MÊS. Ficava ao lado de "Saldo do Banco de Horas Anterior", que sempre foi
+        // acumulado (`calcularSaldoAteMes`) — dois rótulos irmãos medindo coisas diferentes.
         //
-        // O lançamento aparece no bloco assinado na linha própria "Horas pagas" (`horasPagasMinutos`
-        // abaixo), que é informação nova e não altera nenhum campo antigo. Quem já soma os
-        // lançamentos de meses anteriores é o "Saldo anterior" (via `calcularSaldoAteMes`).
+        // É essa base errada que tornava a soma perigosa: colaborador acumula 100h, recebe as 100h em
+        // dinheiro, o admin lança -6000 em agosto, agosto é trabalhado na jornada exata (saldo do mês
+        // = 0) — somar o lançamento a um saldo MENSAL dizia "Horas a Compensar: 100:00", cobrando de
+        // volta o que acabou de ser pago. Com a base acumulada o mesmo caso fecha em zero:
+        // +100h (anterior) + 0 (mês) - 100h (pago) = 0.
+        //
+        // Sem contagem dupla: `calcularSaldoAteMes` soma os lançamentos das competências ANTERIORES;
+        // `somarHorasPagasDaCompetencia` soma os DESTA. As faixas não se sobrepõem.
+        //
+        // ⚠️ Muda o PDF de TODOS os escritórios, inclusive os que nunca usaram horas pagas — o campo
+        // deixa de ser mensal e passa a ser acumulado. Consequência aceita e explícita da decisão.
+        $saldoBancoAtualMinutos = $saldoBancoAnteriorMinutos + ($saldoDoMesMinutos ?? 0) + $horasPagasMinutos;
 
         $enderecoPartes = array_filter([
             $tenant?->getLogradouro(),
@@ -1078,7 +1086,6 @@ final class PontoController extends AbstractController
             'totalHorasExtras'        => $this->formatarMinutos($totalMinutosExtras ?: null),
             'saldoBancoAnterior'      => $this->formatarSaldo($saldoBancoAnteriorMinutos),
             'saldoBancoAtual'         => $this->formatarSaldo($saldoBancoAtualMinutos),
-            'horasPagasMinutos'       => $horasPagasMinutos,
             'horasACompensar'         => ($saldoBancoAtualMinutos !== null && $saldoBancoAtualMinutos < 0)
                 ? $this->formatarMinutos(abs($saldoBancoAtualMinutos))
                 : '–',

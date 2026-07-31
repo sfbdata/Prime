@@ -71,15 +71,20 @@ final class SaldoAnteriorHorasPagasTest extends JusPrimeWebTestCase
             'o saldo anterior não pode zerar as horas pagas de quem não tem JornadaColaborador',
         );
 
-        // Caminho 3 — a chave que o rodapé "Horas pagas" (Tarefa 6) do PDF/XLSX consome, na própria
-        // competência do lançamento. Sem esta asserção, renomear/remover a chave em
-        // montarDadosFolha faria a linha sumir dos dois exportadores sem nenhum teste vermelho —
-        // PDF e XLSX leem essa chave com `?? 0`/`is defined`, fail-open por natureza.
+        // Caminho 3 — o lançamento da PRÓPRIA competência exibida tem de entrar no "Saldo do Banco
+        // de Horas Atual" do bloco assinado. Colaborador sem jornada e sem batida: o saldo do mês é
+        // nulo e o anterior é zero, então o -600 do lançamento é a única parcela — se ele fosse
+        // descartado no caminho, o campo sairia '+0:00' em vez de '-10:00'.
         $dadosDoMesDoLancamento = $this->montarDadosFolha($colaborador, $tenant, $anoAtual, $mesLancamento);
         self::assertSame(
-            -600,
-            $dadosDoMesDoLancamento['horasPagasMinutos'],
-            'a chave horasPagasMinutos tem de refletir o lançamento da própria competência exibida',
+            '-10:00',
+            $dadosDoMesDoLancamento['saldoBancoAtual'],
+            'o lançamento da competência exibida tem de entrar no saldo atual do bloco assinado',
+        );
+        self::assertSame(
+            '10:00',
+            $dadosDoMesDoLancamento['horasACompensar'],
+            'e a compensação cobrada acompanha o acumulado negativo',
         );
     }
 

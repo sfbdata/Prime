@@ -380,22 +380,16 @@ final class FolhaPontoXlsxExporter
         $sheet->getRowDimension($lin)->setRowHeight(14);
         $lin++;
 
-        // Linhas de conteúdo — máx 5 linhas (6 quando há lançamento de horas pagas na competência)
+        // Linhas de conteúdo — 5 linhas fixas. Sem linha própria "Horas pagas": o lançamento da
+        // competência já está DENTRO do "Saldo do Banco de Horas Atual", que é o banco acumulado
+        // (anterior + mês + horas pagas). Decisão do dono em 2026-07-31 — ver spec §7.
         $resumo = [
             'Detalhe de Horas Trabalhadas no Mês:  ' . ($c['totalHorasTrabalhadas'] ?? '–'),
             'Total de Horas Extras no Mês:  '         . ($c['totalHorasExtras'] ?? '–'),
             'Saldo do Banco de Horas Anterior:  '     . ($c['saldoBancoAnterior'] ?? '–'),
+            'Saldo do Banco de Horas Atual:  '        . ($c['saldoBancoAtual'] ?? '–'),
+            'Horas a Compensar:  '                    . ($c['horasACompensar'] ?? '–'),
         ];
-
-        // Mesma notação "+H:MM" das linhas vizinhas de saldo (não o "Xh:MMm" da tela web).
-        $horasPagasMinutos = (int) ($c['horasPagasMinutos'] ?? 0);
-        if ($horasPagasMinutos !== 0) {
-            $absHp = abs($horasPagasMinutos);
-            $resumo[] = 'Horas pagas:  ' . ($horasPagasMinutos < 0 ? '-' : '+') . sprintf('%d:%02d', intdiv($absHp, 60), $absHp % 60);
-        }
-
-        $resumo[] = 'Saldo do Banco de Horas Atual:  ' . ($c['saldoBancoAtual'] ?? '–');
-        $resumo[] = 'Horas a Compensar:  '              . ($c['horasACompensar'] ?? '–');
 
         $conformeRepouso      = ($c['intrajornadaConforme'] ?? true);
         $conformeInterjornada = ($c['interjornadaConforme'] ?? true);

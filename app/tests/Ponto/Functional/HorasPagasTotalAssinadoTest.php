@@ -18,33 +18,35 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 
 /**
- * O lançamento de horas pagas entra no bloco assinado (PDF/XLSX) APENAS na linha própria
- * "Horas pagas". "Saldo do Banco de Horas Atual" e "Horas a Compensar" NÃO o somam.
+ * "Saldo do Banco de Horas Atual" do bloco assinado (PDF/XLSX) é o banco ACUMULADO:
  *
- * Decisão do dono, tomada na onda final de correção da frente, com a razão registrada aqui porque é
- * exatamente o ponto em que uma rodada anterior errou:
+ *     anterior (calcularSaldoAteMes) + saldo do mês (buildRows) + horas pagas da competência
  *
- * `saldoBancoAtual`/`horasACompensar` derivam do `saldoAcumulado` da última linha da tabela, e
- * `buildRows` faz esse acumulado NASCER EM ZERO no primeiro dia do intervalo pedido — o dia 1º do mês
- * exportado. Apesar do rótulo, o número é o saldo DAQUELE MÊS, não o banco acumulado. Somar um
- * lançamento mensal a um saldo mensal que não representa o banco produz número sem significado:
+ * e "Horas a Compensar" é o módulo dele quando negativo. Não existe linha própria "Horas pagas" no
+ * bloco assinado — o lançamento já está dentro do total.
  *
- *   colaborador acumula 100h de banco → o escritório paga as 100h em dinheiro → o admin lança -6000
- *   em agosto → agosto foi trabalhado na jornada exata (saldo do mês = 0) → o papel dizia
- *   "Horas a Compensar: 100:00", cobrando de volta o que acabou de ser pago.
+ * Decisão do dono em 2026-07-31, depois do smoke. Antes disso o campo era só o `saldoAcumulado` da
+ * última linha da tabela, e `buildRows` faz esse acumulado NASCER EM ZERO no dia 1º do intervalo
+ * pedido: apesar do rótulo, era o saldo DAQUELE MÊS, ao lado de um "Saldo Anterior" que sempre foi
+ * acumulado. Dois rótulos irmãos medindo coisas diferentes.
  *
- * O rótulo enganoso é preexistente e continua; corrigi-lo muda o PDF de todos os escritórios e é
- * frente própria. O terceiro cenário abaixo é o que impede a soma de voltar.
+ * Era essa base errada que tornava a soma perigosa — o cenário do caso de uso nº 1 (terceiro teste)
+ * é o que prova a diferença: colaborador acumula 100h, recebe as 100h em dinheiro, o admin lança
+ * -6000 em agosto, agosto é trabalhado na jornada exata. Somando ao saldo MENSAL o papel dizia
+ * "Horas a Compensar: 100:00", cobrando de volta o que acabou de ser pago; com a base acumulada
+ * fecha em zero, que é o devido.
+ *
+ * Sem contagem dupla: `calcularSaldoAteMes` cobre as competências ANTERIORES e
+ * `somarHorasPagasDaCompetencia` cobre a ATUAL — faixas que não se sobrepõem.
  */
 #[CoversClass(PontoController::class)]
 final class HorasPagasTotalAssinadoTest extends JusPrimeWebTestCase
 {
-    #[TestDox('desconto no lancamento nao mexe no saldo atual nem nas horas a compensar do bloco assinado')]
-    public function testDescontoNaoEntraNoTotalDoBlocoAssinado(): void
+    #[TestDox('desconto no lancamento entra no saldo atual acumulado e cria a compensacao correspondente')]
+    public function testDescontoEntraNoTotalAcumulado(): void
     {
-        // Batida do mês rende +120min (saldoAcumulado da última linha); lançamento desconta -600min.
-        // O bloco assinado continua reportando o saldo do MÊS (+2:00), sem compensação a cobrar; o
-        // desconto aparece só na linha "Horas pagas".
+        // Sem competência anterior: anterior = 0. Batida do mês rende +120min; lançamento desconta
+        // -600min. Acumulado = 0 + 120 - 600 = -480 => -8:00, com 8:00 a compensar.
         $tenant = $this->criarTenant();
         $colaborador = $this->criarColaborador($tenant);
         $autor = $this->criarColaborador($tenant);
@@ -56,28 +58,33 @@ final class HorasPagasTotalAssinadoTest extends JusPrimeWebTestCase
         $dados = $this->montarDadosFolha($colaborador, $tenant, $ano, $mes, $this->folhaRowsComSaldoAcumulado($ano, $mes, 120));
 
         self::assertSame(
-            '+2:00',
+            '+0:00',
+            $dados['saldoBancoAnterior'],
+            'não há competência anterior: o acumulado começa em zero',
+        );
+        self::assertSame(
+            '-8:00',
             $dados['saldoBancoAtual'],
-            'o saldo atual é o do mês (batidas: +120min); o lançamento não pode alterá-lo',
+            'o saldo atual é acumulado: 0 (anterior) + 120 (mês) - 600 (pago) = -480min',
         );
         self::assertSame(
-            '–',
+            '8:00',
             $dados['horasACompensar'],
-            'saldo do mês positivo não gera compensação — o desconto não pode criar uma',
+            'o acumulado ficou negativo, então há compensação a cobrar — e ela é o módulo dele',
         );
-        self::assertSame(
-            -600,
-            $dados['horasPagasMinutos'],
-            'o desconto tem de aparecer na linha própria "Horas pagas"',
+        self::assertArrayNotHasKey(
+            'horasPagasMinutos',
+            $dados,
+            'o bloco assinado não tem mais linha própria "Horas pagas" — o valor já está no total',
         );
     }
 
-    #[TestDox('bonificacao no lancamento nao mexe no saldo atual nem nas horas a compensar do bloco assinado')]
-    public function testBonificacaoNaoEntraNoTotalDoBlocoAssinado(): void
+    #[TestDox('bonificacao no lancamento reduz a compensacao cobrada no bloco assinado')]
+    public function testBonificacaoEntraNoTotalAcumulado(): void
     {
-        // Batida do mês fecha em -600min (deficit); lançamento acrescenta +480min de bonificação.
-        // O bloco assinado continua reportando o deficit do MÊS (-10:00 / 10:00 a compensar); a
-        // bonificação aparece só na linha "Horas pagas".
+        // Sem competência anterior: anterior = 0. Batida do mês fecha em -600min; lançamento
+        // acrescenta +480min de bonificação. Acumulado = 0 - 600 + 480 = -120 => -2:00, 2:00 a
+        // compensar (em vez das 10:00 que o deficit do mês sozinho cobraria).
         $tenant = $this->criarTenant();
         $colaborador = $this->criarColaborador($tenant);
         $autor = $this->criarColaborador($tenant);
@@ -89,19 +96,14 @@ final class HorasPagasTotalAssinadoTest extends JusPrimeWebTestCase
         $dados = $this->montarDadosFolha($colaborador, $tenant, $ano, $mes, $this->folhaRowsComSaldoAcumulado($ano, $mes, -600));
 
         self::assertSame(
-            '-10:00',
+            '-2:00',
             $dados['saldoBancoAtual'],
-            'o saldo atual é o do mês (batidas: -600min); a bonificação não pode alterá-lo',
+            'o saldo atual é acumulado: 0 (anterior) - 600 (mês) + 480 (bonificação) = -120min',
         );
         self::assertSame(
-            '10:00',
+            '2:00',
             $dados['horasACompensar'],
-            'a compensação cobrada é a do deficit do mês, sem interferência do lançamento',
-        );
-        self::assertSame(
-            480,
-            $dados['horasPagasMinutos'],
-            'a bonificação tem de aparecer na linha própria "Horas pagas"',
+            'a bonificação abate a compensação cobrada: 10:00 viram 2:00',
         );
     }
 
@@ -135,14 +137,9 @@ final class HorasPagasTotalAssinadoTest extends JusPrimeWebTestCase
             'o saldo anterior soma os lançamentos das competências anteriores (calcularSaldoAteMes)',
         );
         self::assertSame(
-            -6000,
-            $dados['horasPagasMinutos'],
-            'o pagamento aparece na linha "Horas pagas" de agosto',
-        );
-        self::assertSame(
             '+0:00',
             $dados['saldoBancoAtual'],
-            'agosto foi trabalhado na jornada exata: o saldo do mês é zero e o pagamento não o mexe',
+            'o banco zera: +6000 (anterior) + 0 (agosto na jornada exata) - 6000 (pago) = 0',
         );
         self::assertSame(
             '–',
@@ -152,12 +149,16 @@ final class HorasPagasTotalAssinadoTest extends JusPrimeWebTestCase
     }
 
     /**
-     * Não-regressão para quem nunca usou a feature: sem nenhum lançamento, os quatro campos do bloco
-     * assinado têm de sair exatamente como saíam antes da frente — derivados só das batidas.
+     * Sem nenhum lançamento e sem competência anterior, o acumulado é só o saldo do mês — ou seja,
+     * quem nunca usou a feature vê os mesmos números de antes.
+     *
+     * A exceção deliberada é a última linha: mês sem saldo apurado (nenhuma batida) exibia '–' e
+     * passa a exibir '+0:00', porque o acumulado existe mesmo quando o mês não tem movimento. É a
+     * consequência assumida de o campo deixar de ser mensal.
      */
     #[DataProvider('saldosSemLancamento')]
-    #[TestDox('sem lancamento nenhum, o bloco assinado sai identico ao de hoje')]
-    public function testSemLancamentoOsCamposDoBlocoAssinadoNaoMudam(
+    #[TestDox('sem lancamento nenhum, o acumulado e o proprio saldo do mes')]
+    public function testSemLancamentoOSaldoAtualEOSaldoDoMes(
         ?int $saldoAcumulado,
         string $saldoBancoAtualEsperado,
         string $horasACompensarEsperado,
@@ -169,10 +170,9 @@ final class HorasPagasTotalAssinadoTest extends JusPrimeWebTestCase
 
         $dados = $this->montarDadosFolha($colaborador, $tenant, $ano, $mes, $this->folhaRowsComSaldoAcumulado($ano, $mes, $saldoAcumulado));
 
-        self::assertSame($saldoBancoAtualEsperado, $dados['saldoBancoAtual'], 'saldo atual sem lançamento vem só das batidas');
-        self::assertSame($horasACompensarEsperado, $dados['horasACompensar'], 'horas a compensar sem lançamento vêm só das batidas');
+        self::assertSame($saldoBancoAtualEsperado, $dados['saldoBancoAtual'], 'sem anterior e sem lançamento, o acumulado é o saldo do mês');
+        self::assertSame($horasACompensarEsperado, $dados['horasACompensar'], 'a compensação é o módulo do acumulado quando ele é negativo');
         self::assertSame('+0:00', $dados['saldoBancoAnterior'], 'saldo anterior sem batida nem lançamento é zero');
-        self::assertSame(0, $dados['horasPagasMinutos'], 'sem lançamento a linha "Horas pagas" não aparece');
     }
 
     /**
@@ -184,7 +184,7 @@ final class HorasPagasTotalAssinadoTest extends JusPrimeWebTestCase
             'saldo do mes positivo'   => [120, '+2:00', '–'],
             'saldo do mes negativo'   => [-600, '-10:00', '10:00'],
             'saldo do mes zerado'     => [0, '+0:00', '–'],
-            'mes sem saldo apurado'   => [null, '–', '–'],
+            'mes sem saldo apurado'   => [null, '+0:00', '–'],
         ];
     }
 

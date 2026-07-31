@@ -256,8 +256,14 @@ o card do topo (`ponto/index.html.twig:30-35`, vindo de `calcularSaldoAnual`) mo
 enquanto este bloco soma o saldo **daquele mês** com o lançamento. No caso de uso nº 1 — 100h acumuladas,
 pagas em dinheiro, quitadas com `-6000` em agosto, agosto trabalhado na jornada exata — o card exibia
 `+0h00m` (certo) e o rodapé `-100h00m`, cobrando de volta o que acabou de ser pago. É a **mesma** cobrança
-indevida que motivou a reversão da soma no bloco assinado, apenas mudada de superfície. O rótulo está
+indevida que o bloco assinado produzia, apenas mudada de superfície. O rótulo está
 ancorado por `assertBlocoTotaisPresente()` em `app/tests/Ponto/Functional/HorasPagasFolhaExibicaoTest.php`.
+
+> **Esta tela continua MENSAL, o bloco assinado do PDF/XLSX virou ACUMULADO** (decisão de 2026-07-31, mais
+> abaixo). Não é descuido: são superfícies com propósito diferente — a folha na tela mostra o mês que a pessoa
+> está olhando, o documento assinado mostra o banco que ela tem. Os rótulos dizem qual é qual ("Total do mês"
+> × "Saldo do Banco de Horas Atual"). Se um dia isso incomodar, a mudança é no rótulo ou na base desta tela —
+> decisão do dono, não conserto silencioso.
 
 > **Dívida registrada pelo dono (2026-07-30), NÃO corrigida nesta frente — anterior a ela.** O "Saldo do mês"
 > desta tela pode **subestimar o déficit**, e o bloco novo tornou isso visível em vez de criá-lo.
@@ -289,27 +295,58 @@ existindo justamente no mês em que só há o lançamento.
 > `only`. Toda variável nova do partial precisa sair dos **dois** renders; o partial se protege com
 > `is defined`, então esquecer um deles **não quebra a página** — só mostra número errado em silêncio.
 
-**PDF e XLSX ganham APENAS a linha "Horas pagas"** (`app/templates/ponto/folha_pdf.html.twig` e
-`app/src/Ponto/Service/FolhaPontoXlsxExporter.php`). Em `montarDadosFolha()` (`PontoController.php:912`) entra
-a chave `horasPagasMinutos` (competência exibida). Não existe chave própria para os lançamentos de meses
-anteriores: eles já vêm embutidos em `saldoBancoAnteriorMinutos`, que passa por `calcularSaldoAteMes` e
-portanto já soma os lançamentos anteriores — somar de novo aqui seria contar em dobro.
+### Bloco assinado do PDF/XLSX — "Saldo do Banco de Horas Atual" passa a ser acumulado
 
-**Decisão do dono (onda final de correção): o lançamento NÃO entra em "Saldo do Banco de Horas Atual" nem em
-"Horas a Compensar" do bloco assinado.** Uma rodada anterior somou, e estava errado. Esses dois campos
-derivam do `saldoAcumulado` da última linha da tabela, e `buildRows` faz esse acumulado **nascer em zero no
-primeiro dia do intervalo pedido** (o PDF chama `buildRows($inicioMes, $fimMes, …)`): apesar do rótulo, o
-número é o saldo **daquele mês**, não o banco acumulado. Somar um lançamento mensal a um saldo mensal que não
-representa o banco produzia número sem significado — colaborador acumula 100h, o escritório paga em dinheiro
-e lança `-6000` em agosto, agosto é trabalhado na jornada exata, e o papel passava a dizer
-**"Horas a Compensar: 100:00"**, cobrando de volta o que acabou de ser pago. Coberto por
-`app/tests/Ponto/Functional/HorasPagasTotalAssinadoTest.php`, que inclui esse caso e um cenário de
-não-regressão para tenant **sem nenhum lançamento** (os quatro campos idênticos aos de produção).
+**Decisão do dono, 2026-07-31, depois do smoke.** Ela SUBSTITUI a decisão da onda final de correção (que
+mandava o lançamento aparecer só numa linha própria "Horas pagas", sem tocar os campos antigos). O histórico
+das duas está preservado abaixo porque a diferença entre elas é exatamente onde o dinheiro erra.
 
-> **Follow-up conhecido, fora desta frente:** o rótulo **"Saldo do Banco de Horas Atual"** do PDF é
-> **enganoso** desde antes desta feature — ele mostra o saldo do mês exportado, não o banco acumulado.
-> Corrigi-lo (renomear o rótulo ou passar a calcular o acumulado de verdade) muda o documento assinado de
-> **todos os escritórios** e exige decisão própria do dono: é frente separada, não remendo desta.
+O bloco assinado (`app/templates/ponto/folha_pdf.html.twig` e `app/src/Ponto/Service/FolhaPontoXlsxExporter.php`)
+tem **cinco linhas fixas**, sem linha própria de horas pagas:
+
+```
+  Detalhe de Horas Trabalhadas no Mês: 141:26
+  Total de Horas Extras no Mês: 0:12
+  Saldo do Banco de Horas Anterior: -105:27
+  Saldo do Banco de Horas Atual: -12:36
+  Horas a Compensar: 12:36
+```
+
+Em `montarDadosFolha()` (`PontoController.php:912`):
+
+```php
+$saldoBancoAtualMinutos = $saldoBancoAnteriorMinutos + ($saldoDoMesMinutos ?? 0) + $horasPagasMinutos;
+```
+
+e `horasACompensar` é o módulo desse total quando negativo. A chave `horasPagasMinutos` **não é mais
+publicada** no array — nada a consome depois da remoção das duas linhas.
+
+**Por que a base tinha de mudar junto.** Até aqui `saldoBancoAtual` era o `saldoAcumulado` da última linha da
+tabela, e `buildRows` faz esse acumulado **nascer em zero no primeiro dia do intervalo pedido** (o PDF chama
+`buildRows($inicioMes, $fimMes, …)`): apesar do rótulo, era o saldo **daquele mês** — ao lado de um "Saldo
+Anterior" que sempre foi acumulado, via `calcularSaldoAteMes`. Dois rótulos irmãos medindo coisas diferentes.
+
+Era essa base que tornava a soma perigosa. Caso de uso nº 1: colaborador acumula 100h, o escritório paga em
+dinheiro e lança `-6000` em agosto, agosto é trabalhado na jornada exata (saldo do mês = 0).
+
+| base do campo | Saldo Atual | Horas a Compensar | veredito |
+|---|---|---|---|
+| mensal + lançamento (rodada revertida) | −100:00 | **100:00** | cobra o que acabou de ser pago |
+| mensal, lançamento em linha à parte | +0:00 | – | não cobra, mas o total ignora o pagamento |
+| **acumulado (esta decisão)** | **+0:00** | **–** | fecha em zero, que é o devido |
+
+**Sem contagem dupla:** `calcularSaldoAteMes` soma os lançamentos das competências **anteriores**;
+`somarHorasPagasDaCompetencia` soma os **desta**. As faixas não se sobrepõem.
+
+⚠️ **Muda o PDF de TODOS os escritórios, inclusive os que nunca usaram horas pagas** — o campo deixa de ser
+mensal e passa a ser acumulado. Consequência aceita e explícita: foi por causa dela que essa correção estava
+registrada como follow-up de frente própria, e o dono optou por trazê-la para cá em vez de deployar um
+comportamento e desfazê-lo no deploy seguinte. Mudança de exibição secundária: mês **sem saldo apurado**
+(nenhuma batida) exibia `–` e passa a exibir `+0:00`, porque o acumulado existe mesmo sem movimento no mês.
+
+Coberto por `app/tests/Ponto/Functional/HorasPagasTotalAssinadoTest.php` (as três parcelas, o caso de uso nº 1
+ponta a ponta e a tabela de saldos sem lançamento) e por `SaldoAnteriorHorasPagasTest`, que prova que o
+lançamento da competência exibida chega ao campo.
 
 O card de saldo em `app/templates/ponto/index.html.twig:30-35` vem de `calcularSaldoAnual` e passa a refletir
 o lançamento **sem alteração de template**.
