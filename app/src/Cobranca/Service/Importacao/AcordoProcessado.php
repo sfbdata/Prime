@@ -33,6 +33,10 @@ final class AcordoProcessado
      *                                             a parcela não sai do saldo quando o acordo é rompido (invariável
      *                                             20), então a dívida ficaria contada duas vezes no dia do
      *                                             rompimento. É escrita, e por isso aparece na prévia
+     * @param list<string> $parcelasLiquidadasIgnoradas NNs de parcela que a planilha diz PAGA e que não existem no
+     *                                             sistema: NÃO foram criadas. Criá-las abriria dívida vencida
+     *                                             para cobrar de novo o que já foi pago; dar baixa está fora
+     *                                             de escopo (§5). Fica para conferência humana
      */
     public function __construct(
         public readonly int $numero,
@@ -52,6 +56,7 @@ final class AcordoProcessado
         public readonly int $valorParcelasCriadasCentavos,
         public readonly ?string $situacaoDivergente,
         public readonly array $parcelasVinculadas = [],
+        public readonly array $parcelasLiquidadasIgnoradas = [],
     ) {
     }
 

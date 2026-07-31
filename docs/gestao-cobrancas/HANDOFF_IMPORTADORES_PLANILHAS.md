@@ -8,7 +8,7 @@
 
 ```bash
 cd /home/prime/projetos/jusprime                                  # o script roda do checkout PRINCIPAL
-scripts/frente-testar.sh cobranca-importar-cadastro-acordos       # último verde: 2972/2972
+scripts/frente-testar.sh cobranca-importar-cadastro-acordos       # último verde: 2983/2983
 cd .claude/worktrees/cobranca-importar-cadastro-acordos && git log --oneline -5
 ```
 
@@ -165,7 +165,8 @@ rollback limpo (nada sujou) — mas o import não passa.
 
 ## Corrigido em 31/07 (tarde) — os 2 pontos que travavam a frente
 
-Suíte da frente **2973/2973** depois dos dois. Cada teste provado reintroduzindo o defeito.
+Cada teste provado reintroduzindo o defeito. (Suíte atual da frente: **2983/2983** — o número desta seção
+mudou várias vezes; o valor corrente vive só no topo do arquivo, para não haver dois.)
 
 ### 1. Acordo Rompido/Cancelado: a aba inteira é pulada — `85446af4`
 
@@ -231,7 +232,31 @@ Segunda execução dos dois: **zero mudanças** (acordos: 12 parcelas e 25 conta
 - **Deploy** exige `deploy-prod-tls.sh` (tem migration). Lembrar: `bcmath` da frente do BCB também só
   entra em prod no próximo deploy.
 
-## Revisão de 31/07 — o que sobrou, com a severidade CORRIGIDA
+## Revisão da FRENTE INTEIRA (31/07, tarde) — 8 achados, todos tratados
+
+Disparada com `/review` sobre os 17 commits. Nenhum bloqueante para o dado de hoje. Os dois que mais
+importam foram os mesmos dois modos de falha que a frente já conhecia:
+
+| # | Achado | O que foi feito |
+|---|---|---|
+| 1 | Parcela que a planilha diz **PAGA** e não existe no sistema era criada como dívida aberta, com juros correndo — cobrando de novo o que já foi pago | **Não cria mais**, e reporta (decisão do dono). A baixa segue fora de escopo (§5). O teste antigo passava com o defeito: usava um NN que o cenário já semeava |
+| 2 | A prévia dos acordos ainda podia divergir da confirmação: faltava o estado intra-execução que o cadastro ganhou. Mesmo NN nas duas seções da aba → prévia dizia "reconstruída", efeito dizia "recusada" | `criadasNaExecucao` (o equivalente do `PessoaEmImportacao`). E o `testDryRun...` passou a comparar **todos** os 18 campos, não 5 |
+| 3 | A guarda de migration protegia só a CLI; a **tela** (que é o caminho do dono) ficou sem | Guarda também no `ImportarRelatorioCarteiraUseCase`, em prever e confirmar |
+| 4 | Teste "regressão do 61457" não guardava nada: objetos diferentes → casos diferentes, e a busca sempre foi escopada por caso | Promete só o que guarda, e passou a verificar o **dano real** (a dívida de 2022 não é sobrescrita) |
+| 5 | `buscarPossiveisDuplicadas(...)[0]` sobre query **sem `ORDER BY`** | `ORDER BY p.id ASC` — determinismo é pré-requisito da unificação prévia×confirmação |
+| 6 | Assimetria: a conta reconstruída não tem a guarda de NN ambíguo que a parcela tem | Deliberado; agora **escrito** no docblock, com o risco residual |
+| 7 | Handoff desatualizado (3 números de suíte diferentes, contagem de commits errada) | Corrigido; o número da suíte vive num lugar só |
+| 8 | A prévia não mostrava que os encargos de contas reais seriam reescritos | Rótulo da tabela do comando explicita |
+
+🔑 **Achado medido pelo revisor, que vale mais que os 8:** no `saas_ux` **não há nenhuma obrigação com
+`competencia IS NULL`**. Ou seja, o replay que provou a spec **não exercitou o fallback legado nenhuma
+vez** — e é justamente esse caminho que produção terá (~30 linhas, 0,9%). O fallback está coberto por
+teste, **não pelo replay**. Quem for para produção precisa saber disso.
+
+Também não verificado pelo revisor (ele não tocou prod): as alegações deste handoff sobre o estado de
+**produção** (3270/3300 no backfill, R$ 680,00 no Gessi em prod). Só o `saas_ux` foi conferido.
+
+## Revisão de 31/07 (manhã) — o que sobrou, com a severidade CORRIGIDA
 
 O `feature-review-agent` revisou o `37e122ce`. A lista dele está abaixo já **reponderada** pelo que foi
 medido depois — a revisão inflou dois itens, e o handoff registra isso para o próximo não repetir.
@@ -271,7 +296,7 @@ Registradas para a revisão bater nelas de propósito, não por descuido:
 
 ## Estado do repositório
 
-- Frente commitada e limpa; **10 commits** à frente de `origin/master`
+- Frente commitada e limpa; **19 commits** à frente de `origin/master`
 - No **checkout principal** o `.gitignore` está modificado de propósito: a correção da regra de PII vive
   na frente, mas as planilhas estão fisicamente na pasta principal e ficariam desprotegidas até o merge
 - Outra sessão mexeu na branch `polimento-objeto-show-cabecalho` durante o trabalho — **um piloto de git

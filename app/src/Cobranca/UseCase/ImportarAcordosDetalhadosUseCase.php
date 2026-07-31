@@ -116,6 +116,15 @@ final class ImportarAcordosDetalhadosUseCase
         $liquidadas = [];
         $situacoesDesconhecidas = [];
         $conferencias = [];
+        /**
+         * O que ESTA execução já criou, por (caso, NN, competência). É o equivalente do
+         * `PessoaEmImportacao` do importador de cadastro, e existe pelo mesmo motivo: no dry-run o banco
+         * não muda, então sem este registro a projeção não enxerga o efeito das abas anteriores e passa a
+         * prometer coisa diferente do que a confirmação faz.
+         *
+         * @var array<string, string> $criadasNaExecucao
+         */
+        $criadasNaExecucao = [];
 
         foreach ($leitura->acordos as $aba) {
             foreach ($aba->parcelas as $parcela) {
@@ -130,7 +139,7 @@ final class ImportarAcordosDetalhadosUseCase
                 $conferencias[] = $conferencia;
             }
 
-            $processados[] = $this->processarAba($aba, $carteira, $tenant, $usuario, $situacoesDesconhecidas);
+            $processados[] = $this->processarAba($aba, $carteira, $tenant, $usuario, $situacoesDesconhecidas, $criadasNaExecucao);
         }
 
         return new ResultadoImportacaoAcordos(
@@ -182,7 +191,8 @@ final class ImportarAcordosDetalhadosUseCase
     }
 
     /**
-     * @param list<string> $situacoesDesconhecidas acumulador do lote
+     * @param list<string>          $situacoesDesconhecidas acumulador do lote
+     * @param array<string, string> $criadasNaExecucao      acumulador do lote (ver `processar`)
      */
     private function processarAba(
         AcordoDetalhadoImportavel $aba,
@@ -190,6 +200,7 @@ final class ImportarAcordosDetalhadosUseCase
         Tenant $tenant,
         ?User $usuario,
         array &$situacoesDesconhecidas,
+        array &$criadasNaExecucao,
     ): AcordoProcessado {
         $acordo = $this->acordoRepository->findOnePorNumeroExternoNaCarteira($aba->numero, $carteira, $tenant);
         if ($acordo === null) {
@@ -229,11 +240,11 @@ final class ImportarAcordosDetalhadosUseCase
 
         $configCaso = $this->resolvedorConfig->resolverDoCaso($caso);
 
-        [$parcelasCriadas, $parcelasExistentes, $parcelasAmbiguas, $divergencias, $valorParcelas, $parcelasVinculadas] =
-            $this->completarParcelas($aba, $acordo, $caso, $tenant, $usuario);
+        [$parcelasCriadas, $parcelasExistentes, $parcelasAmbiguas, $divergencias, $valorParcelas, $parcelasVinculadas, $liquidadasIgnoradas] =
+            $this->completarParcelas($aba, $acordo, $caso, $tenant, $usuario, $criadasNaExecucao);
 
         [$marcadas, $reconstruidas, $jaMarcadas, $recusadas, $semCompetencia, $maisDivergencias, $principal] =
-            $this->reconciliarContasOriginais($aba, $acordo, $caso, $tenant, $usuario, $configCaso);
+            $this->reconciliarContasOriginais($aba, $acordo, $caso, $tenant, $usuario, $configCaso, $criadasNaExecucao);
 
         return new AcordoProcessado(
             numero: $aba->numero,
@@ -253,14 +264,23 @@ final class ImportarAcordosDetalhadosUseCase
             valorParcelasCriadasCentavos: $valorParcelas,
             situacaoDivergente: $this->conferirSituacao($aba, $acordo, $situacoesDesconhecidas),
             parcelasVinculadas: $parcelasVinculadas,
+            parcelasLiquidadasIgnoradas: $liquidadasIgnoradas,
         );
+    }
+
+    /** Chave de uma obrigação DENTRO desta execução: o mesmo par que casa com o banco. */
+    private function chaveNaExecucao(CasoCobranca $caso, string $nn, string $competencia): string
+    {
+        return $caso->getId() . '|' . $nn . '|' . $competencia;
     }
 
     /**
      * §3.1 — completar as parcelas futuras. A parcela que não existe nasce como obrigação do caso, ligada
      * ao acordo (`acordoOrigem`), com honorários ZERO e encargos ao vivo a partir do próprio vencimento.
      *
-     * @return array{0: list<string>, 1: list<string>, 2: list<string>, 3: list<string>, 4: int, 5: list<string>}
+     * @param array<string, string> $criadasNaExecucao acumulador (por referência) chave → o que nasceu ali
+     *
+     * @return array{0: list<string>, 1: list<string>, 2: list<string>, 3: list<string>, 4: int, 5: list<string>, 6: list<string>}
      */
     private function completarParcelas(
         AcordoDetalhadoImportavel $aba,
@@ -268,12 +288,14 @@ final class ImportarAcordosDetalhadosUseCase
         CasoCobranca $caso,
         Tenant $tenant,
         ?User $usuario,
+        array &$criadasNaExecucao,
     ): array {
         $criadas = [];
         $existentes = [];
         $ambiguas = [];
         $divergencias = [];
         $vinculadas = [];
+        $liquidadasIgnoradas = [];
         $valor = 0;
 
         foreach ($aba->parcelas as $parcela) {
@@ -305,6 +327,17 @@ final class ImportarAcordosDetalhadosUseCase
                 continue;
             }
 
+            // A planilha diz que ESTA parcela já foi paga, e ela não existe no sistema. Criá-la abriria
+            // uma dívida vencida, com juros e multa correndo, para cobrar de novo o que já foi pago — a
+            // "direção que cobra", a mesma que o NN ambíguo logo abaixo recusa. Dar baixa também não é
+            // opção: a liquidação está fora de escopo por decisão da spec (§5), é irreversível na prática
+            // e não se escreve pagamento a partir de planilha. Então não cria, e reporta.
+            if ($parcela->constaLiquidada) {
+                $liquidadasIgnoradas[] = $parcela->nn;
+
+                continue;
+            }
+
             // O mesmo NN já existe no caso com OUTRA competência. A spec dá duas chaves para parcela
             // (§7 diz "por NN", §3.2 exige NN+competência) e aqui elas discordam. Criar é a direção
             // PERIGOSA — adicionaria dinheiro ao saldo a partir de um casamento duvidoso —, então a
@@ -317,6 +350,10 @@ final class ImportarAcordosDetalhadosUseCase
 
             $criadas[] = $parcela->nn;
             $valor += $parcela->valorCentavos;
+            // Registrar ANTES de escrever: é o que faz a reconciliação seguinte (e a de outra aba do
+            // mesmo caso) enxergar esta parcela no dry-run, onde o banco não muda. Sem isto a prévia
+            // prometeria "reconstruir" uma conta que a confirmação recusaria por INV-I.
+            $criadasNaExecucao[$this->chaveNaExecucao($caso, $parcela->nn, $parcela->competencia)] = 'parcela';
 
             if ($usuario !== null) {
                 $nova = $this->registrarObrigacao->executar($this->parcelaInput($caso, $parcela), $tenant, $usuario);
@@ -325,13 +362,15 @@ final class ImportarAcordosDetalhadosUseCase
             }
         }
 
-        return [$criadas, $existentes, $ambiguas, $divergencias, $valor, $vinculadas];
+        return [$criadas, $existentes, $ambiguas, $divergencias, $valor, $vinculadas, $liquidadasIgnoradas];
     }
 
     /**
      * §3.2 — **a correção**. Para cada conta original da planilha: se existe e está aberta, marca com
      * `acordoSubstituto` (sai do saldo); se já está marcada, no-op; se não existe, reconstrói já
      * substituída (§3.2.1).
+     *
+     * @param array<string, string> $criadasNaExecucao acumulador (por referência) chave → o que nasceu ali
      *
      * @return array{0: list<string>, 1: list<string>, 2: list<string>, 3: list<string>, 4: list<string>, 5: list<string>, 6: int}
      */
@@ -342,6 +381,7 @@ final class ImportarAcordosDetalhadosUseCase
         Tenant $tenant,
         ?User $usuario,
         ConfigEncargos $configCaso,
+        array &$criadasNaExecucao,
     ): array {
         $marcadas = [];
         $reconstruidas = [];
@@ -352,11 +392,26 @@ final class ImportarAcordosDetalhadosUseCase
         $principal = 0;
 
         foreach ($aba->contasOriginais as $conta) {
+            $chave = $this->chaveNaExecucao($caso, $conta->nn, $conta->competencia);
+
+            // O que ESTA execução já criou conta como se estivesse no banco — senão a prévia e a
+            // confirmação divergiriam: no dry-run o banco nunca muda, então a mesma chave listada como
+            // parcela e como conta original (na mesma aba ou em outra do mesmo caso) seria "reconstruída"
+            // na projeção e "recusada" no efeito. A resposta tem de ser a mesma nos dois modos.
+            if (isset($criadasNaExecucao[$chave])) {
+                $recusadas[] = $criadasNaExecucao[$chave] === 'parcela'
+                    ? sprintf('%s: esta MESMA importação a criou como parcela do acordo %d — não é dívida original, não marcada (INV-I).', $conta->nn, $aba->numero)
+                    : sprintf('%s: esta MESMA importação já a reconstruiu — linha repetida na planilha, ignorada.', $conta->nn);
+
+                continue;
+            }
+
             // A CHAVE. Nunca `findOnePorReferenciaExternaNoCaso` — casar só pelo NN aqui marcaria dívida
             // de outra competência (e de outro devedor) como substituída, apagando cobrança legítima.
             $obrigacao = $this->obrigacaoRepository->findOnePorReferenciaECompetenciaNoCaso($caso, $conta->nn, $conta->competencia);
 
             if ($obrigacao === null) {
+                $criadasNaExecucao[$chave] = 'conta';
                 $reconstruidas[] = $conta->nn;
                 if ($usuario !== null) {
                     $this->reconstruirContaOriginal($conta, $aba, $acordo, $caso, $tenant, $usuario, $configCaso);
@@ -417,6 +472,14 @@ final class ImportarAcordosDetalhadosUseCase
     /**
      * §3.2.1 — a conta original que NUNCA foi importada (virou acordo na contábil antes de qualquer
      * importação passar por ela) é criada JÁ substituída: nasce fora do saldo e nunca entra nele.
+     *
+     * ⚠️ **Assimetria deliberada:** a parcela recusa ser criada quando o mesmo NN já existe no caso com
+     * outra competência (`completarParcelas`); a conta original **não** faz esse teste. É intencional e
+     * está testado (`testNaoMarcaDividaDeOutraCompetenciaComMesmoNn`): a reconstruída nasce JÁ
+     * substituída, fora do saldo, então criá-la a mais não cobra ninguém hoje — enquanto não criar a
+     * parcela evita adicionar dinheiro ao exigível. O risco residual aparece no dia do rompimento, em que
+     * a linha reconstruída volta a ser cobrável; é o risco aceito do §3.2.1, registrado aqui para quem
+     * revisar não achar que a diferença entre os dois caminhos é descuido.
      *
      * A **marcação de procedência** é obrigatória e vai na descrição — a `Obrigacao` não tem campo de
      * observação, e o importador de inadimplência já usa a mesma convenção (`descrição | observação`).

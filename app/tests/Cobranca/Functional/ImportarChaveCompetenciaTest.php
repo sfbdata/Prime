@@ -178,7 +178,17 @@ final class ImportarChaveCompetenciaTest extends KernelTestCase
         self::assertSame(1, $this->contarPorNn($tenant, '70001'), 'não duplica dado legado');
     }
 
-    #[TestDox('Mesmo NN em CARTEIRAS diferentes nunca se confunde (regressão do caso real 61457)')]
+    /**
+     * O caso real 61457, entre CARTEIRAS. O que ele guarda é o **escopo por caso** da busca — não a chave
+     * de competência: unidades diferentes produzem casos diferentes, e a busca sempre foi escopada por
+     * caso, então o código antigo (NN sozinho) também separaria estes dois. Quem guarda a chave é
+     * `testMesmoNnCompetenciaDiferenteCriaAsDuas`, onde o caso é o MESMO.
+     *
+     * O que este teste acrescenta é o dano concreto que a spec descreve: "engolir o boleto novo e gravar
+     * os encargos dele sobre a dívida antiga". Contar duas obrigações não bastava — é preciso ver que a
+     * dívida de 2022 continua com o valor e o vencimento dela.
+     */
+    #[TestDox('Mesmo NN em CARTEIRAS diferentes: nasce separado e a dívida antiga não é tocada (caso real 61457)')]
     public function testMesmoNnEmCarteirasDiferentesNaoSeConfunde(): void
     {
         $tenant = $this->criarTenant();
@@ -203,7 +213,14 @@ final class ImportarChaveCompetenciaTest extends KernelTestCase
         );
 
         self::assertSame(1, $resultado->totalImportadas(), 'carteira diferente = dívida diferente');
+        self::assertSame(0, $resultado->totalAtualizadas(), 'atualizar aqui seria ter engolido o boleto novo');
         self::assertSame(2, $this->contarPorNn($tenant, '61457'));
+
+        // A dívida de 2022 permanece intacta: é ela que a busca por NN sozinho sobrescreveria.
+        $antiga = $this->obrigacaoPorCompetencia($tenant, '61457', '08/2022');
+        self::assertNotNull($antiga);
+        self::assertSame(14500, $antiga->getValorOriginal(), 'o valor da dívida antiga não pode ter virado o do boleto novo');
+        self::assertSame('2022-08-10', $antiga->getVencimentoOriginal()->format('Y-m-d'));
     }
 
     #[TestDox('Duas obrigações com o mesmo NN e competência NULA continuam bloqueadas (NULLS NOT DISTINCT)')]
@@ -243,6 +260,15 @@ final class ImportarChaveCompetenciaTest extends KernelTestCase
     private function contarPorNn(Tenant $tenant, string $nn): int
     {
         return $this->em->getRepository(Obrigacao::class)->count(['tenant' => $tenant, 'referenciaExterna' => $nn]);
+    }
+
+    private function obrigacaoPorCompetencia(Tenant $tenant, string $nn, string $competencia): ?Obrigacao
+    {
+        return $this->em->getRepository(Obrigacao::class)->findOneBy([
+            'tenant' => $tenant,
+            'referenciaExterna' => $nn,
+            'competencia' => $competencia,
+        ]);
     }
 
     private function boleto(

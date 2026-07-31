@@ -17,6 +17,7 @@ use App\Cobranca\Entity\Obrigacao;
 use App\Cobranca\Enum\StatusAcordo;
 use App\Cobranca\Enum\TipoVinculo;
 use App\Cobranca\Exception\CarteiraNaoEncontradaException;
+use App\Cobranca\Exception\MigrationDeCompetenciaPendenteException;
 use App\Cobranca\Repository\AcordoRepository;
 use App\Cobranca\Repository\CarteiraRepository;
 use App\Cobranca\Repository\CasoCobrancaRepository;
@@ -75,6 +76,7 @@ final class ImportarRelatorioCarteiraUseCase
      */
     public function prever(int $carteiraId, ResultadoLeitura $leitura, Tenant $tenant): ResultadoImportacao
     {
+        $this->exigirSchemaDaCompetencia();
         $carteira = $this->resolverCarteira($carteiraId, $tenant);
 
         $criadas = [];
@@ -151,6 +153,7 @@ final class ImportarRelatorioCarteiraUseCase
      */
     public function confirmar(int $carteiraId, ResultadoLeitura $leitura, Tenant $tenant, User $user): ResultadoImportacao
     {
+        $this->exigirSchemaDaCompetencia();
         $carteira = $this->resolverCarteira($carteiraId, $tenant);
         $referencia = new \DateTimeImmutable();
 
@@ -374,6 +377,20 @@ final class ImportarRelatorioCarteiraUseCase
         }
 
         return $nomes;
+    }
+
+    /**
+     * Para antes de escrever se a coluna `competencia` não existe (`Version20260730120000`).
+     *
+     * A guarda nasceu no importador de acordos, mas ESTE é o caminho que o gestor usa — pela tela. Sem
+     * ela, a importação visual morre com um traço de driver no meio do lote (rollback limpo, nada suja o
+     * banco) e nada indica que o que falta é rodar a migration.
+     */
+    private function exigirSchemaDaCompetencia(): void
+    {
+        if (!$this->obrigacaoRepository->schemaTemCompetencia()) {
+            throw new MigrationDeCompetenciaPendenteException();
+        }
     }
 
     private function resolverCarteira(int $carteiraId, Tenant $tenant): Carteira

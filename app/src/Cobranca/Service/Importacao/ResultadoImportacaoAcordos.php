@@ -43,6 +43,12 @@ final class ResultadoImportacaoAcordos
         return $this->juntar(static fn (AcordoProcessado $a): array => $a->parcelasVinculadas);
     }
 
+    /** @return list<string> */
+    public function parcelasLiquidadasIgnoradas(): array
+    {
+        return $this->juntar(static fn (AcordoProcessado $a): array => $a->parcelasLiquidadasIgnoradas);
+    }
+
     /** @return list<AcordoProcessado> */
     public function porAcordo(): array
     {

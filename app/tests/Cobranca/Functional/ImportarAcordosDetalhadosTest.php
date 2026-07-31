@@ -512,17 +512,88 @@ final class ImportarAcordosDetalhadosTest extends KernelTestCase
         self::assertStringContainsString('Em revisão pelo jurídico', $resultado->situacoesDesconhecidas[0]);
     }
 
-    #[TestDox('Parcela liquidada na planilha é avisada, mas a baixa de pagamento NÃO é feita (§5)')]
+    #[TestDox('Parcela liquidada que JÁ EXISTE é avisada, mas a baixa de pagamento NÃO é feita (§5)')]
     public function testParcelaLiquidadaSoAvisa(): void
     {
         [$tenant, $user, $carteiraId] = $this->cenarioAcordo37();
 
+        // 61600 é a parcela 1/4 que o cenário já semeou: existe no sistema, aberta.
         $leitura = $this->leituraAcordo37(liquidadas: ['61600']);
         $resultado = $this->importarAcordos->confirmar($carteiraId, $leitura, $tenant, $user);
 
         self::assertContains('61600', $resultado->parcelasLiquidadasNaPlanilha);
         self::assertFalse($this->obrigacao($tenant, '61600')?->estaLiquidada(), 'baixa de pagamento é irreversível na prática — fica fora desta entrega');
         self::assertTrue($resultado->temAvisos());
+    }
+
+    /**
+     * Parcela que a planilha diz PAGA e que **não existe** no sistema: não é criada.
+     *
+     * Criá-la abriria uma dívida vencida, com juros e multa correndo, para cobrar de novo o que já foi
+     * pago — a mesma "direção que cobra" que o importador recusa no NN ambíguo. Dar baixa também não é
+     * opção: a liquidação está fora de escopo (§5), é irreversível na prática, e não se escreve pagamento
+     * a partir de planilha. Então recusa e reporta.
+     *
+     * ⚠️ O teste irmão acima NÃO cobre isto: lá o NN já existe no sistema, então ele passa com o defeito.
+     * A diferença entre os dois é o cenário, não a asserção — e era ela que faltava.
+     */
+    #[TestDox('Parcela paga na planilha e AUSENTE do sistema não é criada — criá-la cobraria de novo')]
+    public function testParcelaLiquidadaAusenteNaoEhCriada(): void
+    {
+        [$tenant, $user, $carteiraId, $caso] = $this->cenarioAcordo37();
+
+        $saldoAntes = $this->saldo->saldoExigivel($caso);
+        self::assertSame(0, $this->contar($tenant, '61602'), 'a 3/4 ainda não existe em lugar nenhum');
+
+        // A planilha diz que a parcela 3/4 (61602) já foi paga.
+        $leitura = $this->leituraAcordo37(liquidadas: ['61602']);
+
+        $previsto = $this->importarAcordos->prever($carteiraId, $leitura, $tenant);
+        $feito = $this->importarAcordos->confirmar($carteiraId, $leitura, $tenant, $user);
+
+        self::assertContains('61602', $feito->parcelasLiquidadasIgnoradas());
+        self::assertSame($previsto->parcelasLiquidadasIgnoradas(), $feito->parcelasLiquidadasIgnoradas());
+        self::assertNotContains('61602', $feito->nnsParcelasCriadas(), 'criar uma parcela paga é cobrar duas vezes');
+        self::assertSame(0, $this->contar($tenant, '61602'), 'e ela não está no banco');
+
+        // As outras parcelas ausentes (61601 e 61603) continuam sendo criadas normalmente.
+        self::assertContains('61601', $feito->nnsParcelasCriadas());
+        self::assertContains('61603', $feito->nnsParcelasCriadas());
+
+        $caso = $this->em->getRepository(CasoCobranca::class)->find($caso->getId());
+        self::assertNotNull($caso);
+        self::assertSame(
+            $saldoAntes - 68000 + 19939 + 19938,
+            $this->saldo->saldoExigivel($caso),
+            'saem as 4 originais (R$ 680,00) e entram só as DUAS parcelas em aberto — a paga não entra',
+        );
+        self::assertTrue($feito->temAvisos());
+    }
+
+    /**
+     * A prévia não pode divergir da confirmação quando o MESMO NN+competência aparece nas duas seções da
+     * aba — como parcela e como conta original.
+     *
+     * Sem estado intra-execução, `completarParcelas` cria e flusha a parcela ANTES de a reconciliação
+     * rodar: no dry-run o banco não muda, então a projeção diria "reconstruída" e o efeito diria
+     * "recusada por INV-I". É o mesmo defeito que o importador de cadastro tinha, do outro lado.
+     */
+    #[TestDox('NN listado como parcela E como conta original: prévia e confirmação dizem a mesma coisa')]
+    public function testNnEmDuasSecoesNaoDivergeEntrePreviaEConfirmacao(): void
+    {
+        [$tenant, $user, $carteiraId] = $this->cenarioAcordo37();
+
+        // A planilha lista 61602 (parcela 3/4, que não existe no sistema) TAMBÉM como conta original.
+        $leitura = $this->leituraAcordo37(contasExtras: [['61602', '09/2026', '2026-09-10', 19938]]);
+
+        $previsto = $this->importarAcordos->prever($carteiraId, $leitura, $tenant);
+        $feito = $this->importarAcordos->confirmar($carteiraId, $leitura, $tenant, $user);
+
+        self::assertSame($previsto->nnsContasReconstruidas(), $feito->nnsContasReconstruidas(), 'a prévia não pode prometer uma reconstrução que a confirmação recusa');
+        self::assertSame($previsto->contasRecusadas(), $feito->contasRecusadas());
+        self::assertNotContains('61602', $feito->nnsContasReconstruidas());
+        self::assertNotEmpty(array_filter($feito->contasRecusadas(), static fn (string $r): bool => str_contains($r, '61602')));
+        self::assertSame(1, $this->contar($tenant, '61602'), 'existe UMA obrigação com esse NN: a parcela');
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -544,11 +615,38 @@ final class ImportarAcordosDetalhadosTest extends KernelTestCase
 
         $feito = $this->importarAcordos->confirmar($carteiraId, $this->leituraAcordo37(), $tenant, $user);
 
-        self::assertSame($previsto->nnsParcelasCriadas(), $feito->nnsParcelasCriadas(), 'a projeção tem de bater com o efeito');
-        self::assertSame($previsto->nnsContasMarcadas(), $feito->nnsContasMarcadas());
-        self::assertSame($previsto->nnsContasReconstruidas(), $feito->nnsContasReconstruidas());
-        self::assertSame($previsto->principalReconciliadoCentavos(), $feito->principalReconciliadoCentavos());
-        self::assertSame($previsto->valorParcelasCriadasCentavos(), $feito->valorParcelasCriadasCentavos());
+        // TODOS os campos, não uma amostra: comparar só os cinco "bonitos" deixava passar divergência em
+        // recusadas/ambíguas/já-marcadas — que é exatamente onde ela apareceu.
+        self::assertSame($this->retrato($previsto), $this->retrato($feito), 'a projeção tem de bater com o efeito, campo a campo');
+    }
+
+    /**
+     * Retrato COMPLETO do resultado, para comparar prévia × confirmação sem escolher a dedo o que olhar.
+     *
+     * @return array<string, mixed>
+     */
+    private function retrato(\App\Cobranca\Service\Importacao\ResultadoImportacaoAcordos $r): array
+    {
+        return [
+            'parcelasCriadas' => $r->nnsParcelasCriadas(),
+            'parcelasExistentes' => $r->nnsParcelasExistentes(),
+            'parcelasVinculadas' => $r->parcelasVinculadas(),
+            'parcelasAmbiguas' => $r->parcelasAmbiguas(),
+            'parcelasLiquidadasIgnoradas' => $r->parcelasLiquidadasIgnoradas(),
+            'contasMarcadas' => $r->nnsContasMarcadas(),
+            'contasReconstruidas' => $r->nnsContasReconstruidas(),
+            'contasJaMarcadas' => $r->nnsContasJaMarcadas(),
+            'contasRecusadas' => $r->contasRecusadas(),
+            'casadasSemCompetencia' => $r->casadasSemCompetencia(),
+            'divergenciasDeValor' => $r->divergenciasDeValor(),
+            'situacoesDivergentes' => $r->situacoesDivergentes(),
+            'situacoesDesconhecidas' => $r->situacoesDesconhecidas,
+            'conferenciasCabecalho' => $r->conferenciasCabecalho,
+            'liquidadasNaPlanilha' => $r->parcelasLiquidadasNaPlanilha,
+            'abasIgnoradas' => $r->totalAbasIgnoradas(),
+            'principal' => $r->principalReconciliadoCentavos(),
+            'valorParcelas' => $r->valorParcelasCriadasCentavos(),
+        ];
     }
 
     // ---------------------------------------------------------------------------------------------
