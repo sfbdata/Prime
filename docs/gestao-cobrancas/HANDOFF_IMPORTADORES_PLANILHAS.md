@@ -190,9 +190,30 @@ O que faltava ao dry-run era **estado**: sem entidade persistida ele só enxerga
 acumula o que cada pessoa já tem (banco + linhas anteriores do próprio arquivo), então as duas passadas
 fazem a mesma pergunta e recebem a mesma resposta. **Nenhuma regra de casamento mudou.**
 
-⚠️ **Falta conferir contra o dado real.** Os números 215/242 vieram de rodar a planilha inteira; a suíte
-prova o mecanismo, não os totais. O replay (limpar `cobranca_*` no `saas_ux` e repetir 08/07 → 22/07 →
-29/07 → acordos → cadastro) é o que fecha a prova — o dono autorizou limpar o banco de cobrança.
+### 3. Conferido contra o dado real — replay refeito do zero em 31/07
+
+A suíte prova o mecanismo, não os totais; e os dois defeitos só apareceram rodando. Então o replay foi
+**refeito inteiro** (dono autorizou limpar): `TRUNCATE` das `cobranca_*` no `saas_ux` (carteira 1
+preservada) → inadimplência 08/07 → 22/07 → 29/07 → acordos → cadastro.
+
+| | Antes | **Agora** |
+|---|---|---|
+| Vínculos: prévia × confirmação | 215 × 242 | **242 × 242** |
+| Telefones: prévia × confirmação | 292 × 290 | **290 × 290** |
+
+**Todas as 9 linhas do resumo do cadastro batem** entre prever e confirmar (107 unidades · 215 pessoas ·
+27 reaproveitadas · 242 vínculos · 290 telefones · 125 e-mails · 215 endereços · 3 rejeições · 13
+ignoradas). Nos acordos, prévia e confirmação também idênticas: R$ 680,00 saindo · R$ 1.399,49 entrando ·
+21 reconstruídas · **0 abas ignoradas** (nenhum dos 7 acordos está rompido — a guarda nova não muda nada
+no dado atual, que é exatamente o esperado de uma correção preventiva).
+
+**O efeito no banco não mudou** — estado final idêntico ao de antes das correções: 229 objetos · 122
+casos · 571 obrigações · 7 acordos · 341 pessoas · 368 vínculos · 290 telefones. O que mudou foi a
+prévia **parar de mentir**. Gessi: as 4 originais de R$ 170,00 substituídas, as 4 parcelas dentro,
+principal exigível **R$ 797,54** — o "Valor final acordado" da própria planilha.
+
+Segunda execução dos dois: **zero mudanças** (acordos: 12 parcelas e 25 contas já marcadas; cadastro:
+242 reaproveitadas, 0 de tudo o mais).
 
 ## O que falta
 
