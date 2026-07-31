@@ -201,7 +201,9 @@ final class ImportarAcordosDetalhadosCommand extends Command
             'Casadas pelo fallback legado — obrigação sem competência gravada, casou só pelo NN' => $resultado->casadasSemCompetencia(),
             'Situação divergente (status do sistema MANTIDO)' => $resultado->situacoesDivergentes(),
             'Situação não reconhecida' => $resultado->situacoesDesconhecidas,
-            'Parcelas que constam LIQUIDADAS na planilha — a baixa NÃO foi feita, confira à mão (§5)' => $resultado->parcelasLiquidadasNaPlanilha,
+            // A segunda lista é subconjunto da primeira; sem o diff, o mesmo NN apareceria nos dois blocos
+            // e o operador contaria duas ocorrências onde há uma.
+            'Parcelas que constam LIQUIDADAS na planilha e EXISTEM no sistema — a baixa NÃO foi feita, confira à mão (§5)' => array_values(array_diff($resultado->parcelasLiquidadasNaPlanilha, $resultado->parcelasLiquidadasIgnoradas())),
             'Parcelas pagas que NÃO existem no sistema e NÃO foram criadas (criá-las cobraria de novo)' => $resultado->parcelasLiquidadasIgnoradas(),
         ];
 

@@ -296,7 +296,9 @@ Registradas para a revisão bater nelas de propósito, não por descuido:
 
 ## Estado do repositório
 
-- Frente commitada e limpa; **19 commits** à frente de `origin/master`
+- Frente commitada e limpa. **Quantos commits à frente:** `git log --oneline origin/master..HEAD | wc -l`
+  — não há número aqui de propósito. Já foi escrito errado duas vezes (dizia "10" quando eram 17; a
+  correção pôs "19" quando eram 18). Número que envelhece a cada commit não se escreve à mão
 - No **checkout principal** o `.gitignore` está modificado de propósito: a correção da regra de PII vive
   na frente, mas as planilhas estão fisicamente na pasta principal e ficariam desprotegidas até o merge
 - Outra sessão mexeu na branch `polimento-objeto-show-cabecalho` durante o trabalho — **um piloto de git

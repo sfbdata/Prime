@@ -819,6 +819,46 @@ final class ImportarAcordosDetalhadosTest extends KernelTestCase
         self::assertTrue($resultado->temAvisos());
     }
 
+    /**
+     * DUAS abas do MESMO caso listando a mesma conta original. Nenhum cenário desta classe tinha isso, e
+     * é onde a prévia inflava o número que a spec manda conferir.
+     *
+     * Dois acordos da mesma unidade compartilham o `CasoCobranca` (caso é por objeto). Sem registrar a
+     * MARCAÇÃO no estado da execução, a prévia via a obrigação intocada nas duas abas e somava o
+     * principal duas vezes; a confirmação marcava na 1ª e recusava na 2ª. `principalReconciliadoCentavos()`
+     * é o "R$ 680,00 que sai do saldo" do §1 — inflá-lo é mentir no único número que o operador confere.
+     */
+    #[TestDox('Mesma conta em DUAS abas do mesmo caso: o principal não é contado duas vezes')]
+    public function testMesmaContaEmDuasAbasDoMesmoCasoNaoDobraOPrincipal(): void
+    {
+        [$tenant, $user, $carteiraId, $caso] = $this->cenarioAcordo37();
+
+        // Um segundo acordo (38) no MESMO caso, nascido pela inadimplência como os outros.
+        $this->semear($carteiraId, $tenant, $user, [
+            $this->boleto('61700', competencia: '11/2026', vencimento: '2026-11-10', valor: 15000, acordo: new AcordoDoRelatorio(38, 1, 1)),
+        ]);
+
+        // As duas abas listam a MESMA conta original 60145 (R$ 170,00), que existe e está aberta.
+        $umaConta = [['60145', '01/2026', '2026-01-13', 17000]];
+        $leitura = new ResultadoLeituraAcordos([
+            $this->acordoDaPlanilha(numero: 37, contas: $umaConta, parcelas: [['61600', 1, 4, '07/2026', '2026-07-15', 19939]]),
+            $this->acordoDaPlanilha(numero: 38, contas: $umaConta, parcelas: [['61700', 1, 1, '11/2026', '2026-11-10', 15000]]),
+        ], [], 0);
+
+        $previsto = $this->importarAcordos->prever($carteiraId, $leitura, $tenant);
+        $feito = $this->importarAcordos->confirmar($carteiraId, $leitura, $tenant, $user);
+
+        self::assertSame($this->retrato($previsto), $this->retrato($feito), 'a projeção tem de bater com o efeito, campo a campo');
+        self::assertSame(17000, $feito->principalReconciliadoCentavos(), 'a conta sai do saldo UMA vez, não duas');
+        self::assertSame(['60145'], $feito->nnsContasMarcadas());
+        self::assertNotEmpty(array_filter($feito->contasRecusadas(), static fn (string $r): bool => str_contains($r, '60145')), 'a 2ª aba precisa reportar por que não marcou');
+
+        // E no banco: a obrigação pertence ao PRIMEIRO acordo que a reclamou, não ao último.
+        $this->em->clear();
+        [, $acordo37] = $this->casoEAcordo($tenant, 37);
+        self::assertSame($acordo37->getId(), $this->obrigacao($tenant, '60145')?->getAcordoSubstituto()?->getId());
+    }
+
     #[TestDox('Carteira de OUTRO escritório: a importação nunca a alcança, nem com o mesmo número de acordo')]
     public function testNaoCruzaTenant(): void
     {

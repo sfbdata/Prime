@@ -299,6 +299,17 @@ final class ImportarAcordosDetalhadosUseCase
         $valor = 0;
 
         foreach ($aba->parcelas as $parcela) {
+            $chave = $this->chaveNaExecucao($caso, $parcela->nn, $parcela->competencia);
+
+            // Esta MESMA importação já mexeu nesta obrigação (outra aba do mesmo caso — dois acordos da
+            // mesma unidade compartilham o caso). No dry-run o banco não mudou, então sem esta consulta a
+            // projeção a trataria como intocada e contaria o efeito duas vezes. É no-op nos dois modos.
+            if (isset($criadasNaExecucao[$chave])) {
+                $existentes[] = $parcela->nn;
+
+                continue;
+            }
+
             $existente = $this->obrigacaoRepository->findOnePorReferenciaECompetenciaNoCaso($caso, $parcela->nn, $parcela->competencia);
             if ($existente !== null) {
                 $existentes[] = $parcela->nn;
@@ -315,6 +326,10 @@ final class ImportarAcordosDetalhadosUseCase
                 $origem = $existente->getAcordoOrigem();
                 if ($origem === null) {
                     $vinculadas[] = $parcela->nn;
+                    // Mutação também entra no acumulador, não só criação: sem isto a aba seguinte do mesmo
+                    // caso veria `acordoOrigem` ainda nulo na prévia (o banco não mudou) e contaria o
+                    // vínculo de novo, enquanto a confirmação reportaria divergência.
+                    $criadasNaExecucao[$chave] = 'parcela-vinculada';
                     if ($usuario !== null) {
                         $existente->setAcordoOrigem($acordo);
                         $this->obrigacaoRepository->salvar($existente, true);
@@ -394,14 +409,21 @@ final class ImportarAcordosDetalhadosUseCase
         foreach ($aba->contasOriginais as $conta) {
             $chave = $this->chaveNaExecucao($caso, $conta->nn, $conta->competencia);
 
-            // O que ESTA execução já criou conta como se estivesse no banco — senão a prévia e a
-            // confirmação divergiriam: no dry-run o banco nunca muda, então a mesma chave listada como
-            // parcela e como conta original (na mesma aba ou em outra do mesmo caso) seria "reconstruída"
-            // na projeção e "recusada" no efeito. A resposta tem de ser a mesma nos dois modos.
+            // O que ESTA execução já tocou conta como se o banco já refletisse — senão a prévia e a
+            // confirmação divergem: no dry-run o banco nunca muda, então a mesma obrigação vista de novo
+            // (outra aba do MESMO caso — dois acordos da mesma unidade compartilham o caso, ou a planilha
+            // repete a linha) seria tratada como intocada e o efeito contado duas vezes.
+            //
+            // ⚠️ Inclui MUTAÇÃO, não só criação. Foi a metade que faltou na primeira correção: marcar sem
+            // registrar fazia a prévia somar o mesmo principal duas vezes — e `principalReconciliadoCentavos`
+            // é exatamente o número que §1/§8 mandam o operador conferir antes de mandar gravar.
             if (isset($criadasNaExecucao[$chave])) {
-                $recusadas[] = $criadasNaExecucao[$chave] === 'parcela'
-                    ? sprintf('%s: esta MESMA importação a criou como parcela do acordo %d — não é dívida original, não marcada (INV-I).', $conta->nn, $aba->numero)
-                    : sprintf('%s: esta MESMA importação já a reconstruiu — linha repetida na planilha, ignorada.', $conta->nn);
+                $recusadas[] = match ($criadasNaExecucao[$chave]) {
+                    'parcela' => sprintf('%s: esta MESMA importação a criou como parcela do acordo %d — não é dívida original, não marcada (INV-I).', $conta->nn, $aba->numero),
+                    'parcela-vinculada' => sprintf('%s: esta MESMA importação a ligou como parcela de acordo — não é dívida original, não marcada (INV-I).', $conta->nn),
+                    'marcada' => sprintf('%s: esta MESMA importação já a marcou como substituída por outro acordo — não remarcada.', $conta->nn),
+                    default => sprintf('%s: esta MESMA importação já a reconstruiu — linha repetida na planilha, ignorada.', $conta->nn),
+                };
 
                 continue;
             }
@@ -458,6 +480,7 @@ final class ImportarAcordosDetalhadosUseCase
 
             $marcadas[] = $conta->nn;
             $principal += $obrigacao->getValorOriginal();
+            $criadasNaExecucao[$chave] = 'marcada';
 
             if ($usuario !== null) {
                 $this->materializarNaDataDoAcordo($obrigacao, $acordo, $configCaso);
