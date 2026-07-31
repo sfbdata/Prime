@@ -859,6 +859,118 @@ final class ImportarAcordosDetalhadosTest extends KernelTestCase
         self::assertSame($acordo37->getId(), $this->obrigacao($tenant, '60145')?->getAcordoSubstituto()?->getId());
     }
 
+    /**
+     * O gap de chave que a terceira revisão achou: o **fallback do legado** faz dois trios diferentes
+     * resolverem para a MESMA obrigação.
+     *
+     * Uma obrigação sem competência gravada (dado anterior ao backfill) casa com QUALQUER competência da
+     * planilha. Se a planilha listar o mesmo NN em duas competências, `X|C1` e `X|C2` são chaves distintas
+     * que devolvem a mesma linha: sem indexar também pela obrigação resolvida, a prévia soma o principal
+     * dela duas vezes e a confirmação soma uma.
+     *
+     * ⚠️ É o caminho que **produção** terá (~30 obrigações sem competência) e que o replay do dev **não
+     * exercitou** — lá não existe uma obrigação com competência nula sequer.
+     */
+    #[TestDox('Fallback legado: dois trios que resolvem para a MESMA obrigação não contam o principal duas vezes')]
+    public function testFallbackLegadoNaoContaOMesmoPrincipalDuasVezes(): void
+    {
+        [$tenant, $user, $carteiraId, $caso] = $this->cenarioAcordo37(originaisNoSistema: ['60145']);
+
+        // Dado legado: a obrigação perde a competência, como as ~30 que o backfill não alcançou.
+        $legada = $this->obrigacao($tenant, '60145');
+        self::assertNotNull($legada);
+        $legada->setCompetencia(null);
+        $this->em->flush();
+
+        // A planilha lista o MESMO NN em duas competências — dois trios, uma obrigação só no banco.
+        $leitura = new ResultadoLeituraAcordos([$this->acordoDaPlanilha(
+            numero: 37,
+            contas: [
+                ['60145', '01/2026', '2026-01-13', 17000],
+                ['60145', '02/2026', '2026-02-13', 17000],
+            ],
+            parcelas: [['61600', 1, 4, '07/2026', '2026-07-15', 19939]],
+        )], [], 0);
+
+        $previsto = $this->importarAcordos->prever($carteiraId, $leitura, $tenant);
+        $feito = $this->importarAcordos->confirmar($carteiraId, $leitura, $tenant, $user);
+
+        self::assertSame($this->retrato($previsto), $this->retrato($feito), 'a projeção tem de bater com o efeito, campo a campo');
+        self::assertSame(17000, $feito->principalReconciliadoCentavos(), 'é UMA obrigação: R$ 170,00 saem do saldo, não R$ 340,00');
+        self::assertSame(['60145'], $feito->nnsContasMarcadas());
+        self::assertNotEmpty($feito->casadasSemCompetencia(), 'o casamento pelo fallback tem de ser reportado');
+    }
+
+    /**
+     * O segundo gap de chave: a guarda de ambiguidade da parcela pergunta por `(caso, NN)` **sem
+     * competência**, então não enxerga o que a execução criou sob outro trio.
+     *
+     * Aba 1 cria `X|C1`; aba 2 traz `X|C2`. Sem o índice por NN, a prévia criaria as duas e a confirmação
+     * recusaria a segunda por ambiguidade — divergindo no `valorParcelasCriadasCentavos`, que é o outro
+     * número do §1 (o que ENTRA no saldo).
+     */
+    #[TestDox('Parcela criada por uma aba torna ambígua a de outra competência na aba seguinte — nos dois modos')]
+    public function testParcelaCriadaEmOutraAbaTornaAProximaAmbigua(): void
+    {
+        [$tenant, $user, $carteiraId, $caso] = $this->cenarioAcordo37();
+
+        // Segundo acordo no MESMO caso (mesma unidade).
+        $this->semear($carteiraId, $tenant, $user, [
+            $this->boleto('61700', competencia: '11/2026', vencimento: '2026-11-10', valor: 15000, acordo: new AcordoDoRelatorio(38, 1, 1)),
+        ]);
+
+        // As duas abas trazem o NN 61601, em competências diferentes. Nenhuma existe no sistema.
+        $leitura = new ResultadoLeituraAcordos([
+            $this->acordoDaPlanilha(numero: 37, contas: [], parcelas: [['61601', 2, 4, '08/2026', '2026-08-10', 19939]]),
+            $this->acordoDaPlanilha(numero: 38, contas: [], parcelas: [['61601', 1, 1, '12/2026', '2026-12-10', 15000]]),
+        ], [], 0);
+
+        $previsto = $this->importarAcordos->prever($carteiraId, $leitura, $tenant);
+        $feito = $this->importarAcordos->confirmar($carteiraId, $leitura, $tenant, $user);
+
+        self::assertSame($this->retrato($previsto), $this->retrato($feito), 'a projeção tem de bater com o efeito, campo a campo');
+        self::assertSame(['61601'], $feito->nnsParcelasCriadas(), 'a primeira aba cria');
+        self::assertSame(['61601'], $feito->parcelasAmbiguas(), 'a segunda recusa — criar seria adicionar dinheiro a partir de casamento duvidoso');
+        self::assertSame(19939, $feito->valorParcelasCriadasCentavos());
+        self::assertSame(1, $this->contar($tenant, '61601'));
+    }
+
+    /**
+     * Cobre o ramo `parcela-vinculada` do registro — que o revisor apontou como **não exercitado**: nos
+     * outros testes as parcelas nascem do `semear` já com `acordoOrigem`.
+     */
+    #[TestDox('Parcela solta vinculada por uma aba não é revinculada nem recontada pela aba seguinte')]
+    public function testParcelaVinculadaNaoEhRecontadaPelaAbaSeguinte(): void
+    {
+        [$tenant, $user, $carteiraId, $caso, $acordo37] = $this->cenarioAcordo37();
+
+        $this->semear($carteiraId, $tenant, $user, [
+            $this->boleto('61700', competencia: '11/2026', vencimento: '2026-11-10', valor: 15000, acordo: new AcordoDoRelatorio(38, 1, 1)),
+        ]);
+
+        // 61600 existe mas SOLTA — o cenário da parcela lançada antes de o acordo ser reconhecido.
+        $parcela = $this->obrigacao($tenant, '61600');
+        self::assertNotNull($parcela);
+        $parcela->setAcordoOrigem(null);
+        $this->em->flush();
+
+        // As DUAS abas listam a mesma parcela 61600.
+        $umaParcela = [['61600', 1, 4, '07/2026', '2026-07-15', 19939]];
+        $leitura = new ResultadoLeituraAcordos([
+            $this->acordoDaPlanilha(numero: 37, contas: [], parcelas: $umaParcela),
+            $this->acordoDaPlanilha(numero: 38, contas: [], parcelas: $umaParcela),
+        ], [], 0);
+
+        $previsto = $this->importarAcordos->prever($carteiraId, $leitura, $tenant);
+        $feito = $this->importarAcordos->confirmar($carteiraId, $leitura, $tenant, $user);
+
+        self::assertSame($this->retrato($previsto), $this->retrato($feito), 'a projeção tem de bater com o efeito, campo a campo');
+        self::assertSame(['61600'], $feito->parcelasVinculadas(), 'vinculada UMA vez, pela primeira aba');
+
+        $this->em->clear();
+        self::assertSame($acordo37->getId(), $this->obrigacao($tenant, '61600')?->getAcordoOrigem()?->getId(), 'fica com o acordo que a reclamou primeiro');
+    }
+
     #[TestDox('Carteira de OUTRO escritório: a importação nunca a alcança, nem com o mesmo número de acordo')]
     public function testNaoCruzaTenant(): void
     {

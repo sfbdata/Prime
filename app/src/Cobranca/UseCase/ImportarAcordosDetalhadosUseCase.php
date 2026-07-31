@@ -20,6 +20,7 @@ use App\Cobranca\Service\CalculadoraEncargos;
 use App\Cobranca\Service\Importacao\AcordoDetalhadoImportavel;
 use App\Cobranca\Service\Importacao\AcordoProcessado;
 use App\Cobranca\Service\Importacao\ContaOriginalImportavel;
+use App\Cobranca\Service\Importacao\ObrigacoesTocadasNaImportacao;
 use App\Cobranca\Service\Importacao\ParcelaAcordoImportavel;
 use App\Cobranca\Service\Importacao\ResultadoImportacaoAcordos;
 use App\Cobranca\Service\Importacao\ResultadoLeituraAcordos;
@@ -116,15 +117,9 @@ final class ImportarAcordosDetalhadosUseCase
         $liquidadas = [];
         $situacoesDesconhecidas = [];
         $conferencias = [];
-        /**
-         * O que ESTA execução já criou, por (caso, NN, competência). É o equivalente do
-         * `PessoaEmImportacao` do importador de cadastro, e existe pelo mesmo motivo: no dry-run o banco
-         * não muda, então sem este registro a projeção não enxerga o efeito das abas anteriores e passa a
-         * prometer coisa diferente do que a confirmação faz.
-         *
-         * @var array<string, string> $criadasNaExecucao
-         */
-        $criadasNaExecucao = [];
+        // O que ESTA execução já criou ou mutou. Ver a classe: são três índices, e cada um fecha um
+        // caminho por onde a prévia voltaria a divergir da confirmação.
+        $tocadas = new ObrigacoesTocadasNaImportacao();
 
         foreach ($leitura->acordos as $aba) {
             foreach ($aba->parcelas as $parcela) {
@@ -139,7 +134,7 @@ final class ImportarAcordosDetalhadosUseCase
                 $conferencias[] = $conferencia;
             }
 
-            $processados[] = $this->processarAba($aba, $carteira, $tenant, $usuario, $situacoesDesconhecidas, $criadasNaExecucao);
+            $processados[] = $this->processarAba($aba, $carteira, $tenant, $usuario, $situacoesDesconhecidas, $tocadas);
         }
 
         return new ResultadoImportacaoAcordos(
@@ -192,7 +187,7 @@ final class ImportarAcordosDetalhadosUseCase
 
     /**
      * @param list<string>          $situacoesDesconhecidas acumulador do lote
-     * @param array<string, string> $criadasNaExecucao      acumulador do lote (ver `processar`)
+     * @param ObrigacoesTocadasNaImportacao $tocadas                registro do lote (ver `processar`)
      */
     private function processarAba(
         AcordoDetalhadoImportavel $aba,
@@ -200,7 +195,7 @@ final class ImportarAcordosDetalhadosUseCase
         Tenant $tenant,
         ?User $usuario,
         array &$situacoesDesconhecidas,
-        array &$criadasNaExecucao,
+        ObrigacoesTocadasNaImportacao $tocadas,
     ): AcordoProcessado {
         $acordo = $this->acordoRepository->findOnePorNumeroExternoNaCarteira($aba->numero, $carteira, $tenant);
         if ($acordo === null) {
@@ -241,10 +236,10 @@ final class ImportarAcordosDetalhadosUseCase
         $configCaso = $this->resolvedorConfig->resolverDoCaso($caso);
 
         [$parcelasCriadas, $parcelasExistentes, $parcelasAmbiguas, $divergencias, $valorParcelas, $parcelasVinculadas, $liquidadasIgnoradas] =
-            $this->completarParcelas($aba, $acordo, $caso, $tenant, $usuario, $criadasNaExecucao);
+            $this->completarParcelas($aba, $acordo, $caso, $tenant, $usuario, $tocadas);
 
         [$marcadas, $reconstruidas, $jaMarcadas, $recusadas, $semCompetencia, $maisDivergencias, $principal] =
-            $this->reconciliarContasOriginais($aba, $acordo, $caso, $tenant, $usuario, $configCaso, $criadasNaExecucao);
+            $this->reconciliarContasOriginais($aba, $acordo, $caso, $tenant, $usuario, $configCaso, $tocadas);
 
         return new AcordoProcessado(
             numero: $aba->numero,
@@ -268,17 +263,11 @@ final class ImportarAcordosDetalhadosUseCase
         );
     }
 
-    /** Chave de uma obrigação DENTRO desta execução: o mesmo par que casa com o banco. */
-    private function chaveNaExecucao(CasoCobranca $caso, string $nn, string $competencia): string
-    {
-        return $caso->getId() . '|' . $nn . '|' . $competencia;
-    }
-
     /**
      * §3.1 — completar as parcelas futuras. A parcela que não existe nasce como obrigação do caso, ligada
      * ao acordo (`acordoOrigem`), com honorários ZERO e encargos ao vivo a partir do próprio vencimento.
      *
-     * @param array<string, string> $criadasNaExecucao acumulador (por referência) chave → o que nasceu ali
+     * @param ObrigacoesTocadasNaImportacao $tocadas registro do que ESTA execução já criou ou mutou
      *
      * @return array{0: list<string>, 1: list<string>, 2: list<string>, 3: list<string>, 4: int, 5: list<string>, 6: list<string>}
      */
@@ -288,7 +277,7 @@ final class ImportarAcordosDetalhadosUseCase
         CasoCobranca $caso,
         Tenant $tenant,
         ?User $usuario,
-        array &$criadasNaExecucao,
+        ObrigacoesTocadasNaImportacao $tocadas,
     ): array {
         $criadas = [];
         $existentes = [];
@@ -299,18 +288,26 @@ final class ImportarAcordosDetalhadosUseCase
         $valor = 0;
 
         foreach ($aba->parcelas as $parcela) {
-            $chave = $this->chaveNaExecucao($caso, $parcela->nn, $parcela->competencia);
-
-            // Esta MESMA importação já mexeu nesta obrigação (outra aba do mesmo caso — dois acordos da
+            // Esta MESMA importação já mexeu nesta dívida (outra aba do mesmo caso — dois acordos da
             // mesma unidade compartilham o caso). No dry-run o banco não mudou, então sem esta consulta a
             // projeção a trataria como intocada e contaria o efeito duas vezes. É no-op nos dois modos.
-            if (isset($criadasNaExecucao[$chave])) {
+            if ($tocadas->tipoDoTrio($caso, $parcela->nn, $parcela->competencia) !== null) {
                 $existentes[] = $parcela->nn;
 
                 continue;
             }
 
             $existente = $this->obrigacaoRepository->findOnePorReferenciaECompetenciaNoCaso($caso, $parcela->nn, $parcela->competencia);
+
+            // A busca resolveu para uma LINHA que esta execução já tocou — só acontece pelo fallback do
+            // legado, que casa uma obrigação sem competência com qualquer competência da planilha. O trio
+            // é outro, a obrigação é a mesma.
+            if ($existente !== null && $tocadas->tipoDaObrigacao($existente) !== null) {
+                $existentes[] = $parcela->nn;
+
+                continue;
+            }
+
             if ($existente !== null) {
                 $existentes[] = $parcela->nn;
                 $divergencia = $this->divergenciaDeValor($parcela->nn, $existente, $parcela->valorCentavos);
@@ -329,7 +326,7 @@ final class ImportarAcordosDetalhadosUseCase
                     // Mutação também entra no acumulador, não só criação: sem isto a aba seguinte do mesmo
                     // caso veria `acordoOrigem` ainda nulo na prévia (o banco não mudou) e contaria o
                     // vínculo de novo, enquanto a confirmação reportaria divergência.
-                    $criadasNaExecucao[$chave] = 'parcela-vinculada';
+                    $tocadas->registrarMutada($existente, $caso, $parcela->nn, $parcela->competencia, 'parcela-vinculada');
                     if ($usuario !== null) {
                         $existente->setAcordoOrigem($acordo);
                         $this->obrigacaoRepository->salvar($existente, true);
@@ -357,7 +354,11 @@ final class ImportarAcordosDetalhadosUseCase
             // (§7 diz "por NN", §3.2 exige NN+competência) e aqui elas discordam. Criar é a direção
             // PERIGOSA — adicionaria dinheiro ao saldo a partir de um casamento duvidoso —, então a
             // importação recusa e devolve a decisão ao humano. Não criar só adia; criar errado cobra.
-            if ($this->obrigacaoRepository->findOnePorReferenciaExternaNoCaso($caso, $parcela->nn) !== null) {
+            // A consulta ao registro entra JUNTO com a do banco: uma parcela criada por uma aba anterior
+            // desta mesma execução torna a desta aba ambígua exatamente como se já estivesse gravada — e
+            // no dry-run o banco não a mostraria.
+            if ($tocadas->temAlgumaComNn($caso, $parcela->nn)
+                || $this->obrigacaoRepository->findOnePorReferenciaExternaNoCaso($caso, $parcela->nn) !== null) {
                 $ambiguas[] = $parcela->nn;
 
                 continue;
@@ -368,7 +369,7 @@ final class ImportarAcordosDetalhadosUseCase
             // Registrar ANTES de escrever: é o que faz a reconciliação seguinte (e a de outra aba do
             // mesmo caso) enxergar esta parcela no dry-run, onde o banco não muda. Sem isto a prévia
             // prometeria "reconstruir" uma conta que a confirmação recusaria por INV-I.
-            $criadasNaExecucao[$this->chaveNaExecucao($caso, $parcela->nn, $parcela->competencia)] = 'parcela';
+            $tocadas->registrarCriada($caso, $parcela->nn, $parcela->competencia, 'parcela');
 
             if ($usuario !== null) {
                 $nova = $this->registrarObrigacao->executar($this->parcelaInput($caso, $parcela), $tenant, $usuario);
@@ -385,7 +386,7 @@ final class ImportarAcordosDetalhadosUseCase
      * `acordoSubstituto` (sai do saldo); se já está marcada, no-op; se não existe, reconstrói já
      * substituída (§3.2.1).
      *
-     * @param array<string, string> $criadasNaExecucao acumulador (por referência) chave → o que nasceu ali
+     * @param ObrigacoesTocadasNaImportacao $tocadas registro do que ESTA execução já criou ou mutou
      *
      * @return array{0: list<string>, 1: list<string>, 2: list<string>, 3: list<string>, 4: list<string>, 5: list<string>, 6: int}
      */
@@ -396,7 +397,7 @@ final class ImportarAcordosDetalhadosUseCase
         Tenant $tenant,
         ?User $usuario,
         ConfigEncargos $configCaso,
-        array &$criadasNaExecucao,
+        ObrigacoesTocadasNaImportacao $tocadas,
     ): array {
         $marcadas = [];
         $reconstruidas = [];
@@ -407,33 +408,43 @@ final class ImportarAcordosDetalhadosUseCase
         $principal = 0;
 
         foreach ($aba->contasOriginais as $conta) {
-            $chave = $this->chaveNaExecucao($caso, $conta->nn, $conta->competencia);
-
             // O que ESTA execução já tocou conta como se o banco já refletisse — senão a prévia e a
             // confirmação divergem: no dry-run o banco nunca muda, então a mesma obrigação vista de novo
             // (outra aba do MESMO caso — dois acordos da mesma unidade compartilham o caso, ou a planilha
             // repete a linha) seria tratada como intocada e o efeito contado duas vezes.
             //
-            // ⚠️ Inclui MUTAÇÃO, não só criação. Foi a metade que faltou na primeira correção: marcar sem
-            // registrar fazia a prévia somar o mesmo principal duas vezes — e `principalReconciliadoCentavos`
-            // é exatamente o número que §1/§8 mandam o operador conferir antes de mandar gravar.
-            if (isset($criadasNaExecucao[$chave])) {
-                $recusadas[] = match ($criadasNaExecucao[$chave]) {
+            // ⚠️ Inclui MUTAÇÃO, não só criação: marcar sem registrar fazia a prévia somar o mesmo
+            // principal duas vezes — e `principalReconciliadoCentavos` é exatamente o número que §1/§8
+            // mandam o operador conferir antes de mandar gravar.
+            $jaTocada = $tocadas->tipoDoTrio($caso, $conta->nn, $conta->competencia);
+
+            // A CHAVE. Nunca `findOnePorReferenciaExternaNoCaso` — casar só pelo NN aqui marcaria dívida
+            // de outra competência (e de outro devedor) como substituída, apagando cobrança legítima.
+            $obrigacao = $jaTocada === null
+                ? $this->obrigacaoRepository->findOnePorReferenciaECompetenciaNoCaso($caso, $conta->nn, $conta->competencia)
+                : null;
+
+            // A busca resolveu para uma LINHA já tocada por outro trio. Só o fallback do legado faz isso:
+            // uma obrigação sem competência casa com QUALQUER competência da planilha, então `X|01/2026` e
+            // `X|02/2026` resolvem para a mesma obrigação. Sem esta consulta a prévia somaria o principal
+            // dela duas vezes — e é justamente o caminho que produção terá, e que o replay não exercitou.
+            if ($obrigacao !== null) {
+                $jaTocada = $tocadas->tipoDaObrigacao($obrigacao);
+            }
+
+            if ($jaTocada !== null) {
+                $recusadas[] = match ($jaTocada) {
                     'parcela' => sprintf('%s: esta MESMA importação a criou como parcela do acordo %d — não é dívida original, não marcada (INV-I).', $conta->nn, $aba->numero),
                     'parcela-vinculada' => sprintf('%s: esta MESMA importação a ligou como parcela de acordo — não é dívida original, não marcada (INV-I).', $conta->nn),
-                    'marcada' => sprintf('%s: esta MESMA importação já a marcou como substituída por outro acordo — não remarcada.', $conta->nn),
+                    'marcada' => sprintf('%s: esta MESMA importação já marcou esta obrigação como substituída — não remarcada (confira: a planilha pode estar listando a mesma dívida em duas competências).', $conta->nn),
                     default => sprintf('%s: esta MESMA importação já a reconstruiu — linha repetida na planilha, ignorada.', $conta->nn),
                 };
 
                 continue;
             }
 
-            // A CHAVE. Nunca `findOnePorReferenciaExternaNoCaso` — casar só pelo NN aqui marcaria dívida
-            // de outra competência (e de outro devedor) como substituída, apagando cobrança legítima.
-            $obrigacao = $this->obrigacaoRepository->findOnePorReferenciaECompetenciaNoCaso($caso, $conta->nn, $conta->competencia);
-
             if ($obrigacao === null) {
-                $criadasNaExecucao[$chave] = 'conta';
+                $tocadas->registrarCriada($caso, $conta->nn, $conta->competencia, 'conta');
                 $reconstruidas[] = $conta->nn;
                 if ($usuario !== null) {
                     $this->reconstruirContaOriginal($conta, $aba, $acordo, $caso, $tenant, $usuario, $configCaso);
@@ -480,7 +491,7 @@ final class ImportarAcordosDetalhadosUseCase
 
             $marcadas[] = $conta->nn;
             $principal += $obrigacao->getValorOriginal();
-            $criadasNaExecucao[$chave] = 'marcada';
+            $tocadas->registrarMutada($obrigacao, $caso, $conta->nn, $conta->competencia, 'marcada');
 
             if ($usuario !== null) {
                 $this->materializarNaDataDoAcordo($obrigacao, $acordo, $configCaso);
