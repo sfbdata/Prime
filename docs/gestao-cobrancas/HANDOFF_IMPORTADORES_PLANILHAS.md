@@ -1,7 +1,8 @@
 # Handoff — 3 importadores de planilha da contábil L.G
 
-> Estado em **2026-07-30**. Frente `cobranca-importar-cadastro-acordos`.
-> **Nada publicado, nada deployado.** As **3 pendências de importador estão entregues.**
+> Estado em **2026-07-31**. Frente `cobranca-importar-cadastro-acordos`.
+> **Nada publicado, nada deployado.** As **3 pendências de importador estão entregues**, e os **2 pontos
+> que travavam a frente foram corrigidos** (acordo rompido · prévia × confirmação do cadastro).
 
 ## Como retomar em 30 segundos
 
@@ -162,18 +163,38 @@ docker exec -e APP_DEBUG=0 jusprime_php_dev bash -c "cd $W && php -d memory_limi
 Doctrine acumula backtrace por query e estoura os 128M no meio do lote. Quando estourou, a transação fez
 rollback limpo (nada sujou) — mas o import não passa.
 
+## Corrigido em 31/07 (tarde) — os 2 pontos que travavam a frente
+
+Suíte da frente **2973/2973** depois dos dois. Cada teste provado reintroduzindo o defeito.
+
+### 1. Acordo Rompido/Cancelado: a aba inteira é pulada — `85446af4`
+
+Era o achado #1 da revisão. **Não era só o status:** escrever contra acordo não vigente *cria dívida* —
+a conta reconstruída (§3.2.1) nasce com `acordoSubstituto`, e `doCasoExigiveis` só exclui o que está
+substituído por acordo **vigente**; com o acordo rompido ela entra no saldo e cobra de novo o que a
+planilha listou como renegociado. O motivo vai para o resumo, na prévia e na confirmação.
+
+O teste antigo (`testNaoRessuscitaAcordoRompido`) só olhava o status; o novo afere que nada nasce, nada
+é marcado e **o saldo do devedor não muda um centavo**.
+
+### 2. A prévia do cadastro passou a ser a confirmação sem escrita — `7327e208`
+
+Um método só (`processar()`, `$usuario === null` é o dry-run), como o de acordos já fazia. As duas causas
+da divergência 215/242 e 292/290, ambas da fonte real e invisíveis para a fixture de 7 linhas:
+
+1. **a mesma pessoa em duas unidades** — a prévia contava o vínculo só na 1ª linha; a 2ª caía no ramo
+   "documento já visto no arquivo" e saía sem contar nada, enquanto a confirmação abria o 2º vínculo;
+2. **o mesmo telefone repetido na célula** — a prévia somava a lista crua, a confirmação deduplicava.
+
+O que faltava ao dry-run era **estado**: sem entidade persistida ele só enxergava o banco. `PessoaEmImportacao`
+acumula o que cada pessoa já tem (banco + linhas anteriores do próprio arquivo), então as duas passadas
+fazem a mesma pergunta e recebem a mesma resposta. **Nenhuma regra de casamento mudou.**
+
+⚠️ **Falta conferir contra o dado real.** Os números 215/242 vieram de rodar a planilha inteira; a suíte
+prova o mecanismo, não os totais. O replay (limpar `cobranca_*` no `saas_ux` e repetir 08/07 → 22/07 →
+29/07 → acordos → cadastro) é o que fecha a prova — o dono autorizou limpar o banco de cobrança.
+
 ## O que falta
-
-### Achado NOVO, encontrado rodando: o importador de CADASTRO mente na previsão
-
-| | Dry-run | Confirmado |
-|---|---|---|
-| Vínculos abertos | 215 | **242** |
-| Telefones | 292 | **290** |
-
-É o defeito que o de acordos evita usando **um método só** para prever e confirmar. O de cadastro tem
-`prever()` e `confirmar()` escritos separados, e eles já divergiram. Corrigir aplicando o mesmo padrão.
-*(Só apareceu porque o import foi rodado de verdade — nenhum teste pegava.)*
 
 ### Outras pendências
 - **Avisos na tela.** `referenciasReutilizadas` e `vencimentosAlterados` existem no resultado mas **não
@@ -196,7 +217,7 @@ medido depois — a revisão inflou dois itens, e o handoff registra isso para o
 
 | # | Achado | Severidade real | Por quê |
 |---|---|---|---|
-| 1 | Escreve contra acordo **Rompido/Cancelado** → a conta reconstruída nasce EXIGÍVEL (`doCasoExigiveis` inclui substituída por acordo não-vigente) | **Corrigir** | O revisor chamou de bloqueante. O dono ponderou, com razão: acordo e rompimento são registrados nos DOIS lados, então a planilha seguinte já vem alinhada — a janela é só entre romper e a próxima planilha. **Decidido: pular a aba inteira e reportar.** Barato e preventivo, não urgente |
+| 1 | Escreve contra acordo **Rompido/Cancelado** → a conta reconstruída nasce EXIGÍVEL (`doCasoExigiveis` inclui substituída por acordo não-vigente) | ✅ **CORRIGIDO** `85446af4` | O revisor chamou de bloqueante. O dono ponderou, com razão: acordo e rompimento são registrados nos DOIS lados, então a planilha seguinte já vem alinhada — a janela é só entre romper e a próxima planilha. **Decidido e feito: pular a aba inteira e reportar** |
 | 2 | Fallback legado casa por NN sozinho, que a spec proíbe | **Baixa** | O revisor pôs como ALTO. **Medido: alcança ZERO linhas.** As 21 obrigações sem competência também não têm NN, e o casamento exige o NN primeiro — o fallback nunca as alcança. Corrigir por higiene, não por risco |
 | 3 | Sem a migration, o lote inteiro cai (rollback) em vez de avisar | Média | Conferir schema antes de escrever |
 | 4 | Contas originais não são agrupadas por NN (parcelas são) | Média | Hoje não ocorre no dado; quebraria se a fonte mudar |
