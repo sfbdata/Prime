@@ -162,26 +162,31 @@ final class LancarHorasPagasUseCaseTest extends TestCase
         $useCase($this->input(), $this->user(2), $this->user(1), $this->tenant(1));
     }
 
-    #[TestDox('ninguem lanca horas pagas para si mesmo')]
-    public function testAutoLancamentoRecusado(): void
+    /**
+     * Auto-lançamento é PERMITIDO desde 2026-07-31, por decisão do dono. A trava anterior recusava
+     * `colaborador === autor` mesmo para super-admin. Este teste existe para que reintroduzir a trava
+     * não passe despercebido — as demais guardas (tenant, vínculo, validação do input) seguem valendo.
+     */
+    #[TestDox('admin lanca horas pagas para si mesmo')]
+    public function testAutoLancamentoPermitido(): void
     {
-        $mesmo = $this->user(7);
+        $em = $this->createMock(EntityManagerInterface::class);
+        $em->expects(self::once())->method('persist');
+        $em->expects(self::once())->method('flush');
 
-        $this->expectException(HorasPagasInvalidaException::class);
-        $this->expectExceptionMessage('Você não pode lançar horas pagas para si mesmo.');
+        $mesmo  = $this->user(7);
+        $tenant = $this->tenant(1);
 
-        ($this->useCase())($this->input(), $mesmo, $mesmo, $this->tenant(1));
-    }
+        $lancamento = (new LancarHorasPagasUseCase($em, $this->userTenantRepository()))(
+            $this->input(operacao: 'acrescentar', horas: 2, minutos: 0, motivo: 'Ajuste do proprio banco'),
+            $mesmo,
+            $mesmo,
+            $tenant,
+        );
 
-    #[TestDox('super-admin tambem nao lanca para si mesmo')]
-    public function testAutoLancamentoRecusadoTambemParaSuperAdmin(): void
-    {
-        $mesmo = $this->user(7, ['ROLE_SUPER_ADMIN']);
-
-        $this->expectException(HorasPagasInvalidaException::class);
-        $this->expectExceptionMessage('Você não pode lançar horas pagas para si mesmo.');
-
-        ($this->useCase())($this->input(), $mesmo, $mesmo, $this->tenant(1));
+        self::assertSame(120, $lancamento->getMinutos());
+        self::assertSame($mesmo, $lancamento->getUser());
+        self::assertSame($mesmo, $lancamento->getCriadoPor(), 'beneficiado e autor podem ser a mesma pessoa');
     }
 
     #[TestDox('lancamento valido persiste com autoria e minutos com sinal')]
@@ -228,8 +233,8 @@ final class LancarHorasPagasUseCaseTest extends TestCase
         );
     }
 
-    #[TestDox('editar o proprio lancamento recebido e recusado')]
-    public function testEditarLancamentoDoProprioAutorRecusado(): void
+    #[TestDox('editar o proprio lancamento recebido e permitido')]
+    public function testEditarLancamentoDoProprioAutorPermitido(): void
     {
         $mesmo = $this->user(7);
 
@@ -237,15 +242,18 @@ final class LancarHorasPagasUseCaseTest extends TestCase
         $lancamento->setTenant($this->tenant(1));
         $lancamento->setUser($mesmo);
 
-        $this->expectException(HorasPagasInvalidaException::class);
-        $this->expectExceptionMessage('Você não pode lançar horas pagas para si mesmo.');
+        $em = $this->createMock(EntityManagerInterface::class);
+        $em->expects(self::once())->method('flush');
 
-        (new EditarHorasPagasUseCase($this->createStub(EntityManagerInterface::class)))(
+        (new EditarHorasPagasUseCase($em))(
             $lancamento,
-            $this->input(),
+            $this->input(operacao: 'acrescentar', horas: 3, minutos: 0),
             $mesmo,
             $this->tenant(1),
         );
+
+        self::assertSame(180, $lancamento->getMinutos(), 'a edição do próprio lançamento tem de valer');
+        self::assertSame($mesmo, $lancamento->getAtualizadoPor());
     }
 
     #[TestDox('excluir lancamento de outro tenant e recusado e nao remove nada')]

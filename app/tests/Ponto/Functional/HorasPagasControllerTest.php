@@ -459,8 +459,12 @@ final class HorasPagasControllerTest extends JusPrimeWebTestCase
         self::assertSame(0, $this->contarLancamentos($alvoB));
     }
 
-    #[TestDox('admin nao lanca horas pagas para si mesmo')]
-    public function testAutoLancamentoBloqueado(): void
+    /**
+     * Auto-lançamento PERMITIDO desde 2026-07-31 (decisão do dono). Pela rota, ponta a ponta: o admin
+     * lança para si mesmo, grava, e nenhuma mensagem de erro aparece.
+     */
+    #[TestDox('admin lanca horas pagas para si mesmo pela rota')]
+    public function testAutoLancamentoPermitido(): void
     {
         $client = static::createClient();
         $this->instalarCsrfStorage();
@@ -471,11 +475,12 @@ final class HorasPagasControllerTest extends JusPrimeWebTestCase
         $client->request('POST', $this->rotaLancar($tenant, $admin), $this->payload($this->tokenLancar($admin)));
 
         self::assertResponseRedirects();
-        self::assertSame(0, $this->contarLancamentos($admin), 'ninguém acerta o próprio banco de horas');
-
-        $flashes = $client->getRequest()->getSession()->getFlashBag()->peekAll()['error'] ?? [];
-        self::assertNotEmpty($flashes, 'a recusa tem de aparecer para quem tentou, não falhar em silêncio');
-        self::assertStringContainsString('para si mesmo', implode(' ', $flashes));
+        self::assertSame(1, $this->contarLancamentos($admin), 'o admin pode acertar o próprio banco de horas');
+        self::assertSame(
+            [],
+            $client->getRequest()->getSession()->getFlashBag()->peekAll()['error'] ?? [],
+            'não pode sobrar nenhuma recusa',
+        );
     }
 
     #[TestDox('editar altera o lancamento e registra quem editou')]

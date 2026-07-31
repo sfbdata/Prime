@@ -27,7 +27,6 @@ final class EditarHorasPagasUseCase
         Tenant $tenant,
     ): void {
         GuardaHorasPagas::recusarOutroTenant($lancamento, $tenant);
-        GuardaHorasPagas::recusarAutoLancamento($lancamento->getUser(), $autor);
         GuardaHorasPagas::validarInput($input);
 
         $lancamento->setAno($input->ano);

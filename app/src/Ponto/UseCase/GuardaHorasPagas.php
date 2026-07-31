@@ -12,17 +12,6 @@ use App\Ponto\Exception\HorasPagasInvalidaException;
 
 final class GuardaHorasPagas
 {
-    /**
-     * Ninguém acerta o próprio banco de horas — nem super-admin. A trava é sobre a identidade,
-     * não sobre o papel: quem tem o papel já poderia se autoconceder e depois apagar o rastro.
-     */
-    public static function recusarAutoLancamento(User $colaborador, User $autor): void
-    {
-        if ($colaborador->getId() === $autor->getId()) {
-            throw new HorasPagasInvalidaException('Você não pode lançar horas pagas para si mesmo.');
-        }
-    }
-
     public static function recusarOutroTenant(LancamentoHorasPagas $lancamento, Tenant $tenant): void
     {
         if ($lancamento->getTenant()?->getId() !== $tenant->getId()) {

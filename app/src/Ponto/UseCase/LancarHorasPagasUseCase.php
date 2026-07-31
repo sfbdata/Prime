@@ -28,7 +28,6 @@ final class LancarHorasPagasUseCase
         User $autor,
         Tenant $tenant,
     ): LancamentoHorasPagas {
-        GuardaHorasPagas::recusarAutoLancamento($colaborador, $autor);
         GuardaHorasPagas::validarInput($input);
 
         // Risco ALTO (isolamento entre escritórios): o controller já deveria ter resolvido o

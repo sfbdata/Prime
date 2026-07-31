@@ -35,8 +35,9 @@ use Symfony\Component\Routing\Attribute\Route;
  *
  * Risco ALTO: mexe em verba trabalhista. Toda ação passa, nesta ordem, por
  * permissão → escopo de tenant → vínculo do colaborador (IDOR) → CSRF por intenção → UseCase.
- * Nenhuma delas grava a entidade direto: quem valida operação/quantidade/competência e recusa
- * auto-lançamento é o UseCase (GuardaHorasPagas), não o formulário.
+ * Nenhuma delas grava a entidade direto: quem valida operação/quantidade/competência é o UseCase
+ * (GuardaHorasPagas), não o formulário. Auto-lançamento é PERMITIDO desde 2026-07-31 (decisão do dono);
+ * o que resta como rastro de quem acertou o próprio banco é o `audit_log`.
  */
 #[Route('/tenant')]
 final class HorasPagasController extends AbstractController

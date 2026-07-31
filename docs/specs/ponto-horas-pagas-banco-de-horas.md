@@ -40,7 +40,7 @@ Decisões tomadas pelo dono do sistema e pelo responsável, com o que cada uma d
 | Sem teto **de negócio** para as horas (ver nota abaixo) | Teto de 24h como rede contra erro de digitação |
 | Sem trava se o saldo ficar negativo — e, desde 2026-07-31, **com aviso** quando o desconto DERRUBA o ano (§7) | Bloquear; ou avisar e confirmar |
 | Editar e excluir livremente | Cancelamento com rastro preservado |
-| Auto-lançamento **bloqueado** | Permitir, como já ocorre em batidas e abonos |
+| Auto-lançamento **permitido** (desde 2026-07-31; nasceu bloqueado) | Bloquear `colaborador === autor`, inclusive para super-admin |
 
 **Nota sobre o teto de horas.** O dono recusou teto de **negócio** de propósito. Existe, ainda assim, um teto
 de **sanidade** de `100.000` horas (`LancamentoHorasPagasInput::HORAS_MAXIMAS`, ~11 anos ininterruptos):
@@ -163,9 +163,11 @@ Somam-se:
   `horas_pagas_excluir_<lancamentoId>`.
 - **Colaborador precisa pertencer ao tenant da URL** — guarda explícita contra IDOR. Sem ela, um admin do
   escritório A alcança o funcionário do escritório B pelo id na rota.
-- **Auto-lançamento bloqueado**: se `criadoPor->getId() === colaborador->getId()`, o UseCase recusa. Vale para
-  lançar, editar e excluir, e **inclusive para `ROLE_SUPER_ADMIN`** — a trava é sobre a identidade, não sobre
-  o papel.
+- **Auto-lançamento permitido.** A frente nasceu com `GuardaHorasPagas::recusarAutoLancamento()` recusando
+  `criadoPor === colaborador` (inclusive para `ROLE_SUPER_ADMIN`); o dono mandou remover em 2026-07-31, já com
+  a feature em produção. O que sobra como rastro é o `audit_log`. As demais guardas continuam: permissão,
+  escopo de tenant, vínculo do colaborador (IDOR), CSRF por intenção e validação do input.
+  Ancorado por `testAutoLancamentoPermitido` (unit e functional), para que a trava não volte em silêncio.
 - **Lançamento tem de ser do tenant da URL** na edição e na exclusão, além de ser do colaborador da rota.
 
 ## 6. Camadas
@@ -435,8 +437,9 @@ Sem estes, a frente não é considerada pronta.
 9. Quantidade zero é recusada.
 10. Motivo vazio ou só espaços é recusado.
 11. Competência futura é recusada.
-12. Auto-lançamento é recusado (mesmo `User` como autor e beneficiado).
-13. Auto-lançamento é recusado **também para super-admin**.
+12. Auto-lançamento é **permitido** (mesmo `User` como autor e beneficiado) — a trava foi removida em
+    2026-07-31 e o teste ancora a permissão, para que ela não volte em silêncio.
+13. _(vago — era o caso de super-admin da trava removida)_
 14. Editar/excluir lançamento de outro tenant é recusado.
 
 **Functional — `app/tests/Ponto/Functional/HorasPagasControllerTest.php`**

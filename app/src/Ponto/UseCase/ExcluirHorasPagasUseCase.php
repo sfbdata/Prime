@@ -22,7 +22,6 @@ final class ExcluirHorasPagasUseCase
     public function __invoke(LancamentoHorasPagas $lancamento, User $autor, Tenant $tenant): void
     {
         GuardaHorasPagas::recusarOutroTenant($lancamento, $tenant);
-        GuardaHorasPagas::recusarAutoLancamento($lancamento->getUser(), $autor);
 
         $this->em->remove($lancamento);
         $this->em->flush();
