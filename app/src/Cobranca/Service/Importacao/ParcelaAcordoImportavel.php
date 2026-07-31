@@ -37,6 +37,7 @@ final class ParcelaAcordoImportavel
         public readonly array $classes,
         public readonly bool $constaLiquidada,
     ) {
+        CompetenciaImportada::exigirValida($competencia, $nn);
     }
 
     /**

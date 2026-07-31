@@ -6,6 +6,7 @@ namespace App\Tests\Cobranca\Unit;
 
 use App\Cobranca\Service\Importacao\AcordoDetalhadoImportavel;
 use App\Cobranca\Service\Importacao\AcordosDetalhadosAdapter;
+use App\Cobranca\Service\Importacao\ContaOriginalImportavel;
 use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
@@ -290,6 +291,29 @@ final class AcordosDetalhadosAdapterTest extends TestCase
         self::assertSame(17000, $contas[1]->valorCentavos);
         // A classe é a da PRIMEIRA linha do grupo — a conta reconstruída tem de parecer uma taxa, não um juro.
         self::assertStringContainsString('1.1 - Taxa de condomínio', $contas[0]->descricao());
+    }
+
+    /**
+     * A competência é exigida no CONSTRUTOR do VO, não só no adapter.
+     *
+     * O UseCase é fonte-agnóstico: a garantia não pode morar num adapter específico. Sem esta checagem um
+     * segundo adapter que passasse `'jan/26'` produziria silêncio em cascata — `Obrigacao::setCompetencia`
+     * converte inválido em NULL, e a obrigação nasceria alcançável pelo fallback do legado por QUALQUER
+     * competência. É a invariante que sustenta o índice `obr:` do `ObrigacoesTocadasNaImportacao`.
+     */
+    #[TestDox('Competência fora do formato MM/AAAA é recusada pelo próprio VO, não só pelo adapter')]
+    public function testCompetenciaInvalidaEhRecusadaNoConstrutor(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessageMatches('/jan\/26/');
+
+        new ContaOriginalImportavel(
+            nn: '60001',
+            classe: '1.1 - Taxa de condomínio',
+            competencia: 'jan/26',
+            vencimento: new \DateTimeImmutable('2026-01-13'),
+            valorCentavos: 17000,
+        );
     }
 
     #[TestDox('Parcela com liquidação informada é sinalizada (a baixa de pagamento está fora de escopo)')]

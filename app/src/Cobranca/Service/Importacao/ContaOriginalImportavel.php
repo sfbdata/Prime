@@ -23,6 +23,7 @@ final class ContaOriginalImportavel
         public readonly \DateTimeImmutable $vencimento,
         public readonly int $valorCentavos,
     ) {
+        CompetenciaImportada::exigirValida($competencia, $nn);
     }
 
     /**
