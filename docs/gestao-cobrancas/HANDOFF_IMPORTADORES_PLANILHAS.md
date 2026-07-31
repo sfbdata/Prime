@@ -122,7 +122,58 @@ Duas armadilhas medidas na fonte, cada uma capaz de derrubar uma parcela inteira
    *(A defesa real é o modificador `/u` na regex, que liga UCP e faz `\s` cobrir o U+00A0 — o `\x{00A0}`
    explícito é redundante. Descoberto tentando provar o teste: ele passava com e sem o `\x{00A0}`.)*
 
+## O dev está ALINHADO (2026-07-31) — e o replay das planilhas provou a spec inteira
+
+Ideia do dono, e funcionou: **não precisa de dump de produção**. As planilhas antigas reconstroem o
+histórico, porque o bug é um resíduo de importações sucessivas.
+
+O que foi feito no `saas_ux`:
+
+1. `Version20260730120000` aplicada (só ela — as 2 pendentes do Ponto já têm as tabelas criadas; usar
+   `doctrine:migrations:execute --up`, nunca `migrate`). Backfill: 538 com competência, 21 nulas.
+2. Tabelas `cobranca_*` truncadas (carteira 1 = TOP LIFE II preservada, com sua config de encargos).
+3. Replay cronológico da inadimplência: **08/07 → 22/07 → 29/07**.
+4. `app:cobranca:importar-acordos` (dry-run, depois `--confirmar`).
+5. `app:cobranca:importar-cadastro` (dry-run, depois `--confirmar`).
+
+**O bug se reproduziu sozinho** no passo 3 — a de 08/07 ainda tem as 4 contas do Gessi, a de 22/07 já
+não tem, e o importador não apaga o que some. Exatamente como produção chegou onde está.
+
+**O dry-run bateu com a spec no centavo:** R$ 680,00 saindo · R$ 1.399,49 entrando · 21 contas a
+reconstruir · 0 rejeições · 0 avisos. Depois do `--confirmar`, o Gessi foi de R$ 879,39 para
+**R$ 797,54** — que é o "Valor final acordado" que a própria planilha declara para o acordo 37. As 21
+reconstruídas: **nenhuma no saldo**. Segunda execução: **zero mudanças**.
+
+Os R$ 170,00 a mais nos outros 6 acordos são **taxas novas emitidas depois do acordo** (ex.: NN 61497,
+competência 07/2026) — dívida legítima, corretamente fora do acordo.
+
+Estado final: 229 unidades · 341 pessoas · 122 casos · 571 obrigações · 7 acordos · 290 telefones.
+
+### Como repetir (armadilhas)
+
+```bash
+# a worktree NÃO tinha .env.local -> apontava para o banco `saas` (velho, esquema diferente).
+# Já foi criado apontando para saas_ux. Existem DOIS bancos; `saas` é lixo legado.
+W=/var/www/.claude/worktrees/cobranca-importar-cadastro-acordos/app
+docker exec -e APP_DEBUG=0 jusprime_php_dev bash -c "cd $W && php -d memory_limit=3G bin/console app:cobranca:importar ..."
+```
+
+`APP_DEBUG=0` e `memory_limit` **são obrigatórios**: em modo debug o `BacktraceDebugDataHolder` do
+Doctrine acumula backtrace por query e estoura os 128M no meio do lote. Quando estourou, a transação fez
+rollback limpo (nada sujou) — mas o import não passa.
+
 ## O que falta
+
+### Achado NOVO, encontrado rodando: o importador de CADASTRO mente na previsão
+
+| | Dry-run | Confirmado |
+|---|---|---|
+| Vínculos abertos | 215 | **242** |
+| Telefones | 292 | **290** |
+
+É o defeito que o de acordos evita usando **um método só** para prever e confirmar. O de cadastro tem
+`prever()` e `confirmar()` escritos separados, e eles já divergiram. Corrigir aplicando o mesmo padrão.
+*(Só apareceu porque o import foi rodado de verdade — nenhum teste pegava.)*
 
 ### Outras pendências
 - **Avisos na tela.** `referenciasReutilizadas` e `vencimentosAlterados` existem no resultado mas **não
@@ -130,13 +181,36 @@ Duas armadilhas medidas na fonte, cada uma capaz de derrubar uma parcela inteira
   O importador de acordos é **só CLI** e tem um resumo bem mais rico (tabela por acordo + bloco
   "A CONFERIR"); ao levar os avisos para a tela, considerar o mesmo tratamento aqui.
 - **`/review` da frente inteira** antes de integrar. Risco ALTO exige revisão dupla.
-- **Migration não aplicada** em dev (`saas_ux`) nem em produção — só no banco de teste da frente.
-  ⚠️ **Isto bloqueia o dry-run ponta-a-ponta**: `cobranca_obrigacao.competencia` não existe no `saas_ux`
-  (conferido em 30/07), então rodar `app:cobranca:importar-acordos` contra o dev falha antes de começar.
-  Ordem certa: aplicar a migration em dev → dry-run com a planilha real → conferir a tabela contra o §1 da
-  spec → só então pensar em produção.
+- **Migration:** aplicada no dev em 31/07 (ver seção do replay). **Falta em produção** — o deploy exige
+  `deploy-prod-tls.sh`, e o `bcmath` da frente do BCB sobe junto.
+- **Produção de cobrança ainda NÃO está em uso de verdade** (dono, 31/07): pode ser limpa também. Isso
+  rebaixa a urgência de tudo que era "dinheiro em produção" nesta frente — o rigor continua valendo para o
+  código estar certo, não porque haja alguém sendo cobrado a mais agora.
 - **Deploy** exige `deploy-prod-tls.sh` (tem migration). Lembrar: `bcmath` da frente do BCB também só
   entra em prod no próximo deploy.
+
+## Revisão de 31/07 — o que sobrou, com a severidade CORRIGIDA
+
+O `feature-review-agent` revisou o `37e122ce`. A lista dele está abaixo já **reponderada** pelo que foi
+medido depois — a revisão inflou dois itens, e o handoff registra isso para o próximo não repetir.
+
+| # | Achado | Severidade real | Por quê |
+|---|---|---|---|
+| 1 | Escreve contra acordo **Rompido/Cancelado** → a conta reconstruída nasce EXIGÍVEL (`doCasoExigiveis` inclui substituída por acordo não-vigente) | **Corrigir** | O revisor chamou de bloqueante. O dono ponderou, com razão: acordo e rompimento são registrados nos DOIS lados, então a planilha seguinte já vem alinhada — a janela é só entre romper e a próxima planilha. **Decidido: pular a aba inteira e reportar.** Barato e preventivo, não urgente |
+| 2 | Fallback legado casa por NN sozinho, que a spec proíbe | **Baixa** | O revisor pôs como ALTO. **Medido: alcança ZERO linhas.** As 21 obrigações sem competência também não têm NN, e o casamento exige o NN primeiro — o fallback nunca as alcança. Corrigir por higiene, não por risco |
+| 3 | Sem a migration, o lote inteiro cai (rollback) em vez de avisar | Média | Conferir schema antes de escrever |
+| 4 | Contas originais não são agrupadas por NN (parcelas são) | Média | Hoje não ocorre no dado; quebraria se a fonte mudar |
+| 5 | `somaContasOriginaisCentavos()`/`somaParcelasCentavos()` sem chamador | Baixa | Usar como conferência real ou remover |
+| 6 | Nenhum teste com encargos ≠ 0 (`CarteiraFactory` zera tudo) | Média | A materialização na data do acordo não está provada por teste |
+| 7 | Sem teste: parcela ambígua, caso encerrado, conta já substituída por outro acordo | Média | |
+| 8 | Teste "outra carteira" usa o mesmo tenant | Baixa | Falta o cross-tenant que o dono exige |
+| 9 | Procedência no fim da `descricao`, primeira a ser truncada | Baixa | Inverter a ordem elimina |
+| 10 | Parcela existente não recebe `acordoOrigem` | Baixa | 0 ocorrências medidas |
+
+**Confirmado OK pela revisão:** chave NN+competência nos dois pontos · acordo por (numero, carteira,
+tenant) · multi-tenant em todas as queries · INV-I · idempotência · rompimento com acordo vigente ·
+`honorariosBp = 0` é taxa e não cache (a hidratação não reintroduz honorário) · dry-run não escreve ·
+nenhum arquivo existente alterado · nenhuma PII commitada.
 
 ## Divergências conscientes em relação à spec dos acordos
 
