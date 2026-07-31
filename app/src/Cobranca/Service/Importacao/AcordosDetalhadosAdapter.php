@@ -97,7 +97,10 @@ final class AcordosDetalhadosAdapter
         $emissao = null;
 
         $secao = null;
-        $contas = [];
+        /** @var array<string, list<array<int, mixed>>> $linhasPorConta chave "NN|competência" → linhas */
+        $linhasPorConta = [];
+        /** @var array<string, string> $ordemContas chave → NN, na ordem de aparição */
+        $ordemContas = [];
         /** @var array<string, list<array<int, mixed>>> $linhasPorParcela */
         $linhasPorParcela = [];
         /** @var list<string> $ordemParcelas */
@@ -184,13 +187,17 @@ final class AcordosDetalhadosAdapter
             }
 
             if ($secao === 'originais') {
-                $conta = $this->montarContaOriginal($a, $linha);
-                if ($conta instanceof LinhaRejeitada) {
-                    $rejeitadas[] = $conta;
-
-                    continue;
+                // Agrupa como a seção de parcelas já faz: a fonte pode quebrar UMA conta em várias
+                // linhas (principal, juros, multa, desconto). Uma linha por objeto faria o UseCase
+                // processar a mesma dívida duas vezes — na reconstrução (§3.2.1) seriam duas obrigações
+                // com o mesmo NN+competência, e o índice único derrubaria o lote inteiro.
+                // A chave é NN + COMPETÊNCIA, nunca o NN sozinho: é a mesma regra do casamento.
+                $chaveConta = $a . '|' . trim((string) ($linha[self::ORIG_COMPETENCIA] ?? ''));
+                if (!isset($linhasPorConta[$chaveConta])) {
+                    $linhasPorConta[$chaveConta] = [];
+                    $ordemContas[$chaveConta] = $a;
                 }
-                $contas[] = $conta;
+                $linhasPorConta[$chaveConta][] = $linha;
 
                 continue;
             }
@@ -204,6 +211,17 @@ final class AcordosDetalhadosAdapter
 
         if ($numero === null) {
             return new LinhaRejeitada($titulo, 'Aba sem "Acordo de número N" — não é uma ficha de acordo.', ['aba' => $titulo]);
+        }
+
+        $contas = [];
+        foreach ($ordemContas as $chaveConta => $nn) {
+            $conta = $this->montarContaOriginal($nn, $linhasPorConta[$chaveConta]);
+            if ($conta instanceof LinhaRejeitada) {
+                $rejeitadas[] = $conta;
+
+                continue;
+            }
+            $contas[] = $conta;
         }
 
         $parcelas = [];
@@ -233,11 +251,17 @@ final class AcordosDetalhadosAdapter
     }
 
     /**
-     * @param array<int, mixed> $linha
+     * Uma conta original é o GRUPO de linhas do mesmo NN+competência, somado — pelo mesmo motivo que a
+     * parcela é (`montarParcela`): a fonte quebra um boleto em principal, juros, multa e desconto, e o
+     * que casa com a `Obrigacao` do sistema é o boleto inteiro. Competência e vencimento vêm da primeira
+     * linha; o valor é a soma de todas.
+     *
+     * @param list<array<int, mixed>> $linhas
      */
-    private function montarContaOriginal(string $nn, array $linha): ContaOriginalImportavel|LinhaRejeitada
+    private function montarContaOriginal(string $nn, array $linhas): ContaOriginalImportavel|LinhaRejeitada
     {
-        $competencia = trim((string) ($linha[self::ORIG_COMPETENCIA] ?? ''));
+        $primeira = $linhas[0];
+        $competencia = trim((string) ($primeira[self::ORIG_COMPETENCIA] ?? ''));
         $dados = ['nn' => $nn, 'competencia' => $competencia];
 
         // Sem competência não há casamento seguro: casar só pelo NN marcaria dívida de terceiro como
@@ -246,26 +270,30 @@ final class AcordosDetalhadosAdapter
             return new LinhaRejeitada($nn, 'Conta original sem competência MM/AAAA — sem ela o casamento com o boleto do sistema seria feito só pelo NN, o que é proibido.', $dados);
         }
 
-        $vencimento = $this->parseData(trim((string) ($linha[self::ORIG_VENCIMENTO] ?? '')));
+        $vencimento = $this->parseData(trim((string) ($primeira[self::ORIG_VENCIMENTO] ?? '')));
         if ($vencimento === null) {
             return new LinhaRejeitada($nn, 'Conta original sem vencimento válido (dd/mm/aaaa).', $dados);
         }
 
-        $valor = $this->parseCentavos($linha[self::ORIG_VALOR] ?? null);
-        if ($valor === false) {
-            return new LinhaRejeitada($nn, 'Valor original não numérico.', $dados + ['valor' => (string) ($linha[self::ORIG_VALOR] ?? '')]);
+        $valor = 0;
+        foreach ($linhas as $l) {
+            $parcial = $this->parseCentavos($l[self::ORIG_VALOR] ?? null);
+            if ($parcial === false) {
+                return new LinhaRejeitada($nn, 'Valor original não numérico em uma das linhas da conta.', $dados + ['valor' => (string) ($l[self::ORIG_VALOR] ?? '')]);
+            }
+            $valor += $parcial;
         }
 
         // Conta original pode virar Obrigação NOVA (§3.2.1). Reconstruir uma dívida de valor zero ou
         // negativo seria inventar passivo a partir de célula vazia ou de um lançamento que não é dívida;
         // e num rompimento essa linha voltaria para a cobrança. Recusar e reportar é o correto.
         if ($valor <= 0) {
-            return new LinhaRejeitada($nn, sprintf('Conta original com valor não positivo (%s) — não é dívida reconstruível.', number_format($valor / 100, 2, ',', '.')), $dados + ['valor' => (string) ($linha[self::ORIG_VALOR] ?? '')]);
+            return new LinhaRejeitada($nn, sprintf('Conta original com valor não positivo (%s) — não é dívida reconstruível.', number_format($valor / 100, 2, ',', '.')), $dados + ['valor' => (string) ($primeira[self::ORIG_VALOR] ?? '')]);
         }
 
         return new ContaOriginalImportavel(
             nn: $nn,
-            classe: $this->classeNormalizada((string) ($linha[self::COL_CLASSE] ?? '')),
+            classe: $this->classeNormalizada((string) ($primeira[self::COL_CLASSE] ?? '')),
             competencia: $competencia,
             vencimento: $vencimento,
             valorCentavos: $valor,

@@ -256,6 +256,42 @@ final class AcordosDetalhadosAdapterTest extends TestCase
         self::assertSame('60005', $leitura->rejeitadas[0]->referencia);
     }
 
+    /**
+     * A seção de contas originais tinha o defeito espelhado do que a de parcelas já resolvia: uma linha
+     * da planilha virava um objeto. Se a fonte quebrar UMA conta em principal + juros + multa (é o que
+     * ela faz com as parcelas), o UseCase processaria a mesma dívida N vezes — e na reconstrução do
+     * §3.2.1 tentaria criar N obrigações com o mesmo NN+competência, batendo no índice único e
+     * derrubando o LOTE inteiro por causa de uma aba.
+     *
+     * O agrupamento é por NN **+ competência**: o mesmo NN em competências diferentes são contas
+     * diferentes — é a regra que orienta a frente toda.
+     */
+    #[TestDox('Uma conta original em várias linhas vira UMA conta com a SOMA (e NN repetido em outra competência não funde)')]
+    public function testContaOriginalEmVariasLinhasSoma(): void
+    {
+        $planilha = new Spreadsheet();
+        $aba = $planilha->getActiveSheet();
+        $aba->setTitle('Acordo n45');
+        $this->escreverCabecalho($aba, 45, 'QUADRA 09 CHACARA 06/06', 'CONTA EM PARTES', '420,00', '420,00');
+        $this->escreverContasOriginais($aba, 12, [
+            ['60007', '1.1 - Taxa de condomínio', '05/2026', '13/05/2026', '170,00'],
+            ['60007', '1.2 - Juros', '05/2026', '13/05/2026', '12,50'],
+            ['60007', '1.3 - Multa', '05/2026', '13/05/2026', '3,40'],
+            // MESMO NN, outra competência: é outra dívida e continua separada.
+            ['60007', '1.1 - Taxa de condomínio', '06/2026', '13/06/2026', '170,00'],
+        ]);
+
+        $contas = (new AcordosDetalhadosAdapter())->ler($this->salvar($planilha))->acordos[0]->contasOriginais;
+
+        self::assertCount(2, $contas, '3 linhas de 05/2026 viram UMA conta; a de 06/2026 é outra');
+        self::assertSame('05/2026', $contas[0]->competencia);
+        self::assertSame(18590, $contas[0]->valorCentavos, '170,00 + 12,50 + 3,40');
+        self::assertSame('06/2026', $contas[1]->competencia);
+        self::assertSame(17000, $contas[1]->valorCentavos);
+        // A classe é a da PRIMEIRA linha do grupo — a conta reconstruída tem de parecer uma taxa, não um juro.
+        self::assertStringContainsString('1.1 - Taxa de condomínio', $contas[0]->descricao());
+    }
+
     #[TestDox('Parcela com liquidação informada é sinalizada (a baixa de pagamento está fora de escopo)')]
     public function testParcelaComLiquidacaoEhSinalizada(): void
     {

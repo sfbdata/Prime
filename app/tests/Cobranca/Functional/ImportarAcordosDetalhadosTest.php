@@ -14,6 +14,8 @@ use App\Cobranca\Entity\Pessoa;
 use App\Cobranca\Entity\VinculoPessoaObjeto;
 use App\Cobranca\Enum\ModoCarteira;
 use App\Cobranca\Enum\StatusAcordo;
+use App\Cobranca\Enum\StatusCaso;
+use App\Cobranca\Exception\CarteiraNaoEncontradaException;
 use App\Cobranca\Repository\AcordoRepository;
 use App\Cobranca\Service\CalculadoraEncargos;
 use App\Cobranca\Service\CalculadoraSaldo;
@@ -549,6 +551,203 @@ final class ImportarAcordosDetalhadosTest extends KernelTestCase
         self::assertSame($previsto->valorParcelasCriadasCentavos(), $feito->valorParcelasCriadasCentavos());
     }
 
+    // ---------------------------------------------------------------------------------------------
+    // Casos-limite que a revisão de 31/07 apontou como não cobertos
+    // ---------------------------------------------------------------------------------------------
+
+    /**
+     * Com encargos REAIS na carteira (a factory zera tudo de propósito), marcar a conta original
+     * materializa juros/multa na DATA DO ACORDO — o mesmo que o `CriarAcordoUseCase` faz pela tela.
+     *
+     * O que isto guarda: a obrigação substituída deixa de ser hidratada ao vivo, então o número gravado
+     * aqui é o que a tela passa a exibir para sempre. Sem a materialização ela mostraria o cache da
+     * última vez que alguém abriu a página — uma data arbitrária — em vez do valor que valia quando a
+     * dívida foi renegociada. E o SALDO não pode mudar por causa disso: substituída por acordo vigente
+     * está fora do exigível de qualquer jeito.
+     */
+    #[TestDox('Com encargos ≠ 0: marcar materializa juros/multa na data do acordo, sem mexer no saldo')]
+    public function testMarcarMaterializaEncargosNaDataDoAcordo(): void
+    {
+        $tenant = $this->criarTenant();
+        $user = $this->criarUser();
+        // 1% ao mês de juros simples e 2% de multa — próximo do padrão TOPLIFE, longe do neutro.
+        $carteiraId = $this->criarCarteira($tenant, ['taxaJurosMensalBp' => 100, 'taxaMultaBp' => 200]);
+
+        $this->semear($carteiraId, $tenant, $user, [
+            $this->boleto('60145', competencia: '01/2026', vencimento: '2026-01-13', valor: 17000),
+            $this->boleto('61600', competencia: '07/2026', vencimento: '2026-07-15', valor: 19939, acordo: new AcordoDoRelatorio(37, 1, 4)),
+        ]);
+        [$caso, $acordo] = $this->casoEAcordo($tenant, 37);
+
+        $saldoAntes = $this->saldo->saldoExigivel($caso);
+
+        // O relógio ANTES: a inadimplência materializou os encargos na data da importação (hoje).
+        $jurosAntes = $this->obrigacao($tenant, '60145')?->getJuros();
+        self::assertNotNull($jurosAntes);
+        self::assertGreaterThan(0, $jurosAntes, 'o cenário só discrimina se a carteira gerar juros de verdade');
+
+        $leitura = new ResultadoLeituraAcordos([$this->acordoDaPlanilha(
+            numero: 37,
+            contas: [['60145', '01/2026', '2026-01-13', 17000]],
+            parcelas: [['61600', 1, 4, '07/2026', '2026-07-15', 19939]],
+        )], [], 0);
+
+        $this->importarAcordos->confirmar($carteiraId, $leitura, $tenant, $user);
+
+        $this->em->clear();
+        $marcada = $this->obrigacao($tenant, '60145');
+        self::assertNotNull($marcada);
+        self::assertTrue($marcada->foiSubstituida());
+
+        // O relógio DEPOIS: parou em 15/07/2026 (data do acordo), que é ANTERIOR a hoje — então o juros
+        // gravado tem de ter DIMINUÍDO. "Maior que zero" não provaria nada: já era maior que zero antes.
+        self::assertLessThan($jurosAntes, $marcada->getJuros(), 'sem a materialização o número continuaria o da data da importação');
+        self::assertGreaterThan(0, $marcada->getJuros(), 'mas continua havendo juros — de 13/01 a 15/07');
+        self::assertGreaterThan(0, $marcada->getMulta());
+
+        // Saldo: só a parcela do acordo continua exigível. A original saiu — com encargos e tudo.
+        $caso = $this->em->getRepository(CasoCobranca::class)->find($caso->getId());
+        self::assertNotNull($caso);
+        self::assertLessThan($saldoAntes, $this->saldo->saldoExigivel($caso), 'tirar a original do exigível derruba o saldo');
+    }
+
+    #[TestDox('Caso ENCERRADO: aba pulada e reportada — sem isso o UseCase derrubaria o lote inteiro')]
+    public function testCasoEncerradoPulaAAba(): void
+    {
+        [$tenant, $user, $carteiraId, $caso] = $this->cenarioAcordo37(originaisNoSistema: ['60145', '60334', '60812']);
+
+        $caso->setStatus(StatusCaso::Encerrado);
+        $this->em->flush();
+
+        $antes = $this->em->getRepository(Obrigacao::class)->count(['tenant' => $tenant]);
+        $resultado = $this->importarAcordos->confirmar($carteiraId, $this->leituraAcordo37(), $tenant, $user);
+
+        self::assertSame(1, $resultado->totalAbasIgnoradas());
+        self::assertStringContainsString('ENCERRADO', (string) $resultado->porAcordo()[0]->ignoradoPorque);
+        self::assertSame($antes, $this->em->getRepository(Obrigacao::class)->count(['tenant' => $tenant]));
+    }
+
+    /**
+     * Conta original já substituída por OUTRO acordo: a importação recusa e reporta. Remarcar moveria a
+     * dívida de um acordo para outro em silêncio — e ao romper o primeiro, ela não voltaria para onde
+     * deveria.
+     */
+    #[TestDox('Conta já substituída por OUTRO acordo não é remarcada — recusa reportada')]
+    public function testContaJaSubstituidaPorOutroAcordoEhRecusada(): void
+    {
+        [$tenant, $user, $carteiraId, $caso, $acordo37] = $this->cenarioAcordo37();
+
+        // Um segundo acordo no mesmo caso já tomou a conta 60145 para si.
+        $outro = new Acordo();
+        $outro->setTenant($tenant);
+        $outro->setCaso($caso);
+        $outro->setStatus(StatusAcordo::Ativo);
+        $outro->setDataAcordo(new \DateTimeImmutable('2026-06-01'));
+        $outro->setNumeroExterno(99);
+        $outro->setCriadoPor($user);
+        $this->em->persist($outro);
+        $conta = $this->obrigacao($tenant, '60145');
+        self::assertNotNull($conta);
+        $conta->setAcordoSubstituto($outro);
+        $this->em->flush();
+
+        $resultado = $this->importarAcordos->confirmar($carteiraId, $this->leituraAcordo37(), $tenant, $user);
+
+        $this->em->clear();
+        $conta = $this->obrigacao($tenant, '60145');
+        self::assertSame($outro->getId(), $conta?->getAcordoSubstituto()?->getId(), 'o acordo 99 continua sendo o dono');
+        self::assertNotContains('60145', $resultado->nnsContasMarcadas());
+
+        $recusadas = $resultado->contasRecusadas();
+        self::assertNotEmpty(array_filter($recusadas, static fn (string $r): bool => str_contains($r, '60145')));
+        self::assertTrue($resultado->temAvisos());
+    }
+
+    /**
+     * Parcela existente porém SOLTA (sem `acordoOrigem`) passa a apontar para o acordo. Não muda saldo
+     * hoje; o que muda é o dia do rompimento — a invariável 20 descarta as parcelas POR DERIVAÇÃO, e
+     * derivação precisa do vínculo. Sem ele a original volta ao exigível E a parcela órfã fica: a mesma
+     * dívida contada duas vezes.
+     */
+    #[TestDox('Parcela que já existia solta passa a apontar para o acordo — e a prévia mostra isso')]
+    public function testParcelaExistenteRecebeAcordoOrigem(): void
+    {
+        [$tenant, $user, $carteiraId, $caso, $acordo] = $this->cenarioAcordo37();
+
+        // Desfaz o vínculo que a inadimplência criou: reproduz a parcela lançada à mão ou importada
+        // antes de o acordo ser reconhecido.
+        $parcela = $this->obrigacao($tenant, '61600');
+        self::assertNotNull($parcela);
+        $parcela->setAcordoOrigem(null);
+        $this->em->flush();
+
+        $previsto = $this->importarAcordos->prever($carteiraId, $this->leituraAcordo37(), $tenant);
+        self::assertContains('61600', $previsto->parcelasVinculadas(), 'é escrita: tem de aparecer na prévia');
+
+        $feito = $this->importarAcordos->confirmar($carteiraId, $this->leituraAcordo37(), $tenant, $user);
+        self::assertSame($previsto->parcelasVinculadas(), $feito->parcelasVinculadas());
+
+        $this->em->clear();
+        $parcela = $this->obrigacao($tenant, '61600');
+        self::assertSame($acordo->getId(), $parcela?->getAcordoOrigem()?->getId());
+    }
+
+    /**
+     * Parcela cujo NN já existe no caso com OUTRA competência: a importação NÃO cria.
+     *
+     * As duas chaves da spec discordam aqui (§7 diz "por NN", §3.2 exige NN+competência). Criar é a
+     * direção que COBRA — adicionaria dinheiro ao saldo a partir de um casamento duvidoso. Não criar só
+     * adia, e o resumo devolve a decisão para uma pessoa.
+     */
+    #[TestDox('Parcela com NN ambíguo (mesmo NN, outra competência) não é criada — reporta e devolve a decisão')]
+    public function testParcelaComNnAmbiguoNaoEhCriada(): void
+    {
+        [$tenant, $user, $carteiraId, $caso] = $this->cenarioAcordo37();
+
+        $antes = $this->contar($tenant, '61601');
+        self::assertSame(0, $antes);
+
+        // O sistema já tem o NN 61601 no caso, mas em 12/2025 — a planilha traz esse NN em 08/2026.
+        $this->semear($carteiraId, $tenant, $user, [
+            $this->boleto('61601', competencia: '12/2025', vencimento: '2025-12-10', valor: 17000),
+        ]);
+
+        $resultado = $this->importarAcordos->confirmar($carteiraId, $this->leituraAcordo37(), $tenant, $user);
+
+        self::assertContains('61601', $resultado->parcelasAmbiguas());
+        self::assertNotContains('61601', $resultado->nnsParcelasCriadas());
+        self::assertSame(1, $this->contar($tenant, '61601'), 'continua existindo UMA, a de 12/2025');
+        self::assertSame(17000, $this->obrigacaoPorCompetencia($tenant, '61601', '12/2025')?->getValorOriginal(), 'e ela não foi tocada');
+        self::assertTrue($resultado->temAvisos());
+    }
+
+    #[TestDox('Carteira de OUTRO escritório: a importação nunca a alcança, nem com o mesmo número de acordo')]
+    public function testNaoCruzaTenant(): void
+    {
+        // Escritório A: dono da carteira e do acordo 37.
+        [$tenantA, $userA, $carteiraA] = $this->cenarioAcordo37();
+
+        // Escritório B, independente, com um acordo 37 SEU e os mesmíssimos NNs.
+        $tenantB = $this->criarTenant();
+        $userB = $this->criarUser();
+        $carteiraB = $this->criarCarteira($tenantB);
+        $this->semear($carteiraB, $tenantB, $userB, [
+            $this->boleto('60145', competencia: '01/2026', vencimento: '2026-01-13', valor: 17000),
+            $this->boleto('61600', competencia: '07/2026', vencimento: '2026-07-15', valor: 19939, acordo: new AcordoDoRelatorio(37, 1, 4)),
+        ]);
+
+        // O escritório A tenta importar na carteira DE B: a carteira não é dele, e nada acontece.
+        $this->expectException(CarteiraNaoEncontradaException::class);
+        try {
+            $this->importarAcordos->confirmar($carteiraB, $this->leituraAcordo37(), $tenantA, $userA);
+        } finally {
+            $this->em->clear();
+            $daB = $this->obrigacao($tenantB, '60145');
+            self::assertNotNull($daB);
+            self::assertFalse($daB->foiSubstituida(), 'a dívida do outro escritório não pode ser tocada');
+        }
+    }
+
     // =============================================================================================
     // Cenários
     // =============================================================================================
@@ -808,12 +1007,14 @@ final class ImportarAcordosDetalhadosTest extends KernelTestCase
         return $user;
     }
 
-    private function criarCarteira(Tenant $tenant): int
+    /** @param array<string, mixed> $encargos sobrescreve a config NEUTRA da factory (juros/multa zerados) */
+    private function criarCarteira(Tenant $tenant, array $encargos = []): int
     {
         $carteira = CarteiraFactory::createOne([
             'tenant' => $tenant,
             'cliente' => ClientePFFactory::createOne(['tenant' => $tenant]),
             'modo' => ModoCarteira::Unico,
+            ...$encargos,
         ]);
 
         return (int) $carteira->getId();

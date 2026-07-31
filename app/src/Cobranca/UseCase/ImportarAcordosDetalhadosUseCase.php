@@ -12,6 +12,7 @@ use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\Obrigacao;
 use App\Cobranca\Enum\StatusAcordo;
 use App\Cobranca\Exception\CarteiraNaoEncontradaException;
+use App\Cobranca\Exception\MigrationDeCompetenciaPendenteException;
 use App\Cobranca\Repository\AcordoRepository;
 use App\Cobranca\Repository\CarteiraRepository;
 use App\Cobranca\Repository\ObrigacaoRepository;
@@ -102,11 +103,19 @@ final class ImportarAcordosDetalhadosUseCase
      */
     private function processar(int $carteiraId, ResultadoLeituraAcordos $leitura, Tenant $tenant, ?User $usuario): ResultadoImportacaoAcordos
     {
+        // Antes de qualquer coisa: sem a coluna `competencia` não há casamento seguro, e o lote morreria
+        // no primeiro INSERT com um traço de driver em vez de uma instrução. Vale para o dry-run também —
+        // uma prévia calculada sobre o casamento errado seria pior que erro nenhum.
+        if (!$this->obrigacaoRepository->schemaTemCompetencia()) {
+            throw new MigrationDeCompetenciaPendenteException();
+        }
+
         $carteira = $this->resolverCarteira($carteiraId, $tenant);
 
         $processados = [];
         $liquidadas = [];
         $situacoesDesconhecidas = [];
+        $conferencias = [];
 
         foreach ($leitura->acordos as $aba) {
             foreach ($aba->parcelas as $parcela) {
@@ -114,6 +123,11 @@ final class ImportarAcordosDetalhadosUseCase
                     // §5: a baixa de pagamento fica FORA desta entrega (é irreversível na prática).
                     $liquidadas[] = $parcela->nn;
                 }
+            }
+
+            $conferencia = $this->conferirTotaisDaAba($aba);
+            if ($conferencia !== null) {
+                $conferencias[] = $conferencia;
             }
 
             $processados[] = $this->processarAba($aba, $carteira, $tenant, $usuario, $situacoesDesconhecidas);
@@ -125,7 +139,46 @@ final class ImportarAcordosDetalhadosUseCase
             $leitura->linhasIgnoradas,
             $liquidadas,
             $situacoesDesconhecidas,
+            $conferencias,
         );
+    }
+
+    /**
+     * Confere a soma das LINHAS lidas contra o cabeçalho da PRÓPRIA aba — a única conferência disponível
+     * sem sair do arquivo, e a que pega leitura parcial: linha rejeitada, seção truncada, coluna
+     * deslocada. Foi assim, à mão, que o adapter foi validado contra a planilha real (14 conferências
+     * independentes); aqui isso vira automático, em vez de depender de alguém repetir a conta.
+     *
+     * Só avisa — a planilha nunca manda no que já está lançado (§4), e um cabeçalho divergente pode ser
+     * da própria fonte.
+     */
+    private function conferirTotaisDaAba(AcordoDetalhadoImportavel $aba): ?string
+    {
+        $avisos = [];
+
+        $cabecalhoOriginais = $aba->valorTotalContasOriginaisCentavos;
+        if ($cabecalhoOriginais !== null && $aba->contasOriginais !== [] && $cabecalhoOriginais !== $aba->somaContasOriginaisCentavos()) {
+            $avisos[] = sprintf(
+                'contas originais lidas somam R$ %s, o cabeçalho diz R$ %s',
+                number_format($aba->somaContasOriginaisCentavos() / 100, 2, ',', '.'),
+                number_format($cabecalhoOriginais / 100, 2, ',', '.'),
+            );
+        }
+
+        $cabecalhoFinal = $aba->valorFinalAcordadoCentavos;
+        if ($cabecalhoFinal !== null && $aba->parcelas !== [] && $cabecalhoFinal !== $aba->somaParcelasCentavos()) {
+            $avisos[] = sprintf(
+                'parcelas lidas somam R$ %s, o "Valor final acordado" diz R$ %s',
+                number_format($aba->somaParcelasCentavos() / 100, 2, ',', '.'),
+                number_format($cabecalhoFinal / 100, 2, ',', '.'),
+            );
+        }
+
+        if ($avisos === []) {
+            return null;
+        }
+
+        return sprintf('Acordo %d: %s — a leitura não fecha com o cabeçalho da própria planilha; confira o arquivo.', $aba->numero, implode(' · ', $avisos));
     }
 
     /**
@@ -176,7 +229,7 @@ final class ImportarAcordosDetalhadosUseCase
 
         $configCaso = $this->resolvedorConfig->resolverDoCaso($caso);
 
-        [$parcelasCriadas, $parcelasExistentes, $parcelasAmbiguas, $divergencias, $valorParcelas] =
+        [$parcelasCriadas, $parcelasExistentes, $parcelasAmbiguas, $divergencias, $valorParcelas, $parcelasVinculadas] =
             $this->completarParcelas($aba, $acordo, $caso, $tenant, $usuario);
 
         [$marcadas, $reconstruidas, $jaMarcadas, $recusadas, $semCompetencia, $maisDivergencias, $principal] =
@@ -199,6 +252,7 @@ final class ImportarAcordosDetalhadosUseCase
             principalReconciliadoCentavos: $principal,
             valorParcelasCriadasCentavos: $valorParcelas,
             situacaoDivergente: $this->conferirSituacao($aba, $acordo, $situacoesDesconhecidas),
+            parcelasVinculadas: $parcelasVinculadas,
         );
     }
 
@@ -206,7 +260,7 @@ final class ImportarAcordosDetalhadosUseCase
      * §3.1 — completar as parcelas futuras. A parcela que não existe nasce como obrigação do caso, ligada
      * ao acordo (`acordoOrigem`), com honorários ZERO e encargos ao vivo a partir do próprio vencimento.
      *
-     * @return array{0: list<string>, 1: list<string>, 2: list<string>, 3: list<string>, 4: int}
+     * @return array{0: list<string>, 1: list<string>, 2: list<string>, 3: list<string>, 4: int, 5: list<string>}
      */
     private function completarParcelas(
         AcordoDetalhadoImportavel $aba,
@@ -219,6 +273,7 @@ final class ImportarAcordosDetalhadosUseCase
         $existentes = [];
         $ambiguas = [];
         $divergencias = [];
+        $vinculadas = [];
         $valor = 0;
 
         foreach ($aba->parcelas as $parcela) {
@@ -228,6 +283,23 @@ final class ImportarAcordosDetalhadosUseCase
                 $divergencia = $this->divergenciaDeValor($parcela->nn, $existente, $parcela->valorCentavos);
                 if ($divergencia !== null) {
                     $divergencias[] = $divergencia;
+                }
+
+                // A parcela existe mas está SOLTA (importada da inadimplência antes de o acordo ser
+                // reconhecido, ou lançada à mão). Sem `acordoOrigem` ela não sai do saldo quando o acordo
+                // é rompido — invariável 20 descarta as parcelas POR DERIVAÇÃO, e derivação precisa do
+                // vínculo. No dia do rompimento a dívida seria contada duas vezes: a original volta e a
+                // parcela órfã fica. Ligar é a mesma coisa que o importador de inadimplência já faz.
+                $origem = $existente->getAcordoOrigem();
+                if ($origem === null) {
+                    $vinculadas[] = $parcela->nn;
+                    if ($usuario !== null) {
+                        $existente->setAcordoOrigem($acordo);
+                        $this->obrigacaoRepository->salvar($existente, true);
+                    }
+                } elseif ($origem->getId() !== $acordo->getId()) {
+                    // Já pertence a OUTRO acordo: reatribuir moveria dívida entre acordos em silêncio.
+                    $divergencias[] = sprintf('%s: no sistema é parcela do acordo %s, não do %d — vínculo NÃO alterado.', $parcela->nn, (string) $origem->getId(), $aba->numero);
                 }
 
                 continue;
@@ -253,7 +325,7 @@ final class ImportarAcordosDetalhadosUseCase
             }
         }
 
-        return [$criadas, $existentes, $ambiguas, $divergencias, $valor];
+        return [$criadas, $existentes, $ambiguas, $divergencias, $valor, $vinculadas];
     }
 
     /**
@@ -368,7 +440,7 @@ final class ImportarAcordosDetalhadosUseCase
 
         $input = new RegistrarObrigacaoInput();
         $input->casoId = $caso->getId();
-        $input->descricao = mb_substr($conta->descricao() . ' | ' . $procedencia, 0, 255);
+        $input->descricao = $this->descricaoComProcedencia($conta->descricao(), $procedencia);
         $input->valorOriginal = $conta->valorCentavos;
         $input->vencimentoOriginal = $conta->vencimento;
         $input->referenciaExterna = $conta->nn;
@@ -379,6 +451,25 @@ final class ImportarAcordosDetalhadosUseCase
         $this->materializarNaDataDoAcordo($nova, $acordo, $configCaso);
         $nova->setAcordoSubstituto($acordo);
         $this->obrigacaoRepository->salvar($nova, true);
+    }
+
+    /**
+     * `descrição | procedência` em no máximo 255 chars, cortando a DESCRIÇÃO e nunca a procedência.
+     *
+     * A ordem segue a convenção do importador de inadimplência (`descrição | observação`), mas cortar o
+     * texto inteiro pelo fim, como antes, fazia a procedência ser a primeira a sumir — justo o campo que
+     * existe para alguém, um dia, distinguir a conta reconstruída da conta importada de verdade. Cortar
+     * a descrição preserva a convenção E a informação que só existe aqui.
+     */
+    private function descricaoComProcedencia(string $descricao, string $procedencia): string
+    {
+        $sufixo = ' | ' . $procedencia;
+        $espaco = 255 - mb_strlen($sufixo);
+        if ($espaco <= 0) {
+            return mb_substr($procedencia, 0, 255);
+        }
+
+        return mb_substr($descricao, 0, $espaco) . $sufixo;
     }
 
     /**

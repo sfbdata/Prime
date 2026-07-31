@@ -177,6 +177,7 @@ final class ImportarAcordosDetalhadosCommand extends Command
                 ['Contas originais marcadas como substituídas', sprintf('%d — R$ %s de PRINCIPAL sai do saldo (mais os juros/multa/correção que corriam sobre ele)', count($resultado->nnsContasMarcadas()), $this->reais($resultado->principalReconciliadoCentavos()))],
                 ['Contas originais reconstruídas (nascem substituídas, não mexem no saldo)', count($resultado->nnsContasReconstruidas())],
                 ['Parcelas que já existiam (nada a fazer)', count($resultado->nnsParcelasExistentes())],
+                ['Parcelas existentes ligadas ao acordo (não mexe no saldo hoje; evita dívida dupla ao romper)', count($resultado->parcelasVinculadas())],
                 ['Contas já marcadas (nada a fazer)', count($resultado->nnsContasJaMarcadas())],
                 ['Abas ignoradas', $resultado->totalAbasIgnoradas()],
                 ['Linhas rejeitadas na leitura', $resultado->totalRejeitadas()],
@@ -193,6 +194,7 @@ final class ImportarAcordosDetalhadosCommand extends Command
         $io->section('A CONFERIR — a planilha e o sistema discordam nestes pontos');
 
         $blocos = [
+            'Leitura NÃO fecha com o cabeçalho da própria planilha — pode ter faltado linha' => $resultado->conferenciasCabecalho,
             'Divergência de valor (o valor lançado NÃO foi alterado)' => $resultado->divergenciasDeValor(),
             'Linhas recusadas' => $resultado->contasRecusadas(),
             'Parcelas NÃO criadas por NN ambíguo (mesmo NN, outra competência)' => $resultado->parcelasAmbiguas(),

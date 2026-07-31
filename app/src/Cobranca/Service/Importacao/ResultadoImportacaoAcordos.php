@@ -23,6 +23,9 @@ final class ResultadoImportacaoAcordos
      *                                                            de pagamento está FORA de escopo (§5): o resumo
      *                                                            avisa para conferir à mão
      * @param list<string>           $situacoesDesconhecidas       "Acordo N: <situação>" não mapeada (§3.3)
+     * @param list<string>           $conferenciasCabecalho        abas cuja soma das linhas lidas NÃO fecha com o
+     *                                                            cabeçalho da própria aba — sinal de leitura
+     *                                                            parcial (linha rejeitada, seção truncada)
      */
     public function __construct(
         public readonly array $acordos,
@@ -30,7 +33,14 @@ final class ResultadoImportacaoAcordos
         public readonly int $linhasIgnoradas,
         public readonly array $parcelasLiquidadasNaPlanilha = [],
         public readonly array $situacoesDesconhecidas = [],
+        public readonly array $conferenciasCabecalho = [],
     ) {
+    }
+
+    /** @return list<string> */
+    public function parcelasVinculadas(): array
+    {
+        return $this->juntar(static fn (AcordoProcessado $a): array => $a->parcelasVinculadas);
     }
 
     /** @return list<AcordoProcessado> */
@@ -147,6 +157,7 @@ final class ResultadoImportacaoAcordos
             || $this->situacoesDivergentes() !== []
             || $this->situacoesDesconhecidas !== []
             || $this->parcelasLiquidadasNaPlanilha !== []
+            || $this->conferenciasCabecalho !== []
             || $this->totalAbasIgnoradas() > 0;
     }
 

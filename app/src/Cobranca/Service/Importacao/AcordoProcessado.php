@@ -28,6 +28,11 @@ final class AcordoProcessado
      * @param list<string> $parcelasAmbiguas       NNs de parcela que NÃO foram criados porque o mesmo NN já existe
      *                                             no caso com OUTRA competência. Criar adicionaria dinheiro ao
      *                                             saldo a partir de um casamento duvidoso — a direção perigosa
+     * @param list<string> $parcelasVinculadas     NNs de parcela que JÁ existiam soltas e passaram a apontar para o
+     *                                             acordo (`acordoOrigem`). Não mexe em dinheiro — mas sem o vínculo
+     *                                             a parcela não sai do saldo quando o acordo é rompido (invariável
+     *                                             20), então a dívida ficaria contada duas vezes no dia do
+     *                                             rompimento. É escrita, e por isso aparece na prévia
      */
     public function __construct(
         public readonly int $numero,
@@ -46,6 +51,7 @@ final class AcordoProcessado
         public readonly int $principalReconciliadoCentavos,
         public readonly int $valorParcelasCriadasCentavos,
         public readonly ?string $situacaoDivergente,
+        public readonly array $parcelasVinculadas = [],
     ) {
     }
 
