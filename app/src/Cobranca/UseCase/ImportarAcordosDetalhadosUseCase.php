@@ -144,6 +144,26 @@ final class ImportarAcordosDetalhadosUseCase
             return $this->abaIgnorada($aba, sprintf('Acordo %d não existe nesta carteira — quem cria acordo é o relatório de inadimplência (§3.1).', $aba->numero));
         }
 
+        if (!$acordo->getStatus()->ehVigente()) {
+            // Acordo rompido/cancelado: a aba inteira é pulada, e não só o status (§3.3).
+            //
+            // Escrever aqui CRIA DÍVIDA. A conta reconstruída pelo §3.2.1 nasce com `acordoSubstituto`,
+            // e `doCasoExigiveis` só exclui o que está substituído por acordo VIGENTE — com o acordo
+            // rompido ela entra no saldo e cobra de novo uma dívida que a planilha listou como
+            // renegociada. A parcela futura tem o defeito espelhado: nasceria ligada a um acordo que
+            // não vale mais. Marcar as originais seria inócuo pelo mesmo motivo, e igualmente confuso.
+            //
+            // A janela é estreita — romper é registrado nos dois lados, então a planilha seguinte já vem
+            // alinhada —, mas pular custa nada e a fecha inteira. Quem decide o que fazer com um acordo
+            // rompido é gente, com o relatório na mão.
+            return $this->abaIgnorada($aba, sprintf(
+                'Acordo %d está %s no sistema — aba pulada inteira: escrever contra acordo não vigente devolveria as contas ao saldo. A planilha diz "%s"; confira à mão.',
+                $aba->numero,
+                $acordo->getStatus()->value,
+                $aba->situacao,
+            ));
+        }
+
         $caso = $acordo->getCaso();
         if ($caso === null) {
             return $this->abaIgnorada($aba, sprintf('Acordo %d está sem caso de cobrança — dado inconsistente, nada foi tocado.', $aba->numero));

@@ -448,22 +448,50 @@ final class ImportarAcordosDetalhadosTest extends KernelTestCase
         self::assertTrue($daCarteiraB->foiSubstituida(), 'a carteira B, que foi a importada, sim');
     }
 
-    #[TestDox('Situação: não ressuscita acordo rompido à mão — reporta a divergência e mantém')]
-    public function testNaoRessuscitaAcordoRompido(): void
+    /**
+     * Acordo ROMPIDO (ou cancelado) no sistema: a aba inteira é pulada.
+     *
+     * Não é só "não mexer no status". Escrever contra um acordo não-vigente **cria dívida**: a conta
+     * reconstruída pelo §3.2.1 nasce marcada com `acordoSubstituto`, e `doCasoExigiveis` só exclui o que
+     * está substituído por acordo VIGENTE — com o acordo rompido ela entra no saldo, cobrando de novo
+     * uma dívida que a planilha listou como já renegociada. A parcela futura teria o mesmo efeito ao
+     * contrário: nasce ligada a um acordo que não vale mais.
+     *
+     * A janela é estreita na prática (romper é registrado nos dois lados, então a planilha seguinte já
+     * vem alinhada), mas pular a aba custa nada e fecha a janela inteira.
+     */
+    #[TestDox('Acordo ROMPIDO: a aba inteira é pulada e reportada — nada é criado nem marcado')]
+    public function testAcordoRompidoPulaAAbaInteira(): void
     {
-        [$tenant, $user, $carteiraId, $caso, $acordo] = $this->cenarioAcordo37();
+        // Uma das 4 originais NÃO está no sistema: se a aba fosse processada, o §3.2.1 a reconstruiria —
+        // e é exatamente essa conta que entraria no saldo por causa do rompimento.
+        [$tenant, $user, $carteiraId, $caso, $acordo] = $this->cenarioAcordo37(originaisNoSistema: ['60145', '60334', '60812']);
 
         $acordo->romper('o devedor parou de pagar');
         $this->em->flush();
 
+        $obrigacoesAntes = $this->em->getRepository(Obrigacao::class)->count(['tenant' => $tenant]);
+        $saldoAntes = $this->saldo->saldoExigivel($caso);
+
+        $previsto = $this->importarAcordos->prever($carteiraId, $this->leituraAcordo37(), $tenant);
         $resultado = $this->importarAcordos->confirmar($carteiraId, $this->leituraAcordo37(), $tenant, $user);
+
+        self::assertSame(1, $previsto->totalAbasIgnoradas(), 'a prévia precisa avisar ANTES de alguém mandar gravar');
+        self::assertSame(1, $resultado->totalAbasIgnoradas());
+        self::assertStringContainsString('rompido', (string) $resultado->porAcordo()[0]->ignoradoPorque);
+        self::assertTrue($resultado->temAvisos());
+
+        self::assertSame([], $resultado->nnsContasReconstruidas(), 'reconstruir aqui criaria dívida: sem acordo vigente a conta nasce EXIGÍVEL');
+        self::assertSame([], $resultado->nnsContasMarcadas());
+        self::assertSame([], $resultado->nnsParcelasCriadas());
+
+        self::assertSame($obrigacoesAntes, $this->em->getRepository(Obrigacao::class)->count(['tenant' => $tenant]), 'nenhuma obrigação nasceu');
+        self::assertSame($saldoAntes, $this->saldo->saldoExigivel($caso), 'e o saldo do devedor não se mexeu um centavo');
 
         $this->em->clear();
         $acordo = $this->em->getRepository(Acordo::class)->find($acordo->getId());
         self::assertNotNull($acordo);
         self::assertSame(StatusAcordo::Rompido, $acordo->getStatus(), 'a decisão manual do escritório prevalece sobre a planilha');
-        self::assertNotSame([], $resultado->situacoesDivergentes());
-        self::assertTrue($resultado->temAvisos());
     }
 
     #[TestDox('Situação desconhecida não altera o status: reporta e mantém (§3.3)')]
