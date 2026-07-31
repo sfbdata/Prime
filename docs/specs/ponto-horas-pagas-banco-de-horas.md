@@ -38,7 +38,7 @@ Decisões tomadas pelo dono do sistema e pelo responsável, com o que cada uma d
 | Visível ao colaborador: rótulo e valor | Invisível; ou com o motivo à mostra |
 | Motivo visível só para o admin | Motivo na folha do colaborador |
 | Sem teto **de negócio** para as horas (ver nota abaixo) | Teto de 24h como rede contra erro de digitação |
-| Sem trava e sem aviso se o saldo ficar negativo | Bloquear; ou avisar e confirmar |
+| Sem trava se o saldo ficar negativo — e, desde 2026-07-31, **com aviso** quando o desconto DERRUBA o ano (§7) | Bloquear; ou avisar e confirmar |
 | Editar e excluir livremente | Cancelamento com rastro preservado |
 | Auto-lançamento **bloqueado** | Permitir, como já ocorre em batidas e abonos |
 
@@ -352,12 +352,25 @@ zerar o anterior em TODO mês passaria despercebido).
 >
 > **O sistema AVISA, sem bloquear** (decisão do dono, 2026-07-31, depois que a revisão mostrou que a regra
 > existia só neste documento). `HorasPagasController::avisarSeODescontoNaoCabeNoAno()` roda depois de gravar,
-> em `lancar` e `editar`: se o lançamento é **desconto** e o banco daquele ano fica **negativo**, entra um
-> flash `warning` dizendo em quanto o ano ficou e lembrando que o banco zera em 1º de janeiro. Não avisa em
-> bonificação — nem quando o ano já está no vermelho —, porque o aviso é sobre **tirar do que não tem**, não
-> sobre saldo negativo, que o dono recusou avisar em §2. O lançamento **já está gravado** quando o aviso
-> aparece; editar e excluir são livres. Coberto por quatro testes em `HorasPagasControllerTest`, os dois
-> lados de cada fronteira.
+> em `lancar` e `editar`.
+>
+> **Gatilho:** o lançamento é **desconto** E o saldo do ano **era ≥ 0 antes** dele E ficou **< 0 depois**.
+> Ou seja: o desconto **derrubou** o ano. Quem já devia horas por faltas não recebe aviso em todo desconto —
+> isso seria avisar sobre *saldo negativo*, que é o que a §2 recusa, e um aviso que dispara no caso certo
+> ensina o admin a ignorá-lo. `$saldoAntes` sai de `$saldoDepois - minutosComSinal()`, sem query extra.
+>
+> **Limitação assumida:** se o ano da competência tiver crédito **próprio** suficiente para absorver o
+> desconto, o lançamento no ano errado passa calado. O saldo é uma aproximação — o sistema não sabe em que
+> ano as horas pagas foram acumuladas, e só o admin sabe.
+>
+> **O aviso é acessório e não pode derrubar a gravação:** o cálculo roda dentro de `try/catch (\Throwable)`
+> que devolve sem avisar. O lançamento já está gravado quando ele executa, e o POST **não é idempotente** —
+> um 500 aqui faria o admin reenviar o formulário e gravar o desconto duas vezes.
+>
+> Coberto por seis testes em `HorasPagasControllerTest`, os dois lados de cada fronteira, incluindo o caminho
+> `editar`. **Lacuna conhecida:** os testes usam colaborador sem `JornadaColaborador`, então
+> `calcularSaldoAteMes` sai pelo return antecipado e devolve só os lançamentos — nenhum deles prova que
+> **horas trabalhadas** entram na conta.
 
 **Mês não apurável continua exibindo `–`.** `saldoDoMesMinutos` é `null` quando nenhuma linha teve saldo
 apurado. **Não é o mesmo que "mês sem batida":** dia útil sem batida dentro da contagem recebe `saldoDia`

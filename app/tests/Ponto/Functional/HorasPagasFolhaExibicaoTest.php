@@ -97,12 +97,15 @@ final class HorasPagasFolhaExibicaoTest extends JusPrimeWebTestCase
         $client->request('GET', '/ponto/');
 
         self::assertResponseIsSuccessful();
-        $this->assertBlocoTotaisPresente(
-            (string) $client->getResponse()->getContent(),
-            '+2h00m',
-            '-10h00m',
-            '-8h00m',
-        );
+        $conteudo = (string) $client->getResponse()->getContent();
+        $this->assertBlocoTotaisPresente($conteudo, '+2h00m', '-10h00m', '-8h00m');
+
+        // Âncora do cabeçalho renomeado: a coluna é "Saldo do Mês" (o acumulado DO MÊS, dia a dia), e
+        // não "Banco de Horas" — nome que no bloco assinado passou a significar o acumulado do ANO.
+        // Sem esta asserção, voltar o rótulo antigo recria a colisão de nomes na mesma página, que foi
+        // o que o smoke do dono pegou no PDF.
+        self::assertStringContainsString('>Saldo do Mês</th>', $conteudo, 'a coluna tem de se chamar "Saldo do Mês"');
+        self::assertStringNotContainsString('>Banco de Horas</th>', $conteudo, 'o cabeçalho antigo não pode voltar');
     }
 
     #[TestDox('ficha do admin mostra o MESMO bloco de totais (as duas telas incluem o mesmo partial)')]

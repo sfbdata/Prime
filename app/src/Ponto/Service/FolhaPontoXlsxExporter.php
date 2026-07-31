@@ -60,7 +60,7 @@ final class FolhaPontoXlsxExporter
         $sheet->getColumnDimension('F')->setWidth(11);   // Saída
         $sheet->getColumnDimension('G')->setWidth(14);   // Horas Trabalhadas
         $sheet->getColumnDimension('H')->setWidth(12);   // Horas Extras
-        $sheet->getColumnDimension('I')->setWidth(14);   // Banco de Horas
+        $sheet->getColumnDimension('I')->setWidth(14);   // Saldo do Mês
         $sheet->getColumnDimension('J')->setWidth(42);   // Justificativa
     }
 

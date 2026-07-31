@@ -315,6 +315,66 @@ final class HorasPagasControllerTest extends JusPrimeWebTestCase
         );
     }
 
+    /**
+     * Ano JÁ negativo (faltas) + desconto na competência CERTA: não avisa. O gatilho é "o desconto
+     * derrubou o ano", não "o ano está negativo" — §2 da spec recusa avisar sobre saldo negativo, e um
+     * aviso que dispara no caso certo ensina o admin a ignorá-lo.
+     */
+    #[TestDox('ano ja negativo antes do desconto nao avisa')]
+    public function testDescontoEmAnoJaNegativoNaoAvisa(): void
+    {
+        $client = static::createClient();
+        $this->instalarCsrfStorage();
+        $tenant      = $this->criarTenant();
+        $admin       = $this->criarAdmin($tenant);
+        $colaborador = $this->criarUsuario($tenant);
+
+        $this->criarLancamento($tenant, $colaborador, $admin, -600);   // ano já em -10h
+
+        $this->logarComTenant($client, $admin, $tenant);
+        $client->request('POST', $this->rotaLancar($tenant, $colaborador), $this->payload($this->tokenLancar($colaborador)));
+
+        self::assertResponseRedirects();
+        self::assertCount(2, $this->lancamentosDe($colaborador), 'o lançamento tem de gravar de qualquer forma');
+        self::assertSame(
+            [],
+            $client->getRequest()->getSession()->getFlashBag()->peekAll()['warning'] ?? [],
+            'o desconto não DERRUBOU o ano — ele já estava negativo',
+        );
+    }
+
+    /**
+     * O aviso foi injetado em DUAS ações. Sem esta prova, apagar a chamada dentro de `editar` deixaria
+     * metade da superfície nova sem rede, em risco ALTO.
+     */
+    #[TestDox('editar para um desconto que derruba o ano tambem avisa')]
+    public function testEdicaoQueDerrubaOAnoAvisa(): void
+    {
+        $client = static::createClient();
+        $this->instalarCsrfStorage();
+        $tenant      = $this->criarTenant();
+        $admin       = $this->criarAdmin($tenant);
+        $colaborador = $this->criarUsuario($tenant);
+
+        $lancamento = $this->criarLancamento($tenant, $colaborador, $admin, 60);   // ano em +1h
+
+        $this->logarComTenant($client, $admin, $tenant);
+        $client->request(
+            'POST',
+            $this->rotaEditar($tenant, $colaborador, (int) $lancamento->getId()),
+            $this->payload(
+                'TOKEN_horas_pagas_editar_' . $lancamento->getId(),
+                ['operacao' => 'descontar', 'horas' => 10, 'minutos' => 0],
+            ),
+        );
+
+        self::assertResponseRedirects();
+
+        $avisos = $client->getRequest()->getSession()->getFlashBag()->peekAll()['warning'] ?? [];
+        self::assertCount(1, $avisos, 'a edição que vira desconto tem de avisar igual ao lançamento');
+        self::assertStringContainsString('-10h00', $avisos[0], 'e o número tem de ser o do valor NOVO, não o do antigo');
+    }
+
     #[TestDox('desconto que cabe no saldo do ano nao avisa')]
     public function testDescontoQueCabeNoAnoNaoAvisa(): void
     {

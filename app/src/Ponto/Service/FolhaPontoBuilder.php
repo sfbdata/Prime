@@ -207,7 +207,7 @@ class FolhaPontoBuilder
 
     /**
      * Saldo do mês exibido: o ÚLTIMO `saldoAcumulado` não-nulo das linhas da folha — exatamente o
-     * número que a última linha preenchida da coluna "Banco de Horas" mostra. `null` quando nenhuma
+     * número que a última linha preenchida da coluna "Saldo do Mês" mostra. `null` quando nenhuma
      * linha tem saldo apurado (mês sem batida nenhuma; dia em aberto, sem saída, devolve `null` e
      * por isso a varredura é de trás para frente, como já fazem `calcularSaldoAteMes` e
      * `calcularSaldoAnual` por dentro).

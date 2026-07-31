@@ -181,27 +181,46 @@ final class HorasPagasController extends AbstractController
             return;
         }
 
-        // Mesmo cálculo que alimenta o "Saldo do Banco de Horas Anterior" do documento assinado, já
-        // com o lançamento recém-gravado dentro: `calcularSaldoAteMes` nunca atravessa o ano, então o
-        // número abaixo é exatamente o banco DAQUELE ano até a competência lançada.
-        $saldoDoAno = $this->folhaPontoBuilder->calcularSaldoAteMes(
-            $colaborador,
-            $input->ano,
-            $input->mes,
-            $this->feriadoRepository->findByTenant($tenant),
-            $tenant->getJornadaTenant(),
-            $this->inicioContagemResolver->resolver($colaborador, $tenant),
-            $tenant,
-        );
-
-        if ($saldoDoAno >= 0) {
+        // O aviso é ACESSÓRIO: o lançamento JÁ está gravado quando ele roda. Qualquer falha aqui
+        // (timeout, deadlock, uma sentinela do builder que mude de assinatura num refactor) não pode
+        // virar 500 — o POST não é idempotente, e o admin que reenviasse o formulário gravaria o
+        // desconto DUAS VEZES. Silenciar aqui custa um aviso; deixar estourar custa dinheiro.
+        try {
+            // Mesmo cálculo que alimenta o "Saldo do Banco de Horas Anterior" do documento assinado,
+            // já com o lançamento recém-gravado dentro (os UseCases dão flush antes de retornar):
+            // `calcularSaldoAteMes` nunca atravessa o ano, então é o banco DAQUELE ano até a
+            // competência lançada.
+            $saldoDepois = $this->folhaPontoBuilder->calcularSaldoAteMes(
+                $colaborador,
+                $input->ano,
+                $input->mes,
+                $this->feriadoRepository->findByTenant($tenant),
+                $tenant->getJornadaTenant(),
+                $this->inicioContagemResolver->resolver($colaborador, $tenant),
+                $tenant,
+            );
+        } catch (\Throwable) {
             return;
         }
 
-        $abs = abs($saldoDoAno);
+        // O gatilho é "o desconto DERRUBOU o ano para o negativo", não "o ano está negativo". A
+        // distinção não é sutil: §2 da spec recusa avisar sobre saldo negativo, e quem já devia horas
+        // por faltas receberia o aviso em TODO desconto — inclusive na competência certa. Aviso que
+        // dispara no caso errado ensina o admin a ignorá-lo, e aí ele não serve para o caso certo.
+        //
+        // Limitação assumida e registrada na spec: se o ano da competência tiver crédito PRÓPRIO
+        // suficiente para absorver o desconto, o lançamento no ano errado passa calado. O saldo é uma
+        // aproximação — o sistema não sabe em que ano as horas pagas foram acumuladas.
+        $saldoAntes = $saldoDepois - $input->minutosComSinal();
+
+        if ($saldoAntes < 0 || $saldoDepois >= 0) {
+            return;
+        }
+
+        $abs = abs($saldoDepois);
 
         $this->addFlash('warning', sprintf(
-            'Atenção: com este lançamento o banco de horas de %d ficou em -%dh%02d. '
+            'Atenção: este desconto derrubou o banco de horas de %d para -%dh%02d. '
             . 'O banco zera em 1º de janeiro — se as horas pagas foram acumuladas em outro ano, '
             . 'lance na competência daquele ano.',
             $input->ano,
