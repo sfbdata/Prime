@@ -1,0 +1,192 @@
+{#
+    Aba "Horas pagas" da ficha do funcionário. É a ÚNICA tela onde o motivo do lançamento aparece —
+    não vaza para a folha do colaborador, PDF ou XLSX (decisão do dono).
+
+    A exclusão é destrutiva e sem histórico dentro do produto (a auditoria mora só no audit_log),
+    por isso pede confirmação no mesmo padrão já usado para exclusões na ficha (confirm() no
+    onsubmit, como em edit_user_role.html.twig e _justificativas_tab.html.twig).
+#}
+{% import _self as horasPagasMacros %}
+
+{% macro camposLancamento(idPrefix, mesValor, anoValor, operacaoValor, horasValor, minutosValor, motivoValor) %}
+    {% set meses = {
+        1: 'Janeiro', 2: 'Fevereiro', 3: 'Março', 4: 'Abril', 5: 'Maio', 6: 'Junho',
+        7: 'Julho', 8: 'Agosto', 9: 'Setembro', 10: 'Outubro', 11: 'Novembro', 12: 'Dezembro'
+    } %}
+    <div class="row g-2 mb-3">
+        <div class="col-7">
+            <label for="{{ idPrefix }}-mes" class="form-label">Competência (mês)</label>
+            <select name="lancamento_horas_pagas[mes]" id="{{ idPrefix }}-mes" class="form-select">
+                <option value="" {{ mesValor is null ? 'selected' : '' }} disabled hidden>Selecione</option>
+                {% for numero, nome in meses %}
+                    <option value="{{ numero }}" {{ mesValor == numero ? 'selected' : '' }}>{{ nome }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-5">
+            <label for="{{ idPrefix }}-ano" class="form-label">Ano</label>
+            <input type="number" name="lancamento_horas_pagas[ano]" id="{{ idPrefix }}-ano"
+                   class="form-control" value="{{ anoValor }}" min="2000" max="2999"
+                   placeholder="Ex.: {{ "now"|date('Y') }}" required>
+        </div>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label d-block">Operação</label>
+        <div class="form-check form-check-inline">
+            <input class="form-check-input" type="radio" name="lancamento_horas_pagas[operacao]"
+                   id="{{ idPrefix }}-descontar" value="descontar" {{ operacaoValor == 'descontar' ? 'checked' : '' }} required>
+            <label class="form-check-label" for="{{ idPrefix }}-descontar">Descontar do banco</label>
+        </div>
+        <div class="form-check form-check-inline">
+            <input class="form-check-input" type="radio" name="lancamento_horas_pagas[operacao]"
+                   id="{{ idPrefix }}-acrescentar" value="acrescentar" {{ operacaoValor == 'acrescentar' ? 'checked' : '' }} required>
+            <label class="form-check-label" for="{{ idPrefix }}-acrescentar">Acrescentar ao banco</label>
+        </div>
+    </div>
+
+    <div class="row g-2 mb-3">
+        <div class="col-6">
+            <label for="{{ idPrefix }}-horas" class="form-label">Horas</label>
+            <input type="number" name="lancamento_horas_pagas[horas]" id="{{ idPrefix }}-horas"
+                   class="form-control" value="{{ horasValor }}" min="0" required>
+        </div>
+        <div class="col-6">
+            <label for="{{ idPrefix }}-minutos" class="form-label">Minutos</label>
+            <input type="number" name="lancamento_horas_pagas[minutos]" id="{{ idPrefix }}-minutos"
+                   class="form-control" value="{{ minutosValor }}" min="0" max="59" required>
+        </div>
+    </div>
+
+    <div class="mb-1">
+        <label for="{{ idPrefix }}-motivo" class="form-label">Motivo</label>
+        <textarea name="lancamento_horas_pagas[motivo]" id="{{ idPrefix }}-motivo"
+                  class="form-control" rows="2" required>{{ motivoValor }}</textarea>
+    </div>
+{% endmacro %}
+
+<div class="card card-outline card-success mb-3">
+    <div class="card-header d-flex align-items-center justify-content-between">
+        <h3 class="card-title mb-0"><i class="bi bi-cash-coin me-2"></i>Horas pagas — {{ user.fullName }}</h3>
+        <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#modalLancarHorasPagas">
+            <i class="bi bi-plus-circle me-1"></i>Horas pagas
+        </button>
+    </div>
+    <div class="card-body p-0">
+        {% if lancamentosHorasPagas is empty %}
+            <p class="text-muted small p-3 mb-0">Nenhum lançamento de horas pagas para este colaborador.</p>
+        {% else %}
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Competência</th>
+                        <th>Valor</th>
+                        <th>Motivo</th>
+                        <th>Lançado por</th>
+                        <th>Quando</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for lancamento in lancamentosHorasPagas %}
+                        {% set abs = lancamento.minutos < 0 ? -lancamento.minutos : lancamento.minutos %}
+                        <tr>
+                            <td class="align-middle text-nowrap">{{ '%02d'|format(lancamento.mes) }}/{{ lancamento.ano }}</td>
+                            <td class="align-middle text-nowrap fw-semibold">
+                                <span class="{{ lancamento.minutos < 0 ? 'text-danger' : 'text-success' }}">
+                                    {{ lancamento.minutos < 0 ? '-' : '+' }}{{ (abs // 60) }}h{{ '%02d'|format(abs % 60) }}m
+                                </span>
+                            </td>
+                            <td class="align-middle" style="white-space: pre-wrap;">{{ lancamento.motivo }}</td>
+                            <td class="align-middle small text-muted">{{ lancamento.criadoPor ? lancamento.criadoPor.fullName : '—' }}</td>
+                            <td class="align-middle small text-muted">
+                                {{ lancamento.criadoEm ? lancamento.criadoEm|date('d/m/Y H:i') : '—' }}
+                                {% if lancamento.atualizadoEm %}
+                                    <br>
+                                    <span class="fst-italic">
+                                        editado em {{ lancamento.atualizadoEm|date('d/m/Y H:i') }}{% if lancamento.atualizadoPor %} por {{ lancamento.atualizadoPor.fullName }}{% endif %}
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td class="align-middle text-end text-nowrap">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" title="Editar"
+                                        data-bs-toggle="modal" data-bs-target="#modalEditarHorasPagas{{ lancamento.id }}">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <form method="post" class="d-inline"
+                                      action="{{ path('ponto_horas_pagas_excluir', {tenantId: tenantId, id: user.id, lancamentoId: lancamento.id}) }}"
+                                      onsubmit="return confirm('Excluir este lançamento de horas pagas? Esta ação não pode ser desfeita.')">
+                                    <input type="hidden" name="_token" value="{{ csrf_token('horas_pagas_excluir_' ~ lancamento.id) }}">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Excluir">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% endif %}
+    </div>
+</div>
+
+{# Modal: lançar novo ajuste de horas pagas #}
+<div class="modal fade" id="modalLancarHorasPagas" tabindex="-1" aria-labelledby="modalLancarHorasPagasLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" action="{{ path('ponto_horas_pagas_lancar', {tenantId: tenantId, id: user.id}) }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('horas_pagas_lancar_' ~ user.id) }}">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalLancarHorasPagasLabel">
+                        <i class="bi bi-cash-coin me-2"></i>Lançar horas pagas — {{ user.fullName }}
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    {{ horasPagasMacros.camposLancamento('lancar-horas-pagas', null, '', '', 0, 0, '') }}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i>Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{# Modal: editar cada lançamento existente, um por linha #}
+{% for lancamento in lancamentosHorasPagas %}
+    {% set abs = lancamento.minutos < 0 ? -lancamento.minutos : lancamento.minutos %}
+    <div class="modal fade" id="modalEditarHorasPagas{{ lancamento.id }}" tabindex="-1"
+         aria-labelledby="modalEditarHorasPagasLabel{{ lancamento.id }}" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form method="post"
+                      action="{{ path('ponto_horas_pagas_editar', {tenantId: tenantId, id: user.id, lancamentoId: lancamento.id}) }}">
+                    <input type="hidden" name="_token" value="{{ csrf_token('horas_pagas_editar_' ~ lancamento.id) }}">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="modalEditarHorasPagasLabel{{ lancamento.id }}">
+                            <i class="bi bi-pencil me-2"></i>Editar lançamento de horas pagas
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        {{ horasPagasMacros.camposLancamento(
+                            'editar-horas-pagas-' ~ lancamento.id,
+                            lancamento.mes,
+                            lancamento.ano,
+                            lancamento.minutos < 0 ? 'descontar' : 'acrescentar',
+                            (abs // 60),
+                            (abs % 60),
+                            lancamento.motivo
+                        ) }}
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i>Salvar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+{% endfor %}

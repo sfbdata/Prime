@@ -7,7 +7,7 @@ Quem abre uma frente acrescenta a linha. Quem integra tira.
 
 | Frente (branch) | Domínio | Migration? | Arquivos compartilhados que toca | Estágio | Base |
 |---|---|---|---|---|---|
-| _(nenhuma frente aberta)_ | | | | | |
+| `ponto-horas-pagas` | Ponto | **sim** (`ponto_lancamento_horas_pagas`, tabela nova) | `app/src/Ponto/Service/FolhaPontoBuilder.php`, `app/src/Controller/TenantController.php`, `app/templates/ponto/`, `docs/specs/` | implementando | `master` |
 
 `feature/cobranca-ux-rapida` foi **integrada e publicada** em 2026-07-26 (merge `bbc1724`, sem
 migration), com a suíte em 2612/2612 no master **depois** do merge. O que ela entregou e a decisão de

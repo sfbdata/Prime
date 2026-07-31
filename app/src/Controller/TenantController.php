@@ -24,6 +24,7 @@ use App\Cliente\Repository\ClienteRepository;
 use App\Pasta\Repository\PastaRepository;
 use App\Ponto\Repository\FeriadoRepository;
 use App\Ponto\Repository\JustificativaPontoRepository;
+use App\Ponto\Repository\LancamentoHorasPagasRepository;
 use App\Ponto\Repository\RegistroPontoRepository;
 use App\Processo\Repository\ProcessoRepository;
 use App\Repository\ResourceAccessRepository;
@@ -465,6 +466,7 @@ final class TenantController extends AbstractController
         RegistroPontoRepository $registroPontoRepository,
         FeriadoRepository $feriadoRepository,
         JustificativaPontoRepository $justificativaRepository,
+        LancamentoHorasPagasRepository $lancamentoHorasPagasRepository,
         PermissionChecker $permissionChecker,
         FolhaPontoBuilder $folhaPontoBuilder,
         CargoRepository $cargoRepository,
@@ -541,21 +543,88 @@ final class TenantController extends AbstractController
             $processoRepository,
         );
 
-        $competenciasPonto = $registroPontoRepository->findCompetenciasComRegistroPorUsuario($user, $tenant);
-        $competenciaSelecionada = (string) $request->query->get('competencia', '');
-        $competenciasDisponiveis = array_column($competenciasPonto, 'valor');
+        $competenciasComRegistro = $registroPontoRepository->findCompetenciasComRegistroPorUsuario($user, $tenant);
+        // Lista de competências que REALMENTE têm batida — decide, mais abaixo, se a tabela é
+        // montada. Guardada antes de qualquer injeção/mescla para não virar um proxy falso.
+        $competenciasComBatida = array_column($competenciasComRegistro, 'valor');
 
-        if ($competenciaSelecionada === '' && !empty($competenciasPonto)) {
-            $competenciaSelecionada = (string) $competenciasPonto[0]['valor'];
+        // O seletor só listava meses com BATIDA. Dois lançamentos de horas pagas ficavam
+        // inalcançáveis pelo dropdown (só editando a URL na mão): o do mês corrente sem nenhuma
+        // batida ainda, e qualquer lançamento num mês PASSADO sem batida nenhuma (ex.: ajuste
+        // retroativo). `listarCompetenciasComLancamento` cobre o segundo caso; o mês corrente cobre
+        // o primeiro. A lista de opções mescla as três fontes, sem duplicar, mais recente primeiro —
+        // mesma ordem que o `PontoController::index()` usa (mês corrente sempre no topo).
+        // `$competenciasComBatida` (acima) fica intocada: só ela decide se a tabela é montada.
+        $competenciasParaSelecao = [];
+        foreach ($competenciasComRegistro as $c) {
+            $competenciasParaSelecao[$c['valor']] = $c['label'];
+        }
+        $competenciasComLancamento = $lancamentoHorasPagasRepository->listarCompetenciasComLancamento($user, $tenant);
+        foreach ($competenciasComLancamento as $valorLancamento) {
+            if (!isset($competenciasParaSelecao[$valorLancamento])) {
+                [$anoLancamento, $mesLancamento] = array_map('intval', explode('-', $valorLancamento));
+                $competenciasParaSelecao[$valorLancamento] = sprintf('%02d/%04d', $mesLancamento, $anoLancamento);
+            }
+        }
+        $competenciaAtualPonto = (new \DateTimeImmutable())->format('Y-m');
+        if (!isset($competenciasParaSelecao[$competenciaAtualPonto])) {
+            $competenciasParaSelecao[$competenciaAtualPonto] = (new \DateTimeImmutable())->format('m/Y');
+        }
+        krsort($competenciasParaSelecao);
+
+        $competenciasPonto = [];
+        foreach ($competenciasParaSelecao as $valor => $label) {
+            $competenciasPonto[] = ['valor' => $valor, 'label' => $label];
+        }
+
+        // Mês em que a ficha ABRE quando não vem `?competencia=` na URL: o mais recente COM DADO —
+        // batida OU lançamento de horas pagas. NÃO pode sair de `$competenciasPonto[0]`: aquela é a
+        // lista de OPÇÕES, que recebe o mês corrente injetado só para ficar selecionável e, depois do
+        // `krsort`, quase sempre o deixa no índice 0. Tirar o padrão de lá fazia a ficha de quem tem a
+        // última batida em 03/2026 abrir em julho, vazia ("Não há batidas para a competência
+        // selecionada") — atinge afastado, férias, desligado e todo dia 1º antes da primeira batida.
+        // O mês corrente só vira padrão quando ele PRÓPRIO é o mais recente com dado, ou quando não há
+        // dado nenhum (colaborador recém-cadastrado).
+        $competenciasComDado = array_unique(array_merge($competenciasComBatida, $competenciasComLancamento));
+        rsort($competenciasComDado); // 'YYYY-MM' zero-padded: ordem lexicográfica == cronológica
+        $competenciaPadraoPonto = $competenciasComDado[0] ?? $competenciaAtualPonto;
+
+        $competenciaSelecionada = (string) $request->query->get('competencia', '');
+        if ($competenciaSelecionada === '') {
+            $competenciaSelecionada = $competenciaPadraoPonto;
+        }
+
+        // Só o FORMATO é validado (não mais o pertencimento à lista): o cálculo de horas pagas é
+        // seguro para qualquer ano/mês (devolve zero) e a tabela fica vazia sem erro para uma
+        // competência sem batida. Exigir pertencimento fazia a ficha SALTAR de mês sozinha ao
+        // excluir a última batida de uma competência (ela some da lista de "com batida" e o
+        // `in_array` rejeitava o valor que o próprio redirect da exclusão mandava de volta).
+        // Formato inválido (ex.: "julho", vindo de querystring adulterada) não pode chegar ao
+        // `explode` abaixo: sem hífen, o destructuring deixa o mês `null` e estoura TypeError em
+        // `somarHorasPagasDaCompetencia`. Mesma validação de formato que o
+        // `PontoController::index()` já faz antes de destructurar.
+        if (!preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $competenciaSelecionada)) {
+            $competenciaSelecionada = $competenciaAtualPonto;
         }
 
         $jornadaTenant = $tenant->getJornadaTenant();
 
         $folhaRowsPonto = [];
-        $mesCompetenciaPonto = null;
-        $anoCompetenciaPonto = null;
-        if ($competenciaSelecionada !== '' && in_array($competenciaSelecionada, $competenciasDisponiveis, true)) {
-            [$anoSelecionado, $mesSelecionado] = array_map('intval', explode('-', $competenciaSelecionada));
+        [$anoSelecionado, $mesSelecionado] = array_map('intval', explode('-', $competenciaSelecionada));
+
+        // Estas duas variáveis alimentam SÓ o título do card ("Batidas de ponto - MM/AAAA", montado
+        // em tenant/edit_user_role.html.twig:274-279 — é o único consumidor no projeto). Eram
+        // preenchidas apenas dentro do `if` de "competência com batida"; agora que a ficha pode abrir
+        // num mês com LANÇAMENTO e sem batida nenhuma (rescisão, afastamento), o card saía como
+        // "Batidas de ponto", sem mês, com a linha "Horas pagas -10h00m" logo abaixo — dinheiro
+        // exibido sob um card que não diz de que competência é. A competência selecionada é conhecida
+        // sempre, então o título passa a nomeá-la sempre.
+        $mesCompetenciaPonto = $mesSelecionado;
+        $anoCompetenciaPonto = $anoSelecionado;
+
+        $horasPagasMinutosPonto = $folhaPontoBuilder->somarHorasPagasDaCompetencia($user, $tenant, $anoSelecionado, $mesSelecionado);
+
+        if (in_array($competenciaSelecionada, $competenciasComBatida, true)) {
             $batidasPonto = $registroPontoRepository->findByUserAndCompetencia($user, $anoSelecionado, $mesSelecionado);
 
             $inicioMes = new \DateTimeImmutable(sprintf('%04d-%02d-01 00:00:00', $anoSelecionado, $mesSelecionado));
@@ -564,8 +633,6 @@ final class TenantController extends AbstractController
             $justificativasDoMes = $justificativaRepository->findByUserAndCompetenciaIndexed($user, $anoSelecionado, $mesSelecionado);
             $inicioContagemPonto = $this->inicioContagemResolver->resolver($user, $tenant);
             $folhaRowsPonto = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidasPonto, true, false, $jornada, $feriados, $justificativasDoMes, $jornadaTenant, $inicioContagemPonto);
-            $mesCompetenciaPonto = $mesSelecionado;
-            $anoCompetenciaPonto = $anoSelecionado;
         }
 
         $jornadaInfoUsuario = $this->resolverJornadaInfoAdmin($user, $jornadaTenant);
@@ -598,9 +665,16 @@ final class TenantController extends AbstractController
             'folhaRowsPonto'         => $folhaRowsPonto,
             'mesCompetenciaPonto'    => $mesCompetenciaPonto,
             'anoCompetenciaPonto'    => $anoCompetenciaPonto,
+            'horasPagasMinutosPonto' => $horasPagasMinutosPonto,
+            // Bloco de totais do rodapé da folha (spec §7). O partial é o MESMO do /ponto do
+            // colaborador: toda variável nova tem de sair dos DOIS renders, senão o outro quebra.
+            // `$folhaRowsPonto` é `[]` em competência sem batida — o helper devolve null e o rodapé
+            // trata como saldo do mês zerado.
+            'saldoMesMinutosPonto'   => $folhaPontoBuilder->saldoAcumuladoFinal($folhaRowsPonto),
             'jornadaInfo'            => $jornadaInfoUsuario,
             'justificativas'         => $justificativas,
             'tiposJustificativa'     => TipoJustificativa::asPlanarChoices(),
+            'lancamentosHorasPagas'  => $lancamentoHorasPagasRepository->listarPorUser($user, $tenant),
             'comSegundos'            => $this->deveMostrarSegundosBatida(),
             'colegas'                => $colegas,
             'formDadosPessoais'      => $formDadosPessoais->createView(),

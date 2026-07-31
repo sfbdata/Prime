@@ -54,6 +54,11 @@
                             {% endif %}
                         </button>
                     </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="tab-horas-pagas-btn" data-bs-toggle="tab" data-bs-target="#tab-horas-pagas" type="button" role="tab">
+                            <i class="bi bi-cash-coin me-1"></i>Horas pagas
+                        </button>
+                    </li>
                 </ul>
 
                 <div class="tab-content" id="editUserTabsContent">
@@ -286,7 +291,9 @@
                             editarBatidasRotaDelete: 'app_tenant_user_ponto_delete',
                             editarBatidasParametros: {tenantId: tenantId, id: user.id},
                             mostrarJustificativas: true,
-                            jornadaInfo: jornadaInfo
+                            jornadaInfo: jornadaInfo,
+                            horasPagasMinutos: horasPagasMinutosPonto,
+                            saldoMesMinutos: saldoMesMinutosPonto
                         } only %}
                     </div>
 
@@ -297,6 +304,15 @@
                             tenantId: tenantId,
                             user: user,
                             tiposJustificativa: tiposJustificativa
+                        } only %}
+                    </div>
+
+                    {# Aba: Horas pagas #}
+                    <div class="tab-pane fade" id="tab-horas-pagas" role="tabpanel">
+                        {% include 'tenant/_horas_pagas_tab.html.twig' with {
+                            lancamentosHorasPagas: lancamentosHorasPagas,
+                            tenantId: tenantId,
+                            user: user
                         } only %}
                     </div>
 
@@ -437,6 +453,7 @@
             'home-office':    'tab-home-office-btn',
             ponto:            'tab-ponto-btn',
             justificativas:   'tab-justificativas-btn',
+            'horas-pagas':    'tab-horas-pagas-btn',
         };
         var params = new URLSearchParams(window.location.search);
         var tabParam = params.get('tab');

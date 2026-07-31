@@ -3,12 +3,14 @@
 namespace App\Ponto\Service;
 
 use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
 use App\Ponto\Entity\JornadaColaborador;
 use App\Ponto\Entity\Feriado;
 use App\Ponto\Entity\JornadaTenant;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\Repository\JustificativaPontoRepository;
+use App\Ponto\Repository\LancamentoHorasPagasRepository;
 use App\Ponto\Repository\RegistroPontoRepository;
 
 class FolhaPontoBuilder
@@ -17,6 +19,7 @@ class FolhaPontoBuilder
         private readonly CalculadoraJornada $calculadora,
         private readonly RegistroPontoRepository $registroPontoRepository,
         private readonly JustificativaPontoRepository $justificativaPontoRepository,
+        private readonly LancamentoHorasPagasRepository $lancamentoHorasPagasRepository,
     ) {}
 
     /**
@@ -203,6 +206,33 @@ class FolhaPontoBuilder
     }
 
     /**
+     * Saldo do mês exibido: o ÚLTIMO `saldoAcumulado` não-nulo das linhas da folha — exatamente o
+     * número que a última linha preenchida da coluna "Saldo do Mês" mostra. `null` quando nenhuma
+     * linha tem saldo apurado (mês sem batida nenhuma; dia em aberto, sem saída, devolve `null` e
+     * por isso a varredura é de trás para frente, como já fazem `calcularSaldoAteMes` e
+     * `calcularSaldoAnual` por dentro).
+     *
+     * Atenção ao escopo: é o saldo DAQUELE MÊS, não o banco acumulado — `buildRows` faz o
+     * `saldoAcumulado` nascer em zero no primeiro dia do intervalo pedido.
+     *
+     * Mora aqui, e não em cada controller, porque as DUAS telas que incluem
+     * `ponto/_folha_table.html.twig` (o `/ponto` do colaborador e a ficha do admin) precisam do
+     * mesmo número; duplicar a varredura nos dois convidaria as duas telas a divergirem.
+     *
+     * @param array<int, array<string, mixed>> $rows linhas de `buildRows()`
+     */
+    public function saldoAcumuladoFinal(array $rows): ?int
+    {
+        foreach (array_reverse($rows) as $row) {
+            if (($row['saldoAcumulado'] ?? null) !== null) {
+                return (int) $row['saldoAcumulado'];
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Indica se o dia teve ao menos uma batida em home office (para o selo no espelho).
      *
      * @param array<string, RegistroPonto> $batidasDoDia
@@ -236,25 +266,52 @@ class FolhaPontoBuilder
     }
 
     /**
+     * Mesma sentinela do $inicioContagem, e pelo mesmo motivo: distingue "não informado" (erro de
+     * chamada) de `null` ("não há tenant"). Enquanto o parâmetro tinha default `null`, qualquer
+     * chamador que esquecesse o tenant perdia os lançamentos de horas pagas em SILÊNCIO — sem
+     * exceção, sem log, com a folha aparentemente normal e o banco de horas errado.
+     */
+    private function exigirTenant(Tenant|null|false $tenant, string $metodo): ?Tenant
+    {
+        if ($tenant === false) {
+            throw new \InvalidArgumentException(sprintf(
+                '%s: informe $tenant (escritório do colaborador). '
+                . 'null significa "não há tenant" — e então os lançamentos de horas pagas não somam.',
+                $metodo
+            ));
+        }
+
+        return $tenant;
+    }
+
+    /**
      * Calcula o saldo acumulado do banco de horas até o último dia do mês informado.
      * Útil para obter o "saldo anterior" antes da competência exportada.
      *
      * @param Feriado[] $feriados
+     * @param Tenant|null|false $tenant Escritório do colaborador, obrigatório: `false` (omitido) é erro
+     *                                  de chamada e lança; `null` significa "não há tenant" e então os
+     *                                  lançamentos de horas pagas não somam.
      */
-    public function calcularSaldoAteMes(User $user, int $ano, int $mes, array $feriados, ?JornadaTenant $jornadaTenant = null, \DateTimeInterface|null|false $inicioContagem = false): int
+    public function calcularSaldoAteMes(User $user, int $ano, int $mes, array $feriados, ?JornadaTenant $jornadaTenant = null, \DateTimeInterface|null|false $inicioContagem = false, Tenant|null|false $tenant = false): int
     {
         $this->exigirInicioContagem($inicioContagem, __FUNCTION__);
+        $tenantNorm = $this->exigirTenant($tenant, __FUNCTION__);
+
+        // Horas pagas somam SEMPRE, antes de qualquer saída antecipada: um lançamento numa competência
+        // anterior à primeira batida, ou de colaborador sem jornada, continua valendo.
+        $horasPagas = $this->somarHorasPagasDoPeriodo($user, $tenantNorm, $ano, 1, $mes);
 
         $jornada = $user->getJornadaColaborador();
         if ($jornada === null) {
-            return 0;
+            return $horasPagas;
         }
 
         $hoje = new \DateTimeImmutable('today');
 
         // Sem nenhum registro de ponto não há o que contar.
         if ($inicioContagem === null) {
-            return 0;
+            return $horasPagas;
         }
         $inicioContagemNorm = \DateTimeImmutable::createFromInterface($inicioContagem)->setTime(0, 0, 0);
 
@@ -266,7 +323,7 @@ class FolhaPontoBuilder
         $fim = $hoje < $limiteMax ? $hoje : $limiteMax;
 
         if ($inicio > $fim) {
-            return 0;
+            return $horasPagas;
         }
 
         $saldoTotal = 0;
@@ -314,7 +371,7 @@ class FolhaPontoBuilder
             }
         }
 
-        return $saldoTotal;
+        return $saldoTotal + $horasPagas;
     }
 
     /**
@@ -325,21 +382,29 @@ class FolhaPontoBuilder
      * - Termina no min(hoje, 31/12/ano) — dias futuros nunca contam
      *
      * @param Feriado[] $feriados
+     * @param Tenant|null|false $tenant Escritório do colaborador, obrigatório: `false` (omitido) é erro
+     *                                  de chamada e lança; `null` significa "não há tenant" e então os
+     *                                  lançamentos de horas pagas não somam.
      */
-    public function calcularSaldoAnual(User $user, int $ano, array $feriados, ?JornadaTenant $jornadaTenant = null, \DateTimeInterface|null|false $inicioContagem = false): int
+    public function calcularSaldoAnual(User $user, int $ano, array $feriados, ?JornadaTenant $jornadaTenant = null, \DateTimeInterface|null|false $inicioContagem = false, Tenant|null|false $tenant = false): int
     {
         $this->exigirInicioContagem($inicioContagem, __FUNCTION__);
+        $tenantNorm = $this->exigirTenant($tenant, __FUNCTION__);
+
+        // Horas pagas somam SEMPRE, antes de qualquer saída antecipada: um lançamento numa competência
+        // anterior à primeira batida, ou de colaborador sem jornada, continua valendo.
+        $horasPagas = $this->somarHorasPagasDoPeriodo($user, $tenantNorm, $ano, 1, 12);
 
         $jornada = $user->getJornadaColaborador();
         if ($jornada === null) {
-            return 0;
+            return $horasPagas;
         }
 
         $hoje = new \DateTimeImmutable('today');
 
         // Sem nenhum registro de ponto não há o que contar.
         if ($inicioContagem === null) {
-            return 0;
+            return $horasPagas;
         }
         $inicioContagemNorm = \DateTimeImmutable::createFromInterface($inicioContagem)->setTime(0, 0, 0);
 
@@ -350,7 +415,7 @@ class FolhaPontoBuilder
         $fim = $hoje < $fimAno ? $hoje : $fimAno;
 
         if ($inicio > $fim) {
-            return 0;
+            return $horasPagas;
         }
 
         $saldoTotal = 0;
@@ -399,6 +464,34 @@ class FolhaPontoBuilder
             }
         }
 
-        return $saldoTotal;
+        return $saldoTotal + $horasPagas;
+    }
+
+    /**
+     * Soma, com sinal, os lançamentos de horas pagas do colaborador numa competência.
+     * Público porque as telas precisam exibir a linha "Horas pagas" do mês exibido.
+     */
+    public function somarHorasPagasDaCompetencia(User $user, ?Tenant $tenant, int $ano, int $mes): int
+    {
+        if ($tenant === null) {
+            return 0;
+        }
+
+        return $this->lancamentoHorasPagasRepository->somarPorCompetencia($user, $tenant, $ano, $mes);
+    }
+
+    /**
+     * Soma os lançamentos de um intervalo de meses do mesmo ano (inclusive nas duas pontas).
+     *
+     * Uma query só (`somarPorPeriodo`), não uma por mês: `calcularSaldoAnual` roda no painel
+     * `/ponto`, que todo funcionário abre várias vezes por dia — eram 12 round-trips por load.
+     */
+    private function somarHorasPagasDoPeriodo(User $user, ?Tenant $tenant, int $ano, int $mesInicial, int $mesFinal): int
+    {
+        if ($tenant === null) {
+            return 0;
+        }
+
+        return $this->lancamentoHorasPagasRepository->somarPorPeriodo($user, $tenant, $ano, $mesInicial, $mesFinal);
     }
 }

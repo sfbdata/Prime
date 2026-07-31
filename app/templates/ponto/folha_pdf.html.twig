@@ -213,7 +213,7 @@
             <th colspan="4">Hor&#225;rios Registrados</th>
             <th rowspan="2" class="col-htrab">Horas<br>Trabalhadas</th>
             <th rowspan="2" class="col-hex">Horas<br>Extras</th>
-            <th rowspan="2" class="col-banco">Banco de<br>Horas</th>
+            <th rowspan="2" class="col-banco">Saldo do<br>M&#234;s</th>
             <th rowspan="2" class="just">Justificativa / Observa&#231;&#245;es</th>
         </tr>
         <tr>
@@ -276,6 +276,10 @@
                     <span class="bi-linha"><span class="bi-label">Detalhe de Horas Trabalhadas no M&#234;s:</span> {{ totalHorasTrabalhadas }}</span>
                     <span class="bi-linha"><span class="bi-label">Total de Horas Extras no M&#234;s:</span> {{ totalHorasExtras }}</span>
                     <span class="bi-linha"><span class="bi-label">Saldo do Banco de Horas Anterior:</span> {{ saldoBancoAnterior }}</span>
+                    {# Sem linha própria "Horas pagas": o lançamento da competência já está DENTRO do
+                       "Saldo do Banco de Horas Atual" abaixo, que é o banco acumulado (anterior + mês +
+                       horas pagas). Exibi-lo também em separado somaria duas vezes aos olhos de quem
+                       confere. Decisão do dono em 2026-07-31 — ver spec §7. #}
                     <span class="bi-linha"><span class="bi-label">Saldo do Banco de Horas Atual:</span> {{ saldoBancoAtual }}</span>
                     <span class="bi-linha"><span class="bi-label">Horas a Compensar:</span> {{ horasACompensar }}</span>
                 </div>
