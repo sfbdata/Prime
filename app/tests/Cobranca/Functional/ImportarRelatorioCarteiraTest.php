@@ -261,7 +261,15 @@ final class ImportarRelatorioCarteiraTest extends KernelTestCase
         self::assertSame(0, $this->em->getRepository(ObjetoCobranca::class)->count(['tenant' => $tenant]));
     }
 
-    #[TestDox('Índice único rejeita duas obrigações com a mesma referência externa no mesmo caso')]
+    /**
+     * A invariante MUDOU nesta frente (spec `cobranca-importar-chave-competencia.md`): o índice único
+     * deixou de ser (caso, NN) e passou a ser (caso, NN, competência), porque a contábil reaproveita o
+     * NN e duas dívidas de competências diferentes precisam coexistir.
+     *
+     * O que continua garantido — e é o que este teste prova — é que o MESMO trio não duplica. O caso de
+     * competências diferentes coexistirem está em `ImportarChaveCompetenciaTest`.
+     */
+    #[TestDox('Índice único rejeita duas obrigações com a mesma referência externa E competência no mesmo caso')]
     public function testIndiceUnicoBloqueiaObrigacaoDuplicada(): void
     {
         $tenant = $this->criarTenant();
@@ -272,7 +280,7 @@ final class ImportarRelatorioCarteiraTest extends KernelTestCase
         $existente = $this->em->getRepository(Obrigacao::class)->findOneBy(['tenant' => $tenant, 'referenciaExterna' => '1001']);
         self::assertNotNull($existente);
 
-        // Insere à força uma 2ª obrigação com a MESMA (caso, referencia_externa) → o índice parcial barra.
+        // Insere à força uma 2ª obrigação com a MESMA (caso, referencia_externa, competência) → barra.
         $duplicada = new Obrigacao();
         $duplicada->setTenant($tenant);
         $duplicada->setCaso($existente->getCaso());
@@ -280,6 +288,7 @@ final class ImportarRelatorioCarteiraTest extends KernelTestCase
         $duplicada->setValorOriginal(1000);
         $duplicada->setVencimentoOriginal(new \DateTimeImmutable('2026-02-10'));
         $duplicada->setReferenciaExterna('1001');
+        $duplicada->setCompetencia($existente->getCompetencia());
 
         $this->expectException(\Doctrine\DBAL\Exception\UniqueConstraintViolationException::class);
         $this->em->persist($duplicada);

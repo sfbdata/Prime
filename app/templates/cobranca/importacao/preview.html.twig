@@ -56,6 +56,33 @@
             </div>
         </div>
 
+        {#
+            Os dois avisos da chave NN+competência (spec cobranca-importar-chave-competencia.md). Existiam
+            no resultado desde a correção da chave, mas só apareciam na CLI — e a tela é o caminho que o
+            gestor usa. Silêncio aqui era o defeito que aquela spec corrigiu: o operador confirmava sem
+            saber que uma dívida nova nasceu com um número repetido, ou que um boleto foi reemitido.
+        #}
+        {% if resultado.referenciasReutilizadas|length > 0 %}
+        <div class="alert alert-warning">
+            <i class="bi bi-123 me-1"></i>
+            <strong>Nosso Número reutilizado</strong> em {{ resultado.referenciasReutilizadas|length }} boleto(s):
+            a contábil repetiu um número que já existe neste caso, mas em <strong>outra competência</strong> —
+            é <strong>outra dívida</strong>, e {{ confirmado ? 'nasceu separada' : 'vai nascer separada' }},
+            sem sobrescrever a anterior. Confira se é mesmo cobrança nova.
+            <div class="small mt-1">Nossos Números: {{ resultado.referenciasReutilizadas|join(', ') }}.</div>
+        </div>
+        {% endif %}
+
+        {% if resultado.vencimentosAlterados|length > 0 %}
+        <div class="alert alert-info">
+            <i class="bi bi-calendar-event me-1"></i>
+            <strong>Vencimento alterado</strong> em {{ resultado.vencimentosAlterados|length }} boleto(s):
+            mesma dívida (mesma competência) com data nova no relatório — o padrão do <strong>boleto reemitido</strong>.
+            O vencimento lançado <strong>não é sobrescrito</strong>; só os encargos são recalculados.
+            <div class="small mt-1">Nossos Números: {{ resultado.vencimentosAlterados|join(', ') }}.</div>
+        </div>
+        {% endif %}
+
         {% if resultado.sacadosDivergentes|length > 0 %}
         <div class="alert alert-info">
             <i class="bi bi-people me-1"></i>

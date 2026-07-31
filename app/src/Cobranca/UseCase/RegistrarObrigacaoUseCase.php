@@ -70,6 +70,7 @@ final class RegistrarObrigacaoUseCase
         $obrigacao->setValorOriginal((int) $input->valorOriginal);
         $obrigacao->setVencimentoOriginal($input->vencimentoOriginal);
         $obrigacao->setReferenciaExterna($this->normalizar($input->referenciaExterna));
+        $obrigacao->setCompetencia($input->competencia);
         $obrigacao->setCriadoPor($criadoPor);
 
         $hoje = new \DateTimeImmutable('today');

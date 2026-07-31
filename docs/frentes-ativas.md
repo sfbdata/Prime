@@ -7,7 +7,11 @@ Quem abre uma frente acrescenta a linha. Quem integra tira.
 
 | Frente (branch) | Domínio | Migration? | Arquivos compartilhados que toca | Estágio | Base |
 |---|---|---|---|---|---|
-| `ponto-horas-pagas` | Ponto | **sim** (`ponto_lancamento_horas_pagas`, tabela nova) | `app/src/Ponto/Service/FolhaPontoBuilder.php`, `app/src/Controller/TenantController.php`, `app/templates/ponto/`, `docs/specs/` | implementando | `master` |
+| `cobranca-importar-cadastro-acordos` | Cobrança (importação) | **sim** (coluna `competencia` + backfill) | `.gitignore` (regra de PII das planilhas) | pronta para integrar | `origin/master` |
+
+`ponto-horas-pagas` foi **integrada e publicada** em 2026-07-31 (merge `8b6ce5fd`), com migration
+própria (`ponto_lancamento_horas_pagas`) — por isso a frente de cobrança, que também tem migration,
+esperou a vez, como manda a regra abaixo.
 
 `feature/cobranca-ux-rapida` foi **integrada e publicada** em 2026-07-26 (merge `bbc1724`, sem
 migration), com a suíte em 2612/2612 no master **depois** do merge. O que ela entregou e a decisão de

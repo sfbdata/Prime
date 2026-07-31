@@ -1,0 +1,361 @@
+# Handoff — 3 importadores de planilha da contábil L.G
+
+> Estado em **2026-07-31**. Frente `cobranca-importar-cadastro-acordos`.
+> **Nada publicado, nada deployado.** As **3 pendências de importador estão entregues**, e os **2 pontos
+> que travavam a frente foram corrigidos** (acordo rompido · prévia × confirmação do cadastro).
+
+## Como retomar em 30 segundos
+
+```bash
+cd /home/prime/projetos/jusprime                                  # o script roda do checkout PRINCIPAL
+scripts/frente-testar.sh cobranca-importar-cadastro-acordos       # último verde: 2988/2988
+cd .claude/worktrees/cobranca-importar-cadastro-acordos && git log --oneline -5
+```
+
+⚠️ `frente-testar.sh` usa `git rev-parse --show-toplevel`: rodado de DENTRO da worktree ele procura uma
+worktree dentro da worktree e **recusa**. Recusa não é teste vermelho — é teste que não rodou. Já custou
+uma bateria inteira de "provas" que não provaram nada.
+
+A worktree tem banco de teste próprio (`saas_testcobranca-importar-cadastro-acordos`).
+**Nunca** rodar `cd app && php bin/phpunit` — isso testa o repositório principal e dá verde falso.
+
+## De onde veio
+
+O dono baixou 3 planilhas da contábil L.G em `docs/gestao-cobrancas/planilhas atualizadas/`
+(**gitignored — contêm CPF de 229 pessoas**; a regra `docs/gestao-cobrancas/*.xlsx` não cobria
+subpasta e foi corrigida para `**/`).
+
+| Planilha | Situação |
+|---|---|
+| Inadimplências detalhadas | **Já era suportada.** O dono importa pela tela (`/cobrancas/carteiras/{id}/importar`) |
+| Dados cadastrais dos condôminos | ✅ importador entregue nesta frente |
+| Acordos detalhados | ✅ importador entregue nesta frente |
+
+## O achado que reorientou tudo: o NN não é único
+
+`ObrigacaoRepository` casava a obrigação por **(caso, NN)**. A contábil **reaproveita o Nosso Número**:
+o NN 61457 é uma taxa de 08/2022 na carteira TOP LIFE I *e* outra de 07/2026 na TOP LIFE 2.
+
+Medido contra **produção**: 69 colisões aparentes, **todas entre carteiras diferentes** → como a busca é
+escopada por caso, **colisões reais hoje = 0**. Defeito real no código, sem ocorrência no dado.
+
+⚠️ **Durante a investigação eu soei alarme falso** ("69 boletos em risco, não importe nada") antes de
+cruzar a carteira. Sob suspeita de perda de dinheiro, medir até o fim **antes** de mandar parar.
+
+**A chave NÃO pode ser o vencimento** — o dono derrubou com um caso concreto: dívida antiga reemitida
+para a pessoa pagar mantém o NN e **muda a data**; chave por data duplicaria a dívida e cobraria duas
+vezes. Competência não muda → chave = **(caso, NN, competência)**.
+
+## O que está feito
+
+### 1. Chave NN + competência — `08766716`
+- Coluna `competencia` (`MM/AAAA`) em `cobranca_obrigacao`, migration **`Version20260730120000`**
+- Backfill por regex sobre `descricao`; cobre **3270/3300 (99,1%)** em produção
+- `findOnePorReferenciaECompetenciaNoCaso` com **fallback** para dado legado (competência nula casa só
+  pelo NN — sem isso a 1ª reimportação pós-deploy duplicaria tudo que o backfill não alcançou)
+- Dois avisos novos no `ResultadoImportacao`: `referenciasReutilizadas` e `vencimentosAlterados`
+- 🔑 **O teste revelou um índice ÚNICO PARCIAL** `(caso_id, referencia_externa)` criado por SQL cru na
+  `Version20260710160000`, **invisível ao mapeamento Doctrine**, que impunha a suposição errada no banco.
+  Trocado por `(caso_id, referencia_externa, competencia) NULLS NOT DISTINCT` — a cláusula é obrigatória
+  (PostgreSQL 15+, medido 15.17): sem ela dois NULL seriam distintos e as obrigações mais antigas
+  poderiam duplicar
+
+### 2. Importador do cadastro — `b6751f8d` + `981b213d`
+- Comando `app:cobranca:importar-cadastro`, dry-run por padrão, `--confirmar` persiste
+- Orquestra os UseCases existentes; pessoa importada é indistinguível de pessoa da tela
+- Aditivo: contato novo entra na lista e vira o atual, o anterior fica no histórico
+- Leitura da planilha **real**: 242 pessoas (229 proprietários + 13 relacionadas), 229 unidades,
+  331 telefones, 3 rejeições (todas de telefone; nenhuma pessoa perdida)
+
+**Três correções que a medição impôs à spec de 29/07:**
+1. O papel **vem da coluna C** (`Proprietário` / `Pessoa relacionada`), não é "a primeira é dona".
+   `Pessoa relacionada` → `TipoVinculo::Outro`, **nunca Coproprietario** (a fonte não afirma isso).
+2. Endereço parseado **de trás para frente** — as 13 linhas de relacionada têm 6 segmentos em vez de 7,
+   e contar da esquerda faz o bairro escorregar.
+3. **A regra "não casar por nome" estava errada** e o teste provou: pessoa sem CPF nasceria de novo a
+   cada rodada mensal. Corrigido para casar por nome **dentro do objeto** (a "decisão A" que o importador
+   de inadimplência já usa), e só entre pessoas que também não têm documento.
+
+### 3. Importador dos acordos — `37e122ce` (risco **ALTO**)
+Comando `app:cobranca:importar-acordos`, dry-run por padrão, `--confirmar` persiste. 11 arquivos
+**todos novos** — nenhum comportamento existente foi alterado.
+
+- **Parcelas futuras** (§3.1): as 5 ausentes, R$ 1.399,49. Valor = soma da coluna "Valor acordado" do NN,
+  honorários **zero por TAXA** (`honorariosBp = 0`, não só cache — senão a hidratação ao vivo os traria de
+  volta na leitura seguinte).
+- **Reconciliação** (§3.2): marca com `acordoSubstituto`, tirando do saldo. É o que corrige o Gessi
+  Pereira dos Santos.
+- **Reconstrução** (§3.2.1): a conta ausente nasce já substituída, com procedência na descrição
+  (`Reconstruída da planilha de acordos (emissão dd/mm/aaaa)`) — a `Obrigacao` não tem campo de
+  observação, e o importador de inadimplência já usa essa convenção.
+- Ao marcar, os encargos são **materializados na data do acordo**, como o `CriarAcordoUseCase` faz pela
+  tela. Não muda saldo (substituída sai do exigível); muda o número que a tela exibe, que passa a ser o
+  valor na data da renegociação em vez do cache da última vez que alguém abriu a página.
+
+**Cinco recusas deliberadas, todas reportadas — nenhuma silenciosa:**
+
+| Situação | O que faz |
+|---|---|
+| acordo não existe na carteira | aba ignorada (quem cria acordo é a inadimplência) |
+| valor da planilha ≠ valor lançado | reporta, **não sobrescreve** |
+| a "conta original" é parcela de acordo | recusa (INV-I: duplicaria a dívida ao romper) |
+| mesmo NN de parcela com outra competência | **não cria** (criar é a direção que cobra) |
+| planilha diz "Em andamento", sistema diz Rompido | mantém o sistema, reporta |
+
+🔑 **§3.3 nunca escreve status, de propósito.** A única situação da fonte (`Em andamento` → `Ativo`) já é o
+status de todo acordo importado — escrever seria no-op. E em todo caso em que **não** seria no-op, o status
+do sistema é decisão manual do escritório que move dinheiro: ressuscitar um acordo rompido a partir de uma
+planilha tiraria as originais do saldo de novo, desfazendo em silêncio o que uma pessoa decidiu.
+
+🔑 **`prever()` e `confirmar()` percorrem o MESMO método** (`$usuario === null` é o dry-run). O irmão
+`ImportarRelatorioCarteiraUseCase` tem as duas escritas separadas e elas já divergiram uma vez; aqui a spec
+exige conferir a projeção contra o efeito antes de mexer em dinheiro de produção, e duas implementações da
+mesma decisão não garantem isso.
+
+**Adapter conferido contra a planilha REAL** (não só contra a fixture): 7 abas, 25 contas originais, 12
+parcelas, 0 rejeições, e a soma de cada aba batendo com o cabeçalho **da própria aba** (14 conferências
+independentes). As 5 parcelas ausentes somam exatamente R$ 1.399,49; o acordo 37 soma exatamente R$ 680,00.
+
+Duas armadilhas medidas na fonte, cada uma capaz de derrubar uma parcela inteira:
+1. **toda célula é string**, inclusive dinheiro e data — "170,00" nunca chega como float;
+2. **o desconto vem `-\u{00A0}3,04`**, com espaço NÃO-QUEBRÁVEL entre o sinal e o número. `str_replace(' ', '')`
+   não limpa isso e a linha vira "não numérica", levando junto a parcela de R$ 400,68.
+   *(A defesa real é o modificador `/u` na regex, que liga UCP e faz `\s` cobrir o U+00A0 — o `\x{00A0}`
+   explícito é redundante. Descoberto tentando provar o teste: ele passava com e sem o `\x{00A0}`.)*
+
+## O dev está ALINHADO (2026-07-31) — e o replay das planilhas provou a spec inteira
+
+Ideia do dono, e funcionou: **não precisa de dump de produção**. As planilhas antigas reconstroem o
+histórico, porque o bug é um resíduo de importações sucessivas.
+
+O que foi feito no `saas_ux`:
+
+1. `Version20260730120000` aplicada (só ela — as 2 pendentes do Ponto já têm as tabelas criadas; usar
+   `doctrine:migrations:execute --up`, nunca `migrate`). Backfill: 538 com competência, 21 nulas.
+2. Tabelas `cobranca_*` truncadas (carteira 1 = TOP LIFE II preservada, com sua config de encargos).
+3. Replay cronológico da inadimplência: **08/07 → 22/07 → 29/07**.
+4. `app:cobranca:importar-acordos` (dry-run, depois `--confirmar`).
+5. `app:cobranca:importar-cadastro` (dry-run, depois `--confirmar`).
+
+**O bug se reproduziu sozinho** no passo 3 — a de 08/07 ainda tem as 4 contas do Gessi, a de 22/07 já
+não tem, e o importador não apaga o que some. Exatamente como produção chegou onde está.
+
+**O dry-run bateu com a spec no centavo:** R$ 680,00 saindo · R$ 1.399,49 entrando · 21 contas a
+reconstruir · 0 rejeições · 0 avisos. Depois do `--confirmar`, o Gessi foi de R$ 879,39 para
+**R$ 797,54** — que é o "Valor final acordado" que a própria planilha declara para o acordo 37. As 21
+reconstruídas: **nenhuma no saldo**. Segunda execução: **zero mudanças**.
+
+Os R$ 170,00 a mais nos outros 6 acordos são **taxas novas emitidas depois do acordo** (ex.: NN 61497,
+competência 07/2026) — dívida legítima, corretamente fora do acordo.
+
+Estado final: 229 unidades · 341 pessoas · 122 casos · 571 obrigações · 7 acordos · 290 telefones.
+
+### Como repetir (armadilhas)
+
+```bash
+# a worktree NÃO tinha .env.local -> apontava para o banco `saas` (velho, esquema diferente).
+# Já foi criado apontando para saas_ux. Existem DOIS bancos; `saas` é lixo legado.
+W=/var/www/.claude/worktrees/cobranca-importar-cadastro-acordos/app
+docker exec -e APP_DEBUG=0 jusprime_php_dev bash -c "cd $W && php -d memory_limit=3G bin/console app:cobranca:importar ..."
+```
+
+`APP_DEBUG=0` e `memory_limit` **são obrigatórios**: em modo debug o `BacktraceDebugDataHolder` do
+Doctrine acumula backtrace por query e estoura os 128M no meio do lote. Quando estourou, a transação fez
+rollback limpo (nada sujou) — mas o import não passa.
+
+## Corrigido em 31/07 (tarde) — os 2 pontos que travavam a frente
+
+Cada teste provado reintroduzindo o defeito. (Suíte atual da frente: **2983/2983** — o número desta seção
+mudou várias vezes; o valor corrente vive só no topo do arquivo, para não haver dois.)
+
+### 1. Acordo Rompido/Cancelado: a aba inteira é pulada — `85446af4`
+
+Era o achado #1 da revisão. **Não era só o status:** escrever contra acordo não vigente *cria dívida* —
+a conta reconstruída (§3.2.1) nasce com `acordoSubstituto`, e `doCasoExigiveis` só exclui o que está
+substituído por acordo **vigente**; com o acordo rompido ela entra no saldo e cobra de novo o que a
+planilha listou como renegociado. O motivo vai para o resumo, na prévia e na confirmação.
+
+O teste antigo (`testNaoRessuscitaAcordoRompido`) só olhava o status; o novo afere que nada nasce, nada
+é marcado e **o saldo do devedor não muda um centavo**.
+
+### 2. A prévia do cadastro passou a ser a confirmação sem escrita — `7327e208`
+
+Um método só (`processar()`, `$usuario === null` é o dry-run), como o de acordos já fazia. As duas causas
+da divergência 215/242 e 292/290, ambas da fonte real e invisíveis para a fixture de 7 linhas:
+
+1. **a mesma pessoa em duas unidades** — a prévia contava o vínculo só na 1ª linha; a 2ª caía no ramo
+   "documento já visto no arquivo" e saía sem contar nada, enquanto a confirmação abria o 2º vínculo;
+2. **o mesmo telefone repetido na célula** — a prévia somava a lista crua, a confirmação deduplicava.
+
+O que faltava ao dry-run era **estado**: sem entidade persistida ele só enxergava o banco. `PessoaEmImportacao`
+acumula o que cada pessoa já tem (banco + linhas anteriores do próprio arquivo), então as duas passadas
+fazem a mesma pergunta e recebem a mesma resposta. **Nenhuma regra de casamento mudou.**
+
+### 3. Conferido contra o dado real — replay refeito do zero em 31/07
+
+A suíte prova o mecanismo, não os totais; e os dois defeitos só apareceram rodando. Então o replay foi
+**refeito inteiro** (dono autorizou limpar): `TRUNCATE` das `cobranca_*` no `saas_ux` (carteira 1
+preservada) → inadimplência 08/07 → 22/07 → 29/07 → acordos → cadastro.
+
+| | Antes | **Agora** |
+|---|---|---|
+| Vínculos: prévia × confirmação | 215 × 242 | **242 × 242** |
+| Telefones: prévia × confirmação | 292 × 290 | **290 × 290** |
+
+**Todas as 9 linhas do resumo do cadastro batem** entre prever e confirmar (107 unidades · 215 pessoas ·
+27 reaproveitadas · 242 vínculos · 290 telefones · 125 e-mails · 215 endereços · 3 rejeições · 13
+ignoradas). Nos acordos, prévia e confirmação também idênticas: R$ 680,00 saindo · R$ 1.399,49 entrando ·
+21 reconstruídas · **0 abas ignoradas** (nenhum dos 7 acordos está rompido — a guarda nova não muda nada
+no dado atual, que é exatamente o esperado de uma correção preventiva).
+
+**O efeito no banco não mudou** — estado final idêntico ao de antes das correções: 229 objetos · 122
+casos · 571 obrigações · 7 acordos · 341 pessoas · 368 vínculos · 290 telefones. O que mudou foi a
+prévia **parar de mentir**. Gessi: as 4 originais de R$ 170,00 substituídas, as 4 parcelas dentro,
+principal exigível **R$ 797,54** — o "Valor final acordado" da própria planilha.
+
+Segunda execução dos dois: **zero mudanças** (acordos: 12 parcelas e 25 contas já marcadas; cadastro:
+242 reaproveitadas, 0 de tudo o mais).
+
+## O que falta
+
+### Outras pendências
+- **Avisos na tela.** `referenciasReutilizadas` e `vencimentosAlterados` existem no resultado mas **não
+  aparecem no Twig** — quem importa pelo navegador não os vê. É o caminho que o dono usa de verdade.
+  O importador de acordos é **só CLI** e tem um resumo bem mais rico (tabela por acordo + bloco
+  "A CONFERIR"); ao levar os avisos para a tela, considerar o mesmo tratamento aqui.
+- **`/review` da frente inteira** antes de integrar. Risco ALTO exige revisão dupla.
+- **Migration:** aplicada no dev em 31/07 (ver seção do replay). **Falta em produção** — o deploy exige
+  `deploy-prod-tls.sh`, e o `bcmath` da frente do BCB sobe junto.
+- **Produção de cobrança ainda NÃO está em uso de verdade** (dono, 31/07): pode ser limpa também. Isso
+  rebaixa a urgência de tudo que era "dinheiro em produção" nesta frente — o rigor continua valendo para o
+  código estar certo, não porque haja alguém sendo cobrado a mais agora.
+- **Deploy** exige `deploy-prod-tls.sh` (tem migration). Lembrar: `bcmath` da frente do BCB também só
+  entra em prod no próximo deploy.
+
+## Revisão da FRENTE INTEIRA (31/07, tarde) — 8 achados, todos tratados
+
+Disparada com `/review` sobre os 17 commits. Nenhum bloqueante para o dado de hoje. Os dois que mais
+importam foram os mesmos dois modos de falha que a frente já conhecia:
+
+| # | Achado | O que foi feito |
+|---|---|---|
+| 1 | Parcela que a planilha diz **PAGA** e não existe no sistema era criada como dívida aberta, com juros correndo — cobrando de novo o que já foi pago | **Não cria mais**, e reporta (decisão do dono). A baixa segue fora de escopo (§5). O teste antigo passava com o defeito: usava um NN que o cenário já semeava |
+| 2 | A prévia dos acordos ainda podia divergir da confirmação: faltava o estado intra-execução que o cadastro ganhou. Mesmo NN nas duas seções da aba → prévia dizia "reconstruída", efeito dizia "recusada" | `criadasNaExecucao` (o equivalente do `PessoaEmImportacao`). E o `testDryRun...` passou a comparar **todos** os 18 campos, não 5 |
+| 3 | A guarda de migration protegia só a CLI; a **tela** (que é o caminho do dono) ficou sem | Guarda também no `ImportarRelatorioCarteiraUseCase`, em prever e confirmar |
+| 4 | Teste "regressão do 61457" não guardava nada: objetos diferentes → casos diferentes, e a busca sempre foi escopada por caso | Promete só o que guarda, e passou a verificar o **dano real** (a dívida de 2022 não é sobrescrita) |
+| 5 | `buscarPossiveisDuplicadas(...)[0]` sobre query **sem `ORDER BY`** | `ORDER BY p.id ASC` — determinismo é pré-requisito da unificação prévia×confirmação |
+| 6 | Assimetria: a conta reconstruída não tem a guarda de NN ambíguo que a parcela tem | Deliberado; agora **escrito** no docblock, com o risco residual |
+| 7 | Handoff desatualizado (3 números de suíte diferentes, contagem de commits errada) | Corrigido; o número da suíte vive num lugar só |
+| 8 | A prévia não mostrava que os encargos de contas reais seriam reescritos | Rótulo da tabela do comando explicita |
+
+### A revisão foi em QUATRO passadas, e cada uma achou a camada seguinte do MESMO defeito
+
+Vale registrar porque é a lição da frente. O defeito era sempre "a prévia não enxerga o que a própria
+execução já fez", e ele reapareceu em três lugares diferentes depois de eu declarar cada um resolvido:
+
+1. **1ª passada** — o importador de acordos não tinha estado nenhum. Corrigido com um acumulador por
+   `(caso, NN, competência)`.
+2. **2ª passada** — o acumulador registrava **criação** e ignorava **mutação**. Marcar uma conta sem
+   registrar fazia a prévia somar o mesmo principal duas vezes.
+3. **3ª passada** — o acumulador tinha a chave errada em dois caminhos: o **fallback do legado** (dois
+   trios → uma obrigação) e a **guarda de ambiguidade** (pergunta por NN, sem competência). Viraram
+   `ObrigacoesTocadasNaImportacao`, com três índices e o porquê de cada um.
+4. **4ª passada** — a invariante que sustenta o índice novo (`obr:`) morava só no adapter. Passou a ser
+   exigida no construtor do VO (`CompetenciaImportada`).
+
+**Aprovado na 4ª**, com a conta batendo ao centavo contra a fonte real e o `saas_ux`.
+
+🔑 **Achado medido pelo revisor, que vale mais que os 8:** no `saas_ux` **não há nenhuma obrigação com
+`competencia IS NULL`**. Ou seja, o replay que provou a spec **não exercitou o fallback legado nenhuma
+vez** — e é justamente esse caminho que produção terá (~30 linhas, 0,9%). O fallback está coberto por
+teste, **não pelo replay**. Quem for para produção precisa saber disso.
+
+Também não verificado pelo revisor (ele não tocou prod): as alegações deste handoff sobre o estado de
+**produção** (3270/3300 no backfill, R$ 680,00 no Gessi em prod). Só o `saas_ux` foi conferido.
+
+## Revisão de 31/07 (manhã) — o que sobrou, com a severidade CORRIGIDA
+
+O `feature-review-agent` revisou o `37e122ce`. A lista dele está abaixo já **reponderada** pelo que foi
+medido depois — a revisão inflou dois itens, e o handoff registra isso para o próximo não repetir.
+
+| # | Achado | Severidade real | Por quê |
+|---|---|---|---|
+| 1 | Escreve contra acordo **Rompido/Cancelado** → a conta reconstruída nasce EXIGÍVEL (`doCasoExigiveis` inclui substituída por acordo não-vigente) | ✅ **CORRIGIDO** `85446af4` | O revisor chamou de bloqueante. O dono ponderou, com razão: acordo e rompimento são registrados nos DOIS lados, então a planilha seguinte já vem alinhada — a janela é só entre romper e a próxima planilha. **Decidido e feito: pular a aba inteira e reportar** |
+| 2 | Fallback legado casa por NN sozinho, que a spec proíbe | **Baixa** | O revisor pôs como ALTO. **Medido: alcança ZERO linhas.** As 21 obrigações sem competência também não têm NN, e o casamento exige o NN primeiro — o fallback nunca as alcança. Corrigir por higiene, não por risco |
+| 3 | Sem a migration, o lote inteiro cai (rollback) em vez de avisar | Média | Conferir schema antes de escrever |
+| 4 | Contas originais não são agrupadas por NN (parcelas são) | Média | Hoje não ocorre no dado; quebraria se a fonte mudar |
+| 5 | `somaContasOriginaisCentavos()`/`somaParcelasCentavos()` sem chamador | Baixa | Usar como conferência real ou remover |
+| 6 | Nenhum teste com encargos ≠ 0 (`CarteiraFactory` zera tudo) | Média | A materialização na data do acordo não está provada por teste |
+| 7 | Sem teste: parcela ambígua, caso encerrado, conta já substituída por outro acordo | Média | |
+| 8 | Teste "outra carteira" usa o mesmo tenant | Baixa | Falta o cross-tenant que o dono exige |
+| 9 | Procedência no fim da `descricao`, primeira a ser truncada | Baixa | Inverter a ordem elimina |
+| 10 | Parcela existente não recebe `acordoOrigem` | Baixa | 0 ocorrências medidas |
+
+**Confirmado OK pela revisão:** chave NN+competência nos dois pontos · acordo por (numero, carteira,
+tenant) · multi-tenant em todas as queries · INV-I · idempotência · rompimento com acordo vigente ·
+`honorariosBp = 0` é taxa e não cache (a hidratação não reintroduz honorário) · dry-run não escreve ·
+nenhum arquivo existente alterado · nenhuma PII commitada.
+
+## Divergências conscientes em relação à spec dos acordos
+
+Registradas para a revisão bater nelas de propósito, não por descuido:
+
+1. **§9 contradiz §3.2.1.** A lista de testes ainda pede "conta original **inexistente não é criada**",
+   linha remanescente da versão de 29/07; o §3.2.1 (decisão do dono de 30/07) manda criá-la. Seguido o
+   §3.2.1. A linha do §9 deveria sair da spec.
+2. **§3.3 não escreve status** — ver o porquê acima. A spec dizia "`Situação:` → `StatusAcordo`".
+3. **Materialização dos encargos na data do acordo** ao marcar: a spec só diz "o mecanismo é o mesmo do
+   `CriarAcordoUseCase`"; isso é o que aquele UseCase faz. Reescreve campos de encargo de 4 linhas reais de
+   produção, **sem alterar saldo nenhum**.
+4. **Parcela com NN ambíguo não é criada.** §7 diz "idempotência da parcela: por NN" e §3.2 exige
+   NN+competência; quando as duas chaves discordam, a implementação recusa e reporta — a interseção
+   conservadora das duas leituras.
+
+## Estado do repositório
+
+- Frente commitada e limpa. **Quantos commits à frente:** `git log --oneline origin/master..HEAD | wc -l`
+  — não há número aqui de propósito. Já foi escrito errado duas vezes (dizia "10" quando eram 17; a
+  correção pôs "19" quando eram 18). Número que envelhece a cada commit não se escreve à mão
+- No **checkout principal** o `.gitignore` está modificado de propósito: a correção da regra de PII vive
+  na frente, mas as planilhas estão fisicamente na pasta principal e ficariam desprotegidas até o merge
+- Outra sessão mexeu na branch `polimento-objeto-show-cabecalho` durante o trabalho — **um piloto de git
+  por vez**; conferir `git log` antes de integrar qualquer coisa
+
+## Consultas de produção usadas (todas SELECT)
+
+Guardadas porque a próxima rodada vai querer repetir:
+
+```sql
+-- dívidas antigas na faixa de NN do relatório novo (candidatas a colisão)
+SELECT count(*) FROM cobranca_obrigacao
+WHERE vencimento_original < '2025-01-01' AND referencia_externa ~ '^[0-9]+$'
+  AND referencia_externa::int BETWEEN 60005 AND 61600;
+
+-- cobertura do backfill de competência
+SELECT count(*) AS total, count(*) FILTER (WHERE descricao ~ 'compet.ncia [0-9]{2}/[0-9]{4}') AS com
+FROM cobranca_obrigacao;
+```
+
+## Lições desta frente
+
+- **Um número igual não prova que é a mesma coisa.** Casar por NN sozinho me fez afirmar "R$ 1.115,00
+  duplicados em 3 sacados"; o real é **R$ 680,00 em 1**. Antes de agir sobre dinheiro a partir de um
+  casamento, verifique um segundo campo independente.
+- **`leftJoin` é buscar, não excluir.** Afirmei que marcar `acordoSubstituto` tira do saldo tendo visto
+  só o join; a prova está em `doCasoExigiveis`.
+- **As perguntas do dono acharam 2 furos que eu não vi**: a reemissão de boleto e a desconfiança sobre a
+  numeração repetida. Quando ele desconfia de um número, medir de novo.
+- **Conferir o adapter contra a fonte REAL, não só contra a fixture.** Foi assim que apareceu o telefone
+  descartado em silêncio (331 telefones × 3 lixos × 2 rejeições reportadas).
+- **Provar que o teste pega o defeito**, reintroduzindo-o. Foi o que mostrou que 2 dos 5 testes da chave
+  guardavam defeitos diferentes do que eu supunha.
+- **Uma "prova" também precisa ser provada.** Na pendência 3, a primeira bateria de 7 provas rodava o
+  PHPUnit com o cwd errado; o script recusava, e eu li a recusa como "teste vermelho, defeito pego". Sete
+  ✅ que não valiam nada. O conserto: exigir que a saída mostre o PHPUnit tendo **executado**, e checar que
+  o teste está VERDE antes de aplicar o defeito. É o mesmo modo de falha do "verde falso" do `cd app`,
+  invertido — **vermelho falso**.
+- **Dois testes passaram COM o defeito** e precisaram de cenário refeito: o do NN reutilizado entre
+  carteiras (a busca cega acertava por acaso, porque o acordo certo era o de id menor — a correção foi
+  importar na carteira B, para o erro ficar visível) e o do rompimento (meu filtro mexia na planilha e não
+  no sistema, então o cenário nunca chegava a ter conta reconstruída, que é justamente o risco aceito).
+  **Teste verde sobre cenário errado não guarda nada.**

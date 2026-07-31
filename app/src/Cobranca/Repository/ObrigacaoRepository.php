@@ -71,6 +71,80 @@ class ObrigacaoRepository extends ServiceEntityRepository
     }
 
     /**
+     * A coluna `competencia` existe no banco? (`Version20260730120000`).
+     *
+     * Existe para o importador poder RECUSAR com uma frase clara em vez de morrer no meio do lote. Sem a
+     * migration, o primeiro INSERT estoura com erro de SQL, a transação faz rollback e o operador recebe
+     * um traço de driver — nada indica que o que falta é rodar a migration. Consulta barata, uma vez por
+     * execução, no `information_schema` (SQL padrão).
+     */
+    public function schemaTemCompetencia(): bool
+    {
+        $sql = 'SELECT 1 FROM information_schema.columns WHERE table_name = :tabela AND column_name = :coluna';
+
+        return $this->getEntityManager()->getConnection()
+            ->fetchOne($sql, ['tabela' => 'cobranca_obrigacao', 'coluna' => 'competencia']) !== false;
+    }
+
+    /**
+     * Chave de idempotência da importação: (caso, NN, competência) — spec
+     * `cobranca-importar-chave-competencia.md`. O NN sozinho NÃO identifica a dívida: a contábil o
+     * reaproveita (NN 61457 = taxa de 08/2022 na TOP LIFE I e de 07/2026 na TOP LIFE 2). Casar só por NN
+     * faz o importador ENGOLIR o boleto novo e gravar os encargos dele sobre a dívida antiga.
+     *
+     * O vencimento NÃO serve como discriminador: reemissão para o devedor pagar mantém o NN e muda a data.
+     *
+     * Ordem de busca:
+     *   1. par exato (NN + competência) — o caso normal;
+     *   2. se o relatório não trouxe competência, ou se existe obrigação com esse NN e competência NULA
+     *      (dado legado, anterior ao backfill, ou cadastro manual), casa só pelo NN — comportamento antigo,
+     *      preservado para não duplicar dado legado.
+     *
+     * Retorna null quando existe obrigação com o mesmo NN mas competência DIFERENTE e não-nula: é outra
+     * dívida, e o chamador deve criar uma nova (reportando o NN reutilizado).
+     *
+     * ⚠️ **O passo 2 é, literalmente, casar pelo NN sozinho** — o casamento que a spec manda desconfiar.
+     * Ele existe porque a alternativa é pior: devolver null aqui faz o chamador CRIAR a obrigação, e a
+     * primeira reimportação após o deploy duplicaria todo dado que o backfill não alcançou. Duas defesas
+     * o cercam: o `ImportarAcordosDetalhadosUseCase` **reporta** cada casamento assim
+     * (`casadasSemCompetencia`), e ele só alcança obrigação sem competência — medido em produção em
+     * 31/07: **zero linhas**, porque as 21 sem competência também não têm NN.
+     *
+     * O desempate é por **id ASC**: com mais de uma candidata legada (mesmo NN, competência nula, mesmo
+     * caso), a escolha precisa ser a mesma em toda execução. `findOneBy` sem ordem deixaria isso a cargo
+     * do plano do banco — duas rodadas do mesmo arquivo poderiam atualizar obrigações diferentes.
+     */
+    public function findOnePorReferenciaECompetenciaNoCaso(
+        CasoCobranca $caso,
+        string $referenciaExterna,
+        ?string $competencia,
+    ): ?Obrigacao {
+        $referencia = trim($referenciaExterna);
+        if ($referencia === '') {
+            return null;
+        }
+
+        $competencia = $competencia === null ? null : trim($competencia);
+        $base = [
+            'caso' => $caso,
+            'tenant' => $caso->getTenant(),
+            'referenciaExterna' => $referencia,
+        ];
+
+        if ($competencia !== null && $competencia !== '') {
+            $exata = $this->findOneBy($base + ['competencia' => $competencia], ['id' => 'ASC']);
+            if ($exata !== null) {
+                return $exata;
+            }
+        }
+
+        // Fallback do legado: obrigação com o mesmo NN e SEM competência gravada. Sem isto, a primeira
+        // reimportação após o deploy duplicaria toda obrigação que o backfill não alcançou. Ver o
+        // docblock: é casamento por NN sozinho, de propósito, e o chamador reporta.
+        return $this->findOneBy($base + ['competencia' => null], ['id' => 'ASC']);
+    }
+
+    /**
      * Obrigações de um caso (fonte do saldo derivado — SPEC §10, invariável 20). Escopo por
      * tenant do caso (defesa em profundidade).
      *

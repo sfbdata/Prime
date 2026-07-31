@@ -6,6 +6,7 @@ namespace App\Cobranca\Controller;
 
 use App\Cobranca\DTO\ImportarRelatorioInput;
 use App\Cobranca\Entity\Carteira;
+use App\Cobranca\Exception\MigrationDeCompetenciaPendenteException;
 use App\Cobranca\Form\ImportarRelatorioType;
 use App\Cobranca\Repository\CarteiraRepository;
 use App\Cobranca\Service\Importacao\TopLifeInadimplenciaAdapter;
@@ -108,7 +109,17 @@ final class ImportacaoController extends AbstractController
         // Ponteiro do arquivo temporário na SESSÃO (por-usuário) — nunca no cliente.
         $request->getSession()->set($this->chaveSessao($id), ['token' => $token, 'nome' => $nomeOriginal]);
 
-        $resultado = $this->importar->prever($id, $leitura, $tenant);
+        try {
+            $resultado = $this->importar->prever($id, $leitura, $tenant);
+        } catch (MigrationDeCompetenciaPendenteException $e) {
+            // A ÚNICA exceção repassada literalmente ao operador: a mensagem dela É a instrução (qual
+            // migration rodar). Engoli-la num "falha ao importar" genérico anularia o motivo de a guarda
+            // existir — trocaria um traço de driver por uma frase igualmente muda.
+            $this->descartarTemporario($tenant, $token);
+            $this->addFlash('danger', $e->getMessage());
+
+            return $this->redirectToRoute('cobranca_importacao_upload', ['id' => $id]);
+        }
 
         return $this->render('cobranca/importacao/preview.html.twig', [
             'carteiraId' => $carteira->getId(),
@@ -154,6 +165,11 @@ final class ImportacaoController extends AbstractController
         try {
             $leitura = $this->adapter->ler($caminho);
             $resultado = $this->importar->confirmar($id, $leitura, $tenant, $this->usuarioLogado());
+        } catch (MigrationDeCompetenciaPendenteException $e) {
+            // Antes do catch genérico: a mensagem dela é a instrução, e some se cair no "falha ao importar".
+            $this->addFlash('danger', $e->getMessage());
+
+            return $this->redirectToRoute('cobranca_importacao_upload', ['id' => $id]);
         } catch (\Throwable $e) {
             $this->addFlash('danger', 'Falha ao importar o relatório. Nenhum dado foi gravado.');
 

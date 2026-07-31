@@ -170,8 +170,14 @@ class PessoaRepository extends ServiceEntityRepository
             $parametros['cnpj'] = $cnpj;
         }
 
+        // ORDER BY é requisito, não estética: o importador de cadastro usa o PRIMEIRO resultado como "a
+        // pessoa deste documento", e a prévia e a confirmação são duas execuções desta consulta. Sem
+        // ordem estável, um tenant com dois cadastros do mesmo CPF (é para isso que este método existe)
+        // faria as duas escolherem pessoas diferentes — e duas rodadas mensais pendurariam contato em
+        // pessoas diferentes. `id ASC` = a mais antiga, sempre a mesma.
         $sql = "SELECT {$select} FROM cobranca_pessoa p"
-            . ' WHERE p.tenant_id = :tenant AND (' . implode(' OR ', $condicoes) . ')';
+            . ' WHERE p.tenant_id = :tenant AND (' . implode(' OR ', $condicoes) . ')'
+            . ' ORDER BY p.id ASC';
 
         return $em->createNativeQuery($sql, $rsm)
             ->setParameters($parametros)

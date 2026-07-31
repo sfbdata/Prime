@@ -63,6 +63,58 @@ final class ImportacaoVisualControllerTest extends CobrancaWebTestCase
         self::assertSame(6, $obrigacaoRepo->count(['tenant' => $tenant]), 'os 6 boletos importáveis foram gravados');
     }
 
+    /**
+     * Os dois avisos da chave NN+competência precisam aparecer NA TELA, não só na CLI.
+     *
+     * Eles existem no resultado desde que a chave foi corrigida, mas o Twig não os mostrava — e a tela é
+     * o caminho que o gestor usa de verdade. O defeito que aquela spec corrigiu era exatamente o
+     * silêncio: confirmar uma importação sem saber que uma dívida nova nasceu com um número repetido, ou
+     * que um boleto foi reemitido com outra data.
+     *
+     * O cenário força os dois de uma vez, mexendo no banco entre as duas importações do MESMO arquivo:
+     * uma obrigação tem a competência trocada (o mesmo NN passa a valer para outra dívida) e outra tem o
+     * vencimento adiantado (boleto reemitido).
+     */
+    #[TestDox('A prévia mostra na TELA os avisos de NN reutilizado e de vencimento alterado')]
+    public function testPreviaMostraAvisosDaChaveNaTela(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        $carteiraId = $this->semearCarteira($tenant);
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $obrigacaoRepo = $em->getRepository(Obrigacao::class);
+
+        // 1ª importação: o estado "de antes".
+        $crawler = $client->request('GET', "/cobrancas/carteiras/{$carteiraId}/importar");
+        $form = $crawler->filter('form[action*="prever"]')->form();
+        $form['importar_relatorio[arquivo]']->upload(self::FIXTURE);
+        $crawler = $client->submit($form);
+        $client->submit($crawler->filter('form[action*="confirmar"]')->form());
+
+        $importadas = $obrigacaoRepo->findBy(['tenant' => $tenant], ['id' => 'ASC']);
+        self::assertGreaterThanOrEqual(2, count($importadas), 'o cenário precisa de duas obrigações para mexer');
+
+        // A primeira passa a ser de OUTRA competência: o NN do relatório vira "reutilizado".
+        $importadas[0]->setCompetencia('01/2020');
+        // A segunda mantém a competência e ganha vencimento antigo: o relatório traz data nova (reemissão).
+        $importadas[1]->setVencimentoOriginal(new \DateTimeImmutable('2020-01-10'));
+        $em->flush();
+
+        // 2ª importação do MESMO arquivo: agora a prévia tem de avisar as duas coisas.
+        $crawler = $client->request('GET', "/cobrancas/carteiras/{$carteiraId}/importar");
+        $form = $crawler->filter('form[action*="prever"]')->form();
+        $form['importar_relatorio[arquivo]']->upload(self::FIXTURE);
+        $client->submit($form);
+
+        self::assertResponseIsSuccessful();
+        $html = (string) $client->getResponse()->getContent();
+
+        self::assertStringContainsString('Nosso Número reutilizado', $html, 'sem isto o gestor confirma sem saber que nasce dívida nova');
+        self::assertStringContainsString((string) $importadas[0]->getReferenciaExterna(), $html);
+        self::assertStringContainsString('Vencimento alterado', $html, 'boleto reemitido tem de ser visível');
+        self::assertStringContainsString((string) $importadas[1]->getReferenciaExterna(), $html);
+    }
+
     #[TestDox('Sem a capacidade gerenciar, a importação nega acesso')]
     public function testSemCapacidadeNegaAcesso(): void
     {
