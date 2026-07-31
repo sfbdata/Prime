@@ -137,7 +137,8 @@ final class PontoController extends AbstractController
         }
 
         $anoAtual = (int) $agora->format('Y');
-        $saldoMes = $folhaPontoBuilder->calcularSaldoAnual($user, $anoAtual, $feriados, $jornadaTenant, $inicioContagem);
+        $saldoMes = $folhaPontoBuilder->calcularSaldoAnual($user, $anoAtual, $feriados, $jornadaTenant, $inicioContagem, $tenant);
+        $horasPagasMinutos = $folhaPontoBuilder->somarHorasPagasDaCompetencia($user, $tenant, $anoSelecionado, $mesSelecionado);
 
         $jornadaInfo = $this->resolverJornadaInfo($user, $jornadaTenant);
         $duracaoJornadaDiariaMinutos = $this->resolverDuracaoJornadaDiaria($user, $agora, $jornadaTenant);
@@ -177,6 +178,10 @@ final class PontoController extends AbstractController
             'competenciaSelecionada' => $competenciaSelecionada,
             'pontoHoje' => $pontoHoje,
             'saldoMes' => $saldoMes,
+            'horasPagasMinutos' => $horasPagasMinutos,
+            // Bloco de totais do rodapé da folha (spec §7). Vem pronto do controller de propósito:
+            // no Twig, "último saldoAcumulado não-nulo" viraria laço com estado dentro do template.
+            'saldoMesMinutos' => $folhaPontoBuilder->saldoAcumuladoFinal($folhaRows),
             'jornadaInfo' => $jornadaInfo,
             'minimoMinutosRepouso'           => $jornadaTenant?->getMinimoMinutosRepouso() ?? 60,
             'validacaoRepousoHabilitada'     => $jornadaTenant?->isValidacaoRepousoHabilitada() ?? true,
@@ -942,7 +947,9 @@ final class PontoController extends AbstractController
         $intrajornadaConforme    = true;
         $interjornadaConforme    = true;
         $ultimaSaidaTs           = null;
-        $saldoBancoAtualMinutos  = null;
+        // Saldo DAQUELE MÊS: `buildRows` faz o acumulado nascer em zero no dia 1º do intervalo
+        // pedido. É uma das três parcelas do "Saldo do Banco de Horas Atual" montado adiante.
+        $saldoDoMesMinutos       = null;
 
         foreach ($folhaRows as $row) {
             $row['horasTrabalhadas'] = $this->formatarMinutos($row['minutosTrabalhadosDia'] ?? null);
@@ -984,19 +991,83 @@ final class PontoController extends AbstractController
             }
 
             if ($row['saldoAcumulado'] !== null) {
-                $saldoBancoAtualMinutos = $row['saldoAcumulado'];
+                $saldoDoMesMinutos = $row['saldoAcumulado'];
             }
         }
 
-        $mesAnterior = $mes - 1;
-        $anoAnterior = $ano;
-        if ($mesAnterior < 1) {
-            $mesAnterior = 12;
-            $anoAnterior--;
+        // O BANCO DE HORAS ZERA EM 1º DE JANEIRO (regra do dono, confirmada em 2026-07-31). Por isso
+        // janeiro não tem competência anterior: pedir dezembro do ano passado traria para o documento
+        // assinado um saldo que a virada do ano extinguiu.
+        //
+        // Isto NÃO é detalhe de exibição, é o que mantém o campo coerente de um mês para o outro.
+        // `calcularSaldoAteMes` nunca olha antes de 1º/jan do ano que recebe (`FolhaPontoBuilder`
+        // limita o início em `$inicioAno`, e `somarPorPeriodo` filtra `l.ano = :ano`). Pedindo
+        // (dezembro, ano-1) em janeiro e (mês-1, ano) nos demais, o "anterior" saltava do ano passado
+        // INTEIRO em janeiro para só janeiro em fevereiro: uma dívida de 100h aparecia num papel
+        // assinado e sumia no seguinte, sem nenhuma hora trabalhada que explicasse.
+        // Guarda própria, não herdada: hoje os dois chamadores (`:789` e `:873`) já fazem
+        // `max(1, min(12, ...))`, mas o `$mes - 1` abaixo depende disso silenciosamente. Um chamador
+        // novo que esquecesse o clamp levaria `mes = 0` a somar período vazio e devolver ZERO SEM
+        // BARULHO — número errado num documento assinado —, e `mes = 13` a estourar 500 lá dentro.
+        if ($mes < 1 || $mes > 12) {
+            throw new \InvalidArgumentException(sprintf('montarDadosFolha: mês fora de 1..12 (%d)', $mes));
         }
-        $saldoBancoAnteriorMinutos = $jornada !== null
-            ? $builder->calcularSaldoAteMes($targetUser, $anoAnterior, $mesAnterior, $feriados, $jornadaTenant, $inicioContagem)
-            : 0;
+
+        // Nota sobre o ramo `? 0`: ele é a regra do reset, não um curto-circuito de jornada. O ramo de
+        // baixo NÃO condiciona em $jornada de propósito — `calcularSaldoAteMes` já se protege sozinho
+        // (devolve só os lançamentos quando não há jornada), e curto-circuitar ali apagaria as horas
+        // pagas de quem não tem JornadaColaborador: o painel /ponto mostraria -10h00 e o espelho do mês
+        // seguinte "Saldo anterior: 0h00", para o mesmo colaborador.
+        $saldoBancoAnteriorMinutos = $mes === 1
+            ? 0
+            : $builder->calcularSaldoAteMes(
+                $targetUser,
+                $ano,
+                $mes - 1,
+                $feriados,
+                $jornadaTenant,
+                $inicioContagem,
+                $tenant,
+            );
+
+        $horasPagasMinutos = $builder->somarHorasPagasDaCompetencia($targetUser, $tenant, $ano, $mes);
+
+        // DECISÃO DO DONO (2026-07-31, após o smoke): "Saldo do Banco de Horas Atual" passa a ser o
+        // banco ACUMULADO de verdade — anterior + saldo do mês + horas pagas da competência — e o
+        // bloco assinado deixa de ter linha própria "Horas pagas".
+        //
+        // Até aqui este campo era o `saldoAcumulado` da última linha da tabela, e `buildRows` faz
+        // esse acumulado NASCER EM ZERO no dia 1º do intervalo pedido: apesar do rótulo, o número era
+        // o saldo DAQUELE MÊS. Ficava ao lado de "Saldo do Banco de Horas Anterior", que sempre foi
+        // acumulado (`calcularSaldoAteMes`) — dois rótulos irmãos medindo coisas diferentes.
+        //
+        // É essa base errada que tornava a soma perigosa: colaborador acumula 100h, recebe as 100h em
+        // dinheiro, o admin lança -6000 em agosto, agosto é trabalhado na jornada exata (saldo do mês
+        // = 0) — somar o lançamento a um saldo MENSAL dizia "Horas a Compensar: 100:00", cobrando de
+        // volta o que acabou de ser pago. Com a base acumulada o mesmo caso fecha em zero:
+        // +100h (anterior) + 0 (mês) - 100h (pago) = 0.
+        //
+        // Sem contagem dupla: `calcularSaldoAteMes` soma os lançamentos das competências ANTERIORES;
+        // `somarHorasPagasDaCompetencia` soma os DESTA. As faixas não se sobrepõem.
+        //
+        // ⚠️ Muda o PDF de TODOS os escritórios, inclusive os que nunca usaram horas pagas — o campo
+        // deixa de ser mensal e passa a ser acumulado. Consequência aceita e explícita da decisão.
+        //
+        // `$saldoDoMesMinutos` é null quando NENHUMA linha teve saldo apurado. NÃO confundir com "mês
+        // sem batida": dia útil sem batida dentro da contagem recebe `saldoDia` negativo normalmente
+        // (`CalculadoraJornada::calcularSaldoDia` devolve `trabalhado - carga`), então um mês inteiro
+        // de faltas sai como número, não como null. Os gatilhos reais são: colaborador sem
+        // `JornadaColaborador` (`buildRows` não calcula saldo em dia nenhum), mês inteiramente FUTURO,
+        // mês inteiro anterior ao início da contagem, e o caso "só hoje, ainda sem saída".
+        //
+        // Nesses casos o mês é DESCONHECIDO, não zero, e o documento assinado não pode afirmar "+0:00"
+        // a partir do nada: mantém o '–' de antes. Mas só quando não há mais nada a reportar — havendo
+        // saldo anterior ou lançamento, o total sai, porque perder horas em silêncio é pior (spec §4.3).
+        $nadaApurado = $saldoDoMesMinutos === null && $saldoBancoAnteriorMinutos === 0 && $horasPagasMinutos === 0;
+
+        $saldoBancoAtualMinutos = $nadaApurado
+            ? null
+            : $saldoBancoAnteriorMinutos + ($saldoDoMesMinutos ?? 0) + $horasPagasMinutos;
 
         $enderecoPartes = array_filter([
             $tenant?->getLogradouro(),

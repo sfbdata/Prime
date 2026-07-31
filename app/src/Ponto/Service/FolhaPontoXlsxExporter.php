@@ -60,7 +60,7 @@ final class FolhaPontoXlsxExporter
         $sheet->getColumnDimension('F')->setWidth(11);   // Saída
         $sheet->getColumnDimension('G')->setWidth(14);   // Horas Trabalhadas
         $sheet->getColumnDimension('H')->setWidth(12);   // Horas Extras
-        $sheet->getColumnDimension('I')->setWidth(14);   // Banco de Horas
+        $sheet->getColumnDimension('I')->setWidth(14);   // Saldo do Mês
         $sheet->getColumnDimension('J')->setWidth(42);   // Justificativa
     }
 
@@ -234,7 +234,7 @@ final class FolhaPontoXlsxExporter
             ['B', 'B', "Dia da\nSemana"],
             ['G', 'G', "Horas\nTrabalhadas"],
             ['H', 'H', "Horas\nExtras"],
-            ['I', 'I', "Banco de\nHoras"],
+            ['I', 'I', "Saldo do\nMês"],
             ['J', 'J', "Justificativa /\nObservações"],
         ];
         foreach ($grupos as [$c1, $c2, $texto]) {
@@ -380,7 +380,9 @@ final class FolhaPontoXlsxExporter
         $sheet->getRowDimension($lin)->setRowHeight(14);
         $lin++;
 
-        // Linhas de conteúdo — máx 5 linhas
+        // Linhas de conteúdo — 5 linhas fixas. Sem linha própria "Horas pagas": o lançamento da
+        // competência já está DENTRO do "Saldo do Banco de Horas Atual", que é o banco acumulado
+        // (anterior + mês + horas pagas). Decisão do dono em 2026-07-31 — ver spec §7.
         $resumo = [
             'Detalhe de Horas Trabalhadas no Mês:  ' . ($c['totalHorasTrabalhadas'] ?? '–'),
             'Total de Horas Extras no Mês:  '         . ($c['totalHorasExtras'] ?? '–'),
