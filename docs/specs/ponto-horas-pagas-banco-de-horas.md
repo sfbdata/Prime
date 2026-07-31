@@ -326,6 +326,13 @@ $saldoBancoAtualMinutos = $nadaApurado
 e `horasACompensar` é o módulo desse total quando negativo. A chave `horasPagasMinutos` **não é mais
 publicada** no array — nada a consome depois da remoção das duas linhas.
 
+**A coluna da tabela chama-se "Saldo do Mês", não "Banco de Horas"** (decisão do dono no smoke de
+2026-07-31, nas três superfícies: PDF, XLSX e tela). Antes desta frente o último valor da coluna era
+idêntico ao "Saldo do Banco de Horas Atual" do resumo, então o nome repetido não incomodava. Com o resumo
+virando acumulado do ano, os dois passaram a divergir — no smoke, coluna `-32:36` × resumo `-98:03` na mesma
+página assinada. É a mesma colisão de rótulo que a tela do colaborador já tinha (ver acima), e a solução é a
+mesma: o nome passa a dizer o que o número é. Nenhum cálculo mudou.
+
 **O banco de horas ZERA em 1º de janeiro** (regra do dono, confirmada em 2026-07-31). Por isso janeiro
 **não tem competência anterior**: o chamador devolve `0` em vez de pedir dezembro do ano passado.
 

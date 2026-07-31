@@ -234,7 +234,7 @@ final class FolhaPontoXlsxExporter
             ['B', 'B', "Dia da\nSemana"],
             ['G', 'G', "Horas\nTrabalhadas"],
             ['H', 'H', "Horas\nExtras"],
-            ['I', 'I', "Banco de\nHoras"],
+            ['I', 'I', "Saldo do\nMês"],
             ['J', 'J', "Justificativa /\nObservações"],
         ];
         foreach ($grupos as [$c1, $c2, $texto]) {
