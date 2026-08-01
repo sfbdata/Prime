@@ -116,18 +116,22 @@ recebe R$ X numa original → a planilha traz o acordo → reativação → a or
 Consequência: **o devedor passa a ser cobrado por dinheiro que já pagou.** É o erro mais grave possível
 neste domínio — pior que subcobrança —, e acontece em silêncio.
 
-"O importe é a verdade" resolve *quem manda no estado do acordo*; **não** diz para onde vai um
-pagamento que já entrou. Três saídas possíveis, a decidir com o dono:
+"O importe é a verdade" resolve *quem manda no estado do acordo*. Para o dinheiro que já entrou, o
+dono acrescentou a peça que faltava (01/08):
 
-1. **Realocar o pagamento** para as parcelas do acordo reativado (`AutoAlocadorFifo` já faz isso, e é o
-   que `CorrigirPagamento` usa). Coerente com "a planilha manda", mas move dinheiro sozinho.
-2. **Reativar e avisar**, deixando o pagamento solto para o gestor realocar à mão. Contraria o "não
-   precisa nem dizer", mas nada se move sem decisão humana.
-3. **Não reativar quando houver pagamento nas originais**, e reportar — espelho da §D4.
+> *"é o estado ATUAL, porque temos que implementar o importe da planilha de receita também."*
 
-Recomendação: **(1)**, porque é a única coerente com D6, e porque a frente de *excluir recebimento*
-(D7) dá o desfazer que a torna reversível. Mas é decisão de dinheiro: **não implementar sem o martelo
-do dono**.
+🔑 **Isso dispensa o rateio adivinhado.** A *Receitas detalhadas por unidade/cliente* traz **NN, data e
+valor recebido** — ela identifica o pagamento **por obrigação**, não por regra. Com ela importada, a
+pergunta "para onde vai o dinheiro quando o acordo volta" deixa de ser uma decisão do sistema e passa a
+ser um dado da contabilidade: os recebimentos das PARCELAS chegam com o NN das parcelas.
+
+Consequência para o planejamento: **D6 não deve ser escrita antes do importe de Receitas**, ou será
+escrita duas vezes — uma adivinhando (FIFO) e outra lendo a verdade. A ordem que decorre disso está em
+§7.
+
+Enquanto Receitas não existir, um pagamento lançado à mão numa original é um artefato só do sistema, que
+a contabilidade não conhece — e é justamente por isso que ele precisa ser **apagável** (D7).
 
 ### 3.1 Ressalva registrada sobre D4
 
@@ -243,8 +247,15 @@ inadimplência atualizado (as 4 taxas de R$ 170,00 abertas + a de 07/2026), não
   **Próxima frente**, já aprovada pelo dono. A lista de recebimentos já mostra TODOS os pagamentos do
   caso, inclusive os de parcela de acordo (`PagamentoRepository::doCaso`); falta a ação de apagar, com
   registro no histórico e reconciliação da obrigação.
-- **Reativação por importação (D6)** — especificada em §3.2, com o furo de dinheiro que ela precisa
-  resolver antes. Frente própria; **não reimplementar sem decidir o §3.2**.
+- **Reativação por importação (D6)** — especificada em §3.2. Frente própria, e **depois** do importe de
+  Receitas: é ele que responde para onde vai o dinheiro quando o acordo volta, sem o sistema adivinhar.
+
+### Ordem das frentes que saem daqui
+
+1. **Excluir recebimento** (D7) — o desfazer; destrava a recusa de cancelar acordo com parcela paga.
+2. **Importar Receitas detalhadas** — o 4º relatório; dá conferência externa aos pagamentos e passa a
+   dizer, por NN, o que foi pago.
+3. **D6, reativação por importação** — só depois de (2), senão o rateio é chute.
 - ⚠️ **Cancelar acordo SEM obrigações substituídas** (a forma que o importador cria: *"o import não
   substitui nada, só materializa a parcela"*) tira as parcelas do saldo E da tela, e não há original
   para voltar no lugar — o caso pode ficar visualmente sem dívida. Medido em 01/08: os 9 acordos do dev

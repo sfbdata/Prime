@@ -114,6 +114,14 @@ precisa resolver: reativar um acordo tira do exigível as originais, e um pagame
 durante a janela **para de abater a dívida** — o devedor passaria a ser cobrado pelo que já pagou.
 Medido: exigíveis 5 → 31, bruto 88961 → 88445.
 
-🔑 **É por isso que "excluir recebimento" vem primeiro.** Ela é o desfazer que torna a reativação
-reversível; sem ela, um erro de realocação não teria conserto. Feita esta frente, a de D6 fica muito
-mais segura de escrever.
+**E o dono fechou o raciocínio (01/08):** *"é o estado ATUAL, porque temos que implementar o importe da
+planilha de receita também."* A *Receitas detalhadas* traz **NN, data e valor** — ela diz, por
+obrigação, o que foi pago. Com ela, a pergunta "para onde vai o dinheiro quando o acordo volta" vira
+dado, não decisão do sistema.
+
+🔑 **Ordem das três frentes, e o porquê:**
+
+1. **Excluir recebimento** (esta) — o desfazer. Sem ele, erro de dinheiro não tem conserto.
+2. **Importar Receitas detalhadas** — passa a dizer, por NN, o que foi pago.
+3. **D6, reativação por importação** — só depois de (2). Escrita antes, o rateio do pagamento seria
+   chute (FIFO); depois, é leitura da verdade. Escrever antes = escrever duas vezes.
