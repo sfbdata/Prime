@@ -6,6 +6,7 @@ namespace App\Tests\Cobranca\Functional;
 
 use App\Cobranca\Controller\AcordoController;
 use App\Cobranca\Entity\Acordo;
+use App\Cobranca\Entity\Obrigacao;
 use App\Cobranca\Enum\StatusAcordo;
 use App\Cobranca\Repository\AcordoRepository;
 use App\Cobranca\Entity\CasoCobranca;
@@ -306,9 +307,13 @@ final class AcordoMutacaoControllerTest extends CobrancaWebTestCase
         self::assertResponseStatusCodeSame(404);
     }
 
-    #[TestDox('Cancelar acordo ativo: happy path muda o status')]
+    #[TestDox('Cancelar acordo ativo: some da tela e a rota dá 404, mas a linha sobrevive no banco')]
     public function testCancelarHappy(): void
     {
+        // Decisão do dono (01/08): "cancelado perde tudo do acordo, não tem nem como abrir um acordo
+        // cancelado". Para o gestor o acordo deixou de existir. A LINHA, porém, fica — é ela que dá ao
+        // importador memória de que aquele número foi cancelado; sem ela a próxima importação criaria um
+        // acordo novo ATIVO e a mesma dívida passaria a contar duas vezes.
         $client = static::createClient();
         [, $tenant] = $this->criarAdminLogado($client);
         [, $caso] = $this->semearGrafo($tenant);
@@ -324,7 +329,60 @@ final class AcordoMutacaoControllerTest extends CobrancaWebTestCase
 
         self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId() . '#secao-divida');
         $this->em()->clear();
-        self::assertSame(StatusAcordo::Cancelado, $this->em()->find(Acordo::class, $acordoId)->getStatus());
+        self::assertSame(
+            StatusAcordo::Cancelado,
+            $this->em()->find(Acordo::class, $acordoId)?->getStatus(),
+            'A linha sobrevive — é a memória de que este número foi cancelado.',
+        );
+
+        // "Não tem nem como abrir": a rota do acordo cancelado responde 404.
+        $client->request('GET', '/cobrancas/acordos/' . $acordoId);
+        self::assertResponseStatusCodeSame(404);
+    }
+
+    #[TestDox('Acordo cancelado some da tela do objeto — nem como grupo, nem em "Acordos encerrados"')]
+    public function testAcordoCanceladoNaoApareceNaTelaDoObjeto(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $acordo = AcordoFactory::createOne(['tenant' => $tenant, 'caso' => $caso, 'status' => StatusAcordo::Ativo])->_real();
+        $acordoId = (int) $acordo->getId();
+
+        ObrigacaoFactory::createOne([
+            'tenant' => $tenant,
+            'caso' => $caso,
+            'acordoOrigem' => $acordo,
+            'valorOriginal' => 23_66,
+            'descricao' => 'Parcela 1/30 do acordo cancelado',
+        ]);
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        $token = $this->tokenDoFormulario($crawler, 'cancelar_acordo');
+        // Antes de cancelar, o acordo aparece: é o que garante que o assert de ausência abaixo mede algo.
+        self::assertStringContainsString('Acordo #' . $acordoId, $crawler->filter('body')->text());
+
+        $client->request('POST', '/cobrancas/acordos/' . $acordoId . '/cancelar', [
+            'cancelar_acordo' => ['motivo' => 'Não consta na contabilidade', '_token' => $token],
+        ]);
+        $this->em()->clear();
+
+        $depois = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+
+        $divida = $depois->filter('#secao-divida')->text();
+        self::assertStringNotContainsString('Acordo #' . $acordoId, $divida, 'o acordo cancelado não vira grupo');
+        self::assertStringNotContainsString('Parcela 1/30 do acordo cancelado', $divida, 'nem as parcelas dele');
+
+        // Nem em "Acordos encerrados" — lá ficam os ROMPIDOS, que aconteceram de verdade.
+        self::assertCount(0, $depois->filter('#secao-acordos-encerrados a[href="/cobrancas/acordos/' . $acordoId . '"]'));
+        // E link nenhum para ele em lugar nenhum da página: a rota dá 404.
+        self::assertCount(0, $depois->filter('a[href="/cobrancas/acordos/' . $acordoId . '"]'));
+
+        // O que SOBRA é a linha do histórico — autocontida, porque não há mais acordo para abrir.
+        self::assertStringContainsString(
+            'Acordo #' . $acordoId . ' de 1 parcela(s) foi cancelado',
+            $depois->filter('body')->text(),
+        );
     }
 
     #[TestDox('Cancelar acordo sem capacidade: negado, status inalterado')]

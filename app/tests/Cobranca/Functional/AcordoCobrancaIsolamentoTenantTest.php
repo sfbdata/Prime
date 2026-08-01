@@ -33,6 +33,11 @@ use App\Cobranca\Service\CalculadoraEncargos;
 use App\Cobranca\Service\CalculadoraSaldo;
 use App\Cobranca\Service\ConversorTaxaEncargo;
 use App\Cobranca\Service\RegistrarEventoHistorico;
+use App\Cobranca\Service\RestauradorObrigacoesOriginais;
+use App\Cobranca\Entity\Pagamento;
+use App\Cobranca\Exception\AcordoComParcelaPagaException;
+use App\Cobranca\UseCase\CancelarAcordoUseCase;
+use App\Cobranca\DTO\CancelarAcordoInput;
 use App\Cobranca\Service\ResolvedorConfigEncargos;
 use App\Cobranca\UseCase\AbrirCasoUseCase;
 use App\Cobranca\UseCase\CriarAcordoUseCase;
@@ -69,6 +74,7 @@ final class AcordoCobrancaIsolamentoTenantTest extends KernelTestCase
     private RegistrarObrigacaoUseCase $registrarObrigacao;
     private CriarAcordoUseCase $criarAcordo;
     private RomperAcordoUseCase $romperAcordo;
+    private CancelarAcordoUseCase $cancelarAcordo;
     private CalculadoraSaldo $calculadoraSaldo;
 
     protected function setUp(): void
@@ -98,7 +104,8 @@ final class AcordoCobrancaIsolamentoTenantTest extends KernelTestCase
         $this->abrirCaso = new AbrirCasoUseCase($casoRepo, $objetoRepo, $pessoaRepo, $registrarEvento);
         $this->registrarObrigacao = new RegistrarObrigacaoUseCase($obrigacaoRepo, $casoRepo, $registrarEvento, new CalculadoraEncargos(), new ResolvedorConfigEncargos(), new ConversorTaxaEncargo(new CalculadoraEncargos()));
         $this->criarAcordo = new CriarAcordoUseCase($acordoRepo, $obrigacaoRepo, $casoRepo, $registrarEvento, new CalculadoraEncargos(), new ResolvedorConfigEncargos());
-        $this->romperAcordo = new RomperAcordoUseCase($acordoRepo, $obrigacaoRepo, $registrarEvento);
+        $this->romperAcordo = new RomperAcordoUseCase($acordoRepo, $obrigacaoRepo, new RestauradorObrigacoesOriginais($obrigacaoRepo), $registrarEvento);
+        $this->cancelarAcordo = new CancelarAcordoUseCase($acordoRepo, $obrigacaoRepo, $alocacaoRepo, new RestauradorObrigacoesOriginais($obrigacaoRepo), $registrarEvento);
         $this->calculadoraSaldo = new CalculadoraSaldo($obrigacaoRepo, $casoRepo, $alocacaoRepo, $liquidacaoRepo, new \App\Cobranca\Service\EncargosVivos(new \Symfony\Component\Clock\MockClock(new \DateTimeImmutable('2026-07-20')), new \App\Cobranca\Service\CalculadoraEncargos(), new \App\Cobranca\Service\ResolvedorConfigEncargos()), new \App\Cobranca\Service\ResolvedorConfigEncargos());
     }
 
@@ -162,6 +169,112 @@ final class AcordoCobrancaIsolamentoTenantTest extends KernelTestCase
         $rompido = $this->romperAcordo->executar($this->romperInput((int) $acordo->getId(), 'Devedor parou de pagar'), $tenant, $user);
         self::assertSame(StatusAcordo::Rompido, $rompido->getStatus());
         self::assertSame(30000, $this->calculadoraSaldo->saldoExigivel($caso));
+    }
+
+    #[TestDox('Cancelar o acordo restaura as originais no saldo, sem criar dívida fantasma')]
+    public function testCancelarAcordoRestauraOriginaisSemDividaFantasma(): void
+    {
+        // O teste que a spec §6 elege como decisivo: o saldo depois de cancelar tem de ser EXATAMENTE o
+        // de antes do acordo. Nem a mais (parcelas que sobrevivem soltas e passam a somar junto com as
+        // originais — foi o que a 1ª versão, que APAGAVA o acordo, teria causado na reimportação), nem
+        // a menos (originais que não voltam).
+        $tenant = $this->criarTenant();
+        $user = $this->criarUser();
+        $caso = $this->abrirCasoDe($tenant, $user);
+
+        $o1 = $this->registrarObrigacao->executar($this->obrigacaoInput((int) $caso->getId(), 10000), $tenant, $user);
+        $o2 = $this->registrarObrigacao->executar($this->obrigacaoInput((int) $caso->getId(), 20000), $tenant, $user);
+        $saldoAntesDoAcordo = $this->calculadoraSaldo->saldoExigivel($caso);
+        self::assertSame(30000, $saldoAntesDoAcordo);
+
+        $acordo = $this->criarAcordo->executar(
+            $this->acordoInput((int) $caso->getId(), [(int) $o1->getId(), (int) $o2->getId()], [
+                ['Parcela 1/2', 12500, '2026-06-10'],
+                ['Parcela 2/2', 12500, '2026-07-10'],
+            ]),
+            $tenant,
+            $user,
+        );
+        self::assertSame(25000, $this->calculadoraSaldo->saldoExigivel($caso), 'com o acordo vigente, valem as parcelas');
+
+        // Reproduz o estado REAL que o dono encontrou: enquanto estavam substituídas, a migration
+        // `Version20260719140000` congelou as originais por engano. Sem congelar aqui, o assert de
+        // "voltam vivas" lá embaixo passaria sozinho e não provaria nada — `CriarAcordoUseCase`
+        // materializa a substituída SEM congelar.
+        $o1->congelarEncargos(new \DateTimeImmutable('2026-07-21 21:04:26'));
+        $o2->congelarEncargos(new \DateTimeImmutable('2026-07-21 21:04:26'));
+        $this->em->flush();
+        self::assertTrue($o1->encargosCongelados(), 'pré-condição: a original entra congelada no cancelamento');
+
+        $cancelado = $this->cancelarAcordo->executar(
+            $this->cancelarInput((int) $acordo->getId(), 'Não consta na contabilidade'),
+            $tenant,
+            $user,
+        );
+
+        self::assertSame(StatusAcordo::Cancelado, $cancelado->getStatus());
+        self::assertSame(
+            $saldoAntesDoAcordo,
+            $this->calculadoraSaldo->saldoExigivel($caso),
+            'o saldo tem de voltar a ser o de antes do acordo — nem um centavo a mais',
+        );
+
+        // E as originais voltam VIVAS: congeladas, elas entrariam no saldo mas parariam de crescer, que
+        // é exatamente o defeito que o dono reportou em 01/08.
+        $this->em->refresh($o1);
+        $this->em->refresh($o2);
+        self::assertFalse($o1->encargosCongelados());
+        self::assertFalse($o2->encargosCongelados());
+    }
+
+    #[TestDox('§D4: acordo com pagamento REAL numa parcela não cancela — com alocação de verdade no banco')]
+    public function testCancelarRecusaComPagamentoRealNaParcela(): void
+    {
+        // O teste unitário desta guarda mocka `existeAlocacaoEmObrigacoes` e, com entidades sem id,
+        // exercita o UseCase com uma lista VAZIA — ele passaria mesmo com a guarda quebrada. Aqui a
+        // alocação é real, persistida, e quem responde é o repositório de verdade.
+        $tenant = $this->criarTenant();
+        $user = $this->criarUser();
+        $caso = $this->abrirCasoDe($tenant, $user);
+
+        $o1 = $this->registrarObrigacao->executar($this->obrigacaoInput((int) $caso->getId(), 10000), $tenant, $user);
+        $acordo = $this->criarAcordo->executar(
+            $this->acordoInput((int) $caso->getId(), [(int) $o1->getId()], [['Parcela única', 9000, '2026-06-10']]),
+            $tenant,
+            $user,
+        );
+
+        $parcela = $this->em->getRepository(Obrigacao::class)->findOneBy(['acordoOrigem' => $acordo]);
+        self::assertNotNull($parcela);
+
+        $pagamento = (new Pagamento())
+            ->setTenant($tenant)
+            ->setCaso($caso)
+            ->setData(new \DateTimeImmutable('2026-06-11'))
+            ->setValorDivida(5000);
+        $this->em->persist($pagamento);
+
+        $alocacao = (new AlocacaoPagamento())
+            ->setTenant($tenant)
+            ->setPagamento($pagamento)
+            ->setObrigacao($parcela)
+            ->setValor(5000);
+        $this->em->persist($alocacao);
+        $this->em->flush();
+
+        $this->expectException(AcordoComParcelaPagaException::class);
+
+        try {
+            $this->cancelarAcordo->executar(
+                $this->cancelarInput((int) $acordo->getId(), 'Engano'),
+                $tenant,
+                $user,
+            );
+        } finally {
+            // Nada pode ter sido escrito: o acordo continua ativo e a original continua substituída.
+            self::assertSame(StatusAcordo::Ativo, $acordo->getStatus());
+            self::assertSame($acordo, $o1->getAcordoSubstituto());
+        }
     }
 
     #[TestDox('Criar acordo não alcança caso de outro escritório (IDOR por tenant)')]
@@ -243,6 +356,15 @@ final class AcordoCobrancaIsolamentoTenantTest extends KernelTestCase
 
             return $parcela;
         }, $parcelas);
+
+        return $input;
+    }
+
+    private function cancelarInput(int $acordoId, ?string $motivo): CancelarAcordoInput
+    {
+        $input = new CancelarAcordoInput();
+        $input->acordoId = $acordoId;
+        $input->motivo = $motivo;
 
         return $input;
     }

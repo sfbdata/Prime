@@ -524,8 +524,8 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
         self::assertGreaterThan(0, $crawler->filter('.jp-acordo [data-acao="receber"]')->count());
     }
 
-    #[TestDox('Ajuste 10 T5: parcela de acordo rompido é histórico — não oferece "Receber" nem "Acordar"')]
-    public function testParcelaDeAcordoRompidoNaoOfereceReceber(): void
+    #[TestDox('Parcela de acordo rompido não aparece na seção de dívida (nem oferece Receber/Acordar)')]
+    public function testParcelaDeAcordoRompidoSaiDaSecaoDeDivida(): void
     {
         $client = static::createClient();
         [, $tenant] = $this->criarAdminLogado($client);
@@ -541,12 +541,17 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
         $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
 
         self::assertResponseIsSuccessful();
-        // A parcela do acordo desfeito segue na lista solta (histórico), mas saiu do exigível
-        // (`doCasoExigiveis`) — logo não está no select do modal de pagamento. Oferecer "Receber" abriria
-        // o modal apontando para um alvo que o form não conhece.
-        self::assertGreaterThan(0, $crawler->filter('.jp-obr')->count(), 'a parcela desfeita continua na tela');
+        // Desde 01/08 a parcela de acordo desfeito sai da seção: ela está fora do exigível
+        // (`doCasoExigiveis`) e a seção mostra o que compõe o saldo. Fica acessível pelo acordo, em
+        // "Acordos encerrados".
+        self::assertStringNotContainsString(
+            'Parcela de acordo rompido',
+            $crawler->filter('#secao-divida')->text(),
+            'a parcela desfeita não pertence à seção de dívida em aberto',
+        );
+        // E, fora da lista, nenhuma das duas ações sobra para ela: "Receber" apontaria para um alvo que o
+        // form de pagamento não conhece, e "Acordar" só vale para dívida original exigível (INV-I).
         self::assertCount(0, $crawler->filter('[data-acao="receber"]'));
-        // E acordar sobre ela também não: `doCasoSubstituiveis` (INV-I) só oferece dívida original exigível.
         self::assertCount(0, $crawler->filter('[data-acao="acordar"]'));
     }
 

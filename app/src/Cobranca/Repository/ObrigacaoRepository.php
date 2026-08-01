@@ -246,6 +246,59 @@ class ObrigacaoRepository extends ServiceEntityRepository
     }
 
     /**
+     * As obrigações ORIGINAIS que este acordo substituiu — o conjunto que o rompimento/cancelamento
+     * precisa descongelar (spec `cobranca-cancelar-acordo.md` §D5).
+     *
+     * 🔑 **Existe para NÃO depender de `Acordo::getObrigacoesSubstituidas()`**, que é o lado INVERSO da
+     * associação. Quando o acordo foi criado na MESMA unidade de trabalho (`CriarAcordoUseCase` só
+     * escreve o lado dono, `Obrigacao::setAcordoSubstituto`), a coleção inversa continua vazia e o laço
+     * de restauração não descongela nada — em silêncio. Em produção o cancelamento é outro request e a
+     * coleção carrega do banco, o que faz o defeito passar despercebido justamente onde há teste.
+     * Uma query explícita dá a mesma resposta nos dois casos.
+     *
+     * Tenant EXPLÍCITO, e não `$acordo->getTenant()`: aquele é nullable, e um tenant nulo devolveria
+     * lista vazia **em silêncio** — exatamente o modo de falha que esta query existe para eliminar.
+     *
+     * @return Obrigacao[]
+     */
+    public function substituidasPorAcordo(Acordo $acordo, Tenant $tenant): array
+    {
+        return $this->createQueryBuilder('o')
+            ->andWhere('o.acordoSubstituto = :acordo')
+            ->andWhere('o.tenant = :tenant')
+            ->setParameter('acordo', $acordo)
+            ->setParameter('tenant', $tenant)
+            ->orderBy('o.vencimentoOriginal', 'ASC')
+            ->addOrderBy('o.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * As PARCELAS geradas por este acordo. Mesmo motivo de existir que `substituidasPorAcordo`: não
+     * depender da coleção inversa `Acordo::getParcelas()`, que nasce vazia quando o acordo foi criado
+     * na mesma unidade de trabalho. Aqui a consequência seria pior — a guarda de pagamento do
+     * cancelamento (§D4) receberia uma lista vazia e deixaria passar um acordo com dinheiro recebido.
+     *
+     * Tenant EXPLÍCITO pelo mesmo motivo de `substituidasPorAcordo`: lista vazia por tenant nulo aqui
+     * significaria a guarda de pagamento deixando passar um acordo com dinheiro recebido.
+     *
+     * @return Obrigacao[]
+     */
+    public function parcelasDoAcordo(Acordo $acordo, Tenant $tenant): array
+    {
+        return $this->createQueryBuilder('o')
+            ->andWhere('o.acordoOrigem = :acordo')
+            ->andWhere('o.tenant = :tenant')
+            ->setParameter('acordo', $acordo)
+            ->setParameter('tenant', $tenant)
+            ->orderBy('o.vencimentoOriginal', 'ASC')
+            ->addOrderBy('o.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
      * Versão em LOTE de `doCasoExigiveis` para a agregação tenant-wide (Dashboard, Etapa 9): as obrigações
      * EXIGÍVEIS de VÁRIOS casos numa única query, com o MESMO filtro de exclusão (substituídas por acordo
      * vigente / parcelas de acordo rompido-cancelado — SPEC §12, invariáveis 15/20). Evita o N+1 de chamar

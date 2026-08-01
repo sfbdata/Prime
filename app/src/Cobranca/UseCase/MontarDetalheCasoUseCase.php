@@ -14,11 +14,13 @@ use App\Cobranca\DTO\ObrigacaoOutput;
 use App\Cobranca\DTO\PagamentoOutput;
 use App\Cobranca\DTO\ProximaAcaoOutput;
 use App\Cobranca\DTO\QualificacaoContatoOutput;
+use App\Cobranca\Entity\Acordo;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\EventoHistorico;
 use App\Cobranca\Entity\Obrigacao;
 use App\Cobranca\Enum\BaseEncargo;
 use App\Cobranca\Enum\FormaHonorarios;
+use App\Cobranca\Enum\StatusAcordo;
 use App\Cobranca\Enum\StatusCaso;
 use App\Cobranca\Enum\TipoEventoHistorico;
 use App\Cobranca\Repository\AcordoRepository;
@@ -134,7 +136,18 @@ final class MontarDetalheCasoUseCase
             },
             $this->obrigacaoRepository->doCaso($caso),
         );
-        $acordos = array_map(AcordoOutput::fromEntity(...), $this->acordoRepository->doCaso($caso));
+        // O acordo CANCELADO some da tela (decisão do dono, 01/08: "cancelado perde tudo do acordo,
+        // não tem nem como abrir"). A linha continua no banco de propósito — é ela que impede dívida em
+        // dobro se a contabilidade voltar a trazer o acordo (ver `CancelarAcordoUseCase`) —, mas não
+        // chega ao Output: sem isto ele reapareceria em "Acordos encerrados", com um link que agora dá
+        // 404. O ROMPIDO continua listado: aconteceu de verdade e o histórico dele importa.
+        $acordos = array_map(
+            AcordoOutput::fromEntity(...),
+            array_values(array_filter(
+                $this->acordoRepository->doCaso($caso),
+                static fn (Acordo $a): bool => $a->getStatus() !== StatusAcordo::Cancelado,
+            )),
+        );
         [$gruposAcordo, $obrigacoesAvulsas] = $this->agruparPorAcordo($obrigacoes, $acordos);
 
         // Totais da aba Honorários: somados sobre o MESMO conjunto que a aba lista (avulsas + parcelas
@@ -162,19 +175,23 @@ final class MontarDetalheCasoUseCase
         $obrigacoesEmAbertoQtd = 0;
         $emAberto = [];
         foreach ($listadasNaAba as $listada) {
-            // O total do RODAPÉ da aba Honorários soma tudo que a aba LISTA, inclusive a parcela morta
-            // e a quitada — é o número que tem de fechar com as linhas visíveis, e por isso fica antes
-            // das duas exclusões abaixo.
+            // O total do RODAPÉ da aba Honorários soma tudo que a aba LISTA — hoje isso quer dizer as
+            // avulsas e as parcelas de acordo vigente, inclusive as quitadas. Fica ANTES das exclusões
+            // abaixo justamente por isso: é o número que tem de fechar com as linhas visíveis.
             $honorariosDasObrigacoes += $listada->honorarios;
 
-            // Parcela de acordo ROMPIDO/CANCELADO continua LISTADA (a aba Dívida a rotula "histórico,
-            // fora do total em aberto") mas está fora do exigível: romper o acordo devolveu a obrigação
+            // Parcela de acordo desfeito está fora do exigível: romper o acordo devolveu a obrigação
             // ORIGINAL ao saldo, e somar as duas contaria o MESMO dinheiro duas vezes — no card mais
             // visível da página, e com encargo de snapshot velho, porque `EncargosVivos` só hidrata as
-            // exigíveis. Com esta exclusão o conjunto somado aqui passa a ser exatamente o de
+            // exigíveis. Com esta exclusão o conjunto somado aqui é exatamente o de
             // `ObrigacaoRepository::doCasoExigiveis`, que é quem governa o `saldoExigivel`: a diferença
             // entre o BRUTO (card `Total atualizado`) e o LÍQUIDO (linha `Total em aberto`) volta a ser
             // só o que já foi recebido, que é a explicação que a §1.2 dá ao gestor.
+            //
+            // DEFESA EM PROFUNDIDADE (01/08): desde que `agruparPorAcordo` descarta a parcela desfeita,
+            // esta metade do teste não deveria mais ser alcançada. Fica de propósito — é caminho de
+            // dinheiro, e o custo de uma comparação é nada perto de recontar dívida se o agrupamento
+            // mudar de novo.
             if ($listada->parcelaDeAcordoDesfeito || $listada->quitada()) {
                 continue;
             }
@@ -334,8 +351,13 @@ final class MontarDetalheCasoUseCase
      *    "substituiu N" de B. Ela continua existindo (invariável 14) e aparece no detalhe de A, travada,
      *    e agora também recolhida no grupo do acordo que a substituiu (se este ainda estiver vigente).
      * 2. **parcela de acordo VIGENTE** (e não substituída) → entra no grupo daquele acordo.
-     * 3. **todo o resto** (inclusive parcela de acordo ROMPIDO/CANCELADO, que é histórico e voltou a
-     *    ser editável, e original restaurada por rompimento) segue na lista solta.
+     * 3. **parcela de acordo DESFEITO** (rompido ou cancelado) → DESCARTADA da seção (decisão do dono,
+     *    01/08). Ela está fora do exigível e a seção mostra o que compõe o saldo; misturada às originais
+     *    restauradas, poluía a lista — no caso real da QUADRA 11 eram 30 parcelas mortas contra 5
+     *    dívidas de verdade, com um rótulo cinza como única distinção. Continua existindo (invariável
+     *    14). A do ROMPIDO segue acessível abrindo o acordo em "Acordos encerrados"; a do CANCELADO não,
+     *    porque o acordo cancelado some da tela inteira (spec `cobranca-cancelar-acordo.md`).
+     * 4. **todo o resto** (inclusive a original restaurada) segue na lista solta.
      *
      * Só acordo vigente vira grupo, e só se tiver ao menos uma parcela viva. (Acordo vigente SEM
      * nenhuma parcela não existe hoje — `CriarAcordoInput`/`EditarAcordoInput` exigem `Count(min:1)`;
@@ -377,7 +399,13 @@ final class MontarDetalheCasoUseCase
                 continue;
             }
 
-            // (3) O resto segue na lista solta.
+            // (3) Parcela de acordo DESFEITO é descartada da seção: está fora do exigível, e a seção
+            //     mostra o que compõe o saldo. O registro dela vive no acordo ("Acordos encerrados").
+            if ($obrigacao->parcelaDeAcordoDesfeito) {
+                continue;
+            }
+
+            // (4) O resto segue na lista solta.
             $avulsas[] = $obrigacao;
         }
 

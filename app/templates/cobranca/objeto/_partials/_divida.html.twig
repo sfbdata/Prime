@@ -6,8 +6,9 @@
    vencimento em COLUNA PRÓPRIA: é por ele que se lê a lista de cima a baixo.
 
    Contexto herdado do show: `caso` (CasoDetalheOutput). A partição vem pronta do UseCase (Ajuste 8):
-   `caso.obrigacoesAvulsas` = o que não está em acordo vigente; `caso.gruposAcordo` = os acordos vigentes,
-   cujas parcelas SÃO a dívida agora, com as obrigações que cada um trocou (`g.substituidas`, T2).
+   `caso.obrigacoesAvulsas` = o que não está em acordo vigente, MENOS a parcela de acordo rompido (desde
+   01/08 ela é descartada no UseCase e vive em "Acordos encerrados"); `caso.gruposAcordo` = os acordos
+   vigentes, cujas parcelas SÃO a dívida agora, com as obrigações que cada um trocou (`g.substituidas`, T2).
    Nada aqui recalcula regra — o template só exibe.
 
    Ordenação: já vem `vencimentoOriginal ASC` do `ObrigacaoRepository::doCaso` — não reordenar aqui.
@@ -157,8 +158,10 @@
                    acordo duplica dívida no saldo (`CriarAcordoUseCase` barra em qualquer status). #}
                 {% set podeAcordar = podeGerenciar and o.acordoOrigemId is null and not o.substituidaPorAcordo %}
                 {# Exigível espelha `ObrigacaoRepository::doCasoExigiveis` — que é exatamente a lista que o
-                   modal de pagamento oferece para alocar. Parcela de acordo desfeito é histórico: ficou
-                   fora do exigível, logo "Receber" apontaria para um alvo que o form não conhece. #}
+                   modal de pagamento oferece para alocar. A metade `parcelaDeAcordoDesfeito` ficou
+                   INALCANÇÁVEL desde 01/08 (o UseCase descarta essa parcela da lista) e permanece como
+                   defesa em profundidade: é caminho de dinheiro, e "Receber" numa parcela fora do
+                   exigível apontaria para um alvo que o form não conhece. #}
                 {% set exigivel = not o.substituidaPorAcordo and not o.parcelaDeAcordoDesfeito %}
                 {% set vencida = o.restante > 0 and o.vencimentoOriginal <= hoje %}
                 {# Taxa por-obrigação (Task 9, spec §5): dias corridos de vencimento até hoje, para o JS do
@@ -180,12 +183,6 @@
 
                     <div class="jp-obr-desc">
                         {{ o.descricao }}{% if o.referenciaExterna %} <span class="jp-obr-sub">#{{ o.referenciaExterna }}</span>{% endif %}
-                        {% if o.parcelaDeAcordoDesfeito %}
-                            <span class="jp-obr-sub" data-bs-toggle="tooltip"
-                                  title="Parcela de um acordo rompido ou cancelado — histórico, fora do total em aberto.">
-                                parcela de acordo desfeito
-                            </span>
-                        {% endif %}
                         {% if o.alocado > 0 and not o.quitada %}
                             <span class="jp-obr-sub">{{ o.alocado|centavos }} já recebidos</span>
                         {% endif %}

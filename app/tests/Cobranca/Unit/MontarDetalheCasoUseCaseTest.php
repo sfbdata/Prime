@@ -417,7 +417,7 @@ final class MontarDetalheCasoUseCaseTest extends TestCase
      * exclusão cair, nenhum dos quatro cards passa por acidente.
      */
     #[Test]
-    #[TestDox('parcela de acordo ROMPIDO fica fora dos cards e da contagem, mas continua no rodapé da aba Honorários')]
+    #[TestDox('parcela de acordo ROMPIDO fica fora dos cards, da contagem e da própria lista')]
     public function osTotaisIgnoramParcelaDeAcordoRompido(): void
     {
         $caso = $this->casoComAcordoRompido(
@@ -441,9 +441,31 @@ final class MontarDetalheCasoUseCaseTest extends TestCase
             $detalhe->totalAtualizadoVencido,
         );
 
-        // …mas o RODAPÉ da aba Honorários continua somando tudo que a aba LISTA — a parcela morta
-        // aparece lá rotulada, e um rodapé que não fechasse com as linhas visíveis seria outro defeito.
-        self::assertSame(44000, $detalhe->honorariosDasObrigacoes, '24000 da original + 10000 de cada parcela morta');
+        // O RODAPÉ da aba Honorários soma o que a aba LISTA — e desde 01/08 a aba não lista mais a
+        // parcela morta (ela saiu da seção de dívida). O número caiu de 44000 para 24000 junto com as
+        // linhas; a INVARIANTE ("rodapé fecha com as linhas visíveis") é o que não pode mudar, e é ela
+        // que a asserção estrutural abaixo trava — o número solto sozinho não provaria isso.
+        self::assertSame(24000, $detalhe->honorariosDasObrigacoes, 'só a original restaurada continua listada');
+
+        $somaDasLinhasVisiveis = 0;
+        foreach ($detalhe->obrigacoesAvulsas as $o) {
+            $somaDasLinhasVisiveis += $o->honorarios;
+        }
+        foreach ($detalhe->gruposAcordo as $g) {
+            foreach ($g->parcelas as $p) {
+                $somaDasLinhasVisiveis += $p->honorarios;
+            }
+        }
+        self::assertSame(
+            $somaDasLinhasVisiveis,
+            $detalhe->honorariosDasObrigacoes,
+            'o rodapé tem de fechar com a soma das linhas que a aba exibe — é o que permite conferir a olho',
+        );
+
+        // E a parcela morta realmente saiu da lista, em vez de só parar de somar.
+        $descricoesListadas = array_map(static fn ($o) => $o->descricao, $detalhe->obrigacoesAvulsas);
+        self::assertNotContains('Parcela 1 de 2', $descricoesListadas);
+        self::assertContains('Janeiro/2026', $descricoesListadas, 'a original restaurada continua na lista');
 
         // E a prescrição não pode eleger uma parcela morta como "competência mais antiga": não há o que
         // ajuizar numa parcela que o rompimento do acordo já descartou. As parcelas vencem ANTES da
@@ -667,7 +689,8 @@ final class MontarDetalheCasoUseCaseTest extends TestCase
      * Espelho do `casoComAcordoVigente` para o acordo ROMPIDO. As duas diferenças que importam:
      * o acordo não é vigente (então `substituidaPorAcordo` é FALSE e a original volta para a lista
      * solta, exatamente como `doCasoExigiveis` a devolve ao saldo) e as parcelas viram
-     * `parcelaDeAcordoDesfeito`, caindo na lista solta junto — que é a origem do dobro.
+     * `parcelaDeAcordoDesfeito` — que, desde 01/08, SAEM da seção de dívida em vez de cair na lista
+     * solta junto com a original. Contá-las ali era a origem do dobro nos cards.
      *
      * @param list<string> $parcelas
      */

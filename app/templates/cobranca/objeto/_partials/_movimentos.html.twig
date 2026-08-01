@@ -112,10 +112,12 @@
 </div>
 
 {# ── Acordos que não movimentam mais a dívida ────────────────────────────────
-   Tudo o que não virou grupo na seção Dívida: rompidos e cancelados (as originais voltaram ao total por
-   derivação) e, por segurança, qualquer acordo vigente sem parcela viva — assim nenhum acordo some da
-   tela, como acontecia na aba "Acordos". O detalhe (e as ações de romper/cancelar/cumprir) fica em
-   `cobranca_acordo_show`. #}
+   Tudo o que não virou grupo na seção Dívida: os ROMPIDOS (as originais voltaram ao total por derivação)
+   e, por segurança, qualquer acordo vigente sem parcela viva — assim nenhum acordo some da tela, como
+   acontecia na aba "Acordos". O detalhe (e as ações de romper/cumprir) fica em `cobranca_acordo_show`.
+
+   O CANCELADO não chega aqui: `MontarDetalheCasoUseCase` o filtra antes de virar Output, porque para o
+   gestor ele deixou de existir (a rota dele dá 404). Sobra a linha do histórico. #}
 {% set idsAgrupados = caso.gruposAcordo|map(g => g.acordoId) %}
 {% set acordosEncerrados = caso.acordos|filter(a => a.id not in idsAgrupados) %}
 

@@ -14,8 +14,10 @@ namespace App\Cobranca\DTO;
  *
  * A seção "Dívida em aberto" (Ajuste 8; fundida com a antiga aba Acordos no Ajuste 10) não usa
  * `obrigacoes` cru: ela lê `gruposAcordo` (acordos vigentes com suas parcelas dentro) +
- * `obrigacoesAvulsas` (o resto). `obrigacoes` continua sendo a lista COMPLETA do caso — é dela que sai
- * a contagem e quem mais precisar do conjunto todo.
+ * `obrigacoesAvulsas`. Desde 01/08, `obrigacoesAvulsas` NÃO é mais "todo o resto": a parcela de acordo
+ * ROMPIDO é descartada do par (ela está fora do exigível, e a seção mostra o que compõe o saldo) e vive
+ * no acordo, em "Acordos encerrados". `obrigacoes` continua sendo a lista COMPLETA do caso — é dela que
+ * sai a contagem e quem mais precisar do conjunto todo.
  *
  * @param list<AlertaCobranca>              $alertas
  * @param list<ObrigacaoOutput>             $obrigacoes
@@ -84,9 +86,10 @@ final class CasoDetalheOutput
          *
          * Somados no UseCase (e não no Twig) porque são dinheiro: aqui têm teste, e o conjunto somado é
          * EXATAMENTE o que a tela percorre — `obrigacoesAvulsas` + as parcelas dos `gruposAcordo`, que a
-         * partição de `agruparPorAcordo` garante disjuntos. As substituídas por acordo vigente ficam de
-         * fora dos dois (a aba não as lista, e elas estão fora do exigível), então o rodapé sempre bate
-         * com a soma das linhas visíveis — é o que permite conferir a olho.
+         * partição de `agruparPorAcordo` garante disjuntos. Ficam de fora dos dois, porque a aba não as
+         * lista e estão fora do exigível: as substituídas por acordo vigente e (desde 01/08) as parcelas
+         * de acordo rompido. O rodapé sempre bate com a soma das linhas visíveis — é o que permite
+         * conferir a olho, e o conjunto encolheu junto com a lista, mantendo a igualdade.
          */
         public readonly int $honorariosDasObrigacoes = 0,
         /**

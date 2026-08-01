@@ -71,15 +71,19 @@ final class ObrigacoesAgrupadasPorAcordoControllerTest extends CobrancaWebTestCa
         self::assertStringContainsString('volta ao total se o acordo for rompido', $substituidas);
     }
 
-    #[TestDox('Parcela de acordo desfeito NÃO vira grupo: volta para a lista solta (histórico)')]
-    public function testAcordoDesfeitoNaoAgrupaEParcelaVoltaParaLista(): void
+    #[TestDox('Parcela de acordo desfeito SAI da seção de dívida; a original restaurada fica')]
+    public function testAcordoDesfeitoNaoAgrupaEParcelaSaiDaLista(): void
     {
+        // Decisão do dono (01/08). Até 01/08 a parcela morta caía na lista solta com um rótulo cinza
+        // como única distinção: no caso real da QUADRA 11 eram 30 parcelas mortas contra 5 dívidas de
+        // verdade — 86% da lista era ruído. Ela continua existindo (invariável 14) e acessível pelo
+        // acordo, em "Acordos encerrados"; o que sai é a presença na seção que mostra o saldo.
         $client = static::createClient();
         [, $tenant] = $this->criarAdminLogado($client);
         [, $caso] = $this->semearGrafo($tenant);
         $objeto = $caso->getObjeto();
 
-        $acordo = AcordoFactory::createOne(['tenant' => $tenant, 'caso' => $caso, 'status' => StatusAcordo::Cancelado])->_real();
+        $acordo = AcordoFactory::createOne(['tenant' => $tenant, 'caso' => $caso, 'status' => StatusAcordo::Rompido])->_real();
         ObrigacaoFactory::createOne(['tenant' => $tenant, 'caso' => $caso, 'descricao' => 'Parcela de acordo desfeito', 'valorOriginal' => 30000, 'encargosReconhecidos' => 0, 'acordoOrigem' => $acordo]);
         // Substituída por acordo NÃO vigente: voltou ao saldo → tem de aparecer na lista.
         ObrigacaoFactory::createOne(['tenant' => $tenant, 'caso' => $caso, 'descricao' => 'Original restaurada', 'valorOriginal' => 60000, 'encargosReconhecidos' => 0, 'acordoSubstituto' => $acordo]);
@@ -91,7 +95,7 @@ final class ObrigacoesAgrupadasPorAcordoControllerTest extends CobrancaWebTestCa
 
         self::assertCount(0, $divida->filter('#grupoAcordo' . $acordo->getId()), 'acordo desfeito não vira grupo');
         $solta = $divida->filter(self::LISTA_SOLTA)->text();
-        self::assertStringContainsString('Parcela de acordo desfeito', $solta);
+        self::assertStringNotContainsString('Parcela de acordo desfeito', $solta, 'a parcela morta não polui a seção de dívida');
         self::assertStringContainsString('Original restaurada', $solta, 'a original voltou ao saldo → volta à lista');
     }
 

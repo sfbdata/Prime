@@ -63,6 +63,35 @@ class AlocacaoPagamentoRepository extends ServiceEntityRepository
     }
 
     /**
+     * Existe ALGUMA alocação nas obrigações informadas? Guarda do cancelamento de acordo (spec
+     * `cobranca-cancelar-acordo.md` §D4).
+     *
+     * Pergunta a EXISTÊNCIA, não a soma: o que importa é se há dinheiro amarrado àquelas parcelas, e
+     * `totalAlocadoEmObrigacoes(...) > 0` deixaria passar uma alocação de valor zero — uma linha de
+     * pagamento real, com histórico, que o cancelamento tiraria da conta em silêncio.
+     *
+     * Escopo por tenant explícito. `$obrigacaoIds` vazio → false (acordo sem parcela nada trava).
+     *
+     * @param int[] $obrigacaoIds
+     */
+    public function existeAlocacaoEmObrigacoes(array $obrigacaoIds, Tenant $tenant): bool
+    {
+        if ($obrigacaoIds === []) {
+            return false;
+        }
+
+        return (bool) $this->createQueryBuilder('a')
+            ->select('1')
+            ->andWhere('a.obrigacao IN (:ids)')
+            ->andWhere('a.tenant = :tenant')
+            ->setParameter('ids', $obrigacaoIds)
+            ->setParameter('tenant', $tenant)
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    /**
      * Σ alocado POR OBRIGAÇÃO (centavos) das obrigações dos casos informados — versão em LOTE para a
      * agregação tenant-wide do Dashboard (Etapa 9), evitando um `totalAlocadoEmObrigacoes` por caso.
      * Retorna um mapa `obrigacaoId => Σ valor`. Escopo por tenant explícito. `$casoIds` vazio → `[]`.

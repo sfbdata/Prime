@@ -14,6 +14,8 @@ use App\Cobranca\DTO\RomperAcordoInput;
 use App\Cobranca\Entity\Acordo;
 use App\Cobranca\Enum\CategoriaDocumentoAcordo;
 use App\Cobranca\Enum\Periodicidade;
+use App\Cobranca\Enum\StatusAcordo;
+use App\Cobranca\Exception\AcordoComParcelaPagaException;
 use App\Cobranca\Exception\AcordoComParcelasRenegociadasException;
 use App\Cobranca\Exception\AcordoNaoAtivoException;
 use App\Cobranca\Exception\ArquivoMuitoGrandeException;
@@ -103,6 +105,8 @@ final class AcordoController extends AbstractController
         if ($acordo === null) {
             throw $this->createNotFoundException('Acordo não encontrado.');
         }
+
+        $this->recusarSeCancelado($acordo);
 
         $detalhe = $this->montarDetalheAcordo->executar($acordo, $tenant);
 
@@ -367,6 +371,7 @@ final class AcordoController extends AbstractController
         if ($acordo === null) {
             throw $this->createNotFoundException('Acordo não encontrado.');
         }
+        $this->recusarSeCancelado($acordo);
 
         if (!$this->isCsrfTokenValid('cobranca_acordo_documento_upload_' . $id, (string) $request->request->get('_token'))) {
             $this->addFlash('danger', 'Token de segurança inválido.');
@@ -407,6 +412,9 @@ final class AcordoController extends AbstractController
         if ($documento === null) {
             throw $this->createNotFoundException('Documento não encontrado.');
         }
+        if ($documento->getAcordo() !== null) {
+            $this->recusarSeCancelado($documento->getAcordo());
+        }
         $acordoId = (int) $documento->getAcordo()?->getId();
 
         if (!$this->isCsrfTokenValid('cobranca_acordo_documento_excluir_' . $docId, (string) $request->request->get('_token'))) {
@@ -433,6 +441,9 @@ final class AcordoController extends AbstractController
         if ($documento === null) {
             throw $this->createNotFoundException('Documento não encontrado.');
         }
+        if ($documento->getAcordo() !== null) {
+            $this->recusarSeCancelado($documento->getAcordo());
+        }
 
         $caminho = $this->storage->caminho($this->cobrancasUploadsDir . '/' . $tenant->getId(), $documento->getCaminhoArquivo());
         if (!$this->storage->existe($caminho)) {
@@ -440,6 +451,23 @@ final class AcordoController extends AbstractController
         }
 
         return $this->storage->servir($caminho, $documento->getNomeOriginal(), inline: false);
+    }
+
+    /**
+     * Acordo CANCELADO não existe para o gestor (decisão do dono, 01/08: "não tem nem como abrir um
+     * acordo cancelado"): some das listas e a URL responde 404. A LINHA continua no banco — é ela que
+     * impede a dívida em dobro se a contabilidade voltar a trazer o acordo (ver `CancelarAcordoUseCase`).
+     *
+     * Rompido continua abrindo: aquele aconteceu de verdade e o histórico dele importa.
+     *
+     * Vale para TODA rota que exponha o acordo, não só o `show` — inclusive as de documento, senão o
+     * anexo de um acordo invisível continuaria acessível por URL direta.
+     */
+    private function recusarSeCancelado(Acordo $acordo): void
+    {
+        if ($acordo->getStatus() === StatusAcordo::Cancelado) {
+            throw $this->createNotFoundException('Acordo não encontrado.');
+        }
     }
 
     /**
@@ -467,9 +495,11 @@ final class AcordoController extends AbstractController
             try {
                 $executar($input, $tenant, $this->usuarioLogado());
                 $this->addFlash('success', $sucesso);
-            } catch (AcordoNaoAtivoException | AcordoComParcelasRenegociadasException $e) {
+            } catch (AcordoNaoAtivoException | AcordoComParcelasRenegociadasException | AcordoComParcelaPagaException $e) {
                 // `AcordoComParcelasRenegociadasException` = ajuste 9: romper/cancelar acordo cujas parcelas
                 // outro acordo vigente renegociou duplicaria a dívida no saldo. Sem este catch, 500.
+                // `AcordoComParcelaPagaException` = §D4: cancelado, o acordo sai de vigente e suas parcelas
+                // saem do exigível — o valor já recebido pararia de abater a dívida, em silêncio.
                 $this->addFlash('danger', $e->getMessage());
             }
         } elseif ($formKey !== null) {
