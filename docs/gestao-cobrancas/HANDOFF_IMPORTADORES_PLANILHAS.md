@@ -216,6 +216,49 @@ principal exigível **R$ 797,54** — o "Valor final acordado" da própria plani
 Segunda execução dos dois: **zero mudanças** (acordos: 12 parcelas e 25 contas já marcadas; cadastro:
 242 reaproveitadas, 0 de tudo o mais).
 
+## ✅ SMOKE EM DEV com dado REAL de produção — 2026-08-01
+
+O `saas_ux` foi recarregado com o dump de prod (3300 obrigações, TOP LIFE I e II). O smoke virou ensaio
+fiel do deploy, e **passou**:
+
+| Passo | Resultado |
+|---|---|
+| Migration + backfill | **3270/3300**, o número exato que a spec previa · índice único com `NULLS NOT DISTINCT` |
+| Inadimplência TOP LIFE II (31/07) pela **tela** | 96 criadas · 431 atualizadas · **0 rejeitadas** · nenhum aviso (correto: as 11 repetições de NN são entre CARTEIRAS) |
+| Acordos (relatório de 01/08), dry-run × confirmação | **saídas idênticas, linha por linha** |
+| Efeito | R$ 1.360,00 saem · R$ 2.210,19 entram · 22 reconstruídas · 0 abas ignoradas |
+| **Gessi (objeto 151)** | R$ 879,39 → **R$ 797,54**, o "Valor final acordado" da própria planilha |
+| 2ª execução | **zero mudanças** (18 parcelas e 30 contas já no lugar) |
+
+🔑 **Eram DOIS devedores com o bug, não um.** O acordo 39 (LIVIA, QUADRA 04 CHACARA 02/04) só apareceu
+porque o dono baixou o relatório de acordos do DIA — no de 29/07 ele não existia. R$ 850,00 saíram do
+saldo dela. Lição: os três relatórios da contábil têm de ser da MESMA data; datas diferentes fazem um
+contradizer o outro.
+
+🔑 **As 4 divergências de valor reportadas são estruturais, não erro.** A inadimplência separa principal de
+encargos (o sistema recalcula ao vivo); o relatório de acordos traz a parcela fechada, com juros, multa e
+honorário embutidos. Ex.: NN 61366 = 6 taxas de R$ 170,00 (sistema: R$ 1.020,00) + honorário R$ 127,50
+(planilha: R$ 1.147,50). Adotar o valor da planilha faria o motor calcular **honorário sobre honorário** —
+por isso o §4 reporta e não sobrescreve. Está certo.
+
+## ⚠️ Achado ALHEIO a esta frente: R$ 4.390,86 que não entram (TOP LIFE I)
+
+Encontrado pelo dono ao conferir uma rejeição. **13 boletos** da TOP LIFE I são recusados com "Boleto sem
+principal de dívida", e **todos são PARCELAS DE ACORDO** compostas só de honorário ou só de juros
+(acordos 155, 225, 339, 348, 369, 374, 394, 414).
+
+A regra é do commit `d3947007` (**10/07/2026**), três semanas anterior a esta frente — não é regressão. Ela
+foi escrita para descartar **linha acessória** (o honorário que acompanha um boleto de taxa, e que o motor
+recalcula). Mas aqui o boleto INTEIRO é honorário, e é parcela negociada.
+
+**O buraco é fechado:** o acordo 348 aparece na planilha só com essas 3 parcelas; como as 3 são rejeitadas,
+o acordo nunca nasce — e o importador de acordos também não o cria (§3.1, nunca cria acordo). O dinheiro
+não entra por caminho nenhum. É **subcobrança**: o devedor deve o que o sistema não mostra.
+
+**A TOP LIFE II tem ZERO rejeições** (527 boletos), então isto é exclusivo da TOP LIFE I.
+
+Frente separada, com spec própria: aceitar boleto sem principal **quando for parcela de acordo**.
+
 ## O que falta
 
 ### Outras pendências
