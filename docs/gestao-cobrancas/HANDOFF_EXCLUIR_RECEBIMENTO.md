@@ -101,8 +101,19 @@ uma razão para poder apagar.
 - Suíte **3113/3113**; `lint:container`, `lint:twig`, `doctrine:schema:validate --skip-sync` verdes.
 - Migration `Version20260801150000` **já aplicada no dev**, pendente em produção.
 - ⏳ **Smoke do dono pendente** (caso 193: 5 linhas na dívida, nenhum acordo visível).
-- ⚠️ **Pergunta em aberto do dono, responder antes de mexer em acordo de novo:** ele disse que cancelar
-  acordo vindo de importação deveria fazê-lo *"aparecer na próxima importação como se nunca tivesse
-  sido excluído, apenas mostrando no histórico"*. Isso descreve **reativação**, que ele mandou remover
-  no mesmo dia. Ver §3.2 da spec `cobranca-cancelar-acordo.md` — a reativação foi implementada, provou
-  tirar pagamento do saldo em silêncio, e foi retirada. **Não reimplementar sem alinhar.**
+## 8. A frente que vem DEPOIS desta (e por que a ordem importa)
+
+**D6 — "o importe é a verdade absoluta"**, esclarecida pelo dono em 01/08, ao fim do dia:
+
+> *"No caso de importação, os dados da planilha vão sobrescrever acordo rompido. O acordo do sistema
+> tem que estar alinhado com o da planilha. O importe é sempre a verdade… não precisa nem dizer que o
+> importe mudou esse estado, pois já é implícito que o importe é a verdade absoluta."*
+
+Está especificada em **§3.2 da spec `cobranca-cancelar-acordo.md`**, com o furo de dinheiro que ela
+precisa resolver: reativar um acordo tira do exigível as originais, e um pagamento recebido nelas
+durante a janela **para de abater a dívida** — o devedor passaria a ser cobrado pelo que já pagou.
+Medido: exigíveis 5 → 31, bruto 88961 → 88445.
+
+🔑 **É por isso que "excluir recebimento" vem primeiro.** Ela é o desfazer que torna a reativação
+reversível; sem ela, um erro de realocação não teria conserto. Feita esta frente, a de D6 fica muito
+mais segura de escrever.

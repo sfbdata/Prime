@@ -65,7 +65,7 @@ contra `doCasoExigiveis`). É defeito de exibição, não de cálculo.
 | D3 | O rastro do cancelamento é **uma linha no histórico**, autocontida. |
 | D4 | **Acordo com parcela paga não se cancela** — desfaz-se o pagamento primeiro. |
 | D5 | Nas duas operações, as originais voltam a **crescer**: descongeladas. |
-| D6 | ~~Se a contabilidade continuar trazendo o acordo, o sistema segue a planilha.~~ **RETIRADA em 01/08** — ver §3.2. |
+| D6 | **O importe é a verdade absoluta.** Em carteira importada, o ESTADO do acordo pertence à planilha: se ela traz um acordo que o sistema tem como rompido ou cancelado, o acordo volta a ativo. Ver §3.2 — especificada, **não implementada nesta frente**. |
 | D7 | **Nenhuma ação de dinheiro pode ser irreversível** — inclusive para escritórios que não importam planilha. |
 
 ### 3.0 ⚠️ Por que "sumir" e não "apagar" — a correção que a revisão forçou
@@ -87,23 +87,47 @@ Daí o desenho atual: **a linha do acordo e as parcelas permanecem no banco; o q
 visibilidade.** Para o gestor o resultado observável é idêntico ao que ele pediu. E o vínculo
 `acordoSubstituto` é preservado justamente para que, se o acordo voltar, ele volte **certo**.
 
-### 3.2 Por que D6 (reativação automática) foi RETIRADA
+### 3.2 D6 — "o importe é a verdade absoluta" (especificada, NÃO implementada aqui)
 
-Chegou a ser implementada e a revisão a derrubou com uma prova de dinheiro: cancelado o acordo, as
-originais voltam ao saldo e o gestor **pode receber** nelas; se um relatório posterior reativasse o
-acordo, as originais sairiam do exigível de novo e o pagamento recebido **pararia de abater** — o mesmo
-mecanismo que §D4 recusa manualmente, só que automático e disparado por um arquivo. Medido no dado
-real: exigíveis 5 → 31, bruto 88961 → 88445.
+**Palavras do dono (01/08, ao fechar a frente):**
 
-Decisão do dono (01/08): *"não precisa de mecanismo de reativação. Se tiver acordo de novo das mesmas
-dívidas, então é para criar novo normalmente."* O código da reativação foi **removido**; o importador
-está idêntico ao original.
+> *"No caso de importação, os dados da planilha vão sobrescrever acordo rompido. O acordo do sistema
+> tem que estar alinhado com o da planilha. O importe é sempre a verdade. E nesse caso também vai
+> constar no histórico que houve um acordo rompido — não precisa nem dizer que o importe mudou esse
+> estado, pois já é implícito que o importe é a verdade absoluta."*
 
-⚠️ **Trade-off aceito, e registrado para não virar surpresa:** se a contabilidade trouxer de volta uma
-parcela do MESMO número externo de um acordo cancelado, ela é vinculada a ele, fica fora do exigível e
-— desde esta frente — também fora da tela. Dívida real sem superfície. O caso pressupõe a contábil
-insistir num acordo que o escritório cancelou justamente por ela não o ter; e a saída definitiva é o
-que D7 pede: poder desfazer. **Frente seguinte: excluir recebimento.**
+Semântica, então: em carteira importada o **estado do acordo é da planilha**, não do sistema. Rompido
+ou cancelado, se a planilha trouxer o acordo ele **volta a ativo**. Sem aviso — o histórico já guarda
+que houve rompimento/cancelamento, e "o importe manda" é regra do produto, não exceção a sinalizar.
+
+**Ela chegou a ser implementada nesta frente e foi removida** — não por estar errada, mas porque a
+revisão achou um furo de dinheiro que ela ainda não resolvia (ver abaixo). O importador voltou byte a
+byte ao original. Reimplementar é **frente própria**, com spec e revisão.
+
+#### ⚠️ O furo que a reimplementação TEM de resolver
+
+Medido no dado real (`saas_ux`, acordo #1, flip de status por SQL): exigíveis **5 → 31**, bruto
+**88961 → 88445**.
+
+Cadeia: acordo desfeito → as originais voltam ao saldo e a tela **oferece "Receber"** nelas → o gestor
+recebe R$ X numa original → a planilha traz o acordo → reativação → a original sai do exigível → e
+`CalculadoraSaldo` **só abate alocação de obrigação EXIGÍVEL**, então o R$ X **para de abater**.
+
+Consequência: **o devedor passa a ser cobrado por dinheiro que já pagou.** É o erro mais grave possível
+neste domínio — pior que subcobrança —, e acontece em silêncio.
+
+"O importe é a verdade" resolve *quem manda no estado do acordo*; **não** diz para onde vai um
+pagamento que já entrou. Três saídas possíveis, a decidir com o dono:
+
+1. **Realocar o pagamento** para as parcelas do acordo reativado (`AutoAlocadorFifo` já faz isso, e é o
+   que `CorrigirPagamento` usa). Coerente com "a planilha manda", mas move dinheiro sozinho.
+2. **Reativar e avisar**, deixando o pagamento solto para o gestor realocar à mão. Contraria o "não
+   precisa nem dizer", mas nada se move sem decisão humana.
+3. **Não reativar quando houver pagamento nas originais**, e reportar — espelho da §D4.
+
+Recomendação: **(1)**, porque é a única coerente com D6, e porque a frente de *excluir recebimento*
+(D7) dá o desfazer que a torna reversível. Mas é decisão de dinheiro: **não implementar sem o martelo
+do dono**.
 
 ### 3.1 Ressalva registrada sobre D4
 
@@ -219,7 +243,8 @@ inadimplência atualizado (as 4 taxas de R$ 170,00 abertas + a de 07/2026), não
   **Próxima frente**, já aprovada pelo dono. A lista de recebimentos já mostra TODOS os pagamentos do
   caso, inclusive os de parcela de acordo (`PagamentoRepository::doCaso`); falta a ação de apagar, com
   registro no histórico e reconciliação da obrigação.
-- **Reativação de acordo cancelado** — retirada (§3.2).
+- **Reativação por importação (D6)** — especificada em §3.2, com o furo de dinheiro que ela precisa
+  resolver antes. Frente própria; **não reimplementar sem decidir o §3.2**.
 - ⚠️ **Cancelar acordo SEM obrigações substituídas** (a forma que o importador cria: *"o import não
   substitui nada, só materializa a parcela"*) tira as parcelas do saldo E da tela, e não há original
   para voltar no lugar — o caso pode ficar visualmente sem dívida. Medido em 01/08: os 9 acordos do dev
