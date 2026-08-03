@@ -193,7 +193,12 @@ final class ImportarReceitasCommandTest extends CobrancaWebTestCase
 
         // Fragmentos CURTOS: o SymfonyStyle quebra linha dentro do bloco de warning, então um trecho
         // longo não casa mesmo estando na tela.
-        self::assertStringContainsString('REATIVAÇÃO DE ACORDO (D6)', $saida);
+        // ⚠️ Prefixos DISTINTOS por canal. Quando os dois avisos começavam igual, `mb_strpos` casava a
+        // PRIMEIRA ocorrência e o assert de ordem abaixo não enxergava o segundo canal: mover só o
+        // aviso de impacto para depois da gravação deixava o teste verde. Achado da 3ª revisão, e é a
+        // mesma classe de defeito que a 2ª rodada existiu para corrigir, reintroduzida no canal novo.
+        self::assertStringContainsString('D6 · DINHEIRO JÁ PAGO QUE PARA DE ABATER', $saida);
+        self::assertStringContainsString('D6 · IMPACTO NO SALDO', $saida);
         self::assertStringContainsString('NN 6000', $saida, 'o NN do dinheiro que para de abater');
         self::assertStringContainsString('150,00', $saida, 'e quanto é');
         self::assertStringContainsString('350,00', $saida, 'e quanto o saldo se move de fato (500 − 150)');
@@ -211,10 +216,17 @@ final class ImportarReceitasCommandTest extends CobrancaWebTestCase
             'e o acordo foi mesmo reativado',
         );
 
+        // Os DOIS canais têm de preceder a fronteira, cada um verificado pelo seu próprio prefixo.
+        $fronteira = mb_strpos($saida, 'GRAVANDO (--confirmar)');
         self::assertLessThan(
-            mb_strpos($saida, 'GRAVANDO (--confirmar)'),
-            mb_strpos($saida, 'REATIVAÇÃO DE ACORDO (D6)'),
-            'o aviso tem de sair ANTES da fronteira de gravação — não só antes da tabela de totais',
+            $fronteira,
+            mb_strpos($saida, 'D6 · DINHEIRO JÁ PAGO QUE PARA DE ABATER'),
+            'o aviso de dinheiro já pago tem de sair ANTES da fronteira de gravação',
+        );
+        self::assertLessThan(
+            $fronteira,
+            mb_strpos($saida, 'D6 · IMPACTO NO SALDO'),
+            'e o aviso de impacto no saldo também — cada canal com o seu próprio assert',
         );
     }
 

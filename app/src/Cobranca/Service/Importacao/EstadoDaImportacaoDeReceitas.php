@@ -77,6 +77,16 @@ final class EstadoDaImportacaoDeReceitas
     private array $reativacoesImpactoNoSaldo = [];
     /** @var list<string> obrigação que MUDOU de acordo — altera a composição de saldo dos dois */
     private array $trocasDeAcordo = [];
+    /**
+     * NNs em que a alocação BRUTA foi decidida por PALPITE numa obrigação preexistente.
+     *
+     * O palpite é o override `taxa_honorarios_bp = 0`, que a tela alcança nos dois sentidos. Enquanto
+     * ele não for uma garantia, todo caso em que ele decide dinheiro numa obrigação que este importador
+     * não criou fica LISTADO — palpite silencioso em caminho de dinheiro é como esta frente erra.
+     *
+     * @var list<string>
+     */
+    private array $alocacaoBrutaEmPreexistente = [];
 
     private int $totalRecebido = 0;
     private int $honorarios = 0;
@@ -148,6 +158,12 @@ final class EstadoDaImportacaoDeReceitas
         // a régua não pode depender de uma propriedade da fonte de hoje.
         $this->parcelasPorAcordo[$acordo->numero][$acordo->parcelaIndice] = true;
         $this->totalDeParcelas[$acordo->numero] = $acordo->parcelaTotal;
+    }
+
+    /** Ver `$alocacaoBrutaEmPreexistente`. Chamado pelos dois modos, no mesmo ponto do fluxo. */
+    public function projetarAlocacaoBrutaEmPreexistente(string $nn): void
+    {
+        $this->alocacaoBrutaEmPreexistente[] = $nn;
     }
 
     /**
@@ -262,6 +278,7 @@ final class EstadoDaImportacaoDeReceitas
             reativacoesComDinheiroParado: $this->reativacoesComDinheiroParado,
             reativacoesImpactoNoSaldo: $this->reativacoesImpactoNoSaldo,
             trocasDeAcordo: $this->trocasDeAcordo,
+            alocacaoBrutaEmPreexistente: $this->alocacaoBrutaEmPreexistente,
             totalRecebidoCentavos: $this->totalRecebido,
             honorariosCentavos: $this->honorarios,
             encargosCentavos: $this->encargos,

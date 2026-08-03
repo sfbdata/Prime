@@ -111,6 +111,14 @@ final class ResultadoImportacaoReceitas
          * @var list<string>
          */
         public readonly array $trocasDeAcordo = [],
+        /**
+         * NNs cuja alocação BRUTA numa obrigação preexistente foi decidida pelo override
+         * `taxa_honorarios_bp = 0` — um sinal forte, mas que a tela alcança nos dois sentidos.
+         * Listado para que o palpite nunca seja silencioso. Medido em 03/08: **zero** casos.
+         *
+         * @var list<string>
+         */
+        public readonly array $alocacaoBrutaEmPreexistente = [],
     ) {
     }
 

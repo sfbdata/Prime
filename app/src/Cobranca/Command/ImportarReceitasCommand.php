@@ -163,8 +163,9 @@ final class ImportarReceitasCommand extends Command
 
         $this->avisarAcordosIncompletos($io, $projecao, $confirmar);
         $this->avisarDinheiroParado($io, $projecao, $confirmar);
-        $this->avisarImpactoDaReativacao($io, $projecao);
+        $this->avisarImpactoDaReativacao($io, $projecao, $confirmar);
         $this->avisarTrocaDeAcordo($io, $projecao, $confirmar);
+        $this->avisarPalpiteDeAlocacao($io, $projecao);
 
         // 🔑 Marcador explícito da fronteira. Sem ele, "o aviso sai antes da gravação" é INTESTÁVEL
         // pela saída: mover os avisos para depois de `confirmar()` não mudaria uma vírgula do texto,
@@ -330,7 +331,7 @@ final class ImportarReceitasCommand extends Command
         // `avisarImpactoDaReativacao`. Misturados, este texto ("o devedor já pagou") disparava também
         // onde ninguém tinha pagado nada: alarme falso em aviso de dinheiro ensina a ignorar o aviso.
         $io->warning(sprintf(
-            "REATIVAÇÃO DE ACORDO (D6): %d obrigação(ões) originais têm PAGAMENTO alocado e saem do exigível.\n"
+            "D6 · DINHEIRO JÁ PAGO QUE PARA DE ABATER: %d obrigação(ões) originais com pagamento alocado saem do exigível.\n"
             . "Esse dinheiro deixa de abater o saldo, e o devedor passa a ser cobrado por algo que já pagou.\n"
             . "O importador NÃO corrige isso sozinho; confira caso a caso.\n%s\n%s",
             count($r->reativacoesComDinheiroParado),
@@ -349,17 +350,18 @@ final class ImportarReceitasCommand extends Command
      * entram. Aviso SEPARADO do de cima de propósito: este vale mesmo quando ninguém pagou nada, e o
      * texto do outro afirmaria, falsamente, que o devedor está sendo cobrado por algo que já pagou.
      */
-    private function avisarImpactoDaReativacao(SymfonyStyle $io, ResultadoImportacaoReceitas $r): void
+    private function avisarImpactoDaReativacao(SymfonyStyle $io, ResultadoImportacaoReceitas $r, bool $confirmar): void
     {
         if ($r->reativacoesImpactoNoSaldo === []) {
             return;
         }
 
         $io->note(sprintf(
-            "REATIVAÇÃO DE ACORDO (D6) move o SALDO DEVEDOR em %d acordo(s), mesmo sem dinheiro já pago.\n"
+            "D6 · IMPACTO NO SALDO: a reativação move o saldo devedor em %d acordo(s), mesmo sem dinheiro já pago.\n"
             . "Os valores vêm do snapshot gravado: se o rompimento é antigo, a dívida cresceu desde então\n"
-            . "e o número abaixo é piso, não fechamento.\n%s",
+            . "e o número abaixo é piso, não fechamento.\n%s\n%s",
             count($r->reativacoesImpactoNoSaldo),
+            $confirmar ? '>>> Você passou --confirmar: SERÁ gravado a seguir. <<<' : 'Dry-run: nada será gravado.',
             implode("\n", array_slice($r->reativacoesImpactoNoSaldo, 0, 40))
                 . (count($r->reativacoesImpactoNoSaldo) > 40
                     ? sprintf("\n… (+%d)", count($r->reativacoesImpactoNoSaldo) - 40)
@@ -384,6 +386,33 @@ final class ImportarReceitasCommand extends Command
             $confirmar ? '>>> Você passou --confirmar: a troca SERÁ gravada a seguir. <<<' : 'Dry-run: nada será gravado.',
             implode("\n", array_slice($r->trocasDeAcordo, 0, 40))
                 . (count($r->trocasDeAcordo) > 40 ? sprintf("\n… (+%d)", count($r->trocasDeAcordo) - 40) : ''),
+        ));
+    }
+
+    /**
+     * O palpite de alocação em obrigação PREEXISTENTE nunca é silencioso.
+     *
+     * Quem decide se a alocação leva o bruto é o override `taxa_honorarios_bp = 0`, e a 3ª revisão
+     * mostrou que a tela alcança essa coluna nos dois sentidos. Nas obrigações que este importador
+     * cria não há palpite nenhum — ele mesmo grava as duas pontas. Nas preexistentes há, e o operador
+     * precisa poder conferir o `valorOriginal` de cada uma. Medido em 03/08: zero casos.
+     */
+    private function avisarPalpiteDeAlocacao(SymfonyStyle $io, ResultadoImportacaoReceitas $r): void
+    {
+        if ($r->alocacaoBrutaEmPreexistente === []) {
+            return;
+        }
+
+        $io->note(sprintf(
+            "%d recebimento(s) pousam em obrigação que JÁ EXISTIA e cuja alocação levou o valor BRUTO,\n"
+            . "porque ela tem o override de honorário zerado (sinal de que o honorário está dentro do\n"
+            . "valor original). Confira o valor original dessas obrigações — se o honorário NÃO estiver\n"
+            . "embutido, a alocação abate mais do que deveria.\nNN: %s",
+            count($r->alocacaoBrutaEmPreexistente),
+            implode(', ', array_slice($r->alocacaoBrutaEmPreexistente, 0, 40))
+                . (count($r->alocacaoBrutaEmPreexistente) > 40
+                    ? sprintf(' … (+%d)', count($r->alocacaoBrutaEmPreexistente) - 40)
+                    : ''),
         ));
     }
 

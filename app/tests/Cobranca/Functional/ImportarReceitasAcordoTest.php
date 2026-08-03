@@ -624,6 +624,43 @@ final class ImportarReceitasAcordoTest extends CobrancaWebTestCase
         );
     }
 
+    #[TestDox('🔑 O palpite de alocação em obrigação PREEXISTENTE é REPORTADO, nunca silencioso')]
+    public function testPalpiteDeAlocacaoEmPreexistenteEhReportado(): void
+    {
+        [$carteira, $caso, $tenant, $usuario] = $this->cenario();
+        $identificacao = $caso->getObjeto()->getIdentificacao();
+        $acordo = $this->criarAcordo($caso, $tenant, 710, 2, StatusAcordo::Ativo);
+
+        // 🔑 Achado da 3ª revisão: `taxa_honorarios_bp = 0` NÃO é invariante. A tela alcança a coluna
+        // nos dois sentidos — digitar 0% grava zero numa avulsa, e o JS trata a string "0" como falsy
+        // e apaga um zero existente em qualquer edição. Medido: zero casos hoje no dev.
+        //
+        // Enquanto o sinal for aposta e não garantia, todo caso em que ele decide dinheiro numa
+        // obrigação que este importador NÃO criou tem de aparecer para quem confirma.
+        $parcela = ObrigacaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso,
+            'descricao' => 'Acordo 710 - Parc. 1/2', 'valorOriginal' => 25000, 'encargosReconhecidos' => 0,
+            'referenciaExterna' => '9360', 'competencia' => '05/2026',
+        ])->_real();
+        $parcela->setAcordoOrigem($acordo);
+        $parcela->setTaxaHonorariosBp(0);
+        $this->em()->flush();
+
+        $sut = static::getContainer()->get(ImportarReceitasUseCase::class);
+        $leitura = $this->leitura([
+            $this->receita($identificacao, '9360', divida: 20000, honorarios: 5000, acordo: new AcordoDoRelatorio(710, 1, 2)),
+            // Uma parcela CRIADA agora, no mesmo arquivo: nela não há palpite nenhum — o importador
+            // grava as duas pontas. Sem esta linha, "reporta tudo" passaria igual.
+            $this->receita($identificacao, '9361', divida: 10000, honorarios: 2000, acordo: new AcordoDoRelatorio(710, 2, 2)),
+        ]);
+
+        $previa = $sut->prever((int) $carteira->getId(), $leitura, $tenant);
+        self::assertSame(['9360'], $previa->alocacaoBrutaEmPreexistente, 'só a preexistente é palpite; a criada agora não');
+
+        $confirmacao = $sut->confirmar((int) $carteira->getId(), $leitura, $tenant, $usuario);
+        self::assertSame($previa->alocacaoBrutaEmPreexistente, $confirmacao->alocacaoBrutaEmPreexistente, 'e a prévia diz o mesmo');
+    }
+
     #[TestDox('🔑 Avulsa preexistente que GANHA o vínculo NÃO recebe o honorário a mais (o espelho)')]
     public function testAvulsaVinculadaNaoRecebeOHonorarioAMais(): void
     {

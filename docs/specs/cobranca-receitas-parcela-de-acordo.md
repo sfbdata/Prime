@@ -341,20 +341,34 @@ uma para um lado, e nenhuma das duas dava para acertar com a informação que ol
 | `getAcordoOrigem() !== null` (*"é parcela?"*) — correção da 1ª revisão | a avulsa apenas **vinculada** recebia o honorário a mais, abatendo o saldo do caso indevidamente |
 
 A pergunta certa é **"o `valorOriginal` desta obrigação já inclui o honorário?"**, e o sinal que a
-responde é o override `taxa_honorarios_bp = 0`. Ele é certo **por construção**: quem grava obrigação com
-o honorário embutido grava o override na mesma linha de código, exatamente porque o honorário já foi
-cobrado uma vez — `ImportarRelatorioCarteiraUseCase:479-481`, `ImportarAcordosDetalhadosUseCase:662-663`
-e o `criarObrigacaoJaPaga` desta etapa. Quem apenas **vincula** uma avulsa a um acordo não toca o valor
-nem o override, que fica `NULL` (herda a cascata).
+responde é o override `taxa_honorarios_bp = 0`: quem grava obrigação com o honorário embutido grava o
+override na mesma linha de código, exatamente porque o honorário já foi cobrado uma vez —
+`ImportarRelatorioCarteiraUseCase:479-481`, `ImportarAcordosDetalhadosUseCase:662-663` e o
+`criarObrigacaoJaPaga` desta etapa.
 
-**As duas formas coexistem no dado real** — é isso que torna qualquer régua mais grosseira insuficiente.
-Medido no `saas_ux`: das 51 obrigações com `acordo_origem_id`, **14 têm `bp = 0`** (criadas como parcela)
-e **37 têm `NULL`** (avulsas vinculadas). O acordo **31 tem das duas**: o NN 61372 com `NULL` e os
-61373/61374 com `0`.
+⚠️ **Esta seção já afirmou que isso era "certo por construção". NÃO É** — a 3ª revisão desmontou:
 
-Três vinculadores produzem a segunda forma, todos dentro do fluxo que a §7 manda rodar:
-`ImportarRelatorioCarteiraUseCase:223-227`, `ImportarAcordosDetalhadosUseCase:325-332` e o
-`garantirVinculoAoAcordo` desta própria etapa.
+- digitar **0%** em Editar Obrigação grava `bp = 0` numa avulsa (`EditarObrigacaoInput:71` aceita zero
+  com `PositiveOrZero`), criando um falso "honorário embutido";
+- o JS de `show.html.twig:1329` trata a string `"0"` como **falsy** e cai no ramo `'herda'`, então
+  **qualquer** edição de uma obrigação com `bp = 0` grava `NULL` e APAGA o marcador.
+
+Medido no `saas_ux`: **0 avulsas com `bp = 0`** hoje. Os dois casos são latentes, não presentes.
+
+**Como isso é tratado, já que não dá para garantir:** onde o importador CRIA a obrigação não há palpite —
+ele grava as duas pontas. Onde a obrigação é **preexistente**, o sinal decide dinheiro sem garantia, e
+por isso **cada caso é listado** (`alocacaoBrutaEmPreexistente`), com o comando pedindo a conferência do
+`valorOriginal`. Palpite em caminho de dinheiro pode existir; silencioso, não.
+
+**As duas formas coexistem no dado real.** Medido no `saas_ux`: das 51 obrigações com
+`acordo_origem_id`, **14 têm `bp = 0`** e **37 têm `NULL`**. O acordo **31 tem das duas**: NN 61372 com
+`NULL` e 61373/61374 com `0`.
+
+⚠️ **Correção da 3ª revisão sobre a evidência:** os 37 com `NULL` não são todos "avulsas vinculadas".
+**33** são parcelas MANUAIS (`CriarAcordoUseCase:168` / `EditarAcordoUseCase:258`), sem NN nem
+competência — nunca alcançáveis por esta importação, que casa por `(caso, NN, competência)`. Avulsas
+vinculadas de verdade são **4**. A conclusão continua de pé (as duas formas coexistem, e o acordo 31
+prova), mas a evidência citada não era a que a spec dizia.
 
 **Alcance medido em 03/08: R$ 0,00** — nenhum dos 2.077 recebimentos pousa hoje numa parcela
 preexistente. ⚠️ Mas a ordem que a §7 manda executar em seguida — rodar "Acordos detalhados" **depois** —
@@ -430,10 +444,23 @@ Confirmando o padrão da etapa 2: **metade do que a 2ª passada achou eram defei
 | BAIXO | a régua da troca divergia da do vínculo na duplicata de número | unificadas (§5.6.1) |
 | BAIXO | truncagem em 40 sem o sufixo `… (+N)` que os avisos irmãos têm | corrigido |
 
-🔑 **A prova por injeção pegou 5 na 1ª rodada e as duas revisões pegaram mais 4 asserts vacuosos.** O
-padrão não é "eu escrevo testes ruins de vez em quando": é que **assert vacuoso é o estado natural de um
-teste escrito junto com o código que ele testa**, porque os dois nascem da mesma suposição. Só a injeção
-de defeito e um leitor adversarial separam os dois.
+## 6.3 O que a 3ª revisão achou — nas correções da 2ª
+
+Terceira rodada, terceira vez que a correção trouxe defeito. O padrão parou de ser coincidência.
+
+| severidade | achado | o que foi feito |
+|---|---|---|
+| **MÉDIO/ALTO** | `bp = 0` foi vendido como invariante e **não é**: a tela cria e apaga o valor | a spec e o código pararam de chamá-lo de garantia, e todo palpite em obrigação preexistente virou **relatório** (§5.6) |
+| MÉDIO | os dois avisos de D6 começavam com o **mesmo prefixo**, então o assert de ordem casava a 1ª ocorrência: mover só o canal novo para depois da gravação deixava o teste verde | prefixos distintos (`D6 · DINHEIRO JÁ PAGO…` e `D6 · IMPACTO NO SALDO`), com um assert de ordem para **cada** canal |
+| BAIXO | a spec dizia que os 37 com `NULL` eram avulsas vinculadas; **33 são parcelas manuais** | evidência corrigida acima |
+| BAIXO | o comentário do `max(0, …)` dizia espelhar a `CalculadoraSaldo`, que não tem piso por obrigação | comentário corrigido; o piso continua, declarado como convenção do aviso |
+| BAIXO | o aviso de impacto era o único sem `$confirmar` — não dizia se ia gravar | corrigido |
+
+🔑 **A prova por injeção pegou 5 na 1ª rodada; as três revisões pegaram mais 6 asserts vacuosos, sempre
+no código escrito para corrigir o assert vacuoso anterior.** O padrão não é "eu escrevo testes ruins de
+vez em quando": é que **assert vacuoso é o estado natural de um teste escrito junto com o código que ele
+testa**, porque os dois nascem da mesma suposição. Só a injeção de defeito e um leitor adversarial
+separam os dois — e cada rodada de correção precisa das duas coisas de novo.
 
 ## 7. Fora de escopo
 

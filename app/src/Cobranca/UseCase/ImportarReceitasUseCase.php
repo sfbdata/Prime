@@ -112,6 +112,12 @@ final class ImportarReceitasUseCase
             $jaImportado = $obrigacao !== null
                 && $this->alocacaoRepository->existeNaObrigacaoComData((int) $obrigacao->getId(), $receita->recebimento, $tenant);
 
+            // Espelha o ponto exato onde a confirmação decide: obrigação que JÁ existe, com o override
+            // zerado, e que vai receber alocação agora (o ramo idempotente não aloca nada).
+            if (!$jaImportado && $receita->acordo !== null && $obrigacao !== null && $obrigacao->getTaxaHonorariosBp() === 0) {
+                $estado->projetarAlocacaoBrutaEmPreexistente($receita->nn);
+            }
+
             $estado->projetarRecebimento($receita, $obrigacao !== null, $jaImportado);
         }
 
@@ -187,12 +193,21 @@ final class ImportarReceitasUseCase
                 // sobrando) — e o que decide é a FORMA do `valorOriginal` dela: o honorário já está
                 // DENTRO dele, ou está fora?
                 //
-                // 🔑 O sinal é o override `taxa_honorarios_bp = 0`, e ele é o certo por construção:
-                // quem grava obrigação COM o honorário embutido grava esse override junto, na mesma
-                // linha de código, exatamente porque o honorário já foi cobrado uma vez
-                // (`ImportarRelatorioCarteiraUseCase:479-481`, `ImportarAcordosDetalhadosUseCase:662-663`
-                // e o `criarObrigacaoJaPaga` daqui). Quem só VINCULA uma avulsa a um acordo não toca o
-                // valor nem o override, que fica NULL (herda a cascata).
+                // O sinal é o override `taxa_honorarios_bp = 0`: quem grava obrigação COM o honorário
+                // embutido grava esse override junto, na mesma linha de código, exatamente porque o
+                // honorário já foi cobrado uma vez (`ImportarRelatorioCarteiraUseCase:479-481`,
+                // `ImportarAcordosDetalhadosUseCase:662-663` e o `criarObrigacaoJaPaga` daqui). Quem só
+                // VINCULA uma avulsa a um acordo não toca o valor nem o override, que fica NULL.
+                //
+                // ⚠️ E este comentário JÁ afirmou que isso era "certo por construção". NÃO É — a 3ª
+                // revisão mostrou que a TELA alcança a coluna nos dois sentidos: digitar 0% em
+                // `EditarObrigacao` grava bp=0 numa avulsa (`EditarObrigacaoInput:71` aceita zero), e o
+                // JS de `show.html.twig:1329` trata a string "0" como falsy e APAGA um bp=0 existente
+                // em qualquer edição. Medido hoje no `saas_ux`: **0 avulsas com bp=0**, então nenhum
+                // dos dois casos existe — mas o sinal é uma boa aposta, não uma garantia.
+                //
+                // Por isso o palpite nunca é silencioso: toda obrigação PREEXISTENTE que entra por este
+                // ramo é reportada logo abaixo, para quem confirma poder conferir o valorOriginal dela.
                 //
                 // ⚠️ Duas versões anteriores erraram, uma para cada lado, e nenhuma das duas dava para
                 // acertar com a informação que elas olhavam:
@@ -205,6 +220,10 @@ final class ImportarReceitasUseCase
                 // das 51 obrigações com `acordo_origem_id`, **14 têm bp = 0** (criadas como parcela) e
                 // **37 têm NULL** (avulsas vinculadas) — e o acordo 31 tem das duas.
                 $honorarioEmbutidoNoValorOriginal = $acordo !== null && $obrigacao->getTaxaHonorariosBp() === 0;
+
+                if ($honorarioEmbutidoNoValorOriginal && $obrigacaoExistia) {
+                    $estado->projetarAlocacaoBrutaEmPreexistente($receita->nn);
+                }
 
                 $valorAlocado = $honorarioEmbutidoNoValorOriginal
                     ? $receita->totalRecebidoCentavos()
@@ -454,9 +473,14 @@ final class ImportarReceitasUseCase
             $temAlocacao = $this->alocacaoRepository->existeAlocacaoEmObrigacoes([$id], $tenant);
             $alocado = $temAlocacao ? $this->alocacaoRepository->totalAlocadoEmObrigacoes([$id], $tenant) : 0;
 
-            // O EFEITO no saldo é o exigível MENOS o que já foi alocado — é isso que `CalculadoraSaldo`
-            // deixa de contar. Somar o exigível bruto (como uma versão anterior fazia) imprimia
-            // R$ 500,00 onde o saldo se move R$ 350,00: um número certo respondendo a outra pergunta.
+            // O EFEITO no saldo é o exigível MENOS o que já foi alocado. Somar o exigível bruto (como
+            // uma versão anterior fazia) imprimia R$ 500,00 onde o saldo se move R$ 350,00: um número
+            // certo respondendo a outra pergunta.
+            //
+            // ⚠️ O piso em zero é convenção deste aviso, e NÃO espelha a `CalculadoraSaldo`, que soma
+            // sem piso por obrigação (`CalculadoraSaldo:175`; o `max(0)` de lá é do vencido). Quando o
+            // alocado passa do exigível — caso que a §9.3 da spec-mãe declara esperado — o saldo se
+            // move para o outro lado e este aviso mostra 0. É aviso de ordem de grandeza, não extrato.
             $saldoQueSaiLiquido += max(0, $obrigacao->valorExigivel() - $alocado);
 
             if (!$temAlocacao) {
