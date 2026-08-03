@@ -291,19 +291,42 @@ final class ImportarReceitasCommand extends Command
         }
 
         $faltando = 0;
+        $terminados = 0;
+        $comAnteriores = 0;
         $linhas = [];
         foreach ($r->acordosIncompletos as $acordo) {
             $faltando += $acordo['total'] - $acordo['pagas'];
-            $linhas[] = sprintf('Acordo %d: %d de %d parcelas', $acordo['numero'], $acordo['pagas'], $acordo['total']);
+
+            // ⚠️ O export é filtrado por VENCIMENTO. Se a menor parcela paga não é a 1, as anteriores
+            // faltam por estarem FORA DA JANELA — já foram pagas, não são futuras. E se a MAIOR é a
+            // última, o acordo terminou de ser pago: ele só continua `Ativo` porque a régua conta o que
+            // este arquivo traz (spec §5.3), e é o lado certo de errar.
+            $antes = $acordo['menorPaga'] > 1;
+            $terminou = $acordo['maiorPaga'] === $acordo['total'];
+            $terminados += $terminou ? 1 : 0;
+            $comAnteriores += $antes ? 1 : 0;
+
+            $linhas[] = sprintf(
+                'Acordo %d: %d de %d pagas (parcelas %d a %d)%s%s',
+                $acordo['numero'], $acordo['pagas'], $acordo['total'],
+                $acordo['menorPaga'], $acordo['maiorPaga'],
+                $antes ? sprintf(' · faltam as 1..%d, ANTERIORES à janela', $acordo['menorPaga'] - 1) : '',
+                $terminou ? ' · ÚLTIMA PAGA: o acordo terminou' : '',
+            );
         }
 
         $io->note(sprintf(
-            "%d acordo(s) ficam INCOMPLETOS — %d parcela(s) futura(s) que este arquivo não traz.\n"
-            . "Elas NÃO são inventadas (decisão B1). Rode o importador de \"Acordos detalhados\" DEPOIS desta\n"
-            . "importação para completar os que têm aba lá; os que não tiverem precisam da fonte com a contábil.\n"
+            "%d acordo(s) ficam INCOMPLETOS — %d parcela(s) que este arquivo não traz.\n"
+            . "⚠️ NÃO são todas futuras: em %d deles a menor parcela paga não é a 1, ou seja, as anteriores\n"
+            . "ficaram FORA DA JANELA do relatório (filtrado por vencimento) e já foram pagas. E em %d a\n"
+            . "ÚLTIMA parcela está paga — o acordo terminou, e só a régua conservadora o mantém Ativo.\n"
+            . "Nada é inventado (decisão B1). Rode \"Acordos detalhados\" DEPOIS desta importação para\n"
+            . "completar os que têm aba lá; para os demais, peça à contábil o extrato do acordo.\n"
             . "%s\n%s",
             count($r->acordosIncompletos),
             $faltando,
+            $comAnteriores,
+            $terminados,
             $confirmar ? '>>> Você passou --confirmar: eles SERÃO gravados assim a seguir. <<<' : 'Dry-run: nada será gravado.',
             implode("\n", array_slice($linhas, 0, 40))
                 . (count($linhas) > 40 ? sprintf("\n… (+%d)", count($linhas) - 40) : ''),

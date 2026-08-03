@@ -142,8 +142,10 @@ final class ImportarReceitasCommandTest extends CobrancaWebTestCase
         self::assertMatchesRegularExpression('/CUMPRIDOS \(todas as parcelas pagas\)\s+1\s/u', $saida, 'só o 400 fechou');
         self::assertMatchesRegularExpression('/INCOMPLETOS \(faltam parcelas\)\s+1\s/u', $saida, 'só o 212 ficou faltando parcela');
 
-        self::assertStringContainsString('Acordo 212: 1 de 20 parcelas', $saida, 'o dono precisa saber QUAL pedir à contábil');
-        self::assertStringContainsString('19 parcela(s) futura(s)', $saida);
+        self::assertStringContainsString('Acordo 212: 1 de 20 pagas', $saida, 'o dono precisa saber QUAL pedir à contábil');
+        self::assertStringContainsString('(parcelas 1 a 1)', $saida, 'e QUAIS faltam — aqui, as futuras');
+        // Fragmento curto: o SymfonyStyle quebra a linha no meio da frase.
+        self::assertStringContainsString('19 parcela(s) que este arquivo', $saida);
     }
 
     #[TestDox('O resumo dos acordos incompletos sai antes do bloco de resultado (ordem de IMPRESSÃO)')]

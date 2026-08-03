@@ -77,10 +77,19 @@ Dos **106** acordos a criar:
 | parciais, **com** aba no Acordos detalhados (há fonte para as parcelas futuras) | **27** |
 | parciais, **sem** fonte nenhuma para as futuras | **4** |
 
-Os 4 órfãos: acordo **212** (faltam 19 de 20), **230** (27 de 28), **237** (16 de 20), **280** (9 de 10) —
-**71 parcelas futuras** que nenhum dos três relatórios traz.
+Os 4 órfãos: acordo **212** (1 de 20 pagas), **230** (1 de 28), **237** (4 de 20), **280** (1 de 10) —
+**71 parcelas** que nenhum dos três relatórios traz.
 
 O buraco real não são 79 acordos: são **4**.
+
+⚠️ **E elas não são "futuras", como esta seção dizia.** Medido depois da importação no dev: o export é
+filtrado por **vencimento**, então as parcelas que faltam podem ser **anteriores** à janela — já pagas.
+Nos 31 incompletos, **12** têm a menor parcela paga maior que 1, e **7** têm a **última** paga (o acordo
+terminou; só a régua conservadora da §5.3 o mantém `Ativo`). Três dos quatro órfãos estão nesse caso:
+o **212** tem a parcela 20/20 paga, o **280** a 10/10, o **237** as 17 a 20. Só o **230** (parcela 19 de
+28) está de fato no meio.
+
+Isso muda o que se pede à contábil: não é "as parcelas futuras", é **o extrato completo do acordo**.
 
 ### 3.4 Rodar o importador de Acordos detalhados antes NÃO resolve — medido
 

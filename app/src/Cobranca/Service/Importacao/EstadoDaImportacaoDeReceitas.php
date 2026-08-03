@@ -205,7 +205,14 @@ final class EstadoDaImportacaoDeReceitas
      * Acordos que ficam com parcelas faltando — o comando os imprime para o dono pedir a fonte à
      * contábil (decisão B1: nada é sintetizado).
      *
-     * @return list<array{numero: int, pagas: int, total: int}>
+     * ⚠️ `menorPaga` e `maiorPaga` não são enfeite. Sem eles o comando dizia "parcelas FUTURAS que este
+     * arquivo não traz", e isso é falso em boa parte dos casos: o export é filtrado por VENCIMENTO,
+     * então um acordo cuja parcela 20/20 aparece tem as 1..19 faltando por serem **anteriores** à
+     * janela — já pagas, não futuras. Medido em 03/08: de 31 incompletos, **12** têm `menorPaga > 1` e
+     * **7** têm `maiorPaga = total` (o acordo terminou, e só a régua conservadora o mantém `Ativo`).
+     * Pedir à contábil "as parcelas futuras" desses acordos seria pedir a coisa errada.
+     *
+     * @return list<array{numero: int, pagas: int, total: int, menorPaga: int, maiorPaga: int}>
      */
     public function acordosIncompletos(): array
     {
@@ -213,7 +220,13 @@ final class EstadoDaImportacaoDeReceitas
         foreach ($this->parcelasPorAcordo as $numero => $indices) {
             $total = $this->totalDeParcelas[$numero] ?? 0;
             if ($total > 0 && count($indices) < $total) {
-                $incompletos[] = ['numero' => $numero, 'pagas' => count($indices), 'total' => $total];
+                $incompletos[] = [
+                    'numero' => $numero,
+                    'pagas' => count($indices),
+                    'total' => $total,
+                    'menorPaga' => min(array_keys($indices)),
+                    'maiorPaga' => max(array_keys($indices)),
+                ];
             }
         }
 

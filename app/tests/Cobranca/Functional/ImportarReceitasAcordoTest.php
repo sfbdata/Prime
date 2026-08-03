@@ -395,8 +395,43 @@ final class ImportarReceitasAcordoTest extends CobrancaWebTestCase
             $usuario,
         );
 
-        self::assertSame([['numero' => 212, 'pagas' => 1, 'total' => 20]], $resultado->acordosIncompletos);
+        self::assertSame(
+            [['numero' => 212, 'pagas' => 1, 'total' => 20, 'menorPaga' => 1, 'maiorPaga' => 1]],
+            $resultado->acordosIncompletos,
+        );
         self::assertSame(1, $resultado->acordosCumpridos, 'o 403 fechou; o 212 não');
+    }
+
+    #[TestDox('🔑 Acordo cuja ÚLTIMA parcela está paga é reportado como terminado, não como "faltam futuras"')]
+    public function testIncompletoDizQuaisParcelasFaltam(): void
+    {
+        [$carteira, , $tenant, $usuario] = $this->cenario();
+
+        // 🔑 Medido no dado real: dos 31 incompletos, 12 têm a menor parcela paga MAIOR que 1 e 7 têm a
+        // ÚLTIMA paga. O export é filtrado por VENCIMENTO, então as que faltam nesses casos são
+        // ANTERIORES à janela — já pagas —, não futuras. A mensagem antiga dizia "parcelas futuras" e
+        // mandaria o dono pedir à contábil a coisa errada.
+        $resultado = static::getContainer()->get(ImportarReceitasUseCase::class)->confirmar(
+            (int) $carteira->getId(),
+            $this->leitura([
+                // Acordo 212 real: só a parcela 20/20 aparece. As 1..19 são passadas.
+                $this->receita('AC-20', '9400', divida: 16188, acordo: new AcordoDoRelatorio(212, 20, 20)),
+                // Acordo 348 real: só a 1/40. Aí sim faltam as futuras.
+                $this->receita('AC-21', '9410', divida: 24211, acordo: new AcordoDoRelatorio(348, 1, 40)),
+            ]),
+            $tenant,
+            $usuario,
+        );
+
+        $porNumero = [];
+        foreach ($resultado->acordosIncompletos as $a) {
+            $porNumero[$a['numero']] = $a;
+        }
+
+        self::assertSame(20, $porNumero[212]['menorPaga'], 'a menor paga do 212 é a 20 — as 1..19 são anteriores');
+        self::assertSame(20, $porNumero[212]['maiorPaga'], 'e é a última: o acordo terminou');
+        self::assertSame(1, $porNumero[348]['menorPaga'], 'já o 348 começa na 1...');
+        self::assertSame(1, $porNumero[348]['maiorPaga'], '...e aí as que faltam são mesmo as futuras');
     }
 
     #[TestDox('🔑 D6: acordo ROMPIDO volta a Ativo pela importação, com registro no histórico')]
