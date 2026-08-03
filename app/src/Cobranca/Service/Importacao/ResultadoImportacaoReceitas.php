@@ -47,6 +47,19 @@ final class ResultadoImportacaoReceitas
          * bate no total e esconde uma troca entre baldes.
          */
         public readonly int $encargosCentavos = 0,
+        /**
+         * NNs cujo recebimento não tem principal nenhum — só honorário e/ou juros/multa. A obrigação
+         * criada por R1 nasce com `valorOriginal = 0`, e nas que também não têm encargo o exigível é
+         * zero e a alocação vale R$ 0,00.
+         *
+         * ⚠️ Existe porque a spec §9 declara esta decisão ABERTA e do dono. O importador conta e o
+         * comando imprime; ninguém decide por ele. Medido em 03/08: 37 na TOP LIFE I (R$ 11.179,36,
+         * dos quais 10 com exigível zero) e nenhum na II.
+         *
+         * @var list<string>
+         */
+        public readonly array $semPrincipal = [],
+        public readonly int $semPrincipalCentavos = 0,
     ) {
     }
 

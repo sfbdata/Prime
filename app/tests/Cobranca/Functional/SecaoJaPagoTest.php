@@ -248,6 +248,36 @@ final class SecaoJaPagoTest extends CobrancaWebTestCase
         );
     }
 
+    #[TestDox('R5: obrigação de exigível ZERO cai na seção e não imprime data inventada')]
+    public function testObrigacaoDeExigivelZeroApareceSemQuebrarALinha(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+
+        // Deixou de ser hipótese com o importador de receitas: medido em 03/08, 10 recebimentos da
+        // TOP LIFE I são SÓ honorário (R$ 2.618,18). A obrigação que R1 cria para eles nasce com
+        // `valorOriginal = 0`, satisfaz `quitada()` por 0 ≥ 0 e a alocação que a acompanha vale
+        // R$ 0,00 — este é o formato exato dessa linha na tela.
+        ObrigacaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso,
+            'descricao' => 'Taxa 04/2026 (NN 9999)', 'valorOriginal' => 0, 'encargosReconhecidos' => 0,
+            'vencimentoOriginal' => new \DateTimeImmutable('2026-04-10'),
+        ]);
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+
+        self::assertResponseIsSuccessful();
+        $pagas = $crawler->filter('#secao-ja-pago .jp-pagas-linha');
+        self::assertCount(1, $pagas, 'exigível zero satisfaz quitada() e cai no histórico');
+        self::assertCount(0, $crawler->filter('#secao-divida .jp-obr'), 'e não fica na fila de cobrança');
+
+        // Sem alocação nenhuma, não há data. O travessão é o certo — a alternativa silenciosa seria
+        // imprimir 01/01/1970, que é o que um `?->format()` mal guardado produz.
+        self::assertSame('—', trim($pagas->filter('.jp-pagas-data')->text()));
+        self::assertStringContainsString('R$ 0,00', $pagas->filter('.jp-pagas-valor')->text());
+    }
+
     /**
      * Obrigação quitada por pagamento na data informada — o formato que a importação de receitas cria
      * (uma alocação só, cobrindo o exigível inteiro).

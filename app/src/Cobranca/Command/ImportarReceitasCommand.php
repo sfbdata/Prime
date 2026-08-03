@@ -127,6 +127,24 @@ final class ImportarReceitasCommand extends Command
             $io->writeln(sprintf('  <comment>%s</comment> — %s', $rejeitada->referencia, $rejeitada->motivo));
         }
 
+        // Classe de conta fora do mapa da spec §5: caiu no principal por OMISSÃO, não por decisão.
+        // Hoje são só as raras conhecidas (1.12, 1.19, 1.22). O aviso existe para o dia em que a
+        // contábil criar um código novo: sem ele, o dinheiro trocaria de balde em silêncio — o total
+        // fecharia igual e o rateio do `Pagamento` sairia errado.
+        if ($leitura->classesForaDoMapa !== []) {
+            $linhas = [];
+            foreach ($leitura->classesForaDoMapa as $codigo => $qtd) {
+                $linhas[] = sprintf('%s (%d linha(s))', $codigo, $qtd);
+            }
+
+            $io->note(sprintf(
+                "Classe(s) de conta fora do mapa conhecido, somadas ao PRINCIPAL: %s.\n"
+                . 'Confira contra o quadro "Total recebido por classe de conta" do rodapé do relatório: '
+                . 'se alguma dessas não for taxa/principal, o balde está errado (o total fecha do mesmo jeito).',
+                implode(' · ', $linhas),
+            ));
+        }
+
         $resultado = $confirmar
             ? $this->importar->confirmar($carteiraId, $leitura, $tenant, $user)
             : $this->importar->prever($carteiraId, $leitura, $tenant);
@@ -179,6 +197,22 @@ final class ImportarReceitasCommand extends Command
             ],
         );
         $io->note('Confira o total recebido contra a soma da coluna "Valor recebido" da planilha: têm de bater ao centavo.');
+
+        // Spec §9: aceitar boleto SEM PRINCIPAL é decisão do dono e está ABERTA. O comando não decide —
+        // põe o número na frente de quem vai confirmar. Nenhum centavo se perde em nenhuma hipótese (o
+        // total fecha com a contabilidade de qualquer jeito); o que muda é a FORMA do que entra: uma
+        // obrigação de R$ 0,00 descrita como "Taxa MM/AAAA" que nunca cobrou taxa nenhuma.
+        if ($r->semPrincipal !== []) {
+            $io->warning(sprintf(
+                "%d recebimento(s), somando %s, NÃO têm principal — são só honorário e/ou juros/multa.\n"
+                . "Cada um cria uma obrigação com valor original R$ 0,00 (spec §9: decisão do dono, ainda ABERTA).\n"
+                . 'NN: %s',
+                count($r->semPrincipal),
+                $this->reais($r->semPrincipalCentavos),
+                implode(', ', array_slice($r->semPrincipal, 0, 40))
+                    . (count($r->semPrincipal) > 40 ? sprintf(' … (+%d)', count($r->semPrincipal) - 40) : ''),
+            ));
+        }
     }
 
     private function reais(int $centavos): string

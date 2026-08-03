@@ -21,19 +21,30 @@ use PhpOffice\PhpSpreadsheet\IOFactory;
  *   `1.4`, `1.5` e `1.6` — nos juros/multa o recebido é MAIOR (acumulou até o pagamento) e no desconto é
  *   mais negativo (o abatimento efetivamente concedido). Na taxa e no honorário são idênticas.
  * - ⚠️ **`Recebimento = "-"` → linha EM ABERTO, descartada.** É o boleto que ainda não foi pago, que a
- *   contábil inclui quando o export pede a situação "Aberta". Medido em 03/08: 2.094 linhas somando
- *   R$ 2.045.780 na coluna nominal. O export de 01/08 não trazia nenhuma, e o handoff registrou isso
- *   como se fosse propriedade da fonte — não é. **Sem este descarte entram dois milhões que ninguém
- *   recebeu.**
- * - **Agrega por NN**: cada NN tem exatamente UMA data de recebimento (medido: 1.220 NNs → 1.220
- *   chaves), então o NN identifica o recebimento e as ~2,3 linhas de classe dele viram UM pagamento.
+ *   contábil inclui quando o export pede a situação "Aberta" (a linha de filtros do próprio arquivo
+ *   registra isso). Remedido em 03/08: **2.094 linhas somando R$ 280.366,71** na coluna nominal —
+ *   R$ 147.015,35 na TOP LIFE I e R$ 133.351,36 na II. Sem este descarte, esse valor entraria como
+ *   pagamento e apagaria a cobrança de 2.094 boletos.
+ *   🔑 Este docblock afirmou **R$ 2.045.780** até 03/08. O número não se reproduz em arquivo nenhum
+ *   (o maior valor de qualquer coluna dos dois é R$ 429.654,58) e sobreviveu porque ninguém tinha
+ *   como recalculá-lo sem abrir a planilha. A regra sempre esteve certa; era a magnitude que estava
+ *   errada, por um fator de 7. Ver spec §2.
+ * - **Agrega por `(unidade, NN)`**: cada NN tem exatamente UMA data de recebimento e UMA competência
+ *   (remedido em 03/08: zero grupos com mais de uma, nos dois arquivos), então o NN identifica o
+ *   recebimento e as ~2,3 linhas de classe dele viram UM pagamento. A premissa não é suposta: se um
+ *   export futuro trouxer duas datas ou duas competências no mesmo grupo, a linha é REJEITADA com
+ *   motivo — fundir seria escolher uma data em silêncio e furar a idempotência, cuja chave é
+ *   `(obrigação, data)`.
  * - **Classes → baldes do `Pagamento`**: `1.1`/`1.14` e o desconto `1.6` (sempre negativo) compõem a
  *   DÍVIDA; `1.4` (juros) e `1.5` (multa) os ENCARGOS; `1.15` os HONORÁRIOS. As raras (`1.12`, `1.19`,
- *   `1.22`, ≤12 linhas no total) caem na dívida e aparecem no detalhe para conferência.
+ *   `1.22`, 11 linhas nos dois arquivos) caem na dívida. Classe DESCONHECIDA também cai na dívida, mas
+ *   não em silêncio: toda classe fora do mapa acima é contada em `classesForaDoMapa` e o comando a
+ *   imprime, para a conferência contra o quadro por classe de conta do relatório.
  *
- * Recusa com motivo: NN sem sacado, competência inválida, vencimento inválido, valor não numérico, e
- * recebimento cujo líquido não é positivo (a soma da coluna I por NN nunca deu ≤ 0 no dado real — se
- * der, é sinal de leitura errada, não de dado válido).
+ * Recusa com motivo: NN sem sacado, competência inválida, vencimento inválido, valor não numérico,
+ * grupo com mais de uma data de recebimento ou competência, e recebimento cujo líquido não é positivo
+ * (medido em 03/08: 1 caso, o NN `60082` da TOP LIFE II, taxa de R$ 170,00 anulada por um desconto de
+ * R$ −170,00 — boleto perdoado, que não é receita).
  */
 final class TopLifeReceitasAdapter
 {
@@ -58,8 +69,19 @@ final class TopLifeReceitasAdapter
 
     private const REGEX_ACORDO = '/^Acordo\s+(\d+)\s*-\s*Parc\.\s*(\d+)\/(\d+)$/i';
 
+    /**
+     * Códigos de classe que caíram no principal por OMISSÃO (não estão no mapa da spec §5) → nº de
+     * linhas. Zerado a cada `ler()` para o adapter não acumular entre arquivos: o comando importa uma
+     * carteira por execução, e um contador vazado faria a TOP LIFE II reportar as classes da I.
+     *
+     * @var array<string, int>
+     */
+    private array $classesForaDoMapa = [];
+
     public function ler(string $caminhoArquivo): ResultadoLeituraReceitas
     {
+        $this->classesForaDoMapa = [];
+
         $reader = IOFactory::createReaderForFile($caminhoArquivo);
         $reader->setReadDataOnly(true);
         $linhas = $reader->load($caminhoArquivo)->getActiveSheet()->toArray(null, true, false, false);
@@ -119,7 +141,9 @@ final class TopLifeReceitasAdapter
             $rejeitadas[] = $resultado;
         }
 
-        return new ResultadoLeituraReceitas($receitas, $rejeitadas, $ignoradas, $emAberto);
+        ksort($this->classesForaDoMapa);
+
+        return new ResultadoLeituraReceitas($receitas, $rejeitadas, $ignoradas, $emAberto, $this->classesForaDoMapa);
     }
 
     /**
@@ -152,6 +176,27 @@ final class TopLifeReceitasAdapter
             return new LinhaRejeitada($nn, 'Data de recebimento inválida.', $dados);
         }
 
+        // ⚠️ GUARDA DA PREMISSA (spec §6). Competência e data saem da PRIMEIRA linha do grupo e os
+        // valores somam TODAS — o que só é correto porque cada `(unidade, NN)` tem uma competência e
+        // uma data só. Isso foi remedido em 03/08 e vale (zero grupos divergentes nos dois arquivos),
+        // mas é propriedade do EXPORT, não do formato: nesta fonte, três "fatos medidos" já caíram em
+        // dois dias.
+        //
+        // Sem a guarda, um grupo com duas datas fundiria os valores num pagamento com a data da
+        // primeira — em silêncio — e a chave de idempotência `(obrigação, data)` passaria a cobrir só
+        // uma delas, deixando a outra entrar de novo a cada reimportação. Rejeitar com motivo põe o
+        // caso na frente de quem importa, que é o único desfecho seguro num caminho de dinheiro.
+        foreach ($linhas as $outra) {
+            if (trim((string) ($outra[self::COL_COMPETENCIA] ?? '')) !== $competencia) {
+                return new LinhaRejeitada($nn, 'Mesmo NN com mais de uma competência — não é possível decidir a qual boleto o recebimento pertence.', $dados);
+            }
+
+            $outraData = $this->parseData((string) ($outra[self::COL_RECEBIMENTO] ?? ''));
+            if ($outraData === null || $outraData->format('Y-m-d') !== $recebimento->format('Y-m-d')) {
+                return new LinhaRejeitada($nn, 'Mesmo NN com mais de uma data de recebimento — fundir escolheria uma data em silêncio e furaria a idempotência.', $dados);
+            }
+        }
+
         $divida = 0;
         $juros = 0;
         $multa = 0;
@@ -167,7 +212,8 @@ final class TopLifeReceitasAdapter
             }
 
             // O desconto (1.6) vem NEGATIVO e entra na dívida abatendo-a — sem tratamento próprio:
-            // medido, a soma da coluna I por NN nunca fica negativa nem zero.
+            // remedido em 03/08, a soma da coluna I por NN nunca fica negativa (mas DÁ ZERO em 1 caso,
+            // que a guarda de líquido não-positivo lá embaixo rejeita).
             if (in_array($codigo, self::CODIGOS_DIVIDA, true)) {
                 $divida += $valor;
             } elseif ($codigo === self::CODIGO_JUROS) {
@@ -177,8 +223,13 @@ final class TopLifeReceitasAdapter
             } elseif ($codigo === self::CODIGO_HONORARIO) {
                 $honorarios += $valor;
             } else {
-                // Classes raras (1.12, 1.19, 1.22): entram no principal e ficam visíveis no detalhe.
+                // Classe FORA DO MAPA da spec §5 — as raras conhecidas (1.12 Água, 1.19 sobras,
+                // 1.22 ajuste) e qualquer código novo que a contábil venha a criar. Entra no principal,
+                // que é o balde certo para todas as conhecidas hoje, mas NÃO em silêncio: o código é
+                // contado e o comando o imprime. Um balde escolhido por omissão que ninguém vê é como
+                // dinheiro troca de balde sem ninguém notar — fecha no total e rateia errado.
                 $divida += $valor;
+                $this->classesForaDoMapa[$codigo] = ($this->classesForaDoMapa[$codigo] ?? 0) + 1;
             }
 
             $acordo ??= $this->acordoDoRelatorio((string) ($linha[self::COL_ACORDO] ?? ''));

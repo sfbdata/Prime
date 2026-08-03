@@ -76,7 +76,9 @@ final class ImportarReceitasUseCase
 
     /**
      * Dry-run: projeta o que ACONTECERIA, sem escrever nada. Mesma estrutura de saída da confirmação —
-     * é o que permite conferir os 13 campos um a um, e não por amostra.
+     * é o que permite conferir TODOS os campos de uma vez, e não por amostra. (Sem número escrito aqui
+     * de propósito: ele já esteve desatualizado em três lugares. Quem garante a cobertura é
+     * `ImportarReceitasFluxoTest::testAchatarCobreTodoOResultado`, que a deriva por reflexão.)
      */
     public function prever(int $carteiraId, ResultadoLeituraReceitas $leitura, Tenant $tenant): ResultadoImportacaoReceitas
     {
@@ -171,10 +173,23 @@ final class ImportarReceitasUseCase
         $input->vencimentoOriginal = $receita->vencimento;
         $input->referenciaExterna = $receita->nn;
         $input->competencia = $receita->competencia;
-        // Encargos vêm da planilha, não da cascata da carteira: esta obrigação já foi paga e o que
-        // vale é o que a contabilidade cobrou, não o que o motor calcularia hoje.
-        $input->honorariosBp = 0;
 
+        // ⚠️ NÃO há override de taxa aqui, e isso é deliberado — mas custou um comentário falso.
+        //
+        // Havia um `$input->honorariosBp = 0` com o comentário "encargos vêm da planilha, não da
+        // cascata da carteira". A linha era INERTE: `modoHonorarios` fica no default `'herda'`, e
+        // `ConversorTaxaEncargo::bpDe` devolve `null` para 'herda' — o bp submetido é descartado antes
+        // de chegar à entidade. A obrigação sempre gravou o override herdado da cascata, nunca zero.
+        //
+        // O que de fato trava os encargos é o `liquidar()` logo abaixo: ele materializa os quatro
+        // encargos com os valores da planilha e CONGELA, então a cascata não tem por onde agir. Ou
+        // seja, o efeito prometido existe — só não vinha de onde o comentário dizia.
+        //
+        // A diferença aparece num único caminho: `reabrir()` (exclusão do recebimento, etapa 1)
+        // descongela a obrigação, e aí ela volta a crescer pela taxa da CARTEIRA. Isso é decisão de
+        // produto, não bug — boleto reaberto virou dívida viva de novo —, e travar em zero seria
+        // decidir por conta própria que histórico reaberto nunca acumula encargo. Fica registrado na
+        // spec §9 para o dono bater o martelo.
         $obrigacao = $this->registrarObrigacao->executar($input, $tenant, $user);
 
         $obrigacao->liquidar(

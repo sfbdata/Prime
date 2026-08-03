@@ -38,10 +38,19 @@ final class EstadoDaImportacaoDeReceitas
     private int $objetosCriados = 0;
     private int $pessoasCriadas = 0;
     private int $casosCriados = 0;
+    /**
+     * Sempre ZERO nesta etapa, de propósito: criar acordo a partir da coluna J é a **etapa 3** (D6,
+     * reativação por importação). O campo existe porque o `ResultadoImportacaoReceitas` é comparado
+     * inteiro entre prévia e confirmação, e um campo que aparecesse só depois quebraria essa
+     * comparação — mas nada o incrementa hoje, e um assert sobre ele não discrimina defeito nenhum.
+     */
     private int $acordosCriados = 0;
     private int $totalRecebido = 0;
     private int $honorarios = 0;
     private int $encargos = 0;
+    /** @var list<string> */
+    private array $semPrincipal = [];
+    private int $semPrincipalCentavos = 0;
 
     /**
      * Registra o objeto/caso desta linha, contando criação **uma vez por unidade** — não uma vez por
@@ -68,11 +77,6 @@ final class EstadoDaImportacaoDeReceitas
         }
     }
 
-    public function contarAcordoCriado(): void
-    {
-        ++$this->acordosCriados;
-    }
-
     public function projetarRecebimento(ReceitaImportavel $receita, bool $obrigacaoExiste, bool $jaImportado): void
     {
         if ($jaImportado) {
@@ -88,6 +92,15 @@ final class EstadoDaImportacaoDeReceitas
         }
 
         $this->pagamentosCriados[] = $receita->nn;
+
+        // B1 / spec §9: recebimento SÓ de honorário e/ou juros-multa, sem taxa nenhuma. Contado à
+        // parte porque a decisão de aceitá-lo é do dono e ainda está aberta — o importador não decide
+        // sozinho, mas também não pode deixar o caso passar sem que ninguém veja. Ver `semPrincipal()`.
+        if ($receita->semPrincipal()) {
+            $this->semPrincipal[] = $receita->nn;
+            $this->semPrincipalCentavos += $receita->totalRecebidoCentavos();
+        }
+
         $this->totalRecebido += $receita->totalRecebidoCentavos();
         $this->honorarios += $receita->valorHonorariosCentavos;
         // O terceiro balde (juros 1.4 + multa 1.5). Ele já ia para `Pagamento::valorEncargos`, mas não
@@ -114,6 +127,8 @@ final class EstadoDaImportacaoDeReceitas
             totalRecebidoCentavos: $this->totalRecebido,
             honorariosCentavos: $this->honorarios,
             encargosCentavos: $this->encargos,
+            semPrincipal: $this->semPrincipal,
+            semPrincipalCentavos: $this->semPrincipalCentavos,
         );
     }
 }

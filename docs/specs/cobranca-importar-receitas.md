@@ -207,9 +207,15 @@ MESMA execução (ver `feedback_previa_precisa_de_estado`).
 
 ## 8. Como se prova
 
-- **prévia × confirmação idênticas** nos 18 campos, não por amostra — foi assim que o defeito escapou antes;
 - **reimportar o mesmo arquivo não cria pagamento nenhum** na 2ª vez;
-- **linha com `Recebimento = "-"` é ignorada** — e o teste mede que os R$ 2.045.780 NÃO entram (§2);
+- **prévia × confirmação idênticas em TODOS os campos** — o comparador os deriva por reflexão e um teste
+  próprio prova que nenhum campo público do resultado ficou de fora. O número de campos não é escrito em
+  lugar nenhum de propósito: já esteve como "13" em dois lugares e "18" aqui, com o comparador olhando 16;
+- **linha com `Recebimento = "-"` é ignorada** — e o teste mede que o **VALOR** dela não entra em balde
+  nenhum, não só que a linha não vira receita. Contar linhas passaria mesmo se o valor entrasse (§2);
+- **grupo com duas datas ou duas competências é rejeitado**, não fundido — fundir escolheria uma data em
+  silêncio e furaria a chave de idempotência;
+- **classe de conta fora do mapa da §5** cai no principal, mas fica contada e o comando a imprime;
 - um pagamento importado **abate exatamente** o mesmo que abateria digitado à mão;
 - obrigação criada por R1 nasce **liquidada** com o valor recebido, e o saldo do caso não muda por causa dela;
 - desconto negativo compõe o principal sem gerar pagamento negativo;
@@ -256,9 +262,50 @@ competência)` é residual, e é R1 que dá corpo ao histórico.
 ## 9. Fora de escopo
 
 - **Reativação por importação (D6)** — etapa 3, só depois desta.
-- **Aceitar boleto sem principal** (R$ 4.390,86 da TOP LIFE I) — pendência declarada pelo dono em 01/08:
-  medir antes se o boleto é acessório de um de taxa.
 - **Marca de origem no pagamento** — dispensada por R3.
+
+### 9.1 ⏸️ Boleto sem principal — a pendência do dono, agora MEDIDA
+
+A versão anterior desta seção falava em **R$ 4.390,86** na TOP LIFE I. Medido nos arquivos de 03/08, com
+a mesma chave `(unidade, NN)` do adapter, o número é outro:
+
+| | TOP LIFE I | TOP LIFE II |
+|---|---|---|
+| recebimentos sem principal nenhum | **37** | 1 (o `60082`, já rejeitado por líquido zero) |
+| total recebido neles | **R$ 11.179,36** | — |
+| destes, com **exigível zero** (só a classe `1.15`) | **10** | — |
+| total recebido nesses 10 | **R$ 2.618,18** | — |
+
+**O que acontece hoje se a importação rodar:** os 37 criam obrigação com `valorOriginal = 0`, descrita
+como `Taxa MM/AAAA (NN …)` sem taxa nenhuma. Nos 27 que têm juros/multa o exigível é positivo, a
+alocação bate e eles quitam certo. Nos 10 só-honorário o exigível é zero e a alocação vale **R$ 0,00** —
+a linha aparece em "Já pago" com R$ 0,00 e o honorário fica visível só no extrato de Movimentos.
+
+**Nenhum centavo se perde em nenhuma das hipóteses** — o total recebido fecha ao centavo com a
+contabilidade de qualquer jeito (§8.1). O que está em jogo é a **forma** do que entra.
+
+**O importador não decide sozinho, porque a decisão é do dono e continua aberta.** Ele conta e o comando
+imprime um aviso com a quantidade, o valor e os NNs, antes de qualquer `--confirmar`. As opções, para
+quando o dono bater o martelo:
+
+1. **aceitar como está** (o que o código faz hoje) — o histórico fica completo, com 10 linhas de R$ 0,00;
+2. **rejeitar a linha** — o histórico perde R$ 11.179,36 de honorário recebido, que sairia dos totais;
+3. **anexar ao boleto de taxa** do mesmo devedor/competência — é a hipótese que a pendência de 01/08
+   mandou medir ("se o boleto é acessório de um de taxa"). **Ainda não medi** se existe um boleto de taxa
+   correspondente para cada um dos 37; é o próximo passo desta pendência.
+
+### 9.2 ⏸️ Obrigação de R1 REABERTA volta a crescer pela carteira
+
+Achado da revisão, medido no código. A obrigação criada por R1 nasce liquidada e **congelada**, então a
+cascata de encargos não a toca — isso está garantido por `Obrigacao::liquidar()`, não por configuração.
+
+Mas `reabrir()` (exclusão do recebimento, etapa 1, já no master) **descongela**. A partir daí ela volta a
+acumular juros/multa/honorários pela taxa da **carteira**, não pela da planilha. Um `$input->honorariosBp = 0`
+existia no código com um comentário dizendo que travava isso; a linha era **inerte** (`modoHonorarios`
+fica em `'herda'` e o bp submetido é descartado) e foi removida junto com o comentário falso.
+
+É decisão de produto, não defeito: boleto reaberto virou dívida viva de novo, e travar em zero seria
+decidir por conta própria que histórico reaberto nunca acumula encargo. **Fica para o dono.**
 
 ## 10. Estado
 

@@ -60,6 +60,25 @@ final class ReceitaImportavel
         return $this->valorDividaCentavos + $this->valorEncargosCentavos();
     }
 
+    /**
+     * Recebimento SEM principal: só honorário e/ou juros/multa, nenhuma taxa de condomínio.
+     *
+     * Medido em 03/08: **37 na TOP LIFE I** (R$ 11.179,36) e nenhum na II. Destes, **10 têm exigível
+     * ZERO** (só a classe `1.15`, R$ 2.618,18): a obrigação criada por R1 nasce valendo R$ 0,00 e a
+     * alocação que a acompanha também. Os outros 27 têm juros/multa como exigível, a alocação bate e
+     * eles quitam certo.
+     *
+     * ⚠️ É a pendência que a spec §9 declara ABERTA: o dono precisa medir se esse boleto é acessório de
+     * um de taxa antes de decidir se aceita, e ainda não bateu o martelo. Até lá o importador NÃO
+     * decide sozinho — ele conta e o comando imprime, para o número estar na frente de quem confirma.
+     * Nenhum centavo se perde em nenhuma das duas hipóteses: o total recebido fecha ao centavo com a
+     * contabilidade de qualquer jeito (medido). O que está em jogo é a FORMA do que entra.
+     */
+    public function semPrincipal(): bool
+    {
+        return $this->valorDividaCentavos === 0;
+    }
+
     public function descricao(): string
     {
         return sprintf('Taxa %s (NN %s)', $this->competencia, $this->nn);

@@ -49,10 +49,15 @@ final class TopLifeReceitasAdapterTest extends TestCase
     #[TestDox('🔑 Linha com Recebimento "-" é EM ABERTO: não entra como receita')]
     public function descartaLinhaEmAbertoEContaSeparado(): void
     {
-        // A regra que separa receita de dívida. Medido em 03/08: 2.094 linhas assim, somando
-        // R$ 2.045.780 na coluna nominal. O export de 01/08 não trazia nenhuma e o handoff registrou
-        // isso como propriedade da fonte — não é. Sem este descarte, entram dois milhões que ninguém
-        // recebeu.
+        // A regra que separa receita de dívida. Remedido em 03/08: 2.094 linhas assim, somando
+        // R$ 280.366,71 na coluna nominal (este comentário dizia R$ 2.045.780, número que não se
+        // reproduz em arquivo nenhum — ver spec §2). O export de 01/08 não trazia nenhuma e o handoff
+        // registrou isso como propriedade da fonte; não é, é o filtro "Aberta e baixada" do export.
+        //
+        // ⚠️ O assert que importa é o de VALOR, não o de contagem. A versão anterior deste teste só
+        // contava linhas — passaria igual se o adapter somasse o valor da linha em aberto em qualquer
+        // balde, que é exatamente o defeito de R$ 280 mil que ele existe para impedir. A spec §8
+        // prometia "o teste mede que o valor NÃO entra"; agora mede.
         $resultado = $this->adapter->ler($this->planilha([
             ['CHACARA 01', 'Fulano', '9001', '1.1 - Taxa de condomínio', '05/2026', '10/05/2026', '15/05/2026', '100,00', '100,00', '-'],
             ['CHACARA 02', 'Beltrano', '9002', '1.1 - Taxa de condomínio', '06/2026', '10/06/2026', '-', '250,00', '0,00', '-'],
@@ -62,6 +67,97 @@ final class TopLifeReceitasAdapterTest extends TestCase
         self::assertSame('9001', $resultado->receitas[0]->nn);
         self::assertSame(1, $resultado->emAberto, 'o em aberto é contado à parte, não some em silêncio');
         self::assertSame([], $resultado->rejeitadas, 'em aberto não é rejeição: é boleto que ainda não venceu o seu destino');
+
+        // O DINHEIRO: os R$ 250,00 nominais do boleto em aberto não entram em balde nenhum. Somando
+        // tudo que foi lido, só os R$ 100,00 recebidos aparecem.
+        $total = 0;
+        foreach ($resultado->receitas as $receita) {
+            $total += $receita->totalRecebidoCentavos();
+        }
+
+        self::assertSame(10000, $total, 'os 250,00 do boleto em aberto NÃO podem estar aqui');
+    }
+
+    #[Test]
+    #[TestDox('🔑 Mesmo NN com DUAS datas de recebimento é rejeitado, não fundido')]
+    public function rejeitaGrupoComMaisDeUmaDataDeRecebimento(): void
+    {
+        // A agregação por (unidade, NN) tira competência/data da PRIMEIRA linha e soma os valores de
+        // TODAS — correto só porque cada grupo tem uma data só (remedido em 03/08: zero divergentes).
+        // É propriedade do EXPORT, não do formato. Sem esta guarda, o grupo viraria UM pagamento com a
+        // data da primeira linha, em silêncio, e a chave de idempotência `(obrigação, data)` cobriria
+        // só uma das duas — a outra entraria de novo a cada reimportação.
+        $resultado = $this->adapter->ler($this->planilha([
+            ['CHACARA 01', 'Fulano', '9001', '1.1 - Taxa de condomínio', '05/2026', '10/05/2026', '15/05/2026', '100,00', '100,00', '-'],
+            ['CHACARA 01', 'Fulano', '9001', '1.4 - Juros', '05/2026', '10/05/2026', '20/05/2026', '8,00', '8,00', '-'],
+        ]));
+
+        self::assertSame([], $resultado->receitas, 'nada entra: fundir escolheria uma data sem dizer');
+        self::assertCount(1, $resultado->rejeitadas);
+        self::assertSame('9001', $resultado->rejeitadas[0]->referencia);
+        self::assertStringContainsString('mais de uma data', $resultado->rejeitadas[0]->motivo);
+    }
+
+    #[Test]
+    #[TestDox('🔑 Mesmo NN com DUAS competências é rejeitado')]
+    public function rejeitaGrupoComMaisDeUmaCompetencia(): void
+    {
+        // Mesma razão: a competência sai da primeira linha e compõe a chave `(caso, NN, competência)`
+        // que decide em QUAL obrigação o dinheiro pousa. Escolher uma em silêncio erra o boleto.
+        $resultado = $this->adapter->ler($this->planilha([
+            ['CHACARA 01', 'Fulano', '9001', '1.1 - Taxa de condomínio', '05/2026', '10/05/2026', '15/05/2026', '100,00', '100,00', '-'],
+            ['CHACARA 01', 'Fulano', '9001', '1.4 - Juros', '06/2026', '10/05/2026', '15/05/2026', '8,00', '8,00', '-'],
+        ]));
+
+        self::assertSame([], $resultado->receitas);
+        self::assertCount(1, $resultado->rejeitadas);
+        self::assertStringContainsString('mais de uma competência', $resultado->rejeitadas[0]->motivo);
+    }
+
+    #[Test]
+    #[TestDox('🔑 Classe de conta fora do mapa entra no principal, mas NÃO em silêncio')]
+    public function classeDesconhecidaEhContadaParaConferencia(): void
+    {
+        // O `else` do mapa acolhe qualquer código. Hoje só as raras conhecidas caem nele (1.12, 1.19,
+        // 1.22 — 11 linhas nos dois arquivos), e o principal é o balde certo para todas. Mas a contábil
+        // pode criar um código novo: sem contá-lo, o dinheiro trocaria de balde em silêncio — o total
+        // fecharia igual e o rateio do `Pagamento` sairia errado, que é o modo de falhar que a
+        // conferência por total não pega.
+        $resultado = $this->adapter->ler($this->planilha([
+            ['CHACARA 01', 'Fulano', '9001', '1.1 - Taxa de condomínio', '05/2026', '10/05/2026', '15/05/2026', '100,00', '100,00', '-'],
+            ['CHACARA 01', 'Fulano', '9001', '1.12 - Água', '05/2026', '10/05/2026', '15/05/2026', '30,00', '30,00', '-'],
+            ['CHACARA 01', 'Fulano', '9001', '1.99 - Classe que ainda não existe', '05/2026', '10/05/2026', '15/05/2026', '7,00', '7,00', '-'],
+        ]));
+
+        self::assertCount(1, $resultado->receitas);
+        self::assertSame(13700, $resultado->receitas[0]->valorDividaCentavos, 'as três somam no principal');
+        self::assertSame(
+            ['1.12' => 1, '1.99' => 1],
+            $resultado->classesForaDoMapa,
+            'as duas fora do mapa ficam visíveis; a 1.1 (que ESTÁ no mapa) não pode aparecer aqui',
+        );
+    }
+
+    #[Test]
+    #[TestDox('Recebimento sem principal é marcado — a decisão de aceitá-lo é do dono (spec §9)')]
+    public function recebimentoSemPrincipalEhSinalizado(): void
+    {
+        // Medido em 03/08: 37 na TOP LIFE I (R$ 11.179,36), dos quais 10 só de honorário — nesses o
+        // exigível da obrigação criada é ZERO e a alocação vale R$ 0,00. O adapter não recusa (a
+        // decisão é do dono e está aberta na §9); ele marca, e o comando põe o número na tela.
+        $soHonorario = $this->umaReceita([
+            ['CHACARA 01', 'Fulano', '9001', '1.15 - Honorário advocatício', '05/2026', '10/05/2026', '15/05/2026', '50,00', '50,00', '-'],
+        ]);
+
+        self::assertTrue($soHonorario->semPrincipal());
+        self::assertSame(0, $soHonorario->valorDividaCentavos);
+        self::assertSame(0, $soHonorario->recuperadoDividaCentavos(), 'a alocação criada valeria R$ 0,00');
+
+        $comTaxa = $this->umaReceita([
+            ['CHACARA 02', 'Beltrano', '9002', '1.1 - Taxa de condomínio', '05/2026', '10/05/2026', '15/05/2026', '100,00', '100,00', '-'],
+        ]);
+
+        self::assertFalse($comTaxa->semPrincipal(), 'o caso normal não pode ser marcado');
     }
 
     #[Test]
@@ -104,8 +200,11 @@ final class TopLifeReceitasAdapterTest extends TestCase
     #[TestDox('Desconto (1.6) vem negativo e ABATE o principal, sem tratamento próprio')]
     public function descontoAbateOPrincipal(): void
     {
-        // Medido: 1.011 e 759 linhas de desconto, TODAS negativas; somando a coluna I por NN o líquido
-        // nunca fica negativo nem zero. O abatimento já está embutido na decomposição da contábil.
+        // Remedido em 03/08, e os números anteriores deste comentário estavam certos para o conjunto
+        // ERRADO: 1.011 e 759 é o total de linhas `1.6` no arquivo, mas 5 e 1 delas estão em linhas EM
+        // ABERTO, descartadas antes de o valor ser olhado. Nas efetivamente lidas são **1.006 e 758**,
+        // e aí sim todas negativas. Somando a coluna I por NN o líquido nunca fica negativo — mas DÁ
+        // ZERO em 1 caso (NN 60082), que a guarda de líquido não-positivo rejeita.
         $receita = $this->umaReceita([
             ['CHACARA 01', 'Fulano', '9001', '1.1 - Taxa de condomínio', '05/2026', '10/05/2026', '15/05/2026', '100,00', '100,00', '-'],
             ['CHACARA 01', 'Fulano', '9001', '1.6 - Descontos', '05/2026', '10/05/2026', '15/05/2026', '-10,00', '-15,00', '-'],
