@@ -37,12 +37,33 @@ final class ResultadoImportacaoReceitas
         public readonly int $acordosCriados,
         public readonly int $totalRecebidoCentavos,
         public readonly int $honorariosCentavos,
+        /**
+         * Σ dos encargos recebidos (classes `1.4` juros e `1.5` multa), em centavos — o mesmo valor que
+         * vai para `Pagamento::valorEncargos`.
+         *
+         * Existe para a CONFERÊNCIA: o rodapé do relatório da contábil imprime o total recebido por
+         * classe de conta, então os três baldes conferem um a um contra ele, e não só o total. Sem este
+         * campo o resumo mostrava dois números e "abatimento de dívida" agregava principal + encargos —
+         * bate no total e esconde uma troca entre baldes.
+         */
+        public readonly int $encargosCentavos = 0,
     ) {
     }
 
-    /** O que abate dívida, em centavos — o bruto menos a parte que é honorário do escritório. */
+    /**
+     * O que abate dívida, em centavos — o bruto menos a parte que é honorário do escritório.
+     *
+     * ⚠️ INCLUI os encargos: é a soma do que sai do bolso do devedor para quitar o boleto, honorário à
+     * parte. Para conferir o PRINCIPAL puro contra a planilha, use `principalCentavos()`.
+     */
     public function recuperadoDividaCentavos(): int
     {
         return $this->totalRecebidoCentavos - $this->honorariosCentavos;
+    }
+
+    /** Só o principal (taxa de condomínio e afins), já líquido dos descontos da classe `1.6`. */
+    public function principalCentavos(): int
+    {
+        return $this->totalRecebidoCentavos - $this->honorariosCentavos - $this->encargosCentavos;
     }
 }

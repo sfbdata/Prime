@@ -62,6 +62,18 @@ final class ImportarReceitasFluxoTest extends CobrancaWebTestCase
         self::assertCount(3, $previa->obrigacoesCriadas, 'nenhum desses NNs existia');
         self::assertSame(31500, $previa->totalRecebidoCentavos, '100 + 120 + (80+5+10)');
         self::assertSame(1000, $previa->honorariosCentavos);
+
+        // Os TRÊS baldes, e não só o total: é assim que a conferência contra a contabilidade é feita
+        // (o rodapé do relatório imprime o recebido POR CLASSE DE CONTA). Conferir apenas o total
+        // deixaria passar uma troca entre baldes — principal contado como encargo fecha na soma e
+        // rateia errado no `Pagamento`, que é o que alimenta o split de honorários.
+        self::assertSame(500, $previa->encargosCentavos, 'os R$ 5,00 de juros do terceiro recebimento');
+        self::assertSame(30000, $previa->principalCentavos(), '100 + 120 + 80');
+        self::assertSame(
+            $previa->totalRecebidoCentavos,
+            $previa->principalCentavos() + $previa->encargosCentavos + $previa->honorariosCentavos,
+            'os três baldes têm de reconstituir o total — é o invariante que a conferência usa',
+        );
     }
 
     #[TestDox('🔑 Reimportar o mesmo arquivo não cria pagamento nenhum na segunda vez')]
@@ -206,7 +218,9 @@ final class ImportarReceitasFluxoTest extends CobrancaWebTestCase
             'acordosCriados' => $r->acordosCriados,
             'totalRecebidoCentavos' => $r->totalRecebidoCentavos,
             'honorariosCentavos' => $r->honorariosCentavos,
+            'encargosCentavos' => $r->encargosCentavos,
             'recuperadoDividaCentavos' => $r->recuperadoDividaCentavos(),
+            'principalCentavos' => $r->principalCentavos(),
         ];
     }
 }

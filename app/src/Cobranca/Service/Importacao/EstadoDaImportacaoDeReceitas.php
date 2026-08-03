@@ -41,6 +41,7 @@ final class EstadoDaImportacaoDeReceitas
     private int $acordosCriados = 0;
     private int $totalRecebido = 0;
     private int $honorarios = 0;
+    private int $encargos = 0;
 
     /**
      * Registra o objeto/caso desta linha, contando criação **uma vez por unidade** — não uma vez por
@@ -89,6 +90,11 @@ final class EstadoDaImportacaoDeReceitas
         $this->pagamentosCriados[] = $receita->nn;
         $this->totalRecebido += $receita->totalRecebidoCentavos();
         $this->honorarios += $receita->valorHonorariosCentavos;
+        // O terceiro balde (juros 1.4 + multa 1.5). Ele já ia para `Pagamento::valorEncargos`, mas não
+        // saía no resumo — e é exatamente o que a conferência contra a contabilidade precisa: o rodapé
+        // da planilha imprime "1.4 - Juros" e "1.5 - Multas" separados, então os três baldes conferem
+        // um a um contra o relatório da contábil, e não só o total.
+        $this->encargos += $receita->valorEncargosCentavos();
     }
 
     public function resultado(ResultadoLeituraReceitas $leitura): ResultadoImportacaoReceitas
@@ -107,6 +113,7 @@ final class EstadoDaImportacaoDeReceitas
             acordosCriados: $this->acordosCriados,
             totalRecebidoCentavos: $this->totalRecebido,
             honorariosCentavos: $this->honorarios,
+            encargosCentavos: $this->encargos,
         );
     }
 }

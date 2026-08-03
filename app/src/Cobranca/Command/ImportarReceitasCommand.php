@@ -166,12 +166,16 @@ final class ImportarReceitasCommand extends Command
                 ['Casos abertos', $r->casosCriados],
             ],
         );
+        // Os TRÊS baldes, e não só o total: o rodapé do relatório da contábil imprime o recebido por
+        // classe de conta, então cada linha daqui confere contra uma linha de lá. Só o total bateria
+        // mesmo com uma troca entre baldes — principal virando encargo, por exemplo.
         $io->table(
-            ['Dinheiro', 'Valor'],
+            ['Dinheiro', 'Valor', 'Confere contra (rodapé da planilha)'],
             [
-                ['Total recebido (bruto do devedor)', $this->reais($r->totalRecebidoCentavos)],
-                ['— honorários do escritório', $this->reais($r->honorariosCentavos)],
-                ['— abatimento de dívida', $this->reais($r->recuperadoDividaCentavos())],
+                ['Total recebido (bruto do devedor)', $this->reais($r->totalRecebidoCentavos), 'Total de receitas'],
+                ['— principal (já líquido de descontos)', $this->reais($r->principalCentavos()), '1.1 + 1.12 + 1.14 + 1.19 + 1.22 + 1.6'],
+                ['— juros e multa', $this->reais($r->encargosCentavos), '1.4 + 1.5'],
+                ['— honorários do escritório', $this->reais($r->honorariosCentavos), '1.15'],
             ],
         );
         $io->note('Confira o total recebido contra a soma da coluna "Valor recebido" da planilha: têm de bater ao centavo.');
