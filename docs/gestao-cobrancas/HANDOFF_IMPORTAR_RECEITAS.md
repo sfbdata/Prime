@@ -16,7 +16,7 @@ planilhas reais, conferência contra a contabilidade e **duas revisões com corr
 
 **Nada foi gravado. Nada foi publicado.** Todas as execuções contra as planilhas reais foram dry-run.
 
-- **17 commits não publicados**, suíte **3169/3169**, sem migration.
+- **18 commits não publicados**, suíte **3169/3169**, sem migration.
 - Confira sempre com os comandos, não com este arquivo:
   `git rev-list --count origin/master..HEAD` · `docker exec jusprime_php_dev bash -c 'cd app && php bin/phpunit'`
 
@@ -157,7 +157,7 @@ Uma carteira por execução (`--carteira-id=1` e `=2`, com o arquivo corresponde
 ## 7. Pendências suas
 
 - ⏳ **Smoke da tela R5** (§4) e os smokes atrasados: caso 193 (desde 01/08) e o da etapa 1.
-- ⏳ **17 commits não publicados.**
+- ⏳ **18 commits não publicados.**
 - ⏸️ **§9.2 e §9.3 da spec** — duas pendências menores medidas na 2ª revisão (obrigação de R$ 0,00
   reaberta some; 3 dos 4 recebimentos que pousam em obrigação existente pagam a mais). Ambas podem
   desaparecer com a etapa 3, porque tratam de casos que viram parcela de acordo.
