@@ -179,4 +179,55 @@ class AlocacaoPagamentoRepository extends ServiceEntityRepository
 
         return $mapa;
     }
+
+    /**
+     * Data do ÚLTIMO pagamento que tocou cada obrigação dos casos informados — o "Pago em" da seção
+     * "Já pago" da aba Dívida (spec `cobranca-importar-receitas.md` R5). Mapa `obrigacaoId => data`.
+     *
+     * Em LOTE pelo mesmo motivo de `somasPorObrigacaoDosCasos`, logo acima: a aba percorre dezenas de
+     * obrigações e uma consulta por linha seria N+1 na tela mais aberta do módulo.
+     *
+     * `MAX` e não "a única": obrigação quitada por PARCELAS recebe várias alocações, de pagamentos com
+     * datas diferentes. A que quitou é a última — é ela que responde "quando isto ficou pago". A
+     * obrigação criada pela importação de receitas tem uma só, então para ela o MAX é a própria data
+     * do recebimento da planilha.
+     *
+     * @param int[] $casoIds
+     *
+     * @return array<int, \DateTimeImmutable>
+     */
+    public function ultimoPagamentoPorObrigacaoDosCasos(array $casoIds, Tenant $tenant): array
+    {
+        if ($casoIds === []) {
+            return [];
+        }
+
+        $linhas = $this->createQueryBuilder('a')
+            ->select('IDENTITY(a.obrigacao) AS obrigacaoId', 'MAX(p.data) AS ultima')
+            ->innerJoin('a.obrigacao', 'o')
+            ->innerJoin('a.pagamento', 'p')
+            ->andWhere('o.caso IN (:casos)')
+            ->andWhere('a.tenant = :tenant')
+            ->andWhere('o.tenant = :tenant')
+            ->andWhere('p.tenant = :tenant')
+            ->groupBy('a.obrigacao')
+            ->setParameter('casos', $casoIds)
+            ->setParameter('tenant', $tenant)
+            ->getQuery()
+            ->getScalarResult();
+
+        $mapa = [];
+        foreach ($linhas as $linha) {
+            // `MAX` sobre uma coluna `date_immutable` volta como string do driver — o DQL não reaplica
+            // o type ao agregado. Converter aqui é o que impede a data de chegar como string no DTO.
+            $ultima = $linha['ultima'];
+            if (!is_string($ultima) || $ultima === '') {
+                continue;
+            }
+
+            $mapa[(int) $linha['obrigacaoId']] = new \DateTimeImmutable($ultima);
+        }
+
+        return $mapa;
+    }
 }

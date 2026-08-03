@@ -432,7 +432,14 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
         self::assertResponseIsSuccessful();
         // Vencida no passado, mas quitada: não é "atrasada" — quem já pagou não fica em vermelho.
         self::assertCount(0, $crawler->filter('.jp-obr-data-rel.is-atrasado'));
-        self::assertGreaterThan(0, $crawler->filter('.jp-chip.is-paga')->count());
+        // R5 (03/08): a quitada não fica mais na fila de cobrança com um chip "Paga" — ela DESCE para a
+        // seção "Já pago". O assert mudou de lugar junto com a linha; o que ele guarda é o mesmo.
+        self::assertCount(0, $crawler->filter('#secao-divida .jp-obr'), 'a fila de cobrança fica vazia');
+        self::assertCount(1, $crawler->filter('#secao-ja-pago .jp-pagas-linha'));
+        self::assertStringContainsString(
+            'Cota condominial quitada',
+            $crawler->filter('#secao-ja-pago .jp-pagas-linha')->text(),
+        );
     }
 
     #[TestDox('Ajuste 10 T5: "Receber" pré-preenche o BRUTO (dívida + honorários), não o restante da obrigação')]

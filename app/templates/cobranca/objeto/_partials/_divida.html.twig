@@ -11,6 +11,10 @@
    vigentes, cujas parcelas SÃO a dívida agora, com as obrigações que cada um trocou (`g.substituidas`, T2).
    Nada aqui recalcula regra — o template só exibe.
 
+   R5 (03/08): as avulsas vêm do UseCase JÁ divididas em `obrigacoesAvulsasEmAberto` (a fila de cobrança,
+   aqui em cima) e `obrigacoesAvulsasPagas` (a seção recolhida, no fim). `obrigacoesAvulsas` continua
+   existindo como a UNIÃO das duas e é o que a aba Honorários percorre — não trocar uma pela outra.
+
    Ordenação: já vem `vencimentoOriginal ASC` do `ObrigacaoRepository::doCaso` — não reordenar aqui.
 ─────────────────────────────────────────────────────────────────────────── #}
 {% import _self as colunas %}
@@ -97,8 +101,14 @@
 {% set hoje = date('today') %}
 
 {# Espelha `ObrigacaoRepository::doCasoSubstituiveis` (INV-I): só DÍVIDA ORIGINAL exigível é acordável.
-   Se não há nenhuma, o botão nasce desabilitado — em vez de revelar o vazio depois de 2 cliques (§5.2). #}
-{% set acordaveis = caso.obrigacoesAvulsas|filter(o => o.acordoOrigemId is null and not o.substituidaPorAcordo) %}
+   Se não há nenhuma, o botão nasce desabilitado — em vez de revelar o vazio depois de 2 cliques (§5.2).
+
+   R5: a base passou de `obrigacoesAvulsas` (a união) para `obrigacoesAvulsasEmAberto`. A checkbox de
+   selecionar só existe nas linhas DESTA fila, então manter a união aqui deixaria o botão habilitado
+   num caso que só tem quitadas — e ele abriria o modal sem nada para marcar, que é o vazio-depois-de-
+   dois-cliques que este `disabled` existe para evitar. Quitada não é acordável na prática: seu
+   `restante` é 0 e o modal sugeriria R$ 0,00. #}
+{% set acordaveis = caso.obrigacoesAvulsasEmAberto|filter(o => o.acordoOrigemId is null and not o.substituidaPorAcordo) %}
 
 <div class="jp-secao" id="secao-divida">
     <div class="jp-secao-head">
@@ -126,12 +136,26 @@
         {% endif %}
     </div>
 
+    {# O vazio é sobre a UNIÃO (`obrigacoesAvulsas`), não sobre a fila em aberto: um caso cujas
+       obrigações estão todas pagas não tem "nenhuma obrigação registrada" — tem a seção "Já pago"
+       logo abaixo, e o convite a registrar a primeira seria falso. #}
     {% if caso.obrigacoesAvulsas|length == 0 and caso.gruposAcordo|length == 0 %}
         <div class="jp-lista">
             <div class="jp-vazio">
                 <i class="bi bi-receipt"></i>
                 <div class="jp-vazio-titulo">Nenhuma obrigação registrada.</div>
                 <p class="jp-vazio-dica">Registre o que está sendo cobrado — cada obrigação entra na fila acima pelo vencimento.</p>
+            </div>
+        </div>
+    {% elseif caso.obrigacoesAvulsasEmAberto|length == 0 and caso.gruposAcordo|length == 0 %}
+        {# R5: existe obrigação registrada, mas TODA ELA já está paga. Sem este ramo a fila renderizaria
+           só o cabeçalho de colunas sobre o nada — e o vazio genérico ("Nenhuma obrigação registrada")
+           mentiria, porque a seção "Já pago" logo abaixo mostra várias. #}
+        <div class="jp-lista">
+            <div class="jp-vazio">
+                <i class="bi bi-check2-circle"></i>
+                <div class="jp-vazio-titulo">Nada em aberto.</div>
+                <p class="jp-vazio-dica">Tudo o que está registrado para esta unidade já foi pago — veja em “Já pago”, abaixo.</p>
             </div>
         </div>
     {% else %}
@@ -153,7 +177,9 @@
                 <span></span>
             </div>
 
-            {% for o in caso.obrigacoesAvulsas %}
+            {# R5: só o que está EM ABERTO. O que já foi pago desceu para a seção própria no fim desta
+               partial — a fila aqui responde "o que eu cobro dele?", e nada mais. #}
+            {% for o in caso.obrigacoesAvulsasEmAberto %}
                 {# INV-U1 (ajuste 9): parcela de acordo NUNCA é selecionável nem acordável — acordo sobre
                    acordo duplica dívida no saldo (`CriarAcordoUseCase` barra em qualquer status). #}
                 {% set podeAcordar = podeGerenciar and o.acordoOrigemId is null and not o.substituidaPorAcordo %}
@@ -361,6 +387,60 @@
             {% endif %}
         </div>
     {% endfor %}
+
+    {# ── R5: "Já pago" — o histórico de faturamento, fora da fila de cobrança ──────────────────────
+       Por que a seção existe (spec `cobranca-importar-receitas.md` §3.1): a importação de receitas cria
+       a obrigação que o sistema não conhecia, JÁ PAGA. São ~2.078 contra 3.431 em aberto — o acervo
+       praticamente dobra. Se as pagas caíssem na fila de cima, a aba deixaria de responder "o que eu
+       cobro dele?": um devedor com 7 pagas e 3 em aberto mostraria 10 linhas com as 3 que importam no
+       meio. Não é risco de dinheiro (paga entra no bruto e sai no alocado; o saldo não muda) — é risco
+       de leitura, e o panorama se perderia justo na tela onde ele deveria aparecer.
+
+       RECOLHIDA: o total fica à mostra sempre, o detalhe sob demanda. Só aparece quando há o que
+       mostrar — num caso sem nada pago a seção não nasce.
+
+       Só LEITURA, de propósito: nenhuma ação de cobrança (receber, acordar, editar) aparece aqui. O
+       que já foi pago não se cobra; para desfazer um recebimento, o caminho é o extrato de Movimentos
+       (etapa 1), que é onde o pagamento vive. #}
+    {% if caso.obrigacoesAvulsasPagas|length > 0 %}
+    {% set qtdPagas = caso.obrigacoesAvulsasPagas|length %}
+    <div class="jp-pagas" id="secao-ja-pago">
+        <button class="jp-pagas-toggle" type="button" data-bs-toggle="collapse"
+                data-bs-target="#listaJaPago" aria-expanded="false" aria-controls="listaJaPago">
+            <i class="bi bi-chevron-right jp-pagas-chevron"></i>
+            <span class="jp-pagas-titulo"><i class="bi bi-check2-circle me-1"></i>Já pago</span>
+            <span class="jp-pagas-resumo">
+                {{ qtdPagas }} {{ qtdPagas == 1 ? 'obrigação' : 'obrigações' }} ·
+                {# O RECEBIDO (Σ alocado), não o total das linhas: a seção responde "quanto ele já
+                   pagou", que é o número que bate com a coluna `Valor recebido` da contabilidade. #}
+                <strong class="jp-money" data-meta="total-ja-pago">{{ caso.totalPagoDasAvulsas|centavos }}</strong>
+            </span>
+        </button>
+        <div class="collapse" id="listaJaPago">
+            <div class="jp-pagas-lista">
+                <div class="jp-pagas-head">
+                    <span>Pago em</span>
+                    <span>O que é</span>
+                    <span class="col-valor">Recebido</span>
+                </div>
+                {% for o in caso.obrigacoesAvulsasPagas %}
+                <div class="jp-pagas-linha" data-obrigacao-id="{{ o.id }}">
+                    <div class="jp-pagas-data">
+                        {# Sem data quando a obrigação satisfaz `quitada()` sem nunca ter recebido
+                           alocação (exigível zero). Raro, mas a coluna não pode imprimir "01/01/1970". #}
+                        {{ o.pagoEm ? o.pagoEm|date('d/m/Y') : '—' }}
+                    </div>
+                    <div class="jp-pagas-desc">
+                        {{ o.descricao }}{% if o.referenciaExterna %} <span class="jp-obr-sub">#{{ o.referenciaExterna }}</span>{% endif %}
+                        <span class="jp-obr-sub">venceu em {{ o.vencimentoOriginal|date('d/m/Y') }}</span>
+                    </div>
+                    <div class="jp-pagas-valor jp-money col-valor">{{ o.alocado|centavos }}</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
 
     {# Barra de seleção (§5.2): aparece só com alguma linha marcada. Some do fluxo quando não há seleção —
        por isso nasce `hidden` e o JS a revela. Sem acordável, nem existe. #}

@@ -19,10 +19,18 @@ namespace App\Cobranca\DTO;
  * no acordo, em "Acordos encerrados". `obrigacoes` continua sendo a lista COMPLETA do caso — é dela que
  * sai a contagem e quem mais precisar do conjunto todo.
  *
+ * Desde 2026-08-03 (R5 da spec `cobranca-importar-receitas.md`), `obrigacoesAvulsas` é ainda a UNIÃO, e
+ * ganhou duas PARTIÇÕES prontas — `obrigacoesAvulsasEmAberto` e `obrigacoesAvulsasPagas`. A aba Dívida
+ * lista as duas em seções separadas; a aba Honorários continua percorrendo a união, porque o rodapé dela
+ * soma tudo que ela lista. ⚠️ A união permanece de propósito: `honorariosDasObrigacoes` e o par
+ * prescrição/cards saem dela, e trocá-la pela partição mudaria números do cabeçalho que ninguém pediu.
+ *
  * @param list<AlertaCobranca>              $alertas
  * @param list<ObrigacaoOutput>             $obrigacoes
  * @param list<GrupoAcordoObrigacoesOutput> $gruposAcordo
  * @param list<ObrigacaoOutput>             $obrigacoesAvulsas
+ * @param list<ObrigacaoOutput>             $obrigacoesAvulsasEmAberto
+ * @param list<ObrigacaoOutput>             $obrigacoesAvulsasPagas
  * @param list<PagamentoOutput>      $pagamentos
  * @param list<LiquidacaoOutput>     $liquidacoes
  * @param list<AcordoOutput>         $acordos
@@ -144,6 +152,30 @@ final class CasoDetalheOutput
          * @var list<QualificacaoContatoOutput>
          */
         public readonly array $qualificacoes = [],
+        /**
+         * R5 — as duas metades de `obrigacoesAvulsas`, particionadas por `ObrigacaoOutput::quitada()`,
+         * que é a MESMA régua que já pinta o chip "Paga" na linha (nenhuma segunda definição de "paga"
+         * nasce aqui). A ordem de cada uma é a herdada: `vencimentoOriginal ASC`.
+         *
+         * Por que particionar no UseCase e não com `|filter` no Twig: é o único jeito de haver teste
+         * sobre a divisão, e é o que garante que o total exibido e as linhas exibidas venham do mesmo
+         * laço — o defeito que a aba Honorários já teve.
+         *
+         * @var list<ObrigacaoOutput>
+         */
+        public readonly array $obrigacoesAvulsasEmAberto = [],
+        /** @var list<ObrigacaoOutput> */
+        public readonly array $obrigacoesAvulsasPagas = [],
+        /**
+         * Σ do que ENTROU nas obrigações avulsas já quitadas (Σ `alocado`), em centavos — o número do
+         * cabeçalho da seção "Já pago".
+         *
+         * ⚠️ É o RECEBIDO, não o `totalComHonorarios` das linhas: a seção responde "quanto este devedor
+         * já pagou", e é este número que tem de bater com a coluna `Valor recebido` da planilha da
+         * contabilidade (spec §8). Somar o total das linhas responderia outra pergunta — quanto foi
+         * COBRADO —, e numa obrigação super-alocada os dois divergem.
+         */
+        public readonly int $totalPagoDasAvulsas = 0,
     ) {
     }
 }

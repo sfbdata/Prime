@@ -211,15 +211,20 @@ final class ReconciliarPagamentoFluxoControllerTest extends CobrancaWebTestCase
         [, $tenant] = $this->criarAdminLogado($client);
         [, $caso] = $this->semearGrafo($tenant);
 
-        // Obrigação A: PAGA (tem alocação → `alocado > 0`).
+        // Obrigação A: com pagamento PARCIAL (`alocado > 0`, ainda em aberto).
+        //
+        // Parcial e não integral desde R5 (03/08): a obrigação QUITADA deixou de aparecer na fila de
+        // cobrança — ela desce para a seção "Já pago", que é só leitura e não tem botão "Editar". O
+        // aviso de reconciliação continua sendo exatamente sobre este caso: editar o valor de uma
+        // obrigação que já recebeu dinheiro e ainda se cobra.
         $paga = ObrigacaoFactory::createOne([
             'tenant' => $tenant, 'caso' => $caso, 'valorOriginal' => 20000, 'encargosReconhecidos' => 0, 'descricao' => 'Com pagamento',
         ])->_real();
         $pagamento = PagamentoFactory::createOne([
-            'tenant' => $tenant, 'caso' => $caso, 'valorDivida' => 20000, 'valorHonorarios' => 0,
+            'tenant' => $tenant, 'caso' => $caso, 'valorDivida' => 12000, 'valorHonorarios' => 0,
         ])->_real();
         AlocacaoPagamentoFactory::createOne([
-            'tenant' => $tenant, 'pagamento' => $pagamento, 'obrigacao' => $paga, 'valor' => 20000,
+            'tenant' => $tenant, 'pagamento' => $pagamento, 'obrigacao' => $paga, 'valor' => 12000,
         ]);
         // Obrigação B: SEM pagamento (`alocado == 0`).
         $semPag = ObrigacaoFactory::createOne([

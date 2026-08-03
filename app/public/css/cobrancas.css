@@ -432,6 +432,54 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
 .jp-obr.is-substituida { opacity: .62; }
 .jp-obr.is-substituida .jp-obr-desc { text-decoration: line-through; text-decoration-thickness: 1px; }
 
+/* ── "Já pago" (R5): histórico de faturamento, recolhido, abaixo da fila de cobrança ───────────────
+   Grade PRÓPRIA de 3 colunas (pago em · o que é · recebido) em vez de reusar a `.jp-obr` de 6: aqui
+   não há checkbox, ações nem faixa de encargos — o que já foi pago não se cobra, não se acorda e não
+   tem juros a exibir. Reusar a grade da dívida obrigaria a neutralizar quatro áreas nomeadas e o
+   reflow do container query, e acoplaria o histórico às mudanças da fila de cobrança.
+
+   Peso visual DELIBERADAMENTE menor que o da dívida: fundo do card, título secundário e sem a borda
+   de contraste entre linhas. Ele é contexto, não é a pergunta que a aba responde. */
+.jp-pagas { margin-top: .8rem; border: 1px solid var(--bs-border-color); border-radius: .75rem; background: var(--bs-body-bg); }
+.jp-pagas-toggle {
+    width: 100%; background: none; border: 0; text-align: left;
+    display: flex; align-items: center; gap: .5rem; flex-wrap: wrap;
+    padding: .7rem 1rem; border-radius: .75rem; color: var(--bs-body-color);
+}
+.jp-pagas-toggle:hover { background: var(--bs-tertiary-bg); }
+.jp-pagas-titulo { font-weight: 600; font-size: .92rem; }
+/* O total fica à DIREITA e sempre visível — é ele que responde à pergunta sem precisar expandir. */
+.jp-pagas-resumo { margin-left: auto; font-size: .82rem; color: var(--bs-secondary-color); }
+/* Chevron gira ao abrir. `[aria-expanded]` e não uma classe do JS: quem alterna o atributo é o próprio
+   Bootstrap, então o giro nunca fica dessincronizado do estado do collapse. */
+.jp-pagas-chevron { transition: transform .15s ease-in-out; color: var(--bs-secondary-color); }
+.jp-pagas-toggle[aria-expanded="true"] .jp-pagas-chevron { transform: rotate(90deg); }
+.jp-pagas-lista { border-top: 1px dashed var(--bs-border-color); }
+.jp-pagas-head, .jp-pagas-linha {
+    display: grid; align-items: center; gap: .9rem;
+    grid-template-columns: 96px minmax(7rem, 1fr) minmax(90px, auto);
+    padding: .55rem 1rem;
+}
+.jp-pagas-head {
+    font-size: .7rem; text-transform: uppercase; letter-spacing: .04em;
+    color: var(--bs-secondary-color); font-weight: 700;
+    background: var(--bs-tertiary-bg);
+}
+.jp-pagas-linha { border-top: 1px solid var(--bs-border-color); font-size: .88rem; }
+.jp-pagas-linha:last-child { border-radius: 0 0 .75rem .75rem; }
+.jp-pagas-data { font-variant-numeric: tabular-nums; color: var(--bs-secondary-color); }
+.jp-pagas-desc { min-width: 0; }
+.jp-pagas-valor { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+.jp-pagas-head .col-valor { text-align: right; }
+
+/* Mesma régua do reflow da dívida (container `divida`, não viewport): quando a coluna aperta, o
+   histórico vira cartão empilhado em vez de espremer a descrição. */
+@container divida (max-width: 720px) {
+    .jp-pagas-head { display: none; }
+    .jp-pagas-linha { grid-template-columns: minmax(0, 1fr); row-gap: .1rem; }
+    .jp-pagas-valor { text-align: left; }
+}
+
 /* ── Barra de seleção flutuante ── */
 .jp-selbar {
     position: sticky; bottom: 1rem; z-index: 5; margin-top: .8rem;

@@ -116,11 +116,19 @@ final class MontarDetalheCasoUseCase
             $caso->getTenant(),
         );
 
+        // R5: o "Pago em" da seção "Já pago". Mesma forma em LOTE do mapa acima, pelo mesmo motivo —
+        // uma consulta por linha seria N+1. Só EXIBE: quem decide se a obrigação está paga é
+        // `ObrigacaoOutput::quitada()`, sobre o alocado.
+        $pagoEmPorObrigacao = $this->alocacaoRepository->ultimoPagamentoPorObrigacaoDosCasos(
+            [$caso->getId()],
+            $caso->getTenant(),
+        );
+
         // O `restante` é recalculado aqui (e não lido de `ObrigacaoOutput::restante()`) porque o DTO ainda
         // não existe neste ponto. A fórmula é a MESMA do DTO e `valorExigivel()` é a fonte única
         // (`Obrigacao::valorExigivel`) — a regra não é duplicada em lugar nenhum.
         $obrigacoes = array_map(
-            function (Obrigacao $o) use ($caso, $alocadoPorObrigacao): ObrigacaoOutput {
+            function (Obrigacao $o) use ($caso, $alocadoPorObrigacao, $pagoEmPorObrigacao): ObrigacaoOutput {
                 $alocado = $alocadoPorObrigacao[$o->getId()] ?? 0;
                 $restante = max(0, $o->valorExigivel() - $alocado);
 
@@ -132,6 +140,7 @@ final class MontarDetalheCasoUseCase
                     // Config resolvida (cascata) só para a UI saber a BASE de multa/honorários e exibir o
                     // "%" sobre a base certa. Grafo caso→objeto→carteira já carregado — sem query nova.
                     $this->resolvedorConfig->resolver($o),
+                    $pagoEmPorObrigacao[$o->getId()] ?? null,
                 );
             },
             $this->obrigacaoRepository->doCaso($caso),
@@ -149,6 +158,33 @@ final class MontarDetalheCasoUseCase
             )),
         );
         [$gruposAcordo, $obrigacoesAvulsas] = $this->agruparPorAcordo($obrigacoes, $acordos);
+
+        // ── R5 (spec `cobranca-importar-receitas.md` §3.1): a aba Dívida separa o que se COBRA do que
+        // já foi PAGO. Antes da importação de receitas isto era arrumação; depois dela é condição de
+        // uso: a importação cria ~2.078 obrigações já pagas contra 3.431 em aberto, e um devedor com 7
+        // boletos pagos e 3 em aberto passaria a mostrar 10 linhas com as 3 que importam no meio.
+        //
+        // A régua é `ObrigacaoOutput::quitada()` — a MESMA que já pinta o chip "Paga" na linha. Usar
+        // outra faria a tela ter duas definições de "paga" discordando entre si.
+        //
+        // ⚠️ `$obrigacoesAvulsas` (a união) NÃO é substituída: `honorariosDasObrigacoes`, os cards do
+        // cabeçalho, a prescrição e a aba Honorários saem dela. A partição é ADICIONAL — trocar a base
+        // deles mudaria números do cabeçalho que ninguém pediu para mudar.
+        $obrigacoesAvulsasEmAberto = [];
+        $obrigacoesAvulsasPagas = [];
+        $totalPagoDasAvulsas = 0;
+        foreach ($obrigacoesAvulsas as $avulsa) {
+            if (!$avulsa->quitada()) {
+                $obrigacoesAvulsasEmAberto[] = $avulsa;
+
+                continue;
+            }
+
+            $obrigacoesAvulsasPagas[] = $avulsa;
+            // O RECEBIDO, não o total da linha: é este número que a §8 manda bater com a coluna
+            // `Valor recebido` da planilha. Ver a nota do campo no DTO.
+            $totalPagoDasAvulsas += $avulsa->alocado;
+        }
 
         // Totais da aba Honorários: somados sobre o MESMO conjunto que a aba lista (avulsas + parcelas
         // dos grupos), para o rodapé sempre bater com as linhas visíveis. Ver a nota no DTO.
@@ -298,6 +334,9 @@ final class MontarDetalheCasoUseCase
             // as obrigações em aberto que os cards somaram (spec §1.3).
             prescricao: $this->calculadoraPrescricao->calcular($emAberto, $hoje),
             qualificacoes: $this->montarQualificacoes($eventos, $usuarioAtual, $hoje),
+            obrigacoesAvulsasEmAberto: $obrigacoesAvulsasEmAberto,
+            obrigacoesAvulsasPagas: $obrigacoesAvulsasPagas,
+            totalPagoDasAvulsas: $totalPagoDasAvulsas,
         );
     }
 

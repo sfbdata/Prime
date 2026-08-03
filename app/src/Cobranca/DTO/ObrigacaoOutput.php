@@ -90,6 +90,22 @@ final class ObrigacaoOutput
         public readonly ?\DateTimeImmutable $encargosCongeladosEm = null,
         /** Data de referência da última materialização — o "atualizado em" da tela. */
         public readonly ?\DateTimeImmutable $encargosAtualizadosEm = null,
+        /**
+         * Data do ÚLTIMO pagamento alocado nesta obrigação — o "Pago em" da seção "Já pago" da aba
+         * Dívida (R5). Vem de `AlocacaoPagamentoRepository::ultimoPagamentoPorObrigacaoDosCasos`, em
+         * lote, e é `null` em toda obrigação que nunca recebeu alocação.
+         *
+         * ⚠️ Preenchido NÃO significa quitada: quem responde "está paga?" é `quitada()` (alocado ≥
+         * exigível), a mesma régua do chip "Paga" da linha. Uma obrigação PARCIALMENTE paga tem data
+         * e continua em aberto. E o inverso também existe: uma obrigação de exigível ZERO satisfaz
+         * `quitada()` (0 ≥ 0) sem nunca ter recebido alocação, e cai na seção "Já pago" sem data —
+         * por isso a coluna tolera o vazio. (Liquidação não entra nesta conta: ela é do CASO, abate
+         * no saldo por `CalculadoraSaldo` e não cria alocação nenhuma na obrigação.)
+         *
+         * A seção "Já pago" particiona por `quitada()` e usa esta data só para EXIBIR — nunca para
+         * decidir de que lado a linha cai.
+         */
+        public readonly ?\DateTimeImmutable $pagoEm = null,
     ) {
     }
 
@@ -114,8 +130,13 @@ final class ObrigacaoOutput
         return $this->alocado >= $this->valorAtual;
     }
 
-    public static function fromEntity(Obrigacao $o, int $alocado = 0, int $brutoSugerido = 0, ?ConfigEncargos $config = null): self
-    {
+    public static function fromEntity(
+        Obrigacao $o,
+        int $alocado = 0,
+        int $brutoSugerido = 0,
+        ?ConfigEncargos $config = null,
+        ?\DateTimeImmutable $pagoEm = null,
+    ): self {
         $substituto = $o->getAcordoSubstituto();
         $origem = $o->getAcordoOrigem();
 
@@ -156,6 +177,9 @@ final class ObrigacaoOutput
             taxaJurosEfetivaBp: $config?->taxaJurosMensalBp,
             encargosCongeladosEm: $o->getEncargosCongeladosEm(),
             encargosAtualizadosEm: $o->getEncargosAtualizadosEm(),
+            // Vem de fora (mapa em lote do repositório) e não da entidade de propósito: ler daqui
+            // custaria uma consulta por obrigação — N+1 na aba mais aberta do módulo.
+            pagoEm: $pagoEm,
         );
     }
 }
