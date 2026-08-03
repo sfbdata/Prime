@@ -116,6 +116,56 @@ final class ImportarReceitasCommandTest extends CobrancaWebTestCase
         self::assertStringContainsString('situação "Aberta"', $saida, 'a mensagem tem de apontar a causa provável');
     }
 
+    #[TestDox('🔑 Etapa 3: o comando imprime parcelas de acordo, acordos criados, cumpridos e incompletos')]
+    public function testResumoDaEtapa3(): void
+    {
+        [$tenantId, $carteiraId, $usuarioId] = $this->cenario();
+
+        // Cada contador tem CENÁRIO que o exercita. Contador sem cenário compara zero com zero e
+        // sobrevive a qualquer defeito — foi um dos três asserts vacuosos da etapa 2.
+        $arquivo = $this->planilha([
+            // Acordo 400: as 2 de 2 parcelas pagas → CUMPRIDO.
+            ['CH 86', 'Fulano', '7040', '1.1 - Taxa de condomínio', '05/2026', '10/05/2026', '15/05/2026', '100,00', '100,00', 'Acordo 400 - Parc. 1/2'],
+            ['CH 86', 'Fulano', '7041', '1.1 - Taxa de condomínio', '06/2026', '10/06/2026', '15/06/2026', '100,00', '100,00', 'Acordo 400 - Parc. 2/2'],
+            // Acordo 212: 1 de 20 → INCOMPLETO, com 19 faltando.
+            ['CH 87', 'Beltrano', '7042', '1.1 - Taxa de condomínio', '05/2026', '10/05/2026', '15/05/2026', '100,00', '100,00', 'Acordo 212 - Parc. 1/20'],
+            // Avulso: não é parcela e não cria acordo — senão "todos são parcela" passaria igual.
+            ['CH 88', 'Cicrano', '7043', '1.1 - Taxa de condomínio', '05/2026', '10/05/2026', '15/05/2026', '100,00', '100,00', '-'],
+        ]);
+
+        $saida = $this->rodar($arquivo, $tenantId, $carteiraId, $usuarioId);
+
+        // A tabela do SymfonyStyle alinha com espaços, sem pipes — o valor é o que vem depois do rótulo
+        // e antes da quebra de linha.
+        self::assertMatchesRegularExpression('/PARCELAS de acordo \(coluna J\)\s+3\s/u', $saida, '3 das 4 linhas são parcela');
+        self::assertMatchesRegularExpression('/Acordos criados\s+2\s/u', $saida, 'o 400 e o 212');
+        self::assertMatchesRegularExpression('/CUMPRIDOS \(todas as parcelas pagas\)\s+1\s/u', $saida, 'só o 400 fechou');
+        self::assertMatchesRegularExpression('/INCOMPLETOS \(faltam parcelas\)\s+1\s/u', $saida, 'só o 212 ficou faltando parcela');
+
+        self::assertStringContainsString('Acordo 212: 1 de 20 parcelas', $saida, 'o dono precisa saber QUAL pedir à contábil');
+        self::assertStringContainsString('19 parcela(s) futura(s)', $saida);
+    }
+
+    #[TestDox('🔑 O resumo dos acordos incompletos sai ANTES do bloco de resultado — logo, antes da escrita')]
+    public function testAvisoDeAcordoIncompletoVemAntesDoResultado(): void
+    {
+        // Mesma armadilha do aviso de "sem principal": este resumo depende do BANCO, então não dá para
+        // derivá-lo da leitura como aquele. A garantia é outra — o comando projeta primeiro e imprime
+        // os avisos da projeção antes de chamar `confirmar()`.
+        [$tenantId, $carteiraId, $usuarioId] = $this->cenario();
+        $arquivo = $this->planilha([
+            ['CH 89', 'Fulano', '7050', '1.1 - Taxa de condomínio', '05/2026', '10/05/2026', '15/05/2026', '100,00', '100,00', 'Acordo 230 - Parc. 1/28'],
+        ]);
+
+        $saida = $this->rodar($arquivo, $tenantId, $carteiraId, $usuarioId);
+
+        self::assertLessThan(
+            mb_strpos($saida, 'O que aconteceria'),
+            mb_strpos($saida, 'ficam INCOMPLETOS'),
+            'o aviso tem de preceder o resultado — é o que garante que ele preceda a escrita',
+        );
+    }
+
     // ---------------------------------------------------------------- helpers
 
     /** @return array{0: int, 1: int, 2: int} tenantId, carteiraId, usuarioId */

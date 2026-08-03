@@ -80,8 +80,24 @@ final class ReceitaImportavel
         return $this->valorDividaCentavos === 0;
     }
 
-    public function descricao(): string
+    /**
+     * A descrição que vai para a obrigação.
+     *
+     * Como parcela de acordo ela diz o que a linha realmente é — "Acordo 348 - Parc. 1/40" —, e não
+     * "Taxa 03/2026", que era a fonte da confusão: um boleto 100% honorário descrito como taxa.
+     */
+    public function descricao(bool $comoParcelaDeAcordo = false): string
     {
+        if ($comoParcelaDeAcordo && $this->acordo !== null) {
+            return sprintf(
+                'Acordo %d - Parc. %d/%d (NN %s)',
+                $this->acordo->numero,
+                $this->acordo->parcelaIndice,
+                $this->acordo->parcelaTotal,
+                $this->nn,
+            );
+        }
+
         return sprintf('Taxa %s (NN %s)', $this->competencia, $this->nn);
     }
 }

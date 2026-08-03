@@ -155,9 +155,18 @@ final class ImportarReceitasCommand extends Command
         // de errar num aviso que existe para segurar a mão de quem confirma.
         $this->avisarSemPrincipal($io, $leitura, $confirmar);
 
+        // ⚠️ A PROJEÇÃO SEMPRE PRIMEIRO, inclusive com --confirmar. Os avisos abaixo dependem do banco
+        // (não dá para derivá-los da leitura, como o de "sem principal"), e um aviso de dinheiro que
+        // sai DEPOIS da gravação não devolve decisão nenhuma a ninguém — foi o bloqueante que a 2ª
+        // revisão da etapa 2 achou. No dry-run isto não custa nada: a projeção É o resultado.
+        $projecao = $this->importar->prever($carteiraId, $leitura, $tenant);
+
+        $this->avisarAcordosIncompletos($io, $projecao, $confirmar);
+        $this->avisarDinheiroParado($io, $projecao, $confirmar);
+
         $resultado = $confirmar
             ? $this->importar->confirmar($carteiraId, $leitura, $tenant, $user)
-            : $this->importar->prever($carteiraId, $leitura, $tenant);
+            : $projecao;
 
         $this->imprimirTotais($io, $resultado, $confirmar);
 
@@ -192,6 +201,11 @@ final class ImportarReceitasCommand extends Command
                 ['Unidades criadas', $r->objetosCriados],
                 ['Pessoas criadas', $r->pessoasCriadas],
                 ['Casos abertos', $r->casosCriados],
+                ['— destes, PARCELAS de acordo (coluna J)', count($r->parcelasDeAcordo)],
+                ['Acordos criados', $r->acordosCriados],
+                ['— que ficam CUMPRIDOS (todas as parcelas pagas)', $r->acordosCumpridos],
+                ['— que ficam INCOMPLETOS (faltam parcelas)', count($r->acordosIncompletos)],
+                ['Acordos REATIVADOS pela importação (D6)', $r->acordosReativados],
             ],
         );
         // Os TRÊS baldes, e não só o total: o rodapé do relatório da contábil imprime o recebido por
@@ -245,6 +259,69 @@ final class ImportarReceitasCommand extends Command
                 : 'Dry-run: nada será gravado.',
             implode(', ', array_slice($nns, 0, 40))
                 . (count($nns) > 40 ? sprintf(' … (+%d)', count($nns) - 40) : ''),
+        ));
+    }
+
+    /**
+     * Decisão B1: os acordos cujas parcelas futuras nenhuma fonte traz nascem só com as pagas, e o dono
+     * fica sabendo QUAIS são para pedir a planilha à contábil. Nada é sintetizado.
+     *
+     * Medido em 03/08: 31 acordos ficam incompletos; 27 deles têm aba no relatório "Acordos detalhados"
+     * (rodar aquele importador DEPOIS completa as parcelas futuras) e **4 não têm fonte nenhuma** — os
+     * acordos 212, 230, 237 e 280, somando 71 parcelas.
+     */
+    private function avisarAcordosIncompletos(SymfonyStyle $io, ResultadoImportacaoReceitas $r, bool $confirmar): void
+    {
+        if ($r->acordosIncompletos === []) {
+            return;
+        }
+
+        $faltando = 0;
+        $linhas = [];
+        foreach ($r->acordosIncompletos as $acordo) {
+            $faltando += $acordo['total'] - $acordo['pagas'];
+            $linhas[] = sprintf('Acordo %d: %d de %d parcelas', $acordo['numero'], $acordo['pagas'], $acordo['total']);
+        }
+
+        $io->note(sprintf(
+            "%d acordo(s) ficam INCOMPLETOS — %d parcela(s) futura(s) que este arquivo não traz.\n"
+            . "Elas NÃO são inventadas (decisão B1). Rode o importador de \"Acordos detalhados\" DEPOIS desta\n"
+            . "importação para completar os que têm aba lá; os que não tiverem precisam da fonte com a contábil.\n"
+            . "%s\n%s",
+            count($r->acordosIncompletos),
+            $faltando,
+            $confirmar ? '>>> Você passou --confirmar: eles SERÃO gravados assim a seguir. <<<' : 'Dry-run: nada será gravado.',
+            implode("\n", array_slice($linhas, 0, 40))
+                . (count($linhas) > 40 ? sprintf("\n… (+%d)", count($linhas) - 40) : ''),
+        ));
+    }
+
+    /**
+     * ⚠️ O único ponto desta etapa em que dinheiro já recebido pode parar de abater o saldo.
+     *
+     * A reativação de D6 devolve as obrigações originais ao estado "substituída" e elas saem do
+     * exigível; `CalculadoraSaldo` só abate alocação de obrigação exigível. Se alguém tiver recebido
+     * numa original enquanto o acordo estava rompido, esse pagamento deixa de abater — e o devedor
+     * volta a ser cobrado por algo que já pagou.
+     *
+     * O importador não decide para onde vai dinheiro de terceiro. Ele avisa ANTES da gravação, com o
+     * caso, o NN e o valor.
+     */
+    private function avisarDinheiroParado(SymfonyStyle $io, ResultadoImportacaoReceitas $r, bool $confirmar): void
+    {
+        if ($r->reativacoesComDinheiroParado === []) {
+            return;
+        }
+
+        $io->warning(sprintf(
+            "%d obrigação(ões) originais têm pagamento alocado e SAEM do exigível com a reativação de acordo (D6).\n"
+            . "Esse dinheiro deixa de abater o saldo — o devedor passa a ser cobrado por algo que já pagou.\n"
+            . "O importador NÃO corrige isso sozinho; confira caso a caso.\n%s\n%s",
+            count($r->reativacoesComDinheiroParado),
+            $confirmar
+                ? '>>> Você passou --confirmar: a reativação SERÁ gravada a seguir. Interrompa se não for isso. <<<'
+                : 'Dry-run: nada será gravado.',
+            implode("\n", $r->reativacoesComDinheiroParado),
         ));
     }
 

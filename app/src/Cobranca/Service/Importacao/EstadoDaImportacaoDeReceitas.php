@@ -38,13 +38,34 @@ final class EstadoDaImportacaoDeReceitas
     private int $objetosCriados = 0;
     private int $pessoasCriadas = 0;
     private int $casosCriados = 0;
-    /**
-     * Sempre ZERO nesta etapa, de propósito: criar acordo a partir da coluna J é a **etapa 3** (D6,
-     * reativação por importação). O campo existe porque o `ResultadoImportacaoReceitas` é comparado
-     * inteiro entre prévia e confirmação, e um campo que aparecesse só depois quebraria essa
-     * comparação — mas nada o incrementa hoje, e um assert sobre ele não discrimina defeito nenhum.
-     */
     private int $acordosCriados = 0;
+
+    /**
+     * Números de acordo já vistos nesta execução.
+     *
+     * 🔑 É a defesa contra o defeito que já apareceu DUAS vezes nesta frente. Um acordo de 8 parcelas
+     * pagas ocupa 8 recebimentos do arquivo. Na PRÉVIA o banco responde "não existe" nas 8 consultas
+     * (ela não grava), então sem esta memória a prévia prometeria 8 acordos criados onde a confirmação
+     * cria 1. Com ela, só o PRIMEIRO encontro conta — e o primeiro encontro vê o mesmo estado de banco
+     * nos dois modos.
+     *
+     * @var array<int, true>
+     */
+    private array $acordosVistos = [];
+    /**
+     * Parcelas distintas vistas por acordo, para a régua do `Cumprido` (spec §5.3).
+     *
+     * @var array<int, array<int, true>>
+     */
+    private array $parcelasPorAcordo = [];
+    /** @var array<int, int> número do acordo => `parcelaTotal` declarado na coluna J */
+    private array $totalDeParcelas = [];
+    /** @var list<string> NN das parcelas que ficaram ligadas a um acordo */
+    private array $parcelasDeAcordo = [];
+    private int $acordosReativados = 0;
+    /** @var list<string> descrição do dinheiro que a reativação D6 tira do exigível (spec §5.5) */
+    private array $reativacoesComDinheiroParado = [];
+
     private int $totalRecebido = 0;
     private int $honorarios = 0;
     private int $encargos = 0;
@@ -77,6 +98,84 @@ final class EstadoDaImportacaoDeReceitas
         }
     }
 
+    /**
+     * Registra o acordo desta linha, contando a criação **uma vez por acordo** — não uma por parcela.
+     *
+     * `$reativado` e `$dinheiroParado` só são consumidos no PRIMEIRO encontro, e por isso valem o mesmo
+     * na prévia e na confirmação: na prévia o acordo continua rompido nas linhas seguintes (nada foi
+     * gravado), na confirmação ele já está ativo — mas as duas só olham a primeira.
+     *
+     * @param list<string> $dinheiroParado descrições das obrigações com alocação que a reativação tira
+     *                                     do exigível (spec §5.5)
+     */
+    public function projetarAcordo(
+        AcordoDoRelatorio $acordo,
+        bool $acordoExiste,
+        bool $reativado,
+        array $dinheiroParado = [],
+    ): void {
+        if (!isset($this->acordosVistos[$acordo->numero])) {
+            $this->acordosVistos[$acordo->numero] = true;
+            if (!$acordoExiste) {
+                ++$this->acordosCriados;
+            }
+            if ($reativado) {
+                ++$this->acordosReativados;
+                foreach ($dinheiroParado as $descricao) {
+                    $this->reativacoesComDinheiroParado[] = $descricao;
+                }
+            }
+        }
+
+        // Índices DISTINTOS: o mesmo índice não pode contar duas vezes e empurrar o acordo para
+        // `Cumprido` sem que todas as parcelas estejam lá. Medido: nenhuma parcela tem dois NNs — mas
+        // a régua não pode depender de uma propriedade da fonte de hoje.
+        $this->parcelasPorAcordo[$acordo->numero][$acordo->parcelaIndice] = true;
+        $this->totalDeParcelas[$acordo->numero] = $acordo->parcelaTotal;
+    }
+
+    /**
+     * Números dos acordos que terminam a execução com TODAS as parcelas pagas — os que ficam
+     * `Cumprido` (decisão A2).
+     *
+     * Conta só o que ESTE arquivo traz, de propósito: uma parcela paga numa importação anterior não
+     * entra na conta, então o acordo fica `Ativo` quando deveria ser `Cumprido`. É o lado certo de
+     * errar — marcar `Cumprido` um acordo que ainda deve seria subcobrança silenciosa.
+     *
+     * @return list<int>
+     */
+    public function numerosCumpridos(): array
+    {
+        $cumpridos = [];
+        foreach ($this->parcelasPorAcordo as $numero => $indices) {
+            $total = $this->totalDeParcelas[$numero] ?? 0;
+            if ($total > 0 && count($indices) >= $total) {
+                $cumpridos[] = $numero;
+            }
+        }
+
+        return $cumpridos;
+    }
+
+    /**
+     * Acordos que ficam com parcelas faltando — o comando os imprime para o dono pedir a fonte à
+     * contábil (decisão B1: nada é sintetizado).
+     *
+     * @return list<array{numero: int, pagas: int, total: int}>
+     */
+    public function acordosIncompletos(): array
+    {
+        $incompletos = [];
+        foreach ($this->parcelasPorAcordo as $numero => $indices) {
+            $total = $this->totalDeParcelas[$numero] ?? 0;
+            if ($total > 0 && count($indices) < $total) {
+                $incompletos[] = ['numero' => $numero, 'pagas' => count($indices), 'total' => $total];
+            }
+        }
+
+        return $incompletos;
+    }
+
     public function projetarRecebimento(ReceitaImportavel $receita, bool $obrigacaoExiste, bool $jaImportado): void
     {
         if ($jaImportado) {
@@ -92,6 +191,10 @@ final class EstadoDaImportacaoDeReceitas
         }
 
         $this->pagamentosCriados[] = $receita->nn;
+
+        if ($receita->acordo !== null) {
+            $this->parcelasDeAcordo[] = $receita->nn;
+        }
 
         // B1 / spec §9: recebimento SÓ de honorário e/ou juros-multa, sem taxa nenhuma. Contado à
         // parte porque a decisão de aceitá-lo é do dono e ainda está aberta — o importador não decide
@@ -124,6 +227,11 @@ final class EstadoDaImportacaoDeReceitas
             pessoasCriadas: $this->pessoasCriadas,
             casosCriados: $this->casosCriados,
             acordosCriados: $this->acordosCriados,
+            parcelasDeAcordo: $this->parcelasDeAcordo,
+            acordosCumpridos: count($this->numerosCumpridos()),
+            acordosIncompletos: $this->acordosIncompletos(),
+            acordosReativados: $this->acordosReativados,
+            reativacoesComDinheiroParado: $this->reativacoesComDinheiroParado,
             totalRecebidoCentavos: $this->totalRecebido,
             honorariosCentavos: $this->honorarios,
             encargosCentavos: $this->encargos,

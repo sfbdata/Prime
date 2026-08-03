@@ -121,10 +121,25 @@ Classes presentes nas parcelas de acordo: `1.1` (150×), `1.14` (65×), `1.15` (
 
 ### 3.7 Estado do banco dev
 
-Só existe **uma** carteira: `id=1, tenant_id=1, "TOP LIFE II"`. A TOP LIFE I nunca foi importada aqui.
-Existem 11 acordos, **7** com `numero_externo` (9, 21, 28, 31, 32, 34, 37) — a spec-mãe §11.2 diz 8,
-incluindo o 39; **o 39 não está no banco**. Todos os 11 estão `ativo`: **nenhum rompido ou cancelado**, ou
-seja, D6 não tem caso natural no dev e precisa de cenário montado em teste.
+⚠️ **A primeira versão desta seção mediu o banco ERRADO** e dizia que só existia uma carteira, chamada
+"TOP LIFE II", e que havia 7 acordos com `numero_externo`. O app do dev lê **`saas_ux`**, não `saas`
+(`app/.env.local`, não versionado) — o `saas` é um banco antigo que ficou para trás. Medido no `saas_ux`:
+
+| | |
+|---|---|
+| carteiras | `id=1 TOP LIFE I` · `id=2 TOP LIFE II` |
+| obrigações | 3.431 |
+| **pagamentos** | **0** — nada da etapa 2 foi gravado |
+| acordos | 10 |
+| — com `numero_externo` | **8** (9, 21, 28, 31, 32, 34, 37, **39**), todos na carteira 2, todos `ativo` |
+| — sem `numero_externo` | 2, ambos `cancelado` |
+
+A spec-mãe §11.2 estava certa ao dizer **8**. Os 2 cancelados não têm `numero_externo`, então o
+importador nunca os encontra: **D6 não tem caso alcançável no dev** e precisa de cenário montado em teste.
+
+🔑 A lição vale além desta seção: eu tinha [[project_ponto_horas_pagas]] registrando exatamente isto — *no
+dev o app lê `saas_ux`* — e mesmo assim medi contra `saas`. É o segundo caso nesta frente de resposta que
+já estava na memória.
 
 ## 4. Decisões
 
@@ -286,9 +301,27 @@ mínimo e isola uma só.
 | P16 | **isolamento por tenant** na busca do acordo — **teste do repositório direto, sem request**, com dado CRUZADO. O `TenantFilter` é global e ligado **por request**: fica DESLIGADO em CLI, que é onde o importador roda, então teste funcional não prova nada aqui |
 | P17 | o comando **imprime** acordos criados, ligados e os incompletos com parcelas faltando — com cenário que exercite cada contador (contador sem cenário compara `[]` com `[]`) |
 
-**Prova externa, ao final:** dry-run contra os quatro arquivos de 03/08 tem de reproduzir os números da
-§3 — 187 parcelas, 106 acordos, 75 `Cumprido`, 4 incompletos sem fonte — e os oito números da conferência
-contábil da spec-mãe §8.1 têm de continuar batendo ao centavo.
+**Prova externa, FEITA (dry-run de 03/08, nada gravado):** o comando reproduz a §3 ao número.
+
+| | TOP LIFE I | TOP LIFE II | total | §3 dizia |
+|---|---|---|---|---|
+| recebimentos | 1.220 | 857 | 2.077 | — |
+| — parcelas de acordo | **160** | **27** | **187** | 187 ✓ |
+| acordos criados | **80** | **26** | **106** | 106 ✓ |
+| — `Cumprido` | **49** | **26** | **75** | 75 ✓ |
+| — incompletos | **31** | **0** | **31** | 31 ✓ |
+
+E os **oito** números da conferência contábil (spec-mãe §8.1) continuam batendo ao centavo depois da
+etapa 3 — R$ 243.013,53 / 228.867,89 / 5.610,14 / 8.535,50 e R$ 136.898,49 / 135.486,55 / 552,83 /
+859,11. Era o que tinha de acontecer: a etapa 3 não toca o `Pagamento`.
+
+Os 4 órfãos aparecem na listagem do comando com o número de parcelas medido — 212 (1 de 20), 230 (1 de
+28), 237 (4 de 20) e 280 (1 de 10).
+
+⚠️ **A contagem de parcelas pagas dos órfãos mudou** em relação à §3.3, que dizia 212 "faltam 19 de 20",
+230 "27 de 28", 237 "16 de 20", 280 "9 de 10" — os totais faltantes eram 19/27/16/9 e o comando mostra
+pagas 1/1/4/1, que dão os mesmos 19/27/16/9. Os dois números dizem a mesma coisa por lados opostos; não
+houve divergência.
 
 ## 7. Fora de escopo
 
@@ -306,5 +339,27 @@ contábil da spec-mãe §8.1 têm de continuar batendo ao centavo.
 **Ao abrir a etapa:** `master` local em `2c59cb06`, **19 commits não publicados**, árvore limpa, suíte
 **3169/3169**, sem migration pendente. Nada em produção, nada gravado.
 
+**Ao fechar o código:** suíte **3192/3192** (+23), `lint:twig`, `lint:container` e
+`doctrine:schema:validate --skip-sync` verdes. Dry-run contra as quatro planilhas reais reproduzindo a §3.
+
 Esta etapa **não tem migration**: `Acordo.numeroExterno`, `Acordo.numeroParcelasTotal` e
 `Obrigacao.acordoOrigem` já existem.
+
+### 8.1 O que a prova por injeção achou — e por que ela não é formalidade
+
+Os 21 testes ficaram verdes na primeira execução. **Isso não vale nada por si**: rodando as 23 injeções
+de defeito (uma por assert que cada teste alega guardar, conferindo qual assert fica vermelho), **5
+falharam**, e três delas eram defeito de verdade:
+
+| | O que estava errado |
+|---|---|
+| 1 | `assertSame(0, (int) fetchOne(...))` sobre `taxa_honorarios_bp`: **`(int) null` também é 0**, então o assert passava com a coluna NULA, isto é, com o override não gravado. Trocar `'percent'` por `'herda'` no código deixava a suíte verde. |
+| 2 | O relatório de dinheiro parado tinha **duas defesas em SÉRIE** (um `totalAlocado` agregado com return antecipado, mais a checagem por obrigação). Relaxar só uma mantinha o teste verde — o caso negativo era improvável. A guarda redundante foi REMOVIDA: uma defesa, uma prova. |
+| 3 | O teste de premissa do isolamento por tenant procurava por um filtro chamado `tenant_filter`. **O filtro se chama `tenant`** — o assert passava com o filtro ligado ou desligado. Ironicamente, era o teste escrito para vigiar que a premissa não se perdesse. |
+
+As outras duas eram injeção mal escolhida da minha parte (a injeção não produzia o defeito alegado), e
+foram trocadas até o vermelho vir do assert certo.
+
+🔑 **Um assert que não pode falhar não é um teste — é um comentário que consome CPU.** Foi o padrão
+dominante da etapa 2 (3 dos 4 defeitos de teste) e reapareceu 3 vezes aqui, inclusive dentro do teste
+escrito justamente para não deixar isso acontecer.

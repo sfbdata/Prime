@@ -60,6 +60,36 @@ final class ResultadoImportacaoReceitas
          */
         public readonly array $semPrincipal = [],
         public readonly int $semPrincipalCentavos = 0,
+        /**
+         * NN de cada recebimento que entra como PARCELA de acordo (etapa 3, coluna J). Medido em
+         * 03/08: 187 dos 2.078 — 160 na TOP LIFE I e 27 na II.
+         *
+         * @var list<string>
+         */
+        public readonly array $parcelasDeAcordo = [],
+        /** Acordos que terminam com todas as parcelas pagas e viram `Cumprido` (decisão A2). */
+        public readonly int $acordosCumpridos = 0,
+        /**
+         * Acordos que ficam com parcelas faltando. O comando os imprime porque a fonte das futuras
+         * pode não existir (decisão B1: nada é sintetizado) — medido em 03/08: 31 incompletos, dos
+         * quais 4 sem nenhuma fonte (acordos 212, 230, 237 e 280, somando 71 parcelas).
+         *
+         * @var list<array{numero: int, pagas: int, total: int}>
+         */
+        public readonly array $acordosIncompletos = [],
+        /** Acordos rompidos/cancelados que a importação devolveu a `Ativo` — D6. */
+        public readonly int $acordosReativados = 0,
+        /**
+         * ⚠️ O efeito colateral de D6 que a spec-cancelar §3.2 manda vigiar: a reativação devolve as
+         * obrigações originais ao estado "substituída", e elas saem do exigível. Se alguma delas tiver
+         * recebido pagamento enquanto o acordo estava rompido, esse dinheiro **para de abater o saldo**
+         * — o devedor passa a ser cobrado por algo que já pagou.
+         *
+         * O importador NÃO corrige: decidir para onde vai dinheiro de terceiro não é dele. Ele lista.
+         *
+         * @var list<string>
+         */
+        public readonly array $reativacoesComDinheiroParado = [],
     ) {
     }
 
