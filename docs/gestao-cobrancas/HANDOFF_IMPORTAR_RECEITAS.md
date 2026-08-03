@@ -1,138 +1,124 @@
-# HANDOFF — Importar "Receitas detalhadas" (etapa 2 de 3) — FECHADA. Importação TRAVADA até a etapa 3
+# HANDOFF — Importar "Receitas detalhadas" — ETAPA 3 FECHADA. Importação DESTRAVADA.
 
-**Aberto em 2026-08-01, reescrito em 2026-08-03** ao fechar a etapa.
-Risco **ALTO**. Spec: `docs/specs/cobranca-importar-receitas.md` (**é ela que manda**; este arquivo é só o estado).
+**Aberto em 2026-08-01, reescrito em 2026-08-03** ao fechar a etapa 3.
+Risco **ALTO**. Specs: `docs/specs/cobranca-importar-receitas.md` (etapas 1-2) e
+`docs/specs/cobranca-receitas-parcela-de-acordo.md` (**etapa 3, é ela que manda agora**).
 
-> ⛔ **NÃO RODE A IMPORTAÇÃO.** No fim de 03/08 o dono descobriu que o NN da planilha não é um boleto
-> avulso: é **parcela de acordo**. Rodar agora criaria **187 obrigações avulsas** que a etapa 3 teria de
-> desfazer. Ver §2 deste arquivo e §11 da spec.
+> ✅ **A TRAVA CAIU.** O NN da planilha é parcela de acordo, e o importador agora sabe disso: a coluna J
+> decide dois caminhos, e os 187 recebimentos que são parcela nascem ligados ao acordo, que é criado se
+> não existir. Rodado com `--confirmar` **no DEV** e provado (§10).
+>
+> ⛔ **Produção continua sua.** Nada foi enviado nem deployado.
 
 ---
 
-## 1. Onde a etapa parou
+## 1. Onde a frente parou
 
-Tudo o que era trabalho de código está feito: leitura, gravação, comando, tela (R5), dry-run contra as
-planilhas reais, conferência contra a contabilidade e **duas revisões com correção entre elas**.
-
-**Nada foi gravado. Nada foi publicado.** Todas as execuções contra as planilhas reais foram dry-run.
-
-- **18 commits não publicados**, suíte **3169/3169**, sem migration.
+- **24 commits não publicados**, suíte **3200/3200**, sem migration.
+- **DEV importado e conferido** (§10). **Produção intocada.**
 - Confira sempre com os comandos, não com este arquivo:
   `git rev-list --count origin/master..HEAD` · `docker exec jusprime_php_dev bash -c 'cd app && php bin/phpunit'`
 
-Commits desta etapa (a etapa 1, `40c3e05a`, está FECHADA — não reabrir):
+Commits da etapa 3:
 
 | | |
 |---|---|
-| `81aa3166` | leitura da planilha |
-| `edacfacc` | gravação + comando |
-| `9f8b8df4` | **R5 — a tela**: "Já pago" separado do em aberto |
-| `fd76b8d8` | terceiro balde (juros e multa) no resumo |
-| `5f4e58bf` | spec: os três números que a remedição derrubou |
-| `cdc9021d` | correções da 1ª revisão |
-| `a9733865` | correções da 2ª revisão |
-| `e5ef30f4` | gitignore: fecha a pasta das planilhas inteira, não só os `.xlsx` |
-| `aea26965` | **a estrutura de acordo da fonte** (§11 da spec) — o que define a etapa 3 |
+| `d4afb53b` | a spec |
+| `8734814d` | a implementação: a coluna J decide dois caminhos |
+| `150b7aa6` | correções da **1ª** revisão (9 achados, 1 bloqueante de dinheiro) |
+| `ecc43a09` | correções da **2ª** revisão — que achou defeito nas correções da 1ª |
+| `53b7f527` | correções da **3ª** revisão — que achou defeito nas correções da 2ª |
 
-## 2. 🔑 A descoberta que fecha a etapa 2 e define a etapa 3
+## 2. O que a etapa 3 fez
 
-**O dono leu a coluna J e mudou o diagnóstico.** O NN não é um boleto avulso — é uma **parcela de acordo**:
+A coluna J (`"Acordo 348 - Parc. 1/40"`) decide dois caminhos na gravação:
 
-```
-Acordo 348                       ← coluna J: "Acordo 348 - Parc. 1/40"
-  ├─ Parc. 1/40 = NN 75124       ← o boleto DAQUELA parcela
-  │    └─ 4 linhas de 1.15       ← a COMPOSIÇÃO: as dívidas que entraram nela (= R$ 242,11)
-  ├─ Parc. 7/40 = NN 75130       → energia + honorário
-  └─ Parc. 8/40 = NN 75131       → 5 linhas de taxa + 1 de energia
-```
+- **vazia** → boleto avulso, exatamente como na etapa 2 (1.891 dos 2.078 recebimentos);
+- **preenchida** → a obrigação nasce como **parcela** do acordo N, que é **criado** se não existir
+  (decisão A1), com `numeroExterno`, `numeroParcelasTotal` e `dataAcordo` derivada da competência.
 
-**Isso encerra a pendência dos "37 sem principal"** (aberta desde 01/08): **37 de 37 são parcela de
-acordo**. Numa parcela de acordo, não ter taxa é normal — o acordo distribui as dívidas ao longo das
-parcelas. A pergunta *"é acessório de um boleto de taxa?"* tinha resposta na coluna que o adapter já lia
-e o UseCase descartava. Nenhuma das três opções que estavam no handoff anterior era a certa.
+Mais **D6**: acordo rompido ou cancelado que a planilha traz volta a `Ativo`, com registro no histórico
+e aviso do dinheiro que isso mexe.
 
-### Por que a importação está travada
+## 3. O que foi gravado no DEV (medido, `saas_ux`)
 
-O `TopLifeReceitasAdapter` **já lê** a coluna J (`AcordoDoRelatorio`). O `ImportarReceitasUseCase`
-**ignora**. Se rodar hoje, **187 recebimentos** que são parcela de acordo (160 na TL I + 27 na TL II)
-viram obrigações avulsas "Taxa MM/AAAA", soltas, sem vínculo com o acordo.
-
-### O que foi medido
-
-| | TL I | TL II |
+| | antes | depois |
 |---|---|---|
-| recebidos que são parcela de acordo | **160** | **27** |
-| acordos citados | 93 | 34 |
-| — já existem no sistema (`numero_externo`) | 0 | **8** |
-| — têm aba no relatório "Acordos detalhados" | **40** | **8** |
+| obrigações | 3.431 | **5.504** |
+| pagamentos | 0 | **2.077** |
+| acordos | 10 | **116** (106 criados) |
+| — `Cumprido` | 0 | **75** |
+| parcelas (obrigação com `acordoOrigem`) | 51 | **238** |
 
-Total: **127 acordos citados**, **48 cobertos** pelo relatório de Acordos, **79 sem fonte completa**.
-E duas propriedades que sustentam a chave: **nenhum NN em dois acordos**, **nenhum acordo cruza unidades**.
+**Dinheiro: R$ 379.912,02**, e os quatro baldes batem ao centavo com a contabilidade —
+principal R$ 364.354,44 · juros e multa R$ 6.162,97 · honorários R$ 9.394,61.
 
-⚠️ A spec §1 dizia "106 acordos citados, **zero** existem". Errado nos dois números — corrigido.
+**A §9.1 fechou na prática:** o NN `75124`, que a etapa 2 gravaria como "Taxa 03/2026" valendo
+**R$ 0,00**, agora é `Acordo 348 - Parc. 1/40` valendo **R$ 242,11**, quitado ao centavo. Nenhuma parcela
+de acordo ficou com valor original zero.
 
-### Suas decisões (03/08), que são o contrato da etapa 3
+**Idempotência provada no dado real:** a 2ª rodada com `--confirmar` registrou **0 recebimentos**,
+ignorou 2.077 e não criou acordo nenhum. Os totais não se moveram um centavo.
 
-| # | Decisão |
-|---|---|
-| **A1** | Parcela paga ⇒ **o acordo existe e tem de ser criado**. Outra planilha pode ter os dados faltantes — medido: o relatório de Acordos cobre 48 dos 127. |
-| **A2** | Status **`Ativo`**; só não é ativo se já terminou de ser pago (aí `Cumprido`). |
-| **A3** | **A etapa 2 fecha como está**; isto vira a etapa 3, junto com D6. A importação espera. |
-
-### O desenho, em uma frase
-
-A coluna J decide dois caminhos: **vazia** → boleto avulso, como hoje (1.891 dos 2.077); **`Acordo N -
-Parc. x/y`** → obrigação nasce como **parcela do acordo N**, criando o acordo (`numeroExterno = N`,
-`numeroParcelasTotal = y`) quando não existir, ou ligando ao que já existe.
-
-A infraestrutura já está pronta: `Acordo` tem `numeroExterno` e `numeroParcelasTotal` (com índice por
-tenant), `Obrigacao` tem `acordoOrigem`.
-
-## 3. A conferência contra a contabilidade — feita, e fecha ao centavo
-
-Foi a primeira vez que deu para fazer (os quatro relatórios são da mesma data). 🔑 **O relatório imprime o
-próprio gabarito**: depois da última linha vem o total e um quadro de recebido **por classe de conta**.
-
-| | TOP LIFE I | TOP LIFE II |
-|---|---|---|
-| **Total recebido** | R$ 243.013,53 ✓ | R$ 136.898,49 ✓ |
-| — principal | R$ 228.867,89 ✓ | R$ 135.486,55 ✓ |
-| — juros e multa | R$ 5.610,14 ✓ | R$ 552,83 ✓ |
-| — honorários | R$ 8.535,50 ✓ | R$ 859,11 ✓ |
-
-**Os oito batem.** Total que entraria: **R$ 379.912,02** · **2.073 obrigações criadas** · 220 unidades,
-pessoas e casos novos · 1 rejeição (NN `60082`, líquido zero).
-
-## 4. O que precisa do seu olho na tela (R5)
-
-Abra um devedor da TOP LIFE com recebimento e confira a aba **Dívida**:
-
-- a fila de cima só tem o que está **em aberto**;
-- abaixo dela, a seção **"Já pago"** recolhida, com `N obrigações · R$ X` sempre visível;
-- clicar abre as linhas (pago em · o que é · recebido);
-- num devedor sem nada pago a seção **não aparece**;
-- num devedor com tudo pago, a fila diz "Nada em aberto" em vez do vazio genérico.
-
-⚠️ **Muda a tela mesmo antes de importar**: obrigação quitada por pagamento **digitado à mão** também
-desce para a seção nova. E o botão "Novo acordo" passou a olhar só o que está em aberto.
-
-## 5. ⛔ Como rodar — SÓ DEPOIS DA ETAPA 3
-
-⛔ **Não rode com `--confirmar` antes da etapa 3** (decisão A3). O dry-run abaixo é seguro e pode ser
-repetido à vontade — ele não grava nada.
+**Backup:** o banco de antes está em `saas_ux_antes_etapa3`. Para voltar:
 
 ```bash
-# 1. DEV, dry-run (não grava):
-docker exec jusprime_php_dev bash -c 'cd app && APP_DEBUG=0 php -d memory_limit=2G bin/console \
-  app:cobranca:importar-receitas --tenant-id=1 --carteira-id=1 --usuario-id=1 \
-  --arquivo="/var/www/docs/gestao-cobrancas/planilhas atualizadas/top_life_1_Receitas_..._09_51_26.xlsx"'
-
-# 2. DEPOIS DA ETAPA 3, com --confirmar. Em PROD: scp -> docker cp -> docker exec -w /var/www/app
+# Execute manualmente no terminal externo
+docker exec jusprime_db_dev psql -U symfony -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='saas_ux' AND pid <> pg_backend_pid();"
+docker exec jusprime_db_dev psql -U symfony -d postgres -c 'DROP DATABASE saas_ux;'
+docker exec jusprime_db_dev psql -U symfony -d postgres -c 'CREATE DATABASE saas_ux TEMPLATE saas_ux_antes_etapa3;'
 ```
 
-Uma carteira por execução (`--carteira-id=1` e `=2`, com o arquivo correspondente).
+## 4. O que precisa do seu olho na tela
 
-## 6. Armadilhas medidas nesta frente — as que custaram tempo
+Abra um devedor da **TOP LIFE** com recebimento de acordo e confira:
+
+- a obrigação aparece como **"Acordo N - Parc. x/y"**, não como "Taxa MM/AAAA";
+- ela está na seção **"Já pago"** (R5, etapa 2), quitada;
+- o **acordo existe** na aba de acordos, com o número externo e o total de parcelas certos;
+- um acordo de todas as parcelas pagas aparece **Cumprido**; um parcial, **Ativo**;
+- ⚠️ **os smokes atrasados continuam de pé**: tela R5 (etapa 2), caso 193 (desde 01/08) e etapa 1.
+
+## 5. ⚠️ Duas consequências que precisam da sua decisão
+
+**(a) Os 106 acordos ficam INCANCELÁVEIS pela tela.** Toda parcela nasce com alocação, e o
+`CancelarAcordoUseCase` recusa cancelar acordo com parcela paga. Para cancelar um deles será preciso
+antes excluir os recebimentos um a um (etapa 1). Pega em cheio os **31 incompletos** e os **4 órfãos**.
+
+**(b) D6 contradiz a política escrita do importador de Acordos detalhados**, que diz com todas as letras
+que ressuscitar acordo rompido a partir de planilha "desfaz em silêncio o que uma pessoa decidiu". As
+duas podem coexistir (fontes diferentes), mas a contradição está registrada, não escondida.
+
+## 6. A ordem para produção, quando você decidir
+
+1. **Receitas** (`--carteira-id=1` com o arquivo `top_life_1`, `=2` com o `top_life_2`) — cria os 106
+   acordos e liga as 187 parcelas;
+2. **Acordos detalhados**, DEPOIS — completa as parcelas futuras dos 27 que têm aba;
+3. os **4 órfãos** (acordos 212, 230, 237, 280 — 71 parcelas) precisam de fonte da contábil.
+
+Rodar o importador de Acordos detalhados ANTES não adianta: ele não cria acordo, por decisão de spec.
+
+Em prod: `scp` → `docker cp` → `docker exec -w /var/www/app`, `APP_DEBUG=0`, `memory_limit` alto.
+⚠️ **Conferir antes** se alguma importação anterior trouxe contas originais dos acordos (§3.5 da spec).
+
+
+### 7.1 O que a etapa 3 acrescentou à lista
+
+- 🔑 **Três rodadas de revisão, e as três acharam defeito NAS CORREÇÕES da rodada anterior.** A 1ª achou
+  1 bloqueante de dinheiro; a correção dele criou o espelho do bloqueante, que a 2ª achou; a correção da
+  2ª reintroduziu o assert vacuoso que ela mesma tinha vindo corrigir, e a 3ª achou. **Corrigir sem
+  re-revisar teria fechado a etapa três vezes com a sensação de resolvido.**
+- 🔑 **A prova por injeção de defeito pegou 5 problemas na primeira rodada**, três deles reais — incluindo
+  `assertSame(0, (int) fetchOne(...))`, que passava com a coluna NULA porque `(int) null` é 0.
+- 🔑 **Duas defesas em SÉRIE tornam o teste do caso negativo improvável.** Uma guarda redundante foi
+  REMOVIDA por isso: uma defesa, uma prova.
+- ⚠️ **`ResetDatabase` do Foundry DESTRÓI o `saas_test`** (que aqui vem de dump): 1.217 testes morreram
+  numa rodada. Restaurado clonando de outra worktree + `migrations:execute` da migration que faltava.
+- ⚠️ **O dev lê `saas_ux`, não `saas`** — e eu medi contra o banco errado mesmo tendo isso na memória.
+- ⚠️ **Cache do container dev fica velho** depois de mudar assinatura de construtor: `cache:clear` com
+  `memory_limit` alto (o default de 128M estoura).
+
+## 7. Armadilhas medidas nesta frente — as que custaram tempo
 
 - **Fato medido tem prazo de validade curto nesta fonte.** CINCO números da spec caíram ao serem
   remedidos (§10.1). Nenhum derrubou uma decisão; caíram só os números. E a causa de dois deles estava
@@ -154,7 +140,7 @@ Uma carteira por execução (`--carteira-id=1` e `=2`, com o arquivo corresponde
 - **Serviço só usado por teste é inlined pelo Symfony** e some do container.
 - **`AcordoDoRelatorio` usa `parcelaIndice`/`parcelaTotal`**, não `parcela`/`totalParcelas`.
 
-## 7. Pendências suas
+## 8. Pendências suas
 
 - ⏳ **Smoke da tela R5** (§4) e os smokes atrasados: caso 193 (desde 01/08) e o da etapa 1.
 - ⏳ **18 commits não publicados.**
@@ -162,7 +148,7 @@ Uma carteira por execução (`--carteira-id=1` e `=2`, com o arquivo corresponde
   reaberta some; 3 dos 4 recebimentos que pousam em obrigação existente pagam a mais). Ambas podem
   desaparecer com a etapa 3, porque tratam de casos que viram parcela de acordo.
 
-## 8. A etapa 3 — agora com escopo definido
+## 9. (histórico) A etapa 3 quando foi definida
 
 Duas coisas, na mesma frente:
 
@@ -173,7 +159,7 @@ A primeira pergunta de desenho já está posta: **os 79 acordos sem aba no relat
 nascer só com o que a Receitas dá (número, total de parcelas e as parcelas pagas), enquanto os 48
 cobertos podem vir completos da outra fonte. Vale rodar o importador de Acordos detalhados antes.
 
-## 9. Onde estão as planilhas
+## 10. Onde estão as planilhas
 
 `docs/gestao-cobrancas/planilhas atualizadas/` — **gitignored (PII)**. Usar as de **03/08**
 (`..._2026_08_03_...`), que são as da mesma data. Nunca commitar, nunca colar conteúdo.
