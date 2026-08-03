@@ -362,7 +362,13 @@ final class ImportarRelatorioCarteiraTest extends KernelTestCase
         self::assertSame(1, $resultado->totalAtualizadas(), 'a obrigação NN=1001 já existia');
 
         // A pessoa cobrada do caso PERMANECE a original (troca é decisão humana, §28).
-        $caso = $this->em->getRepository(CasoCobranca::class)->findOneBy(['tenant' => $tenant]);
+        // O caso é buscado pelo OBJETO 01-01, não por `findOneBy(['tenant' => ...])`: a fixture cria
+        // vários objetos (4 pessoas / 6 obrigações), então buscar só por tenant devolve um caso
+        // ARBITRÁRIO — sem ORDER BY o banco não promete qual. O assert passava pela ordem de inserção e
+        // falhava esporadicamente; medido em 2026-08-03, uma falha a cada poucas execuções da suíte.
+        $objeto = $this->em->getRepository(ObjetoCobranca::class)->findOneBy(['tenant' => $tenant, 'identificacao' => '01-01']);
+        self::assertNotNull($objeto, 'o objeto do cenário tem de existir para o assert abaixo medir algo');
+        $caso = $this->em->getRepository(CasoCobranca::class)->findOneBy(['objeto' => $objeto]);
         self::assertSame('DEVEDOR UM EXEMPLO', $caso?->getPessoaCobradaAtual()?->getNome());
         // Agora há 5 pessoas no tenant (4 do 1º import + a nova divergente).
         self::assertSame(5, $this->em->getRepository(Pessoa::class)->count(['tenant' => $tenant]));

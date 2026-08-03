@@ -92,6 +92,33 @@ class AlocacaoPagamentoRepository extends ServiceEntityRepository
     }
 
     /**
+     * Já existe recebimento alocado NESTA obrigação COM ESTA data de pagamento?
+     *
+     * É a chave de idempotência do importador de Receitas (spec `cobranca-importar-receitas.md` §6):
+     * reimportar o mesmo arquivo não pode criar pagamento nenhum na segunda vez. A chave é
+     * `(obrigação, data de recebimento)` porque cada NN tem exatamente UMA data de recebimento no dado
+     * real, e a obrigação já carrega o NN.
+     *
+     * Pergunta EXISTÊNCIA, não soma: alocação de valor zero também é um recebimento registrado, e
+     * recriá-la duplicaria a linha do extrato mesmo sem mover um centavo.
+     */
+    public function existeNaObrigacaoComData(int $obrigacaoId, \DateTimeImmutable $data, Tenant $tenant): bool
+    {
+        return (bool) $this->createQueryBuilder('a')
+            ->select('1')
+            ->innerJoin('a.pagamento', 'p')
+            ->andWhere('a.obrigacao = :obrigacao')
+            ->andWhere('p.data = :data')
+            ->andWhere('a.tenant = :tenant')
+            ->setParameter('obrigacao', $obrigacaoId)
+            ->setParameter('data', $data->format('Y-m-d'))
+            ->setParameter('tenant', $tenant)
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    /**
      * As alocações de UM pagamento, por QUERY. Usado pela exclusão de recebimento (spec
      * `cobranca-excluir-recebimento.md` §3.4) para saber quanto subtrair de cada obrigação.
      *
