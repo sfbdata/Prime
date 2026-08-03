@@ -163,7 +163,16 @@ final class ImportarReceitasCommand extends Command
 
         $this->avisarAcordosIncompletos($io, $projecao, $confirmar);
         $this->avisarDinheiroParado($io, $projecao, $confirmar);
+        $this->avisarImpactoDaReativacao($io, $projecao);
         $this->avisarTrocaDeAcordo($io, $projecao, $confirmar);
+
+        // 🔑 Marcador explícito da fronteira. Sem ele, "o aviso sai antes da gravação" é INTESTÁVEL
+        // pela saída: mover os avisos para depois de `confirmar()` não mudaria uma vírgula do texto,
+        // porque `imprimirTotais` continua sendo o último. Com esta linha, tudo o que aparece acima
+        // dela foi impresso antes de a transação abrir — e um teste consegue medir isso.
+        if ($confirmar) {
+            $io->section('>>> GRAVANDO (--confirmar). Tudo acima desta linha saiu ANTES da escrita.');
+        }
 
         $resultado = $confirmar
             ? $this->importar->confirmar($carteiraId, $leitura, $tenant, $user)
@@ -317,19 +326,44 @@ final class ImportarReceitasCommand extends Command
             return;
         }
 
-        // ⚠️ O cabeçalho NÃO conta obrigações: a lista mistura o aviso por obrigação com o agregado do
-        // acordo. Uma versão anterior dizia "%d obrigação(ões)" com `count($avisos)` e imprimia "2
-        // obrigações" onde havia uma — número errado num aviso de dinheiro.
+        // A lista aqui é SÓ de obrigação com pagamento alocado — o impacto genérico no saldo saiu para
+        // `avisarImpactoDaReativacao`. Misturados, este texto ("o devedor já pagou") disparava também
+        // onde ninguém tinha pagado nada: alarme falso em aviso de dinheiro ensina a ignorar o aviso.
         $io->warning(sprintf(
-            "REATIVAÇÃO DE ACORDO (D6) mexe no saldo devedor. %d aviso(s):\n"
-            . "Obrigação original com pagamento alocado SAI do exigível — esse dinheiro deixa de abater o\n"
-            . "saldo, e o devedor passa a ser cobrado por algo que já pagou.\n"
+            "REATIVAÇÃO DE ACORDO (D6): %d obrigação(ões) originais têm PAGAMENTO alocado e saem do exigível.\n"
+            . "Esse dinheiro deixa de abater o saldo, e o devedor passa a ser cobrado por algo que já pagou.\n"
             . "O importador NÃO corrige isso sozinho; confira caso a caso.\n%s\n%s",
             count($r->reativacoesComDinheiroParado),
             $confirmar
                 ? '>>> Você passou --confirmar: a reativação SERÁ gravada a seguir. Interrompa se não for isso. <<<'
                 : 'Dry-run: nada será gravado.',
-            implode("\n", $r->reativacoesComDinheiroParado),
+            implode("\n", array_slice($r->reativacoesComDinheiroParado, 0, 40))
+                . (count($r->reativacoesComDinheiroParado) > 40
+                    ? sprintf("\n… (+%d)", count($r->reativacoesComDinheiroParado) - 40)
+                    : ''),
+        ));
+    }
+
+    /**
+     * Quanto o saldo devedor se move com a reativação — as originais saem do exigível e as parcelas
+     * entram. Aviso SEPARADO do de cima de propósito: este vale mesmo quando ninguém pagou nada, e o
+     * texto do outro afirmaria, falsamente, que o devedor está sendo cobrado por algo que já pagou.
+     */
+    private function avisarImpactoDaReativacao(SymfonyStyle $io, ResultadoImportacaoReceitas $r): void
+    {
+        if ($r->reativacoesImpactoNoSaldo === []) {
+            return;
+        }
+
+        $io->note(sprintf(
+            "REATIVAÇÃO DE ACORDO (D6) move o SALDO DEVEDOR em %d acordo(s), mesmo sem dinheiro já pago.\n"
+            . "Os valores vêm do snapshot gravado: se o rompimento é antigo, a dívida cresceu desde então\n"
+            . "e o número abaixo é piso, não fechamento.\n%s",
+            count($r->reativacoesImpactoNoSaldo),
+            implode("\n", array_slice($r->reativacoesImpactoNoSaldo, 0, 40))
+                . (count($r->reativacoesImpactoNoSaldo) > 40
+                    ? sprintf("\n… (+%d)", count($r->reativacoesImpactoNoSaldo) - 40)
+                    : ''),
         ));
     }
 
@@ -348,7 +382,8 @@ final class ImportarReceitasCommand extends Command
             "%d obrigação(ões) MUDAM de acordo nesta importação — isso altera a composição de saldo dos dois.\n%s\n%s",
             count($r->trocasDeAcordo),
             $confirmar ? '>>> Você passou --confirmar: a troca SERÁ gravada a seguir. <<<' : 'Dry-run: nada será gravado.',
-            implode("\n", array_slice($r->trocasDeAcordo, 0, 40)),
+            implode("\n", array_slice($r->trocasDeAcordo, 0, 40))
+                . (count($r->trocasDeAcordo) > 40 ? sprintf("\n… (+%d)", count($r->trocasDeAcordo) - 40) : ''),
         ));
     }
 

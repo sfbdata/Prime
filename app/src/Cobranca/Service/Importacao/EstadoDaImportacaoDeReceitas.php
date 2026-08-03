@@ -63,8 +63,18 @@ final class EstadoDaImportacaoDeReceitas
     /** @var list<string> NN das parcelas que ficaram ligadas a um acordo */
     private array $parcelasDeAcordo = [];
     private int $acordosReativados = 0;
-    /** @var list<string> descrição do dinheiro que a reativação D6 tira do exigível (spec §5.5) */
+    /** @var list<string> dinheiro JÁ PAGO que a reativação D6 faz parar de abater (spec §5.5) */
     private array $reativacoesComDinheiroParado = [];
+    /**
+     * Quanto o saldo devedor se move com a reativação — canal SEPARADO do de cima, de propósito.
+     *
+     * ⚠️ Misturar os dois punha o texto "o devedor passa a ser cobrado por algo que já pagou" na tela
+     * também quando ninguém tinha pagado nada. Alarme falso em aviso de dinheiro é pior do que aviso
+     * nenhum: ensina o operador a ignorar.
+     *
+     * @var list<string>
+     */
+    private array $reativacoesImpactoNoSaldo = [];
     /** @var list<string> obrigação que MUDOU de acordo — altera a composição de saldo dos dois */
     private array $trocasDeAcordo = [];
 
@@ -107,14 +117,15 @@ final class EstadoDaImportacaoDeReceitas
      * na prévia e na confirmação: na prévia o acordo continua rompido nas linhas seguintes (nada foi
      * gravado), na confirmação ele já está ativo — mas as duas só olham a primeira.
      *
-     * @param list<string> $dinheiroParado descrições das obrigações com alocação que a reativação tira
-     *                                     do exigível (spec §5.5)
+     * @param list<string> $dinheiroParado obrigações COM alocação que a reativação tira do exigível
+     * @param list<string> $impactoNoSaldo  quanto o saldo se move — vale mesmo sem dinheiro já pago
      */
     public function projetarAcordo(
         AcordoDoRelatorio $acordo,
         bool $acordoExiste,
         bool $reativado,
         array $dinheiroParado = [],
+        array $impactoNoSaldo = [],
     ): void {
         if (!isset($this->acordosVistos[$acordo->numero])) {
             $this->acordosVistos[$acordo->numero] = true;
@@ -125,6 +136,9 @@ final class EstadoDaImportacaoDeReceitas
                 ++$this->acordosReativados;
                 foreach ($dinheiroParado as $descricao) {
                     $this->reativacoesComDinheiroParado[] = $descricao;
+                }
+                foreach ($impactoNoSaldo as $descricao) {
+                    $this->reativacoesImpactoNoSaldo[] = $descricao;
                 }
             }
         }
@@ -246,6 +260,7 @@ final class EstadoDaImportacaoDeReceitas
             acordosIncompletos: $this->acordosIncompletos(),
             acordosReativados: $this->acordosReativados,
             reativacoesComDinheiroParado: $this->reativacoesComDinheiroParado,
+            reativacoesImpactoNoSaldo: $this->reativacoesImpactoNoSaldo,
             trocasDeAcordo: $this->trocasDeAcordo,
             totalRecebidoCentavos: $this->totalRecebido,
             honorariosCentavos: $this->honorarios,

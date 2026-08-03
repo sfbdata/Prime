@@ -170,13 +170,16 @@ final class ImportarReceitasCommandTest extends CobrancaWebTestCase
     #[TestDox('🔑 COM --confirmar: o aviso de D6 sai ANTES da gravação — e some se for calculado depois')]
     public function testAvisoDeD6SaiAntesDaGravacao(): void
     {
-        // 🔑 Este é o teste que DISCRIMINA, e o truque é escolher um aviso que o próprio ato apaga.
+        // 🔑 Este é o teste que DISCRIMINA — e a 1ª versão dele NÃO discriminava.
         //
-        // O aviso de D6 só existe enquanto o acordo está rompido. Se ele fosse calculado depois de
-        // `confirmar()`, o acordo já estaria Ativo, `$reativa` seria falso e o aviso sairia VAZIO. Então
-        // "o aviso apareceu numa execução com --confirmar" só pode significar que ele foi calculado
-        // antes da escrita. Nenhum aviso de contagem simples (incompletos, sem principal) tem essa
-        // propriedade — todos sobrevivem à gravação e por isso não provam ordem nenhuma.
+        // A 2ª revisão mostrou por quê: `avisarDinheiroParado()` recebe um objeto JÁ MATERIALIZADO e
+        // não consulta nada. Mover a chamada de impressão para depois de `confirmar()` — que é
+        // literalmente o defeito histórico da etapa 2 — não mudava um byte da saída, porque
+        // `imprimirTotais` continua sendo o último de qualquer jeito. Verde com o defeito.
+        //
+        // O que faltava era uma FRONTEIRA observável. O comando agora imprime uma linha de seção
+        // imediatamente antes de abrir a transação; tudo acima dela saiu antes da escrita. O assert de
+        // ordem compara contra ESSA linha, e não contra o bloco de totais.
         [$tenantId, $carteiraId, $usuarioId, $caso, $tenant] = $this->cenarioComCaso();
         $acordo = $this->acordoRompido($caso, $tenant, 600);
         $this->originalComPagamento($caso, $tenant, $acordo, $usuarioId, '6000', 15000);
@@ -193,6 +196,7 @@ final class ImportarReceitasCommandTest extends CobrancaWebTestCase
         self::assertStringContainsString('REATIVAÇÃO DE ACORDO (D6)', $saida);
         self::assertStringContainsString('NN 6000', $saida, 'o NN do dinheiro que para de abater');
         self::assertStringContainsString('150,00', $saida, 'e quanto é');
+        self::assertStringContainsString('350,00', $saida, 'e quanto o saldo se move de fato (500 − 150)');
         self::assertStringContainsString('SERÁ gravada a seguir', $saida, 'o aviso fala no futuro porque roda antes');
 
         // E a gravação de fato aconteceu — senão o teste provaria a ordem num caminho que não escreve.
@@ -208,9 +212,9 @@ final class ImportarReceitasCommandTest extends CobrancaWebTestCase
         );
 
         self::assertLessThan(
-            mb_strpos($saida, 'O que foi feito'),
+            mb_strpos($saida, 'GRAVANDO (--confirmar)'),
             mb_strpos($saida, 'REATIVAÇÃO DE ACORDO (D6)'),
-            'o aviso precede o bloco de resultado da confirmação',
+            'o aviso tem de sair ANTES da fronteira de gravação — não só antes da tabela de totais',
         );
     }
 

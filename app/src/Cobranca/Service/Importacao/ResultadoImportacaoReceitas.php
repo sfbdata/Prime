@@ -91,6 +91,19 @@ final class ResultadoImportacaoReceitas
          */
         public readonly array $reativacoesComDinheiroParado = [],
         /**
+         * Quanto o saldo devedor se move com a reativação — as originais saem do exigível e as
+         * parcelas entram. Vale MESMO quando nenhuma original recebeu pagamento, e por isso é um canal
+         * separado do de cima: o texto daquele afirma que o devedor está sendo cobrado por algo que já
+         * pagou, e isso seria falso aqui.
+         *
+         * O valor é `Σ(exigível − alocado)`, não o exigível bruto: é o que `CalculadoraSaldo` deixa de
+         * contar. Vem do snapshot gravado, então subestima uma original que voltou ao exigível há
+         * tempo e cresceu desde então.
+         *
+         * @var list<string>
+         */
+        public readonly array $reativacoesImpactoNoSaldo = [],
+        /**
          * Obrigações que MUDAM de acordo nesta importação. Medido em 03/08: nenhum NN aparece em dois
          * acordos, então a lista vem vazia — mas mover uma parcela entre acordos altera a composição de
          * saldo dos dois, e isso não pode acontecer sem alguém ver.

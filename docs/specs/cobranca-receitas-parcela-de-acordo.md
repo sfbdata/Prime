@@ -330,26 +330,51 @@ Os 4 órfãos aparecem na listagem do comando com o número de parcelas medido �
 pagas 1/1/4/1, que dão os mesmos 19/27/16/9. Os dois números dizem a mesma coisa por lados opostos; não
 houve divergência.
 
-### 5.6 A alocação: o que decide é a FORMA do `valorOriginal`, não quem criou
+### 5.6 A alocação: o sinal é o override `taxa_honorarios_bp = 0`
 
-Achado BLOQUEANTE da 1ª revisão. A 1ª versão discriminava a alocação por *"eu criei esta obrigação
-agora?"*. A pergunta certa é *"o `valorOriginal` dela já inclui o honorário?"*, e há **três** casos:
+Esta seção foi reescrita **duas vezes**, uma por revisão, porque as duas primeiras réguas erravam — cada
+uma para um lado, e nenhuma das duas dava para acertar com a informação que olhava.
 
-| caso | `valorOriginal` | aloca |
-|---|---|---|
-| parcela criada agora | principal + honorário | **bruto** |
-| parcela que **já existia** — os dois outros produtores de parcela do sistema gravam o honorário embutido (`ImportarRelatorioCarteiraUseCase:478`, `ImportarAcordosDetalhadosUseCase:655`) | principal + honorário | **bruto** |
-| avulsa, inclusive a que **acaba de ganhar** o vínculo ao acordo | só o principal | bruto − honorário |
+| régua | o que errava |
+|---|---|
+| `!$obrigacaoExistia` (*"eu criei agora?"*) — 1ª versão | a parcela **preexistente** ficava devendo o honorário, para sempre, com juros e multa em cima |
+| `getAcordoOrigem() !== null` (*"é parcela?"*) — correção da 1ª revisão | a avulsa apenas **vinculada** recebia o honorário a mais, abatendo o saldo do caso indevidamente |
 
-O discriminador antigo jogava o 2º caso no ramo errado: a parcela preexistente ficaria devendo
-**exatamente o honorário**, para sempre, com juros e multa correndo em cima.
+A pergunta certa é **"o `valorOriginal` desta obrigação já inclui o honorário?"**, e o sinal que a
+responde é o override `taxa_honorarios_bp = 0`. Ele é certo **por construção**: quem grava obrigação com
+o honorário embutido grava o override na mesma linha de código, exatamente porque o honorário já foi
+cobrado uma vez — `ImportarRelatorioCarteiraUseCase:479-481`, `ImportarAcordosDetalhadosUseCase:662-663`
+e o `criarObrigacaoJaPaga` desta etapa. Quem apenas **vincula** uma avulsa a um acordo não toca o valor
+nem o override, que fica `NULL` (herda a cascata).
+
+**As duas formas coexistem no dado real** — é isso que torna qualquer régua mais grosseira insuficiente.
+Medido no `saas_ux`: das 51 obrigações com `acordo_origem_id`, **14 têm `bp = 0`** (criadas como parcela)
+e **37 têm `NULL`** (avulsas vinculadas). O acordo **31 tem das duas**: o NN 61372 com `NULL` e os
+61373/61374 com `0`.
+
+Três vinculadores produzem a segunda forma, todos dentro do fluxo que a §7 manda rodar:
+`ImportarRelatorioCarteiraUseCase:223-227`, `ImportarAcordosDetalhadosUseCase:325-332` e o
+`garantirVinculoAoAcordo` desta própria etapa.
 
 **Alcance medido em 03/08: R$ 0,00** — nenhum dos 2.077 recebimentos pousa hoje numa parcela
-preexistente (o dev tem 18 delas, todas na carteira 2, e nenhuma bate com a chave `(NN, competência)` da
-Receitas). ⚠️ Mas a ordem que a §7 manda executar em seguida — rodar "Acordos detalhados" **depois** —
+preexistente. ⚠️ Mas a ordem que a §7 manda executar em seguida — rodar "Acordos detalhados" **depois** —
 cria justamente as parcelas 2..N com honorário embutido, e a importação do mês seguinte cairia toda ali.
 
-### 5.7 O relatório de D6 é fotografado ANTES do laço
+⚠️ **O que esta seção NÃO resolve.** Uma parcela preexistente **não está liquidada**: os encargos dela
+correm ao vivo, então o exigível no dia da importação pode ser maior que o recebido, e a linha não quita.
+Isso não é defeito desta etapa — é a §9.3 da spec-mãe (*"o importador aloca o valor cheio; o excedente ou
+a sobra vai para o saldo do caso"*), decisão já tomada e conferida. Aqui fica só registrado que vale
+também para a parcela.
+
+### 5.6.1 A troca de acordo usa a MESMA régua do vínculo
+
+Achado da 2ª revisão. A detecção de troca comparava `numeroExterno` e o vínculo comparava identidade de
+entidade. Divergem onde dói: o índice `(tenant_id, numero_externo)` **não é único**, e o
+`AcordoRepository` documenta **tolerar** dois acordos com o mesmo número na mesma carteira (pega o
+`id DESC`). Nesse caso o vínculo mudava de acordo e o aviso não saía. Agora as duas comparam a entidade,
+e a prévia recebe o resultado da mesma busca que a confirmação usa.
+
+### 5.7 O relatório de D6 é fotografado ANTES do laço, em DOIS canais
 
 Também da 1ª revisão. `reativacoesComDinheiroParado` consulta **alocações**. Calculado dentro do laço, a
 confirmação veria as alocações que ela mesma acabou de criar nas linhas anteriores (o
@@ -359,6 +384,21 @@ importação acabou de encalhar.
 
 O mapa é montado uma vez, no início dos dois modos, sobre o banco intocado. A igualdade
 prévia × confirmação passa a valer **por construção**, não por sorte de cenário.
+
+**E são dois canais, não um** (2ª revisão). A correção da 1ª empurrou o agregado "quanto sai do
+exigível" para dentro da lista de dinheiro já pago — e o texto daquele aviso afirma *"o devedor passa a
+ser cobrado por algo que já pagou"*, que passava a disparar **também quando ninguém tinha pagado nada**.
+Alarme falso em aviso de dinheiro é pior do que aviso nenhum: ensina o operador a ignorar.
+
+Agora:
+- `reativacoesComDinheiroParado` — só obrigação **com alocação**; é o alerta grave;
+- `reativacoesImpactoNoSaldo` — quanto o saldo se move, e vale mesmo sem dinheiro já pago. O valor é
+  **`Σ(exigível − alocado)`**, não o exigível bruto: uma versão anterior imprimia R$ 500,00 onde o saldo
+  se move R$ 350,00 — um número certo respondendo a outra pergunta.
+
+⚠️ Os valores vêm do **snapshot gravado**, não do recálculo ao vivo. Uma original que voltou ao exigível
+por rompimento antigo cresceu desde então, e o aviso **subestima**. É ordem de grandeza para segurar a
+mão de quem confirma, não número de fechamento — e o comando diz isso na própria mensagem.
 
 ## 6.1 O que a 1ª revisão achou
 
@@ -376,6 +416,24 @@ prévia × confirmação passa a valer **por construção**, não por sorte de c
 
 🔑 **Duas correções da 1ª revisão eram, elas mesmas, asserts que não podiam falhar** — o de ordem e o de
 premissa do tenant. A 2ª passada existe para isso.
+
+## 6.2 O que a 2ª revisão achou — nas CORREÇÕES da 1ª
+
+Confirmando o padrão da etapa 2: **metade do que a 2ª passada achou eram defeitos introduzidos pela 1ª.**
+
+| severidade | achado | o que foi feito |
+|---|---|---|
+| **MÉDIO/ALTO** | a correção do bloqueante criou o **espelho** dele: `getAcordoOrigem() !== null` fazia a avulsa apenas VINCULADA receber o honorário a mais | régua trocada pelo override `taxa_honorarios_bp = 0` (§5.6), com teste para os DOIS lados |
+| MÉDIO | o novo teste de ordem **também não podia falhar**: `avisarDinheiroParado` recebe objeto já materializado, então mover a impressão não muda a saída | o comando passou a imprimir uma **fronteira** (`>>> GRAVANDO (--confirmar)`) antes de abrir a transação; o assert compara contra ela |
+| MÉDIO | o agregado contaminou o canal de "dinheiro já pago" → **alarme falso** | dois canais separados (§5.7) |
+| MÉDIO | o agregado somava o exigível **bruto**, não o efeito no saldo | passou a ser `Σ(exigível − alocado)` |
+| BAIXO | a régua da troca divergia da do vínculo na duplicata de número | unificadas (§5.6.1) |
+| BAIXO | truncagem em 40 sem o sufixo `… (+N)` que os avisos irmãos têm | corrigido |
+
+🔑 **A prova por injeção pegou 5 na 1ª rodada e as duas revisões pegaram mais 4 asserts vacuosos.** O
+padrão não é "eu escrevo testes ruins de vez em quando": é que **assert vacuoso é o estado natural de um
+teste escrito junto com o código que ele testa**, porque os dois nascem da mesma suposição. Só a injeção
+de defeito e um leitor adversarial separam os dois.
 
 ## 7. Fora de escopo
 
