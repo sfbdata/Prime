@@ -90,6 +90,17 @@ sobrescreve o sistema."* A política vale para o sistema todo. O `ImportarAcordo
 em contradição com ela (só reporta divergência de status) e precisa ser **alinhado numa frente própria**
 — é código em produção e mexe em saldo.
 
+## 5.1 ⏭️ Frentes que esta etapa deixou abertas (nenhuma iniciada)
+
+1. **Alinhar o `ImportarAcordosDetalhadosUseCase`** à regra vigente. O dono decidiu em 04/08 que *"o
+   importe sempre sobrescreve o sistema"*; aquele importador ainda só **reporta** divergência de status
+   (`:598-631`) em vez de aplicá-la. É código em produção e mexe em saldo → spec + revisão própria.
+2. **Automatizar o download dos relatórios** do groupcondominios. ✅ A **secretaria autorizou** a
+   automação (04/08); ⏳ aguardando a equipe de desenvolvimento deles sobre **API**. Começar pela parte
+   comum aos dois caminhos — **validar a linha `Filtros:` do rodapé e recusar recorte inesperado** —, que
+   é o que impede o erro dos 75 acordos escondidos de se repetir, mesmo com download manual.
+3. **Decisão (b) ainda ABERTA**: os 106 acordos ficam travados para cancelar pela tela.
+
 ## 6. A ordem para produção, quando você decidir
 
 1. **Receitas** (`--carteira-id=1` com o arquivo `top_life_1`, `=2` com o `top_life_2`) — cria os 106
