@@ -94,6 +94,11 @@ docs/gestao-cobrancas/**/*.pdf
 docs/gestao-cobrancas/*.xlsx
 docs/gestao-cobrancas/*.pdf
 
+# A pasta INTEIRA, e não só as extensões acima: em 03/08 um .txt derivado das planilhas (com nome de
+# devedor e NN) caiu aqui e ficou versionável, porque a regra só olhava .xlsx/.pdf. Todo arquivo que
+# nasce dessa pasta carrega a PII da fonte, seja qual for o formato.
+docs/gestao-cobrancas/planilhas atualizadas/
+
 # Credenciais OAuth do cron de sincronização Drive (segredos) — só o .example é versionado
 /.sync-oauth.env
 
