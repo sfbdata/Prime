@@ -4,6 +4,10 @@
 **Data:** 2026-08-03 · **Etapa 2 de 3** da retomada da cobrança
 **Handoff de origem:** `docs/gestao-cobrancas/HANDOFF_IMPORTAR_RECEITAS.md` (⚠️ ver §2, que o corrige)
 
+> ⛔ **LEIA A §11 ANTES DE RODAR A IMPORTAÇÃO.** Em 03/08 o dono descobriu que o NN não é boleto avulso:
+> é **parcela de acordo**. 187 recebimentos entrariam como dívida solta. **A importação não deve rodar
+> até a etapa 3** (decisão A3).
+
 ---
 
 ## 1. O que este relatório responde, e por que ele muda o sistema
@@ -18,8 +22,8 @@ pago**. Sem ele, todo recebimento no sistema é digitado à mão e sem conferên
 | NNs distintos com recebimento válido | 1.220 | 858 | **2.078** |
 | NN existe no acervo, ignorando carteira e competência | 1 | 79 | 80 |
 | **casam de verdade, por `(caso, NN, competência)`** | **1** | **3** | **4 (0,2%)** |
-| Acordos citados na coluna J | — | — | **106** |
-| Acordos que existem no sistema | — | — | **0** |
+| Acordos citados na coluna J | 93 | 34 | **127** |
+| Acordos que já existem no sistema | 0 | 8 | **8** |
 
 ⚠️ **O "80 (3,8%)" desta tabela era um artefato, e é a quarta medição desta spec a cair.** Remedido em
 03/08 contra o banco: dos 79 NNs da TOP LIFE II que "existem", **76 são homônimos de outro ano e de
@@ -102,7 +106,7 @@ Isso explica as duas mudanças de uma vez, e nenhuma delas é defeito da fonte:
 
 | # | Decisão |
 |---|---|
-| R1 | **Boleto que o sistema não conhece: CRIAR a obrigação e já marcá-la paga.** O sistema passa a ter o histórico de faturamento, não só o que está em aberto. É o que dá base à etapa 3 — sem isso os 106 acordos da Receitas continuam inexistentes. |
+| R1 | **Boleto que o sistema não conhece: CRIAR a obrigação e já marcá-la paga.** O sistema passa a ter o histórico de faturamento, não só o que está em aberto. É o que dá base à etapa 3 — sem isso os 119 acordos da Receitas que o sistema não conhece continuam inexistentes. |
 | R2 | **Coluna I (`Valor recebido`) é o dinheiro**, não a H. |
 | R3 | **Pagamento importado é igual ao digitado**: sem marca de origem, apagável à mão pela etapa 1, e reimportar traz de volta. Coerente com "o importe é a verdade absoluta". |
 | R4 | Os relatórios têm de ser da **mesma data**. Os de 03/08 (09:48–09:53) cumprem. |
@@ -123,7 +127,7 @@ Por isso a seção da tela se chama **"Já pago"**, sem recorte de ano (decisão
 pelo ano civil esconderia o pagamento antecipado que a própria planilha traz, e esvaziaria a seção
 sozinha em 1º de janeiro.
 
-Volume medido no dry-run: **2.073 obrigações criadas** (1.219 + 854) e ~106 acordos citados, contra
+Volume medido no dry-run: **2.073 obrigações criadas** (1.219 + 854) e **127** acordos citados, contra
 3.431 obrigações existentes hoje. **O acervo praticamente dobra.**
 
 ⚠️ **Se o pago cair na mesma lista do em aberto, a tela deixa de responder "o que eu cobro dele?".** Um
@@ -284,7 +288,23 @@ casamento é residual; é R1 que dá corpo ao histórico) por uma margem ainda m
 - **Reativação por importação (D6)** — etapa 3, só depois desta.
 - **Marca de origem no pagamento** — dispensada por R3.
 
-### 9.1 ⏸️ Boleto sem principal — a pendência do dono, agora MEDIDA
+### 9.1 ✅ RESOLVIDA — "boleto sem principal" não existe: é PARCELA DE ACORDO
+
+**O dono leu a coluna J e a pendência caiu.** Medido: dos 37 recebimentos sem principal da TOP LIFE I,
+**37 são parcela de acordo**. Cem por cento. Ver §11, que reescreve o entendimento da fonte.
+
+Numa parcela de acordo, não ter taxa é **normal** — o acordo distribui as dívidas originais ao longo das
+parcelas, e a parcela 1 pode ficar só com honorário enquanto a 8 fica quase toda com taxa. O NN `75124`
+não é um boleto de honorário órfão: é a **Parc. 1/40 do Acordo 348**.
+
+A pergunta aberta desde 01/08 (*"medir antes se o boleto é acessório de um de taxa"*) tinha resposta na
+própria planilha, na coluna que o adapter já lia e o UseCase descartava. **Nenhuma das três opções que
+estavam listadas aqui era a certa** — nem aceitar, nem rejeitar, nem anexar a um boleto de taxa.
+
+O que fica de aviso no comando continua útil (é sinal de parcela de acordo entrando como avulsa), mas
+deixa de ser uma decisão pendente: passa a ser **escopo da etapa 3**.
+
+<details><summary>Os números medidos, que seguem valendo como referência</summary>
 
 A versão anterior desta seção falava em **R$ 4.390,86** na TOP LIFE I. Medido nos arquivos de 03/08, com
 a mesma chave `(unidade, NN)` do adapter, o número é outro:
@@ -304,15 +324,11 @@ a linha aparece em "Já pago" com R$ 0,00 e o honorário fica visível só no ex
 **Nenhum centavo se perde em nenhuma das hipóteses** — o total recebido fecha ao centavo com a
 contabilidade de qualquer jeito (§8.1). O que está em jogo é a **forma** do que entra.
 
-**O importador não decide sozinho, porque a decisão é do dono e continua aberta.** Ele conta e o comando
-imprime um aviso com a quantidade, o valor e os NNs, antes de qualquer `--confirmar`. As opções, para
-quando o dono bater o martelo:
+O comando conta e imprime um aviso com quantidade, valor e NNs antes de qualquer `--confirmar`. O aviso
+continua valendo — mudou o que ele significa: não é "decisão pendente sobre boleto estranho", é
+**"parcela de acordo entrando como dívida avulsa"**, que a etapa 3 resolve.
 
-1. **aceitar como está** (o que o código faz hoje) — o histórico fica completo, com 10 linhas de R$ 0,00;
-2. **rejeitar a linha** — o histórico perde R$ 11.179,36 de honorário recebido, que sairia dos totais;
-3. **anexar ao boleto de taxa** do mesmo devedor/competência — é a hipótese que a pendência de 01/08
-   mandou medir ("se o boleto é acessório de um de taxa"). **Ainda não medi** se existe um boleto de taxa
-   correspondente para cada um dos 37; é o próximo passo desta pendência.
+</details>
 
 ### 9.3 ⏸️ Recebimento MAIOR que o exigível da obrigação preexistente
 
@@ -378,7 +394,7 @@ comandos, não nela.**
 
 ### 10.1 O que a etapa 2 derrubou desta própria spec
 
-**Quatro** fatos escritos aqui como "medido" caíram ao serem remedidos:
+**Cinco** fatos escritos aqui como "medido" caíram ao serem remedidos:
 
 | Onde | Dizia | É |
 |---|---|---|
@@ -386,6 +402,7 @@ comandos, não nela.**
 | §3.1 | *"a planilha é o ano corrente"* | há recebimento de **2025**: o filtro do export é por vencimento |
 | §5 | o líquido por NN *"nunca dá negativo nem zero"* | dá **zero** em 1 caso (NN `60082`) |
 | §1 | overlap de **80 (3,8%)** | **4 (0,2%)** — 76 eram homônimos de outro ano e outra carteira |
+| §1 | *"106 acordos citados, **zero** existem"* | **127** citados, **8** já existem (ver §11.2) |
 
 Os três primeiros vinham do export de 01/08 e eram verdadeiros nele. O quarto nunca foi verdadeiro: era
 uma contagem de NN sem competência nem carteira, isto é, a medição errada da coisa certa.
@@ -416,3 +433,83 @@ falhar.** Um deles foi escrito *nesta sessão, para corrigir exatamente esse tip
 "prova por injeção de defeito" que o acompanhou falhou por carona em outro assert — a injeção quebrava o
 teste, só que não pelo motivo alegado. Não basta injetar o defeito e ver vermelho: é preciso conferir
 que o vermelho veio do assert que se quer provar.
+
+---
+
+## 11. 🔑 A estrutura de ACORDO da fonte — descoberta em 03/08, define a etapa 3
+
+**Achado pelo dono, lendo a coluna J.** Reescreve o entendimento do relatório e resolve a §9.1.
+
+### 11.1 O NN não é um boleto avulso: é uma PARCELA DE ACORDO
+
+A fonte tem **três** níveis, não um:
+
+```
+Acordo 348                       ← coluna J: "Acordo 348 - Parc. 1/40"
+  ├─ Parc. 1/40 = NN 75124       ← o boleto DAQUELA parcela (venc. 10/03/2026, comp. 03/2026)
+  │    ├─ 1.15  R$  72,67        ← a COMPOSIÇÃO: de que dívidas a parcela é feita
+  │    ├─ 1.15  R$   0,60
+  │    ├─ 1.15  R$   0,12
+  │    └─ 1.15  R$ 168,72        (= R$ 242,11, o valor da parcela)
+  ├─ Parc. 7/40 = NN 75130       → 1.14 R$ 7,35 + 1.15 R$ 234,70
+  └─ Parc. 8/40 = NN 75131       → 5 linhas de 1.1 + 1 de 1.14
+```
+
+As várias linhas do mesmo NN **não são duplicata nem ruído**: são as dívidas originais que o acordo
+consolidou naquela parcela. Por isso a parcela 1 é só honorário e a 8 é quase toda taxa — o acordo
+distribuiu as origens ao longo das 40 parcelas.
+
+Isto explica de uma vez os "37 sem principal" (§9.1) e os **273 grupos com mais de uma linha da mesma
+classe** que a leitura já agregava sem saber por quê.
+
+### 11.2 O que foi medido
+
+| | TOP LIFE I | TOP LIFE II |
+|---|---|---|
+| grupos `(unidade, NN)` com acordo na coluna J | 350 | 45 |
+| destes, **recebidos** (é o que a importação toca) | **160** | **27** |
+| recebidos SEM principal | 37 | 1 |
+| — que **são** parcela de acordo | **37 (100%)** | 0 |
+| acordos distintos citados | 93 | 34 |
+| — com TODAS as parcelas no arquivo | 57 | 34 |
+| — que **já existem** no sistema (`numero_externo`) | **0** | **8** |
+| — que têm aba no relatório "Acordos detalhados" | **40** | **8** |
+
+Duas propriedades que sustentam a chave, ambas medidas: **nenhum NN aparece em dois acordos** e **nenhum
+acordo cruza unidades**.
+
+⚠️ **A §1 estava errada ao dizer "106 acordos citados, zero existem".** São **127** citados e **8** já
+existem — criados pelo importador de Acordos detalhados, com `numero_externo` 28, 21, 39, 31, 37, 32, 9
+e 34. (Quinta medição desta spec a cair; ver §10.1.)
+
+### 11.3 O que o código faz hoje, e por que está errado
+
+O `TopLifeReceitasAdapter` **já lê** a coluna J e produz `AcordoDoRelatorio(numero, parcelaIndice,
+parcelaTotal)`. O `ImportarReceitasUseCase` **ignora o campo**.
+
+Consequência: os **187 recebimentos** que são parcela de acordo (160 + 27) viram obrigações **avulsas**
+chamadas "Taxa MM/AAAA", soltas na fila de cobrança, sem vínculo com o acordo que as gerou.
+
+A infraestrutura para fazer certo **já existe**: `Acordo` tem `numeroExterno` e `numeroParcelasTotal`
+(com índice `(tenant_id, numero_externo)`), e `Obrigacao` tem `acordoOrigem`.
+
+### 11.4 Decisões do dono (03/08) para a etapa 3
+
+| # | Decisão |
+|---|---|
+| **A1** | **Parcela paga ⇒ o acordo existe e tem de ser criado.** Não se cria "só a parcela": o acordo é a entidade real, e a parcela é dele. |
+| **A2** | **Status `Ativo`.** Só não é ativo se já terminou de ser pago — aí `Cumprido`. |
+| **A3** | **A etapa 2 fecha como está.** Isto é a **etapa 3**, junto com D6. ⛔ **A importação de receitas NÃO deve rodar antes** — ela criaria 187 obrigações avulsas que a etapa 3 teria de desfazer. |
+
+Sobre A1, medido: o relatório **"Acordos detalhados" cobre 48 dos 127** acordos citados (uma aba por
+acordo, título `Acordo n377`). Os **79 restantes** teriam de nascer só com o que a Receitas dá — número,
+total de parcelas e as parcelas pagas. É a primeira pergunta de desenho da etapa 3.
+
+### 11.5 O desenho, em uma frase
+
+A coluna J passa a decidir **dois caminhos** na gravação:
+
+- **vazia** → boleto avulso, exatamente como hoje (1.891 dos 2.077 recebimentos);
+- **`Acordo N - Parc. x/y`** → a obrigação nasce como **parcela do acordo N** (`acordoOrigem`), criando o
+  acordo com `numeroExterno = N` e `numeroParcelasTotal = y` quando ele não existir, ou ligando ao que já
+  existe (8 casos hoje).
