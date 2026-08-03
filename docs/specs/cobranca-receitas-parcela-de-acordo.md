@@ -91,6 +91,33 @@ o **212** tem a parcela 20/20 paga, o **280** a 10/10, o **237** as 17 a 20. Só
 
 Isso muda o que se pede à contábil: não é "as parcelas futuras", é **o extrato completo do acordo**.
 
+### 3.3.1 🔑 A lacuna dos acordos é um FILTRO do export, não falta de dado
+
+Achado em 04/08, lendo a linha `Filtros:` do rodapé — a mesma linha que já tinha explicado dois números
+caídos da spec-mãe, e que ninguém tinha lido de novo.
+
+| relatório | filtro declarado no rodapé |
+|---|---|
+| **Acordos detalhados** (as duas carteiras) | `Situação do acordo: **Em andamento**` |
+| **Receitas detalhadas** | `Período de vencimento: **01/01/2026 a 01/01/2027**` |
+| Inadimplências | `Inadimplência até: 03/08/2026` |
+
+**As 74 abas do relatório de Acordos são TODAS "Em andamento"** (66 na TL I + 8 na TL II, medido aba a
+aba). Acordo já quitado foi **excluído do export**.
+
+Isso explica a cobertura quase inteira, sem sobrar quase nada:
+
+- dos **106** acordos com parcela paga, **75 estão quitados** → não estão no export "Em andamento";
+- dos **31** parciais, **27 têm aba**;
+- os **4 sem aba** são **3 que terminaram** (212, 237, 280 — última parcela paga, logo fora do filtro)
+  **+ o 230**, o único que está de fato em andamento e ainda assim não tem aba.
+
+🔑 **A ação não é pedir extrato à contábil nem raspar o sistema deles: é reexportar o MESMO relatório com
+o filtro de situação em "Todos".** O dado existe e está a um clique.
+
+E o filtro da Receitas (`vencimento em 2026`) é a prova documental de por que faltam parcelas
+**anteriores**: as de 2024/2025 estão fora da janela por construção, não por erro.
+
 ### 3.4 Rodar o importador de Acordos detalhados antes NÃO resolve — medido
 
 1. **Ele não cria acordo, por decisão de spec.** `ImportarAcordosDetalhadosUseCase.php:200-204`: se não

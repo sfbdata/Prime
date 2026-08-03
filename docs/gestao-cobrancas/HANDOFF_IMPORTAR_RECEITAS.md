@@ -94,7 +94,20 @@ duas podem coexistir (fontes diferentes), mas a contradição está registrada, 
 1. **Receitas** (`--carteira-id=1` com o arquivo `top_life_1`, `=2` com o `top_life_2`) — cria os 106
    acordos e liga as 187 parcelas;
 2. **Acordos detalhados**, DEPOIS — completa as parcelas futuras dos 27 que têm aba;
-3. os **4 órfãos** (acordos 212, 230, 237, 280 — 71 parcelas) precisam de fonte da contábil.
+3. os **4 órfãos** (acordos 212, 230, 237, 280): **não precisam de pedido à contábil** — ver abaixo.
+
+### 6.1 🔑 O que falta é um FILTRO do export, não dado que não existe
+
+O rodapé do relatório de Acordos detalhados diz: `Filtros: Situação do acordo: **Em andamento**`. As 74
+abas são todas "Em andamento" — **acordo quitado ficou fora do export**. E 3 dos 4 órfãos terminaram de
+ser pagos (212, 237 e 280 têm a última parcela paga), por isso não têm aba.
+
+**Basta reexportar o "Acordos detalhados" com Situação = Todos.** Só o acordo **230** continua sendo uma
+exceção real: está em andamento (parcela 19 de 28) e mesmo assim não tem aba.
+
+O rodapé da Receitas diz `Período de vencimento: 01/01/2026 a 01/01/2027` — é a prova de por que faltam
+parcelas **anteriores** a 2026. Alargar essa janela traz os anos anteriores, mas aumenta muito o volume:
+é decisão do dono, não ajuste técnico.
 
 Rodar o importador de Acordos detalhados ANTES não adianta: ele não cria acordo, por decisão de spec.
 
