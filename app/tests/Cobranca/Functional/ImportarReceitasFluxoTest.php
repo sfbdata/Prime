@@ -25,8 +25,13 @@ use PHPUnit\Framework\Attributes\TestDox;
  * ⚠️ O número de campos NÃO é escrito em lugar nenhum de propósito. Ele já esteve como "13" aqui, "13"
  * no UseCase e "18" na spec, com o `achatar()` comparando 16 — três fontes, nenhuma certa, numa etapa
  * cuja spec foi reescrita justamente por causa de números que não se reproduziam. Agora `achatar()`
- * deriva os campos por reflexão e `testAchatarCobreTodoOResultado` prova que nenhum escapou: campo novo
- * no DTO entra na comparação sozinho, ou o teste falha.
+ * deriva os campos por REFLEXÃO: campo novo no DTO entra na comparação sozinho, sem ninguém lembrar.
+ *
+ * Sobre `testAchatarCobreTodoOResultado`, e para não vender o que ele não é (achado da 2ª revisão):
+ * ele NÃO "estoura quando um campo novo entra" — com `achatar()` derivando da mesma reflexão, o campo
+ * novo já entra e o `array_diff` é vazio por construção. O que ele guarda é a REGRESSÃO do mecanismo:
+ * se alguém trocar o `achatar()` por uma lista escrita à mão (que foi como a cobertura se perdeu da
+ * primeira vez), ele passa a falhar no primeiro campo esquecido.
  */
 #[CoversClass(ImportarReceitasUseCase::class)]
 final class ImportarReceitasFluxoTest extends CobrancaWebTestCase
@@ -207,6 +212,106 @@ final class ImportarReceitasFluxoTest extends CobrancaWebTestCase
         );
     }
 
+    #[TestDox('Recebimento MAIOR que o exigível da obrigação existente: aloca o que a planilha diz')]
+    public function testRecebimentoMaiorQueOExigivelAlocaOValorCheio(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [$carteira, $caso] = $this->semearGrafo($tenant);
+        $usuario = $this->em()->getRepository(\App\Entity\Auth\User::class)->findAll()[0];
+        $identificacao = $caso->getObjeto()->getIdentificacao();
+        $casoId = (int) $caso->getId();
+
+        // ⚠️ Não é hipótese: medido no dry-run de 03/08, **3 dos 4** recebimentos que pousam em
+        // obrigação preexistente pagam MAIS que o exigível dela — R$ 0,62, R$ 0,20 e R$ 0,80. A causa
+        // é banal: os encargos que o sistema calculou não são os que a contabilidade cobrou.
+        //
+        // O importador aloca o valor CHEIO da planilha, e isso é deliberado. A régua do dono é "o que
+        // vem da planilha entra", e o total recebido tem de bater ao centavo com a contabilidade (§8);
+        // limitar a alocação ao exigível faria o excedente sumir e o total deixar de fechar.
+        //
+        // O efeito é o mesmo de uma alocação manual super-dimensionada, que o sistema já aceita: o
+        // `restante` da linha tem piso 0 (não aparece negativo na tela) e o excedente abate o SALDO DO
+        // CASO. Este teste existe para essa escolha ser consciente e vigiada, não acidental.
+        ObrigacaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso,
+            'descricao' => 'Taxa 06/2026', 'valorOriginal' => 17482, 'encargosReconhecidos' => 0,
+            'referenciaExterna' => '8050', 'competencia' => '06/2026',
+            'vencimentoOriginal' => new \DateTimeImmutable('2026-06-10'),
+        ]);
+
+        $resultado = static::getContainer()->get(ImportarReceitasUseCase::class)->confirmar(
+            (int) $carteira->getId(),
+            // R$ 175,44 contra R$ 174,82 de exigível: 62 centavos a mais, o caso real do NN 61161.
+            $this->leitura([$this->receita($identificacao, 'Fulano', '8050', '06/2026', '20/06/2026', divida: 17544)]),
+            $tenant,
+            $usuario,
+        );
+
+        self::assertSame(['8050'], $resultado->obrigacoesExistentes);
+        self::assertSame(17544, $resultado->totalRecebidoCentavos, 'entra o que a planilha diz, não o exigível');
+
+        $this->em()->clear();
+        self::assertSame(
+            17544,
+            (int) $this->em()->getConnection()->fetchOne(
+                'SELECT COALESCE(SUM(a.valor), 0) FROM cobranca_alocacao_pagamento a
+                   JOIN cobranca_obrigacao o ON o.id = a.obrigacao_id
+                  WHERE o.referencia_externa = ? AND a.tenant_id = ?',
+                ['8050', $tenant->getId()],
+            ),
+            'a alocação leva o valor cheio recebido',
+        );
+
+        // O excedente vai para o saldo do caso, que fica NEGATIVO quando não há outra dívida. É o
+        // comportamento que o sistema já tinha para alocação manual — registrado aqui, não corrigido
+        // por conta própria: mexer nisso é decisão de dinheiro, e é do dono.
+        $calc = static::getContainer()->get(CalculadoraSaldo::class);
+        self::assertSame(
+            -62,
+            $calc->saldoExigivel($this->em()->find(CasoCobranca::class, $casoId)),
+            'os 62 centavos a mais abatem o saldo do caso',
+        );
+    }
+
+    #[TestDox('🔑 Recebimento SEM principal é contado e some no resultado — é o aviso da spec §9.1')]
+    public function testRecebimentoSemPrincipalEhContadoNoResultado(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [$carteira] = $this->semearGrafo($tenant);
+        $carteiraId = (int) $carteira->getId();
+        $usuario = $this->em()->getRepository(\App\Entity\Auth\User::class)->findAll()[0];
+
+        // O contador do Estado é o ÚNICO produto da correção do achado B1 — é dele que sai o aviso
+        // que o comando imprime antes de gravar. Nenhum cenário desta classe usava `divida: 0`, então
+        // prévia e confirmação comparavam `[]` com `[]`: apagar as linhas que alimentam o campo
+        // mantinha a suíte verde. Aqui elas passam a ser exercitadas.
+        $leitura = $this->leitura([
+            // Só honorário: sem principal E sem encargo — o pior caso, exigível zero.
+            $this->receita('CHACARA 95', 'Fulano', '8040', '05/2026', '15/05/2026', divida: 0, honorarios: 5000),
+            // Sem principal, mas com juros: a obrigação criada tem exigível positivo.
+            $this->receita('CHACARA 96', 'Beltrano', '8041', '05/2026', '15/05/2026', divida: 0, juros: 1200),
+            // O caso normal, que NÃO pode ser marcado.
+            $this->receita('CHACARA 97', 'Cicrano', '8042', '05/2026', '15/05/2026', divida: 30000),
+        ]);
+
+        $sut = static::getContainer()->get(ImportarReceitasUseCase::class);
+        $previa = $sut->prever($carteiraId, $leitura, $tenant);
+        $confirmacao = $sut->confirmar($carteiraId, $leitura, $tenant, $usuario);
+
+        self::assertSame(['8040', '8041'], $previa->semPrincipal, 'os dois sem principal, e só eles');
+        self::assertSame(6200, $previa->semPrincipalCentavos, '50,00 de honorário + 12,00 de juros');
+        self::assertSame($this->achatar($previa), $this->achatar($confirmacao), 'e a confirmação conta igual');
+
+        // O efeito que o aviso descreve: a obrigação nasce valendo R$ 0,00.
+        $this->em()->clear();
+        $soHonorario = $this->em()->getRepository(Obrigacao::class)->findOneBy(['referenciaExterna' => '8040']);
+        self::assertNotNull($soHonorario);
+        self::assertSame(0, $soHonorario->getValorOriginal());
+        self::assertSame(0, $soHonorario->valorExigivel(), 'exigível zero: a alocação que a acompanha vale R$ 0,00');
+    }
+
     // ---------------------------------------------------------------- helpers
 
     private function em(): EntityManagerInterface
@@ -286,10 +391,10 @@ final class ImportarReceitasFluxoTest extends CobrancaWebTestCase
     #[TestDox('O comparador prévia×confirmação cobre TODO campo público do resultado')]
     public function testAchatarCobreTodoOResultado(): void
     {
-        // A guarda da guarda. O assert de prévia×confirmação só vale pelo que ele compara — e a lista
-        // de campos já ficou desatualizada em três lugares diferentes nesta etapa. Se alguém acrescentar
-        // um campo ao `ResultadoImportacaoReceitas` e o `achatar()` não o pegar, é aqui que estoura,
-        // antes de o campo novo poder divergir em silêncio entre os dois caminhos.
+        // A guarda do MECANISMO, não dos campos: enquanto `achatar()` derivar por reflexão, este assert
+        // é verdadeiro por construção — e é isso que ele protege. Se alguém voltar a escrever a lista de
+        // campos à mão, o primeiro esquecido derruba este teste. Foi assim que a cobertura se perdeu da
+        // primeira vez (13/13/18 escritos, 16 comparados), e é a única forma de ela se perder de novo.
         $vazio = new ResultadoImportacaoReceitas([], [], [], [], [], 0, 0, 0, 0, 0, 0, 0, 0);
 
         $publicos = array_map(

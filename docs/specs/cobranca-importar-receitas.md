@@ -16,12 +16,31 @@ pago**. Sem ele, todo recebimento no sistema é digitado à mão e sem conferên
 | | TOP LIFE I | TOP LIFE II | total |
 |---|---|---|---|
 | NNs distintos com recebimento válido | 1.220 | 858 | **2.078** |
-| NNs que EXISTEM como obrigação no sistema | 1 | 79 | **80 (3,8%)** |
+| NN existe no acervo, ignorando carteira e competência | 1 | 79 | 80 |
+| **casam de verdade, por `(caso, NN, competência)`** | **1** | **3** | **4 (0,2%)** |
 | Acordos citados na coluna J | — | — | **106** |
 | Acordos que existem no sistema | — | — | **0** |
 
-E o overlap é de 3–5% **em todos os sete meses**, inclusive o mais recente — não é atraso histórico que
-se resolve com o tempo.
+⚠️ **O "80 (3,8%)" desta tabela era um artefato, e é a quarta medição desta spec a cair.** Remedido em
+03/08 contra o banco: dos 79 NNs da TOP LIFE II que "existem", **76 são homônimos de outro ano e de
+OUTRA carteira** — NN `60083` da planilha é `01/2026`, o do banco é `01/2022`; `61498` é `07/2026` contra
+`08/2022`, e assim por diante. Não são o mesmo boleto.
+
+O overlap verdadeiro é **4 em 2.078**, e ele **reforça** a conclusão da seção em vez de enfraquecê-la:
+o casamento é ainda mais residual do que se supunha, e é R1 que sustenta o histórico inteiro.
+
+🔑 **Duas defesas independentes impedem esses 76 de virarem pagamento no boleto errado** (R$ 16.862,80 de
+dívida viva, medido). Nenhuma das duas é acidente, mas nenhuma estava registrada:
+
+1. **o casamento é por CASO**, dentro da carteira informada no comando — e os 76 estão na outra carteira,
+   fora de alcance por construção;
+2. **a competência compõe a chave** — se algum dia estiverem na mesma carteira, é ela que separa o
+   `01/2026` do `01/2022`.
+
+Medido também: das 33 obrigações do acervo com **competência nula** (que ativariam o fallback legado de
+`findOnePorReferenciaECompetenciaNoCaso`, casamento por NN sozinho), **nenhuma** tem NN que apareça nas
+planilhas. O fallback não é alcançado por este importador hoje — mas é o caminho por onde a proteção (2)
+deixaria de valer, então não é para relaxar nele.
 
 **A causa é de construção, não defeito:** o sistema só conhece o que a **Inadimplência** traz, e a
 Inadimplência só traz o que **não foi pago**. Boleto pago sai da inadimplência e nunca entrou aqui. A
@@ -104,8 +123,8 @@ Por isso a seção da tela se chama **"Já pago"**, sem recorte de ano (decisão
 pelo ano civil esconderia o pagamento antecipado que a própria planilha traz, e esvaziaria a seção
 sozinha em 1º de janeiro.
 
-Volume: ~2.078 obrigações e ~106 acordos novos, contra 3.431 obrigações existentes hoje. **O acervo
-praticamente dobra.**
+Volume medido no dry-run: **2.073 obrigações criadas** (1.219 + 854) e ~106 acordos citados, contra
+3.431 obrigações existentes hoje. **O acervo praticamente dobra.**
 
 ⚠️ **Se o pago cair na mesma lista do em aberto, a tela deixa de responder "o que eu cobro dele?".** Um
 devedor com 7 boletos pagos e 3 em aberto passaria a mostrar 10 linhas, com as 3 que importam no meio.
@@ -170,7 +189,7 @@ Cabeçalho na **linha 7**, dados a partir da 8. Linhas 1–6 são cabeçalho do 
 | `1.5` | `valorEncargos` | multa |
 | `1.6` | `valorDivida` | **desconto, sempre negativo** — abate o principal |
 | `1.15` | `valorHonorarios` | honorário advocatício |
-| `1.12`, `1.19`, `1.22` | `valorDivida` | raras (≤12 linhas no total); balde do principal, e o relatório de importação as lista |
+| `1.12`, `1.19`, `1.22` | `valorDivida` | raras (**11 linhas** nos dois arquivos, medido); balde do principal. Elas — e qualquer classe fora deste mapa — são contadas e o comando as imprime |
 
 **Desconto quase nunca precisa de tratamento próprio** (remedido em 03/08): somando a coluna I por NN, o
 líquido nunca dá negativo — mas **dá ZERO em um caso**, o NN `60082` da TOP LIFE II (taxa R$ 170,00
@@ -256,8 +275,9 @@ O que o dry-run diz que aconteceria (dev, 3.431 obrigações e **0 pagamentos** 
 | unidades / pessoas / casos criados | 119 | 101 |
 | rejeições | 0 | 1 (`60082`, líquido zero — ver §5) |
 
-O overlap medido (1 + 3 = 4 obrigações preexistentes) confirma a §1: o casamento por `(caso, NN,
-competência)` é residual, e é R1 que dá corpo ao histórico.
+O overlap medido — **1 + 3 = 4** obrigações preexistentes — é o número real do casamento por
+`(caso, NN, competência)`, e é o que substituiu o "80" da §1. Confirma a tese daquela seção (o
+casamento é residual; é R1 que dá corpo ao histórico) por uma margem ainda maior: 0,2%, não 3,8%.
 
 ## 9. Fora de escopo
 
@@ -294,6 +314,27 @@ quando o dono bater o martelo:
    mandou medir ("se o boleto é acessório de um de taxa"). **Ainda não medi** se existe um boleto de taxa
    correspondente para cada um dos 37; é o próximo passo desta pendência.
 
+### 9.3 ⏸️ Recebimento MAIOR que o exigível da obrigação preexistente
+
+Medido no dry-run: dos 4 recebimentos que pousam em obrigação já conhecida, **3 pagam mais do que ela
+exige** — porque os encargos que o sistema calculou não são os que a contabilidade cobrou.
+
+| NN | exigível no sistema | a planilha alocaria | diferença |
+|---|---|---|---|
+| `76612` (TL I) | R$ 208,31 | R$ 202,16 | −R$ 6,15 (sobra dívida) |
+| `61161` (TL II) | R$ 174,82 | R$ 175,44 | **+R$ 0,62** |
+| `61314` (TL II) | R$ 174,82 | R$ 175,02 | **+R$ 0,20** |
+| `61239` (TL II) | R$ 174,82 | R$ 175,62 | **+R$ 0,80** |
+
+O importador aloca o valor **cheio**, e isso é deliberado: a régua do dono é "o que vem da planilha
+entra", e o total tem de bater ao centavo (§8) — limitar ao exigível faria o excedente sumir e o total
+deixar de fechar. É também o que o sistema já faz com alocação manual, que nunca teve teto por obrigação.
+
+**Efeito medido** (teste `testRecebimentoMaiorQueOExigivelAlocaOValorCheio`): o `restante` da linha tem
+piso 0 e não aparece negativo, mas o excedente **abate o saldo do caso**, que fica negativo se não houver
+outra dívida. São R$ 1,62 nos 4 casos do dev. ⚠️ **Reconferir em produção antes do `--confirmar`** — o
+número de casos lá não é conhecido, e este é o único ponto da etapa em que o dinheiro passa do alvo.
+
 ### 9.2 ⏸️ Obrigação de R1 REABERTA volta a crescer pela carteira
 
 Achado da revisão, medido no código. A obrigação criada por R1 nasce liquidada e **congelada**, então a
@@ -307,31 +348,71 @@ fica em `'herda'` e o bp submetido é descartado) e foi removida junto com o com
 É decisão de produto, não defeito: boleto reaberto virou dívida viva de novo, e travar em zero seria
 decidir por conta própria que histórico reaberto nunca acumula encargo. **Fica para o dono.**
 
+⚠️ **Correção da 2ª revisão: para os 37 sem principal, o risco é o OPOSTO do escrito acima.**
+`EncargosVivos` recalcula os encargos sobre `getValorOriginal()`. Numa obrigação de R1 com
+`valorOriginal = 0`, o recálculo dá **zero** — então `reabrir()` não a faz crescer: ela some. O exigível
+volta a 0, `quitada()` volta a ser verdadeira (0 ≥ 0) e a obrigação **permanece na seção "Já pago" mesmo
+depois de o recebimento ter sido apagado**, em vez de voltar para a fila de cobrança.
+
+Medido: esses 37 carregam R$ 3.970,25 de juros/multa e R$ 7.209,11 de honorário congelados, que o
+recálculo zera. Não é perda de dinheiro — o boleto valia zero de principal —, é um registro que fica
+inconsistente com o ato de desfazer. Some à mesma decisão da §9.1: se o dono resolver rejeitar ou anexar
+os sem-principal, isto desaparece junto.
+
 ## 10. Estado
 
 **Ao abrir a frente:** `master` local em `40c3e05a` (etapa 1 commitada), 6 commits não publicados,
 suíte 3136/3136.
 
-**Em 03/08, depois de R5 + dry-run + conferência:**
+**Em 03/08, ao fechar a etapa 2** (R5 + dry-run + conferência + duas revisões com correção entre elas):
 
-- `master` local em **`fd76b8d8`**, **11 commits não publicados**. Nada em produção.
-- Suíte **3155/3155**. `lint:twig`, `lint:container` e `doctrine:schema:validate --skip-sync` verdes.
+- **15 commits não publicados**. Nada em produção.
+- Suíte **3169/3169**. `lint:twig`, `lint:container` e `doctrine:schema:validate --skip-sync` verdes.
 - **Sem migration** nesta etapa.
-- **Nada foi gravado**: as duas execuções contra as planilhas reais foram dry-run.
+- **Nada foi gravado**: todas as execuções contra as planilhas reais foram dry-run.
 - Planilhas de 03/08 09:48–09:53, as três de cada carteira, **mesma data** — gitignored, PII.
+
+⚠️ Esta lista já nasceu velha uma vez (dizia `fd76b8d8` / 11 commits / 3155 dois commits depois de deixar
+de ser verdade). Se ela divergir de `git rev-list --count origin/master..HEAD` e da suíte, **acredite nos
+comandos, não nela.**
 
 ### 10.1 O que a etapa 2 derrubou desta própria spec
 
-Três fatos escritos aqui como "medido" caíram ao serem remedidos. Todos vinham do export de **01/08**, e
-todos eram verdadeiros naquele arquivo:
+**Quatro** fatos escritos aqui como "medido" caíram ao serem remedidos:
 
 | Onde | Dizia | É |
 |---|---|---|
 | §2 | as linhas em aberto somam **R$ 2.045.780** | **R$ 280.366,71** — o número não se reproduz em arquivo nenhum |
 | §3.1 | *"a planilha é o ano corrente"* | há recebimento de **2025**: o filtro do export é por vencimento |
 | §5 | o líquido por NN *"nunca dá negativo nem zero"* | dá **zero** em 1 caso (NN `60082`) |
+| §1 | overlap de **80 (3,8%)** | **4 (0,2%)** — 76 eram homônimos de outro ano e outra carteira |
 
-Nenhuma das três derrubou uma **decisão** — as regras (descartar o `-`, seção sem recorte, rejeitar
-líquido não-positivo) seguem certas, e duas delas ficaram mais bem fundamentadas depois de remedidas. O
-que caiu foram os **números**. É a mesma lição de §2, agora com três casos em vez de um: nesta fonte,
-fato medido tem prazo de validade curto, e remedir custa minutos.
+Os três primeiros vinham do export de 01/08 e eram verdadeiros nele. O quarto nunca foi verdadeiro: era
+uma contagem de NN sem competência nem carteira, isto é, a medição errada da coisa certa.
+
+**Nenhum dos quatro derrubou uma decisão.** As regras — descartar o `-`, seção sem recorte, rejeitar
+líquido não-positivo, criar a obrigação ausente — seguem certas, e três delas ficaram mais bem
+fundamentadas depois de remedidas: o overlap real de 0,2% **reforça** R1 em vez de enfraquecê-lo. O que
+caiu foram os **números**.
+
+🔑 **O padrão, agora com quatro casos:** todo número de dinheiro desta spec precisa dizer *como* foi
+medido, senão sobrevive por não ser recalculável. E a medição precisa ser conferida contra algo externo —
+foi o total impresso no rodapé do relatório que pegou o erro da minha própria primeira medição.
+
+### 10.2 O que as duas revisões acharam, e o que isso diz
+
+| | 1ª passada | 2ª passada |
+|---|---|---|
+| bloqueantes | 1 (boleto sem principal aceito em silêncio) | 1 (o aviso da 1ª saía **depois** da gravação) |
+| defeitos em teste que "passava" | 1 (teste do descarte media só contagem) | 3 (assert vacuoso, guarda tautológica, contador sem cenário) |
+
+🔑 **A 2ª passada existiu para isso.** Metade do que ela achou foram defeitos **nas correções da 1ª** — e
+o mais grave é que a correção do bloqueante B1 tinha sido aplicada no lugar errado do fluxo, entregando
+um aviso pós-fato. Corrigir sem re-revisar teria fechado a etapa com o bloqueante intacto e a sensação
+de resolvido.
+
+O segundo padrão é mais desconfortável: **três dos quatro defeitos de teste eram asserts que não podiam
+falhar.** Um deles foi escrito *nesta sessão, para corrigir exatamente esse tipo de problema*, e a
+"prova por injeção de defeito" que o acompanhou falhou por carona em outro assert — a injeção quebrava o
+teste, só que não pelo motivo alegado. Não basta injetar o defeito e ver vermelho: é preciso conferir
+que o vermelho veio do assert que se quer provar.

@@ -63,7 +63,8 @@ final class ReceitaImportavel
     /**
      * Recebimento SEM principal: só honorário e/ou juros/multa, nenhuma taxa de condomínio.
      *
-     * Medido em 03/08: **37 na TOP LIFE I** (R$ 11.179,36) e nenhum na II. Destes, **10 têm exigível
+     * Medido em 03/08: **37 na TOP LIFE I** (R$ 11.179,36) e nenhum entre os aceitos da II (o único
+     * candidato de lá, o NN `60082`, é rejeitado antes por líquido zero). Destes, **10 têm exigível
      * ZERO** (só a classe `1.15`, R$ 2.618,18): a obrigação criada por R1 nasce valendo R$ 0,00 e a
      * alocação que a acompanha também. Os outros 27 têm juros/multa como exigível, a alocação bate e
      * eles quitam certo.

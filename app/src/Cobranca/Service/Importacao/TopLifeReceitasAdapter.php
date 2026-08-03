@@ -203,6 +203,8 @@ final class TopLifeReceitasAdapter
         $honorarios = 0;
         $detalhe = [];
         $acordo = null;
+        /** @var array<string, int> $foraDoMapaNesteGrupo */
+        $foraDoMapaNesteGrupo = [];
 
         foreach ($linhas as $linha) {
             $codigo = $this->codigoClasse((string) ($linha[self::COL_CLASSE] ?? ''));
@@ -229,7 +231,11 @@ final class TopLifeReceitasAdapter
                 // contado e o comando o imprime. Um balde escolhido por omissão que ninguém vê é como
                 // dinheiro troca de balde sem ninguém notar — fecha no total e rateia errado.
                 $divida += $valor;
-                $this->classesForaDoMapa[$codigo] = ($this->classesForaDoMapa[$codigo] ?? 0) + 1;
+                // Acumulado LOCAL, não direto no contador da instância: o grupo ainda pode ser
+                // rejeitado nas guardas abaixo, e contar aqui faria o aviso do comando dizer "somadas
+                // ao PRINCIPAL" sobre um valor que não foi somado a nada. Falso positivo num aviso de
+                // conferência custa a confiança no aviso inteiro.
+                $foraDoMapaNesteGrupo[$codigo] = ($foraDoMapaNesteGrupo[$codigo] ?? 0) + 1;
             }
 
             $acordo ??= $this->acordoDoRelatorio((string) ($linha[self::COL_ACORDO] ?? ''));
@@ -238,6 +244,12 @@ final class TopLifeReceitasAdapter
 
         if ($divida + $juros + $multa + $honorarios <= 0) {
             return new LinhaRejeitada($nn, 'Recebimento com valor líquido não positivo.', $dados);
+        }
+
+        // Só AQUI, passada a última guarda: o grupo vai virar receita de verdade, então as classes
+        // fora do mapa dele de fato entraram no principal.
+        foreach ($foraDoMapaNesteGrupo as $codigo => $qtd) {
+            $this->classesForaDoMapa[$codigo] = ($this->classesForaDoMapa[$codigo] ?? 0) + $qtd;
         }
 
         [$identificacao, $metadata] = $this->separarUnidade($unidadeRaw);

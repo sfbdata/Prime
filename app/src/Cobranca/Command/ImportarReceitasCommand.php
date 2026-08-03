@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Cobranca\Command;
 
 use App\Cobranca\Service\Importacao\ResultadoImportacaoReceitas;
+use App\Cobranca\Service\Importacao\ResultadoLeituraReceitas;
 use App\Cobranca\Service\Importacao\TopLifeReceitasAdapter;
 use App\Cobranca\UseCase\ImportarReceitasUseCase;
 use App\Entity\Auth\User;
@@ -145,6 +146,15 @@ final class ImportarReceitasCommand extends Command
             ));
         }
 
+        // ⚠️ ANTES da escrita, não depois. Este aviso saía de `imprimirTotais`, que roda DEPOIS de
+        // `confirmar()` — quem importasse veria os 37 boletos de R$ 0,00 já gravados. A spec §9 declara
+        // essa decisão ABERTA e do dono; um aviso pós-fato não a devolve a ninguém.
+        //
+        // Sai da LEITURA e não do resultado de propósito: a leitura é o que se sabe antes de escrever.
+        // A contagem é conservadora (inclui o que a idempotência viria a ignorar), o que é o lado certo
+        // de errar num aviso que existe para segurar a mão de quem confirma.
+        $this->avisarSemPrincipal($io, $leitura, $confirmar);
+
         $resultado = $confirmar
             ? $this->importar->confirmar($carteiraId, $leitura, $tenant, $user)
             : $this->importar->prever($carteiraId, $leitura, $tenant);
@@ -197,22 +207,45 @@ final class ImportarReceitasCommand extends Command
             ],
         );
         $io->note('Confira o total recebido contra a soma da coluna "Valor recebido" da planilha: têm de bater ao centavo.');
+    }
 
-        // Spec §9: aceitar boleto SEM PRINCIPAL é decisão do dono e está ABERTA. O comando não decide —
-        // põe o número na frente de quem vai confirmar. Nenhum centavo se perde em nenhuma hipótese (o
-        // total fecha com a contabilidade de qualquer jeito); o que muda é a FORMA do que entra: uma
-        // obrigação de R$ 0,00 descrita como "Taxa MM/AAAA" que nunca cobrou taxa nenhuma.
-        if ($r->semPrincipal !== []) {
-            $io->warning(sprintf(
-                "%d recebimento(s), somando %s, NÃO têm principal — são só honorário e/ou juros/multa.\n"
-                . "Cada um cria uma obrigação com valor original R$ 0,00 (spec §9: decisão do dono, ainda ABERTA).\n"
-                . 'NN: %s',
-                count($r->semPrincipal),
-                $this->reais($r->semPrincipalCentavos),
-                implode(', ', array_slice($r->semPrincipal, 0, 40))
-                    . (count($r->semPrincipal) > 40 ? sprintf(' … (+%d)', count($r->semPrincipal) - 40) : ''),
-            ));
+    /**
+     * Spec §9.1: aceitar boleto SEM PRINCIPAL é decisão do dono e está ABERTA. O comando não decide —
+     * põe o número na frente de quem vai confirmar, **antes** de qualquer escrita.
+     *
+     * Nenhum centavo se perde em nenhuma hipótese: o total recebido fecha ao centavo com a
+     * contabilidade de qualquer jeito. O que muda é a FORMA do que entra — uma obrigação de R$ 0,00
+     * descrita como "Taxa MM/AAAA" que nunca cobrou taxa nenhuma.
+     */
+    private function avisarSemPrincipal(SymfonyStyle $io, ResultadoLeituraReceitas $leitura, bool $confirmar): void
+    {
+        $nns = [];
+        $centavos = 0;
+        foreach ($leitura->receitas as $receita) {
+            if (!$receita->semPrincipal()) {
+                continue;
+            }
+
+            $nns[] = $receita->nn;
+            $centavos += $receita->totalRecebidoCentavos();
         }
+
+        if ($nns === []) {
+            return;
+        }
+
+        $io->warning(sprintf(
+            "%d recebimento(s), somando %s, NÃO têm principal — são só honorário e/ou juros/multa.\n"
+            . "Cada um cria uma obrigação com valor original R$ 0,00 (spec §9.1: decisão do dono, ainda ABERTA).\n"
+            . "%s\nNN: %s",
+            count($nns),
+            $this->reais($centavos),
+            $confirmar
+                ? '>>> Você passou --confirmar: estes boletos SERÃO gravados a seguir. <<<'
+                : 'Dry-run: nada será gravado.',
+            implode(', ', array_slice($nns, 0, 40))
+                . (count($nns) > 40 ? sprintf(' … (+%d)', count($nns) - 40) : ''),
+        ));
     }
 
     private function reais(int $centavos): string

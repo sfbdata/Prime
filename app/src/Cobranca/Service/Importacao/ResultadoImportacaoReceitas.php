@@ -54,7 +54,7 @@ final class ResultadoImportacaoReceitas
          *
          * ⚠️ Existe porque a spec §9 declara esta decisão ABERTA e do dono. O importador conta e o
          * comando imprime; ninguém decide por ele. Medido em 03/08: 37 na TOP LIFE I (R$ 11.179,36,
-         * dos quais 10 com exigível zero) e nenhum na II.
+         * dos quais 10 com exigível zero) e nenhum entre os aceitos da II.
          *
          * @var list<string>
          */

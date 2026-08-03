@@ -54,28 +54,54 @@ final class TopLifeReceitasAdapterTest extends TestCase
         // reproduz em arquivo nenhum — ver spec §2). O export de 01/08 não trazia nenhuma e o handoff
         // registrou isso como propriedade da fonte; não é, é o filtro "Aberta e baixada" do export.
         //
-        // ⚠️ O assert que importa é o de VALOR, não o de contagem. A versão anterior deste teste só
-        // contava linhas — passaria igual se o adapter somasse o valor da linha em aberto em qualquer
-        // balde, que é exatamente o defeito de R$ 280 mil que ele existe para impedir. A spec §8
-        // prometia "o teste mede que o valor NÃO entra"; agora mede.
+        // ⚠️ DUAS armadilhas neste cenário, a segunda descoberta só na 2ª revisão:
+        //
+        // 1. contar linhas não basta — passaria igual se o adapter somasse o valor da linha em aberto
+        //    em algum balde, que é exatamente o defeito de R$ 280 mil que a regra existe para impedir;
+        //
+        // 2. a primeira tentativa de corrigir (1) foi VACUOSA. Ela punha os R$ 250,00 na coluna H de
+        //    uma linha em aberto de OUTRO NN, com a coluna I zerada. O adapter nunca lê a H (R2) e a
+        //    linha era de outro grupo, então o assert de valor não podia falhar de jeito nenhum. Um
+        //    assert que não pode falhar é pior que assert nenhum: ele parece cobertura.
+        //
+        // O cenário abaixo discrimina: a linha em aberto tem valor NA COLUNA I e está no MESMO
+        // `(unidade, NN)` de uma recebida. Se o descarte sumir, os R$ 60,00 dela entram no principal
+        // do 9001 e o total sai 16000 em vez de 10000.
         $resultado = $this->adapter->ler($this->planilha([
             ['CHACARA 01', 'Fulano', '9001', '1.1 - Taxa de condomínio', '05/2026', '10/05/2026', '15/05/2026', '100,00', '100,00', '-'],
-            ['CHACARA 02', 'Beltrano', '9002', '1.1 - Taxa de condomínio', '06/2026', '10/06/2026', '-', '250,00', '0,00', '-'],
+            ['CHACARA 01', 'Fulano', '9001', '1.1 - Taxa de condomínio', '05/2026', '10/05/2026', '-', '60,00', '60,00', '-'],
+            ['CHACARA 02', 'Beltrano', '9002', '1.1 - Taxa de condomínio', '06/2026', '10/06/2026', '-', '250,00', '250,00', '-'],
         ]));
 
         self::assertCount(1, $resultado->receitas, 'só o boleto efetivamente recebido vira receita');
         self::assertSame('9001', $resultado->receitas[0]->nn);
-        self::assertSame(1, $resultado->emAberto, 'o em aberto é contado à parte, não some em silêncio');
+        self::assertSame(2, $resultado->emAberto, 'as duas em aberto são contadas à parte, não somem em silêncio');
         self::assertSame([], $resultado->rejeitadas, 'em aberto não é rejeição: é boleto que ainda não venceu o seu destino');
 
-        // O DINHEIRO: os R$ 250,00 nominais do boleto em aberto não entram em balde nenhum. Somando
-        // tudo que foi lido, só os R$ 100,00 recebidos aparecem.
         $total = 0;
         foreach ($resultado->receitas as $receita) {
             $total += $receita->totalRecebidoCentavos();
         }
 
-        self::assertSame(10000, $total, 'os 250,00 do boleto em aberto NÃO podem estar aqui');
+        self::assertSame(10000, $total, 'só o que foi RECEBIDO entra: nem os 60,00 do mesmo NN, nem os 250,00 do outro');
+    }
+
+    #[Test]
+    #[TestDox('🔑 O VALOR da linha em aberto não entra no principal do mesmo NN')]
+    public function valorDaLinhaEmAbertoNaoEntraNoPrincipal(): void
+    {
+        // Cenário MÍNIMO de propósito: uma recebida e uma em aberto, mesmo `(unidade, NN)`, e mais
+        // nada. É o único jeito de o assert de VALOR ser o que decide — no cenário maior (o teste
+        // acima) as outras defesas do adapter derrubam a leitura antes, e a falha aparece num assert
+        // de contagem. Um assert que só falha "de carona" em outro não prova o que promete: foi
+        // exatamente assim que a primeira tentativa de cobrir esta regra saiu vacuosa.
+        $receita = $this->umaReceita([
+            ['CHACARA 01', 'Fulano', '9001', '1.1 - Taxa de condomínio', '05/2026', '10/05/2026', '15/05/2026', '100,00', '100,00', '-'],
+            ['CHACARA 01', 'Fulano', '9001', '1.1 - Taxa de condomínio', '05/2026', '10/05/2026', '-', '60,00', '60,00', '-'],
+        ]);
+
+        self::assertSame(10000, $receita->valorDividaCentavos, 'os 60,00 em aberto não podem compor o principal');
+        self::assertSame(10000, $receita->totalRecebidoCentavos());
     }
 
     #[Test]

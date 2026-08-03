@@ -390,7 +390,7 @@
 
     {# ── R5: "Já pago" — o histórico de faturamento, fora da fila de cobrança ──────────────────────
        Por que a seção existe (spec `cobranca-importar-receitas.md` §3.1): a importação de receitas cria
-       a obrigação que o sistema não conhecia, JÁ PAGA. São ~2.078 contra 3.431 em aberto — o acervo
+       a obrigação que o sistema não conhecia, JÁ PAGA. São 2.073 (medido no dry-run) contra 3.431 — o acervo
        praticamente dobra. Se as pagas caíssem na fila de cima, a aba deixaria de responder "o que eu
        cobro dele?": um devedor com 7 pagas e 3 em aberto mostraria 10 linhas com as 3 que importam no
        meio. Não é risco de dinheiro (paga entra no bruto e sai no alocado; o saldo não muda) — é risco
