@@ -1,7 +1,11 @@
-# HANDOFF — Importar "Receitas detalhadas" (etapa 2 de 3) — CÓDIGO PRONTO, AGUARDA O DONO
+# HANDOFF — Importar "Receitas detalhadas" (etapa 2 de 3) — FECHADA. Importação TRAVADA até a etapa 3
 
 **Aberto em 2026-08-01, reescrito em 2026-08-03** ao fechar a etapa.
 Risco **ALTO**. Spec: `docs/specs/cobranca-importar-receitas.md` (**é ela que manda**; este arquivo é só o estado).
+
+> ⛔ **NÃO RODE A IMPORTAÇÃO.** No fim de 03/08 o dono descobriu que o NN da planilha não é um boleto
+> avulso: é **parcela de acordo**. Rodar agora criaria **187 obrigações avulsas** que a etapa 3 teria de
+> desfazer. Ver §2 deste arquivo e §11 da spec.
 
 ---
 
@@ -12,7 +16,7 @@ planilhas reais, conferência contra a contabilidade e **duas revisões com corr
 
 **Nada foi gravado. Nada foi publicado.** Todas as execuções contra as planilhas reais foram dry-run.
 
-- **15 commits não publicados**, suíte **3169/3169**, sem migration.
+- **17 commits não publicados**, suíte **3169/3169**, sem migration.
 - Confira sempre com os comandos, não com este arquivo:
   `git rev-list --count origin/master..HEAD` · `docker exec jusprime_php_dev bash -c 'cd app && php bin/phpunit'`
 
@@ -27,34 +31,62 @@ Commits desta etapa (a etapa 1, `40c3e05a`, está FECHADA — não reabrir):
 | `5f4e58bf` | spec: os três números que a remedição derrubou |
 | `cdc9021d` | correções da 1ª revisão |
 | `a9733865` | correções da 2ª revisão |
+| `e5ef30f4` | gitignore: fecha a pasta das planilhas inteira, não só os `.xlsx` |
+| `aea26965` | **a estrutura de acordo da fonte** (§11 da spec) — o que define a etapa 3 |
 
-## 2. 🔴 O que trava a importação de verdade: uma decisão sua
+## 2. 🔑 A descoberta que fecha a etapa 2 e define a etapa 3
 
-**Não é código. É a pendência da spec §9.1, e ela está aberta desde 01/08.**
+**O dono leu a coluna J e mudou o diagnóstico.** O NN não é um boleto avulso — é uma **parcela de acordo**:
 
-Medido no dry-run: **37 recebimentos da TOP LIFE I não têm principal nenhum** — são só honorário e/ou
-juros/multa, somando **R$ 11.179,36**. Destes, **10 só de honorário** (R$ 2.618,18) criam obrigação com
-valor **R$ 0,00**, descrita como "Taxa MM/AAAA" sem taxa nenhuma.
+```
+Acordo 348                       ← coluna J: "Acordo 348 - Parc. 1/40"
+  ├─ Parc. 1/40 = NN 75124       ← o boleto DAQUELA parcela
+  │    └─ 4 linhas de 1.15       ← a COMPOSIÇÃO: as dívidas que entraram nela (= R$ 242,11)
+  ├─ Parc. 7/40 = NN 75130       → energia + honorário
+  └─ Parc. 8/40 = NN 75131       → 5 linhas de taxa + 1 de energia
+```
 
-**Nenhum centavo se perde em qualquer das opções** — o total recebido fecha ao centavo com a contabilidade
-nas três. O que muda é a forma do que entra:
+**Isso encerra a pendência dos "37 sem principal"** (aberta desde 01/08): **37 de 37 são parcela de
+acordo**. Numa parcela de acordo, não ter taxa é normal — o acordo distribui as dívidas ao longo das
+parcelas. A pergunta *"é acessório de um boleto de taxa?"* tinha resposta na coluna que o adapter já lia
+e o UseCase descartava. Nenhuma das três opções que estavam no handoff anterior era a certa.
 
-1. **aceitar como está** (o que o código faz hoje) — histórico completo, com 10 linhas de R$ 0,00;
-2. **rejeitar** — o histórico perde R$ 11.179,36 de honorário efetivamente recebido;
-3. **anexar ao boleto de taxa** do mesmo devedor/competência — a hipótese que você mandou medir em 01/08
-   ("se o boleto é acessório de um de taxa"). ⏳ **Ainda não medi** se existe um boleto de taxa
-   correspondente para cada um dos 37; é o próximo passo se você quiser essa opção.
+### Por que a importação está travada
 
-O comando **não decide sozinho**: ele imprime quantidade, valor e os NNs **antes** de qualquer escrita.
+O `TopLifeReceitasAdapter` **já lê** a coluna J (`AcordoDoRelatorio`). O `ImportarReceitasUseCase`
+**ignora**. Se rodar hoje, **187 recebimentos** que são parcela de acordo (160 na TL I + 27 na TL II)
+viram obrigações avulsas "Taxa MM/AAAA", soltas, sem vínculo com o acordo.
 
-### Duas pendências menores, também suas (spec §9.2 e §9.3)
+### O que foi medido
 
-- **Obrigação de R$ 0,00 reaberta some** em vez de voltar a cobrar. Se você apagar o recebimento (etapa 1),
-  os encargos são recalculados sobre zero e ela continua aparecendo como paga. Desaparece junto se você
-  escolher a opção 2 ou 3 acima.
-- **3 dos 4 recebimentos que pousam em obrigação existente pagam a mais** (R$ 0,62 + R$ 0,20 + R$ 0,80):
-  o excedente abate o saldo do caso, que fica negativo. É como o sistema já se comporta com pagamento
-  digitado à mão. ⚠️ **Reconferir em produção** — o número de casos lá não é conhecido.
+| | TL I | TL II |
+|---|---|---|
+| recebidos que são parcela de acordo | **160** | **27** |
+| acordos citados | 93 | 34 |
+| — já existem no sistema (`numero_externo`) | 0 | **8** |
+| — têm aba no relatório "Acordos detalhados" | **40** | **8** |
+
+Total: **127 acordos citados**, **48 cobertos** pelo relatório de Acordos, **79 sem fonte completa**.
+E duas propriedades que sustentam a chave: **nenhum NN em dois acordos**, **nenhum acordo cruza unidades**.
+
+⚠️ A spec §1 dizia "106 acordos citados, **zero** existem". Errado nos dois números — corrigido.
+
+### Suas decisões (03/08), que são o contrato da etapa 3
+
+| # | Decisão |
+|---|---|
+| **A1** | Parcela paga ⇒ **o acordo existe e tem de ser criado**. Outra planilha pode ter os dados faltantes — medido: o relatório de Acordos cobre 48 dos 127. |
+| **A2** | Status **`Ativo`**; só não é ativo se já terminou de ser pago (aí `Cumprido`). |
+| **A3** | **A etapa 2 fecha como está**; isto vira a etapa 3, junto com D6. A importação espera. |
+
+### O desenho, em uma frase
+
+A coluna J decide dois caminhos: **vazia** → boleto avulso, como hoje (1.891 dos 2.077); **`Acordo N -
+Parc. x/y`** → obrigação nasce como **parcela do acordo N**, criando o acordo (`numeroExterno = N`,
+`numeroParcelasTotal = y`) quando não existir, ou ligando ao que já existe.
+
+A infraestrutura já está pronta: `Acordo` tem `numeroExterno` e `numeroParcelasTotal` (com índice por
+tenant), `Obrigacao` tem `acordoOrigem`.
 
 ## 3. A conferência contra a contabilidade — feita, e fecha ao centavo
 
@@ -84,22 +116,25 @@ Abra um devedor da TOP LIFE com recebimento e confira a aba **Dívida**:
 ⚠️ **Muda a tela mesmo antes de importar**: obrigação quitada por pagamento **digitado à mão** também
 desce para a seção nova. E o botão "Novo acordo" passou a olhar só o que está em aberto.
 
-## 5. Se você aprovar a importação, é assim (nada disso foi feito)
+## 5. ⛔ Como rodar — SÓ DEPOIS DA ETAPA 3
+
+⛔ **Não rode com `--confirmar` antes da etapa 3** (decisão A3). O dry-run abaixo é seguro e pode ser
+repetido à vontade — ele não grava nada.
 
 ```bash
-# 1. DEV, para ver de novo antes (é dry-run, não grava):
+# 1. DEV, dry-run (não grava):
 docker exec jusprime_php_dev bash -c 'cd app && APP_DEBUG=0 php -d memory_limit=2G bin/console \
   app:cobranca:importar-receitas --tenant-id=1 --carteira-id=1 --usuario-id=1 \
   --arquivo="/var/www/docs/gestao-cobrancas/planilhas atualizadas/top_life_1_Receitas_..._09_51_26.xlsx"'
 
-# 2. só então, com --confirmar. Em PROD: scp -> docker cp -> docker exec -w /var/www/app
+# 2. DEPOIS DA ETAPA 3, com --confirmar. Em PROD: scp -> docker cp -> docker exec -w /var/www/app
 ```
 
 Uma carteira por execução (`--carteira-id=1` e `=2`, com o arquivo correspondente).
 
 ## 6. Armadilhas medidas nesta frente — as que custaram tempo
 
-- **Fato medido tem prazo de validade curto nesta fonte.** Quatro números da spec caíram ao serem
+- **Fato medido tem prazo de validade curto nesta fonte.** CINCO números da spec caíram ao serem
   remedidos (§10.1). Nenhum derrubou uma decisão; caíram só os números. E a causa de dois deles estava
   na **linha de filtros do próprio arquivo**, que ninguém tinha lido: o export passou a incluir a
   situação "Aberta" e filtra por **vencimento**, não por recebimento.
@@ -119,17 +154,24 @@ Uma carteira por execução (`--carteira-id=1` e `=2`, com o arquivo corresponde
 - **Serviço só usado por teste é inlined pelo Symfony** e some do container.
 - **`AcordoDoRelatorio` usa `parcelaIndice`/`parcelaTotal`**, não `parcela`/`totalParcelas`.
 
-## 7. Pendências suas (não travam o código)
+## 7. Pendências suas
 
 - ⏳ **Smoke da tela R5** (§4) e os smokes atrasados: caso 193 (desde 01/08) e o da etapa 1.
-- ⏳ **15 commits não publicados.**
-- ⏸️ **As três decisões da §2** — a de "sem principal" é a que trava a importação.
+- ⏳ **17 commits não publicados.**
+- ⏸️ **§9.2 e §9.3 da spec** — duas pendências menores medidas na 2ª revisão (obrigação de R$ 0,00
+  reaberta some; 3 dos 4 recebimentos que pousam em obrigação existente pagam a mais). Ambas podem
+  desaparecer com a etapa 3, porque tratam de casos que viram parcela de acordo.
 
-## 8. A etapa 3, que vem depois
+## 8. A etapa 3 — agora com escopo definido
 
-**D6 — reativação por importação** (`docs/specs/cobranca-cancelar-acordo.md` §3.2). Só depois desta, e o
-motivo está medido: os 106 acordos citados pela Receitas **não existem no sistema**, então é a criação em
-R1 que dá a ela em que se apoiar.
+Duas coisas, na mesma frente:
+
+1. **Acordo a partir da Receitas** (§11 da spec, decisões A1–A3) — é o que destrava a importação.
+2. **D6 — reativação por importação** (`docs/specs/cobranca-cancelar-acordo.md` §3.2).
+
+A primeira pergunta de desenho já está posta: **os 79 acordos sem aba no relatório de Acordos** teriam de
+nascer só com o que a Receitas dá (número, total de parcelas e as parcelas pagas), enquanto os 48
+cobertos podem vir completos da outra fonte. Vale rodar o importador de Acordos detalhados antes.
 
 ## 9. Onde estão as planilhas
 
