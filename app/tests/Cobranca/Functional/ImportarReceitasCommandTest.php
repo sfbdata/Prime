@@ -146,12 +146,13 @@ final class ImportarReceitasCommandTest extends CobrancaWebTestCase
         self::assertStringContainsString('19 parcela(s) futura(s)', $saida);
     }
 
-    #[TestDox('🔑 O resumo dos acordos incompletos sai ANTES do bloco de resultado — logo, antes da escrita')]
+    #[TestDox('O resumo dos acordos incompletos sai antes do bloco de resultado (ordem de IMPRESSÃO)')]
     public function testAvisoDeAcordoIncompletoVemAntesDoResultado(): void
     {
-        // Mesma armadilha do aviso de "sem principal": este resumo depende do BANCO, então não dá para
-        // derivá-lo da leitura como aquele. A garantia é outra — o comando projeta primeiro e imprime
-        // os avisos da projeção antes de chamar `confirmar()`.
+        // ⚠️ Este teste prova a ordem de IMPRESSÃO e só isso — ele roda em dry-run, onde não há escrita
+        // para preceder. Foi apontado na 1ª revisão como assert que não pode falhar quando vendido como
+        // "precede a escrita": mover os avisos para depois de `confirmar()` mantém esta ordem intacta.
+        // Quem prova a precedência de verdade é `testAvisoDeD6SaiAntesDaGravacao`, logo abaixo.
         [$tenantId, $carteiraId, $usuarioId] = $this->cenario();
         $arquivo = $this->planilha([
             ['CH 89', 'Fulano', '7050', '1.1 - Taxa de condomínio', '05/2026', '10/05/2026', '15/05/2026', '100,00', '100,00', 'Acordo 230 - Parc. 1/28'],
@@ -162,7 +163,54 @@ final class ImportarReceitasCommandTest extends CobrancaWebTestCase
         self::assertLessThan(
             mb_strpos($saida, 'O que aconteceria'),
             mb_strpos($saida, 'ficam INCOMPLETOS'),
-            'o aviso tem de preceder o resultado — é o que garante que ele preceda a escrita',
+            'o aviso é impresso antes do bloco de totais',
+        );
+    }
+
+    #[TestDox('🔑 COM --confirmar: o aviso de D6 sai ANTES da gravação — e some se for calculado depois')]
+    public function testAvisoDeD6SaiAntesDaGravacao(): void
+    {
+        // 🔑 Este é o teste que DISCRIMINA, e o truque é escolher um aviso que o próprio ato apaga.
+        //
+        // O aviso de D6 só existe enquanto o acordo está rompido. Se ele fosse calculado depois de
+        // `confirmar()`, o acordo já estaria Ativo, `$reativa` seria falso e o aviso sairia VAZIO. Então
+        // "o aviso apareceu numa execução com --confirmar" só pode significar que ele foi calculado
+        // antes da escrita. Nenhum aviso de contagem simples (incompletos, sem principal) tem essa
+        // propriedade — todos sobrevivem à gravação e por isso não provam ordem nenhuma.
+        [$tenantId, $carteiraId, $usuarioId, $caso, $tenant] = $this->cenarioComCaso();
+        $acordo = $this->acordoRompido($caso, $tenant, 600);
+        $this->originalComPagamento($caso, $tenant, $acordo, $usuarioId, '6000', 15000);
+        $identificacao = $caso->getObjeto()->getIdentificacao();
+
+        $arquivo = $this->planilha([
+            [$identificacao, 'Fulano', '7060', '1.1 - Taxa de condomínio', '05/2026', '10/05/2026', '15/05/2026', '100,00', '100,00', 'Acordo 600 - Parc. 1/2'],
+        ]);
+
+        $saida = $this->rodar($arquivo, $tenantId, $carteiraId, $usuarioId, confirmar: true);
+
+        // Fragmentos CURTOS: o SymfonyStyle quebra linha dentro do bloco de warning, então um trecho
+        // longo não casa mesmo estando na tela.
+        self::assertStringContainsString('REATIVAÇÃO DE ACORDO (D6)', $saida);
+        self::assertStringContainsString('NN 6000', $saida, 'o NN do dinheiro que para de abater');
+        self::assertStringContainsString('150,00', $saida, 'e quanto é');
+        self::assertStringContainsString('SERÁ gravada a seguir', $saida, 'o aviso fala no futuro porque roda antes');
+
+        // E a gravação de fato aconteceu — senão o teste provaria a ordem num caminho que não escreve.
+        self::assertGreaterThan(
+            0,
+            (int) $this->conexao()->fetchOne('SELECT COUNT(*) FROM cobranca_pagamento WHERE tenant_id = ?', [$tenantId]),
+            'pré-condição: esta execução GRAVOU — é o que dá sentido a "antes da gravação"',
+        );
+        self::assertSame(
+            'ativo',
+            (string) $this->conexao()->fetchOne('SELECT status FROM cobranca_acordo WHERE numero_externo = 600 AND tenant_id = ?', [$tenantId]),
+            'e o acordo foi mesmo reativado',
+        );
+
+        self::assertLessThan(
+            mb_strpos($saida, 'O que foi feito'),
+            mb_strpos($saida, 'REATIVAÇÃO DE ACORDO (D6)'),
+            'o aviso precede o bloco de resultado da confirmação',
         );
     }
 
@@ -178,23 +226,95 @@ final class ImportarReceitasCommandTest extends CobrancaWebTestCase
         return [(int) $tenant->getId(), (int) $carteira->getId(), (int) $user->getId()];
     }
 
-    private function rodar(string $arquivo, int $tenantId, int $carteiraId, int $usuarioId): string
+    private function rodar(string $arquivo, int $tenantId, int $carteiraId, int $usuarioId, bool $confirmar = false): string
     {
         $tester = new CommandTester(
             (new Application(static::$kernel))->find('app:cobranca:importar-receitas'),
         );
-        // Sem `--confirmar`: NENHUM teste desta classe grava. O caminho de escrita é exercitado em
-        // `ImportarReceitasFluxoTest`, contra o UseCase, onde o rollback do DAMA é o mesmo.
-        $tester->execute([
+        // O padrão continua sendo dry-run. `--confirmar` só é usado por
+        // `testAvisoDeD6SaiAntesDaGravacao`, que precisa da escrita real para que "antes da gravação"
+        // signifique alguma coisa — no dry-run não há gravação para preceder. O rollback é o do DAMA,
+        // o mesmo do resto da suíte.
+        $opcoes = [
             '--tenant-id' => (string) $tenantId,
             '--carteira-id' => (string) $carteiraId,
             '--usuario-id' => (string) $usuarioId,
             '--arquivo' => $arquivo,
-        ]);
+        ];
+        if ($confirmar) {
+            $opcoes['--confirmar'] = true;
+        }
+        $tester->execute($opcoes);
 
         $tester->assertCommandIsSuccessful();
 
         return $tester->getDisplay();
+    }
+
+    /** @return array{0: int, 1: int, 2: int, 3: \App\Cobranca\Entity\CasoCobranca, 4: \App\Entity\Tenant\Tenant} */
+    private function cenarioComCaso(): array
+    {
+        $client = static::createClient();
+        [$user, $tenant] = $this->criarAdminLogado($client);
+        [$carteira, $caso] = $this->semearGrafo($tenant);
+
+        return [(int) $tenant->getId(), (int) $carteira->getId(), (int) $user->getId(), $caso, $tenant];
+    }
+
+    private function acordoRompido(\App\Cobranca\Entity\CasoCobranca $caso, \App\Entity\Tenant\Tenant $tenant, int $numeroExterno): \App\Cobranca\Entity\Acordo
+    {
+        $em = static::getContainer()->get(\Doctrine\ORM\EntityManagerInterface::class);
+
+        $acordo = new \App\Cobranca\Entity\Acordo();
+        $acordo->setTenant($tenant);
+        $acordo->setCaso($caso);
+        $acordo->setStatus(\App\Cobranca\Enum\StatusAcordo::Rompido);
+        $acordo->setDataAcordo(new \DateTimeImmutable('2026-01-10'));
+        $acordo->setNumeroExterno($numeroExterno);
+        $acordo->setNumeroParcelasTotal(2);
+        $acordo->setMotivoRompimento('inadimplência');
+        $em->persist($acordo);
+        $em->flush();
+
+        return $acordo;
+    }
+
+    /** Dívida ORIGINAL substituída pelo acordo, com pagamento lançado enquanto ele estava rompido. */
+    private function originalComPagamento(
+        \App\Cobranca\Entity\CasoCobranca $caso,
+        \App\Entity\Tenant\Tenant $tenant,
+        \App\Cobranca\Entity\Acordo $acordo,
+        int $usuarioId,
+        string $nn,
+        int $valor,
+    ): void {
+        $em = static::getContainer()->get(\Doctrine\ORM\EntityManagerInterface::class);
+        $user = $em->find(\App\Entity\Auth\User::class, $usuarioId);
+
+        $original = \App\Tests\Factory\Cobranca\ObrigacaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso,
+            'descricao' => 'Taxa 01/2025', 'valorOriginal' => 50000, 'encargosReconhecidos' => 0,
+            'referenciaExterna' => $nn,
+        ])->_real();
+        $original->setAcordoSubstituto($acordo);
+
+        $pagamento = new \App\Cobranca\Entity\Pagamento();
+        $pagamento->setTenant($tenant);
+        $pagamento->setCaso($caso);
+        $pagamento->setData(new \DateTimeImmutable('2026-02-01'));
+        $pagamento->setValorDivida($valor);
+        $pagamento->setValorEncargos(0);
+        $pagamento->setValorHonorarios(0);
+        $pagamento->setCriadoPor($user);
+
+        $alocacao = new \App\Cobranca\Entity\AlocacaoPagamento();
+        $alocacao->setTenant($tenant);
+        $alocacao->setObrigacao($original);
+        $alocacao->setValor($valor);
+        $pagamento->adicionarAlocacao($alocacao);
+
+        $em->persist($pagamento);
+        $em->flush();
     }
 
     /**

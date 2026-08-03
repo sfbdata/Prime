@@ -163,6 +163,7 @@ final class ImportarReceitasCommand extends Command
 
         $this->avisarAcordosIncompletos($io, $projecao, $confirmar);
         $this->avisarDinheiroParado($io, $projecao, $confirmar);
+        $this->avisarTrocaDeAcordo($io, $projecao, $confirmar);
 
         $resultado = $confirmar
             ? $this->importar->confirmar($carteiraId, $leitura, $tenant, $user)
@@ -197,11 +198,14 @@ final class ImportarReceitasCommand extends Command
                 ['Recebimentos registrados', count($r->pagamentosCriados)],
                 ['— em obrigação que JÁ existia', count($r->obrigacoesExistentes)],
                 ['— com obrigação CRIADA (boleto novo no sistema)', count($r->obrigacoesCriadas)],
+                // Fica AQUI, colado nos recebimentos, e não depois de "Casos abertos": o travessão puxa
+                // o olho para a linha de cima, e lá em baixo ele dizia "destes casos" quando o número é
+                // de RECEBIMENTOS (na TOP LIFE I, 160 de 1.220 — logo abaixo de "Casos abertos 119").
+                ['— destes, PARCELAS de acordo (coluna J)', count($r->parcelasDeAcordo)],
                 ['Já importados antes (ignorados)', count($r->jaImportados)],
                 ['Unidades criadas', $r->objetosCriados],
                 ['Pessoas criadas', $r->pessoasCriadas],
                 ['Casos abertos', $r->casosCriados],
-                ['— destes, PARCELAS de acordo (coluna J)', count($r->parcelasDeAcordo)],
                 ['Acordos criados', $r->acordosCriados],
                 ['— que ficam CUMPRIDOS (todas as parcelas pagas)', $r->acordosCumpridos],
                 ['— que ficam INCOMPLETOS (faltam parcelas)', count($r->acordosIncompletos)],
@@ -313,15 +317,38 @@ final class ImportarReceitasCommand extends Command
             return;
         }
 
+        // ⚠️ O cabeçalho NÃO conta obrigações: a lista mistura o aviso por obrigação com o agregado do
+        // acordo. Uma versão anterior dizia "%d obrigação(ões)" com `count($avisos)` e imprimia "2
+        // obrigações" onde havia uma — número errado num aviso de dinheiro.
         $io->warning(sprintf(
-            "%d obrigação(ões) originais têm pagamento alocado e SAEM do exigível com a reativação de acordo (D6).\n"
-            . "Esse dinheiro deixa de abater o saldo — o devedor passa a ser cobrado por algo que já pagou.\n"
+            "REATIVAÇÃO DE ACORDO (D6) mexe no saldo devedor. %d aviso(s):\n"
+            . "Obrigação original com pagamento alocado SAI do exigível — esse dinheiro deixa de abater o\n"
+            . "saldo, e o devedor passa a ser cobrado por algo que já pagou.\n"
             . "O importador NÃO corrige isso sozinho; confira caso a caso.\n%s\n%s",
             count($r->reativacoesComDinheiroParado),
             $confirmar
                 ? '>>> Você passou --confirmar: a reativação SERÁ gravada a seguir. Interrompa se não for isso. <<<'
                 : 'Dry-run: nada será gravado.',
             implode("\n", $r->reativacoesComDinheiroParado),
+        ));
+    }
+
+    /**
+     * Obrigação que MUDA de acordo. Medido em 03/08: nenhum NN aparece em dois acordos, então esta
+     * lista sai vazia hoje — mas mover uma parcela entre acordos altera a composição de saldo dos
+     * dois, e a fonte de amanhã não deve nada à propriedade medida hoje.
+     */
+    private function avisarTrocaDeAcordo(SymfonyStyle $io, ResultadoImportacaoReceitas $r, bool $confirmar): void
+    {
+        if ($r->trocasDeAcordo === []) {
+            return;
+        }
+
+        $io->warning(sprintf(
+            "%d obrigação(ões) MUDAM de acordo nesta importação — isso altera a composição de saldo dos dois.\n%s\n%s",
+            count($r->trocasDeAcordo),
+            $confirmar ? '>>> Você passou --confirmar: a troca SERÁ gravada a seguir. <<<' : 'Dry-run: nada será gravado.',
+            implode("\n", array_slice($r->trocasDeAcordo, 0, 40)),
         ));
     }
 

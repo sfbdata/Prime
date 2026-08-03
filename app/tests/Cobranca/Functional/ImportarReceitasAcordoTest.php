@@ -477,9 +477,16 @@ final class ImportarReceitasAcordoTest extends CobrancaWebTestCase
             $usuario,
         );
 
-        self::assertCount(1, $resultado->reativacoesComDinheiroParado, 'o dinheiro que para de abater tem de ser listado');
-        self::assertStringContainsString('NN 7000', $resultado->reativacoesComDinheiroParado[0]);
-        self::assertStringContainsString('150,00', $resultado->reativacoesComDinheiroParado[0]);
+        // Dois avisos: o dinheiro JÁ PAGO que para de abater, e o agregado do que sai do exigível.
+        self::assertCount(
+            2,
+            $resultado->reativacoesComDinheiroParado,
+            'o dinheiro que para de abater tem de ser listado, e o agregado do exigível junto',
+        );
+        self::assertStringContainsString('NN 7000', $resultado->reativacoesComDinheiroParado[0], 'o dinheiro que para de abater tem de ser listado');
+        self::assertStringContainsString('150,00', $resultado->reativacoesComDinheiroParado[0], 'com o valor alocado');
+        self::assertStringContainsString('saem do exigível', $resultado->reativacoesComDinheiroParado[1]);
+        self::assertStringContainsString('500,00', $resultado->reativacoesComDinheiroParado[1], 'e quanto o saldo se move ao todo');
     }
 
     #[TestDox('D6: reativação de acordo cujas originais NÃO receberam nada não reporta nada')]
@@ -506,7 +513,15 @@ final class ImportarReceitasAcordoTest extends CobrancaWebTestCase
         );
 
         self::assertSame(1, $resultado->acordosReativados, 'reativou');
-        self::assertSame([], $resultado->reativacoesComDinheiroParado, 'mas não há dinheiro parado para avisar');
+        // Um aviso só: o agregado do que sai do exigível. NENHUM aviso de dinheiro já pago — que é o
+        // que este cenário isola, porque ninguém pagou na original.
+        self::assertCount(
+            1,
+            $resultado->reativacoesComDinheiroParado,
+            'mas não há dinheiro parado para avisar — só o agregado do que sai do exigível',
+        );
+        self::assertStringContainsString('saem do exigível', $resultado->reativacoesComDinheiroParado[0]);
+        self::assertStringNotContainsString('alocados', $resultado->reativacoesComDinheiroParado[0]);
     }
 
     #[TestDox('🔑 Reimportar não cria acordo de novo nem duplica o vínculo')]
@@ -562,6 +577,145 @@ final class ImportarReceitasAcordoTest extends CobrancaWebTestCase
         self::assertNotNull($obrigacao->getAcordoOrigem(), 'a preexistente ganha o vínculo');
         self::assertSame(505, $obrigacao->getAcordoOrigem()?->getNumeroExterno());
         self::assertSame(10000, $obrigacao->getValorOriginal(), 'mas o valorOriginal dela NÃO é reescrito (invariável 20)');
+    }
+
+    #[TestDox('🔑 Parcela que JÁ EXISTIA (honorário embutido) quita: a alocação leva o bruto também nela')]
+    public function testParcelaPreexistenteQuitaComOHonorarioDentro(): void
+    {
+        [$carteira, $caso, $tenant, $usuario] = $this->cenario();
+        $identificacao = $caso->getObjeto()->getIdentificacao();
+        $acordo = $this->criarAcordo($caso, $tenant, 700, 2, StatusAcordo::Ativo);
+
+        // 🔑 O BLOQUEANTE da 1ª revisão. Esta é a parcela que os OUTROS dois importadores gravam
+        // (`ImportarRelatorioCarteiraUseCase:478` e `ImportarAcordosDetalhadosUseCase:655`), ambos com
+        // o honorário embutido no valorOriginal. Discriminar a alocação por "eu criei agora?" jogava
+        // este caso no ramo da avulsa e deixava o honorário devendo — para sempre, com juros e multa
+        // correndo em cima. Medido nos arquivos de 03/08: zero ocorrências HOJE, mas a ordem que a
+        // spec §7 manda executar em seguida cria exatamente estas parcelas.
+        $parcela = ObrigacaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso,
+            'descricao' => 'Acordo 700 - Parc. 1/2', 'valorOriginal' => 25000, 'encargosReconhecidos' => 0,
+            'referenciaExterna' => '9300', 'competencia' => '05/2026',
+        ])->_real();
+        $parcela->setAcordoOrigem($acordo);
+        $this->em()->flush();
+
+        static::getContainer()->get(ImportarReceitasUseCase::class)->confirmar(
+            (int) $carteira->getId(),
+            // 200,00 de taxa + 50,00 de honorário = os 250,00 do valorOriginal acima.
+            $this->leitura([$this->receita($identificacao, '9300', divida: 20000, honorarios: 5000, acordo: new AcordoDoRelatorio(700, 1, 2))]),
+            $tenant,
+            $usuario,
+        );
+
+        $this->em()->clear();
+        self::assertSame(
+            25000,
+            (int) $this->em()->getConnection()->fetchOne(
+                'SELECT COALESCE(SUM(a.valor), 0) FROM cobranca_alocacao_pagamento a
+                   JOIN cobranca_obrigacao o ON o.id = a.obrigacao_id
+                  WHERE o.referencia_externa = ? AND a.tenant_id = ?',
+                ['9300', $tenant->getId()],
+            ),
+            'o honorario embutido tem de ser alocado — senão a parcela fica devendo R$ 50,00 para sempre',
+        );
+    }
+
+    #[TestDox('🔑 Prévia × confirmação batem MESMO com acordo rompido e dinheiro já alocado')]
+    public function testPreviaEConfirmacaoBatemComAcordoRompido(): void
+    {
+        [$carteira, $caso, $tenant, $usuario] = $this->cenario();
+        $carteiraId = (int) $carteira->getId();
+        $identificacao = $caso->getObjeto()->getIdentificacao();
+        $acordo = $this->criarAcordo($caso, $tenant, 701, 2, StatusAcordo::Rompido);
+
+        // 🔑 O cenário que a 1ª revisão apontou como não provado: os dois campos de D6 dependem de
+        // estado de banco que a CONFIRMAÇÃO muda no meio da execução. A linha de baixo cria alocação
+        // numa original substituída — se o relatório fosse calculado dentro do laço, a confirmação a
+        // veria e a prévia não.
+        $original = ObrigacaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso,
+            'descricao' => 'Taxa 01/2025', 'valorOriginal' => 50000, 'encargosReconhecidos' => 0,
+            'referenciaExterna' => '7100', 'competencia' => '01/2025',
+        ])->_real();
+        $original->setAcordoSubstituto($acordo);
+        $this->em()->flush();
+
+        $leitura = $this->leitura([
+            // Primeiro um recebimento que POUSA na original substituída, criando alocação...
+            $this->receita($identificacao, '7100', divida: 50000, acordo: null, competencia: '01/2025'),
+            // ...e só DEPOIS a parcela que dispara a reativação.
+            $this->receita($identificacao, '9310', divida: 10000, acordo: new AcordoDoRelatorio(701, 1, 2)),
+        ]);
+
+        $sut = static::getContainer()->get(ImportarReceitasUseCase::class);
+        $previa = $sut->prever($carteiraId, $leitura, $tenant);
+        $confirmacao = $sut->confirmar($carteiraId, $leitura, $tenant, $usuario);
+
+        self::assertSame(
+            $this->achatar($previa),
+            $this->achatar($confirmacao),
+            'previa e confirmacao têm de bater em TODOS os campos, inclusive os de D6',
+        );
+        self::assertSame(1, $previa->acordosReativados, 'e o cenário exercita mesmo a reativação');
+    }
+
+    #[TestDox('🔑 Obrigação que MUDA de acordo é reportada — nos dois modos')]
+    public function testTrocaDeAcordoEhReportada(): void
+    {
+        [$carteira, $caso, $tenant, $usuario] = $this->cenario();
+        $carteiraId = (int) $carteira->getId();
+        $identificacao = $caso->getObjeto()->getIdentificacao();
+        $outroAcordo = $this->criarAcordo($caso, $tenant, 702, 2, StatusAcordo::Ativo);
+
+        // Medido: nenhum NN aparece em dois acordos na fonte de hoje. Mas mover uma parcela entre
+        // acordos altera a composição de saldo dos DOIS, e a fonte de amanhã não deve nada a essa
+        // propriedade.
+        $parcela = ObrigacaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso,
+            'descricao' => 'Acordo 702 - Parc. 1/2', 'valorOriginal' => 10000, 'encargosReconhecidos' => 0,
+            'referenciaExterna' => '9320', 'competencia' => '05/2026',
+        ])->_real();
+        $parcela->setAcordoOrigem($outroAcordo);
+        $this->em()->flush();
+
+        $leitura = $this->leitura([$this->receita($identificacao, '9320', divida: 10000, acordo: new AcordoDoRelatorio(703, 1, 2))]);
+        $sut = static::getContainer()->get(ImportarReceitasUseCase::class);
+
+        $previa = $sut->prever($carteiraId, $leitura, $tenant);
+        self::assertCount(1, $previa->trocasDeAcordo, 'trocar de acordo nao pode ser silencioso');
+        self::assertStringContainsString('NN 9320', $previa->trocasDeAcordo[0]);
+        self::assertStringContainsString('sai do acordo 702', $previa->trocasDeAcordo[0]);
+        self::assertStringContainsString('passa para o 703', $previa->trocasDeAcordo[0]);
+
+        $confirmacao = $sut->confirmar($carteiraId, $leitura, $tenant, $usuario);
+        self::assertSame($previa->trocasDeAcordo, $confirmacao->trocasDeAcordo, 'a prévia diz o que a confirmação faz');
+    }
+
+    #[TestDox('Parcela que já aponta para o acordo CERTO não é reportada como troca')]
+    public function testVinculoJaCorretoNaoEhTroca(): void
+    {
+        [$carteira, $caso, $tenant, $usuario] = $this->cenario();
+        $identificacao = $caso->getObjeto()->getIdentificacao();
+        $acordo = $this->criarAcordo($caso, $tenant, 704, 2, StatusAcordo::Ativo);
+
+        // O par negativo: sem ele, um aviso disparado por QUALQUER obrigação com acordoOrigem passaria.
+        $parcela = ObrigacaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso,
+            'descricao' => 'Acordo 704 - Parc. 1/2', 'valorOriginal' => 10000, 'encargosReconhecidos' => 0,
+            'referenciaExterna' => '9330', 'competencia' => '05/2026',
+        ])->_real();
+        $parcela->setAcordoOrigem($acordo);
+        $this->em()->flush();
+
+        $resultado = static::getContainer()->get(ImportarReceitasUseCase::class)->confirmar(
+            (int) $carteira->getId(),
+            $this->leitura([$this->receita($identificacao, '9330', divida: 10000, acordo: new AcordoDoRelatorio(704, 1, 2))]),
+            $tenant,
+            $usuario,
+        );
+
+        self::assertSame([], $resultado->trocasDeAcordo, 'o vínculo já estava certo — não houve troca');
     }
 
     // ---------------------------------------------------------------- helpers
@@ -645,13 +799,14 @@ final class ImportarReceitasAcordoTest extends CobrancaWebTestCase
         int $multa = 0,
         int $honorarios = 0,
         ?AcordoDoRelatorio $acordo = null,
+        string $competencia = '05/2026',
     ): ReceitaImportavel {
         return new ReceitaImportavel(
             nn: $nn,
             objetoIdentificacao: $unidade,
             unidadeMetadata: null,
             sacadoNome: 'Sacado ' . $nn,
-            competencia: '05/2026',
+            competencia: $competencia,
             vencimento: new \DateTimeImmutable('2026-05-10'),
             recebimento: new \DateTimeImmutable('2026-05-20'),
             valorDividaCentavos: $divida,

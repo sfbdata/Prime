@@ -65,6 +65,8 @@ final class EstadoDaImportacaoDeReceitas
     private int $acordosReativados = 0;
     /** @var list<string> descrição do dinheiro que a reativação D6 tira do exigível (spec §5.5) */
     private array $reativacoesComDinheiroParado = [];
+    /** @var list<string> obrigação que MUDOU de acordo — altera a composição de saldo dos dois */
+    private array $trocasDeAcordo = [];
 
     private int $totalRecebido = 0;
     private int $honorarios = 0;
@@ -132,6 +134,18 @@ final class EstadoDaImportacaoDeReceitas
         // a régua não pode depender de uma propriedade da fonte de hoje.
         $this->parcelasPorAcordo[$acordo->numero][$acordo->parcelaIndice] = true;
         $this->totalDeParcelas[$acordo->numero] = $acordo->parcelaTotal;
+    }
+
+    /**
+     * A obrigação vai TROCAR de acordo. Nunca em silêncio: mover uma parcela entre acordos muda o que
+     * cada um dos dois compõe de saldo.
+     *
+     * Chamado pelos DOIS modos, com a mesma informação (a obrigação já tem um acordo de origem cujo
+     * número externo é outro), para que a prévia mostre exatamente o que a confirmação fará.
+     */
+    public function projetarTrocaDeAcordo(string $descricao): void
+    {
+        $this->trocasDeAcordo[] = $descricao;
     }
 
     /**
@@ -232,6 +246,7 @@ final class EstadoDaImportacaoDeReceitas
             acordosIncompletos: $this->acordosIncompletos(),
             acordosReativados: $this->acordosReativados,
             reativacoesComDinheiroParado: $this->reativacoesComDinheiroParado,
+            trocasDeAcordo: $this->trocasDeAcordo,
             totalRecebidoCentavos: $this->totalRecebido,
             honorariosCentavos: $this->honorarios,
             encargosCentavos: $this->encargos,

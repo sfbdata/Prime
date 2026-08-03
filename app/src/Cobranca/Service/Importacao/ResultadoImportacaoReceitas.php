@@ -90,6 +90,14 @@ final class ResultadoImportacaoReceitas
          * @var list<string>
          */
         public readonly array $reativacoesComDinheiroParado = [],
+        /**
+         * Obrigações que MUDAM de acordo nesta importação. Medido em 03/08: nenhum NN aparece em dois
+         * acordos, então a lista vem vazia — mas mover uma parcela entre acordos altera a composição de
+         * saldo dos dois, e isso não pode acontecer sem alguém ver.
+         *
+         * @var list<string>
+         */
+        public readonly array $trocasDeAcordo = [],
     ) {
     }
 

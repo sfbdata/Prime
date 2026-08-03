@@ -222,8 +222,15 @@ volta a acumular honorário pela cascata da carteira.
 
 ### 5.3 Status (A2)
 
-`Cumprido` **se e somente se** o número de parcelas distintas pagas do acordo **nesta execução mais as já
-existentes no banco** alcançar `numeroParcelasTotal`. Senão, `Ativo`.
+`Cumprido` **se e somente se** o número de parcelas distintas pagas **que ESTE arquivo traz** alcançar
+`numeroParcelasTotal`. Senão, `Ativo`.
+
+⚠️ Uma versão anterior desta seção dizia *"nesta execução **mais as já existentes no banco**"*, e o
+código nunca fez isso — a 1ª revisão pegou a contradição. **Vale o que está escrito agora**, que é o que
+o código faz: parcela paga numa importação anterior não entra na conta, então o acordo pode ficar `Ativo`
+quando já estava quitado. É o lado certo de errar; o contrário — marcar `Cumprido` um acordo que ainda
+deve — seria subcobrança silenciosa. Com `pagamentos = 0` no dev (§3.7), hoje as duas réguas dão o mesmo
+resultado.
 
 Medido: **75 dos 106 nasceriam `Cumprido`** (49 TL I + 26 TL II) e 31 `Ativo`.
 
@@ -323,6 +330,53 @@ Os 4 órfãos aparecem na listagem do comando com o número de parcelas medido �
 pagas 1/1/4/1, que dão os mesmos 19/27/16/9. Os dois números dizem a mesma coisa por lados opostos; não
 houve divergência.
 
+### 5.6 A alocação: o que decide é a FORMA do `valorOriginal`, não quem criou
+
+Achado BLOQUEANTE da 1ª revisão. A 1ª versão discriminava a alocação por *"eu criei esta obrigação
+agora?"*. A pergunta certa é *"o `valorOriginal` dela já inclui o honorário?"*, e há **três** casos:
+
+| caso | `valorOriginal` | aloca |
+|---|---|---|
+| parcela criada agora | principal + honorário | **bruto** |
+| parcela que **já existia** — os dois outros produtores de parcela do sistema gravam o honorário embutido (`ImportarRelatorioCarteiraUseCase:478`, `ImportarAcordosDetalhadosUseCase:655`) | principal + honorário | **bruto** |
+| avulsa, inclusive a que **acaba de ganhar** o vínculo ao acordo | só o principal | bruto − honorário |
+
+O discriminador antigo jogava o 2º caso no ramo errado: a parcela preexistente ficaria devendo
+**exatamente o honorário**, para sempre, com juros e multa correndo em cima.
+
+**Alcance medido em 03/08: R$ 0,00** — nenhum dos 2.077 recebimentos pousa hoje numa parcela
+preexistente (o dev tem 18 delas, todas na carteira 2, e nenhuma bate com a chave `(NN, competência)` da
+Receitas). ⚠️ Mas a ordem que a §7 manda executar em seguida — rodar "Acordos detalhados" **depois** —
+cria justamente as parcelas 2..N com honorário embutido, e a importação do mês seguinte cairia toda ali.
+
+### 5.7 O relatório de D6 é fotografado ANTES do laço
+
+Também da 1ª revisão. `reativacoesComDinheiroParado` consulta **alocações**. Calculado dentro do laço, a
+confirmação veria as alocações que ela mesma acabou de criar nas linhas anteriores (o
+`RegistrarObrigacaoUseCase` dá flush a cada obrigação) e devolveria um número que a prévia não tem como
+prever — e como o comando imprime o aviso **da projeção**, o operador não veria o dinheiro que a própria
+importação acabou de encalhar.
+
+O mapa é montado uma vez, no início dos dois modos, sobre o banco intocado. A igualdade
+prévia × confirmação passa a valer **por construção**, não por sorte de cenário.
+
+## 6.1 O que a 1ª revisão achou
+
+| severidade | achado | o que foi feito |
+|---|---|---|
+| **BLOQUEANTE** | alocação discriminada por "criei agora?" → parcela preexistente fica devendo o honorário | corrigido (§5.6) + teste próprio, provado por injeção |
+| MÉDIO | o teste de "aviso antes da escrita" rodava só dry-run — **não podia falhar** | o teste antigo passa a dizer só o que prova; um novo, com `--confirmar`, usa o aviso de D6, que **some** se calculado depois da gravação |
+| MÉDIO | `reativacoesComDinheiroParado` podia divergir entre prévia e confirmação | corrigido (§5.7) + teste com acordo rompido e alocação prévia |
+| MÉDIO | nenhum teste do COMANDO montava acordo rompido | coberto pelo teste novo com `--confirmar` |
+| MÉDIO | a spec §5.3 contradizia o código | spec corrigida para o que o código faz |
+| MÉDIO | D6 reportava contagem, não reais | o aviso passa a dizer quanto sai do exigível, mesmo sem dinheiro já pago |
+| BAIXO | `totalAlocado > 0` ignorava alocação de **R$ 0,00**, que é pagamento real (a etapa 2 cria 10) | passou a usar `existeAlocacaoEmObrigacoes`, a mesma régua do `CancelarAcordoUseCase` |
+| BAIXO | linha "— destes, PARCELAS de acordo" pendurada em "Casos abertos" | movida para junto dos recebimentos |
+| BAIXO | religar obrigação a OUTRO acordo passava em silêncio | vira aviso nos dois modos, com teste e par negativo |
+
+🔑 **Duas correções da 1ª revisão eram, elas mesmas, asserts que não podiam falhar** — o de ordem e o de
+premissa do tenant. A 2ª passada existe para isso.
+
 ## 7. Fora de escopo
 
 - **Criar as parcelas futuras** dos 27 com aba — é o `ImportarAcordosDetalhadosUseCase` existente,
@@ -333,6 +387,26 @@ houve divergência.
 - **Sintetizar as 71 parcelas futuras dos 4 órfãos** (B1).
 - **Rateio automático** do pagamento lançado à mão numa dívida original quando o acordo é reativado —
   reportado, não corrigido (§5.5).
+
+### 7.1 ⚠️ Duas consequências para o dono decidir — levantadas pela 1ª revisão
+
+**(a) D6 contradiz a política escrita do importador irmão.**
+`ImportarAcordosDetalhadosUseCase.php:600-606` diz, com todas as letras: *"o status do sistema é uma
+decisão MANUAL do escritório que move dinheiro: ressuscitar um acordo rompido a partir de uma planilha
+tiraria as dívidas originais do saldo de novo, desfazendo em silêncio o que uma pessoa decidiu"* — e por
+isso lá a divergência vira **aviso**, não ação.
+
+D6 faz exatamente o que aquele texto recusa, pelo caminho da Receitas, porque o dono decidiu que **"o
+importe é sempre a verdade"**. As duas políticas podem coexistir (fontes diferentes, decisões
+diferentes), mas a contradição fica **registrada, não escondida**. Se o dono quiser alinhar, é uma
+frente própria.
+
+**(b) Depois do `--confirmar`, os 106 acordos ficam INCANCELÁVEIS pela tela.**
+Toda parcela criada aqui nasce com alocação, e `CancelarAcordoUseCase.php:144-156` recusa cancelar
+acordo com qualquer alocação nas parcelas (`AcordoComParcelaPagaException`). Para cancelar um deles será
+preciso antes **excluir os recebimentos um a um** (etapa 1). Isso pega em cheio os **31 incompletos** e
+os **4 órfãos** — justamente os que podem precisar ser refeitos quando a fonte chegar. Não é defeito
+desta etapa: é como o cancelamento foi especificado. Mas o dono precisa saber **antes** de confirmar.
 
 ## 8. Estado
 

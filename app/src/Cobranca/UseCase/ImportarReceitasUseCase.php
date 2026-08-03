@@ -88,6 +88,7 @@ final class ImportarReceitasUseCase
     {
         $carteira = $this->resolverCarteira($carteiraId, $tenant);
         $estado = new EstadoDaImportacaoDeReceitas();
+        $dinheiroParado = $this->mapearDinheiroParadoPelaReativacao($carteira, $leitura, $tenant);
 
         foreach ($leitura->receitas as $receita) {
             $objeto = $this->objetoRepository->findOnePorIdentificacaoNaCarteira($carteira, $receita->objetoIdentificacao, $tenant);
@@ -100,11 +101,13 @@ final class ImportarReceitasUseCase
             // Coluna J (etapa 3): projeta o acordo ANTES da obrigação, na mesma ordem da confirmação.
             // Nada é criado aqui — quem garante que os dois modos contam igual é o ESTADO, que só
             // consome o PRIMEIRO encontro de cada número de acordo.
-            $this->projetarAcordo($carteira, $receita, $tenant, $estado);
+            $this->projetarAcordo($carteira, $receita, $tenant, $estado, $dinheiroParado);
 
             $obrigacao = $caso === null
                 ? null
                 : $this->obrigacaoRepository->findOnePorReferenciaECompetenciaNoCaso($caso, $receita->nn, $receita->competencia);
+
+            $this->projetarTrocaDeAcordo($obrigacao, $receita, $estado);
 
             $jaImportado = $obrigacao !== null
                 && $this->alocacaoRepository->existeNaObrigacaoComData((int) $obrigacao->getId(), $receita->recebimento, $tenant);
@@ -125,6 +128,14 @@ final class ImportarReceitasUseCase
             /** @var array<int, Acordo> $acordos número externo => acordo tocado nesta execução */
             $acordos = [];
 
+            // ⚠️ ANTES do laço, e é obrigatório que seja antes. O relatório de dinheiro parado consulta
+            // ALOCAÇÕES; se fosse calculado dentro do laço, a confirmação veria as alocações que ela
+            // mesma acabou de criar nas linhas anteriores (o `RegistrarObrigacaoUseCase` dá flush a
+            // cada obrigação) e devolveria um número que a prévia não tem como prever. Calculado aqui,
+            // os dois modos leem o MESMO banco intocado — e a igualdade prévia×confirmação passa a ser
+            // por construção, não por sorte de cenário.
+            $dinheiroParado = $this->mapearDinheiroParadoPelaReativacao($carteira, $leitura, $tenant);
+
             foreach ($leitura->receitas as $receita) {
                 $objeto = $this->objetoRepository->findOnePorIdentificacaoNaCarteira($carteira, $receita->objetoIdentificacao, $tenant);
                 $objetoExistia = $objeto !== null;
@@ -144,13 +155,14 @@ final class ImportarReceitasUseCase
                 // Coluna J (etapa 3): acha/cria o Acordo ANTES de resolver a obrigação, porque a
                 // parcela precisa apontar pra ele nos DOIS ramos — a que nasce agora e a que já
                 // existia (possivelmente criada avulsa por uma importação anterior a esta etapa).
-                $acordo = $this->resolverOuCriarAcordo($carteira, $caso, $receita, $tenant, $user, $estado);
+                $acordo = $this->resolverOuCriarAcordo($carteira, $caso, $receita, $tenant, $user, $estado, $dinheiroParado);
                 if ($acordo !== null && $receita->acordo !== null) {
                     $acordos[$receita->acordo->numero] = $acordo;
                 }
 
                 $obrigacao = $this->obrigacaoRepository->findOnePorReferenciaECompetenciaNoCaso($caso, $receita->nn, $receita->competencia);
                 $obrigacaoExistia = $obrigacao !== null;
+                $this->projetarTrocaDeAcordo($obrigacao, $receita, $estado);
 
                 if ($obrigacao !== null
                     && $this->alocacaoRepository->existeNaObrigacaoComData((int) $obrigacao->getId(), $receita->recebimento, $tenant)) {
@@ -163,6 +175,12 @@ final class ImportarReceitasUseCase
                     continue;
                 }
 
+                // ⚠️ Lido ANTES de `garantirVinculoAoAcordo`, e é disso que a alocação depende: a
+                // pergunta não é "eu criei esta obrigação agora?", é "o valorOriginal dela JÁ INCLUI o
+                // honorário?". Depois de ligar ao acordo, `getAcordoOrigem()` deixaria de distinguir a
+                // parcela antiga (que embute) da avulsa recém-ligada (que não embute).
+                $jaEraParcelaDeAcordo = $obrigacao !== null && $obrigacao->getAcordoOrigem() !== null;
+
                 if ($obrigacao === null) {
                     $obrigacao = $this->criarObrigacaoJaPaga($caso, $receita, $acordo, $tenant, $user);
                 } else {
@@ -172,11 +190,24 @@ final class ImportarReceitasUseCase
                 }
 
                 // A alocação tem de fechar com o exigível da obrigação, senão a linha nasce devendo (ou
-                // sobrando). Na PARCELA criada agora o honorário virou principal, então o que abate é o
-                // BRUTO; em todo o resto continua sendo o bruto menos o honorário, como na etapa 2.
-                // Obrigação preexistente fica no comportamento antigo: o valorOriginal dela não foi
-                // reescrito (invariável 20), então alocar o bruto sobraria justamente o honorário.
-                $valorAlocado = $acordo !== null && !$obrigacaoExistia
+                // sobrando) — e o que decide é a FORMA do `valorOriginal` dela, em três casos:
+                //
+                //   1. parcela criada agora           → valorOriginal = principal + honorário → BRUTO
+                //   2. parcela que JÁ existia         → idem: os dois produtores de parcela do sistema
+                //      (`ImportarRelatorioCarteiraUseCase:478` e `ImportarAcordosDetalhadosUseCase:655`)
+                //      gravam o honorário embutido    → BRUTO
+                //   3. avulsa (criada agora ou não), inclusive a que acabou de ganhar o vínculo
+                //                                     → honorário está FORA → bruto menos honorário
+                //
+                // A 1ª versão discriminava por `!$obrigacaoExistia`, o que jogava o caso 2 no ramo
+                // errado: a parcela preexistente ficaria devendo exatamente o honorário, com juros e
+                // multa correndo em cima. Medido nos arquivos de 03/08: **zero** recebimentos caem
+                // nesse caso hoje (R$ 0,00) — mas a ordem que a spec §7 manda executar em seguida
+                // (rodar "Acordos detalhados" depois desta importação) cria justamente as parcelas
+                // 2..N com honorário embutido, e a importação do mês seguinte cairia toda ali.
+                $honorarioEmbutidoNoValorOriginal = $acordo !== null && (!$obrigacaoExistia || $jaEraParcelaDeAcordo);
+
+                $valorAlocado = $honorarioEmbutidoNoValorOriginal
                     ? $receita->totalRecebidoCentavos()
                     : $receita->recuperadoDividaCentavos();
 
@@ -204,11 +235,13 @@ final class ImportarReceitasUseCase
      * Ramo de PROJEÇÃO da coluna J: consulta o mesmo que a confirmação consultaria e entrega ao estado.
      * Não escreve nada.
      */
+    /** @param array<int, list<string>> $dinheiroParado número do acordo => avisos, lidos antes do laço */
     private function projetarAcordo(
         Carteira $carteira,
         ReceitaImportavel $receita,
         Tenant $tenant,
         EstadoDaImportacaoDeReceitas $estado,
+        array $dinheiroParado,
     ): void {
         if ($receita->acordo === null) {
             return;
@@ -221,8 +254,39 @@ final class ImportarReceitasUseCase
             $receita->acordo,
             $existente !== null,
             $reativa,
-            $reativa ? $this->dinheiroParadoPelaReativacao($existente, $tenant) : [],
+            $reativa ? ($dinheiroParado[$receita->acordo->numero] ?? []) : [],
         );
+    }
+
+    /**
+     * Fotografa, ANTES de qualquer escrita, o dinheiro que a reativação de D6 tiraria do exigível —
+     * um acordo por número, mesmo que ele apareça em 40 parcelas.
+     *
+     * Roda no início da prévia E no início da confirmação, sobre o banco intocado. É o que impede que
+     * o número da confirmação inclua alocações criadas pela própria execução, divergindo da prévia
+     * (ver `feedback_previa_precisa_de_estado`).
+     *
+     * @return array<int, list<string>> número do acordo => avisos
+     */
+    private function mapearDinheiroParadoPelaReativacao(
+        Carteira $carteira,
+        ResultadoLeituraReceitas $leitura,
+        Tenant $tenant,
+    ): array {
+        $mapa = [];
+        foreach ($leitura->receitas as $receita) {
+            $doRelatorio = $receita->acordo;
+            if ($doRelatorio === null || array_key_exists($doRelatorio->numero, $mapa)) {
+                continue;
+            }
+
+            $acordo = $this->acordoRepository->findOnePorNumeroExternoNaCarteira($doRelatorio->numero, $carteira, $tenant);
+            $mapa[$doRelatorio->numero] = $acordo !== null && !$acordo->getStatus()->ehVigente()
+                ? $this->dinheiroParadoPelaReativacao($acordo, $tenant)
+                : [];
+        }
+
+        return $mapa;
     }
 
     /**
@@ -244,6 +308,7 @@ final class ImportarReceitasUseCase
         Tenant $tenant,
         User $user,
         EstadoDaImportacaoDeReceitas $estado,
+        array $dinheiroParado,
     ): ?Acordo {
         $doRelatorio = $receita->acordo;
         if ($doRelatorio === null) {
@@ -275,9 +340,13 @@ final class ImportarReceitasUseCase
         // acordo já está vigente e o `$reativa` seguinte daria falso, que é justamente o que faz prévia
         // e confirmação convergirem (as duas só consomem o primeiro encontro).
         $reativa = !$acordo->getStatus()->ehVigente();
-        $dinheiroParado = $reativa ? $this->dinheiroParadoPelaReativacao($acordo, $tenant) : [];
 
-        $estado->projetarAcordo($doRelatorio, true, $reativa, $dinheiroParado);
+        $estado->projetarAcordo(
+            $doRelatorio,
+            true,
+            $reativa,
+            $reativa ? ($dinheiroParado[$doRelatorio->numero] ?? []) : [],
+        );
 
         if ($reativa) {
             $this->reativarPorImportacao($acordo, $doRelatorio->numero, $user);
@@ -370,9 +439,15 @@ final class ImportarReceitasUseCase
         // QUERY, e não a coleção inversa: `Acordo::$obrigacoesSubstituidas` nasce vazia na mesma
         // unidade de trabalho, e este é caminho de dinheiro.
         $avisos = [];
+        $exigivelQueSai = 0;
         foreach ($ids as $id => $obrigacao) {
-            $valor = $this->alocacaoRepository->totalAlocadoEmObrigacoes([$id], $tenant);
-            if ($valor <= 0) {
+            $exigivelQueSai += $obrigacao->valorExigivel();
+
+            // ⚠️ A régua é EXISTIR alocação, não ser positiva. `AlocacaoPagamentoRepository:70-71`
+            // registra que `total > 0` deixaria passar uma alocação de valor ZERO — que é uma linha de
+            // pagamento real, com histórico —, e a etapa 2 cria 10 delas. É a mesma régua que o
+            // `CancelarAcordoUseCase` usa para responder à mesma pergunta.
+            if (!$this->alocacaoRepository->existeAlocacaoEmObrigacoes([$id], $tenant)) {
                 continue;
             }
 
@@ -381,7 +456,19 @@ final class ImportarReceitasUseCase
                 (int) $acordo->getNumeroExterno(),
                 $obrigacao->getDescricao(),
                 $obrigacao->getReferenciaExterna() ?? '—',
-                number_format($valor / 100, 2, ',', '.'),
+                number_format($this->alocacaoRepository->totalAlocadoEmObrigacoes([$id], $tenant) / 100, 2, ',', '.'),
+            );
+        }
+
+        // O saldo se move mesmo quando NENHUMA original recebeu pagamento: as originais saem do
+        // exigível e as parcelas entram. Sem esta linha o comando reportava a reativação como uma
+        // contagem seca, e "quantos reais isso mexe" ficava invisível.
+        if ($exigivelQueSai > 0) {
+            $avisos[] = sprintf(
+                'Acordo %d: %d obrigação(ões) originais somando R$ %s saem do exigível com a reativação',
+                (int) $acordo->getNumeroExterno(),
+                count($ids),
+                number_format($exigivelQueSai / 100, 2, ',', '.'),
             );
         }
 
@@ -406,7 +493,14 @@ final class ImportarReceitasUseCase
         return $receita->vencimento;
     }
 
-    /** Repõe o vínculo da parcela ao acordo quando ele faltar — idempotente, não regrava à toa. */
+    /**
+     * Repõe o vínculo da parcela ao acordo quando ele faltar — idempotente, não regrava à toa.
+     *
+     * ⚠️ Quando a obrigação já apontava para OUTRO acordo, isto a MOVE entre acordos e altera a
+     * composição de saldo dos dois. Medido em 03/08: nenhum NN aparece em dois acordos, então não
+     * acontece na fonte de hoje — mas a mudança não pode ser silenciosa se acontecer, porque a fonte de
+     * amanhã não deve nada a essa propriedade.
+     */
     private function garantirVinculoAoAcordo(Obrigacao $obrigacao, ?Acordo $acordo): void
     {
         if ($acordo === null || $obrigacao->getAcordoOrigem() === $acordo) {
@@ -415,6 +509,33 @@ final class ImportarReceitasUseCase
 
         $obrigacao->setAcordoOrigem($acordo);
         $this->obrigacaoRepository->salvar($obrigacao, true);
+    }
+
+    /**
+     * A obrigação já pertence a OUTRO acordo? Então esta importação vai movê-la, mudando a composição
+     * de saldo dos dois acordos.
+     *
+     * A pergunta é respondida com o que os DOIS modos têm em mãos — a obrigação do banco e o número da
+     * coluna J —, sem depender da entidade `Acordo` de destino (que na prévia pode nem existir ainda).
+     * É o que faz a prévia mostrar exatamente o que a confirmação fará.
+     */
+    private function projetarTrocaDeAcordo(
+        ?Obrigacao $obrigacao,
+        ReceitaImportavel $receita,
+        EstadoDaImportacaoDeReceitas $estado,
+    ): void {
+        $doRelatorio = $receita->acordo;
+        $anterior = $obrigacao?->getAcordoOrigem();
+        if ($doRelatorio === null || $anterior === null || $anterior->getNumeroExterno() === $doRelatorio->numero) {
+            return;
+        }
+
+        $estado->projetarTrocaDeAcordo(sprintf(
+            'NN %s sai do acordo %s e passa para o %d',
+            $receita->nn,
+            $anterior->getNumeroExterno() === null ? '(sem número externo)' : (string) $anterior->getNumeroExterno(),
+            $doRelatorio->numero,
+        ));
     }
 
     /**
