@@ -511,6 +511,17 @@ separam os dois — e cada rodada de correção precisa das duas coisas de novo.
 
 ### 7.1 ⚠️ Duas consequências para o dono decidir — levantadas pela 1ª revisão
 
+**✅ (a) RESOLVIDA em 04/08 — o dono bateu o martelo: o importe sempre manda.**
+
+> *"quem manda é o importe sempre. o importe sobrescreve o sistema."*
+
+A política B (D6) passa a valer para o sistema todo, não só para a Receitas. Consequência: o
+`ImportarAcordosDetalhadosUseCase` está **em contradição com a regra vigente** e precisa ser alinhado —
+hoje ele só reporta a divergência de status em vez de aplicá-la (`:598-631`). **É frente própria**, com
+spec e revisão: é código em produção, e mudar o status de acordo mexe em saldo.
+
+<details><summary>O texto original desta pendência, mantido como registro</summary>
+
 **(a) D6 contradiz a política escrita do importador irmão.**
 `ImportarAcordosDetalhadosUseCase.php:600-606` diz, com todas as letras: *"o status do sistema é uma
 decisão MANUAL do escritório que move dinheiro: ressuscitar um acordo rompido a partir de uma planilha
@@ -522,7 +533,9 @@ importe é sempre a verdade"**. As duas políticas podem coexistir (fontes difer
 diferentes), mas a contradição fica **registrada, não escondida**. Se o dono quiser alinhar, é uma
 frente própria.
 
-**(b) Depois do `--confirmar`, os 106 acordos ficam INCANCELÁVEIS pela tela.**
+</details>
+
+**(b) ⏸️ ABERTA — depois do `--confirmar`, os 106 acordos ficam INCANCELÁVEIS pela tela.**
 Toda parcela criada aqui nasce com alocação, e `CancelarAcordoUseCase.php:144-156` recusa cancelar
 acordo com qualquer alocação nas parcelas (`AcordoComParcelaPagaException`). Para cancelar um deles será
 preciso antes **excluir os recebimentos um a um** (etapa 1). Isso pega em cheio os **31 incompletos** e

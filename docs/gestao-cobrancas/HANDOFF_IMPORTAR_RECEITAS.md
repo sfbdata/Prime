@@ -85,9 +85,10 @@ Abra um devedor da **TOP LIFE** com recebimento de acordo e confira:
 `CancelarAcordoUseCase` recusa cancelar acordo com parcela paga. Para cancelar um deles será preciso
 antes excluir os recebimentos um a um (etapa 1). Pega em cheio os **31 incompletos** e os **4 órfãos**.
 
-**(b) D6 contradiz a política escrita do importador de Acordos detalhados**, que diz com todas as letras
-que ressuscitar acordo rompido a partir de planilha "desfaz em silêncio o que uma pessoa decidiu". As
-duas podem coexistir (fontes diferentes), mas a contradição está registrada, não escondida.
+**(b) ✅ DECIDIDA em 04/08 — o importe sempre manda:** *"quem manda é o importe sempre. o importe
+sobrescreve o sistema."* A política vale para o sistema todo. O `ImportarAcordosDetalhadosUseCase` ficou
+em contradição com ela (só reporta divergência de status) e precisa ser **alinhado numa frente própria**
+— é código em produção e mexe em saldo.
 
 ## 6. A ordem para produção, quando você decidir
 
