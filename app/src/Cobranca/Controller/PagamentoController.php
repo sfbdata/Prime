@@ -23,6 +23,7 @@ use App\Cobranca\Repository\ObrigacaoRepository;
 use App\Cobranca\Repository\PagamentoRepository;
 use App\Cobranca\Service\AutoAlocadorFifo;
 use App\Cobranca\UseCase\CorrigirPagamentoUseCase;
+use App\Cobranca\UseCase\ExcluirPagamentoUseCase;
 use App\Cobranca\UseCase\RegistrarPagamentoUseCase;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
@@ -33,7 +34,7 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 /**
- * Mutações financeiras de Pagamento do Caso (Onda 8B-D): registrar e corrigir. Controller FINO — gate
+ * Mutações financeiras de Pagamento do Caso (Onda 8B-D): registrar, corrigir e excluir. Controller FINO — gate
  * módulo + capacidade `resources.cobranca.movimentacao_financeira`, resolução tenant-safe (anti-IDOR →
  * 404), Form → UseCase, PRG sempre. As obrigações das alocações são escopadas ao caso (mesmo padrão do
  * acordo). Distribuição AUTOMÁTICA por FIFO por padrão, manual sob demanda (Ajuste 6); erros de
@@ -53,6 +54,7 @@ final class PagamentoController extends AbstractController
         private readonly ObrigacaoRepository $obrigacaoRepository,
         private readonly RegistrarPagamentoUseCase $registrarPagamento,
         private readonly CorrigirPagamentoUseCase $corrigirPagamento,
+        private readonly ExcluirPagamentoUseCase $excluirPagamento,
         private readonly AutoAlocadorFifo $autoAlocadorFifo,
     ) {
     }
@@ -197,5 +199,49 @@ final class PagamentoController extends AbstractController
 
         // Ajuste 10 (B4): corrigir pagamento também mexe no extrato de movimentos.
         return $this->redirect($this->generateUrl('cobranca_objeto_show', ['id' => $objetoId]) . '#secao-movimentos');
+    }
+
+    /**
+     * Exclui um recebimento lançado por engano (spec `cobranca-excluir-recebimento.md`). É o desfazer
+     * que faltava: sem ele, acordo com parcela paga não tinha como ser cancelado.
+     *
+     * CSRF manual por pagamento (a ação é um botão-modal reutilizável, sem Symfony Form), no padrão de
+     * `ObrigacaoController::excluir`. `motivo` é OPCIONAL (decisão E2 do dono).
+     */
+    #[Route('/pagamentos/{id}/excluir', name: 'cobranca_pagamento_excluir', methods: ['POST'], requirements: ['id' => '\d+'])]
+    public function excluir(int $id, Request $request): Response
+    {
+        $tenant = $this->tenantComCapacidade('resources.cobranca.movimentacao_financeira');
+        if ($tenant === null) {
+            return $this->semAcesso();
+        }
+
+        $pagamento = $this->pagamentoRepository->findOneByIdDoTenant($id, $tenant);
+        if ($pagamento === null) {
+            throw $this->createNotFoundException('Pagamento não encontrado.');
+        }
+        // Defensivo: a JoinColumn é NOT NULL, mas o getter é nullable.
+        $caso = $pagamento->getCaso();
+        if ($caso === null) {
+            throw $this->createNotFoundException('Pagamento sem caso associado.');
+        }
+        // Resolve o destino ANTES de excluir (depois o pagamento não existe mais).
+        $objetoId = $this->objetoIdDoCaso($caso);
+        $destino = $this->generateUrl('cobranca_objeto_show', ['id' => $objetoId]) . '#secao-movimentos';
+
+        if (!$this->isCsrfTokenValid('excluir_pagamento_' . $id, (string) $request->request->get('_token'))) {
+            $this->addFlash('danger', 'Token de segurança inválido.');
+
+            return $this->redirect($destino);
+        }
+
+        try {
+            $this->excluirPagamento->executar($id, (string) $request->request->get('motivo'), $tenant, $this->usuarioLogado());
+            $this->addFlash('success', 'Recebimento excluído.');
+        } catch (PagamentoNaoEncontradoException | CasoEncerradoException $e) {
+            $this->addFlash('danger', $e->getMessage());
+        }
+
+        return $this->redirect($destino);
     }
 }

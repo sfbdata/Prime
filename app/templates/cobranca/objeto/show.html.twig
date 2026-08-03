@@ -1534,6 +1534,28 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    /* Excluir recebimento: modal reutilizável — o botão da linha injeta URL, token CSRF (que é POR
+       pagamento) e o contexto mostrado na confirmação. */
+    var modalExcluirPagamento = document.getElementById('modalExcluirPagamento');
+    if (modalExcluirPagamento) {
+        modalExcluirPagamento.addEventListener('show.bs.modal', function (event) {
+            var botao = event.relatedTarget;
+            if (!botao) { return; }
+            var form = document.getElementById('formExcluirPagamento');
+            if (form) {
+                form.setAttribute('action', botao.getAttribute('data-acao-url') || '');
+                var tk = form.querySelector('[name="_token"]');
+                if (tk) { tk.value = botao.getAttribute('data-token') || ''; }
+            }
+            var total = modalExcluirPagamento.querySelector('[data-pagamento-total-excluir]');
+            if (total) { total.textContent = botao.getAttribute('data-pagamento-total') || ''; }
+            var data = modalExcluirPagamento.querySelector('[data-pagamento-data-excluir]');
+            if (data) { data.textContent = botao.getAttribute('data-pagamento-data') || ''; }
+            var motivo = document.getElementById('motivoExcluirPagamento');
+            if (motivo) { motivo.value = ''; }
+        });
+    }
+
     /* Modais reutilizáveis de romper/cancelar acordo: o botão da linha injeta a URL. */
     ['modalRomperAcordo:formRomperAcordo', 'modalCancelarAcordo:formCancelarAcordo'].forEach(function (par) {
         var ids = par.split(':');
@@ -2128,7 +2150,7 @@ document.addEventListener('DOMContentLoaded', function () {
        Se o modal for exibido SEM esse contexto (reabertura programática, restauração de bfcache/back),
        a `action` fica vazia e o form postaria na própria página (rota só-GET → 405). Sem alvo definido,
        bloqueia o submit — a ação só é válida com um item selecionado. */
-    ['formCorrigirPagamento', 'formEditarObrigacao', 'formExcluirObrigacao', 'formRomperAcordo', 'formCancelarAcordo', 'formEncerrarVinculo'].forEach(function (id) {
+    ['formCorrigirPagamento', 'formExcluirPagamento', 'formEditarObrigacao', 'formExcluirObrigacao', 'formRomperAcordo', 'formCancelarAcordo', 'formEncerrarVinculo'].forEach(function (id) {
         var f = document.getElementById(id);
         if (!f) { return; }
         f.addEventListener('submit', function (e) {

@@ -36,6 +36,10 @@ final class TipoEventoHistoricoTrabalhoTest extends TestCase
     private const CADASTRO_SEGUNDO_A_SPEC = [
         'caso_aberto', 'obrigacao_criada', 'obrigacao_editada', 'obrigacao_excluida',
         'valor_atualizado_reconhecido', 'revisao_vinculo',
+        // 2026-08-01: apagar recebimento lançado por engano é correção administrativa, não uma das
+        // quatro ações do corte (falar, negociar, receber, encaminhar) — mesmo critério de
+        // `obrigacao_excluida`. Ver `cobranca-excluir-recebimento.md` §3.5.
+        'pagamento_excluido',
     ];
 
     #[TestDox('A lista de trabalho de cobrança bate exatamente com a spec §5.1')]

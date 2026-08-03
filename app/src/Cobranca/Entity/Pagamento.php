@@ -20,8 +20,10 @@ use Doctrine\ORM\Mapping as ORM;
  * alocações); `valorHonorarios` é a parcela do escritório — só ≠0 quando a forma é
  * `acrescido_divida` (o devedor paga dívida+honorários juntos e o pagamento é rateado, §18).
  * O que abate cada obrigação vai nas `AlocacaoPagamento` (o pagamento não atravessa casos —
- * invariável 12). NÃO há estorno no MVP: uma correção reescreve a composição (`motivoCorrecao`),
- * rastreável pela auditoria técnica (SPEC §22). Saldo é sempre derivado (invariável 20), nunca coluna.
+ * invariável 12). CORRIGIR não estorna: reescreve a composição (`motivoCorrecao`), rastreável pela
+ * auditoria técnica (SPEC §22); para desfazer o lançamento existe EXCLUIR o recebimento
+ * (`ExcluirPagamentoUseCase`), que apaga o pagamento e devolve o valor ao saldo. Saldo é sempre
+ * derivado (invariável 20), nunca coluna.
  */
 #[ORM\Entity(repositoryClass: PagamentoRepository::class)]
 #[ORM\Table(name: 'cobranca_pagamento')]
@@ -57,7 +59,7 @@ class Pagamento implements TenantAware, Auditavel
     #[ORM\Column(type: 'integer', options: ['default' => 0])]
     private int $valorHonorarios = 0;
 
-    /** Motivo da correção (SPEC §22); nulo enquanto o pagamento não foi corrigido — não há estorno no MVP. */
+    /** Motivo da correção (SPEC §22); nulo enquanto o pagamento não foi corrigido — corrigir reescreve, não estorna. */
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $motivoCorrecao = null;
 

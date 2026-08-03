@@ -138,7 +138,17 @@ falado com ninguém. Decisão do dono em 2026-07-22: **separar**.
 
 **Tipos de cadastro/importação (fora):**
 `caso_aberto` · `obrigacao_criada` · `obrigacao_editada` · `obrigacao_excluida` ·
-`valor_atualizado_reconhecido` · `revisao_vinculo`
+`valor_atualizado_reconhecido` · `revisao_vinculo` · `pagamento_excluido`
+
+> `pagamento_excluido` entrou em 2026-08-01 (spec `cobranca-excluir-recebimento.md`) e ficou **fora**:
+> apagar um recebimento lançado por engano é correção administrativa, não uma das quatro ações do corte
+> (falar, negociar, receber, encaminhar) — mesmo critério de `obrigacao_excluida`. Contar aqui faria
+> quem só desfez o próprio erro aparecer com "ação recente" sem ter cobrado ninguém.
+>
+> ⚠️ **Resíduo conhecido:** o evento `pagamento_registrado` do recebimento apagado PERMANECE (não há FK
+> entre `cobranca_evento_historico` e `cobranca_pagamento`), então o contador de baixas segue contando
+> aquela baixa. Decisão consciente: o histórico registra o que aconteceu, e o lançamento aconteceu —
+> apagar evento passado contradiria o desenho de rastro firmado na frente `cancelar acordo`.
 
 Aplicação:
 

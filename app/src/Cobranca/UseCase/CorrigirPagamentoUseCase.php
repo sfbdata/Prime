@@ -23,9 +23,10 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 
 /**
- * Corrige um Pagamento já registrado (SPEC §22). NÃO há estorno no MVP: a correção REESCREVE a
- * composição do pagamento (valores + alocações) e exige um `motivoCorrecao`; a alteração fica
- * rastreável pela auditoria técnica (a entidade Pagamento é Auditavel).
+ * Corrige um Pagamento já registrado (SPEC §22). A correção não estorna: ela REESCREVE a composição do
+ * pagamento (valores + alocações) e exige um `motivoCorrecao`; a alteração fica rastreável pela
+ * auditoria técnica (a entidade Pagamento é Auditavel). Para DESFAZER o lançamento — e não reescrevê-lo
+ * — o caminho é `ExcluirPagamentoUseCase` (spec `cobranca-excluir-recebimento.md`).
  *
  * História: o gestor percebe um erro no pagamento e corrige a distribuição/valores. O pagamento é
  * resolvido por id + tenant (guarda multi-tenant); só o próprio caso é corrigível e caso encerrado

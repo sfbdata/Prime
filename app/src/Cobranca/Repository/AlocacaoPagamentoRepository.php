@@ -92,6 +92,33 @@ class AlocacaoPagamentoRepository extends ServiceEntityRepository
     }
 
     /**
+     * As alocações de UM pagamento, por QUERY. Usado pela exclusão de recebimento (spec
+     * `cobranca-excluir-recebimento.md` §3.4) para saber quanto subtrair de cada obrigação.
+     *
+     * Por que não `$pagamento->getAlocacoes()`: `Pagamento::$alocacoes` é o lado INVERSO
+     * (`mappedBy: 'pagamento'`), e coleção inversa nasce vazia quando a entidade foi criada na mesma
+     * unidade de trabalho. Num teste que cria pagamento e alocação juntos ela viria vazia, o alocado
+     * final sairia igual ao Σ do banco, o reconciliador não reabriria nada — e o teste passaria assim
+     * mesmo, porque em produção é outro request e a coleção carrega do banco. O defeito ficaria
+     * invisível exatamente no caminho do dinheiro.
+     *
+     * Escopo por tenant explícito.
+     *
+     * @return AlocacaoPagamento[]
+     */
+    public function doPagamento(int $pagamentoId, Tenant $tenant): array
+    {
+        return $this->createQueryBuilder('a')
+            ->andWhere('a.pagamento = :pagamento')
+            ->andWhere('a.tenant = :tenant')
+            ->setParameter('pagamento', $pagamentoId)
+            ->setParameter('tenant', $tenant)
+            ->orderBy('a.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
      * Σ alocado POR OBRIGAÇÃO (centavos) das obrigações dos casos informados — versão em LOTE para a
      * agregação tenant-wide do Dashboard (Etapa 9), evitando um `totalAlocadoEmObrigacoes` por caso.
      * Retorna um mapa `obrigacaoId => Σ valor`. Escopo por tenant explícito. `$casoIds` vazio → `[]`.

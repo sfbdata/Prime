@@ -83,6 +83,13 @@
                             data-pagamento-data="{{ p.data|date('d/m/Y') }}"
                             data-pagamento-total="{{ p.valorTotal|centavos }}"
                             title="Corrigir pagamento (sem estorno)">Corrigir</button>
+                    <button type="button" class="btn btn-sm jp-btn-outline py-0 text-danger"
+                            data-bs-toggle="modal" data-bs-target="#modalExcluirPagamento"
+                            data-acao-url="{{ path('cobranca_pagamento_excluir', {id: p.id}) }}"
+                            data-token="{{ csrf_token('excluir_pagamento_' ~ p.id) }}"
+                            data-pagamento-data="{{ p.data|date('d/m/Y') }}"
+                            data-pagamento-total="{{ p.valorTotal|centavos }}"
+                            title="Excluir recebimento (devolve o valor ao saldo)">Excluir</button>
                     {% endif %}
                 </div>
             </div>

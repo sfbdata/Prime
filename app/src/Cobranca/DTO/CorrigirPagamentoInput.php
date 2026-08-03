@@ -8,9 +8,9 @@ use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Validator\Context\ExecutionContextInterface;
 
 /**
- * Entrada da correção de um Pagamento já registrado (SPEC §22). NÃO há estorno no MVP: a correção
- * reescreve a composição do pagamento (valores + alocações) e exige um `motivoCorrecao`, tudo
- * rastreável pela auditoria técnica. O pagamento é resolvido por id + tenant no
+ * Entrada da correção de um Pagamento já registrado (SPEC §22). Corrigir NÃO estorna: reescreve a
+ * composição do pagamento (valores + alocações) e exige um `motivoCorrecao`, tudo rastreável pela
+ * auditoria técnica. Para desfazer o lançamento inteiro existe `ExcluirPagamentoUseCase`. O pagamento é resolvido por id + tenant no
  * CorrigirPagamentoUseCase (guarda multi-tenant). `data` é OPCIONAL: só sobrescreve a data original
  * quando informada. `valorPago` é o BRUTO pago em CENTAVOS inteiros. Por padrão a nova distribuição é
  * AUTOMÁTICA por FIFO (Ajuste 6); só em `alocarManualmente` as `alocacoes` vêm do usuário.

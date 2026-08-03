@@ -17,16 +17,14 @@ namespace App\Cobranca\Exception;
  * Decisão do dono (01/08): o viés de confirmação é a contabilidade, e a contabilidade não cancela
  * acordo com parcela paga — desfaz-se o pagamento primeiro.
  *
- * ⚠️ RESSALVA REGISTRADA NA SPEC (§3.1): **desfazer pagamento ainda não existe** (`CorrigirPagamento`
- * exige `valorPago` positivo e não há rota de exclusão). Enquanto o estorno não for implementado,
- * esta recusa é um beco sem saída para um pagamento lançado por engano. Medido em 01/08: nenhuma
- * parcela de acordo tem pagamento, no dev nem em produção — ninguém está travado hoje.
+ * A recusa TEM saída desde a frente `cobranca-excluir-recebimento.md`: `cobranca_pagamento_excluir`
+ * apaga o recebimento, devolve o valor ao saldo e reabre a obrigação que ele havia liquidado. Feito
+ * isso, o cancelamento passa. (Até então isto era um beco sem saída — a spec §3.1 registrava a lacuna.)
  *
  * ⚠️ ROMPER não passa por aqui — e a rigor tem o MESMO efeito sobre o dinheiro, porque acordo rompido
  * também deixa de ser vigente. A diferença não é técnica, é de propósito: romper é um fato do mundo
  * (o devedor descumpriu) e BLOQUEAR seria errado, o gestor precisa poder registrar o que aconteceu.
- * A saída certa para os dois casos é realocar o pagamento, e isso depende do estorno que ainda não
- * existe (§3.1). Lacuna registrada, não esquecida.
+ * A saída para os dois casos é a mesma: apagar o recebimento e relançá-lo onde ele deve abater.
  */
 final class AcordoComParcelaPagaException extends \DomainException
 {
@@ -34,7 +32,7 @@ final class AcordoComParcelaPagaException extends \DomainException
     {
         parent::__construct(sprintf(
             'Acordo %d não pode ser cancelado: há pagamento registrado nas parcelas dele. '
-            . 'Desfaça o pagamento primeiro, senão o valor recebido deixa de abater a dívida. '
+            . 'Exclua o recebimento na seção "O que já entrou" primeiro, senão o valor recebido deixa de abater a dívida. '
             . '(Se o acordo existiu e foi descumprido, o caso é romper, não cancelar.)',
             $acordoId,
         ));

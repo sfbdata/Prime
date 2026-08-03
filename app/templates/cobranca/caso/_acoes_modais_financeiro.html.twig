@@ -91,6 +91,34 @@
     </div>
 </div>
 
+{# ── Excluir recebimento (modal reutilizável; JS injeta action, token CSRF e contexto da linha) ── #}
+<div class="modal fade" id="modalExcluirPagamento" tabindex="-1" aria-labelledby="tituloExcluirPagamento" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" id="formExcluirPagamento">
+                <input type="hidden" name="_token" value="">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="tituloExcluirPagamento"><i class="bi bi-trash me-1"></i>Excluir recebimento</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-3">Excluir definitivamente o recebimento de <strong data-pagamento-total-excluir></strong> de <strong data-pagamento-data-excluir></strong>?</p>
+                    <div class="alert alert-warning small d-flex align-items-start gap-2 mb-3">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                        <div>O valor <strong>volta ao saldo devedor</strong> e a obrigação que ele quitou volta a ser cobrada, com os juros correndo de novo. A exclusão fica registrada no histórico.</div>
+                    </div>
+                    <label class="form-label" for="motivoExcluirPagamento">Motivo <span class="text-muted fw-normal">(opcional)</span></label>
+                    <input type="text" name="motivo" id="motivoExcluirPagamento" class="form-control" maxlength="255" placeholder="Ex.: recebimento lançado em duplicidade">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger"><i class="bi bi-trash me-1"></i>Excluir recebimento</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 {# ── Registrar liquidação não monetária ──────────────────────────── #}
 <div class="modal fade" id="modalRegistrarLiquidacao" tabindex="-1" aria-labelledby="tituloRegistrarLiquidacao" aria-hidden="true">
     <div class="modal-dialog">

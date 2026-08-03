@@ -46,6 +46,7 @@ enum TipoEventoHistorico: string
     case AcordoCumprido = 'acordo_cumprido';
     case PagamentoRegistrado = 'pagamento_registrado';
     case PagamentoCorrigido = 'pagamento_corrigido';
+    case PagamentoExcluido = 'pagamento_excluido';
     case LiquidacaoRegistrada = 'liquidacao_registrada';
     case PessoaCobradaAlterada = 'pessoa_cobrada_alterada';
     /** Legado: a feature "Revisão de pessoa cobrada" foi removida; este caso permanece só para
@@ -74,6 +75,7 @@ enum TipoEventoHistorico: string
             self::AcordoCumprido => 'Acordo cumprido',
             self::PagamentoRegistrado => 'Pagamento registrado',
             self::PagamentoCorrigido => 'Pagamento corrigido',
+            self::PagamentoExcluido => 'Pagamento excluído',
             self::LiquidacaoRegistrada => 'Liquidação registrada',
             self::PessoaCobradaAlterada => 'Pessoa cobrada alterada',
             self::RevisaoVinculo => 'Revisão de vínculo',
@@ -130,6 +132,11 @@ enum TipoEventoHistorico: string
             self::ObrigacaoEditada,
             self::ObrigacaoExcluida,
             self::ValorAtualizadoReconhecido,
+            // Apagar um recebimento lançado por engano é correção ADMINISTRATIVA, não uma das quatro
+            // ações do corte (falar, negociar, receber, encaminhar) — fica fora pelo mesmo motivo que
+            // `ObrigacaoExcluida`. Contar aqui faria quem só desfez o próprio erro aparecer com "ação
+            // recente" sem ter cobrado ninguém, que é a distorção que a Central existe para evitar.
+            self::PagamentoExcluido,
             self::RevisaoVinculo => false,
         };
     }

@@ -136,8 +136,8 @@ final class CancelarAcordoUseCase
      * (`totalAlocadoEmObrigacoes`), então o valor já recebido **para de ser descontado** e a dívida
      * original volta cheia — dinheiro recebido sumindo da conta, em silêncio.
      *
-     * ⚠️ RESSALVA (spec §3.1): desfazer pagamento ainda NÃO existe. Medido em 01/08: nenhuma parcela
-     * de acordo tem pagamento, no dev nem em produção — ninguém está travado hoje.
+     * A saída existe: `cobranca_pagamento_excluir` apaga o recebimento e reabre a obrigação que ele
+     * havia liquidado (spec `cobranca-excluir-recebimento.md`); feito isso, o cancelamento passa.
      *
      * @param Obrigacao[] $parcelas
      */
