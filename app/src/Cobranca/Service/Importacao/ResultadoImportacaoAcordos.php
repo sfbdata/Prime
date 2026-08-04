@@ -23,6 +23,17 @@ final class ResultadoImportacaoAcordos
      *                                                            de pagamento está FORA de escopo (§5): o resumo
      *                                                            avisa para conferir à mão
      * @param list<string>           $situacoesDesconhecidas       "Acordo N: <situação>" não mapeada (§3.3)
+     * @param list<string>           $sobrescritasBarradas         situação RECONHECIDA cuja aplicação foi
+     *                                                            RECUSADA por uma guarda de dinheiro (§5.3:
+     *                                                            desativar acordo com parcela paga). Canal
+     *                                                            SEPARADO de `situacoesDesconhecidas` de
+     *                                                            propósito: "não reconhecida" e "reconhecida e
+     *                                                            recusada" pedem ações opostas do operador —
+     *                                                            uma vira mapa novo, a outra vira excluir o
+     *                                                            recebimento. Misturadas, o relatório dizia
+     *                                                            "o importe não adivinha" sobre uma recusa
+     *                                                            deliberada, e quem varresse a lista para
+     *                                                            descobrir strings a mapear acharia ruído
      * @param list<string>           $conferenciasCabecalho        abas cuja soma das linhas lidas NÃO fecha com o
      *                                                            cabeçalho da própria aba — sinal de leitura
      *                                                            parcial (linha rejeitada, seção truncada)
@@ -34,6 +45,7 @@ final class ResultadoImportacaoAcordos
         public readonly array $parcelasLiquidadasNaPlanilha = [],
         public readonly array $situacoesDesconhecidas = [],
         public readonly array $conferenciasCabecalho = [],
+        public readonly array $sobrescritasBarradas = [],
     ) {
     }
 
@@ -191,6 +203,7 @@ final class ResultadoImportacaoAcordos
             || $this->dinheiroParadoPelaReativacao() !== []
             || $this->impactoDaReativacaoNoSaldo() !== []
             || $this->situacoesDesconhecidas !== []
+            || $this->sobrescritasBarradas !== []
             || $this->parcelasLiquidadasNaPlanilha !== []
             || $this->conferenciasCabecalho !== []
             || $this->totalAbasIgnoradas() > 0;

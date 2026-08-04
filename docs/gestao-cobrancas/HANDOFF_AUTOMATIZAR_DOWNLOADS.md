@@ -114,8 +114,11 @@ recebimento 01/01/2026 a 04/08/2026, vencimento Todos`.
 **Agora:**
 1. **Conferir o estado do banco de dev** (`saas_ux`) — ele ainda tem a importação da etapa 3 por cima
    (106 acordos). Importar sem limpar mistura os dois e o número não significa nada.
-2. **Alinhar o `ImportarAcordosDetalhadosUseCase`**: hoje ele só **reporta** divergência de situação
-   (`:598-631`) em vez de aplicar. Com 259 liquidados contra 66 em andamento, isso deixa de ser detalhe.
+2. ✅ **FEITO (04/08) — `ImportarAcordosDetalhadosUseCase` alinhado.** Ele agora aplica a situação da
+   planilha ao status do acordo (commits `1f5d9a5e`, `24c61ae2` e as correções da 1ª revisão). Spec:
+   `docs/specs/cobranca-importar-acordos-situacao.md`. Com DUAS exceções, que espelham as recusas do
+   cancelamento manual: parcela paga e parcelas renegociadas por outro acordo vigente — nesses casos o
+   status é MANTIDO e sai um aviso acionável.
    É código em produção e mexe em saldo → **risco ALTO: spec em `docs/specs/` antes de implementar,
    `/review` em duas passadas com correção entre elas, e todo teste provado reintroduzindo o defeito.**
 3. **Rodar Receitas → Acordos no dev** e medir.

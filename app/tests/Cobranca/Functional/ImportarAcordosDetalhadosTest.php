@@ -517,6 +517,72 @@ final class ImportarAcordosDetalhadosTest extends KernelTestCase
     }
 
     /**
+     * Spec §10, caso 4 — que não tinha sido escrito (achado da 1ª revisão).
+     *
+     * Reativar um acordo CANCELADO tem de limpar o `motivoCancelamento`, senão a tela mostra "cancelado
+     * porque X" num acordo ativo. O teste da reativação que existia partia de **rompido** e só asseria
+     * `getMotivoRompimento()` — a linha que limpa o motivo de CANCELAMENTO nunca era exercitada, e
+     * removê-la não quebrava nada.
+     */
+    #[TestDox('§10 caso 4: reativar acordo CANCELADO limpa o motivoCancelamento')]
+    public function testReativarCanceladoLimpaOMotivoDeCancelamento(): void
+    {
+        [$tenant, $user, $carteiraId, , $acordo] = $this->cenarioAcordo37();
+
+        $acordo->setStatus(StatusAcordo::Cancelado);
+        $acordo->setMotivoCancelamento('cancelado por engano em 2025');
+        $this->em->flush();
+
+        $this->importarAcordos->confirmar($carteiraId, $this->leituraAcordo37(situacao: 'Em andamento'), $tenant, $user);
+
+        $this->em->clear();
+        $acordoDepois = $this->em->getRepository(Acordo::class)->find($acordo->getId());
+        self::assertNotNull($acordoDepois);
+        self::assertSame(StatusAcordo::Ativo, $acordoDepois->getStatus());
+        self::assertNull(
+            $acordoDepois->getMotivoCancelamento(),
+            'motivo do estado que saiu não pode sobreviver: a tela mostraria "cancelado porque X" num acordo ativo',
+        );
+    }
+
+    /**
+     * 🔑 O outro lado da §5.1: quando a reativação REALMENTE tira dinheiro do exigível, o importe tem de
+     * DIZER — medido e reportado, nunca corrigido em silêncio.
+     *
+     * Este é o teste que discrimina `SobrescritaDeSituacao::reativa()`. O assert de "cumprido → ativo não
+     * é reativação" não consegue: lá o acordo é vigente e o serviço nem mede, então a lista fica vazia
+     * dos dois lados. Aqui o acordo está ROMPIDO e a original tem dinheiro alocado — se `reativa()`
+     * passar a devolver `false`, a lista esvazia e este teste cai.
+     */
+    #[TestDox('🔑 Reativação com dinheiro na original REPORTA o impacto — é o que discrimina reativa()')]
+    public function testReativacaoComDinheiroNaOriginalReportaOImpacto(): void
+    {
+        [$tenant, $user, $carteiraId, , $acordo] = $this->cenarioAcordo37();
+
+        // O acordo já substituiu as originais e depois foi ROMPIDO: as originais voltaram ao exigível, e
+        // alguém recebeu numa delas enquanto o acordo estava fora do ar.
+        $this->importarAcordos->confirmar($carteiraId, $this->leituraAcordo37(), $tenant, $user);
+        $acordo->setStatus(StatusAcordo::Rompido);
+        $this->em->flush();
+
+        $original = $this->em->getRepository(Obrigacao::class)->findOneBy(['tenant' => $tenant, 'referenciaExterna' => '60145']);
+        self::assertNotNull($original);
+        $this->pagar($original, $tenant, $user, 17000);
+
+        // Agora a planilha diz que o acordo está liquidado → reativa.
+        $previsto = $this->importarAcordos->prever($carteiraId, $this->leituraAcordo37(situacao: 'Liquidado'), $tenant);
+        $resultado = $this->importarAcordos->confirmar($carteiraId, $this->leituraAcordo37(situacao: 'Liquidado'), $tenant, $user);
+
+        $dinheiro = implode(' | ', $resultado->dinheiroParadoPelaReativacao());
+        self::assertNotSame('', $dinheiro, 'a reativação tira do exigível uma original COM dinheiro: tem de reportar');
+        self::assertStringContainsString('170,00', $dinheiro, 'e QUANTO deixa de abater');
+        self::assertStringContainsString('60145', $dinheiro, 'e em QUAL obrigação');
+
+        // A prévia diz o mesmo — o aviso existe para segurar a mão de quem confirma.
+        self::assertSame($resultado->dinheiroParadoPelaReativacao(), $previsto->dinheiroParadoPelaReativacao());
+    }
+
+    /**
      * §5.3 — A ÚNICA EXCEÇÃO a "o importe sobrescreve sempre" (decisão do dono, 04/08).
      *
      * O cenário é o que o dono descreveu: alguém clica em "receber" numa parcela, e a planilha seguinte
@@ -549,29 +615,156 @@ final class ImportarAcordosDetalhadosTest extends KernelTestCase
         self::assertNotNull($acordoDepois);
         self::assertSame(StatusAcordo::Ativo, $acordoDepois->getStatus(), 'o acordo continua ativo — parcela paga barra o cancelamento');
 
-        // 2) Avisou, e com o caminho da saída.
-        $aviso = implode(' | ', $resultado->situacoesDesconhecidas);
+        // 2) Avisou — em canal PRÓPRIO, não junto das situações não reconhecidas: `Cancelado` FOI
+        // reconhecida, e dizer "o importe não adivinha" sobre uma recusa deliberada manda o operador
+        // para o lado errado.
+        self::assertSame([], $resultado->situacoesDesconhecidas, 'a situação foi reconhecida; só não foi aplicada');
+        $aviso = implode(' | ', $resultado->sobrescritasBarradas);
         self::assertStringContainsString('PARCELA PAGA', $aviso);
         self::assertStringContainsString('exclua o recebimento', $aviso, 'o aviso tem de dizer O QUE FAZER, não só que não deu');
         self::assertStringContainsString('37', $aviso, 'e QUAL acordo');
 
         // 3) A prévia avisou o mesmo — senão quem confere não veria isto antes de mandar gravar.
-        self::assertSame($resultado->situacoesDesconhecidas, $previsto->situacoesDesconhecidas);
+        self::assertSame($resultado->sobrescritasBarradas, $previsto->sobrescritasBarradas);
         self::assertSame([], $previsto->situacoesSobrescritas());
 
-        // 4) O dinheiro não se moveu por causa disto. O saldo muda só pelo que a aba processou
-        // normalmente (o acordo segue vigente, então a reconciliação das originais acontece) — o que
-        // NÃO pode acontecer é a parcela paga sair do exigível levando os R$ 199,39 embora.
+        // 4) 🔑 O DINHEIRO. É este assert que a §5.3 existe para garantir, e a primeira versão dele não
+        // media nada: assertava `getAcordoSubstituto()` na parcela, campo que NENHUM caminho de
+        // cancelamento escreve — a parcela sai do exigível por DERIVAÇÃO (`doCasoExigiveis` filtra
+        // `aorig.status IN (:vigentes)`), não pelo campo. O assert passava com o cancelamento aplicado.
+        //
+        // Agora mede o efeito real: com o cancelamento barrado, os R$ 199,39 recebidos continuam
+        // abatendo o saldo. Se a barreira cair, a parcela sai do exigível levando a alocação junto e o
+        // saldo SOBE — o devedor volta a ser cobrado por algo que pagou.
+        //
+        // ⚠️ NÃO se mede pelo saldo total: ele muda de propósito, porque a aba foi processada
+        // normalmente (o acordo segue vigente) e a reconciliação das originais tirou dívida do exigível.
+        // Prender o saldo total aqui seria assert errado sobre a coisa certa.
         $caso = $this->em->getRepository(CasoCobranca::class)->find($caso->getId());
         self::assertNotNull($caso);
-        self::assertGreaterThan(
-            0,
-            $saldoAntes,
-            'pré-condição do cenário',
+        $exigiveis = $this->em->getRepository(Obrigacao::class)->doCasoExigiveis($caso);
+        $nnsExigiveis = array_map(static fn (Obrigacao $o): ?string => $o->getReferenciaExterna(), $exigiveis);
+
+        //
+        // ⚠️ Honestidade sobre o que ESTE assert é: ele documenta a CONSEQUÊNCIA, não discrimina o
+        // defeito. Quebrando a barreira, quem cai primeiro é o assert (1) — este nem chega a rodar. O
+        // que prova que a barreira protege dinheiro de verdade é
+        // `testAcordoCanceladoTiraAParcelaPagaDoExigivel`, abaixo, que mede o mecanismo direto.
+        self::assertContains(
+            '61600',
+            $nnsExigiveis,
+            'a parcela PAGA continua exigível — é isso que faz os R$ 199,39 recebidos seguirem abatendo o saldo',
         );
+    }
+
+    /**
+     * 🔑 Por que a barreira da §5.3 existe — o mecanismo, medido direto, sem passar pelo importador.
+     *
+     * Os testes da barreira não conseguem provar isto: quebrando a barreira, o primeiro assert deles
+     * ("não cancelou") cai antes de o efeito no dinheiro ser tocado. Este teste fecha a lacuna pelo outro
+     * lado — cancela o acordo À MÃO e mede o que acontece com a parcela paga.
+     *
+     * Se um dia `doCasoExigiveis` deixar de filtrar por `aorig.status IN (:vigentes)`, este teste cai e a
+     * barreira vira zelo sem causa. É o único lugar que amarra a justificativa ao comportamento real.
+     */
+    #[TestDox('🔑 O risco é real: acordo cancelado TIRA a parcela paga do exigível')]
+    public function testAcordoCanceladoTiraAParcelaPagaDoExigivel(): void
+    {
+        [$tenant, $user, , $caso, $acordo] = $this->cenarioAcordo37();
+
         $parcela = $this->em->getRepository(Obrigacao::class)->findOneBy(['tenant' => $tenant, 'referenciaExterna' => '61600']);
         self::assertNotNull($parcela);
-        self::assertNull($parcela->getAcordoSubstituto(), 'a parcela paga continua exigível: o acordo não foi cancelado');
+        $this->pagar($parcela, $tenant, $user, 19939);
+
+        $repo = $this->em->getRepository(Obrigacao::class);
+        $nnsAntes = array_map(static fn (Obrigacao $o): ?string => $o->getReferenciaExterna(), $repo->doCasoExigiveis($caso));
+        self::assertContains('61600', $nnsAntes, 'pré-condição: com o acordo vigente, a parcela paga é exigível');
+
+        // O cancelamento que a barreira impede.
+        $acordo->setStatus(StatusAcordo::Cancelado);
+        $this->em->flush();
+        $this->em->clear();
+
+        $caso = $this->em->getRepository(CasoCobranca::class)->find($caso->getId());
+        self::assertNotNull($caso);
+        $nnsDepois = array_map(static fn (Obrigacao $o): ?string => $o->getReferenciaExterna(), $repo->doCasoExigiveis($caso));
+
+        self::assertNotContains(
+            '61600',
+            $nnsDepois,
+            'cancelado o acordo, a parcela sai do exigível — e `CalculadoraSaldo` só abate alocação de '
+            . 'obrigação EXIGÍVEL, então os R$ 199,39 recebidos param de abater o saldo. É o dano que a §5.3 impede.',
+        );
+    }
+
+    /**
+     * §5.3, segunda recusa: `AcordoComParcelasRenegociadasException` do caminho manual.
+     *
+     * A primeira versão desta frente replicou só a recusa de parcela paga e afirmou — na spec e no
+     * commit — que "some a única contradição com o caminho manual". Não somia: sobrava esta, e a
+     * afirmação era falsa (achado da 1ª revisão).
+     *
+     * Cancelar um acordo cujas parcelas outro acordo VIGENTE renegociou conta a MESMA dívida duas vezes:
+     * as originais deste voltam ao exigível (`asub` deixa de ser vigente) e as parcelas do acordo novo
+     * continuam exigíveis (`aorig` segue vigente).
+     */
+    #[TestDox('🔑 §5.3: planilha CANCELADO com parcelas RENEGOCIADAS por acordo vigente não cancela')]
+    public function testCanceladoComParcelasRenegociadasNaoAplicaEAvisa(): void
+    {
+        [$tenant, $user, $carteiraId, , $acordo] = $this->cenarioAcordo37();
+
+        // A parcela do acordo 37 foi renegociada por um acordo B, que está VIGENTE — o estado que o
+        // INV-I bloqueia criar hoje, mas que dado legado tem.
+        $parcela = $this->em->getRepository(Obrigacao::class)->findOneBy(['tenant' => $tenant, 'referenciaExterna' => '61600']);
+        self::assertNotNull($parcela);
+        $acordoB = new Acordo();
+        $acordoB->setTenant($tenant);
+        $acordoB->setCaso($parcela->getCaso());
+        $acordoB->setDataAcordo(new \DateTimeImmutable('2026-07-25'));
+        $acordoB->setStatus(StatusAcordo::Ativo);
+        $acordoB->setNumeroExterno(999);
+        $this->em->persist($acordoB);
+        $parcela->setAcordoSubstituto($acordoB);
+        $this->em->flush();
+
+        $resultado = $this->importarAcordos->confirmar($carteiraId, $this->leituraAcordo37(situacao: 'Cancelado'), $tenant, $user);
+
+        self::assertSame([], $resultado->situacoesSobrescritas(), 'não pode cancelar: contaria a dívida duas vezes');
+        $aviso = implode(' | ', $resultado->sobrescritasBarradas);
+        self::assertStringContainsString('renegociadas por outro acordo VIGENTE', $aviso);
+        self::assertStringContainsString('duas vezes', $aviso, 'o aviso tem de dizer QUAL é o risco');
+
+        $this->em->clear();
+        $acordoDepois = $this->em->getRepository(Acordo::class)->find($acordo->getId());
+        self::assertNotNull($acordoDepois);
+        self::assertSame(StatusAcordo::Ativo, $acordoDepois->getStatus());
+    }
+
+    /**
+     * §5.3: a régua é EXISTIR alocação, não ser positiva.
+     *
+     * `existeAlocacaoEmObrigacoes` e não `totalAlocadoEmObrigacoes(...) > 0`: alocação de valor ZERO é
+     * uma linha de pagamento real, com histórico, e a etapa 2 criou 10 delas. Sem este teste, trocar uma
+     * pela outra deixa a suíte inteira verde — medido na 1ª revisão.
+     */
+    #[TestDox('§5.3: alocação de valor ZERO também barra o cancelamento')]
+    public function testAlocacaoDeValorZeroTambemBarra(): void
+    {
+        [$tenant, $user, $carteiraId, , $acordo] = $this->cenarioAcordo37();
+
+        $parcela = $this->em->getRepository(Obrigacao::class)->findOneBy(['tenant' => $tenant, 'referenciaExterna' => '61600']);
+        self::assertNotNull($parcela);
+        $this->pagar($parcela, $tenant, $user, 0);
+
+        $resultado = $this->importarAcordos->confirmar($carteiraId, $this->leituraAcordo37(situacao: 'Cancelado'), $tenant, $user);
+
+        self::assertSame([], $resultado->situacoesSobrescritas(), 'R$ 0,00 alocados ainda é um recebimento registrado');
+        self::assertStringContainsString('PARCELA PAGA', implode(' | ', $resultado->sobrescritasBarradas));
+
+        $this->em->clear();
+        $acordoDepois = $this->em->getRepository(Acordo::class)->find($acordo->getId());
+        self::assertNotNull($acordoDepois);
+        self::assertSame(StatusAcordo::Ativo, $acordoDepois->getStatus());
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -613,6 +806,11 @@ final class ImportarAcordosDetalhadosTest extends KernelTestCase
 
         $resultado = $this->importarAcordos->confirmar($carteiraId, $this->leituraAcordo37(), $tenant, $user);
 
+        // ⚠️ Este assert é FRACO por construção e fica registrado como tal (achado da 1ª revisão): no
+        // cenário o acordo está `Cumprido`, que é VIGENTE, então `ImpactoDaReativacaoDeAcordo` nem mede —
+        // a lista é `[]` nos dois ramos do ternário, e quebrar `reativa()` o deixa verde. Quem discrimina
+        // `reativa()` de verdade é `testReativacaoComDinheiroNaOriginalReportaOImpacto`, que parte de um
+        // acordo NÃO vigente COM alocação e exige a lista PREENCHIDA. Aqui ele documenta a expectativa.
         self::assertSame([], $resultado->dinheiroParadoPelaReativacao(), 'cumprido → ativo NÃO é reativação: os dois são vigentes');
 
         $this->em->clear();

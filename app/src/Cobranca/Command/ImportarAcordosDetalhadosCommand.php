@@ -185,7 +185,7 @@ final class ImportarAcordosDetalhadosCommand extends Command
             ],
         );
 
-        $this->imprimirSobrescritas($io, $resultado);
+        $this->imprimirSobrescritas($io, $resultado, $confirmar);
     }
 
     /**
@@ -193,14 +193,19 @@ final class ImportarAcordosDetalhadosCommand extends Command
      * 259 acordos liquidados só na TOP LIFE 1, tratá-las como aviso faria o alerta disparar em toda
      * importação — e alerta que sempre dispara é alerta que ninguém lê.
      */
-    private function imprimirSobrescritas(SymfonyStyle $io, ResultadoImportacaoAcordos $resultado): void
+    private function imprimirSobrescritas(SymfonyStyle $io, ResultadoImportacaoAcordos $resultado, bool $confirmar): void
     {
         $sobrescritas = $resultado->situacoesSobrescritas();
         if ($sobrescritas === []) {
             return;
         }
 
-        $io->section('SITUAÇÃO DO ACORDO — o importe sobrescreve o sistema');
+        // O título alterna com o modo, como `imprimirTotais` já faz. Dizer "o importe sobrescreve" no
+        // dry-run afirma como fato consumado uma escrita que não aconteceu — e o aviso de DRY-RUN só sai
+        // no fim, depois desta seção.
+        $io->section($confirmar
+            ? 'SITUAÇÃO DO ACORDO — o importe sobrescreveu o sistema'
+            : 'SITUAÇÃO DO ACORDO — o importe SOBRESCREVERIA o sistema (nada gravado ainda)');
         foreach ($sobrescritas as $linha) {
             $io->writeln('  · ' . $linha);
         }
@@ -226,6 +231,10 @@ final class ImportarAcordosDetalhadosCommand extends Command
             'DINHEIRO JÁ PAGO que deixa de abater o saldo (reativação de acordo)' => $resultado->dinheiroParadoPelaReativacao(),
             'Impacto da reativação no saldo devedor' => $resultado->impactoDaReativacaoNoSaldo(),
             'Situação não reconhecida (status MANTIDO — o importe não adivinha)' => $resultado->situacoesDesconhecidas,
+            // Bloco SEPARADO do de cima: aqui a situação FOI reconhecida e a aplicação foi recusada por
+            // uma guarda de dinheiro (§5.3). Sob o título "não reconhecida" o operador leria "o sistema
+            // não entendeu" onde o certo é "o sistema entendeu e se recusou — faça isto".
+            'Sobrescrita RECUSADA por guarda de dinheiro — ação necessária' => $resultado->sobrescritasBarradas,
             // A segunda lista é subconjunto da primeira; sem o diff, o mesmo NN apareceria nos dois blocos
             // e o operador contaria duas ocorrências onde há uma.
             'Parcelas que constam LIQUIDADAS na planilha e EXISTEM no sistema — a baixa NÃO foi feita, confira à mão (§5)' => array_values(array_diff($resultado->parcelasLiquidadasNaPlanilha, $resultado->parcelasLiquidadasIgnoradas())),

@@ -149,6 +149,9 @@ final class ImportarAcordosDetalhadosUseCase
         $processados = [];
         $liquidadas = [];
         $situacoesDesconhecidas = [];
+        // Canal SEPARADO das desconhecidas: situação reconhecida cuja aplicação foi RECUSADA por uma
+        // guarda de dinheiro (§5.3). "Não reconhecida" e "reconhecida e recusada" pedem ações opostas.
+        $sobrescritasBarradas = [];
         $conferencias = [];
         // O que ESTA execução já criou ou mutou. Ver a classe: são três índices, e cada um fecha um
         // caminho por onde a prévia voltaria a divergir da confirmação.
@@ -173,6 +176,7 @@ final class ImportarAcordosDetalhadosUseCase
                 $tenant,
                 $usuario,
                 $situacoesDesconhecidas,
+                $sobrescritasBarradas,
                 $tocadas,
                 $impactoPorAcordo[$aba->numero] ?? [[], []],
                 $parcelaPagaPorAcordo[$aba->numero] ?? false,
@@ -186,6 +190,7 @@ final class ImportarAcordosDetalhadosUseCase
             $liquidadas,
             $situacoesDesconhecidas,
             $conferencias,
+            $sobrescritasBarradas,
         );
     }
 
@@ -228,7 +233,8 @@ final class ImportarAcordosDetalhadosUseCase
     }
 
     /**
-     * @param list<string>          $situacoesDesconhecidas acumulador do lote
+     * @param list<string>          $situacoesDesconhecidas acumulador do lote — situação NÃO mapeada
+     * @param list<string>          $sobrescritasBarradas   acumulador do lote — situação mapeada e RECUSADA (§5.3)
      * @param ObrigacoesTocadasNaImportacao $tocadas                registro do lote (ver `processar`)
      * @param array{0: list<string>, 1: list<string>} $impactoDaReativacao medido sobre o banco intocado
      * @param bool                  $temParcelaPaga         idem — barra a desativação por importe (§5.3)
@@ -239,6 +245,7 @@ final class ImportarAcordosDetalhadosUseCase
         Tenant $tenant,
         ?User $usuario,
         array &$situacoesDesconhecidas,
+        array &$sobrescritasBarradas,
         ObrigacoesTocadasNaImportacao $tocadas,
         array $impactoDaReativacao,
         bool $temParcelaPaga,
@@ -274,16 +281,18 @@ final class ImportarAcordosDetalhadosUseCase
         //
         // ⚠️ Não lança exceção, ao contrário do caminho manual: derrubaria o lote inteiro por causa de
         // uma aba. Vira aviso acionável, com o caminho da saída (a etapa 1 apaga o recebimento).
-        if ($sobrescrita?->desativa() === true && $temParcelaPaga) {
-            $situacoesDesconhecidas[] = sprintf(
-                'Acordo %d: a contábil diz "%s", mas há PARCELA PAGA no sistema — status mantido em %s. '
-                . 'Cancelar agora faria o dinheiro já recebido parar de abater o saldo. '
-                . 'Para aplicar: exclua o recebimento da parcela (tela do objeto → Movimentos → Excluir) e importe de novo.',
-                $aba->numero,
-                $aba->situacao,
-                $acordo->getStatus()->value,
-            );
-            $sobrescrita = null;
+        if ($sobrescrita?->desativa() === true) {
+            $barrado = $this->motivoParaNaoDesativar($acordo, $temParcelaPaga);
+            if ($barrado !== null) {
+                $sobrescritasBarradas[] = sprintf(
+                    'Acordo %d: a contábil diz "%s", mas %s — status mantido em %s.',
+                    $aba->numero,
+                    $aba->situacao,
+                    $barrado,
+                    $acordo->getStatus()->value,
+                );
+                $sobrescrita = null;
+            }
         }
 
         // ⚠️ O status que decide daqui para a frente sai da SOBRESCRITA, nunca de `$acordo->getStatus()`:
@@ -703,19 +712,42 @@ final class ImportarAcordosDetalhadosUseCase
     }
 
     /**
-     * §3/§4 — a situação do acordo, decidida sem escrever nada.
+     * §5.3 — as recusas do caminho manual, replicadas no importe. Devolve o MOTIVO (com o que fazer) ou
+     * `null` quando a desativação pode ser aplicada.
      *
-     * **Este importador passou a escrever o status** (decisão do dono, 04/08: *"o importe sempre
-     * sobrescreve o sistema"*). A recusa anterior tinha dois fundamentos e os dois caíram: o primeiro
-     * (*"`Em andamento` é a única situação da fonte, escrever seria no-op"*) era verdade só porque o
-     * export manual saía filtrado — baixando pela API, `Liquidado` é a MAIORIA do dado (259 contra 66
-     * na TOP LIFE 1); o segundo (*"status é decisão manual do escritório"*) foi decidido contra.
+     * `CancelarAcordoUseCase` tem DUAS recusas duras, e o importe replica as duas. Uma versão anterior
+     * desta frente replicou só a primeira e afirmou, na spec e no commit, que "some a única contradição
+     * com o caminho manual" — não somia: sobrava esta segunda, e a afirmação era falsa (achado da 1ª
+     * revisão).
      *
-     * Devolve `null` quando nada muda: situação não mapeada (vira aviso, status intocado) ou situação
-     * que já bate com o sistema (idempotência — a segunda execução não reescreve nem registra evento).
-     *
-     * @param list<string> $situacoesDesconhecidas acumulador do lote
+     * ⚠️ Diferença deliberada em relação ao manual: **nunca lança**. Uma exceção derrubaria o lote
+     * inteiro por causa de uma aba; aqui vira aviso acionável, com a saída indicada.
      */
+    private function motivoParaNaoDesativar(Acordo $acordo, bool $temParcelaPaga): ?string
+    {
+        // (1) PARCELA PAGA — a decisão do dono de 04/08. Cancelar tira as parcelas do exigível levando a
+        // alocação junto: o dinheiro recebido para de abater o saldo e o devedor volta a ser cobrado por
+        // algo que pagou. Espelha `CancelarAcordoUseCase::recusarSeAlgumaParcelaFoiPaga`.
+        if ($temParcelaPaga) {
+            return 'há PARCELA PAGA no sistema. Cancelar agora faria o dinheiro já recebido parar de abater o saldo. '
+                . 'Para aplicar: exclua o recebimento da parcela (tela do objeto → Movimentos → Excluir) e importe de novo';
+        }
+
+        // (2) PARCELAS RENEGOCIADAS por outro acordo VIGENTE — espelha
+        // `AcordoComParcelasRenegociadasException`. Desativar aqui conta a MESMA dívida duas vezes no
+        // saldo: as originais deste acordo voltam ao exigível (`asub` deixa de ser vigente) E as parcelas
+        // do acordo novo continuam exigíveis (`aorig` segue vigente) — ver `doCasoExigiveis`.
+        //
+        // Só existe em dado legado: INV-I bloqueia criar o estado hoje. Mas é exatamente o tipo de dado
+        // que uma importação de acervo antigo encontra.
+        if ($this->obrigacaoRepository->parcelasRenegociadasPorAcordoVigente($acordo) !== []) {
+            return 'as parcelas dele foram renegociadas por outro acordo VIGENTE. '
+                . 'Cancelar agora contaria a mesma dívida duas vezes no saldo. Resolva os dois acordos à mão antes';
+        }
+
+        return null;
+    }
+
     /**
      * Quais acordos do lote têm ao menos uma PARCELA PAGA — a foto que barra a desativação (§5.3).
      *
@@ -761,6 +793,20 @@ final class ImportarAcordosDetalhadosUseCase
         return $mapa;
     }
 
+    /**
+     * §3/§4 — a situação do acordo, decidida sem escrever nada.
+     *
+     * **Este importador passou a escrever o status** (decisão do dono, 04/08: *"o importe sempre
+     * sobrescreve o sistema"*). A recusa anterior tinha dois fundamentos e os dois caíram: o primeiro
+     * (*"`Em andamento` é a única situação da fonte, escrever seria no-op"*) era verdade só porque o
+     * export manual saía filtrado — baixando pela API, `Liquidado` é a MAIORIA do dado (259 contra 66
+     * na TOP LIFE 1); o segundo (*"status é decisão manual do escritório"*) foi decidido contra.
+     *
+     * Devolve `null` quando nada muda: situação não mapeada (vira aviso, status intocado) ou situação
+     * que já bate com o sistema (idempotência — a segunda execução não reescreve nem registra evento).
+     *
+     * @param list<string> $situacoesDesconhecidas acumulador do lote
+     */
     private function resolverSobrescrita(AcordoDetalhadoImportavel $aba, Acordo $acordo, array &$situacoesDesconhecidas): ?SobrescritaDeSituacao
     {
         $mapeada = self::SITUACOES[$this->semAcento($aba->situacao)] ?? null;

@@ -19,7 +19,7 @@ Spec-mãe do importador: `docs/specs/cobranca-importar-acordos-detalhados.md`.
 ## 1. Por que isto existe agora
 
 O `ImportarAcordosDetalhadosUseCase` **nunca escreve o status do acordo**. Isso foi deliberado e está
-justificado no próprio código ([`:598-631`](../../app/src/Cobranca/UseCase/ImportarAcordosDetalhadosUseCase.php#L598-L631)),
+justificado no próprio código (no `resolverSobrescrita`, ver o arquivo — as linhas mudaram com esta frente),
 com dois argumentos que **eram verdadeiros quando foram escritos**:
 
 1. *"A única situação que a fonte traz hoje (`Em andamento`) mapeia para `Ativo`, que já é o status de
@@ -125,13 +125,13 @@ tratamento**:
   voltam ao saldo **com os juros parados**. É exatamente o defeito que o dono reportou e que a frente
   `cobranca-cancelar-acordo` corrigiu. **O importe tem de chamar o restaurador**, como
   `CancelarAcordoUseCase` faz.
-- **Parcela paga.** `CancelarAcordoUseCase` **recusa** cancelar acordo com parcela paga
-  (`AcordoComParcelaPagaException`), porque o valor recebido para de abater o saldo. **Aqui não pode
-  lançar** — derrubaria o lote inteiro por causa de uma aba. Segue a regra do dono: **aplica, mede e
-  reporta**, na mesma linha do que a Receitas faz na reativação.
+- ⛔ **Parcela paga → NÃO desativa.** Esta seção dizia *"aplica, mede e reporta"*; o dono decidiu o
+  contrário em 04/08 e a regra vigente está na **§5.3** — a desativação é **recusada**, com aviso
+  acionável. O mesmo vale para **parcelas renegociadas por outro acordo vigente**.
 
 ⚠️ O ramo nasce **code-complete e não exercitado** — o arquivo de cancelados não entra na importação.
-Antes de qualquer execução contra `*_CANCELADO.xlsx`, isto volta ao dono.
+Antes de qualquer execução contra `*_CANCELADO.xlsx`, isto volta ao dono. As duas recusas da §5.3 valem
+aqui: com parcela paga ou com parcelas renegociadas, a desativação não acontece.
 
 ### 5.3 ✅ A ÚNICA EXCEÇÃO a "sobrescreve sempre" — decisão do dono, 04/08
 
@@ -158,9 +158,30 @@ fica como está e o lote ganha um aviso **acionável**, com o caminho da saída.
 A saída existe e é a **etapa 1**: `cobranca_pagamento_excluir` apaga o recebimento e reabre a parcela;
 feito isso, a importação seguinte cancela sem tocar em dinheiro recebido.
 
-⚠️ Isto **alinha o importe ao caminho manual** em vez de contrariá-lo — some, portanto, a única
-contradição que a §5.2 declarava. A regra *"o importe sobrescreve"* continua valendo para todo o resto:
-reativação, `Ativo ↔ Cumprido` e cancelamento de acordo **sem** parcela paga.
+#### As DUAS recusas, não uma
+
+⚠️ A primeira versão desta seção replicou só a recusa de parcela paga e afirmou que *"some a única
+contradição com o caminho manual"*. **Era falso** (achado da 1ª revisão): `CancelarAcordoUseCase` tem
+**duas** recusas duras, e faltava a segunda.
+
+| recusa do manual | exceção do importe | por quê |
+|---|---|---|
+| `AcordoComParcelaPagaException` | ✅ | o dinheiro recebido para de abater o saldo |
+| `AcordoComParcelasRenegociadasException` | ✅ | as originais deste acordo voltam ao exigível **e** as parcelas do acordo novo continuam exigíveis — a **mesma dívida contada duas vezes** |
+
+A segunda só existe em dado legado (INV-I bloqueia criar o estado hoje), mas é exatamente o tipo de dado
+que uma importação de acervo antigo encontra.
+
+Com as duas, o importe **fica alinhado ao caminho manual** na direção de desativação. A regra *"o importe
+sobrescreve"* continua valendo para todo o resto: reativação, `Ativo ↔ Cumprido` e cancelamento de acordo
+sem nenhum dos dois impedimentos.
+
+#### O canal de aviso é PRÓPRIO
+
+As recusas saem em `sobrescritasBarradas`, **não** em `situacoesDesconhecidas`. A situação foi
+reconhecida; foi recusada. Sob o título *"não reconhecida — o importe não adivinha"* o operador leria
+"o sistema não entendeu" onde o certo é "o sistema entendeu e se recusou — faça isto". E quem um dia
+varresse aquela lista para descobrir strings a mapear encontraria ruído.
 
 ## 6. Paridade prévia × confirmação — a invariável que não pode cair
 
