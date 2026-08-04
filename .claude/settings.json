@@ -2,11 +2,6 @@
   "worktree": {
     "baseRef": "head"
   },
-  "permissions": {
-    "ask": [
-      "mcp__playwright"
-    ]
-  },
   "skillOverrides": {
     "webapp-testing": "user-invocable-only",
     "run": "user-invocable-only"

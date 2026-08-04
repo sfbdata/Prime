@@ -136,6 +136,7 @@ recebimento 01/01/2026 a 04/08/2026, vencimento Todos`.
   tem de sair do `.txt` e ir para variável de ambiente/secret.
 - ⚠️ A conta é de **pessoa física** (a secretária). Se ela trocar a senha ou sair, a automação para.
   Vale pedir conta de serviço à contábil.
-- ⚠️ `.claude/settings.json` apareceu modificado sem ter sido pedido: perdeu o
-  `permissions.ask: ["mcp__playwright"]`, que era a trava de pedir autorização antes de abrir o navegador.
-  **Não foi commitado. Decidir se volta.**
+- ℹ️ `.claude/settings.json` perdeu o `permissions.ask: ["mcp__playwright"]`. **Foi decisão do dono**, e está
+  commitada: com a trava, cada ação do Playwright pedia autorização e a investigação ficava inviável.
+  Continua valendo a regra do `CLAUDE.md`: **o smoke no navegador é do dono** — o Playwright só é aberto
+  quando ele pede, com essas palavras. O que caiu foi o prompt por ação, não a regra.
