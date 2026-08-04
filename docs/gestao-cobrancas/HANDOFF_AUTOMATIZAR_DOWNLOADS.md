@@ -174,6 +174,88 @@ recebimento 01/01/2026 a 04/08/2026, vencimento Todos`.
 
 5. **Rodar Receitas → Acordos no dev com `--confirmar`** e medir — quando o dono mandar.
 
+## 6.1 🔴 BALANÇO DE COBERTURA — o que NÃO entra numa importação do zero (medido 04/08)
+
+**A pergunta do dono:** *"quando eu limpar tudo e fazer as importações, vai estar tudo certo, sem valor
+faltando em nenhuma unidade de nenhum condomínio?"*
+
+**A resposta hoje é NÃO.** Faltariam **R$ 21.840,73**, em pelo menos **10 unidades identificadas**.
+Isto aqui não é estimativa: cada linha foi medida chamando os adapters reais contra os 6 arquivos de
+`2026-08-04-api/`, e o valor é a soma de principal + juros + multa + correção + honorários da linha.
+
+| # | fonte | o que fica de fora | valor | estado |
+|---|---|---|---:|---|
+| 1 | Acordos — **hífen** | 172 parcelas + 2 contas | R$ 49.038,17 | ✅ **corrigido** em 04/08 |
+| 2 | Inadimplência — **boleto sem NN** | 73 boletos | **R$ 10.694,66** | 🔴 aberto |
+| 3 | Acordos — **linhas sem NN** | 165 contas originais | **R$ 6.750,00** \* | 🔴 aberto |
+| 4 | Inadimplência — **só encargos/honorário** | 13 boletos (20 linhas) | **R$ 4.396,07** | 🔴 aberto (conhecido desde 01/08) |
+| 5 | Receitas — líquido não positivo | 1 recebimento (NN 60082) | ~0 | 🟡 menor |
+
+\* Só os arquivos importáveis. Contando o `CANCELADO`, que não é importado, são R$ 13.310,00 + 1 parcela
+de R$ 196,98.
+
+### A causa nº 1 é a mesma nas duas fontes: **a planilha nem sempre traz o NN**
+
+No acordo 12, a `Relação das contas originais` tem três linhas de dívida e **só a primeira tem NN**:
+
+```
+53524 | Taxa de condomínio | 11/2021 | 10/11/2021 | 100,00
+      | Taxa de condomínio | 12/2021 | 10/12/2021 | 100,00     <- sem NN
+      | Energia            | 12/2021 | 10/12/2021 |  45,00     <- sem NN
+```
+
+O cabeçalho da própria aba declara `Valor total das contas originais: 245,00`, isto é, **a fonte conta as
+três**. Os adapters descartam toda linha sem NN (`ctype_digit`), e a leitura fecha em R$ 100,00. Os
+R$ 145,00 que faltam são exatamente as duas linhas mudas. **Era este o "acordo de R$ 145,00" — e ele não
+era um caso isolado: são 165 linhas.**
+
+Na inadimplência o mesmo padrão vira rejeição explícita: **73 de 86 rejeições são `Boleto sem número
+(NN)`**. Não é lixo de rodapé — é dívida real, com unidade, sacado, classe e vencimento preenchidos.
+
+⚠️ **Por que o NN não é um detalhe:** ele é a chave de deduplicação (`uniq_cobranca_obrigacao_ref_competencia`).
+Aceitar linha sem NN sem uma chave substituta faz a **segunda importação duplicar a dívida** — trocaria
+dinheiro faltando por dinheiro dobrado. Foi por isso que a rejeição existe. A correção precisa de uma
+chave alternativa (unidade + competência + vencimento + classe é a candidata natural), não de remover a
+guarda.
+
+### As 10 unidades afetadas (inadimplência)
+
+| valor | unidade / sacado | motivo |
+|---:|---|---|
+| R$ 9.718,35 | 20-03C · JOSE CARLOS DA SILVA PER… | sem NN |
+| R$ 1.115,14 | 20-03 · MANOEL MARGARIDO DA SILV… | só encargos |
+| R$ 976,31 | 17-01/1-2 · MARCELO ANTONIO SILVA | sem NN |
+| R$ 855,11 | 01-09 · CRISTIANO ARAUJO CAMPOS | só encargos |
+| R$ 649,82 | 03-04A · MARIA GENIRA DE ARAUJO G… | só encargos |
+| R$ 425,57 | 08-03A · ISMAEL RODRIGUES SOUSA | só encargos |
+| R$ 417,22 | 11-04B · CLEBER MAGALHAES ALVES | só encargos |
+| R$ 398,42 | 08-02B · IGOR JOSE DE SOUSA | só encargos |
+| R$ 319,10 | 04-03 · FERNANDO PEREIRA NERY | só encargos |
+| R$ 215,69 | 08-04A · TADEU HENRIQUE QUEIROZ D… | só encargos |
+
+**Quase metade do buraco está numa unidade só** (20-03C, R$ 9.718,35).
+
+### O que a leitura JÁ acerta
+
+Nos acordos que hoje são processados, a leitura **fecha 100%** com o cabeçalho da planilha. Das 12
+divergências restantes, 10 são de **centavos** (R$ 0,01–0,05, arredondamento da contábil) e 2 são o caso
+das linhas sem NN — e **todas as 12 estão em abas ignoradas**, nenhuma nos acordos que entram.
+
+⚠️ **Fato remedido:** a pendência de 01/08 registrava R$ 4.390,86 para o "só encargos"; nos arquivos de
+04/08 são **R$ 4.396,07**. Mais um caso de *fato medido tem prazo de validade curto nesta fonte* — o
+número muda a cada emissão, a decisão não.
+
+### 6.2 Decisão do dono reiterada em 04/08
+
+> *"O IMPORTE É A FONTE DA VERDADE, ELE QUEM MANDA EM TUDO, O QUE VEM DA CONTABILIDADE (PLANILHA DO
+> IMPORTE) É O QUE VALE."*
+
+Isso vale para **todos os itens acima** e mais um: as **33 divergências de valor** (planilha maior que o
+sistema em 33 de 33, somando **R$ 2.713,00**) hoje são apenas **reportadas** — o `ImportarAcordosDetalhados`
+não sobrescreve valor lançado, por decisão de 30/07 registrada na §4 da spec-mãe (*"a planilha não é
+autoridade sobre dinheiro já lançado"*). **Essa decisão está revogada pela diretriz acima e precisa de
+frente própria** (risco ALTO: mexe em saldo de devedor).
+
 **Depois (a automação em si):**
 6. **Validador da linha `Filtros:`** — recusar arquivo cujo recorte não seja o esperado. É o que impede o
    erro original de voltar, e **vale mesmo com download manual**. Comparação exata por campo (ver §3.6).
