@@ -186,8 +186,8 @@ leitura do **`main.js` do próprio sistema deles**, não de tentativa e erro no 
 | `top_life_2_Receitas_detalhadas_TODOS.xlsx` | APLC - TOP LIFE 2 |
 | `amli_br_060_Receitas_detalhadas_TODOS.xlsx` | AMLI BR 060 |
 | `amli_br_060_Acordos_detalhados_EM_ANDAMENTO.xlsx` · `_LIQUIDADO.xlsx` | AMLI BR 060 |
-| ⏳ `amli_br_060_Dados_cadastrais.xlsx` | emitido, **preso em `EM_PROCESSAMENTO`** há >15 min |
-| ⛔ Inadimplência da AMLI | **NÃO emitida** — trava em decisão de dinheiro (ver §6.0.3) |
+| `amli_br_060_Inadimplencias_detalhadas.xlsx` | AMLI BR 060 |
+| ⏳ `amli_br_060_Dados_cadastrais.xlsx` | emitido, **preso em `EM_PROCESSAMENTO`** há >25 min (o registrado eram 15–20 s). Reemitir |
 
 ### 6.0.1 🔑 Duas armadilhas do §3 estavam ERRADAS — medido
 
@@ -223,13 +223,26 @@ Receitas cobre **330 dos 359** acordos (TL1 304/325, TL2 26/34). **Faltam 29, n�
 desenho (o importe de Acordos criar acordo) continua **certa** — é a fonte canônica —, mas passa de
 *bloqueante de 357* para *fecha os últimos 29*. **O recorte era o problema; o desenho é o acabamento.**
 
-### 6.0.3 ⛔ Por que a Inadimplência da AMLI não foi emitida
+### 6.0.3 🔑 Os encargos NÃO precisam ir no payload — a §3.7 está incompleta
 
-A §3.7 registra, medido: **os encargos vão no payload** (`juros`, `multa`, `honorario`) e **quem chama
-decide o dinheiro do relatório** — TL1 saiu com 20%, TL2 com 15%, conforme enviado. **Não há percentual
-conhecido para a AMLI BR 060**, e emitir com o errado faria a dívida de todo o condomínio entrar errada
-no sistema. **Trava em decisão do dono.** Receitas e Acordos não têm esse risco: trazem valor realizado,
-não calculado na emissão.
+A §3.7 registrava que *"os encargos vão no payload e quem chama decide o dinheiro do relatório"* (TL1 com
+20%, TL2 com 15%, "conforme enviado"). **Isso é verdade, mas é só metade.** O formulário tem
+`personalizarAcrescimos: false` por padrão, com `juros`/`multa`/`honorario` **vazios** — e nesse modo o
+sistema usa **os percentuais cadastrados do próprio condomínio**. Mandar os campos é que **sobrescreve**
+o cadastro.
+
+A Inadimplência da AMLI foi emitida **no modo padrão**, e o resultado foi conferido contra o print que o
+dono mandou da tela de configuração dela:
+
+| encargo | medido no arquivo emitido | configuração do condomínio |
+|---|---|---|
+| multa | **2,00%** exato sobre o principal | 2,00 ✅ |
+| juros | R$ 3,12 sobre R$ 170,00 em 55 dias = **1,00% ao mês pró-rata** | 1,00 ✅ |
+| honorário | R$ 26,48 sobre R$ 176,52 (principal + encargos) = **15,0%** | 15,00 ✅ |
+
+**Os três batem.** Conclusão operacional: **emitir sempre no modo padrão** — o condomínio é a autoridade
+sobre os próprios percentuais, e assim não há como o emissor errar o dinheiro por descuido. Personalizar
+só quando houver decisão explícita para isso.
 
 ## 6.1 🔴 BALANÇO DE COBERTURA — o que NÃO entra numa importação do zero (medido 04/08)
 
