@@ -179,10 +179,32 @@ final class ImportarAcordosDetalhadosCommand extends Command
                 ['Parcelas que já existiam (nada a fazer)', count($resultado->nnsParcelasExistentes())],
                 ['Parcelas existentes ligadas ao acordo (não mexe no saldo hoje; evita dívida dupla ao romper)', count($resultado->parcelasVinculadas())],
                 ['Contas já marcadas (nada a fazer)', count($resultado->nnsContasJaMarcadas())],
+                ['Situações de acordo sobrescritas (o importe manda no status)', count($resultado->situacoesSobrescritas())],
                 ['Abas ignoradas', $resultado->totalAbasIgnoradas()],
                 ['Linhas rejeitadas na leitura', $resultado->totalRejeitadas()],
             ],
         );
+
+        $this->imprimirSobrescritas($io, $resultado);
+    }
+
+    /**
+     * As sobrescritas de status são AÇÃO, não aviso: aparecem sempre, fora do bloco "A CONFERIR". Com
+     * 259 acordos liquidados só na TOP LIFE 1, tratá-las como aviso faria o alerta disparar em toda
+     * importação — e alerta que sempre dispara é alerta que ninguém lê.
+     */
+    private function imprimirSobrescritas(SymfonyStyle $io, ResultadoImportacaoAcordos $resultado): void
+    {
+        $sobrescritas = $resultado->situacoesSobrescritas();
+        if ($sobrescritas === []) {
+            return;
+        }
+
+        $io->section('SITUAÇÃO DO ACORDO — o importe sobrescreve o sistema');
+        foreach ($sobrescritas as $linha) {
+            $io->writeln('  · ' . $linha);
+        }
+        $io->newLine();
     }
 
     private function imprimirAvisos(SymfonyStyle $io, ResultadoImportacaoAcordos $resultado): void
@@ -199,8 +221,11 @@ final class ImportarAcordosDetalhadosCommand extends Command
             'Linhas recusadas' => $resultado->contasRecusadas(),
             'Parcelas NÃO criadas por NN ambíguo (mesmo NN, outra competência)' => $resultado->parcelasAmbiguas(),
             'Casadas pelo fallback legado — obrigação sem competência gravada, casou só pelo NN' => $resultado->casadasSemCompetencia(),
-            'Situação divergente (status do sistema MANTIDO)' => $resultado->situacoesDivergentes(),
-            'Situação não reconhecida' => $resultado->situacoesDesconhecidas,
+            // O aviso mais grave desta importação, e por isso o primeiro dos dois: dinheiro que o devedor
+            // JÁ PAGOU e que deixa de abater o saldo porque a reativação tirou a original do exigível.
+            'DINHEIRO JÁ PAGO que deixa de abater o saldo (reativação de acordo)' => $resultado->dinheiroParadoPelaReativacao(),
+            'Impacto da reativação no saldo devedor' => $resultado->impactoDaReativacaoNoSaldo(),
+            'Situação não reconhecida (status MANTIDO — o importe não adivinha)' => $resultado->situacoesDesconhecidas,
             // A segunda lista é subconjunto da primeira; sem o diff, o mesmo NN apareceria nos dois blocos
             // e o operador contaria duas ocorrências onde há uma.
             'Parcelas que constam LIQUIDADAS na planilha e EXISTEM no sistema — a baixa NÃO foi feita, confira à mão (§5)' => array_values(array_diff($resultado->parcelasLiquidadasNaPlanilha, $resultado->parcelasLiquidadasIgnoradas())),
@@ -225,7 +250,9 @@ final class ImportarAcordosDetalhadosCommand extends Command
             + count($acordo->contasRecusadas)
             + count($acordo->parcelasAmbiguas)
             + count($acordo->casadasSemCompetencia)
-            + ($acordo->situacaoDivergente !== null ? 1 : 0);
+            // A sobrescrita de status NÃO conta como pendência: é ação executada, não coisa a conferir.
+            // O que ela pode gerar de pendência é a reativação, e essa conta.
+            + count($acordo->dinheiroParadoPelaReativacao);
 
         return $quantas === 0 ? '—' : (string) $quantas;
     }

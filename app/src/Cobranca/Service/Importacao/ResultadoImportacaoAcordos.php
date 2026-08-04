@@ -115,17 +115,39 @@ final class ResultadoImportacaoAcordos
         return $this->juntar(static fn (AcordoProcessado $a): array => $a->parcelasAmbiguas);
     }
 
-    /** @return list<string> */
-    public function situacoesDivergentes(): array
+    /**
+     * Status de acordo ALTERADO para o que a planilha diz (spec `cobranca-importar-acordos-situacao.md`).
+     * É lista de AÇÃO — escrita que saiu daqui —, não de aviso.
+     *
+     * @return list<string>
+     */
+    public function situacoesSobrescritas(): array
     {
-        $divergentes = [];
+        $sobrescritas = [];
         foreach ($this->acordos as $acordo) {
-            if ($acordo->situacaoDivergente !== null) {
-                $divergentes[] = $acordo->situacaoDivergente;
+            if ($acordo->situacaoSobrescrita !== null) {
+                $sobrescritas[] = $acordo->situacaoSobrescrita;
             }
         }
 
-        return $divergentes;
+        return $sobrescritas;
+    }
+
+    /**
+     * Dinheiro já recebido que DEIXA de abater o saldo por causa de uma reativação. O aviso mais grave
+     * que esta importação produz.
+     *
+     * @return list<string>
+     */
+    public function dinheiroParadoPelaReativacao(): array
+    {
+        return $this->juntar(static fn (AcordoProcessado $a): array => $a->dinheiroParadoPelaReativacao);
+    }
+
+    /** @return list<string> */
+    public function impactoDaReativacaoNoSaldo(): array
+    {
+        return $this->juntar(static fn (AcordoProcessado $a): array => $a->impactoDaReativacaoNoSaldo);
     }
 
     /**
@@ -150,9 +172,15 @@ final class ResultadoImportacaoAcordos
 
     /**
      * Há algo que o operador PRECISA olhar antes de confirmar? Divergência de valor, casamento pelo
-     * fallback legado, linha recusada, parcela ambígua, situação divergente/desconhecida, parcela que
-     * consta liquidada ou aba ignorada. Tudo aqui é coisa em que a planilha e o sistema DISCORDAM — e a
-     * importação escolheu a direção segura sozinha; quem decide o resto é gente.
+     * fallback legado, linha recusada, parcela ambígua, situação desconhecida, parcela que consta
+     * liquidada, aba ignorada — e o dinheiro que uma reativação tira do exigível. Tudo aqui é coisa em
+     * que a planilha e o sistema DISCORDAM — e a importação escolheu a direção segura sozinha; quem
+     * decide o resto é gente.
+     *
+     * ⚠️ A sobrescrita de situação NÃO entra: ela é AÇÃO, não discordância pendente. Aparece no bloco de
+     * ações do resumo, sempre, e não depende de haver aviso para ser vista — com 259 acordos liquidados
+     * na TOP LIFE 1, pôr a sobrescrita aqui faria o alerta disparar em toda importação e ensinaria o
+     * operador a ignorá-lo. O que ela pode gerar de aviso — a reativação — está listado acima.
      */
     public function temAvisos(): bool
     {
@@ -160,7 +188,8 @@ final class ResultadoImportacaoAcordos
             || $this->casadasSemCompetencia() !== []
             || $this->contasRecusadas() !== []
             || $this->parcelasAmbiguas() !== []
-            || $this->situacoesDivergentes() !== []
+            || $this->dinheiroParadoPelaReativacao() !== []
+            || $this->impactoDaReativacaoNoSaldo() !== []
             || $this->situacoesDesconhecidas !== []
             || $this->parcelasLiquidadasNaPlanilha !== []
             || $this->conferenciasCabecalho !== []

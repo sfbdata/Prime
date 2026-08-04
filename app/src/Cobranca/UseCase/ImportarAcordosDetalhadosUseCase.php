@@ -11,6 +11,7 @@ use App\Cobranca\Entity\Carteira;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\Obrigacao;
 use App\Cobranca\Enum\StatusAcordo;
+use App\Cobranca\Enum\TipoEventoHistorico;
 use App\Cobranca\Exception\CarteiraNaoEncontradaException;
 use App\Cobranca\Exception\MigrationDeCompetenciaPendenteException;
 use App\Cobranca\Repository\AcordoRepository;
@@ -20,11 +21,15 @@ use App\Cobranca\Service\CalculadoraEncargos;
 use App\Cobranca\Service\Importacao\AcordoDetalhadoImportavel;
 use App\Cobranca\Service\Importacao\AcordoProcessado;
 use App\Cobranca\Service\Importacao\ContaOriginalImportavel;
+use App\Cobranca\Service\Importacao\ImpactoDaReativacaoDeAcordo;
 use App\Cobranca\Service\Importacao\ObrigacoesTocadasNaImportacao;
 use App\Cobranca\Service\Importacao\ParcelaAcordoImportavel;
 use App\Cobranca\Service\Importacao\ResultadoImportacaoAcordos;
 use App\Cobranca\Service\Importacao\ResultadoLeituraAcordos;
+use App\Cobranca\Service\Importacao\SobrescritaDeSituacao;
+use App\Cobranca\Service\RegistrarEventoHistorico;
 use App\Cobranca\Service\ResolvedorConfigEncargos;
+use App\Cobranca\Service\RestauradorObrigacoesOriginais;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use Doctrine\ORM\EntityManagerInterface;
@@ -59,11 +64,19 @@ use Doctrine\ORM\EntityManagerInterface;
 final class ImportarAcordosDetalhadosUseCase
 {
     /**
-     * Situações da fonte que o domínio sabe traduzir (§3.3). Comparadas em minúsculas e sem acento.
-     * `Em andamento` é a única presente no dado atual; qualquer outra é reportada, nunca adivinhada.
+     * Situações da fonte que o domínio sabe traduzir (§3). Comparadas em minúsculas e sem acento.
+     *
+     * As três strings foram MEDIDAS nos arquivos reais de 04/08 (`Situação: …` da primeira aba), não
+     * supostas: `Em andamento` · `Liquidado` · `Cancelado`. A API da contábil não tem situação
+     * equivalente a `Rompido` (enum `TODOS·EM_ANDAMENTO·LIQUIDADO·CANCELADO`), então o importe nunca
+     * PRODUZ `Rompido` — só o consome como estado de origem.
+     *
+     * Qualquer outra continua reportada e nunca adivinhada.
      */
     private const SITUACOES = [
         'em andamento' => StatusAcordo::Ativo,
+        'liquidado' => StatusAcordo::Cumprido,
+        'cancelado' => StatusAcordo::Cancelado,
     ];
 
     public function __construct(
@@ -73,6 +86,9 @@ final class ImportarAcordosDetalhadosUseCase
         private readonly RegistrarObrigacaoUseCase $registrarObrigacao,
         private readonly CalculadoraEncargos $calculadora,
         private readonly ResolvedorConfigEncargos $resolvedorConfig,
+        private readonly RegistrarEventoHistorico $registrarEvento,
+        private readonly RestauradorObrigacoesOriginais $restaurador,
+        private readonly ImpactoDaReativacaoDeAcordo $impactoDaReativacao,
         private readonly EntityManagerInterface $em,
     ) {
     }
@@ -113,6 +129,16 @@ final class ImportarAcordosDetalhadosUseCase
 
         $carteira = $this->resolverCarteira($carteiraId, $tenant);
 
+        // Fotografa o efeito das REATIVAÇÕES sobre o banco INTOCADO, antes de qualquer escrita, nos dois
+        // modos. Ler isto dentro do laço faria a confirmação medir um banco que ela própria já mexeu, e
+        // o número divergiria da prévia (`feedback_previa_precisa_de_estado`). Mesmo serviço que o
+        // importador de receitas usa para a mesma decisão.
+        $impactoPorAcordo = $this->impactoDaReativacao->mapearPorNumeroExterno(
+            $carteira,
+            array_map(static fn (AcordoDetalhadoImportavel $aba): int => $aba->numero, $leitura->acordos),
+            $tenant,
+        );
+
         $processados = [];
         $liquidadas = [];
         $situacoesDesconhecidas = [];
@@ -134,7 +160,7 @@ final class ImportarAcordosDetalhadosUseCase
                 $conferencias[] = $conferencia;
             }
 
-            $processados[] = $this->processarAba($aba, $carteira, $tenant, $usuario, $situacoesDesconhecidas, $tocadas);
+            $processados[] = $this->processarAba($aba, $carteira, $tenant, $usuario, $situacoesDesconhecidas, $tocadas, $impactoPorAcordo[$aba->numero] ?? [[], []]);
         }
 
         return new ResultadoImportacaoAcordos(
@@ -188,6 +214,7 @@ final class ImportarAcordosDetalhadosUseCase
     /**
      * @param list<string>          $situacoesDesconhecidas acumulador do lote
      * @param ObrigacoesTocadasNaImportacao $tocadas                registro do lote (ver `processar`)
+     * @param array{0: list<string>, 1: list<string>} $impactoDaReativacao medido sobre o banco intocado
      */
     private function processarAba(
         AcordoDetalhadoImportavel $aba,
@@ -196,6 +223,7 @@ final class ImportarAcordosDetalhadosUseCase
         ?User $usuario,
         array &$situacoesDesconhecidas,
         ObrigacoesTocadasNaImportacao $tocadas,
+        array $impactoDaReativacao,
     ): AcordoProcessado {
         $acordo = $this->acordoRepository->findOnePorNumeroExternoNaCarteira($aba->numero, $carteira, $tenant);
         if ($acordo === null) {
@@ -203,34 +231,66 @@ final class ImportarAcordosDetalhadosUseCase
             return $this->abaIgnorada($aba, sprintf('Acordo %d não existe nesta carteira — quem cria acordo é o relatório de inadimplência (§3.1).', $aba->numero));
         }
 
-        if (!$acordo->getStatus()->ehVigente()) {
-            // Acordo rompido/cancelado: a aba inteira é pulada, e não só o status (§3.3).
-            //
-            // Escrever aqui CRIA DÍVIDA. A conta reconstruída pelo §3.2.1 nasce com `acordoSubstituto`,
-            // e `doCasoExigiveis` só exclui o que está substituído por acordo VIGENTE — com o acordo
-            // rompido ela entra no saldo e cobra de novo uma dívida que a planilha listou como
-            // renegociada. A parcela futura tem o defeito espelhado: nasceria ligada a um acordo que
-            // não vale mais. Marcar as originais seria inócuo pelo mesmo motivo, e igualmente confuso.
-            //
-            // A janela é estreita — romper é registrado nos dois lados, então a planilha seguinte já vem
-            // alinhada —, mas pular custa nada e a fecha inteira. Quem decide o que fazer com um acordo
-            // rompido é gente, com o relatório na mão.
-            return $this->abaIgnorada($aba, sprintf(
-                'Acordo %d está %s no sistema — aba pulada inteira: escrever contra acordo não vigente devolveria as contas ao saldo. A planilha diz "%s"; confira à mão.',
-                $aba->numero,
-                $acordo->getStatus()->value,
-                $aba->situacao,
-            ));
-        }
-
         $caso = $acordo->getCaso();
         if ($caso === null) {
             return $this->abaIgnorada($aba, sprintf('Acordo %d está sem caso de cobrança — dado inconsistente, nada foi tocado.', $aba->numero));
         }
+
+        // §4 — A SITUAÇÃO DA PLANILHA MANDA. Decisão do dono de 04/08: "o importe sempre sobrescreve o
+        // sistema". Resolvida ANTES da guarda de vigência e IDÊNTICA nos dois modos: é o que faz prévia
+        // e confirmação processarem exatamente as mesmas abas (§6).
+        $sobrescrita = $this->resolverSobrescrita($aba, $acordo, $situacoesDesconhecidas);
+
+        // ⚠️ O status que decide daqui para a frente sai da SOBRESCRITA, nunca de `$acordo->getStatus()`:
+        // depois de a confirmação escrever, a entidade já responde o valor novo, e a prévia — que não
+        // escreve — responderia o antigo. Consultar a entidade aqui é como as duas passam a divergir.
+        $statusFinal = $sobrescrita?->novo ?? $acordo->getStatus();
+
+        if ($sobrescrita !== null && $usuario !== null) {
+            $this->aplicarSobrescrita($acordo, $caso, $sobrescrita, $tenant, $usuario);
+        }
+
+        // Avisos só existem quando a transição REALMENTE reativa; medida ou não, a lista fica vazia no
+        // resto dos casos. Alarme falso em aviso de dinheiro ensina o operador a ignorar.
+        [$dinheiroParado, $impactoNoSaldo] = $sobrescrita?->reativa() === true ? $impactoDaReativacao : [[], []];
+
+        if (!$statusFinal->ehVigente()) {
+            // Acordo não vigente: a aba inteira é pulada, e não só o status.
+            //
+            // Escrever aqui CRIA DÍVIDA. A conta reconstruída pelo §3.2.1 nasce com `acordoSubstituto`,
+            // e `doCasoExigiveis` só exclui o que está substituído por acordo VIGENTE — com o acordo
+            // não vigente ela entra no saldo e cobra de novo uma dívida que a planilha listou como
+            // renegociada. A parcela futura tem o defeito espelhado: nasceria ligada a um acordo que
+            // não vale mais. Marcar as originais seria inócuo pelo mesmo motivo, e igualmente confuso.
+            //
+            // 🔑 O que mudou com a sobrescrita: a guarda agora consulta o status que a PLANILHA diz, não
+            // o que estava no banco. Uma aba `Liquidado` cujo acordo estava `rompido` no sistema deixa de
+            // ser pulada — vira `cumprido`, que é vigente, e é processada. E uma aba `Cancelado` passa a
+            // ser pulada mesmo que o sistema a tivesse como ativa. O status foi escrito acima de
+            // qualquer forma: o que a guarda decide é o que se ESCREVE CONTRA o acordo, não o status.
+            return $this->abaIgnorada(
+                $aba,
+                sprintf(
+                    'Acordo %d está %s — aba pulada inteira: escrever contra acordo não vigente devolveria as contas ao saldo. Confira à mão.',
+                    $aba->numero,
+                    $statusFinal->value,
+                ),
+                $sobrescrita,
+                $dinheiroParado,
+                $impactoNoSaldo,
+            );
+        }
+
         if ($caso->estaEncerrado()) {
             // Caso encerrado não recebe obrigação (SPEC §17). Sem esta guarda o `RegistrarObrigacaoUseCase`
             // lançaria e derrubaria o LOTE INTEIRO por causa de uma aba.
-            return $this->abaIgnorada($aba, sprintf('Acordo %d pertence a um caso ENCERRADO — caso encerrado não recebe obrigação (SPEC §17).', $aba->numero));
+            return $this->abaIgnorada(
+                $aba,
+                sprintf('Acordo %d pertence a um caso ENCERRADO — caso encerrado não recebe obrigação (SPEC §17).', $aba->numero),
+                $sobrescrita,
+                $dinheiroParado,
+                $impactoNoSaldo,
+            );
         }
 
         $configCaso = $this->resolvedorConfig->resolverDoCaso($caso);
@@ -257,9 +317,11 @@ final class ImportarAcordosDetalhadosUseCase
             parcelasAmbiguas: $parcelasAmbiguas,
             principalReconciliadoCentavos: $principal,
             valorParcelasCriadasCentavos: $valorParcelas,
-            situacaoDivergente: $this->conferirSituacao($aba, $acordo, $situacoesDesconhecidas),
+            situacaoSobrescrita: $sobrescrita?->descricao(),
             parcelasVinculadas: $parcelasVinculadas,
             parcelasLiquidadasIgnoradas: $liquidadasIgnoradas,
+            dinheiroParadoPelaReativacao: $dinheiroParado,
+            impactoDaReativacaoNoSaldo: $impactoNoSaldo,
         );
     }
 
@@ -596,22 +658,25 @@ final class ImportarAcordosDetalhadosUseCase
     }
 
     /**
-     * §3.3 — situação do acordo. Este importador **nunca escreve o status**, e isso é deliberado.
+     * §3/§4 — a situação do acordo, decidida sem escrever nada.
      *
-     * A única situação que a fonte traz hoje (`Em andamento`) mapeia para `Ativo`, que já é o status de
-     * todo acordo nascido da importação — escrever seria no-op. E em todo caso em que NÃO seria no-op, o
-     * status do sistema é uma decisão MANUAL do escritório (romper, cancelar, marcar cumprido) que move
-     * dinheiro: ressuscitar um acordo rompido a partir de uma planilha tiraria as dívidas originais do
-     * saldo de novo, desfazendo em silêncio o que uma pessoa decidiu. Então divergência vira AVISO.
+     * **Este importador passou a escrever o status** (decisão do dono, 04/08: *"o importe sempre
+     * sobrescreve o sistema"*). A recusa anterior tinha dois fundamentos e os dois caíram: o primeiro
+     * (*"`Em andamento` é a única situação da fonte, escrever seria no-op"*) era verdade só porque o
+     * export manual saía filtrado — baixando pela API, `Liquidado` é a MAIORIA do dado (259 contra 66
+     * na TOP LIFE 1); o segundo (*"status é decisão manual do escritório"*) foi decidido contra.
+     *
+     * Devolve `null` quando nada muda: situação não mapeada (vira aviso, status intocado) ou situação
+     * que já bate com o sistema (idempotência — a segunda execução não reescreve nem registra evento).
      *
      * @param list<string> $situacoesDesconhecidas acumulador do lote
      */
-    private function conferirSituacao(AcordoDetalhadoImportavel $aba, Acordo $acordo, array &$situacoesDesconhecidas): ?string
+    private function resolverSobrescrita(AcordoDetalhadoImportavel $aba, Acordo $acordo, array &$situacoesDesconhecidas): ?SobrescritaDeSituacao
     {
-        $chave = $this->semAcento($aba->situacao);
-        $mapeada = self::SITUACOES[$chave] ?? null;
+        $mapeada = self::SITUACOES[$this->semAcento($aba->situacao)] ?? null;
 
         if ($mapeada === null) {
+            // Nunca adivinhar: situação desconhecida deixa o status como está e vira linha de aviso.
             $situacoesDesconhecidas[] = sprintf('Acordo %d: situação "%s" não reconhecida — status mantido em %s.', $aba->numero, $aba->situacao, $acordo->getStatus()->value);
 
             return null;
@@ -621,12 +686,57 @@ final class ImportarAcordosDetalhadosUseCase
             return null;
         }
 
-        return sprintf(
-            'Acordo %d: a contábil diz "%s" (→ %s) e o sistema está "%s". O status do sistema é decisão do escritório e foi MANTIDO — confira à mão.',
-            $aba->numero,
-            $aba->situacao,
-            $mapeada->value,
-            $acordo->getStatus()->value,
+        return new SobrescritaDeSituacao($aba->numero, $aba->situacao, $acordo->getStatus(), $mapeada);
+    }
+
+    /**
+     * Escreve o status novo. **Só na confirmação** — a prévia nunca chega aqui, porque o `Acordo` é
+     * entidade *managed* e um `setStatus` no dry-run sujaria a UnitOfWork: um flush posterior gravaria
+     * exatamente a mudança que a prévia prometeu não fazer.
+     *
+     * Não passa por `MarcarAcordoCumpridoUseCase` / `RomperAcordoUseCase` / `CancelarAcordoUseCase`: os
+     * três exigem `estaAtivo()` e lançam `AcordoNaoAtivoException` fora disso — recusariam justamente as
+     * transições desta spec (`cumprido → ativo`, `cancelado → ativo`). A escrita é direta na entidade,
+     * como o `ImportarReceitasUseCase::reativarPorImportacao` já faz pela mesma razão.
+     */
+    private function aplicarSobrescrita(Acordo $acordo, CasoCobranca $caso, SobrescritaDeSituacao $sobrescrita, Tenant $tenant, User $usuario): void
+    {
+        // §5.2 — vigente → não vigente devolve as originais ao exigível. Sem o descongelamento elas
+        // voltam ao saldo COM OS JUROS PARADOS: é o defeito que o dono reportou e que a frente
+        // `cobranca-cancelar-acordo` corrigiu. Lido ANTES da troca de status, porque `substituidasDe`
+        // depende do vínculo e o restaurador precisa do conjunto de antes.
+        $substituidas = $sobrescrita->desativa() ? $this->restaurador->substituidasDe($acordo, $tenant) : [];
+
+        $acordo->setStatus($sobrescrita->novo);
+
+        // Motivo de rompimento/cancelamento pertence ao estado que acabou de sair. Mantê-los faria a
+        // tela mostrar "rompido por X" num acordo ativo. Mesma limpeza do `reativarPorImportacao`.
+        if ($sobrescrita->novo->ehVigente()) {
+            $acordo->setMotivoRompimento(null);
+            $acordo->setMotivoCancelamento(null);
+        }
+
+        $this->acordoRepository->salvar($acordo);
+
+        if ($substituidas !== []) {
+            $this->restaurador->restaurar($substituidas);
+        }
+
+        // Mudança de status move dinheiro; sem a linha no histórico ninguém descobre depois por que o
+        // estado mudou. Sem flush: quem fecha a transação é o `wrapInTransaction` da confirmação.
+        $this->registrarEvento->registrar(
+            $caso,
+            TipoEventoHistorico::AcordoEditado,
+            $usuario,
+            $sobrescrita->descricao(),
+            [
+                'acordoId' => $acordo->getId(),
+                'numeroExterno' => $sobrescrita->numero,
+                'situacaoDaPlanilha' => $sobrescrita->situacaoDaPlanilha,
+                'statusAnterior' => $sobrescrita->anterior->value,
+                'statusNovo' => $sobrescrita->novo->value,
+                'origem' => 'importacao_acordos_detalhados',
+            ],
         );
     }
 
@@ -665,8 +775,25 @@ final class ImportarAcordosDetalhadosUseCase
         return $input;
     }
 
-    private function abaIgnorada(AcordoDetalhadoImportavel $aba, string $motivo): AcordoProcessado
-    {
+    /**
+     * Aba cujo CONTEÚDO foi pulado (acordo inexistente, sem caso, não vigente, caso encerrado): nenhuma
+     * parcela criada, nenhuma conta marcada.
+     *
+     * ⚠️ "Ignorada" deixou de significar "nada foi escrito". A sobrescrita de status acontece antes das
+     * guardas e é independente delas — uma aba `Cancelado` tem o status gravado e o conteúdo pulado. Por
+     * isso a sobrescrita e os avisos de reativação atravessam para cá em vez de serem zerados: o
+     * operador precisa ver a escrita que de fato saiu.
+     *
+     * @param list<string> $dinheiroParado
+     * @param list<string> $impactoNoSaldo
+     */
+    private function abaIgnorada(
+        AcordoDetalhadoImportavel $aba,
+        string $motivo,
+        ?SobrescritaDeSituacao $sobrescrita = null,
+        array $dinheiroParado = [],
+        array $impactoNoSaldo = [],
+    ): AcordoProcessado {
         return new AcordoProcessado(
             numero: $aba->numero,
             unidade: $aba->unidade,
@@ -683,7 +810,9 @@ final class ImportarAcordosDetalhadosUseCase
             parcelasAmbiguas: [],
             principalReconciliadoCentavos: 0,
             valorParcelasCriadasCentavos: 0,
-            situacaoDivergente: null,
+            situacaoSobrescrita: $sobrescrita?->descricao(),
+            dinheiroParadoPelaReativacao: $dinheiroParado,
+            impactoDaReativacaoNoSaldo: $impactoNoSaldo,
         );
     }
 

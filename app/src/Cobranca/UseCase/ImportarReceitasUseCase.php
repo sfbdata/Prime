@@ -27,6 +27,7 @@ use App\Cobranca\Repository\ObjetoCobrancaRepository;
 use App\Cobranca\Repository\ObrigacaoRepository;
 use App\Cobranca\Repository\PagamentoRepository;
 use App\Cobranca\Service\Importacao\EstadoDaImportacaoDeReceitas;
+use App\Cobranca\Service\Importacao\ImpactoDaReativacaoDeAcordo;
 use App\Cobranca\Service\Importacao\ReceitaImportavel;
 use App\Cobranca\Service\Importacao\ResultadoImportacaoReceitas;
 use App\Cobranca\Service\Importacao\ResultadoLeituraReceitas;
@@ -74,6 +75,7 @@ final class ImportarReceitasUseCase
         private readonly AbrirCasoUseCase $abrirCaso,
         private readonly RegistrarObrigacaoUseCase $registrarObrigacao,
         private readonly RegistrarEventoHistorico $registrarEvento,
+        private readonly ImpactoDaReativacaoDeAcordo $impactoDaReativacao,
         private readonly EntityManagerInterface $em,
     ) {
     }
@@ -286,6 +288,9 @@ final class ImportarReceitasUseCase
      * o número da confirmação inclua alocações criadas pela própria execução, divergindo da prévia
      * (ver `feedback_previa_precisa_de_estado`).
      *
+     * A medição em si mora no `ImpactoDaReativacaoDeAcordo` — o importador de acordos detalhados toma
+     * a MESMA decisão pela linha `Situação:` e consome o mesmo serviço.
+     *
      * @return array<int, array{0: list<string>, 1: list<string>}> número do acordo => [dinheiro parado, impacto]
      */
     private function mapearDinheiroParadoPelaReativacao(
@@ -293,20 +298,14 @@ final class ImportarReceitasUseCase
         ResultadoLeituraReceitas $leitura,
         Tenant $tenant,
     ): array {
-        $mapa = [];
+        $numeros = [];
         foreach ($leitura->receitas as $receita) {
-            $doRelatorio = $receita->acordo;
-            if ($doRelatorio === null || array_key_exists($doRelatorio->numero, $mapa)) {
-                continue;
+            if ($receita->acordo !== null) {
+                $numeros[] = $receita->acordo->numero;
             }
-
-            $acordo = $this->acordoRepository->findOnePorNumeroExternoNaCarteira($doRelatorio->numero, $carteira, $tenant);
-            $mapa[$doRelatorio->numero] = $acordo !== null && !$acordo->getStatus()->ehVigente()
-                ? $this->dinheiroParadoPelaReativacao($acordo, $tenant)
-                : [[], []];
         }
 
-        return $mapa;
+        return $this->impactoDaReativacao->mapearPorNumeroExterno($carteira, $numeros, $tenant);
     }
 
     /**
@@ -416,97 +415,6 @@ final class ImportarReceitasUseCase
                 'origem' => 'importacao_receitas',
             ],
         );
-    }
-
-    /**
-     * ⚠️ O efeito colateral de D6 que a spec-cancelar §3.2 manda vigiar, medido e REPORTADO — nunca
-     * corrigido em silêncio.
-     *
-     * Reativar o acordo devolve as obrigações originais ao estado "substituída", e elas saem do
-     * exigível. `CalculadoraSaldo` só abate alocação de obrigação exigível — então o dinheiro que
-     * alguém tenha recebido numa original enquanto o acordo estava rompido **para de abater o saldo**,
-     * e o devedor volta a ser cobrado por algo que já pagou. É o pior erro possível neste domínio.
-     *
-     * Decidir para onde esse dinheiro vai não é do importador. Ele mede e põe na frente de quem
-     * confirma.
-     *
-     * ⚠️ Devolve DOIS canais separados, e a separação é o ponto. Uma versão anterior misturava os dois
-     * numa lista só, e o texto do aviso — "o devedor passa a ser cobrado por algo que já pagou" —
-     * disparava também quando NINGUÉM tinha pagado nada. Alarme falso em aviso de dinheiro é pior do
-     * que aviso nenhum: ensina o operador a ignorar.
-     *
-     * ⚠️ Os valores vêm do SNAPSHOT gravado, não do recálculo ao vivo. Uma original que voltou ao
-     * exigível por rompimento antigo cresceu desde então, e o aviso subestima o quanto ela pesa. É
-     * ordem de grandeza para segurar a mão de quem confirma, não número de fechamento.
-     *
-     * @return array{0: list<string>, 1: list<string>} [dinheiro já pago que para de abater, impacto no saldo]
-     */
-    private function dinheiroParadoPelaReativacao(Acordo $acordo, Tenant $tenant): array
-    {
-        $substituidas = $this->obrigacaoRepository->substituidasPorAcordo($acordo, $tenant);
-        if ($substituidas === []) {
-            return [[], []];
-        }
-
-        $ids = [];
-        foreach ($substituidas as $obrigacao) {
-            $id = $obrigacao->getId();
-            if ($id !== null) {
-                $ids[$id] = $obrigacao;
-            }
-        }
-
-        // ⚠️ Havia aqui um `totalAlocadoEmObrigacoes` no conjunto inteiro, com return antecipado quando
-        // dava zero. Foi REMOVIDO: era redundante com a checagem por obrigação abaixo e punha duas
-        // defesas em SÉRIE, o que torna o teste do caso negativo improvável — relaxar só uma das duas
-        // deixava a suíte verde, que é como um assert vacuoso nasce. Uma defesa, uma prova.
-        //
-        // QUERY, e não a coleção inversa: `Acordo::$obrigacoesSubstituidas` nasce vazia na mesma
-        // unidade de trabalho, e este é caminho de dinheiro.
-        $dinheiroParado = [];
-        $saldoQueSaiLiquido = 0;
-        foreach ($ids as $id => $obrigacao) {
-            // ⚠️ A régua é EXISTIR alocação, não ser positiva. `AlocacaoPagamentoRepository:70-71`
-            // registra que `total > 0` deixaria passar uma alocação de valor ZERO — que é uma linha de
-            // pagamento real, com histórico —, e a etapa 2 cria 10 delas. É a mesma régua que o
-            // `CancelarAcordoUseCase` usa para responder à mesma pergunta.
-            $temAlocacao = $this->alocacaoRepository->existeAlocacaoEmObrigacoes([$id], $tenant);
-            $alocado = $temAlocacao ? $this->alocacaoRepository->totalAlocadoEmObrigacoes([$id], $tenant) : 0;
-
-            // O EFEITO no saldo é o exigível MENOS o que já foi alocado. Somar o exigível bruto (como
-            // uma versão anterior fazia) imprimia R$ 500,00 onde o saldo se move R$ 350,00: um número
-            // certo respondendo a outra pergunta.
-            //
-            // ⚠️ O piso em zero é convenção deste aviso, e NÃO espelha a `CalculadoraSaldo`, que soma
-            // sem piso por obrigação (`CalculadoraSaldo:175`; o `max(0)` de lá é do vencido). Quando o
-            // alocado passa do exigível — caso que a §9.3 da spec-mãe declara esperado — o saldo se
-            // move para o outro lado e este aviso mostra 0. É aviso de ordem de grandeza, não extrato.
-            $saldoQueSaiLiquido += max(0, $obrigacao->valorExigivel() - $alocado);
-
-            if (!$temAlocacao) {
-                continue;
-            }
-
-            $dinheiroParado[] = sprintf(
-                'Acordo %d: a obrigação "%s" (NN %s) tem R$ %s alocados e sai do exigível com a reativação',
-                (int) $acordo->getNumeroExterno(),
-                $obrigacao->getDescricao(),
-                $obrigacao->getReferenciaExterna() ?? '—',
-                number_format($alocado / 100, 2, ',', '.'),
-            );
-        }
-
-        $impacto = [];
-        if ($saldoQueSaiLiquido > 0) {
-            $impacto[] = sprintf(
-                'Acordo %d: %d obrigação(ões) originais saem do exigível — o saldo devedor se move em R$ %s',
-                (int) $acordo->getNumeroExterno(),
-                count($ids),
-                number_format($saldoQueSaiLiquido / 100, 2, ',', '.'),
-            );
-        }
-
-        return [$dinheiroParado, $impacto];
     }
 
     /**

@@ -37,6 +37,20 @@ final class AcordoProcessado
      *                                             sistema: NÃO foram criadas. Criá-las abriria dívida vencida
      *                                             para cobrar de novo o que já foi pago; dar baixa está fora
      *                                             de escopo (§5). Fica para conferência humana
+     * @param string|null  $situacaoSobrescrita    o status do acordo foi ALTERADO para o que a planilha diz
+     *                                             (spec `cobranca-importar-acordos-situacao.md`). É AÇÃO, não
+     *                                             aviso: escrita que saiu daqui e move o saldo. `null` quando a
+     *                                             planilha e o sistema já concordavam, ou quando a situação não
+     *                                             é reconhecida (aí vira `situacoesDesconhecidas` no resultado)
+     * @param list<string> $dinheiroParadoPelaReativacao dinheiro JÁ RECEBIDO numa obrigação original que deixa de
+     *                                             abater o saldo porque a reativação a tira do exigível. É o
+     *                                             pior erro possível neste domínio: o devedor volta a ser
+     *                                             cobrado por algo que pagou. Medido e reportado, NUNCA
+     *                                             corrigido em silêncio
+     * @param list<string> $impactoDaReativacaoNoSaldo o quanto o saldo devedor se move com a reativação. Canal
+     *                                             SEPARADO do anterior de propósito: juntos, o texto "o devedor
+     *                                             passa a ser cobrado por algo que já pagou" disparava também
+     *                                             quando ninguém tinha pagado nada
      */
     public function __construct(
         public readonly int $numero,
@@ -54,13 +68,21 @@ final class AcordoProcessado
         public readonly array $parcelasAmbiguas,
         public readonly int $principalReconciliadoCentavos,
         public readonly int $valorParcelasCriadasCentavos,
-        public readonly ?string $situacaoDivergente,
+        public readonly ?string $situacaoSobrescrita,
         public readonly array $parcelasVinculadas = [],
         public readonly array $parcelasLiquidadasIgnoradas = [],
+        public readonly array $dinheiroParadoPelaReativacao = [],
+        public readonly array $impactoDaReativacaoNoSaldo = [],
     ) {
     }
 
-    /** Aba pulada por completo (acordo inexistente, caso encerrado): nenhuma escrita saiu daqui. */
+    /**
+     * O CONTEÚDO da aba foi pulado (acordo inexistente, sem caso, não vigente, caso encerrado): nenhuma
+     * parcela criada, nenhuma conta marcada.
+     *
+     * ⚠️ Não significa "nada foi escrito": a sobrescrita de status é independente das guardas e pode ter
+     * saído mesmo aqui — veja `situacaoSobrescrita`.
+     */
     public function foiIgnorado(): bool
     {
         return $this->ignoradoPorque !== null;

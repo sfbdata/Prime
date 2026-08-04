@@ -5,16 +5,19 @@ declare(strict_types=1);
 namespace App\Tests\Cobranca\Functional;
 
 use App\Cobranca\Entity\Acordo;
+use App\Cobranca\Entity\AlocacaoPagamento;
 use App\Cobranca\Entity\Carteira;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\EventoHistorico;
 use App\Cobranca\Entity\ObjetoCobranca;
 use App\Cobranca\Entity\Obrigacao;
+use App\Cobranca\Entity\Pagamento;
 use App\Cobranca\Entity\Pessoa;
 use App\Cobranca\Entity\VinculoPessoaObjeto;
 use App\Cobranca\Enum\ModoCarteira;
 use App\Cobranca\Enum\StatusAcordo;
 use App\Cobranca\Enum\StatusCaso;
+use App\Cobranca\Enum\TipoEventoHistorico;
 use App\Cobranca\Exception\CarteiraNaoEncontradaException;
 use App\Cobranca\Repository\AcordoRepository;
 use App\Cobranca\Service\CalculadoraEncargos;
@@ -24,11 +27,13 @@ use App\Cobranca\Service\Importacao\AcordoDetalhadoImportavel;
 use App\Cobranca\Service\Importacao\AcordoDoRelatorio;
 use App\Cobranca\Service\Importacao\BoletoImportavel;
 use App\Cobranca\Service\Importacao\ContaOriginalImportavel;
+use App\Cobranca\Service\Importacao\ImpactoDaReativacaoDeAcordo;
 use App\Cobranca\Service\Importacao\ParcelaAcordoImportavel;
 use App\Cobranca\Service\Importacao\ResultadoLeitura;
 use App\Cobranca\Service\Importacao\ResultadoLeituraAcordos;
 use App\Cobranca\Service\RegistrarEventoHistorico;
 use App\Cobranca\Service\ResolvedorConfigEncargos;
+use App\Cobranca\Service\RestauradorObrigacoesOriginais;
 use App\Cobranca\UseCase\AbrirCasoUseCase;
 use App\Cobranca\UseCase\CriarObjetoUseCase;
 use App\Cobranca\UseCase\CriarPessoaUseCase;
@@ -121,6 +126,13 @@ final class ImportarAcordosDetalhadosTest extends KernelTestCase
             $registrarObrigacao,
             new CalculadoraEncargos(),
             new ResolvedorConfigEncargos(),
+            $registrarEvento,
+            static::getContainer()->get(RestauradorObrigacoesOriginais::class),
+            new ImpactoDaReativacaoDeAcordo(
+                $acordoRepo,
+                $obrigacaoRepo,
+                $this->em->getRepository(AlocacaoPagamento::class),
+            ),
             $this->em,
         );
     }
@@ -451,49 +463,294 @@ final class ImportarAcordosDetalhadosTest extends KernelTestCase
     }
 
     /**
-     * Acordo ROMPIDO (ou cancelado) no sistema: a aba inteira é pulada.
+     * A aba cujo status FINAL não é vigente é pulada inteira.
      *
      * Não é só "não mexer no status". Escrever contra um acordo não-vigente **cria dívida**: a conta
      * reconstruída pelo §3.2.1 nasce marcada com `acordoSubstituto`, e `doCasoExigiveis` só exclui o que
-     * está substituído por acordo VIGENTE — com o acordo rompido ela entra no saldo, cobrando de novo
+     * está substituído por acordo VIGENTE — com o acordo cancelado ela entra no saldo, cobrando de novo
      * uma dívida que a planilha listou como já renegociada. A parcela futura teria o mesmo efeito ao
      * contrário: nasce ligada a um acordo que não vale mais.
      *
-     * A janela é estreita na prática (romper é registrado nos dois lados, então a planilha seguinte já
-     * vem alinhada), mas pular a aba custa nada e fecha a janela inteira.
+     * 🔑 O que MUDOU com a spec `cobranca-importar-acordos-situacao.md`: a guarda passou a consultar o
+     * status que a PLANILHA diz, não o que estava no banco. Antes, quem disparava esta guarda era um
+     * acordo rompido no sistema; agora esse caso é reativado (ver `testPlanilhaLiquidadoReativaRompido`)
+     * e quem a dispara é a planilha dizendo `Cancelado`.
      */
-    #[TestDox('Acordo ROMPIDO: a aba inteira é pulada e reportada — nada é criado nem marcado')]
-    public function testAcordoRompidoPulaAAbaInteira(): void
+    #[TestDox('Planilha CANCELADO: status é sobrescrito e a aba é pulada — nada é criado nem marcado')]
+    public function testPlanilhaCanceladoPulaAAbaInteira(): void
     {
         // Uma das 4 originais NÃO está no sistema: se a aba fosse processada, o §3.2.1 a reconstruiria —
-        // e é exatamente essa conta que entraria no saldo por causa do rompimento.
+        // e é exatamente essa conta que entraria no saldo por causa do cancelamento.
         [$tenant, $user, $carteiraId, $caso, $acordo] = $this->cenarioAcordo37(originaisNoSistema: ['60145', '60334', '60812']);
-
-        $acordo->romper('o devedor parou de pagar');
-        $this->em->flush();
 
         $obrigacoesAntes = $this->em->getRepository(Obrigacao::class)->count(['tenant' => $tenant]);
         $saldoAntes = $this->saldo->saldoExigivel($caso);
 
-        $previsto = $this->importarAcordos->prever($carteiraId, $this->leituraAcordo37(), $tenant);
-        $resultado = $this->importarAcordos->confirmar($carteiraId, $this->leituraAcordo37(), $tenant, $user);
+        $previsto = $this->importarAcordos->prever($carteiraId, $this->leituraAcordo37(situacao: 'Cancelado'), $tenant);
+        $resultado = $this->importarAcordos->confirmar($carteiraId, $this->leituraAcordo37(situacao: 'Cancelado'), $tenant, $user);
 
         self::assertSame(1, $previsto->totalAbasIgnoradas(), 'a prévia precisa avisar ANTES de alguém mandar gravar');
         self::assertSame(1, $resultado->totalAbasIgnoradas());
-        self::assertStringContainsString('rompido', (string) $resultado->porAcordo()[0]->ignoradoPorque);
-        self::assertTrue($resultado->temAvisos());
+        self::assertStringContainsString('cancelado', (string) $resultado->porAcordo()[0]->ignoradoPorque);
+        // "Ignorada" NÃO quer dizer "nada foi escrito": a sobrescrita de status é independente das
+        // guardas e tem de atravessar para o relatório, senão o operador não vê a escrita que saiu.
+        self::assertCount(1, $resultado->situacoesSobrescritas(), 'o status foi gravado mesmo com o conteúdo da aba pulado');
+        self::assertStringContainsString('de ativo para cancelado', $resultado->situacoesSobrescritas()[0]);
 
         self::assertSame([], $resultado->nnsContasReconstruidas(), 'reconstruir aqui criaria dívida: sem acordo vigente a conta nasce EXIGÍVEL');
         self::assertSame([], $resultado->nnsContasMarcadas());
         self::assertSame([], $resultado->nnsParcelasCriadas());
 
         self::assertSame($obrigacoesAntes, $this->em->getRepository(Obrigacao::class)->count(['tenant' => $tenant]), 'nenhuma obrigação nasceu');
-        self::assertSame($saldoAntes, $this->saldo->saldoExigivel($caso), 'e o saldo do devedor não se mexeu um centavo');
+
+        // O saldo SE MOVE, e não por escrita nenhuma da aba: cancelar o acordo descarta as parcelas dele
+        // por DERIVAÇÃO (invariável 20), então a parcela 61600 — que já existia, ligada ao acordo 37 —
+        // sai do exigível. As 3 originais continuam lá: nunca chegaram a ser substituídas.
+        self::assertSame(70939, $saldoAntes, '3 originais de R$ 170,00 + a parcela 61600 de R$ 199,39');
+        self::assertSame(51000, $this->saldo->saldoExigivel($caso), 'sobram as 3 originais; a parcela do acordo cancelado sai por derivação');
 
         $this->em->clear();
         $acordo = $this->em->getRepository(Acordo::class)->find($acordo->getId());
         self::assertNotNull($acordo);
-        self::assertSame(StatusAcordo::Rompido, $acordo->getStatus(), 'a decisão manual do escritório prevalece sobre a planilha');
+        self::assertSame(StatusAcordo::Cancelado, $acordo->getStatus(), 'o importe sobrescreve o sistema, mesmo quando o conteúdo da aba é pulado');
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Situação do acordo — spec `cobranca-importar-acordos-situacao.md`
+    // "o importe sempre sobrescreve o sistema" (decisão do dono, 04/08/2026)
+    // ---------------------------------------------------------------------------------------------
+
+    #[TestDox('Planilha LIQUIDADO sobre acordo ativo: status vira cumprido')]
+    public function testPlanilhaLiquidadoMarcaCumprido(): void
+    {
+        [$tenant, $user, $carteiraId, , $acordo] = $this->cenarioAcordo37();
+
+        $resultado = $this->importarAcordos->confirmar($carteiraId, $this->leituraAcordo37(situacao: 'Liquidado'), $tenant, $user);
+
+        $this->em->clear();
+        $acordo = $this->em->getRepository(Acordo::class)->find($acordo->getId());
+        self::assertNotNull($acordo);
+        self::assertSame(StatusAcordo::Cumprido, $acordo->getStatus());
+
+        self::assertCount(1, $resultado->situacoesSobrescritas());
+        self::assertStringContainsString('de ativo para cumprido', $resultado->situacoesSobrescritas()[0]);
+        // `Cumprido` é VIGENTE: a aba continua sendo processada normalmente.
+        self::assertSame(['61601', '61602', '61603'], $resultado->nnsParcelasCriadas());
+    }
+
+    /**
+     * O caso mais comum previsto na medição de 04/08: a importação de Receitas marca `Cumprido` quem
+     * quitou as parcelas da janela de 2026, e a planilha de Acordos diz `Em andamento` porque ainda há
+     * parcela futura. Os dois status são VIGENTES — o saldo não muda de lado.
+     */
+    #[TestDox('Planilha EM ANDAMENTO sobre acordo cumprido: status volta a ativo e o saldo não se move')]
+    public function testPlanilhaEmAndamentoReabreCumprido(): void
+    {
+        [$tenant, $user, $carteiraId, $caso, $acordo] = $this->cenarioAcordo37();
+
+        $acordo->marcarCumprido();
+        $this->em->flush();
+        $saldoAntes = $this->saldo->saldoExigivel($caso);
+
+        $resultado = $this->importarAcordos->confirmar($carteiraId, $this->leituraAcordo37(), $tenant, $user);
+
+        self::assertSame([], $resultado->dinheiroParadoPelaReativacao(), 'cumprido → ativo NÃO é reativação: os dois são vigentes');
+
+        $this->em->clear();
+        $acordo = $this->em->getRepository(Acordo::class)->find($acordo->getId());
+        self::assertNotNull($acordo);
+        self::assertSame(StatusAcordo::Ativo, $acordo->getStatus());
+
+        $caso = $this->em->getRepository(CasoCobranca::class)->find($caso->getId());
+        self::assertNotNull($caso);
+        // O saldo se move pela RECONCILIAÇÃO (§3.2), não pela troca de status: saem as 4 originais
+        // marcadas (R$ 680,00) e entram as 3 parcelas futuras criadas (R$ 598,15). Cumprido e Ativo são
+        // ambos vigentes, então a transição em si não tira nem põe um centavo.
+        self::assertSame(87939, $saldoAntes, '4 originais de R$ 170,00 + a parcela 61600 de R$ 199,39');
+        self::assertSame($saldoAntes - 68000 + 59815, $this->saldo->saldoExigivel($caso), 'o status não move o saldo; quem move é a reconciliação');
+    }
+
+    /**
+     * A inversão direta do comportamento anterior: o acordo estava ROMPIDO por decisão manual e a
+     * planilha diz `Liquidado`. Antes, a aba inteira era pulada e o status mantido. Agora o importe
+     * manda — vira `Cumprido`, que é vigente, e a aba É processada.
+     */
+    #[TestDox('Planilha LIQUIDADO sobre acordo rompido: reativa e a aba deixa de ser pulada')]
+    public function testPlanilhaLiquidadoReativaRompido(): void
+    {
+        [$tenant, $user, $carteiraId, , $acordo] = $this->cenarioAcordo37();
+
+        $acordo->romper('o devedor parou de pagar');
+        $this->em->flush();
+
+        $previsto = $this->importarAcordos->prever($carteiraId, $this->leituraAcordo37(situacao: 'Liquidado'), $tenant);
+        $resultado = $this->importarAcordos->confirmar($carteiraId, $this->leituraAcordo37(situacao: 'Liquidado'), $tenant, $user);
+
+        self::assertSame(0, $resultado->totalAbasIgnoradas(), 'a aba deixou de ser pulada: o status final é vigente');
+        self::assertSame(['61601', '61602', '61603'], $resultado->nnsParcelasCriadas());
+        self::assertSame(['60145', '60334', '60812', '61326'], $resultado->nnsContasMarcadas());
+        self::assertStringContainsString('de rompido para cumprido', $resultado->situacoesSobrescritas()[0]);
+
+        // §6: a prévia decidiu processar a MESMA aba que a confirmação processou. Se a guarda lesse o
+        // status do banco em vez do status projetado, a prévia teria pulado esta aba e a confirmação não.
+        self::assertSame($previsto->nnsParcelasCriadas(), $resultado->nnsParcelasCriadas());
+        self::assertSame($previsto->nnsContasMarcadas(), $resultado->nnsContasMarcadas());
+        self::assertSame($previsto->totalAbasIgnoradas(), $resultado->totalAbasIgnoradas());
+
+        $this->em->clear();
+        $acordo = $this->em->getRepository(Acordo::class)->find($acordo->getId());
+        self::assertNotNull($acordo);
+        self::assertSame(StatusAcordo::Cumprido, $acordo->getStatus());
+        self::assertNull($acordo->getMotivoRompimento(), 'motivo do estado que saiu não pode sobreviver num acordo vigente');
+    }
+
+    #[TestDox('Reativação: o dry-run NÃO grava o status e projeta a mesma decisão da confirmação')]
+    public function testDryRunNaoGravaOStatus(): void
+    {
+        [$tenant, $user, $carteiraId, , $acordo] = $this->cenarioAcordo37();
+
+        $acordo->romper('o devedor parou de pagar');
+        $this->em->flush();
+        $acordoId = $acordo->getId();
+
+        $previsto = $this->importarAcordos->prever($carteiraId, $this->leituraAcordo37(situacao: 'Liquidado'), $tenant);
+
+        // Um flush qualquer depois da prévia: se o dry-run tivesse chamado `setStatus` na entidade
+        // managed, a mudança que ele prometeu não fazer seria gravada AQUI.
+        $this->em->flush();
+        $this->em->clear();
+
+        $acordo = $this->em->getRepository(Acordo::class)->find($acordoId);
+        self::assertNotNull($acordo);
+        self::assertSame(StatusAcordo::Rompido, $acordo->getStatus(), 'a prévia não escreve — nem por efeito colateral de UnitOfWork');
+        self::assertSame('o devedor parou de pagar', $acordo->getMotivoRompimento());
+
+        // Mas PROJETA a decisão, senão o operador não vê o que vai acontecer.
+        self::assertCount(1, $previsto->situacoesSobrescritas());
+        self::assertStringContainsString('de rompido para cumprido', $previsto->situacoesSobrescritas()[0]);
+    }
+
+    /**
+     * ⚠️ O aviso mais grave desta importação. O acordo foi rompido, as originais voltaram ao exigível e
+     * alguém RECEBEU dinheiro numa delas. Reativar tira a original do exigível de novo — e
+     * `CalculadoraSaldo` só abate alocação de obrigação exigível, então o valor recebido **para de
+     * abater o saldo**: o devedor volta a ser cobrado por algo que pagou.
+     *
+     * O importador não decide para onde esse dinheiro vai. Mede e põe na frente de quem confirma.
+     */
+    #[TestDox('Reativação com pagamento numa original: o dinheiro que para de abater é medido e reportado')]
+    public function testReativacaoReportaDinheiroQueParaDeAbater(): void
+    {
+        [$tenant, $user, $carteiraId, $caso, $acordo] = $this->cenarioAcordo37();
+
+        // 1) Importa normalmente: as 4 originais ficam substituídas pelo acordo vigente.
+        $this->importarAcordos->confirmar($carteiraId, $this->leituraAcordo37(), $tenant, $user);
+
+        // 2) O acordo é rompido à mão: as originais voltam ao exigível.
+        [$caso, $acordo] = $this->casoEAcordo($tenant, 37);
+        $acordo->romper('o devedor parou de pagar');
+        $this->em->flush();
+
+        // 3) Alguém recebe R$ 170,00 numa original que voltou.
+        $original = $this->obrigacao($tenant, '60145');
+        self::assertNotNull($original);
+        $this->registrarPagamentoEm($original, 17000, $tenant, $user);
+
+        // 4) A planilha seguinte diz "Em andamento" — o importe reativa.
+        $resultado = $this->importarAcordos->confirmar($carteiraId, $this->leituraAcordo37(), $tenant, $user);
+
+        $avisos = $resultado->dinheiroParadoPelaReativacao();
+        self::assertCount(1, $avisos, 'exatamente a original que tem dinheiro alocado');
+        self::assertStringContainsString('60145', $avisos[0]);
+        self::assertStringContainsString('170,00', $avisos[0]);
+        self::assertNotSame([], $resultado->impactoDaReativacaoNoSaldo(), 'o impacto no saldo é canal separado do dinheiro parado');
+        self::assertTrue($resultado->temAvisos(), 'reativação com dinheiro parado TEM de acender o bloco A CONFERIR');
+    }
+
+    /**
+     * §5.2 — a direção que devolve dívida à cobrança. O acordo estava vigente e substituía as 4
+     * originais; a planilha diz `Cancelado`. As originais voltam ao exigível — e têm de voltar
+     * **descongeladas**, senão voltam com os juros PARADOS (§D5: o defeito que o dono reportou e que a
+     * frente `cobranca-cancelar-acordo` corrigiu).
+     *
+     * 🔑 A original congelada aqui é semeada à mão, e isso é fiel ao domínio: `liquidar()` é hoje o
+     * único ponto que congela, e o restaurador PULA a liquidada (INV-C2). Quem o descongelamento
+     * realmente alcança é o **legado** — obrigação com `encargosCongeladosEm` sem `liquidadaEm` —, o
+     * mesmo caso que `materializarNaDataDoAcordo` já trata com um early-return. Sem semear esse estado,
+     * o teste passaria com a chamada ao restaurador REMOVIDA, que é como um assert vacuoso nasce.
+     */
+    #[TestDox('Planilha CANCELADO: a original legada congelada volta ao saldo DESCONGELADA (§D5)')]
+    public function testCancelarPelaPlanilhaDescongelaAsOriginais(): void
+    {
+        [$tenant, $user, $carteiraId, $caso] = $this->cenarioAcordo37();
+
+        // Legado: congelada sem estar liquidada. É o estado que o restaurador existe para desfazer.
+        $legada = $this->obrigacao($tenant, '60145');
+        self::assertNotNull($legada);
+        $legada->congelarEncargos(new \DateTimeImmutable('2026-03-01'));
+        $this->em->flush();
+
+        // 1) Importa normalmente: as 4 originais ficam substituídas e saem do exigível.
+        $this->importarAcordos->confirmar($carteiraId, $this->leituraAcordo37(), $tenant, $user);
+        [$caso] = $this->casoEAcordo($tenant, 37);
+        $saldoComAcordo = $this->saldo->saldoExigivel($caso);
+        self::assertTrue($this->obrigacao($tenant, '60145')?->encargosCongelados(), 'a marcação preserva o snapshot do legado');
+
+        // 2) A planilha seguinte diz "Cancelado".
+        $this->importarAcordos->confirmar($carteiraId, $this->leituraAcordo37(situacao: 'Cancelado'), $tenant, $user);
+
+        $this->em->clear();
+        [$caso, $acordo] = $this->casoEAcordo($tenant, 37);
+        self::assertSame(StatusAcordo::Cancelado, $acordo->getStatus());
+
+        $original = $this->obrigacao($tenant, '60145');
+        self::assertNotNull($original);
+        self::assertFalse($original->encargosCongelados(), 'sem o descongelamento a original volta ao saldo com os juros PARADOS (§D5)');
+
+        // As 4 originais (R$ 680,00) voltam inteiras ao exigível e TODAS as parcelas do acordo saem —
+        // as 3 criadas e a 61600 que já existia. O saldo cai em relação ao acordo vigente porque as
+        // parcelas somavam mais que as originais que elas substituíam.
+        self::assertSame(79754, $saldoComAcordo);
+        self::assertSame(68000, $this->saldo->saldoExigivel($caso), 'só as 4 originais: nenhuma parcela de acordo cancelado conta');
+    }
+
+    #[TestDox('Idempotência: reimportar com a mesma situação não reescreve status nem registra evento')]
+    public function testSobrescritaEhIdempotente(): void
+    {
+        [$tenant, $user, $carteiraId, $caso] = $this->cenarioAcordo37();
+
+        $primeira = $this->importarAcordos->confirmar($carteiraId, $this->leituraAcordo37(situacao: 'Liquidado'), $tenant, $user);
+        self::assertCount(1, $primeira->situacoesSobrescritas());
+
+        [$caso] = $this->casoEAcordo($tenant, 37);
+        $eventosApos1a = $this->contarEventos($caso, TipoEventoHistorico::AcordoEditado);
+
+        $segunda = $this->importarAcordos->confirmar($carteiraId, $this->leituraAcordo37(situacao: 'Liquidado'), $tenant, $user);
+
+        self::assertSame([], $segunda->situacoesSobrescritas(), 'a planilha e o sistema já concordam: nada a sobrescrever');
+        [$caso] = $this->casoEAcordo($tenant, 37);
+        self::assertSame($eventosApos1a, $this->contarEventos($caso, TipoEventoHistorico::AcordoEditado), 'nem um evento a mais');
+    }
+
+    #[TestDox('A sobrescrita fica registrada no histórico do caso, com origem e status anterior')]
+    public function testSobrescritaRegistraEvento(): void
+    {
+        [$tenant, $user, $carteiraId, $caso] = $this->cenarioAcordo37();
+
+        $this->importarAcordos->confirmar($carteiraId, $this->leituraAcordo37(situacao: 'Liquidado'), $tenant, $user);
+
+        $this->em->clear();
+        [$caso] = $this->casoEAcordo($tenant, 37);
+        $eventos = $this->em->getRepository(EventoHistorico::class)->findBy(
+            ['caso' => $caso, 'tipo' => TipoEventoHistorico::AcordoEditado],
+        );
+
+        self::assertCount(1, $eventos);
+        $dados = $eventos[0]->getDados() ?? [];
+        self::assertSame('importacao_acordos_detalhados', $dados['origem'] ?? null);
+        self::assertSame('ativo', $dados['statusAnterior'] ?? null);
+        self::assertSame('cumprido', $dados['statusNovo'] ?? null);
+        self::assertSame('Liquidado', $dados['situacaoDaPlanilha'] ?? null);
     }
 
     #[TestDox('Situação desconhecida não altera o status: reporta e mantém (§3.3)')]
@@ -639,7 +896,9 @@ final class ImportarAcordosDetalhadosTest extends KernelTestCase
             'contasRecusadas' => $r->contasRecusadas(),
             'casadasSemCompetencia' => $r->casadasSemCompetencia(),
             'divergenciasDeValor' => $r->divergenciasDeValor(),
-            'situacoesDivergentes' => $r->situacoesDivergentes(),
+            'situacoesSobrescritas' => $r->situacoesSobrescritas(),
+            'dinheiroParadoPelaReativacao' => $r->dinheiroParadoPelaReativacao(),
+            'impactoDaReativacaoNoSaldo' => $r->impactoDaReativacaoNoSaldo(),
             'situacoesDesconhecidas' => $r->situacoesDesconhecidas,
             'conferenciasCabecalho' => $r->conferenciasCabecalho,
             'liquidadasNaPlanilha' => $r->parcelasLiquidadasNaPlanilha,
@@ -1228,6 +1487,33 @@ final class ImportarAcordosDetalhadosTest extends KernelTestCase
         }
 
         return null;
+    }
+
+    /** Um recebimento alocado NUMA obrigação — o dinheiro que a reativação faz parar de abater. */
+    private function registrarPagamentoEm(Obrigacao $obrigacao, int $valor, Tenant $tenant, User $user): void
+    {
+        $caso = $obrigacao->getCaso();
+        self::assertNotNull($caso);
+
+        $pagamento = (new Pagamento())
+            ->setTenant($tenant)
+            ->setCaso($caso)
+            ->setData(new \DateTimeImmutable('2026-07-20'))
+            ->setValorDivida($valor);
+        $this->em->persist($pagamento);
+
+        $alocacao = (new AlocacaoPagamento())
+            ->setTenant($tenant)
+            ->setPagamento($pagamento)
+            ->setObrigacao($obrigacao)
+            ->setValor($valor);
+        $this->em->persist($alocacao);
+        $this->em->flush();
+    }
+
+    private function contarEventos(CasoCobranca $caso, TipoEventoHistorico $tipo): int
+    {
+        return $this->em->getRepository(EventoHistorico::class)->count(['caso' => $caso, 'tipo' => $tipo]);
     }
 
     private function contar(Tenant $tenant, string $nn): int
