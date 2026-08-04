@@ -109,3 +109,8 @@ docs/gestao-cobrancas/planilhas atualizadas/
 # e capturas de tela com dado real — nunca podem entrar na história.
 /e2e/tmp-smoke/
 /e2e/pw.smoke.tmp.config.js
+
+# Credencial do sistema da contábil (groupcondominios). É senha de terceiro, em texto puro:
+# nunca versionar. Se um dia entrar na história, não basta apagar — tem de trocar a senha.
+docs/gestao-cobrancas/credencial.txt
+docs/gestao-cobrancas/credencial*.txt
