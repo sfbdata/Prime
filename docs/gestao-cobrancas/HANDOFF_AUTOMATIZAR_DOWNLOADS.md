@@ -174,6 +174,63 @@ recebimento 01/01/2026 a 04/08/2026, vencimento Todos`.
 
 5. **Rodar Receitas → Acordos no dev com `--confirmar`** e medir — quando o dono mandar.
 
+## 6.0 ✅ LOTE COMPLETO EMITIDO PELO CLAUDE (04/08) — `planilhas atualizadas/2026-08-04-completo/`
+
+**O dono transferiu a emissão dos relatórios para o Claude em 04/08** (*"não sou mais eu que emito os
+relatórios, é você"*). Este lote foi emitido e baixado pela API, sem navegador — os payloads saíram da
+leitura do **`main.js` do próprio sistema deles**, não de tentativa e erro no servidor.
+
+| arquivo | conferido no histórico |
+|---|---|
+| `top_life_1_Receitas_detalhadas_TODOS.xlsx` | APLC - TOP LIFE 1 |
+| `top_life_2_Receitas_detalhadas_TODOS.xlsx` | APLC - TOP LIFE 2 |
+| `amli_br_060_Receitas_detalhadas_TODOS.xlsx` | AMLI BR 060 |
+| `amli_br_060_Acordos_detalhados_EM_ANDAMENTO.xlsx` · `_LIQUIDADO.xlsx` | AMLI BR 060 |
+| ⏳ `amli_br_060_Dados_cadastrais.xlsx` | emitido, **preso em `EM_PROCESSAMENTO`** há >15 min |
+| ⛔ Inadimplência da AMLI | **NÃO emitida** — trava em decisão de dinheiro (ver §6.0.3) |
+
+### 6.0.1 🔑 Duas armadilhas do §3 estavam ERRADAS — medido
+
+1. **`tipoSituacaoAcordo: "TODOS"` não precisa de contorno.** A §3.2 mandava *"emitir uma vez por situação
+   e juntar"*. O `beforeSubmit` do form no bundle faz
+   `tipoSituacaoAcordo !== 'TODOS' ? valor : undefined` — a UI **omite** o campo. Testado nos dois modos
+   contra a API: **omitido → HTTP 200**, `"TODOS"` explícito → **HTTP 500** (reproduzido). O 500 era
+   causado por mandar a string, não por pedir todas as situações.
+2. **`Período de recebimento: Todos` não é um valor** — é a **ausência** de `recebimentoInicio` e
+   `recebimentoFim`. A validação do front só acusa erro quando **um** dos dois está preenchido.
+
+Também medido: **o Cloudflare bloqueia `urllib` do Python (Error 1010)** e aceita `curl`. E o path de
+login é `/orquestrador/api/authenticate` — `/orquestradorcloud/` devolve 404 (o servidor cita esse nome
+na mensagem de erro, mas ele não é rota).
+
+### 6.0.2 🔑 O RECORTE era o problema principal, não o desenho — e isso corrige a §6.0 anterior
+
+Medido com o `TopLifeReceitasAdapter` real, TL1, antigo × novo:
+
+| | janela 2026 | recebimento `Todos` |
+|---|---:|---:|
+| recebimentos | 1.203 | **7.411** |
+| dinheiro | R$ 239.157,88 | **R$ 1.272.816,33** |
+| **acordos criados** | 78 | **304** |
+| anos cobertos | só 2026 | **2021–2026** |
+
+Lote completo: **8.588 recebimentos · 354 acordos · R$ 1.464.408,36** (TL1 7.411/304/R$ 1.272.816,33 ·
+TL2 858/26/R$ 137.148,49 · AMLI 319/24/R$ 54.443,54), com **6 rejeições** (5 de *valor líquido não
+positivo*, 1 de *mesmo NN com mais de uma competência*).
+
+⚠️ **Isto revoga a estimativa de "357 acordos não nascem".** Com a Receitas completa, a criação por
+Receitas cobre **330 dos 359** acordos (TL1 304/325, TL2 26/34). **Faltam 29, não 357.** A correção de
+desenho (o importe de Acordos criar acordo) continua **certa** — é a fonte canônica —, mas passa de
+*bloqueante de 357* para *fecha os últimos 29*. **O recorte era o problema; o desenho é o acabamento.**
+
+### 6.0.3 ⛔ Por que a Inadimplência da AMLI não foi emitida
+
+A §3.7 registra, medido: **os encargos vão no payload** (`juros`, `multa`, `honorario`) e **quem chama
+decide o dinheiro do relatório** — TL1 saiu com 20%, TL2 com 15%, conforme enviado. **Não há percentual
+conhecido para a AMLI BR 060**, e emitir com o errado faria a dívida de todo o condomínio entrar errada
+no sistema. **Trava em decisão do dono.** Receitas e Acordos não têm esse risco: trazem valor realizado,
+não calculado na emissão.
+
 ## 6.1 🔴 BALANÇO DE COBERTURA — o que NÃO entra numa importação do zero (medido 04/08)
 
 **A pergunta do dono:** *"quando eu limpar tudo e fazer as importações, vai estar tudo certo, sem valor
