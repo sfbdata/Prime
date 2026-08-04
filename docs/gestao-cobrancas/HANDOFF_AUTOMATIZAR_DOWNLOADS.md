@@ -264,20 +264,32 @@ Isto aqui não é estimativa: cada linha foi medida chamando os adapters reais c
 \* Só os arquivos importáveis. Contando o `CANCELADO`, que não é importado, são R$ 13.310,00 + 1 parcela
 de R$ 196,98.
 
-### A causa nº 1 é a mesma nas duas fontes: **a planilha nem sempre traz o NN**
+### A causa nº 1 é a mesma nas duas fontes: **dívida antiga sem NN**
 
-No acordo 12, a `Relação das contas originais` tem três linhas de dívida e **só a primeira tem NN**:
+⚠️ **Correção da primeira versão desta seção** (feita em 04/08, ao investigar antes de escrever a spec —
+exatamente o que o dono pediu: conferir no dado, não na spec). Eu havia escrito que *"a fonte não repete
+o NN nas linhas seguintes de um grupo"*, generalizando a partir do acordo 12. **Medido nas 409 linhas sem
+NN dos dois arquivos importáveis: só 4 seguem esse padrão. 405 não têm NN nenhum na seção inteira.**
+
+O caso dominante é o **acordo 151**: `Relação das contas originais` com **73 linhas e ZERO NN** —
+taxa de condomínio de R$ 100,00 por mês, competência a competência, desde 09/2019:
 
 ```
-53524 | Taxa de condomínio | 11/2021 | 10/11/2021 | 100,00
-      | Taxa de condomínio | 12/2021 | 10/12/2021 | 100,00     <- sem NN
-      | Energia            | 12/2021 | 10/12/2021 |  45,00     <- sem NN
+· | 1.1 - Taxa de condomínio | 09/2019 | 10/09/2019 | 100,00
+· | 1.1 - Taxa de condomínio | 10/2019 | 10/10/2019 | 100,00
+· | 1.1 - Taxa de condomínio | 11/2019 | 11/11/2019 | 100,00
+                              (… 73 linhas, nenhuma com Nosso Número)
 ```
 
-O cabeçalho da própria aba declara `Valor total das contas originais: 245,00`, isto é, **a fonte conta as
-três**. Os adapters descartam toda linha sem NN (`ctype_digit`), e a leitura fecha em R$ 100,00. Os
-R$ 145,00 que faltam são exatamente as duas linhas mudas. **Era este o "acordo de R$ 145,00" — e ele não
-era um caso isolado: são 165 linhas.**
+Não é ruído de formatação: são **dívidas antigas que nunca tiveram boleto emitido**. O cabeçalho da aba
+soma todas elas. Os adapters descartam toda linha sem NN (`ctype_digit`) e a conta simplesmente some.
+
+O mesmo aparece na inadimplência: **73 de 86 rejeições** são `Boleto sem número (NN)` — e a amostra
+mostra taxas mensais de 2022 da mesma unidade (17-01/1-2, MARCELO ANTONIO SILVA), com `Acordo: -`.
+
+🔑 **Isso é uma boa notícia para o desenho:** cada linha é uma dívida **mensal distinta**, com
+competência e vencimento próprios. A chave substituta (**caso + competência + classe**) identifica cada
+uma sem ambiguidade — não é preciso inventar heurística.
 
 Na inadimplência o mesmo padrão vira rejeição explícita: **73 de 86 rejeições são `Boleto sem número
 (NN)`**. Não é lixo de rodapé — é dívida real, com unidade, sacado, classe e vencimento preenchidos.
