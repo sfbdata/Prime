@@ -114,13 +114,34 @@ recebimento 01/01/2026 a 04/08/2026, vencimento Todos`.
 **Agora:**
 1. **Conferir o estado do banco de dev** (`saas_ux`) — ele ainda tem a importação da etapa 3 por cima
    (106 acordos). Importar sem limpar mistura os dois e o número não significa nada.
-2. ✅ **FEITO (04/08) — `ImportarAcordosDetalhadosUseCase` alinhado.** Ele agora aplica a situação da
-   planilha ao status do acordo (commits `1f5d9a5e`, `24c61ae2` e as correções da 1ª revisão). Spec:
-   `docs/specs/cobranca-importar-acordos-situacao.md`. Com DUAS exceções, que espelham as recusas do
-   cancelamento manual: parcela paga e parcelas renegociadas por outro acordo vigente — nesses casos o
-   status é MANTIDO e sai um aviso acionável.
-   É código em produção e mexe em saldo → **risco ALTO: spec em `docs/specs/` antes de implementar,
-   `/review` em duas passadas com correção entre elas, e todo teste provado reintroduzindo o defeito.**
+2. ✅ **FECHADA (04/08) — `ImportarAcordosDetalhadosUseCase` alinhado.** Spec:
+   `docs/specs/cobranca-importar-acordos-situacao.md`. **5 commits, 2 revisões, suíte 3219/3219, nada
+   publicado, nada rodado contra dado real.**
+
+   | | |
+   |---|---|
+   | `1f5d9a5e` | o importe passa a escrever o status do acordo |
+   | `24c61ae2` | parcela paga barra o cancelamento, com aviso |
+   | `24b21171` | correções da 1ª revisão (2 asserts vacuosos, 1 recusa que faltava) |
+   | `61c0aff4` | correções da 2ª revisão (o aviso mandava apagar pagamento à toa) |
+
+   **O que faz:** a linha `Situação:` da planilha manda no status — `Em andamento`→`Ativo`,
+   `Liquidado`→`Cumprido`, `Cancelado`→`Cancelado`. Situação fora do mapa continua reportada, nunca
+   adivinhada. **Escopo: só o tenant 1** se baseia no importe (decisão do dono); os outros trabalham pelo
+   sistema e nunca passam por aqui.
+
+   **Duas exceções**, que espelham as recusas do cancelamento manual — o status é MANTIDO e sai aviso
+   acionável: **parcela paga** e **parcelas renegociadas por outro acordo vigente**. Com os dois, o aviso
+   mostra os dois: resolver só um não destrava, e mandar apagar um recebimento à toa destrói dado
+   irreversível.
+
+   ⏸️ **PENDÊNCIA que trava junto com o `*_CANCELADO.xlsx`** (spec §5.4): a 2ª recusa decide por query ao
+   vivo dentro do laço, não por foto antes dele — prévia e confirmação podem barrar conjuntos diferentes
+   de abas. Hoje o ramo **roda zero vez** (só dispara em `Cancelado`, que não é importado). Correção é
+   mecânica. Mais 4 menores na §5.5.
+
+   ⏳ **Falta o smoke do dono** e rodar o dry-run contra o arquivo real de acordos.
+
 3. **Rodar Receitas → Acordos no dev** e medir.
 
 **Depois (a automação em si):**
