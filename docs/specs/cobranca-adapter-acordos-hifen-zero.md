@@ -28,15 +28,38 @@ foi obtido reaplicando a régua do adapter com `-` tratado como zero e somando a
 | TL2 `LIQUIDADO` | 27 | R$ 10.679,95 |
 | **total** | **172** | **R$ 49.038,17** |
 
-**Levantamento exaustivo dos 6 arquivos** (2 carteiras × 3 situações), coluna a coluna:
+⚠️ Os 172 acima são **parcelas**. O comando conta 72+74+27 = **173 rejeições**, porque uma delas é de
+**conta original** (NN 74652) — ver a coluna `E` abaixo. As duas contagens fecham: 172 parcelas + 1 conta.
 
-| coluna | valores que a régua atual rejeita | ocorrências |
-|---|---|---:|
-| `G` — Valor acordado (lida) | **só `-`** (hex `2d`) | 317 |
-| `H` — Valor liquidado (**não é lida** pelo adapter) | só `-` | 6.825 |
+**Levantamento dos 6 arquivos** (2 carteiras × 3 situações), em TODAS as colunas de dinheiro que o
+adapter lê. A primeira versão desta tabela tinha só `G` e `H` e se declarava "exaustiva" — **estava
+errada**: o script separava as seções pelo formato da coluna C, e a competência de uma conta original
+(`05/2026`) casa com o padrão `\d+/\d+` de "parcela p/t", então a seção de contas nunca foi varrida.
+Refeito separando as seções pelos **títulos**, e conferido cruzando o total da coluna `G` (317, idêntico).
+
+| coluna | onde | valores que a régua antiga rejeita | ocorrências |
+|---|---|---|---:|
+| `G` — Valor acordado | parcelas (lida) | **só `-`** (hex `2d`) | 317 |
+| `E` — Valor original | contas originais (lida) | **só `-`** | **2** |
+| cabeçalho — `Valor total` / `Valor final` | ficha (lido) | — | **0** |
+| `H` — Valor liquidado | parcelas (**não é lida**) | só `-` | 6.825 |
 
 **Nenhum outro símbolo aparece** — nenhum traço unicode (`–`/`—`), nenhum `N/A`, nenhum hífen com
 espaço não-quebrável. A régua nova não precisa adivinhar variantes que o dado não tem.
+
+### 2.1 A coluna `E` muda de comportamento, e isso é dinheiro
+
+`parseCentavos` é **compartilhado** entre a coluna `E` e a `G`, então a correção muda as duas. Conta
+original vira **obrigação reconstruída** (§3.2.1 da spec-mãe).
+
+As 2 ocorrências, inspecionadas linha a linha: **NN 74652** (acordo 339, TL1 `EM_ANDAMENTO`) e **NN
+71791** (acordo 277, TL1 `CANCELADO`, que não é importado). Ambas são `1.6 - Descontos` com `-` numa
+conta que **tem principal** — `190,00` + `-` e `170,00` + `-`. O desconto zerado derrubava a conta
+inteira, e a dívida original não era reconstruída.
+
+Efeito medido no dry-run: *"Contas originais reconstruídas"* passa de **1075 → 1076** em TL1
+`EM_ANDAMENTO`. Elas **nascem substituídas pelo acordo** e não entram no exigível: *"Contas originais
+marcadas como substituídas"* e o principal que sai ficaram idênticos (0 e R$ 0,00).
 
 ## 3. Por que é zero, e não dado faltando
 
@@ -77,11 +100,39 @@ casar o token **inteiro**, nunca um `str_replace`.
 - **Parcela cujo total continuar `<= 0` segue rejeitada** (`:342-344`). Uma parcela que só tem linhas de
   hífen soma zero e **não vira obrigação** — criar dívida zerada seria inventar passivo, mesma regra que
   `testContaOriginalComValorZeroEhRejeitada` já protege nas contas originais.
+- **Conta original cujo total continuar `<= 0` segue rejeitada** (`:290`), pela mesma razão.
 - **Texto não numérico continua rejeitando**, e o teste que garante isso (`testValorNaoNumericoEhRejeitado`,
   que usa `'a combinar'`) **não muda uma linha**.
-- Nada nas seções de cabeçalho, competência, vencimento, classe ou p/t.
+- Nada em competência, vencimento, classe ou p/t.
 - **A coluna `H` (Valor liquidado) continua não sendo lida.** Tem 6.825 hífens e nenhum efeito hoje;
   passar a lê-la é outra frente.
+
+### 5.1 O cabeçalho: comportamento muda, mas o dado não exercita
+
+`valorDoRotulo` (`:385`) usa o mesmo `parseCentavos` para `Valor total das contas originais` e `Valor
+final acordado`. Com hífen, esses rótulos passariam de `null` (não comparável) para `0`, e as guardas
+`!== null` do UseCase (`:211`, `:220`) emitiriam *"o cabeçalho diz R$ 0,00"* onde antes havia silêncio.
+
+**Medido: 0 ocorrências de hífen no cabeçalho dos 6 arquivos.** O ramo não é exercitado. Registrado por
+honestidade — a versão anterior desta spec dizia *"nada nas seções de cabeçalho"*, o que era falso sobre
+o **código** ainda que verdadeiro sobre o **dado**. Se um dia acontecer, o efeito é ruído no relatório,
+não dinheiro: o valor lançado nunca é sobrescrito (§4 da spec-mãe).
+
+### 5.2 ⚠️ O modo de falha que a correção TROCA — hífen numa linha de principal
+
+Se um dia a fonte trouxer `-` numa linha de `1.1 - Taxa de condomínio`, o comportamento muda de
+**rejeitar a parcela** (ruidoso, visível na contagem de rejeições) para **criá-la com valor menor**
+(silencioso). Exemplo: principal `-` + honorário `25,50` nasce valendo R$ 25,50.
+
+Isso é uma consequência aceita, não um descuido, por três razões:
+
+1. **Não ocorre no dado.** Medido: as 319 ocorrências estão todas em `1.4`, `1.5` e `1.6` — nenhuma em
+   linha de principal. É snapshot de fonte externa, não invariante; por isso está registrado aqui.
+2. **Tratar hífen como zero só em algumas rubricas** seria inventar regra que a fonte não declara, e
+   voltaria ao problema de origem: um mapa incompleto que esconde dado.
+3. **A rede que sobra ficou mais confiável, não menos.** A conferência *"Leitura NÃO fecha com o
+   cabeçalho"* caiu de 33 avisos para 2 em TL1 `EM_ANDAMENTO` (§7.1) — antes ela era ruído que ninguém
+   lia justamente porque o hífen a disparava em massa. Agora um aviso desses significa alguma coisa.
 
 ## 6. Escopo: só o adapter de Acordos
 
@@ -115,6 +166,11 @@ depois de `parseCentavos`), então o caso do hífen puro é isolado num teste m�
 | 3 | desconto negativo `-\u{00A0}3,04` continua `-304` | o teste existente `testDescontoNegativoComEspacoNaoQuebravel` segue verde **sem alteração** |
 | 4 | `'a combinar'` continua rejeitando | `testValorNaoNumericoEhRejeitado` segue verde **sem alteração** |
 | 5 | parcela **só** de hífens (total zero) | continua rejeitada, com motivo de *total não positivo* — não vira obrigação de R$ 0,00 |
+| 6 | **conta original** com principal + `-` no desconto (§2.1) | a conta **não** é rejeitada e vale o principal — é o caso real dos NN 74652 e 71791 |
+| 7 | **conta original só de hífens** | continua rejeitada por *valor não positivo* — não reconstrói dívida zerada |
+
+⚠️ Os casos 6 e 7 **faltavam na primeira versão desta spec**, que só olhou a coluna das parcelas. Foram
+achados pela 1ª revisão, e são o motivo de a §2 ter sido remedida.
 
 ## 7.1 ⚠️ O efeito MEDIDO depois da correção — e a consequência que eu errei
 
@@ -127,10 +183,16 @@ do banco, é **zero**. Registrado aqui porque é o padrão que
 
 | destino | parcelas | valor | mexe no saldo? |
 |---|---:|---:|---|
-| já existiam no sistema (a Receitas criou) | 64 | — | **não** |
-| pagas que não existem e que o importe **recusa criar** | 16 | — | **não** (recusa de spec: criar cobraria de novo) |
+| já existiam no sistema (a Receitas criou) | 64 | \* | **não** |
+| pagas que não existem e que o importe **recusa criar** | 16 | \* | **não** (recusa de spec: criar cobraria de novo) |
+| **subtotal em aba processada** | **80** | **R$ 27.624,45** | **não** |
 | em **aba ignorada** (o acordo não existe no sistema) | 92 | R$ 21.413,72 | **não hoje** |
-| **total** | **172** | R$ 49.038,17 | |
+| **total** | **172** | **R$ 49.038,17** | |
+
+\* O valor foi medido por **aba processada × ignorada**, que é o corte que decide o efeito; a quebra
+entre "já existiam" e "recusa criar" foi contada em parcelas, não em reais. Os R$ 27.624,45 do subtotal
+não entram no saldo por nenhum dos dois caminhos. **Mais 2 contas originais** (R$ 190,00 e R$ 170,00,
+§2.1) entram como reconstruídas, que nascem substituídas e também não mexem no exigível.
 
 **`Parcelas futuras criadas` e `principal que sai` ficaram IDÊNTICOS** nos três arquivos (525 / R$
 136.006,22 · 0 · 0 e R$ 793,05 · R$ 340,00). Nenhum centavo entra ou sai por causa desta correção.
@@ -154,9 +216,14 @@ E o sintoma do §3.3 encolheu como previsto: *"Leitura NÃO fecha com o cabeçal
 ## 8. Como a entrega é conferida
 
 1. suíte completa verde no container (baseline: **3219/3219**);
-2. **dry-run repetido** contra os mesmos 6 arquivos: as rejeições por *"não numérico"* vão a **0** e as
-   172 parcelas passam a ser criadas — medido, não presumido;
-3. o bloco *"Leitura NÃO fecha com o cabeçalho"* **encolhe** (é o mesmo defeito visto pelo outro lado);
+2. **dry-run repetido** contra os mesmos arquivos: as rejeições por *"não numérico"* vão a **0**
+   (72→0, 74→0, 27→0) — medido, não presumido.
+   ⚠️ **O critério NÃO é "as 172 parcelas passam a ser criadas"** — a primeira versão desta spec pedia
+   isso e era impossível de satisfazer: nenhuma parcela é criada pela correção (§7.1). O critério certo
+   é o par **`Parcelas futuras criadas` e `principal que sai` IDÊNTICOS antes e depois**, com
+   `Parcelas que já existiam` subindo 64 e `Contas originais reconstruídas` subindo 1;
+3. o bloco *"Leitura NÃO fecha com o cabeçalho"* **encolhe** (33→2 e 20→10) — é o mesmo defeito visto
+   pelo outro lado;
 4. `/review` (`feature-review-agent`, read-only) contra esta spec;
 5. correção do que a revisão apontar;
 6. **segunda passada de `/review`** — exigência de risco ALTO. Nesta frente, **cinco revisões seguidas

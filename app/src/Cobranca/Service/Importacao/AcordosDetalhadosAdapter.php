@@ -418,7 +418,9 @@ final class AcordosDetalhadosAdapter
      *
      * 1. o desconto chega como `-\u{00A0}3,04` (espaço não-quebrável entre o sinal e o número);
      * 2. o cabeçalho usa separador de milhar (`1.020,00`);
-     * 3. **o zero é escrito `-`**, nas linhas de Juros e Multas de todo acordo recém-firmado.
+     * 3. **o zero é escrito `-`** — medido nos 6 arquivos de 04/08/2026, em três rubricas: `1.4 - Juros`
+     *    (146×), `1.5 - Multas` (145×) e `1.6 - Descontos` (26×), na coluna do valor acordado; e mais
+     *    2× na coluna do valor original das contas, ambas em `1.6 - Descontos`.
      *
      * Por isso todo espaço — comum ou NBSP — é removido antes, e o ponto só é tratado como milhar quando
      * existe vírgula decimal na string.
@@ -427,8 +429,12 @@ final class AcordosDetalhadosAdapter
      * `str_replace('-', '')` aqui trocaria o defeito do item 3 pelo do item 1 — e o item 1 já custou uma
      * parcela de R$ 400,68 quando foi descoberto. A convenção "vazio ou hífen = ausente" é a mesma que
      * `preenchido()` aplica na coluna Liquidação; ela valia para as duas colunas, e faltava aqui.
-     * Medido em 04/08/2026: o hífen não reconhecido descartava 172 parcelas, R$ 49.038,17 que nunca
-     * entrariam no saldo. Spec: `docs/specs/cobranca-adapter-acordos-hifen-zero.md`.
+     *
+     * O hífen não reconhecido descartava a PARCELA (ou a CONTA) inteira, não a linha: 172 parcelas
+     * (R$ 49.038,17) e 2 contas originais. ⚠️ **Isso não é o mesmo que dinheiro a mais no saldo** — no
+     * dado de 04/08 o efeito medido no saldo foi ZERO, porque as parcelas recuperadas já existiam, ou o
+     * importe recusa criá-las, ou estão em aba de acordo inexistente. O que a correção destrava está
+     * medido na §7.1 da spec: `docs/specs/cobranca-adapter-acordos-hifen-zero.md`.
      */
     private function parseCentavos(mixed $valor): int|false
     {
