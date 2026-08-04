@@ -237,6 +237,69 @@ final class AcordosDetalhadosAdapterTest extends TestCase
         self::assertStringContainsString('numérico', $leitura->rejeitadas[0]->motivo);
     }
 
+    /**
+     * O hífen é o ZERO da fonte, não um valor inválido: ela escreve `-` nas linhas de Juros e Multas de
+     * todo acordo recém-firmado. Lido como "não numérico", ele derrubava a PARCELA INTEIRA — medido no
+     * dado real de 04/08: 172 parcelas e R$ 49.038,17 que nunca entrariam no saldo.
+     * Spec: `docs/specs/cobranca-adapter-acordos-hifen-zero.md`.
+     *
+     * O cenário é MÍNIMO de propósito. A parcela vale R$ 170,00 (positivo) para que a defesa seguinte —
+     * `$total <= 0`, que barra parcela zerada — não possa ficar vermelha no lugar desta: com defesas em
+     * série, um teste que dispara as duas não prova nenhuma.
+     */
+    #[TestDox('Hífen na coluna "Valor acordado" é ZERO e não derruba a parcela (Juros e Multas zerados)')]
+    public function testHifenNoValorAcordadoValeZero(): void
+    {
+        $planilha = new Spreadsheet();
+        $aba = $planilha->getActiveSheet();
+        $aba->setTitle('Acordo n77');
+        $this->escreverCabecalho($aba, 77, 'QUADRA 02 CHACARA 01/01', 'MARIA DO HIFEN', '170,00', '170,00');
+        $linha = $this->escreverContasOriginais($aba, 12, [
+            ['62001', '1.1 - Taxa de condomínio', '05/2026', '13/05/2026', '170,00'],
+        ]);
+        $this->escreverParcelas($aba, $linha + 1, [
+            ['62100', '1.1 - Taxa de condomínio - 05/2026', '1/1', '06/2026', '18/06/2026', '-', '170,00', '-'],
+            ['62100', '1.4 - Juros', '1/1', '06/2026', '18/06/2026', '-', '-', '-'],
+            ['62100', '1.5 - Multas', '1/1', '06/2026', '18/06/2026', '-', '-', '-'],
+        ]);
+
+        $leitura = (new AcordosDetalhadosAdapter())->ler($this->salvar($planilha));
+
+        self::assertSame([], $leitura->rejeitadas, 'o hífen de Juros/Multas não pode derrubar a parcela');
+        self::assertCount(1, $leitura->acordos[0]->parcelas);
+        // 170,00 + 0 + 0 — o hífen soma zero, não inventa dívida nem subtrai.
+        self::assertSame(17000, $leitura->acordos[0]->parcelas[0]->valorCentavos);
+    }
+
+    /**
+     * O espelho do teste acima, e a razão de ele existir separado: a correção do hífen não pode abrir a
+     * porta para obrigação de R$ 0,00. Uma parcela que só tem hífen soma zero e continua rejeitada pela
+     * defesa de total não positivo — mesma regra que `testContaOriginalComValorZeroEhRejeitada` protege
+     * do outro lado.
+     */
+    #[TestDox('Parcela SÓ de hífens soma zero e continua rejeitada — não vira obrigação de R$ 0,00')]
+    public function testParcelaSoDeHifensContinuaRejeitada(): void
+    {
+        $planilha = new Spreadsheet();
+        $aba = $planilha->getActiveSheet();
+        $aba->setTitle('Acordo n78');
+        $this->escreverCabecalho($aba, 78, 'QUADRA 02 CHACARA 01/02', 'JOAO DO ZERO', '170,00', '170,00');
+        $linha = $this->escreverContasOriginais($aba, 12, [
+            ['62002', '1.1 - Taxa de condomínio', '05/2026', '13/05/2026', '170,00'],
+        ]);
+        $this->escreverParcelas($aba, $linha + 1, [
+            ['62200', '1.4 - Juros', '1/1', '06/2026', '18/06/2026', '-', '-', '-'],
+            ['62200', '1.5 - Multas', '1/1', '06/2026', '18/06/2026', '-', '-', '-'],
+        ]);
+
+        $leitura = (new AcordosDetalhadosAdapter())->ler($this->salvar($planilha));
+
+        self::assertSame([], $leitura->acordos[0]->parcelas);
+        self::assertCount(1, $leitura->rejeitadas);
+        self::assertSame('62200', $leitura->rejeitadas[0]->referencia);
+        self::assertStringContainsString('não positivo', $leitura->rejeitadas[0]->motivo);
+    }
+
     #[TestDox('Conta original de valor zero é rejeitada — reconstruir dívida zerada seria inventar passivo')]
     public function testContaOriginalComValorZeroEhRejeitada(): void
     {

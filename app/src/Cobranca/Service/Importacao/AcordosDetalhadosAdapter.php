@@ -411,13 +411,24 @@ final class AcordosDetalhadosAdapter
     }
 
     /**
-     * Converte o dinheiro pt-BR desta fonte para centavos inteiros. Vazio → 0; texto não numérico →
-     * `false` (rejeita a linha em vez de virar zero silencioso).
+     * Converte o dinheiro pt-BR desta fonte para centavos inteiros. Vazio e hífen → 0; texto não numérico
+     * → `false` (rejeita a linha em vez de virar zero silencioso).
      *
-     * Duas particularidades MEDIDAS na fonte, ambas capazes de derrubar uma parcela inteira se ignoradas:
-     * o desconto chega como `-\u{00A0}3,04` (espaço não-quebrável entre o sinal e o número) e o cabeçalho
-     * usa separador de milhar (`1.020,00`). Por isso todo espaço — comum ou NBSP — é removido antes, e o
-     * ponto só é tratado como milhar quando existe vírgula decimal na string.
+     * TRÊS particularidades MEDIDAS na fonte, todas capazes de derrubar uma parcela inteira se ignoradas:
+     *
+     * 1. o desconto chega como `-\u{00A0}3,04` (espaço não-quebrável entre o sinal e o número);
+     * 2. o cabeçalho usa separador de milhar (`1.020,00`);
+     * 3. **o zero é escrito `-`**, nas linhas de Juros e Multas de todo acordo recém-firmado.
+     *
+     * Por isso todo espaço — comum ou NBSP — é removido antes, e o ponto só é tratado como milhar quando
+     * existe vírgula decimal na string.
+     *
+     * ⚠️ O hífen tem de casar o token INTEIRO. `-` sozinho é zero, mas `-\u{00A0}3,04` é DESCONTO: um
+     * `str_replace('-', '')` aqui trocaria o defeito do item 3 pelo do item 1 — e o item 1 já custou uma
+     * parcela de R$ 400,68 quando foi descoberto. A convenção "vazio ou hífen = ausente" é a mesma que
+     * `preenchido()` aplica na coluna Liquidação; ela valia para as duas colunas, e faltava aqui.
+     * Medido em 04/08/2026: o hífen não reconhecido descartava 172 parcelas, R$ 49.038,17 que nunca
+     * entrariam no saldo. Spec: `docs/specs/cobranca-adapter-acordos-hifen-zero.md`.
      */
     private function parseCentavos(mixed $valor): int|false
     {
@@ -429,7 +440,7 @@ final class AcordosDetalhadosAdapter
         }
 
         $limpo = preg_replace('/[\s\x{00A0}]+/u', '', trim((string) $valor)) ?? '';
-        if ($limpo === '') {
+        if ($limpo === '' || $limpo === '-') {
             return 0;
         }
         if (str_contains($limpo, ',')) {
