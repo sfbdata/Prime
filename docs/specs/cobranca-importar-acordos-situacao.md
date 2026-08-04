@@ -4,6 +4,13 @@
 **Decisão do dono, 04/08/2026:** *"o importe sempre sobrescreve o sistema"* — reafirmada nesta sessão,
 inclusive para o caso em que o sistema tem um acordo **não vigente** por decisão manual de alguém.
 
+⚠️ **Escopo: a regra vale onde há importe, e hoje isso é o tenant 1.** O dono precisou o alcance em
+04/08: *"apenas o tenant 1 se baseia 100% no importe, os outros podem trabalhar puramente pelo sistema."*
+Nenhum código novo decorre disso — o importador roda por `--tenant-id`, e só o tenant 1 tem as carteiras
+da contábil —, mas isso **preserva** o segundo argumento que o código original usava para não escrever o
+status (*"o status é uma decisão MANUAL do escritório"*): ele continua verdadeiro para quem não importa,
+e essas contas nunca passam por aqui.
+
 Frente: `docs/gestao-cobrancas/HANDOFF_AUTOMATIZAR_DOWNLOADS.md` §6, item 2.
 Spec-mãe do importador: `docs/specs/cobranca-importar-acordos-detalhados.md`.
 
@@ -123,9 +130,37 @@ tratamento**:
   lançar** — derrubaria o lote inteiro por causa de uma aba. Segue a regra do dono: **aplica, mede e
   reporta**, na mesma linha do que a Receitas faz na reativação.
 
-⚠️ **Risco aceito e declarado:** este é o único ponto em que "sem exceção" contraria uma recusa dura do
-caminho manual. Como o arquivo de cancelados não entra na importação, o ramo nasce **code-complete e não
-exercitado**. Antes de qualquer execução contra `*_CANCELADO.xlsx` isto volta ao dono.
+⚠️ O ramo nasce **code-complete e não exercitado** — o arquivo de cancelados não entra na importação.
+Antes de qualquer execução contra `*_CANCELADO.xlsx`, isto volta ao dono.
+
+### 5.3 ✅ A ÚNICA EXCEÇÃO a "sobrescreve sempre" — decisão do dono, 04/08
+
+A versão anterior desta spec registrava como *"risco aceito"* o fato de o importe aplicar o cancelamento
+mesmo com **parcela paga**, enquanto o caminho manual o **recusa**
+(`CancelarAcordoUseCase::recusarSeAlgumaParcelaFoiPaga`, `AcordoComParcelaPagaException`). O dono decidiu
+contra o risco:
+
+> *"se por acaso alguém clicar em pagar uma parcela e depois o import informa que aquele acordo foi
+> cancelado, sugiro apenas um aviso para excluir o pagamento para poder cancelar o acordo."*
+
+**Regra:** desativação (`vigente → Cancelado`) de acordo com parcela paga **não é aplicada**. O status
+fica como está e o lote ganha um aviso **acionável**, com o caminho da saída.
+
+| | |
+|---|---|
+| por que | cancelar tira as parcelas do exigível **levando a alocação junto**: o dinheiro recebido para de abater o saldo e o devedor volta a ser cobrado por algo que pagou |
+| o que acontece | status **mantido**; aba processada normalmente (o acordo segue vigente de fato) |
+| o aviso | *"há PARCELA PAGA no sistema — status mantido em X. Para aplicar: exclua o recebimento da parcela … e importe de novo"* |
+| por que não lança exceção | derrubaria o lote inteiro por causa de uma aba. Vira aviso, não erro |
+| onde é decidido | **antes** do `$statusFinal`, para a guarda de vigência continuar enxergando o status real e a aba não ser pulada como se tivesse mudado |
+| paridade | o mapa de parcelas pagas é fotografado **antes do laço**, sobre o banco intocado — mesma disciplina do §6 |
+
+A saída existe e é a **etapa 1**: `cobranca_pagamento_excluir` apaga o recebimento e reabre a parcela;
+feito isso, a importação seguinte cancela sem tocar em dinheiro recebido.
+
+⚠️ Isto **alinha o importe ao caminho manual** em vez de contrariá-lo — some, portanto, a única
+contradição que a §5.2 declarava. A regra *"o importe sobrescreve"* continua valendo para todo o resto:
+reativação, `Ativo ↔ Cumprido` e cancelamento de acordo **sem** parcela paga.
 
 ## 6. Paridade prévia × confirmação — a invariável que não pode cair
 

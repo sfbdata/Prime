@@ -15,6 +15,7 @@ use App\Cobranca\Enum\TipoEventoHistorico;
 use App\Cobranca\Exception\CarteiraNaoEncontradaException;
 use App\Cobranca\Exception\MigrationDeCompetenciaPendenteException;
 use App\Cobranca\Repository\AcordoRepository;
+use App\Cobranca\Repository\AlocacaoPagamentoRepository;
 use App\Cobranca\Repository\CarteiraRepository;
 use App\Cobranca\Repository\ObrigacaoRepository;
 use App\Cobranca\Service\CalculadoraEncargos;
@@ -89,6 +90,7 @@ final class ImportarAcordosDetalhadosUseCase
         private readonly RegistrarEventoHistorico $registrarEvento,
         private readonly RestauradorObrigacoesOriginais $restaurador,
         private readonly ImpactoDaReativacaoDeAcordo $impactoDaReativacao,
+        private readonly AlocacaoPagamentoRepository $alocacaoRepository,
         private readonly EntityManagerInterface $em,
     ) {
     }
@@ -139,6 +141,11 @@ final class ImportarAcordosDetalhadosUseCase
             $tenant,
         );
 
+        // Mesma foto, pela mesma razão, para a pergunta oposta: quais acordos têm PARCELA PAGA. É o que
+        // barra a desativação por importe (§5.3, decisão do dono de 04/08). Medido aqui, e não no laço,
+        // para prévia e confirmação decidirem pelo MESMO valor — a invariável do §6.
+        $parcelaPagaPorAcordo = $this->mapearParcelasPagas($carteira, $leitura, $tenant);
+
         $processados = [];
         $liquidadas = [];
         $situacoesDesconhecidas = [];
@@ -160,7 +167,16 @@ final class ImportarAcordosDetalhadosUseCase
                 $conferencias[] = $conferencia;
             }
 
-            $processados[] = $this->processarAba($aba, $carteira, $tenant, $usuario, $situacoesDesconhecidas, $tocadas, $impactoPorAcordo[$aba->numero] ?? [[], []]);
+            $processados[] = $this->processarAba(
+                $aba,
+                $carteira,
+                $tenant,
+                $usuario,
+                $situacoesDesconhecidas,
+                $tocadas,
+                $impactoPorAcordo[$aba->numero] ?? [[], []],
+                $parcelaPagaPorAcordo[$aba->numero] ?? false,
+            );
         }
 
         return new ResultadoImportacaoAcordos(
@@ -215,6 +231,7 @@ final class ImportarAcordosDetalhadosUseCase
      * @param list<string>          $situacoesDesconhecidas acumulador do lote
      * @param ObrigacoesTocadasNaImportacao $tocadas                registro do lote (ver `processar`)
      * @param array{0: list<string>, 1: list<string>} $impactoDaReativacao medido sobre o banco intocado
+     * @param bool                  $temParcelaPaga         idem — barra a desativação por importe (§5.3)
      */
     private function processarAba(
         AcordoDetalhadoImportavel $aba,
@@ -224,6 +241,7 @@ final class ImportarAcordosDetalhadosUseCase
         array &$situacoesDesconhecidas,
         ObrigacoesTocadasNaImportacao $tocadas,
         array $impactoDaReativacao,
+        bool $temParcelaPaga,
     ): AcordoProcessado {
         $acordo = $this->acordoRepository->findOnePorNumeroExternoNaCarteira($aba->numero, $carteira, $tenant);
         if ($acordo === null) {
@@ -240,6 +258,33 @@ final class ImportarAcordosDetalhadosUseCase
         // sistema". Resolvida ANTES da guarda de vigência e IDÊNTICA nos dois modos: é o que faz prévia
         // e confirmação processarem exatamente as mesmas abas (§6).
         $sobrescrita = $this->resolverSobrescrita($aba, $acordo, $situacoesDesconhecidas);
+
+        // §5.3 — A ÚNICA EXCEÇÃO a "o importe sobrescreve sempre" (decisão do dono, 04/08).
+        //
+        // Desativar um acordo com PARCELA PAGA tira as parcelas do exigível levando a alocação junto: o
+        // dinheiro recebido para de abater o saldo e o devedor volta a ser cobrado por algo que pagou.
+        // O caminho manual RECUSA esse cancelamento (`CancelarAcordoUseCase::recusarSeAlgumaParcelaFoiPaga`,
+        // `AcordoComParcelaPagaException`), e o dono decidiu que o importe faz o mesmo em vez de aplicar
+        // e reportar: **não aplica, e avisa para excluir o pagamento primeiro.**
+        //
+        // Por que aqui e não lá dentro: barrado ANTES de `$statusFinal`, a guarda de vigência continua
+        // enxergando o status vigente do banco, e a aba segue sendo processada normalmente — que é o
+        // certo, porque o acordo continua vigente de fato. Se a barreira ficasse depois, o status não
+        // mudaria mas a aba seria pulada como se tivesse mudado.
+        //
+        // ⚠️ Não lança exceção, ao contrário do caminho manual: derrubaria o lote inteiro por causa de
+        // uma aba. Vira aviso acionável, com o caminho da saída (a etapa 1 apaga o recebimento).
+        if ($sobrescrita?->desativa() === true && $temParcelaPaga) {
+            $situacoesDesconhecidas[] = sprintf(
+                'Acordo %d: a contábil diz "%s", mas há PARCELA PAGA no sistema — status mantido em %s. '
+                . 'Cancelar agora faria o dinheiro já recebido parar de abater o saldo. '
+                . 'Para aplicar: exclua o recebimento da parcela (tela do objeto → Movimentos → Excluir) e importe de novo.',
+                $aba->numero,
+                $aba->situacao,
+                $acordo->getStatus()->value,
+            );
+            $sobrescrita = null;
+        }
 
         // ⚠️ O status que decide daqui para a frente sai da SOBRESCRITA, nunca de `$acordo->getStatus()`:
         // depois de a confirmação escrever, a entidade já responde o valor novo, e a prévia — que não
@@ -671,6 +716,51 @@ final class ImportarAcordosDetalhadosUseCase
      *
      * @param list<string> $situacoesDesconhecidas acumulador do lote
      */
+    /**
+     * Quais acordos do lote têm ao menos uma PARCELA PAGA — a foto que barra a desativação (§5.3).
+     *
+     * Medido ANTES do laço e sobre o banco intocado, pela mesma razão do impacto da reativação: prévia e
+     * confirmação têm de decidir pelo mesmo valor (§6). Aqui a foto é estável de qualquer modo — este
+     * importador não cria alocação (a baixa de pagamento está fora de escopo, §5) —, mas depender disso
+     * seria depender de uma propriedade que a próxima entrega pode remover sem perceber.
+     *
+     * A régua é EXISTIR alocação, não ser positiva: é a mesma de `existeAlocacaoEmObrigacoes`, que o
+     * `CancelarAcordoUseCase` usa para responder a esta pergunta no caminho manual. Alocação de valor
+     * zero é uma linha de pagamento real, com histórico — e a etapa 2 criou 10 delas.
+     *
+     * @return array<int, bool> número externo do acordo => tem parcela paga
+     */
+    private function mapearParcelasPagas(Carteira $carteira, ResultadoLeituraAcordos $leitura, Tenant $tenant): array
+    {
+        $mapa = [];
+        foreach ($leitura->acordos as $aba) {
+            if (array_key_exists($aba->numero, $mapa)) {
+                continue;
+            }
+
+            $acordo = $this->acordoRepository->findOnePorNumeroExternoNaCarteira($aba->numero, $carteira, $tenant);
+            if ($acordo === null) {
+                $mapa[$aba->numero] = false;
+
+                continue;
+            }
+
+            // QUERY, e não `Acordo::getParcelas()`: coleção inversa nasce vazia na mesma unidade de
+            // trabalho, e isto decide se um cancelamento que mexe em dinheiro acontece ou não.
+            $ids = [];
+            foreach ($this->obrigacaoRepository->parcelasDoAcordo($acordo, $tenant) as $parcela) {
+                $id = $parcela->getId();
+                if ($id !== null) {
+                    $ids[] = $id;
+                }
+            }
+
+            $mapa[$aba->numero] = $ids !== [] && $this->alocacaoRepository->existeAlocacaoEmObrigacoes($ids, $tenant);
+        }
+
+        return $mapa;
+    }
+
     private function resolverSobrescrita(AcordoDetalhadoImportavel $aba, Acordo $acordo, array &$situacoesDesconhecidas): ?SobrescritaDeSituacao
     {
         $mapeada = self::SITUACOES[$this->semAcento($aba->situacao)] ?? null;

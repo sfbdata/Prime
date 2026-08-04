@@ -133,6 +133,7 @@ final class ImportarAcordosDetalhadosTest extends KernelTestCase
                 $obrigacaoRepo,
                 $this->em->getRepository(AlocacaoPagamento::class),
             ),
+            $this->em->getRepository(AlocacaoPagamento::class),
             $this->em,
         );
     }
@@ -513,6 +514,64 @@ final class ImportarAcordosDetalhadosTest extends KernelTestCase
         $acordo = $this->em->getRepository(Acordo::class)->find($acordo->getId());
         self::assertNotNull($acordo);
         self::assertSame(StatusAcordo::Cancelado, $acordo->getStatus(), 'o importe sobrescreve o sistema, mesmo quando o conteúdo da aba é pulado');
+    }
+
+    /**
+     * §5.3 — A ÚNICA EXCEÇÃO a "o importe sobrescreve sempre" (decisão do dono, 04/08).
+     *
+     * O cenário é o que o dono descreveu: alguém clica em "receber" numa parcela, e a planilha seguinte
+     * diz que o acordo foi cancelado. Aplicar o cancelamento tiraria as parcelas do exigível levando a
+     * alocação junto — o dinheiro recebido pararia de abater o saldo e o devedor voltaria a ser cobrado
+     * por algo que pagou. O caminho manual RECUSA esse cancelamento; aqui ele vira aviso acionável.
+     *
+     * ⚠️ O aviso não pode ser só "não deu": tem de dizer o que fazer. A saída existe e é a etapa 1 —
+     * excluir o recebimento reabre a parcela e o cancelamento passa na importação seguinte.
+     */
+    #[TestDox('🔑 §5.3: planilha CANCELADO com parcela PAGA não cancela — avisa para excluir o pagamento')]
+    public function testCanceladoComParcelaPagaNaoAplicaEAvisa(): void
+    {
+        [$tenant, $user, $carteiraId, $caso, $acordo] = $this->cenarioAcordo37();
+
+        // Alguém recebeu a parcela 61600 do acordo 37 pela tela.
+        $parcela = $this->em->getRepository(Obrigacao::class)->findOneBy(['tenant' => $tenant, 'referenciaExterna' => '61600']);
+        self::assertNotNull($parcela, 'pré-condição: a parcela do acordo existe');
+        $this->pagar($parcela, $tenant, $user, 19939);
+
+        $saldoAntes = $this->saldo->saldoExigivel($caso);
+
+        $previsto = $this->importarAcordos->prever($carteiraId, $this->leituraAcordo37(situacao: 'Cancelado'), $tenant);
+        $resultado = $this->importarAcordos->confirmar($carteiraId, $this->leituraAcordo37(situacao: 'Cancelado'), $tenant, $user);
+
+        // 1) NÃO cancelou.
+        self::assertSame([], $resultado->situacoesSobrescritas(), 'nenhum status foi escrito');
+        $this->em->clear();
+        $acordoDepois = $this->em->getRepository(Acordo::class)->find($acordo->getId());
+        self::assertNotNull($acordoDepois);
+        self::assertSame(StatusAcordo::Ativo, $acordoDepois->getStatus(), 'o acordo continua ativo — parcela paga barra o cancelamento');
+
+        // 2) Avisou, e com o caminho da saída.
+        $aviso = implode(' | ', $resultado->situacoesDesconhecidas);
+        self::assertStringContainsString('PARCELA PAGA', $aviso);
+        self::assertStringContainsString('exclua o recebimento', $aviso, 'o aviso tem de dizer O QUE FAZER, não só que não deu');
+        self::assertStringContainsString('37', $aviso, 'e QUAL acordo');
+
+        // 3) A prévia avisou o mesmo — senão quem confere não veria isto antes de mandar gravar.
+        self::assertSame($resultado->situacoesDesconhecidas, $previsto->situacoesDesconhecidas);
+        self::assertSame([], $previsto->situacoesSobrescritas());
+
+        // 4) O dinheiro não se moveu por causa disto. O saldo muda só pelo que a aba processou
+        // normalmente (o acordo segue vigente, então a reconciliação das originais acontece) — o que
+        // NÃO pode acontecer é a parcela paga sair do exigível levando os R$ 199,39 embora.
+        $caso = $this->em->getRepository(CasoCobranca::class)->find($caso->getId());
+        self::assertNotNull($caso);
+        self::assertGreaterThan(
+            0,
+            $saldoAntes,
+            'pré-condição do cenário',
+        );
+        $parcela = $this->em->getRepository(Obrigacao::class)->findOneBy(['tenant' => $tenant, 'referenciaExterna' => '61600']);
+        self::assertNotNull($parcela);
+        self::assertNull($parcela->getAcordoSubstituto(), 'a parcela paga continua exigível: o acordo não foi cancelado');
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -1273,6 +1332,31 @@ final class ImportarAcordosDetalhadosTest extends KernelTestCase
      *
      * @return array{0: Tenant, 1: User, 2: int, 3: CasoCobranca, 4: Acordo}
      */
+    /**
+     * Recebe uma obrigação como a tela receberia: `Pagamento` + `AlocacaoPagamento`. Usado pelo teste da
+     * §5.3, que precisa do estado "alguém clicou em receber" ANTES de a planilha dizer `Cancelado`.
+     */
+    private function pagar(Obrigacao $obrigacao, Tenant $tenant, User $user, int $centavos): void
+    {
+        $pagamento = new Pagamento();
+        $pagamento->setTenant($tenant);
+        $pagamento->setCaso($obrigacao->getCaso());
+        $pagamento->setData(new \DateTimeImmutable('2026-07-20'));
+        $pagamento->setValorDivida($centavos);
+        $pagamento->setValorEncargos(0);
+        $pagamento->setValorHonorarios(0);
+        $pagamento->setCriadoPor($user);
+
+        $alocacao = new AlocacaoPagamento();
+        $alocacao->setTenant($tenant);
+        $alocacao->setObrigacao($obrigacao);
+        $alocacao->setValor($centavos);
+        $pagamento->adicionarAlocacao($alocacao);
+
+        $this->em->persist($pagamento);
+        $this->em->flush();
+    }
+
     private function cenarioAcordo37(array $originaisNoSistema = ['60145', '60334', '60812', '61326']): array
     {
         $tenant = $this->criarTenant();
