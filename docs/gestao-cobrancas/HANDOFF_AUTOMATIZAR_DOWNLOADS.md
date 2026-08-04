@@ -142,13 +142,43 @@ recebimento 01/01/2026 a 04/08/2026, vencimento Todos`.
 
    ⏳ **Falta o smoke do dono** e rodar o dry-run contra o arquivo real de acordos.
 
-3. **Rodar Receitas → Acordos no dev** e medir.
+3. ✅ **FEITO (04/08) — dry-run dos Acordos contra o dado real.** Banco descartável `saas_ux_dryrun`,
+   clone de `saas_ux_pos_etapa3`, sem `--confirmar`, 4 combinações.
+
+   **A sobrescrita de situação está correta**: só **4** acordos mudam de status, e são exatamente os
+   **4 órfãos** (212, 230, 237, 280) que o §6.1 previu. Os demais já estavam certos —
+   **49 + 26 = 75 `Cumprido` batem 100% com o que a planilha chama de `Liquidado`**, duas fontes
+   independentes concordando. ⚠️ A direção `Cumprido → Ativo`, que a spec §5.1 apostava ser *o caso mais
+   comum*, acontece **zero vez** no dado real: nasce não-exercitada, como o ramo de `Cancelado`.
+
+4. ✅ **FECHADA (04/08) — o hífen da fonte é ZERO.** Spec:
+   `docs/specs/cobranca-adapter-acordos-hifen-zero.md`. **3 commits, 2 revisões, suíte 3224/3224.**
+
+   O dry-run achou o defeito: a fonte escreve `-` onde o valor é zero (`1.4 - Juros`, `1.5 - Multas`,
+   `1.6 - Descontos`), e o adapter lia isso como *"não numérico"*, descartando a **parcela inteira**.
+   Medido: **172 parcelas (R$ 49.038,17) + 2 contas originais**. Preexistente — o arquivo manual de
+   03/08 dá resultado idêntico ao da API, o que de quebra **valida a API**.
+
+   ⚠️ **O efeito no saldo é ZERO** — e a primeira leitura deste achado dizia o contrário. As parcelas
+   recuperadas já existiam (a Receitas criou), ou o importe recusa criá-las, ou estão em aba de acordo
+   inexistente. O que a correção destrava: **R$ 21.413,72 hoje em abas ignoradas**, que viram dívida
+   real quando esses acordos existirem, e **33 divergências de valor** que a rejeição escondia.
+
+   | | |
+   |---|---|
+   | `05067aaf` | a régua: `-` vale 0, casando o token inteiro (`-\u{00A0}3,04` continua desconto) |
+   | `e32dbf16` | 1ª revisão: a coluna E também tinha hífen e não fora medida nem testada |
+   | `f2df754d` | 2ª revisão: prende os testes à régua, não ao texto da mensagem |
+
+   ⏳ **Falta o smoke do dono.** Nada rodado com `--confirmar`.
+
+5. **Rodar Receitas → Acordos no dev com `--confirmar`** e medir — quando o dono mandar.
 
 **Depois (a automação em si):**
-4. **Validador da linha `Filtros:`** — recusar arquivo cujo recorte não seja o esperado. É o que impede o
+6. **Validador da linha `Filtros:`** — recusar arquivo cujo recorte não seja o esperado. É o que impede o
    erro original de voltar, e **vale mesmo com download manual**. Comparação exata por campo (ver §3.6).
-5. **Conferência da carteira** contra o `condominioNome` do histórico (ver §3.1).
-6. Comando Symfony + armazenamento + agendamento, com a busca do arquivo atrás de uma interface
+7. **Conferência da carteira** contra o `condominioNome` do histórico (ver §3.1).
+8. Comando Symfony + armazenamento + agendamento, com a busca do arquivo atrás de uma interface
    (`PastaLocal` hoje, `GroupCondominiosApi` depois). Precedentes no repo: **DJEN**, **índices do BCB**,
    **sync do Drive**.
 
