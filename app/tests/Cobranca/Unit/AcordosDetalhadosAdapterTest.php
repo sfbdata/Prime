@@ -329,7 +329,14 @@ final class AcordosDetalhadosAdapterTest extends TestCase
         self::assertSame(19000, $leitura->acordos[0]->contasOriginais[0]->valorCentavos);
     }
 
-    #[TestDox('Conta original SÓ de hífens soma zero e continua rejeitada — não reconstrói dívida zerada')]
+    /**
+     * A conta 62401 (`0,00` explícito) é o CONTROLE, e é ela que dá ao teste uma aresta com a régua do
+     * hífen que não depende do texto da mensagem: o hífen tem de ser recusado pelo MESMO motivo que o
+     * zero escrito por extenso. Sem a régua, o hífen é recusado por "não numérico" e os motivos divergem.
+     * (Achado da 2ª revisão: sem esse par, a única ligação do teste com a correção era a string
+     * `'não positivo'` — reescrever a mensagem deixaria o teste verde com o defeito de volta.)
+     */
+    #[TestDox('Conta original SÓ de hífens soma zero e é recusada pelo MESMO motivo que um "0,00" explícito')]
     public function testContaOriginalSoDeHifensContinuaRejeitada(): void
     {
         $planilha = new Spreadsheet();
@@ -338,14 +345,44 @@ final class AcordosDetalhadosAdapterTest extends TestCase
         $this->escreverCabecalho($aba, 80, 'QUADRA 03 CHACARA 01/02', 'PEDRO DO ZERO', '190,00', '190,00');
         $this->escreverContasOriginais($aba, 12, [
             ['62400', '1.6 - Descontos', '02/2026', '13/02/2026', '-'],
+            ['62401', '1.6 - Descontos', '03/2026', '13/03/2026', '0,00'],
         ]);
 
         $leitura = (new AcordosDetalhadosAdapter())->ler($this->salvar($planilha));
 
         self::assertSame([], $leitura->acordos[0]->contasOriginais);
-        self::assertCount(1, $leitura->rejeitadas);
+        self::assertCount(2, $leitura->rejeitadas);
         self::assertSame('62400', $leitura->rejeitadas[0]->referencia);
+        self::assertSame($leitura->rejeitadas[1]->motivo, $leitura->rejeitadas[0]->motivo, 'hífen e "0,00" são o mesmo valor: têm de ser recusados pelo mesmo motivo');
         self::assertStringContainsString('não positivo', $leitura->rejeitadas[0]->motivo);
+    }
+
+    /**
+     * O TERCEIRO chamador de `parseCentavos` (`valorDoRotulo`, os rótulos de dinheiro do cabeçalho da
+     * ficha). Medido: **0 hífens no cabeçalho** dos 6 arquivos de 04/08 — o caso não é exercitado pelo
+     * dado, e é justamente por isso que fica travado por teste: a régua é permanente e a fonte não é.
+     *
+     * Sem dinheiro em jogo — o cabeçalho só alimenta a conferência "a leitura não fecha", que apenas
+     * avisa (`ImportarAcordosDetalhadosUseCase:203-204`); o valor lançado nunca é sobrescrito (§4 da
+     * spec-mãe).
+     */
+    #[TestDox('Hífen no cabeçalho vira 0, não null: o rótulo passa a ser comparável em vez de silencioso')]
+    public function testHifenNoCabecalhoValeZero(): void
+    {
+        $planilha = new Spreadsheet();
+        $aba = $planilha->getActiveSheet();
+        $aba->setTitle('Acordo n81');
+        $this->escreverCabecalho($aba, 81, 'QUADRA 03 CHACARA 01/03', 'LIA DO CABECALHO', '-', '-');
+        $this->escreverContasOriginais($aba, 12, [
+            ['62500', '1.1 - Taxa de condomínio', '02/2026', '13/02/2026', '170,00'],
+        ]);
+
+        $acordo = (new AcordosDetalhadosAdapter())->ler($this->salvar($planilha))->acordos[0];
+
+        self::assertSame(0, $acordo->valorTotalContasOriginaisCentavos);
+        self::assertSame(0, $acordo->valorFinalAcordadoCentavos);
+        // A conta em si não é afetada pelo cabeçalho: continua valendo o que a linha diz.
+        self::assertSame(17000, $acordo->contasOriginais[0]->valorCentavos);
     }
 
     #[TestDox('Conta original de valor zero é rejeitada — reconstruir dívida zerada seria inventar passivo')]

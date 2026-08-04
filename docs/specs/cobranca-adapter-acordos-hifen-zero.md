@@ -28,8 +28,17 @@ foi obtido reaplicando a régua do adapter com `-` tratado como zero e somando a
 | TL2 `LIQUIDADO` | 27 | R$ 10.679,95 |
 | **total** | **172** | **R$ 49.038,17** |
 
-⚠️ Os 172 acima são **parcelas**. O comando conta 72+74+27 = **173 rejeições**, porque uma delas é de
-**conta original** (NN 74652) — ver a coluna `E` abaixo. As duas contagens fecham: 172 parcelas + 1 conta.
+⚠️ **Dois universos, e é preciso não misturá-los** (a 2ª revisão pegou esta spec fazendo exatamente isso):
+
+| universo | o que cobre | grupos derrubados pela régua antiga |
+|---|---|---|
+| **dry-run** — 3 arquivos importáveis | TL1 `EM_ANDAMENTO` + TL1 `LIQUIDADO` + TL2 `LIQUIDADO` | 72 + 74 + 27 = **173** = 172 parcelas + **1** conta (NN 74652) |
+| **levantamento de colunas** — 6 arquivos | os 3 acima + os 3 `CANCELADO` e TL2 `EM_ANDAMENTO` | **174** = 172 parcelas + **2** contas (NN 74652 e **71791**) |
+
+A 2ª conta, **NN 71791**, mora no TL1 `CANCELADO` — arquivo que **não é importado** por decisão do dono,
+e por isso não aparece na tabela de valor acima. A versão anterior desta seção somava "172 + 1 = 173" e
+chamava a conta de fechada, misturando o universo de 3 com o de 6; o docblock do adapter, no mesmo
+commit, dizia "2 contas". **Os dois números estavam certos e os universos não estavam declarados.**
 
 **Levantamento dos 6 arquivos** (2 carteiras × 3 situações), em TODAS as colunas de dinheiro que o
 adapter lê. A primeira versão desta tabela tinha só `G` e `H` e se declarava "exaustiva" — **estava
@@ -53,9 +62,19 @@ espaço não-quebrável. A régua nova não precisa adivinhar variantes que o da
 original vira **obrigação reconstruída** (§3.2.1 da spec-mãe).
 
 As 2 ocorrências, inspecionadas linha a linha: **NN 74652** (acordo 339, TL1 `EM_ANDAMENTO`) e **NN
-71791** (acordo 277, TL1 `CANCELADO`, que não é importado). Ambas são `1.6 - Descontos` com `-` numa
-conta que **tem principal** — `190,00` + `-` e `170,00` + `-`. O desconto zerado derrubava a conta
-inteira, e a dívida original não era reconstruída.
+71791** (acordo 277, TL1 `CANCELADO`). Ambas são `1.6 - Descontos` com `-` numa conta que **tem
+principal** — `190,00` + `-` e `170,00` + `-`. O desconto zerado derrubava a conta inteira, e a dívida
+original não era reconstruída.
+
+**Por que o NN 71791 não vira dívida nem se o `CANCELADO` for importado — garantia de CÓDIGO, não
+operacional.** A versão anterior desta seção justificava com *"arquivo que não é importado"*, o que
+depende do operador não passar o arquivo — e a frente de automação existe para passar todos. A garantia
+real: `Cancelado` mapeia para `StatusAcordo::Cancelado` (`ImportarAcordosDetalhadosUseCase::SITUACOES`),
+`ehVigente()` devolve `false` para ele
+([`StatusAcordo:42-48`](../../app/src/Cobranca/Enum/StatusAcordo.php#L42-L48)), e a guarda de vigência
+**pula a aba inteira** — com o comentário que explica por quê: escrever ali cria dívida, porque a conta
+reconstruída nasce com `acordoSubstituto` e `doCasoExigiveis` só exclui o que está substituído por
+acordo **vigente**. Achado da 2ª revisão, que foi verificar no código em vez de aceitar o argumento.
 
 Efeito medido no dry-run: *"Contas originais reconstruídas"* passa de **1075 → 1076** em TL1
 `EM_ANDAMENTO`. Elas **nascem substituídas pelo acordo** e não entram no exigível: *"Contas originais
@@ -118,6 +137,11 @@ honestidade — a versão anterior desta spec dizia *"nada nas seções de cabe�
 o **código** ainda que verdadeiro sobre o **dado**. Se um dia acontecer, o efeito é ruído no relatório,
 não dinheiro: o valor lançado nunca é sobrescrito (§4 da spec-mãe).
 
+✅ **Mesmo não sendo exercitado, o caso é travado por teste** (`testHifenNoCabecalhoValeZero`). A 2ª
+revisão apontou a assimetria: justificar ausência de teste com *"0 ocorrências no dado"* é o mesmo
+argumento que a §5.2 classifica como frágil — *snapshot de fonte externa, não invariante*. A régua é
+permanente; o teste também tem de ser.
+
 ### 5.2 ⚠️ O modo de falha que a correção TROCA — hífen numa linha de principal
 
 Se um dia a fonte trouxer `-` numa linha de `1.1 - Taxa de condomínio`, o comportamento muda de
@@ -167,10 +191,13 @@ depois de `parseCentavos`), então o caso do hífen puro é isolado num teste m�
 | 4 | `'a combinar'` continua rejeitando | `testValorNaoNumericoEhRejeitado` segue verde **sem alteração** |
 | 5 | parcela **só** de hífens (total zero) | continua rejeitada, com motivo de *total não positivo* — não vira obrigação de R$ 0,00 |
 | 6 | **conta original** com principal + `-` no desconto (§2.1) | a conta **não** é rejeitada e vale o principal — é o caso real dos NN 74652 e 71791 |
-| 7 | **conta original só de hífens** | continua rejeitada por *valor não positivo* — não reconstrói dívida zerada |
+| 7 | **conta original só de hífens**, ao lado de uma com `0,00` explícito | os dois motivos de recusa são **idênticos** — é esse par que prende o teste à régua, e não o texto da mensagem |
+| 8 | **hífen no cabeçalho** (`Valor total` / `Valor final`) | os rótulos viram `0`, não `null`, e a conta da linha não é afetada |
 
-⚠️ Os casos 6 e 7 **faltavam na primeira versão desta spec**, que só olhou a coluna das parcelas. Foram
-achados pela 1ª revisão, e são o motivo de a §2 ter sido remedida.
+⚠️ Os casos 6 e 7 **faltavam na primeira versão desta spec**, que só olhou a coluna das parcelas — achado
+da 1ª revisão, e o motivo de a §2 ter sido remedida. O **par de controle do caso 7** e o **caso 8** vieram
+da 2ª revisão: sem eles, o teste 7 dependia só da string `'não positivo'` (reescrever a mensagem o
+deixaria verde com o defeito de volta) e o terceiro chamador de `parseCentavos` ficava sem prova.
 
 ## 7.1 ⚠️ O efeito MEDIDO depois da correção — e a consequência que eu errei
 
@@ -215,9 +242,14 @@ E o sintoma do §3.3 encolheu como previsto: *"Leitura NÃO fecha com o cabeçal
 
 ## 8. Como a entrega é conferida
 
-1. suíte completa verde no container (baseline: **3219/3219**);
-2. **dry-run repetido** contra os mesmos arquivos: as rejeições por *"não numérico"* vão a **0**
-   (72→0, 74→0, 27→0) — medido, não presumido.
+1. suíte completa verde no container — **3219/3219 antes da frente, 3224/3224 depois** (5 testes novos:
+   2 de parcela, 2 de conta original e 1 de cabeçalho; a conta de controle `0,00` do caso 7 vive dentro
+   do próprio teste, não é um método à parte);
+2. **dry-run repetido** contra os **3 arquivos importáveis**: as rejeições por *"não numérico"* vão a
+   **0** (72→0, 74→0, 27→0) — medido, não presumido.
+   ⚠️ O TL1 `CANCELADO`, onde mora a 2ª conta da §2.1 (NN 71791), **fica fora desta conferência** por
+   decisão do dono — ele não é importado, e a §5.4 da spec de sobrescrita de situação trava junto com
+   ele. O que garante essa conta não é a conferência, é a guarda de vigência (§2.1);
    ⚠️ **O critério NÃO é "as 172 parcelas passam a ser criadas"** — a primeira versão desta spec pedia
    isso e era impossível de satisfazer: nenhuma parcela é criada pela correção (§7.1). O critério certo
    é o par **`Parcelas futuras criadas` e `principal que sai` IDÊNTICOS antes e depois**, com
