@@ -153,7 +153,7 @@ fica como está e o lote ganha um aviso **acionável**, com o caminho da saída.
 | o aviso | *"há PARCELA PAGA no sistema — status mantido em X. Para aplicar: exclua o recebimento da parcela … e importe de novo"* |
 | por que não lança exceção | derrubaria o lote inteiro por causa de uma aba. Vira aviso, não erro |
 | onde é decidido | **antes** do `$statusFinal`, para a guarda de vigência continuar enxergando o status real e a aba não ser pulada como se tivesse mudado |
-| paridade | o mapa de parcelas pagas é fotografado **antes do laço**, sobre o banco intocado — mesma disciplina do §6 |
+| paridade | ⚠️ **só a 1ª recusa segue a disciplina do §6** — ver §5.4 |
 
 A saída existe e é a **etapa 1**: `cobranca_pagamento_excluir` apaga o recebimento e reabre a parcela;
 feito isso, a importação seguinte cancela sem tocar em dinheiro recebido.
@@ -265,3 +265,46 @@ na prévia, antes de qualquer escrita.
 5. medição no dev restaurado (`saas_ux` a partir de `saas_ux_antes_etapa3`, 10 acordos / 3.431 obrigações
    / 0 pagamentos): Receitas → Acordos (`EM_ANDAMENTO` + `LIQUIDADO`, duas carteiras), conferindo o
    principal que sai e o que entra no saldo.
+
+
+### 5.4 ⏸️ PENDÊNCIA ABERTA — a 2ª recusa decide ao vivo, não por foto
+
+Achado da **2ª revisão**, não corrigido de propósito. Registrado aqui para não se perder.
+
+`motivoParaNaoDesativar` mistura duas disciplinas:
+
+| recusa | como decide |
+|---|---|
+| parcela paga | **foto** tirada antes do laço, sobre o banco intocado ✅ |
+| parcelas renegociadas | **query ao vivo**, por aba, dentro do laço ⚠️ |
+
+A query lê `asub.status IN (:vigentes)` **no banco**. Na confirmação, uma aba anterior pode já ter
+alterado o status de um acordo que essa query consulta — `aplicarSobrescrita` não dá flush, mas o laço
+flusha em vários pontos e o flush é global, levando o `setStatus` pendente junto. Na prévia nada disso
+acontece.
+
+**Consequência:** prévia e confirmação podem barrar **conjuntos diferentes de abas** — o defeito mais
+caro desta spec (§6). Cenário: acordo B (vigente) renegociou parcelas de A; a planilha traz B e A, ambos
+`Cancelado`. A prévia barra A; a confirmação cancela B, flusha, e ao chegar em A a query devolve vazio —
+**A também é cancelado**, disparando o restaurador sobre as originais de A. A prévia que o dono aprovou
+não seria a execução.
+
+⚠️ **Hoje o ramo roda ZERO vez:** `desativa()` só é `true` para `Cancelado`, e o arquivo de cancelados
+não é importado (§5.2). O defeito nasce no dia em que `*_CANCELADO.xlsx` entrar.
+
+**Trava junto com a liberação do `*_CANCELADO.xlsx`.** A correção é mecânica: fotografar o resultado de
+`parcelasRenegociadasPorAcordoVigente` antes do laço, num mapa `numero => bool`, como já é feito com as
+outras duas medições.
+
+### 5.5 Correções menores pendentes (2ª revisão)
+
+- **spec §10** aponta os testes para `app/tests/Cobranca/Unit/ImportarAcordosDetalhadosUseCaseTest.php`
+  *"(arquivo existente)"* — o arquivo **não existe**; os testes da frente são Functional.
+- **caso 4 da §10** pede três coisas (status, `motivoCancelamento` nulo **e o aviso de reativação**); o
+  teste cobre as duas primeiras.
+- **`parcelasRenegociadasPorAcordoVigente`** resolve o tenant por `$acordo->getTenant()`, que é nullable —
+  tenant nulo devolveria lista vazia **em silêncio**, e aqui lista vazia significa **não barrar**
+  (fail-open). Não falha hoje (o acordo vem de busca tenant-scoped); é dívida de consistência com
+  `substituidasPorAcordo`, que documenta esse mesmo padrão como perigoso.
+- **teste do comando** não guarda a leitura das seções de dados: se as colunas se deslocarem, os três
+  testes seguem verdes. A classe declara cobrir contrato de tela, não números — registrado como escopo.

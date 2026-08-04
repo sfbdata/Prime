@@ -725,12 +725,19 @@ final class ImportarAcordosDetalhadosUseCase
      */
     private function motivoParaNaoDesativar(Acordo $acordo, bool $temParcelaPaga): ?string
     {
+        // ⚠️ ACUMULA as duas, nunca retorna na primeira. Uma versão anterior reportava só o primeiro
+        // impedimento, e o aviso dizia "exclua o recebimento e importe de novo" — o operador apagaria um
+        // pagamento real (irreversível na prática) e a reimportação **continuaria não cancelando**, agora
+        // pela segunda recusa. Aviso que manda destruir dado sem resolver o problema é pior que aviso
+        // nenhum (achado da 2ª revisão).
+        $motivos = [];
+
         // (1) PARCELA PAGA — a decisão do dono de 04/08. Cancelar tira as parcelas do exigível levando a
         // alocação junto: o dinheiro recebido para de abater o saldo e o devedor volta a ser cobrado por
         // algo que pagou. Espelha `CancelarAcordoUseCase::recusarSeAlgumaParcelaFoiPaga`.
         if ($temParcelaPaga) {
-            return 'há PARCELA PAGA no sistema. Cancelar agora faria o dinheiro já recebido parar de abater o saldo. '
-                . 'Para aplicar: exclua o recebimento da parcela (tela do objeto → Movimentos → Excluir) e importe de novo';
+            $motivos[] = 'há PARCELA PAGA no sistema (cancelar faria o dinheiro já recebido parar de abater o saldo) — '
+                . 'exclua o recebimento da parcela (tela do objeto → Movimentos → Excluir)';
         }
 
         // (2) PARCELAS RENEGOCIADAS por outro acordo VIGENTE — espelha
@@ -741,11 +748,18 @@ final class ImportarAcordosDetalhadosUseCase
         // Só existe em dado legado: INV-I bloqueia criar o estado hoje. Mas é exatamente o tipo de dado
         // que uma importação de acervo antigo encontra.
         if ($this->obrigacaoRepository->parcelasRenegociadasPorAcordoVigente($acordo) !== []) {
-            return 'as parcelas dele foram renegociadas por outro acordo VIGENTE. '
-                . 'Cancelar agora contaria a mesma dívida duas vezes no saldo. Resolva os dois acordos à mão antes';
+            $motivos[] = 'as parcelas dele foram renegociadas por outro acordo VIGENTE (cancelar contaria a mesma '
+                . 'dívida duas vezes no saldo) — resolva os dois acordos à mão';
         }
 
-        return null;
+        if ($motivos === []) {
+            return null;
+        }
+
+        // Com os dois impedimentos, quem for agir precisa ver os dois: resolver um só não destrava nada.
+        return count($motivos) === 1
+            ? $motivos[0]
+            : 'DOIS impedimentos, e resolver só um não destrava: (1) ' . $motivos[0] . '; (2) ' . $motivos[1];
     }
 
     /**

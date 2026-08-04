@@ -741,6 +741,43 @@ final class ImportarAcordosDetalhadosTest extends KernelTestCase
     }
 
     /**
+     * §5.3 — com os DOIS impedimentos, o aviso mostra os dois (achado da 2ª revisão).
+     *
+     * Reportar só o primeiro fazia o aviso dizer "exclua o recebimento e importe de novo": o operador
+     * destruiria um pagamento real — irreversível na prática — e a reimportação continuaria não
+     * cancelando, agora pela segunda recusa.
+     */
+    #[TestDox('🔑 §5.3: com parcela paga E parcelas renegociadas, o aviso mostra os DOIS impedimentos')]
+    public function testDoisImpedimentosAparecemJuntos(): void
+    {
+        [$tenant, $user, $carteiraId, , $acordo] = $this->cenarioAcordo37();
+
+        $parcela = $this->em->getRepository(Obrigacao::class)->findOneBy(['tenant' => $tenant, 'referenciaExterna' => '61600']);
+        self::assertNotNull($parcela);
+        $this->pagar($parcela, $tenant, $user, 19939);
+
+        $acordoB = new Acordo();
+        $acordoB->setTenant($tenant);
+        $acordoB->setCaso($parcela->getCaso());
+        $acordoB->setDataAcordo(new \DateTimeImmutable('2026-07-25'));
+        $acordoB->setStatus(StatusAcordo::Ativo);
+        $acordoB->setNumeroExterno(998);
+        $this->em->persist($acordoB);
+        $parcela->setAcordoSubstituto($acordoB);
+        $this->em->flush();
+
+        $resultado = $this->importarAcordos->confirmar($carteiraId, $this->leituraAcordo37(situacao: 'Cancelado'), $tenant, $user);
+
+        $aviso = implode(' | ', $resultado->sobrescritasBarradas);
+        self::assertStringContainsString('DOIS impedimentos', $aviso);
+        self::assertStringContainsString('PARCELA PAGA', $aviso);
+        self::assertStringContainsString('renegociadas por outro acordo VIGENTE', $aviso);
+        self::assertStringContainsString('resolver só um não destrava', $aviso, 'é o que impede o operador de apagar um pagamento à toa');
+
+        self::assertSame([], $resultado->situacoesSobrescritas());
+    }
+
+    /**
      * §5.3: a régua é EXISTIR alocação, não ser positiva.
      *
      * `existeAlocacaoEmObrigacoes` e não `totalAlocadoEmObrigacoes(...) > 0`: alocação de valor ZERO é
