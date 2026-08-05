@@ -205,7 +205,17 @@
                                     {% endif %}
                                 </td>
                                 <td class="text-nowrap fw-semibold">
-                                    {% if linha.saldoDia is not null %}
+                                    {# Dia mal batido: o zero sozinho pareceria jornada cumprida na régua. O
+                                       aviso diz que faltou BATIDA, não trabalho — e é só aqui (tela do
+                                       colaborador e ficha do admin); o PDF e o XLSX assinados não anunciam
+                                       pendência operacional. #}
+                                    {% if linha.registroIncompleto|default(false) %}
+                                        <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle fw-normal"
+                                              data-bs-toggle="tooltip"
+                                              title="Faltam batidas neste dia, então não dá para apurar a jornada: ele não credita nem debita. Corrija os registros para o saldo voltar a contar.">
+                                            <i class="bi bi-exclamation-triangle me-1"></i>Registro incompleto
+                                        </span>
+                                    {% elseif linha.saldoDia is not null %}
                                         {% set absSaldo = linha.saldoDia < 0 ? -linha.saldoDia : linha.saldoDia %}
                                         {% if linha.saldoDia > 0 %}
                                             <span class="text-success">+{{ (absSaldo // 60) }}h{{ '%02d'|format(absSaldo % 60) }}m</span>

@@ -246,4 +246,93 @@ class JornadaResolverTest extends TestCase
 
         $this->assertFalse($this->resolver->resolverAlertaHabilitado($user, null));
     }
+
+    // ──────────────────────────────────────────────────────────────────
+    // tiposEsperadosNoDia — a "forma" que a escala pede naquele dia
+    // Ver docs/specs/ponto-abono-nao-perdoa-jornada.md
+    // ──────────────────────────────────────────────────────────────────
+
+    public function testTiposEsperadosComIntervaloNoBlocoDoColaborador(): void
+    {
+        $bloco = $this->novoBlocoColaborador([1, 2, 3, 4, 5], 528);
+        $bloco->setEntrada('09:00');
+        $bloco->setRepouso('12:30');
+        $bloco->setRetorno('13:30');
+        $bloco->setSaida('18:48');
+
+        $jornada = new JornadaColaborador();
+        $jornada->addBloco($bloco);
+        $user = $this->novoUsuario($jornada);
+
+        $this->assertSame(
+            ['entrada', 'repouso', 'retorno', 'saida'],
+            $this->resolver->tiposEsperadosNoDia($user, $this->segunda(), null)
+        );
+    }
+
+    public function testTiposEsperadosSemIntervaloNoBlocoDoColaborador(): void
+    {
+        $bloco = $this->novoBlocoColaborador([1, 2, 3, 4, 5], 480);
+        $bloco->setEntrada('09:00');
+        $bloco->setSaida('18:00');
+        // repouso/retorno ficam nulos: a escala não prevê intervalo
+
+        $jornada = new JornadaColaborador();
+        $jornada->addBloco($bloco);
+        $user = $this->novoUsuario($jornada);
+
+        $this->assertSame(
+            ['entrada', 'saida'],
+            $this->resolver->tiposEsperadosNoDia($user, $this->segunda(), null)
+        );
+    }
+
+    public function testTiposEsperadosCaemNoBlocoDoTenantQuandoColaboradorNaoTemBloco(): void
+    {
+        $blocoTenant = $this->novaBlocoJornada([1, 2, 3, 4, 5], 528);
+        $blocoTenant->setEntrada('09:00');
+        $blocoTenant->setRepouso('12:00');
+        $blocoTenant->setRetorno('13:00');
+        $blocoTenant->setSaida('18:48');
+
+        $jornadaTenant = new JornadaTenant();
+        $jornadaTenant->addBloco($blocoTenant);
+
+        $user = $this->novoUsuario(); // sem jornada própria
+
+        $this->assertSame(
+            ['entrada', 'repouso', 'retorno', 'saida'],
+            $this->resolver->tiposEsperadosNoDia($user, $this->segunda(), $jornadaTenant)
+        );
+    }
+
+    public function testDiaForaDaEscalaPedeApenasEntradaESaida(): void
+    {
+        $bloco = $this->novoBlocoColaborador([1, 2, 3, 4, 5], 528);
+        $bloco->setEntrada('09:00');
+        $bloco->setRepouso('12:30');
+        $bloco->setRetorno('13:30');
+        $bloco->setSaida('18:48');
+
+        $jornada = new JornadaColaborador();
+        $jornada->addBloco($bloco);
+        $user = $this->novoUsuario($jornada);
+
+        // Sábado 2026-04-25: nenhum bloco cobre o dia. Sem escala não há intervalo a exigir —
+        // e exigir as quatro batidas descartaria hora extra real de fim de semana.
+        $this->assertSame(
+            ['entrada', 'saida'],
+            $this->resolver->tiposEsperadosNoDia($user, new \DateTimeImmutable('2026-04-25'), null)
+        );
+    }
+
+    public function testColaboradorSemJornadaNenhumaPedeApenasEntradaESaida(): void
+    {
+        $user = $this->novoUsuario();
+
+        $this->assertSame(
+            ['entrada', 'saida'],
+            $this->resolver->tiposEsperadosNoDia($user, $this->segunda(), null)
+        );
+    }
 }

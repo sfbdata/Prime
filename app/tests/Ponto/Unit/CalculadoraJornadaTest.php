@@ -410,4 +410,192 @@ class CalculadoraJornadaTest extends TestCase
         // 3h + 5h = 8h = 480 min
         $this->assertSame(480, $this->calculadora->calcularMinutosTrabalhados($batidas));
     }
+
+    // ──────────────────────────────────────────────────────────────────
+    // Registro incompleto — dia mal batido não vira falta cheia
+    //
+    // Cenários calcados nas folhas reais de 06 e 07/2026 (docs/folha-de-ponto/): jornada
+    // 09:00 · 12:30 · 13:30 · 18:48 = 528 min. Ver docs/specs/ponto-abono-nao-perdoa-jornada.md.
+    // ──────────────────────────────────────────────────────────────────
+
+    /** Jornada com intervalo previsto: a escala pede as QUATRO batidas. */
+    private function jornadaComIntervalo(): JornadaColaborador
+    {
+        $bloco = new BlocoJornadaColaborador();
+        $bloco->setDiasSemana([1, 2, 3, 4, 5]);
+        $bloco->setEntrada('09:00');
+        $bloco->setRepouso('12:30');
+        $bloco->setRetorno('13:30');
+        $bloco->setSaida('18:48');
+        $bloco->setMinutosBloco(528);
+
+        $jornada = new JornadaColaborador();
+        $jornada->addBloco($bloco);
+
+        return $jornada;
+    }
+
+    /** Sábado 2026-04-25 — fora da escala seg-sex, sem intervalo previsto. */
+    private function sabado(): \DateTimeImmutable
+    {
+        return new \DateTimeImmutable('2026-04-25');
+    }
+
+    public function testDiaUtilComApenasEntradaNaoDebitaAJornadaInteira(): void
+    {
+        $jornada = $this->jornadaComIntervalo();
+        $user = $this->novoUsuario($jornada);
+
+        // 24/07/2026: bateu 08:56 e esqueceu o resto. Antes valia -528 (a jornada inteira).
+        $batidas = [$this->batida(RegistroPonto::TIPO_ENTRADA, '08:56')];
+
+        $saldo = $this->calculadora->calcularSaldoDia($user, $this->segunda(), $batidas, $jornada, []);
+
+        $this->assertSame(0, $saldo);
+    }
+
+    public function testDiaUtilSemEntradaNaoDebitaAJornadaInteira(): void
+    {
+        $jornada = $this->jornadaComIntervalo();
+        $user = $this->novoUsuario($jornada);
+
+        // 21/07/2026: três das quatro batidas, faltando só a entrada. Antes valia -528.
+        $batidas = [
+            $this->batida(RegistroPonto::TIPO_REPOUSO, '12:49'),
+            $this->batida(RegistroPonto::TIPO_RETORNO, '13:49'),
+            $this->batida(RegistroPonto::TIPO_SAIDA, '18:47'),
+        ];
+
+        $saldo = $this->calculadora->calcularSaldoDia($user, $this->segunda(), $batidas, $jornada, []);
+
+        $this->assertSame(0, $saldo);
+    }
+
+    public function testDiaUtilSemBatidasDeIntervaloNaoCreditaOAlmoco(): void
+    {
+        $jornada = $this->jornadaComIntervalo();
+        $user = $this->novoUsuario($jornada);
+
+        // 27/07/2026: 09:02→18:10 sem bater o almoço. Antes o span inteiro (548 min) contava como
+        // trabalhado e o dia CREDITAVA +20, apesar de a escala prever 1h de intervalo.
+        $batidas = [
+            $this->batida(RegistroPonto::TIPO_ENTRADA, '09:02'),
+            $this->batida(RegistroPonto::TIPO_SAIDA, '18:10'),
+        ];
+
+        $saldo = $this->calculadora->calcularSaldoDia($user, $this->segunda(), $batidas, $jornada, []);
+
+        $this->assertSame(0, $saldo);
+    }
+
+    public function testDiaUtilSemBatidaNenhumaContinuaSendoFalta(): void
+    {
+        $jornada = $this->jornadaComIntervalo();
+        $user = $this->novoUsuario($jornada);
+
+        // Guarda da regra: ausência NÃO é registro incompleto. Sem esta distinção a mudança
+        // apagaria toda falta do sistema — o oposto do que ela existe para fazer.
+        $saldo = $this->calculadora->calcularSaldoDia($user, $this->segunda(), [], $jornada, []);
+
+        $this->assertSame(-528, $saldo);
+    }
+
+    public function testDiaForaDaEscalaBastaEntradaESaidaEPreservaOCredito(): void
+    {
+        $jornada = $this->jornadaComIntervalo();
+        $user = $this->novoUsuario($jornada);
+
+        // Sábado 13/06/2026: 09:28→14:27 = 299 min. Não há intervalo previsto num dia fora da
+        // escala, então exigir as quatro batidas descartaria hora extra real de fim de semana.
+        $batidas = [
+            $this->batida(RegistroPonto::TIPO_ENTRADA, '09:28', '2026-04-25'),
+            $this->batida(RegistroPonto::TIPO_SAIDA, '14:27', '2026-04-25'),
+        ];
+
+        $saldo = $this->calculadora->calcularSaldoDia($user, $this->sabado(), $batidas, $jornada, []);
+
+        $this->assertSame(299, $saldo);
+    }
+
+    public function testDiaForaDaEscalaSemEntradaNaoCredita(): void
+    {
+        $jornada = $this->jornadaComIntervalo();
+        $user = $this->novoUsuario($jornada);
+
+        // Sábado 27/06/2026: só a saída às 14:00. Fora da escala ainda exige entrada e saída.
+        $batidas = [$this->batida(RegistroPonto::TIPO_SAIDA, '14:00', '2026-04-25')];
+
+        $saldo = $this->calculadora->calcularSaldoDia($user, $this->sabado(), $batidas, $jornada, []);
+
+        $this->assertSame(0, $saldo);
+    }
+
+    public function testDiaCompletoContinuaSendoApuradoNormalmente(): void
+    {
+        $jornada = $this->jornadaComIntervalo();
+        $user = $this->novoUsuario($jornada);
+
+        // 19/06/2026: as quatro batidas presentes → 8:16 contra meta de 8:48 = -32.
+        // É o dia que o dono apontou: negativa, sim — quem apagava era o abono, não o cálculo.
+        $batidas = [
+            $this->batida(RegistroPonto::TIPO_ENTRADA, '09:14'),
+            $this->batida(RegistroPonto::TIPO_REPOUSO, '12:33'),
+            $this->batida(RegistroPonto::TIPO_RETORNO, '13:33'),
+            $this->batida(RegistroPonto::TIPO_SAIDA, '18:30'),
+        ];
+
+        $saldo = $this->calculadora->calcularSaldoDia($user, $this->segunda(), $batidas, $jornada, []);
+
+        $this->assertSame(-32, $saldo);
+    }
+
+    public function testRegistroIncompletoEhFalsoQuandoNaoHaBatidaNenhuma(): void
+    {
+        $jornada = $this->jornadaComIntervalo();
+        $user = $this->novoUsuario($jornada);
+
+        $this->assertFalse(
+            $this->calculadora->registroIncompleto($user, $this->segunda(), [])
+        );
+    }
+
+    public function testRegistroIncompletoEhVerdadeiroQuandoFaltaORetorno(): void
+    {
+        $jornada = $this->jornadaComIntervalo();
+        $user = $this->novoUsuario($jornada);
+
+        $batidas = [
+            $this->batida(RegistroPonto::TIPO_ENTRADA, '09:07'),
+            $this->batida(RegistroPonto::TIPO_REPOUSO, '12:31'),
+            $this->batida(RegistroPonto::TIPO_SAIDA, '18:00'),
+        ];
+
+        $this->assertTrue(
+            $this->calculadora->registroIncompleto($user, $this->segunda(), $batidas)
+        );
+    }
+
+    public function testJornadaSemIntervaloCadastradoNaoExigeBatidaDeAlmoco(): void
+    {
+        // A forma vem da ESCALA: bloco sem repouso/retorno não pede batida de intervalo, e o dia
+        // segue apurável com entrada e saída. É o que preserva o comportamento de quem nunca
+        // cadastrou horário de almoço.
+        $bloco = new BlocoJornadaColaborador();
+        $bloco->setDiasSemana([1, 2, 3, 4, 5]);
+        $bloco->setEntrada('09:00');
+        $bloco->setSaida('18:00');
+        $bloco->setMinutosBloco(480);
+
+        $jornada = new JornadaColaborador();
+        $jornada->addBloco($bloco);
+        $user = $this->novoUsuario($jornada);
+
+        $batidas = [
+            $this->batida(RegistroPonto::TIPO_ENTRADA, '09:00'),
+            $this->batida(RegistroPonto::TIPO_SAIDA, '18:30'),
+        ];
+
+        $this->assertFalse($this->calculadora->registroIncompleto($user, $this->segunda(), $batidas));
+        $this->assertSame(90, $this->calculadora->calcularSaldoDia($user, $this->segunda(), $batidas, $jornada, []));
+    }
 }

@@ -408,4 +408,140 @@ final class FolhaPontoBuilderTest extends TestCase
 
         return $registro;
     }
+
+    // ──────────────────────────────────────────────────────────────────
+    // Abono técnico não perdoa jornada · dia mal batido não vira falta
+    // Ver docs/specs/ponto-abono-nao-perdoa-jornada.md
+    // ──────────────────────────────────────────────────────────────────
+
+    /** Terça 07/04/2026, jornada de 480 min com intervalo previsto: 7h batidas = saldo -60. */
+    private function diaDeSeteHoras(): array
+    {
+        return [
+            $this->batida(RegistroPonto::TIPO_ENTRADA, '09:00', '2026-04-07'),
+            $this->batida(RegistroPonto::TIPO_REPOUSO, '12:00', '2026-04-07'),
+            $this->batida(RegistroPonto::TIPO_RETORNO, '13:00', '2026-04-07'),
+            $this->batida(RegistroPonto::TIPO_SAIDA,   '17:00', '2026-04-07'),
+        ];
+    }
+
+    private function linhaDoDia7(array $batidas, array $justificativas): array
+    {
+        $rows = $this->builder->buildRows(
+            new \DateTimeImmutable('2026-04-01'),
+            new \DateTimeImmutable('2026-04-30'),
+            $batidas,
+            true,
+            false,
+            $this->jornadaSimples(),
+            [],
+            $justificativas,
+            null,
+            $this->contagemAntiga(),
+        );
+
+        return $rows[6]; // dia 07 = índice 6
+    }
+
+    public function testEsquecimentoDeRegistroNaoZeraMaisOSaldoNegativo(): void
+    {
+        // O coração da mudança: a aprovação do esquecimento já repôs a batida; o déficit que sobra
+        // é atraso/saída antecipada e não tem relação com o registro esquecido.
+        $linha = $this->linhaDoDia7(
+            $this->diaDeSeteHoras(),
+            ['2026-04-07' => $this->justificativaAbonada('esquecimento_registro')],
+        );
+
+        self::assertSame(-60, $linha['saldoDia']);
+        self::assertTrue($linha['justificadoDia'], 'segue marcado como justificado na folha');
+    }
+
+    public function testDemaisTiposTecnicosTambemNaoZeram(): void
+    {
+        foreach (['registro_incorreto', 'ajuste_manual_autorizado', 'falha_sistema', 'correcao_ponto'] as $tipo) {
+            $linha = $this->linhaDoDia7(
+                $this->diaDeSeteHoras(),
+                ['2026-04-07' => $this->justificativaAbonada($tipo)],
+            );
+
+            self::assertSame(-60, $linha['saldoDia'], sprintf('%s não pode abonar', $tipo));
+        }
+    }
+
+    public function testAbonoLegalOuOperacionalContinuaZerandoONegativo(): void
+    {
+        foreach (['atestado_medico', 'dispensa_abonada'] as $tipo) {
+            $linha = $this->linhaDoDia7(
+                $this->diaDeSeteHoras(),
+                ['2026-04-07' => $this->justificativaAbonada($tipo)],
+            );
+
+            self::assertSame(0, $linha['saldoDia'], sprintf('%s continua abonando', $tipo));
+            self::assertTrue($linha['justificadoDia']);
+        }
+    }
+
+    public function testAbonoParcialOperacionalContinuaSomando(): void
+    {
+        $linha = $this->linhaDoDia7(
+            $this->diaDeSeteHoras(),
+            ['2026-04-07' => $this->justificativaAbonada('ajuste_jornada', true, '14:00', '17:48')],
+        );
+
+        // -60 + 228 (janela 14:00–17:48) = +168
+        self::assertSame(168, $linha['saldoDia']);
+    }
+
+    public function testJustificativaSemTipoContinuaZerando(): void
+    {
+        // Retrocompatibilidade: `tipo` é anulável e a tela de edição aceita limpá-lo. O ramo que
+        // zera é o default; só os tipos listados em abonaSaldo() saem dele.
+        $justificativa = $this->justificativaAbonada('dispensa_abonada');
+        $justificativa->setTipo(null);
+
+        $linha = $this->linhaDoDia7($this->diaDeSeteHoras(), ['2026-04-07' => $justificativa]);
+
+        self::assertSame(0, $linha['saldoDia']);
+    }
+
+    public function testDiaComBatidaIncompletaFicaEmZeroEMarcaPendencia(): void
+    {
+        // 24/07/2026 na folha real: bateu a entrada e esqueceu o resto. Antes: -480.
+        $linha = $this->linhaDoDia7(
+            [$this->batida(RegistroPonto::TIPO_ENTRADA, '09:00', '2026-04-07')],
+            [],
+        );
+
+        self::assertSame(0, $linha['saldoDia']);
+        self::assertTrue($linha['registroIncompleto']);
+    }
+
+    public function testDiaIncompletoIgnoraAteOAbonoParcial(): void
+    {
+        // Discrimina a premissa: antes seria -480 + 228 = -252. A pendência existe para o admin
+        // corrigir as batidas — abonar por cima devolveria ao dia um número que ninguém mediu.
+        $linha = $this->linhaDoDia7(
+            [$this->batida(RegistroPonto::TIPO_ENTRADA, '09:00', '2026-04-07')],
+            ['2026-04-07' => $this->justificativaAbonada('ajuste_jornada', true, '14:00', '17:48')],
+        );
+
+        self::assertSame(0, $linha['saldoDia']);
+        self::assertTrue($linha['registroIncompleto']);
+    }
+
+    public function testDiaCompletoNaoMarcaPendencia(): void
+    {
+        $linha = $this->linhaDoDia7($this->diaDeSeteHoras(), []);
+
+        self::assertSame(-60, $linha['saldoDia']);
+        self::assertFalse($linha['registroIncompleto']);
+    }
+
+    public function testDiaSemBatidaNenhumaNaoMarcaPendenciaESegueSendoFalta(): void
+    {
+        $linha = $this->linhaDoDia7([], []);
+
+        self::assertSame(-480, $linha['saldoDia']);
+        self::assertFalse($linha['registroIncompleto'], 'ausência não é registro incompleto');
+    }
 }

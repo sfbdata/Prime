@@ -30,6 +30,14 @@ class CalculadoraJornada
      */
     public function calcularSaldoDia(User $user, \DateTimeInterface $data, array $batidas, ?JornadaColaborador $jornada, array $feriados, ?JornadaTenant $jornadaTenant = null): int
     {
+        // Registro incompleto não credita nem debita. Antes disto, um dia em que a pessoa bateu a
+        // entrada e esqueceu o resto valia `0 - carga` = a jornada inteira negativa: em 07/2026 quatro
+        // dias assim custaram −35:12 a uma colaboradora que estava no escritório. Fica antes da
+        // tolerância de 5 min porque não há déficit a tolerar — não há medição.
+        if ($this->registroIncompleto($user, $data, $batidas, $jornadaTenant)) {
+            return 0;
+        }
+
         $indiceDia = (int) $data->format('N');
         $isFeriado = $this->isFeriado($data, $feriados);
 
@@ -92,6 +100,38 @@ class CalculadoraJornada
     private function isFeriado(\DateTimeInterface $data, array $feriados): bool
     {
         return $this->getFeriadoDoDia($data, $feriados) !== null;
+    }
+
+    /**
+     * O dia tem batida, mas não as que a escala pede — logo não dá para apurar a jornada dele.
+     *
+     * **Dia sem batida nenhuma não é incompleto, é ausência**, e continua gerando débito. Sem essa
+     * distinção a regra apagaria toda falta do sistema, que é o oposto do que ela existe para fazer.
+     *
+     * A forma esperada vem de `JornadaResolver::tiposEsperadosNoDia()`: dia útil cuja escala prevê
+     * intervalo exige os quatro registros (é o que impede creditar o almoço de quem só bateu entrada
+     * e saída); dia fora da escala exige entrada e saída.
+     *
+     * @param RegistroPonto[] $batidas
+     */
+    public function registroIncompleto(User $user, \DateTimeInterface $data, array $batidas, ?JornadaTenant $jornadaTenant = null): bool
+    {
+        if ($batidas === []) {
+            return false;
+        }
+
+        $presentes = [];
+        foreach ($batidas as $batida) {
+            $presentes[$batida->getTipo()] = true;
+        }
+
+        foreach ($this->jornadaResolver->tiposEsperadosNoDia($user, $data, $jornadaTenant) as $tipo) {
+            if (!isset($presentes[$tipo])) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

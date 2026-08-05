@@ -9,6 +9,7 @@ use App\Ponto\Entity\Feriado;
 use App\Ponto\Entity\JornadaTenant;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Entity\RegistroPonto;
+use App\Ponto\Enum\TipoJustificativa;
 use App\Ponto\Repository\JustificativaPontoRepository;
 use App\Ponto\Repository\LancamentoHorasPagasRepository;
 use App\Ponto\Repository\RegistroPontoRepository;
@@ -30,7 +31,7 @@ class FolhaPontoBuilder
      *                                            `null` significa colaborador sem nenhum registro de ponto: nenhum
      *                                            dia conta. Dias anteriores a ela ficam fora (sem saldo, sem somar
      *                                            no banco). Admissão e data de cadastro não entram nessa conta.
-     * @return array<int, array{diaMes: string, diaSemana: string, entrada: string, repouso: string, retorno: string, saida: string, fimSemana: bool, minutosTrabalhadosDia: int|null, saldoDia: int|null, saldoAcumulado: int|null, justificadoDia: bool, justificativa: JustificativaPonto|null, homeOffice: bool, antesDoPrimeiroRegistro: bool}>
+     * @return array<int, array{diaMes: string, diaSemana: string, entrada: string, repouso: string, retorno: string, saida: string, fimSemana: bool, minutosTrabalhadosDia: int|null, saldoDia: int|null, saldoAcumulado: int|null, justificadoDia: bool, justificativa: JustificativaPonto|null, homeOffice: bool, antesDoPrimeiroRegistro: bool, registroIncompleto: bool}>
      */
     public function buildRows(
         \DateTimeImmutable $inicioMes,
@@ -108,6 +109,10 @@ class FolhaPontoBuilder
                 'fimSemana'       => $indiceDiaSemana >= 6,
                 'domingo'         => $indiceDiaSemana === 7,
                 'antesDoPrimeiroRegistro' => $diaForaDaContagem,
+                // Nasce false e só o ramo que apura o dia decide o contrário: dia futuro, dia anterior
+                // ao primeiro registro, colaborador sem jornada e o "hoje ainda sem saída" não têm
+                // saldo apurado, e marcar pendência neles seria cobrar batida que ainda vai acontecer.
+                'registroIncompleto'      => false,
                 'isFeriado'       => false,
                 'nomeFeriado'     => null,
                 'minutosIntervalo'      => null,
@@ -159,10 +164,34 @@ class FolhaPontoBuilder
                         $minutos = $this->calculadora->calcularMinutosTrabalhados($batidasDoDia);
                         $saldoDia = $this->calculadora->calcularSaldoDia($jornada->getUser(), $dia, $batidasDoDia, $jornada, $feriados, $jornadaTenant);
 
+                        $registroIncompleto = $this->calculadora->registroIncompleto(
+                            $jornada->getUser(),
+                            $dia,
+                            $batidasDoDia,
+                            $jornadaTenant
+                        );
+
                         $justificativaDoDia = $justificativasDoMes[$chaveDia] ?? null;
                         $justificadoDia = false;
-                        if ($justificativaDoDia !== null && $justificativaDoDia->getStatus() === 'abonado') {
-                            if ($justificativaDoDia->getTipo() === 'falta_nao_justificada') {
+
+                        // Dia mal batido JÁ VEIO zerado de `calcularSaldoDia` — não se zera de novo
+                        // aqui: duas fontes para o mesmo zero divergem na primeira mudança, e uma
+                        // injeção de defeito na calculadora passaria despercebida por este caminho.
+                        // O que a flag faz é pular o tratamento de justificativa: nenhuma abona um dia
+                        // incompleto, nem o abono parcial (que somaria minutos a um dia sem medição).
+                        // A pendência existe para o admin corrigir as batidas, não para abonar por cima.
+                        if (!$registroIncompleto && $justificativaDoDia !== null && $justificativaDoDia->getStatus() === 'abonado') {
+                            // `tryFrom` porque `tipo` é string anulável na entidade e o editar aceita
+                            // limpá-la: tipo nulo ou slug desconhecido continua abonando, como sempre fez.
+                            $tipoJustificativa = $justificativaDoDia->getTipo() !== null
+                                ? TipoJustificativa::tryFrom($justificativaDoDia->getTipo())
+                                : null;
+
+                            if ($tipoJustificativa !== null && !$tipoJustificativa->abonaSaldo()) {
+                                // Categoria técnica (Esquecimento de Registro e irmãos) e falta não
+                                // justificada: aparecem na folha, mas não perdoam a jornada. A aprovação
+                                // do esquecimento já repôs a batida — o déficit que sobra é atraso ou
+                                // saída antecipada, que nada têm a ver com o registro esquecido.
                                 $justificadoDia = true;
                             } elseif ($justificativaDoDia->isAbonoParcial()) {
                                 $saldoDia += $justificativaDoDia->getMinutosAbonados();
@@ -180,6 +209,7 @@ class FolhaPontoBuilder
                         $row['saldoAcumulado']        = $saldoAcumulado;
                         $row['justificadoDia']        = $justificadoDia;
                         $row['justificativa']         = $justificativaDoDia;
+                        $row['registroIncompleto']    = $registroIncompleto;
                     }
                 }
             }

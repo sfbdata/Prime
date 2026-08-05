@@ -119,6 +119,30 @@ enum TipoJustificativa: string
         };
     }
 
+    /**
+     * Indica se um abono deferido deste tipo pode zerar o saldo negativo do dia.
+     *
+     * A categoria `Tecnica` corrige o **registro**, não justifica **ausência**: "Esquecimento de
+     * Registro" e irmãos existem para repor a batida que faltou — e a aprovação já faz isso
+     * (`TenantController::abonarJustificativa` cria o `RegistroPonto`). Depois da reposição o dia
+     * tem os horários reais e o déficit que sobra é atraso ou saída antecipada, que não têm relação
+     * nenhuma com a batida esquecida. Zerá-lo era um segundo perdão que ninguém pediu: em 18/06/2026
+     * um esquecimento apagou 43 min de atraso e 48 min de saída antecipada de uma vez só.
+     *
+     * `FaltaNaoJustificada` também não abona — o builder já a tratava à parte, e a regra fica visível
+     * aqui em vez de escondida num `if` do cálculo.
+     *
+     * Um tipo técnico novo herda este comportamento sem precisar tocar no `FolhaPontoBuilder`.
+     */
+    public function abonaSaldo(): bool
+    {
+        if ($this === self::FaltaNaoJustificada) {
+            return false;
+        }
+
+        return $this->categoria() !== CategoriaJustificativa::Tecnica;
+    }
+
     public function categoria(): CategoriaJustificativa
     {
         return match ($this) {

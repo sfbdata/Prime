@@ -4,6 +4,7 @@ namespace App\Ponto\Service;
 
 use App\Entity\Auth\User;
 use App\Ponto\Entity\JornadaTenant;
+use App\Ponto\Entity\RegistroPonto;
 
 class JornadaResolver
 {
@@ -60,6 +61,40 @@ class JornadaResolver
         }
 
         return false;
+    }
+
+    /**
+     * Tipos de batida que a escala daquele dia pede — a "forma" do dia.
+     *
+     * É o que permite dizer se um dia está mal batido sem inventar exigência: se o bloco vigente
+     * prevê intervalo, o dia só é apurável com os quatro registros; se não prevê (ou se o dia está
+     * fora da escala — sábado, domingo, feriado), entrada e saída bastam. Exigir as quatro batidas
+     * num sábado seria exigir o que a escala não pede, e descartaria hora extra real de fim de
+     * semana.
+     *
+     * Deriva de `resolverBatidasEsperadasHoje()` de propósito: a cascata bloco do colaborador →
+     * bloco do tenant → fallback legado já mora lá, e duplicá-la aqui deixaria as duas divergirem
+     * na primeira mudança de escala.
+     *
+     * @return string[] tipos de `RegistroPonto::TIPOS_VALIDOS`
+     */
+    public function tiposEsperadosNoDia(User $user, \DateTimeInterface $data, ?JornadaTenant $jornadaTenant): array
+    {
+        $esperadas = $this->resolverBatidasEsperadasHoje($user, $data, $jornadaTenant);
+
+        $tipos = [];
+        foreach ($esperadas as $batida) {
+            if ($batida['horario'] !== null && $batida['horario'] !== '') {
+                $tipos[] = $batida['tipo'];
+            }
+        }
+
+        // Dia sem escala definida: o mínimo para medir alguma coisa é entrada e saída.
+        if ($tipos === []) {
+            return [RegistroPonto::TIPO_ENTRADA, RegistroPonto::TIPO_SAIDA];
+        }
+
+        return $tipos;
     }
 
     /**

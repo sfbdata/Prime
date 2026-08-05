@@ -54,4 +54,46 @@ final class TipoJustificativaTest extends TestCase
             self::assertInstanceOf(CategoriaJustificativa::class, $case->categoria());
         }
     }
+
+    // ──────────────────────────────────────────────────────────────────
+    // abonaSaldo() — quem pode zerar o saldo negativo do dia
+    // Ver docs/specs/ponto-abono-nao-perdoa-jornada.md
+    // ──────────────────────────────────────────────────────────────────
+
+    /**
+     * Esta é a regra que o dono pediu: o esquecimento repõe a batida na aprovação e para por aí.
+     * O déficit que sobra depois disso é atraso ou saída antecipada — em 18/06/2026 o abono apagou
+     * 43 min de atraso e 48 min de saída antecipada de uma vez.
+     */
+    public function testCategoriaTecnicaNaoAbonaSaldo(): void
+    {
+        foreach (TipoJustificativa::cases() as $case) {
+            if ($case->categoria() !== CategoriaJustificativa::Tecnica) {
+                continue;
+            }
+
+            self::assertFalse($case->abonaSaldo(), sprintf('%s é técnica e não pode abonar', $case->value));
+        }
+
+        // âncora explícita: se alguém tirar EsquecimentoRegistro da categoria Técnica, o laço acima
+        // passaria vazio e o teste ficaria cego.
+        self::assertFalse(TipoJustificativa::EsquecimentoRegistro->abonaSaldo());
+        self::assertFalse(TipoJustificativa::RegistroIncorreto->abonaSaldo());
+        self::assertFalse(TipoJustificativa::CorrecaoPonto->abonaSaldo());
+    }
+
+    public function testFaltaNaoJustificadaNaoAbonaSaldo(): void
+    {
+        self::assertFalse(TipoJustificativa::FaltaNaoJustificada->abonaSaldo());
+    }
+
+    public function testDemaisCategoriasContinuamAbonando(): void
+    {
+        self::assertTrue(TipoJustificativa::AtestadoMedico->abonaSaldo());       // legal
+        self::assertTrue(TipoJustificativa::DispensaAbonada->abonaSaldo());      // operacional
+        self::assertTrue(TipoJustificativa::AjusteJornada->abonaSaldo());        // operacional
+        self::assertTrue(TipoJustificativa::ProblemaTransporte->abonaSaldo());   // intercorrência
+        self::assertTrue(TipoJustificativa::Plantao->abonaSaldo());              // regime especial
+        self::assertTrue(TipoJustificativa::AbandonoPosto->abonaSaldo());        // crítica ≠ FaltaNaoJustificada
+    }
 }
