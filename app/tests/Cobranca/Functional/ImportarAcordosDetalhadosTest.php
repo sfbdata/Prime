@@ -288,6 +288,61 @@ final class ImportarAcordosDetalhadosTest extends KernelTestCase
         self::assertSame(1, $this->contar($tenant, '60240'));
     }
 
+    // ---------------------------------------------------------------------------------------------
+    // Dívida que nunca teve boleto — spec `cobranca-divida-sem-numero-de-boleto.md`.
+    // Este é o caminho que grava 54 das 99 obrigações da frente (R$ 6.750,00, medido em 04/08/2026)
+    // e que a 1ª revisão apontou como o mais exposto: tem lógica própria (ObrigacoesTocadasNaImportacao,
+    // nascimento já substituído) e não era exercitado por teste nenhum de gravação.
+    // ---------------------------------------------------------------------------------------------
+
+    #[TestDox('Conta original sem boleto é reconstruída pela referência substituta e reportada à parte')]
+    public function testContaSemBoletoEhReconstruida(): void
+    {
+        [$tenant, $user, $carteiraId, , $acordo] = $this->cenarioAcordo31();
+
+        $resultado = $this->importarAcordos->confirmar($carteiraId, $this->leituraAcordoSemBoleto(), $tenant, $user);
+
+        self::assertSame(['SNN:2019-09-10', '60240'], $resultado->nnsContasReconstruidas());
+        self::assertSame(['SNN:2019-09-10'], $resultado->nnsContasSemBoleto(), 'só a de 2019 nunca teve boleto');
+
+        $reconstruida = $this->obrigacao($tenant, 'SNN:2019-09-10');
+        self::assertNotNull($reconstruida);
+        self::assertSame(14500, $reconstruida->getValorOriginal());
+        self::assertSame('09/2019', $reconstruida->getCompetencia());
+        self::assertSame($acordo->getId(), $reconstruida->getAcordoSubstituto()?->getId(), 'nasce substituída, como toda reconstruída');
+    }
+
+    /**
+     * O motivo de a chave existir. Sem ela, a segunda importação criaria uma segunda dívida idêntica —
+     * e este caminho tem um registro em memória (`ObrigacoesTocadasNaImportacao`) chaveado pelo trio
+     * (caso, NN, competência) que precisa reconhecer a referência substituta como reconhece um NN.
+     */
+    #[TestDox('Reimportar a conta sem boleto não cria uma segunda dívida')]
+    public function testContaSemBoletoNaoDuplicaNaReimportacao(): void
+    {
+        [$tenant, $user, $carteiraId] = $this->cenarioAcordo31();
+
+        $this->importarAcordos->confirmar($carteiraId, $this->leituraAcordoSemBoleto(), $tenant, $user);
+        $segunda = $this->importarAcordos->confirmar($carteiraId, $this->leituraAcordoSemBoleto(), $tenant, $user);
+
+        self::assertSame([], $segunda->nnsContasReconstruidas(), 'nada de novo');
+        self::assertSame(['SNN:2019-09-10'], $segunda->nnsContasSemBoleto(), 'e ela continua visível no relatório');
+        self::assertSame(1, $this->contar($tenant, 'SNN:2019-09-10'), 'cobrar duas vezes é o pior defeito possível aqui');
+    }
+
+    /** Acordo 31 com uma conta que nunca teve boleto (09/2019) e uma normal, para contraste. */
+    private function leituraAcordoSemBoleto(): ResultadoLeituraAcordos
+    {
+        return new ResultadoLeituraAcordos([$this->acordoDaPlanilha(
+            numero: 31,
+            contas: [
+                ['SNN:2019-09-10', '09/2019', '2019-09-10', 14500],
+                ['60240', '02/2026', '2026-02-13', 17000],
+            ],
+            parcelas: [['61372', 1, 3, '07/2026', '2026-07-01', 40068]],
+        )], [], 0);
+    }
+
     #[TestDox('Rompimento: as originais (reais e reconstruídas) voltam ao saldo UMA vez e as parcelas saem')]
     public function testRompimentoRestauraOriginaisUmaVezSo(): void
     {

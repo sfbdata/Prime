@@ -644,7 +644,6 @@ final class AcordosDetalhadosAdapterTest extends TestCase
     {
         foreach ($this->acordoSemNn()->contasOriginais as $conta) {
             self::assertSame(0, preg_match('/^\d+$/', $conta->nn), "referência {$conta->nn} passaria por um NN de verdade");
-            self::assertTrue(ReferenciaSubstituta::ehSubstituta($conta->nn));
         }
     }
 

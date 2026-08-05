@@ -176,6 +176,7 @@ final class ImportarAcordosDetalhadosCommand extends Command
                 ['Parcelas futuras criadas', sprintf('%d — R$ %s ENTRA no saldo', count($resultado->nnsParcelasCriadas()), $this->reais($resultado->valorParcelasCriadasCentavos()))],
                 ['Contas originais marcadas como substituídas (os encargos delas são REESCRITOS na data do acordo)', sprintf('%d — R$ %s de PRINCIPAL sai do saldo (mais os juros/multa/correção que corriam sobre ele)', count($resultado->nnsContasMarcadas()), $this->reais($resultado->principalReconciliadoCentavos()))],
                 ['Contas originais reconstruídas (nascem substituídas, não mexem no saldo)', count($resultado->nnsContasReconstruidas())],
+                ['— dessas, dívida que NUNCA teve boleto (chave substituta)', count($resultado->nnsContasSemBoleto())],
                 ['Parcelas que já existiam (nada a fazer)', count($resultado->nnsParcelasExistentes())],
                 ['Parcelas existentes ligadas ao acordo (não mexe no saldo hoje; evita dívida dupla ao romper)', count($resultado->parcelasVinculadas())],
                 ['Contas já marcadas (nada a fazer)', count($resultado->nnsContasJaMarcadas())],

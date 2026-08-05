@@ -10,8 +10,9 @@ namespace App\Cobranca\Service\Importacao;
  *
  * O NN é a chave de dedup da importação (índice único parcial
  * `uniq_cobranca_obrigacao_ref_competencia` sobre `caso_id + referencia_externa + competencia`).
- * 405 linhas da fonte nunca tiveram boleto emitido — são taxas mensais antigas, reais. Aceitá-las
- * sem chave duplicaria a dívida na segunda importação; descartá-las esconde R$ 17.444,66.
+ * 157 linhas da fonte nunca tiveram boleto emitido — taxas mensais antigas, reais, medidas em
+ * 04/08/2026 (73 na Inadimplência + 84 nas contas originais dos Acordos). Aceitá-las sem chave
+ * duplicaria a dívida na segunda importação; descartá-las esconde R$ 17.444,66.
  *
  * A saída é o que resta do boleto quando não há boleto: o vencimento. Como `caso_id` e `competencia`
  * já compõem o índice, a referência só precisa carregar a data — e as duas fontes (Inadimplência e

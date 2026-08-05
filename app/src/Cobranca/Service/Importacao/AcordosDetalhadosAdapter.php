@@ -276,10 +276,13 @@ final class AcordosDetalhadosAdapter
      * linha não é dado.
      *
      * O critério é o par competência `MM/AAAA` + vencimento `dd/mm/aaaa`. É deliberadamente mais
-     * estrito do que "não está vazia": sem isto, o cabeçalho de coluna, as linhas separadoras e o
-     * rodapé virariam dívida no nome de um devedor real — que é exatamente o risco que a guarda do NN
-     * cobria de graça. Medido em 04/08/2026: o critério aceita as 84 linhas sem NN e nenhuma linha de
-     * rodapé.
+     * estrito do que "não está vazia": sem isto, o cabeçalho de coluna e as linhas separadoras
+     * virariam dívida no nome de um devedor real — que é exatamente o risco que a guarda do NN cobria
+     * de graça. Medido em 04/08/2026: o critério aceita as 84 linhas sem NN e nada além delas.
+     *
+     * O RODAPÉ não depende desta guarda: `Filtros:` zera a seção (`:166`) e tudo abaixo cai por
+     * `$secao === null`, antes de chegar aqui. Dizer que esta guarda protege o rodapé seria vender uma
+     * defesa que quem vem depois não conseguiria provar.
      *
      * O VALOR de propósito não entra no critério. Linha de dado com valor vazio ou não numérico deve
      * chegar a `montarContaOriginal` e sair como REJEIÇÃO com motivo — que é informação para o

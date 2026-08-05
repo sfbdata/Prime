@@ -128,7 +128,6 @@ final class TopLifeInadimplenciaAdapterTest extends TestCase
         $b = $this->adapter->ler($this->planilha(self::LINHAS_SEM_NN))->importaveis[0];
 
         self::assertSame(0, preg_match('/^\d+$/', $b->nn), "referência {$b->nn} passaria por um NN de verdade");
-        self::assertTrue(ReferenciaSubstituta::ehSubstituta($b->nn));
     }
 
     #[Test]

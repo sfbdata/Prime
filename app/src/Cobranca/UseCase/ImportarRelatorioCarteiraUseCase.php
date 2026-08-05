@@ -25,6 +25,7 @@ use App\Cobranca\Repository\ObjetoCobrancaRepository;
 use App\Cobranca\Repository\ObrigacaoRepository;
 use App\Cobranca\Repository\VinculoPessoaObjetoRepository;
 use App\Cobranca\Service\Importacao\BoletoImportavel;
+use App\Cobranca\Service\Importacao\ReferenciaSubstituta;
 use App\Cobranca\Service\Importacao\ResultadoImportacao;
 use App\Cobranca\Service\Importacao\ResultadoLeitura;
 use App\Cobranca\Service\NormalizadorNome;
@@ -83,6 +84,7 @@ final class ImportarRelatorioCarteiraUseCase
         $atualizadas = [];
         $referenciasReutilizadas = [];
         $vencimentosAlterados = [];
+        $centavosSemBoleto = 0;
         $divergentes = [];
         $objetosNovos = [];
         $temCasoPorObjeto = [];   // identificacao => bool (caso ativo real ou simulado nesta prévia)
@@ -123,6 +125,7 @@ final class ImportarRelatorioCarteiraUseCase
             $existente = $caso !== null
                 ? $this->obrigacaoRepository->findOnePorReferenciaECompetenciaNoCaso($caso, $boleto->nn, $boleto->competencia)
                 : null;
+            $centavosSemBoleto += $this->centavosSemBoletoDoBoleto($boleto);
             if ($existente !== null) {
                 $atualizadas[] = $boleto->nn;
                 if ($this->vencimentoMudou($existente, $boleto)) {
@@ -139,7 +142,7 @@ final class ImportarRelatorioCarteiraUseCase
             $criadas[] = $boleto->nn;
         }
 
-        return new ResultadoImportacao($criadas, $atualizadas, $leitura->rejeitadas, $leitura->linhasIgnoradas, count($objetosNovos), $pessoasNovas, $casosNovos, $divergentes, $referenciasReutilizadas, $vencimentosAlterados);
+        return new ResultadoImportacao($criadas, $atualizadas, $leitura->rejeitadas, $leitura->linhasIgnoradas, count($objetosNovos), $pessoasNovas, $casosNovos, $divergentes, $referenciasReutilizadas, $vencimentosAlterados, $centavosSemBoleto);
     }
 
     /**
@@ -162,6 +165,7 @@ final class ImportarRelatorioCarteiraUseCase
             $atualizadas = [];
             $referenciasReutilizadas = [];
             $vencimentosAlterados = [];
+            $centavosSemBoleto = 0;
             $divergentes = [];
             $objetosCriados = 0;
             $pessoasCriadas = 0;
@@ -200,6 +204,7 @@ final class ImportarRelatorioCarteiraUseCase
                 // Chave (caso, NN, competência) — `cobranca-importar-chave-competencia.md`. Buscar só pelo
                 // NN engolia o boleto novo quando a contábil reaproveitava o número, e ainda gravava os
                 // encargos dele sobre a dívida antiga.
+                $centavosSemBoleto += $this->centavosSemBoletoDoBoleto($boleto);
                 $obrigacao = $this->obrigacaoRepository->findOnePorReferenciaECompetenciaNoCaso($caso, $boleto->nn, $boleto->competencia);
                 if ($obrigacao === null) {
                     if ($this->obrigacaoRepository->findOnePorReferenciaExternaNoCaso($caso, $boleto->nn) !== null) {
@@ -240,7 +245,7 @@ final class ImportarRelatorioCarteiraUseCase
                 $atualizadas[] = $boleto->nn;
             }
 
-            return new ResultadoImportacao($criadas, $atualizadas, $leitura->rejeitadas, $leitura->linhasIgnoradas, $objetosCriados, $pessoasCriadas, $casosCriados, $divergentes, $referenciasReutilizadas, $vencimentosAlterados);
+            return new ResultadoImportacao($criadas, $atualizadas, $leitura->rejeitadas, $leitura->linhasIgnoradas, $objetosCriados, $pessoasCriadas, $casosCriados, $divergentes, $referenciasReutilizadas, $vencimentosAlterados, $centavosSemBoleto);
         });
     }
 
@@ -447,6 +452,20 @@ final class ImportarRelatorioCarteiraUseCase
      * (por isso não duplica), mas o operador precisa ver — os encargos passam a correr de uma data que
      * não é a do documento em mãos.
      */
+    /**
+     * Quanto de DÍVIDA (principal + juros + multa + correção) o boleto acrescenta ao balde "sem
+     * boleto" — zero quando ele tem Nosso Número de verdade. Honorário fica de fora por INV-E2: não é
+     * dívida do credor, e somá-lo aqui inflaria o número que o operador usa para decidir cobrança.
+     */
+    private function centavosSemBoletoDoBoleto(BoletoImportavel $boleto): int
+    {
+        if (!ReferenciaSubstituta::ehSubstituta($boleto->nn)) {
+            return 0;
+        }
+
+        return $boleto->principalCentavos + $boleto->encargosCentavos();
+    }
+
     private function vencimentoMudou(Obrigacao $obrigacao, BoletoImportavel $boleto): bool
     {
         return $obrigacao->getVencimentoOriginal()->format('Y-m-d') !== $boleto->vencimento->format('Y-m-d');

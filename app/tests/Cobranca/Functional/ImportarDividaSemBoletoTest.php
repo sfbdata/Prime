@@ -103,7 +103,29 @@ final class ImportarDividaSemBoletoTest extends KernelTestCase
 
         self::assertSame(2, $resultado->totalImportadas());
         self::assertSame(1, $resultado->totalSemBoleto(), 'só a de 2019 nunca teve boleto');
+        self::assertSame(14500, $resultado->centavosSemBoleto, 'o operador precisa do VALOR, não só da contagem');
         self::assertSame(1, $this->contarPorReferencia($tenant, 'SNN:2019-09-10'));
+    }
+
+    /**
+     * A partir da 2ª importação as dívidas sem boleto migram para `obrigacoesAtualizadas`. Sem um
+     * contador próprio elas sumiam do relatório justamente nas rodadas de rotina — que são todas menos
+     * a primeira.
+     */
+    #[TestDox('Na reimportação a dívida sem boleto continua visível no relatório')]
+    public function testDividaSemBoletoContinuaVisivelNaReimportacao(): void
+    {
+        $tenant = $this->criarTenant();
+        $user = $this->criarUser();
+        $carteira = $this->criarCarteira($tenant);
+
+        $divida = $this->semBoleto('20-03C', competencia: '09/2019', vencimento: '2019-09-10', principalCentavos: 14500);
+        $this->importar->confirmar($carteira, new ResultadoLeitura([$divida], [], 0), $tenant, $user);
+        $resultado = $this->importar->confirmar($carteira, new ResultadoLeitura([$divida], [], 0), $tenant, $user);
+
+        self::assertSame(0, $resultado->totalSemBoleto(), 'nada de novo foi criado');
+        self::assertSame(1, $resultado->totalSemBoletoAtualizadas(), 'mas ela não pode sumir do relatório');
+        self::assertSame(14500, $resultado->centavosSemBoleto, 'e o valor continua sendo reportado');
     }
 
     /**

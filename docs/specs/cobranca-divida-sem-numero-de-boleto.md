@@ -12,7 +12,7 @@ Origem do problema: `HANDOFF_AUTOMATIZAR_DOWNLOADS.md` §6.1. Chave de dedup atu
 ## 1. O problema, em uma frase
 
 Os três importadores descartam **toda linha sem Nosso Número**, porque o NN é a chave de deduplicação —
-e sem chave, a segunda importação duplicaria a dívida. Só que **405 dessas linhas nunca tiveram boleto
+e sem chave, a segunda importação duplicaria a dívida. Só que **157 dessas linhas nunca tiveram boleto
 emitido**: são taxas mensais antigas, reais, com unidade, sacado, competência e vencimento preenchidos.
 Elas somem da importação, e o devedor aparece devendo menos do que deve.
 
@@ -32,6 +32,33 @@ justamente o que os adapters descartam. Reconciliação: a soma bate com a §6.3
 | **total** | **157** | **R$ 17.444,66** | | |
 
 Só a **TOP LIFE 1** tem linhas sem NN. **TL2 e AMLI têm zero.**
+
+### 2.0 ⚠️ O que os R$ 17.444,66 são — e o que NÃO são
+
+O número é o do checklist §6.3, e ele **soma duas grandezas diferentes**, porque as duas fontes
+reportam coisas diferentes. Decomposto (medido nas colunas cruas):
+
+| | principal | juros+multa+correção | honorários | total |
+|---|---:|---:|---:|---:|
+| Inadimplência (73 linhas) | R$ 5.760,00 | R$ 3.152,21 | R$ 1.782,45 | R$ 10.694,66 |
+| Acordos — contas originais (84 linhas) | R$ 6.750,00 | — (a fonte não traz) | — | R$ 6.750,00 |
+| **soma** | **R$ 12.510,00** | R$ 3.152,21 | R$ 1.782,45 | **R$ 17.444,66** |
+
+Duas ressalvas que mudam o que o dono deve esperar ver na tela:
+
+1. **Honorário não é dívida do credor** (INV-E2) — os R$ 1.782,45 não entram no saldo exigível.
+2. 🔑 **Os R$ 6.750,00 dos acordos NÃO aumentam o saldo do devedor.** A conta original reconstruída
+   nasce com `acordoSubstituto` apontando para o acordo
+   (`ImportarAcordosDetalhadosUseCase.php:665`), e `ObrigacaoRepository::doCasoExigiveis` exclui
+   obrigação substituída por acordo **vigente**. É história reconstruída: só vira dívida cobrável se o
+   acordo for **rompido ou cancelado**.
+
+**O que de fato aparece como dívida nova na tela hoje: os R$ 8.912,21 da inadimplência**
+(principal + encargos, sem honorário). O resto é completude de histórico — que continua valendo, porque
+é o que faz o rompimento de um acordo restaurar a dívida certa.
+
+Isto ecoa a lição da frente do hífen, onde R$ 49.038,17 "recuperados" tinham **efeito zero no saldo**.
+Número grande no commit não é dinheiro na tela.
 
 ### 2.1 Três afirmações do handoff caíram na remedição
 
@@ -123,9 +150,9 @@ viram uma conta de R$ 145,00.
 
 - `:84` — a chave de agrupamento de linha sem NN deixa de ser sintética-por-linha (`__sem_nn_$i`,
   que isolava cada linha) e passa a ser `objetoIdentificacao \x1f SNN:<venc ISO>`, agrupando o mês.
-- `:120-122` — a rejeição `'Boleto sem número (NN) — não é possível deduplicar.'` **deixa de disparar
-  para linha com competência e vencimento válidos**. Continua disparando quando não há como formar a
-  chave (sem vencimento parseável), agora com motivo próprio.
+- `:120-122` — a rejeição `'Boleto sem número (NN) — não é possível deduplicar.'` **é removida**. Não
+  há motivo de rejeição novo no lugar dela: linha sem vencimento parseável já era IGNORADA antes de
+  chegar ao agrupamento (`:79-84`), e continua sendo. Rodapé e totais saem por aí, como sempre saíram.
 - `BoletoImportavel::$nn` passa a receber a referência sintética. **Nenhuma outra guarda muda** — sem
   sacado, competência inválida, valor não numérico e sem principal seguem rejeitando igual.
 
@@ -134,9 +161,18 @@ viram uma conta de R$ 145,00.
 - `:183-187` — hoje a linha de dados é reconhecida por `preg_match('/^\d+$/', $a)` (NN só-dígitos), e
   tudo que não casa é **silenciosamente ignorado**, sem `LinhaRejeitada`. O discriminador passa a ser:
   **está na seção `Relação das contas originais`** *e* **competência casa `MM/AAAA`** *e* **vencimento
-  casa `dd/mm/aaaa`** *e* **valor é numérico** — independente do NN.
-  Medido: esse discriminador devolve exatamente **6.247** linhas de seção 1 (6.163 com NN + 84 sem),
-  e **zero** linha de rodapé, cabeçalho ou da seção de parcelas.
+  casa `dd/mm/aaaa`** — independente do NN.
+
+  ⚠️ O **valor NÃO entra no critério**, embora a primeira versão desta spec dissesse que sim. Linha de
+  dado com valor vazio ou não numérico tem de chegar a `montarContaOriginal` e sair como **rejeição com
+  motivo**, que é informação para o operador; barrá-la aqui a transformaria em silêncio, e seria uma
+  terceira defesa em série, impossível de provar isoladamente. Medido: **0** das 84 linhas tem valor
+  vazio, então a mudança não move nenhum centavo hoje.
+
+  Medido nos **seis** arquivos importáveis (TL1 · TL2 · AMLI × Em andamento · Liquidado): o
+  discriminador devolve **6.247** linhas de seção 1 (**6.163** com NN + **84** sem) e **zero** linha de
+  rodapé, cabeçalho ou da seção de parcelas. *(Contando só os dois arquivos da TL1 o número é outro —
+  5.988 + 84; a 1ª revisão bateu nisso porque a spec não dizia o recorte.)*
 - `:195` — a chave de agrupamento de conta original sem NN vira `SNN:<venc ISO>|competência`.
 - **A seção de parcelas não muda.** Toda parcela medida tem NN.
 
@@ -169,7 +205,7 @@ mais de um assert, **duas injeções distintas** — uma só faz os outros pegar
 | T3 | a referência é `SNN:<ISO>` e **nunca** é dígito puro | tirar o prefixo → colide com NN real |
 | T4 | **idempotência**: importar duas vezes não duplica nem dobra o valor | remover a competência da busca → cria a 2ª |
 | T5 | mudar **só o valor** entre as duas importações **atualiza**, não duplica | pôr o valor na chave → cria obrigação nova |
-| T6 | linha sem NN **e sem vencimento** continua rejeitada, com motivo | aceitar → chave impossível vira `SNN:` vazio |
+| T6 | linha sem NN **e sem vencimento** continua **IGNORADA** (não rejeitada) | fabricar uma data quando o parse falha → ela vira rejeição, e duas dívidas passam a dividir a mesma referência |
 | T7 | linha sem NN de duas unidades diferentes não colide (caso distinto) | ignorar o caso na busca → funde as duas |
 | T8 | isolamento multi-tenant: a busca da referência não cruza tenant | tirar o filtro de tenant do repositório |
 
@@ -185,3 +221,30 @@ o filtro tem de estar explícito na query.
 3. **Se as duas fontes passarem a se sobrepor**, a mesma dívida chega com valores diferentes
    (a inadimplência traz encargos; a conta original, só principal) e a última importação sobrescreve a
    anterior. É coerente com a decisão do dono, mas precisa **aparecer no relatório**.
+
+4. 🔴 **O dia em que a contábil boletar essa dívida, ela duplica.** Este é o risco central da frente, e
+   ele decorre da própria chave: sem NN, o vencimento é a única coisa que distingue a dívida. Se a
+   contábil **emitir boleto** para uma delas — que é exatamente o que o escritório quer, ao cobrar —,
+   a linha volta com NN de verdade, não casa com `SNN:2019-09-10`, e nasce uma **segunda obrigação**
+   para a mesma dívida. Mesma coisa se apenas o **vencimento** for atualizado.
+
+   Note a ironia: `ObrigacaoRepository` documenta que *"o vencimento NÃO serve como discriminador"*
+   justamente porque reemissão muda a data. Para dívida sem NN não sobrou alternativa.
+
+   **Medido (05/08/2026):** comparando a emissão de **08/07** com a de **04/08** — 27 dias —, as 73
+   linhas sem NN estão nas duas, e **0** mudaram de vencimento, **0** ganharam NN, **0** perderam NN.
+   O risco é real e não se materializou uma vez sequer no histórico disponível.
+
+   **Mitigação nomeada, não implementada:** quando um boleto COM NN chegar para um `(caso, competência)`
+   que já tem obrigação `SNN:`, migrar a referência em vez de criar. Fica fora desta frente porque
+   custa uma consulta a mais por boleto (~3.000 por arquivo) para um caso que ainda não ocorreu — mas é
+   a primeira coisa a fazer se o escritório começar a boletar essas dívidas.
+
+5. 🟠 **Dívida `SNN:` não pode ser quitada por importação.** A Receitas descarta linha sem NN
+   (`TopLifeReceitasAdapter.php:106`) e casa por `(caso, NN, competência)`. Nenhum recebimento
+   importado casará com `SNN:2019-09-10` — o pagamento chegaria com o NN do boleto novo, que recai no
+   item 4 acima. Na prática: **a baixa dessas 45 obrigações é manual**, pela tela. E como a importação
+   **não congela** encargos (o desenho "ao vivo" materializa mas não congela — ver
+   `ReconciliadorLiquidacao.php:62`), elas seguem acumulando juros enquanto estiverem abertas.
+   Isso vale para qualquer dívida antiga importada, com ou sem NN; o que é novo é que estas 45 passam
+   a existir.

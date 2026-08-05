@@ -132,6 +132,8 @@ final class ImportarRelatorioCobrancaCommand extends Command
         $io->table(['Métrica', 'Total'], [
             ['Obrigações criadas', $resultado->totalImportadas()],
             ['— dessas, dívida SEM boleto (nunca cobrada)', $resultado->totalSemBoleto()],
+            ['Atualizadas que são dívida SEM boleto', $resultado->totalSemBoletoAtualizadas()],
+            ['Dívida SEM boleto no lote (principal + encargos)', 'R$ ' . number_format($resultado->centavosSemBoleto / 100, 2, ',', '.')],
             ['Obrigações atualizadas (reimport)', $resultado->totalAtualizadas()],
             ['Objetos criados', $resultado->objetosCriados],
             ['Pessoas criadas', $resultado->pessoasCriadas],

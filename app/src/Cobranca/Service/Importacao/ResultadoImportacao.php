@@ -20,6 +20,9 @@ final class ResultadoImportacao
      *                                                       diferente com o mesmo número, nasceu separada
      * @param list<string>         $vencimentosAlterados     NNs cuja dívida é a mesma (competência igual) mas o relatório
      *                                                       trouxe vencimento novo — boleto reemitido
+     * @param int                  $centavosSemBoleto        principal + juros + multa + correção das obrigações que
+     *                                                       entraram por chave substituta (criadas E atualizadas).
+     *                                                       Honorário fica FORA (INV-E2: não é dívida do credor)
      */
     public function __construct(
         public readonly array $obrigacoesCriadas,
@@ -32,6 +35,7 @@ final class ResultadoImportacao
         public readonly array $sacadosDivergentes,
         public readonly array $referenciasReutilizadas = [],
         public readonly array $vencimentosAlterados = [],
+        public readonly int $centavosSemBoleto = 0,
     ) {
     }
 
@@ -51,7 +55,7 @@ final class ResultadoImportacao
     }
 
     /**
-     * Quantas das obrigações criadas são dívida que NUNCA teve boleto — entraram pela referência
+     * Quantas das obrigações CRIADAS são dívida que nunca teve boleto — entraram pela referência
      * substituta, não por Nosso Número (spec `cobranca-divida-sem-numero-de-boleto.md`).
      *
      * Precisa aparecer no relatório porque a distinção não é cosmética: uma é dívida boletada, com
@@ -60,8 +64,23 @@ final class ResultadoImportacao
      */
     public function totalSemBoleto(): int
     {
+        return $this->contarSemBoleto($this->obrigacoesCriadas);
+    }
+
+    /**
+     * Idem, entre as ATUALIZADAS. Sem este contador a dívida sem boleto sumia do relatório a partir da
+     * segunda importação — justamente nas rodadas de rotina, que são todas menos a primeira.
+     */
+    public function totalSemBoletoAtualizadas(): int
+    {
+        return $this->contarSemBoleto($this->obrigacoesAtualizadas);
+    }
+
+    /** @param list<string> $referencias */
+    private function contarSemBoleto(array $referencias): int
+    {
         return count(array_filter(
-            $this->obrigacoesCriadas,
+            $referencias,
             static fn (string $referencia): bool => ReferenciaSubstituta::ehSubstituta($referencia),
         ));
     }

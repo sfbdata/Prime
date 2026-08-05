@@ -103,6 +103,27 @@ final class ResultadoImportacaoAcordos
         return $this->juntar(static fn (AcordoProcessado $a): array => $a->contasJaMarcadas);
     }
 
+    /**
+     * Contas originais que nunca tiveram boleto — entraram pela referência substituta `SNN:<vencimento>`
+     * (spec `cobranca-divida-sem-numero-de-boleto.md`). Medido em 04/08/2026: 54 contas, R$ 6.750,00,
+     * nos acordos 12, 51, 59, 151 e 253 da TOP LIFE 1.
+     *
+     * ⚠️ Elas NÃO aumentam o saldo exigível do devedor: a conta reconstruída nasce com
+     * `acordoSubstituto` apontando para o acordo, e `ObrigacaoRepository::doCasoExigiveis` exclui
+     * obrigação substituída por acordo vigente. É história reconstruída — vira dívida cobrável só se o
+     * acordo for rompido ou cancelado. O relatório precisa dizer isso, senão o número promete um
+     * dinheiro que não aparece na tela.
+     *
+     * @return list<string>
+     */
+    public function nnsContasSemBoleto(): array
+    {
+        return array_values(array_filter(
+            [...$this->nnsContasReconstruidas(), ...$this->nnsContasJaMarcadas()],
+            static fn (string $referencia): bool => ReferenciaSubstituta::ehSubstituta($referencia),
+        ));
+    }
+
     /** @return list<string> */
     public function divergenciasDeValor(): array
     {
