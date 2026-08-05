@@ -362,7 +362,7 @@ frente própria** (risco ALTO: mexe em saldo de devedor).
 
 Estado em **05/08/2026**. Cada valor abaixo foi **medido** contra as planilhas reais, não estimado.
 
-### 🔴 Dinheiro que ainda fica de fora — R$ 24.553,73
+### 🔴 Dinheiro que ainda fica de fora — **R$ 7.109,07** (eram R$ 24.553,73)
 
 | # | O quê | Valor | Onde está o diagnóstico |
 |---|---|---:|---|
@@ -379,7 +379,7 @@ Os itens 1–3 são **risco ALTO**: spec + teste provado por reintrodução + **
 |---|---|---|
 | 5 | Mover **criação de acordo** para o importador de Acordos | fecha os últimos **29** de 359 acordos (§6.0.2 — deixou de ser bloqueante) |
 | 6 | **Validador da linha `Filtros:`** | recusa arquivo com recorte errado; **teria pego o filtro de 2026 sozinho** |
-| 7 | Reemitir **cadastro da AMLI** | travou em `EM_PROCESSAMENTO` no sistema deles em 04/08 |
+| 7 | Reemitir **cadastro da AMLI** | travou em `EM_PROCESSAMENTO` no sistema deles em 04/08. ⏸️ **O dono mandou deixar por ÚLTIMO** (05/08). O script de emissão está pronto em `scratchpad/emitir_amli_cadastro.sh` — foi bloqueado pelo classificador de segurança do Bash, não por defeito |
 | 8 | **Teste do zero** | limpar banco → importar tudo → bater com a contabilidade. **É a prova final.** O dono autorizou `--confirmar` **em banco descartável** para isto |
 
 ### ⏸️ Do dono
@@ -387,14 +387,32 @@ Os itens 1–3 são **risco ALTO**: spec + teste provado por reintrodução + **
 | # | O quê |
 |---|---|
 | 9 | Smokes na tela: "Já pago", caso 193, excluir recebimento, acordos sobrescritos |
-| 10 | Publicar os **44 commits** |
+| 10 | Publicar os **51 commits** |
 | 11 | Deploy em produção (lembrar: prod é imagem baked, exige `./scripts/deploy-prod-tls.sh`) |
 | 12 | **Confirmar com a contábil** se a automação de download é permitida — §7.1 |
 
-### Ordem recomendada
+### Ordem recomendada (atualizada em 05/08, com a AMLI por último a pedido do dono)
 
-~~**4** → **1**~~ (feitos) → **2 e 3** (mesma diretriz) → **6** (trava o recorte) → **5** → **8** (a
-prova final). O **7** (reemitir o cadastro da AMLI) pode ir a qualquer momento.
+~~**4** → **1**~~ (feitos) → **3** → **2** (mesma diretriz do dono; o 3 vem antes porque a medição dele
+— principal × encargo congelado — muda o desenho dos dois) → **6** (trava o recorte) → **5** → **8**
+(a prova final) → **7** (AMLI, por último).
+
+### 🔑 O que a próxima sessão precisa saber antes de começar o item 3
+
+⚠️ **Meça primeiro DE QUE é feita a diferença.** A decisão do dono é *"o importe sobrescreve sempre,
+reabre o saldo"* (05/08), mas sobrescrever o **principal** com um número que já embute encargos
+contaria encargo duas vezes. As 33 divergências precisam ser decompostas antes de virar spec.
+
+⚠️ **O valor não pode entrar na chave de dedup.** É o que faz o item 1 e o item 3 conviverem — está
+provado por teste (`ImportarDividaSemBoletoTest::testValorCorrigidoNaoCriaSegundaDivida`), e o docblock
+desse teste avisa que ele é justamente a trava contra a tentação de quem for mexer no item 3.
+
+### 🧪 Bancos descartáveis deste dia (podem ser apagados)
+
+- **`saas_ux_semnn`** — tem a prova do item 1: 45 obrigações `SNN:` da inadimplência + 54 dos acordos
+  (99 · R$ 12.510,00), com os 5 acordos criados a partir de um recorte real da Receitas.
+- **`saas_ux_ac`** — clone limpo de `saas_ux_pos_etapa3`, sem nada gravado.
+- ⛔ **`saas_ux`, `saas_ux_pos_etapa3` e `saas_ux_antes_etapa3` não foram tocados.**
 
 ## 7. Segurança
 
