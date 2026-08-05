@@ -19,12 +19,17 @@ namespace App\Cobranca\Service\Importacao;
 final class ResultadoRodape
 {
     /**
+     * `$arquivoIlegivel` separa "não consegui ABRIR o arquivo" de "o recorte está errado". São
+     * problemas diferentes e pedem frases diferentes: dizer "o recorte não serve" para um `.xlsx`
+     * truncado joga a culpa no filtro da emissão quando o defeito é o download — achado da 2ª revisão.
+     *
      * @param list<string> $motivos uma frase por expectativa violada; vazio quando aceito
      */
     public function __construct(
         public readonly bool $aceito,
         public readonly array $motivos,
         public readonly ?string $linha = null,
+        public readonly bool $arquivoIlegivel = false,
     ) {
     }
 }

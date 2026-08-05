@@ -232,10 +232,47 @@ final class ImportacaoVisualControllerTest extends CobrancaWebTestCase
         $client->followRedirect();
         $html = (string) $client->getResponse()->getContent();
 
-        self::assertStringContainsString('recorte deste arquivo não serve', $html);
-        self::assertStringContainsString('Competência', $html);
+        // A frase INTEIRA do motivo: "Competência" sozinha também aparece no rodapé que a mensagem
+        // imprime de volta, então o assert passaria por qualquer motivo de recusa (é o mesmo assert
+        // fraco que a 1ª revisão mandou corrigir na CLI e que a 2ª encontrou aqui).
+        self::assertStringContainsString('O recorte deste arquivo não serve.', $html);
+        self::assertStringContainsString('O campo &quot;Competência&quot; veio como &quot;07/2026&quot; e precisa ser &quot;Todas&quot;.', $html);
+        self::assertStringContainsString('Rodapé lido no arquivo', $html, 'o operador precisa ver o que veio');
         self::assertStringNotContainsString('Prévia da importação', $html, 'não pode chegar à prévia');
         self::assertSame(0, $obrigacaoRepo->count(['tenant' => $tenant]), 'nada pode ser gravado');
+    }
+
+    /**
+     * O cenário-mãe desta frente NA TELA: download interrompido. O Form deixa passar (extensão `.xlsx`
+     * + assinatura `PK\x03\x04`), então quem barra é o validador — e a mensagem tem de falar de
+     * ARQUIVO, não de recorte. Achado da 2ª revisão: a versão anterior dizia "o recorte não serve" e
+     * mandava reemitir o relatório, jogando a culpa no filtro da emissão.
+     */
+    #[TestDox('tela: .xlsx truncado vira mensagem de arquivo, não de recorte')]
+    public function testTelaRecusaArquivoTruncadoComMensagemDeArquivo(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        $carteiraId = $this->semearCarteira($tenant);
+        $obrigacaoRepo = static::getContainer()->get(EntityManagerInterface::class)->getRepository(Obrigacao::class);
+
+        $quebrado = tempnam(sys_get_temp_dir(), 'truncado') . '.xlsx';
+        file_put_contents($quebrado, "PK\x03\x04" . str_repeat("\x00", 64));
+        $this->temporariosDoTeste[] = $quebrado;
+
+        $crawler = $client->request('GET', "/cobrancas/carteiras/{$carteiraId}/importar");
+        $form = $crawler->filter('form[action*="prever"]')->form();
+        $form['importar_relatorio[arquivo]']->upload($quebrado);
+        $client->submit($form);
+
+        self::assertResponseRedirects();
+        $client->followRedirect();
+        $html = (string) $client->getResponse()->getContent();
+
+        self::assertStringContainsString('Não foi possível abrir o arquivo', $html);
+        self::assertStringNotContainsString('recorte deste arquivo não serve', $html, 'o problema não é o recorte');
+        self::assertStringNotContainsString('Emita o relatório de novo', $html, 'reemitir não resolve arquivo truncado');
+        self::assertSame(0, $obrigacaoRepo->count(['tenant' => $tenant]));
     }
 
     /**

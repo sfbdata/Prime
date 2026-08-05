@@ -18,9 +18,12 @@ use PHPUnit\Framework\TestCase;
  * (dois espaços, `até:` sem espaço, `Todos` órfão, plural `Baixadas`, campo extra) existem no dado e
  * quebrariam um parser escrito "de cabeça".
  *
- * Prova por reintrodução (spec §5), com DUAS injeções — cada uma tem de avermelhar um caso DIFERENTE:
+ * Prova por reintrodução (spec §5): SEIS injeções, cada uma avermelhando um caso previsto e só ele —
+ * três nesta classe, três nos testes funcionais irmãos. As desta classe:
  *  1. trocar a comparação exata por `str_contains` → `testRecusaSingularQuandoEsperaPlural`;
- *  2. fazer `todosOuOrfao` aceitar qualquer valor → `testRecusaReceitasComJanelaDeRecebimento`.
+ *  2. fazer `todosOuOrfao` aceitar qualquer valor → `testRecusaReceitasComJanelaDeRecebimento`;
+ *  5. o ramo "ausente sem órfão" devolver `null` → `testRecebimentoAusenteSemOrfaoEhRecusado`;
+ *  6. deixar a última ocorrência vencer → `testChaveRepetidaComValorDivergenteEhRecusada`.
  */
 #[CoversClass(ValidadorRodapeFiltros::class)]
 final class ValidadorRodapeFiltrosTest extends TestCase
@@ -223,12 +226,19 @@ final class ValidadorRodapeFiltrosTest extends TestCase
     }
 
     /**
-     * "Primeira ocorrência vence" (achado da 1ª revisão: a regra existia sem teste, e a mutação
-     * "última vence" sobrevivia). Importa porque uma segunda ocorrência da mesma chave poderia
-     * sobrescrever, DEPOIS da conferência, o valor que foi conferido.
+     * Chave repetida com valores DIFERENTES é recorte ambíguo → recusa.
+     *
+     * ⚠️ Este teste mudou de lado entre as revisões, e a história importa. A 1ª revisão apontou que a
+     * regra "primeira ocorrência vence" não tinha teste; escrevi um que a confirmava. A 2ª revisão
+     * mostrou que a regra em si escolhia o lado **frouxo**: um rodapé com o campo repetido e valor
+     * errado era ACEITO em silêncio, contradizendo o princípio do resto da classe ("a ausência não
+     * vira aprovação — seria adivinhar"). Ambiguidade agora recusa.
+     *
+     * Nenhum arquivo real repete chave — mas o custo de errar para cada lado não é simétrico: recusar
+     * um caso inexistente não custa nada, aceitar um recorte ambíguo devolve a falha silenciosa.
      */
     #[Test]
-    public function testChaveRepetidaVenceAPrimeiraOcorrencia(): void
+    public function testChaveRepetidaComValorDivergenteEhRecusada(): void
     {
         $texto = str_replace(
             'Sacado: Todos;',
@@ -238,7 +248,45 @@ final class ValidadorRodapeFiltrosTest extends TestCase
 
         $r = $this->validador->validarTexto($texto, RecorteEsperado::receitas());
 
-        self::assertTrue($r->aceito, 'a 1ª ocorrência ("Baixadas") é a que vale; a 2ª não pode derrubá-la');
+        self::assertFalse($r->aceito, 'recorte ambíguo não pode ser resolvido por ordem de leitura');
+        self::assertStringContainsString('mais de uma vez', implode(' | ', $r->motivos));
+    }
+
+    /** Repetição com o MESMO valor não é ambiguidade — é redundância, e não pode travar a importação. */
+    #[Test]
+    public function testChaveRepetidaComMesmoValorEhAceita(): void
+    {
+        $texto = str_replace(
+            'Sacado: Todos;',
+            'Sacado: Todos; Situação das contas: Baixadas;',
+            self::RECEITAS_COMPLETA,
+        );
+
+        $r = $this->validador->validarTexto($texto, RecorteEsperado::receitas());
+
+        self::assertTrue($r->aceito, 'Motivos: ' . implode(' | ', $r->motivos));
+    }
+
+    /**
+     * Arquivo que não ABRE é problema diferente de recorte errado, e a mensagem tem de dizer qual é
+     * (achado da 2ª revisão: mandar "reemita com o recorte correto" para um `.xlsx` truncado joga a
+     * culpa no filtro da emissão quando o defeito é o download).
+     */
+    #[Test]
+    public function testArquivoIlegivelEhMarcadoComoTal(): void
+    {
+        $caminho = tempnam(sys_get_temp_dir(), 'quebrado') . '.xlsx';
+        file_put_contents($caminho, "PK\x03\x04" . str_repeat("\x00", 64));
+
+        try {
+            $r = $this->validador->validar($caminho, RecorteEsperado::receitas());
+        } finally {
+            unlink($caminho);
+        }
+
+        self::assertFalse($r->aceito);
+        self::assertTrue($r->arquivoIlegivel, 'sem esta marca, a tela e a CLI dão o conselho errado');
+        self::assertStringContainsString('não foi possível abrir', mb_strtolower(implode(' | ', $r->motivos)));
     }
 
     /**

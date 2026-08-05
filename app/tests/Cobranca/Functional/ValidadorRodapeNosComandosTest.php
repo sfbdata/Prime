@@ -8,6 +8,7 @@ use App\Cobranca\Service\Importacao\ValidadorRodapeFiltros;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Component\Console\Command\Command;
@@ -117,40 +118,107 @@ final class ValidadorRodapeNosComandosTest extends CobrancaWebTestCase
     }
 
     /**
-     * A ORDEM — a conferência vem ANTES do adapter (spec §3.2), não depois.
+     * 🔑 O LADO RÍGIDO — o que faltava inteiro até a 2ª revisão.
      *
-     * ⚠️ **Este teste já nasceu errado DUAS vezes**, e as duas provas falsas ensinam mais que o teste:
+     * Todos os testes anteriores exercitavam a RECUSA. Nenhum provava que um recorte **correto** é
+     * aceito, e a spec abre dizendo que "errar para o lado rígido trava a importação inteira". A
+     * armadilha é real e está no dado: a inadimplência escreve `Unidade: Todas` e a receitas escreve
+     * `Unidade: Todos` — uma letra. Com `RecorteEsperado` errado, a suíte ficava toda verde e o
+     * comando nascia travado em produção.
      *
-     *  1. a 1ª versão dizia que a planilha vazia provava a ordem. Não provava — os 4 adapters leem
-     *     planilha vazia sem exceção, devolvendo zero itens (achado da 1ª revisão);
-     *  2. a 2ª versão exigia que a seção `Leitura:` não saísse. Também não provava: mover a leitura
-     *     para antes NÃO move a impressão, que fica depois da conferência. Injetei a troca de ordem e
-     *     o teste continuou VERDE.
+     * Aqui o rodapé é o REAL de cada fonte (copiado dos arquivos de 04/08), e o que se exige é o
+     * oposto: o comando NÃO pode recusar, e tem de chegar ao adapter.
      *
-     * O que prova de verdade: um arquivo que **não é um `.xlsx`**. O validador o transforma em recusa
-     * com motivo (ele trata a falha de abertura); o adapter, não — ele estoura. Então, se a
-     * conferência acontecer primeiro, sai a mensagem do validador; se o adapter for chamado antes,
-     * o comando morre com outra coisa. É observável, e é o efeito que distingue os dois mundos.
+     * @param non-empty-string $comando
+     * @param non-empty-string $rodape
+     */
+    #[TestDox('recorte CORRETO é aceito e chega ao adapter (a trava não pode fechar o que é válido)')]
+    #[DataProvider('recortesCorretos')]
+    public function testRecorteCorretoEhAceito(string $comando, string $rodape): void
+    {
+        $tester = $this->rodarArquivo($comando, $this->planilhaSoComRodape($rodape));
+
+        $saida = (string) preg_replace('/\s+/u', ' ', $tester->getDisplay());
+        self::assertStringNotContainsString('RECUSADA', $saida, 'este recorte é o correto e não pode ser barrado');
+        self::assertNotSame(Command::INVALID, $tester->getStatusCode());
+        // A seção "Leitura" só sai depois do adapter: é a prova de que passou da conferência.
+        self::assertStringContainsString('Leitura', $saida, 'o comando tem de seguir até a leitura do arquivo');
+    }
+
+    /** @return iterable<string, array{string, string}> */
+    public static function recortesCorretos(): iterable
+    {
+        yield 'inadimplência' => [
+            'app:cobranca:importar',
+            'Filtros:  Inadimplência até:04/08/2026; Competência: Todas; Período de vencimento: Todos; Unidade: Todas; Sacado: Todos',
+        ];
+        yield 'acordos em andamento' => [
+            'app:cobranca:importar-acordos',
+            'Filtros: Situação do acordo: Em andamento; Período de criação do acordo: Todos; Unidade/Cliente: Todos; Sacado: Todos',
+        ];
+        yield 'acordos liquidado' => [
+            'app:cobranca:importar-acordos',
+            'Filtros: Situação do acordo: Liquidado; Período de criação do acordo: Todos; Unidade/Cliente: Todos; Sacado: Todos',
+        ];
+        yield 'receitas' => [
+            'app:cobranca:importar-receitas',
+            'Filtros: Situação das contas: Baixadas; Competência: Todas; Período de vencimento: Todos; Todos; Unidade: Todos; Classe de conta: Todas; Sacado: Todos;',
+        ];
+        yield 'cadastro' => ['app:cobranca:importar-cadastro', 'Filtros: Unidades: Todas'];
+    }
+
+    /**
+     * 🔑 A ORDEM — a conferência vem ANTES do adapter (spec §3.2), em TODAS as portas de CLI.
+     *
+     * ⚠️ **Este teste nasceu errado três vezes**, e as provas falsas ensinam mais que o teste:
+     *
+     *  1. *"a planilha vazia prova a ordem"* — não prova: os 4 adapters leem planilha vazia sem
+     *     exceção, devolvendo zero itens (1ª revisão);
+     *  2. *"a seção `Leitura:` não pode sair"* — também não: mover a leitura para antes NÃO move a
+     *     impressão, que fica depois da conferência. Injetei a troca e seguiu verde (1ª revisão);
+     *  3. *"basta provar num comando"* — a 3ª versão prendia a ordem só na Receitas, e nos outros
+     *     três a inversão continuava verde (2ª revisão). Daí o `DataProvider`.
+     *
+     * O que prova: um arquivo com **assinatura de ZIP seguida de lixo**. O validador o transforma em
+     * recusa com motivo; o adapter estoura. Se a conferência vier antes, sai a mensagem; se vier
+     * depois, o comando morre com erro.
      *
      * De quebra, é o cenário-mãe desta frente: download interrompido.
+     *
+     * @param non-empty-string $comando
      */
-    #[TestDox('🔑 arquivo corrompido: recusa com motivo (prova que o adapter não foi chamado antes)')]
-    public function testArquivoCorrompidoViraRecusaEnaoStackTrace(): void
+    #[TestDox('a recusa acontece antes do adapter, em TODOS os comandos')]
+    #[DataProvider('todosOsComandos')]
+    public function testOrdemValeEmTodosOsComandos(string $comando): void
     {
-        // Assinatura de ZIP ("PK\x03\x04") seguida de lixo: é o que um download interrompido produz.
-        // O `IOFactory` reconhece como `.xlsx` pela assinatura e estoura ao abrir o zip — texto puro
-        // NÃO serve aqui, porque ele é aceito como CSV e vira "sem linha Filtros:", que é outro ramo
-        // (medido ao escrever este teste).
+        $tester = $this->rodarArquivo($comando, $this->arquivoCorrompido());
+
+        self::assertSame(Command::INVALID, $tester->getStatusCode());
+        $saida = (string) preg_replace('/\s+/u', ' ', $tester->getDisplay());
+        self::assertStringContainsString('Não foi possível ler o arquivo', $saida);
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function todosOsComandos(): iterable
+    {
+        yield 'inadimplência' => ['app:cobranca:importar'];
+        yield 'acordos' => ['app:cobranca:importar-acordos'];
+        yield 'receitas' => ['app:cobranca:importar-receitas'];
+        yield 'cadastro' => ['app:cobranca:importar-cadastro'];
+    }
+
+    /**
+     * Assinatura de ZIP ("PK\x03\x04") seguida de lixo: é o que um download interrompido produz. O
+     * `IOFactory` o reconhece como `.xlsx` pela assinatura e estoura ao abrir o zip — texto puro NÃO
+     * serve, porque é aceito como CSV e cai no ramo "sem linha Filtros:", que é outro.
+     */
+    private function arquivoCorrompido(): string
+    {
         $caminho = tempnam(sys_get_temp_dir(), 'quebrado') . '.xlsx';
         file_put_contents($caminho, "PK\x03\x04" . str_repeat("\x00", 64));
         $this->temporarios[] = $caminho;
 
-        $tester = $this->rodarArquivo('app:cobranca:importar-receitas', $caminho);
-
-        self::assertSame(Command::INVALID, $tester->getStatusCode());
-        $saida = (string) preg_replace('/\s+/u', ' ', $tester->getDisplay());
-        self::assertStringContainsString('Não foi possível abrir o arquivo para conferir o recorte', $saida);
-        self::assertStringContainsString('o download completou', $saida, 'a mensagem precisa dizer o que fazer');
+        return $caminho;
     }
 
     /** Roda o comando contra uma planilha que só tem o rodapé, e exige `INVALID`. */

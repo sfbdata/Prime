@@ -36,13 +36,19 @@ trait ConfereRecorteDoArquivo
             return true;
         }
 
-        $io->error(sprintf('O recorte deste arquivo não serve para "%s". A importação foi RECUSADA.', $esperado->fonte));
+        // Arquivo que não abre ≠ recorte errado (achado da 2ª revisão): a primeira frase precisa dizer
+        // qual dos dois é, senão manda o operador reemitir o relatório quando o problema é o download.
+        $io->error($rodape->arquivoIlegivel
+            ? 'Não foi possível ler o arquivo. A importação foi RECUSADA.'
+            : sprintf('O recorte deste arquivo não serve para "%s". A importação foi RECUSADA.', $esperado->fonte));
         $io->listing($rodape->motivos);
         if ($rodape->linha !== null) {
             $io->writeln('<comment>Rodapé lido no arquivo:</comment>');
             $io->writeln('  ' . $rodape->linha);
         }
-        $io->note('Emita o relatório de novo com o recorte correto. Nada foi lido nem gravado.');
+        $io->note($rodape->arquivoIlegivel
+            ? 'Baixe o arquivo de novo — o que está aqui não abre. Nada foi lido nem gravado.'
+            : 'Emita o relatório de novo com o recorte correto. Nada foi lido nem gravado.');
 
         return false;
     }

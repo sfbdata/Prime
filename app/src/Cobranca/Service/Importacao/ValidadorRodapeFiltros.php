@@ -54,12 +54,19 @@ final class ValidadorRodapeFiltros
     {
         try {
             $linha = $this->extrairLinha($caminhoArquivo);
-        } catch (\Throwable $e) {
-            return new ResultadoRodape(false, [sprintf(
-                'Não foi possível abrir o arquivo para conferir o recorte (confira se é a planilha %s e se o download completou): %s',
-                $esperado->fonte,
-                $e->getMessage(),
-            )]);
+        } catch (\Exception $e) {
+            // `\Exception`, NÃO `\Throwable` (achado da 2ª revisão): um `\Error` — `TypeError` no
+            // filtro, assinatura mudada num upgrade do PhpSpreadsheet, bug em `extrairLinha()` —
+            // viraria "confira se o download completou" em TODO arquivo, jogando no fornecedor a culpa
+            // de um defeito nosso e apagando o rastro. Erro de programação tem de subir e aparecer.
+            return new ResultadoRodape(
+                false,
+                [sprintf(
+                    'Não foi possível abrir o arquivo (confira se é a planilha "%s" e se o download completou).',
+                    $esperado->fonte,
+                )],
+                arquivoIlegivel: true,
+            );
         }
 
         return $this->validarTexto($linha, $esperado);
@@ -84,10 +91,19 @@ final class ValidadorRodapeFiltros
             )]);
         }
 
-        [$campos, $orfaos] = $this->separarCampos($linha);
+        [$campos, $orfaos, $ambiguas] = $this->separarCampos($linha);
 
         $motivos = [];
         foreach ($esperado->expectativas as $expectativa) {
+            if (in_array($expectativa['chave'], $ambiguas, true)) {
+                $motivos[] = sprintf(
+                    'O campo "%s" aparece mais de uma vez no rodapé, com valores diferentes — recorte ambíguo.',
+                    $expectativa['chave'],
+                );
+
+                continue;
+            }
+
             $motivo = $this->conferir($expectativa, $campos, $orfaos);
             if ($motivo !== null) {
                 $motivos[] = $motivo;
@@ -150,7 +166,7 @@ final class ValidadorRodapeFiltros
      * `:` com `trim` dos dois lados absorve o `Inadimplência até:04/08/2026`, que vem colado — e
      * preserva `01/01/2026 a 04/08/2026` inteiro como valor, que é o que interessa.
      *
-     * @return array{0: array<string, string>, 1: list<string>}
+     * @return array{0: array<string, string>, 1: list<string>, 2: list<string>}
      */
     private function separarCampos(string $linha): array
     {
@@ -161,6 +177,7 @@ final class ValidadorRodapeFiltros
 
         $campos = [];
         $orfaos = [];
+        $ambiguas = [];
         foreach (explode(';', $conteudo) as $pedaco) {
             $pedaco = trim($pedaco);
             if ($pedaco === '') {
@@ -176,14 +193,18 @@ final class ValidadorRodapeFiltros
 
             $chave = trim(substr($pedaco, 0, $posicao));
             $valor = trim(substr($pedaco, $posicao + 1));
-            // Primeira ocorrência vence: se a fonte um dia repetir uma chave, o validador não pode
-            // deixar a segunda sobrescrever a que ele conferiu.
-            if (!array_key_exists($chave, $campos)) {
-                $campos[$chave] = $valor;
+            // Chave repetida com valores DIFERENTES é recorte ambíguo, e ambiguidade cai para o lado
+            // RÍGIDO: guarda o valor divergente para a conferência recusar. Deixar a primeira vencer
+            // (ou a última, que é o natural do PHP) seria escolher em silêncio qual das duas o
+            // operador quis — o resto deste arquivo se recusa a adivinhar, e aqui não pode ser
+            // diferente (achado da 2ª revisão).
+            if (array_key_exists($chave, $campos) && $campos[$chave] !== $valor) {
+                $ambiguas[$chave] = true;
             }
+            $campos[$chave] ??= $valor;
         }
 
-        return [$campos, $orfaos];
+        return [$campos, $orfaos, array_keys($ambiguas)];
     }
 
     /** A primeira linha da coluna A que começa com `Filtros:`, ou null se não houver nenhuma. */
@@ -202,20 +223,21 @@ final class ValidadorRodapeFiltros
             }
         });
 
-        $abas = $reader->listWorksheetNames($caminhoArquivo);
-        if ($abas === []) {
-            // Não acontece em `.xlsx` válido (sempre há ao menos uma aba), mas `$abas[0]` num array
-            // vazio viraria warning — e a suíte roda com `failOnWarning`.
+        $primeiraAba = $reader->listWorksheetNames($caminhoArquivo)[0] ?? null;
+        if ($primeiraAba === null) {
             return null;
         }
-        $reader->setLoadSheetsOnly([$abas[0]]);
+        $reader->setLoadSheetsOnly([$primeiraAba]);
 
         $planilha = $reader->load($caminhoArquivo);
         $aba = $planilha->getActiveSheet();
         $ultima = $aba->getHighestDataRow();
 
+        // De BAIXO para cima: o rodapé mora no fim. O comentário desta classe já dizia isso, mas o
+        // laço subia de 1 até o fim e instanciava ~21 mil células numa Receitas completa antes de
+        // chegar nele — doc que descreve uma otimização que o código não faz (achado da 2ª revisão).
         $encontrada = null;
-        for ($i = 1; $i <= $ultima; $i++) {
+        for ($i = $ultima; $i >= 1; $i--) {
             $valor = trim((string) $aba->getCell(self::COLUNA_RODAPE . $i)->getValue());
             if (str_starts_with($valor, self::PREFIXO)) {
                 $encontrada = $valor;

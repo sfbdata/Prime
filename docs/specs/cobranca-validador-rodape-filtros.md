@@ -130,6 +130,16 @@ motivo, não stack trace. É o cenário-mãe desta frente — download interromp
 inadimplência a versão anterior tinha *regressado* o tratamento de erro que já existia (a conferência
 ficou fora do `try/catch` que protegia o adapter).
 
+Duas precisões vindas da 2ª revisão:
+
+- captura-se `\Exception`, **não `\Throwable`**. Um `\Error` (`TypeError` no filtro, assinatura mudada
+  num upgrade do PhpSpreadsheet, bug em `extrairLinha()`) viraria "confira se o download completou"
+  em **todo** arquivo — culpa jogada no fornecedor, rastro do defeito apagado. Erro de programação sobe;
+- o resultado marca `arquivoIlegivel`, e **CLI e tela usam frases diferentes** para os dois casos.
+  Dizer "o recorte não serve, reemita o relatório" para um `.xlsx` truncado manda o operador refazer a
+  emissão quando o defeito é o download. A mensagem do vendor (em inglês, e carregando o caminho
+  absoluto do arquivo) **não** é repassada ao usuário.
+
 ### 3.4 O parser
 
 1. Acha a primeira linha da coluna A que começa com `Filtros:` (comparação no início, após `trim`).
@@ -150,6 +160,13 @@ Cada fonte declara uma lista de expectativas nomeadas. Três tipos, e só três:
 | `exato(chave, valor)` | a chave existe e o valor é **idêntico** | `Competência: Todas`, `Situação das contas: Baixadas` |
 | `qualquerUmDe(chave, [v1, v2])` | a chave existe e o valor é um da lista | `Situação do acordo: Em andamento` **ou** `Liquidado` |
 | `todosOuOrfao(chave)` | a chave vale `Todos`/`Todas`, **ou** a chave não existe e há um órfão `Todos` | `Período de recebimento` |
+
+**Chave repetida com valores diferentes é RECUSA** (recorte ambíguo). A 1ª versão fazia "a primeira
+ocorrência vence", e a 2ª revisão mostrou que isso escolhia o lado **frouxo**: aceitava em silêncio um
+rodapé contraditório, contra o princípio do resto do arquivo ("a ausência não vira aprovação — seria
+adivinhar"). Repetição com o **mesmo** valor é só redundância e passa. Nenhum arquivo real repete
+chave; o ponto é que o custo de errar não é simétrico — recusar um caso inexistente não custa nada,
+aceitar um recorte ambíguo devolve a falha silenciosa.
 
 **Campo presente no arquivo e não declarado na expectativa é IGNORADO** — é o que faz o
 `Conta (bancária, caixinha...)` não quebrar nada (§2.2.3). O validador afirma *"o que me importa está
@@ -237,10 +254,22 @@ da casa é que teste verde não prova nada e que é preciso conferir **qual** as
 | 3. remover a ligação do comando de cadastro | o funcional do cadastro |
 | 4. trocar a ordem (adapter antes da conferência) | o funcional do arquivo corrompido |
 | 5. ramo "ausente sem órfão" → `return null` | caso 12 |
-| 6. "última ocorrência vence" | caso 13 |
+| 6. ignorar a ambiguidade de chave repetida | caso 13 |
+| 7. desligar a validação na TELA | os dois funcionais da tela |
 
-**Funcional:** um teste por comando + um da tela, garantindo `INVALID` (ou redirect com mensagem) e que
-**não se chega ao adapter** — inclusive sem `--confirmar` (§3.2).
+**Funcional:** por comando + tela, nos **dois sentidos** — e o segundo sentido faltava inteiro até a
+2ª revisão:
+
+| sentido | o que prova | por que importa |
+|---|---|---|
+| **recusa** | recorte errado → `INVALID` (ou redirect com mensagem), sem chegar ao adapter | a falha original não volta |
+| **aceite** | recorte CORRETO de cada fonte → o comando segue até a leitura | 🔑 **o lado rígido** |
+
+⚠️ **O teste de aceite é o que faltava, e a armadilha que ele pega é real:** a inadimplência escreve
+`Unidade: Todas` e a receitas escreve `Unidade: Todos` — uma letra. Com `RecorteEsperado` errado, todos
+os testes de recusa continuariam verdes e o comando nasceria **travado em produção**. A spec abre
+dizendo que "errar para o lado rígido trava a importação inteira"; era justamente esse lado o que não
+tinha um único teste.
 
 ⚠️ **Como provar a ORDEM (e dois jeitos que NÃO provam).** Este teste nasceu errado duas vezes:
 

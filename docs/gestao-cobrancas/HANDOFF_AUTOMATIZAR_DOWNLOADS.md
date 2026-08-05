@@ -399,7 +399,7 @@ Os itens 1–3 são **risco ALTO**: spec + teste provado por reintrodução + **
 | # | O quê | Por quê |
 |---|---|---|
 | 5 | Mover **criação de acordo** para o importador de Acordos | fecha os últimos **29** de 359 acordos (§6.0.2) **e absorve o antigo item 2**: 6 parcelas / R$ 1.679,86 travadas por acordo inexistente (§9.3). 🔴 Virou o único item com dinheiro atrás dele — **risco ALTO** |
-| 6 | **Validador da linha `Filtros:`** | recusa arquivo com recorte errado; **teria pego o filtro de 2026 sozinho**. ✅ **É o próximo** (decisão do dono, §9.5) |
+| 6 | ✅ **FECHADO — validador da linha `Filtros:`** | Spec: `docs/specs/cobranca-validador-rodape-filtros.md`. **3 commits, 2 revisões, 7 injeções, suíte 3325 verde.** Recusa nas **5 portas** (4 comandos + a tela), 15/15 contra arquivos reais. ⏳ falta smoke do dono. Detalhe na §10 |
 | 7 | Reemitir **cadastro da AMLI** | travou em `EM_PROCESSAMENTO` no sistema deles em 04/08. ⏸️ **O dono mandou deixar por ÚLTIMO** (05/08). O script de emissão está pronto em `scratchpad/emitir_amli_cadastro.sh` — foi bloqueado pelo classificador de segurança do Bash, não por defeito |
 | 8 | **Teste do zero** | limpar banco → importar tudo → bater com a contabilidade. **É a prova final.** O dono autorizou `--confirmar` **em banco descartável** para isto |
 
@@ -753,3 +753,77 @@ existente e sem NN ambíguo, é criada (`:485-496`).
 **6** → **5** → **8** → **7** → **3** (o aviso, por último).
 
 ⛔ **O aviso de divergência continua exatamente como está.** Decisão do dono, não mexer.
+
+---
+
+## 10. ✅ 06/08 (sessão 2) — ITEM 6 FECHADO: o validador do rodapé
+
+Spec: `docs/specs/cobranca-validador-rodape-filtros.md`. **3 commits, 2 revisões com correção entre
+elas, 7 injeções de prova, suíte 3325/3325 verde. Nada publicado, nada em produção.**
+
+| | |
+|---|---|
+| `22d5f93d` | o validador + a ligação nos 4 comandos |
+| `9504c73b` | correções da 1ª revisão (a **tela** era a 5ª porta, e estava aberta) |
+| *(este)* | correções da 2ª revisão (o **lado rígido** não tinha um único teste) |
+
+### 10.1 O que ele faz
+
+Lê a linha `Filtros:` do rodapé e **recusa o arquivo cujo recorte não seja o exigido** — nas 5 portas:
+os 4 comandos de importação e a tela (`ImportacaoController::prever`). Vale no dry-run também: um
+dry-run sobre arquivo errado imprime um relatório convincente e falso.
+
+🔒 **Vira trava técnica a decisão "cancelados ficam de fora":** apontar qualquer comando para o
+`*_CANCELADO.xlsx` passa a ser **barrado**, não avisado. Era só uma frase repetida a cada sessão.
+
+**Provado contra 15 arquivos reais: zero falso-aceite, zero falso-recusa.** O arquivo que a secretária
+baixou à mão em 03/08 é recusado por dois campos (`Aberta e baixada` + vencimento de 2026) — é o caso
+concreto que motivou o item.
+
+### 10.2 🔑 As duas revisões, e o que cada uma pegou
+
+**Continua valendo o padrão desta frente: a 2ª revisão achou defeito nas correções da 1ª.** Nona vez.
+
+| revisão | achado que mais importou |
+|---|---|
+| 1ª | **a TELA não passava pelo validador** — regra que fecha 4 de 5 portas não fecha porta nenhuma |
+| 2ª | **o lado RÍGIDO não tinha UM teste**: tudo exercitava a recusa, nada provava que um recorte correto é ACEITO |
+
+⚠️ **A armadilha que o teste de aceite pega é real e está no dado:** a inadimplência escreve
+`Unidade: Todas` e a receitas escreve `Unidade: Todos` — **uma letra**. Com `RecorteEsperado` errado, os
+testes de recusa ficariam todos verdes e o comando nasceria **travado em produção**. A spec abria
+dizendo que "errar para o lado rígido trava a importação inteira", e era esse lado que estava sem
+cobertura nenhuma.
+
+Outros achados corrigidos: a leitura dita "magra" carregava 21.150 linhas × 10 colunas para ler uma
+célula (faltava `IReadFilter`); `catch (\Throwable)` transformaria bug nosso em "confira o download";
+mensagem que dizia "recorte errado" para arquivo truncado; `recorteConfere()` duplicado nas 4 classes.
+
+### 10.3 🔑 O teste da ORDEM nasceu errado TRÊS vezes
+
+Vale registrar porque é uma armadilha genérica, não deste item:
+
+1. *"a planilha vazia prova que o adapter não rodou"* — **não prova**: os 4 adapters leem planilha vazia
+   sem exceção, devolvendo zero itens;
+2. *"a seção `Leitura:` não pode sair"* — **também não**: mover a *leitura* para antes não move a
+   *impressão*, que fica depois da conferência. Injetei a troca e seguiu verde;
+3. *"basta provar num comando"* — prendia a ordem só na Receitas; nos outros três a inversão continuava
+   verde.
+
+O que prova: arquivo com **assinatura de ZIP seguida de lixo** (`PK\x03\x04` + zeros) — o validador o
+transforma em recusa com motivo, o adapter estoura. Texto puro **não serve**: o `IOFactory` o aceita
+como CSV e o caso cai noutro ramo.
+
+### 10.4 ⚠️ Consequência operacional para o item 8
+
+O validador **recusa o lote de Receitas de `2026-08-04-api/`** (janela `Período de recebimento:
+01/01/2026 a 04/08/2026`) — e está certo em recusar, é o recorte que cortou 5 anos para 7 meses. O
+**teste do zero (item 8) tem de usar o lote `2026-08-04-completo/`**, que é o correto e passa. Os
+arquivos de Acordos e Inadimplência de `2026-08-04-api/` continuam válidos.
+
+### 10.5 Fixtures corrigidas (não foi acomodar o código)
+
+As fixtures `.xlsx` da tela tinham o rodapé **truncado pela anonimização** — só 2 dos 5 campos.
+Completá-las foi corrigir a fixture. A `toplife_amostra_zip64.xlsx` foi reescrita preservando o
+`compress_type` de cada entrada, porque o que ela testa é o mime indetectável que só o Zip64/store
+produz — conferido: continua `application/octet-stream`, e nenhum dado de planilha mudou.

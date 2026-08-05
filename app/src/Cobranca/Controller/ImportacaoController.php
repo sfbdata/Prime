@@ -113,7 +113,15 @@ final class ImportacaoController extends AbstractController
             $rodape = $this->validadorRodape->validar($this->caminhoTemporario($tenant, $token), RecorteEsperado::inadimplencia());
             if (!$rodape->aceito) {
                 $this->descartarTemporario($tenant, $token);
-                $this->addFlash('danger', 'O recorte deste arquivo não serve: ' . implode(' ', $rodape->motivos) . ' Emita o relatório de novo com o recorte correto. Nada foi lido nem gravado.');
+                // Arquivo que não abre e recorte errado são problemas DIFERENTES: dizer "o recorte não
+                // serve" para um `.xlsx` truncado joga a culpa no filtro da emissão quando o defeito é
+                // o download (achado da 2ª revisão). A linha lida entra na mensagem do recorte porque
+                // sem ela o operador teria de abrir o arquivo à mão para saber o que veio.
+                $this->addFlash('danger', $rodape->arquivoIlegivel
+                    ? implode(' ', $rodape->motivos) . ' Nada foi lido nem gravado.'
+                    : 'O recorte deste arquivo não serve. ' . implode(' ', $rodape->motivos)
+                        . ' Rodapé lido no arquivo: "' . (string) $rodape->linha . '".'
+                        . ' Emita o relatório de novo com o recorte correto. Nada foi lido nem gravado.');
 
                 return $this->redirectToRoute('cobranca_importacao_upload', ['id' => $id]);
             }
