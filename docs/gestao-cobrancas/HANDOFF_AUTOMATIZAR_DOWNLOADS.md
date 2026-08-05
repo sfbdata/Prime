@@ -1,6 +1,10 @@
 # HANDOFF — Automatizar o download dos relatórios da contábil
 
-**Estado em 2026-08-05.** **44 commits não publicados, suíte 3224/3224, nada em produção.**
+**Estado em 2026-08-05 (fim do dia).** **50 commits não publicados, nada em produção.**
+
+✅ **Fecharam hoje:** o **item 4** (§7.2 — os encargos de TL1/TL2 estão certos, e não precisou reemitir
+nada) e o **item 1** (dívida sem número de boleto — spec própria, 2 revisões com correção entre elas,
+prova com `--confirmar` contra as planilhas reais). **Faltam R$ 7.109,07** dos R$ 24.553,73.
 
 **Feito:** a sobrescrita de situação do acordo (2 revisões) · a correção do hífen (2 revisões,
 R$ 49.038,17 que a leitura descartava) · a emissão dos relatórios pela API, com o lote completo em
@@ -362,10 +366,10 @@ Estado em **05/08/2026**. Cada valor abaixo foi **medido** contra as planilhas r
 
 | # | O quê | Valor | Onde está o diagnóstico |
 |---|---|---:|---|
-| 1 | **Dívidas sem número de boleto (NN)** | **R$ 17.444,66** | §6.1 — 405 das 409 linhas nunca tiveram boleto; chave substituta = **caso + competência + classe** |
-| 2 | **Boletos só de encargos/honorário** | **R$ 4.396,07** | §6.1 — 13 boletos; decisão do dono já cobre (§6.2) |
-| 3 | **Valores divergentes** (planilha ≠ sistema) | **R$ 2.713,00** | §6.1 — 33 casos, planilha maior em 33 de 33; hoje só reportado |
-| 4 | 🆕 **Encargos de TL1/TL2 podem estar sobrescritos** | **não medido** | **§7.2** — fazer primeiro, é barato e pode invalidar o resto |
+| 1 | ✅ **FECHADO — dívidas sem número de boleto (NN)** | ~~R$ 17.444,66~~ | `docs/specs/cobranca-divida-sem-numero-de-boleto.md`. Chave = `SNN:<vencimento>`, agrupando por **caso + competência + vencimento** (a classe NÃO entra — ver §7.3). **Provado no dado real: 99 obrigações, R$ 12.510,00 de principal, idempotente.** ⚠️ Só R$ 8.912,21 viram dívida na tela; os R$ 6.750,00 dos acordos nascem substituídos |
+| 2 | **Boletos só de encargos/honorário** | **R$ 4.396,07** | §6.1 — **13 boletos em 8 unidades, remedido hoje**; decisão do dono já cobre (§6.2) |
+| 3 | **Valores divergentes** (planilha ≠ sistema) | **R$ 2.713,00** | §6.1 — 33 casos, planilha maior em 33 de 33; hoje só reportado. ⚠️ **Medir primeiro se a diferença é principal ou encargo congelado** — sobrescrever principal com número que embute encargo contaria duas vezes |
+| 4 | ✅ **FECHADO — encargos de TL1/TL2 NÃO estão sobrescritos** | — | **§7.2**. Não precisou reemitir: o arquivo imprime os encargos na L4, e 4 emissões manuais anteriores à automação (08/07, 22/07, 29/07, 03/08) trazem os mesmos percentuais da emissão pela API |
 
 Os itens 1–3 são **risco ALTO**: spec + teste provado por reintrodução + **duas** revisões cada.
 
@@ -389,8 +393,8 @@ Os itens 1–3 são **risco ALTO**: spec + teste provado por reintrodução + **
 
 ### Ordem recomendada
 
-**4** (barato, pode mudar tudo) → **1** (maior fatia) → **2 e 3** (mesma diretriz) → **6** (trava o
-recorte) → **5** → **8** (a prova final).
+~~**4** → **1**~~ (feitos) → **2 e 3** (mesma diretriz) → **6** (trava o recorte) → **5** → **8** (a
+prova final). O **7** (reemitir o cadastro da AMLI) pode ir a qualquer momento.
 
 ## 7. Segurança
 
@@ -427,7 +431,27 @@ serviço. Não autorizam → parar e voltar ao download manual.
 ✅ **O plano não depende disso.** O **validador do rodapé** (§6, item 6) — a peça que teria pego o filtro
 de 2026 sozinho — **funciona igual com download manual**, e os arquivos já baixados seguem válidos.
 
-### 7.2 🔴 PENDENTE — os encargos de TL1 e TL2 podem estar sobrescritos
+### 7.2 ✅ RESOLVIDA (05/08) — os encargos de TL1 e TL2 estão certos
+
+**Não precisou reemitir nada.** O próprio arquivo imprime os encargos usados na **linha 4** (célula A4),
+logo abaixo do título. Comparando as inadimplências emitidas pela API (04/08, com 20%/15% no payload)
+com as que a secretária baixou **à mão pela tela**, semanas antes de existir qualquer automação:
+
+| carteira | 08/07 · 22/07 · 29/07 · 31/07 · 03/08 (manuais) | 04/08 (API, encargos no payload) |
+|---|---|---|
+| TL1 | juros 1,00%/mês · multa 2,00% · **honorários 20,00%** | idem |
+| TL2 | juros 1,00%/mês · multa 2,00% · **honorários 15,00%** | idem |
+
+Quatro datas, duas carteiras, emissão manual em modo padrão: sempre os mesmos números. Como a §6.0.3
+provou que o modo padrão usa o cadastro do condomínio (validado contra o print da AMLI), **o cadastro
+de TL1 é 1/2/20 e o de TL2 é 1/2/15 — exatamente o que foi enviado. A sobrescrita gravou o mesmo
+valor. Nenhum centavo está errado na origem.**
+
+Ressalva honesta: isto prova que API e emissão manual produzem os mesmos encargos, e que são os do
+cadastro *pelo elo do teste da AMLI*. Não é leitura direta da tela de configuração de TL1/TL2 — se o
+dono tiver os prints das duas, fecha sem elo intermediário.
+
+### 7.3 (histórico) O texto original desta pendência
 
 Achado em 05/08, ao revisar o handoff. Decorre direto da §6.0.3.
 
