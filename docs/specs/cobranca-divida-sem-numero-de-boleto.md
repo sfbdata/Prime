@@ -259,3 +259,41 @@ o filtro tem de estar explícito na query.
    `ReconciliadorLiquidacao.php:62`), elas seguem acumulando juros enquanto estiverem abertas.
    Isso vale para qualquer dívida antiga importada, com ou sem NN; o que é novo é que estas 45 passam
    a existir.
+
+## 7. ✅ PROVA NO DADO REAL (05/08/2026)
+
+Rodado com `--confirmar` no banco **descartável** `saas_ux_semnn` (clone de `saas_ux_pos_etapa3`),
+com os arquivos reais de 04/08. Não é fixture: são as planilhas da contábil.
+
+| origem | obrigações | principal | com encargos |
+|---|---:|---:|---:|
+| Inadimplência TL1 | **45** | R$ 5.760,00 | **R$ 8.912,21** |
+| Acordos — contas originais (LIQUIDADO + EM_ANDAMENTO) | **54** | **R$ 6.750,00** | R$ 8.250,34 |
+| **total** | **99** | **R$ 12.510,00** | |
+
+Os dois números de principal batem **ao centavo** com a §2.0, medida por outro caminho (leitura crua
+dos `.xlsx`, sem passar pelos adapters). Duas medições independentes concordando.
+
+**Idempotência, que é a razão de a chave existir:**
+
+| | 1ª rodada | 2ª rodada |
+|---|---:|---:|
+| inadimplência — criadas | 45 | **0** |
+| inadimplência — atualizadas | 0 | **45** |
+| acordos — contas reconstruídas | 54 | **0** |
+| contagem e soma no banco | 99 · R$ 12.510,00 | **99 · R$ 12.510,00** |
+
+Nada se moveu na segunda passada, nos dois importadores.
+
+**O relatório continua contando na 2ª rodada** — a linha "quanto somam" mostrou R$ 6.605,00 nas duas
+rodadas do arquivo LIQUIDADO, porque a conta migra de `reconstruída` para `já marcada` e o filtro varre
+os três baldes. Era exatamente este o defeito que a 2ª revisão achou nas correções da 1ª.
+
+### 7.1 Como os 5 acordos foram criados para a prova
+
+O importador de Acordos **não cria acordo** (decisão de spec), e o banco descartável veio do import
+antigo e estreito, onde 4 dos 5 não existem. Em vez de rodar a Receitas inteira (7.411 recebimentos),
+recortei dela **as 109 linhas dos 5 acordos** (`_recorte_receitas.php`, descartável) — dado real,
+filtrado, sem nada inventado — e importei. Os 5 nasceram, e aí os dois lados puderam ser provados.
+
+Isso confirma na prática a §2.3: **o item 1 não depende do item 5** do checklist.
