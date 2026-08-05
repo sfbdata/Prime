@@ -131,6 +131,7 @@ final class ImportarRelatorioCobrancaCommand extends Command
         $io->section($confirmar ? 'CONFIRMADO — persistido' : 'DRY-RUN — nada foi persistido');
         $io->table(['Métrica', 'Total'], [
             ['Obrigações criadas', $resultado->totalImportadas()],
+            ['— dessas, dívida SEM boleto (nunca cobrada)', $resultado->totalSemBoleto()],
             ['Obrigações atualizadas (reimport)', $resultado->totalAtualizadas()],
             ['Objetos criados', $resultado->objetosCriados],
             ['Pessoas criadas', $resultado->pessoasCriadas],

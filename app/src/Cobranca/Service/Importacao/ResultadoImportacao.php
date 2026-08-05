@@ -50,6 +50,22 @@ final class ResultadoImportacao
         return count($this->obrigacoesCriadas);
     }
 
+    /**
+     * Quantas das obrigações criadas são dívida que NUNCA teve boleto — entraram pela referência
+     * substituta, não por Nosso Número (spec `cobranca-divida-sem-numero-de-boleto.md`).
+     *
+     * Precisa aparecer no relatório porque a distinção não é cosmética: uma é dívida boletada, com
+     * número que o condômino consegue conferir no extrato; a outra é lançamento antigo que a
+     * contabilidade nunca cobrou. Quem for negociar precisa saber qual é qual.
+     */
+    public function totalSemBoleto(): int
+    {
+        return count(array_filter(
+            $this->obrigacoesCriadas,
+            static fn (string $referencia): bool => ReferenciaSubstituta::ehSubstituta($referencia),
+        ));
+    }
+
     public function totalAtualizadas(): int
     {
         return count($this->obrigacoesAtualizadas);
