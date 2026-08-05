@@ -1,10 +1,9 @@
 # HANDOFF — Automatizar o download dos relatórios da contábil
 
-**Estado em 2026-08-06 (fim do dia).** **Nenhuma linha de código de produção foi tocada em 06/08** —
-o dia inteiro foi medição, nas duas sessões (§8 e §9).
+**Estado em 2026-08-06 (fim do dia).** **58 commits não publicados, nada em produção.**
 
-🔴 **A fila de "dinheiro faltando" está VAZIA.** Os dois itens que restavam caíram ao serem medidos,
-nenhum por defeito de código:
+🔴 **A fila de "dinheiro faltando" está VAZIA.** Os dois itens que restavam caíram **ao serem
+medidos**, nenhum por defeito de código — e nenhum virou linha de código:
 
 - **item 3** (§8) — a diferença não tem **um centavo** de principal: é encargo que o sistema calcula
   ao vivo. Sobrescrever cobraria juros sobre juros. Dono mandou para o **fim da fila**;
@@ -12,8 +11,17 @@ nenhum por defeito de código:
   13 entram por **outra planilha** (Acordos). A guarda culpada pelo handoff não é a causa. **O item 2
   não tem trabalho próprio: virou um pedaço do item 5.**
 
-**O que sobrou é completude, não dinheiro perdido:** item **6** (validador do rodapé) → **5** (o
-importador de Acordos criar o acordo) → **8** (teste do zero) → **7** (AMLI) → **3** (o aviso).
+✅ **O item 6 (validador do rodapé) FECHOU no fim do dia** — 3 commits, 2 revisões, 7 injeções, suíte
+3325 verde, ⏳ falta o smoke do dono. Detalhe na **§10**.
+
+**O que sobra é completude, não dinheiro perdido:** ~~6~~ → **5** (o importador de Acordos criar o
+acordo — **é o próximo**) → **8** (teste do zero) → **7** (AMLI) → **3** (o aviso).
+
+⚠️ **Outra sessão commita neste mesmo master.** O commit `b6bed3a2` (ponto eletrônico, "abono técnico
+não perdoa jornada") entrou por cima dos desta frente em 06/08. Os 4 commits do dia seguem na história
+— conferido com `git branch --contains`, que é o comando autoritativo; **o log linear engana** quando
+outra frente empilha por cima. A frente "esqueci a senha / cadastro público" continua **não commitada**
+no working tree (41 arquivos). `git add` sempre por caminho explícito.
 
 **Estado em 2026-08-05 (fim do dia).** **50 commits não publicados, nada em produção.**
 
@@ -401,14 +409,14 @@ Os itens 1–3 são **risco ALTO**: spec + teste provado por reintrodução + **
 | 5 | Mover **criação de acordo** para o importador de Acordos | fecha os últimos **29** de 359 acordos (§6.0.2) **e absorve o antigo item 2**: 6 parcelas / R$ 1.679,86 travadas por acordo inexistente (§9.3). 🔴 Virou o único item com dinheiro atrás dele — **risco ALTO** |
 | 6 | ✅ **FECHADO — validador da linha `Filtros:`** | Spec: `docs/specs/cobranca-validador-rodape-filtros.md`. **3 commits, 2 revisões, 7 injeções, suíte 3325 verde.** Recusa nas **5 portas** (4 comandos + a tela), 15/15 contra arquivos reais. ⏳ falta smoke do dono. Detalhe na §10 |
 | 7 | Reemitir **cadastro da AMLI** | travou em `EM_PROCESSAMENTO` no sistema deles em 04/08. ⏸️ **O dono mandou deixar por ÚLTIMO** (05/08). O script de emissão está pronto em `scratchpad/emitir_amli_cadastro.sh` — foi bloqueado pelo classificador de segurança do Bash, não por defeito |
-| 8 | **Teste do zero** | limpar banco → importar tudo → bater com a contabilidade. **É a prova final.** O dono autorizou `--confirmar` **em banco descartável** para isto |
+| 8 | **Teste do zero** | limpar banco → importar tudo → bater com a contabilidade. **É a prova final.** O dono autorizou `--confirmar` **em banco descartável** para isto. ⚠️ **Duas restrições novas, medidas em 06/08:** usar o lote `2026-08-04-completo/` (o `-api/` é recusado pelo validador, §10.4) e **fatiar a importação** — a Receitas completa numa transação só derrubou a máquina duas vezes (§9.4) |
 
 ### ⏸️ Do dono
 
 | # | O quê |
 |---|---|
-| 9 | Smokes na tela: "Já pago", caso 193, excluir recebimento, acordos sobrescritos |
-| 10 | Publicar os **51 commits** |
+| 9 | Smokes na tela: "Já pago", caso 193, excluir recebimento, acordos sobrescritos, **e o do item 6** (§10.6) |
+| 10 | Publicar os **58 commits** |
 | 11 | Deploy em produção (lembrar: prod é imagem baked, exige `./scripts/deploy-prod-tls.sh`) |
 | 12 | **Confirmar com a contábil** se a automação de download é permitida — §7.1 |
 
@@ -827,3 +835,33 @@ As fixtures `.xlsx` da tela tinham o rodapé **truncado pela anonimização** �
 Completá-las foi corrigir a fixture. A `toplife_amostra_zip64.xlsx` foi reescrita preservando o
 `compress_type` de cada entrada, porque o que ela testa é o mime indetectável que só o Zip64/store
 produz — conferido: continua `application/octet-stream`, e nenhum dado de planilha mudou.
+
+### 10.6 ⏳ O smoke do item 6 (do dono — 3 minutos)
+
+Na tela de importação de uma carteira (`/cobrancas/carteiras/<id>/importar`):
+
+1. **Suba uma inadimplência com recorte errado** — serve qualquer emissão com `Competência` diferente
+   de `Todas`, ou o arquivo manual antigo. **Esperado:** volta para a tela de upload com a mensagem
+   *"O recorte deste arquivo não serve"*, o motivo campo a campo, e o rodapé lido. Nada é gravado, e
+   **não** aparece a prévia.
+2. **Suba a mesma planilha com o recorte certo.** **Esperado:** a prévia abre normalmente, como sempre.
+   *(Este é o passo que importa: prova que a trava não fecha o que é válido.)*
+3. Opcional, se quiser ver a mensagem de arquivo quebrado: interrompa um download pela metade e suba o
+   arquivo. **Esperado:** *"Não foi possível abrir o arquivo"* — e **não** "o recorte não serve",
+   porque o problema não é o recorte.
+
+Na CLI, o mesmo vale para os 4 comandos; o mais fácil de ver é apontar qualquer um para o
+`*_CANCELADO.xlsx`: ele agora é **barrado**.
+
+## 11. 🧪 Bancos descartáveis de 06/08 (podem ser apagados)
+
+- **`saas_ux_item2`** — clone de `saas_ux_antes_etapa3` com as tabelas `cobranca_*` truncadas. As duas
+  tentativas de importar a Receitas completa travaram a máquina; o rollback foi limpo nas duas
+  (**nada gravado**, conferido em zero). Pode ser apagado.
+- **`saas_ux_div`**, **`saas_ux_semnn`**, **`saas_ux_ac`**, **`saas_ux_dryrun`** — dos dias anteriores.
+- ⛔ **`saas_ux`, `saas_ux_pos_etapa3` e `saas_ux_antes_etapa3` não foram tocados.**
+
+Scripts de medição descartáveis desta sessão, na pasta gitignored `planilhas atualizadas/`:
+`_item2_decompor.php`, `_item2_cruzar.php`, `_item2_colunas.php`, `_item2_acordos_nascem.php`,
+`_item6_rodapes.php`, `_item6_provar.php` (este último é o que confere o validador contra os 15
+arquivos reais — vale manter à mão enquanto a frente estiver viva).
