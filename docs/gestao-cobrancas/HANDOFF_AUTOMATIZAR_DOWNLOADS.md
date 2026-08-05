@@ -1,11 +1,19 @@
 # HANDOFF — Automatizar o download dos relatórios da contábil
 
-**Estado em 2026-08-06.** **52 commits não publicados, nada em produção. Nenhuma linha de código de
-produção foi tocada em 06/08** — o dia inteiro foi medição (ver §8).
+**Estado em 2026-08-06 (fim do dia).** **Nenhuma linha de código de produção foi tocada em 06/08** —
+o dia inteiro foi medição, nas duas sessões (§8 e §9).
 
-🔴 **O item 3 mudou de natureza: não era dinheiro faltando.** Medido em 06/08, a diferença não tem
-**um centavo** de principal. Decisão do dono no mesmo dia: **o item 3 vai para o FIM da fila** e nada
-muda no aviso por enquanto; a próxima sessão vai direto para o **item 2**. Detalhe completo na §8.
+🔴 **A fila de "dinheiro faltando" está VAZIA.** Os dois itens que restavam caíram ao serem medidos,
+nenhum por defeito de código:
+
+- **item 3** (§8) — a diferença não tem **um centavo** de principal: é encargo que o sistema calcula
+  ao vivo. Sobrescrever cobraria juros sobre juros. Dono mandou para o **fim da fila**;
+- **item 2** (§9) — os R$ 4.396,07 são a **coluna Total** de 13 boletos **sem principal nenhum**, e os
+  13 entram por **outra planilha** (Acordos). A guarda culpada pelo handoff não é a causa. **O item 2
+  não tem trabalho próprio: virou um pedaço do item 5.**
+
+**O que sobrou é completude, não dinheiro perdido:** item **6** (validador do rodapé) → **5** (o
+importador de Acordos criar o acordo) → **8** (teste do zero) → **7** (AMLI) → **3** (o aviso).
 
 **Estado em 2026-08-05 (fim do dia).** **50 commits não publicados, nada em produção.**
 
@@ -369,17 +377,18 @@ frente própria** (risco ALTO: mexe em saldo de devedor).
 
 Estado em **05/08/2026**. Cada valor abaixo foi **medido** contra as planilhas reais, não estimado.
 
-### 🔴 Dinheiro que ainda fica de fora — **R$ 4.396,07** (eram R$ 24.553,73)
+### ✅ Dinheiro que ainda fica de fora — **R$ 0,00** (eram R$ 24.553,73)
 
-> Caiu de R$ 7.109,07 para R$ 4.396,07 em 06/08 **sem uma linha de código**: o item 3 saiu da conta ao
-> ser medido (§8). Sobrou o **item 2** sozinho. ⚠️ E ele precisa da mesma medição antes da spec — a
-> §8.4 já mostra por que a decisão do dono, aplicada ao pé da letra, pode não produzir dinheiro nenhum
-> na tela.
+> Caiu a zero em 06/08 **sem uma linha de código**, em duas medições: o item 3 saiu da conta de manhã
+> (§8) e o item 2 à tarde (§9). Nenhum dos dois era dinheiro faltando — os dois eram **encargo somado
+> ao principal na planilha**, comparado com um sistema que guarda as duas coisas em campos separados.
+> ⚠️ **Isto não quer dizer que tudo bate na tela:** o item 5 (completude) ainda segura **6 parcelas /
+> R$ 1.679,86** e 29 acordos, por falta de criação de acordo — ver §9.3.
 
 | # | O quê | Valor | Onde está o diagnóstico |
 |---|---|---:|---|
 | 1 | ✅ **FECHADO — dívidas sem número de boleto (NN)** | ~~R$ 17.444,66~~ | `docs/specs/cobranca-divida-sem-numero-de-boleto.md`. Chave = `SNN:<vencimento>`, agrupando por **caso + competência + vencimento** (a classe NÃO entra — ver §7.3). **Provado no dado real: 99 obrigações, R$ 12.510,00 de principal, idempotente.** ⚠️ Só R$ 8.912,21 viram dívida na tela; os R$ 6.750,00 dos acordos nascem substituídos |
-| 2 | **Boletos só de encargos/honorário** | **R$ 4.396,07** | §6.1 — **13 boletos em 8 unidades, remedido hoje**; decisão do dono já cobre (§6.2) |
+| 2 | ~~**Boletos só de encargos/honorário**~~ | ~~R$ 4.396,07~~ → **R$ 0,00** | 🔴 **NÃO ERA DINHEIRO FALTANDO — medido em 06/08, ver §9.** Os 13 boletos têm **R$ 0,00 de principal**, e os 13 entram pela planilha de **Acordos**, com valor idêntico ao centavo. A guarda do `TopLifeInadimplenciaAdapter:201` não é a causa. **Virou pedaço do item 5**: 6 das 13 parcelas ficam de fora (R$ 1.679,86) porque o *acordo* não nasce |
 | 3 | ~~**Valores divergentes** (planilha ≠ sistema)~~ | ~~R$ 2.713,00~~ → **R$ 0,00** | 🔴 **NÃO ERA DINHEIRO FALTANDO — medido em 06/08, ver §8.** A diferença tem **R$ 0,00 de principal**: é encargo que o sistema calcula ao vivo, desconto concedido no pagamento e honorário. **Dono mandou deixar por ÚLTIMO** (06/08); vira correção do *aviso*, não do dado |
 | 4 | ✅ **FECHADO — encargos de TL1/TL2 NÃO estão sobrescritos** | — | **§7.2**. Não precisou reemitir: o arquivo imprime os encargos na L4, e 4 emissões manuais anteriores à automação (08/07, 22/07, 29/07, 03/08) trazem os mesmos percentuais da emissão pela API |
 
@@ -389,8 +398,8 @@ Os itens 1–3 são **risco ALTO**: spec + teste provado por reintrodução + **
 
 | # | O quê | Por quê |
 |---|---|---|
-| 5 | Mover **criação de acordo** para o importador de Acordos | fecha os últimos **29** de 359 acordos (§6.0.2 — deixou de ser bloqueante) |
-| 6 | **Validador da linha `Filtros:`** | recusa arquivo com recorte errado; **teria pego o filtro de 2026 sozinho** |
+| 5 | Mover **criação de acordo** para o importador de Acordos | fecha os últimos **29** de 359 acordos (§6.0.2) **e absorve o antigo item 2**: 6 parcelas / R$ 1.679,86 travadas por acordo inexistente (§9.3). 🔴 Virou o único item com dinheiro atrás dele — **risco ALTO** |
+| 6 | **Validador da linha `Filtros:`** | recusa arquivo com recorte errado; **teria pego o filtro de 2026 sozinho**. ✅ **É o próximo** (decisão do dono, §9.5) |
 | 7 | Reemitir **cadastro da AMLI** | travou em `EM_PROCESSAMENTO` no sistema deles em 04/08. ⏸️ **O dono mandou deixar por ÚLTIMO** (05/08). O script de emissão está pronto em `scratchpad/emitir_amli_cadastro.sh` — foi bloqueado pelo classificador de segurança do Bash, não por defeito |
 | 8 | **Teste do zero** | limpar banco → importar tudo → bater com a contabilidade. **É a prova final.** O dono autorizou `--confirmar` **em banco descartável** para isto |
 
@@ -405,10 +414,13 @@ Os itens 1–3 são **risco ALTO**: spec + teste provado por reintrodução + **
 
 ### Ordem recomendada (atualizada em 06/08 pelo dono)
 
-~~**4** → **1**~~ (feitos) → ~~**3**~~ (medido, saiu da conta) → **2** → **6** (trava o recorte) →
-**5** → **8** (a prova final) → **7** (AMLI) → **3** (o aviso, por último).
+~~**4** → **1**~~ (feitos) → ~~**3**~~ (medido, saiu da conta) → ~~**2**~~ (medido, dissolveu-se no 5)
+→ **6** (trava o recorte) → **5** (o que sobrou de dinheiro) → **8** (a prova final) → **7** (AMLI) →
+**3** (o aviso, por último).
 
 **Decisão do dono em 06/08, textual:** *"sim, deixe o aviso por último. pode ir direto para o item 2."*
+E, na sessão 2, depois de o item 2 cair: **item 6 primeiro, depois o 5** — e, para a spec do 5,
+*"sim, cria, a planilha manda"*, inclusive acordo cujas parcelas são só honorário e juros (§9.5).
 Até lá o aviso de divergência continua exatamente como está — **não mexer**.
 
 ### 🔑 O que a próxima sessão precisa saber antes de começar o item 3
@@ -646,3 +658,98 @@ A frente "esqueci a senha / cadastro público" avançou durante o dia: além dos
 apareceram `app/src/Auth/UseCase/ConfirmarCadastroUseCase.php`,
 `IniciarCadastroPublicoUseCase.php` e `app/src/Command/PurgarDadosExpiradosCommand.php` (com testes).
 **Nada disso é da cobrança.** `git add` sempre por caminho explícito.
+
+---
+
+## 9. 🔴 06/08 (sessão 2) — O ITEM 2 FOI MEDIDO E TAMBÉM SE DISSOLVEU
+
+**Nenhuma linha de código de produção foi tocada.** Segundo dia seguido em que a medição desfaz o item
+em vez de virar spec. **A fila de dinheiro faltando ficou VAZIA** — o que resta é completude (item 5).
+
+### 9.1 De onde vêm os R$ 4.396,07 — a conta fecha ao centavo
+
+Fonte, dita por extenso: **`2026-08-04-api/top_life_1_Inadimplencias_detalhadas.xlsx`** — e só ela. O
+número do handoff é a soma da **coluna M (Total)** dos 13 boletos rejeitados por `principal <= 0`:
+
+| coluna da planilha | soma dos 13 boletos |
+|---|---:|
+| H — Valor | R$ 3.361,79 |
+| I — Juros | R$ 360,47 |
+| J — Multa | R$ 67,24 |
+| K — Correção | R$ 0,00 |
+| L — Honorários | R$ 606,57 |
+| **M — Total** | **R$ 4.396,07** ✅ (H+I+J+K+L fecha exato) |
+
+**13 boletos, 8 unidades, só na TL1** — TL2 e AMLI dão **zero**. Isso o handoff acertou.
+
+🔑 **E a coluna Valor desses 13 não tem principal nenhum.** Decomposta por classe de conta:
+**honorário (1.15) R$ 2.463,92 · juros lançado (1.4) R$ 876,53 · multa lançada (1.5) R$ 21,34 ·
+principal (1.1/1.14) R$ 0,00.** É a mesma forma do item 3 — a §8.7 previu certo.
+
+### 9.2 O achado que dissolve o item: eles entram por OUTRA planilha
+
+**Os 13 de 13 são parcelas de acordo, e os 13 aparecem na planilha de ACORDOS**
+(`top_life_1_Acordos_detalhados_EM_ANDAMENTO.xlsx`) como parcela, com valor idêntico **ao centavo**
+(R$ 3.361,79 no total). Nenhum consta como pago na Receitas, então nenhum cai na recusa de
+"parcela já liquidada" (`ImportarAcordosDetalhadosUseCase.php:465`).
+
+O importador de Acordos grava a parcela com `valorOriginal = $parcela->valorCentavos` (`:921`) — o
+"Valor acordado" da planilha de Acordos. **Logo: a guarda da inadimplência
+(`TopLifeInadimplenciaAdapter.php:201`) NÃO é o que segura esse dinheiro.** Ela rejeita uma linha que
+tem outra porta de entrada. Mexer nela não acrescentaria um centavo — acrescentaria uma **segunda**
+obrigação para o mesmo boleto.
+
+⚠️ **Isto corrige a §6.1 e a §6.3:** o item 2 nunca foi "R$ 4.396,07 que ficam de fora". Era um total
+com encargos, de boletos sem principal, que entram por outro relatório.
+
+### 9.3 O que REALMENTE fica de fora, e é o item 5
+
+O que decide se a parcela nasce é **o acordo existir**. Hoje o acordo nasce pela **Receitas**
+(o importador de Acordos nunca cria acordo — §3.1). Medido contra
+`2026-08-04-completo/top_life_1_Receitas_detalhadas_TODOS.xlsx` (7.411 recebimentos, 304 acordos):
+
+| acordo | nasce pela Receitas? | parcelas | valor |
+|---|---|---:|---:|
+| 225, 339, 348, 369 | ✅ sim | 7 | R$ 1.681,93 |
+| **155, 374, 394, 414** | ❌ **não** | **6** | **R$ 1.679,86** |
+| | | **13** | **R$ 3.361,79** ✅ |
+
+**Os 6 que ficam de fora são o item 5**, não o item 2 — o mesmo conserto que fecha os outros 29
+acordos de 359 (§6.0.2). O item 2 não tem trabalho próprio: ele é um pedaço do item 5.
+
+### 9.4 ⏳ A prova em banco NÃO foi concluída — e o motivo importa para o item 8
+
+O plano era: banco descartável `saas_ux_item2` (clone de `saas_ux_antes_etapa3` com as tabelas
+`cobranca_*` truncadas) → importar a Receitas TL1 completa com `--confirmar` → dry-run de Acordos →
+ver as 13 parcelas nascerem.
+
+🔴 **A importação da Receitas completa travou a máquina do dono DUAS vezes** (7.411 recebimentos numa
+transação única, `memory_limit=3G`). Nas duas o rollback foi limpo — **nada gravado, banco em zero**,
+conferido. `saas_ux_item2` pode ser apagado.
+
+⚠️ **Isto é um achado operacional para o item 8 (teste do zero):** a prova final **não pode** ser uma
+transação única sobre o lote inteiro nesta máquina. Vai precisar ser fatiada (por carteira, ou por
+faixa de linhas), ou rodar com o processo reduzido. Descobrir isso no item 8, com o relógio correndo,
+seria pior.
+
+**O que a falta dessa prova custa:** nada da §9.1–9.3, que é **medido contra as planilhas** — e
+composição de fonte não depende do estado do banco (a ressalva da §8.5 vale ao contrário aqui). O que
+fica sem confirmação empírica é só o elo já lido no código: que a parcela em aberto, com acordo
+existente e sem NN ambíguo, é criada (`:485-496`).
+
+### 9.5 Decisões do dono nesta sessão
+
+1. **Ordem:** item **6 primeiro** (validador do rodapé), **depois o 5**. Motivo aceito: o validador é
+   pequeno, independente, e impede o item 8 de rodar sobre arquivo com recorte errado — que é o erro
+   que originou esta frente.
+2. **Regra para a spec do item 5:** quando a planilha de Acordos traz acordo que não existe no
+   sistema, **cria** — *"sim, cria, a planilha manda"* —, **inclusive quando as parcelas são só
+   honorário e juros, sem principal** (é o caso dos 4 acordos que faltam). Coerente com a diretriz da
+   §6.2 e com as ~350 parcelas de acordo que já entram assim.
+
+### 9.6 A fila depois desta sessão
+
+~~4~~ → ~~1~~ → ~~3~~ (medido, saiu) → ~~**2**~~ (medido, dissolveu-se no 5) →
+**6** → **5** → **8** → **7** → **3** (o aviso, por último).
+
+⛔ **O aviso de divergência continua exatamente como está.** Decisão do dono, não mexer.
