@@ -176,7 +176,10 @@ final class ImportarAcordosDetalhadosCommand extends Command
                 ['Parcelas futuras criadas', sprintf('%d — R$ %s ENTRA no saldo', count($resultado->nnsParcelasCriadas()), $this->reais($resultado->valorParcelasCriadasCentavos()))],
                 ['Contas originais marcadas como substituídas (os encargos delas são REESCRITOS na data do acordo)', sprintf('%d — R$ %s de PRINCIPAL sai do saldo (mais os juros/multa/correção que corriam sobre ele)', count($resultado->nnsContasMarcadas()), $this->reais($resultado->principalReconciliadoCentavos()))],
                 ['Contas originais reconstruídas (nascem substituídas, não mexem no saldo)', count($resultado->nnsContasReconstruidas())],
-                ['— dessas, dívida que NUNCA teve boleto (chave substituta)', count($resultado->nnsContasSemBoleto())],
+                // NÃO é subitem de "reconstruídas": na reimportação aquela linha é 0 e esta não, porque a
+                // conta migra para "marcada"/"já marcada". O rótulo "— dessas" mentia da 2ª rodada em diante.
+                ['Contas que NUNCA tiveram boleto (chave substituta, em qualquer balde)', count($resultado->nnsContasSemBoleto())],
+                ['— quanto somam (não entram no saldo enquanto o acordo vige)', 'R$ ' . number_format($resultado->centavosSemBoleto() / 100, 2, ',', '.')],
                 ['Parcelas que já existiam (nada a fazer)', count($resultado->nnsParcelasExistentes())],
                 ['Parcelas existentes ligadas ao acordo (não mexe no saldo hoje; evita dívida dupla ao romper)', count($resultado->parcelasVinculadas())],
                 ['Contas já marcadas (nada a fazer)', count($resultado->nnsContasJaMarcadas())],

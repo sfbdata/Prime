@@ -108,6 +108,40 @@ final class ImportarDividaSemBoletoTest extends KernelTestCase
     }
 
     /**
+     * 🔑 A ÚNICA regra de dinheiro que o relatório criou: o valor é **principal + juros + multa +
+     * correção**, com honorário FORA (INV-E2 — honorário não é dívida do credor).
+     *
+     * A primeira versão deste assert era vacuosa e a 2ª revisão pegou: o fixture nascia com encargos e
+     * honorários ZERO, então `principal`, `principal + encargos` e `principal + honorários` davam o
+     * mesmo número, e trocar a fórmula deixava o teste verde. Aqui os três valores são distintos de
+     * propósito — no dado real a diferença entre eles é R$ 5.760,00 × R$ 8.912,21 × R$ 10.694,66.
+     */
+    #[TestDox('O valor reportado soma encargos e NÃO soma honorário (INV-E2)')]
+    public function testValorReportadoSomaEncargosENaoHonorario(): void
+    {
+        $tenant = $this->criarTenant();
+        $user = $this->criarUser();
+        $carteira = $this->criarCarteira($tenant);
+
+        // Números de uma linha real da unidade 20-03C, competência 09/2021.
+        $resultado = $this->importar->confirmar($carteira, new ResultadoLeitura([
+            $this->semBoleto(
+                '20-03C',
+                competencia: '09/2021',
+                vencimento: '2021-09-10',
+                principalCentavos: 14500,
+                jurosCentavos: 8646,
+                multaCentavos: 290,
+                honorariosCentavos: 4688,
+            ),
+        ], [], 0), $tenant, $user);
+
+        self::assertSame(23436, $resultado->centavosSemBoleto, 'principal 145,00 + juros 86,46 + multa 2,90');
+        self::assertNotSame(14500, $resultado->centavosSemBoleto, 'não é só o principal');
+        self::assertNotSame(28124, $resultado->centavosSemBoleto, 'e o honorário de 46,88 NÃO entra');
+    }
+
+    /**
      * A partir da 2ª importação as dívidas sem boleto migram para `obrigacoesAtualizadas`. Sem um
      * contador próprio elas sumiam do relatório justamente nas rodadas de rotina — que são todas menos
      * a primeira.
@@ -248,6 +282,9 @@ final class ImportarDividaSemBoletoTest extends KernelTestCase
         string $competencia,
         string $vencimento,
         int $principalCentavos,
+        int $jurosCentavos = 0,
+        int $multaCentavos = 0,
+        int $honorariosCentavos = 0,
     ): BoletoImportavel {
         return $this->boleto(
             ReferenciaSubstituta::para(new \DateTimeImmutable($vencimento)),
@@ -255,6 +292,9 @@ final class ImportarDividaSemBoletoTest extends KernelTestCase
             $competencia,
             $vencimento,
             $principalCentavos,
+            $jurosCentavos,
+            $multaCentavos,
+            $honorariosCentavos,
         );
     }
 
@@ -264,6 +304,9 @@ final class ImportarDividaSemBoletoTest extends KernelTestCase
         string $competencia,
         string $vencimento,
         int $principalCentavos = 17000,
+        int $jurosCentavos = 0,
+        int $multaCentavos = 0,
+        int $honorariosCentavos = 0,
     ): BoletoImportavel {
         return new BoletoImportavel(
             nn: $nn,
@@ -271,10 +314,10 @@ final class ImportarDividaSemBoletoTest extends KernelTestCase
             unidadeMetadata: null,
             sacadoNome: 'DEVEDOR ' . $objetoIdentificacao,
             principalCentavos: $principalCentavos,
-            jurosCentavos: 0,
-            multaCentavos: 0,
+            jurosCentavos: $jurosCentavos,
+            multaCentavos: $multaCentavos,
             correcaoCentavos: 0,
-            honorariosInformadosCentavos: 0,
+            honorariosInformadosCentavos: $honorariosCentavos,
             vencimento: new \DateTimeImmutable($vencimento),
             competencia: $competencia,
             acordoTexto: null,

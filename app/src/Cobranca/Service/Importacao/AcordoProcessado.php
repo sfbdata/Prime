@@ -67,6 +67,8 @@ final class AcordoProcessado
         public readonly array $contasRecusadas,
         public readonly array $parcelasAmbiguas,
         public readonly int $principalReconciliadoCentavos,
+        /* valor das contas originais que nunca tiveram boleto (chave substituta `SNN:`) */
+        public readonly int $centavosSemBoleto,
         public readonly int $valorParcelasCriadasCentavos,
         public readonly ?string $situacaoSobrescrita,
         public readonly array $parcelasVinculadas = [],

@@ -304,6 +304,7 @@ final class ImportarAcordosDetalhadosTest extends KernelTestCase
 
         self::assertSame(['SNN:2019-09-10', '60240'], $resultado->nnsContasReconstruidas());
         self::assertSame(['SNN:2019-09-10'], $resultado->nnsContasSemBoleto(), 'só a de 2019 nunca teve boleto');
+        self::assertSame(14500, $resultado->centavosSemBoleto(), 'o relatório precisa do VALOR, não só da contagem');
 
         $reconstruida = $this->obrigacao($tenant, 'SNN:2019-09-10');
         self::assertNotNull($reconstruida);
@@ -326,7 +327,10 @@ final class ImportarAcordosDetalhadosTest extends KernelTestCase
         $segunda = $this->importarAcordos->confirmar($carteiraId, $this->leituraAcordoSemBoleto(), $tenant, $user);
 
         self::assertSame([], $segunda->nnsContasReconstruidas(), 'nada de novo');
+        // A 2ª revisão pegou aqui o espelho do defeito que a 1ª achou: na reimportação a conta migra
+        // para o balde "já marcada", e o relatório precisa continuar mostrando-a — com valor.
         self::assertSame(['SNN:2019-09-10'], $segunda->nnsContasSemBoleto(), 'e ela continua visível no relatório');
+        self::assertSame(14500, $segunda->centavosSemBoleto(), 'o valor também não pode sumir na 2ª rodada');
         self::assertSame(1, $this->contar($tenant, 'SNN:2019-09-10'), 'cobrar duas vezes é o pior defeito possível aqui');
     }
 

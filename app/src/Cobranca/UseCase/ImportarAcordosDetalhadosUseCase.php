@@ -22,6 +22,7 @@ use App\Cobranca\Service\CalculadoraEncargos;
 use App\Cobranca\Service\Importacao\AcordoDetalhadoImportavel;
 use App\Cobranca\Service\Importacao\AcordoProcessado;
 use App\Cobranca\Service\Importacao\ContaOriginalImportavel;
+use App\Cobranca\Service\Importacao\ReferenciaSubstituta;
 use App\Cobranca\Service\Importacao\ImpactoDaReativacaoDeAcordo;
 use App\Cobranca\Service\Importacao\ObrigacoesTocadasNaImportacao;
 use App\Cobranca\Service\Importacao\ParcelaAcordoImportavel;
@@ -352,7 +353,7 @@ final class ImportarAcordosDetalhadosUseCase
         [$parcelasCriadas, $parcelasExistentes, $parcelasAmbiguas, $divergencias, $valorParcelas, $parcelasVinculadas, $liquidadasIgnoradas] =
             $this->completarParcelas($aba, $acordo, $caso, $tenant, $usuario, $tocadas);
 
-        [$marcadas, $reconstruidas, $jaMarcadas, $recusadas, $semCompetencia, $maisDivergencias, $principal] =
+        [$marcadas, $reconstruidas, $jaMarcadas, $recusadas, $semCompetencia, $maisDivergencias, $principal, $centavosSemBoleto] =
             $this->reconciliarContasOriginais($aba, $acordo, $caso, $tenant, $usuario, $configCaso, $tocadas);
 
         return new AcordoProcessado(
@@ -370,6 +371,7 @@ final class ImportarAcordosDetalhadosUseCase
             contasRecusadas: $recusadas,
             parcelasAmbiguas: $parcelasAmbiguas,
             principalReconciliadoCentavos: $principal,
+            centavosSemBoleto: $centavosSemBoleto,
             valorParcelasCriadasCentavos: $valorParcelas,
             situacaoSobrescrita: $sobrescrita?->descricao(),
             parcelasVinculadas: $parcelasVinculadas,
@@ -518,6 +520,7 @@ final class ImportarAcordosDetalhadosUseCase
         $marcadas = [];
         $reconstruidas = [];
         $jaMarcadas = [];
+        $centavosSemBoleto = 0;
         $recusadas = [];
         $semCompetencia = [];
         $divergencias = [];
@@ -562,6 +565,7 @@ final class ImportarAcordosDetalhadosUseCase
             if ($obrigacao === null) {
                 $tocadas->registrarCriada($caso, $conta->nn, $conta->competencia, 'conta');
                 $reconstruidas[] = $conta->nn;
+                $centavosSemBoleto += ReferenciaSubstituta::ehSubstituta($conta->nn) ? $conta->valorCentavos : 0;
                 if ($usuario !== null) {
                     $this->reconstruirContaOriginal($conta, $aba, $acordo, $caso, $tenant, $usuario, $configCaso);
                 }
@@ -596,6 +600,7 @@ final class ImportarAcordosDetalhadosUseCase
             if ($substituto !== null) {
                 if ($substituto->getId() === $acordo->getId()) {
                     $jaMarcadas[] = $conta->nn; // idempotência (§7)
+                    $centavosSemBoleto += ReferenciaSubstituta::ehSubstituta($conta->nn) ? $conta->valorCentavos : 0;
 
                     continue;
                 }
@@ -606,6 +611,7 @@ final class ImportarAcordosDetalhadosUseCase
             }
 
             $marcadas[] = $conta->nn;
+            $centavosSemBoleto += ReferenciaSubstituta::ehSubstituta($conta->nn) ? $conta->valorCentavos : 0;
             $principal += $obrigacao->getValorOriginal();
             $tocadas->registrarMutada($obrigacao, $caso, $conta->nn, $conta->competencia, 'marcada');
 
@@ -616,7 +622,7 @@ final class ImportarAcordosDetalhadosUseCase
             }
         }
 
-        return [$marcadas, $reconstruidas, $jaMarcadas, $recusadas, $semCompetencia, $divergencias, $principal];
+        return [$marcadas, $reconstruidas, $jaMarcadas, $recusadas, $semCompetencia, $divergencias, $principal, $centavosSemBoleto];
     }
 
     /**
@@ -959,6 +965,7 @@ final class ImportarAcordosDetalhadosUseCase
             contasRecusadas: [],
             parcelasAmbiguas: [],
             principalReconciliadoCentavos: 0,
+            centavosSemBoleto: 0,
             valorParcelasCriadasCentavos: 0,
             situacaoSobrescrita: $sobrescrita?->descricao(),
             dinheiroParadoPelaReativacao: $dinheiroParado,

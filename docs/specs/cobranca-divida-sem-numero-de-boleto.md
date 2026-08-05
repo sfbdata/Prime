@@ -149,7 +149,9 @@ viram uma conta de R$ 145,00.
 ### 4.1 `TopLifeInadimplenciaAdapter`
 
 - `:84` — a chave de agrupamento de linha sem NN deixa de ser sintética-por-linha (`__sem_nn_$i`,
-  que isolava cada linha) e passa a ser `objetoIdentificacao \x1f SNN:<venc ISO>`, agrupando o mês.
+  que isolava cada linha) e passa a ser `objetoIdentificacao \x1f SNN:<venc ISO> \x1f competência` —
+  **três** partes. A competência entra porque duas dívidas de meses diferentes podem ter o mesmo
+  vencimento; sem ela, o agrupamento fundiria as duas e a competência gravada seria a da primeira.
 - `:120-122` — a rejeição `'Boleto sem número (NN) — não é possível deduplicar.'` **é removida**. Não
   há motivo de rejeição novo no lugar dela: linha sem vencimento parseável já era IGNORADA antes de
   chegar ao agrupamento (`:79-84`), e continua sendo. Rodapé e totais saem por aí, como sempre saíram.
@@ -240,10 +242,19 @@ o filtro tem de estar explícito na query.
    custa uma consulta a mais por boleto (~3.000 por arquivo) para um caso que ainda não ocorreu — mas é
    a primeira coisa a fazer se o escritório começar a boletar essas dívidas.
 
+6. 🟡 **O valor que o relatório mostra é o da PLANILHA, não o gravado.** O acumulador soma
+   `principal + encargos` de toda linha sem boleto do lote, inclusive das que só serão *atualizadas* —
+   e no ramo de atualização o `valorOriginal` é preservado (invariável 20). Se a contábil corrigir o
+   principal de uma linha sem NN, o relatório mostra o número novo e o banco mantém o antigo.
+   **Medido nas três emissões (31/07 · 03/08 · 04/08): principal idêntico nas 45 (R$ 5.760,00 em
+   todas), 0 divergências** — o que muda entre emissões são encargos e honorários, que são
+   sobrescritos. Efeito hoje: zero. O rótulo do relatório diz "pela planilha" para não mentir.
+
 5. 🟠 **Dívida `SNN:` não pode ser quitada por importação.** A Receitas descarta linha sem NN
    (`TopLifeReceitasAdapter.php:106`) e casa por `(caso, NN, competência)`. Nenhum recebimento
    importado casará com `SNN:2019-09-10` — o pagamento chegaria com o NN do boleto novo, que recai no
-   item 4 acima. Na prática: **a baixa dessas 45 obrigações é manual**, pela tela. E como a importação
+   item 4 acima. Na prática: **a baixa dessas obrigações é manual**, pela tela — as 45 da inadimplência
+   desde já, e as 54 dos acordos no dia em que um rompimento as devolver ao exigível. E como a importação
    **não congela** encargos (o desenho "ao vivo" materializa mas não congela — ver
    `ReconciliadorLiquidacao.php:62`), elas seguem acumulando juros enquanto estiverem abertas.
    Isso vale para qualquer dívida antiga importada, com ou sem NN; o que é novo é que estas 45 passam

@@ -108,20 +108,39 @@ final class ResultadoImportacaoAcordos
      * (spec `cobranca-divida-sem-numero-de-boleto.md`). Medido em 04/08/2026: 54 contas, R$ 6.750,00,
      * nos acordos 12, 51, 59, 151 e 253 da TOP LIFE 1.
      *
-     * ⚠️ Elas NÃO aumentam o saldo exigível do devedor: a conta reconstruída nasce com
-     * `acordoSubstituto` apontando para o acordo, e `ObrigacaoRepository::doCasoExigiveis` exclui
-     * obrigação substituída por acordo vigente. É história reconstruída — vira dívida cobrável só se o
-     * acordo for rompido ou cancelado. O relatório precisa dizer isso, senão o número promete um
-     * dinheiro que não aparece na tela.
+     * Varre os TRÊS baldes em que uma conta pode cair — `reconstruidas` (nasceu agora), `marcadas`
+     * (já existia e o acordo passou a substituí-la) e `jaMarcadas` (idempotência). Deixar `marcadas`
+     * de fora, como a primeira versão deste método fazia, escondia justamente o cenário do risco §6.3:
+     * a inadimplência grava a `SNN:` primeiro, o acordo depois tira o principal dela do exigível, e o
+     * relatório não diria que a conta em questão é dívida que nunca foi boletada.
+     *
+     * ⚠️ Nenhuma delas aumenta o saldo exigível: a reconstruída nasce com `acordoSubstituto`, e
+     * `ObrigacaoRepository::doCasoExigiveis` exclui obrigação substituída por acordo vigente. É
+     * história reconstruída — vira dívida cobrável só se o acordo for rompido ou cancelado. O relatório
+     * precisa dizer isso, senão o número promete um dinheiro que não aparece na tela.
      *
      * @return list<string>
      */
     public function nnsContasSemBoleto(): array
     {
         return array_values(array_filter(
-            [...$this->nnsContasReconstruidas(), ...$this->nnsContasJaMarcadas()],
+            [...$this->nnsContasReconstruidas(), ...$this->nnsContasMarcadas(), ...$this->nnsContasJaMarcadas()],
             static fn (string $referencia): bool => ReferenciaSubstituta::ehSubstituta($referencia),
         ));
+    }
+
+    /**
+     * Quanto somam as contas do `nnsContasSemBoleto()`. A 1ª revisão cobrou o valor no lado da
+     * inadimplência e a correção parou lá; a 2ª cobrou aqui. Medido em 04/08/2026: R$ 6.750,00.
+     */
+    public function centavosSemBoleto(): int
+    {
+        $total = 0;
+        foreach ($this->acordos as $acordo) {
+            $total += $acordo->centavosSemBoleto;
+        }
+
+        return $total;
     }
 
     /** @return list<string> */

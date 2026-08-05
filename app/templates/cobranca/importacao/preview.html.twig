@@ -57,6 +57,32 @@
         </div>
 
         {#
+            Dívida que NUNCA teve boleto (spec cobranca-divida-sem-numero-de-boleto.md §4.3). Mesmo
+            motivo do bloco abaixo, e o mesmo defeito repetido: a contagem existia só na CLI, e a tela
+            é o caminho que o gestor usa. A distinção é jurídica, não cosmética — uma é dívida boletada,
+            com número que o condômino confere no extrato; a outra é lançamento antigo que a
+            contabilidade nunca cobrou. Quem for negociar precisa saber qual é qual.
+        #}
+        {% set sem_boleto = resultado.totalSemBoleto + resultado.totalSemBoletoAtualizadas %}
+        {% if sem_boleto > 0 %}
+        <div class="alert alert-warning d-flex gap-2 align-items-start" role="alert">
+            <i class="bi bi-receipt-cutoff mt-1"></i>
+            <div>
+                <strong>Dívida que nunca teve boleto</strong> — {{ sem_boleto }} obrigação(ões)
+                ({{ resultado.totalSemBoleto }} {{ confirmado ? 'criada(s)' : 'a criar' }},
+                {{ resultado.totalSemBoletoAtualizadas }} atualizada(s)), somando
+                <strong>R$ {{ (resultado.centavosSemBoleto / 100)|number_format(2, ',', '.') }}</strong>
+                de principal e encargos.
+                <div class="small mt-1">
+                    São lançamentos antigos que a contabilidade nunca emitiu em boleto. Entram pela chave
+                    substituta <code>SNN:&lt;vencimento&gt;</code>, e o valor acima é o da planilha —
+                    em obrigação que já existia, o valor lançado é preservado.
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {#
             Os dois avisos da chave NN+competência (spec cobranca-importar-chave-competencia.md). Existiam
             no resultado desde a correção da chave, mas só apareciam na CLI — e a tela é o caminho que o
             gestor usa. Silêncio aqui era o defeito que aquela spec corrigiu: o operador confirmava sem
