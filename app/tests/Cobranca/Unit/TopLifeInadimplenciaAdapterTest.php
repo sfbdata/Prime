@@ -6,11 +6,13 @@ namespace App\Tests\Cobranca\Unit;
 
 use App\Cobranca\Service\Importacao\AcordoDoRelatorio;
 use App\Cobranca\Service\Importacao\BoletoImportavel;
+use App\Cobranca\Service\Importacao\ReferenciaSubstituta;
 use App\Cobranca\Service\Importacao\TopLifeInadimplenciaAdapter;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
 
 #[CoversClass(TopLifeInadimplenciaAdapter::class)]
@@ -94,6 +96,92 @@ final class TopLifeInadimplenciaAdapterTest extends TestCase
         }
 
         return $mapa;
+    }
+
+    // ------------------------------------------------------------------------------------------
+    // Dívida antiga SEM Nosso Número — spec `docs/specs/cobranca-divida-sem-numero-de-boleto.md`.
+    // Medido em 04/08/2026: 73 linhas, R$ 10.694,66, em 2 unidades da TOP LIFE 1 (20-03C e 17-01/1-2).
+    // Os valores abaixo são de uma dessas linhas reais (20-03C, competência 09/2021).
+    // ------------------------------------------------------------------------------------------
+
+    /** Duas linhas reais do mesmo mês: a taxa e a energia, que vinham no mesmo boleto. */
+    private const LINHAS_SEM_NN = [
+        ['20-03C', 'DEVEDOR SEM BOLETO', '', '1.1 - Taxa de condomínio', '09/2021', '10/09/2021', 1000, 100.00, 59.63, 2.00, 0, 32.33, 193.96, '-', '-'],
+        ['20-03C', 'DEVEDOR SEM BOLETO', '', '1.14 - Energia', '09/2021', '10/09/2021', 1000, 45.00, 26.83, 0.90, 0, 14.55, 87.28, '-', '-'],
+    ];
+
+    #[Test]
+    #[TestDox('Linha sem NN não é mais rejeitada: entra com a referência substituta SNN:<vencimento>')]
+    public function linhaSemNnEntraComReferenciaSubstituta(): void
+    {
+        $r = $this->adapter->ler($this->planilha(self::LINHAS_SEM_NN));
+
+        self::assertCount(1, $r->importaveis, 'taxa e energia do mesmo mês formam UM boleto');
+        self::assertSame([], $r->rejeitadas, 'sem NN deixou de ser motivo de rejeição');
+        self::assertSame('SNN:2021-09-10', $r->importaveis[0]->nn);
+    }
+
+    #[Test]
+    #[TestDox('A referência substituta NUNCA é dígito puro — é isso que a impede de colidir com um NN real')]
+    public function referenciaSubstitutaNuncaColideComNn(): void
+    {
+        $b = $this->adapter->ler($this->planilha(self::LINHAS_SEM_NN))->importaveis[0];
+
+        self::assertSame(0, preg_match('/^\d+$/', $b->nn), "referência {$b->nn} passaria por um NN de verdade");
+        self::assertTrue(ReferenciaSubstituta::ehSubstituta($b->nn));
+    }
+
+    #[Test]
+    #[TestDox('Taxa e energia do mesmo mês somam num boleto só, principal e encargos')]
+    public function linhasDoMesmoMesSomamNumBoletoSo(): void
+    {
+        $b = $this->adapter->ler($this->planilha(self::LINHAS_SEM_NN))->importaveis[0];
+
+        self::assertSame(14500, $b->principalCentavos, 'taxa 100,00 + energia 45,00');
+        self::assertSame(8646, $b->jurosCentavos, 'juros 59,63 + 26,83');
+        self::assertSame(290, $b->multaCentavos, 'multa 2,00 + 0,90');
+        self::assertSame(4688, $b->honorariosInformadosCentavos, 'honorários 32,33 + 14,55');
+        self::assertSame('09/2021', $b->competencia);
+    }
+
+    /**
+     * A referência substituta NÃO é única no arquivo — duas unidades com o mesmo vencimento produzem a
+     * mesma string. Quem separa é o `caso_id`, que compõe o índice único junto com a referência e a
+     * competência. Se o agrupamento do adapter deixasse a unidade de fora, o dinheiro de dois devedores
+     * cairia num boleto só.
+     */
+    #[Test]
+    #[TestDox('Mesmo vencimento em duas unidades: dois boletos, nenhum dinheiro fundido')]
+    public function unidadesDiferentesNaoSeFundem(): void
+    {
+        $r = $this->adapter->ler($this->planilha([
+            ['20-03C', 'DEVEDOR A', '', '1.1 - Taxa de condomínio', '09/2021', '10/09/2021', 1000, 100.00, 0, 0, 0, 0, 100.00, '-', '-'],
+            ['17-01', 'DEVEDOR B', '', '1.1 - Taxa de condomínio', '09/2021', '10/09/2021', 1000, 200.00, 0, 0, 0, 0, 200.00, '-', '-'],
+        ]));
+
+        self::assertCount(2, $r->importaveis, 'unidades distintas, boletos distintos');
+        self::assertSame(['20-03C', '17-01'], array_map(static fn ($b): string => $b->objetoIdentificacao, $r->importaveis));
+        self::assertSame([10000, 20000], array_map(static fn ($b): int => $b->principalCentavos, $r->importaveis));
+    }
+
+    /**
+     * O vencimento continua sendo o discriminador entre dado e rodapé — e é ele que impede uma linha de
+     * totais de virar dívida agora que o NN deixou de ser exigido. O assert está preso ao número de
+     * boletos importáveis, não a texto de mensagem.
+     */
+    #[Test]
+    #[TestDox('Linha de rodapé (sem vencimento) continua IGNORADA e não vira dívida sem NN')]
+    public function rodapeNaoViraDividaSemNn(): void
+    {
+        $r = $this->adapter->ler($this->planilha([
+            ...self::LINHAS_SEM_NN,
+            ['Total de inadimplência', '', '', '', '0', '', '', 145.00, 0, 0, 0, 0, 145.00, '', ''],
+            ['Filtros: Inadimplência até:04/08/2026', '', '', '', '', '', '', '', '', '', '', '', '', '', ''],
+        ]));
+
+        self::assertCount(1, $r->importaveis, 'só o boleto de verdade');
+        self::assertSame([], $r->rejeitadas);
+        self::assertSame(2, $r->linhasIgnoradas, 'as duas linhas de rodapé');
     }
 
     #[Test]

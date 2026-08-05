@@ -19,6 +19,10 @@ namespace App\Cobranca\Service\Importacao;
  * o reconhecimento e `somaColunaValorCentavos` é a soma da coluna Valor de TODAS as linhas do NN
  * (independente de classe) — o "principal negociado" da parcela, usado pelo UseCase de importação
  * (tarefa #7-B) em vez de `principalCentavos` (que só soma classes específicas).
+ *
+ * ⚠️ `$nn` nem sempre é um Nosso Número: dívida antiga que nunca foi boletada entra com a referência
+ * substituta `SNN:<vencimento ISO>` (`ReferenciaSubstituta`, spec
+ * `cobranca-divida-sem-numero-de-boleto.md`). O papel do campo — chave de dedup — é o mesmo.
  */
 final class BoletoImportavel
 {

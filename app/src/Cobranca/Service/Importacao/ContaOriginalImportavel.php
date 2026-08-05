@@ -13,6 +13,10 @@ namespace App\Cobranca\Service\Importacao;
  * isso os dois campos são obrigatórios aqui. Casar só pelo NN marcaria como substituídas 3 dívidas de
  * 2022 da carteira TOP LIFE I por causa de acordos de 2026 da TOP LIFE 2, apagando R$ 435,00 de
  * cobrança legítima (spec §1, `cobranca-importar-chave-competencia.md`).
+ *
+ * ⚠️ `$nn` nem sempre é um Nosso Número: dívida antiga que nunca foi boletada entra com a referência
+ * substituta `SNN:<vencimento ISO>` (`ReferenciaSubstituta`, spec
+ * `cobranca-divida-sem-numero-de-boleto.md`). O papel do campo — chave de dedup — é o mesmo.
  */
 final class ContaOriginalImportavel
 {

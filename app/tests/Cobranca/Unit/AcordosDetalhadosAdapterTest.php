@@ -7,6 +7,7 @@ namespace App\Tests\Cobranca\Unit;
 use App\Cobranca\Service\Importacao\AcordoDetalhadoImportavel;
 use App\Cobranca\Service\Importacao\AcordosDetalhadosAdapter;
 use App\Cobranca\Service\Importacao\ContaOriginalImportavel;
+use App\Cobranca\Service\Importacao\ReferenciaSubstituta;
 use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
@@ -612,6 +613,171 @@ final class AcordosDetalhadosAdapterTest extends TestCase
         $this->texto($aba, 'A' . $inicio, 'Filtros: Situação do acordo: Em andamento; Unidade/Cliente: Todos; Sacado: Todos');
         $this->texto($aba, 'A' . ($inicio + 2), 'L. G Soluções Contábeis Eireli - SSC Projeção, 9, Setor Central/Gama, Brasília, DF - +55 (61) 35756440');
         $this->texto($aba, 'A' . ($inicio + 3), 'Emissão: 29/07/2026 16:07');
+    }
+
+    // ------------------------------------------------------------------------------------------
+    // Dívida antiga SEM Nosso Número — spec `docs/specs/cobranca-divida-sem-numero-de-boleto.md`.
+    // Medido em 04/08/2026: 84 linhas, R$ 6.750,00, nos acordos 12, 51, 59, 151 e 253 da TOP LIFE 1.
+    // No arquivo real a célula do NN vem NULA (não é "-" nem string vazia), e a fonte intercala uma
+    // linha inteiramente nula entre as contas — as duas coisas estão reproduzidas na fixture.
+    // ------------------------------------------------------------------------------------------
+
+    #[TestDox('Conta original SEM NN não é mais ignorada: entra com a referência substituta SNN:<vencimento>')]
+    public function testContaOriginalSemNnEntra(): void
+    {
+        $acordo = $this->acordoSemNn();
+
+        $contas = $acordo->contasOriginais;
+        self::assertCount(3, $contas, '3 meses: 09/2019, 10/2019 e 11/2019');
+        self::assertSame(
+            ['SNN:2019-09-10', 'SNN:2019-10-10', 'SNN:2019-11-11'],
+            array_map(static fn (ContaOriginalImportavel $c): string => $c->nn, $contas),
+        );
+        self::assertSame(['09/2019', '10/2019', '11/2019'], array_map(
+            static fn (ContaOriginalImportavel $c): string => $c->competencia,
+            $contas,
+        ));
+    }
+
+    #[TestDox('A referência substituta NUNCA é dígito puro — é isso que a impede de colidir com um NN real')]
+    public function testReferenciaSubstitutaNuncaColideComNn(): void
+    {
+        foreach ($this->acordoSemNn()->contasOriginais as $conta) {
+            self::assertSame(0, preg_match('/^\d+$/', $conta->nn), "referência {$conta->nn} passaria por um NN de verdade");
+            self::assertTrue(ReferenciaSubstituta::ehSubstituta($conta->nn));
+        }
+    }
+
+    #[TestDox('Taxa e energia do mesmo mês viram UMA conta, somadas — como um boleto faria')]
+    public function testLinhasDoMesmoMesViramUmaConta(): void
+    {
+        // 09/2019 tem duas linhas (taxa 100,00 + energia 45,00) e o mesmo vencimento.
+        $conta = $this->acordoSemNn()->contasOriginais[0];
+
+        self::assertSame('SNN:2019-09-10', $conta->nn);
+        self::assertSame(14500, $conta->valorCentavos, 'taxa 100,00 + energia 45,00 na MESMA conta');
+    }
+
+    #[TestDox('Cabeçalho, linhas separadoras e rodapé NÃO viram dívida ao aceitar linha sem NN')]
+    public function testRodapeNaoViraDivida(): void
+    {
+        $leitura = (new AcordosDetalhadosAdapter())->ler($this->planilhaSemNn());
+
+        // 4 linhas de dados (2 em 09/2019 + 1 em 10/2019 + 1 em 11/2019); tudo o mais é ignorado.
+        $contas = $leitura->acordos[0]->contasOriginais;
+        self::assertSame(3, count($contas));
+        self::assertSame([], $leitura->rejeitadas, 'nenhuma linha de rodapé chega a ser rejeitada — elas nem são dado');
+        foreach ($contas as $conta) {
+            self::assertNotSame('', $conta->classe);
+            self::assertGreaterThan(0, $conta->valorCentavos);
+        }
+    }
+
+    /**
+     * Teste MÍNIMO e isolado da guarda de competência. Sem ele a guarda ficaria em série com a do
+     * vencimento (que sozinha já barra o rodapé real), e nenhuma injeção conseguiria distingui-las —
+     * o caso do "duas defesas em série" da etapa 3.
+     *
+     * O que a guarda protege não é dinheiro, é o relatório: sem ela, uma linha de rodapé com data vira
+     * uma REJEIÇÃO em vez de ser IGNORADA, e um relatório cheio de rejeição falsa é um relatório que
+     * ninguém lê.
+     */
+    #[TestDox('Linha sem NN, com data mas sem competência, é IGNORADA — não vira rejeição no relatório')]
+    public function testLinhaSemCompetenciaEIgnoradaNaoRejeitada(): void
+    {
+        $planilha = new Spreadsheet();
+        $aba = $planilha->getActiveSheet();
+        $aba->setTitle('Acordo n901');
+        $this->escreverCabecalho($aba, 901, '20-03C', 'DEVEDOR SEM BOLETO', '100,00', '100,00');
+        $fim = $this->escreverContasOriginaisSemNn($aba, 12, [
+            ['1.1 - Taxa de condomínio', '09/2019', '10/09/2019', '100,00'],
+            // Cara de rodapé, mas com data válida E valor numérico: só a guarda de COMPETÊNCIA pode
+            // barrar esta linha. Com valor vazio, a guarda de valor pegaria primeiro e o teste ficaria
+            // verde mesmo sem a de competência — foi o que aconteceu na primeira versão deste teste.
+            ['Total do período', '', '10/09/2019', '100,00'],
+        ]);
+        $this->escreverRodape($aba, $fim + 2);
+
+        $leitura = (new AcordosDetalhadosAdapter())->ler($this->salvar($planilha));
+
+        self::assertCount(1, $leitura->acordos[0]->contasOriginais, 'só a linha de dívida de verdade entra');
+        self::assertSame([], $leitura->rejeitadas, 'a linha de rodapé é IGNORADA, nunca rejeitada');
+    }
+
+    /**
+     * Sem data não há como formar `SNN:<data>` — mas a primeira versão deste teste era VACUOSA: ela
+     * afirmava só que a conta não entra, e quem já garante isso é `montarContaOriginal`, que rejeita
+     * vencimento inválido desde antes desta frente. A prova por injeção (devolver uma data fixa quando
+     * o parse falha) passava verde.
+     *
+     * O que ESTA guarda decide, e mais nada, é **ignorar em vez de rejeitar**. É nisso que o assert
+     * está preso agora. Importa porque uma data fabricada faria dívidas distintas compartilharem a
+     * mesma referência substituta.
+     */
+    #[TestDox('Linha sem NN e sem vencimento válido é IGNORADA — não vira conta nem rejeição')]
+    public function testSemVencimentoNaoEntra(): void
+    {
+        $planilha = new Spreadsheet();
+        $aba = $planilha->getActiveSheet();
+        $aba->setTitle('Acordo n900');
+        $this->escreverCabecalho($aba, 900, '20-03C', 'DEVEDOR SEM BOLETO', '100,00', '100,00');
+        $fim = $this->escreverContasOriginaisSemNn($aba, 12, [
+            ['1.1 - Taxa de condomínio', '09/2019', 'sem data', '100,00'],
+        ]);
+        $this->escreverRodape($aba, $fim + 2);
+
+        $leitura = (new AcordosDetalhadosAdapter())->ler($this->salvar($planilha));
+
+        self::assertSame([], $leitura->acordos[0]->contasOriginais, 'sem vencimento não há como formar SNN:<data>');
+        self::assertSame([], $leitura->rejeitadas, 'e ela é IGNORADA, não rejeitada — é isto que a guarda decide');
+    }
+
+    private function acordoSemNn(): AcordoDetalhadoImportavel
+    {
+        return (new AcordosDetalhadosAdapter())->ler($this->planilhaSemNn())->acordos[0];
+    }
+
+    private function planilhaSemNn(): string
+    {
+        $planilha = new Spreadsheet();
+        $aba = $planilha->getActiveSheet();
+        $aba->setTitle('Acordo n151');
+        $this->escreverCabecalho($aba, 151, '20-03C', 'DEVEDOR SEM BOLETO', '245,00', '245,00');
+        $fim = $this->escreverContasOriginaisSemNn($aba, 12, [
+            ['1.1 - Taxa de condomínio', '09/2019', '10/09/2019', '100,00'],
+            ['1.14 - Energia', '09/2019', '10/09/2019', '45,00'],
+            ['1.1 - Taxa de condomínio', '10/2019', '10/10/2019', '100,00'],
+            ['1.1 - Taxa de condomínio', '11/2019', '11/11/2019', '100,00'],
+        ]);
+        $this->escreverRodape($aba, $fim + 2);
+
+        return $this->salvar($planilha);
+    }
+
+    /**
+     * Como `escreverContasOriginais`, mas a coluna A (Nosso Número) fica NULA — é assim que a fonte
+     * real traz a dívida que nunca foi boletada (medido na aba "Acordo n151" de 04/08/2026).
+     *
+     * @param list<list<string>> $contas [classe, competência, vencimento, valor]
+     */
+    private function escreverContasOriginaisSemNn(\PhpOffice\PhpSpreadsheet\Worksheet\Worksheet $aba, int $inicio, array $contas): int
+    {
+        $this->texto($aba, 'A' . $inicio, 'Relação das contas originais');
+        $cabecalho = ['Nosso Número', 'Classe de Conta', 'Competência', 'Vencimento', 'Valor original (R$)', 'Detalhamento'];
+        foreach ($cabecalho as $c => $titulo) {
+            $this->texto($aba, $this->coluna($c) . ($inicio + 1), $titulo);
+        }
+
+        $linha = $inicio + 2;
+        foreach ($contas as $conta) {
+            // começa em B: a coluna A do NN não é escrita, ficando nula como no arquivo real
+            foreach ([...$conta, '-'] as $c => $valor) {
+                $this->texto($aba, $this->coluna($c + 1) . $linha, $valor);
+            }
+            $linha += 2; // a linha intercalada fica inteiramente nula, como na fonte
+        }
+
+        return $linha - 2;
     }
 
     private function texto(\PhpOffice\PhpSpreadsheet\Worksheet\Worksheet $aba, string $celula, string $valor): void

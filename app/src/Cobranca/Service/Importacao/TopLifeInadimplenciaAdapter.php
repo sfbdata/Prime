@@ -21,6 +21,12 @@ use PhpOffice\PhpSpreadsheet\IOFactory;
  * IGNORADA; boleto sem Sacado / competência inválida / valor não numérico / sem principal (>0) →
  * REJEITADO com motivo.
  *
+ * Linha SEM Nosso Número não é mais descartada: ela é dívida antiga que nunca teve boleto emitido
+ * (73 linhas, R$ 10.694,66 medidos em 04/08/2026). Entra por `ReferenciaSubstituta`, agrupada por
+ * (unidade, competência, vencimento) — spec `docs/specs/cobranca-divida-sem-numero-de-boleto.md`.
+ * O Vencimento continua sendo o discriminador entre dado e rodapé; sem ele a linha segue IGNORADA,
+ * e é isso que impede uma linha de totais de virar dívida.
+ *
  * INV-E1: `juros + multa + correcao` é EXATAMENTE o antigo agregado `encargos` (Σ(I+J) + H de 1.4/1.5)
  * mais a correção (coluna K, antes descartada e igual a 0 em 100% do dado real). A separação redistribui
  * as mesmas parcelas em três acumuladores — nenhuma parcela entra duas vezes nem some. Se essa soma
@@ -64,7 +70,7 @@ final class TopLifeInadimplenciaAdapter
         }
 
         $ignoradas = 0;
-        /** @var array<string, array{ordem:int, linhas: list<array<int, mixed>>}> $grupos */
+        /** @var array<string, array{ordem:int, referencia:string, linhas: list<array<int, mixed>>}> $grupos */
         $grupos = [];
         $ordem = 0;
 
@@ -81,9 +87,17 @@ final class TopLifeInadimplenciaAdapter
             // Chave = Objeto (unidade principal) + NN (decisão C). Não assume NN globalmente único:
             // o mesmo NN em duas unidades vira boletos separados, sem fundir dinheiro de unidades.
             [$identificacao] = $this->separarUnidade(trim((string) ($linha[self::COL_UNIDADE] ?? '')));
-            $chave = $nn !== '' ? $identificacao . "\x1f" . $nn : '__sem_nn_' . $i;
+            $competencia = trim((string) ($linha[self::COL_COMPETENCIA] ?? ''));
+            // Sem NN, o que resta do boleto é o mês + o vencimento: linhas do mesmo
+            // (unidade, competência, vencimento) formam UMA obrigação, como o NN faria — a taxa e a
+            // energia do mesmo mês vinham no mesmo boleto. A chave do agrupamento É a referência,
+            // então ela é injetiva por construção: dois grupos distintos nunca colidem.
+            $referencia = $nn !== '' ? $nn : ReferenciaSubstituta::para($vencimento);
+            $chave = $nn !== ''
+                ? $identificacao . "\x1f" . $nn
+                : $identificacao . "\x1f" . $referencia . "\x1f" . $competencia;
             if (!isset($grupos[$chave])) {
-                $grupos[$chave] = ['ordem' => $ordem++, 'linhas' => []];
+                $grupos[$chave] = ['ordem' => $ordem++, 'referencia' => $referencia, 'linhas' => []];
             }
             $grupos[$chave]['linhas'][] = $linha;
         }
@@ -93,7 +107,7 @@ final class TopLifeInadimplenciaAdapter
         $importaveis = [];
         $rejeitadas = [];
         foreach ($grupos as $chave => $grupo) {
-            $resultado = $this->montarBoleto((string) $chave, $grupo['linhas']);
+            $resultado = $this->montarBoleto((string) $chave, $grupo['referencia'], $grupo['linhas']);
             if ($resultado instanceof BoletoImportavel) {
                 $importaveis[] = $resultado;
 
@@ -108,18 +122,16 @@ final class TopLifeInadimplenciaAdapter
     /**
      * @param list<array<int, mixed>> $linhas
      */
-    private function montarBoleto(string $chave, array $linhas): BoletoImportavel|LinhaRejeitada
+    private function montarBoleto(string $chave, string $referencia, array $linhas): BoletoImportavel|LinhaRejeitada
     {
         $primeira = $linhas[0];
         $unidadeRaw = trim((string) ($primeira[self::COL_UNIDADE] ?? ''));
         $sacado = trim((string) ($primeira[self::COL_SACADO] ?? ''));
-        $nn = trim((string) ($primeira[self::COL_NN] ?? ''));
+        // Dívida antiga que nunca teve boleto entra pela referência substituta, não pelo NN.
+        $nn = $referencia;
         $competencia = $this->competenciaDoBoleto($linhas);
         $dados = ['nn' => $nn, 'unidade' => $unidadeRaw, 'sacado' => $sacado, 'competencia' => $competencia];
 
-        if ($nn === '') {
-            return new LinhaRejeitada($chave, 'Boleto sem número (NN) — não é possível deduplicar.', $dados);
-        }
         if ($sacado === '') {
             return new LinhaRejeitada($nn, 'Boleto sem Sacado (devedor).', $dados);
         }

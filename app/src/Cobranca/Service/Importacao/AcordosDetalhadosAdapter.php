@@ -36,6 +36,12 @@ use PhpOffice\PhpSpreadsheet\IOFactory;
  * inadimplência traz para o mesmo NN (medido: NN 61600 → 07/2026 nas duas fontes); o sufixo da classe é
  * o mês da taxa RENEGOCIADA, outra coisa. Usar o sufixo faria a próxima importação de inadimplência
  * criar uma SEGUNDA obrigação para o mesmo boleto — dinheiro cobrado duas vezes.
+ *
+ * Na seção de contas originais, linha SEM Nosso Número não é mais ignorada: são dívidas antigas que
+ * nunca tiveram boleto (84 linhas, R$ 6.750,00 medidos em 04/08/2026, concentradas nos acordos 12,
+ * 51, 59, 151 e 253). Entram por `ReferenciaSubstituta` — spec
+ * `docs/specs/cobranca-divida-sem-numero-de-boleto.md`. A seção de PARCELAS não mudou: toda parcela
+ * medida tem NN.
  */
 final class AcordosDetalhadosAdapter
 {
@@ -180,7 +186,17 @@ final class AcordosDetalhadosAdapter
 
             // Linha de DADOS é a que tem NN (só dígitos) na coluna A. Cabeçalho de coluna
             // ("Nosso Número"), linhas vazias e o endereço da contábil caem fora por construção.
-            if ($secao === null || preg_match('/^\d+$/', $a) !== 1) {
+            $temNn = preg_match('/^\d+$/', $a) === 1;
+            // ... EXCETO nas contas originais, onde 84 linhas reais (R$ 6.750,00, medido em 04/08/2026)
+            // são dívida antiga que nunca teve boleto e por isso não tem NN. Aí o que identifica dado é
+            // a tripla competência + vencimento + valor, que nenhuma linha de rodapé, cabeçalho ou
+            // separadora tem. Spec: `docs/specs/cobranca-divida-sem-numero-de-boleto.md` §4.2.
+            // O vencimento volta desta checagem (em vez de ser reparseado adiante) porque é ele que
+            // forma a referência substituta: uma função, um significado, sem acoplamento implícito.
+            $vencimentoSemNn = ($secao === 'originais' && !$temNn)
+                ? $this->vencimentoDeContaOriginalSemNn($linha)
+                : null;
+            if ($secao === null || (!$temNn && $vencimentoSemNn === null)) {
                 ++$ignoradas;
 
                 continue;
@@ -192,10 +208,14 @@ final class AcordosDetalhadosAdapter
                 // processar a mesma dívida duas vezes — na reconstrução (§3.2.1) seriam duas obrigações
                 // com o mesmo NN+competência, e o índice único derrubaria o lote inteiro.
                 // A chave é NN + COMPETÊNCIA, nunca o NN sozinho: é a mesma regra do casamento.
-                $chaveConta = $a . '|' . trim((string) ($linha[self::ORIG_COMPETENCIA] ?? ''));
+                // Sem NN, a referência substituta ocupa o lugar dele — e o agrupamento continua sendo
+                // o mesmo: as linhas do mesmo mês formam UMA conta, como um boleto formaria.
+                $competenciaDaLinha = trim((string) ($linha[self::ORIG_COMPETENCIA] ?? ''));
+                $referencia = $vencimentoSemNn === null ? $a : ReferenciaSubstituta::para($vencimentoSemNn);
+                $chaveConta = $referencia . '|' . $competenciaDaLinha;
                 if (!isset($linhasPorConta[$chaveConta])) {
                     $linhasPorConta[$chaveConta] = [];
-                    $ordemContas[$chaveConta] = $a;
+                    $ordemContas[$chaveConta] = $referencia;
                 }
                 $linhasPorConta[$chaveConta][] = $linha;
 
@@ -248,6 +268,33 @@ final class AcordosDetalhadosAdapter
             contasOriginais: $contas,
             parcelas: $parcelas,
         );
+    }
+
+    /**
+     * Linha da seção "contas originais" que é DADO apesar de não ter Nosso Número — dívida antiga que
+     * nunca foi boletada. Devolve o vencimento (que forma a referência substituta) ou `null` quando a
+     * linha não é dado.
+     *
+     * O critério é o par competência `MM/AAAA` + vencimento `dd/mm/aaaa`. É deliberadamente mais
+     * estrito do que "não está vazia": sem isto, o cabeçalho de coluna, as linhas separadoras e o
+     * rodapé virariam dívida no nome de um devedor real — que é exatamente o risco que a guarda do NN
+     * cobria de graça. Medido em 04/08/2026: o critério aceita as 84 linhas sem NN e nenhuma linha de
+     * rodapé.
+     *
+     * O VALOR de propósito não entra no critério. Linha de dado com valor vazio ou não numérico deve
+     * chegar a `montarContaOriginal` e sair como REJEIÇÃO com motivo — que é informação para o
+     * operador. Barrá-la aqui a transformaria em silêncio, e seria uma terceira defesa em série,
+     * impossível de provar isoladamente.
+     *
+     * @param array<int, mixed> $linha
+     */
+    private function vencimentoDeContaOriginalSemNn(array $linha): ?\DateTimeImmutable
+    {
+        if (preg_match('#^\d{2}/\d{4}$#', trim((string) ($linha[self::ORIG_COMPETENCIA] ?? ''))) !== 1) {
+            return null;
+        }
+
+        return $this->parseData(trim((string) ($linha[self::ORIG_VENCIMENTO] ?? '')));
     }
 
     /**
