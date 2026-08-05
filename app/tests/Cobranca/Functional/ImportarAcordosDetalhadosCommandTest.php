@@ -30,6 +30,9 @@ use Symfony\Component\Console\Tester\CommandTester;
 #[CoversClass(ImportarAcordosDetalhadosCommand::class)]
 final class ImportarAcordosDetalhadosCommandTest extends CobrancaWebTestCase
 {
+    /** Rodapé real de uma emissão de acordos — recorte aceito pelo validador. */
+    private const RODAPE_ACORDOS = 'Filtros: Situação do acordo: Em andamento; Período de criação do acordo: Todos; Unidade/Cliente: Todos; Sacado: Todos';
+
     /** @var list<string> */
     private array $temporarios = [];
 
@@ -180,6 +183,16 @@ final class ImportarAcordosDetalhadosCommandTest extends CobrancaWebTestCase
             ['Parcelas das contas geradas pelo acordo', ''],
             ['NN', 'Classe', 'Parcela', 'Competência', 'Vencimento', 'Liquidação', 'Valor'],
             ['9101', '1.1 - Taxa de condomínio', '1/1', '06/2026', '10/06/2026', '-', '200,00'],
+            // Rodapé `Filtros:` COPIADO de arquivo real. Sem ele o comando recusa antes de ler (spec
+            // `docs/specs/cobranca-validador-rodape-filtros.md`), e a fixture sem rodapé é que era
+            // irreal — toda planilha da contábil traz esta linha.
+            //
+            // ⚠️ O rodapé é o filtro da EMISSÃO; `Situação:` (L6) é a situação DAQUELE acordo. São
+            // coisas diferentes, e por isso o rodapé aqui fica fixo em "Em andamento" mesmo quando a
+            // aba diz "Cancelado": é o único jeito de continuar exercitando o ramo de cancelamento
+            // pelo comando, agora que o arquivo `*_CANCELADO.xlsx` é barrado por decisão do dono. No
+            // dado real os dois coincidem — a emissão é uma por situação.
+            [self::RODAPE_ACORDOS, ''],
             ['Emissão: 03/08/2026 09:49', ''],
         ], null, 'A1');
 

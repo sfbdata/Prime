@@ -27,6 +27,9 @@ use Symfony\Component\Console\Tester\CommandTester;
 #[CoversClass(ImportarReceitasCommand::class)]
 final class ImportarReceitasCommandTest extends CobrancaWebTestCase
 {
+    /** Rodapé real do lote completo de 04/08 — o recorte que a importação exige. */
+    private const RODAPE_RECEITAS = 'Filtros: Situação das contas: Baixadas; Competência: Todas; Período de vencimento: Todos; Todos; Unidade: Todos; Classe de conta: Todas; Sacado: Todos;';
+
     /** @var list<string> */
     private array $temporarios = [];
 
@@ -350,6 +353,11 @@ final class ImportarReceitasCommandTest extends CobrancaWebTestCase
             'A7',
         );
         $aba->fromArray($linhas, null, 'A8');
+        // Rodapé `Filtros:` COPIADO de arquivo real (o lote completo de 04/08). Sem ele o comando
+        // recusa o arquivo antes de ler — spec `docs/specs/cobranca-validador-rodape-filtros.md` —,
+        // e a fixture sem rodapé é que era irreal: toda planilha da contábil traz esta linha.
+        // Note o `Todos;` solto: é o `Período de recebimento` sem janela, que perde o rótulo.
+        $aba->setCellValue('A' . (count($linhas) + 9), self::RODAPE_RECEITAS);
 
         $caminho = tempnam(sys_get_temp_dir(), 'receitas') . '.xlsx';
         (new Xlsx($planilha))->save($caminho);
