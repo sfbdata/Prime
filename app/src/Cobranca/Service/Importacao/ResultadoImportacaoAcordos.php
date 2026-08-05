@@ -186,6 +186,26 @@ final class ResultadoImportacaoAcordos
     }
 
     /**
+     * Acordos que NÃO existiam e nasceram desta importação (item 5, spec
+     * `cobranca-importar-acordos-criar-acordo.md`). Lista de AÇÃO, como a sobrescrita: é escrita que
+     * saiu daqui, e é ela que destrava as parcelas e as contas da aba — sem vê-la, o operador leria uma
+     * tabela de parcelas sem saber que o acordo delas está nascendo agora.
+     *
+     * @return list<int>
+     */
+    public function numerosDeAcordosCriados(): array
+    {
+        $criados = [];
+        foreach ($this->acordos as $acordo) {
+            if ($acordo->acordoCriado) {
+                $criados[] = $acordo->numero;
+            }
+        }
+
+        return $criados;
+    }
+
+    /**
      * Dinheiro já recebido que DEIXA de abater o saldo por causa de uma reativação. O aviso mais grave
      * que esta importação produz.
      *

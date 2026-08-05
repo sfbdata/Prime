@@ -119,7 +119,7 @@ final class TopLifeReceitasAdapter
 
             // Chave = Objeto (unidade principal) + NN, como na inadimplência: não assume NN globalmente
             // único, para o mesmo NN em duas unidades não fundir dinheiro de unidades diferentes.
-            [$identificacao] = $this->separarUnidade(trim((string) ($linha[self::COL_UNIDADE] ?? '')));
+            [$identificacao] = IdentificacaoDaUnidade::separar(trim((string) ($linha[self::COL_UNIDADE] ?? '')));
             $chave = $identificacao . "\x1f" . $nn;
             if (!isset($grupos[$chave])) {
                 $grupos[$chave] = ['ordem' => $ordem++, 'linhas' => []];
@@ -252,7 +252,7 @@ final class TopLifeReceitasAdapter
             $this->classesForaDoMapa[$codigo] = ($this->classesForaDoMapa[$codigo] ?? 0) + $qtd;
         }
 
-        [$identificacao, $metadata] = $this->separarUnidade($unidadeRaw);
+        [$identificacao, $metadata] = IdentificacaoDaUnidade::separar($unidadeRaw);
 
         return new ReceitaImportavel(
             nn: $nn,
@@ -293,20 +293,6 @@ final class TopLifeReceitasAdapter
         $partes = explode(' - ', trim($classe), 2);
 
         return trim($partes[0]);
-    }
-
-    /**
-     * "01-03A (05-03,06-01)" → ["01-03A", "05-03,06-01"]; sem parênteses → [unidade, null].
-     *
-     * @return array{0: string, 1: ?string}
-     */
-    private function separarUnidade(string $unidade): array
-    {
-        if (preg_match('/^(.*?)\s*\((.*)\)\s*$/', $unidade, $m) === 1) {
-            return [trim($m[1]), trim($m[2])];
-        }
-
-        return [trim($unidade), null];
     }
 
     /** Reconhece "Acordo <N> - Parc. <p>/<t>"; qualquer outra coisa volta null (recebimento comum). */

@@ -865,3 +865,105 @@ Scripts de medição descartáveis desta sessão, na pasta gitignored `planilhas
 `_item2_decompor.php`, `_item2_cruzar.php`, `_item2_colunas.php`, `_item2_acordos_nascem.php`,
 `_item6_rodapes.php`, `_item6_provar.php` (este último é o que confere o validador contra os 15
 arquivos reais — vale manter à mão enquanto a frente estiver viva).
+
+---
+
+## 12. ✅ 07/08 — ITEM 5 ENTREGUE: o importador de Acordos passa a CRIAR o acordo
+
+Spec: `docs/specs/cobranca-importar-acordos-criar-acordo.md`. **2 revisões com correção entre elas,
+24 injeções de prova, suíte 3390/3390 verde. Nada publicado, nada em produção, nada gravado com
+`--confirmar`.**
+
+Revoga a §3.1 da spec-mãe (*"o acordo nunca é criado aqui"*). A spec-mãe foi corrigida no mesmo commit —
+ela ainda dizia o contrário do que o código faz.
+
+### 12.1 O que muda, em uma frase
+
+A aba cujo acordo não existe **cria o acordo** e é processada inteira, em vez de ser reportada e ignorada.
+
+**Qual planilha alimenta o quê** (é a pergunta que travou uma conversa antes): a de **Acordos** declara o
+acordo, a unidade, o sacado, a situação, as contas originais e as parcelas · a de **Receitas** era a única
+porta de criação, e só cria quando alguém **pagou** uma parcela · a de **Inadimplência** cria a unidade e o
+caso de cobrança. Acordo fechado há semanas, sem pagamento, não nascia em lugar nenhum.
+
+### 12.2 Os números — e a armadilha que a 2ª revisão pegou neles
+
+🔴 **A medição planilha×planilha responde a pergunta do ITEM 8, não a de rodar contra um banco qualquer.**
+
+| | |
+|---|---:|
+| acordos declarados pela contábil (TL1+TL2+AMLI) | 392 |
+| nascem hoje (Receitas) | 354 |
+| **passariam a nascer** | **38** |
+| parcelas que viram dinheiro a receber | **R$ 28.926,43** (119) |
+| contas originais reconstruídas (nascem fora do saldo) | R$ 41.975,83 (267) |
+| **dívida contada em dobro** | **R$ 0,00** |
+
+⚠️ **O handoff dizia 29 e não estava errado — estava incompleto:** 29 = TL1 (21) + TL2 (8), bate exato.
+Faltavam os **9 da AMLI**, que o dono mandou incluir. Os 4 acordos do antigo item 2 (155, 374, 394, 414)
+estão entre os 21 da TL1. ✅
+
+🔑 **Contra BANCO os números são outros, e isso é o achado mais importante do dia.** Dry-run real
+(read-only, sem `--confirmar`) contra `saas_ux`, que só tem a importação estreita da etapa 3:
+
+| arquivo | acordos criados | parcelas | abas recusadas |
+|---|---:|---:|---:|
+| TL1 `EM_ANDAMENTO` | 45 | 608 — **R$ 129.811,51** | 21 |
+| TL1 `LIQUIDADO` | 74 | **0** | 185 |
+| TL2 `EM_ANDAMENTO` | 0 | 0 | 0 |
+| TL2 `LIQUIDADO` | 15 | 0 | 11 |
+
+**O número que o dono autorizar tem de sair do dry-run do banco em que a importação vai rodar**, nunca da
+spec. E a **ordem virou requisito**: Inadimplência → Receitas → Acordos. Rodar Acordos antes recusa as abas
+(sem gravar nada) — foi o que produziu as 217 recusas acima.
+
+### 12.3 🔑 O zero que eu não acreditei, e conferi
+
+**0 de 267 contas originais casam** com a Inadimplência ou a Receitas. Se fosse chave errada minha, o item
+contaria a **mesma dívida duas vezes** na tela do dono. Três conferências: formato de competência idêntico
+nas 3 fontes · régua frouxa (só o NN) também dá 0 · a mesma régua casa **837 parcelas** dos acordos que já
+funcionam. É propriedade da fonte: **a contábil remove a conta renegociada da inadimplência ao fechar o
+acordo**. Risco de dobrar: zero.
+
+### 12.4 As duas revisões — e a 2ª achou defeito nas correções da 1ª pela DÉCIMA vez
+
+| revisão | achado que mais importou |
+|---|---|
+| 1ª | **o `Liquidado` real não tinha teste**: 627 de 627 parcelas dessas abas vêm pagas, e parcela paga não é criada — o acordo nasce com ZERO linhas, e gravar `numeroParcelasTotal` deixaria **12 acordos** com "⚠ Faltam N parcelas" **permanente e falso** na tela |
+| 2ª | **o evento de histórico que a 1ª pediu polui a produção**: `AcordoCriado` é *exatamente* o que a **Central de Acompanhamento** conta como a coluna "Acordos" do trabalho humano de cobrança, e alimenta a "Última ação". Importar creditaria dezenas de acordos "fechados" num dia a quem rodou o comando |
+
+O evento **saiu**, e a decisão está travada por teste. A procedência não se perde: `numeroExterno` só é
+preenchido por importação, e as contas reconstruídas dizem *"Reconstruída da planilha de acordos"*.
+
+Outros achados corrigidos: o dry-run não mostrava **situação nem data base** do acordo que vai nascer (os
+dois campos que as decisões do dono governam) · o T3 passava com o acordo **nascendo `Ativo`** — a
+sobrescrita o corrigia depois, status certo pelo caminho errado · uma **quarta cópia** da régua da unidade
+no `CadastroCondominosAdapter` · assert que não distinguia "leu o cabeçalho" de "somou as parcelas" ·
+o T9 era tautológico e passou a provar o **efeito** (o snapshot dos encargos da renegociada).
+
+### 12.5 As 4 recusas (o acordo NÃO nasce)
+
+Situação fora do mapa · situação não vigente (`Cancelado`) · aba sem `Data base` · **unidade sem cobrança
+ativa na carteira**. Nenhuma lança — uma aba estranha não derruba o lote. As três primeiras nascem mortas
+no dado de hoje e estão provadas só por teste; a quarta dispara muito (as 217 recusas do §12.2).
+
+### 12.6 Decisões do dono nesta sessão
+
+1. **Unidade que não existe: RECUSA a aba e avisa.** Este relatório não abre cobrança nova (unidade,
+   devedor, caso) — quem faz isso é a inadimplência.
+2. **`Data base` vira a data do acordo**, não `Criado em`. Divergem em 4 das 38 abas, e é a data que para o
+   relógio dos juros das dívidas renegociadas.
+
+### 12.7 ⏳ O que falta
+
+- **Smoke do dono** (junto com o do item 6, §10.6): abrir um dos acordos criados e conferir que ele não
+  mostra "faltam parcelas" e que a dívida renegociada aparece fora do saldo.
+- O **item 8** (teste do zero) é quem prova os 38 / R$ 28.926,43 de verdade — é ele que produz o estado em
+  que essa medição vale.
+
+### 12.8 A fila depois desta sessão
+
+~~4~~ → ~~1~~ → ~~3~~ → ~~2~~ → ~~6~~ → ~~**5**~~ → **8** (a prova final) → **7** (AMLI) → **3** (o aviso,
+por último).
+
+⛔ **O aviso de divergência continua exatamente como está.** Decisão do dono, não mexer.

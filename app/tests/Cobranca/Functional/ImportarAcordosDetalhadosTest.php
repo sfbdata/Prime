@@ -123,6 +123,8 @@ final class ImportarAcordosDetalhadosTest extends KernelTestCase
             $carteiraRepo,
             $acordoRepo,
             $obrigacaoRepo,
+            $objetoRepo,
+            $casoRepo,
             $registrarObrigacao,
             new CalculadoraEncargos(),
             new ResolvedorConfigEncargos(),
@@ -475,25 +477,417 @@ final class ImportarAcordosDetalhadosTest extends KernelTestCase
         self::assertContains('60145', $resultado->nnsContasMarcadas(), 'divergir no valor não impede reconciliar a dívida');
     }
 
-    #[TestDox('Acordo inexistente: a aba é ignorada e reportada, SEM nenhuma escrita')]
-    public function testAcordoInexistenteAbaIgnorada(): void
+    // ---------------------------------------------------------------------------------------------
+    // ITEM 5 — o importador passa a CRIAR o acordo
+    // spec `docs/specs/cobranca-importar-acordos-criar-acordo.md`
+    //
+    // Revoga a recusa da §3.1 da spec-mãe ("o acordo nunca é criado aqui"). Medido em 07/08 contra as
+    // planilhas reais: 38 dos 392 acordos declarados pela contábil não nascem hoje, porque a única
+    // porta de criação é a Receitas — que só cria quando ALGUÉM PAGOU uma parcela. Acordo fechado há
+    // poucas semanas, sem nenhum pagamento, não existe para o sistema, e com ele ficam de fora
+    // R$ 28.926,43 em parcelas a receber que nenhum relatório enxerga.
+    //
+    // Os testes vêm em PARES de sentido oposto: T1–T3/T9 provam que o acordo certo é ACEITO, T4–T8
+    // provam que o errado é RECUSADO. Só a recusa é o erro que deixa a suíte verde com a importação
+    // travada em produção (achado da 2ª revisão do item 6).
+    // ---------------------------------------------------------------------------------------------
+
+    #[TestDox('T1 — acordo inexistente é CRIADO com o caso, o status, a data e o número da planilha')]
+    public function testAcordoInexistenteEhCriado(): void
+    {
+        [$tenant, $user, $carteiraId, $caso] = $this->cenarioAcordo37();
+
+        $resultado = $this->importarAcordos->confirmar($carteiraId, $this->leituraAcordoNovo(), $tenant, $user);
+
+        self::assertSame([999], $resultado->numerosDeAcordosCriados(), 'a aba nasce, não é mais ignorada');
+        self::assertSame(0, $resultado->totalAbasIgnoradas());
+
+        $criado = $this->em->getRepository(Acordo::class)->findOneBy(['tenant' => $tenant, 'numeroExterno' => 999]);
+        self::assertNotNull($criado, 'o acordo tem de existir no banco depois da confirmação');
+        self::assertSame($caso->getId(), $criado->getCaso()?->getId(), 'pendurado no caso ATIVO da unidade da aba');
+        self::assertSame(StatusAcordo::Ativo, $criado->getStatus(), '"Em andamento" vira Ativo');
+        self::assertSame('2026-06-30', $criado->getDataAcordo()->format('Y-m-d'), 'D3: a Data base, não o Criado em');
+        self::assertSame(2, $criado->getNumeroParcelasTotal(), 'o "t" do indicador p/t das parcelas');
+        // 33998 é o CABEÇALHO da aba; as duas parcelas somam 34000. Os dois números divergem de
+        // propósito na fixture — igualá-los deixaria este assert incapaz de distinguir "leu o cabeçalho"
+        // de "somou as parcelas", que é a diferença que ele existe para provar.
+        self::assertSame(33998, $criado->getValorTotalNegociado(), 'o "Valor final acordado" do cabeçalho, não a soma das parcelas');
+        self::assertNotSame(34000, $criado->getValorTotalNegociado());
+        self::assertSame($user->getId(), $criado->getCriadoPor()?->getId());
+    }
+
+    /**
+     * ⚠️ Este teste guarda uma decisão MEDIDA, e a direção dele já foi a oposta: a 1ª revisão pediu um
+     * evento de histórico para o acordo criado, e a 2ª mediu o efeito colateral —
+     * `TipoEventoHistorico::AcordoCriado` é exatamente o que a **Central de Acompanhamento**, que está
+     * em PRODUÇÃO, conta como a coluna "Acordos" do trabalho humano de cobrança
+     * (`EventoHistoricoRepository::agregarAtividadePorUsuario`), além de alimentar a "Última ação".
+     * Registrá-lo creditaria dezenas de acordos "fechados" num único dia a quem rodou a importação.
+     *
+     * A procedência não se perde: `numeroExterno` só é preenchido por importação, e as contas
+     * reconstruídas carregam "Reconstruída da planilha de acordos (emissão …)" na descrição.
+     */
+    #[TestDox('T1b — o acordo criado NÃO vira evento de trabalho de cobrança (não polui a Central)')]
+    public function testAcordoCriadoNaoPoluiACentralDeAcompanhamento(): void
+    {
+        [$tenant, $user, $carteiraId, $caso] = $this->cenarioAcordo37();
+
+        $antes = $this->contarEventos($caso, TipoEventoHistorico::AcordoCriado);
+
+        $this->importarAcordos->confirmar($carteiraId, $this->leituraAcordoNovo(), $tenant, $user);
+
+        $this->em->clear();
+        $caso = $this->em->getRepository(CasoCobranca::class)->find($caso->getId());
+        self::assertNotNull($caso);
+        self::assertSame($antes, $this->contarEventos($caso, TipoEventoHistorico::AcordoCriado), 'importação não é trabalho de cobrança');
+        self::assertTrue(TipoEventoHistorico::AcordoCriado->ehTrabalhoDeCobranca(), 'e é por ISTO que ele não pode ser registrado aqui');
+    }
+
+    #[TestDox('T1c — a procedência do acordo criado sobrevive sem o evento')]
+    public function testProcedenciaDoAcordoCriadoSobrevive(): void
     {
         [$tenant, $user, $carteiraId] = $this->cenarioAcordo37();
 
-        $antes = $this->em->getRepository(Obrigacao::class)->count(['tenant' => $tenant]);
-        $leitura = new ResultadoLeituraAcordos([$this->acordoDaPlanilha(
-            numero: 999,
-            contas: [['70001', '01/2026', '2026-01-13', 17000]],
-            parcelas: [['70999', 1, 1, '02/2026', '2026-02-13', 17000]],
-        )], [], 0);
+        $this->importarAcordos->confirmar($carteiraId, $this->leituraAcordoNovo(), $tenant, $user);
 
-        $resultado = $this->importarAcordos->confirmar($carteiraId, $leitura, $tenant, $user);
+        $criado = $this->em->getRepository(Acordo::class)->findOneBy(['tenant' => $tenant, 'numeroExterno' => 999]);
+        self::assertNotNull($criado);
+        self::assertSame(999, $criado->getNumeroExterno(), 'o número externo só é preenchido por importação');
 
+        $reconstruida = $this->obrigacao($tenant, '70001');
+        self::assertNotNull($reconstruida);
+        self::assertStringContainsString('planilha de acordos', (string) $reconstruida->getDescricao(), 'a dívida que ele substituiu diz de onde veio');
+    }
+
+    #[TestDox('T2 — criado o acordo, as parcelas e as contas da aba são processadas na mesma passada')]
+    public function testAcordoCriadoTemAAbaProcessada(): void
+    {
+        [$tenant, $user, $carteiraId] = $this->cenarioAcordo37();
+
+        $resultado = $this->importarAcordos->confirmar($carteiraId, $this->leituraAcordoNovo(), $tenant, $user);
+
+        self::assertSame(['70998', '70999'], $resultado->nnsParcelasCriadas(), 'criar o acordo sem processar a aba não entrega nada');
+        self::assertSame(34000, $resultado->valorParcelasCriadasCentavos());
+        self::assertSame(['70001'], $resultado->nnsContasReconstruidas());
+
+        $criado = $this->em->getRepository(Acordo::class)->findOneBy(['tenant' => $tenant, 'numeroExterno' => 999]);
+        self::assertNotNull($criado);
+        self::assertSame($criado->getId(), $this->obrigacao($tenant, '70998')?->getAcordoOrigem()?->getId(), 'a parcela aponta para o acordo recém-criado');
+        self::assertSame($criado->getId(), $this->obrigacao($tenant, '70001')?->getAcordoSubstituto()?->getId(), 'a conta original nasce já substituída por ele');
+    }
+
+    #[TestDox('T3 — aba "Liquidado" nasce CUMPRIDO, e por ser vigente tem a aba processada')]
+    public function testAcordoLiquidadoNasceCumprido(): void
+    {
+        [$tenant, $user, $carteiraId] = $this->cenarioAcordo37();
+
+        $resultado = $this->importarAcordos->confirmar($carteiraId, $this->leituraAcordoNovo(situacao: 'Liquidado'), $tenant, $user);
+
+        self::assertSame([999], $resultado->numerosDeAcordosCriados());
+        $criado = $this->em->getRepository(Acordo::class)->findOneBy(['tenant' => $tenant, 'numeroExterno' => 999]);
+        self::assertNotNull($criado);
+        self::assertSame(StatusAcordo::Cumprido, $criado->getStatus(), '"Liquidado" vira Cumprido — 13 dos 38 medidos são assim');
+        self::assertTrue($criado->getStatus()->ehVigente(), 'Cumprido é vigente: a aba NÃO pode ser pulada');
+        self::assertSame(['70001'], $resultado->nnsContasReconstruidas(), 'e por isso o conteúdo dela é processado');
+
+        // ⚠️ Sem esta asserção o teste passa com o acordo NASCENDO ERRADO: criado como `Ativo`, a
+        // sobrescrita de situação logo abaixo o corrigiria para `Cumprido` e o estado final seria o
+        // mesmo. Achado por injeção (o status certo pelo caminho errado deixava tudo verde). A
+        // diferença observável é esta: nascer certo não produz sobrescrita nem evento de edição.
+        self::assertSame([], $resultado->situacoesSobrescritas(), 'nasceu Cumprido — não nasceu Ativo e foi corrigido depois');
+        self::assertNull($resultado->porAcordo()[0]->situacaoSobrescrita);
+    }
+
+    #[TestDox('T3b — a forma REAL do "Liquidado": todas as parcelas pagas, acordo nasce sem parcela e SEM aviso falso')]
+    public function testAcordoLiquidadoRealNasceSemParcelaESemAvisoFalso(): void
+    {
+        [$tenant, $user, $carteiraId] = $this->cenarioAcordo37();
+
+        // ⚠️ Este é o caminho que a produção vai percorrer, e o T3 acima NÃO o exercita. Medido em
+        // 07/08 nos 3 arquivos `*_LIQUIDADO` reais: 627 de 627 parcelas trazem data de liquidação, em
+        // 310 de 310 abas. Nenhuma aba "Liquidado" tem parcela em aberto — a combinação do T3
+        // (Cumprido + parcela aberta) não existe na fonte.
+        $resultado = $this->importarAcordos->confirmar(
+            $carteiraId,
+            $this->leituraAcordoNovo(situacao: 'Liquidado', todasLiquidadas: true),
+            $tenant,
+            $user,
+        );
+
+        self::assertSame([999], $resultado->numerosDeAcordosCriados());
+        self::assertSame([], $resultado->nnsParcelasCriadas(), 'parcela paga não é criada (§5): o acordo nasce sem linha de parcela');
+        self::assertSame(['70998', '70999'], $resultado->parcelasLiquidadasIgnoradas(), 'e as duas são reportadas, não silenciadas');
+        self::assertSame(['70001'], $resultado->nnsContasReconstruidas(), 'a dívida renegociada nasce fora do saldo — que é o ganho deste caso');
+
+        $criado = $this->em->getRepository(Acordo::class)->findOneBy(['tenant' => $tenant, 'numeroExterno' => 999]);
+        self::assertNotNull($criado);
+        self::assertSame(StatusAcordo::Cumprido, $criado->getStatus());
+
+        // O aviso "⚠ Faltam N parcelas" da tela do acordo compara `numeroParcelasTotal` com as linhas
+        // existentes. Gravar o total num acordo cujas parcelas esta importação se recusa a criar deixaria
+        // os 13 acordos Cumpridos desta frente com um aviso permanente e FALSO.
+        $this->em->clear();
+        $criado = $this->em->getRepository(Acordo::class)->findOneBy(['tenant' => $tenant, 'numeroExterno' => 999]);
+        self::assertNotNull($criado);
+        self::assertNull($criado->getNumeroParcelasTotal(), 'sem parcela a materializar, o total não é gravado');
+        self::assertFalse($criado->estaIncompleto(), 'e a tela não estampa "faltam parcelas" num acordo cumprido e vazio');
+        self::assertSame(0, $criado->parcelasFaltantes());
+    }
+
+    #[TestDox('T3c — aba com parcela em aberto CONTINUA gravando o total (o outro sentido do T3b)')]
+    public function testAbaComParcelaEmAbertoGravaOTotal(): void
+    {
+        [$tenant, $user, $carteiraId] = $this->cenarioAcordo37();
+
+        $this->importarAcordos->confirmar($carteiraId, $this->leituraAcordoNovo(), $tenant, $user);
+
+        $this->em->clear();
+        $criado = $this->em->getRepository(Acordo::class)->findOneBy(['tenant' => $tenant, 'numeroExterno' => 999]);
+        self::assertNotNull($criado);
+        self::assertSame(2, $criado->getNumeroParcelasTotal(), 'aqui o total é conferível: as 2 parcelas viram linha');
+        self::assertFalse($criado->estaIncompleto(), 'e as 2 linhas existem, então nada falta');
+    }
+
+    #[TestDox('T14 — unidade com parênteses resolve pela mesma régua dos outros dois relatórios')]
+    public function testUnidadeComParentesesResolveOMesmoObjeto(): void
+    {
+        [$tenant, $user, $carteiraId, $caso] = $this->cenarioAcordo37();
+
+        // 26 das 325 abas reais da TOP LIFE 1 vêm assim: a identificação seguida das unidades agregadas
+        // entre parênteses (`01-01 (05-03,06-01,...)`). O objeto é criado pela inadimplência SEM o
+        // parêntese — régua divergente aqui penduraria o acordo no imóvel errado, ou em nenhum.
+        $resultado = $this->importarAcordos->confirmar(
+            $carteiraId,
+            $this->leituraAcordoNovo(unidade: 'QUADRA 05 CHACARA 03/04 (05-03,06-01)'),
+            $tenant,
+            $user,
+        );
+
+        self::assertSame([999], $resultado->numerosDeAcordosCriados(), 'o parêntese não pode fazer a unidade sumir');
+        $criado = $this->em->getRepository(Acordo::class)->findOneBy(['tenant' => $tenant, 'numeroExterno' => 999]);
+        self::assertNotNull($criado);
+        self::assertSame($caso->getId(), $criado->getCaso()?->getId(), 'o MESMO caso da unidade sem parênteses');
+    }
+
+    #[TestDox('T4 — RECUSA: unidade sem objeto na carteira não cria acordo nem escreve nada')]
+    public function testUnidadeSemObjetoRecusa(): void
+    {
+        [$tenant, $user, $carteiraId] = $this->cenarioAcordo37();
+
+        $obrigacoesAntes = $this->em->getRepository(Obrigacao::class)->count(['tenant' => $tenant]);
+        $acordosAntes = $this->em->getRepository(Acordo::class)->count(['tenant' => $tenant]);
+
+        $resultado = $this->importarAcordos->confirmar(
+            $carteiraId,
+            $this->leituraAcordoNovo(unidade: 'QUADRA 99 CHACARA 99/99'),
+            $tenant,
+            $user,
+        );
+
+        self::assertSame([], $resultado->numerosDeAcordosCriados());
         self::assertSame(1, $resultado->totalAbasIgnoradas());
-        self::assertNotNull($resultado->porAcordo()[0]->ignoradoPorque);
+        self::assertStringContainsString('inadimplência', (string) $resultado->porAcordo()[0]->ignoradoPorque, 'o aviso tem de dizer O QUE FAZER');
         self::assertSame([], $resultado->nnsParcelasCriadas());
         self::assertSame([], $resultado->nnsContasReconstruidas());
-        self::assertSame($antes, $this->em->getRepository(Obrigacao::class)->count(['tenant' => $tenant]), 'nenhuma obrigação nasceu');
+        self::assertSame($obrigacoesAntes, $this->em->getRepository(Obrigacao::class)->count(['tenant' => $tenant]), 'D2: este relatório não abre cobrança nova');
+        self::assertSame($acordosAntes, $this->em->getRepository(Acordo::class)->count(['tenant' => $tenant]));
+    }
+
+    #[TestDox('T5 — RECUSA: objeto existe mas sem caso ATIVO não cria acordo')]
+    public function testObjetoSemCasoAtivoRecusa(): void
+    {
+        [$tenant, $user, $carteiraId, $caso] = $this->cenarioAcordo37();
+
+        $caso->setStatus(StatusCaso::Encerrado);
+        $this->em->flush();
+        $this->em->clear();
+
+        $acordosAntes = $this->em->getRepository(Acordo::class)->count(['tenant' => $tenant]);
+
+        $resultado = $this->importarAcordos->confirmar($carteiraId, $this->leituraAcordoNovo(), $tenant, $user);
+
+        self::assertSame([], $resultado->numerosDeAcordosCriados(), 'caso encerrado não recebe obrigação (SPEC §17) — nem acordo');
+        self::assertSame(1, $resultado->totalAbasIgnoradas());
+        self::assertSame($acordosAntes, $this->em->getRepository(Acordo::class)->count(['tenant' => $tenant]));
+        self::assertSame([], $resultado->nnsContasReconstruidas());
+    }
+
+    #[TestDox('T6 — RECUSA: situação fora do mapa não cria acordo (nunca adivinhar status)')]
+    public function testSituacaoDesconhecidaNaoCriaAcordo(): void
+    {
+        [$tenant, $user, $carteiraId] = $this->cenarioAcordo37();
+
+        $resultado = $this->importarAcordos->confirmar($carteiraId, $this->leituraAcordoNovo(situacao: 'Em negociação'), $tenant, $user);
+
+        self::assertSame([], $resultado->numerosDeAcordosCriados());
+        self::assertSame(1, $resultado->totalAbasIgnoradas());
+        self::assertNull($this->em->getRepository(Acordo::class)->findOneBy(['tenant' => $tenant, 'numeroExterno' => 999]));
+        self::assertSame([], $resultado->nnsContasReconstruidas());
+    }
+
+    #[TestDox('T7 — RECUSA: aba "Cancelado" não cria acordo (não seria vigente)')]
+    public function testSituacaoCanceladaNaoCriaAcordo(): void
+    {
+        [$tenant, $user, $carteiraId] = $this->cenarioAcordo37();
+
+        $resultado = $this->importarAcordos->confirmar($carteiraId, $this->leituraAcordoNovo(situacao: 'Cancelado'), $tenant, $user);
+
+        self::assertSame([], $resultado->numerosDeAcordosCriados(), 'criá-lo deixaria um acordo vazio: a aba é pulada de qualquer forma');
+        self::assertSame(1, $resultado->totalAbasIgnoradas());
+        self::assertNull($this->em->getRepository(Acordo::class)->findOneBy(['tenant' => $tenant, 'numeroExterno' => 999]));
+        self::assertSame([], $resultado->nnsContasReconstruidas());
+    }
+
+    #[TestDox('T8 — RECUSA: aba sem "Data base" não cria acordo (é a data que para os juros)')]
+    public function testAbaSemDataBaseNaoCriaAcordo(): void
+    {
+        [$tenant, $user, $carteiraId] = $this->cenarioAcordo37();
+
+        $resultado = $this->importarAcordos->confirmar($carteiraId, $this->leituraAcordoNovo(dataBase: null), $tenant, $user);
+
+        self::assertSame([], $resultado->numerosDeAcordosCriados());
+        self::assertSame(1, $resultado->totalAbasIgnoradas());
+        self::assertNull($this->em->getRepository(Acordo::class)->findOneBy(['tenant' => $tenant, 'numeroExterno' => 999]));
+        self::assertSame([], $resultado->nnsContasReconstruidas());
+    }
+
+    #[TestDox('T9 — D3: a data gravada é a "Data base", NÃO o "Criado em", quando divergem')]
+    public function testDataDoAcordoVemDaDataBase(): void
+    {
+        [$tenant, $user, $carteiraId] = $this->cenarioAcordo37();
+
+        // A fixture diverge de propósito: Data base 13/07, Criado em 15/07 — a forma do acordo 39 real,
+        // em que a secretária digitou o acordo depois da data combinada (lá, 17 dias).
+        $this->importarAcordos->confirmar($carteiraId, $this->leituraAcordoNovo(dataBase: '2026-07-13'), $tenant, $user);
+
+        $criado = $this->em->getRepository(Acordo::class)->findOneBy(['tenant' => $tenant, 'numeroExterno' => 999]);
+        self::assertNotNull($criado);
+        self::assertSame('2026-07-13', $criado->getDataAcordo()->format('Y-m-d'), 'a Data base');
+
+        // A data não é enfeite: é ela que o `materializarNaDataDoAcordo` usa para parar o relógio dos
+        // encargos da conta original substituída. Provar a data no acordo e não no EFEITO dela deixaria
+        // passar uma implementação que grava a data certa e congela na errada.
+        $reconstruida = $this->obrigacao($tenant, '70001');
+        self::assertNotNull($reconstruida);
+        // `materializarNaDataDoAcordo` MATERIALIZA, não congela (ver o docblock dele): o campo que
+        // guarda a data do snapshot é `encargosAtualizadosEm`.
+        self::assertSame('2026-07-13', $reconstruida->getEncargosAtualizadosEm()?->format('Y-m-d'), 'o snapshot da renegociada é tirado na Data base');
+    }
+
+    #[TestDox('T10 — idempotência: a segunda execução não cria o acordo de novo nem duplica parcela')]
+    public function testSegundaExecucaoNaoRecriaOAcordo(): void
+    {
+        [$tenant, $user, $carteiraId] = $this->cenarioAcordo37();
+
+        $this->importarAcordos->confirmar($carteiraId, $this->leituraAcordoNovo(), $tenant, $user);
+        $segunda = $this->importarAcordos->confirmar($carteiraId, $this->leituraAcordoNovo(), $tenant, $user);
+
+        self::assertSame([], $segunda->numerosDeAcordosCriados(), 'o acordo já existe — nada a criar');
+        self::assertSame(1, $this->em->getRepository(Acordo::class)->count(['tenant' => $tenant, 'numeroExterno' => 999]), 'nunca um segundo acordo com o mesmo número');
+        self::assertSame([], $segunda->nnsParcelasCriadas());
+        self::assertSame(1, $this->contar($tenant, '70998'));
+        self::assertSame(['70001'], $segunda->nnsContasJaMarcadas());
+    }
+
+    #[TestDox('T11 — a prévia projeta o MESMO que a confirmação efetiva, e NÃO grava acordo nenhum')]
+    public function testPreviaNaoGravaAcordoEProjetaOMesmo(): void
+    {
+        [$tenant, $user, $carteiraId] = $this->cenarioAcordo37();
+
+        $acordosAntes = $this->em->getRepository(Acordo::class)->count(['tenant' => $tenant]);
+        $obrigacoesAntes = $this->em->getRepository(Obrigacao::class)->count(['tenant' => $tenant]);
+
+        $previa = $this->importarAcordos->prever($carteiraId, $this->leituraAcordoNovo(), $tenant);
+
+        // Um `persist` escondido no dry-run só aparece quando ALGUÉM dá flush depois — então o flush
+        // vem aqui de propósito, antes da contagem. Sem ele o teste passaria com o defeito presente.
+        $this->em->flush();
+        $this->em->clear();
+        self::assertSame($acordosAntes, $this->em->getRepository(Acordo::class)->count(['tenant' => $tenant]), 'a prévia não escreve');
+        self::assertSame($obrigacoesAntes, $this->em->getRepository(Obrigacao::class)->count(['tenant' => $tenant]));
+
+        // O `clear()` acima soltou tenant e user da unidade de trabalho; a confirmação precisa deles
+        // gerenciados, como a requisição os entregaria.
+        $tenant = $this->em->getRepository(Tenant::class)->find($tenant->getId());
+        $user = $this->em->getRepository(User::class)->find($user->getId());
+        self::assertNotNull($tenant);
+        self::assertNotNull($user);
+
+        $confirmacao = $this->importarAcordos->confirmar($carteiraId, $this->leituraAcordoNovo(), $tenant, $user);
+
+        self::assertSame($confirmacao->numerosDeAcordosCriados(), $previa->numerosDeAcordosCriados());
+        self::assertSame($confirmacao->nnsParcelasCriadas(), $previa->nnsParcelasCriadas());
+        self::assertSame($confirmacao->nnsContasReconstruidas(), $previa->nnsContasReconstruidas());
+        self::assertSame($confirmacao->nnsContasMarcadas(), $previa->nnsContasMarcadas());
+        self::assertSame($confirmacao->valorParcelasCriadasCentavos(), $previa->valorParcelasCriadasCentavos());
+        self::assertSame($confirmacao->principalReconciliadoCentavos(), $previa->principalReconciliadoCentavos());
+        self::assertSame($confirmacao->totalAbasIgnoradas(), $previa->totalAbasIgnoradas());
+
+        // Os dois campos que o dry-run IMPRIME sobre o acordo que vai nascer. Ficaram de fora da
+        // primeira versão deste teste, e é justamente neles que uma divergência prévia×confirmação
+        // passaria despercebida: o operador confere na tela uma situação ou uma data base que a
+        // confirmação não vai gravar. A data é a decisão D3 — a que congela os juros.
+        $criadoNaPrevia = $previa->porAcordo()[0];
+        $criadoNaConfirmacao = $confirmacao->porAcordo()[0];
+        self::assertSame($criadoNaConfirmacao->situacaoDoAcordoCriado, $criadoNaPrevia->situacaoDoAcordoCriado);
+        self::assertSame(
+            $criadoNaConfirmacao->dataDoAcordoCriado?->format('Y-m-d'),
+            $criadoNaPrevia->dataDoAcordoCriado?->format('Y-m-d'),
+        );
+        self::assertSame('2026-06-30', $criadoNaPrevia->dataDoAcordoCriado?->format('Y-m-d'), 'e é a Data base nos DOIS modos');
+        self::assertSame('Em andamento', $criadoNaPrevia->situacaoDoAcordoCriado);
+    }
+
+    #[TestDox('T12 — acordo criado NÃO é sobrescrita de situação e não vira evento de edição')]
+    public function testAcordoCriadoNaoEhSobrescritaDeSituacao(): void
+    {
+        [$tenant, $user, $carteiraId, $caso] = $this->cenarioAcordo37();
+
+        $eventosAntes = $this->contarEventos($caso, TipoEventoHistorico::AcordoEditado);
+
+        $resultado = $this->importarAcordos->confirmar($carteiraId, $this->leituraAcordoNovo(), $tenant, $user);
+
+        self::assertSame([], $resultado->situacoesSobrescritas(), 'nascer com o status da planilha não é MUDAR de status');
+        self::assertNull($resultado->porAcordo()[0]->situacaoSobrescrita);
+
+        $this->em->clear();
+        $caso = $this->em->getRepository(CasoCobranca::class)->find($caso->getId());
+        self::assertNotNull($caso);
+        self::assertSame($eventosAntes, $this->contarEventos($caso, TipoEventoHistorico::AcordoEditado), '"editado" descreveria errado o que aconteceu');
+    }
+
+    /**
+     * ⚠️ **O que este teste prova, e o que NÃO prova.** Ele prova que a criação resolve a unidade dentro
+     * da CARTEIRA da execução: com a mesma unidade existindo nos dois escritórios, B cria o dele e A não
+     * é tocado. Ele **não** consegue provar o filtro `tenant` de
+     * `ObjetoCobrancaRepository::findOnePorIdentificacaoNaCarteira` — medido: removendo só esse filtro a
+     * suíte fica verde, porque a carteira já é tenant-bound a montante (`resolverCarteira` usa
+     * `findOneByIdDoTenant`). Aquele filtro é defesa em profundidade preexistente, de outro escopo;
+     * registro aqui para ninguém ler o nome do teste e supor cobertura que ele não tem.
+     */
+    #[TestDox('T13 — a criação resolve a unidade dentro da carteira: escritório vizinho não é tocado')]
+    public function testCriacaoNaoAtravessaTenant(): void
+    {
+        [$tenantA, $userA, $carteiraA] = $this->cenarioAcordo37();
+
+        // O escritório B tem a MESMA unidade, com o mesmo texto — e nenhum vínculo com a carteira de A.
+        $tenantB = $this->criarTenant();
+        $userB = $this->criarUser();
+        $carteiraB = $this->criarCarteira($tenantB);
+        $this->semear($carteiraB, $tenantB, $userB, [
+            $this->boleto('80001', competencia: '01/2026', vencimento: '2026-01-13', valor: 17000),
+        ]);
+
+        $resultado = $this->importarAcordos->confirmar($carteiraB, $this->leituraAcordoNovo(), $tenantB, $userB);
+
+        self::assertSame([999], $resultado->numerosDeAcordosCriados(), 'B cria o dele, no caso DELE');
+        $doB = $this->em->getRepository(Acordo::class)->findOneBy(['tenant' => $tenantB, 'numeroExterno' => 999]);
+        self::assertNotNull($doB);
+        self::assertSame($tenantB->getId(), $doB->getCaso()?->getTenant()?->getId(), 'o caso é do tenant B');
+        self::assertNull(
+            $this->em->getRepository(Acordo::class)->findOneBy(['tenant' => $tenantA, 'numeroExterno' => 999]),
+            'e nada nasceu no escritório A',
+        );
     }
 
     #[TestDox('Acordo com o mesmo número em OUTRA carteira nunca se confunde')]
@@ -1737,6 +2131,38 @@ final class ImportarAcordosDetalhadosTest extends KernelTestCase
         )], [], 0);
     }
 
+    /**
+     * ITEM 5 — a aba de um acordo que o sistema NÃO conhece: número 999, na mesma unidade do cenário
+     * (que já tem objeto e caso ativo vindos da inadimplência). Uma conta original que nunca foi
+     * importada e duas parcelas futuras — a forma dos 4 acordos de julho que concentram metade do
+     * dinheiro medido (414, 407, 394, 411).
+     */
+    private function leituraAcordoNovo(
+        string $situacao = 'Em andamento',
+        string $unidade = 'QUADRA 05 CHACARA 03/04',
+        ?string $dataBase = '2026-06-30',
+        bool $todasLiquidadas = false,
+        ?int $valorFinalAcordado = 33998,
+    ): ResultadoLeituraAcordos {
+        return new ResultadoLeituraAcordos([$this->acordoDaPlanilha(
+            numero: 999,
+            contas: [['70001', '01/2025', '2025-01-13', 17000]],
+            parcelas: [
+                ['70998', 1, 2, '08/2026', '2026-08-10', 17000],
+                ['70999', 2, 2, '09/2026', '2026-09-10', 17000],
+            ],
+            situacao: $situacao,
+            liquidadas: $todasLiquidadas ? ['70998', '70999'] : [],
+            unidade: $unidade,
+            dataBase: $dataBase,
+            // ⚠️ DIFERE de propósito da soma das parcelas (34000): sem isso, gravar
+            // `somaParcelasCentavos()` em vez do cabeçalho deixaria o T1 verde, e o assert não provaria
+            // de qual campo o valor negociado sai. Medido no dado real: cabeçalho e soma divergem em 11
+            // de 341 abas (no máximo R$ 0,05 — arredondamento da contábil).
+            valorFinalAcordado: $valorFinalAcordado,
+        )], [], 0);
+    }
+
     private function leituraAcordo31(): ResultadoLeituraAcordos
     {
         return new ResultadoLeituraAcordos([$this->acordoDaPlanilha(
@@ -1760,16 +2186,19 @@ final class ImportarAcordosDetalhadosTest extends KernelTestCase
         array $parcelas,
         string $situacao = 'Em andamento',
         array $liquidadas = [],
+        string $unidade = 'QUADRA 05 CHACARA 03/04',
+        ?string $dataBase = '2026-06-30',
+        ?int $valorFinalAcordado = null,
     ): AcordoDetalhadoImportavel {
         return new AcordoDetalhadoImportavel(
             numero: $numero,
-            unidade: 'QUADRA 05 CHACARA 03/04',
+            unidade: $unidade,
             sacado: 'GESSI PEREIRA DOS SANTOS',
             situacao: $situacao,
-            dataBase: new \DateTimeImmutable('2026-06-30'),
+            dataBase: $dataBase !== null ? new \DateTimeImmutable($dataBase) : null,
             criadoEm: new \DateTimeImmutable('2026-07-15'),
             valorTotalContasOriginaisCentavos: array_sum(array_map(static fn (array $c): int => $c[3], $contas)),
-            valorFinalAcordadoCentavos: array_sum(array_map(static fn (array $p): int => $p[5], $parcelas)),
+            valorFinalAcordadoCentavos: $valorFinalAcordado ?? array_sum(array_map(static fn (array $p): int => $p[5], $parcelas)),
             emissao: new \DateTimeImmutable('2026-07-29'),
             contasOriginais: array_map(
                 static fn (array $c): ContaOriginalImportavel => new ContaOriginalImportavel(

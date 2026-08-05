@@ -51,6 +51,14 @@ final class AcordoProcessado
      *                                             SEPARADO do anterior de propósito: juntos, o texto "o devedor
      *                                             passa a ser cobrado por algo que já pagou" disparava também
      *                                             quando ninguém tinha pagado nada
+     * @param bool         $acordoCriado           o acordo NÃO existia e nasceu desta aba (item 5, spec
+     *                                             `cobranca-importar-acordos-criar-acordo.md`). É AÇÃO, não
+     *                                             aviso — e é a ação que destrava todo o resto da aba, então
+     *                                             o dry-run precisa mostrá-la ANTES de mostrar as parcelas
+     *                                             que dela dependem. Canal separado de `situacaoSobrescrita`:
+     *                                             nascer com o status da planilha não é MUDAR de status, e
+     *                                             confundir os dois faria o histórico dizer "editado" sobre um
+     *                                             acordo que acabou de existir
      */
     public function __construct(
         public readonly int $numero,
@@ -75,6 +83,16 @@ final class AcordoProcessado
         public readonly array $parcelasLiquidadasIgnoradas = [],
         public readonly array $dinheiroParadoPelaReativacao = [],
         public readonly array $impactoDaReativacaoNoSaldo = [],
+        public readonly bool $acordoCriado = false,
+        /*
+         * A situação e a data com que o acordo NASCE. Não é enfeite de relatório: a situação decide se
+         * as parcelas dele entram no saldo (`Ativo`) ou não, e a data é a decisão D3 — aquela em que os
+         * juros das dívidas renegociadas param de correr. O dry-run é "o produto principal" desta
+         * importação, e esconder dele justamente os dois campos que as decisões do dono governam faria
+         * o operador confirmar 38 acordos no escuro. Só preenchidos quando `acordoCriado`.
+         */
+        public readonly ?string $situacaoDoAcordoCriado = null,
+        public readonly ?\DateTimeImmutable $dataDoAcordoCriado = null,
     ) {
     }
 

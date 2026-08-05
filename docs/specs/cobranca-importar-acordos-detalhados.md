@@ -62,8 +62,12 @@ Em ordem crescente de risco. As três são idempotentes.
 
 ### 3.1. Completar parcelas futuras
 Parcela da planilha sem `Obrigacao` de mesmo NN na carteira → cria:
-- `acordoOrigem` = o acordo (achado por `numero_externo` + carteira; **não cria acordo novo** — se o
-  acordo não existe, a aba é reportada e ignorada, porque o acordo é responsabilidade da inadimplência)
+- `acordoOrigem` = o acordo (achado por `numero_externo` + carteira). ⚠️ **REVOGADO em 2026-08-07 pelo
+  item 5** (`docs/specs/cobranca-importar-acordos-criar-acordo.md`): esta linha dizia *"não cria acordo
+  novo — a aba é reportada e ignorada, porque o acordo é responsabilidade da inadimplência"*. O
+  fundamento caiu na medição: quem cria acordo é a **Receitas**, e só quando alguém **pagou** uma
+  parcela — 38 dos 392 acordos declarados pela contábil não nasciam por causa disso. Hoje a aba cujo
+  acordo não existe **cria o acordo**, com quatro recusas (ver a spec do item 5)
 - `valorOriginal` = **soma da coluna "Valor acordado"** daquele NN
 - **honorários = 0** (decisão #8 da spec irmã: acordo não cobra honorários)
 - `vencimento` = o da planilha; encargos ao vivo a partir dele
@@ -147,7 +151,8 @@ a partir de um casamento, verifique um segundo campo independente — aqui, comp
   `RegistrarLiquidacaoUseCase` nesta entrega. Hoje há **zero** parcelas liquidadas — nada a ganhar,
   muito a perder (baixa de pagamento é irreversível na prática). O resumo avisa "N parcelas constam
   liquidadas na planilha, confira à mão". **Reavaliar quando a planilha vier com parcelas pagas.**
-- Criar acordo que não veio pela inadimplência (§3.1).
+- ~~Criar acordo que não veio pela inadimplência (§3.1).~~ ⚠️ **SAIU do fora-de-escopo em 2026-08-07**
+  (item 5), pela mesma razão registrada na §3.1.
 - Leitor de boleto.
 
 > Reconstruir as contas originais ausentes **saiu do fora-de-escopo** em 2026-07-30 e virou §3.2.1, por

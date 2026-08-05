@@ -17,6 +17,8 @@ use App\Cobranca\Exception\MigrationDeCompetenciaPendenteException;
 use App\Cobranca\Repository\AcordoRepository;
 use App\Cobranca\Repository\AlocacaoPagamentoRepository;
 use App\Cobranca\Repository\CarteiraRepository;
+use App\Cobranca\Repository\CasoCobrancaRepository;
+use App\Cobranca\Repository\ObjetoCobrancaRepository;
 use App\Cobranca\Repository\ObrigacaoRepository;
 use App\Cobranca\Service\CalculadoraEncargos;
 use App\Cobranca\Service\Importacao\AcordoDetalhadoImportavel;
@@ -48,10 +50,16 @@ use Doctrine\ORM\EntityManagerInterface;
  *    o importador não apaga o que sumiu, então elas ficam abertas para sempre, somando junto com a
  *    parcela do acordo. Medido em produção: R$ 680,00 cobrados a mais de um sacado real.
  *
- * Três recusas deliberadas, todas na direção segura:
+ * ⚠️ **A primeira das três recusas abaixo foi REVOGADA pelo item 5** (spec
+ * `docs/specs/cobranca-importar-acordos-criar-acordo.md`): a aba cujo acordo não existe passa a **criá-lo**.
+ * O fundamento original ("criar acordo é responsabilidade da inadimplência, que tem o dado completo")
+ * caiu na medição de 07/08 — quem cria acordo é a **Receitas**, e só quando alguém **pagou** uma parcela.
+ * Acordo fechado há poucas semanas, sem pagamento nenhum, não nascia em lugar nenhum: **38 dos 392**
+ * acordos declarados pela contábil, com **R$ 28.926,43** em parcelas a receber que nenhum relatório
+ * enxergava. Ver `criarAcordoDaAba` para as quatro recusas que sobraram na criação.
  *
- * - **O acordo nunca é criado aqui** (§3.1). Se não existe, a aba é reportada e ignorada — criar acordo é
- *   responsabilidade da inadimplência, que é quem tem o dado completo.
+ * Recusas deliberadas, todas na direção segura:
+ *
  * - **O casamento é por NN + COMPETÊNCIA, nunca pelo NN sozinho** (§3.2). O NN é reaproveitado pela
  *   contábil: casar só por ele marcaria 3 dívidas de 2022 da TOP LIFE I como substituídas por acordos de
  *   2026 da TOP LIFE 2, apagando R$ 435,00 de cobrança legítima de terceiros.
@@ -85,6 +93,10 @@ final class ImportarAcordosDetalhadosUseCase
         private readonly CarteiraRepository $carteiraRepository,
         private readonly AcordoRepository $acordoRepository,
         private readonly ObrigacaoRepository $obrigacaoRepository,
+        // Item 5: resolver a unidade da aba até o caso onde o acordo novo será pendurado. Só LEITURA —
+        // este importador não cria objeto, pessoa nem caso (decisão do dono, 07/08).
+        private readonly ObjetoCobrancaRepository $objetoRepository,
+        private readonly CasoCobrancaRepository $casoRepository,
         private readonly RegistrarObrigacaoUseCase $registrarObrigacao,
         private readonly CalculadoraEncargos $calculadora,
         private readonly ResolvedorConfigEncargos $resolvedorConfig,
@@ -251,10 +263,18 @@ final class ImportarAcordosDetalhadosUseCase
         array $impactoDaReativacao,
         bool $temParcelaPaga,
     ): AcordoProcessado {
+        $acordoCriado = false;
         $acordo = $this->acordoRepository->findOnePorNumeroExternoNaCarteira($aba->numero, $carteira, $tenant);
         if ($acordo === null) {
-            // §3.1: o acordo é responsabilidade da inadimplência. Aba reportada e ignorada, sem escrita.
-            return $this->abaIgnorada($aba, sprintf('Acordo %d não existe nesta carteira — quem cria acordo é o relatório de inadimplência (§3.1).', $aba->numero));
+            // ITEM 5: a aba cujo acordo não existe passa a CRIÁ-LO. Devolve o motivo (string) quando uma
+            // das quatro recusas barra a criação — aí a aba segue ignorada, como antes, sem escrita.
+            $novo = $this->criarAcordoDaAba($aba, $carteira, $tenant, $usuario);
+            if (is_string($novo)) {
+                return $this->abaIgnorada($aba, $novo);
+            }
+
+            $acordo = $novo;
+            $acordoCriado = true;
         }
 
         $caso = $acordo->getCaso();
@@ -378,7 +398,131 @@ final class ImportarAcordosDetalhadosUseCase
             parcelasLiquidadasIgnoradas: $liquidadasIgnoradas,
             dinheiroParadoPelaReativacao: $dinheiroParado,
             impactoDaReativacaoNoSaldo: $impactoNoSaldo,
+            acordoCriado: $acordoCriado,
+            situacaoDoAcordoCriado: $acordoCriado ? $aba->situacao : null,
+            dataDoAcordoCriado: $acordoCriado ? $acordo->getDataAcordo() : null,
         );
+    }
+
+    /**
+     * ITEM 5 — o acordo que a planilha declara e o sistema não conhece **nasce aqui**. Devolve o `Acordo`
+     * ou, quando uma das quatro recusas barra a criação, o **motivo** (string) que vira o
+     * `ignoradoPorque` da aba.
+     *
+     * ⚠️ **Construído nos DOIS modos, persistido só na confirmação.** É o que mantém a invariável do §6:
+     * prévia e confirmação percorrem as mesmas abas pelos mesmos ramos. A prévia trabalha com um `Acordo`
+     * transiente — nunca passado ao `persist` —, e `CasoCobranca` não tem coleção inversa de acordos, então
+     * não há cascade que o grave por acidente. O `id` nulo é lido em dois pontos (`:452` e `:601`), e nos
+     * dois a comparação dá o MESMO resultado que daria com o id real: o outro lado sempre vem do banco,
+     * com id preenchido.
+     *
+     * As quatro recusas nunca lançam: uma aba estranha não pode derrubar o lote.
+     *
+     * 1. **situação fora do mapa** — nunca adivinhar status, a mesma régua da sobrescrita;
+     * 2. **situação não vigente** (`Cancelado`) — acordo não vigente tem a aba pulada inteira logo abaixo;
+     *    criá-lo deixaria um acordo vazio no sistema, e contraria "cancelados ficam de fora";
+     * 3. **sem `Data base`** — é a data em que o relógio dos juros das dívidas renegociadas para
+     *    (`materializarNaDataDoAcordo`). Chutá-la é decidir dinheiro no escuro;
+     * 4. **unidade sem cobrança ativa na carteira** — decisão do dono de 07/08: este relatório NÃO abre
+     *    cobrança nova (objeto/pessoa/caso), diferente da inadimplência e da receitas. Medido no mesmo dia:
+     *    38 de 38 unidades já existem, então a recusa não custa nada hoje; o que ela evita é o relatório de
+     *    Acordos ganhar poder de abrir cobrança por um caminho que nunca foi exercitado no dado real.
+     *
+     * ⚠️ As recusas 2 e 3 **não disparam no dado de hoje** (o validador do rodapé barra o
+     * `*_CANCELADO.xlsx`; 38 de 38 abas trazem `Data base`). Estão provadas só por teste, e ficam
+     * registradas como tal — a mesma honestidade que a spec-mãe usa para `Cumprido → Ativo`.
+     *
+     * 🔑 **A recusa 4, ao contrário, dispara MUITO** — e isso só apareceu ao rodar o dry-run contra um
+     * banco de verdade (achado da 2ª revisão). Medido em `saas_ux`, TL1 `EM_ANDAMENTO`: **21 abas
+     * recusadas por ela**, porque naquele banco a inadimplência completa nunca foi importada. Ela não é
+     * decoração: é o que impede o importe de pendurar acordo onde não há cobrança.
+     *
+     * ⚠️ **NÃO registra evento no histórico**, de propósito, e isto é decisão medida, não esquecimento:
+     * `TipoEventoHistorico::AcordoCriado` é o que a Central de Acompanhamento — que está em PRODUÇÃO —
+     * conta como a coluna "Acordos" do trabalho humano de cobrança
+     * (`EventoHistoricoRepository::agregarAtividadePorUsuario`), e alimenta a "Última ação". Registrar
+     * aqui creditaria dezenas de acordos "fechados" num único dia a quem rodou a importação, e um
+     * relatório que conta importação como trabalho para de medir trabalho — a mesma distorção que o
+     * comentário de `PagamentoExcluido` no enum diz que a Central existe para evitar. A procedência não
+     * se perde: `numeroExterno` só é preenchido por importação, e as contas reconstruídas carregam
+     * "Reconstruída da planilha de acordos (emissão …)" na descrição (§3.2.1).
+     */
+    private function criarAcordoDaAba(
+        AcordoDetalhadoImportavel $aba,
+        Carteira $carteira,
+        Tenant $tenant,
+        ?User $usuario,
+    ): Acordo|string {
+        $mapeada = self::SITUACOES[$this->semAcento($aba->situacao)] ?? null;
+        if ($mapeada === null) {
+            return sprintf(
+                'Acordo %d não existe nesta carteira e a situação "%s" não é reconhecida — acordo NÃO criado, nada foi tocado. Confira a linha "Situação:" da aba.',
+                $aba->numero,
+                $aba->situacao,
+            );
+        }
+
+        if (!$mapeada->ehVigente()) {
+            return sprintf(
+                'Acordo %d não existe nesta carteira e a planilha o dá como "%s" — acordo NÃO criado: um acordo não vigente teria a aba pulada de qualquer forma.',
+                $aba->numero,
+                $aba->situacao,
+            );
+        }
+
+        if ($aba->dataBase === null) {
+            return sprintf(
+                'Acordo %d não existe nesta carteira e a aba não traz "Data base" — acordo NÃO criado: é a data em que os juros das dívidas renegociadas param de correr, e ela não se adivinha.',
+                $aba->numero,
+            );
+        }
+
+        $identificacao = $aba->objetoIdentificacao();
+        $objeto = $this->objetoRepository->findOnePorIdentificacaoNaCarteira($carteira, $identificacao, $tenant);
+        // `casosAtivosDoObjeto` já devolve só os ATIVOS — caso encerrado não recebe obrigação (SPEC §17)
+        // e, por consequência, também não recebe acordo.
+        $caso = $objeto !== null ? ($this->casoRepository->casosAtivosDoObjeto($objeto)[0] ?? null) : null;
+        if ($caso === null) {
+            return sprintf(
+                'Acordo %d não existe nesta carteira e a unidade "%s" não tem cobrança ativa aqui — acordo NÃO criado. Importe a inadimplência desta carteira primeiro e rode de novo.',
+                $aba->numero,
+                $identificacao,
+            );
+        }
+
+        $acordo = new Acordo();
+        $acordo->setTenant($tenant);
+        $acordo->setCaso($caso);
+        $acordo->setStatus($mapeada);
+        // D3 (dono, 07/08): a `Data base`, nunca o `Criado em`. A primeira é a data ECONÔMICA do acordo —
+        // aquela em que a contábil parou o relógio dos juros; a segunda é quando alguém digitou o acordo
+        // no sistema deles. Divergem em 4 das 38 abas medidas (o acordo 39: base 13/07, digitado 30/07),
+        // e usar a errada congelaria os encargos 17 dias depois do combinado.
+        $acordo->setDataAcordo($aba->dataBase);
+        $acordo->setNumeroExterno($aba->numero);
+        // ⚠️ Só quando esta importação tem alguma parcela a materializar. `Acordo::estaIncompleto()` usa
+        // este campo para estampar "⚠ Faltam N parcelas" na tela do acordo, comparando-o com as linhas
+        // que existem. Medido em 07/08 nos 3 arquivos `*_LIQUIDADO`: **627 de 627 parcelas vêm com data
+        // de liquidação, em 310 de 310 abas** — e parcela que consta paga NÃO é criada (decisão de
+        // escopo, §5 da spec-mãe: não se escreve pagamento a partir de planilha). Gravar o total aqui
+        // deixaria os 13 acordos `Cumprido` que nascem desta frente com um aviso PERMANENTE e falso na
+        // tela. Aviso que sempre dispara ninguém lê — é a mesma régua que mantém a sobrescrita fora do
+        // bloco de avisos do relatório.
+        $acordo->setNumeroParcelasTotal($aba->temParcelaAMaterializar() ? $aba->totalDeParcelas() : null);
+        // Gravado SEMPRE, diferente do `ImportarReceitasUseCase` (que só grava com uma parcela). A
+        // restrição de lá existe porque a Receitas traz só as parcelas PAGAS e inventaria o total; aqui a
+        // fonte IMPRIME o "Valor final acordado" no cabeçalho da aba.
+        $acordo->setValorTotalNegociado($aba->valorFinalAcordadoCentavos);
+
+        if ($usuario !== null) {
+            $acordo->setCriadoPor($usuario);
+            // Persistido ANTES da primeira parcela, obrigatoriamente: o `RegistrarObrigacaoUseCase` dá
+            // flush por obrigação, e ligar uma obrigação a um `Acordo` não gerenciado estouraria com
+            // "new entity found through relationship".
+            $this->acordoRepository->salvar($acordo, true);
+        }
+
+        return $acordo;
     }
 
     /**

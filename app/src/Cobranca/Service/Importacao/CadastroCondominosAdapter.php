@@ -87,7 +87,7 @@ final class CadastroCondominosAdapter
             }
 
             $importaveis[] = new CondominoImportavel(
-                unidade: $this->separarUnidade($unidade),
+                unidade: IdentificacaoDaUnidade::separar($unidade)[0],
                 nome: $nome,
                 tipoVinculo: $papel,
                 cpf: $cpf,
@@ -107,19 +107,6 @@ final class CadastroCondominosAdapter
         $chave = strtr($chave, ['á' => 'a', 'â' => 'a', 'ã' => 'a', 'é' => 'e', 'ê' => 'e', 'í' => 'i', 'ó' => 'o', 'ô' => 'o', 'õ' => 'o', 'ú' => 'u', 'ç' => 'c']);
 
         return self::PAPEIS[$chave] ?? null;
-    }
-
-    /**
-     * Mesma regra do adapter de inadimplência: "NOME (associada)" → "NOME". É o que faz as duas fontes
-     * convergirem para o mesmo `ObjetoCobranca` (medido: 119/119 das unidades cobradas casam).
-     */
-    private function separarUnidade(string $unidade): string
-    {
-        if (preg_match('/^(.*?)\s*\((.*)\)\s*$/', $unidade, $m) === 1) {
-            return trim($m[1]);
-        }
-
-        return trim($unidade);
     }
 
     /**

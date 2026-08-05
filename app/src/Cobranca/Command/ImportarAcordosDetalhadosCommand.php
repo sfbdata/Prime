@@ -182,6 +182,7 @@ final class ImportarAcordosDetalhadosCommand extends Command
         $io->table(
             ['O quê', $confirmar ? 'Feito' : 'Aconteceria'],
             [
+                ['Acordos que NÃO existiam e nasceram da planilha', count($resultado->numerosDeAcordosCriados())],
                 ['Parcelas futuras criadas', sprintf('%d — R$ %s ENTRA no saldo', count($resultado->nnsParcelasCriadas()), $this->reais($resultado->valorParcelasCriadasCentavos()))],
                 ['Contas originais marcadas como substituídas (os encargos delas são REESCRITOS na data do acordo)', sprintf('%d — R$ %s de PRINCIPAL sai do saldo (mais os juros/multa/correção que corriam sobre ele)', count($resultado->nnsContasMarcadas()), $this->reais($resultado->principalReconciliadoCentavos()))],
                 ['Contas originais reconstruídas (nascem substituídas, não mexem no saldo)', count($resultado->nnsContasReconstruidas())],
@@ -198,7 +199,43 @@ final class ImportarAcordosDetalhadosCommand extends Command
             ],
         );
 
+        $this->imprimirAcordosCriados($io, $resultado, $confirmar);
         $this->imprimirSobrescritas($io, $resultado, $confirmar);
+    }
+
+    /**
+     * O acordo que nasce é AÇÃO, e é a ação que destrava todo o resto da aba — as parcelas e as contas
+     * listadas acima só existem porque ele passou a existir. Vem ANTES das sobrescritas de propósito:
+     * quem lê o dry-run precisa saber que o acordo está nascendo agora antes de conferir o que pendura
+     * nele. Item 5, spec `docs/specs/cobranca-importar-acordos-criar-acordo.md`.
+     */
+    private function imprimirAcordosCriados(SymfonyStyle $io, ResultadoImportacaoAcordos $resultado, bool $confirmar): void
+    {
+        $criados = $resultado->numerosDeAcordosCriados();
+        if ($criados === []) {
+            return;
+        }
+
+        $io->section($confirmar
+            ? 'ACORDOS CRIADOS — não existiam no sistema e nasceram da planilha'
+            : 'ACORDOS QUE SERIAM CRIADOS — não existem no sistema (nada gravado ainda)');
+
+        foreach ($resultado->porAcordo() as $acordo) {
+            if ($acordo->acordoCriado) {
+                // A situação e a data base entram porque são o que as decisões do dono governam: a
+                // primeira decide se as parcelas deste acordo entram no saldo, a segunda é a data em
+                // que os juros das dívidas renegociadas param de correr (D3).
+                $io->writeln(sprintf(
+                    '  · Acordo %d — %s · %s · situação "%s" · data base %s',
+                    $acordo->numero,
+                    $acordo->unidade,
+                    $acordo->sacado,
+                    (string) $acordo->situacaoDoAcordoCriado,
+                    $acordo->dataDoAcordoCriado?->format('d/m/Y') ?? '—',
+                ));
+            }
+        }
+        $io->newLine();
     }
 
     /**

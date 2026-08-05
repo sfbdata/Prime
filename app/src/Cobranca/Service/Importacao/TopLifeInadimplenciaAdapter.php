@@ -86,7 +86,7 @@ final class TopLifeInadimplenciaAdapter
             $nn = trim((string) ($linha[self::COL_NN] ?? ''));
             // Chave = Objeto (unidade principal) + NN (decisão C). Não assume NN globalmente único:
             // o mesmo NN em duas unidades vira boletos separados, sem fundir dinheiro de unidades.
-            [$identificacao] = $this->separarUnidade(trim((string) ($linha[self::COL_UNIDADE] ?? '')));
+            [$identificacao] = IdentificacaoDaUnidade::separar(trim((string) ($linha[self::COL_UNIDADE] ?? '')));
             $competencia = trim((string) ($linha[self::COL_COMPETENCIA] ?? ''));
             // Sem NN, o que resta do boleto é o mês + o vencimento: linhas do mesmo
             // (unidade, competência, vencimento) formam UMA obrigação, como o NN faria — a taxa e a
@@ -205,7 +205,7 @@ final class TopLifeInadimplenciaAdapter
             return new LinhaRejeitada($nn, 'Boleto sem vencimento válido.', $dados);
         }
 
-        [$identificacao, $metadata] = $this->separarUnidade($unidadeRaw);
+        [$identificacao, $metadata] = IdentificacaoDaUnidade::separar($unidadeRaw);
 
         return new BoletoImportavel(
             nn: $nn,
@@ -263,16 +263,6 @@ final class TopLifeInadimplenciaAdapter
         $partes = explode(' - ', trim($classe), 2);
 
         return trim($partes[0]);
-    }
-
-    /** "01-03A (05-03,06-01)" → ["01-03A", "05-03,06-01"]; sem parênteses → [unidade, null]. */
-    private function separarUnidade(string $unidade): array
-    {
-        if (preg_match('/^(.*?)\s*\((.*)\)\s*$/', $unidade, $m) === 1) {
-            return [trim($m[1]), trim($m[2])];
-        }
-
-        return [trim($unidade), null];
     }
 
     private function textoAcordo(string $valor): ?string
