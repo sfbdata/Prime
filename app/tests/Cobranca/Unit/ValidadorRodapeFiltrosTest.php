@@ -203,6 +203,45 @@ final class ValidadorRodapeFiltrosTest extends TestCase
     }
 
     /**
+     * ⚠️ Achado da 1ª revisão: o ramo "chave ausente **e sem** órfão" não tinha teste que morresse
+     * sozinho — trocar aquele `return sprintf(...)` por `return null` mantinha tudo verde. É a direção
+     * FROUXA: um rodapé que perdesse o `Período de recebimento` sem deixar `Todos` no lugar passaria,
+     * e o recorte seria desconhecido em vez de "todos".
+     *
+     * Este é o único teste em que a chave está ausente E não há nenhum órfão na linha.
+     */
+    #[Test]
+    public function testRecebimentoAusenteSemOrfaoEhRecusado(): void
+    {
+        $texto = 'Filtros: Situação das contas: Baixadas; Competência: Todas; Período de vencimento: Todos; Unidade: Todos; Classe de conta: Todas; Sacado: Todos;';
+
+        $r = $this->validador->validarTexto($texto, RecorteEsperado::receitas());
+
+        self::assertFalse($r->aceito, 'sem a chave e sem órfão, o recorte é desconhecido — não "todos"');
+        self::assertStringContainsString('Período de recebimento', implode(' | ', $r->motivos));
+        self::assertStringContainsString('recorte desconhecido', implode(' | ', $r->motivos));
+    }
+
+    /**
+     * "Primeira ocorrência vence" (achado da 1ª revisão: a regra existia sem teste, e a mutação
+     * "última vence" sobrevivia). Importa porque uma segunda ocorrência da mesma chave poderia
+     * sobrescrever, DEPOIS da conferência, o valor que foi conferido.
+     */
+    #[Test]
+    public function testChaveRepetidaVenceAPrimeiraOcorrencia(): void
+    {
+        $texto = str_replace(
+            'Sacado: Todos;',
+            'Sacado: Todos; Situação das contas: Aberta e baixada;',
+            self::RECEITAS_COMPLETA,
+        );
+
+        $r = $this->validador->validarTexto($texto, RecorteEsperado::receitas());
+
+        self::assertTrue($r->aceito, 'a 1ª ocorrência ("Baixadas") é a que vale; a 2ª não pode derrubá-la');
+    }
+
+    /**
      * O vencimento mantém o rótulo mesmo valendo `Todos`, e o recebimento o perde — são regras
      * diferentes para campos vizinhos (spec §2.2.2). Se o vencimento sumisse, seria recorte
      * desconhecido, não "todos": recusa.

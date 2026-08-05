@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Cobranca\Service\Importacao;
 
 use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Reader\IReadFilter;
 
 /**
  * Confere se a linha `Filtros:` do rodapé bate com o recorte que a importação exige — spec
@@ -35,14 +36,33 @@ final class ValidadorRodapeFiltros
     /**
      * Lê a primeira aba do arquivo e confere o rodapé.
      *
-     * Leitura deliberadamente MAGRA (§3.3): só a primeira aba, só a coluna A, `readDataOnly`. No
-     * Acordos o rodapé se repete idêntico em todas as abas (medido em 8, 26 e 8), então a primeira
-     * basta. E o custo importa: a Receitas completa de TL1 tem 7.411 linhas, e carregar a planilha
-     * inteira uma segunda vez na mesma execução é justamente o que não pode acontecer.
+     * Leitura MAGRA de verdade (§3.3): primeira aba, `readDataOnly` **e um `IReadFilter` que descarta
+     * toda coluna que não seja a A**. Sem o filtro, `setReadDataOnly` + `setLoadSheetsOnly` ainda
+     * carregam a grade inteira: medido na Receitas completa de TL1 (916 KB), eram **21.150 linhas ×
+     * colunas A–J** carregadas para ler UMA célula, e o tempo do importe dobrava (4,1 s → 7,4 s).
+     * Achado da 1ª revisão — o docblock afirmava "só a coluna A" e a restrição só existia na busca,
+     * depois da planilha inteira estar em memória.
+     *
+     * No Acordos o rodapé se repete idêntico em todas as abas (medido em 8, 26 e 8), então a primeira
+     * basta.
+     *
+     * Arquivo ilegível (zip quebrado, `.xlsx` truncado, arquivo renomeado) **não estoura**: vira
+     * recusa com motivo. É o cenário-mãe desta frente — download interrompido —, e deixar a exceção
+     * subir trocaria a mensagem útil por um stack trace (regressão apontada na 1ª revisão).
      */
     public function validar(string $caminhoArquivo, RecorteEsperado $esperado): ResultadoRodape
     {
-        return $this->validarTexto($this->extrairLinha($caminhoArquivo), $esperado);
+        try {
+            $linha = $this->extrairLinha($caminhoArquivo);
+        } catch (\Throwable $e) {
+            return new ResultadoRodape(false, [sprintf(
+                'Não foi possível abrir o arquivo para conferir o recorte (confira se é a planilha %s e se o download completou): %s',
+                $esperado->fonte,
+                $e->getMessage(),
+            )]);
+        }
+
+        return $this->validarTexto($linha, $esperado);
     }
 
     /**
@@ -74,7 +94,7 @@ final class ValidadorRodapeFiltros
             }
         }
 
-        return new ResultadoRodape($motivos === [], $motivos, $linha, $campos, $orfaos);
+        return new ResultadoRodape($motivos === [], $motivos, $linha);
     }
 
     /**
@@ -171,9 +191,21 @@ final class ValidadorRodapeFiltros
     {
         $reader = IOFactory::createReaderForFile($caminhoArquivo);
         $reader->setReadDataOnly(true);
+        $reader->setReadFilter(new class(self::COLUNA_RODAPE) implements IReadFilter {
+            public function __construct(private readonly string $coluna)
+            {
+            }
+
+            public function readCell(string $columnAddress, int $row, string $worksheetName = ''): bool
+            {
+                return $columnAddress === $this->coluna;
+            }
+        });
 
         $abas = $reader->listWorksheetNames($caminhoArquivo);
         if ($abas === []) {
+            // Não acontece em `.xlsx` válido (sempre há ao menos uma aba), mas `$abas[0]` num array
+            // vazio viraria warning — e a suíte roda com `failOnWarning`.
             return null;
         }
         $reader->setLoadSheetsOnly([$abas[0]]);

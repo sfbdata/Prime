@@ -93,20 +93,42 @@ Tipos de apoio no mesmo namespace: `RecorteEsperado` (o que se espera por fonte)
 
 ### 3.2 Quando
 
-Nos **4 comandos**, depois da checagem de arquivo legível e **antes** de `$adapter->ler()`. Recusa →
-`Command::INVALID`, com a linha lida e a diferença impressas. Vale nos dois modos: **dry-run também é
-recusado** — um dry-run sobre arquivo errado produz um relatório convincente e falso, que é pior do
-que erro nenhum.
+**Nos 4 comandos e na TELA** — as cinco portas de entrada.
+
+Nos comandos: depois da checagem de arquivo legível e **antes** de `$adapter->ler()`. Recusa →
+`Command::INVALID`, com a linha lida e a diferença impressas. O bloco compartilhado mora no trait
+`App\Cobranca\Command\ConfereRecorteDoArquivo`.
+
+Na tela (`ImportacaoController::prever`): logo após guardar o temporário e **antes** da leitura;
+recusa descarta o temporário e volta para o upload com a mensagem. **Só na prévia, não também no
+`confirmar`** — o ponteiro do arquivo só entra na sessão depois de a prévia passar, então não há
+caminho que alcance o confirmar sem passar por ali, e guarda redundante que nenhum teste distingue é
+guarda que envelhece mentindo (regra da casa).
+
+⚠️ **A tela foi achado ALTA da 1ª revisão.** A primeira versão desta spec dizia "os 4 comandos" e
+esquecia a interface — que é justamente por onde o gestor importa. Regra que fecha 4 de 5 portas não
+fecha porta nenhuma.
+
+Vale nos dois modos: **dry-run também é recusado** — um dry-run sobre arquivo errado produz um
+relatório convincente e falso, que é pior do que erro nenhum.
 
 ### 3.3 Como lê (e por que assim)
 
-Só a **primeira aba**, só a **coluna A**, procurando a primeira linha que começa com `Filtros:`.
-`setReadDataOnly(true)` + `setLoadSheetsOnly([primeira])`.
+Primeira aba, `setReadDataOnly(true)`, `setLoadSheetsOnly([primeira])` **e um `IReadFilter` que
+descarta toda coluna que não seja a A**.
 
-⚠️ **Custo importa aqui:** abrir a Receitas completa de TL1 (938 KB, 7.411 linhas) duas vezes na mesma
-execução é caro — a importação dela em transação única já derrubou a máquina do dono duas vezes em
-06/08 (§9.4 do handoff). A leitura do rodapé é leve por construção, mas **não** deve virar uma segunda
-carga completa da planilha.
+⚠️ **O `IReadFilter` não é enfeite** (achado MÉDIA da 1ª revisão): `setReadDataOnly` +
+`setLoadSheetsOnly` **não restringem colunas**. Sem o filtro, medido na Receitas completa de TL1
+(916 KB), eram **21.150 linhas × colunas A–J** carregadas para ler UMA célula, e o importe passava de
+4,1 s para 7,4 s. A primeira versão *afirmava no docblock* "só a coluna A" e só filtrava na busca,
+depois da planilha inteira já estar em memória — doc que mente é pior que doc que falta.
+
+Medido depois da correção, no mesmo arquivo: **1,98 s, pico de 22,7 MB**.
+
+**Arquivo ilegível não estoura**: zip quebrado / `.xlsx` truncado / arquivo renomeado viram recusa com
+motivo, não stack trace. É o cenário-mãe desta frente — download interrompido —, e no comando de
+inadimplência a versão anterior tinha *regressado* o tratamento de erro que já existia (a conferência
+ficou fora do `try/catch` que protegia o adapter).
 
 ### 3.4 O parser
 
@@ -166,6 +188,14 @@ arquivo errado é barrado, não avisado.
 2. **Não confere a carteira.** A Inadimplência não se identifica (§2.1: o L2 é o título) — só o
    histórico da API diz de qual condomínio ela é. Isso é o **item 7** do handoff §6, frente própria.
 3. **Não valida os encargos da L4.** A §7.2 já fechou esse assunto por outro caminho.
+4. 🟠 **Efeito colateral aceito: o ramo `Cancelado` do importador de acordos virou código morto no
+   caminho real.** Medido na 1ª revisão, nas 13 planilhas de Acordos: o rodapé e o `Situação:` de cada
+   aba coincidem 1:1, **sem um único arquivo misto**. Barrando o rodapé `Cancelado`, nenhuma aba
+   cancelada alcança o `ImportarAcordosDetalhadosUseCase` — o mapa `'cancelado' => StatusAcordo::Cancelado`
+   (`:81`) deixa de ter origem pelo importe. Isso **decorre da decisão do dono** ("cancelados ficam de
+   fora"), não é defeito; fica registrado porque o teste que exercita aquele ramo passou a guardar um
+   comportamento que nenhum arquivo real produz. O ramo `!ehVigente()` continua alcançável por status
+   vindo do banco.
 
 ---
 
@@ -190,14 +220,42 @@ então a maior parte não precisa de `.xlsx` — e é isso que permite testar as
 | 10 | `Situação das contas: Baixada` (singular) | **recusa** — é a trava contra o `contains` da §2.2.4 |
 | 11 | arquivo sem linha `Filtros:` | **recusa** com motivo próprio (não "passa por omissão") |
 
-⚠️ **Prova por reintrodução, com DUAS injeções** (regra da casa: teste verde não prova nada, e é
-preciso conferir **qual** assert ficou vermelho):
+Mais dois casos, acrescentados pela 1ª revisão:
 
-- trocar a comparação exata por `str_contains` → **o caso 10 tem de ficar vermelho**;
-- fazer `todosOuOrfao` aceitar qualquer coisa → **o caso 2 tem de ficar vermelho**.
+| # | caso | espera |
+|---|---|---|
+| 12 | `Período de recebimento` ausente **e sem** órfão `Todos` na linha | **recusa** (`recorte desconhecido`) |
+| 13 | chave repetida na linha, a 2ª com valor errado | aceita — **a 1ª ocorrência vence** |
 
-Se uma injeção não avermelhar o caso previsto, o teste não está provando o que diz — corrigir o teste
-antes de seguir.
+⚠️ **Prova por reintrodução — SEIS injeções, cada uma avermelhando um caso previsto e só ele.** A regra
+da casa é que teste verde não prova nada e que é preciso conferir **qual** assert ficou vermelho:
 
-**Funcional:** um teste por comando garantindo que arquivo com recorte errado devolve `INVALID` e
-**não chega ao adapter** — inclusive sem `--confirmar` (§3.2).
+| injeção | avermelha |
+|---|---|
+| 1. comparação exata → `str_contains` | caso 10 (`Baixada` singular) |
+| 2. `todosOuOrfao` aceita qualquer coisa | caso 2 (janela de recebimento) |
+| 3. remover a ligação do comando de cadastro | o funcional do cadastro |
+| 4. trocar a ordem (adapter antes da conferência) | o funcional do arquivo corrompido |
+| 5. ramo "ausente sem órfão" → `return null` | caso 12 |
+| 6. "última ocorrência vence" | caso 13 |
+
+**Funcional:** um teste por comando + um da tela, garantindo `INVALID` (ou redirect com mensagem) e que
+**não se chega ao adapter** — inclusive sem `--confirmar` (§3.2).
+
+⚠️ **Como provar a ORDEM (e dois jeitos que NÃO provam).** Este teste nasceu errado duas vezes:
+
+1. *"a planilha vazia prova"* — **falso**: os 4 adapters leem planilha vazia sem exceção, devolvendo
+   zero itens. Mover a conferência para depois mantinha tudo verde;
+2. *"a seção `Leitura:` não pode sair"* — **também falso**: mover a *leitura* para antes não move a
+   *impressão*, que continua depois da conferência. Injetei a troca e o teste seguiu verde.
+
+O que prova: um arquivo com **assinatura de ZIP seguida de lixo** (`PK\x03\x04` + zeros) — o que um
+download interrompido produz. O validador transforma isso em recusa com motivo; o adapter estoura.
+Se a conferência vier antes, sai a mensagem; se vier depois, o comando morre com erro. **Texto puro não
+serve** — o `IOFactory` o aceita como CSV e o caso cai no ramo "sem linha `Filtros:`", que é outro.
+
+**Fixtures:** as planilhas sintéticas dos testes de comando e as fixtures `.xlsx` da tela ganharam a
+linha `Filtros:` real. As da tela tinham o rodapé **truncado pela anonimização** (só 2 dos 5 campos) —
+completá-las foi corrigir a fixture, não acomodar o código. A `toplife_amostra_zip64.xlsx` foi
+reescrita preservando `compress_type` por entrada, porque o que ela testa é o mime indetectável que só
+o Zip64/store produz.

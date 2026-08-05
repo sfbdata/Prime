@@ -9,7 +9,9 @@ use App\Cobranca\Entity\Carteira;
 use App\Cobranca\Exception\MigrationDeCompetenciaPendenteException;
 use App\Cobranca\Form\ImportarRelatorioType;
 use App\Cobranca\Repository\CarteiraRepository;
+use App\Cobranca\Service\Importacao\RecorteEsperado;
 use App\Cobranca\Service\Importacao\TopLifeInadimplenciaAdapter;
+use App\Cobranca\Service\Importacao\ValidadorRodapeFiltros;
 use App\Cobranca\UseCase\ImportarRelatorioCarteiraUseCase;
 use App\Entity\Tenant\Tenant;
 use App\Service\PermissionChecker;
@@ -46,6 +48,7 @@ final class ImportacaoController extends AbstractController
         private readonly TenantContext $tenantContext,
         private readonly CarteiraRepository $carteiraRepository,
         private readonly TopLifeInadimplenciaAdapter $adapter,
+        private readonly ValidadorRodapeFiltros $validadorRodape,
         private readonly ImportarRelatorioCarteiraUseCase $importar,
         private readonly string $cobrancasUploadsDir,
     ) {
@@ -98,6 +101,23 @@ final class ImportacaoController extends AbstractController
 
         try {
             $token = $this->guardarTemporario($arquivo, $tenant);
+
+            // O recorte é conferido ANTES da leitura — spec
+            // `docs/specs/cobranca-validador-rodape-filtros.md`. A tela é a outra porta de entrada da
+            // inadimplência (a 1ª revisão a encontrou de fora), e um arquivo com filtro errado importa
+            // lindamente e em silêncio: é a falha que custou meses e que este item existe para fechar.
+            //
+            // Só aqui, e não também no `confirmar`: o ponteiro do arquivo só entra na sessão DEPOIS
+            // desta prévia passar, então não há caminho que alcance o confirmar sem passar por aqui.
+            // Guarda redundante que nenhum teste consegue distinguir é guarda que envelhece mentindo.
+            $rodape = $this->validadorRodape->validar($this->caminhoTemporario($tenant, $token), RecorteEsperado::inadimplencia());
+            if (!$rodape->aceito) {
+                $this->descartarTemporario($tenant, $token);
+                $this->addFlash('danger', 'O recorte deste arquivo não serve: ' . implode(' ', $rodape->motivos) . ' Emita o relatório de novo com o recorte correto. Nada foi lido nem gravado.');
+
+                return $this->redirectToRoute('cobranca_importacao_upload', ['id' => $id]);
+            }
+
             $leitura = $this->adapter->ler($this->caminhoTemporario($tenant, $token));
         } catch (\Throwable $e) {
             $this->descartarTemporario($tenant, $token ?? '');

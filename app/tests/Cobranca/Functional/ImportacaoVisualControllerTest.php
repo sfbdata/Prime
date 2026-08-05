@@ -29,6 +29,9 @@ final class ImportacaoVisualControllerTest extends CobrancaWebTestCase
     /** Mesmo conteúdo da amostra, gravado em Zip64/store: o libmagic devolve `application/octet-stream`. */
     private const FIXTURE_MIME_INDETECTAVEL = __DIR__ . '/../../Fixtures/Cobranca/importacao/toplife_amostra_zip64.xlsx';
 
+    /** @var list<string> arquivos criados pelo teste, apagados no tearDown */
+    private array $temporariosDoTeste = [];
+
     #[TestDox('Fluxo completo: upload não persiste na prévia; confirmar importa os boletos')]
     public function testFluxoUploadPreviewConfirmar(): void
     {
@@ -201,6 +204,64 @@ final class ImportacaoVisualControllerTest extends CobrancaWebTestCase
         self::assertStringContainsString('Prévia da importação', (string) $client->getResponse()->getContent());
     }
 
+    /**
+     * 🔑 A TELA também confere o recorte — achado ALTA da 1ª revisão do item 6.
+     *
+     * A primeira versão do validador só entrou nos 4 comandos, e esta tela continuava sendo a outra
+     * porta de entrada da inadimplência: aceitava recorte errado em silêncio, que é exatamente a falha
+     * que o item existe para fechar (um arquivo com filtro errado importa lindamente e o número fica
+     * menor que a realidade). Spec: `docs/specs/cobranca-validador-rodape-filtros.md`.
+     *
+     * A prévia é onde a conferência acontece, e é o suficiente: o ponteiro do arquivo só entra na
+     * sessão DEPOIS de a prévia passar, então nenhum caminho alcança o `confirmar` sem passar por aqui.
+     */
+    #[TestDox('🔑 tela: planilha com recorte errado é recusada na prévia, sem persistir')]
+    public function testTelaRecusaRecorteErrado(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        $carteiraId = $this->semearCarteira($tenant);
+        $obrigacaoRepo = static::getContainer()->get(EntityManagerInterface::class)->getRepository(Obrigacao::class);
+
+        $crawler = $client->request('GET', "/cobrancas/carteiras/{$carteiraId}/importar");
+        $form = $crawler->filter('form[action*="prever"]')->form();
+        $form['importar_relatorio[arquivo]']->upload($this->fixtureComRecorteErrado());
+        $client->submit($form);
+
+        self::assertResponseRedirects();
+        $client->followRedirect();
+        $html = (string) $client->getResponse()->getContent();
+
+        self::assertStringContainsString('recorte deste arquivo não serve', $html);
+        self::assertStringContainsString('Competência', $html);
+        self::assertStringNotContainsString('Prévia da importação', $html, 'não pode chegar à prévia');
+        self::assertSame(0, $obrigacaoRepo->count(['tenant' => $tenant]), 'nada pode ser gravado');
+    }
+
+    /**
+     * A mesma amostra, com UM campo do rodapé trocado por um recorte que a importação não aceita
+     * (competência filtrada em vez de "Todas"). Reescreve só a string dentro do `.xlsx` — o resto do
+     * arquivo continua idêntico, então a única diferença entre passar e ser recusado é o recorte.
+     */
+    private function fixtureComRecorteErrado(): string
+    {
+        $destino = tempnam(sys_get_temp_dir(), 'recorte') . '.xlsx';
+        copy(self::FIXTURE, $destino);
+
+        $zip = new \ZipArchive();
+        self::assertTrue($zip->open($destino) === true);
+        $alvo = 'xl/sharedStrings.xml';
+        $xml = (string) $zip->getFromName($alvo);
+        $trocado = str_replace('Competência: Todas', 'Competência: 07/2026', $xml);
+        self::assertNotSame($xml, $trocado, 'a fixture precisa conter o campo que este teste corrompe');
+        $zip->addFromString($alvo, $trocado);
+        $zip->close();
+
+        $this->temporariosDoTeste[] = $destino;
+
+        return $destino;
+    }
+
     #[TestDox('HTML renomeado para .xlsx continua rejeitado sem persistir')]
     public function testHtmlRenomeadoParaXlsxRejeitado(): void
     {
@@ -273,6 +334,13 @@ final class ImportacaoVisualControllerTest extends CobrancaWebTestCase
 
     protected function tearDown(): void
     {
+        foreach ($this->temporariosDoTeste as $caminho) {
+            if (is_file($caminho)) {
+                unlink($caminho);
+            }
+        }
+        $this->temporariosDoTeste = [];
+
         // Remove os temporários de importação criados no disco de teste (var/uploads-test/cobrancas/import-tmp).
         $dir = __DIR__ . '/../../../var/uploads-test/cobrancas/import-tmp';
         if (is_dir($dir)) {
