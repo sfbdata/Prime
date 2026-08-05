@@ -1,5 +1,12 @@
 # HANDOFF — Automatizar o download dos relatórios da contábil
 
+**Estado em 2026-08-06.** **52 commits não publicados, nada em produção. Nenhuma linha de código de
+produção foi tocada em 06/08** — o dia inteiro foi medição (ver §8).
+
+🔴 **O item 3 mudou de natureza: não era dinheiro faltando.** Medido em 06/08, a diferença não tem
+**um centavo** de principal. Decisão do dono no mesmo dia: **o item 3 vai para o FIM da fila** e nada
+muda no aviso por enquanto; a próxima sessão vai direto para o **item 2**. Detalhe completo na §8.
+
 **Estado em 2026-08-05 (fim do dia).** **50 commits não publicados, nada em produção.**
 
 ✅ **Fecharam hoje:** o **item 4** (§7.2 — os encargos de TL1/TL2 estão certos, e não precisou reemitir
@@ -362,13 +369,18 @@ frente própria** (risco ALTO: mexe em saldo de devedor).
 
 Estado em **05/08/2026**. Cada valor abaixo foi **medido** contra as planilhas reais, não estimado.
 
-### 🔴 Dinheiro que ainda fica de fora — **R$ 7.109,07** (eram R$ 24.553,73)
+### 🔴 Dinheiro que ainda fica de fora — **R$ 4.396,07** (eram R$ 24.553,73)
+
+> Caiu de R$ 7.109,07 para R$ 4.396,07 em 06/08 **sem uma linha de código**: o item 3 saiu da conta ao
+> ser medido (§8). Sobrou o **item 2** sozinho. ⚠️ E ele precisa da mesma medição antes da spec — a
+> §8.4 já mostra por que a decisão do dono, aplicada ao pé da letra, pode não produzir dinheiro nenhum
+> na tela.
 
 | # | O quê | Valor | Onde está o diagnóstico |
 |---|---|---:|---|
 | 1 | ✅ **FECHADO — dívidas sem número de boleto (NN)** | ~~R$ 17.444,66~~ | `docs/specs/cobranca-divida-sem-numero-de-boleto.md`. Chave = `SNN:<vencimento>`, agrupando por **caso + competência + vencimento** (a classe NÃO entra — ver §7.3). **Provado no dado real: 99 obrigações, R$ 12.510,00 de principal, idempotente.** ⚠️ Só R$ 8.912,21 viram dívida na tela; os R$ 6.750,00 dos acordos nascem substituídos |
 | 2 | **Boletos só de encargos/honorário** | **R$ 4.396,07** | §6.1 — **13 boletos em 8 unidades, remedido hoje**; decisão do dono já cobre (§6.2) |
-| 3 | **Valores divergentes** (planilha ≠ sistema) | **R$ 2.713,00** | §6.1 — 33 casos, planilha maior em 33 de 33; hoje só reportado. ⚠️ **Medir primeiro se a diferença é principal ou encargo congelado** — sobrescrever principal com número que embute encargo contaria duas vezes |
+| 3 | ~~**Valores divergentes** (planilha ≠ sistema)~~ | ~~R$ 2.713,00~~ → **R$ 0,00** | 🔴 **NÃO ERA DINHEIRO FALTANDO — medido em 06/08, ver §8.** A diferença tem **R$ 0,00 de principal**: é encargo que o sistema calcula ao vivo, desconto concedido no pagamento e honorário. **Dono mandou deixar por ÚLTIMO** (06/08); vira correção do *aviso*, não do dado |
 | 4 | ✅ **FECHADO — encargos de TL1/TL2 NÃO estão sobrescritos** | — | **§7.2**. Não precisou reemitir: o arquivo imprime os encargos na L4, e 4 emissões manuais anteriores à automação (08/07, 22/07, 29/07, 03/08) trazem os mesmos percentuais da emissão pela API |
 
 Os itens 1–3 são **risco ALTO**: spec + teste provado por reintrodução + **duas** revisões cada.
@@ -391,11 +403,13 @@ Os itens 1–3 são **risco ALTO**: spec + teste provado por reintrodução + **
 | 11 | Deploy em produção (lembrar: prod é imagem baked, exige `./scripts/deploy-prod-tls.sh`) |
 | 12 | **Confirmar com a contábil** se a automação de download é permitida — §7.1 |
 
-### Ordem recomendada (atualizada em 05/08, com a AMLI por último a pedido do dono)
+### Ordem recomendada (atualizada em 06/08 pelo dono)
 
-~~**4** → **1**~~ (feitos) → **3** → **2** (mesma diretriz do dono; o 3 vem antes porque a medição dele
-— principal × encargo congelado — muda o desenho dos dois) → **6** (trava o recorte) → **5** → **8**
-(a prova final) → **7** (AMLI, por último).
+~~**4** → **1**~~ (feitos) → ~~**3**~~ (medido, saiu da conta) → **2** → **6** (trava o recorte) →
+**5** → **8** (a prova final) → **7** (AMLI) → **3** (o aviso, por último).
+
+**Decisão do dono em 06/08, textual:** *"sim, deixe o aviso por último. pode ir direto para o item 2."*
+Até lá o aviso de divergência continua exatamente como está — **não mexer**.
 
 ### 🔑 O que a próxima sessão precisa saber antes de começar o item 3
 
@@ -497,3 +511,138 @@ false`, encargos omitidos) e comparar com os arquivos atuais. Foi assim que a AM
   commitada: com a trava, cada ação do Playwright pedia autorização e a investigação ficava inviável.
   Continua valendo a regra do `CLAUDE.md`: **o smoke no navegador é do dono** — o Playwright só é aberto
   quando ele pede, com essas palavras. O que caiu foi o prompt por ação, não a regra.
+
+---
+
+## 8. 🔴 06/08 — O ITEM 3 FOI MEDIDO E A PREMISSA CAIU
+
+**Nenhuma linha de código de produção foi tocada.** O dia foi medição, e a medição desfez o item.
+
+### 8.1 O que a §6.3 mandava fazer, e por quê
+
+> *"⚠️ Meça primeiro DE QUE é feita a diferença. A decisão do dono é 'o importe sobrescreve sempre,
+> reabre o saldo', mas sobrescrever o principal com um número que já embute encargos contaria encargo
+> duas vezes."*
+
+Feito. E o resultado é mais forte do que a ressalva previa: **não há principal nenhum a sobrescrever.**
+
+### 8.2 Como foi medido (reprodutível)
+
+1. Banco descartável **`saas_ux_div`** = `CREATE DATABASE … TEMPLATE saas_ux_pos_etapa3`.
+2. Dry-run (sem `--confirmar`) de `app:cobranca:importar-acordos` nas 4 combinações
+   (TL1/TL2 × EM_ANDAMENTO/LIQUIDADO) dos arquivos de `2026-08-04-api/`, saída capturada em arquivo.
+3. Extração das linhas `NN: sistema R$ x, planilha R$ y` → lista dos NNs divergentes.
+4. Leitura **crua** dos `.xlsx` de **Acordos** *e* de **Receitas**, decompondo cada NN em
+   **P** (principal: classes 1.1/1.14) · **J** (juros+multa: 1.4/1.5) · **D** (descontos: 1.6) ·
+   **H** (honorário: 1.15).
+5. Confronto das duas fontes contra o `valor_original` gravado.
+
+Scripts descartáveis na pasta gitignored: `_item3_decompor.php`, `_item3_classificar.php`,
+`_item3_duasfontes.php`, `_item3_lado.php`, `_item3_receitas.php`, `_item3_nns.txt`.
+
+### 8.3 O resultado — a decomposição fecha ao centavo, sem resíduo
+
+| componente | valor | % |
+|---|---:|---:|
+| **principal** | **R$ 0,00** | **0%** |
+| juros + multa | R$ 6.087,10 | 87,9% |
+| descontos concedidos no pagamento | R$ 440,00 | 6,4% |
+| honorário | R$ 396,39 | 5,7% |
+| **total** | **R$ 6.923,49** | 100% |
+
+**A divergência existe por construção, não por defeito.** O "Valor acordado" da planilha é a soma de
+**todas** as linhas de classe do NN — o docblock de `AcordosDetalhadosAdapter::montarParcela` (`:353-356`)
+diz isso explicitamente. O `valor_original` do sistema **nunca** guarda juros/multa, porque
+`EncargosVivos::exigivelVivo` (`:59`) os calcula ao vivo a partir dele. `divergenciaDeValor`
+(`ImportarAcordosDetalhadosUseCase.php:900`) compara essas duas grandezas e chama a diferença de
+divergência.
+
+🔑 **Sobrescrever seria pior do que não fazer nada, e o erro cresce.** Os R$ 6.087,10 de juros já
+corridos entrariam na base sobre a qual o sistema calcula *mais* juros (1%/mês), multa (2%) e
+honorário (20% TL1 / 15% TL2). Não é erro de uma vez — é juro sobre juro, todo mês.
+
+### 8.4 O caso do desconto — o que quase me enganou, e o que ensina
+
+Os R$ 440,00 são linhas `1.6 - Descontos` que existem **só no relatório de Receitas** e **não existem
+no de Acordos**. Exemplo medido, NN **61365** (TL2):
+
+| fonte | conteúdo | total |
+|---|---|---:|
+| **Acordos** (o que foi combinado) | 6 × `1.1 - Taxa de condomínio` R$ 170,00 | R$ 1.020,00 |
+| **Receitas** (o que foi recebido) | as mesmas 6 linhas **+ `1.6 - Descontos` −R$ 20,00** | **R$ 1.000,00** |
+| **sistema** (obrigação 4883) | `valor_original` | **R$ 1.000,00** |
+
+Conferido no banco: a obrigação **4883 está paga e encerrada** — alocação de R$ 1.000,00
+(`cobranca_alocacao_pagamento` id 1453) e `encargos_congelados_em` preenchido.
+
+**O sistema sabe do desconto** — foi alimentado pelo relatório de Receitas, que é onde o desconto está
+escrito. O relatório de Acordos não sabe, porque na época do acordo o desconto ainda não existia.
+Sobrescrever reabriria R$ 20,00 de dívida que a própria contábil perdoou, numa parcela quitada.
+
+⚠️ **Objeção do dono que derrubou minha primeira explicação:** *"como que a contabilidade dá 20 reais
+de desconto, mas a planilha mostra 20 reais a mais? pela lógica o sistema tinha que estar cobrando 20
+reais a mais pois ele não sabe do desconto."* Ele estava certo em estranhar: **eu tinha escolhido um
+caso de DESCONTO para ilustrar uma história de JUROS**, e nunca disse de onde vinha o número do
+sistema. São dois fenômenos distintos e a explicação só fecha quando se diz **qual das duas planilhas
+alimentou cada campo**.
+
+### 8.5 Três afirmações do handoff caíram na remedição (de novo)
+
+| dizia | mede |
+|---|---|
+| "33 casos" | **75** |
+| "R$ 2.713,00" | **R$ 6.923,49** |
+| implícito: os dois lados (parcelas *e* contas originais) | **74 das 75 saem só do laço de parcelas**; só o NN 77099 aparece nas duas seções |
+
+⚠️ **Ressalva honesta sobre a contagem:** 75 e R$ 6.923,49 são medidos contra `saas_ux_pos_etapa3` —
+um estado que **não vai existir de novo** (import antigo e estreito). Numa importação do zero a
+contagem muda. **O que não muda é a composição**, que é propriedade da fonte, não do banco.
+
+### 8.6 Dois defeitos da minha própria medição, achados antes de concluir
+
+1. **Somei o mesmo NN nas duas seções.** O NN aparece em `contas originais` *e* em `parcelas` (o acordo
+   renegocia a conta e emite a parcela com o mesmo boleto). 12 casos "batiam em exatamente o dobro" —
+   o mesmo sintoma de "metade" que a frente do hífen já tinha registrado. Corrigido pondo a **seção na
+   chave** antes de tirar qualquer conclusão.
+2. **Li o contador errado do relatório.** Achei uma contradição ("22 divergências com 0 parcelas
+   existentes") que não existia: eu tinha grepado *"Parcelas existentes ligadas ao acordo"*
+   (= `$vinculadas`, o vínculo criado) em vez de *"Parcelas que já existiam (nada a fazer)"*
+   (= `$existentes`, que é onde a divergência é reportada). Eram 27, e batem.
+
+### 8.7 Achado extra que já vale para o item 2
+
+**22 das 75 parcelas têm principal ZERO na fonte** — são só honorário e juros (ex.: NN 76575, com
+`P 0,00 · J 97,81 · H 988,25`). **É exatamente a forma do item 2.** A guarda que rejeita
+(`TopLifeInadimplenciaAdapter.php:201`, *"Boleto sem principal de dívida"*) tem irmã aqui.
+
+🔴 **Alerta de desenho para quem for escrever a spec do item 2:** o sistema calcula encargo **ao vivo a
+partir do `valor_original`** (`EncargosVivos::exigivelVivo`). Uma obrigação criada com principal ZERO
+gera encargo ZERO — os R$ 4.396,07 **não apareceriam na tela** só por remover a guarda. Ou o valor
+entra como principal (e muda de natureza jurídica: encargo vira dívida, e passa a render encargo
+novo), ou precisa de outro caminho. **Isso é decisão do dono e ainda não foi feita a ele** — meça
+antes de perguntar, como foi feito aqui.
+
+### 8.8 O que o item 3 virou
+
+**Não é mais correção de dado — é correção do AVISO.** Proposta apresentada ao dono e **adiada para o
+fim da fila por decisão dele**: o relatório passar a comparar **principal com principal**, ignorando
+juros, desconto e honorário, que o sistema guarda em outros campos.
+
+- hoje: **75 avisos, nenhum é problema** — e aviso que sempre dispara ninguém lê;
+- depois: **0 avisos**, e um aviso futuro passaria a significar divergência real de principal;
+- **nenhum centavo se move** — a dívida já bate em 75 de 75.
+
+⛔ **Até o dono mandar, o aviso fica exatamente como está.**
+
+### 8.9 Bancos descartáveis deste dia
+
+- **`saas_ux_div`** — clone de `saas_ux_pos_etapa3`, usado só para dry-run (nada gravado: nenhuma
+  execução teve `--confirmar`). Pode ser apagado.
+- ⛔ `saas_ux`, `saas_ux_pos_etapa3` e `saas_ux_antes_etapa3` **não foram tocados**.
+
+### 8.10 A outra sessão continua escrevendo no mesmo repositório
+
+A frente "esqueci a senha / cadastro público" avançou durante o dia: além dos arquivos de 05/08,
+apareceram `app/src/Auth/UseCase/ConfirmarCadastroUseCase.php`,
+`IniciarCadastroPublicoUseCase.php` e `app/src/Command/PurgarDadosExpiradosCommand.php` (com testes).
+**Nada disso é da cobrança.** `git add` sempre por caminho explícito.
