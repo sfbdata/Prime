@@ -96,9 +96,14 @@ em contradição com ela (só reporta divergência de status) e precisa ser **al
    importe sempre sobrescreve o sistema"*; aquele importador ainda só **reporta** divergência de status
    (`:598-631`) em vez de aplicá-la. É código em produção e mexe em saldo → spec + revisão própria.
 2. **Automatizar o download dos relatórios** do groupcondominios. ✅ A **secretaria autorizou** a
-   automação (04/08); ⏳ aguardando a equipe de desenvolvimento deles sobre **API**. Começar pela parte
-   comum aos dois caminhos — **validar a linha `Filtros:` do rodapé e recusar recorte inesperado** —, que
-   é o que impede o erro dos 75 acordos escondidos de se repetir, mesmo com download manual.
+   automação (04/08) e o download **está funcionando** (lote completo em `2026-08-04-completo/`).
+   🔴 **MAS a resposta do fornecedor chegou em 05/08 e foi NÃO:** *"O Group Condomínios infelizmente não
+   dispõe a API para terceiros"*. A automação usa as chamadas internas do site com o login da secretária
+   — **não é integração oficial**. Riscos, medições e encaminhamento em
+   `HANDOFF_AUTOMATIZAR_DOWNLOADS.md` §7.1. **Ler antes de mexer.**
+   ✅ Independente disso: **validar a linha `Filtros:` do rodapé e recusar recorte inesperado** — é o que
+   impede o erro dos acordos escondidos de se repetir, e **vale igual com download manual**. Provou-se em
+   04/08: a Receitas vinha filtrada só por 2026 e ninguém tinha visto.
 3. **Decisão (b) ainda ABERTA**: os 106 acordos ficam travados para cancelar pela tela.
 
 ## 6. A ordem para produção, quando você decidir

@@ -1,8 +1,16 @@
 # HANDOFF — Automatizar o download dos relatórios da contábil
 
-**Estado em 2026-08-04:** investigação da API **COMPLETA e provada**. 12 planilhas baixadas e conferidas.
-**Nenhuma linha de código implementada.** A frente agora inclui um segundo item: fazer o importe
-**sobrescrever a situação do acordo**.
+**Estado em 2026-08-05.** **44 commits não publicados, suíte 3224/3224, nada em produção.**
+
+**Feito:** a sobrescrita de situação do acordo (2 revisões) · a correção do hífen (2 revisões,
+R$ 49.038,17 que a leitura descartava) · a emissão dos relatórios pela API, com o lote completo em
+`planilhas atualizadas/2026-08-04-completo/` · a Receitas **sem filtro de data**, que sozinha destravou
+5 anos de histórico (TL1: 1.203 → 7.411 pagamentos, R$ 239 mil → R$ 1,27 milhão) · a AMLI incluída.
+
+**Falta, medido:** **R$ 24.553,73** ainda ficam de fora de uma importação do zero (§6.1), mais uma
+verificação de encargos que pode invalidar a inadimplência de TL1 e TL2 (§7.1).
+
+⚠️ **A automação de download NÃO é oficial** — ver §7.1 antes de mexer nela.
 
 ---
 
@@ -346,7 +354,96 @@ frente própria** (risco ALTO: mexe em saldo de devedor).
    (`PastaLocal` hoje, `GroupCondominiosApi` depois). Precedentes no repo: **DJEN**, **índices do BCB**,
    **sync do Drive**.
 
+## 6.3 ☑️ CHECKLIST — o que falta para os números baterem 100% com a contabilidade
+
+Estado em **05/08/2026**. Cada valor abaixo foi **medido** contra as planilhas reais, não estimado.
+
+### 🔴 Dinheiro que ainda fica de fora — R$ 24.553,73
+
+| # | O quê | Valor | Onde está o diagnóstico |
+|---|---|---:|---|
+| 1 | **Dívidas sem número de boleto (NN)** | **R$ 17.444,66** | §6.1 — 405 das 409 linhas nunca tiveram boleto; chave substituta = **caso + competência + classe** |
+| 2 | **Boletos só de encargos/honorário** | **R$ 4.396,07** | §6.1 — 13 boletos; decisão do dono já cobre (§6.2) |
+| 3 | **Valores divergentes** (planilha ≠ sistema) | **R$ 2.713,00** | §6.1 — 33 casos, planilha maior em 33 de 33; hoje só reportado |
+| 4 | 🆕 **Encargos de TL1/TL2 podem estar sobrescritos** | **não medido** | **§7.2** — fazer primeiro, é barato e pode invalidar o resto |
+
+Os itens 1–3 são **risco ALTO**: spec + teste provado por reintrodução + **duas** revisões cada.
+
+### 🟡 Completude e proteção (não é dinheiro perdido)
+
+| # | O quê | Por quê |
+|---|---|---|
+| 5 | Mover **criação de acordo** para o importador de Acordos | fecha os últimos **29** de 359 acordos (§6.0.2 — deixou de ser bloqueante) |
+| 6 | **Validador da linha `Filtros:`** | recusa arquivo com recorte errado; **teria pego o filtro de 2026 sozinho** |
+| 7 | Reemitir **cadastro da AMLI** | travou em `EM_PROCESSAMENTO` no sistema deles em 04/08 |
+| 8 | **Teste do zero** | limpar banco → importar tudo → bater com a contabilidade. **É a prova final.** O dono autorizou `--confirmar` **em banco descartável** para isto |
+
+### ⏸️ Do dono
+
+| # | O quê |
+|---|---|
+| 9 | Smokes na tela: "Já pago", caso 193, excluir recebimento, acordos sobrescritos |
+| 10 | Publicar os **44 commits** |
+| 11 | Deploy em produção (lembrar: prod é imagem baked, exige `./scripts/deploy-prod-tls.sh`) |
+| 12 | **Confirmar com a contábil** se a automação de download é permitida — §7.1 |
+
+### Ordem recomendada
+
+**4** (barato, pode mudar tudo) → **1** (maior fatia) → **2 e 3** (mesma diretriz) → **6** (trava o
+recorte) → **5** → **8** (a prova final).
+
 ## 7. Segurança
+
+### 7.1 🔴 A automação NÃO é oficial — o fornecedor disse que não fornece acesso a terceiros
+
+**Resposta do suporte do Group Condomínios, trazida pelo dono em 05/08:**
+> *"O Group Condomínios infelizmente não dispõe a API para terceiros :("*
+
+Isto **fecha** a pendência que a §5.1 do `HANDOFF_IMPORTAR_RECEITAS.md` registrava como *"aguardando a
+equipe de desenvolvimento deles sobre API"*. A resposta chegou, e foi **não**.
+
+**O que a automação realmente é, dito sem eufemismo:** ela repete as **mesmas chamadas internas que o
+navegador da secretária faz**, com o login dela. Não existe API pública; o que existe é o funcionamento
+interno do site, descoberto lendo o **`main.js` que o próprio site entrega ao navegador** (arquivo
+público, 29 MB). Nenhuma trava de autenticação foi contornada para entrar — é a conta do cliente,
+acessando os dados do cliente.
+
+**Riscos que ficam, e que o dono precisa pesar:**
+
+1. 🔴 **Eles barram acesso automatizado, e isso foi medido.** O cliente HTTP do Python levou
+   **Cloudflare Error 1010** (*"acesso negado com base na assinatura do seu navegador"*). O `curl` passa
+   hoje. A proteção existe e pode apertar sem aviso.
+2. 🔴 **Os termos de uso não foram lidos.** É comum haver cláusula proibindo acesso automatizado mesmo
+   com conta legítima. **Verificação pendente.**
+3. 🟠 **Sem compromisso de compatibilidade:** não é serviço contratado; mudaram o site, quebrou.
+4. 🟠 **A conta é de pessoa física** (a secretária) — o uso automatizado fica registrado no nome dela, e
+   é ela que seria bloqueada se considerarem indevido.
+
+**Encaminhamento recomendado (não executado):** perguntar formalmente **à contábil** — não ao suporte
+técnico —, já que a secretaria autorizou internamente em 04/08: *"vamos automatizar o download dos
+nossos próprios relatórios com o nosso login; há restrição?"* Autorizam → seguir, e pedir conta de
+serviço. Não autorizam → parar e voltar ao download manual.
+
+✅ **O plano não depende disso.** O **validador do rodapé** (§6, item 6) — a peça que teria pego o filtro
+de 2026 sozinho — **funciona igual com download manual**, e os arquivos já baixados seguem válidos.
+
+### 7.2 🔴 PENDENTE — os encargos de TL1 e TL2 podem estar sobrescritos
+
+Achado em 05/08, ao revisar o handoff. Decorre direto da §6.0.3.
+
+Os arquivos de **Inadimplência de TL1 e TL2** que estão em `2026-08-04-api/` foram emitidos **com os
+encargos enviados no payload** (TL1 20%, TL2 15% — a §3.7 registra *"conforme enviado"*). A §6.0.3 provou
+depois que o modo padrão usa **os percentuais cadastrados do próprio condomínio**, e que mandar os campos
+**sobrescreve** o cadastro.
+
+**Ninguém conferiu se 20% e 15% são os percentuais reais de TL1 e TL2.** Se não forem, a dívida das duas
+carteiras está errada **na origem** — antes de qualquer código do JusPrime tocar nela.
+
+**Como resolver (barato):** reemitir as duas inadimplências no **modo padrão** (`personalizarAcrescimos:
+false`, encargos omitidos) e comparar com os arquivos atuais. Foi assim que a AMLI foi validada. Fazer
+**antes** de qualquer importação com `--confirmar`.
+
+### 7.3 Credenciais e segredos
 
 - A credencial está em `docs/gestao-cobrancas/credencial.txt`, **no `.gitignore`** (arquivo nunca foi
   rastreado — não precisou reescrever histórico). Varredura confirmou: nenhum segredo em arquivo versionado.
