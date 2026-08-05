@@ -168,7 +168,7 @@ final class AceitarConvitePlataformaUseCaseTest extends TestCase
     {
         $invitation = $this->makeInvitation();
         $this->invitationRepo->method('encontrarPorToken')->willReturn($invitation);
-        $this->userRepo->method('findOneBy')->willReturn(new User());
+        $this->userRepo->method('encontrarPorEmailIgnorandoCaixa')->willReturn([new User()]);
         $this->em->expects($this->never())->method('persist');
 
         $this->expectException(\DomainException::class);

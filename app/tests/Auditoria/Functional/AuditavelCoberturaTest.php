@@ -6,6 +6,7 @@ namespace App\Tests\Auditoria\Functional;
 
 use App\AtualizacaoMonetaria\Entity\IndiceMonetario;
 use App\Auth\Entity\CadastroPendente;
+use App\Auth\Entity\RedefinicaoSenha;
 use App\Cliente\Entity\Cliente;
 use App\Cliente\Entity\ClienteDocumento;
 use App\Cliente\Entity\ClientePF;
@@ -51,6 +52,13 @@ final class AuditavelCoberturaTest extends KernelTestCase
 
         // Cadastro público efêmero (pré-conta, some em 24h na confirmação/expiração) — sem valor de auditoria
         CadastroPendente::class,
+
+        // Pedido de redefinição de senha: efêmero (1h), pré-autenticação e sem tenant. É
+        // purgado de fato — PurgarRedefinicoesSenhaUseCase, chamado pelo
+        // app:purgar-dados-expirados —, e não só por promessa de comentário. O fato relevante
+        // (a senha mudou) já é auditado no próprio User, com o hash fora por IGNORED_FIELDS.
+        // Auditar esta linha só espalharia IP/user agent para uma segunda tabela.
+        RedefinicaoSenha::class,
 
         // Domínios novos — auditoria não expandida nesta fatia (decisão de produto)
         UserProfile::class,

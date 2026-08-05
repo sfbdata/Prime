@@ -5,6 +5,7 @@ namespace App\Ponto\Repository;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Ponto\Entity\JustificativaPonto;
+use App\Ponto\Enum\TipoJustificativa;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -68,32 +69,82 @@ class JustificativaPontoRepository extends ServiceEntityRepository
             ->setParameter('inicio', $inicio)
             ->setParameter('fim', $fim)
             ->orderBy('j.data', 'DESC')
+            // Desempate obrigatório: nada impede duas justificativas na MESMA data (não há constraint
+            // única em user+data, e 34 dias em produção têm de 2 a 3 — o caso comum é esquecer duas
+            // batidas no mesmo dia). Sem esta segunda chave o SGBD não garante ordem entre elas, e a
+            // escolha do dia mudaria de um carregamento para o outro.
+            ->addOrderBy('j.id', 'ASC')
             ->getQuery()
             ->getResult();
     }
 
     /**
      * Retorna as justificativas do mês indexadas por 'Y-m-d' (para uso no FolhaPontoBuilder).
-     * Se houver mais de uma justificativa por dia, prevalece a abonada; senão a mais recente.
      *
      * @return array<string, JustificativaPonto>
      */
     public function findByUserAndCompetenciaIndexed(User $user, int $ano, int $mes): array
     {
-        $justificativas = $this->findByUserAndCompetencia($user, $ano, $mes);
+        return $this->indexarPorDia($this->findByUserAndCompetencia($user, $ano, $mes));
+    }
 
+    /**
+     * Escolhe UMA justificativa por dia, por mérito e de forma determinística.
+     *
+     * O cálculo da folha só honra uma justificativa por dia, mas o sistema aceita várias — e aceita
+     * de propósito: o caso comum em produção é esquecer duas batidas no mesmo dia e lançar uma
+     * justificativa para cada, com o horário de cada uma. Quando as concorrentes se comportam igual
+     * (dois esquecimentos, por exemplo) tanto faz quem vence; o problema é o dia que tem uma que
+     * abona e outra que não.
+     *
+     * Precedência: **abonada que perdoa o déficit** > abonada que não perdoa (categoria técnica e
+     * falta não justificada) > pendente/rejeitada. Empate dentro do mesmo nível: vence a ÚLTIMA da
+     * ordem recebida — que é a de maior id, porque `findByUserAndCompetencia` ordena por id
+     * crescente. Quem chamar com uma lista fora dessa ordem recebe outro empate; a ordenação da
+     * consulta é parte da regra, não enfeite.
+     *
+     * A regra de negócio: se o admin deferiu um atestado médico naquele dia, houve ausência
+     * justificada — um "esquecimento de registro" lançado ao lado não apaga isso. Escolher pelo
+     * que abona também é o que o sistema fazia antes de `abonaSaldo()` existir (qualquer abonada
+     * zerava o negativo), então nenhum dia passa a ser cobrado a mais por causa do desempate.
+     *
+     * Público e puro para poder ser testado sem banco.
+     *
+     * @param JustificativaPonto[] $justificativas
+     * @return array<string, JustificativaPonto>
+     */
+    public function indexarPorDia(array $justificativas): array
+    {
         $indexed = [];
         foreach ($justificativas as $j) {
             $key = $j->getData()->format('Y-m-d');
-            if (!isset($indexed[$key])) {
-                $indexed[$key] = $j;
-            } elseif ($j->getStatus() === 'abonado') {
-                // Abonada tem prioridade sobre pendente/rejeitada
+            $atual = $indexed[$key] ?? null;
+
+            if ($atual === null || $this->precedencia($j) >= $this->precedencia($atual)) {
                 $indexed[$key] = $j;
             }
         }
 
         return $indexed;
+    }
+
+    /**
+     * Peso da justificativa na disputa pelo dia. Maior vence; `>=` no chamador faz a de maior id
+     * ganhar o empate, já que a consulta vem ordenada por id crescente.
+     */
+    private function precedencia(JustificativaPonto $justificativa): int
+    {
+        if ($justificativa->getStatus() !== 'abonado') {
+            return 0;
+        }
+
+        $tipo = $justificativa->getTipo() !== null
+            ? TipoJustificativa::tryFrom($justificativa->getTipo())
+            : null;
+
+        // Tipo nulo ou slug desconhecido abona — mesmo default do FolhaPontoBuilder, para que os
+        // dois lugares não discordem sobre o que uma justificativa sem tipo faz.
+        return ($tipo === null || $tipo->abonaSaldo()) ? 2 : 1;
     }
 
     /**

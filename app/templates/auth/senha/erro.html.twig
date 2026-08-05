@@ -1,0 +1,35 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Link inválido{% endblock %}
+
+{% block stylesheets %}
+{% include '_fundo_auth.html.twig' %}
+<style>
+.senha-wrap { max-width: 460px; }
+.senha-card {
+    border: 1px solid var(--bs-border-color); border-radius: 1rem;
+    background: var(--bs-body-bg);
+    box-shadow: 0 18px 48px rgba(1,42,70,.22); overflow: hidden;
+}
+.senha-body { padding: 2.25rem 1.75rem; text-align: center; }
+.senha-icone {
+    width: 64px; height: 64px; margin: 0 auto 1rem; border-radius: 50%;
+    display: grid; place-items: center; font-size: 1.6rem; color: #fff;
+    background: linear-gradient(135deg, #b02a37, #dc3545);
+}
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="senha-wrap mx-auto py-5">
+    <div class="senha-card">
+        <div class="senha-body">
+            <div class="senha-icone"><i class="bi bi-exclamation-triangle"></i></div>
+            <h1 class="h5 fw-bold">Não foi possível usar este link</h1>
+            <p class="text-secondary mb-4">{{ motivo }}</p>
+            <a href="{{ path('auth_senha_esqueci') }}" class="btn btn-primary">Pedir um novo link</a>
+            <p class="mt-3 mb-0"><a href="{{ path('app_login') }}" class="small text-secondary">Voltar ao login</a></p>
+        </div>
+    </div>
+</div>
+{% endblock %}

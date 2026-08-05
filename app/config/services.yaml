@@ -95,6 +95,10 @@ services:
     App\Djen\Service\DjenClientInterface: '@App\Djen\Service\DjenClient'
     App\Djen\Service\NotificadorPublicacoesDjenInterface: '@App\Djen\Service\NotificadorPublicacoesDjen'
 
+    # Envio do link de redefinição de senha (interface para o UseCase poder ser testado
+    # sem SMTP — é o mailer que prova a resposta neutra da recuperação de senha).
+    App\Auth\Service\RedefinicaoSenhaMailerInterface: '@App\Auth\Service\RedefinicaoSenhaMailer'
+
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
 

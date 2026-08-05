@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Tests\Tenant\Functional;
 
 use App\Auth\Entity\CadastroPendente;
+use App\Auth\Entity\RedefinicaoSenha;
+use App\Entity\Auth\User;
 use App\Command\PurgarDadosExpiradosCommand;
 use App\Entity\Tenant\Tenant;
 use Doctrine\DBAL\Connection;
@@ -14,6 +16,7 @@ use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
+use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 #[CoversClass(PurgarDadosExpiradosCommand::class)]
 final class PurgarDadosExpiradosCommandTest extends KernelTestCase
@@ -45,11 +48,12 @@ final class PurgarDadosExpiradosCommandTest extends KernelTestCase
         self::assertSame(1, (int) $this->conn->fetchOne('SELECT COUNT(*) FROM tenant WHERE id = :t', ['t' => $tenantId]), 'dry-run não apaga tenant');
     }
 
-    #[TestDox('--force executa as duas faxinas (cadastro expirado + escritório em quarentena)')]
-    public function testForceExecutaAsDuasFaxinas(): void
+    #[TestDox('--force executa as três faxinas (cadastro expirado + redefinição de senha + escritório em quarentena)')]
+    public function testForceExecutaAsTresFaxinas(): void
     {
-        $cadastroId = $this->criarCadastroExpirado();
-        $tenantId   = (int) $this->criarTenantPurgavel()->getId();
+        $cadastroId   = $this->criarCadastroExpirado();
+        $redefinicaoId = $this->criarRedefinicaoVencida();
+        $tenantId     = (int) $this->criarTenantPurgavel()->getId();
 
         $tester = $this->tester();
         $tester->execute(['--force' => true]);
@@ -57,7 +61,36 @@ final class PurgarDadosExpiradosCommandTest extends KernelTestCase
 
         $this->em->clear();
         self::assertNull($this->em->find(CadastroPendente::class, $cadastroId), 'cadastro expirado apagado');
+        // Sem esta asserção, o UseCase de purga podia continuar existindo sem chamador
+        // nenhum — que foi exatamente como ele nasceu.
+        self::assertNull($this->em->find(RedefinicaoSenha::class, $redefinicaoId), 'pedido de redefinição vencido apagado');
         self::assertSame(0, (int) $this->conn->fetchOne('SELECT COUNT(*) FROM tenant WHERE id = :t', ['t' => $tenantId]), 'escritório em quarentena purgado');
+    }
+
+    /** @return int id do pedido de redefinição já vencido (guarda IP + user agent) */
+    private function criarRedefinicaoVencida(): int
+    {
+        $hasher = static::getContainer()->get(UserPasswordHasherInterface::class);
+
+        $user = new User();
+        $user->setEmail('purgacmd_' . uniqid() . '@adv.com');
+        $user->setFullName('Purga Comando');
+        $user->setRoles(['ROLE_USER']);
+        $user->setIsActive(true);
+        $user->setPassword($hasher->hashPassword($user, 'x'));
+        $this->em->persist($user);
+
+        $pedido = new RedefinicaoSenha(
+            user: $user,
+            tokenHash: RedefinicaoSenha::hashDoToken(bin2hex(random_bytes(32))),
+            expiraEm: new \DateTimeImmutable('-2 hours'),
+            ip: '1.2.3.4',
+            userAgent: 'UA',
+        );
+        $this->em->persist($pedido);
+        $this->em->flush();
+
+        return (int) $pedido->getId();
     }
 
     #[TestDox('Falha na purga de um escritório NÃO aborta os demais (retorna FAILURE)')]

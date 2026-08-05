@@ -1,0 +1,45 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Criar nova senha{% endblock %}
+
+{% block stylesheets %}
+{% include '_fundo_auth.html.twig' %}
+<style>
+.senha-wrap { max-width: 460px; }
+.senha-card {
+    border: 1px solid var(--bs-border-color); border-radius: 1rem;
+    background: var(--bs-body-bg);
+    box-shadow: 0 18px 48px rgba(1,42,70,.22); overflow: hidden;
+}
+.senha-head {
+    text-align: center; padding: 2rem 1.5rem 1.25rem;
+    background: var(--bs-tertiary-bg); border-bottom: 1px solid var(--bs-border-color);
+}
+.senha-logo { height: 54px; width: auto; max-width: 80%; margin-bottom: 1rem; }
+[data-bs-theme="dark"] .senha-logo { filter: brightness(0) invert(1); opacity: .92; }
+.senha-sub { color: var(--bs-secondary-color); font-size: .9rem; margin: .3rem 0 0; }
+.senha-body { padding: 1.5rem; }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="senha-wrap mx-auto py-5">
+    <div class="senha-card">
+        <div class="senha-head">
+            <img src="/images/logo/bluejus_logo.svg" alt="BlueJus" class="senha-logo">
+            <h1 class="h4 fw-bold mb-0">Criar nova senha</h1>
+            <p class="senha-sub">Use no mínimo 8 caracteres. Ao salvar, você sairá das outras sessões.</p>
+        </div>
+        <div class="senha-body">
+            {{ form_start(form) }}
+                {{ form_row(form.senha.first, {'attr': {'class': 'form-control', 'autofocus': true}, 'label_attr': {'class': 'form-label'}, 'row_attr': {'class': 'mb-3'}}) }}
+                {{ form_row(form.senha.second, {'attr': {'class': 'form-control'}, 'label_attr': {'class': 'form-label'}, 'row_attr': {'class': 'mb-3'}}) }}
+
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-shield-lock me-1"></i> Salvar nova senha
+                </button>
+            {{ form_end(form) }}
+        </div>
+    </div>
+</div>
+{% endblock %}

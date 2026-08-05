@@ -2,6 +2,9 @@
 declare(strict_types=1);
 namespace App\Profile\Controller;
 
+use App\Auth\DTO\AlterarSenhaInput;
+use App\Auth\Form\AlterarSenhaType;
+use App\Auth\UseCase\AlterarSenhaUseCase;
 use App\Auth\UseCase\VerificarOabUseCase;
 use App\Entity\Auth\User;
 use App\Profile\DTO\AtualizarFotoInput;
@@ -42,6 +45,7 @@ final class ProfileController extends AbstractController
         private readonly AtualizarOabPerfilUseCase $atualizarOab,
         private readonly VerificarOabUseCase $verificarOab,
         private readonly RateLimiterFactory $oabVerificarLimiter,
+        private readonly AlterarSenhaUseCase $alterarSenha,
     ) {
     }
 
@@ -68,11 +72,54 @@ final class ProfileController extends AbstractController
         $oabInput->oabUf = $output->oabUf;
         $formOab = $this->createForm(OabPerfilType::class, $oabInput);
 
+        $formSenha = $this->createForm(AlterarSenhaType::class, new AlterarSenhaInput(), [
+            'action' => $this->generateUrl('app_profile_senha'),
+        ]);
+
         return $this->render('profile/index.html.twig', [
             'perfil'     => $output,
             'form_dados' => $formDados->createView(),
             'form_oab'   => $formOab->createView(),
+            'form_senha' => $formSenha->createView(),
         ]);
+    }
+
+    #[Route('/senha', name: '_senha', methods: ['POST'])]
+    public function alterarSenha(Request $request): Response
+    {
+        /** @var User $user */
+        $user = $this->getUser();
+
+        $input = new AlterarSenhaInput();
+        $form  = $this->createForm(AlterarSenhaType::class, $input);
+        $form->handleRequest($request);
+
+        if (!$form->isSubmitted() || !$form->isValid()) {
+            $this->addFlash('error', 'Verifique os dados informados. A nova senha precisa ter ao menos 8 caracteres e as duas devem conferir.');
+
+            return $this->redirectToRoute('app_profile');
+        }
+
+        try {
+            $this->alterarSenha->executar($user, $input->senhaAtual, $input->senha);
+        } catch (\DomainException $e) {
+            $this->addFlash('error', $e->getMessage());
+
+            return $this->redirectToRoute('app_profile');
+        }
+
+        // ESTA sessão continua valendo, e é isso mesmo que se quer: quem acabou de trocar a
+        // própria senha conscientemente não precisa entrar de novo. O token é regravado na
+        // sessão ao fim desta requisição, já com o hash novo.
+        //
+        // Quem cai são as OUTRAS sessões (e os cookies "lembrar-me"), na requisição seguinte
+        // delas, quando o ContextListener comparar o hash guardado com o do banco.
+        //
+        // Medido em smoke (2026-08-05): mandar para o login aqui era pior que inútil — o
+        // usuário era jogado de volta para dentro, sem entender por que passou pelo login.
+        $this->addFlash('success', 'Senha alterada com sucesso. As outras sessões conectadas foram encerradas.');
+
+        return $this->redirectToRoute('app_profile');
     }
 
     #[Route('/dados', name: '_dados', methods: ['POST'])]

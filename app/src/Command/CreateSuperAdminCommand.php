@@ -40,7 +40,9 @@ class CreateSuperAdminCommand extends Command
         $password = $input->getArgument('password');
 
         $user = new User();
-        $user->setEmail($email);
+        // Normaliza a caixa como os demais caminhos de criação de conta: e-mail é identidade,
+        // e `Ana@` some de qualquer busca normalizada (inclusive da recuperação de senha).
+        $user->setEmail(mb_strtolower(trim((string) $email)));
         $user->setPassword($this->passwordHasher->hashPassword($user, $password));
         $user->setFullName('Super Admin');
         $user->setRoles(['ROLE_SUPER_ADMIN']);

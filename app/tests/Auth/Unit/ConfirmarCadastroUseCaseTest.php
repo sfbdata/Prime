@@ -64,7 +64,7 @@ final class ConfirmarCadastroUseCaseTest extends TestCase
     {
         $cadastro = $this->pendente();
         $this->cadastroRepository->method('encontrarPorToken')->willReturn($cadastro);
-        $this->userRepository->method('findOneBy')->willReturn(null);
+        $this->userRepository->method('encontrarPorEmailIgnorandoCaixa')->willReturn([]);
         $this->bootstrap->expects($this->once())->method('bootstrap');
         $this->em->expects($this->once())->method('flush');
 
@@ -116,7 +116,7 @@ final class ConfirmarCadastroUseCaseTest extends TestCase
     {
         $cadastro = $this->pendente();
         $this->cadastroRepository->method('encontrarPorToken')->willReturn($cadastro);
-        $this->userRepository->method('findOneBy')->willReturn(new User());
+        $this->userRepository->method('encontrarPorEmailIgnorandoCaixa')->willReturn([new User()]);
         $this->bootstrap->expects($this->never())->method('bootstrap');
 
         $this->expectException(\DomainException::class);
@@ -128,7 +128,7 @@ final class ConfirmarCadastroUseCaseTest extends TestCase
     {
         $cadastro = $this->pendente();
         $this->cadastroRepository->method('encontrarPorToken')->willReturn($cadastro);
-        $this->userRepository->method('findOneBy')->willReturn(null);
+        $this->userRepository->method('encontrarPorEmailIgnorandoCaixa')->willReturn([]);
         $this->em->method('flush')->willThrowException($this->createStub(UniqueConstraintViolationException::class));
 
         $this->expectException(\DomainException::class);

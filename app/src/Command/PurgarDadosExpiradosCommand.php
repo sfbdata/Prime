@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Command;
 
 use App\Auth\UseCase\PurgarCadastrosPendentesUseCase;
+use App\Auth\UseCase\PurgarRedefinicoesSenhaUseCase;
 use App\Repository\TenantRepository;
 use App\Tenant\UseCase\PurgarEscritorioUseCase;
 use Doctrine\ORM\EntityManagerInterface;
@@ -29,7 +30,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  */
 #[AsCommand(
     name: 'app:purgar-dados-expirados',
-    description: 'Purga cadastros pendentes expirados e escritórios em quarentena vencida (hard delete).',
+    description: 'Purga cadastros pendentes expirados, pedidos de redefinição de senha consumidos/vencidos e escritórios em quarentena vencida (hard delete).',
 )]
 final class PurgarDadosExpiradosCommand extends Command
 {
@@ -38,6 +39,7 @@ final class PurgarDadosExpiradosCommand extends Command
 
     public function __construct(
         private readonly PurgarCadastrosPendentesUseCase $purgarCadastros,
+        private readonly PurgarRedefinicoesSenhaUseCase $purgarRedefinicoes,
         private readonly TenantRepository $tenantRepository,
         private readonly PurgarEscritorioUseCase $purgarEscritorio,
         private readonly EntityManagerInterface $em,
@@ -88,6 +90,11 @@ final class PurgarDadosExpiradosCommand extends Command
             $cadastros = $this->purgarCadastros->executar($agora, $dryRun);
             $io->section('Cadastros pendentes');
             $io->text(sprintf('%d registro(s) %s.', $cadastros, $dryRun ? 'seriam purgados' : 'purgados'));
+
+            // (A2) redefinicao_senha — guarda IP + user agent de cada pedido
+            $redefinicoes = $this->purgarRedefinicoes->executar($agora, $dryRun);
+            $io->section('Pedidos de redefinição de senha');
+            $io->text(sprintf('%d registro(s) %s.', $redefinicoes, $dryRun ? 'seriam purgados' : 'purgados'));
 
             // (B) escritórios em quarentena vencida
             $limite    = $agora->modify(sprintf('-%d days', $this->carenciaPurgaDias));

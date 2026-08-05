@@ -46,14 +46,18 @@ final class ConfirmarCadastroUseCase
             throw new \DomainException('Este link de confirmação expirou. Refaça o cadastro.');
         }
 
-        if ($this->userRepository->findOneBy(['email' => $cadastro->getEmail()]) !== null) {
+        // Ignora a caixa: o UNIQUE do banco é case-sensitive e deixaria nascer uma segunda
+        // conta que só difere em maiúsculas — indistinguível dali em diante.
+        if ($this->userRepository->encontrarPorEmailIgnorandoCaixa($cadastro->getEmail()) !== []) {
             throw new \DomainException('Já existe uma conta com este e-mail.');
         }
 
         try {
             return $this->em->wrapInTransaction(function () use ($cadastro): User {
                 $user = new User();
-                $user->setEmail($cadastro->getEmail());
+                // Normaliza aqui também, e não só no Iniciar: cadastros pendentes gravados
+                // ANTES desta correção vivem até 24h e confirmariam com a caixa original.
+                $user->setEmail(mb_strtolower(trim($cadastro->getEmail())));
                 $user->setFullName($cadastro->getNomeCompleto());
                 $user->setIsActive(true);
                 $user->setRoles(['ROLE_USER']);

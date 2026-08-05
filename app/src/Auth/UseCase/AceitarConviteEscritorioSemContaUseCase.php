@@ -40,7 +40,9 @@ final class AceitarConviteEscritorioSemContaUseCase
             throw new \DomainException('Este convite está expirado.');
         }
 
-        if ($this->userRepository->findOneBy(['email' => $invitation->getEmail()]) !== null) {
+        // Ignora a caixa: o UNIQUE do banco é case-sensitive, então uma busca exata deixaria
+        // nascer `Ana@` ao lado de `ana@` — duas contas que ninguém consegue distinguir depois.
+        if ($this->userRepository->encontrarPorEmailIgnorandoCaixa($invitation->getEmail()) !== []) {
             throw new \DomainException('Já existe uma conta com este e-mail.');
         }
 
@@ -59,7 +61,9 @@ final class AceitarConviteEscritorioSemContaUseCase
         }
 
         $user = new User();
-        $user->setEmail($invitation->getEmail());
+        // Normaliza a caixa: o e-mail é a identidade da conta, e `Ana@` gravado aqui viraria
+        // uma conta que some de qualquer busca normalizada — inclusive da recuperação de senha.
+        $user->setEmail(mb_strtolower(trim((string) $invitation->getEmail())));
         $user->setFullName($fullName);
         $user->setIsActive(true);
         $user->setRoles(['ROLE_USER']);

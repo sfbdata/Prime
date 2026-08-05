@@ -21,6 +21,38 @@ class UserRepository extends ServiceEntityRepository
     }
 
     /**
+     * Busca por e-mail ignorando maiúsculas/minúsculas.
+     *
+     * O índice único de `user.email` é btree comum, sem `lower()`: para o banco,
+     * `Ana@adv.com` e `ana@adv.com` são contas diferentes. Quem gravou o e-mail com
+     * maiúscula loga normalmente (o login compara o valor cru), mas some de qualquer
+     * busca normalizada — e, na recuperação de senha, sumir em silêncio é ficar
+     * trancado para fora.
+     *
+     * Devolve LISTA, não um único registro, justamente para o chamador poder tratar a
+     * ambiguidade: se duas contas diferirem só na caixa, nenhuma delas é "a" conta.
+     *
+     * @return User[]
+     */
+    public function encontrarPorEmailIgnorandoCaixa(string $email): array
+    {
+        return $this->createQueryBuilder('u')
+            ->where('LOWER(u.email) = :email')
+            ->setParameter('email', mb_strtolower(trim($email)))
+            ->getQuery()
+            ->getResult();
+    }
+
+    public function salvar(User $user, bool $flush = false): void
+    {
+        $this->getEntityManager()->persist($user);
+
+        if ($flush === true) {
+            $this->getEntityManager()->flush();
+        }
+    }
+
+    /**
      * @return array<int, array{value: string, label: string}>
      */
     public function findAuditFilterOptions(?int $tenantId): array

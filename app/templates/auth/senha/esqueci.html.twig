@@ -1,0 +1,54 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Esqueci minha senha{% endblock %}
+
+{% block stylesheets %}
+{% include '_fundo_auth.html.twig' %}
+<style>
+.senha-wrap { max-width: 460px; }
+.senha-card {
+    border: 1px solid var(--bs-border-color); border-radius: 1rem;
+    background: var(--bs-body-bg);
+    box-shadow: 0 18px 48px rgba(1,42,70,.22); overflow: hidden;
+}
+.senha-head {
+    text-align: center; padding: 2rem 1.5rem 1.25rem;
+    background: var(--bs-tertiary-bg); border-bottom: 1px solid var(--bs-border-color);
+}
+.senha-logo { height: 54px; width: auto; max-width: 80%; margin-bottom: 1rem; }
+[data-bs-theme="dark"] .senha-logo { filter: brightness(0) invert(1); opacity: .92; }
+.senha-sub { color: var(--bs-secondary-color); font-size: .9rem; margin: .3rem 0 0; }
+.senha-body { padding: 1.5rem; }
+/* Honeypot: fora da tela para gente, presente no DOM para robô. */
+.senha-armadilha { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="senha-wrap mx-auto py-5">
+    <div class="senha-card">
+        <div class="senha-head">
+            <img src="/images/logo/bluejus_logo.svg" alt="BlueJus" class="senha-logo">
+            <h1 class="h4 fw-bold mb-0">Esqueci minha senha</h1>
+            <p class="senha-sub">Informe o e-mail da sua conta e enviaremos um link para criar uma nova senha.</p>
+        </div>
+        <div class="senha-body">
+            {{ form_start(form) }}
+                {{ form_row(form.email, {'attr': {'class': 'form-control', 'autofocus': true}, 'label_attr': {'class': 'form-label'}, 'row_attr': {'class': 'mb-3'}}) }}
+
+                <div class="senha-armadilha" aria-hidden="true">
+                    {{ form_row(form.confirmacao, {'attr': {'tabindex': '-1', 'autocomplete': 'off'}}) }}
+                </div>
+
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-envelope-arrow-up me-1"></i> Enviar link de redefinição
+                </button>
+            {{ form_end(form) }}
+
+            <p class="text-center text-muted mt-3 mb-0">
+                Lembrou? <a href="{{ path('app_login') }}">Voltar ao login</a>
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}

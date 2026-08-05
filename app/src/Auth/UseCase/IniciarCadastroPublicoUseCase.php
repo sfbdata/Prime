@@ -36,10 +36,15 @@ final class IniciarCadastroPublicoUseCase
 
     public function executar(IniciarCadastroPublicoInput $input, string $ip, ?string $userAgent): CadastroPendente
     {
-        $email = trim($input->email);
+        // Normaliza a caixa como os convites já fazem. Sem isso, `Ana@adv.com` nasce como
+        // conta distinta de `ana@adv.com` (o índice único é btree comum, sem lower()) e
+        // some de qualquer busca normalizada — inclusive da recuperação de senha.
+        $email = mb_strtolower(trim($input->email));
         $oabUf = strtoupper($input->oabUf);
 
-        if ($this->userRepository->findOneBy(['email' => $email]) !== null) {
+        // Checagem de duplicidade ignorando a caixa: senão o próprio auto-cadastro cria
+        // a segunda conta que depois ninguém consegue distinguir.
+        if ($this->userRepository->encontrarPorEmailIgnorandoCaixa($email) !== []) {
             throw new \DomainException('Já existe uma conta com este e-mail. Faça login para criar o escritório por dentro.');
         }
 

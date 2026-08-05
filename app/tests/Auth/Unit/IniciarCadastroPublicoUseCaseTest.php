@@ -60,7 +60,7 @@ final class IniciarCadastroPublicoUseCaseTest extends TestCase
     #[TestDox('Cria o cadastro pendente com senha hasheada quando e-mail livre e OAB válida')]
     public function testCriaCadastroPendente(): void
     {
-        $this->userRepository->method('findOneBy')->willReturn(null);
+        $this->userRepository->method('encontrarPorEmailIgnorandoCaixa')->willReturn([]);
         $this->cadastroRepository->method('encontrarPorEmail')->willReturn([]);
         $this->hasher->method('hashPassword')->willReturn('HASH');
         $this->em->expects($this->once())->method('persist')->with(self::isInstanceOf(CadastroPendente::class));
@@ -79,7 +79,7 @@ final class IniciarCadastroPublicoUseCaseTest extends TestCase
     #[TestDox('Falha quando já existe conta com o e-mail')]
     public function testFalhaEmailJaExiste(): void
     {
-        $this->userRepository->method('findOneBy')->willReturn(new User());
+        $this->userRepository->method('encontrarPorEmailIgnorandoCaixa')->willReturn([new User()]);
         $this->em->expects($this->never())->method('persist');
 
         $this->expectException(\DomainException::class);
@@ -89,7 +89,7 @@ final class IniciarCadastroPublicoUseCaseTest extends TestCase
     #[TestDox('Falha quando a OAB é inválida (formato)')]
     public function testFalhaOabInvalida(): void
     {
-        $this->userRepository->method('findOneBy')->willReturn(null);
+        $this->userRepository->method('encontrarPorEmailIgnorandoCaixa')->willReturn([]);
         $this->em->expects($this->never())->method('persist');
 
         $this->expectException(\InvalidArgumentException::class);
@@ -99,7 +99,7 @@ final class IniciarCadastroPublicoUseCaseTest extends TestCase
     #[TestDox('Falha quando a OAB está totalmente ausente (obrigatória no Passo 1)')]
     public function testFalhaOabTotalmenteAusente(): void
     {
-        $this->userRepository->method('findOneBy')->willReturn(null);
+        $this->userRepository->method('encontrarPorEmailIgnorandoCaixa')->willReturn([]);
         $this->em->expects($this->never())->method('persist');
 
         $this->expectException(\InvalidArgumentException::class);
@@ -110,7 +110,7 @@ final class IniciarCadastroPublicoUseCaseTest extends TestCase
     public function testRemovePendentesAnteriores(): void
     {
         $anterior = new CadastroPendente('novo@adv.com', 'tok', 'X', 'Y', '1', 'SP', 'h', '0.0.0.0', new \DateTimeImmutable('+1 hour'));
-        $this->userRepository->method('findOneBy')->willReturn(null);
+        $this->userRepository->method('encontrarPorEmailIgnorandoCaixa')->willReturn([]);
         $this->cadastroRepository->method('encontrarPorEmail')->willReturn([$anterior]);
         $this->hasher->method('hashPassword')->willReturn('HASH');
         $this->em->expects($this->once())->method('remove')->with($anterior);

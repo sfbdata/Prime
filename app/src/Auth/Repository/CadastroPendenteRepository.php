@@ -31,7 +31,14 @@ class CadastroPendenteRepository extends ServiceEntityRepository
      */
     public function encontrarPorEmail(string $email): array
     {
-        return $this->findBy(['email' => $email]);
+        // Ignora a caixa: pendentes gravados antes da normalização (`Ana@Adv.com`) não seriam
+        // encontrados por uma busca exata com o e-mail já minúsculo, e sobreviveriam ao
+        // reinício do cadastro — continuando confirmáveis.
+        return $this->createQueryBuilder('c')
+            ->where('LOWER(c.email) = :email')
+            ->setParameter('email', mb_strtolower(trim($email)))
+            ->getQuery()
+            ->getResult();
     }
 
     /**

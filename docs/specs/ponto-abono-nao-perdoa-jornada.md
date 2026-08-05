@@ -72,13 +72,38 @@ para o admin **corrigir as batidas**; abonar por cima devolveria ao dia um núme
 É essa premissa que faz junho cair de +22:51 para +6:29: os "Ajuste de Jornada (Parcial)" de 01, 02,
 05, 09, 10 e 11/06 caem em dias incompletos e param de somar.
 
-### 3. A coluna "Horas Trabalhadas" continua mostrando o medido
+### 3. Duas justificativas no mesmo dia: vence a que abona
+
+O sistema **aceita** várias justificativas por data — não há constraint única em `(user_id, data)`, e
+isso é intencional: o caso comum é esquecer duas batidas no mesmo dia e lançar uma para cada, com o
+horário de cada uma. Medido em produção: **34 dias com 2 a 3 justificativas**, 28 deles só
+esquecimentos, em 5 colaboradores diferentes.
+
+Mas o cálculo só honra uma por dia, e a regra 1 tornou a escolha relevante: um dia com
+`esquecimento_registro (abonado)` **e** `atestado_medico (abonado)` — existe, 02/06/2026 — daria
+saldos opostos conforme quem vencesse. A consulta ordenava só por `data`, então entre linhas da mesma
+data o SGBD não garantia ordem: **o saldo do dia podia mudar de um carregamento para o outro**.
+
+`JustificativaPontoRepository::indexarPorDia` passa a escolher por mérito:
+**abonada que perdoa o déficit** > abonada que não perdoa (técnica, falta não justificada) >
+pendente/rejeitada. Empate: a última da ordem recebida, que é a de maior `id` porque a consulta
+ganhou `addOrderBy('j.id', 'ASC')` — a ordenação faz parte da regra, não é enfeite.
+
+Se o admin deferiu um atestado naquele dia, houve ausência justificada; um esquecimento lançado ao
+lado não apaga isso. Escolher pelo que abona também reproduz o comportamento anterior a
+`abonaSaldo()` (qualquer abonada zerava), então **nenhum dia passa a ser cobrado a mais por causa do
+desempate**.
+
+Decisão do dono: **não bloquear** a criação de justificativas repetidas — 28 dos 34 casos são uso
+legítimo, e barrar quebraria um fluxo que cinco pessoas usam.
+
+### 4. A coluna "Horas Trabalhadas" continua mostrando o medido
 
 A regra 2 é sobre o **saldo**. Onde há como medir a permanência, ela continua exibida — assim
 "Detalhe de Horas Trabalhadas no Mês" não despenca no documento assinado por causa de uma batida
 faltante.
 
-### 4. A pendência aparece só nas telas internas
+### 5. A pendência aparece só nas telas internas
 
 `_folha_table.html.twig` (que serve as duas telas: `/ponto` do colaborador e a ficha do admin) ganha
 o marcador. **PDF e XLSX não mudam de layout** — decisão do dono: o documento assinado não anuncia
@@ -124,8 +149,12 @@ Ver `project_ponto_edlucia_correcao` para o contexto da rebaseline de meio perí
   nas três camadas da cascata), `FolhaPontoBuilderTest` (técnico não zera; legal/operacional continua
   zerando; parcial continua somando; dia incompleto fica em 0 mesmo com justificativa; tipo `null`
   continua zerando).
-- Functional: reprodução de 06 e 07/2026 da EDLUCIA com as batidas e justificativas exatas dos PDFs,
-  assertando **+6:29** e **−30:33**. É o único teste que pega os dois defeitos interagindo.
+- Unit: `JustificativaPontoIndexacaoTest` — desempate por mérito, e sobretudo **o mesmo resultado com
+  a ordem de entrada invertida**, que é a asserção que fecha a porta do não-determinismo.
+- Functional: reprodução de 06 e 07/2026 da EDLUCIA com as batidas e justificativas exatas dos PDFs.
+  É o único teste que pega os dois defeitos interagindo. ⚠️ Ele assere **+6:40** e **−30:22**, não os
+  números de produção acima: o PDF só publica HH:MM e `diffMinutos` descarta os segundos (~11 min/mês),
+  que não são recuperáveis do PDF. **Não "corrigir" o teste para bater com o documento.**
 - **Prova por injeção:** reverter cada regra separadamente e confirmar vermelho. Teste verde não prova
   nada até a prova ser provada.
 - Sem migration — o banco de horas é 100% calculado ao vivo.

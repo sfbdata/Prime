@@ -31,6 +31,25 @@ framework:
             policy: sliding_window
             limit: 5
             interval: '1 hour'
+        # Recuperação de senha: dois limites somados, com papéis diferentes.
+        #
+        # O de e-mail é a defesa REAL da vítima: não importa de onde venha o pedido.
+        #
+        # O de IP é largo de propósito (30, não 5). Enquanto SYMFONY_TRUSTED_PROXIES não
+        # estiver confirmado na VPS, getClientIp() devolve o IP do nginx — a MESMA chave
+        # para todo mundo. Com limite baixo, um punhado de pedidos derruba a recuperação
+        # de senha da plataforma inteira, e um escritório com saída NAT única se derruba
+        # sozinho. Ele só vira defesa de verdade quando o IP do cliente for o real.
+        senha_esqueci_ip:
+            policy: sliding_window
+            limit: 30
+            interval: '1 hour'
+        # 5, não 3: com 3 um atacante tranca a recuperação de uma vítima gastando a cota
+        # dela, e o usuário legítimo que digita errado duas vezes já chegava no limite.
+        senha_esqueci_email:
+            policy: sliding_window
+            limit: 5
+            interval: '1 hour'
 
     # Note that the session will be started ONLY if you read or write from it.
     session: true
