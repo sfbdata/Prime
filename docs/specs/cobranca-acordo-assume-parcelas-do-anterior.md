@@ -353,3 +353,81 @@ Suíte completa: **3.407 testes verdes**.
    terceiro caminho. **Precisa de teste nos dois.**
 3. **Ordem das abas.** Aceitar na porta A e recusar na porta B (ou vice-versa) faria o resultado depender
    da ordem do arquivo. Por isso as duas portas mudam juntas, e a INV-S3 as trava.
+4. **Lote com a MESMA aba duas vezes, uma delas `Cancelado`.** `processar()` não deduplica abas por
+   número. Uma aba pode desativar o acordo antes de a aba do sucessor chegar, e nesse instante
+   `motivoParaNaoDesativar` ainda não tem nada marcado para barrar. A **§9.2** fecha a coerência do
+   estado (a marcação passa a ser recusada), mas o saldo ainda soma as originais devolvidas pelo
+   cancelamento com as parcelas do sucessor — o dano do §2.1, que aqui vem do **cancelamento**, não da
+   marcação. Não é alcançável com as planilhas de hoje: `Cancelado` só existe no arquivo
+   `*_CANCELADO.xlsx`, que não é importado. **Registrado, não corrigido.**
+
+---
+
+## 9. 1ª REVISÃO — 5 correções aplicadas, 2 achados medidos e recusados
+
+O `feature-review-agent` confirmou o efeito medido (−286 obrigações, −R$ 63.961,06; nenhuma linha criada,
+apagada ou repontada) e apontou 3 bloqueantes e 7 observações. O que foi feito com cada um:
+
+### 9.1 A porta B pulava a guarda de "já substituída" que a porta A tem — **corrigido**
+
+`completarParcelas` vincula uma obrigação solta olhando **só** `acordoOrigem === null`, sem olhar o
+substituto. Uma obrigação já substituída por acordo vigente podia, portanto, chegar à porta B como
+`parcela-vinculada` — e o `setAcordoSubstituto` a repontaria **em silêncio**. Três danos: assimetria com
+a porta A (o que a spec §8.3 declara inaceitável), principal somado como "sai do saldo" para dívida que
+já estava fora, e perda da única memória de quem a substituiu antes (o rompimento daquele acordo deixaria
+de devolvê-la). A guarda da porta A foi espelhada, com a mesma idempotência.
+
+**Pré-condição real:** 131 obrigações que já tinham substituto ganham `acordoOrigem` nesta importação.
+Não se materializou nas planilhas de 04/08 (0 trocas medidas) — a guarda é o que garante que continue
+assim. Travado por `testPortaBNaoTrocaSubstitutoExistente`.
+
+### 9.2 A porta B **supunha** a vigência do acordo de origem — **corrigido**
+
+O código afirmava, por comentário, que "`completarParcelas` só roda para aba vigente, logo a origem é
+vigente". Verdade no instante da criação — e não depois, se uma aba seguinte do lote desativar o acordo.
+O acumulador passou a guardar a **entidade** `Acordo` em vez do número, e a vigência é lida dela na hora
+da decisão. Travado por `testPortaBRecusaQuandoAbaAnteriorDesativouOAcordoDeOrigem`.
+
+⚠️ **Medido, e corrige o que o revisor afirmou:** a recusa aqui é de **coerência**, não de dinheiro. A
+parcela de um acordo cancelado já está fora do saldo por derivação, então marcá-la ou não dá o mesmo
+total (medido no teste: R$ 890,00 nos dois casos). O dano de dinheiro do cenário vem do **cancelamento**,
+e está registrado no risco 4 acima.
+
+### 9.3 O selo de substituição estava **no lugar** do selo de estado — **corrigido**
+
+O comentário do template prometia "ao lado", o código fazia `if/else`. Medido: dos 37 acordos que
+recebem o selo, **20 estão `Cumprido`** — a baixa que a contábil deu sumia da tela. Os dois selos passam
+a conviver. Consequência para a spec e para a mensagem de commit: *"37 acordos deixam de se anunciar
+Ativo"* estava errado — **17 diziam "Ativo" e 20 diziam "Cumprido"**. Travado por
+`testAcordoCumpridoAssumidoMantemOEstadoDaContabil`.
+
+### 9.4 O selo escolhia um sucessor a esmo quando havia vários — **corrigido**
+
+Medido: **8 acordos** tiveram as parcelas divididas entre sucessores diferentes, um deles entre **12**.
+`sucessorPorAcordo` fazia "o último vence", então o número exibido dependia da ordem da query e era falso
+para as demais parcelas. Agora o id fica **nulo** e `qtdSucessores` responde: a tela diz *"Substituído por
+N acordos"*. Travado por `testAcordoAssumidoPorVariosNaoInventaUmSucessor`.
+
+### 9.5 A mensagem de recusa mandava investigar a coisa errada — **corrigido**
+
+Quando a coluna F declarava o número da própria aba **e** o sistema registrava outro acordo como origem,
+a recusa dizia "o PRÓPRIO acordo desta aba" quando o problema real é a divergência entre as fontes. A
+ordem das checagens foi invertida. Travado por `testRecusaDizQualInvestigacaoResolve`.
+
+### 9.6 Recusado com medição: indexar a obrigação CRIADA por `obr:<id>`
+
+O revisor apontou que `registrarCriada` não indexa por id, ao contrário de `registrarMutada`, e chamou de
+"assimetria silenciosa". **Corrigir isso introduziria um defeito:** a obrigação criada tem id na
+confirmação e não tem no dry-run, então `tipoDaObrigacao` responderia `'parcela'` num modo e `null` no
+outro — exatamente a divergência prévia×confirmação que o acumulador existe para impedir. A assimetria é
+deliberada e agora está documentada no docblock.
+
+### 9.7 Registrado, fora de escopo
+
+- **`parcelasRenegociadasPorAcordoVigente` usa `$acordo->getTenant()` nullable.** Real, mas só alcança
+  entidade transiente; nesta guarda o acordo sempre vem do repositório. Endurecer a query é mexer numa
+  assinatura usada por outras frentes — fica anotado.
+- **`docs/folha-de-ponto/` untracked com PII.** Não é desta frente; é pendência conhecida do dono.
+
+**Depois das correções: 3.413 testes verdes, e o efeito no dado real é idêntico** (−286 obrigações,
+−R$ 63.961,06) — os caminhos corrigidos não ocorrem no lote de 04/08, que é o que a guarda garante.

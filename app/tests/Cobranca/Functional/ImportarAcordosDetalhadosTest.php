@@ -1857,6 +1857,136 @@ final class ImportarAcordosDetalhadosTest extends KernelTestCase
         self::assertSame(StatusAcordo::Ativo, $acordo->getStatus(), 'o acordo antigo não pode ser desativado enquanto o novo carrega parcelas dele');
     }
 
+    #[TestDox('Porta B: coluna F apontando outro acordo é recusada também na mesma execução')]
+    public function testPortaBRecusaColunaFApontandoOutroAcordo(): void
+    {
+        [$tenant, $user, $carteiraId] = $this->cenarioAcordo37();
+
+        // A aba 37 cria a parcela 61601; a aba 88 declara que ela é parcela do acordo 12. As duas portas
+        // têm de recusar igual — se uma aceitasse e a outra não, o resultado dependeria da ordem do
+        // arquivo, que é o defeito que a spec §8.3 proíbe.
+        $leitura = new ResultadoLeituraAcordos([
+            $this->leituraAcordo37()->acordos[0],
+            $this->acordoDaPlanilha(
+                numero: 88,
+                contas: [['61601', '08/2026', '2026-08-10', 19939, 12, '3/9']],
+                parcelas: [['70500', 1, 1, '11/2026', '2026-11-10', 21000]],
+            ),
+        ], [], 0);
+
+        $resultado = $this->importarAcordos->confirmar($carteiraId, $leitura, $tenant, $user);
+
+        self::assertNotContains('61601', $resultado->nnsContasMarcadas());
+        self::assertNull($this->obrigacao($tenant, '61601')?->getAcordoSubstituto());
+        self::assertStringContainsString('as duas fontes discordam', implode(' ', $resultado->contasRecusadas()));
+    }
+
+    #[TestDox('Porta B lê a vigência do acordo AGORA: uma aba anterior pode tê-lo desativado')]
+    public function testPortaBRecusaQuandoAbaAnteriorDesativouOAcordoDeOrigem(): void
+    {
+        [$tenant, $user, $carteiraId, $caso, $acordo37] = $this->cenarioAcordo37();
+
+        $saldoAntes = $this->saldo->saldoExigivel($caso);
+
+        // A brecha de ORDEM, no sentido que a guarda de desativação não alcança: a aba 37 cria a parcela
+        // (vigente), uma SEGUNDA aba 37 no mesmo lote a cancela — e aí, se a porta B supusesse que o
+        // acordo de origem continua vigente, a aba 88 marcaria a parcela dele. Resultado: as originais
+        // do 37 voltam ao saldo (cancelamento) E as parcelas do 88 entram nele. A mesma dívida duas
+        // vezes — o dano do §2.1 do ajuste 9, entrando pela porta que a spec abriu.
+        $leitura = new ResultadoLeituraAcordos([
+            $this->leituraAcordo37()->acordos[0],
+            $this->acordoDaPlanilha(
+                numero: 37,
+                contas: [],
+                parcelas: [['61601', 2, 4, '08/2026', '2026-08-10', 19939]],
+                situacao: 'Cancelado',
+            ),
+            $this->acordoDaPlanilha(
+                numero: 88,
+                contas: [['61601', '08/2026', '2026-08-10', 19939, 37, '2/4']],
+                parcelas: [['70500', 1, 1, '11/2026', '2026-11-10', 21000]],
+            ),
+        ], [], 0);
+
+        $resultado = $this->importarAcordos->confirmar($carteiraId, $leitura, $tenant, $user);
+
+        $this->em->refresh($acordo37);
+        self::assertSame(StatusAcordo::Cancelado, $acordo37->getStatus(), 'o cenário exige que a aba do meio tenha mesmo desativado o acordo');
+        self::assertNotContains('61601', $resultado->nnsContasMarcadas());
+        self::assertNull($this->obrigacao($tenant, '61601')?->getAcordoSubstituto());
+        self::assertStringContainsString('não está mais vigente', implode(' ', $resultado->contasRecusadas()));
+
+        // ⚠️ O efeito no dinheiro, medido e não suposto: com o 37 cancelado as 4 originais dele voltam
+        // ao saldo (R$ 680,00), as parcelas dele saem, e entra a parcela do 88 (R$ 210,00) — R$ 890,00.
+        // A recusa acima NÃO é o que segura esse número: a parcela 61601 já está fora do saldo por ser
+        // de acordo não vigente, então marcá-la ou não daria o mesmo total. Esta guarda existe pela
+        // COERÊNCIA do estado (a mesma régua da porta A: não se registra substituição contra acordo
+        // morto), e é por isso que a prova dela são os asserts de recusa, não este.
+        self::assertSame(68000 + 21000, $this->saldo->saldoExigivel($caso));
+        self::assertSame(87939, $saldoAntes, 'ancora o cenário: 4 boletos de R$ 170,00 + a parcela de R$ 199,39');
+    }
+
+    #[TestDox('Coluna F que declara a própria aba E discorda do sistema: a recusa diz que as fontes discordam')]
+    public function testRecusaDizQualInvestigacaoResolve(): void
+    {
+        [$tenant, $user, $carteiraId] = $this->cenarioAcordo37();
+
+        // A 61600 é parcela do acordo 37 no sistema, e a coluna F declara o número da PRÓPRIA aba (88).
+        // As duas recusas cabem — mas quem confere precisa investigar a divergência entre planilha e
+        // sistema, não uma autorreferência que é só consequência.
+        $leitura = new ResultadoLeituraAcordos([$this->acordoDaPlanilha(
+            numero: 88,
+            contas: [['61600', '07/2026', '2026-07-15', 19939, 88, '1/4']],
+            parcelas: [['70500', 1, 1, '11/2026', '2026-11-10', 21000]],
+        )], [], 0);
+
+        $resultado = $this->importarAcordos->confirmar($carteiraId, $leitura, $tenant, $user);
+
+        self::assertNotContains('61600', $resultado->nnsContasMarcadas());
+        $recusa = implode(' ', $resultado->contasRecusadas());
+        self::assertStringContainsString('as duas fontes discordam', $recusa);
+        self::assertStringNotContainsString('PRÓPRIO acordo desta aba', $recusa, 'mandaria o conferente investigar a coisa errada');
+    }
+
+    #[TestDox('Porta B NÃO troca em silêncio um substituto que já existia')]
+    public function testPortaBNaoTrocaSubstitutoExistente(): void
+    {
+        [$tenant, $user, $carteiraId, , $acordo37] = $this->cenarioAcordo37();
+
+        // O estado que torna isto alcançável: `completarParcelas` vincula olhando SÓ `acordoOrigem`, sem
+        // olhar o substituto. Uma obrigação já substituída por um acordo vigente chega à porta B como
+        // "parcela-vinculada" e, sem a guarda, o `setAcordoSubstituto` a repontaria em silêncio — o
+        // vínculo anterior é a única memória de quem a tirou do saldo.
+        $anterior = $this->criarAcordoVigenteVazio($tenant, $acordo37);
+        $solta = $this->obrigacao($tenant, '60145');
+        self::assertNotNull($solta);
+        $solta->setAcordoSubstituto($anterior);
+        $this->em->flush();
+
+        $leitura = new ResultadoLeituraAcordos([
+            // a aba 37 lista 60145 como PARCELA (vincula acordoOrigem = 37)…
+            $this->acordoDaPlanilha(
+                numero: 37,
+                contas: [],
+                parcelas: [['60145', 1, 1, '01/2026', '2026-01-13', 17000]],
+            ),
+            // …e a aba 88 tenta assumi-la com a prova da coluna F.
+            $this->acordoDaPlanilha(
+                numero: 88,
+                contas: [['60145', '01/2026', '2026-01-13', 17000, 37, '1/1']],
+                parcelas: [['70500', 1, 1, '11/2026', '2026-11-10', 21000]],
+            ),
+        ], [], 0);
+
+        $resultado = $this->importarAcordos->confirmar($carteiraId, $leitura, $tenant, $user);
+
+        $this->em->refresh($solta);
+        self::assertSame($anterior->getId(), $solta->getAcordoSubstituto()?->getId(), 'o substituto anterior não pode ser trocado em silêncio');
+        self::assertNotContains('60145', $resultado->nnsContasMarcadas());
+        self::assertStringContainsString('já substituída pelo acordo', implode(' ', $resultado->contasRecusadas()));
+        self::assertSame(0, $resultado->principalReconciliadoCentavos(), 'não pode somar como "sai do saldo" uma dívida que já estava fora');
+    }
+
     #[TestDox('Cadeia de três acordos: cada parcela sai do saldo uma vez só')]
     public function testCadeiaDeTresAcordosNaoDobraDivida(): void
     {
@@ -2333,6 +2463,20 @@ final class ImportarAcordosDetalhadosTest extends KernelTestCase
 
         $this->em->persist($pagamento);
         $this->em->flush();
+    }
+
+    /** Um acordo vigente sem parcelas, no mesmo caso — só para ocupar o papel de substituto anterior. */
+    private function criarAcordoVigenteVazio(Tenant $tenant, Acordo $modelo): Acordo
+    {
+        $acordo = (new Acordo())
+            ->setTenant($tenant)
+            ->setCaso($modelo->getCaso())
+            ->setDataAcordo($modelo->getDataAcordo())
+            ->setStatus(StatusAcordo::Ativo);
+        $this->em->persist($acordo);
+        $this->em->flush();
+
+        return $acordo;
     }
 
     private function cenarioAcordo37(array $originaisNoSistema = ['60145', '60334', '60812', '61326']): array

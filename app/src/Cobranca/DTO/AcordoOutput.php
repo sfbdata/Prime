@@ -35,12 +35,19 @@ final class AcordoOutput
          * Quem calcula é o `MontarDetalheCasoUseCase::sucessorPorAcordo`, a partir das obrigações do
          * caso: só ele tem a lista completa, e a coleção inversa do acordo não serve (nasce vazia na
          * mesma unidade de trabalho).
+         *
+         * ⚠️ **Nulo também quando há MAIS DE UM sucessor** — aí `qtdSucessores` é que responde. Medido
+         * no dado real: 8 acordos tiveram as parcelas divididas entre vários acordos novos, um deles
+         * entre 12. Exibir um só seria escolher um pela ordem da query e afirmar, para as demais
+         * parcelas, uma coisa falsa.
          */
         public readonly ?int $substituidoPeloAcordoId = null,
+        /** Quantos acordos distintos assumiram parcelas deste. 0 = não foi substituído. */
+        public readonly int $qtdSucessores = 0,
     ) {
     }
 
-    public static function fromEntity(Acordo $a, ?int $substituidoPeloAcordoId = null): self
+    public static function fromEntity(Acordo $a, ?int $substituidoPeloAcordoId = null, int $qtdSucessores = 0): self
     {
         return new self(
             id: $a->getId() ?? 0,
@@ -54,6 +61,7 @@ final class AcordoOutput
             qtdObrigacoesSubstituidas: $a->getObrigacoesSubstituidas()->count(),
             qtdParcelas: $a->getParcelas()->count(),
             substituidoPeloAcordoId: $substituidoPeloAcordoId,
+            qtdSucessores: $qtdSucessores,
         );
     }
 }

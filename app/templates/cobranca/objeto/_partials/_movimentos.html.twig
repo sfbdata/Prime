@@ -143,21 +143,25 @@
             <div class="jp-obr-data"><div class="jp-obr-data-dia">{{ a.dataAcordo|date('d/m/Y') }}</div></div>
             <div class="jp-obr-desc">
                 Acordo #{{ a.id }}
-                {%- if a.substituidoPeloAcordoId %}
-                    {# Acordo cujas parcelas foram TODAS assumidas por um acordo mais novo. A contábil
-                       mantém a situação dele em "Em andamento" de propósito, para rastreabilidade — por
-                       isso o selo de estado continua sendo o que a fonte diz, e o de substituição vem ao
-                       lado em vez de no lugar dele. #}
-                    <span class="badge text-bg-secondary ms-1">Substituído pelo acordo #{{ a.substituidoPeloAcordoId }}</span>
-                {%- else %}
-                    <span class="badge {{ a.statusBadgeClass }} ms-1">{{ a.statusLabel }}</span>
+                {# O selo de ESTADO continua sempre, e o de substituição vem AO LADO. A contábil mantém a
+                   situação do acordo assumido de propósito ("Em andamento" para rastreabilidade, ou
+                   "Liquidado" quando ela deu baixa) — e 20 dos 37 acordos assumidos no dado real estão
+                   Cumpridos. Trocar um selo pelo outro apagaria essa informação da tela. #}
+                <span class="badge {{ a.statusBadgeClass }} ms-1">{{ a.statusLabel }}</span>
+                {%- if a.qtdSucessores > 0 %}
+                    <span class="badge text-bg-secondary ms-1">
+                        {{- a.substituidoPeloAcordoId
+                            ? 'Substituído pelo acordo #' ~ a.substituidoPeloAcordoId
+                            : 'Substituído por ' ~ a.qtdSucessores ~ ' acordos' -}}
+                    </span>
                 {%- endif %}
                 <span class="jp-obr-sub">
                     {% set motivo = a.motivoRompimento ?: a.motivoCancelamento %}
                     {% if motivo %}"{{ motivo }}" — {% endif %}
                     {{ a.qtdParcelas }} parcela(s) · substituiu {{ a.qtdObrigacoesSubstituidas }} obrigação(ões)
-                    {%- if a.substituidoPeloAcordoId %} · as parcelas dele foram renegociadas no acordo #{{ a.substituidoPeloAcordoId }} e saíram do total em aberto
-                    {%- elseif not a.vigente %} · as obrigações trocadas voltaram ao total em aberto{% endif %}
+                    {%- if a.qtdSucessores > 0 %} · as parcelas dele foram renegociadas em
+                        {{- a.substituidoPeloAcordoId ? ' outro acordo' : ' ' ~ a.qtdSucessores ~ ' outros acordos' }} e saíram do total em aberto{% endif %}
+                    {%- if not a.vigente %} · as obrigações trocadas voltaram ao total em aberto{% endif %}
                 </span>
             </div>
             <div class="jp-obr-valor"></div>

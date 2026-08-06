@@ -53,6 +53,8 @@ final class GrupoAcordoObrigacoesOutput
          * sobrando.
          */
         public readonly ?int $substituidoPeloAcordoId = null,
+        /** Quantos acordos distintos assumiram parcelas deste. 0 = não foi substituído. */
+        public readonly int $qtdSucessores = 0,
     ) {
     }
 }

@@ -588,7 +588,7 @@ final class ImportarAcordosDetalhadosUseCase
                     // Mutação também entra no acumulador, não só criação: sem isto a aba seguinte do mesmo
                     // caso veria `acordoOrigem` ainda nulo na prévia (o banco não mudou) e contaria o
                     // vínculo de novo, enquanto a confirmação reportaria divergência.
-                    $tocadas->registrarMutada($existente, $caso, $parcela->nn, $parcela->competencia, 'parcela-vinculada', $aba->numero);
+                    $tocadas->registrarMutada($existente, $caso, $parcela->nn, $parcela->competencia, 'parcela-vinculada', $acordo, $existente->getValorOriginal());
                     if ($usuario !== null) {
                         $existente->setAcordoOrigem($acordo);
                         $this->obrigacaoRepository->salvar($existente, true);
@@ -644,7 +644,7 @@ final class ImportarAcordosDetalhadosUseCase
             // da coluna F contra o que ESTA execução acabou de criar. O valor sai da PLANILHA, e não da
             // entidade, porque no dry-run entidade não há — e os dois modos precisam somar o mesmo
             // principal (§6).
-            $tocadas->registrarCriada($caso, $parcela->nn, $parcela->competencia, 'parcela', $aba->numero, $parcela->valorCentavos, $nova);
+            $tocadas->registrarCriada($caso, $parcela->nn, $parcela->competencia, 'parcela', $acordo, $parcela->valorCentavos, $nova);
         }
 
         return [$criadas, $existentes, $ambiguas, $divergencias, $valor, $vinculadas, $liquidadasIgnoradas];
@@ -712,34 +712,65 @@ final class ImportarAcordosDetalhadosUseCase
                 $procedencia = $tocadas->procedenciaDoTrio($caso, $conta->nn, $conta->competencia)
                     ?? ($obrigacao !== null ? $tocadas->procedenciaDaObrigacao($obrigacao) : null);
 
-                // `origemVigente: true` não é atalho: `completarParcelas` só roda para aba cujo status
-                // final é VIGENTE (a guarda de `processarAba` pula a aba inteira antes disso). Uma
-                // parcela criada ou vinculada nesta execução nasce, necessariamente, de acordo vigente.
-                $semProva = $this->motivoSemProva($conta, $procedencia['acordo'] ?? null, $aba->numero, origemVigente: true);
+                // ⚠️ A vigência é LIDA da entidade guardada, não suposta. A tentação é afirmar que
+                // `completarParcelas` só roda para aba vigente — é verdade no instante da criação, mas
+                // uma aba SEGUINTE do mesmo lote pode desativar aquele acordo antes de a aba do sucessor
+                // chegar. Aí a regra 4 do `motivoSemProva`, que existe justamente para fechar a brecha de
+                // ordem, ficaria desligada e a dobra do §2.1 voltaria pela porta B.
+                $origemNaExecucao = $procedencia['acordoOrigem'] ?? null;
+                $semProva = $this->motivoSemProva(
+                    $conta,
+                    $origemNaExecucao?->getNumeroExterno(),
+                    $aba->numero,
+                    $origemNaExecucao?->getStatus()->ehVigente() ?? false,
+                );
 
                 if ($semProva === null && ($jaTocada === 'parcela' || $jaTocada === 'parcela-vinculada')) {
                     $alvo = $procedencia['obrigacao'] ?? null;
-                    $marcadas[] = $conta->nn;
-                    $centavosSemBoleto += ReferenciaSubstituta::ehSubstituta($conta->nn) ? $conta->valorCentavos : 0;
                     // O principal sai do acumulador, NUNCA da entidade: no dry-run a parcela criada por
                     // uma aba anterior não existe no banco, e prévia e confirmação têm de somar o mesmo
                     // número (§6). O valor guardado veio da planilha e é idêntico nos dois modos.
-                    $principal += $procedencia['valor'] ?? $conta->valorCentavos;
+                    $valorContado = $procedencia['valor'] ?? $conta->valorCentavos;
+
+                    // A MESMA guarda da porta A, e ela não é decorativa aqui: `completarParcelas` vincula
+                    // olhando só `acordoOrigem === null`, sem olhar o substituto — então uma obrigação já
+                    // substituída por um acordo vigente pode chegar aqui como `parcela-vinculada`. Sem
+                    // isto, o `setAcordoSubstituto` abaixo trocaria esse vínculo em SILÊNCIO: o principal
+                    // seria somado como "sai do saldo" para dívida que já estava fora, e a única memória
+                    // de quem a substituiu antes se perderia (o rompimento daquele acordo deixaria de
+                    // devolvê-la). Recusar aqui é o que mantém as duas portas simétricas.
+                    $substitutoAtual = $alvo?->getAcordoSubstituto();
+                    if ($substitutoAtual !== null) {
+                        if ($substitutoAtual->getId() === $acordo->getId()) {
+                            $jaMarcadas[] = $conta->nn; // idempotência (§7)
+                            $centavosSemBoleto += ReferenciaSubstituta::ehSubstituta($conta->nn) ? $conta->valorCentavos : 0;
+
+                            continue;
+                        }
+
+                        $recusadas[] = sprintf('%s: já substituída pelo acordo %s (situação %s) — não remarcada.', $conta->nn, (string) $substitutoAtual->getId(), $substitutoAtual->getStatus()->value);
+
+                        continue;
+                    }
+
+                    $marcadas[] = $conta->nn;
+                    $centavosSemBoleto += ReferenciaSubstituta::ehSubstituta($conta->nn) ? $conta->valorCentavos : 0;
+                    $principal += $valorContado;
 
                     if ($alvo !== null) {
-                        $tocadas->registrarMutada($alvo, $caso, $conta->nn, $conta->competencia, 'marcada', $conta->acordoOrigemDeclarado);
+                        $tocadas->registrarMutada($alvo, $caso, $conta->nn, $conta->competencia, 'marcada', $origemNaExecucao, $valorContado);
                         $this->materializarNaDataDoAcordo($alvo, $acordo, $configCaso);
                         $alvo->setAcordoSubstituto($acordo);
                         $this->obrigacaoRepository->salvar($alvo, true);
                     } else {
-                        $tocadas->registrarCriada($caso, $conta->nn, $conta->competencia, 'marcada', $conta->acordoOrigemDeclarado, $procedencia['valor'] ?? $conta->valorCentavos);
+                        $tocadas->registrarCriada($caso, $conta->nn, $conta->competencia, 'marcada', $origemNaExecucao, $valorContado);
                     }
 
                     continue;
                 }
 
                 $recusadas[] = match ($jaTocada) {
-                    'parcela' => sprintf('%s: esta MESMA importação a criou como parcela do acordo %d — não é dívida original, não marcada (INV-I)%s.', $conta->nn, $procedencia['acordo'] ?? $aba->numero, (string) $semProva),
+                    'parcela' => sprintf('%s: esta MESMA importação a criou como parcela do acordo %d — não é dívida original, não marcada (INV-I)%s.', $conta->nn, $origemNaExecucao?->getNumeroExterno() ?? $aba->numero, (string) $semProva),
                     'parcela-vinculada' => sprintf('%s: esta MESMA importação a ligou como parcela de acordo — não é dívida original, não marcada (INV-I)%s.', $conta->nn, (string) $semProva),
                     'marcada' => sprintf('%s: esta MESMA importação já marcou esta obrigação como substituída — não remarcada (confira: a planilha pode estar listando a mesma dívida em duas competências).', $conta->nn),
                     default => sprintf('%s: esta MESMA importação já a reconstruiu — linha repetida na planilha, ignorada.', $conta->nn),
@@ -825,7 +856,7 @@ final class ImportarAcordosDetalhadosUseCase
             // O número do acordo de origem vai junto quando esta é uma parcela renegociada (porta A
             // aceita): é o que permite à guarda de desativação saber, ainda dentro desta execução, que
             // aquele acordo passou a ter parcela renegociada por um acordo vigente.
-            $tocadas->registrarMutada($obrigacao, $caso, $conta->nn, $conta->competencia, 'marcada', $origem?->getNumeroExterno());
+            $tocadas->registrarMutada($obrigacao, $caso, $conta->nn, $conta->competencia, 'marcada', $origem, $obrigacao->getValorOriginal());
 
             if ($usuario !== null) {
                 $this->materializarNaDataDoAcordo($obrigacao, $acordo, $configCaso);
@@ -880,16 +911,20 @@ final class ImportarAcordosDetalhadosUseCase
 
         $declaracao = sprintf('"Acordo %d - Parcela %s"', $declarado, (string) $conta->parcelaOrigemDeclarada);
 
-        if ($declarado === $numeroDaAba) {
-            return sprintf(' — a planilha declara %s, ou seja, o PRÓPRIO acordo desta aba: um acordo não substitui parcela de si mesmo', $declaracao);
-        }
-
         if ($numeroExternoDaOrigem === null) {
             return sprintf(' — a planilha declara %s, mas o acordo de origem no sistema não tem número externo para conferir', $declaracao);
         }
 
+        // ⚠️ A discordância entre as fontes é testada ANTES da autorreferência, e a ordem importa para
+        // quem confere. Quando a coluna F declara o número DESTA aba mas o sistema registra outro acordo
+        // como origem, as duas coisas são verdade ao mesmo tempo — e a investigação que resolve é
+        // "planilha e sistema discordam", não "o acordo apontou para si mesmo".
         if ($declarado !== $numeroExternoDaOrigem) {
             return sprintf(' — a planilha declara %s, e no sistema ela é parcela do acordo %d: as duas fontes discordam da procedência', $declaracao, $numeroExternoDaOrigem);
+        }
+
+        if ($declarado === $numeroDaAba) {
+            return sprintf(' — a planilha declara %s, ou seja, o PRÓPRIO acordo desta aba: um acordo não substitui parcela de si mesmo', $declaracao);
         }
 
         if (!$origemVigente) {

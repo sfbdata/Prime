@@ -309,13 +309,17 @@
         <div class="jp-acordo" id="grupoAcordo{{ g.acordoId }}">
             <div class="jp-acordo-head">
                 <span class="jp-acordo-titulo"><i class="bi bi-file-earmark-text"></i>Acordo #{{ g.acordoId }}</span>
-                {%- if g.substituidoPeloAcordoId %}
+                <span class="badge {{ g.statusBadgeClass }}">{{ g.statusLabel }}</span>
+                {%- if g.qtdSucessores > 0 %}
                     {# Acordo já assumido por um mais novo: ele só continua aqui porque sobraram parcelas
-                       PAGAS dele (não substituídas). Sem este selo ele se anunciaria "Ativo" no meio da
-                       dívida em aberto, que é a queixa que originou a spec. #}
-                    <span class="badge text-bg-secondary">Substituído pelo acordo #{{ g.substituidoPeloAcordoId }}</span>
-                {%- else %}
-                    <span class="badge {{ g.statusBadgeClass }}">{{ g.statusLabel }}</span>
+                       PAGAS dele (não substituídas). Sem este selo ele se anunciaria só como "Ativo" no
+                       meio da dívida em aberto, que é a queixa que originou a spec. O selo de estado
+                       fica: é o que a contábil diz, e some-lo apagaria informação. #}
+                    <span class="badge text-bg-secondary">
+                        {{- g.substituidoPeloAcordoId
+                            ? 'Substituído pelo acordo #' ~ g.substituidoPeloAcordoId
+                            : 'Substituído por ' ~ g.qtdSucessores ~ ' acordos' -}}
+                    </span>
                 {%- endif %}
                 <span class="text-secondary small">
                     firmado em {{ g.dataAcordo|date('d/m/Y') }} · {{ g.qtdParcelas }} parcela(s) · substituiu {{ g.qtdSubstituidas }} obrigação(ões) · {{ g.valorTotal|centavos }}

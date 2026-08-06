@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Cobranca\Service\Importacao;
 
+use App\Cobranca\Entity\Acordo;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\Obrigacao;
 
@@ -40,29 +41,38 @@ final class ObrigacoesTocadasNaImportacao
     private array $porChave = [];
 
     /**
-     * @var array<string, array{acordo: ?int, valor: ?int, obrigacao: ?Obrigacao}> chave → de qual acordo
-     *                                                                            (número EXTERNO) a
-     *                                                                            parcela nasceu, com que
-     *                                                                            valor, e a linha real
-     *                                                                            quando ela existe
+     * @var array<string, array{acordoOrigem: ?Acordo, valor: ?int, obrigacao: ?Obrigacao}> chave → de
+     *      qual acordo a parcela nasceu, com que valor, e a linha real quando ela existe
      */
     private array $procedencia = [];
 
     /**
      * Obrigação que esta execução CRIA (não existe id no dry-run — só os índices por chave lógica).
      *
-     * `$acordoNumeroExterno` e `$valorCentavos` são a memória de que a porta B da INV-I precisa: quando
-     * a conta original de uma aba seguinte disser "sou parcela do acordo N", é aqui que se confere se
-     * foi mesmo o acordo N que a criou nesta execução. `$obrigacao` só existe na confirmação — no
-     * dry-run nada é gravado, e é justamente por isso que o VALOR é guardado à parte: prévia e
-     * confirmação têm de somar o mesmo principal, e só o valor da planilha existe nos dois modos.
+     * `$acordoOrigem` e `$valorCentavos` são a memória de que a porta B da INV-I precisa: quando a conta
+     * original de uma aba seguinte disser "sou parcela do acordo N", é aqui que se confere se foi mesmo
+     * esse acordo que a criou nesta execução — e, no mesmo movimento, se ele **continua vigente**.
+     *
+     * ⚠️ Guarda-se a ENTIDADE, não o número. Guardar só o número obrigaria a porta B a supor a vigência
+     * do acordo, e a suposição ("a aba que criou a parcela era vigente") é verdadeira no momento da
+     * criação e pode deixar de ser depois, se uma aba seguinte do mesmo lote o desativar. A entidade é
+     * *managed*: ler o status dela responde pelo estado de agora, não pelo de quando a parcela nasceu.
+     *
+     * `$obrigacao` só existe na confirmação — no dry-run nada é gravado, e é por isso que o VALOR é
+     * guardado à parte: prévia e confirmação têm de somar o mesmo principal, e só o valor passado aqui
+     * existe nos dois modos.
+     *
+     * ⚠️ **Não indexa por `obr:<id>` de propósito**, ao contrário de `registrarMutada`. A obrigação
+     * criada tem id na confirmação e não tem no dry-run: indexá-la faria `tipoDaObrigacao` responder
+     * `'parcela'` num modo e `null` no outro — a divergência prévia×confirmação que este acumulador
+     * inteiro existe para impedir. A chave lógica (trio) responde igual nos dois.
      */
     public function registrarCriada(
         CasoCobranca $caso,
         string $nn,
         string $competencia,
         string $tipo,
-        ?int $acordoNumeroExterno = null,
+        ?Acordo $acordoOrigem = null,
         ?int $valorCentavos = null,
         ?Obrigacao $obrigacao = null,
     ): void {
@@ -70,29 +80,37 @@ final class ObrigacoesTocadasNaImportacao
         $this->porChave[self::porNn($caso, $nn)] = $tipo;
 
         $this->procedencia[self::trio($caso, $nn, $competencia)] = [
-            'acordo' => $acordoNumeroExterno,
+            'acordoOrigem' => $acordoOrigem,
             'valor' => $valorCentavos,
             'obrigacao' => $obrigacao,
         ];
     }
 
-    /** Obrigação que JÁ EXISTIA e que esta execução mutou — indexada também pela linha real. */
+    /**
+     * Obrigação que JÁ EXISTIA e que esta execução mutou — indexada também pela linha real.
+     *
+     * `$valorCentavos` é explícito e não sai da entidade: quem conta o principal é o chamador, e o
+     * número que ele contou tem de ser o mesmo que fica guardado aqui. Deixar a entidade responder faria
+     * a mesma chave guardar um valor na prévia e outro na confirmação.
+     */
     public function registrarMutada(
         Obrigacao $obrigacao,
         CasoCobranca $caso,
         string $nn,
         string $competencia,
         string $tipo,
-        ?int $acordoNumeroExterno = null,
+        ?Acordo $acordoOrigem = null,
+        ?int $valorCentavos = null,
     ): void {
-        $this->registrarCriada($caso, $nn, $competencia, $tipo, $acordoNumeroExterno, $obrigacao->getValorOriginal(), $obrigacao);
+        $valor = $valorCentavos ?? $obrigacao->getValorOriginal();
+        $this->registrarCriada($caso, $nn, $competencia, $tipo, $acordoOrigem, $valor, $obrigacao);
 
         $id = $obrigacao->getId();
         if ($id !== null) {
             $this->porChave['obr:' . $id] = $tipo;
             $this->procedencia['obr:' . $id] = [
-                'acordo' => $acordoNumeroExterno,
-                'valor' => $obrigacao->getValorOriginal(),
+                'acordoOrigem' => $acordoOrigem,
+                'valor' => $valor,
                 'obrigacao' => $obrigacao,
             ];
         }
@@ -119,7 +137,7 @@ final class ObrigacoesTocadasNaImportacao
      * De qual acordo (número EXTERNO) esta execução fez essa dívida ser parcela, com que valor e — só na
      * confirmação — qual é a linha real. Devolve `null` quando esta execução não tocou nela.
      *
-     * @return array{acordo: ?int, valor: ?int, obrigacao: ?Obrigacao}|null
+     * @return array{acordoOrigem: ?Acordo, valor: ?int, obrigacao: ?Obrigacao}|null
      */
     public function procedenciaDoTrio(CasoCobranca $caso, string $nn, string $competencia): ?array
     {
@@ -130,7 +148,7 @@ final class ObrigacoesTocadasNaImportacao
      * Idem, pela LINHA real — o caminho do fallback do legado, em que o trio da conta original difere do
      * trio com que a parcela foi registrada mas a obrigação é a mesma.
      *
-     * @return array{acordo: ?int, valor: ?int, obrigacao: ?Obrigacao}|null
+     * @return array{acordoOrigem: ?Acordo, valor: ?int, obrigacao: ?Obrigacao}|null
      */
     public function procedenciaDaObrigacao(Obrigacao $obrigacao): ?array
     {
@@ -157,8 +175,9 @@ final class ObrigacoesTocadasNaImportacao
             if (($this->porChave[$chave] ?? null) !== 'marcada') {
                 continue;
             }
-            if ($dados['acordo'] !== null) {
-                $numeros[$dados['acordo']] = true;
+            $numero = $dados['acordoOrigem']?->getNumeroExterno();
+            if ($numero !== null) {
+                $numeros[$numero] = true;
             }
         }
 

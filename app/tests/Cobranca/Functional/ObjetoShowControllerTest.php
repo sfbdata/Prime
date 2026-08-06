@@ -580,13 +580,9 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
         $encerrados = $crawler->filter('#secao-acordos-encerrados')->text();
         self::assertStringContainsString('Acordo #' . $velho->getId(), $encerrados);
         self::assertStringContainsString('Substituído pelo acordo #' . $novo->getId(), $encerrados);
-        // O selo de estado ("Ativo") é substituído pelo de sucessão: era ele que fazia o acordo já
-        // assumido parecer vigente, que é exatamente o que o dono pediu para parar de acontecer.
-        self::assertStringNotContainsString(
-            'Ativo',
-            $crawler->filter('#secao-acordos-encerrados .jp-mov')->first()->text(),
-            'o acordo já assumido não pode continuar se anunciando como vigente',
-        );
+        // O selo de ESTADO continua ao lado, não é trocado: 20 dos 37 acordos assumidos no dado real
+        // estão "Cumprido" (a contábil deu baixa), e apagar isso perderia informação da tela.
+        self::assertStringContainsString('Ativo', $encerrados, 'o estado que a contábil declara continua visível');
     }
 
     #[TestDox('Acordo PARCIALMENTE renegociado continua vigente: nada de "Substituído"')]
@@ -645,6 +641,60 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
         self::assertStringContainsString('Substituído pelo acordo #' . $novo->getId(), $grupo->text());
     }
 
+    #[TestDox('Acordo LIQUIDADO pela contábil e assumido por outro: o selo "Cumprido" NÃO é apagado')]
+    public function testAcordoCumpridoAssumidoMantemOEstadoDaContabil(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+
+        // 20 dos 37 acordos assumidos no dado real estão "Cumprido", não "Ativo". Trocar o selo de
+        // estado pelo de substituição apagaria da tela a baixa que a contábil deu.
+        [$velho, $novo] = $this->acordoAssumidoPorOutro($tenant, $caso, parcelasQueFicam: 0, statusVelho: StatusAcordo::Cumprido);
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+
+        self::assertResponseIsSuccessful();
+        $linha = $crawler->filter('#secao-acordos-encerrados .jp-mov')->reduce(
+            static fn ($no): bool => str_contains($no->text(), 'Acordo #' . $velho->getId()),
+        )->text();
+        self::assertStringContainsString('Cumprido', $linha, 'o estado que a contábil declara não pode sumir');
+        self::assertStringContainsString('Substituído pelo acordo #' . $novo->getId(), $linha);
+    }
+
+    #[TestDox('Parcelas divididas entre DOIS acordos novos: a tela não escolhe um deles a esmo')]
+    public function testAcordoAssumidoPorVariosNaoInventaUmSucessor(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+
+        // Medido no dado real: 8 acordos tiveram as parcelas divididas entre sucessores diferentes, um
+        // deles entre 12. Dizer "substituído pelo acordo #N" seria falso para as demais parcelas, e o N
+        // dependeria da ordem da query.
+        $velho = AcordoFactory::createOne(['tenant' => $tenant, 'caso' => $caso, 'status' => StatusAcordo::Ativo])->_real();
+        foreach ([1, 2] as $i) {
+            $novo = AcordoFactory::createOne(['tenant' => $tenant, 'caso' => $caso, 'status' => StatusAcordo::Ativo])->_real();
+            ObrigacaoFactory::createOne([
+                'tenant' => $tenant, 'caso' => $caso, 'descricao' => 'Parcela assumida ' . $i,
+                'valorOriginal' => 50000, 'encargosReconhecidos' => 0,
+                'acordoOrigem' => $velho, 'acordoSubstituto' => $novo,
+            ]);
+            ObrigacaoFactory::createOne([
+                'tenant' => $tenant, 'caso' => $caso, 'descricao' => 'Parcela do acordo novo ' . $i,
+                'valorOriginal' => 55000, 'encargosReconhecidos' => 0, 'acordoOrigem' => $novo,
+            ]);
+        }
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+
+        self::assertResponseIsSuccessful();
+        $saida = $this->acordoNoDetalhe($caso, (int) $velho->getId());
+        self::assertNull($saida->substituidoPeloAcordoId, 'com dois sucessores não existe "o" sucessor');
+        self::assertSame(2, $saida->qtdSucessores);
+        self::assertStringContainsString('Substituído por 2 acordos', $crawler->filter('#secao-acordos-encerrados')->text());
+    }
+
     /** O `AcordoOutput` de um acordo, como o UseCase o monta — a derivação antes de virar HTML. */
     private function acordoNoDetalhe(CasoCobranca $caso, int $acordoId): AcordoOutput
     {
@@ -665,9 +715,9 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
      *
      * @return array{0: Acordo, 1: Acordo}
      */
-    private function acordoAssumidoPorOutro(Tenant $tenant, CasoCobranca $caso, int $parcelasQueFicam, int $parcelasPagasQueFicam = 0): array
+    private function acordoAssumidoPorOutro(Tenant $tenant, CasoCobranca $caso, int $parcelasQueFicam, int $parcelasPagasQueFicam = 0, StatusAcordo $statusVelho = StatusAcordo::Ativo): array
     {
-        $velho = AcordoFactory::createOne(['tenant' => $tenant, 'caso' => $caso, 'status' => StatusAcordo::Ativo])->_real();
+        $velho = AcordoFactory::createOne(['tenant' => $tenant, 'caso' => $caso, 'status' => $statusVelho])->_real();
         $novo = AcordoFactory::createOne(['tenant' => $tenant, 'caso' => $caso, 'status' => StatusAcordo::Ativo])->_real();
 
         ObrigacaoFactory::createOne([

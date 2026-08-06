@@ -152,7 +152,11 @@ final class MontarDetalheCasoUseCase
         // 404. O ROMPIDO continua listado: aconteceu de verdade e o histórico dele importa.
         $sucessorPorAcordo = $this->sucessorPorAcordo($obrigacoes);
         $acordos = array_map(
-            static fn (Acordo $a): AcordoOutput => AcordoOutput::fromEntity($a, $sucessorPorAcordo[$a->getId()] ?? null),
+            static fn (Acordo $a): AcordoOutput => AcordoOutput::fromEntity(
+                $a,
+                $sucessorPorAcordo[$a->getId()]['id'] ?? null,
+                $sucessorPorAcordo[$a->getId()]['qtd'] ?? 0,
+            ),
             array_values(array_filter(
                 $this->acordoRepository->doCaso($caso),
                 static fn (Acordo $a): bool => $a->getStatus() !== StatusAcordo::Cancelado,
@@ -473,6 +477,7 @@ final class MontarDetalheCasoUseCase
                 parcelas: $parcelas,
                 substituidas: $substituidasPorAcordo[$acordoId] ?? [],
                 substituidoPeloAcordoId: $acordo->substituidoPeloAcordoId,
+                qtdSucessores: $acordo->qtdSucessores,
             );
         }
 
@@ -512,12 +517,14 @@ final class MontarDetalheCasoUseCase
      *
      * @param list<ObrigacaoOutput> $obrigacoes
      *
-     * @return array<int, int> id do acordo substituído → id do acordo que o assumiu
+     * @return array<int, array{id: ?int, qtd: int}> id do acordo substituído → o sucessor (nulo
+     *                                                se houve mais de um) e quantos foram
      */
     private function sucessorPorAcordo(array $obrigacoes): array
     {
         $sobrouParcela = [];
-        $sucessor = [];
+        /** @var array<int, array<int, true>> $sucessores id do velho → ids distintos dos sucessores */
+        $sucessores = [];
 
         foreach ($obrigacoes as $obrigacao) {
             $origemId = $obrigacao->acordoOrigemId;
@@ -526,9 +533,7 @@ final class MontarDetalheCasoUseCase
             }
 
             if ($obrigacao->substituidaPorAcordo && $obrigacao->acordoSubstitutoId !== null) {
-                // O último vence só para escolher o rótulo quando as parcelas de um mesmo acordo foram
-                // para sucessores diferentes; o que decide o ESTADO é não ter sobrado nenhuma.
-                $sucessor[$origemId] = $obrigacao->acordoSubstitutoId;
+                $sucessores[$origemId][$obrigacao->acordoSubstitutoId] = true;
 
                 continue;
             }
@@ -538,11 +543,24 @@ final class MontarDetalheCasoUseCase
             }
         }
 
-        return array_filter(
-            $sucessor,
-            static fn (int $acordoId): bool => !isset($sobrouParcela[$acordoId]),
-            ARRAY_FILTER_USE_KEY,
-        );
+        $resultado = [];
+        foreach ($sucessores as $velhoId => $ids) {
+            if (isset($sobrouParcela[$velhoId])) {
+                continue;
+            }
+
+            // ⚠️ Com mais de um sucessor o ID fica NULO e só a contagem vai para a tela. Medido no dado
+            // real: 8 acordos tiveram as parcelas divididas entre acordos novos diferentes, um deles
+            // entre 12. Escolher um (o último visto, pela ordem da query) e escrever "substituído pelo
+            // acordo #N" seria afirmar, para as parcelas que foram para os outros, uma coisa falsa — e
+            // o N mudaria conforme a ordenação, sem ninguém perceber.
+            $resultado[$velhoId] = [
+                'id' => count($ids) === 1 ? array_key_first($ids) : null,
+                'qtd' => count($ids),
+            ];
+        }
+
+        return $resultado;
     }
 
     /**
