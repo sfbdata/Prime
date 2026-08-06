@@ -321,6 +321,11 @@ final class ImportarAcordosDetalhadosUseCase
         // escreve — responderia o antigo. Consultar a entidade aqui é como as duas passam a divergir.
         $statusFinal = $sobrescrita?->novo ?? $acordo->getStatus();
 
+        // A DECISÃO de status entra no acumulador nos DOIS modos — a escrita, não. É daqui que a
+        // INV-I responde "o acordo de origem continua vigente?" sem que a prévia e a confirmação
+        // deem respostas diferentes: a entidade só reflete o status novo na confirmação.
+        $tocadas->registrarStatusDecidido($aba->numero, $statusFinal);
+
         if ($sobrescrita !== null && $usuario !== null) {
             $this->aplicarSobrescrita($acordo, $caso, $sobrescrita, $tenant, $usuario);
         }
@@ -722,7 +727,7 @@ final class ImportarAcordosDetalhadosUseCase
                     $conta,
                     $origemNaExecucao?->getNumeroExterno(),
                     $aba->numero,
-                    $origemNaExecucao?->getStatus()->ehVigente() ?? false,
+                    $this->origemAindaVigente($origemNaExecucao, $tocadas),
                 );
 
                 if ($semProva === null && ($jaTocada === 'parcela' || $jaTocada === 'parcela-vinculada')) {
@@ -748,7 +753,7 @@ final class ImportarAcordosDetalhadosUseCase
                             continue;
                         }
 
-                        $recusadas[] = sprintf('%s: já substituída pelo acordo %s (situação %s) — não remarcada.', $conta->nn, (string) $substitutoAtual->getId(), $substitutoAtual->getStatus()->value);
+                        $recusadas[] = sprintf('%s: já substituída pelo acordo %s (situação %s) — não remarcada.', $conta->nn, $this->identificaAcordo($substitutoAtual), $substitutoAtual->getStatus()->value);
 
                         continue;
                     }
@@ -759,9 +764,16 @@ final class ImportarAcordosDetalhadosUseCase
 
                     if ($alvo !== null) {
                         $tocadas->registrarMutada($alvo, $caso, $conta->nn, $conta->competencia, 'marcada', $origemNaExecucao, $valorContado);
-                        $this->materializarNaDataDoAcordo($alvo, $acordo, $configCaso);
-                        $alvo->setAcordoSubstituto($acordo);
-                        $this->obrigacaoRepository->salvar($alvo, true);
+                        // ⚠️ `$usuario !== null` é o que separa prever() de confirmar(), e a falta dele
+                        // aqui não era "a prévia grava um pouco": `$alvo` é uma obrigação REAL sempre que
+                        // ela já existia no banco, e o flush levava junto o acordo novo, que na prévia
+                        // nunca foi persistido — a projeção morria com "new entity was found through the
+                        // relationship". A prévia não escreve NADA.
+                        if ($usuario !== null) {
+                            $this->materializarNaDataDoAcordo($alvo, $acordo, $configCaso);
+                            $alvo->setAcordoSubstituto($acordo);
+                            $this->obrigacaoRepository->salvar($alvo, true);
+                        }
                     } else {
                         $tocadas->registrarCriada($caso, $conta->nn, $conta->competencia, 'marcada', $origemNaExecucao, $valorContado);
                     }
@@ -820,7 +832,7 @@ final class ImportarAcordosDetalhadosUseCase
             $origem = $obrigacao->getAcordoOrigem();
             $semProvaNoBanco = $origem === null
                 ? null
-                : $this->motivoSemProva($conta, $origem->getNumeroExterno(), $aba->numero, $origem->getStatus()->ehVigente());
+                : $this->motivoSemProva($conta, $origem->getNumeroExterno(), $aba->numero, $this->origemAindaVigente($origem, $tocadas));
 
             if ($origem !== null && $semProvaNoBanco !== null) {
                 // O número EXTERNO, não o `id` interno: é o número que a contábil usa e o único que quem
@@ -829,7 +841,7 @@ final class ImportarAcordosDetalhadosUseCase
                 $recusadas[] = sprintf(
                     '%s: no sistema é parcela do acordo %s, não dívida original — não marcada (INV-I)%s.',
                     $conta->nn,
-                    $origem->getNumeroExterno() !== null ? (string) $origem->getNumeroExterno() : 'sem número externo (id ' . (string) $origem->getId() . ')',
+                    $this->identificaAcordo($origem),
                     $semProvaNoBanco,
                 );
 
@@ -845,7 +857,7 @@ final class ImportarAcordosDetalhadosUseCase
                     continue;
                 }
 
-                $recusadas[] = sprintf('%s: já substituída pelo acordo %s (situação %s) — não remarcada.', $conta->nn, (string) $substituto->getId(), $substituto->getStatus()->value);
+                $recusadas[] = sprintf('%s: já substituída pelo acordo %s (situação %s) — não remarcada.', $conta->nn, $this->identificaAcordo($substituto), $substituto->getStatus()->value);
 
                 continue;
             }
@@ -866,6 +878,38 @@ final class ImportarAcordosDetalhadosUseCase
         }
 
         return [$marcadas, $reconstruidas, $jaMarcadas, $recusadas, $semCompetencia, $divergencias, $principal, $centavosSemBoleto];
+    }
+
+    /**
+     * Como um acordo é identificado numa linha de relatório: pelo **número externo**, que é o número que
+     * a contábil usa e o único que quem confere contra a planilha consegue procurar. O `id` interno só
+     * aparece quando não há número externo — e aí, rotulado, para ninguém procurá-lo na planilha.
+     */
+    private function identificaAcordo(Acordo $acordo): string
+    {
+        $externo = $acordo->getNumeroExterno();
+
+        return $externo !== null ? (string) $externo : sprintf('sem número externo (id %s)', (string) $acordo->getId());
+    }
+
+    /**
+     * O acordo de origem continua vigente? Pela DECISÃO desta execução quando alguma aba o tocou, e pela
+     * entidade quando nenhuma tocou.
+     *
+     * A ordem não é detalhe: `aplicarSobrescrita` grava o status só na confirmação, então perguntar
+     * direto à entidade faria a porta da INV-I responder uma coisa na prévia e outra na confirmação —
+     * a divergência que a §6 da spec-mãe proíbe. Um acordo que esta execução não tocou tem o mesmo
+     * status nos dois modos, e aí a entidade é a fonte certa.
+     */
+    private function origemAindaVigente(?Acordo $origem, ObrigacoesTocadasNaImportacao $tocadas): bool
+    {
+        if ($origem === null) {
+            return false;
+        }
+
+        $status = $tocadas->statusDecidido($origem->getNumeroExterno()) ?? $origem->getStatus();
+
+        return $status->ehVigente();
     }
 
     /**

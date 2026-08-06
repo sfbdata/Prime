@@ -65,7 +65,8 @@ Aplicando a régua parcela a parcela aos 26 acordos velhos que perdem parcelas p
 | **continuam** com parcelas em aberto | **6** | renegociação parcial — seguem legitimamente vigentes |
 
 Os 6 parciais: 163, 244, 255, 306, 332, 61. O 255, por exemplo, perde 13 parcelas e **fica com 14
-(R$ 2.488,64)**.
+(R$ 2.488,64)**. ⚠️ Estes 26 são os acordos *citados como origem*; a contagem que a §6.1 usa para o selo
+da tela é outra (**37**), porque parte por parcela ainda paga, não por acordo citado.
 
 🔴 **Consequência para a reclamação ao suporte:** dos 4 acordos que o handoff lista como bug do Group
 Software (348, 292, 372, 82), **3 não são bug**:
@@ -86,13 +87,20 @@ Estado atual do `saas_ux_zero`, carteira TOP LIFE 1:
 
 | | obrigações | principal |
 |---|---:|---:|
-| parcelas velhas que a coluna F prova terem sido renegociadas, **ainda no saldo** | **302** | **R$ 67.469,44** |
+| parcelas velhas que a coluna F prova terem sido renegociadas, **ainda no saldo** | **286** | **R$ 63.961,06** |
 | parcelas dos acordos sucessores, **também no saldo** | 387 | R$ 100.483,89 |
+
+🔴 **Esta linha dizia 302 / R$ 67.469,44 até a 2ª revisão cobrar a reconciliação com o efeito medido, e
+o número era MEU erro de medição** — o script contava também as contas reivindicadas por sucessores do
+arquivo `*_CANCELADO.xlsx`, que não é importado. A conta fecha exata: **457** chaves declaradas na coluna
+F, menos **19** só de sucessor cancelado = **438**; dessas, **286** casam com uma parcela viva de acordo
+vigente e **152** correspondem a obrigações sem vínculo de origem no sistema (que já funcionam hoje).
+286 + 152 = 438. A medição também tem defeito, inclusive a minha.
 
 A mesma dívida, do mesmo devedor, contada duas vezes. A importação do zero produziu **286 recusas da
 INV-I** exatamente aqui.
 
-⚠️ **Número grande não é dinheiro na tela:** os R$ 67.469,44 são **principal**, não o valor com encargos
+⚠️ **Número grande não é dinheiro na tela:** os R$ 63.961,06 são **principal**, não o valor com encargos
 que a tela exibe. O que sai do saldo é essa parcela de principal mais os encargos que ela acumulou.
 
 ### 2.4 O sucessor CANCELADO não conta
@@ -163,9 +171,11 @@ tocada.
 - nova constante `ORIG_DETALHAMENTO = 5` (a classe já **documenta** a coluna no docblock e nunca a leu);
 - parse **estrito** de `Acordo (\d+) - Parcela (\d+)/(\d+)`; qualquer outra coisa (inclusive `-` e vazio)
   → não declarado;
-- lê da **primeira linha do grupo**, como classe/competência/vencimento já fazem. **Guarda:** se alguma
-  outra linha do mesmo grupo declarar um acordo **diferente**, o grupo passa a valer como **não
-  declarado** (direção segura: mantém a recusa). Medido hoje: 0 grupos divergentes.
+- exige a declaração em **TODAS** as linhas do grupo, apontando o **mesmo** acordo — mais estrito do que
+  classe/competência/vencimento, que leem só a primeira. Qualquer linha sem a declaração, ou apontando
+  outro acordo, faz o grupo valer como **não declarado**. Medido hoje: 0 grupos divergentes. A rigidez é
+  deliberada: aceitar por maioria faria uma mudança futura no formato da fonte passar em silêncio e tirar
+  dívida do saldo; exigir unanimidade faz a mesma mudança cair na recusa, que é impressa no relatório.
 
 `app/src/Cobranca/Service/Importacao/ContaOriginalImportavel.php`
 
@@ -431,3 +441,64 @@ deliberada e agora está documentada no docblock.
 
 **Depois das correções: 3.413 testes verdes, e o efeito no dado real é idêntico** (−286 obrigações,
 −R$ 63.961,06) — os caminhos corrigidos não ocorrem no lote de 04/08, que é o que a guarda garante.
+
+---
+
+## 10. 2ª REVISÃO — achou 2 defeitos NAS CORREÇÕES da 1ª (o 11º da frente)
+
+A 2ª revisão reproduziu o efeito no centavo (286 obrigações, R$ 63.961,06; 37 acordos com selo, 17
+`ativo` + 20 `cumprido`) e recusou aprovar. Os dois bloqueantes nasceram dos meus dois commits.
+
+### 10.1 🔴 A PRÉVIA GRAVAVA NO BANCO — e não só: estourava
+
+A porta B escrevia `setAcordoSubstituto` + flush **sem a guarda `$usuario !== null`** que a porta A tem.
+Defeito meu, do primeiro commit, que passou pela 1ª revisão inteira.
+
+**Provado, não deduzido:** escrevi o teste antes da correção e ele não falhou por assert — **morreu com
+exceção**, `A new entity was found through the relationship 'Obrigacao#acordoSubstituto'`. Na prévia o
+acordo novo nunca é persistido, então o flush o arrasta junto e derruba a projeção inteira. Quem rodasse
+a prévia deste caminho não veria número errado: veria o comando quebrar.
+
+Alcançável pelo caminho `parcela-vinculada` (a obrigação já existe no banco, e o acumulador guarda a
+entidade real mesmo no dry-run). Zero ocorrências no lote de 04/08 — a interseção entre "ganhou
+`acordo_origem`" e "ganhou `acordo_substituto`" na mesma importação é vazia. Travado por
+`testPortaBNaPreviaNaoGrava`.
+
+### 10.2 🔴 A correção 9.2 trocou um furo de coerência por um furo de PARIDADE
+
+Ler a vigência da entidade (`$origem->getStatus()`) parecia o oposto de supor `true`. Só que
+`aplicarSobrescrita` **só grava o status na confirmação** — então a entidade responde o valor novo num
+modo e o antigo no outro, e a porta da INV-I decide por essa resposta. A prévia aceitaria e a confirmação
+recusaria (ou o inverso, na **reativação**, que é caminho normal deste importador). A INV-S3 caiu por
+causa da correção que citava a INV-S3.
+
+**A correção certa não era escolher entre coerência e paridade.** O status é *decidido* em ambos os modos
+(`$statusFinal` de `processarAba`) e só *escrito* em um. O acumulador passou a guardar a **decisão**, e as
+duas portas perguntam a ela. Coerência e paridade juntas. Travado por
+`testPortaBRecusaQuandoAbaAnteriorDesativouOAcordoDeOrigem` (que ganhou os asserts de prévia×confirmação)
+e por `testReativacaoDoAcordoDeOrigemNaoDivergeEntreOsModos`, o sentido inverso.
+
+### 10.3 Observações aceitas e corrigidas
+
+- **id interno na mensagem de recusa** (o mesmo defeito que a §5 F2 mandou eliminar, replicado por mim na
+  correção 9.1): passou a imprimir o número externo, com o id só rotulado quando não há externo;
+- **os números dos comentários estavam misturando dois universos**: 8 acordos têm vários sucessores, mas
+  só **4** recebem o selo, e o máximo do acervo é **22**, não 12 (12 é o máximo *entre os que recebem
+  selo*);
+- **duas frases contraditórias na sub-linha**: acordo rompido E assumido exibiria "voltaram ao total em
+  aberto" e "saíram do total em aberto" juntas — os dois `if` viraram `if/elseif`;
+- **assert que procurava "Ativo" na seção inteira** passou a isolar a linha do acordo: o original só
+  ficava vermelho enquanto houvesse um único acordo encerrado na tela;
+- **a reconciliação 302 → 286**, que a revisão cobrou, expôs erro na MINHA medição da §2.3 — corrigido lá.
+
+### 10.4 Recusado com medição
+
+**Indexar por `obr:<id>` a obrigação criada** (repetido da 1ª revisão): introduziria a divergência
+prévia×confirmação, porque a obrigação criada tem id em um modo e não no outro. Documentado no docblock.
+
+**Endurecer `parcelasRenegociadasPorAcordoVigente` contra `getTenant()` nulo**: real, mas só alcança
+entidade transiente, e nesta guarda o acordo sempre vem do repositório. Fica anotado.
+
+**Depois das correções: 3.416 testes verdes**, e o efeito no dado real segue **idêntico** nas três versões
+do código (−286 obrigações, −R$ 63.961,06) — os caminhos corrigidos não ocorrem no lote de 04/08, que é
+exatamente o que as guardas garantem.

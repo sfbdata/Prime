@@ -159,9 +159,13 @@
                     {% set motivo = a.motivoRompimento ?: a.motivoCancelamento %}
                     {% if motivo %}"{{ motivo }}" — {% endif %}
                     {{ a.qtdParcelas }} parcela(s) · substituiu {{ a.qtdObrigacoesSubstituidas }} obrigação(ões)
-                    {%- if a.qtdSucessores > 0 %} · as parcelas dele foram renegociadas em
+                    {# Os dois casos são EXCLUDENTES de propósito: um acordo desfeito devolveu as trocas ao
+                       saldo, um acordo assumido tirou as parcelas dele. Como dois `if` independentes, o
+                       acordo rompido E assumido exibiria as duas frases juntas, uma contradizendo a
+                       outra. Hoje não existe nenhum nessa forma; a estrutura é que impede. #}
+                    {%- if not a.vigente %} · as obrigações trocadas voltaram ao total em aberto
+                    {%- elseif a.qtdSucessores > 0 %} · as parcelas dele foram renegociadas em
                         {{- a.substituidoPeloAcordoId ? ' outro acordo' : ' ' ~ a.qtdSucessores ~ ' outros acordos' }} e saíram do total em aberto{% endif %}
-                    {%- if not a.vigente %} · as obrigações trocadas voltaram ao total em aberto{% endif %}
                 </span>
             </div>
             <div class="jp-obr-valor"></div>

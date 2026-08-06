@@ -1908,7 +1908,17 @@ final class ImportarAcordosDetalhadosTest extends KernelTestCase
             ),
         ], [], 0);
 
+        // ⚠️ A PRÉVIA roda primeiro e tem de dizer a MESMA coisa. É aqui que mora a armadilha: quem
+        // decide a vigência é `aplicarSobrescrita`, que só grava na confirmação — então perguntar o
+        // status à entidade daria "ainda vigente" na prévia e "cancelado" na confirmação, e a porta B
+        // aceitaria num modo e recusaria no outro. Quem responde é a DECISÃO registrada no acumulador,
+        // que é tomada igual nos dois.
+        $previsto = $this->importarAcordos->prever($carteiraId, $leitura, $tenant);
         $resultado = $this->importarAcordos->confirmar($carteiraId, $leitura, $tenant, $user);
+
+        self::assertSame($previsto->nnsContasMarcadas(), $resultado->nnsContasMarcadas());
+        self::assertSame($previsto->contasRecusadas(), $resultado->contasRecusadas());
+        self::assertSame($previsto->principalReconciliadoCentavos(), $resultado->principalReconciliadoCentavos());
 
         $this->em->refresh($acordo37);
         self::assertSame(StatusAcordo::Cancelado, $acordo37->getStatus(), 'o cenário exige que a aba do meio tenha mesmo desativado o acordo');
@@ -1924,6 +1934,41 @@ final class ImportarAcordosDetalhadosTest extends KernelTestCase
         // morto), e é por isso que a prova dela são os asserts de recusa, não este.
         self::assertSame(68000 + 21000, $this->saldo->saldoExigivel($caso));
         self::assertSame(87939, $saldoAntes, 'ancora o cenário: 4 boletos de R$ 170,00 + a parcela de R$ 199,39');
+    }
+
+    #[TestDox('O sentido inverso: aba que REATIVA o acordo de origem também não diverge entre os modos')]
+    public function testReativacaoDoAcordoDeOrigemNaoDivergeEntreOsModos(): void
+    {
+        [$tenant, $user, $carteiraId, , $acordo37] = $this->cenarioAcordo37();
+
+        // A desativação é só uma das direções. A REATIVAÇÃO (rompido/cancelado → vigente) é caminho
+        // normal deste importador, e produz a divergência no sentido oposto: a prévia recusaria (o banco
+        // ainda diz "rompido") e a confirmação aceitaria, tirando dinheiro do saldo sem ter projetado.
+        $acordo37->setStatus(StatusAcordo::Rompido);
+        $this->em->flush();
+
+        $leitura = new ResultadoLeituraAcordos([
+            // a aba 37 reativa o acordo (Em andamento) e vincula a parcela…
+            $this->acordoDaPlanilha(
+                numero: 37,
+                contas: [],
+                parcelas: [['61600', 1, 4, '07/2026', '2026-07-15', 19939]],
+            ),
+            // …e a aba 88 a assume, com a prova da coluna F.
+            $this->acordoDaPlanilha(
+                numero: 88,
+                contas: [['61600', '07/2026', '2026-07-15', 19939, 37, '1/4']],
+                parcelas: [['70500', 1, 1, '11/2026', '2026-11-10', 21000]],
+            ),
+        ], [], 0);
+
+        $previsto = $this->importarAcordos->prever($carteiraId, $leitura, $tenant);
+        $feito = $this->importarAcordos->confirmar($carteiraId, $leitura, $tenant, $user);
+
+        self::assertSame($previsto->nnsContasMarcadas(), $feito->nnsContasMarcadas(), 'a prévia decide pela situação que a PLANILHA declara, igual à confirmação');
+        self::assertSame($previsto->contasRecusadas(), $feito->contasRecusadas());
+        self::assertSame($previsto->principalReconciliadoCentavos(), $feito->principalReconciliadoCentavos());
+        self::assertContains('61600', $feito->nnsContasMarcadas(), 'reativado pela planilha, o acordo volta a ser origem válida');
     }
 
     #[TestDox('Coluna F que declara a própria aba E discorda do sistema: a recusa diz que as fontes discordam')]
@@ -1946,6 +1991,62 @@ final class ImportarAcordosDetalhadosTest extends KernelTestCase
         $recusa = implode(' ', $resultado->contasRecusadas());
         self::assertStringContainsString('as duas fontes discordam', $recusa);
         self::assertStringNotContainsString('PRÓPRIO acordo desta aba', $recusa, 'mandaria o conferente investigar a coisa errada');
+    }
+
+    #[TestDox('Porta B: a PRÉVIA não grava nada, nem quando a parcela já existia no banco')]
+    public function testPortaBNaPreviaNaoGrava(): void
+    {
+        [$tenant, $user, $carteiraId, $caso, $acordo37] = $this->cenarioAcordo37();
+
+        // O caminho `parcela-vinculada`: a obrigação JÁ EXISTE no banco e esta execução a liga ao acordo.
+        // Nele o acumulador guarda a entidade real — inclusive no dry-run, onde nada foi escrito. Sem a
+        // guarda de `$usuario`, a prévia marcaria e congelaria os encargos de uma obrigação de verdade,
+        // fora de transação, sem o operador ter autorizado.
+        $leitura = new ResultadoLeituraAcordos([
+            $this->acordoDaPlanilha(
+                numero: 37,
+                contas: [],
+                parcelas: [['60145', 1, 1, '01/2026', '2026-01-13', 17000]],
+            ),
+            $this->acordoDaPlanilha(
+                numero: 88,
+                contas: [['60145', '01/2026', '2026-01-13', 17000, 37, '1/1']],
+                parcelas: [['70500', 1, 1, '11/2026', '2026-11-10', 21000]],
+            ),
+        ], [], 0);
+
+        $antes = $this->em->getRepository(Obrigacao::class)->count(['tenant' => $tenant]);
+        $saldoAntes = $this->saldo->saldoExigivel($caso);
+
+        $previsto = $this->importarAcordos->prever($carteiraId, $leitura, $tenant);
+
+        // `clear()` e não `refresh()`: a pergunta é "o que está NO BANCO", e `refresh` numa entidade suja
+        // esconderia justamente um `set` sem flush. Tenant e usuário são reencontrados depois, porque o
+        // clear os desanexa.
+        $tenantId = (int) $tenant->getId();
+        $userId = (int) $user->getId();
+        $this->em->clear();
+
+        $tenant = $this->em->find(Tenant::class, $tenantId);
+        $user = $this->em->find(User::class, $userId);
+        self::assertNotNull($tenant);
+        self::assertNotNull($user);
+
+        $alvo = $this->obrigacao($tenant, '60145');
+        self::assertNotNull($alvo);
+        self::assertNull($alvo->getAcordoSubstituto(), 'a PRÉVIA não pode gravar substituição');
+        self::assertNull($alvo->getAcordoOrigem(), 'a PRÉVIA não pode gravar o vínculo de parcela');
+        self::assertSame($antes, $this->em->getRepository(Obrigacao::class)->count(['tenant' => $tenant]));
+
+        [$caso2] = $this->casoEAcordo($tenant, 37);
+        self::assertSame($saldoAntes, $this->saldo->saldoExigivel($caso2), 'dry-run não mexe no saldo');
+
+        // E a projeção continua dizendo o que a confirmação fará.
+        $feito = $this->importarAcordos->confirmar($carteiraId, $leitura, $tenant, $user);
+        self::assertSame($previsto->nnsContasMarcadas(), $feito->nnsContasMarcadas());
+        self::assertSame($previsto->principalReconciliadoCentavos(), $feito->principalReconciliadoCentavos());
+        self::assertNotNull($acordo37);
+        self::assertNotNull($caso);
     }
 
     #[TestDox('Porta B NÃO troca em silêncio um substituto que já existia')]
@@ -1983,7 +2084,9 @@ final class ImportarAcordosDetalhadosTest extends KernelTestCase
         $this->em->refresh($solta);
         self::assertSame($anterior->getId(), $solta->getAcordoSubstituto()?->getId(), 'o substituto anterior não pode ser trocado em silêncio');
         self::assertNotContains('60145', $resultado->nnsContasMarcadas());
-        self::assertStringContainsString('já substituída pelo acordo', implode(' ', $resultado->contasRecusadas()));
+        $recusa = implode(' ', $resultado->contasRecusadas());
+        self::assertStringContainsString('já substituída pelo acordo 555', $recusa, 'a linha do relatório identifica o acordo pelo número da CONTÁBIL — o id interno não existe em fonte nenhuma para quem confere');
+        self::assertNotSame(555, $anterior->getId(), 'o cenário exige id interno ≠ número externo, senão o assert não distingue nada');
         self::assertSame(0, $resultado->principalReconciliadoCentavos(), 'não pode somar como "sai do saldo" uma dívida que já estava fora');
     }
 
@@ -2466,12 +2569,13 @@ final class ImportarAcordosDetalhadosTest extends KernelTestCase
     }
 
     /** Um acordo vigente sem parcelas, no mesmo caso — só para ocupar o papel de substituto anterior. */
-    private function criarAcordoVigenteVazio(Tenant $tenant, Acordo $modelo): Acordo
+    private function criarAcordoVigenteVazio(Tenant $tenant, Acordo $modelo, int $numeroExterno = 555): Acordo
     {
         $acordo = (new Acordo())
             ->setTenant($tenant)
             ->setCaso($modelo->getCaso())
             ->setDataAcordo($modelo->getDataAcordo())
+            ->setNumeroExterno($numeroExterno)
             ->setStatus(StatusAcordo::Ativo);
         $this->em->persist($acordo);
         $this->em->flush();

@@ -550,10 +550,11 @@ final class MontarDetalheCasoUseCase
             }
 
             // ⚠️ Com mais de um sucessor o ID fica NULO e só a contagem vai para a tela. Medido no dado
-            // real: 8 acordos tiveram as parcelas divididas entre acordos novos diferentes, um deles
-            // entre 12. Escolher um (o último visto, pela ordem da query) e escrever "substituído pelo
-            // acordo #N" seria afirmar, para as parcelas que foram para os outros, uma coisa falsa — e
-            // o N mudaria conforme a ordenação, sem ninguém perceber.
+            // real: 8 acordos tiveram as parcelas divididas entre acordos novos diferentes (4 deles
+            // recebem o selo; os outros 4 ainda têm parcela viva), e no acervo inteiro um acordo chega a
+            // 22 sucessores. Escolher um (o último visto, pela ordem da query) e escrever "substituído
+            // pelo acordo #N" seria afirmar, para as parcelas que foram para os outros, uma coisa falsa
+            // — e o N mudaria conforme a ordenação, sem ninguém perceber.
             $resultado[$velhoId] = [
                 'id' => count($ids) === 1 ? array_key_first($ids) : null,
                 'qtd' => count($ids),

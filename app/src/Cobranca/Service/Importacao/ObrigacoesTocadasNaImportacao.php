@@ -7,6 +7,7 @@ namespace App\Cobranca\Service\Importacao;
 use App\Cobranca\Entity\Acordo;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\Obrigacao;
+use App\Cobranca\Enum\StatusAcordo;
 
 /**
  * O que UMA execução do importador de acordos já criou ou mutou. É o equivalente do `PessoaEmImportacao`
@@ -46,6 +47,9 @@ final class ObrigacoesTocadasNaImportacao
      */
     private array $procedencia = [];
 
+    /** @var array<int, StatusAcordo> número externo do acordo → o status que esta execução DECIDIU para ele */
+    private array $statusDecidido = [];
+
     /**
      * Obrigação que esta execução CRIA (não existe id no dry-run — só os índices por chave lógica).
      *
@@ -53,10 +57,9 @@ final class ObrigacoesTocadasNaImportacao
      * original de uma aba seguinte disser "sou parcela do acordo N", é aqui que se confere se foi mesmo
      * esse acordo que a criou nesta execução — e, no mesmo movimento, se ele **continua vigente**.
      *
-     * ⚠️ Guarda-se a ENTIDADE, não o número. Guardar só o número obrigaria a porta B a supor a vigência
-     * do acordo, e a suposição ("a aba que criou a parcela era vigente") é verdadeira no momento da
-     * criação e pode deixar de ser depois, se uma aba seguinte do mesmo lote o desativar. A entidade é
-     * *managed*: ler o status dela responde pelo estado de agora, não pelo de quando a parcela nasceu.
+     * ⚠️ Guarda-se a ENTIDADE, não o número: dela saem o número externo E a identidade do acordo. A
+     * vigência, porém, **não** se lê da entidade — `getStatus()` só reflete a sobrescrita na
+     * confirmação. Quem responde por ela é `statusDecidido()`, abaixo.
      *
      * `$obrigacao` só existe na confirmação — no dry-run nada é gravado, e é por isso que o VALOR é
      * guardado à parte: prévia e confirmação têm de somar o mesmo principal, e só o valor passado aqui
@@ -114,6 +117,31 @@ final class ObrigacoesTocadasNaImportacao
                 'obrigacao' => $obrigacao,
             ];
         }
+    }
+
+    /**
+     * O status que esta execução decidiu para o acordo daquela aba — **decidido, não necessariamente
+     * escrito**.
+     *
+     * ⚠️ É a única forma de perguntar "este acordo continua vigente?" sem quebrar a paridade
+     * prévia×confirmação. Perguntar à entidade não serve: `aplicarSobrescrita` só grava o status na
+     * CONFIRMAÇÃO, então `getStatus()` responde o valor novo num modo e o antigo no outro — e a porta B
+     * da INV-I decide por essa resposta. A decisão, ao contrário da escrita, é tomada igual nos dois
+     * modos, e é ela que fica aqui.
+     */
+    public function registrarStatusDecidido(int $numeroDaAba, StatusAcordo $status): void
+    {
+        $this->statusDecidido[$numeroDaAba] = $status;
+    }
+
+    /**
+     * O status decidido para aquele número de acordo nesta execução, ou `null` se nenhuma aba o tocou —
+     * e aí a entidade responde, porque um acordo que esta execução não tocou tem o mesmo status nos dois
+     * modos.
+     */
+    public function statusDecidido(?int $numeroDoAcordo): ?StatusAcordo
+    {
+        return $numeroDoAcordo === null ? null : ($this->statusDecidido[$numeroDoAcordo] ?? null);
     }
 
     /** Esta execução já tocou nesta dívida exata? Devolve o que fez com ela, ou null. */

@@ -577,12 +577,16 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
         $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
 
         self::assertResponseIsSuccessful();
-        $encerrados = $crawler->filter('#secao-acordos-encerrados')->text();
-        self::assertStringContainsString('Acordo #' . $velho->getId(), $encerrados);
-        self::assertStringContainsString('Substituído pelo acordo #' . $novo->getId(), $encerrados);
+        // A LINHA do acordo, não a seção inteira: procurar "Ativo" no texto de tudo passaria por acaso
+        // enquanto houver um único acordo encerrado na tela, e deixaria de provar qualquer coisa no dia
+        // em que houver dois.
+        $linha = $crawler->filter('#secao-acordos-encerrados .jp-mov')->reduce(
+            static fn ($no): bool => str_contains($no->text(), 'Acordo #' . $velho->getId()),
+        )->text();
+        self::assertStringContainsString('Substituído pelo acordo #' . $novo->getId(), $linha);
         // O selo de ESTADO continua ao lado, não é trocado: 20 dos 37 acordos assumidos no dado real
         // estão "Cumprido" (a contábil deu baixa), e apagar isso perderia informação da tela.
-        self::assertStringContainsString('Ativo', $encerrados, 'o estado que a contábil declara continua visível');
+        self::assertStringContainsString('Ativo', $linha, 'o estado que a contábil declara continua visível');
     }
 
     #[TestDox('Acordo PARCIALMENTE renegociado continua vigente: nada de "Substituído"')]
@@ -660,6 +664,28 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
         )->text();
         self::assertStringContainsString('Cumprido', $linha, 'o estado que a contábil declara não pode sumir');
         self::assertStringContainsString('Substituído pelo acordo #' . $novo->getId(), $linha);
+    }
+
+    #[TestDox('Acordo ROMPIDO e assumido não exibe as duas frases, que se contradizem')]
+    public function testAcordoRompidoEAssumidoNaoExibeFrasesContraditorias(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+
+        // "as obrigações trocadas voltaram ao total em aberto" (porque foi rompido) e "as parcelas dele
+        // saíram do total em aberto" (porque foram assumidas) dizem o oposto uma da outra sobre o mesmo
+        // acordo. Não existe acordo nessa forma no dado de hoje; é a estrutura do template que impede.
+        [$velho] = $this->acordoAssumidoPorOutro($tenant, $caso, parcelasQueFicam: 0, statusVelho: StatusAcordo::Rompido);
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+
+        self::assertResponseIsSuccessful();
+        $linha = $crawler->filter('#secao-acordos-encerrados .jp-mov')->reduce(
+            static fn ($no): bool => str_contains($no->text(), 'Acordo #' . $velho->getId()),
+        )->text();
+        self::assertStringContainsString('voltaram ao total em aberto', $linha, 'rompido: as trocas dele voltaram, e é isso que importa para o dinheiro');
+        self::assertStringNotContainsString('saíram do total em aberto', $linha, 'as duas frases juntas se contradizem');
     }
 
     #[TestDox('Parcelas divididas entre DOIS acordos novos: a tela não escolhe um deles a esmo')]

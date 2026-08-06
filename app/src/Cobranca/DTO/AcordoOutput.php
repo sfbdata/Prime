@@ -37,9 +37,9 @@ final class AcordoOutput
          * mesma unidade de trabalho).
          *
          * ⚠️ **Nulo também quando há MAIS DE UM sucessor** — aí `qtdSucessores` é que responde. Medido
-         * no dado real: 8 acordos tiveram as parcelas divididas entre vários acordos novos, um deles
-         * entre 12. Exibir um só seria escolher um pela ordem da query e afirmar, para as demais
-         * parcelas, uma coisa falsa.
+         * no dado real: 8 acordos tiveram as parcelas divididas entre vários acordos novos (4 recebem o
+         * selo), e no acervo inteiro um deles chega a 22. Exibir um só seria escolher pela ordem da
+         * query e afirmar, para as demais parcelas, uma coisa falsa.
          */
         public readonly ?int $substituidoPeloAcordoId = null,
         /** Quantos acordos distintos assumiram parcelas deste. 0 = não foi substituído. */
