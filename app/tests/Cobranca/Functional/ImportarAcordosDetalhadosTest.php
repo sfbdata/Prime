@@ -33,6 +33,7 @@ use App\Cobranca\Service\Importacao\ResultadoLeitura;
 use App\Cobranca\Service\Importacao\ResultadoLeituraAcordos;
 use App\Cobranca\Service\RegistrarEventoHistorico;
 use App\Cobranca\Service\ResolvedorConfigEncargos;
+use App\Cobranca\Service\ResolvedorPessoaNoObjeto;
 use App\Cobranca\Service\RestauradorObrigacoesOriginais;
 use App\Cobranca\UseCase\AbrirCasoUseCase;
 use App\Cobranca\UseCase\CriarObjetoUseCase;
@@ -117,6 +118,7 @@ final class ImportarAcordosDetalhadosTest extends KernelTestCase
             new AbrirCasoUseCase($casoRepo, $objetoRepo, $pessoaRepo, $registrarEvento),
             $registrarObrigacao,
             $this->em,
+            new ResolvedorPessoaNoObjeto($vinculoRepo),
         );
 
         $this->importarAcordos = new ImportarAcordosDetalhadosUseCase(

@@ -98,8 +98,14 @@ final class EstadoDaImportacaoDeReceitas
     /**
      * Registra o objeto/caso desta linha, contando criação **uma vez por unidade** — não uma vez por
      * recebimento.
+     *
+     * `$pessoaJaNoObjeto` é verdadeiro quando a unidade já tem, vinculada a ela, uma pessoa com o mesmo
+     * nome do sacado — o estado que o importe de **cadastro** deixa (pessoa com CPF e contato, e nenhum
+     * caso aberto). Nesse caso o caso nasce, mas a pessoa é REUSADA: contá-la aqui faria a prévia
+     * prometer criações que a confirmação não faz. Ver
+     * `docs/specs/cobranca-importe-nao-duplica-devedor-do-cadastro.md`.
      */
-    public function projetarObjetoECaso(string $identificacao, bool $objetoExiste, bool $casoExiste): void
+    public function projetarObjetoECaso(string $identificacao, bool $objetoExiste, bool $casoExiste, bool $pessoaJaNoObjeto = false): void
     {
         if (!isset($this->objetosVistos[$identificacao])) {
             $this->objetosVistos[$identificacao] = true;
@@ -115,7 +121,9 @@ final class EstadoDaImportacaoDeReceitas
                 // exemplo, só no ramo de escrita da confirmação) faria a prévia prometer zero pessoas e
                 // a confirmação criar N: a divergência clássica que esta classe existe para impedir.
                 ++$this->casosCriados;
-                ++$this->pessoasCriadas;
+                if (!$pessoaJaNoObjeto) {
+                    ++$this->pessoasCriadas;
+                }
             }
         }
     }

@@ -1540,6 +1540,11 @@ string), tem prévia sem `--confirmar`, aborta se o banco não for `saas_ux` e a
 | Dados cadastrais | **51 unidades · 52 pessoas · 0 rejeições** (7 pessoas já existiam e foram reaproveitadas) |
 | Inadimplências | **25 boletos · 9 unidades devedoras · 0 rejeições** |
 
+🔴 **CORREÇÃO (mesma sessão, §19): este "importa limpo" estava ERRADO, e a prova acima escondia o
+defeito.** Aquele dry-run imprimia *"Pessoas criadas: 9"* — e as 9 eram **as mesmas pessoas que o
+cadastro tinha acabado de criar**, duplicadas. Ler "0 rejeições" como "está limpo" foi o erro: a linha
+que denunciava era outra. Corrigido na §19.
+
 ⚠️ **Em PRODUÇÃO a carteira continua não existindo.** O que foi feito vale só para o `saas_ux`. O
 cadastro em prod é do dono, pela tela — e os dados são os mesmos desta seção.
 
@@ -1599,3 +1604,66 @@ respondeu `saas_ux_f15` e, logo depois, o comando sem `-e` respondeu `saas_ux`, 
 **Use isto no lugar do `sed` no `.env.local`.** A troca do arquivo continua necessária **só para o
 smoke no navegador** (o php-fpm lê o arquivo), e é lá que mora o risco de a outra sessão pegar o banco
 errado.
+
+---
+
+## 19. 🔴 08/08 — IMPORTANDO A AMLI, UM DEFEITO DE IDENTIDADE DO DEVEDOR APARECEU
+
+Spec: `docs/specs/cobranca-importe-nao-duplica-devedor-do-cadastro.md`. **Risco ALTO.**
+
+**O dono mandou importar os dados da AMLI. A importação parou no meio, de propósito** — só o cadastro
+entrou. O resto está travado até esta correção ser aprovada.
+
+### 19.1 O defeito
+
+A unidade que veio do **cadastro de condôminos** tem a pessoa vinculada (nome, CPF, e-mail, telefone) e
+**nenhum caso de cobrança**. Os importes de **inadimplência** e de **receitas**, ao abrir o caso, não
+olhavam quem já estava na unidade: criavam **outra pessoa com o mesmo nome, sem documento**, e abriam o
+caso **cobrando essa cópia**.
+
+| porta | pessoas duplicadas que criaria na AMLI |
+|---|---:|
+| Inadimplência | **9** |
+| Receitas | **45** |
+
+**45 das 51 unidades** ficariam com o devedor em duplicata, e as 44 pessoas com CPF ficariam de fora da
+cobrança.
+
+### 19.2 Duas coisas medidas que mudaram a decisão
+
+1. **Inverter a ordem não resolve.** Testado nos dois sentidos em banco descartável
+   (`saas_ux_amli_ordem`): cadastro→inadimplência e inadimplência→cadastro dão **o mesmo estrago** (54
+   pessoas, 9 unidades duplicadas). As fontes se reconhecem por chaves diferentes — o cadastro casa por
+   **CPF**, o importe casa por **nome**.
+2. 🔑 **Por que isto nunca apareceu:** `cobranca_pessoa` com CPF, medido — **TL1: 0 · TL2: 0 · AMLI:
+   44**. **A AMLI é a primeira carteira que recebe o cadastro.** O teste do zero (§13) rodou
+   *Inadimplência → Receitas → Acordos*, sem cadastro: o caminho com defeito nunca foi exercitado.
+
+### 19.3 O que a correção faz
+
+Um serviço único (`ResolvedorPessoaNoObjeto`) usado pelas **duas** portas: antes de criar a pessoa,
+procura entre as **já vinculadas àquela unidade** uma com o mesmo nome normalizado. Achou, reusa; não
+achou, cria como antes. Escopo é o objeto — nunca global, nunca entre carteiras, nunca entre tenants.
+
+**Serviço único de propósito:** dois trechos parecidos foi como nasceu a *"porta B mais frouxa que a
+porta A"* que a 1ª revisão da §16 teve de corrigir.
+
+### 19.4 Estado
+
+- **suíte completa: 3.426 verde** · **6 injeções de defeito, 5 vermelhos e 1 que PASSOU** (a 6ª, e o
+  que ela ensinou está na §8.2 da spec);
+- **duas revisões feitas**. A 1ª achou 3 MÉDIOS — um deles: **este handoff afirmava "importa limpo"**
+  sobre o import que duplicava 45 devedores. A 2ª **achou defeito nas correções da 1ª pela DÉCIMA
+  SEGUNDA vez seguida**: eu havia fechado os dois furos de teste **só na porta A**, e o teste novo da
+  porta B usava UMA linha — quando a AMLI tem ~7 recebimentos por unidade. Era "a porta B mais frouxa
+  que a porta A" de novo, na mesma frente que já tinha corrigido isso na §16.
+
+### 19.5 ⛔ O que NÃO foi importado, e por quê
+
+Só o **cadastro** da AMLI está no `saas_ux` (51 unidades, 44 CPFs, sem duplicação). **Inadimplência,
+Receitas e Acordos ficaram de fora** — importar antes da correção gravaria as 45 duplicatas em dado
+real. A importação completa da AMLI é o passo seguinte à aprovação.
+
+🔑 **O que este episódio ensina, e vale para o resto da frente:** *"0 rejeições"* não quer dizer *"está
+limpo"*. A linha que denunciava o defeito era **"Pessoas criadas: 9"** num arquivo cujas 9 unidades já
+tinham dono — e ela estava impressa na tela, lida e registrada como prova de sucesso.

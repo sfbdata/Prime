@@ -29,6 +29,7 @@ use App\Cobranca\Service\Importacao\ReferenciaSubstituta;
 use App\Cobranca\Service\Importacao\ResultadoImportacao;
 use App\Cobranca\Service\Importacao\ResultadoLeitura;
 use App\Cobranca\Service\NormalizadorNome;
+use App\Cobranca\Service\ResolvedorPessoaNoObjeto;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use Doctrine\ORM\EntityManagerInterface;
@@ -68,6 +69,7 @@ final class ImportarRelatorioCarteiraUseCase
         private readonly AbrirCasoUseCase $abrirCaso,
         private readonly RegistrarObrigacaoUseCase $registrarObrigacao,
         private readonly EntityManagerInterface $em,
+        private readonly ResolvedorPessoaNoObjeto $resolvedorPessoa,
     ) {
     }
 
@@ -108,11 +110,17 @@ final class ImportarRelatorioCarteiraUseCase
             $nomeBoleto = NormalizadorNome::normalizar($boleto->sacadoNome);
             if ($temCasoPorObjeto[$identif] === false) {
                 ++$casosNovos;
-                ++$pessoasNovas;
-                $temCasoPorObjeto[$identif] = true;
-                if ($nomeBoleto !== null) {
-                    $nomesPorObjeto[$identif][] = $nomeBoleto;
+                // PARIDADE com `confirmar()`: lá a pessoa só nasce quando NÃO há, no objeto, alguém com
+                // o mesmo nome (o caso da unidade que veio do cadastro). `nomesPorObjeto` já traz as
+                // pessoas vinculadas, então a mesma pergunta se responde aqui. Contar pessoa nova
+                // incondicionalmente faria a prévia prometer 45 criações e a confirmação criar 0.
+                if ($nomeBoleto === null || !in_array($nomeBoleto, $nomesPorObjeto[$identif], true)) {
+                    ++$pessoasNovas;
+                    if ($nomeBoleto !== null) {
+                        $nomesPorObjeto[$identif][] = $nomeBoleto;
+                    }
                 }
+                $temCasoPorObjeto[$identif] = true;
             } elseif ($nomeBoleto !== null && !in_array($nomeBoleto, $nomesPorObjeto[$identif], true)) {
                 ++$pessoasNovas;
                 $divergentes[] = $identif;
@@ -180,9 +188,17 @@ final class ImportarRelatorioCarteiraUseCase
 
                 $caso = $this->casoRepository->casosAtivosDoObjeto($objeto)[0] ?? null;
                 if ($caso === null) {
-                    $pessoa = $this->criarPessoa->executar($this->pessoaInput($boleto), $tenant, $user);
-                    ++$pessoasCriadas;
-                    $this->vincular->executar($this->vinculoInput($pessoa->getId(), $objeto->getId(), $carteira), $tenant, $user);
+                    // Sem caso, a unidade PODE já ter dono: é o estado que o importe de cadastro deixa
+                    // (pessoa vinculada, com CPF e contato, e nenhum caso aberto). Criar pessoa aqui sem
+                    // olhar quem já está no objeto duplicava o devedor e fazia o caso cobrar a cópia sem
+                    // documento — 9 unidades pela inadimplência e 45 pela receita, de 51, na AMLI.
+                    // Spec: docs/specs/cobranca-importe-nao-duplica-devedor-do-cadastro.md
+                    $pessoa = $this->resolvedorPessoa->porNome($objeto, $boleto->sacadoNome);
+                    if ($pessoa === null) {
+                        $pessoa = $this->criarPessoa->executar($this->pessoaInput($boleto), $tenant, $user);
+                        ++$pessoasCriadas;
+                        $this->vincular->executar($this->vinculoInput($pessoa->getId(), $objeto->getId(), $carteira), $tenant, $user);
+                    }
                     $caso = $this->abrirCaso->executar($this->casoInput($objeto->getId(), $pessoa->getId()), $tenant, $user);
                     ++$casosCriados;
                 } elseif (!$this->sacadoJaRepresentadoNoObjeto($objeto, $caso, $boleto->sacadoNome)) {

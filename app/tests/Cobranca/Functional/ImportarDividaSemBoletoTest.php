@@ -21,6 +21,7 @@ use App\Cobranca\Service\Importacao\ReferenciaSubstituta;
 use App\Cobranca\Service\Importacao\ResultadoLeitura;
 use App\Cobranca\Service\RegistrarEventoHistorico;
 use App\Cobranca\Service\ResolvedorConfigEncargos;
+use App\Cobranca\Service\ResolvedorPessoaNoObjeto;
 use App\Cobranca\UseCase\AbrirCasoUseCase;
 use App\Cobranca\UseCase\CriarObjetoUseCase;
 use App\Cobranca\UseCase\CriarPessoaUseCase;
@@ -86,6 +87,7 @@ final class ImportarDividaSemBoletoTest extends KernelTestCase
             new AbrirCasoUseCase($casoRepo, $objetoRepo, $pessoaRepo, $registrarEvento),
             new RegistrarObrigacaoUseCase($obrigacaoRepo, $casoRepo, $registrarEvento, new CalculadoraEncargos(), new ResolvedorConfigEncargos(), new ConversorTaxaEncargo(new CalculadoraEncargos())),
             $this->em,
+            new ResolvedorPessoaNoObjeto($vinculoRepo),
         );
     }
 

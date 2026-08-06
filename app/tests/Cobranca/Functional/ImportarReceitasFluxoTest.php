@@ -6,12 +6,16 @@ namespace App\Tests\Cobranca\Functional;
 
 use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\Obrigacao;
+use App\Cobranca\Entity\Pessoa;
 use App\Cobranca\Service\CalculadoraSaldo;
 use App\Cobranca\Service\Importacao\ReceitaImportavel;
 use App\Cobranca\Service\Importacao\ResultadoImportacaoReceitas;
 use App\Cobranca\Service\Importacao\ResultadoLeituraReceitas;
 use App\Cobranca\UseCase\ImportarReceitasUseCase;
+use App\Tests\Factory\Cobranca\ObjetoCobrancaFactory;
 use App\Tests\Factory\Cobranca\ObrigacaoFactory;
+use App\Tests\Factory\Cobranca\PessoaFactory;
+use App\Tests\Factory\Cobranca\VinculoPessoaObjetoFactory;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -85,6 +89,149 @@ final class ImportarReceitasFluxoTest extends CobrancaWebTestCase
             $previa->principalCentavos() + $previa->encargosCentavos + $previa->honorariosCentavos,
             'os três baldes têm de reconstituir o total — é o invariante que a conferência usa',
         );
+    }
+
+    #[TestDox('🔑 Unidade vinda do CADASTRO: reusa a pessoa e a prévia bate — não duplica o devedor')]
+    public function testUnidadeDoCadastroReusaPessoaEMantemParidade(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [$carteira] = $this->semearGrafo($tenant);
+        $carteiraId = (int) $carteira->getId();
+        $usuario = $this->em()->getRepository(\App\Entity\Auth\User::class)->findAll()[0];
+
+        // Estado que o importe de CADASTRO deixa: unidade + pessoa (com CPF) + vínculo, e NENHUM caso.
+        // Medido na AMLI antes da correção: 45 das 51 unidades ganhavam uma 2ª pessoa, sem documento, e
+        // o caso passava a cobrar essa cópia. Spec: cobranca-importe-nao-duplica-devedor-do-cadastro.md
+        $objeto = ObjetoCobrancaFactory::createOne([
+            'tenant' => $tenant,
+            'carteira' => $carteira,
+            'identificacao' => 'QUADRA D LOTE 05',
+        ])->_real();
+        $pessoaDoCadastro = PessoaFactory::createOne([
+            'tenant' => $tenant,
+            'nome' => 'EDIMAR DE BRITO CERQUEIRA',
+            'cpf' => '80778534120',
+        ])->_real();
+        VinculoPessoaObjetoFactory::createOne(['tenant' => $tenant, 'pessoa' => $pessoaDoCadastro, 'objeto' => $objeto]);
+
+        $leitura = $this->leitura([
+            $this->receita('QUADRA D LOTE 05', 'EDIMAR DE BRITO CERQUEIRA', '9101', '05/2026', '15/05/2026', divida: 17000),
+        ]);
+
+        $sut = static::getContainer()->get(ImportarReceitasUseCase::class);
+        $previa = $sut->prever($carteiraId, $leitura, $tenant);
+        $confirmacao = $sut->confirmar($carteiraId, $leitura, $tenant, $usuario);
+
+        self::assertSame(
+            $this->achatar($previa),
+            $this->achatar($confirmacao),
+            'prévia e confirmação têm de bater também neste cenário, em TODOS os campos',
+        );
+        self::assertSame(0, $previa->pessoasCriadas, 'a pessoa do cadastro é REUSADA, não duplicada');
+        self::assertSame(0, $previa->objetosCriados, 'a unidade já existia');
+        self::assertSame(1, $previa->casosCriados, 'o caso continua nascendo');
+
+        $caso = $this->em()->getRepository(CasoCobranca::class)->findOneBy(['objeto' => $objeto]);
+        self::assertSame(
+            $pessoaDoCadastro->getId(),
+            $caso?->getPessoaCobradaAtual()?->getId(),
+            'o caso cobra a pessoa COM CPF, não uma cópia sem documento',
+        );
+
+        // 🔑 O contador NÃO é prova suficiente: numa injeção de defeito ele continuou dizendo "0 pessoas
+        // criadas" enquanto o banco ganhava uma segunda pessoa. Quem prova é a contagem no banco.
+        self::assertCount(
+            1,
+            $this->em()->getRepository(Pessoa::class)->findBy(['tenant' => $tenant, 'nome' => 'EDIMAR DE BRITO CERQUEIRA']),
+            'no banco tem de existir UMA pessoa com esse nome — o contador pode mentir, a tabela não',
+        );
+    }
+
+    #[TestDox('🔑 Unidade do cadastro com VÁRIOS recebimentos: prévia e confirmação batem em todos eles')]
+    public function testUnidadeDoCadastroComVariosRecebimentosMantemParidade(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [$carteira] = $this->semearGrafo($tenant);
+        $carteiraId = (int) $carteira->getId();
+        $usuario = $this->em()->getRepository(\App\Entity\Auth\User::class)->findAll()[0];
+
+        // 🔑 Este é o arranjo REAL: na AMLI são 319 recebimentos para 45 unidades, ~7 por unidade. O
+        // cenário de UMA linha (que o teste vizinho cobre) é a exceção, não a regra.
+        //
+        // ⚠️ Honestidade sobre o que este teste NÃO prova: removendo a memorização de
+        // `pessoaJaNoObjeto()` ele continua VERDE (injeção feita, e passou). A paridade aqui é
+        // sustentada pelo gate `casosVistos` de `EstadoDaImportacaoDeReceitas`, que descarta o valor
+        // fora do primeiro encontro. A memorização é defesa em profundidade — tira a paridade da
+        // dependência de um gate distante e corta as consultas de uma por LINHA para uma por UNIDADE.
+        // O que este teste trava de verdade é o arranjo multi-linha funcionando ponta a ponta.
+        $objeto = ObjetoCobrancaFactory::createOne([
+            'tenant' => $tenant,
+            'carteira' => $carteira,
+            'identificacao' => 'QUADRA E LOTE 14',
+        ])->_real();
+        $pessoaDoCadastro = PessoaFactory::createOne([
+            'tenant' => $tenant,
+            'nome' => 'PAULO ROBERTO RAMOS DE CASTRO',
+            'cpf' => '02002755930',
+        ])->_real();
+        VinculoPessoaObjetoFactory::createOne(['tenant' => $tenant, 'pessoa' => $pessoaDoCadastro, 'objeto' => $objeto]);
+
+        $leitura = $this->leitura([
+            $this->receita('QUADRA E LOTE 14', 'PAULO ROBERTO RAMOS DE CASTRO', '9201', '03/2026', '15/03/2026', divida: 17000),
+            $this->receita('QUADRA E LOTE 14', 'PAULO ROBERTO RAMOS DE CASTRO', '9202', '04/2026', '15/04/2026', divida: 17000),
+            $this->receita('QUADRA E LOTE 14', 'PAULO ROBERTO RAMOS DE CASTRO', '9203', '05/2026', '15/05/2026', divida: 17000),
+        ]);
+
+        $sut = static::getContainer()->get(ImportarReceitasUseCase::class);
+        $previa = $sut->prever($carteiraId, $leitura, $tenant);
+        $confirmacao = $sut->confirmar($carteiraId, $leitura, $tenant, $usuario);
+
+        self::assertSame(
+            $this->achatar($previa),
+            $this->achatar($confirmacao),
+            'com 3 recebimentos da MESMA unidade os dois modos têm de bater em todos os campos',
+        );
+        self::assertSame(0, $previa->pessoasCriadas, 'nenhuma pessoa nasce: a do cadastro é reusada');
+        self::assertSame(1, $previa->casosCriados, 'um caso para a unidade, não um por recebimento');
+        self::assertCount(3, $previa->pagamentosCriados, 'os três recebimentos entram');
+
+        self::assertCount(
+            1,
+            $this->em()->getRepository(Pessoa::class)->findBy(['tenant' => $tenant, 'nome' => 'PAULO ROBERTO RAMOS DE CASTRO']),
+            'uma pessoa no banco, mesmo com três linhas',
+        );
+    }
+
+    #[TestDox('Sentido contrário: sacado com outro nome na unidade do cadastro continua criando pessoa')]
+    public function testSacadoDeOutroNomeNaUnidadeDoCadastroCriaPessoa(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [$carteira] = $this->semearGrafo($tenant);
+        $carteiraId = (int) $carteira->getId();
+        $usuario = $this->em()->getRepository(\App\Entity\Auth\User::class)->findAll()[0];
+
+        // QUADRA D LOTE 03 da AMLI tem DOIS proprietários distintos: unir seria tão defeito quanto duplicar.
+        $objeto = ObjetoCobrancaFactory::createOne([
+            'tenant' => $tenant,
+            'carteira' => $carteira,
+            'identificacao' => 'QUADRA D LOTE 03',
+        ])->_real();
+        $pessoa = PessoaFactory::createOne(['tenant' => $tenant, 'nome' => 'CARLOS ALBERTO DE LIMA', 'cpf' => '35172711104'])->_real();
+        VinculoPessoaObjetoFactory::createOne(['tenant' => $tenant, 'pessoa' => $pessoa, 'objeto' => $objeto]);
+
+        $leitura = $this->leitura([
+            $this->receita('QUADRA D LOTE 03', 'EDUARDO TAVARES DE LIMA', '9102', '05/2026', '15/05/2026', divida: 17000),
+        ]);
+
+        $sut = static::getContainer()->get(ImportarReceitasUseCase::class);
+        $previa = $sut->prever($carteiraId, $leitura, $tenant);
+        $confirmacao = $sut->confirmar($carteiraId, $leitura, $tenant, $usuario);
+
+        self::assertSame($this->achatar($previa), $this->achatar($confirmacao));
+        self::assertSame(1, $previa->pessoasCriadas, 'nome diferente é outra pessoa: continua nascendo');
     }
 
     #[TestDox('🔑 Reimportar o mesmo arquivo não cria pagamento nenhum na segunda vez')]

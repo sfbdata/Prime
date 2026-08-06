@@ -13,6 +13,7 @@ use App\Cobranca\Entity\Acordo;
 use App\Cobranca\Entity\AlocacaoPagamento;
 use App\Cobranca\Entity\Carteira;
 use App\Cobranca\Entity\CasoCobranca;
+use App\Cobranca\Entity\ObjetoCobranca;
 use App\Cobranca\Entity\Obrigacao;
 use App\Cobranca\Entity\Pagamento;
 use App\Cobranca\Enum\StatusAcordo;
@@ -32,6 +33,7 @@ use App\Cobranca\Service\Importacao\ReceitaImportavel;
 use App\Cobranca\Service\Importacao\ResultadoImportacaoReceitas;
 use App\Cobranca\Service\Importacao\ResultadoLeituraReceitas;
 use App\Cobranca\Service\RegistrarEventoHistorico;
+use App\Cobranca\Service\ResolvedorPessoaNoObjeto;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use Doctrine\ORM\EntityManagerInterface;
@@ -77,6 +79,7 @@ final class ImportarReceitasUseCase
         private readonly RegistrarEventoHistorico $registrarEvento,
         private readonly ImpactoDaReativacaoDeAcordo $impactoDaReativacao,
         private readonly EntityManagerInterface $em,
+        private readonly ResolvedorPessoaNoObjeto $resolvedorPessoa,
     ) {
     }
 
@@ -91,6 +94,8 @@ final class ImportarReceitasUseCase
         $carteira = $this->resolverCarteira($carteiraId, $tenant);
         $estado = new EstadoDaImportacaoDeReceitas();
         $dinheiroParado = $this->mapearDinheiroParadoPelaReativacao($carteira, $leitura, $tenant);
+        /** @var array<string, bool> $pessoaJaNoObjeto identificação => resposta do PRIMEIRO encontro */
+        $pessoaJaNoObjeto = [];
 
         foreach ($leitura->receitas as $receita) {
             $objeto = $this->objetoRepository->findOnePorIdentificacaoNaCarteira($carteira, $receita->objetoIdentificacao, $tenant);
@@ -98,7 +103,12 @@ final class ImportarReceitasUseCase
 
             // ESTADO: o mesmo objeto/caso aparece em vários recebimentos do arquivo. Sem isto, a prévia
             // contaria uma criação por linha e prometeria um número que a confirmação não entrega.
-            $estado->projetarObjetoECaso($receita->objetoIdentificacao, $objeto !== null, $caso !== null);
+            $estado->projetarObjetoECaso(
+                $receita->objetoIdentificacao,
+                $objeto !== null,
+                $caso !== null,
+                $this->pessoaJaNoObjeto($pessoaJaNoObjeto, $receita, $objeto, $caso !== null),
+            );
 
             // Coluna J (etapa 3): projeta o acordo ANTES da obrigação, na mesma ordem da confirmação.
             // Nada é criado aqui — quem garante que os dois modos contam igual é o ESTADO, que só
@@ -135,6 +145,8 @@ final class ImportarReceitasUseCase
             $estado = new EstadoDaImportacaoDeReceitas();
             /** @var array<int, Acordo> $acordos número externo => acordo tocado nesta execução */
             $acordos = [];
+            /** @var array<string, bool> $pessoaJaNoObjeto identificação => resposta do PRIMEIRO encontro */
+            $pessoaJaNoObjeto = [];
 
             // ⚠️ ANTES do laço, e é obrigatório que seja antes. O relatório de dinheiro parado consulta
             // ALOCAÇÕES; se fosse calculado dentro do laço, a confirmação veria as alocações que ela
@@ -153,12 +165,32 @@ final class ImportarReceitasUseCase
 
                 $caso = $this->casoRepository->casosAtivosDoObjeto($objeto)[0] ?? null;
                 $casoExistia = $caso !== null;
+
+                // Resposta MEMORIZADA por unidade, no primeiro encontro e antes de qualquer escrita —
+                // idêntica à da prévia por construção, e não por sorte. Sem isto os dois modos passavam
+                // valores OPOSTOS da 2ª linha em diante de uma mesma unidade (na prévia o caso continua
+                // nulo; na confirmação ele já existe), e a paridade só se sustentava porque o acumulador
+                // descarta o valor fora do primeiro encontro. Na AMLI são ~7 recebimentos por unidade:
+                // o arranjo frágil é o NORMAL, não a exceção.
+                $pessoaJaNoObjetoDaUnidade = $this->pessoaJaNoObjeto($pessoaJaNoObjeto, $receita, $objetoExistia ? $objeto : null, $casoExistia);
+
                 if ($caso === null) {
-                    $pessoa = $this->criarPessoa->executar($this->pessoaInput($receita), $tenant, $user);
-                    $this->vincular->executar($this->vinculoInput($pessoa->getId(), $objeto->getId(), $carteira), $tenant, $user);
+                    // Unidade vinda do cadastro: já tem dono, com CPF e contato. Criar outra pessoa aqui
+                    // duplicava o devedor e abria o caso na cópia sem documento — 45 das 51 unidades da
+                    // AMLI. Spec: docs/specs/cobranca-importe-nao-duplica-devedor-do-cadastro.md
+                    //
+                    // A busca só acontece neste ramo, que roda uma vez por unidade — e `$pessoaJaNoObjeto`
+                    // acima guardou a MESMA resposta para o contador, então os dois nunca discordam.
+                    $pessoa = $pessoaJaNoObjetoDaUnidade && $objetoExistia
+                        ? $this->resolvedorPessoa->porNome($objeto, $receita->sacadoNome)
+                        : null;
+                    if ($pessoa === null) {
+                        $pessoa = $this->criarPessoa->executar($this->pessoaInput($receita), $tenant, $user);
+                        $this->vincular->executar($this->vinculoInput($pessoa->getId(), $objeto->getId(), $carteira), $tenant, $user);
+                    }
                     $caso = $this->abrirCaso->executar($this->casoInput($objeto->getId(), $pessoa->getId()), $tenant, $user);
                 }
-                $estado->projetarObjetoECaso($receita->objetoIdentificacao, $objetoExistia, $casoExistia);
+                $estado->projetarObjetoECaso($receita->objetoIdentificacao, $objetoExistia, $casoExistia, $pessoaJaNoObjetoDaUnidade);
 
                 // Coluna J (etapa 3): acha/cria o Acordo ANTES de resolver a obrigação, porque a
                 // parcela precisa apontar pra ele nos DOIS ramos — a que nasce agora e a que já
@@ -656,6 +688,32 @@ final class ImportarReceitasUseCase
         $input->referenciaExterna = $receita->objetoIdentificacao;
 
         return $input;
+    }
+
+    /**
+     * A unidade já tem, vinculada a ela, uma pessoa com o mesmo nome do sacado?
+     *
+     * 🔑 A resposta é decidida no PRIMEIRO encontro da unidade e memorizada — é isso que faz prévia e
+     * confirmação passarem o mesmo valor em TODAS as linhas. Sem a memória, da 2ª linha em diante os
+     * dois modos respondem o oposto (na prévia o caso segue nulo; na confirmação ele já foi criado), e
+     * a paridade passa a depender de o acumulador descartar o valor. Na AMLI são ~7 recebimentos por
+     * unidade — o arranjo frágil é o normal.
+     *
+     * Objeto nulo (unidade que nasce agora) responde `false`: ninguém está vinculado a ela ainda.
+     *
+     * @param array<string, bool> $memoria identificação => resposta já decidida (alterado por referência)
+     */
+    private function pessoaJaNoObjeto(array &$memoria, ReceitaImportavel $receita, ?ObjetoCobranca $objeto, bool $casoExiste): bool
+    {
+        $identificacao = $receita->objetoIdentificacao;
+
+        if (!array_key_exists($identificacao, $memoria)) {
+            $memoria[$identificacao] = $objeto !== null
+                && !$casoExiste
+                && $this->resolvedorPessoa->porNome($objeto, $receita->sacadoNome) !== null;
+        }
+
+        return $memoria[$identificacao];
     }
 
     private function pessoaInput(ReceitaImportavel $receita): CriarPessoaInput
