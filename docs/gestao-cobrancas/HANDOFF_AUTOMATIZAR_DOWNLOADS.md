@@ -1289,3 +1289,110 @@ das 241 parcelas, **227 pertencem a 24 acordos COM sucessor** (R$ 48.187,48) e s
 3. **64 commits** não publicados, deploy não feito;
 4. Esta mudança é **risco ALTO** (mexe na guarda que hoje protege contra dívida duplicada): spec, teste
    provado por reintrodução, **duas** revisões.
+
+---
+
+## 16. ✅ 08/08 — A §15 ENTREGUE: **o acordo novo assume as parcelas do anterior**
+
+Spec: `docs/specs/cobranca-acordo-assume-parcelas-do-anterior.md`. **3 commits locais, 2 revisões, 19
+injeções de prova, suíte 3.416 verde. Nada publicado, nada em produção, nada gravado em `saas_ux`.**
+
+### 16.1 🔴 TRÊS COISAS DA §15 CAÍRAM NA MEDIÇÃO
+
+**1. A unidade da substituição é a PARCELA, não o acordo.** A aba do acordo 393 (R$ 301,69 inteiro) tem
+UMA conta original: `NN 75125 … Acordo 348 - Parcela 2/40`. Ele não substituiu o 348 — renegociou **uma
+parcela** dele. O 348 segue com **38 parcelas em aberto, R$ 9.197,90**.
+
+**2. Dos 4 "bugs do suporte", 3 não são bugs.** O sucessor levou 1 ou 2 parcelas de 40:
+
+| acordo | o sucessor assumiu | o velho ainda deve |
+|---|---|---:|
+| 348 | 1 de 40 — R$ 242,05 | 38 parcelas — R$ 9.197,90 |
+| 292 | 1 de 40 — R$ 191,76 | 28 parcelas — R$ 5.369,48 |
+| 372 | 2 de 40 — R$ 511,64 | 37 parcelas — R$ 9.460,16 |
+| **82** | 1 (8/10) — R$ 278,50 | **1 parcela — R$ 278,50** ← zera |
+
+**Reclamar só do 82** (decisão do dono, 08/08). Os outros três estão "Em andamento" porque estão mesmo.
+
+**3. A INV-I CAUSAVA a dobra que existia para impedir.** 286 parcelas velhas no saldo (R$ 63.961,06) ao
+lado das 387 parcelas novas que as substituem (R$ 100.483,89) — a mesma dívida, do mesmo devedor, duas
+vezes.
+
+### 16.2 O que mudou, e qual planilha alimenta o quê
+
+A **planilha de Acordos detalhados**, seção *"Relação das contas originais"*, **coluna F
+("Detalhamento")** — documentada no adapter desde julho e nunca lida. Ela diz `Acordo 163 - Parcela 4/12`
+quando a conta original é, na verdade, parcela de um acordo anterior.
+
+A coluna F **não** virou chave de busca (o casamento continua sendo NN + competência): virou a **condição
+de aceitar**. Sem declaração, declarando outro acordo, declarando o próprio acordo da aba, ou com a origem
+não vigente, a recusa da INV-I continua idêntica. **A tela do gestor não mudou** — lá não há prova
+nenhuma (decisão do dono).
+
+**Regularidade da fonte, medida:** 5.029 grupos na seção, **0** com detalhamento divergente; só **2**
+formas de texto no acervo inteiro (`-` e `Acordo N - Parcela N/N`); e em **0** casos o acordo declarado
+difere do que o sistema já registrava.
+
+### 16.3 O efeito, medido em banco descartável (`saas_ux_f15`, clone do `saas_ux_zero`)
+
+| carteira | antes | depois | delta |
+|---|---:|---:|---:|
+| **TOP LIFE I** | 3.858 obrigações · R$ 644.590,04 | 3.572 · R$ 580.628,98 | **−286 · −R$ 63.961,06** |
+| TOP LIFE II | 537 · R$ 94.081,36 | 537 · R$ 94.081,36 | **0 — a carteira é indiferente** |
+
+⚠️ **O relatório imprime R$ 77.916,65** ("principal que sai"), mas **R$ 13.955,59** já estavam fora do
+saldo. O que sai da tela é R$ 63.961,06. **7ª vez** nesta frente.
+
+**Nada mais mudou:** 0 obrigações criadas ou apagadas, 0 acordos com status alterado, 0 pagamentos, 0
+alocações. Rodei a mesma importação com a **guarda antiga reinjetada** para isolar — e ela revelou que
+**a INV-I nunca impediu o estado que existia para impedir**: 131 obrigações ficam com origem E substituto
+mesmo com a guarda original, porque o substituto é gravado enquanto a origem ainda é nula.
+
+**Na tela: 37 acordos** deixam de se anunciar apenas como vigentes (17 diziam "Ativo", 20 "Cumprido") e
+passam a exibir *"Substituído pelo acordo #N"* ao lado do estado. Os **12** parcialmente renegociados não
+recebem o selo: continuam devendo.
+
+### 16.4 A §14 quase morre
+
+As 241 parcelas / R$ 51.738,56 da §13.7 reproduzem exatas. Com esta regra, **214 se resolvem
+(R$ 46.258,31)** e sobram **27 — R$ 5.480,25**.
+
+### 16.5 As duas revisões — e a 2ª achou defeito nas correções da 1ª pela DÉCIMA PRIMEIRA vez
+
+| revisão | o achado que mais importou |
+|---|---|
+| 1ª | a **porta B era mais frouxa que a porta A**: trocava em silêncio um substituto vigente já existente, somava como "sai do saldo" dívida que já estava fora, e apagava a única memória de quem a substituíra antes |
+| 2ª | 🔴 **a PRÉVIA gravava no banco** — e não "um pouco": o teste escrito antes da correção morreu com `A new entity was found through the relationship`. Na prévia o acordo novo nunca é persistido, o flush o arrasta e **derruba a projeção inteira** |
+| 2ª | a correção da 1ª **trocou um furo de coerência por um furo de PARIDADE**: ler a vigência da entidade dá respostas diferentes na prévia e na confirmação, porque o status só é gravado em um dos modos. A saída não era escolher entre as duas — o status é *decidido* nos dois modos e só *escrito* em um, e é a decisão que ficou no acumulador |
+
+Outros corrigidos: o selo estava **no lugar** do estado (apagava o "Cumprido" de 20 acordos) · escolhia um
+sucessor a esmo quando havia vários (8 acordos, um com 22) · a mensagem de recusa mandava investigar a
+coisa errada · imprimia o **id interno**, que não existe em fonte nenhuma para quem confere a planilha.
+
+🔑 **E a 2ª revisão derrubou um número MEU:** a §2.3 da spec dizia 302 parcelas / R$ 67.469,44. Era erro
+da minha medição — o script contava sucessores do arquivo `*_CANCELADO.xlsx`, que não é importado. O certo
+é **286**, e a conta fecha exata: 457 chaves declaradas − 19 só de cancelado = 438 = **286** + 152 que já
+funcionavam.
+
+**19 injeções de defeito, 19 vermelhos** — 4 delas só depois de eu corrigir o teste, não o código.
+
+### 16.6 ⏳ O que falta nesta frente
+
+- **Smoke do dono na tela** (é dele): abrir um objeto com acordo substituído e conferir o selo
+  *"Substituído pelo acordo #N"* ao lado do estado, na seção "Acordos encerrados" e no grupo da seção
+  "Dívida em aberto";
+- publicar os **68 commits** e o deploy;
+- **reclamar com o suporte — só do acordo 82.**
+
+### 16.7 🧪 Bancos descartáveis de 08/08 (podem ser apagados)
+
+- **`saas_ux_f15`** — `saas_ux_zero` + a importação com o código novo. É a prova do §16.3.
+- **`saas_ux_f15b`** — a mesma importação com a guarda ANTIGA reinjetada, para isolar o delta.
+- ⛔ **`saas_ux_zero` NÃO foi tocado** — continua sendo a prova do item 8. `saas_ux` também não.
+
+### 16.8 A fila depois desta sessão
+
+~~4~~ → ~~1~~ → ~~3~~ → ~~2~~ → ~~6~~ → ~~5~~ → ~~8~~ → ~~**15** (o acordo que assume o anterior)~~ →
+**7** (AMLI) → **3** (o aviso, por último).
+
+⛔ O aviso de divergência continua exatamente como está.
