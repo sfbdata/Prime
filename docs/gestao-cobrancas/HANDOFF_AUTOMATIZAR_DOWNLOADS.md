@@ -1512,14 +1512,36 @@ simplesmente nunca chega — silenciosamente, que é o modo de falhar mais caro 
 ficam presos em `EM_PROCESSAMENTO` no histórico. Não existe endpoint para cancelar. São inofensivos —
 mas quem olhar o histórico vai vê-los.
 
-### 17.2 ⛔ O BLOQUEIO CONFIRMADO: a carteira da AMLI não existe em banco nenhum
+### 17.2 ✅ O BLOQUEIO DA CARTEIRA CAIU — a AMLI já existe no **dev** e importa limpo
 
-Medido, não suposto — `SELECT id, nome FROM cobranca_carteira` em **`saas_ux`, `saas_ux_zero` e
-`saas_ux_f15`**: os três devolvem **só TOP LIFE I (1) e TOP LIFE II (2)**. Nenhum tem AMLI.
+Era real: `SELECT … FROM cobranca_carteira` em `saas_ux`, `saas_ux_zero` e `saas_ux_f15` devolvia **só
+TOP LIFE I e II**. **O dono trouxe os dados que faltavam em 08/08** (CNPJ e razão social) e autorizou a
+criação pelo console **no `saas_ux`**.
 
-**O item 7 entrega o arquivo, e para aí.** `app:cobranca:importar-cadastro` exige `--carteira-id`, e não
-há id para passar. **Criar a carteira é cadastro de tela e é do dono** — sem ela, nenhum dos 5 arquivos
-da AMLI importa em lugar nenhum, nem em dry-run.
+**Criado:** `cliente id 7` (PJ) + `carteira id 3` — CNPJ **63.490.838/0001-20** (dígitos verificadores
+conferidos por cálculo, não pelo formato), razão social *ASSOCIAÇÃO DE MORADORES LOTEAMENTO IMPERIAL
+BR 060*, fantasia *AMLI BR 060*. Contagens antes → depois: cliente 6→7, cliente_pj 2→3, carteira 2→3.
+**Nada mais foi tocado**, e há dump das 3 tabelas de antes, no scratchpad.
+
+🔑 **A carteira nasceu JÁ com os encargos (1% juros · 2% multa · 15% honorários), e isso não é
+capricho:** o docblock de `CriarCarteiraUseCase` avisa que *"o caso snapshota a config da carteira no
+instante em que nasce"* — carteira criada sem taxa produz casos pinados em **0%** que configurar depois
+**NÃO conserta**. Os três percentuais vieram da **L3 da Inadimplência da AMLI** e já tinham sido
+conferidos contra o print da tela de configuração em 04/08.
+
+Script descartável (pasta gitignored): `planilhas atualizadas/_criar_amli.php` — usa as **entidades** do
+Doctrine, não SQL cru (foi o que pegou que `modo`, `regime_juros` e as bases são **enums PHP**, não
+string), tem prévia sem `--confirmar`, aborta se o banco não for `saas_ux` e aborta se o CNPJ já existir.
+
+**Prova de que a carteira funciona** — dry-run, nada gravado:
+
+| relatório | resultado |
+|---|---|
+| Dados cadastrais | **51 unidades · 52 pessoas · 0 rejeições** (7 pessoas já existiam e foram reaproveitadas) |
+| Inadimplências | **25 boletos · 9 unidades devedoras · 0 rejeições** |
+
+⚠️ **Em PRODUÇÃO a carteira continua não existindo.** O que foi feito vale só para o `saas_ux`. O
+cadastro em prod é do dono, pela tela — e os dados são os mesmos desta seção.
 
 ### 17.3 A pendência da §7.1 continua aberta
 
