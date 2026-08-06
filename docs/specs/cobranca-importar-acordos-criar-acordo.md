@@ -10,8 +10,10 @@
 
 O relatório de **Acordos** é a fonte canônica do que a contábil chama de acordo, mas hoje ele **nunca cria
 acordo**: aba cujo acordo não existe no sistema é reportada e ignorada (§3.1 da spec-mãe,
-no início de `processarAba`). Quem cria acordo hoje é o relatório de **Receitas** — e ele só
-cria quando **alguém pagou** uma parcela. Acordo recém-fechado, sem nenhum pagamento, não nasce em lugar
+no início de `processarAba`). Quem cria acordo hoje são a **Inadimplência** e a **Receitas** — e as duas
+só criam quando o acordo já deixou rastro: um boleto de parcela, ou um pagamento. ⚠️ A primeira versão
+desta spec dizia *"quem cria é a Receitas"* e esqueceu a Inadimplência; foi o que inflou a projeção da §2.
+Acordo recém-fechado, sem nenhum pagamento, não nasce em lugar
 nenhum, e as parcelas dele não existem para o sistema.
 
 ## 2. O que foi MEDIDO (07/08, contra as planilhas reais)
@@ -33,6 +35,14 @@ nenhum, e as parcelas dele não existem para o sistema.
 >
 > ⚠️ **O número que o dono autorizar tem de vir do dry-run do banco em que a importação vai rodar**, não
 > desta seção.
+>
+> 🔴 **MEDIDO NO ZERO EM 07/08 (item 8) — os números desta seção CAÍRAM.** Numa importação do zero de
+> verdade (Inadimplência → Receitas → Acordos, banco `saas_ux_zero`), o item 5 cria **14 acordos** na
+> TL1+TL2, não 29: **99 parcelas, R$ 24.618,36**. A causa: **o importador de INADIMPLÊNCIA também cria
+> acordo** (coluna `Acordo N - Parc. p/t`), e a §2 só considerou a Receitas. Os 7 da TL1 que sobraram
+> (155, 344, 353, 374, 380, 413, 421) e os 8 da TL2 nascem lá — conferido pela `data_acordo` no dia 1º do
+> mês, assinatura daquele importador. **Detalhe na §13.3 do handoff.** Zero abas recusadas por R1 quando a
+> ordem é respeitada, como a §7 previa.
 
 Fontes, ditas por extenso — `2026-08-04-api/` para Acordos e Inadimplência de TL1/TL2,
 `2026-08-04-completo/` para as Receitas das três carteiras e para tudo da AMLI (o lote `-api/` de Receitas

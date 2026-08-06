@@ -967,3 +967,92 @@ no dado de hoje e estão provadas só por teste; a quarta dispara muito (as 217 
 por último).
 
 ⛔ **O aviso de divergência continua exatamente como está.** Decisão do dono, não mexer.
+
+---
+
+## 13. ✅ 07/08 — ITEM 8: O TESTE DO ZERO. **A contabilidade fecha: 3.471 de 3.471 boletos.**
+
+Banco descartável **`saas_ux_zero`** (clone de `saas_ux_antes_etapa3` com todas as tabelas `cobranca_*`
+truncadas, menos a `cobranca_carteira`). Ordem: **Inadimplência → Receitas → Acordos**, TL1 e TL2.
+`--confirmar` só neste banco, como autorizado. `saas_ux` **não foi tocado**.
+
+### 13.1 🔑 A resposta à pergunta do dono
+
+> *"quando eu limpar tudo e fazer as importações, vai estar tudo certo, sem valor faltando em nenhuma
+> unidade de nenhum condomínio?"*
+
+**SIM.** Cruzamento boleto a boleto (chave NN + competência), sistema × planilha de inadimplência:
+
+| carteira | batem | só na CONTÁBIL (o sistema não cobraria) | só no sistema, fora parcela de acordo |
+|---|---:|---:|---:|
+| TOP LIFE 1 | **2.944 de 2.944** | **0 — R$ 0,00** | **0 — R$ 0,00** |
+| TOP LIFE 2 | **527 de 527** | **0 — R$ 0,00** | **0 — R$ 0,00** |
+
+**Nenhuma dívida da contabilidade fica de fora, e nenhuma dívida é inventada.**
+
+### 13.2 Os acordos: 359 de 359, com o status exato
+
+| carteira | ativo | cumprido | total | a contábil declara |
+|---|---:|---:|---:|---|
+| TOP LIFE 1 | 66 | 259 | **325** | 66 em andamento · 259 liquidados ✅ |
+| TOP LIFE 2 | 8 | 26 | **34** | 8 em andamento · 26 liquidados ✅ |
+
+Receitas bate ao centavo com o §6.0.2: **R$ 1.272.816,33** (TL1, 7.411 recebimentos) e **R$ 137.148,49**
+(TL2, 858). **Zero abas ignoradas** nos 4 arquivos de acordos — a recusa R1 do item 5 não dispara quando a
+ordem é respeitada, exatamente como a spec previu.
+
+**Prévia × confirmação: idênticas nos 4 arquivos** (6/914/0 · 8/0/0 · 0/10/0 · 0/0/0). A invariável do §6
+da spec-mãe vale no dado real, não só em teste.
+
+### 13.3 🔴 A spec do item 5 estava ERRADA, e o teste do zero mostrou onde
+
+| | spec (planilha×planilha) | medido no zero |
+|---|---:|---:|
+| acordos que o item 5 cria (TL1+TL2) | 29 | **14** |
+| parcelas desses acordos | — | **99 — R$ 24.618,36** |
+
+**A causa: o importador de INADIMPLÊNCIA também cria acordo** (pela coluna `Acordo N - Parc. p/t`), e a
+minha medição só considerou a Receitas. Os 7 da TL1 que faltaram (155, 344, 353, 374, 380, 413, 421) e os
+8 da TL2 nascem lá — conferido: todos têm `data_acordo` no dia 1º do mês, a assinatura daquele importador,
+não a `Data base` exata que o item 5 grava.
+
+⚠️ **O dinheiro não sumiu, mudou de dono:** os R$ 24.618,36 são dos 6 acordos que o item 5 cria de fato
+(414, 407, 394, 411, 426, 420); o resto dos R$ 28.926,43 previstos é criado pelo importador de acordos
+para acordos que a inadimplência já tinha criado — é o §3.1 antigo, não o item 5.
+
+⚠️ **E o R$ 220.112,27 que o relatório imprime NÃO é do item 5**: é a soma de TODAS as parcelas futuras que
+o importador de acordos cria, feature que existe desde julho. Mais um caso de **número grande não é
+dinheiro na tela**.
+
+### 13.4 🔑 Por que a Receitas completa travava a máquina — e por que agora não trava
+
+Duas causas, as duas medidas:
+
+1. **`memory_limit=3G` numa máquina de 3,7 GB.** O PHP tinha licença para pedir mais RAM do que existia
+   livre, e a máquina ia para o swap. Com **1200M** a importação passou inteira, e a memória livre do host
+   nunca caiu de 425 MB.
+2. **`APP_ENV=dev` acumula um backtrace por query** (`BacktraceDebugDataHolder`, do Doctrine). Medido: a
+   prévia da inadimplência da TL1 estoura 128 MB em dev e **passa folgado em prod**, com o mesmo limite.
+
+**A Receitas completa (7.411 recebimentos) passou numa transação única.** A restrição do §9.4 —
+*"a prova final não pode ser uma transação única nesta máquina"* — **cai**: podia, com o limite certo e
+`APP_ENV=prod`. Leva ~25 min, quase tudo imprimindo a projeção.
+
+### 13.5 ⏳ O que ficou em aberto no item 8
+
+1. 🟠 **241 parcelas de acordo vencidas na TL1 (R$ 51.738,56)** que o sistema cobra e a inadimplência da
+   contábil não lista. São parcelas de acordos vigentes com vencimento até 04/08 e sem pagamento na
+   Receitas. Não é dívida inventada (a fonte é o relatório de Acordos), mas **o dono precisa olhar**: ou a
+   contábil não as considera inadimplência ainda, ou foram pagas fora da janela do relatório.
+2. 🟠 **R$ 2.171,70 de diferença no conjunto que bate** (R$ 424.477,77 no sistema × R$ 422.306,07 na
+   contábil, 0,5%) — é a forma conhecida do **item 3**, que está na fila por último.
+3. 🔴 **A carteira da AMLI BR 060 NÃO EXISTE** — em nenhum banco, nem em produção. O dono decidiu que a
+   AMLI entra, mas ninguém criou a carteira. **Sem ela a AMLI não pode ser importada em lugar nenhum**, e
+   por isso ela ficou fora deste teste do zero. É cadastro de tela, e é do dono.
+4. ⏳ O **cadastro de condôminos** não entrou neste teste (não afeta dinheiro; afeta contatos).
+
+### 13.6 O banco de teste continua de pé
+
+**`saas_ux_zero`** está com o estado completo e pode ser usado para o smoke do item 5 na tela — basta
+apontar o `DATABASE_URL` do dev para ele. ⛔ **Não fiz isso por conta própria**: o `.env.local` é
+compartilhado e há outra sessão trabalhando no mesmo ambiente.
