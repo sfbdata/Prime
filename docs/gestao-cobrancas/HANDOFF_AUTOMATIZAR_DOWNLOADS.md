@@ -1396,3 +1396,37 @@ funcionavam.
 **7** (AMLI) → **3** (o aviso, por último).
 
 ⛔ O aviso de divergência continua exatamente como está.
+
+### 16.9 🎭 ROTEIRO DO SMOKE — alvos concretos, levantados no `saas_ux_f15`
+
+⚠️ **O smoke NÃO roda no `saas_ux`.** Os acordos substituídos só existem no `saas_ux_f15` (clone do
+`saas_ux_zero` com a importação nova). Para ver na tela é preciso apontar o `DATABASE_URL` do dev para lá
+— e o `app/.env.local` é **compartilhado com a outra sessão**:
+
+```bash
+# ANTES: guardar a linha atual (ela aponta para saas_ux)
+grep DATABASE_URL app/.env.local
+# trocar para o banco da prova
+sed -i 's#/saas_ux"#/saas_ux_f15"#' app/.env.local
+# … smoke …
+# DEPOIS, obrigatoriamente: devolver
+sed -i 's#/saas_ux_f15"#/saas_ux"#' app/.env.local
+```
+
+Login: `farlei.rocha@gmail.com` · senha `Prime123!` (todas as senhas do dev). URL:
+`http://localhost:8080/cobrancas/objetos/<id>`.
+
+**Os 4 casos que o smoke tem de separar** (a 5ª coluna é o que deve aparecer):
+
+| # | objeto | unidade | acordo (id na tela) | o que conferir |
+|---|---:|---|---|---|
+| 1 | **280** | 04-03C | Acordo **#410** | cai em **"Acordos encerrados"**, com `Cumprido` **e** `Substituído pelo acordo #141` lado a lado. É o caso "não sobrou nada" |
+| 2 | **5** | 01-04B | Acordo **#101** | fica na seção **"Dívida em aberto"** como grupo (sobraram 3 parcelas pagas) e o cabeçalho do grupo mostra `Ativo` **e** `Substituído por 2 acordos` — sem número, porque foram dois (#2 e #102) |
+| 3 | **299** | 10-02D | Acordo **#191** | mesmo caso, no extremo: **12 sucessores**. Tem de dizer `Substituído por 12 acordos`, nunca "pelo acordo #N" |
+| 4 | **8** | 01-09 | Acordo **#105** | 🔴 **CONTROLE — NÃO pode ter selo nenhum.** É o 348 da contábil: o sucessor levou 1 parcela e sobraram **38 em aberto**. Ele continua vigente e cobrando |
+
+**O que o smoke procura de errado:** selo aparecendo no caso 4 · selo *no lugar* do estado (o `Cumprido`
+do caso 1 sumindo) · "Substituído pelo acordo #N" com número nos casos 2 e 3 · acordo sumindo da tela ·
+as duas frases contraditórias ("saíram do total em aberto" + "voltaram ao total em aberto") na mesma linha.
+
+⛔ **Não rodar importador com `--confirmar` contra `saas_ux`.** O smoke é só leitura de tela.
