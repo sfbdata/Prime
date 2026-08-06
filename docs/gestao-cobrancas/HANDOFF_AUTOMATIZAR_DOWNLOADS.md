@@ -222,7 +222,7 @@ leitura do **`main.js` do próprio sistema deles**, não de tentativa e erro no 
 | `amli_br_060_Receitas_detalhadas_TODOS.xlsx` | AMLI BR 060 |
 | `amli_br_060_Acordos_detalhados_EM_ANDAMENTO.xlsx` · `_LIQUIDADO.xlsx` | AMLI BR 060 |
 | `amli_br_060_Inadimplencias_detalhadas.xlsx` | AMLI BR 060 |
-| ⏳ `amli_br_060_Dados_cadastrais.xlsx` | emitido, **preso em `EM_PROCESSAMENTO`** há >25 min (o registrado eram 15–20 s). Reemitir |
+| ✅ `amli_br_060_Dados_cadastrais.xlsx` | ficou preso em `EM_PROCESSAMENTO` em 04/08; **reemitido e baixado em 08/08** (item 7 — ver §17). O lote da AMLI está completo |
 
 ### 6.0.1 🔑 Duas armadilhas do §3 estavam ERRADAS — medido
 
@@ -408,7 +408,7 @@ Os itens 1–3 são **risco ALTO**: spec + teste provado por reintrodução + **
 |---|---|---|
 | 5 | Mover **criação de acordo** para o importador de Acordos | fecha os últimos **29** de 359 acordos (§6.0.2) **e absorve o antigo item 2**: 6 parcelas / R$ 1.679,86 travadas por acordo inexistente (§9.3). 🔴 Virou o único item com dinheiro atrás dele — **risco ALTO** |
 | 6 | ✅ **FECHADO — validador da linha `Filtros:`** | Spec: `docs/specs/cobranca-validador-rodape-filtros.md`. **3 commits, 2 revisões, 7 injeções, suíte 3325 verde.** Recusa nas **5 portas** (4 comandos + a tela), 15/15 contra arquivos reais. ⏳ falta smoke do dono. Detalhe na §10 |
-| 7 | Reemitir **cadastro da AMLI** | travou em `EM_PROCESSAMENTO` no sistema deles em 04/08. ⏸️ **O dono mandou deixar por ÚLTIMO** (05/08). O script de emissão está pronto em `scratchpad/emitir_amli_cadastro.sh` — foi bloqueado pelo classificador de segurança do Bash, não por defeito |
+| 7 | ✅ **FECHADO (08/08) — cadastro da AMLI reemitido e baixado** | **§17.** O lote da AMLI ficou completo (5/5). 🔑 A causa provável do travamento era **payload com o nome de campo errado**, que o servidor aceita com **HTTP 200** e deixa o job preso para sempre — provado nos dois sentidos (§17.1). ⛔ **Trava adiante: a carteira da AMLI não existe em banco nenhum** (§17.2) — é cadastro de tela, do dono |
 | 8 | **Teste do zero** | limpar banco → importar tudo → bater com a contabilidade. **É a prova final.** O dono autorizou `--confirmar` **em banco descartável** para isto. ⚠️ **Duas restrições novas, medidas em 06/08:** usar o lote `2026-08-04-completo/` (o `-api/` é recusado pelo validador, §10.4) e **fatiar a importação** — a Receitas completa numa transação só derrubou a máquina duas vezes (§9.4) |
 
 ### ⏸️ Do dono
@@ -1392,7 +1392,8 @@ funcionavam.
 ### 16.8 A fila depois desta sessão
 
 ~~4~~ → ~~1~~ → ~~3~~ → ~~2~~ → ~~6~~ → ~~5~~ → ~~8~~ → ~~**15** (o acordo que assume o anterior)~~ →
-**7** (AMLI) → **3** (o aviso, por último).
+~~**7** (AMLI — fechado em 08/08, §17)~~ → **3** (o aviso, por último — e continua ⛔ **sem mexer** até
+o dono mandar).
 
 ⛔ O aviso de divergência continua exatamente como está.
 
@@ -1458,3 +1459,70 @@ conferido byte a byte contra a cópia guardada antes. Nada foi gravado em banco 
 ⚠️ **Achado operacional, de OUTRO domínio:** o modal do ponto *"Você ainda não registrou sua entrada
 hoje!"* é `data-bs-backdrop="static"` e **não tem botão de fechar** — ele intercepta o clique na aba
 "Dívida" do objeto e deixa a aba inalcançável até registrar o ponto. Não é da cobrança; fica anotado.
+
+---
+
+## 17. ✅ 08/08 — ITEM 7 FECHADO: o cadastro da AMLI foi reemitido e baixado
+
+**O arquivo existe:** `planilhas atualizadas/2026-08-04-completo/amli_br_060_Dados_cadastrais.xlsx`
+(gitignored). Emissão 06/08/2026 15:22, **51 unidades**, condomínio conferido no histórico
+(`condominioId 3 · AMLI BR 060`) e rodapé **`Filtros: Unidades: Todas`** — que é exatamente o que
+`RecorteEsperado::cadastro()` exige (`self::exato('Unidades', 'Todas')`). **O lote da AMLI ficou
+completo: 5 de 5 arquivos.**
+
+O cadastro **não mudou** entre 29/07 e 06/08: mesmas 51 unidades, mesma estrutura, 65 linhas.
+
+### 17.1 🔴 A ARMADILHA NOVA: payload errado devolve **HTTP 200** e o job trava PARA SEMPRE
+
+Este é o achado que vale mais do que o arquivo. A emissão é *fire-and-forget*: o servidor responde
+**200 com corpo vazio antes de validar o conteúdo**. Um payload com o nome de campo errado é aceito, o
+job nasce no histórico e fica em **`EM_PROCESSAMENTO` indefinidamente** — não vira erro, não vira
+`NENHUM_REGISTRO_ENCONTRADO`, não expira. Fica lá.
+
+**O campo certo é `tipoLancamentoUnidade`, não `tipoUnidade`.** Payload real, lido do
+`dadosCadastraisCondominosForm.jsx` dentro do `main.js` deles (o `beforeSubmit` anula `unidadeId` e
+`grupoUnidadeId` quando o tipo é `TODAS_UNIDADES`):
+
+```json
+{"tipoLancamentoUnidade":"TODAS_UNIDADES","unidadeId":null,"grupoUnidadeId":null,
+ "exibirIdCOM21":false,"tipo":"XLSX"}
+```
+
+**Provado nos dois sentidos, no mesmo dia e no mesmo condomínio de controle (TOP LIFE 1):**
+
+| emissão | payload | resultado |
+|---|---|---|
+| 3027 | `tipoUnidade` (errado) | **`EM_PROCESSAMENTO` após 3 min** — e segue preso |
+| 3028 | `tipoLancamentoUnidade` (certo) | **`FINALIZADO` em menos de 20 s** |
+| 3029 (AMLI) | `tipoLancamentoUnidade` (certo) | **`FINALIZADO` em menos de 25 s** |
+
+⚠️ **Honestidade sobre a causa de 04/08:** não dá para afirmar que foi *este* o motivo do travamento
+daquele dia — o script da sessão anterior morreu junto com o scratchpad e o payload que ele mandou não é
+recuperável. O que está medido é que **um payload errado reproduz o sintoma exato** e que, com o payload
+da UI, a AMLI emite normalmente. A hipótese antiga de que *"o problema é a carteira da AMLI"* não se
+sustenta: hoje ela finalizou como qualquer outra.
+
+🔑 **Consequência para a automação (item 8 da §6):** o `status` do histórico **não** é um sinal de erro
+utilizável. `EM_PROCESSAMENTO` significa "processando" **ou** "morreu na entrada e ninguém vai te avisar".
+Qualquer agendamento precisa de **timeout próprio** (o registrado é 15–20 s; use ~2 min) e de tratar o
+estouro como **falha**, não como "ainda rodando". Sem isso, um erro de campo vira um relatório que
+simplesmente nunca chega — silenciosamente, que é o modo de falhar mais caro desta frente.
+
+🧹 **Lixo deixado no sistema deles:** os jobs **3006** (04/08), **3025**, **3026** (AMLI) e **3027** (TL1)
+ficam presos em `EM_PROCESSAMENTO` no histórico. Não existe endpoint para cancelar. São inofensivos —
+mas quem olhar o histórico vai vê-los.
+
+### 17.2 ⛔ O BLOQUEIO CONFIRMADO: a carteira da AMLI não existe em banco nenhum
+
+Medido, não suposto — `SELECT id, nome FROM cobranca_carteira` em **`saas_ux`, `saas_ux_zero` e
+`saas_ux_f15`**: os três devolvem **só TOP LIFE I (1) e TOP LIFE II (2)**. Nenhum tem AMLI.
+
+**O item 7 entrega o arquivo, e para aí.** `app:cobranca:importar-cadastro` exige `--carteira-id`, e não
+há id para passar. **Criar a carteira é cadastro de tela e é do dono** — sem ela, nenhum dos 5 arquivos
+da AMLI importa em lugar nenhum, nem em dry-run.
+
+### 17.3 A pendência da §7.1 continua aberta
+
+A emissão de hoje repetiu as chamadas internas do site com a conta da secretária, como todas as
+anteriores. **Ninguém perguntou à contábil se a automação é permitida** — a §7.1 recomendou perguntar e
+isso **não foi feito**. O item 7 não muda esse quadro: só o executa mais uma vez.
