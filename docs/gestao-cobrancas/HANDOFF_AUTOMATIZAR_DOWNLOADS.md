@@ -1056,3 +1056,52 @@ Duas causas, as duas medidas:
 **`saas_ux_zero`** está com o estado completo e pode ser usado para o smoke do item 5 na tela — basta
 apontar o `DATABASE_URL` do dev para ele. ⛔ **Não fiz isso por conta própria**: o `.env.local` é
 compartilhado e há outra sessão trabalhando no mesmo ambiente.
+
+### 13.7 🔴 As 241 parcelas, explicadas — **os dois relatórios da contábil discordam entre si**
+
+Pergunta do dono, em 07/08: *"tudo o que está no sistema veio da contabilidade. Então como que 241
+parcelas de acordo vencidas a inadimplência não lista?"*
+
+**Vieram da contabilidade, sim — do relatório de ACORDOS.** A inadimplência e o de acordos, emitidos no
+mesmo dia pela mesma contábil, discordam. Decomposto:
+
+| # | o quê | parcelas | valor |
+|---|---|---:|---:|
+| 1 | a inadimplência **lista**, mas o sistema rejeita por "só encargos" | 13 | R$ 3.361,79 |
+| 2 | 🔴 **mesma unidade + mesma competência cobrada NOS DOIS** | **17** | **R$ 3.098,59** |
+| 3 | só no relatório de Acordos, sem boleto concorrente | 211 | R$ 45.278,18 |
+
+**Nenhuma das 241 consta como paga na Receitas** — conferido primeiro, porque era o risco que importava.
+**O sistema não está cobrando ninguém que pagou.**
+
+**O item 1 é conhecido:** são os 13 boletos do antigo item 2, e o valor bate **ao centavo** com o §9.2.
+
+**O item 2 é o achado novo e é dinheiro cobrado duas vezes.** Exemplo medido — unidade **01-04B**,
+competência **05/2026**: entra como parcela do acordo 224 (NN 67604, R$ 117,32) **e** como boleto 74952 na
+inadimplência. Mesma mensalidade, duas cobranças. A unidade tem três acordos (163, 224, 338); o 224 está
+abandonado, a contábil reboletou os meses, mas o relatório de Acordos continua dizendo `Em andamento`.
+
+**O item 3 tem explicação medida:** dos 24 acordos que seguram essas 211 parcelas,
+
+| último pagamento | acordos | parcelas | valor |
+|---|---:|---:|---:|
+| **há MAIS DE UM ANO** | **19** | **187** | **R$ 37.286,17** |
+| 3 a 12 meses atrás | 5 | 40 | R$ 10.652,24 |
+| nos últimos 3 meses | 1 | 1 | R$ 438,36 |
+
+**São acordos abandonados que a contábil nunca deu baixa.** Ela parou de cobrá-los na inadimplência (por
+isso não aparecem lá) mas continua declarando `Em andamento` no relatório de Acordos. O sistema, seguindo
+"a planilha manda", mantém as parcelas exigíveis.
+
+⚠️ **Isto é decisão do dono, não de código** — e é a primeira vez nesta frente em que *"o importe é a fonte
+da verdade"* colide **consigo mesmo**: as duas fontes são o importe. Três caminhos possíveis, nenhum
+tomado:
+
+1. **a inadimplência ganha a disputa** — acordo sem pagamento há mais de N meses tem as parcelas retiradas
+   do exigível (o mais próximo do que a contábil de fato cobra hoje);
+2. **o relatório de acordos ganha** — fica como está, e o escritório cobra o que a contábil esqueceu
+   (pode ser dinheiro recuperável de verdade: R$ 37 mil);
+3. **ninguém ganha sozinho** — os 17 casos de dobra são corrigidos (é defeito em qualquer leitura) e os
+   demais viram um relatório de "acordo parado há mais de um ano, confira".
+
+⛔ Nada foi mexido. O aviso de divergência e o comportamento atual continuam como estão.
