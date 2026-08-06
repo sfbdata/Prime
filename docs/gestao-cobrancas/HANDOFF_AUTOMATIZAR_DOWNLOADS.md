@@ -1658,11 +1658,42 @@ porta A"* que a 1ª revisão da §16 teve de corrigir.
   porta B usava UMA linha — quando a AMLI tem ~7 recebimentos por unidade. Era "a porta B mais frouxa
   que a porta A" de novo, na mesma frente que já tinha corrigido isso na §16.
 
-### 19.5 ⛔ O que NÃO foi importado, e por quê
+### 19.5 ✅ A AMLI FOI IMPORTADA INTEIRA, depois da correção
 
-Só o **cadastro** da AMLI está no `saas_ux` (51 unidades, 44 CPFs, sem duplicação). **Inadimplência,
-Receitas e Acordos ficaram de fora** — importar antes da correção gravaria as 45 duplicatas em dado
-real. A importação completa da AMLI é o passo seguinte à aprovação.
+A importação ficou parada até a correção passar pelas duas revisões — importar antes gravaria as 45
+duplicatas em dado real. Depois do commit, rodou completa no `saas_ux`, na ordem provada pelo item 8
+(**cadastro → inadimplência → receitas → acordos**):
+
+| passo | resultado | pessoas criadas |
+|---|---|---:|
+| Dados cadastrais | 51 unidades · 45 pessoas · 7 reaproveitadas | — |
+| Inadimplências | 25 obrigações · 9 casos · 0 rejeições | **0** (eram 9) |
+| Receitas | 319 recebimentos · 37 casos · 22 acordos · **R$ 54.443,54** | **0** (eram 45) |
+| Acordos EM_ANDAMENTO + LIQUIDADO | 8 + 25 abas · 0 rejeições · 0 abas ignoradas | — |
+
+**A correção provou-se no dado real: zero pessoa duplicada nas duas portas.**
+
+### 19.6 A conferência contra a contabilidade
+
+| medida | sistema | a contábil declara |
+|---|---:|---|
+| acordos **ativos** | **8** | 8 "Em andamento" ✅ |
+| acordos **cumpridos** | **25** | 25 "Liquidado" ✅ |
+| recebimentos | **R$ 54.443,54** | R$ 54.443,54 (§6.0.2, medido em 04/08) ✅ |
+| unidades com mais de uma pessoa | **1** | o caso legítimo: `QUADRA D LOTE 03` tem dois proprietários ✅ |
+
+Estado da carteira 3: **51 unidades · 44 pessoas com CPF · 431 obrigações · R$ 74.129,28 de principal**,
+das quais **112 em aberto (R$ 20.123,91)**.
+
+⚠️ **O principal em aberto é maior que o total da inadimplência (R$ 5.503,89) de propósito:** inclui as
+parcelas futuras dos acordos, que o relatório de inadimplência não lista. É o mesmo fenômeno registrado
+na §13.5 para a TL1 — não é dívida inventada.
+
+⚠️ **Em produção a AMLI continua não existindo.** Tudo isto é o `saas_ux` (dev). O cadastro da carteira
+em prod é do dono, pela tela, com os dados da §17.2.
+
+🧪 Banco descartável do dia: **`saas_ux_amli_ordem`** — a prova de que inverter a ordem não resolvia
+(§19.2). Pode ser apagado.
 
 🔑 **O que este episódio ensina, e vale para o resto da frente:** *"0 rejeições"* não quer dizer *"está
 limpo"*. A linha que denunciava o defeito era **"Pessoas criadas: 9"** num arquivo cujas 9 unidades já
