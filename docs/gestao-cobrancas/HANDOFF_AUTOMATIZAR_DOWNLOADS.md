@@ -1526,3 +1526,54 @@ da AMLI importa em lugar nenhum, nem em dry-run.
 A emissão de hoje repetiu as chamadas internas do site com a conta da secretária, como todas as
 anteriores. **Ninguém perguntou à contábil se a automação é permitida** — a §7.1 recomendou perguntar e
 isso **não foi feito**. O item 7 não muda esse quadro: só o executa mais uma vez.
+
+---
+
+## 18. 📏 08/08 — O ITEM 3 FOI **REMEDIDO** no banco do zero (e continua ⛔ sem mexer no aviso)
+
+**Nenhuma linha de código tocada, e o aviso continua exatamente como está** — a decisão do dono
+(06/08, reiterada em 08/08) é que ele vai por último e não muda até ele mandar. O que se fez aqui é a
+medição que a **§8.5 deixou pendente por escrito**: os números do item 3 tinham sido medidos contra
+`saas_ux_pos_etapa3`, *"um estado que não vai existir de novo"*.
+
+Remedido por dry-run de `app:cobranca:importar-acordos` (TL1, `EM_ANDAMENTO` + `LIQUIDADO`) contra o
+**`saas_ux_f15`** — que é a importação do zero, o estado que vai existir de verdade:
+
+| | §8 (`saas_ux_pos_etapa3`) | **agora (`saas_ux_f15`)** |
+|---|---:|---:|
+| divergências | 75 | **206** |
+| diferença somada | R$ 6.923,49 | **R$ 18.297,34** |
+
+⚠️ **O aumento era previsto e não é defeito** — a §8.5 avisou que a contagem mudaria numa importação do
+zero, porque o import antigo era estreito. **O que importa é a composição, e ela se sustenta:**
+
+🔑 **206 de 206 apontam no MESMO sentido — a planilha é sempre maior que o sistema, e ZERO casos no
+sentido contrário.** É exatamente a assinatura de *"a planilha soma encargo ao principal e o sistema
+guarda os dois em campos separados"* (§8.3). Se a divergência fosse principal errado, haveria casos nos
+dois sentidos. **A decisão de deixar o aviso quieto continua correta**, e a de sobrescrever continua
+sendo a que cobraria juros sobre juros.
+
+**33 das 206 têm `sistema R$ 0,00`** (planilha soma R$ 7.667,41): são as parcelas só de honorário e
+juros que a §8.7 antecipou. Todas as 33 estão **liquidadas — nenhuma em aberto**, então nenhuma cobra
+ninguém hoje.
+
+### 18.1 Achado medido e dimensionado: **1 obrigação com valor original NEGATIVO**
+
+`cobranca_obrigacao 8183` · NN **64408** · unidade 10-04A · `Acordo 145 - Parc. 2/11` ·
+**`valor_original = −R$ 45,29`**, com juros R$ 169,71 e multa R$ 38,40 lançados.
+
+**Dimensionado antes de virar problema:** é **1 em 16.069 obrigações** (0,006%), existe igual no
+`saas_ux_zero` e no `saas_ux_f15`, e está **liquidada** — não cobra ninguém, não aparece em saldo aberto.
+**Não vira item de fila.** Fica registrado porque um principal negativo é uma forma que a modelagem não
+prevê, e se um dia aparecer em obrigação *em aberto* o encargo calculado ao vivo sai errado.
+
+### 18.2 🔑 Técnica que elimina o risco do `.env.local` compartilhado
+
+Medido hoje: **`docker exec -e DATABASE_URL="…/saas_ux_f15" jusprime_php_dev …` aponta o CLI para o
+banco descartável sem tocar no arquivo.** Variável de ambiente real tem precedência sobre o `.env.local`
+(o Dotenv não sobrescreve o que já existe no processo) — conferido nos dois sentidos: o comando com `-e`
+respondeu `saas_ux_f15` e, logo depois, o comando sem `-e` respondeu `saas_ux`, com o arquivo intacto.
+
+**Use isto no lugar do `sed` no `.env.local`.** A troca do arquivo continua necessária **só para o
+smoke no navegador** (o php-fpm lê o arquivo), e é lá que mora o risco de a outra sessão pegar o banco
+errado.
