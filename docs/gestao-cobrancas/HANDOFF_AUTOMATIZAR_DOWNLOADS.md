@@ -1201,3 +1201,91 @@ mudando só a linha `Filtros:` de uma cópia.
 **7** (AMLI) → **3** (o aviso, por último).
 
 ⛔ O aviso de divergência continua exatamente como está.
+
+---
+
+## 15. 🔑 07/08 — O SUPORTE DA CONTÁBIL RESPONDEU: **não é defeito, é desenho.** A §14 muda de rumo.
+
+O dono trouxe print do WhatsApp do suporte do **Group Software** (13/07/2026, analista Gabriel):
+
+> *"O acordo anterior permanecerá com o status **'Em andamento' até que o novo acordo seja totalmente
+> liquidado**. Isso ocorre porque o acordo original mantém o vínculo com as novas parcelas geradas durante
+> o refinanciamento, garantindo a rastreabilidade de todo o processo. Assim que o novo acordo for quitado
+> integralmente, o status do acordo anterior será atualizado automaticamente."*
+
+### 15.1 A regra foi TESTADA contra os dados e se sustenta
+
+Nos **52 acordos substituídos** da TOP LIFE 1: a regra **bate em 46**.
+
+E os dados acrescentam uma cláusula que o suporte não disse: **sucessor CANCELADO mantém o antigo "Em
+andamento"** — e está certo, porque a renegociação fracassou e a dívida velha volta a valer. Testei a
+versão que ignora os cancelados e ela **piora** (43 acertos). A régua correta é: *o antigo só fecha quando
+**TODOS** os sucessores estiverem liquidados.*
+
+**🐛 6 quebras, e 4 delas são bug do sistema deles:** os acordos **348, 292, 372 e 82** estão "Em
+andamento" com o sucessor (393, 326, 425, 115) **já liquidado** — a atualização automática que o Gabriel
+prometeu não disparou. **Reclamação concreta para mandar ao suporte, com número.** As outras 2 (73 e 111)
+foram fechadas mesmo tendo sucessor cancelado — inconsistência na direção segura.
+
+### 15.2 A "Situação" NÃO é inútil — responde outra pergunta
+
+| Situação | de fato ativos | já substituídos |
+|---|---:|---:|
+| **Liquidado** | 239 | 20 |
+| **Cancelado** | 96 | 3 |
+| **Em andamento** | **34** | **32** |
+
+**"Liquidado" nunca mente: 259 de 259 têm TODAS as parcelas pagas.** `Em andamento` significa *"esta dívida
+ainda não foi quitada"* — o que é **verdade**: ela está viva, dentro do acordo mais novo. O que ele **não**
+significa é *"estamos cobrando este acordo"*.
+
+### 15.3 O que o dono quer, e por que "só marcar o antigo como encerrado" NÃO funciona
+
+> *"Não quero que apareçam acordos substituídos, apenas os que estão realmente vigentes."*
+
+🔴 **A armadilha, medida no código:** o sistema tem duas alavancas e **nenhuma faz isso sozinha** —
+`doCasoExigiveis` exclui o que está substituído por acordo **vigente** e as parcelas de acordo **não
+vigente**:
+
+| marcar o acordo antigo como… | as parcelas DELE | as dívidas antigas que ELE renegociou |
+|---|---|---|
+| **Rompido / Cancelado** | saem do saldo ✅ | **VOLTAM para o saldo** ❌ |
+| **Cumprido** | continuam no saldo ❌ | ficam fora ✅ |
+
+Marcar como rompido **ressuscita** as taxas de condomínio que aquele acordo tinha renegociado — trocaria
+R$ 48 mil de dívida errada por outra dívida errada.
+
+### 15.4 O caminho certo: o acordo NOVO assume as parcelas do antigo
+
+É o que a contábil diz que aconteceu. Aí as parcelas velhas saem do saldo **por terem sido renegociadas**,
+não por o acordo ter morrido — e as originais continuam fora, porque o vínculo não se rompe.
+
+**O obstáculo é a INV-I**, e ele não é teórico: a importação do zero produziu **286 recusas** dela
+(285 na TL1 `EM_ANDAMENTO` + 1 na `LIQUIDADO`):
+
+> *"61183: esta MESMA importação a criou como parcela do acordo 211 — não é dívida original, não marcada
+> (INV-I)."*
+
+A INV-I foi escrita para impedir "acordo sobre acordo" e contar dívida duas vezes. **Só que acordo sobre
+acordo é a operação NORMAL da contábil** — e agora existe a prova documental de que a substituição é
+legítima: a **coluna F (`Detalhamento`)** da seção *Relação das contas originais*, que diz
+`Acordo 163 - Parcela 4/12`.
+
+⚠️ **O adapter documenta essa coluna no cabeçalho da classe e NÃO a lê.** Ler é a parte trivial.
+
+### 15.5 🔁 Isto SUBSTITUI a frente da §14
+
+A regra passa a ser **dentro de um relatório só** (Acordos), com a contábil documentando cada substituição
+— em vez de cruzar Acordos × Inadimplência, que era frágil e dependia da ordem de importação.
+
+As duas perguntas da §14.1 **provavelmente caem**. Confirmar com o dono antes de descartá-las:
+das 241 parcelas, **227 pertencem a 24 acordos COM sucessor** (R$ 48.187,48) e só **1 acordo sem sucessor**
+(R$ 189,29 — acordo 176, unidade 19-03B). Se o caminho da §15.4 funcionar, sobra quase nada para a §14.
+
+### 15.6 Ainda NÃO dá para lançar em produção
+
+1. **A carteira da AMLI não existe** em banco nenhum — cadastro de tela, do dono;
+2. **Smoke do item 5** não foi feito;
+3. **64 commits** não publicados, deploy não feito;
+4. Esta mudança é **risco ALTO** (mexe na guarda que hoje protege contra dívida duplicada): spec, teste
+   provado por reintrodução, **duas** revisões.
