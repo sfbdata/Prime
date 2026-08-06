@@ -27,10 +27,20 @@ final class AcordoOutput
         public readonly ?string $motivoCancelamento,
         public readonly int $qtdObrigacoesSubstituidas,
         public readonly int $qtdParcelas,
+        /**
+         * Id do acordo que ASSUMIU este — derivado, nunca gravado (spec
+         * `cobranca-acordo-assume-parcelas-do-anterior.md`). Nulo no acordo comum e também no acordo
+         * apenas PARCIALMENTE renegociado, que continua vigente e com parcelas a receber.
+         *
+         * Quem calcula é o `MontarDetalheCasoUseCase::sucessorPorAcordo`, a partir das obrigações do
+         * caso: só ele tem a lista completa, e a coleção inversa do acordo não serve (nasce vazia na
+         * mesma unidade de trabalho).
+         */
+        public readonly ?int $substituidoPeloAcordoId = null,
     ) {
     }
 
-    public static function fromEntity(Acordo $a): self
+    public static function fromEntity(Acordo $a, ?int $substituidoPeloAcordoId = null): self
     {
         return new self(
             id: $a->getId() ?? 0,
@@ -43,6 +53,7 @@ final class AcordoOutput
             motivoCancelamento: $a->getMotivoCancelamento(),
             qtdObrigacoesSubstituidas: $a->getObrigacoesSubstituidas()->count(),
             qtdParcelas: $a->getParcelas()->count(),
+            substituidoPeloAcordoId: $substituidoPeloAcordoId,
         );
     }
 }

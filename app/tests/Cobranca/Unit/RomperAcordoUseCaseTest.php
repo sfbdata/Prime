@@ -116,7 +116,8 @@ final class RomperAcordoUseCaseTest extends TestCase
     #[TestDox('Ajuste 9: romper acordo cujas parcelas outro acordo vigente renegociou é recusado')]
     public function recusaRomperAcordoComParcelasRenegociadas(): void
     {
-        // Estado LEGADO de acordo sobre acordo (a criação hoje o bloqueia — INV-I). Romper A aqui faria a
+        // Acordo sobre acordo — o estado que o importador CRIA desde 08/2026, com a prova da coluna F
+        // da planilha (spec `cobranca-acordo-assume-parcelas-do-anterior.md`). Romper A aqui faria a
         // dívida entrar DUAS vezes no saldo: as originais que A substituiu voltam ao exigível E as parcelas
         // de B continuam nele (§2.1). Este guard é o alarme.
         $caso = (new CasoCobranca())->setTenant($this->tenant);

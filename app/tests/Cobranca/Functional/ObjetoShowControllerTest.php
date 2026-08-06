@@ -6,12 +6,15 @@ namespace App\Tests\Cobranca\Functional;
 
 use App\Cobranca\Controller\CasoController;
 use App\Cobranca\Controller\ObjetoController;
+use App\Cobranca\DTO\AcordoOutput;
+use App\Cobranca\Entity\Acordo;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\Obrigacao;
 use App\Cobranca\Enum\FormaHonorarios;
 use App\Cobranca\Enum\StatusAcordo;
 use App\Cobranca\Enum\StatusCaso;
 use App\Cobranca\Enum\TipoVinculo;
+use App\Cobranca\UseCase\MontarDetalheCasoUseCase;
 use App\Entity\Tenant\Tenant;
 use App\Tests\Factory\Cobranca\AcordoFactory;
 use App\Tests\Factory\Cobranca\AlocacaoPagamentoFactory;
@@ -560,6 +563,147 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
         // form de pagamento não conhece, e "Acordar" só vale para dívida original exigível (INV-I).
         self::assertCount(0, $crawler->filter('[data-acao="receber"]'));
         self::assertCount(0, $crawler->filter('[data-acao="acordar"]'));
+    }
+
+    #[TestDox('Acordo cujas parcelas foram TODAS assumidas aparece como "Substituído pelo acordo #N"')]
+    public function testAcordoTotalmenteAssumidoMostraOSucessor(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+
+        [$velho, $novo] = $this->acordoAssumidoPorOutro($tenant, $caso, parcelasQueFicam: 0);
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+
+        self::assertResponseIsSuccessful();
+        $encerrados = $crawler->filter('#secao-acordos-encerrados')->text();
+        self::assertStringContainsString('Acordo #' . $velho->getId(), $encerrados);
+        self::assertStringContainsString('Substituído pelo acordo #' . $novo->getId(), $encerrados);
+        // O selo de estado ("Ativo") é substituído pelo de sucessão: era ele que fazia o acordo já
+        // assumido parecer vigente, que é exatamente o que o dono pediu para parar de acontecer.
+        self::assertStringNotContainsString(
+            'Ativo',
+            $crawler->filter('#secao-acordos-encerrados .jp-mov')->first()->text(),
+            'o acordo já assumido não pode continuar se anunciando como vigente',
+        );
+    }
+
+    #[TestDox('Acordo PARCIALMENTE renegociado continua vigente: nada de "Substituído"')]
+    public function testAcordoParcialmenteRenegociadoContinuaVigente(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+
+        // A forma dos 6 casos reais (163, 244, 255, 306, 332, 61): o sucessor levou uma parcela e o
+        // acordo antigo continua devendo as outras. No 348 o sucessor levou 1 de 40.
+        [$velho] = $this->acordoAssumidoPorOutro($tenant, $caso, parcelasQueFicam: 1);
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+
+        self::assertResponseIsSuccessful();
+        self::assertStringNotContainsString('Substituído pelo acordo', $crawler->text());
+        self::assertStringContainsString(
+            'Parcela que sobrou',
+            $crawler->filter('#secao-divida')->text(),
+            'a parcela viva do acordo parcialmente renegociado continua sendo cobrada',
+        );
+        self::assertGreaterThan(0, $crawler->filter('#secao-divida .jp-acordo')->count(), 'o acordo antigo continua virando grupo na seção Dívida');
+
+        // ⚠️ O assert de RENDERIZAÇÃO acima não basta, e quase ficou sozinho: um
+        // `substituidoPeloAcordoId` errado aqui ficaria invisível se o template mudasse, e mentiria no
+        // DTO para quem for usá-lo depois. A derivação é conferida na fonte.
+        self::assertNull(
+            $this->acordoNoDetalhe($caso, (int) $velho->getId())->substituidoPeloAcordoId,
+            'acordo com parcela em aberto que sobrou não foi substituído: ele ainda cobra',
+        );
+    }
+
+    #[TestDox('Acordo que só ficou com parcelas PAGAS também se anuncia substituído — na seção Dívida')]
+    public function testAcordoComSobraApenasPagaSeAnunciaSubstituido(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+
+        // A forma MAIS COMUM no dado real (29 acordos, contra 8 sem sobra nenhuma): o devedor pagou
+        // algumas parcelas e renegociou o resto. A parcela paga não é substituída, então o acordo
+        // continua virando grupo na seção Dívida — e sem o selo ele diria "Ativo" no meio da dívida.
+        [$velho, $novo] = $this->acordoAssumidoPorOutro($tenant, $caso, parcelasQueFicam: 0, parcelasPagasQueFicam: 1);
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(
+            $novo->getId(),
+            $this->acordoNoDetalhe($caso, (int) $velho->getId())->substituidoPeloAcordoId,
+            'parcela PAGA que sobrou não impede o acordo de estar substituído — ele não cobra mais nada',
+        );
+        $grupo = $crawler->filter('#grupoAcordo' . $velho->getId());
+        self::assertCount(1, $grupo, 'o acordo continua virando grupo: a parcela paga dele não sumiu da tela');
+        self::assertStringContainsString('Substituído pelo acordo #' . $novo->getId(), $grupo->text());
+    }
+
+    /** O `AcordoOutput` de um acordo, como o UseCase o monta — a derivação antes de virar HTML. */
+    private function acordoNoDetalhe(CasoCobranca $caso, int $acordoId): AcordoOutput
+    {
+        $detalhe = static::getContainer()->get(MontarDetalheCasoUseCase::class)->executar($caso);
+
+        foreach ($detalhe->acordos as $acordo) {
+            if ($acordo->id === $acordoId) {
+                return $acordo;
+            }
+        }
+
+        self::fail(sprintf('acordo %d não está na lista do detalhe do caso', $acordoId));
+    }
+
+    /**
+     * O estado que o importador passou a criar: o acordo NOVO assume parcelas do ANTIGO. A parcela
+     * assumida fica com `acordoOrigem` (o antigo) e `acordoSubstituto` (o novo) ao mesmo tempo.
+     *
+     * @return array{0: Acordo, 1: Acordo}
+     */
+    private function acordoAssumidoPorOutro(Tenant $tenant, CasoCobranca $caso, int $parcelasQueFicam, int $parcelasPagasQueFicam = 0): array
+    {
+        $velho = AcordoFactory::createOne(['tenant' => $tenant, 'caso' => $caso, 'status' => StatusAcordo::Ativo])->_real();
+        $novo = AcordoFactory::createOne(['tenant' => $tenant, 'caso' => $caso, 'status' => StatusAcordo::Ativo])->_real();
+
+        ObrigacaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso, 'descricao' => 'Parcela assumida',
+            'valorOriginal' => 50000, 'encargosReconhecidos' => 0,
+            'acordoOrigem' => $velho, 'acordoSubstituto' => $novo,
+        ]);
+
+        for ($i = 0; $i < $parcelasQueFicam; ++$i) {
+            ObrigacaoFactory::createOne([
+                'tenant' => $tenant, 'caso' => $caso, 'descricao' => 'Parcela que sobrou',
+                'valorOriginal' => 30000, 'encargosReconhecidos' => 0, 'acordoOrigem' => $velho,
+            ]);
+        }
+
+        for ($i = 0; $i < $parcelasPagasQueFicam; ++$i) {
+            $paga = ObrigacaoFactory::createOne([
+                'tenant' => $tenant, 'caso' => $caso, 'descricao' => 'Parcela paga que sobrou',
+                'valorOriginal' => 30000, 'encargosReconhecidos' => 0, 'acordoOrigem' => $velho,
+            ])->_real();
+            $pagamento = PagamentoFactory::createOne([
+                'tenant' => $tenant, 'caso' => $caso, 'valorDivida' => 30000, 'valorEncargos' => 0, 'valorHonorarios' => 0,
+            ])->_real();
+            AlocacaoPagamentoFactory::createOne([
+                'tenant' => $tenant, 'pagamento' => $pagamento, 'obrigacao' => $paga, 'valor' => 30000,
+            ]);
+        }
+
+        // O acordo novo precisa de parcela viva para virar grupo — senão ele mesmo cairia em
+        // "Acordos encerrados" e o teste não distinguiria nada.
+        ObrigacaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso, 'descricao' => 'Parcela do acordo novo',
+            'valorOriginal' => 55000, 'encargosReconhecidos' => 0, 'acordoOrigem' => $novo,
+        ]);
+
+        return [$velho, $novo];
     }
 
     #[TestDox('Ajuste 10 T5: sem movimentação financeira o "Receber" some, mas "Acordar" continua')]

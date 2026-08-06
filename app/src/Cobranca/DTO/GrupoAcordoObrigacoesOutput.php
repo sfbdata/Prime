@@ -42,6 +42,17 @@ final class GrupoAcordoObrigacoesOutput
          * fora do saldo, e somá-las divergiria do saldo derivado.
          */
         public readonly array $substituidas = [],
+        /**
+         * Id do acordo que ASSUMIU este — derivado, igual ao do `AcordoOutput` (spec
+         * `cobranca-acordo-assume-parcelas-do-anterior.md`).
+         *
+         * Um acordo já assumido ainda vira grupo quando sobraram parcelas dele **pagas**: elas não foram
+         * substituídas, então continuam no grupo e o acordo não cai em "Acordos encerrados". Sem este
+         * campo ele apareceria na seção Dívida com o selo "Ativo" — que é exatamente o que o dono pediu
+         * para parar de acontecer. Medido: 29 acordos nessa forma, contra 8 que não têm parcela nenhuma
+         * sobrando.
+         */
+        public readonly ?int $substituidoPeloAcordoId = null,
     ) {
     }
 }

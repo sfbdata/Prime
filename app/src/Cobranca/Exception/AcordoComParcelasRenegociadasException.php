@@ -10,8 +10,10 @@ namespace App\Cobranca\Exception;
  * dívida no saldo: as originais que ele substituiu voltam ao exigível E as parcelas do acordo novo
  * continuam nele.
  *
- * A criação desse estado está bloqueada (INV-I), então isto só alcança dado LEGADO — é um alarme, não um
- * caminho normal. Erro de entrada: o gestor precisa desfazer o acordo novo primeiro.
+ * Até 08/2026 a INV-I bloqueava criar esse estado e isto só alcançava dado LEGADO. Desde a spec
+ * `cobranca-acordo-assume-parcelas-do-anterior.md` o importador de acordos o cria quando a coluna F da
+ * planilha prova a renegociação em cadeia — então este alarme passou a ser a proteção principal contra o
+ * §2.1, e não uma sobra de acervo antigo. Erro de entrada: o gestor precisa desfazer o acordo novo primeiro.
  */
 final class AcordoComParcelasRenegociadasException extends \DomainException
 {

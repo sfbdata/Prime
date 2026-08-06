@@ -71,8 +71,10 @@ final class CancelarAcordoUseCase
         }
 
         // Ajuste 9 §2.1: mesmo vetor do rompimento — cancelar também deixa o acordo NÃO vigente, e com
-        // parcelas renegociadas por um acordo vigente isso duplicaria a dívida no saldo. Só alcança dado
-        // legado (a criação do estado está bloqueada por INV-I).
+        // parcelas renegociadas por um acordo vigente isso duplicaria a dívida no saldo.
+        //
+        // 🔑 Igual ao rompimento: desde 08/2026 o importador CRIA esse estado com a prova da coluna F
+        // (spec `cobranca-acordo-assume-parcelas-do-anterior.md`), e este guard é a proteção principal.
         $renegociadas = $this->obrigacaoRepository->parcelasRenegociadasPorAcordoVigente($acordo);
 
         if ($renegociadas !== []) {

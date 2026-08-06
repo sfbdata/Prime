@@ -113,6 +113,12 @@ final class CriarAcordoUseCase
             // acordo novo continuam nele. Renegociar um acordo se faz rompendo-o primeiro (a original
             // volta por derivação) e acordando sobre a original. Vale para acordo de origem em QUALQUER
             // status: se rompido/cancelado, a parcela nem é exigível.
+            //
+            // ⚠️ 08/2026: a IMPORTAÇÃO passou a aceitar isto, e aqui **continua recusado de propósito**
+            // (decisão do dono, spec `cobranca-acordo-assume-parcelas-do-anterior.md` D2). O que autoriza
+            // lá é a prova documental — a coluna "Detalhamento" da planilha declarando
+            // `Acordo 163 - Parcela 4/12`. Na tela não existe prova nenhuma, só a intenção de quem
+            // clicou: a assimetria é o desenho, não um esquecimento de alinhar os dois caminhos.
             if ($obrigacao->getAcordoOrigem() !== null) {
                 throw new ObrigacaoNaoEhDividaOriginalException((int) $obrigacaoId);
             }

@@ -1601,6 +1601,296 @@ final class ImportarAcordosDetalhadosTest extends KernelTestCase
     }
 
     // ---------------------------------------------------------------------------------------------
+    // O acordo novo assume as parcelas do anterior
+    // (spec `docs/specs/cobranca-acordo-assume-parcelas-do-anterior.md`)
+    //
+    // A INV-I recusava "acordo sobre acordo" SEM EXCEÇÃO. Só que renegociar parcela de acordo é a
+    // operação normal da contábil, que documenta cada uma na coluna F ("Acordo 163 - Parcela 4/12").
+    // Sem ler a coluna, a recusa cega passou a CAUSAR a dobra que existia para impedir: medido no
+    // `saas_ux_zero`, 302 parcelas velhas / R$ 67.469,44 no saldo AO LADO das parcelas novas que as
+    // substituem. A prova documental é a condição de aceitar — sem ela, a recusa continua idêntica.
+    // ---------------------------------------------------------------------------------------------
+
+    #[TestDox('Com a prova da coluna F, o acordo novo ASSUME a parcela do anterior e ela sai do saldo')]
+    public function testAssumeParcelaDoAcordoAnteriorComProvaDaColunaF(): void
+    {
+        [$tenant, $user, $carteiraId, $caso] = $this->cenarioAcordo37();
+
+        $saldoAntes = $this->saldo->saldoExigivel($caso);
+        $parcela = $this->obrigacao($tenant, '61600');
+        self::assertNotNull($parcela);
+        self::assertSame(37, $parcela->getAcordoOrigem()?->getNumeroExterno(), 'o cenário precisa da parcela ligada ao acordo 37');
+
+        // O acordo 88 renegocia a parcela 1/4 do acordo 37 — exatamente a forma do 393 real, que
+        // assumiu "Acordo 348 - Parcela 2/40".
+        $leitura = new ResultadoLeituraAcordos([$this->acordoDaPlanilha(
+            numero: 88,
+            contas: [['61600', '07/2026', '2026-07-15', 19939, 37, '1/4']],
+            parcelas: [['70500', 1, 1, '11/2026', '2026-11-10', 21000]],
+        )], [], 0);
+
+        $resultado = $this->importarAcordos->confirmar($carteiraId, $leitura, $tenant, $user);
+
+        self::assertContains('61600', $resultado->nnsContasMarcadas());
+        self::assertSame([], $resultado->contasRecusadas(), 'com prova documental não há recusa');
+
+        $this->em->refresh($parcela);
+        self::assertTrue($parcela->foiSubstituida());
+        self::assertSame(37, $parcela->getAcordoOrigem()?->getNumeroExterno(), 'o vínculo com o acordo antigo NÃO se rompe — é dele que vem a rastreabilidade');
+        self::assertSame(88, $parcela->getAcordoSubstituto()?->getNumeroExterno());
+
+        // O efeito que importa: a parcela velha (R$ 199,39) sai do saldo e entra a nova (R$ 210,00).
+        // Sem a mudança as duas ficariam, e o devedor seria cobrado por R$ 409,39.
+        self::assertSame($saldoAntes - 19939 + 21000, $this->saldo->saldoExigivel($caso));
+    }
+
+    #[TestDox('Sem a coluna F, a recusa da INV-I continua idêntica (é a maioria das contas originais)')]
+    public function testSemAColunaFAINVIContinuaRecusando(): void
+    {
+        [$tenant, $user, $carteiraId, $caso] = $this->cenarioAcordo37();
+
+        $saldoAntes = $this->saldo->saldoExigivel($caso);
+
+        $leitura = new ResultadoLeituraAcordos([$this->acordoDaPlanilha(
+            numero: 88,
+            contas: [['61600', '07/2026', '2026-07-15', 19939]],
+            parcelas: [['70500', 1, 1, '11/2026', '2026-11-10', 21000]],
+        )], [], 0);
+
+        $resultado = $this->importarAcordos->confirmar($carteiraId, $leitura, $tenant, $user);
+
+        self::assertNotContains('61600', $resultado->nnsContasMarcadas());
+        self::assertFalse($this->obrigacao($tenant, '61600')?->foiSubstituida());
+
+        $recusadas = $resultado->contasRecusadas();
+        self::assertCount(1, $recusadas);
+        self::assertStringContainsString('INV-I', $recusadas[0]);
+        self::assertStringContainsString('não declara de qual acordo ela é parcela', $recusadas[0], 'o motivo exato: quem confere precisa saber que falta a declaração, não que as fontes discordam');
+        self::assertSame($saldoAntes + 21000, $this->saldo->saldoExigivel($caso), 'a parcela velha continua no saldo');
+    }
+
+    #[TestDox('Coluna F apontando OUTRO acordo é recusa: as duas fontes discordam da procedência')]
+    public function testColunaFApontandoOutroAcordoEhRecusada(): void
+    {
+        [$tenant, $user, $carteiraId] = $this->cenarioAcordo37();
+
+        // No sistema a 61600 é parcela do acordo 37; a planilha declara o acordo 12.
+        $leitura = new ResultadoLeituraAcordos([$this->acordoDaPlanilha(
+            numero: 88,
+            contas: [['61600', '07/2026', '2026-07-15', 19939, 12, '3/9']],
+            parcelas: [['70500', 1, 1, '11/2026', '2026-11-10', 21000]],
+        )], [], 0);
+
+        $resultado = $this->importarAcordos->confirmar($carteiraId, $leitura, $tenant, $user);
+
+        self::assertNotContains('61600', $resultado->nnsContasMarcadas());
+        self::assertFalse($this->obrigacao($tenant, '61600')?->foiSubstituida());
+        $recusadas = $resultado->contasRecusadas();
+        self::assertCount(1, $recusadas);
+        self::assertStringContainsString('as duas fontes discordam', $recusadas[0]);
+    }
+
+    #[TestDox('A conferência é pelo número EXTERNO do acordo, nunca pelo id interno')]
+    public function testConfereProcedenciaPeloNumeroExternoENaoPeloIdInterno(): void
+    {
+        [$tenant, $user, $carteiraId, , $acordo] = $this->cenarioAcordo37();
+
+        // No dado real os dois números divergem sempre (id é sequência do sistema, número externo vem
+        // da contábil). Se o código comparasse pelo id, este teste passaria com o número errado — e no
+        // banco de produção marcaria como substituída a parcela de um acordo qualquer.
+        $idInterno = (int) $acordo->getId();
+        self::assertNotSame(37, $idInterno, 'o cenário exige id interno ≠ número externo, senão o assert não distingue nada');
+
+        $leitura = new ResultadoLeituraAcordos([$this->acordoDaPlanilha(
+            numero: 88,
+            contas: [['61600', '07/2026', '2026-07-15', 19939, $idInterno, '1/4']],
+            parcelas: [['70500', 1, 1, '11/2026', '2026-11-10', 21000]],
+        )], [], 0);
+
+        $resultado = $this->importarAcordos->confirmar($carteiraId, $leitura, $tenant, $user);
+
+        self::assertNotContains('61600', $resultado->nnsContasMarcadas(), 'declarar o id interno não é prova de nada');
+        self::assertFalse($this->obrigacao($tenant, '61600')?->foiSubstituida());
+    }
+
+    #[TestDox('Acordo não substitui parcela de SI MESMO, ainda que a planilha declare')]
+    public function testAcordoNaoSubstituiParcelaDeSiMesmo(): void
+    {
+        [$tenant, $user, $carteiraId] = $this->cenarioAcordo37();
+
+        // A aba 37 lista a própria parcela 61600 como conta original, declarando "Acordo 37". Aceitar
+        // deixaria a obrigação com acordoOrigem e acordoSubstituto na MESMA linha — estado que nenhuma
+        // query de exigibilidade sabe responder.
+        $leitura = $this->leituraAcordo37(contasExtras: [
+            ['61600', '07/2026', '2026-07-15', 19939, 37, '1/4'],
+        ]);
+
+        $resultado = $this->importarAcordos->confirmar($carteiraId, $leitura, $tenant, $user);
+
+        self::assertNotContains('61600', $resultado->nnsContasMarcadas());
+        $parcela = $this->obrigacao($tenant, '61600');
+        self::assertFalse($parcela?->foiSubstituida());
+        self::assertStringContainsString('PRÓPRIO acordo desta aba', implode(' ', $resultado->contasRecusadas()));
+    }
+
+    #[TestDox('Parcela de acordo NÃO vigente não é assumida: ela já está fora do saldo')]
+    public function testNaoAssumeParcelaDeAcordoNaoVigente(): void
+    {
+        [$tenant, $user, $carteiraId, , $acordo] = $this->cenarioAcordo37();
+
+        $acordo->setStatus(StatusAcordo::Rompido);
+        $this->em->flush();
+
+        $leitura = new ResultadoLeituraAcordos([$this->acordoDaPlanilha(
+            numero: 88,
+            contas: [['61600', '07/2026', '2026-07-15', 19939, 37, '1/4']],
+            parcelas: [['70500', 1, 1, '11/2026', '2026-11-10', 21000]],
+        )], [], 0);
+
+        $resultado = $this->importarAcordos->confirmar($carteiraId, $leitura, $tenant, $user);
+
+        self::assertNotContains('61600', $resultado->nnsContasMarcadas());
+        self::assertFalse($this->obrigacao($tenant, '61600')?->foiSubstituida());
+        self::assertStringContainsString('não está mais vigente', implode(' ', $resultado->contasRecusadas()));
+    }
+
+    #[TestDox('Porta B: a parcela criada por uma aba ANTERIOR da mesma execução também é assumida')]
+    public function testAssumeParcelaCriadaNaMesmaExecucao(): void
+    {
+        [$tenant, $user, $carteiraId, $caso] = $this->cenarioAcordo37();
+
+        // Duas abas no mesmo arquivo: a 37 cria a parcela 61601 (2/4, que não existe no sistema) e a 88,
+        // logo depois, a assume. É a porta que produziu 285 das 286 recusas da importação do zero.
+        $leitura = new ResultadoLeituraAcordos([
+            $this->leituraAcordo37()->acordos[0],
+            $this->acordoDaPlanilha(
+                numero: 88,
+                contas: [['61601', '08/2026', '2026-08-10', 19939, 37, '2/4']],
+                parcelas: [['70500', 1, 1, '11/2026', '2026-11-10', 21000]],
+            ),
+        ], [], 0);
+
+        $resultado = $this->importarAcordos->confirmar($carteiraId, $leitura, $tenant, $user);
+
+        self::assertContains('61601', $resultado->nnsParcelasCriadas(), 'a aba 37 cria a parcela');
+        self::assertContains('61601', $resultado->nnsContasMarcadas(), 'e a aba 88 a assume, na mesma execução');
+        self::assertSame([], $resultado->contasRecusadas());
+
+        $parcela = $this->obrigacao($tenant, '61601');
+        self::assertSame(37, $parcela?->getAcordoOrigem()?->getNumeroExterno());
+        self::assertSame(88, $parcela?->getAcordoSubstituto()?->getNumeroExterno());
+        self::assertNotNull($caso);
+    }
+
+    #[TestDox('Porta B: prévia e confirmação projetam o MESMO principal (no dry-run a parcela nem existe)')]
+    public function testPortaBNaoDivergeEntrePreviaEConfirmacao(): void
+    {
+        [$tenant, $user, $carteiraId] = $this->cenarioAcordo37();
+
+        // ⚠️ O valor da conta original na planilha do 88 (R$ 190,00) DIFERE de propósito do valor com
+        // que a parcela 61601 nasce na aba do 37 (R$ 199,39). Sem essa diferença o teste ficaria verde
+        // lendo qualquer um dos dois, e não provaria de onde o principal sai. O certo é o que está no
+        // sistema — 19939 —, porque `principalReconciliadoCentavos` é o principal que SAI do saldo.
+        $leitura = new ResultadoLeituraAcordos([
+            $this->leituraAcordo37()->acordos[0],
+            $this->acordoDaPlanilha(
+                numero: 88,
+                contas: [['61601', '08/2026', '2026-08-10', 19000, 37, '2/4']],
+                parcelas: [['70500', 1, 1, '11/2026', '2026-11-10', 21000]],
+            ),
+        ], [], 0);
+
+        $previsto = $this->importarAcordos->prever($carteiraId, $leitura, $tenant);
+        $feito = $this->importarAcordos->confirmar($carteiraId, $leitura, $tenant, $user);
+
+        self::assertSame($previsto->nnsContasMarcadas(), $feito->nnsContasMarcadas());
+        self::assertSame($previsto->contasRecusadas(), $feito->contasRecusadas());
+
+        // 68000 = as 4 contas originais do acordo 37 (R$ 170,00 cada) + 19939 da parcela assumida.
+        self::assertSame(
+            68000 + 19939,
+            $feito->principalReconciliadoCentavos(),
+            'o principal que sai do saldo é o da obrigação no sistema, não o que a planilha do sucessor declara',
+        );
+        self::assertSame(
+            $previsto->principalReconciliadoCentavos(),
+            $feito->principalReconciliadoCentavos(),
+            'é o número que o operador confere antes de mandar gravar; no dry-run a parcela não existe no banco, então ele TEM de sair do acumulador',
+        );
+    }
+
+    #[TestDox('A importação NÃO desativa acordo cujas parcelas ela mesma renegociou (a ordem das abas não decide)')]
+    public function testNaoDesativaAcordoComParcelaRenegociadaNaMesmaExecucao(): void
+    {
+        [$tenant, $user, $carteiraId, , $acordo] = $this->cenarioAcordo37();
+
+        // A aba 88 assume a parcela do 37 (vem primeiro), e depois a aba do 37 chega dizendo
+        // "Cancelado". Desativar aqui devolveria as originais do 37 ao saldo COM as parcelas do 88
+        // dentro dele — a mesma dívida duas vezes, que é o dano do §2.1 do ajuste 9.
+        $leitura = new ResultadoLeituraAcordos([
+            $this->acordoDaPlanilha(
+                numero: 88,
+                contas: [['61600', '07/2026', '2026-07-15', 19939, 37, '1/4']],
+                parcelas: [['70500', 1, 1, '11/2026', '2026-11-10', 21000]],
+            ),
+            $this->acordoDaPlanilha(
+                numero: 37,
+                contas: [['60145', '01/2026', '2026-01-13', 17000]],
+                parcelas: [['61600', 1, 4, '07/2026', '2026-07-15', 19939]],
+                situacao: 'Cancelado',
+            ),
+        ], [], 0);
+
+        // ⚠️ A PRÉVIA é o assert que importa aqui, e é ela que quase ficou de fora. Na confirmação a
+        // marcação já foi para o banco quando a aba do 37 chega, então a query de
+        // `parcelasRenegociadasPorAcordoVigente` enxerga tudo e a guarda funcionaria mesmo sem o
+        // acumulador. No dry-run nada é gravado: sem consultar o acumulador, a prévia prometeria
+        // "vou cancelar o acordo 37" e a confirmação não cancelaria — a divergência que a §6 proíbe.
+        $previsto = $this->importarAcordos->prever($carteiraId, $leitura, $tenant);
+        $feito = $this->importarAcordos->confirmar($carteiraId, $leitura, $tenant, $user);
+
+        self::assertNotEmpty($previsto->sobrescritasBarradas, 'a prévia tem de avisar que o cancelamento NÃO vai acontecer');
+        self::assertStringContainsString('renegociadas por outro acordo VIGENTE', implode(' ', $previsto->sobrescritasBarradas));
+        self::assertSame($previsto->sobrescritasBarradas, $feito->sobrescritasBarradas, 'prévia e confirmação têm de dizer a mesma coisa sobre a desativação');
+
+        $this->em->refresh($acordo);
+        self::assertSame(StatusAcordo::Ativo, $acordo->getStatus(), 'o acordo antigo não pode ser desativado enquanto o novo carrega parcelas dele');
+    }
+
+    #[TestDox('Cadeia de três acordos: cada parcela sai do saldo uma vez só')]
+    public function testCadeiaDeTresAcordosNaoDobraDivida(): void
+    {
+        [$tenant, $user, $carteiraId, $caso] = $this->cenarioAcordo37();
+
+        $saldoAntes = $this->saldo->saldoExigivel($caso);
+
+        // 37 → 88 → 96, a forma real do 31 → 211 → 396. A parcela do 37 é assumida pelo 88, e a
+        // parcela do 88 é assumida pelo 96.
+        $leitura = new ResultadoLeituraAcordos([
+            $this->acordoDaPlanilha(
+                numero: 88,
+                contas: [['61600', '07/2026', '2026-07-15', 19939, 37, '1/4']],
+                parcelas: [['70500', 1, 1, '11/2026', '2026-11-10', 21000]],
+            ),
+            $this->acordoDaPlanilha(
+                numero: 96,
+                contas: [['70500', '11/2026', '2026-11-10', 21000, 88, '1/1']],
+                parcelas: [['70600', 1, 1, '12/2026', '2026-12-10', 22000]],
+            ),
+        ], [], 0);
+
+        $this->importarAcordos->confirmar($carteiraId, $leitura, $tenant, $user);
+
+        $meio = $this->obrigacao($tenant, '70500');
+        self::assertSame(88, $meio?->getAcordoOrigem()?->getNumeroExterno());
+        self::assertSame(96, $meio?->getAcordoSubstituto()?->getNumeroExterno(), 'a obrigação do meio da cadeia tem origem E substituto');
+
+        // Só a ponta da cadeia cobra: −199,39 (parcela do 37) e +220,00 (parcela do 96). A parcela do
+        // 88 (R$ 210,00) entra e sai na mesma execução.
+        self::assertSame($saldoAntes - 19939 + 22000, $this->saldo->saldoExigivel($caso));
+    }
+
+    // ---------------------------------------------------------------------------------------------
     // Dry-run
     // ---------------------------------------------------------------------------------------------
 
@@ -2201,12 +2491,17 @@ final class ImportarAcordosDetalhadosTest extends KernelTestCase
             valorFinalAcordadoCentavos: $valorFinalAcordado ?? array_sum(array_map(static fn (array $p): int => $p[5], $parcelas)),
             emissao: new \DateTimeImmutable('2026-07-29'),
             contasOriginais: array_map(
+                // Índices 4 e 5 são a coluna F ("Detalhamento"): o número do acordo de que aquela conta
+                // é parcela e a parcela ("4/12"). Ausentes = conta original comum, que é o dado da
+                // maioria das abas (6.222 linhas contra 2.213 medidas em 04/08).
                 static fn (array $c): ContaOriginalImportavel => new ContaOriginalImportavel(
                     nn: $c[0],
                     classe: '1.1 - Taxa de condomínio',
                     competencia: $c[1],
                     vencimento: new \DateTimeImmutable($c[2]),
                     valorCentavos: $c[3],
+                    acordoOrigemDeclarado: $c[4] ?? null,
+                    parcelaOrigemDeclarada: $c[5] ?? null,
                 ),
                 $contas,
             ),

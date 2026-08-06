@@ -150,8 +150,9 @@ final class MontarDetalheCasoUseCase
         // dobro se a contabilidade voltar a trazer o acordo (ver `CancelarAcordoUseCase`) —, mas não
         // chega ao Output: sem isto ele reapareceria em "Acordos encerrados", com um link que agora dá
         // 404. O ROMPIDO continua listado: aconteceu de verdade e o histórico dele importa.
+        $sucessorPorAcordo = $this->sucessorPorAcordo($obrigacoes);
         $acordos = array_map(
-            AcordoOutput::fromEntity(...),
+            static fn (Acordo $a): AcordoOutput => AcordoOutput::fromEntity($a, $sucessorPorAcordo[$a->getId()] ?? null),
             array_values(array_filter(
                 $this->acordoRepository->doCaso($caso),
                 static fn (Acordo $a): bool => $a->getStatus() !== StatusAcordo::Cancelado,
@@ -455,6 +456,7 @@ final class MontarDetalheCasoUseCase
                 continue;
             }
 
+
             $valorTotal = 0;
             foreach ($parcelas as $parcela) {
                 $valorTotal += $parcela->valorAtual;
@@ -470,10 +472,77 @@ final class MontarDetalheCasoUseCase
                 valorTotal: $valorTotal,
                 parcelas: $parcelas,
                 substituidas: $substituidasPorAcordo[$acordoId] ?? [],
+                substituidoPeloAcordoId: $acordo->substituidoPeloAcordoId,
             );
         }
 
         return [$grupos, $avulsas];
+    }
+
+    /**
+     * Qual acordo ASSUMIU cada acordo — a resposta ao pedido do dono: *"não quero que apareçam acordos
+     * substituídos, apenas os que estão realmente vigentes"* (spec
+     * `cobranca-acordo-assume-parcelas-do-anterior.md`, decisão D1).
+     *
+     * É **derivado**, não gravado: não há coluna nem estado novo. Um acordo está substituído quando
+     * **todas** as parcelas dele foram renegociadas por um acordo vigente — nem uma sobrou por conta
+     * dele. As duas condições importam:
+     *
+     * - só "tem parcela renegociada" pegaria os 12 acordos **parcialmente** renegociados do dado real,
+     *   que seguem devendo — um deles perde 13 parcelas e fica com 14;
+     * - só "não sobrou parcela" pegaria o acordo sem parcela nenhuma, que ninguém substituiu.
+     *
+     * 🔑 "Sobrou" é parcela **em aberto** que não foi substituída, e a régua custou uma medição para
+     * ficar certa. A tentação era usar a mesma do `agruparPorAcordo` (qualquer parcela não substituída,
+     * paga ou não), porque é ela que decide se o acordo vira grupo na seção Dívida. Só que no dado real
+     * isso pega **8** acordos e deixa **29** de fora — os 29 em que o devedor pagou 1 a 3 parcelas antes
+     * de renegociar o resto, que são justamente a forma comum. Eles ficavam na seção Dívida anunciando
+     * "Ativo" com as parcelas pagas, que é exatamente a queixa do dono.
+     *
+     * Por isso o rótulo viaja nos DOIS lugares (`AcordoOutput` e `GrupoAcordoObrigacoesOutput`): o
+     * acordo sem nada sobrando cai em "Acordos encerrados", o que sobrou só pago continua virando grupo,
+     * e os dois se anunciam como substituídos. Nada some da tela e nada mente.
+     *
+     * Um estado gravado seria pior aqui: a planilha da contábil continua dizendo "Em andamento" nesses
+     * acordos **de propósito** (é o desenho deles, para rastreabilidade), e toda importação teria de
+     * decidir qual das duas fontes ganha. Derivando, não existe a disputa.
+     *
+     * Lê as obrigações que o UseCase já carregou por QUERY (`doCaso`) — nunca a coleção inversa do
+     * acordo, que nasce vazia na mesma unidade de trabalho.
+     *
+     * @param list<ObrigacaoOutput> $obrigacoes
+     *
+     * @return array<int, int> id do acordo substituído → id do acordo que o assumiu
+     */
+    private function sucessorPorAcordo(array $obrigacoes): array
+    {
+        $sobrouParcela = [];
+        $sucessor = [];
+
+        foreach ($obrigacoes as $obrigacao) {
+            $origemId = $obrigacao->acordoOrigemId;
+            if ($origemId === null) {
+                continue;
+            }
+
+            if ($obrigacao->substituidaPorAcordo && $obrigacao->acordoSubstitutoId !== null) {
+                // O último vence só para escolher o rótulo quando as parcelas de um mesmo acordo foram
+                // para sucessores diferentes; o que decide o ESTADO é não ter sobrado nenhuma.
+                $sucessor[$origemId] = $obrigacao->acordoSubstitutoId;
+
+                continue;
+            }
+
+            if (!$obrigacao->quitada()) {
+                $sobrouParcela[$origemId] = true;
+            }
+        }
+
+        return array_filter(
+            $sucessor,
+            static fn (int $acordoId): bool => !isset($sobrouParcela[$acordoId]),
+            ARRAY_FILTER_USE_KEY,
+        );
     }
 
     /**

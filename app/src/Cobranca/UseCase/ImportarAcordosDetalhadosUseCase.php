@@ -303,7 +303,7 @@ final class ImportarAcordosDetalhadosUseCase
         // ⚠️ Não lança exceção, ao contrário do caminho manual: derrubaria o lote inteiro por causa de
         // uma aba. Vira aviso acionável, com o caminho da saída (a etapa 1 apaga o recebimento).
         if ($sobrescrita?->desativa() === true) {
-            $barrado = $this->motivoParaNaoDesativar($acordo, $temParcelaPaga);
+            $barrado = $this->motivoParaNaoDesativar($acordo, $temParcelaPaga, $aba->numero, $tocadas);
             if ($barrado !== null) {
                 $sobrescritasBarradas[] = sprintf(
                     'Acordo %d: a contábil diz "%s", mas %s — status mantido em %s.',
@@ -588,7 +588,7 @@ final class ImportarAcordosDetalhadosUseCase
                     // Mutação também entra no acumulador, não só criação: sem isto a aba seguinte do mesmo
                     // caso veria `acordoOrigem` ainda nulo na prévia (o banco não mudou) e contaria o
                     // vínculo de novo, enquanto a confirmação reportaria divergência.
-                    $tocadas->registrarMutada($existente, $caso, $parcela->nn, $parcela->competencia, 'parcela-vinculada');
+                    $tocadas->registrarMutada($existente, $caso, $parcela->nn, $parcela->competencia, 'parcela-vinculada', $aba->numero);
                     if ($usuario !== null) {
                         $existente->setAcordoOrigem($acordo);
                         $this->obrigacaoRepository->salvar($existente, true);
@@ -628,16 +628,23 @@ final class ImportarAcordosDetalhadosUseCase
 
             $criadas[] = $parcela->nn;
             $valor += $parcela->valorCentavos;
-            // Registrar ANTES de escrever: é o que faz a reconciliação seguinte (e a de outra aba do
-            // mesmo caso) enxergar esta parcela no dry-run, onde o banco não muda. Sem isto a prévia
-            // prometeria "reconstruir" uma conta que a confirmação recusaria por INV-I.
-            $tocadas->registrarCriada($caso, $parcela->nn, $parcela->competencia, 'parcela');
 
+            $nova = null;
             if ($usuario !== null) {
                 $nova = $this->registrarObrigacao->executar($this->parcelaInput($caso, $parcela), $tenant, $usuario);
                 $nova->setAcordoOrigem($acordo);
                 $this->obrigacaoRepository->salvar($nova, true);
             }
+
+            // Registrar junto da escrita: é o que faz a reconciliação seguinte (e a de outra aba do
+            // mesmo caso) enxergar esta parcela no dry-run, onde o banco não muda. Sem isto a prévia
+            // prometeria "reconstruir" uma conta que a confirmação recusaria por INV-I.
+            //
+            // O número do acordo e o valor vão junto: é com eles que a porta B da INV-I confere a prova
+            // da coluna F contra o que ESTA execução acabou de criar. O valor sai da PLANILHA, e não da
+            // entidade, porque no dry-run entidade não há — e os dois modos precisam somar o mesmo
+            // principal (§6).
+            $tocadas->registrarCriada($caso, $parcela->nn, $parcela->competencia, 'parcela', $aba->numero, $parcela->valorCentavos, $nova);
         }
 
         return [$criadas, $existentes, $ambiguas, $divergencias, $valor, $vinculadas, $liquidadasIgnoradas];
@@ -696,9 +703,44 @@ final class ImportarAcordosDetalhadosUseCase
             }
 
             if ($jaTocada !== null) {
+                // PORTA B da INV-I — a obrigação virou parcela de um acordo nesta MESMA execução (a aba
+                // dele veio antes neste arquivo). É a porta que produziu 285 das 286 recusas da
+                // importação do zero. A prova da coluna F vale aqui exatamente como na porta A: se a
+                // planilha declara que esta conta é parcela do acordo que ESTA execução acabou de
+                // registrar como origem dela, a substituição é a renegociação em cadeia que a contábil
+                // documenta — e não o "acordo sobre acordo" cego que a INV-I existe para barrar.
+                $procedencia = $tocadas->procedenciaDoTrio($caso, $conta->nn, $conta->competencia)
+                    ?? ($obrigacao !== null ? $tocadas->procedenciaDaObrigacao($obrigacao) : null);
+
+                // `origemVigente: true` não é atalho: `completarParcelas` só roda para aba cujo status
+                // final é VIGENTE (a guarda de `processarAba` pula a aba inteira antes disso). Uma
+                // parcela criada ou vinculada nesta execução nasce, necessariamente, de acordo vigente.
+                $semProva = $this->motivoSemProva($conta, $procedencia['acordo'] ?? null, $aba->numero, origemVigente: true);
+
+                if ($semProva === null && ($jaTocada === 'parcela' || $jaTocada === 'parcela-vinculada')) {
+                    $alvo = $procedencia['obrigacao'] ?? null;
+                    $marcadas[] = $conta->nn;
+                    $centavosSemBoleto += ReferenciaSubstituta::ehSubstituta($conta->nn) ? $conta->valorCentavos : 0;
+                    // O principal sai do acumulador, NUNCA da entidade: no dry-run a parcela criada por
+                    // uma aba anterior não existe no banco, e prévia e confirmação têm de somar o mesmo
+                    // número (§6). O valor guardado veio da planilha e é idêntico nos dois modos.
+                    $principal += $procedencia['valor'] ?? $conta->valorCentavos;
+
+                    if ($alvo !== null) {
+                        $tocadas->registrarMutada($alvo, $caso, $conta->nn, $conta->competencia, 'marcada', $conta->acordoOrigemDeclarado);
+                        $this->materializarNaDataDoAcordo($alvo, $acordo, $configCaso);
+                        $alvo->setAcordoSubstituto($acordo);
+                        $this->obrigacaoRepository->salvar($alvo, true);
+                    } else {
+                        $tocadas->registrarCriada($caso, $conta->nn, $conta->competencia, 'marcada', $conta->acordoOrigemDeclarado, $procedencia['valor'] ?? $conta->valorCentavos);
+                    }
+
+                    continue;
+                }
+
                 $recusadas[] = match ($jaTocada) {
-                    'parcela' => sprintf('%s: esta MESMA importação a criou como parcela do acordo %d — não é dívida original, não marcada (INV-I).', $conta->nn, $aba->numero),
-                    'parcela-vinculada' => sprintf('%s: esta MESMA importação a ligou como parcela de acordo — não é dívida original, não marcada (INV-I).', $conta->nn),
+                    'parcela' => sprintf('%s: esta MESMA importação a criou como parcela do acordo %d — não é dívida original, não marcada (INV-I)%s.', $conta->nn, $procedencia['acordo'] ?? $aba->numero, (string) $semProva),
+                    'parcela-vinculada' => sprintf('%s: esta MESMA importação a ligou como parcela de acordo — não é dívida original, não marcada (INV-I)%s.', $conta->nn, (string) $semProva),
                     'marcada' => sprintf('%s: esta MESMA importação já marcou esta obrigação como substituída — não remarcada (confira: a planilha pode estar listando a mesma dívida em duas competências).', $conta->nn),
                     default => sprintf('%s: esta MESMA importação já a reconstruiu — linha repetida na planilha, ignorada.', $conta->nn),
                 };
@@ -729,13 +771,36 @@ final class ImportarAcordosDetalhadosUseCase
                 $divergencias[] = $divergencia;
             }
 
-            // INV-I (ajuste 9): um acordo só substitui DÍVIDA ORIGINAL. Marcar a parcela de outro acordo
-            // cria o estado "acordo sobre acordo": ao romper o acordo de origem, a original que ELE
-            // substituiu volta ao exigível E esta parcela continua nele — a dívida conta duas vezes. O
-            // `CriarAcordoUseCase` lança exceção nesse caso; aqui a importação recusa a linha e segue,
-            // para uma aba estranha não derrubar o lote.
-            if ($obrigacao->getAcordoOrigem() !== null) {
-                $recusadas[] = sprintf('%s: no sistema é parcela do acordo %s, não dívida original — não marcada (INV-I).', $conta->nn, (string) $obrigacao->getAcordoOrigem()->getId());
+            // PORTA A da INV-I (ajuste 9) — a obrigação já estava no banco como parcela de outro acordo.
+            //
+            // A regra de 2026-07 era "nunca": marcar a parcela de outro acordo cria o estado "acordo
+            // sobre acordo" e, no dia em que o acordo de origem for rompido, a original que ELE
+            // substituiu volta ao exigível E esta parcela continua nele — a dívida conta duas vezes.
+            //
+            // O que mudou (spec `cobranca-acordo-assume-parcelas-do-anterior.md`): renegociar parcela de
+            // acordo é a operação NORMAL da contábil, e ela documenta cada uma na coluna F ("Acordo 163 -
+            // Parcela 4/12"). Com a prova, a recusa cega passava a CAUSAR a dobra que existia para
+            // impedir — medido: 302 parcelas / R$ 67.469,44 no saldo ao lado das parcelas novas que as
+            // substituem. Sem a prova, a recusa continua exatamente como era.
+            //
+            // O vetor do rompimento continua fechado, agora pela INV-L: `RomperAcordoUseCase` e
+            // `CancelarAcordoUseCase` recusam desfazer acordo cujas parcelas outro acordo vigente
+            // renegociou, e `motivoParaNaoDesativar` faz o mesmo no caminho da importação.
+            $origem = $obrigacao->getAcordoOrigem();
+            $semProvaNoBanco = $origem === null
+                ? null
+                : $this->motivoSemProva($conta, $origem->getNumeroExterno(), $aba->numero, $origem->getStatus()->ehVigente());
+
+            if ($origem !== null && $semProvaNoBanco !== null) {
+                // O número EXTERNO, não o `id` interno: é o número que a contábil usa e o único que quem
+                // confere contra a planilha consegue procurar. (Antes imprimia o id, que não existe em
+                // fonte nenhuma.)
+                $recusadas[] = sprintf(
+                    '%s: no sistema é parcela do acordo %s, não dívida original — não marcada (INV-I)%s.',
+                    $conta->nn,
+                    $origem->getNumeroExterno() !== null ? (string) $origem->getNumeroExterno() : 'sem número externo (id ' . (string) $origem->getId() . ')',
+                    $semProvaNoBanco,
+                );
 
                 continue;
             }
@@ -757,7 +822,10 @@ final class ImportarAcordosDetalhadosUseCase
             $marcadas[] = $conta->nn;
             $centavosSemBoleto += ReferenciaSubstituta::ehSubstituta($conta->nn) ? $conta->valorCentavos : 0;
             $principal += $obrigacao->getValorOriginal();
-            $tocadas->registrarMutada($obrigacao, $caso, $conta->nn, $conta->competencia, 'marcada');
+            // O número do acordo de origem vai junto quando esta é uma parcela renegociada (porta A
+            // aceita): é o que permite à guarda de desativação saber, ainda dentro desta execução, que
+            // aquele acordo passou a ter parcela renegociada por um acordo vigente.
+            $tocadas->registrarMutada($obrigacao, $caso, $conta->nn, $conta->competencia, 'marcada', $origem?->getNumeroExterno());
 
             if ($usuario !== null) {
                 $this->materializarNaDataDoAcordo($obrigacao, $acordo, $configCaso);
@@ -767,6 +835,68 @@ final class ImportarAcordosDetalhadosUseCase
         }
 
         return [$marcadas, $reconstruidas, $jaMarcadas, $recusadas, $semCompetencia, $divergencias, $principal, $centavosSemBoleto];
+    }
+
+    /**
+     * A prova documental que autoriza um acordo a substituir a PARCELA de outro (spec
+     * `cobranca-acordo-assume-parcelas-do-anterior.md`). Nas duas portas da INV-I a pergunta é a mesma:
+     *
+     * > a coluna F desta conta declara que ela é parcela **exatamente** do acordo que o sistema já
+     * > registrou como origem dela?
+     *
+     * Quatro recusas, e cada uma tem um motivo próprio:
+     *
+     * 1. **sem declaração** (coluna F em `-`, vazia ou com texto fora do padrão) — é o caso da dívida
+     *    original comum; nada mudou para ela;
+     * 2. **declara OUTRO acordo** — a planilha e o sistema discordam sobre a procedência da mesma
+     *    dívida. Aceitar seria escolher em silêncio qual das duas fontes vale, mexendo em dinheiro.
+     *    Medido no dado real de 04/08: **zero** ocorrências — mas é justamente por ser inesperado que
+     *    precisa cair na recusa, e não passar batido;
+     * 3. **declara o PRÓPRIO acordo da aba** — o acordo substituiria uma parcela dele mesmo, e a
+     *    obrigação ficaria com `acordoOrigem` e `acordoSubstituto` apontando para a mesma linha. Nenhuma
+     *    query de exigibilidade sabe responder a isso; é estado sem significado, e nasce de planilha
+     *    malformada ou de NN repetido nas duas seções da mesma aba;
+     * 4. **o acordo de origem NÃO está vigente** — herdada do enunciado original da INV-I ("parcela de
+     *    acordo rompido/cancelado é histórico e nem sequer é exigível"), e é ela que fecha a brecha de
+     *    ORDEM. Sem ela: a aba do acordo velho vem primeiro dizendo "Cancelado", a desativação passa
+     *    (nada foi marcado ainda, a guarda não vê nada), as originais dele voltam ao saldo — e depois a
+     *    aba do sucessor marcaria as parcelas dele, deixando as duas coisas no saldo ao mesmo tempo. Com
+     *    ela, os dois sentidos ficam fechados: sucessor primeiro → `motivoParaNaoDesativar` barra a
+     *    desativação; velho primeiro → esta condição barra a marcação. Nada legítimo se perde: nos 302
+     *    casos medidos no dado real, o acordo de origem está `ativo` em 302.
+     *
+     * Devolve `null` quando a prova vale — e, quando não vale, **o motivo exato**, que vai para o bloco
+     * "Linhas recusadas" do relatório. Um motivo genérico aqui seria pior que nenhum: quem confere a
+     * planilha precisa saber se o que falta é a declaração, se as duas fontes discordam, ou se o
+     * problema é o estado do acordo antigo — são três investigações diferentes.
+     */
+    private function motivoSemProva(ContaOriginalImportavel $conta, ?int $numeroExternoDaOrigem, int $numeroDaAba, bool $origemVigente): ?string
+    {
+        $declarado = $conta->acordoOrigemDeclarado;
+
+        if ($declarado === null) {
+            return ' — a coluna "Detalhamento" da planilha não declara de qual acordo ela é parcela';
+        }
+
+        $declaracao = sprintf('"Acordo %d - Parcela %s"', $declarado, (string) $conta->parcelaOrigemDeclarada);
+
+        if ($declarado === $numeroDaAba) {
+            return sprintf(' — a planilha declara %s, ou seja, o PRÓPRIO acordo desta aba: um acordo não substitui parcela de si mesmo', $declaracao);
+        }
+
+        if ($numeroExternoDaOrigem === null) {
+            return sprintf(' — a planilha declara %s, mas o acordo de origem no sistema não tem número externo para conferir', $declaracao);
+        }
+
+        if ($declarado !== $numeroExternoDaOrigem) {
+            return sprintf(' — a planilha declara %s, e no sistema ela é parcela do acordo %d: as duas fontes discordam da procedência', $declaracao, $numeroExternoDaOrigem);
+        }
+
+        if (!$origemVigente) {
+            return sprintf(' — a planilha declara %s, mas esse acordo não está mais vigente no sistema: as parcelas dele já estão fora do saldo', $declaracao);
+        }
+
+        return null;
     }
 
     /**
@@ -873,7 +1003,7 @@ final class ImportarAcordosDetalhadosUseCase
      * ⚠️ Diferença deliberada em relação ao manual: **nunca lança**. Uma exceção derrubaria o lote
      * inteiro por causa de uma aba; aqui vira aviso acionável, com a saída indicada.
      */
-    private function motivoParaNaoDesativar(Acordo $acordo, bool $temParcelaPaga): ?string
+    private function motivoParaNaoDesativar(Acordo $acordo, bool $temParcelaPaga, int $numeroDaAba, ObrigacoesTocadasNaImportacao $tocadas): ?string
     {
         // ⚠️ ACUMULA as duas, nunca retorna na primeira. Uma versão anterior reportava só o primeiro
         // impedimento, e o aviso dizia "exclua o recebimento e importe de novo" — o operador apagaria um
@@ -895,9 +1025,17 @@ final class ImportarAcordosDetalhadosUseCase
         // saldo: as originais deste acordo voltam ao exigível (`asub` deixa de ser vigente) E as parcelas
         // do acordo novo continuam exigíveis (`aorig` segue vigente) — ver `doCasoExigiveis`.
         //
-        // Só existe em dado legado: INV-I bloqueia criar o estado hoje. Mas é exatamente o tipo de dado
-        // que uma importação de acervo antigo encontra.
-        if ($this->obrigacaoRepository->parcelasRenegociadasPorAcordoVigente($acordo) !== []) {
+        // 🔑 Deixou de ser "só dado legado" em 08/2026: com a prova da coluna F o importador passou a
+        // CRIAR este estado (spec `cobranca-acordo-assume-parcelas-do-anterior.md`), e esta guarda virou
+        // a proteção principal contra o dano do §2.1 do ajuste 9 — não mais um alarme de acervo antigo.
+        //
+        // ⚠️ Por isso a pergunta não pode ser só ao banco. Numa importação em que a aba do acordo VELHO
+        // vem ANTES da aba do sucessor, a query não enxerga a renegociação que esta mesma execução vai
+        // fazer daqui a pouco, e a desativação passaria — o resultado dependeria da ordem das abas
+        // dentro do arquivo. O acumulador responde pelo que já foi marcado nesta execução.
+        $renegociadaNesteLote = in_array($numeroDaAba, $tocadas->acordosComParcelaRenegociadaNaExecucao(), true);
+
+        if ($renegociadaNesteLote || $this->obrigacaoRepository->parcelasRenegociadasPorAcordoVigente($acordo) !== []) {
             $motivos[] = 'as parcelas dele foram renegociadas por outro acordo VIGENTE (cancelar contaria a mesma '
                 . 'dívida duas vezes no saldo) — resolva os dois acordos à mão';
         }

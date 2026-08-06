@@ -98,6 +98,87 @@ final class AcordosDetalhadosAdapterTest extends TestCase
         self::assertSame('02/2026', $conta->competencia);
         self::assertSame('2026-02-13', $conta->vencimento->format('Y-m-d'));
         self::assertSame(17000, $conta->valorCentavos);
+        self::assertNull($conta->acordoOrigemDeclarado, 'coluna F em "-" é dívida original — o caso comum');
+        self::assertNull($conta->parcelaOrigemDeclarada);
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Coluna F ("Detalhamento") — a prova de que a conta original é parcela de um acordo ANTERIOR
+    // (spec `docs/specs/cobranca-acordo-assume-parcelas-do-anterior.md`)
+    // ---------------------------------------------------------------------------------------------
+
+    #[TestDox('Coluna F lida: "Acordo 163 - Parcela 4/12" vira o número externo 163 e a parcela 4/12')]
+    public function testColunaFDeclaraParcelaDeAcordoAnterior(): void
+    {
+        $conta = $this->contaComDetalhamento(['Acordo 163 - Parcela 4/12']);
+
+        self::assertSame(163, $conta->acordoOrigemDeclarado);
+        self::assertSame('4/12', $conta->parcelaOrigemDeclarada);
+    }
+
+    #[TestDox('Espaço extra no "p/t" não impede a leitura — a fonte não é confiável na formatação')]
+    public function testColunaFToleraEspacoNaParcela(): void
+    {
+        $conta = $this->contaComDetalhamento(['Acordo 348 - Parcela 2 / 40']);
+
+        self::assertSame(348, $conta->acordoOrigemDeclarado);
+        self::assertSame('2/40', $conta->parcelaOrigemDeclarada);
+    }
+
+    #[TestDox('Texto fora do padrão NÃO vira declaração — o parse é estrito de propósito')]
+    public function testColunaFComTextoForaDoPadraoNaoDeclara(): void
+    {
+        foreach (['Renegociado do acordo 163', 'Acordo 163', 'Acordo 163 - Parcela', 'acordo', ''] as $texto) {
+            self::assertNull(
+                $this->contaComDetalhamento([$texto])->acordoOrigemDeclarado,
+                sprintf('"%s" não é a forma que a contábil emite; aceitar por aproximação tiraria dívida do saldo', $texto),
+            );
+        }
+    }
+
+    #[TestDox('Detalhamento divergente entre as linhas da mesma conta anula a declaração')]
+    public function testColunaFDivergenteEntreLinhasNaoDeclara(): void
+    {
+        // Duas linhas da MESMA conta (mesmo NN + competência) apontando acordos diferentes. Medido no
+        // dado real: 0 ocorrências em 5.029 grupos — e é por ser inesperado que tem de cair na recusa.
+        $divergente = $this->contaComDetalhamento(['Acordo 163 - Parcela 4/12', 'Acordo 191 - Parcela 1/1']);
+        self::assertNull($divergente->acordoOrigemDeclarado);
+
+        // E a prova tem de estar em TODAS as linhas: uma linha sem declaração já anula o grupo.
+        $incompleta = $this->contaComDetalhamento(['Acordo 163 - Parcela 4/12', '-']);
+        self::assertNull($incompleta->acordoOrigemDeclarado, 'declaração parcial não é prova');
+    }
+
+    /**
+     * Uma conta original partida em N linhas (é assim que a fonte quebra principal, juros e multa),
+     * cada uma com o texto de coluna F informado. O valor de cada linha é 10,00 — o que importa aqui é
+     * só a coluna F.
+     *
+     * @param list<string> $detalhamentos
+     */
+    private function contaComDetalhamento(array $detalhamentos): ContaOriginalImportavel
+    {
+        $planilha = new Spreadsheet();
+        $aba = $planilha->getActiveSheet();
+        $aba->setTitle('Acordo n224');
+        $this->escreverCabecalho($aba, 224, 'QUADRA 01 CHACARA 01/09', 'LUCIO FABIO', '10,00', '10,00');
+
+        $contas = array_map(
+            static fn (string $d): array => ['65331', '1.1 - Taxa de condomínio', '04/2026', '30/04/2026', '10,00', $d],
+            $detalhamentos,
+        );
+        // As linhas da MESMA conta são contíguas na fonte; o helper intercala uma linha vazia entre
+        // contas, e o adapter agrupa por NN+competência — que aqui é o mesmo nas duas.
+        $linha = $this->escreverContasOriginais($aba, 12, $contas);
+        $linha = $this->escreverParcelas($aba, $linha + 1, [
+            ['67604', '1.1 - Taxa de condomínio - 04/2026', '1/1', '05/2026', '10/05/2026', '-', '10,00', '-'],
+        ]);
+        $this->escreverRodape($aba, $linha + 2);
+
+        $acordo = (new AcordosDetalhadosAdapter())->ler($this->salvar($planilha))->acordos[0];
+        self::assertCount(1, $acordo->contasOriginais, 'as linhas do mesmo NN+competência formam UMA conta');
+
+        return $acordo->contasOriginais[0];
     }
 
     #[TestDox('Um NN de parcela ocupa várias linhas: o valor da parcela é a SOMA delas')]
@@ -575,7 +656,9 @@ final class AcordosDetalhadosAdapterTest extends TestCase
 
         $linha = $inicio + 2;
         foreach ($contas as $conta) {
-            foreach ([...$conta, '-'] as $c => $valor) {
+            // A 6ª célula é a coluna F ("Detalhamento"). Omitida = `-`, que é a forma da conta original
+            // comum (6.222 das 8.435 linhas medidas no dado real).
+            foreach (count($conta) >= 6 ? $conta : [...$conta, '-'] as $c => $valor) {
                 $this->texto($aba, $this->coluna($c) . $linha, $valor);
             }
             $linha += 2; // a fonte real intercala uma linha vazia entre as contas

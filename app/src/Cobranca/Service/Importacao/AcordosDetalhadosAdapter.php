@@ -20,6 +20,9 @@ use PhpOffice\PhpSpreadsheet\IOFactory;
  *   `Valor total das contas originais:` · `Criado em:` + `Valor final acordado:` · `Situação:`;
  * - seção `Relação das contas originais` — A NN · B Classe · C Competência · D Vencimento ·
  *   E Valor original · F Detalhamento (com uma linha VAZIA entre cada conta);
+ *   ⚠️ a coluna F ficou documentada aqui e **não lida** de julho a agosto de 2026. É ela que diz
+ *   `Acordo 163 - Parcela 4/12` quando a conta original é, na verdade, parcela de um acordo ANTERIOR —
+ *   a prova documental da renegociação em cadeia (spec `cobranca-acordo-assume-parcelas-do-anterior.md`);
  * - seção `Parcelas das contas geradas pelo acordo` — A NN · B Classe · C Parcela (`p/t`) ·
  *   D Competência · E Vencimento · F Liquidação · G Valor acordado · H Valor liquidado;
  * - rodapé `Filtros:` · endereço · `Emissão:`.
@@ -48,10 +51,19 @@ final class AcordosDetalhadosAdapter
     private const COL_NN = 0;
     private const COL_CLASSE = 1;
 
-    /** Seção "contas originais": C Competência · D Vencimento · E Valor. */
+    /** Seção "contas originais": C Competência · D Vencimento · E Valor · F Detalhamento. */
     private const ORIG_COMPETENCIA = 2;
     private const ORIG_VENCIMENTO = 3;
     private const ORIG_VALOR = 4;
+    private const ORIG_DETALHAMENTO = 5;
+
+    /**
+     * A coluna F declara a procedência da conta original. Medido no dado real de 04/08/2026 (TL1+TL2,
+     * 8.435 linhas na seção): existem **duas** formas e só duas — `-` (6.222 linhas) e
+     * `Acordo N - Parcela p/t` (2.213). Por isso o parse é estrito: qualquer outra coisa vale como
+     * "não declarado", que é a direção segura (mantém a recusa da INV-I).
+     */
+    private const PADRAO_PARCELA_DE_ACORDO = '#^Acordo\s+(\d+)\s*-\s*Parcela\s*(\d+\s*/\s*\d+)$#i';
 
     /** Seção "parcelas": C Parcela · D Competência · E Vencimento · F Liquidação · G Valor. */
     private const PARC_PARCELA = 2;
@@ -341,13 +353,58 @@ final class AcordosDetalhadosAdapter
             return new LinhaRejeitada($nn, sprintf('Conta original com valor não positivo (%s) — não é dívida reconstruível.', number_format($valor / 100, 2, ',', '.')), $dados + ['valor' => (string) ($primeira[self::ORIG_VALOR] ?? '')]);
         }
 
+        [$acordoDeclarado, $parcelaDeclarada] = $this->procedenciaDeclarada($linhas);
+
         return new ContaOriginalImportavel(
             nn: $nn,
             classe: $this->classeNormalizada((string) ($primeira[self::COL_CLASSE] ?? '')),
             competencia: $competencia,
             vencimento: $vencimento,
             valorCentavos: $valor,
+            acordoOrigemDeclarado: $acordoDeclarado,
+            parcelaOrigemDeclarada: $parcelaDeclarada,
         );
+    }
+
+    /**
+     * A coluna F ("Detalhamento") das contas originais — a **prova documental** de que aquela conta é
+     * parcela de um acordo anterior, e não dívida original. É o que autoriza a importação a registrar
+     * "acordo sobre acordo", que a INV-I recusa sem prova.
+     *
+     * ⚠️ A prova tem de estar em **TODAS** as linhas do grupo, declarando o **mesmo** acordo. Um grupo é
+     * UMA conta partida em várias linhas (principal, juros, multa, desconto) e a coluna F se repete
+     * idêntica em cada uma — medido no dado real: 5.029 grupos, **zero** com divergência interna.
+     *
+     * A exigência é deliberadamente rígida, e a razão é a direção do erro. Aceitar por maioria (ou só
+     * pela primeira linha) faria uma mudança futura no formato da fonte passar em silêncio e tirar
+     * dívida do saldo. Exigir unanimidade faz a mesma mudança cair na recusa da INV-I, que já é impressa
+     * no bloco "Linhas recusadas" do relatório — barulhenta, conferível, e sem mexer em dinheiro.
+     *
+     * @param list<array<int, mixed>> $linhas
+     *
+     * @return array{0: ?int, 1: ?string} número externo do acordo declarado e a parcela ("4/12")
+     */
+    private function procedenciaDeclarada(array $linhas): array
+    {
+        $acordo = null;
+        $parcela = null;
+
+        foreach ($linhas as $l) {
+            $texto = trim((string) ($l[self::ORIG_DETALHAMENTO] ?? ''));
+            if (preg_match(self::PADRAO_PARCELA_DE_ACORDO, $texto, $m) !== 1) {
+                return [null, null];
+            }
+
+            $numero = (int) $m[1];
+            if ($acordo !== null && $acordo !== $numero) {
+                return [null, null];
+            }
+
+            $acordo = $numero;
+            $parcela = (string) preg_replace('/\s+/', '', $m[2]);
+        }
+
+        return [$acordo, $parcela];
     }
 
     /**

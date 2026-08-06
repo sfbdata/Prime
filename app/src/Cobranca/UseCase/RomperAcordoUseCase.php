@@ -57,7 +57,12 @@ final class RomperAcordoUseCase
 
         // Ajuste 9 §2.1: romper com parcelas que outro acordo vigente renegociou DUPLICARIA a dívida no
         // saldo — as originais que este acordo substituiu voltam ao exigível E as parcelas do acordo novo
-        // continuam nele. A criação desse estado está bloqueada (INV-I), então isto só alcança dado legado.
+        // continuam nele.
+        //
+        // 🔑 Deixou de ser "só dado legado" em 08/2026: com a prova da coluna F da planilha, o importador
+        // de acordos passou a CRIAR esse estado de propósito — renegociar parcela de acordo é a operação
+        // normal da contábil (spec `cobranca-acordo-assume-parcelas-do-anterior.md`). Este guard virou a
+        // proteção PRINCIPAL contra o §2.1, não mais um alarme de acervo antigo.
         $renegociadas = $this->obrigacaoRepository->parcelasRenegociadasPorAcordoVigente($acordo);
 
         if ($renegociadas !== []) {
