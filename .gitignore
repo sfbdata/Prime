@@ -119,3 +119,9 @@ docs/gestao-cobrancas/credencial*.txt
 # batida dia a dia — dado pessoal de terceiro. Ficam no disco de quem confere e nunca na história:
 # depois de commitado, PII só sai reescrevendo o repositório inteiro.
 docs/folha-de-ponto/
+
+# Dumps do banco de PRODUÇÃO trazidos para ensaio/depuração. São a base real inteira: nome, CPF,
+# endereço e dívida de gente de verdade. Nunca versionar — nem uma vez, porque depois de commitado
+# só sai reescrevendo o repositório.
+*.dump
+prod-antes-*.dump
