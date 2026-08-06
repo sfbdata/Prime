@@ -1105,3 +1105,99 @@ tomado:
    demais viram um relatório de "acordo parado há mais de um ano, confira".
 
 ⛔ Nada foi mexido. O aviso de divergência e o comportamento atual continuam como estão.
+
+---
+
+## 14. 🔴 07/08 (fim do dia) — DECISÃO DO SETOR DE COBRANÇA: **a inadimplência manda no que se cobra**
+
+O dono levou o §13.7 ao setor de cobrança e voltou com a regra de negócio, textual:
+
+> *"O setor é de cobrança, o que vale para nós são os inadimplentes. O que está no relatório de
+> inadimplência são quem vamos cobrar. Os acordos que não foram pagos e não estão nos inadimplentes, na
+> prática não são cobrados — isso é um problema de regra de negócio do sistema da contabilidade. Os
+> acordos em andamento e atrasados mas que não estão na tabela de inadimplentes não são para ser
+> cobrados."*
+
+**É a opção 1 das três que o §13.7 deixou em aberto.** Nada foi implementado ainda.
+
+### 14.1 ⛔ A PRÓXIMA SESSÃO COMEÇA AQUI: duas perguntas que precisam de resposta ANTES de escrever código
+
+A pergunta foi montada e **não chegou a ser respondida** — o dono encerrou a sessão antes. **Não implemente
+sem isso**: as duas leituras diferem em **R$ 170.583,90**.
+
+**Pergunta 1 — alcance.** A regra vale só para as parcelas **JÁ VENCIDAS**, ou para **toda** parcela de
+acordo ausente da inadimplência?
+
+| leitura | sai do saldo | o que acontece |
+|---|---:|---|
+| **só as já vencidas** (recomendada) | **241 parcelas · R$ 51.738,56** | as 683 parcelas **futuras** (R$ 170.583,90) continuam a receber |
+| toda parcela fora da inadimplência | 924 parcelas · R$ 222.322,46 | o relatório de Acordos deixa de somar dinheiro e vira só histórico |
+
+🔑 **Por que a recomendação é a primeira:** a parcela que vence semana que vem **não está na inadimplência
+porque ainda não venceu**, não porque a contábil desistiu dela. A frase do setor diz *"em andamento e
+ATRASADOS"*. E a leitura literal desfaz a razão de ser da importação de acordos (§3.1 da spec-mãe:
+*"completar as parcelas futuras — R$ 1.399,49 a receber que nenhum relatório enxerga"*).
+
+**Pergunta 2 — volta atrás.** Quando uma parcela excluída reaparecer na inadimplência numa importação
+futura, ela volta a ser cobrada **sozinha** (a regra é reavaliada a cada importe — recomendado, coerente
+com *"o importe é a fonte da verdade"*), ou **fica fora** até alguém reativar na tela?
+
+### 14.2 O que já está medido para a spec
+
+Estado do banco `saas_ux_zero` (importação do zero, §13), obrigações exigíveis em aberto:
+
+| | TOP LIFE 1 | TOP LIFE 2 |
+|---|---:|---:|
+| boleto comum (não é parcela de acordo) | 2.858 · R$ 399.750,00 | 519 · R$ 88.230,00 |
+| parcela de acordo **já vencida** | 327 · R$ 76.466,33 | 8 · R$ 3.641,17 |
+| parcela de acordo **a vencer** | 673 · R$ 168.373,71 | 10 · R$ 2.210,19 |
+
+Das 327 vencidas da TL1, **241 não estão na inadimplência** (são as do §13.7) e 86 estão. Na TL2 as 8
+estão todas na inadimplência — **a TL2 não é afetada pela regra nova**.
+
+### 14.3 Pontos de desenho já levantados (não decididos)
+
+1. **É uma regra CRUZADA entre dois relatórios**, a primeira desta frente. Hoje cada importador decide
+   sozinho; esta regra precisa que o resultado da inadimplência influencie parcelas criadas pelo importador
+   de acordos. **A ordem de importação vira ainda mais crítica.**
+2. **Nunca apagar** (invariável 14). A parcela continua existindo; o que muda é ela sair do **exigível**.
+   Provavelmente um campo/estado novo na `Obrigacao`, não um `DELETE`.
+3. **Idempotência e reversibilidade** dependem da resposta da pergunta 2.
+4. **Os 13 boletos "só encargos"** (§13.7 item 1) **estão** na inadimplência — a contábil os cobra. Sob a
+   regra nova eles continuam cobráveis; hoje entram pela planilha de Acordos. Não mexer.
+5. **Risco ALTO** — tira dívida do saldo de devedor real. Spec + prova por reintrodução + duas revisões.
+
+### 14.4 Entregue ao dono nesta sessão (arquivos, pasta gitignored por conter nome de devedor)
+
+- `planilhas atualizadas/RELATORIO_ACORDOS_PARADOS.pdf` — **2 páginas**, para o setor de cobrança: 25
+  acordos parados em 16 unidades, R$ 48.376,77, com a tabela de prioridade dos 17 meses com cobrança
+  sobreposta. ⚠️ A 1ª versão dizia "boleto novo" para todos; **corrigida** depois que o dono perguntou:
+  em **13** casos o boleto concorrente é **parcela de um acordo mais novo**, em **10** é **mensalidade
+  avulsa**. São investigações diferentes.
+- `planilhas atualizadas/GUIA_CONFERENCIA_RELATORIOS.pdf` — **1 página**, passo a passo de onde olhar nos
+  três relatórios, com o caso 01-04B destrinchado.
+
+🔑 **Descoberta que vale para sempre:** a coluna **F ("Detalhamento")** da seção *Relação das contas
+originais* do relatório de Acordos **documenta a cadeia**: no acordo 224 ela diz `Acordo 163 - Parcela
+4/12`; no 338 diz `Acordo 224 - Parcela 5/24`. Dá para reconstruir a história inteira do devedor por ela.
+O 01-04B refez o acordo três vezes e **nenhum dos antigos recebeu baixa**.
+
+### 14.5 Smoke do item 6 — ✅ FEITO no navegador (3 de 3)
+
+O dono pediu explicitamente o Playwright. Recorte errado → recusa com o campo e o rodapé lido, nada
+gravado · recorte certo → prévia abre normal (o passo que importa) · arquivo truncado → *"não foi possível
+abrir o arquivo"*, e **não** "o recorte não serve". Prints em `.playwright-mcp/`.
+
+⚠️ **Nenhum arquivo de inadimplência que temos tem recorte errado** — o problema era em Receitas e Acordos.
+O roteiro do §10.6 mandava usar "o arquivo manual antigo", e ele é **aceito**. O par do smoke foi fabricado
+mudando só a linha `Filtros:` de uma cópia.
+
+⏳ **Smoke do item 5 NÃO foi feito:** os acordos criados só existem em `saas_ux_zero`, e apontar o
+`.env.local` para lá mexeria no ambiente da outra sessão. Decisão do dono.
+
+### 14.6 A fila depois desta sessão
+
+~~4~~ → ~~1~~ → ~~3~~ → ~~2~~ → ~~6~~ → ~~5~~ → ~~8~~ → **NOVO: a regra do setor de cobrança (§14)** →
+**7** (AMLI) → **3** (o aviso, por último).
+
+⛔ O aviso de divergência continua exatamente como está.
