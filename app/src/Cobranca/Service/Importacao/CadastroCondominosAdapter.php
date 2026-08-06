@@ -187,6 +187,8 @@ final class CadastroCondominosAdapter
      */
     private function endereco(string $valor): array
     {
+        $valor = $this->somenteOEnderecoDoCondomino($valor);
+
         $partes = array_values(array_filter(array_map('trim', explode(' - ', trim($valor))), static fn (string $p): bool => $p !== ''));
         if (count($partes) < 6) {
             return []; // fora do formato conhecido: não inventa estrutura
@@ -213,5 +215,25 @@ final class CadastroCondominosAdapter
         }
 
         return $endereco;
+    }
+
+    /**
+     * A célula "Endereço" pode trazer DOIS endereços: o do condômino e, depois de uma quebra de linha,
+     * um rótulo "Endereço de cobrança:" com outro. Fica com o primeiro.
+     *
+     * 🔴 Sem isto, a importação INTEIRA aborta. O parse divide por " - " e junta o miolo como
+     * complemento; com dois endereços na mesma célula esse miolo passa de 120 caracteres e o banco
+     * recusa (`SQLSTATE[22001]`, `character varying(120)`), derrubando a transação — que é única.
+     * Medido no cadastro real do TOP LIFE 1: **1 linha em 242** (unidade `02-07 (05-03,06-01,…)`)
+     * impedia as outras 241 de entrar. No dado real os dois endereços eram idênticos.
+     *
+     * A margem é estreita e não dá para contar com ela: o endereço mais longo da AMLI tem **119**
+     * caracteres, contra o limite de 120.
+     */
+    private function somenteOEnderecoDoCondomino(string $valor): string
+    {
+        $partes = preg_split('/\R\s*Endereço\s+de\s+cobrança\s*:?/ui', $valor, 2);
+
+        return trim($partes[0] ?? $valor);
     }
 }
