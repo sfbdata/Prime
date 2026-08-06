@@ -114,3 +114,8 @@ docs/gestao-cobrancas/planilhas atualizadas/
 # nunca versionar. Se um dia entrar na história, não basta apagar — tem de trocar a senha.
 docs/gestao-cobrancas/credencial.txt
 docs/gestao-cobrancas/credencial*.txt
+
+# Folhas de ponto exportadas para conferência manual (PDF). Trazem nome de funcionário e a jornada
+# batida dia a dia — dado pessoal de terceiro. Ficam no disco de quem confere e nunca na história:
+# depois de commitado, PII só sai reescrevendo o repositório inteiro.
+docs/folha-de-ponto/
