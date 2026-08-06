@@ -1378,10 +1378,9 @@ funcionavam.
 
 ### 16.6 ⏳ O que falta nesta frente
 
-- **Smoke do dono na tela** (é dele): abrir um objeto com acordo substituído e conferir o selo
-  *"Substituído pelo acordo #N"* ao lado do estado, na seção "Acordos encerrados" e no grupo da seção
-  "Dívida em aberto";
-- publicar os **68 commits** e o deploy;
+- ✅ **Smoke na tela FEITO em 08/08** (a pedido explícito do dono): **4 de 4 casos corretos, nenhum
+  defeito**. Detalhe na **§16.10** e na §11 da spec;
+- publicar os commits e o deploy;
 - **reclamar com o suporte — só do acordo 82.**
 
 ### 16.7 🧪 Bancos descartáveis de 08/08 (podem ser apagados)
@@ -1430,3 +1429,32 @@ do caso 1 sumindo) · "Substituído pelo acordo #N" com número nos casos 2 e 3 
 as duas frases contraditórias ("saíram do total em aberto" + "voltaram ao total em aberto") na mesma linha.
 
 ⛔ **Não rodar importador com `--confirmar` contra `saas_ux`.** O smoke é só leitura de tela.
+
+---
+
+## 16.10 ✅ 08/08 — O SMOKE DA §16.9 RODOU: **4 de 4 corretos, zero defeito**
+
+**Nenhuma linha de código foi tocada** — o smoke não achou o que corrigir. Detalhe completo na **§11 da
+spec** (`docs/specs/cobranca-acordo-assume-parcelas-do-anterior.md`).
+
+| # | objeto · unidade | a tela mostrou | ✔ |
+|---|---|---|---|
+| 1 | 280 · 04-03C | "Acordos encerrados": `Acordo #410` · `Cumprido` · `Substituído pelo acordo #141` **lado a lado** | ✅ |
+| 2 | 5 · 01-04B | grupo: `Acordo #101` · `Ativo` · `Substituído por 2 acordos` — **sem número** | ✅ |
+| 3 | 299 · 10-02D | `Acordo #191` · `Ativo` · `Substituído por 12 acordos` — **sem número** | ✅ |
+| 4 | 8 · 01-09 | 🔴 controle: `Acordo #105` · `Ativo` · **nenhum selo** · *1 de 39 pagas · R$ 9.468,41* | ✅ |
+
+Os 5 defeitos que a §16.9 mandava caçar: **nenhum apareceu.** A checagem de "acordo sumiu / apareceu em
+dois lugares" foi **contada contra o banco**, não olhada: **4/5/4/37 na tela = 4/5/4/37 no banco**, com
+interseção vazia entre as duas seções. Prints em `.playwright-mcp/smoke-f15/` (gitignored).
+
+🔑 **O selo depende de sobrar parcela EM ABERTO, não de existir sucessor** — conferido em dois casos fora
+do roteiro: o `#100` (1 sucessor, R$ 152,50 em aberto) e o `#204` (**22 sucessores**, R$ 487,75 em
+aberto) **não** recebem selo, e é isso que se espera de renegociação parcial.
+
+⚠️ **`.env.local`:** apontado para `saas_ux_f15` durante o smoke e **devolvido** ao `saas_ux` ao fim,
+conferido byte a byte contra a cópia guardada antes. Nada foi gravado em banco nenhum (só leitura de tela).
+
+⚠️ **Achado operacional, de OUTRO domínio:** o modal do ponto *"Você ainda não registrou sua entrada
+hoje!"* é `data-bs-backdrop="static"` e **não tem botão de fechar** — ele intercepta o clique na aba
+"Dívida" do objeto e deixa a aba inalcançável até registrar o ponto. Não é da cobrança; fica anotado.

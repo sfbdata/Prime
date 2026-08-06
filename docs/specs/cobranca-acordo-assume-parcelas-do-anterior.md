@@ -502,3 +502,39 @@ entidade transiente, e nesta guarda o acordo sempre vem do repositório. Fica an
 **Depois das correções: 3.416 testes verdes**, e o efeito no dado real segue **idêntico** nas três versões
 do código (−286 obrigações, −R$ 63.961,06) — os caminhos corrigidos não ocorrem no lote de 04/08, que é
 exatamente o que as guardas garantem.
+
+---
+
+## 11. ✅ SMOKE NA TELA (08/08) — 4 de 4 casos corretos, **nenhum defeito**
+
+Feito **a pedido explícito do dono**, com Playwright, contra o `saas_ux_f15` (o `.env.local` foi apontado
+para lá e **devolvido** ao `saas_ux` ao fim, conferido byte a byte contra a cópia guardada antes).
+Prints em `.playwright-mcp/smoke-f15/` (pasta gitignored).
+
+| # | objeto · unidade | o que a tela mostrou | veredito |
+|---|---|---|---|
+| 1 | 280 · 04-03C | "Acordos encerrados": `Acordo #410` · `Cumprido` · `Substituído pelo acordo #141`, **lado a lado** | ✅ |
+| 2 | 5 · 01-04B | grupo na "Dívida em aberto": `Acordo #101` · `Ativo` · `Substituído por 2 acordos` (sem número) · *3 de 3 parcelas pagas* | ✅ |
+| 3 | 299 · 10-02D | `Acordo #191` · `Ativo` · `Substituído por 12 acordos` (sem número) · *4 de 4 parcelas pagas* | ✅ |
+| 4 | 8 · 01-09 | 🔴 controle: `Acordo #105` · `Ativo` · **nenhum selo** · *1 de 39 parcelas pagas · R$ 9.468,41* | ✅ |
+
+**Os 5 defeitos que o roteiro (§16.9 do handoff) mandava caçar não apareceram:** selo no caso de
+controle · selo *no lugar* do estado · "pelo acordo #N" com número onde há vários sucessores · acordo
+sumindo ou aparecendo em dois lugares · as duas frases contraditórias na mesma linha.
+
+**A checagem de "sumiu / apareceu duas vezes" foi contada, não olhada:** acordos renderizados na tela
+(grupos + encerrados) × acordos no banco, nos 4 objetos — **4/5/4/37 na tela, 4/5/4/37 no banco**, e a
+interseção entre as duas seções é vazia em todos. A varredura das duas frases contraditórias rodou sobre
+o DOM inteiro dos 4 objetos: zero ocorrência.
+
+**Dois casos fora do roteiro conferidos por cima, e os dois acertam** — são a prova de que o selo depende
+de *sobrar parcela em aberto*, não de existir sucessor:
+
+| acordo | sucessores | parcelas em aberto | selo | certo? |
+|---|---:|---|---|---|
+| #100 (objeto 5) | 1 | **1 — R$ 152,50** | nenhum | ✅ renegociação parcial |
+| #204 (objeto 299) | **22** | **5 — R$ 487,75** | nenhum | ✅ idem, no extremo |
+
+⚠️ **Achado operacional (não é desta frente):** o modal do ponto eletrônico *"Você ainda não registrou
+sua entrada hoje!"* é `data-bs-backdrop="static"`, **não tem botão de fechar** e intercepta o clique na
+aba "Dívida". Quem for conferir na tela precisa registrar o ponto antes, ou a aba fica inalcançável.
