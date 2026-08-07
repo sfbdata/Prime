@@ -1763,3 +1763,57 @@ Passou no `saas_ux_zero`; **contra o estado de produção, não passa.**
 - **Produção intocada.** Backup em `/opt/jusprime/prod-antes-importacao-2026-08-06.dump` (5,6 MB);
 - bancos descartáveis: `prod_ensaio` (parcial) e `prod_antes` (cópia intocada, para medir o "antes");
 - ⚠️ o dump de produção baixado para o repositório **não estava gitignored** — corrigido em `8cc1df59`.
+
+---
+
+## 21. 🔴 08/08 — DECISÃO DO DONO: **limpar a cobrança de produção e importar do zero**
+
+> *"se for melhor, podemos limpar tudo de cobrança de prod para começar do zero assim como em dev.
+> não tem nada de importante lá."*
+
+**Isso destrava os dois bloqueantes que sobravam da §20:** sem as 224 pessoas antigas sem documento, o
+cadastro **não tem o que duplicar** — as ~87 duplicatas deixam de existir e a AMLI e as TOP LIFE entram
+com CPF, e-mail e telefone. E o cenário passa a ser exatamente o **teste do zero** da §13, que já está
+provado e fecha com a contabilidade (2.944/2.944 e 527/527 boletos).
+
+### 21.1 ⚠️ "não tem nada de importante" NÃO se sustentou — medido antes de apagar
+
+Dos 3.716 eventos de histórico, **3.710 são registro automático da importação de 01/08**. Sobram **6 de
+trabalho humano**, mais 1 próxima ação:
+
+| quando | quem | o quê |
+|---|---|---|
+| 18/07 | Jessica | 🔴 **ACORDO CRIADO NA TELA** — 4 dívidas → 30 parcelas, R$ 709,97, unidade `QUADRA 11 CHACARA 02/11` (TL2) |
+| 18/07 | Jessica | contato WhatsApp: *"a proprietária informou que não tem interesse em realizar acordo"* |
+| 23/07 | Edlucia | contato por telefone — não atendido (`01-04B`) |
+| 27/07 | Farlei | contato (`25-04C`) |
+| 13/07 | Samuel | boleto enviado (`25-04C`) |
+| 13/07 | Edlucia | valor atualizado reconhecido (`QUADRA 11 CHACARA 02/11`) |
+
+🔑 **O acordo NÃO volta pela planilha:** `numero_externo IS NULL` — ele nasceu na tela, não na
+contabilidade. As 4 dívidas que ele substituiu (para reconstruir, se um dia quiserem):
+
+```
+QUADRA 11 CHACARA 02/11 (TOP LIFE II) — 1.1 Taxa de condomínio
+  competência 03/2026 · R$ 170,00 · venc 13/03/2026
+  competência 04/2026 · R$ 170,00 · venc 13/04/2026
+  competência 05/2026 · R$ 170,00 · venc 13/05/2026
+  competência 06/2026 · R$ 170,00 · venc 13/06/2026
+```
+
+**Decisão do dono, com o número na frente: limpar assim mesmo e aceitar a perda.** Registrado aqui
+porque some da tela: a proprietária da `QUADRA 11 CHACARA 02/11` volta a dever as 4 taxas originais em
+vez das 30 parcelas, e o registro de que ela recusou acordo desaparece.
+
+⚠️ **Nada é irrecuperável:** o backup `/opt/jusprime/prod-antes-importacao-2026-08-06.dump` (5,6 MB) tem
+tudo isto, e a mesma cópia está no ambiente local.
+
+### 21.2 A VPS tem folga de memória — o bloqueante 3 da §20 não se aplica lá
+
+`free -m` na VPS: **7.940 MB totais, 6.464 disponíveis**, sem swap. A máquina local tinha 3,7 GB e ficou
+com 80 MB — foi ela que derrubou o container, não a VPS.
+
+⚠️ **Correção de uma afirmação minha:** eu havia dito que o estouro *"aconteceria igual na VPS"*. Não
+procede — lá há 4,6× mais memória disponível. O que continua verdadeiro é a causa estrutural
+(`ImportarReceitasUseCase` acumula tudo e dá um único `flush()` no fim, sem `clear()`); com 6,4 GB ela
+cabe, mas o consumo cresce com o tamanho do arquivo e isso vai voltar quando a base crescer.
