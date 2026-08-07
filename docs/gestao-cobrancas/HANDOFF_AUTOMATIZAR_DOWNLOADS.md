@@ -1698,3 +1698,68 @@ em prod é do dono, pela tela, com os dados da §17.2.
 🔑 **O que este episódio ensina, e vale para o resto da frente:** *"0 rejeições"* não quer dizer *"está
 limpo"*. A linha que denunciava o defeito era **"Pessoas criadas: 9"** num arquivo cujas 9 unidades já
 tinham dono — e ela estava impressa na tela, lida e registrada como prova de sucesso.
+
+---
+
+## 20. 🔴 08/08 — O ENSAIO CONTRA A CÓPIA DE PRODUÇÃO ACHOU 3 BLOQUEANTES
+
+**Produção NÃO foi tocada.** O dono publicou os commits e fez o deploy; a importação **não** rodou lá.
+Antes dela, um ensaio contra uma cópia fiel do banco de produção (`prod_ensaio`, restaurado do dump de
+06/08 e conferido: 89/2.928/24 e 121/602/9, idênticos à VPS).
+
+### 20.1 O que produção realmente tem — e é menos do que se supunha
+
+| carteira | unidades | obrigações | principal aberto | acordos | **pagamentos** | pessoas com CPF |
+|---|---:|---:|---:|---:|---:|---:|
+| TOP LIFE I | 89 | 2.928 | R$ 423.165,81 | 24 | **0** | **0** |
+| TOP LIFE II | 121 | 602 | R$ 100.368,27 | 9 | **0** | **0** |
+
+**Só a inadimplência entrou em produção, em 01/08.** Receitas nunca rodou (zero pagamentos), o cadastro
+nunca rodou (zero CPF), e os acordos são 24/9 contra os 325/34 que a contábil declara. A AMLI não existe.
+
+### 20.2 Os três bloqueantes, na ordem em que apareceram
+
+**1. 🔴 A importação abortava — CORRIGIDO (commit `79cefab6`).** O cadastro do TOP LIFE 1 morria com
+`SQLSTATE[22001] value too long for type character varying(120)`. Causa: **1 linha em 242** (unidade
+`02-07 (05-03,06-01,06-02,06-03 e 06-04)`) traz na mesma célula **dois endereços** — o do condômino e um
+`Endereço de cobrança:` idêntico, colado depois de uma quebra de linha. O parse divide por `" - "` e
+junta o miolo como complemento: 151 caracteres onde cabem 120. Como a transação é única, **as outras 241
+unidades não entravam por causa dessa uma**. Corrigido no adapter (usa só o primeiro endereço), com
+fixture própria e teste provado por reintrodução. Suíte **3.428 verde**.
+⚠️ **A margem era de um caractere:** o endereço mais longo da AMLI tem **119**, com limite 120.
+
+**2. 🔴 O cadastro duplicaria ~87 devedores em produção — CONTORNADO por decisão do dono.**
+`ImportarCadastroCondominosUseCase:300` procura a pessoa **só por CPF** quando a planilha traz CPF. As
+224 pessoas que já estão em produção foram criadas pela inadimplência, que **não traz documento** — logo
+não são encontradas, e o cadastro cria uma segunda ao lado. Medido no ensaio: TOP LIFE I saltou de **8
+para 95** unidades com mais de uma pessoa, com nome idêntico (`FABIO APARECIDO BARBIERI DA COSTA [SEM
+CPF]` + `… [CPF 36029362879]`).
+🔑 **É o espelho do defeito da §19**, na direção que a correção de lá não cobre: lá a vinculada tinha
+CPF e a de entrada não; aqui é o inverso. A §8.3 da spec já registrava a contradição entre as duas
+réguas — ela virou dinheiro na mesa aqui.
+**Decisão do dono (08/08): importar SEM o cadastro em TL1/TL2.** A AMLI entra **com** cadastro: é
+carteira nova, **zero** pessoas antigas, zero duplicação medida — e ganha 44 CPFs.
+
+**3. 🔴 A importação de Receitas do TL1 NÃO CABE NA MEMÓRIA — em aberto.**
+7.411 recebimentos numa transação única. Com `memory_limit=1200M`: `Allowed memory size exhausted` na
+fase de escrita. Com **1600M: derrubou o container do banco** (a máquina tem 3,7 GB e ficou com 80 MB).
+Nos dois casos **nada foi gravado** — o rollback é limpo, conferido (`pagamentos: 0`).
+
+🔑 **A causa é estrutural, não é "faltou um pouco de RAM":** `ImportarReceitasUseCase` dá **um único
+`flush()` no fim** (`:280`) e **não há `clear()` em lugar nenhum**. São ~7 entidades por recebimento,
+todas vivas até o fim — ~50 mil objetos no identity map.
+⚠️ **Isto revoga a §13.4**, que registrava *"a Receitas completa passou numa transação única com 1200M"*.
+Passou no `saas_ux_zero`; **contra o estado de produção, não passa.**
+
+### 20.3 ⏳ O que falta para decidir
+
+**Quanta RAM tem a VPS** (`free -m`) — é o dado que separa dois caminhos:
+- **com folga**: roda com limite maior e resolve hoje;
+- **sem folga**: rodar lá **derruba o banco com o sistema no ar**, e a importação precisa ser fatiada
+  (ou o UseCase precisa de flush/clear periódico — frente própria, mexe em caminho de dinheiro).
+
+### 20.4 Estado
+
+- **Produção intocada.** Backup em `/opt/jusprime/prod-antes-importacao-2026-08-06.dump` (5,6 MB);
+- bancos descartáveis: `prod_ensaio` (parcial) e `prod_antes` (cópia intocada, para medir o "antes");
+- ⚠️ o dump de produção baixado para o repositório **não estava gitignored** — corrigido em `8cc1df59`.
