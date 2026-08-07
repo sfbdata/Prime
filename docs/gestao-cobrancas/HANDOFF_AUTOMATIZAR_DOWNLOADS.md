@@ -1880,3 +1880,83 @@ hoje" precisa saber — é "a receber", não "vencido".
 - 🔑 **dívida técnica registrada:** `ImportarReceitasUseCase` acumula tudo e dá um único `flush()` sem
   `clear()`, e o log de auditoria escreve uma linha por entidade. Numa máquina de 3,7 GB isso derrubou
   o banco; na VPS (7,9 GB) passou. **Vai voltar quando a base crescer.**
+
+---
+
+## 23. ✅ 07/08 — DADOS ATUALIZADOS PARA HOJE + a tela mostra "atualizado até"
+
+### 23.1 O lote de hoje, emitido pela API (12 relatórios + 6 de acordos por situação)
+
+Emissão **07/08/2026 14:21–14:26**, os 12 **aceitos pelo validador de recorte**, cada um com o
+`condominioNome` conferido no histórico antes de baixar. Pasta:
+`planilhas atualizadas/2026-08-07-atualizado/` (gitignored).
+
+🔴 **Dois erros de payload que custaram uma rodada — agora documentados:**
+
+1. **Inadimplência e Receitas devolveram HTTP 500** com o payload que eu supus. Os campos reais saíram
+   do `InadimplenciasForm` e do `ReceitasForm` no `main.js` deles. E o achado que importa:
+   **`exibirNossoNumero` e `exibirCompetencia` vêm `false` por padrão** — sem eles o arquivo sai sem o
+   Nosso Número e sem a competência, que juntos são **a chave de deduplicação dos importadores**.
+   Arquivo bonito e inútil, e o erro não apareceria até a dívida duplicar.
+   Campos certos: `dataInadimplencia` (não `dataBase`), `unidadeCliente` (não `tipoLancamentoUnidade`),
+   `incluirCobrancasVencimento`, `personalizarAcrescimos:false`.
+2. **Emitir Acordos sem `tipoSituacaoAcordo` traz os CANCELADOS junto** — 129 no lote de hoje (99 TL1 ·
+   5 TL2 · 25 AMLI). A decisão do dono é que cancelado **não entra**, e o ramo que trata `Cancelado` no
+   importador nunca rodou com dado real. Reemitido **um arquivo por situação** e conferido aba a aba:
+   `Em andamento=65/8/8 · Liquidado=260/26/25 · Cancelado=0`.
+
+### 23.2 O movimento de 3 dias, medido
+
+| carteira | pagamentos novos | valor | acordos ativos |
+|---|---:|---:|---|
+| TOP LIFE I | 47 | R$ 7.557,20 | 66 → **65** (um quitado) |
+| TOP LIFE II | 19 | R$ 2.850,00 | 8 |
+| AMLI BR 060 | 5 | R$ 750,00 | 8 |
+| **total** | **71** | **R$ 11.157,20** | |
+
+Pagamento mais recente: **06/08** nas três (o de hoje ainda não foi compensado). Os 71 batem exatamente
+com a diferença dos totais (7.458−7.411 · 877−858 · 324−319).
+
+⚠️ **O saldo em aberto ficou IDÊNTICO ao centavo nas três** (R$ 1.095.010,45 · R$ 108.871,36 ·
+R$ 20.123,91) — e está certo: o pagamento importado cria a obrigação **já liquidada**, entrando e saindo
+da conta no mesmo valor. Só virou conclusão depois de medido; "tem explicação" não bastava.
+
+🔑 **DUAS MEDIÇÕES MINHAS FALHARAM antes de chegar nesse número:** uma query filtrava
+`criado_em < CURRENT_DATE` num banco onde **tudo** foi criado hoje (sempre zero, prova vazia), e outra
+usava `pg.recebido_em`, coluna que não existe (é `data`). Nenhuma invalidou a importação — mas é assim
+que um "está tudo certo" passa sem estar.
+
+### 23.3 ✅ A tela da carteira mostra até quando os dados estão em dia
+
+`cobranca_carteira_show` exibe **"Dados atualizados até 07/08/2026 (hoje)"**, em amarelo quando passa de
+7 dias, com a emissão de cada relatório no tooltip. Commit `481307aa`, migration
+`Version20260807150000`, suíte **3.436 verde**, 2 injeções de defeito, 2 vermelhos.
+
+🔑 **Duas decisões de desenho, as duas vindas de medição:**
+1. **É a emissão do relatório, não a hora da importação.** Importar hoje um arquivo de três dias atrás
+   deixa os dados de três dias atrás; dizer "atualizado hoje" mentiria na única pergunta que a tela
+   existe para responder.
+2. **É por TIPO, e mostra o MAIS ANTIGO.** Medido na AMLI: cadastro de 06/08 com inadimplência de
+   04/08. Guardar só a data mais recente anunciaria "em dia" com a dívida parada dois dias atrás.
+   **O elo mais fraco é que manda.**
+
+### 23.4 Quantos realmente devem (dúvida do dono)
+
+| carteira | unidades | devendo | sem dívida |
+|---|---:|---:|---:|
+| TOP LIFE I | 230 | 89 (39%) | 141 |
+| TOP LIFE II | 229 | **119 (52%)** | 110 |
+| AMLI BR 060 | 51 | 9 (18%) | 42 |
+
+**Não, nem todo mundo deve.** O sistema lista todas as unidades do condomínio porque o cadastro as
+traz — ter unidade cadastrada não é ter dívida.
+
+### 23.5 Percalços operacionais do dia
+
+- 🔴 **Colar blocos grandes embaralha no terminal do dono.** Foi assim que um script foi reescrito
+  **enquanto rodava**, e um segundo processo subiu em paralelo. O primeiro terminou (`Done`) mesmo
+  assim, mas foi sorte. **Preferir linha a linha, ou deixar o script no repositório.**
+- 🔴 **Confira se o script está rodando ANTES de recriá-lo** (`ps aux`) — o `ps` já mostrava o processo
+  vivo e a recriação foi feita mesmo assim.
+- 🟠 **`> log` do segundo processo TRUNCOU o log do primeiro**, e o `grep` mostrou só 2 etapas de 15 —
+  parecia que a importação tinha parado no começo. Não tinha.
