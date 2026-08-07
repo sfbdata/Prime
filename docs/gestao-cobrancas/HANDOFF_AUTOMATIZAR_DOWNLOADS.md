@@ -1817,3 +1817,66 @@ com 80 MB — foi ela que derrubou o container, não a VPS.
 procede — lá há 4,6× mais memória disponível. O que continua verdadeiro é a causa estrutural
 (`ImportarReceitasUseCase` acumula tudo e dá um único `flush()` no fim, sem `clear()`); com 6,4 GB ela
 cabe, mas o consumo cresce com o tamanho do arquivo e isso vai voltar quando a base crescer.
+
+---
+
+## 22. 🎉 08/08 — **A IMPORTAÇÃO RODOU EM PRODUÇÃO E FECHA COM A CONTABILIDADE**
+
+Base zerada (§21) → carteira da AMLI criada por SQL → **15 etapas** (cadastro → inadimplência →
+receitas → acordos, nas 3 carteiras). `IMPORTACAO CONCLUIDA`, **zero erro no log**.
+
+### 22.1 O resultado em produção
+
+| carteira | unidades | dívidas | **em aberto** | acordos | ativos | pagamentos |
+|---|---:|---:|---:|---:|---:|---:|
+| TOP LIFE I | 222 | 14.587 | **R$ 1.095.010,45** | **325** | 66 | **7.411** |
+| TOP LIFE II | 230 | 1.482 | **R$ 108.871,36** | **34** | 8 | **858** |
+| AMLI BR 060 | 51 | 431 | **R$ 20.123,91** | **33** | 8 | **319** |
+| **total** | **503** | **16.500** | — | **392** | 82 | **8.588** |
+
+**Os acordos batem 100% com o que a contábil declara:** 66 em andamento + 259 liquidados = 325 (TL1) ·
+8 + 26 = 34 (TL2) · 8 + 25 = 33 (AMLI). Os pagamentos batem com a medição de 04/08: 7.411 + 858 + 319.
+
+### 22.2 ✅ ZERO devedor duplicado — a correção da §19 provada em produção
+
+`unidades com o MESMO nome repetido`: **0 nas três carteiras.** As 71 unidades com duas pessoas são
+**pessoas diferentes de verdade** — coproprietários, imobiliária e mudança de titularidade:
+`ANTONIO JOSE PORTELA DE SOUZA` + `FR IMOVEIS LTDA ME`, `RONILDO` + `ADAO DO NASCIMENTO SANTOS`,
+`GETULIO BENEDITO LEITE` + `FRANCISCO BENEDITO LEITE NETO`.
+
+⚠️ **As "14 pessoas criadas" na inadimplência do TL1 me preocuparam e NÃO eram duplicação** — eram
+sacados cujo nome difere do cadastro. Medir foi o que separou o alarme falso do defeito.
+
+### 22.3 ⚠️ O saldo em aberto do TL1 quase triplicou — e está certo
+
+**R$ 423.165,81 → R$ 1.095.010,45.** Não é erro: antes o sistema só conhecia boleto vencido e não pago;
+agora conhece **todas as parcelas futuras dos 325 acordos**, que são dívida real a vencer. O TL2 subiu
+pouco (R$ 100.368,27 → R$ 108.871,36) porque tem menos acordos.
+
+🔑 **O número mudou de SIGNIFICADO, não de exatidão.** Quem usa esse total como "quanto temos a receber
+hoje" precisa saber — é "a receber", não "vencido".
+
+### 22.4 Percalços do dia (para não repetir)
+
+1. 🔴 **O deploy apaga os arquivos copiados para dentro do container.** O `docker cp` foi feito, veio o
+   deploy, e a importação morreu com *"Arquivo não encontrado"*. **Ordem certa: deploy → docker cp →
+   importar.**
+2. 🔴 **A correção do endereço não estava em produção** quando a importação rodou pela 1ª vez — eu
+   commitei depois do push/deploy do dono e não avisei que precisava subir de novo. Falha de
+   sequenciamento minha.
+3. 🟠 **O SSH caiu no meio (`Broken pipe`)** e a importação **sobreviveu** (o processo dentro do
+   container não morre com o cliente). Mesmo assim: **rodar com `nohup`** — depender da conexão numa
+   tarefa de 40 min é sorte, não método.
+4. 🟠 **Filtro de `grep` apertado demais escondeu o erro** e a tela ficou muda. Filtro de progresso tem
+   de incluir as assinaturas de FALHA, não só as de sucesso.
+5. 🟡 **Os números não sobem aos poucos** — cada etapa grava tudo no fim. Ver `0` no meio da execução é
+   o esperado, não travamento.
+
+### 22.5 ⏳ O que falta
+
+- **Smoke na tela** (é do dono): abrir alguns objetos das 3 carteiras e conferir saldo, acordos e o
+  selo de substituição;
+- **rever o aviso de divergência** (item 3, travado de propósito);
+- 🔑 **dívida técnica registrada:** `ImportarReceitasUseCase` acumula tudo e dá um único `flush()` sem
+  `clear()`, e o log de auditoria escreve uma linha por entidade. Numa máquina de 3,7 GB isso derrubou
+  o banco; na VPS (7,9 GB) passou. **Vai voltar quando a base crescer.**
