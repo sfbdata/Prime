@@ -27,6 +27,13 @@ final class CarteiraDetalheOutput
         public readonly int $totalObjetos,
         public readonly int $totalCasos,
         public readonly int $saldoConsolidado,
+        /**
+         * Até quando os dados desta carteira estão em dia — a emissão MAIS ANTIGA entre os relatórios
+         * importados. Null enquanto nada foi importado.
+         */
+        public readonly ?\DateTimeImmutable $dadosAtualizadosAte = null,
+        /** @var array<string, \DateTimeImmutable> tipo de relatório => emissão, para o detalhamento */
+        public readonly array $emissaoPorTipo = [],
     ) {
     }
 
@@ -52,6 +59,8 @@ final class CarteiraDetalheOutput
             totalObjetos: $totalObjetos,
             totalCasos: $totalCasos,
             saldoConsolidado: $saldoConsolidado,
+            dadosAtualizadosAte: $c->getDadosAtualizadosAte(),
+            emissaoPorTipo: $c->getEmissaoPorTipoDeRelatorio(),
         );
     }
 }

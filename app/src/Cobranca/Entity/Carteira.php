@@ -126,6 +126,24 @@ class Carteira implements TenantAware, Auditavel
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $atualizadoEm = null;
 
+    /**
+     * Emissão do último relatório importado, POR TIPO: `{"inadimplencia":"2026-08-04 09:13", …}`.
+     *
+     * 🔑 Duas decisões estão aqui, e as duas vieram de medição:
+     *
+     * 1. **É a emissão do relatório, não a hora da importação.** Importar hoje um arquivo emitido há
+     *    três dias deixa os dados de três dias atrás; anunciar "atualizado hoje" mentiria na única
+     *    pergunta que a tela existe para responder.
+     * 2. **É por TIPO, e a tela mostra o MAIS ANTIGO.** Medido nos arquivos reais da AMLI: cadastro de
+     *    06/08 e inadimplência de 04/08. Guardar só a data mais recente faria a tela dizer "em dia até
+     *    06/08" com a dívida parada em 04/08 — otimismo exatamente onde o erro custa caro. O elo mais
+     *    fraco é que manda.
+     *
+     * @var array<string, string> tipo => data ISO
+     */
+    #[ORM\Column(type: 'json', nullable: true)]
+    private ?array $emissaoPorTipoDeRelatorio = null;
+
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
     private ?User $criadoPor = null;
@@ -370,6 +388,55 @@ class Carteira implements TenantAware, Auditavel
     public function getAtualizadoEm(): ?\DateTimeImmutable
     {
         return $this->atualizadoEm;
+    }
+
+    /**
+     * Registra a emissão do relatório recém-importado. Dentro de cada tipo só AVANÇA: reimportar um
+     * arquivo antigo (completar histórico, reprocessar) não pode fazer a tela dizer que os dados
+     * envelheceram.
+     */
+    public function registrarEmissaoImportada(string $tipoRelatorio, ?\DateTimeImmutable $emissao): self
+    {
+        if ($emissao === null) {
+            return $this;
+        }
+
+        $mapa = $this->emissaoPorTipoDeRelatorio ?? [];
+        $atual = $mapa[$tipoRelatorio] ?? null;
+
+        if ($atual === null || $emissao > new \DateTimeImmutable($atual)) {
+            $mapa[$tipoRelatorio] = $emissao->format('Y-m-d H:i:s');
+            $this->emissaoPorTipoDeRelatorio = $mapa;
+        }
+
+        return $this;
+    }
+
+    /**
+     * Até quando os dados da carteira estão em dia: a emissão MAIS ANTIGA entre os tipos importados.
+     *
+     * 🔑 O elo mais fraco é que manda. A carteira é a soma dos relatórios; se a dívida veio de um
+     * arquivo de três dias atrás, não importa que o cadastro seja de hoje — há três dias de movimento
+     * que o sistema não viu. Null quando nada foi importado ainda.
+     */
+    public function getDadosAtualizadosAte(): ?\DateTimeImmutable
+    {
+        $mapa = $this->emissaoPorTipoDeRelatorio ?? [];
+        if ($mapa === []) {
+            return null;
+        }
+
+        $datas = array_map(static fn (string $d): \DateTimeImmutable => new \DateTimeImmutable($d), array_values($mapa));
+
+        return min($datas);
+    }
+
+    /** @return array<string, \DateTimeImmutable> tipo => emissão, para o detalhamento na tela */
+    public function getEmissaoPorTipoDeRelatorio(): array
+    {
+        $mapa = $this->emissaoPorTipoDeRelatorio ?? [];
+
+        return array_map(static fn (string $d): \DateTimeImmutable => new \DateTimeImmutable($d), $mapa);
     }
 
     public function getCriadoPor(): ?User

@@ -6,6 +6,7 @@ namespace App\Cobranca\Command;
 
 use App\Cobranca\Service\Importacao\CadastroCondominosAdapter;
 use App\Cobranca\Service\Importacao\RecorteEsperado;
+use App\Cobranca\Service\Importacao\RegistrarEmissaoNaCarteira;
 use App\Cobranca\Service\Importacao\ValidadorRodapeFiltros;
 use App\Cobranca\UseCase\ImportarCadastroCondominosUseCase;
 use App\Entity\Auth\User;
@@ -46,6 +47,7 @@ final class ImportarCadastroCondominosCommand extends Command
         private readonly ValidadorRodapeFiltros $validadorRodape,
         private readonly TenantRepository $tenantRepository,
         private readonly EntityManagerInterface $em,
+        private readonly RegistrarEmissaoNaCarteira $registrarEmissao,
     ) {
         parent::__construct();
     }
@@ -114,6 +116,12 @@ final class ImportarCadastroCondominosCommand extends Command
         $resultado = $confirmar
             ? $this->importar->confirmar($carteiraId, $leitura, $tenant, $user)
             : $this->importar->prever($carteiraId, $leitura, $tenant);
+
+        // Só depois da importação CONFIRMADA: a carteira passa a saber até quando os dados vão, e a tela
+        // mostra isso. Falha aqui não afeta o que foi importado (o serviço engole a própria exceção).
+        if ($confirmar) {
+            $this->registrarEmissao->registrar($carteiraId, $tenant, RegistrarEmissaoNaCarteira::CADASTRO, $arquivo);
+        }
 
         $io->table(
             ['O quê', $confirmar ? 'Feito' : 'Aconteceria'],

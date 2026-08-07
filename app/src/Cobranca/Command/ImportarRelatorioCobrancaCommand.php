@@ -6,6 +6,7 @@ namespace App\Cobranca\Command;
 
 use App\Cobranca\Service\Importacao\RecorteEsperado;
 use App\Cobranca\Service\Importacao\TopLifeInadimplenciaAdapter;
+use App\Cobranca\Service\Importacao\RegistrarEmissaoNaCarteira;
 use App\Cobranca\Service\Importacao\ValidadorRodapeFiltros;
 use App\Cobranca\UseCase\ImportarRelatorioCarteiraUseCase;
 use App\Entity\Auth\User;
@@ -50,6 +51,7 @@ final class ImportarRelatorioCobrancaCommand extends Command
         private readonly ValidadorRodapeFiltros $validadorRodape,
         private readonly TenantRepository $tenantRepository,
         private readonly EntityManagerInterface $em,
+        private readonly RegistrarEmissaoNaCarteira $registrarEmissao,
     ) {
         parent::__construct();
     }
@@ -131,6 +133,12 @@ final class ImportarRelatorioCobrancaCommand extends Command
             $resultado = $confirmar
                 ? $this->importar->confirmar($carteiraId, $leitura, $tenant, $usuario)
                 : $this->importar->prever($carteiraId, $leitura, $tenant);
+
+            // Só depois da importação CONFIRMADA: a carteira passa a saber até quando os dados vão, e a tela
+            // mostra isso. Falha aqui não afeta o que foi importado (o serviço engole a própria exceção).
+            if ($confirmar) {
+                $this->registrarEmissao->registrar($carteiraId, $tenant, RegistrarEmissaoNaCarteira::INADIMPLENCIA, $arquivo);
+            }
         } catch (\Throwable $e) {
             $io->error(sprintf('Falha na importação (carteira %d): %s', $carteiraId, $e->getMessage()));
 

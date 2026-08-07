@@ -8,6 +8,7 @@ use App\Cobranca\Service\Importacao\AcordoProcessado;
 use App\Cobranca\Service\Importacao\AcordosDetalhadosAdapter;
 use App\Cobranca\Service\Importacao\RecorteEsperado;
 use App\Cobranca\Service\Importacao\ResultadoImportacaoAcordos;
+use App\Cobranca\Service\Importacao\RegistrarEmissaoNaCarteira;
 use App\Cobranca\Service\Importacao\ValidadorRodapeFiltros;
 use App\Cobranca\UseCase\ImportarAcordosDetalhadosUseCase;
 use App\Entity\Auth\User;
@@ -52,6 +53,7 @@ final class ImportarAcordosDetalhadosCommand extends Command
         private readonly ValidadorRodapeFiltros $validadorRodape,
         private readonly TenantRepository $tenantRepository,
         private readonly EntityManagerInterface $em,
+        private readonly RegistrarEmissaoNaCarteira $registrarEmissao,
     ) {
         parent::__construct();
     }
@@ -124,6 +126,12 @@ final class ImportarAcordosDetalhadosCommand extends Command
         $resultado = $confirmar
             ? $this->importar->confirmar($carteiraId, $leitura, $tenant, $user)
             : $this->importar->prever($carteiraId, $leitura, $tenant);
+
+        // Só depois da importação CONFIRMADA: a carteira passa a saber até quando os dados vão, e a tela
+        // mostra isso. Falha aqui não afeta o que foi importado (o serviço engole a própria exceção).
+        if ($confirmar) {
+            $this->registrarEmissao->registrar($carteiraId, $tenant, RegistrarEmissaoNaCarteira::ACORDOS, $arquivo);
+        }
 
         $this->imprimirPorAcordo($io, $resultado, $confirmar);
         $this->imprimirTotais($io, $resultado, $confirmar);

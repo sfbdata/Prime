@@ -18,6 +18,29 @@
             {% endif %}
         </div>
         <div class="text-muted"><i class="bi bi-person-badge me-1"></i>{{ carteira.clienteNome }}</div>
+
+        {# ── Até quando os dados estão em dia ────────────────────────────────
+           É a EMISSÃO do relatório, não a hora em que a importação rodou: importar hoje um arquivo de
+           três dias atrás deixa os dados de três dias atrás. E, entre os tipos, mostramos o MAIS
+           ANTIGO — a carteira é a soma dos relatórios, então o elo mais fraco é que manda. #}
+        {% if carteira.dadosAtualizadosAte %}
+            {% set dias = date().diff(carteira.dadosAtualizadosAte).days %}
+            <div class="small mt-1 {{ dias > 7 ? 'text-warning' : 'text-muted' }}"
+                 data-bs-toggle="tooltip"
+                 title="{% for tipo, emissao in carteira.emissaoPorTipo %}{{ tipo|capitalize }}: {{ emissao|date('d/m/Y H:i') }}{{ not loop.last ? ' · ' }}{% endfor %}">
+                <i class="bi bi-clock-history me-1"></i>Dados atualizados até
+                <strong>{{ carteira.dadosAtualizadosAte|date('d/m/Y') }}</strong>
+                {%- if dias == 0 %} (hoje)
+                {%- elseif dias == 1 %} (ontem)
+                {%- else %} ({{ dias }} dias atrás)
+                {%- endif %}
+                <span class="text-muted">· pela importação dos relatórios</span>
+            </div>
+        {% else %}
+            <div class="small mt-1 text-muted">
+                <i class="bi bi-clock-history me-1"></i>Nenhum relatório importado ainda
+            </div>
+        {% endif %}
     </div>
 </section>
 

@@ -8,6 +8,7 @@ use App\Cobranca\Service\Importacao\RecorteEsperado;
 use App\Cobranca\Service\Importacao\ResultadoImportacaoReceitas;
 use App\Cobranca\Service\Importacao\ResultadoLeituraReceitas;
 use App\Cobranca\Service\Importacao\TopLifeReceitasAdapter;
+use App\Cobranca\Service\Importacao\RegistrarEmissaoNaCarteira;
 use App\Cobranca\Service\Importacao\ValidadorRodapeFiltros;
 use App\Cobranca\UseCase\ImportarReceitasUseCase;
 use App\Entity\Auth\User;
@@ -55,6 +56,7 @@ final class ImportarReceitasCommand extends Command
         private readonly ValidadorRodapeFiltros $validadorRodape,
         private readonly TenantRepository $tenantRepository,
         private readonly EntityManagerInterface $em,
+        private readonly RegistrarEmissaoNaCarteira $registrarEmissao,
     ) {
         parent::__construct();
     }
@@ -187,6 +189,12 @@ final class ImportarReceitasCommand extends Command
         $resultado = $confirmar
             ? $this->importar->confirmar($carteiraId, $leitura, $tenant, $user)
             : $projecao;
+
+        // Só depois da importação CONFIRMADA: a carteira passa a saber até quando os dados vão, e a tela
+        // mostra isso. Falha aqui não afeta o que foi importado (o serviço engole a própria exceção).
+        if ($confirmar) {
+            $this->registrarEmissao->registrar($carteiraId, $tenant, RegistrarEmissaoNaCarteira::RECEITAS, $arquivo);
+        }
 
         $this->imprimirTotais($io, $resultado, $confirmar);
 
