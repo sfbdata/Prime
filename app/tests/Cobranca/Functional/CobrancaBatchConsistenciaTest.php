@@ -55,6 +55,7 @@ final class CobrancaBatchConsistenciaTest extends KernelTestCase
     private EntityManagerInterface $em;
     private CasoCobrancaRepository $casoRepo;
     private ProximaAcaoRepository $acaoRepo;
+    private AlocacaoPagamentoRepository $alocacaoRepo;
     private CalculadoraSaldo $calcSaldo;
     private AlertasCobranca $alertas;
     private \DateTimeImmutable $hoje;
@@ -71,6 +72,7 @@ final class CobrancaBatchConsistenciaTest extends KernelTestCase
         $this->casoRepo = $casoRepo;
         /** @var AlocacaoPagamentoRepository $alocacaoRepo */
         $alocacaoRepo = $this->em->getRepository(AlocacaoPagamento::class);
+        $this->alocacaoRepo = $alocacaoRepo;
         /** @var LiquidacaoRepository $liquidacaoRepo */
         $liquidacaoRepo = $this->em->getRepository(Liquidacao::class);
         /** @var ProximaAcaoRepository $acaoRepo */
@@ -78,7 +80,7 @@ final class CobrancaBatchConsistenciaTest extends KernelTestCase
         $this->acaoRepo = $acaoRepo;
 
         $this->calcSaldo = new CalculadoraSaldo($obrigacaoRepo, $casoRepo, $alocacaoRepo, $liquidacaoRepo, new \App\Cobranca\Service\EncargosVivos(new \Symfony\Component\Clock\MockClock(new \DateTimeImmutable('2026-07-20')), new \App\Cobranca\Service\CalculadoraEncargos(), new \App\Cobranca\Service\ResolvedorConfigEncargos()), new \App\Cobranca\Service\ResolvedorConfigEncargos());
-        $this->alertas = new AlertasCobranca($obrigacaoRepo, $acaoRepo, $this->calcSaldo);
+        $this->alertas = new AlertasCobranca($obrigacaoRepo, $acaoRepo, $this->calcSaldo, $alocacaoRepo);
 
         $this->hoje = new \DateTimeImmutable('2026-07-20');
     }
@@ -247,11 +249,13 @@ final class CobrancaBatchConsistenciaTest extends KernelTestCase
         foreach ($casos as $caso) {
             $porCaso = $this->alertas->alertasDoCaso($caso, $this->hoje);
 
-            // Reproduz o que o MontarDetalheCasoUseCase já tem em mãos ao chamar alertasComContexto.
+            // Reproduz o que o MontarDetalheCasoUseCase já tem em mãos ao chamar alertasComContexto —
+            // inclusive o mapa `obrigacaoId => Σ alocado`, que é o que diz quais vencidas já foram pagas.
             $comContexto = $this->alertas->alertasComContexto(
                 $caso,
                 $this->calcSaldo->saldoExigivel($caso),
                 $this->acaoRepo->findAtivaDoCaso($caso),
+                $this->alocacaoRepo->somasPorObrigacaoDosCasos([(int) $caso->getId()], $caso->getTenant()),
                 $this->hoje,
             );
 

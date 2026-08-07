@@ -103,6 +103,9 @@ final class MontarDashboardCobrancaUseCaseTest extends KernelTestCase
             $calcHon,
             new EncargosVivos(new MockClock(new \DateTimeImmutable('2026-07-20')), new CalculadoraEncargos(), new ResolvedorConfigEncargos()),
             new ResolvedorConfigEncargos(),
+            // O painel não monta alertas: usa só o predicado `vencidaEmAberto`, a régua única do que
+            // conta como vencido em aberto (antes ele repetia esse critério à mão).
+            new AlertasCobranca($obrigacaoRepo, $acaoRepo, $calcSaldo, $alocacaoRepo),
         );
 
         $this->inicio = new \DateTimeImmutable('2026-07-01 00:00:00');
@@ -394,6 +397,14 @@ final class MontarDashboardCobrancaUseCaseTest extends KernelTestCase
             'vencimentoOriginal' => new \DateTimeImmutable('2026-06-20'), 'acordoOrigem' => $acordo,
         ]); // parcela de acordo vigente, vencida
 
+        // DISCRIMINANTE da regra "obrigação já paga não alerta" (07/08): caso ATIVO cuja única vencida
+        // está 100% quitada. Sem ele o cenário não distingue a guarda ligada da desligada — o único caso
+        // com vencida totalmente paga era o ENCERRADO, que os dois lados já excluem antes de contar, e o
+        // assert de consistência ficava verde vazio (achado da revisão).
+        $casoQuitada = $this->caso($tenant, $carteira);
+        $obrQuitada = $this->obrigacao($tenant, $casoQuitada, 40000, '2026-06-01');
+        $this->pagamento($tenant, $casoQuitada, $obrQuitada, 40000, 0, '2026-07-10');
+
         $casoEncerrado = $this->caso($tenant, $carteira, StatusCaso::Encerrado);
         $obrEnc = $this->obrigacao($tenant, $casoEncerrado, 40000, '2026-06-01');
         $this->pagamento($tenant, $casoEncerrado, $obrEnc, 40000, 0, '2026-07-10');
@@ -414,11 +425,12 @@ final class MontarDashboardCobrancaUseCaseTest extends KernelTestCase
             $obrigacaoRepo,
             $this->em->getRepository(\App\Cobranca\Entity\ProximaAcao::class),
             $calcSaldo,
+            $this->em->getRepository(AlocacaoPagamento::class),
         );
 
         $saldoEsperado = 0;
         $contagem = [];
-        foreach ([$casoVencida, $casoAVencer, $casoAcao, $casoParcela] as $c) {
+        foreach ([$casoVencida, $casoAVencer, $casoAcao, $casoParcela, $casoQuitada] as $c) {
             $saldoEsperado += $calcSaldo->saldoExigivel($c);
             foreach ($alertas->alertasDoCaso($c, $this->hoje) as $a) {
                 $contagem[$a->tipo->value] = ($contagem[$a->tipo->value] ?? 0) + 1;
@@ -429,8 +441,13 @@ final class MontarDashboardCobrancaUseCaseTest extends KernelTestCase
         self::assertSame($contagem[TipoAlerta::ObrigacaoVencida->value] ?? 0, $d->pagamentosAVerificar);
         self::assertSame($contagem[TipoAlerta::ParcelaAcordoVencida->value] ?? 0, $d->parcelasAcordoVencidas);
         self::assertSame($contagem[TipoAlerta::AcaoAtrasada->value] ?? 0, $d->proximasAcoesAtrasadas);
-        // recuperado all-time = 20000 (pgto casoVencida) + 10000 (liquidação casoVencida) + 40000 (pgto encerrado)
-        self::assertSame(70000, $d->valorTotalRecuperado);
-        self::assertSame(4, $d->casosAtivos);
+        // O número ABSOLUTO, e não só o espelho: se os dois lados regredirem JUNTOS (foi o que aconteceu
+        // quando o Dashboard mantinha a cópia da regra), o assert de espelho acima continua verde.
+        // 3 = casoVencida (pago em parte) + casoAcao + casoParcela. casoQuitada NÃO conta.
+        self::assertSame(3, $d->pagamentosAVerificar);
+        // recuperado all-time = 20000 (pgto casoVencida) + 10000 (liquidação casoVencida)
+        //                     + 40000 (pgto casoQuitada) + 40000 (pgto encerrado)
+        self::assertSame(110000, $d->valorTotalRecuperado);
+        self::assertSame(5, $d->casosAtivos);
     }
 }

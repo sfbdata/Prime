@@ -305,7 +305,9 @@ final class MontarDetalheCasoUseCase
             proximaAcao: $acaoAtiva !== null ? ProximaAcaoOutput::fromEntity($acaoAtiva, $hoje) : null,
             // Dedupe: reusa o saldoExigivel e a ação ativa já computados acima (evita o recálculo interno
             // do saldo e a re-busca da ação que `alertasDoCaso` faria).
-            alertas: $this->alertasCobranca->alertasComContexto($caso, $saldoExigivel, $acaoAtiva, $hoje),
+            // O mapa de alocação vai junto (e não é recarregado lá dentro): é ele que diz ao alerta quais
+            // vencidas JÁ FORAM PAGAS — a mesma régua que a partição em aberto/pagas usa logo acima.
+            alertas: $this->alertasCobranca->alertasComContexto($caso, $saldoExigivel, $acaoAtiva, $alocadoPorObrigacao, $hoje),
             obrigacoes: $obrigacoes,
             gruposAcordo: $gruposAcordo,
             obrigacoesAvulsas: $obrigacoesAvulsas,

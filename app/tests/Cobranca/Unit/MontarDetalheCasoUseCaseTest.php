@@ -14,6 +14,7 @@ use App\Cobranca\Entity\Obrigacao;
 use App\Cobranca\Enum\FormaHonorarios;
 use App\Cobranca\Enum\QualificacaoContato;
 use App\Cobranca\Enum\StatusAcordo;
+use App\Cobranca\Enum\TipoAlerta;
 use App\Cobranca\Enum\TipoEventoHistorico;
 use App\Cobranca\Repository\AcordoRepository;
 use App\Cobranca\Repository\AlocacaoPagamentoRepository;
@@ -58,6 +59,8 @@ final class MontarDetalheCasoUseCaseTest extends TestCase
     private CalculadoraSaldo&MockObject $calculadoraSaldo;
     private AlertasCobranca $alertasCobranca;
     private AlocacaoPagamentoRepository&MockObject $alocacaoRepository;
+    /** @var Obrigacao[] o que `doCasoExigiveis` devolve neste teste (ver o callback no setUp) */
+    private array $exigiveis = [];
     private CalculadoraHonorarios $calculadoraHonorarios;
     private MontarDetalheCasoUseCase $useCase;
     private Tenant $tenant;
@@ -84,7 +87,11 @@ final class MontarDetalheCasoUseCaseTest extends TestCase
         // corpo do teste (confirmado: o retorno é sempre do primeiro matcher que casa, nunca do
         // último). Cada teste que precisa de obrigações/acordos concretos stuba `doCaso` no próprio
         // corpo (ou via `casoComAcordoVigente`).
-        $this->obrigacaoRepository->method('doCasoExigiveis')->willReturn([]);
+        // `doCasoExigiveis` precisa ser stubado aqui (vários caminhos o chamam), mas via CALLBACK sobre
+        // uma propriedade mutável: um `willReturn([])` travaria como primeiro matcher e nenhum teste
+        // conseguiria alimentar o conjunto exigível — que é o que os alertas leem.
+        $this->exigiveis = [];
+        $this->obrigacaoRepository->method('doCasoExigiveis')->willReturnCallback(fn (): array => $this->exigiveis);
         $this->pagamentoRepository->method('doCaso')->willReturn([]);
         $this->liquidacaoRepository->method('doCaso')->willReturn([]);
         // `EventoHistoricoRepository::doCaso` também NÃO é stubado aqui, pelo mesmo motivo dos `doCaso`
@@ -100,6 +107,7 @@ final class MontarDetalheCasoUseCaseTest extends TestCase
             $this->obrigacaoRepository,
             $this->proximaAcaoRepository,
             $this->calculadoraSaldo,
+            $this->alocacaoRepository,
         );
 
         // CalculadoraHonorarios também é `final` — e é uma calculadora PURA (sem I/O, só depende do
@@ -513,6 +521,51 @@ final class MontarDetalheCasoUseCaseTest extends TestCase
         self::assertNull($detalhe->prescricao);
         self::assertSame(0, $detalhe->obrigacoesEmAbertoQtd);
         self::assertSame(0, $detalhe->totalAtualizadoVencido);
+    }
+
+    // ------------------------------------------------ alertas do topo (o card do objeto_show)
+
+    #[Test]
+    #[TestDox('o alerta do topo não conta a obrigação vencida que já foi paga')]
+    public function alertaDoTopoNaoContaVencidaJaPaga(): void
+    {
+        // O defeito reportado em produção nasceu AQUI: o card do `objeto_show` sai de `caso.alertas`,
+        // que sai deste UseCase. Sem este teste, trocar o mapa de alocação por `[]` na chamada de
+        // `alertasComContexto` não quebra nada — a fiação do argumento fica sem prova (achado da revisão).
+        $caso = $this->casoPersistido();
+        $paga = $this->novaObrigacao($caso, 101, 40000, 'Janeiro/2026', '2026-01-10');
+
+        $this->exigiveis = [$paga];
+        $this->obrigacaoRepository->method('doCaso')->willReturn([$paga]);
+        $this->alocacaoRepository->method('somasPorObrigacaoDosCasos')->willReturn([101 => 40000]);
+
+        $tipos = array_map(
+            static fn ($alerta) => $alerta->tipo,
+            $this->useCase->executar($caso)->alertas,
+        );
+
+        self::assertNotContains(TipoAlerta::ObrigacaoVencida, $tipos);
+    }
+
+    #[Test]
+    #[TestDox('contraprova: a mesma vencida, sem pagamento, gera o alerta do topo')]
+    public function alertaDoTopoContaVencidaEmAberto(): void
+    {
+        // Sem esta contraprova o teste acima passaria mesmo que `alertas` viesse SEMPRE vazio — um
+        // `assertNotContains` contra lista vazia é verde por acidente, não por regra.
+        $caso = $this->casoPersistido();
+        $emAberto = $this->novaObrigacao($caso, 101, 40000, 'Janeiro/2026', '2026-01-10');
+
+        $this->exigiveis = [$emAberto];
+        $this->obrigacaoRepository->method('doCaso')->willReturn([$emAberto]);
+        $this->alocacaoRepository->method('somasPorObrigacaoDosCasos')->willReturn([]);
+
+        $tipos = array_map(
+            static fn ($alerta) => $alerta->tipo,
+            $this->useCase->executar($caso)->alertas,
+        );
+
+        self::assertContains(TipoAlerta::ObrigacaoVencida, $tipos);
     }
 
     // ------------------------------------------------ aba Responsáveis: listinha de qualificação (§3.4)

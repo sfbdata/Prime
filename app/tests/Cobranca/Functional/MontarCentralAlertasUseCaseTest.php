@@ -62,7 +62,7 @@ final class MontarCentralAlertasUseCaseTest extends KernelTestCase
         $acaoRepo = $this->em->getRepository(ProximaAcao::class);
 
         $calcSaldo = new CalculadoraSaldo($obrigacaoRepo, $casoRepo, $alocacaoRepo, $liquidacaoRepo, new \App\Cobranca\Service\EncargosVivos(new \Symfony\Component\Clock\MockClock(new \DateTimeImmutable('2026-07-20')), new \App\Cobranca\Service\CalculadoraEncargos(), new \App\Cobranca\Service\ResolvedorConfigEncargos()), new \App\Cobranca\Service\ResolvedorConfigEncargos());
-        $alertas = new AlertasCobranca($obrigacaoRepo, $acaoRepo, $calcSaldo);
+        $alertas = new AlertasCobranca($obrigacaoRepo, $acaoRepo, $calcSaldo, $alocacaoRepo);
 
         $this->sut = new MontarCentralAlertasUseCase($casoRepo, $alertas);
         $this->hoje = new \DateTimeImmutable('2026-07-20');

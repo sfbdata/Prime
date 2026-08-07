@@ -14,6 +14,7 @@ use App\Cobranca\Repository\LiquidacaoRepository;
 use App\Cobranca\Repository\ObrigacaoRepository;
 use App\Cobranca\Repository\PagamentoRepository;
 use App\Cobranca\Repository\ProximaAcaoRepository;
+use App\Cobranca\Service\AlertasCobranca;
 use App\Cobranca\Service\CalculadoraHonorarios;
 use App\Cobranca\Service\CalculadoraSaldo;
 use App\Cobranca\Service\EncargosVivos;
@@ -64,6 +65,9 @@ final class MontarDashboardCobrancaUseCase
         private readonly CalculadoraHonorarios $calculadoraHonorarios,
         private readonly EncargosVivos $encargosVivos,
         private readonly ResolvedorConfigEncargos $resolvedorConfig,
+        // Não é para MONTAR alertas aqui (o painel conta casos, não lista alertas): é para reusar o
+        // predicado `vencidaEmAberto`, a régua única do que conta como vencido em aberto.
+        private readonly AlertasCobranca $alertasCobranca,
     ) {
     }
 
@@ -210,10 +214,19 @@ final class MontarDashboardCobrancaUseCase
             }
 
             // Contagens operacionais = espelho dos alertas de AlertasCobranca (um por caso, por condição).
+            //
+            // A régua vem de `AlertasCobranca::vencidaEmAberto`, NÃO de uma cópia local: enquanto esta
+            // contagem repetia o critério à mão, a cópia ficou para trás quando o alerta passou a
+            // descartar obrigação já paga (07/08) — e o card "Pagamentos a verificar", que LINKA para a
+            // Central de Alertas, passaria a mostrar um número maior que o da lista que ele abre.
+            //
+            // A hidratação exigida por `vencidaEmAberto` já aconteceu: o laço de `encargosVivos->hidratar`
+            // lá em cima percorre `$exigiveisPorCaso` antes de qualquer agregação, e são estas MESMAS
+            // instâncias que chegam aqui.
             $temVencida = false;
             $temParcelaVencida = false;
             foreach ($exigiveis as $obrigacao) {
-                if ($obrigacao->getVencimentoOriginal() > $hoje) {
+                if (!$this->alertasCobranca->vencidaEmAberto($obrigacao, $alocadoPorObrigacao, $hoje)) {
                     continue;
                 }
                 $temVencida = true;
