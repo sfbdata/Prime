@@ -22,7 +22,14 @@
         {# ── Até quando os dados estão em dia ────────────────────────────────
            É a EMISSÃO do relatório, não a hora em que a importação rodou: importar hoje um arquivo de
            três dias atrás deixa os dados de três dias atrás. E, entre os tipos, mostramos o MAIS
-           ANTIGO — a carteira é a soma dos relatórios, então o elo mais fraco é que manda. #}
+           ANTIGO — a carteira é a soma dos relatórios, então o elo mais fraco é que manda.
+
+           São TRÊS estados, não dois (defeito achado no smoke de 10/08). Sem emissão gravada NÃO quer
+           dizer "nada foi importado": a emissão só passou a ser registrada em 07/08, e todo o dado
+           anterior — 81, 121 e 51 unidades, R$ 663 mil em aberto — ficou sem ela. A tela dizia
+           "Nenhum relatório importado ainda" ao lado da lista de unidades, mentindo no único lugar
+           que existe para responder "posso confiar neste saldo?". Quem separa os dois estados é
+           `totalObjetos`, que o DTO já traz — sem consulta nova. #}
         {% if carteira.dadosAtualizadosAte %}
             {% set dias = date().diff(carteira.dadosAtualizadosAte).days %}
             <div class="small mt-1 {{ dias > 7 ? 'text-warning' : 'text-muted' }}"
@@ -35,6 +42,13 @@
                 {%- else %} ({{ dias }} dias atrás)
                 {%- endif %}
                 <span class="text-muted">· pela importação dos relatórios</span>
+            </div>
+        {% elseif carteira.totalObjetos > 0 %}
+            <div class="small mt-1 text-warning"
+                 data-bs-toggle="tooltip"
+                 title="A data de emissão passou a ser registrada em 07/08/2026. O que foi importado antes disso ficou sem ela.">
+                <i class="bi bi-clock-history me-1"></i>Data dos relatórios desconhecida
+                <span class="text-muted">· aparece aqui na próxima importação</span>
             </div>
         {% else %}
             <div class="small mt-1 text-muted">
