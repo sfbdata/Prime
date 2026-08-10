@@ -17,7 +17,11 @@
             </a>
             {% endif %}
         </div>
-        <div class="text-muted"><i class="bi bi-person-badge me-1"></i>{{ carteira.clienteNome }}</div>
+        {# Cliente e frescor do dado dividem a mesma linha: são as duas credenciais da carteira
+           (de quem é, e de quando é). Antes o frescor vinha como terceira linha solta, com o
+           menor peso visual da tela — apesar de ser o que responde "posso confiar neste saldo?". #}
+        <div class="carteira-meta">
+            <span class="carteira-cliente"><i class="bi bi-person-badge"></i>{{ carteira.clienteNome }}</span>
 
         {# ── Até quando os dados estão em dia ────────────────────────────────
            É a EMISSÃO do relatório, não a hora em que a importação rodou: importar hoje um arquivo de
@@ -32,45 +36,48 @@
            `totalObjetos`, que o DTO já traz — sem consulta nova. #}
         {% if carteira.dadosAtualizadosAte %}
             {% set dias = date().diff(carteira.dadosAtualizadosAte).days %}
-            <div class="small mt-1 {{ dias > 7 ? 'text-warning' : 'text-muted' }}"
+            <span class="carteira-chip {{ dias > 7 ? 'is-alerta' : 'is-neutro' }}"
                  data-bs-toggle="tooltip"
                  title="{% for tipo, emissao in carteira.emissaoPorTipo %}{{ tipo|capitalize }}: {{ emissao|date('d/m/Y H:i') }}{{ not loop.last ? ' · ' }}{% endfor %}">
-                <i class="bi bi-clock-history me-1"></i>Dados atualizados até
+                <i class="bi bi-clock-history"></i>Dados atualizados até
                 <strong>{{ carteira.dadosAtualizadosAte|date('d/m/Y') }}</strong>
                 {%- if dias == 0 %} (hoje)
                 {%- elseif dias == 1 %} (ontem)
                 {%- else %} ({{ dias }} dias atrás)
                 {%- endif %}
-                <span class="text-muted">· pela importação dos relatórios</span>
-            </div>
+                <span class="carteira-chip-fonte">· pela importação dos relatórios</span>
+            </span>
         {% elseif carteira.totalObjetos > 0 %}
-            <div class="small mt-1 text-warning"
+            <span class="carteira-chip is-alerta"
                  data-bs-toggle="tooltip"
                  title="A data de emissão passou a ser registrada em 07/08/2026. O que foi importado antes disso ficou sem ela.">
-                <i class="bi bi-clock-history me-1"></i>Data dos relatórios desconhecida
-                <span class="text-muted">· aparece aqui na próxima importação</span>
-            </div>
+                <i class="bi bi-clock-history"></i>Data dos relatórios desconhecida
+                <span class="carteira-chip-fonte">· aparece aqui na próxima importação</span>
+            </span>
         {% else %}
-            <div class="small mt-1 text-muted">
-                <i class="bi bi-clock-history me-1"></i>Nenhum relatório importado ainda
-            </div>
+            <span class="carteira-chip is-neutro">
+                <i class="bi bi-clock-history"></i>Nenhum relatório importado ainda
+            </span>
         {% endif %}
+        </div>
     </div>
 </section>
 
 <section class="content">
     <div class="container-fluid">
-        {# ── Métricas ──────────────────────────────────────────── #}
-        <div class="caso-header mb-3">
-            <div class="caso-metrics">
-                <div class="caso-metric">
-                    <div class="caso-metric-label">Saldo consolidado</div>
-                    <div class="caso-metric-valor {{ carteira.saldoConsolidado == 0 ? 'saldo-zerado' : '' }}">{{ carteira.saldoConsolidado|centavos }}</div>
-                </div>
-                <div class="caso-metric">
-                    <div class="caso-metric-label">Objetos</div>
-                    <div class="caso-metric-valor">{{ carteira.totalObjetos }}</div>
-                </div>
+        {# ── Resumo da carteira ─────────────────────────────────────────────
+           Usava `.caso-header` + `.caso-metrics`, emprestadas da tela de detalhe do Caso — lá
+           elas envolvem um `.caso-header-top` com título e subtítulo, que aqui não existe. Sobrava
+           uma borda arredondada em volta de dois números soltos, e os dois com o mesmo tamanho:
+           dinheiro empatando com contagem. Container próprio, e o saldo manda. #}
+        <div class="carteira-resumo mb-3">
+            <div class="carteira-resumo-item is-principal">
+                <span class="carteira-resumo-label">Saldo consolidado</span>
+                <span class="carteira-resumo-valor {{ carteira.saldoConsolidado == 0 ? 'is-zerado' : '' }}">{{ carteira.saldoConsolidado|centavos }}</span>
+            </div>
+            <div class="carteira-resumo-item">
+                <span class="carteira-resumo-label">Objetos cobrados</span>
+                <span class="carteira-resumo-valor">{{ carteira.totalObjetos }}</span>
             </div>
         </div>
 
@@ -158,7 +165,7 @@
                             <th>Nome</th>
                             <th>Categoria</th>
                             <th>Observação</th>
-                            <th class="text-end" style="width:110px">Ações</th>
+                            <th class="text-end cobranca-col-acoes">Ações</th>
                         </tr>
                     </thead>
                     <tbody>

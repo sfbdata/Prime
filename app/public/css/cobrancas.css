@@ -17,6 +17,77 @@ html[data-bs-theme="dark"] .cobrancas-page {
 .cobrancas-page .content-header h1 { font-weight: 700; letter-spacing: -.01em; }
 .cobrancas-page .content-header h1 > .bi { color: var(--jp-accent); }
 
+/* ── Cabeçalho da carteira: cliente + frescor do dado ──────────── */
+.carteira-meta {
+    display: flex; align-items: center; flex-wrap: wrap;
+    gap: .4rem .75rem; margin-top: .35rem;
+}
+.carteira-cliente {
+    display: inline-flex; align-items: center; gap: .4rem;
+    color: var(--bs-secondary-color); font-size: .875rem;
+}
+
+/* O frescor do dado deixou de ser texto cinza solto e virou um selo: mesma altura do nome do
+   cliente, com contorno próprio. Continua discreto — o que muda é que agora ele se LÊ como um
+   estado do dado, e não como legenda. `is-alerta` usa o warning do tema em vez de `.text-warning`
+   direto, para o contorno e o texto virem do mesmo tom. */
+.carteira-chip {
+    display: inline-flex; align-items: center; gap: .4rem;
+    padding: .2rem .6rem; border-radius: 999px;
+    font-size: .8125rem; line-height: 1.4;
+    border: 1px solid var(--bs-border-color);
+    background: var(--bs-tertiary-bg);
+    color: var(--bs-secondary-color);
+}
+.carteira-chip strong { color: var(--bs-body-color); font-weight: 600; }
+.carteira-chip.is-alerta {
+    border-color: rgba(var(--bs-warning-rgb), .45);
+    background: rgba(var(--bs-warning-rgb), .1);
+    color: var(--bs-warning-text-emphasis);
+}
+.carteira-chip.is-alerta strong { color: inherit; }
+/* A procedência ("· pela importação dos relatórios") é nota de rodapé dentro do selo: fica, mas
+   não disputa leitura com a data. Some no celular, onde a linha é curta demais para carregá-la. */
+.carteira-chip-fonte { opacity: .75; }
+@media (max-width: 575.98px) { .carteira-chip-fonte { display: none; } }
+
+/* ── Resumo da carteira ────────────────────────────────────────── */
+.carteira-resumo {
+    display: flex; flex-wrap: wrap; align-items: stretch; gap: 0;
+    border: 1px solid var(--bs-border-color); border-radius: var(--cob-radius, 1rem);
+    background: var(--bs-body-bg); overflow: hidden;
+}
+.carteira-resumo-item {
+    display: flex; flex-direction: column; gap: .15rem;
+    padding: .9rem 1.25rem; min-width: 9rem;
+}
+/* Divisória entre os itens em vez de `gap`: a régua fina é o que faz a faixa ler como um bloco
+   único de indicadores, e não como dois cartõezinhos empurrados um contra o outro. */
+.carteira-resumo-item + .carteira-resumo-item { border-left: 1px solid var(--bs-border-color); }
+.carteira-resumo-item.is-principal { min-width: 13rem; }
+
+.carteira-resumo-label {
+    font-size: .72rem; text-transform: uppercase; letter-spacing: .04em;
+    color: var(--bs-secondary-color);
+}
+.carteira-resumo-valor {
+    font-size: 1.25rem; font-weight: 600; line-height: 1.2;
+    font-variant-numeric: tabular-nums;
+}
+/* O saldo é o número pelo qual a tela existe: ganha corpo e o `-.02em` que impede que dígito
+   grande pareça esparramado. A contagem fica no tamanho base — hierarquia por tamanho, não por cor. */
+.is-principal .carteira-resumo-valor {
+    font-size: 1.75rem; font-weight: 700; letter-spacing: -.02em;
+}
+.carteira-resumo-valor.is-zerado { color: var(--bs-success); }
+
+@media (max-width: 575.98px) {
+    .carteira-resumo-item { flex: 1 1 100%; }
+    .carteira-resumo-item + .carteira-resumo-item {
+        border-left: 0; border-top: 1px solid var(--bs-border-color);
+    }
+}
+
 /* ── Sub-navegação (Carteiras × Casos) ─────────────────────────── */
 /* `wrap` porque no `cobranca_objeto_show` ela divide a linha com as setas ‹ ›: sem isso, em tela
    estreita os quatro itens espremeriam em vez de quebrar. */
@@ -51,6 +122,38 @@ html[data-bs-theme="dark"] .cobrancas-page {
 .cobranca-card .table > tbody > tr { border-top: 1px solid var(--bs-border-color); }
 .cobranca-card .table > tbody > tr:hover { background: var(--bs-tertiary-bg); }
 .cobranca-row-link .sort-icon { opacity: .35; }
+
+/* Largura das colunas em `rem`, não em px: assim elas acompanham o tamanho de fonte do usuário
+   em vez de espremer o conteúdo quando ele aumenta o zoom de texto. */
+.cobranca-col-estado { width: 7rem; }
+.cobranca-col-saldo  { width: 8.5rem; }
+.cobranca-col-acoes  { width: 7rem; }
+
+/* A linha inteira responde ao mouse… */
+.cobranca-row-link { cursor: pointer; }
+
+/* …mas o alvo real é o link do identificador — é ele que existe para o teclado. Ele veste a
+   aparência do texto que substituiu (semibold, cor do corpo) para a tabela não virar um mar de
+   azul sublinhado; o sublinhado aparece no hover e no foco, que é quando comunica algo. */
+.cobranca-row-alvo {
+    font-weight: 600;
+    color: inherit;
+    text-decoration: none;
+}
+.cobranca-row-link:hover .cobranca-row-alvo,
+.cobranca-row-alvo:hover { text-decoration: underline; }
+
+/* Foco visível: o anel do Bootstrap é desenhado por `box-shadow`, que dentro de uma célula de
+   tabela fica cortado pela borda da própria célula. `outline` é desenhado fora do fluxo e
+   sobrevive. `:focus-visible` (e não `:focus`) para o anel não piscar no clique de mouse. */
+.cobranca-row-alvo:focus-visible {
+    outline: 2px solid var(--jp-accent);
+    outline-offset: 2px;
+    border-radius: 2px;
+    text-decoration: underline;
+}
+/* A linha inteira acompanha o foco do seu link, para o olho achar a linha e não só a palavra. */
+.cobranca-row-link:has(.cobranca-row-alvo:focus-visible) { background: var(--bs-tertiary-bg); }
 
 /* Realce de linha com saldo vencido (SPEC §26: priorizar o que exige atenção) */
 .cobranca-row-vencido { background: rgba(var(--bs-danger-rgb), .05); }
