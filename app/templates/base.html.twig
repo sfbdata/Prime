@@ -66,8 +66,10 @@
         <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
         <link rel="manifest" href="/site.webmanifest">
 
-        {# Fonts #}
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/source-sans-3@5.0.12/index.css" crossorigin="anonymous">
+        {# Fonts — versão VARIÁVEL (pesos 200–900 num arquivo só).
+           O pacote estático que estava aqui antes entregava apenas o peso 400, e o app.css pede
+           600/700 em dezenas de regras: sem os pesos reais o navegador sintetiza o negrito. #}
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource-variable/source-sans-3@5.3.0/index.css" crossorigin="anonymous">
 
         {# OverlayScrollbars #}
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/overlayscrollbars@2.11.0/styles/overlayscrollbars.min.css" crossorigin="anonymous">
