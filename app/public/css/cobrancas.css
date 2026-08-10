@@ -181,6 +181,13 @@ html[data-bs-theme="dark"] .cobrancas-page {
 
 /* ── Cartão/tabela ─────────────────────────────────────────────── */
 .cobranca-card { border: 1px solid var(--bs-border-color); }
+
+/* O AdminLTE traz `.card-header::after { display:block; clear:both; content:"" }` — clearfix de
+   layout com `float`. Num cabeçalho que fizemos FLEX, esse pseudo-elemento vira um TERCEIRO item:
+   com `justify-content-between` ele ocupa a direita e empurra o botão para o meio do cartão. Era
+   o que deixava "Novo objeto", "Editar" e o "+" de documento pendurados no vazio.
+   `content: none` remove o item; o clearfix não tem função nenhuma dentro de um flex container. */
+.cobrancas-page .card-header.d-flex::after { content: none; }
 .cobranca-card .table > thead th {
     font-size: .78rem; text-transform: uppercase; letter-spacing: .02em;
     color: var(--bs-secondary-color); border-bottom: 1px solid var(--bs-border-color);
