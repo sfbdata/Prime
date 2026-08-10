@@ -12,7 +12,10 @@
             </a>
             <h1 class="m-0 d-flex align-items-center gap-2"><i class="bi bi-folder2-open"></i>{{ carteira.nome }}</h1>
             {% if has_permission('resources.cobranca.gerenciar') %}
-            <a href="{{ path('cobranca_importacao_upload', {id: carteira.id}) }}" class="btn btn-sm btn-outline-primary ms-auto">
+            {# Verde cheio (`jp-btn-accent`), como no desenho aprovado: importar relatório é a ação
+               primária desta tela, e contorno azul a deixava com o mesmo peso do botão de voltar —
+               além de trazer para cá um azul que não pertence à paleta do módulo. #}
+            <a href="{{ path('cobranca_importacao_upload', {id: carteira.id}) }}" class="btn btn-sm jp-btn-accent ms-auto">
                 <i class="bi bi-upload me-1"></i>Importar relatório
             </a>
             {% endif %}

@@ -51,33 +51,35 @@ html[data-bs-theme="dark"] .cobrancas-page {
 .carteira-chip-fonte { opacity: .75; }
 @media (max-width: 575.98px) { .carteira-chip-fonte { display: none; } }
 
-/* ── Resumo da carteira ────────────────────────────────────────── */
+/* ── Faixa de indicadores ───────────────────────────────────────
+   Como no desenho aprovado: faixa BRANCA e chapada, sem borda em volta e sem régua entre os itens
+   — quem separa é o espaço. Ela lê como continuação do cabeçalho, e é o fundo cinza do conteúdo,
+   logo abaixo, que a delimita.
+
+   Aqui houve um desvio meu que voltou atrás: eu tinha posto borda, divisórias e o saldo maior que
+   os outros três, argumentando "hierarquia por tamanho". Não era o que estava desenhado nem o que
+   o dono aprovou, e na tela a caixa com régua ficou apertada onde o desenho respirava. Quatro
+   números do mesmo tamanho; quem hierarquiza é a ORDEM de leitura e o vermelho do vencido. */
 .carteira-resumo {
     display: flex; flex-wrap: wrap; align-items: stretch; gap: 0;
-    border: 1px solid var(--bs-border-color); border-radius: var(--cob-radius, 1rem);
-    background: var(--bs-body-bg); overflow: hidden;
+    background: var(--bs-body-bg);
+    border-radius: var(--cob-radius, 1rem);
+    padding: .25rem .5rem;
 }
 .carteira-resumo-item {
-    display: flex; flex-direction: column; gap: .15rem;
-    padding: .9rem 1.25rem; min-width: 9rem;
+    display: flex; flex-direction: column; gap: .35rem;
+    padding: 1.15rem 1.25rem; min-width: 9rem;
 }
-/* Divisória entre os itens em vez de `gap`: a régua fina é o que faz a faixa ler como um bloco
-   único de indicadores, e não como dois cartõezinhos empurrados um contra o outro. */
-.carteira-resumo-item + .carteira-resumo-item { border-left: 1px solid var(--bs-border-color); }
 .carteira-resumo-item.is-principal { min-width: 13rem; }
 
 .carteira-resumo-label {
-    font-size: .72rem; text-transform: uppercase; letter-spacing: .04em;
+    font-size: .6875rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .04em;
     color: var(--bs-secondary-color);
 }
 .carteira-resumo-valor {
-    font-size: 1.25rem; font-weight: 600; line-height: 1.2;
+    font-size: 1.875rem; font-weight: 700; line-height: 1.15; letter-spacing: -.02em;
     font-variant-numeric: tabular-nums;
-}
-/* O saldo é o número pelo qual a tela existe: ganha corpo e o `-.02em` que impede que dígito
-   grande pareça esparramado. A contagem fica no tamanho base — hierarquia por tamanho, não por cor. */
-.is-principal .carteira-resumo-valor {
-    font-size: 1.75rem; font-weight: 700; letter-spacing: -.02em;
 }
 .carteira-resumo-valor.is-zerado { color: var(--bs-success); }
 .carteira-resumo-valor.is-vencido { color: var(--bs-danger); }
@@ -146,10 +148,11 @@ html[data-bs-theme="dark"] .cobrancas-page {
 }
 
 @media (max-width: 575.98px) {
-    .carteira-resumo-item { flex: 1 1 100%; }
-    .carteira-resumo-item + .carteira-resumo-item {
-        border-left: 0; border-top: 1px solid var(--bs-border-color);
-    }
+    /* No celular a faixa empilha e o espaço sozinho deixa de separar — aqui a régua volta, agora
+       horizontal, porque sem ela quatro pares rótulo/valor viram uma coluna indistinta. */
+    .carteira-resumo-item { flex: 1 1 100%; padding: .85rem 1rem; }
+    .carteira-resumo-item + .carteira-resumo-item { border-top: 1px solid var(--bs-border-color); }
+    .carteira-resumo-valor { font-size: 1.5rem; }
 }
 
 /* ── Sub-navegação (Carteiras × Casos) ─────────────────────────── */
