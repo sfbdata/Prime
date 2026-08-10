@@ -99,6 +99,12 @@ services:
     # sem SMTP — é o mailer que prova a resposta neutra da recuperação de senha).
     App\Auth\Service\RedefinicaoSenhaMailerInterface: '@App\Auth\Service\RedefinicaoSenhaMailer'
 
+    # Conexão somente-leitura das ferramentas MCP. SEM default de propósito: ausente a
+    # variável, o servidor falha com mensagem clara em vez de cair na conexão de escrita.
+    App\Mcp\Service\ConexaoLeitura:
+        arguments:
+            $dsn: '%env(default::DATABASE_URL_LEITURA)%'
+
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
 
