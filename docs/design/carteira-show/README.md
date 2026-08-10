@@ -61,17 +61,24 @@ Ambos são **wireframes de arranjo**, não especificação visual.
 | Arquivo | Arranjo | Estado |
 |---|---|---|
 | `arranjo-a.jsx` + `arranjo-a.png` | **Lista em primeiro plano.** Lista ocupa a largura inteira; Configuração e Documentos viram abas irmãs. Faixa de KPIs com VENCIDO, ordenação no cabeçalho da coluna, paginação no rodapé. | ✅ renderizado e exportado |
-| `arranjo-b.jsx` | **Lista + trilho lateral.** Lista com 800px; Configuração e Documentos num trilho compacto de 324px, visíveis sem clique. | ❌ **nunca renderizou** |
+| `arranjo-b.jsx` + `arranjo-b.png` | **Lista + trilho lateral.** Lista com 800px; Configuração e Documentos num trilho compacto de 324px, visíveis sem clique. | ✅ renderizado e exportado |
+
+O documento editável está em **`carteira-show.fig`**, nesta mesma pasta, com os dois arranjos
+(A em `x=0`, B em `x=1260`). Os `.jsx` continuam sendo a fonte reproduzível — se o `.fig` se perder
+de novo, cola e volta.
 
 ### Como retomar
 
-1. Abrir o OpenPencil **com um documento** (o MCP recusa com o app fechado, e a ferramenta proíbe
-   o agente de abrir o app sozinho).
-2. Colar o conteúdo de cada `.jsx` em `mcp__open-pencil__render` (A em `x=0`, B em `x=1260`).
+1. Abrir o OpenPencil e abrir o `carteira-show.fig`. (O MCP recusa com o app fechado, e a
+   ferramenta proíbe o agente de abrir o app sozinho.)
+2. Se precisar recriar do zero: colar cada `.jsx` em `mcp__open-pencil__render` (A em `x=0`,
+   B em `x=1260`).
+3. **Salvar com `save_file` logo após renderizar.** A primeira versão deste trabalho se perdeu
+   inteira porque o app fechou antes de qualquer save.
 
-**Armadilha medida:** o `arranjo-b.jsx` morreu com `RPC timeout (30s)` — o JSX é grande demais para
-uma chamada só. Quebre em duas: primeiro o frame raiz + header + KPIs, depois o corpo via `render`
-com `parent_id`. O arranjo A, menor, passou na mesma sessão.
+**Armadilha medida:** o `arranjo-b.jsx` inteiro numa chamada só morre com `RPC timeout (30s)` — o
+JSX é grande demais. Quebre em duas: primeiro o frame raiz + header + KPIs, depois o `CorpoB` via
+`render` com `parent_id` do raiz. Foi assim que ele renderizou. O arranjo A, menor, passa inteiro.
 
 **Limitação do renderer:** `counterAlign` não é suportado (ignorado com warning). O alinhamento
 vertical dentro das células foi simulado com padding uniforme; na implementação real quem
