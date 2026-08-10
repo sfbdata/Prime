@@ -112,6 +112,29 @@ final class LoginTelaTest extends JusPrimeWebTestCase
         self::assertCount(2, $crawler->filter('form input[aria-invalid="true"]'));
     }
 
+    #[TestDox('A animação roda a cada carregamento, mas não na tela que volta com erro')]
+    public function testAnimacaoRodaSempreMenosComErro(): void
+    {
+        $client = static::createClient();
+        $user   = $this->criarUsuario();
+
+        // Duas visitas seguidas na MESMA sessão: as duas têm que animar. Antes disso o
+        // `sessionStorage` travava a partir da segunda, e o dono reprovou no smoke.
+        $client->request('GET', '/login');
+        $crawler = $client->request('GET', '/login');
+        self::assertStringContainsString('anim', (string) $crawler->filter('#loginRaiz')->attr('class'));
+
+        // Falha de login recarrega a página: repetir a coreografia em cima de quem está
+        // redigitando a senha é castigo, não boas-vindas.
+        $form = $crawler->selectButton('Entrar')->form();
+        $form['email']    = $user->getEmail();
+        $form['password'] = 'senha-errada';
+        $client->submit($form);
+        $crawler = $client->followRedirect();
+
+        self::assertStringNotContainsString('anim', (string) $crawler->filter('#loginRaiz')->attr('class'));
+    }
+
     #[TestDox('O olho da senha existe e nasce anunciando "Mostrar senha"')]
     public function testOlhoDaSenha(): void
     {

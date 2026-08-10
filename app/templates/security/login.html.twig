@@ -15,7 +15,8 @@
    Regras que valem para esta tela por ela ser um login:
    1. o formulário é utilizável desde o primeiro quadro; a animação nunca
       bloqueia digitação, clique ou preenchimento automático do navegador;
-   2. a animação roda uma vez por sessão e é abortada na primeira interação;
+   2. a animação é abortada na primeira interação, e não roda de novo na tela
+      que volta com erro de login;
    3. só se anima opacity / transform / filter — nada que cause reflow;
    4. quem pediu menos movimento no sistema não recebe nenhum.
 
@@ -194,8 +195,8 @@ html:has(.login-raiz), .login-raiz{color-scheme:light}
 @keyframes halo{from{transform:scale(1); opacity:.55} to{transform:scale(2.3); opacity:0}}
 
 /* ============================ COREOGRAFIA ================================
-   Só roda com a classe `anim` na raiz. O JS a remove na primeira interação e
-   não a aplica se a sessão já viu a animação.
+   Só roda com a classe `anim` na raiz — posta pelo servidor. O JS a remove na
+   primeira interação.
    ======================================================================== */
 .anim .cartao{opacity:0; animation:c-entra .90s .35s cubic-bezier(.16,.84,.28,1) both}
 @keyframes c-entra{from{opacity:0; transform:translateY(26px) scale(.985)} to{opacity:1; transform:none}}
@@ -261,7 +262,10 @@ html:has(.login-raiz), .login-raiz{color-scheme:light}
 {% block body %}
 {% set suporte_ativo = suporte_form_url is not empty %}
 
-<div class="login-raiz anim" id="loginRaiz">
+{# A coreografia roda em TODO carregamento, menos quando a tela já está mostrando erro
+   de login: falha de senha recarrega a página, e repetir 2,2s de animação em cima de
+   quem está tentando redigitar é castigo, não boas-vindas. #}
+<div class="login-raiz{% if not error %} anim{% endif %}" id="loginRaiz">
 
     {# ------------------------------------------------------------- céu ---- #}
     <div class="ceu" aria-hidden="true">
@@ -385,14 +389,10 @@ html:has(.login-raiz), .login-raiz{color-scheme:light}
 (() => {
     const raiz = document.getElementById('loginRaiz');
     if (!raiz) return;
-    const CHAVE = 'bj:animacao-vista';
 
-    /* 1. a animação roda uma vez por sessão ------------------------------- */
-    let animando = true;
-    try {
-        if (sessionStorage.getItem(CHAVE)) { raiz.classList.remove('anim'); animando = false; }
-        else sessionStorage.setItem(CHAVE, '1');
-    } catch (e) { /* navegação privada com storage bloqueado: anima e segue */ }
+    /* 1. quem decide se anima é o servidor (classe `anim` no HTML): todo
+          carregamento anima, menos o que já chega com erro de login -------- */
+    const animando = raiz.classList.contains('anim');
 
     /* 2. qualquer interação aborta a animação: quem já está digitando não
           pode ver o campo se mexendo debaixo do cursor -------------------- */

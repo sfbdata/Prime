@@ -30,6 +30,7 @@ os botões do modelo (mesmo sem destino) e o suporte apontando para um formulár
 | D3 | **Sem** a escalada "2ª falha → Precisa de ajuda para entrar?" | O modelo contava falhas em memória; com POST real a contagem zera a cada envio. Implementar de verdade exigiria estado no servidor — o dono dispensou |
 | D4 | Termos → `public/termos/termos-de-uso.pdf`; Privacidade **inerte** | Não existe página de privacidade. LinkedIn e Instagram também inertes: o dono cria os perfis depois |
 | D5 | Fonte **Source Sans 3** | A pilha do sistema operacional no modelo é fallback de quem escreveu o arquivo solto, não escolha de design |
+| D6 | A animação roda **a cada carregamento**, não uma vez por sessão | Decidido no smoke de 10/08: *"só não vejo a animação quando atualizo"*. A trava `sessionStorage` do modelo caiu. Fica **uma** exceção, proposta e aceita: a tela que volta **com erro de login** não anima — falha de senha recarrega a página, e repetir 2,2s de coreografia em cima de quem está redigitando é castigo. Quem decide é o servidor (classe `anim` no HTML), não o JS |
 
 ## Desvios do desenho autorizados
 
