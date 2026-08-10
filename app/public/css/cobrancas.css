@@ -127,6 +127,15 @@ html[data-bs-theme="dark"] .cobrancas-page {
 }
 .carteira-doc-acoes { display: flex; gap: .25rem; flex-shrink: 0; }
 
+/* A contagem da lista fica encostada à direita, alinhada com a coluna de saldo — no desenho ela
+   ocupa a ponta direita da barra de ferramentas. Não dá para colocá-la literalmente na mesma linha
+   do campo de busca: a busca mora FORA do fragmento trocável (para o foco sobreviver enquanto se
+   digita) e a contagem mora DENTRO dele (para mudar a cada busca). São dois contêineres. */
+.cobrancas-page [data-filtro-resultado] .cobranca-resultado-head {
+    justify-content: flex-end;
+    margin: 0 1rem .25rem;
+}
+
 /* ── Rodapé da lista: contagem da faixa + paginação ────────────── */
 .cobranca-resultado-rodape {
     display: flex; align-items: center; justify-content: space-between;
