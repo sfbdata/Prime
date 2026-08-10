@@ -75,49 +75,31 @@
                 <span class="carteira-resumo-label">Saldo consolidado</span>
                 <span class="carteira-resumo-valor {{ carteira.saldoConsolidado == 0 ? 'is-zerado' : '' }}">{{ carteira.saldoConsolidado|centavos }}</span>
             </div>
+            {# O vencido sai do MESMO lote que já calcula o saldo por caso (o que acende o realce de
+               linha) — o UseCase só o descartava no agregado. Zero consulta a mais. Fica em vermelho
+               só quando existe: carteira em dia não precisa de um zero vermelho chamando atenção. #}
+            <div class="carteira-resumo-item">
+                <span class="carteira-resumo-label">Vencido</span>
+                <span class="carteira-resumo-valor {{ carteira.saldoVencido > 0 ? 'is-vencido' : '' }}">{{ carteira.saldoVencido|centavos }}</span>
+            </div>
             <div class="carteira-resumo-item">
                 <span class="carteira-resumo-label">Objetos cobrados</span>
                 <span class="carteira-resumo-valor">{{ carteira.totalObjetos }}</span>
             </div>
+            <div class="carteira-resumo-item">
+                <span class="carteira-resumo-label">Com atraso</span>
+                <span class="carteira-resumo-valor {{ carteira.totalComAtraso > 0 ? 'is-vencido' : '' }}">{{ carteira.totalComAtraso }}</span>
+            </div>
         </div>
 
+        {# ── Arranjo: lista à esquerda, trilho à direita ─────────────────────
+           A lista de objetos cobrados é a razão de existir da página, então vem PRIMEIRO no DOM e
+           fica com 8/12. Configuração e Documentos recuam para um trilho de 4/12 — visíveis sem
+           clique (foi o que o dono escolheu entre os dois arranjos desenhados), mas claramente
+           secundários. Antes era o contrário: Configuração, que quase nunca é lida, abria a página
+           e empurrava a lista para a direita, e Documentos ocupava a largura inteira embaixo com o
+           mesmo peso de card da lista. #}
         <div class="row g-3">
-            {# ── Configuração ──────────────────────────────────── #}
-            <div class="col-lg-4">
-                <div class="card cobranca-card h-100">
-                    <div class="card-header fw-semibold d-flex align-items-center justify-content-between">
-                        <span><i class="bi bi-gear me-1"></i>Configuração</span>
-                        {% if has_permission('resources.carteira.gerenciar') %}
-                        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalEditarConfiguracao">
-                            <i class="bi bi-pencil me-1"></i>Editar
-                        </button>
-                        {% endif %}
-                    </div>
-                    <div class="card-body">
-                        <dl class="row mb-0 small">
-                            <dt class="col-6 text-muted">Modo</dt>
-                            <dd class="col-6">{{ carteira.modoLabel }}</dd>
-
-                            <dt class="col-6 text-muted">Honorários</dt>
-                            <dd class="col-6">{{ carteira.formaHonorariosLabel }}{% if carteira.percentualHonorarios %} ({{ carteira.percentualHonorarios }}%){% endif %}</dd>
-
-                            <dt class="col-6 text-muted">Tolerância de atraso</dt>
-                            <dd class="col-6">{{ carteira.toleranciaAtrasoDias }} dia(s)</dd>
-
-                            {% if carteira.tipoVinculoPreferidoLabel %}
-                            <dt class="col-6 text-muted">Vínculo preferido</dt>
-                            <dd class="col-6">{{ carteira.tipoVinculoPreferidoLabel }}</dd>
-                            {% endif %}
-
-                            {% if carteira.rotuloObjeto %}
-                            <dt class="col-6 text-muted">Rótulo do objeto</dt>
-                            <dd class="col-6">{{ carteira.rotuloObjeto }}</dd>
-                            {% endif %}
-                        </dl>
-                    </div>
-                </div>
-            </div>
-
             {# ── Cobranças da carteira ─────────────────────────── #}
             <div class="col-lg-8">
                 {# O card inteiro é o root do filtro: a barra de busca fica FORA da área trocável
@@ -146,58 +128,99 @@
             </div>
         </div>
 
-        {# ── Documentos da carteira (Ajuste #5) ────────────────── #}
-        <div class="card cobranca-card mt-3">
-            <div class="card-header fw-semibold d-flex align-items-center justify-content-between">
-                <span><i class="bi bi-paperclip me-1"></i>Documentos</span>
-                {% if has_permission('resources.cobranca.gerenciar') %}
-                <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalAdicionarDocumentoCarteira">
-                    <i class="bi bi-plus-lg me-1"></i>Adicionar documento
-                </button>
-                {% endif %}
-            </div>
-            <div class="table-responsive">
-                {% if documentos|length > 0 %}
-                <table class="table mb-0">
-                    <thead>
-                        <tr>
-                            <th class="ps-3">Data</th>
-                            <th>Nome</th>
-                            <th>Categoria</th>
-                            <th>Observação</th>
-                            <th class="text-end cobranca-col-acoes">Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for doc in documentos %}
-                        <tr>
-                            <td class="ps-3 align-middle">{{ doc.carregadoEm|date('d/m/Y H:i') }}</td>
-                            <td class="align-middle">{{ doc.nomeOriginal }}</td>
-                            <td class="align-middle">{{ doc.categoria.rotulo }}</td>
-                            <td class="align-middle text-muted small">{{ doc.observacao ?: '—' }}</td>
-                            <td class="align-middle text-end">
-                                <a href="{{ path('cobranca_carteira_documento_download', {docId: doc.id}) }}" class="btn btn-sm btn-outline-secondary" title="Baixar">
-                                    <i class="bi bi-download"></i>
-                                </a>
-                                {% if has_permission('resources.cobranca.gerenciar') %}
-                                <form method="post" action="{{ path('cobranca_carteira_documento_excluir', {docId: doc.id}) }}" class="d-inline" onsubmit="return confirm('Excluir este documento?');">
-                                    <input type="hidden" name="_token" value="{{ csrf_token('cobranca_carteira_documento_excluir_' ~ doc.id) }}">
-                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Excluir">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
-                                </form>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-                {% else %}
-                <div class="cobranca-empty">
-                    <div class="empty-ico"><i class="bi bi-paperclip"></i></div>
-                    <p class="empty-title">Nenhum documento anexado</p>
+            {# ── Trilho: Configuração + Documentos ─────────────── #}
+            <div class="col-lg-4">
+                <div class="carteira-trilho">
+                    <div class="card cobranca-card">
+                        <div class="card-header fw-semibold d-flex align-items-center justify-content-between">
+                            <span><i class="bi bi-gear me-1"></i>Configuração</span>
+                            {% if has_permission('resources.carteira.gerenciar') %}
+                            <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalEditarConfiguracao">
+                                <i class="bi bi-pencil me-1"></i>Editar
+                            </button>
+                            {% endif %}
+                        </div>
+                        {# Rótulo à esquerda, valor à direita, um por linha — em 4/12 o `dl.row` de
+                           duas colunas quebrava "Tolerância de atraso" no meio da palavra. #}
+                        <dl class="carteira-trilho-dl mb-0">
+                            <div class="carteira-trilho-linha">
+                                <dt>Modo</dt>
+                                <dd>{{ carteira.modoLabel }}</dd>
+                            </div>
+                            <div class="carteira-trilho-linha">
+                                <dt>Honorários</dt>
+                                <dd>{{ carteira.formaHonorariosLabel }}{% if carteira.percentualHonorarios %} ({{ carteira.percentualHonorarios }}%){% endif %}</dd>
+                            </div>
+                            <div class="carteira-trilho-linha">
+                                <dt>Tolerância de atraso</dt>
+                                <dd>{{ carteira.toleranciaAtrasoDias }} dia(s)</dd>
+                            </div>
+                            {% if carteira.tipoVinculoPreferidoLabel %}
+                            <div class="carteira-trilho-linha">
+                                <dt>Vínculo preferido</dt>
+                                <dd>{{ carteira.tipoVinculoPreferidoLabel }}</dd>
+                            </div>
+                            {% endif %}
+                            {% if carteira.rotuloObjeto %}
+                            <div class="carteira-trilho-linha">
+                                <dt>Rótulo do objeto</dt>
+                                <dd>{{ carteira.rotuloObjeto }}</dd>
+                            </div>
+                            {% endif %}
+                        </dl>
+                    </div>
+
+                    {# ── Documentos da carteira (Ajuste #5) ──────
+                       Saiu da tabela de 5 colunas para uma lista: em 4/12 aquela tabela viraria
+                       scroll horizontal. Nome em cima, categoria e data embaixo.
+
+                       A observação continua como TEXTO, numa terceira linha que só existe quando
+                       há observação. Cheguei a jogá-la para dentro de um `title` — o teste de
+                       upload pegou, e estava certo: tooltip não existe para quem usa toque nem
+                       para leitor de tela, e o que justificava a troca ("é quase sempre vazia")
+                       era chute meu, não medição. #}
+                    <div class="card cobranca-card">
+                        <div class="card-header fw-semibold d-flex align-items-center justify-content-between">
+                            <span><i class="bi bi-paperclip me-1"></i>Documentos{% if documentos|length %} <span class="carteira-trilho-contagem">{{ documentos|length }}</span>{% endif %}</span>
+                            {% if has_permission('resources.cobranca.gerenciar') %}
+                            <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalAdicionarDocumentoCarteira" title="Adicionar documento" aria-label="Adicionar documento">
+                                <i class="bi bi-plus-lg"></i>
+                            </button>
+                            {% endif %}
+                        </div>
+                        {% if documentos|length > 0 %}
+                        <ul class="carteira-docs list-unstyled mb-0">
+                            {% for doc in documentos %}
+                            <li class="carteira-doc">
+                                <div class="carteira-doc-texto">
+                                    <span class="carteira-doc-nome">{{ doc.nomeOriginal }}</span>
+                                    <span class="carteira-doc-meta">{{ doc.categoria.rotulo }} · {{ doc.carregadoEm|date('d/m/Y') }}</span>
+                                    {% if doc.observacao %}<span class="carteira-doc-obs">{{ doc.observacao }}</span>{% endif %}
+                                </div>
+                                <div class="carteira-doc-acoes">
+                                    <a href="{{ path('cobranca_carteira_documento_download', {docId: doc.id}) }}" class="btn btn-sm btn-outline-secondary" title="Baixar {{ doc.nomeOriginal }}" aria-label="Baixar {{ doc.nomeOriginal }}">
+                                        <i class="bi bi-download"></i>
+                                    </a>
+                                    {% if has_permission('resources.cobranca.gerenciar') %}
+                                    <form method="post" action="{{ path('cobranca_carteira_documento_excluir', {docId: doc.id}) }}" class="d-inline" onsubmit="return confirm('Excluir este documento?');">
+                                        <input type="hidden" name="_token" value="{{ csrf_token('cobranca_carteira_documento_excluir_' ~ doc.id) }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Excluir {{ doc.nomeOriginal }}" aria-label="Excluir {{ doc.nomeOriginal }}">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                    {% endif %}
+                                </div>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                        {% else %}
+                        <div class="cobranca-empty">
+                            <div class="empty-ico"><i class="bi bi-paperclip"></i></div>
+                            <p class="empty-title">Nenhum documento anexado</p>
+                        </div>
+                        {% endif %}
+                    </div>
                 </div>
-                {% endif %}
             </div>
         </div>
 

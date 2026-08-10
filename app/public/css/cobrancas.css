@@ -80,6 +80,61 @@ html[data-bs-theme="dark"] .cobrancas-page {
     font-size: 1.75rem; font-weight: 700; letter-spacing: -.02em;
 }
 .carteira-resumo-valor.is-zerado { color: var(--bs-success); }
+.carteira-resumo-valor.is-vencido { color: var(--bs-danger); }
+
+/* ── Trilho lateral: Configuração + Documentos ─────────────────── */
+/* Os dois cartões empilham com respiro entre si; `h-100` fica FORA de propósito — o trilho
+   acompanha o próprio conteúdo em vez de esticar até a altura da lista, que é bem maior. */
+.carteira-trilho { display: flex; flex-direction: column; gap: 1rem; }
+
+/* Rótulo em cima, valor embaixo, um por linha. O `dl.row` de duas colunas que estava aqui quebrava
+   "Tolerância de atraso" no meio da palavra quando o trilho encolheu para 4/12. */
+.carteira-trilho-dl { font-size: .875rem; }
+.carteira-trilho-linha {
+    display: flex; justify-content: space-between; align-items: baseline; gap: .75rem;
+    padding: .5rem .9rem;
+}
+.carteira-trilho-linha + .carteira-trilho-linha { border-top: 1px solid var(--bs-border-color); }
+.carteira-trilho-linha dt { font-weight: 400; color: var(--bs-secondary-color); }
+.carteira-trilho-linha dd { margin: 0; text-align: right; color: var(--bs-body-color); }
+
+.carteira-trilho-contagem {
+    display: inline-block; min-width: 1.4rem; padding: 0 .35rem;
+    border-radius: 999px; background: var(--bs-secondary-bg);
+    color: var(--bs-secondary-color); font-size: .75rem; font-weight: 600; text-align: center;
+}
+
+/* Documentos como lista, não tabela: em 4/12 as 5 colunas viravam scroll horizontal. */
+.carteira-docs { font-size: .875rem; }
+.carteira-doc {
+    display: flex; align-items: center; justify-content: space-between; gap: .5rem;
+    padding: .55rem .9rem;
+}
+.carteira-doc + .carteira-doc { border-top: 1px solid var(--bs-border-color); }
+.carteira-doc-texto { min-width: 0; display: flex; flex-direction: column; }
+/* `min-width: 0` acima + truncagem aqui: sem os dois, um nome de arquivo longo empurra os botões
+   de baixar/excluir para fora do cartão em vez de encolher. */
+.carteira-doc-nome {
+    color: var(--bs-body-color);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.carteira-doc-meta { font-size: .75rem; color: var(--bs-secondary-color); }
+/* A observação quebra em até 2 linhas em vez de truncar numa só: ela é texto que alguém escreveu
+   de propósito, e cortar no meio da frase entrega menos que não mostrar. */
+.carteira-doc-obs {
+    font-size: .75rem; color: var(--bs-secondary-color); margin-top: .15rem;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.carteira-doc-acoes { display: flex; gap: .25rem; flex-shrink: 0; }
+
+/* ── Rodapé da lista: contagem da faixa + paginação ────────────── */
+.cobranca-resultado-rodape {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: .5rem;
+    padding: .75rem 1rem;
+    border-top: 1px solid var(--bs-border-color);
+    background: var(--bs-tertiary-bg);
+}
 
 @media (max-width: 575.98px) {
     .carteira-resumo-item { flex: 1 1 100%; }

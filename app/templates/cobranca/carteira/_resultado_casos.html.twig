@@ -6,15 +6,29 @@
 ─────────────────────────────────────────────────────────────────────────── #}
 {% set busca = filtros.busca|default('') %}
 
+{# Contagem em cima, paginação embaixo: numa tabela de 20 linhas o olho termina no rodapé, e é lá
+   que a próxima página tem de estar. `total` é o tamanho da lista JÁ filtrada pela busca — não é o
+   `carteira.totalCasos` do cabeçalho, que conta a carteira inteira. #}
+<div class="cobranca-resultado-head">
+    <div class="cobranca-count">
+        <i class="bi bi-briefcase"></i> <strong>{{ total }}</strong>&nbsp;objeto(s) cobrado(s)
+    </div>
+</div>
+
 <div class="table-responsive">
     {% if casos|length > 0 %}
     <table class="table mb-0">
         <thead>
             <tr>
-                <th class="ps-3">Objeto</th>
-                <th>Pessoa cobrada</th>
+                {# `data-ordenar` é o contrato do filtro-tabela.js: ele lê o valor, alterna a direção
+                   e recarrega o fragmento na página 1. Os valores aceitos são os de
+                   MontarVisaoCarteiraUseCase::ORDENACOES — inventar um aqui cai no padrão em
+                   silêncio. "Estado" não entra: ordenar por rótulo de status não responde pergunta
+                   nenhuma que a tela faça. #}
+                <th class="sortable ps-3{{ filtros.ordenar == 'objeto' ? ' ' ~ filtros.direcao : '' }}" data-ordenar="objeto">Objeto <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                <th class="sortable{{ filtros.ordenar == 'pessoa' ? ' ' ~ filtros.direcao : '' }}" data-ordenar="pessoa">Pessoa cobrada <i class="bi bi-arrow-down-up sort-icon"></i></th>
                 <th class="cobranca-col-estado">Estado</th>
-                <th class="text-end cobranca-col-saldo">Saldo exigível</th>
+                <th class="sortable text-end cobranca-col-saldo{{ filtros.ordenar == 'saldo' ? ' ' ~ filtros.direcao : '' }}" data-ordenar="saldo">Saldo exigível <i class="bi bi-arrow-down-up sort-icon"></i></th>
             </tr>
         </thead>
         <tbody>
@@ -51,6 +65,20 @@
     </div>
     {% endif %}
 </div>
+
+{# O rodapé só existe quando há o que paginar — o próprio partial já se cala com uma página só,
+   mas sem esta guarda sobraria uma faixa cinza vazia embaixo da lista curta. #}
+{% if total_paginas|default(1) > 1 %}
+<div class="cobranca-resultado-rodape">
+    {# O deslocamento sai de `por_pagina`, NÃO de `casos|length`: a última página vem incompleta, e
+       usar o tamanho da lista devolvida faria "Mostrando 7–7 de 121" no lugar de "121–121". #}
+    {% set primeiro = (pagina - 1) * por_pagina + 1 %}
+    <span class="cobranca-count">
+        Mostrando {{ primeiro }}–{{ primeiro + casos|length - 1 }} de {{ total }}
+    </span>
+    {{ include('_partials/_filtro_paginacao.html.twig', { pagina: pagina, total_paginas: total_paginas }) }}
+</div>
+{% endif %}
 
 {# Tooltips do fragmento: o innerHTML é substituído a cada busca, então quem foi ligado no
    DOMContentLoaded morre junto. O motor recria os <script> do fragmento ao injetá-lo. #}

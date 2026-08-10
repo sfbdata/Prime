@@ -399,4 +399,123 @@ final class MontarVisaoCarteiraUseCaseTest extends KernelTestCase
         self::assertCount(1, $resultado['casos']);
         self::assertFalse($resultado['casos'][0]->temDocumentos);
     }
+
+    /**
+     * Carteira com três casos de saldos conhecidos e distintos: dois VENCIDOS (relógio do setUp em
+     * 2026-07-20) e um a vencer. Serve às provas de agregado, ordenação e paginação abaixo.
+     *
+     * @return array{Tenant, Carteira}
+     */
+    private function carteiraComTresCasos(): array
+    {
+        $tenant = $this->tenant();
+        $carteira = $this->carteira($tenant);
+
+        $c1 = $this->caso($tenant, $carteira);
+        $this->obrigacao($tenant, $c1, 30000, '2026-06-01');  // vencida
+
+        $c2 = $this->caso($tenant, $carteira);
+        $this->obrigacao($tenant, $c2, 10000, '2026-06-15');  // vencida
+
+        $c3 = $this->caso($tenant, $carteira);
+        $this->obrigacao($tenant, $c3, 20000, '2026-12-01');  // a vencer
+
+        $this->em->clear();
+
+        return [$tenant, $carteira];
+    }
+
+    #[TestDox('Vencido e "com atraso" somam a carteira INTEIRA, nao a pagina exibida')]
+    public function testAgregadosDeVencidoIgnoramAPaginacao(): void
+    {
+        [, $carteira] = $this->carteiraComTresCasos();
+
+        // Uma linha por página: se o agregado fosse calculado sobre a fatia, ele mudaria a cada
+        // virada de página — e a carteira passaria a "dever" valores diferentes conforme onde o
+        // usuário está. É o erro que este teste existe para impedir.
+        $pagina1 = $this->sut->executar($carteira, '', 1, 1);
+        $pagina3 = $this->sut->executar($carteira, '', 3, 1);
+
+        self::assertSame(40000, $pagina1['carteira']->saldoVencido, 'Vencido = 30000 + 10000; o de dezembro nao entra');
+        self::assertSame(2, $pagina1['carteira']->totalComAtraso);
+        self::assertSame(60000, $pagina1['carteira']->saldoConsolidado);
+
+        self::assertSame($pagina1['carteira']->saldoVencido, $pagina3['carteira']->saldoVencido, 'Virar de pagina mudou o vencido da carteira');
+        self::assertSame($pagina1['carteira']->totalComAtraso, $pagina3['carteira']->totalComAtraso);
+        self::assertSame($pagina1['carteira']->saldoConsolidado, $pagina3['carteira']->saldoConsolidado);
+    }
+
+    #[TestDox('Buscar filtra a lista mas nao mexe no vencido da carteira')]
+    public function testBuscaNaoMexeNosAgregados(): void
+    {
+        [, $carteira] = $this->carteiraComTresCasos();
+
+        $semBusca = $this->sut->executar($carteira);
+        $comBusca = $this->sut->executar($carteira, 'zzz-nao-casa-com-nada');
+
+        self::assertSame(3, $semBusca['total']);
+        self::assertSame(0, $comBusca['total'], 'A busca impossivel tinha de esvaziar a lista');
+        self::assertSame(
+            $semBusca['carteira']->saldoVencido,
+            $comBusca['carteira']->saldoVencido,
+            'Buscar nao pode mudar o quanto a carteira tem vencido',
+        );
+        self::assertSame($semBusca['carteira']->totalComAtraso, $comBusca['carteira']->totalComAtraso);
+    }
+
+    #[TestDox('Por padrao a lista vem do maior saldo para o menor')]
+    public function testOrdenacaoPadraoEMaiorSaldoPrimeiro(): void
+    {
+        [, $carteira] = $this->carteiraComTresCasos();
+
+        $saldos = array_map(
+            static fn ($caso): int => $caso->saldoExigivel,
+            $this->sut->executar($carteira)['casos'],
+        );
+
+        self::assertSame([30000, 20000, 10000], $saldos);
+    }
+
+    #[TestDox('Ordenar ascendente inverte a lista')]
+    public function testOrdenacaoAscendente(): void
+    {
+        [, $carteira] = $this->carteiraComTresCasos();
+
+        $saldos = array_map(
+            static fn ($caso): int => $caso->saldoExigivel,
+            $this->sut->executar($carteira, '', 1, 25, 'saldo', 'asc')['casos'],
+        );
+
+        self::assertSame([10000, 20000, 30000], $saldos);
+    }
+
+    #[TestDox('Paginar nao repete nem perde caso entre as paginas')]
+    public function testPaginasNaoSeSobrepoem(): void
+    {
+        [, $carteira] = $this->carteiraComTresCasos();
+
+        $ids = [];
+        foreach ([1, 2, 3] as $pagina) {
+            $resultado = $this->sut->executar($carteira, '', $pagina, 1);
+            self::assertCount(1, $resultado['casos'], "A pagina {$pagina} devia trazer exatamente 1 caso");
+            self::assertSame(3, $resultado['total']);
+            self::assertSame(3, $resultado['total_paginas']);
+            $ids[] = $resultado['casos'][0]->id;
+        }
+
+        self::assertCount(3, array_unique($ids), 'Um caso apareceu em duas paginas — e outro sumiu');
+    }
+
+    #[TestDox('Pedir pagina que nao existe cai na ultima, nao numa lista vazia')]
+    public function testPaginaForaDaFaixaEGrampeada(): void
+    {
+        [, $carteira] = $this->carteiraComTresCasos();
+
+        $resultado = $this->sut->executar($carteira, '', 99, 2);
+
+        self::assertSame(2, $resultado['pagina'], 'Devia ter caido na ultima pagina existente');
+        self::assertSame(2, $resultado['total_paginas']);
+        self::assertCount(1, $resultado['casos'], 'A ultima pagina de 3 itens com 2 por pagina tem 1 item');
+        self::assertSame(2, $resultado['por_pagina'], 'por_pagina alimenta o "Mostrando X-Y de Z" da tela');
+    }
 }
