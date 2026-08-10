@@ -78,16 +78,43 @@ final class ConexaoLeituraTest extends TestCase
         $admin->close();
     }
 
+    /**
+     * Os quatro testes de recusa abaixo (Insert/Update/Delete + o que isola o GRANT)
+     * desligam `default_transaction_read_only` antes de tentar escrever. Não é ruído: o
+     * PostgreSQL checa o modo somente-leitura da transação ANTES de checar ACL — confirmado
+     * batendo direto no banco. Com o `SET ... = on` que `ConexaoLeitura::conexao()` aplica
+     * (o "cinto"), TODA tentativa de escrita — do role restrito e também do admin — para na
+     * mensagem "cannot execute ... in a read-only transaction", e a checagem de permissão
+     * nunca chega a rodar. Isso tem duas consequências:
+     *
+     *   1. Não dá para afirmar "permission denied" sem desligar o cinto primeiro — a
+     *      mensagem simplesmente não existe no caminho padrão, para NENHUM usuário.
+     *   2. Sem desligar o cinto, o Passo 6 (trocar o DSN pelo administrativo) nunca
+     *      distingue "recusado pela role" de "recusado pela sessão": as duas causas dão a
+     *      MESMA mensagem, e o teste fica verde com qualquer DSN — foi assim que a primeira
+     *      versão deste arquivo passou 8/8 mesmo com o DSN admin.
+     *
+     * Desligar o cinto pela própria sessão não exige privilégio nenhum (é só um `SET`) — é
+     * exatamente o que um agente curioso conseguiria fazer via `consultar()`. Por isso a
+     * "fivela" (o GRANT do role, testado aqui SEM a ajuda do cinto) é que precisa segurar
+     * sozinha, e é o que estes testes agora provam.
+     */
     public function testRecusaInsert(): void
     {
         $conexao = new ConexaoLeitura(self::$dsnLeitura);
+        $conexao->conexao()->executeStatement('SET default_transaction_read_only = off');
 
+        // Não basta capturar `DBAL\Exception` — isso também aceitaria "coluna não existe" ou
+        // erro de sintaxe como se fosse recusa de permissão (foi exatamente o que aconteceu
+        // com o typo `nome`/`ativo` numa versão anterior deste teste). Afirmar a MENSAGEM
+        // real do PostgreSQL ("permission denied for table ...") é o que garante que a
+        // recusa é por ACL, e não por qualquer outro motivo que também lançaria a mesma
+        // exceção genérica.
         $this->expectException(\Doctrine\DBAL\Exception::class);
+        $this->expectExceptionMessageMatches('/permission denied/i');
 
         // Colunas reais de `tenant`: `name`/`is_active` (não `nome`/`ativo` — a entidade é
-        // legado, em inglês). Usar nomes inexistentes faria o Postgres recusar por "column
-        // does not exist" na análise da consulta, ANTES de sequer checar permissão — o mesmo
-        // erro apareceria para o admin, e o teste passaria pelo motivo errado (decorativo).
+        // legado, em inglês).
         $conexao->conexao()->executeStatement(
             'INSERT INTO tenant (name, is_active, created_at) VALUES (\'invasor\', true, now())',
         );
@@ -96,8 +123,10 @@ final class ConexaoLeituraTest extends TestCase
     public function testRecusaUpdate(): void
     {
         $conexao = new ConexaoLeitura(self::$dsnLeitura);
+        $conexao->conexao()->executeStatement('SET default_transaction_read_only = off');
 
         $this->expectException(\Doctrine\DBAL\Exception::class);
+        $this->expectExceptionMessageMatches('/permission denied/i');
 
         $conexao->conexao()->executeStatement('UPDATE tenant SET name = \'invadido\'');
     }
@@ -105,10 +134,38 @@ final class ConexaoLeituraTest extends TestCase
     public function testRecusaDelete(): void
     {
         $conexao = new ConexaoLeitura(self::$dsnLeitura);
+        $conexao->conexao()->executeStatement('SET default_transaction_read_only = off');
 
         $this->expectException(\Doctrine\DBAL\Exception::class);
+        $this->expectExceptionMessageMatches('/permission denied/i');
 
         $conexao->conexao()->executeStatement('DELETE FROM tenant');
+    }
+
+    /**
+     * Existe separado dos três `testRecusa*` acima, com nome e comentário explícitos, porque
+     * é ESTE que qualquer leitor daqui a seis meses vai procurar quando quiser confirmar "e
+     * se o cinto (`SET`) não estivesse lá, ainda travaria?" sem precisar reconstruir esse
+     * raciocínio a partir de um teste de INSERT genérico. Mecanicamente ele faz o mesmo que
+     * `testRecusaInsert` (que também precisa desligar o cinto para a mensagem virar
+     * "permission denied" de verdade — ver o comentário acima) — a duplicação é proposital:
+     * é o preço de deixar a prova do GRANT nomeada e óbvia, em vez de implícita.
+     *
+     * A garantia de fundo: sem este teste (ou o equivalente dentro de `testRecusaInsert`), a
+     * spec inteira ficaria apoiada só no `SET` — que é sessão, não permissão, e qualquer
+     * chamador desfaz com um `SET` comum, sem privilégio nenhum.
+     */
+    public function testGrantRecusaEscritaMesmoComOReadOnlyDaSessaoDesligado(): void
+    {
+        $conexao = new ConexaoLeitura(self::$dsnLeitura);
+        $conexao->conexao()->executeStatement('SET default_transaction_read_only = off');
+
+        $this->expectException(\Doctrine\DBAL\Exception::class);
+        $this->expectExceptionMessageMatches('/permission denied/i');
+
+        $conexao->conexao()->executeStatement(
+            'INSERT INTO tenant (name, is_active, created_at) VALUES (\'invasor\', true, now())',
+        );
     }
 
     public function testLeituraFunciona(): void
