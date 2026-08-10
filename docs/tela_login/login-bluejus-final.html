@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Entrar — BlueJus</title>
+
+<!-- o ceu e o primeiro pixel visivel: pre-carrega para nao piscar -->
+<link rel="preload" as="image" href="ceu-hero-2560.avif" fetchpriority="high">
+
+<style>
+/* ==========================================================================
+   BlueJus — tela de entrada
+   Regras que valem para esta tela por ela ser um login:
+   1. o formulário é utilizável desde o primeiro quadro; a animação nunca
+      bloqueia digitação, clique ou preenchimento automático do navegador;
+   2. a animação roda uma vez por sessão e é abortada na primeira interação;
+   3. só se anima opacity / transform / filter — nada que cause reflow;
+   4. quem pediu menos movimento no sistema não recebe nenhum.
+   ========================================================================== */
+
+:root{
+  --ink:#1a202c; --soft:#4a5568; --line:#e2e8f0;
+  --azul:#0d6efd; --azul-esc:#1d6fb8; --erro:#c0392b;
+  --raio:12px;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; font:16px/1.55 -apple-system,system-ui,"Segoe UI",Roboto,Arial,sans-serif;
+  color:var(--ink); background:#cfe6fb; overflow:hidden;
+}
+
+/* ---------------------------------------------------------------- céu ---- */
+.ceu{position:fixed; inset:0; z-index:0; overflow:hidden}
+.ceu__cam{
+  position:absolute; inset:0; width:100%; height:100%;
+  object-fit:cover; transform-origin:center; will-change:transform;
+  backface-visibility:hidden;
+}
+.ceu__cam--1{animation:deriva-1 71s linear infinite}
+.ceu__cam--2{
+  mix-blend-mode:soft-light; opacity:.55;
+  animation:deriva-2 97s linear infinite, respira 61s ease-in-out infinite;
+}
+@keyframes deriva-1{
+  0%  {transform:translate(-2.4%,-1.9%) rotate(.5deg)  scale(1.24)}
+  25% {transform:translate(1.9%,-2.4%)  rotate(-.4deg) scale(1.30)}
+  50% {transform:translate(2.4%,1.9%)   rotate(.5deg)  scale(1.22)}
+  75% {transform:translate(-1.9%,2.4%)  rotate(-.5deg) scale(1.28)}
+  100%{transform:translate(-2.4%,-1.9%) rotate(.5deg)  scale(1.24)}
+}
+@keyframes deriva-2{
+  0%  {transform:scaleX(-1) translate(2.0%,2.2%)  rotate(-1.6deg) scale(1.40)}
+  33% {transform:scaleX(-1) translate(-2.2%,1.4%) rotate(1.8deg)  scale(1.46)}
+  66% {transform:scaleX(-1) translate(-1.4%,-2.2%) rotate(-1.2deg) scale(1.38)}
+  100%{transform:scaleX(-1) translate(2.0%,2.2%)  rotate(-1.6deg) scale(1.40)}
+}
+@keyframes respira{0%,100%{opacity:.42}40%{opacity:.66}70%{opacity:.50}}
+
+/* véu: garante contraste do cartão em qualquer ponto do ciclo */
+.ceu::after{
+  content:""; position:absolute; inset:0;
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(255,255,255,0) 0%, rgba(255,255,255,.30) 72%),
+    linear-gradient(180deg, rgba(255,255,255,.05) 0%, rgba(255,255,255,.40) 100%);
+}
+
+/* -------------------------------------------------------------- cartão ---- */
+.tela{position:relative; z-index:1; min-height:100%; display:grid; place-items:center; padding:28px}
+.cartao{
+  width:100%; max-width:392px; background:#fff; border-radius:var(--raio);
+  box-shadow:0 22px 52px -16px rgba(13,43,69,.30); overflow:hidden; text-align:center;
+}
+.cartao__topo{background:#f8f9fa; padding:26px 30px 18px; border-bottom:1px solid #eef1f5}
+.logo{display:block; height:52px; width:auto; margin:0 auto 12px}
+h1{font-size:1.36rem; font-weight:700; letter-spacing:-.01em; margin:0 0 4px}
+.sub{margin:0; color:var(--soft); font-size:.92rem}
+.cartao__corpo{padding:22px 30px 26px; text-align:left}
+
+.campo{margin:0 0 15px}
+.campo label{display:block; font-size:.86rem; font-weight:500; margin:0 0 6px}
+.entrada{position:relative}
+input[type=email],input[type=password],input[type=text].senha{
+  width:100%; padding:11px 13px; font:inherit; font-size:.95rem; color:var(--ink);
+  background:#fff; border:1px solid var(--line); border-radius:9px;
+  transition:border-color .16s ease, box-shadow .16s ease;
+}
+input:focus-visible{outline:none; border-color:var(--azul); box-shadow:0 0 0 3px rgba(13,110,253,.16)}
+input[aria-invalid="true"]{border-color:var(--erro)}
+.olho{
+  position:absolute; right:6px; top:50%; transform:translateY(-50%);
+  width:34px; height:34px; display:grid; place-items:center;
+  background:none; border:0; border-radius:8px; cursor:pointer; color:var(--soft);
+}
+.olho:hover{background:#f1f5f9; color:var(--ink)}
+.olho svg{width:18px; height:18px}
+
+.aviso{margin:6px 0 0; font-size:.8rem; color:#a15c00; display:none}
+.aviso.on{display:block}
+.erro{
+  margin:0 0 14px; padding:9px 12px; font-size:.87rem; border-radius:9px;
+  background:#fdecea; color:var(--erro); border:1px solid #f5c6c2; display:none;
+}
+.erro.on{display:block}
+
+.linha{display:flex; align-items:center; justify-content:space-between; margin:2px 0 18px; font-size:.87rem}
+.check{display:flex; align-items:center; gap:8px; cursor:pointer}
+.linha a{color:var(--azul-esc); text-decoration:none}
+.linha a:hover{text-decoration:underline}
+
+.entrar{
+  width:100%; padding:12px; font:inherit; font-size:.98rem; font-weight:600; color:#fff;
+  background:var(--azul); border:0; border-radius:9px; cursor:pointer;
+  display:flex; align-items:center; justify-content:center; gap:9px;
+  transition:background .16s ease, transform .16s ease;
+}
+.entrar:hover{background:#0b5ed7}
+.entrar:active{transform:translateY(1px)}
+.entrar[aria-busy="true"]{pointer-events:none; opacity:.72}
+.entrar svg{width:17px; height:17px}
+.rodape-cartao{margin:15px 0 0; text-align:center; font-size:.87rem; color:var(--soft)}
+.rodape-cartao a{color:var(--azul-esc); text-decoration:none; font-weight:500}
+
+/* ------------------------------------------------ rodapé legal + redes ---- */
+.rodape{
+  position:fixed; left:44px; bottom:44px; z-index:2;
+  display:flex; align-items:center; gap:18px;
+  font-size:.85rem; color:var(--soft);
+}
+.rodape a{color:inherit; text-decoration:none}
+.rodape a:hover{text-decoration:underline}
+.rodape__sep{opacity:.42}
+.redes{display:flex; align-items:center; gap:20px}
+.redes a{
+  display:grid; place-items:center; width:22px; height:22px; color:var(--ink); opacity:.55;
+  transition:opacity .18s ease, color .18s ease, transform .18s ease;
+}
+.redes a:hover,.redes a:focus-visible{opacity:1; transform:translateY(-2px)}
+.redes a[data-rede="linkedin"]:hover{color:#0a66c2}
+.redes a[data-rede="instagram"]:hover{color:#c13584}
+.redes svg{width:20px; height:20px; fill:currentColor}
+
+/* ---------------------------------------------------------- suporte ------ */
+.suporte{position:fixed; right:44px; bottom:44px; z-index:3}
+.suporte__btn{
+  display:flex; align-items:center; height:58px; padding:0; border:0; cursor:pointer;
+  background:rgba(255,255,255,.95); color:var(--ink);
+  border-radius:29px; box-shadow:0 10px 26px -8px rgba(13,43,69,.42);
+  font:inherit; font-size:.94rem; font-weight:600;
+  max-width:58px; overflow:hidden; white-space:nowrap;
+  transition:max-width .42s cubic-bezier(.16,.84,.28,1), box-shadow .2s ease;
+  flex-direction:row-reverse;
+}
+.suporte__btn:hover,.suporte__btn:focus-visible,.suporte__btn.aberto{max-width:250px}
+.suporte__btn:hover{box-shadow:0 14px 30px -8px rgba(13,43,69,.5)}
+.suporte__icone{
+  flex:0 0 58px; width:58px; height:58px; display:grid; place-items:center;
+  background:var(--azul-esc); border-radius:50%; color:#fff;
+}
+.suporte__icone svg{width:24px; height:24px; fill:currentColor}
+.suporte__texto{padding:0 6px 0 18px}
+/* halo discreto, duas vezes, só depois que o botão já entrou */
+.suporte__halo{
+  position:absolute; right:0; bottom:0; width:58px; height:58px; border-radius:50%;
+  border:2px solid var(--azul-esc); opacity:0; pointer-events:none;
+}
+.anim .suporte__halo{animation:halo 1s 6.4s ease-out 2}
+@keyframes halo{from{transform:scale(1); opacity:.55} to{transform:scale(2.3); opacity:0}}
+
+/* ============================ COREOGRAFIA ================================
+   Só roda quando <body class="anim">. O JS remove a classe na primeira
+   interação e não a aplica se a sessão já viu a animação.
+   ======================================================================== */
+.anim .cartao{opacity:0; animation:c-entra .90s .35s cubic-bezier(.16,.84,.28,1) both}
+@keyframes c-entra{from{opacity:0; transform:translateY(26px) scale(.985)} to{opacity:1; transform:none}}
+
+.anim .logo,
+.anim h1,
+.anim .sub,
+.anim .campo,
+.anim .linha,
+.anim .entrar,
+.anim .rodape-cartao{opacity:0; animation:b-entra .55s cubic-bezier(.16,.84,.28,1) both}
+@keyframes b-entra{from{opacity:0; transform:translateY(13px); filter:blur(4px)} to{opacity:1; transform:none; filter:none}}
+.anim .logo          {animation-delay:.90s}
+.anim h1             {animation-delay:1.30s}
+.anim .sub           {animation-delay:1.55s}
+.anim .campo:nth-of-type(1){animation-delay:1.70s}
+.anim .campo:nth-of-type(2){animation-delay:1.82s}
+.anim .linha         {animation-delay:1.94s}
+.anim .entrar        {animation-delay:2.06s}
+.anim .rodape-cartao {animation-delay:2.20s}
+
+/* brilho do céu atravessando o título, uma única vez */
+.anim h1{
+  background:linear-gradient(100deg,#1a202c 0 40%,#4facee 50%,#1a202c 60% 100%);
+  background-size:280% 100%; background-position:135% 0;
+  -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+  animation:b-entra .55s 1.30s cubic-bezier(.16,.84,.28,1) both,
+            brilho 1.40s 2.72s ease-in-out forwards;
+}
+@keyframes brilho{to{background-position:-40% 0}}
+
+.anim .rodape{opacity:0; animation:b-entra .50s 4.10s cubic-bezier(.16,.84,.28,1) both}
+.anim .suporte{opacity:0; animation:s-entra .60s 4.70s cubic-bezier(.16,.84,.28,1) both}
+@keyframes s-entra{from{opacity:0; transform:translateX(96px) scale(.86)} to{opacity:1; transform:none}}
+
+/* ------------------------------------------------ acessibilidade --------- */
+@media (prefers-reduced-motion: reduce){
+  .ceu__cam{animation:none !important; transform:scale(1.08)}
+  .anim *{animation:none !important; opacity:1 !important; transform:none !important; filter:none !important}
+  .anim h1{-webkit-text-fill-color:var(--ink); background:none}
+  .suporte__btn{transition:none}
+}
+:focus-visible{outline:2px solid var(--azul); outline-offset:2px; border-radius:4px}
+.sr{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap}
+
+@media (max-width:640px){
+  .rodape{left:20px; bottom:18px; gap:12px; font-size:.78rem; flex-wrap:wrap; max-width:62vw}
+  .suporte{right:18px; bottom:18px}
+}
+</style>
+</head>
+
+<body class="anim">
+
+<!-- ------------------------------------------------------------- céu ---- -->
+<div class="ceu" aria-hidden="true">
+  <img class="ceu__cam ceu__cam--1" src="ceu-hero-2560.avif" alt="" decoding="async" fetchpriority="high">
+  <img class="ceu__cam ceu__cam--2" src="ceu-hero-1920.avif" alt="" decoding="async">
+</div>
+
+<!-- ---------------------------------------------------------- cartão ---- -->
+<main class="tela">
+  <form class="cartao" id="form" novalidate autocomplete="on">
+    <div class="cartao__topo">
+      <img class="logo" src="bluejus-logo.png" alt="BlueJus — sistema de gestão jurídica e de arquivos" width="211" height="70">
+      <h1>Bem-vindo de volta</h1>
+      <p class="sub">Acesse sua conta para continuar</p>
+    </div>
+
+    <div class="cartao__corpo">
+      <p class="erro" id="erro" role="alert" aria-live="assertive"></p>
+
+      <div class="campo">
+        <label for="email">E-mail</label>
+        <div class="entrada">
+          <input id="email" name="email" type="email" autocomplete="username"
+                 inputmode="email" spellcheck="false" autocapitalize="none"
+                 autofocus required placeholder="nome@escritorio.com.br">
+        </div>
+      </div>
+
+      <div class="campo">
+        <label for="senha">Senha</label>
+        <div class="entrada">
+          <input id="senha" name="senha" type="password" autocomplete="current-password" required>
+          <button class="olho" id="olho" type="button" aria-label="Mostrar senha" aria-pressed="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>
+            </svg>
+          </button>
+        </div>
+        <p class="aviso" id="caps">Caps Lock está ativado.</p>
+      </div>
+
+      <div class="linha">
+        <label class="check"><input type="checkbox" name="lembrar"> Manter conectado</label>
+        <a href="/recuperar-senha">Esqueceu a senha?</a>
+      </div>
+
+      <button class="entrar" type="submit" id="entrar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round">
+          <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/>
+        </svg>
+        <span>Entrar</span>
+      </button>
+
+      <p class="rodape-cartao">Não tem conta? <a href="/criar-conta">Criar minha conta e escritório</a></p>
+    </div>
+  </form>
+</main>
+
+<!-- ------------------------------------ rodapé: legais + redes (2 apenas) -->
+<footer class="rodape">
+  <span>© 2026 BlueJus</span>
+  <span class="rodape__sep">·</span>
+  <a href="/termos">Termos</a>
+  <span class="rodape__sep">·</span>
+  <a href="/privacidade">Privacidade</a>
+  <span class="rodape__sep">·</span>
+  <nav class="redes" aria-label="Redes sociais">
+    <a href="https://www.linkedin.com/company/bluejus" data-rede="linkedin"
+       target="_blank" rel="noopener noreferrer" title="LinkedIn" aria-label="BlueJus no LinkedIn">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.4 20.4h-3.5v-5.5c0-1.3 0-3-1.8-3s-2.1 1.4-2.1 2.9v5.6H9.5V9h3.4v1.6h.1a3.7 3.7 0 0 1 3.3-1.8c3.6 0 4.2 2.3 4.2 5.4v6.2zM5.6 7.4a2 2 0 1 1 0-4.1 2 2 0 0 1 0 4.1zM7.3 20.4H3.8V9h3.5v11.4zM22.2 0H1.8C.8 0 0 .8 0 1.7v20.6c0 .9.8 1.7 1.8 1.7h20.4c1 0 1.8-.8 1.8-1.7V1.7c0-.9-.8-1.7-1.8-1.7z"/></svg>
+    </a>
+    <a href="https://www.instagram.com/bluejus" data-rede="instagram"
+       target="_blank" rel="noopener noreferrer" title="Instagram" aria-label="BlueJus no Instagram">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.2c3.2 0 3.6 0 4.9.1 1.2.1 1.8.3 2.2.4.6.2 1 .5 1.4.9.4.4.7.8.9 1.4.2.4.4 1 .4 2.2.1 1.3.1 1.7.1 4.9s0 3.6-.1 4.9c-.1 1.2-.3 1.8-.4 2.2-.2.6-.5 1-.9 1.4-.4.4-.8.7-1.4.9-.4.2-1 .4-2.2.4-1.3.1-1.7.1-4.9.1s-3.6 0-4.9-.1c-1.2-.1-1.8-.3-2.2-.4-.6-.2-1-.5-1.4-.9-.4-.4-.7-.8-.9-1.4-.2-.4-.4-1-.4-2.2C2.2 15.6 2.2 15.2 2.2 12s0-3.6.1-4.9c.1-1.2.3-1.8.4-2.2.2-.6.5-1 .9-1.4.4-.4.8-.7 1.4-.9.4-.2 1-.4 2.2-.4 1.3-.1 1.7-.1 4.8-.1M12 0C8.7 0 8.3 0 7 .1 5.7.1 4.8.3 4.1.6c-.8.3-1.4.7-2.1 1.4C1.3 2.7.9 3.3.6 4.1.3 4.8.1 5.7.1 7 0 8.3 0 8.7 0 12s0 3.7.1 5c.1 1.3.2 2.2.5 2.9.3.8.7 1.4 1.4 2.1.7.7 1.3 1.1 2.1 1.4.7.3 1.6.5 2.9.5 1.3.1 1.7.1 5 .1s3.7 0 5-.1c1.3-.1 2.2-.2 2.9-.5.8-.3 1.4-.7 2.1-1.4.7-.7 1.1-1.3 1.4-2.1.3-.7.5-1.6.5-2.9.1-1.3.1-1.7.1-5s0-3.7-.1-5c-.1-1.3-.2-2.2-.5-2.9-.3-.8-.7-1.4-1.4-2.1C21.3 1.3 20.7.9 19.9.6c-.7-.3-1.6-.5-2.9-.5C15.7 0 15.3 0 12 0zm0 5.8a6.2 6.2 0 1 0 0 12.4 6.2 6.2 0 0 0 0-12.4zm0 10.2a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm7.8-10.4a1.4 1.4 0 1 1-2.9 0 1.4 1.4 0 0 1 2.9 0z"/></svg>
+    </a>
+  </nav>
+</footer>
+
+<!-- --------------------------------------------------------- suporte ---- -->
+<div class="suporte">
+  <span class="suporte__halo" aria-hidden="true"></span>
+  <button class="suporte__btn" id="suporte" type="button" aria-label="Falar com suporte">
+    <span class="suporte__icone" aria-hidden="true">
+      <svg viewBox="0 0 24 24"><path d="M20 2H4a2 2 0 0 0-2 2v18l4-4h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2zM7 11a1.4 1.4 0 1 1 0-2.8A1.4 1.4 0 0 1 7 11zm5 0a1.4 1.4 0 1 1 0-2.8A1.4 1.4 0 0 1 12 11zm5 0a1.4 1.4 0 1 1 0-2.8A1.4 1.4 0 0 1 17 11z"/></svg>
+    </span>
+    <span class="suporte__texto" id="suporteTexto">Falar com suporte</span>
+  </button>
+</div>
+
+<script>
+(() => {
+  const body = document.body;
+  const CHAVE = 'bj:animacao-vista';
+
+  /* 1. a animação roda uma vez por sessão -------------------------------- */
+  if (sessionStorage.getItem(CHAVE)) body.classList.remove('anim');
+  else sessionStorage.setItem(CHAVE, '1');
+
+  /* 2. qualquer interação aborta a animação: quem já está digitando não
+        pode ver o campo se mexendo debaixo do cursor ---------------------- */
+  const abortar = () => body.classList.remove('anim');
+  ['pointerdown','keydown','wheel','touchstart'].forEach(
+    e => window.addEventListener(e, abortar, {once:true, passive:true}));
+
+  /* 3. o preenchimento automático do navegador também aborta ------------- */
+  setTimeout(() => {
+    if (document.getElementById('email').value) abortar();
+  }, 120);
+
+  /* 4. suporte: expande sozinho uma vez, e reage a falhas de login ------- */
+  const sup = document.getElementById('suporte');
+  const supTxt = document.getElementById('suporteTexto');
+  if (body.classList.contains('anim')) {
+    setTimeout(() => sup.classList.add('aberto'), 5400);
+    setTimeout(() => sup.classList.remove('aberto'), 7450);
+  }
+  sup.addEventListener('click', () => {
+    /* trocar pela abertura real do canal de atendimento */
+    window.location.href = '/suporte';
+  });
+
+  /* 5. mostrar / ocultar senha ------------------------------------------- */
+  const senha = document.getElementById('senha');
+  const olho = document.getElementById('olho');
+  olho.addEventListener('click', () => {
+    const mostrando = senha.type === 'text';
+    senha.type = mostrando ? 'password' : 'text';
+    olho.setAttribute('aria-pressed', String(!mostrando));
+    olho.setAttribute('aria-label', mostrando ? 'Mostrar senha' : 'Ocultar senha');
+    senha.focus();
+  });
+
+  /* 6. aviso de Caps Lock: causa comum de falha de login ----------------- */
+  const caps = document.getElementById('caps');
+  senha.addEventListener('keyup', e => {
+    caps.classList.toggle('on', e.getModifierState && e.getModifierState('CapsLock'));
+  });
+  senha.addEventListener('blur', () => caps.classList.remove('on'));
+
+  /* 7. envio, estado de carregando e erro acessível ---------------------- */
+  const form = document.getElementById('form');
+  const erro = document.getElementById('erro');
+  const btn  = document.getElementById('entrar');
+  let falhas = 0;
+
+  form.addEventListener('submit', ev => {
+    ev.preventDefault();
+    erro.classList.remove('on');
+    document.getElementById('email').setAttribute('aria-invalid','false');
+    senha.setAttribute('aria-invalid','false');
+
+    if (!form.checkValidity()) {
+      mostrarErro('Confira o e-mail e a senha antes de continuar.');
+      return;
+    }
+    btn.setAttribute('aria-busy','true');
+    btn.querySelector('span').textContent = 'Entrando…';
+
+    /* ---- substituir pela chamada real de autenticação ---- */
+    setTimeout(() => {
+      btn.removeAttribute('aria-busy');
+      btn.querySelector('span').textContent = 'Entrar';
+      mostrarErro('E-mail ou senha incorretos.');
+    }, 900);
+  });
+
+  function mostrarErro(msg){
+    falhas++;
+    erro.textContent = msg;
+    erro.classList.add('on');
+    document.getElementById('email').setAttribute('aria-invalid','true');
+    senha.setAttribute('aria-invalid','true');
+    senha.value = '';
+    senha.focus();
+    /* na segunda falha o suporte deixa de ser enfeite e vira função */
+    if (falhas >= 2) {
+      supTxt.textContent = 'Precisa de ajuda para entrar?';
+      sup.setAttribute('aria-label','Precisa de ajuda para entrar?');
+      sup.classList.add('aberto');
+    }
+  }
+})();
+</script>
+</body>
+</html>

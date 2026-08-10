@@ -2,85 +2,457 @@
 
 {% block title %}Entrar — BlueJus{% endblock %}
 
+{% block head_meta %}
+    {# O céu é o primeiro pixel visível: pré-carrega para não piscar. #}
+    <link rel="preload" as="image" href="/images/fundo/ceu-hero-2560.avif" fetchpriority="high">
+{% endblock %}
+
 {% block stylesheets %}
-{% include '_fundo_auth.html.twig' %}
 <style>
-.login-wrap {
-    min-height: calc(100vh - 120px);
-    display: flex; align-items: center; justify-content: center; padding: 1.5rem;
+/* ==========================================================================
+   BlueJus — tela de entrada.
+
+   Regras que valem para esta tela por ela ser um login:
+   1. o formulário é utilizável desde o primeiro quadro; a animação nunca
+      bloqueia digitação, clique ou preenchimento automático do navegador;
+   2. a animação roda uma vez por sessão e é abortada na primeira interação;
+   3. só se anima opacity / transform / filter — nada que cause reflow;
+   4. quem pediu menos movimento no sistema não recebe nenhum.
+
+   A tela é SEMPRE clara, mesmo com o sistema no tema escuro: as cores abaixo
+   são cravadas e não saem das variáveis do Bootstrap. Por isso ela também não
+   inclui `_fundo_auth.html.twig` (que traz o céu estático e o escurecimento do
+   tema escuro) — o céu daqui é outro. As demais telas de auth seguem com ele.
+   ========================================================================== */
+
+.login-raiz{
+  --ink:#1a202c; --soft:#4a5568; --line:#e2e8f0;
+  --azul:#0d6efd; --azul-esc:#1d6fb8; --erro:#c0392b;
+  --raio:12px;
+  color:var(--ink);
 }
-.login-card {
-    width: 100%; max-width: 420px; border: 1px solid var(--bs-border-color);
-    border-radius: 1rem; background: var(--bs-body-bg);
-    /* Sombra mais firme que a original: sobre o céu, a sombra fraca sumia. */
-    box-shadow: 0 18px 48px rgba(1,42,70,.22); overflow: hidden;
+
+/* "Sempre clara" precisa valer também para o que o NAVEGADOR pinta: caixa de seleção
+   nativa, preenchimento automático do Chrome e barra de rolagem. Quem desloga com o
+   tema escuro salvo carrega `data-bs-theme="dark"` no <html>, e o AdminLTE traz
+   `color-scheme:dark` junto — o checkbox "Manter conectado" saía escuro dentro do
+   cartão branco. O <meta> não serve aqui: o do base.html.twig vem antes e vence. */
+html:has(.login-raiz), .login-raiz{color-scheme:light}
+
+/* As mensagens flash (ex.: "Senha redefinida!") nascem fora da .login-raiz, como
+   filhas diretas do .no-sidebar, e não são posicionadas — sem isto o céu, que é
+   `position:fixed`, pintaria por cima delas. */
+.no-sidebar > .alert{position:relative; z-index:2}
+
+/* ---------------------------------------------------------------- céu ---- */
+.ceu{position:fixed; inset:0; z-index:0; overflow:hidden; background:#cfe6fb}
+.ceu__cam{
+  position:absolute; inset:0; width:100%; height:100%;
+  object-fit:cover; transform-origin:center; will-change:transform;
+  backface-visibility:hidden;
 }
-.login-head {
-    text-align: center; padding: 2rem 1.75rem 1.25rem;
-    background: var(--bs-tertiary-bg); border-bottom: 1px solid var(--bs-border-color);
+.ceu__cam--1{animation:deriva-1 71s linear infinite}
+.ceu__cam--2{
+  mix-blend-mode:soft-light; opacity:.55;
+  animation:deriva-2 97s linear infinite, respira 61s ease-in-out infinite;
 }
-.login-logo { height: 54px; width: auto; max-width: 80%; margin-bottom: 1rem; }
-/* No tema escuro, a logo (texto escuro) perderia contraste → renderiza em branco. */
-[data-bs-theme="dark"] .login-logo { filter: brightness(0) invert(1); opacity: .92; }
-.login-title { font-weight: 700; font-size: 1.3rem; margin: 0; }
-.login-sub { color: var(--bs-secondary-color); font-size: .88rem; margin: .25rem 0 0; }
-.login-body { padding: 1.5rem 1.75rem 1.75rem; }
-.login-forgot { font-size: .88rem; color: #0078AA; text-decoration: none; }
-.login-forgot:hover { text-decoration: underline; }
-.login-extra { text-align: center; margin-top: 1.1rem; font-size: .9rem; color: var(--bs-secondary-color); }
-.login-extra a { color: #0078AA; text-decoration: none; font-weight: 500; }
-.login-extra a:hover { text-decoration: underline; }
+@keyframes deriva-1{
+  0%  {transform:translate(-2.4%,-1.9%) rotate(.5deg)  scale(1.24)}
+  25% {transform:translate(1.9%,-2.4%)  rotate(-.4deg) scale(1.30)}
+  50% {transform:translate(2.4%,1.9%)   rotate(.5deg)  scale(1.22)}
+  75% {transform:translate(-1.9%,2.4%)  rotate(-.5deg) scale(1.28)}
+  100%{transform:translate(-2.4%,-1.9%) rotate(.5deg)  scale(1.24)}
+}
+@keyframes deriva-2{
+  0%  {transform:scaleX(-1) translate(2.0%,2.2%)   rotate(-1.6deg) scale(1.40)}
+  33% {transform:scaleX(-1) translate(-2.2%,1.4%)  rotate(1.8deg)  scale(1.46)}
+  66% {transform:scaleX(-1) translate(-1.4%,-2.2%) rotate(-1.2deg) scale(1.38)}
+  100%{transform:scaleX(-1) translate(2.0%,2.2%)   rotate(-1.6deg) scale(1.40)}
+}
+@keyframes respira{0%,100%{opacity:.42}40%{opacity:.66}70%{opacity:.50}}
+
+/* Véu: garante contraste do cartão em qualquer ponto do ciclo. */
+.ceu::after{
+  content:""; position:absolute; inset:0;
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(255,255,255,0) 0%, rgba(255,255,255,.30) 72%),
+    linear-gradient(180deg, rgba(255,255,255,.05) 0%, rgba(255,255,255,.40) 100%);
+}
+
+/* -------------------------------------------------------------- cartão ---- */
+/* `min-height` e não `height`: em viewport baixo (celular deitado, janela curta)
+   a tela precisa ROLAR. O modelo trancava com `overflow:hidden` no body e o botão
+   Entrar ficava inalcançável. */
+.login-tela{
+  position:relative; z-index:1;
+  min-height:100vh; display:grid; place-items:center; padding:28px;
+}
+.cartao{
+  width:100%; max-width:392px; background:#fff; border-radius:var(--raio);
+  box-shadow:0 22px 52px -16px rgba(13,43,69,.30); overflow:hidden; text-align:center;
+}
+.cartao__topo{background:#f8f9fa; padding:26px 30px 18px; border-bottom:1px solid #eef1f5}
+.cartao__logo{display:block; height:52px; width:auto; margin:0 auto 12px}
+.cartao__titulo{font-size:1.36rem; font-weight:700; letter-spacing:-.01em; margin:0 0 4px; color:var(--ink)}
+.cartao__sub{margin:0; color:var(--soft); font-size:.92rem}
+.cartao__corpo{padding:22px 30px 26px; text-align:left}
+
+.campo{margin:0 0 15px}
+.campo label{display:block; font-size:.86rem; font-weight:500; margin:0 0 6px; color:var(--ink)}
+.entrada{position:relative}
+.login-raiz input[type=email],
+.login-raiz input[type=password],
+.login-raiz input[type=text].senha{
+  width:100%; padding:11px 13px; font:inherit; font-size:.95rem; color:var(--ink);
+  background:#fff; border:1px solid var(--line); border-radius:9px;
+  transition:border-color .16s ease, box-shadow .16s ease;
+}
+/* O olho ocupa 34px na direita: sem esta folga a senha longa passa por baixo dele. */
+.login-raiz input#senha,
+.login-raiz input[type=text].senha{padding-right:46px}
+.login-raiz input:focus-visible{outline:none; border-color:var(--azul); box-shadow:0 0 0 3px rgba(13,110,253,.16)}
+.login-raiz input[aria-invalid="true"]{border-color:var(--erro)}
+.olho{
+  position:absolute; right:6px; top:50%; transform:translateY(-50%);
+  width:34px; height:34px; display:grid; place-items:center;
+  background:none; border:0; border-radius:8px; cursor:pointer; color:var(--soft);
+}
+.olho:hover{background:#f1f5f9; color:var(--ink)}
+.olho svg{width:18px; height:18px}
+
+.aviso{margin:6px 0 0; font-size:.8rem; color:#a15c00; display:none}
+.aviso.on{display:block}
+.cartao__erro{
+  margin:0 0 14px; padding:9px 12px; font-size:.87rem; border-radius:9px;
+  background:#fdecea; color:var(--erro); border:1px solid #f5c6c2;
+}
+
+.linha{display:flex; align-items:center; justify-content:space-between; margin:2px 0 18px; font-size:.87rem}
+/* `margin:0; font-weight:400` não é desvio do desenho, é o que o mantém: o Bootstrap
+   dá `margin-bottom` e peso próprio a todo <label>, e sem zerar aqui a linha desalinha. */
+.check{display:flex; align-items:center; gap:8px; cursor:pointer; margin:0; font-weight:400}
+.linha a{color:var(--azul-esc); text-decoration:none}
+.linha a:hover{text-decoration:underline}
+
+.entrar{
+  width:100%; padding:12px; font:inherit; font-size:.98rem; font-weight:600; color:#fff;
+  background:var(--azul); border:0; border-radius:9px; cursor:pointer;
+  display:flex; align-items:center; justify-content:center; gap:9px;
+  transition:background .16s ease, transform .16s ease;
+}
+.entrar:hover{background:#0b5ed7}
+.entrar:active{transform:translateY(1px)}
+.entrar[aria-busy="true"]{pointer-events:none; opacity:.72}
+.entrar svg{width:17px; height:17px}
+.rodape-cartao{margin:15px 0 0; text-align:center; font-size:.87rem; color:var(--soft)}
+.rodape-cartao a{color:var(--azul-esc); text-decoration:none; font-weight:500}
+
+/* ------------------------------------------------ rodapé legal + redes ---- */
+.login-rodape{
+  position:fixed; left:44px; bottom:44px; z-index:2;
+  display:flex; align-items:center; gap:18px;
+  font-size:.85rem; color:var(--soft);
+}
+.login-rodape a{color:inherit; text-decoration:none}
+.login-rodape a:hover{text-decoration:underline}
+.login-rodape__sep{opacity:.42}
+.redes{display:flex; align-items:center; gap:20px}
+.redes a{
+  display:grid; place-items:center; width:22px; height:22px; color:var(--ink); opacity:.55;
+  transition:opacity .18s ease, color .18s ease, transform .18s ease;
+}
+.redes a:hover,.redes a:focus-visible{opacity:1; transform:translateY(-2px)}
+.redes a[data-rede="linkedin"]:hover{color:#0a66c2}
+.redes a[data-rede="instagram"]:hover{color:#c13584}
+.redes svg{width:20px; height:20px; fill:currentColor}
+
+/* ---------------------------------------------------------- suporte ------ */
+.login-suporte{position:fixed; right:44px; bottom:44px; z-index:3}
+.suporte__btn{
+  display:flex; align-items:center; height:58px; padding:0; border:0; cursor:pointer;
+  background:rgba(255,255,255,.95); color:var(--ink); text-decoration:none;
+  border-radius:29px; box-shadow:0 10px 26px -8px rgba(13,43,69,.42);
+  font:inherit; font-size:.94rem; font-weight:600;
+  max-width:58px; overflow:hidden; white-space:nowrap;
+  transition:max-width .42s cubic-bezier(.16,.84,.28,1), box-shadow .2s ease;
+  flex-direction:row-reverse;
+}
+.suporte__btn:hover,.suporte__btn:focus-visible,.suporte__btn.aberto{max-width:250px}
+.suporte__btn:hover{box-shadow:0 14px 30px -8px rgba(13,43,69,.5); color:var(--ink)}
+.suporte__icone{
+  flex:0 0 58px; width:58px; height:58px; display:grid; place-items:center;
+  background:var(--azul-esc); border-radius:50%; color:#fff;
+}
+.suporte__icone svg{width:24px; height:24px; fill:currentColor}
+.suporte__texto{padding:0 6px 0 18px}
+/* Halo discreto, duas vezes, só depois que o botão já entrou. */
+.suporte__halo{
+  position:absolute; right:0; bottom:0; width:58px; height:58px; border-radius:50%;
+  border:2px solid var(--azul-esc); opacity:0; pointer-events:none;
+}
+.anim .suporte__halo{animation:halo 1s 6.4s ease-out 2}
+@keyframes halo{from{transform:scale(1); opacity:.55} to{transform:scale(2.3); opacity:0}}
+
+/* ============================ COREOGRAFIA ================================
+   Só roda com a classe `anim` na raiz. O JS a remove na primeira interação e
+   não a aplica se a sessão já viu a animação.
+   ======================================================================== */
+.anim .cartao{opacity:0; animation:c-entra .90s .35s cubic-bezier(.16,.84,.28,1) both}
+@keyframes c-entra{from{opacity:0; transform:translateY(26px) scale(.985)} to{opacity:1; transform:none}}
+
+.anim .cartao__logo,
+.anim .cartao__titulo,
+.anim .cartao__sub,
+.anim .campo,
+.anim .linha,
+.anim .entrar,
+.anim .rodape-cartao{opacity:0; animation:b-entra .55s cubic-bezier(.16,.84,.28,1) both}
+@keyframes b-entra{from{opacity:0; transform:translateY(13px); filter:blur(4px)} to{opacity:1; transform:none; filter:none}}
+.anim .cartao__logo   {animation-delay:.90s}
+.anim .cartao__titulo {animation-delay:1.30s}
+.anim .cartao__sub    {animation-delay:1.55s}
+.anim .campo--email   {animation-delay:1.70s}
+.anim .campo--senha   {animation-delay:1.82s}
+.anim .linha          {animation-delay:1.94s}
+.anim .entrar         {animation-delay:2.06s}
+.anim .rodape-cartao  {animation-delay:2.20s}
+
+/* Brilho do céu atravessando o título, uma única vez. */
+.anim .cartao__titulo{
+  background:linear-gradient(100deg,#1a202c 0 40%,#4facee 50%,#1a202c 60% 100%);
+  background-size:280% 100%; background-position:135% 0;
+  -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+  animation:b-entra .55s 1.30s cubic-bezier(.16,.84,.28,1) both,
+            brilho 1.40s 2.72s ease-in-out forwards;
+}
+@keyframes brilho{to{background-position:-40% 0}}
+
+.anim .login-rodape{opacity:0; animation:b-entra .50s 4.10s cubic-bezier(.16,.84,.28,1) both}
+.anim .login-suporte{opacity:0; animation:s-entra .60s 4.70s cubic-bezier(.16,.84,.28,1) both}
+@keyframes s-entra{from{opacity:0; transform:translateX(96px) scale(.86)} to{opacity:1; transform:none}}
+
+/* ------------------------------------------------ acessibilidade --------- */
+@media (prefers-reduced-motion: reduce){
+  .anim *{animation:none !important; opacity:1 !important; transform:none !important; filter:none !important}
+  /* DEPOIS do `.anim *` e com `!important`: as duas regras têm a MESMA especificidade
+     (0,1,0), então sem isto o `transform:none` do coringa vencia e o céu ficava sem o
+     zoom e sem o espelhamento enquanto a classe `anim` estava na raiz — e mudava de
+     aparência de uma vez quando o JS a removia. Justamente para quem pediu menos
+     movimento. O modelo tinha o mesmo defeito. */
+  .ceu__cam{animation:none !important; transform:scale(1.08) !important}
+  .ceu__cam--2{transform:scaleX(-1) scale(1.08) !important; opacity:.55 !important}
+  .anim .cartao__titulo{-webkit-text-fill-color:var(--ink); background:none}
+  .suporte__btn{transition:none}
+}
+.login-raiz :focus-visible{outline:2px solid var(--azul); outline-offset:2px; border-radius:4px}
+
+@media (max-width:640px){
+  .login-rodape{left:20px; bottom:18px; gap:12px; font-size:.78rem; flex-wrap:wrap; max-width:62vw}
+  .login-suporte{right:18px; bottom:18px}
+}
+/* Janela curta: o rodapé sai do `fixed` e volta ao fluxo, para não cobrir o cartão. */
+@media (max-height:640px){
+  .login-rodape{position:static; justify-content:center; padding:0 18px 20px; flex-wrap:wrap}
+  .login-tela{min-height:0; padding-bottom:24px}
+}
 </style>
 {% endblock %}
 
 {% block body %}
-<div class="login-wrap">
-    <div class="login-card">
-        <div class="login-head">
-            <img src="/images/logo/bluejus_logo.svg" alt="BlueJus" class="login-logo">
-            <h1 class="login-title">Bem-vindo de volta</h1>
-            <p class="login-sub">Acesse sua conta para continuar</p>
-        </div>
-        <div class="login-body">
-            {% if error %}
-                <div class="alert alert-danger d-flex align-items-center gap-2 py-2">
-                    <i class="bi bi-exclamation-circle-fill"></i>
-                    <span>{{ error.messageKey|trans(error.messageData, 'security') }}</span>
-                </div>
-            {% endif %}
+{% set suporte_ativo = suporte_form_url is not empty %}
 
-            <form method="post">
-                <div class="mb-3">
-                    <label for="inputEmail" class="form-label">E-mail</label>
-                    <input type="email" value="{{ last_username }}" name="email" id="inputEmail"
-                           class="form-control" required autofocus autocomplete="username">
+<div class="login-raiz anim" id="loginRaiz">
+
+    {# ------------------------------------------------------------- céu ---- #}
+    <div class="ceu" aria-hidden="true">
+        <img class="ceu__cam ceu__cam--1" src="/images/fundo/ceu-hero-2560.avif" alt="" decoding="async" fetchpriority="high">
+        <img class="ceu__cam ceu__cam--2" src="/images/fundo/ceu-hero-1920.avif" alt="" decoding="async">
+    </div>
+
+    {# ---------------------------------------------------------- cartão ---- #}
+    <div class="login-tela">
+        {# Sem `novalidate`: o POST é real, então quem barra campo vazio é o navegador —
+           o modelo validava no JS porque não enviava nada para lugar nenhum. #}
+        <form class="cartao" id="loginForm" method="post" autocomplete="on">
+            <div class="cartao__topo">
+                {# `width`/`height` declarados (proporção real do SVG, 1455×467 → 162×52):
+                   sem eles a largura só é conhecida depois do download e a logo salta
+                   para o lado no meio da coreografia. #}
+                <img src="/images/logo/bluejus_logo.svg" class="cartao__logo" width="162" height="52"
+                     alt="BlueJus — sistema de gestão jurídica e de arquivos">
+                <h1 class="cartao__titulo">Bem-vindo de volta</h1>
+                <p class="cartao__sub">Acesse sua conta para continuar</p>
+            </div>
+
+            <div class="cartao__corpo">
+                {% if error %}
+                    <p class="cartao__erro" role="alert">{{ error.messageKey|trans(error.messageData, 'security') }}</p>
+                {% endif %}
+
+                <div class="campo campo--email">
+                    <label for="inputEmail">E-mail</label>
+                    <div class="entrada">
+                        {# Depois de um erro o foco vai para a SENHA, não para o e-mail: é o
+                           campo que quase sempre errou, e é o que o modelo fazia. #}
+                        <input id="inputEmail" name="email" type="email" value="{{ last_username }}"
+                               autocomplete="username" inputmode="email" spellcheck="false"
+                               autocapitalize="none" required
+                               {% if not error %}autofocus{% endif %}
+                               placeholder="nome@escritorio.com.br"
+                               {% if error %}aria-invalid="true"{% endif %}>
+                    </div>
                 </div>
 
-                <div class="mb-3">
-                    <label for="inputPassword" class="form-label">Senha</label>
-                    <input type="password" name="password" id="inputPassword"
-                           class="form-control" required autocomplete="current-password">
+                <div class="campo campo--senha">
+                    <label for="senha">Senha</label>
+                    <div class="entrada">
+                        <input id="senha" name="password" type="password"
+                               autocomplete="current-password" required
+                               {% if error %}autofocus aria-invalid="true"{% endif %}>
+                        <button class="olho" id="olho" type="button" aria-label="Mostrar senha" aria-pressed="false">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>
+                            </svg>
+                        </button>
+                    </div>
+                    {# `aria-live` porque o aviso aparece SEM o usuário pedir: quem usa leitor de
+                       tela é justamente quem não vê a luz do Caps Lock no teclado. #}
+                    <p class="aviso" id="capsAviso" role="status" aria-live="polite">Caps Lock está ativado.</p>
                 </div>
 
                 <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
 
-                <div class="d-flex align-items-center justify-content-between mb-3">
-                    <div class="form-check mb-0">
-                        <input type="checkbox" name="_remember_me" id="rememberMe" class="form-check-input">
-                        <label for="rememberMe" class="form-check-label">Manter conectado</label>
-                    </div>
-                    <a href="{{ path('auth_senha_esqueci') }}" class="login-forgot">Esqueceu a senha?</a>
+                <div class="linha">
+                    <label class="check" for="rememberMe">
+                        <input type="checkbox" name="_remember_me" id="rememberMe"> Manter conectado
+                    </label>
+                    <a href="{{ path('auth_senha_esqueci') }}">Esqueceu a senha?</a>
                 </div>
 
-                <button class="btn btn-primary w-100" type="submit">
-                    <i class="bi bi-box-arrow-in-right me-1"></i> Entrar
+                <button class="entrar" type="submit" id="entrar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/>
+                    </svg>
+                    <span>Entrar</span>
                 </button>
-            </form>
 
-            <div class="login-extra">
-                Não tem conta? <a href="{{ path('auth_cadastro') }}">Criar minha conta e escritório</a>
+                <p class="rodape-cartao">Não tem conta? <a href="{{ path('auth_cadastro') }}">Criar minha conta e escritório</a></p>
             </div>
-        </div>
+        </form>
     </div>
+
+    {# --------------------------------- rodapé: legais + redes (2 apenas) --- #}
+    <footer class="login-rodape">
+        <span>© {{ 'now'|date('Y') }} BlueJus</span>
+        <span class="login-rodape__sep">·</span>
+        <a href="/termos/termos-de-uso.pdf" target="_blank" rel="noopener noreferrer">Termos</a>
+        <span class="login-rodape__sep">·</span>
+        {# Sem página de privacidade ainda: marcador, para ligar quando ela existir. #}
+        <a href="#">Privacidade</a>
+        <span class="login-rodape__sep">·</span>
+        <nav class="redes" aria-label="Redes sociais">
+            {# Perfis ainda não criados: marcadores, como combinado. #}
+            <a href="#" data-rede="linkedin" title="LinkedIn" aria-label="BlueJus no LinkedIn">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.4 20.4h-3.5v-5.5c0-1.3 0-3-1.8-3s-2.1 1.4-2.1 2.9v5.6H9.5V9h3.4v1.6h.1a3.7 3.7 0 0 1 3.3-1.8c3.6 0 4.2 2.3 4.2 5.4v6.2zM5.6 7.4a2 2 0 1 1 0-4.1 2 2 0 0 1 0 4.1zM7.3 20.4H3.8V9h3.5v11.4zM22.2 0H1.8C.8 0 0 .8 0 1.7v20.6c0 .9.8 1.7 1.8 1.7h20.4c1 0 1.8-.8 1.8-1.7V1.7c0-.9-.8-1.7-1.8-1.7z"/></svg>
+            </a>
+            <a href="#" data-rede="instagram" title="Instagram" aria-label="BlueJus no Instagram">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.2c3.2 0 3.6 0 4.9.1 1.2.1 1.8.3 2.2.4.6.2 1 .5 1.4.9.4.4.7.8.9 1.4.2.4.4 1 .4 2.2.1 1.3.1 1.7.1 4.9s0 3.6-.1 4.9c-.1 1.2-.3 1.8-.4 2.2-.2.6-.5 1-.9 1.4-.4.4-.8.7-1.4.9-.4.2-1 .4-2.2.4-1.3.1-1.7.1-4.9.1s-3.6 0-4.9-.1c-1.2-.1-1.8-.3-2.2-.4-.6-.2-1-.5-1.4-.9-.4-.4-.7-.8-.9-1.4-.2-.4-.4-1-.4-2.2C2.2 15.6 2.2 15.2 2.2 12s0-3.6.1-4.9c.1-1.2.3-1.8.4-2.2.2-.6.5-1 .9-1.4.4-.4.8-.7 1.4-.9.4-.2 1-.4 2.2-.4 1.3-.1 1.7-.1 4.8-.1M12 0C8.7 0 8.3 0 7 .1 5.7.1 4.8.3 4.1.6c-.8.3-1.4.7-2.1 1.4C1.3 2.7.9 3.3.6 4.1.3 4.8.1 5.7.1 7 0 8.3 0 8.7 0 12s0 3.7.1 5c.1 1.3.2 2.2.5 2.9.3.8.7 1.4 1.4 2.1.7.7 1.3 1.1 2.1 1.4.7.3 1.6.5 2.9.5 1.3.1 1.7.1 5 .1s3.7 0 5-.1c1.3-.1 2.2-.2 2.9-.5.8-.3 1.4-.7 2.1-1.4.7-.7 1.1-1.3 1.4-2.1.3-.7.5-1.6.5-2.9.1-1.3.1-1.7.1-5s0-3.7-.1-5c-.1-1.3-.2-2.2-.5-2.9-.3-.8-.7-1.4-1.4-2.1C21.3 1.3 20.7.9 19.9.6c-.7-.3-1.6-.5-2.9-.5C15.7 0 15.3 0 12 0zm0 5.8a6.2 6.2 0 1 0 0 12.4 6.2 6.2 0 0 0 0-12.4zm0 10.2a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm7.8-10.4a1.4 1.4 0 1 1-2.9 0 1.4 1.4 0 0 1 2.9 0z"/></svg>
+            </a>
+        </nav>
+    </footer>
+
+    {# --------------------------------------------------------- suporte ---- #}
+    <div class="login-suporte">
+        <span class="suporte__halo" aria-hidden="true"></span>
+        <a class="suporte__btn" id="suporte"
+           href="{{ suporte_ativo ? suporte_form_url : '#' }}"
+           {% if suporte_ativo %}target="_blank" rel="noopener noreferrer"{% endif %}
+           aria-label="Falar com suporte">
+            <span class="suporte__icone" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M20 2H4a2 2 0 0 0-2 2v18l4-4h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2zM7 11a1.4 1.4 0 1 1 0-2.8A1.4 1.4 0 0 1 7 11zm5 0a1.4 1.4 0 1 1 0-2.8A1.4 1.4 0 0 1 12 11zm5 0a1.4 1.4 0 1 1 0-2.8A1.4 1.4 0 0 1 17 11z"/></svg>
+            </span>
+            <span class="suporte__texto">Falar com suporte</span>
+        </a>
+    </div>
+
 </div>
+{% endblock %}
+
+{% block javascripts %}
+<script>
+(() => {
+    const raiz = document.getElementById('loginRaiz');
+    if (!raiz) return;
+    const CHAVE = 'bj:animacao-vista';
+
+    /* 1. a animação roda uma vez por sessão ------------------------------- */
+    let animando = true;
+    try {
+        if (sessionStorage.getItem(CHAVE)) { raiz.classList.remove('anim'); animando = false; }
+        else sessionStorage.setItem(CHAVE, '1');
+    } catch (e) { /* navegação privada com storage bloqueado: anima e segue */ }
+
+    /* 2. qualquer interação aborta a animação: quem já está digitando não
+          pode ver o campo se mexendo debaixo do cursor -------------------- */
+    const abortar = () => raiz.classList.remove('anim');
+    ['pointerdown', 'keydown', 'wheel', 'touchstart'].forEach(
+        e => window.addEventListener(e, abortar, { once: true, passive: true }));
+
+    /* 3. o preenchimento automático do navegador também aborta.
+          Compara com o `defaultValue` porque o servidor devolve o último e-mail
+          digitado depois de uma falha: sem isso a animação se cortava sozinha em
+          aba nova, sem ninguém ter encostado no teclado. Duas medições porque o
+          Chrome costuma preencher depois dos 120 ms do modelo. ---------------- */
+    const email = document.getElementById('inputEmail');
+    const preencheuSozinho = () => email.value !== '' && email.value !== email.defaultValue;
+    [120, 500].forEach(ms => setTimeout(() => { if (preencheuSozinho()) abortar(); }, ms));
+
+    /* 4. suporte: expande sozinho uma vez, depois que já entrou ----------- */
+    const sup = document.getElementById('suporte');
+    if (animando) {
+        setTimeout(() => sup.classList.add('aberto'), 5400);
+        setTimeout(() => sup.classList.remove('aberto'), 7450);
+    }
+
+    /* 5. mostrar / ocultar senha ------------------------------------------ */
+    const senha = document.getElementById('senha');
+    const olho = document.getElementById('olho');
+    olho.addEventListener('click', () => {
+        const mostrando = senha.type === 'text';
+        senha.type = mostrando ? 'password' : 'text';
+        senha.classList.toggle('senha', !mostrando);
+        olho.setAttribute('aria-pressed', String(!mostrando));
+        olho.setAttribute('aria-label', mostrando ? 'Mostrar senha' : 'Ocultar senha');
+        senha.focus();
+    });
+
+    /* 6. aviso de Caps Lock: causa comum de falha de login ---------------- */
+    const caps = document.getElementById('capsAviso');
+    const verCaps = e => {
+        if (!e.getModifierState) return;
+        caps.classList.toggle('on', e.getModifierState('CapsLock'));
+    };
+    senha.addEventListener('keyup', verCaps);
+    senha.addEventListener('keydown', verCaps);
+    senha.addEventListener('blur', () => caps.classList.remove('on'));
+
+    /* 7. estado de "entrando": o POST é real, então só sinaliza a espera --- */
+    const form = document.getElementById('loginForm');
+    const btn = document.getElementById('entrar');
+    const soltarBotao = () => {
+        btn.removeAttribute('aria-busy');
+        btn.querySelector('span').textContent = 'Entrar';
+    };
+    form.addEventListener('submit', () => {
+        if (!form.checkValidity()) return;   // o navegador cuida da validação nativa
+        btn.setAttribute('aria-busy', 'true');
+        btn.querySelector('span').textContent = 'Entrando…';
+    });
+    /* Voltar pelo histórico restaura o DOM do cache sem re-executar o script: sem
+       isto o botão volta travado em "Entrando…", com `pointer-events:none`. */
+    window.addEventListener('pageshow', e => { if (e.persisted) soltarBotao(); });
+})();
+</script>
 {% endblock %}
