@@ -150,10 +150,24 @@ sozinhos quando persistem (verificado no código, não suposto). O comando exist
   com a credencial que nunca sai daqui.
 - **A chave do MCP de leitura.** Restringi-la é frente separada, para não mexer no que está no ar.
 
-## 5. Pendência que afeta o resultado, não o mecanismo
+## 5. A §9.1 NÃO é pendência — o aviso do comando é que está desatualizado
 
-A decisão §9.1 continua aberta: **143 recebimentos, R$ 42.442,73** entram como obrigação de R$ 0,00 (só
-honorário/juros). Não impede a importação; muda o histórico exibido. Cabe ao dono.
+O `app:cobranca:importar-receitas` imprime *"143 recebimento(s), somando R$ 42.442,73, NÃO têm
+principal… (spec §9.1: decisão do dono, ainda ABERTA)"*. **O texto está velho.** A
+`docs/specs/cobranca-importar-receitas.md` §9.1 está marcada `✅ RESOLVIDA`: recebimento sem principal
+é **parcela de acordo** (medido: 37 de 37 na TOP LIFE I), e a etapa 3 já implementa isso — a coluna J
+faz a obrigação nascer como parcela.
+
+**Medido em produção em 11/08/2026:** 33 obrigações com `valor_original = 0`, todas na TOP LIFE I, e
+**as 33 já são parcela de acordo** (`acordo_origem_id` preenchido), carregando R$ 7.713,71 de encargos
+reais. Zero na TOP LIFE II e na AMLI. **Não há lixo a limpar.**
+
+Dois motivos para o número do aviso enganar: ele conta o **arquivo inteiro**, não o que vai entrar (em
+11/08 a TL1 leu 7.536 recebimentos, 7.493 já importados, 43 novos — todos em obrigação existente); e
+afirma que cada um cria obrigação de R$ 0,00, o que deixou de valer com a etapa 3.
+
+Fica como dívida: **corrigir o texto do aviso** no `ImportarReceitasCommand`. O aviso em si continua
+útil — é sinal de parcela de acordo entrando —, o que não vale mais é chamá-lo de decisão pendente.
 
 ## 6. Como se prova que a tranca funciona
 

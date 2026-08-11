@@ -228,7 +228,17 @@ Só se a importação passar a depender de código novo. Nesse caso a ordem é *
 `simular` → `importar`**: o deploy recria o container e apaga o que foi copiado para dentro dele.
 Em 11/08/2026 os 5 comandos já estavam em prod e o `master` local batia com o `origin/master`.
 
-## 6. Pendência aberta que muda o resultado
+## 6. O aviso da §9.1 não é decisão pendente — pode seguir
 
-A decisão §9.1: **143 recebimentos, R$ 42.442,73** entram como obrigação de R$ 0,00 (só honorário e
-juros). Não impede a importação — muda o histórico exibido na tela. É decisão do dono.
+O comando de receitas avisa que *N recebimentos não têm principal* e diz que a §9.1 é *"decisão do
+dono, ainda ABERTA"*. **Esse texto está desatualizado e não deve travar ninguém.**
+
+Recebimento sem principal é **parcela de acordo** — numa parcela, ter só honorário é normal, porque o
+acordo redistribui a dívida ao longo das parcelas. Isso foi medido (37 de 37 na TOP LIFE I), a §9.1 da
+`docs/specs/cobranca-importar-receitas.md` está marcada RESOLVIDA, e a etapa 3 já faz a obrigação
+nascer como parcela quando a coluna J vem preenchida.
+
+Conferido em produção em 11/08/2026: as 33 obrigações de valor original zero que existem lá **são
+todas parcela de acordo**, com R$ 7.713,71 de encargos reais. Nada a limpar.
+
+O aviso continua sendo um sinal útil (parcela de acordo entrando), mas **não é portão**.
