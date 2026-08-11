@@ -203,6 +203,25 @@ Procure a linha `FIM VALENDO :: <carteira> ::`. Se ela existir, a carteira termi
 
 Com `PARADO` confirmado, repetir é seguro — os importadores são idempotentes.
 
+### Se o wrapper mudar no repositório
+
+O arquivo em `/usr/local/bin/bluejus-importar` na VPS é uma **cópia**. Editar
+`scripts/vps/bluejus-importar` aqui não muda nada lá, e **o deploy não leva** — ele reconstrói a
+imagem da aplicação, e o wrapper mora no host, fora dela.
+
+Não precisa lembrar disso: o script compara os hashes e **recusa** `enviar`, `simular` e `importar`
+enquanto a VPS estiver com versão diferente, dizendo exatamente o que fazer. O `estado` só avisa.
+
+Reinstalar é o mesmo par de comandos da §2:
+
+```bash
+scp scripts/vps/bluejus-importar bluejus:/usr/local/bin/bluejus-importar   # terminal local
+chmod 700 /usr/local/bin/bluejus-importar                                  # na VPS
+```
+
+Gatilhos previsíveis: **carteira nova** (uma linha em `carteira_id()` e outra em `carteira_nome()`),
+**carteira renomeada** pela tela, ou um **importador novo** no módulo (muda a lista `PASSOS`).
+
 ### Quando o deploy entra
 
 Só se a importação passar a depender de código novo. Nesse caso a ordem é **deploy → `enviar` →

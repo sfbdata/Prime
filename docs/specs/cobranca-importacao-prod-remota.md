@@ -163,8 +163,21 @@ Antes de qualquer uso real, e é o passo que não pode ser pulado:
 2. `ssh bluejus-importar 'importar 2026-08-11 top_life_1'` (sem `--confirmar`) → **recusado**.
 3. `ssh bluejus-importar 'receber-lote ../../etc'` → **recusado**.
 4. `ssh bluejus-importar 'estado'` → deve funcionar, e o `sha256` que ele imprime tem de bater com o
-   de `scripts/vps/bluejus-importar` aqui. A instalação é copiar-e-colar; sem essa conferência não há
-   como saber qual código está rodando lá.
+   de `scripts/vps/bluejus-importar` aqui. Sem essa conferência não há como saber qual código está
+   rodando lá.
+
+### 6.0 A conferência do sha256 é automática
+
+O wrapper instalado é uma **cópia**: mudar o arquivo no repositório não muda nada na VPS, e o deploy
+também não leva (ele mora em `/usr/local/bin` do host, fora da imagem). O esquecimento seria
+silencioso — a importação seguiria rodando com o código velho, sem erro.
+
+Por isso o `scripts/importar-lote-prod.sh` compara os dois hashes antes de `enviar`, `simular` e
+`importar`, e **recusa** se divergirem; no `estado` apenas avisa, porque é o comando que se usa para
+diagnosticar e recusar ali esconderia a informação de quem foi olhar.
+
+A conferência mora inteira do lado do cliente **de propósito**: assim ela não exigiu mexer no wrapper
+— o que criaria o problema do ovo e da galinha de ter que reinstalar para instalar a checagem.
 
 Se qualquer um dos três primeiros executar, a tranca não existe e o resto não vale nada.
 

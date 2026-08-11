@@ -21,6 +21,7 @@ set -euo pipefail
 readonly REMOTO=bluejus-importar          # alias do ~/.ssh/config, apontando para a chave dedicada
 readonly BASE_LOTES='docs/gestao-cobrancas/planilhas atualizadas'
 readonly EMISSOR='scripts/emitir-relatorios-contabil.sh'
+readonly WRAPPER='scripts/vps/bluejus-importar'
 
 readonly -a SUFIXOS=(
     'Dados_cadastrais'
@@ -83,10 +84,43 @@ carteira_valida() {
 
 remoto() { ssh "$REMOTO" "$@"; }
 
+# O wrapper instalado na VPS é uma CÓPIA, levada por scp. Mudar o arquivo aqui não muda nada lá, e o
+# deploy também não leva — ele mora em /usr/local/bin do host, fora da imagem da aplicação. Sem esta
+# conferência, editar aqui e esquecer de reinstalar deixa a importação rodando com o código velho,
+# CALADA. A conferência mora toda deste lado de propósito: assim ela não exige mexer no wrapper.
+conferir_wrapper() {
+    local aqui la
+    [ -f "$WRAPPER" ] || morrer "não achei $WRAPPER — rode da raiz do repositório"
+
+    aqui=$(sha256sum "$WRAPPER" | cut -d' ' -f1)
+    la=$(remoto 'estado' 2>/dev/null | awk '/sha256:/ {print $2; exit}')
+    [ -n "$la" ] || morrer 'não consegui ler o sha256 do wrapper na VPS'
+    [ "$aqui" != "$la" ] || return 0
+
+    morrer "o wrapper da VPS NÃO é o deste repositório — reinstale antes de continuar.
+    aqui: $aqui
+    VPS:  $la
+
+  No terminal local:
+    scp $WRAPPER bluejus:/usr/local/bin/bluejus-importar
+  E na VPS:
+    chmod 700 /usr/local/bin/bluejus-importar"
+}
+
 # ── ações ────────────────────────────────────────────────────────────────────────────────────────
 acao_estado() {
     printf '=== estado em produção ===\n'
     remoto 'estado'
+
+    # Aqui é aviso, não morte: `estado` é justamente o comando que se usa para diagnosticar, e
+    # recusar a rodar esconderia a informação de quem foi olhar por quê.
+    local aqui la
+    aqui=$(sha256sum "$WRAPPER" 2>/dev/null | cut -d' ' -f1)
+    la=$(remoto 'estado' 2>/dev/null | awk '/sha256:/ {print $2; exit}')
+    if [ -n "$aqui" ] && [ -n "$la" ] && [ "$aqui" != "$la" ]; then
+        printf '\n⚠️  o wrapper da VPS não é o deste repositório — falta reinstalar (veja `ajuda`).\n'
+        printf '    aqui: %s\n    VPS:  %s\n' "$aqui" "$la"
+    fi
 }
 
 acao_emitir() {
@@ -100,6 +134,7 @@ acao_enviar() {
     local dir
     dir=$(dir_lote "$data")
 
+    conferir_wrapper
     printf '=== conferindo o lote local (%s) ===\n' "$data"
     conferir_lote "$dir"
 
@@ -120,6 +155,7 @@ acao_enviar() {
 acao_simular() {
     local data=$1 carteira falhas=0
 
+    conferir_wrapper
     for carteira in "${CARTEIRAS[@]}"; do
         printf '\n\n############ SIMULANDO %s ############\n' "$carteira"
         remoto "simular $data $carteira" || falhas=$((falhas + 1))
@@ -134,6 +170,7 @@ acao_importar() {
 
     carteira_valida "$carteira" || morrer "carteira inválida: $carteira"
     [ "$confirmacao" = '--confirmar' ] || morrer 'importar exige --confirmar literal'
+    conferir_wrapper
 
     printf '⚠️  VALENDO: %s, lote %s. Isto PERSISTE em produção.\n' "$carteira" "$data"
     remoto "importar $data $carteira --confirmar"
