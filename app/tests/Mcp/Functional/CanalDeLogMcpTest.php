@@ -6,6 +6,7 @@ namespace App\Tests\Mcp\Functional;
 
 use App\Mcp\Service\ConexaoLeitura;
 use App\Mcp\Tool\ConsultarSqlTool;
+use App\Tests\Mcp\BancoDeLeituraDeTeste;
 use Monolog\Logger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -52,14 +53,15 @@ final class CanalDeLogMcpTest extends KernelTestCase
         $arquivoLog = $container->getParameter('kernel.logs_dir') . '/mcp_test.log';
         @unlink($arquivoLog);
 
-        $dsn = $_ENV['DATABASE_URL'] ?? getenv('DATABASE_URL');
-        self::assertIsString($dsn);
-
         // Logger tirado do container de verdade (mesmo serviço que o teste acima prova estar
-        // ligado ao "mcp"), numa ferramenta com conexão de teste — combinando os dois, prova
-        // que o autowiring aponta pro canal certo E que o canal certo escreve no arquivo certo.
+        // ligado ao "mcp"), numa ferramenta com a conexão de leitura do banco DA FRENTE —
+        // combinando os dois, prova que o autowiring aponta pro canal certo E que o canal certo
+        // escreve no arquivo certo.
         $loggerReal = $container->get('monolog.logger.mcp');
-        $ferramenta = new ConsultarSqlTool(new ConexaoLeitura($dsn), $loggerReal);
+        $ferramenta = new ConsultarSqlTool(
+            new ConexaoLeitura(BancoDeLeituraDeTeste::dsnLeitura()),
+            $loggerReal,
+        );
 
         $ferramenta->consultar('SELECT 1 AS n');
 

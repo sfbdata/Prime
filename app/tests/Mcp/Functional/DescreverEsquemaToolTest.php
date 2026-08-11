@@ -6,6 +6,7 @@ namespace App\Tests\Mcp\Functional;
 
 use App\Mcp\Service\ConexaoLeitura;
 use App\Mcp\Tool\DescreverEsquemaTool;
+use App\Tests\Mcp\BancoDeLeituraDeTeste;
 use Mcp\Exception\ToolCallException;
 use PHPUnit\Framework\TestCase;
 
@@ -13,10 +14,10 @@ final class DescreverEsquemaToolTest extends TestCase
 {
     private function ferramenta(): DescreverEsquemaTool
     {
-        $dsn = $_ENV['DATABASE_URL'] ?? getenv('DATABASE_URL');
-        self::assertIsString($dsn);
-
-        return new DescreverEsquemaTool(new ConexaoLeitura($dsn));
+        // Role restrita, banco DA FRENTE. As asserções abaixo afirmam ESQUEMA — com o
+        // `$_ENV['DATABASE_URL']` cru elas valeriam contra `saas` (o banco de dev), e uma
+        // divergência de migração introduzida nesta branch passaria batida.
+        return new DescreverEsquemaTool(new ConexaoLeitura(BancoDeLeituraDeTeste::dsnLeitura()));
     }
 
     public function testSemArgumentoListaAsTabelas(): void

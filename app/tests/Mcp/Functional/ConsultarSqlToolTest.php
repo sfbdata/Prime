@@ -6,6 +6,7 @@ namespace App\Tests\Mcp\Functional;
 
 use App\Mcp\Service\ConexaoLeitura;
 use App\Mcp\Tool\ConsultarSqlTool;
+use App\Tests\Mcp\BancoDeLeituraDeTeste;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 
@@ -13,13 +14,13 @@ final class ConsultarSqlToolTest extends TestCase
 {
     private function ferramenta(): ConsultarSqlTool
     {
-        $dsn = $_ENV['DATABASE_URL'] ?? getenv('DATABASE_URL');
-        self::assertIsString($dsn);
-
-        // Neste teste a conexão administrativa serve: o que está sob prova é o
-        // comportamento da FERRAMENTA (teto, formato, erro). A recusa de escrita já foi
-        // provada em ConexaoLeituraTest, contra a role restrita.
-        return new ConsultarSqlTool(new ConexaoLeitura($dsn), new NullLogger());
+        // A role restrita, no banco DA FRENTE. Não é preciosismo: `$_ENV['DATABASE_URL']` cru
+        // aponta para `saas`, o banco de DEV com dataset real de produção, e a conexão
+        // administrativa nem sobe mais (`ConexaoLeitura` recusa usuário com escrita).
+        return new ConsultarSqlTool(
+            new ConexaoLeitura(BancoDeLeituraDeTeste::dsnLeitura()),
+            new NullLogger(),
+        );
     }
 
     public function testDevolveColunasLinhasETotal(): void
@@ -51,10 +52,12 @@ final class ConsultarSqlToolTest extends TestCase
 
     public function testConsultaLentaEstouraOTimeoutEViraErroDeFerramenta(): void
     {
-        $dsn = $_ENV['DATABASE_URL'] ?? getenv('DATABASE_URL');
         // 1 segundo de teto contra um sleep de 3: prova o statement_timeout sem fazer a
         // suíte esperar os 15 segundos de produção.
-        $ferramenta = new ConsultarSqlTool(new ConexaoLeitura($dsn, 1), new NullLogger());
+        $ferramenta = new ConsultarSqlTool(
+            new ConexaoLeitura(BancoDeLeituraDeTeste::dsnLeitura(), 1),
+            new NullLogger(),
+        );
 
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessageMatches('/Falha ao executar a consulta/');
@@ -64,7 +67,6 @@ final class ConsultarSqlToolTest extends TestCase
 
     public function testRegistraAConsultaNoLog(): void
     {
-        $dsn = $_ENV['DATABASE_URL'] ?? getenv('DATABASE_URL');
         $logger = new class extends \Psr\Log\AbstractLogger {
             /** @var list<array{level: mixed, message: string, context: array}> */
             public array $registros = [];
@@ -75,7 +77,8 @@ final class ConsultarSqlToolTest extends TestCase
             }
         };
 
-        (new ConsultarSqlTool(new ConexaoLeitura($dsn), $logger))->consultar('SELECT 1 AS n');
+        (new ConsultarSqlTool(new ConexaoLeitura(BancoDeLeituraDeTeste::dsnLeitura()), $logger))
+            ->consultar('SELECT 1 AS n');
 
         self::assertCount(1, $logger->registros);
         self::assertSame('SELECT 1 AS n', $logger->registros[0]['context']['sql']);

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Mcp\Functional;
 
+use App\Tests\Mcp\BancoDeLeituraDeTeste;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Process\Process;
 
@@ -142,9 +143,9 @@ final class McpServerCommandTest extends TestCase
                 // falhariam sempre com "não está configurada", e os testes abaixo (que precisam
                 // de um banco de verdade para provar execução ponta a ponta e o caminho de erro
                 // de SQL) testariam esse erro fixo em vez do comportamento real. Aponta para o
-                // MESMO banco de teste da frente, com o usuário administrativo — a garantia de
-                // ACL somente-leitura já é provada, com role restrita, em `ConexaoLeituraTest`.
-                'DATABASE_URL_LEITURA' => $this->dsnLeituraDeTeste(),
+                // banco de teste da frente com a ROLE RESTRITA: desde que `ConexaoLeitura`
+                // recusa usuário com escrita, o DSN administrativo nem subiria aqui.
+                'DATABASE_URL_LEITURA' => BancoDeLeituraDeTeste::dsnLeitura(),
             ],
         );
         $processo->setInput($entrada);    // fecha o STDIN ao terminar → o servidor encerra
@@ -152,24 +153,6 @@ final class McpServerCommandTest extends TestCase
         $processo->run();
 
         return $processo;
-    }
-
-    /**
-     * Reconstrói o DSN de leitura a partir de `DATABASE_URL`, aplicando o mesmo
-     * `dbname_suffix: '_test%env(default::TEST_TOKEN)%'` que `config/packages/doctrine.yaml`
-     * aplica automaticamente à conexão Doctrine normal — mas que não se aplica a uma env var
-     * arbitrária como `DATABASE_URL_LEITURA`, então precisa ser refeito à mão aqui.
-     */
-    private function dsnLeituraDeTeste(): string
-    {
-        $dsn = $_ENV['DATABASE_URL'] ?? getenv('DATABASE_URL');
-        if (!is_string($dsn) || trim($dsn) === '') {
-            return '';
-        }
-
-        $sufixo = '_test' . (getenv('TEST_TOKEN') ?: '');
-
-        return preg_replace('#/([^/?]+)(\?.*)?$#', '/$1' . $sufixo . '$2', $dsn, 1) ?? '';
     }
 
     /**

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Mcp\Functional;
 
 use App\Mcp\Service\ConexaoLeitura;
+use App\Tests\Mcp\BancoDeLeituraDeTeste;
 use Doctrine\DBAL\DriverManager;
 use Doctrine\DBAL\Tools\DsnParser;
 use PHPUnit\Framework\TestCase;
@@ -14,68 +15,17 @@ use PHPUnit\Framework\TestCase;
  * comentário, encadeamento ou CTE com RETURNING. A garantia é o próprio PostgreSQL recusar,
  * porque o usuário não tem permissão. Este teste prova a recusa contra o banco de verdade.
  *
- * A role é criada por uma conexão SEPARADA, fora da transação do DAMA: uma role criada dentro
- * da transação do teste não existiria para uma conexão nova, que é justamente o que vamos
- * abrir em seguida.
+ * A role restrita usada aqui é provisionada por `BancoDeLeituraDeTeste` (conexão separada, fora
+ * da transação do DAMA — uma role criada dentro da transação do teste não existiria para uma
+ * conexão nova, que é justamente o que vamos abrir em seguida).
  */
 final class ConexaoLeituraTest extends TestCase
 {
-    private const ROLE = 'jusprime_leitura_teste';
-    private const SENHA = 'leitura_teste';
-
     private static string $dsnLeitura = '';
 
     public static function setUpBeforeClass(): void
     {
-        $dsnAdmin = $_ENV['DATABASE_URL'] ?? getenv('DATABASE_URL');
-        self::assertIsString($dsnAdmin, 'DATABASE_URL não definida no ambiente de teste');
-
-        $parser = new DsnParser(['pgsql' => 'pdo_pgsql', 'postgresql' => 'pdo_pgsql']);
-        $params = $parser->parse($dsnAdmin);
-
-        // $_ENV['DATABASE_URL'] chega SEM o sufixo de teste: quem aplica '_test%TEST_TOKEN%'
-        // é o `dbname_suffix` do doctrine.yaml, e só dentro do container de serviços do
-        // Symfony — uma conexão manual via DriverManager não passa por ali. Sem recalcular o
-        // sufixo aqui, este `admin` cairia no banco de DEV ("saas"), não no banco de teste da
-        // frente ("saas_test<TEST_TOKEN>"): a role seria criada no banco errado e os GRANT
-        // seguintes (que dependem de EM QUAL banco a conexão está) não valeriam para o banco
-        // onde a suíte realmente roda.
-        $banco = ($params['dbname'] ?? 'saas') . '_test' . (getenv('TEST_TOKEN') ?: '');
-        $params['dbname'] = $banco;
-
-        $admin = DriverManager::getConnection($params);
-
-        // DO block porque o PostgreSQL não tem CREATE ROLE IF NOT EXISTS.
-        $admin->executeStatement(sprintf(
-            "DO $$ BEGIN
-                IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '%s') THEN
-                    CREATE ROLE %s LOGIN PASSWORD '%s';
-                END IF;
-            END $$;",
-            self::ROLE,
-            self::ROLE,
-            self::SENHA,
-        ));
-        $admin->executeStatement(sprintf('GRANT CONNECT ON DATABASE "%s" TO %s', $banco, self::ROLE));
-        $admin->executeStatement(sprintf('GRANT USAGE ON SCHEMA public TO %s', self::ROLE));
-        $admin->executeStatement(sprintf('GRANT SELECT ON ALL TABLES IN SCHEMA public TO %s', self::ROLE));
-        $admin->executeStatement(sprintf(
-            'ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO %s',
-            self::ROLE,
-        ));
-
-        $params['user'] = self::ROLE;
-        $params['password'] = self::SENHA;
-        self::$dsnLeitura = sprintf(
-            'pgsql://%s:%s@%s:%d/%s',
-            self::ROLE,
-            self::SENHA,
-            $params['host'] ?? 'db',
-            $params['port'] ?? 5432,
-            $banco,
-        );
-
-        $admin->close();
+        self::$dsnLeitura = BancoDeLeituraDeTeste::dsnLeitura();
     }
 
     /**
@@ -238,5 +188,66 @@ final class ConexaoLeituraTest extends TestCase
         $this->expectExceptionMessageMatches('/DATABASE_URL_LEITURA/');
 
         $conexao->conexao();
+    }
+
+    /**
+     * O par que transforma a promessa do runbook em invariante.
+     *
+     * Até esta correção, NADA verificava que `DATABASE_URL_LEITURA` apontava para a role
+     * restrita: o "conferir que funcionou" do runbook só testa que a LEITURA funciona, e a
+     * leitura funciona igualmente bem com o DSN administrativo. Com o DSN errado, um
+     * `SET default_transaction_read_only = off` avulso (que não exige privilégio nenhum e cabe
+     * numa única chamada de `consultar_sql`, já que a conexão é memoizada e o processo dura a
+     * sessão inteira) devolveria escrita plena — inclusive
+     * `WITH x AS (DELETE FROM tenant ... RETURNING id) SELECT * FROM x`.
+     *
+     * Este primeiro teste é o controle: com a role certa, a conexão sobe normalmente.
+     */
+    public function testRoleRestritaSobeNormalmente(): void
+    {
+        $conexao = new ConexaoLeitura(self::$dsnLeitura);
+
+        self::assertSame(
+            BancoDeLeituraDeTeste::ROLE,
+            $conexao->conexao()->fetchOne('SELECT current_user'),
+        );
+    }
+
+    /**
+     * E este é o que importa: com o DSN administrativo — exatamente o engano que o runbook não
+     * conseguia detectar — a conexão é RECUSADA.
+     */
+    public function testDsnAdministrativoERecusadoPorTerPermissaoDeEscrita(): void
+    {
+        $conexao = new ConexaoLeitura(BancoDeLeituraDeTeste::dsnAdministrativo());
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessageMatches('/permissão de ESCRITA/');
+
+        $conexao->conexao();
+    }
+
+    /**
+     * A verificação acima compara o retorno de `fetchOne` contra uma lista de valores
+     * (`true`, `'t'`, `'true'`, `'1'`, `1`). Este teste mede qual é o valor REAL neste driver,
+     * em vez de deixar a suposição implícita: se um upgrade de PHP/DBAL mudar o tipo devolvido,
+     * é aqui que aparece — e não em silêncio, com a invariante deixando passar tudo.
+     */
+    public function testFetchOneDevolveBooleanoNativoParaAVerificacaoDeEscrita(): void
+    {
+        $sql = "SELECT bool_or(has_table_privilege(current_user, c.oid, 'INSERT'))
+                FROM pg_class c
+                WHERE c.relnamespace = 'public'::regnamespace AND c.relkind = 'r'";
+
+        $parser = new DsnParser(['pgsql' => 'pdo_pgsql', 'postgresql' => 'pdo_pgsql']);
+
+        $admin = DriverManager::getConnection($parser->parse(BancoDeLeituraDeTeste::dsnAdministrativo()));
+        $leitura = DriverManager::getConnection($parser->parse(self::$dsnLeitura));
+
+        self::assertSame(true, $admin->fetchOne($sql), 'admin: esperado booleano nativo true');
+        self::assertSame(false, $leitura->fetchOne($sql), 'role restrita: esperado booleano nativo false');
+
+        $admin->close();
+        $leitura->close();
     }
 }

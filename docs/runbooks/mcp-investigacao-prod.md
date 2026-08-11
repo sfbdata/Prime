@@ -127,6 +127,30 @@ nova de `docker exec` não herda esse `cd`. Sem `-w`, o comando roda em `/var/ww
 
 Numa conversa com o Claude Code, com o servidor `jusprime-prod` registrado:
 
+### 0. Conferir COM QUEM a conexão está falando (faça este primeiro)
+
+```
+Peça ao Claude Code para chamar consultar_sql com:
+  SELECT current_user, has_table_privilege(current_user,'tenant','INSERT') AS pode_escrever;
+Esperado: jusprime_leitura | false
+```
+
+Esta conferência existe porque "a leitura funciona" **não distingue a role certa da errada** —
+os dois passos abaixo respondem exatamente igual com o DSN administrativo, e é com ele que a
+promessa de somente-leitura deixa de existir.
+
+**Se vier qualquer outra coisa** (outro `current_user`, ou `pode_escrever = true`): pare. O
+`DATABASE_URL_LEITURA` do **Passo 2** está apontando para o usuário errado — corrija lá, refaça
+o deploy do Passo 4 (a variável só é lida na inicialização do container) e repita esta
+conferência.
+
+Na prática o servidor já não deixa passar: desde a última correção, `ConexaoLeitura` faz essa
+mesma verificação ao abrir a conexão e **recusa subir** com um usuário que tenha escrita
+(mensagem: "DATABASE_URL_LEITURA aponta para um usuário com permissão de ESCRITA…"). Se você
+receber esse erro em vez de um resultado, o diagnóstico é o mesmo: Passo 2.
+
+### 1 e 2. Conferir que a leitura responde
+
 1. Peça para chamar `descrever_esquema` **sem argumento**. Esperado: lista de tabelas do
    schema `public` de produção (com colunas e tipos).
 2. Peça para chamar `consultar_sql` com `SELECT count(*) FROM tenant`. Esperado: um número
@@ -209,4 +233,5 @@ redirecionando a saída de erro para fora (`2>/tmp/stderr.log`) e confira o `std
 3. Alias SSH local (3)
 4. Deploy (4)
 5. Registrar no Claude Code (5)
-6. Conferir com `descrever_esquema` + `SELECT count(*) FROM tenant`
+6. Conferir a identidade da conexão (`current_user` + `pode_escrever`) e só então
+   `descrever_esquema` + `SELECT count(*) FROM tenant`
