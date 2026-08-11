@@ -112,10 +112,14 @@ nada, é preciso reconstruir a imagem):
 ## 5. Registrar o servidor no Claude Code (na sua máquina local)
 
 ```bash
-claude mcp add jusprime-prod -- ssh bluejus "docker exec -i jusprime_php_prod php bin/console mcp:server"
+claude mcp add jusprime-prod -- ssh bluejus "docker exec -i -w /var/www/app jusprime_php_prod php bin/console mcp:server"
 ```
 
-`-i` sem `-t`: o MCP não precisa de pseudo-terminal, só de stdin/stdout ligados.
+`-i` sem `-t`: o MCP não precisa de pseudo-terminal, só de stdin/stdout ligados. `-w /var/www/app`
+é obrigatório: a imagem de prod fixa `WORKDIR /var/www` (`Dockerfile`, estágio `prod`), e o
+`cd /var/www/app` do `entrypoint.prod.sh` só vale para o processo do `ENTRYPOINT` — uma sessão
+nova de `docker exec` não herda esse `cd`. Sem `-w`, o comando roda em `/var/www`, onde não existe
+`bin/console` (ele mora em `/var/www/app/bin/console`).
 
 ---
 
@@ -136,8 +140,11 @@ Cada chamada a `consultar_sql` grava uma linha (sucesso ou erro) no canal Monolo
 em produção vai para arquivo, dentro do container:
 
 ```bash
-docker exec jusprime_php_prod tail -f var/log/mcp.log
+docker exec -w /var/www/app jusprime_php_prod tail -f var/log/mcp.log
 ```
+
+(mesmo motivo do `-w` no Passo 5: `var/log/mcp.log` é um caminho relativo, e sem `-w /var/www/app`
+o `docker exec` cai em `/var/www`, onde esse caminho não existe.)
 
 **Este arquivo mora dentro do container e um redeploy o apaga.** Não é registro permanente —
 é trilha de investigação, útil enquanto a sessão de investigação está em andamento ou logo
@@ -147,6 +154,16 @@ do container antes de rodar o deploy seguinte.
 ---
 
 ## Se der errado
+
+### "Could not open input file: bin/console"
+
+Este é o erro mais provável na primeira tentativa, antes de qualquer coisa relacionada ao MCP
+em si. A imagem de produção fixa `WORKDIR /var/www`, mas o código do Symfony mora em
+`/var/www/app` — o `cd /var/www/app` do `entrypoint.prod.sh` só vale para o processo iniciado
+pelo `ENTRYPOINT` do container, uma sessão nova de `docker exec` não herda esse diretório. Se
+qualquer comando `docker exec ... php bin/console ...` deste runbook devolver esse erro,
+faltou `-w /var/www/app` no `docker exec` (todos os comandos acima já incluem; se você copiou
+de outro lugar ou digitou à mão, confira essa flag primeiro).
 
 ### "DATABASE_URL_LEITURA não está configurada"
 
@@ -169,7 +186,7 @@ dizer o motivo. Para diagnosticar, rode o comando à mão, fora do Claude Code, 
 handshake pelo stdin:
 
 ```bash
-ssh bluejus 'docker exec -i jusprime_php_prod php bin/console mcp:server' <<'EOF'
+ssh bluejus 'docker exec -i -w /var/www/app jusprime_php_prod php bin/console mcp:server' <<'EOF'
 {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"diagnostico","version":"1.0.0"}}}
 {"jsonrpc":"2.0","method":"notifications/initialized"}
 {"jsonrpc":"2.0","id":2,"method":"tools/list"}
