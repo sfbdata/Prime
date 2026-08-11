@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Mcp\Tool;
 
 use App\Mcp\Service\ConexaoLeitura;
+use Mcp\Exception\ToolCallException;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -46,9 +47,12 @@ final class ConsultarSqlTool
                 'erro' => $erro->getMessage(),
             ]);
 
-            // Vira CallToolResult::error() no SDK — não derruba o processo, então uma consulta
-            // errada custa uma resposta, não a sessão inteira.
-            throw new \RuntimeException(
+            // `Mcp\Exception\ToolCallException` é a única exceção que o SDK (mcp/sdk 0.7.0,
+            // `CallToolHandler::handle()`) converte em erro DE FERRAMENTA (`isError: true`
+            // dentro do `result`, sem derrubar a sessão). Um `\RuntimeException` comum cai no
+            // catch genérico do SDK e vira erro de PROTOCOLO JSON-RPC — sem `isError` e sem o
+            // texto do erro, o modelo não teria como se corrigir.
+            throw new ToolCallException(
                 sprintf('Falha ao executar a consulta: %s', $erro->getMessage()),
                 0,
                 $erro,

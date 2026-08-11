@@ -32,21 +32,7 @@ final class McpServerCommandTest extends TestCase
 
     public function testHandshakeRespondeEStdoutSoTemJsonRpc(): void
     {
-        $processo = $this->rodarServidor(self::handshake());
-
-        self::assertSame(0, $processo->getExitCode(), $processo->getErrorOutput());
-
-        $linhas = $this->linhasDaSaida($processo->getOutput());
-        self::assertNotEmpty($linhas, 'servidor não respondeu nada no stdout');
-
-        foreach ($linhas as $linha) {
-            $decodificado = json_decode($linha, true);
-            self::assertIsArray(
-                $decodificado,
-                sprintf('stdout tem linha que não é JSON-RPC: %s', $linha),
-            );
-            self::assertSame('2.0', $decodificado['jsonrpc'] ?? null);
-        }
+        $this->assertStdoutSoTemJsonRpc($this->rodarServidor(self::handshake()));
     }
 
     public function testRespondeAoInitializeComONomeDoServidor(): void
@@ -88,6 +74,14 @@ final class McpServerCommandTest extends TestCase
         ];
 
         $processo = $this->rodarServidor($mensagens);
+
+        // `ConsultarSqlTool` loga (`info` no sucesso) — é justamente o caminho que o
+        // handshake sozinho nunca exercita. Sem checar aqui, um `LoggerInterface` que
+        // escrevesse no stdout (ex.: canal `console` do Monolog mal configurado) passaria
+        // despercebido, porque `respostaComId()` pula em silêncio qualquer linha que não
+        // seja JSON.
+        $this->assertStdoutSoTemJsonRpc($processo);
+
         $resposta = $this->respostaComId($processo->getOutput(), 3);
 
         self::assertNotNull($resposta, 'nenhuma resposta para tools/call (id 3)');
@@ -111,6 +105,10 @@ final class McpServerCommandTest extends TestCase
         $mensagens[] = ['jsonrpc' => '2.0', 'id' => 4, 'method' => 'ping'];
 
         $processo = $this->rodarServidor($mensagens);
+
+        // `ConsultarSqlTool` loga (`error` na falha) — mesmo motivo do comentário em
+        // `testChamarConsultarSqlDevolveResultado`, agora no caminho de erro.
+        $this->assertStdoutSoTemJsonRpc($processo);
 
         $erro = $this->respostaComId($processo->getOutput(), 3);
         self::assertNotNull($erro);
@@ -172,6 +170,29 @@ final class McpServerCommandTest extends TestCase
         $sufixo = '_test' . (getenv('TEST_TOKEN') ?: '');
 
         return preg_replace('#/([^/?]+)(\?.*)?$#', '/$1' . $sufixo . '$2', $dsn, 1) ?? '';
+    }
+
+    /**
+     * Confirma que TODA linha do stdout decodifica como JSON-RPC — nem um byte solto de log
+     * ou `echo`. Extraída para reuso porque o handshake sozinho não exercita nenhum log real:
+     * é só chamando uma ferramenta (sucesso ou erro) que `ConsultarSqlTool` escreve no
+     * `LoggerInterface`, e é exatamente esse caminho que precisa da checagem.
+     */
+    private function assertStdoutSoTemJsonRpc(Process $processo): void
+    {
+        self::assertSame(0, $processo->getExitCode(), $processo->getErrorOutput());
+
+        $linhas = $this->linhasDaSaida($processo->getOutput());
+        self::assertNotEmpty($linhas, 'servidor não respondeu nada no stdout');
+
+        foreach ($linhas as $linha) {
+            $decodificado = json_decode($linha, true);
+            self::assertIsArray(
+                $decodificado,
+                sprintf('stdout tem linha que não é JSON-RPC: %s', $linha),
+            );
+            self::assertSame('2.0', $decodificado['jsonrpc'] ?? null);
+        }
     }
 
     /** @return list<string> */

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Mcp\Tool;
 
 use App\Mcp\Service\ConexaoLeitura;
+use Mcp\Exception\ToolCallException;
 
 /**
  * Ferramenta MCP `descrever_esquema`.
@@ -34,25 +35,40 @@ final class DescreverEsquemaTool
      */
     public function descrever(?string $tabela = null): array
     {
-        if ($tabela === null || trim($tabela) === '') {
-            return ['tabelas' => $this->listarTabelas()];
+        try {
+            if ($tabela === null || trim($tabela) === '') {
+                return ['tabelas' => $this->listarTabelas()];
+            }
+
+            $tabela = trim($tabela);
+
+            if (!in_array($tabela, $this->listarTabelas(), true)) {
+                throw new ToolCallException(sprintf(
+                    'A tabela "%s" não existe no schema public. Rode descrever_esquema sem '
+                    . 'argumento para ver a lista.',
+                    $tabela,
+                ));
+            }
+
+            return [
+                'tabela'  => $tabela,
+                'colunas' => $this->colunas($tabela),
+                'indices' => $this->indices($tabela),
+            ];
+        } catch (ToolCallException $erro) {
+            throw $erro;
+        } catch (\Throwable $erro) {
+            // `listarTabelas()`/`colunas()`/`indices()` chamam `ConexaoLeitura::consultar()`
+            // sem tratar falha própria — uma queda de conexão, por exemplo, escaparia como
+            // `Doctrine\DBAL\Exception` crua. Só `ToolCallException` (ver `ConsultarSqlTool`
+            // para o motivo) vira erro seguro de ferramenta no SDK; por isso o catch aqui
+            // cobre os três caminhos de uma vez, em vez de repetir try/catch em cada método.
+            throw new ToolCallException(
+                sprintf('Falha ao descrever o esquema: %s', $erro->getMessage()),
+                0,
+                $erro,
+            );
         }
-
-        $tabela = trim($tabela);
-
-        if (!in_array($tabela, $this->listarTabelas(), true)) {
-            throw new \RuntimeException(sprintf(
-                'A tabela "%s" não existe no schema public. Rode descrever_esquema sem '
-                . 'argumento para ver a lista.',
-                $tabela,
-            ));
-        }
-
-        return [
-            'tabela'  => $tabela,
-            'colunas' => $this->colunas($tabela),
-            'indices' => $this->indices($tabela),
-        ];
     }
 
     /** @return list<string> */

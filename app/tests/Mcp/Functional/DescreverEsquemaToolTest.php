@@ -6,6 +6,7 @@ namespace App\Tests\Mcp\Functional;
 
 use App\Mcp\Service\ConexaoLeitura;
 use App\Mcp\Tool\DescreverEsquemaTool;
+use Mcp\Exception\ToolCallException;
 use PHPUnit\Framework\TestCase;
 
 final class DescreverEsquemaToolTest extends TestCase
@@ -53,5 +54,22 @@ final class DescreverEsquemaToolTest extends TestCase
         $this->expectExceptionMessageMatches('/não existe/');
 
         $this->ferramenta()->descrever('tabela_que_nao_existe_nenhuma');
+    }
+
+    /**
+     * `listarTabelas()`/`colunas()`/`indices()` chamam `ConexaoLeitura::consultar()` sem
+     * `try` próprio — antes desta correção, uma falha de conexão escapava como
+     * `\RuntimeException` cru, não `ToolCallException`, e viraria erro de PROTOCOLO no
+     * servidor MCP (ver `McpServerCommand`/Task 5), não `isError` seguro. DSN vazio reproduz
+     * a falha de conexão sem precisar derrubar o banco de teste.
+     */
+    public function testFalhaDeConexaoViraErroDeFerramenta(): void
+    {
+        $ferramenta = new DescreverEsquemaTool(new ConexaoLeitura(''));
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessageMatches('/Falha ao descrever o esquema/');
+
+        $ferramenta->descrever();
     }
 }
