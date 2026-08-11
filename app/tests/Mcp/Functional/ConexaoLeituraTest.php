@@ -168,6 +168,26 @@ final class ConexaoLeituraTest extends TestCase
         );
     }
 
+    /**
+     * Os testes de recusa acima provam a RECUSA, mas nenhum inspeciona a SESSÃO em si — e
+     * nenhum deles passa um `timeoutSegundos` diferente do default. Sem este teste, apagar as
+     * duas linhas de `SET` em `ConexaoLeitura::conexao()` (ou trocar `* 1000` por `* 1` no
+     * cálculo do timeout) não deixaria NADA vermelho: os `testRecusa*` seguem recusando pelo
+     * GRANT (que é a garantia real, independente do `SET`), e os testes de leitura nem olham
+     * para `SHOW`. Este teste bate direto no `SHOW` do PostgreSQL — não confia no que
+     * `ConexaoLeitura` *diz* que configurou, confere o que a sessão *tem* configurado.
+     */
+    public function testConstrutorAplicaTimeoutESessaoSomenteLeituraNaConexaoReal(): void
+    {
+        $conexao = new ConexaoLeitura(self::$dsnLeitura, 7);
+
+        $timeout = $conexao->conexao()->fetchOne('SHOW statement_timeout');
+        $somenteLeitura = $conexao->conexao()->fetchOne('SHOW default_transaction_read_only');
+
+        self::assertSame('7s', $timeout);
+        self::assertSame('on', $somenteLeitura);
+    }
+
     public function testLeituraFunciona(): void
     {
         $conexao = new ConexaoLeitura(self::$dsnLeitura);
