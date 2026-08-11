@@ -22,10 +22,12 @@ use PHPUnit\Framework\TestCase;
 final class ConexaoLeituraTest extends TestCase
 {
     private static string $dsnLeitura = '';
+    private static string $dsnSemInsert = '';
 
     public static function setUpBeforeClass(): void
     {
         self::$dsnLeitura = BancoDeLeituraDeTeste::dsnLeitura();
+        self::$dsnSemInsert = BancoDeLeituraDeTeste::dsnSemInsert();
     }
 
     /**
@@ -235,9 +237,9 @@ final class ConexaoLeituraTest extends TestCase
      */
     public function testFetchOneDevolveBooleanoNativoParaAVerificacaoDeEscrita(): void
     {
-        $sql = "SELECT bool_or(has_table_privilege(current_user, c.oid, 'INSERT'))
+        $sql = "SELECT bool_or(has_table_privilege(current_user, c.oid, 'INSERT, UPDATE, DELETE, TRUNCATE'))
                 FROM pg_class c
-                WHERE c.relnamespace = 'public'::regnamespace AND c.relkind = 'r'";
+                WHERE c.relnamespace = 'public'::regnamespace AND c.relkind IN ('r', 'p', 'f')";
 
         $parser = new DsnParser(['pgsql' => 'pdo_pgsql', 'postgresql' => 'pdo_pgsql']);
 
@@ -249,5 +251,26 @@ final class ConexaoLeituraTest extends TestCase
 
         $admin->close();
         $leitura->close();
+    }
+
+    /**
+     * O buraco que este teste fecha: até esta correção, `ConexaoLeitura` só perguntava ao
+     * Postgres por `INSERT` (`has_table_privilege(..., 'INSERT')`). Uma role com `SELECT,
+     * UPDATE, DELETE` — sem `INSERT` — não tem NENHUM privilégio de `INSERT`, então passava pela
+     * checagem como se fosse somente-leitura. Na prática ela escreve de verdade: basta um `SET
+     * default_transaction_read_only = off` (que não exige privilégio nenhum, e é exatamente o
+     * "cinto" que `consultar_sql` consegue desligar) para o `UPDATE`/`DELETE` valerem.
+     *
+     * Este teste tem que ficar VERMELHO se `SQL_PODE_ESCREVER` voltar a perguntar só por
+     * `INSERT` — é a prova por mutação registrada no relatório da tarefa.
+     */
+    public function testRecusaRoleComUpdateEDeleteMasSemInsert(): void
+    {
+        $conexao = new ConexaoLeitura(self::$dsnSemInsert);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessageMatches('/permissão de ESCRITA/');
+
+        $conexao->conexao();
     }
 }

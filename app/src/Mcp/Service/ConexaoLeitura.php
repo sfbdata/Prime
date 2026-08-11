@@ -28,12 +28,29 @@ use Doctrine\DBAL\Tools\DsnParser;
 final class ConexaoLeitura
 {
     /**
-     * `bool_or` sobre as tabelas comuns (`relkind = 'r'`) do schema `public`: verdadeiro se o
-     * usuário conectado puder gravar em QUALQUER uma delas.
+     * `bool_or` sobre as tabelas (comuns, particionadas e foreign tables — `relkind IN
+     * ('r','p','f')`) do schema `public`: verdadeiro se o usuário conectado puder gravar em
+     * QUALQUER uma delas, por QUALQUER caminho de escrita (`INSERT, UPDATE, DELETE, TRUNCATE`).
+     *
+     * `has_table_privilege` aceita uma lista separada por vírgula e devolve verdadeiro se o
+     * usuário detiver QUALQUER privilégio da lista (semântica OR) — confirmado contra o banco
+     * real: uma role com só `UPDATE`/`DELETE` (sem `INSERT`) dá `false` para
+     * `has_table_privilege(..., 'INSERT')` e `true` para
+     * `has_table_privilege(..., 'INSERT, UPDATE, DELETE, TRUNCATE')`. Antes desta correção a
+     * checagem só perguntava por `INSERT`: uma role com `SELECT, UPDATE, DELETE` e sem `INSERT`
+     * passava pela verificação e, depois de `SET default_transaction_read_only = off` (que não
+     * exige privilégio nenhum), escrevia de verdade.
+     *
+     * O que esta checagem NÃO cobre, por decisão consciente e não por esquecimento: sequências
+     * (`nextval`/`setval` alteram estado sem passar por `has_table_privilege` de tabela),
+     * funções/procedures (uma function `SECURITY DEFINER` pode escrever independente de GRANT em
+     * tabela) e qualquer schema além de `public`. A garantia real continua sendo a role do
+     * PostgreSQL ter só `SELECT` — isto aqui é a checagem de sanidade que confirma essa garantia,
+     * não um substituto para ela.
      */
-    private const SQL_PODE_ESCREVER = "SELECT bool_or(has_table_privilege(current_user, c.oid, 'INSERT'))
+    private const SQL_PODE_ESCREVER = "SELECT bool_or(has_table_privilege(current_user, c.oid, 'INSERT, UPDATE, DELETE, TRUNCATE'))
              FROM pg_class c
-             WHERE c.relnamespace = 'public'::regnamespace AND c.relkind = 'r'";
+             WHERE c.relnamespace = 'public'::regnamespace AND c.relkind IN ('r', 'p', 'f')";
 
     private ?Connection $conexao = null;
 
