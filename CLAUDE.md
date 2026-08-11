@@ -152,6 +152,23 @@ comando: é mais rápido e é autoritativo. Todos rodam via `docker exec` (ver s
 | quem escuta um evento | `debug:event-dispatcher <evento>` |
 | se Twig / YAML / container quebrou | `lint:twig templates` · `lint:yaml config` · `lint:container` |
 
+### MCP `jusprime-prod` — consultar a produção (somente leitura)
+
+Servidor MCP registrado no Claude Code, ligado à PROD por um usuário PostgreSQL que **só tem
+`SELECT`** (a recusa é do banco, não do código). Duas ferramentas: `consultar_sql` e
+`descrever_esquema`. Runbook e limitações → `docs/runbooks/mcp-investigacao-prod.md`.
+
+**Antes de escrever SQL contra tabela que você não conhece de cor, chame `descrever_esquema` —
+e leia as `chaves`, não só as colunas.** A ligação entre tabelas não é adivinhável: em cobrança
+a cadeia é `cobranca_obrigacao → cobranca_caso → cobranca_objeto → cobranca_carteira`, e o
+`carteira_id` mora no **objeto**, não no caso. Chutar nome de tabela dá erro na hora; chutar
+**coluna que existe com outro significado** não dá erro nenhum — dá número errado com cara de
+certo, que é o defeito que já mordeu este projeto.
+
+Teto de 500 linhas por consulta: quando vier `truncado: true`, refine com agregação ou filtro,
+não pagine às cegas. E lembre que o resultado traz **dado real de cliente** — não puxe PII para
+a conversa sem precisar dela.
+
 ### Geradores (`make:*`) — não servem aqui, com uma exceção
 
 O MakerBundle gera no layout **padrão** do Symfony (`src/Entity/`, `src/Controller/`, `src/Form/`), não em

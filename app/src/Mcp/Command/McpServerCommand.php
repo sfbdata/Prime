@@ -47,7 +47,11 @@ final class McpServerCommand extends Command
             ->setInstructions(
                 'Acesso SOMENTE LEITURA ao banco do JusPrime. Nenhuma ferramenta grava dados. '
                 . 'Chame descrever_esquema antes de escrever SQL contra uma tabela desconhecida — '
-                . 'nome de coluna chutado devolve número errado, não erro.',
+                . 'nome de coluna chutado devolve número errado, não erro. '
+                . 'Leia também as `chaves` que ele devolve, não só as colunas: a ligação entre '
+                . 'tabelas não é adivinhável (em cobrança a cadeia é obrigacao → caso → objeto → '
+                . 'carteira, e o carteira_id mora no OBJETO, não no caso). '
+                . 'Com truncado=true, refine com agregação ou filtro em vez de paginar às cegas.',
             )
             ->addTool(
                 handler: [$this->consultarSql, 'consultar'],
