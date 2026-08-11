@@ -106,7 +106,7 @@ final class ConexaoLeitura
             throw new \RuntimeException(
                 'Não há nenhuma tabela no schema "public" do banco apontado por '
                 . 'DATABASE_URL_LEITURA, então não foi possível conferir se o usuário é mesmo '
-                . 'somente-leitura. O servidor MCP se recusa a subir sem essa conferência — '
+                . 'somente-leitura. O servidor MCP se recusa a consultar sem essa conferência — '
                 . 'confira o banco e o schema no DSN.',
             );
         }
@@ -114,7 +114,7 @@ final class ConexaoLeitura
         if (in_array($podeEscrever, [true, 't', 'true', '1', 1], true)) {
             throw new \RuntimeException(sprintf(
                 'DATABASE_URL_LEITURA aponta para um usuário com permissão de ESCRITA no schema '
-                . '"public" (usuário conectado: "%s"). O servidor MCP se recusa a subir assim: a '
+                . '"public" (usuário conectado: "%s"). O servidor MCP se recusa a consultar assim: a '
                 . 'única garantia de que este servidor não grava é a role restrita do PostgreSQL, '
                 . 'não o texto do SQL. Refaça o Passo 2 do runbook '
                 . '(docs/runbooks/mcp-investigacao-prod.md) apontando o DSN para a role de '

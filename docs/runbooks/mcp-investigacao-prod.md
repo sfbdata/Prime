@@ -73,7 +73,7 @@ isso esta variável só pode morar no `.env.prod` que já vive na VPS, nunca no 
 DATABASE_URL_LEITURA="pgsql://jusprime_leitura:TROQUE_ESTA_SENHA@db:5432/prime"
 ```
 
-Use a mesma senha do Passo 1. Sem esta variável, `ConexaoLeitura` recusa subir com uma
+Use a mesma senha do Passo 1. Sem esta variável, `ConexaoLeitura` recusa consultar com uma
 mensagem clara (ver seção "se der errado" abaixo) — o servidor MCP não cai silenciosamente em
 nenhuma conexão administrativa por acidente.
 
@@ -145,9 +145,10 @@ o deploy do Passo 4 (a variável só é lida na inicialização do container) e 
 conferência.
 
 Na prática o servidor já não deixa passar: desde a última correção, `ConexaoLeitura` faz essa
-mesma verificação ao abrir a conexão e **recusa subir** com um usuário que tenha escrita
-(mensagem: "DATABASE_URL_LEITURA aponta para um usuário com permissão de ESCRITA…"). Se você
-receber esse erro em vez de um resultado, o diagnóstico é o mesmo: Passo 2.
+mesma verificação ao abrir a conexão e **recusa consultar** com um usuário que tenha escrita
+(mensagem: "DATABASE_URL_LEITURA aponta para um usuário com permissão de ESCRITA…"). A conexão é
+preguiçosa — o handshake do MCP sobe normalmente, a recusa só aparece nesta primeira chamada de
+ferramenta. Se você receber esse erro em vez de um resultado, o diagnóstico é o mesmo: Passo 2.
 
 ### 1 e 2. Conferir que a leitura responde
 
