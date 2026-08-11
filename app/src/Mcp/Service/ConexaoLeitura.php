@@ -67,8 +67,8 @@ final class ConexaoLeitura
 
         if (trim($this->dsn) === '') {
             throw new \RuntimeException(
-                'DATABASE_URL_LEITURA não está configurada. O MCP não sobe sem a conexão de '
-                . 'leitura — configure a variável no .env.prod da VPS.',
+                'DATABASE_URL_LEITURA não está configurada. O MCP sobe, mas nenhuma consulta '
+                . 'funciona sem ela — configure a variável no .env.prod da VPS.',
             );
         }
 
