@@ -26,8 +26,10 @@ final class DescreverEsquemaTool
      * Descreve o esquema do banco do JusPrime.
      *
      * Sem argumento, lista todas as tabelas. Com o nome de uma tabela, devolve suas colunas
-     * (tipo, se aceita nulo, valor padrão) e seus índices. Use SEMPRE antes de escrever uma
-     * consulta contra uma tabela que você não conhece.
+     * (tipo, se aceita nulo, valor padrão), suas chaves (primária, estrangeiras e únicas — as
+     * estrangeiras dizem para qual tabela e coluna apontam, use-as para montar o JOIN certo) e
+     * seus índices. Use SEMPRE antes de escrever uma consulta contra uma tabela que você não
+     * conhece.
      *
      * @param string|null $tabela Nome da tabela a descrever; omita para listar todas
      *
@@ -53,6 +55,7 @@ final class DescreverEsquemaTool
             return [
                 'tabela'  => $tabela,
                 'colunas' => $this->colunas($tabela),
+                'chaves'  => $this->chaves($tabela),
                 'indices' => $this->indices($tabela),
             ];
         } catch (ToolCallException $erro) {
@@ -98,6 +101,43 @@ final class DescreverEsquemaTool
              FROM information_schema.columns
              WHERE table_schema = 'public' AND table_name = :tabela
              ORDER BY ordinal_position",
+            self::LIMITE,
+            ['tabela' => $tabela],
+        );
+
+        return $resultado['linhas'];
+    }
+
+    /**
+     * Chaves primária, estrangeiras e únicas.
+     *
+     * `information_schema.columns` + `pg_indexes` (o que a ferramenta trazia) deixava a FK
+     * INVISÍVEL: PK e UNIQUE ainda dava para inferir do `indexdef`, mas chave estrangeira não
+     * cria índice no PostgreSQL e não aparecia em lugar nenhum. Sem ela o modelo chuta o JOIN —
+     * o mesmo tipo de erro silencioso (número errado, não erro) que motivou a ferramenta.
+     *
+     * `pg_get_constraintdef()` devolve a definição já legível ("FOREIGN KEY (tenant_id)
+     * REFERENCES tenant(id)"), que é o formato mais útil para quem vai escrever o SQL.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function chaves(string $tabela): array
+    {
+        $resultado = $this->conexao->consultar(
+            "SELECT conname AS chave,
+                    CASE contype
+                        WHEN 'p' THEN 'PRIMARY KEY'
+                        WHEN 'f' THEN 'FOREIGN KEY'
+                        ELSE 'UNIQUE'
+                    END AS tipo,
+                    pg_get_constraintdef(oid) AS definicao
+             FROM pg_constraint
+             WHERE contype IN ('f', 'p', 'u')
+               AND conrelid = (
+                   SELECT c.oid FROM pg_class c
+                   WHERE c.relnamespace = 'public'::regnamespace AND c.relname = :tabela
+               )
+             ORDER BY contype, conname",
             self::LIMITE,
             ['tabela' => $tabela],
         );
