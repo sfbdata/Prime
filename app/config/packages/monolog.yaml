@@ -2,6 +2,7 @@ monolog:
     channels:
         - deprecation # Deprecations are logged in the dedicated "deprecation" channel when it exists
         - audit
+        - mcp
 
 when@dev:
     monolog:
@@ -10,16 +11,35 @@ when@dev:
                 type: stream
                 path: "%kernel.logs_dir%/%kernel.environment%.log"
                 level: debug
-                channels: ["!event", "!audit"]
+                channels: ["!event", "!audit", "!mcp"]
             audit:
                 type: stream
                 path: "%kernel.logs_dir%/audit.log"
                 level: info
                 channels: ["audit"]
+            # Canal do servidor MCP (App\Mcp\Tool\ConsultarSqlTool). Vai para ARQUIVO, não para
+            # php://stderr como o resto do projeto: o mcp:server fala STDIO com o cliente MCP, e
+            # o stdout dele carrega só JSON-RPC — mas o ConsoleHandler abaixo já escreve em
+            # stderr (ver o "!mcp" nele), então o motivo de existir um handler de arquivo
+            # separado não é o protocolo, é sobrevivência: um `docker exec` roda sem TTY
+            # persistente, e o stderr desse processo cai no cano do SSH e é descartado pelo
+            # cliente MCP. Um arquivo sobrevive à sessão — mas não a um redeploy (mora dentro do
+            # container). É trilha de investigação, não registro permanente.
+            mcp:
+                type: stream
+                path: "%kernel.logs_dir%/mcp.log"
+                level: info
+                channels: ["mcp"]
             console:
                 type: console
                 process_psr_3_messages: false
-                channels: ["!event", "!doctrine", "!console"]
+                # "!mcp" aqui NÃO é proteção de protocolo: o ConsoleHandler do Symfony escreve
+                # em stderr (getErrorOutput(), ver vendor/symfony/monolog-bridge/Handler/
+                # ConsoleHandler.php), nunca em stdout — não corromperia o JSON-RPC de qualquer
+                # forma. A exclusão existe para quem roda `mcp:server` à mão num terminal (é
+                # exatamente o passo de diagnóstico do runbook): sem ela, cada consulta apareceria
+                # duas vezes ali — formatada pelo console e, de novo, em mcp.log.
+                channels: ["!event", "!doctrine", "!console", "!mcp"]
 
 when@test:
     monolog:
@@ -39,6 +59,11 @@ when@test:
                 path: "%kernel.logs_dir%/audit_test.log"
                 level: info
                 channels: ["audit"]
+            mcp:
+                type: stream
+                path: "%kernel.logs_dir%/mcp_test.log"
+                level: info
+                channels: ["mcp"]
 
 when@prod:
     monolog:
@@ -48,7 +73,7 @@ when@prod:
                 action_level: error
                 handler: nested
                 excluded_http_codes: [404, 405]
-                channels: ["!deprecation", "!audit"]
+                channels: ["!deprecation", "!audit", "!mcp"]
                 buffer_size: 50 # How many messages should be saved? Prevent memory leaks
             nested:
                 type: stream
@@ -61,10 +86,20 @@ when@prod:
                 level: info
                 channels: ["audit"]
                 formatter: monolog.formatter.json
+            # Ver o comentário do handler "mcp" em when@dev: arquivo, não stderr, porque o
+            # stderr de um `docker exec` some no cano do SSH antes de chegar a algum lugar útil.
+            mcp:
+                type: stream
+                path: "%kernel.logs_dir%/mcp.log"
+                level: info
+                channels: ["mcp"]
             console:
                 type: console
                 process_psr_3_messages: false
-                channels: ["!event", "!doctrine"]
+                # Mesmo motivo do "!mcp" em when@dev: evitar linha duplicada (console + mcp.log)
+                # quando o dono roda `mcp:server` à mão pelo passo de diagnóstico do runbook —
+                # não é proteção de protocolo, o ConsoleHandler já escreve em stderr.
+                channels: ["!event", "!doctrine", "!mcp"]
             deprecation:
                 type: stream
                 channels: [deprecation]

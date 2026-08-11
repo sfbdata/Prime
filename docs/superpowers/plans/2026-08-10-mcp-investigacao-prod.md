@@ -23,8 +23,16 @@ PHPUnit.
 
 - **Idioma:** código, comentários, testes e commits em **português brasileiro**.
   `camelCase` métodos/variáveis, `PascalCase` classes, `snake_case` nomes de ferramenta MCP.
-- **Todo comando roda dentro do container:**
-  `docker exec jusprime_php_dev bash -c 'cd app && …'`. Nunca `php`/`composer` fora.
+- **O trabalho acontece na frente `mcp-leitura`**, não no repositório principal:
+  worktree em `.claude/worktrees/mcp-leitura`, que dentro do container é
+  `/var/www/.claude/worktrees/mcp-leitura/app`, com banco de teste próprio
+  (`saas_testmcp-leitura`, `TEST_TOKEN=mcp-leitura`).
+- **Teste sempre por `scripts/frente-testar.sh mcp-leitura [args]`**, rodado da raiz do
+  repositório principal. O comando padrão do projeto
+  (`docker exec … 'cd app && php bin/phpunit'`) faz `cd app` no **repositório principal** e
+  devolveria verde do código errado — é o verde falso que o próprio cabeçalho do
+  `frente-testar.sh` documenta.
+- **Nunca rode `php`/`composer` fora do container.**
 - **`stdout` é do protocolo.** Nenhum `echo`, `dump`, `var_dump`, `$output->writeln()` ou
   handler de log pode escrever em `stdout` no caminho do `mcp:server`. Diagnóstico vai para
   `stderr` ou arquivo.
@@ -74,7 +82,7 @@ Nenhuma ferramenta ainda.
 - [ ] **Passo 1: Instalar o SDK com versão fixa**
 
 ```bash
-docker exec jusprime_php_dev bash -c 'cd app && composer require mcp/sdk:0.7.0'
+docker exec jusprime_php_dev bash -c 'cd /var/www/.claude/worktrees/mcp-leitura/app && composer require mcp/sdk:0.7.0'
 ```
 
 Confirme que o `composer.json` ficou com `"mcp/sdk": "0.7.0"` — sem `^`. Se o Composer
@@ -150,8 +158,14 @@ final class McpServerCommandTest extends TestCase
 
         $processo = new Process(
             ['php', 'bin/console', 'mcp:server'],
-            dirname(__DIR__, 3),          // .../app
-            ['APP_ENV' => 'test'],
+            dirname(__DIR__, 3),          // .../app — funciona na worktree e no repo principal
+            [
+                'APP_ENV' => 'test',
+                // Sem isto o subprocesso cairia no saas_test compartilhado em vez do banco
+                // da frente. O Process herda o ambiente do pai, mas depender dessa herança
+                // é a diferença entre um teste que sabe o que testa e um que dá sorte.
+                'TEST_TOKEN' => getenv('TEST_TOKEN') ?: '',
+            ],
         );
         $processo->setInput($entrada);    // fecha o STDIN ao terminar → o servidor encerra
         $processo->setTimeout(30);
@@ -187,7 +201,7 @@ final class McpServerCommandTest extends TestCase
 - [ ] **Passo 3: Rodar o teste e ver falhar**
 
 ```bash
-docker exec jusprime_php_dev bash -c 'cd app && php bin/phpunit tests/Mcp/Functional/McpServerCommandTest.php'
+scripts/frente-testar.sh mcp-leitura tests/Mcp/Functional/McpServerCommandTest.php
 ```
 
 Esperado: FALHA. O comando `mcp:server` não existe, então o processo sai com código
@@ -244,7 +258,7 @@ final class McpServerCommand extends Command
 - [ ] **Passo 5: Rodar o teste e ver passar**
 
 ```bash
-docker exec jusprime_php_dev bash -c 'cd app && php bin/phpunit tests/Mcp/Functional/McpServerCommandTest.php'
+scripts/frente-testar.sh mcp-leitura tests/Mcp/Functional/McpServerCommandTest.php
 ```
 
 Esperado: PASSA, 2 testes.
@@ -443,7 +457,7 @@ final class ConexaoLeituraTest extends TestCase
 - [ ] **Passo 2: Rodar o teste e ver falhar**
 
 ```bash
-docker exec jusprime_php_dev bash -c 'cd app && php bin/phpunit tests/Mcp/Functional/ConexaoLeituraTest.php'
+scripts/frente-testar.sh mcp-leitura tests/Mcp/Functional/ConexaoLeituraTest.php
 ```
 
 Esperado: FALHA com `Class "App\Mcp\Service\ConexaoLeitura" not found`.
@@ -555,7 +569,7 @@ explícitos:
 - [ ] **Passo 5: Rodar o teste e ver passar**
 
 ```bash
-docker exec jusprime_php_dev bash -c 'cd app && php bin/phpunit tests/Mcp/Functional/ConexaoLeituraTest.php'
+scripts/frente-testar.sh mcp-leitura tests/Mcp/Functional/ConexaoLeituraTest.php
 ```
 
 Esperado: PASSA, 8 testes.
@@ -698,7 +712,7 @@ final class ConsultarSqlToolTest extends TestCase
 - [ ] **Passo 2: Rodar o teste e ver falhar**
 
 ```bash
-docker exec jusprime_php_dev bash -c 'cd app && php bin/phpunit tests/Mcp/Functional/ConsultarSqlToolTest.php'
+scripts/frente-testar.sh mcp-leitura tests/Mcp/Functional/ConsultarSqlToolTest.php
 ```
 
 Esperado: FALHA com `Class "App\Mcp\Tool\ConsultarSqlTool" not found`.
@@ -787,7 +801,7 @@ final class ConsultarSqlTool
 - [ ] **Passo 4: Rodar o teste e ver passar**
 
 ```bash
-docker exec jusprime_php_dev bash -c 'cd app && php bin/phpunit tests/Mcp/Functional/ConsultarSqlToolTest.php'
+scripts/frente-testar.sh mcp-leitura tests/Mcp/Functional/ConsultarSqlToolTest.php
 ```
 
 Esperado: PASSA, 5 testes.
@@ -884,7 +898,7 @@ final class DescreverEsquemaToolTest extends TestCase
 - [ ] **Passo 2: Rodar o teste e ver falhar**
 
 ```bash
-docker exec jusprime_php_dev bash -c 'cd app && php bin/phpunit tests/Mcp/Functional/DescreverEsquemaToolTest.php'
+scripts/frente-testar.sh mcp-leitura tests/Mcp/Functional/DescreverEsquemaToolTest.php
 ```
 
 Esperado: FALHA com `Class "App\Mcp\Tool\DescreverEsquemaTool" not found`.
@@ -1005,7 +1019,7 @@ final class DescreverEsquemaTool
 - [ ] **Passo 4: Rodar o teste e ver passar**
 
 ```bash
-docker exec jusprime_php_dev bash -c 'cd app && php bin/phpunit tests/Mcp/Functional/DescreverEsquemaToolTest.php'
+scripts/frente-testar.sh mcp-leitura tests/Mcp/Functional/DescreverEsquemaToolTest.php
 ```
 
 Esperado: PASSA, 4 testes.
@@ -1109,7 +1123,7 @@ Adicione a `McpServerCommandTest`:
 - [ ] **Passo 2: Rodar e ver falhar**
 
 ```bash
-docker exec jusprime_php_dev bash -c 'cd app && php bin/phpunit tests/Mcp/Functional/McpServerCommandTest.php'
+scripts/frente-testar.sh mcp-leitura tests/Mcp/Functional/McpServerCommandTest.php
 ```
 
 Esperado: FALHA — `tools/list` devolve lista vazia, então `assertSame` reclama de `[]`.
@@ -1162,7 +1176,7 @@ docblocks das Tasks 3 e 4 são conteúdo, não enfeite.
 - [ ] **Passo 4: Rodar e ver passar**
 
 ```bash
-docker exec jusprime_php_dev bash -c 'cd app && php bin/phpunit tests/Mcp/Functional/McpServerCommandTest.php'
+scripts/frente-testar.sh mcp-leitura tests/Mcp/Functional/McpServerCommandTest.php
 ```
 
 Esperado: PASSA, 5 testes.
@@ -1239,8 +1253,8 @@ Em `when@prod`, tire também o canal do handler `main` (que despacha para `neste
 - [ ] **Passo 2: Conferir que o canal existe e o stdout continua limpo**
 
 ```bash
-docker exec jusprime_php_dev bash -c 'cd app && php bin/console lint:yaml config'
-docker exec jusprime_php_dev bash -c 'cd app && php bin/phpunit tests/Mcp'
+docker exec jusprime_php_dev bash -c 'cd /var/www/.claude/worktrees/mcp-leitura/app && php bin/console lint:yaml config'
+scripts/frente-testar.sh mcp-leitura tests/Mcp
 ```
 
 Esperado: YAML válido e a pasta `tests/Mcp` inteira verde, com
@@ -1302,7 +1316,7 @@ apenas "servidor falhou"; diagnostique rodando o comando à mão com a entrada d
 - [ ] **Passo 4: Rodar a suíte inteira**
 
 ```bash
-docker exec jusprime_php_dev bash -c 'cd app && php bin/phpunit'
+scripts/frente-testar.sh mcp-leitura
 ```
 
 Esperado: verde. A contagem deve subir em **22 testes** em relação à base
@@ -1319,8 +1333,8 @@ git commit -m "isola o log do mcp do stdout e documenta a subida em producao"
 
 ## Verificação final (antes de entregar ao dono)
 
-- [ ] `docker exec jusprime_php_dev bash -c 'cd app && php bin/phpunit'` — suíte inteira verde
-- [ ] `docker exec jusprime_php_dev bash -c 'cd app && php bin/console lint:container'`
+- [ ] `scripts/frente-testar.sh mcp-leitura` — suíte inteira verde
+- [ ] `docker exec jusprime_php_dev bash -c 'cd /var/www/.claude/worktrees/mcp-leitura/app && php bin/console lint:container'`
 - [ ] `git log --oneline -6` mostra os seis commits, e `git status` está limpo
 - [ ] Nenhum arquivo fora de `app/src/Mcp/`, `app/tests/Mcp/`, `app/config/`,
       `app/composer.*` e `docs/` foi tocado
