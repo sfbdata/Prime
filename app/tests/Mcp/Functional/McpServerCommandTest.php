@@ -15,8 +15,13 @@ use Symfony\Component\Process\Process;
  */
 final class McpServerCommandTest extends TestCase
 {
-    // PHP 8.2 não aceita `new` em inicializador de constante de classe (só a partir do 8.3),
-    // e este projeto roda 8.2 — por isso é método, não `const`, apesar do brief pedir `const`.
+    // `new` em inicializador de CONSTANTE DE CLASSE não é aceito em nenhuma versão do PHP: a
+    // RFC "New in Initializers" (PHP 8.1) liberou `new` em default de parâmetro, argumento de
+    // atributo, variável estática e constante GLOBAL, e deixou de fora constante de classe e
+    // default de propriedade DE PROPÓSITO (ordem de avaliação) — nenhuma RFC posterior mudou
+    // isso. A mensagem "New expressions are not supported in this context" é contextual, não
+    // versional; não adianta esperar um upgrade. Por isso é método, não `const`, apesar de o
+    // brief pedir `const`.
     /** @return list<array<string, mixed>> */
     private static function handshake(): array
     {
