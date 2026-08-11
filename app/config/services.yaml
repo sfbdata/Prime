@@ -106,9 +106,16 @@ services:
     # (ver `EnvVarProcessor`), estourando `TypeError` no container ANTES de o
     # `RuntimeException` de mensagem clara ter qualquer chance de rodar — mesmo padrão já
     # documentado acima para `google_drive_*`.
-    # `public: true`: sem isto o compilador remove o serviço por "não usado por ninguém" —
-    # ainda não tem consumidor de produção (só ganha um nas Tasks 3/4) — e
-    # `static::getContainer()->get()` não alcança serviço privado removido/inlined.
+    # `public: true` existe por causa de UM teste: `ConexaoLeituraServicoTest`, o único que
+    # prova o `%env(string:default::…)%` acima, pega este serviço com
+    # `static::getContainer()->get()` — e isso não alcança serviço privado que o compilador
+    # tenha removido ou inlinado (era o caso quando o serviço não tinha consumidor nenhum).
+    # MEDIDO em 11/08/2026, removendo a linha e rodando `tests/Mcp`: hoje a suíte fica verde
+    # SEM ela — o serviço ganhou dois consumidores (as duas ferramentas), sobreviveu à
+    # compilação como privado, e o container de teste alcança privado que sobreviveu. A linha
+    # fica como garantia: basta um dos dois consumidores sair para o serviço ser inlinado no
+    # único que restar, e quem quebra é `ConexaoLeituraServicoTest`, longe daqui.
+    # Não remova sem rodar esse teste.
     # `when@test: services:` NÃO serve para isto: reescrever o mesmo ID de serviço em outro
     # bloco `when@` SUBSTITUI a definição inteira em vez de só somar a chave nova (testado —
     # o `$dsn` some do serviço compilado). `public: true` incondicional evita essa armadilha
