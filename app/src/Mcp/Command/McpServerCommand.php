@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Mcp\Command;
 
+use App\Mcp\Tool\ConsultarSqlTool;
+use App\Mcp\Tool\DescreverEsquemaTool;
+use Mcp\Capability\Registry\ReferenceHandler;
 use Mcp\Server;
 use Mcp\Server\Transport\StdioTransport;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -27,12 +30,37 @@ use Symfony\Component\Console\Output\OutputInterface;
 )]
 final class McpServerCommand extends Command
 {
+    public function __construct(
+        private readonly ConsultarSqlTool $consultarSql,
+        private readonly DescreverEsquemaTool $descreverEsquema,
+    ) {
+        parent::__construct();
+    }
+
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $servidor = Server::builder()
             ->setServerInfo('JusPrime (leitura)', '1.0.0')
             ->setInstructions(
-                'Acesso SOMENTE LEITURA ao banco do JusPrime. Nenhuma ferramenta grava dados.',
+                'Acesso SOMENTE LEITURA ao banco do JusPrime. Nenhuma ferramenta grava dados. '
+                . 'Chame descrever_esquema antes de escrever SQL contra uma tabela desconhecida — '
+                . 'nome de coluna chutado devolve número errado, não erro.',
+            )
+            // O SDK (`Mcp\Server\Handler\Request\CallToolHandler`) só converte
+            // `Mcp\Exception\ToolCallException` em erro DE FERRAMENTA (`isError: true` dentro
+            // do `result`, sem derrubar a sessão). Qualquer outro `\Throwable` — inclusive o
+            // `\RuntimeException` simples que `ConsultarSqlTool`/`DescreverEsquemaTool` lançam —
+            // vira erro de PROTOCOLO JSON-RPC (nível de transporte), que não dá ao modelo a
+            // chance de se corrigir. Como não alteramos o corpo das ferramentas, a tradução
+            // acontece aqui, na fiação.
+            ->setReferenceHandler(new ExcecaoDeFerramentaViraErroSeguro(new ReferenceHandler()))
+            ->addTool(
+                handler: [$this->consultarSql, 'consultar'],
+                name: 'consultar_sql',
+            )
+            ->addTool(
+                handler: [$this->descreverEsquema, 'descrever'],
+                name: 'descrever_esquema',
             )
             ->build();
 

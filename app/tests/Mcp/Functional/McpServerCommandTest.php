@@ -59,6 +59,69 @@ final class McpServerCommandTest extends TestCase
         self::assertSame('JusPrime (leitura)', $resposta['result']['serverInfo']['name']);
     }
 
+    public function testAnunciaAsDuasFerramentas(): void
+    {
+        $mensagens = self::handshake();
+        $processo = $this->rodarServidor($mensagens);
+
+        $resposta = $this->respostaComId($processo->getOutput(), 2);
+
+        self::assertNotNull($resposta, 'nenhuma resposta para tools/list (id 2)');
+
+        $nomes = array_column($resposta['result']['tools'], 'name');
+        sort($nomes);
+
+        self::assertSame(['consultar_sql', 'descrever_esquema'], $nomes);
+    }
+
+    public function testChamarConsultarSqlDevolveResultado(): void
+    {
+        $mensagens = self::handshake();
+        $mensagens[] = [
+            'jsonrpc' => '2.0',
+            'id'      => 3,
+            'method'  => 'tools/call',
+            'params'  => [
+                'name'      => 'consultar_sql',
+                'arguments' => ['sql' => 'SELECT 42 AS resposta'],
+            ],
+        ];
+
+        $processo = $this->rodarServidor($mensagens);
+        $resposta = $this->respostaComId($processo->getOutput(), 3);
+
+        self::assertNotNull($resposta, 'nenhuma resposta para tools/call (id 3)');
+        self::assertNotTrue($resposta['result']['isError'] ?? false, json_encode($resposta));
+        self::assertStringContainsString('42', $resposta['result']['content'][0]['text']);
+    }
+
+    public function testSqlInvalidoViraErroDeFerramentaSemDerrubarOServidor(): void
+    {
+        $mensagens = self::handshake();
+        $mensagens[] = [
+            'jsonrpc' => '2.0',
+            'id'      => 3,
+            'method'  => 'tools/call',
+            'params'  => [
+                'name'      => 'consultar_sql',
+                'arguments' => ['sql' => 'SELECT * FROM nao_existe_essa_tabela'],
+            ],
+        ];
+        // Se o servidor tivesse morrido no erro acima, esta última mensagem ficaria sem resposta.
+        $mensagens[] = ['jsonrpc' => '2.0', 'id' => 4, 'method' => 'ping'];
+
+        $processo = $this->rodarServidor($mensagens);
+
+        $erro = $this->respostaComId($processo->getOutput(), 3);
+        self::assertNotNull($erro);
+        self::assertTrue($erro['result']['isError'] ?? false, 'erro de SQL deveria virar isError');
+
+        self::assertNotNull(
+            $this->respostaComId($processo->getOutput(), 4),
+            'o servidor morreu no erro de SQL em vez de seguir respondendo',
+        );
+    }
+
     /** @param list<array<string, mixed>> $mensagens */
     private function rodarServidor(array $mensagens): Process
     {
@@ -76,6 +139,14 @@ final class McpServerCommandTest extends TestCase
                 // da frente. O Process herda o ambiente do pai, mas depender dessa herança
                 // é a diferença entre um teste que sabe o que testa e um que dá sorte.
                 'TEST_TOKEN' => getenv('TEST_TOKEN') ?: '',
+                // `DATABASE_URL_LEITURA` (Task 2) só é configurada em prod — de propósito, não
+                // vem do .env.test. Sem passá-la aqui, `consultar_sql`/`descrever_esquema`
+                // falhariam sempre com "não está configurada", e os testes abaixo (que precisam
+                // de um banco de verdade para provar execução ponta a ponta e o caminho de erro
+                // de SQL) testariam esse erro fixo em vez do comportamento real. Aponta para o
+                // MESMO banco de teste da frente, com o usuário administrativo — a garantia de
+                // ACL somente-leitura já é provada, com role restrita, em `ConexaoLeituraTest`.
+                'DATABASE_URL_LEITURA' => $this->dsnLeituraDeTeste(),
             ],
         );
         $processo->setInput($entrada);    // fecha o STDIN ao terminar → o servidor encerra
@@ -83,6 +154,24 @@ final class McpServerCommandTest extends TestCase
         $processo->run();
 
         return $processo;
+    }
+
+    /**
+     * Reconstrói o DSN de leitura a partir de `DATABASE_URL`, aplicando o mesmo
+     * `dbname_suffix: '_test%env(default::TEST_TOKEN)%'` que `config/packages/doctrine.yaml`
+     * aplica automaticamente à conexão Doctrine normal — mas que não se aplica a uma env var
+     * arbitrária como `DATABASE_URL_LEITURA`, então precisa ser refeito à mão aqui.
+     */
+    private function dsnLeituraDeTeste(): string
+    {
+        $dsn = $_ENV['DATABASE_URL'] ?? getenv('DATABASE_URL');
+        if (!is_string($dsn) || trim($dsn) === '') {
+            return '';
+        }
+
+        $sufixo = '_test' . (getenv('TEST_TOKEN') ?: '');
+
+        return preg_replace('#/([^/?]+)(\?.*)?$#', '/$1' . $sufixo . '$2', $dsn, 1) ?? '';
     }
 
     /** @return list<string> */
