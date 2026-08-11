@@ -67,15 +67,7 @@ final class ConsultarSqlToolTest extends TestCase
 
     public function testRegistraAConsultaNoLog(): void
     {
-        $logger = new class extends \Psr\Log\AbstractLogger {
-            /** @var list<array{level: mixed, message: string, context: array}> */
-            public array $registros = [];
-
-            public function log($level, \Stringable|string $message, array $context = []): void
-            {
-                $this->registros[] = ['level' => $level, 'message' => (string) $message, 'context' => $context];
-            }
-        };
+        $logger = $this->loggerDeMemoria();
 
         (new ConsultarSqlTool(new ConexaoLeitura(BancoDeLeituraDeTeste::dsnLeitura()), $logger))
             ->consultar('SELECT 1 AS n');
@@ -84,5 +76,51 @@ final class ConsultarSqlToolTest extends TestCase
         self::assertSame('SELECT 1 AS n', $logger->registros[0]['context']['sql']);
         self::assertSame(1, $logger->registros[0]['context']['linhas']);
         self::assertArrayHasKey('duracao_ms', $logger->registros[0]['context']);
+    }
+
+    /**
+     * O log de ERRO é o caso do timeout — e é justamente aí que a trilha precisa responder
+     * "essa consulta pesou quanto na produção?", metade do motivo de o log existir (spec §6).
+     * Sem `duracao_ms` a linha de erro não responde nada, e sem a classe da exceção não dá para
+     * distinguir timeout (`DriverException`) de SQL inválido sem interpretar texto em inglês.
+     */
+    public function testLogDeErroTrazDuracaoEClasseDaExcecao(): void
+    {
+        $logger = $this->loggerDeMemoria();
+        $ferramenta = new ConsultarSqlTool(
+            new ConexaoLeitura(BancoDeLeituraDeTeste::dsnLeitura()),
+            $logger,
+        );
+
+        try {
+            $ferramenta->consultar('SELECT * FROM tabela_que_nao_existe_nenhuma');
+            self::fail('a consulta inválida deveria ter lançado');
+        } catch (\RuntimeException) {
+            // esperado — o que está sob prova é o que foi logado
+        }
+
+        self::assertCount(1, $logger->registros);
+        $contexto = $logger->registros[0]['context'];
+
+        self::assertSame('error', $logger->registros[0]['level']);
+        self::assertArrayHasKey('duracao_ms', $contexto);
+        self::assertIsInt($contexto['duracao_ms']);
+        self::assertSame(
+            \Doctrine\DBAL\Exception\TableNotFoundException::class,
+            $contexto['excecao'],
+        );
+    }
+
+    private function loggerDeMemoria(): \Psr\Log\AbstractLogger
+    {
+        return new class extends \Psr\Log\AbstractLogger {
+            /** @var list<array{level: mixed, message: string, context: array}> */
+            public array $registros = [];
+
+            public function log($level, \Stringable|string $message, array $context = []): void
+            {
+                $this->registros[] = ['level' => $level, 'message' => (string) $message, 'context' => $context];
+            }
+        };
     }
 }

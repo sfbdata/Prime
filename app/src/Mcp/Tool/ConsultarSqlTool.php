@@ -42,9 +42,15 @@ final class ConsultarSqlTool
         try {
             $resultado = $this->conexao->consultar($sql, self::LIMITE_LINHAS);
         } catch (\Throwable $erro) {
+            // `duracao_ms` também aqui, não só no sucesso: o caso típico de erro é o
+            // `statement_timeout`, e é justamente nele que a trilha precisa responder "essa
+            // consulta pesou quanto na produção?" (spec §6). A classe da exceção entra junto
+            // porque separa timeout de SQL inválido sem depender de interpretar texto em inglês.
             $this->mcpLogger->error('consulta falhou', [
-                'sql'  => $sql,
-                'erro' => $erro->getMessage(),
+                'sql'        => $sql,
+                'erro'       => $erro->getMessage(),
+                'excecao'    => $erro::class,
+                'duracao_ms' => (int) round((microtime(true) - $inicio) * 1000),
             ]);
 
             // `Mcp\Exception\ToolCallException` é a única exceção que o SDK (mcp/sdk 0.7.0,
