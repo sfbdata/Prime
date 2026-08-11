@@ -17,6 +17,144 @@ html[data-bs-theme="dark"] .cobrancas-page {
 .cobrancas-page .content-header h1 { font-weight: 700; letter-spacing: -.01em; }
 .cobrancas-page .content-header h1 > .bi { color: var(--jp-accent); }
 
+/* ── Cabeçalho da carteira: cliente + frescor do dado ──────────── */
+.carteira-meta {
+    display: flex; align-items: center; flex-wrap: wrap;
+    gap: .4rem .75rem; margin-top: .35rem;
+}
+.carteira-cliente {
+    display: inline-flex; align-items: center; gap: .4rem;
+    color: var(--bs-secondary-color); font-size: .875rem;
+}
+
+/* O frescor do dado deixou de ser texto cinza solto e virou um selo: mesma altura do nome do
+   cliente, com contorno próprio. Continua discreto — o que muda é que agora ele se LÊ como um
+   estado do dado, e não como legenda. `is-alerta` usa o warning do tema em vez de `.text-warning`
+   direto, para o contorno e o texto virem do mesmo tom. */
+.carteira-chip {
+    display: inline-flex; align-items: center; gap: .4rem;
+    padding: .2rem .6rem; border-radius: 999px;
+    font-size: .8125rem; line-height: 1.4;
+    border: 1px solid var(--bs-border-color);
+    background: var(--bs-tertiary-bg);
+    color: var(--bs-secondary-color);
+}
+.carteira-chip strong { color: var(--bs-body-color); font-weight: 600; }
+.carteira-chip.is-alerta {
+    border-color: rgba(var(--bs-warning-rgb), .45);
+    background: rgba(var(--bs-warning-rgb), .1);
+    color: var(--bs-warning-text-emphasis);
+}
+.carteira-chip.is-alerta strong { color: inherit; }
+/* A procedência ("· pela importação dos relatórios") é nota de rodapé dentro do selo: fica, mas
+   não disputa leitura com a data. Some no celular, onde a linha é curta demais para carregá-la. */
+.carteira-chip-fonte { opacity: .75; }
+@media (max-width: 575.98px) { .carteira-chip-fonte { display: none; } }
+
+/* ── Faixa de indicadores ───────────────────────────────────────
+   Como no desenho aprovado: faixa BRANCA e chapada, sem borda em volta e sem régua entre os itens
+   — quem separa é o espaço. Ela lê como continuação do cabeçalho, e é o fundo cinza do conteúdo,
+   logo abaixo, que a delimita.
+
+   Aqui houve um desvio meu que voltou atrás: eu tinha posto borda, divisórias e o saldo maior que
+   os outros três, argumentando "hierarquia por tamanho". Não era o que estava desenhado nem o que
+   o dono aprovou, e na tela a caixa com régua ficou apertada onde o desenho respirava. Quatro
+   números do mesmo tamanho; quem hierarquiza é a ORDEM de leitura e o vermelho do vencido. */
+.carteira-resumo {
+    display: flex; flex-wrap: wrap; align-items: stretch; gap: 0;
+    background: var(--bs-body-bg);
+    border-radius: var(--cob-radius, 1rem);
+    padding: .25rem .5rem;
+}
+.carteira-resumo-item {
+    display: flex; flex-direction: column; gap: .35rem;
+    padding: 1.15rem 1.25rem; min-width: 9rem;
+}
+.carteira-resumo-item.is-principal { min-width: 13rem; }
+
+.carteira-resumo-label {
+    font-size: .6875rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .04em;
+    color: var(--bs-secondary-color);
+}
+.carteira-resumo-valor {
+    font-size: 1.875rem; font-weight: 700; line-height: 1.15; letter-spacing: -.02em;
+    font-variant-numeric: tabular-nums;
+}
+.carteira-resumo-valor.is-zerado { color: var(--bs-success); }
+.carteira-resumo-valor.is-vencido { color: var(--bs-danger); }
+
+/* ── Trilho lateral: Configuração + Documentos ─────────────────── */
+/* Os dois cartões empilham com respiro entre si; `h-100` fica FORA de propósito — o trilho
+   acompanha o próprio conteúdo em vez de esticar até a altura da lista, que é bem maior. */
+.carteira-trilho { display: flex; flex-direction: column; gap: 1rem; }
+
+/* Rótulo em cima, valor embaixo, um por linha. O `dl.row` de duas colunas que estava aqui quebrava
+   "Tolerância de atraso" no meio da palavra quando o trilho encolheu para 4/12. */
+.carteira-trilho-dl { font-size: .875rem; }
+.carteira-trilho-linha {
+    display: flex; justify-content: space-between; align-items: baseline; gap: .75rem;
+    padding: .5rem .9rem;
+}
+.carteira-trilho-linha + .carteira-trilho-linha { border-top: 1px solid var(--bs-border-color); }
+.carteira-trilho-linha dt { font-weight: 400; color: var(--bs-secondary-color); }
+.carteira-trilho-linha dd { margin: 0; text-align: right; color: var(--bs-body-color); }
+
+.carteira-trilho-contagem {
+    display: inline-block; min-width: 1.4rem; padding: 0 .35rem;
+    border-radius: 999px; background: var(--bs-secondary-bg);
+    color: var(--bs-secondary-color); font-size: .75rem; font-weight: 600; text-align: center;
+}
+
+/* Documentos como lista, não tabela: em 4/12 as 5 colunas viravam scroll horizontal. */
+.carteira-docs { font-size: .875rem; }
+.carteira-doc {
+    display: flex; align-items: center; justify-content: space-between; gap: .5rem;
+    padding: .55rem .9rem;
+}
+.carteira-doc + .carteira-doc { border-top: 1px solid var(--bs-border-color); }
+.carteira-doc-texto { min-width: 0; display: flex; flex-direction: column; }
+/* `min-width: 0` acima + truncagem aqui: sem os dois, um nome de arquivo longo empurra os botões
+   de baixar/excluir para fora do cartão em vez de encolher. */
+.carteira-doc-nome {
+    color: var(--bs-body-color);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.carteira-doc-meta { font-size: .75rem; color: var(--bs-secondary-color); }
+/* A observação quebra em até 2 linhas em vez de truncar numa só: ela é texto que alguém escreveu
+   de propósito, e cortar no meio da frase entrega menos que não mostrar. */
+.carteira-doc-obs {
+    font-size: .75rem; color: var(--bs-secondary-color); margin-top: .15rem;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.carteira-doc-acoes { display: flex; gap: .25rem; flex-shrink: 0; }
+
+/* A contagem da lista fica encostada à direita, alinhada com a coluna de saldo — no desenho ela
+   ocupa a ponta direita da barra de ferramentas. Não dá para colocá-la literalmente na mesma linha
+   do campo de busca: a busca mora FORA do fragmento trocável (para o foco sobreviver enquanto se
+   digita) e a contagem mora DENTRO dele (para mudar a cada busca). São dois contêineres. */
+.cobrancas-page [data-filtro-resultado] .cobranca-resultado-head {
+    justify-content: flex-end;
+    margin: 0 1rem .25rem;
+}
+
+/* ── Rodapé da lista: contagem da faixa + paginação ────────────── */
+.cobranca-resultado-rodape {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: .5rem;
+    padding: .75rem 1rem;
+    border-top: 1px solid var(--bs-border-color);
+    background: var(--bs-tertiary-bg);
+}
+
+@media (max-width: 575.98px) {
+    /* No celular a faixa empilha e o espaço sozinho deixa de separar — aqui a régua volta, agora
+       horizontal, porque sem ela quatro pares rótulo/valor viram uma coluna indistinta. */
+    .carteira-resumo-item { flex: 1 1 100%; padding: .85rem 1rem; }
+    .carteira-resumo-item + .carteira-resumo-item { border-top: 1px solid var(--bs-border-color); }
+    .carteira-resumo-valor { font-size: 1.5rem; }
+}
+
 /* ── Sub-navegação (Carteiras × Casos) ─────────────────────────── */
 /* `wrap` porque no `cobranca_objeto_show` ela divide a linha com as setas ‹ ›: sem isso, em tela
    estreita os quatro itens espremeriam em vez de quebrar. */
@@ -43,6 +181,13 @@ html[data-bs-theme="dark"] .cobrancas-page {
 
 /* ── Cartão/tabela ─────────────────────────────────────────────── */
 .cobranca-card { border: 1px solid var(--bs-border-color); }
+
+/* O AdminLTE traz `.card-header::after { display:block; clear:both; content:"" }` — clearfix de
+   layout com `float`. Num cabeçalho que fizemos FLEX, esse pseudo-elemento vira um TERCEIRO item:
+   com `justify-content-between` ele ocupa a direita e empurra o botão para o meio do cartão. Era
+   o que deixava "Novo objeto", "Editar" e o "+" de documento pendurados no vazio.
+   `content: none` remove o item; o clearfix não tem função nenhuma dentro de um flex container. */
+.cobrancas-page .card-header.d-flex::after { content: none; }
 .cobranca-card .table > thead th {
     font-size: .78rem; text-transform: uppercase; letter-spacing: .02em;
     color: var(--bs-secondary-color); border-bottom: 1px solid var(--bs-border-color);
@@ -51,6 +196,38 @@ html[data-bs-theme="dark"] .cobrancas-page {
 .cobranca-card .table > tbody > tr { border-top: 1px solid var(--bs-border-color); }
 .cobranca-card .table > tbody > tr:hover { background: var(--bs-tertiary-bg); }
 .cobranca-row-link .sort-icon { opacity: .35; }
+
+/* Largura das colunas em `rem`, não em px: assim elas acompanham o tamanho de fonte do usuário
+   em vez de espremer o conteúdo quando ele aumenta o zoom de texto. */
+.cobranca-col-estado { width: 7rem; }
+.cobranca-col-saldo  { width: 8.5rem; }
+.cobranca-col-acoes  { width: 7rem; }
+
+/* A linha inteira responde ao mouse… */
+.cobranca-row-link { cursor: pointer; }
+
+/* …mas o alvo real é o link do identificador — é ele que existe para o teclado. Ele veste a
+   aparência do texto que substituiu (semibold, cor do corpo) para a tabela não virar um mar de
+   azul sublinhado; o sublinhado aparece no hover e no foco, que é quando comunica algo. */
+.cobranca-row-alvo {
+    font-weight: 600;
+    color: inherit;
+    text-decoration: none;
+}
+.cobranca-row-link:hover .cobranca-row-alvo,
+.cobranca-row-alvo:hover { text-decoration: underline; }
+
+/* Foco visível: o anel do Bootstrap é desenhado por `box-shadow`, que dentro de uma célula de
+   tabela fica cortado pela borda da própria célula. `outline` é desenhado fora do fluxo e
+   sobrevive. `:focus-visible` (e não `:focus`) para o anel não piscar no clique de mouse. */
+.cobranca-row-alvo:focus-visible {
+    outline: 2px solid var(--jp-accent);
+    outline-offset: 2px;
+    border-radius: 2px;
+    text-decoration: underline;
+}
+/* A linha inteira acompanha o foco do seu link, para o olho achar a linha e não só a palavra. */
+.cobranca-row-link:has(.cobranca-row-alvo:focus-visible) { background: var(--bs-tertiary-bg); }
 
 /* Realce de linha com saldo vencido (SPEC §26: priorizar o que exige atenção) */
 .cobranca-row-vencido { background: rgba(var(--bs-danger-rgb), .05); }

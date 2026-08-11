@@ -30,16 +30,29 @@ final class MontarVisaoCarteiraUseCase
     ) {
     }
 
+    /** Ordenações aceitas na lista. Chave = valor que chega pela URL; o resto é recusado. */
+    public const ORDENACOES = ['saldo', 'objeto', 'pessoa'];
+
     /**
-     * @param string $busca busca livre da página (objeto ou pessoa cobrada); vazia = sem filtro.
-     *                      Filtra SÓ a lista — os agregados do cabeçalho (saldo consolidado, nº de
-     *                      objetos e de casos) continuam sendo os da carteira INTEIRA: buscar não
-     *                      muda o quanto a carteira tem a receber.
+     * @param string $busca   busca livre da página (objeto ou pessoa cobrada); vazia = sem filtro.
+     *                        Filtra SÓ a lista — os agregados do cabeçalho (saldo consolidado,
+     *                        vencido, nº de objetos e de casos) continuam sendo os da carteira
+     *                        INTEIRA: buscar não muda o quanto a carteira tem a receber.
+     * @param int    $pagina  1-based; valor fora da faixa é grampeado à última página existente
+     * @param int    $porPagina >= 1
+     * @param string $ordenar uma de self::ORDENACOES; qualquer outra coisa cai no padrão
+     * @param string $direcao 'asc' ou 'desc'
      *
-     * @return array{carteira: CarteiraDetalheOutput, casos: list<CasoResumoOutput>}
+     * @return array{carteira: CarteiraDetalheOutput, casos: list<CasoResumoOutput>, total: int, pagina: int, total_paginas: int, por_pagina: int}
      */
-    public function executar(Carteira $carteira, string $busca = ''): array
-    {
+    public function executar(
+        Carteira $carteira,
+        string $busca = '',
+        int $pagina = 1,
+        int $porPagina = 25,
+        string $ordenar = 'saldo',
+        string $direcao = 'desc',
+    ): array {
         $casos = $this->casoRepository->daCarteira($carteira);
         $busca = trim($busca);
         $idsCasando = $busca !== ''
@@ -62,11 +75,18 @@ final class MontarVisaoCarteiraUseCase
         $objetosComDocumento = $this->objetosComDocumento(array_keys($objetoIds), $carteira->getTenant());
 
         $saldoConsolidado = 0;
+        $saldoVencido = 0;
+        $totalComAtraso = 0;
         $casosOutput = [];
         foreach ($casos as $caso) {
             $saldo = $saldos[$caso->getId() ?? 0] ?? ['exigivel' => 0, 'vencido' => 0];
-            // O consolidado soma TODOS os casos, inclusive os que a busca esconde da lista.
+            // Os agregados somam TODOS os casos, inclusive os que a busca esconde e os que caem
+            // fora da página. O vencido sai do mesmo lote já calculado — não custa consulta.
             $saldoConsolidado += $saldo['exigivel'];
+            $saldoVencido += $saldo['vencido'];
+            if ($saldo['vencido'] > 0) {
+                ++$totalComAtraso;
+            }
 
             if ($idsCasando !== null && !isset($idsCasando[$caso->getId() ?? 0])) {
                 continue;
@@ -81,15 +101,65 @@ final class MontarVisaoCarteiraUseCase
             );
         }
 
+        // Ordenar ANTES de fatiar: paginar uma lista fora de ordem devolveria páginas que não
+        // conversam entre si (o mesmo caso podendo aparecer em duas, e outro em nenhuma).
+        $this->ordenar($casosOutput, $ordenar, $direcao);
+
+        // `total` é o tamanho da lista JÁ FILTRADA pela busca — é o que a paginação navega e o que
+        // o rodapé conta. Não confundir com `totalCasos` do cabeçalho, que é a carteira inteira.
+        $total = count($casosOutput);
+        $porPagina = max(1, $porPagina);
+        $totalPaginas = max(1, (int) ceil($total / $porPagina));
+        // Grampeia em vez de devolver página vazia: quem estava na página 5 e busca algo que só tem
+        // 1 página veria uma lista vazia com "0 resultados" ao lado de um contador dizendo que há
+        // resultados. Cair na última página existente é o que o usuário quis dizer.
+        $pagina = min(max(1, $pagina), $totalPaginas);
+
         return [
             'carteira' => CarteiraDetalheOutput::fromEntity(
                 $carteira,
                 $this->objetoRepository->contarDaCarteira($carteira),
                 count($casos),
                 $saldoConsolidado,
+                $saldoVencido,
+                $totalComAtraso,
             ),
-            'casos' => $casosOutput,
+            'casos' => array_slice($casosOutput, ($pagina - 1) * $porPagina, $porPagina),
+            'total' => $total,
+            'pagina' => $pagina,
+            'total_paginas' => $totalPaginas,
+            // Devolvido porque a tela precisa dele para dizer "Mostrando 101–121 de 121": calcular o
+            // primeiro item a partir do tamanho da lista devolvida erra justamente na última página,
+            // que é a única que vem incompleta.
+            'por_pagina' => $porPagina,
         ];
+    }
+
+    /**
+     * Ordena a lista no lugar. Em PHP mesmo, porque a lista já está carregada e já é filtrada em
+     * PHP — trazer ordenação para o SQL exigiria mover também a busca e o cálculo de saldo (que é
+     * derivado, não coluna), o que é outra frente.
+     *
+     * O desempate por `id` é obrigatório, não estético: sem ele, dois casos de mesmo saldo podem
+     * trocar de lugar entre duas requisições e um deles aparece em duas páginas enquanto o outro
+     * some — o defeito clássico de paginar por chave não-única.
+     *
+     * @param list<CasoResumoOutput> $casos
+     */
+    private function ordenar(array &$casos, string $ordenar, string $direcao): void
+    {
+        $campo = in_array($ordenar, self::ORDENACOES, true) ? $ordenar : 'saldo';
+        $sinal = strtolower($direcao) === 'asc' ? 1 : -1;
+
+        usort($casos, static function (CasoResumoOutput $a, CasoResumoOutput $b) use ($campo, $sinal): int {
+            $c = match ($campo) {
+                'objeto' => strnatcasecmp($a->objetoIdentificacao, $b->objetoIdentificacao),
+                'pessoa' => strnatcasecmp($a->pessoaCobradaNome, $b->pessoaCobradaNome),
+                default => $a->saldoExigivel <=> $b->saldoExigivel,
+            };
+
+            return $c !== 0 ? $sinal * $c : $a->id <=> $b->id;
+        });
     }
 
     /**

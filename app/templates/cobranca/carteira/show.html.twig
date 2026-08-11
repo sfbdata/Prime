@@ -12,12 +12,19 @@
             </a>
             <h1 class="m-0 d-flex align-items-center gap-2"><i class="bi bi-folder2-open"></i>{{ carteira.nome }}</h1>
             {% if has_permission('resources.cobranca.gerenciar') %}
-            <a href="{{ path('cobranca_importacao_upload', {id: carteira.id}) }}" class="btn btn-sm btn-outline-primary ms-auto">
+            {# Verde cheio (`jp-btn-accent`), como no desenho aprovado: importar relatório é a ação
+               primária desta tela, e contorno azul a deixava com o mesmo peso do botão de voltar —
+               além de trazer para cá um azul que não pertence à paleta do módulo. #}
+            <a href="{{ path('cobranca_importacao_upload', {id: carteira.id}) }}" class="btn btn-sm jp-btn-accent ms-auto">
                 <i class="bi bi-upload me-1"></i>Importar relatório
             </a>
             {% endif %}
         </div>
-        <div class="text-muted"><i class="bi bi-person-badge me-1"></i>{{ carteira.clienteNome }}</div>
+        {# Cliente e frescor do dado dividem a mesma linha: são as duas credenciais da carteira
+           (de quem é, e de quando é). Antes o frescor vinha como terceira linha solta, com o
+           menor peso visual da tela — apesar de ser o que responde "posso confiar neste saldo?". #}
+        <div class="carteira-meta">
+            <span class="carteira-cliente"><i class="bi bi-person-badge"></i>{{ carteira.clienteNome }}</span>
 
         {# ── Até quando os dados estão em dia ────────────────────────────────
            É a EMISSÃO do relatório, não a hora em que a importação rodou: importar hoje um arquivo de
@@ -32,85 +39,70 @@
            `totalObjetos`, que o DTO já traz — sem consulta nova. #}
         {% if carteira.dadosAtualizadosAte %}
             {% set dias = date().diff(carteira.dadosAtualizadosAte).days %}
-            <div class="small mt-1 {{ dias > 7 ? 'text-warning' : 'text-muted' }}"
+            <span class="carteira-chip {{ dias > 7 ? 'is-alerta' : 'is-neutro' }}"
                  data-bs-toggle="tooltip"
                  title="{% for tipo, emissao in carteira.emissaoPorTipo %}{{ tipo|capitalize }}: {{ emissao|date('d/m/Y H:i') }}{{ not loop.last ? ' · ' }}{% endfor %}">
-                <i class="bi bi-clock-history me-1"></i>Dados atualizados até
+                <i class="bi bi-clock-history"></i>Dados atualizados até
                 <strong>{{ carteira.dadosAtualizadosAte|date('d/m/Y') }}</strong>
                 {%- if dias == 0 %} (hoje)
                 {%- elseif dias == 1 %} (ontem)
                 {%- else %} ({{ dias }} dias atrás)
                 {%- endif %}
-                <span class="text-muted">· pela importação dos relatórios</span>
-            </div>
+                <span class="carteira-chip-fonte">· pela importação dos relatórios</span>
+            </span>
         {% elseif carteira.totalObjetos > 0 %}
-            <div class="small mt-1 text-warning"
+            <span class="carteira-chip is-alerta"
                  data-bs-toggle="tooltip"
                  title="A data de emissão passou a ser registrada em 07/08/2026. O que foi importado antes disso ficou sem ela.">
-                <i class="bi bi-clock-history me-1"></i>Data dos relatórios desconhecida
-                <span class="text-muted">· aparece aqui na próxima importação</span>
-            </div>
+                <i class="bi bi-clock-history"></i>Data dos relatórios desconhecida
+                <span class="carteira-chip-fonte">· aparece aqui na próxima importação</span>
+            </span>
         {% else %}
-            <div class="small mt-1 text-muted">
-                <i class="bi bi-clock-history me-1"></i>Nenhum relatório importado ainda
-            </div>
+            <span class="carteira-chip is-neutro">
+                <i class="bi bi-clock-history"></i>Nenhum relatório importado ainda
+            </span>
         {% endif %}
+        </div>
     </div>
 </section>
 
 <section class="content">
     <div class="container-fluid">
-        {# ── Métricas ──────────────────────────────────────────── #}
-        <div class="caso-header mb-3">
-            <div class="caso-metrics">
-                <div class="caso-metric">
-                    <div class="caso-metric-label">Saldo consolidado</div>
-                    <div class="caso-metric-valor {{ carteira.saldoConsolidado == 0 ? 'saldo-zerado' : '' }}">{{ carteira.saldoConsolidado|centavos }}</div>
-                </div>
-                <div class="caso-metric">
-                    <div class="caso-metric-label">Objetos</div>
-                    <div class="caso-metric-valor">{{ carteira.totalObjetos }}</div>
-                </div>
+        {# ── Resumo da carteira ─────────────────────────────────────────────
+           Usava `.caso-header` + `.caso-metrics`, emprestadas da tela de detalhe do Caso — lá
+           elas envolvem um `.caso-header-top` com título e subtítulo, que aqui não existe. Sobrava
+           uma borda arredondada em volta de dois números soltos, e os dois com o mesmo tamanho:
+           dinheiro empatando com contagem. Container próprio, e o saldo manda. #}
+        <div class="carteira-resumo mb-3">
+            <div class="carteira-resumo-item is-principal">
+                <span class="carteira-resumo-label">Saldo consolidado</span>
+                <span class="carteira-resumo-valor {{ carteira.saldoConsolidado == 0 ? 'is-zerado' : '' }}">{{ carteira.saldoConsolidado|centavos }}</span>
+            </div>
+            {# O vencido sai do MESMO lote que já calcula o saldo por caso (o que acende o realce de
+               linha) — o UseCase só o descartava no agregado. Zero consulta a mais. Fica em vermelho
+               só quando existe: carteira em dia não precisa de um zero vermelho chamando atenção. #}
+            <div class="carteira-resumo-item">
+                <span class="carteira-resumo-label">Vencido</span>
+                <span class="carteira-resumo-valor {{ carteira.saldoVencido > 0 ? 'is-vencido' : '' }}">{{ carteira.saldoVencido|centavos }}</span>
+            </div>
+            <div class="carteira-resumo-item">
+                <span class="carteira-resumo-label">Objetos cobrados</span>
+                <span class="carteira-resumo-valor">{{ carteira.totalObjetos }}</span>
+            </div>
+            <div class="carteira-resumo-item">
+                <span class="carteira-resumo-label">Com atraso</span>
+                <span class="carteira-resumo-valor {{ carteira.totalComAtraso > 0 ? 'is-vencido' : '' }}">{{ carteira.totalComAtraso }}</span>
             </div>
         </div>
 
+        {# ── Arranjo: lista à esquerda, trilho à direita ─────────────────────
+           A lista de objetos cobrados é a razão de existir da página, então vem PRIMEIRO no DOM e
+           fica com 8/12. Configuração e Documentos recuam para um trilho de 4/12 — visíveis sem
+           clique (foi o que o dono escolheu entre os dois arranjos desenhados), mas claramente
+           secundários. Antes era o contrário: Configuração, que quase nunca é lida, abria a página
+           e empurrava a lista para a direita, e Documentos ocupava a largura inteira embaixo com o
+           mesmo peso de card da lista. #}
         <div class="row g-3">
-            {# ── Configuração ──────────────────────────────────── #}
-            <div class="col-lg-4">
-                <div class="card cobranca-card h-100">
-                    <div class="card-header fw-semibold d-flex align-items-center justify-content-between">
-                        <span><i class="bi bi-gear me-1"></i>Configuração</span>
-                        {% if has_permission('resources.carteira.gerenciar') %}
-                        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalEditarConfiguracao">
-                            <i class="bi bi-pencil me-1"></i>Editar
-                        </button>
-                        {% endif %}
-                    </div>
-                    <div class="card-body">
-                        <dl class="row mb-0 small">
-                            <dt class="col-6 text-muted">Modo</dt>
-                            <dd class="col-6">{{ carteira.modoLabel }}</dd>
-
-                            <dt class="col-6 text-muted">Honorários</dt>
-                            <dd class="col-6">{{ carteira.formaHonorariosLabel }}{% if carteira.percentualHonorarios %} ({{ carteira.percentualHonorarios }}%){% endif %}</dd>
-
-                            <dt class="col-6 text-muted">Tolerância de atraso</dt>
-                            <dd class="col-6">{{ carteira.toleranciaAtrasoDias }} dia(s)</dd>
-
-                            {% if carteira.tipoVinculoPreferidoLabel %}
-                            <dt class="col-6 text-muted">Vínculo preferido</dt>
-                            <dd class="col-6">{{ carteira.tipoVinculoPreferidoLabel }}</dd>
-                            {% endif %}
-
-                            {% if carteira.rotuloObjeto %}
-                            <dt class="col-6 text-muted">Rótulo do objeto</dt>
-                            <dd class="col-6">{{ carteira.rotuloObjeto }}</dd>
-                            {% endif %}
-                        </dl>
-                    </div>
-                </div>
-            </div>
-
             {# ── Cobranças da carteira ─────────────────────────── #}
             <div class="col-lg-8">
                 {# O card inteiro é o root do filtro: a barra de busca fica FORA da área trocável
@@ -137,60 +129,100 @@
                     </div>
                 </div>
             </div>
-        </div>
 
-        {# ── Documentos da carteira (Ajuste #5) ────────────────── #}
-        <div class="card cobranca-card mt-3">
-            <div class="card-header fw-semibold d-flex align-items-center justify-content-between">
-                <span><i class="bi bi-paperclip me-1"></i>Documentos</span>
-                {% if has_permission('resources.cobranca.gerenciar') %}
-                <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalAdicionarDocumentoCarteira">
-                    <i class="bi bi-plus-lg me-1"></i>Adicionar documento
-                </button>
-                {% endif %}
-            </div>
-            <div class="table-responsive">
-                {% if documentos|length > 0 %}
-                <table class="table mb-0">
-                    <thead>
-                        <tr>
-                            <th class="ps-3">Data</th>
-                            <th>Nome</th>
-                            <th>Categoria</th>
-                            <th>Observação</th>
-                            <th class="text-end" style="width:110px">Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for doc in documentos %}
-                        <tr>
-                            <td class="ps-3 align-middle">{{ doc.carregadoEm|date('d/m/Y H:i') }}</td>
-                            <td class="align-middle">{{ doc.nomeOriginal }}</td>
-                            <td class="align-middle">{{ doc.categoria.rotulo }}</td>
-                            <td class="align-middle text-muted small">{{ doc.observacao ?: '—' }}</td>
-                            <td class="align-middle text-end">
-                                <a href="{{ path('cobranca_carteira_documento_download', {docId: doc.id}) }}" class="btn btn-sm btn-outline-secondary" title="Baixar">
-                                    <i class="bi bi-download"></i>
-                                </a>
-                                {% if has_permission('resources.cobranca.gerenciar') %}
-                                <form method="post" action="{{ path('cobranca_carteira_documento_excluir', {docId: doc.id}) }}" class="d-inline" onsubmit="return confirm('Excluir este documento?');">
-                                    <input type="hidden" name="_token" value="{{ csrf_token('cobranca_carteira_documento_excluir_' ~ doc.id) }}">
-                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Excluir">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
-                                </form>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-                {% else %}
-                <div class="cobranca-empty">
-                    <div class="empty-ico"><i class="bi bi-paperclip"></i></div>
-                    <p class="empty-title">Nenhum documento anexado</p>
+            {# ── Trilho: Configuração + Documentos ─────────────── #}
+            <div class="col-lg-4">
+                <div class="carteira-trilho">
+                    <div class="card cobranca-card">
+                        <div class="card-header fw-semibold d-flex align-items-center justify-content-between">
+                            <span><i class="bi bi-gear me-1"></i>Configuração</span>
+                            {% if has_permission('resources.carteira.gerenciar') %}
+                            <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalEditarConfiguracao">
+                                <i class="bi bi-pencil me-1"></i>Editar
+                            </button>
+                            {% endif %}
+                        </div>
+                        {# Rótulo à esquerda, valor à direita, um por linha — em 4/12 o `dl.row` de
+                           duas colunas quebrava "Tolerância de atraso" no meio da palavra. #}
+                        <dl class="carteira-trilho-dl mb-0">
+                            <div class="carteira-trilho-linha">
+                                <dt>Modo</dt>
+                                <dd>{{ carteira.modoLabel }}</dd>
+                            </div>
+                            <div class="carteira-trilho-linha">
+                                <dt>Honorários</dt>
+                                <dd>{{ carteira.formaHonorariosLabel }}{% if carteira.percentualHonorarios %} ({{ carteira.percentualHonorarios }}%){% endif %}</dd>
+                            </div>
+                            <div class="carteira-trilho-linha">
+                                <dt>Tolerância de atraso</dt>
+                                <dd>{{ carteira.toleranciaAtrasoDias }} dia(s)</dd>
+                            </div>
+                            {% if carteira.tipoVinculoPreferidoLabel %}
+                            <div class="carteira-trilho-linha">
+                                <dt>Vínculo preferido</dt>
+                                <dd>{{ carteira.tipoVinculoPreferidoLabel }}</dd>
+                            </div>
+                            {% endif %}
+                            {% if carteira.rotuloObjeto %}
+                            <div class="carteira-trilho-linha">
+                                <dt>Rótulo do objeto</dt>
+                                <dd>{{ carteira.rotuloObjeto }}</dd>
+                            </div>
+                            {% endif %}
+                        </dl>
+                    </div>
+
+                    {# ── Documentos da carteira (Ajuste #5) ──────
+                       Saiu da tabela de 5 colunas para uma lista: em 4/12 aquela tabela viraria
+                       scroll horizontal. Nome em cima, categoria e data embaixo.
+
+                       A observação continua como TEXTO, numa terceira linha que só existe quando
+                       há observação. Cheguei a jogá-la para dentro de um `title` — o teste de
+                       upload pegou, e estava certo: tooltip não existe para quem usa toque nem
+                       para leitor de tela, e o que justificava a troca ("é quase sempre vazia")
+                       era chute meu, não medição. #}
+                    <div class="card cobranca-card">
+                        <div class="card-header fw-semibold d-flex align-items-center justify-content-between">
+                            <span><i class="bi bi-paperclip me-1"></i>Documentos{% if documentos|length %} <span class="carteira-trilho-contagem">{{ documentos|length }}</span>{% endif %}</span>
+                            {% if has_permission('resources.cobranca.gerenciar') %}
+                            <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalAdicionarDocumentoCarteira" title="Adicionar documento" aria-label="Adicionar documento">
+                                <i class="bi bi-plus-lg"></i>
+                            </button>
+                            {% endif %}
+                        </div>
+                        {% if documentos|length > 0 %}
+                        <ul class="carteira-docs list-unstyled mb-0">
+                            {% for doc in documentos %}
+                            <li class="carteira-doc">
+                                <div class="carteira-doc-texto">
+                                    <span class="carteira-doc-nome">{{ doc.nomeOriginal }}</span>
+                                    <span class="carteira-doc-meta">{{ doc.categoria.rotulo }} · {{ doc.carregadoEm|date('d/m/Y') }}</span>
+                                    {% if doc.observacao %}<span class="carteira-doc-obs">{{ doc.observacao }}</span>{% endif %}
+                                </div>
+                                <div class="carteira-doc-acoes">
+                                    <a href="{{ path('cobranca_carteira_documento_download', {docId: doc.id}) }}" class="btn btn-sm btn-outline-secondary" title="Baixar {{ doc.nomeOriginal }}" aria-label="Baixar {{ doc.nomeOriginal }}">
+                                        <i class="bi bi-download"></i>
+                                    </a>
+                                    {% if has_permission('resources.cobranca.gerenciar') %}
+                                    <form method="post" action="{{ path('cobranca_carteira_documento_excluir', {docId: doc.id}) }}" class="d-inline" onsubmit="return confirm('Excluir este documento?');">
+                                        <input type="hidden" name="_token" value="{{ csrf_token('cobranca_carteira_documento_excluir_' ~ doc.id) }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Excluir {{ doc.nomeOriginal }}" aria-label="Excluir {{ doc.nomeOriginal }}">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                    {% endif %}
+                                </div>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                        {% else %}
+                        <div class="cobranca-empty">
+                            <div class="empty-ico"><i class="bi bi-paperclip"></i></div>
+                            <p class="empty-title">Nenhum documento anexado</p>
+                        </div>
+                        {% endif %}
+                    </div>
                 </div>
-                {% endif %}
             </div>
         </div>
 

@@ -28,6 +28,16 @@ final class CarteiraDetalheOutput
         public readonly int $totalCasos,
         public readonly int $saldoConsolidado,
         /**
+         * Quanto do consolidado já está VENCIDO, e quantos casos carregam esse atraso.
+         *
+         * Não custa consulta: o `CalculadoraSaldo::saldosDosCasos` já devolve o vencido por caso em
+         * lote (é ele que acende o realce de linha via `temVencido`), e o UseCase só o descartava no
+         * agregado. Mesma regra do `saldoConsolidado`: soma a carteira INTEIRA, não a página nem o
+         * que a busca deixou visível — buscar ou virar de página não muda o quanto está em atraso.
+         */
+        public readonly int $saldoVencido = 0,
+        public readonly int $totalComAtraso = 0,
+        /**
          * Até quando os dados desta carteira estão em dia — a emissão MAIS ANTIGA entre os relatórios
          * importados. Null enquanto nada foi importado.
          */
@@ -42,6 +52,8 @@ final class CarteiraDetalheOutput
         int $totalObjetos,
         int $totalCasos,
         int $saldoConsolidado,
+        int $saldoVencido = 0,
+        int $totalComAtraso = 0,
     ): self {
         $cliente = $c->getCliente();
         $vinculo = $c->getTipoVinculoPreferido();
@@ -59,6 +71,8 @@ final class CarteiraDetalheOutput
             totalObjetos: $totalObjetos,
             totalCasos: $totalCasos,
             saldoConsolidado: $saldoConsolidado,
+            saldoVencido: $saldoVencido,
+            totalComAtraso: $totalComAtraso,
             dadosAtualizadosAte: $c->getDadosAtualizadosAte(),
             emissaoPorTipo: $c->getEmissaoPorTipoDeRelatorio(),
         );

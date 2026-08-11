@@ -30,6 +30,11 @@
         --h:    var(--header-height);
         --tl-w: 340px;
 
+        /* Esta tela é a única que carrega Open Sans de verdade (Google Fonts, acima) — aqui a
+           fonte nunca esteve quebrada. Redefinir o token do app.css localmente mantém o
+           peticionar exatamente como estava, sem herdar a fonte nova do resto do sistema. */
+        --jp-font-sans: 'Open Sans', Arial, Verdana, sans-serif;
+
         /* Azul judicial — tom primário */
         --blue:      #0084AC;
         --blue-hover:#029BCA;

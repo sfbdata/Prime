@@ -130,12 +130,25 @@ final class CarteiraController extends AbstractController
         // Busca livre da lista de cobranças (objeto ou pessoa cobrada). Filtra SÓ a tabela — os
         // agregados do cabeçalho seguem sendo os da carteira inteira (regra no UseCase).
         $busca = trim((string) $request->query->get('busca', ''));
-        $visao = $this->montarVisaoCarteira->executar($carteira, $busca);
+        // Mesmo contrato de URL do `index()` (`page`/`ordenar`/`direcao`), porque é o mesmo motor
+        // de front (`public/js/filtro-tabela.js`) que dispara os dois. Quem valida o que chega é o
+        // UseCase — aqui só normaliza o tipo.
+        $pagina = max(1, (int) $request->query->get('page', 1));
+        $ordenar = (string) $request->query->get('ordenar', '') ?: 'saldo';
+        $direcao = strtolower((string) $request->query->get('direcao', 'desc')) === 'asc' ? 'asc' : 'desc';
+
+        $visao = $this->montarVisaoCarteira->executar($carteira, $busca, $pagina, self::POR_PAGINA, $ordenar, $direcao);
 
         $dados = [
             'carteira' => $visao['carteira'],
             'casos' => $visao['casos'],
-            'filtros' => ['busca' => $busca],
+            'total' => $visao['total'],
+            // A página devolvida é a do UseCase, não a que chegou na URL: ele grampeia quem pediu
+            // página inexistente, e o rodapé tem de mostrar onde o usuário REALMENTE está.
+            'pagina' => $visao['pagina'],
+            'total_paginas' => $visao['total_paginas'],
+            'por_pagina' => $visao['por_pagina'],
+            'filtros' => ['busca' => $busca, 'ordenar' => $ordenar, 'direcao' => $direcao],
         ];
 
         // Contrato do `filtro-tabela.js`: no XHR devolve só o innerHTML do [data-filtro-resultado].

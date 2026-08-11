@@ -37,6 +37,12 @@ parameters:
     # deploy de código. Enquanto dentro da carência, o suporte ainda pode reativar.
     tenant_carencia_purga_dias: '%env(default:default_tenant_carencia_purga_dias:int:TENANT_CARENCIA_PURGA_DIAS)%'
     default_tenant_carencia_purga_dias: 365
+    # Formulário externo de suporte, alcançável por quem NÃO está logado (botão flutuante da
+    # tela de entrada). Trocável por env em produção, sem deploy de template. Vazio = o botão
+    # continua na tela, mas inerte — é o estado em que nasce, até o endereço ser definido.
+    # O default mora AQUI e não no .env porque o build de produção faz `rm .env`.
+    suporte_form_url: '%env(string:default:default_suporte_form_url:SUPORTE_FORM_URL)%'
+    default_suporte_form_url: ''
     # Sincronização Google Drive. Vazios em dev/test. Dois modos de auth:
     #  - service account (Shared Drive): google_drive_credentials = caminho do JSON.
     #  - OAuth login de usuário (ex.: conta do rclone; ponte atual + futuro "Conectar meu Drive"):

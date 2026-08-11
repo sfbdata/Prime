@@ -125,3 +125,7 @@ docs/folha-de-ponto/
 # só sai reescrevendo o repositório.
 *.dump
 prod-antes-*.dump
+
+# Gravação da animação da tela de entrada: 1,3 MB de binário que não precisa
+# entrar na história. O modelo aprovado (HTML + imagens) esse fica versionado.
+docs/tela_login/*.mp4
