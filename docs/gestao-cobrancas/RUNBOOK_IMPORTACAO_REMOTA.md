@@ -22,10 +22,15 @@ cat ~/.ssh/id_ed25519_jusprime_importacao.pub
 ```bash
 # Execute manualmente no terminal da VPS
 
-# 2.1 o wrapper — dono root, sem escrita para mais ninguém
-install -o root -g root -m 0700 /dev/stdin /usr/local/bin/bluejus-importar <<'FIM'
-<<< cole aqui o conteúdo de scripts/vps/bluejus-importar >>>
-FIM
+# 2.1 o wrapper vai por scp, DA SUA MÁQUINA, com a chave pessoal (a nova ainda não está autorizada).
+#     São ~500 linhas: colar no terminal é o caminho que já reescreveu script em execução nesta casa.
+#
+#     No terminal local, da raiz do repositório:
+#         scp scripts/vps/bluejus-importar bluejus:/usr/local/bin/bluejus-importar
+#
+#     E então, na VPS:
+chown root:root /usr/local/bin/bluejus-importar
+chmod 700       /usr/local/bin/bluejus-importar
 
 # 2.2 conferir que o arquivo instalado é o MESMO que foi revisado
 sha256sum /usr/local/bin/bluejus-importar
