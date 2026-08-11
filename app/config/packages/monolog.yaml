@@ -11,7 +11,7 @@ when@dev:
                 type: stream
                 path: "%kernel.logs_dir%/%kernel.environment%.log"
                 level: debug
-                channels: ["!event", "!audit"]
+                channels: ["!event", "!audit", "!mcp"]
             audit:
                 type: stream
                 path: "%kernel.logs_dir%/audit.log"
