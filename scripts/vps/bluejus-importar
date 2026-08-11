@@ -1,0 +1,495 @@
+#!/usr/bin/env bash
+#
+# bluejus-importar — a ÚNICA coisa que a chave de importação consegue executar nesta VPS.
+#
+# Instalado em /usr/local/bin/bluejus-importar (root:root, 0700) e amarrado à chave dedicada pelo
+# `command=` no /root/.ssh/authorized_keys. Ver docs/specs/cobranca-importacao-prod-remota.md.
+#
+# NÃO recebe argumentos pela linha de comando: lê o pedido de $SSH_ORIGINAL_COMMAND, que é o que o
+# cliente tentou executar. Aceita cinco formas e recusa todo o resto:
+#
+#   estado
+#   receber-lote  <AAAA-MM-DD>                    (tar.gz pela stdin)
+#   simular       <AAAA-MM-DD> <carteira>         (dry-run — não persiste)
+#   importar      <AAAA-MM-DD> <carteira> --confirmar
+#   ajuda
+#
+# <carteira> é NOME, nunca número: top_life_1 | top_life_2 | amli_br_060.
+# Existem dois esquemas de numeração que se cruzam — na contábil TOP LIFE 2 é o condomínio 4, aqui é a
+# carteira 2. A tradução acontece uma vez só, aqui dentro, e é CONFERIDA CONTRA O BANCO antes de gravar.
+#
+set -euo pipefail
+
+readonly LOTES=/opt/jusprime/lotes
+readonly LOG=/var/log/bluejus-importar.log
+readonly SAIDAS=/var/log/bluejus-importar.d
+# Fora de /var/lock (que é world-writable): root fazendo `exec 9>` — que TRUNCA — sobre um nome em
+# diretório público é o padrão do ataque de symlink. Aqui não depende do sysctl protected_symlinks.
+readonly TRAVA=/opt/jusprime/.bluejus-importar.lock
+readonly PHP=jusprime_php_prod
+readonly DB=jusprime_db_prod
+readonly APP=/var/www/app
+readonly TENANT=1
+readonly USUARIO=1
+
+# Ver §3.3 da spec: 512M é o que o docblock pede, 3G foi o replay em dev. Um ponto só para mudar.
+readonly MEM=1G
+
+# Tetos do `receber-lote`. O lote real tem ~2 MB; a folga é enorme de propósito, o que importa é
+# existir um teto: sem ele o canal "restrito" vira caminho para encher o disco da máquina que roda o
+# Postgres de produção — por upload grande ou por bomba de gzip.
+readonly TETO_COMPRIMIDO=$((64 * 1024 * 1024))
+readonly TETO_DESCOMPRIMIDO=$((512 * 1024 * 1024))
+
+readonly PADRAO_DATA='^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+
+# Fonte única dos passos: rótulo | comando | sufixo do arquivo. A ordem é a da §3.2 da spec e os
+# sufixos usados na conferência do lote saem DAQUI — repetir a lista em dois lugares já foi apontado
+# como risco de `--arquivo` apontar para arquivo que não foi copiado.
+readonly -a PASSOS=(
+    'cadastro|app:cobranca:importar-cadastro|Dados_cadastrais'
+    'inadimplência|app:cobranca:importar|Inadimplencias_detalhadas'
+    'receitas|app:cobranca:importar-receitas|Receitas_detalhadas'
+    'acordos EM_ANDAMENTO|app:cobranca:importar-acordos|Acordos_detalhados_EM_ANDAMENTO'
+    'acordos LIQUIDADO|app:cobranca:importar-acordos|Acordos_detalhados_LIQUIDADO'
+)
+
+sufixos() {
+    local passo
+    for passo in "${PASSOS[@]}"; do
+        printf '%s\n' "${passo##*|}"
+    done
+}
+
+# ── registro ─────────────────────────────────────────────────────────────────────────────────────
+# Registra TUDO: pedido, recusa E desfecho. O desfecho é o que responde "o lote entrou?" quando a
+# sessão SSH cai no meio — o processo dentro do container sobrevive, mas a saída dele ia junto com o
+# terminal de quem chamou.
+registrar() {
+    # `:-` obrigatório: sob `set -u`, rodar o wrapper fora de uma sessão SSH (um teste local, por
+    # exemplo) derrubaria o script no registro, ANTES de qualquer validação.
+    local conexao=${SSH_CONNECTION:-}
+    local origem=${conexao%% *}
+
+    # O texto pode conter o pedido CRU do cliente. Uma quebra de linha dentro dele viraria uma
+    # segunda linha no registro, indistinguível de um desfecho legítimo — forja de registro
+    # escolhida por quem chama. O saneamento é aqui, e não no `main`, porque `recusar` também grava.
+    local texto=$*
+    texto=${texto//$'\r'/\\r}
+    texto=${texto//$'\n'/\\n}
+    # O que não for imprimível sai. `[^[:print:]]` e não `[[:cntrl:]]`: este último é lista negra
+    # (0-31 e 127) e deixaria passar RTL override e C1, que também enganam quem lê com `tail`.
+    texto=${texto//[^[:print:]]/?}
+    # `[:print:]` sob locale UTF-8 deixa passar os controles BIDI, que são "imprimíveis" para o
+    # glibc e ainda assim invertem a ordem do texto na tela de quem der `tail`. Medido: o ESC virava
+    # `?`, o U+202E não. Não dá para varrer byte a byte — isso destruiria os acentos das próprias
+    # mensagens —, então a família vai explícita.
+    texto=${texto//[$'‪'-$'‮']/?}
+    texto=${texto//[$'⁦'-$'⁩']/?}
+
+    # Teto de comprimento — o texto pode vir inteiro do cliente. Corta o MEIO, nunca o fim: a última
+    # parte da linha é o pedido cru, a única informação variável. Cortar o fim já produziu registro
+    # de recusa que dizia o motivo e escondia QUAL pedido foi recusado — justamente na recusa de
+    # carteira divergente, que é quando saber o pedido mais importa.
+    [ "${#texto}" -le 300 ] || texto="${texto:0:200}…(cortado)…${texto: -80}"
+
+    # O `2>/dev/null` vem ANTES do `>>`: depois dele não cobre a falha do próprio redirecionamento,
+    # e log não-gravável imprimiria "Permission denied" na sessão.
+    printf '%s | %s | %s\n' "$(date -Is)" "${origem:-local}" "$texto" 2>/dev/null >>"$LOG" || true
+}
+
+uso() {
+    cat <<'TXT'
+Formas aceitas:
+  estado
+  receber-lote <AAAA-MM-DD>                     (tar.gz pela stdin)
+  simular      <AAAA-MM-DD> <carteira>          (dry-run, nao persiste)
+  importar     <AAAA-MM-DD> <carteira> --confirmar
+  ajuda
+
+carteira: top_life_1 | top_life_2 | amli_br_060
+TXT
+}
+
+recusar() {
+    registrar "RECUSADO ($*) :: ${SSH_ORIGINAL_COMMAND:-<vazio>}"
+    printf 'bluejus-importar: recusado — %s\n\n' "$*" >&2
+    uso >&2
+    exit 64
+}
+
+# Só uma operação que mexe em estado por vez.
+#
+# ⚠️ NÃO acrescente `2>/dev/null` aqui. Num `exec` SEM COMANDO o redirecionamento é permanente para o
+# script inteiro: silenciaria a stderr de tudo, e toda recusa sairia muda — código 64 e nenhuma
+# explicação para quem chamou. Já aconteceu.
+travar() {
+    exec 9>"$TRAVA" || recusar 'não consegui abrir a trava'
+    flock -n 9 || recusar 'já existe uma operação em andamento nesta VPS'
+}
+
+# ── tradução nome da carteira → id + nome esperado no banco ──────────────────────────────────────
+carteira_id() {
+    case "$1" in
+        top_life_1)  printf '1' ;;
+        top_life_2)  printf '2' ;;
+        amli_br_060) printf '3' ;;
+        *)           return 1 ;;
+    esac
+}
+
+carteira_nome() {
+    case "$1" in
+        top_life_1)  printf 'TOP LIFE I' ;;
+        top_life_2)  printf 'TOP LIFE II' ;;
+        amli_br_060) printf 'AMLI BR 060' ;;
+        *)           return 1 ;;
+    esac
+}
+
+# O mapa nome→id é DEPENDENTE DE AMBIENTE: no banco `saas` do dev o id 1 é TOP LIFE II. Se o wrapper
+# um dia apontar para outro banco, importaria na carteira errada sem reclamar — e o validador de
+# rodapé confere o recorte, não o condomínio. Por isso o banco tem de concordar antes de gravar.
+conferir_carteira_no_banco() {
+    local carteira=$1 id=$2 esperado nome
+    esperado=$(carteira_nome "$carteira")
+
+    # `tenant_id` é redundante (o UseCase resolve a carteira por id + tenant), mas é redundância de
+    # graça numa consulta que existe justamente para não confiar no id sozinho.
+    nome=$(docker exec "$DB" psql -U jusprime -d prime -tAc \
+        "SELECT nome FROM cobranca_carteira WHERE id = $id AND tenant_id = $TENANT;" 2>/dev/null | tr -d '\r' | head -1) || true
+
+    [ -n "$nome" ] || recusar "carteira id $id não existe no tenant $TENANT do banco de produção"
+    # A instrução aqui NÃO pode ser "edite este arquivo": o sha256 do wrapper instalado é a prova de
+    # qual código está rodando na VPS (§6 da spec). Editar aqui quebraria essa igualdade em silêncio.
+    [ "$nome" = "$esperado" ] || recusar "a carteira id $id chama-se \"$nome\" no banco, mas o pedido \"$carteira\" espera \"$esperado\". NÃO importe até saber qual dos dois casos é: (1) a carteira foi RENOMEADA pela tela — então corrija carteira_nome() NO REPOSITÓRIO e reinstale o wrapper, para o sha256 continuar batendo; (2) o banco alvo é o errado — e aí o problema é maior que este comando"
+
+    printf 'banco confere: carteira %s = "%s"\n' "$id" "$nome"
+}
+
+# Os 15 nomes canônicos do lote. Nada fora desta lista entra.
+nomes_esperados() {
+    local pre suf
+    for pre in top_life_1 top_life_2 amli_br_060; do
+        while IFS= read -r suf; do
+            printf '%s_%s.xlsx\n' "$pre" "$suf"
+        done < <(sufixos)
+    done
+}
+
+# ── execução de um passo dentro do container ─────────────────────────────────────────────────────
+# O código de saída é o do bin/console, NÃO o do grep — por isso a saída vai para arquivo antes de
+# ser filtrada, em vez de passar por pipe. A saída completa fica em disco na VPS: é o que sobra se a
+# sessão cair no meio.
+rodar() {
+    local rotulo=$1 marca=$2
+    shift 2
+
+    local saida rc=0 persistente
+    # A saída completa dos importadores traz unidade e sacado — é PII. O diretório nasce fechado
+    # mesmo que o passo 2.3 do runbook tenha sido pulado.
+    mkdir -p "$SAIDAS" 2>/dev/null || true
+    chmod 700 "$SAIDAS" 2>/dev/null || true
+    persistente="$SAIDAS/${marca}.log"
+    # O temporário nasce DENTRO de $SAIDAS, não em /tmp: se a sessão cair e o processo morrer por
+    # sinal, o `rm -f` lá embaixo não roda e o arquivo sobra — com unidade e sacado dentro. Aqui ele
+    # sobra no diretório que a §6.1 da spec já registra como dívida de retenção, e com 700.
+    saida=$(mktemp "$SAIDAS/.${marca}.parcial.XXXXXX")
+
+    printf '\n── %s ──\n' "$rotulo"
+    docker exec -e APP_DEBUG=0 -w "$APP" "$PHP" \
+        php -d memory_limit="$MEM" bin/console "$@" >"$saida" 2>&1 || rc=$?
+
+    # ACUMULA, não trunca. Repetir uma carteira que falhou é o caminho de recuperação que o runbook
+    # manda seguir — truncar apagaria a saída da tentativa que falhou, que é a que interessa.
+    {
+        printf '\n===== %s | %s | rc=%s =====\n' "$(date -Is)" "$rotulo" "$rc"
+        cat "$saida"
+    } >>"$persistente" 2>/dev/null || true
+
+    # Sem isto, o registro diria "saída em <arquivo>" apontando para arquivo que não existe.
+    [ -s "$persistente" ] || printf '⚠️  não consegui gravar a saída persistente em %s\n' "$persistente"
+
+    grep -v entity_audit "$saida" || true
+    rm -f "$saida"
+    registrar "PASSO $marca :: rc=$rc :: saída em $persistente"
+
+    return "$rc"
+}
+
+# ── comandos ─────────────────────────────────────────────────────────────────────────────────────
+cmd_estado() {
+    printf '=== wrapper ===\n'
+    printf '  sha256: %s\n' "$(sha256sum "$0" | cut -d' ' -f1)"
+
+    printf '\n=== emissão registrada por carteira ===\n'
+    docker exec "$DB" psql -U jusprime -d prime -c \
+        'SELECT id, nome, emissao_por_tipo_de_relatorio FROM cobranca_carteira ORDER BY id;'
+
+    printf '\n=== lotes recebidos ===\n'
+    if [ -d "$LOTES" ]; then
+        local dir
+        for dir in "$LOTES"/*/; do
+            [ -d "$dir" ] || continue
+            printf '  %-14s %2d arquivo(s)\n' "$(basename "$dir")" "$(find "$dir" -maxdepth 1 -name '*.xlsx' | wc -l)"
+        done
+    else
+        printf '  (nenhum)\n'
+    fi
+
+    printf '\n=== últimas 15 linhas do registro ===\n'
+    tail -15 "$LOG" 2>/dev/null || printf '  (registro vazio)\n'
+}
+
+cmd_receber_lote() {
+    local data=$1
+    local destino="$LOTES/$data"
+
+    # Cinto e suspensório: o destino tem de ficar sob $LOTES mesmo que a validação da data mude.
+    case "$destino" in
+        "$LOTES"/*) : ;;
+        *) recusar 'destino fora do diretório de lotes' ;;
+    esac
+
+    local trabalho
+    trabalho=$(mktemp -d)
+    # shellcheck disable=SC2064
+    trap "rm -rf '$trabalho'" EXIT
+
+    # A stdin vai para disco ANTES de qualquer extração, e com teto: sem isso não dá para conferir o
+    # índice do tar antes de ele escrever arquivo nenhum, nem para impedir que o canal encha o disco.
+    head -c $((TETO_COMPRIMIDO + 1)) >"$trabalho/lote.tar.gz"
+
+    local tamanho
+    tamanho=$(stat -c%s "$trabalho/lote.tar.gz")
+    [ "$tamanho" -le "$TETO_COMPRIMIDO" ] \
+        || recusar "lote acima do teto de $((TETO_COMPRIMIDO / 1024 / 1024)) MB"
+
+    local detalhes
+    detalhes=$(tar -tvzf "$trabalho/lote.tar.gz" 2>/dev/null) || recusar 'tar ilegível'
+
+    # `-tvzf` (e não `-tzf`) porque o critério não é só o nome: um SYMLINK chamado
+    # top_life_1_Dados_cadastrais.xlsx apontando para /etc/shadow passaria na lista canônica, e a
+    # conferência pós-extração com `-f` seguiria o link.
+    local linha soma=0 tam membros=0
+    while IFS= read -r linha; do
+        [ -n "$linha" ] || continue
+
+        membros=$((membros + 1))
+        [ "$membros" -le 100 ] || recusar 'tar com membros demais (o lote tem 15)'
+
+        case "$linha" in
+            -*) : ;;
+            *)  recusar "membro que não é arquivo regular: ${linha:0:40} (empacote pelos 15 nomes, não com 'tar -cz .', que inclui a entrada de diretório)" ;;
+        esac
+
+        tam=$(printf '%s\n' "$linha" | awk '{print $3}')
+        case "$tam" in
+            ''|*[!0-9]*) recusar 'não consegui ler o tamanho de um membro do tar' ;;
+        esac
+
+        # Teto POR MEMBRO, antes de somar. O tamanho vem do CABEÇALHO do tar — é escolhido por quem
+        # empacotou, não medido. Dois membros declarando 2^63-1 faziam a soma estourar para NEGATIVO
+        # e passar no teto total; o limite de dígitos evita o estouro já na comparação.
+        [ "${#tam}" -le 12 ] || recusar 'membro com tamanho declarado absurdo'
+        [ "$tam" -le "$TETO_DESCOMPRIMIDO" ] || recusar 'membro acima do teto de tamanho'
+
+        soma=$((soma + tam))
+    done <<<"$detalhes"
+
+    [ "$soma" -le "$TETO_DESCOMPRIMIDO" ] \
+        || recusar "conteúdo descomprimido ($((soma / 1024 / 1024)) MB) acima do teto de $((TETO_DESCOMPRIMIDO / 1024 / 1024)) MB"
+
+    local livre_kb
+    livre_kb=$(df -Pk /opt 2>/dev/null | awk 'NR==2{print $4}') || livre_kb=''
+    case "$livre_kb" in
+        ''|*[!0-9]*) : ;;
+        *) [ "$livre_kb" -gt $((soma / 1024 + 1024 * 1024)) ] || recusar 'espaço em disco insuficiente na VPS' ;;
+    esac
+
+    local nomes esperados nome
+    nomes=$(tar -tzf "$trabalho/lote.tar.gz")
+    esperados=$(nomes_esperados)
+
+    while IFS= read -r nome; do
+        [ -n "$nome" ] || continue
+        nome=${nome#./}
+        [ -n "$nome" ] || continue
+        if ! printf '%s\n' "$esperados" | grep -Fxq -- "$nome"; then
+            recusar "arquivo fora da lista canônica: $nome"
+        fi
+    done <<<"$nomes"
+
+    mkdir -p "$trabalho/extraido"
+    tar -xzf "$trabalho/lote.tar.gz" -C "$trabalho/extraido" --no-same-owner --no-same-permissions
+
+    local faltando=0
+    while IFS= read -r nome; do
+        if [ ! -f "$trabalho/extraido/$nome" ]; then
+            printf '  FALTA %s\n' "$nome"
+            faltando=$((faltando + 1))
+        fi
+    done <<<"$esperados"
+
+    if [ "$faltando" -ne 0 ]; then
+        recusar "lote incompleto — $faltando de 15 arquivo(s) faltando"
+    fi
+
+    if [ -d "$destino" ]; then
+        registrar "SOBRESCREVENDO lote $data"
+        rm -rf "${destino:?}"
+    fi
+
+    mkdir -p "$LOTES"
+    mv "$trabalho/extraido" "$destino"
+    chmod 700 "$destino"
+
+    registrar "LOTE RECEBIDO $data :: 15/15 :: ${tamanho} bytes comprimidos"
+    printf 'lote %s recebido: 15/15 arquivos em %s\n\n' "$data" "$destino"
+    (cd "$destino" && md5sum ./*.xlsx)
+}
+
+# Copia para dentro do container os 5 arquivos da carteira. Idempotente de propósito: um deploy
+# recria o container e apaga o que foi copiado antes dele, então a cópia é refeita a cada execução.
+preparar_no_container() {
+    local data=$1 carteira=$2
+    local origem="$LOTES/$data"
+    local dentro="/tmp/lote-$data"
+
+    [ -d "$origem" ] || recusar "lote $data não foi recebido"
+
+    docker exec "$PHP" mkdir -p "$dentro"
+
+    local suf arquivo
+    while IFS= read -r suf; do
+        arquivo="${carteira}_${suf}.xlsx"
+        [ -f "$origem/$arquivo" ] || recusar "arquivo ausente no lote: $arquivo"
+        docker cp "$origem/$arquivo" "$PHP:$dentro/$arquivo"
+    done < <(sufixos)
+
+    printf '%s' "$dentro"
+}
+
+executar_passos() {
+    local data=$1 carteira=$2 confirmar=$3
+    local id dentro modo marca_modo
+    id=$(carteira_id "$carteira")
+    modo=$([ "$confirmar" = 'sim' ] && echo 'VALENDO' || echo 'SIMULAÇÃO')
+    # Entra no nome do arquivo de saída: sem ele, uma simulação SOBRESCREVE o registro do `importar`
+    # valendo do mesmo dia — justamente o arquivo que o runbook manda consultar depois de uma queda.
+    marca_modo=$([ "$confirmar" = 'sim' ] && echo 'valendo' || echo 'simulacao')
+
+    conferir_carteira_no_banco "$carteira" "$id"
+    dentro=$(preparar_no_container "$data" "$carteira")
+
+    local -a comum=(
+        "--tenant-id=$TENANT"
+        "--carteira-id=$id"
+        "--usuario-id=$USUARIO"
+    )
+    local -a flag=()
+    [ "$confirmar" = 'sim' ] && flag=(--confirmar)
+
+    printf '\n===== carteira %s (id %s) — lote %s — %s =====\n' "$carteira" "$id" "$data" \
+        "$([ "$confirmar" = 'sim' ] && echo 'VALENDO (persiste)' || echo 'SIMULAÇÃO (não persiste)')"
+
+    registrar "INÍCIO $modo :: $carteira :: lote $data"
+
+    local passo rotulo comando suf falhas=0 n=0
+    for passo in "${PASSOS[@]}"; do
+        IFS='|' read -r rotulo comando suf <<<"$passo"
+        n=$((n + 1))
+
+        if rodar "$rotulo" "${data}_${carteira}_${marca_modo}_${n}" \
+            "$comando" "${comum[@]}" "--arquivo=$dentro/${carteira}_${suf}.xlsx" "${flag[@]+"${flag[@]}"}"; then
+            continue
+        fi
+
+        falhas=$((falhas + 1))
+        printf '\n!! passo "%s" FALHOU.\n' "$rotulo"
+
+        # Valendo, parar é obrigatório: os passos seguintes leem o estado que este deixou.
+        if [ "$confirmar" = 'sim' ]; then
+            printf '!! carteira %s INTERROMPIDA — os passos seguintes não rodaram.\n' "$carteira"
+            registrar "FIM $modo :: $carteira :: INTERROMPIDA no passo $n ($rotulo)"
+
+            return 1
+        fi
+        printf '   (simulação: seguindo para o próximo passo para mostrar o quadro completo)\n'
+    done
+
+    if [ "$falhas" -ne 0 ]; then
+        registrar "FIM $modo :: $carteira :: $falhas passo(s) com falha"
+        printf '\n===== carteira %s: %d passo(s) com falha =====\n' "$carteira" "$falhas"
+
+        return 1
+    fi
+
+    registrar "FIM $modo :: $carteira :: 5/5 OK"
+    printf '\n===== carteira %s: 5/5 passos OK =====\n' "$carteira"
+}
+
+# ── entrada ──────────────────────────────────────────────────────────────────────────────────────
+main() {
+    local pedido=${SSH_ORIGINAL_COMMAND:-}
+    [ -n "$pedido" ] || recusar 'sem comando (esta chave não abre shell)'
+
+    # Pedido de mais de uma linha é recusado: `read -a` leria só a primeira e descartaria o resto em
+    # SILÊNCIO — o pedido registrado no log não seria o pedido feito, e a quebra de linha permitiria
+    # forjar uma entrada no registro.
+    case "$pedido" in
+        *$'\n'*) recusar 'pedido com mais de uma linha' ;;
+    esac
+
+    # Parse por lista, sem eval e sem expansão de glob.
+    set -f
+    local -a args
+    IFS=' ' read -r -a args <<<"$pedido"
+    set +f
+
+    registrar "PEDIDO :: $pedido"
+
+    local acao=${args[0]:-}
+    case "$acao" in
+        estado)
+            [ "${#args[@]}" -eq 1 ] || recusar 'estado não aceita argumento'
+            cmd_estado
+            ;;
+
+        receber-lote)
+            [ "${#args[@]}" -eq 2 ] || recusar 'uso: receber-lote <AAAA-MM-DD>'
+            [[ ${args[1]} =~ $PADRAO_DATA ]] || recusar 'data inválida'
+            travar
+            cmd_receber_lote "${args[1]}"
+            ;;
+
+        simular)
+            [ "${#args[@]}" -eq 3 ] || recusar 'uso: simular <AAAA-MM-DD> <carteira>'
+            [[ ${args[1]} =~ $PADRAO_DATA ]] || recusar 'data inválida'
+            carteira_id "${args[2]}" >/dev/null || recusar 'carteira inválida'
+            travar
+            executar_passos "${args[1]}" "${args[2]}" 'nao'
+            ;;
+
+        importar)
+            # --confirmar é obrigatório e explícito: não existe "importar" que persista por omissão,
+            # nem "importar" que simule por engano. Quem quer simular chama `simular`.
+            [ "${#args[@]}" -eq 4 ] || recusar 'uso: importar <AAAA-MM-DD> <carteira> --confirmar'
+            [[ ${args[1]} =~ $PADRAO_DATA ]] || recusar 'data inválida'
+            carteira_id "${args[2]}" >/dev/null || recusar 'carteira inválida'
+            [ "${args[3]}" = '--confirmar' ] || recusar 'importar exige --confirmar literal'
+            travar
+            executar_passos "${args[1]}" "${args[2]}" 'sim'
+            ;;
+
+        ajuda|-h|--help)
+            uso
+            ;;
+
+        *)
+            recusar 'comando desconhecido'
+            ;;
+    esac
+}
+
+main "$@"
