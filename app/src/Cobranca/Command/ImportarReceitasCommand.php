@@ -158,8 +158,8 @@ final class ImportarReceitasCommand extends Command
         }
 
         // ⚠️ ANTES da escrita, não depois. Este aviso saía de `imprimirTotais`, que roda DEPOIS de
-        // `confirmar()` — quem importasse veria os 37 boletos de R$ 0,00 já gravados. A spec §9 declara
-        // essa decisão ABERTA e do dono; um aviso pós-fato não a devolve a ninguém.
+        // `confirmar()` — quem importasse veria os boletos de R$ 0,00 já gravados, e um aviso pós-fato
+        // não devolve conferência a ninguém. (A §9.1 já não é decisão pendente — ver o método.)
         //
         // Sai da LEITURA e não do resultado de propósito: a leitura é o que se sabe antes de escrever.
         // A contagem é conservadora (inclui o que a idempotência viria a ignorar), o que é o lado certo
@@ -255,42 +255,86 @@ final class ImportarReceitasCommand extends Command
     }
 
     /**
-     * Spec §9.1: aceitar boleto SEM PRINCIPAL é decisão do dono e está ABERTA. O comando não decide —
-     * põe o número na frente de quem vai confirmar, **antes** de qualquer escrita.
+     * Recebimento sem principal é **parcela de acordo** — a §9.1 da spec de receitas está RESOLVIDA,
+     * e foi a coluna J que resolveu: 37 de 37 na TOP LIFE I. Numa parcela, não ter taxa é NORMAL,
+     * porque o acordo redistribui a dívida ao longo das prestações e a primeira pode ficar só com
+     * honorário. A etapa 3 faz essas nascerem como parcela.
      *
-     * Nenhum centavo se perde em nenhuma hipótese: o total recebido fecha ao centavo com a
-     * contabilidade de qualquer jeito. O que muda é a FORMA do que entra — uma obrigação de R$ 0,00
-     * descrita como "Taxa MM/AAAA" que nunca cobrou taxa nenhuma.
+     * O aviso não sumiu porque continua havendo um caso que merece olho: coluna J **vazia**, e aí o
+     * recebimento entraria como boleto avulso de valor original R$ 0,00, descrito como "Taxa MM/AAAA"
+     * sem taxa nenhuma. Contar os dois juntos — e chamar o conjunto de "decisão do dono, ainda
+     * ABERTA" — fez esta pendência ser repetida como aberta meses depois de fechada.
+     *
+     * ⚠️ A contagem é do ARQUIVO INTEIRO, não do que vai entrar: a maior parte costuma já estar
+     * importada (em 11/08/2026, 7.493 de 7.536 na TOP LIFE I). O que entra sai na tabela de resultado.
+     *
+     * Nenhum centavo se perde em nenhuma hipótese — o total recebido fecha ao centavo com a
+     * contabilidade de qualquer jeito. O que está em jogo é a FORMA do que entra.
      */
     private function avisarSemPrincipal(SymfonyStyle $io, ResultadoLeituraReceitas $leitura, bool $confirmar): void
     {
-        $nns = [];
+        $parcelas = [];
+        $avulsos = [];
         $centavos = 0;
+
         foreach ($leitura->receitas as $receita) {
             if (!$receita->semPrincipal()) {
                 continue;
             }
 
-            $nns[] = $receita->nn;
             $centavos += $receita->totalRecebidoCentavos();
+
+            if ($receita->acordo !== null) {
+                $parcelas[] = $receita->nn;
+
+                continue;
+            }
+
+            $avulsos[] = $receita->nn;
         }
 
-        if ($nns === []) {
+        if ($parcelas === [] && $avulsos === []) {
             return;
         }
 
-        $io->warning(sprintf(
-            "%d recebimento(s), somando %s, NÃO têm principal — são só honorário e/ou juros/multa.\n"
-            . "Cada um cria uma obrigação com valor original R$ 0,00 (spec §9.1: decisão do dono, ainda ABERTA).\n"
-            . "%s\nNN: %s",
-            count($nns),
+        $linhas = [sprintf(
+            '%d recebimento(s) do arquivo, somando %s, NÃO têm principal — são só honorário e/ou juros/multa.',
+            count($parcelas) + count($avulsos),
             $this->reais($centavos),
-            $confirmar
-                ? '>>> Você passou --confirmar: estes boletos SERÃO gravados a seguir. <<<'
-                : 'Dry-run: nada será gravado.',
-            implode(', ', array_slice($nns, 0, 40))
-                . (count($nns) > 40 ? sprintf(' … (+%d)', count($nns) - 40) : ''),
-        ));
+        )];
+
+        if ($parcelas !== []) {
+            $linhas[] = sprintf(
+                '%d são parcela(s) de acordo (coluna J): ali não ter principal é NORMAL — o acordo '
+                . 'redistribui a dívida ao longo das parcelas. NN: %s',
+                count($parcelas),
+                $this->listarNns($parcelas),
+            );
+        }
+
+        if ($avulsos !== []) {
+            $linhas[] = sprintf(
+                '%d estão sem acordo na coluna J e entrariam como boleto AVULSO de valor original '
+                . 'R$ 0,00 — estes merecem conferência. NN: %s',
+                count($avulsos),
+                $this->listarNns($avulsos),
+            );
+        }
+
+        $linhas[] = $confirmar
+            ? '>>> Você passou --confirmar: o que ainda não estiver importado SERÁ gravado a seguir. <<<'
+            : 'Dry-run: nada será gravado.';
+
+        // Só é alarme quando há o caso que pede conferência; se é tudo parcela de acordo, é informação.
+        $texto = implode("\n", $linhas);
+        $avulsos === [] ? $io->note($texto) : $io->warning($texto);
+    }
+
+    /** @param list<string> $nns */
+    private function listarNns(array $nns): string
+    {
+        return implode(', ', array_slice($nns, 0, 40))
+            . (count($nns) > 40 ? sprintf(' … (+%d)', count($nns) - 40) : '');
     }
 
     /**

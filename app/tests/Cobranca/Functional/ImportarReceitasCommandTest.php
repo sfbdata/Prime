@@ -67,8 +67,8 @@ final class ImportarReceitasCommandTest extends CobrancaWebTestCase
     public function testAvisoDeSemPrincipalVemAntesDoResultado(): void
     {
         // O aviso morava em `imprimirTotais`, que roda DEPOIS de `confirmar()`. Quem importasse veria
-        // os boletos de R$ 0,00 já gravados — um aviso pós-fato não devolve a decisão a ninguém, e a
-        // spec §9.1 declara essa decisão ABERTA e do dono.
+        // os boletos de R$ 0,00 já gravados — e um aviso pós-fato não devolve conferência a ninguém.
+        // (A §9.1 já não é decisão pendente; o aviso continua valendo como sinal de conferência.)
         [$tenantId, $carteiraId, $usuarioId] = $this->cenario();
         $arquivo = $this->planilha([
             ['CHACARA 81', 'Fulano', '7010', '1.15 - Honorário advocatício', '05/2026', '10/05/2026', '15/05/2026', '50,00', '50,00', '-'],
@@ -87,6 +87,46 @@ final class ImportarReceitasCommandTest extends CobrancaWebTestCase
             mb_strpos($saida, 'NÃO têm principal'),
             'o aviso tem de preceder o resultado — é o que garante que ele preceda a escrita',
         );
+    }
+
+    #[TestDox('🔑 Sem principal COM coluna J é parcela de acordo: o aviso separa do que entraria avulso')]
+    public function testAvisoSeparaParcelaDeAcordoDoBoletoAvulso(): void
+    {
+        // A §9.1 foi RESOLVIDA medindo a coluna J: recebimento sem principal é PARCELA DE ACORDO (37
+        // de 37 na TOP LIFE I), e numa parcela não ter taxa é normal — o acordo redistribui a dívida.
+        // O aviso antigo tratava os dois casos como um só e se dizia "decisão do dono, ainda ABERTA",
+        // o que fez esta pendência ser repetida como aberta meses depois de fechada.
+        [$tenantId, $carteiraId, $usuarioId] = $this->cenario();
+        $arquivo = $this->planilha([
+            ['CHACARA 91', 'Fulano', '8010', '1.15 - Honorário advocatício', '05/2026', '10/05/2026', '15/05/2026', '50,00', '50,00', 'Acordo 12 - Parc. 1/10'],
+            ['CHACARA 92', 'Beltrano', '8011', '1.15 - Honorário advocatício', '05/2026', '10/05/2026', '15/05/2026', '70,00', '70,00', '-'],
+        ]);
+
+        $saida = $this->rodar($arquivo, $tenantId, $carteiraId, $usuarioId);
+
+        self::assertStringContainsString('NÃO têm principal', $saida, 'o sinal de conferência continua');
+        self::assertStringContainsString('8010', $saida);
+        self::assertStringContainsString('8011', $saida);
+
+        // O SymfonyStyle quebra e indenta as linhas do bloco; comparar sobre o texto cru prenderia a
+        // largura do console em vez do conteúdo.
+        $limpo = preg_replace('/\s+/u', ' ', $saida);
+
+        // O que este teste guarda: os dois casos não podem mais ser contados como a mesma coisa.
+        self::assertStringContainsString(
+            '1 são parcela(s) de acordo',
+            $limpo,
+            'o que tem coluna J tem de ser contado como parcela de acordo',
+        );
+        self::assertStringContainsString(
+            '1 estão sem acordo na coluna J',
+            $limpo,
+            'só o que NÃO tem coluna J entraria como boleto avulso de valor original zero',
+        );
+
+        // E a frase que fez a confusão não pode voltar.
+        self::assertStringNotContainsString('ainda ABERTA', $saida);
+        self::assertStringNotContainsString('decisão do dono', $saida);
     }
 
     #[TestDox('classe de conta fora do mapa aparece no aviso de conferência')]
