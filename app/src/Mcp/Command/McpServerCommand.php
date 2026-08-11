@@ -21,7 +21,11 @@ use Symfony\Component\Console\Output\OutputInterface;
  * do protocolo corrompe a sessão e o cliente mostra apenas "servidor falhou", sem pista.
  *
  * Lançado remotamente por:
- *   ssh bluejus 'docker exec -i jusprime_php_prod php bin/console mcp:server'
+ *   ssh bluejus 'docker exec -i -w /var/www/app jusprime_php_prod php bin/console mcp:server'
+ *
+ * O `-w /var/www/app` é obrigatório: a imagem de prod fixa `WORKDIR /var/www` e o `cd` do
+ * `entrypoint.prod.sh` não é herdado por uma sessão nova de `docker exec`. Sem ele, o comando
+ * morre em "Could not open input file: bin/console".
  */
 #[AsCommand(
     name: 'mcp:server',
