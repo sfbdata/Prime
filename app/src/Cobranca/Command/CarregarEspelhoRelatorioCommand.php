@@ -361,9 +361,29 @@ final class CarregarEspelhoRelatorioCommand extends Command
         }
 
         $encontrados = [];
-        $varredura = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($diretorio));
 
-        foreach ($varredura as $item) {
+        try {
+            $varredura = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($diretorio, \FilesystemIterator::SKIP_DOTS),
+                \RecursiveIteratorIterator::LEAVES_ONLY,
+            );
+
+            $arquivos = iterator_to_array($varredura, false);
+        } catch (\UnexpectedValueException $e) {
+            // Subpasta ilegível derrubava o comando com rastro de exceção, sem dizer o que fazer.
+            // Acontece de verdade: `docker cp` de um DIRETÓRIO leva junto as permissões restritas do
+            // servidor, e o PHP no container roda como usuário comum — o wrapper de importação evita
+            // isso copiando arquivo por arquivo para uma pasta criada lá dentro.
+            $io->error(sprintf('Não consegui ler o diretório: %s', $e->getMessage()));
+            $io->note(
+                'Se o lote foi copiado com `docker cp`, ajuste a permissão antes: '
+                . 'docker exec -u 0 <container> chmod -R a+rX <diretório>'
+            );
+
+            return null;
+        }
+
+        foreach ($arquivos as $item) {
             if (!$item instanceof \SplFileInfo || !$item->isFile()) {
                 continue;
             }
