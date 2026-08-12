@@ -295,12 +295,16 @@ plano — o SDK tem exemplo de `elicitation`.
 
 ## 9. Segurança
 
-1. **Vida curta do access token** (minutos) + refresh token. Token longo é o pior caso quando
-   um vínculo é revogado.
-2. **Revogação efetiva**: desativar `UserTenant` ou o `User` tem que invalidar as sessões MCP.
-   Com JWT stateless isso não acontece sozinho — decidir entre introspecção, lista de revogação
-   ou tokens de vida muito curta. **Escrever a decisão no plano**; ficar implícito é como
-   nascem os acessos fantasma.
+1. **Vida do token: 7 dias — decidido pelo dono (11/08/2026).** Escolha de comodidade: a pessoa
+   autoriza uma vez por semana, não todo dia.
+2. **Revogação imediata, e ela é o que torna os 7 dias aceitáveis — decidido.**
+   A cada requisição MCP o servidor já precisa carregar `User` + `Tenant` para aplicar
+   permissão; **conferir na mesma consulta que o `UserTenant` está ativo e que o `User` está
+   ativo** custa praticamente nada e faz a revogação valer na hora.
+   **Sem isso, um token de 7 dias significa 7 dias de acesso para quem acabou de ser
+   desligado** — é a diferença entre uma decisão de conforto e um buraco de segurança.
+   Não implemente o token de 7 dias sem a checagem por requisição; as duas coisas são uma só
+   decisão.
 3. **Audience binding (RFC 8707)**: o token emitido para o MCP não pode valer para outra coisa.
 4. **Confused deputy**: com DCR e clientes dinâmicos, exigir consentimento por cliente; não
    reaproveitar consentimento entre `client_id` diferentes.
@@ -372,15 +376,28 @@ antes de seguir para a 3.
 
 ---
 
-## 14. Perguntas em aberto para o dono
+## 14. Decisões do dono e o que ainda falta
 
-Não bloqueiam o planejamento, mas precisam de resposta antes das fatias indicadas:
+**Decidido em 11/08/2026:**
 
-1. **Quem pode conectar?** Todo usuário de todo escritório, ou só perfis específicos (por
-   exemplo, quem tem determinada permissão)? — antes da fatia 1.
-2. **Vida do token e revogação:** aceita janela de alguns minutos entre revogar o acesso e o
-   token parar de valer, ou precisa ser imediato? — antes da fatia 1.
-3. **PII para o provedor do modelo:** precisa entrar nos termos de uso antes de abrir? — antes
-   da fatia 5.
-4. **Escritas da fatia 4:** `criar_pasta` e `anotar_em_pasta` são as certas, ou há outra que
-   resolveria mais dor? — antes da fatia 4.
+1. **Quem pode conectar:** **todo usuário que tem conta no sistema.** Não há perfil especial —
+   o que a pessoa enxerga é o que a permissão dela já permite no escritório escolhido. Isso
+   torna o teste cross-tenant (seção 12, item 1) ainda mais central: não existe filtro de
+   "quem entra", só de "o que cada um vê".
+2. **Vida do token: 7 dias, com conferência do vínculo a cada requisição** (seção 9, itens 1 e
+   2). As duas metades são inseparáveis.
+
+**Ainda em aberto:**
+
+3. **Dado pessoal saindo para o provedor do modelo** — antes da fatia 5.
+   Hoje, no uso pelo navegador, nome, CPF, endereço e valores de dívida **não saem da
+   infraestrutura do BlueJus**. Pelo MCP, a resposta de cada pergunta é enviada ao provedor do
+   modelo para ser processada. É caminho novo, sobre dado de clientes dos escritórios, sob
+   LGPD. Para o escritório do próprio dono é decisão dele; **para os demais escritórios,
+   precisa estar no contrato ou nos termos de uso antes de abrir**. Decisão de negócio, não
+   técnica — o plano não deve inventá-la.
+4. **Quais escritas entram na fatia 4** — antes da fatia 4.
+   A spec propôs `criar_pasta` e `anotar_em_pasta` por serem baratas (UseCase já existe) e
+   reversíveis. O dono ainda não confirmou se são as que mais poupam trabalho no dia a dia, ou
+   se outra ação (lançar tarefa, registrar andamento, marcar prazo) resolveria mais. **Escolher
+   pelo uso real, não pelo custo de implementar.**
