@@ -60,6 +60,35 @@ class RelatorioLinhaRepository extends ServiceEntityRepository
     }
 
     /**
+     * As unidades distintas já espelhadas, por carteira — insumo do nível 3 da atribuição de
+     * carteira (SPEC §4.4), usado para descobrir de qual carteira é um arquivo que não se identifica
+     * nem pelo nome nem pela alíquota de honorários.
+     *
+     * @return array<int, list<string>> carteiraId => unidades
+     */
+    public function unidadesPorCarteira(): array
+    {
+        /** @var list<array{carteiraId: int, unidade: string}> $linhas */
+        $linhas = $this->createQueryBuilder('l')
+            ->select('IDENTITY(r.carteira) AS carteiraId', 'l.unidade AS unidade')
+            ->join('l.relatorio', 'r')
+            ->andWhere('l.bloco = :bloco')
+            ->andWhere('l.unidade IS NOT NULL')
+            ->setParameter('bloco', BlocoRelatorio::Dados)
+            ->groupBy('carteiraId', 'l.unidade')
+            ->getQuery()
+            ->getResult();
+
+        $porCarteira = [];
+
+        foreach ($linhas as $linha) {
+            $porCarteira[(int) $linha['carteiraId']][] = $linha['unidade'];
+        }
+
+        return $porCarteira;
+    }
+
+    /**
      * As somas das colunas monetárias das linhas de DADOS — o lado esquerdo da reconciliação interna
      * (INV-T1): tem que bater com o totalizador da própria planilha.
      *

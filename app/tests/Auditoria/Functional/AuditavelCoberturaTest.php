@@ -12,6 +12,9 @@ use App\Cliente\Entity\ClienteDocumento;
 use App\Cliente\Entity\ClientePF;
 use App\Cliente\Entity\ClientePJ;
 use App\Cobranca\Entity\EventoHistorico;
+use App\Cobranca\Entity\RelatorioImportado;
+use App\Cobranca\Entity\RelatorioLinha;
+use App\Cobranca\Entity\RelatorioTotalizador;
 use App\Djen\Entity\OabMonitorada;
 use App\Djen\Entity\PublicacaoDjen;
 use App\Entity\Audit\AuditLog;
@@ -98,6 +101,16 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // a única escrita é o cron `app:importar-indices-monetarios`, que já registra na tela e no
         // log toda revisão de índice já gravado. Auditar por usuário não teria usuário nenhum.
         IndiceMonetario::class,
+
+        // Espelho da contabilidade (spec `cobranca-espelho-da-contabilidade.md`): cópia IMUTÁVEL do
+        // relatório, nunca editada pela aplicação — a única escrita é a leitura do arquivo, e ela
+        // já grava a própria procedência (hash do arquivo, `lidoEm`, `lidoPor`). Auditar aqui
+        // custaria uma linha de log por linha de planilha: a carga do acervo tem 38.861 linhas em
+        // 23 emissões, e nenhuma delas traria informação que o hash já não prove. Se o número da
+        // planilha for contestado, quem responde é o arquivo original, não o log.
+        RelatorioImportado::class,
+        RelatorioLinha::class,
+        RelatorioTotalizador::class,
     ];
 
     private EntityManagerInterface $em;
