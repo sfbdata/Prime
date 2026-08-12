@@ -4,6 +4,13 @@
 dívida. Escrito em 2026-08-12, reescrito no mesmo dia depois que a 1ª revisão derrubou quatro números
 e achou um defeito maior do que o que a frente ia consertar.
 
+> 🔴 **LEIA A §12 ANTES DE QUALQUER COISA.** Em 2026-08-12 a Fase 0 (espelho da contabilidade) entrou
+> em produção e permitiu **remedir** esta frente contra o banco real. Duas premissas centrais desta
+> spec caíram: os 17 boletos do defeito 1 **já estão no sistema**, e o defeito 2 **ainda não
+> aconteceu** — está armado, não disparado. Os números das §1, §2 e §9 continuam corretos como
+> descrição do *arquivo*, mas **não descrevem mais o estado do sistema**. A §12 diz o que mudou, com
+> medição de produção.
+
 > **Para quem for implementar:** os números aqui foram medidos rodando o **adapter real contra o
 > arquivo real** de 12/08 e consultando o **banco de produção**. Onde diz "medido", é medido. A versão
 > anterior desta spec tinha números lidos da coluna errada da planilha — se algum número aqui não
@@ -220,3 +227,125 @@ que o sistema está alinhado, que é exatamente a pergunta que originou tudo ist
 Revisão adversarial contra esta spec, correções, **re-revisão**, e o deploy é do dono. Como a
 importação é idempotente, os 17 entram sozinhos na primeira importação após o deploy — mas a
 **reconciliação das já gravadas não acontece sozinha**.
+
+## 12 🔴 Remedição de 2026-08-12 — o que a Fase 0 mediu no banco de produção
+
+Esta seção existe porque a Fase 0 (`cobranca-espelho-da-contabilidade.md`) pôs a planilha da
+contabilidade **dentro do banco**, e pela primeira vez foi possível conferir esta spec contra o
+sistema em vez de contra o arquivo. Tudo abaixo foi medido pelo MCP somente-leitura de produção,
+sobre o lote `relatorio_id = 5` (TOP LIFE I, `dados_ate` 12/08, 4.123 linhas de dado).
+
+**O que continua valendo:** todos os números que descrevem o **arquivo** reproduziram ao centavo —
+17 grupos sem principal, todos com acordo na coluna N, Σ H = **R$ 5.152,19**; e os da §2.2 (1.845 /
+696 na TL1, 54 / 23 na TL2, 48 / 32 na AMLI; 22 parcelas com juros > metade do principal, R$ 5.392,74
+sobre R$ 2.630,98, pior razão 9,20×). A spec mediu bem. O que mudou é o **estado do sistema**.
+
+### 12.1 Defeito 1 — o código continua defeituoso; a consequência é ZERO
+
+| medido em prod (12/08) | |
+|---|---:|
+| grupos que o adapter recusaria (principal 1.1/1.14/1.6 = 0) | **17** |
+| desses, com acordo na coluna N | **17** |
+| **desses, que JÁ EXISTEM no sistema** | **17** |
+| **desses, que existem como parcela de acordo** | **17** |
+| conferência da Fase 0: dívidas faltando na TL1 | **0** de 3.023 |
+| conferência da Fase 0: principal diferente na TL1 | **0** |
+
+**A premissa "17 boletos ficam de fora" caiu.** Eles entraram pelo **importador de acordos**
+(`ImportarAcordosDetalhadosUseCase`), que não passa pela porta do adapter de inadimplência. O
+`valor_original` das 107 parcelas de acordo presentes no relatório é **idêntico** à Σ H de todas as
+classes, nas 107 — inclusive nessas 17.
+
+⚠️ **Isso NÃO significa que o defeito 1 morreu.** A recusa continua em
+`TopLifeInadimplenciaAdapter:201`, e continua errada: enquanto ela existir, **o caminho da
+inadimplência nunca cria nem atualiza uma parcela só de encargo**. Hoje o importador de acordos tapa
+o buraco; o dia em que uma parcela dessas aparecer só na inadimplência, ela some de novo. O defeito
+mudou de classe: era **subcobrança medida**, virou **dependência não declarada de outro importador**.
+
+➡️ **Consequência para o plano:** o §9 ("17 obrigações a mais, R$ 5.152,19, até 5 acordos novos") está
+**errado hoje** — a primeira importação após o deploy criaria **0** obrigações novas por este
+caminho, porque as 17 já existem e a importação é idempotente pela chave
+`(caso, referencia_externa, competencia)`. O ganho da §6.1 passa a ser **de robustez**, não de
+receita. Quem justificar a frente pela receita de R$ 5.152,19 vai justificar com número morto.
+
+### 12.2 Defeito 2 — está ARMADO, não disparado. E a assinatura da §2.2 não sustenta o tamanho
+
+Medido nas **107 parcelas de acordo** que aparecem no relatório de 12/08 e existem no sistema:
+
+| | |
+|---|---:|
+| com `valor_original` == Σ H de todas as classes | **107 / 107** |
+| com encargo gravado no banco | 104 |
+| **com a assinatura da dupla contagem** (`juros gravado == Σ I + H das linhas 1.4`) | **0** |
+| com encargo gravado igual às colunas I/J da planilha | **0** |
+
+**A dupla contagem ainda não aconteceu.** O encargo gravado nessas parcelas **não veio do adapter de
+inadimplência** — veio do importador de acordos, que calcula na data do acordo
+(`ImportarAcordosDetalhadosUseCase:1070`). `materializarEncargosImportados` nunca rodou sobre elas.
+
+**E a "assinatura do defeito" da §2.2 não mede um problema vivo.** Das 22 parcelas com juros > metade
+do principal:
+
+| | |
+|---|---:|
+| **liquidadas** | **21** de 22 |
+| **congeladas** | **21** de 22 |
+| presentes no relatório de 12/08 | **1** |
+| com a assinatura da dupla contagem | **0** |
+
+São **histórico já quitado e congelado**, não dívida que alguém vá cobrar. A §2.2 usou esse número
+para dizer que o defeito 2 "já atinge as parcelas que entram hoje"; medido, ele não atinge — atingiria.
+
+### 12.3 O tamanho real do defeito 2: o raio da PRÓXIMA importação
+
+O defeito é de **consumo no import**, e a importação está bloqueada. Então o tamanho não é "quanto
+está errado no banco" (que é zero), e sim **quanto vira errado no instante em que a importação
+rodar**. Medido no lote de 12/08:
+
+| | TOP LIFE I |
+|---|---:|
+| parcelas de acordo no relatório | 107 |
+| **com linha de encargo (`1.4`/`1.5`/`1.15`)** | **29** |
+| dessas, **em aberto** (não liquidadas) | **29** |
+| dessas, congeladas (protegidas do recálculo) | **0** |
+| H das linhas `1.4` (viraria juros em dobro) | R$ 2.465,58 |
+| H das linhas `1.5` (viraria multa em dobro) | R$ 730,84 |
+| H das linhas `1.15` (viraria honorário em dobro) | R$ 4.127,47 |
+| **🔴 total que a próxima importação contaria duas vezes** | **R$ 7.323,89** |
+
+Dentro dessas 29 estão as **17** de principal zero — nelas a fração duplicada é 100% do valor, como a
+§1 já dizia.
+
+🔑 **A inversão que isto produz no plano.** A §1 diz *"consertar só o defeito 1 é pior do que não
+fazer nada"*. Continua verdade, e ficou **mais forte**: hoje o sistema **não** cobra a menos (os 17
+estão lá, com o principal certo), então abrir a porta não corrige subcobrança nenhuma — só entrega
+R$ 7.323,89 de cobrança a maior. **A ordem correta é defeito 2 primeiro, defeito 1 depois** — ou os
+dois no mesmo deploy, nunca o 1 sozinho.
+
+### 12.4 A régua de aceite que a §9.1 pediu já existe — e a §9.1 está superada
+
+A §9.1 dizia *"essa conferência não existe hoje e é entregável desta frente"*. Ela existe:
+`app:cobranca:espelho:conferir` responde (a) mesmo conjunto de dívidas e (b) mesmo principal, por
+carteira. Rodada em produção em 12/08: TL1 **3.023/3.023**, TL2 514/515, AMLI **38/38**, com **zero**
+"principal diferente" nas três.
+
+E a §9.1 item 3 (*"encargos são do sistema, não conferir"*) foi **substituída** pela premissa nova do
+dono (espelho §1): a contabilidade é a verdade, o cálculo ao vivo é **projeção**, e divergir continua
+esperado mas deixou de ser inconferível.
+
+⚠️ **A régua ainda é cega para o defeito 2.** Nem a conferência nem a calibração leem o encargo
+**gravado** em `cobranca_obrigacao` — a conferência compara `valor_original`, e a calibração compara a
+nossa fórmula contra as colunas da planilha. Rodar `espelho:calibrar` antes e depois de consertar o
+defeito 2 dá **o mesmo número**. Quem for implementar a Fase 1 precisa construir essa terceira
+consulta (encargo gravado × colunas I/J/L do espelho) **antes** de tocar no adapter, senão não tem
+como provar o próprio conserto.
+
+### 12.5 O que esta remedição NÃO muda
+
+- ⛔ **A importação em produção segue bloqueada pelo dono.** Remedir a spec libera planejar, não importar.
+- A refutação da "hipótese de boleto acessório" (§4) continua de pé — não dependia de nenhum número daqui.
+- A regra correta da §5 (H é principal; I/J/K/L são os encargos) continua correta e continua não
+  implementada.
+- As ressalvas da §7 continuam válidas, com um ajuste: as **21 parcelas congeladas e liquidadas** da
+  §12.2 são exatamente o cenário que a §7 previa ("o valor inflado congela e vira permanente") — só
+  que o valor congelado nelas **não** é inflado por dupla contagem. Congelaram por liquidação normal.

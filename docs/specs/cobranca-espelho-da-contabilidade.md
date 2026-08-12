@@ -685,3 +685,78 @@ taxonomia dos seis baldes fechando as 4.145 linhas do TL1 sem sobra) e reprovou 
 **Trajetória das quatro versões:** 10 achados → 7 → 1 bloqueador + 5 menores → (esta). Nenhuma
 rodada foi estilística: cada bloqueador teria produzido número errado em dinheiro. As três primeiras
 falharam por número não conferido; esta última, por uma condição faltando numa fórmula.
+
+## 16 🔑 O resultado da calibração em produção (12/08) — e o que ele significa
+
+A §6.4 previa três desfechos. O que saiu foi o terceiro (**"não bate"**) — mas por **uma** causa só, e
+ela não é a fórmula. Medido pelo MCP somente-leitura sobre os três lotes de `dados_ate` 12/08,
+reproduzindo a calibração em SQL até bater **exatamente** com a saída do comando
+(3.023 · 0 fora · 2.629 exatos · 301 até 1 centavo · 0 até 1 real · 93 acima de 1 real na TL1).
+
+### 16.1 Os 93 da TOP LIFE I são 92 + 1, e nenhum é erro de arredondamento
+
+**Os 92** são todos a mesma coisa: **parcela de acordo com atraso maior que a carência de 30 dias**.
+A correlação é 1 para 1, sem exceção — as 107 parcelas de acordo do relatório se separam em 92 com
+atraso > 30 dias (todas divergentes) e 15 dentro da carência (todas conferindo). Juros e multa batem
+nessas 92; **só o honorário diverge**, e diverge inteiro.
+
+A causa está no nosso código, é deliberada e está documentada:
+`ImportarAcordosDetalhadosUseCase::parcelaInput():1286-1290` grava `honorariosBp = 0` em toda parcela
+de acordo — *"acordo não cobra honorário sobre honorário"*, porque o valor negociado já embute o
+honorário (decisão #8). Medido: **1.714 obrigações da TL1 têm esse override**, e é o **único** override
+de cascata que existe em produção (zero em juros, multa, correção, base, carência e tolerância; zero
+overrides no nível do objeto). A contabilidade cobra os 20% assim mesmo.
+
+**O 1 restante** é o único boleto comum do relatório cujo grupo tem linhas de classe `1.4`/`1.5`
+(R$ 6,28 fora do principal — o NN da §5.3). Ele é explicado pela §16.2 e some quando a comparação é
+feita como a spec manda.
+
+### 16.2 ⚠️ Parte do ruído é da NOSSA medição, não da contabilidade
+
+**A contabilidade calcula LINHA A LINHA e arredonda por linha; nós calculamos uma vez sobre o boleto
+agrupado.** Isso está provado por aritmética exata, não por semelhança: no boleto de 4 linhas do
+§16.1, a conta por linha reproduz os três valores dela ao centavo (juros 73,33 · multa 3,03 ·
+honorário 45,52), enquanto a conta agregada erra os três.
+
+E reproduz na população inteira. Refazendo a comparação **por linha**, com a configuração real de cada
+obrigação:
+
+| carteira | grupos | batem **exato** | divergem | causa da divergência |
+|---|---:|---:|---:|---|
+| TOP LIFE I | 3.023 | **2.931** | 92 | honorário da parcela de acordo |
+| TOP LIFE II | 514 | **508** | 6 | idem |
+| AMLI BR 060 | 38 | **33** | 5 | idem |
+| **total** | **3.575** | **3.472** | **103** | **uma regra, três carteiras** |
+
+Ou seja: **as 304 diferenças "até 1 centavo" e 1 das 93 eram artefato do desenho da comparação.**
+Comparado como a §6.4 manda (*"para cada linha do espelho"*), a nossa fórmula reproduz a da
+contabilidade **exatamente, em 3.472 de 3.575 boletos** — e o que sobra é uma única regra de negócio.
+
+⛔ **Isto NÃO autoriza mexer na fórmula.** A `CalculadoraEncargos` está certa; o que está fora do lugar
+é a *granularidade da comparação* em `CalibracaoDoEspelho` (achado da revisão de 12/08). Trocar a
+granularidade é decisão do dono, e precisa ser feita **sabendo** que ela melhora o número — que é
+exatamente o motivo para não fazê-la em silêncio.
+
+### 16.3 A pergunta para a contabilidade
+
+> Na parcela de acordo vencida, o honorário de 20% é cobrado **de novo** sobre o valor da parcela?
+> Nosso sistema não cobra, por entender que o honorário já está embutido no valor negociado do acordo.
+> O relatório de vocês cobra.
+
+Dinheiro em jogo, no lote de 12/08:
+
+| carteira | parcelas afetadas | honorário que vocês cobram e nós não projetamos |
+|---|---:|---:|
+| TOP LIFE I | 92 | **R$ 6.469,73** |
+| TOP LIFE II | 6 | R$ 511,00 |
+| AMLI BR 060 | 5 | R$ 246,89 |
+| **total** | **103** | **R$ 7.227,62** |
+
+Os dois desfechos possíveis são simétricos e nenhum é "ajustar a fórmula":
+
+- **se o honorário já está embutido no valor acordado**, a contabilidade está cobrando duas vezes, e o
+  achado é deles;
+- **se não está**, a decisão #8 do nosso importador de acordos está subcobrando R$ 7.227,62, e o
+  conserto é nosso — em `parcelaInput()`, não na `CalculadoraEncargos`.
+
+**Nenhum dos dois pode ser decidido por medição.** É pergunta de contrato, e por isso é do dono.
