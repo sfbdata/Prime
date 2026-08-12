@@ -22,8 +22,17 @@ use App\Cobranca\Service\Importacao\ReferenciaSubstituta;
  *   - **parcela de acordo**: Σ da coluna Valor de TODAS as classes.
  *
  * Igualar os dois — fazer o Σ cru fechar também no boleto comum — reintroduz no caminho normal a
- * dupla contagem que a Fase 1 existe para matar. Medido no TL1 de 12/08: com a regra por ramo a soma
- * dá 43.681.747, idêntica ao `valor_original` do sistema.
+ * dupla contagem que a Fase 1 existe para matar.
+ *
+ * Medido no TL1 de 12/08, sobre os **3.023** grupos que esta classe devolve: soma por ramo
+ * **44.196.966** × soma crua da coluna Valor **44.197.594** — a diferença de **628** centavos são as
+ * linhas `1.4`/`1.5` que o ramo do boleto comum deixa de fora, de propósito.
+ *
+ * ⚠️ O número **43.681.747** aparece na §5.3 da spec e **não é o que esta classe soma**: ele é o
+ * recorte dos **3.006** grupos que o adapter aceita (44.196.966 − 515.219 dos 17 sem principal), e é
+ * contra ele que o `valor_original` daqueles mesmos 3.006 fecha ao centavo. Confundir os dois já
+ * esteve escrito aqui — e é exatamente o tipo de número com cara de certo que esta frente existe
+ * para matar.
  *
  * INV-A2 — **classifica sem reusar o adapter.** O ramo sai da coluna do acordo, que o espelho guarda
  * como texto cru. Reusar o `TopLifeInadimplenciaAdapter` faria a conferência herdar os defeitos de

@@ -47,6 +47,21 @@ use App\Cobranca\Service\ResolvedorConfigEncargos;
  * (que são elas mesmas encargo de ciclo anterior). Isso mede a régua DELES, e é o que a §6.1 pergunta.
  * **Não é licença para o sistema cobrar assim** — o principal do sistema continua saindo do ramo do
  * {@see AgrupadorDeBoletos} (INV-A1), e igualar os dois reintroduziria a dupla contagem.
+ *
+ * ⚠️ INV-CB3 — **a linha de base não positiva sai da calibração, e isto é um BURACO CONHECIDO.**
+ * A contabilidade lança encargo **negativo** na linha de desconto (classe `1.6`); a
+ * `CalculadoraEncargos` degrada para zero em base não positiva, de propósito. Comparar os dois por
+ * linha fabricaria divergência que não é de fórmula — medido: até R$ 3,92 num único desconto.
+ *
+ * A razão de descartar, e não de comparar, é medida: **no boleto com desconto a conta AGREGADA fecha
+ * com a deles dentro de 1 centavo** (3 boletos em prod, 12/08: um exato, dois com 1 centavo). O
+ * encargo negativo por linha é decomposição, não cobrança — ele se reconcilia no boleto.
+ *
+ * 🔴 **O que o descarte esconde:** sob a premissa do módulo (§16.3 — *o sistema espelha a
+ * contabilidade, esteja ela certa ou errada*), essas linhas são não-espelhamento que a calibração
+ * deixa de contar. Medido na TL1 de 12/08: **2 linhas, R$ 4,00**. Por isso `semBase` é contador
+ * PRÓPRIO no {@see \App\Cobranca\DTO\ResultadoCalibracao} e aparece separado na saída do comando — o
+ * buraco é aceito, mas nunca invisível. Se esse número crescer, a decisão tem de ser revista.
  */
 final class CalibracaoDoEspelho
 {
@@ -77,14 +92,16 @@ final class CalibracaoDoEspelho
 
         $faixas = array_fill_keys(self::FAIXAS, 0);
         $comparadas = 0;
-        $fora = 0;
+        $semPar = 0;
+        $semAtraso = 0;
+        $semBase = 0;
         $piores = [];
 
         foreach ($this->agrupador->linhasComChave($relatorio) as ['chave' => $chave, 'linha' => $linha]) {
             $obrigacao = $porChave[$chave] ?? null;
 
             if ($obrigacao === null) {
-                ++$fora; // INV-CB2
+                ++$semPar; // INV-CB2
 
                 continue;
             }
@@ -96,13 +113,15 @@ final class CalibracaoDoEspelho
             $vencimento = $linha['vencimento'];
             $base = $linha['valor'] ?? 0;
 
-            // INV-CB3: sem atraso na data do relatório não há encargo a comparar; e base não
-            // positiva (linha de desconto, classe 1.6) sai da calibração em vez de virar zero —
-            // a `CalculadoraEncargos` degrada para zero de propósito em base não positiva, enquanto
-            // a contabilidade lança encargo NEGATIVO nessas linhas. Comparar os dois produziria
-            // divergência que não é de fórmula. São 3 linhas nas três carteiras (medido, 12/08).
-            if ($vencimento === null || $vencimento >= $dadosAte || $base <= 0) {
-                ++$fora;
+            if ($vencimento === null || $vencimento >= $dadosAte) {
+                ++$semAtraso;
+
+                continue;
+            }
+
+            // INV-CB3, e ele é um BURACO CONHECIDO, não uma regra limpa — ver o docblock da classe.
+            if ($base <= 0) {
+                ++$semBase;
 
                 continue;
             }
@@ -125,8 +144,14 @@ final class CalibracaoDoEspelho
                 }
 
                 if ($diferenca !== 0) {
+                    // A IDENTIFICAÇÃO, não a unidade crua: `01-01 (05-03,06-01)` sai como `01-01`,
+                    // que é a forma do `ObjetoCobranca` e a que a conferência imprime. 16 das 96
+                    // unidades da TL1 têm a forma com parênteses — sem isto, a mesma dívida aparece
+                    // com dois nomes em dois relatórios do mesmo módulo.
+                    [$identificacao] = IdentificacaoDaUnidade::separar((string) ($linha['unidade'] ?? ''));
+
                     $piores[] = [
-                        'unidade' => $linha['unidade'] ?? '?',
+                        'unidade' => $identificacao,
                         'nn' => $linha['nn'],
                         'classe' => $linha['classe'],
                         'campo' => $campo,
@@ -146,7 +171,9 @@ final class CalibracaoDoEspelho
             carteira: $carteira->getNome() ?? '?',
             dadosAte: $dadosAte,
             comparadas: $comparadas,
-            foraDaCalibracao: $fora,
+            semParNoSistema: $semPar,
+            semAtraso: $semAtraso,
+            semBase: $semBase,
             faixas: $faixas,
             piores: array_slice($piores, 0, self::PIORES),
         );

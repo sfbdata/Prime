@@ -197,9 +197,37 @@ final class CalibracaoDoEspelhoTest extends KernelTestCase
         ], $dadosAte->format('d/m/Y'));
 
         self::assertSame(1, $resultado->comparadas, 'só a linha de base positiva entra');
-        self::assertSame(1, $resultado->foraDaCalibracao, 'a de desconto sai — e sai VISÍVEL');
         self::assertSame(1, $resultado->exatas());
         self::assertSame([], $resultado->piores, 'desconto não pode virar divergência falsa');
+
+        // O buraco é aceito, mas NUNCA invisível: cai em contador próprio, não no balde genérico.
+        self::assertSame(1, $resultado->semBase, 'a de desconto sai por FALTA DE BASE, e sai nomeada');
+        self::assertSame(0, $resultado->semParNoSistema);
+        self::assertSame(0, $resultado->semAtraso);
+        self::assertSame(1, $resultado->foraDaCalibracao());
+    }
+
+    #[TestDox('O detalhamento imprime a IDENTIFICAÇÃO da unidade, não a forma com parênteses')]
+    public function testPioresUsamAIdentificacaoDaUnidade(): void
+    {
+        // 16 das 96 unidades da TL1 vêm como `01-01 (05-03,06-01)`. Se o `--detalhar` imprimir a
+        // forma crua, a mesma dívida aparece com dois nomes em dois relatórios do mesmo módulo — o
+        // `ObjetoCobranca` e a conferência usam a identificação.
+        $carteira = $this->carteiraTopLife(2000);
+        $caso = $this->caso($carteira, '01-01');
+        $this->obrigacao($caso, '74608', '12/2025', 19000, new \DateTimeImmutable('2025-12-15'));
+
+        $resultado = $this->calibrar($carteira, [
+            $this->linhaDeDado(
+                unidade: '01-01 (05-03,06-01)', nn: '74608', competencia: '12/2025',
+                vencimento: '15/12/2025', valor: 190.00, juros: 999.00, multa: 0.0,
+                correcao: 0.0, honorarios: 0.0,
+            ),
+        ]);
+
+        self::assertSame(1, $resultado->comparadas, 'a chave já casa pela identificação');
+        self::assertNotSame([], $resultado->piores);
+        self::assertSame('01-01', $resultado->piores[0]['unidade']);
     }
 
     #[TestDox('"bate quase" é ATÉ UM CENTAVO — R$ 0,99 por linha não é arredondamento')]
@@ -255,7 +283,8 @@ final class CalibracaoDoEspelhoTest extends KernelTestCase
         ]);
 
         self::assertSame(0, $resultado->comparadas, 'não entra na conta');
-        self::assertSame(1, $resultado->foraDaCalibracao);
+        self::assertSame(1, $resultado->semParNoSistema, 'e o motivo é NOMEADO — não é "sem atraso"');
+        self::assertSame(1, $resultado->foraDaCalibracao());
         // Ela é matéria da CONFERÊNCIA (balde "falta no sistema"); misturar as duas perguntas
         // produziria um percentual sem significado.
         self::assertSame([], $resultado->piores);
@@ -273,7 +302,9 @@ final class CalibracaoDoEspelhoTest extends KernelTestCase
         ]);
 
         self::assertSame(0, $resultado->comparadas);
-        self::assertSame(1, $resultado->foraDaCalibracao);
+        self::assertSame(1, $resultado->semAtraso, 'motivo NOMEADO: venceu na própria data do relatório');
+        self::assertSame(0, $resultado->semParNoSistema);
+        self::assertSame(1, $resultado->foraDaCalibracao());
     }
 
     #[TestDox('INV-CB1: a config sai da cascata completa, não do preset da carteira')]

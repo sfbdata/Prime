@@ -340,7 +340,7 @@ defeito 2 dá **o mesmo número**. Quem for implementar a Fase 1 precisa constru
 consulta (encargo gravado × colunas I/J/L do espelho) **antes** de tocar no adapter, senão não tem
 como provar o próprio conserto.
 
-### 12.6 🔴 Entrou um TERCEIRO item na Fase 1, e ele quase anula o defeito 2
+### 12.5 🔴 Entrou um TERCEIRO item na Fase 1, e ele quase anula o defeito 2
 
 Decisão do dono em 12/08 (registrada na §16.3 do espelho): **o sistema espelha a contabilidade, esteja
 ela certa ou errada.** Isso derruba a **decisão #8** do importador de acordos
@@ -362,7 +362,7 @@ ser auditável. **Nunca reporte o líquido.**
 
 E a ordem da §12.3 continua valendo, agora com três: **o item 1 é o único que não pode ir sozinho.**
 
-### 12.5 O que esta remedição NÃO muda
+### 12.6 O que esta remedição NÃO muda
 
 - ⛔ **A importação em produção segue bloqueada pelo dono.** Remedir a spec libera planejar, não importar.
 - A refutação da "hipótese de boleto acessório" (§4) continua de pé — não dependia de nenhum número daqui.

@@ -95,11 +95,25 @@ final class CalibrarEspelhoCommand extends Command
                 )
             );
 
+            // Os três motivos SEPARADOS: um contador só diria a mesma frase para "não casou com o
+            // sistema" (grave) e para "ainda não venceu" (normal). O `sem base` é o que esconde
+            // não-espelhamento (INV-CB3) e por isso vem com aviso quando existe.
             $io->text(sprintf(
-                'linhas comparadas: %d · fora da calibração (sem par no sistema, sem atraso ou sem base): %d',
+                'linhas comparadas: %d · fora: %d (sem par no sistema: %d · sem atraso: %d · sem base: %d)',
                 $r->comparadas,
-                $r->foraDaCalibracao,
+                $r->foraDaCalibracao(),
+                $r->semParNoSistema,
+                $r->semAtraso,
+                $r->semBase,
             ));
+
+            if ($r->semBase > 0) {
+                $io->text(sprintf(
+                    '  ↳ as %d "sem base" são linhas de desconto: a contabilidade lança encargo negativo nelas '
+                    . 'e a nossa fórmula não calcula sobre base negativa. Elas se reconciliam no boleto (INV-CB3).',
+                    $r->semBase,
+                ));
+            }
 
             if ($r->comparadas > 0) {
                 $io->text(sprintf('exatos: %.2f%%', $r->percentualExato()));

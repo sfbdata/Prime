@@ -26,10 +26,24 @@ final readonly class ResultadoCalibracao
         public string $carteira,
         public ?\DateTimeImmutable $dadosAte,
         public int $comparadas,
-        public int $foraDaCalibracao,
+        public int $semParNoSistema,
+        public int $semAtraso,
+        public int $semBase,
         public array $faixas,
         public array $piores,
     ) {
+    }
+
+    /**
+     * As linhas que ficaram fora, somadas — mas os três motivos são contados SEPARADOS de propósito.
+     *
+     * Um contador só diria a mesma frase para "300 linhas não casaram com o sistema" (defeito grave de
+     * casamento) e para "300 linhas ainda não venceram" (nada demais). E o `semBase` é o único que
+     * esconde não-espelhamento: ver INV-CB3 em {@see \App\Cobranca\Service\Espelho\CalibracaoDoEspelho}.
+     */
+    public function foraDaCalibracao(): int
+    {
+        return $this->semParNoSistema + $this->semAtraso + $this->semBase;
     }
 
     /** Quantas bateram ao centavo, somando os quatro encargos. */

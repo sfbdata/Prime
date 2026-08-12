@@ -742,15 +742,35 @@ podia ser feita em silêncio). A calibração passou a medir **por linha**, como
 casamento). Três testes novos, todos provados **reintroduzindo o defeito**: com a régua antiga o caso
 real de 4 linhas fica vermelho.
 
-Efeito medido na TL1 (12/08), agora por linha: **4.121 comparadas · 3.738 exatas · ZERO de um centavo ·
-12 até R$ 1 · 371 acima**. As 301 diferenças "de um centavo" que a régua por boleto produzia
-**desapareceram**, e o que sobra é a mesma regra única da §16.1, agora contada em linhas.
+Efeito medido na TL1 (12/08), agora por linha: das **4.123** linhas de dado, **2 ficam fora** (sem
+base — ver INV-CB3 abaixo) e **4.121 são comparadas**: **3.738 exatas · ZERO de um centavo · 12 até
+R$ 1 · 371 acima**. As 301 diferenças "de um centavo" que a régua por boleto produzia
+**desapareceram**, e o que sobra é a mesma regra única da §16.1.
+
+⚠️ **A ponte entre as duas unidades, para ninguém ler "93 virou 371" como piora.** É a mesma coisa
+contada de dois jeitos, e ela fecha:
+
+| | |
+|---|---:|
+| boletos divergentes (§16.1) | **92** |
+| linhas dentro desses 92 boletos | 385 |
+| dessas, fora por falta de base (INV-CB3) | −2 |
+| **linhas comparadas nesses boletos, todas divergentes** | **383** = 12 + 371 |
+
+Ou seja: **371 + 12 = 383 linhas são os mesmos 92 boletos**, nenhum boleto a mais. O honorário nessas
+383 linhas soma **R$ 6.473,73**, contra os R$ 6.469,73 do total por boleto — a diferença de **R$ 4,00**
+são exatamente as 2 linhas de desconto que o INV-CB3 descarta.
 
 Junto vieram dois consertos menores, pela mesma medição:
 - **INV-CB3** — linha de desconto (valor negativo, classe `1.6`) sai da calibração em vez de virar
   divergência: a `CalculadoraEncargos` degrada para zero em base não positiva, enquanto a
   contabilidade lança encargo **negativo** ali. São 3 linhas nas três carteiras, e a maior valeria
-  R$ 3,92 de divergência falsa.
+  R$ 3,92 de divergência falsa. **O motivo de descartar é medido**: no boleto com desconto a conta
+  *agregada* fecha com a deles dentro de 1 centavo (3 boletos em prod: um exato, dois com 1 centavo) —
+  o encargo negativo por linha é decomposição, e se reconcilia no boleto.
+  🔴 **Mas é buraco, não regra limpa:** sob a §16.3 essas linhas são não-espelhamento que a calibração
+  deixa de contar — **2 linhas, R$ 4,00** na TL1. Por isso `semBase` virou contador **próprio**, sai
+  separado na tela e vem com aviso: o buraco é aceito, nunca invisível. Se o número crescer, revisar.
 - **`veredito()`** deixou de contar a faixa "até 1 real" como `bate quase` — a §6.4 escreve
   *"bate quase (centavos)"*, e R$ 0,99 por linha impresso em verde como "arredondamento" é dinheiro.
 
