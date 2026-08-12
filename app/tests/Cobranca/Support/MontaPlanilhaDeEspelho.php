@@ -103,8 +103,15 @@ trait MontaPlanilhaDeEspelho
 
         $proxima += 4;
 
+        // O rodapé precisa trazer os QUATRO filtros abertos, como o arquivo real: o validador de
+        // recorte recusa relatório emitido com filtro parcial, e uma fixture sem eles produziria um
+        // arquivo que o comando rejeita — o que só apareceu quando o teste de comando foi escrito.
         $aba->fromArray([
-            [sprintf('Filtros:  Inadimplência até:%s; Competência: Todas; Período de vencimento: Todos', $dadosAte)],
+            [sprintf(
+                'Filtros:  Inadimplência até:%s; Competência: Todas; Período de vencimento: Todos;'
+                . ' Unidade: Todas; Sacado: Todos',
+                $dadosAte
+            )],
             [null],
             ['L. G Soluções Contábeis Eireli - Brasília, DF'],
             [sprintf('Emissão: %s', $emissao)],

@@ -108,9 +108,14 @@ final class EspelhoInvariantesTest extends KernelTestCase
         $lote = $this->em->getRepository(RelatorioImportado::class)->find($saida->relatorioId);
         self::assertNotNull($lote);
 
-        $this->conferencia->conferir($lote);
-        $this->calibracao->calibrar($lote);
+        $conferencia = $this->conferencia->conferir($lote);
+        $calibracao = $this->calibracao->calibrar($lote);
         $this->em->flush(); // se alguma peça tivesse mutado uma entidade managed, é aqui que gravaria
+
+        // Sem estas duas, o teste vira vácuo se um default de fixture mudar: as peças rodariam sem
+        // TOCAR em obrigação nenhuma e ele continuaria verde, provando nada.
+        self::assertSame(1, $conferencia->confere, 'a conferência precisa ter casado a obrigação');
+        self::assertSame(1, $calibracao->comparadas, 'a calibração precisa ter carregado a obrigação');
 
         self::assertSame($antes, $this->fotografarObrigacoes(), 'nenhuma obrigação foi tocada');
     }

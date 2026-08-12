@@ -242,6 +242,9 @@ final class CarregarEspelhoRelatorioCommand extends Command
         // como "a verdade absoluta", produzindo falta em massa na conferência. Sob a premissa deste
         // módulo, espelho envenenado é pior do que espelho vazio.
         if (!$this->recorteConfere($io, $caminho, RecorteEsperado::inadimplencia())) {
+            // O trait é compartilhado com os quatro importadores e fala em "importação"; aqui não se
+            // importa nada, então a frase precisa ser corrigida em vez de confundir o operador.
+            $io->note(sprintf('"%s" não entrou no ESPELHO. Nenhuma dívida foi criada ou alterada.', $nome));
             $resumo[] = [$nome, '—', 'RECUSADO: recorte do relatório', ''];
 
             return 1;

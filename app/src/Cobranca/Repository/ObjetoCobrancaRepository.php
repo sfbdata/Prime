@@ -170,7 +170,9 @@ class ObjetoCobrancaRepository extends ServiceEntityRepository
         /** @var list<array{identificacao: string, casos: int}> $linhas */
         $linhas = $this->createQueryBuilder('o')
             ->select('o.identificacao AS identificacao', 'COUNT(c.id) AS casos')
-            ->leftJoin(CasoCobranca::class, 'c', 'WITH', 'c.objeto = o')
+            // Tenant na CONDIÇÃO do join: um caso de outro escritório entraria no COUNT e faria a
+            // unidade parecer ter cobrança aberta quando não tem.
+            ->leftJoin(CasoCobranca::class, 'c', 'WITH', 'c.objeto = o AND c.tenant = :tenant')
             ->andWhere('o.carteira = :carteira')
             ->andWhere('o.tenant = :tenant')
             ->setParameter('carteira', $carteira)

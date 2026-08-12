@@ -196,10 +196,18 @@ class ObrigacaoRepository extends ServiceEntityRepository
      * As obrigações da carteira que estão TOTALMENTE PAGAS mas não marcadas como liquidadas —
      * o balde do D12 (SPEC espelho §5.1).
      *
-     * O sistema tem duas réguas de "pago" e elas **discordam em produção**: medido em 12/08, 11
-     * obrigações na TOP LIFE I e 2 na TOP LIFE II estão com alocação suficiente e `liquidadaEm` nulo
-     * (zero no sentido inverso). A conferência usa `liquidadaEm` como universo e reporta estas em
-     * balde próprio: decidir em silêncio por uma das duas esconderia uma inconsistência interna real.
+     * O sistema tem duas réguas de "pago" e elas **discordam em produção**: medido em 12/08 **no
+     * banco de PRODUÇÃO (`prime`), pelo MCP de leitura**, 11 obrigações na TOP LIFE I e 2 na TOP
+     * LIFE II estão com alocação suficiente e `liquidadaEm` nulo (zero no sentido inverso). A
+     * conferência usa `liquidadaEm` como universo e reporta estas em balde próprio: decidir em
+     * silêncio por uma das duas esconderia uma inconsistência interna real.
+     *
+     * ⚠️ **No dev isso dá ZERO**, e não é defeito da consulta: o dev está com dado de 11/07 e nenhuma
+     * das alocações dele pertence a obrigação em aberto. Quem for conferir o número precisa fazê-lo
+     * em produção — foi o que a revisão desta fatia levantou, com razão.
+     *
+     * A régua reproduz `ObrigacaoOutput::quitada()`: `alocado >= valorExigivel()`, que é
+     * `valorOriginal + juros + multa + correcao` — honorários ficam de fora (INV-E2).
      *
      * @return list<array{id: int, unidade: string, referenciaExterna: ?string, competencia: ?string}>
      */
@@ -215,7 +223,9 @@ class ObrigacaoRepository extends ServiceEntityRepository
             )
             ->join('o.caso', 'c')
             ->join('c.objeto', 'obj')
-            ->leftJoin(AlocacaoPagamento::class, 'a', 'WITH', 'a.obrigacao = o')
+            // O tenant entra na CONDIÇÃO do join, não só no WHERE: sem isso uma alocação de outro
+            // escritório entraria no SUM e a obrigação pareceria paga. É soma de dinheiro.
+            ->leftJoin(AlocacaoPagamento::class, 'a', 'WITH', 'a.obrigacao = o AND a.tenant = :tenant')
             ->andWhere('obj.carteira = :carteira')
             ->andWhere('o.tenant = :tenant')
             ->andWhere('o.liquidadaEm IS NULL')
