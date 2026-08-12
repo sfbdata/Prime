@@ -9,6 +9,7 @@ use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\ObjetoCobranca;
 use App\Entity\Tenant\Tenant;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\ORM\Query\Expr\Join;
 use Doctrine\ORM\AbstractQuery;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -172,7 +173,7 @@ class ObjetoCobrancaRepository extends ServiceEntityRepository
             ->select('o.identificacao AS identificacao', 'COUNT(c.id) AS casos')
             // Tenant na CONDIÇÃO do join: um caso de outro escritório entraria no COUNT e faria a
             // unidade parecer ter cobrança aberta quando não tem.
-            ->leftJoin(CasoCobranca::class, 'c', 'WITH', 'c.objeto = o AND c.tenant = :tenant')
+            ->leftJoin(CasoCobranca::class, 'c', Join::ON, 'c.objeto = o AND c.tenant = :tenant')
             ->andWhere('o.carteira = :carteira')
             ->andWhere('o.tenant = :tenant')
             ->setParameter('carteira', $carteira)

@@ -13,6 +13,7 @@ use App\Cobranca\Enum\StatusAcordo;
 use App\Cobranca\Enum\StatusCaso;
 use App\Entity\Tenant\Tenant;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\ORM\Query\Expr\Join;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -225,7 +226,7 @@ class ObrigacaoRepository extends ServiceEntityRepository
             ->join('c.objeto', 'obj')
             // O tenant entra na CONDIÇÃO do join, não só no WHERE: sem isso uma alocação de outro
             // escritório entraria no SUM e a obrigação pareceria paga. É soma de dinheiro.
-            ->leftJoin(AlocacaoPagamento::class, 'a', 'WITH', 'a.obrigacao = o AND a.tenant = :tenant')
+            ->leftJoin(AlocacaoPagamento::class, 'a', Join::ON, 'a.obrigacao = o AND a.tenant = :tenant')
             ->andWhere('obj.carteira = :carteira')
             ->andWhere('o.tenant = :tenant')
             ->andWhere('o.liquidadaEm IS NULL')
