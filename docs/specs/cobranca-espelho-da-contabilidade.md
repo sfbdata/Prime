@@ -529,7 +529,7 @@ cria acordo pela coluna N, `ImportarRelatorioCarteiraUseCase.php:320` usa `dataA
 | 3 | Conferência (b) "fechar" o Σ H cru e reintroduzir a dupla contagem | §5.3 — dois comparativos por ramo, com alerta |
 | 4 | Universo da conferência gerar ruído | §5.1 — medido em prod: a régua errada dá 57% de falso positivo na TL1 |
 | 5 | Chave de ligação colidir | §5.2 — `(caso, referencia_externa, competencia)`, medido: 4 colisões com a chave errada |
-| 6 | Carteira atribuída errada na carga histórica | §4.4 — 4 níveis, e recusa em vez de adivinhar |
+| 6 | Carteira atribuída errada na carga histórica | §4.4 — 2 passadas (nomeados primeiro) + 3 níveis, e recusa em vez de adivinhar |
 | 7 | Alguém alterar `EncargosVivos` para a calibração | §6.3 — a Calculadora já aceita data |
 | 8 | Escrita acidental por hidratação + flush | §9 teste 9, com a forma que realmente detecta |
 | 9 | Tabela nova sem filtro de tenant | as três carregam `tenant_id`; teste cross-tenant obrigatório |
@@ -646,7 +646,9 @@ reproduzido com prova) e deixou 3 pela metade. Mais 7 achados novos:
 **Medição própria acrescentada nesta versão:** em produção não existe hoje nenhum acordo rompido ou
 cancelado (311 cumpridos, 82 ativos), então a régua canônica e a da v2 dão o mesmo número — 3.099 ·
 522 · 51. **O conserto do achado 1 não muda nenhum número hoje; ele passa a importar no dia do
-primeiro rompimento.** No dev, com 2 acordos cancelados, a régua da v2 já erra em 42 casos.
+primeiro rompimento.** No dev, com 2 acordos cancelados, a régua da v2 erra em **9 casos dentro do
+recorte da conferência** (mais 33 que o recorte por vencimento já excluiria) — ver §5.1; o "42" que
+esta seção trazia somava os dois e superestimava o erro.
 
 **O que a re-revisão mediu e deu certo** (não volta como problema): a reconciliação interna da §4.3
 reproduz ao centavo; a regra por ramo da §5.3 fecha em **exatamente** 43.681.747, provando que a
