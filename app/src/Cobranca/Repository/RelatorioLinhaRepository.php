@@ -65,13 +65,19 @@ class RelatorioLinhaRepository extends ServiceEntityRepository
      * Devolve arrays, não entidades: um relatório tem até 4.185 linhas de dado e a conferência só
      * precisa da chave, da classe, do valor e do texto do acordo.
      *
+     * Traz também as colunas de ENCARGO (I/J/K/L). A conferência não precisa delas — ela só compara
+     * principal —, mas a calibração precisa, e trazer só o que o primeiro consumidor usa já custou
+     * uma calibração inteira reportando "0% exato" com o outro lado zerado.
+     *
      * @return list<array{unidade: ?string, nn: ?string, classe: ?string, competencia: ?string,
-     *                    vencimento: ?\DateTimeImmutable, valor: ?int, acordoTexto: ?string}>
+     *                    vencimento: ?\DateTimeImmutable, valor: ?int, juros: ?int, multa: ?int,
+     *                    correcao: ?int, honorarios: ?int, acordoTexto: ?string}>
      */
     public function dadosDoRelatorio(RelatorioImportado $relatorio): array
     {
         /** @var list<array{unidade: ?string, nn: ?string, classe: ?string, competencia: ?string,
-         *                  vencimento: ?\DateTimeImmutable, valor: ?int, acordoTexto: ?string}> $linhas */
+         *                  vencimento: ?\DateTimeImmutable, valor: ?int, juros: ?int, multa: ?int,
+         *                  correcao: ?int, honorarios: ?int, acordoTexto: ?string}> $linhas */
         $linhas = $this->createQueryBuilder('l')
             ->select(
                 'l.unidade AS unidade',
@@ -80,6 +86,10 @@ class RelatorioLinhaRepository extends ServiceEntityRepository
                 'l.competencia AS competencia',
                 'l.vencimento AS vencimento',
                 'l.valor AS valor',
+                'l.juros AS juros',
+                'l.multa AS multa',
+                'l.correcao AS correcao',
+                'l.honorarios AS honorarios',
                 'l.acordoTexto AS acordoTexto',
             )
             ->andWhere('l.relatorio = :relatorio')
