@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace App\Cobranca\Repository;
 
 use App\Cobranca\Entity\Acordo;
+use App\Cobranca\Entity\Carteira;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\Obrigacao;
 use App\Cobranca\Enum\StatusAcordo;
 use App\Cobranca\Enum\StatusCaso;
 use App\Entity\Tenant\Tenant;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -177,20 +179,43 @@ class ObrigacaoRepository extends ServiceEntityRepository
      */
     public function doCasoExigiveis(CasoCobranca $caso): array
     {
-        return $this->createQueryBuilder('o')
-            ->leftJoin('o.acordoSubstituto', 'asub')
-            ->leftJoin('o.acordoOrigem', 'aorig')
+        $qb = $this->createQueryBuilder('o')
             ->andWhere('o.caso = :caso')
             ->andWhere('o.tenant = :tenant')
-            ->andWhere('(asub.id IS NULL OR asub.status IN (:naoVigentes))')
-            ->andWhere('(aorig.id IS NULL OR aorig.status IN (:vigentes))')
             ->setParameter('caso', $caso)
-            ->setParameter('tenant', $caso->getTenant())
-            ->setParameter('naoVigentes', [StatusAcordo::Rompido->value, StatusAcordo::Cancelado->value])
-            ->setParameter('vigentes', [StatusAcordo::Ativo->value, StatusAcordo::Cumprido->value])
+            ->setParameter('tenant', $caso->getTenant());
+
+        return $this->aplicarExigibilidade($qb)
             ->orderBy('o.vencimentoOriginal', 'ASC')
             ->getQuery()
             ->getResult();
+    }
+
+    /**
+     * O predicado CANÔNICO de exigibilidade, num lugar só.
+     *
+     * Exclui as obrigações substituídas por um acordo VIGENTE (ativo/cumprido) e as parcelas de um
+     * acordo NÃO vigente (rompido/cancelado). Assim, romper ou cancelar um acordo restaura os
+     * originais e descarta as parcelas por derivação (invariável 20). Os parênteses são explícitos
+     * porque `andWhere` junta com AND sem parentetizar o OR.
+     *
+     * ⚠️ **"Exigível" NÃO quer dizer "em aberto":** este conjunto inclui a obrigação já quitada e a
+     * parcela de acordo CUMPRIDO (ver `AlertasCobranca`). Quem precisa só do que está em aberto tem
+     * de somar `liquidadaEm IS NULL` por fora — é uma condição da PERGUNTA, não da exigibilidade.
+     *
+     * Extraído em 12/08 (spec `cobranca-espelho-da-contabilidade.md`, D10): as mesmas seis linhas
+     * estavam copiadas verbatim em `doCasoExigiveis` e `exigiveisDosCasos`, e a conferência do
+     * espelho seria a terceira cópia. Regra de dinheiro duplicada diverge em silêncio.
+     */
+    private function aplicarExigibilidade(QueryBuilder $qb, string $alias = 'o'): QueryBuilder
+    {
+        return $qb
+            ->leftJoin($alias . '.acordoSubstituto', 'asub')
+            ->leftJoin($alias . '.acordoOrigem', 'aorig')
+            ->andWhere('(asub.id IS NULL OR asub.status IN (:naoVigentes))')
+            ->andWhere('(aorig.id IS NULL OR aorig.status IN (:vigentes))')
+            ->setParameter('naoVigentes', [StatusAcordo::Rompido->value, StatusAcordo::Cancelado->value])
+            ->setParameter('vigentes', [StatusAcordo::Ativo->value, StatusAcordo::Cumprido->value]);
     }
 
     /**
@@ -314,20 +339,71 @@ class ObrigacaoRepository extends ServiceEntityRepository
             return [];
         }
 
-        return $this->createQueryBuilder('o')
-            ->leftJoin('o.acordoSubstituto', 'asub')
-            ->leftJoin('o.acordoOrigem', 'aorig')
+        $qb = $this->createQueryBuilder('o')
             ->andWhere('o.caso IN (:casos)')
             ->andWhere('o.tenant = :tenant')
-            ->andWhere('(asub.id IS NULL OR asub.status IN (:naoVigentes))')
-            ->andWhere('(aorig.id IS NULL OR aorig.status IN (:vigentes))')
             ->setParameter('casos', $casoIds)
-            ->setParameter('tenant', $tenant)
-            ->setParameter('naoVigentes', [StatusAcordo::Rompido->value, StatusAcordo::Cancelado->value])
-            ->setParameter('vigentes', [StatusAcordo::Ativo->value, StatusAcordo::Cumprido->value])
+            ->setParameter('tenant', $tenant);
+
+        return $this->aplicarExigibilidade($qb)
             ->orderBy('o.vencimentoOriginal', 'ASC')
             ->getQuery()
             ->getResult();
+    }
+
+    /**
+     * O que o SISTEMA considera devido numa carteira até uma data — o universo da conferência do
+     * espelho (spec `cobranca-espelho-da-contabilidade.md` §5.1).
+     *
+     * São TRÊS condições independentes, e a spec exige que fiquem separadas no código:
+     *  1. **exigibilidade** — regra do sistema, reusada de `aplicarExigibilidade` (D10);
+     *  2. **em aberto** (`liquidadaEm IS NULL`) — recorte da conferência, não da exigibilidade;
+     *  3. **vencida até `$dadosAte`** — recorte para casar com o escopo do relatório.
+     *
+     * Medido em produção em 12/08: sem a condição 2 a TOP LIFE I saltaria de 3.099 para 10.576
+     * obrigações — 7.477 divergências falsas.
+     *
+     * Devolve linhas cruas (não entidades): são milhares, e a conferência só precisa da chave, do
+     * principal e de saber se é parcela de acordo.
+     *
+     * @return list<array{id: int, casoId: int, referenciaExterna: ?string, competencia: ?string,
+     *                    valorOriginal: int, unidade: string, ehParcelaDeAcordo: bool}>
+     */
+    public function emAbertoDaCarteiraAte(Carteira $carteira, \DateTimeImmutable $dadosAte): array
+    {
+        $qb = $this->createQueryBuilder('o')
+            ->select(
+                'o.id AS id',
+                'IDENTITY(o.caso) AS casoId',
+                'o.referenciaExterna AS referenciaExterna',
+                'o.competencia AS competencia',
+                'o.valorOriginal AS valorOriginal',
+                'obj.identificacao AS unidade',
+                'IDENTITY(o.acordoOrigem) AS acordoOrigemId',
+            )
+            ->join('o.caso', 'c')
+            ->join('c.objeto', 'obj')
+            ->andWhere('obj.carteira = :carteira')
+            ->andWhere('o.liquidadaEm IS NULL')
+            ->andWhere('o.vencimentoOriginal <= :dadosAte')
+            ->setParameter('carteira', $carteira)
+            ->setParameter('dadosAte', $dadosAte);
+
+        /** @var list<array<string, mixed>> $linhas */
+        $linhas = $this->aplicarExigibilidade($qb)->getQuery()->getResult();
+
+        return array_map(
+            static fn (array $l): array => [
+                'id' => (int) $l['id'],
+                'casoId' => (int) $l['casoId'],
+                'referenciaExterna' => $l['referenciaExterna'],
+                'competencia' => $l['competencia'],
+                'valorOriginal' => (int) $l['valorOriginal'],
+                'unidade' => (string) $l['unidade'],
+                'ehParcelaDeAcordo' => $l['acordoOrigemId'] !== null,
+            ],
+            $linhas,
+        );
     }
 
     /**

@@ -60,6 +60,40 @@ class RelatorioLinhaRepository extends ServiceEntityRepository
     }
 
     /**
+     * As linhas de DADOS de um lote, cruas — insumo da conferência (SPEC §5).
+     *
+     * Devolve arrays, não entidades: um relatório tem até 4.185 linhas de dado e a conferência só
+     * precisa da chave, da classe, do valor e do texto do acordo.
+     *
+     * @return list<array{unidade: ?string, nn: ?string, classe: ?string, competencia: ?string,
+     *                    vencimento: ?\DateTimeImmutable, valor: ?int, acordoTexto: ?string}>
+     */
+    public function dadosDoRelatorio(RelatorioImportado $relatorio): array
+    {
+        /** @var list<array{unidade: ?string, nn: ?string, classe: ?string, competencia: ?string,
+         *                  vencimento: ?\DateTimeImmutable, valor: ?int, acordoTexto: ?string}> $linhas */
+        $linhas = $this->createQueryBuilder('l')
+            ->select(
+                'l.unidade AS unidade',
+                'l.nn AS nn',
+                'l.classe AS classe',
+                'l.competencia AS competencia',
+                'l.vencimento AS vencimento',
+                'l.valor AS valor',
+                'l.acordoTexto AS acordoTexto',
+            )
+            ->andWhere('l.relatorio = :relatorio')
+            ->andWhere('l.bloco = :bloco')
+            ->setParameter('relatorio', $relatorio)
+            ->setParameter('bloco', BlocoRelatorio::Dados)
+            ->orderBy('l.numeroLinha', 'ASC')
+            ->getQuery()
+            ->getResult();
+
+        return $linhas;
+    }
+
+    /**
      * As unidades distintas já espelhadas, por carteira — insumo do nível 3 da atribuição de
      * carteira (SPEC §4.4), usado para descobrir de qual carteira é um arquivo que não se identifica
      * nem pelo nome nem pela alíquota de honorários.
