@@ -108,9 +108,14 @@ final class CalibrarEspelhoCommand extends Command
             ));
 
             if ($r->semBase > 0) {
+                // O texto descreve a CONDIÇÃO (valor não positivo), não o caso que hoje a preenche.
+                // Hoje 100% delas são linhas de desconto (classe 1.6) — medido, 26 de 26 no acervo —,
+                // mas a guarda também pega valor zero, e prometer "é desconto" viraria mentira no dia
+                // em que aparecer o primeiro zero.
                 $io->text(sprintf(
-                    '  ↳ as %d "sem base" são linhas de desconto: a contabilidade lança encargo negativo nelas '
-                    . 'e a nossa fórmula não calcula sobre base negativa. Elas se reconciliam no boleto (INV-CB3).',
+                    '  ↳ %d linha(s) de valor não positivo (tipicamente desconto, classe 1.6): a contabilidade '
+                    . 'lança encargo negativo nelas e a nossa fórmula não calcula sobre base não positiva. '
+                    . 'Elas se reconciliam no boleto, mas ficam fora desta conta (INV-CB3).',
                     $r->semBase,
                 ));
             }
