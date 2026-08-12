@@ -98,6 +98,13 @@ final class PurgarEscritorioUseCase
         // vem ANTES de apagar cliente na Fase 2.
         ['cobranca_vinculo_pessoa_objeto', 'tenant_id = :tenant'],
         ['cobranca_objeto', 'tenant_id = :tenant'],
+        // Espelho da contabilidade: linha e totalizador caem por CASCADE do lote, mas a deleção é
+        // EXPLÍCITA e de baixo para cima (padrão do módulo). O lote referencia a carteira sem
+        // cascata, por isso o bloco inteiro vem ANTES dela. Nada aqui é dado de dívida — é a cópia
+        // do que a contabilidade informou, e vai embora junto com o escritório.
+        ['cobranca_relatorio_linha', 'tenant_id = :tenant'],
+        ['cobranca_relatorio_totalizador', 'tenant_id = :tenant'],
+        ['cobranca_relatorio_importado', 'tenant_id = :tenant'],
         // Documentos da Carteira (Ajuste #5): FK onDelete CASCADE, mas deleção EXPLÍCITA (padrão do
         // módulo) ANTES da carteira. Mesmo diretório flat de cobrancas/<tenantId>/ (sem
         // subdiretório novo) — já coberto por removerDiretorioDeTenant.
