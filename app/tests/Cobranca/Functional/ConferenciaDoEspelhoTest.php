@@ -14,6 +14,7 @@ use App\Cobranca\Enum\StatusAcordo;
 use App\Cobranca\Repository\ObrigacaoRepository;
 use App\Cobranca\Repository\RelatorioImportadoRepository;
 use App\Cobranca\Repository\RelatorioLinhaRepository;
+use App\Cobranca\Service\Espelho\AgrupadorDeBoletos;
 use App\Cobranca\Service\Espelho\ConferenciaDoEspelho;
 use App\Cobranca\Service\Espelho\LeitorEspelhoRelatorio;
 use App\Cobranca\UseCase\GravarEspelhoRelatorioUseCase;
@@ -60,7 +61,11 @@ final class ConferenciaDoEspelhoTest extends KernelTestCase
         $obrigacoes = $this->em->getRepository(Obrigacao::class);
 
         $this->gravar = new GravarEspelhoRelatorioUseCase(new LeitorEspelhoRelatorio(), $relatorios, $this->em);
-        $this->conferencia = new ConferenciaDoEspelho($linhas, $obrigacoes);
+        $this->conferencia = new ConferenciaDoEspelho(
+            new AgrupadorDeBoletos($linhas),
+            $obrigacoes,
+            $this->em->getRepository(\App\Cobranca\Entity\ObjetoCobranca::class),
+        );
     }
 
     protected function tearDown(): void
@@ -118,7 +123,9 @@ final class ConferenciaDoEspelhoTest extends KernelTestCase
     {
         $carteira = $this->carteira();
         $caso = $this->caso($carteira, '01-01');
-        // 1.1 (190) + 1.14 (45) = 235,00. Ambas são principal.
+        // 1.1 (190) + 1.14 (45) = 235,00 são principal. A linha 1.15 (honorário, 60,00) NÃO é —
+        // e é ela que faz o teste valer: com casamento por prefixo, `1.15` também começa com `1.1`
+        // e entraria, dando 295,00. Sem essa linha o teste passaria com o defeito presente.
         $this->obrigacao($caso, '74608', '02/2026', 23500);
 
         $resultado = $this->conferir($carteira, [
@@ -126,9 +133,12 @@ final class ConferenciaDoEspelhoTest extends KernelTestCase
                 competencia: '02/2026', valor: 190.00),
             $this->linhaDeDado(unidade: '01-01', nn: '74608', classe: '1.14 - Energia',
                 competencia: '02/2026', valor: 45.00),
+            $this->linhaDeDado(unidade: '01-01', nn: '74608', classe: '1.15 - Honorário advocatício',
+                competencia: '02/2026', valor: 60.00),
         ]);
 
-        self::assertSame(1, $resultado->confere);
+        self::assertSame(1, $resultado->confere, 'a classe 1.15 não pode ter entrado no principal');
+        self::assertSame([], $resultado->principalDiferente);
     }
 
     #[TestDox('Dívida que a contabilidade cobra e o sistema não tem cai em "falta"')]

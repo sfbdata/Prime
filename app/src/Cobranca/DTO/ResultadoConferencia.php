@@ -19,8 +19,10 @@ final readonly class ResultadoConferencia
      * @param list<array{chave: string, unidade: string, nn: ?string, competencia: ?string}>                 $sobraNoSistema
      * @param list<array{chave: string, unidade: string, relatorio: int, sistema: int, diferenca: int}>      $principalDiferente
      * @param list<string>                                                                                  $ambiguidadeDeCaso
+     * @param list<array{id: int, unidade: string, referenciaExterna: ?string, competencia: ?string}>       $pagasMasNaoLiquidadas
      */
     public function __construct(
+        public array $pagasMasNaoLiquidadas,
         public string $carteira,
         public ?\DateTimeImmutable $dadosAte,
         public int $gruposNoRelatorio,
@@ -65,6 +67,10 @@ final readonly class ResultadoConferencia
             'sobra no sistema' => count($this->sobraNoSistema),
             'principal diferente' => count($this->principalDiferente),
             'ambiguidade de caso' => count($this->ambiguidadeDeCaso),
+            // D12: as duas réguas de "pago" do sistema discordam. Não entra na conta dos baldes —
+            // é observação sobre o SISTEMA, não divergência contra a contabilidade —, mas aparece
+            // para alguém olhar, em vez de sair como "sobra" genérica.
+            'paga mas nao liquidada' => count($this->pagasMasNaoLiquidadas),
         ];
     }
 }

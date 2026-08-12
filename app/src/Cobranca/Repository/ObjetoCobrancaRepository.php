@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Cobranca\Repository;
 
 use App\Cobranca\Entity\Carteira;
+use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\ObjetoCobranca;
 use App\Entity\Tenant\Tenant;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
@@ -149,5 +150,48 @@ class ObjetoCobrancaRepository extends ServiceEntityRepository
             ->setParameter('tenant', $carteira->getTenant())
             ->getQuery()
             ->getSingleScalarResult();
+    }
+
+    /**
+     * As identificações de unidade da carteira, separadas por TEREM ou NÃO caso aberto — insumo dos
+     * sub-baldes de "falta no sistema" da conferência (SPEC espelho §5.5).
+     *
+     * São três causas com três consertos diferentes: *unidade sem objeto* (cadastro nunca criado),
+     * *objeto sem caso* (existe o imóvel, não a cobrança) e *caso existe, obrigação não* (a dívida
+     * específica falta). Somá-las num balde só esconde qual é — e medido em produção há 22 objetos
+     * sem caso nenhum, que cairiam no rótulo errado.
+     *
+     * Tenant explícito: roda em console, onde o `TenantFilter` não liga.
+     *
+     * @return array{comCaso: list<string>, semCaso: list<string>}
+     */
+    public function identificacoesPorSituacaoDeCaso(Carteira $carteira): array
+    {
+        /** @var list<array{identificacao: string, casos: int}> $linhas */
+        $linhas = $this->createQueryBuilder('o')
+            ->select('o.identificacao AS identificacao', 'COUNT(c.id) AS casos')
+            ->leftJoin(CasoCobranca::class, 'c', 'WITH', 'c.objeto = o')
+            ->andWhere('o.carteira = :carteira')
+            ->andWhere('o.tenant = :tenant')
+            ->setParameter('carteira', $carteira)
+            ->setParameter('tenant', $carteira->getTenant())
+            ->groupBy('o.identificacao')
+            ->getQuery()
+            ->getResult();
+
+        $comCaso = [];
+        $semCaso = [];
+
+        foreach ($linhas as $linha) {
+            if ((int) $linha['casos'] > 0) {
+                $comCaso[] = $linha['identificacao'];
+
+                continue;
+            }
+
+            $semCaso[] = $linha['identificacao'];
+        }
+
+        return ['comCaso' => $comCaso, 'semCaso' => $semCaso];
     }
 }

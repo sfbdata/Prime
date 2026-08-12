@@ -7,6 +7,7 @@ namespace App\Cobranca\Repository;
 use App\Cobranca\Entity\RelatorioImportado;
 use App\Cobranca\Entity\RelatorioLinha;
 use App\Cobranca\Enum\BlocoRelatorio;
+use App\Entity\Tenant\Tenant;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -108,16 +109,22 @@ class RelatorioLinhaRepository extends ServiceEntityRepository
      * carteira (SPEC §4.4), usado para descobrir de qual carteira é um arquivo que não se identifica
      * nem pelo nome nem pela alíquota de honorários.
      *
+     * O tenant é EXPLÍCITO: o `TenantFilter` só liga no evento de request, e este método roda em
+     * comando de console. Sem ele, a atribuição de carteira compararia o arquivo contra as unidades
+     * espelhadas de TODOS os escritórios — leitura cruzada alimentando uma decisão.
+     *
      * @return array<int, list<string>> carteiraId => unidades
      */
-    public function unidadesPorCarteira(): array
+    public function unidadesPorCarteira(Tenant $tenant): array
     {
         /** @var list<array{carteiraId: int, unidade: string}> $linhas */
         $linhas = $this->createQueryBuilder('l')
             ->select('IDENTITY(r.carteira) AS carteiraId', 'l.unidade AS unidade')
             ->join('l.relatorio', 'r')
+            ->andWhere('l.tenant = :tenant')
             ->andWhere('l.bloco = :bloco')
             ->andWhere('l.unidade IS NOT NULL')
+            ->setParameter('tenant', $tenant)
             ->setParameter('bloco', BlocoRelatorio::Dados)
             ->groupBy('carteiraId', 'l.unidade')
             ->getQuery()

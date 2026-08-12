@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Cobranca\Repository;
 
 use App\Cobranca\Entity\Acordo;
+use App\Cobranca\Entity\AlocacaoPagamento;
 use App\Cobranca\Entity\Carteira;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\Obrigacao;
@@ -189,6 +190,44 @@ class ObrigacaoRepository extends ServiceEntityRepository
             ->orderBy('o.vencimentoOriginal', 'ASC')
             ->getQuery()
             ->getResult();
+    }
+
+    /**
+     * As obrigações da carteira que estão TOTALMENTE PAGAS mas não marcadas como liquidadas —
+     * o balde do D12 (SPEC espelho §5.1).
+     *
+     * O sistema tem duas réguas de "pago" e elas **discordam em produção**: medido em 12/08, 11
+     * obrigações na TOP LIFE I e 2 na TOP LIFE II estão com alocação suficiente e `liquidadaEm` nulo
+     * (zero no sentido inverso). A conferência usa `liquidadaEm` como universo e reporta estas em
+     * balde próprio: decidir em silêncio por uma das duas esconderia uma inconsistência interna real.
+     *
+     * @return list<array{id: int, unidade: string, referenciaExterna: ?string, competencia: ?string}>
+     */
+    public function pagasMasNaoLiquidadasDaCarteira(Carteira $carteira): array
+    {
+        /** @var list<array{id: int, unidade: string, referenciaExterna: ?string, competencia: ?string}> $linhas */
+        $linhas = $this->createQueryBuilder('o')
+            ->select(
+                'o.id AS id',
+                'obj.identificacao AS unidade',
+                'o.referenciaExterna AS referenciaExterna',
+                'o.competencia AS competencia',
+            )
+            ->join('o.caso', 'c')
+            ->join('c.objeto', 'obj')
+            ->leftJoin(AlocacaoPagamento::class, 'a', 'WITH', 'a.obrigacao = o')
+            ->andWhere('obj.carteira = :carteira')
+            ->andWhere('o.tenant = :tenant')
+            ->andWhere('o.liquidadaEm IS NULL')
+            ->setParameter('carteira', $carteira)
+            ->setParameter('tenant', $carteira->getTenant())
+            ->groupBy('o.id', 'obj.identificacao', 'o.referenciaExterna', 'o.competencia',
+                'o.valorOriginal', 'o.juros', 'o.multa', 'o.correcao')
+            ->having('COALESCE(SUM(a.valor), 0) >= o.valorOriginal + o.juros + o.multa + o.correcao')
+            ->getQuery()
+            ->getResult();
+
+        return $linhas;
     }
 
     /**
@@ -384,9 +423,14 @@ class ObrigacaoRepository extends ServiceEntityRepository
             ->join('o.caso', 'c')
             ->join('c.objeto', 'obj')
             ->andWhere('obj.carteira = :carteira')
+            // Tenant EXPLÍCITO: o `TenantFilter` só é ligado no evento de request, e esta consulta
+            // roda em comando de console, onde ele nunca liga. Era o único método deste repositório
+            // sem o filtro próprio.
+            ->andWhere('o.tenant = :tenant')
             ->andWhere('o.liquidadaEm IS NULL')
             ->andWhere('o.vencimentoOriginal <= :dadosAte')
             ->setParameter('carteira', $carteira)
+            ->setParameter('tenant', $carteira->getTenant())
             ->setParameter('dadosAte', $dadosAte);
 
         /** @var list<array<string, mixed>> $linhas */

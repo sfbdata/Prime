@@ -17,6 +17,7 @@ use App\Cobranca\Repository\ObrigacaoRepository;
 use App\Cobranca\Repository\RelatorioImportadoRepository;
 use App\Cobranca\Repository\RelatorioLinhaRepository;
 use App\Cobranca\Service\CalculadoraEncargos;
+use App\Cobranca\Service\Espelho\AgrupadorDeBoletos;
 use App\Cobranca\Service\Espelho\CalibracaoDoEspelho;
 use App\Cobranca\Service\Espelho\LeitorEspelhoRelatorio;
 use App\Cobranca\Service\ResolvedorConfigEncargos;
@@ -65,7 +66,7 @@ final class CalibracaoDoEspelhoTest extends KernelTestCase
         $this->calculadora = new CalculadoraEncargos();
         $this->gravar = new GravarEspelhoRelatorioUseCase(new LeitorEspelhoRelatorio(), $relatorios, $this->em);
         $this->calibracao = new CalibracaoDoEspelho(
-            $linhas,
+            new AgrupadorDeBoletos($linhas),
             $obrigacoes,
             $this->calculadora,
             new ResolvedorConfigEncargos(),
@@ -78,35 +79,31 @@ final class CalibracaoDoEspelhoTest extends KernelTestCase
         parent::tearDown();
     }
 
-    #[TestDox('Quando a planilha traz o mesmo encargo que a nossa conta, o veredito é "bate"')]
-    public function testEncargoIdenticoDaBate(): void
+    #[TestDox('§9.13 — reproduz o caso REAL pinado: TOP LIFE I, 240 dias, pelo caminho novo')]
+    public function testReproduzOCasoRealPinado(): void
     {
+        // Números LITERAIS, copiados de `CalculadoraEncargosTest::provaRealToplifeIComAtrasoDe240Dias`:
+        // P=170,00 · 240 dias · honorários 20% → juros 13,60 · multa 3,40 · correção 0 · honorários 37,40.
+        //
+        // A versão anterior deste teste preenchia a planilha com a SAÍDA da mesma calculadora que a
+        // calibração usa — qualquer fórmula deixaria os dois lados verdes. Provava que a calibração
+        // compara, não que a conta bate.
         $carteira = $this->carteiraTopLife(2000);
         $caso = $this->caso($carteira, '01-01');
         $vencimento = new \DateTimeImmutable('2025-12-15');
-        $this->obrigacao($caso, '74608', '12/2025', 19000, $vencimento);
+        $dadosAte = $vencimento->modify('+240 days'); // 12/08/2026
 
-        // O que a NOSSA fórmula diz na data do relatório — é isso que a planilha de teste vai trazer.
-        $nosso = $this->calculadora->calcular(
-            19000,
-            $vencimento,
-            (new ResolvedorConfigEncargos())->resolverDaCarteira($carteira),
-            new \DateTimeImmutable('2026-08-12'),
-        );
+        $this->obrigacao($caso, '74608', '12/2025', 17000, $vencimento);
 
         $resultado = $this->calibrar($carteira, [
             $this->linhaDeDado(
                 unidade: '01-01', nn: '74608', competencia: '12/2025', vencimento: '15/12/2025',
-                valor: 190.00,
-                juros: $nosso['juros'] / 100,
-                multa: $nosso['multa'] / 100,
-                correcao: $nosso['correcao'] / 100,
-                honorarios: $nosso['honorarios'] / 100,
+                valor: 170.00, juros: 13.60, multa: 3.40, correcao: 0.0, honorarios: 37.40,
             ),
-        ]);
+        ], $dadosAte->format('d/m/Y'));
 
         self::assertSame(1, $resultado->comparadas);
-        self::assertSame(1, $resultado->exatas());
+        self::assertSame(1, $resultado->exatas(), sprintf('piores: %s', json_encode($resultado->piores)));
         self::assertSame('bate', $resultado->veredito());
     }
 
@@ -116,25 +113,16 @@ final class CalibracaoDoEspelhoTest extends KernelTestCase
         $carteira = $this->carteiraTopLife(2000);
         $caso = $this->caso($carteira, '01-01');
         $vencimento = new \DateTimeImmutable('2025-12-15');
-        $this->obrigacao($caso, '74608', '12/2025', 19000, $vencimento);
+        $dadosAte = $vencimento->modify('+240 days');
 
-        $nosso = $this->calculadora->calcular(
-            19000,
-            $vencimento,
-            (new ResolvedorConfigEncargos())->resolverDaCarteira($carteira),
-            new \DateTimeImmutable('2026-08-12'),
-        );
+        $this->obrigacao($caso, '74608', '12/2025', 17000, $vencimento);
 
         $resultado = $this->calibrar($carteira, [
             $this->linhaDeDado(
                 unidade: '01-01', nn: '74608', competencia: '12/2025', vencimento: '15/12/2025',
-                valor: 190.00,
-                juros: ($nosso['juros'] + 1) / 100, // um centavo a mais na planilha
-                multa: $nosso['multa'] / 100,
-                correcao: $nosso['correcao'] / 100,
-                honorarios: $nosso['honorarios'] / 100,
+                valor: 170.00, juros: 13.61, multa: 3.40, correcao: 0.0, honorarios: 37.40,
             ),
-        ]);
+        ], $dadosAte->format('d/m/Y'));
 
         self::assertSame(0, $resultado->exatas());
         self::assertSame(1, $resultado->faixas['ate 1 centavo']);
@@ -224,9 +212,12 @@ final class CalibracaoDoEspelhoTest extends KernelTestCase
     /**
      * @param list<list<mixed>> $linhas
      */
-    private function calibrar(Carteira $carteira, array $linhas): \App\Cobranca\DTO\ResultadoCalibracao
-    {
-        $arquivo = $this->montarPlanilha($linhas);
+    private function calibrar(
+        Carteira $carteira,
+        array $linhas,
+        string $dadosAte = '12/08/2026',
+    ): \App\Cobranca\DTO\ResultadoCalibracao {
+        $arquivo = $this->montarPlanilha($linhas, dadosAte: $dadosAte);
         $saida = $this->gravar->executar(new GravarEspelhoRelatorioInput($carteira, $arquivo));
 
         $lote = $this->em->getRepository(RelatorioImportado::class)->find($saida->relatorioId);

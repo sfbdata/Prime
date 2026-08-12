@@ -11,6 +11,8 @@ use App\Cobranca\Service\Espelho\ArquivoForaDoLayoutException;
 use App\Cobranca\Service\Espelho\AtribuidorDeCarteira;
 use App\Cobranca\Service\Espelho\LeitorEspelhoRelatorio;
 use App\Cobranca\Service\Espelho\ReconciliacaoInternaFalhouException;
+use App\Cobranca\Service\Importacao\RecorteEsperado;
+use App\Cobranca\Service\Importacao\ValidadorRodapeFiltros;
 use App\Cobranca\UseCase\GravarEspelhoRelatorioUseCase;
 use App\Entity\Auth\User;
 use App\Repository\TenantRepository;
@@ -50,6 +52,8 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 )]
 final class CarregarEspelhoRelatorioCommand extends Command
 {
+    use ConfereRecorteDoArquivo;
+
     public function __construct(
         private readonly GravarEspelhoRelatorioUseCase $gravar,
         private readonly LeitorEspelhoRelatorio $leitor,
@@ -57,6 +61,7 @@ final class CarregarEspelhoRelatorioCommand extends Command
         private readonly RelatorioLinhaRepository $linhas,
         private readonly TenantRepository $tenants,
         private readonly EntityManagerInterface $em,
+        private readonly ValidadorRodapeFiltros $validadorRodape,
     ) {
         parent::__construct();
     }
@@ -105,7 +110,20 @@ final class CarregarEspelhoRelatorioCommand extends Command
             return Command::FAILURE;
         }
 
+        $carteiraId = $input->getOption('carteira-id');
         $forcada = $this->carteiraForcada($input, $carteiras);
+
+        if ($carteiraId !== null && $forcada === null) {
+            // Sem isto, um id digitado errado (ou de OUTRO escritório) caía no `?? atribuidor` da
+            // passada 1 e o comando voltava a ADIVINHAR a carteira, reportando sucesso. Pedir uma
+            // carteira específica e receber outra é o modo de falha mais perigoso desta carga.
+            $io->error(sprintf(
+                'Carteira %s não existe neste escritório. Nada foi lido — corrija o --carteira-id ou omita-o.',
+                (string) $carteiraId
+            ));
+
+            return Command::FAILURE;
+        }
 
         $io->title(sprintf('Espelho da contabilidade — %d arquivo(s)', count($arquivos)));
         $io->text('Nenhuma dívida é criada ou alterada por este comando.');
@@ -142,7 +160,7 @@ final class CarregarEspelhoRelatorioCommand extends Command
         }
 
         foreach ($anonimos as $caminho) {
-            $carteira = $this->atribuirSemNome($caminho, $this->carteirasDoTenant($tenantId), $io);
+            $carteira = $this->atribuirSemNome($caminho, $this->carteirasDoTenant($tenantId), $tenantId, $io);
 
             if ($carteira === null) {
                 ++$falhas;
@@ -170,8 +188,12 @@ final class CarregarEspelhoRelatorioCommand extends Command
     /**
      * @param list<Carteira> $carteiras
      */
-    private function atribuirSemNome(string $caminho, array $carteiras, SymfonyStyle $io): ?Carteira
+    private function atribuirSemNome(string $caminho, array $carteiras, int $tenantId, SymfonyStyle $io): ?Carteira
     {
+        if (!$this->recorteConfere($io, $caminho, RecorteEsperado::inadimplencia())) {
+            return null;
+        }
+
         try {
             $espelhado = $this->leitor->ler($caminho);
         } catch (ArquivoForaDoLayoutException $e) {
@@ -191,7 +213,13 @@ final class CarregarEspelhoRelatorioCommand extends Command
             $espelhado->linhasDeDados(),
         )));
 
-        return $this->atribuidor->porUnidades($unidades, $this->linhas->unidadesPorCarteira(), $carteiras);
+        $tenant = $this->tenants->find($tenantId);
+
+        if ($tenant === null) {
+            return null;
+        }
+
+        return $this->atribuidor->porUnidades($unidades, $this->linhas->unidadesPorCarteira($tenant), $carteiras);
     }
 
     /**
@@ -207,6 +235,17 @@ final class CarregarEspelhoRelatorioCommand extends Command
         array &$resumo,
     ): int {
         $nome = basename($caminho);
+
+        // O recorte do rodapé é conferido ANTES de qualquer leitura, como nos quatro importadores.
+        // Um relatório emitido com filtro parcial (uma unidade, um período) passaria na reconciliação
+        // interna — ela fecha contra o totalizador do PRÓPRIO arquivo filtrado — e entraria no espelho
+        // como "a verdade absoluta", produzindo falta em massa na conferência. Sob a premissa deste
+        // módulo, espelho envenenado é pior do que espelho vazio.
+        if (!$this->recorteConfere($io, $caminho, RecorteEsperado::inadimplencia())) {
+            $resumo[] = [$nome, '—', 'RECUSADO: recorte do relatório', ''];
+
+            return 1;
+        }
 
         // Buscadas AGORA, depois do último `clear()` — ver o aviso no `execute()`.
         $carteira = $this->em->getRepository(Carteira::class)->find($carteiraId);

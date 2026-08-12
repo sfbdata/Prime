@@ -8,10 +8,8 @@ use App\Cobranca\DTO\ResultadoCalibracao;
 use App\Cobranca\Entity\Obrigacao;
 use App\Cobranca\Entity\RelatorioImportado;
 use App\Cobranca\Repository\ObrigacaoRepository;
-use App\Cobranca\Repository\RelatorioLinhaRepository;
 use App\Cobranca\Service\CalculadoraEncargos;
 use App\Cobranca\Service\Importacao\IdentificacaoDaUnidade;
-use App\Cobranca\Service\Importacao\ReferenciaSubstituta;
 use App\Cobranca\Service\ResolvedorConfigEncargos;
 
 /**
@@ -42,7 +40,7 @@ final class CalibracaoDoEspelho
     private const PIORES = 20;
 
     public function __construct(
-        private readonly RelatorioLinhaRepository $linhas,
+        private readonly AgrupadorDeBoletos $agrupador,
         private readonly ObrigacaoRepository $obrigacoes,
         private readonly CalculadoraEncargos $calculadora,
         private readonly ResolvedorConfigEncargos $resolvedor,
@@ -60,7 +58,7 @@ final class CalibracaoDoEspelho
             );
         }
 
-        $doRelatorio = $this->agruparEncargosDoRelatorio($relatorio);
+        $doRelatorio = $this->agrupador->agrupar($relatorio);
         $porChave = $this->indexarObrigacoes($carteira, $dadosAte);
 
         $faixas = array_fill_keys(self::FAIXAS, 0);
@@ -77,7 +75,11 @@ final class CalibracaoDoEspelho
                 continue;
             }
 
-            $vencimento = $obrigacao->getVencimentoOriginal();
+            // §6.1 pergunta "se rodarmos a nossa fórmula COM OS DADOS DA PLANILHA". Principal e
+            // vencimento vêm dela; do sistema vem só a CONFIGURAÇÃO (a cascata), que é a nossa parte
+            // da conta. Usar o `valorOriginal` do sistema misturaria divergência de PRINCIPAL —
+            // matéria da conferência — com divergência de FÓRMULA, e a medição perderia o sentido.
+            $vencimento = $grupo['vencimento'];
 
             if ($vencimento === null || $vencimento >= $dadosAte) {
                 // Sem atraso na data do relatório não há encargo a comparar.
@@ -87,7 +89,7 @@ final class CalibracaoDoEspelho
             }
 
             $nosso = $this->calculadora->calcular(
-                $obrigacao->getValorOriginal(),
+                $grupo['principal'],
                 $vencimento,
                 $this->resolvedor->resolver($obrigacao),
                 $dadosAte,
@@ -141,54 +143,6 @@ final class CalibracaoDoEspelho
     }
 
     /**
-     * Os encargos que a CONTABILIDADE informou, somados por boleto — colunas I, J, K e L.
-     *
-     * A coluna H (Valor) NÃO entra: ela é principal, e somá-la aqui seria a mesma dupla contagem que
-     * a Fase 1 existe para matar, agora do lado da conferência.
-     *
-     * @return array<string, array{unidade: string, nn: ?string, juros: int, multa: int, correcao: int, honorarios: int}>
-     */
-    private function agruparEncargosDoRelatorio(RelatorioImportado $relatorio): array
-    {
-        $grupos = [];
-
-        foreach ($this->linhas->dadosDoRelatorio($relatorio) as $linha) {
-            if ($linha['unidade'] === null) {
-                continue;
-            }
-
-            [$identificacao] = IdentificacaoDaUnidade::separar($linha['unidade']);
-            $referencia = $linha['nn'];
-
-            if ($referencia === null || trim($referencia) === '' || trim($referencia) === '-') {
-                if ($linha['vencimento'] === null) {
-                    continue;
-                }
-
-                $referencia = ReferenciaSubstituta::para($linha['vencimento']);
-            }
-
-            $chave = $identificacao . '|' . $referencia . '|' . ($linha['competencia'] ?? '');
-
-            $grupos[$chave] ??= [
-                'unidade' => $identificacao,
-                'nn' => $linha['nn'],
-                'juros' => 0,
-                'multa' => 0,
-                'correcao' => 0,
-                'honorarios' => 0,
-            ];
-
-            $grupos[$chave]['juros'] += $linha['juros'] ?? 0;
-            $grupos[$chave]['multa'] += $linha['multa'] ?? 0;
-            $grupos[$chave]['correcao'] += $linha['correcao'] ?? 0;
-            $grupos[$chave]['honorarios'] += $linha['honorarios'] ?? 0;
-        }
-
-        return $grupos;
-    }
-
-    /**
      * @return array<string, Obrigacao>
      */
     private function indexarObrigacoes(\App\Cobranca\Entity\Carteira $carteira, \DateTimeImmutable $dadosAte): array
@@ -203,7 +157,7 @@ final class CalibracaoDoEspelho
             }
 
             [$identificacao] = IdentificacaoDaUnidade::separar($linha['unidade']);
-            $chave = $identificacao . '|' . ($linha['referenciaExterna'] ?? '') . '|' . ($linha['competencia'] ?? '');
+            $chave = AgrupadorDeBoletos::chave($identificacao, $linha['referenciaExterna'] ?? '', $linha['competencia']);
 
             $porChave[$chave] = $obrigacao;
         }
