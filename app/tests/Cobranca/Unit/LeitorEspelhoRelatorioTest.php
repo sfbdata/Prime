@@ -9,8 +9,7 @@ use App\Cobranca\Enum\FormaTotalizador;
 use App\Cobranca\Service\Espelho\ArquivoForaDoLayoutException;
 use App\Cobranca\Service\Espelho\LeitorEspelhoRelatorio;
 use App\Cobranca\Service\Espelho\LinhaEspelhada;
-use PhpOffice\PhpSpreadsheet\Spreadsheet;
-use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use App\Tests\Cobranca\Support\MontaPlanilhaDeEspelho;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -27,16 +26,9 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(LeitorEspelhoRelatorio::class)]
 final class LeitorEspelhoRelatorioTest extends TestCase
 {
-    private const CABECALHO = [
-        'Unidade', 'Sacado', 'NN', 'Classe de conta', 'Competência', 'Vencimento', 'Atraso',
-        'Valor (R$)', 'Juros (R$)', 'Multa (R$)', 'Correção (R$)', 'Honorários (R$)', 'Total (R$)',
-        'Informações do acordo', 'Recebimento',
-    ];
+    use MontaPlanilhaDeEspelho;
 
     private LeitorEspelhoRelatorio $leitor;
-
-    /** @var list<string> */
-    private array $arquivosTemporarios = [];
 
     protected function setUp(): void
     {
@@ -45,19 +37,14 @@ final class LeitorEspelhoRelatorioTest extends TestCase
 
     protected function tearDown(): void
     {
-        foreach ($this->arquivosTemporarios as $caminho) {
-            if (is_file($caminho)) {
-                unlink($caminho);
-            }
-        }
-        $this->arquivosTemporarios = [];
+        $this->limparPlanilhas();
     }
 
     #[Test]
     #[TestDox('Lê as 15 colunas, inclusive G, M e O que o importador descarta')]
     public function testLeAsQuinzeColunas(): void
     {
-        $arquivo = $this->planilha([
+        $arquivo = $this->montarPlanilha([
             ['01-01', 'FULANO', '74608', '1.1 - Taxa de condomínio', '02/2026', '10/02/2026', '183',
                 190, 11.59, 3.8, 0, 41.08, 246.47, 'Acordo 155 - Parc. 1/6', 'REC-9'],
         ]);
@@ -87,7 +74,7 @@ final class LeitorEspelhoRelatorioTest extends TestCase
     {
         // Fixture SINTÉTICA de propósito: medido no TL1 de 12/08, ZERO das 4.123 linhas têm
         // M ≠ H+I+J+K+L. O dado real não consegue provar esta asserção (SPEC §9, teste 1).
-        $arquivo = $this->planilha([
+        $arquivo = $this->montarPlanilha([
             ['01-01', 'FULANO', '74608', '1.1 - Taxa de condomínio', '02/2026', '10/02/2026', '183',
                 100, 10, 5, 0, 20, 999.99, '-', '-'],
         ]);
@@ -106,7 +93,7 @@ final class LeitorEspelhoRelatorioTest extends TestCase
     #[TestDox('Célula vazia vira null, não zero — vazio e zero são coisas diferentes')]
     public function testCelulaVaziaNaoViraZero(): void
     {
-        $arquivo = $this->planilha([
+        $arquivo = $this->montarPlanilha([
             ['01-01', 'FULANO', '74608', '1.1 - Taxa', '02/2026', '10/02/2026', '10',
                 100, null, 0, null, null, 100, '-', '-'],
         ]);
@@ -122,7 +109,7 @@ final class LeitorEspelhoRelatorioTest extends TestCase
     #[TestDox('Toda linha do arquivo cai em exatamente um balde, e os seis somam o total')]
     public function testOsSeisBaldesSomamOTotal(): void
     {
-        $arquivo = $this->planilha([
+        $arquivo = $this->montarPlanilha([
             ['01-01', 'FULANO', '74608', '1.1 - Taxa', '02/2026', '10/02/2026', '183', 190, 11.59, 3.8, 0, 41.08, 246.47, '-', '-'],
             ['01-02', 'CICLANO', '74609', '1.1 - Taxa', '02/2026', '10/02/2026', '183', 100, 5, 2, 0, 20, 127, '-', '-'],
         ]);
@@ -144,7 +131,7 @@ final class LeitorEspelhoRelatorioTest extends TestCase
     #[TestDox('O bloco totalizador não entra como linha de dado, nas DUAS formas')]
     public function testTotalizadorNaoEntraComoDado(): void
     {
-        $arquivo = $this->planilha([
+        $arquivo = $this->montarPlanilha([
             ['01-01', 'FULANO', '74608', '1.1 - Taxa', '02/2026', '10/02/2026', '183', 190, 11.59, 3.8, 0, 41.08, 246.47, '-', '-'],
         ]);
 
@@ -165,7 +152,7 @@ final class LeitorEspelhoRelatorioTest extends TestCase
     #[TestDox('A forma LARGA do totalizador é lida com os valores em H..M, não nulos')]
     public function testFormaLargaTemValores(): void
     {
-        $arquivo = $this->planilha([
+        $arquivo = $this->montarPlanilha([
             ['01-01', 'FULANO', '74608', '1.1 - Taxa', '02/2026', '10/02/2026', '183', 190, 11.59, 3.8, 0, 41.08, 246.47, '-', '-'],
         ]);
 
@@ -184,7 +171,7 @@ final class LeitorEspelhoRelatorioTest extends TestCase
     #[TestDox('A reconciliação interna fecha: a soma das linhas bate com o totalizador da planilha')]
     public function testReconciliacaoInternaFecha(): void
     {
-        $arquivo = $this->planilha([
+        $arquivo = $this->montarPlanilha([
             ['01-01', 'FULANO', '74608', '1.1 - Taxa', '02/2026', '10/02/2026', '183', 190, 11.59, 3.8, 0, 41.08, 246.47, '-', '-'],
             ['01-02', 'CICLANO', '74609', '1.1 - Taxa', '02/2026', '10/02/2026', '183', 100, 5, 2, 0, 20, 127, '-', '-'],
         ]);
@@ -209,11 +196,11 @@ final class LeitorEspelhoRelatorioTest extends TestCase
         // A prova de que o teste anterior não é decorativo: uma linha com valor adulterado tem que
         // quebrar a igualdade com o totalizador. Se passasse, a reconciliação não estaria medindo
         // nada (regra da casa: provar o teste reintroduzindo o defeito).
-        $arquivo = $this->planilha(
+        $arquivo = $this->montarPlanilha(
             linhas: [
                 ['01-01', 'FULANO', '74608', '1.1 - Taxa', '02/2026', '10/02/2026', '183', 190, 11.59, 3.8, 0, 41.08, 246.47, '-', '-'],
             ],
-            valorTotalizadorAdulterado: 999999.99,
+            valorTotalAdulterado: 999999.99,
         );
 
         $espelhado = $this->leitor->ler($arquivo);
@@ -229,10 +216,10 @@ final class LeitorEspelhoRelatorioTest extends TestCase
     #[TestDox('Cabeçalho com coluna fora de posição é RECUSADO')]
     public function testCabecalhoForaDePosicaoEhRecusado(): void
     {
-        $torto = self::CABECALHO;
+        $torto = self::CABECALHO_ESPELHO;
         [$torto[8], $torto[9]] = [$torto[9], $torto[8]]; // Juros ↔ Multa
 
-        $arquivo = $this->planilha(
+        $arquivo = $this->montarPlanilha(
             linhas: [
                 ['01-01', 'FULANO', '74608', '1.1 - Taxa', '02/2026', '10/02/2026', '183', 190, 11.59, 3.8, 0, 41.08, 246.47, '-', '-'],
             ],
@@ -252,7 +239,7 @@ final class LeitorEspelhoRelatorioTest extends TestCase
         // Boleto composto só de encargo (principal zero): o importador o rejeita e a `LinhaRejeitada`
         // dele guarda apenas [nn, unidade, sacado, competencia] — todo valor financeiro se perde.
         // São os 17 boletos de R$ 5.152,19 que originaram esta frente.
-        $arquivo = $this->planilha([
+        $arquivo = $this->montarPlanilha([
             ['01-09', 'FULANO', '67611', '1.4 - Juros', '08/2026', '10/08/2026', '2', 445.45, 88.35, 8.91, 0, 108.54, 651.25, 'Acordo 426 - Parc. 1/6', '-'],
         ]);
 
@@ -269,7 +256,7 @@ final class LeitorEspelhoRelatorioTest extends TestCase
     #[TestDox('Lê a data de corte, a emissão e a config que a contabilidade declarou')]
     public function testLeOsMetadadosDoRodape(): void
     {
-        $arquivo = $this->planilha([
+        $arquivo = $this->montarPlanilha([
             ['01-01', 'FULANO', '74608', '1.1 - Taxa', '02/2026', '10/02/2026', '183', 190, 11.59, 3.8, 0, 41.08, 246.47, '-', '-'],
         ]);
 
@@ -290,8 +277,8 @@ final class LeitorEspelhoRelatorioTest extends TestCase
             ['01-01', 'FULANO', '74608', '1.1 - Taxa', '02/2026', '10/02/2026', '183', 190, 11.59, 3.8, 0, 41.08, 246.47, '-', '-'],
         ];
 
-        $a = $this->leitor->ler($this->planilha($linhas));
-        $b = $this->leitor->ler($this->planilha([
+        $a = $this->leitor->ler($this->montarPlanilha($linhas));
+        $b = $this->leitor->ler($this->montarPlanilha([
             ['01-01', 'FULANO', '74608', '1.1 - Taxa', '02/2026', '10/02/2026', '183', 999, 11.59, 3.8, 0, 41.08, 246.47, '-', '-'],
         ]));
 
@@ -306,82 +293,5 @@ final class LeitorEspelhoRelatorioTest extends TestCase
         self::assertNotSame([], $dados, 'a planilha de teste precisa ter ao menos uma linha de dado');
 
         return $dados[0];
-    }
-
-    /**
-     * Monta um arquivo com o MESMO layout do relatório real: 4 linhas institucionais, uma em branco,
-     * o cabeçalho na linha 6, os dados a partir da 7, o totalizador nas duas formas e o rodapé.
-     *
-     * @param list<list<mixed>> $linhas
-     * @param list<string>|null $cabecalho
-     */
-    private function planilha(array $linhas, ?array $cabecalho = null, ?float $valorTotalizadorAdulterado = null): string
-    {
-        $soma = ['valor' => 0.0, 'juros' => 0.0, 'multa' => 0.0, 'correcao' => 0.0, 'honorarios' => 0.0, 'total' => 0.0];
-
-        foreach ($linhas as $linha) {
-            $soma['valor'] += (float) ($linha[7] ?? 0);
-            $soma['juros'] += (float) ($linha[8] ?? 0);
-            $soma['multa'] += (float) ($linha[9] ?? 0);
-            $soma['correcao'] += (float) ($linha[10] ?? 0);
-            $soma['honorarios'] += (float) ($linha[11] ?? 0);
-            $soma['total'] += (float) ($linha[12] ?? 0);
-        }
-
-        $valorTotal = $valorTotalizadorAdulterado ?? $soma['valor'];
-
-        $planilha = new Spreadsheet();
-        $aba = $planilha->getActiveSheet();
-
-        // `strictNullComparison: true` é OBRIGATÓRIO aqui. Sem ele o `fromArray` compara com `!=`
-        // (solto), e como `0 != null` é FALSO em PHP, toda célula com zero seria silenciosamente
-        // omitida da planilha de teste — e o teste "célula vazia não vira zero" passaria a medir o
-        // contrário do que promete. O arquivo real tem zeros de verdade (a coluna Correção é 0 em
-        // 100% das linhas).
-        $aba->fromArray([
-            ['L. G Soluções Contábeis Eireli'],
-            ['INADIMPLÊNCIA DETALHADA'],
-            ['Número de unidades: 96'],
-            ['Juros: 1,00% ao mês; Multa: 2,00%; Honorários: 20,00%.'],
-            [null],
-        ], null, 'A1', true);
-
-        $aba->fromArray([$cabecalho ?? self::CABECALHO], null, 'A6', true);
-        $aba->fromArray($linhas, null, 'A7', true);
-
-        $proxima = 7 + count($linhas);
-
-        // Forma LARGA: rótulo em A, valores em H..M.
-        $aba->fromArray([[
-            'Total inadimplência das unidades', null, null, null, null, null, null,
-            $valorTotal, $soma['juros'], $soma['multa'], $soma['correcao'], $soma['honorarios'], $soma['total'],
-        ]], null, 'A' . $proxima, true);
-
-        $proxima += 2; // deixa uma linha em branco, como no arquivo real
-
-        // Cabeçalho do 2º bloco e forma ESTREITA: rótulo em A, valores em B..G.
-        $aba->fromArray([
-            ['Classe de conta', 'Valor (R$)', 'Juros (R$)', 'Multa (R$)', 'Correção (R$)', 'Honorários (R$)', 'Total (R$)'],
-            ['1.1 - Taxa de condomínio', $valorTotal, $soma['juros'], $soma['multa'], $soma['correcao'], $soma['honorarios'], $soma['total']],
-            ['Total de inadimplência', $valorTotal, $soma['juros'], $soma['multa'], $soma['correcao'], $soma['honorarios'], $soma['total']],
-        ], null, 'A' . $proxima, true);
-
-        $proxima += 4;
-
-        // `Inadimplência até:` sem espaço após os dois-pontos — como o arquivo real escreve.
-        $aba->fromArray([
-            ['Filtros:  Inadimplência até:12/08/2026; Competência: Todas; Período de vencimento: Todos'],
-            [null],
-            ['L. G Soluções Contábeis Eireli - Brasília, DF'],
-            ['Emissão: 12/08/2026 09:42'],
-        ], null, 'A' . $proxima);
-
-        $caminho = sys_get_temp_dir() . '/espelho_teste_' . uniqid('', true) . '.xlsx';
-        (new Xlsx($planilha))->save($caminho);
-        $planilha->disconnectWorksheets();
-
-        $this->arquivosTemporarios[] = $caminho;
-
-        return $caminho;
     }
 }
