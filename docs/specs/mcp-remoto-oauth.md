@@ -298,9 +298,13 @@ plano — o SDK tem exemplo de `elicitation`.
 1. **Vida do token: 7 dias — decidido pelo dono (11/08/2026).** Escolha de comodidade: a pessoa
    autoriza uma vez por semana, não todo dia.
 2. **Revogação imediata, e ela é o que torna os 7 dias aceitáveis — decidido.**
-   A cada requisição MCP o servidor já precisa carregar `User` + `Tenant` para aplicar
-   permissão; **conferir na mesma consulta que o `UserTenant` está ativo e que o `User` está
-   ativo** custa praticamente nada e faz a revogação valer na hora.
+   O token é um papel assinado: diz "usuário X, escritório Y" e **não se atualiza** quando a
+   realidade muda. Desativar alguém não altera o token que ele já tem na mão.
+   Por isso, **a cada requisição MCP** (não uma vez na conexão), o servidor confere **no banco**
+   que o `UserTenant` está ativo e que o `User` está ativo — e recusa se não estiver, mesmo com
+   token dentro da validade.
+   Custa praticamente nada: o servidor já precisa carregar `User` + `Tenant` em toda requisição
+   para aplicar permissão; a conferência é ler um campo do registro que já veio.
    **Sem isso, um token de 7 dias significa 7 dias de acesso para quem acabou de ser
    desligado** — é a diferença entre uma decisão de conforto e um buraco de segurança.
    Não implemente o token de 7 dias sem a checagem por requisição; as duas coisas são uma só
@@ -380,10 +384,17 @@ antes de seguir para a 3.
 
 **Decidido em 11/08/2026:**
 
-1. **Quem pode conectar:** **todo usuário que tem conta no sistema.** Não há perfil especial —
-   o que a pessoa enxerga é o que a permissão dela já permite no escritório escolhido. Isso
-   torna o teste cross-tenant (seção 12, item 1) ainda mais central: não existe filtro de
-   "quem entra", só de "o que cada um vê".
+1. **Quem pode conectar:** **todo usuário que tem conta no sistema.** O controle de acesso do
+   sistema continua valendo integralmente — é preciso conta e `UserTenant` **ativo** com o
+   escritório, igual ao navegador. O que a decisão diz é que **o MCP não acrescenta um filtro
+   próprio por cima disso**: não existe "só sócio usa MCP" nem "só quem tem a permissão X pode
+   conectar". Quem usa o sistema usa o MCP, e enxerga o que a permissão dele já permite.
+
+   **Consequência para o plano:** não sobra nenhuma camada de "só gente de confiança chega
+   aqui" para servir de rede. Todo o controle mora nas checagens por requisição — escritório
+   certo (seção 4) e permissão certa (seção 5). Se uma falhar, não há um segundo muro atrás.
+   É por isso que o teste cross-tenant (seção 12, item 1) é **o** teste que sustenta a feature,
+   e não um item entre outros.
 2. **Vida do token: 7 dias, com conferência do vínculo a cada requisição** (seção 9, itens 1 e
    2). As duas metades são inseparáveis.
 
