@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace App\Kanban\Entity;
 
+use App\Entity\Tenant\Tenant;
 use App\Kanban\Repository\KanbanChecklistItemRepository;
+use App\Shared\Contract\TenantAware;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: KanbanChecklistItemRepository::class)]
 #[ORM\Table(name: 'kanban_checklist_item')]
-class KanbanChecklistItem
+class KanbanChecklistItem implements TenantAware
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -25,6 +27,14 @@ class KanbanChecklistItem
     #[ORM\Column(type: 'integer')]
     private int $posicao = 0;
 
+    /**
+     * Denormalizado do checklist dono, para o TenantFilter alcancar esta entidade. Nunca recebido
+     * por parametro: o construtor deriva do pai, e por isso nao existe caminho para divergir.
+     */
+    #[ORM\ManyToOne]
+    #[ORM\JoinColumn(nullable: false)]
+    private ?Tenant $tenant = null;
+
     #[ORM\ManyToOne(inversedBy: 'itens')]
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
     private ?KanbanChecklist $checklist = null;
@@ -33,6 +43,14 @@ class KanbanChecklistItem
     {
         $this->texto     = $texto;
         $this->checklist = $checklist;
+
+        $tenant = $checklist->getTenant();
+        if ($tenant === null) {
+            throw new \InvalidArgumentException(
+                'Nao e possivel criar KanbanChecklistItem a partir de um checklist sem escritorio.'
+            );
+        }
+        $this->tenant = $tenant;
         $this->posicao   = $posicao;
     }
 
@@ -85,5 +103,10 @@ class KanbanChecklistItem
     public function getChecklist(): ?KanbanChecklist
     {
         return $this->checklist;
+    }
+
+    public function getTenant(): ?Tenant
+    {
+        return $this->tenant;
     }
 }

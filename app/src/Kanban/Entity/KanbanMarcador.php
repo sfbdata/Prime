@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace App\Kanban\Entity;
 
+use App\Entity\Tenant\Tenant;
 use App\Kanban\Repository\KanbanMarcadorRepository;
+use App\Shared\Contract\TenantAware;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: KanbanMarcadorRepository::class)]
 #[ORM\Table(name: 'kanban_marcador')]
-class KanbanMarcador
+class KanbanMarcador implements TenantAware
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -22,6 +24,14 @@ class KanbanMarcador
     #[ORM\Column(length: 7)]
     private string $cor;
 
+    /**
+     * Denormalizado do mural dono, para o TenantFilter alcancar esta entidade. Nunca recebido
+     * por parametro: o construtor deriva do pai, e por isso nao existe caminho para divergir.
+     */
+    #[ORM\ManyToOne]
+    #[ORM\JoinColumn(nullable: false)]
+    private ?Tenant $tenant = null;
+
     #[ORM\ManyToOne]
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
     private ?KanbanBoard $board = null;
@@ -31,6 +41,14 @@ class KanbanMarcador
         $this->nome  = $nome;
         $this->cor   = $cor;
         $this->board = $board;
+
+        $tenant = $board->getTenant();
+        if ($tenant === null) {
+            throw new \InvalidArgumentException(
+                'Nao e possivel criar KanbanMarcador a partir de um mural sem escritorio.'
+            );
+        }
+        $this->tenant = $tenant;
     }
 
     public function getId(): ?int
@@ -65,5 +83,10 @@ class KanbanMarcador
     public function getBoard(): ?KanbanBoard
     {
         return $this->board;
+    }
+
+    public function getTenant(): ?Tenant
+    {
+        return $this->tenant;
     }
 }

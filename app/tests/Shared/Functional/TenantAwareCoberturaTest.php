@@ -20,14 +20,6 @@ use App\Entity\Tenant\Sede;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Entity\Tenant\TenantRolePermission;
-use App\Kanban\Entity\KanbanAnexo;
-use App\Kanban\Entity\KanbanBoard;
-use App\Kanban\Entity\KanbanCard;
-use App\Kanban\Entity\KanbanChecklist;
-use App\Kanban\Entity\KanbanChecklistItem;
-use App\Kanban\Entity\KanbanColuna;
-use App\Kanban\Entity\KanbanComentario;
-use App\Kanban\Entity\KanbanMarcador;
 use App\Pasta\Entity\PastaProcesso;
 use App\Ponto\Entity\BlocoJornada;
 use App\Ponto\Entity\BlocoJornadaColaborador;
@@ -96,7 +88,7 @@ final class TenantAwareCoberturaTest extends KernelTestCase
      * entrando com a rede ligada. Com o teto, essa saída exige mexer no teto no mesmo diff, e
      * aí é decisão visível em vez de descuido.
      */
-    private const MAX_PENDENTE = 22;
+    private const MAX_PENDENTE = 14;
     private const MAX_FORA_DO_ESCOPO = 8;
 
     /**
@@ -108,17 +100,6 @@ final class TenantAwareCoberturaTest extends KernelTestCase
      * está preservado: entidade nova que não esteja em NENHUMA das duas listas quebra o teste.
      */
     private const PENDENTE_DE_CORRECAO = [
-        // Fatia 2 — Kanban. `kanban_board` já tem tenant_id NOT NULL (só falta a etiqueta);
-        // as 7 filhas precisam da coluna, com backfill derivado do board.
-        KanbanBoard::class,
-        KanbanColuna::class,
-        KanbanCard::class,
-        KanbanComentario::class,
-        KanbanChecklist::class,
-        KanbanChecklistItem::class,
-        KanbanAnexo::class,
-        KanbanMarcador::class,
-
         // Fatia 3 — ServiceDesk. Sem coluna; backfill pelo chamado dono.
         ChamadoInteracao::class,
         ChamadoAnexo::class,

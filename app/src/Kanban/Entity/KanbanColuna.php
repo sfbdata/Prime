@@ -4,14 +4,16 @@ declare(strict_types=1);
 
 namespace App\Kanban\Entity;
 
+use App\Entity\Tenant\Tenant;
 use App\Kanban\Repository\KanbanColunaRepository;
+use App\Shared\Contract\TenantAware;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: KanbanColunaRepository::class)]
 #[ORM\Table(name: 'kanban_coluna')]
-class KanbanColuna
+class KanbanColuna implements TenantAware
 {
     public const TIPO_PENDENCIAS = 'pendencias';
     public const TIPO_A_FAZER    = 'a_fazer';
@@ -39,6 +41,14 @@ class KanbanColuna
     #[ORM\Column(type: 'integer')]
     private int $posicao = 0;
 
+    /**
+     * Denormalizado do mural dono, para o TenantFilter alcancar esta entidade. Nunca recebido
+     * por parametro: o construtor deriva do pai, e por isso nao existe caminho para divergir.
+     */
+    #[ORM\ManyToOne]
+    #[ORM\JoinColumn(nullable: false)]
+    private ?Tenant $tenant = null;
+
     #[ORM\ManyToOne(inversedBy: 'colunas')]
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
     private ?KanbanBoard $board = null;
@@ -53,6 +63,14 @@ class KanbanColuna
         $this->tipo    = $tipo;
         $this->posicao = $posicao;
         $this->board   = $board;
+
+        $tenant = $board->getTenant();
+        if ($tenant === null) {
+            throw new \InvalidArgumentException(
+                'Nao e possivel criar KanbanColuna a partir de um mural sem escritorio.'
+            );
+        }
+        $this->tenant = $tenant;
         $this->cards   = new ArrayCollection();
     }
 
@@ -96,5 +114,10 @@ class KanbanColuna
     public function contarCards(): int
     {
         return $this->cards->count();
+    }
+
+    public function getTenant(): ?Tenant
+    {
+        return $this->tenant;
     }
 }

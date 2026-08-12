@@ -4,7 +4,7 @@
 **Risco:** **MÉDIO/ALTO** — toca `TenantRole`/`Permission`/`Sede`/`Cargo` (MÉDIO) e entidades de
 ponto eletrônico (ALTO). Exige spec (este documento), revisão contra a spec e, no domínio Ponto,
 re-revisão antes de seguir.
-**Status:** fatia 1 entregue e revisada (achados da revisão aplicados). Fatias 2–8 pendentes.
+**Status:** fatias 1 e 2 entregues (a 1 revisada; a 2 **aguarda revisão**). Fatias 3–8 pendentes.
 
 **Origem:** avaliação de risco do desenho [MCP remoto com OAuth](mcp-remoto-oauth.md). O MCP não é
 pré-requisito nem consequência deste trabalho — os furos abaixo **já existem hoje** e valem para o
@@ -82,7 +82,7 @@ Sem migration. Basta `implements TenantAware` + `getTenant()`.
 | `lotacao` | Tenant | `NOT NULL` | MÉDIO |
 | `tenant_role` | Permission | `NOT NULL` | MÉDIO |
 | `aceite_termo` | Termo | nullable — **7 de 10 linhas nulas** | ver §5 |
-| `audit_log` | Auditoria | nullable — **19.390 de 29.791 linhas nulas** | ver §5 |
+| `audit_log` | Auditoria | nullable — **42.760 de 54.434 linhas nulas** (~79%) | ver §5 |
 
 ### 3.2 Categoria B — sem coluna nenhuma; hoje só o pai delimita
 
@@ -91,8 +91,8 @@ derivado do pai, e implementar `TenantAware`.
 
 | Tabela | Domínio | Linhas (dev) | Origem do backfill | Risco |
 |---|---|---|---|---|
-| `kanban_coluna` | Kanban | 20 | `board` | BAIXO |
-| `kanban_card` | Kanban | 3 | `coluna → board` | BAIXO |
+| `kanban_coluna` | Kanban | 28 | `board` | BAIXO |
+| `kanban_card` | Kanban | 6 | `coluna → board` | BAIXO |
 | `kanban_comentario` | Kanban | 0 | `card → coluna → board` | BAIXO |
 | `kanban_checklist` | Kanban | 0 | `card → …` | BAIXO |
 | `kanban_checklist_item` | Kanban | 0 | `checklist → …` | BAIXO |
@@ -100,15 +100,35 @@ derivado do pai, e implementar `TenantAware`.
 | `kanban_marcador` | Kanban | 0 | `board` | BAIXO |
 | `chamado_interacao` | ServiceDesk | 0 | `chamado` | BAIXO |
 | `chamado_anexo` | ServiceDesk | 0 | `chamado` | BAIXO |
-| `pasta_processo` | Pasta | 39 | `pasta` | MÉDIO |
-| `invitation`\* | Auth | 10 | já tem coluna, nullable | MÉDIO |
-
-\* `invitation` está nesta tabela por ser furo da mesma fatia, mas **não** é Categoria B: a coluna
-já existe (nullable). O trabalho lá é decidir o nulo e pôr a etiqueta, não criar coluna.
-| `tenant_role_permission` | Permission | 127 | `tenant_role` | MÉDIO |
+| `pasta_processo` | Pasta | 75 | `pasta` | MÉDIO |
+| `invitation`\* | Auth | 10 | já tem coluna, nullable — **0 nulos** | MÉDIO |
+| `tenant_role_permission` | Permission | 154 | `tenant_role` | MÉDIO |
 | `bloco_jornada` | Ponto | 1 | a confirmar | **ALTO** |
 | `jornada_colaborador` | Ponto | 8 | a confirmar | **ALTO** |
 | `bloco_jornada_colaborador` | Ponto | 9 | a confirmar | **ALTO** |
+
+\* `invitation` está na tabela por ser furo da mesma fatia, mas **não** é Categoria B: a coluna já
+existe e **não tem nulo nenhum** (0 de 10). O trabalho lá é só pôr a etiqueta e trancar a coluna.
+
+### 3.2.1 ⚠️ Os volumes acima vieram do banco ERRADO na primeira medição
+
+O `CLAUDE.md` do projeto documenta `docker exec jusprime_db_dev psql -U symfony -d saas`, mas
+**o app roda em `saas_ux`** (`php bin/console dbal:run-sql "SELECT current_database()"`). A primeira
+versão desta spec mediu tudo em `saas`, que é um banco antigo parado no tempo. A revisão da fatia 1
+conferiu os números — contra o mesmo banco errado — e os deu por corretos.
+
+**O que NÃO mudou:** os fatos estruturais. Quais tabelas têm `tenant_id`, e a nullability de cada
+uma, são idênticos nos dois bancos. Logo a classificação (Categoria A × B × fora do escopo), o
+inventário e todas as conclusões desta spec seguem de pé.
+
+**O que mudou:** todo volume e toda contagem de nulo. `audit_log` era "19.390 de 29.791" e é
+42.760 de 54.434; `pasta_processo` era 39 e é 75; `tenant_role_permission` era 127 e é 154;
+`kanban_coluna` 20 → 28; `kanban_card` 3 → 6. E `invitation`, que a spec dizia ter nulos a decidir,
+**não tem nenhum**.
+
+**Regra que fica: medir sempre em `saas_ux`**, ou melhor, perguntar ao framework
+(`dbal:run-sql`) em vez de escolher o banco na mão. Os volumes de Ponto (§3.2, marcados
+"a confirmar") ainda são do banco errado — re-medir ao abrir a fatia 6.
 
 **Volumes são do dev.** Antes de cada migration em produção, conferir o volume real pelo MCP
 `jusprime-prod` — o dev não é cópia fiel de prod.
@@ -148,7 +168,7 @@ Cada fatia entrega software revisável sozinho. **Uma por vez**, com a suíte ve
 | # | Fatia | Entrega | Risco |
 |---|---|---|---|
 | 1 | **Rede de segurança** ✅ | `TenantAwareCoberturaTest` espelhando `AuditavelCoberturaTest` — ver §4.1. | BAIXO |
-| 2 | **Kanban** | `kanban_board` ganha a etiqueta; as 7 filhas ganham `tenant_id` + backfill + etiqueta; invariante pai↔filho no construtor; teste cross-tenant do domínio. | BAIXO |
+| 2 | **Kanban** ✅ | Entregue — ver §4.3. | BAIXO |
 | 3 | **ServiceDesk** | `chamado_interacao` e `chamado_anexo`. Zero linhas — backfill trivial. | BAIXO |
 | 4 | **Tenant** | `sede`, `cargo`, `lotacao`. Ver §5.2 — mexe em tela de administração. | MÉDIO |
 | 5 | **Permission** | `tenant_role` (etiqueta) e `tenant_role_permission` (coluna + backfill). | MÉDIO |
@@ -222,6 +242,29 @@ Arquivo conferido idêntico ao original depois das provas.
 **Regra que fica:** prova por mutação roda a **classe inteira**, nunca com `--filter`. O que
 interessa não é ver a asserção esperada cair — é ver que nenhuma outra caiu junto.
 
+### 4.3 Fatia 2 — Kanban (entregue 12/08/2026)
+
+`KanbanBoard` ganhou só a etiqueta (a coluna já existia, `NOT NULL`). As 7 filhas ganharam
+`tenant_id NOT NULL` pela `Version20260812185900`, com backfill pela cadeia do pai.
+
+**A invariante ficou estrutural, não documental:** nenhum construtor de filha recebe tenant por
+parâmetro — todos derivam do pai, que eles já recebiam. Não existe caminho no código para criar
+filha com tenant divergente. `KanbanCard` é o único com **dois** pais e por isso o único que podia
+receber pais discordantes; ganhou guarda explícita (`coluna->getBoard() !== board` é recusado).
+
+**Backfill conferido:** zero linha com tenant divergente do pai, nas 7 tabelas.
+
+**Provado por mutação** (classe inteira, sem `--filter`): tirar a etiqueta de `KanbanColuna` faz a
+coluna vazar entre escritórios de novo — o defeito original volta e o teste o pega. Remover a
+guarda do card derruba só o teste da invariante.
+
+**Efeito colateral que outra rede pegou:** `PurgaCoberturaSchemaTest` falhou na hora, porque toda
+tabela com `tenant_id` precisa estar coberta pela purga de escritório. As 7 entraram como cobertas
+por cascata — e a cascata foi **provada no grafo de FKs do banco** (`delete_rule = CASCADE` em cada
+elo até `kanban_board`, que já está na `ORDEM_DELECAO`), não aceita pelo comentário existente.
+`PurgarEscritorioUseCaseTest` também precisou de ajuste: ele insere por SQL cru, que não passa
+pelos construtores e por isso não herdava o tenant.
+
 ### 4.2 Entidades que só apareceram com a medição
 
 O levantamento por `grep` classificou errado dois arquivos — `PastaProcesso` e `CadastroPendente`
@@ -245,7 +288,7 @@ framework (`doctrine:mapping:info`, `getAllMetadata()`), como manda o CLAUDE.md.
 
 ### 5.1 Os nulos de `audit_log` e `aceite_termo` — antes da fatia 7
 
-`audit_log` tem **65% das linhas com `tenant_id` nulo**. Pôr a etiqueta faria dois terços da
+`audit_log` tem **79% das linhas com `tenant_id` nulo** (42.760 de 54.434). Pôr a etiqueta faria dois terços da
 trilha de auditoria sumirem de toda consulta, silenciosamente — exatamente o modo de falha que
 esta spec existe para eliminar, invertido. Três saídas, e nenhuma é óbvia:
 

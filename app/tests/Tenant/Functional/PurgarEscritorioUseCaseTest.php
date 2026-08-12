@@ -355,9 +355,12 @@ final class PurgarEscritorioUseCaseTest extends KernelTestCase
 
         // Kanban (board → coluna → card → anexo)
         $board = $this->ins('kanban_board', ['nome' => 'B', 'criado_em' => $ts, 'tenant_id' => $t, 'criado_por_id' => $u]);
-        $col   = $this->ins('kanban_coluna', ['nome' => 'Col', 'tipo' => 'todo', 'posicao' => 0, 'board_id' => $board]);
-        $card  = $this->ins('kanban_card', ['titulo' => 'Card', 'posicao' => 0, 'criado_em' => $ts, 'coluna_id' => $col, 'board_id' => $board, 'criado_por_id' => $u]);
-        $this->ins('kanban_anexo', ['nome_original' => 'k.pdf', 'caminho' => $hex(), 'tamanho' => 1, 'mime_type' => 'application/pdf', 'criado_em' => $ts, 'card_id' => $card, 'criado_por_id' => $u]);
+        // tenant_id nas filhas: denormalizado do pai desde a fatia 2 da spec de isolamento
+        // multi-tenant. Aqui vai explícito porque a inserção é SQL cru e não passa pelos
+        // construtores, que são quem deriva o tenant do pai no código de produção.
+        $col   = $this->ins('kanban_coluna', ['nome' => 'Col', 'tipo' => 'todo', 'posicao' => 0, 'board_id' => $board, 'tenant_id' => $t]);
+        $card  = $this->ins('kanban_card', ['titulo' => 'Card', 'posicao' => 0, 'criado_em' => $ts, 'coluna_id' => $col, 'board_id' => $board, 'criado_por_id' => $u, 'tenant_id' => $t]);
+        $this->ins('kanban_anexo', ['nome_original' => 'k.pdf', 'caminho' => $hex(), 'tamanho' => 1, 'mime_type' => 'application/pdf', 'criado_em' => $ts, 'card_id' => $card, 'criado_por_id' => $u, 'tenant_id' => $t]);
 
         // Diversos tenant-scoped
         $this->ins('marcador', ['nome' => 'M', 'ordem' => 0, 'criado_at' => $ts, 'tenant_id' => $t, 'criado_por_id' => $u]);

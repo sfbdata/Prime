@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Kanban\Entity;
 
 use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
 use App\Kanban\Repository\KanbanCardRepository;
+use App\Shared\Contract\TenantAware;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
@@ -13,7 +15,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Entity(repositoryClass: KanbanCardRepository::class)]
 #[ORM\Table(name: 'kanban_card')]
 #[ORM\HasLifecycleCallbacks]
-class KanbanCard
+class KanbanCard implements TenantAware
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -35,6 +37,14 @@ class KanbanCard
     #[ORM\ManyToOne(inversedBy: 'cards')]
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
     private ?KanbanColuna $coluna = null;
+
+    /**
+     * Denormalizado do mural dono, para o TenantFilter alcancar esta entidade. Nunca recebido
+     * por parametro: o construtor deriva do pai, e por isso nao existe caminho para divergir.
+     */
+    #[ORM\ManyToOne]
+    #[ORM\JoinColumn(nullable: false)]
+    private ?Tenant $tenant = null;
 
     #[ORM\ManyToOne]
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
@@ -75,6 +85,24 @@ class KanbanCard
         $this->titulo      = $titulo;
         $this->coluna      = $coluna;
         $this->board       = $board;
+
+        // Unico filho com DOIS pais, e por isso o unico que pode receber pais discordantes.
+        // Sem esta checagem, um card com coluna de outro mural herdaria o tenant do board e
+        // ficaria invisivel para o dono da coluna e visivel para o vizinho — que e exatamente
+        // o defeito que a denormalizacao existe para nao criar.
+        if ($coluna->getBoard() !== $board) {
+            throw new \InvalidArgumentException(
+                'A coluna informada pertence a outro mural: o card ficaria com escritorio divergente.'
+            );
+        }
+
+        $tenant = $board->getTenant();
+        if ($tenant === null) {
+            throw new \InvalidArgumentException(
+                'Nao e possivel criar KanbanCard a partir de um mural sem escritorio.'
+            );
+        }
+        $this->tenant = $tenant;
         $this->criadoPor   = $criadoPor;
         $this->posicao     = $posicao;
         $this->responsaveis = new ArrayCollection();
@@ -258,5 +286,10 @@ class KanbanCard
         }
 
         return (int) round(($concluidos / $total) * 100);
+    }
+
+    public function getTenant(): ?Tenant
+    {
+        return $this->tenant;
     }
 }

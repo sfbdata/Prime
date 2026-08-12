@@ -35,6 +35,19 @@ final class PurgaCoberturaSchemaTest extends KernelTestCase
         'cobranca_pessoa_endereco',      // ← cobranca_pessoa
         'cobranca_pessoa_telefone',      // ← cobranca_pessoa
         'cobranca_pessoa_email',         // ← cobranca_pessoa
+
+        // Kanban: ganharam tenant_id na fatia 2 de docs/specs/isolamento-multitenant-cobertura.md.
+        // Todas caem por CASCADE até kanban_board, que já está na ORDEM_DELECAO. Grafo de FKs
+        // conferido no banco (delete_rule = CASCADE em cada elo), não só no mapeamento:
+        //   coluna/marcador → board · card → coluna e board · checklist/comentario/anexo → card
+        //   checklist_item → checklist
+        'kanban_coluna',
+        'kanban_marcador',
+        'kanban_card',
+        'kanban_checklist',
+        'kanban_checklist_item',
+        'kanban_comentario',
+        'kanban_anexo',
     ];
 
     #[TestDox('Toda tabela com tenant_id é coberta pela purga (ordem, retenção ou cascata)')]

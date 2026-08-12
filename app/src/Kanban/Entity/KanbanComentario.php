@@ -5,13 +5,15 @@ declare(strict_types=1);
 namespace App\Kanban\Entity;
 
 use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
 use App\Kanban\Repository\KanbanComentarioRepository;
+use App\Shared\Contract\TenantAware;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: KanbanComentarioRepository::class)]
 #[ORM\Table(name: 'kanban_comentario')]
 #[ORM\HasLifecycleCallbacks]
-class KanbanComentario
+class KanbanComentario implements TenantAware
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -20,6 +22,14 @@ class KanbanComentario
 
     #[ORM\Column(type: 'text')]
     private string $conteudo;
+
+    /**
+     * Denormalizado do card dono, para o TenantFilter alcancar esta entidade. Nunca recebido
+     * por parametro: o construtor deriva do pai, e por isso nao existe caminho para divergir.
+     */
+    #[ORM\ManyToOne]
+    #[ORM\JoinColumn(nullable: false)]
+    private ?Tenant $tenant = null;
 
     #[ORM\ManyToOne(inversedBy: 'comentarios')]
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
@@ -39,6 +49,14 @@ class KanbanComentario
     {
         $this->conteudo  = $conteudo;
         $this->card      = $card;
+
+        $tenant = $card->getTenant();
+        if ($tenant === null) {
+            throw new \InvalidArgumentException(
+                'Nao e possivel criar KanbanComentario a partir de um card sem escritorio.'
+            );
+        }
+        $this->tenant = $tenant;
         $this->criadoPor = $criadoPor;
     }
 
@@ -94,5 +112,10 @@ class KanbanComentario
     public function pertenceAo(User $user): bool
     {
         return $this->criadoPor === $user;
+    }
+
+    public function getTenant(): ?Tenant
+    {
+        return $this->tenant;
     }
 }

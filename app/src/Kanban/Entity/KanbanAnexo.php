@@ -5,13 +5,15 @@ declare(strict_types=1);
 namespace App\Kanban\Entity;
 
 use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
 use App\Kanban\Repository\KanbanAnexoRepository;
+use App\Shared\Contract\TenantAware;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: KanbanAnexoRepository::class)]
 #[ORM\Table(name: 'kanban_anexo')]
 #[ORM\HasLifecycleCallbacks]
-class KanbanAnexo
+class KanbanAnexo implements TenantAware
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -29,6 +31,14 @@ class KanbanAnexo
 
     #[ORM\Column(length: 255)]
     private string $mimeType;
+
+    /**
+     * Denormalizado do card dono, para o TenantFilter alcancar esta entidade. Nunca recebido
+     * por parametro: o construtor deriva do pai, e por isso nao existe caminho para divergir.
+     */
+    #[ORM\ManyToOne]
+    #[ORM\JoinColumn(nullable: false)]
+    private ?Tenant $tenant = null;
 
     #[ORM\ManyToOne(inversedBy: 'anexos')]
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
@@ -54,6 +64,14 @@ class KanbanAnexo
         $this->tamanho      = $tamanho;
         $this->mimeType     = $mimeType;
         $this->card         = $card;
+
+        $tenant = $card->getTenant();
+        if ($tenant === null) {
+            throw new \InvalidArgumentException(
+                'Nao e possivel criar KanbanAnexo a partir de um card sem escritorio.'
+            );
+        }
+        $this->tenant = $tenant;
         $this->criadoPor    = $criadoPor;
     }
 
@@ -119,5 +137,10 @@ class KanbanAnexo
         }
 
         return round($this->tamanho / 1048576, 1) . ' MB';
+    }
+
+    public function getTenant(): ?Tenant
+    {
+        return $this->tenant;
     }
 }
