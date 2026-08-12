@@ -1,0 +1,250 @@
+# Cobertura do isolamento multi-tenant — fechar os furos do `TenantFilter`
+
+**Data:** 2026-08-12
+**Risco:** **MÉDIO/ALTO** — toca `TenantRole`/`Permission`/`Sede`/`Cargo` (MÉDIO) e entidades de
+ponto eletrônico (ALTO). Exige spec (este documento), revisão contra a spec e, no domínio Ponto,
+re-revisão antes de seguir.
+**Status:** planejado. Fatia 1 em implementação.
+
+**Origem:** avaliação de risco do desenho [MCP remoto com OAuth](mcp-remoto-oauth.md). O MCP não é
+pré-requisito nem consequência deste trabalho — os furos abaixo **já existem hoje** e valem para o
+navegador. O desenho do MCP só os tornou visíveis, porque ele seria o primeiro caminho a depender
+do filtro como garantia única.
+
+---
+
+## 1. O defeito, em uma frase
+
+`TenantFilter` só age em entidades que implementam `TenantAware`
+([`app/src/Shared/Doctrine/Filter/TenantFilter.php`](../../app/src/Shared/Doctrine/Filter/TenantFilter.php)).
+São 83 entidades mapeadas; **um conjunto delas ficou sem a etiqueta e ninguém percebeu**, porque
+nada no projeto verifica cobertura. O `Kanban` inteiro está fora.
+
+O contrato [`TenantAware`](../../app/src/Shared/Contract/TenantAware.php) **já manda** o que
+deveria valer:
+
+> *"Toda entidade de negócio escopada por escritório deve implementá-la e ter uma relação
+> ManyToOne(Tenant) com JoinColumn(nullable: false)."*
+
+A regra estava escrita. Só não estava sendo cobrada.
+
+### 1.1 Por que os testes existentes não pegaram
+
+Existem vários testes de isolamento por domínio — `PontoIsolamentoRepositoryTest`,
+`DeleteSedeCrossTenantTest`, `NotificacaoIsolamentoRepositoryTest`,
+`PerfilAdminIsolamentoControllerTest` e outros. **Todos passam.** Eles provam que *a ferramenta
+testada* isola; nenhum prova que *o perímetro* cobre. Um domínio que ninguém pensou em testar —
+Kanban — não aparece em teste nenhum e não quebra nada.
+
+**Consequência de projeto:** o item nº 1 é o teste de cobertura, não a correção de nenhum domínio.
+Sem ele, corrigir um domínio por vez não tem alvo objetivo e a próxima entidade escapa igual.
+
+---
+
+## 2. Fatos medidos (2026-08-12, dev)
+
+Sonda executada com o filtro ligado apontando para o tenant 2, sobre dado do tenant 1:
+
+| Caminho | Resultado |
+|---|---|
+| DQL em `Cliente` / `ClientePF` (herança JOINED) | filtro aplicado ✅ |
+| DQL em `Processo` | filtro aplicado ✅ |
+| `find()` por PK, EntityManager limpa | **bloqueado** ✅ |
+| `findOneBy(['id' => …])` | bloqueado ✅ |
+| `getReference()` + acesso | bloqueado (`EntityNotFoundException`) ✅ |
+| **DQL em `KanbanBoard`** | **filtro NÃO aplicado** 🔴 |
+| **`find()` por PK sem `clear()` entre chamadas** | **vazou pelo identity map** 🔴 |
+
+**Duas premissas do próprio código caíram:**
+
+1. ~15 repositories comentam *"o filtro SQL do Doctrine NÃO se aplica a `find()` por PK (risco
+   cross-tenant)"*. **Medido: aplica**, no Doctrine ORM 3.x com a EntityManager limpa. Os métodos
+   `…DoTenant` continuam certos como defesa em profundidade, mas **o motivo registrado está errado
+   e esconde o motivo verdadeiro**, que é o identity map. Corrigir os comentários faz parte do
+   trabalho (fatia 6) — um comentário falso faz o próximo leitor relaxar a guarda certa.
+2. A herança JOINED de `Cliente` **é** coberta: `ReflectionClass::implementsInterface()` enxerga a
+   interface herdada do pai. `ClientePF`/`ClientePJ` não precisam de nada.
+
+---
+
+## 3. Inventário
+
+### 3.1 Categoria A — a coluna existe, falta a etiqueta
+
+Sem migration. Basta `implements TenantAware` + `getTenant()`.
+
+| Tabela | Domínio | `tenant_id` | Risco |
+|---|---|---|---|
+| `kanban_board` | Kanban | `NOT NULL` | BAIXO |
+| `sede` | Tenant | `NOT NULL` | MÉDIO |
+| `cargo` | Tenant | `NOT NULL` | MÉDIO |
+| `lotacao` | Tenant | `NOT NULL` | MÉDIO |
+| `tenant_role` | Permission | `NOT NULL` | MÉDIO |
+| `aceite_termo` | Termo | nullable — **7 de 10 linhas nulas** | ver §5 |
+| `audit_log` | Auditoria | nullable — **19.390 de 29.791 linhas nulas** | ver §5 |
+
+### 3.2 Categoria B — sem coluna nenhuma; hoje só o pai delimita
+
+**Decisão do dono (12/08/2026): denormalizar.** Criar `tenant_id NOT NULL` em todas, com backfill
+derivado do pai, e implementar `TenantAware`.
+
+| Tabela | Domínio | Linhas (dev) | Origem do backfill | Risco |
+|---|---|---|---|---|
+| `kanban_coluna` | Kanban | 20 | `board` | BAIXO |
+| `kanban_card` | Kanban | 3 | `coluna → board` | BAIXO |
+| `kanban_comentario` | Kanban | 0 | `card → coluna → board` | BAIXO |
+| `kanban_checklist` | Kanban | 0 | `card → …` | BAIXO |
+| `kanban_checklist_item` | Kanban | 0 | `checklist → …` | BAIXO |
+| `kanban_anexo` | Kanban | 0 | `card → …` | BAIXO |
+| `kanban_marcador` | Kanban | 0 | `board` | BAIXO |
+| `chamado_interacao` | ServiceDesk | 0 | `chamado` | BAIXO |
+| `chamado_anexo` | ServiceDesk | 0 | `chamado` | BAIXO |
+| `pasta_processo` | Pasta | — | `pasta` | MÉDIO |
+| `invitation` | Auth | — | já tem coluna, nullable | MÉDIO |
+| `tenant_role_permission` | Permission | 127 | `tenant_role` | MÉDIO |
+| `bloco_jornada` | Ponto | 1 | a confirmar | **ALTO** |
+| `jornada_colaborador` | Ponto | 8 | a confirmar | **ALTO** |
+| `bloco_jornada_colaborador` | Ponto | 9 | a confirmar | **ALTO** |
+
+**Volumes são do dev.** Antes de cada migration em produção, conferir o volume real pelo MCP
+`jusprime-prod` — o dev não é cópia fiel de prod.
+
+**Invariante nova que a denormalização cria:** o `tenant` do filho tem que ser sempre igual ao do
+pai. Ela precisa ser garantida na escrita (o construtor do filho deriva o tenant do pai, não
+recebe por parâmetro) e provada por teste. Sem isso, a denormalização troca um furo por outro:
+uma linha filha com tenant divergente fica invisível para o dono e visível para o vizinho.
+
+### 3.3 Fora do escopo do filtro, e está correto
+
+| Entidade | Por quê |
+|---|---|
+| `User`, `UserTenant`, `Invitation`, `RedefinicaoSenha`, `CadastroPendente` | identidade — existem antes e acima do vínculo com escritório |
+| `Tenant` | é o próprio eixo |
+| `Permission` | catálogo global de permissões (o vínculo por escritório é `TenantRolePermission`) |
+| `IndiceMonetario` | tabela global de referência do BCB, sem dado de escritório |
+| `UserProfile` | medido: 13 linhas, 13 usuários distintos — 1 por **usuário**, não por escritório |
+| `ClientePF`, `ClientePJ` | herdam `TenantAware` do pai; medido como coberto |
+
+---
+
+## 4. Fatias
+
+Cada fatia entrega software revisável sozinho. **Uma por vez**, com a suíte verde entre elas.
+
+| # | Fatia | Entrega | Risco |
+|---|---|---|---|
+| 1 | **Rede de segurança** ✅ | `TenantAwareCoberturaTest` espelhando `AuditavelCoberturaTest` — ver §4.1. | BAIXO |
+| 2 | **Kanban** | `kanban_board` ganha a etiqueta; as 7 filhas ganham `tenant_id` + backfill + etiqueta; invariante pai↔filho no construtor; teste cross-tenant do domínio. | BAIXO |
+| 3 | **ServiceDesk** | `chamado_interacao` e `chamado_anexo`. Zero linhas — backfill trivial. | BAIXO |
+| 4 | **Tenant** | `sede`, `cargo`, `lotacao`. Ver §5.2 — mexe em tela de administração. | MÉDIO |
+| 5 | **Permission** | `tenant_role` (etiqueta) e `tenant_role_permission` (coluna + backfill). | MÉDIO |
+| 6 | **Ponto** | `bloco_jornada`, `jornada_colaborador`, `bloco_jornada_colaborador`. **Re-revisão obrigatória.** Inclui corrigir os ~15 comentários errados sobre `find()` por PK (§2). | **ALTO** |
+| 7 | **Auditoria e Termo** | decisão dos nulos (§5.1) e execução. | MÉDIO |
+| 8 | **Pasta e Auth** | `pasta_processo` e `invitation` — ver §4.2. | MÉDIO |
+
+Fatias 2 e 3 são independentes entre si. Da 4 em diante, sequencial — cada uma toca tela ou dado
+sensível e o custo de errar cresce.
+
+### 4.1 Como a fatia 1 ficou, e por que difere do que esta spec dizia antes
+
+O plano original mandava o teste **nascer vermelho**, listando os furos. Foi trocado durante a
+implementação, deliberadamente: a suíte é o portão de todo o resto do repositório, e um teste
+vermelho por semanas — que é o prazo real de "um domínio por vez" — treina todo mundo a ignorar
+falha vermelha. A rede perderia a função justamente durante o período em que ela é necessária.
+
+O teste ([`app/tests/Shared/Functional/TenantAwareCoberturaTest.php`](../../app/tests/Shared/Functional/TenantAwareCoberturaTest.php))
+usa **duas listas** e quatro asserções:
+
+- `FORA_DO_ESCOPO` — as 8 entidades da §3.3, cada uma com o motivo escrito ao lado. Permanente.
+- `PENDENTE_DE_CORRECAO` — os 22 furos, cada um marcado com a fatia que o resolve. **Só encolhe.**
+
+| Asserção | O que cobra |
+|---|---|
+| `testTodaEntidadeEstaClassificada` | entidade em nenhuma das listas e sem `TenantAware` quebra a suíte — é a propriedade que faltava e deixou o Kanban passar |
+| `testPendenciaCorrigidaSaiDaLista` | entidade corrigida tem de sair de `PENDENTE`, senão a lista apodrece e para de refletir a dívida |
+| `testForaDoEscopoNaoTemEntradaMorta` | entrada obsoleta (entidade removida do mapeamento) não acumula |
+| `testListasNaoSeSobrepoem` | classificação ambígua é recusada |
+
+**As quatro foram provadas reintroduzindo o defeito** (12/08/2026): retirar `KanbanBoard` das duas
+listas, pôr `Pasta` (já correta) em `PENDENTE`, pôr classe não mapeada em `FORA_DO_ESCOPO` e pôr
+`Tenant` nas duas — cada mutação derrubou exatamente a asserção correspondente, com a mensagem
+esperada. Arquivo conferido idêntico ao original depois das provas.
+
+**O que esta troca custa:** a dívida fica verde. A proteção contra *esquecer* está inteira (o
+`PENDENTE` é uma lista enumerada em código, citada nesta spec); a pressão de *urgência* que o
+vermelho daria, não. É uma troca consciente, não um descuido.
+
+### 4.2 Entidades que só apareceram com a medição
+
+O levantamento por `grep` classificou errado dois arquivos — `PastaProcesso` e `CadastroPendente`
+apenas **mencionam** `TenantAware` num comentário e foram contados como cobertos. A lista
+autoritativa veio do metadata do Doctrine (`getAllMetadata()` + `is_a()`), e é a que o teste usa.
+
+Daí a fatia 8:
+
+- **`PastaProcesso`** — associação Pasta↔Processo, hoje isolada só pela Pasta dona. Mesmo padrão
+  da Categoria B.
+- **`Invitation`** — tem `tenant_id` nullable. Convite vazado expõe e-mail de outro escritório.
+
+`CadastroPendente` é exceção legítima (pré-conta) e entrou em `FORA_DO_ESCOPO`.
+
+**Lição para as próximas fatias:** não classificar entidade por `grep`. A pergunta é para o
+framework (`doctrine:mapping:info`, `getAllMetadata()`), como manda o CLAUDE.md.
+
+---
+
+## 5. Decisões que ainda faltam
+
+### 5.1 Os nulos de `audit_log` e `aceite_termo` — antes da fatia 7
+
+`audit_log` tem **65% das linhas com `tenant_id` nulo**. Pôr a etiqueta faria dois terços da
+trilha de auditoria sumirem de toda consulta, silenciosamente — exatamente o modo de falha que
+esta spec existe para eliminar, invertido. Três saídas, e nenhuma é óbvia:
+
+- **backfill** dos nulos a partir do `User` que gerou o registro (se derivável);
+- **manter fora do filtro**, na lista de exceções, com o escopo garantido no
+  `AuditLogRepository` (que já usa SQL nativo e já filtra à mão);
+- **backfill parcial** + coluna que continua nullable, com o filtro aceitando nulo.
+
+A mesma pergunta vale para `aceite_termo` (7 de 10 nulos), com peso menor. **Decisão do dono, não
+do plano.** Fica na fatia 7 justamente para não travar as anteriores.
+
+### 5.2 Regressão em tela de administração — verificar na fatia 4
+
+Ligar o filtro em `sede`/`cargo`/`lotacao` muda **toda** query existente dessas entidades. A
+navegação do super-admin de plataforma parece segura (`TenantContextValidatorListener` deixa
+seguir sem tenant, e sem tenant o filtro fica inerte — [`TenantContextValidatorListener.php:60`](../../app/src/EventListener/TenantContextValidatorListener.php)),
+mas **isso é leitura, não medição**. A fatia 4 começa por um teste que exercite as telas de
+administração antes da mudança.
+
+---
+
+## 6. O que esta spec NÃO cobre
+
+- **Identity map em processo longo** (§2). Sob php-fpm cada requisição tem EntityManager nova e o
+  problema não existe. Ele só aparece com worker persistente (FrankenPHP worker mode, RoadRunner,
+  Swoole) ou com várias operações de tenants diferentes na mesma requisição. **Não é problema de
+  hoje** — é restrição a registrar para quem for construir o MCP remoto ou trocar o modelo de
+  execução. Fica documentado aqui e citado na spec do MCP.
+- Os 179 métodos de repository sem parâmetro `Tenant` explícito. Com a cobertura fechada, o filtro
+  passa a protegê-los de fato; forçar tenant explícito em todos é defesa em profundidade, não
+  correção de defeito, e seria um trabalho maior que este. **Fora de escopo, deliberadamente.**
+- SQL nativo e DQL de UPDATE/DELETE em massa, que não passam pelo filtro por natureza do Doctrine.
+  Os pontos existentes já filtram à mão e documentam o porquê.
+- Qualquer coisa do MCP remoto.
+
+---
+
+## 7. Testes que sustentam o trabalho
+
+Cada um provado reintroduzindo o defeito — teste verde não prova nada por si.
+
+1. **Cobertura** (fatia 1): toda entidade ORM implementa `TenantAware` ou consta na lista de
+   exceções. É o teste que sustenta a spec inteira.
+2. **Cross-tenant por domínio corrigido**: usuário do escritório A pede recurso de B e recebe
+   negativa — não lista vazia por acaso, negativa.
+3. **Invariante pai↔filho** (Categoria B): criar um filho cujo pai é de outro tenant é recusado.
+4. **Backfill**: depois da migration, zero linhas com `tenant_id` divergente do pai. Consulta de
+   conferência rodada em dev **e** em prod antes de considerar a fatia fechada.
+5. **Não-regressão de tela** (fatia 4): as telas de administração continuam listando o que
+   listavam.
