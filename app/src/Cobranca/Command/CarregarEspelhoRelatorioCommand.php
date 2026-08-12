@@ -339,8 +339,23 @@ final class CarregarEspelhoRelatorioCommand extends Command
 
         $diretorio = $input->getOption('diretorio');
 
-        if ($diretorio === null || !is_dir($diretorio)) {
+        if ($diretorio === null) {
             $io->error('Informe --arquivo ou --diretorio.');
+
+            return null;
+        }
+
+        if (!is_dir($diretorio)) {
+            // Distinguir "não informou" de "informei e não existe" não é preciosismo: em produção o
+            // comando roda DENTRO do container, que não enxerga o sistema de arquivos do servidor.
+            // O primeiro operador a rodar isso passou `/opt/jusprime/lotes` (caminho do host) e
+            // recebeu "informe --diretorio", que manda procurar o erro no lugar errado.
+            $io->error(sprintf('Diretório não encontrado: %s', $diretorio));
+            $io->note(
+                'Se estiver rodando dentro do container, o caminho tem de ser o de LÁ DENTRO — o '
+                . 'diretório do servidor não é visível aqui. Copie o lote antes: '
+                . 'docker cp <origem> <container>:/tmp/lote'
+            );
 
             return null;
         }
