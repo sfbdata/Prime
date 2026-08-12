@@ -340,6 +340,28 @@ defeito 2 dá **o mesmo número**. Quem for implementar a Fase 1 precisa constru
 consulta (encargo gravado × colunas I/J/L do espelho) **antes** de tocar no adapter, senão não tem
 como provar o próprio conserto.
 
+### 12.6 🔴 Entrou um TERCEIRO item na Fase 1, e ele quase anula o defeito 2
+
+Decisão do dono em 12/08 (registrada na §16.3 do espelho): **o sistema espelha a contabilidade, esteja
+ela certa ou errada.** Isso derruba a **decisão #8** do importador de acordos
+(`ImportarAcordosDetalhadosUseCase::parcelaInput():1286-1290`, `honorariosBp = 0`): a contabilidade
+cobra honorário na parcela de acordo vencida, logo o sistema tem de mostrar.
+
+A Fase 1 passa a ter **três** efeitos de dinheiro, e eles apontam para lados diferentes:
+
+| # | mudança | efeito na dívida | tamanho medido (lote 12/08) |
+|---|---|---|---:|
+| 1 | abrir a porta do adapter (defeito 1) | — | **R$ 0** (as 17 já existem) |
+| 2 | parar de contar o H das linhas de encargo (defeito 2) | **desce** | **R$ 7.323,89** |
+| 3 | reverter a decisão #8: honorário na parcela de acordo | **sobe** | **R$ 7.227,62** |
+
+⚠️ **O 2 e o 3 quase se cancelam — a diferença líquida é da ordem de R$ 96.** Um relatório que some os
+efeitos vai mostrar "praticamente nada mudou" enquanto **103 devedores sobem** e **29 descem**. A §9
+já mandava reportar separado; agora isso deixou de ser boa prática e virou a única forma de a mudança
+ser auditável. **Nunca reporte o líquido.**
+
+E a ordem da §12.3 continua valendo, agora com três: **o item 1 é o único que não pode ir sozinho.**
+
 ### 12.5 O que esta remedição NÃO muda
 
 - ⛔ **A importação em produção segue bloqueada pelo dono.** Remedir a spec libera planejar, não importar.

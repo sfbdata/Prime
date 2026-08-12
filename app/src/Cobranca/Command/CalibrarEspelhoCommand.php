@@ -87,7 +87,7 @@ final class CalibrarEspelhoCommand extends Command
             $io->section(sprintf('%s — calculado em %s', $r->carteira, $r->dadosAte?->format('d/m/Y') ?? '?'));
 
             $io->table(
-                ['diferença', 'boletos'],
+                ['diferença', 'linhas'],
                 array_map(
                     static fn (string $k, int $v): array => [$k, $v],
                     array_keys($r->faixas),
@@ -96,7 +96,7 @@ final class CalibrarEspelhoCommand extends Command
             );
 
             $io->text(sprintf(
-                'comparados: %d · fora da calibração (sem par no sistema ou sem atraso): %d',
+                'linhas comparadas: %d · fora da calibração (sem par no sistema, sem atraso ou sem base): %d',
                 $r->comparadas,
                 $r->foraDaCalibracao,
             ));
@@ -119,11 +119,12 @@ final class CalibrarEspelhoCommand extends Command
 
             if ($input->getOption('detalhar') && $r->piores !== []) {
                 $io->table(
-                    ['unidade', 'NN', 'campo', 'nosso', 'deles', 'diferença'],
+                    ['unidade', 'NN', 'classe', 'campo', 'nosso', 'deles', 'diferença'],
                     array_map(
                         fn (array $p): array => [
                             $p['unidade'],
                             $p['nn'] ?? '—',
+                            $p['classe'] ?? '—',
                             $p['campo'],
                             $this->reais($p['nosso']),
                             $this->reais($p['deles']),

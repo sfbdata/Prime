@@ -15,8 +15,12 @@ namespace App\Cobranca\DTO;
 final readonly class ResultadoCalibracao
 {
     /**
+     * `$comparadas` e as `$faixas` contam **linhas do espelho**, não boletos (§6.4 e INV-CB4 da
+     * {@see \App\Cobranca\Service\Espelho\CalibracaoDoEspelho}) — a contabilidade calcula e arredonda
+     * por linha, e medir por boleto criava diferença de arredondamento que não existe na conta deles.
+     *
      * @param array<string, int>                                                            $faixas  rótulo => quantidade
-     * @param list<array{unidade: string, nn: ?string, campo: string, nosso: int, deles: int, diferenca: int}> $piores
+     * @param list<array{unidade: string, nn: ?string, classe: ?string, campo: string, nosso: int, deles: int, diferenca: int}> $piores
      */
     public function __construct(
         public string $carteira,
@@ -46,6 +50,11 @@ final readonly class ResultadoCalibracao
      * - `bate quase` — validada COM reancoragem a cada import (a diferença zera no import seguinte);
      * - `nao bate` — existe divergência de REGRA. Achado para o dono levar à contabilidade.
      *   ⛔ Não se ajusta a fórmula para caber na planilha sem entender a causa.
+     *
+     * ⚠️ **`bate quase` é ATÉ UM CENTAVO**, como a §6.4 escreve (*"bate quase (centavos)"*). A versão
+     * anterior somava também a faixa "até 1 real" e imprimia sucesso verde: R$ 0,99 por linha, em
+     * milhares de linhas, é dinheiro de verdade e não é arredondamento. Arredondamento de inteiro em
+     * centavos não passa de 1 centavo por conta — qualquer coisa acima disso é regra diferente.
      */
     public function veredito(): string
     {
@@ -57,10 +66,8 @@ final readonly class ResultadoCalibracao
             return 'bate';
         }
 
-        $ateUmReal = ($this->faixas['exato'] ?? 0)
-            + ($this->faixas['ate 1 centavo'] ?? 0)
-            + ($this->faixas['ate 1 real'] ?? 0);
+        $ateUmCentavo = ($this->faixas['exato'] ?? 0) + ($this->faixas['ate 1 centavo'] ?? 0);
 
-        return $ateUmReal === $this->comparadas ? 'bate quase' : 'nao bate';
+        return $ateUmCentavo === $this->comparadas ? 'bate quase' : 'nao bate';
     }
 }

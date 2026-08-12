@@ -32,6 +32,21 @@ use App\Cobranca\Service\ResolvedorConfigEncargos;
  * INV-CB2: **linha do espelho que não casa com obrigação nenhuma fica FORA da calibração** — não
  * vira zero, não vira divergência. Ela é matéria da conferência (balde "falta no sistema"), e
  * misturar as duas perguntas produziria número sem significado.
+ *
+ * 🔑 INV-CB4 — **a unidade da medição é a LINHA, não o boleto** (§6.4: *"para cada linha do espelho
+ * com atraso > 0"*). Isto não é detalhe de forma: **a contabilidade calcula linha a linha e arredonda
+ * por linha**; somar as linhas e rodar a fórmula uma vez sobre o total produz diferença de
+ * arredondamento que não existe na conta deles. Medido em produção (TL1, 12/08): por boleto a
+ * calibração acusava 301 diferenças "de 1 centavo"; **por linha elas são ZERO**, e o que sobra é uma
+ * divergência de regra só.
+ *
+ * A prova de que a régua deles é por linha, num boleto real de 4 linhas: a conta por linha reproduz
+ * juros 73,33 · multa 3,03 · honorário 45,52 ao centavo; a conta agregada erra os três.
+ *
+ * ⚠️ Consequência a não esquecer: por linha, a base do encargo inclui as linhas de classe `1.4`/`1.5`
+ * (que são elas mesmas encargo de ciclo anterior). Isso mede a régua DELES, e é o que a §6.1 pergunta.
+ * **Não é licença para o sistema cobrar assim** — o principal do sistema continua saindo do ramo do
+ * {@see AgrupadorDeBoletos} (INV-A1), e igualar os dois reintroduziria a dupla contagem.
  */
 final class CalibracaoDoEspelho
 {
@@ -58,7 +73,6 @@ final class CalibracaoDoEspelho
             );
         }
 
-        $doRelatorio = $this->agrupador->agrupar($relatorio);
         $porChave = $this->indexarObrigacoes($carteira, $dadosAte);
 
         $faixas = array_fill_keys(self::FAIXAS, 0);
@@ -66,7 +80,7 @@ final class CalibracaoDoEspelho
         $fora = 0;
         $piores = [];
 
-        foreach ($doRelatorio as $chave => $grupo) {
+        foreach ($this->agrupador->linhasComChave($relatorio) as ['chave' => $chave, 'linha' => $linha]) {
             $obrigacao = $porChave[$chave] ?? null;
 
             if ($obrigacao === null) {
@@ -75,21 +89,26 @@ final class CalibracaoDoEspelho
                 continue;
             }
 
-            // §6.1 pergunta "se rodarmos a nossa fórmula COM OS DADOS DA PLANILHA". Principal e
+            // §6.1 pergunta "se rodarmos a nossa fórmula COM OS DADOS DA PLANILHA". Valor e
             // vencimento vêm dela; do sistema vem só a CONFIGURAÇÃO (a cascata), que é a nossa parte
             // da conta. Usar o `valorOriginal` do sistema misturaria divergência de PRINCIPAL —
             // matéria da conferência — com divergência de FÓRMULA, e a medição perderia o sentido.
-            $vencimento = $grupo['vencimento'];
+            $vencimento = $linha['vencimento'];
+            $base = $linha['valor'] ?? 0;
 
-            if ($vencimento === null || $vencimento >= $dadosAte) {
-                // Sem atraso na data do relatório não há encargo a comparar.
+            // INV-CB3: sem atraso na data do relatório não há encargo a comparar; e base não
+            // positiva (linha de desconto, classe 1.6) sai da calibração em vez de virar zero —
+            // a `CalculadoraEncargos` degrada para zero de propósito em base não positiva, enquanto
+            // a contabilidade lança encargo NEGATIVO nessas linhas. Comparar os dois produziria
+            // divergência que não é de fórmula. São 3 linhas nas três carteiras (medido, 12/08).
+            if ($vencimento === null || $vencimento >= $dadosAte || $base <= 0) {
                 ++$fora;
 
                 continue;
             }
 
             $nosso = $this->calculadora->calcular(
-                $grupo['principal'],
+                $base,
                 $vencimento,
                 $this->resolvedor->resolver($obrigacao),
                 $dadosAte,
@@ -99,7 +118,7 @@ final class CalibracaoDoEspelho
             $maiorDiferenca = 0;
 
             foreach (['juros', 'multa', 'correcao', 'honorarios'] as $campo) {
-                $diferenca = $nosso[$campo] - $grupo[$campo];
+                $diferenca = $nosso[$campo] - ($linha[$campo] ?? 0);
 
                 if (abs($diferenca) > abs($maiorDiferenca)) {
                     $maiorDiferenca = $diferenca;
@@ -107,11 +126,12 @@ final class CalibracaoDoEspelho
 
                 if ($diferenca !== 0) {
                     $piores[] = [
-                        'unidade' => $grupo['unidade'],
-                        'nn' => $grupo['nn'],
+                        'unidade' => $linha['unidade'] ?? '?',
+                        'nn' => $linha['nn'],
+                        'classe' => $linha['classe'],
                         'campo' => $campo,
                         'nosso' => $nosso[$campo],
-                        'deles' => $grupo[$campo],
+                        'deles' => $linha[$campo] ?? 0,
                         'diferenca' => $diferenca,
                     ];
                 }

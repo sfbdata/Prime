@@ -732,31 +732,80 @@ Ou seja: **as 304 diferenças "até 1 centavo" e 1 das 93 eram artefato do desen
 Comparado como a §6.4 manda (*"para cada linha do espelho"*), a nossa fórmula reproduz a da
 contabilidade **exatamente, em 3.472 de 3.575 boletos** — e o que sobra é uma única regra de negócio.
 
-⛔ **Isto NÃO autoriza mexer na fórmula.** A `CalculadoraEncargos` está certa; o que está fora do lugar
-é a *granularidade da comparação* em `CalibracaoDoEspelho` (achado da revisão de 12/08). Trocar a
-granularidade é decisão do dono, e precisa ser feita **sabendo** que ela melhora o número — que é
-exatamente o motivo para não fazê-la em silêncio.
+⛔ **Isto NÃO autorizou mexer na fórmula.** A `CalculadoraEncargos` está certa; o que estava fora do
+lugar era a *granularidade da comparação* em `CalibracaoDoEspelho`.
 
-### 16.3 A pergunta para a contabilidade
+✅ **Corrigido em 12/08, com aprovação explícita do dono** (a mudança *melhora* o número, então não
+podia ser feita em silêncio). A calibração passou a medir **por linha**, como a §6.4 sempre escreveu:
+`CalibracaoDoEspelho` INV-CB4, com a chave de linha→boleto derivada num lugar só
+(`AgrupadorDeBoletos::linhasComChave`, para conferência e calibração não terem duas réguas de
+casamento). Três testes novos, todos provados **reintroduzindo o defeito**: com a régua antiga o caso
+real de 4 linhas fica vermelho.
 
-> Na parcela de acordo vencida, o honorário de 20% é cobrado **de novo** sobre o valor da parcela?
-> Nosso sistema não cobra, por entender que o honorário já está embutido no valor negociado do acordo.
-> O relatório de vocês cobra.
+Efeito medido na TL1 (12/08), agora por linha: **4.121 comparadas · 3.738 exatas · ZERO de um centavo ·
+12 até R$ 1 · 371 acima**. As 301 diferenças "de um centavo" que a régua por boleto produzia
+**desapareceram**, e o que sobra é a mesma regra única da §16.1, agora contada em linhas.
 
-Dinheiro em jogo, no lote de 12/08:
+Junto vieram dois consertos menores, pela mesma medição:
+- **INV-CB3** — linha de desconto (valor negativo, classe `1.6`) sai da calibração em vez de virar
+  divergência: a `CalculadoraEncargos` degrada para zero em base não positiva, enquanto a
+  contabilidade lança encargo **negativo** ali. São 3 linhas nas três carteiras, e a maior valeria
+  R$ 3,92 de divergência falsa.
+- **`veredito()`** deixou de contar a faixa "até 1 real" como `bate quase` — a §6.4 escreve
+  *"bate quase (centavos)"*, e R$ 0,99 por linha impresso em verde como "arredondamento" é dinheiro.
 
-| carteira | parcelas afetadas | honorário que vocês cobram e nós não projetamos |
+### 16.3 ✅ A decisão do dono (12/08) — o sistema ESPELHA, mesmo quando a contabilidade erra
+
+Esta seção foi escrita como "pergunta para a contabilidade". **O dono respondeu, e a resposta muda o
+destino do achado — não o achado.**
+
+> *"Para o sistema a gente tem que refletir a contabilidade, estando certo ou errado. (…) Por mais que
+> pareça um erro da contabilidade, isso tem que aparecer no sistema."*
+
+E, sobre a causa provável do honorário duplicado:
+
+> *"Preciso entender se esses 93 já tinham honorário incluso nas parcelas que viraram acordo, para
+> saber se está cobrando honorário em cima de honorário — **isso é um erro das minhas funcionárias**,
+> não quer dizer que precisamos arrumar no sistema. É só para levar à nossa gerência orientar as
+> funcionárias. (…) O que vou fazer no futuro são relatórios mostrando essas coisas."*
+
+**Três consequências, e a terceira é a que dói:**
+
+1. **O honorário das 92 parcelas passa a ser dívida que o sistema DEVE mostrar.** Não é para a
+   contabilidade corrigir; é para o sistema refletir. Os **R$ 7.227,62** deixam de ser "pergunta
+   aberta" e viram **subcobrança do sistema**.
+2. **Investigar se o honorário já estava embutido no valor acordado é trabalho de RELATÓRIO**, não de
+   correção. Serve para a gerência orientar quem monta os acordos. Fica para **depois** desta frente —
+   registrado aqui para não se perder.
+3. 🔴 **A decisão #8 do importador de acordos passa a contrariar a premissa do módulo.**
+   `ImportarAcordosDetalhadosUseCase::parcelaInput():1286-1290` grava `honorariosBp = 0` justamente
+   para *não* cobrar honorário sobre honorário — que é a política **certa**, e é exatamente o que a
+   premissa do espelho manda **não** fazer. O sistema não é o lugar de corrigir a contabilidade.
+
+⚠️ **Isto NÃO autoriza mexer em `parcelaInput()` agora.** Reverter a decisão #8 faz **subir a dívida
+de 103 devedores reais** em produção — é escrita em dinheiro, exige spec própria, reconciliação das
+parcelas já gravadas e deploy do dono. Entra na Fase 1, junto com o defeito 2, e os dois efeitos têm
+de ser reportados **separados** (um sobe a dívida, o outro desce).
+
+### 16.4 O tamanho, e o relatório que fica para depois
+
+Dinheiro em jogo no lote de 12/08 — sob a decisão da §16.3, é **o quanto o sistema mostra a menos**:
+
+| carteira | parcelas afetadas | honorário que a contabilidade cobra e o sistema não mostra |
 |---|---:|---:|
 | TOP LIFE I | 92 | **R$ 6.469,73** |
 | TOP LIFE II | 6 | R$ 511,00 |
 | AMLI BR 060 | 5 | R$ 246,89 |
 | **total** | **103** | **R$ 7.227,62** |
 
-Os dois desfechos possíveis são simétricos e nenhum é "ajustar a fórmula":
+**O relatório de gerência (fica para depois desta frente).** A pergunta do dono — *"essas 103 parcelas
+já tinham honorário embutido quando viraram acordo?"* — é respondível com o que já está no banco: o
+`valor_original` da parcela sai do `Valor acordado` da planilha de acordos, e as obrigações
+substituídas guardam os encargos materializados na data do acordo
+(`CriarAcordoUseCase:136-145`, `ImportarAcordosDetalhadosUseCase:1056-1071`). Dá para comparar, por
+acordo, a soma do que entrou contra a soma do que as originais deviam, e separar o que é principal do
+que é honorário embutido.
 
-- **se o honorário já está embutido no valor acordado**, a contabilidade está cobrando duas vezes, e o
-  achado é deles;
-- **se não está**, a decisão #8 do nosso importador de acordos está subcobrando R$ 7.227,62, e o
-  conserto é nosso — em `parcelaInput()`, não na `CalculadoraEncargos`.
-
-**Nenhum dos dois pode ser decidido por medição.** É pergunta de contrato, e por isso é do dono.
+⚠️ **Esse relatório é de ORIENTAÇÃO, não de correção.** Se ele mostrar honorário sobre honorário, a
+conduta muda no escritório (quem monta o acordo), não no código — a §16.3 já decidiu que o sistema
+espelha.

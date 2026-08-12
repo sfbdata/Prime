@@ -57,19 +57,8 @@ final class AgrupadorDeBoletos
         $grupos = [];
         $linhasPorGrupo = [];
 
-        foreach ($this->linhas->dadosDoRelatorio($relatorio) as $linha) {
-            if ($linha['unidade'] === null) {
-                continue;
-            }
-
-            [$identificacao] = IdentificacaoDaUnidade::separar($linha['unidade']);
-            $referencia = $this->referencia($linha);
-
-            if ($referencia === null) {
-                continue;
-            }
-
-            $chave = self::chave($identificacao, $referencia, $linha['competencia']);
+        foreach ($this->linhasComChave($relatorio) as ['chave' => $chave, 'linha' => $linha]) {
+            [$identificacao] = IdentificacaoDaUnidade::separar((string) $linha['unidade']);
 
             $grupos[$chave] ??= [
                 'unidade' => $identificacao,
@@ -114,6 +103,45 @@ final class AgrupadorDeBoletos
         }
 
         return $grupos;
+    }
+
+    /**
+     * As linhas de dado do lote, cada uma já com a chave do boleto a que pertence — e **só** as que
+     * têm chave derivável (unidade preenchida e referência obtível).
+     *
+     * Existe porque a calibração precisa das linhas UMA A UMA (SPEC §6.4: *"para cada linha do
+     * espelho"*) enquanto a conferência precisa delas somadas por boleto, e as duas têm de concordar
+     * sobre **qual linha pertence a qual boleto**. Derivar a chave em dois lugares seria uma segunda
+     * régua de casamento — a mesma classe de defeito que o D10 fechou do lado da exigibilidade.
+     *
+     * @return list<array{chave: string, linha: array{unidade: ?string, nn: ?string, classe: ?string,
+     *                    competencia: ?string, vencimento: ?\DateTimeImmutable, valor: ?int,
+     *                    juros: ?int, multa: ?int, correcao: ?int, honorarios: ?int,
+     *                    acordoTexto: ?string}}>
+     */
+    public function linhasComChave(RelatorioImportado $relatorio): array
+    {
+        $comChave = [];
+
+        foreach ($this->linhas->dadosDoRelatorio($relatorio) as $linha) {
+            if ($linha['unidade'] === null) {
+                continue;
+            }
+
+            [$identificacao] = IdentificacaoDaUnidade::separar($linha['unidade']);
+            $referencia = $this->referencia($linha);
+
+            if ($referencia === null) {
+                continue;
+            }
+
+            $comChave[] = [
+                'chave' => self::chave($identificacao, $referencia, $linha['competencia']),
+                'linha' => $linha,
+            ];
+        }
+
+        return $comChave;
     }
 
     /** A chave de dedup do banco: unidade + referência + competência. */

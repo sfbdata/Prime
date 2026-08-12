@@ -129,6 +129,102 @@ final class CalibracaoDoEspelhoTest extends KernelTestCase
         self::assertSame('bate quase', $resultado->veredito());
     }
 
+    #[TestDox('INV-CB4 — a conta é LINHA A LINHA, como a da contabilidade (caso real, TL1 12/08)')]
+    public function testContaLinhaALinhaComoAContabilidade(): void
+    {
+        // O boleto REAL que a medição de produção usou para provar a régua deles (espelho §16.2):
+        // 4 linhas, 1.454 dias de atraso, honorários 20%. A contabilidade calcula e ARREDONDA por
+        // linha; somando as linhas e rodando a fórmula uma vez sobre o total, os três encargos erram.
+        //
+        // Por linha (é o que a planilha traz):
+        //   1.1  100,00 → juros 48,47 · multa 2,00 · hon 30,09
+        //   1.14  45,00 → juros 21,81 · multa 0,90 · hon 13,54
+        //   1.4    3,38 → juros  1,64 · multa 0,07 · hon  1,02
+        //   1.5    2,90 → juros  1,41 · multa 0,06 · hon  0,87
+        //   soma        → juros 73,33 · multa 3,03 · hon 45,52   ← o que a planilha soma
+        //
+        // Pela régua ANTIGA (por boleto), o principal do ramo "boleto comum" seria 145,00 — as linhas
+        // 1.4/1.5 ficam fora — e daria juros 70,28 · multa 2,90 · hon 43,64: R$ 3,05 de diferença,
+        // faixa "acima de 1 real". Este teste fica VERMELHO se alguém voltar a agregar.
+        $carteira = $this->carteiraTopLife(2000);
+        $caso = $this->caso($carteira, '09-04C');
+        $vencimento = new \DateTimeImmutable('2022-08-19');
+        $dadosAte = $vencimento->modify('+1454 days');
+
+        // `valorOriginal` do SISTEMA é 145,00 (só 1.1/1.14) — e de propósito não é o que a calibração
+        // usa: ela pergunta se a NOSSA FÓRMULA reproduz a DELES sobre os dados DELES (§6.1).
+        $this->obrigacao($caso, '61687', '07/2022', 14500, $vencimento);
+
+        $comum = [
+            'unidade' => '09-04C', 'nn' => '61687', 'competencia' => '07/2022',
+            'vencimento' => $vencimento->format('d/m/Y'), 'correcao' => 0.0,
+        ];
+
+        $resultado = $this->calibrar($carteira, [
+            $this->linhaDeDado(...$comum, classe: '1.1 - Taxa de condomínio', valor: 100.00, juros: 48.47, multa: 2.00, honorarios: 30.09),
+            $this->linhaDeDado(...$comum, classe: '1.14 - Energia', valor: 45.00, juros: 21.81, multa: 0.90, honorarios: 13.54),
+            $this->linhaDeDado(...$comum, classe: '1.4 - Juros', valor: 3.38, juros: 1.64, multa: 0.07, honorarios: 1.02),
+            $this->linhaDeDado(...$comum, classe: '1.5 - Multas', valor: 2.90, juros: 1.41, multa: 0.06, honorarios: 0.87),
+        ], $dadosAte->format('d/m/Y'));
+
+        self::assertSame(4, $resultado->comparadas, 'a unidade da medição é a LINHA, não o boleto');
+        self::assertSame(4, $resultado->exatas(), sprintf('piores: %s', json_encode($resultado->piores)));
+        self::assertSame('bate', $resultado->veredito());
+    }
+
+    #[TestDox('INV-CB3 — linha de desconto (valor negativo) sai da calibração, não vira divergência')]
+    public function testLinhaDeDescontoFicaForaDaCalibracao(): void
+    {
+        // Medido em produção (12/08): 3 linhas de valor negativo nas três carteiras, e a
+        // contabilidade lança encargo NEGATIVO nelas. A `CalculadoraEncargos` degrada para zero em
+        // base não positiva — de propósito. Comparar os dois acusaria divergência que não é de
+        // fórmula: a maior delas vale R$ 3,92 de honorário.
+        $carteira = $this->carteiraTopLife(2000);
+        $caso = $this->caso($carteira, '01-01');
+        $vencimento = new \DateTimeImmutable('2025-12-15');
+        $dadosAte = $vencimento->modify('+240 days');
+
+        $this->obrigacao($caso, '74608', '12/2025', 17000, $vencimento);
+
+        $comum = [
+            'unidade' => '01-01', 'nn' => '74608', 'competencia' => '12/2025',
+            'vencimento' => '15/12/2025', 'correcao' => 0.0,
+        ];
+
+        $resultado = $this->calibrar($carteira, [
+            $this->linhaDeDado(...$comum, classe: '1.1 - Taxa de condomínio', valor: 170.00, juros: 13.60, multa: 3.40, honorarios: 37.40),
+            $this->linhaDeDado(...$comum, classe: '1.6 - Desconto', valor: -20.00, juros: -1.60, multa: -0.40, honorarios: -4.40),
+        ], $dadosAte->format('d/m/Y'));
+
+        self::assertSame(1, $resultado->comparadas, 'só a linha de base positiva entra');
+        self::assertSame(1, $resultado->foraDaCalibracao, 'a de desconto sai — e sai VISÍVEL');
+        self::assertSame(1, $resultado->exatas());
+        self::assertSame([], $resultado->piores, 'desconto não pode virar divergência falsa');
+    }
+
+    #[TestDox('"bate quase" é ATÉ UM CENTAVO — R$ 0,99 por linha não é arredondamento')]
+    public function testDiferencaDeQuaseUmRealNaoEhBateQuase(): void
+    {
+        $carteira = $this->carteiraTopLife(2000);
+        $caso = $this->caso($carteira, '01-01');
+        $vencimento = new \DateTimeImmutable('2025-12-15');
+        $dadosAte = $vencimento->modify('+240 days');
+
+        $this->obrigacao($caso, '74608', '12/2025', 17000, $vencimento);
+
+        // juros certo é 13,60; 14,59 são 99 centavos a mais — cai na faixa "até 1 real".
+        $resultado = $this->calibrar($carteira, [
+            $this->linhaDeDado(
+                unidade: '01-01', nn: '74608', competencia: '12/2025', vencimento: '15/12/2025',
+                valor: 170.00, juros: 14.59, multa: 3.40, correcao: 0.0, honorarios: 37.40,
+            ),
+        ], $dadosAte->format('d/m/Y'));
+
+        self::assertSame(1, $resultado->faixas['ate 1 real']);
+        // A versão anterior somava esta faixa ao "bate quase" e imprimia SUCESSO verde.
+        self::assertSame('nao bate', $resultado->veredito());
+    }
+
     #[TestDox('Diferença grande é "nao bate" — achado para levar à contabilidade')]
     public function testDiferencaGrandeNaoBate(): void
     {
