@@ -89,7 +89,19 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     ];
 
     /**
-     * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE.
+     * Teto de cada lista, cobrado por testeTetosNaoSobem. Baixe o número ao fechar cada fatia.
+     *
+     * Sem isso, "só encolhe" seria promessa de comentário: o conserto mais barato para uma
+     * entidade nova sem etiqueta é apendá-la em PENDENTE — uma linha, suíte verde, furo novo
+     * entrando com a rede ligada. Com o teto, essa saída exige mexer no teto no mesmo diff, e
+     * aí é decisão visível em vez de descuido.
+     */
+    private const MAX_PENDENTE = 22;
+    private const MAX_FORA_DO_ESCOPO = 8;
+
+    /**
+     * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado
+     * por testeTetosNaoSobem, não prometido em comentário.
      *
      * Ela existe para a suíte permanecer verde enquanto a correção anda domínio por domínio —
      * uma suíte vermelha por semanas é ignorada, e aí a rede não protege nada. O que importa
@@ -175,37 +187,74 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         ));
     }
 
-    #[TestDox('A lista de pendências só encolhe: entidade já corrigida sai dela')]
-    public function testPendenciaCorrigidaSaiDaLista(): void
+    #[TestDox('PENDENTE_DE_CORRECAO não guarda entrada obsoleta')]
+    public function testPendenciaNaoTemEntradaObsoleta(): void
     {
-        $jaCorrigidas = array_values(array_filter(
-            self::PENDENTE_DE_CORRECAO,
-            static fn (string $class): bool => is_a($class, TenantAware::class, true)
-        ));
+        $obsoletas = $this->entradasObsoletas(self::PENDENTE_DE_CORRECAO);
 
-        self::assertSame([], $jaCorrigidas, sprintf(
-            'Estas já implementam TenantAware e devem sair de PENDENTE_DE_CORRECAO: %s.',
-            implode(', ', $jaCorrigidas)
+        self::assertSame([], $obsoletas, sprintf(
+            'Saia de PENDENTE_DE_CORRECAO (já implementa TenantAware, ou não é mais entidade '
+            . 'mapeada): %s. E baixe MAX_PENDENTE no mesmo diff.',
+            implode(', ', $obsoletas)
         ));
     }
 
-    #[TestDox('FORA_DO_ESCOPO não acumula entrada morta')]
-    public function testForaDoEscopoNaoTemEntradaMorta(): void
+    #[TestDox('FORA_DO_ESCOPO não guarda entrada obsoleta')]
+    public function testForaDoEscopoNaoTemEntradaObsoleta(): void
+    {
+        $obsoletas = $this->entradasObsoletas(self::FORA_DO_ESCOPO);
+
+        self::assertSame([], $obsoletas, sprintf(
+            'Saia de FORA_DO_ESCOPO (já implementa TenantAware, ou não é mais entidade '
+            . 'mapeada): %s.',
+            implode(', ', $obsoletas)
+        ));
+    }
+
+    #[TestDox('Os tetos das listas não sobem: a dívida só encolhe')]
+    public function testTetosNaoSobem(): void
+    {
+        self::assertLessThanOrEqual(
+            self::MAX_PENDENTE,
+            count(self::PENDENTE_DE_CORRECAO),
+            'PENDENTE_DE_CORRECAO cresceu. Furo novo não se resolve entrando na lista de '
+            . 'pendências: implemente TenantAware. Se a entrada for mesmo inevitável, subir '
+            . 'MAX_PENDENTE tem de ser decisão explícita, revisada neste diff.'
+        );
+
+        self::assertLessThanOrEqual(
+            self::MAX_FORA_DO_ESCOPO,
+            count(self::FORA_DO_ESCOPO),
+            'FORA_DO_ESCOPO cresceu. Exceção permanente ao isolamento de tenant exige '
+            . 'justificativa escrita ao lado da entrada e revisão — nunca é conserto de suíte '
+            . 'vermelha.'
+        );
+    }
+
+    /**
+     * Entradas de uma lista que perderam o motivo de existir: ou a entidade já foi corrigida
+     * (implementa TenantAware), ou saiu do mapeamento. Cada lista é conferida separadamente e
+     * por um teste próprio — de propósito.
+     *
+     * Antes as duas eram varridas por uma asserção só, e isso tornava a asserção da PENDENTE
+     * logicamente subsumida: não existia mutação capaz de derrubá-la sozinha. Pareciam duas
+     * propriedades independentes e eram uma.
+     *
+     * @param list<class-string> $lista
+     *
+     * @return list<class-string>
+     */
+    private function entradasObsoletas(array $lista): array
     {
         $mapeadas = array_map(
             static fn ($meta): string => $meta->getName(),
             $this->em->getMetadataFactory()->getAllMetadata()
         );
 
-        $mortas = array_values(array_filter(
-            [...self::FORA_DO_ESCOPO, ...self::PENDENTE_DE_CORRECAO],
+        return array_values(array_filter(
+            $lista,
             static fn (string $class): bool => !in_array($class, $mapeadas, true)
                 || is_a($class, TenantAware::class, true)
-        ));
-
-        self::assertSame([], $mortas, sprintf(
-            'Entradas obsoletas nas listas (entidade removida do mapeamento ou já corrigida): %s.',
-            implode(', ', $mortas)
         ));
     }
 

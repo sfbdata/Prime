@@ -4,7 +4,7 @@
 **Risco:** **MÉDIO/ALTO** — toca `TenantRole`/`Permission`/`Sede`/`Cargo` (MÉDIO) e entidades de
 ponto eletrônico (ALTO). Exige spec (este documento), revisão contra a spec e, no domínio Ponto,
 re-revisão antes de seguir.
-**Status:** planejado. Fatia 1 em implementação.
+**Status:** fatia 1 entregue e revisada (achados da revisão aplicados). Fatias 2–8 pendentes.
 
 **Origem:** avaliação de risco do desenho [MCP remoto com OAuth](mcp-remoto-oauth.md). O MCP não é
 pré-requisito nem consequência deste trabalho — os furos abaixo **já existem hoje** e valem para o
@@ -57,8 +57,9 @@ Sonda executada com o filtro ligado apontando para o tenant 2, sobre dado do ten
 
 **Duas premissas do próprio código caíram:**
 
-1. ~15 repositories comentam *"o filtro SQL do Doctrine NÃO se aplica a `find()` por PK (risco
-   cross-tenant)"*. **Medido: aplica**, no Doctrine ORM 3.x com a EntityManager limpa. Os métodos
+1. **21 repositories** (medido: `grep -rn "filtro SQL do Doctrine" app/src --include=*.php`)
+   comentam *"o filtro SQL do Doctrine NÃO se aplica a `find()` por PK (risco cross-tenant)"*.
+   **Medido: aplica**, no Doctrine ORM 3.x com a EntityManager limpa. Os métodos
    `…DoTenant` continuam certos como defesa em profundidade, mas **o motivo registrado está errado
    e esconde o motivo verdadeiro**, que é o identity map. Corrigir os comentários faz parte do
    trabalho (fatia 6) — um comentário falso faz o próximo leitor relaxar a guarda certa.
@@ -99,8 +100,11 @@ derivado do pai, e implementar `TenantAware`.
 | `kanban_marcador` | Kanban | 0 | `board` | BAIXO |
 | `chamado_interacao` | ServiceDesk | 0 | `chamado` | BAIXO |
 | `chamado_anexo` | ServiceDesk | 0 | `chamado` | BAIXO |
-| `pasta_processo` | Pasta | — | `pasta` | MÉDIO |
-| `invitation` | Auth | — | já tem coluna, nullable | MÉDIO |
+| `pasta_processo` | Pasta | 39 | `pasta` | MÉDIO |
+| `invitation`\* | Auth | 10 | já tem coluna, nullable | MÉDIO |
+
+\* `invitation` está nesta tabela por ser furo da mesma fatia, mas **não** é Categoria B: a coluna
+já existe (nullable). O trabalho lá é decidir o nulo e pôr a etiqueta, não criar coluna.
 | `tenant_role_permission` | Permission | 127 | `tenant_role` | MÉDIO |
 | `bloco_jornada` | Ponto | 1 | a confirmar | **ALTO** |
 | `jornada_colaborador` | Ponto | 8 | a confirmar | **ALTO** |
@@ -118,12 +122,22 @@ uma linha filha com tenant divergente fica invisível para o dono e visível par
 
 | Entidade | Por quê |
 |---|---|
-| `User`, `UserTenant`, `Invitation`, `RedefinicaoSenha`, `CadastroPendente` | identidade — existem antes e acima do vínculo com escritório |
+| `User`, `RedefinicaoSenha`, `CadastroPendente` | identidade — existem antes e acima do vínculo com escritório |
+| `UserTenant` | é o **próprio vínculo**. Filtrar aqui seria circular e quebraria a troca de escritório: `TenantContext::setCurrentTenant` precisa enxergar o vínculo do tenant **de destino**, que por definição não é o ativo. Compensação verificada: os 5 métodos de `UserTenantRepository` recebem `User` e/ou `Tenant` explícitos — não há listagem sem escopo |
 | `Tenant` | é o próprio eixo |
 | `Permission` | catálogo global de permissões (o vínculo por escritório é `TenantRolePermission`) |
 | `IndiceMonetario` | tabela global de referência do BCB, sem dado de escritório |
-| `UserProfile` | medido: 13 linhas, 13 usuários distintos — 1 por **usuário**, não por escritório |
+| `UserProfile` | o perfil é do **usuário**, não do escritório — quem atua em dois escritórios tem um perfil só. Garantia **estrutural**, não empírica: `uniq_6bbd6130a76ed395 UNIQUE btree (user_id)`, do `#[ORM\OneToOne]` |
 | `ClientePF`, `ClientePJ` | herdam `TenantAware` do pai; medido como coberto |
+
+São **8 entidades** — o mesmo número de `FORA_DO_ESCOPO` no teste (`ClientePF`/`ClientePJ` não
+entram na lista: passam por herança, não por exceção). Com as 22 da §3.1 + §3.2, fecham as 30.
+
+⚠️ **`Invitation` NÃO está aqui, e a primeira versão deste documento errou nisso.** Ela é escopada
+por escritório por construção (`tenant_id`, `tenant_role_id`, `cargo_id`, `lotacao_id`); convite
+vazado expõe e-mail de outro escritório. É **furo**, endereçado na fatia 8. O erro foi pego na
+revisão da fatia 1 — e era o achado mais grave justamente porque absolvia: quem executasse a
+fatia 8 lendo esta tabela "fecharia" a fatia movendo `Invitation` para cá, e o teste aceitaria.
 
 ---
 
@@ -138,7 +152,7 @@ Cada fatia entrega software revisável sozinho. **Uma por vez**, com a suíte ve
 | 3 | **ServiceDesk** | `chamado_interacao` e `chamado_anexo`. Zero linhas — backfill trivial. | BAIXO |
 | 4 | **Tenant** | `sede`, `cargo`, `lotacao`. Ver §5.2 — mexe em tela de administração. | MÉDIO |
 | 5 | **Permission** | `tenant_role` (etiqueta) e `tenant_role_permission` (coluna + backfill). | MÉDIO |
-| 6 | **Ponto** | `bloco_jornada`, `jornada_colaborador`, `bloco_jornada_colaborador`. **Re-revisão obrigatória.** Inclui corrigir os ~15 comentários errados sobre `find()` por PK (§2). | **ALTO** |
+| 6 | **Ponto** | `bloco_jornada`, `jornada_colaborador`, `bloco_jornada_colaborador`. **Re-revisão obrigatória.** Inclui corrigir os **21** comentários errados sobre `find()` por PK (§2). | **ALTO** |
 | 7 | **Auditoria e Termo** | decisão dos nulos (§5.1) e execução. | MÉDIO |
 | 8 | **Pasta e Auth** | `pasta_processo` e `invitation` — ver §4.2. | MÉDIO |
 
@@ -153,26 +167,60 @@ vermelho por semanas — que é o prazo real de "um domínio por vez" — treina
 falha vermelha. A rede perderia a função justamente durante o período em que ela é necessária.
 
 O teste ([`app/tests/Shared/Functional/TenantAwareCoberturaTest.php`](../../app/tests/Shared/Functional/TenantAwareCoberturaTest.php))
-usa **duas listas** e quatro asserções:
+usa **duas listas**, **dois tetos** e **cinco asserções**:
 
 - `FORA_DO_ESCOPO` — as 8 entidades da §3.3, cada uma com o motivo escrito ao lado. Permanente.
-- `PENDENTE_DE_CORRECAO` — os 22 furos, cada um marcado com a fatia que o resolve. **Só encolhe.**
+- `PENDENTE_DE_CORRECAO` — os 22 furos, cada um marcado com a fatia que o resolve.
+- `MAX_PENDENTE` / `MAX_FORA_DO_ESCOPO` — os tetos que fazem "só encolhe" ser **cobrado**, não
+  prometido em comentário. Baixe-os ao fechar cada fatia.
 
 | Asserção | O que cobra |
 |---|---|
 | `testTodaEntidadeEstaClassificada` | entidade em nenhuma das listas e sem `TenantAware` quebra a suíte — é a propriedade que faltava e deixou o Kanban passar |
-| `testPendenciaCorrigidaSaiDaLista` | entidade corrigida tem de sair de `PENDENTE`, senão a lista apodrece e para de refletir a dívida |
-| `testForaDoEscopoNaoTemEntradaMorta` | entrada obsoleta (entidade removida do mapeamento) não acumula |
+| `testPendenciaNaoTemEntradaObsoleta` | entidade corrigida (ou desmapeada) sai de `PENDENTE`, senão a lista apodrece e para de refletir a dívida |
+| `testForaDoEscopoNaoTemEntradaObsoleta` | o mesmo para `FORA_DO_ESCOPO` |
+| `testTetosNaoSobem` | a dívida só encolhe — ver §4.1.1 |
 | `testListasNaoSeSobrepoem` | classificação ambígua é recusada |
 
-**As quatro foram provadas reintroduzindo o defeito** (12/08/2026): retirar `KanbanBoard` das duas
-listas, pôr `Pasta` (já correta) em `PENDENTE`, pôr classe não mapeada em `FORA_DO_ESCOPO` e pôr
-`Tenant` nas duas — cada mutação derrubou exatamente a asserção correspondente, com a mensagem
-esperada. Arquivo conferido idêntico ao original depois das provas.
+#### 4.1.1 O buraco que a revisão encontrou nesta decisão
 
-**O que esta troca custa:** a dívida fica verde. A proteção contra *esquecer* está inteira (o
-`PENDENTE` é uma lista enumerada em código, citada nesta spec); a pressão de *urgência* que o
-vermelho daria, não. É uma troca consciente, não um descuido.
+A primeira versão desta seção afirmava que *"a proteção contra esquecer está inteira"*. Está — mas
+**a proteção contra estacionar não existia**, e a seção não admitia isso.
+
+Caminho concreto, sem má-fé: alguém cria entidade nova sem a etiqueta → `testTodaEntidade…` fica
+vermelho → o conserto mais barato é **uma linha**, apendar a classe em `PENDENTE_DE_CORRECAO` →
+verde. Furo novo entra com a rede ligada. Pior em `FORA_DO_ESCOPO`, que é permanente.
+
+Daí os tetos. Eles não tornam a saída impossível — tornam-na **visível**: subir o teto tem de
+acontecer no mesmo diff, e vira decisão revisada em vez de descuido.
+
+**O que a troca de vermelho por verde custa, agora dito por inteiro:** a dívida fica verde, e some
+a pressão de urgência que o vermelho daria. Os tetos cobrem o risco de *crescer*; nada cobre o
+risco de *demorar*. Esse continua sendo do dono do cronograma.
+
+#### 4.1.2 A prova, e o erro de método na primeira
+
+A primeira prova rodou cada mutação com `--filter`, isolando a asserção esperada. **Isso é prova
+incompleta por construção**: `--filter` esconde qual *outra* asserção também caiu. Foi assim que
+uma asserção redundante passou por independente — `testPendenciaCorrigidaSaiDaLista` era
+logicamente subsumida pela varredura que percorria as duas listas, e não existia mutação capaz de
+derrubá-la sozinha. Eram 3 propriedades independentes vendidas como 4.
+
+Corrigido: cada lista passou a ter seu próprio teste, e a re-prova (12/08/2026) rodou a **classe
+inteira** em cada mutação, com o resultado das 5 visível:
+
+| Mutação | Asserção que caiu |
+|---|---|
+| `KanbanBoard` fora das duas listas | `testTodaEntidadeEstaClassificada`, só ela |
+| `Pasta` (já correta) em `PENDENTE` | `testPendenciaNaoTemEntradaObsoleta`, só ela |
+| `Pasta` em `FORA_DO_ESCOPO` | `testForaDoEscopoNaoTemEntradaObsoleta`, só ela |
+| entrada duplicada em `PENDENTE` | `testTetosNaoSobem`, só ela |
+| `Tenant` nas duas listas | `testListasNaoSeSobrepoem`, só ela |
+
+Arquivo conferido idêntico ao original depois das provas.
+
+**Regra que fica:** prova por mutação roda a **classe inteira**, nunca com `--filter`. O que
+interessa não é ver a asserção esperada cair — é ver que nenhuma outra caiu junto.
 
 ### 4.2 Entidades que só apareceram com a medição
 
