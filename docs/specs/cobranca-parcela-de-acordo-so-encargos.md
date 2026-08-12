@@ -182,6 +182,33 @@ A dívida em aberto **sobe** pelo defeito 1 (receita que o escritório passa a e
 defeito 2 (dinheiro que estava contado duas vezes). **Os dois efeitos precisam ser reportados
 separados** — somados, escondem um ao outro.
 
+## 9.1 O critério de PRONTO — decidido pelo dono em 12/08
+
+> *"Antes de importar vamos arrumar os problemas. Quero o sistema alinhado com o relatório da
+> contabilidade."*
+
+⚠️ **"Alinhado" NÃO é "o total bate ao centavo", e mirar nisso quebra o sistema.** O JusPrime
+**recalcula juros/multa/correção ao vivo** a partir da configuração da carteira; a contabilidade
+calculou os dela no instante da emissão. Os totais divergem por **desenho**, e a própria saída da
+importação já mostra isso (*"60402: sistema R$ 1.131,24, planilha R$ 1.180,16 — o valor lançado NÃO
+foi alterado"*). Perseguir igualdade de total levaria alguém a copiar o encargo da planilha e matar o
+cálculo ao vivo.
+
+**Alinhamento, aqui, tem três partes — e só as duas primeiras são exigíveis:**
+
+1. **Mesmo conjunto de dívidas.** Todo NN que a contabilidade cobra existe no sistema, e nenhum a
+   mais. É o defeito 1 (17 faltando).
+2. **Mesmo principal.** O `valor_original` de cada obrigação é a soma da coluna **Valor (H)** daquele
+   NN — sem encargo embutido. É o defeito 2.
+3. **Encargos são do sistema.** Divergir da planilha é o comportamento correto. **Não conferir.**
+
+**A conferência de aceite**, por carteira, é portanto: (a) contagem de NNs do relatório × NNs no
+sistema, com a lista dos que faltam ou sobram; e (b) Σ coluna H do relatório × Σ `valor_original` no
+sistema. Se (a) e (b) fecharem, está alinhado — mesmo com o total geral diferente.
+
+**Essa conferência não existe hoje** e é entregável desta frente: sem ela, ninguém consegue afirmar
+que o sistema está alinhado, que é exatamente a pergunta que originou tudo isto.
+
 ## 10. Fora de escopo
 
 - Criar acordo pelo importador de **acordos** (segue valendo a §3.1 da spec dele).
