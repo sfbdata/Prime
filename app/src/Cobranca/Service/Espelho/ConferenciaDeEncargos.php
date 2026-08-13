@@ -230,6 +230,11 @@ final class ConferenciaDeEncargos
                         'duplicadoPorCampo' => $duplicadoAqui,
                         'duplicadoNoSaldo' => $noSaldo,
                         'duplicadoForaDoSaldo' => array_sum($duplicadoAqui) - $noSaldo,
+                        // 🔑 INV-CE9 — o que a reconciliação deve GRAVAR, calculado aqui e não lá.
+                        // A régua já tem o `$grupo` em mãos; deixar a reconciliação re-derivar seria
+                        // uma segunda cópia da regra de dinheiro (D10), e é justamente onde a
+                        // assimetria do honorário morde: ver `corrigidoPorCampo()`.
+                        'corrigidoPorCampo' => $this->corrigidoPorCampo($duplicadoAqui, $grupo),
                     ];
                 } else {
                     // Inclui a obrigação cuja assinatura ficou SUSPENSA por falta de lote: ela tem
@@ -452,6 +457,37 @@ final class ConferenciaDeEncargos
         }
 
         return $duplicado;
+    }
+
+    /**
+     * O valor que cada campo MARCADO deveria ter — o encargo das colunas, que é exatamente o que a
+     * importação corrigida grava numa parcela de acordo (`ImportarRelatorioCarteiraUseCase`, ramo do
+     * acordo). Depois da reconciliação, reimportar o mesmo lote não pode mexer em nada.
+     *
+     * 🔑 **NÃO é `gravado − duplicado`, e essa diferença é a armadilha desta frente.** Em juros e multa
+     * as duas contas coincidem; **no honorário, não**. O adapter, na linha `1.15`, **troca** a coluna L
+     * pelo Valor em vez de somar (`TopLifeInadimplenciaAdapter:200`), então subtrair o duplicado
+     * devolveria `Σ_{≠1.15} L` e **perderia a coluna L da própria linha de honorário**. O valor certo é
+     * `Σ_{todas} L`, que é o que `$grupo['honorarios']` carrega (o {@see AgrupadorDeBoletos} soma a
+     * coluna L de toda linha, sem exceção). Medido: nas 21 do recorte antigo a diferença era R$ 31,19.
+     *
+     * ⛔ **A correção NUNCA toca a correção monetária:** nenhuma classe de linha vira correção, logo ela
+     * nunca é marcada — e campo não marcado não entra neste array.
+     *
+     * @param array<string, int> $duplicadoPorCampo campos marcados pela assinatura
+     * @param array{juros:int, multa:int, correcao:int, honorarios:int, ...} $grupo
+     *
+     * @return array<string, int> campo => centavos a gravar
+     */
+    private function corrigidoPorCampo(array $duplicadoPorCampo, array $grupo): array
+    {
+        $corrigido = [];
+
+        foreach (array_keys($duplicadoPorCampo) as $campo) {
+            $corrigido[$campo] = $grupo[$campo];
+        }
+
+        return $corrigido;
     }
 
     /** @return array{juros:int, multa:int, correcao:int, honorarios:int} */

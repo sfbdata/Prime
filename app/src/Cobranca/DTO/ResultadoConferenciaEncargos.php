@@ -59,7 +59,7 @@ final readonly class ResultadoConferenciaEncargos
      * @param list<array{obrigacaoId: ?int, unidade: string, referencia: ?string, competencia: ?string,
      *                   loteId: ?int, loteEmitidoEm: ?\DateTimeImmutable,
      *                   duplicadoPorCampo: array<string, int>, duplicadoNoSaldo: int,
-     *                   duplicadoForaDoSaldo: int}>                                    $duplicadas
+     *                   duplicadoForaDoSaldo: int, corrigidoPorCampo: array<string, int>}> $duplicadas
      */
     public function __construct(
         public string $carteira,
