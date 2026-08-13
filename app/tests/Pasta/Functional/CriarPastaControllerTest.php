@@ -146,25 +146,35 @@ final class CriarPastaControllerTest extends JusPrimeWebTestCase
         self::assertSame(['1', '2', '3'], $nups);
     }
 
-    #[TestDox('POST /nova com NUP duplicado agora cria segunda pasta (NUP repetível)')]
-    public function testNupDuplicadoCriaSegundaPasta(): void
+    #[TestDox('R1: o número enviado pelo POST é IGNORADO — a tela não escolhe mais o número')]
+    public function testNumeroEnviadoPeloPostEhIgnorado(): void
     {
         $client          = static::createClient();
         [$user, $tenant] = $this->criarUsuarioAdmin();
-        $nup = 'NUP-DUP-' . strtoupper(uniqid());
+        $nupForjado      = 'NUP-DUP-' . strtoupper(uniqid());
 
         $this->logarComTenant($client, $user, $tenant);
 
-        $client->request('POST', '/pasta/nova', ['nup' => $nup]);
+        // O campo saiu do modal, mas o endpoint continua aceitando POST livre: alguém pode
+        // reenviar `nup` à mão (curl, formulário salvo, extensão). Este teste fixa que isso não
+        // reabre a porta da colisão — o servidor não olha para o valor.
+        $client->request('POST', '/pasta/nova', ['nup' => $nupForjado]);
         self::assertResponseRedirects();
-        self::assertMatchesRegularExpression('#/pasta/\d+$#', (string) $client->getResponse()->headers->get('Location'));
-
-        $client->request('POST', '/pasta/nova', ['nup' => $nup]);
+        $client->request('POST', '/pasta/nova', ['nup' => $nupForjado]);
         self::assertResponseRedirects();
-        self::assertMatchesRegularExpression('#/pasta/\d+$#', (string) $client->getResponse()->headers->get('Location'));
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        self::assertCount(2, $em->getRepository(Pasta::class)->findBy(['nup' => $nup]));
+        self::assertCount(
+            0,
+            $em->getRepository(Pasta::class)->findBy(['nup' => $nupForjado]),
+            'o número veio do POST — a tela voltou a escolher o número e a colisão reabriu',
+        );
+
+        $nups = array_map(
+            static fn (Pasta $p): ?string => $p->getNup(),
+            $em->getRepository(Pasta::class)->findBy(['tenant' => $tenant], ['id' => 'ASC']),
+        );
+        self::assertSame(['1', '2'], $nups);
     }
 
     #[TestDox('POST /nova sem módulo pastas redireciona para expediente_index sem criar pasta')]

@@ -6,6 +6,7 @@ namespace App\Sync\MessageHandler;
 
 use App\Entity\Tenant\Tenant;
 use App\Sync\Exception\TenantSemDriveException;
+use App\Sync\Enum\ModoSincronizacao;
 use App\Sync\Message\SincronizarPastaNoDrive;
 use App\Sync\Service\GoogleDriveClientFactoryInterface;
 use App\Sync\Service\ReconciliadorDePasta;
@@ -63,7 +64,22 @@ final class SincronizarPastaNoDriveHandler
             return; // escritório sem Drive conectado — no-op
         }
 
-        $resultado = $this->reconciliador->sincronizarPasta($mensagem->pastaId, $drive->rootFolderId, $drive->client);
+        // Sempre `Enviar`: o worker é caminho AUTOMÁTICO e, por decisão do dono (R2), automático
+        // nunca importa do Drive. Antes o handler herdava o comportamento bidirecional do motor.
+        $resultado = $this->reconciliador->sincronizarPasta(
+            $mensagem->pastaId,
+            $drive->rootFolderId,
+            $drive->client,
+            dryRun: false,
+            modo: ModoSincronizacao::Enviar,
+        );
+
+        // R3: a propagação do nome vem depois do envio, porque `garantirFolderDaPasta` pode ter
+        // acabado de criar a pasta no Drive — e aí ela já nasce com o nome certo, tornando a
+        // renomeação um no-op barato em vez de um erro por folder inexistente.
+        if ($mensagem->renomear) {
+            $this->reconciliador->renomearNoDrive($mensagem->pastaId, $drive->client, false, $resultado);
+        }
 
         foreach ($resultado->mensagens as $msg) {
             $this->logger->warning('[sync pasta {pasta}] {msg}', ['pasta' => $mensagem->pastaId, 'msg' => $msg]);

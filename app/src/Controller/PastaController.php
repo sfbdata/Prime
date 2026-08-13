@@ -44,6 +44,7 @@ use App\Pasta\DTO\CriarPastaDTO;
 use App\Pasta\DTO\EditarPastaDTO;
 use App\Pasta\UseCase\AdicionarChecklistItemUseCase;
 use App\Pasta\UseCase\CriarPastaUseCase;
+use App\Sync\Service\ReconciliadorDePasta;
 use App\Sync\Service\SincronizacaoPastaDispatcher;
 use App\Pasta\UseCase\DefinirProcessoPrincipalUseCase;
 use App\Pasta\UseCase\DesvincularProcessoUseCase;
@@ -167,8 +168,12 @@ class PastaController extends AbstractController
             return $this->redirectToRoute('expediente_index');
         }
 
+        // R1: o número NÃO vem mais da tela — é sequência interna do escritório, atribuída pelo
+        // GerarNumeroDePasta. O campo saiu do modal justamente para encerrar a colisão manual
+        // (em produção, 3 números duplicados por duas pessoas criando a mesma pasta ao mesmo
+        // tempo). `nup: null` = gerar. Os caminhos que TÊM número de origem (importação do CSV do
+        // acervo e descoberta pelo Drive) continuam passando o seu direto ao UseCase.
         $dto = new CriarPastaDTO(
-            nup: (string) $request->request->get('nup', ''),
             nomeCliente: ($v = trim((string) $request->request->get('nome_cliente', ''))) !== '' ? $v : null,
             nomeAcao: ($v = trim((string) $request->request->get('nome_acao', ''))) !== '' ? $v : null,
         );
@@ -902,6 +907,10 @@ class PastaController extends AbstractController
             throw $this->createAccessDeniedException('Token CSRF inválido.');
         }
 
+        // R3: o nome de ANTES precisa ser capturado aqui, enquanto a entidade ainda tem os valores
+        // antigos — depois do UseCase já é tarde. É ele que decide se vale um write no Drive.
+        $nomeAntes = ReconciliadorDePasta::nomeEsperado($pasta->getNup(), $pasta->getNomeCliente(), $pasta->getNomeAcao());
+
         $dto = new EditarPastaDTO(
             nup: (string) $request->request->get('nup', ''),
             nomeCliente: ($v = trim((string) $request->request->get('nome_cliente', ''))) !== '' ? $v : null,
@@ -913,6 +922,13 @@ class PastaController extends AbstractController
         } catch (\InvalidArgumentException $e) {
             $this->addFlash('error', $e->getMessage());
             return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId()]);
+        }
+
+        // 6º ponto de gatilho do sync (R3): renomear no sistema passa a renomear no Drive. Só
+        // enfileira se o nome realmente mudou — nome igual não vira write.
+        $tenantAtual = $this->tenantContext->getCurrentTenant();
+        if ($tenantAtual !== null) {
+            $this->syncDispatcher->despacharSeNomeMudou($pasta, $currentUser, $tenantAtual, $nomeAntes);
         }
 
         $this->addFlash('success', 'Pasta atualizada com sucesso.');

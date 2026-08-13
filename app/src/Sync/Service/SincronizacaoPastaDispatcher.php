@@ -31,7 +31,12 @@ final class SincronizacaoPastaDispatcher
     ) {
     }
 
-    public function despachar(Pasta $pasta, User $usuario, Tenant $tenant): void
+    /**
+     * @param bool $renomear Pede ao worker que propague o NOME da pasta ao Drive (R3). Passe
+     *                       `true` só depois de comparar o nome antes/depois — ver
+     *                       {@see despacharSeNomeMudou()}, que é o caminho normal.
+     */
+    public function despachar(Pasta $pasta, User $usuario, Tenant $tenant, bool $renomear = false): void
     {
         if ($this->conexoes->findAtivaDoTenant($tenant) === null) {
             return; // escritório sem Drive conectado — nada a sincronizar
@@ -42,6 +47,7 @@ final class SincronizacaoPastaDispatcher
                 (int) $pasta->getId(),
                 (int) $tenant->getId(),
                 (int) $usuario->getId(),
+                $renomear,
             ));
         } catch (\Throwable $e) {
             $this->logger->error('Falha ao enfileirar sync da pasta {pasta}: {erro}', [
@@ -49,5 +55,32 @@ final class SincronizacaoPastaDispatcher
                 'erro'  => $e->getMessage(),
             ]);
         }
+    }
+
+    /**
+     * 6º ponto de gatilho (requisito R3): editar a pasta reflete o novo nome no Drive.
+     *
+     * Antes disto, mudar o número/cliente/ação no sistema NÃO mexia no Drive — a divergência só
+     * era REPORTADA pelo reconciliador (linhas `[divergência]`) e ficava lá para sempre. Era a
+     * origem das ~426 diferenças de nome do acervo.
+     *
+     * A comparação é feita AQUI, com o nome de antes capturado pelo chamador ANTES de gravar. Se
+     * o nome não mudou, nada é enfileirado: nome igual não vira write no Drive (D12.3).
+     *
+     * @param string $nomeAntes Resultado de ReconciliadorDePasta::nomeEsperado() ANTES da edição.
+     */
+    public function despacharSeNomeMudou(Pasta $pasta, User $usuario, Tenant $tenant, string $nomeAntes): void
+    {
+        $nomeDepois = ReconciliadorDePasta::nomeEsperado(
+            $pasta->getNup(),
+            $pasta->getNomeCliente(),
+            $pasta->getNomeAcao(),
+        );
+
+        if ($nomeAntes === $nomeDepois) {
+            return;
+        }
+
+        $this->despachar($pasta, $usuario, $tenant, renomear: true);
     }
 }

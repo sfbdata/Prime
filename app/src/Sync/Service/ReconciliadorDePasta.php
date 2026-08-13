@@ -11,6 +11,7 @@ use App\Pasta\Entity\PastaSecao;
 use App\Pasta\Repository\PastaSecaoRepository;
 use App\Shared\Service\ArquivoStorageInterface;
 use App\Sync\DTO\ResultadoReconciliacaoPasta;
+use App\Sync\Enum\ModoSincronizacao;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
@@ -48,18 +49,74 @@ final class ReconciliadorDePasta
      * Sincroniza uma pasta ponta a ponta (garante o folder no Drive + reconcilia arquivos), para o
      * handler da Fase 2. Devolve o resultado agregado. Não lança por erro de item (fica no resultado).
      */
-    public function sincronizarPasta(int $pastaId, string $rootFolderId, GoogleDriveClientInterface $client, bool $dryRun = false): ResultadoReconciliacaoPasta
-    {
+    public function sincronizarPasta(
+        int $pastaId,
+        string $rootFolderId,
+        GoogleDriveClientInterface $client,
+        bool $dryRun = false,
+        ModoSincronizacao $modo = ModoSincronizacao::Enviar,
+    ): ResultadoReconciliacaoPasta {
         $resultado = new ResultadoReconciliacaoPasta();
 
-        $this->garantirFolderDaPasta($pastaId, $rootFolderId, $client, $dryRun, $resultado);
-        if ($resultado->fatal) {
-            return $resultado;
+        if ($modo->envia()) {
+            $this->garantirFolderDaPasta($pastaId, $rootFolderId, $client, $dryRun, $resultado);
+            if ($resultado->fatal) {
+                return $resultado;
+            }
         }
 
-        $this->reconciliarArquivosDaPasta($pastaId, $client, $dryRun, $resultado);
+        $this->reconciliarArquivosDaPasta($pastaId, $client, $dryRun, $resultado, $modo);
 
         return $resultado;
+    }
+
+    /**
+     * Propaga o nome do sistema para o Drive (requisito R3 / D12.3): renomeia a pasta já vinculada
+     * para o {@see self::nomeEsperado()} atual.
+     *
+     * Chamado POR EVENTO — quando o usuário edita a pasta e o nome de fato muda —, nunca por
+     * varredura. A decisão do dono foi explícita: renomear as 1070 pastas a cada rodada do cron,
+     * mesmo com o nome já igual, seriam ~1070 writes/hora inúteis, e write pesa mais na cota da
+     * API do que leitura. Quem sabe que o nome mudou é a origem da edição, então a condição vive
+     * lá — aqui não há leitura do Drive para comparar.
+     *
+     * No-op silencioso se a pasta ainda não tem vínculo (o envio normal cria com o nome certo).
+     */
+    public function renomearNoDrive(int $pastaId, GoogleDriveClientInterface $client, bool $dryRun, ResultadoReconciliacaoPasta $r): void
+    {
+        $conn = $this->em->getConnection();
+        $row  = $conn->fetchAssociative(
+            'SELECT drive_folder_id, nup, nome_cliente, nome_acao FROM pasta WHERE id = :id',
+            ['id' => $pastaId],
+        );
+
+        if ($row === false || $row['drive_folder_id'] === null || $row['drive_folder_id'] === '') {
+            return;
+        }
+
+        $nome = self::nomeEsperado(
+            $row['nup'] === null ? null : (string) $row['nup'],
+            $row['nome_cliente'] === null ? null : (string) $row['nome_cliente'],
+            $row['nome_acao'] === null ? null : (string) $row['nome_acao'],
+        );
+
+        if ($nome === '') {
+            return; // sem nada para nomear — não apaga o nome que está no Drive
+        }
+
+        if ($dryRun) {
+            $r->renomeadasNoDrive++;
+
+            return;
+        }
+
+        try {
+            $client->renomearPasta((string) $row['drive_folder_id'], $nome);
+            $r->renomeadasNoDrive++;
+        } catch (\Throwable $e) {
+            $r->erros++;
+            $r->log(sprintf('[erro] pasta_id=%d (renomear no Drive): %s', $pastaId, $e->getMessage()));
+        }
     }
 
     /**
@@ -110,8 +167,13 @@ final class ReconciliadorDePasta
      * re-execução (D5/R1). Ordem sistema→Drive antes de Drive→sistema: o recém-enviado (id em
      * $conhecidos) não é reimportado. Identidade sempre por drive_file_id. Marca $r->fatal se o EM fechar.
      */
-    public function reconciliarArquivosDaPasta(int $pastaId, GoogleDriveClientInterface $client, bool $dryRun, ResultadoReconciliacaoPasta $r): void
-    {
+    public function reconciliarArquivosDaPasta(
+        int $pastaId,
+        GoogleDriveClientInterface $client,
+        bool $dryRun,
+        ResultadoReconciliacaoPasta $r,
+        ModoSincronizacao $modo = ModoSincronizacao::Enviar,
+    ): void {
         $conn = $this->em->getConnection();
 
         $row = $conn->fetchAssociative('SELECT tenant_id, drive_folder_id FROM pasta WHERE id = :id', ['id' => $pastaId]);
@@ -138,10 +200,10 @@ final class ReconciliadorDePasta
         }
 
         // --- Via A — sistema→Drive: cada doc sem drive_file_id sobe (seção vira subpasta-espelho, Fork 1). ---
-        $docRows = $conn->fetchAllAssociative(
+        $docRows = $modo->envia() ? $conn->fetchAllAssociative(
             'SELECT id, caminho_arquivo FROM pasta_documento WHERE pasta_id = :p AND drive_file_id IS NULL ORDER BY id ASC',
             ['p' => $pastaId],
-        );
+        ) : [];
         foreach ($docRows as $docRow) {
             $caminho = $this->storage->caminho($this->uploadsDir, (string) $docRow['caminho_arquivo']);
             // Checagem read-only, faz sentido no dry-run também (preview fiel ao lote real, §10.6/passo 4).
@@ -183,6 +245,13 @@ final class ReconciliadorDePasta
         }
 
         // --- Via B — Drive→sistema (recursivo, §11.6). ---
+        // R2: fora do modo Importar esta via NÃO roda. O código segue inteiro de propósito — é o
+        // motor do botão "Importar" (Fatia B) e da migração do acervo (R7). O que mudou foi só
+        // quem pode acioná-lo: nunca o cron nem o worker, só um pedido explícito.
+        if (!$modo->importa()) {
+            return;
+        }
+
         // Seção resolvida por nome-UPPER e criada preguiçosamente (só no 1º arquivo importável → sem
         // seção fantasma). O id memoizado sobrevive aos clears por item.
         /** @var array<string, int> $secaoIds */

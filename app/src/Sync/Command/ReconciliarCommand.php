@@ -12,6 +12,7 @@ use App\Pasta\UseCase\CriarPastaUseCase;
 use App\Repository\TenantRepository;
 use App\Sync\DTO\DriveDoTenant;
 use App\Sync\DTO\ResultadoReconciliacaoPasta;
+use App\Sync\Enum\ModoSincronizacao;
 use App\Sync\Exception\TenantSemDriveException;
 use App\Sync\Repository\TenantDriveConexaoRepository;
 use App\Sync\Service\GoogleDriveClientFactoryInterface;
@@ -26,16 +27,20 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
 /**
- * Fase 1/2 — motor de reconciliação bidirecional (aditivo, nunca apaga) de PASTAS e ARQUIVOS.
+ * Fase 1/2 — motor de reconciliação (aditivo, nunca apaga) de PASTAS e ARQUIVOS.
  * MULTI-TENANT: obtém o client e a pasta-raiz de CADA escritório pela fábrica (a partir da
  * TenantDriveConexao cifrada). Com --tenant-id roda um; sem, itera todos os tenants com Drive
  * conectado. O núcleo por-pasta (folder + arquivos) é o serviço {@see ReconciliadorDePasta},
  * reusado pelo handler da Fase 2. A descoberta Drive→sistema (subpasta nova vira Pasta) fica aqui.
  * Identidade por drive_folder_id / drive_file_id; flush+clear por item; idempotente.
+ *
+ * DEIXOU DE SER BIDIRECIONAL POR PADRÃO (spec fase2 §12.5 / R2): o sentido agora é
+ * {@see ModoSincronizacao} e o padrão é `enviar` (só sistema→Drive). Importar continua possível —
+ * o código todo está aqui —, mas exige `--modo=importar` de propósito. O sistema é a fonte.
  */
 #[AsCommand(
     name: 'app:sync:reconciliar',
-    description: 'Reconcilia pastas e arquivos entre sistema e Drive (bidirecional, aditivo, multi-tenant)',
+    description: 'Reconcilia pastas e arquivos do sistema para o Drive (--modo=enviar por padrão; aditivo, multi-tenant)',
 )]
 final class ReconciliarCommand extends Command
 {
@@ -59,7 +64,20 @@ final class ReconciliarCommand extends Command
             ->addOption('dry-run', null, InputOption::VALUE_NONE, 'Simula (sem mutação no Drive; DB revertido)')
             ->addOption('limit', null, InputOption::VALUE_REQUIRED, 'Processa só as N primeiras de cada via (amostra)')
             ->addOption('pasta-id', null, InputOption::VALUE_REQUIRED, 'Processa só uma pasta do sistema→Drive (debug); pula a via Drive→sistema')
-            ->addOption('skip-arquivos', null, InputOption::VALUE_NONE, 'Reconcilia só PASTAS (pula a sincronização de arquivos)');
+            ->addOption('skip-arquivos', null, InputOption::VALUE_NONE, 'Reconcilia só PASTAS (pula a sincronização de arquivos)')
+            // R2: o PADRÃO é `enviar`. Antes, rodar sem opção nenhuma fazia os dois sentidos — era
+            // assim que o cron importava do Drive de hora em hora. Deixar o padrão em `ambos` e
+            // confiar num passo de ops para trocar o cron seria apostar a garantia "nada importa
+            // sozinho" numa linha de crontab que alguém precisa lembrar de editar. Com o padrão
+            // aqui, mesmo o cron antigo (sem --modo) para de importar assim que o deploy sobe.
+            ->addOption(
+                'modo',
+                null,
+                InputOption::VALUE_REQUIRED,
+                'Sentido da sincronização: ' . implode('|', ModoSincronizacao::valores())
+                    . '. Padrão: enviar (só sistema→Drive). "importar" e "ambos" nunca são automáticos.',
+                ModoSincronizacao::Enviar->value,
+            );
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -71,6 +89,17 @@ final class ReconciliarCommand extends Command
         $usuario = $uid !== null ? $this->em->find(User::class, (int) $uid) : null;
         if (!$usuario instanceof User) {
             $io->error('Usuário inválido (--usuario-id é obrigatório: criadoPor das pastas nascidas no Drive).');
+
+            return Command::FAILURE;
+        }
+
+        $modo = ModoSincronizacao::tryFrom((string) $input->getOption('modo'));
+        if ($modo === null) {
+            $io->error(sprintf(
+                'Modo inválido "%s". Use: %s.',
+                (string) $input->getOption('modo'),
+                implode(', ', ModoSincronizacao::valores()),
+            ));
 
             return Command::FAILURE;
         }
@@ -93,13 +122,14 @@ final class ReconciliarCommand extends Command
             /** @var Tenant $tenant */
             /** @var DriveDoTenant $drive */
             $io->writeln(sprintf(
-                'Reconciliando <info>tenant %d</info> contra a raiz <info>%s</info>%s',
+                'Reconciliando <info>tenant %d</info> contra a raiz <info>%s</info> [modo: <info>%s</info>]%s',
                 (int) $tenant->getId(),
                 $drive->rootFolderId,
+                $modo->value,
                 (bool) $input->getOption('dry-run') ? ' <comment>(dry-run)</comment>' : '',
             ));
 
-            if ($this->processarTenant($tenant, $drive, $usuario, $input, $totais, $io)) {
+            if ($this->processarTenant($tenant, $drive, $usuario, $input, $modo, $totais, $io)) {
                 $fatal = true;
                 break; // EM fechou — aborta a rodada inteira (idempotente na reexecução)
             }
@@ -164,7 +194,7 @@ final class ReconciliarCommand extends Command
      *
      * @param array<string, int> $totais
      */
-    private function processarTenant(Tenant $tenant, DriveDoTenant $drive, User $usuario, InputInterface $input, array &$totais, SymfonyStyle $io): bool
+    private function processarTenant(Tenant $tenant, DriveDoTenant $drive, User $usuario, InputInterface $input, ModoSincronizacao $modo, array &$totais, SymfonyStyle $io): bool
     {
         $tenantId = (int) $tenant->getId();
         $dryRun   = (bool) $input->getOption('dry-run');
@@ -187,12 +217,16 @@ final class ReconciliarCommand extends Command
 
         $fatal = false;
         try {
-            $fatal = $this->sistemaParaDrive($tenantId, $pastaIdOpt, $limit, $drive, $dryRun, $totais, $io);
-            if (!$fatal && $pastaIdOpt === null) {
+            if ($modo->envia()) {
+                $fatal = $this->sistemaParaDrive($tenantId, $pastaIdOpt, $limit, $drive, $dryRun, $totais, $io);
+            }
+            // R2: a descoberta Drive→sistema (subpasta nova vira Pasta) só roda sob pedido
+            // explícito. É a via que criava pastas no sistema a partir do Drive de hora em hora.
+            if (!$fatal && $modo->importa() && $pastaIdOpt === null) {
                 $fatal = $this->driveParaSistema($tenantId, (int) $usuario->getId(), $limit, $drive, $dryRun, $totais, $io);
             }
             if (!$fatal && !$skipArquivos) {
-                $fatal = $this->reconciliarArquivos($tenantId, $pastaIdOpt, $limit, $drive->client, $dryRun, $totais, $io);
+                $fatal = $this->reconciliarArquivos($tenantId, $pastaIdOpt, $limit, $drive->client, $dryRun, $modo, $totais, $io);
             }
         } finally {
             if ($dryRun && $conn->isTransactionActive()) {
@@ -324,7 +358,7 @@ final class ReconciliarCommand extends Command
      *
      * @param array<string, int> $totais
      */
-    private function reconciliarArquivos(int $tenantId, ?int $pastaIdOpt, ?int $limit, GoogleDriveClientInterface $client, bool $dryRun, array &$totais, SymfonyStyle $io): bool
+    private function reconciliarArquivos(int $tenantId, ?int $pastaIdOpt, ?int $limit, GoogleDriveClientInterface $client, bool $dryRun, ModoSincronizacao $modo, array &$totais, SymfonyStyle $io): bool
     {
         $conn   = $this->em->getConnection();
         $sql    = 'SELECT id FROM pasta WHERE tenant_id = :t AND drive_folder_id IS NOT NULL';
@@ -342,7 +376,7 @@ final class ReconciliarCommand extends Command
 
         $r = new ResultadoReconciliacaoPasta();
         foreach ($ids as $id) {
-            $this->reconciliador->reconciliarArquivosDaPasta($id, $client, $dryRun, $r);
+            $this->reconciliador->reconciliarArquivosDaPasta($id, $client, $dryRun, $r, $modo);
             if ($r->fatal) {
                 break;
             }
@@ -368,6 +402,7 @@ final class ReconciliarCommand extends Command
     private function absorver(ResultadoReconciliacaoPasta $r, array &$totais, SymfonyStyle $io): void
     {
         $totais['criadasNoDrive']      += $r->criadasNoDrive;
+        $totais['renomeadasNoDrive']   += $r->renomeadasNoDrive;
         $totais['arquivosEnviados']    += $r->arquivosEnviados;
         $totais['arquivosBaixados']    += $r->arquivosBaixados;
         $totais['secoesArquivos']      += $r->secoesArquivos;
@@ -386,7 +421,7 @@ final class ReconciliarCommand extends Command
     private function totaisZerados(): array
     {
         return [
-            'criadasNoDrive' => 0, 'criadasNoSistema' => 0, 'semNup' => 0, 'divergencias' => 0,
+            'criadasNoDrive' => 0, 'renomeadasNoDrive' => 0, 'criadasNoSistema' => 0, 'semNup' => 0, 'divergencias' => 0,
             'erros' => 0, 'arquivosEnviados' => 0, 'arquivosBaixados' => 0, 'secoesArquivos' => 0,
             'googleNative' => 0, 'ignoradosTamanho' => 0, 'ignoradosNome' => 0, 'ignoradosDuplicados' => 0,
         ];
@@ -399,6 +434,7 @@ final class ReconciliarCommand extends Command
         $io->table(['Métrica', 'Total'], [
             [$dryRun ? 'Pastas criadas no Drive (simulado)' : 'Pastas criadas no Drive', $totais['criadasNoDrive']],
             [$dryRun ? 'Pastas criadas no sistema (simulado)' : 'Pastas criadas no sistema', $totais['criadasNoSistema']],
+            [$dryRun ? 'Pastas renomeadas no Drive (simulado)' : 'Pastas renomeadas no Drive', $totais['renomeadasNoDrive']],
             ['Pastas do Drive sem NUP (puladas)', $totais['semNup']],
             ['Divergências de nome (só reporta)', $totais['divergencias']],
         ]);
