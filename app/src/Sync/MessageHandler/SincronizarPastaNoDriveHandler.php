@@ -77,7 +77,16 @@ final class SincronizarPastaNoDriveHandler
         // R3: a propagação do nome vem depois do envio, porque `garantirFolderDaPasta` pode ter
         // acabado de criar a pasta no Drive — e aí ela já nasce com o nome certo, tornando a
         // renomeação um no-op barato em vez de um erro por folder inexistente.
-        if ($mensagem->renomear) {
+        //
+        // O `?? false` NÃO é paranoia: o transport é `doctrine://` com o PhpSerializer nativo
+        // (config/packages/messenger.yaml, sem `serializer:`), então o payload gravado na fila
+        // é um `serialize()` do objeto. Toda mensagem enfileirada ANTES deste deploy foi
+        // serializada sem a propriedade `renomear`; ao desserializar, uma propriedade tipada
+        // ausente fica NÃO INICIALIZADA — e lê-la direto lançaria "must not be accessed before
+        // initialization", derrubando o worker em 3 retries até a fila `failed`. `??` usa
+        // semântica de isset(), que é o único acesso seguro a propriedade tipada não
+        // inicializada. Worker em restart-loop por variável faltando já aconteceu nesta casa.
+        if (($mensagem->renomear ?? false) === true) {
             $this->reconciliador->renomearNoDrive($mensagem->pastaId, $drive->client, false, $resultado);
         }
 

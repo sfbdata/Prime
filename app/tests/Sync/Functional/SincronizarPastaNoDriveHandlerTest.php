@@ -114,6 +114,51 @@ final class SincronizarPastaNoDriveHandlerTest extends KernelTestCase
         self::assertSame([], $fake->renomeacoes);
     }
 
+    #[TestDox('mensagem ENFILEIRADA ANTES do deploy (sem o campo renomear) não derruba o worker')]
+    public function testMensagemAntigaNaFilaNaoQuebra(): void
+    {
+        self::bootKernel();
+        $tenant = TenantFactory::createOne();
+        $user   = UserFactory::createOne();
+        $pasta  = PastaFactory::createOne(['tenant' => $tenant, 'nup' => '1217', 'nomeCliente' => 'ANTIGA']);
+
+        // Reproduz LITERALMENTE o payload que está gravado na tabela do transport doctrine://
+        // hoje, em produção: um serialize() da mensagem com TRÊS propriedades, feito antes de
+        // `renomear` existir. Ao desserializar, `renomear` fica não inicializada — ler direto
+        // lançaria Error e o worker entraria em retry/failed.
+        $classe  = SincronizarPastaNoDrive::class;
+        $payload = sprintf(
+            'O:%d:"%s":3:{s:7:"pastaId";i:%d;s:8:"tenantId";i:%d;s:9:"usuarioId";i:%d;}',
+            strlen($classe),
+            $classe,
+            $pasta->getId(),
+            (int) $tenant->getId(),
+            (int) $user->getId(),
+        );
+
+        $mensagemAntiga = unserialize($payload);
+        self::assertInstanceOf(SincronizarPastaNoDrive::class, $mensagemAntiga);
+        self::assertFalse(isset($mensagemAntiga->renomear), 'o payload de teste precisa estar SEM o campo novo');
+
+        $fake    = new FakeGoogleDriveClient();
+        $handler = new SincronizarPastaNoDriveHandler(
+            $this->em(),
+            new FakeGoogleDriveClientFactory($fake, 'RAIZ'),
+            self::getContainer()->get(ReconciliadorDePasta::class),
+            new NullLogger(),
+        );
+
+        $handler($mensagemAntiga); // não pode lançar
+
+        $em = $this->em();
+        $em->clear();
+        self::assertNotNull(
+            $em->find(Pasta::class, $pasta->getId())->getDriveFolderId(),
+            'a mensagem antiga tinha de ser processada normalmente (envio), sem renomear',
+        );
+        self::assertSame([], $fake->renomeacoes);
+    }
+
     #[TestDox('R2: o worker NÃO importa — arquivo que só existe no Drive não entra no sistema')]
     public function testHandlerNaoImportaDoDrive(): void
     {
