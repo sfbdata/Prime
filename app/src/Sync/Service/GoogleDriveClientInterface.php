@@ -26,4 +26,17 @@ interface GoogleDriveClientInterface
 
     /** Baixa o arquivo $fileId para $destinoLocal. */
     public function baixarArquivo(string $fileId, string $destinoLocal): void;
+
+    /**
+     * Renomeia a pasta $folderId no Drive (spec fase2 §12.5/D12.4 — requisito R3).
+     *
+     * O sistema é a fonte: quando o número/cliente/ação da pasta muda aqui, o Drive tem de
+     * acompanhar. Até 2026-08 isto não existia — renomear no sistema NÃO mexia no Drive, e a
+     * divergência só era REPORTADA pelo reconciliador, nunca corrigida.
+     *
+     * Chamar apenas quando o nome realmente mudou: renomear é WRITE e pesa mais na cota da
+     * API do que uma leitura. Varrer as 1070 pastas renomeando todas de hora em hora seria
+     * desperdício e risco de rate limit (D12.3).
+     */
+    public function renomearPasta(string $folderId, string $novoNome): void;
 }

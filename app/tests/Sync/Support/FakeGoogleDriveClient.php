@@ -71,4 +71,17 @@ final class FakeGoogleDriveClient implements GoogleDriveClientInterface
     {
         file_put_contents($destinoLocal, 'conteudo-fake-' . $fileId);
     }
+
+    /** @var list<array{folderId: string, nome: string}> Rastro das renomeações, para asserção. */
+    public array $renomeacoes = [];
+
+    public function renomearPasta(string $folderId, string $novoNome): void
+    {
+        if (!isset($this->pastas[$folderId])) {
+            throw new \RuntimeException('Pasta inexistente no Drive fake: ' . $folderId);
+        }
+
+        $this->pastas[$folderId]['nome'] = $novoNome;
+        $this->renomeacoes[] = ['folderId' => $folderId, 'nome' => $novoNome];
+    }
 }
