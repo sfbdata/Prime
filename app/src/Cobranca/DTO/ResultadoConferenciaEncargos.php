@@ -38,9 +38,27 @@ final readonly class ResultadoConferenciaEncargos
      * contagem" significar duas coisas incompatíveis — "conferi e está limpo" e "não tinha contra o
      * que conferir".
      *
+     * 🔑 **INV-CE8 — `$duplicadas` é a LISTA DA RECONCILIAÇÃO, e `$piores` NÃO é.**
+     *
+     * São perguntas diferentes e a confusão entre as duas já foi para a documentação: `$piores`
+     * responde *"onde o gravado mais se afastou da nossa fórmula"*, está **cortado em 20** e ordenado
+     * por essa diferença; `$duplicadas` responde *"quais dívidas têm dinheiro contado duas vezes"*,
+     * é **completa** e ordenada pelo duplicado.
+     *
+     * Medido pela revisão no dev: o 20º item de `$piores` já estava em R$ 91,72, enquanto o duplicado
+     * típico é da ordem de R$ 38 por dívida — ou seja, usar `$piores` como fonte da reconciliação
+     * deixaria de fora justamente as dívidas a corrigir.
+     *
+     * Cada linha carrega **o lote que foi usado** (id + emissão): sem isso, um erro de reconciliação
+     * não teria como ser achado nem desfeito (decisão do dono, §17.8 da spec).
+     *
      * @param array<string, int>                                                       $duplicadoPorCampo campo => centavos
      * @param list<array{unidade: string, referencia: ?string, campo: string, gravado: int,
      *                   pelaFormula: int, diferenca: int, duplicado: int, ehParcelaDeAcordo: bool}> $piores
+     * @param list<array{obrigacaoId: ?int, unidade: string, referencia: ?string, competencia: ?string,
+     *                   loteId: ?int, loteEmitidoEm: ?\DateTimeImmutable,
+     *                   duplicadoPorCampo: array<string, int>, duplicadoNoSaldo: int,
+     *                   duplicadoForaDoSaldo: int}>                                    $duplicadas
      */
     public function __construct(
         public string $carteira,
@@ -56,7 +74,20 @@ final readonly class ResultadoConferenciaEncargos
         public int $duplicadoEmCentavos,
         public array $duplicadoPorCampo,
         public array $piores,
+        public array $duplicadas = [],
     ) {
+    }
+
+    /** O que a reconciliação tiraria do SALDO do devedor (juros + multa + correção). */
+    public function duplicadoNoSaldoEmCentavos(): int
+    {
+        return array_sum(array_column($this->duplicadas, 'duplicadoNoSaldo'));
+    }
+
+    /** O que ela tiraria FORA do saldo (honorário) — não move a conta de ninguém. */
+    public function duplicadoForaDoSaldoEmCentavos(): int
+    {
+        return array_sum(array_column($this->duplicadas, 'duplicadoForaDoSaldo'));
     }
 
     /** As duas identidades da classe. Falso aqui significa que a régua perdeu obrigação pelo caminho. */

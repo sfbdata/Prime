@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Cobranca\Command;
 
+use App\Cobranca\DTO\ResultadoConferenciaEncargos;
 use App\Cobranca\Entity\Carteira;
 use App\Cobranca\Repository\RelatorioImportadoRepository;
 use App\Cobranca\Service\Espelho\ConferenciaDeEncargos;
@@ -37,6 +38,19 @@ final class ConferirEncargosGravadosCommand extends Command
      */
     public const COBERTURA_INCOMPLETA = 2;
 
+    /**
+     * Erro de INVOCAÇÃO (tenant inexistente), não de dado. Separado do `FAILURE` porque `1` é o
+     * sinal de "dinheiro contado duas vezes" — sobrecarregá-lo faria um cron tratar "errei o
+     * `--tenant-id`" como se tivesse achado dupla contagem, e vice-versa.
+     */
+    public const ERRO_DE_INVOCACAO = 64;
+
+    /**
+     * A régua perdeu dívida pelo caminho: os baldes não reconciliam com o universo. É defeito DA
+     * FERRAMENTA, não do dado, e por isso também não pode usar o `1`.
+     */
+    public const BALDES_NAO_FECHAM = 65;
+
     public function __construct(
         private readonly ConferenciaDeEncargos $conferencia,
         private readonly RelatorioImportadoRepository $relatorios,
@@ -51,7 +65,13 @@ final class ConferirEncargosGravadosCommand extends Command
         $this
             ->addOption('tenant-id', null, InputOption::VALUE_REQUIRED, 'ID do escritório')
             ->addOption('carteira-id', null, InputOption::VALUE_REQUIRED, 'Confere só esta carteira')
-            ->addOption('detalhar', null, InputOption::VALUE_NONE, 'Lista as piores diferenças');
+            ->addOption('detalhar', null, InputOption::VALUE_NONE, 'Lista as piores diferenças (top 20, contra a fórmula)')
+            ->addOption(
+                'duplicadas',
+                null,
+                InputOption::VALUE_NONE,
+                'Lista COMPLETA das dívidas com dupla contagem — é a lista da reconciliação (contém PII)',
+            );
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -63,7 +83,7 @@ final class ConferirEncargosGravadosCommand extends Command
         if ($tenant === null) {
             $io->error('Escritório (tenant) não encontrado.');
 
-            return Command::FAILURE;
+            return self::ERRO_DE_INVOCACAO;
         }
 
         $criterio = ['tenant' => $tenant];
@@ -111,7 +131,9 @@ final class ConferirEncargosGravadosCommand extends Command
                 [
                     ['coerente com a fórmula', $r->coerentes],
                     ['🔴 com assinatura de DUPLA CONTAGEM', $r->comDuplaContagem],
-                    ['divergente (sem a assinatura)', $r->divergentes],
+                    // "sem a assinatura" era ambíguo entre "a assinatura rodou e não casou" e "a
+                    // assinatura nunca foi lida" — e no dev 100% era o segundo caso.
+                    ['a fórmula não reproduz (duplicação não confirmada)', $r->divergentes],
                     ['— universo', $r->universo],
                 ]
             );
@@ -124,7 +146,7 @@ final class ConferirEncargosGravadosCommand extends Command
                     $r->carteira,
                 ));
 
-                return Command::FAILURE;
+                return self::BALDES_NAO_FECHAM;
             }
 
             $io->text(sprintf(
@@ -148,16 +170,33 @@ final class ConferirEncargosGravadosCommand extends Command
             $io->text(sprintf('coerentes: %.2f%% do universo', $r->percentualCoerente()));
             $io->text(sprintf('diferença total: %s', $this->reais($r->diferencaEmCentavos)));
 
+            // A cobertura sai em CAIXA PRÓPRIA e ANTES do veredito, não como texto solto. Medido pela
+            // revisão no dev: as três carteiras saíam com 0,00% de cobertura e a única caixa impressa
+            // era a de "divergente", afirmando que "arredondamento explica a maior parte" sobre um
+            // universo em que a assinatura não foi lida em nenhuma dívida. O veredito `divergente`
+            // vem antes de `cobertura incompleta` de propósito (divergência é achado, cobertura é
+            // limitação), e sem esta caixa a limitação sumia justamente quando havia os dois.
+            if ($r->injulgaveis > 0) {
+                $io->warning(sprintf(
+                    "COBERTURA INCOMPLETA: a assinatura foi lida em %d de %d dívida(s) (%.2f%%).\n"
+                    . "As outras %d NÃO foram absolvidas — não havia lote com que compará-las.\n"
+                    . 'Qualquer conclusão abaixo vale só sobre a parte conferida.',
+                    $r->assinaturaAvaliada,
+                    $r->universo,
+                    $r->percentualCoberto(),
+                    $r->injulgaveis,
+                ));
+            }
+
             match ($r->veredito()) {
                 'coerente' => $io->success('Todo encargo gravado é um número que a nossa fórmula produz.'),
-                'cobertura incompleta' => $io->warning(sprintf(
-                    'Nada divergente no que deu para ler — mas %d dívida(s) ficaram sem a assinatura '
-                    . 'avaliada. Isto NÃO é "está tudo certo": é "não deu para conferir tudo".',
-                    $r->injulgaveis,
-                )),
+                'cobertura incompleta' => $io->warning(
+                    'Nada divergente no que deu para ler — e nada a concluir sobre o resto.'
+                ),
                 'divergente' => $io->warning(
                     'Há encargo gravado que a fórmula não reproduz. Snapshot velho e arredondamento explicam '
-                    . 'a maior parte; use --detalhar e olhe o tamanho antes de concluir defeito.'
+                    . 'a maior parte DO QUE FOI CONFERIDO; use --detalhar e olhe o tamanho antes de concluir '
+                    . 'defeito.'
                 ),
                 'dupla contagem' => $io->error(sprintf(
                     "DINHEIRO CONTADO DUAS VEZES em %d dívida(s): %s\n%s\nO encargo gravado é a coluna do "
@@ -193,6 +232,10 @@ final class ConferirEncargosGravadosCommand extends Command
                     )
                 );
             }
+
+            if ($input->getOption('duplicadas')) {
+                $this->listarDuplicadas($io, $r);
+            }
         }
 
         // O código de saída é o que um cron ou um wrapper enxerga, e ele tem TRÊS estados de propósito.
@@ -203,6 +246,57 @@ final class ConferirEncargosGravadosCommand extends Command
         }
 
         return $houveInjulgavel ? self::COBERTURA_INCOMPLETA : Command::SUCCESS;
+    }
+
+    /**
+     * A LISTA DA RECONCILIAÇÃO (INV-CE8) — completa, ordenada pelo duplicado, com o lote de cada linha.
+     *
+     * É o artefato que o dono aprova ANTES de existir qualquer comando que escreva (decisão de 13/08:
+     * "a rede de segurança fica montada antes da faca"). Não confundir com `--detalhar`, que é top-20
+     * ordenado pela diferença contra a fórmula e serve para outra pergunta.
+     *
+     * ⚠️ Contém PII (unidade e número do boleto identificam o devedor): é saída de terminal para o
+     * dono, não vai para log nem para o repositório.
+     */
+    private function listarDuplicadas(SymfonyStyle $io, ResultadoConferenciaEncargos $r): void
+    {
+        if ($r->duplicadas === []) {
+            $io->text('Nenhuma dívida com a assinatura de dupla contagem nesta carteira.');
+
+            return;
+        }
+
+        $io->section(sprintf('Lista da reconciliação — %s (%d dívidas)', $r->carteira, count($r->duplicadas)));
+
+        $io->table(
+            ['id', 'unidade', 'referência', 'competência', 'lote (emissão)', 'no saldo', 'honorário', 'total'],
+            array_map(
+                fn (array $d): array => [
+                    $d['obrigacaoId'] ?? '—',
+                    $d['unidade'],
+                    $d['referencia'] ?? '—',
+                    $d['competencia'] ?? '—',
+                    // O lote é o que permite achar e desfazer um erro de reconciliação três meses
+                    // depois; sem ele a linha não é auditável.
+                    sprintf('#%s (%s)', $d['loteId'] ?? '?', $d['loteEmitidoEm']?->format('d/m/Y') ?? '?'),
+                    $d['duplicadoNoSaldo'] > 0 ? $this->reais($d['duplicadoNoSaldo']) : '—',
+                    $d['duplicadoForaDoSaldo'] > 0 ? $this->reais($d['duplicadoForaDoSaldo']) : '—',
+                    $this->reais($d['duplicadoNoSaldo'] + $d['duplicadoForaDoSaldo']),
+                ],
+                $r->duplicadas,
+            )
+        );
+
+        // Os dois totais SEPARADOS, e nunca somados numa manchete só: o honorário não entra no
+        // `valorExigivel()`, então ele não move a conta de devedor nenhum.
+        $io->text(sprintf(
+            'sai do SALDO do devedor (juros + multa + correção): %s',
+            $this->reais($r->duplicadoNoSaldoEmCentavos()),
+        ));
+        $io->text(sprintf(
+            'sai FORA do saldo (honorário — não muda o que ninguém deve): %s',
+            $this->reais($r->duplicadoForaDoSaldoEmCentavos()),
+        ));
     }
 
     private function reais(int $centavos): string

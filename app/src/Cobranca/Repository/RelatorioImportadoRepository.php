@@ -8,6 +8,7 @@ use App\Cobranca\Entity\Carteira;
 use App\Cobranca\Entity\RelatorioImportado;
 use App\Cobranca\Enum\TipoRelatorioContabil;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -60,11 +61,9 @@ class RelatorioImportadoRepository extends ServiceEntityRepository
         Carteira $carteira,
         TipoRelatorioContabil $tipo = TipoRelatorioContabil::Inadimplencia,
     ): ?RelatorioImportado {
-        return $this->createQueryBuilder('r')
-            ->andWhere('r.carteira = :carteira')
-            ->andWhere('r.tipo = :tipo')
-            ->setParameter('carteira', $carteira)
-            ->setParameter('tipo', $tipo)
+        // Tenant explícito pelo mesmo motivo do irmão abaixo: este método é chamado pelos comandos do
+        // espelho, em console, onde o `TenantFilter` não está ligado.
+        return $this->daCarteiraComTenantExplicito($carteira, $tipo)
             ->orderBy('r.dadosAte', 'DESC')
             ->addOrderBy('r.id', 'DESC')
             ->setMaxResults(1)
@@ -85,27 +84,35 @@ class RelatorioImportadoRepository extends ServiceEntityRepository
         Carteira $carteira,
         TipoRelatorioContabil $tipo = TipoRelatorioContabil::Inadimplencia,
     ): array {
-        $qb = $this->createQueryBuilder('r')
-            ->andWhere('r.carteira = :carteira')
-            ->andWhere('r.tipo = :tipo')
-            ->setParameter('carteira', $carteira)
-            ->setParameter('tipo', $tipo)
-            ->orderBy('r.dadosAte', 'DESC')
-            ->addOrderBy('r.id', 'DESC');
-
-        // Tenant EXPLÍCITO: o `TenantFilter` só liga no evento de request, e isto roda em console —
-        // mesmo motivo documentado em `ObrigacaoRepository::emAbertoDaCarteiraAteComEncargos`. A
-        // carteira já ancoraria o tenant na prática; o filtro está aqui para que a garantia não dependa
-        // de uma cadeia de FK que uma refatoração futura pode afrouxar sem ninguém notar.
-        $tenant = $carteira->getTenant();
-
-        if ($tenant !== null) {
-            $qb->andWhere('r.tenant = :tenant')->setParameter('tenant', $tenant);
-        }
-
         /** @var list<RelatorioImportado> $lotes */
-        $lotes = $qb->getQuery()->getResult();
+        $lotes = $this->daCarteiraComTenantExplicito($carteira, $tipo)
+            ->orderBy('r.dadosAte', 'DESC')
+            ->addOrderBy('r.id', 'DESC')
+            ->getQuery()
+            ->getResult();
 
         return $lotes;
+    }
+
+    /**
+     * A base das consultas por carteira, com o **tenant explícito** — o `TenantFilter` só liga no
+     * evento de request, e estas consultas rodam em console (mesmo motivo documentado em
+     * `ObrigacaoRepository::emAbertoDaCarteiraAteComEncargos`).
+     *
+     * 🔑 **Falha FECHADO.** Uma versão anterior escrevia `if ($tenant !== null) { andWhere(...) }`, o
+     * que com tenant nulo **removia o filtro** — a guarda destinada a apertar o isolamento afrouxava
+     * exatamente no caso em que ela deveria valer. Aqui o parâmetro é setado sem guarda: tenant nulo
+     * não casa com linha nenhuma, que é o comportamento seguro. (`Carteira.tenant` é `nullable: false`,
+     * então na prática o caso não ocorre — mas a forma da guarda não pode depender disso.)
+     */
+    private function daCarteiraComTenantExplicito(Carteira $carteira, TipoRelatorioContabil $tipo): QueryBuilder
+    {
+        return $this->createQueryBuilder('r')
+            ->andWhere('r.carteira = :carteira')
+            ->andWhere('r.tipo = :tipo')
+            ->andWhere('r.tenant = :tenant')
+            ->setParameter('carteira', $carteira)
+            ->setParameter('tipo', $tipo)
+            ->setParameter('tenant', $carteira->getTenant());
     }
 }

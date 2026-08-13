@@ -95,6 +95,13 @@ final class ConferenciaDeEncargos
 
     private const CAMPOS = ['juros', 'multa', 'correcao', 'honorarios'];
 
+    /**
+     * Os campos que entram no `Obrigacao::valorExigivel()` — o saldo que o devedor deve.
+     * O honorário fica DE FORA, e é por isso que a lista da reconciliação separa os dois: somá-los
+     * apresentaria como "cobrado a mais" algo que em parte não é saldo.
+     */
+    private const CAMPOS_NO_SALDO = ['juros', 'multa', 'correcao'];
+
     public function __construct(
         private readonly AgrupadorDeBoletos $agrupador,
         private readonly ObrigacaoRepository $obrigacoes,
@@ -127,6 +134,7 @@ final class ConferenciaDeEncargos
         $duplicado = 0;
         $porCampo = [];
         $piores = [];
+        $duplicadas = [];
 
         // Partição por lote ANTES de somar qualquer relatório. É o que permite carregar as somas de um
         // lote, gastá-las e DESCARTAR antes do próximo: o pico de memória vira o de um lote, não o da
@@ -197,10 +205,32 @@ final class ConferenciaDeEncargos
                 if ($duplicadoAqui !== []) {
                     ++$duplaContagem;
 
+                    $noSaldo = 0;
+
                     foreach ($duplicadoAqui as $campo => $centavos) {
                         $duplicado += $centavos;
                         $porCampo[$campo] = ($porCampo[$campo] ?? 0) + $centavos;
+
+                        if (in_array($campo, self::CAMPOS_NO_SALDO, true)) {
+                            $noSaldo += $centavos;
+                        }
                     }
+
+                    // A LISTA DA RECONCILIAÇÃO (INV-CE8). Sem corte e com o lote de cada linha: é ela
+                    // que o dono aprova antes de qualquer escrita, e é contra ela que a reconciliação
+                    // roda. O `piores`, logo abaixo, NÃO serve para isso — está cortado em 20 e
+                    // ordenado pela diferença contra a fórmula, que é outra pergunta.
+                    $duplicadas[] = [
+                        'obrigacaoId' => $obrigacao->getId(),
+                        'unidade' => $this->unidadeDe($obrigacao),
+                        'referencia' => $obrigacao->getReferenciaExterna(),
+                        'competencia' => $obrigacao->getCompetencia(),
+                        'loteId' => $idDoLote,
+                        'loteEmitidoEm' => $lotesUsados[$idDoLote]?->getEmitidoEm(),
+                        'duplicadoPorCampo' => $duplicadoAqui,
+                        'duplicadoNoSaldo' => $noSaldo,
+                        'duplicadoForaDoSaldo' => array_sum($duplicadoAqui) - $noSaldo,
+                    ];
                 } else {
                     // Inclui a obrigação cuja assinatura ficou SUSPENSA por falta de lote: ela tem
                     // número sem procedência (a fórmula não o reproduz) e isso é verdade sem lote
@@ -238,6 +268,13 @@ final class ConferenciaDeEncargos
 
         usort($piores, static fn (array $a, array $b): int => abs($b['diferenca']) <=> abs($a['diferenca']));
 
+        // Ordenada pelo DUPLICADO — a pergunta da reconciliação é "quanto tem de dinheiro contado duas
+        // vezes aqui", não "quanto este snapshot se afastou da fórmula".
+        usort(
+            $duplicadas,
+            static fn (array $a, array $b): int => array_sum($b['duplicadoPorCampo']) <=> array_sum($a['duplicadoPorCampo']),
+        );
+
         return new ResultadoConferenciaEncargos(
             carteira: $carteira->getNome() ?? '?',
             dadosAte: $dadosAte,
@@ -252,6 +289,7 @@ final class ConferenciaDeEncargos
             duplicadoEmCentavos: $duplicado,
             duplicadoPorCampo: $porCampo,
             piores: array_slice($piores, 0, self::PIORES),
+            duplicadas: $duplicadas,
         );
     }
 
@@ -526,15 +564,4 @@ final class ConferenciaDeEncargos
         return $limpa;
     }
 
-    /** `1.4 - Juros` → `1.4`. Compara o código INTEIRO: `1.1` não pode casar `1.15`. */
-    private function codigoDaClasse(?string $classe): string
-    {
-        if ($classe === null) {
-            return '';
-        }
-
-        $partes = preg_split('/\s*-\s*/', trim($classe), 2);
-
-        return $partes === false ? '' : trim($partes[0]);
-    }
 }

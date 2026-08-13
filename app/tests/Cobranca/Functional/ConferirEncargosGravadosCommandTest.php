@@ -95,7 +95,12 @@ final class ConferirEncargosGravadosCommandTest extends KernelTestCase
         // Prende o veredito: sem isto o teste passaria também se a dívida caísse em "divergente",
         // que sai com o mesmo código — e aí não estaria provando a cobertura incompleta.
         self::assertStringContainsString(
-            'Isto NÃO é "está tudo certo": é "não deu para conferir tudo"',
+            'Nada divergente no que deu para ler — e nada a concluir sobre o resto',
+            $this->semQuebras($saida),
+        );
+        // N4 — a cobertura sai em CAIXA, não em texto solto que o veredito abafa.
+        self::assertStringContainsString(
+            'COBERTURA INCOMPLETA: a assinatura foi lida em 0 de 1 dívida(s) (0.00%)',
             $this->semQuebras($saida),
         );
         self::assertStringContainsString('assinatura avaliada: 0', $saida);
@@ -121,6 +126,78 @@ final class ConferirEncargosGravadosCommandTest extends KernelTestCase
         self::assertStringNotContainsString('INJULGÁVEIS', $saida, 'aviso que aparece sempre deixa de ser aviso');
     }
 
+    #[TestDox('🔴 N6 — dupla contagem sai com FAILURE, e a lista da reconciliação sai completa')]
+    public function testDuplaContagemSaiComFailureEListaNominal(): void
+    {
+        $carteira = $this->carteiraComDuplaContagem();
+
+        $codigo = $this->comando->execute([
+            '--tenant-id' => (string) $carteira->getTenant()?->getId(),
+            '--duplicadas' => true,
+        ]);
+
+        self::assertSame(Command::FAILURE, $codigo, 'o código que existe para gritar dinheiro duplicado');
+
+        $saida = $this->semQuebras($this->comando->getDisplay());
+
+        self::assertStringContainsString('DINHEIRO CONTADO DUAS VEZES', $saida);
+        self::assertStringContainsString('Lista da reconciliação', $saida);
+        // A linha traz o LOTE usado — é o que permite achar e desfazer um erro depois (§17.8).
+        self::assertStringContainsString('(12/08/2026)', $saida);
+        // E os dois totais SEPARADOS: a multa move o saldo do devedor, o honorário não.
+        self::assertStringContainsString('sai do SALDO do devedor (juros + multa + correção): R$ 45,45', $saida);
+        self::assertStringContainsString('sai FORA do saldo (honorário', $saida);
+    }
+
+    #[TestDox('N2 — tenant inexistente NÃO usa o código 1, que significa dupla contagem')]
+    public function testTenantInexistenteTemCodigoProprio(): void
+    {
+        $codigo = $this->comando->execute(['--tenant-id' => '999999']);
+
+        self::assertSame(ConferirEncargosGravadosCommand::ERRO_DE_INVOCACAO, $codigo);
+        self::assertNotSame(Command::FAILURE, $codigo, 'senão um cron lê erro de invocação como dupla contagem');
+    }
+
+    /**
+     * Uma carteira com UMA parcela de acordo que tem a assinatura exata da dupla contagem na MULTA —
+     * a forma em que o defeito apareceu em produção.
+     *
+     *   1.1 → valor 400,00 · multa 8,00 · 1.5 → valor 45,45 · multa 0,91
+     *   Σ J = 8,91 · multa gravada = 8,91 + 45,45 = 54,36  ← os 45,45 duplicados
+     */
+    private function carteiraComDuplaContagem(): Carteira
+    {
+        $carteira = $this->carteiraVazia();
+        $caso = $this->caso($carteira, '02-01');
+        $vencimento = new \DateTimeImmutable('2025-12-15');
+
+        $obrigacao = ObrigacaoFactory::createOne([
+            'tenant' => $carteira->getTenant(),
+            'caso' => $caso,
+            'referenciaExterna' => '74790',
+            'competencia' => '12/2025',
+            'valorOriginal' => 44545,
+            'vencimentoOriginal' => $vencimento,
+        ])->_real();
+
+        $obrigacao->definirEncargos(3560, 5436, 0, 0, new \DateTimeImmutable('2026-08-12'));
+        $this->em->flush();
+
+        $comum = [
+            'unidade' => '02-01', 'nn' => '74790', 'competencia' => '12/2025',
+            'vencimento' => '15/12/2025', 'correcao' => 0.0, 'acordo' => 'Acordo 426 - Parc. 1/6',
+        ];
+
+        $arquivo = $this->montarPlanilha([
+            $this->linhaDeDado(...$comum, classe: '1.1 - Taxa de condomínio', valor: 400.00, juros: 32.00, multa: 8.00, honorarios: 0.0),
+            $this->linhaDeDado(...$comum, classe: '1.5 - Multas', valor: 45.45, juros: 3.60, multa: 0.91, honorarios: 0.0),
+        ], dadosAte: self::EMISSAO_DO_LOTE, emissao: self::EMISSAO_DO_LOTE . ' 09:42');
+
+        $this->gravar->executar(new GravarEspelhoRelatorioInput($carteira, $arquivo));
+
+        return $carteira;
+    }
+
     /**
      * O `SymfonyStyle` quebra as caixas de aviso em várias linhas, com padding — asserir a frase
      * literal falharia por formatação, não por comportamento.
@@ -128,6 +205,42 @@ final class ConferirEncargosGravadosCommandTest extends KernelTestCase
     private function semQuebras(string $saida): string
     {
         return (string) preg_replace('/\s+/u', ' ', $saida);
+    }
+
+    /** A carteira TOPLIFE padrão dos testes do espelho, sem objeto nem obrigação. */
+    private function carteiraVazia(): Carteira
+    {
+        return CarteiraFactory::createOne([
+            'tenant' => TenantFactory::createOne(),
+            'taxaJurosMensalBp' => 100,
+            'regimeJuros' => RegimeJuros::Simples,
+            'taxaMultaBp' => 200,
+            'baseMulta' => BaseEncargo::Principal,
+            'taxaCorrecaoBp' => 0,
+            'baseCorrecao' => BaseEncargo::Principal,
+            'baseHonorarios' => BaseEncargo::Composta,
+            'formaHonorarios' => FormaHonorarios::AcrescidoDivida,
+            'percentualHonorarios' => '20.00',
+            'carenciaHonorariosDias' => 30,
+            'toleranciaJurosMultaDias' => 0,
+        ])->_real();
+    }
+
+    private function caso(Carteira $carteira, string $identificacao): CasoCobranca
+    {
+        $objeto = ObjetoCobrancaFactory::createOne([
+            'tenant' => $carteira->getTenant(),
+            'carteira' => $carteira,
+            'identificacao' => $identificacao,
+        ]);
+
+        /** @var CasoCobranca $caso */
+        $caso = CasoCobrancaFactory::createOne([
+            'tenant' => $carteira->getTenant(),
+            'objeto' => $objeto,
+        ])->_real();
+
+        return $caso;
     }
 
     /**
@@ -142,32 +255,8 @@ final class ConferirEncargosGravadosCommandTest extends KernelTestCase
         \DateTimeImmutable $vencimento,
         array $encargos,
     ): Carteira {
-        $carteira = CarteiraFactory::createOne([
-            'tenant' => TenantFactory::createOne(),
-            'taxaJurosMensalBp' => 100,
-            'regimeJuros' => RegimeJuros::Simples,
-            'taxaMultaBp' => 200,
-            'baseMulta' => BaseEncargo::Principal,
-            'taxaCorrecaoBp' => 0,
-            'baseCorrecao' => BaseEncargo::Principal,
-            'baseHonorarios' => BaseEncargo::Composta,
-            'formaHonorarios' => FormaHonorarios::AcrescidoDivida,
-            'percentualHonorarios' => '20.00',
-            'carenciaHonorariosDias' => 30,
-            'toleranciaJurosMultaDias' => 0,
-        ])->_real();
-
-        $objeto = ObjetoCobrancaFactory::createOne([
-            'tenant' => $carteira->getTenant(),
-            'carteira' => $carteira,
-            'identificacao' => '01-01',
-        ]);
-
-        /** @var CasoCobranca $caso */
-        $caso = CasoCobrancaFactory::createOne([
-            'tenant' => $carteira->getTenant(),
-            'objeto' => $objeto,
-        ])->_real();
+        $carteira = $this->carteiraVazia();
+        $caso = $this->caso($carteira, '01-01');
 
         $obrigacao = ObrigacaoFactory::createOne([
             'tenant' => $carteira->getTenant(),

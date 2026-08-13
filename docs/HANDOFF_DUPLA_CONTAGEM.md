@@ -29,11 +29,13 @@ deployada, mas o INV-CE6 (comparar contra o lote que escreveu a obrigação, e n
 carregado) está **nesta frente, não publicado**. Enquanto não houver deploy,
 `app:cobranca:espelho:encargos` em prod **subconta** — ver §3.
 
-A frente está **empilhada no `master`** de propósito (declarado em `docs/frentes-ativas.md`): ela
-depende da régua corrigida, que é como o conserto se prova. **O deploy será os dois juntos.**
+A frente sai de `d8881b02` — ⚠️ **ela NÃO contém `1b741826`** (o commit de `docs/frentes-ativas.md`),
+então "empilhada no master" é impreciso: a base é o commit da régua, não o topo. Sem conflito de
+arquivo entre os dois. Ela depende da régua corrigida, que é como o conserto se prova —
+**o deploy será os dois juntos.**
 
 ```bash
-scripts/frente-testar.sh cobranca-dupla-contagem   # 3.605 verdes em cf60fedb
+scripts/frente-testar.sh cobranca-dupla-contagem   # 3.614 verdes
 ```
 
 ## 3. Os números de produção — e por que o total se moveu TRÊS vezes
@@ -68,10 +70,24 @@ dono, 13/08. Não reconcilie a partir de consulta manual.
 ⚠️ **Ao reportar, separe sempre:** multa e juros entram no `valorExigivel()`, honorário **não**. O
 número que interessa ao devedor é multa + juros.
 
-A lista nominal (unidade, NN, id, valores) tem PII e é entregue ao dono **fora do repositório**.
-Reproduzível pelo comando `espelho:encargos --detalhar` **depois do deploy**.
+### A lista nominal — use `--duplicadas`, NUNCA `--detalhar`
 
-🔴 **O risco com prazo:** obrigação congelada nunca é re-hidratada. Se alguma das 21 for liquidada ou
+⚠️ **Correção de um erro deste handoff.** A versão anterior dizia que a lista da reconciliação era
+"reproduzível por `espelho:encargos --detalhar`". **Não era.** O `--detalhar` mostra as *piores
+diferenças contra a nossa fórmula*: está **cortado em 20** e ordenado por essa diferença, que é outra
+pergunta. Medido pela revisão no dev: o 20º item já estava em R$ 91,72, enquanto o duplicado típico é
+da ordem de R$ 38 por dívida — as dívidas a corrigir **tendiam a ficar de fora** da lista.
+
+```bash
+# a lista da reconciliação: completa, ordenada pelo duplicado, com o lote de cada linha
+php -d memory_limit=512M bin/console app:cobranca:espelho:encargos --tenant-id=<id> --duplicadas
+```
+
+Ela traz por dívida: `id`, unidade, referência, competência, **lote usado (id + emissão)**, e os totais
+**separados** — o que sai do saldo do devedor (juros + multa + correção) e o que sai fora dele
+(honorário). Contém **PII**: é saída de terminal para o dono, não vai para log nem para o repositório.
+
+🔴 **O risco com prazo:** obrigação congelada nunca é re-hidratada. Se alguma das afetadas for liquidada ou
 substituída por acordo antes do conserto, o valor inflado **congela e vira permanente**.
 
 ## 4. O que JÁ está feito nesta frente

@@ -917,7 +917,7 @@ recalcula na leitura e **a tela mostra o valor certo** — é a ressalva da §7 
 O valor inflado está no **banco**, e atinge toda leitura que não passa pela hidratação: SQL, MCP,
 relatório agregado, e a própria conferência pós-importação.
 
-🔴 **O risco vivo:** obrigação congelada nunca é re-hidratada. Se qualquer uma das 21 for liquidada ou
+🔴 **O risco vivo:** obrigação congelada nunca é re-hidratada. Se qualquer uma das afetadas for liquidada ou
 substituída por acordo **antes** do conserto, o valor inflado congela e vira permanente.
 
 ### 17.6 🔴 O que a revisão adversarial derrubou na assinatura (13/08)
@@ -1049,3 +1049,40 @@ Como o casamento por data é suposição, a segurança não pode morar só na gu
 2. **A lista nominal passa pelo dono** antes de qualquer escrita em produção.
 3. **O histórico registra QUAL LOTE** foi usado em cada obrigação corrigida — sem isso, um erro não
    tem como ser achado nem desfeito.
+
+🔑 **A ordem importa, e foi decisão explícita:** a régua produz a lista **antes** de existir qualquer
+comando com `--aplicar`. *"A rede de segurança fica montada antes da faca."*
+
+### 17.9 🔑 INV-CE8 — a lista da reconciliação é `--duplicadas`, e NÃO `--detalhar`
+
+São duas perguntas diferentes, e confundi-las já foi parar na documentação:
+
+| | `--detalhar` (`piores`) | **`--duplicadas`** |
+|---|---|---|
+| pergunta | onde o gravado mais se afastou da **nossa fórmula** | quais dívidas têm **dinheiro contado duas vezes** |
+| tamanho | **cortado em 20** | **completa** |
+| ordem | pela diferença contra a fórmula | **pelo valor duplicado** |
+| lote usado | não traz | **traz (id + emissão)** |
+| totais | um só | **separados**: sai do saldo × fora do saldo |
+
+**Medido pela revisão no dev:** o 20º item de `piores` já estava em **R$ 91,72**, enquanto o duplicado
+típico é da ordem de **R$ 38 por dívida** — usar `--detalhar` como fonte deixaria de fora justamente as
+dívidas a corrigir. A promessa errada estava escrita no handoff e foi corrigida lá.
+
+A separação **saldo × fora do saldo** é obrigatória na saída: juros, multa e correção entram no
+`Obrigacao::valorExigivel()`; **honorário não**. Um total único apresentaria como "cobrado a mais" algo
+que em parte não move a conta de ninguém.
+
+### 17.10 ⚠️ Depois do INV-CE6, o DEV deixou de exercitar a assinatura
+
+Medido pela revisão: com a âncora em `emitidoEm`, as **três** carteiras do dev passam a reportar
+`assinatura avaliada: 0 (0,00% do universo)` — no dev os carimbos das obrigações quase nunca caem numa
+data com lote carregado, então quase tudo vira injulgável.
+
+**Consequência prática:** rodar a régua no dev **não prova nada** sobre a dupla contagem. Em produção a
+cobertura é alta (os carimbos das 3.573 obrigações caem na emissão de 11/08). É mais uma instância da
+regra da casa — *número de dev não serve para decidir* —, agora valendo também para a **cobertura do
+próprio instrumento**, não só para o valor medido.
+
+Quem for validar o conserto: use os **testes** (que montam o lote e o carimbo de propósito) e a
+**produção**; não conclua do dev.
