@@ -19,7 +19,8 @@ final readonly class ResultadoReconciliacao
      * @param list<array{obrigacaoId: int, unidade: string, referencia: ?string, casoId: int,
      *                   loteId: ?int, loteEmitidoEm: ?\DateTimeImmutable,
      *                   antes: array<string, int>, depois: array<string, int>,
-     *                   removidoNoSaldo: int, removidoForaDoSaldo: int}> $corrigidas
+     *                   removidoNoSaldo: int, removidoForaDoSaldo: int,
+     *                   duplicadoNoSaldo: int, duplicadoForaDoSaldo: int}> $corrigidas
      * @param list<array{obrigacaoId: int, unidade: string, referencia: ?string, motivo: string,
      *                   duplicadoNoSaldo: int, duplicadoForaDoSaldo: int}>  $puladas
      */
@@ -55,6 +56,23 @@ final readonly class ResultadoReconciliacao
     public function inflacaoQueFicouEmCentavos(): int
     {
         return array_sum(array_column($this->puladas, 'duplicadoNoSaldo'))
+            + array_sum(array_column($this->puladas, 'duplicadoForaDoSaldo'));
+    }
+
+    /**
+     * O total que a RÉGUA chamou de duplicado, no universo inteiro (corrigidas + puladas) — é contra
+     * este número que a lista foi aprovada, e é ele que a {@see ExpectativaDaLista} confere.
+     *
+     * ⚠️ **Não é o efeito da escrita.** No honorário os dois divergem de propósito: a reconciliação
+     * grava `Σ` da coluna L de todas as linhas, então a coluna L da própria linha `1.15` VOLTA para o
+     * campo, e sai do banco menos do que a régua chamou de duplicado (INV-CE9). Conferir a aprovação
+     * contra o efeito faria a trava disparar sempre que houvesse linha `1.15` com coluna L.
+     */
+    public function duplicadoTotalEmCentavos(): int
+    {
+        return array_sum(array_column($this->corrigidas, 'duplicadoNoSaldo'))
+            + array_sum(array_column($this->corrigidas, 'duplicadoForaDoSaldo'))
+            + array_sum(array_column($this->puladas, 'duplicadoNoSaldo'))
             + array_sum(array_column($this->puladas, 'duplicadoForaDoSaldo'));
     }
 

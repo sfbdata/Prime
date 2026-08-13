@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Cobranca\UseCase;
 
+use App\Cobranca\DTO\ExpectativaDaLista;
 use App\Cobranca\DTO\ResultadoReconciliacao;
 use App\Cobranca\Entity\Carteira;
 use App\Cobranca\Entity\Obrigacao;
 use App\Cobranca\Enum\TipoEventoHistorico;
+use App\Cobranca\Exception\UniversoDaListaMudouException;
 use App\Cobranca\Repository\ObrigacaoRepository;
 use App\Cobranca\Repository\RelatorioImportadoRepository;
 use App\Cobranca\Service\Espelho\ConferenciaDeEncargos;
@@ -75,10 +77,14 @@ final class ReconciliarDuplaContagemUseCase
      *
      * @param list<Carteira> $carteiras
      */
-    public function confirmar(array $carteiras, Tenant $tenant, User $usuario): ResultadoReconciliacao
-    {
+    public function confirmar(
+        array $carteiras,
+        Tenant $tenant,
+        User $usuario,
+        ExpectativaDaLista $esperado,
+    ): ResultadoReconciliacao {
         return $this->em->wrapInTransaction(
-            fn (): ResultadoReconciliacao => $this->processar($carteiras, $tenant, $usuario),
+            fn (): ResultadoReconciliacao => $this->processar($carteiras, $tenant, $usuario, $esperado),
         );
     }
 
@@ -87,8 +93,12 @@ final class ReconciliarDuplaContagemUseCase
      *
      * @param list<Carteira> $carteiras
      */
-    private function processar(array $carteiras, Tenant $tenant, ?User $usuario): ResultadoReconciliacao
-    {
+    private function processar(
+        array $carteiras,
+        Tenant $tenant,
+        ?User $usuario,
+        ?ExpectativaDaLista $esperado = null,
+    ): ResultadoReconciliacao {
         $candidatas = 0;
         $corrigidas = [];
         $puladas = [];
@@ -147,6 +157,26 @@ final class ReconciliarDuplaContagemUseCase
                 $corrigidas[] = $linha;
                 $porCaso[$casoId][] = $linha;
             }
+        }
+
+        $resultado = new ResultadoReconciliacao(
+            aplicou: $usuario !== null,
+            candidatas: $candidatas,
+            corrigidas: $corrigidas,
+            puladas: $puladas,
+            casosComEvento: 0,
+        );
+
+        // 🔑 A TRAVA DA LISTA APROVADA (§17.11). Roda antes do histórico e do flush, e lança dentro da
+        // transação: o `wrapInTransaction` derruba as alterações já feitas no laço e nada é gravado.
+        if ($esperado !== null
+            && !$esperado->confere($candidatas, $resultado->duplicadoTotalEmCentavos())) {
+            throw new UniversoDaListaMudouException(
+                $esperado->dividas,
+                $candidatas,
+                $esperado->totalDuplicadoEmCentavos,
+                $resultado->duplicadoTotalEmCentavos(),
+            );
         }
 
         $casosComEvento = 0;
@@ -281,6 +311,10 @@ final class ReconciliarDuplaContagemUseCase
             'depois' => $depois,
             'removidoNoSaldo' => $noSaldo,
             'removidoForaDoSaldo' => $antes['honorarios'] - $depois['honorarios'],
+            // O que a RÉGUA chamou de duplicado — é contra isto que a lista foi aprovada, e ele
+            // difere do `removido*` no honorário de propósito (INV-CE9).
+            'duplicadoNoSaldo' => $alvo['duplicadoNoSaldo'],
+            'duplicadoForaDoSaldo' => $alvo['duplicadoForaDoSaldo'],
         ];
     }
 

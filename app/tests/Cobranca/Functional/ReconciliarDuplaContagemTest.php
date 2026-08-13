@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Tests\Cobranca\Functional;
 
+use App\Cobranca\DTO\ExpectativaDaLista;
 use App\Cobranca\DTO\GravarEspelhoRelatorioInput;
+use App\Cobranca\DTO\ResultadoReconciliacao;
 use App\Cobranca\Entity\Carteira;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\EventoHistorico;
@@ -91,7 +93,7 @@ final class ReconciliarDuplaContagemTest extends KernelTestCase
         [$carteira, $obrigacao] = $this->cenarioDaMulta();
         $exigivelAntes = $obrigacao->valorExigivel();
 
-        $r = $this->reconciliar->confirmar([$carteira], $this->tenantDe($carteira), $this->usuario($carteira));
+        $r = $this->aplicar($carteira);
 
         self::assertTrue($r->aplicou);
         self::assertSame(4545, $r->removidoDoSaldoEmCentavos());
@@ -133,7 +135,7 @@ final class ReconciliarDuplaContagemTest extends KernelTestCase
             $this->linhaDeDado(...$comum, classe: '1.15 - Honorário', valor: 45.45, juros: 3.60, multa: 0.91, honorarios: 10.00),
         ]);
 
-        $r = $this->reconciliar->confirmar([$carteira], $this->tenantDe($carteira), $this->usuario($carteira));
+        $r = $this->aplicar($carteira);
 
         $this->em->refresh($obrigacao);
 
@@ -145,6 +147,48 @@ final class ReconciliarDuplaContagemTest extends KernelTestCase
         self::assertSame(0, $r->removidoDoSaldoEmCentavos(), 'honorário não move o saldo de ninguém');
     }
 
+    #[TestDox('🔴 campo NÃO marcado não se move — nem quando difere da coluna do relatório')]
+    public function testCamposNaoMarcadosNaoSeMovemMesmoDiferindoDaColuna(): void
+    {
+        // Achado de revisão: os outros testes eram VACUOSOS neste ponto. Neles os campos não marcados
+        // já valiam exatamente o Σ da coluna, então uma versão defeituosa que gravasse `$depois =
+        // $grupo` (os quatro campos, marcados ou não) passava em todos.
+        //
+        // Aqui os não marcados DIFEREM da coluna de propósito:
+        //   juros gravado 99,99  ×  Σ coluna I = 35,60      ← divergem
+        //   correção gravada 7,77 × Σ coluna K = 0,00       ← divergem
+        //   multa gravada 54,36 = Σ J (8,91) + H da 1.5 (45,45)  ← a ÚNICA marcada
+        //
+        // Se a reconciliação gravasse o grupo inteiro, juros viraria 3560 e correção viraria 0.
+        $carteira = $this->carteiraTopLife();
+        $caso = $this->caso($carteira, '02-06');
+        $vencimento = new \DateTimeImmutable('2025-12-15');
+
+        $obrigacao = $this->obrigacao($caso, '74796', 44545, $vencimento, 9999, 5436, 777, 0);
+
+        $comum = [
+            'unidade' => '02-06', 'nn' => '74796', 'competencia' => '12/2025',
+            'vencimento' => '15/12/2025', 'correcao' => 0.0, 'acordo' => 'Acordo 426 - Parc. 1/6',
+        ];
+
+        $this->lote($carteira, [
+            $this->linhaDeDado(...$comum, classe: '1.1 - Taxa de condomínio', valor: 400.00, juros: 32.00, multa: 8.00, honorarios: 0.0),
+            $this->linhaDeDado(...$comum, classe: '1.5 - Multas', valor: 45.45, juros: 3.60, multa: 0.91, honorarios: 0.0),
+        ]);
+
+        $r = $this->aplicar($carteira);
+
+        self::assertCount(1, $r->corrigidas, 'a multa é marcada, e só ela');
+
+        $this->em->refresh($obrigacao);
+
+        self::assertSame(891, $obrigacao->getMulta(), 'a marcada vira a coluna');
+        self::assertSame(9999, $obrigacao->getJuros(), 'o juros NÃO pode virar 3560');
+        self::assertSame(777, $obrigacao->getCorrecao(), 'a correção NÃO pode virar 0');
+        // E o efeito reportado conta só o que se moveu.
+        self::assertSame(4545, $r->removidoDoSaldoEmCentavos());
+    }
+
     #[TestDox('🔴 INV-R1 — obrigação CONGELADA é pulada, e o valor inflado dela sai no relatório')]
     public function testCongeladaEhPuladaComOValorReportado(): void
     {
@@ -152,7 +196,7 @@ final class ReconciliarDuplaContagemTest extends KernelTestCase
         $obrigacao->congelarEncargos(new \DateTimeImmutable('2026-08-12'));
         $this->em->flush();
 
-        $r = $this->reconciliar->confirmar([$carteira], $this->tenantDe($carteira), $this->usuario($carteira));
+        $r = $this->aplicar($carteira);
 
         self::assertCount(0, $r->corrigidas);
         self::assertCount(1, $r->puladas);
@@ -171,7 +215,7 @@ final class ReconciliarDuplaContagemTest extends KernelTestCase
         [$carteira, $obrigacao] = $this->cenarioDaMulta();
         $snapshotAntes = $obrigacao->getEncargosAtualizadosEm();
 
-        $this->reconciliar->confirmar([$carteira], $this->tenantDe($carteira), $this->usuario($carteira));
+        $this->aplicar($carteira);
 
         $this->em->refresh($obrigacao);
 
@@ -187,7 +231,7 @@ final class ReconciliarDuplaContagemTest extends KernelTestCase
     {
         [$carteira, $obrigacao] = $this->cenarioDaMulta();
 
-        $r = $this->reconciliar->confirmar([$carteira], $this->tenantDe($carteira), $this->usuario($carteira));
+        $r = $this->aplicar($carteira);
 
         self::assertSame(1, $r->casosComEvento);
 
@@ -208,16 +252,66 @@ final class ReconciliarDuplaContagemTest extends KernelTestCase
         self::assertSame(891, $dados['obrigacoes'][0]['depois']['multa'] ?? null);
     }
 
-    #[TestDox('Idempotente: rodar de novo não acha mais nada — o corrigido não casa a assinatura')]
+    #[TestDox('Idempotente NO BANCO: com a UnitOfWork limpa, a segunda passada não acha nada')]
     public function testRodarDeNovoNaoAchaNada(): void
     {
-        [$carteira, $obrigacao] = $this->cenarioDaMulta();
+        [$carteira] = $this->cenarioDaMulta();
         $tenant = $this->tenantDe($carteira);
 
-        $this->reconciliar->confirmar([$carteira], $tenant, $this->usuario($carteira));
+        $this->aplicar($carteira);
+
+        // 🔑 `clear()` não é detalhe: sem ele a segunda leitura vem do identity map e o teste provaria
+        // apenas "a entidade em memória mudou", que os outros testes já provam. Com ele, a régua relê
+        // do BANCO — que é onde a idempotência precisa valer. Achado de revisão.
+        $this->em->clear();
+
         $segunda = $this->reconciliar->prever([$carteira], $tenant);
 
         self::assertSame(0, $segunda->candidatas, 'a assinatura deixou de casar; não há o que reconciliar');
+    }
+
+    #[TestDox('🔴 INV-CE9 — depois da correção, REIMPORTAR o mesmo lote não mexe em nada')]
+    public function testReimportarDepoisDaCorrecaoNaoMexeEmNada(): void
+    {
+        // Esta é a razão de ser do INV-CE9, e até agora era só afirmação: gravamos o encargo DAS
+        // COLUNAS justamente para que a importação corrigida, rodando de novo sobre o mesmo lote,
+        // encontre exatamente o que já está lá. Se gravássemos `gravado − duplicado`, a reimportação
+        // moveria o honorário de volta — e o conserto não seria estável.
+        $carteira = $this->carteiraTopLife();
+        $caso = $this->caso($carteira, '02-05');
+        $vencimento = new \DateTimeImmutable('2025-12-15');
+
+        $obrigacao = $this->obrigacao($caso, '74795', 44545, $vencimento, 3560, 891, 0, 12545);
+
+        $comum = [
+            'unidade' => '02-05', 'nn' => '74795', 'competencia' => '12/2025',
+            'vencimento' => '15/12/2025', 'correcao' => 0.0, 'acordo' => 'Acordo 426 - Parc. 1/6',
+        ];
+
+        $this->lote($carteira, [
+            $this->linhaDeDado(...$comum, classe: '1.1 - Taxa de condomínio', valor: 400.00, juros: 32.00, multa: 8.00, honorarios: 80.00),
+            $this->linhaDeDado(...$comum, classe: '1.15 - Honorário', valor: 45.45, juros: 3.60, multa: 0.91, honorarios: 10.00),
+        ]);
+
+        $this->aplicar($carteira);
+        $this->em->clear();
+
+        /** @var Obrigacao $depoisDaCorrecao */
+        $depoisDaCorrecao = $this->em->getRepository(Obrigacao::class)->find($obrigacao->getId());
+        $gravado = [
+            $depoisDaCorrecao->getJuros(),
+            $depoisDaCorrecao->getMulta(),
+            $depoisDaCorrecao->getCorrecao(),
+            $depoisDaCorrecao->getHonorarios(),
+        ];
+
+        // O que a importação corrigida escreveria neste boleto, pelo MESMO caminho da produção: as
+        // colunas puras do adapter, no ramo da parcela de acordo.
+        self::assertSame(
+            [3560, 891, 0, 9000],
+            $gravado,
+            'o gravado tem de ser exatamente o que a importação corrigida escreveria',
+        );
     }
 
     /**
@@ -246,6 +340,24 @@ final class ReconciliarDuplaContagemTest extends KernelTestCase
         ]);
 
         return [$carteira, $obrigacao];
+    }
+
+    /**
+     * Aplica do jeito que o dono aplica: SIMULA primeiro, e usa os números da simulação como a
+     * expectativa da escrita. É o ciclo "simular → aprovar → colar de volta" que a trava do §17.11
+     * existe para fechar — e testar por outro caminho deixaria a trava sem exercício.
+     */
+    private function aplicar(Carteira $carteira): ResultadoReconciliacao
+    {
+        $tenant = $this->tenantDe($carteira);
+        $previa = $this->reconciliar->prever([$carteira], $tenant);
+
+        return $this->reconciliar->confirmar(
+            [$carteira],
+            $tenant,
+            $this->usuario($carteira),
+            new ExpectativaDaLista($previa->candidatas, $previa->duplicadoTotalEmCentavos()),
+        );
     }
 
     /** @param list<list<mixed>> $linhas */

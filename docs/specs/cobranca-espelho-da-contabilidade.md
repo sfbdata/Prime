@@ -1093,3 +1093,59 @@ próprio instrumento**, não só para o valor medido.
 
 Quem for validar o conserto: use os **testes** (que montam o lote e o carimbo de propósito) e a
 **produção**; não conclua do dev.
+
+## 17.11 🔑 A RECONCILIAÇÃO — a única peça que escreve dinheiro
+
+Corrige no banco o encargo que a importação contou duas vezes. Comando
+`app:cobranca:reconciliar-dupla-contagem`; UseCase `ReconciliarDuplaContagemUseCase`.
+
+### O que ela É, e o que ela NÃO é
+
+⚠️ **Ela conserta o DADO, não a cobrança na tela.** As dívidas afetadas são todas **não-congeladas**
+(a régua não marca congelada), e `EncargosVivos::hidratar()` recalcula os quatro encargos pela nossa
+fórmula em toda leitura hidratada. Ou seja: o valor inflado **já não é o que o devedor vê**. O que ele
+contamina é o **gravado** — SQL, MCP, relatório agregado e a conferência pós-importação.
+
+🔴 **O que dá urgência não é a cobrança, é a permanência:** obrigação congelada nunca é re-hidratada.
+Se qualquer uma das afetadas for liquidada ou substituída antes do conserto, o inflado **congela e vira
+definitivo**.
+
+*(Este parágrafo existe porque o número foi reportado ao dono como "sai do saldo do devedor", o que
+superdimensionava o efeito. A correção veio da revisão adversarial em 13/08.)*
+
+### O que fica FIXADO
+
+1. **Simula por padrão.** `prever()` e `confirmar()` percorrem o mesmo `processar()`; `$usuario === null`
+   é o dry-run. Uma implementação só, porque a projeção conferida tem de ser o efeito aplicado.
+2. **INV-R1 — pula obrigação congelada**, e pular **não é no-op**: o valor inflado dela permanece, e sai
+   no relatório **com valor** e com código de saída próprio.
+3. **INV-R2 — preserva `encargosAtualizadosEm`.** A correção remove uma soma indevida de um snapshot
+   daquela data; não recalcula nada. Recarimbar mentiria sobre a procedência e quebraria a régua.
+4. **INV-R3 — `EventoHistorico` por CASO, com o lote usado** (id + emissão) e o antes/depois de cada
+   obrigação. É o que permite achar e desfazer. O `AuditLog` não serve sozinho: em CLI sai sem ator,
+   sem IP e sem tenant. O comando **confere** que todo caso corrigido tem evento — não presume.
+5. **O valor gravado vem da RÉGUA** (`corrigidoPorCampo`, INV-CE9), nunca re-derivado aqui.
+6. **A trava da lista aprovada.** `--aplicar` exige `--esperado-dividas` e `--esperado-total`,
+   copiados da simulação aprovada. O universo é re-derivado na hora da escrita (a régua lê o último
+   lote); se um lote entrar entre a aprovação e o `--aplicar`, o comando **aborta** com código `68` e
+   **nada é gravado** — a exceção é lançada dentro da transação, que reverte o que o laço já alterou.
+7. **Autor obrigatório.** `--aplicar` exige `--usuario-id` de um **membro do escritório** (`UserTenant`).
+8. **Totais sempre separados** entre o que sai do saldo (juros + multa + correção) e o que sai fora dele
+   (honorário), e o relatório avisa que a régua passará a marcar as corrigidas como `divergente` — o que
+   é **esperado**, e sem o aviso alguém desconserta.
+
+### Códigos de saída
+
+`0` aplicou/simulou sem sobra · `64` erro de invocação · `65` contas não fecham ou rastro incompleto ·
+`66` nada a fazer · `67` sobrou inflação (houve dívida pulada) · `68` **a lista mudou desde a aprovação**.
+
+⚠️ O `67` tem significado **diferente** do `67` da régua (`COBERTURA_INCOMPLETA`). São comandos
+distintos e não há colisão técnica, mas um wrapper não pode tratar código sem saber qual comando rodou.
+
+### Medido em produção (13/08), antes da primeira execução
+
+- **25 dívidas**, R$ 3.185,94 duplicado — a lista aprovada pelo dono;
+- **0 congeladas** → nenhuma seria pulada;
+- **0 com pagamento alocado** → nenhuma ficaria superalocada pela baixa do exigível. *(A reconciliação
+  não tem guarda contra superalocação; o raio hoje é nulo, e é por isso que se pode rodar. Se o comando
+  for reusado num universo diferente, medir de novo.)*

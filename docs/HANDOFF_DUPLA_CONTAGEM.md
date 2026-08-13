@@ -136,12 +136,13 @@ acordo da TL1 — a multa que a contabilidade lança em cada linha é **2% do Va
 **Ela cobra multa sobre a linha de multa.** Logo, para ela aquilo é **principal**. Os R$ 309,62 que o
 sistema gravava no NN 74789 não existem em coluna nenhuma da planilha.
 
-## 5. O QUE FALTA — a reconciliação
+## 5. A reconciliação — ✅ ESCRITA, aguardando o `--aplicar` em produção
 
-**Nada disso está começado.** É a única tarefa aberta da frente.
+**Feita** (`ReconciliarDuplaContagemUseCase` + `ReconciliarDuplaContagemCommand`), com spec na §17.11
+do espelho. O que falta é **rodar** com `--aplicar`, e isso é do dono.
 
-⛔ **Não comece antes do deploy da régua corrigida.** A lista a reconciliar é a que **a régua** produzir
-rodando em produção — não os 21, não os 25, não uma consulta SQL. Decisão do dono, 13/08.
+O ciclo é: simular → o dono aprova a lista → colar de volta os números aprovados no `--aplicar`. A
+simulação imprime a linha pronta; se a lista mudar até lá, o comando aborta com `68` e não grava nada.
 
 ### O que precisa fazer
 
