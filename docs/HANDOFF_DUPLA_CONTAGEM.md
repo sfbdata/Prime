@@ -35,7 +35,7 @@ arquivo entre os dois. Ela depende da régua corrigida, que é como o conserto s
 **o deploy será os dois juntos.**
 
 ```bash
-scripts/frente-testar.sh cobranca-dupla-contagem   # 3.614 verdes
+scripts/frente-testar.sh cobranca-dupla-contagem   # 3.616 verdes
 ```
 
 ## 3. Os números de produção — e por que o total se moveu TRÊS vezes
@@ -85,7 +85,10 @@ php -d memory_limit=512M bin/console app:cobranca:espelho:encargos --tenant-id=<
 
 Ela traz por dívida: `id`, unidade, referência, competência, **lote usado (id + emissão)**, e os totais
 **separados** — o que sai do saldo do devedor (juros + multa + correção) e o que sai fora dele
-(honorário). Contém **PII**: é saída de terminal para o dono, não vai para log nem para o repositório.
+(honorário). **Contém PII** (unidade + número do boleto identificam o devedor): é saída de terminal
+para o dono. Se precisar salvar em arquivo, use o destino já gitignorado
+`docs/gestao-cobrancas/listas-reconciliacao/` — em 03/08 uma saída derivada das planilhas ficou
+versionável justamente por não haver onde pôr.
 
 🔴 **O risco com prazo:** obrigação congelada nunca é re-hidratada. Se alguma das afetadas for liquidada ou
 substituída por acordo antes do conserto, o valor inflado **congela e vira permanente**.
@@ -184,7 +187,7 @@ ninguém** (honorário fica fora do `valorExigivel()`).
 - ⚠️ `espelho:calibrar` e `espelho:encargos` precisam de `-d memory_limit=512M` em prod. O
   `calibrar` já estourou 128M com cache frio, morrendo **antes** da TOP LIFE I — a carteira grande é
   justamente a que fica sem número.
-- ⚠️ **O `espelho:encargos` tem CINCO códigos de saída, e só o `0` é sucesso:**
+- ⚠️ **O `espelho:encargos` tem SEIS códigos de saída — o `0` e cinco de não-sucesso:**
 
   | código | significa |
   |---:|---|

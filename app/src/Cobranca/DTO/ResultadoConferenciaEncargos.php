@@ -13,15 +13,16 @@ namespace App\Cobranca\DTO;
  * `cobranca_obrigacao.juros/multa/correcao/honorarios`. Sem ela, a Fase 1 não consegue provar o
  * próprio conserto — rodar a calibração antes e depois de matar a dupla contagem dá o mesmo número.
  *
- * 🔑 **São DUAS dimensões independentes, e confundi-las já produziu relatório mentiroso.**
+ * 🔑 **São DUAS dimensões de contagem independentes, e confundi-las já produziu relatório mentiroso.**
  *
  * 1. **Classificação** (o que a fórmula diz) — não depende de lote nenhum, roda em toda obrigação:
  *    `coerentes + comDuplaContagem + divergentes == universo`
  * 2. **Cobertura da assinatura** (contra o que deu para ler) — depende de haver o lote que escreveu:
  *    `assinaturaAvaliada + semParNoRelatorio + injulgaveis == universo`
  *
- * As duas identidades são verificadas por {@see self::baldesFecham()}. Num instrumento cuja lista vira
- * reescrita de dinheiro, a conta tem de fechar exata — e falhar alto quando não fecha.
+ * As duas dimensões acima valem **quatro** identidades no total, porque a lista da reconciliação tem as
+ * suas (contagem e dinheiro) — todas verificadas por {@see self::baldesFecham()}. Num instrumento cuja
+ * lista vira reescrita de dinheiro, a conta tem de fechar exata — e falhar alto quando não fecha.
  */
 final readonly class ResultadoConferenciaEncargos
 {

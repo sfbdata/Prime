@@ -161,7 +161,8 @@ final class ConferirEncargosGravadosCommand extends Command
             // é defeito, não detalhe. Falha alto em vez de imprimir número que não soma.
             if (!$r->baldesFecham()) {
                 $io->error(sprintf(
-                    'BALDES NÃO FECHAM em %s — a régua perdeu dívida pelo caminho e o relatório não vale.',
+                    'BALDES NÃO FECHAM em %s — a régua perdeu dívida OU dinheiro pelo caminho '
+                    . '(as identidades cobrem contagem e valor) e o relatório não vale.',
                     $r->carteira,
                 ));
 

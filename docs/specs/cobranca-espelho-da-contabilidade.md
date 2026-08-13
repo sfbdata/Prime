@@ -1011,12 +1011,16 @@ reconcilia".)*
    assinatura depende. A primeira versão deste conserto pulava a obrigação inteira no balde injulgável
    e com isso deixava, medido no dev, **R$ 150.262,17 de encargo gravado sem conferência alguma**, com
    a régua imprimindo "diferença total: R$ 0,00".
-5. **Os baldes são DUAS dimensões que reconciliam com o universo**, verificadas em código
-   (`baldesFecham()`), e o comando **falha** se não fecharem:
+5. **São QUATRO identidades verificadas em código** (`baldesFecham()`), e o comando **falha** (código
+   `65`) se qualquer uma não fechar. Duas são as dimensões de contagem do universo, e duas são da
+   lista da reconciliação — sem elas a manchete e o rodapé da lista somam por caminhos diferentes e
+   nada garante que continuem batendo:
    - classificação: `coerentes + comDuplaContagem + divergentes == universo`
    - cobertura: `assinaturaAvaliada + semParNoRelatorio + injulgaveis == universo`
-6. **O veredito `coerente` exige cobertura TOTAL**, e o código de saída tem **cinco** estados, todos na
-   faixa `6x` menos o sucesso: `0` conferiu tudo e está limpo · `64` erro de invocação · `65` baldes não
+   - a lista é completa: `count(duplicadas) == comDuplaContagem`
+   - o dinheiro fecha: `duplicadoNoSaldo + duplicadoForaDoSaldo == duplicadoEmCentavos`
+6. **O veredito `coerente` exige cobertura TOTAL**, e o código de saída tem **seis** valores — o `0` e
+   **cinco** de não-sucesso, todos na faixa `6x`: `0` conferiu tudo e está limpo · `64` erro de invocação · `65` baldes não
    fecham · `66` nada conferido · `67` cobertura incompleta · `68` dupla contagem. Sem isso a régua
    imprimia a caixa verde *"Todo encargo gravado é um número que a nossa fórmula produz"* numa carteira
    com **2 dívidas conferidas e 528 jamais examinadas**, e saía `0` para o cron.

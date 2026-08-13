@@ -99,6 +99,12 @@ docs/gestao-cobrancas/*.pdf
 # nasce dessa pasta carrega a PII da fonte, seja qual for o formato.
 docs/gestao-cobrancas/planilhas atualizadas/
 
+# Destino designado para a saída de `app:cobranca:espelho:encargos --duplicadas` — a lista da
+# reconciliação, que traz unidade + número do boleto e portanto identifica o devedor. Mesmo motivo da
+# regra acima: em 03/08 uma saída derivada das planilhas ficou versionável porque não havia onde pôr.
+# Redirecione para cá (`> docs/gestao-cobrancas/listas-reconciliacao/tl1.txt`) em vez de improvisar.
+docs/gestao-cobrancas/listas-reconciliacao/
+
 # Credenciais OAuth do cron de sincronização Drive (segredos) — só o .example é versionado
 /.sync-oauth.env
 
