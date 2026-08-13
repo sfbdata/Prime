@@ -210,3 +210,50 @@ ORDER BY created_at;
 SELECT nup, COUNT(*) FROM pasta WHERE tenant_id = 1 GROUP BY nup HAVING COUNT(*) > 1;
 ```
 As divergências de NOME (sistema × Drive) saem do dry-run: `app:sync:reconciliar --tenant-id=1 --usuario-id=1 --dry-run` (linhas `[divergência]`).
+
+### 12.5 Decisões travadas com o P.O. (2026-08-13) — frente `sync-sistema-manda`
+
+Worktree isolada `.claude/worktrees/sync-sistema-manda`, base `master` local @ `3702452f`,
+banco de teste `saas_testsync-sistema-manda`. **Esta fatia (R1 + Fatia A) NÃO tem migration.**
+
+**D12.1 — R1, numeração automática (aprovado).**
+- `MAX(prefixo numérico) + 1` **por tenant**. Próximo do tenant 1 = **1232**.
+- **Não preencher buracos** — reaproveitar número de pasta apagada confunde Drive e histórico.
+- `CriarPastaDTO.nup` vira `?string`; `null` = gerar. CSV (`ImportarAcervoCommand`) e Drive
+  continuam passando o número da origem.
+- **Concorrência: `pg_advisory_xact_lock` por tenant** na geração. `MAX+1` puro tem corrida — é
+  exatamente o defeito que o R1 existe para matar. Advisory lock serializa sem migration e sem
+  depender da limpeza do R6.
+- **O UNIQUE `(tenant_id, nup)` NÃO volta nesta fatia** — é passo do R6. Hoje é impossível: as 3
+  duplicatas em produção barram a criação do índice.
+- Precedente da casa para o gerador: `src/Tenant/UseCase/GerarCodigoFuncionario.php`.
+
+**D12.2 — toggle `sincronizacaoAtiva`: ADIADO.** Ele existia para impedir que "conectar o Drive"
+importasse conteúdo — perigo que o R2 elimina na raiz. Sem ele, R1 + Fatia A ficam **sem migration
+nenhuma**, o que importa nesta janela: a frente parada `cobranca-acompanhamento-canonico` tem 4
+migrations já aplicadas no banco de dev, e frente com migration vai uma de cada vez.
+
+**D12.3 — R3/R4, renomeação: NUNCA incondicional por varredura.** *(Correção do P.O. sobre a
+proposta original de renomear sempre em `garantirFolderDaPasta`.)* Renomear as 1070 pastas a cada
+rodada do cron, mesmo quando o nome já bate, são ~1070 **writes/hora redundantes** no Drive —
+desperdício e risco de rate limit, porque write pesa mais na cota. O desenho aprovado é:
+- **(a) contínuo = por EVENTO.** O 6º ponto de dispatch (editar pasta) renomeia no Drive **quando o
+  nome realmente muda**. É o coração do R3.
+- **(b) legado = comando ONE-TIME de alinhamento**, que renomeia **só onde diverge** (as ~426
+  divergências do D10). Não é o cron de hora em hora.
+- **O cron `--modo=enviar` não renomeia por varredura.** Mesmo resultado do R4, sem custo perpétuo
+  e sem precisar guardar "último nome sincronizado".
+- Se algum dia a renomeação entrar no motor por-pasta, é **condicional** (só quando o nome diverge),
+  nunca incondicional.
+
+**D12.4 — R3 exige criar `renomearPasta` do zero** (confirmado com o P.O.): método novo na
+`GoogleDriveClientInterface` + implementação em `GoogleDriveClient` (Drive API `files.update` com
+`name`) + no `FakeGoogleDriveClient` dos testes + o gatilho de propagação. Não existe nada hoje —
+ver a correção medida no R3 do §12.2.
+
+**⏳ EM ABERTO (o P.O. ainda não decidiu) — não implementar antes da resposta:**
+- **R2, escopo:** apagar `driveParaSistema` + Via B de vez, **ou** tirar só do fluxo automático
+  preservando o código (ele é o motor do botão Importar da Fatia B e da migração R7)?
+- **R1, tela:** o campo de número **some** do modal de nova pasta, **ou** fica opcional
+  (em branco = automático)?
+- **OPS:** pausar o sync automático em produção até a Fatia A entrar, ou deixar rodando?
