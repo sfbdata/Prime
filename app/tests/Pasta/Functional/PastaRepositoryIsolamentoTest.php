@@ -425,4 +425,77 @@ final class PastaRepositoryIsolamentoTest extends KernelTestCase
         self::assertContains($borda->getNup(), $nups, 'a borda final deve incluir o dia inteiro (23:59:59)');
         self::assertNotContains($fora->getNup(), $nups);
     }
+
+    // ───────────────────────────────────────────────────────────────────────────────────────
+    // D12.5 — findSemelhantesPorClienteEAcao. Este teste roda em KernelTestCase, onde o
+    // TenantFilter fica DESLIGADO por padrão (ver TenantFilter: "em CLI/teste fica desligado").
+    // É de propósito: no teste funcional do controller o filtro por request cobre a query e
+    // esconde se o método filtra ou não por conta própria — provado empiricamente, tirar o
+    // `andWhere('p.tenant = :tenant')` não quebrava teste nenhum lá. Aqui quebra.
+    // ───────────────────────────────────────────────────────────────────────────────────────
+
+    #[TestDox('ISOLAMENTO: semelhantes de um escritório nunca enxergam a pasta do outro')]
+    public function testSemelhantesNaoVazamEntreEscritorios(): void
+    {
+        $meu   = $this->criarTenant();
+        $outro = $this->criarTenant();
+
+        $doVizinho = $this->criarPasta($outro);
+        $doVizinho->setNomeCliente('CLIENTE COMPARTILHADO');
+        $doVizinho->setNomeAcao('COBRANCA');
+
+        $minha = $this->criarPasta($meu);
+        $minha->setNomeCliente('OUTRO CLIENTE');
+        $this->em->flush();
+
+        // O filtro por request não existe aqui: se o método não filtrar sozinho, acha a do vizinho.
+        self::assertSame(
+            [],
+            $this->repo->findSemelhantesPorClienteEAcao($meu, 'CLIENTE COMPARTILHADO', 'COBRANCA'),
+            'a busca de semelhantes vazou para outro escritório',
+        );
+        self::assertCount(
+            1,
+            $this->repo->findSemelhantesPorClienteEAcao($outro, 'CLIENTE COMPARTILHADO', 'COBRANCA'),
+            'o dono legítimo deixou de enxergar a própria pasta',
+        );
+    }
+
+    #[TestDox('D12.5: acento e caixa são ignorados na comparação')]
+    public function testSemelhantesIgnoramAcentoECaixa(): void
+    {
+        $tenant = $this->criarTenant();
+        $pasta  = $this->criarPasta($tenant);
+        $pasta->setNomeCliente('JOSÉ RICARDO');
+        $pasta->setNomeAcao('DIVÓRCIO');
+        $this->em->flush();
+
+        self::assertCount(1, $this->repo->findSemelhantesPorClienteEAcao($tenant, 'jose ricardo', 'divorcio'));
+        self::assertCount(1, $this->repo->findSemelhantesPorClienteEAcao($tenant, 'JOSE RICARDO', 'DIVORCIO'));
+    }
+
+    #[TestDox('D12.5: ação ausente só casa com ação ausente')]
+    public function testSemelhantesComAcaoAusente(): void
+    {
+        $tenant = $this->criarTenant();
+        $pasta  = $this->criarPasta($tenant);
+        $pasta->setNomeCliente('SEM ACAO');
+        $pasta->setNomeAcao(null);
+        $this->em->flush();
+
+        self::assertCount(1, $this->repo->findSemelhantesPorClienteEAcao($tenant, 'SEM ACAO', null));
+        self::assertSame([], $this->repo->findSemelhantesPorClienteEAcao($tenant, 'SEM ACAO', 'EXECUCAO'));
+    }
+
+    #[TestDox('D12.5: sem cliente informado devolve vazio (não vira ruído)')]
+    public function testSemelhantesSemClienteDevolveVazio(): void
+    {
+        $tenant = $this->criarTenant();
+        $pasta  = $this->criarPasta($tenant);
+        $pasta->setNomeCliente(null);
+        $this->em->flush();
+
+        self::assertSame([], $this->repo->findSemelhantesPorClienteEAcao($tenant, null, null));
+        self::assertSame([], $this->repo->findSemelhantesPorClienteEAcao($tenant, '   ', null));
+    }
 }

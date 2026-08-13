@@ -173,9 +173,28 @@ class PastaController extends AbstractController
         // (em produção, 3 números duplicados por duas pessoas criando a mesma pasta ao mesmo
         // tempo). `nup: null` = gerar. Os caminhos que TÊM número de origem (importação do CSV do
         // acervo e descoberta pelo Drive) continuam passando o seu direto ao UseCase.
+        $nomeCliente = ($v = trim((string) $request->request->get('nome_cliente', ''))) !== '' ? $v : null;
+        $nomeAcao    = ($v = trim((string) $request->request->get('nome_acao', ''))) !== '' ? $v : null;
+
+        // Aviso de duplicada (D12.5). A numeração automática fechou a colisão de NÚMERO, não a de
+        // PASTA: duas pessoas abrindo o mesmo caso ao mesmo tempo agora ganham 1232 e 1233 — duas
+        // pastas do mesmo processo, e invisíveis para a consulta que procura número repetido.
+        // Aqui o sistema AVISA e pede confirmação; nunca bloqueia, porque o mesmo cliente pode ter
+        // vários casos parecidos de verdade.
+        if (!$request->request->getBoolean('confirmar') && $tenant !== null) {
+            $semelhantes = $this->pastaRepository->findSemelhantesPorClienteEAcao($tenant, $nomeCliente, $nomeAcao);
+            if ($semelhantes !== []) {
+                return $this->render('pasta/confirmar_duplicada.html.twig', [
+                    'semelhantes' => $semelhantes,
+                    'nomeCliente' => $nomeCliente,
+                    'nomeAcao'    => $nomeAcao,
+                ]);
+            }
+        }
+
         $dto = new CriarPastaDTO(
-            nomeCliente: ($v = trim((string) $request->request->get('nome_cliente', ''))) !== '' ? $v : null,
-            nomeAcao: ($v = trim((string) $request->request->get('nome_acao', ''))) !== '' ? $v : null,
+            nomeCliente: $nomeCliente,
+            nomeAcao: $nomeAcao,
         );
 
         try {

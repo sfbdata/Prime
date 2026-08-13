@@ -177,6 +177,157 @@ final class CriarPastaControllerTest extends JusPrimeWebTestCase
         self::assertSame(['1', '2'], $nups);
     }
 
+    // ───────────────────────────────────────────────────────────────────────────────────────
+    // D12.5 — aviso de pasta duplicada. A numeração automática matou a colisão de NÚMERO, não a
+    // pasta duplicada: duas pessoas abrindo o mesmo caso ao mesmo tempo ganham 1232 e 1233, e
+    // somem da consulta que procura NUP repetido (§12.4). Este aviso é o que enxerga isso.
+    // ───────────────────────────────────────────────────────────────────────────────────────
+
+    #[TestDox('D12.5: cliente+ação já existentes mostram AVISO e NÃO criam a pasta ainda')]
+    public function testClienteEAcaoRepetidosAvisamAntesDeCriar(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $client->request('POST', '/pasta/nova', ['nome_cliente' => 'JORGE TEIXEIRA', 'nome_acao' => 'EXECUÇÃO']);
+        self::assertResponseRedirects();
+
+        // Segunda tentativa idêntica: não redireciona, mostra a tela de confirmação.
+        $crawler = $client->request('POST', '/pasta/nova', ['nome_cliente' => 'JORGE TEIXEIRA', 'nome_acao' => 'EXECUÇÃO']);
+
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString('Já existe uma pasta parecida', $crawler->filter('body')->text());
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        self::assertCount(
+            1,
+            $em->getRepository(Pasta::class)->findBy(['tenant' => $tenant]),
+            'a segunda pasta foi criada sem o usuário confirmar',
+        );
+    }
+
+    #[TestDox('D12.5: o aviso é tolerante a acento e caixa')]
+    public function testAvisoIgnoraAcentoECaixa(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $client->request('POST', '/pasta/nova', ['nome_cliente' => 'JOSÉ RICARDO', 'nome_acao' => 'DIVÓRCIO']);
+        self::assertResponseRedirects();
+
+        // Mesmo caso, digitado sem acento e em caixa baixa — é a mesma pasta para quem digita.
+        $client->request('POST', '/pasta/nova', ['nome_cliente' => 'jose ricardo', 'nome_acao' => 'divorcio']);
+
+        self::assertResponseIsSuccessful('acento/caixa passaram batido — o aviso não pegou a duplicata');
+        self::assertCount(1, static::getContainer()->get(EntityManagerInterface::class)
+            ->getRepository(Pasta::class)->findBy(['tenant' => $tenant]));
+    }
+
+    #[TestDox('D12.5: com confirmar=1 a pasta é criada mesmo assim (aviso NÃO bloqueia)')]
+    public function testConfirmarCriaMesmoAssim(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $client->request('POST', '/pasta/nova', ['nome_cliente' => 'MESMO CLIENTE', 'nome_acao' => 'MESMA ACAO']);
+        self::assertResponseRedirects();
+
+        $client->request('POST', '/pasta/nova', [
+            'nome_cliente' => 'MESMO CLIENTE',
+            'nome_acao'    => 'MESMA ACAO',
+            'confirmar'    => '1',
+        ]);
+
+        self::assertResponseRedirects();
+        $em    = static::getContainer()->get(EntityManagerInterface::class);
+        $todas = $em->getRepository(Pasta::class)->findBy(['tenant' => $tenant], ['id' => 'ASC']);
+
+        self::assertCount(2, $todas, 'o aviso virou bloqueio — o dono pediu aviso, não trava');
+        self::assertSame(['1', '2'], array_map(static fn (Pasta $p): ?string => $p->getNup(), $todas));
+    }
+
+    #[TestDox('D12.5: cliente diferente NÃO dispara aviso')]
+    public function testClienteDiferenteNaoAvisa(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $client->request('POST', '/pasta/nova', ['nome_cliente' => 'CLIENTE A', 'nome_acao' => 'COBRANÇA']);
+        self::assertResponseRedirects();
+
+        $client->request('POST', '/pasta/nova', ['nome_cliente' => 'CLIENTE B', 'nome_acao' => 'COBRANÇA']);
+
+        self::assertTrue(
+            $client->getResponse()->isRedirect(),
+            'o aviso disparou para cliente diferente — vira ruído e o usuário aprende a ignorar',
+        );
+        self::assertCount(2, static::getContainer()->get(EntityManagerInterface::class)
+            ->getRepository(Pasta::class)->findBy(['tenant' => $tenant]));
+    }
+
+    #[TestDox('D12.5: mesma ação para o mesmo cliente, mas ação diferente, NÃO avisa')]
+    public function testAcaoDiferenteNaoAvisa(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $client->request('POST', '/pasta/nova', ['nome_cliente' => 'CLIENTE UNICO', 'nome_acao' => 'EXECUÇÃO']);
+        self::assertResponseRedirects();
+
+        // Mesmo cliente pode ter vários casos — é legítimo e não pode incomodar.
+        $client->request('POST', '/pasta/nova', ['nome_cliente' => 'CLIENTE UNICO', 'nome_acao' => 'DIVÓRCIO']);
+
+        self::assertResponseRedirects();
+        self::assertCount(2, static::getContainer()->get(EntityManagerInterface::class)
+            ->getRepository(Pasta::class)->findBy(['tenant' => $tenant]));
+    }
+
+    #[TestDox('D12.5: sem cliente informado NÃO avisa (senão casaria com toda pasta sem cliente)')]
+    public function testSemClienteNaoAvisa(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $client->request('POST', '/pasta/nova', []);
+        self::assertResponseRedirects();
+
+        $client->request('POST', '/pasta/nova', []);
+
+        self::assertResponseRedirects();
+        self::assertCount(2, static::getContainer()->get(EntityManagerInterface::class)
+            ->getRepository(Pasta::class)->findBy(['tenant' => $tenant]));
+    }
+
+    #[TestDox('ISOLAMENTO: pasta igual em OUTRO escritório não dispara aviso aqui')]
+    public function testAvisoNaoVazaEntreEscritorios(): void
+    {
+        $client                  = static::createClient();
+        [$user, $tenant]         = $this->criarUsuarioAdmin();
+        [$outroUser, $outroTen]  = $this->criarUsuarioAdmin();
+
+        // O vizinho cria a pasta primeiro.
+        $this->logarComTenant($client, $outroUser, $outroTen);
+        $client->request('POST', '/pasta/nova', ['nome_cliente' => 'CLIENTE COMPARTILHADO', 'nome_acao' => 'COBRANÇA']);
+        self::assertResponseRedirects();
+
+        // No meu escritório é pasta nova — o aviso não pode enxergar a do vizinho.
+        $this->logarComTenant($client, $user, $tenant);
+        $client->request('POST', '/pasta/nova', ['nome_cliente' => 'CLIENTE COMPARTILHADO', 'nome_acao' => 'COBRANÇA']);
+
+        self::assertTrue(
+            $client->getResponse()->isRedirect(),
+            'o aviso vazou entre escritórios — vazamento de existência de cliente',
+        );
+        self::assertCount(1, static::getContainer()->get(EntityManagerInterface::class)
+            ->getRepository(Pasta::class)->findBy(['tenant' => $tenant]));
+    }
+
     #[TestDox('POST /nova sem módulo pastas redireciona para expediente_index sem criar pasta')]
     public function testSemModuloPastasRedireciona(): void
     {

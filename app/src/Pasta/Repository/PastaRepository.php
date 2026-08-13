@@ -74,6 +74,49 @@ class PastaRepository extends ServiceEntityRepository
     }
 
     /**
+     * Pastas do escritório com o MESMO cliente e a MESMA ação — base do aviso de duplicada na
+     * criação (spec fase2 §12.5/D12.5).
+     *
+     * Por que existe: a numeração automática (R1) fechou a colisão de NÚMERO, mas não a dor que a
+     * originou. Duas pessoas criando a mesma pasta ao mesmo tempo agora recebem 1232 e 1233 — são
+     * duas pastas do mesmo caso, e pior: somem da consulta de detecção do §12.4, que procura NUP
+     * repetido. Este método é o que enxerga a duplicata de verdade.
+     *
+     * Comparação tolerante a acento e caixa (UNACCENT+LOWER, como a busca livre da lista): "AÇÃO
+     * DE COBRANÇA" e "acao de cobranca" são a mesma coisa para quem digita com pressa.
+     *
+     * NÃO bloqueia nada — o mesmo cliente pode legitimamente ter vários casos parecidos. Quem
+     * decide é o usuário, na confirmação.
+     *
+     * @return list<Pasta>
+     */
+    public function findSemelhantesPorClienteEAcao(Tenant $tenant, ?string $cliente, ?string $acao, int $limite = 5): array
+    {
+        $cliente = trim((string) $cliente);
+
+        // Sem cliente não há semelhança que valha aviso: sobrariam todas as pastas sem cliente
+        // do escritório, e o aviso viraria ruído que o usuário aprende a ignorar.
+        if ($cliente === '') {
+            return [];
+        }
+
+        return $this->createQueryBuilder('p')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('UNACCENT(LOWER(p.nomeCliente)) = UNACCENT(LOWER(:cliente))')
+            // Ação ausente conta como ausente dos dois lados: pasta sem ação só é semelhante a
+            // outra sem ação. COALESCE evita o NULL != NULL do SQL, que nunca casaria.
+            ->andWhere('COALESCE(UNACCENT(LOWER(p.nomeAcao)), :vazio) = COALESCE(UNACCENT(LOWER(:acao)), :vazio)')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('cliente', $cliente)
+            ->setParameter('acao', ($a = trim((string) $acao)) !== '' ? $a : null)
+            ->setParameter('vazio', '')
+            ->orderBy('p.id', 'DESC')
+            ->setMaxResults($limite)
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
      * Mapa `label → id` das pastas do tenant, para selects (ex.: judicialização de Cobranças). Escopo
      * multi-tenant obrigatório; label = NUP quando houver, senão "Pasta #id".
      *
