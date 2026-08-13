@@ -284,6 +284,19 @@ final class ImportarRelatorioCarteiraUseCase
      *
      * No **boleto comum** nada muda: ali `valorOriginal` é `principalCentavos`, que **não** contém
      * aquelas linhas, e somá-las ao encargo é o comportamento correto e já provado (INV-E1).
+     *
+     * ✅ **Isto ESPELHA a régua da contabilidade — não é interpretação nossa.** Medido no lote de
+     * 12/08, nas parcelas de acordo da TOP LIFE I: a multa que a contabilidade lança em cada linha é
+     * **exatamente 2% do Valor daquela linha**, em `259/259` linhas de taxa, `114/114` de energia
+     * **e também em `23/23` de multa, `21/21` de juros e `23/23` de honorário**.
+     *
+     * Ela cobra multa **sobre** a linha de multa. Só existe uma leitura possível: para a
+     * contabilidade aquele valor é **principal** — dívida velha incorporada ao acordo —, não encargo.
+     * Se fosse encargo, ela não cobraria encargo em cima.
+     *
+     * No NN 74789 a multa que a contabilidade mostra é **R$ 8,00** (2% de R$ 399,37). Os R$ 309,62
+     * que o sistema gravava não existiam em nenhuma coluna da planilha: eram a soma que este método
+     * fazia. O conserto não muda a régua — devolve a régua deles.
      */
     private function materializarEncargosImportados(Obrigacao $obrigacao, BoletoImportavel $boleto, \DateTimeImmutable $referencia): void
     {

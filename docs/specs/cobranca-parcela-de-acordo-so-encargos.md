@@ -398,6 +398,39 @@ ser auditável. **Nunca reporte o líquido.**
 
 E a ordem da §12.3 continua valendo, agora com três: **o item 1 é o único que não pode ir sozinho.**
 
+### 12.7 ✅ A prova de que o conserto ESPELHA a contabilidade (medida em 13/08)
+
+Pergunta do dono, e é a pergunta certa: *"parar de gravar o valor da linha de encargo como encargo —
+isso é o entendimento da contabilidade?"* Sob a premissa do módulo (§16.3 do espelho), o sistema não
+pode consertar segundo a **nossa** régua; tem de reproduzir a **deles**.
+
+**Medido no lote de 12/08, nas parcelas de acordo da TOP LIFE I** — para cada linha, a multa lançada
+pela contabilidade é 2% do Valor **daquela linha**:
+
+| classe da linha | linhas | multa == 2% do Valor da própria linha |
+|---|---:|---:|
+| `1.1` taxa de condomínio | 259 | **259** |
+| `1.14` energia | 114 | **114** |
+| **`1.5` multas** | 23 | **23** |
+| **`1.4` juros** | 21 | **21** |
+| **`1.15` honorário** | 23 | **23** |
+
+🔑 **A contabilidade cobra multa SOBRE a linha de multa** — e sobre a de juros, e sobre a de
+honorário, do mesmo jeito que sobre a taxa de condomínio. Em 100% das linhas.
+
+Só há uma leitura: para ela, o Valor daquelas linhas é **principal** — dívida velha incorporada ao
+acordo. Se fosse encargo, ela não cobraria encargo em cima.
+
+**No NN 74789:** a multa que a contabilidade mostra é **R$ 8,00** (2% de R$ 399,37). Os **R$ 309,62**
+que o sistema gravava **não existem em nenhuma coluna da planilha** — eram a soma que
+`materializarEncargosImportados` fazia. O conserto devolve a régua deles.
+
+⚠️ **Ressalva, e é outra frente:** no **boleto comum** o sistema também não classifica como a
+contabilidade — ela trata a linha `1.4` como principal e cobra encargo em cima; nós a excluímos do
+principal e a jogamos no encargo. **O total fica igual, a classificação não.** Fora do escopo do
+defeito 2, e minúsculo hoje: **1 boleto** na TOP LIFE I, R$ 6,28. Mexer nisso mudaria `valorOriginal`
+de boleto comum, que é raio de explosão muito maior — decisão própria, não subproduto desta.
+
 ### 12.6 O que esta remedição NÃO muda
 
 - ⛔ **A importação em produção segue bloqueada pelo dono.** Remedir a spec libera planejar, não importar.
