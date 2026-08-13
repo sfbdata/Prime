@@ -402,7 +402,6 @@ final class ReconciliarCommand extends Command
     private function absorver(ResultadoReconciliacaoPasta $r, array &$totais, SymfonyStyle $io): void
     {
         $totais['criadasNoDrive']      += $r->criadasNoDrive;
-        $totais['renomeadasNoDrive']   += $r->renomeadasNoDrive;
         $totais['arquivosEnviados']    += $r->arquivosEnviados;
         $totais['arquivosBaixados']    += $r->arquivosBaixados;
         $totais['secoesArquivos']      += $r->secoesArquivos;
@@ -421,7 +420,7 @@ final class ReconciliarCommand extends Command
     private function totaisZerados(): array
     {
         return [
-            'criadasNoDrive' => 0, 'renomeadasNoDrive' => 0, 'criadasNoSistema' => 0, 'semNup' => 0, 'divergencias' => 0,
+            'criadasNoDrive' => 0, 'criadasNoSistema' => 0, 'semNup' => 0, 'divergencias' => 0,
             'erros' => 0, 'arquivosEnviados' => 0, 'arquivosBaixados' => 0, 'secoesArquivos' => 0,
             'googleNative' => 0, 'ignoradosTamanho' => 0, 'ignoradosNome' => 0, 'ignoradosDuplicados' => 0,
         ];
@@ -434,7 +433,6 @@ final class ReconciliarCommand extends Command
         $io->table(['Métrica', 'Total'], [
             [$dryRun ? 'Pastas criadas no Drive (simulado)' : 'Pastas criadas no Drive', $totais['criadasNoDrive']],
             [$dryRun ? 'Pastas criadas no sistema (simulado)' : 'Pastas criadas no sistema', $totais['criadasNoSistema']],
-            [$dryRun ? 'Pastas renomeadas no Drive (simulado)' : 'Pastas renomeadas no Drive', $totais['renomeadasNoDrive']],
             ['Pastas do Drive sem NUP (puladas)', $totais['semNup']],
             ['Divergências de nome (só reporta)', $totais['divergencias']],
         ]);

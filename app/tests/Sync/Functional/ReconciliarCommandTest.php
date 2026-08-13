@@ -52,7 +52,7 @@ final class ReconciliarCommandTest extends KernelTestCase
 
         $fake   = new FakeGoogleDriveClient();
         $tester = $this->tester($fake);
-        $tester->execute(['--modo' => 'ambos', 
+        $tester->execute(['--modo' => 'ambos',
             '--tenant-id'  => (string) $tenant->getId(),
             '--usuario-id' => (string) $user->getId(),
         ]);
@@ -305,7 +305,7 @@ final class ReconciliarCommandTest extends KernelTestCase
         $fake->seedPasta('DRV-NEW', '222 - CLIENTE', self::ROOT);
 
         $tester = $this->tester($fake);
-        $tester->execute(['--modo' => 'ambos', 
+        $tester->execute(['--modo' => 'ambos',
             '--tenant-id'  => (string) $tenant->getId(),
             '--usuario-id' => (string) $user->getId(),
             '--dry-run'    => true,
@@ -333,7 +333,7 @@ final class ReconciliarCommandTest extends KernelTestCase
 
         $fake   = new FakeGoogleDriveClient();
         $tester = $this->tester($fake);
-        $tester->execute(['--modo' => 'ambos', 
+        $tester->execute(['--modo' => 'ambos',
             '--tenant-id'  => (string) $tenant->getId(),
             '--usuario-id' => (string) $user->getId(),
             '--limit'      => '1',
@@ -449,7 +449,7 @@ final class ReconciliarCommandTest extends KernelTestCase
         $fake->seedPasta('DRV-SKIP', '601 - CLIENTE NOVO SKIP', self::ROOT);
 
         $tester = $this->tester($fake);
-        $tester->execute(['--modo' => 'ambos', 
+        $tester->execute(['--modo' => 'ambos',
             '--tenant-id'     => (string) $tenant->getId(),
             '--usuario-id'    => (string) $user->getId(),
             '--skip-arquivos' => true,
