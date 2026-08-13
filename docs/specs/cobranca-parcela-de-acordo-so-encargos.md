@@ -268,7 +268,36 @@ caminho, porque as 17 já existem e a importação é idempotente pela chave
 `(caso, referencia_externa, competencia)`. O ganho da §6.1 passa a ser **de robustez**, não de
 receita. Quem justificar a frente pela receita de R$ 5.152,19 vai justificar com número morto.
 
-### 12.2 Defeito 2 — está ARMADO, não disparado. E a assinatura da §2.2 não sustenta o tamanho
+### 12.2 🔴 CORRIGIDO EM 13/08 — o defeito 2 NÃO está só armado: ele JÁ DISPAROU em 22 dívidas
+
+> ⚠️ **Esta seção foi escrita em 12/08 afirmando "0 com a assinatura" e a afirmação estava errada.**
+> A consulta que a produziu testava a assinatura **só no campo juros** (linha `1.4`). O defeito
+> materializou pela **multa** (linha `1.5`). Medido em 13/08 pela peça 4 do espelho
+> (`app:cobranca:espelho:encargos`), rodada em produção, e confirmado por SQL independente:
+
+| carteira | dívidas com a assinatura | dinheiro duplicado |
+|---|---:|---:|
+| TOP LIFE I | 11 | R$ 697,30 |
+| TOP LIFE II | 6 | R$ 234,57 |
+| AMLI BR 060 | 5 | R$ 65,33 |
+| **total** | **22** | **R$ 997,20** |
+
+Por campo: **22 em multa · 0 em juros** (e o honorário em parte das mesmas dívidas). Foi por isso que a
+medição só de juros deu zero.
+
+**Conferido à mão, NN 74789:** linhas `1.5` somam R$ 301,62 de coluna Valor · coluna J soma R$ 8,00 ·
+**multa gravada R$ 309,62** = a soma exata das duas. E os R$ 301,62 já estão dentro do
+`valor_original` (R$ 399,37). O mesmo dinheiro em dois lugares, que é a definição do defeito 2.
+
+**O que continua verdade da medição de 12/08:** nenhuma das 22 está congelada, então a hidratação ao
+vivo recalcula na leitura e a **tela mostra o valor certo** (§7). O inflado está no banco e contamina
+toda leitura que não hidrata. 🔴 **Mas obrigação congelada nunca é re-hidratada:** se alguma das 22
+for liquidada ou substituída por acordo antes do conserto, o valor inflado vira permanente.
+
+**O que muda no plano:** a reconciliação da §6.3 deixa de ser hipotética e passa a ter tamanho —
+**22 obrigações, R$ 997,20**, todas identificáveis pela assinatura, em produção, hoje.
+
+### 12.2.1 O que a medição de 12/08 acertou (e continua valendo)
 
 Medido nas **107 parcelas de acordo** que aparecem no relatório de 12/08 e existem no sistema:
 
@@ -276,12 +305,16 @@ Medido nas **107 parcelas de acordo** que aparecem no relatório de 12/08 e exis
 |---|---:|
 | com `valor_original` == Σ H de todas as classes | **107 / 107** |
 | com encargo gravado no banco | 104 |
-| **com a assinatura da dupla contagem** (`juros gravado == Σ I + H das linhas 1.4`) | **0** |
+| com a assinatura **no campo juros** (`juros gravado == Σ I + H das linhas 1.4`) | **0** |
 | com encargo gravado igual às colunas I/J da planilha | **0** |
 
-**A dupla contagem ainda não aconteceu.** O encargo gravado nessas parcelas **não veio do adapter de
-inadimplência** — veio do importador de acordos, que calcula na data do acordo
-(`ImportarAcordosDetalhadosUseCase:1070`). `materializarEncargosImportados` nunca rodou sobre elas.
+⚠️ **Estas duas linhas continuam corretas, e foram lidas como mais do que dizem.** "Zero no campo
+juros" não é "zero dupla contagem" — a §12.2 mostra 22 dívidas pela **multa**. A lição é a da casa:
+uma medição vale pelo recorte que ela cobre, e reportá-la sem o recorte é reportar outra coisa.
+
+**A maioria do encargo dessas parcelas não veio do adapter de inadimplência** — veio do importador de
+acordos, que calcula na data do acordo (`ImportarAcordosDetalhadosUseCase:1070`). Mas
+`materializarEncargosImportados` **rodou sobre 22 delas**, e é daí que sai o defeito da §12.2.
 
 **E a "assinatura do defeito" da §2.2 não mede um problema vivo.** Das 22 parcelas com juros > metade
 do principal:
@@ -298,8 +331,11 @@ para dizer que o defeito 2 "já atinge as parcelas que entram hoje"; medido, ele
 
 ### 12.3 O tamanho real do defeito 2: o raio da PRÓXIMA importação
 
-O defeito é de **consumo no import**, e a importação está bloqueada. Então o tamanho não é "quanto
-está errado no banco" (que é zero), e sim **quanto vira errado no instante em que a importação
+✏️ **Corrigido em 13/08:** o que está errado no banco **não** é zero — são 22 dívidas e R$ 997,20
+(§12.2). Esta seção mede a outra metade: o que a **próxima** importação acrescentaria. As duas somam.
+
+O defeito é de **consumo no import**, e a importação está bloqueada. Então o tamanho não é só "quanto
+está errado no banco", e sim **quanto vira errado no instante em que a importação
 rodar**. Medido no lote de 12/08:
 
 | | TOP LIFE I |

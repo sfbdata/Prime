@@ -875,9 +875,32 @@ Medido em produção (13/08, TL1, sobre os 3.023 boletos do lote): **2.639 batem
 
 O balde do meio é o **entregável** desta peça: é ele que a Fase 1 roda antes e depois do conserto.
 
-Medido hoje: **0 boletos com a assinatura**, nas três carteiras. Consistente com a §12.2 da spec irmã
-— a dupla contagem **está armada, não disparada**. A régua nasce medindo zero de propósito: é assim
-que se sabe que ela não está inventando defeito.
+🔴 **RESULTADO DA PRIMEIRA EXECUÇÃO EM PRODUÇÃO (13/08): a dupla contagem ESTÁ MATERIALIZADA.**
+
+| carteira | dívidas com a assinatura | dinheiro duplicado |
+|---|---:|---:|
+| TOP LIFE I | 11 | R$ 697,30 |
+| TOP LIFE II | 6 | R$ 234,57 |
+| AMLI BR 060 | 5 | R$ 65,33 |
+| **total** | **22** | **R$ 997,20** |
+
+⚠️ **A medição anterior desta spec dizia "0 com a assinatura", e estava ERRADA por escopo.** A consulta
+que a produziu testava a assinatura **apenas no campo juros** (linha `1.4`) e foi reportada como se
+cobrisse os três. O defeito materializou pela **multa** (linha `1.5`) e, em parte, pelo honorário
+(`1.15`) — medido: 11 · 6 · 5 divergências em multa contra **zero** em juros. A régua achou na
+primeira execução o que a consulta manual não via, que é exatamente para o que ela existe.
+
+**Conferido à mão, NN 74789 (TOP LIFE I):** as linhas `1.5` somam **R$ 301,62** de coluna Valor; a
+multa somada das colunas J é **R$ 8,00**; a multa **gravada** é **R$ 309,62** — a soma exata das duas.
+E os mesmos R$ 301,62 já estão dentro do `valor_original` (R$ 399,37). A fórmula daria R$ 7,99.
+
+✅ **Nenhuma das 22 está congelada** (`encargosCongeladosEm IS NULL`), então a hidratação ao vivo
+recalcula na leitura e **a tela mostra o valor certo** — é a ressalva da §7 da spec irmã, confirmada.
+O valor inflado está no **banco**, e atinge toda leitura que não passa pela hidratação: SQL, MCP,
+relatório agregado, e a própria conferência pós-importação.
+
+🔴 **O risco vivo:** obrigação congelada nunca é re-hidratada. Se qualquer uma das 22 for liquidada ou
+substituída por acordo **antes** do conserto, o valor inflado congela e vira permanente.
 
 ### 17.4 O que a medição de 13/08 já mostrou, e é achado próprio
 
