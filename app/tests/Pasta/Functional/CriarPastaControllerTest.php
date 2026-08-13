@@ -100,8 +100,8 @@ final class CriarPastaControllerTest extends JusPrimeWebTestCase
         self::assertSame('AÇÃO TESTE', $pasta->getNomeAcao());
     }
 
-    #[TestDox('POST /nova com NUP vazio redireciona para expediente_index sem criar pasta')]
-    public function testNupVazioNaoCriaPasta(): void
+    #[TestDox('POST /nova com NUP em branco agora GERA o número automaticamente (R1)')]
+    public function testNupEmBrancoGeraNumeroAutomatico(): void
     {
         $client          = static::createClient();
         [$user, $tenant] = $this->criarUsuarioAdmin();
@@ -109,11 +109,41 @@ final class CriarPastaControllerTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $user, $tenant);
         $client->request('POST', '/pasta/nova', ['nup' => '   ']);
 
+        // Antes do R1 isto era erro ("O NUP é obrigatório") e voltava para o expediente sem
+        // criar nada. Agora o sistema atribui o próximo número livre do escritório.
         self::assertResponseRedirects();
-        self::assertStringContainsString('expediente', (string) $client->getResponse()->headers->get('Location'));
+        $location = (string) $client->getResponse()->headers->get('Location');
+        self::assertMatchesRegularExpression('#/pasta/\d+$#', $location);
 
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        self::assertCount(0, $em->getRepository(Pasta::class)->findBy(['tenant' => $tenant]));
+        preg_match('#/pasta/(\d+)$#', $location, $m);
+        $em    = static::getContainer()->get(EntityManagerInterface::class);
+        $pasta = $em->find(Pasta::class, (int) $m[1]);
+
+        self::assertNotNull($pasta);
+        self::assertSame($tenant->getId(), $pasta->getTenant()->getId());
+        // Escritório novo, sem nenhuma pasta: o primeiro número é 1.
+        self::assertSame('1', $pasta->getNup());
+    }
+
+    #[TestDox('Números gerados não se repetem dentro do mesmo escritório')]
+    public function testNumerosGeradosNaoSeRepetem(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+
+        $this->logarComTenant($client, $user, $tenant);
+
+        $nups = [];
+        for ($i = 0; $i < 3; $i++) {
+            $client->request('POST', '/pasta/nova', ['nup' => '']);
+            self::assertResponseRedirects();
+            preg_match('#/pasta/(\d+)$#', (string) $client->getResponse()->headers->get('Location'), $m);
+            $em    = static::getContainer()->get(EntityManagerInterface::class);
+            $pasta = $em->find(Pasta::class, (int) $m[1]);
+            $nups[] = $pasta->getNup();
+        }
+
+        self::assertSame(['1', '2', '3'], $nups);
     }
 
     #[TestDox('POST /nova com NUP duplicado agora cria segunda pasta (NUP repetível)')]
