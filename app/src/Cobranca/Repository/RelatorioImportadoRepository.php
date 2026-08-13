@@ -71,4 +71,31 @@ class RelatorioImportadoRepository extends ServiceEntityRepository
             ->getQuery()
             ->getOneOrNullResult();
     }
+
+    /**
+     * TODOS os lotes de uma carteira — insumo da régua do encargo gravado (INV-CE6).
+     *
+     * Existe porque `findUltimoDaCarteira()` responde a pergunta errada para quem precisa comparar o
+     * GRAVADO com as colunas: o banco foi escrito pela importação de um lote específico, que quase
+     * nunca é o último carregado no espelho. Ver {@see \App\Cobranca\Service\Espelho\ConferenciaDeEncargos}.
+     *
+     * @return list<RelatorioImportado>
+     */
+    public function todosDaCarteira(
+        Carteira $carteira,
+        TipoRelatorioContabil $tipo = TipoRelatorioContabil::Inadimplencia,
+    ): array {
+        /** @var list<RelatorioImportado> $lotes */
+        $lotes = $this->createQueryBuilder('r')
+            ->andWhere('r.carteira = :carteira')
+            ->andWhere('r.tipo = :tipo')
+            ->setParameter('carteira', $carteira)
+            ->setParameter('tipo', $tipo)
+            ->orderBy('r.dadosAte', 'DESC')
+            ->addOrderBy('r.id', 'DESC')
+            ->getQuery()
+            ->getResult();
+
+        return $lotes;
+    }
 }

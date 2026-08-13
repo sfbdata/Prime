@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Cobranca\Service\Espelho;
 
 use App\Cobranca\DTO\ResultadoConferenciaEncargos;
+use App\Cobranca\Entity\Carteira;
 use App\Cobranca\Entity\Obrigacao;
 use App\Cobranca\Entity\RelatorioImportado;
 use App\Cobranca\Repository\ObrigacaoRepository;
+use App\Cobranca\Repository\RelatorioImportadoRepository;
 use App\Cobranca\Service\CalculadoraEncargos;
 use App\Cobranca\Service\Importacao\IdentificacaoDaUnidade;
 use App\Cobranca\Service\ResolvedorConfigEncargos;
@@ -36,6 +38,33 @@ use App\Cobranca\Service\ResolvedorConfigEncargos;
  * INV-CE3 — **a config sai da cascata completa**, como na calibração: `ResolvedorConfigEncargos`, não
  * o preset da carteira. Na TOP LIFE I há 1.714 obrigações com honorário zerado por override, e
  * calibrar contra o preset as reportaria todas como divergência falsa.
+ *
+ * 🔑 INV-CE6 — **a assinatura tem de ler o lote que ESCREVEU a obrigação, não o último carregado.**
+ * O `$relatorio` recebido define o UNIVERSO (carteira + `dadosAte`, spec §5.1); a COMPARAÇÃO é feita
+ * contra o lote cuja emissão corresponde ao snapshot de cada obrigação.
+ *
+ * Por que isto não é detalhe: a assinatura testa **igualdade exata** contra `Σ coluna + H da linha`.
+ * A coluna J (multa) é 2% fixo e **não anda** entre emissões, mas as colunas I (juros) e L (honorário)
+ * andam todo dia. Contra o lote errado a igualdade falha **em silêncio** e a régua SUBCONTA — sem
+ * erro, sem aviso, com cara de número certo.
+ *
+ * Medido em produção (13/08/2026), com o banco escrito pela importação de 11/08 e o espelho já com o
+ * lote de 12/08 carregado (mas não importado):
+ *
+ * | | contra 12/08 (último) | contra 11/08 (o que escreveu) |
+ * |---|---:|---:|
+ * | dívidas | 21 | **25** |
+ * | juros | R$ 0,00 | **R$ 624,72** |
+ * | multa | R$ 804,83 | R$ 804,83 ← imune, é 2% fixo |
+ * | honorário | R$ 362,75 | R$ 1.756,39 |
+ *
+ * ⚠️ **O casamento é por DATA, e a data não é um vínculo.** `encargosAtualizadosEm` é o MOMENTO da
+ * importação (`ImportarRelatorioCarteiraUseCase:169` carimba `new \DateTimeImmutable()`), não o
+ * `dadosAte` do lote; não existe FK de obrigação para relatório. Casar os dois pela data só é válido
+ * porque a importação roda no mesmo dia da emissão — o que é verdade no canal restrito, mas é
+ * suposição, não invariante. Por isso **ambiguidade vira balde, nunca palpite**: sem lote na data, ou
+ * com mais de um, a obrigação é INJULGÁVEL e sai contada em separado. Escolher "o mais próximo"
+ * devolveria número com cara de certo, que é a classe de defeito que esta frente existe para matar.
  */
 final class ConferenciaDeEncargos
 {
@@ -54,6 +83,7 @@ final class ConferenciaDeEncargos
         private readonly ObrigacaoRepository $obrigacoes,
         private readonly CalculadoraEncargos $calculadora,
         private readonly ResolvedorConfigEncargos $resolvedor,
+        private readonly RelatorioImportadoRepository $relatorios,
     ) {
     }
 
@@ -68,21 +98,38 @@ final class ConferenciaDeEncargos
             );
         }
 
-        $doRelatorio = $this->somasDoRelatorio($relatorio);
+        // INV-CE6: os lotes indexados pela data de emissão, para achar o que escreveu cada obrigação.
+        $lotesPorData = $this->lotesPorDataDeEmissao($carteira);
+        $somasPorLote = [];
 
         $conferidos = 0;
         $semPar = 0;
         $coerentes = 0;
         $duplaContagem = 0;
         $divergentes = 0;
+        $injulgaveis = 0;
         $diferenca = 0;
         $duplicado = 0;
         $porCampo = [];
         $piores = [];
 
         foreach ($this->obrigacoes->emAbertoDaCarteiraAteComEncargos($carteira, $dadosAte) as $obrigacao) {
+            // INV-CE6 — o lote a comparar é o da emissão que escreveu ESTA obrigação. Sem ele não há
+            // contra o que ler a assinatura, e chutar o mais próximo produziria acusação (ou absolvição)
+            // sem lastro: balde próprio, contado e reportado.
+            $loteDaObrigacao = $this->loteQueEscreveu($obrigacao, $lotesPorData);
+
+            if ($loteDaObrigacao === null) {
+                ++$injulgaveis;
+
+                continue;
+            }
+
+            $idDoLote = $loteDaObrigacao->getId();
+            $somasPorLote[$idDoLote] ??= $this->somasDoRelatorio($loteDaObrigacao);
+
             $chave = $this->chaveDa($obrigacao);
-            $grupo = $doRelatorio[$chave] ?? null;
+            $grupo = $somasPorLote[$idDoLote][$chave] ?? null;
 
             if ($grupo === null) {
                 // A obrigação existe no sistema e o relatório não a cobra. Isso é matéria da
@@ -154,11 +201,60 @@ final class ConferenciaDeEncargos
             coerentes: $coerentes,
             comDuplaContagem: $duplaContagem,
             divergentes: $divergentes,
+            injulgaveis: $injulgaveis,
             diferencaEmCentavos: $diferenca,
             duplicadoEmCentavos: $duplicado,
             duplicadoPorCampo: $porCampo,
             piores: array_slice($piores, 0, self::PIORES),
         );
+    }
+
+    /**
+     * Os lotes da carteira indexados pela data de emissão (`dadosAte`), para o casamento do INV-CE6.
+     *
+     * Data com MAIS DE UM lote fica marcada como ambígua (`null`) em vez de eleger um: duas emissões
+     * do mesmo dia têm colunas diferentes, e escolher a errada devolve o mesmo falso silêncio que este
+     * invariante existe para fechar.
+     *
+     * @return array<string, ?RelatorioImportado>
+     */
+    private function lotesPorDataDeEmissao(Carteira $carteira): array
+    {
+        $porData = [];
+
+        foreach ($this->relatorios->todosDaCarteira($carteira) as $lote) {
+            $emitidoEm = $lote->getDadosAte();
+
+            if ($emitidoEm === null) {
+                continue;
+            }
+
+            $data = $emitidoEm->format('Y-m-d');
+            $porData[$data] = array_key_exists($data, $porData) ? null : $lote;
+        }
+
+        return $porData;
+    }
+
+    /**
+     * O lote cuja emissão corresponde ao snapshot da obrigação — `null` quando não dá para saber.
+     *
+     * São TRÊS causas distintas de `null`, todas legítimas e todas caindo no mesmo balde: obrigação
+     * sem carimbo, carimbo em data sem lote no espelho (medido em produção: 99 de 3.672, 2,7%), e data
+     * com mais de um lote. Distingui-las aqui só produziria contagem mais fina de uma coisa que, em
+     * qualquer dos três casos, esta régua **não sabe julgar**.
+     *
+     * @param array<string, ?RelatorioImportado> $lotesPorData
+     */
+    private function loteQueEscreveu(Obrigacao $obrigacao, array $lotesPorData): ?RelatorioImportado
+    {
+        $snapshot = $obrigacao->getEncargosAtualizadosEm();
+
+        if ($snapshot === null) {
+            return null;
+        }
+
+        return $lotesPorData[$snapshot->format('Y-m-d')] ?? null;
     }
 
     /**

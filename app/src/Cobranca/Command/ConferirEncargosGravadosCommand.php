@@ -106,6 +106,16 @@ final class ConferirEncargosGravadosCommand extends Command
                 $r->semParNoRelatorio,
             ));
 
+            // INV-CE6: sem esta linha, "0 dupla contagem" fica ambíguo entre "conferi e está limpo" e
+            // "não tinha contra o que conferir". As duas leituras levam a decisões opostas.
+            if ($r->injulgaveis > 0) {
+                $io->text(sprintf(
+                    '⚠️  INJULGÁVEIS: %d dívida(s) cujo snapshot não corresponde a nenhum lote carregado — '
+                    . 'não foram conferidas nem absolvidas. Carregue o lote da emissão que as escreveu.',
+                    $r->injulgaveis,
+                ));
+            }
+
             if ($r->conferidos > 0) {
                 $io->text(sprintf('coerentes: %.2f%%', $r->percentualCoerente()));
             }

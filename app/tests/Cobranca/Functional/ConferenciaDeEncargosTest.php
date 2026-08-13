@@ -70,7 +70,25 @@ final class ConferenciaDeEncargosTest extends KernelTestCase
             $obrigacoes,
             new CalculadoraEncargos(),
             new ResolvedorConfigEncargos(),
+            $relatorios,
         );
+    }
+
+    /**
+     * A data de emissão do lote que os testes de caso único montam — e, por consequência do INV-CE6, a
+     * data em que o snapshot das obrigações deles TEM de estar carimbado.
+     *
+     * Existe como constante porque a igualdade entre as duas datas era **acidental**: o snapshot vinha
+     * de `$vencimento->modify('+240 days')`, que a partir de 15/12/2025 cai justamente em 12/08/2026.
+     * Enquanto a régua lia o último lote isso não fazia diferença; depois do INV-CE6 faz, e uma
+     * coincidência aritmética não pode ser o que segura um teste de dinheiro de pé.
+     */
+    private const EMISSAO_DO_LOTE = '12/08/2026';
+
+    /** A mesma data da {@see self::EMISSAO_DO_LOTE}, no formato do snapshot. */
+    private function snapshotNaEmissaoDoLote(): \DateTimeImmutable
+    {
+        return new \DateTimeImmutable('2026-08-12');
     }
 
     protected function tearDown(): void
@@ -85,7 +103,7 @@ final class ConferenciaDeEncargosTest extends KernelTestCase
         $carteira = $this->carteiraTopLife();
         $caso = $this->caso($carteira, '01-01');
         $vencimento = new \DateTimeImmutable('2025-12-15');
-        $snapshot = $vencimento->modify('+240 days');
+        $snapshot = $this->snapshotNaEmissaoDoLote();
 
         // Os números pinados de `CalculadoraEncargosTest`: P=170,00 · 240 dias · 20%.
         $this->obrigacao($caso, '74608', '12/2025', 17000, $vencimento, $snapshot, 1360, 340, 0, 3740);
@@ -114,7 +132,7 @@ final class ConferenciaDeEncargosTest extends KernelTestCase
         $carteira = $this->carteiraTopLife();
         $caso = $this->caso($carteira, '01-02');
         $vencimento = new \DateTimeImmutable('2025-12-15');
-        $snapshot = $vencimento->modify('+240 days');
+        $snapshot = $this->snapshotNaEmissaoDoLote();
 
         $this->obrigacao($caso, '67611', '12/2025', 44545, $vencimento, $snapshot, 8045, 891, 0, 10854);
 
@@ -146,7 +164,7 @@ final class ConferenciaDeEncargosTest extends KernelTestCase
         $carteira = $this->carteiraTopLife();
         $caso = $this->caso($carteira, '02-01');
         $vencimento = new \DateTimeImmutable('2025-12-15');
-        $snapshot = $vencimento->modify('+240 days');
+        $snapshot = $this->snapshotNaEmissaoDoLote();
 
         $this->obrigacao($caso, '74790', '12/2025', 44545, $vencimento, $snapshot, 3560, 5436, 0, 0);
 
@@ -169,7 +187,7 @@ final class ConferenciaDeEncargosTest extends KernelTestCase
         $carteira = $this->carteiraTopLife();
         $caso = $this->caso($carteira, '02-02');
         $vencimento = new \DateTimeImmutable('2025-12-15');
-        $snapshot = $vencimento->modify('+240 days');
+        $snapshot = $this->snapshotNaEmissaoDoLote();
 
         $this->obrigacao($caso, '74791', '12/2025', 44545, $vencimento, $snapshot, 3560, 891, 0, 12545);
 
@@ -197,7 +215,7 @@ final class ConferenciaDeEncargosTest extends KernelTestCase
         $carteira = $this->carteiraTopLife();
         $caso = $this->caso($carteira, '02-03');
         $vencimento = new \DateTimeImmutable('2025-12-15');
-        $snapshot = $vencimento->modify('+240 days');
+        $snapshot = $this->snapshotNaEmissaoDoLote();
 
         // `valorOriginal` = 400,00 (só a classe 1.1) e NÃO 445,45 — é o que caracteriza o boleto comum.
         $this->obrigacao($caso, '74792', '12/2025', 40000, $vencimento, $snapshot, 3200, 5436, 0, 0);
@@ -216,7 +234,7 @@ final class ConferenciaDeEncargosTest extends KernelTestCase
         $carteira = $this->carteiraTopLife();
         $caso = $this->caso($carteira, '02-04');
         $vencimento = new \DateTimeImmutable('2025-12-15');
-        $snapshot = $vencimento->modify('+240 days');
+        $snapshot = $this->snapshotNaEmissaoDoLote();
 
         // Σ H = 400,00 + 20,00 + 45,45 = 465,45
         // multa gravada = (8,00+0,40+0,91) + 20,00 = 29,31 · honorário = (80,00+4,00) + 45,45 = 129,45
@@ -245,21 +263,25 @@ final class ConferenciaDeEncargosTest extends KernelTestCase
         //
         // A régua certa é IGUALDADE: gravado == coluna do relatório + H da linha de encargo. A régua
         // que qualquer um escreveria primeiro é "gravado MAIOR que a coluna" — e ela acusaria esta
-        // dívida, que não tem defeito nenhum: o snapshot dela é simplesmente mais recente que a
-        // emissão do relatório, então o encargo cresceu por passagem de tempo.
+        // dívida, que não tem defeito nenhum: o encargo simplesmente cresceu por passagem de tempo.
         //
-        // O juros gravado (50,00) NÃO reproduz a fórmula na data do snapshot (que daria 59,39), então
-        // a dívida é mesmo divergente — há um número ali sem procedência. Mas divergente é o balde
-        // brando: pode ser edição manual, migração antiga, qualquer coisa.
+        // O juros gravado (50,00) NÃO reproduz a fórmula na data do snapshot, então a dívida é mesmo
+        // divergente — há um número ali sem procedência. Mas divergente é o balde brando: pode ser
+        // edição manual, migração antiga, qualquer coisa.
         //
         // A coluna I do relatório soma 35,00 e o H da linha 1.4 é 45,45 → a assinatura seria 80,45.
         // 50,00 é MAIOR que 35,00 e DIFERENTE de 80,45. A régua certa manda para "divergente";
         // a régua "maior que" grita DUPLA CONTAGEM e transforma ruído em acusação de dinheiro
         // cobrado duas vezes.
+        //
+        // ⚠️ O snapshot fica na data de emissão do lote DE PROPÓSITO (INV-CE6). Antes ele era
+        // `+400 days`, uma data sem lote nenhum — o que hoje mandaria a dívida para o balde
+        // INJULGÁVEL, e a assinatura nunca chegaria a ser avaliada. O teste continuaria verde e
+        // deixaria de provar o que diz provar: a discriminação só existe se a assinatura RODAR.
         $carteira = $this->carteiraTopLife();
         $caso = $this->caso($carteira, '01-03');
         $vencimento = new \DateTimeImmutable('2025-12-15');
-        $snapshot = $vencimento->modify('+400 days');
+        $snapshot = $this->snapshotNaEmissaoDoLote();
 
         $this->obrigacao($caso, '67612', '12/2025', 44545, $vencimento, $snapshot, 5000, 891, 0, 10275);
 
@@ -277,6 +299,86 @@ final class ConferenciaDeEncargosTest extends KernelTestCase
         self::assertSame(1, $r->divergentes, sprintf('piores: %s', json_encode($r->piores)));
         self::assertSame(0, $r->duplicadoEmCentavos);
         self::assertSame('divergente', $r->veredito());
+        self::assertSame(0, $r->injulgaveis, 'a assinatura precisa ter RODADO para o teste valer');
+    }
+
+    #[TestDox('🔴 INV-CE6 — a assinatura lê o lote que ESCREVEU a dívida, não o último carregado')]
+    public function testAssinaturaLeOLoteQueEscreveuENaoOUltimo(): void
+    {
+        // O defeito que este teste fecha, medido em produção em 13/08/2026: o banco foi escrito pela
+        // importação de 11/08 e o espelho já tinha o lote de 12/08 carregado (mas NÃO importado,
+        // porque a importação está bloqueada). A régua lia o último e comparava o gravado contra
+        // colunas que não o escreveram.
+        //
+        // Por que passava despercebido: a coluna J (multa) é 2% fixo e não anda entre emissões, então
+        // a assinatura da multa casava nos dois lotes. As colunas I (juros) e L (honorário) andam todo
+        // dia — contra o lote errado a IGUALDADE falha em silêncio e a régua SUBCONTA. Contra o lote
+        // certo eram 25 dívidas / R$ 3.185,94; contra o último, 21 / R$ 1.167,58.
+        //
+        // Aqui: juros gravado 80,45 = Σ I do lote de 11/08 (35,00) + H da linha 1.4 (45,45).
+        // No lote de 12/08 a coluna I subiu para 35,23 → a assinatura daria 80,68 e NÃO casaria.
+        $carteira = $this->carteiraTopLife();
+        $caso = $this->caso($carteira, '01-06');
+        $vencimento = new \DateTimeImmutable('2025-12-15');
+
+        $this->obrigacao($caso, '67613', '12/2025', 44545, $vencimento, new \DateTimeImmutable('2026-08-11'), 8045, 891, 0, 10854);
+
+        $comum = [
+            'unidade' => '01-06', 'nn' => '67613', 'competencia' => '12/2025',
+            'vencimento' => '15/12/2025', 'correcao' => 0.0, 'acordo' => 'Acordo 426 - Parc. 1/6',
+        ];
+
+        // O lote que ESCREVEU a dívida.
+        $this->gravarLote($carteira, [
+            $this->linhaDeDado(...$comum, classe: '1.1 - Taxa de condomínio', valor: 400.00, juros: 30.00, multa: 8.00, honorarios: 100.00),
+            $this->linhaDeDado(...$comum, classe: '1.4 - Juros', valor: 45.45, juros: 5.00, multa: 0.91, honorarios: 8.54),
+        ], dadosAte: '11/08/2026');
+
+        // O lote MAIS RECENTE — um dia de juros a mais nas colunas. É o que a régua lia antes.
+        $ultimo = $this->gravarLote($carteira, [
+            $this->linhaDeDado(...$comum, classe: '1.1 - Taxa de condomínio', valor: 400.00, juros: 30.20, multa: 8.00, honorarios: 100.00),
+            $this->linhaDeDado(...$comum, classe: '1.4 - Juros', valor: 45.45, juros: 5.03, multa: 0.91, honorarios: 8.54),
+        ], dadosAte: self::EMISSAO_DO_LOTE);
+
+        $r = $this->conferencia->conferir($ultimo);
+
+        self::assertSame(1, $r->comDuplaContagem, sprintf('piores: %s', json_encode($r->piores)));
+        self::assertSame(4545, $r->duplicadoEmCentavos, 'o H da linha 1.4 do lote de 11/08, ao centavo');
+        self::assertSame(['juros' => 4545], $r->duplicadoPorCampo);
+        self::assertSame(0, $r->injulgaveis);
+    }
+
+    #[TestDox('INV-CE6 — dívida cujo snapshot não tem lote é INJULGÁVEL, não "limpa"')]
+    public function testDividaSemLoteNaDataDoSnapshotEhInjulgavel(): void
+    {
+        // Medido em produção: 99 de 3.672 dívidas do universo da régua (2,7%) têm snapshot em data sem
+        // lote carregado — recálculo do cron, edição manual, importação antiga. A régua não tem contra
+        // o que ler a assinatura delas.
+        //
+        // O balde existe porque silenciá-las faria "0 dupla contagem" significar duas coisas
+        // incompatíveis: "conferi e está limpo" e "não tinha contra o que conferir". Esta dívida tem a
+        // assinatura EXATA da dupla contagem — e mesmo assim não pode ser acusada, porque as colunas
+        // que a acusariam são de outra emissão.
+        $carteira = $this->carteiraTopLife();
+        $caso = $this->caso($carteira, '01-07');
+        $vencimento = new \DateTimeImmutable('2025-12-15');
+
+        $this->obrigacao($caso, '67614', '12/2025', 44545, $vencimento, new \DateTimeImmutable('2026-07-30'), 8045, 891, 0, 10854);
+
+        $comum = [
+            'unidade' => '01-07', 'nn' => '67614', 'competencia' => '12/2025',
+            'vencimento' => '15/12/2025', 'correcao' => 0.0, 'acordo' => 'Acordo 426 - Parc. 1/6',
+        ];
+
+        $r = $this->conferir($carteira, [
+            $this->linhaDeDado(...$comum, classe: '1.1 - Taxa de condomínio', valor: 400.00, juros: 30.00, multa: 8.00, honorarios: 100.00),
+            $this->linhaDeDado(...$comum, classe: '1.4 - Juros', valor: 45.45, juros: 5.00, multa: 0.91, honorarios: 8.54),
+        ]);
+
+        self::assertSame(1, $r->injulgaveis, 'o snapshot é de 30/07 e o único lote é de 12/08');
+        self::assertSame(0, $r->conferidos, 'não foi conferida');
+        self::assertSame(0, $r->comDuplaContagem, 'e sobretudo NÃO foi acusada com colunas de outra emissão');
+        self::assertSame(0, $r->duplicadoEmCentavos);
     }
 
     #[TestDox('INV-CE3 — a config sai da cascata: honorário zerado por override não vira divergência')]
@@ -287,7 +389,7 @@ final class ConferenciaDeEncargosTest extends KernelTestCase
         $carteira = $this->carteiraTopLife();
         $caso = $this->caso($carteira, '01-04');
         $vencimento = new \DateTimeImmutable('2025-12-15');
-        $snapshot = $vencimento->modify('+240 days');
+        $snapshot = $this->snapshotNaEmissaoDoLote();
 
         $obrigacao = $this->obrigacao($caso, '74609', '12/2025', 17000, $vencimento, $snapshot, 1360, 340, 0, 0);
         $obrigacao->setTaxaHonorariosBp(0);
@@ -311,7 +413,7 @@ final class ConferenciaDeEncargosTest extends KernelTestCase
         $caso = $this->caso($carteira, '01-05');
         $vencimento = new \DateTimeImmutable('2025-12-15');
 
-        $this->obrigacao($caso, '99999', '12/2025', 17000, $vencimento, $vencimento->modify('+240 days'), 1360, 340, 0, 3740);
+        $this->obrigacao($caso, '99999', '12/2025', 17000, $vencimento, $this->snapshotNaEmissaoDoLote(), 1360, 340, 0, 3740);
 
         $r = $this->conferir($carteira, [
             $this->linhaDeDado(
@@ -353,13 +455,26 @@ final class ConferenciaDeEncargosTest extends KernelTestCase
      */
     private function conferir(Carteira $carteira, array $linhas): \App\Cobranca\DTO\ResultadoConferenciaEncargos
     {
-        $arquivo = $this->montarPlanilha($linhas, dadosAte: '12/08/2026');
+        return $this->conferencia->conferir($this->gravarLote($carteira, $linhas, self::EMISSAO_DO_LOTE));
+    }
+
+    /**
+     * Carrega UM lote no espelho e devolve a entidade — os testes do INV-CE6 precisam de mais de um,
+     * com datas de emissão diferentes, para distinguir "o lote que escreveu" de "o último carregado".
+     *
+     * @param list<list<mixed>> $linhas
+     */
+    private function gravarLote(Carteira $carteira, array $linhas, string $dadosAte): RelatorioImportado
+    {
+        // A emissão acompanha o `dadosAte`: é o que o rodapé do relatório real traz, e é o que torna
+        // os dois arquivos distintos para a dedup por hash.
+        $arquivo = $this->montarPlanilha($linhas, dadosAte: $dadosAte, emissao: $dadosAte . ' 09:42');
         $saida = $this->gravar->executar(new GravarEspelhoRelatorioInput($carteira, $arquivo));
 
         $lote = $this->em->getRepository(RelatorioImportado::class)->find($saida->relatorioId);
         self::assertNotNull($lote);
 
-        return $this->conferencia->conferir($lote);
+        return $lote;
     }
 
     private function carteiraTopLife(): Carteira

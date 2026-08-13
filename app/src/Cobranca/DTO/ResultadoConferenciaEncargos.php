@@ -21,6 +21,11 @@ final readonly class ResultadoConferenciaEncargos
      * soma principal + juros + multa + correção). Levar um total à contabilidade sem separar os dois
      * seria apresentar como "saldo cobrado duas vezes" algo que em parte não é saldo.
      *
+     * `$injulgaveis` NÃO é um terceiro balde de defeito — é a contagem do que esta régua **não sabe
+     * julgar**: obrigação cujo snapshot não corresponde a nenhum lote carregado no espelho (INV-CE6).
+     * Precisa aparecer no relatório porque silenciá-la faria "0 dupla contagem" significar duas coisas
+     * incompatíveis — "conferi e está limpo" e "não tinha contra o que conferir".
+     *
      * @param array<string, int>                                                       $duplicadoPorCampo campo => centavos
      * @param list<array{unidade: string, referencia: ?string, campo: string, gravado: int,
      *                   pelaFormula: int, diferenca: int, duplicado: int, ehParcelaDeAcordo: bool}> $piores
@@ -33,6 +38,7 @@ final readonly class ResultadoConferenciaEncargos
         public int $coerentes,
         public int $comDuplaContagem,
         public int $divergentes,
+        public int $injulgaveis,
         public int $diferencaEmCentavos,
         public int $duplicadoEmCentavos,
         public array $duplicadoPorCampo,
