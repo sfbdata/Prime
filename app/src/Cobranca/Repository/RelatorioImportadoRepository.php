@@ -85,16 +85,26 @@ class RelatorioImportadoRepository extends ServiceEntityRepository
         Carteira $carteira,
         TipoRelatorioContabil $tipo = TipoRelatorioContabil::Inadimplencia,
     ): array {
-        /** @var list<RelatorioImportado> $lotes */
-        $lotes = $this->createQueryBuilder('r')
+        $qb = $this->createQueryBuilder('r')
             ->andWhere('r.carteira = :carteira')
             ->andWhere('r.tipo = :tipo')
             ->setParameter('carteira', $carteira)
             ->setParameter('tipo', $tipo)
             ->orderBy('r.dadosAte', 'DESC')
-            ->addOrderBy('r.id', 'DESC')
-            ->getQuery()
-            ->getResult();
+            ->addOrderBy('r.id', 'DESC');
+
+        // Tenant EXPLÍCITO: o `TenantFilter` só liga no evento de request, e isto roda em console —
+        // mesmo motivo documentado em `ObrigacaoRepository::emAbertoDaCarteiraAteComEncargos`. A
+        // carteira já ancoraria o tenant na prática; o filtro está aqui para que a garantia não dependa
+        // de uma cadeia de FK que uma refatoração futura pode afrouxar sem ninguém notar.
+        $tenant = $carteira->getTenant();
+
+        if ($tenant !== null) {
+            $qb->andWhere('r.tenant = :tenant')->setParameter('tenant', $tenant);
+        }
+
+        /** @var list<RelatorioImportado> $lotes */
+        $lotes = $qb->getQuery()->getResult();
 
         return $lotes;
     }

@@ -48,23 +48,40 @@ use App\Cobranca\Service\ResolvedorConfigEncargos;
  * andam todo dia. Contra o lote errado a igualdade falha **em silêncio** e a régua SUBCONTA — sem
  * erro, sem aviso, com cara de número certo.
  *
- * Medido em produção (13/08/2026), com o banco escrito pela importação de 11/08 e o espelho já com o
- * lote de 12/08 carregado (mas não importado):
+ * ⚠️ **Ordem de grandeza medida por SQL manual em 13/08/2026, NÃO por esta classe** — ela nunca rodou
+ * contra produção, que está três commits atrás. A consulta reproduziu a assinatura fora do código e
+ * **não aplica o INV-CE4** (coerência vence assinatura), então os totais abaixo são **teto**, não
+ * fechamento. Servem para dimensionar o defeito, não para decidir dinheiro: quem decide é a lista que
+ * esta régua produzir depois do deploy.
  *
  * | | contra 12/08 (último) | contra 11/08 (o que escreveu) |
  * |---|---:|---:|
- * | dívidas | 21 | **25** |
- * | juros | R$ 0,00 | **R$ 624,72** |
+ * | dívidas | 21 | ≤ 25 |
+ * | juros | R$ 0,00 | R$ 624,72 |
  * | multa | R$ 804,83 | R$ 804,83 ← imune, é 2% fixo |
  * | honorário | R$ 362,75 | R$ 1.756,39 |
  *
- * ⚠️ **O casamento é por DATA, e a data não é um vínculo.** `encargosAtualizadosEm` é o MOMENTO da
- * importação (`ImportarRelatorioCarteiraUseCase:169` carimba `new \DateTimeImmutable()`), não o
- * `dadosAte` do lote; não existe FK de obrigação para relatório. Casar os dois pela data só é válido
- * porque a importação roda no mesmo dia da emissão — o que é verdade no canal restrito, mas é
- * suposição, não invariante. Por isso **ambiguidade vira balde, nunca palpite**: sem lote na data, ou
- * com mais de um, a obrigação é INJULGÁVEL e sai contada em separado. Escolher "o mais próximo"
- * devolveria número com cara de certo, que é a classe de defeito que esta frente existe para matar.
+ * ⚠️ **O casamento é por DATA, e a data não é um vínculo.** `encargosAtualizadosEm` é o MOMENTO em que
+ * a importação rodou (`ImportarRelatorioCarteiraUseCase:169` carimba `new \DateTimeImmutable()` uma
+ * vez por lote); não existe FK de obrigação para relatório. Casar os dois pela data só é válido porque
+ * a importação roda no dia da emissão — verdade no canal restrito, mas **suposição, não invariante**.
+ * Por isso **ambiguidade vira balde, nunca palpite**: sem lote na data, ou com mais de um, a obrigação
+ * é INJULGÁVEL e sai contada em separado. Escolher "o mais próximo" devolveria número com cara de
+ * certo, que é a classe de defeito que esta frente existe para matar.
+ *
+ * ⚠️ **A importação não é a única a carimbar `encargosAtualizadosEm`** — achado da revisão. Também
+ * escrevem `CriarAcordoUseCase`, `ImportarAcordosDetalhadosUseCase` (ambos com a data do acordo),
+ * `RegistrarObrigacaoUseCase`, `EditarObrigacaoUseCase`, `EditarConfiguracaoCasoUseCase` e
+ * `EncargosVivos`. Se um desses carimbos cair na data de um lote, esta régua compara a obrigação
+ * contra colunas que **não a escreveram** e reporta o resultado como conferido, sem sinal nenhum.
+ *
+ * Raio medido em produção (13/08/2026): **1 obrigação** — uma parcela do acordo 40, carimbada em
+ * `2026-08-11 00:00:00` (data do acordo, não da importação), com os **quatro encargos zerados**. Como
+ * a assinatura exige `hDaLinha > 0` e a igualdade com o gravado, ela precisaria de coluna negativa
+ * para disparar: hoje não gera falso positivo. O defeito é real e cresce a cada lote carregado; a
+ * correção durável é a obrigação registrar QUAL relatório a escreveu (FK), que é mudança de schema e
+ * está anotada como dívida técnica na spec. Deliberadamente **não** há heurística sobre "o carimbo tem
+ * hora": seria adivinhar sobre um dado que ninguém garantiu.
  */
 final class ConferenciaDeEncargos
 {
@@ -98,97 +115,125 @@ final class ConferenciaDeEncargos
             );
         }
 
-        // INV-CE6: os lotes indexados pela data de emissão, para achar o que escreveu cada obrigação.
-        $lotesPorData = $this->lotesPorDataDeEmissao($carteira);
-        $somasPorLote = [];
+        // INV-CE6: os lotes indexados pela emissão, para achar o que escreveu cada obrigação.
+        $lotesPorEmissao = $this->lotesPorEmissao($carteira);
 
-        $conferidos = 0;
+        $assinaturaAvaliada = 0;
         $semPar = 0;
         $coerentes = 0;
         $duplaContagem = 0;
         $divergentes = 0;
-        $injulgaveis = 0;
         $diferenca = 0;
         $duplicado = 0;
         $porCampo = [];
         $piores = [];
 
-        foreach ($this->obrigacoes->emAbertoDaCarteiraAteComEncargos($carteira, $dadosAte) as $obrigacao) {
-            // INV-CE6 — o lote a comparar é o da emissão que escreveu ESTA obrigação. Sem ele não há
-            // contra o que ler a assinatura, e chutar o mais próximo produziria acusação (ou absolvição)
-            // sem lastro: balde próprio, contado e reportado.
-            $loteDaObrigacao = $this->loteQueEscreveu($obrigacao, $lotesPorData);
+        // Partição por lote ANTES de somar qualquer relatório. É o que permite carregar as somas de um
+        // lote, gastá-las e DESCARTAR antes do próximo: o pico de memória vira o de um lote, não o da
+        // soma de todos. A versão com cache (`$somasPorLote[$id] ??= ...`) não tinha teto nenhum, e o
+        // espelho acumula um lote por dia — o `calibrar` já estourou 128M nesta carteira.
+        [$porLote, $lotesUsados, $semLote] = $this->particionarPorLote($carteira, $dadosAte, $lotesPorEmissao);
 
-            if ($loteDaObrigacao === null) {
-                ++$injulgaveis;
+        $injulgaveis = count($semLote);
+        $universo = $injulgaveis;
 
+        // As injulgáveis primeiro, sem lote nenhum carregado: só a dimensão da coerência.
+        // As demais, um lote por vez.
+        $blocos = [[null, $semLote]];
+
+        foreach ($porLote as $idDoLote => $obrigacoesDoLote) {
+            $universo += count($obrigacoesDoLote);
+            $blocos[] = [$idDoLote, $obrigacoesDoLote];
+        }
+
+        foreach ($blocos as [$idDoLote, $obrigacoesDoBloco]) {
+            if ($obrigacoesDoBloco === []) {
                 continue;
             }
 
-            $idDoLote = $loteDaObrigacao->getId();
-            $somasPorLote[$idDoLote] ??= $this->somasDoRelatorio($loteDaObrigacao);
+            $somas = $idDoLote === null ? [] : $this->somasDoRelatorio($lotesUsados[$idDoLote]);
 
-            $chave = $this->chaveDa($obrigacao);
-            $grupo = $somasPorLote[$idDoLote][$chave] ?? null;
+            foreach ($obrigacoesDoBloco as $obrigacao) {
+                // 🔑 INV-CE7 — a COERÊNCIA roda SEMPRE, porque não depende de lote nenhum (INV-CE2: é o
+                // gravado contra a fórmula na data do próprio snapshot). Só a ASSINATURA precisa das
+                // colunas, e só ela fica suspensa quando não há lote.
+                //
+                // A primeira versão deste conserto pulava a obrigação inteira no `injulgável`, e com
+                // isso jogava fora a única leitura que ainda era possível fazer nela. Medido pela
+                // revisão no dev: R$ 150.262,17 de encargo gravado saíam sem conferência alguma, com a
+                // régua imprimindo "diferença total: R$ 0,00". Perder informação que não dependia do
+                // lote foi erro gratuito.
+                $gravado = $this->gravado($obrigacao);
+                $pelaFormula = $this->pelaFormula($obrigacao);
+                $coerente = $gravado === $pelaFormula;
 
-            if ($grupo === null) {
-                // A obrigação existe no sistema e o relatório não a cobra. Isso é matéria da
-                // CONFERÊNCIA (balde "sobra no sistema"); aqui ela só não tem contra o que ser lida.
-                ++$semPar;
+                $grupo = $idDoLote === null ? null : ($somas[$this->chaveDa($obrigacao)] ?? null);
 
-                continue;
-            }
-
-            ++$conferidos;
-
-            $gravado = $this->gravado($obrigacao);
-            $pelaFormula = $this->pelaFormula($obrigacao);
-            $duplicadoAqui = $this->duplaContagemPorCampo($gravado, $grupo, $obrigacao);
-
-            // INV-CE4 — a COERÊNCIA vence a assinatura, e a ordem é decisão, não acaso. Se a fórmula
-            // produz exatamente o que está gravado, o número tem procedência: uma coincidência com a
-            // forma da dupla contagem não o torna dinheiro duplicado. Inverter a ordem faria a régua
-            // acusar snapshot legítimo, que é o falso positivo caro — o dono levaria à contabilidade
-            // um defeito que não existe.
-            if ($gravado === $pelaFormula) {
-                ++$coerentes;
-
-                continue;
-            }
-
-            if ($duplicadoAqui !== []) {
-                ++$duplaContagem;
-
-                foreach ($duplicadoAqui as $campo => $centavos) {
-                    $duplicado += $centavos;
-                    $porCampo[$campo] = ($porCampo[$campo] ?? 0) + $centavos;
+                if ($idDoLote !== null) {
+                    if ($grupo === null) {
+                        // A obrigação existe no sistema e o lote que a escreveu não a cobra. Aqui ela
+                        // só não tem contra o que ser lida — a sobra é matéria da CONFERÊNCIA.
+                        ++$semPar;
+                    } else {
+                        ++$assinaturaAvaliada;
+                    }
                 }
-            } else {
-                ++$divergentes;
-            }
 
-            foreach (self::CAMPOS as $campo) {
-                $delta = $gravado[$campo] - $pelaFormula[$campo];
+                $duplicadoAqui = $grupo === null
+                    ? []
+                    : $this->duplaContagemPorCampo($gravado, $grupo, $obrigacao);
 
-                if ($delta === 0) {
+                // INV-CE4 — a COERÊNCIA vence a assinatura, e a ordem é decisão, não acaso. Se a
+                // fórmula produz exatamente o que está gravado, o número tem procedência: uma
+                // coincidência com a forma da dupla contagem não o torna dinheiro duplicado. Inverter a
+                // ordem faria a régua acusar snapshot legítimo, que é o falso positivo caro — o dono
+                // levaria à contabilidade um defeito que não existe.
+                if ($coerente) {
+                    ++$coerentes;
+
                     continue;
                 }
 
-                $diferenca += abs($delta);
+                if ($duplicadoAqui !== []) {
+                    ++$duplaContagem;
 
-                $piores[] = [
-                    'unidade' => $this->unidadeDe($obrigacao),
-                    'referencia' => $obrigacao->getReferenciaExterna(),
-                    'campo' => $campo,
-                    'gravado' => $gravado[$campo],
-                    'pelaFormula' => $pelaFormula[$campo],
-                    'diferenca' => $delta,
-                    // Sem esta coluna a lista mistura os dois baldes e quem lê não sabe o que é
-                    // dinheiro duplicado e o que é snapshot velho — foi achado da revisão.
-                    'duplicado' => $duplicadoAqui[$campo] ?? 0,
-                    'ehParcelaDeAcordo' => $obrigacao->getAcordoOrigem() !== null,
-                ];
+                    foreach ($duplicadoAqui as $campo => $centavos) {
+                        $duplicado += $centavos;
+                        $porCampo[$campo] = ($porCampo[$campo] ?? 0) + $centavos;
+                    }
+                } else {
+                    // Inclui a obrigação cuja assinatura ficou SUSPENSA por falta de lote: ela tem
+                    // número sem procedência (a fórmula não o reproduz) e isso é verdade sem lote
+                    // nenhum. O que não se pode dizer dela é que duplicou — faltam as colunas.
+                    ++$divergentes;
+                }
+
+                foreach (self::CAMPOS as $campo) {
+                    $delta = $gravado[$campo] - $pelaFormula[$campo];
+
+                    if ($delta === 0) {
+                        continue;
+                    }
+
+                    $diferenca += abs($delta);
+
+                    $piores[] = [
+                        'unidade' => $this->unidadeDe($obrigacao),
+                        'referencia' => $obrigacao->getReferenciaExterna(),
+                        'campo' => $campo,
+                        'gravado' => $gravado[$campo],
+                        'pelaFormula' => $pelaFormula[$campo],
+                        'diferenca' => $delta,
+                        // Sem esta coluna a lista mistura os dois baldes e quem lê não sabe o que é
+                        // dinheiro duplicado e o que é snapshot velho — foi achado da revisão.
+                        'duplicado' => $duplicadoAqui[$campo] ?? 0,
+                        'ehParcelaDeAcordo' => $obrigacao->getAcordoOrigem() !== null,
+                    ];
+                }
             }
+
+            // O ponto do bloco: as somas deste lote morrem aqui.
+            unset($somas);
         }
 
         usort($piores, static fn (array $a, array $b): int => abs($b['diferenca']) <=> abs($a['diferenca']));
@@ -196,7 +241,8 @@ final class ConferenciaDeEncargos
         return new ResultadoConferenciaEncargos(
             carteira: $carteira->getNome() ?? '?',
             dadosAte: $dadosAte,
-            conferidos: $conferidos,
+            universo: $universo,
+            assinaturaAvaliada: $assinaturaAvaliada,
             semParNoRelatorio: $semPar,
             coerentes: $coerentes,
             comDuplaContagem: $duplaContagem,
@@ -210,26 +256,80 @@ final class ConferenciaDeEncargos
     }
 
     /**
-     * Os lotes da carteira indexados pela data de emissão (`dadosAte`), para o casamento do INV-CE6.
+     * Separa o universo em "obrigações de cada lote" e "sem lote que as tenha escrito", **sem somar
+     * relatório nenhum** — é o que permite depois carregar um lote por vez e descartá-lo (INV-CE6).
+     *
+     * @param array<string, ?RelatorioImportado> $lotesPorEmissao
+     *
+     * @return array{array<int, list<Obrigacao>>, array<int, RelatorioImportado>, list<Obrigacao>}
+     */
+    private function particionarPorLote(
+        Carteira $carteira,
+        \DateTimeImmutable $dadosAte,
+        array $lotesPorEmissao,
+    ): array {
+        $porLote = [];
+        $lotesUsados = [];
+        $semLote = [];
+
+        foreach ($this->obrigacoes->emAbertoDaCarteiraAteComEncargos($carteira, $dadosAte) as $obrigacao) {
+            // INV-CE6 — o lote a comparar é o da emissão que escreveu ESTA obrigação. Sem ele não há
+            // contra o que ler a assinatura, e chutar o mais próximo produziria acusação (ou
+            // absolvição) sem lastro: balde próprio, contado e reportado.
+            $lote = $this->loteQueEscreveu($obrigacao, $lotesPorEmissao);
+
+            if ($lote === null) {
+                $semLote[] = $obrigacao;
+
+                continue;
+            }
+
+            $id = $lote->getId();
+
+            if ($id === null) {
+                $semLote[] = $obrigacao;
+
+                continue;
+            }
+
+            $lotesUsados[$id] = $lote;
+            $porLote[$id][] = $obrigacao;
+        }
+
+        return [$porLote, $lotesUsados, $semLote];
+    }
+
+    /**
+     * Os lotes da carteira indexados pela data de EMISSÃO (`emitidoEm`), para o casamento do INV-CE6.
+     *
+     * ⚠️ **`emitidoEm` e `dadosAte` NÃO são sinônimos** — achado da revisão. `dadosAte` é o
+     * "Inadimplência até" (a data de corte dos números); `emitidoEm` é o rodapé "Emissão" (quando o
+     * arquivo foi gerado). No dado de dev há lote com corte em 21/07 e emissão em 22/07. A âncora é a
+     * **emissão**, porque é sobre o arquivo emitido que a importação roda, e é a importação que carimba
+     * `encargosAtualizadosEm`. Em produção as duas coincidem nos dois lotes existentes, então hoje a
+     * escolha não muda número nenhum — o que a torna uma decisão de significado, não de resultado.
      *
      * Data com MAIS DE UM lote fica marcada como ambígua (`null`) em vez de eleger um: duas emissões
      * do mesmo dia têm colunas diferentes, e escolher a errada devolve o mesmo falso silêncio que este
-     * invariante existe para fechar.
+     * invariante existe para fechar. Lote sem `emitidoEm` fica de fora — não dá para casar por uma data
+     * que não existe.
      *
      * @return array<string, ?RelatorioImportado>
      */
-    private function lotesPorDataDeEmissao(Carteira $carteira): array
+    private function lotesPorEmissao(Carteira $carteira): array
     {
         $porData = [];
 
         foreach ($this->relatorios->todosDaCarteira($carteira) as $lote) {
-            $emitidoEm = $lote->getDadosAte();
+            $emitidoEm = $lote->getEmitidoEm();
 
             if ($emitidoEm === null) {
                 continue;
             }
 
             $data = $emitidoEm->format('Y-m-d');
+            // `array_key_exists` e não `isset`: a chave ambígua guarda `null`, e `isset` a daria como
+            // inexistente — o terceiro lote da mesma data voltaria a eleger um vencedor em silêncio.
             $porData[$data] = array_key_exists($data, $porData) ? null : $lote;
         }
 
@@ -240,13 +340,14 @@ final class ConferenciaDeEncargos
      * O lote cuja emissão corresponde ao snapshot da obrigação — `null` quando não dá para saber.
      *
      * São TRÊS causas distintas de `null`, todas legítimas e todas caindo no mesmo balde: obrigação
-     * sem carimbo, carimbo em data sem lote no espelho (medido em produção: 99 de 3.672, 2,7%), e data
-     * com mais de um lote. Distingui-las aqui só produziria contagem mais fina de uma coisa que, em
-     * qualquer dos três casos, esta régua **não sabe julgar**.
+     * sem carimbo, carimbo em data sem lote no espelho (medido em produção: **99 obrigações no
+     * universo de 3.672 desta régua**, 2,7%), e data com mais de um lote. Distingui-las aqui só
+     * produziria contagem mais fina de uma coisa que, em qualquer dos três casos, esta régua **não
+     * sabe julgar**.
      *
-     * @param array<string, ?RelatorioImportado> $lotesPorData
+     * @param array<string, ?RelatorioImportado> $lotesPorEmissao
      */
-    private function loteQueEscreveu(Obrigacao $obrigacao, array $lotesPorData): ?RelatorioImportado
+    private function loteQueEscreveu(Obrigacao $obrigacao, array $lotesPorEmissao): ?RelatorioImportado
     {
         $snapshot = $obrigacao->getEncargosAtualizadosEm();
 
@@ -254,7 +355,7 @@ final class ConferenciaDeEncargos
             return null;
         }
 
-        return $lotesPorData[$snapshot->format('Y-m-d')] ?? null;
+        return $lotesPorEmissao[$snapshot->format('Y-m-d')] ?? null;
     }
 
     /**
@@ -329,7 +430,9 @@ final class ConferenciaDeEncargos
     /**
      * O que a fórmula produz na data do PRÓPRIO snapshot (INV-CE2). Sem data carimbada não há contra o
      * que ler o gravado — o resultado degrada para zeros, e a obrigação cai em `divergente` se tiver
-     * encargo, o que é a leitura honesta: existe número gravado sem procedência.
+     * encargo, o que é a leitura honesta: existe número gravado sem procedência. Ela cai **também** em
+     * `injulgável`, porque sem carimbo não há como achar o lote (INV-CE6) — os dois baldes são
+     * dimensões diferentes e valem ao mesmo tempo.
      *
      * @return array{juros:int, multa:int, correcao:int, honorarios:int}
      */

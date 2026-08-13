@@ -867,6 +867,9 @@ Medido em produção (13/08, TL1, sobre os 3.023 boletos do lote): **2.639 batem
 
 ### 17.3 Os baldes — e o que cada um decide
 
+⚠️ **Esta seção descreve a classificação; a §17.7 acrescentou a dimensão da COBERTURA** (balde
+`injulgável`) e as duas identidades que precisam fechar. Leia as duas juntas.
+
 | balde | teste | o que significa |
 |---|---|---|
 | **coerente** | gravado == fórmula(`valor_original`, vencimento, cascata, `encargos_atualizados_em`) | nada a fazer |
@@ -877,9 +880,16 @@ O balde do meio é o **entregável** desta peça: é ele que a Fase 1 roda antes
 
 🔴 **RESULTADO DA PRIMEIRA EXECUÇÃO EM PRODUÇÃO (13/08): a dupla contagem ESTÁ MATERIALIZADA.**
 
-⚠️ **Os números abaixo são os CORRIGIDOS.** A primeira execução (13/08) reportou **22 dívidas /
-R$ 997,20**; a revisão adversarial derrubou a assinatura em dois pontos e o número foi remedido — ver
-§17.6. O erro foi para **menos**: a régua sub-reportava.
+⚠️ **Os números abaixo estão SUPERADOS pela §17.7 e ficam como registro histórico.** Eles saíram da
+régua comparando contra o **último** lote do espelho, que não é o que escreveu o banco — e por isso
+**subcontam**. Contra o lote correto são ≤ 25 dívidas, com juros e honorário bem maiores; só a multa
+(R$ 804,83) é a mesma, por ser 2% fixo e não andar entre emissões. O número definitivo sai da régua
+corrigida rodando em produção depois do deploy.
+
+⚠️ Antes disso, a primeira execução (13/08) reportou **22 dívidas / R$ 997,20**; a revisão adversarial
+derrubou a assinatura em dois pontos e o número foi remedido — ver §17.6. O erro foi para **menos**: a
+régua sub-reportava. É a **terceira** vez que este total se move, e as três têm causas diferentes:
+escopo da consulta (§17.6), forma da assinatura (§17.6) e **lote comparado** (§17.7).
 
 | carteira | dívidas com a assinatura | dinheiro duplicado |
 |---|---:|---:|
@@ -954,8 +964,88 @@ mostrava isso antes desta peça.
 
 ### 17.5 Escopo
 
-**Faz:** um comando de console **somente leitura**, por carteira, com os três baldes, os totais em R$ e
-o detalhamento das piores.
+**Faz:** um comando de console **somente leitura**, por carteira, com os baldes da §17.7, os totais em
+R$ e o detalhamento das piores.
 
 **NÃO faz:** ⛔ não escreve nada; ⛔ não "corrige" snapshot divergente; ⛔ não decide qual dos dois
 lados (banco × cascata) está certo — isso é decisão do dono e matéria da Fase 1.
+
+### 17.7 🔑 INV-CE6/CE7 — a régua lia o lote errado, e os baldes viraram DUAS dimensões
+
+**A régua comparava o gravado contra o ÚLTIMO lote do espelho** (`findUltimoDaCarteira`). Mas o banco
+foi escrito pela importação de **um lote específico**, que quase nunca é o último — em 13/08 o banco
+vinha da importação de 11/08 e o espelho já tinha o lote de 12/08 carregado (nunca importado, porque a
+importação está bloqueada pelo dono).
+
+**Por que passou despercebido, e por que é grave:** a assinatura testa **igualdade exata** contra
+`Σ coluna + H da linha`. A coluna J (multa) é 2% fixo e **não anda** entre emissões — casava nos dois
+lotes, e é por isso que os R$ 804,83 de multa nunca se moveram em três medições sucessivas. As colunas
+I (juros) e L (honorário) **andam todo dia**: contra o lote errado a igualdade falha **em silêncio** e a
+régua **subconta**, sem erro e sem aviso.
+
+| | contra 12/08 (o último) | contra 11/08 (o que escreveu) |
+|---|---:|---:|
+| dívidas | 21 | ≤ 25 |
+| juros | R$ 0,00 | R$ 624,72 |
+| multa | R$ 804,83 | R$ 804,83 ← imune |
+| honorário | R$ 362,75 | R$ 1.756,39 |
+
+⚠️ **Estes números vieram de SQL manual, não desta régua** — ela nunca rodou contra produção. A consulta
+**não aplica o INV-CE4**, então 25 é **teto**. Quem decide a lista da reconciliação é a régua corrigida
+depois do deploy, não a consulta. *(Decisão do dono, 13/08: "a lista que ELA produzir é a que se
+reconcilia".)*
+
+#### O que fica FIXADO
+
+1. **A âncora do casamento é `emitidoEm`** (rodapé "Emissão"), **não `dadosAte`** ("Inadimplência
+   até"). Os dois **não são sinônimos**: há lote no dev com corte em 21/07 e emissão em 22/07. A
+   escolha é por significado — é sobre o arquivo *emitido* que a importação roda, e é a importação que
+   carimba `encargosAtualizadosEm`. Em produção as duas datas coincidem nos dois lotes existentes, então
+   hoje a escolha **não muda número nenhum**.
+2. **Casar por data é SUPOSIÇÃO, não invariante.** `encargosAtualizadosEm` é o *momento* em que a
+   importação rodou; não existe FK de obrigação para relatório. A suposição é "a importação roda no dia
+   da emissão" — verdade no canal restrito, e só lá.
+3. **Ambiguidade vira balde, nunca palpite.** Sem lote na data, com mais de um, ou sem carimbo → a
+   obrigação é **INJULGÁVEL**. ⛔ **Proibido escolher o lote mais próximo.**
+4. **INV-CE7 — a coerência roda SEMPRE.** `gravado == fórmula` não depende de lote (INV-CE2); só a
+   assinatura depende. A primeira versão deste conserto pulava a obrigação inteira no balde injulgável
+   e com isso deixava, medido no dev, **R$ 150.262,17 de encargo gravado sem conferência alguma**, com
+   a régua imprimindo "diferença total: R$ 0,00".
+5. **Os baldes são DUAS dimensões que reconciliam com o universo**, verificadas em código
+   (`baldesFecham()`), e o comando **falha** se não fecharem:
+   - classificação: `coerentes + comDuplaContagem + divergentes == universo`
+   - cobertura: `assinaturaAvaliada + semParNoRelatorio + injulgaveis == universo`
+6. **O veredito `coerente` exige cobertura TOTAL**, e o código de saída tem **três** estados:
+   `0` limpo e completo · `1` dupla contagem · `2` **cobertura incompleta**. Sem isso a régua imprimia a
+   caixa verde *"Todo encargo gravado é um número que a nossa fórmula produz"* numa carteira com **2
+   dívidas conferidas e 528 jamais examinadas**, e saía `0` para o cron.
+
+#### O buraco que fica, medido
+
+**A importação não é a única a carimbar `encargosAtualizadosEm`**: também escrevem `CriarAcordoUseCase`
+e `ImportarAcordosDetalhadosUseCase` (data do acordo), `RegistrarObrigacaoUseCase`,
+`EditarObrigacaoUseCase`, `EditarConfiguracaoCasoUseCase` e `EncargosVivos`. Se um desses carimbos cair
+na data de um lote, a régua compara a obrigação contra colunas que **não a escreveram** e reporta como
+conferida.
+
+**Raio medido em produção (13/08): 1 obrigação** — parcela do acordo 40, carimbada em
+`2026-08-11 00:00:00`, com os **quatro encargos zerados**. A assinatura exige `hDaLinha > 0` e igualdade
+com o gravado: ela precisaria de coluna negativa para disparar. **Não gera falso positivo hoje.**
+
+⛔ **Não há heurística sobre "o carimbo tem hora"** — seria adivinhar sobre um dado que ninguém
+garantiu. Contra este buraco valem as redes da reconciliação (§17.8), não uma adivinhação na régua.
+
+#### 💸 Dívida técnica: a obrigação não sabe qual relatório a escreveu
+
+A correção durável é uma **FK de `cobranca_obrigacao` para `cobranca_relatorio_importado`**, gravada
+pela importação. Com ela o casamento deixa de ser por data e o buraco acima fecha por construção.
+É **mudança de schema** e está **fora do escopo desta frente** (decisão do dono, 13/08).
+
+### 17.8 As redes da reconciliação (decisão do dono, 13/08)
+
+Como o casamento por data é suposição, a segurança não pode morar só na guarda de código:
+
+1. **Simula por padrão**; só escreve com `--aplicar` explícito.
+2. **A lista nominal passa pelo dono** antes de qualquer escrita em produção.
+3. **O histórico registra QUAL LOTE** foi usado em cada obrigação corrigida — sem isso, um erro não
+   tem como ser achado nem desfeito.

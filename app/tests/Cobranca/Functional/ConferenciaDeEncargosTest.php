@@ -115,7 +115,7 @@ final class ConferenciaDeEncargosTest extends KernelTestCase
             ),
         ]);
 
-        self::assertSame(1, $r->conferidos);
+        self::assertSame(1, $r->assinaturaAvaliada);
         self::assertSame(1, $r->coerentes, sprintf('piores: %s', json_encode($r->piores)));
         self::assertSame(0, $r->comDuplaContagem);
         self::assertSame('coerente', $r->veredito());
@@ -146,7 +146,7 @@ final class ConferenciaDeEncargosTest extends KernelTestCase
             $this->linhaDeDado(...$comum, classe: '1.4 - Juros', valor: 45.45, juros: 5.00, multa: 0.91, honorarios: 8.54),
         ]);
 
-        self::assertSame(1, $r->conferidos);
+        self::assertSame(1, $r->assinaturaAvaliada);
         self::assertSame(1, $r->comDuplaContagem, sprintf('piores: %s', json_encode($r->piores)));
         self::assertSame(4545, $r->duplicadoEmCentavos, 'o duplicado é o H da linha 1.4, ao centavo');
         self::assertSame(0, $r->divergentes, 'não pode cair também no balde genérico');
@@ -376,9 +376,129 @@ final class ConferenciaDeEncargosTest extends KernelTestCase
         ]);
 
         self::assertSame(1, $r->injulgaveis, 'o snapshot é de 30/07 e o único lote é de 12/08');
-        self::assertSame(0, $r->conferidos, 'não foi conferida');
+        self::assertSame(0, $r->assinaturaAvaliada, 'a assinatura dela não foi lida');
         self::assertSame(0, $r->comDuplaContagem, 'e sobretudo NÃO foi acusada com colunas de outra emissão');
         self::assertSame(0, $r->duplicadoEmCentavos);
+
+        // INV-CE7 — a coerência NÃO depende de lote e roda mesmo assim. Foi o achado da revisão: a
+        // primeira versão pulava a obrigação inteira e perdia esta leitura de graça.
+        self::assertSame(1, $r->divergentes, 'sem lote não dá para acusar duplicação, mas dá para ver que a fórmula não reproduz');
+        self::assertGreaterThan(0, $r->diferencaEmCentavos, 'e a diferença dela tem de entrar no total');
+        self::assertTrue($r->baldesFecham(), 'as duas identidades do resultado');
+    }
+
+    #[TestDox('INV-CE6 — duas emissões na MESMA data deixam a dívida injulgável, sem eleger vencedor')]
+    public function testDuasEmissoesNaMesmaDataDeixamADividaInjulgavel(): void
+    {
+        // Ambiguidade vira balde, nunca palpite: duas emissões do mesmo dia têm colunas diferentes, e
+        // eleger uma devolveria exatamente o falso silêncio que o INV-CE6 existe para fechar.
+        $carteira = $this->carteiraTopLife();
+        $caso = $this->caso($carteira, '01-08');
+        $vencimento = new \DateTimeImmutable('2025-12-15');
+
+        $this->obrigacao($caso, '67615', '12/2025', 44545, $vencimento, $this->snapshotNaEmissaoDoLote(), 8045, 891, 0, 10854);
+
+        $comum = [
+            'unidade' => '01-08', 'nn' => '67615', 'competencia' => '12/2025',
+            'vencimento' => '15/12/2025', 'correcao' => 0.0, 'acordo' => 'Acordo 426 - Parc. 1/6',
+        ];
+
+        // Duas emissões em 12/08 com cortes diferentes — a assinatura casaria com a primeira.
+        $this->gravarLote($carteira, [
+            $this->linhaDeDado(...$comum, classe: '1.1 - Taxa de condomínio', valor: 400.00, juros: 30.00, multa: 8.00, honorarios: 100.00),
+            $this->linhaDeDado(...$comum, classe: '1.4 - Juros', valor: 45.45, juros: 5.00, multa: 0.91, honorarios: 8.54),
+        ], dadosAte: '11/08/2026', emissao: self::EMISSAO_DO_LOTE);
+
+        $ultimo = $this->gravarLote($carteira, [
+            $this->linhaDeDado(...$comum, classe: '1.1 - Taxa de condomínio', valor: 400.00, juros: 30.20, multa: 8.00, honorarios: 100.00),
+            $this->linhaDeDado(...$comum, classe: '1.4 - Juros', valor: 45.45, juros: 5.03, multa: 0.91, honorarios: 8.54),
+        ], dadosAte: self::EMISSAO_DO_LOTE, emissao: self::EMISSAO_DO_LOTE);
+
+        $r = $this->conferencia->conferir($ultimo);
+
+        self::assertSame(1, $r->injulgaveis, 'duas emissões em 12/08: a régua não escolhe');
+        self::assertSame(0, $r->comDuplaContagem, 'e não acusa pela emissão que por acaso casaria');
+        self::assertTrue($r->baldesFecham());
+    }
+
+    #[TestDox('INV-CE7 — encargo gravado SEM carimbo é injulgável E divergente ao mesmo tempo')]
+    public function testEncargoSemCarimboEhInjulgavelEDivergente(): void
+    {
+        // As duas dimensões do resultado valendo juntas na mesma dívida: sem carimbo não há como achar
+        // o lote (injulgável), mas a fórmula continua não reproduzindo o número (divergente). É o
+        // estado que o docblock de `pelaFormula()` descreve — e que antes da revisão era inalcançável,
+        // porque a obrigação era descartada antes de chegar lá.
+        $carteira = $this->carteiraTopLife();
+        $caso = $this->caso($carteira, '01-09');
+        $vencimento = new \DateTimeImmutable('2025-12-15');
+
+        $obrigacao = ObrigacaoFactory::createOne([
+            'tenant' => $caso->getTenant(),
+            'caso' => $caso,
+            'referenciaExterna' => '67616',
+            'competencia' => '12/2025',
+            'valorOriginal' => 44545,
+            'vencimentoOriginal' => $vencimento,
+        ])->_real();
+
+        // Encargo sem passar por `definirEncargos()` — logo sem `encargosAtualizadosEm`. É o número
+        // gravado sem procedência nenhuma.
+        $obrigacao->setJuros(8045);
+        $this->em->flush();
+
+        $r = $this->conferir($carteira, [
+            $this->linhaDeDado(
+                unidade: '01-09', nn: '67616', competencia: '12/2025', vencimento: '15/12/2025',
+                valor: 445.45, juros: 35.00, multa: 8.91, correcao: 0.0, honorarios: 108.54,
+            ),
+        ]);
+
+        self::assertSame(1, $r->injulgaveis, 'sem carimbo não há lote a casar');
+        self::assertSame(1, $r->divergentes, 'e mesmo assim a fórmula não reproduz o gravado');
+        self::assertSame(0, $r->coerentes);
+        self::assertSame(8045, $r->diferencaEmCentavos, 'o juros sem procedência entra no total');
+        self::assertSame('divergente', $r->veredito());
+        self::assertTrue($r->baldesFecham());
+    }
+
+    #[TestDox('🔴 A1 — o veredito NUNCA diz "coerente" com dívida por conferir')]
+    public function testVereditoNaoDizCoerenteComCoberturaIncompleta(): void
+    {
+        // O defeito medido pela revisão: com o veredito cego para os injulgáveis, a régua imprimia a
+        // caixa verde "Todo encargo gravado é um número que a nossa fórmula produz" numa carteira com
+        // 2 dívidas conferidas e 528 jamais examinadas.
+        //
+        // Aqui: uma dívida coerente e conferida, outra coerente mas SEM lote na data. Nada divergente,
+        // nada duplicado — e mesmo assim o veredito não pode ser "coerente".
+        $carteira = $this->carteiraTopLife();
+        $vencimento = new \DateTimeImmutable('2025-12-15');
+
+        $conferivel = $this->caso($carteira, '03-01');
+        $this->obrigacao($conferivel, '74620', '12/2025', 17000, $vencimento, $this->snapshotNaEmissaoDoLote(), 1360, 340, 0, 3740);
+
+        // Coerente também, mas carimbada onde não há lote: vence DEPOIS do próprio snapshot, então a
+        // fórmula em 30/07 produz zeros — que é exatamente o que está gravado nela.
+        $foraDoAlcance = $this->caso($carteira, '03-02');
+        $this->obrigacao(
+            $foraDoAlcance, '74621', '12/2025', 17000,
+            new \DateTimeImmutable('2026-08-01'), new \DateTimeImmutable('2026-07-30'),
+            0, 0, 0, 0,
+        );
+
+        $r = $this->conferir($carteira, [
+            $this->linhaDeDado(
+                unidade: '03-01', nn: '74620', competencia: '12/2025', vencimento: '15/12/2025',
+                valor: 170.00, juros: 13.60, multa: 3.40, correcao: 0.0, honorarios: 37.40,
+            ),
+        ]);
+
+        self::assertSame(2, $r->coerentes, 'as duas reproduzem a fórmula');
+        self::assertSame(0, $r->divergentes);
+        self::assertSame(0, $r->comDuplaContagem);
+        self::assertSame(1, $r->injulgaveis);
+        self::assertSame('cobertura incompleta', $r->veredito(), 'NÃO pode ser "coerente"');
+        self::assertSame(50.0, $r->percentualCoberto(), 'e a cobertura tem de sair explícita');
+        self::assertTrue($r->baldesFecham());
     }
 
     #[TestDox('INV-CE3 — a config sai da cascata: honorário zerado por override não vira divergência')]
@@ -421,7 +541,7 @@ final class ConferenciaDeEncargosTest extends KernelTestCase
             ),
         ]);
 
-        self::assertSame(0, $r->conferidos);
+        self::assertSame(0, $r->assinaturaAvaliada);
         self::assertSame(1, $r->semParNoRelatorio, 'é matéria da conferência, não desta régua');
         self::assertSame([], $r->piores);
     }
@@ -464,11 +584,16 @@ final class ConferenciaDeEncargosTest extends KernelTestCase
      *
      * @param list<list<mixed>> $linhas
      */
-    private function gravarLote(Carteira $carteira, array $linhas, string $dadosAte): RelatorioImportado
-    {
-        // A emissão acompanha o `dadosAte`: é o que o rodapé do relatório real traz, e é o que torna
-        // os dois arquivos distintos para a dedup por hash.
-        $arquivo = $this->montarPlanilha($linhas, dadosAte: $dadosAte, emissao: $dadosAte . ' 09:42');
+    private function gravarLote(
+        Carteira $carteira,
+        array $linhas,
+        string $dadosAte,
+        ?string $emissao = null,
+    ): RelatorioImportado {
+        // A emissão acompanha o `dadosAte` por padrão — mas os dois são campos DIFERENTES do relatório
+        // ("Emissão" × "Inadimplência até"), e o INV-CE6 casa pela EMISSÃO. Poder separá-los é o que
+        // permite testar o caso ambíguo (duas emissões no mesmo dia).
+        $arquivo = $this->montarPlanilha($linhas, dadosAte: $dadosAte, emissao: ($emissao ?? $dadosAte) . ' 09:42');
         $saida = $this->gravar->executar(new GravarEspelhoRelatorioInput($carteira, $arquivo));
 
         $lote = $this->em->getRepository(RelatorioImportado::class)->find($saida->relatorioId);

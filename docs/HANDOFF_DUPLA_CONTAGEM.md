@@ -21,13 +21,13 @@ o conserto já feito foi validado (§4 abaixo).
 | onde | commit | situação |
 |---|---|---|
 | `origin/master` | `1b741826` | **publicado** |
-| **em PRODUÇÃO** | `9a7c59b1` | ⚠️ **o deploy parou aqui** — prod está 3 commits atrás |
-| frente `cobranca-dupla-contagem` | `cf60fedb` | 2 commits próprios, **não publicados** |
+| **em PRODUÇÃO** | `1b741826` | ✅ deploy feito em 13/08 — prod já tem a assinatura corrigida |
+| frente `cobranca-dupla-contagem` | ver `git log` | commits próprios, **não publicados** |
 
-⚠️ **A régua do encargo gravado que está rodando em produção tem a assinatura ERRADA.** A correção
-(`d8881b02`) está publicada mas **não deployada**. Enquanto não houver deploy,
-`app:cobranca:espelho:encargos` em prod devolve **22 dívidas / R$ 997,20**; o número certo é
-**21 / R$ 1.167,58**.
+⚠️ **A régua em produção ainda lê o LOTE ERRADO.** A correção da assinatura (`d8881b02`) já está
+deployada, mas o INV-CE6 (comparar contra o lote que escreveu a obrigação, e não contra o último
+carregado) está **nesta frente, não publicado**. Enquanto não houver deploy,
+`app:cobranca:espelho:encargos` em prod **subconta** — ver §3.
 
 A frente está **empilhada no `master`** de propósito (declarado em `docs/frentes-ativas.md`): ela
 depende da régua corrigida, que é como o conserto se prova. **O deploy será os dois juntos.**
@@ -36,19 +36,40 @@ depende da régua corrigida, que é como o conserto se prova. **O deploy será o
 scripts/frente-testar.sh cobranca-dupla-contagem   # 3.605 verdes em cf60fedb
 ```
 
-## 3. Os números de produção que valem (medidos 13/08)
+## 3. Os números de produção — e por que o total se moveu TRÊS vezes
 
-| | |
-|---|---:|
-| dívidas com dupla contagem **já gravada** | **21** |
-| dinheiro duplicado | **R$ 1.167,58** |
-| — do qual é **saldo cobrado a mais** (multa) | R$ 804,83 |
-| — do qual **não** entra no saldo (honorário) | R$ 362,75 |
-| quanto a **próxima importação** acrescentaria | R$ 7.323,89 |
-| congeladas entre as 21 | **0** (ainda dá para consertar sem sequela) |
+🔴 **Os "21 / R$ 1.167,58" estão SUPERADOS.** Eles saíram da régua comparando contra o **último** lote
+do espelho (12/08), que **não é** o que escreveu o banco (a importação de 11/08). Como a assinatura é
+igualdade exata e as colunas de juros e honorário andam todo dia, contra o lote errado ela falha em
+silêncio e **subconta**. Detalhe completo na §17.7 da spec do espelho.
 
-A lista nominal das 21 (unidade, NN, id, valores) foi entregue ao dono **fora do repositório**, por
-ter PII. Reproduzível a qualquer momento pelo comando `espelho:encargos --detalhar` **depois do deploy**.
+| | contra 12/08 (o que a régua lia) | contra 11/08 (o que escreveu) |
+|---|---:|---:|
+| dívidas | 21 | **≤ 25** |
+| juros duplicado | R$ 0,00 | **R$ 624,72** |
+| multa duplicada | R$ 804,83 | **R$ 804,83** ← não se move |
+| honorário duplicado | R$ 362,75 | R$ 1.756,39 |
+| **saldo cobrado a mais** (juros + multa) | R$ 804,83 | **R$ 1.429,55** |
+| congeladas | **0** | **0** (ainda dá para consertar sem sequela) |
+
+**As três mudanças do total têm causas DIFERENTES — não é erro em cima de erro:**
+
+1. escopo da consulta (só testava juros) → §17.6
+2. forma da assinatura (o honorário não é simétrico) → §17.6
+3. **lote comparado** (último × o que escreveu) → §17.7
+
+E repare no sinal mais forte a favor do recorte novo: **a multa não se moveu em nenhuma das três**,
+porque é 2% fixo e não anda entre emissões. O que se move é exatamente o que deveria se mover.
+
+⚠️ **`≤ 25` é TETO, não fechamento.** Veio de SQL manual que não aplica o INV-CE4 (coerência vence
+assinatura). **A lista que vale é a que a régua corrigida produzir depois do deploy** — decisão do
+dono, 13/08. Não reconcilie a partir de consulta manual.
+
+⚠️ **Ao reportar, separe sempre:** multa e juros entram no `valorExigivel()`, honorário **não**. O
+número que interessa ao devedor é multa + juros.
+
+A lista nominal (unidade, NN, id, valores) tem PII e é entregue ao dono **fora do repositório**.
+Reproduzível pelo comando `espelho:encargos --detalhar` **depois do deploy**.
 
 🔴 **O risco com prazo:** obrigação congelada nunca é re-hidratada. Se alguma das 21 for liquidada ou
 substituída por acordo antes do conserto, o valor inflado **congela e vira permanente**.
@@ -89,27 +110,50 @@ acordo da TL1 — a multa que a contabilidade lança em cada linha é **2% do Va
 **Ela cobra multa sobre a linha de multa.** Logo, para ela aquilo é **principal**. Os R$ 309,62 que o
 sistema gravava no NN 74789 não existem em coluna nenhuma da planilha.
 
-## 5. O QUE FALTA — a reconciliação das 21
+## 5. O QUE FALTA — a reconciliação
 
 **Nada disso está começado.** É a única tarefa aberta da frente.
 
+⛔ **Não comece antes do deploy da régua corrigida.** A lista a reconciliar é a que **a régua** produzir
+rodando em produção — não os 21, não os 25, não uma consulta SQL. Decisão do dono, 13/08.
+
 ### O que precisa fazer
 
-Um comando de console que ache as 21 pela **assinatura** e corrija o encargo gravado.
+Um comando de console que ache as dívidas pela **assinatura** e corrija o encargo gravado.
 
 | requisito | por quê |
 |---|---|
 | **simula por padrão**; só escreve com `--aplicar` explícito | escreve dinheiro em produção |
+| **a lista nominal passa pelo dono** antes de aplicar em prod | a guarda de código não é a única rede (§17.8) |
 | reusa `ConferenciaDeEncargos::duplaContagemPorCampo()` | a assinatura é regra de dinheiro; **não escreva uma segunda cópia** (D10) |
+| **usa o lote que ESCREVEU cada obrigação** (INV-CE6) | contra o último lote a assinatura falha em silêncio e subconta |
 | **pula obrigação congelada** | congelada não é re-hidratada; mexer nela é outra decisão |
-| registra `EventoHistorico` por caso | `EditarConfiguracaoCasoUseCase:121-141` é o molde |
-| reporta **por campo** (multa × honorário) | honorário não entra no `valorExigivel()`; somar os dois apresenta como saldo o que não é |
+| registra `EventoHistorico` por caso, **com o ID e a emissão do lote usado** | sem isso, um erro não tem como ser achado nem desfeito (§17.8) |
+| reporta **por campo** (juros/multa × honorário) | juros e multa entram no `valorExigivel()`, honorário **não** |
 | roda dentro de `wrapInTransaction` | molde: `ImportarAcordosDetalhadosUseCase:123` |
 
 ### O que gravar no lugar
 
-O encargo **das colunas** — o mesmo que a importação corrigida gravaria. Ele sai do espelho: as somas
-por boleto já estão em `ConferenciaDeEncargos::somasDoRelatorio()`.
+O encargo **das colunas** — o mesmo que a importação corrigida gravaria, para que reimportar depois não
+mexa em nada. Sai do espelho, via `ConferenciaDeEncargos::somasDoRelatorio()`.
+
+🔑 **ATENÇÃO: no honorário NÃO é `gravado − duplicado`.** Só juros e multa subtraem limpo.
+
+| campo | gravar |
+|---|---|
+| juros | `$grupo['juros']` (Σ coluna I) — igual a `gravado − duplicado` |
+| multa | `$grupo['multa']` (Σ coluna J) — igual a `gravado − duplicado` |
+| **honorário** | **`$grupo['honorarios']` = Σ coluna L de TODAS as linhas** |
+| correção | **não tocar** — nenhuma classe de linha vira correção |
+
+O adapter, na linha `1.15`, **troca** a coluna L pelo Valor em vez de somar
+(`TopLifeInadimplenciaAdapter:200`). Subtrair o duplicado devolveria `Σ_{≠1.15} L` e **perderia a
+coluna L da própria linha de honorário** — a mesma assimetria do INV-E5, agora do lado da escrita.
+Medido: nas 21 do recorte antigo isso valia R$ 31,19 em 3 dívidas.
+
+⚠️ **Por isso o dinheiro que sai do banco ≠ o que a régua chama de "duplicado" no honorário.** Reporte
+os dois separados; no campo honorário a diferença é a coluna L restituída, e ela **não move a conta de
+ninguém** (honorário fica fora do `valorExigivel()`).
 
 ### Armadilhas medidas
 
@@ -124,6 +168,21 @@ por boleto já estão em `ConferenciaDeEncargos::somasDoRelatorio()`.
 - ⚠️ `espelho:calibrar` e `espelho:encargos` precisam de `-d memory_limit=512M` em prod. O
   `calibrar` já estourou 128M com cache frio, morrendo **antes** da TOP LIFE I — a carteira grande é
   justamente a que fica sem número.
+- ⚠️ **O `espelho:encargos` tem TRÊS códigos de saída:** `0` limpo e completo · `1` dupla contagem ·
+  `2` **cobertura incompleta** (rodou, não achou duplicação, e não conseguiu conferir tudo). Quem
+  chamar o comando de script precisa tratar o `2` — ele **não** é sucesso.
+- ⚠️ **Depois da reconciliação as dívidas corrigidas vão aparecer como `divergente` na régua, e isso é
+  ESPERADO.** A régua compara o gravado com a NOSSA fórmula na data do snapshot; depois do conserto o
+  gravado passa a ser o número da **contabilidade**, que a nossa fórmula naquela data não reproduz.
+  Elas saem de "dupla contagem" e caem em "divergente" até a próxima hidratação. Sem saber disso,
+  alguém lê a verificação como falha e "desconserta". *(Instrução do dono, 13/08.)*
+
+## 5.1 💸 Dívida técnica aberta: a obrigação não sabe qual relatório a escreveu
+
+Não existe FK de `cobranca_obrigacao` para `cobranca_relatorio_importado`. O casamento do INV-CE6 é
+por **data**, e isso é suposição ("a importação roda no dia da emissão"), não invariante. A correção
+durável é gravar a FK na importação. É **mudança de schema** e o dono decidiu que fica **fora desta
+frente** (13/08). Detalhe e raio medido: §17.7 da spec do espelho.
 
 ## 6. Três lições desta sessão que custaram caro
 

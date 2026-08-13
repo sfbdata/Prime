@@ -12,6 +12,16 @@ namespace App\Cobranca\DTO;
  * compara a fórmula contra as colunas da planilha) leem o que está escrito em
  * `cobranca_obrigacao.juros/multa/correcao/honorarios`. Sem ela, a Fase 1 não consegue provar o
  * próprio conserto — rodar a calibração antes e depois de matar a dupla contagem dá o mesmo número.
+ *
+ * 🔑 **São DUAS dimensões independentes, e confundi-las já produziu relatório mentiroso.**
+ *
+ * 1. **Classificação** (o que a fórmula diz) — não depende de lote nenhum, roda em toda obrigação:
+ *    `coerentes + comDuplaContagem + divergentes == universo`
+ * 2. **Cobertura da assinatura** (contra o que deu para ler) — depende de haver o lote que escreveu:
+ *    `assinaturaAvaliada + semParNoRelatorio + injulgaveis == universo`
+ *
+ * As duas identidades são verificadas por {@see self::baldesFecham()}. Num instrumento cuja lista vira
+ * reescrita de dinheiro, a conta tem de fechar exata — e falhar alto quando não fecha.
  */
 final readonly class ResultadoConferenciaEncargos
 {
@@ -21,10 +31,12 @@ final readonly class ResultadoConferenciaEncargos
      * soma principal + juros + multa + correção). Levar um total à contabilidade sem separar os dois
      * seria apresentar como "saldo cobrado duas vezes" algo que em parte não é saldo.
      *
-     * `$injulgaveis` NÃO é um terceiro balde de defeito — é a contagem do que esta régua **não sabe
-     * julgar**: obrigação cujo snapshot não corresponde a nenhum lote carregado no espelho (INV-CE6).
-     * Precisa aparecer no relatório porque silenciá-la faria "0 dupla contagem" significar duas coisas
-     * incompatíveis — "conferi e está limpo" e "não tinha contra o que conferir".
+     * `$injulgaveis` NÃO é um balde de defeito — é a contagem do que esta régua **não sabe julgar**:
+     * obrigação cujo snapshot não corresponde a nenhum lote carregado (INV-CE6). Ela continua
+     * classificada como coerente ou divergente (isso não precisa de lote); o que fica suspenso é só a
+     * acusação de dupla contagem. Precisa aparecer no relatório porque silenciá-la faria "0 dupla
+     * contagem" significar duas coisas incompatíveis — "conferi e está limpo" e "não tinha contra o
+     * que conferir".
      *
      * @param array<string, int>                                                       $duplicadoPorCampo campo => centavos
      * @param list<array{unidade: string, referencia: ?string, campo: string, gravado: int,
@@ -33,7 +45,8 @@ final readonly class ResultadoConferenciaEncargos
     public function __construct(
         public string $carteira,
         public ?\DateTimeImmutable $dadosAte,
-        public int $conferidos,
+        public int $universo,
+        public int $assinaturaAvaliada,
         public int $semParNoRelatorio,
         public int $coerentes,
         public int $comDuplaContagem,
@@ -46,21 +59,41 @@ final readonly class ResultadoConferenciaEncargos
     ) {
     }
 
+    /** As duas identidades da classe. Falso aqui significa que a régua perdeu obrigação pelo caminho. */
+    public function baldesFecham(): bool
+    {
+        return $this->coerentes + $this->comDuplaContagem + $this->divergentes === $this->universo
+            && $this->assinaturaAvaliada + $this->semParNoRelatorio + $this->injulgaveis === $this->universo;
+    }
+
+    /** Sobre o UNIVERSO, não sobre o que deu para conferir — senão 100% pode significar 2 de 530. */
     public function percentualCoerente(): float
     {
-        return $this->conferidos === 0 ? 0.0 : ($this->coerentes / $this->conferidos) * 100;
+        return $this->universo === 0 ? 0.0 : ($this->coerentes / $this->universo) * 100;
+    }
+
+    /** Quanto do universo teve a assinatura efetivamente lida contra as colunas do lote que o escreveu. */
+    public function percentualCoberto(): float
+    {
+        return $this->universo === 0 ? 0.0 : ($this->assinaturaAvaliada / $this->universo) * 100;
     }
 
     /**
-     * O veredito, e ele tem TRÊS estados de propósito — o do meio é o que a Fase 1 persegue.
+     * O veredito, e a ordem dos estados é decisão, não acaso.
      *
-     * `dupla contagem` vence `divergente` mesmo com um único caso: divergência é ruído esperado
-     * (snapshot velho, arredondamento), enquanto a assinatura da dupla contagem é dinheiro contado
-     * duas vezes e não tem versão pequena aceitável.
+     * `dupla contagem` vence tudo mesmo com um único caso: divergência é ruído esperado (snapshot
+     * velho, arredondamento), enquanto a assinatura é dinheiro contado duas vezes e não tem versão
+     * pequena aceitável.
+     *
+     * 🔑 **`coerente` exige cobertura TOTAL**, e essa guarda é a correção de um defeito medido: com o
+     * veredito cego para os injulgáveis, a régua imprimia a caixa verde *"Todo encargo gravado é um
+     * número que a nossa fórmula produz"* numa carteira com **2 dívidas conferidas e 528 jamais
+     * examinadas**. Um instrumento que diz "está tudo certo" sobre 0,4% do universo é pior que
+     * instrumento nenhum, porque o silêncio dele é lido como prova.
      */
     public function veredito(): string
     {
-        if ($this->conferidos === 0) {
+        if ($this->universo === 0) {
             return 'sem dado';
         }
 
@@ -68,6 +101,10 @@ final readonly class ResultadoConferenciaEncargos
             return 'dupla contagem';
         }
 
-        return $this->divergentes === 0 ? 'coerente' : 'divergente';
+        if ($this->divergentes > 0) {
+            return 'divergente';
+        }
+
+        return $this->injulgaveis === 0 ? 'coerente' : 'cobertura incompleta';
     }
 }

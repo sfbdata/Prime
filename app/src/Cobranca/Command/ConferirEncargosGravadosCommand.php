@@ -30,6 +30,13 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 )]
 final class ConferirEncargosGravadosCommand extends Command
 {
+    /**
+     * Terceiro estado do código de saída: rodou, não achou dupla contagem, **e não conferiu tudo**.
+     * Distinto do `FAILURE` (que é dinheiro duplicado achado) e do `SUCCESS` (que é cobertura total),
+     * para que um cron consiga tratar "não deu para conferir" diferente de "está limpo".
+     */
+    public const COBERTURA_INCOMPLETA = 2;
+
     public function __construct(
         private readonly ConferenciaDeEncargos $conferencia,
         private readonly RelatorioImportadoRepository $relatorios,
@@ -79,6 +86,7 @@ final class ConferirEncargosGravadosCommand extends Command
         );
 
         $achouDuplaContagem = false;
+        $houveInjulgavel = false;
 
         foreach ($carteiras as $carteira) {
             $lote = $this->relatorios->findUltimoDaCarteira($carteira);
@@ -89,7 +97,14 @@ final class ConferirEncargosGravadosCommand extends Command
 
             $r = $this->conferencia->conferir($lote);
 
-            $io->section(sprintf('%s — lote de %s', $r->carteira, $r->dadosAte?->format('d/m/Y') ?? '?'));
+            // O lote nomeado aqui é o do UNIVERSO (quais dívidas entram na conta). As comparações saem
+            // de um lote POR DÍVIDA, o que a escreveu (INV-CE6) — dizer só "lote de 12/08" faria o
+            // leitor concluir que tudo veio de lá.
+            $io->section(sprintf(
+                '%s — universo do lote de %s (comparações: o lote que escreveu cada dívida)',
+                $r->carteira,
+                $r->dadosAte?->format('d/m/Y') ?? '?',
+            ));
 
             $io->table(
                 ['situação', 'dívidas'],
@@ -97,12 +112,25 @@ final class ConferirEncargosGravadosCommand extends Command
                     ['coerente com a fórmula', $r->coerentes],
                     ['🔴 com assinatura de DUPLA CONTAGEM', $r->comDuplaContagem],
                     ['divergente (sem a assinatura)', $r->divergentes],
+                    ['— universo', $r->universo],
                 ]
             );
 
+            // A conta tem de fechar: perder obrigação pelo caminho num instrumento que decide dinheiro
+            // é defeito, não detalhe. Falha alto em vez de imprimir número que não soma.
+            if (!$r->baldesFecham()) {
+                $io->error(sprintf(
+                    'BALDES NÃO FECHAM em %s — a régua perdeu dívida pelo caminho e o relatório não vale.',
+                    $r->carteira,
+                ));
+
+                return Command::FAILURE;
+            }
+
             $io->text(sprintf(
-                'conferidas: %d · sem par no relatório (matéria da conferência, não desta conta): %d',
-                $r->conferidos,
+                'assinatura avaliada: %d (%.2f%% do universo) · sem par no lote que a escreveu: %d',
+                $r->assinaturaAvaliada,
+                $r->percentualCoberto(),
                 $r->semParNoRelatorio,
             ));
 
@@ -111,19 +139,22 @@ final class ConferirEncargosGravadosCommand extends Command
             if ($r->injulgaveis > 0) {
                 $io->text(sprintf(
                     '⚠️  INJULGÁVEIS: %d dívida(s) cujo snapshot não corresponde a nenhum lote carregado — '
-                    . 'não foram conferidas nem absolvidas. Carregue o lote da emissão que as escreveu.',
+                    . 'a assinatura delas NÃO foi lida (a coerência com a fórmula, sim). '
+                    . 'Carregue o lote da emissão que as escreveu.',
                     $r->injulgaveis,
                 ));
             }
 
-            if ($r->conferidos > 0) {
-                $io->text(sprintf('coerentes: %.2f%%', $r->percentualCoerente()));
-            }
-
+            $io->text(sprintf('coerentes: %.2f%% do universo', $r->percentualCoerente()));
             $io->text(sprintf('diferença total: %s', $this->reais($r->diferencaEmCentavos)));
 
             match ($r->veredito()) {
                 'coerente' => $io->success('Todo encargo gravado é um número que a nossa fórmula produz.'),
+                'cobertura incompleta' => $io->warning(sprintf(
+                    'Nada divergente no que deu para ler — mas %d dívida(s) ficaram sem a assinatura '
+                    . 'avaliada. Isto NÃO é "está tudo certo": é "não deu para conferir tudo".',
+                    $r->injulgaveis,
+                )),
                 'divergente' => $io->warning(
                     'Há encargo gravado que a fórmula não reproduz. Snapshot velho e arredondamento explicam '
                     . 'a maior parte; use --detalhar e olhe o tamanho antes de concluir defeito.'
@@ -140,6 +171,7 @@ final class ConferirEncargosGravadosCommand extends Command
             };
 
             $achouDuplaContagem = $achouDuplaContagem || $r->comDuplaContagem > 0;
+            $houveInjulgavel = $houveInjulgavel || $r->injulgaveis > 0;
 
             if ($input->getOption('detalhar') && $r->piores !== []) {
                 $io->table(
@@ -163,9 +195,14 @@ final class ConferirEncargosGravadosCommand extends Command
             }
         }
 
-        // O código de saída é o que um cron ou um wrapper enxerga: dupla contagem é dinheiro cobrado a
-        // mais, e não pode terminar com "tudo certo" só porque o comando rodou até o fim.
-        return $achouDuplaContagem ? Command::FAILURE : Command::SUCCESS;
+        // O código de saída é o que um cron ou um wrapper enxerga, e ele tem TRÊS estados de propósito.
+        // Sair 0 com dívida injulgável seria dizer "tudo certo" para a máquina depois de avisar o
+        // humano do contrário — o aviso na tela não chega a quem lê só o exit code.
+        if ($achouDuplaContagem) {
+            return Command::FAILURE;
+        }
+
+        return $houveInjulgavel ? self::COBERTURA_INCOMPLETA : Command::SUCCESS;
     }
 
     private function reais(int $centavos): string
