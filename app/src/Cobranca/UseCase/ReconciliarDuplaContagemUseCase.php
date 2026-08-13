@@ -9,6 +9,7 @@ use App\Cobranca\DTO\ResultadoReconciliacao;
 use App\Cobranca\Entity\Carteira;
 use App\Cobranca\Entity\Obrigacao;
 use App\Cobranca\Enum\TipoEventoHistorico;
+use App\Cobranca\Exception\RastroIncompletoException;
 use App\Cobranca\Exception\UniversoDaListaMudouException;
 use App\Cobranca\Repository\ObrigacaoRepository;
 use App\Cobranca\Repository\RelatorioImportadoRepository;
@@ -75,13 +76,18 @@ final class ReconciliarDuplaContagemUseCase
      * Aplica numa transação única (ou tudo, ou nada). Idempotente: rodar de novo não acha mais nada,
      * porque o encargo corrigido deixa de casar a assinatura.
      *
+     * `$esperado` é **opcional**: quando informado, a lista encontrada tem de bater com a que foi
+     * aprovada, senão nada é gravado (§17.11). Fica a critério de quem opera — o risco que ela cobre
+     * (lote novo entrando entre a aprovação e a escrita) é pequeno enquanto a importação está
+     * bloqueada, e exigi-la custaria uma etapa manual em toda execução.
+     *
      * @param list<Carteira> $carteiras
      */
     public function confirmar(
         array $carteiras,
         Tenant $tenant,
         User $usuario,
-        ExpectativaDaLista $esperado,
+        ?ExpectativaDaLista $esperado = null,
     ): ResultadoReconciliacao {
         return $this->em->wrapInTransaction(
             fn (): ResultadoReconciliacao => $this->processar($carteiras, $tenant, $usuario, $esperado),
@@ -183,6 +189,14 @@ final class ReconciliarDuplaContagemUseCase
 
         if ($usuario !== null) {
             $casosComEvento = $this->registrarHistorico($porCaso, $usuario);
+
+            // INV-R3 conferido AQUI — dentro da transação e antes do flush. A versão anterior conferia
+            // isto no relatório do comando, depois de `confirmar()` retornar: ali o commit já tinha
+            // acontecido, e a mensagem afirmava "transação revertida" sobre dinheiro gravado.
+            if (count($porCaso) !== $casosComEvento) {
+                throw new RastroIncompletoException(count($porCaso), $casosComEvento);
+            }
+
             // Flush único: as obrigações managed e os eventos numa transação só.
             $this->em->flush();
         }

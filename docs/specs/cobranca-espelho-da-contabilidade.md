@@ -1123,12 +1123,23 @@ superdimensionava o efeito. A correção veio da revisão adversarial em 13/08.)
    daquela data; não recalcula nada. Recarimbar mentiria sobre a procedência e quebraria a régua.
 4. **INV-R3 — `EventoHistorico` por CASO, com o lote usado** (id + emissão) e o antes/depois de cada
    obrigação. É o que permite achar e desfazer. O `AuditLog` não serve sozinho: em CLI sai sem ator,
-   sem IP e sem tenant. O comando **confere** que todo caso corrigido tem evento — não presume.
+   sem IP e sem tenant. O UseCase **confere, DENTRO da transação e antes do flush**, que todo caso
+   corrigido tem evento; se faltar, lança e nada é gravado.
+   *(A primeira versão conferia isso no relatório do comando — depois do commit — e a mensagem dizia
+   "a transação foi revertida" sobre dinheiro já gravado. Achado de revisão: conferir depois do commit
+   não é conferir, é narrar.)*
 5. **O valor gravado vem da RÉGUA** (`corrigidoPorCampo`, INV-CE9), nunca re-derivado aqui.
-6. **A trava da lista aprovada.** `--aplicar` exige `--esperado-dividas` e `--esperado-total`,
-   copiados da simulação aprovada. O universo é re-derivado na hora da escrita (a régua lê o último
-   lote); se um lote entrar entre a aprovação e o `--aplicar`, o comando **aborta** com código `68` e
-   **nada é gravado** — a exceção é lançada dentro da transação, que reverte o que o laço já alterou.
+6. **A trava da lista aprovada é OPCIONAL** (decisão do dono, 13/08). `--esperado-dividas` e
+   `--esperado-total` podem ser copiados da simulação; informando os dois, o comando **aborta** com
+   código `68` se o universo mudou, e **nada é gravado** (a exceção é lançada dentro da transação, que
+   reverte o que o laço já alterou). Informar só um é **recusado**: meia trava faz quem operou achar
+   que travou.
+   **Por que não é obrigatória:** o risco que ela cobre — lote novo entrando entre a aprovação e a
+   escrita — é pequeno enquanto a importação está bloqueada, e exigi-la custaria uma etapa manual em
+   toda execução. ⚠️ Ela tranca **contagem e total**, não a identidade das dívidas: se uma das
+   aprovadas for congelada nesse meio-tempo, ela migra para `puladas`, o total não muda e a trava
+   passa — o comando grava as demais e sai `67` com a pulada e seu valor na tabela. É fail-visível,
+   não fail-silencioso, mas quem opera precisa saber ler o `67`.
 7. **Autor obrigatório.** `--aplicar` exige `--usuario-id` de um **membro do escritório** (`UserTenant`).
 8. **Totais sempre separados** entre o que sai do saldo (juros + multa + correção) e o que sai fora dele
    (honorário), e o relatório avisa que a régua passará a marcar as corrigidas como `divergente` — o que
@@ -1139,8 +1150,11 @@ superdimensionava o efeito. A correção veio da revisão adversarial em 13/08.)
 `0` aplicou/simulou sem sobra · `64` erro de invocação · `65` contas não fecham ou rastro incompleto ·
 `66` nada a fazer · `67` sobrou inflação (houve dívida pulada) · `68` **a lista mudou desde a aprovação**.
 
-⚠️ O `67` tem significado **diferente** do `67` da régua (`COBERTURA_INCOMPLETA`). São comandos
-distintos e não há colisão técnica, mas um wrapper não pode tratar código sem saber qual comando rodou.
+⚠️ **`66`, `67` e `68` significam coisas DIFERENTES nos dois comandos.** Na régua, `67` é
+`COBERTURA_INCOMPLETA` e `68` é `DUPLA_CONTAGEM`; aqui são "sobrou inflação" e "a lista mudou". São
+comandos distintos e não há colisão técnica, mas **um wrapper não pode tratar código sem saber qual
+comando rodou**. O que os dois compartilham é só a disciplina: faixa `6x`, com `1` (exceção do Symfony)
+e `2` (`Command::INVALID`) proibidos.
 
 ### Medido em produção (13/08), antes da primeira execução
 

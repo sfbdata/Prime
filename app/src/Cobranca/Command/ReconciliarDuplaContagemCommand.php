@@ -7,6 +7,7 @@ namespace App\Cobranca\Command;
 use App\Cobranca\DTO\ExpectativaDaLista;
 use App\Cobranca\DTO\ResultadoReconciliacao;
 use App\Cobranca\Entity\Carteira;
+use App\Cobranca\Exception\RastroIncompletoException;
 use App\Cobranca\Exception\UniversoDaListaMudouException;
 use App\Cobranca\UseCase\ReconciliarDuplaContagemUseCase;
 use App\Entity\Auth\User;
@@ -78,19 +79,21 @@ final class ReconciliarDuplaContagemCommand extends Command
                 InputOption::VALUE_REQUIRED,
                 'Autor da correção no histórico — obrigatório com --aplicar',
             )
-            // A trava da lista aprovada. Obrigatórias com --aplicar por decisão do dono: se o universo
-            // mudar entre a aprovação e a escrita, o comando ABORTA — não adivinha.
+            // A trava da lista aprovada — OPCIONAL, e a escolha é de quem opera. Informando as duas, o
+            // comando aborta se o universo mudou desde a aprovação em vez de escrever sobre uma lista
+            // que ninguém viu. Não é obrigatória porque o risco que ela cobre é pequeno enquanto a
+            // importação está bloqueada, e exigi-la custaria uma etapa manual em toda execução.
             ->addOption(
                 'esperado-dividas',
                 null,
                 InputOption::VALUE_REQUIRED,
-                'Quantas dívidas a lista APROVADA tinha — obrigatório com --aplicar',
+                'OPCIONAL — quantas dívidas a lista aprovada tinha; aborta se não bater',
             )
             ->addOption(
                 'esperado-total',
                 null,
                 InputOption::VALUE_REQUIRED,
-                'Total duplicado (em CENTAVOS) da lista APROVADA — obrigatório com --aplicar',
+                'OPCIONAL — total duplicado (em CENTAVOS) da lista aprovada; aborta se não bater',
             );
     }
 
@@ -131,11 +134,10 @@ final class ReconciliarDuplaContagemCommand extends Command
         $esperadoDividas = $input->getOption('esperado-dividas');
         $esperadoTotal = $input->getOption('esperado-total');
 
-        if ($aplicar && ($esperadoDividas === null || $esperadoTotal === null)) {
-            $io->error(
-                '--aplicar exige --esperado-dividas e --esperado-total (em centavos), copiados da '
-                . 'simulação APROVADA. Sem eles o comando escreveria sobre uma lista que ninguém viu.'
-            );
+        // As duas andam JUNTAS: uma sozinha travaria metade da lista e passaria a outra metade em
+        // silêncio, que é pior do que não travar — quem informou uma acha que travou.
+        if (($esperadoDividas === null) !== ($esperadoTotal === null)) {
+            $io->error('--esperado-dividas e --esperado-total andam juntos: informe os dois ou nenhum.');
 
             return self::ERRO_DE_INVOCACAO;
         }
@@ -170,13 +172,19 @@ final class ReconciliarDuplaContagemCommand extends Command
                     $carteiras,
                     $tenant,
                     $usuario,
-                    new ExpectativaDaLista((int) $esperadoDividas, (int) $esperadoTotal),
+                    $esperadoDividas === null
+                        ? null
+                        : new ExpectativaDaLista((int) $esperadoDividas, (int) $esperadoTotal),
                 )
                 : $this->reconciliar->prever($carteiras, $tenant);
         } catch (UniversoDaListaMudouException $e) {
             $io->error($e->getMessage());
 
             return self::LISTA_MUDOU;
+        } catch (RastroIncompletoException $e) {
+            $io->error($e->getMessage());
+
+            return self::CONTAS_NAO_FECHAM;
         }
 
         return $this->relatar($io, $r);
@@ -238,31 +246,17 @@ final class ReconciliarDuplaContagemCommand extends Command
 
         if ($r->aplicou) {
             $io->text(sprintf('eventos no histórico: %d caso(s)', $r->casosComEvento));
-
-            // INV-R3 — toda correção precisa de rastro. Conferido, não presumido: se um evento deixou
-            // de ser gravado, a correção ficou órfã no histórico e ninguém consegue achá-la depois.
-            $casosDistintos = count(array_unique(array_column($r->corrigidas, 'casoId')));
-
-            if ($r->corrigidas !== [] && $r->casosComEvento !== $casosDistintos) {
-                $io->error(sprintf(
-                    'RASTRO INCOMPLETO: %d caso(s) corrigido(s) e só %d evento(s) no histórico. '
-                    . 'A transação foi revertida.',
-                    $casosDistintos,
-                    $r->casosComEvento,
-                ));
-
-                return self::CONTAS_NAO_FECHAM;
-            }
         } else {
             // Fecha o ciclo que o dono pediu: simular, aprovar, e colar de volta o que foi aprovado.
-            $io->section('Para aplicar ESTA lista (e só ela)');
+            $io->section('Para aplicar');
+            $io->writeln('  --aplicar --usuario-id=<id>');
+            $io->writeln('');
+            $io->text('Ou, travando nesta lista exata (opcional — aborta com 68 se ela mudar até lá):');
             $io->writeln(sprintf(
                 '  --aplicar --usuario-id=<id> --esperado-dividas=%d --esperado-total=%d',
                 $r->candidatas,
                 $r->duplicadoTotalEmCentavos(),
             ));
-            $io->writeln('');
-            $io->text('Se a lista mudar até lá, o comando aborta com código 68 e não grava nada.');
         }
 
         // Depois da correção a régua vai marcar estas dívidas como `divergente`, e isso é ESPERADO.

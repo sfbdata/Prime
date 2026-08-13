@@ -79,8 +79,9 @@ final class ReconciliarDuplaContagemCommandTest extends KernelTestCase
         $this->em->refresh($obrigacao);
         self::assertSame(5436, $obrigacao->getMulta(), 'a simulação não grava');
 
-        // Fecha o ciclo simular → aprovar → colar de volta.
+        // A simulação entrega as DUAS formas prontas: a simples e a travada nesta lista.
         $saida = $this->semQuebras($this->comando->getDisplay());
+        self::assertStringContainsString('--aplicar --usuario-id=<id>', $saida);
         self::assertStringContainsString('--esperado-dividas=1 --esperado-total=4545', $saida);
     }
 
@@ -110,9 +111,11 @@ final class ReconciliarDuplaContagemCommandTest extends KernelTestCase
         self::assertSame(5436, $obrigacao->getMulta(), 'sem autor, nada pode ter sido gravado');
     }
 
-    #[TestDox('🔴 --aplicar SEM a expectativa da lista não grava: escreveria sobre lista não aprovada')]
-    public function testAplicarSemExpectativaNaoGrava(): void
+    #[TestDox('--aplicar funciona SOZINHO: a trava da lista é opcional, não obrigatória')]
+    public function testAplicarSemExpectativaGrava(): void
     {
+        // Decisão do dono: a trava fica disponível, não exigida. O risco que ela cobre é pequeno
+        // enquanto a importação está bloqueada, e exigi-la custaria uma etapa manual em toda execução.
         [$carteira, $obrigacao] = $this->cenario();
 
         $codigo = $this->comando->execute([
@@ -121,10 +124,35 @@ final class ReconciliarDuplaContagemCommandTest extends KernelTestCase
             '--usuario-id' => (string) $this->usuario($carteira)->getId(),
         ]);
 
+        self::assertSame(Command::SUCCESS, $codigo);
+
+        $this->em->clear();
+        /** @var Obrigacao $recarregada */
+        $recarregada = $this->em->getRepository(Obrigacao::class)->find($obrigacao->getId());
+        self::assertSame(891, $recarregada->getMulta(), 'gravou sem precisar da trava');
+    }
+
+    #[TestDox('🔴 as duas opções da trava andam JUNTAS — meia trava é pior que nenhuma')]
+    public function testMeiaTravaEhRecusada(): void
+    {
+        // Quem informa só uma acha que travou, e não travou. Recusar é a única leitura honesta.
+        [$carteira, $obrigacao] = $this->cenario();
+
+        $codigo = $this->comando->execute([
+            '--tenant-id' => (string) $this->tenantDe($carteira)->getId(),
+            '--aplicar' => true,
+            '--usuario-id' => (string) $this->usuario($carteira)->getId(),
+            '--esperado-dividas' => '1',
+        ]);
+
         self::assertSame(ReconciliarDuplaContagemCommand::ERRO_DE_INVOCACAO, $codigo);
+        self::assertStringContainsString(
+            'andam juntos',
+            $this->semQuebras($this->comando->getDisplay()),
+        );
 
         $this->em->refresh($obrigacao);
-        self::assertSame(5436, $obrigacao->getMulta());
+        self::assertSame(5436, $obrigacao->getMulta(), 'meia trava não pode gravar');
     }
 
     #[TestDox('🔴 autor de OUTRO escritório não assina a correção')]

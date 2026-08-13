@@ -136,60 +136,106 @@ acordo da TL1 — a multa que a contabilidade lança em cada linha é **2% do Va
 **Ela cobra multa sobre a linha de multa.** Logo, para ela aquilo é **principal**. Os R$ 309,62 que o
 sistema gravava no NN 74789 não existem em coluna nenhuma da planilha.
 
-## 5. A reconciliação — ✅ ESCRITA, aguardando o `--aplicar` em produção
+## 5. A reconciliação — ✅ ESCRITA e revisada; falta RODAR em produção
 
-**Feita** (`ReconciliarDuplaContagemUseCase` + `ReconciliarDuplaContagemCommand`), com spec na §17.11
-do espelho. O que falta é **rodar** com `--aplicar`, e isso é do dono.
+Corrige no banco o encargo que a importação contou duas vezes. Peças:
+`ReconciliarDuplaContagemUseCase` · `ReconciliarDuplaContagemCommand` ·
+`app:cobranca:reconciliar-dupla-contagem`. Spec completa: **§17.11** do espelho.
 
-O ciclo é: simular → o dono aprova a lista → colar de volta os números aprovados no `--aplicar`. A
-simulação imprime a linha pronta; se a lista mudar até lá, o comando aborta com `68` e não grava nada.
+### ⚠️ O que ela conserta, e o que ela NÃO conserta
 
-### O que precisa fazer
+**Ela conserta o DADO, não a cobrança na tela.** As dívidas afetadas são todas **não-congeladas**, e
+`EncargosVivos::hidratar()` recalcula os quatro encargos pela nossa fórmula em toda leitura hidratada —
+então o valor inflado **já não é o que o devedor vê**. O que ele contamina é o **gravado**: SQL, MCP,
+relatório agregado e a conferência pós-importação.
 
-Um comando de console que ache as dívidas pela **assinatura** e corrija o encargo gravado.
+🔴 **A urgência não é a cobrança, é a permanência.** Obrigação congelada nunca é re-hidratada. Se
+qualquer uma das afetadas for liquidada ou substituída antes do conserto, o inflado **congela e vira
+definitivo**.
 
-| requisito | por quê |
+*(Este parágrafo existe porque o número chegou a ser reportado ao dono como "sai do saldo do devedor",
+o que superdimensionava o efeito. Corrigido em 13/08.)*
+
+### As travas do comando
+
+| trava | como funciona |
 |---|---|
-| **simula por padrão**; só escreve com `--aplicar` explícito | escreve dinheiro em produção |
-| **a lista nominal passa pelo dono** antes de aplicar em prod | a guarda de código não é a única rede (§17.8) |
-| reusa `ConferenciaDeEncargos::duplaContagemPorCampo()` | a assinatura é regra de dinheiro; **não escreva uma segunda cópia** (D10) |
-| **usa o lote que ESCREVEU cada obrigação** (INV-CE6) | contra o último lote a assinatura falha em silêncio e subconta |
-| **pula obrigação congelada** | congelada não é re-hidratada; mexer nela é outra decisão |
-| registra `EventoHistorico` por caso, **com o ID e a emissão do lote usado** | sem isso, um erro não tem como ser achado nem desfeito (§17.8) |
-| reporta **por campo** (juros/multa × honorário) | juros e multa entram no `valorExigivel()`, honorário **não** |
-| roda dentro de `wrapInTransaction` | molde: `ImportarAcordosDetalhadosUseCase:123` |
+| **simula por padrão** | sem `--aplicar` nada é gravado; `prever()` e `confirmar()` percorrem o mesmo código |
+| **autor obrigatório** | `--aplicar` exige `--usuario-id` de **membro do escritório** (`UserTenant`) |
+| **pula congelada** | e reporta o valor inflado que FICA — pular não é no-op |
+| **preserva o snapshot** | `encargosAtualizadosEm` não é recarimbado: a correção remove soma, não recalcula |
+| **rastro conferido** | todo caso corrigido tem `EventoHistorico` com o lote usado; a checagem é **dentro da transação**, antes do flush |
+| **trava da lista — OPCIONAL** | `--esperado-dividas` + `--esperado-total` abortam (código `68`) se o universo mudou desde a aprovação |
 
-⚠️ **Lacuna conhecida, deixada de propósito para esta frente:** o ramo NEGATIVO de
-`ResultadoConferenciaEncargos::baldesFecham()` (o abort com código `65`) não tem teste — só há
-`assertTrue`. Ela é a rede que pega um truncamento da lista em runtime, e ela própria é um `if` não
-exercitado. Custa ~8 linhas: um teste unitário do DTO construindo `duplicadas` com contagem
-inconsistente e asserindo `assertFalse()`. Achado da 4ª revisão, classificado BAIXA.
+⚠️ **A trava da lista NÃO é obrigatória** (decisão do dono, 13/08): o risco que ela cobre é pequeno
+enquanto a importação está bloqueada, e exigi-la custaria uma etapa manual em toda execução. A
+simulação imprime as duas linhas prontas — a simples e a travada — para quem quiser usar. Informar só
+uma das duas opções é **recusado**: meia trava faz quem operou achar que travou.
 
-### O que gravar no lugar
+### Códigos de saída
 
-O encargo **das colunas** — o mesmo que a importação corrigida gravaria, para que reimportar depois não
-mexa em nada. Sai do espelho, via `ConferenciaDeEncargos::somasDoRelatorio()`.
+`0` ok · `64` erro de invocação · `65` contas não fecham / rastro incompleto · `66` nada a fazer ·
+`67` sobrou inflação (houve dívida pulada) · `68` a lista mudou desde a aprovação.
 
-🔑 **ATENÇÃO: no honorário NÃO é `gravado − duplicado`.** Só juros e multa subtraem limpo.
+🔴 **`66`, `67` e `68` significam coisas DIFERENTES na régua e aqui.** Um wrapper não pode tratar
+código sem saber qual comando rodou.
 
-| campo | gravar |
+### 🔑 O QUE FALTA: rodar em produção — e quem roda é o DONO
+
+**Nenhuma sessão tem acesso à VPS.** O Claude monta os comandos; o dono executa e cola a saída de volta.
+A sequência combinada:
+
+1. **dono:** merge + deploy;
+2. **dono:** roda a SIMULAÇÃO e cola a saída;
+3. **Claude:** confere a saída contra o que a régua reportou e diz se está tudo certo;
+4. **dono:** roda o `--aplicar`;
+5. **dono:** roda a régua de novo e cola, para confirmar que zerou.
+
+⚠️ **No passo 5 a régua vai classificar as corrigidas como `divergente`, e isso é ESPERADO** — o
+gravado passou a ser o número da contabilidade, que a nossa fórmula naquela data não reproduz. Elas
+saem de "dupla contagem" e caem em "divergente" até a próxima hidratação. **Sem saber disso, alguém lê
+a verificação como falha e desconserta.**
+
+### O que gravar no lugar (INV-CE9) — a armadilha do honorário
+
+O encargo **das colunas**, que é o que a importação corrigida grava — por isso reimportar depois não
+mexe em nada. A régua entrega pronto em `corrigidoPorCampo`; a reconciliação **não** re-deriva.
+
+🔑 **ATENÇÃO: no honorário NÃO é `gravado − duplicado`.**
+
+| campo | grava |
 |---|---|
-| juros | `$grupo['juros']` (Σ coluna I) — igual a `gravado − duplicado` |
-| multa | `$grupo['multa']` (Σ coluna J) — igual a `gravado − duplicado` |
-| **honorário** | **`$grupo['honorarios']` = Σ coluna L de TODAS as linhas** |
-| correção | **não tocar** — nenhuma classe de linha vira correção |
+| juros | `Σ` coluna I — coincide com `gravado − duplicado` |
+| multa | `Σ` coluna J — coincide |
+| **honorário** | **`Σ` coluna L de TODAS as linhas** — **não** coincide |
+| correção | **não toca** — nenhuma classe de linha vira correção |
 
 O adapter, na linha `1.15`, **troca** a coluna L pelo Valor em vez de somar
-(`TopLifeInadimplenciaAdapter:200`). Subtrair o duplicado devolveria `Σ_{≠1.15} L` e **perderia a
-coluna L da própria linha de honorário** — a mesma assimetria do INV-E5, agora do lado da escrita.
-Medido: nas 21 do recorte antigo isso valia R$ 31,19 em 3 dívidas.
+(`TopLifeInadimplenciaAdapter:200`). Subtrair devolveria `Σ_{≠1.15} L` e perderia a coluna L da própria
+linha de honorário. Consequência: **o dinheiro que sai do banco ≠ o que a régua chama de "duplicado"**
+no honorário. Reporte os dois separados.
 
-⚠️ **Por isso o dinheiro que sai do banco ≠ o que a régua chama de "duplicado" no honorário.** Reporte
-os dois separados; no campo honorário a diferença é a coluna L restituída, e ela **não move a conta de
-ninguém** (honorário fica fora do `valorExigivel()`).
+### Medido em produção antes da primeira execução (13/08)
 
-### Armadilhas medidas
+- **25 dívidas**, R$ 3.185,94 duplicado — a lista que o dono aprovou;
+- **0 congeladas** → nenhuma seria pulada;
+- **0 com pagamento alocado** → nenhuma ficaria superalocada pela baixa do exigível.
+  ⚠️ O comando **não tem guarda** contra superalocação. O raio hoje é nulo; se ele for reusado num
+  universo diferente, **medir de novo antes**.
 
+### O que a revisão adversarial já fechou
+
+Quatro rodadas na régua e duas na reconciliação. Os achados que mudaram código de verdade:
+
+- a régua lia o **lote errado** (o último, não o que escreveu a dívida) e **subcontava em silêncio**;
+- o balde `injulgável` comia a checagem de coerência, que não depende de lote;
+- veredito e código de saída eram **cegos** ao balde: a régua imprimia caixa verde sobre cobertura de 0,4%;
+- a lista da reconciliação não tinha teste que a segurasse (truncar/desordenar/lote errado passavam verdes);
+- o comando que escreve dinheiro **não tinha teste nenhum**;
+- dois testes eram **vacuosos** — passavam com a implementação errada;
+- a checagem do rastro rodava **depois do commit** e afirmava "transação revertida" sobre dado gravado.
+
+### Armadilhas medidas (não repita)
 - ⚠️ **`AuditLog` sai degradado em CLI.** `Obrigacao` é `Auditavel`, então qualquer flush já grava o
   changeset — **mas** `actorUserId`, `ipAddress`, `route` ficam `null` e o `tenantId` vem do
   `TenantContext`, que **não está populado num comando**. Se o rastro importa, popule ou registre pelo
