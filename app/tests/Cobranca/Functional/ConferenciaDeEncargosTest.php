@@ -254,6 +254,14 @@ final class ConferenciaDeEncargosTest extends KernelTestCase
         self::assertSame(1, $r->comDuplaContagem, sprintf('piores: %s', json_encode($r->piores)));
         self::assertSame(['multa' => 2000, 'honorarios' => 4545], $r->duplicadoPorCampo);
         self::assertSame(6545, $r->duplicadoEmCentavos);
+
+        // INV-CE8 — a separação com os DOIS lados não-zero. É o que impede a lista de apresentar como
+        // "cobrado a mais" um total que em parte não move a conta de ninguém: a multa entra no
+        // `valorExigivel()`, o honorário não.
+        self::assertSame(2000, $r->duplicadas[0]['duplicadoNoSaldo'], 'só a multa move o saldo');
+        self::assertSame(4545, $r->duplicadas[0]['duplicadoForaDoSaldo'], 'o honorário fica fora dele');
+        self::assertSame(2000, $r->duplicadoNoSaldoEmCentavos());
+        self::assertSame(4545, $r->duplicadoForaDoSaldoEmCentavos());
     }
 
     #[TestDox('Encargo MAIOR que a coluna, sem a assinatura, NÃO é dupla contagem — discrimina a régua')]
@@ -346,6 +354,20 @@ final class ConferenciaDeEncargosTest extends KernelTestCase
         self::assertSame(4545, $r->duplicadoEmCentavos, 'o H da linha 1.4 do lote de 11/08, ao centavo');
         self::assertSame(['juros' => 4545], $r->duplicadoPorCampo);
         self::assertSame(0, $r->injulgaveis);
+
+        // INV-CE8 — a LISTA tem de dizer contra QUAL lote a dívida foi julgada, e tem de ser o de
+        // 11/08. Sem esta asserção, trocar o lote da linha pelo `$relatorio` recebido (o defeito exato
+        // do INV-CE6, do lado da lista) passaria verde — e a reconciliação corrigiria contra as
+        // colunas erradas, que é o defeito que esta frente inteira existe para matar.
+        self::assertCount(1, $r->duplicadas);
+        self::assertSame(
+            '11/08/2026',
+            $r->duplicadas[0]['loteEmitidoEm']?->format('d/m/Y'),
+            'a linha da lista aponta o lote que ESCREVEU a dívida',
+        );
+        self::assertNotSame($ultimo->getId(), $r->duplicadas[0]['loteId'], 'e não o último carregado');
+        self::assertSame(4545, $r->duplicadas[0]['duplicadoNoSaldo'], 'juros entra no saldo do devedor');
+        self::assertSame(0, $r->duplicadas[0]['duplicadoForaDoSaldo']);
     }
 
     #[TestDox('INV-CE6 — dívida cujo snapshot não tem lote é INJULGÁVEL, não "limpa"')]
@@ -385,6 +407,60 @@ final class ConferenciaDeEncargosTest extends KernelTestCase
         self::assertSame(1, $r->divergentes, 'sem lote não dá para acusar duplicação, mas dá para ver que a fórmula não reproduz');
         self::assertGreaterThan(0, $r->diferencaEmCentavos, 'e a diferença dela tem de entrar no total');
         self::assertTrue($r->baldesFecham(), 'as duas identidades do resultado');
+    }
+
+    #[TestDox('🔴 INV-CE8 — a lista da reconciliação é COMPLETA e ordenada pelo duplicado')]
+    public function testListaDaReconciliacaoEhCompletaEOrdenada(): void
+    {
+        // As duas propriedades que fazem a lista servir para o que ela existe, e que só um cenário com
+        // VÁRIAS dívidas de valores diferentes consegue provar: truncar ou desordenar passaria verde
+        // em qualquer teste de uma dívida só.
+        //
+        // Três parcelas de acordo com a assinatura na multa, com H de valores bem diferentes:
+        //   67620 → linha 1.5 de   9,00  ·  67621 → linha 1.5 de  90,00  ·  67622 → linha 1.5 de 45,45
+        // A ordem esperada na lista é 90,00 → 45,45 → 9,00, que NÃO é a ordem de criação.
+        $carteira = $this->carteiraTopLife();
+        $vencimento = new \DateTimeImmutable('2025-12-15');
+        $snapshot = $this->snapshotNaEmissaoDoLote();
+
+        $linhas = [];
+
+        foreach ([['67620', '04-01', 900], ['67621', '04-02', 9000], ['67622', '04-03', 4545]] as [$nn, $unidade, $hDaLinha]) {
+            $principal = 40000 + $hDaLinha;
+            $caso = $this->caso($carteira, $unidade);
+
+            // multa gravada = Σ J (8,00 + 0,91) + H da linha — a assinatura exata.
+            $this->obrigacao($caso, $nn, '12/2025', $principal, $vencimento, $snapshot, 3560, 891 + $hDaLinha, 0, 0);
+
+            $comum = [
+                'unidade' => $unidade, 'nn' => $nn, 'competencia' => '12/2025',
+                'vencimento' => '15/12/2025', 'correcao' => 0.0, 'acordo' => 'Acordo 426 - Parc. 1/6',
+            ];
+
+            $linhas[] = $this->linhaDeDado(...$comum, classe: '1.1 - Taxa de condomínio', valor: 400.00, juros: 32.00, multa: 8.00, honorarios: 0.0);
+            $linhas[] = $this->linhaDeDado(...$comum, classe: '1.5 - Multas', valor: $hDaLinha / 100, juros: 3.60, multa: 0.91, honorarios: 0.0);
+        }
+
+        $r = $this->conferir($carteira, $linhas);
+
+        self::assertSame(3, $r->comDuplaContagem, sprintf('piores: %s', json_encode($r->piores)));
+
+        // COMPLETA — uma linha por dívida, nenhuma cortada.
+        self::assertCount(3, $r->duplicadas, 'a lista não pode ser truncada: é a fonte da reconciliação');
+        self::assertSame($r->comDuplaContagem, count($r->duplicadas));
+
+        // ORDENADA pelo duplicado, do maior para o menor — e não pela ordem de criação.
+        self::assertSame(
+            [9000, 4545, 900],
+            array_column($r->duplicadas, 'duplicadoNoSaldo'),
+            'a ordem é a do dinheiro duplicado',
+        );
+        self::assertSame(['67621', '67622', '67620'], array_column($r->duplicadas, 'referencia'));
+
+        // E o total da lista reconcilia com a manchete — a 4ª identidade de `baldesFecham()`.
+        self::assertSame(14445, $r->duplicadoEmCentavos);
+        self::assertSame(14445, $r->duplicadoNoSaldoEmCentavos());
+        self::assertTrue($r->baldesFecham());
     }
 
     #[TestDox('INV-CE6 — duas emissões na MESMA data deixam a dívida injulgável, sem eleger vencedor')]

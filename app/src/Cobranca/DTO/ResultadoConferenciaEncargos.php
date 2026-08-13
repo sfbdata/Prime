@@ -74,7 +74,7 @@ final readonly class ResultadoConferenciaEncargos
         public int $duplicadoEmCentavos,
         public array $duplicadoPorCampo,
         public array $piores,
-        public array $duplicadas = [],
+        public array $duplicadas,
     ) {
     }
 
@@ -90,11 +90,22 @@ final readonly class ResultadoConferenciaEncargos
         return array_sum(array_column($this->duplicadas, 'duplicadoForaDoSaldo'));
     }
 
-    /** As duas identidades da classe. Falso aqui significa que a régua perdeu obrigação pelo caminho. */
+    /**
+     * As QUATRO identidades do resultado. Falso aqui significa que a régua perdeu dívida ou dinheiro
+     * pelo caminho, e o comando **falha alto** em vez de imprimir número que não soma.
+     *
+     * As duas últimas entraram por achado de revisão: a manchete imprime `duplicadoEmCentavos`
+     * (acumulado no laço) e o rodapé da lista imprime os dois somatórios por **outro caminho**
+     * (`array_column` sobre `$duplicadas`). Hoje batem por construção — e é exatamente esse "por
+     * construção" que uma refatoração quebra em silêncio.
+     */
     public function baldesFecham(): bool
     {
         return $this->coerentes + $this->comDuplaContagem + $this->divergentes === $this->universo
-            && $this->assinaturaAvaliada + $this->semParNoRelatorio + $this->injulgaveis === $this->universo;
+            && $this->assinaturaAvaliada + $this->semParNoRelatorio + $this->injulgaveis === $this->universo
+            && count($this->duplicadas) === $this->comDuplaContagem
+            && $this->duplicadoNoSaldoEmCentavos() + $this->duplicadoForaDoSaldoEmCentavos()
+                === $this->duplicadoEmCentavos;
     }
 
     /** Sobre o UNIVERSO, não sobre o que deu para conferir — senão 100% pode significar 2 de 530. */

@@ -136,7 +136,7 @@ final class ConferirEncargosGravadosCommandTest extends KernelTestCase
             '--duplicadas' => true,
         ]);
 
-        self::assertSame(Command::FAILURE, $codigo, 'o código que existe para gritar dinheiro duplicado');
+        self::assertSame(ConferirEncargosGravadosCommand::DUPLA_CONTAGEM, $codigo, 'o código que existe para gritar dinheiro duplicado');
 
         $saida = $this->semQuebras($this->comando->getDisplay());
 
@@ -149,13 +149,41 @@ final class ConferirEncargosGravadosCommandTest extends KernelTestCase
         self::assertStringContainsString('sai FORA do saldo (honorário', $saida);
     }
 
-    #[TestDox('N2 — tenant inexistente NÃO usa o código 1, que significa dupla contagem')]
+    #[TestDox('N2 — tenant inexistente tem código próprio, fora dos códigos baixos')]
     public function testTenantInexistenteTemCodigoProprio(): void
     {
         $codigo = $this->comando->execute(['--tenant-id' => '999999']);
 
         self::assertSame(ConferirEncargosGravadosCommand::ERRO_DE_INVOCACAO, $codigo);
-        self::assertNotSame(Command::FAILURE, $codigo, 'senão um cron lê erro de invocação como dupla contagem');
+        // `1` é exceção não capturada e `2` é `Command::INVALID`, usado por 10 comandos irmãos no mesmo
+        // diretório. Colidir com qualquer um dos dois faria um wrapper ler outra coisa.
+        self::assertNotSame(Command::FAILURE, $codigo);
+        self::assertNotSame(Command::INVALID, $codigo);
+    }
+
+    #[TestDox('🔴 achado 3 — sem carteira conferida NÃO sai 0; "não houve o que conferir" != "está limpo"')]
+    public function testNenhumaCarteiraConferidaNaoSaiComSucesso(): void
+    {
+        // Medido pela revisão: `--carteira-id=9999` saía 0, ou seja, o comando dizia "limpo e completo"
+        // sobre carteira nenhuma. É a mesma falha-aberto que a revisão anterior condenou no
+        // repositório, sobrevivendo no comando.
+        $carteira = $this->carteiraComLote(
+            snapshot: new \DateTimeImmutable('2026-08-12'),
+            vencimento: new \DateTimeImmutable('2025-12-15'),
+            encargos: [1360, 340, 0, 3740],
+        );
+
+        $codigo = $this->comando->execute([
+            '--tenant-id' => (string) $carteira->getTenant()?->getId(),
+            '--carteira-id' => '999999',
+        ]);
+
+        self::assertSame(ConferirEncargosGravadosCommand::NADA_CONFERIDO, $codigo);
+        self::assertNotSame(Command::SUCCESS, $codigo, 'sair 0 aqui é dizer "pode seguir" sobre coisa nenhuma');
+        self::assertStringContainsString(
+            'Nenhuma carteira foi conferida',
+            $this->semQuebras($this->comando->getDisplay()),
+        );
     }
 
     /**

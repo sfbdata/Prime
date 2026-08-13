@@ -32,24 +32,42 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 final class ConferirEncargosGravadosCommand extends Command
 {
     /**
-     * Terceiro estado do código de saída: rodou, não achou dupla contagem, **e não conferiu tudo**.
-     * Distinto do `FAILURE` (que é dinheiro duplicado achado) e do `SUCCESS` (que é cobertura total),
-     * para que um cron consiga tratar "não deu para conferir" diferente de "está limpo".
-     */
-    public const COBERTURA_INCOMPLETA = 2;
-
-    /**
-     * Erro de INVOCAÇÃO (tenant inexistente), não de dado. Separado do `FAILURE` porque `1` é o
-     * sinal de "dinheiro contado duas vezes" — sobrecarregá-lo faria um cron tratar "errei o
-     * `--tenant-id`" como se tivesse achado dupla contagem, e vice-versa.
+     * 🔑 **O CONTRATO DE SAÍDA — todo estado com significado mora na faixa 6x, e isso é decisão.**
+     *
+     * Dois códigos baixos **não podem** ser usados para significar nada aqui, e ignorar isso já era
+     * achado de revisão:
+     *
+     * - **`1`** é o que o Symfony devolve para **exceção não capturada** (`Application::doRun()`).
+     *   Usá-lo para "achei dupla contagem" faria um cron ler "o comando explodiu" como "tem dinheiro
+     *   duplicado", e vice-versa — e esta classe **lança** `LogicException` para lote sem `dadosAte`.
+     * - **`2`** é `Command::INVALID`, e no mesmo diretório **10 comandos irmãos** já o usam com esse
+     *   sentido (`ImportarCadastroCondominosCommand`, `RegistrarEmissaoRelatorioCommand`,
+     *   `ImportarRelatorioCobrancaCommand`, `ImportarAcordosDetalhadosCommand`). Dar outro significado
+     *   a ele só neste comando é a mesma armadilha, dentro de casa.
+     *
+     * Nenhum wrapper lê estes códigos hoje (conferido: nada em `scripts/` chama este comando), então
+     * mudar agora custa zero — e depois de existir o `--aplicar`, custaria caro.
      */
     public const ERRO_DE_INVOCACAO = 64;
 
     /**
-     * A régua perdeu dívida pelo caminho: os baldes não reconciliam com o universo. É defeito DA
-     * FERRAMENTA, não do dado, e por isso também não pode usar o `1`.
+     * A régua perdeu dívida ou dinheiro pelo caminho: as identidades de `baldesFecham()` não batem.
+     * É defeito DA FERRAMENTA, não do dado.
      */
     public const BALDES_NAO_FECHAM = 65;
+
+    /**
+     * Nenhuma carteira chegou a ser conferida (não existe, é de outro tenant, ou não tem lote).
+     * Sair `0` aqui diria "limpo e completo" sobre coisa nenhuma — é a mesma falha-aberto que a
+     * revisão condenou no repositório, e foi medida: `--carteira-id=9999` saía `0`.
+     */
+    public const NADA_CONFERIDO = 66;
+
+    /** Rodou, não achou dupla contagem, **e não conferiu tudo**. */
+    public const COBERTURA_INCOMPLETA = 67;
+
+    /** 🔴 Achou dinheiro contado duas vezes. É o único código que significa "tem defeito no dado". */
+    public const DUPLA_CONTAGEM = 68;
 
     public function __construct(
         private readonly ConferenciaDeEncargos $conferencia,
@@ -107,6 +125,7 @@ final class ConferirEncargosGravadosCommand extends Command
 
         $achouDuplaContagem = false;
         $houveInjulgavel = false;
+        $carteirasConferidas = 0;
 
         foreach ($carteiras as $carteira) {
             $lote = $this->relatorios->findUltimoDaCarteira($carteira);
@@ -209,6 +228,7 @@ final class ConferirEncargosGravadosCommand extends Command
                 default => $io->warning('Sem dado suficiente para conferir esta carteira.'),
             };
 
+            ++$carteirasConferidas;
             $achouDuplaContagem = $achouDuplaContagem || $r->comDuplaContagem > 0;
             $houveInjulgavel = $houveInjulgavel || $r->injulgaveis > 0;
 
@@ -238,11 +258,19 @@ final class ConferirEncargosGravadosCommand extends Command
             }
         }
 
-        // O código de saída é o que um cron ou um wrapper enxerga, e ele tem TRÊS estados de propósito.
-        // Sair 0 com dívida injulgável seria dizer "tudo certo" para a máquina depois de avisar o
-        // humano do contrário — o aviso na tela não chega a quem lê só o exit code.
+        // O código de saída é o que um cron ou um wrapper enxerga. `SUCCESS` significa uma coisa só:
+        // conferi TUDO e está limpo. Cada outro desfecho tem código próprio (ver o contrato acima).
+        if ($carteirasConferidas === 0) {
+            $io->warning(
+                'Nenhuma carteira foi conferida — ou o critério não casou nenhuma, ou nenhuma tem lote '
+                . 'carregado no espelho. Isto NÃO é "está limpo": é "não houve o que conferir".'
+            );
+
+            return self::NADA_CONFERIDO;
+        }
+
         if ($achouDuplaContagem) {
-            return Command::FAILURE;
+            return self::DUPLA_CONTAGEM;
         }
 
         return $houveInjulgavel ? self::COBERTURA_INCOMPLETA : Command::SUCCESS;

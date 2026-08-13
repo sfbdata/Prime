@@ -1015,10 +1015,13 @@ reconcilia".)*
    (`baldesFecham()`), e o comando **falha** se não fecharem:
    - classificação: `coerentes + comDuplaContagem + divergentes == universo`
    - cobertura: `assinaturaAvaliada + semParNoRelatorio + injulgaveis == universo`
-6. **O veredito `coerente` exige cobertura TOTAL**, e o código de saída tem **três** estados:
-   `0` limpo e completo · `1` dupla contagem · `2` **cobertura incompleta**. Sem isso a régua imprimia a
-   caixa verde *"Todo encargo gravado é um número que a nossa fórmula produz"* numa carteira com **2
-   dívidas conferidas e 528 jamais examinadas**, e saía `0` para o cron.
+6. **O veredito `coerente` exige cobertura TOTAL**, e o código de saída tem **cinco** estados, todos na
+   faixa `6x` menos o sucesso: `0` conferiu tudo e está limpo · `64` erro de invocação · `65` baldes não
+   fecham · `66` nada conferido · `67` cobertura incompleta · `68` dupla contagem. Sem isso a régua
+   imprimia a caixa verde *"Todo encargo gravado é um número que a nossa fórmula produz"* numa carteira
+   com **2 dívidas conferidas e 528 jamais examinadas**, e saía `0` para o cron.
+   ⛔ **`1` e `2` são proibidos aqui:** `1` é exceção não capturada do Symfony e `2` é `Command::INVALID`,
+   usado por 10 comandos irmãos do mesmo diretório.
 
 #### O buraco que fica, medido
 

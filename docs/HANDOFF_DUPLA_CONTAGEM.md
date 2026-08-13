@@ -184,9 +184,21 @@ ninguém** (honorário fica fora do `valorExigivel()`).
 - ⚠️ `espelho:calibrar` e `espelho:encargos` precisam de `-d memory_limit=512M` em prod. O
   `calibrar` já estourou 128M com cache frio, morrendo **antes** da TOP LIFE I — a carteira grande é
   justamente a que fica sem número.
-- ⚠️ **O `espelho:encargos` tem TRÊS códigos de saída:** `0` limpo e completo · `1` dupla contagem ·
-  `2` **cobertura incompleta** (rodou, não achou duplicação, e não conseguiu conferir tudo). Quem
-  chamar o comando de script precisa tratar o `2` — ele **não** é sucesso.
+- ⚠️ **O `espelho:encargos` tem CINCO códigos de saída, e só o `0` é sucesso:**
+
+  | código | significa |
+  |---:|---|
+  | `0` | conferiu **tudo** e está limpo |
+  | `64` | erro de invocação (tenant não existe) |
+  | `65` | 🔴 **defeito da ferramenta** — os baldes não fecham, o relatório não vale |
+  | `66` | nenhuma carteira foi conferida (critério não casou, ou nenhuma tem lote) |
+  | `67` | cobertura incompleta — rodou, nada duplicado, **e não conferiu tudo** |
+  | `68` | 🔴 **achou dupla contagem** |
+
+  Os códigos ficam na faixa `6x` de propósito: **`1` é o que o Symfony devolve para exceção não
+  capturada** (e esta régua lança `LogicException` para lote sem `dadosAte`), e **`2` é
+  `Command::INVALID`**, já usado com esse sentido por 10 comandos irmãos do mesmo diretório. Usar
+  qualquer um dos dois faria um wrapper ler outra coisa.
 - ⚠️ **Depois da reconciliação as dívidas corrigidas vão aparecer como `divergente` na régua, e isso é
   ESPERADO.** A régua compara o gravado com a NOSSA fórmula na data do snapshot; depois do conserto o
   gravado passa a ser o número da **contabilidade**, que a nossa fórmula naquela data não reproduz.
