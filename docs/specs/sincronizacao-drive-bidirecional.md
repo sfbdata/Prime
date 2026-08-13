@@ -265,9 +265,17 @@ mal-vinculada.
 
 ## 10. Motor de reconciliação (Fase 1)
 
+> ⚠️ **SUPERADO EM 2026-08 — este capítulo descreve o motor BIDIRECIONAL, que deixou de ser o
+> comportamento padrão.** Pelo requisito R2 (ver `fase2-import-export-sincronizacao.md` §12.5),
+> `app:sync:reconciliar` passou a ter `--modo=enviar|importar|ambos`, com **padrão `enviar`**
+> (só sistema→Drive). O cron e o worker **nunca importam**; a importação continua existindo no
+> código, mas exige `--modo=importar` explícito — é o motor do botão "Importar" (Fatia B) e da
+> migração do acervo (R7). Leia este capítulo como história do desenho original; o sentido
+> corrente está na spec da Fase 2.
+
 ### 10.1 Como roda
 
-- Comando **`app:sync:reconciliar --tenant-id=1 [--dry-run] [--pasta-id=N] [--limit=N]`**.
+- Comando **`app:sync:reconciliar --tenant-id=1 [--modo=enviar|importar|ambos] [--dry-run] [--pasta-id=N] [--limit=N]`**.
 - Agendado por **cron na VPS** (reaproveita o padrão de `scripts/backup.sh`).
 - `--dry-run` com transação revertida (padrão `ImportarAcervoCommand`).
 - **Lock de execução** (flock) para duas rodadas não se sobreporem.
@@ -556,7 +564,7 @@ A via Drive→sistema **baixa arquivos e faz o volume crescer**, e os uploads es
 | Fase 1 — motor (código): ARQUIVOS | ✅ | 2026-07-09 — `app:sync:reconciliar` estendido para arquivos por pasta vinculada: **sistema→Drive** (doc sem `drive_file_id` → `enviarArquivo`; seção vira **subpasta-espelho por nome** no Drive) e **Drive→sistema** (varredura recursiva §11.6, sub-subpasta achatada p/ a seção-avó; cria `PastaDocumento`). Google-native pulado; **flush+clear por item** (idempotente por `drive_file_id`, nunca re-duplica na re-execução); guards de nome>255, tamanho INT4 e UNIQUE global de `drive_file_id`. Suíte **900/900**; revisado 2× pelo `feature-review-agent` (10 furos + 1 regressão corrigidos). **D8/upload-download resumável adiado p/ a Fase 1a** (Fork 2): client real segue in-memory com TODO; motor já é path-based |
 | Fork 2 / D8 — resumável + streaming | ✅ | 2026-07-11 — `enviarArquivo` upload resumável (8MB chunks), `baixarArquivo` streaming via Guzzle `sink`, `moverParaArmazenamento` no ArquivoStorage; elimina OOM nos 2 sentidos; suíte 1282/1282; revisado; commit `06cd7fe`, deployado |
 | Fase 1a — Reconciliação (execução em prod) | ✅ | 2026-07-11/13 — backfill 986 + reconcile de pastas (+48) + carga de arquivos (amostras 1003/51/lote-20 provadas, 0 erros) + sweep completo **em conclusão** via o próprio cron |
-| Fase 1b — Automático (cron) | ✅ | 2026-07-13 — app OAuth publicado (token permanente), creds em `/opt/jusprime/.sync-oauth.env`, wrapper `sync-reconciliar.sh`, cron `*/15` (tenant 1). Backup do banco religado (`backup-db.sh`, cron 02:30) |
+| Fase 1b — Automático (cron) | ✅ | 2026-07-13 — app OAuth publicado (token permanente), creds em `/opt/jusprime/.sync-oauth.env`, wrapper `sync-reconciliar.sh`, cron `*/15` (tenant 1; desde 2026-08 roda `--modo=enviar` — R2). Backup do banco religado (`backup-db.sh`, cron 02:30) |
 | Fase 2 — Baixa latência sistema→Drive | ⬜ | spec própria; pré-req: 1a/1b provadas + "Conectar meu Drive" se multi-tenant |
 | Fase 3 — Baixa latência Drive→sistema | ⏸ | adiada/opcional (D11) |
 

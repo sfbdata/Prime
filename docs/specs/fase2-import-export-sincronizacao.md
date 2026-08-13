@@ -251,9 +251,30 @@ desperdício e risco de rate limit, porque write pesa mais na cota. O desenho ap
 `name`) + no `FakeGoogleDriveClient` dos testes + o gatilho de propagação. Não existe nada hoje —
 ver a correção medida no R3 do §12.2.
 
-**⏳ EM ABERTO (o P.O. ainda não decidiu) — não implementar antes da resposta:**
-- **R2, escopo:** apagar `driveParaSistema` + Via B de vez, **ou** tirar só do fluxo automático
-  preservando o código (ele é o motor do botão Importar da Fatia B e da migração R7)?
-- **R1, tela:** o campo de número **some** do modal de nova pasta, **ou** fica opcional
-  (em branco = automático)?
-- **OPS:** pausar o sync automático em produção até a Fatia A entrar, ou deixar rodando?
+**D12.5 — aviso de pasta duplicada por cliente+ação (escopo NOVO, decidido em 2026-08-13).**
+O R1 fechou a colisão de **número**, não a dor que a originou. As 2 pastas literalmente
+duplicadas da §12.1 nasceram de duas pessoas abrindo o mesmo caso ao mesmo tempo — com
+numeração automática elas passam a receber **1232 e 1233**: continuam sendo duas pastas do
+mesmo processo e ainda **somem da consulta de detecção do §12.4**, que procura NUP repetido.
+Decisão do dono: na criação, se já existir pasta com o **mesmo cliente + mesma ação** no
+escritório, **avisar e pedir confirmação** — nunca bloquear, porque o mesmo cliente pode ter
+vários casos parecidos legitimamente. Comparação tolerante a acento e caixa
+(`UNACCENT(LOWER(...))`, igual à busca livre da lista). Implementado em
+`PastaRepository::findSemelhantesPorClienteEAcao` + tela `pasta/confirmar_duplicada.html.twig`
+(reenvia os mesmos dados com `confirmar=1`).
+
+**D12.6 — decisões do dono sobre os dois pontos que estavam em aberto (2026-08-13):**
+- **R2, escopo → PRESERVAR o código, tirar só do automático.** `driveParaSistema` e a Via B são
+  o motor do botão Importar (Fatia B) e da migração R7; apagar agora seria reescrever depois.
+  Gate atrás de `--modo=importar`; cron e worker rodam `--modo=enviar`.
+- **R1, tela → TIRAR o campo de número do modal.** O número é sequência interna do escritório.
+  Remover encerra a colisão manual, e é fácil devolvê-lo como campo "avançado" se algum dia
+  precisarem fixar um número. CSV e Drive seguem passando número explícito pelo UseCase.
+- ⚠️ O **padrão do `--modo` é `enviar`**, e não "sem `--modo` = comportamento atual" como dizia
+  a §4. Deixar o padrão bidirecional apostaria a garantia "nada importa sozinho" numa linha de
+  crontab que alguém precisa lembrar de editar; com o padrão no comando, mesmo um cron antigo
+  para de importar no deploy.
+
+**⏳ EM ABERTO — OPS (não bloqueia código):** pausar o sync automático em produção até a fatia
+entrar, ou deixar rodando? (Drive→sistema é aditivo e ninguém mais põe arquivo no Drive à mão,
+então hoje é inofensivo.)
