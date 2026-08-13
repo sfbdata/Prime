@@ -14,6 +14,10 @@ use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use App\Sync\Entity\TenantDriveConexao;
+use App\Sync\Message\SincronizarPastaNoDrive;
+use App\Sync\Service\CifradorDeSegredo;
+use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
 use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 
 #[CoversClass(PastaController::class)]
@@ -136,5 +140,106 @@ final class EditarPastaControllerTest extends JusPrimeWebTestCase
 
         self::assertNotNull($inalterada);
         self::assertSame($nupOriginal, $inalterada->getNup());
+    }
+
+    // ───────────────────────────────────────────────────────────────────────────────────────
+    // R3 — o FIO entre a tela de editar e o Drive. Dispatcher e handler já têm teste isolado;
+    // o que faltava era esta ponta. O erro clássico aqui é capturar o nome DEPOIS do UseCase:
+    // nomeAntes viraria igual a nomeDepois, nada seria despachado, e a suíte inteira ficaria
+    // verde mentindo que o R3 funciona.
+    // ───────────────────────────────────────────────────────────────────────────────────────
+
+    private function conectarDrive(Tenant $tenant, User $user): void
+    {
+        $em       = static::getContainer()->get(EntityManagerInterface::class);
+        $cifrador = static::getContainer()->get(CifradorDeSegredo::class);
+        $conexao  = new TenantDriveConexao($tenant);
+        $conexao->registrarCredenciais($cifrador->cifrar('tok'), 'a@b.com', 'drive', $user);
+        $conexao->definirRootFolder('root-abcdefghij');
+        $em->persist($conexao);
+        $em->flush();
+    }
+
+    private function transporteAsync(): InMemoryTransport
+    {
+        return static::getContainer()->get('messenger.transport.async');
+    }
+
+    #[TestDox('R3: editar o nome da pasta enfileira a renomeação no Drive')]
+    public function testEditarNomeEnfileiraRenomeacao(): void
+    {
+        $client                  = static::createClient();
+        [$user, $tenant, $pasta] = $this->criarCenario();
+        $this->conectarDrive($tenant, $user);
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $client->request('POST', '/pasta/' . $pasta->getId() . '/editar', [
+            '_token'       => $this->gerarCsrf('edit_pasta_' . $pasta->getId()),
+            'nup'          => $pasta->getNup(),
+            'nome_cliente' => 'CLIENTE QUE MUDOU',
+            'situacao'     => Pasta::SITUACAO_ATIVA,
+        ]);
+
+        self::assertResponseRedirects('/pasta/' . $pasta->getId());
+
+        $enviadas = $this->transporteAsync()->getSent();
+        self::assertCount(1, $enviadas, 'editar o nome não enfileirou nada — o fio do R3 está partido');
+        $msg = $enviadas[0]->getMessage();
+        self::assertInstanceOf(SincronizarPastaNoDrive::class, $msg);
+        self::assertSame($pasta->getId(), $msg->pastaId);
+        self::assertTrue($msg->renomear, 'a mensagem saiu sem o pedido de renomear');
+    }
+
+    #[TestDox('R3: editar SÓ a situação não enfileira nada (nome igual não vira write no Drive)')]
+    public function testEditarSoSituacaoNaoEnfileira(): void
+    {
+        $client                  = static::createClient();
+        [$user, $tenant, $pasta] = $this->criarCenario();
+        $this->conectarDrive($tenant, $user);
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenant);
+
+        // Mesmíssimo nup e sem cliente/ação — só a situação muda.
+        $client->request('POST', '/pasta/' . $pasta->getId() . '/editar', [
+            '_token'   => $this->gerarCsrf('edit_pasta_' . $pasta->getId()),
+            'nup'      => $pasta->getNup(),
+            'situacao' => Pasta::SITUACAO_ARQUIVADA,
+        ]);
+
+        self::assertResponseRedirects('/pasta/' . $pasta->getId());
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        self::assertSame(Pasta::SITUACAO_ARQUIVADA, $em->find(Pasta::class, $pasta->getId())->getSituacao());
+
+        self::assertCount(
+            0,
+            $this->transporteAsync()->getSent(),
+            'arquivar a pasta gerou renomeação no Drive — write desnecessário na cota da API',
+        );
+    }
+
+    #[TestDox('R3: escritório SEM Drive conectado não enfileira nada ao editar')]
+    public function testEditarSemDriveConectadoNaoEnfileira(): void
+    {
+        $client                  = static::createClient();
+        [$user, $tenant, $pasta] = $this->criarCenario();
+        // sem conectarDrive()
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $client->request('POST', '/pasta/' . $pasta->getId() . '/editar', [
+            '_token'       => $this->gerarCsrf('edit_pasta_' . $pasta->getId()),
+            'nup'          => $pasta->getNup(),
+            'nome_cliente' => 'OUTRO CLIENTE',
+            'situacao'     => Pasta::SITUACAO_ATIVA,
+        ]);
+
+        self::assertResponseRedirects('/pasta/' . $pasta->getId());
+        self::assertCount(0, $this->transporteAsync()->getSent());
     }
 }
