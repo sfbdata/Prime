@@ -81,6 +81,13 @@ da ordem de R$ 38 por dívida — as dívidas a corrigir **tendiam a ficar de fo
 ```bash
 # a lista da reconciliação: completa, ordenada pelo duplicado, com o lote de cada linha
 php -d memory_limit=512M bin/console app:cobranca:espelho:encargos --tenant-id=<id> --duplicadas
+
+# para salvar: o `mkdir -p` NÃO é opcional — o diretório é gitignorado, logo não existe no checkout
+# nem na VPS, e sem ele o redirect falha justamente com a lista de PII na tela (que é como uma saída
+# improvisada foi parar no repositório em 03/08)
+mkdir -p docs/gestao-cobrancas/listas-reconciliacao
+php -d memory_limit=512M bin/console app:cobranca:espelho:encargos --tenant-id=<id> --duplicadas \
+  > docs/gestao-cobrancas/listas-reconciliacao/tl1.txt
 ```
 
 Ela traz por dívida: `id`, unidade, referência, competência, **lote usado (id + emissão)**, e os totais
@@ -150,6 +157,12 @@ Um comando de console que ache as dívidas pela **assinatura** e corrija o encar
 | registra `EventoHistorico` por caso, **com o ID e a emissão do lote usado** | sem isso, um erro não tem como ser achado nem desfeito (§17.8) |
 | reporta **por campo** (juros/multa × honorário) | juros e multa entram no `valorExigivel()`, honorário **não** |
 | roda dentro de `wrapInTransaction` | molde: `ImportarAcordosDetalhadosUseCase:123` |
+
+⚠️ **Lacuna conhecida, deixada de propósito para esta frente:** o ramo NEGATIVO de
+`ResultadoConferenciaEncargos::baldesFecham()` (o abort com código `65`) não tem teste — só há
+`assertTrue`. Ela é a rede que pega um truncamento da lista em runtime, e ela própria é um `if` não
+exercitado. Custa ~8 linhas: um teste unitário do DTO construindo `duplicadas` com contagem
+inconsistente e asserindo `assertFalse()`. Achado da 4ª revisão, classificado BAIXA.
 
 ### O que gravar no lugar
 
