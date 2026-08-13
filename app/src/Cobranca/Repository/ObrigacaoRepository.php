@@ -402,6 +402,43 @@ class ObrigacaoRepository extends ServiceEntityRepository
     }
 
     /**
+     * O MESMO universo de {@see self::emAbertoDaCarteiraAte}, mas em ENTIDADES — para a régua do
+     * encargo gravado (spec `cobranca-espelho-da-contabilidade.md` §17).
+     *
+     * Existe separado, e não como um flag do irmão, porque as duas perguntas precisam de coisas
+     * diferentes: a conferência precisa da chave e do principal (linhas cruas bastam, e são milhares);
+     * esta precisa da entidade inteira, porque a configuração efetiva sai da cascata
+     * (`ResolvedorConfigEncargos`), e reimplementar a cascata a partir de colunas seria uma segunda
+     * cópia de regra de dinheiro — exatamente o que o D10 proíbe.
+     *
+     * ⚠️ `caso` e `objeto` vêm por **fetch join** de propósito. Sem eles, resolver a cascata de cada
+     * obrigação dispara dois lazy-loads por linha, e o comando roda em console sobre milhares de
+     * obrigações — é o N+1 que já derrubou a calibração por falta de memória.
+     *
+     * @return list<Obrigacao>
+     */
+    public function emAbertoDaCarteiraAteComEncargos(Carteira $carteira, \DateTimeImmutable $dadosAte): array
+    {
+        $qb = $this->createQueryBuilder('o')
+            ->addSelect('c', 'obj')
+            ->join('o.caso', 'c')
+            ->join('c.objeto', 'obj')
+            ->andWhere('obj.carteira = :carteira')
+            // Tenant EXPLÍCITO: o `TenantFilter` só liga no evento de request, e isto roda em console.
+            ->andWhere('o.tenant = :tenant')
+            ->andWhere('o.liquidadaEm IS NULL')
+            ->andWhere('o.vencimentoOriginal <= :dadosAte')
+            ->setParameter('carteira', $carteira)
+            ->setParameter('tenant', $carteira->getTenant())
+            ->setParameter('dadosAte', $dadosAte);
+
+        /** @var list<Obrigacao> $obrigacoes */
+        $obrigacoes = $this->aplicarExigibilidade($qb)->getQuery()->getResult();
+
+        return $obrigacoes;
+    }
+
+    /**
      * O que o SISTEMA considera devido numa carteira até uma data — o universo da conferência do
      * espelho (spec `cobranca-espelho-da-contabilidade.md` §5.1).
      *

@@ -829,3 +829,78 @@ que é honorário embutido.
 ⚠️ **Esse relatório é de ORIENTAÇÃO, não de correção.** Se ele mostrar honorário sobre honorário, a
 conduta muda no escritório (quem monta o acordo), não no código — a §16.3 já decidiu que o sistema
 espelha.
+
+## 17. Peça 4 — a régua do encargo GRAVADO (a que faltava)
+
+**Por que existe.** A revisão de 12/08 achou o furo que faltava: **nenhuma peça da Fase 0 lê o encargo
+gravado em `cobranca_obrigacao`.** A conferência compara `valor_original`; a calibração compara a
+nossa fórmula contra as colunas da planilha. O que está escrito nas colunas `juros`/`multa`/
+`correcao`/`honorarios` do banco não entra em conta nenhuma.
+
+🔑 **A consequência é que a Fase 1 não conseguiria provar o próprio conserto.** Rodar
+`espelho:calibrar` antes e depois de matar a dupla contagem dá **exatamente o mesmo número** — e um
+"97% ao centavo" pós-conserto seria lido como prova de que funcionou, sem provar nada.
+
+### 17.1 ⛔ O que esta peça NÃO pode ser
+
+**Não é "gravado × planilha".** Medido em produção (13/08): das obrigações em aberto da TL1, **ZERO**
+têm `encargos_atualizados_em` na data do lote — são **68 datas distintas**, de 01/02/2022 a 11/08/2026.
+Comparar o gravado com as colunas I/J/K/L é comparar contas feitas em dias diferentes: daria ~100% de
+divergência e não significaria nada.
+
+⚠️ Este é o mesmo erro que a §9.1 da spec irmã já avisava (*"encargos são do sistema, divergir é o
+comportamento correto"*). A régua tem de ser **independente da data**.
+
+### 17.2 A régua que funciona: o gravado contra a fórmula NA DATA DO PRÓPRIO SNAPSHOT
+
+Cada obrigação carrega a data em que seu encargo foi carimbado (`encargos_atualizados_em`). Então dá
+para perguntar, **sem depender do relatório**:
+
+> Rodando a nossa fórmula sobre o `valor_original` da obrigação, na data do próprio snapshot dela, dá
+> o que está gravado?
+
+- **Dá** ⟹ o snapshot é internamente coerente: seja qual for o caminho que o escreveu, ele usou a base
+  certa.
+- **Não dá** ⟹ alguém escreveu ali um número que a fórmula não produz — e é isso que a dupla contagem é.
+
+Medido em produção (13/08, TL1, sobre os 3.023 boletos do lote): **2.639 batem exatamente** (87%).
+
+### 17.3 Os baldes — e o que cada um decide
+
+| balde | teste | o que significa |
+|---|---|---|
+| **coerente** | gravado == fórmula(`valor_original`, vencimento, cascata, `encargos_atualizados_em`) | nada a fazer |
+| **dupla contagem** | gravado == Σ coluna do relatório **+ o H das linhas `1.4`/`1.5`/`1.15`** | 🔴 o defeito 2, identificado pela assinatura, não por suspeita |
+| **divergente** | nem um nem outro | investigar; reporta o campo e o valor |
+
+O balde do meio é o **entregável** desta peça: é ele que a Fase 1 roda antes e depois do conserto.
+
+Medido hoje: **0 boletos com a assinatura**, nas três carteiras. Consistente com a §12.2 da spec irmã
+— a dupla contagem **está armada, não disparada**. A régua nasce medindo zero de propósito: é assim
+que se sabe que ela não está inventando defeito.
+
+### 17.4 O que a medição de 13/08 já mostrou, e é achado próprio
+
+Separando os 3.023 boletos da TL1 por natureza:
+
+| | boletos | gravado bate a fórmula | dinheiro divergente |
+|---|---:|---:|---:|
+| boleto comum | 2.916 | 2.620 | R$ 4,07 (honorário) + R$ 11,02 (juros/multa) |
+| **parcela de acordo** | 107 | **19** | **R$ 6.503,28 (honorário) + R$ 1.180,70** |
+
+Nos boletos comuns a divergência é ruído de centavo. Nas parcelas de acordo é estrutural, e a causa é
+a **outra face da decisão #8** (§16.3): o importador de acordos **gravou** o honorário calculado na
+data do acordo, mas a cascata ao vivo dessas mesmas parcelas tem `honorariosBp = 0`. Logo:
+
+🔴 **O banco tem R$ 6.503,28 de honorário que toda hidratação apaga da tela.** É o inverso da ressalva
+da §7 da spec irmã (que previa banco inflado e tela certa): aqui o banco está mais perto da
+contabilidade do que a tela. Os dois lados discordam **dentro do sistema**, e nenhum relatório
+mostrava isso antes desta peça.
+
+### 17.5 Escopo
+
+**Faz:** um comando de console **somente leitura**, por carteira, com os três baldes, os totais em R$ e
+o detalhamento das piores.
+
+**NÃO faz:** ⛔ não escreve nada; ⛔ não "corrige" snapshot divergente; ⛔ não decide qual dos dois
+lados (banco × cascata) está certo — isso é decisão do dono e matéria da Fase 1.
