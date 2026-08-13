@@ -7,17 +7,12 @@ Quem abre uma frente acrescenta a linha. Quem integra tira.
 
 | Frente (branch) | Domínio | Migration? | Arquivos compartilhados que toca | Estágio | Base |
 |---|---|---|---|---|---|
-| `cobranca-dupla-contagem` | Cobrança (importação) | não | `docs/specs/cobranca-parcela-de-acordo-so-encargos.md` | implementando | `master` (empilhada — ver abaixo) |
+| _(nenhuma aberta)_ | | | | | |
 
-**Por que `cobranca-dupla-contagem` está empilhada no `master` local, e não em `origin/master`:** ela
-depende dos dois commits da régua do encargo gravado (`288d0668`, `d8881b02`) que ainda não foram
-publicados — a régua é como o conserto se prova. É o empilhamento declarado da seção abaixo: **o
-deploy será os dois juntos**. E os dois commits de baixo são correção de uma peça de medição que já
-está em produção com a assinatura errada, então sobem de qualquer forma.
-
-⚠️ **Esta frente toca dinheiro gravado** (`TopLifeInadimplenciaAdapter`, `ImportarRelatorioCarteiraUseCase`
-e a reconciliação de 21 obrigações em produção). Nenhuma outra frente pode mexer na importação de
-Cobrança em paralelo.
+`cobranca-dupla-contagem` foi **integrada, publicada e deployada em 2026-08-13** (`99948524`), e a
+reconciliação **rodou em produção**: 25 dívidas corrigidas, R$ 1.429,55 fora do saldo do devedor, e a
+régua confirma **zero** dívidas com assinatura de dupla contagem nas três carteiras. Conferido por
+`git cherry master cobranca-dupla-contagem` (vazio) antes de tirar daqui — a worktree pode ser fechada.
 
 `cobranca-importar-cadastro-acordos` foi **removida deste registro em 2026-08-13**: conferido por
 `git merge-base --is-ancestor`, ela já está inteiramente em `origin/master`. A linha tinha ficado para
