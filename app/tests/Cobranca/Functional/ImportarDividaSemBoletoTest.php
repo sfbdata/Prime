@@ -325,6 +325,10 @@ final class ImportarDividaSemBoletoTest extends KernelTestCase
             acordoTexto: null,
             acordo: null,
             somaColunaValorCentavos: $principalCentavos,
+            // Boleto sem linha de encargo: as duas versões do INV-E5 coincidem.
+            jurosDasColunasCentavos: $jurosCentavos,
+            multaDasColunasCentavos: $multaCentavos,
+            honorariosDasColunasCentavos: $honorariosCentavos,
             linhas: [],
         );
     }

@@ -352,6 +352,9 @@ final class ImportarRelatorioCarteiraTest extends KernelTestCase
             acordoTexto: null,
             acordo: null,
             somaColunaValorCentavos: 19000,
+            jurosDasColunasCentavos: 937,
+            multaDasColunasCentavos: 380,
+            honorariosDasColunasCentavos: 4063,
             linhas: [],
         );
         $leitura = new \App\Cobranca\Service\Importacao\ResultadoLeitura([$boleto], [], 0);
@@ -490,6 +493,9 @@ final class ImportarRelatorioCarteiraTest extends KernelTestCase
             acordoTexto: null,
             acordo: null,
             somaColunaValorCentavos: 14900,
+            jurosDasColunasCentavos: 500,
+            multaDasColunasCentavos: 200,
+            honorariosDasColunasCentavos: 3100,
             linhas: [],
         );
         $this->importar->confirmar($carteira, new ResultadoLeitura([$boleto], [], 0), $tenant, $user);
@@ -561,9 +567,116 @@ final class ImportarRelatorioCarteiraTest extends KernelTestCase
         self::assertSame(0, $parcela->getHonorarios(), 'ao vivo: override taxaHonorariosBp=0 vence, honorário cru é sobrescrito para 0');
     }
 
+    #[TestDox('🔴 Defeito 2 — parcela de acordo NÃO grava o valor da linha de encargo como encargo')]
+    public function testParcelaDeAcordoNaoContaOValorDaLinhaDeEncargoDuasVezes(): void
+    {
+        // O caso real, medido em produção (NN 74789): a parcela de acordo tem uma linha `1.5 - Multas`
+        // de R$ 301,62, e esse valor JÁ ESTÁ dentro do principal negociado (soma da coluna Valor de
+        // todas as classes). O adapter, por desenho, entrega a multa com esse H somado por cima —
+        // certo para o boleto comum, e dinheiro em dobro na parcela de acordo.
+        //
+        //   principal negociado (Σ coluna Valor) = 399,37   ← já contém os 301,62
+        //   multa das colunas (Σ J)              =   8,00
+        //   multa "com a linha" (o que o adapter entrega) = 8,00 + 301,62 = 309,62
+        //
+        // Gravar 309,62 põe os 301,62 no principal E na multa. O certo é gravar 8,00.
+        $tenant = $this->criarTenant();
+        $user = $this->criarUser();
+        $carteira = $this->criarCarteira($tenant);
+
+        $boleto = $this->boletoComAcordo(
+            nn: '74789',
+            objetoIdentificacao: '14-02',
+            sacadoNome: 'DEVEDOR EXEMPLO',
+            numeroAcordo: 426,
+            parcelaIndice: 1,
+            parcelaTotal: 6,
+            somaColunaValorCentavos: 39937,
+            encargoComLinha: ['juros' => 2781, 'multa' => 30962, 'honorarios' => 8272],
+            encargoDasColunas: ['juros' => 2781, 'multa' => 800, 'honorarios' => 8272],
+        );
+
+        $this->importar->confirmar($carteira, new ResultadoLeitura([$boleto], [], 0), $tenant, $user);
+
+        $obrigacao = $this->em->getRepository(Obrigacao::class)
+            ->findOneBy(['tenant' => $tenant, 'referenciaExterna' => '74789']);
+        self::assertNotNull($obrigacao);
+
+        self::assertSame(39937, $obrigacao->getValorOriginal(), 'o principal negociado não muda');
+        self::assertSame(
+            800,
+            $obrigacao->getMulta(),
+            'a multa gravada tem de ser só a coluna J — os R$ 301,62 da linha já estão no principal',
+        );
+        // A prova de que o dinheiro não está em dois lugares: principal + encargo não pode conter o
+        // valor da linha duas vezes.
+        self::assertSame(
+            39937 + 2781 + 800,
+            $obrigacao->valorExigivel(),
+            'exigível = principal + juros + multa + correção, cada real contado uma vez',
+        );
+    }
+
+    #[TestDox('Boleto COMUM continua somando o valor da linha de encargo — INV-E1 não muda')]
+    public function testBoletoComumContinuaSomandoOValorDaLinha(): void
+    {
+        // A não-regressão que impede o conserto de vazar para o caminho normal: no boleto comum o
+        // principal é só 1.1/1.14/1.6, a linha de encargo fica FORA dele, e somá-la ao encargo é o
+        // comportamento correto e já provado. Se alguém "simplificar" usando sempre a versão das
+        // colunas, este teste fica vermelho e o sistema passaria a cobrar de menos.
+        $tenant = $this->criarTenant();
+        $user = $this->criarUser();
+        $carteira = $this->criarCarteira($tenant);
+
+        $boleto = new BoletoImportavel(
+            nn: '61687',
+            objetoIdentificacao: '09-04C',
+            unidadeMetadata: null,
+            sacadoNome: 'DEVEDOR EXEMPLO',
+            principalCentavos: 14500,
+            jurosCentavos: 7333,
+            multaCentavos: 303,
+            correcaoCentavos: 0,
+            honorariosInformadosCentavos: 4552,
+            vencimento: new \DateTimeImmutable('2022-08-19'),
+            competencia: '07/2022',
+            acordoTexto: null,
+            acordo: null,
+            somaColunaValorCentavos: 15128,
+            jurosDasColunasCentavos: 5000,
+            multaDasColunasCentavos: 100,
+            honorariosDasColunasCentavos: 4000,
+            linhas: [],
+        );
+
+        $this->importar->confirmar($carteira, new ResultadoLeitura([$boleto], [], 0), $tenant, $user);
+
+        $obrigacao = $this->em->getRepository(Obrigacao::class)
+            ->findOneBy(['tenant' => $tenant, 'referenciaExterna' => '61687']);
+        self::assertNotNull($obrigacao);
+
+        self::assertSame(14500, $obrigacao->getValorOriginal(), 'principal do boleto comum');
+        self::assertSame(7333, $obrigacao->getJuros(), 'com a linha somada — é o certo aqui');
+        self::assertSame(303, $obrigacao->getMulta());
+        self::assertSame(4552, $obrigacao->getHonorarios());
+    }
+
     // ----------------------------------------------------------------- helpers
 
-    /** Boleto sintético com acordo reconhecido — usado pelos testes de #7-B (sem depender do xlsx). */
+    /**
+     * Boleto sintético com acordo reconhecido — usado pelos testes de #7-B (sem depender do xlsx).
+     *
+     * ⚠️ A versão anterior deste helper fixava **todos** os encargos em zero, e por isso a dupla
+     * contagem do defeito 2 era **invisível para a suíte inteira**: um boleto de acordo sem encargo
+     * nenhum não tem como duplicar coisa alguma. Os parâmetros abaixo existem para que o teste possa
+     * montar o caso real — parcela de acordo com linha de encargo dentro do principal negociado.
+     *
+     * `$encargoComLinha` é o que o adapter entrega HOJE (com o H da linha somado por cima) e
+     * `$encargoDasColunas` é o mesmo encargo só das colunas I/J/L — as duas versões do INV-E5.
+     *
+     * @param array{juros:int, multa:int, honorarios:int} $encargoComLinha
+     * @param array{juros:int, multa:int, honorarios:int} $encargoDasColunas
+     */
     private function boletoComAcordo(
         string $nn,
         string $objetoIdentificacao,
@@ -573,7 +686,23 @@ final class ImportarRelatorioCarteiraTest extends KernelTestCase
         int $parcelaTotal,
         int $somaColunaValorCentavos,
         int $honorariosInformadosCentavos = 0,
+        array $encargoComLinha = ['juros' => 0, 'multa' => 0, 'honorarios' => 0],
+        ?array $encargoDasColunas = null,
     ): BoletoImportavel {
+        // O `$honorariosInformadosCentavos` é o parâmetro antigo do helper; quando `$encargoComLinha`
+        // traz honorário, ele vence. Um valor efetivo só, para os dois lados não divergirem por
+        // descuido do helper — foi o que um teste existente pegou na primeira versão disto.
+        $comLinha = [
+            'juros' => $encargoComLinha['juros'],
+            'multa' => $encargoComLinha['multa'],
+            'honorarios' => $encargoComLinha['honorarios'] !== 0
+                ? $encargoComLinha['honorarios']
+                : $honorariosInformadosCentavos,
+        ];
+
+        // Sem versão "das colunas" declarada, o boleto não tem linha de encargo e as duas coincidem.
+        $encargoDasColunas ??= $comLinha;
+
         return new BoletoImportavel(
             nn: $nn,
             objetoIdentificacao: $objetoIdentificacao,
@@ -582,15 +711,18 @@ final class ImportarRelatorioCarteiraTest extends KernelTestCase
             // Sem sentido de "principal" quando há acordo (o UseCase usa somaColunaValorCentavos), mas o
             // adapter real sempre entrega principalCentavos > 0 — mantido coerente com a fonte.
             principalCentavos: $somaColunaValorCentavos,
-            jurosCentavos: 0,
-            multaCentavos: 0,
+            jurosCentavos: $comLinha['juros'],
+            multaCentavos: $comLinha['multa'],
             correcaoCentavos: 0,
-            honorariosInformadosCentavos: $honorariosInformadosCentavos,
+            honorariosInformadosCentavos: $comLinha['honorarios'],
             vencimento: new \DateTimeImmutable('2026-03-10'),
             competencia: '03/2026',
             acordoTexto: "Acordo {$numeroAcordo} - Parc. {$parcelaIndice}/{$parcelaTotal}",
             acordo: new AcordoDoRelatorio($numeroAcordo, $parcelaIndice, $parcelaTotal),
             somaColunaValorCentavos: $somaColunaValorCentavos,
+            jurosDasColunasCentavos: $encargoDasColunas['juros'],
+            multaDasColunasCentavos: $encargoDasColunas['multa'],
+            honorariosDasColunasCentavos: $encargoDasColunas['honorarios'],
             linhas: [],
         );
     }

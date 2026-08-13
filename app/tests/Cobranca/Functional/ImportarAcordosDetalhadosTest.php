@@ -2805,6 +2805,10 @@ final class ImportarAcordosDetalhadosTest extends KernelTestCase
             acordoTexto: $acordo !== null ? sprintf('Acordo %d - Parc. %d/%d', $acordo->numero, $acordo->parcelaIndice, $acordo->parcelaTotal) : null,
             acordo: $acordo,
             somaColunaValorCentavos: $valor,
+            // Sem linhas de encargo neste boleto, as duas versões do INV-E5 coincidem em zero.
+            jurosDasColunasCentavos: 0,
+            multaDasColunasCentavos: 0,
+            honorariosDasColunasCentavos: 0,
             linhas: [['classe' => '1.1 - Taxa de condomínio']],
         );
     }

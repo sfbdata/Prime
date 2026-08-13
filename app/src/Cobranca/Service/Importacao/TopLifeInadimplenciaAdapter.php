@@ -146,6 +146,13 @@ final class TopLifeInadimplenciaAdapter
         $multaTotal = 0;
         $correcaoTotal = 0;
         $honorarios = 0;
+        // INV-E5 — o MESMO encargo, só das colunas I/J/L, sem o H das linhas de encargo somado por
+        // cima. Existe porque na PARCELA DE ACORDO o H dessas linhas já é principal negociado
+        // (`somaColunaValorCentavos`): somá-lo de novo aqui conta o mesmo dinheiro duas vezes.
+        // No boleto comum a versão de cima é que vale — ali o H fica de fora do principal.
+        $jurosDasColunas = 0;
+        $multaDasColunas = 0;
+        $honorariosDasColunas = 0;
         $detalhe = [];
         $vencimento = null;
         $acordo = null;
@@ -175,6 +182,13 @@ final class TopLifeInadimplenciaAdapter
             $jurosTotal += $juros;
             $multaTotal += $multa;
             $correcaoTotal += $correcao;
+            // As colunas PURAS, sem nenhum H somado por cima — é o encargo da parcela de acordo
+            // (INV-E5). Acumuladas em separado, e não derivadas por subtração, porque a forma do
+            // honorário não é simétrica: subtrair o H de volta não devolveria a coluna L da própria
+            // linha 1.15, que a linha abaixo descarta.
+            $jurosDasColunas += $juros;
+            $multaDasColunas += $multa;
+            $honorariosDasColunas += $hono;
             // Lançamentos fechados na coluna Valor: 1.4 é juros, 1.5 é multa. Antes ambos somavam no
             // mesmo balde — era exatamente esta informação que se perdia.
             if ($codigo === self::CODIGO_JUROS_LINHA) {
@@ -222,6 +236,9 @@ final class TopLifeInadimplenciaAdapter
             acordoTexto: $acordo,
             acordo: $acordoReconhecido,
             somaColunaValorCentavos: $somaColunaValor,
+            jurosDasColunasCentavos: $jurosDasColunas,
+            multaDasColunasCentavos: $multaDasColunas,
+            honorariosDasColunasCentavos: $honorariosDasColunas,
             linhas: $detalhe,
         );
     }

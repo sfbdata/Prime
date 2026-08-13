@@ -23,6 +23,23 @@ namespace App\Cobranca\Service\Importacao;
  * ⚠️ `$nn` nem sempre é um Nosso Número: dívida antiga que nunca foi boletada entra com a referência
  * substituta `SNN:<vencimento ISO>` (`ReferenciaSubstituta`, spec
  * `cobranca-divida-sem-numero-de-boleto.md`). O papel do campo — chave de dedup — é o mesmo.
+ *
+ * 🔑 **INV-E5 — os encargos vêm em DUAS versões, e escolher a errada conta dinheiro duas vezes**
+ * (spec `cobranca-parcela-de-acordo-so-encargos.md` §5, defeito 2):
+ *
+ * - `jurosCentavos` / `multaCentavos` / `honorariosInformadosCentavos` — o encargo **com** o valor
+ *   das linhas `1.4`/`1.5`/`1.15` somado por cima. É o certo no **boleto comum**, onde essas linhas
+ *   ficam de fora do `principalCentavos`.
+ * - `jurosDasColunasCentavos` / `multaDasColunasCentavos` / `honorariosDasColunasCentavos` — só as
+ *   colunas I/J/L. É o certo na **parcela de acordo**, onde o `valorOriginal` é
+ *   `somaColunaValorCentavos` e portanto **já contém** o valor daquelas linhas.
+ *
+ * `correcaoCentavos` é o mesmo nas duas versões: não existe classe de linha que vire correção.
+ *
+ * ⚠️ A versão "das colunas" do honorário **não** é `honorariosInformadosCentavos` menos o H da linha
+ * `1.15`. O adapter, nessa linha, **troca** a coluna L pelo H em vez de somar
+ * (`TopLifeInadimplenciaAdapter`), então subtrair não devolveria a coluna L que foi descartada. Por
+ * isso as duas versões são acumuladas em paralelo, e não derivadas uma da outra.
  */
 final class BoletoImportavel
 {
@@ -44,6 +61,9 @@ final class BoletoImportavel
         public readonly ?string $acordoTexto,
         public readonly ?AcordoDoRelatorio $acordo,
         public readonly int $somaColunaValorCentavos,
+        public readonly int $jurosDasColunasCentavos,
+        public readonly int $multaDasColunasCentavos,
+        public readonly int $honorariosDasColunasCentavos,
         public readonly array $linhas,
     ) {
     }

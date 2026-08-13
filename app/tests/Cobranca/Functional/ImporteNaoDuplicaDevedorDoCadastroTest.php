@@ -323,6 +323,9 @@ final class ImporteNaoDuplicaDevedorDoCadastroTest extends KernelTestCase
             acordoTexto: null,
             acordo: null,
             somaColunaValorCentavos: 17000,
+            jurosDasColunasCentavos: 0,
+            multaDasColunasCentavos: 0,
+            honorariosDasColunasCentavos: 0,
             linhas: [],
         );
     }

@@ -272,14 +272,29 @@ final class ImportarRelatorioCarteiraUseCase
      * (spec §2), então, com a carteira configurada, o vivo bate com o importado; sem isso, os valores
      * importados servem de partida até a primeira hidratação. Honorários são persistidos (§4.2): NÃO
      * afetam o saldo (`valorExigivel()` = valorOriginal + juros + multa + correção, INV-E2).
+     *
+     * 🔑 **O RAMO É OBRIGATÓRIO — sem ele o mesmo dinheiro entra duas vezes** (spec
+     * `cobranca-parcela-de-acordo-so-encargos.md` §5, defeito 2; INV-E5 no `BoletoImportavel`).
+     *
+     * Na **parcela de acordo**, `valorOriginal` é `somaColunaValorCentavos` (`obrigacaoInput()`), que
+     * soma a coluna Valor de TODAS as classes — inclusive das linhas `1.4 - Juros`, `1.5 - Multas` e
+     * `1.15 - Honorário`. Gravar aqui o encargo que também soma o H dessas linhas põe o mesmo valor
+     * no principal e no encargo. Medido em produção (13/08): **21 obrigações, R$ 1.167,58**, com a
+     * pior delas carregando R$ 301,62 de principal contado como multa.
+     *
+     * No **boleto comum** nada muda: ali `valorOriginal` é `principalCentavos`, que **não** contém
+     * aquelas linhas, e somá-las ao encargo é o comportamento correto e já provado (INV-E1).
      */
     private function materializarEncargosImportados(Obrigacao $obrigacao, BoletoImportavel $boleto, \DateTimeImmutable $referencia): void
     {
+        $ehParcelaDeAcordo = $boleto->acordo !== null;
+
         $obrigacao->definirEncargos(
-            $boleto->jurosCentavos,
-            $boleto->multaCentavos,
+            $ehParcelaDeAcordo ? $boleto->jurosDasColunasCentavos : $boleto->jurosCentavos,
+            $ehParcelaDeAcordo ? $boleto->multaDasColunasCentavos : $boleto->multaCentavos,
+            // Correção é a coluna K nas duas versões: nenhuma classe de linha vira correção.
             $boleto->correcaoCentavos,
-            $boleto->honorariosInformadosCentavos,
+            $ehParcelaDeAcordo ? $boleto->honorariosDasColunasCentavos : $boleto->honorariosInformadosCentavos,
             $referencia,
         );
         $this->obrigacaoRepository->salvar($obrigacao, true);

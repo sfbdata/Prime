@@ -296,6 +296,10 @@ final class ImportarChaveCompetenciaTest extends KernelTestCase
             acordoTexto: null,
             acordo: null,
             somaColunaValorCentavos: $principalCentavos,
+            // Boleto sem linha de encargo: as duas versões do INV-E5 coincidem.
+            jurosDasColunasCentavos: $jurosCentavos,
+            multaDasColunasCentavos: 0,
+            honorariosDasColunasCentavos: 0,
             linhas: [],
         );
     }
