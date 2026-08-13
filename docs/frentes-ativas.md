@@ -7,7 +7,22 @@ Quem abre uma frente acrescenta a linha. Quem integra tira.
 
 | Frente (branch) | Domínio | Migration? | Arquivos compartilhados que toca | Estágio | Base |
 |---|---|---|---|---|---|
-| `cobranca-importar-cadastro-acordos` | Cobrança (importação) | **sim** (coluna `competencia` + backfill) | `.gitignore` (regra de PII das planilhas) | pronta para integrar | `origin/master` |
+| `cobranca-dupla-contagem` | Cobrança (importação) | não | `docs/specs/cobranca-parcela-de-acordo-so-encargos.md` | implementando | `master` (empilhada — ver abaixo) |
+
+**Por que `cobranca-dupla-contagem` está empilhada no `master` local, e não em `origin/master`:** ela
+depende dos dois commits da régua do encargo gravado (`288d0668`, `d8881b02`) que ainda não foram
+publicados — a régua é como o conserto se prova. É o empilhamento declarado da seção abaixo: **o
+deploy será os dois juntos**. E os dois commits de baixo são correção de uma peça de medição que já
+está em produção com a assinatura errada, então sobem de qualquer forma.
+
+⚠️ **Esta frente toca dinheiro gravado** (`TopLifeInadimplenciaAdapter`, `ImportarRelatorioCarteiraUseCase`
+e a reconciliação de 21 obrigações em produção). Nenhuma outra frente pode mexer na importação de
+Cobrança em paralelo.
+
+`cobranca-importar-cadastro-acordos` foi **removida deste registro em 2026-08-13**: conferido por
+`git merge-base --is-ancestor`, ela já está inteiramente em `origin/master`. A linha tinha ficado para
+trás — *quem integra tira*, e não tirou. Registro desatualizado é pior que registro nenhum: ele fez
+esta sessão considerar um conflito de domínio que não existia mais.
 
 `ponto-horas-pagas` foi **integrada e publicada** em 2026-07-31 (merge `8b6ce5fd`), com migration
 própria (`ponto_lancamento_horas_pagas`) — por isso a frente de cobrança, que também tem migration,
