@@ -135,6 +135,109 @@ final class ConferenciaDeEncargosTest extends KernelTestCase
         self::assertSame('dupla contagem', $r->veredito());
     }
 
+    #[TestDox('🔴 INV-CE5 — a assinatura na MULTA (linha 1.5) é o campo que disparou em produção')]
+    public function testAssinaturaNaMulta(): void
+    {
+        // Em produção o defeito materializou pela MULTA, não pelo juros: 22 em multa, 0 em juros.
+        // Os testes só cobriam juros — a suíte ficaria verde com a régua cega no campo que importa.
+        //   1.1  → valor 400,00 · multa 8,00
+        //   1.5  → valor  45,45 · multa 0,91
+        //   Σ J = 8,91 · multa gravada = 8,91 + 45,45 = 54,36
+        $carteira = $this->carteiraTopLife();
+        $caso = $this->caso($carteira, '02-01');
+        $vencimento = new \DateTimeImmutable('2025-12-15');
+        $snapshot = $vencimento->modify('+240 days');
+
+        $this->obrigacao($caso, '74790', '12/2025', 44545, $vencimento, $snapshot, 3560, 5436, 0, 0);
+
+        $r = $this->conferir($carteira, $this->boletoDeAcordo('02-01', '74790', multaDaLinha15: 0.91));
+
+        self::assertSame(1, $r->comDuplaContagem, sprintf('piores: %s', json_encode($r->piores)));
+        self::assertSame(4545, $r->duplicadoEmCentavos);
+        self::assertSame(['multa' => 4545], $r->duplicadoPorCampo);
+    }
+
+    #[TestDox('🔴 INV-CE5 — no honorário o adapter TROCA a coluna L pelo H, e a assinatura segue isso')]
+    public function testAssinaturaNoHonorarioUsaAFormaDoAdapter(): void
+    {
+        // `TopLifeInadimplenciaAdapter:186`: na linha 1.15 soma `$valor` NO LUGAR de `$hono`.
+        // Testar `Σ_todas L + H` nunca casaria quando a própria 1.15 traz valor na coluna L —
+        // medido em produção: 26 boletos assim, escondendo R$ 173,28 de dinheiro duplicado.
+        //   1.1   → valor 400,00 · honorário 80,00
+        //   1.15  → valor  45,45 · honorário 10,00   ← este 10,00 é DESCARTADO pelo adapter
+        //   gravado = 80,00 + 45,45 = 125,45   (e NÃO 90,00 + 45,45)
+        $carteira = $this->carteiraTopLife();
+        $caso = $this->caso($carteira, '02-02');
+        $vencimento = new \DateTimeImmutable('2025-12-15');
+        $snapshot = $vencimento->modify('+240 days');
+
+        $this->obrigacao($caso, '74791', '12/2025', 44545, $vencimento, $snapshot, 3560, 891, 0, 12545);
+
+        $comum = [
+            'unidade' => '02-02', 'nn' => '74791', 'competencia' => '12/2025',
+            'vencimento' => '15/12/2025', 'correcao' => 0.0, 'acordo' => 'Acordo 426 - Parc. 1/6',
+        ];
+
+        $r = $this->conferir($carteira, [
+            $this->linhaDeDado(...$comum, classe: '1.1 - Taxa de condomínio', valor: 400.00, juros: 32.00, multa: 8.00, honorarios: 80.00),
+            $this->linhaDeDado(...$comum, classe: '1.15 - Honorário', valor: 45.45, juros: 3.60, multa: 0.91, honorarios: 10.00),
+        ]);
+
+        self::assertSame(1, $r->comDuplaContagem, sprintf('piores: %s', json_encode($r->piores)));
+        self::assertSame(['honorarios' => 4545], $r->duplicadoPorCampo);
+    }
+
+    #[TestDox('🔴 INV-CE5 — boleto COMUM com linha de encargo NÃO é dupla contagem, é o adapter certo')]
+    public function testBoletoComumComLinhaDeEncargoNaoEhDuplaContagem(): void
+    {
+        // O H só entra no `valorOriginal` no ramo do ACORDO. No boleto comum o principal são apenas
+        // as classes 1.1/1.14/1.6, e somar o H da linha ao encargo é o comportamento documentado e
+        // CORRETO do adapter (INV-E1) — o dinheiro aparece uma vez só. Sem esta guarda a régua
+        // acusava o único boleto comum com linha de encargo da TOP LIFE I: R$ 2,90 de acusação falsa.
+        $carteira = $this->carteiraTopLife();
+        $caso = $this->caso($carteira, '02-03');
+        $vencimento = new \DateTimeImmutable('2025-12-15');
+        $snapshot = $vencimento->modify('+240 days');
+
+        // `valorOriginal` = 400,00 (só a classe 1.1) e NÃO 445,45 — é o que caracteriza o boleto comum.
+        $this->obrigacao($caso, '74792', '12/2025', 40000, $vencimento, $snapshot, 3200, 5436, 0, 0);
+
+        $r = $this->conferir($carteira, $this->boletoDeAcordo('02-03', '74792', multaDaLinha15: 0.91, semAcordo: true));
+
+        self::assertSame(0, $r->comDuplaContagem, 'o H não está no principal: não há dinheiro duplicado');
+        self::assertSame([], $r->duplicadoPorCampo);
+        self::assertSame(1, $r->divergentes, 'continua divergente — só não é ACUSADO de duplicar');
+    }
+
+    #[TestDox('A assinatura pode bater em DOIS campos na mesma dívida, e os dois são somados')]
+    public function testAssinaturaEmDoisCamposNaMesmaDivida(): void
+    {
+        // Ocorre no dado real (NNs 61600 e 61821, TOP LIFE II): multa E honorário na mesma dívida.
+        $carteira = $this->carteiraTopLife();
+        $caso = $this->caso($carteira, '02-04');
+        $vencimento = new \DateTimeImmutable('2025-12-15');
+        $snapshot = $vencimento->modify('+240 days');
+
+        // Σ H = 400,00 + 20,00 + 45,45 = 465,45
+        // multa gravada = (8,00+0,40+0,91) + 20,00 = 29,31 · honorário = (80,00+4,00) + 45,45 = 129,45
+        $this->obrigacao($caso, '74793', '12/2025', 46545, $vencimento, $snapshot, 3720, 2931, 0, 12945);
+
+        $comum = [
+            'unidade' => '02-04', 'nn' => '74793', 'competencia' => '12/2025',
+            'vencimento' => '15/12/2025', 'correcao' => 0.0, 'acordo' => 'Acordo 426 - Parc. 1/6',
+        ];
+
+        $r = $this->conferir($carteira, [
+            $this->linhaDeDado(...$comum, classe: '1.1 - Taxa de condomínio', valor: 400.00, juros: 32.00, multa: 8.00, honorarios: 80.00),
+            $this->linhaDeDado(...$comum, classe: '1.5 - Multas', valor: 20.00, juros: 1.60, multa: 0.40, honorarios: 4.00),
+            $this->linhaDeDado(...$comum, classe: '1.15 - Honorário', valor: 45.45, juros: 3.60, multa: 0.91, honorarios: 10.00),
+        ]);
+
+        self::assertSame(1, $r->comDuplaContagem, sprintf('piores: %s', json_encode($r->piores)));
+        self::assertSame(['multa' => 2000, 'honorarios' => 4545], $r->duplicadoPorCampo);
+        self::assertSame(6545, $r->duplicadoEmCentavos);
+    }
+
     #[TestDox('Encargo MAIOR que a coluna, sem a assinatura, NÃO é dupla contagem — discrimina a régua')]
     public function testEncargoMaiorQueAColunaSemAAssinaturaNaoEhDuplaContagem(): void
     {
@@ -219,6 +322,30 @@ final class ConferenciaDeEncargosTest extends KernelTestCase
         self::assertSame(0, $r->conferidos);
         self::assertSame(1, $r->semParNoRelatorio, 'é matéria da conferência, não desta régua');
         self::assertSame([], $r->piores);
+    }
+
+    /**
+     * Um boleto de duas linhas — taxa + linha `1.5` — que é a forma em que o defeito apareceu em
+     * produção. Com `$semAcordo` vira boleto COMUM, para exercitar a guarda do INV-CE5.
+     *
+     * @return list<list<mixed>>
+     */
+    private function boletoDeAcordo(
+        string $unidade,
+        string $nn,
+        float $multaDaLinha15,
+        bool $semAcordo = false,
+    ): array {
+        $comum = [
+            'unidade' => $unidade, 'nn' => $nn, 'competencia' => '12/2025',
+            'vencimento' => '15/12/2025', 'correcao' => 0.0,
+            'acordo' => $semAcordo ? '-' : 'Acordo 426 - Parc. 1/6',
+        ];
+
+        return [
+            $this->linhaDeDado(...$comum, classe: '1.1 - Taxa de condomínio', valor: 400.00, juros: 32.00, multa: 8.00, honorarios: 0.0),
+            $this->linhaDeDado(...$comum, classe: '1.5 - Multas', valor: 45.45, juros: 3.60, multa: $multaDaLinha15, honorarios: 0.0),
+        ];
     }
 
     /**

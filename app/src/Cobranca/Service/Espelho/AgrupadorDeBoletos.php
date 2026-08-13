@@ -93,7 +93,7 @@ final class AgrupadorDeBoletos
             $grupos[$chave]['honorarios'] += $linha['honorarios'] ?? 0;
 
             $linhasPorGrupo[$chave][] = [
-                'classe' => $this->codigoDaClasse($linha['classe']),
+                'classe' => self::codigoDaClasse($linha['classe']),
                 'valor' => $linha['valor'] ?? 0,
             ];
         }
@@ -184,7 +184,7 @@ final class AgrupadorDeBoletos
     }
 
     /** `1.1 - Taxa de condomínio` → `1.1`. Compara o código INTEIRO: `1.1` não pode casar `1.14`. */
-    private function codigoDaClasse(?string $classe): string
+    public static function codigoDaClasse(?string $classe): string
     {
         if ($classe === null) {
             return '';

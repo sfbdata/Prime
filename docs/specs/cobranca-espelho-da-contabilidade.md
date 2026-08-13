@@ -877,12 +877,20 @@ O balde do meio é o **entregável** desta peça: é ele que a Fase 1 roda antes
 
 🔴 **RESULTADO DA PRIMEIRA EXECUÇÃO EM PRODUÇÃO (13/08): a dupla contagem ESTÁ MATERIALIZADA.**
 
+⚠️ **Os números abaixo são os CORRIGIDOS.** A primeira execução (13/08) reportou **22 dívidas /
+R$ 997,20**; a revisão adversarial derrubou a assinatura em dois pontos e o número foi remedido — ver
+§17.6. O erro foi para **menos**: a régua sub-reportava.
+
 | carteira | dívidas com a assinatura | dinheiro duplicado |
 |---|---:|---:|
-| TOP LIFE I | 11 | R$ 697,30 |
+| TOP LIFE I | 10 | R$ 764,19 |
 | TOP LIFE II | 6 | R$ 234,57 |
-| AMLI BR 060 | 5 | R$ 65,33 |
-| **total** | **22** | **R$ 997,20** |
+| AMLI BR 060 | 5 | R$ 168,82 |
+| **total** | **21** | **R$ 1.167,58** |
+
+⚠️ **O total não é tudo "saldo cobrado a mais".** Honorário duplicado **não entra** no
+`valorExigivel()` (que soma principal + juros + multa + correção). O comando decompõe por campo e
+avisa — levar o total à contabilidade sem separar apresentaria como saldo algo que em parte não é.
 
 ⚠️ **A medição anterior desta spec dizia "0 com a assinatura", e estava ERRADA por escopo.** A consulta
 que a produziu testava a assinatura **apenas no campo juros** (linha `1.4`) e foi reportada como se
@@ -899,8 +907,32 @@ recalcula na leitura e **a tela mostra o valor certo** — é a ressalva da §7 
 O valor inflado está no **banco**, e atinge toda leitura que não passa pela hidratação: SQL, MCP,
 relatório agregado, e a própria conferência pós-importação.
 
-🔴 **O risco vivo:** obrigação congelada nunca é re-hidratada. Se qualquer uma das 22 for liquidada ou
+🔴 **O risco vivo:** obrigação congelada nunca é re-hidratada. Se qualquer uma das 21 for liquidada ou
 substituída por acordo **antes** do conserto, o valor inflado congela e vira permanente.
+
+### 17.6 🔴 O que a revisão adversarial derrubou na assinatura (13/08)
+
+A régua rodou em produção **antes** de ser revisada, e o número saiu errado nos dois sentidos. Os dois
+achados têm a mesma raiz: **a assinatura não era a forma exata do que o código escreve** — que é
+justamente o que o docblock dela prometia ser.
+
+| # | achado | severidade | tamanho em PROD |
+|---|---|---|---|
+| 1 | **Falso positivo:** a assinatura não verificava se o H está **dentro** do `valorOriginal`. Duplicar é o mesmo dinheiro em dois lugares; no **boleto comum** o principal é só 1.1/1.14/1.6 e somar o H da linha ao encargo é o comportamento **correto** do adapter (INV-E1) | ALTA | **1 dívida · R$ 2,90** |
+| 2 | **Falso negativo:** no honorário o adapter **troca** a coluna L pelo H (`TopLifeInadimplenciaAdapter:186`: `$codigo === '1.15' ? $valor : $hono`), enquanto em juros/multa ele **soma** o H por cima de todas as colunas. Testar a forma simétrica nunca casa quando a própria linha `1.15` traz valor em L — **26 boletos** em produção | ALTA | **3 dívidas · R$ 173,28 invisíveis** |
+
+**Efeito líquido: 22 → 21 dívidas, mas R$ 997,20 → R$ 1.167,58.** Uma acusação a menos e R$ 170,38 a
+mais de defeito real. Consertado no `duplaContagemPorCampo` (INV-CE5) com teste para cada campo, cada
+um provado reintroduzindo o defeito.
+
+⚠️ **A lição, e ela não é sobre este código:** a revisão mediu o falso positivo em **9,1%** contra o
+banco de dev; em produção ele é **0,3%**. O defeito era real e a consequência estava superestimada em
+30×. *Aceitar o achado, remedir o tamanho* — é a regra da casa, e foi ela que separou "consertar a
+régua" de "refazer a régua".
+
+**Terceiro achado, MÉDIO, também aplicado:** o total era um escalar único e misturava naturezas
+diferentes. Agora sai decomposto por campo, com aviso explícito de que **honorário duplicado não entra
+no saldo exigível**.
 
 ### 17.4 O que a medição de 13/08 já mostrou, e é achado próprio
 

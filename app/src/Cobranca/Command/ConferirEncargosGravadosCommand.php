@@ -119,10 +119,12 @@ final class ConferirEncargosGravadosCommand extends Command
                     . 'a maior parte; use --detalhar e olhe o tamanho antes de concluir defeito.'
                 ),
                 'dupla contagem' => $io->error(sprintf(
-                    'DINHEIRO CONTADO DUAS VEZES em %d dívida(s): %s. O encargo gravado é a coluna do relatório '
-                    . 'MAIS o valor da linha de encargo. É o defeito 2 da Fase 1, materializado.',
+                    "DINHEIRO CONTADO DUAS VEZES em %d dívida(s): %s\n%s\nO encargo gravado é a coluna do "
+                    . 'relatório MAIS o valor da linha de encargo, e o mesmo valor já está no principal. '
+                    . 'É o defeito 2 da Fase 1, materializado.',
                     $r->comDuplaContagem,
                     $this->reais($r->duplicadoEmCentavos),
+                    $this->porCampo($r->duplicadoPorCampo),
                 )),
                 default => $io->warning('Sem dado suficiente para conferir esta carteira.'),
             };
@@ -131,7 +133,7 @@ final class ConferirEncargosGravadosCommand extends Command
 
             if ($input->getOption('detalhar') && $r->piores !== []) {
                 $io->table(
-                    ['unidade', 'referência', 'campo', 'gravado', 'pela fórmula', 'diferença', 'acordo?'],
+                    ['unidade', 'referência', 'campo', 'gravado', 'pela fórmula', 'diferença', 'duplicado', 'acordo?'],
                     array_map(
                         fn (array $p): array => [
                             $p['unidade'],
@@ -140,6 +142,9 @@ final class ConferirEncargosGravadosCommand extends Command
                             $this->reais($p['gravado']),
                             $this->reais($p['pelaFormula']),
                             $this->reais($p['diferenca']),
+                            // A coluna que separa os dois baldes: sem ela a lista mistura dinheiro
+                            // duplicado com snapshot velho, e os dois pedem consertos diferentes.
+                            $p['duplicado'] > 0 ? $this->reais($p['duplicado']) : '—',
                             $p['ehParcelaDeAcordo'] ? 'sim' : '',
                         ],
                         $r->piores,
@@ -156,5 +161,32 @@ final class ConferirEncargosGravadosCommand extends Command
     private function reais(int $centavos): string
     {
         return 'R$ ' . number_format($centavos / 100, 2, ',', '.');
+    }
+
+    /**
+     * A decomposição por campo, com a ressalva que muda a leitura do número: **honorário duplicado
+     * não entra no saldo cobrado** (`Obrigacao::valorExigivel()` soma principal + juros + multa +
+     * correção). Sem essa frase, o total é lido como "saldo cobrado duas vezes" e não é.
+     *
+     * @param array<string, int> $porCampo
+     */
+    private function porCampo(array $porCampo): string
+    {
+        $partes = [];
+
+        foreach ($porCampo as $campo => $centavos) {
+            $partes[] = sprintf('%s %s', $campo, $this->reais($centavos));
+        }
+
+        $texto = '  por campo: ' . implode(' · ', $partes);
+
+        if (($porCampo['honorarios'] ?? 0) > 0) {
+            $texto .= sprintf(
+                "\n  ATENÇÃO: dos %s, o honorário NÃO entra no saldo exigível — só juros, multa e correção entram.",
+                $this->reais($porCampo['honorarios']),
+            );
+        }
+
+        return $texto;
     }
 }

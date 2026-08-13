@@ -16,8 +16,14 @@ namespace App\Cobranca\DTO;
 final readonly class ResultadoConferenciaEncargos
 {
     /**
+     * `$duplicadoPorCampo` existe porque um escalar único escondia coisas de naturezas diferentes:
+     * multa duplicada entra no saldo cobrado, honorário **não** entra (`Obrigacao::valorExigivel()`
+     * soma principal + juros + multa + correção). Levar um total à contabilidade sem separar os dois
+     * seria apresentar como "saldo cobrado duas vezes" algo que em parte não é saldo.
+     *
+     * @param array<string, int>                                                       $duplicadoPorCampo campo => centavos
      * @param list<array{unidade: string, referencia: ?string, campo: string, gravado: int,
-     *                   pelaFormula: int, diferenca: int, ehParcelaDeAcordo: bool}> $piores
+     *                   pelaFormula: int, diferenca: int, duplicado: int, ehParcelaDeAcordo: bool}> $piores
      */
     public function __construct(
         public string $carteira,
@@ -29,6 +35,7 @@ final readonly class ResultadoConferenciaEncargos
         public int $divergentes,
         public int $diferencaEmCentavos,
         public int $duplicadoEmCentavos,
+        public array $duplicadoPorCampo,
         public array $piores,
     ) {
     }
