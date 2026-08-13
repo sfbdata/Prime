@@ -168,3 +168,45 @@ escritórios novos):**
 - Drive→sistema em tempo real (Fase 3, adiada).
 - Importar/Exportar entre escritórios ou de pasta que não a raiz configurada.
 - Picker visual de pastas (segue follow-up).
+
+---
+
+## 12. Requisitos consolidados com o P.O. (sessão 2026-08) — LER PRIMEIRO
+
+Depois de dias em produção, o P.O. observou problemas reais e fechou novos requisitos.
+Isto AMPLIA o escopo original (§1–§11). Dados abaixo medidos na PROD (tenant 1) por MCP só-leitura.
+
+### 12.1 Diagnóstico medido na produção
+- **1070 pastas** no tenant 1, **todas com `drive_folder_id`** (0 sem vínculo — o sync está em dia).
+- **32 pastas criadas após 2026-07-14** (o "ponto correto" = fim da carga inicial). É o conjunto a auditar/alinhar no Drive (o "relatório" que o P.O. pediu).
+- **Números duplicados: 3** (`1214`, `1221`, `1227`), cada um com 2 pastas, ambas vinculadas ao Drive.
+- **Pastas LITERALMENTE duplicadas: 2** (mesmo nup+cliente+ação) → gente criando a mesma pasta ao mesmo tempo (o sync não inventa; ele reflete as duas que o sistema deixou criar). A 3ª tem cliente/ação diferente.
+- **Formato dos números (medido 2026-08-13, tenant 1, MCP só-leitura):** dos 1070, **1030 são só dígitos** e **40 são dígitos + uma letra** (10A/10B); **0 fora do padrão** `^\d+[A-Za-z]?$`. Maior prefixo numérico = **1231**, menor = 1, **1047 prefixos distintos** → há ~184 buracos na faixa 1–1231. Só o tenant 1 tem pastas em produção. *(Insumo direto do R1: `MAX+1` por tenant dá 1232; preencher buracos seria reaproveitar número de pasta apagada — não fazer.)*
+- **Causa-raiz da duplicação:** `CriarPastaUseCase` (`src/Pasta/UseCase/CriarPastaUseCase.php`) só valida nup não-vazio — **NÃO checa duplicidade** (a trava UNIQUE de nup foi removida de propósito para o sync aceitar 10A/10B). Sem trava, duas pessoas criam o mesmo número e o sync cria 2 pastas no Drive.
+
+### 12.2 Requisitos novos (do P.O.)
+- **R1 — Numeração automática.** O sistema atribui o número da pasta automaticamente (elimina a escolha manual e a colisão concorrente). Substitui a necessidade de "trava de duplicado" no caminho do usuário. (Definir: próximo número livre por tenant? formato? o que fazer com os 10A/10B e com pastas que vêm do Drive.)
+- **R2 — Só sistema→Drive; REMOVER Drive→sistema por completo** (não é só um toggle: tirar a via de descoberta `driveParaSistema` e a Via B de download do fluxo automático — cron e worker). O sistema é a fonte.
+- **R3 — Propagar MUDANÇAS do sistema para o Drive.** Hoje o motor **NÃO renomeia** no Drive. ⚠️ **CORREÇÃO MEDIDA (2026-08-13):** a frase anterior desta linha dizia que "`renomearPasta` existe na interface mas não é chamado" — **está errado**. `grep -rn renomearPasta app/` devolve **zero** ocorrências em PHP (as 2 ocorrências são JS do gerenciador de arquivos local, sem relação com o Drive). A `GoogleDriveClientInterface` tem **exatamente 5 métodos** — `criarPasta`, `listarSubpastas`, `listarArquivos`, `enviarArquivo`, `baixarArquivo` — e nenhum renomeia. **Logo R3 não é "ligar uma chamada existente": exige criar o método** na interface + em `GoogleDriveClient` (Drive API `files.update` com `name`) + no `FakeGoogleDriveClient` dos testes + o gatilho de propagação. O P.O. quer que **alterar dado no sistema (ex.: número/nome da pasta) atualize o Drive** → ligar `renomearPasta` no fluxo sistema→Drive. Isso também é a cura do problema "pasta no Drive com número diferente do sistema" (§ pergunta do P.O.: *alterar número no sistema NÃO muda no Drive hoje → resposta era NÃO; R3 muda para SIM*).
+- **R4 — Alinhar o Drive ao sistema (o sistema manda).** Corrigir as divergências fazendo o Drive refletir o sistema (nome/número). Sob R3, muitas se resolvem sozinhas quando a propagação ligar; as substantivas (cliente/número trocado) o P.O. revisa.
+- **R5 — Relatório das pastas criadas desde o "ponto correto" (2026-07-14) até agora** — são as 32 acima. SQL pronto para o próximo chat rodar (ver 12.4).
+- **R6 — Limpeza das duplicatas atuais** (2 literais + 1 de número): decisão humana de qual manter, juntar documentos, apagar a outra pasta **e** a pasta correspondente no Drive.
+- **R7 — Migração para o Drive do Farlei (dono único):** sequência decidida = **ALINHAR PRIMEIRO, depois migrar.** Preferir **exportar do sistema** (não copiar a pasta velha), MAS só depois de garantir (a) completude — o sistema NÃO tem 100% do Drive (pula Google-native/nome>255/tamanho>2GB/pasta sem número), então exportar às cegas perderia esses; e (b) nomes corretos — senão vão números errados. Farlei já tem armazenamento pago (não é Workspace, não há Shared Drive). "Pasta ser dona" não existe sem Workspace → o alcançável é "Farlei dono de tudo". Ownership: quem sobe/copia vira dono; a exportação pelo sistema (logado como Farlei) já resolve.
+
+### 12.3 Sequência recomendada (uma frente grande, em ordem)
+1. **Estancar a duplicação:** R1 (numeração automática) — impede novas colisões. (Ou, mais rápido como paliativo, um aviso de duplicado na criação.)
+2. **Fatia A revisada:** R2 (remover Drive→sistema do automático) + R3 (propagar mudanças/renomeações ao Drive) + `select_account` no OAuth. *(O "toggle sincronizacaoAtiva" da §3 vira secundário — o P.O. quer o sentido único fixo, não um liga/desliga.)*
+3. **Alinhamento (R4/R5):** rodar o relatório, revisar as 32 recentes + as divergências, corrigir no sistema; limpar as duplicatas (R6).
+4. **Migração para o Drive do Farlei (R7):** com tudo alinhado, exportar do sistema para a pasta nova do Farlei (tratando os Google-native/pulados à parte).
+5. **Fatia B:** botões Importar/Exportar com job+prévia+progresso (§5) — o Exportar é o motor da migração do passo 4; pode ser feito junto.
+
+### 12.4 SQL do relatório (R5) — rodar via MCP jusprime-prod (só leitura)
+```sql
+-- as 32 pastas criadas desde o ponto correto (ajuste PII: sem nome_cliente se for compartilhar)
+SELECT id, nup, nome_cliente, nome_acao, drive_folder_id, created_at
+FROM pasta WHERE tenant_id = 1 AND created_at >= '2026-07-14'
+ORDER BY created_at;
+-- os duplicados
+SELECT nup, COUNT(*) FROM pasta WHERE tenant_id = 1 GROUP BY nup HAVING COUNT(*) > 1;
+```
+As divergências de NOME (sistema × Drive) saem do dry-run: `app:sync:reconciliar --tenant-id=1 --usuario-id=1 --dry-run` (linhas `[divergência]`).
