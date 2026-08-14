@@ -74,4 +74,65 @@ final class SincronizacaoPastaDispatcherTest extends KernelTestCase
 
         self::assertCount(0, $this->transporteAsync()->getSent());
     }
+
+    // ───────────────────────────────────────────────────────────────────────────────────────
+    // R3 — propagar a mudança de nome ao Drive, POR EVENTO. A regra que estes testes protegem
+    // é a de custo: nome igual NÃO pode virar write no Drive (D12.3). Se alguém "simplificar"
+    // para despachar sempre, o cron volta a gastar ~1070 writes/hora à toa.
+    // ───────────────────────────────────────────────────────────────────────────────────────
+
+    #[TestDox('R3: nome mudou → enfileira COM o pedido de renomear')]
+    public function testDespachaRenomeacaoQuandoNomeMuda(): void
+    {
+        self::bootKernel();
+        $tenant = TenantFactory::createOne();
+        $user   = UserFactory::createOne();
+        $pasta  = PastaFactory::createOne(['tenant' => $tenant, 'nup' => '10', 'nomeCliente' => 'FULANO']);
+        $this->conexaoAtiva($tenant->_real());
+
+        self::getContainer()->get(SincronizacaoPastaDispatcher::class)
+            ->despacharSeNomeMudou($pasta->_real(), $user->_real(), $tenant->_real(), '9 - FULANO');
+
+        $enviadas = $this->transporteAsync()->getSent();
+        self::assertCount(1, $enviadas);
+        $msg = $enviadas[0]->getMessage();
+        self::assertInstanceOf(SincronizarPastaNoDrive::class, $msg);
+        self::assertTrue($msg->renomear, 'a mensagem saiu sem o pedido de renomear');
+    }
+
+    #[TestDox('R3: nome IGUAL → não enfileira nada (nome igual não vira write no Drive)')]
+    public function testNaoDespachaQuandoNomeNaoMuda(): void
+    {
+        self::bootKernel();
+        $tenant = TenantFactory::createOne();
+        $user   = UserFactory::createOne();
+        $pasta  = PastaFactory::createOne(['tenant' => $tenant, 'nup' => '10', 'nomeCliente' => 'FULANO']);
+        $this->conexaoAtiva($tenant->_real());
+
+        // Mesmo nome que a pasta tem agora — foi editada a situação, não o nome.
+        self::getContainer()->get(SincronizacaoPastaDispatcher::class)
+            ->despacharSeNomeMudou($pasta->_real(), $user->_real(), $tenant->_real(), '10 - FULANO');
+
+        self::assertCount(
+            0,
+            $this->transporteAsync()->getSent(),
+            'nome igual gerou mensagem — a renomeação virou rotina e vai gastar cota à toa',
+        );
+    }
+
+    #[TestDox('R3: o despacho comum não pede renomeação (criar pasta / anexar documento)')]
+    public function testDespachoComumNaoPedeRenomeacao(): void
+    {
+        self::bootKernel();
+        $tenant = TenantFactory::createOne();
+        $user   = UserFactory::createOne();
+        $pasta  = PastaFactory::createOne(['tenant' => $tenant, 'nup' => '11']);
+        $this->conexaoAtiva($tenant->_real());
+
+        self::getContainer()->get(SincronizacaoPastaDispatcher::class)
+            ->despachar($pasta->_real(), $user->_real(), $tenant->_real());
+
+        $msg = $this->transporteAsync()->getSent()[0]->getMessage();
+        self::assertFalse($msg->renomear);
+    }
 }

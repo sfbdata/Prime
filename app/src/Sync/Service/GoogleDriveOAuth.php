@@ -66,8 +66,12 @@ final class GoogleDriveOAuth implements GoogleDriveOAuthInterface
         $client->setRedirectUri($redirectUri);
         $client->addScope(Drive::DRIVE);
         $client->setAccessType('offline');
-        // Força a tela de consentimento p/ o Google sempre devolver um refresh_token novo.
-        $client->setPrompt('consent');
+        // `consent` força o Google a devolver um refresh_token novo sempre.
+        // `select_account` conserta o "trocar de conta": só com `consent`, se o navegador já
+        // está logado na conta antiga, o Google pula direto para o consentimento DELA e o
+        // usuário reconecta a MESMA conta achando que trocou — falha silenciosa, sem erro
+        // nenhum na tela. Com `select_account` o seletor de contas aparece sempre.
+        $client->setPrompt('select_account consent');
 
         return $client;
     }

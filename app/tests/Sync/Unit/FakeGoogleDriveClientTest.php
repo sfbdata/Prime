@@ -26,6 +26,27 @@ final class FakeGoogleDriveClientTest extends TestCase
         self::assertSame([], $fake->listarSubpastas('outra'));
     }
 
+    #[TestDox('renomearPasta troca o nome e fica no rastro de renomeações')]
+    public function testRenomearPasta(): void
+    {
+        $fake = new FakeGoogleDriveClient();
+        $id   = $fake->criarPasta('1214 - FULANO', 'raiz');
+
+        $fake->renomearPasta($id, '1232 - FULANO - RESCISÃO');
+
+        self::assertSame('1232 - FULANO - RESCISÃO', $fake->listarSubpastas('raiz')[0]['nome']);
+        self::assertSame([['folderId' => $id, 'nome' => '1232 - FULANO - RESCISÃO']], $fake->renomeacoes);
+    }
+
+    #[TestDox('renomearPasta em pasta inexistente falha alto')]
+    public function testRenomearPastaInexistente(): void
+    {
+        $fake = new FakeGoogleDriveClient();
+
+        $this->expectException(\RuntimeException::class);
+        $fake->renomearPasta('nao-existe', 'X');
+    }
+
     #[TestDox('seedArquivo aparece em listarArquivos só da sua pasta')]
     public function testListarArquivos(): void
     {

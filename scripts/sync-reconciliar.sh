@@ -2,8 +2,13 @@
 # =============================================================================
 # JusPrime — Sincronização periódica Google Drive <-> sistema (Fase 1b)
 # =============================================================================
-# Chamado pelo cron da VPS (ex.: */15 * * * *). Roda o reconcile bidirecional
-# de pastas+arquivos do tenant 1 dentro do container de produção.
+# Chamado pelo cron da VPS (ex.: 0 * * * *). Roda o reconcile de pastas+arquivos
+# do tenant 1 dentro do container de produção.
+#
+# - SENTIDO ÚNICO (spec fase2 §12.5 / R2): --modo=enviar, só sistema→Drive. O
+#   cron NÃO importa mais do Drive de hora em hora. `enviar` já é o padrão do
+#   comando — a flag está escrita aqui para o leitor do crontab enxergar o
+#   sentido sem abrir o código. Importar virou ação sob demanda (--modo=importar).
 #
 # - Credenciais OAuth ficam em /opt/jusprime/.sync-oauth.env (FORA do git,
 #   chmod 600). Ver .sync-oauth.env.example.
@@ -34,7 +39,7 @@ docker exec \
     -e GOOGLE_DRIVE_OAUTH_CLIENT_ID -e GOOGLE_DRIVE_OAUTH_CLIENT_SECRET \
     -e GOOGLE_DRIVE_OAUTH_REFRESH_TOKEN -e GOOGLE_DRIVE_SHARED_DRIVE_ID \
     -w /var/www/app "$CONTAINER" \
-    php bin/console app:sync:reconciliar --tenant-id=1 --usuario-id=1 >> "$LOG" 2>&1
+    php bin/console app:sync:reconciliar --tenant-id=1 --usuario-id=1 --modo=enviar >> "$LOG" 2>&1
 rc=$?
 echo "$(date '+%F %T') === fim (exit $rc) ===" >> "$LOG"
 exit "$rc"

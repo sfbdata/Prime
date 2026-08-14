@@ -15,6 +15,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use App\Sync\DTO\ResultadoReconciliacaoPasta;
 use Zenstruck\Foundry\Test\Factories;
 
 /**
@@ -102,5 +103,108 @@ final class ReconciliadorDePastaTest extends KernelTestCase
         self::assertSame(0, $segundo->criadasNoDrive, 'folder já existe → não recria');
         self::assertSame(0, $segundo->arquivosEnviados, 'documento já tem drive_file_id → não re-sobe');
         self::assertCount(1, $fake->arquivos, 'nenhum arquivo duplicado no Drive');
+    }
+
+    // ───────────────────────────────────────────────────────────────────────────────────────
+    // R3 — renomearNoDrive. Os guards abaixo existem para NÃO estragar o nome que está no
+    // Drive num caso de borda. Estavam escritos e não provados (achado da revisão).
+    // ───────────────────────────────────────────────────────────────────────────────────────
+
+    #[TestDox('R3: renomeia a pasta vinculada para o nome atual do sistema')]
+    public function testRenomeiaPastaVinculada(): void
+    {
+        self::bootKernel();
+        $tenant = TenantFactory::createOne();
+        $pasta  = PastaFactory::createOne(['tenant' => $tenant, 'nup' => '1227', 'nomeCliente' => 'JORGE']);
+
+        $fake = new FakeGoogleDriveClient();
+        $fake->seedPasta('DRV-X', 'NOME VELHO', 'RAIZ');
+        $pasta->_real()->setDriveFolderId('DRV-X');
+        $this->em()->flush();
+
+        $r = new ResultadoReconciliacaoPasta();
+        self::getContainer()->get(ReconciliadorDePasta::class)->renomearNoDrive($pasta->getId(), $fake, false, $r);
+
+        self::assertSame('1227 - JORGE', $fake->pastas['DRV-X']['nome']);
+        self::assertSame(1, $r->renomeadasNoDrive);
+        self::assertSame(0, $r->erros);
+    }
+
+    #[TestDox('R3: pasta SEM vínculo no Drive é no-op silencioso (não inventa pasta)')]
+    public function testRenomearSemVinculoEhNoOp(): void
+    {
+        self::bootKernel();
+        $tenant = TenantFactory::createOne();
+        $pasta  = PastaFactory::createOne(['tenant' => $tenant, 'nup' => '500']);
+
+        $fake = new FakeGoogleDriveClient();
+        $r    = new ResultadoReconciliacaoPasta();
+        self::getContainer()->get(ReconciliadorDePasta::class)->renomearNoDrive($pasta->getId(), $fake, false, $r);
+
+        self::assertSame([], $fake->renomeacoes);
+        self::assertSame(0, $r->renomeadasNoDrive);
+        self::assertSame(0, $r->erros, 'sem vínculo não é erro — o envio normal cria com o nome certo');
+    }
+
+    #[TestDox('R3: nome esperado VAZIO não apaga o nome que está no Drive')]
+    public function testRenomearComNomeVazioNaoApagaNoDrive(): void
+    {
+        self::bootKernel();
+        $tenant = TenantFactory::createOne();
+        // nup vazio + cliente/ação nulos → nomeEsperado() devolve ''. Renomear para '' deixaria
+        // a pasta do Drive SEM NOME — perda de dado silenciosa, difícil de reverter à mão.
+        $pasta = PastaFactory::createOne(['tenant' => $tenant, 'nup' => '', 'nomeCliente' => null, 'nomeAcao' => null]);
+
+        $fake = new FakeGoogleDriveClient();
+        $fake->seedPasta('DRV-Y', 'NOME QUE NAO PODE SUMIR', 'RAIZ');
+        $pasta->_real()->setDriveFolderId('DRV-Y');
+        $this->em()->flush();
+
+        $r = new ResultadoReconciliacaoPasta();
+        self::getContainer()->get(ReconciliadorDePasta::class)->renomearNoDrive($pasta->getId(), $fake, false, $r);
+
+        self::assertSame('NOME QUE NAO PODE SUMIR', $fake->pastas['DRV-Y']['nome']);
+        self::assertSame([], $fake->renomeacoes);
+    }
+
+    #[TestDox('R3: dry-run conta mas NÃO escreve no Drive')]
+    public function testRenomearDryRunNaoEscreve(): void
+    {
+        self::bootKernel();
+        $tenant = TenantFactory::createOne();
+        $pasta  = PastaFactory::createOne(['tenant' => $tenant, 'nup' => '600', 'nomeCliente' => 'TESTE']);
+
+        $fake = new FakeGoogleDriveClient();
+        $fake->seedPasta('DRV-Z', 'INTOCADO', 'RAIZ');
+        $pasta->_real()->setDriveFolderId('DRV-Z');
+        $this->em()->flush();
+
+        $r = new ResultadoReconciliacaoPasta();
+        self::getContainer()->get(ReconciliadorDePasta::class)->renomearNoDrive($pasta->getId(), $fake, true, $r);
+
+        self::assertSame('INTOCADO', $fake->pastas['DRV-Z']['nome']);
+        self::assertSame(1, $r->renomeadasNoDrive, 'o dry-run precisa dizer o que FARIA');
+        self::assertSame([], $fake->renomeacoes);
+    }
+
+    #[TestDox('R3: erro do Drive vira contador de erro, não exceção que derruba o worker')]
+    public function testRenomearComErroDoDriveNaoLanca(): void
+    {
+        self::bootKernel();
+        $tenant = TenantFactory::createOne();
+        $pasta  = PastaFactory::createOne(['tenant' => $tenant, 'nup' => '700', 'nomeCliente' => 'X']);
+
+        $fake = new FakeGoogleDriveClient();
+        // Vínculo aponta para um folder que não existe no Drive (apagado à mão, por exemplo):
+        // o fake lança, como a API real lançaria em 404.
+        $pasta->_real()->setDriveFolderId('DRV-INEXISTENTE');
+        $this->em()->flush();
+
+        $r = new ResultadoReconciliacaoPasta();
+        self::getContainer()->get(ReconciliadorDePasta::class)->renomearNoDrive($pasta->getId(), $fake, false, $r);
+
+        self::assertSame(1, $r->erros);
+        self::assertSame(0, $r->renomeadasNoDrive);
+        self::assertStringContainsString('renomear no Drive', $r->mensagens[0]);
     }
 }

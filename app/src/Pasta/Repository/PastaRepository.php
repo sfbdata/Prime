@@ -74,6 +74,78 @@ class PastaRepository extends ServiceEntityRepository
     }
 
     /**
+     * Pastas do escritório com o MESMO cliente e a MESMA ação — base do aviso de duplicada na
+     * criação (spec fase2 §12.5/D12.5).
+     *
+     * Por que existe: a numeração automática (R1) fechou a colisão de NÚMERO, mas não a dor que a
+     * originou. Duas pessoas criando a mesma pasta ao mesmo tempo agora recebem 1232 e 1233 — são
+     * duas pastas do mesmo caso, e pior: somem da consulta de detecção do §12.4, que procura NUP
+     * repetido. Este método é o que enxerga a duplicata de verdade.
+     *
+     * Comparação tolerante a acento e caixa (UNACCENT+LOWER, como a busca livre da lista): "AÇÃO
+     * DE COBRANÇA" e "acao de cobranca" são a mesma coisa para quem digita com pressa.
+     *
+     * NÃO bloqueia nada — o mesmo cliente pode legitimamente ter vários casos parecidos. Quem
+     * decide é o usuário, na confirmação.
+     *
+     * @return list<Pasta>
+     */
+    public function findSemelhantesPorClienteEAcao(Tenant $tenant, ?string $cliente, ?string $acao, int $limite = 5): array
+    {
+        $qb = $this->qbSemelhantes($tenant, $cliente, $acao);
+
+        if ($qb === null) {
+            return [];
+        }
+
+        return $qb->orderBy('p.id', 'DESC')->setMaxResults($limite)->getQuery()->getResult();
+    }
+
+    /**
+     * Quantas pastas semelhantes existem AO TODO — não só as exibidas.
+     *
+     * Existe porque a lista é truncada em 5 e a tela precisa dizer a verdade: em produção há um
+     * par (cliente, ação) com **27 pastas**. Contar `|length` da lista truncada faria a tela
+     * anunciar "5 pastas já cadastradas" quando são 27 — número errado com cara de certo, que é
+     * exatamente o tipo de defeito que este projeto já pagou caro.
+     */
+    public function contarSemelhantesPorClienteEAcao(Tenant $tenant, ?string $cliente, ?string $acao): int
+    {
+        $qb = $this->qbSemelhantes($tenant, $cliente, $acao);
+
+        if ($qb === null) {
+            return 0;
+        }
+
+        return (int) $qb->select('COUNT(p.id)')->getQuery()->getSingleScalarResult();
+    }
+
+    /**
+     * Base comum das duas consultas de semelhança. Devolve `null` quando não há o que procurar —
+     * sem cliente sobrariam TODAS as pastas sem cliente do escritório, e o aviso viraria ruído
+     * que o usuário aprende a ignorar.
+     */
+    private function qbSemelhantes(Tenant $tenant, ?string $cliente, ?string $acao): ?QueryBuilder
+    {
+        $cliente = trim((string) $cliente);
+
+        if ($cliente === '') {
+            return null;
+        }
+
+        return $this->createQueryBuilder('p')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('UNACCENT(LOWER(p.nomeCliente)) = UNACCENT(LOWER(:cliente))')
+            // Ação ausente conta como ausente dos dois lados: pasta sem ação só é semelhante a
+            // outra sem ação. COALESCE evita o NULL != NULL do SQL, que nunca casaria.
+            ->andWhere('COALESCE(UNACCENT(LOWER(p.nomeAcao)), :vazio) = COALESCE(UNACCENT(LOWER(:acao)), :vazio)')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('cliente', $cliente)
+            ->setParameter('acao', ($a = trim((string) $acao)) !== '' ? $a : null)
+            ->setParameter('vazio', '');
+    }
+
+    /**
      * Mapa `label → id` das pastas do tenant, para selects (ex.: judicialização de Cobranças). Escopo
      * multi-tenant obrigatório; label = NUP quando houver, senão "Pasta #id".
      *

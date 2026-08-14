@@ -1,0 +1,86 @@
+{% extends 'base.html.twig' %}
+
+{# Aviso de pasta duplicada (spec fase2 §12.5/D12.5). NÃO é bloqueio: o mesmo cliente pode ter
+   vários casos parecidos legitimamente. O sistema mostra o que já existe e devolve a decisão
+   para quem está criando. #}
+
+{% block title %}Já existe uma pasta parecida{% endblock %}
+
+{% block body %}
+<div class="container-fluid py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-7">
+            <div class="card">
+                <div class="card-header py-2">
+                    <h6 class="mb-0">
+                        <i class="bi bi-exclamation-triangle me-1 text-warning"></i>
+                        Já existe uma pasta parecida
+                    </h6>
+                </div>
+
+                <div class="card-body">
+                    {# `total` é o número REAL; `semelhantes` vem truncado em 5. Em produção existe
+                       par (cliente, ação) com 27 pastas — dizer "5" aqui seria número errado com
+                       cara de certo. #}
+                    <p class="mb-3">
+                        Encontramos {{ total }}
+                        {{ total == 1 ? 'pasta já cadastrada' : 'pastas já cadastradas' }}
+                        para <strong>{{ nomeCliente }}</strong>{% if nomeAcao %} em <strong>{{ nomeAcao }}</strong>{% endif %}.
+                        {% if total > semelhantes|length %}
+                            Mostrando {{ semelhantes|length }} mais recentes:
+                        {% else %}
+                            Confira antes de criar outra:
+                        {% endif %}
+                    </p>
+
+                    <div class="table-responsive mb-3">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Número</th>
+                                    <th scope="col">Cliente</th>
+                                    <th scope="col">Ação</th>
+                                    <th scope="col">Criada em</th>
+                                    <th scope="col"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for pasta in semelhantes %}
+                                    <tr>
+                                        <td>{{ pasta.nup }}</td>
+                                        <td>{{ pasta.nomeCliente }}</td>
+                                        <td>{{ pasta.nomeAcao ?? '—' }}</td>
+                                        <td>{{ pasta.criadoEm ? pasta.criadoEm|date('d/m/Y') : '—' }}</td>
+                                        <td class="text-end">
+                                            <a href="{{ path('pasta_show', {id: pasta.id}) }}"
+                                               class="btn btn-outline-secondary btn-sm">Abrir</a>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <p class="text-muted small mb-0">
+                        Se este for mesmo um caso novo, pode criar — o sistema atribuirá um número próprio.
+                    </p>
+                </div>
+
+                <div class="card-footer d-flex justify-content-end gap-2 py-2">
+                    <a href="{{ path('expediente_index') }}" class="btn btn-secondary btn-sm">Cancelar</a>
+
+                    {# Reenvia os MESMOS dados com confirmar=1: o servidor então cria sem perguntar de novo. #}
+                    <form method="post" action="{{ path('pasta_new') }}" class="d-inline">
+                        <input type="hidden" name="nome_cliente" value="{{ nomeCliente }}">
+                        <input type="hidden" name="nome_acao" value="{{ nomeAcao }}">
+                        <input type="hidden" name="confirmar" value="1">
+                        <button type="submit" class="btn btn-primary btn-sm">
+                            <i class="bi bi-check-lg me-1"></i> Criar mesmo assim
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

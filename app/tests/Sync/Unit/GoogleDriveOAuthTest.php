@@ -26,7 +26,11 @@ final class GoogleDriveOAuthTest extends TestCase
         self::assertStringContainsString('accounts.google.com', $url);
         self::assertStringContainsString('state=STATE_ABC_123', $url, 'sem o state o callback rejeitaria sempre (B1)');
         self::assertStringContainsString('access_type=offline', $url);
-        self::assertStringContainsString('prompt=consent', $url);
+        // `select_account` junto do `consent`: sem ele, com o navegador logado na conta antiga
+        // o Google pula o seletor e o usuário reconecta a MESMA conta achando que trocou.
+        // O apiclient codifica o espaço entre os dois valores, daí o `+`/`%20`.
+        self::assertStringContainsString('prompt=', $url);
+        self::assertMatchesRegularExpression('/prompt=select_account(\+|%20)consent/', $url);
         self::assertStringContainsString('client_id=client-id-x', $url);
         self::assertStringContainsString('redirect_uri=' . rawurlencode('https://app.exemplo.com/sync/drive/conexao/callback'), $url);
     }

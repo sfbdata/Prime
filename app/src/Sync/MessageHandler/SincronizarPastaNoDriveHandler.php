@@ -6,6 +6,7 @@ namespace App\Sync\MessageHandler;
 
 use App\Entity\Tenant\Tenant;
 use App\Sync\Exception\TenantSemDriveException;
+use App\Sync\Enum\ModoSincronizacao;
 use App\Sync\Message\SincronizarPastaNoDrive;
 use App\Sync\Service\GoogleDriveClientFactoryInterface;
 use App\Sync\Service\ReconciliadorDePasta;
@@ -63,7 +64,31 @@ final class SincronizarPastaNoDriveHandler
             return; // escritório sem Drive conectado — no-op
         }
 
-        $resultado = $this->reconciliador->sincronizarPasta($mensagem->pastaId, $drive->rootFolderId, $drive->client);
+        // Sempre `Enviar`: o worker é caminho AUTOMÁTICO e, por decisão do dono (R2), automático
+        // nunca importa do Drive. Antes o handler herdava o comportamento bidirecional do motor.
+        $resultado = $this->reconciliador->sincronizarPasta(
+            $mensagem->pastaId,
+            $drive->rootFolderId,
+            $drive->client,
+            dryRun: false,
+            modo: ModoSincronizacao::Enviar,
+        );
+
+        // R3: a propagação do nome vem depois do envio, porque `garantirFolderDaPasta` pode ter
+        // acabado de criar a pasta no Drive — e aí ela já nasce com o nome certo, tornando a
+        // renomeação um no-op barato em vez de um erro por folder inexistente.
+        //
+        // O `?? false` NÃO é paranoia: o transport é `doctrine://` com o PhpSerializer nativo
+        // (config/packages/messenger.yaml, sem `serializer:`), então o payload gravado na fila
+        // é um `serialize()` do objeto. Toda mensagem enfileirada ANTES deste deploy foi
+        // serializada sem a propriedade `renomear`; ao desserializar, uma propriedade tipada
+        // ausente fica NÃO INICIALIZADA — e lê-la direto lançaria "must not be accessed before
+        // initialization", derrubando o worker em 3 retries até a fila `failed`. `??` usa
+        // semântica de isset(), que é o único acesso seguro a propriedade tipada não
+        // inicializada. Worker em restart-loop por variável faltando já aconteceu nesta casa.
+        if (($mensagem->renomear ?? false) === true) {
+            $this->reconciliador->renomearNoDrive($mensagem->pastaId, $drive->client, false, $resultado);
+        }
 
         foreach ($resultado->mensagens as $msg) {
             $this->logger->warning('[sync pasta {pasta}] {msg}', ['pasta' => $mensagem->pastaId, 'msg' => $msg]);

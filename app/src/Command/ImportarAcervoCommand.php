@@ -233,6 +233,21 @@ final class ImportarAcervoCommand extends Command
             $cliente = trim($row[$colIdx['cliente']] ?? '');
             $acao    = trim($row[$colIdx['acao']] ?? '');
 
+            // Importação HISTÓRICA: o número tem de vir da origem. Desde o R1 o
+            // CriarPastaUseCase GERA um número quando recebe vazio — o que aqui seria inventar
+            // um número que a planilha não tinha, silenciosamente. Linha sem número continua
+            // sendo pulada, como sempre foi; a checagem subiu para cá porque o UseCase deixou
+            // de lançar.
+            if ($nup === '') {
+                $puladas++;
+                $io->writeln(sprintf(
+                    '  <comment>[pulada]</comment> Linha %d: NUP vazio (a importação não inventa número).',
+                    $linhaCSV,
+                ));
+
+                continue;
+            }
+
             $dto = new CriarPastaDTO(
                 nup: $nup,
                 nomeCliente: $cliente !== '' ? $cliente : null,
@@ -246,9 +261,9 @@ final class ImportarAcervoCommand extends Command
                 }
                 $importadas++;
             } catch (\InvalidArgumentException $e) {
-                // Só NUP vazio cai aqui agora: o CriarPastaUseCase não barra mais NUP
-                // duplicado (NUP pode repetir desde a feature de sync com o Drive). Sempre
-                // pula, independente de --pular-erros. Ver aviso "NÃO RE-EXECUTAR" no topo.
+                // Rede de segurança: o NUP vazio já é barrado acima (o UseCase não lança mais
+                // por isso — ele gera). Este catch cobre qualquer outra invariante do UseCase.
+                // Sempre pula, independente de --pular-erros. Ver "NÃO RE-EXECUTAR" no topo.
                 $puladas++;
                 $io->writeln(sprintf(
                     '  <comment>[pulada]</comment> Linha %d NUP=%s: %s',

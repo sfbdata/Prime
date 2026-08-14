@@ -52,7 +52,7 @@ final class ReconciliarCommandTest extends KernelTestCase
 
         $fake   = new FakeGoogleDriveClient();
         $tester = $this->tester($fake);
-        $tester->execute([
+        $tester->execute(['--modo' => 'ambos',
             '--tenant-id'  => (string) $tenant->getId(),
             '--usuario-id' => (string) $user->getId(),
         ]);
@@ -66,6 +66,129 @@ final class ReconciliarCommandTest extends KernelTestCase
         self::assertSame(self::ROOT, $fake->pastas[$folderId]['parent']);
     }
 
+    // ───────────────────────────────────────────────────────────────────────────────────────
+    // R2 — o caminho AUTOMÁTICO não importa. É a garantia inteira do requisito: sem estes
+    // testes, o padrão pode voltar a ser bidirecional numa refatoração e ninguém percebe —
+    // a falha seria silenciosa (pastas aparecendo no sistema vindas do Drive, sem erro).
+    // ───────────────────────────────────────────────────────────────────────────────────────
+
+    #[TestDox('R2: SEM --modo (o jeito que o cron roda) NÃO importa pasta do Drive')]
+    public function testPadraoNaoImportaPastaDoDrive(): void
+    {
+        self::bootKernel();
+        $tenant = TenantFactory::createOne();
+        $user   = UserFactory::createOne();
+
+        $fake = new FakeGoogleDriveClient();
+        $fake->seedPasta('DRV-INTRUSA', '999 - NAO DEVE ENTRAR', self::ROOT);
+
+        $tester = $this->tester($fake);
+        $tester->execute(['--tenant-id' => (string) $tenant->getId(), '--usuario-id' => (string) $user->getId()]);
+        $tester->assertCommandIsSuccessful();
+
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        self::assertNull(
+            $em->getRepository(Pasta::class)->findOneBy(['driveFolderId' => 'DRV-INTRUSA']),
+            'o padrão passou a importar do Drive — o R2 foi desfeito',
+        );
+    }
+
+    #[TestDox('R2: SEM --modo NÃO baixa arquivo do Drive, mas ENVIA a pasta do sistema')]
+    public function testPadraoEnviaMasNaoBaixa(): void
+    {
+        self::bootKernel();
+        $tenant = TenantFactory::createOne();
+        $user   = UserFactory::createOne();
+        $pasta  = PastaFactory::createOne(['tenant' => $tenant, 'nup' => '321', 'nomeCliente' => 'BELTRANO']);
+
+        $fake = new FakeGoogleDriveClient();
+
+        $tester = $this->tester($fake);
+        $tester->execute(['--tenant-id' => (string) $tenant->getId(), '--usuario-id' => (string) $user->getId()]);
+        $tester->assertCommandIsSuccessful();
+
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $recarregada = $em->find(Pasta::class, $pasta->getId());
+
+        // O envio continua funcionando — o R2 desliga a importação, não a sincronização.
+        self::assertNotNull($recarregada->getDriveFolderId(), 'o envio sistema→Drive parou de funcionar');
+
+        // ...e um arquivo que só existe no Drive não entra no sistema.
+        $fake->seedArquivo('ARQ-INTRUSO', 'nao-deve-entrar.pdf', $recarregada->getDriveFolderId());
+        $tester->execute(['--tenant-id' => (string) $tenant->getId(), '--usuario-id' => (string) $user->getId()]);
+        $em->clear();
+
+        self::assertNull(
+            $em->getRepository(PastaDocumento::class)->findOneBy(['driveFileId' => 'ARQ-INTRUSO']),
+            'o padrão passou a baixar arquivo do Drive — a Via B voltou ao automático',
+        );
+    }
+
+    #[TestDox('R2: --modo=importar continua importando (a capacidade foi preservada, não apagada)')]
+    public function testModoImportarAindaImporta(): void
+    {
+        self::bootKernel();
+        $tenant = TenantFactory::createOne();
+        $user   = UserFactory::createOne();
+
+        $fake = new FakeGoogleDriveClient();
+        $fake->seedPasta('DRV-SOB-DEMANDA', '654 - PEDIDO EXPLICITO', self::ROOT);
+
+        $tester = $this->tester($fake);
+        $tester->execute([
+            '--modo'       => 'importar',
+            '--tenant-id'  => (string) $tenant->getId(),
+            '--usuario-id' => (string) $user->getId(),
+        ]);
+        $tester->assertCommandIsSuccessful();
+
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        self::assertNotNull($em->getRepository(Pasta::class)->findOneBy(['driveFolderId' => 'DRV-SOB-DEMANDA']));
+    }
+
+    #[TestDox('R2: --modo=importar NÃO envia a pasta do sistema para o Drive')]
+    public function testModoImportarNaoEnvia(): void
+    {
+        self::bootKernel();
+        $tenant = TenantFactory::createOne();
+        $user   = UserFactory::createOne();
+        $pasta  = PastaFactory::createOne(['tenant' => $tenant, 'nup' => '888']);
+
+        $fake   = new FakeGoogleDriveClient();
+        $tester = $this->tester($fake);
+        $tester->execute([
+            '--modo'       => 'importar',
+            '--tenant-id'  => (string) $tenant->getId(),
+            '--usuario-id' => (string) $user->getId(),
+        ]);
+        $tester->assertCommandIsSuccessful();
+
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        self::assertNull($em->find(Pasta::class, $pasta->getId())->getDriveFolderId());
+    }
+
+    #[TestDox('R2: modo inválido é recusado com erro claro, não tratado como padrão')]
+    public function testModoInvalidoEhRecusado(): void
+    {
+        self::bootKernel();
+        $tenant = TenantFactory::createOne();
+        $user   = UserFactory::createOne();
+
+        $tester = $this->tester(new FakeGoogleDriveClient());
+        $codigo = $tester->execute([
+            '--modo'       => 'bidirecional',
+            '--tenant-id'  => (string) $tenant->getId(),
+            '--usuario-id' => (string) $user->getId(),
+        ]);
+
+        self::assertSame(1, $codigo);
+        self::assertStringContainsString('Modo inválido', $tester->getDisplay());
+    }
+
     #[TestDox('subpasta do Drive sem par cria Pasta no sistema com o NUP extraído')]
     public function testCriaPastaNoSistemaParaSubpastaDoDrive(): void
     {
@@ -77,7 +200,7 @@ final class ReconciliarCommandTest extends KernelTestCase
         $fake->seedPasta('DRV-NEW', '456 - CLIENTE NOVO', self::ROOT);
 
         $tester = $this->tester($fake);
-        $tester->execute(['--tenant-id' => (string) $tenant->getId(), '--usuario-id' => (string) $user->getId()]);
+        $tester->execute(['--modo' => 'ambos', '--tenant-id' => (string) $tenant->getId(), '--usuario-id' => (string) $user->getId()]);
         $tester->assertCommandIsSuccessful();
 
         $em = self::getContainer()->get(EntityManagerInterface::class);
@@ -100,7 +223,7 @@ final class ReconciliarCommandTest extends KernelTestCase
         $fake->seedPasta('DRV-10A', '10A - FULANO DE TAL', self::ROOT);
 
         $tester = $this->tester($fake);
-        $tester->execute(['--tenant-id' => (string) $tenant->getId(), '--usuario-id' => (string) $user->getId()]);
+        $tester->execute(['--modo' => 'ambos', '--tenant-id' => (string) $tenant->getId(), '--usuario-id' => (string) $user->getId()]);
         $tester->assertCommandIsSuccessful();
 
         $em = self::getContainer()->get(EntityManagerInterface::class);
@@ -121,7 +244,7 @@ final class ReconciliarCommandTest extends KernelTestCase
         $fake->seedPasta('DRV-X', 'PASTA SEM NUMERO', self::ROOT);
 
         $tester = $this->tester($fake);
-        $tester->execute(['--tenant-id' => (string) $tenant->getId(), '--usuario-id' => (string) $user->getId()]);
+        $tester->execute(['--modo' => 'ambos', '--tenant-id' => (string) $tenant->getId(), '--usuario-id' => (string) $user->getId()]);
         $tester->assertCommandIsSuccessful();
         self::assertStringContainsString('sem NUP', $tester->getDisplay());
 
@@ -142,7 +265,7 @@ final class ReconciliarCommandTest extends KernelTestCase
         $fake->seedPasta('DRV-9', '123 - X', self::ROOT);
 
         $tester = $this->tester($fake);
-        $tester->execute(['--tenant-id' => (string) $tenant->getId(), '--usuario-id' => (string) $user->getId()]);
+        $tester->execute(['--modo' => 'ambos', '--tenant-id' => (string) $tenant->getId(), '--usuario-id' => (string) $user->getId()]);
         $tester->assertCommandIsSuccessful();
 
         $em = self::getContainer()->get(EntityManagerInterface::class);
@@ -162,7 +285,7 @@ final class ReconciliarCommandTest extends KernelTestCase
         $fake->seedPasta('DRV-9', '123 - Y', self::ROOT); // diverge de '123 - X' no sistema
 
         $tester = $this->tester($fake);
-        $tester->execute(['--tenant-id' => (string) $tenant->getId(), '--usuario-id' => (string) $user->getId()]);
+        $tester->execute(['--modo' => 'ambos', '--tenant-id' => (string) $tenant->getId(), '--usuario-id' => (string) $user->getId()]);
         $tester->assertCommandIsSuccessful();
         self::assertStringContainsString('divergência', $tester->getDisplay());
 
@@ -182,7 +305,7 @@ final class ReconciliarCommandTest extends KernelTestCase
         $fake->seedPasta('DRV-NEW', '222 - CLIENTE', self::ROOT);
 
         $tester = $this->tester($fake);
-        $tester->execute([
+        $tester->execute(['--modo' => 'ambos',
             '--tenant-id'  => (string) $tenant->getId(),
             '--usuario-id' => (string) $user->getId(),
             '--dry-run'    => true,
@@ -210,7 +333,7 @@ final class ReconciliarCommandTest extends KernelTestCase
 
         $fake   = new FakeGoogleDriveClient();
         $tester = $this->tester($fake);
-        $tester->execute([
+        $tester->execute(['--modo' => 'ambos',
             '--tenant-id'  => (string) $tenant->getId(),
             '--usuario-id' => (string) $user->getId(),
             '--limit'      => '1',
@@ -239,7 +362,7 @@ final class ReconciliarCommandTest extends KernelTestCase
 
         $fake   = new FakeGoogleDriveClient();
         $tester = $this->tester($fake);
-        $tester->execute(['--tenant-id' => (string) $tenant->getId(), '--usuario-id' => (string) $user->getId()]);
+        $tester->execute(['--modo' => 'ambos', '--tenant-id' => (string) $tenant->getId(), '--usuario-id' => (string) $user->getId()]);
         $tester->assertCommandIsSuccessful();
 
         // Arquivo criado no Drive, na raiz do caso, com o nome original.
@@ -266,7 +389,7 @@ final class ReconciliarCommandTest extends KernelTestCase
 
         $fake   = new FakeGoogleDriveClient();
         $tester = $this->tester($fake);
-        $tester->execute(['--tenant-id' => (string) $tenant->getId(), '--usuario-id' => (string) $user->getId()]);
+        $tester->execute(['--modo' => 'ambos', '--tenant-id' => (string) $tenant->getId(), '--usuario-id' => (string) $user->getId()]);
         $tester->assertCommandIsSuccessful();
 
         // Subpasta-espelho 'PETICOES' criada sob a pasta de caso.
@@ -292,7 +415,7 @@ final class ReconciliarCommandTest extends KernelTestCase
         $fake->seedArquivo('F-NOVO', 'sentenca.pdf', 'CASE-3');
 
         $tester = $this->tester($fake);
-        $tester->execute(['--tenant-id' => (string) $tenant->getId(), '--usuario-id' => (string) $user->getId()]);
+        $tester->execute(['--modo' => 'ambos', '--tenant-id' => (string) $tenant->getId(), '--usuario-id' => (string) $user->getId()]);
         $tester->assertCommandIsSuccessful();
 
         $em = $this->em();
@@ -326,7 +449,7 @@ final class ReconciliarCommandTest extends KernelTestCase
         $fake->seedPasta('DRV-SKIP', '601 - CLIENTE NOVO SKIP', self::ROOT);
 
         $tester = $this->tester($fake);
-        $tester->execute([
+        $tester->execute(['--modo' => 'ambos',
             '--tenant-id'     => (string) $tenant->getId(),
             '--usuario-id'    => (string) $user->getId(),
             '--skip-arquivos' => true,
@@ -360,7 +483,7 @@ final class ReconciliarCommandTest extends KernelTestCase
         $fake->seedArquivo('F-C1', 'contrato.pdf', 'SUB-CONTRATOS');
 
         $tester = $this->tester($fake);
-        $tester->execute(['--tenant-id' => (string) $tenant->getId(), '--usuario-id' => (string) $user->getId()]);
+        $tester->execute(['--modo' => 'ambos', '--tenant-id' => (string) $tenant->getId(), '--usuario-id' => (string) $user->getId()]);
         $tester->assertCommandIsSuccessful();
 
         $em = $this->em();
@@ -386,7 +509,7 @@ final class ReconciliarCommandTest extends KernelTestCase
         $fake->seedArquivo('F-A1', 'anexo.pdf', 'SUB-ANEXOS');
 
         $tester = $this->tester($fake);
-        $tester->execute(['--tenant-id' => (string) $tenant->getId(), '--usuario-id' => (string) $user->getId()]);
+        $tester->execute(['--modo' => 'ambos', '--tenant-id' => (string) $tenant->getId(), '--usuario-id' => (string) $user->getId()]);
         $tester->assertCommandIsSuccessful();
 
         $em = $this->em();
@@ -415,7 +538,7 @@ final class ReconciliarCommandTest extends KernelTestCase
         $fake->seedArquivo('F-JA', 'ja.pdf', 'CASE-6');
 
         $tester = $this->tester($fake);
-        $tester->execute(['--tenant-id' => (string) $tenant->getId(), '--usuario-id' => (string) $user->getId()]);
+        $tester->execute(['--modo' => 'ambos', '--tenant-id' => (string) $tenant->getId(), '--usuario-id' => (string) $user->getId()]);
         $tester->assertCommandIsSuccessful();
 
         self::assertSame(1, $this->contarDocumentos($pasta->getId()));
@@ -435,7 +558,7 @@ final class ReconciliarCommandTest extends KernelTestCase
         $fake->seedArquivo('F-GDOC', 'planilha', 'CASE-7', 0, 'application/vnd.google-apps.spreadsheet');
 
         $tester = $this->tester($fake);
-        $tester->execute(['--tenant-id' => (string) $tenant->getId(), '--usuario-id' => (string) $user->getId()]);
+        $tester->execute(['--modo' => 'ambos', '--tenant-id' => (string) $tenant->getId(), '--usuario-id' => (string) $user->getId()]);
         $tester->assertCommandIsSuccessful();
 
         self::assertSame(0, $this->contarDocumentos($pasta->getId()));
@@ -454,7 +577,7 @@ final class ReconciliarCommandTest extends KernelTestCase
         $fake->seedArquivo('F-DOWN', 'baixaria.pdf', 'CASE-8'); // sem par → baixaria
 
         $tester = $this->tester($fake);
-        $tester->execute(['--tenant-id' => (string) $tenant->getId(), '--usuario-id' => (string) $user->getId(), '--dry-run' => true]);
+        $tester->execute(['--modo' => 'ambos', '--tenant-id' => (string) $tenant->getId(), '--usuario-id' => (string) $user->getId(), '--dry-run' => true]);
         $tester->assertCommandIsSuccessful();
 
         // Drive intocado: só o arquivo semeado (nada enviado).
@@ -481,7 +604,7 @@ final class ReconciliarCommandTest extends KernelTestCase
 
         $fake   = new FakeGoogleDriveClient();
         $tester = $this->tester($fake);
-        $tester->execute(['--tenant-id' => (string) $tenant->getId(), '--usuario-id' => (string) $user->getId()]);
+        $tester->execute(['--modo' => 'ambos', '--tenant-id' => (string) $tenant->getId(), '--usuario-id' => (string) $user->getId()]);
         $tester->assertCommandIsSuccessful();
 
         // Continua havendo exatamente 1 documento, agora vinculado.
@@ -508,7 +631,7 @@ final class ReconciliarCommandTest extends KernelTestCase
         $fake->seedArquivo('F-LONGO', $nomeEnorme, 'CASE-10');
 
         $tester = $this->tester($fake);
-        $tester->execute(['--tenant-id' => (string) $tenant->getId(), '--usuario-id' => (string) $user->getId()]);
+        $tester->execute(['--modo' => 'ambos', '--tenant-id' => (string) $tenant->getId(), '--usuario-id' => (string) $user->getId()]);
         $tester->assertCommandIsSuccessful();
         self::assertStringContainsString('255', $tester->getDisplay());
         self::assertSame(0, $this->contarDocumentos($pasta->getId()));
@@ -530,7 +653,7 @@ final class ReconciliarCommandTest extends KernelTestCase
         $fake->seedArquivo('F-D2', 'b.pdf', 'SUB-DOCS-MAI');
 
         $tester = $this->tester($fake);
-        $tester->execute(['--tenant-id' => (string) $tenant->getId(), '--usuario-id' => (string) $user->getId()]);
+        $tester->execute(['--modo' => 'ambos', '--tenant-id' => (string) $tenant->getId(), '--usuario-id' => (string) $user->getId()]);
         $tester->assertCommandIsSuccessful();
 
         // Os dois arquivos importados; uma única seção DOCS.
@@ -551,7 +674,7 @@ final class ReconciliarCommandTest extends KernelTestCase
         $fake->seedArquivo('F-GDOC2', 'rascunho', 'SUB-RASCUNHOS', 0, 'application/vnd.google-apps.document');
 
         $tester = $this->tester($fake);
-        $tester->execute(['--tenant-id' => (string) $tenant->getId(), '--usuario-id' => (string) $user->getId()]);
+        $tester->execute(['--modo' => 'ambos', '--tenant-id' => (string) $tenant->getId(), '--usuario-id' => (string) $user->getId()]);
         $tester->assertCommandIsSuccessful();
 
         self::assertSame(0, $this->contarDocumentos($pasta->getId()));
@@ -569,7 +692,7 @@ final class ReconciliarCommandTest extends KernelTestCase
 
         $fake   = new FakeGoogleDriveClient();
         $tester = $this->tester($fake);
-        $tester->execute(['--tenant-id' => (string) $tenant->getId(), '--usuario-id' => (string) $user->getId()]);
+        $tester->execute(['--modo' => 'ambos', '--tenant-id' => (string) $tenant->getId(), '--usuario-id' => (string) $user->getId()]);
         $tester->assertCommandIsSuccessful();
 
         // A Via B varre a raiz (onde o arquivo acabou de subir); o id recém-enviado está em $conhecidos → não duplica.
@@ -594,7 +717,7 @@ final class ReconciliarCommandTest extends KernelTestCase
         $fake->seedArquivo('F-SHARED', 'compartilhado.pdf', 'CASE-B');
 
         $tester = $this->tester($fake);
-        $tester->execute(['--tenant-id' => (string) $tenant->getId(), '--usuario-id' => (string) $user->getId()]);
+        $tester->execute(['--modo' => 'ambos', '--tenant-id' => (string) $tenant->getId(), '--usuario-id' => (string) $user->getId()]);
         $tester->assertCommandIsSuccessful();
 
         // Pasta B não recria o doc (evita violar o UNIQUE global); pasta A mantém o seu.

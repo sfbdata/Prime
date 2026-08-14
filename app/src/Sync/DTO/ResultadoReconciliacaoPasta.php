@@ -13,6 +13,8 @@ namespace App\Sync\DTO;
 final class ResultadoReconciliacaoPasta
 {
     public int $criadasNoDrive = 0;
+    /** Pastas cujo nome foi propagado do sistema para o Drive (R3). */
+    public int $renomeadasNoDrive = 0;
     public int $arquivosEnviados = 0;
     public int $arquivosBaixados = 0;
     public int $secoesArquivos = 0;

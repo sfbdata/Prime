@@ -94,6 +94,17 @@ final class GoogleDriveClient implements GoogleDriveClientInterface
         return $pasta->getId();
     }
 
+    public function renomearPasta(string $folderId, string $novoNome): void
+    {
+        // No `files.update` o corpo carrega SÓ o que muda. Mandar `parents` aqui é erro da API
+        // (mover pasta exige addParents/removeParents como parâmetro, não no corpo), então o
+        // metadata tem apenas o nome.
+        $this->drive()->files->update($folderId, new DriveFile(['name' => $novoNome]), [
+            'fields'            => 'id',
+            'supportsAllDrives' => true,
+        ]);
+    }
+
     public function listarSubpastas(string $parentId): array
     {
         return $this->listar(
