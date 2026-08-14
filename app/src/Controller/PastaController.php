@@ -223,6 +223,10 @@ class PastaController extends AbstractController
         try {
             $pasta = $this->criarPastaUseCase->executar($dto, $currentUser, $tenant);
         } catch (\InvalidArgumentException $e) {
+            // Defensivo e simétrico ao caminho não-AJAX (que já tinha este catch): hoje o endpoint
+            // sempre gera o número (nup=null), então o UseCase não lança aqui — por isso não há
+            // teste HTTP do 422. Mantido para não divergir do fallback se uma validação futura
+            // passar a lançar nesta rota.
             if ($ajax) {
                 return new JsonResponse(
                     ['status' => 'erro', 'mensagem' => $e->getMessage()],

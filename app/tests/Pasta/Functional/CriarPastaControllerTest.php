@@ -431,4 +431,28 @@ final class CriarPastaControllerTest extends JusPrimeWebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         self::assertCount(2, $em->getRepository(Pasta::class)->findBy(['tenant' => $tenant]));
     }
+
+    #[TestDox('D12.5 AJAX: sem permissão no módulo pastas devolve JSON status=erro com HTTP 403')]
+    public function testAjaxSemPermissaoDevolveJson403(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioSemModuloPastas();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $client->request(
+            'POST',
+            '/pasta/nova',
+            ['nome_cliente' => 'QUALQUER', 'nome_acao' => 'COISA'],
+            [],
+            ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest'],
+        );
+
+        self::assertResponseStatusCodeSame(403);
+        $json = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertSame('erro', $json['status']);
+
+        // Continua sem criar nada — a modal recebe o erro, não uma pasta.
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        self::assertCount(0, $em->getRepository(Pasta::class)->findBy(['tenant' => $tenant]));
+    }
 }

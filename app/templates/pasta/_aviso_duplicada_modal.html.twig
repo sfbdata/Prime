@@ -10,12 +10,15 @@
     <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal" aria-label="Fechar"></button>
 </div>
 <div class="modal-body py-3">
-    {{ include('pasta/_aviso_duplicada_conteudo.html.twig') }}
+    {{ include('pasta/_aviso_duplicada_conteudo.html.twig', { novaAba: true }) }}
 </div>
 <div class="modal-footer py-2">
+    {# Slot de erro DESTA modal: se o "Criar mesmo assim" falhar, a modal de nova pasta já está
+       fechada, então a mensagem tem de aparecer aqui, num elemento visível. #}
+    <div id="avisoDuplicadaErro" class="text-danger small me-auto" style="display:none;"></div>
     <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
     <button type="button" class="btn btn-primary btn-sm" id="btnCriarDuplicadaMesmoAssim"
-            data-nome-cliente="{{ nomeCliente }}" data-nome-acao="{{ nomeAcao }}">
+            data-nome-cliente="{{ nomeCliente|e('html_attr') }}" data-nome-acao="{{ nomeAcao|e('html_attr') }}">
         <i class="bi bi-check-lg me-1"></i> Criar mesmo assim
     </button>
 </div>

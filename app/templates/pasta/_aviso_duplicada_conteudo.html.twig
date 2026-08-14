@@ -41,8 +41,10 @@
                     <td>{{ pasta.nomeAcao ?? '—' }}</td>
                     <td>{{ pasta.criadoEm ? pasta.criadoEm|date('d/m/Y') : '—' }}</td>
                     <td class="text-end">
+                        {# novaAba: só a modal abre em nova aba (não perder o contexto da criação);
+                           a página de fallback fica igual ao comportamento antigo (mesma aba). #}
                         <a href="{{ path('pasta_show', {id: pasta.id}) }}"
-                           class="btn btn-outline-secondary btn-sm" target="_blank" rel="noopener">Abrir</a>
+                           class="btn btn-outline-secondary btn-sm"{% if novaAba|default(false) %} target="_blank" rel="noopener"{% endif %}>Abrir</a>
                     </td>
                 </tr>
             {% endfor %}

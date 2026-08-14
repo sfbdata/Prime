@@ -57,24 +57,25 @@
     var form = document.getElementById('form-nova-pasta-modal');
     if (!form) { return; }
 
-    var erroBox    = document.getElementById('modalNovaPastaErro');
     var novaEl     = document.getElementById('modalNovaPasta');
+    var novaErro   = document.getElementById('modalNovaPastaErro');
     var avisoEl    = document.getElementById('modalAvisoDuplicada');
     var avisoMiolo = document.getElementById('avisoDuplicadaConteudo');
 
-    function mostrarErro(msg) {
-        if (!erroBox) { return; }
-        erroBox.textContent = msg;
-        erroBox.style.display = '';
+    function mostrarErro(box, msg) {
+        if (!box) { return; }
+        box.textContent = msg;
+        box.style.display = '';
     }
-    function limparErro() {
-        if (!erroBox) { return; }
-        erroBox.textContent = '';
-        erroBox.style.display = 'none';
+    function limparErro(box) {
+        if (!box) { return; }
+        box.textContent = '';
+        box.style.display = 'none';
     }
 
     // POST via fetch. O controller responde JSON {status: ok|duplicada|erro} quando é AJAX.
-    function enviar(dados) {
+    // erroBox = onde mostrar a falha (tem de ser a modal VISÍVEL no momento do envio).
+    function enviar(dados, erroBox) {
         return fetch(form.getAttribute('action'), {
             method: 'POST',
             headers: { 'X-Requested-With': 'XMLHttpRequest' },
@@ -104,16 +105,16 @@
                 }
                 return;
             }
-            mostrarErro((json && json.mensagem) ? json.mensagem : 'Não foi possível criar a pasta.');
+            mostrarErro(erroBox, (json && json.mensagem) ? json.mensagem : 'Não foi possível criar a pasta.');
         }).catch(function () {
-            mostrarErro('Falha de conexão ao criar a pasta. Tente de novo.');
+            mostrarErro(erroBox, 'Falha de conexão ao criar a pasta. Tente de novo.');
         });
     }
 
     form.addEventListener('submit', function (e) {
         e.preventDefault();
-        limparErro();
-        enviar(new FormData(form));
+        limparErro(novaErro);
+        enviar(new FormData(form), novaErro);
     });
 
     // "Criar mesmo assim" está no HTML injetado — captura por delegação e reenvia com confirmar=1.
@@ -122,12 +123,14 @@
             var btn = e.target.closest('#btnCriarDuplicadaMesmoAssim');
             if (!btn) { return; }
             e.preventDefault();
+            var avisoErro = document.getElementById('avisoDuplicadaErro');
+            limparErro(avisoErro);
             btn.disabled = true;
             var fd = new FormData();
             fd.append('nome_cliente', btn.getAttribute('data-nome-cliente') || '');
             fd.append('nome_acao', btn.getAttribute('data-nome-acao') || '');
             fd.append('confirmar', '1');
-            enviar(fd).then(function () { btn.disabled = false; });
+            enviar(fd, avisoErro).then(function () { btn.disabled = false; });
         });
     }
 })();
