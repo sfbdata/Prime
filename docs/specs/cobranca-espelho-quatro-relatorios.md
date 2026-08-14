@@ -447,24 +447,54 @@ dois estava nela**, e os dois nasceram justamente das correções que ela pediu.
 encontra o que acontece. Aqui as duas foram necessárias, nessa ordem — e o INV-Q10 (o despejo de PII)
 também só apareceu rodando.
 
-### 8.3 A quarta revisão pegou o que as três anteriores e o autor não viram
+### 8.3 Revisão de DADO é passada separada da revisão de lógica — regra operacional
 
-**PII real de condômino versionada no Git — pela própria fatia que existe para impedir o despejo de
-PII.** O bloco de exemplo do incidente, em três arquivos (runbook, esta spec e o docblock da
-`GuardaDeLogComPii`), não era ilustrativo: era o dump de produção colado como veio, com **nome
-completo, CPF de dígito verificador válido, e-mail, telefone e unidade** de uma pessoa real.
+Escrita depois de a quarta revisão achar **PII real de condômino versionada no Git**, colocada lá
+pela própria fatia que existe para impedir o despejo de PII: o bloco de exemplo do incidente, em três
+arquivos, era o dump de produção colado como veio — nome completo, CPF de dígito verificador válido,
+e-mail, telefone e unidade de uma pessoa real. O histórico foi reescrito pelo dono antes de qualquer
+publicação (os 6 commits da frente viraram 1).
 
-O revisor conferiu os dígitos do CPF à mão para descartar dado sintético, rastreou o commit de
-entrada (`3d7e9676`) e confirmou por `git log origin/master -S` que **ainda não estava publicado**.
+**As regras, que valem para qualquer frente deste repositório:**
 
-Três coisas a registrar, e nenhuma é sobre o conserto:
+1. **Quem revisa documento com exemplo tem de olhar o EXEMPLO, não só o diff.** Ler o diff responde
+   "a mudança está certa?"; não responde "este dado pode existir aqui?". São duas passadas, e a
+   segunda não acontece sozinha. Três revisões passaram por esses arquivos: as duas primeiras porque
+   o bloco não existia ainda, a terceira porque leu a lógica do diff que o introduziu.
 
-1. **O canal mudou, o princípio não.** A regra era "não deixe o log despejar PII no terminal"; o
-   vazamento saiu pelo repositório, que vai para a VPS no deploy e para o remoto no push. Uma trava
-   que protege um canal não protege o dado.
-2. **Documentar o vazamento não autoriza reproduzi-lo.** Exemplo de PII é sintético — `000.000.000-00`
-   e `example.com` (RFC 2606) —, e agora há aviso nos três arquivos dizendo isso, porque a próxima
-   pessoa vai achar que o exemplo real é "mais didático".
-3. **Três revisões passaram por esses arquivos sem ver.** As duas primeiras porque o bloco ainda não
-   existia; a terceira leu o diff que o introduziu e não olhou o *conteúdo* do exemplo. Revisão que
-   confere a lógica não confere o dado — são passadas diferentes.
+2. **Exemplo de dado pessoal é sintético, sempre.** `000.000.000-00` (inválido por construção) e
+   `example.com` (RFC 2606). Documentar um vazamento não autoriza reproduzi-lo — e o aviso de que o
+   exemplo é sintético fica no próprio arquivo, senão a próxima pessoa acha que o real é "mais
+   didático".
+
+3. 🔴 **Checagem de dado sensível se monta por PADRÃO, nunca pelo VALOR.** Ao entregar o comando de
+   conferência, o autor escreveu `git log -S "<início do CPF real>"` — o que põe o dado no terminal
+   do dono e no histórico do shell dele. É a mesma falha um nível acima: a busca por vazamento
+   virando vazamento. A forma certa não cita o dado:
+
+   ```bash
+   # padrão de CPF/CNPJ em qualquer lugar do repositório, incluindo histórico
+   git grep -nE '[0-9]{3}\.[0-9]{3}\.[0-9]{3}-[0-9]{2}'
+   git log -p --all | grep -nE '[0-9]{3}\.[0-9]{3}\.[0-9]{3}-[0-9]{2}' | head
+   ```
+
+4. **Trava que protege um canal não protege o dado.** A `GuardaDeLogComPii` fecha o terminal; o
+   vazamento saiu pelo **repositório**, que vai para a VPS no deploy e para o remoto no push. Ao
+   fechar um canal, pergunte por quais outros o mesmo dado sai.
+
+### 8.4 ⏳ Fatia futura: varredura de PII no repositório INTEIRO
+
+Achado do dono em 14/08, **maior que o desta frente e fora do escopo dela**: há strings em formato de
+CPF em arquivos **já publicados no remoto** —
+
+- `docs/specs/cobranca-etapa7-importacao.md`
+- `docs/specs/cobranca-importar-cadastro-condominos.md`
+- `docs/gestao-cobrancas/mockup-ajuste10-objeto-show.html`
+
+**Podem ser sintéticos** — mockups e specs costumam usar dado de exemplo. Se não forem, é vazamento
+**no remoto**, que é pior que o desta frente porque já saiu da máquina e não se resolve reescrevendo
+commit local.
+
+⛔ **Deliberadamente NÃO investigado aqui** (decisão do dono): vira fatia própria. Quando ela for
+aberta, a varredura tem de cobrir **o repositório inteiro e o histórico**, não só os três arquivos
+citados — e por padrão, nunca por valor (§8.3, regra 3).
