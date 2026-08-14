@@ -122,10 +122,11 @@ final class SincronizarPastaNoDriveHandlerTest extends KernelTestCase
         $user   = UserFactory::createOne();
         $pasta  = PastaFactory::createOne(['tenant' => $tenant, 'nup' => '1217', 'nomeCliente' => 'ANTIGA']);
 
-        // Reproduz LITERALMENTE o payload que está gravado na tabela do transport doctrine://
-        // hoje, em produção: um serialize() da mensagem com TRÊS propriedades, feito antes de
-        // `renomear` existir. Ao desserializar, `renomear` fica não inicializada — ler direto
-        // lançaria Error e o worker entraria em retry/failed.
+        // Reproduz o MECANISMO da falha, não o byte a byte da fila: o PhpSerializer grava
+        // `addslashes(serialize($envelope))` — um Envelope escapado, não a mensagem nua. O que
+        // importa aqui é o estado que aquele payload produz ao desserializar: uma mensagem com
+        // TRÊS propriedades, serializada antes de `renomear` existir, deixa `renomear` NÃO
+        // INICIALIZADA. Ler direto lançaria Error e o worker cairia em retry/failed.
         $classe  = SincronizarPastaNoDrive::class;
         $payload = sprintf(
             'O:%d:"%s":3:{s:7:"pastaId";i:%d;s:8:"tenantId";i:%d;s:9:"usuarioId";i:%d;}',

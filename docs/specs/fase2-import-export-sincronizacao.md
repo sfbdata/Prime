@@ -209,7 +209,11 @@ ORDER BY created_at;
 -- os duplicados
 SELECT nup, COUNT(*) FROM pasta WHERE tenant_id = 1 GROUP BY nup HAVING COUNT(*) > 1;
 ```
-As divergências de NOME (sistema × Drive) saem do dry-run: `app:sync:reconciliar --tenant-id=1 --usuario-id=1 --dry-run` (linhas `[divergência]`).
+As divergências de NOME (sistema × Drive) saem do dry-run:
+`app:sync:reconciliar --tenant-id=1 --usuario-id=1 --dry-run --modo=ambos` (linhas `[divergência]`).
+⚠️ **O `--modo=ambos` é obrigatório aqui.** O contador de divergências vive dentro de
+`driveParaSistema()`, que sob o padrão `enviar` (R2) não roda — sem a flag o comando reporta
+**0 divergências** e quem estiver caçando as ~426 do D10 conclui, errado, que não há nenhuma.
 
 ### 12.5 Decisões travadas com o P.O. (2026-08-13) — frente `sync-sistema-manda`
 
