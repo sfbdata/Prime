@@ -7,35 +7,23 @@ Quem abre uma frente acrescenta a linha. Quem integra tira.
 
 | Frente (branch) | Domínio | Migration? | Arquivos compartilhados que toca | Estágio | Base |
 |---|---|---|---|---|---|
-| `cobranca-espelho-quatro-relatorios` | Cobrança (espelho) | **sim — 1** | `docs/specs/`, `docs/runbooks/` | **pronta para integrar** | `origin/master` @ `4ff88ee6` |
 | `cobranca-acompanhamento-canonico` | Cobrança (modelo objeto/caso) | **sim — 4** | `docs/gestao-cobrancas/` | 🛑 **PARADA** (ver abaixo) | `origin/master` @ `0bb1f29` |
-| `sync-sistema-manda` | Sync (Drive) + Pasta (numeração) | **não** | `docs/specs/fase2-import-export-sincronizacao.md` | implementando | `master` local @ `3702452f` |
+| `expediente-ux` | Expediente + Pasta (telas) | não | `app/templates/expediente/`, `app/templates/pasta/` | implementando, **28 commits atrás do master** | `origin/codex/colaboracao-cobrancas` |
 
-📌 **`origin/master` avançou para `d55ebf16` depois que esta frente foi cortada** (14/08). Os 14
-commits novos são todos da `sync-sistema-manda` (Sync + Pasta). Conferido por
-`comm -12` entre os dois diffs de nome de arquivo: **ZERO arquivos em comum** com esta frente.
-
-⚠️ Isso torna o conflito improvável, **não impossível**: verde na branch prova `master@4ff88ee6 + A`,
-não prova `master@d55ebf16 + A`. Antes de integrar, traga o master para dentro da frente e rode a
-suíte de novo — e depois do merge, rode no master. É o segundo passo que pega quebra cruzada, e é o
-que todo mundo pula. **Merge e atualização de base são do humano.**
+⚠️ `expediente-ux` estava **fora deste registro** e só apareceu num `git worktree list` de 14/08 — o
+mesmo defeito que a `cobranca-acompanhamento-canonico` já tinha cometido. Ela tem 2 commits e 4
+arquivos alterados sem commit (`expediente/index.html.twig`, `expediente/_acervo_geral.html.twig`,
+`pasta/_filtros.html.twig` e o teste do filtro). Sem migration. **Está 28 commits atrás do master** —
+quem a retomar traz o master para dentro antes de escrever qualquer linha.
 
 ⚠️ **Worktree não herda `app/.env.local`.** O `app/.env` versionado aponta para o banco `saas`, onde
 `cobranca_relatorio_importado` **não existe** — o dev de verdade usa `saas_ux`. Qualquer conferência
 rodada de dentro de uma worktree sem sobrescrever `DATABASE_URL` falha, ou pior, mede o banco errado.
 Para os testes isso não vale: `scripts/frente-testar.sh` usa o banco clonado da frente.
 
-⚠️ `cobranca-espelho-quatro-relatorios` **tem migration** (`Version20260813210000`): 5 colunas em
-`cobranca_relatorio_linha`, 1 em `cobranca_relatorio_totalizador` e a troca do índice único
-`uniq_cobranca_relatorio_arquivo` (o `tipo` entra na chave). Nenhuma toca tabela de dívida. A regra da
-casa manda **uma frente com migration por vez** — `cobranca-acompanhamento-canonico` também tem 4, mas
-está PARADA e não avança, então não há disputa; quem revivê-la precisa ler esta linha antes de gerar a
-próxima versão.
-
-⚠️ `sync-sistema-manda` tocará `src/Pasta/UseCase/CriarPastaUseCase.php`, `PastaController::criar()` e o
-modal `_partials/modal_nova_pasta.html.twig` (numeração automática), além de `src/Sync/` inteiro. Frente de
-Cobrança que mexa em Pasta precisa saber. Base é o `master` **local** (1 commit à frente de `origin/master`:
-só o commit docs da spec `3702452f`) — não é empilhamento sobre outra frente.
+⚠️ A regra da casa manda **uma frente com migration por vez**. Hoje só a
+`cobranca-acompanhamento-canonico` tem migration pendente (4), e está PARADA — então não há disputa;
+quem revivê-la precisa ler o bloco dela antes de gerar a próxima versão.
 
 ### 🛑 `cobranca-acompanhamento-canonico` — parada, NÃO apagar
 
@@ -64,6 +52,18 @@ aqui faz outra pessoa decidir errado sem nunca saber por quê.*
 
 ⚠️ **Não apagar a branch** (decisão do dono, 13/08): são 23 commits de trabalho real. Ele decide
 depois se revive ou descarta. Até lá ela fica aqui, parada e visível.
+
+`cobranca-espelho-quatro-relatorios` foi **integrada em 2026-08-14** (fast-forward para `0194be63`).
+Ela trouxe a migration `Version20260813210000` (5 colunas em `cobranca_relatorio_linha`, 1 em
+`cobranca_relatorio_totalizador`, e o `tipo` entrando no índice único `uniq_cobranca_relatorio_arquivo`
+— nenhuma toca tabela de dívida). O segundo passo que todo mundo pula foi feito: master trazido para
+dentro da frente (limpo, zero conflitos) e **suíte rodada de novo no master depois do merge** —
+3771/3771, 14.239 asserções. A carga em produção segue
+[runbooks/espelho-carregar-em-producao.md](runbooks/espelho-carregar-em-producao.md).
+
+`sync-sistema-manda` foi **integrada, publicada e deployada** antes disso (`d55ebf16`). ⚠️ **O cron e o
+worker do Drive continuam pausados em produção** e o smoke da tela ainda não foi feito — religar é
+decisão do dono, não consequência do próximo deploy.
 
 `cobranca-dupla-contagem` foi **integrada, publicada e deployada em 2026-08-13** (`99948524`), e a
 reconciliação **rodou em produção**: 25 dívidas corrigidas, R$ 1.429,55 fora do saldo do devedor, e a
