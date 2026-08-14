@@ -1,0 +1,55 @@
+{# Conteúdo do aviso de pasta duplicada (D12.5). COMPARTILHADO por dois lugares:
+   - a página de fallback sem-JS (confirmar_duplicada.html.twig);
+   - a modal AJAX (_aviso_duplicada_modal.html.twig).
+   NÃO inclui o botão "Criar mesmo assim" — cada um dos dois monta o seu (a página
+   reenvia um form com confirmar=1; a modal dispara via JS).
+
+   Variáveis:
+     total       (int)  — número REAL de semelhantes; NÃO é o tamanho da lista.
+     semelhantes (list) — truncada em 5 (há par cliente+ação com 27 pastas em produção;
+                          mostrar "5" como total seria número errado com cara de certo).
+     nomeCliente (?str)
+     nomeAcao    (?str)
+#}
+<p class="mb-3">
+    Encontramos {{ total }}
+    {{ total == 1 ? 'pasta já cadastrada' : 'pastas já cadastradas' }}
+    para <strong>{{ nomeCliente }}</strong>{% if nomeAcao %} em <strong>{{ nomeAcao }}</strong>{% endif %}.
+    {% if total > semelhantes|length %}
+        Mostrando {{ semelhantes|length }} mais recentes:
+    {% else %}
+        Confira antes de criar outra:
+    {% endif %}
+</p>
+
+<div class="table-responsive mb-3">
+    <table class="table table-sm align-middle mb-0">
+        <thead>
+            <tr>
+                <th scope="col">Número</th>
+                <th scope="col">Cliente</th>
+                <th scope="col">Ação</th>
+                <th scope="col">Criada em</th>
+                <th scope="col"></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for pasta in semelhantes %}
+                <tr>
+                    <td>{{ pasta.nup }}</td>
+                    <td>{{ pasta.nomeCliente }}</td>
+                    <td>{{ pasta.nomeAcao ?? '—' }}</td>
+                    <td>{{ pasta.criadoEm ? pasta.criadoEm|date('d/m/Y') : '—' }}</td>
+                    <td class="text-end">
+                        <a href="{{ path('pasta_show', {id: pasta.id}) }}"
+                           class="btn btn-outline-secondary btn-sm" target="_blank" rel="noopener">Abrir</a>
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<p class="text-muted small mb-0">
+    Se este for mesmo um caso novo, pode criar — o sistema atribuirá um número próprio.
+</p>

@@ -343,4 +343,92 @@ final class CriarPastaControllerTest extends JusPrimeWebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         self::assertCount(0, $em->getRepository(Pasta::class)->findBy(['tenant' => $tenant]));
     }
+
+    // ───────────────────────────────────────────────────────────────────────────────────────
+    // D12.5 — caminho AJAX. O aviso virou MODAL: a modal de nova pasta envia por fetch e o
+    // controller devolve JSON {status: ok|duplicada|erro}. Sem JS, o POST cai no fallback de
+    // página (coberto pelos testes acima). Aqui exercitamos o JSON.
+    // ───────────────────────────────────────────────────────────────────────────────────────
+
+    #[TestDox('D12.5 AJAX: cliente+ação repetidos devolvem JSON status=duplicada com o HTML da modal')]
+    public function testAjaxDuplicadaDevolveJsonComModal(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $client->request('POST', '/pasta/nova', ['nome_cliente' => 'JORGE TEIXEIRA', 'nome_acao' => 'EXECUÇÃO']);
+        self::assertResponseRedirects();
+
+        $client->request(
+            'POST',
+            '/pasta/nova',
+            ['nome_cliente' => 'JORGE TEIXEIRA', 'nome_acao' => 'EXECUÇÃO'],
+            [],
+            ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest'],
+        );
+
+        self::assertResponseIsSuccessful();
+        self::assertJson((string) $client->getResponse()->getContent());
+        $json = json_decode((string) $client->getResponse()->getContent(), true);
+
+        self::assertSame('duplicada', $json['status']);
+        self::assertStringContainsString('Já existe uma pasta parecida', $json['html']);
+        self::assertStringContainsString('Criar mesmo assim', $json['html']);
+
+        // Não criou a segunda pasta sem o usuário confirmar.
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        self::assertCount(1, $em->getRepository(Pasta::class)->findBy(['tenant' => $tenant]));
+    }
+
+    #[TestDox('D12.5 AJAX: caso novo devolve JSON status=ok com a URL de redirecionamento')]
+    public function testAjaxCriacaoDevolveJsonComRedirect(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $client->request(
+            'POST',
+            '/pasta/nova',
+            ['nome_cliente' => 'CLIENTE NOVO', 'nome_acao' => 'COBRANÇA'],
+            [],
+            ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest'],
+        );
+
+        self::assertResponseIsSuccessful();
+        $json = json_decode((string) $client->getResponse()->getContent(), true);
+
+        self::assertSame('ok', $json['status']);
+        self::assertStringContainsString('/pasta/', (string) $json['redirect']);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        self::assertCount(1, $em->getRepository(Pasta::class)->findBy(['tenant' => $tenant]));
+    }
+
+    #[TestDox('D12.5 AJAX: confirmar=1 cria mesmo assim e devolve status=ok (aviso NÃO bloqueia)')]
+    public function testAjaxConfirmarCriaMesmoAssim(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $client->request('POST', '/pasta/nova', ['nome_cliente' => 'MESMO CLIENTE', 'nome_acao' => 'MESMA ACAO']);
+        self::assertResponseRedirects();
+
+        $client->request(
+            'POST',
+            '/pasta/nova',
+            ['nome_cliente' => 'MESMO CLIENTE', 'nome_acao' => 'MESMA ACAO', 'confirmar' => '1'],
+            [],
+            ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest'],
+        );
+
+        self::assertResponseIsSuccessful();
+        $json = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertSame('ok', $json['status']);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        self::assertCount(2, $em->getRepository(Pasta::class)->findBy(['tenant' => $tenant]));
+    }
 }

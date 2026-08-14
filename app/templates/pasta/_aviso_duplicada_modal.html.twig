@@ -1,0 +1,21 @@
+{# Miolo da modal de aviso de pasta duplicada (D12.5), renderizado pelo PastaController e
+   injetado via AJAX em #avisoDuplicadaConteudo (ver _partials/modal_nova_pasta.html.twig).
+   O botão "Criar mesmo assim" NÃO é um form: carrega os dados em data-* e o JS reenvia
+   com confirmar=1. Variáveis: total, semelhantes, nomeCliente, nomeAcao. #}
+<div class="modal-header py-2">
+    <h6 class="modal-title">
+        <i class="bi bi-exclamation-triangle me-1 text-warning"></i>
+        Já existe uma pasta parecida
+    </h6>
+    <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal" aria-label="Fechar"></button>
+</div>
+<div class="modal-body py-3">
+    {{ include('pasta/_aviso_duplicada_conteudo.html.twig') }}
+</div>
+<div class="modal-footer py-2">
+    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+    <button type="button" class="btn btn-primary btn-sm" id="btnCriarDuplicadaMesmoAssim"
+            data-nome-cliente="{{ nomeCliente }}" data-nome-acao="{{ nomeAcao }}">
+        <i class="bi bi-check-lg me-1"></i> Criar mesmo assim
+    </button>
+</div>

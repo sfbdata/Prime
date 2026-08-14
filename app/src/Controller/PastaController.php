@@ -163,7 +163,18 @@ class PastaController extends AbstractController
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
         $tenant = $this->tenantContext->getCurrentTenant();
+
+        // A modal de nova pasta envia por AJAX (o aviso de duplicada é modal, não página). Sem JS,
+        // o POST cai no caminho de sempre (render/redirect) — degradação graciosa, mesmo controller.
+        $ajax = $request->isXmlHttpRequest();
+
         if (!$this->permissionChecker->canAccessModule($currentUser, $tenant, 'pastas')) {
+            if ($ajax) {
+                return new JsonResponse(
+                    ['status' => 'erro', 'mensagem' => 'Você não tem permissão para acessar o módulo de pastas.'],
+                    Response::HTTP_FORBIDDEN,
+                );
+            }
             $this->addFlash('warning', 'Você não tem permissão para acessar o módulo de pastas.');
             return $this->redirectToRoute('expediente_index');
         }
@@ -184,14 +195,23 @@ class PastaController extends AbstractController
         if (!$request->request->getBoolean('confirmar') && $tenant !== null) {
             $semelhantes = $this->pastaRepository->findSemelhantesPorClienteEAcao($tenant, $nomeCliente, $nomeAcao);
             if ($semelhantes !== []) {
-                return $this->render('pasta/confirmar_duplicada.html.twig', [
+                $dados = [
                     'semelhantes' => $semelhantes,
                     // O TOTAL não é o tamanho da lista: ela é truncada em 5 e há par com 27
                     // pastas em produção. A tela mostra as 5 mais recentes e diz o total real.
                     'total'       => $this->pastaRepository->contarSemelhantesPorClienteEAcao($tenant, $nomeCliente, $nomeAcao),
                     'nomeCliente' => $nomeCliente,
                     'nomeAcao'    => $nomeAcao,
-                ]);
+                ];
+                if ($ajax) {
+                    // Devolve só o miolo da modal, pronto para o JS injetar e exibir.
+                    return new JsonResponse([
+                        'status' => 'duplicada',
+                        'html'   => $this->renderView('pasta/_aviso_duplicada_modal.html.twig', $dados),
+                    ]);
+                }
+                // Sem JS: página inteira de confirmação (fallback, mesmo conteúdo).
+                return $this->render('pasta/confirmar_duplicada.html.twig', $dados);
             }
         }
 
@@ -203,6 +223,12 @@ class PastaController extends AbstractController
         try {
             $pasta = $this->criarPastaUseCase->executar($dto, $currentUser, $tenant);
         } catch (\InvalidArgumentException $e) {
+            if ($ajax) {
+                return new JsonResponse(
+                    ['status' => 'erro', 'mensagem' => $e->getMessage()],
+                    Response::HTTP_UNPROCESSABLE_ENTITY,
+                );
+            }
             $this->addFlash('error', $e->getMessage());
 
             return $this->redirectToRoute('expediente_index');
@@ -210,6 +236,13 @@ class PastaController extends AbstractController
 
         if ($tenant !== null) {
             $this->syncDispatcher->despachar($pasta, $currentUser, $tenant);
+        }
+
+        if ($ajax) {
+            return new JsonResponse([
+                'status'   => 'ok',
+                'redirect' => $this->generateUrl('pasta_show', ['id' => $pasta->getId()]),
+            ]);
         }
 
         $this->addFlash('success', 'Pasta criada com sucesso.');

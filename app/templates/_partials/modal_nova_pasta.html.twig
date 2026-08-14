@@ -43,3 +43,92 @@
         </div>
     </div>
 </div>
+
+{# ── Modal: aviso de pasta parecida (D12.5) ── conteúdo injetado via AJAX pelo PastaController.
+   O aviso deixou de ser página inteira; agora abre sobre a tela de nova pasta. #}
+<div class="modal fade" id="modalAvisoDuplicada" tabindex="-1" aria-labelledby="modalAvisoDuplicadaLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:620px;">
+        <div class="modal-content" id="avisoDuplicadaConteudo"></div>
+    </div>
+</div>
+
+<script>
+(function () {
+    var form = document.getElementById('form-nova-pasta-modal');
+    if (!form) { return; }
+
+    var erroBox    = document.getElementById('modalNovaPastaErro');
+    var novaEl     = document.getElementById('modalNovaPasta');
+    var avisoEl    = document.getElementById('modalAvisoDuplicada');
+    var avisoMiolo = document.getElementById('avisoDuplicadaConteudo');
+
+    function mostrarErro(msg) {
+        if (!erroBox) { return; }
+        erroBox.textContent = msg;
+        erroBox.style.display = '';
+    }
+    function limparErro() {
+        if (!erroBox) { return; }
+        erroBox.textContent = '';
+        erroBox.style.display = 'none';
+    }
+
+    // POST via fetch. O controller responde JSON {status: ok|duplicada|erro} quando é AJAX.
+    function enviar(dados) {
+        return fetch(form.getAttribute('action'), {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: dados,
+        }).then(function (resp) {
+            return resp.json().catch(function () { return {}; });
+        }).then(function (json) {
+            if (json.status === 'ok' && json.redirect) {
+                window.location = json.redirect;
+                return;
+            }
+            if (json.status === 'duplicada') {
+                avisoMiolo.innerHTML = json.html || '';
+                var abrirAviso = function () { bootstrap.Modal.getOrCreateInstance(avisoEl).show(); };
+                // Fecha a modal de nova pasta e só abre a de aviso QUANDO ela terminou de sumir
+                // (o hidden.bs.modal). Mostrar as duas juntas deixa o backdrop preso — bug clássico
+                // de modais empilhadas no Bootstrap.
+                var instNova = novaEl ? bootstrap.Modal.getInstance(novaEl) : null;
+                if (instNova) {
+                    novaEl.addEventListener('hidden.bs.modal', function once() {
+                        novaEl.removeEventListener('hidden.bs.modal', once);
+                        abrirAviso();
+                    });
+                    instNova.hide();
+                } else {
+                    abrirAviso();
+                }
+                return;
+            }
+            mostrarErro((json && json.mensagem) ? json.mensagem : 'Não foi possível criar a pasta.');
+        }).catch(function () {
+            mostrarErro('Falha de conexão ao criar a pasta. Tente de novo.');
+        });
+    }
+
+    form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        limparErro();
+        enviar(new FormData(form));
+    });
+
+    // "Criar mesmo assim" está no HTML injetado — captura por delegação e reenvia com confirmar=1.
+    if (avisoEl) {
+        avisoEl.addEventListener('click', function (e) {
+            var btn = e.target.closest('#btnCriarDuplicadaMesmoAssim');
+            if (!btn) { return; }
+            e.preventDefault();
+            btn.disabled = true;
+            var fd = new FormData();
+            fd.append('nome_cliente', btn.getAttribute('data-nome-cliente') || '');
+            fd.append('nome_acao', btn.getAttribute('data-nome-acao') || '');
+            fd.append('confirmar', '1');
+            enviar(fd).then(function () { btn.disabled = false; });
+        });
+    }
+})();
+</script>
