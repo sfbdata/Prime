@@ -117,6 +117,13 @@ final class CoberturaDoEspelho
      * Sem `emitidoEm`, cai para `dadosAte`; sem os dois, o lote fica sozinho — nunca agrupado por
      * engano com outro de data desconhecida.
      *
+     * ⚠️ **Medido: `dadosAte` é NULL em 12 de 35 lotes** — todos os de acordos, receitas e cadastro,
+     * porque esses relatórios não declaram data de corte (só a inadimplência declara). Para eles a
+     * ordenação `dadosAte DESC, id DESC` cai no `id`, ou seja, **ordem de inserção**. Hoje não morde
+     * (os 12 têm `emitidoEm` idêntico dentro de cada tipo); morde no dia em que uma segunda emissão
+     * for carregada fora de ordem cronológica. O conserto durável é ordenar por `emitidoEm` quando
+     * `dadosAte` for nulo — fica para quando houver mais de uma emissão desses tipos no espelho.
+     *
      * @param list<\App\Cobranca\Entity\RelatorioImportado> $lotes já ordenados do mais novo ao mais velho
      *
      * @return list<\App\Cobranca\Entity\RelatorioImportado>

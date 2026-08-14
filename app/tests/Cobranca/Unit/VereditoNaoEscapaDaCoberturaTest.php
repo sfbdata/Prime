@@ -23,8 +23,10 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  * Este teste **lê o código-fonte** dos três instrumentos e proíbe a chamada direta. É feio de
  * propósito: o defeito é de disciplina, e disciplina não se testa por comportamento.
  *
- * ⚠️ Se um instrumento novo do espelho nascer, ele entra na lista abaixo. Um comando que imprima
- * dinheiro sem passar pela cobertura é o defeito, não a exceção.
+ * ⚠️ **Não há lista**: os instrumentos são descobertos por varredura (comando `app:cobranca:espelho:*`
+ * que não seja o carregador). Um instrumento novo entra sozinho — e
+ * `testAVarreduraAchaOsInstrumentos` obriga a decidir conscientemente se ele reporta número de
+ * dinheiro quando a contagem mudar.
  */
 #[CoversClass(VereditoSobCobertura::class)]
 final class VereditoNaoEscapaDaCoberturaTest extends TestCase

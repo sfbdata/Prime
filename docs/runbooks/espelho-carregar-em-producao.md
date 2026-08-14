@@ -56,23 +56,16 @@ que já colou.**
 Os lotes ficam em `/opt/jusprime/lotes/<data>` no **host**; o container não os enxerga.
 
 ```bash
-# 1. DEPLOY (rebuild) — prod é imagem baked: `git pull` + migrate num container antigo NÃO aplica
-#    nada, e os comandos abaixo estouram com TypeError no construtor (medido no dev: rc=255).
-#    Use o script de deploy do projeto; sem este passo, nenhum dos seguintes é válido.
-
-# 2. levar o lote para dentro do container
-docker exec jusprime_php_prod mkdir -p /tmp/espelho
-docker cp /opt/jusprime/lotes/<data> jusprime_php_prod:/tmp/espelho/<data>
-# `docker cp` de DIRETÓRIO leva permissão restrita junto — sem isto o PHP não lê os arquivos
-docker exec -u 0 jusprime_php_prod chmod -R a+rX /tmp/espelho
-
-# 3. BACKUP — obrigatório, e não é formalidade: a migration faz DROP INDEX num índice
-#    ÚNICO de tabela populada. Colisão medida em zero (9 lotes, todos inadimplência,
-#    0 pares colidindo — MCP de prod, 13/08), mas medição não substitui backup.
+# ═══ 1. BACKUP — ANTES DO DEPLOY, e a ordem é o ponto ═══════════════════════════
+#
+# 🔴 O DEPLOY JÁ RODA A MIGRATION. `app/bin/entrypoint.prod.sh:34` executa
+#    `doctrine:migrations:migrate` na subida do container, e `scripts/deploy-prod.sh:59`
+#    roda de novo. Quem faz o backup depois do deploy está fotografando o schema JÁ
+#    ALTERADO — backup que não serve para o que foi feito para servir.
+#
 # ⚠️ O nome vai numa VARIÁVEL: `docker cp` NÃO expande curinga (o caminho com prefixo
-#    `container:` não passa pelo shell, e o docker o trata como literal). Um `*` aqui
-#    falha justamente no passo mais crítico — e backup que falha é pior que backup
-#    nenhum, porque cria a ilusão de que existe.
+#    `container:` não passa pelo shell). Um `*` aqui falha justamente no passo mais
+#    crítico, e backup que falha é pior que backup nenhum — cria a ilusão de que existe.
 DUMP="pre-espelho-4relatorios-$(date +%Y%m%d-%H%M).dump"
 mkdir -p /opt/jusprime/backups
 docker exec jusprime_db_prod pg_dump -U jusprime -d prime -Fc -f "/tmp/$DUMP"
@@ -82,17 +75,33 @@ ls -la "/opt/jusprime/backups/$DUMP"   # CONFIRA o tamanho — 0 byte é falha
 docker exec jusprime_db_prod pg_restore -l "/tmp/$DUMP" | head -5   # tem de listar objetos
 docker exec jusprime_db_prod rm -f "/tmp/$DUMP"                     # não deixe cópia no container
 
-# 4. migration (só na primeira vez, e só DEPOIS do passo 1)
+# ═══ 2. DEPLOY (rebuild) — aplica a migration junto ════════════════════════════
+#
+# Prod é imagem baked: `git pull` + migrate num container antigo NÃO aplica nada, e os
+# comandos abaixo estouram com TypeError no construtor (medido no dev: rc=255).
+bash scripts/deploy-prod.sh
+#
+# ⚠️ O entrypoint roda a migration com `|| true`: migration quebrada NÃO derruba o
+#    container, ela falha em silêncio. Por isso o passo 3 confere em vez de confiar.
 
+# ═══ 3. CONFERIR que a migration entrou (não é rodá-la de novo) ════════════════
 docker exec -w /var/www/app -e APP_DEBUG=0 jusprime_php_prod \
-  php bin/console doctrine:migrations:migrate --no-interaction --env=prod
+  php bin/console doctrine:migrations:status --env=prod | grep -i "already executed\|not migrated"
+# `Version20260813210000` tem de constar como executada. Se não constar, PARE:
+# rode a migration à mão e só então siga.
 
-# 5. carregar os QUATRO relatórios das três carteiras
+# ═══ 4. levar o lote para dentro do container ══════════════════════════════════
+docker exec jusprime_php_prod mkdir -p /tmp/espelho
+docker cp /opt/jusprime/lotes/<data> jusprime_php_prod:/tmp/espelho/<data>
+# `docker cp` de DIRETÓRIO leva permissão restrita junto — sem isto o PHP não lê os arquivos
+docker exec -u 0 jusprime_php_prod chmod -R a+rX /tmp/espelho
+
+# ═══ 5. carregar os QUATRO relatórios das três carteiras ═══════════════════════
 docker exec -w /var/www/app -e APP_DEBUG=0 jusprime_php_prod \
   php -d memory_limit=512M bin/console app:cobranca:espelho:carregar \
   --tenant-id=1 --diretorio=/tmp/espelho/<data> --env=prod
 
-# 6. os três instrumentos, cada um declarando a própria cobertura
+# ═══ 6. os três instrumentos, cada um declarando a própria cobertura ═══════════
 docker exec -w /var/www/app -e APP_DEBUG=0 jusprime_php_prod \
   php -d memory_limit=512M bin/console app:cobranca:espelho:conferir --tenant-id=1 --env=prod
 
@@ -140,7 +149,12 @@ investigação antes de seguir.
 |---:|---|
 | `0` | ok |
 | `1` | **recusa controlada OU exceção não capturada** — os dois saem `1`, então leia a tela |
+| `67` | `espelho:encargos`: **cobertura incompleta** — é o esperado hoje, não é falha |
 | `69` | 🔴 **recusado: o log de SQL está ligado** e despejaria PII |
+
+📌 **O passo 6 vai devolver `67` no `espelho:encargos`, e isso é o esperado.** Ele significa "rodei,
+não achei nada divergente, e não conferi tudo" — a mesma verdade que a caixa de aviso diz em texto.
+Não é falha e não bloqueia nada.
 
 ⚠️ **`1` é ambíguo de propósito neste comando**: é o `Command::FAILURE` de toda recusa limpa (tenant
 inexistente, `--tipo` junto de `--diretorio`, arquivo não reconhecido, recorte errado) **e** o que o

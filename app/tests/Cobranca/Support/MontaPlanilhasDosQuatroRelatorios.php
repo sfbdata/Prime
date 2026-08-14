@@ -184,7 +184,7 @@ trait MontaPlanilhasDosQuatroRelatorios
         foreach ($unidades as $i => $unidade) {
             $linhas[] = [
                 $unidade, 'CONDOMINO ' . $i, 'Proprietário', '000.000.000-0' . $i,
-                '-', 'Área Rural - S/N', 'condomino' . $i . '@exemplo.com', '+55 (61) 90000000' . $i,
+                '-', 'Área Rural - S/N', 'condomino' . $i . '@example.com', '+55 (61) 90000000' . $i,
             ];
         }
 

@@ -36,8 +36,12 @@ final class LeitoresDoEspelho
     }
 
     /**
-     * Todos os quatro, na ordem do enum — usado pela declaração de cobertura, que precisa saber o
-     * universo do que PODIA ter sido lido, não só o que foi.
+     * Todos os quatro, na ordem do enum.
+     *
+     * ⚠️ **Sem chamador hoje.** O docblock anterior dizia que a declaração de cobertura usava isto —
+     * não usa: `CoberturaDoEspelho` itera `TipoRelatorioContabil::cases()` direto, porque precisa dos
+     * TIPOS, não dos leitores. Mantido porque a fatia 0c (conferir o conteúdo dos três relatórios
+     * novos) vai precisar percorrer os leitores; se ela mudar de desenho, este método sai.
      *
      * @return array<string, LeitorDeEspelho>
      */

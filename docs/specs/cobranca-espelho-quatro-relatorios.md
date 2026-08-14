@@ -491,10 +491,21 @@ CPF em arquivos **já publicados no remoto** —
 - `docs/specs/cobranca-importar-cadastro-condominos.md`
 - `docs/gestao-cobrancas/mockup-ajuste10-objeto-show.html`
 
-**Podem ser sintéticos** — mockups e specs costumam usar dado de exemplo. Se não forem, é vazamento
-**no remoto**, que é pior que o desta frente porque já saiu da máquina e não se resolve reescrevendo
-commit local.
+🔴 **Não são todos sintéticos — um foi MEDIDO e é real.** A quinta revisão conferiu dígito
+verificador e cruzou contra o banco (`saas_ux`, dataset de produção), sem citar valor:
 
-⛔ **Deliberadamente NÃO investigado aqui** (decisão do dono): vira fatia própria. Quando ela for
-aberta, a varredura tem de cobrir **o repositório inteiro e o histórico**, não só os três arquivos
-citados — e por padrão, nunca por valor (§8.3, regra 3).
+| arquivo | dígito verificador | casa com dado real? |
+|---|---|---|
+| `docs/specs/cobranca-importar-cadastro-condominos.md` | **válido** | 🔴 **sim — 1 ocorrência em `cobranca_relatorio_linha.bruto`** |
+| `docs/specs/cobranca-etapa7-importacao.md` | inválido | não |
+| `docs/gestao-cobrancas/mockup-ajuste10-objeto-show.html` | inválido | não |
+
+Ou seja: **CPF de condômino real, versionado e já publicado no remoto.** É pior que o vazamento desta
+frente, porque já saiu da máquina — reescrever commit local não resolve.
+
+⛔ **Deliberadamente NÃO tratado aqui** (decisão do dono, 14/08): vira fatia própria. O que ela vai
+precisar decidir, e que não é técnico: se limpar histórico já publicado vale o custo, ou se basta
+remover da árvore e registrar.
+
+Quando for aberta, a varredura tem de cobrir **o repositório inteiro e o histórico** — não só estes
+três arquivos —, e ser montada **por padrão, nunca por valor** (§8.3, regra 3).

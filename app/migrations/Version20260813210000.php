@@ -58,8 +58,11 @@ final class Version20260813210000 extends AbstractMigration
         // checagem do código discordam: o mesmo arquivo recarregado com `--tipo` diferente passa pela
         // checagem em memória e estoura no índice, no meio do lote, com os anteriores já gravados.
         //
-        // Seguro de rodar: em produção há 9 lotes, todos `inadimplencia`, então nenhum par colide e o
-        // índice novo aceita exatamente o mesmo conjunto que o antigo aceitava.
+        // 🔑 O `up()` NÃO PODE falhar por dado existente, e a razão é estrutural, não estatística:
+        // o índice novo tem uma coluna A MAIS, logo é estritamente MAIS PERMISSIVO — todo par que
+        // passava na chave de 4 colunas passa na de 5. (A medição corrobora: em produção há 9 lotes,
+        // todos `inadimplencia`, 9 chaves distintas, 0 colisões — MCP de prod, 13/08. Mas é o
+        // argumento estrutural que garante, não a contagem: contagem envelhece.)
         $this->addSql('DROP INDEX uniq_cobranca_relatorio_arquivo');
         $this->addSql(
             'CREATE UNIQUE INDEX uniq_cobranca_relatorio_arquivo '
@@ -67,6 +70,13 @@ final class Version20260813210000 extends AbstractMigration
         );
     }
 
+    /**
+     * ⚠️ **O `down()` pode FALHAR, e falhar é o certo.** Ele recria o índice sem `tipo`: se, depois da
+     * carga, existir o mesmo arquivo gravado sob dois tipos diferentes (possível via `--tipo`), o
+     * `CREATE UNIQUE INDEX` de 4 colunas encontra duplicata e recusa. Não é defeito da migration — é
+     * o banco avisando que o rollback perderia informação. Nesse caso, decida o que fazer com os
+     * lotes duplicados ANTES de reverter.
+     */
     public function down(Schema $schema): void
     {
         $this->addSql('DROP INDEX uniq_cobranca_relatorio_arquivo');
