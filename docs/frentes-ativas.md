@@ -9,6 +9,17 @@ Quem abre uma frente acrescenta a linha. Quem integra tira.
 |---|---|---|---|---|---|
 | `cobranca-acompanhamento-canonico` | Cobrança (modelo objeto/caso) | **sim — 4** | `docs/gestao-cobrancas/` | 🛑 **PARADA** (ver abaixo) | `origin/master` @ `0bb1f29` |
 | `expediente-ux` | Expediente + Pasta (telas) | não | `app/templates/expediente/`, `app/templates/pasta/` | implementando, **28 commits atrás do master** | `origin/codex/colaboracao-cobrancas` |
+| `pasta-valor-causa` | Pasta (aba Financeiro) | **sim — 1** | `app/templates/pasta/_financeiro.html.twig`, `app/src/Controller/PastaController.php`, `app/src/Pasta/Entity/Pasta.php` | implementando | `origin/master` @ `5e53478b` |
+
+⚠️ `pasta-valor-causa` e `expediente-ux` **tocam a mesma pasta de templates** (`app/templates/pasta/`)
+mas **arquivos diferentes**: a primeira mexe em `_financeiro.html.twig`, a segunda em `_filtros.html.twig`.
+Quem integrar por último confere o diff das duas antes de mergear — sobreposição de diretório não é
+conflito, mas é o lugar onde ele apareceria.
+
+⚠️ A regra de **uma frente com migration por vez** foi respeitada: a única outra frente com migration
+pendente (`cobranca-acompanhamento-canonico`, 4) está **PARADA**. A migration desta frente é numerada
+**depois** de todas as existentes (inclusive a `Version20260813210000`, já integrada) para não
+disputar ordem com elas se a frente parada for revivida.
 
 ⚠️ `expediente-ux` estava **fora deste registro** e só apareceu num `git worktree list` de 14/08 — o
 mesmo defeito que a `cobranca-acompanhamento-canonico` já tinha cometido. Ela tem 2 commits e 4
