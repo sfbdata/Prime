@@ -416,11 +416,17 @@ $this->documentos = new ArrayCollection();
     }
 
     /**
-     * O "primeiro cliente" da pasta: o vínculo mais antigo.
+     * O "primeiro cliente" da pasta: o de cadastro mais antigo.
      *
-     * Uma ação pode ter vários autores, e a média por CPF é de um CPF só — este
-     * é o critério que decide de quem ela é. Mais antigo primeiro porque é
-     * estável: vincular outro cliente depois não troca o número na tela.
+     * Uma ação pode ter vários autores, e a média por CPF é de um cliente só —
+     * este é o critério que decide de quem ela é.
+     *
+     * Atenção ao que o critério NÃO é: `pasta_cliente` é uma ManyToMany pura,
+     * sem coluna de data, então não há como saber qual vínculo foi feito
+     * primeiro. O que se ordena aqui é o id do **cliente**, ou seja a ordem em
+     * que ele entrou no cadastro do escritório. Consequência prática: vincular
+     * depois um cliente cadastrado há mais tempo **troca** o número mostrado na
+     * tela. É determinístico, não é estável.
      */
     public function getPrimeiroCliente(): ?Cliente
     {

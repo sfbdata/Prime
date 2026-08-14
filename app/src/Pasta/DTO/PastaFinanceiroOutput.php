@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Pasta\DTO;
 
 use App\Cliente\Entity\Cliente;
+use App\Cliente\Entity\ClientePJ;
 use App\Pasta\Entity\Pasta;
 
 /**
@@ -23,10 +24,11 @@ final readonly class PastaFinanceiroOutput
         public string $valorCausaFormatado,
         public ?string $clienteNome,
         public string $mediaCpfFormatada,
+        public string $mediaRotulo,
     ) {}
 
     /**
-     * @param ?Cliente $cliente vínculo mais antigo da pasta; nulo quando não há nenhum
+     * @param ?Cliente $cliente cliente de cadastro mais antigo da pasta; nulo quando não há nenhum
      * @param ?string  $mediaCpf média já apurada pelo repositório, em decimal
      */
     public static function montar(Pasta $pasta, ?Cliente $cliente, ?string $mediaCpf): self
@@ -36,7 +38,18 @@ final readonly class PastaFinanceiroOutput
             valorCausaFormatado: self::formatarReais($pasta->getValorCausa()),
             clienteNome: $cliente?->getNomeExibicao(),
             mediaCpfFormatada: self::formatarReais($mediaCpf),
+            mediaRotulo: self::rotuloDaMedia($cliente),
         );
+    }
+
+    /**
+     * O rótulo acompanha quem é o cliente: empresa não tem CPF, e chamar de
+     * "Média por CPF" um número que agrupa CNPJ é dizer uma coisa por outra.
+     * Sem cliente vinculado fica o rótulo do caso comum, que é pessoa física.
+     */
+    private static function rotuloDaMedia(?Cliente $cliente): string
+    {
+        return $cliente instanceof ClientePJ ? 'Média por CNPJ' : 'Média por CPF';
     }
 
     /**

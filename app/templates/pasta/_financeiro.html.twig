@@ -168,7 +168,7 @@
        todas as pastas dele. Sem cliente vinculado não há CPF para agrupar, e a
        tela mostra travessão em vez de inventar um número. #}
     <div class="col-md-2 text-center">
-        <p class="financeiro-indicador-rotulo">Média por CPF</p>
+        <p class="financeiro-indicador-rotulo">{{ financeiro.mediaRotulo }}</p>
         <p id="financeiro-media-cpf" class="financeiro-indicador-valor">{{ financeiro.mediaCpfFormatada }}</p>
         {% if financeiro.clienteNome %}
             <p class="financeiro-indicador-nota text-muted" title="Média das pastas deste cliente">
@@ -399,9 +399,15 @@
             return inteiro.replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ',' + (centavos ?? '00');
         }
 
+        // Guarda o que estava no campo ao abrir: sair sem mexer não é edição, e
+        // não pode virar gravação nem linha de auditoria.
+        let vcValorAoAbrir = '';
+        let vcGravando     = false;
+
         function abrirEdicao() {
             vcErro.classList.add('d-none');
-            vcInput.value = paraPtBr(vcTexto.dataset.valor);
+            vcInput.value  = paraPtBr(vcTexto.dataset.valor);
+            vcValorAoAbrir = vcInput.value;
             vcTexto.classList.add('d-none');
             vcInput.classList.remove('d-none');
             vcInput.focus();
@@ -414,6 +420,9 @@
         }
 
         async function gravar() {
+            if (vcGravando) { return; }
+            vcGravando = true;
+
             const fd = new FormData();
             fd.append('_token', vcBloco.dataset.csrf);
             fd.append('valor_causa', vcInput.value);
@@ -435,6 +444,7 @@
 
                 vcTexto.dataset.valor = data.valor ?? '';
                 vcTexto.textContent   = data.valorFormatado;
+                vcValorAoAbrir        = vcInput.value;
                 // A média é do cliente, não da pasta: mudar o valor aqui muda o
                 // número ao lado, que volta recalculado do servidor.
                 if (vcMedia && typeof data.mediaFormatada !== 'undefined') {
@@ -445,6 +455,8 @@
             } catch (_) {
                 vcErro.textContent = 'Erro de rede. Tente novamente.';
                 vcErro.classList.remove('d-none');
+            } finally {
+                vcGravando = false;
             }
         }
 
@@ -458,9 +470,15 @@
             if (e.key === 'Escape') { e.preventDefault(); fecharEdicao(); }
         });
         vcInput.addEventListener('blur', function () {
-            // Sair do campo grava, como o resto da aba já faz (pró-bono e contrato
-            // salvam sozinhos). Com erro na tela o campo fica aberto para correção.
-            if (!vcInput.classList.contains('d-none')) { gravar(); }
+            if (vcInput.classList.contains('d-none')) { return; }
+
+            // Abrir e sair sem mexer não é edição: fecha e pronto, sem gravar e sem
+            // gerar linha de auditoria com o valor que já estava lá.
+            if (vcInput.value === vcValorAoAbrir) { fecharEdicao(); return; }
+
+            // Mudou de verdade: grava, como o resto da aba já faz (pró-bono e
+            // contrato salvam sozinhos). Com erro na tela o campo fica aberto.
+            gravar();
         });
     }
 

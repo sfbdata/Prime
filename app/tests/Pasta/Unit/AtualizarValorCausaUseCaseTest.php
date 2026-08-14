@@ -105,6 +105,7 @@ final class AtualizarValorCausaUseCaseTest extends TestCase
             'negativo com moeda'        => ['R$ -1,00'],
             'três casas decimais'       => ['12860,999'],
             'duas vírgulas'             => ['1,2,3'],
+            'zero com três casas'       => ['0.500'],
             'acima do teto da coluna'   => ['99999999999999,00'],
             'só o separador'            => [','],
         ];
@@ -130,6 +131,17 @@ final class AtualizarValorCausaUseCaseTest extends TestCase
                 'entrada recusada não pode deixar a entidade suja'
             );
         }
+    }
+
+    #[TestDox('"0.500" é recusado em vez de virar R$ 500,00 — grupo de milhar não começa em zero')]
+    public function testZeroPontoTresCasasNaoViraMilhar(): void
+    {
+        $pasta = new Pasta();
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('duas casas');
+
+        $this->useCase->executar($pasta, '0.500');
     }
 
     #[TestDox('três casas decimais são recusadas em vez de arredondadas em silêncio')]

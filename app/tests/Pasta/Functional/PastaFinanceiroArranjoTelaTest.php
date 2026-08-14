@@ -9,6 +9,7 @@ use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Cliente\Entity\ClientePF;
+use App\Cliente\Entity\ClientePJ;
 use App\Pasta\Entity\Pasta;
 use App\Tests\Factory\Cliente\ClientePFFactory;
 use App\Tests\Functional\JusPrimeWebTestCase;
@@ -200,6 +201,94 @@ final class PastaFinanceiroArranjoTelaTest extends JusPrimeWebTestCase
             $crawler->filter('.financeiro-faixa')->text(),
             'a média é de um cliente específico — a tela tem de dizer de quem'
         );
+    }
+
+    #[TestDox('Com vários clientes, manda o de cadastro mais antigo — e a tela diz qual é')]
+    public function testVariosClientesUsaODeCadastroMaisAntigo(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $em              = static::getContainer()->get(EntityManagerInterface::class);
+
+        // Cadastrado primeiro (id menor) — é este que deve mandar.
+        $primeiro = ClientePFFactory::createOne([
+            'tenant'       => $tenant,
+            'nomeCompleto' => 'Antonio Primeiro',
+        ])->_real();
+        $segundo = ClientePFFactory::createOne([
+            'tenant'       => $tenant,
+            'nomeCompleto' => 'Zulmira Segunda',
+        ])->_real();
+
+        self::assertLessThan(
+            $segundo->getId(),
+            $primeiro->getId(),
+            'o cenário depende de o primeiro cliente ter id menor'
+        );
+
+        // A pasta em tela tem os DOIS; a média mostrada tem de ser a do primeiro.
+        $pasta = $this->criarPasta($tenant, '10000.00');
+        $pasta->addCliente($segundo);
+        $pasta->addCliente($primeiro);
+
+        // Outra pasta só do primeiro, para a média dele diferir do valor desta.
+        $outraDoPrimeiro = $this->criarPasta($tenant, '30000.00');
+        $outraDoPrimeiro->addCliente($primeiro);
+
+        // E uma do segundo, com valor bem diferente, para o teste falhar se a
+        // escolha do cliente inverter.
+        $doSegundo = $this->criarPasta($tenant, '90000.00');
+        $doSegundo->addCliente($segundo);
+        $em->flush();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
+
+        self::assertSame(
+            'R$ 20.000,00',
+            trim($crawler->filter('#financeiro-media-cpf')->text()),
+            'a média tem de ser a do cliente de cadastro mais antigo (10.000 e 30.000)'
+        );
+        self::assertStringContainsString('ANTONIO PRIMEIRO', $crawler->filter('.financeiro-faixa')->text());
+        self::assertStringNotContainsString('ZULMIRA SEGUNDA', $crawler->filter('.financeiro-faixa')->text());
+    }
+
+    #[TestDox('Cliente empresa troca o rótulo para "Média por CNPJ" — empresa não tem CPF')]
+    public function testClientePessoaJuridicaMostraRotuloDeCnpj(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $em              = static::getContainer()->get(EntityManagerInterface::class);
+
+        $empresa = new ClientePJ();
+        $empresa->setRazaoSocial('Construtora Exemplo Ltda');
+        $empresa->setNomeFantasia('Construtora Exemplo');
+        // A coluna guarda 14 caracteres — só os dígitos, sem máscara.
+        $empresa->setCnpj('1234567800' . random_int(1000, 9999));
+        $empresa->setEnderecSede('Av. Teste, 1000');
+        $empresa->setRepresentanteLegal('Joana Representante');
+        $empresa->setRepresentanteCpf('111.222.333-44');
+        $empresa->setRepresentanteRg('12.345.678-9');
+        $empresa->setRepresentanteCargo('Sócia-administradora');
+        $empresa->setEmail('contato_' . uniqid() . '@exemplo.com');
+        $empresa->setCep('80000-000');
+        $empresa->setEndereco('Rua Teste, 1');
+        $empresa->setCidade('Curitiba');
+        $empresa->setEstado('PR');
+        $empresa->setTenant($tenant);
+        $em->persist($empresa);
+
+        $pasta = $this->criarPasta($tenant, '50000.00');
+        $pasta->addCliente($empresa);
+        $em->flush();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
+
+        $faixa = $crawler->filter('.financeiro-faixa')->text();
+        self::assertStringContainsString('Média por CNPJ', $faixa);
+        self::assertStringNotContainsString('Média por CPF', $faixa);
+        self::assertSame('R$ 50.000,00', trim($crawler->filter('#financeiro-media-cpf')->text()));
     }
 
     #[TestDox('Pasta sem valor da causa mostra travessão no lugar do número')]

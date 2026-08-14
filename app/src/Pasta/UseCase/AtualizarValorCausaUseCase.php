@@ -102,7 +102,10 @@ final class AtualizarValorCausaUseCase
             return [str_replace('.', '', $inteiro), $decimal];
         }
 
-        if (preg_match('/^\d{1,3}(\.\d{3})+$/', $texto) === 1) {
+        // Grupo de milhar nunca começa em zero: "0.500" não é meio milhar, é uma
+        // tentativa de decimal com três casas — que o passo seguinte recusa, em vez
+        // de virar R$ 500,00 em silêncio.
+        if (preg_match('/^[1-9]\d{0,2}(\.\d{3})+$/', $texto) === 1) {
             return [str_replace('.', '', $texto), ''];
         }
 

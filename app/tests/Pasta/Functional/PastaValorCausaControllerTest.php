@@ -43,6 +43,35 @@ final class PastaValorCausaControllerTest extends JusPrimeWebTestCase
         return [$user, $tenant];
     }
 
+    /**
+     * Usuário comum, com vínculo no escritório mas sem papel nenhum — logo, sem
+     * `resources.pasta.edit`. É quem o 403 de permissão precisa barrar.
+     *
+     * @return array{User, Tenant}
+     */
+    private function criarUsuarioSemPermissao(): array
+    {
+        $container = static::getContainer();
+        $em        = $container->get(EntityManagerInterface::class);
+        $hasher    = $container->get(UserPasswordHasherInterface::class);
+
+        $tenant = new Tenant();
+        $tenant->setName('Tenant Sem Permissao ' . uniqid());
+        $em->persist($tenant);
+
+        $user = new User();
+        $user->setEmail('test_sem_permissao_' . uniqid() . '@test.com');
+        $user->setFullName('Usuário Comum');
+        $user->setRoles(['ROLE_USER']);
+        $user->setIsActive(true);
+        $user->setPassword($hasher->hashPassword($user, 'senha123'));
+        $em->persist($user);
+        $em->persist(new UserTenant($user, $tenant));
+        $em->flush();
+
+        return [$user, $tenant];
+    }
+
     private function criarPasta(Tenant $tenant, ?string $valorCausa = null): Pasta
     {
         $em    = static::getContainer()->get(EntityManagerInterface::class);
@@ -171,6 +200,53 @@ final class PastaValorCausaControllerTest extends JusPrimeWebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->refresh($pasta);
         self::assertNull($pasta->getValorCausa());
+    }
+
+    #[TestDox('POST valor-causa SEM o campo no corpo retorna 422 e não apaga o valor gravado')]
+    public function testCampoAusenteNaoApagaOValor(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant, '12860.00');
+
+        $this->instalarCsrfStorage();
+        $client->loginUser($user);
+        $this->marcarTermosAceitos($client);
+
+        // Só o token: o campo `valor_causa` simplesmente não vem. Campo em branco
+        // limpa (é o combinado); campo ausente é requisição malformada e não pode
+        // destruir dado.
+        $client->request('POST', "/pasta/{$pasta->getId()}/valor-causa", [
+            '_token' => $this->gerarCsrf('pasta_valor_causa_' . $pasta->getId()),
+        ]);
+
+        self::assertResponseStatusCodeSame(422);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->refresh($pasta);
+        self::assertSame('12860.00', $pasta->getValorCausa());
+    }
+
+    #[TestDox('POST valor-causa de usuário sem permissão de edição retorna 403 e não grava')]
+    public function testUsuarioSemPermissaoRetorna403(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioSemPermissao();
+        $pasta           = $this->criarPasta($tenant, '12860.00');
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/valor-causa", [
+            '_token'      => $this->gerarCsrf('pasta_valor_causa_' . $pasta->getId()),
+            'valor_causa' => '99.999,00',
+        ]);
+
+        self::assertResponseStatusCodeSame(403);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->refresh($pasta);
+        self::assertSame('12860.00', $pasta->getValorCausa());
     }
 
     #[TestDox('POST valor-causa com texto inválido retorna 422 e preserva o valor anterior')]

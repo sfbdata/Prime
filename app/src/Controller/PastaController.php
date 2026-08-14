@@ -1488,8 +1488,14 @@ class PastaController extends AbstractController
             return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_FORBIDDEN);
         }
 
+        // Campo em BRANCO limpa o valor — foi o combinado. Campo AUSENTE não: uma
+        // requisição malformada não pode apagar dado gravado e ainda responder 200.
+        if (!$request->request->has('valor_causa')) {
+            return $this->json(['erro' => 'Requisição incompleta.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
         try {
-            $this->atualizarValorCausaUseCase->executar($pasta, $request->request->get('valor_causa'));
+            $this->atualizarValorCausaUseCase->executar($pasta, (string) $request->request->get('valor_causa'));
         } catch (\InvalidArgumentException $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
