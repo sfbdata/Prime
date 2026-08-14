@@ -7,9 +7,18 @@ Quem abre uma frente acrescenta a linha. Quem integra tira.
 
 | Frente (branch) | Domínio | Migration? | Arquivos compartilhados que toca | Estágio | Base |
 |---|---|---|---|---|---|
-| `cobranca-espelho-quatro-relatorios` | Cobrança (espelho) | **sim — 1** | `docs/specs/` | em revisão | `origin/master` @ `4ff88ee6` |
+| `cobranca-espelho-quatro-relatorios` | Cobrança (espelho) | **sim — 1** | `docs/specs/`, `docs/runbooks/` | **pronta para integrar** | `origin/master` @ `4ff88ee6` |
 | `cobranca-acompanhamento-canonico` | Cobrança (modelo objeto/caso) | **sim — 4** | `docs/gestao-cobrancas/` | 🛑 **PARADA** (ver abaixo) | `origin/master` @ `0bb1f29` |
 | `sync-sistema-manda` | Sync (Drive) + Pasta (numeração) | **não** | `docs/specs/fase2-import-export-sincronizacao.md` | implementando | `master` local @ `3702452f` |
+
+📌 **`origin/master` avançou para `d55ebf16` depois que esta frente foi cortada** (14/08). Os 14
+commits novos são todos da `sync-sistema-manda` (Sync + Pasta). Conferido por
+`comm -12` entre os dois diffs de nome de arquivo: **ZERO arquivos em comum** com esta frente.
+
+⚠️ Isso torna o conflito improvável, **não impossível**: verde na branch prova `master@4ff88ee6 + A`,
+não prova `master@d55ebf16 + A`. Antes de integrar, traga o master para dentro da frente e rode a
+suíte de novo — e depois do merge, rode no master. É o segundo passo que pega quebra cruzada, e é o
+que todo mundo pula. **Merge e atualização de base são do humano.**
 
 ⚠️ **Worktree não herda `app/.env.local`.** O `app/.env` versionado aponta para o banco `saas`, onde
 `cobranca_relatorio_importado` **não existe** — o dev de verdade usa `saas_ux`. Qualquer conferência

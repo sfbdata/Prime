@@ -81,14 +81,32 @@ docker exec jusprime_db_prod rm -f "/tmp/$DUMP"                     # não deixe
 # comandos abaixo estouram com TypeError no construtor (medido no dev: rc=255).
 bash scripts/deploy-prod.sh
 #
-# ⚠️ O entrypoint roda a migration com `|| true`: migration quebrada NÃO derruba o
-#    container, ela falha em silêncio. Por isso o passo 3 confere em vez de confiar.
+# 📌 Por que o passo 3 existe, sem exagero: `deploy-prod.sh:59` roda a migration
+#    SEM `|| true`, sob `set -euo pipefail` — migration quebrada aborta o deploy
+#    ruidosamente. E o DDL do Postgres é transacional, então falha no entrypoint
+#    (`entrypoint.prod.sh:34`, esse sim com `|| true`) não deixa a versão marcada, e
+#    a segunda passada refaz. O caminho em que uma falha silenciosa sobrevive é
+#    ESTREITO: o deploy abortar no healthcheck do php (linha 52) antes de chegar na
+#    59, ou o container ser subido fora do `deploy-prod.sh`. O passo 3 é barato e
+#    cobre justamente esse caminho.
 
-# ═══ 3. CONFERIR que a migration entrou (não é rodá-la de novo) ════════════════
+# ═══ 3. CONFERIR que a migration entrou ════════════════════════════════════════
+#
+# `migrations:status` NÃO serve aqui: ele imprime contadores agregados e as linhas
+# Previous/Current/Next/Latest, sem listar versão por versão. `migrations:list` traz
+# UMA LINHA POR VERSÃO, com o estado e o timestamp.
 docker exec -w /var/www/app -e APP_DEBUG=0 jusprime_php_prod \
-  php bin/console doctrine:migrations:status --env=prod | grep -i "already executed\|not migrated"
-# `Version20260813210000` tem de constar como executada. Se não constar, PARE:
-# rode a migration à mão e só então siga.
+  php bin/console doctrine:migrations:list --env=prod --no-ansi | grep 20260813210000
+#
+# COMO LER: a linha tem de existir, e a SEGUNDA COLUNA tem de ser `migrated`.
+# ⚠️ Leia a coluna, não procure a substring: `not migrated` CONTÉM "migrated".
+#    Um `grep migrated` daria verde sobre a migration que não rodou.
+# 📌 No dev a mesma linha pode sair como `migrated, not available` — é o arquivo da
+#    migration não estar naquele checkout. Em prod, depois do deploy, o arquivo está
+#    lá e o sufixo não aparece. Texto diferente, mesmo estado.
+#
+# Se a linha não existir, ou a coluna não for `migrated`: PARE. Rode a migration à
+# mão e só então siga.
 
 # ═══ 4. levar o lote para dentro do container ══════════════════════════════════
 docker exec jusprime_php_prod mkdir -p /tmp/espelho
@@ -165,6 +183,21 @@ explicada é perda de tempo — a mensagem na tela é que distingue.
 para `65`–`68`. Um wrapper não pode tratar código sem saber qual comando rodou.
 
 ## Se algo der errado
+
+🔴 **Falha no deploy deixa o site FORA DO AR, e isso é de propósito.**
+`scripts/deploy-prod.sh:26` liga `nginx/maintenance/maintenance.on` (o nginx passa a servir 503 com
+página amigável) e só a **linha 63** desliga. Qualquer aborto no meio — espera do banco (39–41),
+healthcheck do php (52–55) ou a própria migration (59) — sai antes da 63 e **a manutenção fica
+ligada**. O comentário da linha 23 diz que é intencional: melhor 503 do que meio deploy no ar.
+
+Para sair da manutenção depois de resolver a causa:
+
+```bash
+rm -f nginx/maintenance/maintenance.on
+```
+
+⚠️ **Resolva a causa primeiro.** Apagar a flag com o php quebrado troca a página de manutenção por
+erro 500.
 
 🔑 **Nem toda recusa acontece no mesmo momento — e isso muda o que sobrou gravado:**
 
