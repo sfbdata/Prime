@@ -16,7 +16,11 @@ use App\Cobranca\Repository\RelatorioImportadoRepository;
 use App\Cobranca\Repository\RelatorioLinhaRepository;
 use App\Cobranca\Service\Espelho\AgrupadorDeBoletos;
 use App\Cobranca\Service\Espelho\ConferenciaDoEspelho;
+use App\Cobranca\Service\Espelho\LeitorEspelhoAcordos;
+use App\Cobranca\Service\Espelho\LeitorEspelhoCadastro;
+use App\Cobranca\Service\Espelho\LeitorEspelhoReceitas;
 use App\Cobranca\Service\Espelho\LeitorEspelhoRelatorio;
+use App\Cobranca\Service\Espelho\LeitoresDoEspelho;
 use App\Cobranca\UseCase\GravarEspelhoRelatorioUseCase;
 use App\Tests\Cobranca\Support\MontaPlanilhaDeEspelho;
 use App\Tests\Factory\Cobranca\AcordoFactory;
@@ -60,7 +64,12 @@ final class ConferenciaDoEspelhoTest extends KernelTestCase
         /** @var ObrigacaoRepository $obrigacoes */
         $obrigacoes = $this->em->getRepository(Obrigacao::class);
 
-        $this->gravar = new GravarEspelhoRelatorioUseCase(new LeitorEspelhoRelatorio(), $relatorios, $this->em);
+        $this->gravar = new GravarEspelhoRelatorioUseCase(new LeitoresDoEspelho(
+                new LeitorEspelhoRelatorio(),
+                new LeitorEspelhoAcordos(),
+                new LeitorEspelhoReceitas(),
+                new LeitorEspelhoCadastro(),
+            ), $relatorios, $this->em);
         $this->conferencia = new ConferenciaDoEspelho(
             new AgrupadorDeBoletos($linhas),
             $obrigacoes,

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Cobranca\Command;
 
+use App\Cobranca\Service\Espelho\GuardaDeLogComPii;
 use App\Cobranca\DTO\ExpectativaDaLista;
 use App\Cobranca\DTO\ResultadoReconciliacao;
 use App\Cobranca\Entity\Carteira;
@@ -34,7 +35,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
     name: 'app:cobranca:reconciliar-dupla-contagem',
     description: 'Corrige o encargo contado duas vezes (SIMULA por padrão; grava só com --aplicar)',
 )]
-final class ReconciliarDuplaContagemCommand extends Command
+final class ReconciliarDuplaContagemCommand extends Command implements LidaComDadoPessoal
 {
     /** Mesmo contrato do `espelho:encargos`: significado mora na faixa 6x, `1` é exceção, `2` é INVALID. */
     public const ERRO_DE_INVOCACAO = 64;
@@ -55,6 +56,7 @@ final class ReconciliarDuplaContagemCommand extends Command
     public const LISTA_MUDOU = 68;
 
     public function __construct(
+        private readonly GuardaDeLogComPii $guardaDeLog,
         private readonly ReconciliarDuplaContagemUseCase $reconciliar,
         private readonly TenantRepository $tenants,
         private readonly EntityManagerInterface $em,
@@ -65,6 +67,12 @@ final class ReconciliarDuplaContagemCommand extends Command
     protected function configure(): void
     {
         $this
+            ->addOption(
+                'aceito-log-com-pii',
+                null,
+                InputOption::VALUE_NONE,
+                'Roda mesmo com o log de SQL ligado. A saída conterá dado pessoal.',
+            )
             ->addOption('tenant-id', null, InputOption::VALUE_REQUIRED, 'ID do escritório')
             ->addOption('carteira-id', null, InputOption::VALUE_REQUIRED, 'Reconcilia só esta carteira')
             ->addOption(
@@ -100,6 +108,12 @@ final class ReconciliarDuplaContagemCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
+
+        // 🔴 INV-Q10: com o log de SQL ligado, os parâmetros das consultas — dado pessoal
+        // por extenso — saem na tela. Ver {@see GuardaDeLogComPii}.
+        if ($this->guardaDeLog->bloqueia($io, (bool) $input->getOption('aceito-log-com-pii'), 'app:cobranca:reconciliar-dupla-contagem')) {
+            return GuardaDeLogComPii::LOG_COM_PII;
+        }
 
         $tenant = $this->tenants->find((int) $input->getOption('tenant-id'));
 

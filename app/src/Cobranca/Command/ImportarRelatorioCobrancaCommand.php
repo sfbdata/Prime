@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Cobranca\Command;
 
+use App\Cobranca\Service\Espelho\GuardaDeLogComPii;
 use App\Cobranca\Service\Importacao\RecorteEsperado;
 use App\Cobranca\Service\Importacao\TopLifeInadimplenciaAdapter;
 use App\Cobranca\Service\Importacao\RegistrarEmissaoNaCarteira;
@@ -41,11 +42,12 @@ use Symfony\Component\Console\Style\SymfonyStyle;
     name: 'app:cobranca:importar',
     description: 'Importa um relatório TOPLIFE (.xlsx) numa carteira de cobrança via CLI (sem timeout HTTP)',
 )]
-final class ImportarRelatorioCobrancaCommand extends Command
+final class ImportarRelatorioCobrancaCommand extends Command implements LidaComDadoPessoal
 {
     use ConfereRecorteDoArquivo;
 
     public function __construct(
+        private readonly GuardaDeLogComPii $guardaDeLog,
         private readonly ImportarRelatorioCarteiraUseCase $importar,
         private readonly TopLifeInadimplenciaAdapter $adapter,
         private readonly ValidadorRodapeFiltros $validadorRodape,
@@ -59,6 +61,12 @@ final class ImportarRelatorioCobrancaCommand extends Command
     protected function configure(): void
     {
         $this
+            ->addOption(
+                'aceito-log-com-pii',
+                null,
+                InputOption::VALUE_NONE,
+                'Roda mesmo com o log de SQL ligado. A saída conterá dado pessoal.',
+            )
             ->addOption('tenant-id', null, InputOption::VALUE_REQUIRED, 'ID do escritório (tenant) dono da carteira')
             ->addOption('carteira-id', null, InputOption::VALUE_REQUIRED, 'ID da carteira de cobrança destino')
             ->addOption('usuario-id', null, InputOption::VALUE_REQUIRED, 'ID do usuário (membro do tenant) que assina a importação')
@@ -69,6 +77,12 @@ final class ImportarRelatorioCobrancaCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
+
+        // 🔴 INV-Q10: com o log de SQL ligado, os parâmetros das consultas — dado pessoal
+        // por extenso — saem na tela. Ver {@see GuardaDeLogComPii}.
+        if ($this->guardaDeLog->bloqueia($io, (bool) $input->getOption('aceito-log-com-pii'), 'app:cobranca:importar')) {
+            return GuardaDeLogComPii::LOG_COM_PII;
+        }
 
         $tenantId = (int) $input->getOption('tenant-id');
         $carteiraId = (int) $input->getOption('carteira-id');

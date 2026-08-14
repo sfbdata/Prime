@@ -32,6 +32,9 @@ final class CarregarEspelhoRelatorioCommandTest extends KernelTestCase
     use Factories;
     use MontaPlanilhaDeEspelho;
 
+    /** @var list<string> */
+    private array $diretoriosTemporarios = [];
+
     private EntityManagerInterface $em;
     private CommandTester $comando;
 
@@ -47,6 +50,18 @@ final class CarregarEspelhoRelatorioCommandTest extends KernelTestCase
     protected function tearDown(): void
     {
         $this->limparPlanilhas();
+
+        foreach ($this->diretoriosTemporarios as $diretorio) {
+            foreach (glob($diretorio . '/*') ?: [] as $arquivo) {
+                unlink($arquivo);
+            }
+
+            if (is_dir($diretorio)) {
+                rmdir($diretorio);
+            }
+        }
+
+        $this->diretoriosTemporarios = [];
         parent::tearDown();
     }
 
@@ -149,13 +164,113 @@ final class CarregarEspelhoRelatorioCommandTest extends KernelTestCase
             ['Emissão: 12/08/2026 09:42'],
         ], null, 'A13', true);
 
-        $caminho = sys_get_temp_dir() . '/espelho_recorte_' . uniqid('', true) . '.xlsx';
+        $caminho = sys_get_temp_dir() . '/Inadimplencias_detalhadas_recorte_' . uniqid('', true) . '.xlsx';
         (new Xlsx($planilha))->save($caminho);
         $planilha->disconnectWorksheets();
 
         $this->planilhasTemporarias[] = $caminho;
 
         return $caminho;
+    }
+
+
+    /**
+     * 🔴 **INV-Q6 no lugar onde o defeito morava** — achado 3 da revisão.
+     *
+     * A causa-raiz desta frente inteira era `reunirArquivos()` filtrando por `stripos($nome,
+     * 'nadimpl')` e **descartando calado** todo o resto: três relatórios ficaram semanas fora do
+     * espelho enquanto os comandos imprimiam números com cara de totais.
+     *
+     * A primeira versão do teste exercitava só o `ClassificadorDeRelatorio` — a classe, não a
+     * decisão. E os testes de `--arquivo` tinham ganhado `--tipo=inadimplencia`, que **curto-circuita
+     * `classificar()`**: trocar o `return null` por `continue` não deixava nada vermelho.
+     *
+     * Este teste usa `--diretorio`, sem `--tipo`, que é o caminho de produção.
+     *
+     * **Reintrodução provada:** trocando o `return null` de `reunirArquivos()` por `continue` (o
+     * descarte silencioso original), o comando volta a sair `SUCCESS` gravando só o arquivo bom, e
+     * este teste fica vermelho nas três asserções.
+     */
+    #[TestDox('🔴 INV-Q6 — .xlsx não reconhecido no diretório DERRUBA a carga; não some')]
+    public function testArquivoNaoReconhecidoNoDiretorioDerrubaACarga(): void
+    {
+        $carteira = $this->carteira();
+        $diretorio = $this->diretorioComLote();
+        $lotesAntes = $this->contarLotes();
+
+        $saida = $this->comando->execute([
+            '--tenant-id' => (string) $carteira->getTenant()?->getId(),
+            '--carteira-id' => (string) $carteira->getId(),
+            '--diretorio' => $diretorio,
+        ]);
+
+        self::assertSame(Command::FAILURE, $saida, 'planilha não reconhecida não pode ser pulada em silêncio');
+
+        $tela = $this->comando->getDisplay();
+
+        self::assertStringContainsString('nao_sei_o_que_e.xlsx', $tela, 'o arquivo recusado é NOMEADO na tela');
+        self::assertSame(
+            $lotesAntes,
+            $this->contarLotes(),
+            'nada foi gravado — nem o arquivo bom: lote pela metade é espelho incompleto com cara de completo',
+        );
+    }
+
+    #[TestDox('Diretório só com relatórios reconhecidos entra pela classificação, sem --tipo')]
+    public function testDiretorioSoComReconhecidosEntra(): void
+    {
+        $carteira = $this->carteira();
+        $diretorio = $this->diretorioComLote(comIntruso: false);
+
+        $saida = $this->comando->execute([
+            '--tenant-id' => (string) $carteira->getTenant()?->getId(),
+            '--carteira-id' => (string) $carteira->getId(),
+            '--diretorio' => $diretorio,
+        ]);
+
+        self::assertSame(Command::SUCCESS, $saida);
+        self::assertStringContainsString('(inadimplencia)', $this->comando->getDisplay(), 'o tipo saiu da classificação');
+    }
+
+    /**
+     * 🔴 Achado 7 — `--tipo` é override de UM arquivo, não interruptor do INV-Q6 para um lote.
+     *
+     * Aceito no `--diretorio`, ele mandaria todos os arquivos da pasta para o mesmo leitor e
+     * desligaria a classificação do lote inteiro.
+     */
+    #[TestDox('🔴 --tipo com --diretorio é RECUSADO')]
+    public function testTipoForcadoNaoValeParaDiretorio(): void
+    {
+        $carteira = $this->carteira();
+
+        $saida = $this->comando->execute([
+            '--tenant-id' => (string) $carteira->getTenant()?->getId(),
+            '--carteira-id' => (string) $carteira->getId(),
+            '--diretorio' => $this->diretorioComLote(comIntruso: false),
+            '--tipo' => 'inadimplencia',
+        ]);
+
+        self::assertSame(Command::FAILURE, $saida);
+        self::assertStringContainsString('--tipo', $this->comando->getDisplay());
+    }
+
+    /** Um diretório com um relatório legítimo e, opcionalmente, um .xlsx que não é nenhum dos quatro. */
+    private function diretorioComLote(bool $comIntruso = true): string
+    {
+        $diretorio = sys_get_temp_dir() . '/espelho_lote_' . uniqid('', true);
+        mkdir($diretorio);
+        $this->diretoriosTemporarios[] = $diretorio;
+
+        $bom = $this->montarPlanilha([$this->linhaDeDado()]);
+        copy($bom, $diretorio . '/' . basename($bom));
+
+        if ($comIntruso) {
+            // Um .xlsx de verdade, só que com nome que não identifica relatório nenhum. É o caso real:
+            // arquivo renomeado à mão, ou uma quinta emissão que a contábil passe a mandar.
+            copy($bom, $diretorio . '/nao_sei_o_que_e.xlsx');
+        }
+
+        return $diretorio;
     }
 
     private function carteira(): Carteira

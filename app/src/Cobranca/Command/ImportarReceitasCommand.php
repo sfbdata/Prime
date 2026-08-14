@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Cobranca\Command;
 
+use App\Cobranca\Service\Espelho\GuardaDeLogComPii;
 use App\Cobranca\Service\Importacao\RecorteEsperado;
 use App\Cobranca\Service\Importacao\ResultadoImportacaoReceitas;
 use App\Cobranca\Service\Importacao\ResultadoLeituraReceitas;
@@ -46,11 +47,12 @@ use Symfony\Component\Console\Style\SymfonyStyle;
     name: 'app:cobranca:importar-receitas',
     description: 'Importa as receitas detalhadas (.xlsx): registra o que foi pago e cria o boleto que o sistema não conhecia',
 )]
-final class ImportarReceitasCommand extends Command
+final class ImportarReceitasCommand extends Command implements LidaComDadoPessoal
 {
     use ConfereRecorteDoArquivo;
 
     public function __construct(
+        private readonly GuardaDeLogComPii $guardaDeLog,
         private readonly ImportarReceitasUseCase $importar,
         private readonly TopLifeReceitasAdapter $adapter,
         private readonly ValidadorRodapeFiltros $validadorRodape,
@@ -64,6 +66,12 @@ final class ImportarReceitasCommand extends Command
     protected function configure(): void
     {
         $this
+            ->addOption(
+                'aceito-log-com-pii',
+                null,
+                InputOption::VALUE_NONE,
+                'Roda mesmo com o log de SQL ligado. A saída conterá dado pessoal.',
+            )
             ->addOption('tenant-id', null, InputOption::VALUE_REQUIRED, 'ID do escritório (tenant) dono da carteira')
             ->addOption('carteira-id', null, InputOption::VALUE_REQUIRED, 'ID da carteira de cobrança destino')
             ->addOption('usuario-id', null, InputOption::VALUE_REQUIRED, 'ID do usuário (membro do tenant) que assina a importação')
@@ -74,6 +82,12 @@ final class ImportarReceitasCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
+
+        // 🔴 INV-Q10: com o log de SQL ligado, os parâmetros das consultas — dado pessoal
+        // por extenso — saem na tela. Ver {@see GuardaDeLogComPii}.
+        if ($this->guardaDeLog->bloqueia($io, (bool) $input->getOption('aceito-log-com-pii'), 'app:cobranca:importar-receitas')) {
+            return GuardaDeLogComPii::LOG_COM_PII;
+        }
 
         $tenantId = (int) $input->getOption('tenant-id');
         $carteiraId = (int) $input->getOption('carteira-id');

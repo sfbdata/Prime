@@ -32,23 +32,39 @@ class RelatorioImportadoRepository extends ServiceEntityRepository
     }
 
     /**
-     * O lote já lido deste arquivo, nesta versão do leitor — a checagem de idempotência (SPEC §4.2).
+     * O lote já lido deste arquivo, neste tipo e nesta versão do leitor — a checagem de idempotência
+     * (SPEC espelho §4.2, SPEC quatro-relatórios §4.1).
      *
-     * O filtro de tenant é aplicado pelo `TenantFilter`, que age sobre `TenantAware`; a chave única
-     * do banco cobre o mesmo par no nível do schema.
+     * ⚠️ **O TIPO entra na chave.** Cada leitor versiona a si mesmo, então `versaoLeitor = 1`
+     * significa coisas diferentes conforme o layout: sem o tipo, o dia em que a leitura de acordos
+     * fosse para a versão 2 ela passaria a "encontrar" lotes de inadimplência da versão 2 como se
+     * fossem o mesmo arquivo já lido. O índice único do banco carrega as mesmas cinco colunas
+     * (`Version20260813210000`) — os dois lados da checagem têm de dizer a mesma coisa, senão a
+     * violação de constraint estoura no meio do lote.
+     *
+     * ⚠️ **O `tenant` explícito aqui é FORMA, não proteção.** Ele vem de `$carteira->getTenant()`, o
+     * tenant da própria carteira — é tautológico e não filtra nada que a carteira já não filtrasse.
+     * Está aqui para o método falhar FECHADO se um dia a carteira chegar sem tenant, e para não
+     * destoar dos vizinhos. **A defesa cross-tenant real é o `findBy(['tenant' => $tenant])` dos
+     * comandos**, que é quem escolhe as carteiras. Não confunda a forma com a proteção.
      */
     public function findOnePorHash(
         Carteira $carteira,
         string $arquivoHash,
         int $versaoLeitor,
+        TipoRelatorioContabil $tipo = TipoRelatorioContabil::Inadimplencia,
     ): ?RelatorioImportado {
         return $this->createQueryBuilder('r')
             ->andWhere('r.carteira = :carteira')
             ->andWhere('r.arquivoHash = :hash')
             ->andWhere('r.versaoLeitor = :versao')
+            ->andWhere('r.tipo = :tipo')
+            ->andWhere('r.tenant = :tenant')
             ->setParameter('carteira', $carteira)
             ->setParameter('hash', $arquivoHash)
             ->setParameter('versao', $versaoLeitor)
+            ->setParameter('tipo', $tipo)
+            ->setParameter('tenant', $carteira->getTenant())
             ->getQuery()
             ->getOneOrNullResult();
     }

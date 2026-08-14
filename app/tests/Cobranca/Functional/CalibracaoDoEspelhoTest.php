@@ -19,7 +19,11 @@ use App\Cobranca\Repository\RelatorioLinhaRepository;
 use App\Cobranca\Service\CalculadoraEncargos;
 use App\Cobranca\Service\Espelho\AgrupadorDeBoletos;
 use App\Cobranca\Service\Espelho\CalibracaoDoEspelho;
+use App\Cobranca\Service\Espelho\LeitorEspelhoAcordos;
+use App\Cobranca\Service\Espelho\LeitorEspelhoCadastro;
+use App\Cobranca\Service\Espelho\LeitorEspelhoReceitas;
 use App\Cobranca\Service\Espelho\LeitorEspelhoRelatorio;
+use App\Cobranca\Service\Espelho\LeitoresDoEspelho;
 use App\Cobranca\Service\ResolvedorConfigEncargos;
 use App\Cobranca\UseCase\GravarEspelhoRelatorioUseCase;
 use App\Tests\Cobranca\Support\MontaPlanilhaDeEspelho;
@@ -64,7 +68,12 @@ final class CalibracaoDoEspelhoTest extends KernelTestCase
         $obrigacoes = $this->em->getRepository(Obrigacao::class);
 
         $this->calculadora = new CalculadoraEncargos();
-        $this->gravar = new GravarEspelhoRelatorioUseCase(new LeitorEspelhoRelatorio(), $relatorios, $this->em);
+        $this->gravar = new GravarEspelhoRelatorioUseCase(new LeitoresDoEspelho(
+                new LeitorEspelhoRelatorio(),
+                new LeitorEspelhoAcordos(),
+                new LeitorEspelhoReceitas(),
+                new LeitorEspelhoCadastro(),
+            ), $relatorios, $this->em);
         $this->calibracao = new CalibracaoDoEspelho(
             new AgrupadorDeBoletos($linhas),
             $obrigacoes,

@@ -6,9 +6,12 @@ namespace App\Cobranca\Command;
 
 use App\Cobranca\DTO\GravarEspelhoRelatorioInput;
 use App\Cobranca\Entity\Carteira;
+use App\Cobranca\Enum\TipoRelatorioContabil;
 use App\Cobranca\Repository\RelatorioLinhaRepository;
 use App\Cobranca\Service\Espelho\ArquivoForaDoLayoutException;
+use App\Cobranca\Service\Espelho\GuardaDeLogComPii;
 use App\Cobranca\Service\Espelho\AtribuidorDeCarteira;
+use App\Cobranca\Service\Espelho\ClassificadorDeRelatorio;
 use App\Cobranca\Service\Espelho\LeitorEspelhoRelatorio;
 use App\Cobranca\Service\Espelho\ReconciliacaoInternaFalhouException;
 use App\Cobranca\Service\Importacao\RecorteEsperado;
@@ -50,13 +53,24 @@ use Symfony\Component\Console\Style\SymfonyStyle;
     name: 'app:cobranca:espelho:carregar',
     description: 'Guarda relatórios da contabilidade no espelho (não importa, não cria dívida)',
 )]
-final class CarregarEspelhoRelatorioCommand extends Command
+final class CarregarEspelhoRelatorioCommand extends Command implements LidaComDadoPessoal
 {
     use ConfereRecorteDoArquivo;
 
+    /**
+     * O `--tipo` da invocação, quando informado. Vence a classificação por nome.
+     *
+     * É estado de execução e não de construção porque `espelhar()` roda por arquivo, dentro de duas
+     * passadas, e enfiar o `InputInterface` por cinco assinaturas só para carregar uma opção deixaria
+     * o caminho mais confuso do que o problema que resolve.
+     */
+    private ?TipoRelatorioContabil $tipoForcado = null;
+
     public function __construct(
+        private readonly GuardaDeLogComPii $guardaDeLog,
         private readonly GravarEspelhoRelatorioUseCase $gravar,
         private readonly LeitorEspelhoRelatorio $leitor,
+        private readonly ClassificadorDeRelatorio $classificador,
         private readonly AtribuidorDeCarteira $atribuidor,
         private readonly RelatorioLinhaRepository $linhas,
         private readonly TenantRepository $tenants,
@@ -66,19 +80,57 @@ final class CarregarEspelhoRelatorioCommand extends Command
         parent::__construct();
     }
 
+    /**
+     * O recorte que cada tipo precisa ter no rodapé para poder entrar no espelho.
+     *
+     * ⚠️ Passar o recorte errado é pior do que não conferir: `RecorteEsperado::acordos()` é o que
+     * **recusa** o arquivo `*_CANCELADO.xlsx` (decisão do dono — cancelado fica de fora). Conferir um
+     * arquivo de acordos contra o recorte da inadimplência deixaria o cancelado entrar.
+     */
+    private function recorteDoTipo(TipoRelatorioContabil $tipo): RecorteEsperado
+    {
+        return match ($tipo) {
+            TipoRelatorioContabil::Inadimplencia => RecorteEsperado::inadimplencia(),
+            TipoRelatorioContabil::Acordos => RecorteEsperado::acordos(),
+            TipoRelatorioContabil::Receitas => RecorteEsperado::receitas(),
+            TipoRelatorioContabil::Cadastro => RecorteEsperado::cadastro(),
+        };
+    }
+
     protected function configure(): void
     {
         $this
+            ->addOption(
+                'aceito-log-com-pii',
+                null,
+                InputOption::VALUE_NONE,
+                'Roda mesmo com o log de SQL ligado. A saída conterá CPF, e-mail e telefone.',
+            )
             ->addOption('tenant-id', null, InputOption::VALUE_REQUIRED, 'ID do escritório dono das carteiras')
             ->addOption('arquivo', null, InputOption::VALUE_REQUIRED, 'Caminho de UM .xlsx a espelhar')
-            ->addOption('diretorio', null, InputOption::VALUE_REQUIRED, 'Diretório varrido recursivamente atrás de relatórios de inadimplência')
+            ->addOption('diretorio', null, InputOption::VALUE_REQUIRED, 'Diretório varrido recursivamente atrás dos QUATRO relatórios da contabilidade')
             ->addOption('carteira-id', null, InputOption::VALUE_REQUIRED, 'Força a carteira (dispensa a atribuição automática)')
+            ->addOption(
+                'tipo',
+                null,
+                InputOption::VALUE_REQUIRED,
+                sprintf(
+                    'Força o tipo do relatório quando o nome do arquivo não o identifica (%s)',
+                    implode(', ', array_column(TipoRelatorioContabil::cases(), 'value')),
+                ),
+            )
             ->addOption('usuario-id', null, InputOption::VALUE_REQUIRED, 'ID do usuário que assina a leitura');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
+
+        // 🔴 ANTES de qualquer leitura: o log verboso do Doctrine imprime CPF, e-mail e
+        // telefone de condômino. Ver {@see GuardaDeLogComPii}.
+        if ($this->guardaDeLog->bloqueia($io, (bool) $input->getOption('aceito-log-com-pii'), 'app:cobranca:espelho:carregar')) {
+            return GuardaDeLogComPii::LOG_COM_PII;
+        }
 
         $tenant = $this->tenants->find((int) $input->getOption('tenant-id'));
 
@@ -102,6 +154,40 @@ final class CarregarEspelhoRelatorioCommand extends Command
 
         if ($usuarioId !== null) {
             $usuario = $this->em->getRepository(User::class)->find((int) $usuarioId);
+        }
+
+        $tipoInformado = $input->getOption('tipo');
+
+        if ($tipoInformado !== null) {
+            // 🔴 `--tipo` é override de UM arquivo, não interruptor do INV-Q6 para um lote inteiro.
+            //
+            // Aceito junto de `--diretorio`, ele mandaria TODOS os .xlsx da pasta para o mesmo leitor
+            // e desligaria a classificação do lote — o descarte silencioso que originou esta fatia,
+            // com outra roupa. Hoje isso falharia alto por acidente (cada leitor recusa layout
+            // alheio); acidente não é proteção.
+            if ($input->getOption('diretorio') !== null) {
+                $io->error(
+                    '--tipo só vale com --arquivo. Num diretório, cada relatório é identificado pelo '
+                    . 'próprio nome; forçar um tipo para todos desligaria essa checagem no lote inteiro.'
+                );
+
+                return Command::FAILURE;
+            }
+
+            $this->tipoForcado = TipoRelatorioContabil::tryFrom((string) $tipoInformado);
+
+            // Tipo escrito errado NÃO pode cair no default de inadimplência: seria ler acordos com o
+            // leitor errado por causa de um erro de digitação, e o `--tipo` existe justamente para
+            // quem já sabe que o nome não identifica o arquivo.
+            if ($this->tipoForcado === null) {
+                $io->error(sprintf(
+                    'Tipo "%s" não existe. Use um destes: %s.',
+                    (string) $tipoInformado,
+                    implode(', ', array_column(TipoRelatorioContabil::cases(), 'value')),
+                ));
+
+                return Command::FAILURE;
+            }
         }
 
         $arquivos = $this->reunirArquivos($input, $io);
@@ -190,6 +276,29 @@ final class CarregarEspelhoRelatorioCommand extends Command
      */
     private function atribuirSemNome(string $caminho, array $carteiras, int $tenantId, SymfonyStyle $io): ?Carteira
     {
+        $tipo = $this->tipoForcado ?? $this->classificador->classificar(basename($caminho));
+
+        // 🔑 Só a INADIMPLÊNCIA se identifica sozinha, e por duas propriedades que os outros três não
+        // têm: ela declara as taxas no cabeçalho (`porHonorarios`) e traz a unidade em toda linha de
+        // dado (`porUnidades`).
+        //
+        // Nos acordos a unidade está no CABEÇALHO da aba, não nas linhas; nas receitas ela existe mas
+        // o arquivo não declara taxa; no cadastro não há dinheiro nenhum. Tentar adivinhar a carteira
+        // deles a partir de campo parecido é como um relatório da TOP LIFE I já foi parar na TOP LIFE
+        // II — atribuição errada e silenciosa, o pior modo de falha desta carga.
+        //
+        // Então aqui a recusa é explícita e diz o que fazer, em vez de chutar.
+        if ($tipo !== TipoRelatorioContabil::Inadimplencia) {
+            $io->text(sprintf(
+                '  <error>%s</error>: o nome do arquivo não identifica a carteira, e só o relatório de '
+                . 'inadimplência sabe se identificar pelo conteúdo. Renomeie incluindo o nome da '
+                . 'carteira, ou rode este arquivo sozinho com --carteira-id.',
+                basename($caminho),
+            ));
+
+            return null;
+        }
+
         if (!$this->recorteConfere($io, $caminho, RecorteEsperado::inadimplencia())) {
             return null;
         }
@@ -236,12 +345,32 @@ final class CarregarEspelhoRelatorioCommand extends Command
     ): int {
         $nome = basename($caminho);
 
+        // O `--tipo` explícito vence o nome. Serve para o arquivo que o operador aponta com
+        // `--arquivo` e cujo nome não segue o padrão da emissão (renomeado à mão, exportado de outro
+        // lugar, gerado em teste).
+        $tipo = $this->tipoForcado ?? $this->classificador->classificar($nome);
+
+        if ($tipo === null) {
+            // Sem nome que identifique e sem `--tipo`, a recusa é a resposta certa: ler com o leitor
+            // errado é o defeito que esta fatia conserta, e "chutar inadimplência" era o
+            // comportamento antigo.
+            $resumo[] = [$nome, '—', 'RECUSADO: ' . $this->classificador->motivoDaRecusa($nome), ''];
+            $io->text(sprintf(
+                '  <error>%s</error>: %s. Com --arquivo (um por vez) dá para informar --tipo; '
+                . 'num --diretorio, não — renomeie o arquivo.',
+                $nome,
+                $this->classificador->motivoDaRecusa($nome),
+            ));
+
+            return 1;
+        }
+
         // O recorte do rodapé é conferido ANTES de qualquer leitura, como nos quatro importadores.
         // Um relatório emitido com filtro parcial (uma unidade, um período) passaria na reconciliação
         // interna — ela fecha contra o totalizador do PRÓPRIO arquivo filtrado — e entraria no espelho
         // como "a verdade absoluta", produzindo falta em massa na conferência. Sob a premissa deste
         // módulo, espelho envenenado é pior do que espelho vazio.
-        if (!$this->recorteConfere($io, $caminho, RecorteEsperado::inadimplencia())) {
+        if (!$this->recorteConfere($io, $caminho, $this->recorteDoTipo($tipo))) {
             // O trait é compartilhado com os quatro importadores e fala em "importação"; aqui não se
             // importa nada, então a frase precisa ser corrigida em vez de confundir o operador.
             $io->note(sprintf('"%s" não entrou no ESPELHO. Nenhuma dívida foi criada ou alterada.', $nome));
@@ -264,7 +393,7 @@ final class CarregarEspelhoRelatorioCommand extends Command
 
         try {
             $saida = $this->gravar->executar(
-                new GravarEspelhoRelatorioInput($carteira, $caminho, lidoPor: $usuario)
+                new GravarEspelhoRelatorioInput($carteira, $caminho, $tipo, lidoPor: $usuario)
             );
         } catch (ArquivoForaDoLayoutException|ReconciliacaoInternaFalhouException $e) {
             $resumo[] = [$nome, $carteiraNome, 'RECUSADO', ''];
@@ -276,9 +405,24 @@ final class CarregarEspelhoRelatorioCommand extends Command
         $resumo[] = [
             $nome,
             $carteiraNome,
-            $saida->jaExistia ? 'já estava' : 'gravado',
+            sprintf('%s (%s)', $saida->jaExistia ? 'já estava' : 'gravado', $tipo->value),
             sprintf('%d dados / %d total', $saida->linhasDados, $saida->linhasTotal),
         ];
+
+        // ⚠️ A tolerância de rateio dos acordos SAI NA TELA — abas e centavos.
+        //
+        // "Tolerância visível é segura; silenciosa é que não" (decisão do dono, 13/08). E os centavos
+        // vão junto de propósito: a régua derivada do rateio abre um envelope de até 1 centavo por
+        // linha de parcela — R$ 87,67 nos 6 arquivos reais —, e o que se usou foi R$ 0,27. É a
+        // distância entre os dois números que avisa se um dia a folga passar a ser consumida.
+        if ($saida->toleranciaDeRateio !== null && $saida->toleranciaDeRateio['abas'] > 0) {
+            $io->text(sprintf(
+                '  <comment>%s: %d aba(s) fecharam só dentro da tolerância de rateio, consumindo R$ %s.</comment>',
+                $nome,
+                $saida->toleranciaDeRateio['abas'],
+                number_format($saida->toleranciaDeRateio['centavos'] / 100, 2, ',', '.'),
+            ));
+        }
 
         // O Doctrine acumula ~4 mil entidades por arquivo; sem limpar, a carga do acervo inteiro
         // estoura a memória por acúmulo entre arquivos.
@@ -383,6 +527,8 @@ final class CarregarEspelhoRelatorioCommand extends Command
             return null;
         }
 
+        $naoReconhecidos = [];
+
         foreach ($arquivos as $item) {
             if (!$item instanceof \SplFileInfo || !$item->isFile()) {
                 continue;
@@ -390,17 +536,52 @@ final class CarregarEspelhoRelatorioCommand extends Command
 
             $nome = $item->getFilename();
 
-            // Só relatórios de inadimplência; os outros três tipos têm layout diferente e
-            // entram numa fatia posterior.
-            if (str_ends_with(mb_strtolower($nome), '.xlsx') && stripos($nome, 'nadimpl') !== false) {
-                $encontrados[] = $item->getPathname();
+            // Arquivo que não é planilha nem chega a ser candidato — não é recusa, é ruído de
+            // diretório (o `.gitkeep`, o `.DS_Store`, o zip original do download).
+            if (!str_ends_with(mb_strtolower($nome), '.xlsx')) {
+                continue;
             }
+
+            if ($this->tipoForcado !== null || $this->classificador->classificar($nome) !== null) {
+                $encontrados[] = $item->getPathname();
+
+                continue;
+            }
+
+            $naoReconhecidos[] = $nome;
         }
 
         sort($encontrados);
 
+        // 🔴 INV-Q6 — arquivo não classificado é ERRO, nunca silêncio.
+        //
+        // Até a SPEC quatro-relatórios este método filtrava por `stripos($nome, 'nadimpl')` e
+        // DESCARTAVA CALADO todo o resto. Foi assim que os relatórios de acordos, receitas e cadastro
+        // ficaram semanas fora do espelho enquanto `conferir`, `calibrar` e `encargos` imprimiam
+        // números com cara de totais — a falha que originou esta fatia inteira.
+        //
+        // Por isso o .xlsx que não classifica **derruba a carga** em vez de sumir: um lote com um
+        // arquivo a menos é um espelho incompleto, e espelho incompleto que se anuncia completo é
+        // pior do que espelho nenhum.
+        if ($naoReconhecidos !== []) {
+            $io->error(sprintf(
+                '%d planilha(s) no diretório não correspondem a nenhum dos quatro relatórios. '
+                . 'Nada foi carregado — corrija o lote e rode de novo.',
+                count($naoReconhecidos),
+            ));
+
+            foreach ($naoReconhecidos as $nome) {
+                $io->text(sprintf('  · <error>%s</error> — %s', $nome, $this->classificador->motivoDaRecusa($nome)));
+            }
+
+            return null;
+        }
+
         if ($encontrados === []) {
-            $io->error('Nenhum relatório de inadimplência (.xlsx) encontrado no diretório.');
+            $io->error(
+                'Nenhum relatório da contabilidade (.xlsx) encontrado no diretório. '
+                . 'São esperados quatro por carteira: inadimplência, acordos, receitas e dados cadastrais.'
+            );
 
             return null;
         }

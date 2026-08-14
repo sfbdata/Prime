@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace App\Cobranca\Command;
 
 use App\Cobranca\Entity\Carteira;
+use App\Cobranca\Enum\TipoRelatorioContabil;
 use App\Cobranca\Repository\RelatorioImportadoRepository;
+use App\Cobranca\Service\Espelho\CoberturaDoEspelho;
+use App\Cobranca\Service\Espelho\GuardaDeLogComPii;
 use App\Cobranca\Service\Espelho\CalibracaoDoEspelho;
 use App\Repository\TenantRepository;
 use Doctrine\ORM\EntityManagerInterface;
@@ -31,9 +34,11 @@ use Symfony\Component\Console\Style\SymfonyStyle;
     name: 'app:cobranca:espelho:calibrar',
     description: 'Mede a nossa fórmula de encargo contra a da contabilidade (somente leitura)',
 )]
-final class CalibrarEspelhoCommand extends Command
+final class CalibrarEspelhoCommand extends Command implements LidaComDadoPessoal
 {
     public function __construct(
+        private readonly GuardaDeLogComPii $guardaDeLog,
+        private readonly CoberturaDoEspelho $cobertura,
         private readonly CalibracaoDoEspelho $calibracao,
         private readonly RelatorioImportadoRepository $relatorios,
         private readonly TenantRepository $tenants,
@@ -45,6 +50,12 @@ final class CalibrarEspelhoCommand extends Command
     protected function configure(): void
     {
         $this
+            ->addOption(
+                'aceito-log-com-pii',
+                null,
+                InputOption::VALUE_NONE,
+                'Roda mesmo com o log de SQL ligado. A saída conterá CPF, e-mail e telefone.',
+            )
             ->addOption('tenant-id', null, InputOption::VALUE_REQUIRED, 'ID do escritório')
             ->addOption('carteira-id', null, InputOption::VALUE_REQUIRED, 'Calibra só esta carteira')
             ->addOption('detalhar', null, InputOption::VALUE_NONE, 'Lista as piores diferenças');
@@ -53,6 +64,12 @@ final class CalibrarEspelhoCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
+
+        // 🔴 ANTES de qualquer leitura: o log verboso do Doctrine imprime CPF, e-mail e
+        // telefone de condômino. Ver {@see GuardaDeLogComPii}.
+        if ($this->guardaDeLog->bloqueia($io, (bool) $input->getOption('aceito-log-com-pii'), 'app:cobranca:espelho:calibrar')) {
+            return GuardaDeLogComPii::LOG_COM_PII;
+        }
 
         $tenant = $this->tenants->find((int) $input->getOption('tenant-id'));
 
@@ -76,6 +93,9 @@ final class CalibrarEspelhoCommand extends Command
         $io->text('Somente leitura. Nenhum encargo é alterado.');
 
         foreach ($carteiras as $carteira) {
+            // INV-Q7: o que este número cobre vem ANTES do número. Este instrumento lê só a
+            // inadimplência — e é justamente por isso que a linha precisa estar aqui.
+            $veredito = $this->cobertura->declarar($io, $carteira, [TipoRelatorioContabil::Inadimplencia]);
             $lote = $this->relatorios->findUltimoDaCarteira($carteira);
 
             if ($lote === null) {
@@ -125,8 +145,9 @@ final class CalibrarEspelhoCommand extends Command
             }
 
             match ($r->veredito()) {
-                'bate' => $io->success('A nossa conta é a conta deles. A projeção entre imports está validada.'),
-                'bate quase' => $io->success(
+                'bate' => $veredito->sucesso($io, 'A nossa conta é a conta deles. A projeção entre imports está validada.'),
+                'bate quase' => $veredito->sucesso(
+                    $io,
                     'Diferenças só de arredondamento: a projeção vale, e cada import reancora — a diferença zera.'
                 ),
                 'nao bate' => $io->warning(

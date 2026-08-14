@@ -6,6 +6,7 @@ namespace App\Cobranca\Service\Espelho;
 
 use App\Cobranca\Enum\BlocoRelatorio;
 use App\Cobranca\Enum\FormaTotalizador;
+use App\Cobranca\Enum\TipoRelatorioContabil;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 
 /**
@@ -26,10 +27,61 @@ use PhpOffice\PhpSpreadsheet\IOFactory;
  * `ArquivoEspelhado::contarPorBloco()` tem que somar o total de linhas. Célula que não converte para
  * número vira `null` no campo tipado, mas continua íntegra em `$bruto`.
  */
-final class LeitorEspelhoRelatorio
+final class LeitorEspelhoRelatorio implements LeitorDeEspelho
 {
     /** Incrementar quando a leitura mudar — entra na chave de idempotência do lote (SPEC §4.2). */
     public const VERSAO = 1;
+
+    public function tipo(): TipoRelatorioContabil
+    {
+        return TipoRelatorioContabil::Inadimplencia;
+    }
+
+    public function versao(): int
+    {
+        return self::VERSAO;
+    }
+
+    /**
+     * O portão da inadimplência: a soma das linhas de dado tem que bater com o "Total de
+     * inadimplência" que a própria planilha declara, nas SEIS colunas.
+     *
+     * Medido no TL1 de 12/08: os dois lados dão
+     * `44.197.594 · 15.147.395 · 883.952 · 0 · 11.714.735 · 71.943.676`, ao centavo.
+     *
+     * 📌 Este método veio do `GravarEspelhoRelatorioUseCase` quando o espelho passou a ter quatro
+     * leitores (SPEC quatro-relatórios §4.1). O comportamento é o mesmo, linha por linha — o que mudou
+     * é o dono: o portão é uma propriedade do LAYOUT, não do gravador.
+     */
+    public function exigirReconciliacaoInterna(ArquivoEspelhado $espelhado): void
+    {
+        $rodape = $espelhado->totalGeral();
+
+        if ($rodape === null) {
+            throw new ReconciliacaoInternaFalhouException(sprintf(
+                'A planilha "%s" não traz linha de total no rodapé — não há contra o que conferir. Nada foi gravado.',
+                $espelhado->arquivoNome,
+            ));
+        }
+
+        $soma = $espelhado->somarDados();
+        $declarado = [
+            'valor' => $rodape->valor ?? 0,
+            'juros' => $rodape->juros ?? 0,
+            'multa' => $rodape->multa ?? 0,
+            'correcao' => $rodape->correcao ?? 0,
+            'honorarios' => $rodape->honorarios ?? 0,
+            'total' => $rodape->total ?? 0,
+        ];
+
+        if ($soma !== $declarado) {
+            throw ReconciliacaoInternaFalhouException::comDivergencia(
+                $espelhado->arquivoNome,
+                $soma,
+                $declarado,
+            );
+        }
+    }
 
     /** Linha 6 do arquivo, conferida nome a nome. Ver {@see ArquivoForaDoLayoutException}. */
     private const CABECALHO_ESPERADO = [

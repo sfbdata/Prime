@@ -12,8 +12,8 @@ use App\Cobranca\Entity\RelatorioTotalizador;
 use App\Cobranca\Enum\BlocoRelatorio;
 use App\Cobranca\Repository\RelatorioImportadoRepository;
 use App\Cobranca\Service\Espelho\ArquivoEspelhado;
-use App\Cobranca\Service\Espelho\LeitorEspelhoRelatorio;
-use App\Cobranca\Service\Espelho\ReconciliacaoInternaFalhouException;
+use App\Cobranca\Service\Espelho\LeitorEspelhoAcordos;
+use App\Cobranca\Service\Espelho\LeitoresDoEspelho;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
@@ -49,7 +49,7 @@ final class GravarEspelhoRelatorioUseCase
     private const TAMANHO_DO_LOTE = 500;
 
     public function __construct(
-        private readonly LeitorEspelhoRelatorio $leitor,
+        private readonly LeitoresDoEspelho $leitores,
         private readonly RelatorioImportadoRepository $relatorios,
         private readonly EntityManagerInterface $em,
     ) {
@@ -57,64 +57,48 @@ final class GravarEspelhoRelatorioUseCase
 
     public function executar(GravarEspelhoRelatorioInput $input): GravarEspelhoRelatorioOutput
     {
-        $espelhado = $this->leitor->ler($input->caminhoArquivo);
+        // O leitor sai do TIPO declarado na entrada, não de um leitor fixo. Antes da SPEC
+        // quatro-relatórios havia um só, e era o de inadimplência — que é como os outros três
+        // relatórios ficaram semanas fora do espelho enquanto os comandos imprimiam números com cara
+        // de totais.
+        $leitor = $this->leitores->paraTipo($input->tipo);
 
-        $this->exigirReconciliacaoInterna($espelhado);
+        $espelhado = $leitor->ler($input->caminhoArquivo);
+
+        // INV-G1: o portão é do LAYOUT, não do gravador — cada leitor sabe contra o que o próprio
+        // arquivo fecha (dinheiro na inadimplência e nas receitas, por aba nos acordos, estrutural no
+        // cadastro). Ver {@see \App\Cobranca\Service\Espelho\LeitorDeEspelho::exigirReconciliacaoInterna()}.
+        $leitor->exigirReconciliacaoInterna($espelhado);
+
+        // A tolerância de rateio dos acordos só é segura se for VISÍVEL (SPEC §3.2, mesma regra do
+        // INV-CB3). O portão já a aplicou; aqui ela sai do leitor para poder chegar à tela.
+        $tolerancia = $leitor instanceof LeitorEspelhoAcordos
+            ? $leitor->toleranciaConsumida($espelhado)
+            : null;
 
         $jaLido = $this->relatorios->findOnePorHash(
             $input->carteira,
             $espelhado->arquivoHash,
-            LeitorEspelhoRelatorio::VERSAO,
+            $leitor->versao(),
+            $input->tipo,
         );
 
         if ($jaLido !== null) {
-            return $this->descrever($jaLido, $espelhado, jaExistia: true);
+            return $this->descrever($jaLido, $espelhado, jaExistia: true, tolerancia: $tolerancia);
         }
 
         $relatorio = $this->em->wrapInTransaction(
-            fn (): RelatorioImportado => $this->gravar($input, $espelhado)
+            fn (): RelatorioImportado => $this->gravar($input, $espelhado, $leitor->versao())
         );
 
-        return $this->descrever($relatorio, $espelhado, jaExistia: false);
+        return $this->descrever($relatorio, $espelhado, jaExistia: false, tolerancia: $tolerancia);
     }
 
-    /**
-     * INV-G1 — o portão. Compara a soma das linhas de dado com o "Total de inadimplência" que a
-     * própria planilha declara. Medido no TL1 de 12/08: as duas dão
-     * `44.197.594 · 15.147.395 · 883.952 · 0 · 11.714.735 · 71.943.676`, ao centavo.
-     */
-    private function exigirReconciliacaoInterna(ArquivoEspelhado $espelhado): void
-    {
-        $rodape = $espelhado->totalGeral();
-
-        if ($rodape === null) {
-            throw new ReconciliacaoInternaFalhouException(sprintf(
-                'A planilha "%s" não traz linha de total no rodapé — não há contra o que conferir. Nada foi gravado.',
-                $espelhado->arquivoNome,
-            ));
-        }
-
-        $soma = $espelhado->somarDados();
-        $declarado = [
-            'valor' => $rodape->valor ?? 0,
-            'juros' => $rodape->juros ?? 0,
-            'multa' => $rodape->multa ?? 0,
-            'correcao' => $rodape->correcao ?? 0,
-            'honorarios' => $rodape->honorarios ?? 0,
-            'total' => $rodape->total ?? 0,
-        ];
-
-        if ($soma !== $declarado) {
-            throw ReconciliacaoInternaFalhouException::comDivergencia(
-                $espelhado->arquivoNome,
-                $soma,
-                $declarado,
-            );
-        }
-    }
-
-    private function gravar(GravarEspelhoRelatorioInput $input, ArquivoEspelhado $espelhado): RelatorioImportado
-    {
+    private function gravar(
+        GravarEspelhoRelatorioInput $input,
+        ArquivoEspelhado $espelhado,
+        int $versaoDoLeitor,
+    ): RelatorioImportado {
         $tenant = $input->carteira->getTenant();
 
         if ($tenant === null) {
@@ -135,8 +119,11 @@ final class GravarEspelhoRelatorioUseCase
             ->setUnidadesDeclaradas($espelhado->unidadesDeclaradas)
             ->setLinhasTotal($espelhado->linhasTotal)
             ->setLinhasDados($contagem[BlocoRelatorio::Dados->value] ?? 0)
-            ->setLinhasTotalizador($contagem[BlocoRelatorio::Totalizador->value] ?? 0)
-            ->setVersaoLeitor(LeitorEspelhoRelatorio::VERSAO)
+            // Conta os totalizadores EXTRAÍDOS, não o balde de linhas. Nos acordos o "total" de uma
+            // aba é um par `Rótulo: valor` dentro do cabeçalho — nenhuma linha cai no balde
+            // `Totalizador`, e contar o balde reportava 0 num lote com 392 totalizadores gravados.
+            ->setLinhasTotalizador(count($espelhado->totalizadores))
+            ->setVersaoLeitor($versaoDoLeitor)
             ->setLidoPor($input->lidoPor);
 
         $this->em->persist($relatorio);
@@ -166,6 +153,12 @@ final class GravarEspelhoRelatorioUseCase
                     ->setAcordoTexto($linha->acordoTexto)
                     ->setRecebimento($linha->recebimento)
                     ->setBruto($linha->bruto)
+                    // Campos dos três layouts novos — `null` na inadimplência (SPEC §4.3).
+                    ->setAba($linha->aba)
+                    ->setTabela($linha->tabela)
+                    ->setParcela($linha->parcela)
+                    ->setLiquidacao($linha->liquidacao)
+                    ->setValorRecebido($linha->valorRecebido)
             );
 
             if (++$pendentes % self::TAMANHO_DO_LOTE === 0) {
@@ -187,6 +180,7 @@ final class GravarEspelhoRelatorioUseCase
                     ->setCorrecao($totalizador->correcao)
                     ->setHonorarios($totalizador->honorarios)
                     ->setTotal($totalizador->total)
+                    ->setValorRecebido($totalizador->valorRecebido)
             );
         }
 
@@ -195,10 +189,14 @@ final class GravarEspelhoRelatorioUseCase
         return $relatorio;
     }
 
+    /**
+     * @param array{abas: int, centavos: int}|null $tolerancia
+     */
     private function descrever(
         RelatorioImportado $relatorio,
         ArquivoEspelhado $espelhado,
         bool $jaExistia,
+        ?array $tolerancia = null,
     ): GravarEspelhoRelatorioOutput {
         return new GravarEspelhoRelatorioOutput(
             relatorioId: $relatorio->getId() ?? 0,
@@ -212,6 +210,7 @@ final class GravarEspelhoRelatorioUseCase
             linhasDados: $relatorio->getLinhasDados(),
             linhasTotalizador: $relatorio->getLinhasTotalizador(),
             linhasPorBloco: $espelhado->contarPorBloco(),
+            toleranciaDeRateio: $tolerancia,
         );
     }
 }

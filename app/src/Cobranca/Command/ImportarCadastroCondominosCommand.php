@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Cobranca\Command;
 
+use App\Cobranca\Service\Espelho\GuardaDeLogComPii;
 use App\Cobranca\Service\Importacao\CadastroCondominosAdapter;
 use App\Cobranca\Service\Importacao\RecorteEsperado;
 use App\Cobranca\Service\Importacao\RegistrarEmissaoNaCarteira;
@@ -37,11 +38,12 @@ use Symfony\Component\Console\Style\SymfonyStyle;
     name: 'app:cobranca:importar-cadastro',
     description: 'Importa o cadastro de condôminos (.xlsx) numa carteira: pessoas, vínculos e contatos',
 )]
-final class ImportarCadastroCondominosCommand extends Command
+final class ImportarCadastroCondominosCommand extends Command implements LidaComDadoPessoal
 {
     use ConfereRecorteDoArquivo;
 
     public function __construct(
+        private readonly GuardaDeLogComPii $guardaDeLog,
         private readonly ImportarCadastroCondominosUseCase $importar,
         private readonly CadastroCondominosAdapter $adapter,
         private readonly ValidadorRodapeFiltros $validadorRodape,
@@ -55,6 +57,12 @@ final class ImportarCadastroCondominosCommand extends Command
     protected function configure(): void
     {
         $this
+            ->addOption(
+                'aceito-log-com-pii',
+                null,
+                InputOption::VALUE_NONE,
+                'Roda mesmo com o log de SQL ligado. A saída conterá dado pessoal.',
+            )
             ->addOption('tenant-id', null, InputOption::VALUE_REQUIRED, 'ID do escritório (tenant) dono da carteira')
             ->addOption('carteira-id', null, InputOption::VALUE_REQUIRED, 'ID da carteira de cobrança destino')
             ->addOption('usuario-id', null, InputOption::VALUE_REQUIRED, 'ID do usuário (membro do tenant) que assina a importação')
@@ -65,6 +73,12 @@ final class ImportarCadastroCondominosCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
+
+        // 🔴 INV-Q10: com o log de SQL ligado, os parâmetros das consultas — dado pessoal
+        // por extenso — saem na tela. Ver {@see GuardaDeLogComPii}.
+        if ($this->guardaDeLog->bloqueia($io, (bool) $input->getOption('aceito-log-com-pii'), 'app:cobranca:importar-cadastro')) {
+            return GuardaDeLogComPii::LOG_COM_PII;
+        }
 
         $tenantId = (int) $input->getOption('tenant-id');
         $carteiraId = (int) $input->getOption('carteira-id');

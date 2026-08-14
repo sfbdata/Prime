@@ -34,7 +34,9 @@ use Symfony\Component\Console\Style\SymfonyStyle;
     name: 'app:cobranca:registrar-emissao',
     description: 'Grava a emissão de um relatório já importado na carteira (só a data; não importa nada)',
 )]
-final class RegistrarEmissaoRelatorioCommand extends Command
+// Declara NaoLidaComDadoPessoal (INV-Q10): só carimba a data de emissão de um tipo de relatório na
+// carteira — não lê, grava nem imprime nome, documento, contato ou identificação de devedor.
+final class RegistrarEmissaoRelatorioCommand extends Command implements NaoLidaComDadoPessoal
 {
     private const TIPOS = [
         RegistrarEmissaoNaCarteira::CADASTRO,

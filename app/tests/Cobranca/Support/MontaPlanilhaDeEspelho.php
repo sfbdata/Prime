@@ -117,7 +117,10 @@ trait MontaPlanilhaDeEspelho
             [sprintf('Emissão: %s', $emissao)],
         ], null, 'A' . $proxima, true);
 
-        $caminho = sys_get_temp_dir() . '/espelho_teste_' . uniqid('', true) . '.xlsx';
+        // ⚠️ O nome PRECISA conter 'Inadimplencias_detalhadas': desde a SPEC quatro-relatórios o
+        // carregador decide o leitor pelo nome, e um fixture com nome arbitrário obrigaria todo teste
+        // a passar `--tipo`, curto-circuitando justamente a decisão que ele deveria exercitar.
+        $caminho = sys_get_temp_dir() . '/Inadimplencias_detalhadas_teste_' . uniqid('', true) . '.xlsx';
         (new Xlsx($planilha))->save($caminho);
         $planilha->disconnectWorksheets();
 

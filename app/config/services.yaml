@@ -131,6 +131,15 @@ services:
         arguments:
             $dsn: '%env(string:default::DATABASE_URL_LEITURA)%'
 
+    # 🔴 A guarda que impede um comando do espelho de despejar CPF/e-mail/telefone na tela.
+    # Os dois parâmetros do kernel são injetados à mão porque a decisão depende deles: o log
+    # verboso do Doctrine sai com debug LIGADO, e o ambiente `test` é a exceção legítima
+    # (saída em buffer, dado fabricado). Ver o docblock da classe.
+    App\Cobranca\Service\Espelho\GuardaDeLogComPii:
+        arguments:
+            $debug: '%kernel.debug%'
+            $ambiente: '%kernel.environment%'
+
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
 

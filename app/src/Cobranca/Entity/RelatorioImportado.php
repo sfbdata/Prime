@@ -38,9 +38,21 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Table(name: 'cobranca_relatorio_importado')]
 #[ORM\Index(name: 'idx_cobranca_relatorio_tenant_carteira', columns: ['tenant_id', 'carteira_id'])]
 #[ORM\Index(name: 'idx_cobranca_relatorio_dados_ate', columns: ['dados_ate'])]
+/**
+ * 🔑 **O `tipo` entra na chave única** desde a SPEC quatro-relatórios (§4.1).
+ *
+ * Sem ele, o índice do banco e a checagem de idempotência do código diziam coisas diferentes:
+ * `RelatorioImportadoRepository::findOnePorHash()` filtra por tipo, o índice não filtrava. O mesmo
+ * arquivo recarregado com `--tipo` diferente passava pela checagem em memória e batia no índice, e a
+ * `UniqueConstraintViolationException` **não** está entre as capturadas pelo comando — viraria stack
+ * trace no meio do lote, com os arquivos anteriores já gravados.
+ *
+ * E há a razão de fundo: cada leitor versiona a si mesmo, então `versao_leitor = 1` significa coisas
+ * diferentes conforme o layout. Sem o tipo, a versão de um leitor colide com a de outro.
+ */
 #[ORM\UniqueConstraint(
     name: 'uniq_cobranca_relatorio_arquivo',
-    columns: ['tenant_id', 'carteira_id', 'arquivo_hash', 'versao_leitor']
+    columns: ['tenant_id', 'carteira_id', 'arquivo_hash', 'versao_leitor', 'tipo']
 )]
 #[ORM\HasLifecycleCallbacks]
 class RelatorioImportado implements TenantAware

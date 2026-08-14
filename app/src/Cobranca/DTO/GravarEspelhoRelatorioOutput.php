@@ -16,6 +16,10 @@ final readonly class GravarEspelhoRelatorioOutput
     /**
      * @param array<string, int>      $linhasPorBloco  contagem por balde; a soma == $linhasTotal
      * @param array<string, int>|null $configDeclarada taxas em basis points, como a contabilidade declarou
+     * @param array{abas: int, centavos: int}|null $toleranciaDeRateio
+     *        Só nos ACORDOS: quantas abas fecharam apenas dentro da tolerância de rateio, e quantos
+     *        centavos isso consumiu. ⚠️ **Tolerância silenciosa é descarte silencioso com outro
+     *        nome** — este campo existe para o número chegar à tela, não para ficar no log.
      */
     public function __construct(
         public int $relatorioId,
@@ -29,6 +33,7 @@ final readonly class GravarEspelhoRelatorioOutput
         public int $linhasDados,
         public int $linhasTotalizador,
         public array $linhasPorBloco,
+        public ?array $toleranciaDeRateio = null,
     ) {
     }
 }

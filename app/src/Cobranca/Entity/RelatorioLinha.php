@@ -127,9 +127,107 @@ class RelatorioLinha implements TenantAware
     #[ORM\Column(type: 'json', nullable: true)]
     private ?array $bruto = null;
 
+    /**
+     * Os campos dos três layouts que entraram na SPEC quatro-relatórios (§4.3). Ficam `null` na
+     * inadimplência, que não os tem.
+     *
+     * 🔴 **Cada um ganhou coluna própria — nenhum foi encaixado numa que já existia.** Guardar
+     * `Valor recebido` dentro de `total` porque "cabe" produz número errado com cara de certo, que é o
+     * defeito que este módulo já levou duas vezes. Campo sem coluna fica em `bruto` e não vira número.
+     */
+
+    /** Nome da aba. Só os acordos têm uma por acordo; nos outros três é `null`. */
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $aba = null;
+
+    /**
+     * Qual das duas tabelas da aba de acordo — {@see \App\Cobranca\Enum\TabelaDoAcordo}.
+     *
+     * Guardado como texto e não deduzido de `parcela` estar preenchida: inferência funciona hoje e
+     * passa a mentir no dia em que uma parcela vier sem o rótulo.
+     */
+    #[ORM\Column(length: 30, nullable: true)]
+    private ?string $tabela = null;
+
+    /** `5/40`, como a planilha de acordos escreve. */
+    #[ORM\Column(length: 30, nullable: true)]
+    private ?string $parcela = null;
+
+    /** `Liquidação` (acordos) ou `Recebimento` (receitas), já como data. */
+    #[ORM\Column(type: 'date_immutable', nullable: true)]
+    private ?\DateTimeImmutable $liquidacao = null;
+
+    /**
+     * `Valor recebido` (receitas) ou `Valor liquidado` (acordos), em centavos.
+     *
+     * ⚠️ Não é o total de nada: é quanto entrou de um valor que podia ter entrado inteiro ou em parte.
+     */
+    #[ORM\Column(type: 'integer', nullable: true)]
+    private ?int $valorRecebido = null;
+
     public function getId(): ?int
     {
         return $this->id;
+    }
+
+    public function getAba(): ?string
+    {
+        return $this->aba;
+    }
+
+    public function setAba(?string $aba): self
+    {
+        $this->aba = $aba;
+
+        return $this;
+    }
+
+    public function getTabela(): ?string
+    {
+        return $this->tabela;
+    }
+
+    public function setTabela(?string $tabela): self
+    {
+        $this->tabela = $tabela;
+
+        return $this;
+    }
+
+    public function getParcela(): ?string
+    {
+        return $this->parcela;
+    }
+
+    public function setParcela(?string $parcela): self
+    {
+        $this->parcela = $parcela;
+
+        return $this;
+    }
+
+    public function getLiquidacao(): ?\DateTimeImmutable
+    {
+        return $this->liquidacao;
+    }
+
+    public function setLiquidacao(?\DateTimeImmutable $liquidacao): self
+    {
+        $this->liquidacao = $liquidacao;
+
+        return $this;
+    }
+
+    public function getValorRecebido(): ?int
+    {
+        return $this->valorRecebido;
+    }
+
+    public function setValorRecebido(?int $valorRecebido): self
+    {
+        $this->valorRecebido = $valorRecebido;
+
+        return $this;
     }
 
     public function getTenant(): ?Tenant

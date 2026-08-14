@@ -78,9 +78,30 @@ class RelatorioTotalizador implements TenantAware
     #[ORM\Column(type: 'integer', nullable: true)]
     private ?int $total = null;
 
+    /**
+     * A segunda coluna de dinheiro do rodapé de RECEITAS (`Valor recebido`). `null` nos outros três
+     * layouts, que não a têm.
+     *
+     * 🔑 Coluna própria, e não `total` "porque cabe" — ver o mesmo aviso em {@see RelatorioLinha}.
+     */
+    #[ORM\Column(type: 'integer', nullable: true)]
+    private ?int $valorRecebido = null;
+
     public function getId(): ?int
     {
         return $this->id;
+    }
+
+    public function getValorRecebido(): ?int
+    {
+        return $this->valorRecebido;
+    }
+
+    public function setValorRecebido(?int $valorRecebido): self
+    {
+        $this->valorRecebido = $valorRecebido;
+
+        return $this;
     }
 
     public function getTenant(): ?Tenant

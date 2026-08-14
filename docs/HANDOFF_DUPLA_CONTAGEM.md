@@ -78,15 +78,20 @@ diferenças contra a nossa fórmula*: está **cortado em 20** e ordenado por ess
 pergunta. Medido pela revisão no dev: o 20º item já estava em R$ 91,72, enquanto o duplicado típico é
 da ordem de R$ 38 por dívida — as dívidas a corrigir **tendiam a ficar de fora** da lista.
 
+⚠️ **Desde a fatia dos quatro relatórios (INV-Q10), estes comandos RECUSAM rodar sem `APP_DEBUG=0`**
+e saem com código **69**. Não é defeito: com o debug ligado, o log do Doctrine imprime os parâmetros
+das consultas — nome, CPF, e-mail e telefone por extenso — numa saída que é colada em chat. Os
+comandos abaixo já vêm com a variável.
+
 ```bash
 # a lista da reconciliação: completa, ordenada pelo duplicado, com o lote de cada linha
-php -d memory_limit=512M bin/console app:cobranca:espelho:encargos --tenant-id=<id> --duplicadas
+APP_DEBUG=0 php -d memory_limit=512M bin/console app:cobranca:espelho:encargos --tenant-id=<id> --duplicadas
 
 # para salvar: o `mkdir -p` NÃO é opcional — o diretório é gitignorado, logo não existe no checkout
 # nem na VPS, e sem ele o redirect falha justamente com a lista de PII na tela (que é como uma saída
 # improvisada foi parar no repositório em 03/08)
 mkdir -p docs/gestao-cobrancas/listas-reconciliacao
-php -d memory_limit=512M bin/console app:cobranca:espelho:encargos --tenant-id=<id> --duplicadas \
+APP_DEBUG=0 php -d memory_limit=512M bin/console app:cobranca:espelho:encargos --tenant-id=<id> --duplicadas \
   > docs/gestao-cobrancas/listas-reconciliacao/tl1.txt
 ```
 

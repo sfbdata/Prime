@@ -12,7 +12,11 @@ use App\Cobranca\Entity\RelatorioTotalizador;
 use App\Cobranca\Enum\BlocoRelatorio;
 use App\Cobranca\Repository\RelatorioImportadoRepository;
 use App\Cobranca\Service\Espelho\ArquivoForaDoLayoutException;
+use App\Cobranca\Service\Espelho\LeitorEspelhoAcordos;
+use App\Cobranca\Service\Espelho\LeitorEspelhoCadastro;
+use App\Cobranca\Service\Espelho\LeitorEspelhoReceitas;
 use App\Cobranca\Service\Espelho\LeitorEspelhoRelatorio;
+use App\Cobranca\Service\Espelho\LeitoresDoEspelho;
 use App\Cobranca\Service\Espelho\ReconciliacaoInternaFalhouException;
 use App\Cobranca\UseCase\GravarEspelhoRelatorioUseCase;
 use App\Tests\Cobranca\Support\MontaPlanilhaDeEspelho;
@@ -50,8 +54,16 @@ final class GravarEspelhoRelatorioTest extends KernelTestCase
         /** @var RelatorioImportadoRepository $relatorios */
         $relatorios = $this->em->getRepository(RelatorioImportado::class);
 
+        // O UseCase passou a receber o REGISTRO dos quatro leitores, não um leitor fixo (SPEC
+        // quatro-relatórios §4.1). Montado à mão aqui, como antes, para o teste continuar
+        // independente do container.
         $this->gravar = new GravarEspelhoRelatorioUseCase(
-            new LeitorEspelhoRelatorio(),
+            new LeitoresDoEspelho(
+                new LeitorEspelhoRelatorio(),
+                new LeitorEspelhoAcordos(),
+                new LeitorEspelhoReceitas(),
+                new LeitorEspelhoCadastro(),
+            ),
             $relatorios,
             $this->em,
         );

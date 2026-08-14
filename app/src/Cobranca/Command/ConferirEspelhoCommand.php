@@ -6,7 +6,10 @@ namespace App\Cobranca\Command;
 
 use App\Cobranca\DTO\ResultadoConferencia;
 use App\Cobranca\Entity\Carteira;
+use App\Cobranca\Enum\TipoRelatorioContabil;
 use App\Cobranca\Repository\RelatorioImportadoRepository;
+use App\Cobranca\Service\Espelho\CoberturaDoEspelho;
+use App\Cobranca\Service\Espelho\GuardaDeLogComPii;
 use App\Cobranca\Service\Espelho\ConferenciaDoEspelho;
 use App\Repository\TenantRepository;
 use Doctrine\ORM\EntityManagerInterface;
@@ -36,11 +39,13 @@ use Symfony\Component\Console\Style\SymfonyStyle;
     name: 'app:cobranca:espelho:conferir',
     description: 'Confere o sistema contra o relatório da contabilidade (somente leitura)',
 )]
-final class ConferirEspelhoCommand extends Command
+final class ConferirEspelhoCommand extends Command implements LidaComDadoPessoal
 {
     private const AMOSTRA = 15;
 
     public function __construct(
+        private readonly GuardaDeLogComPii $guardaDeLog,
+        private readonly CoberturaDoEspelho $cobertura,
         private readonly ConferenciaDoEspelho $conferencia,
         private readonly RelatorioImportadoRepository $relatorios,
         private readonly TenantRepository $tenants,
@@ -52,6 +57,12 @@ final class ConferirEspelhoCommand extends Command
     protected function configure(): void
     {
         $this
+            ->addOption(
+                'aceito-log-com-pii',
+                null,
+                InputOption::VALUE_NONE,
+                'Roda mesmo com o log de SQL ligado. A saída conterá CPF, e-mail e telefone.',
+            )
             ->addOption('tenant-id', null, InputOption::VALUE_REQUIRED, 'ID do escritório')
             ->addOption('carteira-id', null, InputOption::VALUE_REQUIRED, 'Confere só esta carteira')
             ->addOption('detalhar', null, InputOption::VALUE_NONE, 'Lista as divergências, não só a contagem');
@@ -60,6 +71,12 @@ final class ConferirEspelhoCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
+
+        // 🔴 ANTES de qualquer leitura: o log verboso do Doctrine imprime CPF, e-mail e
+        // telefone de condômino. Ver {@see GuardaDeLogComPii}.
+        if ($this->guardaDeLog->bloqueia($io, (bool) $input->getOption('aceito-log-com-pii'), 'app:cobranca:espelho:conferir')) {
+            return GuardaDeLogComPii::LOG_COM_PII;
+        }
 
         $tenant = $this->tenants->find((int) $input->getOption('tenant-id'));
 
@@ -92,6 +109,10 @@ final class ConferirEspelhoCommand extends Command
         $quebrou = false;
 
         foreach ($carteiras as $carteira) {
+            // INV-Q7: o que este número cobre vem ANTES do número. Esta conferência lê só a
+            // inadimplência — e é justamente por isso que a linha precisa estar aqui.
+            $veredito = $this->cobertura->declarar($io, $carteira, [TipoRelatorioContabil::Inadimplencia]);
+
             $lote = $this->relatorios->findUltimoDaCarteira($carteira);
 
             if ($lote === null) {
@@ -143,7 +164,8 @@ final class ConferirEspelhoCommand extends Command
             }
 
             if ($resultado->alinhado()) {
-                $io->success('Alinhado: mesmo conjunto de dívidas e mesmo principal.');
+                // Verde SÓ se a cobertura permitir — quem decide é o veredito, não este comando.
+                $veredito->sucesso($io, 'Alinhado: mesmo conjunto de dívidas e mesmo principal.');
 
                 continue;
             }

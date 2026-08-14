@@ -12,7 +12,9 @@ use App\Cobranca\Enum\BaseEncargo;
 use App\Cobranca\Enum\FormaHonorarios;
 use App\Cobranca\Enum\RegimeJuros;
 use App\Cobranca\UseCase\GravarEspelhoRelatorioUseCase;
+use App\Cobranca\Enum\TipoRelatorioContabil;
 use App\Tests\Cobranca\Support\MontaPlanilhaDeEspelho;
+use App\Tests\Cobranca\Support\MontaPlanilhasDosQuatroRelatorios;
 use App\Tests\Factory\Cobranca\CarteiraFactory;
 use App\Tests\Factory\Cobranca\CasoCobrancaFactory;
 use App\Tests\Factory\Cobranca\ObjetoCobrancaFactory;
@@ -41,6 +43,7 @@ final class ConferirEncargosGravadosCommandTest extends KernelTestCase
 {
     use Factories;
     use MontaPlanilhaDeEspelho;
+    use MontaPlanilhasDosQuatroRelatorios;
 
     private const EMISSAO_DO_LOTE = '12/08/2026';
 
@@ -61,6 +64,7 @@ final class ConferirEncargosGravadosCommandTest extends KernelTestCase
     protected function tearDown(): void
     {
         $this->limparPlanilhas();
+        $this->limparPlanilhasDosQuatro();
         parent::tearDown();
     }
 
@@ -106,7 +110,7 @@ final class ConferirEncargosGravadosCommandTest extends KernelTestCase
         self::assertStringContainsString('assinatura avaliada: 0', $saida);
     }
 
-    #[TestDox('Cobertura total e nada divergente: aí sim sai 0 e imprime a caixa verde')]
+    #[TestDox('Com os 3 relatórios carregados a régua ainda cobre 1 de 3 — sai 0, mas NÃO sai verde')]
     public function testCoberturaTotalSaiComSucesso(): void
     {
         // Os números pinados de `CalculadoraEncargosTest`: P=170,00 · 240 dias · 20%.
@@ -116,14 +120,137 @@ final class ConferirEncargosGravadosCommandTest extends KernelTestCase
             encargos: [1360, 340, 0, 3740],
         );
 
+        // 🔑 Os TRÊS relatórios com dinheiro carregados — e ainda assim a caixa NÃO sai verde.
+        //
+        // Isto não é defeito, é a resposta honesta: carregado ≠ conferido. Esta régua lê **só a
+        // inadimplência**, então mesmo com acordos e receitas no espelho ela cobre 1 de 3, e afirmar
+        // "todo encargo gravado é um número que a fórmula produz" como conclusão sobre o todo seria
+        // exatamente o número parcial com cara de total que esta frente existe para acabar.
+        //
+        // ⚠️ Enquanto a fatia 0c não fizer os instrumentos LEREM os outros dois, a caixa verde é
+        // inalcançável aqui de propósito. Quem for implementá-la vai encontrar este teste — e é o
+        // teste que dirá que a meta foi atingida quando ele passar a exigir `[OK]`.
+        $this->carregarAcordosEReceitas($carteira);
+
         $codigo = $this->comando->execute(['--tenant-id' => (string) $carteira->getTenant()?->getId()]);
 
+        // O código de saída responde a OUTRA pergunta — divergência, não cobertura — e continua 0.
         self::assertSame(Command::SUCCESS, $codigo);
 
         $saida = $this->comando->getDisplay();
 
         self::assertStringContainsString('Todo encargo gravado é um número que a nossa fórmula produz', $saida);
         self::assertStringNotContainsString('INJULGÁVEIS', $saida, 'aviso que aparece sempre deixa de ser aviso');
+
+        $semQuebras = $this->semQuebras($saida);
+
+        self::assertStringNotContainsString('[OK]', $semQuebras, 'ler 1 de 3 não autoriza caixa verde');
+        self::assertStringContainsString('cobrem 1 de 3', $semQuebras);
+        // E a distinção que o bloco precisa fazer: os outros dois ESTÃO no espelho, e mesmo assim não
+        // entram no número. "Ausente" e "não conferido" são coisas diferentes.
+        self::assertStringContainsString('carregado, mas NÃO conferido por este comando', $semQuebras);
+        self::assertStringNotContainsString('AUSENTE do espelho', $semQuebras);
+    }
+
+    /**
+     * 🔴 Achado 1 da revisão, no lugar onde ele se manifesta — **o mesmo defeito pela terceira vez
+     * nesta frente**: o instrumento calcula que cobriu 1 de 3 relatórios, imprime isso, e três linhas
+     * abaixo estampa a caixa verde.
+     *
+     * Este é o cenário de 100% das execuções reais de hoje: os três instrumentos leem só a
+     * inadimplência.
+     *
+     * **Reintrodução provada:** trocando `$veredito->sucesso($io, ...)` de volta por
+     * `$io->success(...)` em `ConferirEncargosGravadosCommand`, este teste fica vermelho.
+     */
+    #[TestDox('🔴 Cobertura de 1 de 3 relatórios NÃO imprime caixa verde, mesmo sem nada divergente')]
+    public function testCoberturaParcialNaoImprimeCaixaVerde(): void
+    {
+        $carteira = $this->carteiraComLote(
+            snapshot: new \DateTimeImmutable('2026-08-12'),
+            vencimento: new \DateTimeImmutable('2025-12-15'),
+            encargos: [1360, 340, 0, 3740],
+        );
+
+        $this->comando->execute(['--tenant-id' => (string) $carteira->getTenant()?->getId()]);
+
+        $saida = $this->semQuebras($this->comando->getDisplay());
+
+        // O bloco de cobertura SAI, e diz o que falta — sem ele o número parece total.
+        self::assertStringContainsString('Cobertura desta medição', $saida);
+        self::assertStringContainsString('acordos', $saida);
+        self::assertStringContainsString('AUSENTE do espelho', $saida);
+        self::assertStringContainsString('cobrem 1 de 3', $saida);
+
+        // E o veredito NÃO sai verde.
+        self::assertStringNotContainsString('[OK]', $saida, 'caixa verde sobre cobertura de 1 de 3 é o defeito');
+        self::assertStringContainsString(
+            'não está sendo afirmado aqui',
+            $saida,
+            'a frase do veredito sai, mas com o recorte colado nela',
+        );
+    }
+
+    /**
+     * Os acordos vêm em DOIS arquivos por carteira. Com só um carregado, a cobertura não pode
+     * exibir a mesma linha de quando os dois estão lá (achado 5 da revisão).
+     */
+    #[TestDox('Acordos carregados pela metade aparecem como 1 arquivo, não como completos')]
+    public function testAcordosPelaMetadeNaoParecemCompletos(): void
+    {
+        $carteira = $this->carteiraComLote(
+            snapshot: new \DateTimeImmutable('2026-08-12'),
+            vencimento: new \DateTimeImmutable('2025-12-15'),
+            encargos: [1360, 340, 0, 3740],
+        );
+
+        $this->gravar->executar(new GravarEspelhoRelatorioInput(
+            $carteira,
+            $this->montarPlanilhaDeAcordos(
+                [['numero' => 1, 'valorFinal' => '100,00', 'parcelas' => [['1.1 - Taxa de condomínio', '100,00']]]],
+                situacao: 'Em andamento',
+            ),
+            TipoRelatorioContabil::Acordos,
+        ));
+
+        $this->comando->execute(['--tenant-id' => (string) $carteira->getTenant()?->getId()]);
+        $comUm = $this->semQuebras($this->comando->getDisplay());
+
+        $this->gravar->executar(new GravarEspelhoRelatorioInput(
+            $carteira,
+            $this->montarPlanilhaDeAcordos(
+                [['numero' => 2, 'valorFinal' => '200,00', 'parcelas' => [['1.1 - Taxa de condomínio', '200,00']]]],
+                situacao: 'Liquidado',
+            ),
+            TipoRelatorioContabil::Acordos,
+        ));
+
+        $this->comando->execute(['--tenant-id' => (string) $carteira->getTenant()?->getId()]);
+        $comDois = $this->semQuebras($this->comando->getDisplay());
+
+        self::assertStringNotContainsString('2 arquivos', $comUm, 'com um só carregado não pode dizer dois');
+        self::assertStringContainsString('2 arquivos', $comDois, 'com os dois, a linha muda — é o que distingue metade de inteiro');
+    }
+
+    /** Carrega acordos (as duas situações) e receitas, para a cobertura ficar completa. */
+    private function carregarAcordosEReceitas(Carteira $carteira): void
+    {
+        foreach (['Em andamento', 'Liquidado'] as $i => $situacao) {
+            $this->gravar->executar(new GravarEspelhoRelatorioInput(
+                $carteira,
+                $this->montarPlanilhaDeAcordos(
+                    [['numero' => $i + 1, 'valorFinal' => '100,00', 'parcelas' => [['1.1 - Taxa de condomínio', '100,00']]]],
+                    situacao: $situacao,
+                ),
+                TipoRelatorioContabil::Acordos,
+            ));
+        }
+
+        $this->gravar->executar(new GravarEspelhoRelatorioInput(
+            $carteira,
+            $this->montarPlanilhaDeReceitas([['1.1 - Taxa de condomínio', '100,00', '100,00']]),
+            TipoRelatorioContabil::Receitas,
+        ));
     }
 
     #[TestDox('🔴 N6 — dupla contagem sai com FAILURE, e a lista da reconciliação sai completa')]
