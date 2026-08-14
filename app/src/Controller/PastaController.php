@@ -42,6 +42,7 @@ use App\Pasta\Exception\ObservacaoFinanceiraNaoExcluivelException;
 use App\Pasta\Entity\PrioridadePasta;
 use App\Pasta\DTO\CriarPastaDTO;
 use App\Pasta\DTO\EditarPastaDTO;
+use App\Pasta\DTO\PastaFinanceiroOutput;
 use App\Pasta\UseCase\AdicionarChecklistItemUseCase;
 use App\Pasta\UseCase\CriarPastaUseCase;
 use App\Sync\Service\ReconciliadorDePasta;
@@ -52,6 +53,7 @@ use App\Pasta\UseCase\EditarPastaUseCase;
 use App\Pasta\UseCase\VincularProcessoUseCase;
 use App\Pasta\UseCase\AlterarPrioridadeUseCase;
 use App\Pasta\UseCase\AlterarSituacaoContratoUseCase;
+use App\Pasta\UseCase\AtualizarValorCausaUseCase;
 use App\Pasta\UseCase\EditarChecklistItemUseCase;
 use App\Pasta\UseCase\EditarObservacaoDetalhesUseCase;
 use App\Pasta\UseCase\EditarObservacaoFinanceiraUseCase;
@@ -125,6 +127,7 @@ class PastaController extends AbstractController
         private readonly CsrfTokenManagerInterface $csrfTokenManager,
         private readonly MarcadorRepository $marcadorRepository,
         private readonly AlterarSituacaoContratoUseCase $alterarSituacaoContratoUseCase,
+        private readonly AtualizarValorCausaUseCase $atualizarValorCausaUseCase,
         private readonly EnviarObservacaoFinanceiraUseCase $enviarObservacaoFinanceiraUseCase,
         private readonly EditarObservacaoFinanceiraUseCase $editarObservacaoFinanceiraUseCase,
         private readonly ExcluirObservacaoFinanceiraUseCase $excluirObservacaoFinanceiraUseCase,
@@ -255,6 +258,14 @@ class PastaController extends AbstractController
 
         $secoes = $tenant !== null ? $this->secaoRepository->findByPasta($pasta, $tenant) : [];
 
+        // Faixa do topo da aba Financeiro. A média por CPF é do vínculo mais antigo
+        // da pasta; sem cliente vinculado não há CPF para agrupar, e a tela mostra
+        // travessão em vez de inventar um número.
+        $primeiroCliente = $pasta->getPrimeiroCliente();
+        $mediaCpf        = $primeiroCliente !== null && $tenant !== null
+            ? $this->pastaRepository->mediaValorCausaPorCliente($primeiroCliente, $tenant)
+            : null;
+
         return $this->render('pasta/show.html.twig', [
             'pasta'                       => $pasta,
             'documentTypeOptions'         => self::DOCUMENT_TYPES,
@@ -265,6 +276,7 @@ class PastaController extends AbstractController
             'todosMarcadores'             => $todosMarcadores,
             'usuarios'                    => $usuarios,
             'documentosContrato'          => $documentosContrato,
+            'financeiro'                  => PastaFinanceiroOutput::montar($pasta, $primeiroCliente, $mediaCpf),
             'observacoesFinanceiras'      => $observacoesFinanceiras,
             'observacoesDetalhes'         => $observacoesDetalhes,
             'checklistItens'              => $checklistItens,
@@ -1456,6 +1468,44 @@ class PastaController extends AbstractController
         $this->em->flush();
 
         return $this->json(['proBono' => $pasta->isProBono()]);
+    }
+
+    // ── Financeiro: Valor da Causa ───────────────────────────────────────────
+
+    #[Route('/{id}/valor-causa', name: 'pasta_atualizar_valor_causa', methods: ['POST'])]
+    public function atualizarValorCausa(Pasta $pasta, Request $request): JsonResponse
+    {
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+        $pastaId     = (int) $pasta->getId();
+        $tenant      = $this->tenantContext->getCurrentTenant();
+
+        if (!$this->permissionChecker->canAccessResource($currentUser, $tenant, 'pasta', $pastaId, 'edit')) {
+            return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
+        }
+
+        if (!$this->isCsrfTokenValid('pasta_valor_causa_' . $pastaId, (string) $request->request->get('_token'))) {
+            return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_FORBIDDEN);
+        }
+
+        try {
+            $this->atualizarValorCausaUseCase->executar($pasta, $request->request->get('valor_causa'));
+        } catch (\InvalidArgumentException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        // A média por CPF é do cliente, não da pasta: mudar o valor aqui muda o
+        // número exibido, então ele volta recalculado para a tela não ficar defasada.
+        $primeiroCliente = $pasta->getPrimeiroCliente();
+        $mediaCpf        = $primeiroCliente !== null && $tenant !== null
+            ? $this->pastaRepository->mediaValorCausaPorCliente($primeiroCliente, $tenant)
+            : null;
+
+        return $this->json([
+            'valor'          => $pasta->getValorCausa(),
+            'valorFormatado' => PastaFinanceiroOutput::formatarReais($pasta->getValorCausa()),
+            'mediaFormatada' => PastaFinanceiroOutput::formatarReais($mediaCpf),
+        ]);
     }
 
     // ── Financeiro: Upload de documento de contrato ──────────────────────────

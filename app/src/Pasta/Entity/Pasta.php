@@ -108,6 +108,17 @@ class Pasta implements Auditavel, TenantAware
     #[ORM\Column(options: ['default' => false])]
     private bool $proBono = false;
 
+    /**
+     * Valor da causa, em reais. Nulo significa "ninguém preencheu" — que é
+     * diferente de R$ 0,00 (causa sem valor econômico). A tela e a média por CPF
+     * dependem dessa distinção: nulo fica de fora da média, zero entra nela.
+     *
+     * Fica em string porque o Doctrine mapeia decimal assim: dinheiro não passa
+     * por float em lugar nenhum do caminho.
+     */
+    #[ORM\Column(name: 'valor_causa', type: 'decimal', precision: 15, scale: 2, nullable: true)]
+    private ?string $valorCausa = null;
+
     #[ORM\OneToMany(mappedBy: 'pasta', targetEntity: PastaObservacaoFinanceira::class, cascade: ['persist', 'remove'], orphanRemoval: true)]
     #[ORM\OrderBy(['criadaEm' => 'ASC'])]
     private Collection $observacoesFinanceiras;
@@ -404,6 +415,26 @@ $this->documentos = new ArrayCollection();
         return $this;
     }
 
+    /**
+     * O "primeiro cliente" da pasta: o vínculo mais antigo.
+     *
+     * Uma ação pode ter vários autores, e a média por CPF é de um CPF só — este
+     * é o critério que decide de quem ela é. Mais antigo primeiro porque é
+     * estável: vincular outro cliente depois não troca o número na tela.
+     */
+    public function getPrimeiroCliente(): ?Cliente
+    {
+        $clientes = $this->clientes->toArray();
+
+        if ($clientes === []) {
+            return null;
+        }
+
+        usort($clientes, static fn (Cliente $a, Cliente $b): int => $a->getId() <=> $b->getId());
+
+        return $clientes[0];
+    }
+
     public function removeCliente(Cliente $cliente): self
     {
         $this->clientes->removeElement($cliente);
@@ -504,6 +535,18 @@ $this->documentos = new ArrayCollection();
     public function setProBono(bool $proBono): self
     {
         $this->proBono = $proBono;
+
+        return $this;
+    }
+
+    public function getValorCausa(): ?string
+    {
+        return $this->valorCausa;
+    }
+
+    public function setValorCausa(?string $valorCausa): self
+    {
+        $this->valorCausa = $valorCausa;
 
         return $this;
     }

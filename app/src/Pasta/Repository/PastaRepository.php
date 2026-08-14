@@ -563,6 +563,42 @@ class PastaRepository extends ServiceEntityRepository
     }
 
     /**
+     * "Média por CPF" da aba Financeiro: o ticket médio do cliente — a soma do
+     * valor da causa de todas as pastas dele dividida pela quantidade dessas
+     * pastas.
+     *
+     * Só entram as pastas com valor preenchido: pasta sem valor não é R$ 0,00 e
+     * não pode puxar a média para baixo. Pasta arquivada entra normalmente —
+     * arquivar não apaga o histórico do cliente.
+     *
+     * Devolve nulo quando o cliente não tem nenhuma pasta com valor: aí a tela
+     * mostra travessão, porque R$ 0,00 seria um número inventado.
+     *
+     * O float aparece só no arredondamento final de um número que já é derivado
+     * (uma média nunca é exata em centavos); os valores somados vêm e ficam em
+     * decimal no banco.
+     */
+    public function mediaValorCausaPorCliente(Cliente $cliente, Tenant $tenant): ?string
+    {
+        $media = $this->createQueryBuilder('p')
+            ->select('AVG(p.valorCausa)')
+            ->innerJoin('p.clientes', 'cli_media')
+            ->andWhere('cli_media = :cliente')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.valorCausa IS NOT NULL')
+            ->setParameter('cliente', $cliente)
+            ->setParameter('tenant', $tenant)
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        if ($media === null) {
+            return null;
+        }
+
+        return number_format((float) $media, 2, '.', '');
+    }
+
+    /**
      * Ordena a listagem no banco (antes da paginação) pela coluna clicada no cabeçalho.
      *
      * O QueryBuilder já vem com GROUP BY p.id, então colunas de coleção (cliente,

@@ -58,12 +58,35 @@
     font-size: .875rem;
     resize: vertical;
 }
+
+/* Indicadores da faixa do topo: os dois têm o MESMO peso visual, como no
+   desenho aprovado — nenhum dos dois ganha destaque sobre o outro. */
+.financeiro-indicador-rotulo {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: .25rem;
+}
+.financeiro-indicador-valor {
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1.2;
+    margin-bottom: 0;
+}
+#financeiro-valor-causa { cursor: pointer; }
+#financeiro-valor-causa:hover { text-decoration: underline dotted; }
+.financeiro-indicador-nota {
+    font-size: .75rem;
+    margin-top: .25rem;
+    margin-bottom: 0;
+}
 </style>
 
-{# ── Seção 1: Arquivos + Pró-Bono + Contrato ──────────────────────────────── #}
-<div class="row g-3 mb-4">
+{# ── Seção 1: Arquivos + Média por CPF + Valor da causa + Contrato + Pró-Bono ──
+   A ordem dos blocos é a do desenho aprovado e está sob teste
+   (PastaFinanceiroArranjoTelaTest). Mexer aqui sem mexer lá quebra a suíte. #}
+<div class="row g-3 mb-4 financeiro-faixa">
 
-    <div class="col-md-6">
+    <div class="col-md-4">
         <div class="d-flex align-items-center gap-3 mb-2">
             <span class="small fw-semibold text-muted text-uppercase" style="letter-spacing:.04em;"><i class="bi bi-file-earmark-text me-1"></i>Arquivos</span>
             <label class="btn btn-sm btn-outline-secondary py-0 mb-0" style="cursor:pointer;font-size:.78rem;" title="Adicionar arquivo (PDF, DOCX, JPEG, PNG — máx. 10 MB)">
@@ -141,7 +164,59 @@
         </div>
     </div>
 
-    <div class="col-md-3">
+    {# Média por CPF — o ticket médio do cliente: a média do valor da causa de
+       todas as pastas dele. Sem cliente vinculado não há CPF para agrupar, e a
+       tela mostra travessão em vez de inventar um número. #}
+    <div class="col-md-2 text-center">
+        <p class="financeiro-indicador-rotulo">Média por CPF</p>
+        <p id="financeiro-media-cpf" class="financeiro-indicador-valor">{{ financeiro.mediaCpfFormatada }}</p>
+        {% if financeiro.clienteNome %}
+            <p class="financeiro-indicador-nota text-muted" title="Média das pastas deste cliente">
+                {{ financeiro.clienteNome }}
+            </p>
+        {% else %}
+            <p class="financeiro-indicador-nota text-muted">
+                Vincule o cliente para calcular
+            </p>
+        {% endif %}
+    </div>
+
+    {# Valor da causa — editável no lugar: clique no número, digite, Enter grava. #}
+    <div class="col-md-2 text-center"
+         id="financeiro-valor-causa-bloco"
+         data-csrf="{{ csrf_token('pasta_valor_causa_' ~ pasta.id) }}"
+         data-url="{{ path('pasta_atualizar_valor_causa', {id: pasta.id}) }}">
+        <p class="financeiro-indicador-rotulo">Valor da causa</p>
+        <p id="financeiro-valor-causa"
+           class="financeiro-indicador-valor"
+           tabindex="0"
+           role="button"
+           title="Clique para editar"
+           data-valor="{{ financeiro.valorCausa ?? '' }}">{{ financeiro.valorCausaFormatado }}</p>
+        <input type="text"
+               id="financeiro-valor-causa-input"
+               class="form-control form-control-sm text-center d-none"
+               inputmode="decimal"
+               maxlength="20"
+               placeholder="0,00"
+               aria-label="Valor da causa">
+        <p id="financeiro-valor-causa-erro" class="financeiro-indicador-nota text-danger d-none"></p>
+    </div>
+
+    <div class="col-md-2">
+        <p class="fw-semibold small text-muted text-uppercase mb-2" style="letter-spacing:.04em;">CONTRATO</p>
+        <button type="button"
+                id="financeiro-situacao-btn"
+                class="btn btn-sm fw-semibold situacao-{{ pasta.situacaoContrato|lower }}"
+                data-pasta-id="{{ pasta.id }}"
+                data-situacao-atual="{{ pasta.situacaoContrato }}"
+                data-csrf="{{ csrf_token('pasta_situacao_contrato_' ~ pasta.id) }}"
+                data-url="{{ path('pasta_alternar_situacao_contrato', {id: pasta.id}) }}">
+            {{ pasta.situacaoContrato }}
+        </button>
+    </div>
+
+    <div class="col-md-2">
         <p class="fw-semibold small text-muted text-uppercase mb-2" style="letter-spacing:.04em;">PRÓ-BONO</p>
         <div class="form-check mb-0">
             <input class="form-check-input"
@@ -153,19 +228,6 @@
                    data-url="{{ path('pasta_atualizar_pro_bono', {id: pasta.id}) }}"
                    style="width:1.2em;height:1.2em;cursor:pointer;">
         </div>
-    </div>
-
-    <div class="col-md-3">
-        <p class="fw-semibold small text-muted text-uppercase mb-2" style="letter-spacing:.04em;">CONTRATO</p>
-        <button type="button"
-                id="financeiro-situacao-btn"
-                class="btn btn-sm fw-semibold situacao-{{ pasta.situacaoContrato|lower }}"
-                data-pasta-id="{{ pasta.id }}"
-                data-situacao-atual="{{ pasta.situacaoContrato }}"
-                data-csrf="{{ csrf_token('pasta_situacao_contrato_' ~ pasta.id) }}"
-                data-url="{{ path('pasta_alternar_situacao_contrato', {id: pasta.id}) }}">
-            {{ pasta.situacaoContrato }}
-        </button>
     </div>
 
 </div>
@@ -318,6 +380,87 @@
                 this.checked = !this.checked;
                 alert('Erro de rede. Tente novamente.');
             }
+        });
+    }
+
+    // ── Valor da causa (edição no lugar) ─────────────────────────────────────
+    const vcBloco  = document.getElementById('financeiro-valor-causa-bloco');
+    const vcTexto  = document.getElementById('financeiro-valor-causa');
+    const vcInput  = document.getElementById('financeiro-valor-causa-input');
+    const vcErro   = document.getElementById('financeiro-valor-causa-erro');
+    const vcMedia  = document.getElementById('financeiro-media-cpf');
+
+    if (vcBloco && vcTexto && vcInput) {
+        // O que já está gravado vem em decimal ("12860.00"); o campo de edição
+        // fala pt-BR, que é como o humano digita e como o back aceita de volta.
+        function paraPtBr(decimal) {
+            if (!decimal) return '';
+            const [inteiro, centavos] = decimal.split('.');
+            return inteiro.replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ',' + (centavos ?? '00');
+        }
+
+        function abrirEdicao() {
+            vcErro.classList.add('d-none');
+            vcInput.value = paraPtBr(vcTexto.dataset.valor);
+            vcTexto.classList.add('d-none');
+            vcInput.classList.remove('d-none');
+            vcInput.focus();
+            vcInput.select();
+        }
+
+        function fecharEdicao() {
+            vcInput.classList.add('d-none');
+            vcTexto.classList.remove('d-none');
+        }
+
+        async function gravar() {
+            const fd = new FormData();
+            fd.append('_token', vcBloco.dataset.csrf);
+            fd.append('valor_causa', vcInput.value);
+
+            try {
+                const resp = await fetch(vcBloco.dataset.url, {
+                    method: 'POST',
+                    body: fd,
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                });
+                const data = await resp.json();
+
+                if (!resp.ok) {
+                    vcErro.textContent = data.erro ?? 'Erro ao salvar.';
+                    vcErro.classList.remove('d-none');
+                    vcInput.focus();
+                    return;
+                }
+
+                vcTexto.dataset.valor = data.valor ?? '';
+                vcTexto.textContent   = data.valorFormatado;
+                // A média é do cliente, não da pasta: mudar o valor aqui muda o
+                // número ao lado, que volta recalculado do servidor.
+                if (vcMedia && typeof data.mediaFormatada !== 'undefined') {
+                    vcMedia.textContent = data.mediaFormatada;
+                }
+                vcErro.classList.add('d-none');
+                fecharEdicao();
+            } catch (_) {
+                vcErro.textContent = 'Erro de rede. Tente novamente.';
+                vcErro.classList.remove('d-none');
+            }
+        }
+
+        vcTexto.addEventListener('click', abrirEdicao);
+        vcTexto.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrirEdicao(); }
+        });
+
+        vcInput.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') { e.preventDefault(); gravar(); }
+            if (e.key === 'Escape') { e.preventDefault(); fecharEdicao(); }
+        });
+        vcInput.addEventListener('blur', function () {
+            // Sair do campo grava, como o resto da aba já faz (pró-bono e contrato
+            // salvam sozinhos). Com erro na tela o campo fica aberto para correção.
+            if (!vcInput.classList.contains('d-none')) { gravar(); }
         });
     }
 
