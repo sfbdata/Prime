@@ -19,11 +19,18 @@
                 </div>
 
                 <div class="card-body">
+                    {# `total` é o número REAL; `semelhantes` vem truncado em 5. Em produção existe
+                       par (cliente, ação) com 27 pastas — dizer "5" aqui seria número errado com
+                       cara de certo. #}
                     <p class="mb-3">
-                        Encontramos {{ semelhantes|length }}
-                        {{ semelhantes|length == 1 ? 'pasta já cadastrada' : 'pastas já cadastradas' }}
+                        Encontramos {{ total }}
+                        {{ total == 1 ? 'pasta já cadastrada' : 'pastas já cadastradas' }}
                         para <strong>{{ nomeCliente }}</strong>{% if nomeAcao %} em <strong>{{ nomeAcao }}</strong>{% endif %}.
-                        Confira antes de criar outra:
+                        {% if total > semelhantes|length %}
+                            Mostrando {{ semelhantes|length }} mais recentes:
+                        {% else %}
+                            Confira antes de criar outra:
+                        {% endif %}
                     </p>
 
                     <div class="table-responsive mb-3">

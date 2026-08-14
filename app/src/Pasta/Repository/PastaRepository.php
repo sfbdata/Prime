@@ -92,12 +92,45 @@ class PastaRepository extends ServiceEntityRepository
      */
     public function findSemelhantesPorClienteEAcao(Tenant $tenant, ?string $cliente, ?string $acao, int $limite = 5): array
     {
+        $qb = $this->qbSemelhantes($tenant, $cliente, $acao);
+
+        if ($qb === null) {
+            return [];
+        }
+
+        return $qb->orderBy('p.id', 'DESC')->setMaxResults($limite)->getQuery()->getResult();
+    }
+
+    /**
+     * Quantas pastas semelhantes existem AO TODO — não só as exibidas.
+     *
+     * Existe porque a lista é truncada em 5 e a tela precisa dizer a verdade: em produção há um
+     * par (cliente, ação) com **27 pastas**. Contar `|length` da lista truncada faria a tela
+     * anunciar "5 pastas já cadastradas" quando são 27 — número errado com cara de certo, que é
+     * exatamente o tipo de defeito que este projeto já pagou caro.
+     */
+    public function contarSemelhantesPorClienteEAcao(Tenant $tenant, ?string $cliente, ?string $acao): int
+    {
+        $qb = $this->qbSemelhantes($tenant, $cliente, $acao);
+
+        if ($qb === null) {
+            return 0;
+        }
+
+        return (int) $qb->select('COUNT(p.id)')->getQuery()->getSingleScalarResult();
+    }
+
+    /**
+     * Base comum das duas consultas de semelhança. Devolve `null` quando não há o que procurar —
+     * sem cliente sobrariam TODAS as pastas sem cliente do escritório, e o aviso viraria ruído
+     * que o usuário aprende a ignorar.
+     */
+    private function qbSemelhantes(Tenant $tenant, ?string $cliente, ?string $acao): ?QueryBuilder
+    {
         $cliente = trim((string) $cliente);
 
-        // Sem cliente não há semelhança que valha aviso: sobrariam todas as pastas sem cliente
-        // do escritório, e o aviso viraria ruído que o usuário aprende a ignorar.
         if ($cliente === '') {
-            return [];
+            return null;
         }
 
         return $this->createQueryBuilder('p')
@@ -109,11 +142,7 @@ class PastaRepository extends ServiceEntityRepository
             ->setParameter('tenant', $tenant)
             ->setParameter('cliente', $cliente)
             ->setParameter('acao', ($a = trim((string) $acao)) !== '' ? $a : null)
-            ->setParameter('vazio', '')
-            ->orderBy('p.id', 'DESC')
-            ->setMaxResults($limite)
-            ->getQuery()
-            ->getResult();
+            ->setParameter('vazio', '');
     }
 
     /**

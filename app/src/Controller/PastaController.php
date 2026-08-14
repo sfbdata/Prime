@@ -186,6 +186,9 @@ class PastaController extends AbstractController
             if ($semelhantes !== []) {
                 return $this->render('pasta/confirmar_duplicada.html.twig', [
                     'semelhantes' => $semelhantes,
+                    // O TOTAL não é o tamanho da lista: ela é truncada em 5 e há par com 27
+                    // pastas em produção. A tela mostra as 5 mais recentes e diz o total real.
+                    'total'       => $this->pastaRepository->contarSemelhantesPorClienteEAcao($tenant, $nomeCliente, $nomeAcao),
                     'nomeCliente' => $nomeCliente,
                     'nomeAcao'    => $nomeAcao,
                 ]);
