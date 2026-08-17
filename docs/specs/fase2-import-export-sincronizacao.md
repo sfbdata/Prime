@@ -188,9 +188,9 @@ Isto AMPLIA o escopo original (§1–§11). Dados abaixo medidos na PROD (tenant
 - **R1 — Numeração automática.** O sistema atribui o número da pasta automaticamente (elimina a escolha manual e a colisão concorrente). Substitui a necessidade de "trava de duplicado" no caminho do usuário. (Definir: próximo número livre por tenant? formato? o que fazer com os 10A/10B e com pastas que vêm do Drive.)
 - **R2 — Só sistema→Drive; REMOVER Drive→sistema por completo** (não é só um toggle: tirar a via de descoberta `driveParaSistema` e a Via B de download do fluxo automático — cron e worker). O sistema é a fonte.
 - **R3 — Propagar MUDANÇAS do sistema para o Drive.** Hoje o motor **NÃO renomeia** no Drive. ⚠️ **CORREÇÃO MEDIDA (2026-08-13):** a frase anterior desta linha dizia que "`renomearPasta` existe na interface mas não é chamado" — **está errado**. `grep -rn renomearPasta app/` devolve **zero** ocorrências em PHP (as 2 ocorrências são JS do gerenciador de arquivos local, sem relação com o Drive). A `GoogleDriveClientInterface` tem **exatamente 5 métodos** — `criarPasta`, `listarSubpastas`, `listarArquivos`, `enviarArquivo`, `baixarArquivo` — e nenhum renomeia. **Logo R3 não é "ligar uma chamada existente": exige criar o método** na interface + em `GoogleDriveClient` (Drive API `files.update` com `name`) + no `FakeGoogleDriveClient` dos testes + o gatilho de propagação. O P.O. quer que **alterar dado no sistema (ex.: número/nome da pasta) atualize o Drive** → ligar `renomearPasta` no fluxo sistema→Drive. Isso também é a cura do problema "pasta no Drive com número diferente do sistema" (§ pergunta do P.O.: *alterar número no sistema NÃO muda no Drive hoje → resposta era NÃO; R3 muda para SIM*).
-- **R4 — Alinhar o Drive ao sistema (o sistema manda).** Corrigir as divergências fazendo o Drive refletir o sistema (nome/número). Sob R3, muitas se resolvem sozinhas quando a propagação ligar; as substantivas (cliente/número trocado) o P.O. revisa.
+- **R4 — Alinhar o Drive ao sistema (o sistema manda).** Corrigir as divergências fazendo o Drive refletir o sistema (nome/número). Sob R3, muitas se resolvem sozinhas quando a propagação ligar; as substantivas (cliente/número trocado) o P.O. revisa. ⚠️ **ESCOPO TRAVADO PELO DONO (2026-08-14): o alinhamento só toca pastas criadas em/depois de 2026-07-14. As pastas do Drive criadas ANTES de 14/07 (o acervo legado) NÃO são renomeadas — os nomes originais do dono ficam intactos.** Ver D12.7. ✅ **EXECUTADO 2026-08-14 (manual, pelo dono):** auditadas as 31 pastas ≥14/07 (sistema × Drive via MCP); 7 divergiam e foram renomeadas no Drive à mão para o nome do sistema — 4 de número (ids 1186→1228, 1187→1229, 1189→1230, 1190→1231; a troca 1229↔1230 desfeita) e 3 de nome (1154, 1164, 1156). As 31 estão alinhadas. Pendência cosmética: o nome da pasta id 1190 no SISTEMA tem parêntese não fechado (`(JÚNIOR / HELENO`) — número 1231 correto, só o texto; quando corrigido no sistema o R3 propaga sozinho.
 - **R5 — Relatório das pastas criadas desde o "ponto correto" (2026-07-14) até agora** — são as 32 acima. SQL pronto para o próximo chat rodar (ver 12.4).
-- **R6 — Limpeza das duplicatas atuais** (2 literais + 1 de número): decisão humana de qual manter, juntar documentos, apagar a outra pasta **e** a pasta correspondente no Drive.
+- **R6 — Limpeza das duplicatas atuais** (2 literais + 1 de número): decisão humana de qual manter, juntar documentos, apagar a outra pasta **e** a pasta correspondente no Drive. ⚠️ **ATUALIZADO 2026-08-14:** a detecção **NÃO pode ser só por nup repetido** — durante o smoke o dono renomeou a pasta id **1191** (era nup 1227, duplicata literal da id **1184**: mesmo cliente JORGE ALBERTO DA SILVA TEIXEIRA / EXECUÇÃO) para nup **1240**. As duas continuam sendo o **mesmo caso**, mas 1191 **sumiu da busca por número repetido** → duplicata escondida. **R6 deve detectar por cliente+ação** (`UNACCENT(LOWER(...))`, igual ao aviso do D12.5), não por nup. Estado atual dos pares (por id, robusto a renomeação): **nup 1214 → {1165 manter, 1178 apagar} · nup 1221 → {1175 manter, 1177 apagar} · caso JORGE → {1184 manter, 1191 apagar}** (1191 hoje com nup 1240). Confirmar cliente+ação de cada par com o dono ANTES de apagar; mover documentos da que sai para a que fica; apagar também a pasta no Drive. **DECISÃO 2026-08-14: o dono NÃO vai limpar as duplicatas — entrega para a GERÊNCIA decidir e apagar por conta deles. Sai do escopo desta frente.** (A do JORGE já foi resolvida pelo dono; restam os pares 1214 {1165 manter, 1178 apagar} e 1221 {1175 manter, 1177 apagar}, os dois candidatos comprovadamente VAZIOS no sistema e no Drive — ver medição de 2026-08-14. Fica como informação para quem for executar, não como tarefa nossa.)
 - **R7 — Migração para o Drive do Farlei (dono único):** sequência decidida = **ALINHAR PRIMEIRO, depois migrar.** Preferir **exportar do sistema** (não copiar a pasta velha), MAS só depois de garantir (a) completude — o sistema NÃO tem 100% do Drive (pula Google-native/nome>255/tamanho>2GB/pasta sem número), então exportar às cegas perderia esses; e (b) nomes corretos — senão vão números errados. Farlei já tem armazenamento pago (não é Workspace, não há Shared Drive). "Pasta ser dona" não existe sem Workspace → o alcançável é "Farlei dono de tudo". Ownership: quem sobe/copia vira dono; a exportação pelo sistema (logado como Farlei) já resolve.
 
 ### 12.3 Sequência recomendada (uma frente grande, em ordem)
@@ -266,6 +266,9 @@ vários casos parecidos legitimamente. Comparação tolerante a acento e caixa
 (`UNACCENT(LOWER(...))`, igual à busca livre da lista). Implementado em
 `PastaRepository::findSemelhantesPorClienteEAcao` + tela `pasta/confirmar_duplicada.html.twig`
 (reenvia os mesmos dados com `confirmar=1`).
+- ⏳ **FOLLOW-UP UX (pedido do dono no smoke 2026-08-14):** o aviso hoje é uma **página inteira**
+  (`confirmar_duplicada.html.twig`); o dono quer que vire **modal** na própria tela de "Nova pasta"
+  — comportamento já está correto, é só apresentação. Fatia pequena própria, sem urgência.
 
 **D12.6 — decisões do dono sobre os dois pontos que estavam em aberto (2026-08-13):**
 - **R2, escopo → PRESERVAR o código, tirar só do automático.** `driveParaSistema` e a Via B são
@@ -279,6 +282,54 @@ vários casos parecidos legitimamente. Comparação tolerante a acento e caixa
   crontab que alguém precisa lembrar de editar; com o padrão no comando, mesmo um cron antigo
   para de importar no deploy.
 
-**⏳ EM ABERTO — OPS (não bloqueia código):** pausar o sync automático em produção até a fatia
-entrar, ou deixar rodando? (Drive→sistema é aditivo e ninguém mais põe arquivo no Drive à mão,
-então hoje é inofensivo.)
+**D12.7 — R4/alinhamento só vale para pastas ≥ 2026-07-14 (decidido em 2026-08-14).** O dono NÃO
+quer que o alinhamento renomeie no Drive as pastas do **acervo legado** (criadas antes de 14/07);
+os nomes que ele deu a essas pastas ficam como estão. O alinhamento (R4) — se e quando rodar —
+filtra por `created_at >= '2026-07-14'`. Consequência prática: como as pastas pós-14/07 nasceram
+pelo sistema já com o nome certo, o conjunto a alinhar é pequeno (tende a zero), e as **~445
+divergências de nome** medidas no dry-run bidirecional (quase todas do legado) **não se tocam**.
+Isso NÃO é o cron: o cron `--modo=enviar` já não renomeia por varredura (D12.3), então religar o
+cron é ortogonal a esta decisão.
+
+**✅ RESOLVIDO — OPS (2026-08-14):** a fatia `sync-sistema-manda` foi **squashada (3 commits de
+base → 1), integrada por ff-merge no master (`d55ebf16`), publicada (`origin/master`) e deployada
+em produção**. Worker recriado em `--modo=enviar` (só-envio, provado com dry-run limpo: 0 import,
+exit 0). O cron `sync-reconciliar.sh` (já com `--modo=enviar`) está sendo religado (descomentar a
+linha do crontab). O padrão do comando é `enviar`, então religar não reintroduz importação.
+
+**D12.8 — Fatia B: Exportar = interruptor contínuo · Importar = ação PONTUAL com prévia (decidido em 2026-08-14).**
+O dono propôs "um botão liga Drive→sistema e outro liga Sistema→Drive". O desenho travado refina o
+formato dos dois, e o **porquê** importa:
+- **Sistema→Drive (Exportar)** *pode* ser um **interruptor contínuo/ligado** — é seguro porque o
+  sync é só-construtivo e "o sistema manda". É o `--modo=enviar` de sempre (cron + worker).
+- **Drive→Sistema (Importar)** **NÃO** pode ser um interruptor que fica ligado. Um toggle de importação
+  permanente reintroduz o **sync bidirecional** — exatamente o que traz duplicata de volta e deixa o
+  Drive sobrescrever o sistema. Tem que ser uma **ação de uma vez** ("Importar agora"): dispara de
+  propósito, **mostra a prévia do que vai entrar**, roda e **termina** — não vira estado ligado.
+  Metáfora do dono: *Exportar = torneira que pode ficar aberta; Importar = enche o balde uma vez e fecha.*
+- **Relação com a órfã (D12/§12.5 e regra do sync só-construtivo):** apagar pasta no sistema NÃO apaga
+  o folder no Drive (sync não destrói). Enquanto o sync for só-envio, a órfã é só sujeira. Ela vira
+  problema **na hora de Importar**: a varredura vê o folder sem dono no sistema e **recria** a pasta
+  apagada. Botão explícito de Importar **reduz o acidente** (ninguém importa sem querer), mas **não
+  basta**: a prévia do Importar precisa deixar o dono VER "isto vai criar pasta X" e pular órfãs; e o
+  R6 deve apagar o folder no Drive junto. As duas defesas juntas matam o risco de a duplicata voltar.
+
+**D12.9 — sync fica NÃO-destrutivo (decidido em 2026-08-14); delete-mirror guardado para futuro próximo.**
+O dono cogitou o Export também apagar no Drive quando se apaga no sistema (Drive vira espelho exato).
+**Decisão: NÃO fazer agora — o sync continua só-construtivo.** Motivos (a regra existe por isso):
+- A regra "nunca apaga" é a **garantia** de que nenhum bug do sync destrói arquivo de cliente. Delete
+  ligado troca "no pior caso cria a mais" por "no pior caso apaga pasta de cliente" — irreversível.
+- O **Drive é a rede de segurança** (cópia do acervo, montada via rclone). Espelhar delete tira o backup:
+  uma exclusão errada no sistema levaria a cópia junto.
+- Erro humano é amplificado; e delete dentro de **varredura** + um bug apagaria em massa.
+- Não é necessário para a órfã: prévia do Importar (D12.8) + apagar o folder no R6 já resolvem.
+
+**Guardado para implementar em futuro próximo — SE for feito, só nesta forma blindada (pedido do dono
+para não perder as sugestões):**
+1. **Só no delete explícito** de uma pasta/documento (evento único, como o R3), **NUNCA** na varredura/reconcile.
+2. **Mover para a LIXEIRA do Drive** (`trashed=true` via Drive API), **nunca** apagar de vez → 30 dias de resgate.
+3. **Confirmação na tela** a cada exclusão: "apagar também no Drive?" (opt-in por ação, não um modo global ligado).
+4. **Log de toda ação destrutiva** + **guarda de tenant forte** (um erro de isolamento apagando folder de outro
+   escritório é catastrófico).
+5. Reaproveita o método novo do R3 na `GoogleDriveClientInterface` (padrão: criar método `moverParaLixeira(fileId)`
+   ao lado de `renomearPasta`), disparado pelo mesmo tipo de gatilho por-evento.
