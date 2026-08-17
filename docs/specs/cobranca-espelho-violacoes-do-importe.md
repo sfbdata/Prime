@@ -162,7 +162,7 @@ Há ainda a pergunta do passivo: **os 375 acordos já gravados e as 256 dívidas
 reprocessados?** É dinheiro que sobe, e reconciliação de dado histórico em produção é decisão do dono
 — o mesmo padrão da decisão #8 (R$ 7.227,62).
 
-### 1.9 Como reproduzir esta medição
+### 1.9 Como reproduzir esta medição (ver também §2.9)
 
 Via MCP `jusprime-prod` (SELECT apenas). Assinatura do chute:
 
@@ -189,3 +189,148 @@ WHERE a.data_acordo < ob.vencimento_original
 `definirEncargos()` grava em `encargos_atualizados_em`, **não** em `encargos_congelados_em` — esta
 última só é preenchida na liquidação (medido: 8.786 = exatamente as liquidadas). Consultar a coluna
 errada devolve zero linhas e faz parecer que a materialização nunca rodou.
+
+---
+
+## Fatia 2 — a decisão (B) e a auditoria dos pontos de chamada
+
+**Decisão do dono, 17/08:** gravar o acordo **mesmo sem data**.
+
+> "Se existe o acordo e o sistema é o espelho, se não tiver data, então a lógica é que, se no sistema
+> da contabilidade houver algum acordo sem data, o nosso sistema tem que gravar esse acordo sem data.
+> Simples."
+
+Recusar a criar é o sistema julgando que um registro incompleto não merece existir — a mesma espécie
+de opinião que esta frente veio remover. A opção (A) foi descartada: era preferência por custo de
+implementação, e custo não vence princípio.
+
+### 2.1 A (B) e a 6ª violação saem JUNTAS — separá-las piora o estado atual
+
+Dois casos que a implementação trata como um fluxo só:
+
+1. a contabilidade tem o acordo e ele **genuinamente não tem data** → grava sem data, fim;
+2. o acordo **tem** data, mas o relatório lido naquele instante (receitas / inadimplência) **não
+   carrega o campo** — a data existe, está no relatório de acordos.
+
+No caso 2, gravar em branco e parar ali não é espelho: é copiar um relatório incompleto e ignorar o
+outro. Como o ramo de atualização nunca reescreve `dataAcordo` (§1.2), o campo **nasceria em branco e
+ficaria em branco para sempre**. Entregar a (B) sem a 6ª violação é entregar um estado pior que o
+atual.
+
+**Comportamento-alvo, sem opinião embutida:** o acordo é registrado assim que aparece, com o que a
+fonte deu; o que falta fica **em branco e visível**, nunca inventado; quando chega o relatório que tem
+o dado, ele **preenche**; se nunca chegar, continua em branco — quem julga é a gerência.
+
+### 2.2 🔴 A armadilha silenciosa: `null|date` no Twig imprime HOJE
+
+Verificado no container em 17/08, não deduzido:
+
+```
+Twig  null|date('d/m/Y')  => [17/08/2026]      <-- a data de hoje
+Twig  data real           => [15/03/2020]
+```
+
+O filtro `date` do Twig converte `null` para `"now"`. Os **4 templates** que formatam a data passariam
+a **inventar uma data na tela**, sem erro, sem aviso — a mesma violação que esta frente remove do
+importador, reaparecendo na view. É o achado mais perigoso da auditoria justamente porque é mudo.
+
+| template | linha |
+|---|---|
+| `cobranca/acordo/show.html.twig` | 3 (title) e 13 (`<h1>`) |
+| `cobranca/objeto/_partials/_movimentos.html.twig` | 143 |
+| `cobranca/objeto/_partials/_divida.html.twig` | 325 |
+
+Os quatro exigem guarda explícita (`{% if %}` com rótulo de vazio). **Nenhum teste atual pega isso** —
+a suíte lê HTML e um `17/08/2026` é HTML perfeitamente válido.
+
+### 2.3 O que quebra — inventário dos pontos de chamada
+
+Tipagem não-anulável se propaga da entidade até a tela. Tudo abaixo é `\DateTimeImmutable` estrito:
+
+| # | ponto | o que quebra | conserto |
+|---|---|---|---|
+| 1 | `Acordo::$dataAcordo` (`:50`) | `#[ORM\Column(type:'date_immutable')]` **NOT NULL** + propriedade não-anulável | coluna anulável + `?\DateTimeImmutable` |
+| 2 | `Acordo::__construct` (`:123`) | **`$this->dataAcordo = new \DateTimeImmutable()`** — a entidade **inventa `now()`** por padrão | remover o default; nascer nula |
+| 3 | `Acordo::getDataAcordo()` (`:225`) | retorno `\DateTimeImmutable` | `?\DateTimeImmutable` |
+| 4 | `Acordo::setDataAcordo()` (`:230`) | parâmetro não-anulável | aceitar `?` |
+| 5 | `AcordoOutput::$dataAcordo` (`:21`,`:54`) | readonly não-anulável | `?` |
+| 6 | `AcordoDetalheOutput::$dataAcordo` (`:33`) | idem | `?` |
+| 7 | `GrupoAcordoObrigacoesOutput::$dataAcordo` (`:32`) | idem | `?` |
+| 8 | `MontarDetalheAcordoUseCase:99` · `MontarDetalheCasoUseCase:473` | repasse | segue após 5–7 |
+| 9 | `AcordoRepository::doCaso:95` | `orderBy('a.dataAcordo','DESC')` — no PostgreSQL `DESC` põe **NULL primeiro**: acordo sem data lidera a lista | ordenação explícita |
+| 10 | **`ImportarAcordosDetalhadosUseCase::materializarNaDataDoAcordo` (`:1056-1071`)** | calcula encargo **na** `dataAcordo` — ver §2.4 | §2.4 |
+| 11 | `CriarAcordoUseCase:142,144,160` | usa `$input->dataAcordo` para materializar e para o vencimento da entrada | §2.5 |
+| 12 | 4 templates | §2.2 | guarda explícita |
+| 13 | `AcordoFactory` + ~14 arquivos de teste | fixam data não-nula | caso novo "sem data" |
+
+**O item 2 é uma sexta violação que ninguém tinha listado:** a própria entidade inventa `now()` no
+construtor. Hoje isso é mascarado porque todo caminho sobrescreve a data logo em seguida — mas é
+exatamente a mesma opinião ("todo acordo tem data, e na dúvida é hoje") gravada uma camada abaixo.
+
+### 2.4 🔑 A resposta à pergunta do dono: sem data, o que a tela mostra de encargo?
+
+`materializarNaDataDoAcordo` é chamado em **3 pontos** (`:773`, `:874`, `:1023`) e grava, nas
+obrigações que o acordo substitui, o encargo **calculado na data do acordo**. Com data nula não há o
+que calcular. E aqui há uma armadilha medida:
+
+- `encargosCongelados()` é `encargosCongeladosEm !== null`, e essa coluna **só é preenchida na
+  liquidação** (medido: 8.786 = exatamente as liquidadas). A obrigação substituída **não é congelada**;
+- ela some da tela do exigível porque a *query* a exclui, **não** porque está congelada;
+- logo, ela **não é re-hidratada** por `EncargosVivos::hidratar` — o que a tela exibe é o último
+  snapshot que alguém gravou nela.
+
+**Portanto: simplesmente pular a materialização deixa a linha exibindo o encargo da última vez que a
+obrigação foi hidratada — um número calculado numa data arbitrária.** É o defeito que o comentário de
+`:1047-1052` já descreve ("o cache da última vez que alguém abriu a tela"). Trocar uma data inventada
+no importe por um número velho na tela não é espelho.
+
+Coerente com a regra (**não exibir número inventado**), o alvo é: acordo sem data **não materializa** e
+a obrigação substituída mostra **vazio/pendente**, não um valor. Isso exige um estado distinguível de
+"materializada com R$ 0,00" — hoje os dois seriam indistinguíveis na coluna.
+
+⚠️ **É o único ponto desta fatia que toca a exibição de dinheiro.** Como interface é do dono, a forma
+do vazio (rótulo, cor, se some ou aparece esmaecido) volta para ele antes de virar tela.
+
+### 2.5 O caminho MANUAL não é espelho — e não deve afrouxar
+
+`CriarAcordoUseCase` nasce de um humano lavrando acordo na tela, não da contabilidade.
+`CriarAcordoInput::$dataAcordo` já é `?\DateTimeImmutable`, mas carrega
+`#[Assert\NotNull('Informe a data do acordo.')]`, e `AcordoCriarType` monta um `DateType` obrigatório.
+
+**Recomendação: manter obrigatório no manual.** A regra "não inventar o que a fonte não deu" vale para
+o importe; na tela a fonte é a pessoa, e ela sabe a data. Afrouxar aqui seria expandir escopo e abrir
+caminho para dado incompleto por descuido — o oposto do objetivo. `:160`
+(`$input->dataEntrada ?? $input->dataAcordo`) e `:142-144` seguem seguros com isso.
+
+### 2.6 O que a auditoria NÃO encontrou
+
+- Nenhum `ORDER BY` de relatório contábil depende de `dataAcordo` além do `:95`;
+- `Acordo::estaIncompleto()`/`parcelasFaltantes()` usam `numeroParcelasTotal`, não a data;
+- a régua do espelho (`app:cobranca:espelho:*`) não lê `dataAcordo`;
+- `EncargosVivos` **não** a lê (usa `hoje` e o vencimento da obrigação) — a exceção legítima do §1
+  segue intacta, como o dono exigiu.
+
+### 2.7 Ordem de execução obrigatória
+
+A migration é o **último** passo de escrita, não o primeiro:
+
+1. tipos anuláveis na entidade + DTOs (itens 1–8) e remoção do `now()` do construtor;
+2. guardas nos 4 templates (§2.2) — **antes** de qualquer dado nulo existir;
+3. `dataAcordoPadrao()` **apagado** dos dois importadores (violação #3);
+4. ramo de atualização passa a preencher a data quando a planilha a traz (6ª violação, §2.1);
+5. decisão do §2.4 aplicada (não materializar sem data);
+6. testes, inclusive o de reintrodução do defeito;
+7. **migration** `data_acordo` → anulável;
+8. simulação com números **antes** de qualquer coisa em produção.
+
+### 2.8 Passivo (375 acordos + 256 dívidas)
+
+**Conserto obrigatório, não pendência de decisão** — mesmo caso da decisão #8, que o dono já resolveu
+(o sistema espelha a contabilidade mesmo quando o resultado sobe). Do dono é o *quando* e o *como
+comunicar*, não o *se*. Simulação com números antes de aplicar; nada roda em produção sem ele.
+
+### 2.9 Frente
+
+`cobranca-data-acordo-espelho`, cortada do **master local** (não de `origin/master`: este está 2
+commits atrás, sem o `460e58af` da Fatia 1 nem o `37399179` de outra sessão). Tem migration —
+registrada em `docs/frentes-ativas.md`.

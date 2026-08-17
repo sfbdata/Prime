@@ -7,6 +7,7 @@ Quem abre uma frente acrescenta a linha. Quem integra tira.
 
 | Frente (branch) | Domínio | Migration? | Arquivos compartilhados que toca | Estágio | Base |
 |---|---|---|---|---|---|
+| `cobranca-data-acordo-espelho` | Cobrança (importadores + `Acordo`) | **sim — 1** (`data_acordo` → anulável) | `docs/specs/cobranca-espelho-violacoes-do-importe.md` | auditoria feita, **nada implementado** | **`master` local** @ `460e58af` |
 | `cobranca-acompanhamento-canonico` | Cobrança (modelo objeto/caso) | **sim — 4** | `docs/gestao-cobrancas/` | 🛑 **PARADA** (ver abaixo) | `origin/master` @ `0bb1f29` |
 | `expediente-ux` | Expediente + Pasta (telas) | não | `app/templates/expediente/`, `app/templates/pasta/` | implementando, **28 commits atrás do master** | `origin/codex/colaboracao-cobrancas` |
 
@@ -42,9 +43,31 @@ quem a retomar traz o master para dentro antes de escrever qualquer linha.
 rodada de dentro de uma worktree sem sobrescrever `DATABASE_URL` falha, ou pior, mede o banco errado.
 Para os testes isso não vale: `scripts/frente-testar.sh` usa o banco clonado da frente.
 
-⚠️ A regra da casa manda **uma frente com migration por vez**. Hoje só a
-`cobranca-acompanhamento-canonico` tem migration pendente (4), e está PARADA — então não há disputa;
-quem revivê-la precisa ler o bloco dela antes de gerar a próxima versão.
+⚠️ A regra da casa manda **uma frente com migration por vez**. Hoje a `cobranca-data-acordo-espelho`
+tem 1 migration pendente e é a **única frente ATIVA com migration**. A
+`cobranca-acompanhamento-canonico` tem 4, mas está PARADA — então não há disputa hoje; **quem
+revivê-la tem de alinhar com a `cobranca-data-acordo-espelho` antes de gerar versão**, porque as duas
+mexem em cobrança.
+
+### `cobranca-data-acordo-espelho` — aberta em 2026-08-17
+
+Frente da decisão (B) do dono: **o acordo é gravado mesmo sem data**, porque se a contabilidade tem
+acordo sem data, o espelho grava sem data. Torna `data_acordo` anulável e mata `dataAcordoPadrao()`
+dos dois importadores que hoje derivam a data do 1º dia da competência.
+
+| | |
+|---|---|
+| **Base** | **`master` local, não `origin/master`** — este está 2 commits atrás (`460e58af` da Fatia 1 e `37399179` de outra sessão) |
+| **Estado** | worktree pronta, auditoria dos pontos de chamada registrada na spec §2; **nenhuma linha de código escrita** |
+| **Spec** | `docs/specs/cobranca-espelho-violacoes-do-importe.md` |
+| **Banco** | `saas_testcobranca-data-acordo-espelho` — ✅ **já tem a coluna `valor_causa`** (o `saas_test` foi migrado antes do clone), então o aviso do topo não morde esta frente |
+
+⚠️ **`scripts/frente-abrir.sh` abortou no meio e mentiu o sucesso.** O `composer install` sai com erro
+(o `cache:clear` do post-install estoura o limite de 128M de memória do PHP), e com `set -e` o script
+morre **antes** de criar os dirs de upload e de clonar o banco. Quem rodou não percebeu porque o
+comando estava com `| tail`, e o código de saída lido foi o do `tail`, não o do script. Os dois passos
+que faltaram foram executados à mão. **Ao abrir a próxima frente, não canalize a saída do script por
+`tail`/`head`** — ou confira `saas_test<nome>` no fim.
 
 ### 🛑 `cobranca-acompanhamento-canonico` — parada, NÃO apagar
 
