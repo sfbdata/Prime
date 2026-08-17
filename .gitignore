@@ -21,6 +21,10 @@
 .env.*.local
 .env.prod
 
+# Token do GitHub usado no build (composer install). Mora na VPS, nunca no git.
+# O modelo versionado é o .composer-auth.json.example.
+.composer-auth.json
+
 # Uploads de usuários
 /app/public/uploads/
 

@@ -64,7 +64,17 @@ WORKDIR /var/www/app
 
 COPY app/composer.json app/composer.lock ./
 
-RUN composer install \
+# O build baixa 122 pacotes do GitHub. ANÔNIMO, o GitHub limita por IP e devolve
+# HTTP 429 no meio do caminho — foi o que derrubou dois deploys em 17/08/2026,
+# deixando o site em modo manutenção. Autenticado, o teto sobe para 5.000/hora.
+#
+# O token entra por SECRET do BuildKit, não por ARG/ENV: assim ele não fica
+# gravado nas camadas nem no histórico da imagem. Se o segredo não for fornecido
+# (build de dev), cai para `{}` e o comportamento é o de antes — o build não
+# quebra por causa disso.
+RUN --mount=type=secret,id=composer_auth \
+    COMPOSER_AUTH="$(cat /run/secrets/composer_auth 2>/dev/null || echo '{}')" \
+    composer install \
     --no-dev \
     --no-interaction \
     --no-progress \

@@ -3,6 +3,8 @@ services:
     build:
       context: .
       target: prod
+      secrets:
+        - composer_auth
     container_name: jusprime_php_prod
     restart: unless-stopped
     env_file:
@@ -37,6 +39,8 @@ services:
     build:
       context: .
       target: prod
+      secrets:
+        - composer_auth
     container_name: jusprime_worker_prod
     restart: unless-stopped
     env_file:
@@ -111,3 +115,11 @@ volumes:
   db_data_prod:
   uploads_prod:
   static_prod:
+
+# Credencial usada SÓ durante o build (composer install), nunca em runtime.
+# O arquivo mora na VPS, fora do git — ver .composer-auth.json.example.
+# O deploy cria um `{}` vazio se ele não existir, para o build não quebrar por
+# falta de arquivo; sem token, porém, o GitHub volta a limitar por IP.
+secrets:
+  composer_auth:
+    file: ./.composer-auth.json

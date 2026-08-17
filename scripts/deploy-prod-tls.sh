@@ -26,6 +26,19 @@ if [[ ! -f ".env.prod" ]]; then
   exit 1
 fi
 
+# Credencial do composer para o build. O compose exige que o arquivo do secret
+# exista, então criamos um `{}` vazio quando falta — assim o build não morre por
+# ausência de arquivo. Sem token de verdade, porém, o download volta a ser
+# anônimo e o GitHub limita por IP (HTTP 429), que foi o que derrubou os deploys
+# de 17/08/2026. O aviso existe para isso não passar despercebido.
+if [[ ! -f ".composer-auth.json" ]]; then
+  echo '{}' > .composer-auth.json
+fi
+if ! grep -q "github-oauth" .composer-auth.json; then
+  echo "⚠️  .composer-auth.json sem token do GitHub — o build vai baixar anônimo"
+  echo "   e pode ser barrado com HTTP 429. Modelo: .composer-auth.json.example"
+fi
+
 if [[ ! -f "/etc/letsencrypt/live/bluejus.com.br/fullchain.pem" || \
       ! -f "/etc/letsencrypt/live/bluejus.com.br/privkey.pem" ]]; then
   echo "❌ Certificados Let's Encrypt não encontrados em /etc/letsencrypt/live/bluejus.com.br/"
