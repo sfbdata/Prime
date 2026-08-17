@@ -520,6 +520,14 @@ dois caminhos (`CriarAcordoUseCase.php:136-145`; `ImportarAcordosDetalhadosUseCa
 cria acordo pela coluna N, `ImportarRelatorioCarteiraUseCase.php:320` usa `dataAcordoPadrao()`
 (`:356-359`), que deriva a data do 1º dia do mês da competência. **Fora do escopo da Fase 0.**
 
+🔴 **A ressalva foi MEDIDA em 17/08 e é maior do que este título sugere** — ver
+`cobranca-espelho-violacoes-do-importe.md` §1. O título desta seção vale para o *caminho de código*
+examinado aqui, mas **não** para o dado em produção: como `setDataAcordo($aba->dataBase)` só existe
+no ramo de CRIAÇÃO, o acordo criado antes pelos outros dois importadores mantém a data derivada para
+sempre. Em produção **375 dos 395 acordos (94,9%) carregam a data chutada**, e ela alimenta a
+materialização de `:1056-1071` — R$ 203.265,07 de encargos assentados sobre ela, incluindo **256
+dívidas com encargo R$ 0,00** porque a data inventada precede o próprio vencimento delas.
+
 ## 8. Riscos e proibições
 
 | # | risco | mitigação |
