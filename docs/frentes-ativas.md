@@ -9,17 +9,27 @@ Quem abre uma frente acrescenta a linha. Quem integra tira.
 |---|---|---|---|---|---|
 | `cobranca-acompanhamento-canonico` | Cobrança (modelo objeto/caso) | **sim — 4** | `docs/gestao-cobrancas/` | 🛑 **PARADA** (ver abaixo) | `origin/master` @ `0bb1f29` |
 | `expediente-ux` | Expediente + Pasta (telas) | não | `app/templates/expediente/`, `app/templates/pasta/` | implementando, **28 commits atrás do master** | `origin/codex/colaboracao-cobrancas` |
-| `pasta-valor-causa` | Pasta (aba Financeiro) | **sim — 1** | `app/templates/pasta/_financeiro.html.twig`, `app/src/Controller/PastaController.php`, `app/src/Pasta/Entity/Pasta.php` | implementando | `origin/master` @ `5e53478b` |
 
-⚠️ `pasta-valor-causa` e `expediente-ux` **tocam a mesma pasta de templates** (`app/templates/pasta/`)
-mas **arquivos diferentes**: a primeira mexe em `_financeiro.html.twig`, a segunda em `_filtros.html.twig`.
-Quem integrar por último confere o diff das duas antes de mergear — sobreposição de diretório não é
-conflito, mas é o lugar onde ele apareceria.
+`pasta-valor-causa` foi **integrada em 2026-08-17** (fast-forward para `3629b19a`). Trouxe a migration
+`Version20260814120000` — uma coluna `valor_causa` em `pasta`, aditiva e anulável, que não toca nenhuma
+tabela existente. O segundo passo que todo mundo pula foi feito: master trazido para dentro da frente
+(1 arquivo em comum, `PastaController.php`, sem conflito) e **suíte rodada de novo no master depois do
+merge** — 3828/3828.
 
-⚠️ A regra de **uma frente com migration por vez** foi respeitada: a única outra frente com migration
-pendente (`cobranca-acompanhamento-canonico`, 4) está **PARADA**. A migration desta frente é numerada
-**depois** de todas as existentes (inclusive a `Version20260813210000`, já integrada) para não
-disputar ordem com elas se a frente parada for revivida.
+🔴 **Se a sua frente tem banco de teste próprio, ele NÃO tem a coluna `valor_causa`.** Os bancos das
+frentes são clones do `saas_test` feitos *antes* desta migration; ao trazer o master para dentro da sua
+frente, a suíte vai explodir com centenas de `column "valor_causa" of relation "pasta" does not exist`.
+**Não é quebra de código** — aconteceu exatamente isso no master em 17/08. O conserto é uma linha:
+
+```bash
+docker exec -e TEST_TOKEN=<sua-frente> jusprime_php_dev bash -c \
+  'cd /var/www/.claude/worktrees/<sua-frente>/app && php bin/console doctrine:migrations:execute \
+   --up "DoctrineMigrations\Version20260814120000" --env=test --no-interaction'
+```
+
+Use `migrations:execute` (uma versão), **não** `migrations:migrate`: o ledger dos bancos clonados só
+tem as migrations recentes, então o `migrate` tenta rodar as antigas e morre em `relation "tenant"
+already exists`.
 
 ⚠️ `expediente-ux` estava **fora deste registro** e só apareceu num `git worktree list` de 14/08 — o
 mesmo defeito que a `cobranca-acompanhamento-canonico` já tinha cometido. Ela tem 2 commits e 4
