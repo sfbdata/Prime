@@ -401,7 +401,7 @@ aconteceu.
 
 ### 2.12 A 3ª revisão — e o que a medição de produção corrigiu na decisão
 
-**3ª revisão (18/08).** Nada de runtime provado, mas três buracos da mesma família que já passou duas
+**3ª revisão (18/08); correções em `478b5d6f`.** Nada de runtime provado, mas três buracos da mesma família que já passou duas
 vezes por aqui:
 
 - **a prévia podia gravar.** O bloco do backfill faz `setDataAcordo` + `salvar(flush)` + materializa, e
@@ -452,3 +452,39 @@ faz já custou caro nesta frente — foi o `"dataAcordo não move dinheiro"` que
 
 ⏳ **Pendente e fora desta fatia:** o passivo (375 acordos + 256 dívidas). É conserto obrigatório, com
 simulação de números antes e autorização do dono para rodar. Nada foi tocado em produção.
+
+### 2.14 A 4ª revisão — aprovada para o smoke, com dois consertos
+
+**Veredito: pronta para o smoke do dono.** Os testes novos não são vacuosos, a reversão do `catch` não
+deixou resíduo, o early-return não foi tocado, suíte conferida pelo próprio revisor. Dois consertos
+saíram desta rodada:
+
+1. **O badge ainda mentia num caso: acordo NÃO VIGENTE.** A rodada anterior consertou o ramo que
+   governa zero linhas (a congelada) e deixou o que governa linhas reais. Num acordo rompido/cancelado
+   as originais **voltaram ao saldo** e são hidratadas ao vivo — dizer "ficam sem calcular" ali é falso,
+   e contradizia o próprio *"Acordo desfeito: as obrigações originais voltaram ao saldo"* impresso 30
+   linhas abaixo **na mesma tela**. O texto passou a depender de `acordo.vigente`.
+2. **Lacuna de prova no teste da prévia.** Ele pegava a mutação total (guard removido) mas **não** a
+   parcial (`setDataAcordo` fora do guard, `salvar` dentro): a sujeira ficava só em memória e o
+   `clear()` a descartava. Conserto: `flush()` antes do `clear()`, o mesmo padrão que o T11 desta classe
+   já documenta. **Verificado nos dois sentidos** — sem o flush a mutação parcial passa; com ele, falha.
+
+⚠️ **Registro de honestidade:** a primeira tentativa de verificar essa lacuna deu resultado errado
+porque a edição de teste caiu na linha errada (havia 6 pares `flush`+`clear` no arquivo). A conclusão
+apressada — *"algo dá flush na prévia"* — era falsa e foi descartada ao refazer a medição no lugar
+certo. **Nenhum `salvar(..., true)` do importador é alcançável na prévia**: todos estão sob
+`$usuario !== null`.
+
+### 2.15 ⚠️ Pré-requisitos do SMOKE — sem isto não há o que olhar
+
+Medido em 18/08 no banco de dev (`saas_ux`):
+
+| | |
+|---|---|
+| `cobranca_acordo.data_acordo` aceita nulo? | **NÃO** — a migration desta frente não foi aplicada lá |
+| `Version20260817180000` no ledger do dev | **ausente** |
+| acordos sem data no dev | **0** |
+
+Ou seja: a tela do smoke não tem como mostrar o estado novo. Antes de olhar, é preciso aplicar a
+migration no dev **e** produzir ao menos um acordo sem data. Isso escreve no banco de dev, que carrega
+dataset real — **é passo do dono, não do agente**.

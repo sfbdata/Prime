@@ -6,6 +6,7 @@ namespace App\Tests\Cobranca\Functional;
 
 use App\Cobranca\Controller\ObjetoController;
 use App\Cobranca\Entity\Acordo;
+use App\Cobranca\Enum\StatusAcordo;
 use App\Tests\Factory\Cobranca\AcordoFactory;
 use App\Tests\Factory\Cobranca\ObrigacaoFactory;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -219,6 +220,44 @@ final class AcordoSemDataNaTelaTest extends CobrancaWebTestCase
 
         self::assertStringNotContainsString('⚠ acordo sem data', $html);
         self::assertStringContainsString('689,77', $html, 'com data, o exigível é número legítimo');
+    }
+
+    /**
+     * Acordo sem data ROMPIDO — o caso que a 4ª revisão pegou meio-corrigido.
+     *
+     * As originais voltaram ao saldo e são hidratadas ao vivo: a tela tem de mostrar NÚMERO, e o aviso do
+     * selo não pode dizer "ficam sem calcular" — isso contradiria o próprio "Acordo desfeito" logo abaixo
+     * na mesma tela. É a cláusula `ehVigente()` do predicado, vista pelo lado do usuário.
+     */
+    #[TestDox('Acordo sem data ROMPIDO: mostra numero, e o aviso nao promete calculo pendente')]
+    public function testAcordoSemDataRompidoMostraNumero(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+
+        $acordo = AcordoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso, 'dataAcordo' => null,
+            'status' => StatusAcordo::Rompido, 'valorTotalNegociado' => 50000,
+        ])->_real();
+        ObrigacaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso, 'descricao' => 'Dívida renegociada',
+            'valorOriginal' => 60000, 'encargosReconhecidos' => 0,
+            'juros' => 7777, 'multa' => 1200, 'correcao' => 0, 'honorarios' => 3400,
+            'acordoSubstituto' => $acordo,
+        ]);
+
+        $client->request('GET', '/cobrancas/acordos/' . $acordo->getId());
+
+        self::assertResponseIsSuccessful();
+        $html = (string) $client->getResponse()->getContent();
+
+        // O selo continua (o acordo REALMENTE não tem data), mas sem prometer cálculo pendente.
+        self::assertStringContainsString('Sem data', $html);
+        self::assertStringNotContainsString('ficam sem calcular', $html, 'o aviso promete cálculo num acordo desfeito');
+        // E os valores voltam a ser apurados: a obrigação está viva de novo.
+        self::assertStringContainsString('689,77', $html, 'acordo desfeito devolve a obrigação ao cálculo ao vivo');
+        self::assertCount(0, $client->getCrawler()->filter('.jp-enc-motivo'), 'não pode haver traço aqui');
     }
 
     /**

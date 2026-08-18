@@ -14,8 +14,12 @@
         <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
             <a href="{{ path('cobranca_objeto_show', {id: acordo.objetoId}) }}" class="btn btn-sm btn-outline-secondary" title="Voltar à cobrança"><i class="bi bi-arrow-left"></i></a>
             <h1 class="m-0 d-flex align-items-center gap-2"><i class="bi bi-file-earmark-text"></i>{% if acordo.dataAcordo %}Acordo de {{ acordo.dataAcordo|date('d/m/Y') }}{% else %}Acordo sem data{% endif %}</h1>
+            {#- O texto depende de o acordo estar VIGENTE. Num acordo rompido/cancelado as originais
+                voltaram ao saldo e são hidratadas ao vivo — falar em "sem calcular" ali seria falso, e
+                contradiria o próprio aviso "Acordo desfeito" logo abaixo nesta mesma tela (achado da 4ª
+                revisão: a rodada anterior consertou o ramo que governa zero linhas e deixou este). -#}
             {%- if not acordo.dataAcordo %}
-            <span class="badge text-bg-warning jp-acordo-sem-data" title="A contabilidade não informou a data deste acordo. O sistema não a inventa: os encargos das dívidas que ele substitui ficam sem calcular; a congelada mantém o snapshot que tem.">
+            <span class="badge text-bg-warning jp-acordo-sem-data" title="{% if acordo.vigente %}A contabilidade não informou a data deste acordo. O sistema não a inventa: os encargos das dívidas que ele substitui ficam sem calcular; a congelada mantém o snapshot que tem.{% else %}A contabilidade não informou a data deste acordo. Como o acordo foi desfeito, as dívidas originais voltaram ao saldo e seus encargos voltaram a ser calculados normalmente.{% endif %}">
                 <i class="bi bi-exclamation-triangle"></i> Sem data
             </span>
             {%- endif %}

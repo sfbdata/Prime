@@ -731,6 +731,12 @@ final class ImportarAcordosDetalhadosTest extends KernelTestCase
         self::assertNotEmpty($anunciados, 'a prévia tem de DECIDIR igual e anunciar o preenchimento');
 
         // ...mas NÃO escreve. Nem a data...
+        //
+        // ⚠️ `flush()` ANTES do `clear()`, como o T11 desta mesma classe (`:1051-1053`) documenta: uma
+        // sujeira deixada só EM MEMÓRIA pela prévia (ex.: `setDataAcordo` fora do guard, com o `salvar`
+        // dentro) seria descartada pelo `clear()` e o teste passaria com o defeito presente. Com o flush,
+        // ela é escrita e o assert a pega. Achado da 4ª revisão.
+        $this->em->flush();
         $this->em->clear();
         $acordo = $this->em->getRepository(Acordo::class)->findOneBy(['tenant' => $tenant, 'numeroExterno' => 37]);
         self::assertNotNull($acordo);
