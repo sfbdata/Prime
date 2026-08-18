@@ -139,3 +139,14 @@ prod-antes-*.dump
 # Gravação da animação da tela de entrada: 1,3 MB de binário que não precisa
 # entrar na história. O modelo aprovado (HTML + imagens) esse fica versionado.
 docs/tela_login/*.mp4
+
+# Pedidos do dono transcritos do WhatsApp (áudios, textos e capturas de tela). São conversa de
+# escritório: trazem nome de cliente, número de pasta e assunto de processo — dado pessoal de
+# terceiro, do mesmo tipo que já motivou as regras de docs/folha-de-ponto/ e das planilhas da
+# contábil acima. Ficam no disco de quem transcreve e nunca na história: depois de commitado,
+# PII só sai reescrevendo o repositório inteiro.
+#
+# A PASTA INTEIRA, não só .md e .jpg — é a lição de 03/08 registrada mais acima: quando a regra
+# olha só a extensão, o arquivo derivado no formato seguinte escapa.
+/PEDIDOS-PRIORITARIOS-WHATSAPP.md
+docs/pedidos-whatsapp/
