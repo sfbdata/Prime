@@ -334,3 +334,29 @@ comunicar*, não o *se*. Simulação com números antes de aplicar; nada roda em
 `cobranca-data-acordo-espelho`, cortada do **master local** (não de `origin/master`: este está 2
 commits atrás, sem o `460e58af` da Fatia 1 nem o `37399179` de outra sessão). Tem migration —
 registrada em `docs/frentes-ativas.md`.
+
+### 2.10 Implementação — feita em 17/08 (commit `74dd6ee9`), 3841/3841 verde
+
+O traço com o motivo NA LINHA (decisão do dono) entrou na **célula do Total**, não na faixa de
+encargos: a obrigação substituída é renderizada **sem** a faixa — só com o Total —, e
+`totalComHonorarios` **soma** os encargos residuais. A auditoria do §2.3 não tinha pegado isso; quem
+pegou foi o teste, ao ficar vermelho procurando o motivo numa tela que não o mostrava.
+
+Segunda correção vinda do mesmo teste: `encargosNaoCalculados()` precisou virar **vigente-aware**. O
+vínculo `acordoSubstituto` nunca é apagado (invariável 14), então um acordo **rompido** deixaria a
+obrigação marcada como "não calculada" para sempre — quando na verdade ela volta ao exigível e passa a
+ser hidratada ao vivo, com encargo real.
+
+**Os 6 defeitos provados por reintrodução** (teste verde não prova nada):
+
+| defeito reintroduzido | teste que fica vermelho |
+|---|---|
+| construtor voltando a gravar `now()` (7ª) | `AcordoSemDataTest` |
+| guarda `{% if g.dataAcordo %}` removida | `AcordoSemDataNaTelaTest` — acha a data de HOJE no HTML |
+| traço do Total removido | idem — o total com encargo residual reaparece |
+| `ORDER BY dataAcordo DESC` sem o `HIDDEN` | idem — o sem data lidera |
+| inadimplência voltando a chutar (#3) | `ImportarAcordosDetalhadosTest` |
+| ramo de atualização não preenchendo (6ª) | idem |
+
+⏳ **Pendente e fora desta fatia:** o passivo (375 acordos + 256 dívidas). É conserto obrigatório, com
+simulação de números antes e autorização do dono para rodar. Nada foi tocado em produção.
