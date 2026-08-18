@@ -7,10 +7,9 @@ Quem abre uma frente acrescenta a linha. Quem integra tira.
 
 | Frente (branch) | Domínio | Migration? | Arquivos compartilhados que toca | Estágio | Base |
 |---|---|---|---|---|---|
-| `cobranca-data-acordo-espelho` | Cobrança (importadores + `Acordo`) | **sim — 1** (`Version20260817180000`, `data_acordo` → anulável) | `docs/specs/cobranca-espelho-violacoes-do-importe.md` | **implementada** @ `bc5aba57`, aguardando revisão + smoke | **`master` local** @ `460e58af` |
 | `cobranca-acompanhamento-canonico` | Cobrança (modelo objeto/caso) | **sim — 4** | `docs/gestao-cobrancas/` | 🛑 **PARADA** (ver abaixo) | `origin/master` @ `0bb1f29` |
 | `expediente-ux` | Expediente + Pasta (telas) | não | `app/templates/expediente/`, `app/templates/pasta/` | implementando, **28 commits atrás do master** | `origin/codex/colaboracao-cobrancas` |
-| `deploy-resiliente` | Infra de deploy (Dockerfile + `scripts/deploy-prod*.sh`) | não | `Dockerfile`, `scripts/`, `docs/specs/` | **pronta para integrar** (suíte 3828/3828) | `origin/master` @ `2ddae2cd` |
+| `deploy-resiliente` | Infra de deploy (Dockerfile + `scripts/deploy-prod*.sh`) | não | `Dockerfile`, `scripts/`, `docs/specs/` | **pronta para integrar** | `origin/master` @ `2ddae2cd` |
 
 `pasta-valor-causa` foi **integrada em 2026-08-17** (fast-forward para `3629b19a`). Trouxe a migration
 `Version20260814120000` — uma coluna `valor_causa` em `pasta`, aditiva e anulável, que não toca nenhuma
@@ -44,67 +43,81 @@ quem a retomar traz o master para dentro antes de escrever qualquer linha.
 rodada de dentro de uma worktree sem sobrescrever `DATABASE_URL` falha, ou pior, mede o banco errado.
 Para os testes isso não vale: `scripts/frente-testar.sh` usa o banco clonado da frente.
 
-⚠️ A regra da casa manda **uma frente com migration por vez**. Hoje a `cobranca-data-acordo-espelho`
-tem 1 migration pendente e é a **única frente ATIVA com migration**. A
-`cobranca-acompanhamento-canonico` tem 4, mas está PARADA — então não há disputa hoje; **quem
-revivê-la tem de alinhar com a `cobranca-data-acordo-espelho` antes de gerar versão**, porque as duas
-mexem em cobrança.
+⚠️ A regra da casa manda **uma frente com migration por vez**. Hoje **nenhuma frente ativa tem
+migration pendente** — a `cobranca-acompanhamento-canonico` tem 4, mas está PARADA. Quem revivê-la
+precisa ler o bloco dela antes de gerar versão.
+
+`cobranca-data-acordo-espelho` foi **integrada em 2026-08-18** (fast-forward para `3605188f`).
+Trouxe a migration `Version20260817180000` — `cobranca_acordo.data_acordo` passa a aceitar **nulo**,
+porque se a contabilidade tem acordo sem data o espelho grava sem data. Matou o `dataAcordoPadrao()`
+dos dois importadores que derivavam a data do 1º dia da competência (violação #3: **375 de 395
+acordos com data chutada**, R$ 203.265,07 de encargo calculado sobre ela, 256 dívidas zeradas por
+data impossível), o `now()` do construtor de `Acordo` (#7) e a ausência de reescrita no ramo de
+atualização (#6).
+
+**Quatro revisões adversariais**, cada uma achando o que a anterior não podia ver: tela exibindo
+resíduo, correção declarada como provada sem estar (duas vezes), catch inalcançável, badge
+prometendo o que não cumpre, e uma **prévia que podia gravar** (`prever()` sem transação). Suíte
+**3853/3853** na frente com o master dentro **e** de novo no master depois do merge. Smoke do dono
+feito e aprovado em 18/08.
+
+⚠️ **`scripts/frente-abrir.sh` aborta no meio e mente o sucesso.** O `composer install` sai com erro
+(o `cache:clear` do post-install estoura os 128M) e o `set -e` mata o script **antes** de criar os
+dirs de upload e de clonar o banco. **Não canalize a saída do script por `tail`/`head`** — o código
+de saída lido vira o do `tail`. Confira `saas_test<nome>` no fim. Conserto do script: fatia própria.
+
+🔴 **A worktree NÃO herda `app/.env.local`.** Rodar `doctrine:migrations:execute` de dentro dela
+aplica no banco `saas` (parado no tempo), não no `saas_ux` que a aplicação usa. Aconteceu em 18/08,
+com o aviso já escrito neste arquivo. Passe `DATABASE_URL` explicitamente.
+
+🔴 **O nginx do dev serve só `app/` — a worktree não é publicada.** Não dá para fazer smoke do código
+de uma frente sem antes integrá-la no master local. Preparar banco novo com código velho quebra a
+tela (`Typed property $dataAcordo must not be accessed before initialization`).
 
 ### `deploy-resiliente` — aberta em 2026-08-18
 
-Nasceu do incidente de deploy de 17–18/08. **Não toca PHP nenhum** — só `Dockerfile`, os dois
-scripts de deploy e uma spec. Suíte rodada mesmo assim: 3828/3828 em `saas_testdeploy-resiliente`.
+Nasceu do incidente de deploy de 17–18/08. **Não toca uma linha de PHP, Twig ou config** — só
+`Dockerfile`, os dois scripts de deploy e docs. Por isso não tem superfície de quebra cruzada com
+nenhuma frente de aplicação.
 
 | | |
 |---|---|
-| **Entrega** | cache do composer sobrevive ao deploy; poda de cache com teto no lugar do `prune` cego; credencial de build validada **antes** de derrubar o site; build **antes** do modo manutenção |
-| **Migration** | **não** — por isso não disputa a vaga com a `cobranca-data-acordo-espelho` |
-| **Prova** | `bash scripts/testar-deploy-guardas.sh` (23 asserções, roda em ~20 s, não toca docker de verdade) |
+| **Entrega** | cache do composer sobrevive ao deploy; poda com teto no lugar do `prune` cego; credencial validada **antes** de derrubar o site; build **antes** do modo manutenção |
+| **Migration** | **não** |
+| **Prova** | `bash scripts/testar-deploy-guardas.sh` — 42 asserções, ~20 s, não toca docker de verdade |
+| **Medido** | deploy #2 sem mudança de código: **209,9 s → 1,26 s**, 122 → **0** pacotes baixados; `composer install` completa com `--network=none` |
 
-🔴 **Um bug pré-existente foi corrigido de carona:** `scripts/deploy-prod.sh` usava
-`${POSTGRES_USER}` sob `set -u` sem nunca ler o `.env.prod` (o `deploy-prod-tls.sh` sempre leu).
-Ele morreria em "unbound variable" **já com o modo manutenção ligado**. Achado pelo teste novo.
+🔴 **A causa era o próprio deploy.** O `docker builder prune -f` do fim do `deploy-prod-tls.sh`
+zerava 100% do cache de build (medido: 1,719 GB → 0 B, e ter a imagem no store não protege). Todo
+deploy começava frio. O cache mount do composer **também** não sobrevive a esse prune — consertar a
+poda era obrigatório, não opcional.
 
-⚠️ **`scripts/frente-abrir.sh` abortou de novo**, no mesmo ponto de sempre (`cache:clear` estoura
-os 128M no post-install do composer, `set -e` mata o script antes dos uploads e do clone do
-banco). Os dois passos foram refeitos à mão. **Isto já está documentado aqui desde 17/08 e
-continua mordendo quem abre frente** — vale consertar o script numa fatia própria.
+🔴 **Bug pré-existente corrigido junto:** `scripts/deploy-prod.sh` usava `${POSTGRES_USER}` sob
+`set -u` **sem nunca ler o `.env.prod`** — morreria em "unbound variable" já com o modo manutenção
+ligado. Nos dois scripts a leitura subiu para antes de derrubar qualquer coisa.
 
-### `cobranca-data-acordo-espelho` — aberta em 2026-08-17
+⏳ **Duas medições que só dá para fazer na VPS:** se o docker de lá tem `--max-used-space` (senão
+cai no fallback por idade, sem teto por tamanho) e se há `python3` no host (sem ele a validação
+avisa e segue, não trava o deploy).
 
-Frente da decisão (B) do dono: **o acordo é gravado mesmo sem data**, porque se a contabilidade tem
-acordo sem data, o espelho grava sem data. Torna `data_acordo` anulável e mata `dataAcordoPadrao()`
-dos dois importadores que hoje derivam a data do 1º dia da competência.
-
-| | |
-|---|---|
-| **Base** | **`master` local, não `origin/master`** — este está 2 commits atrás (`460e58af` da Fatia 1 e `37399179` de outra sessão) |
-| **Estado** | worktree pronta, auditoria dos pontos de chamada registrada na spec §2; **nenhuma linha de código escrita** |
-| **Spec** | `docs/specs/cobranca-espelho-violacoes-do-importe.md` |
-| **Banco** | `saas_testcobranca-data-acordo-espelho` — ✅ **já tem a coluna `valor_causa`** (o `saas_test` foi migrado antes do clone), então o aviso do topo não morde esta frente |
-
-⚠️ **`scripts/frente-abrir.sh` abortou no meio e mentiu o sucesso.** O `composer install` sai com erro
-(o `cache:clear` do post-install estoura o limite de 128M de memória do PHP), e com `set -e` o script
-morre **antes** de criar os dirs de upload e de clonar o banco. Quem rodou não percebeu porque o
-comando estava com `| tail`, e o código de saída lido foi o do `tail`, não o do script. Os dois passos
-que faltaram foram executados à mão. **Ao abrir a próxima frente, não canalize a saída do script por
-`tail`/`head`** — ou confira `saas_test<nome>` no fim.
-
-### ⏸️ `pasta-cliente-principal` — PROJETADA, esperando a vaga de migration
+### ✅ `pasta-cliente-principal` — DESTRAVADA, projetada e ainda não aberta
 
 Marcar explicitamente qual cliente é o principal da pasta, para a **"Média por CPF"** da aba
 Financeiro parar de trocar de número quando alguém vincula um cliente mais antigo no cadastro.
 
-**Não foi aberta como worktree e nenhuma linha foi escrita** — de propósito. A fatia exige
-migration (promover `pasta_cliente`, hoje ManyToMany pura, a entidade de vínculo com a flag
-`principal`), e a vaga de migration está ocupada pela `cobranca-data-acordo-espelho`.
+Estava esperando a vaga de migration. **Com a `cobranca-data-acordo-espelho` integrada em 18/08, a
+vaga abriu** — esta fatia pode ser aberta a qualquer momento. Nenhuma linha foi escrita ainda.
 
 | | |
 |---|---|
-| **Spec** | [specs/pasta-cliente-principal.md](specs/pasta-cliente-principal.md) — desenho completo, migration com backfill, testes e a colisão prevista |
-| **Destrava quando** | `cobranca-data-acordo-espelho` for integrada |
-| **Padrão a seguir** | `PastaProcesso` — o domínio `Pasta` já tem "marcar como principal", e o desenho é o mesmo peça por peça |
-| **Custo escondido** | a lista de clientes é montada por **DOM em JS**, não por parcial Twig; extrair `_clientes_vinculados.html.twig` é metade da fatia |
+| **Spec** | [specs/pasta-cliente-principal.md](specs/pasta-cliente-principal.md) — desenho, migration com backfill, testes e a colisão prevista |
+| **Padrão a seguir** | `PastaProcesso` — o domínio `Pasta` já tem "marcar como principal" |
+| **Migration** | **sim — 1** (promove `pasta_cliente`, hoje ManyToMany pura, a entidade de vínculo) |
+
+🔴 **Três achados que fariam a fatia nascer morta** (verificados no código, estão na spec):
+`PastaController::syncClientes()` remove todos os clientes e re-adiciona a cada edição de pasta —
+zeraria a marcação; `PastaType` liga `clientes` como campo **mapeado**, e coleção derivada não é
+gravável pelo form; e ManyToMany + OneToMany na mesma tabela duplica chave no flush.
 
 ### 🛑 `cobranca-acompanhamento-canonico` — parada, NÃO apagar
 
@@ -142,9 +155,16 @@ dentro da frente (limpo, zero conflitos) e **suíte rodada de novo no master dep
 3771/3771, 14.239 asserções. A carga em produção segue
 [runbooks/espelho-carregar-em-producao.md](runbooks/espelho-carregar-em-producao.md).
 
-`sync-sistema-manda` foi **integrada, publicada e deployada** antes disso (`d55ebf16`). ⚠️ **O cron e o
-worker do Drive continuam pausados em produção** e o smoke da tela ainda não foi feito — religar é
-decisão do dono, não consequência do próximo deploy.
+`sync-sistema-manda` foi **integrada, publicada e deployada** antes disso (`d55ebf16`). ✅ **Fechada
+ponta a ponta em 2026-08-18:** cron religado (`0 * * * *`, wrapper da VPS já com `--modo=enviar`),
+worker `jusprime_worker_prod` de pé consumindo `async` sem restart-loop, e **smoke da tela feito e
+aprovado**. O R2 está provado em produção pelo próprio log: 95 rodadas marcadas `[modo: enviar]` e a
+última com `Pastas criadas no sistema: 0` / `Arquivos baixados do Drive: 0`.
+
+⚠️ **Não leia `Divergências de nome: 0` desse log como "o Drive está alinhado".** Sob `--modo=enviar`
+o contador vive dentro de `driveParaSistema()`, que não roda — o zero é ausência de medição, não
+ausência de divergência (mesma armadilha do §12.4 da spec). Medir exigiria `--modo=ambos --dry-run`;
+pelo D12.7 o acervo legado não se alinha mesmo, então provavelmente nunca será preciso.
 
 `cobranca-dupla-contagem` foi **integrada, publicada e deployada em 2026-08-13** (`99948524`), e a
 reconciliação **rodou em produção**: 25 dívidas corrigidas, R$ 1.429,55 fora do saldo do devedor, e a
