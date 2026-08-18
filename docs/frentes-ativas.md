@@ -95,6 +95,16 @@ o texto de exemplo do modelo, que foi o que derrubou a produção). Prova:
 fallback por idade) e `command -v python3` → **`/usr/bin/python3`** (a validação da credencial roda
 completa, com parser JSON, em vez de avisar e seguir).
 
+🔴 **Medido na VPS em 18/08: o `.composer-auth.json` de lá é `{}` — NUNCA houve token em produção.**
+O commit `37399179` montou o encanamento inteiro (secret do BuildKit, compose, Dockerfile) e a
+credencial nunca foi instalada. Todos os builds desde então, inclusive o que funcionou em 18/08,
+rodaram **anônimos** — ou seja, o teto de 5.000/hora que aquele commit foi buscar nunca valeu. O
+deploy de 18/08 passou porque o GitHub se recuperou, não porque o token foi corrigido.
+
+Isso explica a sequência de 17/08 sem mistério: placeholder → `401` → o arquivo foi esvaziado para
+`{}` → anônimo → funcionou quando o GitHub voltou. **É por isso que a validação nova trata ausência
+como AVISO e não como erro** (anônimo funciona), mas o aviso agora aparece.
+
 🔴 **O DEPLOY AINDA NÃO FOI FEITO — e o primeiro vai ser LENTO, de propósito.** O cache da VPS foi
 zerado pelo `prune` cego do último deploy antigo, então o primeiro build com o script novo ainda
 começa frio: ~4 min e os 122 pacotes baixados do GitHub. É o último que faz isso. **O ganho aparece
