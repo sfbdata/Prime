@@ -26,17 +26,14 @@ if [[ ! -f ".env.prod" ]]; then
   exit 1
 fi
 
-# Credencial do composer para o build. O compose exige que o arquivo do secret
-# exista, então criamos um `{}` vazio quando falta — assim o build não morre por
-# ausência de arquivo. Sem token de verdade, porém, o download volta a ser
-# anônimo e o GitHub limita por IP (HTTP 429), que foi o que derrubou os deploys
-# de 17/08/2026. O aviso existe para isso não passar despercebido.
-if [[ ! -f ".composer-auth.json" ]]; then
-  echo '{}' > .composer-auth.json
-fi
-if ! grep -q "github-oauth" .composer-auth.json; then
-  echo "⚠️  .composer-auth.json sem token do GitHub — o build vai baixar anônimo"
-  echo "   e pode ser barrado com HTTP 429. Modelo: .composer-auth.json.example"
+# Credencial do composer para o build. Validada ANTES de qualquer coisa: credencial
+# inválida costumava passar batida aqui, e o deploy só quebrava depois de já ter
+# derrubado o site. Detalhes do desenho em scripts/lib/composer-auth.sh.
+# shellcheck source=lib/composer-auth.sh
+source "$(dirname "$0")/lib/composer-auth.sh"
+if ! validar_composer_auth ".composer-auth.json"; then
+  echo "❌ Deploy abortado. O site NÃO saiu do ar."
+  exit 1
 fi
 
 if [[ ! -f "/etc/letsencrypt/live/bluejus.com.br/fullchain.pem" || \
@@ -59,20 +56,32 @@ fi
 echo "📦 Atualizando código do repositório..."
 git pull
 
+# ─── Constrói a imagem ANTES de derrubar nada ──────────────────────────────────
+# A ORDEM É O CONSERTO. Antes, a manutenção era ligada primeiro e o build vinha depois:
+# qualquer build que falhasse (pane do GitHub, token ruim, warmup estourando memória)
+# deixava o site fora do ar sem nada para pôr no lugar. Em 17/08/2026 foram ~40 minutos
+# de manutenção em builds que nunca chegaram a produzir imagem.
+# Enquanto este passo roda, o site segue no ar servindo a versão ANTERIOR.
+echo "🏗️  Construindo a imagem nova (o site continua no ar)..."
+if ! $COMPOSE_CMD $COMPOSE_FILE $ENV_FILE build; then
+  echo "❌ Build falhou. Nenhum container foi tocado e o site continua no ar na versão anterior."
+  exit 1
+fi
+
 # ─── Entra em modo manutenção ──────────────────────────────────────────────────
-# O nginx continua no ar e passa a servir a página de manutenção amigável (503)
-# enquanto o php é reconstruído. Em caso de falha abaixo, a flag fica ligada de
+# Só agora, com a imagem pronta na mão. A janela de manutenção passa a ser só a troca
+# de container + migrations. Em caso de falha DAQUI PARA BAIXO a flag fica ligada de
 # propósito (melhor a página de manutenção do que um app meio-migrado).
 echo "🛠️  Ativando modo manutenção..."
 mkdir -p nginx/maintenance
 touch nginx/maintenance/maintenance.on
 
 # ─── Recria apenas o php (nginx/db seguem no ar) ─────────────────────────────────
-# Sem `down`: o `up -d --build` só recria containers cujo build/imagem mudou — o php
-# (código novo). nginx e db ficam intactos, então não há "conexão recusada" e o app
-# co-hospedado (grupojusprime.tech) não sofre blip.
-echo "🐳 Reconstruindo e subindo containers (recria só o php)..."
-$COMPOSE_CMD $COMPOSE_FILE $ENV_FILE up -d --build --remove-orphans
+# Sem `down` e sem `--build` (a imagem já está pronta): só recria containers cuja
+# imagem mudou — o php. nginx e db ficam intactos, então não há "conexão recusada" e
+# o app co-hospedado (grupojusprime.tech) não sofre blip.
+echo "🐳 Subindo containers (recria só o php)..."
+$COMPOSE_CMD $COMPOSE_FILE $ENV_FILE up -d --remove-orphans
 
 # ─── Reconecta o nginx à rede do sistema co-hospedado (condomínio) ───
 # Em deploys normais o nginx NÃO é recriado (config inalterada), então este passo só
@@ -149,11 +158,30 @@ echo "🔌 Portas ativas:"
 ss -tlnp | grep -E ':80|:443' || echo "⚠️  Nenhuma porta 80/443 detectada."
 
 # ─── Limpeza de lixo do Docker ────────────────────────────────────────────────
-# Remove SOMENTE imagens dangling e build cache. NÃO toca volumes (db/uploads)
-# nem imagens em uso. Evita acúmulo a cada deploy com --build.
-echo "🧹 Limpando imagens dangling e build cache..."
+# Remove SOMENTE imagens dangling. NÃO toca volumes (db/uploads) nem imagens em uso.
+echo "🧹 Limpando imagens dangling..."
 docker image prune -f || true
-docker builder prune -f || true
+
+# ⚠️ AQUI MORAVA O `docker builder prune -f` CEGO, E ELE ERA A CAUSA DE O DEPLOY
+# REBAIXAR AS 122 DEPENDÊNCIAS TODA VEZ.
+# Medido em 18/08/2026: o prune sem filtro zera 100% do cache de build (1,719 GB → 0 B),
+# inclusive o cache mount do composer, e ter a imagem no store NÃO protege nada. Com o
+# cache intacto o passo do composer sai como CACHED (build inteiro em ~2 s); depois do
+# prune ele refaz tudo, apt-get incluído (~235 s) e rebaixando os 122 pacotes do GitHub.
+# Era isso que deixava todo deploy refém de o GitHub estar de pé.
+#
+# A poda continua existindo — o disco da VPS é apertado —, mas com TETO em vez de tudo:
+# o cache do deploy que acabou de rodar sobrevive para o próximo.
+echo "🧹 Podando cache de build com teto (mantém o cache do deploy atual)..."
+TETO_CACHE_BUILD_BYTES=${TETO_CACHE_BUILD_BYTES:-$((8 * 1024 * 1024 * 1024))}   # 8 GB
+if docker builder prune --help 2>&1 | grep -q -- '--max-used-space'; then
+  docker builder prune -f --max-used-space "$TETO_CACHE_BUILD_BYTES" || true
+else
+  # Docker antigo, sem teto por tamanho: poda por idade, mantendo os últimos 7 dias.
+  echo "   (docker sem --max-used-space; podando por idade)"
+  docker builder prune -f --filter until=168h || true
+fi
+docker builder du 2>/dev/null | tail -1 || true
 
 echo ""
 echo "🚀 Deploy TLS concluído com sucesso."

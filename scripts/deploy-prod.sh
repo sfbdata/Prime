@@ -19,21 +19,31 @@ if [[ ! -f ".env.prod" ]]; then
   exit 1
 fi
 
-# Credencial do composer para o build. O compose exige que o arquivo do secret
-# exista, então criamos um `{}` vazio quando falta — assim o build não morre por
-# ausência de arquivo. Sem token de verdade, porém, o download volta a ser
-# anônimo e o GitHub limita por IP (HTTP 429), que foi o que derrubou os deploys
-# de 17/08/2026. O aviso existe para isso não passar despercebido.
-if [[ ! -f ".composer-auth.json" ]]; then
-  echo '{}' > .composer-auth.json
-fi
-if ! grep -q "github-oauth" .composer-auth.json; then
-  echo "AVISO: .composer-auth.json sem token do GitHub — o build vai baixar anônimo"
-  echo "       e pode ser barrado com HTTP 429. Modelo: .composer-auth.json.example"
+# Credencial do composer para o build. Validada ANTES de qualquer coisa: credencial
+# inválida costumava passar batida aqui, e o deploy só quebrava depois de já ter
+# derrubado o site. Detalhes do desenho em scripts/lib/composer-auth.sh.
+# shellcheck source=lib/composer-auth.sh
+source "$(dirname "$0")/lib/composer-auth.sh"
+if ! validar_composer_auth ".composer-auth.json"; then
+  echo "Deploy abortado. O site NÃO saiu do ar."
+  exit 1
 fi
 
-# Entra em modo manutenção: o nginx continua no ar servindo a página amigável (503)
-# enquanto o php é reconstruído. Em caso de falha, a flag fica ligada de propósito.
+# O BUILD VEM ANTES DO MODO MANUTENÇÃO — e é essa ordem que importa.
+# Antes era o contrário: ligava a manutenção e só então buildava, então qualquer build
+# que falhasse (pane do GitHub, token ruim, warmup estourando memória) deixava o site
+# fora do ar sem nada para pôr no lugar. Em 17/08/2026 isso custou ~40 minutos de
+# manutenção em builds que nunca chegaram a produzir imagem.
+# Enquanto este passo roda, o site segue no ar servindo a versão ANTERIOR.
+echo "Construindo a imagem nova (o site continua no ar)..."
+if ! $COMPOSE_CMD -f docker-compose.prod.yml --env-file .env.prod build; then
+  echo "Build falhou. Nenhum container foi tocado e o site continua no ar na versão anterior."
+  exit 1
+fi
+
+# Só agora, com a imagem pronta na mão, o site sai do ar. A janela de manutenção
+# passa a ser só a troca de container + migrations. Em caso de falha DAQUI PARA
+# BAIXO a flag fica ligada de propósito (melhor manutenção do que app meio-migrado).
 echo "Ativando modo manutenção..."
 mkdir -p nginx/maintenance
 touch nginx/maintenance/maintenance.on
@@ -41,7 +51,13 @@ touch nginx/maintenance/maintenance.on
 # Sem `down`: recria só o php (código novo). nginx/db ficam no ar — sem "conexão
 # recusada" e sem derrubar o app co-hospedado. --remove-orphans limpa containers
 # fora do compose sem precisar derrubar os serviços ativos.
-$COMPOSE_CMD -f docker-compose.prod.yml --env-file .env.prod up -d --build --remove-orphans
+$COMPOSE_CMD -f docker-compose.prod.yml --env-file .env.prod up -d --remove-orphans
+
+# `--env-file` alimenta o compose, NÃO o shell deste script. Sem esta linha o
+# ${POSTGRES_USER} abaixo estoura em "unbound variable" (set -u) — e estouraria já
+# com o modo manutenção ligado. O deploy-prod-tls.sh sempre teve esta linha; este
+# não tinha. Encontrado por scripts/testar-deploy-guardas.sh.
+source <(grep -E '^(POSTGRES_USER|POSTGRES_DB)=' .env.prod)
 
 echo "Aguardando banco de dados ficar pronto..."
 for i in {1..30}; do

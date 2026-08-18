@@ -72,8 +72,19 @@ COPY app/composer.json app/composer.lock ./
 # gravado nas camadas nem no histórico da imagem. Se o segredo não for fornecido
 # (build de dev), cai para `{}` e o comportamento é o de antes — o build não
 # quebra por causa disso.
+# O cache do composer (`type=cache`) guarda os zips já baixados e sobrevive ao build.
+# Sem ele, TODA invalidação desta camada — composer.lock novo, Dockerfile editado, ou a
+# poda de cache do fim do deploy — volta a baixar os 122 pacotes do GitHub. Com ele, o
+# composer instala do disco e o build deixa de depender do GitHub estar de pé.
+#
+# Não engorda a imagem: o cache é do BuildKit, não vira camada. `sharing=locked` serializa
+# os dois serviços (php e worker) que buildam a mesma imagem no mesmo `up --build`.
+# O tamanho é limitado pelo próprio composer (`cache-files-maxsize`, 300 MiB por padrão,
+# medido nesta versão): ele faz a coleta de lixo sozinho ao passar do teto.
 RUN --mount=type=secret,id=composer_auth \
+    --mount=type=cache,id=jusprime-composer,target=/tmp/composer-cache,sharing=locked \
     COMPOSER_AUTH="$(cat /run/secrets/composer_auth 2>/dev/null || echo '{}')" \
+    COMPOSER_CACHE_DIR=/tmp/composer-cache \
     composer install \
     --no-dev \
     --no-interaction \
