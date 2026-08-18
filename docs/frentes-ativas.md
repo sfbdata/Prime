@@ -9,7 +9,6 @@ Quem abre uma frente acrescenta a linha. Quem integra tira.
 |---|---|---|---|---|---|
 | `cobranca-acompanhamento-canonico` | Cobrança (modelo objeto/caso) | **sim — 4** | `docs/gestao-cobrancas/` | 🛑 **PARADA** (ver abaixo) | `origin/master` @ `0bb1f29` |
 | `expediente-ux` | Expediente + Pasta (telas) | não | `app/templates/expediente/`, `app/templates/pasta/` | implementando, **28 commits atrás do master** | `origin/codex/colaboracao-cobrancas` |
-| `deploy-resiliente` | Infra de deploy (Dockerfile + `scripts/deploy-prod*.sh`) | não | `Dockerfile`, `scripts/`, `docs/specs/` | **pronta para integrar** | `origin/master` @ `2ddae2cd` |
 
 `pasta-valor-causa` foi **integrada em 2026-08-17** (fast-forward para `3629b19a`). Trouxe a migration
 `Version20260814120000` — uma coluna `valor_causa` em `pasta`, aditiva e anulável, que não toca nenhuma
@@ -74,31 +73,27 @@ com o aviso já escrito neste arquivo. Passe `DATABASE_URL` explicitamente.
 de uma frente sem antes integrá-la no master local. Preparar banco novo com código velho quebra a
 tela (`Typed property $dataAcordo must not be accessed before initialization`).
 
-### `deploy-resiliente` — aberta em 2026-08-18
+`deploy-resiliente` foi **integrada e publicada em 2026-08-18** (fast-forward para `1a8271dc`).
+Sem migration. O segundo passo que todo mundo pula foi feito: master trazido para dentro da frente
+(1 arquivo em comum, `docs/frentes-ativas.md`, conflito mecânico) e **suíte rodada de novo no master
+depois do merge** — 3853/3853 nos dois pontos.
 
-Nasceu do incidente de deploy de 17–18/08. **Não toca uma linha de PHP, Twig ou config** — só
-`Dockerfile`, os dois scripts de deploy e docs. Por isso não tem superfície de quebra cruzada com
-nenhuma frente de aplicação.
+🔴 **A causa de todo deploy rebaixar as 122 dependências era o próprio deploy.** O
+`docker builder prune -f` do fim do `deploy-prod-tls.sh` zerava 100% do cache de build — medido,
+1,719 GB → 0 B, e ter a imagem no store não protege. Agora a poda tem teto. Medição de dois deploys
+consecutivos sem mudança de código: **209,9 s → 1,26 s**, 122 → **0** pacotes baixados. E o build
+deixou de depender do GitHub: `composer install` completa com `--network=none`.
 
-| | |
-|---|---|
-| **Entrega** | cache do composer sobrevive ao deploy; poda com teto no lugar do `prune` cego; credencial validada **antes** de derrubar o site; build **antes** do modo manutenção |
-| **Migration** | **não** |
-| **Prova** | `bash scripts/testar-deploy-guardas.sh` — 42 asserções, ~20 s, não toca docker de verdade |
-| **Medido** | deploy #2 sem mudança de código: **209,9 s → 1,26 s**, 122 → **0** pacotes baixados; `composer install` completa com `--network=none` |
+🔑 **O conserto que impede o site de cair é a ORDEM:** o build passa a vir **antes** do modo
+manutenção. Build que falha não derruba mais nada — foi isso que custou ~40 min em 17/08. A
+credencial também passou a ser validada por **forma** (o `grep "github-oauth"` antigo deixava passar
+o texto de exemplo do modelo, que foi o que derrubou a produção). Prova:
+`bash scripts/testar-deploy-guardas.sh` — 42 asserções, cobre os **dois** scripts.
 
-🔴 **A causa era o próprio deploy.** O `docker builder prune -f` do fim do `deploy-prod-tls.sh`
-zerava 100% do cache de build (medido: 1,719 GB → 0 B, e ter a imagem no store não protege). Todo
-deploy começava frio. O cache mount do composer **também** não sobrevive a esse prune — consertar a
-poda era obrigatório, não opcional.
-
-🔴 **Bug pré-existente corrigido junto:** `scripts/deploy-prod.sh` usava `${POSTGRES_USER}` sob
-`set -u` **sem nunca ler o `.env.prod`** — morreria em "unbound variable" já com o modo manutenção
-ligado. Nos dois scripts a leitura subiu para antes de derrubar qualquer coisa.
-
-⏳ **Duas medições que só dá para fazer na VPS:** se o docker de lá tem `--max-used-space` (senão
-cai no fallback por idade, sem teto por tamanho) e se há `python3` no host (sem ele a validação
-avisa e segue, não trava o deploy).
+⏳ **Duas medições que só dá para fazer na VPS, e valem antes do próximo deploy:** se o docker de lá
+tem `--max-used-space` (`docker builder prune --help | grep -c max-used-space`; senão a poda cai no
+fallback por idade, sem teto por tamanho) e se há `python3` no host (sem ele a validação avisa e
+segue, não trava). **O deploy em si ainda não foi feito.**
 
 ### ✅ `pasta-cliente-principal` — DESTRAVADA, projetada e ainda não aberta
 
