@@ -105,9 +105,16 @@ dentro da frente (limpo, zero conflitos) e **suíte rodada de novo no master dep
 3771/3771, 14.239 asserções. A carga em produção segue
 [runbooks/espelho-carregar-em-producao.md](runbooks/espelho-carregar-em-producao.md).
 
-`sync-sistema-manda` foi **integrada, publicada e deployada** antes disso (`d55ebf16`). ⚠️ **O cron e o
-worker do Drive continuam pausados em produção** e o smoke da tela ainda não foi feito — religar é
-decisão do dono, não consequência do próximo deploy.
+`sync-sistema-manda` foi **integrada, publicada e deployada** antes disso (`d55ebf16`). ✅ **Fechada
+ponta a ponta em 2026-08-18:** cron religado (`0 * * * *`, wrapper da VPS já com `--modo=enviar`),
+worker `jusprime_worker_prod` de pé consumindo `async` sem restart-loop, e **smoke da tela feito e
+aprovado**. O R2 está provado em produção pelo próprio log: 95 rodadas marcadas `[modo: enviar]` e a
+última com `Pastas criadas no sistema: 0` / `Arquivos baixados do Drive: 0`.
+
+⚠️ **Não leia `Divergências de nome: 0` desse log como "o Drive está alinhado".** Sob `--modo=enviar`
+o contador vive dentro de `driveParaSistema()`, que não roda — o zero é ausência de medição, não
+ausência de divergência (mesma armadilha do §12.4 da spec). Medir exigiria `--modo=ambos --dry-run`;
+pelo D12.7 o acervo legado não se alinha mesmo, então provavelmente nunca será preciso.
 
 `cobranca-dupla-contagem` foi **integrada, publicada e deployada em 2026-08-13** (`99948524`), e a
 reconciliação **rodou em produção**: 25 dívidas corrigidas, R$ 1.429,55 fora do saldo do devedor, e a
