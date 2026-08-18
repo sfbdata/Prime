@@ -18,9 +18,14 @@ use PHPUnit\Framework\TestCase;
 /**
  * A regra do cliente principal, no nível em que ela mora: a entidade.
  *
- * O teste que importa aqui não é "a marcação grava" — é que ela **resiste**. O defeito que a
- * feature veio matar é a média trocar de dono sozinha quando alguém vincula um cliente mais antigo,
- * e é esse cenário que o testMarcacaoResisteAVinculoDeClienteMaisAntigo() reproduz.
+ * O INVARIANTE que estes testes existem para segurar: **pasta com cliente nunca fica sem
+ * principal**, e ele é o **primeiro cliente vinculado** ou quem o dono marcou depois — nunca um
+ * critério recalculado a cada leitura.
+ *
+ * Essa diferença é a feature inteira. Antes, "quem é o principal" era decidido na hora de ler,
+ * pelo cliente de cadastro mais antigo; então vincular depois alguém cadastrado há mais tempo
+ * TROCAVA o número na tela, sem ninguém ter pedido. O teste que prova a correção é o
+ * testVincularOutroDepoisNaoTrocaOPrincipal().
  */
 #[CoversClass(DefinirClientePrincipalUseCase::class)]
 final class DefinirClientePrincipalUseCaseTest extends TestCase
@@ -36,145 +41,229 @@ final class DefinirClientePrincipalUseCaseTest extends TestCase
         $this->tenant  = $this->createStub(Tenant::class);
     }
 
-    #[TestDox('Sem marcação, manda o cliente de cadastro mais antigo (o critério de antes)')]
-    public function testSemMarcacaoCaiNoClienteMaisAntigo(): void
-    {
-        $pasta   = $this->novaPasta();
-        $antigo  = $this->novoCliente(10, 'Antonio Antigo');
-        $recente = $this->novoCliente(99, 'Zulmira Recente');
-        $pasta->addCliente($recente);   // vinculado primeiro de propósito
-        $pasta->addCliente($antigo);
+    // ─────────────────── o primeiro vínculo grava o principal ───────────────────
 
-        self::assertSame($antigo, $pasta->getClientePrincipal());
-        self::assertNull($pasta->getClientePrincipalMarcado(), 'sem marcação explícita');
+    #[TestDox('O PRIMEIRO cliente vinculado já vira o principal, sem ninguém marcar nada')]
+    public function testPrimeiroVinculoJaGravaOPrincipal(): void
+    {
+        $pasta     = $this->novaPasta();
+        $primeiro  = $this->novoCliente(99, 'Zulmira Primeira');
+
+        self::assertNull($pasta->getClientePrincipal(), 'pasta vazia não tem principal');
+
+        $pasta->addCliente($primeiro);
+
+        self::assertSame($primeiro, $pasta->getClientePrincipal());
     }
 
-    #[TestDox('Marcar o cliente de id MAIOR faz a média ser dele — o cenário impossível antes')]
-    public function testMarcarClienteDeIdMaiorPassaAMandar(): void
+    /**
+     * A REGRESSÃO QUE A FEATURE MATA. O id 1 é MENOR que o 50: pelo critério antigo, que ordenava
+     * pelo id do cliente, este vínculo roubaria a média. Como agora a resposta está gravada, ele
+     * não muda nada.
+     */
+    #[TestDox('Vincular DEPOIS um cliente de cadastro mais antigo NÃO troca o principal')]
+    public function testVincularOutroDepoisNaoTrocaOPrincipal(): void
     {
-        $pasta   = $this->novaPasta();
-        $antigo  = $this->novoCliente(10, 'Antonio Antigo');
-        $recente = $this->novoCliente(99, 'Zulmira Recente');
-        $pasta->addCliente($antigo);
-        $pasta->addCliente($recente);
+        $pasta    = $this->novaPasta();
+        $primeiro = $this->novoCliente(50, 'Primeiro Vinculado');
+        $pasta->addCliente($primeiro);
+
+        $pasta->addCliente($this->novoCliente(1, 'Antigo No Cadastro'));
+        $pasta->addCliente($this->novoCliente(2, 'Outro Antigo'));
+
+        self::assertSame(
+            $primeiro,
+            $pasta->getClientePrincipal(),
+            'só se grava quando o campo está vazio — do segundo vínculo em diante nada muda'
+        );
+    }
+
+    #[TestDox('Vincular o mesmo cliente duas vezes não duplica nem mexe no principal')]
+    public function testVincularDuasVezesEhInocuo(): void
+    {
+        $pasta    = $this->novaPasta();
+        $primeiro = $this->novoCliente(50, 'Primeiro Vinculado');
+        $segundo  = $this->novoCliente(10, 'Segundo Vinculado');
+        $pasta->addCliente($primeiro);
+        $pasta->addCliente($segundo);
+        $pasta->addCliente($primeiro);
+
+        self::assertCount(2, $pasta->getClientes());
+        self::assertSame($primeiro, $pasta->getClientePrincipal());
+    }
+
+    // ─────────────────── a troca manual pela estrela ───────────────────
+
+    #[TestDox('Marcar outro cliente troca o principal e grava')]
+    public function testMarcarOutroTrocaOPrincipal(): void
+    {
+        $pasta    = $this->novaPasta();
+        $primeiro = $this->novoCliente(10, 'Primeiro Vinculado');
+        $escolhido = $this->novoCliente(99, 'Escolhido Pelo Dono');
+        $pasta->addCliente($primeiro);
+        $pasta->addCliente($escolhido);
 
         $this->em->expects($this->once())->method('flush');
 
-        $this->useCase->executar($pasta, $recente);
+        $this->useCase->executar($pasta, $escolhido);
 
-        self::assertSame($recente, $pasta->getClientePrincipal());
-        self::assertSame($recente, $pasta->getClientePrincipalMarcado());
+        self::assertSame($escolhido, $pasta->getClientePrincipal());
     }
 
-    #[TestDox('A REGRESSÃO QUE A FEATURE MATA: vincular depois um cliente mais antigo NÃO troca o principal')]
-    public function testMarcacaoResisteAVinculoDeClienteMaisAntigo(): void
+    #[TestDox('A escolha do dono resiste a vínculos posteriores')]
+    public function testEscolhaResisteAVinculoPosterior(): void
     {
-        $pasta    = $this->novaPasta();
-        $escolhido = $this->novoCliente(50, 'Escolhido Pelo Dono');
+        $pasta     = $this->novaPasta();
+        $primeiro  = $this->novoCliente(10, 'Primeiro Vinculado');
+        $escolhido = $this->novoCliente(99, 'Escolhido Pelo Dono');
+        $pasta->addCliente($primeiro);
         $pasta->addCliente($escolhido);
         $this->useCase->executar($pasta, $escolhido);
 
-        // Chega um cliente cadastrado ANTES. Pelo critério antigo, ele roubaria a média.
-        $maisAntigoNoCadastro = $this->novoCliente(1, 'Antigo No Cadastro');
-        $pasta->addCliente($maisAntigoNoCadastro);
+        $pasta->addCliente($this->novoCliente(1, 'Antigo No Cadastro'));
 
-        self::assertSame(
-            $escolhido,
-            $pasta->getClientePrincipal(),
-            'vincular um cliente mais antigo não pode trocar o principal marcado — era exatamente esse o defeito'
-        );
+        self::assertSame($escolhido, $pasta->getClientePrincipal());
     }
 
-    #[TestDox('Marcar outro cliente substitui o anterior — só existe um principal')]
-    public function testMarcarOutroSubstituiOAnterior(): void
-    {
-        $pasta = $this->novaPasta();
-        $a     = $this->novoCliente(10, 'Primeiro A');
-        $b     = $this->novoCliente(20, 'Segundo B');
-        $pasta->addCliente($a);
-        $pasta->addCliente($b);
-
-        $this->useCase->executar($pasta, $a);
-        self::assertSame($a, $pasta->getClientePrincipalMarcado());
-
-        $this->useCase->executar($pasta, $b);
-        self::assertSame($b, $pasta->getClientePrincipalMarcado());
-        self::assertNotSame($a, $pasta->getClientePrincipal());
-    }
-
-    #[TestDox('Cliente não vinculado à pasta é recusado, e nada é gravado')]
+    #[TestDox('Marcar cliente que não está vinculado à pasta lança exceção')]
     public function testClienteNaoVinculadoLancaExcecao(): void
     {
-        $pasta = $this->novaPasta();
-        $pasta->addCliente($this->novoCliente(10, 'Vinculado'));
+        $pasta     = $this->novaPasta();
+        $vinculado = $this->novoCliente(10, 'Fulano Vinculado');
+        $deFora    = $this->novoCliente(20, 'Fulano De Fora');
+        $pasta->addCliente($vinculado);
 
         $this->em->expects($this->never())->method('flush');
+
         $this->expectException(\DomainException::class);
-
-        $this->useCase->executar($pasta, $this->novoCliente(11, 'De Fora'));
+        $this->useCase->executar($pasta, $deFora);
     }
 
-    #[TestDox('Desvincular o principal apaga a marcação e devolve o critério automático')]
-    public function testDesvincularOPrincipalVoltaAoAutomatico(): void
+    #[TestDox('Recusar cliente de fora não estraga o principal que já valia')]
+    public function testRecusaNaoEstragaOPrincipalAtual(): void
     {
-        $pasta   = $this->novaPasta();
-        $antigo  = $this->novoCliente(10, 'Antonio Antigo');
-        $marcado = $this->novoCliente(99, 'Zulmira Marcada');
-        $pasta->addCliente($antigo);
-        $pasta->addCliente($marcado);
-        $this->useCase->executar($pasta, $marcado);
+        $pasta     = $this->novaPasta();
+        $vinculado = $this->novoCliente(10, 'Fulano Vinculado');
+        $pasta->addCliente($vinculado);
 
-        $pasta->removeCliente($marcado);
+        try {
+            $this->useCase->executar($pasta, $this->novoCliente(20, 'Fulano De Fora'));
+        } catch (\DomainException) {
+            // esperado
+        }
 
-        self::assertNull($pasta->getClientePrincipalMarcado(), 'a marcação tem de sair junto com o vínculo');
-        self::assertSame($antigo, $pasta->getClientePrincipal(), 'volta ao cliente de cadastro mais antigo');
+        self::assertSame($vinculado, $pasta->getClientePrincipal());
     }
 
-    #[TestDox('Desvincular um cliente qualquer não mexe na marcação')]
-    public function testDesvincularOutroNaoMexeNaMarcacao(): void
+    // ─────────────────── desvincular ───────────────────
+
+    #[TestDox('Desvincular o principal PROMOVE outro — a pasta não fica sem principal')]
+    public function testDesvincularOPrincipalPromoveOutro(): void
     {
-        $pasta   = $this->novaPasta();
-        $marcado = $this->novoCliente(99, 'Zulmira Marcada');
-        $outro   = $this->novoCliente(10, 'Antonio Outro');
-        $pasta->addCliente($marcado);
+        $pasta    = $this->novaPasta();
+        $primeiro = $this->novoCliente(50, 'Primeiro Vinculado');
+        $outro    = $this->novoCliente(10, 'Outro Cliente');
+        $pasta->addCliente($primeiro);
         $pasta->addCliente($outro);
-        $this->useCase->executar($pasta, $marcado);
+
+        $pasta->removeCliente($primeiro);
+
+        self::assertSame($outro, $pasta->getClientePrincipal(), 'promoveu quem sobrou');
+        self::assertCount(1, $pasta->getClientes());
+    }
+
+    #[TestDox('Desvincular quem NÃO é o principal não mexe na marcação')]
+    public function testDesvincularOutroNaoMexeNoPrincipal(): void
+    {
+        $pasta    = $this->novaPasta();
+        $primeiro = $this->novoCliente(50, 'Primeiro Vinculado');
+        $outro    = $this->novoCliente(10, 'Outro Cliente');
+        $pasta->addCliente($primeiro);
+        $pasta->addCliente($outro);
 
         $pasta->removeCliente($outro);
 
-        self::assertSame($marcado, $pasta->getClientePrincipal());
+        self::assertSame($primeiro, $pasta->getClientePrincipal());
     }
 
-    #[TestDox('Coluna apontando para quem NÃO está mais vinculado cai no automático')]
-    public function testMarcacaoOrfaNaoVazaParaATela(): void
+    #[TestDox('Desvincular o último cliente deixa a pasta sem principal')]
+    public function testDesvincularOUltimoZeraOPrincipal(): void
     {
-        $pasta   = $this->novaPasta();
-        $antigo  = $this->novoCliente(10, 'Antonio Antigo');
-        $marcado = $this->novoCliente(99, 'Zulmira Marcada');
-        $pasta->addCliente($antigo);
-        $pasta->addCliente($marcado);
-        $this->useCase->executar($pasta, $marcado);
+        $pasta = $this->novaPasta();
+        $unico = $this->novoCliente(10, 'Cliente Unico');
+        $pasta->addCliente($unico);
 
-        // Tira o cliente da coleção SEM passar por removeCliente(). Nenhum caminho REAL faz isso
-        // hoje — a versão anterior deste comentário afirmava que o Symfony Form fazia, e é falso:
-        // `PastaType` não é instanciado em lugar nenhum do `app/`. O que este teste prova é que a
-        // guarda de "ainda vinculado" segura o estado inconsistente SE ele algum dia existir
-        // (alguém religar `PastaType`/`syncClientes()`, ou um UPDATE manual no banco).
-        // É teste de defesa preventiva, não de regressão de caminho vivo.
-        $pasta->getClientes()->removeElement($marcado);
+        $pasta->removeCliente($unico);
 
-        self::assertSame(
-            $antigo,
-            $pasta->getClientePrincipal(),
-            'marcação órfã não pode mostrar a média de quem não está na pasta'
-        );
-        self::assertNull($pasta->getClientePrincipalMarcado());
+        self::assertNull($pasta->getClientePrincipal(), 'sem cliente não há principal');
     }
+
+    #[TestDox('Vincular de novo depois de esvaziar volta a gravar o primeiro')]
+    public function testAposEsvaziarOProximoVinculoVoltaAGravar(): void
+    {
+        $pasta = $this->novaPasta();
+        $antigo = $this->novoCliente(10, 'Cliente Antigo');
+        $pasta->addCliente($antigo);
+        $pasta->removeCliente($antigo);
+
+        $novo = $this->novoCliente(99, 'Cliente Novo');
+        $pasta->addCliente($novo);
+
+        self::assertSame($novo, $pasta->getClientePrincipal());
+    }
+
+    // ─────────────────── o invariante nas bordas ───────────────────
 
     #[TestDox('Pasta sem cliente nenhum não tem principal')]
     public function testPastaSemClienteNaoTemPrincipal(): void
     {
         self::assertNull($this->novaPasta()->getClientePrincipal());
+    }
+
+    /**
+     * O caso do `ON DELETE SET NULL`: excluir o CLIENTE do sistema zera a coluna pelo banco, sem
+     * passar por método nenhum da entidade. Sem o fallback, a pasta ficaria com clientes e sem
+     * principal — o estado que o invariante proíbe — e a média sumiria da tela.
+     */
+    #[TestDox('Coluna zerada pelo banco (cliente excluído) não deixa a pasta sem principal')]
+    public function testColunaZeradaPeloBancoCaiNoFallback(): void
+    {
+        $pasta = $this->novaPasta();
+        $a     = $this->novoCliente(10, 'Cliente A');
+        $b     = $this->novoCliente(20, 'Cliente B');
+        $pasta->addCliente($a);
+        $pasta->addCliente($b);
+
+        // Simula o que a FK faz por fora: zera a coluna sem tocar na coleção.
+        $refl = new \ReflectionProperty(Pasta::class, 'clientePrincipal');
+        $refl->setValue($pasta, null);
+
+        self::assertSame($a, $pasta->getClientePrincipal(), 'o fallback segura o invariante');
+    }
+
+    /**
+     * A guarda de "ainda vinculado". Nenhum caminho vivo produz este estado hoje — foi medido:
+     * `PastaType` e `PastaController::syncClientes()`, os dois candidatos, são código morto. A
+     * guarda existe para o dia em que alguém religar um deles, ou para um UPDATE manual no banco.
+     */
+    #[TestDox('Marcação apontando para quem NÃO está mais vinculado não vaza para a tela')]
+    public function testMarcacaoOrfaNaoVazaParaATela(): void
+    {
+        $pasta   = $this->novaPasta();
+        $ficou   = $this->novoCliente(10, 'Cliente Que Ficou');
+        $marcado = $this->novoCliente(99, 'Cliente Que Saiu');
+        $pasta->addCliente($ficou);
+        $pasta->addCliente($marcado);
+        $this->useCase->executar($pasta, $marcado);
+
+        // Tira da coleção SEM passar por removeCliente(), que é o que promoveria outro.
+        $pasta->getClientes()->removeElement($marcado);
+
+        self::assertSame(
+            $ficou,
+            $pasta->getClientePrincipal(),
+            'marcação órfã não pode mostrar a média de quem não está na pasta'
+        );
     }
 
     private function novaPasta(): Pasta
@@ -186,7 +275,7 @@ final class DefinirClientePrincipalUseCaseTest extends TestCase
     }
 
     /**
-     * O id importa: o critério automático ordena por ele, então sem id os cenários de fallback
+     * O id importa: o fallback determinístico ordena por ele, então sem id os cenários de borda
      * não distinguem nada. Fora do banco só dá para pôr por reflexão.
      */
     private function novoCliente(int $id, string $nome): Cliente

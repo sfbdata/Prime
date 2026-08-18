@@ -102,9 +102,10 @@ class Pasta implements Auditavel, TenantAware
      * mantém o invariante em memória e não tem trava nenhuma no banco — este caminho é mais
      * forte, não mais fraco.
      *
-     * Anulável de propósito: pasta sem marcação explícita é o caso normal (todas, hoje), e o
-     * `getClientePrincipal()` resolve isso com o mesmo critério de antes. Por isso a migration
-     * não precisa de backfill e nenhum número muda de valor no dia em que ela sobe.
+     * Anulável porque pasta SEM cliente nenhum não tem principal, e porque a FK é
+     * `ON DELETE SET NULL` — excluir o cliente do sistema zera a coluna pelo banco. Fora esses
+     * dois casos, pasta com cliente sempre tem principal gravado: quem garante é `addCliente()`
+     * (grava no primeiro vínculo) e `removeCliente()` (promove outro se o principal sair).
      */
     #[ORM\ManyToOne(targetEntity: Cliente::class)]
     #[ORM\JoinColumn(name: 'cliente_principal_id', nullable: true, onDelete: 'SET NULL')]
@@ -426,27 +427,47 @@ $this->documentos = new ArrayCollection();
         return $this->clientes;
     }
 
+    /**
+     * Vincular o PRIMEIRO cliente já o grava como principal; do segundo em diante, nada muda.
+     *
+     * É aqui que mora a correção do defeito de origem. Antes, "quem é o principal" era
+     * RECALCULADO a cada leitura pelo cliente de cadastro mais antigo — então vincular depois
+     * alguém cadastrado há mais tempo trocava o número na tela, sem ninguém ter pedido. Agora a
+     * resposta é GRAVADA uma vez: vincular mais dez clientes não mexe nela, porque só se grava
+     * quando o campo está vazio.
+     *
+     * A guarda `=== null` é o "e depois nunca mais automático". Sem ela isto viraria outra forma
+     * do mesmo defeito.
+     */
     public function addCliente(Cliente $cliente): self
     {
         if (!$this->clientes->contains($cliente)) {
             $this->clientes->add($cliente);
         }
+
+        if ($this->clientePrincipal === null) {
+            $this->clientePrincipal = $cliente;
+        }
+
         return $this;
     }
 
     /**
-     * Quem manda nos indicadores da pasta: o cliente marcado como principal, e só se ele ainda
-     * estiver vinculado.
+     * Quem manda nos indicadores da pasta (a "Média por CPF" da aba Financeiro).
      *
-     * O fallback é o que mantém a tela igual enquanto ninguém marcou nada — e é o mesmo critério
-     * que valia antes desta feature (o cliente de cadastro mais antigo).
+     * INVARIANTE DA CASA: pasta com cliente NUNCA fica sem principal. Ele é o primeiro cliente
+     * vinculado, ou quem o dono marcou depois pela estrela — nunca um critério recalculado a cada
+     * leitura, que era o que fazia o número trocar sozinho.
      *
-     * A checagem de "ainda vinculado" é defesa PREVENTIVA, e vale dizer com precisão: hoje
-     * nenhum caminho vivo produz a coluna órfã. `removeCliente()` limpa a marcação, e os dois
-     * candidatos a furá-la (`PastaType` e `PastaController::syncClientes()`) são código morto —
-     * medido, nenhum dos dois é chamado em lugar nenhum do `app/`. A guarda existe para o dia em
-     * que alguém religar um deles, ou para um UPDATE manual no banco: sem ela, a tela mostraria a
-     * média de quem já saiu da pasta.
+     * O caminho normal é a primeira linha: `addCliente()` grava na hora do primeiro vínculo e
+     * `removeCliente()` promove outro se o principal sair. Sobram DOIS caminhos que ainda deixam a
+     * coluna nula com clientes na pasta, e é só por eles que o fallback existe:
+     *
+     * - o cliente marcado ser EXCLUÍDO do sistema — a FK é `ON DELETE SET NULL`, então o banco
+     *   zera a coluna sozinho, sem passar por método nenhum daqui;
+     * - pasta gravada antes desta regra por um caminho que não use `addCliente()`.
+     *
+     * Nos dois, o fallback determinístico segura o invariante em vez de a tela ficar sem média.
      */
     public function getClientePrincipal(): ?Cliente
     {
@@ -474,26 +495,6 @@ $this->documentos = new ArrayCollection();
     }
 
     /**
-     * Volta ao critério automático (cliente de cadastro mais antigo).
-     */
-    public function limparClientePrincipal(): void
-    {
-        $this->clientePrincipal = null;
-    }
-
-    /**
-     * A marcação crua, sem fallback — para a tela saber se a estrela é escolha de alguém ou
-     * apenas o padrão. `getClientePrincipal()` nunca devolve nulo quando há cliente vinculado,
-     * então sem este método não há como distinguir os dois casos.
-     */
-    public function getClientePrincipalMarcado(): ?Cliente
-    {
-        return $this->clientePrincipal !== null && $this->clientes->contains($this->clientePrincipal)
-            ? $this->clientePrincipal
-            : null;
-    }
-
-    /**
      * O critério automático: o cliente de cadastro mais antigo do escritório.
      *
      * Privado de propósito. Era público (`getPrimeiroCliente`) e virou a única resposta para
@@ -517,15 +518,23 @@ $this->documentos = new ArrayCollection();
         return $clientes[0];
     }
 
+    /**
+     * Desvincular o principal PROMOVE outro, em vez de só apagar a marcação.
+     *
+     * Apagar deixaria a pasta com clientes e sem principal — o estado que o invariante proíbe, e
+     * que faria a média sumir da tela sem ninguém ter pedido. Promover mantém um número lá; ele
+     * fica gravado, então não muda mais sozinho, e o dono troca pela estrela se não gostou.
+     *
+     * Mesma ideia do "promover o próximo" que `desvincularProcesso()` já faz. Qual promover é
+     * decisão determinística de UM momento (o de menor id entre os que sobraram), não um critério
+     * recalculado a cada leitura — é essa diferença que separa isto do defeito de origem.
+     */
     public function removeCliente(Cliente $cliente): self
     {
         $this->clientes->removeElement($cliente);
 
-        // Desvincular o principal apaga a marcação: deixá-la apontando para quem saiu faria a
-        // tela mostrar a média de alguém que não está mais na pasta. Sem marcação, o critério
-        // automático assume — mesmo efeito de "promover o próximo" do desvincularProcesso().
         if ($this->clientePrincipal !== null && $this->clientePrincipal === $cliente) {
-            $this->clientePrincipal = null;
+            $this->clientePrincipal = $this->clienteMaisAntigo();
         }
 
         return $this;

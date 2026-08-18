@@ -48,7 +48,6 @@ use App\Pasta\UseCase\CriarPastaUseCase;
 use App\Sync\Service\ReconciliadorDePasta;
 use App\Sync\Service\SincronizacaoPastaDispatcher;
 use App\Pasta\UseCase\DefinirClientePrincipalUseCase;
-use App\Pasta\UseCase\LimparClientePrincipalUseCase;
 use App\Pasta\UseCase\DefinirProcessoPrincipalUseCase;
 use App\Pasta\UseCase\DesvincularProcessoUseCase;
 use App\Pasta\UseCase\EditarPastaUseCase;
@@ -154,7 +153,6 @@ class PastaController extends AbstractController
         private readonly DesvincularProcessoUseCase $desvincularProcessoUseCase,
         private readonly DefinirProcessoPrincipalUseCase $definirProcessoPrincipalUseCase,
         private readonly DefinirClientePrincipalUseCase $definirClientePrincipalUseCase,
-        private readonly LimparClientePrincipalUseCase $limparClientePrincipalUseCase,
         private readonly SincronizacaoPastaDispatcher $syncDispatcher,
     ) {}
 
@@ -625,45 +623,11 @@ class PastaController extends AbstractController
     }
 
     /**
-     * Desfaz a escolha e devolve a pasta ao critério automático (cliente de cadastro mais antigo).
+     * O estado do cliente principal como a tela precisa dele — para a troca pela estrela e para o
+     * vínculo de um cliente novo.
      *
-     * Sem o cliente na URL de propósito: só existe UMA marcação por pasta, então "qual limpar" não
-     * é pergunta. Exigir o id abriria a chance de limpar a marcação errada mandando outro id.
-     *
-     * O precedente dos processos NÃO tem esta ação — lá marcar é via de mão única. A diferença é
-     * deliberada (decisão do dono em 2026-08-18) e está registrada na spec.
-     */
-    #[Route('/{id}/cliente/principal/limpar', name: 'pasta_cliente_principal_limpar', methods: ['POST'])]
-    public function limparClientePrincipal(Pasta $pasta, Request $request): Response
-    {
-        $pastaId = (int) $pasta->getId();
-        $isXhr   = $request->isXmlHttpRequest();
-
-        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, $this->tenantContext->getCurrentTenant(), AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_EDIT, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
-            return $isXhr ? $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN) : $redirect;
-        }
-
-        if (!$this->isCsrfTokenValid('pasta_cliente_principal_limpar_' . $pastaId, (string) $request->request->get('_token'))) {
-            return $this->respostaErroClientePrincipal($isXhr, 'Token de segurança inválido.', $pastaId, Response::HTTP_BAD_REQUEST);
-        }
-
-        $this->limparClientePrincipalUseCase->executar($pasta);
-
-        if ($isXhr) {
-            return $this->json($this->payloadClientePrincipal($pasta));
-        }
-
-        $this->addFlash('success', 'Cliente principal desmarcado — a média voltou ao critério automático.');
-        return $this->redirectToRoute('pasta_show', ['id' => $pastaId, '_fragment' => 'dados']);
-    }
-
-    /**
-     * O estado do cliente principal como a tela precisa dele, para as duas ações (marcar e
-     * desmarcar) e também para o vínculo de um cliente novo.
-     *
-     * `clienteId` é o principal EFETIVO, não o que veio na URL: ao desmarcar, quem passa a mandar
-     * é o automático, e é a estrela dele que precisa acender. `marcado` distingue escolha de
-     * padrão — sem ele a tela não sabe se oferece "desmarcar" ou "fixar".
+     * `clienteId` é o principal EFETIVO lido da entidade, não o que veio na URL: quem responde é
+     * sempre a mesma fonte, inclusive quando o vínculo acabou de gravar o primeiro principal.
      *
      * A média vai junto porque a marcação existe PARA mudar esse número; devolvê-lo defasado
      * esconderia o efeito da própria ação.
@@ -679,7 +643,6 @@ class PastaController extends AbstractController
         return [
             'sucesso'        => true,
             'clienteId'      => $principal?->getId(),
-            'marcado'        => $pasta->getClientePrincipalMarcado() !== null,
             'mediaFormatada' => PastaFinanceiroOutput::formatarReais($mediaCpf),
             'mediaRotulo'    => PastaFinanceiroOutput::montar($pasta, $principal, $mediaCpf)->mediaRotulo,
             'clienteNome'    => $principal?->getNomeExibicao(),

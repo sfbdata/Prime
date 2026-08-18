@@ -203,42 +203,46 @@ final class PastaFinanceiroArranjoTelaTest extends JusPrimeWebTestCase
         );
     }
 
-    #[TestDox('Com vários clientes, manda o de cadastro mais antigo — e a tela diz qual é')]
-    public function testVariosClientesUsaODeCadastroMaisAntigo(): void
+    /**
+     * A PROVA DA REGRA NOVA, e ela é deliberadamente montada contra o critério antigo: o cliente
+     * vinculado PRIMEIRO é o de id MAIOR. Pelo critério que valia antes (cliente de cadastro mais
+     * antigo, id menor), a tela mostraria o Antonio. Agora tem de mostrar a Zulmira, porque foi
+     * ela que entrou primeiro na pasta.
+     */
+    #[TestDox('Com vários clientes, manda o PRIMEIRO VINCULADO — mesmo que outro seja mais antigo no cadastro')]
+    public function testVariosClientesUsaOPrimeiroVinculado(): void
     {
         $client          = static::createClient();
         [$user, $tenant] = $this->criarUsuarioAdmin();
         $em              = static::getContainer()->get(EntityManagerInterface::class);
 
-        // Cadastrado primeiro (id menor) — é este que deve mandar.
-        $primeiro = ClientePFFactory::createOne([
+        $antigoNoCadastro = ClientePFFactory::createOne([
             'tenant'       => $tenant,
             'nomeCompleto' => 'Antonio Primeiro',
         ])->_real();
-        $segundo = ClientePFFactory::createOne([
+        $primeiroVinculado = ClientePFFactory::createOne([
             'tenant'       => $tenant,
             'nomeCompleto' => 'Zulmira Segunda',
         ])->_real();
 
         self::assertLessThan(
-            $segundo->getId(),
-            $primeiro->getId(),
-            'o cenário depende de o primeiro cliente ter id menor'
+            $primeiroVinculado->getId(),
+            $antigoNoCadastro->getId(),
+            'o cenário só distingue as duas regras se o vinculado primeiro tiver id MAIOR'
         );
 
-        // A pasta em tela tem os DOIS; a média mostrada tem de ser a do primeiro.
+        // A ordem destas duas linhas É o teste: quem entra primeiro manda.
         $pasta = $this->criarPasta($tenant, '10000.00');
-        $pasta->addCliente($segundo);
-        $pasta->addCliente($primeiro);
+        $pasta->addCliente($primeiroVinculado);
+        $pasta->addCliente($antigoNoCadastro);
 
-        // Outra pasta só do primeiro, para a média dele diferir do valor desta.
-        $outraDoPrimeiro = $this->criarPasta($tenant, '30000.00');
-        $outraDoPrimeiro->addCliente($primeiro);
+        // Outra pasta só da Zulmira, para a média dela diferir do valor desta.
+        $outraDaZulmira = $this->criarPasta($tenant, '30000.00');
+        $outraDaZulmira->addCliente($primeiroVinculado);
 
-        // E uma do segundo, com valor bem diferente, para o teste falhar se a
-        // escolha do cliente inverter.
-        $doSegundo = $this->criarPasta($tenant, '90000.00');
-        $doSegundo->addCliente($segundo);
+        // E uma do Antonio, com valor bem diferente, para o teste falhar se a escolha inverter.
+        $doAntonio = $this->criarPasta($tenant, '90000.00');
+        $doAntonio->addCliente($antigoNoCadastro);
         $em->flush();
 
         $this->logarComTenant($client, $user, $tenant);
@@ -247,10 +251,10 @@ final class PastaFinanceiroArranjoTelaTest extends JusPrimeWebTestCase
         self::assertSame(
             'R$ 20.000,00',
             trim($crawler->filter('#financeiro-media-cpf')->text()),
-            'a média tem de ser a do cliente de cadastro mais antigo (10.000 e 30.000)'
+            'a média tem de ser a do primeiro cliente vinculado (10.000 e 30.000)'
         );
-        self::assertStringContainsString('ANTONIO PRIMEIRO', $crawler->filter('.financeiro-faixa')->text());
-        self::assertStringNotContainsString('ZULMIRA SEGUNDA', $crawler->filter('.financeiro-faixa')->text());
+        self::assertStringContainsString('ZULMIRA SEGUNDA', $crawler->filter('.financeiro-faixa')->text());
+        self::assertStringNotContainsString('ANTONIO PRIMEIRO', $crawler->filter('.financeiro-faixa')->text());
     }
 
     #[TestDox('Cliente empresa troca o rótulo para "Média por CNPJ" — empresa não tem CPF')]
