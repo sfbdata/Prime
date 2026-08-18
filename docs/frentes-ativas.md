@@ -186,6 +186,40 @@ do master, então não houve o que trazer para dentro — a suíte da frente já
 frente. Conferido por `git cherry master pasta-cliente-principal` (vazio) — a worktree pode ser
 fechada. ⏳ **Falta o smoke do dono e a publicação** (`push`); nada foi enviado ao remoto.
 
+### 🔄 O critério automático foi TROCADO depois da entrega (mesmo dia, 18/08)
+
+O dono não gostou do automático e reescreveu a regra em uma frase: **"ou é o primeiro vínculo, ou
+outro marcado manualmente; não existe pasta com cliente e sem principal."** Entrou em `8d950a57`,
+integrado por merge (`58329654`) — **suíte 3881/3881 no master depois do merge**, e o invariante
+conferido no banco: 1 pasta com cliente, 1 com principal, **0 violações**.
+
+🔑 **A ideia dele é melhor que a que estava lá, e vale entender por quê.** O defeito de origem não
+era *qual* critério o sistema usava — era o fato de a resposta ser **recalculada a cada leitura**.
+Enquanto houver recálculo, sempre existe um jeito de vincular alguém e o número mudar sozinho.
+Gravando uma vez, some a categoria inteira do problema. A mutação que prova isso: tirar a guarda
+`=== null` do `addCliente()` faz cada vínculo novo roubar o principal — o mesmo defeito por outra
+porta — e derruba 6 testes.
+
+Saíram: o critério "cliente de cadastro mais antigo" como resposta, a rota
+`pasta_cliente_principal_limpar`, o `LimparClientePrincipalUseCase`, dois métodos da entidade e um
+arquivo de teste inteiro. **A estrela voltou a dois estados.** Saldo do commit: **−360 linhas**.
+
+⚠️ **`clienteMaisAntigo()` continua no código, mas NÃO é mais critério** — é o desempate usado ao
+promover (quando o principal é desvinculado) e o fallback para um caso só: o cliente marcado ser
+**excluído do sistema**, quando a FK `ON DELETE SET NULL` zera a coluna sem passar por método nenhum
+da entidade. Sem ele a média sumiria da tela nesse caso.
+
+🔴 **A ordem de vínculo do passado NÃO é recuperável, e por isso o backfill não a usa.**
+`pasta_cliente` tem só `pasta_id` e `cliente_id` — nenhuma data, nenhuma sequência. A
+`Version20260818190000` grava `MIN(cliente_id)`, que é **exatamente quem a tela já mostrava**, então
+nenhum número muda. Inventar uma ordem para decidir de quem é a média seria dado chutado movendo
+número na tela — o mesmo defeito da data dos acordos. "Primeiro vinculado" vale dos vínculos
+**novos** em diante, onde é fato.
+
+📊 **Medido na PROD antes de decidir (18/08):** 1.070 pastas, **1** vínculo pasta↔cliente no total,
+**0** pastas com 2+ clientes e **0** pastas com `valor_causa` preenchido. A aba Financeiro ainda não
+tem uso real — foi o que tornou a troca de critério gratuita agora, e o que a tornaria cara depois.
+
 🔴 **A integração custou uma suíte vermelha que NÃO era código** — a migration foi aplicada só no
 `saas_ux` e não no `saas_test`. Detalhe completo no bloco "Integrar frente com migration são DOIS
 bancos" acima; é o mesmo tropeço do `valor_causa`, repetido com o aviso já escrito nesta página.
