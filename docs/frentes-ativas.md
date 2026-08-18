@@ -7,7 +7,7 @@ Quem abre uma frente acrescenta a linha. Quem integra tira.
 
 | Frente (branch) | Domínio | Migration? | Arquivos compartilhados que toca | Estágio | Base |
 |---|---|---|---|---|---|
-| `cobranca-data-acordo-espelho` | Cobrança (importadores + `Acordo`) | **sim — 1** (`data_acordo` → anulável) | `docs/specs/cobranca-espelho-violacoes-do-importe.md` | implementada; **3 revisões aplicadas**, ⏳ 4ª em curso | **`master` local** @ `460e58af` |
+| `cobranca-data-acordo-espelho` | Cobrança (importadores + `Acordo`) | **sim — 1** (`data_acordo` → anulável) | `docs/specs/cobranca-espelho-violacoes-do-importe.md` | implementada; **4 revisões aplicadas e APROVADA para o smoke** (`a3fc2024`, 3853/3853) | **`master` local** @ `460e58af` |
 | `cobranca-acompanhamento-canonico` | Cobrança (modelo objeto/caso) | **sim — 4** | `docs/gestao-cobrancas/` | 🛑 **PARADA** (ver abaixo) | `origin/master` @ `0bb1f29` |
 | `expediente-ux` | Expediente + Pasta (telas) | não | `app/templates/expediente/`, `app/templates/pasta/` | implementando, **28 commits atrás do master** | `origin/codex/colaboracao-cobrancas` |
 
@@ -58,7 +58,7 @@ dos dois importadores que hoje derivam a data do 1º dia da competência.
 | | |
 |---|---|
 | **Base** | **`master` local, não `origin/master`** — este está 2 commits atrás (`460e58af` da Fatia 1 e `37399179` de outra sessão) |
-| **Estado** | **implementada** (`74dd6ee9`) + correções da 1ª revisão (`00deed6c`) + da 2ª. ⏳ **4ª revisão**, depois smoke do dono. **Nada publicado, nada em produção.** |
+| **Estado** | **implementada e aprovada na 4ª revisão** (`a3fc2024`, 3853/3853). ⏳ smoke do dono. **Nada publicado, nada em produção.** |
 | **Spec** | `docs/specs/cobranca-espelho-violacoes-do-importe.md` |
 | **⚠️ Duplicata** | `a260e25c` (nesta branch) e `2ddae2cd` (no master) têm **árvore idêntica** — o commit de docs veio por `cherry-pick` e depois o master foi publicado. Quem integrar vai topar com isso: use `git cherry` para conferir por CONTEÚDO, não por hash |
 | **Banco** | `saas_testcobranca-data-acordo-espelho` — ✅ **já tem a coluna `valor_causa`** (o `saas_test` foi migrado antes do clone), então o aviso do topo não morde esta frente |
@@ -106,9 +106,16 @@ dentro da frente (limpo, zero conflitos) e **suíte rodada de novo no master dep
 3771/3771, 14.239 asserções. A carga em produção segue
 [runbooks/espelho-carregar-em-producao.md](runbooks/espelho-carregar-em-producao.md).
 
-`sync-sistema-manda` foi **integrada, publicada e deployada** antes disso (`d55ebf16`). ⚠️ **O cron e o
-worker do Drive continuam pausados em produção** e o smoke da tela ainda não foi feito — religar é
-decisão do dono, não consequência do próximo deploy.
+`sync-sistema-manda` foi **integrada, publicada e deployada** antes disso (`d55ebf16`). ✅ **Fechada
+ponta a ponta em 2026-08-18:** cron religado (`0 * * * *`, wrapper da VPS já com `--modo=enviar`),
+worker `jusprime_worker_prod` de pé consumindo `async` sem restart-loop, e **smoke da tela feito e
+aprovado**. O R2 está provado em produção pelo próprio log: 95 rodadas marcadas `[modo: enviar]` e a
+última com `Pastas criadas no sistema: 0` / `Arquivos baixados do Drive: 0`.
+
+⚠️ **Não leia `Divergências de nome: 0` desse log como "o Drive está alinhado".** Sob `--modo=enviar`
+o contador vive dentro de `driveParaSistema()`, que não roda — o zero é ausência de medição, não
+ausência de divergência (mesma armadilha do §12.4 da spec). Medir exigiria `--modo=ambos --dry-run`;
+pelo D12.7 o acervo legado não se alinha mesmo, então provavelmente nunca será preciso.
 
 `cobranca-dupla-contagem` foi **integrada, publicada e deployada em 2026-08-13** (`99948524`), e a
 reconciliação **rodou em produção**: 25 dívidas corrigidas, R$ 1.429,55 fora do saldo do devedor, e a
