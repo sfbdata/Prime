@@ -371,7 +371,7 @@ literal do caso `null|date`**: a mudança de estado achou um caminho que a audit
 chamada (§2.3) não percorreu. Correção: por linha, o **principal** com traço e motivo; nos agregados,
 **não apurável** (`?int` nulo).
 
-**2ª revisão (18/08), 10 achados; correções em `<este commit>`.** O que ela expôs é mais importante
+**2ª revisão (18/08), 10 achados; correções em `1a8f2bc7`.** O que ela expôs é mais importante
 que os achados:
 
 > 🔴 **É a SEGUNDA vez nesta frente que uma correção entra declarada como provada e não está.**
@@ -398,6 +398,57 @@ distingue os dois casos, então o sistema não precisa julgar.**
 Também corrigido: o dry-run **afirmava escrita não feita** ("os encargos foram calculados" sem
 `--confirmar`) — mesma família de defeito que a frente combate, o sistema afirmando o que não
 aconteceu.
+
+### 2.12 A 3ª revisão — e o que a medição de produção corrigiu na decisão
+
+**3ª revisão (18/08).** Nada de runtime provado, mas três buracos da mesma família que já passou duas
+vezes por aqui:
+
+- **a prévia podia gravar.** O bloco do backfill faz `setDataAcordo` + `salvar(flush)` + materializa, e
+  a única barreira era o guard `if ($usuario !== null)` — **sem assert nenhum**, num caminho que
+  `cenarioAcordo37` percorre em todo teste da classe. Agravante: `prever()` **não roda em transação**,
+  então uma regressão ali ficaria gravada. A casa já tem a regra "prévia que só consulta o banco
+  mente"; este é o inverso, e é pior.
+- **a cláusula `ehVigente()`** era a **terceira** do mesmo método a entrar sem prova.
+- **o `catch` de `DataDoAcordoObrigatoriaException` era inalcançável** (`Assert\NotNull` + `isValid()`),
+  e a justificativa escrita ("sem ela, 500") não era reproduzível por aquele caminho. **Revertido** — o
+  próprio arquivo declara que catch morto apodrece, e defesa não-testável é dívida, não proteção. A
+  exceção de domínio fica, protegendo o contrato do UseCase.
+
+🔑 **A medição que corrigiu a decisão do dia anterior.** O dono mediu em **produção**:
+
+| | |
+|---|---:|
+| congeladas **sem** liquidação (o 2º ramo da decisão de 18/08) | **0** |
+| congeladas **e** liquidadas | 8.788 |
+| universo | 17.061 |
+
+Zero também no dev, e `liquidar()` é o **único** chamador de `congelarEncargos()` em `src/` — o estado
+**não é produzível por código atual**. Consequências:
+
+1. **O predicado fica como está** (`estaLiquidada()` continua semanticamente certo e não custa nada),
+   **mas o 2º ramo governa ZERO linhas hoje**: é defesa contra dado legado, não conserto de problema
+   vivo. Contá-lo como entrega seria inflar a lista.
+2. **O badge parou de prometer.** Ele dizia que os encargos "ficam sem calcular **até a data chegar**",
+   e para a congelada isso nunca aconteceria (`materializarNaDataDoAcordo` retorna cedo em
+   `encargosCongelados()`). Texto novo: *"ficam sem calcular; a congelada mantém o snapshot que tem"*.
+   **Não** se mexeu no early-return: alterar obrigação congelada — intocável por desenho — para atender
+   zero casos é risco sem contrapartida.
+
+### 2.13 ⚠️ Defeito PRÉ-EXISTENTE encontrado de passagem — NÃO consertado nesta fatia
+
+`ImportarRelatorioCarteiraUseCase:260` chama `materializarEncargosImportados` na **reimportação** sem
+checar `estaLiquidada()`/`encargosCongelados()`, e `definirEncargos` sobrescreve os quatro encargos
+**mantendo `liquidadaEm`**. Ou seja: uma obrigação liquidada pode ter o snapshot da quitação
+sobrescrito por uma reimportação.
+
+E o comentário em `:257` diz **"RE-CONGELA na data nova"** — `definirEncargos` não congela nada.
+
+Medido no dev: **0 de 319** liquidadas com `encargos_atualizados_em != liquidada_em`. Não medido em
+produção.
+
+🔴 **Fica registrado por causa do padrão, não do tamanho:** comentário que afirma o que o código não
+faz já custou caro nesta frente — foi o `"dataAcordo não move dinheiro"` que escondeu a violação #3.
 
 ⏳ **Pendente e fora desta fatia:** o passivo (375 acordos + 256 dívidas). É conserto obrigatório, com
 simulação de números antes e autorização do dono para rodar. Nada foi tocado em produção.

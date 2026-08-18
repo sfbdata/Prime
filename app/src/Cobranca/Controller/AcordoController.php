@@ -20,7 +20,6 @@ use App\Cobranca\Exception\AcordoComParcelasRenegociadasException;
 use App\Cobranca\Exception\AcordoNaoAtivoException;
 use App\Cobranca\Exception\ArquivoMuitoGrandeException;
 use App\Cobranca\Exception\CasoEncerradoException;
-use App\Cobranca\Exception\DataDoAcordoObrigatoriaException;
 use App\Cobranca\Exception\ObrigacaoComPagamentoException;
 use App\Cobranca\Exception\ObrigacaoDeAcordoException;
 use App\Cobranca\Exception\ObrigacaoDeOutroCasoException;
@@ -287,7 +286,7 @@ final class AcordoController extends AbstractController
             try {
                 $this->criarAcordo->executar($input, $tenant, $this->usuarioLogado());
                 $this->addFlash('success', 'Acordo criado.');
-            } catch (CasoEncerradoException | DataDoAcordoObrigatoriaException | ObrigacaoNaoEncontradaException | ObrigacaoDeOutroCasoException | ObrigacaoJaSubstituidaException | ObrigacaoNaoEhDividaOriginalException | ParcelamentoInvalidoException $e) {
+            } catch (CasoEncerradoException | ObrigacaoNaoEncontradaException | ObrigacaoDeOutroCasoException | ObrigacaoJaSubstituidaException | ObrigacaoNaoEhDividaOriginalException | ParcelamentoInvalidoException $e) {
                 // `ObrigacaoNaoEhDividaOriginalException` = INV-I (acordo sobre acordo) e é ALCANÇÁVEL:
                 // as choices do POST são as exigíveis (ver comentário acima), então uma parcela submetida
                 // chega ao guard. Sem este catch, 500 — provado por mutação no

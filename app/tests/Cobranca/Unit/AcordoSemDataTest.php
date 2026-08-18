@@ -6,6 +6,7 @@ namespace App\Tests\Cobranca\Unit;
 
 use App\Cobranca\Entity\Acordo;
 use App\Cobranca\Entity\Obrigacao;
+use App\Cobranca\Enum\StatusAcordo;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -144,6 +145,46 @@ final class AcordoSemDataTest extends TestCase
             $obrigacao->encargosNaoCalculados(),
             'snapshot de data desconhecida não pode virar número na tela',
         );
+    }
+
+    /**
+     * 🔴 A CLÁUSULA `ehVigente()` — achado 🟡A da 3ª revisão. Era a **terceira** cláusula deste mesmo
+     * método a entrar sem prova: apagá-la deixava os 1873 testes de Cobrança verdes.
+     *
+     * Acordo ROMPIDO/CANCELADO solta a obrigação: ela volta ao exigível e volta a ser hidratada ao vivo,
+     * com encargo REAL e crescendo. O vínculo `acordoSubstituto` permanece (invariável 14 — marca-se,
+     * nunca se apaga), então sem esta cláusula a obrigação exibiria "—" escondendo número vivo e correto.
+     *
+     * 🔴 PROVA POR REINTRODUÇÃO: remover `&& $this->acordoSubstituto->getStatus()->ehVigente()` derruba
+     * este teste.
+     */
+    #[Test]
+    #[TestDox('Acordo sem data ROMPIDO: a obrigacao volta ao calculo ao vivo, nao mostra traco')]
+    public function substituidaPorAcordoSemDataRompidoNaoEhNaoCalculada(): void
+    {
+        $acordo = new Acordo();
+        $acordo->setStatus(StatusAcordo::Rompido);
+        $obrigacao = new Obrigacao();
+        $obrigacao->setAcordoSubstituto($acordo);
+
+        self::assertFalse($acordo->getStatus()->ehVigente(), 'pré-condição do cenário');
+        self::assertFalse(
+            $obrigacao->encargosNaoCalculados(),
+            'acordo rompido devolve a obrigação ao cálculo ao vivo — o traço esconderia número real',
+        );
+    }
+
+    /** Cancelado é o outro estado não-vigente; mesma regra. */
+    #[Test]
+    #[TestDox('Acordo sem data CANCELADO: mesma regra do rompido')]
+    public function substituidaPorAcordoSemDataCanceladoNaoEhNaoCalculada(): void
+    {
+        $acordo = new Acordo();
+        $acordo->setStatus(StatusAcordo::Cancelado);
+        $obrigacao = new Obrigacao();
+        $obrigacao->setAcordoSubstituto($acordo);
+
+        self::assertFalse($obrigacao->encargosNaoCalculados());
     }
 
     /** Obrigação comum (não substituída) nunca cai no estado "não calculado". */

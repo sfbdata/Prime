@@ -687,6 +687,74 @@ final class ImportarAcordosDetalhadosTest extends KernelTestCase
         }
     }
 
+    /**
+     * 🔴 A PRÉVIA NÃO PODE GRAVAR — achado 🟡B da 3ª revisão, e o mais sério dela.
+     *
+     * O bloco do backfill faz `setDataAcordo` + `salvar($acordo, true)` (**com flush**) + materializa as
+     * substituídas. A única coisa entre a prévia e uma escrita real é o guard `if ($usuario !== null)` —
+     * e ele não tinha assert nenhum, num caminho que `cenarioAcordo37` percorre em todo teste desta
+     * classe (o acordo 37 nasce SEM data).
+     *
+     * O agravante: `prever()` **não roda em transação** (só `confirmar()` usa `wrapInTransaction`,
+     * `:121-126`). Numa regressão aqui, a escrita não seria desfeita — ficaria gravada.
+     *
+     * A casa já tem a regra "prévia que só consulta o banco mente". Este é o inverso, e é pior: prévia
+     * que pode gravar.
+     *
+     * 🔴 PROVA POR REINTRODUÇÃO: tirar o `if ($usuario !== null)` do backfill derruba este teste.
+     */
+    #[TestDox('🟡B: a PREVIA nao grava a data do acordo nem materializa as substituidas')]
+    public function testPreviaNaoGravaDataNemMaterializa(): void
+    {
+        [$tenant, $user, $carteiraId] = $this->cenarioAcordo37();
+
+        // 1ª passada CONFIRMADA sem "Data base": marca as substituídas sem materializar (não há data).
+        $this->importarAcordos->confirmar($carteiraId, $this->leituraAcordo37SemDataBase(), $tenant, $user);
+
+        $this->em->clear();
+        $acordo = $this->em->getRepository(Acordo::class)->findOneBy(['tenant' => $tenant, 'numeroExterno' => 37]);
+        self::assertNotNull($acordo);
+        self::assertNull($acordo->getDataAcordo(), 'pré-condição: o acordo está sem data');
+
+        $substituidas = $this->em->getRepository(Obrigacao::class)->findBy(['acordoSubstituto' => $acordo]);
+        self::assertNotEmpty($substituidas, 'pré-condição: há substituídas esperando a data');
+        $antes = [];
+        foreach ($substituidas as $substituida) {
+            $antes[(int) $substituida->getId()] = $substituida->getEncargosAtualizadosEm()?->format('Y-m-d H:i:s');
+        }
+
+        // Agora a PRÉVIA, com a aba que TRAZ a "Data base" — o caminho que gravaria.
+        $resultado = $this->importarAcordos->prever($carteiraId, $this->leituraAcordo37(), $tenant);
+
+        // A prévia DECIDE igual (é o invariante desta classe): ela anuncia o preenchimento...
+        $anunciados = array_filter($resultado->porAcordo(), static fn ($a): bool => $a->dataPreenchidaAgora !== null);
+        self::assertNotEmpty($anunciados, 'a prévia tem de DECIDIR igual e anunciar o preenchimento');
+
+        // ...mas NÃO escreve. Nem a data...
+        $this->em->clear();
+        $acordo = $this->em->getRepository(Acordo::class)->findOneBy(['tenant' => $tenant, 'numeroExterno' => 37]);
+        self::assertNotNull($acordo);
+        self::assertNull(
+            $acordo->getDataAcordo(),
+            'A PRÉVIA GRAVOU A DATA DO ACORDO. `prever()` não tem transação: isto ficaria no banco.',
+        );
+
+        // ...nem os encargos das substituídas.
+        $depois = $this->em->getRepository(Obrigacao::class)->findBy(['acordoSubstituto' => $acordo]);
+        self::assertCount(count($antes), $depois);
+        foreach ($depois as $substituida) {
+            self::assertTrue(
+                $substituida->encargosNaoCalculados(),
+                'a prévia materializou uma substituída — ela saiu do estado "não calculado"',
+            );
+            self::assertSame(
+                $antes[(int) $substituida->getId()] ?? null,
+                $substituida->getEncargosAtualizadosEm()?->format('Y-m-d H:i:s'),
+                'a prévia MEXEU nos encargos de uma substituída',
+            );
+        }
+    }
+
     /** A mesma aba do acordo 37, sem a linha "Data base:" — o caso do arquivo que não traz a data. */
     private function leituraAcordo37SemDataBase(): ResultadoLeituraAcordos
     {

@@ -311,8 +311,14 @@ class Obrigacao implements TenantAware, Auditavel
         //   • LIQUIDADA (`liquidadaEm` preenchido) → o snapshot é **fato histórico**: o valor pelo qual a
         //     dívida foi efetivamente quitada. Escondê-lo atrás do traço apagaria informação real. Mostra
         //     o número.
-        //   • CONGELADA SEM `liquidadaEm` (legado) → o snapshot é de **data desconhecida**. É exatamente o
-        //     "número velho" que esta fatia existe para não exibir. Mostra o traço.
+        //   • CONGELADA SEM `liquidadaEm` (legado) → o snapshot foi tirado numa data que **não é a do
+        //     acordo** (`congelarEncargos()` grava a data, então ela é conhecida — o que ela não é é a
+        //     referência que este acordo exige). É o "número velho" da fatia. Mostra o traço.
+        //
+        //     ⚠️ MEDIDO EM PRODUÇÃO (18/08): **0 ocorrências** — 8.788 congeladas, todas liquidadas, em
+        //     17.061 obrigações. E `liquidar()` é o ÚNICO chamador de `congelarEncargos()` em `src/`,
+        //     então o estado não é produzível por código atual. Este ramo é **defesa contra dado legado,
+        //     não conserto de problema vivo** — não conte como entrega.
         //
         // Uma versão anterior testava `encargosCongelados()`, que junta os dois — e a justificativa
         // escrita aqui falava da liquidada enquanto a cláusula alcançava principalmente o legado (achado
