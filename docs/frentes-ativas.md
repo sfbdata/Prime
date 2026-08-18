@@ -105,12 +105,23 @@ Isso explica a sequência de 17/08 sem mistério: placeholder → `401` → o ar
 `{}` → anônimo → funcionou quando o GitHub voltou. **É por isso que a validação nova trata ausência
 como AVISO e não como erro** (anônimo funciona), mas o aviso agora aparece.
 
-🔴 **O DEPLOY AINDA NÃO FOI FEITO — e o primeiro vai ser LENTO, de propósito.** O cache da VPS foi
-zerado pelo `prune` cego do último deploy antigo, então o primeiro build com o script novo ainda
-começa frio: ~4 min e os 122 pacotes baixados do GitHub. É o último que faz isso. **O ganho aparece
-do segundo deploy em diante** (`CACHED`, poucos segundos), e a proteção contra pane do GitHub também
-só vale a partir daí, porque ela depende do cache já estar quente. Quem esperar deploy rápido na
-primeira vez vai achar que a mudança não funcionou.
+🎉 **DEPLOYADO EM PRODUÇÃO em 18/08 — e o conserto se provou lá, não só na bancada.** O primeiro
+deploy foi o cold esperado (~4 min, 122 pacotes, agora **autenticados**), e a linha que decide tudo
+veio no fim:
+
+```
+cache de build agora: 2.475GB (teto pedido: 4 GB)
+```
+
+**Com o script antigo isso seria `0B`** — era o `prune` cego zerando tudo ali que fazia todo deploy
+voltar a baixar as 122 dependências. A poda com teto rodou e **não removeu nada** (`Total: 0B`),
+porque 2,475 GB está abaixo dos 4 GB. Disco depois: **67 G / 96 G = 70%** (era 68,6%); o 1,4 ponto a
+mais é o cache, e agora ele tem teto — no pior caso ~71,5% e para de subir. Migration
+`Version20260817180000` aplicada, site respondendo **302**.
+
+🔑 **O token do composer foi instalado na VPS pela primeira vez** (fine-grained, só leitura de
+repositório público) e o GitHub aceitou (HTTP 200). Este foi o primeiro build autenticado da
+história do projeto.
 
 ### ✅ `pasta-cliente-principal` — DESTRAVADA, projetada e ainda não aberta
 
