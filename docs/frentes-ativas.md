@@ -90,10 +90,17 @@ credencial também passou a ser validada por **forma** (o `grep "github-oauth"` 
 o texto de exemplo do modelo, que foi o que derrubou a produção). Prova:
 `bash scripts/testar-deploy-guardas.sh` — 42 asserções, cobre os **dois** scripts.
 
-⏳ **Duas medições que só dá para fazer na VPS, e valem antes do próximo deploy:** se o docker de lá
-tem `--max-used-space` (`docker builder prune --help | grep -c max-used-space`; senão a poda cai no
-fallback por idade, sem teto por tamanho) e se há `python3` no host (sem ele a validação avisa e
-segue, não trava). **O deploy em si ainda não foi feito.**
+✅ **As duas medições que faltavam foram feitas NA VPS em 18/08, e as duas deram a favor:**
+`docker builder prune --help | grep -c max-used-space` → **1** (a poda usa o teto de verdade, não o
+fallback por idade) e `command -v python3` → **`/usr/bin/python3`** (a validação da credencial roda
+completa, com parser JSON, em vez de avisar e seguir).
+
+🔴 **O DEPLOY AINDA NÃO FOI FEITO — e o primeiro vai ser LENTO, de propósito.** O cache da VPS foi
+zerado pelo `prune` cego do último deploy antigo, então o primeiro build com o script novo ainda
+começa frio: ~4 min e os 122 pacotes baixados do GitHub. É o último que faz isso. **O ganho aparece
+do segundo deploy em diante** (`CACHED`, poucos segundos), e a proteção contra pane do GitHub também
+só vale a partir daí, porque ela depende do cache já estar quente. Quem esperar deploy rápido na
+primeira vez vai achar que a mudança não funcionou.
 
 ### ✅ `pasta-cliente-principal` — DESTRAVADA, projetada e ainda não aberta
 
