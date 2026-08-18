@@ -186,6 +186,23 @@ do master, então não houve o que trazer para dentro — a suíte da frente já
 frente. Conferido por `git cherry master pasta-cliente-principal` (vazio) — a worktree pode ser
 fechada. ⏳ **Falta o smoke do dono e a publicação** (`push`); nada foi enviado ao remoto.
 
+🎉 **EM PRODUÇÃO em 18/08** — publicado (`cd2756f4..0b66dd96`, 6 commits) e deployado pelo
+`deploy-prod-tls.sh`. Backup do banco feito ANTES (15 MB, `~/backup-prime-antes-cliente-principal-*.dump`),
+as 2 migrations aplicadas na janela de manutenção, nginx OK, site no ar.
+
+✅ **A promessa da migration foi conferida no dado REAL, não só na bancada.** Medido na prod pelo
+canal somente-leitura, depois do deploy: 2 migrations do dia aplicadas · 1 pasta com cliente · 1 com
+principal · **0 violando o invariante**. E a linha que fecha: o backfill gravou o **cliente 4 na
+pasta 1025**, que é exatamente `MIN(cliente_id)` — ou seja, **o mesmo cliente que a tela já
+mostrava**. Nenhum número mudou de valor com o deploy, que era a promessa.
+
+🔑 **O conserto do cache de build se provou de novo:** poda rodou e removeu `0B`, cache preservado em
+**2,963 GB** (teto 4 GB), disco em 71%. Com o script antigo isso seria `0B` e o próximo deploy voltaria
+a baixar as 122 dependências.
+
+⏳ **Falta o smoke no navegador** — o dono aprovou o deploy sem ele. A suíte lê HTML e não vê posição,
+tamanho nem cor da estrela; roteiro de 7 pontos no fim da spec.
+
 ### 🔄 O critério automático foi TROCADO depois da entrega (mesmo dia, 18/08)
 
 O dono não gostou do automático e reescreveu a regra em uma frase: **"ou é o primeiro vínculo, ou
