@@ -529,6 +529,259 @@ final class ImportarAcordosDetalhadosTest extends KernelTestCase
      * A procedência não se perde: `numeroExterno` só é preenchido por importação, e as contas
      * reconstruídas carregam "Reconstruída da planilha de acordos (emissão …)" na descrição.
      */
+    // ---------------------------------------------------------------------------------------------
+    // Violação #3 (removida) e 6ª violação — spec `cobranca-espelho-violacoes-do-importe.md` §2
+    // ---------------------------------------------------------------------------------------------
+
+    /**
+     * 🔴 PROVA POR REINTRODUÇÃO da violação #3. `cenarioAcordo37()` cria o acordo 37 pelo importador de
+     * INADIMPLÊNCIA (o boleto 61600 carrega `AcordoDoRelatorio(37, 1, 4)`), e esse relatório NÃO traz a
+     * data do acordo. Até 17/08 o importador chutava `dataAcordoPadrao()` — o 1º dia do mês da
+     * competência, que para a competência 07/2026 daria 2026-07-01.
+     *
+     * Repor `setDataAcordo($this->dataAcordoPadrao($boleto))` derruba este teste.
+     *
+     * Medido em produção antes de remover: 375 de 395 acordos com a data chutada.
+     */
+    #[TestDox('#3: a inadimplencia cria o acordo SEM data — nao chuta o 1o dia da competencia')]
+    public function testInadimplenciaCriaAcordoSemData(): void
+    {
+        [$tenant] = $this->cenarioAcordo37();
+
+        $acordo = $this->em->getRepository(Acordo::class)->findOneBy(['tenant' => $tenant, 'numeroExterno' => 37]);
+        self::assertNotNull($acordo);
+        self::assertNull(
+            $acordo->getDataAcordo(),
+            'O importador de inadimplência voltou a INVENTAR a data do acordo (violação #3).',
+        );
+        self::assertFalse($acordo->temData());
+    }
+
+    /**
+     * 🔑 6ª VIOLAÇÃO — o ramo de ATUALIZAÇÃO preenche a data.
+     *
+     * É a metade que faz a decisão (B) do dono ser espelho e não regressão. Sem ela o acordo nasceria
+     * sem data pela inadimplência e ficaria sem data para sempre, porque `setDataAcordo($aba->dataBase)`
+     * só existia no ramo de CRIAÇÃO — e o relatório que TEM a data verdadeira não conseguia corrigi-la.
+     *
+     * A cadeia inteira, nos dois importadores: inadimplência cria sem data → acordos detalhados preenche.
+     */
+    #[TestDox('6a violacao: o relatorio de acordos PREENCHE a data do acordo que nasceu sem ela')]
+    public function testAcordosDetalhadosPreencheADataQueFaltava(): void
+    {
+        [$tenant, $user, $carteiraId] = $this->cenarioAcordo37();
+
+        $acordo = $this->em->getRepository(Acordo::class)->findOneBy(['tenant' => $tenant, 'numeroExterno' => 37]);
+        self::assertNotNull($acordo);
+        self::assertNull($acordo->getDataAcordo(), 'pré-condição: nasceu sem data');
+
+        $this->importarAcordos->confirmar($carteiraId, $this->leituraAcordo37(), $tenant, $user);
+
+        $this->em->clear();
+        $acordo = $this->em->getRepository(Acordo::class)->findOneBy(['tenant' => $tenant, 'numeroExterno' => 37]);
+        self::assertNotNull($acordo);
+        self::assertSame(
+            '2026-06-30',
+            $acordo->getDataAcordo()?->format('Y-m-d'),
+            'O ramo de atualização não preencheu a "Data base" (6ª violação de volta).',
+        );
+    }
+
+    /**
+     * §2.4 — enquanto o acordo não tem data, as obrigações que ele substitui ficam com o encargo NÃO
+     * CALCULADO (a tela mostra "— ⚠ acordo sem data"). Quando a data chega, elas são materializadas e o
+     * traço vira número. Sem esta parte o traço ficaria na tela para sempre.
+     */
+    #[TestDox('§2.4: substituidas ficam NAO CALCULADAS sem data e sao materializadas quando ela chega')]
+    public function testSubstituidasSaoMaterializadasQuandoADataChega(): void
+    {
+        [$tenant, $user, $carteiraId] = $this->cenarioAcordo37();
+
+        $acordo = $this->em->getRepository(Acordo::class)->findOneBy(['tenant' => $tenant, 'numeroExterno' => 37]);
+        self::assertNotNull($acordo);
+
+        // Antes: sem data, nenhuma substituída pode estar calculada.
+        $this->importarAcordos->confirmar($carteiraId, $this->leituraAcordo37(), $tenant, $user);
+
+        $this->em->clear();
+        $acordo = $this->em->getRepository(Acordo::class)->findOneBy(['tenant' => $tenant, 'numeroExterno' => 37]);
+        self::assertNotNull($acordo);
+        self::assertTrue($acordo->temData(), 'a data chegou nesta mesma passada');
+
+        $substituidas = $this->em->getRepository(Obrigacao::class)->findBy(['acordoSubstituto' => $acordo]);
+        self::assertNotEmpty($substituidas, 'o cenário tem contas originais trocadas pelo acordo');
+
+        foreach ($substituidas as $substituida) {
+            self::assertFalse(
+                $substituida->encargosNaoCalculados(),
+                'com a data preenchida, nenhuma substituída pode continuar "não calculada"',
+            );
+            self::assertSame(
+                '2026-06-30',
+                $substituida->getEncargosAtualizadosEm()?->format('Y-m-d'),
+                'o encargo tem de ser materializado NA data do acordo, não em outra',
+            );
+        }
+    }
+
+    /**
+     * 🔑 O LAÇO DO BACKFILL — achado 🟡4 da revisão de 17/08.
+     *
+     * A primeira versão deste teste NÃO provava nada: usava uma passada só, e nela as substituídas ainda
+     * não existiam quando o laço rodava (`reconciliarContasOriginais` marca depois, na mesma
+     * `processarAba`). A materialização que ele via vinha de lá, não do laço — apagar o `foreach` inteiro
+     * deixava tudo verde.
+     *
+     * A forma que EXERCITA o laço são DUAS passadas, e é o caminho real de produção:
+     *   1ª — aba SEM `Data base`: o acordo já existe (veio da inadimplência, sem data), as contas
+     *        originais são marcadas como substituídas, mas NÃO são materializadas (sem data não há o que
+     *        calcular). Ficam com `encargosNaoCalculados() === true` e a tela mostra o traço.
+     *   2ª — aba COM `Data base`: o backfill preenche a data e o laço materializa as que ficaram para trás.
+     *
+     * 🔴 PROVA POR REINTRODUÇÃO: apagar o `foreach` de `processarAba` derruba este teste (verificado).
+     */
+    #[TestDox('🟡4: o laco do backfill materializa as substituidas que ficaram para tras')]
+    public function testBackfillMaterializaSubstituidasDeUmaPassadaAnterior(): void
+    {
+        [$tenant, $user, $carteiraId] = $this->cenarioAcordo37();
+
+        // 1ª passada: a aba não traz "Data base".
+        $this->importarAcordos->confirmar($carteiraId, $this->leituraAcordo37SemDataBase(), $tenant, $user);
+
+        $this->em->clear();
+        $acordo = $this->em->getRepository(Acordo::class)->findOneBy(['tenant' => $tenant, 'numeroExterno' => 37]);
+        self::assertNotNull($acordo);
+        self::assertNull($acordo->getDataAcordo(), 'sem "Data base", a data continua vazia — nada é inventado');
+
+        $substituidas = $this->em->getRepository(Obrigacao::class)->findBy(['acordoSubstituto' => $acordo]);
+        self::assertNotEmpty($substituidas, 'a 1ª passada precisa ter marcado substituídas para o teste valer');
+        foreach ($substituidas as $substituida) {
+            self::assertTrue(
+                $substituida->encargosNaoCalculados(),
+                'sem data, a substituída tem de ficar NÃO CALCULADA (a tela mostra o traço)',
+            );
+        }
+
+        // 2ª passada: agora a aba traz a "Data base". É aqui que o laço do backfill trabalha.
+        $this->importarAcordos->confirmar($carteiraId, $this->leituraAcordo37(), $tenant, $user);
+
+        $this->em->clear();
+        $acordo = $this->em->getRepository(Acordo::class)->findOneBy(['tenant' => $tenant, 'numeroExterno' => 37]);
+        self::assertNotNull($acordo);
+        self::assertSame('2026-06-30', $acordo->getDataAcordo()?->format('Y-m-d'));
+
+        $substituidas = $this->em->getRepository(Obrigacao::class)->findBy(['acordoSubstituto' => $acordo]);
+        self::assertNotEmpty($substituidas);
+        foreach ($substituidas as $substituida) {
+            // ⚠️ Esta assertion NÃO detecta a falha do laço (achado 🔵I da 2ª revisão): depois do backfill
+            // o acordo já tem data, então `encargosNaoCalculados()` é `false` mesmo sem materializar. Fica
+            // porque descreve o estado final esperado — mas quem PROVA o laço é a assertion seguinte.
+            self::assertFalse($substituida->encargosNaoCalculados(), 'estado final: a substituída saiu do traço');
+            // 🔴 ESTA é a que morre quando o `foreach` do backfill some: sem ele, `encargosAtualizadosEm`
+            // fica na data da hidratação ao vivo, não na data do acordo.
+            self::assertSame(
+                '2026-06-30',
+                $substituida->getEncargosAtualizadosEm()?->format('Y-m-d'),
+                'o laço do backfill não materializou esta substituída NA data do acordo',
+            );
+        }
+    }
+
+    /**
+     * 🔴 A PRÉVIA NÃO PODE GRAVAR — achado 🟡B da 3ª revisão, e o mais sério dela.
+     *
+     * O bloco do backfill faz `setDataAcordo` + `salvar($acordo, true)` (**com flush**) + materializa as
+     * substituídas. A única coisa entre a prévia e uma escrita real é o guard `if ($usuario !== null)` —
+     * e ele não tinha assert nenhum, num caminho que `cenarioAcordo37` percorre em todo teste desta
+     * classe (o acordo 37 nasce SEM data).
+     *
+     * O agravante: `prever()` **não roda em transação** (só `confirmar()` usa `wrapInTransaction`,
+     * `:121-126`). Numa regressão aqui, a escrita não seria desfeita — ficaria gravada.
+     *
+     * A casa já tem a regra "prévia que só consulta o banco mente". Este é o inverso, e é pior: prévia
+     * que pode gravar.
+     *
+     * 🔴 PROVA POR REINTRODUÇÃO: tirar o `if ($usuario !== null)` do backfill derruba este teste.
+     */
+    #[TestDox('🟡B: a PREVIA nao grava a data do acordo nem materializa as substituidas')]
+    public function testPreviaNaoGravaDataNemMaterializa(): void
+    {
+        [$tenant, $user, $carteiraId] = $this->cenarioAcordo37();
+
+        // 1ª passada CONFIRMADA sem "Data base": marca as substituídas sem materializar (não há data).
+        $this->importarAcordos->confirmar($carteiraId, $this->leituraAcordo37SemDataBase(), $tenant, $user);
+
+        $this->em->clear();
+        $acordo = $this->em->getRepository(Acordo::class)->findOneBy(['tenant' => $tenant, 'numeroExterno' => 37]);
+        self::assertNotNull($acordo);
+        self::assertNull($acordo->getDataAcordo(), 'pré-condição: o acordo está sem data');
+
+        $substituidas = $this->em->getRepository(Obrigacao::class)->findBy(['acordoSubstituto' => $acordo]);
+        self::assertNotEmpty($substituidas, 'pré-condição: há substituídas esperando a data');
+        $antes = [];
+        foreach ($substituidas as $substituida) {
+            $antes[(int) $substituida->getId()] = $substituida->getEncargosAtualizadosEm()?->format('Y-m-d H:i:s');
+        }
+
+        // Agora a PRÉVIA, com a aba que TRAZ a "Data base" — o caminho que gravaria.
+        $resultado = $this->importarAcordos->prever($carteiraId, $this->leituraAcordo37(), $tenant);
+
+        // A prévia DECIDE igual (é o invariante desta classe): ela anuncia o preenchimento...
+        $anunciados = array_filter($resultado->porAcordo(), static fn ($a): bool => $a->dataPreenchidaAgora !== null);
+        self::assertNotEmpty($anunciados, 'a prévia tem de DECIDIR igual e anunciar o preenchimento');
+
+        // ...mas NÃO escreve. Nem a data...
+        //
+        // ⚠️ `flush()` ANTES do `clear()`, como o T11 desta mesma classe (`:1051-1053`) documenta: uma
+        // sujeira deixada só EM MEMÓRIA pela prévia (ex.: `setDataAcordo` fora do guard, com o `salvar`
+        // dentro) seria descartada pelo `clear()` e o teste passaria com o defeito presente. Com o flush,
+        // ela é escrita e o assert a pega. Achado da 4ª revisão.
+        $this->em->flush();
+        $this->em->clear();
+        $acordo = $this->em->getRepository(Acordo::class)->findOneBy(['tenant' => $tenant, 'numeroExterno' => 37]);
+        self::assertNotNull($acordo);
+        self::assertNull(
+            $acordo->getDataAcordo(),
+            'A PRÉVIA GRAVOU A DATA DO ACORDO. `prever()` não tem transação: isto ficaria no banco.',
+        );
+
+        // ...nem os encargos das substituídas.
+        $depois = $this->em->getRepository(Obrigacao::class)->findBy(['acordoSubstituto' => $acordo]);
+        self::assertCount(count($antes), $depois);
+        foreach ($depois as $substituida) {
+            self::assertTrue(
+                $substituida->encargosNaoCalculados(),
+                'a prévia materializou uma substituída — ela saiu do estado "não calculado"',
+            );
+            self::assertSame(
+                $antes[(int) $substituida->getId()] ?? null,
+                $substituida->getEncargosAtualizadosEm()?->format('Y-m-d H:i:s'),
+                'a prévia MEXEU nos encargos de uma substituída',
+            );
+        }
+    }
+
+    /** A mesma aba do acordo 37, sem a linha "Data base:" — o caso do arquivo que não traz a data. */
+    private function leituraAcordo37SemDataBase(): ResultadoLeituraAcordos
+    {
+        return new ResultadoLeituraAcordos([$this->acordoDaPlanilha(
+            numero: 37,
+            contas: [
+                ['60145', '01/2026', '2026-01-13', 17000],
+                ['60334', '02/2026', '2026-02-13', 17000],
+                ['60812', '04/2026', '2026-04-13', 17000],
+                ['61326', '06/2026', '2026-06-13', 17000],
+            ],
+            parcelas: [
+                ['61600', 1, 4, '07/2026', '2026-07-15', 19939],
+                ['61601', 2, 4, '08/2026', '2026-08-10', 19939],
+                ['61602', 3, 4, '09/2026', '2026-09-10', 19938],
+                ['61603', 4, 4, '10/2026', '2026-10-10', 19938],
+            ],
+            dataBase: null,
+        )], [], 0);
+    }
+
     #[TestDox('T1b — o acordo criado NÃO vira evento de trabalho de cobrança (não polui a Central)')]
     public function testAcordoCriadoNaoPoluiACentralDeAcompanhamento(): void
     {

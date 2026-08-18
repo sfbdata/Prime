@@ -345,7 +345,12 @@ final class ImportarRelatorioCarteiraUseCase
             $acordo->setTenant($tenant);
             $acordo->setCaso($caso);
             $acordo->setStatus(StatusAcordo::Ativo);
-            $acordo->setDataAcordo($this->dataAcordoPadrao($boleto));
+            // VIOLAÇÃO #3 REMOVIDA (17/08): aqui se gravava `dataAcordoPadrao()` — o 1º dia do mês da
+            // competência. Este relatório NÃO traz a data do acordo, e o que a fonte não dá o sistema não
+            // inventa: o acordo nasce SEM data e o relatório de acordos detalhados a preenche depois
+            // (`ImportarAcordosDetalhadosUseCase`, ramo de atualização). Medido em prod antes de remover:
+            // 375 de 395 acordos carregavam a data chutada, com R$ 203.265,07 de encargo assentado nela e
+            // 256 dívidas zeradas porque a data inventada precedia o próprio vencimento delas.
             $acordo->setNumeroExterno($doRelatorio->numero);
             $acordo->setNumeroParcelasTotal($doRelatorio->parcelaTotal);
             $acordo->setCriadoPor($user);
@@ -371,23 +376,6 @@ final class ImportarRelatorioCarteiraUseCase
         }
 
         return $acordo;
-    }
-
-    /**
-     * Default de `dataAcordo` (§3.2.2, nota de implementação #7-B): o relatório de inadimplência NÃO
-     * traz a data do acordo. Preferência: 1º dia da COMPETÊNCIA do boleto — mais estável do que o
-     * vencimento de UMA parcela quando o acordo tem várias (a competência tende a ser a mesma faixa
-     * para as parcelas vizinhas). Fallback ao vencimento da parcela (defensivo: o adapter atual só
-     * entrega boletos com competência MM/AAAA válida — `montarBoleto()` rejeita o resto —, então este
-     * ramo não deveria disparar na prática, mas nada garante isso de um adapter futuro).
-     */
-    private function dataAcordoPadrao(BoletoImportavel $boleto): \DateTimeImmutable
-    {
-        if (preg_match('#^(\d{2})/(\d{4})$#', $boleto->competencia, $m) === 1) {
-            return new \DateTimeImmutable(sprintf('%s-%s-01', $m[2], $m[1]));
-        }
-
-        return $boleto->vencimento;
     }
 
     /**

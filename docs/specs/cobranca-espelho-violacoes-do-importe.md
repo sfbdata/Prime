@@ -334,3 +334,157 @@ comunicar*, não o *se*. Simulação com números antes de aplicar; nada roda em
 `cobranca-data-acordo-espelho`, cortada do **master local** (não de `origin/master`: este está 2
 commits atrás, sem o `460e58af` da Fatia 1 nem o `37399179` de outra sessão). Tem migration —
 registrada em `docs/frentes-ativas.md`.
+
+### 2.10 Implementação — 1ª entrega (commit `74dd6ee9`). ⚠️ NÃO era a conta fechada
+
+O traço com o motivo NA LINHA (decisão do dono) entrou na **célula do Total**, não na faixa de
+encargos: a obrigação substituída é renderizada **sem** a faixa — só com o Total —, e
+`totalComHonorarios` **soma** os encargos residuais. A auditoria do §2.3 não tinha pegado isso; quem
+pegou foi o teste, ao ficar vermelho procurando o motivo numa tela que não o mostrava.
+
+Segunda correção vinda do mesmo teste: `encargosNaoCalculados()` precisou virar **vigente-aware**. O
+vínculo `acordoSubstituto` nunca é apagado (invariável 14), então um acordo **rompido** deixaria a
+obrigação marcada como "não calculada" para sempre — quando na verdade ela volta ao exigível e passa a
+ser hidratada ao vivo, com encargo real.
+
+**Os 6 defeitos provados por reintrodução** (teste verde não prova nada):
+
+| defeito reintroduzido | teste que fica vermelho |
+|---|---|
+| construtor voltando a gravar `now()` (7ª) | `AcordoSemDataTest` |
+| guarda `{% if g.dataAcordo %}` removida | `AcordoSemDataNaTelaTest` — acha a data de HOJE no HTML |
+| traço do Total removido | idem — o total com encargo residual reaparece |
+| `ORDER BY dataAcordo DESC` sem o `HIDDEN` | idem — o sem data lidera |
+| inadimplência voltando a chutar (#3) | `ImportarAcordosDetalhadosTest` |
+| ramo de atualização não preenchendo (6ª) | idem |
+
+⚠️ **A tabela acima foi escrita como conta fechada e não era.** Duas revisões depois dela acharam 1 🔴,
+2 buracos de prova e 8 achados médios. Ver §2.11.
+
+### 2.11 As duas revisões — e o padrão que elas expuseram
+
+**1ª revisão (17/08), 10 achados; correções em `00deed6c`.** O crítico: `MontarDetalheAcordoUseCase`
+somava `valorExigivel()` das substituídas, e sob acordo sem data isso é o **resíduo da última
+hidratação**. Alimentava três números na tela do acordo — a coluna "Valor", o card "Dívida
+substituída" e o "Desconto concedido/Juros acrescidos", este com sinal e cor. Era a **repetição
+literal do caso `null|date`**: a mudança de estado achou um caminho que a auditoria dos pontos de
+chamada (§2.3) não percorreu. Correção: por linha, o **principal** com traço e motivo; nos agregados,
+**não apurável** (`?int` nulo).
+
+**2ª revisão (18/08), 10 achados; correções em `1a8f2bc7`.** O que ela expôs é mais importante
+que os achados:
+
+> 🔴 **É a SEGUNDA vez nesta frente que uma correção entra declarada como provada e não está.**
+> Na 1ª foi o laço do backfill; na 2ª foi o `!encargosCongelados()`. Nas duas, a suíte inteira ficava
+> verde com a correção apagada.
+
+Daí a regra que passa a valer aqui: **prova por reintrodução EXECUTADA, nunca rastreada por leitura** —
+apagar a correção, ver vermelho, restaurar, ver verde, e dizer qual teste morreu. Ela pegou, na
+própria rodada de conserto, um assert que mirava o número errado (`189,77`, quando o valor que sai ao
+reverter é `100,00`, porque a Σ já acumula o principal) e um teste de console **vacuoso** (o cenário
+criava acordo *com* data, então o bloco nunca era impresso).
+
+**A decisão de dinheiro da 2ª rodada** (dono, 18/08) — congelamento tem **duas origens**, e elas não
+são a mesma coisa na tela:
+
+| estado | o que a tela mostra | por quê |
+|---|---|---|
+| **liquidada** (`liquidadaEm` preenchido) | **o número** | o snapshot é fato histórico: o valor pelo qual a dívida foi quitada. Escondê-lo apagaria informação real |
+| **congelada sem `liquidadaEm`** (legado) | **o traço** | snapshot de data desconhecida — o "número velho" que esta fatia existe para não exibir |
+
+O predicado testa `estaLiquidada()`, **não** `encargosCongelados()`. O argumento que fecha: **o dado
+distingue os dois casos, então o sistema não precisa julgar.**
+
+Também corrigido: o dry-run **afirmava escrita não feita** ("os encargos foram calculados" sem
+`--confirmar`) — mesma família de defeito que a frente combate, o sistema afirmando o que não
+aconteceu.
+
+### 2.12 A 3ª revisão — e o que a medição de produção corrigiu na decisão
+
+**3ª revisão (18/08); correções em `478b5d6f`.** Nada de runtime provado, mas três buracos da mesma família que já passou duas
+vezes por aqui:
+
+- **a prévia podia gravar.** O bloco do backfill faz `setDataAcordo` + `salvar(flush)` + materializa, e
+  a única barreira era o guard `if ($usuario !== null)` — **sem assert nenhum**, num caminho que
+  `cenarioAcordo37` percorre em todo teste da classe. Agravante: `prever()` **não roda em transação**,
+  então uma regressão ali ficaria gravada. A casa já tem a regra "prévia que só consulta o banco
+  mente"; este é o inverso, e é pior.
+- **a cláusula `ehVigente()`** era a **terceira** do mesmo método a entrar sem prova.
+- **o `catch` de `DataDoAcordoObrigatoriaException` era inalcançável** (`Assert\NotNull` + `isValid()`),
+  e a justificativa escrita ("sem ela, 500") não era reproduzível por aquele caminho. **Revertido** — o
+  próprio arquivo declara que catch morto apodrece, e defesa não-testável é dívida, não proteção. A
+  exceção de domínio fica, protegendo o contrato do UseCase.
+
+🔑 **A medição que corrigiu a decisão do dia anterior.** O dono mediu em **produção**:
+
+| | |
+|---|---:|
+| congeladas **sem** liquidação (o 2º ramo da decisão de 18/08) | **0** |
+| congeladas **e** liquidadas | 8.788 |
+| universo | 17.061 |
+
+Zero também no dev, e `liquidar()` é o **único** chamador de `congelarEncargos()` em `src/` — o estado
+**não é produzível por código atual**. Consequências:
+
+1. **O predicado fica como está** (`estaLiquidada()` continua semanticamente certo e não custa nada),
+   **mas o 2º ramo governa ZERO linhas hoje**: é defesa contra dado legado, não conserto de problema
+   vivo. Contá-lo como entrega seria inflar a lista.
+2. **O badge parou de prometer.** Ele dizia que os encargos "ficam sem calcular **até a data chegar**",
+   e para a congelada isso nunca aconteceria (`materializarNaDataDoAcordo` retorna cedo em
+   `encargosCongelados()`). Texto novo: *"ficam sem calcular; a congelada mantém o snapshot que tem"*.
+   **Não** se mexeu no early-return: alterar obrigação congelada — intocável por desenho — para atender
+   zero casos é risco sem contrapartida.
+
+### 2.13 ⚠️ Defeito PRÉ-EXISTENTE encontrado de passagem — NÃO consertado nesta fatia
+
+`ImportarRelatorioCarteiraUseCase:260` chama `materializarEncargosImportados` na **reimportação** sem
+checar `estaLiquidada()`/`encargosCongelados()`, e `definirEncargos` sobrescreve os quatro encargos
+**mantendo `liquidadaEm`**. Ou seja: uma obrigação liquidada pode ter o snapshot da quitação
+sobrescrito por uma reimportação.
+
+E o comentário em `:257` diz **"RE-CONGELA na data nova"** — `definirEncargos` não congela nada.
+
+Medido no dev: **0 de 319** liquidadas com `encargos_atualizados_em != liquidada_em`. Não medido em
+produção.
+
+🔴 **Fica registrado por causa do padrão, não do tamanho:** comentário que afirma o que o código não
+faz já custou caro nesta frente — foi o `"dataAcordo não move dinheiro"` que escondeu a violação #3.
+
+⏳ **Pendente e fora desta fatia:** o passivo (375 acordos + 256 dívidas). É conserto obrigatório, com
+simulação de números antes e autorização do dono para rodar. Nada foi tocado em produção.
+
+### 2.14 A 4ª revisão — aprovada para o smoke, com dois consertos
+
+**Veredito: pronta para o smoke do dono.** Os testes novos não são vacuosos, a reversão do `catch` não
+deixou resíduo, o early-return não foi tocado, suíte conferida pelo próprio revisor. Dois consertos
+saíram desta rodada:
+
+1. **O badge ainda mentia num caso: acordo NÃO VIGENTE.** A rodada anterior consertou o ramo que
+   governa zero linhas (a congelada) e deixou o que governa linhas reais. Num acordo rompido/cancelado
+   as originais **voltaram ao saldo** e são hidratadas ao vivo — dizer "ficam sem calcular" ali é falso,
+   e contradizia o próprio *"Acordo desfeito: as obrigações originais voltaram ao saldo"* impresso 30
+   linhas abaixo **na mesma tela**. O texto passou a depender de `acordo.vigente`.
+2. **Lacuna de prova no teste da prévia.** Ele pegava a mutação total (guard removido) mas **não** a
+   parcial (`setDataAcordo` fora do guard, `salvar` dentro): a sujeira ficava só em memória e o
+   `clear()` a descartava. Conserto: `flush()` antes do `clear()`, o mesmo padrão que o T11 desta classe
+   já documenta. **Verificado nos dois sentidos** — sem o flush a mutação parcial passa; com ele, falha.
+
+⚠️ **Registro de honestidade:** a primeira tentativa de verificar essa lacuna deu resultado errado
+porque a edição de teste caiu na linha errada (havia 6 pares `flush`+`clear` no arquivo). A conclusão
+apressada — *"algo dá flush na prévia"* — era falsa e foi descartada ao refazer a medição no lugar
+certo. **Nenhum `salvar(..., true)` do importador é alcançável na prévia**: todos estão sob
+`$usuario !== null`.
+
+### 2.15 ⚠️ Pré-requisitos do SMOKE — sem isto não há o que olhar
+
+Medido em 18/08 no banco de dev (`saas_ux`):
+
+| | |
+|---|---|
+| `cobranca_acordo.data_acordo` aceita nulo? | **NÃO** — a migration desta frente não foi aplicada lá |
+| `Version20260817180000` no ledger do dev | **ausente** |
+| acordos sem data no dev | **0** |
+
+Ou seja: a tela do smoke não tem como mostrar o estado novo. Antes de olhar, é preciso aplicar a
+migration no dev **e** produzir ao menos um acordo sem data. Isso escreve no banco de dev, que carrega
+dataset real — **é passo do dono, não do agente**.

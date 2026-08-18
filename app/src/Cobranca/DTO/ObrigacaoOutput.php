@@ -106,6 +106,12 @@ final class ObrigacaoOutput
          * decidir de que lado a linha cai.
          */
         public readonly ?\DateTimeImmutable $pagoEm = null,
+        /**
+         * Os encargos NUNCA foram calculados (acordo substituto sem data) — distinto de "calculados e
+         * deram R$ 0,00". Espelha `Obrigacao::encargosNaoCalculados()`; a tela mostra "—" com o motivo
+         * NA LINHA, nunca um número. Default `false` mantém os chamadores que não passam o sinal.
+         */
+        public readonly bool $encargosNaoCalculados = false,
     ) {
     }
 
@@ -180,6 +186,7 @@ final class ObrigacaoOutput
             // Vem de fora (mapa em lote do repositório) e não da entidade de propósito: ler daqui
             // custaria uma consulta por obrigação — N+1 na aba mais aberta do módulo.
             pagoEm: $pagoEm,
+            encargosNaoCalculados: $o->encargosNaoCalculados(),
         );
     }
 }

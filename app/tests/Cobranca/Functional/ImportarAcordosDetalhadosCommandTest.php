@@ -64,6 +64,34 @@ final class ImportarAcordosDetalhadosCommandTest extends CobrancaWebTestCase
         self::assertSame(StatusAcordo::Ativo, $acordo->getStatus(), 'dry-run não pode escrever status');
     }
 
+    /**
+     * 🟡A da 2ª revisão — o dry-run afirmava escrita não feita.
+     *
+     * O bloco da data preenchida era o ÚNICO do relatório que não alternava prévia × confirmação: saía
+     * em pretérito ("os encargos foram calculados") mesmo sem `--confirmar`. É a mesma família de defeito
+     * que esta frente inteira combate — o sistema afirmando o que não aconteceu —, e o projeto já pagou
+     * caro por relatório de prévia que mente.
+     *
+     * 🔴 PROVA POR REINTRODUÇÃO: tirar o `$confirmar` de `relatarDatasPreenchidas` derruba este teste.
+     */
+    #[TestDox('🟡A: o dry-run NAO afirma que os encargos foram calculados')]
+    public function testDryRunNaoAfirmaQueOsEncargosForamCalculados(): void
+    {
+        [$tenantId, $carteiraId, $usuarioId] = $this->cenarioComAcordoAtivo(semData: true);
+        $arquivo = $this->planilhaDoAcordo(numero: 7001, situacao: 'Em andamento');
+
+        $saida = $this->rodar($arquivo, $tenantId, $carteiraId, $usuarioId);
+
+        // Pré-condição: o bloco tem de APARECER, senão o teste passaria a troco de nada — foi o que
+        // aconteceu na primeira versão dele, que usava o cenário com data e nunca imprimia o bloco.
+        self::assertStringContainsString('SERIA preenchida', $saida, 'o bloco da data preenchida não apareceu');
+        self::assertStringNotContainsString(
+            'FORAM calculados',
+            $saida,
+            'o dry-run afirmou escrita consumada — nada foi gravado',
+        );
+    }
+
     #[TestDox('🔑 A recusa por guarda de dinheiro sai em bloco PRÓPRIO, não sob "situação não reconhecida"')]
     public function testRecusaPorGuardaSaiSeparadaDasNaoReconhecidas(): void
     {
@@ -95,7 +123,7 @@ final class ImportarAcordosDetalhadosCommandTest extends CobrancaWebTestCase
     // ---------------------------------------------------------------- helpers
 
     /** @return array{0: int, 1: int, 2: int, 3: int} tenantId, carteiraId, usuarioId, acordoId */
-    private function cenarioComAcordoAtivo(bool $comParcelaPaga = false): array
+    private function cenarioComAcordoAtivo(bool $comParcelaPaga = false, bool $semData = false): array
     {
         $client = static::createClient();
         [$user, $tenant] = $this->criarAdminLogado($client);
@@ -104,7 +132,9 @@ final class ImportarAcordosDetalhadosCommandTest extends CobrancaWebTestCase
         $acordo = new Acordo();
         $acordo->setTenant($tenant);
         $acordo->setCaso($caso);
-        $acordo->setDataAcordo(new \DateTimeImmutable('2026-05-01'));
+        // `$semData`: o acordo que nasceu pela inadimplência/receitas, sem data — o cenário em que o
+        // relatório de acordos PREENCHE a data (6ª violação) e o bloco do relatório aparece.
+        $acordo->setDataAcordo($semData ? null : new \DateTimeImmutable('2026-05-01'));
         $acordo->setStatus(StatusAcordo::Ativo);
         $acordo->setNumeroExterno(7001);
         $acordo->setNumeroParcelasTotal(1);

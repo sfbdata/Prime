@@ -373,7 +373,12 @@ final class ImportarReceitasUseCase
             $acordo->setTenant($tenant);
             $acordo->setCaso($caso);
             $acordo->setStatus(StatusAcordo::Ativo);
-            $acordo->setDataAcordo($this->dataAcordoPadrao($receita));
+            // VIOLAÇÃO #3 REMOVIDA (17/08): aqui se gravava `dataAcordoPadrao()` — o 1º dia do mês da
+            // competência. A Receitas dá a parcela, não a data da negociação, e o que a fonte não dá o sistema não
+            // inventa: o acordo nasce SEM data e o relatório de acordos detalhados a preenche depois
+            // (`ImportarAcordosDetalhadosUseCase`, ramo de atualização). Medido em prod antes de remover:
+            // 375 de 395 acordos carregavam a data chutada, com R$ 203.265,07 de encargo assentado nela e
+            // 256 dívidas zeradas porque a data inventada precedia o próprio vencimento delas.
             $acordo->setNumeroExterno($doRelatorio->numero);
             $acordo->setNumeroParcelasTotal($doRelatorio->parcelaTotal);
             $acordo->setCriadoPor($user);
@@ -447,24 +452,6 @@ final class ImportarReceitasUseCase
                 'origem' => 'importacao_receitas',
             ],
         );
-    }
-
-    /**
-     * `dataAcordo` quando a fonte não a traz — a Receitas dá a parcela, não a data da negociação.
-     * Mesmo default do importador de inadimplência (`ImportarRelatorioCarteiraUseCase::dataAcordoPadrao`):
-     * 1º dia da COMPETÊNCIA da parcela, com fallback ao vencimento.
-     *
-     * É uma aproximação, e sabidamente tardia num acordo de muitas parcelas (a competência da parcela
-     * 8/40 não é a data do acordo). Não move dinheiro: `dataAcordo` aqui é descritiva — só o
-     * `CriarAcordoUseCase` a usa para materializar encargos, e ele não passa por este caminho.
-     */
-    private function dataAcordoPadrao(ReceitaImportavel $receita): \DateTimeImmutable
-    {
-        if (preg_match('#^(\d{2})/(\d{4})$#', $receita->competencia, $m) === 1) {
-            return new \DateTimeImmutable(sprintf('%s-%s-01', $m[2], $m[1]));
-        }
-
-        return $receita->vencimento;
     }
 
     /**

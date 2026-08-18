@@ -14,6 +14,7 @@ use App\Cobranca\Entity\Obrigacao;
 use App\Cobranca\Enum\StatusCaso;
 use App\Cobranca\Exception\CasoEncerradoException;
 use App\Cobranca\Exception\CasoNaoEncontradoException;
+use App\Cobranca\Exception\DataDoAcordoObrigatoriaException;
 use App\Cobranca\Exception\ObrigacaoDeOutroCasoException;
 use App\Cobranca\Exception\ObrigacaoJaSubstituidaException;
 use App\Cobranca\Exception\ObrigacaoNaoEhDividaOriginalException;
@@ -494,5 +495,32 @@ final class CriarAcordoUseCaseTest extends TestCase
         $item->vencimento = new \DateTimeImmutable($vencimento);
 
         return $item;
+    }
+
+    /**
+     * 🔒 A guarda que nasceu com a coluna anulável (achado 🟡7 da revisão). O caminho MANUAL continua
+     * exigindo a data: lá a fonte é a pessoa que lavra o acordo, não a contabilidade. Antes de 17/08 o
+     * próprio TIPO de `setDataAcordo()` recusava `null`; agora o setter aceita calado, e sem esta guarda
+     * o acordo nasceria sem data e só explodiria adiante, na materialização, com erro sem relação com a
+     * causa.
+     *
+     * 🔴 PROVA POR REINTRODUÇÃO: remover o `if` de `CriarAcordoUseCase` derruba este teste.
+     */
+    #[Test]
+    #[TestDox('Caminho manual: acordo sem data e RECUSADO com excecao de dominio')]
+    public function acordoManualSemDataEhRecusado(): void
+    {
+        $caso = (new CasoCobranca())->setTenant($this->tenant);
+        $this->casoRepository->method('findOneByIdDoTenant')->willReturn($caso);
+
+        $input = $this->novoInput(1, [], [$this->parcela('Parcela 1/1', 50000, '2026-05-20')]);
+        $input->dataAcordo = null;
+
+        // Nada pode ser gravado: a recusa vem ANTES de qualquer escrita.
+        $this->acordoRepository->expects($this->never())->method('salvar');
+
+        $this->expectException(DataDoAcordoObrigatoriaException::class);
+
+        $this->sut->executar($input, $this->tenant, $this->criadoPor);
     }
 }

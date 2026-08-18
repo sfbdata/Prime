@@ -96,6 +96,41 @@ final class ImportarReceitasAcordoTest extends CobrancaWebTestCase
         self::assertStringContainsString('Acordo 348 - Parc. 1/40', $obrigacao->getDescricao());
     }
 
+    /**
+     * 🔴 PROVA POR REINTRODUÇÃO da violação #3 no importador de RECEITAS — achado 🟡6 da revisão.
+     *
+     * A #3 estava DUPLICADA em dois importadores, e a primeira entrega provou a remoção em apenas um: a
+     * suíte ficava verde se `dataAcordoPadrao()` voltasse aqui. "Consertar um lugar e declarar feito" já
+     * mordeu esta frente antes; este teste fecha o segundo lugar.
+     *
+     * A Receitas dá a PARCELA, não a data da negociação. O que a fonte não dá, o sistema não inventa — a
+     * data chega depois, pelo relatório de acordos (ramo de atualização, 6ª violação).
+     */
+    #[TestDox('#3 no importador de RECEITAS: o acordo nasce SEM data, nao com o 1o dia da competencia')]
+    public function testReceitasCriaAcordoSemData(): void
+    {
+        [$carteira, , $tenant, $usuario] = $this->cenario();
+
+        static::getContainer()->get(ImportarReceitasUseCase::class)->confirmar(
+            (int) $carteira->getId(),
+            $this->leitura([
+                $this->receita('AC-01', '9010', divida: 24211, acordo: new AcordoDoRelatorio(348, 1, 40)),
+            ]),
+            $tenant,
+            $usuario,
+        );
+
+        $this->em()->clear();
+        $acordo = $this->acordoPorNumeroExterno(348, $tenant);
+
+        self::assertNotNull($acordo);
+        self::assertNull(
+            $acordo->getDataAcordo(),
+            'O importador de RECEITAS voltou a INVENTAR a data do acordo (violação #3).',
+        );
+        self::assertFalse($acordo->temData());
+    }
+
     #[TestDox('Acordo de UMA parcela grava o valor total negociado')]
     public function testAcordoDeUmaParcelaGravaValorTotal(): void
     {

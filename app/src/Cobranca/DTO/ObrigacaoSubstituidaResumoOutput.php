@@ -20,6 +20,14 @@ final class ObrigacaoSubstituidaResumoOutput
         public readonly string $descricao,
         public readonly int $valor,
         public readonly \DateTimeImmutable $vencimento,
+        /**
+         * Os encargos desta obrigação nunca foram calculados (acordo substituto vigente SEM data) —
+         * espelha `Obrigacao::encargosNaoCalculados()`. Quando `true`, `$valor` traz o **principal**
+         * (dado real, veio da contabilidade) e NÃO o exigível: `valorExigivel()` somaria juros+multa+
+         * correção, que neste estado são o resíduo da última hidratação ao vivo, de uma data
+         * arbitrária. A tela mostra o principal e marca o encargo com o traço e o motivo.
+         */
+        public readonly bool $encargosNaoCalculados = false,
     ) {
     }
 }

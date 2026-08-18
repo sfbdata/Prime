@@ -10,7 +10,9 @@ namespace App\Cobranca\DTO;
  * Dinheiro em CENTAVOS int (Twig formata com `|centavos`). `valorTotalNegociado` e `valorEntrada`
  * saem do SNAPSHOT da negociação gravado no Acordo (descritivo, não-autoritativo para saldo);
  * acordos anteriores ao Ajuste 7 têm snapshot nulo e caem no total DERIVADO (Σ parcelas).
- * `valorDesconto` é SEMPRE derivado (Σ substituídas − total): positivo = desconto, negativo = juros
+ * `valorDesconto` é derivado (Σ substituídas − total): positivo = desconto, negativo = juros —
+ * exceto quando NÃO APURÁVEL (`null`), o que acontece se alguma substituída está sem encargo calculado
+ * (acordo sem data); ver o docblock do próprio campo abaixo.
  * (`temJuros`). O saldo do caso continua derivado pelos serviços — esta tela não o recalcula.
  *
  * `estaIncompleto`/`parcelasFaltantes` (spec `cobranca-importar-linhas-acordo.md` §3.3, tarefa #7-B):
@@ -30,7 +32,9 @@ final class AcordoDetalheOutput
     public function __construct(
         public readonly int $id,
         public readonly int $objetoId,
-        public readonly \DateTimeImmutable $dataAcordo,
+        /** Anulável: a contabilidade pode não ter a data. NUNCA renderizar com `|date` sem guarda —
+         *  `{{ null|date('d/m/Y') }}` imprime a data de HOJE (verificado 17/08). */
+        public readonly ?\DateTimeImmutable $dataAcordo,
         public readonly string $statusLabel,
         public readonly string $statusBadgeClass,
         public readonly bool $vigente,
@@ -40,8 +44,15 @@ final class AcordoDetalheOutput
         public readonly ?string $motivoCancelamento,
         public readonly int $valorTotalNegociado,
         public readonly int $valorEntrada,
-        public readonly int $valorSubstituidas,
-        public readonly int $valorDesconto,
+        /**
+         * Σ das substituídas. **NULL = não apurável**: alguma substituída está com o encargo não
+         * calculado (acordo sem data), e somar o resíduo delas daria um número inventado com cara de
+         * conta. O vazio é a resposta honesta — quem julga a falta é a gerência.
+         */
+        public readonly ?int $valorSubstituidas,
+        /** Derivado de `valorSubstituidas`; **NULL pela mesma razão** — desconto sobre resíduo é ficção. */
+        public readonly ?int $valorDesconto,
+        /** Sem `valorDesconto` não há sinal para declarar; `false` quando não apurável. */
         public readonly bool $temJuros,
         public readonly int $totalAlocado,
         public readonly bool $estaIncompleto,

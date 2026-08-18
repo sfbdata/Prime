@@ -92,7 +92,13 @@ class AcordoRepository extends ServiceEntityRepository
             ->andWhere('a.tenant = :tenant')
             ->setParameter('caso', $caso)
             ->setParameter('tenant', $caso->getTenant())
-            ->orderBy('a.dataAcordo', 'DESC')
+            // ⚠️ `dataAcordo` é ANULÁVEL desde 17/08, e no PostgreSQL `ORDER BY ... DESC` põe **NULL
+            // PRIMEIRO** — o acordo sem data lideraria a lista, passando por "o mais recente". Não é
+            // exibição: é a ordem em que a gerência lê os acordos do caso. O `HIDDEN` ordena por "tem
+            // data?" antes da data, empurrando os sem data para o fim sem depender do default do banco.
+            ->addSelect('CASE WHEN a.dataAcordo IS NULL THEN 1 ELSE 0 END AS HIDDEN semData')
+            ->orderBy('semData', 'ASC')
+            ->addOrderBy('a.dataAcordo', 'DESC')
             ->addOrderBy('a.id', 'DESC')
             ->getQuery()
             ->getResult();

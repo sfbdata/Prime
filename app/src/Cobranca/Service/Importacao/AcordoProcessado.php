@@ -93,6 +93,13 @@ final class AcordoProcessado
          */
         public readonly ?string $situacaoDoAcordoCriado = null,
         public readonly ?\DateTimeImmutable $dataDoAcordoCriado = null,
+        /**
+         * O acordo JÁ EXISTIA sem data e esta aba a preencheu (6ª violação, 17/08). Diferente de
+         * `dataDoAcordoCriado`, que só vale para acordo nascido nesta aba. Null = nada a preencher (ou já
+         * tinha data). Aparece no relatório porque é escrita em dado de dinheiro: preencher a data faz os
+         * encargos das dívidas substituídas serem calculados, e o operador tem de ver isso acontecer.
+         */
+        public readonly ?\DateTimeImmutable $dataPreenchidaAgora = null,
     ) {
     }
 

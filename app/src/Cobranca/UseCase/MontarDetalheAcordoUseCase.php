@@ -76,22 +76,38 @@ final class MontarDetalheAcordoUseCase
 
         $substituidas = [];
         $valorSubstituidas = 0;
+        // 🔑 Achado 🔴1 da revisão de 17/08. `valorExigivel()` = original + juros + multa + correção. Numa
+        // obrigação substituída por acordo SEM DATA esses três encargos são o RESÍDUO da última hidratação
+        // ao vivo — de uma data arbitrária, porque a materialização não roda sem data. Somá-los aqui
+        // produziria os três números de dinheiro desta tela ("Dívida substituída", "Desconto concedido" e
+        // a coluna Valor de cada linha) a partir de lixo, com cara de conta fechada.
+        //
+        // É o mesmo defeito que a fatia removeu do importador, reaparecendo numa segunda tela — e é a
+        // repetição literal do caso `null|date`: a mudança de estado achou um caminho que ninguém tinha
+        // percorrido. Por linha, mostra-se o PRINCIPAL (dado real da contabilidade) com o traço no
+        // encargo; no agregado, **não se soma**: vira não apurável.
+        $algumSemEncargoCalculado = false;
 
         foreach ($acordo->getObrigacoesSubstituidas() as $substituida) {
-            $valorSubstituidas += $substituida->valorExigivel();
+            $naoCalculada = $substituida->encargosNaoCalculados();
+            $algumSemEncargoCalculado = $algumSemEncargoCalculado || $naoCalculada;
+            $valorSubstituidas += $naoCalculada ? $substituida->getValorOriginal() : $substituida->valorExigivel();
             // DTO enxuto de propósito: não lê o acordo da substituída (evita lazy-load por linha no re-acordo).
             $substituidas[] = new ObrigacaoSubstituidaResumoOutput(
                 id: $substituida->getId() ?? 0,
                 descricao: $substituida->getDescricao(),
-                valor: $substituida->valorExigivel(),
+                valor: $naoCalculada ? $substituida->getValorOriginal() : $substituida->valorExigivel(),
                 vencimento: $substituida->getVencimentoOriginal(),
+                encargosNaoCalculados: $naoCalculada,
             );
         }
 
         // Snapshot da negociação; acordo anterior ao Ajuste 7 (sem snapshot) deriva o total das parcelas.
         $total = $acordo->getValorTotalNegociado() ?? $somaParcelas;
         // Positivo = desconto concedido; negativo = juros acrescidos à dívida original.
-        $desconto = $valorSubstituidas - $total;
+        // NULL quando alguma substituída está sem encargo calculado: a Σ estaria incompleta (só principais),
+        // e um "desconto" derivado dela seria número inventado. Decisão do dono, 18/08.
+        $desconto = $algumSemEncargoCalculado ? null : $valorSubstituidas - $total;
 
         return new AcordoDetalheOutput(
             id: $acordo->getId() ?? 0,
@@ -106,11 +122,11 @@ final class MontarDetalheAcordoUseCase
             motivoCancelamento: $acordo->getMotivoCancelamento(),
             valorTotalNegociado: $total,
             valorEntrada: $acordo->getValorEntrada(),
-            valorSubstituidas: $valorSubstituidas,
+            valorSubstituidas: $algumSemEncargoCalculado ? null : $valorSubstituidas,
             valorDesconto: $desconto,
             // Só faz sentido falar em juros havendo dívida original para comparar (defesa: sem
             // substituídas o desconto seria -total e a tela anunciaria juros de uma dívida inexistente).
-            temJuros: $valorSubstituidas > 0 && $desconto < 0,
+            temJuros: $desconto !== null && $valorSubstituidas > 0 && $desconto < 0,
             totalAlocado: $totalAlocado,
             estaIncompleto: $acordo->estaIncompleto(),
             parcelasFaltantes: $acordo->parcelasFaltantes(),

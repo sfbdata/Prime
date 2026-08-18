@@ -29,7 +29,9 @@ final class GrupoAcordoObrigacoesOutput
      */
     public function __construct(
         public readonly int $acordoId,
-        public readonly \DateTimeImmutable $dataAcordo,
+        /** Anulável: a contabilidade pode não ter a data. NUNCA renderizar com `|date` sem guarda —
+         *  `{{ null|date('d/m/Y') }}` imprime a data de HOJE (verificado 17/08). */
+        public readonly ?\DateTimeImmutable $dataAcordo,
         public readonly string $statusLabel,
         public readonly string $statusBadgeClass,
         public readonly int $qtdParcelas,

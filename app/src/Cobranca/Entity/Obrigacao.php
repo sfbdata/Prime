@@ -285,6 +285,52 @@ class Obrigacao implements TenantAware, Auditavel
     }
 
     /**
+     * Os encargos desta obrigação **nunca foram calculados** — distinto de "calculados e deram R$ 0,00".
+     * A distinção é do MODELO, não da tela (decisão do dono, 17/08): sem ela o sistema afirma um valor
+     * que não tem, e a gerência não consegue julgar a falta batendo o olho na coluna.
+     *
+     * Acontece quando a obrigação foi substituída por um acordo **sem data**: a data do acordo é a
+     * referência do cálculo (`materializarNaDataDoAcordo`), e sem ela não há o que calcular. Derivado do
+     * DADO (a data existe ou não), nunca de uma regra — é o oposto da opinião que esta frente remove.
+     *
+     * ⚠️ Não confie nas colunas `juros/multa/correcao/honorarios` quando isto for verdade: elas guardam
+     * o snapshot da última hidratação ao vivo, de uma data arbitrária. A obrigação substituída **não é
+     * congelada** (`encargosCongelados()` só vale na liquidação) e **não é re-hidratada** (a query do
+     * exigível a exclui), então esse resto ficaria na tela passando por valor atual.
+     */
+    public function encargosNaoCalculados(): bool
+    {
+        // ⚠️ VIGENTE-AWARE, como `ObrigacaoOutput::$substituidaPorAcordo`. Se o acordo for rompido ou
+        // cancelado, a obrigação VOLTA ao exigível e volta a ser hidratada ao vivo — os encargos dela
+        // passam a ser calculados de novo, e reais. O vínculo `acordoSubstituto` permanece (invariável
+        // 14: marca-se, nunca se apaga), então testar só a data marcaria como "não calculada" uma
+        // obrigação que está sendo calculada todo dia.
+        // ⚠️ O teste é `estaLiquidada()`, NÃO `encargosCongelados()` — decisão do dono, 18/08, e a
+        // diferença entre os dois é dinheiro na tela. Congelamento tem DUAS origens:
+        //
+        //   • LIQUIDADA (`liquidadaEm` preenchido) → o snapshot é **fato histórico**: o valor pelo qual a
+        //     dívida foi efetivamente quitada. Escondê-lo atrás do traço apagaria informação real. Mostra
+        //     o número.
+        //   • CONGELADA SEM `liquidadaEm` (legado) → o snapshot foi tirado numa data que **não é a do
+        //     acordo** (`congelarEncargos()` grava a data, então ela é conhecida — o que ela não é é a
+        //     referência que este acordo exige). É o "número velho" da fatia. Mostra o traço.
+        //
+        //     ⚠️ MEDIDO EM PRODUÇÃO (18/08): **0 ocorrências** — 8.788 congeladas, todas liquidadas, em
+        //     17.061 obrigações. E `liquidar()` é o ÚNICO chamador de `congelarEncargos()` em `src/`,
+        //     então o estado não é produzível por código atual. Este ramo é **defesa contra dado legado,
+        //     não conserto de problema vivo** — não conte como entrega.
+        //
+        // Uma versão anterior testava `encargosCongelados()`, que junta os dois — e a justificativa
+        // escrita aqui falava da liquidada enquanto a cláusula alcançava principalmente o legado (achado
+        // 🟡C da 2ª revisão). O dado distingue os dois casos, então **o sistema não precisa julgar**: é o
+        // princípio do dono aplicado, não preferência de tela.
+        return $this->acordoSubstituto !== null
+            && $this->acordoSubstituto->getStatus()->ehVigente()
+            && !$this->acordoSubstituto->temData()
+            && !$this->estaLiquidada();
+    }
+
+    /**
      * LIQUIDA a obrigação (spec "ao vivo" §4/§6.3): materializa os encargos calculados na data da
      * liquidação, congela (o relógio para) e marca `liquidadaEm`. É a transição atômica Viva → Liquidada
      * disparada quando um pagamento quita o exigível. Após isto, nenhum leitor recalcula: os quatro
