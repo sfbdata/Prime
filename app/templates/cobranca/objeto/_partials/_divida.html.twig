@@ -33,6 +33,22 @@
        (exigível, SEM honorários, INV-E2), que alimenta saldo, FIFO e acordo. Onde a diferença importa para
        o usuário — o quanto ainda falta — quem fala é `.jp-obr-restante`. Nada de aritmética de encargo aqui:
        `juros/multa/correcao/honorarios` vêm materializados do domínio. #}
+    {# 🔑 ENCARGO NÃO CALCULADO (acordo substituto vigente SEM data) — decisão do dono, 17/08: traço com
+       o MOTIVO NA LINHA. Entra AQUI, na célula do Total, porque é o único lugar em que a obrigação
+       substituída aparece: ela é renderizada sem a faixa de encargos (só o Total), e o `totalComHonorarios`
+       SOMA juros+multa+correção+honorários — que, neste estado, são o resto da última hidratação ao vivo,
+       de uma data arbitrária. Mostrar esse total trocaria a data inventada no importe por um número velho
+       na tela, que também não é espelho.
+
+       Mostra o PRINCIPAL (esse é dado real, veio da contabilidade) e marca o encargo como não calculado.
+       O motivo fica no texto da linha, não só em tooltip: é o que deixa a gerência julgar a falta varrendo
+       a coluna com o olho, sem abrir acordo por acordo. #}
+    {%- if o.encargosNaoCalculados %}
+    <div class="jp-obr-valor jp-money col-total jp-total-nao-calculado">
+        {{ o.valorOriginal|centavos }}
+        <span class="jp-enc-motivo">— ⚠ acordo sem data</span>
+    </div>
+    {%- else %}
     <div class="jp-obr-valor jp-money col-total"
          {%- if o.encargosCongeladosEm is null and o.encargosAtualizadosEm is not null %} data-bs-toggle="tooltip"
          title="Encargos atualizados em {{ o.encargosAtualizadosEm|date('d/m/Y') }}."{% endif %}>
@@ -48,6 +64,7 @@
             <span class="jp-obr-restante">falta {{ o.restante|centavos }}</span>
         {% endif %}
     </div>
+    {%- endif %}
 {% endmacro %}
 
 {% macro resumoEncargos(o) %}
@@ -75,6 +92,8 @@
             <span class="jp-enc-rot">Original</span>
             <span class="jp-enc-val col-original">{{ o.valorOriginal|centavos }}</span>
         </span>
+        {# A obrigação SUBSTITUÍDA não passa por aqui: ela é renderizada sem esta faixa, só com a
+           célula do Total (ver macro `valores`, onde mora o traço do encargo não calculado). #}
         <span class="jp-obr-enc jp-enc-juros">
             <span class="jp-enc-rot">Juros{% if o.taxaJurosEfetivaBp %} <span class="jp-enc-pct">{{ (o.taxaJurosEfetivaBp / 100)|round(2)|replace({'.': ','}) }}% a.m. pró-rata</span>{% endif %}</span>
             <span class="jp-enc-val col-juros">{{ o.juros|centavos }}</span>
@@ -322,7 +341,8 @@
                     </span>
                 {%- endif %}
                 <span class="text-secondary small">
-                    firmado em {{ g.dataAcordo|date('d/m/Y') }} · {{ g.qtdParcelas }} parcela(s) · substituiu {{ g.qtdSubstituidas }} obrigação(ões) · {{ g.valorTotal|centavos }}
+                    {# Guarda obrigatória: `null|date` imprimiria HOJE. #}
+                    {% if g.dataAcordo %}firmado em {{ g.dataAcordo|date('d/m/Y') }}{% else %}<span class="jp-sem-data">firmado em data não informada ⚠</span>{% endif %} · {{ g.qtdParcelas }} parcela(s) · substituiu {{ g.qtdSubstituidas }} obrigação(ões) · {{ g.valorTotal|centavos }}
                 </span>
                 <div class="jp-acordo-prog ms-auto">
                     <span>{{ pagas }} de {{ g.qtdParcelas }} parcelas pagas</span>

@@ -72,11 +72,26 @@ final class CriarAcordoUseCase
             throw ParcelamentoInvalidoException::totalNegociadoDivergente($totalNegociado, $input->valorTotalNegociado);
         }
 
+        // 🔒 O CAMINHO MANUAL CONTINUA EXIGINDO A DATA (decisão do dono, 17/08).
+        //
+        // A regra do espelho ("não inventar o que a fonte não deu") governa o que vem da CONTABILIDADE.
+        // Aqui a fonte é a pessoa que está lavrando o acordo na tela, e ela sabe a data — afrouxar abriria
+        // porta para dado incompleto por descuido, sem ganho nenhum de fidelidade.
+        //
+        // A guarda é NOVA e obrigatória: até 17/08 `setDataAcordo()` recusava `null` por tipo, e o
+        // `#[Assert\NotNull]` do input era a segunda linha de defesa. Com a coluna anulável o setter
+        // aceita `null` calado, e um input malformado criaria um acordo manual sem data — que só
+        // explodiria adiante, na materialização, com erro sem relação com a causa.
+        $dataAcordo = $input->dataAcordo;
+        if ($dataAcordo === null) {
+            throw new \InvalidArgumentException('Acordo lavrado na tela exige data — só o importe grava acordo sem data.');
+        }
+
         // Status ativo é o default da entidade.
         $acordo = new Acordo();
         $acordo->setTenant($tenant);
         $acordo->setCaso($caso);
-        $acordo->setDataAcordo($input->dataAcordo);
+        $acordo->setDataAcordo($dataAcordo);
         $acordo->setCriadoPor($criadoPor);
         // Snapshot da negociação (descritivo; saldo segue derivado): total sempre populado (deriva se null).
         $acordo->setValorTotalNegociado($totalNegociado);
@@ -139,9 +154,9 @@ final class CriarAcordoUseCase
                     $obrigacao->getValorOriginal(),
                     $obrigacao->getVencimentoOriginal(),
                     $config,
-                    $input->dataAcordo,
+                    $dataAcordo,
                 );
-                $obrigacao->definirEncargos($e['juros'], $e['multa'], $e['correcao'], $e['honorarios'], $input->dataAcordo);
+                $obrigacao->definirEncargos($e['juros'], $e['multa'], $e['correcao'], $e['honorarios'], $dataAcordo);
             }
 
             // Marca (nunca apaga — invariável 14); já gerenciada, salvar sem flush por clareza.
@@ -157,7 +172,7 @@ final class CriarAcordoUseCase
             $obrigacaoEntrada->setCaso($caso);
             $obrigacaoEntrada->setDescricao('Entrada');
             $obrigacaoEntrada->setValorOriginal($valorEntrada);
-            $obrigacaoEntrada->setVencimentoOriginal($input->dataEntrada ?? $input->dataAcordo);
+            $obrigacaoEntrada->setVencimentoOriginal($input->dataEntrada ?? $dataAcordo);
             $obrigacaoEntrada->setAcordoOrigem($acordo);
             $obrigacaoEntrada->setCriadoPor($criadoPor);
 

@@ -285,6 +285,32 @@ class Obrigacao implements TenantAware, Auditavel
     }
 
     /**
+     * Os encargos desta obrigação **nunca foram calculados** — distinto de "calculados e deram R$ 0,00".
+     * A distinção é do MODELO, não da tela (decisão do dono, 17/08): sem ela o sistema afirma um valor
+     * que não tem, e a gerência não consegue julgar a falta batendo o olho na coluna.
+     *
+     * Acontece quando a obrigação foi substituída por um acordo **sem data**: a data do acordo é a
+     * referência do cálculo (`materializarNaDataDoAcordo`), e sem ela não há o que calcular. Derivado do
+     * DADO (a data existe ou não), nunca de uma regra — é o oposto da opinião que esta frente remove.
+     *
+     * ⚠️ Não confie nas colunas `juros/multa/correcao/honorarios` quando isto for verdade: elas guardam
+     * o snapshot da última hidratação ao vivo, de uma data arbitrária. A obrigação substituída **não é
+     * congelada** (`encargosCongelados()` só vale na liquidação) e **não é re-hidratada** (a query do
+     * exigível a exclui), então esse resto ficaria na tela passando por valor atual.
+     */
+    public function encargosNaoCalculados(): bool
+    {
+        // ⚠️ VIGENTE-AWARE, como `ObrigacaoOutput::$substituidaPorAcordo`. Se o acordo for rompido ou
+        // cancelado, a obrigação VOLTA ao exigível e volta a ser hidratada ao vivo — os encargos dela
+        // passam a ser calculados de novo, e reais. O vínculo `acordoSubstituto` permanece (invariável
+        // 14: marca-se, nunca se apaga), então testar só a data marcaria como "não calculada" uma
+        // obrigação que está sendo calculada todo dia.
+        return $this->acordoSubstituto !== null
+            && $this->acordoSubstituto->getStatus()->ehVigente()
+            && !$this->acordoSubstituto->temData();
+    }
+
+    /**
      * LIQUIDA a obrigação (spec "ao vivo" §4/§6.3): materializa os encargos calculados na data da
      * liquidação, congela (o relógio para) e marca `liquidadaEm`. É a transição atômica Viva → Liquidada
      * disparada quando um pagamento quita o exigível. Após isto, nenhum leitor recalcula: os quatro

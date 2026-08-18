@@ -46,8 +46,18 @@ class Acordo implements TenantAware, Auditavel
     #[ORM\Column(enumType: StatusAcordo::class)]
     private StatusAcordo $status = StatusAcordo::Ativo;
 
-    #[ORM\Column(type: 'date_immutable')]
-    private \DateTimeImmutable $dataAcordo;
+    /**
+     * A data em que a contabilidade PAROU o relógio dos juros ("Data base"). **Anulável de propósito**
+     * (decisão do dono, 17/08): se a contabilidade tem um acordo sem data, o espelho grava sem data —
+     * recusar a criar seria o sistema julgando que um registro incompleto não merece existir.
+     *
+     * ⚠️ NUNCA derivar um default aqui nem no construtor. Até 17/08 o construtor gravava
+     * `new \DateTimeImmutable()`, e essa era a 7ª violação do importe: a mesma opinião ("todo acordo tem
+     * data, e na dúvida é hoje") uma camada abaixo do importador. O que a fonte não dá, o sistema não
+     * inventa — quem julga a falta é a gerência, olhando o vazio.
+     */
+    #[ORM\Column(type: 'date_immutable', nullable: true)]
+    private ?\DateTimeImmutable $dataAcordo = null;
 
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $motivoRompimento = null;
@@ -120,7 +130,6 @@ class Acordo implements TenantAware, Auditavel
     public function __construct()
     {
         $this->criadoEm = new \DateTimeImmutable();
-        $this->dataAcordo = new \DateTimeImmutable();
         $this->obrigacoesSubstituidas = new ArrayCollection();
         $this->parcelas = new ArrayCollection();
     }
@@ -222,12 +231,21 @@ class Acordo implements TenantAware, Auditavel
         return $this;
     }
 
-    public function getDataAcordo(): \DateTimeImmutable
+    public function getDataAcordo(): ?\DateTimeImmutable
     {
         return $this->dataAcordo;
     }
 
-    public function setDataAcordo(\DateTimeImmutable $dataAcordo): self
+    /**
+     * Tem data? É o discriminador que separa "encargo não calculado" de "encargo calculado e deu zero"
+     * nas obrigações que este acordo substitui — ver `Obrigacao::encargosNaoCalculados()`.
+     */
+    public function temData(): bool
+    {
+        return $this->dataAcordo !== null;
+    }
+
+    public function setDataAcordo(?\DateTimeImmutable $dataAcordo): self
     {
         $this->dataAcordo = $dataAcordo;
 

@@ -529,6 +529,101 @@ final class ImportarAcordosDetalhadosTest extends KernelTestCase
      * A procedência não se perde: `numeroExterno` só é preenchido por importação, e as contas
      * reconstruídas carregam "Reconstruída da planilha de acordos (emissão …)" na descrição.
      */
+    // ---------------------------------------------------------------------------------------------
+    // Violação #3 (removida) e 6ª violação — spec `cobranca-espelho-violacoes-do-importe.md` §2
+    // ---------------------------------------------------------------------------------------------
+
+    /**
+     * 🔴 PROVA POR REINTRODUÇÃO da violação #3. `cenarioAcordo37()` cria o acordo 37 pelo importador de
+     * INADIMPLÊNCIA (o boleto 61600 carrega `AcordoDoRelatorio(37, 1, 4)`), e esse relatório NÃO traz a
+     * data do acordo. Até 17/08 o importador chutava `dataAcordoPadrao()` — o 1º dia do mês da
+     * competência, que para a competência 07/2026 daria 2026-07-01.
+     *
+     * Repor `setDataAcordo($this->dataAcordoPadrao($boleto))` derruba este teste.
+     *
+     * Medido em produção antes de remover: 375 de 395 acordos com a data chutada.
+     */
+    #[TestDox('#3: a inadimplencia cria o acordo SEM data — nao chuta o 1o dia da competencia')]
+    public function testInadimplenciaCriaAcordoSemData(): void
+    {
+        [$tenant] = $this->cenarioAcordo37();
+
+        $acordo = $this->em->getRepository(Acordo::class)->findOneBy(['tenant' => $tenant, 'numeroExterno' => 37]);
+        self::assertNotNull($acordo);
+        self::assertNull(
+            $acordo->getDataAcordo(),
+            'O importador de inadimplência voltou a INVENTAR a data do acordo (violação #3).',
+        );
+        self::assertFalse($acordo->temData());
+    }
+
+    /**
+     * 🔑 6ª VIOLAÇÃO — o ramo de ATUALIZAÇÃO preenche a data.
+     *
+     * É a metade que faz a decisão (B) do dono ser espelho e não regressão. Sem ela o acordo nasceria
+     * sem data pela inadimplência e ficaria sem data para sempre, porque `setDataAcordo($aba->dataBase)`
+     * só existia no ramo de CRIAÇÃO — e o relatório que TEM a data verdadeira não conseguia corrigi-la.
+     *
+     * A cadeia inteira, nos dois importadores: inadimplência cria sem data → acordos detalhados preenche.
+     */
+    #[TestDox('6a violacao: o relatorio de acordos PREENCHE a data do acordo que nasceu sem ela')]
+    public function testAcordosDetalhadosPreencheADataQueFaltava(): void
+    {
+        [$tenant, $user, $carteiraId] = $this->cenarioAcordo37();
+
+        $acordo = $this->em->getRepository(Acordo::class)->findOneBy(['tenant' => $tenant, 'numeroExterno' => 37]);
+        self::assertNotNull($acordo);
+        self::assertNull($acordo->getDataAcordo(), 'pré-condição: nasceu sem data');
+
+        $this->importarAcordos->confirmar($carteiraId, $this->leituraAcordo37(), $tenant, $user);
+
+        $this->em->clear();
+        $acordo = $this->em->getRepository(Acordo::class)->findOneBy(['tenant' => $tenant, 'numeroExterno' => 37]);
+        self::assertNotNull($acordo);
+        self::assertSame(
+            '2026-06-30',
+            $acordo->getDataAcordo()?->format('Y-m-d'),
+            'O ramo de atualização não preencheu a "Data base" (6ª violação de volta).',
+        );
+    }
+
+    /**
+     * §2.4 — enquanto o acordo não tem data, as obrigações que ele substitui ficam com o encargo NÃO
+     * CALCULADO (a tela mostra "— ⚠ acordo sem data"). Quando a data chega, elas são materializadas e o
+     * traço vira número. Sem esta parte o traço ficaria na tela para sempre.
+     */
+    #[TestDox('§2.4: substituidas ficam NAO CALCULADAS sem data e sao materializadas quando ela chega')]
+    public function testSubstituidasSaoMaterializadasQuandoADataChega(): void
+    {
+        [$tenant, $user, $carteiraId] = $this->cenarioAcordo37();
+
+        $acordo = $this->em->getRepository(Acordo::class)->findOneBy(['tenant' => $tenant, 'numeroExterno' => 37]);
+        self::assertNotNull($acordo);
+
+        // Antes: sem data, nenhuma substituída pode estar calculada.
+        $this->importarAcordos->confirmar($carteiraId, $this->leituraAcordo37(), $tenant, $user);
+
+        $this->em->clear();
+        $acordo = $this->em->getRepository(Acordo::class)->findOneBy(['tenant' => $tenant, 'numeroExterno' => 37]);
+        self::assertNotNull($acordo);
+        self::assertTrue($acordo->temData(), 'a data chegou nesta mesma passada');
+
+        $substituidas = $this->em->getRepository(Obrigacao::class)->findBy(['acordoSubstituto' => $acordo]);
+        self::assertNotEmpty($substituidas, 'o cenário tem contas originais trocadas pelo acordo');
+
+        foreach ($substituidas as $substituida) {
+            self::assertFalse(
+                $substituida->encargosNaoCalculados(),
+                'com a data preenchida, nenhuma substituída pode continuar "não calculada"',
+            );
+            self::assertSame(
+                '2026-06-30',
+                $substituida->getEncargosAtualizadosEm()?->format('Y-m-d'),
+                'o encargo tem de ser materializado NA data do acordo, não em outra',
+            );
+        }
+    }
+
     #[TestDox('T1b — o acordo criado NÃO vira evento de trabalho de cobrança (não polui a Central)')]
     public function testAcordoCriadoNaoPoluiACentralDeAcompanhamento(): void
     {

@@ -375,6 +375,42 @@ final class ImportarAcordosDetalhadosUseCase
 
         $configCaso = $this->resolvedorConfig->resolverDoCaso($caso);
 
+        // 🔑 6ª VIOLAÇÃO — O RAMO DE ATUALIZAÇÃO PASSA A PREENCHER A DATA (17/08).
+        //
+        // Até aqui `setDataAcordo($aba->dataBase)` só existia no ramo de CRIAÇÃO (`criarAcordoDaAba`), e
+        // este ramo nunca reescrevia a data. Como os três importadores compartilham o `Acordo` (achado por
+        // `carteira + numeroExterno`), **quem criava primeiro fixava a data para sempre** — e o relatório
+        // que TEM a data verdadeira não conseguia corrigi-la. Medido em prod: 375 de 395 acordos com a data
+        // derivada, sem caminho de conserto.
+        //
+        // Sem esta peça, remover `dataAcordoPadrao()` dos outros dois importadores deixaria o campo nascer
+        // em branco e ficar em branco para sempre — estado PIOR que o anterior. Por isso a decisão (B) e a
+        // 6ª violação saem na mesma fatia (spec §2.1).
+        //
+        // Só PREENCHE o vazio; **não sobrescreve** data já existente. Uma data que veio da própria coluna
+        // "Data base" de uma importação anterior é o mesmo dado, e regravá-la a cada lote sujaria o
+        // histórico sem mudar nada. Divergência entre duas leituras da mesma fonte é outro problema — e
+        // seria opinião resolvê-la aqui, no escuro.
+        $dataPreenchidaAgora = null;
+        if (!$acordo->temData() && $aba->dataBase !== null) {
+            $dataPreenchidaAgora = $aba->dataBase;
+
+            // A escrita só na CONFIRMAÇÃO (`$usuario !== null`), como todo o resto deste UseCase; a
+            // prévia decide igual e não grava, que é o que faz as duas convergirem (§6).
+            if ($usuario !== null) {
+                $acordo->setDataAcordo($aba->dataBase);
+                $this->acordoRepository->salvar($acordo, true);
+
+                // A data chegou: as obrigações que este acordo substituiu estavam com o encargo NÃO
+                // CALCULADO (mostrando "—" na tela) esperando exatamente por ela. Agora dá para calcular.
+                // Sem isto o traço ficaria na tela para sempre mesmo com a data já preenchida.
+                foreach ($acordo->getObrigacoesSubstituidas() as $substituida) {
+                    $this->materializarNaDataDoAcordo($substituida, $acordo, $configCaso);
+                    $this->obrigacaoRepository->salvar($substituida);
+                }
+            }
+        }
+
         [$parcelasCriadas, $parcelasExistentes, $parcelasAmbiguas, $divergencias, $valorParcelas, $parcelasVinculadas, $liquidadasIgnoradas] =
             $this->completarParcelas($aba, $acordo, $caso, $tenant, $usuario, $tocadas);
 
@@ -406,6 +442,7 @@ final class ImportarAcordosDetalhadosUseCase
             acordoCriado: $acordoCriado,
             situacaoDoAcordoCriado: $acordoCriado ? $aba->situacao : null,
             dataDoAcordoCriado: $acordoCriado ? $acordo->getDataAcordo() : null,
+            dataPreenchidaAgora: $dataPreenchidaAgora,
         );
     }
 
@@ -1059,15 +1096,33 @@ final class ImportarAcordosDetalhadosUseCase
             return; // já Liquidada/legado: mantém o snapshot que tinha
         }
 
+        // 🔑 ACORDO SEM DATA NÃO MATERIALIZA (decisão do dono, 17/08). A data do acordo É a referência do
+        // cálculo; sem ela não há o que calcular, e inventar uma (era `dataAcordoPadrao()`) é justamente a
+        // violação #3 que esta frente removeu.
+        //
+        // A obrigação fica com `encargosNaoCalculados() === true` e a tela mostra "— ⚠ acordo sem data",
+        // em vez de um número. ⚠️ Note que ela NÃO é congelada e NÃO é re-hidratada (a query do exigível a
+        // exclui): as colunas `juros/multa/...` seguem com o resto da última hidratação ao vivo, de uma
+        // data arbitrária. É por isso que o estado precisa ser distinguível no MODELO e a tela precisa
+        // ignorar aquelas colunas — mostrá-las trocaria a data inventada no importe por um número velho na
+        // tela, que também não é espelho.
+        //
+        // Quando a data chegar pelo relatório de acordos, `processarAba` materializa estas obrigações (6ª
+        // violação) e o traço vira número.
+        $dataAcordo = $acordo->getDataAcordo();
+        if ($dataAcordo === null) {
+            return;
+        }
+
         $config = $this->resolvedorConfig->aplicarObrigacao($configCaso, $obrigacao);
         $encargos = $this->calculadora->calcular(
             $obrigacao->getValorOriginal(),
             $obrigacao->getVencimentoOriginal(),
             $config,
-            $acordo->getDataAcordo(),
+            $dataAcordo,
         );
 
-        $obrigacao->definirEncargos($encargos['juros'], $encargos['multa'], $encargos['correcao'], $encargos['honorarios'], $acordo->getDataAcordo());
+        $obrigacao->definirEncargos($encargos['juros'], $encargos['multa'], $encargos['correcao'], $encargos['honorarios'], $dataAcordo);
     }
 
     /**

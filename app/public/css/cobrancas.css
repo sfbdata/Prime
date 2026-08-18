@@ -484,6 +484,15 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
 .jp-enc-pct { font-weight: 600; text-transform: none; letter-spacing: 0; opacity: .85; }
 .jp-enc-val { font-size: .8rem; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--bs-body-color); }
 
+/* Encargo NÃO CALCULADO (acordo substituto sem data) — decisão do dono de 17/08: traço com o motivo NA
+   LINHA. O motivo não pode ser só tooltip: a gerência precisa julgar a falta varrendo a coluna com o
+   olho. Fica em tom de aviso, mas SEM peso de valor — não é dinheiro, é a ausência dele. */
+.jp-total-nao-calculado .jp-enc-motivo { display: block; }
+.jp-enc-motivo { font-size: .68rem; font-weight: 600; color: var(--bs-warning-text-emphasis); white-space: nowrap; }
+/* Data ausente em linha de acordo (movimentos / cabeçalho do grupo). Mesmo princípio: o vazio se
+   anuncia, nunca se disfarça de data. */
+.jp-sem-data { font-weight: 600; color: var(--bs-warning-text-emphasis); }
+
 /* Substituídas (dentro de um collapse, de-emphasizadas): sem faixa de encargos — só a fila em 5 colunas,
    sem áreas. A célula vazia final é track `auto` que colapsa a 0 — assim a linha cabe mesmo indentada
    dentro do acordo, em qualquer largura. Os tracks 1–4 batem com as parcelas de cima. */

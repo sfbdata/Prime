@@ -1,6 +1,9 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Cobranças · Acordo de {{ acordo.dataAcordo|date('d/m/Y') }}{% endblock %}
+{# ⚠️ `dataAcordo` é ANULÁVEL e `{{ null|date(...) }}` imprime a data de HOJE (verificado 17/08) —
+   toda leitura dela nesta tela passa por guarda explícita. Sem isso a view inventa data sozinha, sem
+   erro, e nenhum teste pega: a suíte lê HTML, e "17/08/2026" é HTML válido. #}
+{% block title %}Cobranças · {% if acordo.dataAcordo %}Acordo de {{ acordo.dataAcordo|date('d/m/Y') }}{% else %}Acordo sem data{% endif %}{% endblock %}
 
 {% block body %}
 {# Detalhe do acordo (ajuste 7, fatia 3): leitura. Total/entrada vêm do snapshot da negociação;
@@ -10,7 +13,12 @@
     <div class="container-fluid">
         <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
             <a href="{{ path('cobranca_objeto_show', {id: acordo.objetoId}) }}" class="btn btn-sm btn-outline-secondary" title="Voltar à cobrança"><i class="bi bi-arrow-left"></i></a>
-            <h1 class="m-0 d-flex align-items-center gap-2"><i class="bi bi-file-earmark-text"></i>Acordo de {{ acordo.dataAcordo|date('d/m/Y') }}</h1>
+            <h1 class="m-0 d-flex align-items-center gap-2"><i class="bi bi-file-earmark-text"></i>{% if acordo.dataAcordo %}Acordo de {{ acordo.dataAcordo|date('d/m/Y') }}{% else %}Acordo sem data{% endif %}</h1>
+            {%- if not acordo.dataAcordo %}
+            <span class="badge text-bg-warning jp-acordo-sem-data" title="A contabilidade não informou a data deste acordo. O sistema não a inventa: os encargos das dívidas que ele substitui ficam sem calcular até a data chegar pelo relatório de acordos.">
+                <i class="bi bi-exclamation-triangle"></i> Sem data
+            </span>
+            {%- endif %}
             <span class="badge {{ acordo.statusBadgeClass }}">{{ acordo.statusLabel }}</span>
             {% if acordo.estaIncompleto %}
             <span class="badge text-bg-warning" title="Parcelas ainda não presentes no relatório importado — entram por importação futura ou lançamento manual.">
