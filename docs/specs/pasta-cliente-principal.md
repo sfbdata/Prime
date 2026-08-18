@@ -1,6 +1,10 @@
 # Cliente principal da pasta
 
-> **Estado: IMPLEMENTADA em 2026-08-18** na frente `pasta-cliente-principal`. Suíte 3874/3874.
+> **Estado: IMPLEMENTADA em 2026-08-18** na frente `pasta-cliente-principal`.
+>
+> ⚠️ **O critério automático foi TROCADO por decisão do dono depois da primeira entrega.** A versão
+> integrada em `b6d25e5b` escolhia o cliente de cadastro mais antigo quando ninguém tinha marcado,
+> e oferecia um botão de desmarcar. Isso saiu. Vale o que está escrito abaixo.
 
 ## O problema, com o número que ele move
 
@@ -44,109 +48,106 @@ não consegue apontar para dois clientes.
 **`ON DELETE SET NULL`** + índice `idx_pasta_cliente_principal` (declarado também no mapeamento,
 senão o Doctrine propõe renomeá-lo em todo `schema:update`).
 
-**Sem backfill, de propósito.** `getClientePrincipal()` cai no critério antigo quando a coluna é
-nula — o estado de 100% das pastas no instante do deploy. Logo **nenhum número muda de valor no dia
-em que isto sobe**; a tela só muda quando alguém marcar. O `down()` é seguro: a coluna guarda uma
-*preferência de exibição*, não um fato, e apagá-la devolve tudo ao critério automático.
+Nasceu **sem backfill**, porque no desenho original "coluna nula" queria dizer "use o critério
+automático". Com a troca de regra isso deixou de valer — ver a migration seguinte.
 
-### `Pasta` (a regra mora aqui, não no UseCase)
+### Migration `Version20260818190000` (backfill)
 
-- `getClientePrincipal()` — o marcado **se ainda estiver vinculado**; senão, o de cadastro mais
-  antigo. É a única resposta para "de quem é a média".
-- `getClientePrincipalMarcado()` — a marcação crua, sem fallback. Sem ela a tela não distingue
-  "escolha de alguém" de "padrão automático", porque a primeira nunca devolve nulo havendo cliente.
-- `definirClientePrincipal()` — `\DomainException` se o cliente não estiver vinculado.
-- `limparClientePrincipal()` — volta ao automático.
-- `removeCliente()` — desvincular o principal **limpa a coluna**.
-- `getPrimeiroCliente()` **saiu da API pública** e virou `clienteMaisAntigo()`, privado: era ele a
-  única resposta, e é isso que fazia o número trocar sozinho.
+Preenche `cliente_principal_id` nas pastas que já têm cliente, com **`MIN(cliente_id)`** — que é
+**exatamente quem a tela já mostrava**. Logo **nenhum número muda de valor** no dia em que sobe: o
+que muda é a resposta parar de ser recalculada e passar a ficar gravada.
 
-🔑 **A guarda de "ainda vinculado" é defesa preventiva — e a primeira versão desta spec justificou
-ela com um fato falso.** O texto anterior dizia que `PastaType` mapeia `clientes` e que o Symfony
-Form mexe na coleção direto (`by_reference`), deixando a coluna órfã. **Medido na revisão: hoje
-isso não acontece por caminho nenhum.** `PastaType` aparece uma única vez em todo o `app/` — a
-própria declaração da classe; não há `createForm(PastaType::class)`. A rota de editar pasta monta
-um `EditarPastaDTO` à mão e não toca em `clientes`. O mesmo vale para `syncClientes()`, que também
-é código morto.
+🔑 **Por que `MIN(cliente_id)` e não "o primeiro vinculado", que é a regra nova:** `pasta_cliente`
+tem só `pasta_id` e `cliente_id` — **nenhuma coluna de data ou sequência**. A ordem de vínculo do
+passado nunca foi registrada e **não é recuperável**. Inventar uma ordem para decidir de quem é a
+média seria dado chutado movendo número na tela — o defeito que este projeto já pagou caro na data
+dos acordos. Então o passado fica com o critério que a tela já usava, e "primeiro vinculado" vale do
+primeiro vínculo **novo** em diante, onde é fato e não suposição.
 
-Ou seja: **nenhuma pasta tem coluna órfã hoje, e nenhum número na tela está errado por isso.** A
-guarda fica porque é barata e porque `getClientePrincipal()` é chamado por quem grave a pasta por
-qualquer porta — mas quem reativar `PastaType` ou `syncClientes()` herda a obrigação de mantê-la
-verdadeira, e é para esse dia que ela existe.
+Escopo real, medido na PROD antes de escrever: **1.070 pastas e 1 vínculo** pasta↔cliente no total,
+numa única pasta de um único cliente — onde `MIN()` é a resposta certa sem ambiguidade. O dev bate.
 
-*Registro do erro, não da correção: o autor rodou exatamente esse grep para `syncClientes()` e
-afirmou a alegação irmã sem rodar. Prova por simetria não é prova.*
+O `down()` é **deliberadamente inerte**: não há como distinguir o que esta migration escreveu de uma
+marcação feita à mão depois, e reverter mexeria em escolha de usuário.
 
-### Rotas e tela
+### A regra: o primeiro vínculo grava, e nada é recalculado depois
 
-| Ação | Rota | CSRF |
-|---|---|---|
-| Marcar / fixar | `POST /pasta/{id}/cliente/{cliente}/principal` (`pasta_cliente_principal`) | `pasta_cliente_principal_<pastaId>_<clienteId>` |
-| Desmarcar | `POST /pasta/{id}/cliente/principal/limpar` (`pasta_cliente_principal_limpar`) | `pasta_cliente_principal_limpar_<pastaId>` |
+🔑 **O INVARIANTE:** pasta com cliente **nunca** fica sem principal, e ele é o **primeiro cliente
+vinculado à pasta** ou **quem o dono marcou** pela estrela.
 
-A rota de desmarcar **não leva o cliente na URL** de propósito: só existe uma marcação por pasta,
-então "qual limpar" não é pergunta — e exigir o id abriria a chance de limpar a errada mandando
-outro. Conferido com `router:match` que os dois caminhos não colidem.
+O que isso corrige, e é a fatia inteira: antes a resposta era **recalculada a cada leitura** pelo
+cliente de cadastro mais antigo. Por isso vincular depois alguém cadastrado há mais tempo trocava o
+número na tela. Agora a resposta é **gravada uma vez** e só muda por ato explícito.
 
+| Método | O que faz |
+|---|---|
+| `addCliente()` | grava o principal **se o campo estiver vazio**; do segundo vínculo em diante não mexe |
+| `definirClientePrincipal()` | a troca pela estrela; `\DomainException` se o cliente não estiver vinculado |
+| `removeCliente()` | se sair o principal, **promove** outro (não limpa) — a pasta não pode ficar sem |
+| `getClientePrincipal()` | devolve o gravado, se ainda vinculado; senão o fallback determinístico |
+| `clienteMaisAntigo()` | privado. **Não é mais critério** — é só o desempate usado ao promover e no fallback |
+
+**A guarda `=== null` do `addCliente()` é o "e depois nunca mais automático".** Sem ela, cada
+vínculo novo roubaria o principal — outra forma exata do mesmo defeito. É a mutação B da tabela de
+provas, e ela derruba 6 testes.
+
+**O fallback do `getClientePrincipal()` não é o critério antigo voltando pela janela.** Ele cobre
+dois casos em que a coluna fica nula com clientes na pasta, e só eles:
+
+- o cliente marcado ser **excluído do sistema** — a FK é `ON DELETE SET NULL`, o banco zera a coluna
+  sem passar por método nenhum da entidade;
+- pasta gravada antes desta regra, por caminho que não use `addCliente()`.
+
+Sem o fallback, nesses casos a média sumiria da tela. `getClientePrincipalMarcado()` e
+`limparClientePrincipal()` **foram removidos**: com principal sempre presente, "escolha × padrão"
+deixou de ser distinção que a tela precise fazer.
+
+### Rota e tela
+
+`POST /pasta/{id}/cliente/{cliente}/principal` (`pasta_cliente_principal`), CSRF
+`pasta_cliente_principal_<pastaId>_<clienteId>` — mesma forma dos vizinhos `pasta_cliente_*`.
 Sem permissão devolve **JSON 403 quando XHR** e o redirect do fluxo "pedir acesso" quando form
 normal (devolver HTML a uma chamada AJAX faria o JS tentar interpretá-lo como JSON).
 
-Na lista de clientes da aba **Dados**, a estrela tem **três estados, todos clicáveis**:
+**Uma rota só.** A de desmarcar (`pasta_cliente_principal_limpar`) existiu entre `b6d25e5b` e esta
+versão e foi removida: "desmarcar" queria dizer *voltar ao automático*, e não há mais automático
+para onde voltar. O que existe é **trocar**.
 
-| Estado | Aparência | Clique faz |
-|---|---|---|
-| escolha explícita | cheia, azul sólido | **desmarca** — volta ao automático |
-| principal automático | cheia, azul contornado | **fixa** este cliente |
-| qualquer outro | vazia | **marca** este cliente |
+Na lista de clientes da aba **Dados**, a estrela tem **dois** estados: **cheia** = é o principal
+desta pasta; **vazia** = clique para que passe a ser. A resposta XHR devolve a **média já
+recalculada**, porque a marcação existe para mudar esse número e deixá-lo defasado esconderia o
+efeito da própria ação.
 
-🔑 **"Fixar o automático" não é enfeite — sem ele a feature não fecha o próprio problema.** O
-defeito de origem é o número trocar sozinho quando alguém vincula um cliente de cadastro mais
-antigo. Isso só para de acontecer quando existe marcação; se a estrela do principal automático
-fosse apenas um estado (como na primeira versão), não haveria como proteger o número **sem antes
-escolher outra pessoa**. O bloco de processos tem só os dois últimos estados: lá marcar é via de
-mão única. A diferença é deliberada, por decisão do dono em 18/08.
+**Vincular um cliente também mexe no principal** — se for o primeiro, ele nasce principal. Por isso
+o JSON de vincular devolve o estado do principal junto, e a tela se atualiza na hora.
 
-A resposta XHR devolve a **média já recalculada** e o campo `marcado`, que é o que permite à tela
-distinguir escolha de padrão. O token CSRF de marcar vai num `data-` da linha; o de desmarcar é um
-só por pasta e é renderizado uma vez no JS.
+`PeticionarController` usa `getClientePrincipal()` — os dois critérios divergentes viraram um.
 
-**Vincular um cliente também mexe no principal automático** — se o novo for o de cadastro mais
-antigo e ninguém tiver marcado nada, a média passa a ser dele. Por isso o JSON de vincular devolve
-o estado do principal junto, e a tela se atualiza na hora em vez de mentir até um F5.
+## O que os testes provam (medido, não estimado)
 
-`PeticionarController` passou a usar `getClientePrincipal()` — os dois critérios divergentes viraram um.
-
-## O que os testes provam (e como isso foi verificado)
-
-Os defeitos foram **reintroduzidos e medidos** contra `tests/Pasta` (458 testes). Os números abaixo
-são de execução, não de inspeção:
+Os defeitos foram **reintroduzidos e medidos** contra `tests/Pasta` (451 testes). Cada linha diz
+qual método foi mutado — sem isso a conta não é refazível por ninguém, nem por quem a escreveu:
 
 | Defeito reintroduzido | Testes vermelhos |
 |---|---|
-| `getClientePrincipal()` ignora a marcação (volta ao critério antigo) | **9** |
+| `addCliente()` **grava sempre** (cada vínculo novo rouba o principal) | **6** |
+| `addCliente()` **não grava** no primeiro vínculo (volta ao recalculado) | **3** |
 | `definirClientePrincipal()` aceita cliente não vinculado | **2** |
-| `removeCliente()` não limpa a coluna | **1** |
-| `limparClientePrincipal()` não faz nada (desmarcar inerte) | **4** |
+| `removeCliente()` **limpa** em vez de promover | **1** |
 
-⚠️ **A versão anterior desta tabela dizia 7 para o primeiro caso, e a revisão não conseguiu
-reproduzir o número.** Ela contou 8 por inspeção; a medição dá 9. Duas lições, e a segunda é a que
-importa: contagem de prova precisa dizer **qual mutação** e **contra qual conjunto de testes**, ou
-ninguém consegue refazê-la — inclusive quem escreveu. As mutações exatas estão registradas acima
-pelo nome do método alterado.
+O teste que carrega a regra é
+`PastaFinanceiroArranjoTelaTest::testVariosClientesUsaOPrimeiroVinculado`, montado **contra** o
+critério antigo: o cliente vinculado primeiro é o de **id maior**, então a tela só mostra o número
+certo se a regra nova estiver valendo. Pelo critério anterior ele mostraria o outro cliente.
 
-⚠️ **O terceiro só passou a ser pego depois de um conserto no próprio teste.** Na primeira versão
-ele não quebrava nada: os dois getters têm a guarda de "ainda vinculado", então a limpeza da coluna
-é **invisível pelo comportamento**. Foi preciso um teste que lê `cliente_principal_id`
-**direto no SQL**. Sem isso a asserção parecia forte e não era.
+⚠️ **Histórico que vale manter:** a versão anterior desta tabela afirmava "7 testes" para um caso
+que a revisão não conseguiu reproduzir (ela contou 8 por inspeção; a medição deu 9). Foi o que
+motivou passar a registrar **qual mutação** e **contra qual conjunto**.
 
-⚠️ **E o teste do SQL ainda tinha uma brecha.** `fetchOne` devolve `false` para "não há linha" e
-`null` para "coluna nula"; o helper achatava os dois em `null`, então a asserção decisiva passaria
-também se a **pasta** tivesse sumido do banco. Agora a linha ausente falha o teste explicitamente.
-
-O teste decisivo é `testTelaMostraAMediaDoClienteMarcado`: abre a tela, confere o número **antes**
-(critério automático), marca o outro cliente e confere que a tela passou a mostrar a média **dele**.
-E `testVincularClienteMaisAntigoNaoTrocaONumeroNaTela` reproduz a regressão que a fatia existe para
-matar.
+⚠️ **A asserção que lê o SQL direto continua sendo a decisiva, e mudou de sentido.** Antes provava
+que desvincular *limpava* a coluna; agora prova que *grava o promovido*. A diferença importa: como
+`getClientePrincipal()` tem fallback, se a promoção não gravasse o getter ainda responderia certo e
+o teste passaria por acidente. Quem impede o número de mudar na próxima leitura é o **banco**.
 
 ## Achados de investigação (medidos, não herdados)
 
@@ -172,7 +173,7 @@ matar.
   `_card.html.twig`, `demandas/_resultado.html.twig`), não o principal. Quem mover a estrela e for
   à listagem vai estranhar. **Fatia própria** — toca arquivos compartilhados de listagem, e a
   decisão de estendê-la para lá é do dono.
-- **O UseCase não valida tenant** (`DefinirClientePrincipalUseCase`, `LimparClientePrincipalUseCase`).
+- **O UseCase não valida tenant** (`DefinirClientePrincipalUseCase`).
   A proteção inteira mora no `EntityValueResolver` + `TenantFilter`, que o listener liga **por
   request**: chamado de CLI, nada impede marcação cross-tenant. **Não é regressão** — o precedente
   `DefinirProcessoPrincipalUseCase` é idêntico —, mas fica registrado para não passar como coberto.
@@ -180,15 +181,18 @@ matar.
 
 ## O que precisa ser olhado na tela (roteiro do smoke)
 
-O dev **não tem a coluna** (`cliente_principal_id` não existe em `saas_ux`): a tela da pasta não
-abre até a migration rodar lá. É o mesmo tropeço da frente `pasta-valor-causa`.
+⚠️ **As duas migrations têm de estar aplicadas nos DOIS bancos** (`saas_ux` para a tela, `saas_test`
+para a suíte). Sem a primeira a tela da pasta nem abre.
 
 1. Pasta com **dois clientes ou mais**, aba **Dados**: cada cliente tem estrela, "abrir ficha" e
    "desvincular", nessa ordem.
-2. Sem ninguém marcado: a estrela do cliente de cadastro mais antigo está **cheia e contornada**;
-   clicar nela deixa-a **cheia e sólida** (fixou), e a Média por CPF **não muda de valor**.
-3. Clicar na estrela vazia de outro cliente: ela fica sólida, a anterior esvazia, e a **Média por
-   CPF muda** para a do cliente escolhido, sem recarregar a página.
-4. Clicar na estrela sólida: ela volta a contornada e a média volta ao critério automático.
-5. **Vincular um cliente novo pelo modal**: a linha nasce **com estrela clicável** (não precisa F5).
-6. Sem permissão de edição na pasta: a estrela não grava e aparece aviso, não uma tela quebrada.
+2. **Um cliente da lista já está com a estrela cheia** — não existe pasta com cliente e sem
+   principal. Não há botão de desmarcar em lugar nenhum.
+3. Clicar na estrela **vazia** de outro cliente: ela fica cheia, a anterior esvazia, e a **Média por
+   CPF muda** para a do escolhido, sem recarregar a página.
+4. **Vincular um cliente novo pelo modal**: a linha nasce **com estrela clicável** (não precisa F5),
+   e a estrela cheia **continua onde estava** — vincular não rouba o principal.
+5. **Numa pasta sem cliente nenhum**, vincular o primeiro: ele já nasce com a estrela **cheia**.
+6. **Desvincular quem está com a estrela cheia**: a estrela passa para outro cliente que sobrou; a
+   pasta não fica sem principal.
+7. Sem permissão de edição na pasta: a estrela não grava e aparece aviso, não uma tela quebrada.
