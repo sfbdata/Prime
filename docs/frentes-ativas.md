@@ -10,6 +10,7 @@ Quem abre uma frente acrescenta a linha. Quem integra tira.
 | `cobranca-data-acordo-espelho` | Cobrança (importadores + `Acordo`) | **sim — 1** (`data_acordo` → anulável) | `docs/specs/cobranca-espelho-violacoes-do-importe.md` | auditoria feita, **nada implementado** | **`master` local** @ `460e58af` |
 | `cobranca-acompanhamento-canonico` | Cobrança (modelo objeto/caso) | **sim — 4** | `docs/gestao-cobrancas/` | 🛑 **PARADA** (ver abaixo) | `origin/master` @ `0bb1f29` |
 | `expediente-ux` | Expediente + Pasta (telas) | não | `app/templates/expediente/`, `app/templates/pasta/` | implementando, **28 commits atrás do master** | `origin/codex/colaboracao-cobrancas` |
+| `deploy-resiliente` | Infra de deploy (Dockerfile + `scripts/deploy-prod*.sh`) | não | `Dockerfile`, `scripts/`, `docs/specs/` | **pronta para integrar** (suíte 3828/3828) | `origin/master` @ `2ddae2cd` |
 
 `pasta-valor-causa` foi **integrada em 2026-08-17** (fast-forward para `3629b19a`). Trouxe a migration
 `Version20260814120000` — uma coluna `valor_causa` em `pasta`, aditiva e anulável, que não toca nenhuma
@@ -49,6 +50,26 @@ tem 1 migration pendente e é a **única frente ATIVA com migration**. A
 revivê-la tem de alinhar com a `cobranca-data-acordo-espelho` antes de gerar versão**, porque as duas
 mexem em cobrança.
 
+### `deploy-resiliente` — aberta em 2026-08-18
+
+Nasceu do incidente de deploy de 17–18/08. **Não toca PHP nenhum** — só `Dockerfile`, os dois
+scripts de deploy e uma spec. Suíte rodada mesmo assim: 3828/3828 em `saas_testdeploy-resiliente`.
+
+| | |
+|---|---|
+| **Entrega** | cache do composer sobrevive ao deploy; poda de cache com teto no lugar do `prune` cego; credencial de build validada **antes** de derrubar o site; build **antes** do modo manutenção |
+| **Migration** | **não** — por isso não disputa a vaga com a `cobranca-data-acordo-espelho` |
+| **Prova** | `bash scripts/testar-deploy-guardas.sh` (23 asserções, roda em ~20 s, não toca docker de verdade) |
+
+🔴 **Um bug pré-existente foi corrigido de carona:** `scripts/deploy-prod.sh` usava
+`${POSTGRES_USER}` sob `set -u` sem nunca ler o `.env.prod` (o `deploy-prod-tls.sh` sempre leu).
+Ele morreria em "unbound variable" **já com o modo manutenção ligado**. Achado pelo teste novo.
+
+⚠️ **`scripts/frente-abrir.sh` abortou de novo**, no mesmo ponto de sempre (`cache:clear` estoura
+os 128M no post-install do composer, `set -e` mata o script antes dos uploads e do clone do
+banco). Os dois passos foram refeitos à mão. **Isto já está documentado aqui desde 17/08 e
+continua mordendo quem abre frente** — vale consertar o script numa fatia própria.
+
 ### `cobranca-data-acordo-espelho` — aberta em 2026-08-17
 
 Frente da decisão (B) do dono: **o acordo é gravado mesmo sem data**, porque se a contabilidade tem
@@ -68,6 +89,22 @@ morre **antes** de criar os dirs de upload e de clonar o banco. Quem rodou não 
 comando estava com `| tail`, e o código de saída lido foi o do `tail`, não o do script. Os dois passos
 que faltaram foram executados à mão. **Ao abrir a próxima frente, não canalize a saída do script por
 `tail`/`head`** — ou confira `saas_test<nome>` no fim.
+
+### ⏸️ `pasta-cliente-principal` — PROJETADA, esperando a vaga de migration
+
+Marcar explicitamente qual cliente é o principal da pasta, para a **"Média por CPF"** da aba
+Financeiro parar de trocar de número quando alguém vincula um cliente mais antigo no cadastro.
+
+**Não foi aberta como worktree e nenhuma linha foi escrita** — de propósito. A fatia exige
+migration (promover `pasta_cliente`, hoje ManyToMany pura, a entidade de vínculo com a flag
+`principal`), e a vaga de migration está ocupada pela `cobranca-data-acordo-espelho`.
+
+| | |
+|---|---|
+| **Spec** | [specs/pasta-cliente-principal.md](specs/pasta-cliente-principal.md) — desenho completo, migration com backfill, testes e a colisão prevista |
+| **Destrava quando** | `cobranca-data-acordo-espelho` for integrada |
+| **Padrão a seguir** | `PastaProcesso` — o domínio `Pasta` já tem "marcar como principal", e o desenho é o mesmo peça por peça |
+| **Custo escondido** | a lista de clientes é montada por **DOM em JS**, não por parcial Twig; extrair `_clientes_vinculados.html.twig` é metade da fatia |
 
 ### 🛑 `cobranca-acompanhamento-canonico` — parada, NÃO apagar
 
