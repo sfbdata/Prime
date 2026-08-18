@@ -305,14 +305,23 @@ class Obrigacao implements TenantAware, Auditavel
         // passam a ser calculados de novo, e reais. O vínculo `acordoSubstituto` permanece (invariável
         // 14: marca-se, nunca se apaga), então testar só a data marcaria como "não calculada" uma
         // obrigação que está sendo calculada todo dia.
-        // ⚠️ CONGELADA FICA DE FORA (achado 🟡5 da revisão). `materializarNaDataDoAcordo` retorna cedo
-        // para obrigação congelada — ela MANTÉM o snapshot legítimo que já tinha (da liquidação). Sem
-        // esta cláusula o predicado discordaria daquele método: a tela esconderia, atrás do traço, um
-        // total que FOI calculado, e que é o valor pelo qual a dívida foi quitada.
+        // ⚠️ O teste é `estaLiquidada()`, NÃO `encargosCongelados()` — decisão do dono, 18/08, e a
+        // diferença entre os dois é dinheiro na tela. Congelamento tem DUAS origens:
+        //
+        //   • LIQUIDADA (`liquidadaEm` preenchido) → o snapshot é **fato histórico**: o valor pelo qual a
+        //     dívida foi efetivamente quitada. Escondê-lo atrás do traço apagaria informação real. Mostra
+        //     o número.
+        //   • CONGELADA SEM `liquidadaEm` (legado) → o snapshot é de **data desconhecida**. É exatamente o
+        //     "número velho" que esta fatia existe para não exibir. Mostra o traço.
+        //
+        // Uma versão anterior testava `encargosCongelados()`, que junta os dois — e a justificativa
+        // escrita aqui falava da liquidada enquanto a cláusula alcançava principalmente o legado (achado
+        // 🟡C da 2ª revisão). O dado distingue os dois casos, então **o sistema não precisa julgar**: é o
+        // princípio do dono aplicado, não preferência de tela.
         return $this->acordoSubstituto !== null
             && $this->acordoSubstituto->getStatus()->ehVigente()
             && !$this->acordoSubstituto->temData()
-            && !$this->encargosCongelados();
+            && !$this->estaLiquidada();
     }
 
     /**

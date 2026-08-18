@@ -673,14 +673,16 @@ final class ImportarAcordosDetalhadosTest extends KernelTestCase
         $substituidas = $this->em->getRepository(Obrigacao::class)->findBy(['acordoSubstituto' => $acordo]);
         self::assertNotEmpty($substituidas);
         foreach ($substituidas as $substituida) {
-            self::assertFalse(
-                $substituida->encargosNaoCalculados(),
-                'o laço do backfill não materializou esta substituída — ela continua "não calculada"',
-            );
+            // ⚠️ Esta assertion NÃO detecta a falha do laço (achado 🔵I da 2ª revisão): depois do backfill
+            // o acordo já tem data, então `encargosNaoCalculados()` é `false` mesmo sem materializar. Fica
+            // porque descreve o estado final esperado — mas quem PROVA o laço é a assertion seguinte.
+            self::assertFalse($substituida->encargosNaoCalculados(), 'estado final: a substituída saiu do traço');
+            // 🔴 ESTA é a que morre quando o `foreach` do backfill some: sem ele, `encargosAtualizadosEm`
+            // fica na data da hidratação ao vivo, não na data do acordo.
             self::assertSame(
                 '2026-06-30',
                 $substituida->getEncargosAtualizadosEm()?->format('Y-m-d'),
-                'o encargo tem de ser materializado NA data do acordo',
+                'o laço do backfill não materializou esta substituída NA data do acordo',
             );
         }
     }

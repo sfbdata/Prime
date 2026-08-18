@@ -10,7 +10,9 @@ namespace App\Cobranca\DTO;
  * Dinheiro em CENTAVOS int (Twig formata com `|centavos`). `valorTotalNegociado` e `valorEntrada`
  * saem do SNAPSHOT da negociação gravado no Acordo (descritivo, não-autoritativo para saldo);
  * acordos anteriores ao Ajuste 7 têm snapshot nulo e caem no total DERIVADO (Σ parcelas).
- * `valorDesconto` é SEMPRE derivado (Σ substituídas − total): positivo = desconto, negativo = juros
+ * `valorDesconto` é derivado (Σ substituídas − total): positivo = desconto, negativo = juros —
+ * exceto quando NÃO APURÁVEL (`null`), o que acontece se alguma substituída está sem encargo calculado
+ * (acordo sem data); ver o docblock do próprio campo abaixo.
  * (`temJuros`). O saldo do caso continua derivado pelos serviços — esta tela não o recalcula.
  *
  * `estaIncompleto`/`parcelasFaltantes` (spec `cobranca-importar-linhas-acordo.md` §3.3, tarefa #7-B):

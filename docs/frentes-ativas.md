@@ -7,7 +7,7 @@ Quem abre uma frente acrescenta a linha. Quem integra tira.
 
 | Frente (branch) | Domínio | Migration? | Arquivos compartilhados que toca | Estágio | Base |
 |---|---|---|---|---|---|
-| `cobranca-data-acordo-espelho` | Cobrança (importadores + `Acordo`) | **sim — 1** (`data_acordo` → anulável) | `docs/specs/cobranca-espelho-violacoes-do-importe.md` | **implementada + 2 revisões**; aguarda smoke do dono | **`master` local** @ `460e58af` |
+| `cobranca-data-acordo-espelho` | Cobrança (importadores + `Acordo`) | **sim — 1** (`data_acordo` → anulável) | `docs/specs/cobranca-espelho-violacoes-do-importe.md` | implementada; **2 revisões aplicadas**, ⏳ 3ª em curso | **`master` local** @ `460e58af` |
 | `cobranca-acompanhamento-canonico` | Cobrança (modelo objeto/caso) | **sim — 4** | `docs/gestao-cobrancas/` | 🛑 **PARADA** (ver abaixo) | `origin/master` @ `0bb1f29` |
 | `expediente-ux` | Expediente + Pasta (telas) | não | `app/templates/expediente/`, `app/templates/pasta/` | implementando, **28 commits atrás do master** | `origin/codex/colaboracao-cobrancas` |
 
@@ -58,7 +58,7 @@ dos dois importadores que hoje derivam a data do 1º dia da competência.
 | | |
 |---|---|
 | **Base** | **`master` local, não `origin/master`** — este está 2 commits atrás (`460e58af` da Fatia 1 e `37399179` de outra sessão) |
-| **Estado** | **implementada** (`74dd6ee9`) + as 9 correções da 1ª revisão. Suíte **3846/3846**. ⏳ 2ª revisão, depois smoke do dono. **Nada publicado, nada em produção.** |
+| **Estado** | **implementada** (`74dd6ee9`) + correções da 1ª revisão (`00deed6c`) + da 2ª. ⏳ **3ª revisão**, depois smoke do dono. **Nada publicado, nada em produção.** |
 | **Spec** | `docs/specs/cobranca-espelho-violacoes-do-importe.md` |
 | **Banco** | `saas_testcobranca-data-acordo-espelho` — ✅ **já tem a coluna `valor_causa`** (o `saas_test` foi migrado antes do clone), então o aviso do topo não morde esta frente |
 

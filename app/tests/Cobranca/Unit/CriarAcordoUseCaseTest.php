@@ -496,6 +496,7 @@ final class CriarAcordoUseCaseTest extends TestCase
 
         return $item;
     }
+
     /**
      * 🔒 A guarda que nasceu com a coluna anulável (achado 🟡7 da revisão). O caminho MANUAL continua
      * exigindo a data: lá a fonte é a pessoa que lavra o acordo, não a contabilidade. Antes de 17/08 o

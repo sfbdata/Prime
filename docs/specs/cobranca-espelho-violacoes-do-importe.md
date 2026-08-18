@@ -335,7 +335,7 @@ comunicar*, não o *se*. Simulação com números antes de aplicar; nada roda em
 commits atrás, sem o `460e58af` da Fatia 1 nem o `37399179` de outra sessão). Tem migration —
 registrada em `docs/frentes-ativas.md`.
 
-### 2.10 Implementação — feita em 17/08 (commit `74dd6ee9`), 3841/3841 verde
+### 2.10 Implementação — 1ª entrega (commit `74dd6ee9`). ⚠️ NÃO era a conta fechada
 
 O traço com o motivo NA LINHA (decisão do dono) entrou na **célula do Total**, não na faixa de
 encargos: a obrigação substituída é renderizada **sem** a faixa — só com o Total —, e
@@ -357,6 +357,47 @@ ser hidratada ao vivo, com encargo real.
 | `ORDER BY dataAcordo DESC` sem o `HIDDEN` | idem — o sem data lidera |
 | inadimplência voltando a chutar (#3) | `ImportarAcordosDetalhadosTest` |
 | ramo de atualização não preenchendo (6ª) | idem |
+
+⚠️ **A tabela acima foi escrita como conta fechada e não era.** Duas revisões depois dela acharam 1 🔴,
+2 buracos de prova e 8 achados médios. Ver §2.11.
+
+### 2.11 As duas revisões — e o padrão que elas expuseram
+
+**1ª revisão (17/08), 10 achados; correções em `00deed6c`.** O crítico: `MontarDetalheAcordoUseCase`
+somava `valorExigivel()` das substituídas, e sob acordo sem data isso é o **resíduo da última
+hidratação**. Alimentava três números na tela do acordo — a coluna "Valor", o card "Dívida
+substituída" e o "Desconto concedido/Juros acrescidos", este com sinal e cor. Era a **repetição
+literal do caso `null|date`**: a mudança de estado achou um caminho que a auditoria dos pontos de
+chamada (§2.3) não percorreu. Correção: por linha, o **principal** com traço e motivo; nos agregados,
+**não apurável** (`?int` nulo).
+
+**2ª revisão (18/08), 10 achados; correções em `<este commit>`.** O que ela expôs é mais importante
+que os achados:
+
+> 🔴 **É a SEGUNDA vez nesta frente que uma correção entra declarada como provada e não está.**
+> Na 1ª foi o laço do backfill; na 2ª foi o `!encargosCongelados()`. Nas duas, a suíte inteira ficava
+> verde com a correção apagada.
+
+Daí a regra que passa a valer aqui: **prova por reintrodução EXECUTADA, nunca rastreada por leitura** —
+apagar a correção, ver vermelho, restaurar, ver verde, e dizer qual teste morreu. Ela pegou, na
+própria rodada de conserto, um assert que mirava o número errado (`189,77`, quando o valor que sai ao
+reverter é `100,00`, porque a Σ já acumula o principal) e um teste de console **vacuoso** (o cenário
+criava acordo *com* data, então o bloco nunca era impresso).
+
+**A decisão de dinheiro da 2ª rodada** (dono, 18/08) — congelamento tem **duas origens**, e elas não
+são a mesma coisa na tela:
+
+| estado | o que a tela mostra | por quê |
+|---|---|---|
+| **liquidada** (`liquidadaEm` preenchido) | **o número** | o snapshot é fato histórico: o valor pelo qual a dívida foi quitada. Escondê-lo apagaria informação real |
+| **congelada sem `liquidadaEm`** (legado) | **o traço** | snapshot de data desconhecida — o "número velho" que esta fatia existe para não exibir |
+
+O predicado testa `estaLiquidada()`, **não** `encargosCongelados()`. O argumento que fecha: **o dado
+distingue os dois casos, então o sistema não precisa julgar.**
+
+Também corrigido: o dry-run **afirmava escrita não feita** ("os encargos foram calculados" sem
+`--confirmar`) — mesma família de defeito que a frente combate, o sistema afirmando o que não
+aconteceu.
 
 ⏳ **Pendente e fora desta fatia:** o passivo (375 acordos + 256 dívidas). É conserto obrigatório, com
 simulação de números antes e autorização do dono para rodar. Nada foi tocado em produção.

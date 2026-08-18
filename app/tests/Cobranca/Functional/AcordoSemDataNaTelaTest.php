@@ -172,6 +172,18 @@ final class AcordoSemDataNaTelaTest extends CobrancaWebTestCase
 
         self::assertStringNotContainsString('689,77', $html, 'a coluna Valor somou o resíduo (valorExigivel)');
         self::assertStringNotContainsString('723,77', $html, 'o total com honorários vazou');
+        // 🔵H da 2ª revisão: travar TAMBÉM o card "Desconto concedido". Assert estrutural, não por
+        // número: revertendo só o `valorDesconto`, o valor que sai é 100,00 (Σ principais − total), e
+        // não 189,77 — porque a Σ já acumula o principal. Um número específico erraria o alvo (errou:
+        // a primeira versão deste assert procurava 189,70 e passou com o defeito reintroduzido).
+        //
+        // O motivo tem de aparecer nos TRÊS pontos: a linha da substituída, o card "Dívida substituída"
+        // e o card "Desconto concedido". Se qualquer um voltar a exibir número, a contagem cai.
+        self::assertSame(
+            3,
+            substr_count($html, '⚠ acordo sem data'),
+            'algum dos três pontos (linha · Dívida substituída · Desconto) voltou a exibir número',
+        );
         // "Dívida substituída" e "Desconto concedido" ficam NÃO APURÁVEIS, com o motivo na linha.
         self::assertStringContainsString('⚠ acordo sem data', $html);
         // O principal continua visível: é dado real, veio da contabilidade.

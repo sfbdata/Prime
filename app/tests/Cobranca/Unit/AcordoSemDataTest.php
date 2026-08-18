@@ -97,6 +97,55 @@ final class AcordoSemDataTest extends TestCase
         self::assertSame(0, $obrigacao->getJuros());
     }
 
+    /**
+     * 🔑 A SEPARAÇÃO QUE O DONO DECIDIU EM 18/08 — e que a 2ª revisão pegou entrando sem prova
+     * (achado 🟡B). Congelamento tem duas origens, e elas NÃO são a mesma coisa na tela:
+     *
+     * LIQUIDADA → o snapshot é fato histórico (o valor pelo qual a dívida foi quitada). Mostra o NÚMERO.
+     *
+     * 🔴 PROVA POR REINTRODUÇÃO: tirar `&& !$this->estaLiquidada()` do predicado derruba este teste.
+     */
+    #[Test]
+    #[TestDox('Liquidada sob acordo sem data: mostra o NUMERO — o snapshot e fato historico')]
+    public function liquidadaSobAcordoSemDataNaoEhNaoCalculada(): void
+    {
+        $acordo = new Acordo();
+        $obrigacao = new Obrigacao();
+        $obrigacao->setAcordoSubstituto($acordo);
+        $obrigacao->setValorOriginal(60000);
+        $obrigacao->liquidar(7777, 1200, 0, 3400, new \DateTimeImmutable('2025-06-10'));
+
+        self::assertTrue($obrigacao->estaLiquidada(), 'pré-condição do cenário');
+        self::assertFalse(
+            $obrigacao->encargosNaoCalculados(),
+            'a liquidada tem snapshot legítimo — esconder o número apagaria informação real',
+        );
+    }
+
+    /**
+     * CONGELADA SEM `liquidadaEm` (legado) → snapshot de data desconhecida, o "número velho" que a fatia
+     * existe para não exibir. Mostra o TRAÇO.
+     *
+     * 🔴 PROVA POR REINTRODUÇÃO: trocar `estaLiquidada()` de volta por `encargosCongelados()` derruba
+     * este teste — era exatamente a versão anterior, que juntava os dois casos.
+     */
+    #[Test]
+    #[TestDox('Congelada legada (sem liquidadaEm) sob acordo sem data: mostra o TRACO')]
+    public function congeladaLegadaSobAcordoSemDataEhNaoCalculada(): void
+    {
+        $acordo = new Acordo();
+        $obrigacao = new Obrigacao();
+        $obrigacao->setAcordoSubstituto($acordo);
+        $obrigacao->congelarEncargos(new \DateTimeImmutable('2024-01-01'));
+
+        self::assertTrue($obrigacao->encargosCongelados(), 'pré-condição: congelada');
+        self::assertFalse($obrigacao->estaLiquidada(), 'pré-condição: legado, sem liquidadaEm');
+        self::assertTrue(
+            $obrigacao->encargosNaoCalculados(),
+            'snapshot de data desconhecida não pode virar número na tela',
+        );
+    }
+
     /** Obrigação comum (não substituída) nunca cai no estado "não calculado". */
     #[Test]
     #[TestDox('Obrigacao nao substituida nunca fica NAO CALCULADA')]

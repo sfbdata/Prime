@@ -222,7 +222,7 @@ final class ImportarAcordosDetalhadosCommand extends Command implements LidaComD
         );
 
         $this->imprimirAcordosCriados($io, $resultado, $confirmar);
-        $this->relatarDatasPreenchidas($io, $resultado->porAcordo());
+        $this->relatarDatasPreenchidas($io, $resultado->porAcordo(), $confirmar);
         $this->imprimirSobrescritas($io, $resultado, $confirmar);
     }
 
@@ -273,17 +273,23 @@ final class ImportarAcordosDetalhadosCommand extends Command implements LidaComD
      *
      * @param list<AcordoProcessado> $acordos
      */
-    private function relatarDatasPreenchidas(SymfonyStyle $io, array $acordos): void
+    private function relatarDatasPreenchidas(SymfonyStyle $io, array $acordos, bool $confirmar): void
     {
         $comData = array_values(array_filter($acordos, static fn (AcordoProcessado $a): bool => $a->dataPreenchidaAgora !== null));
         if ($comData === []) {
             return;
         }
 
-        $io->section(sprintf('Data do acordo preenchida (%d) — os encargos das dívidas substituídas foram calculados', count($comData)));
+        // ⚠️ ALTERNA prévia × confirmação, como todos os blocos vizinhos (`:205`, `:242`). A versão
+        // anterior falava em PRETÉRITO nos dois modos — a prévia afirmava "os encargos foram calculados"
+        // sem nada ter sido gravado (achado 🟡A da 2ª revisão). É a mesma família de defeito que esta
+        // frente combate: o sistema afirmando o que não aconteceu.
+        $io->section($confirmar
+            ? sprintf('Data do acordo preenchida (%d) — os encargos das dívidas substituídas FORAM calculados', count($comData))
+            : sprintf('Data do acordo que SERIA preenchida (%d) — os encargos seriam calculados (nada gravado ainda)', count($comData)));
         foreach ($comData as $acordo) {
             $io->writeln(sprintf(
-                '  · Acordo %d — %s · data base %s (o acordo já existia SEM data)',
+                '  · Acordo %d — %s · data base %s (o acordo já existe SEM data)',
                 $acordo->numero,
                 $acordo->unidade,
                 $acordo->dataPreenchidaAgora?->format('d/m/Y') ?? '—',
