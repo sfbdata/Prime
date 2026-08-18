@@ -7,7 +7,7 @@ Quem abre uma frente acrescenta a linha. Quem integra tira.
 
 | Frente (branch) | Domínio | Migration? | Arquivos compartilhados que toca | Estágio | Base |
 |---|---|---|---|---|---|
-| `cobranca-data-acordo-espelho` | Cobrança (importadores + `Acordo`) | **sim — 1** (`data_acordo` → anulável) | `docs/specs/cobranca-espelho-violacoes-do-importe.md` | auditoria feita, **nada implementado** | **`master` local** @ `460e58af` |
+| `cobranca-data-acordo-espelho` | Cobrança (importadores + `Acordo`) | **sim — 1** (`Version20260817180000`, `data_acordo` → anulável) | `docs/specs/cobranca-espelho-violacoes-do-importe.md` | **implementada** @ `bc5aba57`, aguardando revisão + smoke | **`master` local** @ `460e58af` |
 | `cobranca-acompanhamento-canonico` | Cobrança (modelo objeto/caso) | **sim — 4** | `docs/gestao-cobrancas/` | 🛑 **PARADA** (ver abaixo) | `origin/master` @ `0bb1f29` |
 | `expediente-ux` | Expediente + Pasta (telas) | não | `app/templates/expediente/`, `app/templates/pasta/` | implementando, **28 commits atrás do master** | `origin/codex/colaboracao-cobrancas` |
 | `deploy-resiliente` | Infra de deploy (Dockerfile + `scripts/deploy-prod*.sh`) | não | `Dockerfile`, `scripts/`, `docs/specs/` | **pronta para integrar** (suíte 3828/3828) | `origin/master` @ `2ddae2cd` |

@@ -5,7 +5,10 @@ set -euo pipefail
 # Os caminhos relativos abaixo (.env.prod, docker-compose.prod.yml, nginx/maintenance)
 # precisam casar com o `./nginx/maintenance` do compose, senão a flag de manutenção
 # seria criada num caminho que o nginx não enxerga.
-cd "$(dirname "$0")/.."
+# Resolvido ANTES do cd: depois dele, `dirname "$0"` de uma chamada por caminho
+# relativo aponta para o lugar errado e o `source` da lib morre.
+DIR_SCRIPT="$(cd "$(dirname "$0")" && pwd)"
+cd "$DIR_SCRIPT/.."
 
 # ─── Detecta comando docker compose ───────────────────────────────────────────
 if docker compose version >/dev/null 2>&1; then
@@ -26,26 +29,43 @@ if [[ ! -f ".env.prod" ]]; then
   exit 1
 fi
 
+# Lidas e CONFERIDAS aqui, antes de derrubar nada. Antes eram lidas só depois do modo
+# manutenção: um .env.prod sem POSTGRES_USER matava o script (set -u) com o site já fora
+# do ar. Ver scripts/lib/composer-auth.sh para a mesma tese aplicada à credencial.
+source <(grep -E '^(POSTGRES_USER|POSTGRES_DB)=' .env.prod) || true
+for var in POSTGRES_USER POSTGRES_DB; do
+  if [[ -z "${!var:-}" ]]; then
+    echo "❌ .env.prod não define $var — o deploy pararia no meio, com o site fora do ar."
+    echo "   NADA foi alterado — o site continua no ar."
+    exit 1
+  fi
+done
+
 # Credencial do composer para o build. Validada ANTES de qualquer coisa: credencial
 # inválida costumava passar batida aqui, e o deploy só quebrava depois de já ter
 # derrubado o site. Detalhes do desenho em scripts/lib/composer-auth.sh.
 # shellcheck source=lib/composer-auth.sh
-source "$(dirname "$0")/lib/composer-auth.sh"
+source "$DIR_SCRIPT/lib/composer-auth.sh"
 if ! validar_composer_auth ".composer-auth.json"; then
   echo "❌ Deploy abortado. O site NÃO saiu do ar."
   exit 1
 fi
 
-if [[ ! -f "/etc/letsencrypt/live/bluejus.com.br/fullchain.pem" || \
-      ! -f "/etc/letsencrypt/live/bluejus.com.br/privkey.pem" ]]; then
-  echo "❌ Certificados Let's Encrypt não encontrados em /etc/letsencrypt/live/bluejus.com.br/"
+# Raiz dos certificados por variável: em produção é o caminho real; no teste
+# (scripts/testar-deploy-guardas.sh) aponta para um sandbox, e é o que permite
+# exercitar ESTE script — que é o que a produção de fato roda.
+LETSENCRYPT_DIR="${LETSENCRYPT_DIR:-/etc/letsencrypt}"
+
+if [[ ! -f "$LETSENCRYPT_DIR/live/bluejus.com.br/fullchain.pem" || \
+      ! -f "$LETSENCRYPT_DIR/live/bluejus.com.br/privkey.pem" ]]; then
+  echo "❌ Certificados Let's Encrypt não encontrados em $LETSENCRYPT_DIR/live/bluejus.com.br/"
   echo "   Execute: certbot certonly --standalone -d bluejus.com.br -d www.bluejus.com.br"
   exit 1
 fi
 
-if [[ ! -f "/etc/letsencrypt/live/grupojusprime.tech/fullchain.pem" || \
-      ! -f "/etc/letsencrypt/live/grupojusprime.tech/privkey.pem" ]]; then
-  echo "❌ Certificados Let's Encrypt não encontrados em /etc/letsencrypt/live/grupojusprime.tech/"
+if [[ ! -f "$LETSENCRYPT_DIR/live/grupojusprime.tech/fullchain.pem" || \
+      ! -f "$LETSENCRYPT_DIR/live/grupojusprime.tech/privkey.pem" ]]; then
+  echo "❌ Certificados Let's Encrypt não encontrados em $LETSENCRYPT_DIR/live/grupojusprime.tech/"
   echo "   O nginx referencia esse cert (proxy do sistema co-hospedado)."
   echo "   Sem ele, o recreate do nginx derruba TAMBÉM o bluejus."
   echo "   Gere/restaure o cert antes de deployar."
@@ -96,8 +116,6 @@ docker network connect condominio_condominio_net jusprime_nginx_prod 2>/dev/null
   || echo "   ⚠️  rede condominio_condominio_net indisponível ou já conectado — seguindo"
 
 # ─── Aguarda banco de dados ────────────────────────────────────────────────────
-source <(grep -E '^(POSTGRES_USER|POSTGRES_DB)=' .env.prod)
-
 echo "⏳ Aguardando banco de dados ficar pronto..."
 for i in {1..30}; do
   if $COMPOSE_CMD $COMPOSE_FILE $ENV_FILE exec -T db \
@@ -173,15 +191,25 @@ docker image prune -f || true
 # A poda continua existindo — o disco da VPS é apertado —, mas com TETO em vez de tudo:
 # o cache do deploy que acabou de rodar sobrevive para o próximo.
 echo "🧹 Podando cache de build com teto (mantém o cache do deploy atual)..."
-TETO_CACHE_BUILD_BYTES=${TETO_CACHE_BUILD_BYTES:-$((8 * 1024 * 1024 * 1024))}   # 8 GB
+# 4 GB: uma linhagem de build completa mediu 1,72 GB, então o teto guarda a atual com
+# folga para a próxima. Fica pequeno de propósito — o disco da VPS é apertado (95 GB,
+# 68,6% usados em 18/08). Ajustável por variável de ambiente se o número mudar.
+TETO_CACHE_BUILD_BYTES=${TETO_CACHE_BUILD_BYTES:-$((4 * 1024 * 1024 * 1024))}   # 4 GB
 if docker builder prune --help 2>&1 | grep -q -- '--max-used-space'; then
   docker builder prune -f --max-used-space "$TETO_CACHE_BUILD_BYTES" || true
 else
-  # Docker antigo, sem teto por tamanho: poda por idade, mantendo os últimos 7 dias.
-  echo "   (docker sem --max-used-space; podando por idade)"
-  docker builder prune -f --filter until=168h || true
+  # Docker antigo, sem teto por tamanho. Poda por idade — que limita ACÚMULO NO TEMPO,
+  # não disco: uma rajada de deploys no mesmo dia cabe inteira dentro da janela. Por
+  # isso a janela é curta (48h) e o uso real é medido e mostrado logo abaixo, em vez de
+  # fingir que há teto.
+  echo "   ⚠️  docker sem --max-used-space: podando por IDADE (48h), sem teto por tamanho."
+  echo "      Considere atualizar o docker da VPS para a poda com teto."
+  docker builder prune -f --filter until=48h || true
 fi
-docker builder du 2>/dev/null | tail -1 || true
+
+uso_cache="$(docker builder du 2>/dev/null | awk -F'\t' '/^Total:/ {print $NF}')"
+echo "   cache de build agora: ${uso_cache:-desconhecido} (teto pedido: $((TETO_CACHE_BUILD_BYTES / 1024 / 1024 / 1024)) GB)"
+echo "   espaço livre no disco:"; df -h / | tail -1 | sed 's/^/      /' 
 
 echo ""
 echo "🚀 Deploy TLS concluído com sucesso."

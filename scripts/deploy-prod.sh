@@ -3,7 +3,10 @@ set -euo pipefail
 
 # Roda sempre a partir da raiz do repositório (paths relativos precisam casar com
 # o `./nginx/maintenance` do compose).
-cd "$(dirname "$0")/.."
+# Resolvido ANTES do cd: depois dele, `dirname "$0"` de uma chamada por caminho
+# relativo aponta para o lugar errado e o `source` da lib morre.
+DIR_SCRIPT="$(cd "$(dirname "$0")" && pwd)"
+cd "$DIR_SCRIPT/.."
 
 if command -v docker-compose >/dev/null 2>&1; then
   COMPOSE_CMD="docker-compose"
@@ -19,11 +22,24 @@ if [[ ! -f ".env.prod" ]]; then
   exit 1
 fi
 
+# As variáveis são lidas e CONFERIDAS AQUI, não lá embaixo. `--env-file` alimenta o
+# compose, não este shell; sem isso o ${POSTGRES_USER} do pg_isready estoura em
+# "unbound variable" (set -u) — e estourava JÁ COM O MODO MANUTENÇÃO LIGADO, que é
+# exatamente o que esta frente existe para impedir. Conferir antes de derrubar nada.
+source <(grep -E '^(POSTGRES_USER|POSTGRES_DB)=' .env.prod) || true
+for var in POSTGRES_USER POSTGRES_DB; do
+  if [[ -z "${!var:-}" ]]; then
+    echo "Arquivo .env.prod não define $var — o deploy pararia no meio, com o site fora do ar."
+    echo "NADA foi alterado — o site continua no ar."
+    exit 1
+  fi
+done
+
 # Credencial do composer para o build. Validada ANTES de qualquer coisa: credencial
 # inválida costumava passar batida aqui, e o deploy só quebrava depois de já ter
 # derrubado o site. Detalhes do desenho em scripts/lib/composer-auth.sh.
 # shellcheck source=lib/composer-auth.sh
-source "$(dirname "$0")/lib/composer-auth.sh"
+source "$DIR_SCRIPT/lib/composer-auth.sh"
 if ! validar_composer_auth ".composer-auth.json"; then
   echo "Deploy abortado. O site NÃO saiu do ar."
   exit 1
@@ -52,12 +68,6 @@ touch nginx/maintenance/maintenance.on
 # recusada" e sem derrubar o app co-hospedado. --remove-orphans limpa containers
 # fora do compose sem precisar derrubar os serviços ativos.
 $COMPOSE_CMD -f docker-compose.prod.yml --env-file .env.prod up -d --remove-orphans
-
-# `--env-file` alimenta o compose, NÃO o shell deste script. Sem esta linha o
-# ${POSTGRES_USER} abaixo estoura em "unbound variable" (set -u) — e estouraria já
-# com o modo manutenção ligado. O deploy-prod-tls.sh sempre teve esta linha; este
-# não tinha. Encontrado por scripts/testar-deploy-guardas.sh.
-source <(grep -E '^(POSTGRES_USER|POSTGRES_DB)=' .env.prod)
 
 echo "Aguardando banco de dados ficar pronto..."
 for i in {1..30}; do

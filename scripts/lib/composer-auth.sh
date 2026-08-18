@@ -39,36 +39,71 @@ _token_tem_forma_de_github() {
 
 # Lê .["github-oauth"]["github.com"] com um parser de verdade. `grep` não serve:
 # ele acha a palavra dentro de um arquivo que pode nem ser JSON válido.
+# Lê .["github-oauth"]["github.com"] com um parser de verdade. `grep` não serve:
+# ele acha a palavra dentro de um arquivo que pode nem ser JSON válido.
+#
+# Devolve uma de: o token / "" (sem token) / "OUTRO_METODO" / "ERRO_*".
+# "OUTRO_METODO" existe porque o composer também autentica por `http-basic` e
+# `github-token`: sem distinguir, o script diria "vai baixar ANÔNIMO" para quem tem
+# credencial válida em outro formato — aviso falso.
 _ler_token() {
-    local arquivo="$1"
-    python3 -c '
+    local arquivo="$1" saida
+    if command -v python3 >/dev/null 2>&1; then
+        saida="$(python3 -c '
 import json, sys
 try:
     with open(sys.argv[1], encoding="utf-8") as f:
         dados = json.load(f)
+except UnicodeDecodeError:
+    print("ERRO_JSON:o arquivo nao e texto UTF-8 valido", end=""); sys.exit(0)
 except json.JSONDecodeError as e:
-    print("ERRO_JSON:%s" % e, end="")
-    sys.exit(0)
+    print("ERRO_JSON:%s" % e, end=""); sys.exit(0)
 except OSError as e:
-    print("ERRO_LEITURA:%s" % e, end="")
-    sys.exit(0)
+    print("ERRO_LEITURA:%s" % e, end=""); sys.exit(0)
+except Exception as e:                      # noqa: BLE001 - nunca derrubar o deploy pelo parser
+    print("ERRO_LEITURA:%s" % e, end=""); sys.exit(0)
+
 if not isinstance(dados, dict):
-    print("ERRO_JSON:o conteudo nao e um objeto JSON", end="")
-    sys.exit(0)
-print((dados.get("github-oauth") or {}).get("github.com", "") if isinstance(dados.get("github-oauth"), dict) else "", end="")
-' "$arquivo" 2>/dev/null || echo "ERRO_LEITURA:python3 indisponivel"
+    print("ERRO_JSON:o conteudo nao e um objeto JSON", end=""); sys.exit(0)
+
+oauth = dados.get("github-oauth")
+token = oauth.get("github.com") if isinstance(oauth, dict) else None
+# null, numero, lista: nao e token. Trata como AUSENTE, nao como invalido.
+if isinstance(token, str) and token.strip():
+    print(token.strip(), end=""); sys.exit(0)
+
+for metodo in ("http-basic", "github-token", "bearer"):
+    valor = dados.get(metodo)
+    if isinstance(valor, dict) and any("github" in str(k) for k in valor):
+        print("OUTRO_METODO", end=""); sys.exit(0)
+
+print("", end="")
+' "$arquivo" 2>/dev/null)" && { printf '%s' "$saida"; return 0; }
+        printf 'ERRO_LEITURA:o parser JSON falhou'
+        return 0
+    fi
+
+    # Sem python3 na máquina. A validação NÃO pode virar o novo motivo de deploy
+    # travado — ela existe para o contrário. Degrada para uma extração conservadora
+    # e deixa o chamador seguir com aviso.
+    printf 'SEM_PARSER'
 }
 
 # Pergunta ao GitHub se o token vale. Só um 401/403 AUTORITATIVO reprova.
 # Se o GitHub estiver fora do ar, isto NÃO reprova: é exatamente a hora em que
 # mais queremos deployar a partir do cache local.
+# Pergunta ao GitHub se o token vale. Só um 401/403 AUTORITATIVO reprova.
+# Se o GitHub estiver fora do ar, isto NÃO reprova: é exatamente a hora em que
+# mais queremos deployar a partir do cache local.
+#
+# O token entra pelo STDIN do curl (`-K -`), não pelo argv: em `ps aux` a linha de
+# comando é pública para qualquer usuário da máquina, e esta é a única vez que o
+# token real sai do arquivo.
 _github_aceita_token() {
     local token="$1" http
-    http=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 15 \
-        -H "Authorization: Bearer $token" \
-        -H "Accept: application/vnd.github+json" \
-        https://api.github.com/rate_limit 2>/dev/null) || http="000"
-    echo "$http"
+    http=$(printf 'header = "Authorization: Bearer %s"\nheader = "Accept: application/vnd.github+json"\nurl = "https://api.github.com/rate_limit"\nsilent\nshow-error\noutput = "/dev/null"\nmax-time = 15\nwrite-out = "%%{http_code}"\n' "$token" \
+        | curl -K - 2>/dev/null) || http="000"
+    echo "${http:-000}"
 }
 
 validar_composer_auth() {
@@ -77,7 +112,12 @@ validar_composer_auth() {
     # Ausente: o compose exige que o arquivo do secret exista. Criamos `{}` e seguimos
     # anônimo — funciona, só fica sujeito ao limite por IP do GitHub.
     if [[ ! -f "$arquivo" ]]; then
-        echo '{}' > "$arquivo"
+        if ! echo '{}' > "$arquivo" 2>/dev/null; then
+            echo "ERRO: $arquivo não existe e não consegui criá-lo (diretório sem permissão de"
+            echo "      escrita?). O compose exige que o arquivo do secret exista."
+            echo "      NADA foi alterado — o site continua no ar."
+            return 1
+        fi
         echo "AVISO: $arquivo não existia — criado vazio, o build vai baixar ANÔNIMO."
         echo "       Funciona, mas o GitHub limita por IP (HTTP 429). Modelo: ${arquivo}.example"
         return 0
@@ -92,6 +132,16 @@ validar_composer_auth() {
     token="$(_ler_token "$arquivo")"
 
     case "$token" in
+        OUTRO_METODO)
+            echo "OK: $arquivo autentica no GitHub por outro método (http-basic/github-token)."
+            return 0
+            ;;
+        SEM_PARSER)
+            echo "AVISO: python3 não está disponível — não deu para validar $arquivo."
+            echo "       Seguindo sem validar. Se o token estiver errado, o build falha (mas o"
+            echo "       site só sai do ar depois que o build passar)."
+            return 0
+            ;;
         ERRO_JSON:*)
             echo "ERRO: $arquivo não é JSON válido (${token#ERRO_JSON:})."
             echo "      O composer não vai conseguir lê-lo. Corrija o arquivo e repita."

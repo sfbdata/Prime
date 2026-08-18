@@ -78,9 +78,11 @@ COPY app/composer.json app/composer.lock ./
 # composer instala do disco e o build deixa de depender do GitHub estar de pé.
 #
 # Não engorda a imagem: o cache é do BuildKit, não vira camada. `sharing=locked` serializa
-# os dois serviços (php e worker) que buildam a mesma imagem no mesmo `up --build`.
-# O tamanho é limitado pelo próprio composer (`cache-files-maxsize`, 300 MiB por padrão,
-# medido nesta versão): ele faz a coleta de lixo sozinho ao passar do teto.
+# os dois serviços (php e worker), que buildam o mesmo target no mesmo `compose build` —
+# o composer não tranca o próprio cache dir, então `shared` deixaria os dois gravando juntos.
+# O tamanho é limitado pelo próprio composer (`cache-files-maxsize` = 314572800, medido no
+# Composer 2.9.5): ele faz a coleta de lixo sozinho ao passar do teto. Isso cobre `cache/files`,
+# que é o volume (63 MB medidos para os 122 pacotes); `cache/repo` fica de fora e é pequeno.
 RUN --mount=type=secret,id=composer_auth \
     --mount=type=cache,id=jusprime-composer,target=/tmp/composer-cache,sharing=locked \
     COMPOSER_AUTH="$(cat /run/secrets/composer_auth 2>/dev/null || echo '{}')" \
