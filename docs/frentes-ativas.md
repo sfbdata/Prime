@@ -200,8 +200,9 @@ mostrava**. Nenhum número mudou de valor com o deploy, que era a promessa.
 **2,963 GB** (teto 4 GB), disco em 71%. Com o script antigo isso seria `0B` e o próximo deploy voltaria
 a baixar as 122 dependências.
 
-⏳ **Falta o smoke no navegador** — o dono aprovou o deploy sem ele. A suíte lê HTML e não vê posição,
-tamanho nem cor da estrela; roteiro de 7 pontos no fim da spec.
+✅ **Smoke do dono feito e APROVADO** (antes do deploy). Com isso a frente fecha ponta a ponta:
+implementada, revisada (12 achados), critério trocado pelo dono, integrada, deployada, provada no
+dado real e conferida na tela. **Nada pendente.**
 
 ### 🔄 O critério automático foi TROCADO depois da entrega (mesmo dia, 18/08)
 
