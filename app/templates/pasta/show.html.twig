@@ -427,6 +427,12 @@
                                             </button>
                                         </div>
                                         <div id="clientesList">
+                                            {# Quem manda na "Média por CPF" da aba Financeiro. `clientePrincipal` sempre
+                                               responde (cai no cliente de cadastro mais antigo quando ninguém marcou);
+                                               `clientePrincipalMarcado` diz se a escolha foi de alguém ou é o padrão —
+                                               é o que distingue a estrela "escolhida" da "automática". #}
+                                            {% set clientePrincipal = pasta.clientePrincipal %}
+                                            {% set clienteMarcado   = pasta.clientePrincipalMarcado %}
                                             {% if pasta.clientes|length > 0 %}
                                                 {% for cliente in pasta.clientes %}
                                                     {# Busca dados de documentos deste cliente #}
@@ -445,7 +451,11 @@
                                                         {% endfor %}
                                                     {% endif %}
 
-                                                    <div class="cliente-row border-bottom" data-cliente-id="{{ cliente.id }}">
+                                                    <div class="cliente-row border-bottom" data-cliente-id="{{ cliente.id }}"
+                                                         {# O token vai na LINHA, não só no form: quando a estrela cheia
+                                                            (que não tem form) precisa voltar a ser botão, o JS não teria de
+                                                            onde tirá-lo. Mesma exposição dos hidden inputs já na página. #}
+                                                         data-token-principal="{{ csrf_token('pasta_cliente_principal_' ~ pasta.id ~ '_' ~ cliente.id) }}">
                                                         {# ── Linha compacta: toggle do accordion ── #}
                                                         <div class="d-flex align-items-center gap-2 py-2 px-1">
                                                             {# Toggle accordion #}
@@ -470,8 +480,23 @@
                                                                 </div>
                                                             </button>
 
-                                                            {# Ações rápidas: ir ao cliente + desvincular #}
+                                                            {# Ações rápidas: principal + ir ao cliente + desvincular #}
                                                             <div class="d-flex gap-1 flex-shrink-0">
+                                                                {% if clientePrincipal and cliente.id == clientePrincipal.id %}
+                                                                    {# Estado, não ação: estrela cheia, como no bloco de processos. #}
+                                                                    <span class="btn btn-xs btn-primary disabled js-cliente-principal-estrela"
+                                                                          data-cliente-id="{{ cliente.id }}"
+                                                                          title="{{ clienteMarcado ? 'Cliente principal desta pasta (escolhido)' : 'Cliente principal automático (o de cadastro mais antigo) — clique na estrela de outro para escolher' }}">
+                                                                        <i class="bi bi-star-fill"></i>
+                                                                    </span>
+                                                                {% else %}
+                                                                    <form method="post" action="{{ path('pasta_cliente_principal', {id: pasta.id, cliente: cliente.id}) }}" class="js-ajax-cliente-principal m-0">
+                                                                        <input type="hidden" name="_token" value="{{ csrf_token('pasta_cliente_principal_' ~ pasta.id ~ '_' ~ cliente.id) }}">
+                                                                        <button type="submit" class="btn btn-xs btn-outline-secondary" title="Tornar cliente principal (a Média por CPF passa a ser dele)">
+                                                                            <i class="bi bi-star"></i>
+                                                                        </button>
+                                                                    </form>
+                                                                {% endif %}
                                                                 <a href="{{ path('cliente_show', {id: cliente.id}) }}"
                                                                    class="btn btn-xs btn-outline-secondary"
                                                                    title="Abrir ficha do cliente">
@@ -2085,6 +2110,57 @@
         }
     });
 
+    /**
+     * Move a estrela para o cliente escolhido e atualiza a Média por CPF na aba Financeiro.
+     *
+     * A média é atualizada aqui de propósito: a marcação existe PARA mudar esse número, e deixá-lo
+     * defasado na tela esconderia o efeito da própria ação que o usuário acabou de fazer.
+     */
+    function trocaClientePrincipal(dados) {
+        const novoId = String(dados.clienteId ?? '');
+
+        document.querySelectorAll('#clientesList .cliente-row').forEach((linha) => {
+            const acoes = linha.querySelector('.d-flex.gap-1.flex-shrink-0');
+            if (!acoes) {
+                return;
+            }
+            const ehNovo = String(linha.dataset.clienteId ?? '') === novoId;
+            const estrela = acoes.querySelector('.js-cliente-principal-estrela');
+            const formulario = acoes.querySelector('form.js-ajax-cliente-principal');
+
+            if (ehNovo && formulario) {
+                const marca = document.createElement('span');
+                marca.className = 'btn btn-xs btn-primary disabled js-cliente-principal-estrela';
+                marca.dataset.clienteId = novoId;
+                marca.title = 'Cliente principal desta pasta (escolhido)';
+                marca.innerHTML = '<i class="bi bi-star-fill"></i>';
+                formulario.replaceWith(marca);
+            } else if (!ehNovo && estrela) {
+                // Quem era principal volta a ser opção: a estrela cheia vira botão de estrela vazia.
+                const acao = document.createElement('form');
+                acao.method = 'post';
+                acao.action = '{{ path('pasta_cliente_principal', {id: pasta.id, cliente: '__CLIENTE__'}) }}'.replace('__CLIENTE__', String(linha.dataset.clienteId ?? ''));
+                acao.className = 'js-ajax-cliente-principal m-0';
+                acao.innerHTML = '<input type="hidden" name="_token" value="' + (linha.dataset.tokenPrincipal ?? '') + '">'
+                    + '<button type="submit" class="btn btn-xs btn-outline-secondary" title="Tornar cliente principal (a Média por CPF passa a ser dele)"><i class="bi bi-star"></i></button>';
+                estrela.replaceWith(acao);
+            }
+        });
+
+        const media = document.getElementById('financeiro-media-cpf');
+        if (media && dados.mediaFormatada) {
+            media.textContent = dados.mediaFormatada;
+        }
+        const rotulo = document.querySelector('#financeiro-media-cpf')?.closest('.col-md-2')?.querySelector('.financeiro-indicador-rotulo');
+        if (rotulo && dados.mediaRotulo) {
+            rotulo.textContent = dados.mediaRotulo;
+        }
+        const nota = document.querySelector('#financeiro-media-cpf')?.closest('.col-md-2')?.querySelector('.financeiro-indicador-nota');
+        if (nota && dados.clienteNome) {
+            nota.textContent = dados.clienteNome;
+        }
+    }
+
     document.addEventListener('submit', async (event) => {
         const form = event.target;
         if (!(form instanceof HTMLFormElement)) {
@@ -2125,6 +2201,35 @@
             }
         }
 
+
+        if (form.matches('form.js-ajax-cliente-principal')) {
+            event.preventDefault();
+            const button = form.querySelector('button[type="submit"]');
+            if (button) {
+                button.disabled = true;
+            }
+
+            try {
+                const resp = await fetch(form.action, {
+                    method: 'POST',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    body: new FormData(form),
+                });
+
+                const dados = await resp.json().catch(() => ({}));
+                if (!resp.ok || !dados.sucesso) {
+                    alert(dados.erro ?? 'Erro ao definir o cliente principal.');
+                    return;
+                }
+
+                trocaClientePrincipal(dados);
+                return;
+            } finally {
+                if (button) {
+                    button.disabled = false;
+                }
+            }
+        }
 
         if (form.matches('form.js-ajax-desvincular-processo')) {
             event.preventDefault();

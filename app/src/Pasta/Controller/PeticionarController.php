@@ -57,8 +57,11 @@ final class PeticionarController extends AbstractController
             static fn (PastaDocumento $a, PastaDocumento $b) => $a->getCarregadoEm() <=> $b->getCarregadoEm(),
         );
 
-        $primeiroCliente = $pasta->getClientes()->first();
-        $nomeCliente     = ($primeiroCliente instanceof Cliente) ? $primeiroCliente->getNomeExibicao() : null;
+        // Mesma fonte de verdade da aba Financeiro. Antes aqui era `getClientes()->first()`, a
+        // ordem arbitrária do banco: duas telas respondiam diferente à pergunta "qual é o cliente
+        // desta pasta". Agora as duas seguem a marcação do dono.
+        $clientePrincipal = $pasta->getClientePrincipal();
+        $nomeCliente      = ($clientePrincipal instanceof Cliente) ? $clientePrincipal->getNomeExibicao() : null;
 
         $secoes = $tenant !== null ? $this->pastaSecaoRepository->findByPasta($pasta, $tenant) : [];
 

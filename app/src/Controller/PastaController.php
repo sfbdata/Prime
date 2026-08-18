@@ -47,6 +47,7 @@ use App\Pasta\UseCase\AdicionarChecklistItemUseCase;
 use App\Pasta\UseCase\CriarPastaUseCase;
 use App\Sync\Service\ReconciliadorDePasta;
 use App\Sync\Service\SincronizacaoPastaDispatcher;
+use App\Pasta\UseCase\DefinirClientePrincipalUseCase;
 use App\Pasta\UseCase\DefinirProcessoPrincipalUseCase;
 use App\Pasta\UseCase\DesvincularProcessoUseCase;
 use App\Pasta\UseCase\EditarPastaUseCase;
@@ -151,6 +152,7 @@ class PastaController extends AbstractController
         private readonly VincularProcessoUseCase $vincularProcessoUseCase,
         private readonly DesvincularProcessoUseCase $desvincularProcessoUseCase,
         private readonly DefinirProcessoPrincipalUseCase $definirProcessoPrincipalUseCase,
+        private readonly DefinirClientePrincipalUseCase $definirClientePrincipalUseCase,
         private readonly SincronizacaoPastaDispatcher $syncDispatcher,
     ) {}
 
@@ -295,10 +297,11 @@ class PastaController extends AbstractController
 
         $secoes = $tenant !== null ? $this->secaoRepository->findByPasta($pasta, $tenant) : [];
 
-        // Faixa do topo da aba Financeiro. A média por CPF é do vínculo mais antigo
-        // da pasta; sem cliente vinculado não há CPF para agrupar, e a tela mostra
-        // travessão em vez de inventar um número.
-        $primeiroCliente = $pasta->getPrimeiroCliente();
+        // Faixa do topo da aba Financeiro. A média por CPF é do cliente PRINCIPAL da pasta —
+        // o marcado explicitamente, ou o de cadastro mais antigo enquanto ninguém marcou nada.
+        // Sem cliente vinculado não há CPF para agrupar, e a tela mostra travessão em vez de
+        // inventar um número.
+        $primeiroCliente = $pasta->getClientePrincipal();
         $mediaCpf        = $primeiroCliente !== null && $tenant !== null
             ? $this->pastaRepository->mediaValorCausaPorCliente($primeiroCliente, $tenant)
             : null;
@@ -573,6 +576,66 @@ class PastaController extends AbstractController
 
         $this->addFlash('success', 'Cliente desvinculado da pasta com sucesso.');
         return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId(), '_fragment' => 'partes']);
+    }
+
+    /**
+     * Marca qual cliente representa a pasta nos indicadores (a "Média por CPF" da aba Financeiro).
+     *
+     * A resposta XHR devolve a média já recalculada: a marcação existe PARA mudar esse número, e
+     * deixá-lo defasado na tela seria esconder o efeito da própria ação. Sem JS, o form normal cai
+     * no redirect com o fragmento da aba.
+     */
+    #[Route('/{id}/cliente/{cliente}/principal', name: 'pasta_cliente_principal', methods: ['POST'])]
+    public function definirClientePrincipal(Pasta $pasta, Cliente $cliente, Request $request): Response
+    {
+        $pastaId = (int) $pasta->getId();
+        $isXhr   = $request->isXmlHttpRequest();
+        $tenant  = $this->tenantContext->getCurrentTenant();
+
+        // Sem permissão: para XHR devolve JSON 403 (como vincularCliente e buscarClientes fazem
+        // neste mesmo controller). O redirect do fluxo "pedir acesso" só serve ao POST de form —
+        // devolvê-lo a uma chamada AJAX faria o JS tentar interpretar HTML como JSON.
+        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, $tenant, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_EDIT, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
+            return $isXhr ? $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN) : $redirect;
+        }
+
+        if (!$this->isCsrfTokenValid('pasta_cliente_principal_' . $pastaId . '_' . $cliente->getId(), (string) $request->request->get('_token'))) {
+            return $this->respostaErroClientePrincipal($isXhr, 'Token de segurança inválido.', $pastaId, Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $this->definirClientePrincipalUseCase->executar($pasta, $cliente);
+        } catch (\DomainException $e) {
+            return $this->respostaErroClientePrincipal($isXhr, $e->getMessage(), $pastaId, Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        if ($isXhr) {
+            $principal = $pasta->getClientePrincipal();
+            $mediaCpf  = $principal !== null && $tenant !== null
+                ? $this->pastaRepository->mediaValorCausaPorCliente($principal, $tenant)
+                : null;
+
+            return $this->json([
+                'sucesso'        => true,
+                'clienteId'      => $cliente->getId(),
+                'mediaFormatada' => PastaFinanceiroOutput::formatarReais($mediaCpf),
+                'mediaRotulo'    => PastaFinanceiroOutput::montar($pasta, $principal, $mediaCpf)->mediaRotulo,
+                'clienteNome'    => $principal?->getNomeExibicao(),
+            ]);
+        }
+
+        $this->addFlash('success', 'Cliente principal atualizado.');
+        return $this->redirectToRoute('pasta_show', ['id' => $pastaId, '_fragment' => 'dados']);
+    }
+
+    private function respostaErroClientePrincipal(bool $isXhr, string $mensagem, int $pastaId, int $status): Response
+    {
+        if ($isXhr) {
+            return $this->json(['erro' => $mensagem], $status);
+        }
+
+        $this->addFlash('error', $mensagem);
+        return $this->redirectToRoute('pasta_show', ['id' => $pastaId, '_fragment' => 'dados']);
     }
 
     #[Route('/{id}/clientes/buscar', name: 'pasta_clientes_buscar', methods: ['GET'])]
@@ -1539,7 +1602,7 @@ class PastaController extends AbstractController
 
         // A média por CPF é do cliente, não da pasta: mudar o valor aqui muda o
         // número exibido, então ele volta recalculado para a tela não ficar defasada.
-        $primeiroCliente = $pasta->getPrimeiroCliente();
+        $primeiroCliente = $pasta->getClientePrincipal();
         $mediaCpf        = $primeiroCliente !== null && $tenant !== null
             ? $this->pastaRepository->mediaValorCausaPorCliente($primeiroCliente, $tenant)
             : null;

@@ -22,6 +22,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ORM\Table(name: 'pasta')]
 #[ORM\Index(name: 'idx_pasta_tenant', columns: ['tenant_id'])]
 #[ORM\Index(name: 'idx_pasta_tenant_nup', columns: ['tenant_id', 'nup'])]
+#[ORM\Index(name: 'idx_pasta_cliente_principal', columns: ['cliente_principal_id'])]
 #[ORM\UniqueConstraint(name: 'uniq_pasta_drive_folder_id', columns: ['drive_folder_id'])]
 #[ORM\HasLifecycleCallbacks]
 class Pasta implements Auditavel, TenantAware
@@ -90,6 +91,24 @@ class Pasta implements Auditavel, TenantAware
     #[ORM\ManyToMany(targetEntity: Cliente::class)]
     #[ORM\JoinTable(name: 'pasta_cliente')]
     private Collection $clientes;
+
+    /**
+     * O cliente que representa a pasta nos indicadores — hoje, a "Média por CPF" da aba
+     * Financeiro.
+     *
+     * É uma coluna na própria pasta, e não uma flag na tabela de vínculo (como em
+     * PastaProcesso), por um motivo que vale registrar: aqui a unicidade sai de graça e é
+     * garantida pelo BANCO. Uma coluna só aponta para um cliente. O precedente dos processos
+     * mantém o invariante em memória e não tem trava nenhuma no banco — este caminho é mais
+     * forte, não mais fraco.
+     *
+     * Anulável de propósito: pasta sem marcação explícita é o caso normal (todas, hoje), e o
+     * `getClientePrincipal()` resolve isso com o mesmo critério de antes. Por isso a migration
+     * não precisa de backfill e nenhum número muda de valor no dia em que ela sobe.
+     */
+    #[ORM\ManyToOne(targetEntity: Cliente::class)]
+    #[ORM\JoinColumn(name: 'cliente_principal_id', nullable: true, onDelete: 'SET NULL')]
+    private ?Cliente $clientePrincipal = null;
 
 #[ORM\OneToMany(mappedBy: 'pasta', targetEntity: PastaDocumento::class, cascade: ['persist', 'remove'], orphanRemoval: true)]
     #[ORM\OrderBy(['ordem' => 'ASC'])]
@@ -416,19 +435,72 @@ $this->documentos = new ArrayCollection();
     }
 
     /**
-     * O "primeiro cliente" da pasta: o de cadastro mais antigo.
+     * Quem manda nos indicadores da pasta: o cliente marcado como principal, e só se ele ainda
+     * estiver vinculado.
      *
-     * Uma ação pode ter vários autores, e a média por CPF é de um cliente só —
-     * este é o critério que decide de quem ela é.
-     *
-     * Atenção ao que o critério NÃO é: `pasta_cliente` é uma ManyToMany pura,
-     * sem coluna de data, então não há como saber qual vínculo foi feito
-     * primeiro. O que se ordena aqui é o id do **cliente**, ou seja a ordem em
-     * que ele entrou no cadastro do escritório. Consequência prática: vincular
-     * depois um cliente cadastrado há mais tempo **troca** o número mostrado na
-     * tela. É determinístico, não é estável.
+     * O fallback é o que mantém a tela igual enquanto ninguém marcou nada — e é o mesmo critério
+     * que valia antes desta feature (o cliente de cadastro mais antigo). A checagem de "ainda
+     * vinculado" não é zelo excessivo: desvincular um cliente limpa a marcação, mas uma pasta
+     * gravada por outro caminho pode apontar para quem já saiu, e aí a tela mostraria a média de
+     * alguém que não está na pasta.
      */
-    public function getPrimeiroCliente(): ?Cliente
+    public function getClientePrincipal(): ?Cliente
+    {
+        if ($this->clientePrincipal !== null && $this->clientes->contains($this->clientePrincipal)) {
+            return $this->clientePrincipal;
+        }
+
+        return $this->clienteMaisAntigo();
+    }
+
+    /**
+     * Marca o cliente principal. Ele precisa já estar vinculado à pasta — marcar alguém de fora
+     * seria mostrar, num indicador, a média de quem não é parte deste caso.
+     *
+     * Regra na ENTIDADE e não no UseCase, como em definirProcessoPrincipal(): assim ela vale por
+     * qualquer porta que grave a pasta, não só pela que passa pelo UseCase.
+     */
+    public function definirClientePrincipal(Cliente $cliente): void
+    {
+        if (!$this->clientes->contains($cliente)) {
+            throw new \DomainException('O cliente não está vinculado a esta pasta.');
+        }
+
+        $this->clientePrincipal = $cliente;
+    }
+
+    /**
+     * Volta ao critério automático (cliente de cadastro mais antigo).
+     */
+    public function limparClientePrincipal(): void
+    {
+        $this->clientePrincipal = null;
+    }
+
+    /**
+     * A marcação crua, sem fallback — para a tela saber se a estrela é escolha de alguém ou
+     * apenas o padrão. `getClientePrincipal()` nunca devolve nulo quando há cliente vinculado,
+     * então sem este método não há como distinguir os dois casos.
+     */
+    public function getClientePrincipalMarcado(): ?Cliente
+    {
+        return $this->clientePrincipal !== null && $this->clientes->contains($this->clientePrincipal)
+            ? $this->clientePrincipal
+            : null;
+    }
+
+    /**
+     * O critério automático: o cliente de cadastro mais antigo do escritório.
+     *
+     * Privado de propósito. Era público (`getPrimeiroCliente`) e virou a única resposta para
+     * "de quem é a média" — o que deixava um ato sem relação com dinheiro (vincular um cliente
+     * mais antigo) TROCAR o número na tela. Agora é só o que vale quando ninguém marcou nada.
+     *
+     * `pasta_cliente` não tem coluna de data, então não dá para saber qual vínculo veio primeiro;
+     * o que se ordena aqui é o id do cliente. Determinístico, mas não estável — e é exatamente
+     * por não ser estável que existe a marcação explícita.
+     */
+    private function clienteMaisAntigo(): ?Cliente
     {
         $clientes = $this->clientes->toArray();
 
@@ -444,6 +516,14 @@ $this->documentos = new ArrayCollection();
     public function removeCliente(Cliente $cliente): self
     {
         $this->clientes->removeElement($cliente);
+
+        // Desvincular o principal apaga a marcação: deixá-la apontando para quem saiu faria a
+        // tela mostrar a média de alguém que não está mais na pasta. Sem marcação, o critério
+        // automático assume — mesmo efeito de "promover o próximo" do desvincularProcesso().
+        if ($this->clientePrincipal !== null && $this->clientePrincipal === $cliente) {
+            $this->clientePrincipal = null;
+        }
+
         return $this;
     }
 

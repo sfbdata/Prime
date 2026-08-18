@@ -9,6 +9,7 @@ Quem abre uma frente acrescenta a linha. Quem integra tira.
 |---|---|---|---|---|---|
 | `cobranca-acompanhamento-canonico` | Cobrança (modelo objeto/caso) | **sim — 4** | `docs/gestao-cobrancas/` | 🛑 **PARADA** (ver abaixo) | `origin/master` @ `0bb1f29` |
 | `expediente-ux` | Expediente + Pasta (telas) | não | `app/templates/expediente/`, `app/templates/pasta/` | implementando, **28 commits atrás do master** | `origin/codex/colaboracao-cobrancas` |
+| `pasta-cliente-principal` | Pasta (aba Financeiro + Dados) | **sim — 1** (`Version20260818150000`, coluna aditiva) | `app/templates/pasta/show.html.twig`, `docs/specs/` | **em revisão** | `origin/master` @ `cd2756f4` |
 
 `pasta-valor-causa` foi **integrada em 2026-08-17** (fast-forward para `3629b19a`). Trouxe a migration
 `Version20260814120000` — uma coluna `valor_causa` em `pasta`, aditiva e anulável, que não toca nenhuma
@@ -42,9 +43,10 @@ quem a retomar traz o master para dentro antes de escrever qualquer linha.
 rodada de dentro de uma worktree sem sobrescrever `DATABASE_URL` falha, ou pior, mede o banco errado.
 Para os testes isso não vale: `scripts/frente-testar.sh` usa o banco clonado da frente.
 
-⚠️ A regra da casa manda **uma frente com migration por vez**. Hoje **nenhuma frente ativa tem
-migration pendente** — a `cobranca-acompanhamento-canonico` tem 4, mas está PARADA. Quem revivê-la
-precisa ler o bloco dela antes de gerar versão.
+⚠️ A regra da casa manda **uma frente com migration por vez**. Hoje a vaga é da
+**`pasta-cliente-principal`** (`Version20260818150000`, coluna aditiva e anulável em `pasta`). A
+`cobranca-acompanhamento-canonico` tem 4, mas está PARADA — quem revivê-la precisa ler o bloco dela
+e alinhar antes de gerar versão.
 
 `cobranca-data-acordo-espelho` foi **integrada em 2026-08-18** (fast-forward para `3605188f`).
 Trouxe a migration `Version20260817180000` — `cobranca_acordo.data_acordo` passa a aceitar **nulo**,
@@ -135,24 +137,35 @@ real    0m2.096s
 medição de bancada (209,9 s → 1,26 s), agora na máquina de verdade. O ciclo está provado ponta a
 ponta: o cache sobrevive à poda, e o deploy seguinte o aproveita.
 
-### ✅ `pasta-cliente-principal` — DESTRAVADA, projetada e ainda não aberta
+### `pasta-cliente-principal` — aberta em 2026-08-18
 
-Marcar explicitamente qual cliente é o principal da pasta, para a **"Média por CPF"** da aba
-Financeiro parar de trocar de número quando alguém vincula um cliente mais antigo no cadastro.
-
-Estava esperando a vaga de migration. **Com a `cobranca-data-acordo-espelho` integrada em 18/08, a
-vaga abriu** — esta fatia pode ser aberta a qualquer momento. Nenhuma linha foi escrita ainda.
+A "Média por CPF" da aba Financeiro passa a seguir uma marcação explícita do dono, em vez de
+escolher sozinha o cliente de cadastro mais antigo — critério que fazia **vincular um cliente mais
+antigo trocar o número na tela**, sem ninguém ter pedido.
 
 | | |
 |---|---|
-| **Spec** | [specs/pasta-cliente-principal.md](specs/pasta-cliente-principal.md) — desenho, migration com backfill, testes e a colisão prevista |
-| **Padrão a seguir** | `PastaProcesso` — o domínio `Pasta` já tem "marcar como principal" |
-| **Migration** | **sim — 1** (promove `pasta_cliente`, hoje ManyToMany pura, a entidade de vínculo) |
+| **Migration** | `Version20260818150000` — `pasta.cliente_principal_id`, **aditiva e anulável**, FK `ON DELETE SET NULL`. **Sem backfill** (ver abaixo) |
+| **Spec** | [specs/pasta-cliente-principal.md](specs/pasta-cliente-principal.md) |
+| **Suíte** | **3874/3874** no banco da frente (+21 testes) |
+| **Banco** | `saas_testpasta-cliente-principal` — clonado hoje, já tem `valor_causa` e `data_acordo` anulável |
 
-🔴 **Três achados que fariam a fatia nascer morta** (verificados no código, estão na spec):
-`PastaController::syncClientes()` remove todos os clientes e re-adiciona a cada edição de pasta —
-zeraria a marcação; `PastaType` liga `clientes` como campo **mapeado**, e coleção derivada não é
-gravável pelo form; e ManyToMany + OneToMany na mesma tabela duplica chave no flush.
+🔑 **Nenhum número muda no dia do deploy.** A coluna nasce nula em 100% das pastas e
+`getClientePrincipal()` cai no critério antigo enquanto ninguém marcar nada. Por isso a migration
+dispensa backfill: a tela só muda quando alguém escolher de propósito.
+
+🔑 **O padrão do `PastaProcesso` foi avaliado e recusado, por decisão do dono.** Promover
+`pasta_cliente` a entidade de vínculo trocaria a **PK de uma tabela populada** e arrastaria 4
+templates, 4 joins DQL, o formulário e 4 arquivos de teste. A coluna entrega o mesmo e ainda dá a
+unicidade **no banco** — o precedente a mantém só em memória, sem constraint nenhuma. A comparação
+está na spec.
+
+⚠️ **`PastaController::syncClientes()` é código morto** (nunca chamado). Uma revisão o apontou como
+"apaga a marcação a cada edição de pasta" — apagaria **se fosse chamado**. Quem o ligar um dia tem
+de torná-lo diferencial antes.
+
+⚠️ **`scripts/frente-abrir.sh` abortou de novo** no `cache:clear` (OOM 128M), pela terceira frente
+seguida. Os dois passos que faltam (dirs de upload e clone do banco) foram refeitos à mão.
 
 ### 🛑 `cobranca-acompanhamento-canonico` — parada, NÃO apagar
 

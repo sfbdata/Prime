@@ -1,225 +1,120 @@
 # Cliente principal da pasta
 
-> **Estado: PROJETADA, NÃO IMPLEMENTADA — bloqueada pela regra de uma migration por vez.**
-> Ver "Por que está parada", no fim.
+> **Estado: IMPLEMENTADA em 2026-08-18** na frente `pasta-cliente-principal`. Suíte 3874/3874.
 
 ## O problema, com o número que ele move
 
 A aba Financeiro da pasta mostra **"Média por CPF"**: a média do valor da causa de todas as
-pastas de um mesmo cliente. Uma pasta pode ter **vários** clientes vinculados, e a média é de
-**um** só. Quem escolhe esse um, hoje, é `Pasta::getPrimeiroCliente()`
-([Pasta.php:431-442](../../app/src/Pasta/Entity/Pasta.php#L431-L442)):
+pastas de um mesmo cliente. Uma pasta pode ter **vários** clientes, e a média é de **um** só.
+Quem escolhia era `Pasta::getPrimeiroCliente()`, pelo **id do cliente** — a ordem em que ele entrou
+no cadastro do escritório. O docblock do próprio método já admitia: *"vincular depois um cliente
+cadastrado há mais tempo **troca** o número mostrado na tela. É determinístico, não é estável."*
 
-```php
-usort($clientes, static fn (Cliente $a, Cliente $b): int => $a->getId() <=> $b->getId());
-return $clientes[0];
-```
+Um ato sem relação nenhuma com dinheiro (vincular mais um cliente) mexia num indicador financeiro,
+sem avisar. É esse acoplamento que a fatia corta.
 
-O critério é o **id do cliente** — a ordem em que ele entrou no cadastro do escritório. O
-docblock do próprio método já admite a consequência: *"vincular depois um cliente cadastrado há
-mais tempo **troca** o número mostrado na tela. É determinístico, não é estável."*
+Havia ainda um **segundo critério divergente** para a mesma pergunta: `PeticionarController:60`
+usava `getClientes()->first()`, a ordem arbitrária do banco. Duas telas respondiam diferente.
 
-Ou seja: um ato que nada tem a ver com dinheiro (vincular mais um cliente à pasta) muda um
-número exibido como indicador financeiro, sem ninguém ter pedido. É esse acoplamento que a
-feature corta.
+## A decisão de modelagem — e por que ela mudou
 
-Há ainda um **segundo critério, divergente**, para a mesma pergunta "qual é o cliente desta
-pasta": [PeticionarController.php:60](../../app/src/Pasta/Controller/PeticionarController.php#L60)
-usa `getClientes()->first()`, que é a ordem arbitrária do banco. Dois lugares respondendo
-diferente à mesma pergunta.
+A primeira versão desta spec mandava **seguir o padrão do `PastaProcesso`**: promover
+`pasta_cliente` a entidade de vínculo com uma flag `principal`. Ao levantar a superfície real de
+uso, isso se mostrou caro demais para o que entrega:
 
-## O que se quer
-
-O dono marca explicitamente qual cliente é o principal da pasta, e a média segue essa marcação.
-
-## O padrão da casa — seguir, não inventar
-
-O domínio `Pasta` **já tem** "marcar algo como principal": processos. O desenho abaixo é o
-mesmo, peça por peça.
-
-| Peça | Processos (existe) | Clientes (a fazer) |
+| | Promover a junção a entidade | **Coluna em `pasta`** (escolhido) |
 |---|---|---|
-| Tabela de vínculo | `pasta_processo` — **entidade** `PastaProcesso` | `pasta_cliente` — hoje ManyToMany **pura** |
-| Flag | `bool $principal` na entidade de vínculo | idem |
-| Unicidade | em memória, `foreach { setPrincipal($v === $alvo) }` | idem |
-| Leitura | `getVinculoPrincipal()` com fallback `->first()` | `getVinculoClientePrincipal()` |
-| Ordenação | `#[ORM\OrderBy(['principal' => 'DESC', 'vinculadoEm' => 'ASC', 'id' => 'ASC'])]` | idem |
-| UseCase | `DefinirProcessoPrincipalUseCase` (casca de 2 linhas) | `DefinirClientePrincipalUseCase` |
-| Rota | `POST /{id}/processo/principal` | `POST /{id}/cliente/principal` |
-| CSRF | `pasta_definir_principal_processo_<pastaId>` | `pasta_definir_principal_cliente_<pastaId>` |
-| Tela | estrela cheia = estado, estrela vazia = ação | idem |
-| Resposta XHR | `{sucesso, html}` do parcial re-renderizado | idem |
+| Migration | troca a **PK** de tabela populada | `ADD cliente_principal_id`, aditiva e anulável |
+| Mapeamento ManyToMany | **sai** | intacto |
+| Templates Twig com `pasta.clientes` | 4 arquivos quebram (`[0]`, `|map`) | 0 |
+| Joins DQL `p.clientes` | 4 reescritos | 0 |
+| `PastaType` (campo mapeado) | quebra | intacto |
+| Arquivos de teste com `addCliente()` | 4 | 0 |
+| Unicidade "só um principal" | em memória, **sem trava no banco** | **garantida pelo banco** (é uma coluna) |
 
-**A assimetria que dá o trabalho:** `pasta_processo` já é entidade; `pasta_cliente` é tabela
-crua de ManyToMany (`pasta_id`, `cliente_id`, PK composta, nenhuma coluna extra —
-[Version20260324124920.php:28](../../app/migrations/Version20260324124920.php#L28)). Não há onde
-guardar a flag. Promover a junção a entidade é o núcleo desta fatia, e é o que exige migration.
+**O dono decidiu pela coluna em 18/08.** Vale registrar que ela não é o caminho "fraco": o
+precedente dos processos mantém o invariante só em memória e não tem constraint nenhuma; uma coluna
+não consegue apontar para dois clientes.
 
-## Desenho
+## O que foi construído
 
-### 1. Entidade de vínculo `PastaCliente`
+### Migration `Version20260818150000`
 
-Espelha `PastaProcesso`: `id`, `pasta` (ManyToOne, `onDelete: CASCADE`), `cliente` (idem),
-`bool $principal = false`, `vinculadoEm`, `vinculadoPor`. **Não é `TenantAware`** — o isolamento
-vem da `Pasta` dona do vínculo, como em `PastaProcesso`.
+`ALTER TABLE pasta ADD cliente_principal_id INT DEFAULT NULL` + FK para `cliente` com
+**`ON DELETE SET NULL`** + índice `idx_pasta_cliente_principal` (declarado também no mapeamento,
+senão o Doctrine propõe renomeá-lo em todo `schema:update`).
 
-### 2. `Pasta`
+**Sem backfill, de propósito.** `getClientePrincipal()` cai no critério antigo quando a coluna é
+nula — o estado de 100% das pastas no instante do deploy. Logo **nenhum número muda de valor no dia
+em que isto sobe**; a tela só muda quando alguém marcar. O `down()` é seguro: a coluna guarda uma
+*preferência de exibição*, não um fato, e apagá-la devolve tudo ao critério automático.
 
-- `$pastaClientes` OneToMany com `OrderBy(['principal' => 'DESC', 'vinculadoEm' => 'ASC', 'id' => 'ASC'])`;
-- `getVinculoClientePrincipal()` — varre procurando `principal`, **com fallback para `->first()`**
-  (o fallback é o que impede a tela de ficar sem número se a flag ficar inconsistente);
-- `getClientePrincipal(): ?Cliente` — **substitui `getPrimeiroCliente()`**;
-- `vincularCliente()` (o primeiro vínculo já nasce principal), `desvincularCliente()` (remover o
-  principal **promove o próximo**), `definirClientePrincipal()` (lança `\DomainException` se o
-  cliente não estiver vinculado).
-- `getClientes()` continua existindo, **derivada** dos vínculos (`map` sobre `$pastaClientes`),
-  como conveniência de leitura em PHP.
+### `Pasta` (a regra mora aqui, não no UseCase)
 
-⚠️ **A colisão de mapeamento tem de ser decidida aqui, não descoberta no flush.** Se a
-ManyToMany `$clientes` continuar **mapeada** ao lado da nova OneToMany, duas associações Doctrine
-escrevem na mesma tabela `pasta_cliente` e o flush duplica chave. Se ela **sumir** do mapeamento,
-quebram os 4 joins DQL em `p.clientes` do
-[PastaRepository](../../app/src/Pasta/Repository/PastaRepository.php) — linhas 180, 484, 585
-(a própria `mediaValorCausaPorCliente`) e 634.
+- `getClientePrincipal()` — o marcado **se ainda estiver vinculado**; senão, o de cadastro mais
+  antigo. É a única resposta para "de quem é a média".
+- `getClientePrincipalMarcado()` — a marcação crua, sem fallback. Sem ela a tela não distingue
+  "escolha de alguém" de "padrão automático", porque a primeira nunca devolve nulo havendo cliente.
+- `definirClientePrincipal()` — `\DomainException` se o cliente não estiver vinculado.
+- `limparClientePrincipal()` — volta ao automático.
+- `removeCliente()` — desvincular o principal **limpa a coluna**.
+- `getPrimeiroCliente()` **saiu da API pública** e virou `clienteMaisAntigo()`, privado: era ele a
+  única resposta, e é isso que fazia o número trocar sozinho.
 
-**Decisão: a ManyToMany sai do mapeamento e os 4 joins passam a atravessar o vínculo**
-(`p.pastaClientes pc INNER JOIN pc.cliente cli`). É mais trabalho, mas é o único caminho sem duas
-associações gravando na mesma tabela. Note que isso **contradiz** a afirmação anterior de que
-`mediaValorCausaPorCliente()` "não muda": a assinatura e o resultado não mudam, **o DQL muda**.
+🔑 **A guarda de "ainda vinculado" não é zelo.** `PastaType` mapeia `clientes` e o Symfony Form
+mexe na coleção **direto** (`by_reference` padrão), sem passar por `removeCliente()` — então a
+coluna *pode* ficar órfã. A guarda é o que impede a tela de mostrar a média de quem já saiu.
 
-### 3. Migration — **aditiva e com backfill que preserva o número em tela**
+### Rota e tela
 
-Sobre a tabela `pasta_cliente` existente:
+`POST /pasta/{id}/cliente/{cliente}/principal` (`pasta_cliente_principal`), CSRF
+`pasta_cliente_principal_<pastaId>_<clienteId>` — mesma forma dos vizinhos `pasta_cliente_*`.
+Sem permissão devolve **JSON 403 quando XHR** e o redirect do fluxo "pedir acesso" quando form
+normal (devolver HTML a uma chamada AJAX faria o JS tentar interpretá-lo como JSON).
 
-```sql
-ALTER TABLE pasta_cliente ADD id INT GENERATED BY DEFAULT AS IDENTITY;
-ALTER TABLE pasta_cliente ADD principal BOOLEAN DEFAULT false NOT NULL;
--- Sem DEFAULT permanente: o precedente (pasta_processo) não tem, e um default que o
--- mapeamento Doctrine desconhece vira drift — o próximo make:migration de outra frente
--- proporia "DROP DEFAULT" como lixo no diff. Preenche e só então exige NOT NULL.
-ALTER TABLE pasta_cliente ADD vinculado_em TIMESTAMP(0) WITHOUT TIME ZONE;
-UPDATE pasta_cliente SET vinculado_em = NOW() WHERE vinculado_em IS NULL;
-ALTER TABLE pasta_cliente ALTER vinculado_em SET NOT NULL;
-ALTER TABLE pasta_cliente ADD vinculado_por_id INT DEFAULT NULL;
--- FK + índice de vinculado_por_id, como no precedente (IDX_15973D81EDD250C1).
--- Sem eles: doctrine:schema:validate vermelho e id de usuário órfão possível.
-ALTER TABLE pasta_cliente ADD CONSTRAINT fk_pasta_cliente_vinculado_por
-  FOREIGN KEY (vinculado_por_id) REFERENCES "user" (id) ON DELETE SET NULL;
-CREATE INDEX idx_pasta_cliente_vinculado_por ON pasta_cliente (vinculado_por_id);
--- troca a PK composta por id, mantendo a unicidade como índice
-ALTER TABLE pasta_cliente DROP CONSTRAINT pasta_cliente_pkey;
-ALTER TABLE pasta_cliente ADD PRIMARY KEY (id);
-CREATE UNIQUE INDEX uniq_pasta_cliente ON pasta_cliente (pasta_id, cliente_id);
--- BACKFILL: marca como principal exatamente quem a tela JÁ mostra hoje (menor cliente_id).
-UPDATE pasta_cliente pc SET principal = true
- WHERE pc.cliente_id = (SELECT MIN(x.cliente_id) FROM pasta_cliente x WHERE x.pasta_id = pc.pasta_id);
-```
+Na lista de clientes da aba **Dados**: estrela cheia = estado, estrela vazia = ação — igual ao
+bloco de processos. A resposta XHR devolve a **média já recalculada**, porque a marcação existe
+para mudar esse número e deixá-lo defasado esconderia o efeito da própria ação. O token CSRF vai
+num `data-` da linha: quando a estrela cheia precisa virar botão de novo, o JS não teria de onde
+tirá-lo.
 
-**Conferido no banco antes de escrever isto:** `SELECT ... FROM pg_constraint WHERE
-confrelid='pasta_cliente'::regclass` devolve **zero linhas** — nenhuma tabela referencia
-`pasta_cliente`, então trocar a PK composta por `id` não quebra FK alguma. O nome
-`pasta_cliente_pkey` também confere.
+`PeticionarController` passou a usar `getClientePrincipal()` — os dois critérios divergentes viraram um.
 
-**Falta escrever o `down()`** — numa migration que troca PK e adiciona coluna identity em tabela
-populada, a regra da casa manda escrever e revisar o caminho de volta. E **backup do banco antes
-de aplicar**, por ser mudança de chave primária em tabela com dado de produção.
+## O que os testes provam (e como isso foi verificado)
 
-**O backfill é a decisão de projeto mais importante da migration.** Ele reproduz o critério
-antigo (menor `cliente_id`), então **nenhum número muda no dia do deploy** — a tela continua
-exatamente como está, e só muda quando alguém marcar outro cliente de propósito. Uma feature que
-mexe em indicador financeiro não pode alterar valores exibidos por efeito colateral da subida.
+21 testes novos. Os três defeitos foram **reintroduzidos** para conferir que a suíte os pega:
 
-### 4. Onde a média passa a ler
+| Defeito reintroduzido | Testes que ficaram vermelhos |
+|---|---|
+| ignorar a marcação (voltar ao critério antigo) | **7** |
+| aceitar cliente não vinculado | **2** |
+| não limpar a coluna ao desvincular | **1** |
 
-`PastaController` [:301](../../app/src/Controller/PastaController.php#L301) e
-[:1542](../../app/src/Controller/PastaController.php#L1542) trocam `getPrimeiroCliente()` por
-`getClientePrincipal()`. `PastaRepository::mediaValorCausaPorCliente()` mantém assinatura e resultado — ela já recebe o
-`Cliente` pronto e é agnóstica ao critério de escolha —, mas **o DQL dela muda**: o
-`innerJoin('p.clientes', ...)` passa a atravessar o vínculo (ver o aviso de colisão acima). O
-mesmo vale para os outros 3 joins em `p.clientes` do repositório.
+⚠️ **O terceiro só passou a ser pego depois de um conserto no próprio teste.** Na primeira versão
+ele não quebrava nada: os dois getters têm a guarda de "ainda vinculado", então a limpeza da coluna
+é **invisível pelo comportamento**. Foi preciso um teste que lê `cliente_principal_id`
+**direto no SQL**. Sem isso a asserção parecia forte e não era.
 
-`PeticionarController:60` (`getClientes()->first()`) passa a usar `getClientePrincipal()` — é o
-que unifica os dois critérios divergentes.
+O teste decisivo é `testTelaMostraAMediaDoClienteMarcado`: abre a tela, confere o número **antes**
+(critério automático), marca o outro cliente e confere que a tela passou a mostrar a média **dele**.
+E `testVincularClienteMaisAntigoNaoTrocaONumeroNaTela` reproduz a regressão que a fatia existe para
+matar.
 
-### 4b. Os dois call sites que MATAM a feature se forem esquecidos
+## Achados de investigação (medidos, não herdados)
 
-Estes não estão na lista de "trocar `getPrimeiroCliente()`", e são os que revertem a marcação sem
-ninguém perceber. Ambos verificados no código.
+- **`PastaController::syncClientes()` é código morto** — declarado `private`, chamado em lugar
+  nenhum em todo o `app/`. Uma revisão anterior o apontou como "apaga a marcação a cada edição de
+  pasta"; ele apagaria **se fosse chamado**, e não é. Não foi tocado (fora do escopo), mas fica o
+  registro: quem o ligar tem de torná-lo diferencial antes.
+- **`ClienteRepository::findAll()`/`find()` sem filtro de tenant nos vizinhos não é vazamento**:
+  `Cliente implements TenantAware` e o `TenantFilter` cobre a consulta. Conferido antes de reportar.
+- **Um teste cross-tenant sem `$em->clear()` mente.** O meu falhou por isso e não por defeito de
+  código: a pasta fica no cache de objetos do Doctrine, o `find` não chega ao banco e o filtro não
+  tem o que filtrar. O teste vizinho de valor-causa já documentava isso.
 
-**(a) `PastaController::syncClientes()`
-([:2235-2246](../../app/src/Controller/PastaController.php#L2235-L2246))** — a cada edição da
-pasta ele **remove todos** os clientes e **re-adiciona**:
+## O que ficou de fora
 
-```php
-foreach ($pasta->getClientes()->toArray() as $clienteExistente) {
-    $pasta->removeCliente($clienteExistente);
-}
-foreach ($clienteIds as $clienteId) { ... $pasta->addCliente($cliente); }
-```
-
-Com `pasta_cliente` promovida a entidade de vínculo, isso **apaga e recria as linhas**, zerando
-`principal` e `vinculadoEm` em **toda** edição de pasta. É exatamente a regressão que a feature
-existe para matar, reintroduzida por outra porta. `syncClientes()` tem de virar diferencial:
-remover só quem saiu, adicionar só quem entrou, **preservar os vínculos que permaneceram**.
-
-**(b) `PastaType`
-([:32](../../app/src/Form/PastaType.php#L32))** — `->add('clientes', EntityType::class,
-['multiple' => true])` é campo **mapeado** na ManyToMany. Uma coleção derivada não é gravável pelo
-binding do form: se `getClientes()` virar derivada sem mexer no form, **editar pasta para de
-salvar cliente, sem erro visível**. O campo precisa passar a operar sobre os vínculos (ou virar
-`mapped: false` com o `syncClientes()` diferencial acima cuidando da escrita).
-
-### 5. Tela
-
-A lista de clientes **não** fica na aba Financeiro; fica na aba **Dados**
-([show.html.twig:429-488](../../app/templates/pasta/show.html.twig#L429-L488)), num bloco inline.
-A estrela entra nas "ações rápidas" por cliente (`show.html.twig:473-488`), ao lado de "abrir
-ficha" e "desvincular" — mesmo lugar estrutural da estrela do processo.
-
-⚠️ **Diferença de mecânica que vai dar trabalho:** a lista de processos é atualizada por *swap de
-parcial* (`mpSwapProcessos`), mas a de clientes é **construída no browser por DOM em JS**
-(`show.html.twig:1751`) e **não existe** `templates/pasta/_clientes.html.twig`. Para seguir o
-padrão da casa é preciso **extrair o parcial `_clientes_vinculados.html.twig` primeiro** e passar
-as três rotas de cliente a devolver `{sucesso, html}`. Isso é metade do custo da fatia e precisa
-estar no plano desde o começo — não é detalhe de acabamento.
-
-### 6. Testes que a fatia deve trazer
-
-Espelhando os do precedente:
-
-- **Unit** `DefinirClientePrincipalUseCaseTest` — marcar novo principal zera o anterior; cliente
-  não vinculado lança `\DomainException`.
-- **Unit** `VincularClienteUseCaseTest` — primeiro vínculo vira principal; segundo não rouba.
-- **Unit** `DesvincularClienteUseCaseTest` — desvincular o principal **promove outro**;
-  desvincular o último esvazia sem principal.
-- **Functional** — CSRF inválido, cliente de outro tenant negado, sem permissão 403.
-- **Functional, o que prova a feature de verdade:** com dois clientes vinculados e o **de id
-  maior** marcado como principal, a tela mostra a média **dele** — o cenário que hoje é
-  impossível. E o irmão: marcar o principal e depois vincular um cliente **mais antigo** não
-  muda o número (é a regressão exata que a feature existe para matar).
-- **Migration** — teste de backfill: pasta com dois clientes fica com exatamente um `principal`,
-  e é o de menor `cliente_id`.
-
-### 7. O teste existente que vai colidir
-
-[PastaFinanceiroArranjoTelaTest.php:207](../../app/tests/Pasta/Functional/PastaFinanceiroArranjoTelaTest.php#L207)
-— `testVariosClientesUsaODeCadastroMaisAntigo()` **trava o critério antigo** de propósito
-(adiciona o cliente de id maior primeiro para provar que a ordem de vínculo não conta). Com a
-feature ele passa a descrever o **comportamento de fallback**, não a regra: precisa ser reescrito
-para "sem marcação explícita, manda o de cadastro mais antigo", e ganhar um irmão para o caso
-marcado. Reescrever este teste é parte da fatia, não um dano colateral.
-
-## Por que está parada
-
-`docs/frentes-ativas.md` fixa: **uma frente com migration por vez**. Hoje a vaga está ocupada por
-`cobranca-data-acordo-espelho`, que tem `Version20260817180000.php` commitada
-(`data_acordo` → anulável) e está viva, aguardando revisão e smoke.
-
-Esta fatia **exige** migration — a flag não tem onde morar sem promover `pasta_cliente` a
-entidade. Então ela espera, por decisão de regra, não por dificuldade técnica.
-
-**Para retomar:** quando `cobranca-data-acordo-espelho` for integrada, abrir
-`scripts/frente-abrir.sh pasta-cliente-principal`, registrar em `docs/frentes-ativas.md` como
-frente com migration, e executar desta spec. A ordem sugerida é: parcial `_clientes_vinculados`
-extraído e sob teste → entidade `PastaCliente` + migration com backfill → UseCases → controller →
-tela.
+- **A lista de clientes continua sendo montada por DOM em JS**, não por parcial Twig. Como a
+  ManyToMany não mudou, extrair `_clientes_vinculados.html.twig` deixou de ser pré-requisito — e
+  virou dívida opcional, não bloqueio.
+- **Smoke no navegador**: é do dono. A suíte lê HTML e não vê posição, tamanho nem cor da estrela.
