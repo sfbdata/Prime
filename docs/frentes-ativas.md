@@ -123,6 +123,18 @@ mais é o cache, e agora ele tem teto — no pior caso ~71,5% e para de subir. M
 repositório público) e o GitHub aceitou (HTTP 200). Este foi o primeiro build autenticado da
 história do projeto.
 
+✅ **O ganho foi confirmado em produção logo depois**, com um `compose build` isolado (não toca
+container nenhum, o site nem percebe):
+
+```
+ => CACHED [worker prod_builder 3/7] RUN --mount=type=secret,id=composer_auth --mount=type=cache,...
+real    0m2.096s
+```
+
+**~4 min → 2,1 s, com o passo do composer `CACHED` e zero pacote baixado.** É o mesmo formato da
+medição de bancada (209,9 s → 1,26 s), agora na máquina de verdade. O ciclo está provado ponta a
+ponta: o cache sobrevive à poda, e o deploy seguinte o aproveita.
+
 ### ✅ `pasta-cliente-principal` — DESTRAVADA, projetada e ainda não aberta
 
 Marcar explicitamente qual cliente é o principal da pasta, para a **"Média por CPF"** da aba
