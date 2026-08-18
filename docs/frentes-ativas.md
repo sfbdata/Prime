@@ -7,7 +7,6 @@ Quem abre uma frente acrescenta a linha. Quem integra tira.
 
 | Frente (branch) | Domínio | Migration? | Arquivos compartilhados que toca | Estágio | Base |
 |---|---|---|---|---|---|
-| `cobranca-data-acordo-espelho` | Cobrança (importadores + `Acordo`) | **sim — 1** (`data_acordo` → anulável) | `docs/specs/cobranca-espelho-violacoes-do-importe.md` | implementada; **4 revisões aplicadas e APROVADA para o smoke** (`a3fc2024`, 3853/3853) | **`master` local** @ `460e58af` |
 | `cobranca-acompanhamento-canonico` | Cobrança (modelo objeto/caso) | **sim — 4** | `docs/gestao-cobrancas/` | 🛑 **PARADA** (ver abaixo) | `origin/master` @ `0bb1f29` |
 | `expediente-ux` | Expediente + Pasta (telas) | não | `app/templates/expediente/`, `app/templates/pasta/` | implementando, **28 commits atrás do master** | `origin/codex/colaboracao-cobrancas` |
 
@@ -43,32 +42,36 @@ quem a retomar traz o master para dentro antes de escrever qualquer linha.
 rodada de dentro de uma worktree sem sobrescrever `DATABASE_URL` falha, ou pior, mede o banco errado.
 Para os testes isso não vale: `scripts/frente-testar.sh` usa o banco clonado da frente.
 
-⚠️ A regra da casa manda **uma frente com migration por vez**. Hoje a `cobranca-data-acordo-espelho`
-tem 1 migration pendente e é a **única frente ATIVA com migration**. A
-`cobranca-acompanhamento-canonico` tem 4, mas está PARADA — então não há disputa hoje; **quem
-revivê-la tem de alinhar com a `cobranca-data-acordo-espelho` antes de gerar versão**, porque as duas
-mexem em cobrança.
+⚠️ A regra da casa manda **uma frente com migration por vez**. Hoje **nenhuma frente ativa tem
+migration pendente** — a `cobranca-acompanhamento-canonico` tem 4, mas está PARADA. Quem revivê-la
+precisa ler o bloco dela antes de gerar versão.
 
-### `cobranca-data-acordo-espelho` — aberta em 2026-08-17
+`cobranca-data-acordo-espelho` foi **integrada em 2026-08-18** (fast-forward para `3605188f`).
+Trouxe a migration `Version20260817180000` — `cobranca_acordo.data_acordo` passa a aceitar **nulo**,
+porque se a contabilidade tem acordo sem data o espelho grava sem data. Matou o `dataAcordoPadrao()`
+dos dois importadores que derivavam a data do 1º dia da competência (violação #3: **375 de 395
+acordos com data chutada**, R$ 203.265,07 de encargo calculado sobre ela, 256 dívidas zeradas por
+data impossível), o `now()` do construtor de `Acordo` (#7) e a ausência de reescrita no ramo de
+atualização (#6).
 
-Frente da decisão (B) do dono: **o acordo é gravado mesmo sem data**, porque se a contabilidade tem
-acordo sem data, o espelho grava sem data. Torna `data_acordo` anulável e mata `dataAcordoPadrao()`
-dos dois importadores que hoje derivam a data do 1º dia da competência.
+**Quatro revisões adversariais**, cada uma achando o que a anterior não podia ver: tela exibindo
+resíduo, correção declarada como provada sem estar (duas vezes), catch inalcançável, badge
+prometendo o que não cumpre, e uma **prévia que podia gravar** (`prever()` sem transação). Suíte
+**3853/3853** na frente com o master dentro **e** de novo no master depois do merge. Smoke do dono
+feito e aprovado em 18/08.
 
-| | |
-|---|---|
-| **Base** | **`master` local, não `origin/master`** — este está 2 commits atrás (`460e58af` da Fatia 1 e `37399179` de outra sessão) |
-| **Estado** | **implementada e aprovada na 4ª revisão** (`a3fc2024`, 3853/3853). ⏳ smoke do dono. **Nada publicado, nada em produção.** |
-| **Spec** | `docs/specs/cobranca-espelho-violacoes-do-importe.md` |
-| **⚠️ Duplicata** | `a260e25c` (nesta branch) e `2ddae2cd` (no master) têm **árvore idêntica** — o commit de docs veio por `cherry-pick` e depois o master foi publicado. Quem integrar vai topar com isso: use `git cherry` para conferir por CONTEÚDO, não por hash |
-| **Banco** | `saas_testcobranca-data-acordo-espelho` — ✅ **já tem a coluna `valor_causa`** (o `saas_test` foi migrado antes do clone), então o aviso do topo não morde esta frente |
+⚠️ **`scripts/frente-abrir.sh` aborta no meio e mente o sucesso.** O `composer install` sai com erro
+(o `cache:clear` do post-install estoura os 128M) e o `set -e` mata o script **antes** de criar os
+dirs de upload e de clonar o banco. **Não canalize a saída do script por `tail`/`head`** — o código
+de saída lido vira o do `tail`. Confira `saas_test<nome>` no fim. Conserto do script: fatia própria.
 
-⚠️ **`scripts/frente-abrir.sh` abortou no meio e mentiu o sucesso.** O `composer install` sai com erro
-(o `cache:clear` do post-install estoura o limite de 128M de memória do PHP), e com `set -e` o script
-morre **antes** de criar os dirs de upload e de clonar o banco. Quem rodou não percebeu porque o
-comando estava com `| tail`, e o código de saída lido foi o do `tail`, não o do script. Os dois passos
-que faltaram foram executados à mão. **Ao abrir a próxima frente, não canalize a saída do script por
-`tail`/`head`** — ou confira `saas_test<nome>` no fim.
+🔴 **A worktree NÃO herda `app/.env.local`.** Rodar `doctrine:migrations:execute` de dentro dela
+aplica no banco `saas` (parado no tempo), não no `saas_ux` que a aplicação usa. Aconteceu em 18/08,
+com o aviso já escrito neste arquivo. Passe `DATABASE_URL` explicitamente.
+
+🔴 **O nginx do dev serve só `app/` — a worktree não é publicada.** Não dá para fazer smoke do código
+de uma frente sem antes integrá-la no master local. Preparar banco novo com código velho quebra a
+tela (`Typed property $dataAcordo must not be accessed before initialization`).
 
 ### 🛑 `cobranca-acompanhamento-canonico` — parada, NÃO apagar
 
