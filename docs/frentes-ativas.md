@@ -9,7 +9,6 @@ Quem abre uma frente acrescenta a linha. Quem integra tira.
 |---|---|---|---|---|---|
 | `cobranca-acompanhamento-canonico` | Cobrança (modelo objeto/caso) | **sim — 4** | `docs/gestao-cobrancas/` | 🛑 **PARADA** (ver abaixo) | `origin/master` @ `0bb1f29` |
 | `expediente-ux` | Expediente + Pasta (telas) | não | `app/templates/expediente/`, `app/templates/pasta/` | implementando, **28 commits atrás do master** | `origin/codex/colaboracao-cobrancas` |
-| `pasta-cliente-principal` | Pasta (aba Financeiro + Dados) | **sim — 1** (`Version20260818150000`, coluna aditiva) | `app/templates/pasta/show.html.twig`, `docs/specs/` | **revisada (12 achados) + corrigida** — falta smoke e integração | `origin/master` @ `cd2756f4` |
 
 `pasta-valor-causa` foi **integrada em 2026-08-17** (fast-forward para `3629b19a`). Trouxe a migration
 `Version20260814120000` — uma coluna `valor_causa` em `pasta`, aditiva e anulável, que não toca nenhuma
@@ -32,6 +31,49 @@ Use `migrations:execute` (uma versão), **não** `migrations:migrate`: o ledger 
 tem as migrations recentes, então o `migrate` tenta rodar as antigas e morre em `relation "tenant"
 already exists`.
 
+### 🔴 Integrar frente com migration são DOIS bancos, não um — e o roteiro de 18/08 esqueceu o segundo
+
+Mordeu de novo em **18/08**, na integração da `pasta-cliente-principal`, com o aviso do `valor_causa`
+logo acima nesta mesma página. O roteiro entregue mandava aplicar a migration e rodar a suíte, mas
+aplicou **só no banco da aplicação**. Resultado: dezenas de `column "pasta.cliente_principal_id"
+does not exist` num master recém-mergeado, com cara de código quebrado. **Não era.**
+
+São bancos diferentes, e a diferença não é adivinhável:
+
+| Quem usa | Banco | Vem de |
+|---|---|---|
+| a aplicação no navegador | **`saas_ux`** | `app/.env.local` |
+| a suíte (PHPUnit) | **`saas_test`** | `app/.env` (`saas`) + sufixo `_test` |
+| a suíte de uma frente | `saas_test<nome>` | idem + `TEST_TOKEN` |
+
+🔑 **O porquê de `.env.local` não valer para os testes:** o Symfony **ignora `.env.local` quando
+`APP_ENV=test`**, por design. Então a base do nome sai do `.env` versionado (`saas`), não do
+`saas_ux` que a tela usa — e `dbname_suffix: '_test%env(default::TEST_TOKEN)%'`
+(`config/packages/doctrine.yaml:122`) fecha o nome. É por isso que o banco de teste é `saas_test` e
+**não** `saas_ux_test`, que seria o palpite natural.
+
+**Ao integrar uma frente com migration, rode as DUAS:**
+
+```bash
+# 1. banco da aplicação (o navegador / o smoke)
+docker exec jusprime_php_dev bash -c 'cd /var/www/app && php bin/console \
+  doctrine:migrations:execute --up "DoctrineMigrations\VersionXXXX" --no-interaction'
+
+# 2. banco de teste (a suíte) — o que foi esquecido
+docker exec jusprime_php_dev bash -c 'cd /var/www/app && php bin/console \
+  doctrine:migrations:execute --up "DoctrineMigrations\VersionXXXX" --env=test --no-interaction'
+```
+
+Conferir depois, sem acreditar na mensagem de sucesso:
+
+```bash
+for db in saas_ux saas_test; do
+  docker exec jusprime_db_dev psql -U symfony -d $db -tAc \
+    "SELECT count(*) FROM information_schema.columns
+     WHERE table_name='<tabela>' AND column_name='<coluna>'"
+done   # tem de sair 1 e 1
+```
+
 ⚠️ `expediente-ux` estava **fora deste registro** e só apareceu num `git worktree list` de 14/08 — o
 mesmo defeito que a `cobranca-acompanhamento-canonico` já tinha cometido. Ela tem 2 commits e 4
 arquivos alterados sem commit (`expediente/index.html.twig`, `expediente/_acervo_geral.html.twig`,
@@ -43,10 +85,9 @@ quem a retomar traz o master para dentro antes de escrever qualquer linha.
 rodada de dentro de uma worktree sem sobrescrever `DATABASE_URL` falha, ou pior, mede o banco errado.
 Para os testes isso não vale: `scripts/frente-testar.sh` usa o banco clonado da frente.
 
-⚠️ A regra da casa manda **uma frente com migration por vez**. Hoje a vaga é da
-**`pasta-cliente-principal`** (`Version20260818150000`, coluna aditiva e anulável em `pasta`). A
-`cobranca-acompanhamento-canonico` tem 4, mas está PARADA — quem revivê-la precisa ler o bloco dela
-e alinhar antes de gerar versão.
+⚠️ A regra da casa manda **uma frente com migration por vez**. A vaga está **livre** desde a
+integração da `pasta-cliente-principal` em 18/08. A `cobranca-acompanhamento-canonico` tem 4, mas
+está PARADA — quem revivê-la precisa ler o bloco dela e alinhar antes de gerar versão.
 
 `cobranca-data-acordo-espelho` foi **integrada em 2026-08-18** (fast-forward para `3605188f`).
 Trouxe a migration `Version20260817180000` — `cobranca_acordo.data_acordo` passa a aceitar **nulo**,
@@ -137,7 +178,18 @@ real    0m2.096s
 medição de bancada (209,9 s → 1,26 s), agora na máquina de verdade. O ciclo está provado ponta a
 ponta: o cache sobrevive à poda, e o deploy seguinte o aproveita.
 
-### `pasta-cliente-principal` — aberta em 2026-08-18
+### ✅ `pasta-cliente-principal` — INTEGRADA em 2026-08-18 (fast-forward para `b6d25e5b`)
+
+Dois commits: a fatia (`4919eb45`) e as correções da revisão (`b6d25e5b`). A frente estava **0 atrás**
+do master, então não houve o que trazer para dentro — a suíte da frente já provava `master + frente`.
+**Suíte rodada de novo no master depois do merge: 3888/3888**, 14.578 asserções, o mesmo número da
+frente. Conferido por `git cherry master pasta-cliente-principal` (vazio) — a worktree pode ser
+fechada. ⏳ **Falta o smoke do dono e a publicação** (`push`); nada foi enviado ao remoto.
+
+🔴 **A integração custou uma suíte vermelha que NÃO era código** — a migration foi aplicada só no
+`saas_ux` e não no `saas_test`. Detalhe completo no bloco "Integrar frente com migration são DOIS
+bancos" acima; é o mesmo tropeço do `valor_causa`, repetido com o aviso já escrito nesta página.
+
 
 A "Média por CPF" da aba Financeiro passa a seguir uma marcação explícita do dono, em vez de
 escolher sozinha o cliente de cadastro mais antigo — critério que fazia **vincular um cliente mais
