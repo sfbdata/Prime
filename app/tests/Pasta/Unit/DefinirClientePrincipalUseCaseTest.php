@@ -155,9 +155,12 @@ final class DefinirClientePrincipalUseCaseTest extends TestCase
         $pasta->addCliente($marcado);
         $this->useCase->executar($pasta, $marcado);
 
-        // Tira o cliente da coleção SEM passar por removeCliente() — é o que o Symfony Form faz
-        // ao editar a pasta (`by_reference` padrão mexe na coleção direto), e é o caminho pelo
-        // qual a coluna pode ficar órfã. A guarda de "ainda vinculado" existe para isto.
+        // Tira o cliente da coleção SEM passar por removeCliente(). Nenhum caminho REAL faz isso
+        // hoje — a versão anterior deste comentário afirmava que o Symfony Form fazia, e é falso:
+        // `PastaType` não é instanciado em lugar nenhum do `app/`. O que este teste prova é que a
+        // guarda de "ainda vinculado" segura o estado inconsistente SE ele algum dia existir
+        // (alguém religar `PastaType`/`syncClientes()`, ou um UPDATE manual no banco).
+        // É teste de defesa preventiva, não de regressão de caminho vivo.
         $pasta->getClientes()->removeElement($marcado);
 
         self::assertSame(

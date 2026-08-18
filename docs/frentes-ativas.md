@@ -9,7 +9,7 @@ Quem abre uma frente acrescenta a linha. Quem integra tira.
 |---|---|---|---|---|---|
 | `cobranca-acompanhamento-canonico` | Cobrança (modelo objeto/caso) | **sim — 4** | `docs/gestao-cobrancas/` | 🛑 **PARADA** (ver abaixo) | `origin/master` @ `0bb1f29` |
 | `expediente-ux` | Expediente + Pasta (telas) | não | `app/templates/expediente/`, `app/templates/pasta/` | implementando, **28 commits atrás do master** | `origin/codex/colaboracao-cobrancas` |
-| `pasta-cliente-principal` | Pasta (aba Financeiro + Dados) | **sim — 1** (`Version20260818150000`, coluna aditiva) | `app/templates/pasta/show.html.twig`, `docs/specs/` | **em revisão** | `origin/master` @ `cd2756f4` |
+| `pasta-cliente-principal` | Pasta (aba Financeiro + Dados) | **sim — 1** (`Version20260818150000`, coluna aditiva) | `app/templates/pasta/show.html.twig`, `docs/specs/` | **revisada (12 achados) + corrigida** — falta smoke e integração | `origin/master` @ `cd2756f4` |
 
 `pasta-valor-causa` foi **integrada em 2026-08-17** (fast-forward para `3629b19a`). Trouxe a migration
 `Version20260814120000` — uma coluna `valor_causa` em `pasta`, aditiva e anulável, que não toca nenhuma
@@ -166,6 +166,56 @@ de torná-lo diferencial antes.
 
 ⚠️ **`scripts/frente-abrir.sh` abortou de novo** no `cache:clear` (OOM 128M), pela terceira frente
 seguida. Os dois passos que faltam (dirs de upload e clone do banco) foram refeitos à mão.
+
+#### Revisão adversarial de 18/08 — 12 achados, 3 que mudavam a entrega
+
+A revisão **não aprovou** a primeira versão. O que ela pegou, e o que virou correção:
+
+🔴 **A justificativa central da guarda era FALSA, e estava em quatro lugares** (spec, docblock da
+entidade, comentário de teste e mensagem do commit): dizia que `PastaType` faz o Symfony Form mexer
+na coleção de clientes e deixar a coluna órfã. Medido: `PastaType` aparece **uma única vez** em todo
+o `app/` — a própria declaração. É código morto, como `syncClientes()`. **Consequência real: zero** —
+nenhuma pasta tem coluna órfã e nenhum número está errado. A guarda ficou (é barata e correta); o
+texto foi reescrito. *O autor rodou esse grep para `syncClientes()` e afirmou a alegação irmã sem
+rodar: prova por simetria não é prova.*
+
+🔴 **`limparClientePrincipal()` estava na spec como entregue e não tinha porta nenhuma** — sem rota,
+sem botão, sem teste. Marcar era **via de mão única**. O dono mandou implementar: rota
+`pasta_cliente_principal_limpar`, `LimparClientePrincipalUseCase`, e a estrela virou **três estados
+clicáveis** (desmarcar / fixar / marcar). *Nota: o precedente dos processos **não** tem desmarcar —
+cliente e processo ficam diferentes de propósito.*
+
+🔴 **Cliente vinculado por AJAX nascia sem estrela e invisível para o JS** — o container montado em
+JS não casava com o seletor de layout que a troca de estrela procurava. Efeito: não dava para marcar
+o cliente recém-vinculado até um F5. Consertado com gancho próprio (`.js-cliente-acoes`) e uma única
+função de montagem para os dois caminhos. A spec chamava isso de "dívida opcional" e subestimava.
+
+🟡 **A contagem de prova do commit não era reproduzível.** Ele afirmava "7 testes vermelhos" ao
+ignorar a marcação; a revisão contou 8 por inspeção e não fechou. **Medido agora: 9** — e a spec
+passou a registrar *qual* mutação e *contra qual* conjunto de testes, que era o que faltava para
+alguém refazer a conta. Também foram medidos os outros três defeitos (2, 1 e 4).
+
+🟡 **A asserção "forte" do SQL ainda tinha brecha**: `fetchOne` devolve `false` para linha ausente e
+o helper achatava isso em `null`, o mesmo valor de "coluna limpa" — a asserção decisiva passaria se
+a **pasta** sumisse do banco. Fechada.
+
+Corrigidos também: `fetch` sem `catch` (queda de rede reabilitava o botão **em silêncio**, e o
+usuário achava que tinha marcado); asserção cross-tenant de **cliente** que faltava; e o
+`PeticionarController`, que mudou de comportamento sem um teste sequer.
+
+Registrados **sem corrigir**, por serem decisão do dono ou fora do escopo: as listagens
+(`_tabela`, `_card`, `demandas/_resultado`) seguem mostrando `pasta.clientes[0]` em vez do
+principal; e os UseCases não validam tenant (o precedente `DefinirProcessoPrincipalUseCase` também
+não — a proteção mora no resolver + `TenantFilter`, que só liga por request, então via CLI não há
+guarda).
+
+🔴 **O dev NÃO tem a coluna** — medido: `cliente_principal_id` não existe em `saas_ux`. A tela da
+pasta **não abre** até a migration rodar lá, então o smoke depende disso. Mesmo tropeço da frente
+`pasta-valor-causa`. O roteiro do smoke (6 pontos) está no fim da spec.
+
+⚠️ **Nenhum passo de backup antes do schema change foi escrito.** A migration é aditiva e anulável
+e `pasta` tem ~1k linhas (`ADD COLUMN NULL` é instantâneo no PG), mas o passo faltava no registro —
+fica anotado aqui para o deploy.
 
 ### 🛑 `cobranca-acompanhamento-canonico` — parada, NÃO apagar
 

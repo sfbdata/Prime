@@ -48,6 +48,7 @@ use App\Pasta\UseCase\CriarPastaUseCase;
 use App\Sync\Service\ReconciliadorDePasta;
 use App\Sync\Service\SincronizacaoPastaDispatcher;
 use App\Pasta\UseCase\DefinirClientePrincipalUseCase;
+use App\Pasta\UseCase\LimparClientePrincipalUseCase;
 use App\Pasta\UseCase\DefinirProcessoPrincipalUseCase;
 use App\Pasta\UseCase\DesvincularProcessoUseCase;
 use App\Pasta\UseCase\EditarPastaUseCase;
@@ -153,6 +154,7 @@ class PastaController extends AbstractController
         private readonly DesvincularProcessoUseCase $desvincularProcessoUseCase,
         private readonly DefinirProcessoPrincipalUseCase $definirProcessoPrincipalUseCase,
         private readonly DefinirClientePrincipalUseCase $definirClientePrincipalUseCase,
+        private readonly LimparClientePrincipalUseCase $limparClientePrincipalUseCase,
         private readonly SincronizacaoPastaDispatcher $syncDispatcher,
     ) {}
 
@@ -531,7 +533,12 @@ class PastaController extends AbstractController
                     'tipo' => $cliente instanceof ClientePF ? 'PF' : 'PJ',
                     'csrfToken' => $this->csrfTokenManager->getToken('pasta_cliente_desvincular_' . $pasta->getId() . '_' . $cliente->getId())->getValue(),
                     'csrfTokenUpload' => $this->csrfTokenManager->getToken('upload_documento_cliente_' . $cliente->getId())->getValue(),
+                    'csrfTokenPrincipal' => $this->csrfTokenManager->getToken('pasta_cliente_principal_' . $pasta->getId() . '_' . $cliente->getId())->getValue(),
                 ],
+                // Vincular pode TROCAR o principal automático: se o novo cliente for o de cadastro
+                // mais antigo e ninguém tiver marcado nada, a média passa a ser dele. A tela precisa
+                // saber disso na hora, senão mostra número velho até alguém dar F5.
+                'principal' => $this->payloadClientePrincipal($pasta),
             ]);
         }
 
@@ -610,22 +617,73 @@ class PastaController extends AbstractController
         }
 
         if ($isXhr) {
-            $principal = $pasta->getClientePrincipal();
-            $mediaCpf  = $principal !== null && $tenant !== null
-                ? $this->pastaRepository->mediaValorCausaPorCliente($principal, $tenant)
-                : null;
-
-            return $this->json([
-                'sucesso'        => true,
-                'clienteId'      => $cliente->getId(),
-                'mediaFormatada' => PastaFinanceiroOutput::formatarReais($mediaCpf),
-                'mediaRotulo'    => PastaFinanceiroOutput::montar($pasta, $principal, $mediaCpf)->mediaRotulo,
-                'clienteNome'    => $principal?->getNomeExibicao(),
-            ]);
+            return $this->json($this->payloadClientePrincipal($pasta));
         }
 
         $this->addFlash('success', 'Cliente principal atualizado.');
         return $this->redirectToRoute('pasta_show', ['id' => $pastaId, '_fragment' => 'dados']);
+    }
+
+    /**
+     * Desfaz a escolha e devolve a pasta ao critério automático (cliente de cadastro mais antigo).
+     *
+     * Sem o cliente na URL de propósito: só existe UMA marcação por pasta, então "qual limpar" não
+     * é pergunta. Exigir o id abriria a chance de limpar a marcação errada mandando outro id.
+     *
+     * O precedente dos processos NÃO tem esta ação — lá marcar é via de mão única. A diferença é
+     * deliberada (decisão do dono em 2026-08-18) e está registrada na spec.
+     */
+    #[Route('/{id}/cliente/principal/limpar', name: 'pasta_cliente_principal_limpar', methods: ['POST'])]
+    public function limparClientePrincipal(Pasta $pasta, Request $request): Response
+    {
+        $pastaId = (int) $pasta->getId();
+        $isXhr   = $request->isXmlHttpRequest();
+
+        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, $this->tenantContext->getCurrentTenant(), AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_EDIT, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
+            return $isXhr ? $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN) : $redirect;
+        }
+
+        if (!$this->isCsrfTokenValid('pasta_cliente_principal_limpar_' . $pastaId, (string) $request->request->get('_token'))) {
+            return $this->respostaErroClientePrincipal($isXhr, 'Token de segurança inválido.', $pastaId, Response::HTTP_BAD_REQUEST);
+        }
+
+        $this->limparClientePrincipalUseCase->executar($pasta);
+
+        if ($isXhr) {
+            return $this->json($this->payloadClientePrincipal($pasta));
+        }
+
+        $this->addFlash('success', 'Cliente principal desmarcado — a média voltou ao critério automático.');
+        return $this->redirectToRoute('pasta_show', ['id' => $pastaId, '_fragment' => 'dados']);
+    }
+
+    /**
+     * O estado do cliente principal como a tela precisa dele, para as duas ações (marcar e
+     * desmarcar) e também para o vínculo de um cliente novo.
+     *
+     * `clienteId` é o principal EFETIVO, não o que veio na URL: ao desmarcar, quem passa a mandar
+     * é o automático, e é a estrela dele que precisa acender. `marcado` distingue escolha de
+     * padrão — sem ele a tela não sabe se oferece "desmarcar" ou "fixar".
+     *
+     * A média vai junto porque a marcação existe PARA mudar esse número; devolvê-lo defasado
+     * esconderia o efeito da própria ação.
+     */
+    private function payloadClientePrincipal(Pasta $pasta): array
+    {
+        $tenant    = $this->tenantContext->getCurrentTenant();
+        $principal = $pasta->getClientePrincipal();
+        $mediaCpf  = $principal !== null && $tenant !== null
+            ? $this->pastaRepository->mediaValorCausaPorCliente($principal, $tenant)
+            : null;
+
+        return [
+            'sucesso'        => true,
+            'clienteId'      => $principal?->getId(),
+            'marcado'        => $pasta->getClientePrincipalMarcado() !== null,
+            'mediaFormatada' => PastaFinanceiroOutput::formatarReais($mediaCpf),
+            'mediaRotulo'    => PastaFinanceiroOutput::montar($pasta, $principal, $mediaCpf)->mediaRotulo,
+            'clienteNome'    => $principal?->getNomeExibicao(),
+        ];
     }
 
     private function respostaErroClientePrincipal(bool $isXhr, string $mensagem, int $pastaId, int $status): Response
@@ -728,7 +786,10 @@ class PastaController extends AbstractController
                 'tipo' => $cliente instanceof ClientePF ? 'PF' : 'PJ',
                 'csrfToken' => $this->csrfTokenManager->getToken('pasta_cliente_desvincular_' . $pastaId . '_' . $cliente->getId())->getValue(),
                 'csrfTokenUpload' => $this->csrfTokenManager->getToken('upload_documento_cliente_' . $cliente->getId())->getValue(),
+                'csrfTokenPrincipal' => $this->csrfTokenManager->getToken('pasta_cliente_principal_' . $pastaId . '_' . $cliente->getId())->getValue(),
             ],
+            // Ver a nota em cadastrarEVincularCliente: vincular pode mover o principal automático.
+            'principal' => $this->payloadClientePrincipal($pasta),
         ]);
     }
 

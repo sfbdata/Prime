@@ -11,6 +11,7 @@ use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaSecao;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Controller\PeticionarController;
+use App\Tests\Factory\Cliente\ClientePFFactory;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -19,10 +20,13 @@ use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
+use Zenstruck\Foundry\Test\Factories;
 
 #[CoversClass(PeticionarController::class)]
 final class PeticionarControllerTest extends JusPrimeWebTestCase
 {
+    use Factories;
+
     /** @var string[] */
     private array $arquivosParaLimpar = [];
 
@@ -733,5 +737,46 @@ final class PeticionarControllerTest extends JusPrimeWebTestCase
         $client->request('GET', "/pasta/documento/{$doc->getId()}/exportar/docx");
 
         self::assertResponseStatusCodeSame(Response::HTTP_BAD_REQUEST);
+    }
+
+    /**
+     * Antes desta feature o cabeçalho do peticionar usava `getClientes()->first()` — a ordem
+     * arbitrária do banco — enquanto a aba Financeiro usava outro critério. Duas telas respondiam
+     * diferente à mesma pergunta. Este teste é o que impede a divergência de voltar.
+     */
+    #[TestDox('O cabeçalho do peticionar segue o cliente principal marcado, não a ordem do banco')]
+    public function testCabecalhoSegueOClientePrincipalMarcado(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $em              = static::getContainer()->get(EntityManagerInterface::class);
+        $pasta           = $this->criarPasta($tenant);
+
+        $primeiro = ClientePFFactory::createOne(['tenant' => $tenant, 'nomeCompleto' => 'Antonio Primeiro'])->_real();
+        $marcado  = ClientePFFactory::createOne(['tenant' => $tenant, 'nomeCompleto' => 'Zulmira Marcada'])->_real();
+        $pasta->addCliente($primeiro);
+        $pasta->addCliente($marcado);
+        $em->flush();
+
+        $client->loginUser($user);
+        $this->marcarTermosAceitos($client);
+
+        // Sem marcação: manda o critério automático (cliente de cadastro mais antigo).
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}/peticionar");
+        self::assertResponseIsSuccessful();
+        // O cabeçalho exibe o nome em caixa alta — comparar em maiúsculas, não pelo que foi gravado.
+        self::assertStringContainsString('ANTONIO PRIMEIRO', mb_strtoupper($crawler->filter('body')->text()));
+
+        // Com marcação: o cabeçalho tem de acompanhar a escolha.
+        $pasta->definirClientePrincipal($marcado);
+        $em->flush();
+
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}/peticionar");
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString(
+            'ZULMIRA MARCADA',
+            mb_strtoupper($crawler->filter('body')->text()),
+            'o peticionar tem de seguir a mesma marcação da aba Financeiro'
+        );
     }
 }

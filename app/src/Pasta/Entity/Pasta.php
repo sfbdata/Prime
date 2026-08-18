@@ -439,10 +439,14 @@ $this->documentos = new ArrayCollection();
      * estiver vinculado.
      *
      * O fallback é o que mantém a tela igual enquanto ninguém marcou nada — e é o mesmo critério
-     * que valia antes desta feature (o cliente de cadastro mais antigo). A checagem de "ainda
-     * vinculado" não é zelo excessivo: desvincular um cliente limpa a marcação, mas uma pasta
-     * gravada por outro caminho pode apontar para quem já saiu, e aí a tela mostraria a média de
-     * alguém que não está na pasta.
+     * que valia antes desta feature (o cliente de cadastro mais antigo).
+     *
+     * A checagem de "ainda vinculado" é defesa PREVENTIVA, e vale dizer com precisão: hoje
+     * nenhum caminho vivo produz a coluna órfã. `removeCliente()` limpa a marcação, e os dois
+     * candidatos a furá-la (`PastaType` e `PastaController::syncClientes()`) são código morto —
+     * medido, nenhum dos dois é chamado em lugar nenhum do `app/`. A guarda existe para o dia em
+     * que alguém religar um deles, ou para um UPDATE manual no banco: sem ela, a tela mostraria a
+     * média de quem já saiu da pasta.
      */
     public function getClientePrincipal(): ?Cliente
     {

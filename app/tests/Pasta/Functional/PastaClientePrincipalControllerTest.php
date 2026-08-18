@@ -415,10 +415,21 @@ final class PastaClientePrincipalControllerTest extends JusPrimeWebTestCase
         $em->flush();
 
         $idPasta = (int) $pasta->getId();
-        $lerColuna = static fn (): ?int => ($v = $em->getConnection()->fetchOne(
-            'SELECT cliente_principal_id FROM pasta WHERE id = :id',
-            ['id' => $idPasta]
-        )) === false || $v === null ? null : (int) $v;
+
+        // `fetchOne` devolve `false` para "não há linha" e `null` para "coluna nula". A primeira
+        // versão deste helper achatava os dois em `null` — e aí a asserção decisiva da fatia
+        // (`assertNull` depois do desvínculo) passaria também se a PASTA tivesse sumido do banco,
+        // que é o oposto do que ela quer provar. A linha ausente agora FALHA o teste.
+        $lerColuna = static function () use ($em, $idPasta): ?int {
+            $valor = $em->getConnection()->fetchOne(
+                'SELECT cliente_principal_id FROM pasta WHERE id = :id',
+                ['id' => $idPasta]
+            );
+
+            self::assertNotFalse($valor, 'a pasta sumiu do banco — a asserção de coluna limpa não valeria nada');
+
+            return $valor === null ? null : (int) $valor;
+        };
 
         self::assertSame((int) $marcado->getId(), $lerColuna(), 'a marcação tem de estar gravada');
 
@@ -459,5 +470,256 @@ final class PastaClientePrincipalControllerTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $user, $tenant);
         $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
         self::assertSame('R$ 20.000,00', trim($crawler->filter('#financeiro-media-cpf')->text()));
+    }
+
+    // ─────────────────────── desmarcar (volta ao automático) ───────────────────────
+
+    #[TestDox('Cliente de OUTRO escritório não pode ser marcado como principal')]
+    public function testClienteDeOutroEscritorioNaoPodeSerMarcado(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        [, $outroTenant] = $this->criarUsuarioAdmin();
+        $em              = static::getContainer()->get(EntityManagerInterface::class);
+
+        $pasta         = $this->criarPasta($tenant);
+        $meuCliente    = $this->novoCliente($tenant, 'Fulano Meu');
+        $clienteAlheio = $this->novoCliente($outroTenant, 'Fulano Do Outro Escritorio');
+        $pasta->addCliente($meuCliente);
+        $em->flush();
+
+        $idPasta   = (int) $pasta->getId();
+        $idAlheio  = (int) $clienteAlheio->getId();
+        $token     = 'TOKEN_pasta_cliente_principal_' . $idPasta . '_' . $idAlheio;
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenant);
+
+        // Sem o clear() o cliente alheio fica no cache do Doctrine e o find nem consulta o banco —
+        // o teste passaria mesmo com o filtro de tenant desligado. Mesma armadilha do teste de pasta.
+        $em->clear();
+
+        $client->request('POST', "/pasta/{$idPasta}/cliente/{$idAlheio}/principal", [
+            '_token' => $token,
+        ], [], ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest']);
+
+        // Duas camadas seguram isto: o TenantFilter faz o cliente alheio nem existir (404) e,
+        // ainda que existisse, ele não está vinculado à pasta (422). Qualquer uma das duas serve;
+        // o que NÃO pode é gravar.
+        self::assertContains($client->getResponse()->getStatusCode(), [404, 422]);
+
+        $pastaRecarregada = $em->getRepository(Pasta::class)->find($idPasta);
+        self::assertNotNull($pastaRecarregada);
+        self::assertNull($pastaRecarregada->getClientePrincipalMarcado(), 'nada pode ter sido gravado');
+    }
+
+    #[TestDox('Desmarcar devolve a média ao critério automático e recalcula o número na resposta')]
+    public function testDesmarcarVoltaAoAutomaticoERecalculaAMedia(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $em              = static::getContainer()->get(EntityManagerInterface::class);
+
+        $antigo  = $this->novoCliente($tenant, 'Antonio Antigo');
+        $recente = $this->novoCliente($tenant, 'Zulmira Recente');
+        $pasta   = $this->criarPasta($tenant, '10000.00');
+        $pasta->addCliente($antigo);
+        $pasta->addCliente($recente);
+        $pasta->definirClientePrincipal($recente);
+
+        // Uma segunda pasta só do Antonio, para que a média DELE seja diferente da da Zulmira.
+        $outraDoAntonio = $this->criarPasta($tenant, '30000.00');
+        $outraDoAntonio->addCliente($antigo);
+        $em->flush();
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/cliente/principal/limpar", [
+            '_token' => $this->gerarCsrfLimpar($pasta),
+        ], [], ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest']);
+
+        self::assertResponseIsSuccessful();
+        $dados = json_decode((string) $client->getResponse()->getContent(), true);
+
+        self::assertTrue($dados['sucesso']);
+        self::assertFalse($dados['marcado'], 'depois de desmarcar a tela precisa saber que voltou ao automático');
+        self::assertSame((int) $antigo->getId(), $dados['clienteId'], 'quem passa a mandar é o de cadastro mais antigo');
+        self::assertSame('R$ 20.000,00', $dados['mediaFormatada'], '(10.000 + 30.000) / 2 — a média do Antonio');
+
+        $em->refresh($pasta);
+        self::assertNull($pasta->getClientePrincipalMarcado());
+    }
+
+    #[TestDox('Desmarcar apaga a coluna no banco, não só mascara no getter')]
+    public function testDesmarcarApagaAColunaNoBanco(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $em              = static::getContainer()->get(EntityManagerInterface::class);
+
+        $antigo  = $this->novoCliente($tenant, 'Antonio Coluna Limpar');
+        $marcado = $this->novoCliente($tenant, 'Zulmira Coluna Limpar');
+        $pasta   = $this->criarPasta($tenant, '10000.00');
+        $pasta->addCliente($antigo);
+        $pasta->addCliente($marcado);
+        $pasta->definirClientePrincipal($marcado);
+        $em->flush();
+
+        $idPasta = (int) $pasta->getId();
+        $lerColuna = static function () use ($em, $idPasta): ?int {
+            $valor = $em->getConnection()->fetchOne(
+                'SELECT cliente_principal_id FROM pasta WHERE id = :id',
+                ['id' => $idPasta]
+            );
+            self::assertNotFalse($valor, 'a pasta sumiu do banco — a asserção não valeria nada');
+
+            return $valor === null ? null : (int) $valor;
+        };
+
+        self::assertSame((int) $marcado->getId(), $lerColuna(), 'pré-condição: a marcação está gravada');
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $client->request('POST', "/pasta/{$idPasta}/cliente/principal/limpar", [
+            '_token' => $this->gerarCsrfLimpar($pasta),
+        ], [], ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest']);
+
+        self::assertResponseIsSuccessful();
+        self::assertNull($lerColuna(), 'a coluna tem de ficar nula de verdade');
+    }
+
+    #[TestDox('Desmarcar com token inválido devolve 400 e MANTÉM a marcação')]
+    public function testDesmarcarComTokenInvalidoRetorna400(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $em              = static::getContainer()->get(EntityManagerInterface::class);
+
+        $antigo  = $this->novoCliente($tenant, 'Antonio Token');
+        $marcado = $this->novoCliente($tenant, 'Zulmira Token');
+        $pasta   = $this->criarPasta($tenant);
+        $pasta->addCliente($antigo);
+        $pasta->addCliente($marcado);
+        $pasta->definirClientePrincipal($marcado);
+        $em->flush();
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/cliente/principal/limpar", [
+            '_token' => 'token-errado',
+        ], [], ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest']);
+
+        self::assertResponseStatusCodeSame(400);
+        $em->refresh($pasta);
+        self::assertSame((int) $marcado->getId(), (int) $pasta->getClientePrincipalMarcado()?->getId());
+    }
+
+    #[TestDox('Desmarcar sem permissão de edição devolve 403 e MANTÉM a marcação')]
+    public function testDesmarcarSemPermissaoRetorna403(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioSemPermissao();
+        $em              = static::getContainer()->get(EntityManagerInterface::class);
+
+        $antigo  = $this->novoCliente($tenant, 'Antonio Perm');
+        $marcado = $this->novoCliente($tenant, 'Zulmira Perm');
+        $pasta   = $this->criarPasta($tenant);
+        $pasta->addCliente($antigo);
+        $pasta->addCliente($marcado);
+        $pasta->definirClientePrincipal($marcado);
+        $em->flush();
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/cliente/principal/limpar", [
+            '_token' => $this->gerarCsrfLimpar($pasta),
+        ], [], ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest']);
+
+        self::assertResponseStatusCodeSame(403);
+        $em->refresh($pasta);
+        self::assertSame((int) $marcado->getId(), (int) $pasta->getClientePrincipalMarcado()?->getId());
+    }
+
+    #[TestDox('Pasta de OUTRO escritório não pode ser desmarcada')]
+    public function testDesmarcarPastaDeOutroTenantNaoEncontrada(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        [, $outroTenant] = $this->criarUsuarioAdmin();
+        $em              = static::getContainer()->get(EntityManagerInterface::class);
+
+        $pastaAlheia   = $this->criarPasta($outroTenant);
+        $clienteAlheio = $this->novoCliente($outroTenant, 'Fulano Alheio Limpar');
+        $pastaAlheia->addCliente($clienteAlheio);
+        $pastaAlheia->definirClientePrincipal($clienteAlheio);
+        $em->flush();
+
+        $idPasta = (int) $pastaAlheia->getId();
+        $token   = $this->gerarCsrfLimpar($pastaAlheia);
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenant);
+        $em->clear();
+
+        $client->request('POST', "/pasta/{$idPasta}/cliente/principal/limpar", [
+            '_token' => $token,
+        ], [], ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest']);
+
+        self::assertResponseStatusCodeSame(404);
+    }
+
+    #[TestDox('A tela oferece DESMARCAR quando há escolha e FIXAR quando o principal é automático')]
+    public function testTelaOfereceDesmarcarOuFixarConformeOEstado(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $em              = static::getContainer()->get(EntityManagerInterface::class);
+
+        $antigo  = $this->novoCliente($tenant, 'Antonio Estrela');
+        $recente = $this->novoCliente($tenant, 'Zulmira Estrela');
+        $pasta   = $this->criarPasta($tenant, '10000.00');
+        $pasta->addCliente($antigo);
+        $pasta->addCliente($recente);
+        $em->flush();
+
+        $this->logarComTenant($client, $user, $tenant);
+
+        // Estado 1: ninguém marcou. O principal é automático — a estrela dele tem de ser um
+        // BOTÃO de fixar, não um enfeite: sem isso não há como proteger o número de trocar
+        // sozinho quando alguém vincular um cliente de cadastro mais antigo.
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
+        $acaoLimpar = "/pasta/{$pasta->getId()}/cliente/principal/limpar";
+
+        self::assertCount(
+            0,
+            $crawler->filter('form.js-ajax-cliente-principal-limpar'),
+            'sem marcação não há o que desmarcar'
+        );
+        self::assertCount(
+            1,
+            $crawler->filter('.js-cliente-acoes form.js-ajax-cliente-principal button.js-cliente-principal-estrela'),
+            'o principal automático precisa ser clicável (fixar)'
+        );
+
+        // Estado 2: alguém marcou. Agora a estrela cheia vira a ação de desmarcar.
+        $pasta->definirClientePrincipal($recente);
+        $em->flush();
+
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
+
+        self::assertCount(
+            1,
+            $crawler->filter('form.js-ajax-cliente-principal-limpar[action="' . $acaoLimpar . '"]'),
+            'com marcação a estrela cheia tem de oferecer o desmarcar'
+        );
+    }
+
+    private function gerarCsrfLimpar(Pasta $pasta): string
+    {
+        return 'TOKEN_pasta_cliente_principal_limpar_' . $pasta->getId();
     }
 }
