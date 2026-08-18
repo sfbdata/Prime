@@ -141,7 +141,7 @@
                 <i class="bi {{ a.vigente ? 'bi-file-earmark-text' : 'bi-x-lg' }}"></i>
             </div>
             {# Guarda obrigatória: `null|date` imprimiria HOJE. Acordo sem data mostra o traço. #}
-            <div class="jp-obr-data"><div class="jp-obr-data-dia">{% if a.dataAcordo %}{{ a.dataAcordo|date('d/m/Y') }}{% else %}<span class="text-secondary jp-sem-data" title="Acordo sem data na contabilidade">—</span>{% endif %}</div></div>
+            <div class="jp-obr-data"><div class="jp-obr-data-dia">{% if a.dataAcordo %}{{ a.dataAcordo|date('d/m/Y') }}{% else %}<span class="jp-sem-data">—</span><span class="jp-enc-motivo d-block">⚠ sem data</span>{% endif %}</div></div>
             <div class="jp-obr-desc">
                 Acordo #{{ a.id }}
                 {# O selo de ESTADO continua sempre, e o de substituição vem AO LADO. A contábil mantém a

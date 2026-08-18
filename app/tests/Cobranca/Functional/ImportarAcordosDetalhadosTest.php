@@ -624,6 +624,88 @@ final class ImportarAcordosDetalhadosTest extends KernelTestCase
         }
     }
 
+    /**
+     * 🔑 O LAÇO DO BACKFILL — achado 🟡4 da revisão de 17/08.
+     *
+     * A primeira versão deste teste NÃO provava nada: usava uma passada só, e nela as substituídas ainda
+     * não existiam quando o laço rodava (`reconciliarContasOriginais` marca depois, na mesma
+     * `processarAba`). A materialização que ele via vinha de lá, não do laço — apagar o `foreach` inteiro
+     * deixava tudo verde.
+     *
+     * A forma que EXERCITA o laço são DUAS passadas, e é o caminho real de produção:
+     *   1ª — aba SEM `Data base`: o acordo já existe (veio da inadimplência, sem data), as contas
+     *        originais são marcadas como substituídas, mas NÃO são materializadas (sem data não há o que
+     *        calcular). Ficam com `encargosNaoCalculados() === true` e a tela mostra o traço.
+     *   2ª — aba COM `Data base`: o backfill preenche a data e o laço materializa as que ficaram para trás.
+     *
+     * 🔴 PROVA POR REINTRODUÇÃO: apagar o `foreach` de `processarAba` derruba este teste (verificado).
+     */
+    #[TestDox('🟡4: o laco do backfill materializa as substituidas que ficaram para tras')]
+    public function testBackfillMaterializaSubstituidasDeUmaPassadaAnterior(): void
+    {
+        [$tenant, $user, $carteiraId] = $this->cenarioAcordo37();
+
+        // 1ª passada: a aba não traz "Data base".
+        $this->importarAcordos->confirmar($carteiraId, $this->leituraAcordo37SemDataBase(), $tenant, $user);
+
+        $this->em->clear();
+        $acordo = $this->em->getRepository(Acordo::class)->findOneBy(['tenant' => $tenant, 'numeroExterno' => 37]);
+        self::assertNotNull($acordo);
+        self::assertNull($acordo->getDataAcordo(), 'sem "Data base", a data continua vazia — nada é inventado');
+
+        $substituidas = $this->em->getRepository(Obrigacao::class)->findBy(['acordoSubstituto' => $acordo]);
+        self::assertNotEmpty($substituidas, 'a 1ª passada precisa ter marcado substituídas para o teste valer');
+        foreach ($substituidas as $substituida) {
+            self::assertTrue(
+                $substituida->encargosNaoCalculados(),
+                'sem data, a substituída tem de ficar NÃO CALCULADA (a tela mostra o traço)',
+            );
+        }
+
+        // 2ª passada: agora a aba traz a "Data base". É aqui que o laço do backfill trabalha.
+        $this->importarAcordos->confirmar($carteiraId, $this->leituraAcordo37(), $tenant, $user);
+
+        $this->em->clear();
+        $acordo = $this->em->getRepository(Acordo::class)->findOneBy(['tenant' => $tenant, 'numeroExterno' => 37]);
+        self::assertNotNull($acordo);
+        self::assertSame('2026-06-30', $acordo->getDataAcordo()?->format('Y-m-d'));
+
+        $substituidas = $this->em->getRepository(Obrigacao::class)->findBy(['acordoSubstituto' => $acordo]);
+        self::assertNotEmpty($substituidas);
+        foreach ($substituidas as $substituida) {
+            self::assertFalse(
+                $substituida->encargosNaoCalculados(),
+                'o laço do backfill não materializou esta substituída — ela continua "não calculada"',
+            );
+            self::assertSame(
+                '2026-06-30',
+                $substituida->getEncargosAtualizadosEm()?->format('Y-m-d'),
+                'o encargo tem de ser materializado NA data do acordo',
+            );
+        }
+    }
+
+    /** A mesma aba do acordo 37, sem a linha "Data base:" — o caso do arquivo que não traz a data. */
+    private function leituraAcordo37SemDataBase(): ResultadoLeituraAcordos
+    {
+        return new ResultadoLeituraAcordos([$this->acordoDaPlanilha(
+            numero: 37,
+            contas: [
+                ['60145', '01/2026', '2026-01-13', 17000],
+                ['60334', '02/2026', '2026-02-13', 17000],
+                ['60812', '04/2026', '2026-04-13', 17000],
+                ['61326', '06/2026', '2026-06-13', 17000],
+            ],
+            parcelas: [
+                ['61600', 1, 4, '07/2026', '2026-07-15', 19939],
+                ['61601', 2, 4, '08/2026', '2026-08-10', 19939],
+                ['61602', 3, 4, '09/2026', '2026-09-10', 19938],
+                ['61603', 4, 4, '10/2026', '2026-10-10', 19938],
+            ],
+            dataBase: null,
+        )], [], 0);
+    }
+
     #[TestDox('T1b — o acordo criado NÃO vira evento de trabalho de cobrança (não polui a Central)')]
     public function testAcordoCriadoNaoPoluiACentralDeAcompanhamento(): void
     {

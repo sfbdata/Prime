@@ -9,6 +9,7 @@ use App\Cobranca\Entity\Acordo;
 use App\Cobranca\Entity\Obrigacao;
 use App\Cobranca\Enum\TipoEventoHistorico;
 use App\Cobranca\Exception\CasoEncerradoException;
+use App\Cobranca\Exception\DataDoAcordoObrigatoriaException;
 use App\Cobranca\Exception\CasoNaoEncontradoException;
 use App\Cobranca\Exception\ObrigacaoDeOutroCasoException;
 use App\Cobranca\Exception\ObrigacaoJaSubstituidaException;
@@ -84,7 +85,7 @@ final class CriarAcordoUseCase
         // explodiria adiante, na materialização, com erro sem relação com a causa.
         $dataAcordo = $input->dataAcordo;
         if ($dataAcordo === null) {
-            throw new \InvalidArgumentException('Acordo lavrado na tela exige data — só o importe grava acordo sem data.');
+            throw new DataDoAcordoObrigatoriaException();
         }
 
         // Status ativo é o default da entidade.

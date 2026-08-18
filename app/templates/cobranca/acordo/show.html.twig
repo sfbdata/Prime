@@ -86,15 +86,28 @@
             <div class="col-6 col-lg-3">
                 <div class="card h-100"><div class="card-body py-2">
                     <div class="text-muted small">Dívida substituída</div>
+                    {# NÃO APURÁVEL quando alguma substituída está sem encargo calculado (acordo sem data):
+                       a soma sairia de resíduo de hidratação, número inventado com cara de conta. #}
+                    {% if acordo.valorSubstituidas is null %}
+                    <div class="fs-5 fw-semibold jp-sem-data">— <span class="jp-enc-motivo">⚠ acordo sem data</span></div>
+                    {% else %}
                     <div class="fs-5 fw-semibold">{{ acordo.valorSubstituidas|centavos }}</div>
+                    {% endif %}
                 </div></div>
             </div>
             <div class="col-6 col-lg-3">
                 <div class="card h-100"><div class="card-body py-2">
+                    {# Sem a Σ das substituídas não há desconto a declarar — e um desconto derivado de
+                       resíduo teria sinal, cor e cara de conta fechada. Vira não apurável. #}
+                    {% if acordo.valorDesconto is null %}
+                    <div class="text-muted small">Desconto concedido</div>
+                    <div class="fs-5 fw-semibold jp-sem-data">— <span class="jp-enc-motivo">⚠ acordo sem data</span></div>
+                    {% else %}
                     <div class="text-muted small">{{ acordo.temJuros ? 'Juros acrescidos' : 'Desconto concedido' }}</div>
                     <div class="fs-5 fw-semibold {{ acordo.temJuros ? 'text-danger' : 'text-success' }}">
                         {{ (acordo.temJuros ? -acordo.valorDesconto : acordo.valorDesconto)|centavos }}
                     </div>
+                    {% endif %}
                 </div></div>
             </div>
         </div>
@@ -141,7 +154,9 @@
                     <tr>
                         <td>{{ o.descricao }}</td>
                         <td>{{ o.vencimento|date('d/m/Y') }}</td>
-                        <td class="text-end">{{ o.valor|centavos }}</td>
+                        {# Não calculada: `valor` traz o PRINCIPAL (dado real), e o encargo leva o traço
+                           com o motivo NA LINHA — mesmo padrão do `_divida.html.twig`. #}
+                        <td class="text-end">{{ o.valor|centavos }}{% if o.encargosNaoCalculados %} <span class="jp-enc-motivo">— ⚠ acordo sem data</span>{% endif %}</td>
                     </tr>
                     {% endfor %}
                     </tbody>

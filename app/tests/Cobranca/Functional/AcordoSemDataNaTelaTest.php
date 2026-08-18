@@ -130,6 +130,87 @@ final class AcordoSemDataNaTelaTest extends CobrancaWebTestCase
     }
 
     /**
+     * 🔴 ACHADO 1 DA REVISÃO — a tela do PRÓPRIO acordo vazava o número velho.
+     *
+     * `MontarDetalheAcordoUseCase` somava `valorExigivel()` (= original + juros + multa + correção) das
+     * substituídas. Sob acordo sem data esses encargos são o RESÍDUO da última hidratação ao vivo, e
+     * alimentavam três números de dinheiro: a coluna "Valor" de cada linha, o card "Dívida substituída" e
+     * o "Desconto concedido / Juros acrescidos" — este último com sinal e cor, cara de conta fechada.
+     *
+     * Era a repetição literal do caso `null|date`: a mudança de estado achou um caminho que a auditoria
+     * dos pontos de chamada não percorreu. O alvo é o mesmo: mostrar o principal, marcar o encargo, e não
+     * apurar agregado que sairia de lixo.
+     *
+     * 🔴 PROVA POR REINTRODUÇÃO: devolver `valorExigivel()` ao UseCase derruba este teste.
+     */
+    #[TestDox('Achado 1: a tela do acordo nao soma o encargo residual das substituidas')]
+    public function testTelaDoAcordoNaoVazaEncargoResidual(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+
+        $acordo = AcordoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso, 'dataAcordo' => null, 'valorTotalNegociado' => 50000,
+        ])->_real();
+        ObrigacaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso, 'descricao' => 'Parcela 1/1',
+            'valorOriginal' => 50000, 'encargosReconhecidos' => 0, 'acordoOrigem' => $acordo,
+        ]);
+        // Principal 600,00 + resíduo (77,77 + 12,00 + 34,00). O exigível seria 689,77 e o total 723,77.
+        ObrigacaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso, 'descricao' => 'Dívida renegociada',
+            'valorOriginal' => 60000, 'encargosReconhecidos' => 0,
+            'juros' => 7777, 'multa' => 1200, 'correcao' => 0, 'honorarios' => 3400,
+            'acordoSubstituto' => $acordo,
+        ]);
+
+        $client->request('GET', '/cobrancas/acordos/' . $acordo->getId());
+
+        self::assertResponseIsSuccessful();
+        $html = (string) $client->getResponse()->getContent();
+
+        self::assertStringNotContainsString('689,77', $html, 'a coluna Valor somou o resíduo (valorExigivel)');
+        self::assertStringNotContainsString('723,77', $html, 'o total com honorários vazou');
+        // "Dívida substituída" e "Desconto concedido" ficam NÃO APURÁVEIS, com o motivo na linha.
+        self::assertStringContainsString('⚠ acordo sem data', $html);
+        // O principal continua visível: é dado real, veio da contabilidade.
+        self::assertStringContainsString('600,00', $html);
+    }
+
+    /** Acordo COM data: a tela do acordo segue apurando normalmente — a mudança não apaga o caminho bom. */
+    #[TestDox('Achado 1: com data, a tela do acordo apura Divida substituida e Desconto normalmente')]
+    public function testTelaDoAcordoComDataApuraNormalmente(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+
+        $acordo = AcordoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso,
+            'dataAcordo' => new \DateTimeImmutable('2025-03-14'), 'valorTotalNegociado' => 50000,
+        ])->_real();
+        ObrigacaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso, 'descricao' => 'Parcela 1/1',
+            'valorOriginal' => 50000, 'encargosReconhecidos' => 0, 'acordoOrigem' => $acordo,
+        ]);
+        ObrigacaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso, 'descricao' => 'Dívida renegociada',
+            'valorOriginal' => 60000, 'encargosReconhecidos' => 0,
+            'juros' => 7777, 'multa' => 1200, 'correcao' => 0, 'honorarios' => 3400,
+            'acordoSubstituto' => $acordo,
+        ]);
+
+        $client->request('GET', '/cobrancas/acordos/' . $acordo->getId());
+
+        self::assertResponseIsSuccessful();
+        $html = (string) $client->getResponse()->getContent();
+
+        self::assertStringNotContainsString('⚠ acordo sem data', $html);
+        self::assertStringContainsString('689,77', $html, 'com data, o exigível é número legítimo');
+    }
+
+    /**
      * §2.3 item 9 — no PostgreSQL `ORDER BY dataAcordo DESC` põe NULL PRIMEIRO. O acordo sem data
      * lideraria a lista do caso, passando por "o mais recente". Não é exibição: é a ordem em que a
      * gerência lê os acordos.

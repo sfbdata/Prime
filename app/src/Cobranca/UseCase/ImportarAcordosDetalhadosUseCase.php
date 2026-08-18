@@ -404,7 +404,13 @@ final class ImportarAcordosDetalhadosUseCase
                 // A data chegou: as obrigações que este acordo substituiu estavam com o encargo NÃO
                 // CALCULADO (mostrando "—" na tela) esperando exatamente por ela. Agora dá para calcular.
                 // Sem isto o traço ficaria na tela para sempre mesmo com a data já preenchida.
-                foreach ($acordo->getObrigacoesSubstituidas() as $substituida) {
+                // ⚠️ QUERY EXPLÍCITA, não `$acordo->getObrigacoesSubstituidas()` (achado 🟡3 da revisão).
+                // Duas razões, ambas documentadas em `ObrigacaoRepository::substituidasPorAcordo`:
+                // (1) a coleção INVERSA nasce vazia quando o lado dono foi escrito na mesma unidade de
+                //     trabalho — o laço não materializaria nada, **em silêncio**;
+                // (2) a query passa o TENANT explícito, e o `TenantFilter` fica DESLIGADO em CLI, que é
+                //     exatamente como este importador roda. Isolamento entre escritórios é inegociável.
+                foreach ($this->obrigacaoRepository->substituidasPorAcordo($acordo, $tenant) as $substituida) {
                     $this->materializarNaDataDoAcordo($substituida, $acordo, $configCaso);
                     $this->obrigacaoRepository->salvar($substituida);
                 }

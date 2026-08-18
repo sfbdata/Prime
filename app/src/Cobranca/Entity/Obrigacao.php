@@ -305,9 +305,14 @@ class Obrigacao implements TenantAware, Auditavel
         // passam a ser calculados de novo, e reais. O vínculo `acordoSubstituto` permanece (invariável
         // 14: marca-se, nunca se apaga), então testar só a data marcaria como "não calculada" uma
         // obrigação que está sendo calculada todo dia.
+        // ⚠️ CONGELADA FICA DE FORA (achado 🟡5 da revisão). `materializarNaDataDoAcordo` retorna cedo
+        // para obrigação congelada — ela MANTÉM o snapshot legítimo que já tinha (da liquidação). Sem
+        // esta cláusula o predicado discordaria daquele método: a tela esconderia, atrás do traço, um
+        // total que FOI calculado, e que é o valor pelo qual a dívida foi quitada.
         return $this->acordoSubstituto !== null
             && $this->acordoSubstituto->getStatus()->ehVigente()
-            && !$this->acordoSubstituto->temData();
+            && !$this->acordoSubstituto->temData()
+            && !$this->encargosCongelados();
     }
 
     /**

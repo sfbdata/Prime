@@ -42,8 +42,15 @@ final class AcordoDetalheOutput
         public readonly ?string $motivoCancelamento,
         public readonly int $valorTotalNegociado,
         public readonly int $valorEntrada,
-        public readonly int $valorSubstituidas,
-        public readonly int $valorDesconto,
+        /**
+         * Σ das substituídas. **NULL = não apurável**: alguma substituída está com o encargo não
+         * calculado (acordo sem data), e somar o resíduo delas daria um número inventado com cara de
+         * conta. O vazio é a resposta honesta — quem julga a falta é a gerência.
+         */
+        public readonly ?int $valorSubstituidas,
+        /** Derivado de `valorSubstituidas`; **NULL pela mesma razão** — desconto sobre resíduo é ficção. */
+        public readonly ?int $valorDesconto,
+        /** Sem `valorDesconto` não há sinal para declarar; `false` quando não apurável. */
         public readonly bool $temJuros,
         public readonly int $totalAlocado,
         public readonly bool $estaIncompleto,
