@@ -256,6 +256,38 @@ class Obrigacao implements TenantAware, Auditavel
     }
 
     /**
+     * A obrigação passa a NÃO cobrar honorário — as DUAS metades juntas, que é a única forma correta
+     * (spec `cobranca-honorario-no-total.md` §10).
+     *
+     * 1. **o override** (`taxaHonorariosBp = 0`): sem ele a hidratação ao vivo recoloca o honorário
+     *    pela taxa da carteira na próxima leitura;
+     * 2. **o campo já materializado**: sem zerá-lo, o valor antigo continua dentro de
+     *    `valorExigivel()` — e uma obrigação substituída por acordo vigente pode nunca mais passar por
+     *    uma hidratação que o corrigisse.
+     *
+     * 🔑 **Mora na ENTIDADE porque tem DOIS chamadores** — o vinculador do importador de acordos e o
+     * comando de reconciliação. Deixar as duas linhas soltas em cada um era regra de dinheiro
+     * duplicada: medido em 19/08, o importador fazia só a metade 1, e isso produziria obrigações em
+     * `bp = 0` com honorário sobrando — estado que a régua do comando (`taxaHonorariosBp IS NULL`)
+     * **nunca mais alcança**. Havia 6.455 avulsas com honorário materializado (R$ 227.126,42) na
+     * fila para cair nele.
+     *
+     * `encargosAtualizadosEm` é PRESERVADO (INV-H2): isto REMOVE uma soma indevida de um snapshot, não
+     * recalcula nada. Sem snapshot (nunca materializada), só o override entra — não há o que zerar, e
+     * inventar uma data aqui seria o defeito que a frente vizinha está consertando.
+     */
+    public function pararDeCobrarHonorario(): self
+    {
+        $this->taxaHonorariosBp = 0;
+
+        if ($this->encargosAtualizadosEm !== null) {
+            $this->honorarios = 0;
+        }
+
+        return $this;
+    }
+
+    /**
      * Materializa os quatro encargos calculados para uma data de referência (é o que a
      * `CalculadoraEncargos` devolve). Não toca o valor original nem o congelamento.
      */

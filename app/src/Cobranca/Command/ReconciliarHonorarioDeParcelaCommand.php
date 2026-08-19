@@ -55,8 +55,14 @@ final class ReconciliarHonorarioDeParcelaCommand extends Command implements Lida
     /** 🔴 A lista mudou entre a aprovação e a escrita. Nada foi gravado. */
     public const LISTA_MUDOU = 68;
 
-    /** 🔴 `--aplicar` sem `--ids`: a varredura propõe, o humano escolhe (INV-H0). Nada foi gravado. */
-    public const SEM_LISTA_APROVADA = 69;
+    /**
+     * 🔴 `--aplicar` sem `--ids`: a varredura propõe, o humano escolhe (INV-H0). Nada foi gravado.
+     *
+     * **70, não 69**: o 69 é da {@see GuardaDeLogComPii}, que ESTE comando também retorna. Dois
+     * significados no mesmo código de saída fariam "esqueci a lista" e "o log de SQL está ligado"
+     * chegarem indistinguíveis a quem opera.
+     */
+    public const SEM_LISTA_APROVADA = 70;
 
     public function __construct(
         private readonly GuardaDeLogComPii $guardaDeLog,
@@ -153,10 +159,28 @@ final class ReconciliarHonorarioDeParcelaCommand extends Command implements Lida
         // se o valor lançado é o Valor acordado — e três réguas automáticas para contornar isso já
         // foram derrubadas em revisão (spec §10.6). Sem lista, não escreve.
         $idsBrutos = (string) ($input->getOption('ids') ?? '');
-        $idsAprovados = array_values(array_filter(array_map(
-            static fn (string $p): int => (int) trim($p),
-            $idsBrutos === '' ? [] : explode(',', $idsBrutos),
-        )));
+        $tokens = $idsBrutos === '' ? [] : array_map(trim(...), explode(',', $idsBrutos));
+
+        // ⚠️ `(int)` COAGE em silêncio, e num comando cuja razão de existir é não escrever fora da
+        // lista isso é o defeito inteiro: `--ids=12x,34` viraria `[12, 34]` e a obrigação 12 seria
+        // escrita sem ter sido aprovada. Um dígito trocado numa cola de terminal basta.
+        $invalidos = array_values(array_filter($tokens, static fn (string $t): bool => !ctype_digit($t)));
+
+        if ($invalidos !== []) {
+            $io->error(sprintf(
+                '--ids aceita só números separados por vírgula. Não entendi: %s. '
+                . 'Cole a linha exatamente como a simulação a imprimiu.',
+                implode(', ', array_map(static fn (string $t): string => '"' . $t . '"', $invalidos)),
+            ));
+
+            return self::ERRO_DE_INVOCACAO;
+        }
+
+        $idsAprovados = array_values(array_unique(array_map(intval(...), $tokens)));
+
+        if (!$aplicar && $idsAprovados !== []) {
+            $io->note('--ids não tem efeito na simulação: ela sempre mostra o universo inteiro, que é o que você precisa conferir.');
+        }
 
         if ($aplicar && $idsAprovados === []) {
             $io->error(
@@ -288,16 +312,22 @@ final class ReconciliarHonorarioDeParcelaCommand extends Command implements Lida
         if ($r->aplicou) {
             $io->text(sprintf('eventos no histórico: %d caso(s)', $r->casosComEvento));
         } else {
-            // Fecha o ciclo: simular, aprovar, e colar de volta o que foi aprovado.
             // Fecha o ciclo que o dono pediu: simular, CONFERIR CONTRA A PLANILHA, e colar de volta o
             // que foi aprovado. Os ids vão impressos porque é o humano que escolhe quais corrigir —
             // ver INV-H0. Tirar uma linha da lista é como ele recusa uma obrigação.
             $io->section('Para aplicar');
-            $io->text('Confira a coluna "valor NO SISTEMA" contra o Valor acordado da planilha. Tire da lista o que não bater.');
-            $io->writeln(sprintf(
-                '  --aplicar --usuario-id=<id> --ids=%s',
-                implode(',', array_column($r->corrigidas, 'obrigacaoId')),
-            ));
+
+            if ($r->corrigidas === []) {
+                // Sem linha para colar: imprimir `--ids=` vazio ofereceria um comando que só pode
+                // falhar, com cara de instrução.
+                $io->text('Nada a aplicar: todas as candidatas foram puladas — veja o motivo de cada uma acima.');
+            } else {
+                $io->text('Confira a coluna "valor NO SISTEMA" contra o Valor acordado da planilha. Tire da lista o que não bater.');
+                $io->writeln(sprintf(
+                    '  --aplicar --usuario-id=<id> --ids=%s',
+                    implode(',', array_column($r->corrigidas, 'obrigacaoId')),
+                ));
+            }
             $io->writeln('');
             $io->text('Travando também no tamanho do universo (opcional — aborta com 68 se ele mudar até lá):');
             $io->writeln(sprintf(

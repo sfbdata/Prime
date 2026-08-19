@@ -237,7 +237,7 @@ final class ReconciliarHonorarioDeParcelaTest extends KernelTestCase
         $this->em->clear();
         self::assertNull(
             $this->em->getRepository(Obrigacao::class)->find($real->getId())?->getTaxaHonorariosBp(),
-            'a transação tem de ter desfeito TUDO — correção parcial que ninguém aprovou é o pior desfecho',
+            'nada pode ser gravado — a exceção sai antes do flush, e o wrapInTransaction é a segunda defesa',
         );
     }
 
@@ -318,8 +318,10 @@ final class ReconciliarHonorarioDeParcelaTest extends KernelTestCase
         $this->em->clear();
         $depois = $this->em->getRepository(Obrigacao::class)->find($reconstruida->getId());
         self::assertNotNull($depois);
-        self::assertSame(3658, $depois->getHonorarios(), 'a transação tem de ter desfeito TUDO');
-        self::assertNull($depois->getTaxaHonorariosBp(), 'a transação tem de ter desfeito TUDO');
+        // ⚠️ Isto prova "nada foi gravado", não "a transação desfez": a exceção sai ANTES do flush.
+        // O `wrapInTransaction` é a segunda linha de defesa, e ela não é observável daqui.
+        self::assertSame(3658, $depois->getHonorarios(), 'nada pode ser gravado');
+        self::assertNull($depois->getTaxaHonorariosBp(), 'nada pode ser gravado');
     }
 
     // ---------------------------------------------------------------------------------------------

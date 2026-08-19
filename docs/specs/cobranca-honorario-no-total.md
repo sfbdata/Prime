@@ -269,7 +269,7 @@ soma da coluna Valor do NN, 135/135"*. Para a conta reconstruída isso não prov
 só 27 têm linha `1.15` dentro. Por isso o argumento do honorário embutido saiu daqui: quem autoriza o
 override é o **papel** (é parcela) mais a **igualdade com o valor declarado**, não a composição.
 
-**Fica de fora, medido como zero e sem virar pendência:** os outros dois vinculadores
+⏳ **PENDÊNCIA NOMEADA (não "medido como zero"):** os outros dois vinculadores
 (`ImportarRelatorioCarteiraUseCase:~246`, `ImportarReceitasUseCase::garantirVinculoAoAcordo`)
 produziram **0 linhas erradas** em produção. Medido: das 2.041 parcelas de acordo, 1.906 têm o
 override e 135 não — e as 135 carregam, todas, a marca da conta reconstruída. **Nenhuma parcela sem
@@ -277,8 +277,12 @@ override existe fora desse conjunto.**
 
 ⚠️ Não é possível contar "quantas nasceram por `parcelaInput`": `ParcelaAcordoImportavel` registra que
 a parcela criada ali fica **indistinguível** da criada por `ImportarRelatorioCarteiraUseCase`. A
-medição que sustenta a conclusão é a de cima, que não depende dessa separação. Separar de vez os dois
-significados da coluna é tarefa de outra fatia.
+medição que sustenta a conclusão é a de cima, que não depende dessa separação.
+
+🔴 **Medição do passado não é garantia de comportamento futuro** — é exatamente o raciocínio que
+produziu as 135. Por isso estes dois entram como **pendência aberta**, não como item fechado: eles
+continuam podendo criar parcela sem override, e o conserto certo passa por separar de vez os dois
+significados de `taxa_honorarios_bp`, que é tarefa de outra fatia.
 
 ### 10.5.2 🔴 O comando não adivinha: LISTA APROVADA (INV-H0)
 

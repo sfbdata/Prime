@@ -166,6 +166,54 @@ final class ReconciliarHonorarioDeParcelaCommandTest extends KernelTestCase
         self::assertNull($this->recarregar($parcela)?->getTaxaHonorariosBp(), 'ou tudo, ou nada');
     }
 
+    /**
+     * 🔴 Achado da 5ª revisão. `(int)` coage em silêncio: `--ids=12x` virava `[12]` e a obrigação 12
+     * seria escrita SEM ter sido aprovada — a violação literal do INV-H0, por um dígito trocado numa
+     * cola de terminal.
+     */
+    #[TestDox('🔴 --ids malformado é recusado, nunca coagido para outro id')]
+    public function testIdsMalformadoEhRecusado(): void
+    {
+        [, $tenant, $user, $parcela] = $this->cenario();
+
+        $codigo = $this->comando->execute([
+            '--tenant-id' => (string) $tenant->getId(),
+            '--aplicar' => true,
+            '--usuario-id' => (string) $user->getId(),
+            '--ids' => $parcela->getId() . 'x',
+        ]);
+
+        self::assertSame(ReconciliarHonorarioDeParcelaCommand::ERRO_DE_INVOCACAO, $codigo);
+        self::assertStringContainsString('Não entendi', $this->comando->getDisplay());
+
+        $this->em->clear();
+        self::assertNull($this->recarregar($parcela)?->getTaxaHonorariosBp(), 'um dígito trocado NÃO pode virar aprovação de outra obrigação');
+    }
+
+    #[TestDox('O ciclo completo: simular, TIRAR uma linha da lista, aplicar só o que sobrou')]
+    public function testCicloCompletoComRecusaDeUmaLinha(): void
+    {
+        [, $tenant, $user, $parcela] = $this->cenario();
+        $segunda = $this->outraParcela($parcela);
+
+        $this->comando->execute(['--tenant-id' => (string) $tenant->getId()]);
+        self::assertStringContainsString('--ids=', $this->comando->getDisplay());
+
+        // O dono confere contra a planilha e RECUSA a segunda: tira o id da linha.
+        $codigo = $this->comando->execute([
+            '--tenant-id' => (string) $tenant->getId(),
+            '--aplicar' => true,
+            '--usuario-id' => (string) $user->getId(),
+            '--ids' => (string) $parcela->getId(),
+        ]);
+
+        self::assertSame(ReconciliarHonorarioDeParcelaCommand::SOBROU_HONORARIO, $codigo, 'sobrou obrigação não corrigida — o código tem de dizer isso');
+
+        $this->em->clear();
+        self::assertSame(0, $this->recarregar($parcela)?->getTaxaHonorariosBp());
+        self::assertNull($this->recarregar($segunda)?->getTaxaHonorariosBp(), 'a recusada não pode ter sido tocada');
+    }
+
     #[TestDox('Escritório inexistente é recusado antes de qualquer leitura')]
     public function testTenantInexistente(): void
     {
@@ -196,6 +244,32 @@ final class ReconciliarHonorarioDeParcelaCommandTest extends KernelTestCase
     }
 
     // ---------------------------------------------------------------------------------------------
+
+    /** Uma segunda candidata no mesmo caso, para o ciclo de recusa parcial. */
+    private function outraParcela(Obrigacao $modelo): Obrigacao
+    {
+        $caso = $modelo->getCaso();
+        self::assertNotNull($caso);
+
+        /** @var Obrigacao $outra */
+        $outra = ObrigacaoFactory::createOne([
+            'tenant' => $caso->getTenant(),
+            'caso' => $caso,
+            'descricao' => '1.1 - Taxa de condomínio — competência 02/2026 | '
+                . ImportarAcordosDetalhadosUseCase::MARCA_RECONSTRUIDA . ' (emissão 29/07/2026)',
+            'referenciaExterna' => '60240',
+            'competencia' => '02/2026',
+            'valorOriginal' => 17000,
+            'vencimentoOriginal' => new \DateTimeImmutable('2026-02-13'),
+        ])->_real();
+
+        $outra->setAcordoOrigem($this->acordo($caso));
+        $outra->setAcordoSubstituto($this->acordo($caso));
+        $outra->definirEncargos(900, 260, 0, 2900, new \DateTimeImmutable('2026-06-30'));
+        $this->em->flush();
+
+        return $outra;
+    }
 
     private function recarregar(Obrigacao $o): ?Obrigacao
     {

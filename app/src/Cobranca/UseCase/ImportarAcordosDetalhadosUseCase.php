@@ -680,7 +680,11 @@ final class ImportarAcordosDetalhadosUseCase
                         // conta original é a dívida VELHA que o acordo engoliu, não parcela, e nela a
                         // carteira cobra honorário — 3.473 em produção, todas assim de propósito.
                         if ($divergencia === null) {
-                            $existente->setTaxaHonorariosBp(0);
+                            // As DUAS metades, pelo método da entidade — ver `pararDeCobrarHonorario`.
+                            // Gravar só o override deixaria a obrigação em `bp = 0` com o honorário
+                            // antigo ainda materializado, e a régua do comando de reconciliação
+                            // (`taxaHonorariosBp IS NULL`) nunca mais a alcançaria.
+                            $existente->pararDeCobrarHonorario();
                         }
                         $this->obrigacaoRepository->salvar($existente, true);
                     }

@@ -247,34 +247,23 @@ final class ReconciliarHonorarioDeParcelaUseCase
     }
 
     /**
-     * As DUAS metades da correção, e elas andam juntas.
+     * As DUAS metades da correção — implementadas na entidade, ver `Obrigacao::pararDeCobrarHonorario`.
      *
-     * O override sozinho não bastaria: o campo `honorarios` já materializado continuaria dentro de
-     * `valorExigivel()` até alguma hidratação passar por ali — e a obrigação substituída **não é
-     * re-hidratada** (a query do exigível a exclui), então o resto ficaria para sempre.
+     * ⚠️ Uma redação anterior dizia aqui que "a obrigação substituída não é re-hidratada". **É** —
+     * `MontarDetalheAcordoUseCase` hidrata `$acordo->getParcelas()` sempre que o acordo de ORIGEM é
+     * vigente, e as 135 estão nessa condição (§10.4). Zerar o campo continua certo, mas pelo motivo
+     * inverso: sem o override, a próxima hidratação recolocaria o honorário; sem zerar o campo, o
+     * valor antigo fica no banco até que uma hidratação com flush passe por ali.
      *
-     * Zerar o campo sozinho também não bastaria: sem o override, a primeira hidratação ao vivo (a tela
-     * do acordo hidrata as parcelas de acordo vigente) recolocaria o honorário pela taxa da carteira.
+     * 📌 Efeito de borda, registrado porque ninguém tinha notado: essa hidratação recarimba
+     * `encargosAtualizadosEm` com "hoje". O INV-H2 preserva a data NA CORREÇÃO — ele não impede que a
+     * tela a mova depois, o que é comportamento normal do modelo ao vivo, não regressão desta fatia.
      */
     private function aplicarNa(Obrigacao $obrigacao): void
     {
-        $obrigacao->setTaxaHonorariosBp(0);
-
-        // INV-H2: `encargosAtualizadosEm` é PRESERVADO. Quando nunca houve materialização (acordo sem
-        // data), não há o que zerar — e inventar uma data aqui é justamente o defeito que a frente
-        // vizinha está consertando.
-        $referencia = $obrigacao->getEncargosAtualizadosEm();
-
-        if ($referencia !== null) {
-            $obrigacao->definirEncargos(
-                $obrigacao->getJuros(),
-                $obrigacao->getMulta(),
-                $obrigacao->getCorrecao(),
-                0,
-                $referencia,
-            );
-        }
-
+        // As DUAS metades vivem na ENTIDADE (`pararDeCobrarHonorario`), com o mesmo chamador do
+        // vinculador do importador: é regra de dinheiro, e duas cópias divergem em silêncio.
+        $obrigacao->pararDeCobrarHonorario();
         $this->obrigacoes->salvar($obrigacao);
     }
 
