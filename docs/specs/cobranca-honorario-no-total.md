@@ -249,6 +249,15 @@ acrescenta, **em sentido contrário**, e por isso não pode ir para produção s
 🔑 **Direção da regra:** é o espelho — ela não cobra encargo em parcela de acordo. Mas o tamanho
 potencial faz disto decisão, não conserto automático.
 
+✅ **DECIDIDO PELO DONO (19/08): VAI INTEIRO.** O guard prospectivo entra junto com a correção das
+135, com o teto de R$ 125.526,35 apresentado e aceito. O critério é o mesmo de sempre: a
+contabilidade não cobra encargo em parcela de acordo, e o sistema copia ela. **Não reabrir.**
+
+⚠️ O que isso obriga na hora do deploy: o dono avisa a equipe de cobrança que, além do total subir
+~R$ 126 mil pela fatia (§9), o honorário de um boleto **cai a zero** no dia em que a planilha dela o
+declarar parcela de acordo. As duas coisas são a mesma regra — o total dela — puxando para lados
+diferentes, e quem olha a tela precisa saber disso antes.
+
 ### 10.5 O que esta fatia faz
 
 1. `completarParcelas` chama `Obrigacao::pararDeCobrarHonorario()` junto do `setAcordoOrigem`, **e só
