@@ -176,10 +176,13 @@ Uma pasta sem filhas tem altura 1.
 ### 7.2 Repository (`PastaSecaoRepository`)
 
 - `proximaOrdem(Pasta $pasta, Tenant $tenant, ?PastaSecao $pai): int` — **assinatura muda**
-- `arvoreDaPasta(Pasta $pasta, Tenant $tenant): array` — uma query (`WHERE pasta = :p`, ≤62 linhas),
-  hierarquia montada em PHP
 - `contarConteudoRecursivo(PastaSecao $secao): array{subpastas: int, arquivos: int}` — alimenta o
   aviso de exclusão (D3)
+
+**Não entra um `arvoreDaPasta()`.** O `findByPasta()` que já existe traz todas as ≤62 seções da pasta
+numa query, e quem monta a hierarquia é o **navegador**, a partir do `data-pai-id` de cada cartão
+(§7.3). Um método de árvore no PHP só passa a ter consumidor na Entrega 2, quando a ida ao Drive
+precisar subir a cadeia de pais no servidor.
 
 ### 7.3 Tela
 
@@ -193,12 +196,16 @@ A tela **já é** um gerenciador de arquivos. É extensão, não redesenho.
 | Excluir | Aviso genérico | Aviso que **conta**: *"contém 3 subpastas e 127 arquivos"* (D3) |
 | Busca | Varre a pasta inteira | Igual, e passa a **mostrar em que pasta** cada resultado está |
 
-**O conflito dos dois gestos (D6) é resolvido pela alça que já existe no HTML**
-(`<span class="fm-pasta-grip" title="Arrastar para reordenar">`):
+**O conflito dos dois gestos (D6) NÃO EXISTE — já está resolvido no código.** O Sortable das pastas
+já é declarado com `handle: '.fm-pasta-grip'` (`pasta-arquivos.js:477`), então arrastar pelo corpo do
+cartão **hoje não faz nada**. O gesto está livre:
 
 - arrastar **pela alça** → reordena entre irmãs (comportamento de hoje, inalterado);
-- arrastar **pelo corpo do cartão** → move para dentro da pasta sob o cursor;
+- arrastar **pelo corpo do cartão** → move para dentro da pasta sob o cursor (gesto novo, sem disputa);
 - menu de três pontinhos → **"Mover para..."**, com lista de destinos (funciona no celular e no teclado).
+
+O seletor de destino reusa o padrão de modal-com-Promise que o arquivo já tem em `pedirTexto()`
+(`pasta-arquivos.js:358`), com `<select>` no lugar do campo de texto — não `prompt()` nativo.
 
 **Não muda a estratégia de carga:** as ≤62 seções e os documentos já vêm todos no HTML e o filtro é no
 navegador. Continua assim.
