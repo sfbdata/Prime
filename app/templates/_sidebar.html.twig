@@ -66,10 +66,10 @@
 
                 {% if can_access_module('djen') %}
                     <li class="pje-menu-item">
-                        <a href="{{ path('djen_index') }}"
-                           class="pje-menu-link {{ currentRoute starts with 'djen_' ? 'active' : '' }}">
+                        <a href="{{ path('push_processual_index') }}"
+                           class="pje-menu-link {{ currentRoute starts with 'push_processual_' ? 'active' : '' }}">
                             <i class="bi bi-newspaper pje-nav-icon"></i>
-                            <span>DJEN</span>
+                            <span>Push Processual</span>
                         </a>
                     </li>
                 {% endif %}

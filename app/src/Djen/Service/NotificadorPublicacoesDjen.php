@@ -45,8 +45,8 @@ final class NotificadorPublicacoesDjen implements NotificadorPublicacoesDjenInte
         }
 
         $mensagem = $quantidadeNovas === 1
-            ? 'Nova publicação capturada no DJEN.'
-            : sprintf('%d novas publicações capturadas no DJEN.', $quantidadeNovas);
+            ? 'Nova publicação capturada.'
+            : sprintf('%d novas publicações capturadas.', $quantidadeNovas);
         $url = $this->urlPublicacoes();
 
         $notificados = 0;
@@ -95,9 +95,9 @@ final class NotificadorPublicacoesDjen implements NotificadorPublicacoesDjenInte
     private function urlPublicacoes(): string
     {
         try {
-            return $this->urlGenerator->generate('djen_index');
+            return $this->urlGenerator->generate('push_processual_index');
         } catch (\Throwable) {
-            return '/djen';
+            return '/push-processual';
         }
     }
 }

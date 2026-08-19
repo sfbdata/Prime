@@ -22,7 +22,7 @@ final class DjenControllerTest extends JusPrimeWebTestCase
     public function indexNaoAutenticadoRedirecionaParaLogin(): void
     {
         $client = static::createClient();
-        $client->request('GET', '/djen');
+        $client->request('GET', '/push-processual');
 
         self::assertResponseRedirects();
         self::assertStringContainsString('login', (string) $client->getResponse()->headers->get('Location'));
@@ -37,10 +37,10 @@ final class DjenControllerTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $comum, $tenant);
         $this->limparIdentityMap();
 
-        $client->request('GET', '/djen');
+        $client->request('GET', '/push-processual');
 
         self::assertResponseStatusCodeSame(302);
-        self::assertStringNotContainsString('/djen', (string) $client->getResponse()->headers->get('Location'));
+        self::assertStringNotContainsString('/push-processual', (string) $client->getResponse()->headers->get('Location'));
     }
 
     #[Test]
@@ -52,7 +52,7 @@ final class DjenControllerTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $gestor, $tenant);
         $this->limparIdentityMap();
 
-        $client->request('GET', '/djen');
+        $client->request('GET', '/push-processual');
 
         self::assertResponseIsSuccessful();
     }
@@ -66,7 +66,7 @@ final class DjenControllerTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $gestor, $tenant);
         $this->limparIdentityMap();
 
-        $client->request('GET', '/djen/oabs');
+        $client->request('GET', '/push-processual/oabs');
 
         self::assertResponseIsSuccessful();
     }
@@ -81,14 +81,14 @@ final class DjenControllerTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $gestor, $tenant);
         $this->limparIdentityMap();
 
-        $crawler = $client->request('GET', '/djen/oabs');
+        $crawler = $client->request('GET', '/push-processual/oabs');
         $form = $crawler->selectButton('Adicionar')->form();
         $form['oab_monitorada[numero]'] = '67228';
         $form['oab_monitorada[uf]'] = 'PR';
         $form['oab_monitorada[apelido]'] = 'Dra. Teste';
         $client->submit($form);
 
-        self::assertResponseRedirects('/djen/oabs');
+        self::assertResponseRedirects('/push-processual/oabs');
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
@@ -111,7 +111,7 @@ final class DjenControllerTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $gestor, $tenant);
         $this->limparIdentityMap();
 
-        $client->request('GET', '/djen/' . $pubId);
+        $client->request('GET', '/push-processual/' . $pubId);
 
         self::assertResponseIsSuccessful();
     }
@@ -132,11 +132,11 @@ final class DjenControllerTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $gestor, $tenant);
         $this->limparIdentityMap();
 
-        $crawler = $client->request('GET', '/djen');
+        $crawler = $client->request('GET', '/push-processual');
         $form = $crawler->selectButton('Sincronizar agora')->form();
         $client->submit($form);
 
-        self::assertResponseRedirects('/djen');
+        self::assertResponseRedirects('/push-processual');
     }
 
     #[Test]
@@ -153,8 +153,8 @@ final class DjenControllerTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $gestor, $tenant);
         $this->limparIdentityMap();
 
-        $client->request('POST', '/djen/oabs/' . $id . '/alternar', ['_token' => 'invalido']);
-        self::assertResponseRedirects('/djen/oabs');
+        $client->request('POST', '/push-processual/oabs/' . $id . '/alternar', ['_token' => 'invalido']);
+        self::assertResponseRedirects('/push-processual/oabs');
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
@@ -173,9 +173,9 @@ final class DjenControllerTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $gestor, $tenant);
         $this->limparIdentityMap();
 
-        $crawler = $client->request('GET', '/djen/oabs');
+        $crawler = $client->request('GET', '/push-processual/oabs');
         $client->submit($crawler->selectButton('Pausar')->form());
-        self::assertResponseRedirects('/djen/oabs');
+        self::assertResponseRedirects('/push-processual/oabs');
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
