@@ -1,5 +1,12 @@
 # Spec — Integração DJEN (captação de comunicações/publicações processuais)
 
+> ⚠️ **Renomeado em 2026-08-19 — o módulo se chama "Push Processual" na interface.** As URLs passaram
+> de `/djen*` para `/push-processual*` e os nomes de rota de `djen_*` para `push_processual_*`. As URLs
+> antigas seguem vivas com 301 (`RotasLegadasDjenController`), porque 199 notificações em produção têm
+> `url = '/djen'` gravada na linha. **Nada abaixo desta nota mudou**: classes, namespace `App\Djen`,
+> tabela `publicacao_djen` e o código da permissão `modules.djen.view` continuam com o nome DJEN — que
+> é o nome do sistema do CNJ, não o do nosso módulo.
+
 > **Risco:** MÉDIO — integração externa (API pública do CNJ) que **escreve dados por tenant** e gera
 > notificações. Não toca ponto eletrônico nem identidade User/Tenant, mas cria domínio novo multi-tenant
 > + comando CLI que escreve com o TenantFilter desligado (o ponto mais sensível).
@@ -22,7 +29,8 @@ cross-tenant). Revisada por 3 agentes adversariais (isolamento LIMPO, núcleo co
 **Onde está o código (tudo novo em `app/src/Djen/`):** Entity (`OabMonitorada`, `PublicacaoDjen`),
 Repository, Service (`DjenClient`+Interface, `DjenPublicacaoMapper`, `NotificadorPublicacoesDjen`+Interface, `FormatadorTeorDjen`),
 UseCase (`AdicionarOabMonitorada`, `Remover`, `AlternarStatus`, `SincronizarPublicacoesDjen`), Command
-(`SincronizarDjenCommand` = `app:djen:sincronizar`), Controller (`DjenController`, rotas `djen_*`), DTO,
+(`SincronizarDjenCommand` = `app:djen:sincronizar`), Controller (`DjenController`, rotas `push_processual_*`
+— ver a nota de renomeação no topo), DTO,
 Form, Enum (`MotivoFalhaDjen`), Exception. Templates em `app/templates/djen/`. Testes em `app/tests/Djen/`.
 
 **Integrações (edições em arquivos existentes):** `config/services.yaml` (bind `$djenBaseUrl` + 2 aliases de
