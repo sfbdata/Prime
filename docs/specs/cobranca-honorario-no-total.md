@@ -235,8 +235,9 @@ o honorário indevido vira dinheiro no saldo.
 3. O comando ignora parcela **sem NN** — nasceu na tela, e ali a escolha é do usuário (§10.7). Zero
    em produção hoje, mas o comando é re-executável e rodá-lo depois daquela fatia apagaria a escolha
    de quem clicou.
-4. Provas por reintrodução executadas nas quatro guardas: o override do vínculo, a **condição do
-   valor**, a régua da população (`acordoOrigem`) e o filtro de tenant da consulta.
+4. Provas por reintrodução executadas nas **seis** guardas: o override do vínculo, a **condição do
+   valor** (§10.5.1), a **recusa do comando** (§10.5.2), a régua da população (`acordoOrigem`), a
+   cláusula do NN e o filtro de tenant da consulta.
 
 ### 10.5.1 🔴 Por que o guard é CONDICIONADO ao valor bater
 
@@ -250,10 +251,16 @@ Gravá-lo cegamente ao vincular reintroduziria, por outra porta, um defeito que 
 cometeu e reverteu: uma obrigação nascida avulsa tem `valorOriginal = principalCentavos` (honorário
 **fora**), e alocar o bruto contra ela abateria do saldo um honorário que não está lá.
 
-**A condição `$divergencia === null` faz os dois significados serem verdade ao mesmo tempo.** Se o
-`valorOriginal` do sistema é igual ao Valor acordado que ela declara para aquela parcela, então aquele
-número É o valor negociado — e o honorário que ela cobrou está dentro dele. Divergindo, nada é
-tocado, e a divergência já sai no relatório para o humano decidir.
+**A condição `$divergencia === null` faz a vinculada terminar IDÊNTICA à parcela criada.** Com o
+`valorOriginal` igual ao Valor acordado declarado, o par `(valorOriginal, taxaHonorariosBp)` da
+obrigação vinculada passa a ser exatamente o que `parcelaInput` grava numa parcela que nasce aqui —
+as mesmas 1.906 que já existem. A fatia não introduz assimetria de alocação: iguala a vinculada às
+que já estão lá. Divergindo, nada é tocado, e a divergência já sai no relatório para o humano.
+
+⚠️ **O que esta condição NÃO prova:** que o honorário esteja embutido naquele valor. Igualdade de
+dois números não diz nada sobre a composição de nenhum deles, e o relatório de acordos não tem coluna
+de encargo (§10.1) — não há de onde tirar essa prova. Uma redação anterior desta subseção afirmava
+que sim, e a §10.6 a derruba: das 3.482 reconstruídas, só 27 têm linha `1.15` dentro.
 
 ⚠️ **A 1ª redação usava outra prova, e ela era tautológica:** *"o valorOriginal das 135 bate com a
 soma da coluna Valor do NN, 135/135"*. Para a conta reconstruída isso não prova nada — o adapter
@@ -263,9 +270,32 @@ override é o **papel** (é parcela) mais a **igualdade com o valor declarado**,
 
 **Fica de fora, medido como zero e sem virar pendência:** os outros dois vinculadores
 (`ImportarRelatorioCarteiraUseCase:~246`, `ImportarReceitasUseCase::garantirVinculoAoAcordo`)
-produziram **0 linhas erradas** em produção — das 2.041 parcelas, 1.906 nasceram por `parcelaInput`
-com o override e 135 são as reconstruídas vinculadas; **nenhuma avulsa vinculada existe**. Separar de
-vez os dois significados da coluna é tarefa de outra fatia.
+produziram **0 linhas erradas** em produção. Medido: das 2.041 parcelas de acordo, 1.906 têm o
+override e 135 não — e as 135 carregam, todas, a marca da conta reconstruída. **Nenhuma parcela sem
+override existe fora desse conjunto.**
+
+⚠️ Não é possível contar "quantas nasceram por `parcelaInput`": `ParcelaAcordoImportavel` registra que
+a parcela criada ali fica **indistinguível** da criada por `ImportarRelatorioCarteiraUseCase`. A
+medição que sustenta a conclusão é a de cima, que não depende dessa separação. Separar de vez os dois
+significados da coluna é tarefa de outra fatia.
+
+### 10.5.2 🔴 A mesma recusa vale no COMANDO (INV-H0)
+
+O guard acima só grava o override com o valor batendo. **O comando não tem a planilha na mão** — se
+corrigisse tudo que é "parcela sem override", desfaria a proteção do importador na primeira avulsa
+vinculada com valor divergente, e o efeito seria o da §10.5.1 pela outra porta. Achado da 3ª revisão.
+
+Então ele corrige apenas a **conta reconstruída vinculada** — a única cuja procedência o banco prova,
+porque ela nasce com o valor SOMADO do grupo NN+competência (`montarContaOriginal`), e é de onde vêm
+as 135. Qualquer outra parcela sem override entra no universo, **não é corrigida**, e sai no relatório
+como pulada com motivo, para o humano decidir.
+
+🔑 **Isto não é a régua de dinheiro** — essa é o papel (`acordoOrigem IS NOT NULL`), aplicada na
+consulta. É filtro de **segurança** sobre uma população já recortada pela régua. A distinção é
+exatamente a que a §10.6 registra como não feita na 1ª versão.
+
+Medido em produção em 19/08: das obrigações que o comando alcança, **135 de 135** têm a marca —
+nenhuma é pulada hoje.
 
 ### 10.6 O erro da 1ª versão, registrado de propósito
 

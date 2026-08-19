@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Cobranca\DTO;
 
 /**
- * O que a correção do honorário da conta reconstruída FEZ (ou faria, na simulação) — spec
+ * O que a correção do honorário da PARCELA DE ACORDO fez (ou faria, na simulação) — spec
  * `docs/specs/cobranca-honorario-no-total.md` §10.5.
  *
  * 🔑 **`honorarioRemovido` NÃO é "dívida que baixou".** Enquanto o acordo substituto estiver vigente,

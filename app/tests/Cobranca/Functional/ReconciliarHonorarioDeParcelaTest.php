@@ -58,7 +58,7 @@ final class ReconciliarHonorarioDeParcelaTest extends KernelTestCase
         $this->reconciliar = static::getContainer()->get(ReconciliarHonorarioDeParcelaUseCase::class);
     }
 
-    #[TestDox('Simulação acha a conta reconstruída, diz o que sairia e NÃO grava nada')]
+    #[TestDox('Simulação acha a parcela sem override, diz o que sairia e NÃO grava nada')]
     public function testSimulacaoNaoGrava(): void
     {
         $carteira = $this->carteiraTopLife();
@@ -173,6 +173,33 @@ final class ReconciliarHonorarioDeParcelaTest extends KernelTestCase
         $r = $this->reconciliar->prever([$carteira], $this->tenantDe($carteira));
 
         self::assertSame(0, $r->candidatas, 'parcela sem NN nasceu na tela — a escolha de cobrar honorário é de quem clicou (§10.7)');
+    }
+
+    /**
+     * 🔴 INV-H0, achado da 3ª revisão. O guard de `completarParcelas` só grava o override quando o
+     * `valorOriginal` já é o Valor acordado da planilha. O comando não tem a planilha na mão — se
+     * corrigisse tudo que é "parcela sem override", desfaria a proteção do importador na primeira
+     * avulsa vinculada com valor divergente. Ele PULA e reporta, em vez de adivinhar.
+     */
+    #[TestDox('Parcela vinculada sem procedência provável é PULADA, não corrigida')]
+    public function testPulaParcelaSemProcedenciaProvavel(): void
+    {
+        $carteira = $this->carteiraTopLife();
+        $caso = $this->caso($carteira, 'QD 05 CH 03');
+
+        // Mesma assinatura de coluna das 135 — parcela, sem override, com NN. Só a descrição muda.
+        $avulsa = $this->obrigacaoDeAcordo($caso, '70001', descricao: '1.1 - Taxa de condomínio — competência 03/2025', honorarios: 5000);
+
+        $r = $this->reconciliar->prever([$carteira], $this->tenantDe($carteira));
+
+        self::assertSame(1, $r->candidatas, 'ela ENTRA no universo — a régua de dinheiro é o papel');
+        self::assertCount(0, $r->corrigidas, 'mas não é corrigida: o comando não sabe se o valor é o negociado');
+        self::assertCount(1, $r->puladas);
+        self::assertSame(5000, $r->honorarioQueFicouEmCentavos(), 'pular não é no-op — o valor que fica sai no relatório');
+        self::assertTrue($r->contasFecham());
+
+        $this->em->refresh($avulsa);
+        self::assertNull($avulsa->getTaxaHonorariosBp());
     }
 
     #[TestDox('Congelada é PULADA e o honorário que fica sai no relatório, com valor')]

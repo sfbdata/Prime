@@ -30,6 +30,8 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  *
  * O artefato que o dono aprova é a SIMULAÇÃO: ela lista obrigação por obrigação, com o número do
  * acordo de origem e o do acordo que a substituiu, para dar para conferir contra a planilha dela.
+ * ⚠️ A coluna de valor é o que está NO SISTEMA — é justamente esse número que quem confere vai
+ * procurar na planilha. Rotulá-la "valor da planilha" pré-responderia a pergunta.
  */
 #[AsCommand(
     name: 'app:cobranca:reconciliar-honorario-parcela',
@@ -216,7 +218,7 @@ final class ReconciliarHonorarioDeParcelaCommand extends Command implements Lida
             $io->section(sprintf('%s %d obrigação(ões)', $r->aplicou ? 'CORRIGIDAS:' : 'Seriam corrigidas:', count($r->corrigidas)));
 
             $io->table(
-                ['id', 'unidade', 'NN', 'compet.', 'valor da planilha', 'honorário retirado', 'acordo (parcela de)', 'substituída por'],
+                ['id', 'unidade', 'NN', 'compet.', 'valor NO SISTEMA', 'honorário retirado', 'acordo (parcela de)', 'substituída por'],
                 array_map(
                     fn (array $c): array => [
                         $c['obrigacaoId'],
