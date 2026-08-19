@@ -136,7 +136,19 @@ class PastaSecao implements Auditavel, TenantAware
 
     public function setPai(?self $pai): self
     {
+        if ($this->pai === $pai) {
+            return $this;
+        }
+
+        if ($this->pai !== null) {
+            $this->pai->getFilhas()->removeElement($this);
+        }
+
         $this->pai = $pai;
+
+        if ($pai !== null && !$pai->getFilhas()->contains($this)) {
+            $pai->getFilhas()->add($this);
+        }
 
         return $this;
     }

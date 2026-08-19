@@ -39,12 +39,9 @@ final class PastaSecaoArvoreTest extends TestCase
     {
         $a = $this->secao('A');
         $b = $this->secao('B', $a);
-        $a->getFilhas()->add($b);
         $c = $this->secao('C', $b);
-        $b->getFilhas()->add($c);
         // ramo curto, para provar que a altura pega o MAIOR
-        $d = $this->secao('D', $a);
-        $a->getFilhas()->add($d);
+        $this->secao('D', $a);
 
         self::assertSame(3, $a->getAltura());
     }
