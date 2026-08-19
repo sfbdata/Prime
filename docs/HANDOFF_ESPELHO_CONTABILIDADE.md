@@ -294,8 +294,20 @@ primeiro item — decisão do dono em 19/08: entra NESTA fatia, não na §3.4.
 
 - 🔴 **A nota impressa afirma "o saldo não muda" e o código não garante:** acordo **rompido/cancelado
   volta ao exigível** e o comando não filtra nem reporta status. A §4.1 sustenta a afirmação numa
-  medição de 19/08 (todos vigentes) — premissa de um instante virando fato impresso. **Decisão
-  pendente:** filtrar por `ehVigente()` ou contar e imprimir o status.
+  medição de 19/08 (todos vigentes) — premissa de um instante virando fato impresso.
+
+  ✅ **DECIDIDO PELO DONO (19/08): opção B — corrigir TODOS e CONTAR.** O comando conserta a data em
+  qualquer acordo (a data errada é errada em todo lugar; é o objetivo da frente), mas:
+  1. conta os candidatos **por status do acordo**, medido na hora da execução;
+  2. a nota final deixa de ser texto fixo e passa a ser **derivada** do que ele achou — com zero
+     não-vigentes, imprime "o saldo não muda"; com N, imprime que N estão em acordo rompido/cancelado
+     e **quanto a cobrança muda neles**;
+  3. o aviso sai na SIMULAÇÃO, antes de qualquer escrita — o dono vê antes de autorizar o `--aplicar`.
+
+  🔑 **O motivo da escolha, para não ser reaberto:** a frase de hoje é o sistema AFIRMANDO algo que
+  não conferiu — exatamente a §1.1 ("o sistema mostra, a gerência julga"). Filtrar por `ehVigente()`
+  (opção A) deixaria data errada gravada, o oposto do objetivo. Precisa de teste do caso não vigente,
+  que hoje tem cobertura zero.
 - 🔴 **A §4 nunca foi reproduzida em produção.** O revisor não tem o MCP; mediu no dev (37
   candidatos, não 372). A verificação central da frente **ainda não existe**.
 - Sem a trava `--esperado-*`/`LISTA_MUDOU` do molde; `ambiguos` não muda o código de saída; a
