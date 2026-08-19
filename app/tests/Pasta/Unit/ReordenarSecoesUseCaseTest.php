@@ -33,10 +33,11 @@ final class ReordenarSecoesUseCaseTest extends TestCase
         $this->tenant = new Tenant();
     }
 
-    private function criarSecao(int $id, int $ordem): PastaSecao
+    private function criarSecao(int $id, int $ordem, ?PastaSecao $pai = null): PastaSecao
     {
         $secao = new PastaSecao();
         $secao->setOrdem($ordem);
+        $secao->setPai($pai);
 
         $ref = new \ReflectionProperty(PastaSecao::class, 'id');
         $ref->setValue($secao, $id);
@@ -77,5 +78,24 @@ final class ReordenarSecoesUseCaseTest extends TestCase
         $this->useCase->executar($this->pasta, $this->tenant, [1, 99]);
 
         self::assertSame(1, $s1->getOrdem());
+    }
+
+    public function testNumeracaoReiniciaEmCadaGrupoDeIrmas(): void
+    {
+        $a  = $this->criarSecao(1, 1);
+        $b  = $this->criarSecao(2, 2);
+        $a1 = $this->criarSecao(3, 1, $a);
+        $a2 = $this->criarSecao(4, 2, $a);
+
+        $this->repo->method('findByPasta')->willReturn([$a, $b, $a1, $a2]);
+        $this->em->expects($this->once())->method('flush');
+
+        // ordem pedida: B antes de A na raiz; A2 antes de A1 dentro de A
+        $this->useCase->executar($this->pasta, $this->tenant, [2, 1, 4, 3]);
+
+        self::assertSame(1, $b->getOrdem(), 'B é a 1ª da RAIZ');
+        self::assertSame(2, $a->getOrdem(), 'A é a 2ª da RAIZ');
+        self::assertSame(1, $a2->getOrdem(), 'A2 é a 1ª DENTRO de A — a numeração reinicia');
+        self::assertSame(2, $a1->getOrdem(), 'A1 é a 2ª DENTRO de A');
     }
 }
