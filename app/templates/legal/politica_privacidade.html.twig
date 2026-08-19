@@ -1,0 +1,155 @@
+{% extends 'base.html.twig' %}
+
+{# Página pública da Política de Privacidade.
+
+   Estende o `base` de propósito: ele já sabe se virar sem usuário logado (ramo
+   `{% if app.user %}` ... `{% else %}` no fim do arquivo), então a mesma página serve
+   quem chegou pelo rodapé do login e quem clicou no menu já dentro do sistema.
+
+   As cores saem das variáveis do Bootstrap (`--bs-*`), e não de hex fixo, porque o
+   sistema alterna tema por `data-bs-theme` — hex claro chapado fica ilegível no escuro. #}
+
+{% block title %}Política de Privacidade — BlueJus{% endblock %}
+
+{% block stylesheets %}
+<style>
+    .pp-pagina {
+        max-width: 68rem;
+        margin: 0 auto;
+        padding: 1.5rem 0 4rem;
+        line-height: 1.7;
+    }
+
+    .pp-acoes {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .5rem;
+        justify-content: flex-end;
+        margin-bottom: 1.5rem;
+    }
+
+    /* ------------------------------------------------------------------ cabeçalho */
+    .pp-cabecalho {
+        border-bottom: 2px solid var(--bs-border-color);
+        padding-bottom: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    .pp-selo {
+        text-transform: uppercase;
+        letter-spacing: .08em;
+        font-size: .75rem;
+        font-weight: 600;
+        color: var(--bs-secondary-color);
+        margin-bottom: .5rem;
+    }
+    .pp-titulo { font-size: 1.875rem; font-weight: 700; margin: 0 0 .25rem; }
+    .pp-subtitulo { font-style: italic; color: var(--bs-secondary-color); margin-bottom: 1rem; }
+    .pp-conformidade,
+    .pp-versao,
+    .pp-praca { font-size: .875rem; color: var(--bs-secondary-color); margin-bottom: .25rem; }
+
+    /* --------------------------------------------------------------------- sumário */
+    .pp-sumario {
+        border: 1px solid var(--bs-border-color);
+        border-radius: .5rem;
+        padding: 1.25rem 1.5rem;
+        margin-bottom: 2.5rem;
+        background: var(--bs-tertiary-bg);
+    }
+    .pp-sumario h2 { font-size: 1rem; text-transform: uppercase; letter-spacing: .06em; margin: 0 0 .75rem; }
+    .pp-sumario-lista { margin: 0; padding-left: 1.25rem; columns: 2; column-gap: 2.5rem; }
+    .pp-sumario-lista li { margin-bottom: .35rem; break-inside: avoid; }
+    .pp-sumario-lista a { text-decoration: none; }
+    .pp-sumario-lista a:hover { text-decoration: underline; }
+
+    /* ---------------------------------------------------------------------- corpo */
+    .pp-capitulo {
+        font-size: 1.15rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .02em;
+        margin: 2.5rem 0 1rem;
+        padding-top: 1.25rem;
+        border-top: 1px solid var(--bs-border-color);
+        scroll-margin-top: 5rem;
+    }
+    .pp-secao { font-size: 1rem; font-weight: 600; margin: 1.75rem 0 .75rem; }
+    .pp-pagina p { margin-bottom: .9rem; text-align: justify; }
+    .pp-lista { margin-bottom: 1rem; padding-left: 1.5rem; }
+    .pp-lista li { margin-bottom: .5rem; text-align: justify; }
+
+    .pp-destaque {
+        border-left: 3px solid var(--bs-primary);
+        background: var(--bs-tertiary-bg);
+        padding: .9rem 1.1rem;
+        margin: 1.25rem 0;
+        border-radius: 0 .35rem .35rem 0;
+        text-align: justify;
+    }
+
+    /* -------------------------------------------------------------------- tabelas */
+    .pp-tabela-rolagem { overflow-x: auto; margin: 1rem 0 1.5rem; }
+    .pp-tabela {
+        width: 100%;
+        min-width: 34rem;
+        border-collapse: collapse;
+        font-size: .9rem;
+    }
+    .pp-tabela th,
+    .pp-tabela td {
+        border: 1px solid var(--bs-border-color);
+        padding: .55rem .7rem;
+        vertical-align: top;
+        text-align: left;
+    }
+    .pp-tabela thead th { background: var(--bs-tertiary-bg); font-weight: 600; }
+
+    .pp-fecho {
+        margin-top: 3rem;
+        padding-top: 1.5rem;
+        border-top: 2px solid var(--bs-border-color);
+        text-align: center;
+        color: var(--bs-secondary-color);
+        font-size: .9rem;
+    }
+    .pp-fecho p { text-align: center; margin-bottom: .2rem; }
+
+    .pp-topo { display: block; margin-top: 2rem; font-size: .875rem; }
+
+    @media (max-width: 48rem) {
+        .pp-sumario-lista { columns: 1; }
+        .pp-titulo { font-size: 1.5rem; }
+        .pp-pagina p, .pp-lista li, .pp-destaque { text-align: left; }
+    }
+
+    /* Impressão: quem quiser papel não precisa do PDF. */
+    @media print {
+        .pp-acoes, .pp-topo { display: none; }
+        .pp-pagina { max-width: none; padding: 0; }
+        .pp-capitulo { break-after: avoid; }
+        .pp-tabela-rolagem, .pp-destaque { break-inside: avoid; }
+        a { text-decoration: none; color: inherit; }
+    }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="pp-pagina" id="pp-topo">
+    <div class="pp-acoes">
+        <a href="{{ path('legal_politica_privacidade_pdf') }}"
+           class="btn btn-outline-secondary btn-sm"
+           target="_blank" rel="noopener">
+            <i class="bi bi-file-earmark-pdf me-1"></i>Abrir em PDF
+        </a>
+        <a href="/termos/termos-de-uso.pdf"
+           class="btn btn-outline-secondary btn-sm"
+           target="_blank" rel="noopener noreferrer">
+            <i class="bi bi-file-earmark-text me-1"></i>Termos e Condições de Uso
+        </a>
+    </div>
+
+    {% include 'legal/_politica_privacidade_texto.html.twig' %}
+
+    <a class="pp-topo" href="#pp-topo">Voltar ao topo</a>
+</div>
+{% endblock %}
