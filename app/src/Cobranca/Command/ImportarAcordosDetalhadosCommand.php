@@ -213,7 +213,7 @@ final class ImportarAcordosDetalhadosCommand extends Command implements LidaComD
                 ['Contas que NUNCA tiveram boleto (chave substituta, em qualquer balde)', count($resultado->nnsContasSemBoleto())],
                 ['— quanto somam (não entram no saldo enquanto o acordo vige)', 'R$ ' . number_format($resultado->centavosSemBoleto() / 100, 2, ',', '.')],
                 ['Parcelas que já existiam (nada a fazer)', count($resultado->nnsParcelasExistentes())],
-                ['Parcelas existentes ligadas ao acordo (não mexe no saldo hoje; evita dívida dupla ao romper)', count($resultado->parcelasVinculadas())],
+                ['Parcelas existentes ligadas ao acordo (evita dívida dupla ao romper; PARAM de cobrar honorário — ver aviso abaixo)', count($resultado->parcelasVinculadas())],
                 ['Contas já marcadas (nada a fazer)', count($resultado->nnsContasJaMarcadas())],
                 ['Situações de acordo sobrescritas (o importe manda no status)', count($resultado->situacoesSobrescritas())],
                 ['Abas ignoradas', $resultado->totalAbasIgnoradas()],

@@ -387,6 +387,55 @@ final class ImportarAcordosDetalhadosTest extends KernelTestCase
     }
 
     /**
+     * 🔴 A METADE 2, que a 6ª revisão apontou sem prova nenhuma: trocar `pararDeCobrarHonorario()` por
+     * `setTaxaHonorariosBp(0)` deixava a suíte inteira verde. O cenário anterior não observava nada
+     * porque o boleto nascia com honorário ZERO — a metade 2 zerava zero.
+     *
+     * Sem ela a obrigação fica em `bp = 0` com honorário materializado sobrando, e a régua do comando
+     * de reconciliação (`taxaHonorariosBp IS NULL`) **nunca mais a alcança**.
+     */
+    #[TestDox('Parcela vinculada tem o honorário MATERIALIZADO zerado, não só a taxa')]
+    public function testParcelaVinculadaZeraOHonorarioJaMaterializado(): void
+    {
+        [$tenant, $user, $carteiraId, $solta] = $this->cenarioParcelaSoltaComHonorario();
+
+        self::assertGreaterThan(0, $solta->getHonorarios(), 'o cenário só discrimina se houver honorário materializado para zerar');
+
+        $this->importarAcordos->confirmar($carteiraId, $this->leituraParcela61600(), $tenant, $user);
+
+        $this->em->clear();
+        $agora = $this->obrigacao($tenant, '61600');
+        self::assertNotNull($agora);
+        self::assertSame(0, $agora->getTaxaHonorariosBp(), 'metade 1');
+        self::assertSame(0, $agora->getHonorarios(), 'metade 2 — sem ela a obrigação vira um estado que a reconciliação não alcança');
+    }
+
+    /**
+     * ⛔ INV-H1 no vinculador. Congelada é dívida QUITADA, e o snapshot dela é o valor pelo qual ela
+     * foi efetivamente paga — fato histórico. Apagá-lo deixaria `alocado > exigível` numa dívida paga,
+     * e `EncargosVivos` nunca re-hidrata congelada: ficaria assim para sempre.
+     */
+    #[TestDox('Parcela vinculada CONGELADA não tem o snapshot apagado, e a recusa é reportada')]
+    public function testParcelaVinculadaCongeladaPreservaOSnapshot(): void
+    {
+        [$tenant, $user, $carteiraId, $solta] = $this->cenarioParcelaSoltaComHonorario();
+        $honorarioAntes = $solta->getHonorarios();
+        $solta->congelarEncargos(new \DateTimeImmutable('2026-07-20'));
+        $this->em->flush();
+
+        $feito = $this->importarAcordos->confirmar($carteiraId, $this->leituraParcela61600(), $tenant, $user);
+
+        self::assertSame(['61600'], $feito->parcelasVinculadas(), 'o VÍNCULO entra — ele não depende dos encargos');
+        self::assertNotSame([], $feito->divergenciasDeValor(), 'a recusa tem de ser REPORTADA, não silenciada');
+
+        $this->em->clear();
+        $agora = $this->obrigacao($tenant, '61600');
+        self::assertNotNull($agora);
+        self::assertSame($honorarioAntes, $agora->getHonorarios(), 'o valor pelo qual a dívida foi paga é fato histórico');
+        self::assertNull($agora->getTaxaHonorariosBp(), 'nem a taxa: a recusa é das duas metades juntas');
+    }
+
+    /**
      * O contrapeso do teste acima, e ele guarda os R$ 102.126,32 que a primeira versão desta fatia
      * quase apagou: conta original reconstruída **não é parcela**. É a dívida VELHA que o acordo
      * engoliu, e nela a carteira cobra honorário — 3.473 assim em produção, todas de propósito.
@@ -3292,6 +3341,45 @@ final class ImportarAcordosDetalhadosTest extends KernelTestCase
     }
 
     /** @param array<string, mixed> $encargos sobrescreve a config NEUTRA da factory (juros/multa zerados) */
+    /**
+     * Uma parcela SOLTA que JÁ tem honorário materializado — o estado das 3.682 avulsas medidas em
+     * produção (R$ 125.526,35). É o cenário que discrimina a metade 2.
+     *
+     * @return array{0: Tenant, 1: User, 2: int, 3: Obrigacao}
+     */
+    private function cenarioParcelaSoltaComHonorario(): array
+    {
+        $tenant = $this->criarTenant();
+        $user = $this->criarUser();
+        $carteiraId = $this->criarCarteira($tenant, [
+            'taxaJurosMensalBp' => 100,
+            'taxaMultaBp' => 200,
+            'formaHonorarios' => FormaHonorarios::AcrescidoDivida,
+            'percentualHonorarios' => '20.00',
+        ]);
+
+        $this->semear($carteiraId, $tenant, $user, [
+            $this->boleto('61600', competencia: '07/2026', vencimento: '2026-07-15', valor: 19939),
+        ]);
+
+        $solta = $this->obrigacao($tenant, '61600');
+        self::assertNotNull($solta);
+        $solta->definirEncargos(1200, 340, 0, 4295, new \DateTimeImmutable('2026-07-20'));
+        $this->em->flush();
+
+        return [$tenant, $user, $carteiraId, $solta];
+    }
+
+    /** A planilha declara 61600 parcela do acordo 37, pelo MESMO valor que o sistema tem. */
+    private function leituraParcela61600(): ResultadoLeituraAcordos
+    {
+        return new ResultadoLeituraAcordos([$this->acordoDaPlanilha(
+            numero: 37,
+            contas: [],
+            parcelas: [['61600', 1, 4, '07/2026', '2026-07-15', 19939]],
+        )], [], 0);
+    }
+
     private function criarCarteira(Tenant $tenant, array $encargos = []): int
     {
         $carteira = CarteiraFactory::createOne([

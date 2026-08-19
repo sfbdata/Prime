@@ -225,10 +225,36 @@ a soma das parcelas sobe, e `quitada` (`alocado >= valor`) vira `false` em parce
 **Risco adormecido:** se um desses acordos substitutos for rompido, as 135 voltam ao exigível — e aí
 o honorário indevido vira dinheiro no saldo.
 
+### 10.4.1 🔴 O guard PROSPECTIVO age DENTRO do exigível — e isso é decisão do dono
+
+Tudo acima é sobre as 135 já gravadas, todas fora do exigível. O guard do vinculador (§10.5.1) é
+outra coisa: daqui para frente, sempre que a planilha de acordos declarar que um boleto EXISTENTE é
+parcela — e o valor bater —, aquele boleto **para de cobrar honorário**. E boleto avulso está
+**dentro** do saldo.
+
+**Teto medido em produção (19/08):**
+
+| carteira | avulsas com honorário, em caso que tem acordo | honorário |
+|---|---:|---:|
+| TOP LIFE I | 3.556 | R$ 122.196,37 |
+| TOP LIFE II | 78 | R$ 2.084,28 |
+| AMLI BR 060 | 48 | R$ 1.245,70 |
+| **total** | **3.682** | **R$ 125.526,35** |
+
+⚠️ **É TETO, não expectativa.** Só sai do saldo o que a planilha dela declarar como parcela com valor
+batendo — historicamente, **zero** (nenhuma avulsa vinculada existe em produção; as 135 são contas
+reconstruídas, fora do exigível). Mas o número é da mesma ordem do +R$ 126.878,17 que a fatia
+acrescenta, **em sentido contrário**, e por isso não pode ir para produção sem o dono ver.
+
+🔑 **Direção da regra:** é o espelho — ela não cobra encargo em parcela de acordo. Mas o tamanho
+potencial faz disto decisão, não conserto automático.
+
 ### 10.5 O que esta fatia faz
 
-1. `completarParcelas` grava `taxaHonorariosBp = 0` junto do `setAcordoOrigem`, **e só quando o valor
-   do sistema bate com o da planilha** — ver §10.5.1.
+1. `completarParcelas` chama `Obrigacao::pararDeCobrarHonorario()` junto do `setAcordoOrigem`, **e só
+   quando o valor do sistema bate com o da planilha** (§10.5.1). São **duas metades**: grava o
+   override E zera o `honorarios` já materializado. Congelada (dívida quitada) é recusada pela
+   entidade e a recusa é reportada — o snapshot dela é o valor pelo qual a dívida foi paga.
 2. Comando `app:cobranca:reconciliar-honorario-parcela` corrige as 135 já gravadas — `bp = 0` **e**
    `honorarios = 0`, preservando juros, multa e a data do snapshot (INV-H2/H3). Simula primeiro, e só
    grava com `--aplicar` **mais `--ids` da lista que o humano aprovou** (§10.5.2).
@@ -238,7 +264,7 @@ o honorário indevido vira dinheiro no saldo.
 4. Provas por reintrodução executadas nas guardas do CÓDIGO: o override do vínculo, a **condição do
    valor** (§10.5.1), a régua da população (`acordoOrigem`), a cláusula do NN e o filtro de tenant.
    A lista aprovada (§10.5.2) e as travas de CLI têm teste próprio
-   (`ReconciliarHonorarioDeParcelaCommandTest`, 8 casos), no molde do comando irmão.
+   (`ReconciliarHonorarioDeParcelaCommandTest`, 10 casos), no molde do comando irmão.
 
 ### 10.5.1 🔴 Por que o guard é CONDICIONADO ao valor bater
 

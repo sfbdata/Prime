@@ -275,16 +275,27 @@ class Obrigacao implements TenantAware, Auditavel
      * `encargosAtualizadosEm` é PRESERVADO (INV-H2): isto REMOVE uma soma indevida de um snapshot, não
      * recalcula nada. Sem snapshot (nunca materializada), só o override entra — não há o que zerar, e
      * inventar uma data aqui seria o defeito que a frente vizinha está consertando.
+     *
+     * ⛔ **CONGELADA é recusada (INV-H1), e a recusa mora AQUI de propósito.** O comando de
+     * reconciliação já filtrava congelada antes de chamar; o vinculador do importador não filtrava
+     * nada — e congelada, em produção, é sinônimo de LIQUIDADA (8.788, todas). O snapshot de uma
+     * dívida quitada é fato histórico: o valor pelo qual ela foi efetivamente paga. Apagá-lo deixaria
+     * `alocado > exigível` numa dívida paga, e `EncargosVivos` nunca re-hidrata congelada — ficaria
+     * assim para sempre. Devolve `false` para o chamador poder reportar em vez de silenciar.
      */
-    public function pararDeCobrarHonorario(): self
+    public function pararDeCobrarHonorario(): bool
     {
+        if ($this->encargosCongelados()) {
+            return false;
+        }
+
         $this->taxaHonorariosBp = 0;
 
         if ($this->encargosAtualizadosEm !== null) {
             $this->honorarios = 0;
         }
 
-        return $this;
+        return true;
     }
 
     /**

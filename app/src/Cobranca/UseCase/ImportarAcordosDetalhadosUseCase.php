@@ -684,7 +684,14 @@ final class ImportarAcordosDetalhadosUseCase
                             // Gravar só o override deixaria a obrigação em `bp = 0` com o honorário
                             // antigo ainda materializado, e a régua do comando de reconciliação
                             // (`taxaHonorariosBp IS NULL`) nunca mais a alcançaria.
-                            $existente->pararDeCobrarHonorario();
+                            //
+                            // A recusa da CONGELADA vem de dentro do método (INV-H1) e é REPORTADA:
+                            // congelada é dívida quitada, e o snapshot dela é o valor pelo qual foi
+                            // paga. Silenciar aqui esconderia do operador que a parcela ficou com o
+                            // honorário que a contabilidade não cobra.
+                            if (!$existente->pararDeCobrarHonorario()) {
+                                $divergencias[] = sprintf('%s: vinculada ao acordo, mas os encargos estão CONGELADOS (dívida quitada) — o honorário gravado NÃO foi zerado.', $parcela->nn);
+                            }
                         }
                         $this->obrigacaoRepository->salvar($existente, true);
                     }
