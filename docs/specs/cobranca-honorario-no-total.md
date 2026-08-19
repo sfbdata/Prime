@@ -150,3 +150,114 @@ Testes obrigatórios:
 
 ⚠️ **O total na tela sobe ~R$ 126 mil.** O dono avisa a equipe de cobrança antes do deploy. Não é
 dinheiro novo: é dinheiro que a contabilidade já cobrava e o sistema não mostrava.
+
+## 10. 🔴 O quarto criador de obrigação não tinha o guard — as 135 parcelas
+
+Achado de 19/08, **medido em produção**, e é o item que esta fatia fecha antes de qualquer outro:
+a própria fatia transformaria um defeito de exibição em cobrança a mais.
+
+### 10.1 Onde elas nascem
+
+Existem **quatro** pontos que criam `Obrigacao` pelos importadores. Três põem o override
+`taxa_honorarios_bp = 0`; **um não punha**:
+
+| # | onde | guard |
+|---|---|---|
+| 1 | `ImportarRelatorioCarteiraUseCase::obrigacaoInput()` (linha de acordo) | ✅ |
+| 2 | `ImportarAcordosDetalhadosUseCase::parcelaInput()` | ✅ |
+| 3 | `ImportarReceitasUseCase` (ramo `$ehParcela`) | ✅ |
+| 4 | **`ImportarAcordosDetalhadosUseCase::reconstruirContaOriginal()`** | ❌ **era o furo** |
+
+🔑 **O handoff dizia "dois importadores já aplicam o guard". São três.** Mais uma vez o inventário
+por `grep` de método contou a menos — a mesma armadilha que fez a §2 desta spec dizer "três cópias
+do exigível" quando são cinco.
+
+**Prova de que as 135 vêm daí, e não de outro caminho:** `reconstruirContaOriginal` carimba a
+procedência na descrição (`descricaoComProcedencia`). **135 de 135 carregam o texto
+"Reconstruída da planilha de acordos"**, que nenhum outro caminho escreve. Nenhuma veio da tela.
+
+### 10.2 Por que o guard pertence a ela — o gatilho é OUTRO
+
+Nos casos 1–3 o gatilho é *"é parcela de acordo, e o valor negociado já embute o honorário"*.
+`reconstruirContaOriginal` **não cria parcela** — cria conta original substituída. O gatilho aqui é
+outro, e está no adapter:
+
+> `AcordosDetalhadosAdapter::montarContaOriginal()`: *"Uma conta original é o GRUPO de linhas do
+> mesmo NN+competência, **somado** (...) o valor é a soma de todas."*
+
+Ou seja: `valorOriginal` recebe o boleto INTEIRO — principal **mais** as linhas `1.4 - Juros`,
+`1.5 - Multas` e **`1.15 - Honorário advocatício`**. O honorário já está dentro. Cobrá-lo de novo por
+taxa é contar duas vezes o mesmo dinheiro dela.
+
+**Confirmado no dado real (relatório de acordos de 17/08, produção):** o `valorOriginal` das 135 bate
+com a soma da coluna Valor daquele NN em **135/135, ao centavo** (R$ 21.796,35 dos dois lados), e
+dentro dessa soma há **R$ 2.047,95 em linhas `1.15 - Honorário advocatício`**, distribuídas em 20
+obrigações — 8 das quais são, elas mesmas, linha de honorário.
+
+E a régua dela é explícita: no relatório de acordos, de **8.671 linhas de parcela, ZERO** têm juros,
+multa, honorário ou total. Ela declara só o Valor acordado. Cobrar encargo por cima é o sistema
+formando opinião — §1.1.
+
+### 10.3 O tamanho medido — e onde ele NÃO está
+
+⚠️ **Correção do handoff §7.1: os R$ 2.764,16 NÃO estão sendo cobrados, e a fatia não os cobraria
+pelo saldo.** As 135 têm `acordo_substituto` **vigente** (`cumprido`), e `aplicarExigibilidade`
+exclui exatamente isso. Rodado contra produção: **0 de 135 entram no exigível.**
+
+A exposição real é **outra, e maior** — a tela de detalhe do acordo. `MontarDetalheAcordoUseCase` lê
+`$acordo->getParcelas()` **sem filtro de exigibilidade** e **hidrata ao vivo**. Os 135 acordos de
+origem são todos vigentes (48 `ativo` + 87 `cumprido`), então todas hidratam:
+
+| | |
+|---:|---:|
+| honorário gravado hoje | R$ 2.764,16 |
+| **honorário que a tela somaria** | **R$ 4.736,15** (piso) |
+
+É piso porque a hidratação recalcula juros e multa para hoje e o honorário é 20% sobre a soma. Efeito
+colateral: `quitada` (`alocado >= valor`) vira `false` em parcela que **está paga**.
+
+**Risco adormecido:** se um desses acordos substitutos for rompido ou cancelado, as 135 voltam ao
+exigível — e aí o honorário indevido vira dinheiro no saldo.
+
+### 10.4 Os caminhos que só LIGAM: medidos como ZERO, e por que NÃO são tocados
+
+Três caminhos ligam `acordoOrigem` a uma obrigação que já existia, sem tocar o override:
+`ImportarAcordosDetalhadosUseCase:641` · `ImportarRelatorioCarteiraUseCase:246` ·
+`ImportarReceitasUseCase:471` (`garantirVinculoAoAcordo`).
+
+**Medido em produção: eles produziram ZERO linhas erradas.** Das 135 com `bp` nulo, 135 vêm de
+`reconstruirContaOriginal`; nenhuma é avulsa apenas vinculada. Entram aqui como número medido, não
+como pendência (regra da casa: achado medido como zero não vira problema aberto).
+
+🔴 **E há motivo positivo para NÃO os tocar.** `taxa_honorarios_bp = 0` carrega **dois** significados:
+é override de encargo **e** é o sinal que decide a alocação em
+`ImportarReceitasUseCase:256` —
+
+    $honorarioEmbutidoNoValorOriginal = $acordo !== null && $obrigacao->getTaxaHonorariosBp() === 0;
+    $valorAlocado = $honorarioEmbutidoNoValorOriginal ? totalRecebido() : recuperadoDivida();
+
+Uma avulsa comum tem `valorOriginal = principalCentavos` (honorário **fora**). Gravar `bp = 0` ao
+ligá-la faria a importação de receitas alocar o valor **bruto** contra um valor que não contém o
+honorário — abatendo a mais e quitando dívida que não quitou. **O guard no criador é seguro; no
+vinculador, não é.** Se um dia surgir avulsa vinculada, o conserto é separar os dois significados,
+não repetir o `0`.
+
+### 10.5 O que esta fatia faz
+
+1. `reconstruirContaOriginal` passa a gravar `modoHonorarios = 'percent'` + `honorariosBp = 0`,
+   com o gatilho da §10.2 escrito no código.
+2. Comando de correção das 135 já gravadas: `taxa_honorarios_bp = 0` **e** `honorarios = 0` (é o que
+   a materialização na data do acordo teria produzido com o guard). Simula primeiro; só grava com
+   `--aplicar`.
+3. Teste provado por reintrodução: apaga o guard, vê vermelho, restaura, vê verde.
+
+### 10.6 O que fica FORA (fatia própria, decidida pelo dono em 19/08)
+
+`CriarAcordoUseCase` e `EditarAcordoUseCase` criam parcela sem override nenhum. **Decisão do dono: a
+escolha é do usuário, não do sistema** — a tela vai oferecer "cobrar honorário sobre as parcelas?",
+padrão **não cobrar**, e o campo fica **somente leitura** em acordo que veio da contabilidade (todos
+os 398 de hoje), para ninguém quebrar o espelho sem querer.
+
+Sai desta fatia porque exige **migration** (a escolha mora no acordo, para a parcela acrescentada
+depois nascer igual às irmãs) e porque **não muda número nenhum hoje**: medido em produção, das
+2.041 parcelas de acordo, **zero** nasceram na tela — todas têm NN da contabilidade.

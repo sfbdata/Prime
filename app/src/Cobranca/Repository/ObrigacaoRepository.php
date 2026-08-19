@@ -534,4 +534,41 @@ class ObrigacaoRepository extends ServiceEntityRepository
             ->getQuery()
             ->getResult();
     }
+
+    /**
+     * As contas originais RECONSTRUÍDAS da planilha de acordos que ficaram sem o override de honorário
+     * — a população da correção da spec `cobranca-honorario-no-total.md` §10.
+     *
+     * 🔑 **A marca de procedência é a chave, e não "parcela sem override".** As três condições abaixo
+     * não são intercambiáveis: `acordoOrigem IS NOT NULL` + `taxaHonorariosBp IS NULL` também casaria
+     * uma AVULSA apenas vinculada a um acordo, cujo `valorOriginal` é `principalCentavos` e **não**
+     * contém o honorário. Zerar a taxa dela removeria cobrança legítima e, pior, mudaria a alocação da
+     * importação de receitas, que lê `taxaHonorariosBp === 0` como "o honorário já está no valor"
+     * (`ImportarReceitasUseCase`). O que autoriza a correção é a procedência: só a conta reconstruída
+     * nasce com o boleto SOMADO (`AcordosDetalhadosAdapter::montarContaOriginal`), honorário dentro.
+     *
+     * Medido em produção em 19/08: 135 obrigações, 135 com a marca — nenhuma avulsa vinculada existe.
+     *
+     * Devolve ENTIDADES managed: o chamador corrige e flusha na mesma unidade de trabalho.
+     * Tenant EXPLÍCITO — isto roda em console, onde o `TenantFilter` nunca liga.
+     *
+     * @return list<Obrigacao>
+     */
+    public function reconstruidasSemOverrideDeHonorario(Carteira $carteira, Tenant $tenant, string $marca): array
+    {
+        return $this->createQueryBuilder('o')
+            ->join('o.caso', 'c')
+            ->join('c.objeto', 'obj')
+            ->andWhere('obj.carteira = :carteira')
+            ->andWhere('o.tenant = :tenant')
+            ->andWhere('o.acordoOrigem IS NOT NULL')
+            ->andWhere('o.taxaHonorariosBp IS NULL')
+            ->andWhere('o.descricao LIKE :marca')
+            ->setParameter('carteira', $carteira)
+            ->setParameter('tenant', $tenant)
+            ->setParameter('marca', '%' . $marca . '%')
+            ->orderBy('o.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
 }

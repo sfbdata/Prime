@@ -74,6 +74,18 @@ use Doctrine\ORM\EntityManagerInterface;
 final class ImportarAcordosDetalhadosUseCase
 {
     /**
+     * A marca de procedência da conta original RECONSTRUÍDA (§3.2.1), gravada na descrição porque a
+     * `Obrigacao` não tem campo de observação. É o ÚNICO sinal durável que distingue a conta
+     * reconstruída a partir da planilha do boleto importado de verdade.
+     *
+     * Constante, e não literal repetido, porque quem CORRIGE precisa achar exatamente o que quem
+     * ESCREVE gravou: `ReconciliarHonorarioDeParcelaUseCase` seleciona a população por esta marca
+     * (spec `cobranca-honorario-no-total.md` §10.5). Duas cópias do texto divergiriam em silêncio, e o
+     * corretor passaria a não achar nada — falhando exatamente como um "nada a fazer" legítimo.
+     */
+    public const MARCA_RECONSTRUIDA = 'Reconstruída da planilha de acordos';
+
+    /**
      * Situações da fonte que o domínio sabe traduzir (§3). Comparadas em minúsculas e sem acento.
      *
      * As três strings foram MEDIDAS nos arquivos reais de 04/08 (`Situação: …` da primeira aba), não
@@ -1049,7 +1061,7 @@ final class ImportarAcordosDetalhadosUseCase
         ConfigEncargos $configCaso,
     ): void {
         $procedencia = sprintf(
-            'Reconstruída da planilha de acordos (emissão %s)',
+            self::MARCA_RECONSTRUIDA . ' (emissão %s)',
             $aba->emissao?->format('d/m/Y') ?? 'sem data',
         );
 
@@ -1060,6 +1072,24 @@ final class ImportarAcordosDetalhadosUseCase
         $input->vencimentoOriginal = $conta->vencimento;
         $input->referenciaExterna = $conta->nn;
         $input->competencia = $conta->competencia;
+        // Honorários ZERO por TAXA — o QUARTO criador de obrigação dos importadores, e o único que não
+        // tinha o guard (spec `cobranca-honorario-no-total.md` §10). O gatilho aqui NÃO é "é parcela de
+        // acordo", como nos outros três: é o que `AcordosDetalhadosAdapter::montarContaOriginal()` faz
+        // com o valor — *"uma conta original é o GRUPO de linhas do mesmo NN+competência, SOMADO"*. Ou
+        // seja, `valorCentavos` traz o boleto inteiro, incluindo as linhas `1.4 - Juros`,
+        // `1.5 - Multas` e `1.15 - Honorário advocatício`. O honorário JÁ ESTÁ dentro do valorOriginal;
+        // aplicar a taxa da cascata em cima cobraria o mesmo dinheiro dela duas vezes.
+        //
+        // Medido em produção (19/08): 135 obrigações nasceram aqui sem o override — 135/135 com o
+        // valorOriginal batendo ao centavo com a soma da coluna Valor do NN no relatório dela, e
+        // R$ 2.047,95 dessa soma em linhas `1.15`. O relatório de acordos não tem coluna de encargo
+        // nenhuma (0 de 8.671 linhas de parcela com juros, multa, honorário ou total): ela declara só o
+        // Valor acordado, e o sistema copia.
+        //
+        // `modoHonorarios = 'percent'` é obrigatório junto: no default `'herda'` o
+        // `ConversorTaxaEncargo` devolve null e o zero seria descartado antes de chegar à entidade.
+        $input->modoHonorarios = 'percent';
+        $input->honorariosBp = 0;
 
         $nova = $this->registrarObrigacao->executar($input, $tenant, $usuario);
 

@@ -14,6 +14,7 @@ use App\Cobranca\Entity\Obrigacao;
 use App\Cobranca\Entity\Pagamento;
 use App\Cobranca\Entity\Pessoa;
 use App\Cobranca\Entity\VinculoPessoaObjeto;
+use App\Cobranca\Enum\FormaHonorarios;
 use App\Cobranca\Enum\ModoCarteira;
 use App\Cobranca\Enum\StatusAcordo;
 use App\Cobranca\Enum\StatusCaso;
@@ -276,6 +277,49 @@ final class ImportarAcordosDetalhadosTest extends KernelTestCase
         $descricao = (string) $this->obrigacao($tenant, '60049')?->getDescricao();
         self::assertStringContainsString('planilha de acordos', $descricao, 'sem isto ninguém distingue boleto importado de conta reconstruída');
         self::assertStringContainsString('29/07/2026', $descricao, 'a data de emissão do relatório de origem');
+    }
+
+    /**
+     * O QUARTO criador de obrigação dos importadores — spec `cobranca-honorario-no-total.md` §10.
+     *
+     * `AcordosDetalhadosAdapter::montarContaOriginal()` SOMA todas as linhas do NN (principal + juros +
+     * multa + `1.15 - Honorário advocatício`) num único `valorCentavos`. O honorário já está DENTRO do
+     * `valorOriginal`; sem o override a cascata da carteira o cobraria de novo, sobre um valor que já o
+     * contém. Em produção isso gerou 135 obrigações (07/08) e, com o honorário dentro do exigível,
+     * viraria R$ 4.736,15 a mais na tela do acordo.
+     *
+     * ⚠️ A carteira NEUTRA da factory (todas as taxas em zero) faria este teste passar sem o conserto —
+     * a asserção seria tautológica. Por isso o cenário usa honorário de 20% e a asserção de juros > 0
+     * abaixo prova que a cascata está VIVA quando o honorário dá zero.
+     */
+    #[TestDox('Conta reconstruída NÃO cobra honorário: o valor somado da planilha já o contém')]
+    public function testContaReconstruidaNaoCobraHonorarioPorCima(): void
+    {
+        $tenant = $this->criarTenant();
+        $user = $this->criarUser();
+        $carteiraId = $this->criarCarteira($tenant, [
+            'taxaJurosMensalBp' => 100,
+            'taxaMultaBp' => 200,
+            'formaHonorarios' => FormaHonorarios::AcrescidoDivida,
+            'percentualHonorarios' => '20.00',
+        ]);
+
+        $this->semear($carteiraId, $tenant, $user, [
+            $this->boleto('61372', competencia: '07/2026', vencimento: '2026-07-01', valor: 40068, acordo: new AcordoDoRelatorio(31, 1, 3)),
+        ]);
+        $this->casoEAcordo($tenant, 31);
+
+        $this->importarAcordos->confirmar($carteiraId, $this->leituraAcordo31(), $tenant, $user);
+
+        $reconstruida = $this->obrigacao($tenant, '60049');
+        self::assertNotNull($reconstruida);
+
+        // O cenário só discrimina se a cascata gerar encargo de verdade nesta obrigação.
+        self::assertGreaterThan(0, $reconstruida->getJuros(), 'sem juros a carteira está neutra e o teste não prova nada');
+
+        // O DINHEIRO primeiro: é esta asserção que a prova por reintrodução tem de matar.
+        self::assertSame(0, $reconstruida->getHonorarios(), 'o honorário já está dentro do valorOriginal somado da planilha; materializá-lo aqui o cobraria duas vezes');
+        self::assertSame(0, $reconstruida->getTaxaHonorariosBp(), 'o override tem de ser GRAVADO, não só dar zero hoje — é ele que impede a hidratação ao vivo de reintroduzir o honorário na próxima leitura');
     }
 
     #[TestDox('Conta reconstruída não é recriada na segunda execução (idempotência por NN+competência)')]
