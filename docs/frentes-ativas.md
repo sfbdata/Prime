@@ -9,6 +9,25 @@ Quem abre uma frente acrescenta a linha. Quem integra tira.
 |---|---|---|---|---|---|
 | `cobranca-acompanhamento-canonico` | Cobrança (modelo objeto/caso) | **sim — 4** | `docs/gestao-cobrancas/` | 🛑 **PARADA** (ver abaixo) | `origin/master` @ `0bb1f29` |
 | `expediente-ux` | Expediente + Pasta (telas) | não | `app/templates/expediente/`, `app/templates/pasta/` | implementando, **28 commits atrás do master** | `origin/codex/colaboracao-cobrancas` |
+| `cobranca-honorario-no-total` | Cobrança (núcleo do dinheiro) | não | `Obrigacao.php`, `CalculadoraSaldo`, `EncargosVivos`, `ReconciliadorLiquidacao`, `AutoAlocadorFifo`, `_divida.html.twig` | implementando | `master` local @ `fda1b466` |
+| *(worktree do subagente)* `reconciliar-data-acordo` | Cobrança (comando) | não | **nenhum** — só arquivos novos | implementando | `master` local @ `aea6d099` |
+
+### 🟡 Duas frentes de Cobrança ao mesmo tempo (19/08) — e por que isto NÃO viola a regra do domínio
+
+A regra é "um domínio por frente, porque duas no mesmo domínio conflitam quase sempre". Aqui elas
+correm juntas de propósito, com o conflito eliminado por **contrato**, não por sorte:
+
+- **Escrita disjunta.** A do honorário mexe no núcleo (`valorExigivel()` e suas duas cópias); a do
+  comando **só cria arquivos novos** (`ReconciliarDataAcordoCommand`, seu UseCase, DTO e testes) e
+  tem proibição explícita de tocar `Obrigacao.php`, `Acordo.php` e os serviços de cálculo.
+- **O acoplamento real foi cortado:** o comando **não pode usar `valorExigivel()` nem
+  `totalComHonorarios()`** (spec `cobranca-reconciliar-data-acordo.md` §5.2). Sem isso, o honorário
+  mudaria os números que o comando imprime e **uma frente falsearia a prova da outra**.
+- **Integração em série**, como sempre: um commit por vez, testes direcionados depois de cada um,
+  suíte completa no master ao final.
+
+Se as duas precisarem do mesmo arquivo, a do honorário vai primeiro e a do comando rebaseia — nunca
+o contrário: o núcleo do dinheiro não espera por um comando.
 
 `pasta-valor-causa` foi **integrada em 2026-08-17** (fast-forward para `3629b19a`). Trouxe a migration
 `Version20260814120000` — uma coluna `valor_causa` em `pasta`, aditiva e anulável, que não toca nenhuma
