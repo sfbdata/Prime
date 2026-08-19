@@ -139,6 +139,64 @@ aposentada em quatro pontos, e o rateio do pagamento passa a vir **do relatório
 chamada, quais gravam, quanto muda em produção). Foi essa medição que impediu a quebra silenciosa em
 19/08 — e a §5 abaixo, escrita antes dela, subestimou o problema.
 
+## 4.4 A superfície da SPEC §18, medida (19/08) — e por que A é menor do que parecia
+
+Medido do mesmo jeito que a superfície do `valorExigivel()`: pontos de chamada reais, quais gravam, e
+o que muda no dado de produção.
+
+### Pontos de chamada — 6, em 4 arquivos
+
+| onde | método | grava? | o que A faz com ele |
+|---|---|---|---|
+| `AlocadorPagamento:42` | `ratearPagamento` | 🔴 **sim** | some: aloca o valor cheio |
+| `AutoAlocadorFifo:59` | `ratearPagamento` | 🔴 **sim** | some: distribui o valor cheio |
+| `MontarDetalheCasoUseCase:139` | `brutoParaRecuperar` | não | some: o bruto passa a ser o próprio exigível |
+| `MontarDashboardCobrancaUseCase:181` | `forma` | não | some |
+| `MontarDashboardCobrancaUseCase:184` | `realizadosSobreRecuperacao` | não | some |
+| `MontarDashboardCobrancaUseCase:201` | `projetados` | não | vira Σ do honorário gravado |
+
+E três lugares gravam os baldes do `Pagamento`: `RegistrarPagamentoUseCase:86-88` e
+`CorrigirPagamentoUseCase:103-105` (ambos alimentados pelo rateio) e `ImportarReceitasUseCase:625-627`
+(alimentado pelo **relatório dela** — já é modelo A).
+
+🔑 **`FormaHonorarios` aparece em 21 arquivos, mas quase todos são CONFIGURAÇÃO** (formulários de
+carteira/caso, controllers, DTOs). A aposenta o **rateio**, não o enum. Não confundir os dois
+escopos — é a diferença entre uma fatia média e uma reescrita.
+
+### O dado de produção já está na forma de A
+
+| | |
+|---|---:|
+| pagamentos em produção | 8.902 |
+| **ambíguos** (os dois modelos dariam o mesmo) | 7.748 |
+| **decisivos** (os modelos divergem) | **1.154** · R$ 77.616,81 |
+| decisivos que seguem o **modelo A** (aloca o total) | **1.154** |
+| decisivos que seguem o **modelo B** (aloca só a dívida) | **0** |
+
+**O rateio da §18 nunca produziu uma alocação em produção.** A causa está no código e é deliberada:
+`ImportarReceitasUseCase::registrarRecebimento` **não passa pelo alocador** — cria o pagamento com os
+três baldes exatamente como a contabilidade declara ("*a contabilidade já rateou e é contra o rodapé
+dela que a conferência fecha*") e aloca o valor cheio.
+
+Consequências, todas boas para A:
+
+1. **Não há migração de dado.** A produção já está na forma que A quer.
+2. O rateio governa só o caminho **manual** (registrar/corrigir pagamento pela tela), que neste
+   acervo nunca foi exercido.
+3. A não "muda o sistema": ela **alinha o caminho manual ao que o importador já faz**.
+
+⚠️ **Reporte pelo recorte:** os 7.748 ambíguos não provam nada — não têm encargo nem honorário no
+pagamento, então os dois modelos coincidem. Quem decide são os 1.154, e esses são unânimes.
+
+### O que A precisa decidir (proposta, não decisão tomada)
+
+No caminho manual, quem preenche os três baldes do `Pagamento` se o rateio sumir? A proposta coerente
+com a regra do espelho é: **o sistema não inventa split**. Pagamento manual grava
+`valorDivida = total` e os outros zero; o split só existe quando **ela** o declara (importador). O
+`Pagamento` deixa de ser opinião e passa a ser registro.
+
+Isso muda o que a tela do dashboard chama de "honorário realizado" — e aí é **do dono**.
+
 ## 5. A ordem de alocação — a pergunta se dissolve
 
 O handoff manda *"não escolham uma ordem: descubram a dela"*. Medido, a resposta é que **não há
