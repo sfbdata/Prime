@@ -167,6 +167,31 @@ final class MoverPastaSecaoUseCaseTest extends TestCase
         self::assertSame($destino, $r->getPai());
     }
 
+    public function testRecusaComboCicloEProfundidadeAcusaCiclo(): void
+    {
+        // Duas violações ao mesmo tempo: $destino é descendente de $secao (ciclo) e a soma
+        // profundidade(destino) + altura(secao) também estouraria o teto. A mensagem tem que
+        // ser a do CICLO — se a checagem de profundidade rodasse primeiro, a mensagem mudaria
+        // (para "10 níveis") e este teste denunciaria a inversão.
+        $secao   = $this->secao('R');
+        $destino = $secao;
+        for ($i = 0; $i < 5; ++$i) {
+            $destino = $this->secao('N' . $i, $destino);
+        }
+        self::assertSame(6, $destino->getProfundidade(), 'sanidade do arranjo');
+        self::assertSame(6, $secao->getAltura(), 'sanidade do arranjo');
+        self::assertTrue($destino->descendeDe($secao), 'sanidade do arranjo: destino é descendente da seção');
+        self::assertGreaterThan(
+            10,
+            $destino->getProfundidade() + $secao->getAltura(),
+            'sanidade do arranjo: também estouraria o teto de profundidade',
+        );
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('dentro dela mesma');
+        $this->useCase->executar($secao, $destino, $this->autor, $this->tenant);
+    }
+
     public function testRecusaDestinoDeOutroTenant(): void
     {
         $a = $this->secao('A');
@@ -193,6 +218,21 @@ final class MoverPastaSecaoUseCaseTest extends TestCase
         $b->setPasta(new Pasta());
 
         $this->expectException(\InvalidArgumentException::class);
+        $this->useCase->executar($a, $b, $this->autor, $this->tenant);
+    }
+
+    public function testTenantEhVerificadoAntesDaPasta(): void
+    {
+        // $destino é de outro tenant E de outra pasta ao mesmo tempo. A ordem dos guards decide
+        // o HTTP que o controller devolve (tenant → 403, pasta → 422) — se a checagem de pasta
+        // rodasse antes da de tenant, este teste passaria a falhar com InvalidArgumentException
+        // em vez de AccessDeniedException.
+        $a = $this->secao('A');
+        $b = $this->secao('B');
+        $b->setTenant(new Tenant());
+        $b->setPasta(new Pasta());
+
+        $this->expectException(AccessDeniedException::class);
         $this->useCase->executar($a, $b, $this->autor, $this->tenant);
     }
 }
