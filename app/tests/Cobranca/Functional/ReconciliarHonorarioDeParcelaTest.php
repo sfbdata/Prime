@@ -14,6 +14,7 @@ use App\Cobranca\Enum\BaseEncargo;
 use App\Cobranca\Enum\FormaHonorarios;
 use App\Cobranca\Enum\RegimeJuros;
 use App\Cobranca\Enum\StatusAcordo;
+use App\Cobranca\Exception\AprovacaoNaoConfereException;
 use App\Cobranca\Exception\UniversoDaListaMudouException;
 use App\Cobranca\UseCase\ImportarAcordosDetalhadosUseCase;
 use App\Cobranca\UseCase\ReconciliarHonorarioDeParcelaUseCase;
@@ -86,7 +87,7 @@ final class ReconciliarHonorarioDeParcelaTest extends KernelTestCase
         $reconstruida = $this->parcelaSemOverride($caso, '60049', honorarios: 3658, juros: 1200, multa: 340);
         $usuario = $this->usuarioDo($carteira);
 
-        $r = $this->reconciliar->confirmar([$carteira], $this->tenantDe($carteira), $usuario);
+        $r = $this->reconciliar->confirmar([$carteira], $this->tenantDe($carteira), $usuario, $this->todosOsCandidatos($carteira));
 
         self::assertTrue($r->aplicou);
         self::assertSame(3658, $r->honorarioRemovidoEmCentavos());
@@ -176,30 +177,68 @@ final class ReconciliarHonorarioDeParcelaTest extends KernelTestCase
     }
 
     /**
-     * 🔴 INV-H0, achado da 3ª revisão. O guard de `completarParcelas` só grava o override quando o
-     * `valorOriginal` já é o Valor acordado da planilha. O comando não tem a planilha na mão — se
-     * corrigisse tudo que é "parcela sem override", desfaria a proteção do importador na primeira
-     * avulsa vinculada com valor divergente. Ele PULA e reporta, em vez de adivinhar.
+     * 🔴 INV-H0, e ele é o coração desta fatia depois de três revisões.
+     *
+     * O guard do importador condiciona ao valor bater com a planilha; o comando não tem a planilha. As
+     * três réguas automáticas tentadas para contornar isso (procedência, papel, marca na descrição)
+     * foram todas derrubadas — a última porque, medido em produção, as 1.906 parcelas CERTAS não têm
+     * a marca e no dev nenhuma das candidatas tinha. A varredura passou a apenas PROPOR.
      */
-    #[TestDox('Parcela vinculada sem procedência provável é PULADA, não corrigida')]
-    public function testPulaParcelaSemProcedenciaProvavel(): void
+    #[TestDox('Candidata fora da lista aprovada é PULADA, não corrigida')]
+    public function testNaoEscreveForaDaListaAprovada(): void
     {
         $carteira = $this->carteiraTopLife();
         $caso = $this->caso($carteira, 'QD 05 CH 03');
+        $aprovada = $this->parcelaSemOverride($caso, '60049', honorarios: 3658);
+        $recusada = $this->parcelaSemOverride($caso, '70001', honorarios: 5000);
+        $usuario = $this->usuarioDo($carteira);
 
-        // Mesma assinatura de coluna das 135 — parcela, sem override, com NN. Só a descrição muda.
-        $avulsa = $this->obrigacaoDeAcordo($caso, '70001', descricao: '1.1 - Taxa de condomínio — competência 03/2025', honorarios: 5000);
+        $r = $this->reconciliar->confirmar(
+            [$carteira],
+            $this->tenantDe($carteira),
+            $usuario,
+            [(int) $aprovada->getId()],
+        );
 
-        $r = $this->reconciliar->prever([$carteira], $this->tenantDe($carteira));
-
-        self::assertSame(1, $r->candidatas, 'ela ENTRA no universo — a régua de dinheiro é o papel');
-        self::assertCount(0, $r->corrigidas, 'mas não é corrigida: o comando não sabe se o valor é o negociado');
+        self::assertSame(2, $r->candidatas, 'as duas ENTRAM no universo — a régua de dinheiro é o papel');
+        self::assertCount(1, $r->corrigidas, 'só a aprovada é escrita');
         self::assertCount(1, $r->puladas);
         self::assertSame(5000, $r->honorarioQueFicouEmCentavos(), 'pular não é no-op — o valor que fica sai no relatório');
         self::assertTrue($r->contasFecham());
 
-        $this->em->refresh($avulsa);
-        self::assertNull($avulsa->getTaxaHonorariosBp());
+        $this->em->clear();
+        self::assertSame(0, $this->em->getRepository(Obrigacao::class)->find($aprovada->getId())?->getTaxaHonorariosBp());
+        self::assertNull(
+            $this->em->getRepository(Obrigacao::class)->find($recusada->getId())?->getTaxaHonorariosBp(),
+            'tirar a linha da lista é como o humano recusa uma obrigação',
+        );
+    }
+
+    #[TestDox('Id aprovado que sumiu do universo ABORTA tudo — nada é gravado')]
+    public function testAbortaSeIdAprovadoSumiu(): void
+    {
+        $carteira = $this->carteiraTopLife();
+        $caso = $this->caso($carteira, 'QD 05 CH 03');
+        $real = $this->parcelaSemOverride($caso, '60049', honorarios: 3658);
+        $usuario = $this->usuarioDo($carteira);
+
+        try {
+            $this->reconciliar->confirmar(
+                [$carteira],
+                $this->tenantDe($carteira),
+                $usuario,
+                [(int) $real->getId(), 999999],
+            );
+            self::fail('a aprovação tinha de abortar');
+        } catch (AprovacaoNaoConfereException $e) {
+            self::assertSame([999999], $e->idsQueSumiram);
+        }
+
+        $this->em->clear();
+        self::assertNull(
+            $this->em->getRepository(Obrigacao::class)->find($real->getId())?->getTaxaHonorariosBp(),
+            'a transação tem de ter desfeito TUDO — correção parcial que ninguém aprovou é o pior desfecho',
+        );
     }
 
     #[TestDox('Congelada é PULADA e o honorário que fica sai no relatório, com valor')]
@@ -227,8 +266,8 @@ final class ReconciliarHonorarioDeParcelaTest extends KernelTestCase
         $this->parcelaSemOverride($this->caso($carteira, 'QD 05 CH 03'), '60049', honorarios: 3658);
         $usuario = $this->usuarioDo($carteira);
 
-        $this->reconciliar->confirmar([$carteira], $this->tenantDe($carteira), $usuario);
-        $segunda = $this->reconciliar->confirmar([$carteira], $this->tenantDe($carteira), $usuario);
+        $this->reconciliar->confirmar([$carteira], $this->tenantDe($carteira), $usuario, $this->todosOsCandidatos($carteira));
+        $segunda = $this->reconciliar->confirmar([$carteira], $this->tenantDe($carteira), $usuario, $this->todosOsCandidatos($carteira));
 
         self::assertSame(0, $segunda->candidatas, 'com o override gravado a consulta não casa mais a obrigação');
     }
@@ -240,7 +279,7 @@ final class ReconciliarHonorarioDeParcelaTest extends KernelTestCase
         $caso = $this->caso($carteira, 'QD 05 CH 03');
         $this->parcelaSemOverride($caso, '60049', honorarios: 3658);
 
-        $r = $this->reconciliar->confirmar([$carteira], $this->tenantDe($carteira), $this->usuarioDo($carteira));
+        $r = $this->reconciliar->confirmar([$carteira], $this->tenantDe($carteira), $this->usuarioDo($carteira), $this->todosOsCandidatos($carteira));
 
         self::assertSame(1, $r->casosComEvento);
 
@@ -267,6 +306,7 @@ final class ReconciliarHonorarioDeParcelaTest extends KernelTestCase
                 [$carteira],
                 $this->tenantDe($carteira),
                 $usuario,
+                $this->todosOsCandidatos($carteira),
                 new ExpectativaDaLista(9, 999999),
             );
             self::fail('a trava tinha de abortar');
@@ -360,6 +400,15 @@ final class ReconciliarHonorarioDeParcelaTest extends KernelTestCase
         ])->_real();
 
         return $acordo;
+    }
+
+    /** Os ids de tudo que a varredura propõe — o equivalente a aprovar a simulação inteira. */
+    private function todosOsCandidatos(Carteira $carteira): array
+    {
+        return array_column(
+            $this->reconciliar->prever([$carteira], $this->tenantDe($carteira))->corrigidas,
+            'obrigacaoId',
+        );
     }
 
     private function carteiraTopLife(): Carteira

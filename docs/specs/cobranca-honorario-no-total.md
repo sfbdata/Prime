@@ -230,14 +230,15 @@ o honorário indevido vira dinheiro no saldo.
 1. `completarParcelas` grava `taxaHonorariosBp = 0` junto do `setAcordoOrigem`, **e só quando o valor
    do sistema bate com o da planilha** — ver §10.5.1.
 2. Comando `app:cobranca:reconciliar-honorario-parcela` corrige as 135 já gravadas — `bp = 0` **e**
-   `honorarios = 0`, preservando juros, multa e a data do snapshot (INV-H2/H3). Simula primeiro; só
-   grava com `--aplicar`.
+   `honorarios = 0`, preservando juros, multa e a data do snapshot (INV-H2/H3). Simula primeiro, e só
+   grava com `--aplicar` **mais `--ids` da lista que o humano aprovou** (§10.5.2).
 3. O comando ignora parcela **sem NN** — nasceu na tela, e ali a escolha é do usuário (§10.7). Zero
    em produção hoje, mas o comando é re-executável e rodá-lo depois daquela fatia apagaria a escolha
    de quem clicou.
-4. Provas por reintrodução executadas nas **seis** guardas: o override do vínculo, a **condição do
-   valor** (§10.5.1), a **recusa do comando** (§10.5.2), a régua da população (`acordoOrigem`), a
-   cláusula do NN e o filtro de tenant da consulta.
+4. Provas por reintrodução executadas nas guardas do CÓDIGO: o override do vínculo, a **condição do
+   valor** (§10.5.1), a régua da população (`acordoOrigem`), a cláusula do NN e o filtro de tenant.
+   A lista aprovada (§10.5.2) e as travas de CLI têm teste próprio
+   (`ReconciliarHonorarioDeParcelaCommandTest`, 8 casos), no molde do comando irmão.
 
 ### 10.5.1 🔴 Por que o guard é CONDICIONADO ao valor bater
 
@@ -279,25 +280,35 @@ a parcela criada ali fica **indistinguível** da criada por `ImportarRelatorioCa
 medição que sustenta a conclusão é a de cima, que não depende dessa separação. Separar de vez os dois
 significados da coluna é tarefa de outra fatia.
 
-### 10.5.2 🔴 A mesma recusa vale no COMANDO (INV-H0)
+### 10.5.2 🔴 O comando não adivinha: LISTA APROVADA (INV-H0)
 
-O guard acima só grava o override com o valor batendo. **O comando não tem a planilha na mão** — se
-corrigisse tudo que é "parcela sem override", desfaria a proteção do importador na primeira avulsa
-vinculada com valor divergente, e o efeito seria o da §10.5.1 pela outra porta. Achado da 3ª revisão.
+O guard acima só grava o override com o valor batendo. **O comando não tem a planilha na mão** e não
+consegue reproduzir essa checagem — o Valor acordado que decide não está no banco no momento da
+correção.
 
-Então ele corrige apenas a **conta reconstruída vinculada** — a única cuja procedência o banco prova,
-porque ela nasce com o valor SOMADO do grupo NN+competência (`montarContaOriginal`), e é de onde vêm
-as 135. Qualquer outra parcela sem override entra no universo, **não é corrigida**, e sai no relatório
-como pulada com motivo, para o humano decidir.
+**Três réguas automáticas foram tentadas para contornar isso, e as três caíram em revisão:**
 
-🔑 **Isto não é a régua de dinheiro** — essa é o papel (`acordoOrigem IS NOT NULL`), aplicada na
-consulta. É filtro de **segurança** sobre uma população já recortada pela régua. A distinção é
-exatamente a que a §10.6 registra como não feita na 1ª versão.
+| régua | por que caiu |
+|---|---|
+| procedência (nasceu de `reconstruirContaOriginal`) | atingia 3.482 quando o defeito são 135; apagaria R$ 102.126,32 |
+| papel (`acordoOrigem IS NOT NULL`) sozinho | grava `bp = 0` em avulsa vinculada → alocação BRUTA indevida |
+| marca na descrição como "filtro de segurança" | **medido: as 1.906 parcelas CERTAS não têm a marca**; e no dev 0 de 4 candidatas tinham — pularia justamente as que estão cobrando |
 
-Medido em produção em 19/08: das obrigações que o comando alcança, **135 de 135** têm a marca —
-nenhuma é pulada hoje.
+🔑 **Então a varredura deixou de decidir.** Ela PROPÕE; quem escolhe é o humano, passando `--ids` com
+o que aprovou olhando a simulação. Candidata fora da lista é **pulada com motivo**; id aprovado que já
+não é candidato **aborta tudo** (`AprovacaoNaoConfereException`, dentro da transação).
 
-### 10.6 O erro da 1ª versão, registrado de propósito
+A simulação imprime a linha pronta para colar e diz o que conferir: a coluna **valor NO SISTEMA**
+contra o Valor acordado da planilha. Tirar uma linha da lista é como o humano recusa uma obrigação.
+
+⚠️ **O rótulo da coluna importa:** ela mostra o valor DO SISTEMA, que é justamente o número que quem
+confere vai procurar na planilha. Uma redação anterior a chamava de "valor da planilha", o que
+pré-respondia a pergunta.
+
+📌 **Registrado, não escondido:** o comando é a única peça que grava `taxa_honorarios_bp = 0` sem ter
+a planilha para conferir. É por isso que ele é o único que exige aprovação explícita.
+
+### 10.6 Os erros das versões anteriores, registrados de propósito
 
 A versão original desta §10 punha o guard em `reconstruirContaOriginal` e justificava assim: *"o
 adapter SOMA todas as linhas do NN, então o honorário já está dentro do valorOriginal"*.
@@ -315,6 +326,12 @@ Dois erros, os dois pegos pela revisão e confirmados por medição:
 🔑 **A lição, que é a §1.1 de novo:** eu escolhi a régua pela PROCEDÊNCIA ("nasceu daquela rotina")
 quando a regra da contabilidade é sobre o PAPEL ("é parcela"). Régua derivada do código em vez de
 derivada do relatório dela erra em silêncio — e teria apagado R$ 102.126,32.
+
+🔴 **E a lição de segunda ordem, que custou mais duas revisões:** depois de trocar a régua, tentei
+duas vezes salvar a varredura automática com um proxy melhor. Nas duas o proxy vazava, porque o dado
+que decide — o Valor acordado declarado — **não existe no banco no momento da correção**. Quando o
+sistema não tem como saber, a saída não é um proxy mais esperto: é parar de decidir e devolver a
+escolha para quem tem a planilha na mão. É a §1.1 aplicada ao próprio comando.
 
 📌 **Achado menor, medido e registrado, sem virar pendência aberta:** 7 contas originais
 reconstruídas têm linha `1.15` dentro do valor e cobram honorário sobre honorário — **R$ 600,21**.

@@ -239,6 +239,10 @@ final class ImportarReceitasUseCase
                 // "o honorário está dentro do valorOriginal". Vínculo com valor divergente não grava
                 // nada, e o override segue NULL.
                 //
+                // O outro escritor novo é `ReconciliarHonorarioDeParcelaUseCase::aplicarNa` — e é o
+                // único que grava SEM ter a planilha para conferir. Por isso ele não decide sozinho:
+                // só escreve nos ids que o humano aprovou olhando a simulação (INV-H0).
+                //
                 // ⚠️ E este comentário JÁ afirmou que isso era "certo por construção". NÃO É — a 3ª
                 // revisão mostrou que a TELA alcança a coluna nos dois sentidos: digitar 0% em
                 // `EditarObrigacao` grava bp=0 numa avulsa (`EditarObrigacaoInput:71` aceita zero), e o

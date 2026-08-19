@@ -10,6 +10,7 @@ use App\Cobranca\Entity\Carteira;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\Obrigacao;
 use App\Cobranca\Enum\TipoEventoHistorico;
+use App\Cobranca\Exception\AprovacaoNaoConfereException;
 use App\Cobranca\Exception\UniversoDaListaMudouException;
 use App\Cobranca\Repository\ObrigacaoRepository;
 use App\Cobranca\Service\RegistrarEventoHistorico;
@@ -35,10 +36,12 @@ use Doctrine\ORM\EntityManagerInterface;
  * que a produção já trata assim em 3.473 delas. Ver
  * {@see ObrigacaoRepository::parcelasDeAcordoSemOverrideDeHonorario}.
  *
- * ⛔ **INV-H0 — não toca o que não consegue provar.** O guard de `completarParcelas` só grava o
- * override quando o `valorOriginal` é o Valor acordado declarado; o comando não tem a planilha, então
- * corrige apenas a conta reconstruída vinculada (a que nasce com o valor SOMADO do grupo) e PULA o
- * resto, com motivo. Sem isto o comando desfaria a proteção do importador. Ver spec §10.5.2.
+ * ⛔ **INV-H0 — não escreve sem LISTA APROVADA.** O guard de `completarParcelas` só grava o override
+ * quando o `valorOriginal` é o Valor acordado declarado; o comando **não tem a planilha na mão** e não
+ * consegue reproduzir essa checagem. Três revisões derrubaram três réguas automáticas para contornar
+ * isso (procedência, papel, marca na descrição) — todas erravam em algum recorte. Então a varredura
+ * apenas PROPÕE: quem escolhe é o humano, passando os ids que aprovou na simulação. Candidata fora da
+ * lista é PULADA com motivo; id aprovado que sumiu do universo ABORTA tudo. Ver spec §10.5.2.
  *
  * ⛔ **INV-H1 — não toca obrigação CONGELADA.** Congelada nunca é re-hidratada, então mexer no snapshot
  * dela é decisão de outra natureza. Pular **não é no-op**: o honorário indevido fica, e por isso sai no
@@ -74,19 +77,24 @@ final class ReconciliarHonorarioDeParcelaUseCase
      * Aplica numa transação única (ou tudo, ou nada). Idempotente: rodar de novo não acha mais nada,
      * porque `taxaHonorariosBp` deixa de ser nulo e a consulta não casa mais a obrigação.
      *
-     * `$esperado` é OPCIONAL e trava a lista aprovada: se o universo mudou entre a aprovação do dono e
-     * a escrita, nada é gravado.
+     * `$idsAprovados` é **obrigatório**: são as obrigações que o humano aprovou olhando a simulação.
+     * Nada fora dela é escrito, e id aprovado que já não é candidato aborta tudo (INV-H0).
+     *
+     * `$esperado` é OPCIONAL e trava o TAMANHO do universo: se ele mudou entre a aprovação e a
+     * escrita, nada é gravado.
      *
      * @param list<Carteira> $carteiras
+     * @param list<int>      $idsAprovados
      */
     public function confirmar(
         array $carteiras,
         Tenant $tenant,
         User $usuario,
+        array $idsAprovados,
         ?ExpectativaDaLista $esperado = null,
     ): ResultadoReconciliacaoHonorario {
         return $this->em->wrapInTransaction(
-            fn (): ResultadoReconciliacaoHonorario => $this->processar($carteiras, $tenant, $usuario, $esperado),
+            fn (): ResultadoReconciliacaoHonorario => $this->processar($carteiras, $tenant, $usuario, $esperado, $idsAprovados),
         );
     }
 
@@ -102,7 +110,10 @@ final class ReconciliarHonorarioDeParcelaUseCase
         Tenant $tenant,
         ?User $usuario,
         ?ExpectativaDaLista $esperado = null,
+        ?array $idsAprovados = null,
     ): ResultadoReconciliacaoHonorario {
+        $aprovados = $idsAprovados === null ? null : array_flip($idsAprovados);
+        $encontrados = [];
         $candidatas = 0;
         $corrigidas = [];
         $puladas = [];
@@ -120,26 +131,18 @@ final class ReconciliarHonorarioDeParcelaUseCase
             foreach ($alvos as $obrigacao) {
                 $unidade = (string) $obrigacao->getCaso()?->getObjeto()?->getIdentificacao();
 
-                // 🔴 A MESMA recusa que o guard de `completarParcelas` faz (spec §10.5.1), e ela tem de
-                // existir aqui senão o comando desfaz a proteção do importador: lá o override só entra
-                // quando o `valorOriginal` do sistema é o Valor acordado que ela declara; aqui o comando
-                // não tem a planilha na mão para conferir isso.
-                //
-                // O que dá para provar pelo banco é a PROCEDÊNCIA: só a conta reconstruída nasce com o
-                // valor SOMADO do grupo NN+competência da planilha (`montarContaOriginal`), e é dela que
-                // vêm as 135 — medido em produção, 135/135 com o valorOriginal batendo ao centavo com a
-                // soma da coluna Valor. Fora desse conjunto o comando NÃO adivinha: reporta e devolve a
-                // decisão ao humano.
-                //
-                // ⚠️ Isto NÃO é a régua de dinheiro (essa é o papel: `acordoOrigem IS NOT NULL`, aplicada
-                // na consulta). É filtro de SEGURANÇA sobre uma população já recortada pela régua — a
-                // diferença que a 1ª versão desta fatia não fez, e que lhe custou R$ 102.126,32.
-                if (!str_contains($obrigacao->getDescricao(), ImportarAcordosDetalhadosUseCase::MARCA_RECONSTRUIDA)) {
+                $encontrados[(int) $obrigacao->getId()] = true;
+
+                // 🔴 INV-H0. A varredura PROPÕE; quem escolhe é o humano. O guard do importador
+                // condiciona ao valor bater com a planilha (§10.5.1) e aqui esse dado não existe —
+                // três réguas automáticas já foram tentadas para contornar isso e as três erravam
+                // (§10.6). Fora da lista aprovada, não se escreve.
+                if ($aprovados !== null && !isset($aprovados[(int) $obrigacao->getId()])) {
                     $puladas[] = [
                         'obrigacaoId' => (int) $obrigacao->getId(),
                         'unidade' => $unidade,
                         'referencia' => $obrigacao->getReferenciaExterna(),
-                        'motivo' => 'não dá para provar que o valor lançado é o Valor acordado da planilha — confira à mão antes de zerar',
+                        'motivo' => 'não está na lista aprovada — o humano não a marcou para correção',
                         'honorarioQueFicou' => $obrigacao->getHonorarios(),
                     ];
 
@@ -197,7 +200,18 @@ final class ReconciliarHonorarioDeParcelaUseCase
             }
         }
 
-        // 🔴 A trava da lista aprovada dispara ANTES de qualquer evento e DENTRO da transação: o
+        // 🔴 Id aprovado que já não é candidato: o universo mudou desde a simulação que o humano leu.
+        // Abortar é o único caminho honesto — corrigir o resto entregaria uma correção parcial que
+        // ninguém aprovou, em silêncio.
+        if ($aprovados !== null) {
+            $sumiram = array_values(array_diff(array_keys($aprovados), array_keys($encontrados)));
+
+            if ($sumiram !== []) {
+                throw new AprovacaoNaoConfereException($sumiram);
+            }
+        }
+
+        // 🔴 A trava do TAMANHO do universo dispara ANTES de qualquer evento e DENTRO da transação: o
         // `wrapInTransaction` desfaz as mutações já feitas no laço acima. Conferir depois de gravar o
         // histórico deixaria evento órfão de correção.
         $totalEncontrado = $this->totalDe($corrigidas, $puladas);

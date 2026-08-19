@@ -7,6 +7,7 @@ namespace App\Cobranca\Command;
 use App\Cobranca\DTO\ExpectativaDaLista;
 use App\Cobranca\DTO\ResultadoReconciliacaoHonorario;
 use App\Cobranca\Entity\Carteira;
+use App\Cobranca\Exception\AprovacaoNaoConfereException;
 use App\Cobranca\Exception\UniversoDaListaMudouException;
 use App\Cobranca\Service\Espelho\GuardaDeLogComPii;
 use App\Cobranca\UseCase\ReconciliarHonorarioDeParcelaUseCase;
@@ -54,6 +55,9 @@ final class ReconciliarHonorarioDeParcelaCommand extends Command implements Lida
     /** 🔴 A lista mudou entre a aprovação e a escrita. Nada foi gravado. */
     public const LISTA_MUDOU = 68;
 
+    /** 🔴 `--aplicar` sem `--ids`: a varredura propõe, o humano escolhe (INV-H0). Nada foi gravado. */
+    public const SEM_LISTA_APROVADA = 69;
+
     public function __construct(
         private readonly GuardaDeLogComPii $guardaDeLog,
         private readonly ReconciliarHonorarioDeParcelaUseCase $reconciliar,
@@ -85,6 +89,12 @@ final class ReconciliarHonorarioDeParcelaCommand extends Command implements Lida
                 null,
                 InputOption::VALUE_REQUIRED,
                 'Autor da correção no histórico — obrigatório com --aplicar',
+            )
+            ->addOption(
+                'ids',
+                null,
+                InputOption::VALUE_REQUIRED,
+                '🔴 OBRIGATÓRIO com --aplicar: ids das obrigações aprovadas na simulação, separados por vírgula',
             )
             ->addOption(
                 'esperado-dividas',
@@ -139,6 +149,24 @@ final class ReconciliarHonorarioDeParcelaCommand extends Command implements Lida
             return self::ERRO_DE_INVOCACAO;
         }
 
+        // 🔴 INV-H0: a varredura PROPÕE, o humano escolhe. O comando não tem a planilha para conferir
+        // se o valor lançado é o Valor acordado — e três réguas automáticas para contornar isso já
+        // foram derrubadas em revisão (spec §10.6). Sem lista, não escreve.
+        $idsBrutos = (string) ($input->getOption('ids') ?? '');
+        $idsAprovados = array_values(array_filter(array_map(
+            static fn (string $p): int => (int) trim($p),
+            $idsBrutos === '' ? [] : explode(',', $idsBrutos),
+        )));
+
+        if ($aplicar && $idsAprovados === []) {
+            $io->error(
+                '--aplicar exige --ids com as obrigações aprovadas. Rode sem --aplicar, confira a '
+                . 'simulação contra a planilha da contabilidade e cole de volta a linha que ela imprime.',
+            );
+
+            return self::SEM_LISTA_APROVADA;
+        }
+
         $esperadoDividas = $input->getOption('esperado-dividas');
         $esperadoTotal = $input->getOption('esperado-total');
 
@@ -180,12 +208,13 @@ final class ReconciliarHonorarioDeParcelaCommand extends Command implements Lida
                     $carteiras,
                     $tenant,
                     $usuario,
+                    $idsAprovados,
                     $esperadoDividas === null
                         ? null
                         : new ExpectativaDaLista((int) $esperadoDividas, (int) $esperadoTotal),
                 )
                 : $this->reconciliar->prever($carteiras, $tenant);
-        } catch (UniversoDaListaMudouException $e) {
+        } catch (UniversoDaListaMudouException | AprovacaoNaoConfereException $e) {
             $io->error($e->getMessage());
 
             return self::LISTA_MUDOU;
@@ -249,8 +278,9 @@ final class ReconciliarHonorarioDeParcelaCommand extends Command implements Lida
 
         $io->text(sprintf(
             'dessas, %d estão FORA do exigível (substituída por acordo vigente, ou parcela de acordo '
-            . 'rompido): a correção arruma a ficha e a '
-            . 'tela do acordo, e NÃO muda o saldo de ninguém hoje. As outras %d mudam o saldo.',
+            . 'rompido): a correção arruma a ficha e a tela do acordo, e NÃO muda o saldo de ninguém. '
+            . 'As outras %d estão no exigível — e nelas o saldo muda se ainda estiverem EM ABERTO '
+            . '(exigível e em aberto são recortes diferentes; confira a coluna).',
             $presas,
             count($r->corrigidas) - $presas,
         ));
@@ -259,12 +289,19 @@ final class ReconciliarHonorarioDeParcelaCommand extends Command implements Lida
             $io->text(sprintf('eventos no histórico: %d caso(s)', $r->casosComEvento));
         } else {
             // Fecha o ciclo: simular, aprovar, e colar de volta o que foi aprovado.
+            // Fecha o ciclo que o dono pediu: simular, CONFERIR CONTRA A PLANILHA, e colar de volta o
+            // que foi aprovado. Os ids vão impressos porque é o humano que escolhe quais corrigir —
+            // ver INV-H0. Tirar uma linha da lista é como ele recusa uma obrigação.
             $io->section('Para aplicar');
-            $io->writeln('  --aplicar --usuario-id=<id>');
-            $io->writeln('');
-            $io->text('Ou, travando nesta lista exata (opcional — aborta com 68 se ela mudar até lá):');
+            $io->text('Confira a coluna "valor NO SISTEMA" contra o Valor acordado da planilha. Tire da lista o que não bater.');
             $io->writeln(sprintf(
-                '  --aplicar --usuario-id=<id> --esperado-dividas=%d --esperado-total=%d',
+                '  --aplicar --usuario-id=<id> --ids=%s',
+                implode(',', array_column($r->corrigidas, 'obrigacaoId')),
+            ));
+            $io->writeln('');
+            $io->text('Travando também no tamanho do universo (opcional — aborta com 68 se ele mudar até lá):');
+            $io->writeln(sprintf(
+                '  --esperado-dividas=%d --esperado-total=%d',
                 $r->candidatas,
                 $r->honorarioRemovidoEmCentavos() + $r->honorarioQueFicouEmCentavos(),
             ));
@@ -292,9 +329,13 @@ final class ReconciliarHonorarioDeParcelaCommand extends Command implements Lida
 
         // Pular não é no-op: é honorário indevido que permanece. Sai como aviso e com código próprio,
         // senão vira linha de rodapé num relatório que termina em "sucesso".
+        // O motivo sai da CADA linha, nunca de um texto fixo: com INV-H0 há dois motivos distintos
+        // (fora da lista aprovada · encargos congelados) e um deles inverte a consequência — a
+        // congelada não é re-hidratada, a fora-da-lista continua crescendo ao vivo.
         $io->warning(sprintf(
             '%d obrigação(ões) NÃO foram corrigidas e seguem com %s de honorário indevido no banco. '
-            . 'Congelada nunca é re-hidratada: nelas o valor é permanente até alguém decidir o contrário.',
+            . 'O motivo de cada uma está na coluna acima — confira, porque eles não têm a mesma '
+            . 'consequência: a congelada fica parada no valor, a fora-da-lista continua crescendo.',
             count($r->puladas),
             $this->reais($r->honorarioQueFicouEmCentavos()),
         ));

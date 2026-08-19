@@ -41,8 +41,9 @@ final readonly class ResultadoReconciliacaoHonorario
     /**
      * O honorário indevido que PERMANECE por causa das puladas — não pode sumir do relatório.
      *
-     * Pular obrigação congelada é a decisão certa (congelada não é re-hidratada, e mexer no snapshot
-     * dela é decisão de outra natureza), mas não é no-op: é valor que fica inflado no banco.
+     * ⚠️ São DOIS motivos distintos, com consequências opostas, e por isso o motivo vai linha a linha:
+     * a **congelada** nunca é re-hidratada, então o valor dela fica parado; a **fora da lista
+     * aprovada** continua viva e crescendo. Um texto único no rodapé já mentiu sobre isso.
      */
     public function honorarioQueFicouEmCentavos(): int
     {

@@ -75,14 +75,17 @@ final class ImportarAcordosDetalhadosUseCase
 {
     /**
      * A marca de procedência da conta original RECONSTRUÍDA (§3.2.1), gravada na descrição porque a
-     * `Obrigacao` não tem campo de observação. É o ÚNICO sinal durável que distingue a conta
-     * reconstruída a partir da planilha do boleto importado de verdade.
+     * `Obrigacao` não tem campo de observação. É o único sinal que distingue a conta reconstruída a
+     * partir da planilha do boleto importado de verdade.
      *
-     * ⚠️ **Não é régua de dinheiro, e já foi usada como uma.** A 1ª versão da fatia do honorário
-     * selecionou por esta marca a população de uma correção — e teria zerado o honorário de 3.347
-     * dívidas velhas engolidas por acordo (R$ 102.126,32 legítimos), porque a marca diz de ONDE a
-     * obrigação veio, não o QUE ela é. Quem decide isso é `acordoOrigem`. Ver
-     * `cobranca-honorario-no-total.md` §10.6.
+     * ⚠️ **Não é durável:** `EditarObrigacaoUseCase` reescreve a descrição, então a marca some se
+     * alguém editar a dívida pela tela. Serve para LER a procedência, nunca para decidir dinheiro.
+     *
+     * ⚠️ **Não é régua de dinheiro, e já foi usada como uma DUAS vezes.** A 1ª versão da fatia do
+     * honorário selecionou por esta marca a população de uma correção — teria zerado R$ 102.126,32 de
+     * honorário legítimo, porque a marca diz de ONDE a obrigação veio, não o QUE ela é. A 4ª versão a
+     * usou como "filtro de segurança" e caiu de novo: medido, as 1.906 parcelas CERTAS em produção
+     * **não têm a marca**. Ver `cobranca-honorario-no-total.md` §10.6.
      */
     public const MARCA_RECONSTRUIDA = 'Reconstruída da planilha de acordos';
 
