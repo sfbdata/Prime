@@ -28,14 +28,16 @@
        de acordo e obrigação substituída) e os três compartilham a MESMA grade CSS. A célula nasce aqui, e
        não copiada três vezes.
 
-       O "Total" é `totalComHonorarios` — original + os três encargos + honorários —, porque esta linha
-       REPRODUZ o relatório da contabilidade (spec §1.3 e Apêndice A). Não confundir com o `valorAtual`
-       (exigível, SEM honorários, INV-E2), que alimenta saldo, FIFO e acordo. Onde a diferença importa para
-       o usuário — o quanto ainda falta — quem fala é `.jp-obr-restante`. Nada de aritmética de encargo aqui:
-       `juros/multa/correcao/honorarios` vêm materializados do domínio. #}
+       O "Total" é `valorAtual` — original + os três encargos + honorários —, porque esta linha REPRODUZ o
+       relatório da contabilidade (spec §1.3 e Apêndice A). Era `totalComHonorarios`, que somava o honorário
+       por fora porque o exigível o deixava de fora; desde a spec `cobranca-honorario-no-total.md` o
+       honorário está DENTRO do exigível, e somá-lo de novo aqui o contaria duas vezes. **O número exibido
+       é o mesmo de antes** — o que mudou foi o saldo, que antes divergia desta linha. Onde a diferença
+       importa para o usuário — o quanto ainda falta — quem fala é `.jp-obr-restante`. Nada de aritmética de
+       encargo aqui: `juros/multa/correcao/honorarios` vêm materializados do domínio. #}
     {# 🔑 ENCARGO NÃO CALCULADO (acordo substituto vigente SEM data) — decisão do dono, 17/08: traço com
        o MOTIVO NA LINHA. Entra AQUI, na célula do Total, porque é o único lugar em que a obrigação
-       substituída aparece: ela é renderizada sem a faixa de encargos (só o Total), e o `totalComHonorarios`
+       substituída aparece: ela é renderizada sem a faixa de encargos (só o Total), e o `valorAtual`
        SOMA juros+multa+correção+honorários — que, neste estado, são o resto da última hidratação ao vivo,
        de uma data arbitrária. Mostrar esse total trocaria a data inventada no importe por um número velho
        na tela, que também não é espelho.
@@ -52,7 +54,7 @@
     <div class="jp-obr-valor jp-money col-total"
          {%- if o.encargosCongeladosEm is null and o.encargosAtualizadosEm is not null %} data-bs-toggle="tooltip"
          title="Encargos atualizados em {{ o.encargosAtualizadosEm|date('d/m/Y') }}."{% endif %}>
-        {{ o.totalComHonorarios|centavos }}
+        {{ o.valorAtual|centavos }}
         {%- if o.encargosCongeladosEm is not null %}
             {# Congelada (INV-E4): estes encargos não crescem mais — o cron não a toca. Sinal discreto,
                que não pode competir com o número nem ocupar coluna própria. #}

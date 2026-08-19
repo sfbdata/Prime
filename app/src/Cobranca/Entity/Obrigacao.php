@@ -25,8 +25,13 @@ use Doctrine\ORM\Mapping as ORM;
  * encargo agregado de antes" — vale POR CONSTRUÇÃO, e não por disciplina de quem escreve o código.
  * Consequência prática: `CalculadoraSaldo`, Dashboard, FIFO e Acordo não mudaram nem precisam mudar.
  *
- * Honorários ficam FORA do `valorExigivel()` (INV-E2/SPEC §18.5): honorário não é dívida do credor.
- * Quem quiser o total exibido na linha do relatório usa `totalComHonorarios()`.
+ * Honorários ENTRAM no `valorExigivel()` (spec `cobranca-honorario-no-total.md`). **INV-E2/SPEC §18.5
+ * está REVOGADA**, e o texto antigo — "honorário não é dívida do credor" — fica registrado aqui só
+ * para que ninguém o restaure lendo um comentário velho: era o sistema formando OPINIÃO. A
+ * contabilidade soma `principal + juros + multa + honorários` no total que cobra, e este sistema
+ * copia o total dela (regra do espelho). Separar quanto do total é honorário continua legítimo —
+ * como DETALHAMENTO de tela, nunca como subtração do total.
+ * `totalComHonorarios()` deixou de existir: virou sinônimo exato de `valorExigivel()`.
  *
  * Crescimento AO VIVO (spec "encargos ao vivo"): para uma obrigação VIVA os quatro campos são um CACHE
  * — o serviço `EncargosVivos` os recalcula EM MEMÓRIA na leitura (vencimento → hoje × taxa), sem flush.
@@ -221,22 +226,33 @@ class Obrigacao implements TenantAware, Auditavel
     }
 
     /**
-     * Valor exigível da obrigação em centavos: original + juros + multa + correção (INV-E1).
-     * Honorários ficam DE FORA de propósito (INV-E2/SPEC §18.5) — não são dívida do credor e não
-     * podem entrar no saldo que alimenta acordos e pagamentos.
+     * 🔑 A REGRA DO EXIGÍVEL, EM UM ÚNICO LUGAR: `original + juros + multa + correção + honorários`.
+     *
+     * Existe como método estático porque a mesma soma precisa ser feita sobre valores que ainda NÃO
+     * estão na entidade — o cálculo ao vivo (`EncargosVivos`) e a decisão de quitar/reabrir
+     * (`ReconciliadorLiquidacao`) partem do array que a `CalculadoraEncargos` acabou de devolver.
+     * Antes desta spec cada um repetia a soma por conta própria: **três cópias da regra do dinheiro**,
+     * e a spec `cobranca-honorario-no-total.md` §2 documenta por que isso é o defeito mais perigoso
+     * daqui — duas definições de dívida divergem em SILÊNCIO, com o saldo dizendo uma coisa e a
+     * quitação dizendo outra. O repositório já registrava a lição em
+     * `ObrigacaoRepository::aplicarExigibilidade`: "regra de dinheiro duplicada diverge em silêncio".
+     *
+     * Quem tiver os quatro encargos em mãos chama ESTE método. Ninguém escreve a soma de novo.
+     */
+    public static function exigivelDe(int $valorOriginal, int $juros, int $multa, int $correcao, int $honorarios): int
+    {
+        return $valorOriginal + $juros + $multa + $correcao + $honorarios;
+    }
+
+    /**
+     * Valor exigível da obrigação em centavos, pela regra única de `exigivelDe()`.
      *
      * Método PURO e sem data: o crescimento no tempo vem da materialização periódica dos campos,
      * nunca de recalcular aqui (INV-E3).
      */
     public function valorExigivel(): int
     {
-        return $this->valorOriginal + $this->juros + $this->multa + $this->correcao;
-    }
-
-    /** Total exibido na linha do relatório: o exigível MAIS os honorários advocatícios. */
-    public function totalComHonorarios(): int
-    {
-        return $this->valorExigivel() + $this->honorarios;
+        return self::exigivelDe($this->valorOriginal, $this->juros, $this->multa, $this->correcao, $this->honorarios);
     }
 
     /**

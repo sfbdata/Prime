@@ -115,11 +115,13 @@ final class ObrigacaoOutput
     ) {
     }
 
-    /** Total exibido na linha do relatório: exigível MAIS honorários (que não entram no saldo). */
-    public function totalComHonorarios(): int
-    {
-        return $this->valorAtual + $this->honorarios;
-    }
+    /*
+     * `totalComHonorarios()` foi REMOVIDO (spec `cobranca-honorario-no-total.md` §3). Ele somava
+     * `valorAtual + honorarios`; agora o honorário já está DENTRO de `valorAtual`, e mantê-lo
+     * contaria o honorário DUAS VEZES na coluna "Total" da tela — em silêncio, porque o número
+     * continuaria plausível. Quem exibe o total da linha usa `valorAtual`, e o valor mostrado é
+     * exatamente o mesmo de antes.
+     */
 
     /**
      * Quanto ainda falta receber nesta obrigação (centavos), com PISO 0: alocação manual não tem teto por
