@@ -14,6 +14,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
 #[CoversClass(CriarPastaSecaoUseCase::class)]
 final class CriarPastaSecaoUseCaseTest extends TestCase
@@ -82,5 +83,75 @@ final class CriarPastaSecaoUseCaseTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
 
         $this->useCase->executar($this->pasta, $this->autor, str_repeat('a', 256), $this->tenant);
+    }
+
+    public function testCriarDentroDeOutraGuardaOPai(): void
+    {
+        $pai = (new PastaSecao())->setNome('PAI');
+        $pai->setPasta($this->pasta);
+        $pai->setTenant($this->tenant);
+
+        $this->repo->method('proximaOrdem')->willReturn(1);
+        $this->em->expects($this->once())->method('persist');
+        $this->em->expects($this->once())->method('flush');
+
+        $secao = $this->useCase->executar($this->pasta, $this->autor, 'Filha', $this->tenant, $pai);
+
+        self::assertSame($pai, $secao->getPai());
+        self::assertSame(2, $secao->getProfundidade());
+    }
+
+    public function testRecusaPaiDeOutraPasta(): void
+    {
+        $outraPasta = new Pasta();
+        $pai = (new PastaSecao())->setNome('PAI');
+        $pai->setPasta($outraPasta);
+        $pai->setTenant($this->tenant);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->useCase->executar($this->pasta, $this->autor, 'Filha', $this->tenant, $pai);
+    }
+
+    public function testRecusaPaiDeOutroTenant(): void
+    {
+        $pai = (new PastaSecao())->setNome('PAI');
+        $pai->setPasta($this->pasta);
+        $pai->setTenant(new Tenant());
+
+        $this->expectException(AccessDeniedException::class);
+        $this->useCase->executar($this->pasta, $this->autor, 'Filha', $this->tenant, $pai);
+    }
+
+    public function testRecusaCriarNoNivelOnze(): void
+    {
+        // cadeia de 10: criar dentro do 10º daria nível 11
+        $atual = null;
+        for ($i = 0; $i < 10; ++$i) {
+            $novo = (new PastaSecao())->setNome('N' . $i)->setPai($atual);
+            $novo->setPasta($this->pasta);
+            $novo->setTenant($this->tenant);
+            $atual = $novo;
+        }
+        self::assertSame(10, $atual->getProfundidade(), 'sanidade do arranjo do teste');
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('10 níveis');
+        $this->useCase->executar($this->pasta, $this->autor, 'Estoura', $this->tenant, $atual);
+    }
+
+    public function testAceitaCriarNoNivelDez(): void
+    {
+        $atual = null;
+        for ($i = 0; $i < 9; ++$i) {
+            $novo = (new PastaSecao())->setNome('N' . $i)->setPai($atual);
+            $novo->setPasta($this->pasta);
+            $novo->setTenant($this->tenant);
+            $atual = $novo;
+        }
+
+        $this->repo->method('proximaOrdem')->willReturn(1);
+        $secao = $this->useCase->executar($this->pasta, $this->autor, 'Décima', $this->tenant, $atual);
+
+        self::assertSame(10, $secao->getProfundidade());
     }
 }
