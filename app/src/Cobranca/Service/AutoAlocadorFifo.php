@@ -16,8 +16,8 @@ use App\Cobranca\Repository\ObrigacaoRepository;
 use App\Entity\Tenant\Tenant;
 
 /**
- * Auto-alocação FIFO de um pagamento (Ajuste 6). A partir do BRUTO pago, separa a parte-dívida via
- * CalculadoraHonorarios::ratearPagamento (§18) e a distribui pelas obrigações EXIGÍVEIS na ordem em
+ * Auto-alocação FIFO de um pagamento (Ajuste 6). Distribui o valor pago POR INTEIRO pelas obrigações
+ * EXIGÍVEIS na ordem em
  * que `doCasoExigiveis` as entrega — `vencimentoOriginal ASC`, mais antiga/vencida primeiro. Serviço
  * read-only: NÃO persiste; só deriva os `AlocacaoPagamentoInput` que o AlocadorPagamento revalida
  * (Σ == parte-dívida, invariável 20) e materializa.
@@ -38,7 +38,6 @@ final class AutoAlocadorFifo
         private readonly ObrigacaoRepository $obrigacaoRepository,
         private readonly AlocacaoPagamentoRepository $alocacaoRepository,
         private readonly LiquidacaoRepository $liquidacaoRepository,
-        private readonly CalculadoraHonorarios $calculadoraHonorarios,
         private readonly EncargosVivos $encargosVivos,
         private readonly ResolvedorConfigEncargos $resolvedorConfig,
     ) {

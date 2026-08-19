@@ -18,9 +18,10 @@ use App\Entity\Tenant\Tenant;
  * Serviço read-only: NÃO persiste nem flusha — só constrói as AlocacaoPagamento em memória e
  * garante as invariantes de dinheiro.
  *
- * O rateio de honorários vem do CalculadoraHonorarios::ratearPagamento (SPEC §18): dado o BRUTO pago
- * pelo devedor, separa `[parteDivida, parteHonorarios]` (na forma `acrescido_divida`) ou devolve
- * `[total, 0]` nas demais. Toda obrigação alocada tem de ser do MESMO caso do pagamento — comparação
+ * NÃO HÁ MAIS RATEIO (spec `cobranca-honorario-no-total.md` §4.3): o valor pago abate a dívida por
+ * inteiro, porque o honorário agora vive DENTRO do exigível. O split por categoria existe quando a
+ * contabilidade o declara, e quem o copia é o importador de receitas.
+ * Toda obrigação alocada tem de ser do MESMO caso do pagamento — comparação
  * por IDENTIDADE de instância (invariável 12). A Σ das alocações tem de fechar EXATAMENTE com a parte
  * da dívida (invariável 20), senão o pagamento é inconsistente.
  */
@@ -28,7 +29,6 @@ final class AlocadorPagamento
 {
     public function __construct(
         private readonly ObrigacaoRepository $obrigacaoRepository,
-        private readonly CalculadoraHonorarios $calculadoraHonorarios,
     ) {
     }
 

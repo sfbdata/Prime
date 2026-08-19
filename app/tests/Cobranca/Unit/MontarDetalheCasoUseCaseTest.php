@@ -25,7 +25,6 @@ use App\Cobranca\Repository\PagamentoRepository;
 use App\Cobranca\Repository\ProximaAcaoRepository;
 use App\Cobranca\Service\AlertasCobranca;
 use App\Cobranca\Service\CalculadoraEncargos;
-use App\Cobranca\Service\CalculadoraHonorarios;
 use App\Cobranca\Service\CalculadoraPrescricao;
 use App\Cobranca\Service\ResolvedorConfigEncargos;
 use App\Cobranca\Service\CalculadoraSaldo;
@@ -61,7 +60,6 @@ final class MontarDetalheCasoUseCaseTest extends TestCase
     private AlocacaoPagamentoRepository&MockObject $alocacaoRepository;
     /** @var Obrigacao[] o que `doCasoExigiveis` devolve neste teste (ver o callback no setUp) */
     private array $exigiveis = [];
-    private CalculadoraHonorarios $calculadoraHonorarios;
     private MontarDetalheCasoUseCase $useCase;
     private Tenant $tenant;
     private User $autor;
@@ -110,10 +108,6 @@ final class MontarDetalheCasoUseCaseTest extends TestCase
             $this->alocacaoRepository,
         );
 
-        // CalculadoraHonorarios também é `final` — e é uma calculadora PURA (sem I/O, só depende do
-        // ResolvedorConfigEncargos, também puro): a instância real é a fonte única do gross-up, e
-        // mocká-la só esconderia a regra sob teste.
-        $this->calculadoraHonorarios = new CalculadoraHonorarios(new ResolvedorConfigEncargos());
 
         $this->useCase = new MontarDetalheCasoUseCase(
             $this->obrigacaoRepository,
@@ -125,7 +119,6 @@ final class MontarDetalheCasoUseCaseTest extends TestCase
             $this->calculadoraSaldo,
             $this->alertasCobranca,
             $this->alocacaoRepository,
-            $this->calculadoraHonorarios,
             // ResolvedorConfigEncargos é `final` e PURO (navega o grafo em memória, sem I/O): instância real.
             new ResolvedorConfigEncargos(),
             // EncargosVivos com relógio fixo (aplicador puro): as obrigações do teste têm vencimento/config

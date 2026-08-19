@@ -63,12 +63,11 @@ final class RegistrarPagamentoUseCaseTest extends TestCase
         // AlocadorPagamento, AutoAlocadorFifo, CalculadoraHonorarios e o Reconciliador são finais/puros:
         // usa-se os REAIS. Sem carteira/config nos casos de teste → encargo 0 (exigível = valor original).
         $calculadora = new CalculadoraHonorarios(new ResolvedorConfigEncargos());
-        $alocador = new AlocadorPagamento($this->obrigacaoRepository, $calculadora);
+        $alocador = new AlocadorPagamento($this->obrigacaoRepository);
         $autoAlocador = new AutoAlocadorFifo(
             $this->obrigacaoRepository,
             $this->alocacaoRepository,
             $this->createMock(LiquidacaoRepository::class),
-            $calculadora,
             new EncargosVivos(new MockClock(new \DateTimeImmutable('2026-07-20')), new CalculadoraEncargos(), new ResolvedorConfigEncargos()),
             new ResolvedorConfigEncargos(),
         );

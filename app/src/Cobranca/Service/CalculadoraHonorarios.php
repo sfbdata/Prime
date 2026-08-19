@@ -8,99 +8,34 @@ use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Enum\FormaHonorarios;
 
 /**
- * Calcula honorários advocatícios (SPEC §18) a partir da política EFETIVA de honorários do caso
- * (spec "cascata de encargos ao vivo sem snapshot" §3.2/§9-T2) — não mais do snapshot do caso.
- * Serviço read-only, sem persistir. Honorários são SEMPRE separados da dívida do credor
- * (invariável 18) e NÃO entram na própria base (§18.5).
+ * Resto da SPEC §18 — o que dela ainda vale depois que o honorário passou a viver DENTRO da dívida
+ * (spec `cobranca-honorario-no-total.md`, decisão do dono em 19/08).
  *
- * A política tem DUAS fontes distintas, cada uma no seu nível certo da cascata (design #9-T2):
- * - **FORMA** (o comportamento do split — `acrescido_divida`/`retido_recuperado`/...): vem SEMPRE da
- *   CARTEIRA (`caso→objeto→carteira`). Não é sobreponível no objeto/obrigação — só a ALÍQUOTA é.
- * - **ALÍQUOTA** (em basis points): vem da cascata do OBJETO via `ResolvedorConfigEncargos::resolverDoObjeto`
- *   (`objeto.taxaHonorariosBp ?? carteira`), a MESMA fonte que o exigível ao vivo usa — split e exigível
- *   nunca mais divergem (fecha a divergência I-1 que a T1 introduziu: 194 casos legados com honorário
- *   fotografado a 10% no caso enquanto a carteira já estava a 20%/15%).
+ * 🔴 **TRÊS MÉTODOS FORAM APAGADOS AQUI, e apagar era o conserto:**
+ * - `ratearPagamento()` — separava o pagamento em `[dívida, honorário]` por `p/(1+p)` e só a
+ *   parte-dívida abatia. Com o honorário dentro do exigível isso deixava a dívida curta para sempre:
+ *   **nenhuma dívida quitava**.
+ * - `brutoParaRecuperar()` — o "gross-up" do prefill (`D × (1+p)`). O exigível já contém o
+ *   honorário; multiplicar de novo cobraria honorário sobre honorário.
+ * - `projetados()` — alíquota lisa sobre o saldo. Além de dobrar o honorário (o saldo já o contém),
+ *   ERRA a fonte: medido contra o rodapé da contabilidade, a alíquota erra R$ 46.747,38 (37% a mais)
+ *   porque ignora a carência de 30 dias e as parcelas de acordo; o honorário gravado erra R$ 515,32.
  *
- * Toda aritmética em CENTAVOS inteiros, com arredondamento meio-para-cima e SEM float na conta
- * final (o percentual decimal só é convertido para basis points uma vez, na borda do resolvedor). O
- * rateio fecha exatamente em centavos por construção: `divida = total − honorarios`.
+ * Não foram apagados por estarem sem uso — foram apagados porque **voltar a chamá-los reintroduz a
+ * dupla contagem em silêncio**. O histórico está no git para quem precisar do modelo antigo.
+ *
+ * O que sobra é a política de honorários como CONFIGURAÇÃO e a apuração do realizado por forma. A
+ * ALÍQUOTA vem da cascata do OBJETO via `ResolvedorConfigEncargos::resolverDoObjeto`
+ * (`objeto.taxaHonorariosBp ?? carteira`) — a MESMA fonte que o exigível usa, então os dois nunca
+ * divergem. A FORMA vem sempre da CARTEIRA (`caso→objeto→carteira`), não é sobreponível.
+ *
+ * Serviço read-only, sem persistir. Toda aritmética em CENTAVOS inteiros, arredondamento
+ * meio-para-cima, sem float na conta final.
  */
 final class CalculadoraHonorarios
 {
     public function __construct(private readonly ResolvedorConfigEncargos $resolvedorConfig)
     {
-    }
-
-    /**
-     * Honorários PROJETADOS sobre uma base de dívida reconhecida (centavos): `base · p`. Zero para
-     * `sem_percentual` ou base não positiva. Honorários não entram na base (§18.5).
-     */
-    public function projetados(CasoCobranca $caso, int $baseDividaCentavos): int
-    {
-        if ($baseDividaCentavos <= 0) {
-            return 0;
-        }
-
-        $pb = $this->basisPoints($caso);
-
-        if ($pb === 0) {
-            return 0;
-        }
-
-        return $this->arredondarFracao($baseDividaCentavos * $pb, 10000);
-    }
-
-    /**
-     * Rateio PROPORCIONAL de um pagamento (centavos) na forma `acrescido_divida` (SPEC §18): o
-     * devedor paga dívida + honorários juntos; separa em `[valorDivida, valorHonorarios]` que somam
-     * exatamente ao total (`hon = total · p/(1+p)`; `divida = total − hon`). Nas demais formas o
-     * devedor paga só a dívida → `[total, 0]` (honorários tratados à parte).
-     *
-     * @return array{0:int,1:int} [valorDivida, valorHonorarios]
-     */
-    public function ratearPagamento(CasoCobranca $caso, int $valorTotalPagoCentavos): array
-    {
-        if ($valorTotalPagoCentavos <= 0 || $this->forma($caso) !== FormaHonorarios::AcrescidoDivida) {
-            return [$valorTotalPagoCentavos, 0];
-        }
-
-        $pb = $this->basisPoints($caso);
-
-        if ($pb === 0) {
-            return [$valorTotalPagoCentavos, 0];
-        }
-
-        // fração de honorários no total = p/(1+p) = pb/(10000+pb).
-        $honorarios = $this->arredondarFracao($valorTotalPagoCentavos * $pb, 10000 + $pb);
-        $divida = $valorTotalPagoCentavos - $honorarios;
-
-        return [$divida, $honorarios];
-    }
-
-    /**
-     * INVERSO de `ratearPagamento` (Ajuste 10, spec §5.1): dado o quanto se quer recuperar de DÍVIDA
-     * (centavos), devolve o valor BRUTO a cobrar do devedor — dívida + honorários — na forma
-     * `acrescido_divida`: `T = D · (10000+pb)/10000`. Nas demais formas (e sem percentual) o devedor paga
-     * só a dívida, então devolve o próprio alvo — espelhando `ratearPagamento`.
-     *
-     * Existe porque o alvo é INVISÍVEL para o gestor: ele quer quitar uma obrigação de R$1.200 e precisa
-     * digitar R$1.320. Pré-preencher R$1.200 rateia para R$1.090,91 e a obrigação NÃO quita.
-     *
-     * Garantia (coberta por teste): `ratearPagamento($caso, brutoParaRecuperar($caso, $d))[0] === $d`.
-     */
-    public function brutoParaRecuperar(CasoCobranca $caso, int $dividaAlvoCentavos): int
-    {
-        if ($dividaAlvoCentavos <= 0 || $this->forma($caso) !== FormaHonorarios::AcrescidoDivida) {
-            return $dividaAlvoCentavos;
-        }
-
-        $pb = $this->basisPoints($caso);
-
-        if ($pb === 0) {
-            return $dividaAlvoCentavos;
-        }
-
-        return $this->arredondarFracao($dividaAlvoCentavos * (10000 + $pb), 10000);
     }
 
     /**

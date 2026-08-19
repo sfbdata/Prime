@@ -34,7 +34,7 @@ final class AlocadorPagamentoTest extends TestCase
     {
         $this->obrigacaoRepository = $this->createMock(ObrigacaoRepository::class);
         // CalculadoraHonorarios é final e pura: usa-se a REAL dentro do alocador REAL.
-        $this->sut = new AlocadorPagamento($this->obrigacaoRepository, new CalculadoraHonorarios(new ResolvedorConfigEncargos()));
+        $this->sut = new AlocadorPagamento($this->obrigacaoRepository);
         $this->tenant = new Tenant();
     }
 

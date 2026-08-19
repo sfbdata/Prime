@@ -56,7 +56,7 @@ final class HonorarioNoCaminhoDoPagamentoTest extends TestCase
         $caso = $this->caso('10.00');
         $repo = $this->createMock(ObrigacaoRepository::class);
         $repo->method('findOneByIdDoTenant')->willReturn((new Obrigacao())->setTenant($this->tenant)->setCaso($caso));
-        $sut = new AlocadorPagamento($repo, new CalculadoraHonorarios(new ResolvedorConfigEncargos()));
+        $sut = new AlocadorPagamento($repo);
 
         $item = new AlocacaoPagamentoInput();
         $item->obrigacaoId = 5;
@@ -131,7 +131,6 @@ final class HonorarioNoCaminhoDoPagamentoTest extends TestCase
             $obrigacaoRepository,
             $alocacaoRepository,
             $liquidacaoRepository,
-            new CalculadoraHonorarios(new ResolvedorConfigEncargos()),
             new EncargosVivos(new MockClock(new \DateTimeImmutable('2026-07-20')), new CalculadoraEncargos(), new ResolvedorConfigEncargos()),
             new ResolvedorConfigEncargos(),
         );

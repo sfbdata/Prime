@@ -108,12 +108,11 @@ final class MovimentosCobrancaIsolamentoTenantTest extends KernelTestCase
 
         $registrarEvento = new RegistrarEventoHistorico($eventoRepo);
         $calculadora = new CalculadoraHonorarios(new ResolvedorConfigEncargos());
-        $alocador = new AlocadorPagamento($obrigacaoRepo, $calculadora);
+        $alocador = new AlocadorPagamento($obrigacaoRepo);
         $autoAlocador = new AutoAlocadorFifo(
             $obrigacaoRepo,
             $alocacaoRepo,
             $liquidacaoRepo,
-            $calculadora,
             new EncargosVivos(new MockClock(new \DateTimeImmutable('2026-07-20')), new CalculadoraEncargos(), new ResolvedorConfigEncargos()),
             new ResolvedorConfigEncargos(),
         );
