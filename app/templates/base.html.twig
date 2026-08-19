@@ -66,10 +66,11 @@
         <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
         <link rel="manifest" href="/site.webmanifest">
 
-        {# Fonts — versão VARIÁVEL (pesos 200–900 num arquivo só).
-           O pacote estático que estava aqui antes entregava apenas o peso 400, e o app.css pede
-           600/700 em dezenas de regras: sem os pesos reais o navegador sintetiza o negrito. #}
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource-variable/source-sans-3@5.3.0/index.css" crossorigin="anonymous">
+        {# Fonte do sistema: Arial, declarada no app.css (--jp-font-sans), por decisão do dono de
+           19/08/2026 — os usuários não aprovaram o Source Sans 3 que entrou em 10/08. O link do
+           Fontsource que ficava aqui foi removido junto: nenhuma regra pede mais essa família, e
+           mantê-lo só custaria uma requisição de fonte que ninguém usa (era exatamente o que
+           acontecia antes de 10/08). #}
 
         {# OverlayScrollbars #}
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/overlayscrollbars@2.11.0/styles/overlayscrollbars.min.css" crossorigin="anonymous">

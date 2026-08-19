@@ -67,16 +67,21 @@
    ============================================================= */
 
 /* ===== Fonte do sistema =====
-   Havia aqui um @font-face para 'Open Sans' apontando para /fonts/opensans-regular.woff —
-   arquivo que NUNCA existiu (não há um único .woff em public/). A família ficava indefinida e
-   tudo caía no Arial do fallback, enquanto o base.html.twig baixava do CDN uma fonte que regra
-   nenhuma pedia. Agora a família declarada é a que de fato é carregada.
+   Arial POR DECISÃO DO DONO (19/08/2026): os usuários não aprovaram o Source Sans 3, que entrou
+   em 10/08, e a fonte volta a ser a que o sistema exibia de 23/03 a 10/08/2026.
 
-   É fonte VARIÁVEL (200–900) de propósito: o pacote estático do Fontsource só traz o peso 400,
-   e este CSS pede 600/700 em dezenas de lugares — com um só peso real o navegador engorda o
-   traço por conta própria (bold sintético), que é o que faz texto de interface parecer borrado. */
+   Naquele período o Arial não estava declarado em lugar nenhum — era acidente. Havia um
+   @font-face de 'Open Sans' apontando para /fonts/opensans-regular.woff, arquivo que nunca
+   existiu (não há um único .woff em public/): a família ficava inutilizável e o navegador descia
+   para o Arial do fallback. Restaurar aquele 404 reproduziria a aparência pedida ao preço de
+   trazer o defeito de volta, então o Arial fica declarado aqui, direto — mesmo resultado na tela,
+   sem requisição quebrada.
+
+   O 'sans-serif' final importa: em máquina sem Arial (Linux) é ele que responde, exatamente como
+   respondia antes. Por isso a pilha é `Arial, sans-serif` e não `Arial, Helvetica, sans-serif` —
+   Helvetica mudaria o desenho no macOS, que nunca fez parte do estado que se quer de volta. */
 :root {
-    --jp-font-sans: 'Source Sans 3 Variable', 'Source Sans 3', Arial, sans-serif;
+    --jp-font-sans: Arial, sans-serif;
 }
 
 /* ===== Base Body ===== */
