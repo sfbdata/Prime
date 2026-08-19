@@ -11,7 +11,7 @@ Quem abre uma frente acrescenta a linha. Quem integra tira.
 | `expediente-ux` | Expediente + Pasta (telas) | não | `app/templates/expediente/`, `app/templates/pasta/` | implementando, **28 commits atrás do master** | `origin/codex/colaboracao-cobrancas` |
 | `cobranca-honorario-no-total` | Cobrança (**núcleo do dinheiro**) | não | ver o bloqueio abaixo — é grande | ⛔ **meia-implementação, suíte vermelha de propósito** (`336b0e41`) | `master` local @ `fda1b466` |
 | `cobranca-reconciliar-data-acordo` | Cobrança (comando) | não | `RelatorioLinhaRepository` (método novo), `ComandosComPiiPassamPelaGuardaTest` (1 linha) | ✅ pronta: 3901/3901, prova por reintrodução feita — **aguarda `/review` e integração** | `master` local @ `18555616` |
-| `push-processual` | DJEN (renomear rótulo + URLs) | não | `app/templates/_sidebar.html.twig` | implementando | `origin/master` @ `19cfd9a9` |
+| `push-processual` | DJEN → Push Processual (rótulo + URLs) | **sim — 1** (só dado: `permission.description`) | `app/templates/_sidebar.html.twig`, `app/src/DataFixtures/PermissionFixture.php` | ✅ pronta: 3886/3886, prova por reintrodução feita — **aguarda `/review`** | `origin/master` @ `19cfd9a9` |
 
 ### ⛔ 19/08 — a frente do honorário TRAVA o núcleo de dinheiro da Cobrança
 
