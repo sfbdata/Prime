@@ -63,6 +63,17 @@ class PastaSecaoRepository extends ServiceEntityRepository
      *
      * Nunca inclui os documentos que estão na raiz da pasta (secao_id IS NULL) — esses sobrevivem.
      *
+     * PRÉ-CONDIÇÃO: $secao (e cada filha visitada na recursão) precisa vir CARREGADA DO BANCO,
+     * com as coleções lazy intactas — é o que acontece naturalmente com um `$em->find(...)` novo
+     * por request, como fazem os dois consumidores atuais (PastaSecaoController::excluir/renomear).
+     * O motivo: `PastaDocumento::setSecao()` só grava a FK no lado dono da associação, sem
+     * sincronizar `PastaSecao::$documentos` (diferente de `setPai()`, que sincroniza `pai`/`filhas`
+     * nos dois sentidos de propósito). Se alguém associar documentos a uma $secao só em memória,
+     * dentro da mesma Unit of Work, e chamar este método sem recarregar essa seção do banco, a
+     * coleção `documentos` já estará "presa" vazia (ou incompleta) desde o primeiro flush — e o
+     * `arquivos` sai SUBCONTADO. Não estoura exceção nenhuma: é um número errado com cara de
+     * certo, silencioso, do jeito mais perigoso de errar.
+     *
      * @return array{subpastas: int, arquivos: int}
      */
     public function contarConteudoRecursivo(PastaSecao $secao): array
