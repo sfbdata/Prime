@@ -93,6 +93,52 @@ antes desta fatia, remedir.**
 
 O saldo exigível sobe **R$ 126.362,85** nas 3 carteiras. Nenhuma dívida quitada volta a abrir.
 
+## 4.3 🔴 CORREÇÃO DA SPEC (19/08) — a colisão com a SPEC §18, e a decisão do dono
+
+A §2 desta spec estava **incompleta**. Ela mapeou as três cópias do exigível, mas não viu que existe
+um **segundo modelo de honorário** no sistema, que não chama `valorExigivel()` e por isso não
+apareceu nos pontos de chamada:
+
+| modelo | onde | como trata o honorário |
+|---|---|---|
+| **A — encargo materializado** | `CalculadoraEncargos` → coluna `honorarios` da obrigação | um dos quatro encargos, **por dívida**, com carência de 30 dias |
+| **B — SPEC §18** | `CalculadoraHonorarios` + `FormaHonorarios` | **política por carteira**; acrescido por fora, rateado no pagamento |
+
+`INV-E2` era a costura que impedia os dois de colidirem. Removê-la sem mais nada quebra o sistema:
+
+- `brutoParaRecuperar(D) = D × 1,20` passa a cobrar honorário **sobre honorário**;
+- `MontarDashboardCobrancaUseCase:201` projeta o percentual sobre um saldo que já o contém;
+- 🔴 `AutoAlocadorFifo:121` distribui **apenas `valorDivida`**, com o honorário já retirado por
+  `ratearPagamento` — contra um exigível que agora o EXIGE. **Nenhuma dívida quita.**
+
+### A decisão, medida contra o documento dela
+
+| | honorário sobre a dívida em aberto | distância do rodapé dela |
+|---|---:|---:|
+| **ela** (inadimplência 17/08) | R$ 126.878,17 | — |
+| **modelo A** | R$ 126.362,85 | **R$ 515,32 · 0,4%** |
+| **modelo B** | R$ 173.625,55 | **R$ 46.747,38 · 37% a mais** |
+
+B erra porque aplica um percentual liso: cobra honorário em **1.017 dívidas em que ela não cobra**
+(R$ 47.249,43) — 986 dentro da carência de 30 dias, 748 parcelas de acordo.
+
+✅ **DECIDIDO PELO DONO (19/08): modelo A.** O critério foi o do espelho, não o de custo. Ela registra
+honorário **por dívida** (linha a linha, na inadimplência e na `1.15` das receitas); A tem a mesma
+forma do dado dela. B é uma regra de escritório que **calcula** o que ela **declara** — e não é
+interface, é dado gravado (`cobranca_pagamento.valor_honorarios`) que decide quanto do dinheiro abate
+a dívida. É o "derivado que volta a virar dado" do handoff §1.2.
+
+### 🔴 Invariante de execução: as duas metades andam JUNTAS
+
+O exigível e o caminho do pagamento mudam **na mesma fatia**. Meia-A é pior que nada — é o estado do
+commit `336b0e41`, deliberadamente vermelho e marcado como não-integrável. A §18 precisa ser
+aposentada em quatro pontos, e o rateio do pagamento passa a vir **do relatório de receitas dela**
+(categoria `1.15`), não de `p/(1+p)`.
+
+⚠️ **Antes de escrever: medir a superfície da §18** como foi feito com `valorExigivel()` (pontos de
+chamada, quais gravam, quanto muda em produção). Foi essa medição que impediu a quebra silenciosa em
+19/08 — e a §5 abaixo, escrita antes dela, subestimou o problema.
+
 ## 5. A ordem de alocação — a pergunta se dissolve
 
 O handoff manda *"não escolham uma ordem: descubram a dela"*. Medido, a resposta é que **não há
