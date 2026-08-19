@@ -22,8 +22,8 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
 /**
- * Tira o honorário que a cascata cobrou por cima das contas originais RECONSTRUÍDAS — spec
- * `docs/specs/cobranca-honorario-no-total.md` §10.
+ * Tira o honorário que a cascata cobrou por cima das PARCELAS DE ACORDO que ficaram sem o override —
+ * spec `docs/specs/cobranca-honorario-no-total.md` §10.
  *
  * ⚠️ **Escreve dinheiro.** Simula por padrão; só grava com `--aplicar` **e** `--usuario-id`, porque
  * mudança financeira precisa de autor no histórico.
@@ -33,7 +33,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  */
 #[AsCommand(
     name: 'app:cobranca:reconciliar-honorario-parcela',
-    description: 'Zera o honorário cobrado por cima da conta reconstruída (SIMULA por padrão; grava só com --aplicar)',
+    description: 'Zera o honorário cobrado por cima da parcela de acordo (SIMULA por padrão; grava só com --aplicar)',
 )]
 final class ReconciliarHonorarioDeParcelaCommand extends Command implements LidaComDadoPessoal
 {
@@ -164,7 +164,7 @@ final class ReconciliarHonorarioDeParcelaCommand extends Command implements Lida
             return self::ERRO_DE_INVOCACAO;
         }
 
-        $io->title('Honorário cobrado por cima da conta reconstruída');
+        $io->title('Honorário cobrado por cima da parcela de acordo');
 
         if ($aplicar) {
             $io->warning('MODO --aplicar: isto GRAVA no banco, dentro de uma transação única.');
@@ -207,7 +207,7 @@ final class ReconciliarHonorarioDeParcelaCommand extends Command implements Lida
         }
 
         if ($r->candidatas === 0) {
-            $io->success('Nenhuma conta reconstruída sem o override de honorário. Nada a corrigir.');
+            $io->success('Nenhuma parcela de acordo sem o override de honorário. Nada a corrigir.');
 
             return self::NADA_A_FAZER;
         }
@@ -226,7 +226,7 @@ final class ReconciliarHonorarioDeParcelaCommand extends Command implements Lida
                         $this->reais($c['valorOriginal']),
                         $this->reais($c['honorarioRemovido']),
                         $c['acordoOrigem'] ?? '—',
-                        sprintf('%s%s', $c['acordoSubstituto'] ?? '—', $c['substitutoVigente'] ? ' (vigente)' : ''),
+                        sprintf('%s%s', $c['acordoSubstituto'] ?? '—', $c['foraDoExigivel'] ? ' (fora do saldo)' : ''),
                     ],
                     $r->corrigidas,
                 )
@@ -246,7 +246,8 @@ final class ReconciliarHonorarioDeParcelaCommand extends Command implements Lida
         $presas = $r->corrigidasForaDoExigivel();
 
         $io->text(sprintf(
-            'dessas, %d estão FORA do exigível (acordo substituto vigente): a correção arruma a ficha e a '
+            'dessas, %d estão FORA do exigível (substituída por acordo vigente, ou parcela de acordo '
+            . 'rompido): a correção arruma a ficha e a '
             . 'tela do acordo, e NÃO muda o saldo de ninguém hoje. As outras %d mudam o saldo.',
             $presas,
             count($r->corrigidas) - $presas,

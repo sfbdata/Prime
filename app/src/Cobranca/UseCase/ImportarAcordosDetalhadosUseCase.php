@@ -652,22 +652,33 @@ final class ImportarAcordosDetalhadosUseCase
                     $tocadas->registrarMutada($existente, $caso, $parcela->nn, $parcela->competencia, 'parcela-vinculada', $acordo, $existente->getValorOriginal());
                     if ($usuario !== null) {
                         $existente->setAcordoOrigem($acordo);
-                        // 🔑 O vínculo e o override andam JUNTOS (spec §10). No instante em que a
-                        // obrigação vira PARCELA, ela passa a valer o que a contabilidade declara para
-                        // parcela — e o relatório de acordos dela **não tem coluna de encargo nenhuma**:
-                        // medido em 17/08, de 8.671 linhas de parcela, ZERO com juros, multa, honorário
-                        // ou total. Ela publica só o Valor acordado. Cobrar honorário por cima é o
-                        // sistema formando opinião (§1.1) — é a decisão #8, a mesma que `parcelaInput`
-                        // aplica na parcela que nasce aqui.
+                        // 🔑 O override entra JUNTO do vínculo — mas só quando o valor do sistema É o
+                        // Valor acordado que ela declara para esta parcela (`$divergencia === null`,
+                        // calculado logo acima). A condição não é decoração: ela é o que torna as DUAS
+                        // consequências corretas de uma vez.
                         //
-                        // Ligar sem isto foi o que produziu as 135 de 07/08: a produção tinha 301
-                        // parcelas com o override e honorário R$ 0,00 (igual ao relatório dela) e 135
-                        // sem, cobrando R$ 2.764,16 que ela não cobra. Mesma regra, esquecida num ramo.
+                        // 1. **O honorário.** O relatório de acordos dela não tem coluna de encargo
+                        //    nenhuma — de 8.671 linhas de parcela, ZERO com juros, multa, honorário ou
+                        //    total. Ela publica só o Valor acordado. Parcela não cobra honorário
+                        //    (decisão #8), e é o que `parcelaInput` já faz na parcela que nasce aqui.
+                        // 2. **A alocação.** `taxa_honorarios_bp = 0` tem um SEGUNDO significado, em
+                        //    `ImportarReceitasUseCase`: é o sinal `$honorarioEmbutidoNoValorOriginal`,
+                        //    que manda alocar o valor BRUTO do recebimento. Gravá-lo numa obrigação cujo
+                        //    `valorOriginal` não é o valor negociado faria a importação de receitas
+                        //    abater a mais — o defeito que aquele UseCase já cometeu e reverteu uma vez.
+                        //
+                        // Com o valor batendo, os dois significados são verdade ao mesmo tempo: aquele
+                        // número É o valor negociado dela, e o honorário que ela cobrou está dentro dele.
+                        // Divergindo, não se toca em nada — e a divergência já vai no relatório, para o
+                        // humano decidir. Ligar sem esta regra foi o que produziu as 135 de 07/08
+                        // (valorOriginal batendo com a planilha em 135/135, ao centavo).
                         //
                         // ⚠️ NÃO se estende ao criador de conta original (`reconstruirContaOriginal`):
                         // conta original é a dívida VELHA que o acordo engoliu, não parcela, e nela a
                         // carteira cobra honorário — 3.473 em produção, todas assim de propósito.
-                        $existente->setTaxaHonorariosBp(0);
+                        if ($divergencia === null) {
+                            $existente->setTaxaHonorariosBp(0);
+                        }
                         $this->obrigacaoRepository->salvar($existente, true);
                     }
                 } elseif ($origem->getId() !== $acordo->getId()) {

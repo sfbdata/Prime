@@ -34,13 +34,14 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Zenstruck\Foundry\Test\Factories;
 
 /**
- * A correção das 135 contas reconstruídas — spec `cobranca-honorario-no-total.md` §10.5.
+ * A correção das 135 parcelas de acordo sem override — spec `cobranca-honorario-no-total.md` §10.
  *
- * 🔑 **O teste que mais importa aqui é o da POPULAÇÃO**, não o da subtração. Selecionar por
- * "parcela sem override" pegaria também a avulsa apenas VINCULADA a um acordo, cujo `valorOriginal`
- * NÃO contém o honorário — e zerá-la removeria cobrança legítima e mudaria a alocação da importação de
- * receitas. O que autoriza a correção é a MARCA DE PROCEDÊNCIA. Um teste que só conferisse
- * "honorário virou zero" ficaria verde com esse defeito.
+ * 🔑 **O teste que mais importa aqui é o da POPULAÇÃO**, não o da subtração. A régua é o PAPEL da
+ * obrigação: parcela de acordo não cobra honorário (o relatório dela não tem coluna de encargo
+ * nenhuma), mas a dívida VELHA que o acordo engoliu cobra. As duas nascem da mesma importação, com a
+ * mesma marca na descrição, e a 1ª versão desta fatia confundiu as duas — teria apagado
+ * R$ 102.126,32 de honorário legítimo. Um teste que só conferisse "honorário virou zero" ficaria
+ * verde com esse defeito.
  */
 #[CoversClass(ReconciliarHonorarioDeParcelaUseCase::class)]
 final class ReconciliarHonorarioDeParcelaTest extends KernelTestCase
@@ -153,6 +154,27 @@ final class ReconciliarHonorarioDeParcelaTest extends KernelTestCase
         self::assertSame(0, $r->honorarioRemovidoEmCentavos());
     }
 
+    /**
+     * 🔴 Achado da 2ª revisão. O comando fica no repositório e é re-executável; depois que a fatia da
+     * §10.7 entregar a escolha na tela, rodá-lo apagaria a decisão de quem clicou. A parcela criada à
+     * mão não tem NN — é o que a separa da que veio do relatório dela.
+     */
+    #[TestDox('Parcela criada na TELA (sem NN) não é tocada: ali a escolha é do usuário')]
+    public function testNaoTocaParcelaCriadaNaTela(): void
+    {
+        $carteira = $this->carteiraTopLife();
+        $caso = $this->caso($carteira, 'QD 05 CH 03');
+
+        $daTela = $this->parcelaSemOverride($caso, '60049', honorarios: 4400);
+        $daTela->setReferenciaExterna(null);
+        $this->em->flush();
+        $this->em->clear();
+
+        $r = $this->reconciliar->prever([$carteira], $this->tenantDe($carteira));
+
+        self::assertSame(0, $r->candidatas, 'parcela sem NN nasceu na tela — a escolha de cobrar honorário é de quem clicou (§10.7)');
+    }
+
     #[TestDox('Congelada é PULADA e o honorário que fica sai no relatório, com valor')]
     public function testCongeladaEhPulada(): void
     {
@@ -198,7 +220,7 @@ final class ReconciliarHonorarioDeParcelaTest extends KernelTestCase
         $eventos = $this->em->getRepository(EventoHistorico::class)->findBy(['caso' => $caso]);
         $desta = array_values(array_filter(
             $eventos,
-            static fn (EventoHistorico $e): bool => ($e->getDados()['origem'] ?? null) === 'reconciliacao_honorario_conta_reconstruida',
+            static fn (EventoHistorico $e): bool => ($e->getDados()['origem'] ?? null) === 'reconciliacao_honorario_parcela_de_acordo',
         ));
 
         self::assertCount(1, $desta, 'sem rastro, uma correção de dinheiro não tem como ser desfeita três meses depois');

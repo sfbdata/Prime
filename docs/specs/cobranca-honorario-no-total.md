@@ -184,11 +184,16 @@ provado pela marca de procedência que só ela grava: 135/135 carregam
 
 O defeito veio do **segundo passo**: o ramo `parcela-vinculada` de `completarParcelas`
 (`ImportarAcordosDetalhadosUseCase:~652`) as ligou ao acordo — e ligar **sem** aplicar o override é o
-que criou as 135. É a única mutação que transforma uma obrigação em parcela sem passar por
-`parcelaInput`.
+que criou as 135.
 
-🔑 **O guard vai onde a obrigação VIRA parcela**, junto do `setAcordoOrigem`. Não vai no criador da
-conta original: ver §10.3.
+⚠️ **Não é o único vinculador.** Há outros dois (`ImportarRelatorioCarteiraUseCase:~246` e
+`ImportarReceitasUseCase::garantirVinculoAoAcordo`), tratados na §10.5. A 1ª redação desta seção dizia
+"é a única mutação que transforma obrigação em parcela" — falso, e é o mesmo tipo de absoluto que
+licenciou o erro da §10.6.
+
+🔑 **O guard vai onde a obrigação VIRA parcela**, junto do `setAcordoOrigem` — e **só quando o
+`valorOriginal` do sistema É o Valor acordado que ela declara** (`$divergencia === null`, já calculado
+ali). Não vai no criador da conta original: ver §10.3.
 
 ### 10.3 ⛔ O que NÃO entra — e vale R$ 102.126,32
 
@@ -222,21 +227,45 @@ o honorário indevido vira dinheiro no saldo.
 
 ### 10.5 O que esta fatia faz
 
-1. `completarParcelas` grava `taxaHonorariosBp = 0` junto do `setAcordoOrigem`.
+1. `completarParcelas` grava `taxaHonorariosBp = 0` junto do `setAcordoOrigem`, **e só quando o valor
+   do sistema bate com o da planilha** — ver §10.5.1.
 2. Comando `app:cobranca:reconciliar-honorario-parcela` corrige as 135 já gravadas — `bp = 0` **e**
    `honorarios = 0`, preservando juros, multa e a data do snapshot (INV-H2/H3). Simula primeiro; só
    grava com `--aplicar`.
-3. Provas por reintrodução executadas nas três guardas: o override do vínculo, a régua da população
-   (`acordoOrigem`) e o filtro de tenant da consulta.
+3. O comando ignora parcela **sem NN** — nasceu na tela, e ali a escolha é do usuário (§10.7). Zero
+   em produção hoje, mas o comando é re-executável e rodá-lo depois daquela fatia apagaria a escolha
+   de quem clicou.
+4. Provas por reintrodução executadas nas quatro guardas: o override do vínculo, a **condição do
+   valor**, a régua da população (`acordoOrigem`) e o filtro de tenant da consulta.
 
-**Fica de fora, medido como zero e sem virar pendência:** os outros dois caminhos que só vinculam
+### 10.5.1 🔴 Por que o guard é CONDICIONADO ao valor bater
+
+`taxa_honorarios_bp = 0` carrega **dois** significados, e essa é a armadilha desta fatia:
+
+1. override de encargo — "não cobre honorário nesta obrigação";
+2. em `ImportarReceitasUseCase:~256`, o sinal `$honorarioEmbutidoNoValorOriginal`, que manda alocar o
+   recebimento **BRUTO** em vez do líquido.
+
+Gravá-lo cegamente ao vincular reintroduziria, por outra porta, um defeito que aquele UseCase já
+cometeu e reverteu: uma obrigação nascida avulsa tem `valorOriginal = principalCentavos` (honorário
+**fora**), e alocar o bruto contra ela abateria do saldo um honorário que não está lá.
+
+**A condição `$divergencia === null` faz os dois significados serem verdade ao mesmo tempo.** Se o
+`valorOriginal` do sistema é igual ao Valor acordado que ela declara para aquela parcela, então aquele
+número É o valor negociado — e o honorário que ela cobrou está dentro dele. Divergindo, nada é
+tocado, e a divergência já sai no relatório para o humano decidir.
+
+⚠️ **A 1ª redação usava outra prova, e ela era tautológica:** *"o valorOriginal das 135 bate com a
+soma da coluna Valor do NN, 135/135"*. Para a conta reconstruída isso não prova nada — o adapter
+**constrói** o valor como essa soma. A prova que vale é a que a §10.6 traz: das 3.482 reconstruídas,
+só 27 têm linha `1.15` dentro. Por isso o argumento do honorário embutido saiu daqui: quem autoriza o
+override é o **papel** (é parcela) mais a **igualdade com o valor declarado**, não a composição.
+
+**Fica de fora, medido como zero e sem virar pendência:** os outros dois vinculadores
 (`ImportarRelatorioCarteiraUseCase:~246`, `ImportarReceitasUseCase::garantirVinculoAoAcordo`)
-produziram **0 linhas erradas** em produção. E há motivo positivo para não os tocar às cegas:
-`taxa_honorarios_bp = 0` carrega **dois** significados — override de encargo e, em
-`ImportarReceitasUseCase:~256`, o sinal `$honorarioEmbutidoNoValorOriginal`, que decide se a alocação
-leva o bruto ou o líquido. Nas 135 o bruto é o certo (o `valorOriginal` delas bate com a soma da
-coluna Valor do NN, 135/135 ao centavo). Numa avulsa comum não seria. Separar os dois significados é
-tarefa de outra fatia.
+produziram **0 linhas erradas** em produção — das 2.041 parcelas, 1.906 nasceram por `parcelaInput`
+com o override e 135 são as reconstruídas vinculadas; **nenhuma avulsa vinculada existe**. Separar de
+vez os dois significados da coluna é tarefa de outra fatia.
 
 ### 10.6 O erro da 1ª versão, registrado de propósito
 

@@ -140,7 +140,12 @@ final class ReconciliarHonorarioDeParcelaUseCase
                     'honorarioRemovido' => $removido,
                     'acordoOrigem' => $obrigacao->getAcordoOrigem()?->getNumeroExterno(),
                     'acordoSubstituto' => $substituto?->getNumeroExterno(),
-                    'substitutoVigente' => $substituto?->getStatus()->ehVigente() ?? false,
+                    // As DUAS cláusulas de `aplicarExigibilidade`, não só uma: está fora do exigível
+                    // quem tem substituto VIGENTE **ou** acordo de origem NÃO vigente. Contar só a
+                    // primeira faria o comando apresentar como exato um número que não é (achado da
+                    // 2ª revisão).
+                    'foraDoExigivel' => ($substituto?->getStatus()->ehVigente() ?? false)
+                        || !($obrigacao->getAcordoOrigem()?->getStatus()->ehVigente() ?? false),
                 ];
 
                 if ($usuario === null) {
@@ -246,14 +251,14 @@ final class ReconciliarHonorarioDeParcelaUseCase
             TipoEventoHistorico::ValorAtualizadoReconhecido,
             $usuario,
             sprintf(
-                'Honorário cobrado por cima do valor da planilha retirado de %d conta(s) reconstruída(s): '
-                . 'R$ %s. O valor da planilha já contém o honorário — a contabilidade não cobra encargo '
-                . 'sobre parcela de acordo.',
+                'Honorário retirado de %d parcela(s) de acordo: R$ %s. O relatório de acordos da '
+                . 'contabilidade não traz encargo nenhum na parcela — ela publica só o Valor acordado, '
+                . 'e o sistema passa a copiar isso, como já fazia nas demais parcelas.',
                 count($linhas),
                 number_format($total / 100, 2, ',', '.'),
             ),
             [
-                'origem' => 'reconciliacao_honorario_conta_reconstruida',
+                'origem' => 'reconciliacao_honorario_parcela_de_acordo',
                 'obrigacoes' => array_column($linhas, 'obrigacaoId'),
                 'referencias' => array_values(array_filter(array_column($linhas, 'referencia'))),
                 'honorarioRemovidoCentavos' => $total,

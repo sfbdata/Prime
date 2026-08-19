@@ -19,7 +19,7 @@ final readonly class ResultadoReconciliacaoHonorario
     /**
      * @param list<array{obrigacaoId: int, casoId: int, unidade: string, referencia: ?string,
      *                   competencia: ?string, valorOriginal: int, honorarioRemovido: int,
-     *                   acordoOrigem: ?int, acordoSubstituto: ?int, substitutoVigente: bool}> $corrigidas
+     *                   acordoOrigem: ?int, acordoSubstituto: ?int, foraDoExigivel: bool}> $corrigidas
      * @param list<array{obrigacaoId: int, unidade: string, referencia: ?string, motivo: string,
      *                   honorarioQueFicou: int}>                                              $puladas
      */
@@ -50,14 +50,17 @@ final readonly class ResultadoReconciliacaoHonorario
     }
 
     /**
-     * Quantas das corrigidas estão presas por um acordo substituto VIGENTE — logo, fora do exigível.
+     * Quantas das corrigidas estão FORA do exigível — pelas duas cláusulas de
+     * {@see \App\Cobranca\Repository\ObrigacaoRepository::aplicarExigibilidade}: substituto vigente
+     * **ou** acordo de origem não vigente.
      *
      * É o recorte que separa "arrumei a ficha" de "mudei o que alguém deve". A diferença entre este
-     * número e o total de corrigidas é a quantidade que HOJE muda o saldo.
+     * número e o total de corrigidas é a quantidade que HOJE muda o saldo — e ela é apresentada ao dono
+     * como exata, então tem de sair da régua inteira.
      */
     public function corrigidasForaDoExigivel(): int
     {
-        return count(array_filter($this->corrigidas, static fn (array $c): bool => $c['substitutoVigente']));
+        return count(array_filter($this->corrigidas, static fn (array $c): bool => $c['foraDoExigivel']));
     }
 
     /** Nenhuma obrigação pode sumir entre o universo encontrado e o que a correção fez. */

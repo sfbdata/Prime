@@ -339,6 +339,54 @@ final class ImportarAcordosDetalhadosTest extends KernelTestCase
     }
 
     /**
+     * 🔴 O teste que a 2ª revisão apontou como FALTANTE, e ele guarda dinheiro em dois lugares.
+     *
+     * Quando o valor do sistema NÃO é o Valor acordado dela, gravar `bp = 0` seria errado duas vezes:
+     * tiraria honorário de uma dívida cujo valor não o embute, e — pior — ligaria o sinal
+     * `$honorarioEmbutidoNoValorOriginal` de `ImportarReceitasUseCase`, que manda alocar o recebimento
+     * BRUTO. Aquele UseCase já cometeu e reverteu esse defeito uma vez; o guard não pode reintroduzi-lo
+     * por outra porta.
+     */
+    #[TestDox('Parcela vinculada com valor DIVERGENTE da planilha NÃO recebe o override')]
+    public function testParcelaVinculadaComValorDivergenteNaoRecebeOverride(): void
+    {
+        $tenant = $this->criarTenant();
+        $user = $this->criarUser();
+        $carteiraId = $this->criarCarteira($tenant, [
+            'taxaJurosMensalBp' => 100,
+            'taxaMultaBp' => 200,
+            'formaHonorarios' => FormaHonorarios::AcrescidoDivida,
+            'percentualHonorarios' => '20.00',
+        ]);
+
+        // A avulsa nasce com o principal da inadimplência — que NÃO é o valor negociado.
+        $this->semear($carteiraId, $tenant, $user, [
+            $this->boleto('61600', competencia: '07/2026', vencimento: '2026-07-15', valor: 15000),
+        ]);
+
+        // A planilha declara a parcela por outro valor: o sistema não tem o valor negociado dela.
+        $leitura = new ResultadoLeituraAcordos([$this->acordoDaPlanilha(
+            numero: 37,
+            contas: [],
+            parcelas: [['61600', 1, 4, '07/2026', '2026-07-15', 19939]],
+        )], [], 0);
+
+        $feito = $this->importarAcordos->confirmar($carteiraId, $leitura, $tenant, $user);
+
+        self::assertSame(['61600'], $feito->parcelasVinculadas(), 'o VÍNCULO entra de qualquer jeito — ele não depende do valor');
+        self::assertNotSame([], $feito->divergenciasDeValor(), 'a divergência tem de ser reportada ao humano');
+
+        $this->em->clear();
+        $agora = $this->obrigacao($tenant, '61600');
+        self::assertNotNull($agora);
+        self::assertNotNull($agora->getAcordoOrigem(), 'virou parcela');
+        self::assertNull(
+            $agora->getTaxaHonorariosBp(),
+            'sem o valor negociado, gravar bp=0 mandaria a importação de receitas alocar o BRUTO contra um valor que não embute o honorário',
+        );
+    }
+
+    /**
      * O contrapeso do teste acima, e ele guarda os R$ 102.126,32 que a primeira versão desta fatia
      * quase apagou: conta original reconstruída **não é parcela**. É a dívida VELHA que o acordo
      * engoliu, e nela a carteira cobra honorário — 3.473 assim em produção, todas de propósito.

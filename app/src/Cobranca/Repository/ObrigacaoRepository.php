@@ -554,6 +554,8 @@ class ObrigacaoRepository extends ServiceEntityRepository
      * nessa a carteira cobra honorário, como a produção faz em 3.473 delas. `acordoOrigem IS NOT NULL`
      * é o que separa as duas: a reconstruída nasce só com `acordoSubstituto`.
      *
+     * ⚠️ **Parcela sem NN fica de fora**: nasceu na tela, e lá a escolha é do usuário (§10.7).
+     *
      * Devolve ENTIDADES managed: o chamador corrige e flusha na mesma unidade de trabalho.
      * Tenant EXPLÍCITO — isto roda em console, onde o `TenantFilter` nunca liga.
      *
@@ -568,6 +570,11 @@ class ObrigacaoRepository extends ServiceEntityRepository
             ->andWhere('o.tenant = :tenant')
             ->andWhere('o.acordoOrigem IS NOT NULL')
             ->andWhere('o.taxaHonorariosBp IS NULL')
+            // Só o que veio da CONTABILIDADE: parcela sem NN nasceu na tela, e ali a escolha de cobrar
+            // honorário é do usuário (spec §10.7, decisão do dono em 19/08). Este comando não é
+            // one-shot — sem esta cláusula, rodá-lo depois daquela fatia apagaria a escolha de quem
+            // clicou, em silêncio. Hoje são ZERO em produção: das 2.041 parcelas, todas têm NN.
+            ->andWhere('o.referenciaExterna IS NOT NULL')
             ->setParameter('carteira', $carteira)
             ->setParameter('tenant', $tenant)
             ->orderBy('o.id', 'ASC')
