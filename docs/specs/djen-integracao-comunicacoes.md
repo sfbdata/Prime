@@ -3,9 +3,14 @@
 > ⚠️ **Renomeado em 2026-08-19 — o módulo se chama "Push Processual" na interface.** As URLs passaram
 > de `/djen*` para `/push-processual*` e os nomes de rota de `djen_*` para `push_processual_*`. As URLs
 > antigas seguem vivas com 301 (`RotasLegadasDjenController`), porque 199 notificações em produção têm
-> `url = '/djen'` gravada na linha. **Nada abaixo desta nota mudou**: classes, namespace `App\Djen`,
-> tabela `publicacao_djen` e o código da permissão `modules.djen.view` continuam com o nome DJEN — que
-> é o nome do sistema do CNJ, não o do nosso módulo.
+> `url = '/djen'` gravada na linha.
+>
+> **O que continua valendo abaixo:** classes, namespace `App\Djen`, tabela `publicacao_djen` e o código
+> da permissão `modules.djen.view` seguem com o nome DJEN — que é o nome do sistema do CNJ, não o do
+> nosso módulo. **O que foi atualizado junto com esta nota:** as menções a nomes de rota (`djen_*` →
+> `push_processual_*`), nas seções "Onde está o código" e RS06. O texto de erro que fala do sistema do
+> CNJ (`MotivoFalhaDjen`) e a mensagem da notificação ("capturada no DJEN") **não** mudaram, de
+> propósito: falam da origem, não do módulo.
 
 > **Risco:** MÉDIO — integração externa (API pública do CNJ) que **escreve dados por tenant** e gera
 > notificações. Não toca ponto eletrônico nem identidade User/Tenant, mas cria domínio novo multi-tenant
@@ -197,7 +202,7 @@ recebe uma notificação in-app ("N novas publicações no DJEN") com link para 
   renotifica** publicações já existentes (notifica só as realmente novas do batch).
 - **RS06 — Notificação = evento interno síncrono.** O `SincronizarPublicacoesDjenUseCase`, após persistir as
   novas, resolve **os usuários do tenant com `canAccessModule($u,$tenant,'djen')`** e cria **uma**
-  notificação-resumo por usuário (`Notificacao::TIPO_DJEN_PUBLICACAO`, `url` → `djen_index`). Não instala
+  notificação-resumo por usuário (`Notificacao::TIPO_DJEN_PUBLICACAO`, `url` → `push_processual_index`). Não instala
   messenger (não existe no projeto). Reusa `NotificacaoService`.
 - **RS07 — Permissão de módulo.** Toda action e o botão de sync checam
   `PermissionChecker::canAccessModule($user, $tenant, 'djen')`. Novo módulo `djen` entra no catálogo.

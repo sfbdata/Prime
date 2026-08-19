@@ -95,6 +95,33 @@ final class RotasLegadasDjenControllerTest extends JusPrimeWebTestCase
     }
 
     /**
+     * 🔑 ESTE é o caminho real das 199 notificações: um gestor COM acesso clica no link antigo e tem de
+     * chegar à listagem. Os outros casos provam que o 301 sai; só este prova que ele **chega** — sem
+     * ele, um destino quebrado (rota renomeada de novo, guarda mal posta) passaria despercebido,
+     * porque o 301 continuaria saindo bonitinho.
+     */
+    #[Test]
+    public function gestorComAcessoChegaNaListagemPelaUrlAntiga(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $gestor = $this->criarGestor($tenant, 'gestor_legado_' . uniqid() . '@test.com');
+        $this->logarComTenant($client, $gestor, $tenant);
+        $this->limparIdentityMap();
+
+        $client->request('GET', '/djen');
+        self::assertResponseStatusCodeSame(301);
+        self::assertResponseRedirects('/push-processual');
+
+        $crawler = $client->followRedirect();
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('/push-processual', $client->getRequest()->getPathInfo());
+        // Não basta o 200: confere que é mesmo a tela do módulo, com o nome novo.
+        self::assertStringContainsString('Push Processual', $crawler->filter('h1')->text());
+    }
+
+    /**
      * O redirect é aberto de propósito (não confere permissão), mas isso não pode virar um bypass:
      * quem chega ao destino sem acesso ao módulo tem de ser barrado lá, como sempre foi.
      */

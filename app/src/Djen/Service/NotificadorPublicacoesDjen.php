@@ -45,8 +45,8 @@ final class NotificadorPublicacoesDjen implements NotificadorPublicacoesDjenInte
         }
 
         $mensagem = $quantidadeNovas === 1
-            ? 'Nova publicação capturada.'
-            : sprintf('%d novas publicações capturadas.', $quantidadeNovas);
+            ? 'Nova publicação capturada no DJEN.'
+            : sprintf('%d novas publicações capturadas no DJEN.', $quantidadeNovas);
         $url = $this->urlPublicacoes();
 
         $notificados = 0;

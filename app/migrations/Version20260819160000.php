@@ -27,9 +27,9 @@ use Doctrine\Migrations\AbstractMigration;
  */
 final class Version20260819160000 extends AbstractMigration
 {
-    private const CODIGO = 'modules.djen.view';
-    private const DESCRICAO_NOVA = 'Acesso ao módulo Push Processual (publicações/intimações)';
-    private const DESCRICAO_ANTIGA = 'Acesso ao módulo DJEN (publicações/intimações)';
+    public const CODIGO = 'modules.djen.view';
+    public const DESCRICAO_NOVA = 'Acesso ao módulo Push Processual (publicações/intimações)';
+    public const DESCRICAO_ANTIGA = 'Acesso ao módulo DJEN (publicações/intimações)';
 
     public function getDescription(): string
     {

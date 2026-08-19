@@ -19,8 +19,15 @@ use Symfony\Component\Routing\Attribute\Route;
  * notificações vira 404 no clique, e o mesmo vale para favoritos e links já compartilhados.
  *
  * Só as rotas GET são espelhadas — são as únicas alcançáveis por link salvo ou notificação gravada.
- * As de POST (`sincronizar`, `alternar`, `remover`) partem sempre de um formulário recém-renderizado,
- * que já nasce apontando para o endereço novo.
+ * As de POST (`sincronizar`, `alternar`, `remover`) nascem de um formulário renderizado pelo próprio
+ * sistema, que a partir do deploy já aponta para o endereço novo.
+ *
+ * Isso deixa **uma janela descoberta, de propósito**: a página que já estava aberta no navegador no
+ * instante do deploy continua com o form antigo. Clicar em "Sincronizar" ali posta em
+ * `/djen/sincronizar` e recebe 404 — e mesmo que a rota existisse, o id do token CSRF mudou junto
+ * (`djen_oab_X` → `push_processual_oab_X`), então a resposta seria "Token de segurança inválido".
+ * Um F5 resolve. Espelhar POST com 301 seria pior: o padrão manda o navegador reenviar como GET,
+ * o que transformaria uma ação de escrita numa navegação silenciosa.
  *
  * Permissão não é conferida aqui de propósito: o redirect não entrega conteúdo nenhum, e o destino
  * aplica o `canAccessModule('djen')` normalmente.
