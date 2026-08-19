@@ -539,8 +539,13 @@ E acrescentar:
 
 ```php
     /**
-     * Conta subpastas e arquivos de toda a árvore abaixo de $secao (sem contar a própria $secao,
-     * e sem contar os arquivos que estão na raiz da pasta). Alimenta o aviso de exclusão.
+     * Conta o que a exclusão de $secao levaria junto. As duas contagens têm escopos DIFERENTES,
+     * de propósito, porque é o que o aviso precisa dizer ("contém 3 subpastas e 127 arquivos"):
+     *
+     *   - subpastas: só as DESCENDENTES; a própria $secao não se conta;
+     *   - arquivos:  os da própria $secao MAIS os de toda a descendência.
+     *
+     * Nunca inclui os documentos que estão na raiz da pasta (secao_id IS NULL) — esses sobrevivem.
      *
      * @return array{subpastas: int, arquivos: int}
      */
@@ -884,12 +889,13 @@ final class MoverPastaSecaoUseCaseTest extends TestCase
 
     public function testRecusaQuandoASubarvoreEstouraOTeto(): void
     {
-        // destino no nível 8; subárvore de altura 4 → folha no nível 11
+        // Borda exata do lado de fora: destino no nível 7 recebendo subárvore de altura 4.
+        // A raiz da subárvore cairia no nível 8 e a folha dela no 11 — um a mais que o teto.
         $destino = null;
-        for ($i = 0; $i < 8; ++$i) {
+        for ($i = 0; $i < 7; ++$i) {
             $destino = $this->secao('N' . $i, $destino);
         }
-        self::assertSame(8, $destino->getProfundidade(), 'sanidade do arranjo');
+        self::assertSame(7, $destino->getProfundidade(), 'sanidade do arranjo');
 
         $r = $this->secao('R');
         $x = $this->secao('X', $r);
@@ -904,16 +910,19 @@ final class MoverPastaSecaoUseCaseTest extends TestCase
 
     public function testAceitaQuandoASubarvoreCabeExatamente(): void
     {
-        // destino no nível 7 + altura 4 → folha no nível 10, que é válido
+        // Borda exata do lado de dentro: destino no nível 6 + altura 4 → folha no nível 10.
+        // 6 + 4 = 10, e o guard só recusa acima de 10.
         $destino = null;
-        for ($i = 0; $i < 7; ++$i) {
+        for ($i = 0; $i < 6; ++$i) {
             $destino = $this->secao('N' . $i, $destino);
         }
+        self::assertSame(6, $destino->getProfundidade(), 'sanidade do arranjo');
 
         $r = $this->secao('R');
         $x = $this->secao('X', $r);
         $y = $this->secao('Y', $x);
         $this->secao('Z', $y);
+        self::assertSame(4, $r->getAltura(), 'sanidade do arranjo');
 
         $this->repo->method('proximaOrdem')->willReturn(1);
         $this->useCase->executar($r, $destino, $this->autor, $this->tenant);
@@ -1320,11 +1329,18 @@ Esperado: FAIL — rota `pasta_secao_mover` não existe; `paiId` ignorado.
 
 - [ ] **Step 3: Implementar**
 
-Em `app/src/Pasta/Controller/PastaSecaoController.php`, injetar o UseCase novo no construtor:
+Em `app/src/Pasta/Controller/PastaSecaoController.php`, injetar **duas** dependências novas no
+construtor (`app/src/Pasta/Controller/PastaSecaoController.php:32-45`):
 
 ```php
         private readonly MoverPastaSecaoUseCase $moverPastaUseCase,
+        private readonly PastaSecaoRepository $secaoRepository,
 ```
+
+⚠️ **O `PastaSecaoRepository` NÃO está injetado hoje** — conferido no construtor atual, que vai de
+`EntityManagerInterface` até `ReordenarSecoesUseCase` e não o inclui. Sem essa linha, os dois
+`$this->secaoRepository->findByIdAndPastaAndTenant(...)` abaixo quebram com erro de propriedade
+indefinida. Acrescentar também o `use App\Pasta\Repository\PastaSecaoRepository;` no topo.
 
 No método `criar`, entre a validação de CSRF e a chamada do UseCase:
 
