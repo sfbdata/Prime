@@ -11,6 +11,7 @@ Quem abre uma frente acrescenta a linha. Quem integra tira.
 | `expediente-ux` | Expediente + Pasta (telas) | não | `app/templates/expediente/`, `app/templates/pasta/` | implementando, **28 commits atrás do master** | `origin/codex/colaboracao-cobrancas` |
 | `cobranca-honorario-no-total` | Cobrança (núcleo do dinheiro) | não | `Obrigacao.php`, `CalculadoraSaldo`, `EncargosVivos`, `ReconciliadorLiquidacao`, `AutoAlocadorFifo`, `_divida.html.twig` | implementando | `master` local @ `fda1b466` |
 | *(worktree do subagente)* `reconciliar-data-acordo` | Cobrança (comando) | não | **nenhum** — só arquivos novos | implementando | `master` local @ `aea6d099` |
+| `pasta-subpastas-aninhadas` | Pasta (gerenciador de arquivos) | **sim — 1** | `app/templates/pasta/show.html.twig`, `app/public/js/pasta-arquivos.js` | implementando | `origin/master` @ `19cfd9a9` |
 
 ### 🟡 Duas frentes de Cobrança ao mesmo tempo (19/08) — e por que isto NÃO viola a regra do domínio
 
@@ -28,6 +29,12 @@ correm juntas de propósito, com o conflito eliminado por **contrato**, não por
 
 Se as duas precisarem do mesmo arquivo, a do honorário vai primeiro e a do comando rebaseia — nunca
 o contrário: o núcleo do dinheiro não espera por um comando.
+
+⚠️ **`pasta-subpastas-aninhadas` e `expediente-ux` tocam OS MESMOS arquivos de tela**
+(`app/templates/pasta/show.html.twig`). Quem integrar por último traz o master para dentro e roda a
+suíte de novo **antes** do merge. A frente de pastas aninhadas também mexe em
+`app/public/js/pasta-arquivos.js`, **compartilhado com a Cobrança** (`cobranca/caso/_documentos.html.twig`):
+o JS degrada para um nível quando o container não declara `data-arvore`.
 
 `pasta-valor-causa` foi **integrada em 2026-08-17** (fast-forward para `3629b19a`). Trouxe a migration
 `Version20260814120000` — uma coluna `valor_causa` em `pasta`, aditiva e anulável, que não toca nenhuma
