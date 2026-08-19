@@ -7,6 +7,7 @@ namespace App\Cobranca\UseCase;
 use App\Cobranca\DTO\ExpectativaDaLista;
 use App\Cobranca\DTO\ResultadoReconciliacaoHonorario;
 use App\Cobranca\Entity\Carteira;
+use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\Obrigacao;
 use App\Cobranca\Enum\TipoEventoHistorico;
 use App\Cobranca\Exception\UniversoDaListaMudouException;
@@ -17,23 +18,22 @@ use App\Entity\Tenant\Tenant;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
- * Põe o override `taxaHonorariosBp = 0` nas contas originais RECONSTRUÍDAS que nasceram sem ele, e
- * tira o honorário que a materialização cobrou por cima — spec
- * `docs/specs/cobranca-honorario-no-total.md` §10.
+ * Põe o override `taxaHonorariosBp = 0` nas PARCELAS DE ACORDO que ficaram sem ele, e tira o
+ * honorário que a cascata cobrou por cima — spec `docs/specs/cobranca-honorario-no-total.md` §10.
  *
  * ⚠️ **Escreve dinheiro em produção.** Simula por padrão; só grava com `--aplicar` e autor.
  *
- * 🔑 **O defeito, em uma frase.** `AcordosDetalhadosAdapter::montarContaOriginal()` SOMA todas as
- * linhas do NN num único valor — principal mais `1.4 - Juros`, `1.5 - Multas` e
- * `1.15 - Honorário advocatício`. O honorário já está DENTRO do `valorOriginal`. Sem o override, a
- * cascata da carteira o cobra de novo. Medido em produção em 19/08: 135 obrigações, R$ 2.764,16
- * gravados, e R$ 4.736,15 é o que a tela do acordo passaria a somar depois desta fatia.
+ * 🔑 **O defeito, em uma frase.** O relatório de acordos da contabilidade não tem coluna de encargo
+ * nenhuma — de 8.671 linhas de parcela, ZERO com juros, multa, honorário ou total. Ela publica só o
+ * Valor acordado. O sistema já cumpre isso em 301 parcelas (honorário R$ 0,00); em 135 o override
+ * ficou faltando e elas cobram R$ 2.764,16 que ela não cobra. É o sistema formando opinião (§1.1), e
+ * o conserto é copiar ela.
  *
- * 🔑 **A população vem da MARCA DE PROCEDÊNCIA, não de "parcela sem override"** — ver
- * {@see ObrigacaoRepository::reconstruidasSemOverrideDeHonorario}. A distinção é o coração desta
- * correção: uma avulsa apenas VINCULADA a um acordo também tem `taxaHonorariosBp` nulo, e nela o
- * honorário está FORA do `valorOriginal`. Zerá-la removeria cobrança legítima e mudaria a alocação da
- * importação de receitas, que lê `taxaHonorariosBp === 0` como "o honorário já está no valor".
+ * ⛔ **NÃO é a conta original reconstruída.** A primeira versão desta fatia mirou na procedência
+ * ("nasceu de `reconstruirContaOriginal`") em vez do papel ("é parcela"), e teria zerado o honorário
+ * de 3.347 dívidas VELHAS engolidas por acordo — R$ 102.126,32 que a carteira cobra legitimamente e
+ * que a produção já trata assim em 3.473 delas. Ver
+ * {@see ObrigacaoRepository::parcelasDeAcordoSemOverrideDeHonorario}.
  *
  * ⛔ **INV-H1 — não toca obrigação CONGELADA.** Congelada nunca é re-hidratada, então mexer no snapshot
  * dela é decisão de outra natureza. Pular **não é no-op**: o honorário indevido fica, e por isso sai no
@@ -43,9 +43,8 @@ use Doctrine\ORM\EntityManagerInterface;
  * tirado na data do acordo; não recalcula nada. Recarimbar com "hoje" mentiria sobre a procedência do
  * número e quebraria a régua, que confere o gravado contra a fórmula NA DATA do snapshot.
  *
- * 🔑 **INV-H3 — juros, multa e correção não são tocados.** Eles também estão embutidos no valor somado,
- * e essa é uma segunda pergunta, de outra natureza (a parcela de acordo continua correndo juros pela
- * decisão registrada em `parcelaInput`). Ampliar aqui seria decidir por conta própria — §1.1.
+ * 🔑 **INV-H3 — juros, multa e correção não são tocados.** Que a parcela atrasada volte a render juros
+ * é decisão consciente, registrada em `parcelaInput`. Ampliar aqui seria decidir por conta própria.
  */
 final class ReconciliarHonorarioDeParcelaUseCase
 {
@@ -106,15 +105,14 @@ final class ReconciliarHonorarioDeParcelaUseCase
         $porCaso = [];
 
         foreach ($carteiras as $carteira) {
-            $alvos = $this->obrigacoes->reconstruidasSemOverrideDeHonorario(
-                $carteira,
-                $tenant,
-                ImportarAcordosDetalhadosUseCase::MARCA_RECONSTRUIDA,
-            );
+            $alvos = $this->obrigacoes->parcelasDeAcordoSemOverrideDeHonorario($carteira, $tenant);
+            // ⚠️ Contado AQUI, do tamanho do universo, e NÃO dentro do laço. Incrementar por item faria
+            // `contasFecham()` ser verdade por construção — um `continue` novo cairia fora dos dois
+            // baldes E fora da contagem, e a conferência não veria nada. Foi a crítica que a régua
+            // irmã já levou; com a contagem independente ela vira guarda de verdade.
+            $candidatas += count($alvos);
 
             foreach ($alvos as $obrigacao) {
-                ++$candidatas;
-
                 $unidade = (string) $obrigacao->getCaso()?->getObjeto()?->getIdentificacao();
 
                 if ($obrigacao->encargosCongelados()) {
@@ -130,7 +128,7 @@ final class ReconciliarHonorarioDeParcelaUseCase
                 }
 
                 $substituto = $obrigacao->getAcordoSubstituto();
-                $removido = $obrigacao->getHonorarios();
+                $removido = $this->honorarioQueSai($obrigacao);
 
                 $corrigidas[] = [
                     'obrigacaoId' => (int) $obrigacao->getId(),
@@ -177,8 +175,9 @@ final class ReconciliarHonorarioDeParcelaUseCase
 
         if ($usuario !== null) {
             foreach ($porCaso as $casoId => $linhas) {
-                $this->registrarNoHistorico($casoId, $linhas, $usuario);
-                ++$casosComEvento;
+                // Só conta o que virou evento DE FATO: `registrarNoHistorico` desiste quando o caso não
+                // é encontrado, e um contador cego imprimiria "eventos no histórico: N" sem evento.
+                $casosComEvento += $this->registrarNoHistorico($casoId, $linhas, $usuario) ? 1 : 0;
             }
 
             $this->em->flush();
@@ -232,12 +231,12 @@ final class ReconciliarHonorarioDeParcelaUseCase
      *
      * @param list<array{obrigacaoId: int, referencia: ?string, honorarioRemovido: int}> $linhas
      */
-    private function registrarNoHistorico(int $casoId, array $linhas, User $usuario): void
+    private function registrarNoHistorico(int $casoId, array $linhas, User $usuario): bool
     {
-        $caso = $this->em->getRepository(\App\Cobranca\Entity\CasoCobranca::class)->find($casoId);
+        $caso = $this->em->getRepository(CasoCobranca::class)->find($casoId);
 
         if ($caso === null) {
-            return;
+            return false;
         }
 
         $total = array_sum(array_column($linhas, 'honorarioRemovido'));
@@ -260,6 +259,22 @@ final class ReconciliarHonorarioDeParcelaUseCase
                 'honorarioRemovidoCentavos' => $total,
             ],
         );
+
+        return true;
+    }
+
+    /**
+     * O honorário que a correção REALMENTE tira desta obrigação — que é zero quando ela nunca foi
+     * materializada (`encargosAtualizadosEm` nulo, acordo sem data): ali `aplicarNa` grava o override e
+     * não mexe no campo.
+     *
+     * Existe para o relatório não afirmar o que não aconteceu. Hoje os dois números coincidem sempre,
+     * porque `definirEncargos` é o único caminho que escreve `honorarios` e sempre carimba a data junto
+     * — mas depender desse acoplamento em silêncio é como o histórico desta frente costuma quebrar.
+     */
+    private function honorarioQueSai(Obrigacao $obrigacao): int
+    {
+        return $obrigacao->getEncargosAtualizadosEm() === null ? 0 : $obrigacao->getHonorarios();
     }
 
     /**

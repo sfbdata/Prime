@@ -78,10 +78,11 @@ final class ImportarAcordosDetalhadosUseCase
      * `Obrigacao` não tem campo de observação. É o ÚNICO sinal durável que distingue a conta
      * reconstruída a partir da planilha do boleto importado de verdade.
      *
-     * Constante, e não literal repetido, porque quem CORRIGE precisa achar exatamente o que quem
-     * ESCREVE gravou: `ReconciliarHonorarioDeParcelaUseCase` seleciona a população por esta marca
-     * (spec `cobranca-honorario-no-total.md` §10.5). Duas cópias do texto divergiriam em silêncio, e o
-     * corretor passaria a não achar nada — falhando exatamente como um "nada a fazer" legítimo.
+     * ⚠️ **Não é régua de dinheiro, e já foi usada como uma.** A 1ª versão da fatia do honorário
+     * selecionou por esta marca a população de uma correção — e teria zerado o honorário de 3.347
+     * dívidas velhas engolidas por acordo (R$ 102.126,32 legítimos), porque a marca diz de ONDE a
+     * obrigação veio, não o QUE ela é. Quem decide isso é `acordoOrigem`. Ver
+     * `cobranca-honorario-no-total.md` §10.6.
      */
     public const MARCA_RECONSTRUIDA = 'Reconstruída da planilha de acordos';
 
@@ -651,6 +652,22 @@ final class ImportarAcordosDetalhadosUseCase
                     $tocadas->registrarMutada($existente, $caso, $parcela->nn, $parcela->competencia, 'parcela-vinculada', $acordo, $existente->getValorOriginal());
                     if ($usuario !== null) {
                         $existente->setAcordoOrigem($acordo);
+                        // 🔑 O vínculo e o override andam JUNTOS (spec §10). No instante em que a
+                        // obrigação vira PARCELA, ela passa a valer o que a contabilidade declara para
+                        // parcela — e o relatório de acordos dela **não tem coluna de encargo nenhuma**:
+                        // medido em 17/08, de 8.671 linhas de parcela, ZERO com juros, multa, honorário
+                        // ou total. Ela publica só o Valor acordado. Cobrar honorário por cima é o
+                        // sistema formando opinião (§1.1) — é a decisão #8, a mesma que `parcelaInput`
+                        // aplica na parcela que nasce aqui.
+                        //
+                        // Ligar sem isto foi o que produziu as 135 de 07/08: a produção tinha 301
+                        // parcelas com o override e honorário R$ 0,00 (igual ao relatório dela) e 135
+                        // sem, cobrando R$ 2.764,16 que ela não cobra. Mesma regra, esquecida num ramo.
+                        //
+                        // ⚠️ NÃO se estende ao criador de conta original (`reconstruirContaOriginal`):
+                        // conta original é a dívida VELHA que o acordo engoliu, não parcela, e nela a
+                        // carteira cobra honorário — 3.473 em produção, todas assim de propósito.
+                        $existente->setTaxaHonorariosBp(0);
                         $this->obrigacaoRepository->salvar($existente, true);
                     }
                 } elseif ($origem->getId() !== $acordo->getId()) {
@@ -1072,24 +1089,18 @@ final class ImportarAcordosDetalhadosUseCase
         $input->vencimentoOriginal = $conta->vencimento;
         $input->referenciaExterna = $conta->nn;
         $input->competencia = $conta->competencia;
-        // Honorários ZERO por TAXA — o QUARTO criador de obrigação dos importadores, e o único que não
-        // tinha o guard (spec `cobranca-honorario-no-total.md` §10). O gatilho aqui NÃO é "é parcela de
-        // acordo", como nos outros três: é o que `AcordosDetalhadosAdapter::montarContaOriginal()` faz
-        // com o valor — *"uma conta original é o GRUPO de linhas do mesmo NN+competência, SOMADO"*. Ou
-        // seja, `valorCentavos` traz o boleto inteiro, incluindo as linhas `1.4 - Juros`,
-        // `1.5 - Multas` e `1.15 - Honorário advocatício`. O honorário JÁ ESTÁ dentro do valorOriginal;
-        // aplicar a taxa da cascata em cima cobraria o mesmo dinheiro dela duas vezes.
+        // ⚠️ SEM override de honorário aqui, e isso é DELIBERADO (spec §10, corrigido em 19/08).
         //
-        // Medido em produção (19/08): 135 obrigações nasceram aqui sem o override — 135/135 com o
-        // valorOriginal batendo ao centavo com a soma da coluna Valor do NN no relatório dela, e
-        // R$ 2.047,95 dessa soma em linhas `1.15`. O relatório de acordos não tem coluna de encargo
-        // nenhuma (0 de 8.671 linhas de parcela com juros, multa, honorário ou total): ela declara só o
-        // Valor acordado, e o sistema copia.
+        // A primeira versão desta fatia punha `honorariosBp = 0` nesta linha, com o argumento de que
+        // `montarContaOriginal` SOMA todas as linhas do NN e o honorário já estaria dentro. A medição
+        // em produção derrubou o argumento: das 3.482 contas reconstruídas, só **27** têm linha
+        // `1.15 - Honorário advocatício` dentro do grupo. Nas outras 3.455 o honorário está FORA do
+        // valor, e zerá-lo apagaria R$ 102.126,32 de honorário que a carteira cobra legitimamente.
         //
-        // `modoHonorarios = 'percent'` é obrigatório junto: no default `'herda'` o
-        // `ConversorTaxaEncargo` devolve null e o zero seria descartado antes de chegar à entidade.
-        $input->modoHonorarios = 'percent';
-        $input->honorariosBp = 0;
+        // 🔑 A conta reconstruída NÃO é parcela de acordo — é a dívida VELHA que o acordo engoliu, e
+        // nessa a carteira cobra honorário normalmente. A produção já segue essa regra em 3.473
+        // dívidas velhas. Quem não pode cobrar honorário é a PARCELA, e o lugar do guard é onde a
+        // obrigação VIRA parcela: `completarParcelas`.
 
         $nova = $this->registrarObrigacao->executar($input, $tenant, $usuario);
 

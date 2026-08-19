@@ -280,20 +280,71 @@ final class ImportarAcordosDetalhadosTest extends KernelTestCase
     }
 
     /**
-     * O QUARTO criador de obrigação dos importadores — spec `cobranca-honorario-no-total.md` §10.
+     * Spec `cobranca-honorario-no-total.md` §10 — o override entra quando a obrigação VIRA PARCELA.
      *
-     * `AcordosDetalhadosAdapter::montarContaOriginal()` SOMA todas as linhas do NN (principal + juros +
-     * multa + `1.15 - Honorário advocatício`) num único `valorCentavos`. O honorário já está DENTRO do
-     * `valorOriginal`; sem o override a cascata da carteira o cobraria de novo, sobre um valor que já o
-     * contém. Em produção isso gerou 135 obrigações (07/08) e, com o honorário dentro do exigível,
-     * viraria R$ 4.736,15 a mais na tela do acordo.
+     * A produção de 19/08 mostra a regra que o sistema já cumpre: 301 parcelas de acordo com o
+     * override e honorário R$ 0,00 (igual ao relatório dela) contra 135 sem, cobrando R$ 2.764,16 que
+     * ela não cobra. As 135 chegaram lá por ESTE ramo — ligadas ao acordo sem receber o override.
      *
-     * ⚠️ A carteira NEUTRA da factory (todas as taxas em zero) faria este teste passar sem o conserto —
-     * a asserção seria tautológica. Por isso o cenário usa honorário de 20% e a asserção de juros > 0
-     * abaixo prova que a cascata está VIVA quando o honorário dá zero.
+     * ⚠️ A carteira NEUTRA da factory (taxas em zero) faria este teste passar sem o conserto. Por isso
+     * o cenário usa honorário de 20%, e a asserção de juros > 0 prova que a cascata está VIVA quando o
+     * honorário dá zero.
      */
-    #[TestDox('Conta reconstruída NÃO cobra honorário: o valor somado da planilha já o contém')]
-    public function testContaReconstruidaNaoCobraHonorarioPorCima(): void
+    #[TestDox('Parcela SOLTA ligada ao acordo recebe o override: parcela não cobra honorário')]
+    public function testParcelaVinculadaRecebeOverrideDeHonorario(): void
+    {
+        $tenant = $this->criarTenant();
+        $user = $this->criarUser();
+        $carteiraId = $this->criarCarteira($tenant, [
+            'taxaJurosMensalBp' => 100,
+            'taxaMultaBp' => 200,
+            'formaHonorarios' => FormaHonorarios::AcrescidoDivida,
+            'percentualHonorarios' => '20.00',
+        ]);
+
+        // Nasce SOLTA, pela inadimplência, sem acordo — o estado das 135 antes de serem ligadas.
+        $this->semear($carteiraId, $tenant, $user, [
+            $this->boleto('61600', competencia: '07/2026', vencimento: '2026-07-15', valor: 19939),
+        ]);
+
+        $solta = $this->obrigacao($tenant, '61600');
+        self::assertNotNull($solta);
+        self::assertNull($solta->getTaxaHonorariosBp(), 'o cenário começa no estado defeituoso: sem override');
+
+        // A planilha de acordos declara que aquele boleto é parcela do acordo 37.
+        $leitura = new ResultadoLeituraAcordos([$this->acordoDaPlanilha(
+            numero: 37,
+            contas: [],
+            parcelas: [['61600', 1, 4, '07/2026', '2026-07-15', 19939]],
+        )], [], 0);
+
+        $feito = $this->importarAcordos->confirmar($carteiraId, $leitura, $tenant, $user);
+        self::assertSame(['61600'], $feito->parcelasVinculadas());
+
+        $this->em->clear();
+        $agora = $this->obrigacao($tenant, '61600');
+        self::assertNotNull($agora);
+        self::assertNotNull($agora->getAcordoOrigem(), 'virou parcela');
+        self::assertSame(0, $agora->getTaxaHonorariosBp(), 'o vínculo e o override andam juntos — sem isto nasce mais uma das 135');
+
+        // A CONSEQUÊNCIA, não só a coluna: o override tem de VENCER a cascata. A primeira asserção é o
+        // que impede o teste de ser tautológico — ela prova que, sem o override, a carteira cobraria
+        // 20% nesta obrigação.
+        $resolvedor = new ResolvedorConfigEncargos();
+        $caso = $agora->getCaso();
+        self::assertNotNull($caso);
+        $configCaso = $resolvedor->resolverDoCaso($caso);
+        self::assertSame(2000, $configCaso->taxaHonorariosBp, 'sem os 20% na cascata a carteira está neutra e o teste não prova nada');
+        self::assertSame(0, $resolvedor->aplicarObrigacao($configCaso, $agora)->taxaHonorariosBp, 'o override da obrigação tem de vencer os 20% da carteira');
+    }
+
+    /**
+     * O contrapeso do teste acima, e ele guarda os R$ 102.126,32 que a primeira versão desta fatia
+     * quase apagou: conta original reconstruída **não é parcela**. É a dívida VELHA que o acordo
+     * engoliu, e nela a carteira cobra honorário — 3.473 assim em produção, todas de propósito.
+     */
+    #[TestDox('Conta reconstruída NÃO recebe o override: dívida velha engolida cobra honorário normal')]
+    public function testContaReconstruidaNaoRecebeOverride(): void
     {
         $tenant = $this->criarTenant();
         $user = $this->criarUser();
@@ -313,13 +364,9 @@ final class ImportarAcordosDetalhadosTest extends KernelTestCase
 
         $reconstruida = $this->obrigacao($tenant, '60049');
         self::assertNotNull($reconstruida);
-
-        // O cenário só discrimina se a cascata gerar encargo de verdade nesta obrigação.
-        self::assertGreaterThan(0, $reconstruida->getJuros(), 'sem juros a carteira está neutra e o teste não prova nada');
-
-        // O DINHEIRO primeiro: é esta asserção que a prova por reintrodução tem de matar.
-        self::assertSame(0, $reconstruida->getHonorarios(), 'o honorário já está dentro do valorOriginal somado da planilha; materializá-lo aqui o cobraria duas vezes');
-        self::assertSame(0, $reconstruida->getTaxaHonorariosBp(), 'o override tem de ser GRAVADO, não só dar zero hoje — é ele que impede a hidratação ao vivo de reintroduzir o honorário na próxima leitura');
+        self::assertNull($reconstruida->getAcordoOrigem(), 'conta original NÃO é parcela — nasce só substituída');
+        self::assertNull($reconstruida->getTaxaHonorariosBp(), 'sem override: a carteira cobra honorário na dívida velha, e a contabilidade também');
+        self::assertGreaterThan(0, $reconstruida->getHonorarios(), 'zerar isto apagaria R$ 102.126,32 de honorário legítimo em produção');
     }
 
     #[TestDox('Conta reconstruída não é recriada na segunda execução (idempotência por NN+competência)')]

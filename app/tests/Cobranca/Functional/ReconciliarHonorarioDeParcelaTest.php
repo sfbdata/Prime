@@ -62,7 +62,7 @@ final class ReconciliarHonorarioDeParcelaTest extends KernelTestCase
     {
         $carteira = $this->carteiraTopLife();
         $caso = $this->caso($carteira, 'QD 05 CH 03');
-        $reconstruida = $this->reconstruida($caso, '60049', honorarios: 3658);
+        $reconstruida = $this->parcelaSemOverride($caso, '60049', honorarios: 3658);
 
         $r = $this->reconciliar->prever([$carteira], $this->tenantDe($carteira));
 
@@ -82,7 +82,7 @@ final class ReconciliarHonorarioDeParcelaTest extends KernelTestCase
     {
         $carteira = $this->carteiraTopLife();
         $caso = $this->caso($carteira, 'QD 05 CH 03');
-        $reconstruida = $this->reconstruida($caso, '60049', honorarios: 3658, juros: 1200, multa: 340);
+        $reconstruida = $this->parcelaSemOverride($caso, '60049', honorarios: 3658, juros: 1200, multa: 340);
         $usuario = $this->usuarioDo($carteira);
 
         $r = $this->reconciliar->confirmar([$carteira], $this->tenantDe($carteira), $usuario);
@@ -108,37 +108,49 @@ final class ReconciliarHonorarioDeParcelaTest extends KernelTestCase
     }
 
     /**
-     * 🔴 O teste que guarda a §10.4. A avulsa vinculada tem EXATAMENTE a mesma assinatura de coluna da
-     * reconstruída — `acordoOrigem` preenchido e `taxaHonorariosBp` nulo. Só a procedência as separa.
+     * 🔴 O teste que guarda os R$ 102.126,32. A conta original reconstruída tem a MESMA marca na
+     * descrição e a MESMA origem das 135 — só o papel muda. Mirar na procedência em vez do papel foi o
+     * erro da primeira versão desta fatia, e é este teste que o impede de voltar.
      */
-    #[TestDox('NÃO toca a avulsa apenas VINCULADA a um acordo: nela o honorário está fora do valor')]
-    public function testNaoTocaAvulsaApenasVinculada(): void
+    #[TestDox('NÃO toca a conta original reconstruída: dívida velha engolida cobra honorário')]
+    public function testNaoTocaContaOriginalReconstruida(): void
     {
         $carteira = $this->carteiraTopLife();
         $caso = $this->caso($carteira, 'QD 05 CH 03');
 
-        // Mesma assinatura de coluna da reconstruída; o que muda é SÓ a descrição.
-        $avulsa = $this->obrigacaoDeAcordo($caso, '70001', descricao: '1.1 - Taxa de condomínio — competência 03/2025', honorarios: 5000);
+        $velha = $this->contaOriginalReconstruida($caso, '70001', honorarios: 5000);
 
         $r = $this->reconciliar->prever([$carteira], $this->tenantDe($carteira));
 
-        self::assertSame(0, $r->candidatas, 'a avulsa vinculada NÃO é população desta correção — zerá-la removeria cobrança legítima e mudaria a alocação das receitas');
+        self::assertSame(0, $r->candidatas, 'dívida velha engolida NÃO é parcela — em produção são 3.473 assim, de propósito');
         self::assertSame(0, $r->honorarioRemovidoEmCentavos());
 
-        $this->em->refresh($avulsa);
-        self::assertSame(5000, $avulsa->getHonorarios());
+        $this->em->refresh($velha);
+        self::assertSame(5000, $velha->getHonorarios(), 'apagar isto seria remover honorário que a carteira cobra com direito');
     }
 
-    #[TestDox('Obrigação de OUTRO escritório não é tocada, mesmo com a mesma marca')]
+    /**
+     * ⚠️ Duas carteiras de escritórios diferentes NÃO provam nada aqui: a consulta já filtra por
+     * `obj.carteira`, então esse teste passaria com o `andWhere` do tenant apagado — foi o furo que a
+     * revisão apontou. O que exercita a cláusula do tenant é a obrigação cujo `tenant` DIVERGE do
+     * escritório pedido, que é exatamente o vazamento que ela existe para barrar.
+     */
+    #[TestDox('Obrigação com tenant de OUTRO escritório não é alcançada, mesmo na carteira pedida')]
     public function testIsolamentoEntreEscritorios(): void
     {
         $minha = $this->carteiraTopLife();
-        $alheia = $this->carteiraTopLife();
-        $this->reconstruida($this->caso($alheia, 'QD 09 CH 01'), '60049', honorarios: 9900);
+        $caso = $this->caso($minha, 'QD 05 CH 03');
+        $intrusa = $this->parcelaSemOverride($caso, '60049', honorarios: 9900);
+
+        // Mesma carteira, mesmo caso — só o tenant da obrigação é de outro escritório.
+        $intrusa->setTenant(TenantFactory::createOne()->_real());
+        $this->em->flush();
+        $this->em->clear();
 
         $r = $this->reconciliar->prever([$minha], $this->tenantDe($minha));
 
         self::assertSame(0, $r->candidatas, 'o TenantFilter não liga em console — o filtro tem de ser explícito na consulta');
+        self::assertSame(0, $r->honorarioRemovidoEmCentavos());
     }
 
     #[TestDox('Congelada é PULADA e o honorário que fica sai no relatório, com valor')]
@@ -146,7 +158,7 @@ final class ReconciliarHonorarioDeParcelaTest extends KernelTestCase
     {
         $carteira = $this->carteiraTopLife();
         $caso = $this->caso($carteira, 'QD 05 CH 03');
-        $congelada = $this->reconstruida($caso, '60049', honorarios: 3658);
+        $congelada = $this->parcelaSemOverride($caso, '60049', honorarios: 3658);
         $congelada->congelarEncargos(new \DateTimeImmutable('2026-06-30'));
         $this->em->flush();
 
@@ -163,7 +175,7 @@ final class ReconciliarHonorarioDeParcelaTest extends KernelTestCase
     public function testIdempotente(): void
     {
         $carteira = $this->carteiraTopLife();
-        $this->reconstruida($this->caso($carteira, 'QD 05 CH 03'), '60049', honorarios: 3658);
+        $this->parcelaSemOverride($this->caso($carteira, 'QD 05 CH 03'), '60049', honorarios: 3658);
         $usuario = $this->usuarioDo($carteira);
 
         $this->reconciliar->confirmar([$carteira], $this->tenantDe($carteira), $usuario);
@@ -177,7 +189,7 @@ final class ReconciliarHonorarioDeParcelaTest extends KernelTestCase
     {
         $carteira = $this->carteiraTopLife();
         $caso = $this->caso($carteira, 'QD 05 CH 03');
-        $this->reconstruida($caso, '60049', honorarios: 3658);
+        $this->parcelaSemOverride($caso, '60049', honorarios: 3658);
 
         $r = $this->reconciliar->confirmar([$carteira], $this->tenantDe($carteira), $this->usuarioDo($carteira));
 
@@ -198,7 +210,7 @@ final class ReconciliarHonorarioDeParcelaTest extends KernelTestCase
     public function testTravaDaListaAprovadaNaoGrava(): void
     {
         $carteira = $this->carteiraTopLife();
-        $reconstruida = $this->reconstruida($this->caso($carteira, 'QD 05 CH 03'), '60049', honorarios: 3658);
+        $reconstruida = $this->parcelaSemOverride($this->caso($carteira, 'QD 05 CH 03'), '60049', honorarios: 3658);
         $usuario = $this->usuarioDo($carteira);
 
         try {
@@ -223,8 +235,12 @@ final class ReconciliarHonorarioDeParcelaTest extends KernelTestCase
 
     // ---------------------------------------------------------------------------------------------
 
-    /** A conta reconstruída, como `reconstruirContaOriginal` a grava: com a MARCA na descrição. */
-    private function reconstruida(CasoCobranca $caso, string $nn, int $honorarios, int $juros = 0, int $multa = 0): Obrigacao
+    /**
+     * A forma exata das 135 em produção: é PARCELA de um acordo (`acordoOrigem`) E foi substituída por
+     * outro (`acordoSubstituto`), sem o override. A descrição carrega a marca porque em produção elas
+     * nasceram da reconstrução — mas a marca NÃO é o que a seleciona; o `acordoOrigem` é.
+     */
+    private function parcelaSemOverride(CasoCobranca $caso, string $nn, int $honorarios, int $juros = 0, int $multa = 0): Obrigacao
     {
         return $this->obrigacaoDeAcordo(
             $caso,
@@ -234,13 +250,26 @@ final class ReconciliarHonorarioDeParcelaTest extends KernelTestCase
             honorarios: $honorarios,
             juros: $juros,
             multa: $multa,
+            ehParcela: true,
         );
     }
 
     /**
-     * Uma obrigação que é parcela de um acordo E foi substituída por outro — a forma exata das 135 em
-     * produção. A descrição é o que distingue reconstruída de avulsa vinculada.
+     * A conta original RECONSTRUÍDA: mesma origem, mesma marca na descrição, mas papel DIFERENTE — é a
+     * dívida velha que o acordo engoliu. Nasce só com `acordoSubstituto`, nunca com `acordoOrigem`.
      */
+    private function contaOriginalReconstruida(CasoCobranca $caso, string $nn, int $honorarios): Obrigacao
+    {
+        return $this->obrigacaoDeAcordo(
+            $caso,
+            $nn,
+            descricao: '1.1 - Taxa de condomínio — competência 01/2026 | '
+                . ImportarAcordosDetalhadosUseCase::MARCA_RECONSTRUIDA . ' (emissão 29/07/2026)',
+            honorarios: $honorarios,
+            ehParcela: false,
+        );
+    }
+
     private function obrigacaoDeAcordo(
         CasoCobranca $caso,
         string $nn,
@@ -248,6 +277,7 @@ final class ReconciliarHonorarioDeParcelaTest extends KernelTestCase
         int $honorarios,
         int $juros = 0,
         int $multa = 0,
+        bool $ehParcela = true,
     ): Obrigacao {
         /** @var Obrigacao $obrigacao */
         $obrigacao = ObrigacaoFactory::createOne([
@@ -260,7 +290,9 @@ final class ReconciliarHonorarioDeParcelaTest extends KernelTestCase
             'vencimentoOriginal' => new \DateTimeImmutable('2026-01-13'),
         ])->_real();
 
-        $obrigacao->setAcordoOrigem($this->acordo($caso));
+        if ($ehParcela) {
+            $obrigacao->setAcordoOrigem($this->acordo($caso));
+        }
         $obrigacao->setAcordoSubstituto($this->acordo($caso));
         $obrigacao->definirEncargos($juros, $multa, 0, $honorarios, new \DateTimeImmutable('2026-06-30'));
         $this->em->flush();

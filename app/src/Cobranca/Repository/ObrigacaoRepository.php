@@ -536,25 +536,30 @@ class ObrigacaoRepository extends ServiceEntityRepository
     }
 
     /**
-     * As contas originais RECONSTRUÍDAS da planilha de acordos que ficaram sem o override de honorário
-     * — a população da correção da spec `cobranca-honorario-no-total.md` §10.
+     * As PARCELAS DE ACORDO que ficaram sem o override de honorário — a população da correção da spec
+     * `cobranca-honorario-no-total.md` §10.
      *
-     * 🔑 **A marca de procedência é a chave, e não "parcela sem override".** As três condições abaixo
-     * não são intercambiáveis: `acordoOrigem IS NOT NULL` + `taxaHonorariosBp IS NULL` também casaria
-     * uma AVULSA apenas vinculada a um acordo, cujo `valorOriginal` é `principalCentavos` e **não**
-     * contém o honorário. Zerar a taxa dela removeria cobrança legítima e, pior, mudaria a alocação da
-     * importação de receitas, que lê `taxaHonorariosBp === 0` como "o honorário já está no valor"
-     * (`ImportarReceitasUseCase`). O que autoriza a correção é a procedência: só a conta reconstruída
-     * nasce com o boleto SOMADO (`AcordosDetalhadosAdapter::montarContaOriginal`), honorário dentro.
+     * 🔑 **A régua é o PAPEL da obrigação, não a procedência dela.** O relatório de acordos da
+     * contabilidade não tem coluna de encargo nenhuma: medido em 17/08, de 8.671 linhas de parcela,
+     * ZERO com juros, multa, honorário ou total. Ela publica só o Valor acordado. Logo, parcela não
+     * cobra honorário — decisão #8, e é a regra que a produção já cumpre em 301 parcelas com o
+     * override e honorário R$ 0,00.
      *
-     * Medido em produção em 19/08: 135 obrigações, 135 com a marca — nenhuma avulsa vinculada existe.
+     * Medido em produção em 19/08: das 2.041 parcelas de acordo, **1.906 têm o override e 135 não**.
+     * As 135 são as que um vínculo tardio criou sem aplicar a regra (o ramo `parcela-vinculada` de
+     * `ImportarAcordosDetalhadosUseCase`, corrigido nesta mesma fatia).
+     *
+     * ⚠️ **A conta original RECONSTRUÍDA não entra aqui, e a distinção vale R$ 102.126,32.** Ela tem a
+     * mesma origem das 135 mas papel diferente: é a dívida VELHA que o acordo engoliu, não parcela — e
+     * nessa a carteira cobra honorário, como a produção faz em 3.473 delas. `acordoOrigem IS NOT NULL`
+     * é o que separa as duas: a reconstruída nasce só com `acordoSubstituto`.
      *
      * Devolve ENTIDADES managed: o chamador corrige e flusha na mesma unidade de trabalho.
      * Tenant EXPLÍCITO — isto roda em console, onde o `TenantFilter` nunca liga.
      *
      * @return list<Obrigacao>
      */
-    public function reconstruidasSemOverrideDeHonorario(Carteira $carteira, Tenant $tenant, string $marca): array
+    public function parcelasDeAcordoSemOverrideDeHonorario(Carteira $carteira, Tenant $tenant): array
     {
         return $this->createQueryBuilder('o')
             ->join('o.caso', 'c')
@@ -563,10 +568,8 @@ class ObrigacaoRepository extends ServiceEntityRepository
             ->andWhere('o.tenant = :tenant')
             ->andWhere('o.acordoOrigem IS NOT NULL')
             ->andWhere('o.taxaHonorariosBp IS NULL')
-            ->andWhere('o.descricao LIKE :marca')
             ->setParameter('carteira', $carteira)
             ->setParameter('tenant', $tenant)
-            ->setParameter('marca', '%' . $marca . '%')
             ->orderBy('o.id', 'ASC')
             ->getQuery()
             ->getResult();
