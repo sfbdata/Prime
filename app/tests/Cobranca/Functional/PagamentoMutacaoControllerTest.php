@@ -61,8 +61,11 @@ final class PagamentoMutacaoControllerTest extends CobrancaWebTestCase
     #[TestDox('Registrar AUTO (FIFO) em acrescido_divida: só o valor pago basta, sem alocar à mão')]
     public function testRegistrarAutoFifoAcrescidoDivida(): void
     {
-        // Prova o fim do "alvo invisível": o gestor digita SÓ o bruto (110,00); o sistema separa
-        // honorários (10,00) e aloca a dívida (100,00) por FIFO — sem nenhuma linha de alocação manual.
+        // Prova o fim do "alvo invisível" — agora de vez. Antes, para quitar uma dívida de 100,00 o
+        // gestor tinha de digitar 110,00, porque o rateio da §18 tirava 10% antes de abater. Sem o
+        // rateio (spec `cobranca-honorario-no-total.md` §4.3), o que ele digita é o que abate: digita
+        // 100,00 e a dívida de 100,00 quita, por FIFO, sem nenhuma linha de alocação manual.
+        // A carteira segue em `acrescido_divida` de propósito: a política não reparte mais o dinheiro.
         $client = static::createClient();
         [, $tenant] = $this->criarAdminLogado($client);
         // #9-T2: a política de honorários que o rateio do pagamento lê vem da CARTEIRA (via objeto),
@@ -83,7 +86,7 @@ final class PagamentoMutacaoControllerTest extends CobrancaWebTestCase
         $client->request('POST', '/cobrancas/casos/' . $casoId . '/pagamentos', [
             'registrar_pagamento' => [
                 'data' => '2026-05-10',
-                'valorPago' => '110,00',
+                'valorPago' => '100,00',
                 '_token' => $token,
             ],
         ]);
@@ -94,8 +97,8 @@ final class PagamentoMutacaoControllerTest extends CobrancaWebTestCase
         $em->clear();
         $pagamentos = static::getContainer()->get(PagamentoRepository::class)->doCaso($caso);
         self::assertCount(1, $pagamentos);
-        self::assertSame(10000, $pagamentos[0]->getValorDivida(), 'FIFO alocou a parte-dívida (100,00)');
-        self::assertSame(1000, $pagamentos[0]->getValorHonorarios(), 'honorários derivados (10,00)');
+        self::assertSame(10000, $pagamentos[0]->getValorDivida(), 'o valor digitado abate por inteiro');
+        self::assertSame(0, $pagamentos[0]->getValorHonorarios(), 'o sistema não inventa split');
         self::assertCount(1, $pagamentos[0]->getAlocacoes());
         self::assertSame(10000, $pagamentos[0]->getAlocacoes()->first()->getValor());
     }
@@ -132,7 +135,7 @@ final class PagamentoMutacaoControllerTest extends CobrancaWebTestCase
     }
 
     #[TestDox('Prévia (GET): retorna a divisão dívida/honorários + quebra FIFO em acrescido_divida')]
-    public function testPreviaRegistrarRetornaDivisao(): void
+    public function testPreviaRegistrarNaoDivideMaisOValor(): void
     {
         $client = static::createClient();
         [, $tenant] = $this->criarAdminLogado($client);
@@ -147,13 +150,13 @@ final class PagamentoMutacaoControllerTest extends CobrancaWebTestCase
         ]);
         $casoId = (int) $caso->getId();
 
-        // Bruto 11000 centavos → dívida 10000 + honorários 1000.
-        $client->request('GET', '/cobrancas/casos/' . $casoId . '/pagamento-previa?valor=11000');
+        // 10000 centavos → dívida 10000 e honorários 0: a prévia não reparte mais (§4.3).
+        $client->request('GET', '/cobrancas/casos/' . $casoId . '/pagamento-previa?valor=10000');
 
         self::assertResponseIsSuccessful();
         $json = json_decode((string) $client->getResponse()->getContent(), true);
         self::assertSame(10000, $json['divida']);
-        self::assertSame(1000, $json['honorarios']);
+        self::assertSame(0, $json['honorarios']);
         self::assertFalse($json['excede']);
         self::assertCount(1, $json['alocacoes']);
         self::assertSame(10000, $json['alocacoes'][0]['valor']);

@@ -39,7 +39,19 @@ final class AlocadorPagamento
      */
     public function montar(CasoCobranca $caso, int $valorPago, array $alocacoesInput, Tenant $tenant): array
     {
-        [$valorDivida, $valorHonorarios] = $this->calculadoraHonorarios->ratearPagamento($caso, $valorPago);
+        // 🔑 O PAGAMENTO ABATE O VALOR CHEIO (spec `cobranca-honorario-no-total.md` §4.3).
+        //
+        // Aqui havia `ratearPagamento`, que separava `[dívida, honorário]` por `p/(1+p)` e exigia que a
+        // Σ das alocações fechasse só com a parte-dívida. Com o honorário DENTRO do exigível isso deixa
+        // a dívida permanentemente curta pelo valor do honorário — nenhuma dívida quitaria.
+        //
+        // E o rateio era opinião: a contabilidade DECLARA o split, por linha, na categoria
+        // `1.15 - Honorário advocatício` do relatório de receitas — quem o importa (`ImportarReceitasUseCase`)
+        // sempre copiou o dela e alocou o valor cheio. Medido em produção: dos 1.154 pagamentos em que os
+        // dois caminhos divergem, 1.154 são o cheio e 0 são o rateado. Isto alinha o caminho MANUAL ao
+        // que o importador já fazia; não há migração de dado.
+        $valorDivida = $valorPago;
+        $valorHonorarios = 0;
 
         $alocacoes = [];
         $soma = 0;

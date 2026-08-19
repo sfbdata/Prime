@@ -86,10 +86,11 @@ final class AutoAlocadorFifoTest extends TestCase
     }
 
     #[Test]
-    public function acrescidoDividaSeparaHonorariosAntesDeAlocar(): void
+    public function distribuiOValorCheioSemCarvarHonorarioFora(): void
     {
-        // acrescido 10%: bruto 110000 → dívida 100000 + honorários 10000. Só a DÍVIDA é distribuída.
-        // Política vem da carteira via objeto (#9-T2), não mais do snapshot do caso.
+        // Era `acrescidoDividaSeparaHonorariosAntesDeAlocar`: de 110000 só 100000 eram distribuídos.
+        // O rateio SAIU (spec `cobranca-honorario-no-total.md` §4.3): com o honorário dentro do
+        // exigível, carvá-lo fora faria o FIFO nunca cobrir a dívida.
         $carteira = (new Carteira())->setFormaHonorarios(FormaHonorarios::AcrescidoDivida)->setPercentualHonorarios('10.00');
         $caso = $this->casoComId(1)->setObjeto((new ObjetoCobranca())->setCarteira($carteira));
         $this->obrigacaoRepository->method('doCasoExigiveis')->willReturn([
@@ -100,11 +101,11 @@ final class AutoAlocadorFifoTest extends TestCase
         $previa = $this->sut->derivar($caso, 110000, $this->tenant);
 
         self::assertFalse($previa->excede);
-        self::assertSame(100000, $previa->valorDivida);
-        self::assertSame(10000, $previa->valorHonorarios);
-        self::assertSame(100000, array_sum(array_map(static fn ($l) => $l->valor, $previa->linhas)));
+        self::assertSame(110000, $previa->valorDivida);
+        self::assertSame(0, $previa->valorHonorarios);
+        self::assertSame(110000, array_sum(array_map(static fn ($l) => $l->valor, $previa->linhas)));
         self::assertSame([10, 60000], [$previa->linhas[0]->obrigacaoId, $previa->linhas[0]->valor]);
-        self::assertSame([11, 40000], [$previa->linhas[1]->obrigacaoId, $previa->linhas[1]->valor]);
+        self::assertSame([11, 50000], [$previa->linhas[1]->obrigacaoId, $previa->linhas[1]->valor]);
     }
 
     #[Test]

@@ -135,8 +135,13 @@ final class MontarDetalheCasoUseCase
                 return ObrigacaoOutput::fromEntity(
                     $o,
                     $alocado,
-                    // O prefill do "Receber": o bruto cuja parte-dívida é exatamente o restante (spec §5.1).
-                    $this->calculadoraHonorarios->brutoParaRecuperar($caso, $restante),
+                    // O prefill do "Receber" É o próprio restante (spec `cobranca-honorario-no-total.md`
+                    // §4.3). Era `brutoParaRecuperar($caso, $restante)` = restante × (1+p), que existia
+                    // porque o exigível NÃO continha honorário e o rateio o retirava depois. Agora o
+                    // honorário já está no exigível: multiplicar de novo cobraria honorário sobre
+                    // honorário. O valor sugerido na tela continua o mesmo — o que mudou foi de onde
+                    // ele vem.
+                    $restante,
                     // Config resolvida (cascata) só para a UI saber a BASE de multa/honorários e exibir o
                     // "%" sobre a base certa. Grafo caso→objeto→carteira já carregado — sem query nova.
                     $this->resolvedorConfig->resolver($o),

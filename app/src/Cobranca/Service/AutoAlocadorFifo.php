@@ -56,7 +56,12 @@ final class AutoAlocadorFifo
         // (sem data), vale "agora".
         $dataReferencia ??= $this->encargosVivos->agora();
 
-        [$valorDivida, $valorHonorarios] = $this->calculadoraHonorarios->ratearPagamento($caso, $valorPago);
+        // 🔑 DISTRIBUI O VALOR CHEIO (spec `cobranca-honorario-no-total.md` §4.3) — aqui havia
+        // `ratearPagamento`, que carvava o honorário fora antes de abater. Com o honorário dentro do
+        // exigível, carvá-lo fora faria o FIFO nunca cobrir a dívida. Ver a justificativa completa em
+        // `AlocadorPagamento::montar`.
+        $valorDivida = $valorPago;
+        $valorHonorarios = 0;
 
         $exigiveis = $this->obrigacaoRepository->doCasoExigiveis($caso);
 

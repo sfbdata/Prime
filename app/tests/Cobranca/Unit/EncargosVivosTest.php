@@ -44,8 +44,9 @@ final class EncargosVivosTest extends TestCase
         self::assertSame(1065, $obrigacao->getJuros(), 'juros vivo de hoje');
         self::assertSame(340, $obrigacao->getMulta(), 'multa fixa 2% do principal');
         self::assertSame(0, $obrigacao->getCorrecao());
-        // exigível (INV-E2: SEM honorários) reflete o vivo.
-        self::assertSame(17000 + 1065 + 340 + 0, $obrigacao->valorExigivel());
+        // exigível reflete o vivo, com os QUATRO encargos (INV-E2 revogada: honorário entra).
+        self::assertSame(3681, $obrigacao->getHonorarios(), '20% sobre 170,00+10,65+3,40');
+        self::assertSame(17000 + 1065 + 340 + 0 + 3681, $obrigacao->valorExigivel());
     }
 
     #[TestDox('Não toca obrigação congelada (Liquidada/Substituída): mantém o snapshot')]
@@ -87,7 +88,7 @@ final class EncargosVivosTest extends TestCase
         self::assertSame(340, $obrigacao->getMulta());
         self::assertSame(0, $obrigacao->getCorrecao());
         self::assertSame(2761, $obrigacao->getHonorarios());
-        self::assertSame(21166, $obrigacao->totalComHonorarios());
+        self::assertSame(21166, $obrigacao->valorExigivel(), 'o total da planilha dela É o exigível agora');
     }
 
     #[TestDox('Paridade ao centavo com a prova real do Apêndice A: linha TOPLIFE I com 240 dias de atraso')]
@@ -110,7 +111,8 @@ final class EncargosVivosTest extends TestCase
         self::assertSame(340, $obrigacao->getMulta());
         self::assertSame(0, $obrigacao->getCorrecao());
         self::assertSame(3740, $obrigacao->getHonorarios());
-        self::assertSame(18700, $obrigacao->valorExigivel(), 'exigível SEM honorários (INV-E2)');
-        self::assertSame(22440, $obrigacao->totalComHonorarios());
+        // O Apêndice A prova a linha CONTRA A PLANILHA DELA, e a linha dela é 224,40 — o total com
+        // honorário. Antes o exigível parava em 187,00 e só `totalComHonorarios` batia com a fonte.
+        self::assertSame(22440, $obrigacao->valorExigivel(), 'paridade ao centavo com a linha dela');
     }
 }

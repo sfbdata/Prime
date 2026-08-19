@@ -451,12 +451,18 @@ final class ImportarReceitasFluxoTest extends CobrancaWebTestCase
         self::assertSame(6200, $previa->semPrincipalCentavos, '50,00 de honorário + 12,00 de juros');
         self::assertSame($this->achatar($previa), $this->achatar($confirmacao), 'e a confirmação conta igual');
 
-        // O efeito que o aviso descreve: a obrigação nasce valendo R$ 0,00.
+        // O efeito que o aviso descreve: a obrigação nasce SEM PRINCIPAL.
+        //
+        // ⚠️ O exigível dela não é mais zero: desde a spec `cobranca-honorario-no-total.md` o honorário
+        // entra no exigível, e esta linha é feita só de honorário (R$ 50,00). O aviso do comando
+        // continua correto — ele fala de recebimento SEM PRINCIPAL, que é o que `semPrincipal` conta —,
+        // e é por isso que ele é sobre o principal e não sobre o exigível.
         $this->em()->clear();
         $soHonorario = $this->em()->getRepository(Obrigacao::class)->findOneBy(['referenciaExterna' => '8040']);
         self::assertNotNull($soHonorario);
-        self::assertSame(0, $soHonorario->getValorOriginal());
-        self::assertSame(0, $soHonorario->valorExigivel(), 'exigível zero: a alocação que a acompanha vale R$ 0,00');
+        self::assertSame(0, $soHonorario->getValorOriginal(), 'sem principal — é o que o aviso conta');
+        self::assertSame(5000, $soHonorario->getHonorarios());
+        self::assertSame(5000, $soHonorario->valorExigivel(), 'o honorário declarado é o que se cobra');
     }
 
     // ---------------------------------------------------------------- helpers

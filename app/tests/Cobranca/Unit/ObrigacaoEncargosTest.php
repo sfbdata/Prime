@@ -18,8 +18,10 @@ use PHPUnit\Framework\TestCase;
  * saldo continuaram intactos: a igualdade "soma dos três == agregado de antes" vale por
  * CONSTRUÇÃO, não por alguém lembrar de mantê-la.
  *
- * A segunda invariante aqui é a INV-E2: honorário NÃO é dívida do credor e fica FORA do exigível.
- * Se ele vazar para `valorExigivel()`, contamina o saldo que alimenta acordos e pagamentos.
+ * A segunda invariante aqui MUDOU: a INV-E2 ("honorário fora do exigível") foi REVOGADA pela spec
+ * `cobranca-honorario-no-total.md`. A contabilidade soma `principal + juros + multa + honorários` no
+ * total que cobra, e o sistema copia o total dela. O honorário agora ENTRA em `valorExigivel()`, e
+ * `totalComHonorarios()` deixou de existir por ter virado sinônimo exato dele.
  */
 #[CoversClass(Obrigacao::class)]
 final class ObrigacaoEncargosTest extends TestCase
@@ -64,7 +66,11 @@ final class ObrigacaoEncargosTest extends TestCase
         self::assertSame(500, $obrigacao->getJuros());
         self::assertSame(0, $obrigacao->getMulta());
         self::assertSame(0, $obrigacao->getCorrecao());
-        self::assertSame(10500, $obrigacao->valorExigivel());
+        // A ponte é do AGREGADO legado (`juros + multa + correção`) e nunca falou de honorário: os 900
+        // sobrevivem a ela. Com o honorário dentro do exigível isso agora aparece no total — 10.000 +
+        // 500 + 900. Antes o mesmo honorário continuava lá, só não era somado.
+        self::assertSame(900, $obrigacao->getHonorarios(), 'a ponte não zera honorário');
+        self::assertSame(11400, $obrigacao->valorExigivel());
     }
 
     #[Test]
@@ -74,7 +80,6 @@ final class ObrigacaoEncargosTest extends TestCase
 
         self::assertSame(0, $obrigacao->getEncargosReconhecidos());
         self::assertSame(10000, $obrigacao->valorExigivel());
-        self::assertSame(10000, $obrigacao->totalComHonorarios());
     }
 
     #[Test]
@@ -83,16 +88,17 @@ final class ObrigacaoEncargosTest extends TestCase
         $obrigacao = $this->obrigacao(10000)->definirEncargos(100, 200, 50, 900, $this->agora());
 
         self::assertSame(350, $obrigacao->getEncargosReconhecidos(), 'juros + multa + correção');
-        self::assertSame(10350, $obrigacao->valorExigivel());
+        self::assertSame(11250, $obrigacao->valorExigivel(), 'exigível soma os QUATRO encargos');
     }
 
     #[Test]
-    public function honorariosFicamForaDoExigivelEEntramSoNoTotal(): void
+    public function honorariosEntramNoExigivel(): void
     {
         $obrigacao = $this->obrigacao(10000)->definirEncargos(100, 200, 50, 900, $this->agora());
 
-        self::assertSame(10350, $obrigacao->valorExigivel(), 'honorário não é dívida do credor (INV-E2)');
-        self::assertSame(11250, $obrigacao->totalComHonorarios());
+        // INV-E2 REVOGADA: a contabilidade cobra o honorário no total, e o sistema espelha o total dela.
+        self::assertSame(11250, $obrigacao->valorExigivel(), 'honorário entra no que se cobra');
+        self::assertSame(10350, $obrigacao->getEncargosReconhecidos() + 10000, 'o agregado legado segue sem honorário (coluna-sombra)');
         self::assertSame(900, $obrigacao->getHonorarios());
     }
 
@@ -150,8 +156,7 @@ final class ObrigacaoEncargosTest extends TestCase
             ->congelarEncargos($this->agora());
 
         self::assertSame(350, $obrigacao->getEncargosReconhecidos());
-        self::assertSame(10350, $obrigacao->valorExigivel());
-        self::assertSame(11250, $obrigacao->totalComHonorarios());
+        self::assertSame(11250, $obrigacao->valorExigivel());
     }
 
     #[Test]
@@ -181,7 +186,7 @@ final class ObrigacaoEncargosTest extends TestCase
         self::assertSame(340, $obrigacao->getMulta());
         self::assertSame(0, $obrigacao->getCorrecao());
         self::assertSame(3740, $obrigacao->getHonorarios());
-        self::assertSame(18700, $obrigacao->valorExigivel());
+        self::assertSame(22440, $obrigacao->valorExigivel(), '187,00 + 37,40 de honorário');
     }
 
     #[Test]
@@ -210,7 +215,7 @@ final class ObrigacaoEncargosTest extends TestCase
             ->setHonorarios(900);
 
         self::assertSame(350, $obrigacao->getEncargosReconhecidos());
-        self::assertSame(10350, $obrigacao->valorExigivel());
+        self::assertSame(11250, $obrigacao->valorExigivel());
     }
 
     #[Test]

@@ -199,9 +199,15 @@ final class MontarDetalheCasoUseCaseTest extends TestCase
      * não quitaria. O alvo do gross-up é o RESTANTE (já descontado o alocado), nunca o valor cheio.
      */
     #[Test]
-    public function oBrutoSugeridoFazGrossUpSobreORestanteDaObrigacao(): void
+    public function oBrutoSugeridoEhOProprioRestanteMesmoComPoliticaDeHonorarios(): void
     {
-        // #9-T2: a política de honorários vem do objeto/carteira, não mais do snapshot do caso.
+        // Era `oBrutoSugeridoFazGrossUpSobreORestanteDaObrigacao`: o prefill fazia `restante × (1+p)`
+        // porque o exigível NÃO continha honorário e o rateio o retirava depois. Os dois lados saíram
+        // (spec `cobranca-honorario-no-total.md` §4.3): o prefill é o próprio restante, e o honorário
+        // já está dentro dele. Multiplicar de novo cobraria honorário sobre honorário.
+        //
+        // A carteira segue configurada em `acrescido_divida` de propósito: o teste prova que a
+        // POLÍTICA não mexe mais no prefill.
         $carteira = (new Carteira())->setFormaHonorarios(FormaHonorarios::AcrescidoDivida)->setPercentualHonorarios('10.00');
         $caso = $this->casoPersistido($carteira);
 
@@ -217,20 +223,17 @@ final class MontarDetalheCasoUseCaseTest extends TestCase
             $porId[$o->id] = $o;
         }
 
-        // D = 120000 → T = 132000 (hon 12000 + dívida 120000): é o número que quita a obrigação.
-        self::assertSame(132000, $porId[101]->brutoSugerido);
-        // D = restante = 80000 → T = 88000. Mirar o valor cheio cobraria de novo os 40000 já recebidos.
-        self::assertSame(88000, $porId[102]->brutoSugerido);
+        // Sem pagamento: o prefill é o exigível cheio — o número que quita a obrigação.
+        self::assertSame(120000, $porId[101]->brutoSugerido);
+        // Parcialmente paga: o prefill é o que FALTA. Mirar o valor cheio cobraria de novo os 40000
+        // já recebidos.
+        self::assertSame(80000, $porId[102]->brutoSugerido);
         // Quitada: restante 0 → nada a sugerir (o botão "Receber" nem aparece).
         self::assertSame(0, $porId[103]->brutoSugerido);
 
-        // O round-trip é a garantia (provada em CalculadoraHonorariosTest): o bruto sugerido rateia de
-        // volta EXATAMENTE no restante. Sem isto, o prefill mente.
-        $calculadora = new CalculadoraHonorarios(new ResolvedorConfigEncargos());
-        self::assertSame(
-            $porId[102]->restante(),
-            $calculadora->ratearPagamento($caso, $porId[102]->brutoSugerido)[0],
-        );
+        // A garantia que substitui o antigo round-trip do rateio: pagar o bruto sugerido zera o
+        // restante, sem intermediário. Sem isto, o prefill mente.
+        self::assertSame($porId[102]->restante(), $porId[102]->brutoSugerido);
     }
 
     /** Sem percentual o devedor paga só a dívida: o prefill é o próprio restante (espelha `ratearPagamento`). */
@@ -308,9 +311,11 @@ final class MontarDetalheCasoUseCaseTest extends TestCase
         $parcial = $this->novaObrigacao($caso, 103, 30000)->definirEncargos(0, 0, 0, 3000, new \DateTimeImmutable(self::AGORA));
 
         $this->obrigacaoRepository->method('doCaso')->willReturn([$emAberto, $quitada, $parcial]);
-        // 102 exigível = 50000 + 1000 = 51000, todo alocado → quitada, sai dos cards.
+        // 102 exigível = 50000 + 1000 + 10000 (honorário) = 61000, todo alocado → quitada, sai dos
+        // cards. Era 51000 quando o honorário ficava fora do exigível (INV-E2, revogada): pagar
+        // principal + juros e NÃO o honorário deixou de quitar a dívida.
         // 103 tem pagamento PARCIAL: continua em aberto e entra inteira (o card é bruto, não saldo).
-        $this->alocacaoRepository->method('somasPorObrigacaoDosCasos')->willReturn([102 => 51000, 103 => 10000]);
+        $this->alocacaoRepository->method('somasPorObrigacaoDosCasos')->willReturn([102 => 61000, 103 => 10000]);
 
         $detalhe = $this->useCase->executar($caso);
 

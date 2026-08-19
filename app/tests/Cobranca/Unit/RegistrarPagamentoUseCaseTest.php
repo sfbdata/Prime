@@ -90,10 +90,11 @@ final class RegistrarPagamentoUseCaseTest extends TestCase
     }
 
     #[Test]
-    public function registraPagamentoAcrescidoDividaRateandoHonorarios(): void
+    public function registraPagamentoManualSemInventarSplit(): void
     {
-        // Caso 10% acrescido_divida (política vem da carteira via objeto, #9-T2): bruto 1100 →
-        // dívida 1000 + honorários 100.
+        // Era `registraPagamentoAcrescidoDividaRateandoHonorarios`. No lançamento MANUAL o sistema não
+        // reparte mais o dinheiro por categoria (spec `cobranca-honorario-no-total.md` §4.3): o split
+        // existe quando a CONTABILIDADE o declara, e aí quem o grava é o importador de receitas.
         $carteira = (new Carteira())->setFormaHonorarios(FormaHonorarios::AcrescidoDivida)->setPercentualHonorarios('10.00');
         $objeto = (new ObjetoCobranca())->setCarteira($carteira);
         $caso = (new CasoCobranca())->setTenant($this->tenant)->setObjeto($objeto);
@@ -117,20 +118,19 @@ final class RegistrarPagamentoUseCaseTest extends TestCase
             ->with(self::isInstanceOf(EventoHistorico::class), true);
 
         $pagamento = $this->sut->executar(
-            $this->novoInput(50, 1100, [$this->alocacao(5, 1000)]),
+            $this->novoInput(50, 1100, [$this->alocacao(5, 1100)]),
             $this->tenant,
             $this->criadoPor,
         );
 
-        self::assertSame(1000, $pagamento->getValorDivida());
+        self::assertSame(1100, $pagamento->getValorDivida());
         self::assertSame(0, $pagamento->getValorEncargos());
-        self::assertSame(100, $pagamento->getValorHonorarios());
+        self::assertSame(0, $pagamento->getValorHonorarios());
         self::assertCount(1, $pagamento->getAlocacoes());
         self::assertSame($this->tenant, $pagamento->getTenant());
         self::assertSame($caso, $pagamento->getCaso());
         self::assertSame($this->criadoPor, $pagamento->getCriadoPor());
-        // Bruto recebido = dívida + honorários.
-        self::assertSame(1100, $pagamento->valorTotalRecebido());
+        self::assertSame(1100, $pagamento->valorTotalRecebido(), 'o recebido continua sendo o bruto pago');
     }
 
     #[Test]

@@ -485,9 +485,14 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
         $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
 
         self::assertResponseIsSuccessful();
-        // Alvo D = restante = 120000 − 40000 = 80000 → bruto = 88000 (R$ 880,00). Se o gross-up mirasse o
-        // valor cheio da obrigação, viria 132000 e o gestor cobraria de novo o que já entrou.
-        self::assertSame('88000', $crawler->filter('.jp-obr[data-bruto-centavos]')->attr('data-bruto-centavos'));
+        // Exigível = 120000 + 12000 de honorário (10% da carteira) = 132000; recebido 40000 → o prefill
+        // é o RESTANTE, 92000. Se mirasse o valor cheio da obrigação, viria 132000 e o gestor cobraria
+        // de novo o que já entrou — que é o que este teste guarda.
+        //
+        // Era 88000 = 80000 × 1,10, quando o exigível NÃO continha honorário e o prefill fazia o
+        // gross-up por fora. Os dois lados saíram juntos (spec `cobranca-honorario-no-total.md` §4.3):
+        // o honorário entrou no exigível e o gross-up saiu do prefill.
+        self::assertSame('92000', $crawler->filter('.jp-obr[data-bruto-centavos]')->attr('data-bruto-centavos'));
     }
 
     #[TestDox('Ajuste 10 T5: sem honorário percentual o prefill é o próprio restante (sem gross-up)')]

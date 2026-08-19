@@ -119,35 +119,43 @@ final class SecaoJaPagoTest extends CobrancaWebTestCase
     {
         $client = static::createClient();
         [, $tenant] = $this->criarAdminLogado($client);
-        // Carteira que cobra 20% de honorário sobre o principal: é o que faz o RECEBIDO e o COBRADO
-        // divergirem sem cenário artificial. `quitada()` compara o alocado com o EXIGÍVEL (sem
-        // honorários), então R$ 1.000,00 alocados quitam uma linha cujo total de relatório é
-        // R$ 1.200,00. Somar a coluna "Total" daria R$ 1.500,00 — e responderia outra pergunta.
+        // Carteira que cobra 20% de honorário sobre o principal (juros/multa 0 na fixture), logo o
+        // exigível é principal × 1,20.
+        //
+        // ⚠️ O cenário ORIGINAL fazia recebido e cobrado divergirem porque o honorário ficava FORA do
+        // exigível: R$ 1.000,00 alocados quitavam uma linha de R$ 1.200,00. Essa divergência ERA o
+        // defeito, e a spec `cobranca-honorario-no-total.md` a fechou — hoje quem paga R$ 1.000,00 de
+        // uma dívida de R$ 1.200,00 simplesmente não quitou. A pergunta do teste continua válida, e a
+        // divergência que resta é a que o próprio `CasoDetalheOutput` documenta: a obrigação
+        // SUPER-ALOCADA (recebeu mais do que devia). É nela que o cenário se apoia agora.
         [, $caso] = $this->semearGrafo($tenant, [], self::carteiraQueCobraHonorarios());
 
-        $this->obrigacaoQuitada($tenant, $caso, 'Taxa 01/2026', 100000, new \DateTimeImmutable('2026-01-05'));
-        $this->obrigacaoQuitada($tenant, $caso, 'Taxa 02/2026', 25000, new \DateTimeImmutable('2026-02-05'));
+        // Quitada exata: exigível 120000 (100000 + 20% de honorário), alocado 120000.
+        $this->obrigacaoQuitada($tenant, $caso, 'Taxa 01/2026', 100000, new \DateTimeImmutable('2026-01-05'), 120000);
+        // SUPER-ALOCADA: exigível 30000 (25000 + 20%), recebeu 35000.
+        $this->obrigacaoQuitada($tenant, $caso, 'Taxa 02/2026', 25000, new \DateTimeImmutable('2026-02-05'), 35000);
 
         $detalhe = static::getContainer()->get(MontarDetalheCasoUseCase::class)->executar($caso);
 
         self::assertCount(2, $detalhe->obrigacoesAvulsasPagas);
-        self::assertSame(125000, $detalhe->totalPagoDasAvulsas, 'Σ do recebido');
+        self::assertSame(155000, $detalhe->totalPagoDasAvulsas, 'Σ do recebido');
 
-        // A prova de que a régua é o recebido: o cobrado é OUTRO número neste cenário.
+        // A prova de que a régua é o recebido: o cobrado é OUTRO número neste cenário (150000).
         $cobrado = array_sum(array_map(
-            static fn ($o): int => $o->totalComHonorarios(),
+            static fn ($o): int => $o->valorAtual,
             $detalhe->obrigacoesAvulsasPagas,
         ));
+        self::assertSame(150000, $cobrado, 'Σ do cobrado: 120000 + 30000');
         self::assertGreaterThan(
-            $detalhe->totalPagoDasAvulsas,
             $cobrado,
-            'o cenário precisa fazer o cobrado divergir do recebido, senão o assert acima não discrimina',
+            $detalhe->totalPagoDasAvulsas,
+            'o cenário precisa fazer o recebido divergir do cobrado, senão o assert acima não discrimina',
         );
 
         $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
         self::assertResponseIsSuccessful();
         self::assertStringContainsString(
-            'R$ 1.250,00',
+            'R$ 1.550,00',
             $crawler->filter('#secao-ja-pago [data-meta="total-ja-pago"]')->text(),
         );
     }
@@ -161,7 +169,8 @@ final class SecaoJaPagoTest extends CobrancaWebTestCase
         // obrigação e os asserts abaixo passariam somando 0 = 0 + 0, sem discriminar nada.
         [, $caso] = $this->semearGrafo($tenant, [], self::carteiraQueCobraHonorarios());
 
-        $this->obrigacaoQuitada($tenant, $caso, 'Taxa 01/2026', 100000, new \DateTimeImmutable('2026-01-05'));
+        // Alocado 120000 = exigível (100000 + 20% de honorário): quitar exige cobrir o honorário.
+        $this->obrigacaoQuitada($tenant, $caso, 'Taxa 01/2026', 100000, new \DateTimeImmutable('2026-01-05'), 120000);
         ObrigacaoFactory::createOne([
             'tenant' => $tenant, 'caso' => $caso,
             'descricao' => 'Taxa 07/2026', 'valorOriginal' => 120000, 'encargosReconhecidos' => 0,
@@ -282,9 +291,9 @@ final class SecaoJaPagoTest extends CobrancaWebTestCase
      * Obrigação quitada por pagamento na data informada — o formato que a importação de receitas cria
      * (uma alocação só, cobrindo o exigível inteiro).
      *
-     * A alocação é do EXIGÍVEL (`valorOriginal`, sem encargos), que é o que `quitada()` compara. O
-     * honorário da linha, quando a carteira cobra, fica de fora do recebido de propósito — é essa
-     * diferença que os testes de total usam para separar "recebido" de "cobrado".
+     * A alocação é do EXIGÍVEL, e desde a spec `cobranca-honorario-no-total.md` o exigível INCLUI o
+     * honorário — por isso `$alocado` é explícito: alocar só o principal deixaria a linha em aberto,
+     * que é exatamente o comportamento novo (quem paga principal e não paga honorário não quitou).
      */
     private function obrigacaoQuitada(
         Tenant $tenant,
@@ -292,7 +301,9 @@ final class SecaoJaPagoTest extends CobrancaWebTestCase
         string $descricao,
         int $valor,
         \DateTimeImmutable $pagoEm,
+        ?int $alocado = null,
     ): Obrigacao {
+        $alocado ??= $valor;
         $obrigacao = ObrigacaoFactory::createOne([
             'tenant' => $tenant, 'caso' => $caso,
             'descricao' => $descricao, 'valorOriginal' => $valor, 'encargosReconhecidos' => 0,
@@ -300,10 +311,10 @@ final class SecaoJaPagoTest extends CobrancaWebTestCase
         ])->_real();
         $pagamento = PagamentoFactory::createOne([
             'tenant' => $tenant, 'caso' => $caso, 'data' => $pagoEm,
-            'valorDivida' => $valor, 'valorEncargos' => 0, 'valorHonorarios' => 0,
+            'valorDivida' => $alocado, 'valorEncargos' => 0, 'valorHonorarios' => 0,
         ])->_real();
         AlocacaoPagamentoFactory::createOne([
-            'tenant' => $tenant, 'pagamento' => $pagamento, 'obrigacao' => $obrigacao, 'valor' => $valor,
+            'tenant' => $tenant, 'pagamento' => $pagamento, 'obrigacao' => $obrigacao, 'valor' => $alocado,
         ]);
 
         return $obrigacao;

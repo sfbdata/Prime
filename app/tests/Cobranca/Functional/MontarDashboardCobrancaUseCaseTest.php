@@ -235,8 +235,12 @@ final class MontarDashboardCobrancaUseCaseTest extends KernelTestCase
         $d = $this->sut->executar($tenant, null, $this->inicio, $this->fim, $this->hoje);
 
         self::assertSame(10000, $d->honorariosRealizadosNoPeriodo); // valorHonorarios do pagamento
-        self::assertSame(110000, $d->saldoEmAberto); // 200000 - 90000
-        self::assertSame(11000, $d->honorariosProjetados); // 110000 * 10%
+        // Exigível = 200000 + 20000 de honorário vivo (10% da carteira, atraso > carência) = 220000;
+        // menos os 90000 alocados → 130000. Era 110000 quando o honorário ficava fora do exigível.
+        self::assertSame(130000, $d->saldoEmAberto);
+        // Projetados = Σ do honorário JÁ MATERIALIZADO na dívida em aberto, não uma alíquota sobre o
+        // saldo: o saldo agora já contém honorário, e a alíquota o contaria duas vezes (spec §4.3).
+        self::assertSame(20000, $d->honorariosProjetados);
     }
 
     #[TestDox('Honorários retidos: realizados/projetados derivados do percentual sobre a recuperação')]
@@ -250,8 +254,10 @@ final class MontarDashboardCobrancaUseCaseTest extends KernelTestCase
 
         $d = $this->sut->executar($tenant, null, $this->inicio, $this->fim, $this->hoje);
 
+        // O ramo `retido_recuperado` segue derivando do recuperado — intocado pela spec do honorário.
         self::assertSame(10000, $d->honorariosRealizadosNoPeriodo); // 50000 recuperado * 20%
-        self::assertSame(10000, $d->honorariosProjetados); // (100000-50000) * 20%
+        // Projetados = honorário materializado na dívida (20% de 100000), não (saldo × 20%).
+        self::assertSame(20000, $d->honorariosProjetados);
     }
 
     #[TestDox('Liquidação conta como recuperação, mas não gera honorários realizados')]
@@ -272,7 +278,8 @@ final class MontarDashboardCobrancaUseCaseTest extends KernelTestCase
 
         self::assertSame(40000, $d->valorRecuperadoNoPeriodo);
         self::assertSame(40000, $d->valorTotalRecuperado);
-        self::assertSame(60000, $d->saldoEmAberto); // 100000 - 40000
+        // Exigível = 100000 + 20000 de honorário vivo = 120000; menos a liquidação de 40000 → 80000.
+        self::assertSame(80000, $d->saldoEmAberto);
         self::assertSame(0, $d->honorariosRealizadosNoPeriodo);
     }
 
