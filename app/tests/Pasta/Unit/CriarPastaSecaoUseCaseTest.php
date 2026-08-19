@@ -108,6 +108,11 @@ final class CriarPastaSecaoUseCaseTest extends TestCase
         $pai->setPasta($outraPasta);
         $pai->setTenant($this->tenant);
 
+        // sem isto, na ausência do guard de pasta o fluxo chegaria a setOrdem(proximaOrdem())
+        // com o mock sem comportamento configurado e falharia por TypeError, não pela exceção
+        // esperada — daria proteção acidental, não deliberada.
+        $this->repo->method('proximaOrdem')->willReturn(1);
+
         $this->expectException(\InvalidArgumentException::class);
         $this->useCase->executar($this->pasta, $this->autor, 'Filha', $this->tenant, $pai);
     }
@@ -117,6 +122,30 @@ final class CriarPastaSecaoUseCaseTest extends TestCase
         $pai = (new PastaSecao())->setNome('PAI');
         $pai->setPasta($this->pasta);
         $pai->setTenant(new Tenant());
+
+        // idem: mock de proximaOrdem configurado para que, sem o guard de tenant, o teste falhe
+        // pela ausência da exceção esperada, não por TypeError em setOrdem(null).
+        $this->repo->method('proximaOrdem')->willReturn(1);
+
+        $this->expectException(AccessDeniedException::class);
+        $this->useCase->executar($this->pasta, $this->autor, 'Filha', $this->tenant, $pai);
+    }
+
+    /**
+     * A ORDEM dos guards decide o código HTTP: tenant errado tem de sair como
+     * AccessDeniedException (403), pasta errada como InvalidArgumentException (422). Com um
+     * $pai que viola os dois ao mesmo tempo, só a checagem de tenant PRIMEIRO garante o 403 —
+     * se alguém inverter a ordem num refactor, este teste é o único que denuncia, porque
+     * testRecusaPaiDeOutraPasta e testRecusaPaiDeOutroTenant variam só uma condição cada.
+     */
+    public function testTenantEhVerificadoAntesDaPasta(): void
+    {
+        $outraPasta = new Pasta();
+        $pai = (new PastaSecao())->setNome('PAI');
+        $pai->setPasta($outraPasta);
+        $pai->setTenant(new Tenant());
+
+        $this->repo->method('proximaOrdem')->willReturn(1);
 
         $this->expectException(AccessDeniedException::class);
         $this->useCase->executar($this->pasta, $this->autor, 'Filha', $this->tenant, $pai);
