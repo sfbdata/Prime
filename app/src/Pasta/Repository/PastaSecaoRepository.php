@@ -33,18 +33,50 @@ class PastaSecaoRepository extends ServiceEntityRepository
             ->getResult();
     }
 
-    public function proximaOrdem(Pasta $pasta, Tenant $tenant): int
+    /** Próxima ordem entre as IRMÃS de $pai (ou entre as seções da raiz, se $pai for null). */
+    public function proximaOrdem(Pasta $pasta, Tenant $tenant, ?PastaSecao $pai = null): int
     {
-        $max = $this->createQueryBuilder('s')
+        $qb = $this->createQueryBuilder('s')
             ->select('MAX(s.ordem)')
             ->andWhere('s.pasta = :pasta')
             ->andWhere('s.tenant = :tenant')
             ->setParameter('pasta', $pasta)
-            ->setParameter('tenant', $tenant)
-            ->getQuery()
-            ->getSingleScalarResult();
+            ->setParameter('tenant', $tenant);
+
+        if ($pai === null) {
+            $qb->andWhere('s.pai IS NULL');
+        } else {
+            $qb->andWhere('s.pai = :pai')->setParameter('pai', $pai);
+        }
+
+        $max = $qb->getQuery()->getSingleScalarResult();
 
         return ($max === null ? 0 : (int) $max) + 1;
+    }
+
+    /**
+     * Conta o que a exclusão de $secao levaria junto. As duas contagens têm escopos DIFERENTES,
+     * de propósito, porque é o que o aviso precisa dizer ("contém 3 subpastas e 127 arquivos"):
+     *
+     *   - subpastas: só as DESCENDENTES; a própria $secao não se conta;
+     *   - arquivos:  os da própria $secao MAIS os de toda a descendência.
+     *
+     * Nunca inclui os documentos que estão na raiz da pasta (secao_id IS NULL) — esses sobrevivem.
+     *
+     * @return array{subpastas: int, arquivos: int}
+     */
+    public function contarConteudoRecursivo(PastaSecao $secao): array
+    {
+        $subpastas = 0;
+        $arquivos  = $secao->getDocumentos()->count();
+
+        foreach ($secao->getFilhas() as $filha) {
+            $abaixo = $this->contarConteudoRecursivo($filha);
+            $subpastas += 1 + $abaixo['subpastas'];
+            $arquivos  += $abaixo['arquivos'];
+        }
+
+        return ['subpastas' => $subpastas, 'arquivos' => $arquivos];
     }
 
     public function findByIdAndPastaAndTenant(int $id, Pasta $pasta, Tenant $tenant): ?PastaSecao
