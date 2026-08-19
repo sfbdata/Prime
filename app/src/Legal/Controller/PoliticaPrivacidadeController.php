@@ -22,6 +22,14 @@ use Twig\Environment;
  * As duas rotas renderizam **o mesmo partial**. Os Termos de Uso mantêm PDF e HTML como
  * duas cópias sincronizadas à mão (ver o aviso em {@see \App\Termo\TermoVigente}); aqui
  * o PDF sai do HTML na hora, então não há como divergirem.
+ *
+ * ⚠️ Limitação medida do PDF: o texto dele **não é pesquisável nem copiável**. O dompdf
+ * embute a DejaVu Sans com `/Encoding /Identity-H` (os códigos no stream são índices de
+ * glifo) e escreve um `/ToUnicode` identidade `<0000> <FFFF> <0000>`, que não traduz glifo
+ * de volta para caractere — então Ctrl+F e copiar/colar devolvem lixo. Desligar
+ * `isFontSubsettingEnabled` foi testado: infla o arquivo de 102 KB para 1,3 MB e **não**
+ * corrige o ToUnicode. A versão canônica, pesquisável e acessível, é a página HTML; o PDF
+ * serve para arquivar e imprimir. Não gaste tempo procurando erro de configuração aqui.
  */
 final class PoliticaPrivacidadeController extends AbstractController
 {
