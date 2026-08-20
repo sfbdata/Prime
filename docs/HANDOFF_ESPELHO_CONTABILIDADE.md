@@ -3,9 +3,10 @@
 > Estado em **2026-08-19**, fim do dia. Este documento é autossuficiente: quem o ler não precisa de
 > nenhuma conversa anterior.
 >
-> 🔴 **Comece pela §7.** Atualizado em 19/08 (fim do dia): a **§7.1 está FECHADA** — as 135 parcelas
-> foram consertadas em 7 commits e 6 revisões, e o dono decidiu **VAI INTEIRO**. Falta a 7ª revisão,
-> integrar, deployar e o smoke. Os próximos itens abertos são a §7.2 e a §7.3.
+> 🔴 **Comece pela §7.1.** Atualizado em 19/08 (fim do dia): a fatia das 135 foi **REDUZIDA** — a 7ª
+> revisão, a partir de uma observação do dono, derrubou a premissa de metade dela. A correção das 135
+> está pronta; a parte prospectiva saiu e virou fatia própria. Falta 8ª revisão, integrar, deployar e
+> o smoke.
 
 ## 1. A regra que manda
 
@@ -252,71 +253,95 @@ ao master. As worktrees estão limpas e commitadas; não há trabalho solto.
 
 | frente | topo | suíte | veredito |
 |---|---|---|---|
-| `cobranca-honorario-no-total` | `0346df05` (7 commits) | 3896/3896 | ✅ §7.1 fechada e **decidida** (6 revisões); ⏳ 7ª revisão + integrar |
+| `cobranca-honorario-no-total` | `cc1892c1` (9 commits) | 3893/3893 | 🟠 §7.1 **reduzida** na 7ª revisão: correção das 135 pronta, parte prospectiva REMOVIDA; ⏳ 8ª revisão + integrar |
 | `cobranca-reconciliar-data-acordo` | `6995bb99` | 3901/3901 | ⛔ 2 achados ALTO |
 
-### 7.1 ✅ FECHADO — as 135 parcelas (mas ainda NÃO integrado)
+### 7.1 🟠 As 135 parcelas — CORREÇÃO pronta, parte prospectiva REMOVIDA
 
-**Estado: 7 commits na frente `cobranca-honorario-no-total`, topo `0346df05`, suíte 3896/3896.
-SEIS revisões. Nada em produção, nada no master.** Detalhe completo: spec §10.
+**Estado: 9 commits na frente `cobranca-honorario-no-total`, topo `cc1892c1`, suíte 3893/3893.
+SETE revisões. Nada em produção, nada no master.** Detalhe: spec §10 — **comece pela §10.8**.
 
-**O defeito, medido:** o relatório de acordos da contabilidade **não tem coluna de encargo** (0 de
-8.671 linhas de parcela com juros, multa, honorário ou total) e as 135 **não aparecem** na
-inadimplência dela (0 de 135). Ela não cobra honorário em parcela de acordo — o sistema somava 20%
-sozinho, R$ 2.764,16. E o sistema já acerta em **1.906** parcelas: as 135 eram a exceção, não a
-regra. Nenhuma delas está no exigível hoje (todas com acordo substituto vigente).
+#### 🔴 A premissa da fatia caiu na 7ª revisão. Leia isto primeiro.
 
-**Por onde entraram:** nasceram como contas originais reconstruídas (`reconstruirContaOriginal`) e
-foram LIGADAS ao acordo depois, pelo ramo `parcela-vinculada` de `completarParcelas` — que ligava sem
-aplicar o override. **Não é `reconstruirContaOriginal` o culpado** (a 1ª versão da fatia achou que
-era e teria apagado R$ 102.126,32 de honorário legítimo em 3.347 dívidas velhas).
+Eu afirmei, em vários pontos da spec, que *"a contabilidade não cobra encargo em parcela de acordo —
+0 de 8.671 linhas"*. **É falso.** O número é verdadeiro para o relatório de ACORDOS, que não tem
+coluna de encargo — mas a parcela **atrasada** migra para o relatório de INADIMPLÊNCIA, que tem as
+colunas, e lá ela cobra. Olhei um relatório e concluí sobre os dois.
 
-**O que a fatia faz:**
-1. `completarParcelas` chama `Obrigacao::pararDeCobrarHonorario()` junto do `setAcordoOrigem`, **só
-   quando o valor do sistema bate com o Valor acordado da planilha**. Duas metades: override + zerar
-   o honorário materializado. Congelada (dívida quitada) é recusada e reportada;
-2. comando `app:cobranca:reconciliar-honorario-parcela` corrige as 135 já gravadas. **Simula por
-   padrão; `--aplicar` exige `--ids` com a lista que o humano aprovou** (INV-H0);
-3. seis provas por reintrodução executadas + 10 casos de CLI.
+**Medido no lote de 17/08, três carteiras:**
 
-✅ **DECIDIDO PELO DONO (19/08): VAI INTEIRO** — o guard prospectivo entra junto, com o teto de
-**R$ 125.526,35** (3.682 avulsas em casos com acordo) apresentado e aceito. É teto, não expectativa:
-historicamente **zero** avulsas foram vinculadas. Mesma ordem do +R$ 126.878,17 que a fatia
-acrescenta, em sentido contrário — o dono avisa a cobrança antes do deploy. §10.4.1.
+| | |
+|---|---:|
+| parcelas de acordo que aparecem na inadimplência | **114** (391 linhas atrasadas) |
+| com juros · multa · **honorário** | 389 · 389 · **338** |
+| honorário que **ela** cobra | **R$ 6.601,57** |
+| honorário que o **sistema** tem | R$ 5.878,65 |
+| **diferença — espelho quebrado** | **R$ 722,92**, em **12 parcelas** mostrando R$ 0,00 |
 
-🔑 **A lição que custou 4 das 6 revisões, para não ser repetida:** tentei quatro réguas automáticas
-para decidir QUAIS parcelas corrigir (procedência · papel sozinho · marca na descrição · marca como
-"filtro de segurança"). As quatro vazavam, sempre pelo mesmo motivo — **o dado que decide (o Valor
-acordado declarado) não existe no banco na hora da correção**. A saída não era um proxy melhor: era o
-comando **parar de decidir**. É a §1.1 aplicada ao próprio comando.
+**E o número OSCILA:** das 93 com honorário dela, 81 batem (calculadas em 18/08, o último lote) e 12
+estão zeradas (paradas em 07/08). A importação grava o honorário dela → a hidratação ao vivo passa e
+zera (o override diz "não cobrar") → o lote seguinte restaura.
 
-**Números que já custaram revisão e não devem ser reaprendidos:**
-- as **1.906 parcelas CERTAS não têm** a marca de procedência — usá-la como régua pulava justo as que cobram;
-- **3.473** dívidas velhas engolidas por acordo cobram honorário **de propósito** (R$ 106.682,29);
-- `taxa_honorarios_bp = 0` tem **dois** significados — override de encargo **e** o sinal de alocação
-  BRUTA em `ImportarReceitasUseCase:~262`. Por isso o guard exige o valor bater;
-- **6.455** avulsas com honorário materializado (R$ 227.126,42) cairiam em `bp=0, honorarios>0`,
-  estado que a régua do comando (`taxaHonorariosBp IS NULL`) **nunca mais alcança** — daí as duas
-  metades morarem juntas na entidade.
+🔑 **O defeito do override é a DURAÇÃO, não o valor.** Ele nasce certo — no dia em que a parcela é
+criada o honorário está mesmo dentro do valor negociado (R$ 71.073,07 medidos assim) — e não sabe se
+desligar quando ela atrasa. **É anterior a esta fatia:** o override existe desde julho em
+`parcelaInput`/`obrigacaoInput`. A fatia só ia estendê-lo.
 
-🔴 **O QUE FALTA (é por aqui que a próxima sessão começa):**
-1. **7ª revisão** — a 6ª reprovou com 4 itens e os 4 foram corrigidos em `0346df05`; falta confirmar;
-2. **integrar no master** (merge é do dono) e rodar a suíte no master depois;
-3. **deploy** e, em produção: rodar o comando **sem `--aplicar`**, conferir a lista contra a planilha
-   dela, e só então colar de volta `--aplicar --usuario-id=<id> --ids=...`;
+#### O que SOBROU na fatia (e está pronto)
+
+A **correção das 135 parcelas** já gravadas. Elas continuam sendo defeito legítimo: são parcelas de
+acordo sem o override, todas **fora do exigível** (acordo substituto vigente), nenhuma recebeu
+dinheiro. A correção só ajusta a ficha delas — R$ 2.764,16.
+
+- comando `app:cobranca:reconciliar-honorario-parcela`: simula por padrão; `--aplicar` exige
+  `--ids` com a lista que o humano aprovou olhando a simulação (**INV-H0**);
+- `Obrigacao::pararDeCobrarHonorario()` — as duas metades (override + zerar o materializado), com
+  recusa de congelada;
+- 10 casos de CLI + provas por reintrodução.
+
+#### O que SAIU
+
+`completarParcelas` voltou a **só vincular**. O rótulo do relatório do importador voltou a dizer a
+verdade. Os quatro testes que guardavam o override viraram um que guarda o oposto.
+
+⛔ **A decisão do dono de 19/08 ("vai inteiro", teto de R$ 125.526,35) perdeu o objeto** — ela era
+sobre a parte prospectiva, que não existe mais. **Não a aplique.**
+
+#### 🔴 O QUE FALTA — por aqui a próxima sessão começa
+
+1. **8ª revisão** da fatia reduzida (a 7ª revisou o desenho antigo; o alvo mudou);
+2. **integrar no master** (merge é do dono) + suíte no master depois;
+3. **deploy** e, em prod: rodar **sem `--aplicar`**, conferir contra a planilha, colar
+   `--aplicar --usuario-id=<id> --ids=...`;
 4. **smoke do dono** na tela de detalhe do acordo.
 
-⏳ **Pendência nomeada** (NÃO "medida como zero"): os outros dois vinculadores
-(`ImportarRelatorioCarteiraUseCase:~246` e `ImportarReceitasUseCase::garantirVinculoAoAcordo`) seguem
-podendo criar parcela sem override. Consertá-los às cegas quebra o sinal de alocação — o conserto
-certo passa por separar os dois significados da coluna, em fatia própria.
+#### 📌 A fatia que nasceu deste achado (§10.8)
 
-📌 **Achado menor, medido e registrado:** 7 contas reconstruídas cobram honorário sobre honorário —
-**R$ 600,21**. Outro mecanismo, não bloqueia nada.
+*O sistema grava o encargo que ela informa, sempre — em vez de decidir sozinho quando cobrar.* Implica
+repensar o override `taxa_honorarios_bp = 0` inteiro, e provavelmente resolve junto os **dois
+significados** da coluna (override de encargo × sinal de alocação bruta em `ImportarReceitasUseCase`),
+porque some a necessidade de adivinhar. Começa com os R$ 722,92 / 12 parcelas já medidos.
 
-📌 **Decidido pelo dono (19/08), fatia própria:** na tela de criar/editar acordo, a escolha de cobrar
-honorário sobre as parcelas é **do usuário**, padrão *não cobrar*, e **somente leitura** em acordo
-vindo da contabilidade. Tem migration; **zero** acordos de tela existem em produção hoje. §10.7.
+#### Números que já custaram revisão — não reaprender
+
+- as **1.906 parcelas CERTAS não têm** a marca de procedência ("Reconstruída da planilha de acordos");
+  usá-la como régua pula justo as que cobram;
+- **3.473** dívidas velhas engolidas por acordo cobram honorário **de propósito** (R$ 106.682,29) — a
+  1ª versão da fatia as apagaria;
+- `taxa_honorarios_bp = 0` tem **dois** significados: override **e** o sinal de alocação BRUTA em
+  `ImportarReceitasUseCase:~266`;
+- **6.455** avulsas com honorário materializado (R$ 227.126,42) cairiam em `bp=0, honorarios>0`,
+  estado que a régua do comando (`taxaHonorariosBp IS NULL`) nunca alcança;
+- na parcela dela, **26% têm encargo embutido**: R$ 71.073,07 de honorário, R$ 31.638,14 de juros,
+  R$ 5.308,04 de multa, sobre R$ 649.655,13 de valor total.
+
+🔑 **A lição que custou 4 das 7 revisões:** quatro réguas automáticas para decidir QUAIS parcelas
+corrigir vazaram, sempre pelo mesmo motivo — **o dado que decide não existe no banco na hora da
+correção**. A saída foi o comando **parar de decidir**. É a §1.1 aplicada ao próprio comando.
+
+📌 **Decidido pelo dono (19/08), fatia própria:** na tela de criar/editar acordo a escolha de cobrar
+honorário é **do usuário**, padrão *não cobrar*, **somente leitura** em acordo vindo da contabilidade.
+Tem migration; zero acordos de tela em produção hoje. §10.7.
 
 ### 7.2 Os outros achados confirmados (frente do honorário)
 
