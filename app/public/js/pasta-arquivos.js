@@ -64,6 +64,12 @@
         return c ? c.dataset.nome : '';
     }
     function toggle(el, mostrar) { if (el) el.classList.toggle('fm-oculto', !mostrar); }
+    // Mesmo teste usado no upload por arraste (mais abaixo, no listener de #fmBody): identifica um
+    // arraste vindo de FORA do navegador (arquivo do SO), que não dispara dragstart em nenhum
+    // elemento da página — distinto do arraste de um cartão de pasta, que dispara.
+    function arrasteContemArquivo(e) {
+        return !!(e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types || [], 'Files') !== -1);
+    }
 
     // ----------------------------------------------------------- navegação ---
     function paiDe(secaoId) {
@@ -85,8 +91,8 @@
     function entrar(secaoId) {
         if (!temArvore) { caminho = [String(secaoId)]; }
         else {
-            // remonta a cadeia inteira subindo pelos pais: entrar por busca ou por link direto
-            // precisa produzir o mesmo breadcrumb que entrar clicando nível a nível.
+            // remonta a cadeia inteira subindo pelos pais a partir do id recebido, sem depender
+            // de por onde chegou aqui — garante o mesmo breadcrumb não importa qual `secaoId` entre.
             const cadeia = [];
             let atual = String(secaoId);
             let voltas = 0;
@@ -440,10 +446,15 @@
             .catch(function (err) { alert(err.message); });
     }
 
-    function descendentes(secaoId) {
+    function descendentes(secaoId, profundidade) {
+        profundidade = profundidade || 0;
+        // Disjuntor equivalente ao `voltas < 100` das funções que sobem a árvore (paiDe/entrar/
+        // caminhoLegivel). Hoje o back impede ciclo, então isto nunca deveria disparar — mas é
+        // justamente aqui, numa recursão que desce, que estouraria a pilha se o guard falhasse.
+        if (profundidade >= 100) return [];
         const filhos = todasPastas().filter(function (el) { return el.dataset.paiId === String(secaoId); });
         return filhos.reduce(function (acc, el) {
-            return acc.concat([el.dataset.secaoId], descendentes(el.dataset.secaoId));
+            return acc.concat([el.dataset.secaoId], descendentes(el.dataset.secaoId, profundidade + 1));
         }, []);
     }
 
@@ -640,6 +651,11 @@
             if (card) arrastando = card;
         });
         elPastas.addEventListener('dragover', function (e) {
+            // #fmPastas mora dentro de #fmBody, que TAMBÉM aceita arraste de arquivo do SO para
+            // upload (listener de #fmBody, mais abaixo). Sem esta guarda, um `arrastando` deixado
+            // por um arraste de PASTA anterior (nunca limpo, porque arraste de arquivo externo não
+            // dispara dragstart em elemento nenhum da página) seria reaproveitado por engano aqui.
+            if (arrasteContemArquivo(e)) return;
             const alvo = e.target.closest('.fm-pasta');
             if (alvo && arrastando && alvo !== arrastando) { e.preventDefault(); alvo.classList.add('fm-pasta-alvo'); }
         });
@@ -648,6 +664,7 @@
             if (alvo) alvo.classList.remove('fm-pasta-alvo');
         });
         elPastas.addEventListener('drop', function (e) {
+            if (arrasteContemArquivo(e)) return;              // arquivo do SO: não é mover pasta
             const alvo = e.target.closest('.fm-pasta');
             if (!alvo || !arrastando || alvo === arrastando) return;
             e.preventDefault();
@@ -657,6 +674,14 @@
                 return;
             }
             moverPasta(arrastando, alvo.dataset.secaoId);
+            arrastando = null;                                 // não confia só no dragend abaixo
+        });
+        // dragend dispara sempre que o arraste termina — mesmo solto fora de um alvo válido ou
+        // cancelado com Esc — e é o único ponto confiável para isto: sem ele, `arrastando` fica
+        // apontando para o último cartão arrastado para sempre (não existe outro reset no arquivo).
+        elPastas.addEventListener('dragend', function () {
+            arrastando = null;
+            elPastas.querySelectorAll('.fm-pasta-alvo').forEach(function (el) { el.classList.remove('fm-pasta-alvo'); });
         });
     }
 
