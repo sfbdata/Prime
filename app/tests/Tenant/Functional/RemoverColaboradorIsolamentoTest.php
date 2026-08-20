@@ -3,10 +3,16 @@ declare(strict_types=1);
 
 namespace App\Tests\Tenant\Functional;
 
+use App\Entity\Agenda\Evento;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
+use App\Entity\ServiceDesk\Chamado;
+use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Tenant;
 use App\Kanban\Entity\KanbanBoard;
+use App\Kanban\Entity\KanbanCard;
+use App\Kanban\Entity\KanbanColuna;
+use App\Pasta\Entity\Pasta;
 use App\Repository\UserTenantRepository;
 use App\Tenant\DTO\RemoverColaboradorInput;
 use App\Tenant\UseCase\RemoverColaboradorDoEscritorioUseCase;
@@ -16,14 +22,17 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 
 /**
- * A passagem do bastão do Kanban usa SQL nativo (kanban_board_participante) e UPDATE direto
- * (kanban_board.criado_por_id), que ESCAPAM do TenantFilter. O teste prova que o escopo
- * EXPLÍCITO por tenant_id protege o quadro do outro escritório: remover no A não pode tocar
- * nada do B, mesmo com a mesma pessoa criando/participando dos dois quadros.
+ * A passagem do bastão usa DQL em massa (Pasta/Chamado) e SQL nativo (tarefa_responsaveis,
+ * evento_participante, kanban_card_responsavel, kanban_board_participante, kanban_board),
+ * que ESCAPAM do TenantFilter. Os três testes provam que o escopo EXPLÍCITO por tenant_id (ou
+ * p.tenant/c.tenant no DQL) protege TUDO do outro escritório: remover no A não pode tocar nada
+ * do B, mesmo com a mesma pessoa responsável/participante/criadora nos dois.
  */
 #[CoversClass(RemoverColaboradorDoEscritorioUseCase::class)]
 final class RemoverColaboradorIsolamentoTest extends JusPrimeWebTestCase
 {
+    private int $seq = 0;
+
     #[TestDox('remover no escritorio A nao toca no quadro de Kanban do escritorio B')]
     public function testNaoTocaNoOutroEscritorio(): void
     {
@@ -57,16 +66,7 @@ final class RemoverColaboradorIsolamentoTest extends JusPrimeWebTestCase
         $em->persist($boardB);
         $em->flush();
 
-        // O UseCase ainda não tem consumidor em produção (controller vem em tarefa
-        // posterior) — o compilador do container de teste remove/inlina serviço privado
-        // sem consumidor, então buscá-lo direto por `getContainer()->get()` falha com
-        // ServiceNotFoundException. Suas duas dependências (EM e o repositório) são
-        // públicas o bastante para sair do container; montamos o UseCase à mão com elas,
-        // preservando que a query rode contra a conexão/EM REAIS de teste.
-        $useCase = new RemoverColaboradorDoEscritorioUseCase(
-            $em,
-            static::getContainer()->get(UserTenantRepository::class),
-        );
+        $useCase = $this->montarUseCase($em);
         $useCase->executar(new RemoverColaboradorInput($admin, $pessoa, $tenantA));
 
         $em->clear();
@@ -87,5 +87,300 @@ final class RemoverColaboradorIsolamentoTest extends JusPrimeWebTestCase
             'o criador do quadro do escritório B não podia ter mudado'
         );
         self::assertCount(1, $recarregadoB->getParticipantes(), 'o participante do B foi apagado');
+    }
+
+    #[TestDox('remover SEM substituto desatribui Pasta/Chamado/tarefa/evento/card do A e nao toca o B')]
+    public function testDesatribuicaoNaoCruzaTenant(): void
+    {
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $c  = $this->montarCenario($em);
+
+        $useCase = $this->montarUseCase($em);
+        $useCase->executar(new RemoverColaboradorInput($c['admin'], $c['pessoa'], $c['tenantA']));
+
+        $em->clear();
+
+        $pessoaId = $c['pessoa']->getId();
+
+        // Tenant A: a afirmação que dói — tudo que era da pessoa ficou sem responsável/participante.
+        self::assertNull(
+            $em->find(Pasta::class, $c['pastaA'])->getResponsavel(),
+            'pasta do escritório A deveria perder o responsável'
+        );
+        self::assertNull(
+            $em->find(Chamado::class, $c['chamadoA'])->getResponsavel(),
+            'chamado do escritório A deveria perder o responsável'
+        );
+        self::assertSame(
+            [],
+            $this->ids($em->find(Tarefa::class, $c['tarefaA'])->getResponsaveis()),
+            'tarefa do escritório A deveria perder o responsável'
+        );
+        self::assertSame(
+            [],
+            $this->ids($em->find(Evento::class, $c['eventoA'])->getParticipantes()),
+            'evento do escritório A deveria perder o participante'
+        );
+        self::assertSame(
+            [],
+            $this->ids($em->find(KanbanCard::class, $c['cardA'])->getResponsaveis()),
+            'card de Kanban do escritório A deveria perder o responsável'
+        );
+
+        // Tenant B: nada pode ter sido tocado — cada asserção prova isolamento de UMA tabela.
+        self::assertSame(
+            $pessoaId,
+            $em->find(Pasta::class, $c['pastaB'])->getResponsavel()?->getId(),
+            'pasta do escritório B NÃO deveria ser tocada'
+        );
+        self::assertSame(
+            $pessoaId,
+            $em->find(Chamado::class, $c['chamadoB'])->getResponsavel()?->getId(),
+            'chamado do escritório B NÃO deveria ser tocado'
+        );
+        self::assertSame(
+            [$pessoaId],
+            $this->ids($em->find(Tarefa::class, $c['tarefaB'])->getResponsaveis()),
+            'tarefa do escritório B NÃO deveria ser tocada'
+        );
+        self::assertSame(
+            [$pessoaId],
+            $this->ids($em->find(Evento::class, $c['eventoB'])->getParticipantes()),
+            'evento do escritório B NÃO deveria ser tocado'
+        );
+        self::assertSame(
+            [$pessoaId],
+            $this->ids($em->find(KanbanCard::class, $c['cardB'])->getResponsaveis()),
+            'card de Kanban do escritório B NÃO deveria ser tocado'
+        );
+    }
+
+    #[TestDox('remover COM substituto transfere Pasta/Chamado/tarefa/evento/card do A e nao toca o B')]
+    public function testTransferenciaNaoCruzaTenant(): void
+    {
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $c  = $this->montarCenario($em);
+
+        $substituto = new User();
+        $substituto->setEmail('substituto_' . uniqid() . '@test.com');
+        $substituto->setFullName('Substituto');
+        $em->persist($substituto);
+        $em->persist(new UserTenant($substituto, $c['tenantA']));
+        $em->flush();
+
+        $useCase = $this->montarUseCase($em);
+        $useCase->executar(new RemoverColaboradorInput($c['admin'], $c['pessoa'], $c['tenantA'], $substituto));
+
+        $em->clear();
+
+        $pessoaId = $c['pessoa']->getId();
+        $subId    = $substituto->getId();
+
+        // Tenant A: a afirmação que dói — tudo que era da pessoa foi para o substituto.
+        self::assertSame(
+            $subId,
+            $em->find(Pasta::class, $c['pastaA'])->getResponsavel()?->getId(),
+            'pasta do escritório A deveria ir para o substituto'
+        );
+        self::assertSame(
+            $subId,
+            $em->find(Chamado::class, $c['chamadoA'])->getResponsavel()?->getId(),
+            'chamado do escritório A deveria ir para o substituto'
+        );
+        self::assertSame(
+            [$subId],
+            $this->ids($em->find(Tarefa::class, $c['tarefaA'])->getResponsaveis()),
+            'tarefa do escritório A deveria ir para o substituto'
+        );
+        self::assertSame(
+            [$subId],
+            $this->ids($em->find(Evento::class, $c['eventoA'])->getParticipantes()),
+            'evento do escritório A deveria ir para o substituto'
+        );
+        self::assertSame(
+            [$subId],
+            $this->ids($em->find(KanbanCard::class, $c['cardA'])->getResponsaveis()),
+            'card de Kanban do escritório A deveria ir para o substituto'
+        );
+
+        // Tenant B: nada pode ter sido tocado — o substituto não existe lá.
+        self::assertSame(
+            $pessoaId,
+            $em->find(Pasta::class, $c['pastaB'])->getResponsavel()?->getId(),
+            'pasta do escritório B NÃO deveria ser tocada'
+        );
+        self::assertSame(
+            $pessoaId,
+            $em->find(Chamado::class, $c['chamadoB'])->getResponsavel()?->getId(),
+            'chamado do escritório B NÃO deveria ser tocado'
+        );
+        self::assertSame(
+            [$pessoaId],
+            $this->ids($em->find(Tarefa::class, $c['tarefaB'])->getResponsaveis()),
+            'tarefa do escritório B NÃO deveria ser tocada'
+        );
+        self::assertSame(
+            [$pessoaId],
+            $this->ids($em->find(Evento::class, $c['eventoB'])->getParticipantes()),
+            'evento do escritório B NÃO deveria ser tocado'
+        );
+        self::assertSame(
+            [$pessoaId],
+            $this->ids($em->find(KanbanCard::class, $c['cardB'])->getResponsaveis()),
+            'card de Kanban do escritório B NÃO deveria ser tocado'
+        );
+    }
+
+    // ----------------------------------------------------------------- helpers
+
+    private function montarUseCase(EntityManagerInterface $em): RemoverColaboradorDoEscritorioUseCase
+    {
+        // O UseCase ainda não tem consumidor em produção (controller vem em tarefa posterior)
+        // — o compilador do container de teste remove/inlina serviço privado sem consumidor,
+        // então buscá-lo direto por `getContainer()->get()` falha com ServiceNotFoundException.
+        // Suas duas dependências (EM e o repositório) têm outros consumidores e sobrevivem à
+        // compilação; montamos o UseCase à mão com elas, preservando que a query rode contra a
+        // conexão/EM REAIS de teste.
+        return new RemoverColaboradorDoEscritorioUseCase(
+            $em,
+            static::getContainer()->get(UserTenantRepository::class),
+        );
+    }
+
+    /**
+     * Monta o cenário-base compartilhado pelos dois testes de passagem do bastão: pessoa com
+     * vínculo em A e B, responsável/participante/criadora de uma Pasta, um Chamado, uma Tarefa,
+     * um Evento e um KanbanCard EM CADA escritório.
+     *
+     * @return array{tenantA: Tenant, tenantB: Tenant, pessoa: User, admin: User,
+     *     pastaA: int, pastaB: int, chamadoA: int, chamadoB: int,
+     *     tarefaA: int, tarefaB: int, eventoA: int, eventoB: int, cardA: int, cardB: int}
+     */
+    private function montarCenario(EntityManagerInterface $em): array
+    {
+        $tenantA = new Tenant(); $tenantA->setName('A ' . uniqid());
+        $tenantB = new Tenant(); $tenantB->setName('B ' . uniqid());
+        $em->persist($tenantA); $em->persist($tenantB);
+
+        $pessoa = new User();
+        $pessoa->setEmail('multi_' . uniqid() . '@test.com');
+        $pessoa->setFullName('Pessoa em dois escritórios');
+        $em->persist($pessoa);
+
+        $admin = new User();
+        $admin->setEmail('admin_' . uniqid() . '@test.com');
+        $admin->setFullName('Admin A');
+        $em->persist($admin);
+
+        $em->persist(new UserTenant($pessoa, $tenantA));
+        $em->persist(new UserTenant($pessoa, $tenantB));
+        $em->persist(new UserTenant($admin, $tenantA));
+        $em->flush();
+
+        $pastaA   = $this->criarPasta($em, $tenantA, $pessoa);
+        $pastaB   = $this->criarPasta($em, $tenantB, $pessoa);
+        $chamadoA = $this->criarChamado($em, $tenantA, $pessoa);
+        $chamadoB = $this->criarChamado($em, $tenantB, $pessoa);
+        $tarefaA  = $this->criarTarefa($em, $pastaA, $pessoa);
+        $tarefaB  = $this->criarTarefa($em, $pastaB, $pessoa);
+        $eventoA  = $this->criarEvento($em, $tenantA, $pessoa);
+        $eventoB  = $this->criarEvento($em, $tenantB, $pessoa);
+        $cardA    = $this->criarKanbanCard($em, $tenantA, $pessoa);
+        $cardB    = $this->criarKanbanCard($em, $tenantB, $pessoa);
+
+        return [
+            'tenantA' => $tenantA, 'tenantB' => $tenantB, 'pessoa' => $pessoa, 'admin' => $admin,
+            'pastaA'   => $pastaA->getId(),   'pastaB'   => $pastaB->getId(),
+            'chamadoA' => $chamadoA->getId(), 'chamadoB' => $chamadoB->getId(),
+            'tarefaA'  => $tarefaA->getId(),  'tarefaB'  => $tarefaB->getId(),
+            'eventoA'  => $eventoA->getId(),  'eventoB'  => $eventoB->getId(),
+            'cardA'    => $cardA->getId(),    'cardB'    => $cardB->getId(),
+        ];
+    }
+
+    /**
+     * @param iterable<User> $users
+     * @return list<int>
+     */
+    private function ids(iterable $users): array
+    {
+        $out = [];
+        foreach ($users as $u) {
+            $out[] = (int) $u->getId();
+        }
+        sort($out);
+
+        return $out;
+    }
+
+    private function criarPasta(EntityManagerInterface $em, Tenant $tenant, User $responsavel): Pasta
+    {
+        $pasta = new Pasta();
+        $pasta->setNup('REM-' . (++$this->seq) . '-' . uniqid());
+        $pasta->setTenant($tenant);
+        $pasta->setResponsavel($responsavel);
+        $em->persist($pasta);
+        $em->flush();
+
+        return $pasta;
+    }
+
+    private function criarChamado(EntityManagerInterface $em, Tenant $tenant, User $responsavel): Chamado
+    {
+        $chamado = new Chamado();
+        $chamado->setTitulo('Chamado ' . uniqid());
+        $chamado->setDescricao('Descrição');
+        $chamado->setTenant($tenant);
+        $chamado->setSolicitante($responsavel);
+        $chamado->setResponsavel($responsavel);
+        $em->persist($chamado);
+        $em->flush();
+
+        return $chamado;
+    }
+
+    private function criarTarefa(EntityManagerInterface $em, Pasta $pasta, User $responsavel): Tarefa
+    {
+        $tarefa = new Tarefa();
+        $tarefa->setTitulo('Tarefa ' . uniqid());
+        $tarefa->setDescricao('Descrição');
+        $tarefa->setPasta($pasta);
+        $tarefa->setTenant($pasta->getTenant());
+        $tarefa->addResponsavel($responsavel);
+        $em->persist($tarefa);
+        $em->flush();
+
+        return $tarefa;
+    }
+
+    private function criarEvento(EntityManagerInterface $em, Tenant $tenant, User $participante): Evento
+    {
+        $evento = new Evento();
+        $evento->setTitulo('Evento ' . uniqid());
+        $evento->setDataInicio(new \DateTimeImmutable('2026-03-10 08:00:00'));
+        $evento->setDataFim(new \DateTimeImmutable('2026-03-10 09:00:00'));
+        $evento->setCriador($participante);
+        $evento->setTenant($tenant);
+        $evento->addParticipante($participante);
+        $em->persist($evento);
+        $em->flush();
+
+        return $evento;
+    }
+
+    private function criarKanbanCard(EntityManagerInterface $em, Tenant $tenant, User $responsavel): KanbanCard
+    {
+        $board  = new KanbanBoard('Quadro ' . uniqid(), $tenant, $responsavel);
+        $em->persist($board);
+
+        $coluna = new KanbanColuna('Coluna ' . uniqid(), KanbanColuna::TIPO_A_FAZER, 0, $board);
+        $em->persist($coluna);
+
+        $card = new KanbanCard('Card ' . uniqid(), $coluna, $board, $responsavel);
+        $card->adicionarResponsavel($responsavel);
+        $em->persist($card);
+        $em->flush();
+
+        return $card;
     }
 }
