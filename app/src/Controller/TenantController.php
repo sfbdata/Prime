@@ -343,7 +343,11 @@ final class TenantController extends AbstractController
         // na sessão ainda não vê o label de um recurso de outro escritório.
         $this->escoparFiltroNoTenant($entityManager, $tenant);
 
-        $vinculos = $userTenantRepository->findBy(['tenant' => $tenant]);
+        // A lista mostra só quem é colaborador de verdade: vínculo existe = colaborador
+        // (spec §3.4/§10). Com o hard delete de RemoverColaboradorDoEscritorioUseCase, um
+        // vínculo inativo é sempre legado (as 3 linhas de D8) — nunca alguém que ainda está
+        // no escritório com um selo "Desligado".
+        $vinculos = $userTenantRepository->findBy(['tenant' => $tenant, 'isActive' => true]);
         $users    = array_map(fn($vt) => $vt->getUser(), $vinculos);
         $userTenantByUserId = [];
         foreach ($vinculos as $vt) {

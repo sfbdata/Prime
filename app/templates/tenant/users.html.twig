@@ -40,9 +40,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {% set usersAtivos = users|filter(u => userTenantByUserId[u.id].demitidoEm is null) %}
-                        {% set usersDesligados = users|filter(u => userTenantByUserId[u.id].demitidoEm is not null) %}
-                        {% for user in usersAtivos %}
+                        {% for user in users %}
                             {% set ut = userTenantByUserId[user.id] ?? null %}
                             {% set userAccesses = accessByUser[user.id] ?? [] %}
                             <tr>
@@ -99,7 +97,12 @@
                                     {% endif %}
                                 </td>
                                 <td class="align-middle">
-                                    {% if user.isActive %}
+                                    {# Status do VÍNCULO com o escritório, não da conta (spec §10):
+                                       user.isActive é o flag global da conta (ex.: convite ainda não
+                                       confirmado) e não pode dizer se a pessoa está no escritório. Como
+                                       a query acima já só traz vínculos ativos, isto é sempre "Ativo" —
+                                       o comportamento correto é a ausência de gente desligada aqui. #}
+                                    {% if ut and ut.isActive %}
                                         <span class="badge text-bg-success"><i class="bi bi-check-circle me-1"></i>Ativo</span>
                                     {% else %}
                                         <span class="badge text-bg-secondary"><i class="bi bi-x-circle me-1"></i>Desativado</span>
@@ -124,67 +127,6 @@
                 </table>
             </div>
         </div>
-
-        {% if usersDesligados|length > 0 %}
-        <div class="mt-3">
-            <button class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2"
-                    type="button"
-                    data-bs-toggle="collapse"
-                    data-bs-target="#listaDesligados"
-                    aria-expanded="false"
-                    aria-controls="listaDesligados">
-                <i class="bi bi-person-x"></i>
-                Colaboradores desligados ({{ usersDesligados|length }})
-                <i class="bi bi-chevron-down ms-1" id="iconeDesligados"></i>
-            </button>
-            <div class="collapse mt-2" id="listaDesligados">
-                <div class="card">
-                    <div class="card-body table-responsive p-0">
-                        <table class="table table-hover mb-0" id="tabelaDesligados">
-                            <thead class="table-light">
-                                <tr>
-                                    <th class="ps-3" style="width:80px"><i class="bi bi-hash me-1"></i>Código</th>
-                                    <th><i class="bi bi-person me-1"></i>Nome</th>
-                                    <th><i class="bi bi-envelope me-1"></i>Email</th>
-                                    <th><i class="bi bi-shield-check me-1"></i>Perfil</th>
-                                    <th><i class="bi bi-calendar-x me-1"></i>Desligado em</th>
-                                    <th><i class="bi bi-gear me-1"></i>Ações</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for user in usersDesligados %}
-                                    {% set ut = userTenantByUserId[user.id] ?? null %}
-                                    <tr class="text-muted">
-                                        <td class="align-middle ps-3 fw-semibold" style="font-size:.82rem;">{{ ut ? ut.codigoFuncionario ?? '—' : '—' }}</td>
-                                        <td class="align-middle">{{ user.fullName }}</td>
-                                        <td class="align-middle">{{ user.email }}</td>
-                                        <td class="align-middle">
-                                            {% if ut and ut.tenantRole %}
-                                                <span class="badge text-bg-secondary">{{ ut.tenantRole.name }}</span>
-                                            {% else %}
-                                                <span class="text-muted">—</span>
-                                            {% endif %}
-                                        </td>
-                                        <td class="align-middle">
-                                            <span class="badge text-bg-warning text-dark"><i class="bi bi-person-x me-1"></i>Desligado</span>
-                                            <div class="text-muted" style="font-size:.72rem;">{{ ut ? ut.demitidoEm|date('d/m/Y') : '—' }}</div>
-                                        </td>
-                                        <td class="align-middle">
-                                            <a href="{{ path('app_tenant_user_edit_role', {tenantId: tenant.id, id: user.id}) }}"
-                                               class="btn btn-sm btn-outline-secondary"
-                                               title="Ver perfil do colaborador">
-                                                <i class="bi bi-eye me-1"></i> Ver
-                                            </a>
-                                        </td>
-                                    </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-        {% endif %}
 
 <style>
 #tabelaUsuarios thead th {
@@ -248,26 +190,12 @@
         ordenarPorColuna(0, 'asc');
     }
 
-    function iniciarIconeDesligados() {
-        var collapseEl = document.getElementById('listaDesligados');
-        var icone = document.getElementById('iconeDesligados');
-        if (!collapseEl || !icone) return;
-        collapseEl.addEventListener('show.bs.collapse', function () {
-            icone.classList.replace('bi-chevron-down', 'bi-chevron-up');
-        });
-        collapseEl.addEventListener('hide.bs.collapse', function () {
-            icone.classList.replace('bi-chevron-up', 'bi-chevron-down');
-        });
-    }
-
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', function () {
             iniciarOrdenacaoTabela();
-            iniciarIconeDesligados();
         });
     } else {
         iniciarOrdenacaoTabela();
-        iniciarIconeDesligados();
     }
 }());
 </script>

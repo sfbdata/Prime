@@ -263,4 +263,77 @@ final class RemoverColaboradorControllerTest extends JusPrimeWebTestCase
 
         self::assertNotNull($vinculo, 'o super-admin conseguiu remover o último administrador');
     }
+
+    #[TestDox('GET users nao lista quem acabou de ser removido')]
+    public function testListaUsersNaoMostraQuemFoiRemovido(): void
+    {
+        $client      = static::createClient();
+        $tenant      = $this->criarTenant();
+        $admin       = $this->criarAdmin($tenant);
+        $funcionario = $this->criarFuncionario($tenant);
+
+        $this->instalarCsrfStorage();
+        $client->loginUser($admin);
+        $this->marcarTermosAceitos($client);
+        $client->request('POST', "/tenant/{$tenant->getId()}/user/{$funcionario->getId()}/remover", [
+            '_token' => $this->gerarCsrf('remover_' . $funcionario->getId()),
+        ]);
+        self::assertResponseRedirects("/tenant/{$tenant->getId()}/users");
+
+        $client->request('GET', "/tenant/{$tenant->getId()}/users");
+
+        self::assertResponseIsSuccessful();
+        self::assertStringNotContainsString(
+            (string) $funcionario->getEmail(),
+            (string) $client->getResponse()->getContent(),
+            'a pessoa removida (vínculo apagado) não deveria aparecer na lista'
+        );
+    }
+
+    /**
+     * Este é o teste que prova a tarefa. O teste acima (quem acabou de ser removido) passaria
+     * sozinho mesmo sem nenhuma mudança no controller/template: com o hard delete, a pessoa já
+     * some da lista porque o vínculo não existe mais. Quem confirma que `listUsers` passou a
+     * filtrar por `isActive = true` é um vínculo INATIVO LEGADO — que continua existindo na
+     * tabela `user_tenant`, só com `is_active = false` — igual às 3 linhas que a spec (§6.5/§9)
+     * registra como ainda presentes em produção hoje. Antes desta tarefa (§10), esse tipo de
+     * linha aparecia na tabela principal com o selo verde "Ativo", porque a separação era feita
+     * por `demitidoEm` (sempre nulo numa saída voluntária) e o badge lia `user.isActive` — o
+     * flag global da conta, não o do vínculo.
+     */
+    #[TestDox('GET users nao lista vinculo inativo legado (is_active=false sem hard delete)')]
+    public function testListaUsersNaoMostraVinculoInativoLegado(): void
+    {
+        $client = static::createClient();
+        $em     = static::getContainer()->get(EntityManagerInterface::class);
+        $tenant = $this->criarTenant();
+        $admin  = $this->criarAdmin($tenant);
+        $hasher = static::getContainer()->get(UserPasswordHasherInterface::class);
+
+        $legado = new User();
+        $legado->setEmail('legado_' . uniqid() . '@test.com');
+        $legado->setFullName('Vínculo Legado Inativo');
+        $legado->setRoles(['ROLE_USER']);
+        $legado->setIsActive(true);
+        $legado->setPassword($hasher->hashPassword($legado, 'senha123'));
+        $em->persist($legado);
+
+        $vinculo = new UserTenant($legado, $tenant);
+        $vinculo->sair(); // is_active = false, sem demitidoEm — o mesmo estado das 3 linhas legadas de D8
+        $em->persist($vinculo);
+        $em->flush();
+
+        $this->instalarCsrfStorage();
+        $client->loginUser($admin);
+        $this->marcarTermosAceitos($client);
+
+        $client->request('GET', "/tenant/{$tenant->getId()}/users");
+
+        self::assertResponseIsSuccessful();
+        self::assertStringNotContainsString(
+            (string) $legado->getEmail(),
+            (string) $client->getResponse()->getContent(),
+            'um vínculo com is_active=false (legado) não deveria aparecer na lista de colaboradores'
+        );
+    }
 }
