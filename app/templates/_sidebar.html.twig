@@ -66,10 +66,13 @@
 
                 {% if can_access_module('djen') %}
                     <li class="pje-menu-item">
-                        <a href="{{ path('djen_index') }}"
-                           class="pje-menu-link {{ currentRoute starts with 'djen_' ? 'active' : '' }}">
+                        {# O módulo se chamava DJEN: sem o alias, quem digita "djen" (o termo que os
+                           usuários conhecem, e o que as notificações antigas dizem) não acha nada. #}
+                        <a href="{{ path('push_processual_index') }}"
+                           data-busca-alias="djen publicações intimações"
+                           class="pje-menu-link {{ currentRoute starts with 'push_processual_' ? 'active' : '' }}">
                             <i class="bi bi-newspaper pje-nav-icon"></i>
-                            <span>DJEN</span>
+                            <span>Push Processual</span>
                         </a>
                     </li>
                 {% endif %}
@@ -285,6 +288,7 @@
         var links = Array.from(document.querySelectorAll('.pje-menu-link')).map(function (a) {
             return {
                 label: a.querySelector('span') ? a.querySelector('span').textContent.trim() : '',
+                alias: a.getAttribute('data-busca-alias') || '',
                 href:  a.getAttribute('href')
             };
         }).filter(function (l) { return l.label && l.href && l.href !== '#'; });
@@ -293,7 +297,7 @@
             var q = this.value.trim().toLowerCase();
             list.innerHTML = '';
             if (!q) { results.style.display = 'none'; return; }
-            var found = links.filter(function (l) { return l.label.toLowerCase().includes(q); });
+            var found = links.filter(function (l) { return (l.label + ' ' + l.alias).toLowerCase().includes(q); });
             if (found.length === 0) {
                 list.innerHTML = '<li class="pje-search-empty">Nenhum resultado</li>';
             } else {

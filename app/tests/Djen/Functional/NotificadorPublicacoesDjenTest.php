@@ -73,6 +73,50 @@ final class NotificadorPublicacoesDjenTest extends KernelTestCase
     }
 
     /**
+     * A `url` gravada aqui é o que o usuário clica no sino — e é ela que criou a necessidade do
+     * `RotasLegadasDjenController`: em 19/08/2026 a produção tinha **199 notificações com `/djen`
+     * gravada na linha**, porque este path é **persistido** quando a notificação nasce, não montado
+     * na hora de exibir.
+     *
+     * Sem esta asserção, reverter `generate('push_processual_index')` para `'djen_index'` deixa a
+     * suíte inteira verde enquanto volta a gravar o endereço antigo em toda notificação nova — e o
+     * defeito só apareceria meses depois, no clique de um usuário.
+     *
+     * A mensagem nomeia o **DJEN** de propósito: ela descreve a origem no CNJ, não o nosso módulo.
+     */
+    #[Test]
+    public function gravaOLinkDaTelaNovaEAMensagemQueNomeiaAOrigem(): void
+    {
+        self::bootKernel();
+        $container = static::getContainer();
+        $em = $container->get(EntityManagerInterface::class);
+        $notificador = $container->get(NotificadorPublicacoesDjen::class);
+
+        $tenantPlural = $this->criarTenant();
+        $this->criarGestor($tenantPlural, 'gestor_plural_' . uniqid() . '@test.com');
+        $notificador->notificar($tenantPlural, 3);
+
+        $tenantSingular = $this->criarTenant();
+        $this->criarGestor($tenantSingular, 'gestor_singular_' . uniqid() . '@test.com');
+        $notificador->notificar($tenantSingular, 1);
+
+        $this->limparIdentityMap();
+        $repo = $em->getRepository(Notificacao::class);
+
+        $plural = $repo->findOneBy(['tipo' => Notificacao::TIPO_DJEN_PUBLICACAO, 'tenant' => $tenantPlural]);
+        self::assertNotNull($plural);
+        self::assertSame('/push-processual', $plural->getUrl(), 'o link do sino tem de apontar para a URL nova');
+        self::assertSame('3 novas publicações capturadas no DJEN.', $plural->getMensagem());
+        // NotificacaoService grava titulo = mensagem, e é o TÍTULO que o sino exibe.
+        self::assertSame($plural->getMensagem(), $plural->getTitulo());
+
+        $singular = $repo->findOneBy(['tipo' => Notificacao::TIPO_DJEN_PUBLICACAO, 'tenant' => $tenantSingular]);
+        self::assertNotNull($singular);
+        self::assertSame('/push-processual', $singular->getUrl());
+        self::assertSame('Nova publicação capturada no DJEN.', $singular->getMensagem());
+    }
+
+    /**
      * Super-admin global (ROLE_SUPER_ADMIN) vinculado a um escritório. O papel faz o PermissionChecker
      * liberar qualquer módulo sem olhar o tenant, então só as cláusulas do join controlam se ele entra
      * na lista de destinatários — é o caso que dá poder de detecção ao teste.

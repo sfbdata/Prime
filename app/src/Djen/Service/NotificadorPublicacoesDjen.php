@@ -95,9 +95,9 @@ final class NotificadorPublicacoesDjen implements NotificadorPublicacoesDjenInte
     private function urlPublicacoes(): string
     {
         try {
-            return $this->urlGenerator->generate('djen_index');
+            return $this->urlGenerator->generate('push_processual_index');
         } catch (\Throwable) {
-            return '/djen';
+            return '/push-processual';
         }
     }
 }
