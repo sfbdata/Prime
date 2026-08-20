@@ -64,14 +64,16 @@ final class PeticionarController extends AbstractController
         $clientePrincipal = $pasta->getClientePrincipal();
         $nomeCliente      = ($clientePrincipal instanceof Cliente) ? $clientePrincipal->getNomeExibicao() : null;
 
-        $secoes = $tenant !== null ? $this->pastaSecaoRepository->findByPasta($pasta, $tenant) : [];
+        $secoes         = $tenant !== null ? $this->pastaSecaoRepository->findByPasta($pasta, $tenant) : [];
+        $caminhosSecoes = $this->montarCaminhosLegiveis($secoes);
+        $secoes         = $this->ordenarPorCaminho($secoes, $caminhosSecoes);
 
         return $this->render('pasta/peticionar.html.twig', [
             'pasta'           => $pasta,
             'documentos'      => $documentos,
             'nomeCliente'     => $nomeCliente,
             'secoes'          => $secoes,
-            'caminhosSecoes'  => $this->montarCaminhosLegiveis($secoes),
+            'caminhosSecoes'  => $caminhosSecoes,
             'categoriaLabels' => [
                 PastaDocumento::CATEGORIA_PECA                    => 'Peça',
                 PastaDocumento::CATEGORIA_PROCURACAO              => 'Procuração',
@@ -111,6 +113,36 @@ final class PeticionarController extends AbstractController
         }
 
         return $caminhos;
+    }
+
+    /**
+     * findByPasta() ordena por `ordem ASC`, mas essa coluna virou RELATIVA às irmãs nesta frente
+     * (ver PastaSecaoRepository::proximaOrdem) — comparável só DENTRO do mesmo grupo, não entre
+     * níveis. O gerenciador de arquivos não sofre porque filtra por nível antes de exibir; aqui a
+     * lista é achatada num único <select>, então a mãe pode sair espremida entre as próprias
+     * filhas. Reordenando pelo caminho legível ("Financeiro" antes de "Financeiro › 2026"), toda
+     * mãe fica antes das filhas e as irmãs ficam juntas — sem tocar findByPasta(), que o
+     * gerenciador, o sync e o comando de acervo continuam usando como está.
+     *
+     * @param PastaSecao[] $secoes
+     * @param array<int, string> $caminhos
+     * @return PastaSecao[]
+     */
+    private function ordenarPorCaminho(array $secoes, array $caminhos): array
+    {
+        // Mesmo padrão do MontarAtividadeEquipeUseCase: o container roda com LC_COLLATE=C, onde
+        // acento e caixa saem fora da ordem esperada em português.
+        $collator = new \Collator('pt_BR');
+
+        usort(
+            $secoes,
+            static fn (PastaSecao $a, PastaSecao $b): int => (int) $collator->compare(
+                $caminhos[$a->getId()] ?? '',
+                $caminhos[$b->getId()] ?? '',
+            ),
+        );
+
+        return $secoes;
     }
 
     #[Route('/{id}/peticionar/upload', name: 'pasta_peticionar_upload', methods: ['POST'])]

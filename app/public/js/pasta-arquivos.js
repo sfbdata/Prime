@@ -441,7 +441,7 @@
         if (subpastas > 0) partes.push(pluralizar(subpastas, 'subpasta', 'subpastas'));
         if (arquivos > 0) partes.push(pluralizar(arquivos, 'arquivo', 'arquivos'));
 
-        return 'A pasta "' + nome + '" contém ' + partes.join(' e ') + '. Esta ação não pode ser desfeita.';
+        return 'Excluir a pasta "' + nome + '"? Ela contém ' + partes.join(' e ') + ', que serão excluídos junto. Esta ação não pode ser desfeita.';
     }
 
     function excluirPasta(card) {
@@ -494,7 +494,9 @@
         const proibidos = [card.dataset.secaoId].concat(descendentes(card.dataset.secaoId));
         const opcoes = todasPastas()
             .filter(function (el) { return proibidos.indexOf(el.dataset.secaoId) === -1; })
-            .map(function (el) { return { id: el.dataset.secaoId, nome: el.dataset.nome }; });
+            // Nome cru repete entre galhos (em prod, 51% das seções têm prefixo numérico manual,
+            // "01 - ", "01.4 - "): caminhoLegivel() mostra os ancestrais, igual ao Peticionar.
+            .map(function (el) { return { id: el.dataset.secaoId, nome: caminhoLegivel(el.dataset.secaoId) }; });
 
         pedirDestino('Mover "' + card.dataset.nome + '" para', opcoes).then(function (destinoId) {
             if (destinoId === undefined) return;             // cancelou
