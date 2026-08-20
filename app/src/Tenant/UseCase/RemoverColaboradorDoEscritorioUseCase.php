@@ -35,13 +35,29 @@ final class RemoverColaboradorDoEscritorioUseCase
 
         $this->validar($input, $vinculo);
 
-        $this->passarOBastao($input);
-        // Task 3 encaixa aqui: revogarAcessos($input), antes da auditoria.
+        // Spec §3.3 ("Sequência, em uma transação"): passarOBastao() dispara ~9 statements de
+        // SQL/DQL nativo que não passam pelo Unit of Work do Doctrine — sem transação explícita,
+        // uma falha no meio deixa parte das responsabilidades transferida, o resto intacto, e o
+        // vínculo nem chega a ser removido. Mesmo padrão de
+        // App\Tenant\UseCase\PurgarEscritorioUseCase (beginTransaction/commit/rollBack+rethrow).
+        $conn = $this->em->getConnection();
+        $conn->beginTransaction();
 
-        $this->registrarAuditoria($input, $vinculo);
+        try {
+            $this->passarOBastao($input);
+            // Task 3 encaixa aqui: revogarAcessos($input), antes da auditoria.
 
-        $this->em->remove($vinculo);
-        $this->em->flush();
+            $this->registrarAuditoria($input, $vinculo);
+
+            $this->em->remove($vinculo);
+            $this->em->flush();
+
+            $conn->commit();
+        } catch (\Throwable $e) {
+            $conn->rollBack();
+
+            throw $e;
+        }
     }
 
     private function validar(RemoverColaboradorInput $input, UserTenant $vinculo): void
@@ -66,9 +82,20 @@ final class RemoverColaboradorDoEscritorioUseCase
             );
         }
 
-        if ($input->substituto !== null
-            && !$this->userTenantRepository->existeVinculoAtivo($input->substituto, $input->tenant)) {
-            throw new \InvalidArgumentException('O substituto precisa ser colaborador ativo deste escritório.');
+        if ($input->substituto !== null) {
+            // existeVinculoAtivo() devolve true para a própria pessoa removida — o vínculo só
+            // cai no fim desta operação. Sem esta trava, a "transferência" colapsa em no-op e
+            // Pasta.responsavel/Chamado.responsavel ficam apontando para quem acabou de deixar
+            // de ser colaborador: o defeito exato que esta feature existe para evitar.
+            if ($input->substituto === $input->colaborador) {
+                throw new \InvalidArgumentException(
+                    'O substituto não pode ser a própria pessoa removida.'
+                );
+            }
+
+            if (!$this->userTenantRepository->existeVinculoAtivo($input->substituto, $input->tenant)) {
+                throw new \InvalidArgumentException('O substituto precisa ser colaborador ativo deste escritório.');
+            }
         }
     }
 

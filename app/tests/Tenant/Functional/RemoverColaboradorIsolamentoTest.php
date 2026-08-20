@@ -9,11 +9,13 @@ use App\Entity\Auth\UserTenant;
 use App\Entity\ServiceDesk\Chamado;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Tenant;
+use App\Entity\Tenant\TenantRole;
 use App\Kanban\Entity\KanbanBoard;
 use App\Kanban\Entity\KanbanCard;
 use App\Kanban\Entity\KanbanColuna;
 use App\Pasta\Entity\Pasta;
 use App\Repository\UserTenantRepository;
+use App\Tenant\DTO\OrigemRemocao;
 use App\Tenant\DTO\RemoverColaboradorInput;
 use App\Tenant\UseCase\RemoverColaboradorDoEscritorioUseCase;
 use App\Tests\Functional\JusPrimeWebTestCase;
@@ -229,6 +231,205 @@ final class RemoverColaboradorIsolamentoTest extends JusPrimeWebTestCase
             $this->ids($em->find(KanbanCard::class, $c['cardB'])->getResponsaveis()),
             'card de Kanban do escritório B NÃO deveria ser tocado'
         );
+    }
+
+    #[TestDox('ACHADO 2a: remover COM substituto o quadro de Kanban vai para o SUBSTITUTO, e o do B nao e tocado')]
+    public function testHerancaDoQuadroComSubstituto(): void
+    {
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $tenantA = new Tenant(); $tenantA->setName('A ' . uniqid());
+        $tenantB = new Tenant(); $tenantB->setName('B ' . uniqid());
+        $em->persist($tenantA); $em->persist($tenantB);
+
+        $pessoa = new User();
+        $pessoa->setEmail('multi_' . uniqid() . '@test.com');
+        $pessoa->setFullName('Pessoa em dois escritórios');
+        $em->persist($pessoa);
+
+        $admin = new User();
+        $admin->setEmail('admin_' . uniqid() . '@test.com');
+        $admin->setFullName('Admin A');
+        $em->persist($admin);
+
+        $substituto = new User();
+        $substituto->setEmail('substituto_' . uniqid() . '@test.com');
+        $substituto->setFullName('Substituto');
+        $em->persist($substituto);
+
+        $em->persist(new UserTenant($pessoa, $tenantA));
+        $em->persist(new UserTenant($pessoa, $tenantB));
+        $em->persist(new UserTenant($admin, $tenantA));
+        $em->persist(new UserTenant($substituto, $tenantA));
+
+        // Quadro em CADA escritório, os dois criados pela mesma pessoa.
+        $boardA = new KanbanBoard('Quadro do A', $tenantA, $pessoa);
+        $em->persist($boardA);
+        $boardB = new KanbanBoard('Quadro do B', $tenantB, $pessoa);
+        $em->persist($boardB);
+        $em->flush();
+
+        $useCase = $this->montarUseCase($em);
+        $useCase->executar(new RemoverColaboradorInput($admin, $pessoa, $tenantA, $substituto));
+
+        $em->clear();
+
+        $recarregadoA = $em->find(KanbanBoard::class, $boardA->getId());
+        self::assertSame(
+            $substituto->getId(),
+            $recarregadoA->getCriadoPor()?->getId(),
+            'o quadro do escritório A devia ter sido herdado pelo SUBSTITUTO — é a prioridade '
+                . 'mais alta de resolverHerdeiroDosQuadros(), e nenhum teste anterior provava isso'
+        );
+
+        $recarregadoB = $em->find(KanbanBoard::class, $boardB->getId());
+        self::assertSame(
+            $pessoa->getId(),
+            $recarregadoB->getCriadoPor()?->getId(),
+            'o criador do quadro do escritório B não podia ter mudado (o substituto não existe lá)'
+        );
+    }
+
+    #[TestDox('ACHADO 2b: remover pela porta da SAIDA (sem substituto) o quadro vai para o admin ativo mais antigo, e o do B nao e tocado')]
+    public function testHerancaDoQuadroNaSaidaVoluntaria(): void
+    {
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $tenantA = new Tenant(); $tenantA->setName('A ' . uniqid());
+        $tenantB = new Tenant(); $tenantB->setName('B ' . uniqid());
+        $em->persist($tenantA); $em->persist($tenantB);
+
+        $pessoa = new User();
+        $pessoa->setEmail('multi_' . uniqid() . '@test.com');
+        $pessoa->setFullName('Pessoa em dois escritórios');
+        $em->persist($pessoa);
+
+        $adminAntigo = new User();
+        $adminAntigo->setEmail('admin_antigo_' . uniqid() . '@test.com');
+        $adminAntigo->setFullName('Admin Antigo');
+        $em->persist($adminAntigo);
+
+        $em->persist(new UserTenant($pessoa, $tenantA));
+        $em->persist(new UserTenant($pessoa, $tenantB));
+
+        // Admin de vínculo ativo em A, DIFERENTE da pessoa que está saindo — necessário para
+        // que resolverHerdeiroDosQuadros() caia no ramo findAdminAtivoMaisAntigo(), que nenhum
+        // teste anterior exercitava (a porta Saída nunca tinha um RemoverColaboradorInput seu).
+        $role = new TenantRole();
+        $role->setTenant($tenantA);
+        $role->setName('Administrador ' . uniqid());
+        $role->setIsSystem(true);
+        $em->persist($role);
+
+        $vinculoAdmin = new UserTenant($adminAntigo, $tenantA);
+        $vinculoAdmin->setTenantRole($role);
+        $em->persist($vinculoAdmin);
+
+        // Quadro em CADA escritório, os dois criados pela pessoa que está saindo.
+        $boardA = new KanbanBoard('Quadro do A', $tenantA, $pessoa);
+        $em->persist($boardA);
+        $boardB = new KanbanBoard('Quadro do B', $tenantB, $pessoa);
+        $em->persist($boardB);
+        $em->flush();
+
+        $useCase = $this->montarUseCase($em);
+        // origem = Saída: a própria pessoa é executor E colaborador, sem substituto — é o único
+        // caminho real que aciona este ramo (Task 5 depende dele, sem teste de isolamento próprio).
+        $useCase->executar(new RemoverColaboradorInput($pessoa, $pessoa, $tenantA, null, OrigemRemocao::Saida));
+
+        $em->clear();
+
+        $recarregadoA = $em->find(KanbanBoard::class, $boardA->getId());
+        self::assertSame(
+            $adminAntigo->getId(),
+            $recarregadoA->getCriadoPor()?->getId(),
+            'o quadro do escritório A devia ter sido herdado pelo admin ativo mais antigo '
+                . '(findAdminAtivoMaisAntigo, ramo exclusivo da porta Saída)'
+        );
+
+        $recarregadoB = $em->find(KanbanBoard::class, $boardB->getId());
+        self::assertSame(
+            $pessoa->getId(),
+            $recarregadoB->getCriadoPor()?->getId(),
+            'o criador do quadro do escritório B não podia ter mudado (a pessoa continua vinculada lá)'
+        );
+    }
+
+    #[TestDox('ACHADO 1: uma falha no meio de passarOBastao desfaz TUDO — nada fica pela metade')]
+    public function testFalhaNoMeioDaSequenciaDesfazTudo(): void
+    {
+        $em   = static::getContainer()->get(EntityManagerInterface::class);
+        $conn = $em->getConnection();
+        $c    = $this->montarCenario($em);
+
+        // Trigger que derruba a DELETE de tarefa_responsaveis SÓ para a tarefa do cenário A —
+        // simula uma falha no MEIO da sequência de ~9 statements de passarOBastao(): as UPDATEs
+        // de Pasta e Chamado (que rodam ANTES, na ordem do código) já aconteceram quando ela
+        // estoura; evento_participante/kanban_card_responsavel/kanban_board_participante/
+        // kanban_board/auditoria/remove (que rodam DEPOIS) nunca chegam a executar.
+        $conn->executeStatement(
+            'CREATE OR REPLACE FUNCTION teste_boom_tarefa_responsaveis() RETURNS trigger AS $$ '
+            . 'BEGIN RAISE EXCEPTION \'boom de teste: falha forcada no meio da sequencia\'; END; '
+            . '$$ LANGUAGE plpgsql'
+        );
+        $conn->executeStatement(sprintf(
+            'CREATE TRIGGER trg_boom_tarefa_responsaveis BEFORE DELETE ON tarefa_responsaveis '
+                . 'FOR EACH ROW WHEN (OLD.tarefa_id = %d) '
+                . 'EXECUTE FUNCTION teste_boom_tarefa_responsaveis()',
+            $c['tarefaA']
+        ));
+
+        try {
+            $useCase = $this->montarUseCase($em);
+
+            $capturado = null;
+            try {
+                $useCase->executar(new RemoverColaboradorInput($c['admin'], $c['pessoa'], $c['tenantA']));
+            } catch (\Throwable $e) {
+                $capturado = $e;
+            }
+            self::assertNotNull($capturado, 'o UseCase deveria propagar a falha do banco, não engoli-la');
+
+            $em->clear();
+
+            $pessoaId = $c['pessoa']->getId();
+
+            // Nada pode ter ficado aplicado — nem o que rodou ANTES do statement que estourou...
+            self::assertSame(
+                $pessoaId,
+                $em->find(Pasta::class, $c['pastaA'])->getResponsavel()?->getId(),
+                'pasta do A deveria ter voltado ao estado original — a UPDATE dela roda ANTES do '
+                    . 'statement que falha, e mesmo assim o rollback tem que desfazê-la'
+            );
+            self::assertSame(
+                $pessoaId,
+                $em->find(Chamado::class, $c['chamadoA'])->getResponsavel()?->getId(),
+                'chamado do A deveria ter voltado ao estado original — a UPDATE dele roda ANTES '
+                    . 'do statement que falha, e mesmo assim o rollback tem que desfazê-la'
+            );
+            // ...nem o que nunca chegou a rodar (DEPOIS do statement que estourou).
+            self::assertSame(
+                [$pessoaId],
+                $this->ids($em->find(Evento::class, $c['eventoA'])->getParticipantes()),
+                'evento do A NÃO deveria ter sido tocado — roda DEPOIS do statement que falha'
+            );
+            self::assertSame(
+                [$pessoaId],
+                $this->ids($em->find(KanbanCard::class, $c['cardA'])->getResponsaveis()),
+                'card de Kanban do A NÃO deveria ter sido tocado — roda DEPOIS do statement que falha'
+            );
+
+            // ...nem o vínculo: a remoção não chegou nem perto do em->remove()+flush().
+            $vinculoAindaAtivo = static::getContainer()->get(UserTenantRepository::class)
+                ->findAtivoPorUserETenant($c['pessoa'], $c['tenantA']);
+            self::assertNotNull(
+                $vinculoAindaAtivo,
+                'o vínculo NÃO podia ter sido removido — o rollback deveria ter desfeito TUDO, inclusive isso'
+            );
+        } finally {
+            $conn->executeStatement('DROP TRIGGER IF EXISTS trg_boom_tarefa_responsaveis ON tarefa_responsaveis');
+            $conn->executeStatement('DROP FUNCTION IF EXISTS teste_boom_tarefa_responsaveis()');
+        }
     }
 
     // ----------------------------------------------------------------- helpers

@@ -135,6 +135,27 @@ final class RemoverColaboradorDoEscritorioUseCaseTest extends TestCase
         $this->useCase->executar(new RemoverColaboradorInput($executor, $colaborador, $tenant, $estranho));
     }
 
+    #[TestDox('recusa substituto que e a propria pessoa removida (ACHADO 3)')]
+    public function testRecusaSubstitutoQueEAPropriaPessoaRemovida(): void
+    {
+        $tenant      = new Tenant();
+        $executor    = $this->criarUsuario('Admin');
+        $colaborador = $this->criarUsuario('Colaborador');
+        $vinculo     = new UserTenant($colaborador, $tenant);
+
+        $this->userTenantRepository->method('findAtivoPorUserETenant')->willReturn($vinculo);
+        // existeVinculoAtivo() DEVOLVERIA true para a propria pessoa removida (o vinculo so cai
+        // no fim da operacao) — e exatamente por isso a trava tem que vir ANTES dessa checagem,
+        // nao depender dela.
+        $this->userTenantRepository->method('existeVinculoAtivo')->willReturn(true);
+
+        $this->em->expects($this->never())->method('remove');
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessageMatches('/pessoa removida/i');
+        $this->useCase->executar(new RemoverColaboradorInput($executor, $colaborador, $tenant, $colaborador));
+    }
+
     #[TestDox('recusa remover o ultimo administrador ativo tambem pela porta da saida')]
     public function testRecusaRemoverOUltimoAdminPelaSaida(): void
     {
