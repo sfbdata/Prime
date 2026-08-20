@@ -1288,6 +1288,84 @@ Acrescentar em `app/tests/Pasta/Functional/PastaSecaoControllerTest.php`:
         self::assertNull($filha->getPai());
     }
 
+    #[TestDox('mover para dentro da própria filha é recusado mesmo com a requisição forjada')]
+    public function testMoverParaDescendenteRecusadoPelaRota(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $em  = static::getContainer()->get(EntityManagerInterface::class);
+        $mae = $this->criarSecao($pasta, $tenant);
+
+        $filha = new PastaSecao();
+        $filha->setPasta($pasta);
+        $filha->setTenant($tenant);
+        $filha->setNome('FILHA');
+        $filha->setOrdem(1);
+        $filha->setPai($mae);
+        $em->persist($filha);
+        $em->flush();
+
+        // A tela esconderia a filha da lista de destinos. Aqui mandamos direto, como faria
+        // qualquer pessoa com o DevTools aberto — o back tem de recusar sozinho.
+        $client->request('POST', '/pasta/secao/' . $mae->getId() . '/mover', [
+            '_token'    => $this->csrf('pasta_secao_mover_' . $mae->getId()),
+            'destinoId' => (string) $filha->getId(),
+        ]);
+
+        self::assertResponseStatusCodeSame(422);
+
+        $maeId = $mae->getId();
+        $em->clear();
+        self::assertNull(
+            $em->find(PastaSecao::class, $maeId)->getPai(),
+            'a mãe continua na raiz — a recusa não pode ter gravado nada',
+        );
+    }
+
+    #[TestDox('criar acima do 10º nível é recusado mesmo com a requisição forjada')]
+    public function testCriarAcimaDoTetoRecusadoPelaRota(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        // Cadeia de 10: a última fica no nível 10, então criar dentro dela daria 11.
+        $anterior = null;
+        for ($i = 0; $i < 10; ++$i) {
+            $s = new PastaSecao();
+            $s->setPasta($pasta);
+            $s->setTenant($tenant);
+            $s->setNome('N' . $i);
+            $s->setOrdem(1);
+            $s->setPai($anterior);
+            $em->persist($s);
+            $anterior = $s;
+        }
+        $em->flush();
+        $paiId = $anterior->getId();
+
+        // O teto mora SÓ no back — a tela nem sabe qual é o número. Mandamos direto.
+        $client->request('POST', '/pasta/' . $pasta->getId() . '/secao', [
+            '_token' => $this->csrf('pasta_secao_criar_' . $pasta->getId()),
+            'nome'   => 'Decima primeira',
+            'paiId'  => (string) $paiId,
+        ]);
+
+        self::assertResponseStatusCodeSame(422);
+
+        $em->clear();
+        $criadas = $em->getRepository(PastaSecao::class)->count(['pasta' => $pasta->getId()]);
+        self::assertSame(10, $criadas, 'nenhuma seção a mais foi gravada');
+    }
+
     #[TestDox('excluir informa quanto conteúdo foi apagado junto')]
     public function testExcluirDevolveAContagem(): void
     {
@@ -1315,6 +1393,12 @@ Acrescentar em `app/tests/Pasta/Functional/PastaSecaoControllerTest.php`:
         self::assertSame(1, $json['subpastasRemovidas']);
     }
 ```
+
+> 🔒 **Os dois testes `...RecusadoPelaRota` são a prova de que o front não é a autoridade.** Todo
+> guard desta frente vive no UseCase, e o JavaScript só esconde opções por conforto. Estes testes
+> atacam pela rota HTTP **ignorando a tela** — é o cenário real de alguém manipulando a requisição.
+> Sem eles, o guard de ciclo e o teto de 10 níveis só estariam provados contra objetos em memória,
+> nunca contra o caminho que um atacante usaria. **Não os transforme em teste de UseCase.**
 
 > ⚠️ **`$this->client` NÃO EXISTE nesta classe** — conferido no arquivo real. O padrão da casa cria o
 > client como variável local e monta o contexto em quatro linhas, nesta ordem:
