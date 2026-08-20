@@ -264,13 +264,27 @@ final class ConferenciaDeEncargosTest extends KernelTestCase
         self::assertSame(['multa' => 2000, 'honorarios' => 4545], $r->duplicadoPorCampo);
         self::assertSame(6545, $r->duplicadoEmCentavos);
 
-        // INV-CE8 — a separação com os DOIS lados não-zero. É o que impede a lista de apresentar como
-        // "cobrado a mais" um total que em parte não move a conta de ninguém: a multa entra no
-        // `valorExigivel()`, o honorário não.
-        self::assertSame(2000, $r->duplicadas[0]['duplicadoNoSaldo'], 'só a multa move o saldo');
-        self::assertSame(4545, $r->duplicadas[0]['duplicadoForaDoSaldo'], 'o honorário fica fora dele');
-        self::assertSame(2000, $r->duplicadoNoSaldoEmCentavos());
-        self::assertSame(4545, $r->duplicadoForaDoSaldoEmCentavos());
+        // INV-CE8 — a separação entre o que move o saldo e o que não move.
+        //
+        // 🔴 O que este bloco guarda MUDOU com a spec `cobranca-honorario-no-total.md`, e o número foi
+        // trocado junto com o motivo. Antes ele afirmava "só a multa move o saldo · o honorário fica
+        // fora dele" (2000 × 4545) — verdade sob a INV-E2, que aquela spec REVOGOU. Hoje o honorário
+        // entra no `valorExigivel()`, então os R$ 65,45 duplicados movem o saldo POR INTEIRO.
+        //
+        // A guarda não sumiu, inverteu: se alguém devolver o honorário para fora de
+        // `ConferenciaDeEncargos::CAMPOS_NO_SALDO`, a primeira asserção volta a 2000 e falha aqui. É
+        // isto que impede a lista que o dono aprova de subestimar o impacto de uma escrita.
+        self::assertSame(6545, $r->duplicadas[0]['duplicadoNoSaldo'], 'multa E honorário movem o saldo');
+        self::assertSame(0, $r->duplicadas[0]['duplicadoForaDoSaldo'], 'não sobra nada fora do saldo');
+        self::assertSame(6545, $r->duplicadoNoSaldoEmCentavos());
+        self::assertSame(0, $r->duplicadoForaDoSaldoEmCentavos());
+
+        // O invariante que sobrevive à mudança: as duas metades somam o total duplicado.
+        self::assertSame(
+            $r->duplicadoEmCentavos,
+            $r->duplicadoNoSaldoEmCentavos() + $r->duplicadoForaDoSaldoEmCentavos(),
+            'as duas metades têm de fechar com o total, seja qual for o corte entre elas',
+        );
     }
 
     #[TestDox('Encargo MAIOR que a coluna, sem a assinatura, NÃO é dupla contagem — discrimina a régua')]

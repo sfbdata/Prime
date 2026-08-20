@@ -97,10 +97,20 @@ final class ConferenciaDeEncargos
 
     /**
      * Os campos que entram no `Obrigacao::valorExigivel()` — o saldo que o devedor deve.
-     * O honorário fica DE FORA, e é por isso que a lista da reconciliação separa os dois: somá-los
-     * apresentaria como "cobrado a mais" algo que em parte não é saldo.
+     *
+     * 🔴 **O honorário ENTRA, desde a spec `cobranca-honorario-no-total.md`.** Até ela, esta constante
+     * era `['juros', 'multa', 'correcao']` e o docblock dizia "o honorário fica DE FORA" — verdade sob
+     * a INV-E2, que aquela spec **revogou**. Deixar a régua com a definição velha faria o instrumento
+     * que mede o espelho medir com a régua que o espelho abandonou: honorário duplicado apareceria
+     * como "fora do saldo" na lista que o dono aprova, subestimando o impacto justamente na decisão
+     * de escrever.
+     *
+     * ⚠️ **Consequência assumida:** com isto, `CAMPOS_NO_SALDO === CAMPOS` e `duplicadoForaDoSaldo`
+     * passa a ser sempre 0. A separação vira degenerada de propósito — ela continua no relatório
+     * porque a soma das duas ainda tem de fechar com o total duplicado (invariante conferido em
+     * `ResultadoConferenciaEncargos::contasFecham`), e porque apagar coluna de relatório é outra fatia.
      */
-    private const CAMPOS_NO_SALDO = ['juros', 'multa', 'correcao'];
+    private const CAMPOS_NO_SALDO = ['juros', 'multa', 'correcao', 'honorarios'];
 
     public function __construct(
         private readonly AgrupadorDeBoletos $agrupador,

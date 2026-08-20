@@ -245,17 +245,15 @@ final class ReconciliarDuplaContagemCommand extends Command implements LidaComDa
             );
         }
 
-        // OS DOIS TOTAIS SEPARADOS, nunca somados numa manchete: o honorário não entra no
-        // `valorExigivel()`, logo não muda o que devedor nenhum deve.
+        // 🔴 UM total só, desde a spec `cobranca-honorario-no-total.md`. Aqui havia DOIS linhas
+        // separadas, com a segunda dizendo "honorário — não muda o que ninguém deve": era verdade sob
+        // a INV-E2, que aquela spec REVOGOU. O honorário entra no `valorExigivel()`, então tudo o que
+        // esta reconciliação tira sai do saldo do devedor. Manter a linha de "fora do saldo" agora
+        // partiria o número ao meio e diria que metade dele não muda nada.
         $io->text(sprintf(
-            '%s do SALDO do devedor (juros + multa + correção): %s',
+            '%s do SALDO do devedor (juros + multa + correção + honorário): %s',
             $r->aplicou ? 'SAIU' : 'sairia',
             $this->reais($r->removidoDoSaldoEmCentavos()),
-        ));
-        $io->text(sprintf(
-            '%s FORA do saldo (honorário — não muda o que ninguém deve): %s',
-            $r->aplicou ? 'SAIU' : 'sairia',
-            $this->reais($r->removidoForaDoSaldoEmCentavos()),
         ));
 
         if ($r->aplicou) {

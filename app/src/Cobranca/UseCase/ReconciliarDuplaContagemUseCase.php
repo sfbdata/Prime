@@ -310,9 +310,14 @@ final class ReconciliarDuplaContagemUseCase
         // O removido sai da diferença REAL entre antes e depois, não do "duplicado" da régua — e os dois
         // divergem no honorário de propósito (INV-CE9: a coluna L da linha 1.15 volta para o campo).
         // Reportar o número da régua como se fosse o efeito seria dizer que saiu do banco o que não saiu.
+        // 🔴 O honorário ENTRA no saldo desde a spec `cobranca-honorario-no-total.md` (INV-E2 revogada).
+        // Antes dela este cálculo somava só juros/multa/correção e jogava o honorário em
+        // `removidoForaDoSaldo`; manter assim faria o relatório afirmar que saiu do saldo menos do que
+        // saiu de fato, na mesma tela em que o dono decide se aprova a escrita.
         $noSaldo = ($antes['juros'] - $depois['juros'])
             + ($antes['multa'] - $depois['multa'])
-            + ($antes['correcao'] - $depois['correcao']);
+            + ($antes['correcao'] - $depois['correcao'])
+            + ($antes['honorarios'] - $depois['honorarios']);
 
         return [
             'obrigacaoId' => $obrigacao->getId() ?? 0,
@@ -324,7 +329,11 @@ final class ReconciliarDuplaContagemUseCase
             'antes' => $antes,
             'depois' => $depois,
             'removidoNoSaldo' => $noSaldo,
-            'removidoForaDoSaldo' => $antes['honorarios'] - $depois['honorarios'],
+            // Sempre 0 desde `cobranca-honorario-no-total.md`: era aqui que o honorário caía, e ele
+            // agora está DENTRO do saldo, contado em `removidoNoSaldo`. O campo fica para a soma das
+            // duas continuar fechando com o total, e para não mudar a forma de um relatório que já
+            // roda em produção — mas não há mais nada que saia "fora do saldo".
+            'removidoForaDoSaldo' => 0,
             // O que a RÉGUA chamou de duplicado — é contra isto que a lista foi aprovada, e ele
             // difere do `removido*` no honorário de propósito (INV-CE9).
             'duplicadoNoSaldo' => $alvo['duplicadoNoSaldo'],

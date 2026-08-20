@@ -33,13 +33,21 @@ final readonly class ResultadoReconciliacao
     ) {
     }
 
-    /** O que saiu (ou sairia) do SALDO do devedor — juros + multa + correção. É a conta que muda. */
+    /**
+     * O que saiu (ou sairia) do SALDO do devedor — juros + multa + correção **+ honorário**. É a conta
+     * que muda, e desde `cobranca-honorario-no-total.md` ela é a conta INTEIRA: a INV-E2, que deixava
+     * o honorário fora do exigível, foi revogada.
+     */
     public function removidoDoSaldoEmCentavos(): int
     {
         return array_sum(array_column($this->corrigidas, 'removidoNoSaldo'));
     }
 
-    /** O que saiu FORA do saldo — honorário. Não muda o que ninguém deve. */
+    /**
+     * ⚠️ **Sempre 0 desde `cobranca-honorario-no-total.md`** — não há mais nada que saia "fora do
+     * saldo". Só o honorário caía aqui, e ele agora está dentro. Mantido para a soma das duas metades
+     * continuar fechando com o total; não use este número para afirmar que algo não muda o saldo.
+     */
     public function removidoForaDoSaldoEmCentavos(): int
     {
         return array_sum(array_column($this->corrigidas, 'removidoForaDoSaldo'));
