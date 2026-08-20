@@ -148,4 +148,40 @@ final class PastaShowDocumentosControllerTest extends JusPrimeWebTestCase
             'o container precisa ter outras abas — são elas que limpam a flag',
         );
     }
+
+    #[TestDox('a subpasta chega ao HTML com o pai declarado')]
+    public function testSubpastaTrazPaiNoHtml(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+
+        $em  = static::getContainer()->get(EntityManagerInterface::class);
+        $pai = new PastaSecao();
+        $pai->setPasta($pasta);
+        $pai->setTenant($tenant);
+        $pai->setNome('PAI');
+        $pai->setOrdem(1);
+        $em->persist($pai);
+
+        $filha = new PastaSecao();
+        $filha->setPasta($pasta);
+        $filha->setTenant($tenant);
+        $filha->setNome('FILHA');
+        $filha->setOrdem(1);
+        $filha->setPai($pai);
+        $em->persist($filha);
+        $em->flush();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
+
+        self::assertResponseIsSuccessful();
+
+        $noPai = $crawler->filter('.fm-pasta[data-secao-id="' . $pai->getId() . '"]');
+        self::assertSame('', $noPai->attr('data-pai-id'), 'a pasta de topo não tem pai');
+
+        $noFilha = $crawler->filter('.fm-pasta[data-secao-id="' . $filha->getId() . '"]');
+        self::assertSame((string) $pai->getId(), $noFilha->attr('data-pai-id'));
+    }
 }
