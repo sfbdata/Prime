@@ -802,6 +802,7 @@
                                      data-csrf-reordenar-docs="{{ csrf_token('reordenar_docs_pasta_' ~ pasta.id) }}"
                                      data-url-renomear-tpl="{{ path('pasta_secao_renomear', {secaoId: '__ID__'}) }}"
                                      data-url-excluir-tpl="{{ path('pasta_secao_excluir', {secaoId: '__ID__'}) }}"
+                                     data-url-mover-tpl="{{ path('pasta_secao_mover', {secaoId: '__ID__'}) }}"
                                      data-arvore="1">
 
                                     {# Toolbar #}
@@ -960,6 +961,7 @@
                                                             <span class="text-truncate">
                                                                 <a href="{{ path('pasta_documento_download', {id: doc.id}) }}" target="_blank" rel="noopener noreferrer" class="fm-arq-nome" title="{{ doc.nomeOriginal|e('html_attr') }}">{{ doc.nomeOriginal }}</a>
                                                                 <span class="fm-arq-sub">{% if doc.numero %}Nº {{ doc.numero }}{% if doc.descricao %} · {% endif %}{% endif %}{{ doc.descricao ?? '' }}</span>
+                                                                <span class="fm-arq-local fm-oculto text-muted small"></span>
                                                             </span>
                                                         </div>
                                                         <div class="fm-arq-tipo"><span class="fm-badge-cat">{{ documentTypeOptions[doc.categoria] ?? doc.categoria }}</span></div>
@@ -996,6 +998,11 @@
                                     </div>{# /fm-body #}
                                 </div>{# /fm #}
 
+                                {# Realce do cartão de pasta como alvo ao arrastar outra pasta por cima (mover para dentro). #}
+                                <style>
+                                .fm-pasta-alvo { outline: 2px dashed var(--bs-primary); outline-offset: 2px; }
+                                </style>
+
                                 {# Modal reutilizável de texto (nova pasta / renomear) #}
                                 <div class="modal fade" id="fmInputModal" tabindex="-1" aria-hidden="true">
                                     <div class="modal-dialog modal-dialog-centered modal-sm">
@@ -1016,6 +1023,19 @@
                                         <div class="modal-content">
                                             <div class="modal-header"><h5 class="modal-title"><i class="bi bi-folder-symlink me-1"></i> Mover para…</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button></div>
                                             <div class="modal-body"><div class="list-group" id="fmMoverLista"></div></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {# Modal escolher pasta de destino (mover pasta pelo menu "Mover para...") #}
+                                <div class="modal fade" id="fmDestinoModal" tabindex="-1" aria-hidden="true">
+                                    <div class="modal-dialog modal-dialog-centered modal-sm">
+                                        <div class="modal-content">
+                                            <div class="modal-header"><h5 class="modal-title" id="fmDestinoTitulo">Mover para</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button></div>
+                                            <div class="modal-body">
+                                                <select class="form-select" id="fmDestinoCampo" aria-label="Pasta de destino"></select>
+                                            </div>
+                                            <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button><button type="button" class="btn btn-primary" id="fmDestinoConfirmar">Mover</button></div>
                                         </div>
                                     </div>
                                 </div>
