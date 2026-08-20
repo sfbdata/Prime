@@ -136,8 +136,15 @@ final class MontarDetalheCasoUseCase
                     // §4.3). Era `brutoParaRecuperar($caso, $restante)` = restante × (1+p), que existia
                     // porque o exigível NÃO continha honorário e o rateio o retirava depois. Agora o
                     // honorário já está no exigível: multiplicar de novo cobraria honorário sobre
-                    // honorário. O valor sugerido na tela continua o mesmo — o que mudou foi de onde
-                    // ele vem.
+                    // honorário.
+                    //
+                    // 🔴 **O número na tela MUDA em dívida parcialmente paga** — aqui dizia que "continua
+                    // o mesmo", e é falso. Na dívida intacta os dois caminhos coincidem; na parcialmente
+                    // paga, não: o gross-up antigo multiplicava o RESTANTE (R$ 800 × 1,10 = R$ 880),
+                    // enquanto o honorário do exigível incide sobre a obrigação INTEIRA (R$ 1.200 + R$ 120
+                    // − R$ 400 = R$ 920). O valor novo é o certo — é o que a contabilidade cobra —, mas
+                    // é mudança visível para quem opera, e por isso está no aviso de deploy (spec §9).
+                    // Guardado por `ObjetoShowControllerTest`, que afirma os R$ 920,00.
                     $restante,
                     // Config resolvida (cascata) só para a UI saber a BASE de multa/honorários e exibir o
                     // "%" sobre a base certa. Grafo caso→objeto→carteira já carregado — sem query nova.

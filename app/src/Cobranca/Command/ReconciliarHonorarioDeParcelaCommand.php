@@ -317,16 +317,59 @@ final class ReconciliarHonorarioDeParcelaCommand extends Command implements Lida
             // ver INV-H0. Tirar uma linha da lista é como ele recusa uma obrigação.
             $io->section('Para aplicar');
 
-            if ($r->corrigidas === []) {
+            // 🔴 A LINHA PRONTA PARA COLAR SÓ TRAZ AS DE FORA DO EXIGÍVEL.
+            //
+            // O override que esta correção grava é PERMANENTE (§10.8: o defeito dele é a DURAÇÃO, não
+            // o valor). Numa dívida que está fora do saldo isso só arruma a ficha; numa que está
+            // DENTRO, desliga para sempre um honorário que a contabilidade pode voltar a cobrar quando
+            // a parcela atrasar e migrar para a inadimplência dela. Oferecer as duas na mesma linha
+            // punha o caminho de menor esforço — copiar a linha inteira — a serviço do pior resultado.
+            //
+            // As de dentro NÃO somem: saem logo abaixo, com aviso, e quem quiser corrigir uma delas
+            // inclui o id à mão. A escolha continua sendo do humano (INV-H0); o que mudou é que agora
+            // ela é uma escolha DELIBERADA, não um efeito de colar sem ler.
+            $seguras = $r->foraDoExigivel();
+            $vivas = $r->dentroDoExigivel();
+
+            if ($seguras === []) {
                 // Sem linha para colar: imprimir `--ids=` vazio ofereceria um comando que só pode
                 // falhar, com cara de instrução.
-                $io->text('Nada a aplicar: todas as candidatas foram puladas — veja o motivo de cada uma acima.');
+                $io->text($r->corrigidas === []
+                    ? 'Nada a aplicar: todas as candidatas foram puladas — veja o motivo de cada uma acima.'
+                    : 'Nenhuma candidata está fora do exigível: não há linha segura para colar. Veja o aviso abaixo.');
             } else {
                 $io->text('Confira a coluna "valor NO SISTEMA" contra o Valor acordado da planilha. Tire da lista o que não bater.');
                 $io->writeln(sprintf(
                     '  --aplicar --usuario-id=<id> --ids=%s',
-                    implode(',', array_column($r->corrigidas, 'obrigacaoId')),
+                    implode(',', array_column($seguras, 'obrigacaoId')),
                 ));
+                $io->text(sprintf('  (%d obrigação(ões), todas FORA do exigível)', count($seguras)));
+            }
+
+            if ($vivas !== []) {
+                $io->warning(sprintf(
+                    '%d candidata(s) estão DENTRO do exigível e ficaram FORA da linha acima. Nelas a '
+                    . 'correção muda o que o devedor deve, e o override é permanente: se a parcela '
+                    . 'atrasar, a contabilidade volta a cobrar honorário e o sistema não vai mais '
+                    . 'acompanhar. Inclua o id à mão só depois de conferir esta obrigação na planilha.',
+                    count($vivas),
+                ));
+
+                $io->table(
+                    ['id', 'unidade', 'NN', 'compet.', 'valor NO SISTEMA', 'honorário que sairia', 'acordo (parcela de)'],
+                    array_map(
+                        fn (array $c): array => [
+                            $c['obrigacaoId'],
+                            $c['unidade'],
+                            $c['referencia'] ?? '—',
+                            $c['competencia'] ?? '—',
+                            $this->reais($c['valorOriginal']),
+                            $this->reais($c['honorarioRemovido']),
+                            $c['acordoOrigem'] ?? '—',
+                        ],
+                        $vivas,
+                    )
+                );
             }
             $io->writeln('');
             $io->text('Travando também no tamanho do universo (opcional — aborta com 68 se ele mudar até lá):');

@@ -72,6 +72,66 @@ final class ReconciliarHonorarioDeParcelaCommandTest extends KernelTestCase
         self::assertNull($this->recarregar($parcela)?->getTaxaHonorariosBp(), 'simulação NÃO grava');
     }
 
+    /**
+     * 🔴 INV-H4, achado da 8ª revisão. O override que este comando grava é PERMANENTE: numa dívida que
+     * está DENTRO do exigível ele desliga para sempre um honorário que a contabilidade volta a cobrar
+     * quando a parcela atrasa e migra para o relatório de inadimplência (spec §10.8). Oferecer as duas
+     * na mesma linha punha o caminho de menor esforço — copiar a linha inteira — a serviço do pior
+     * resultado possível.
+     *
+     * ⚠️ A asserção compara a lista de ids por IGUALDADE EXATA, não por `assertStringContainsString`.
+     * Com ids 1 e 12, a saída `--ids=12` CONTÉM `--ids=1` — a asserção "está lá" passaria com a lista
+     * errada. Esse é o defeito que já passou por duas revisões nesta base.
+     */
+    #[TestDox('🔴 INV-H4: candidata DENTRO do exigível fica fora da linha pronta para colar')]
+    public function testCandidataDentroDoExigivelNaoEntraNaLinhaProntaParaColar(): void
+    {
+        [, $tenant, , $segura] = $this->cenario();
+        $viva = $this->parcelaDentroDoExigivel($segura);
+
+        $codigo = $this->comando->execute(['--tenant-id' => (string) $tenant->getId()]);
+
+        self::assertSame(Command::SUCCESS, $codigo);
+        $saida = $this->comando->getDisplay();
+
+        self::assertSame(1, preg_match('/--ids=([\d,]+)/', $saida, $m), 'a linha para colar tem de existir');
+        self::assertSame(
+            (string) $segura->getId(),
+            $m[1],
+            'só a de FORA do exigível pode ir na linha pronta para colar',
+        );
+
+        // A de dentro não some: sai com aviso, para o humano poder incluí-la à mão se quiser.
+        self::assertStringContainsString('DENTRO do exigível', $saida);
+        self::assertStringContainsString((string) $viva->getId(), $saida);
+    }
+
+    /**
+     * O outro lado do INV-H4: a trava é sobre o que o comando SUGERE, nunca sobre o que ele aceita.
+     * Se o humano conferiu a obrigação na planilha e digitou o id, ele manda — é a §1.1 aplicada ao
+     * comando ("o sistema mostra, a gerência julga"). Sem este teste, alguém "endureceria" a trava
+     * recusando o id e transformaria um aviso numa proibição, sem ninguém notar.
+     */
+    #[TestDox('🔴 INV-H4: id de dentro do exigível AINDA é aceito quando o humano o digita')]
+    public function testCandidataDentroDoExigivelEhAceitaQuandoOHumanoADigita(): void
+    {
+        [, $tenant, $user, $segura] = $this->cenario();
+        $viva = $this->parcelaDentroDoExigivel($segura);
+
+        $codigo = $this->comando->execute([
+            '--tenant-id' => (string) $tenant->getId(),
+            '--aplicar' => true,
+            '--usuario-id' => (string) $user->getId(),
+            '--ids' => (string) $viva->getId(),
+        ]);
+
+        self::assertSame(ReconciliarHonorarioDeParcelaCommand::SOBROU_HONORARIO, $codigo, 'a segura ficou de fora, então sobra honorário');
+
+        $this->em->clear();
+        self::assertSame(0, $this->recarregar($viva)?->getTaxaHonorariosBp(), 'o id digitado foi corrigido');
+        self::assertNull($this->recarregar($segura)?->getTaxaHonorariosBp(), 'a que não foi digitada não muda');
+    }
+
     #[TestDox('🔴 --aplicar SEM --ids é recusado: a varredura propõe, o humano escolhe (INV-H0)')]
     public function testAplicarSemIdsEhRecusado(): void
     {
@@ -269,6 +329,40 @@ final class ReconciliarHonorarioDeParcelaCommandTest extends KernelTestCase
         $this->em->flush();
 
         return $outra;
+    }
+
+    /**
+     * Uma candidata que está DENTRO do exigível (INV-H4): tem `acordoOrigem` vigente — logo é parcela e
+     * a consulta a encontra — mas **não tem acordo substituto**, e é o substituto vigente que tira a
+     * obrigação do saldo em `ObrigacaoRepository::aplicarExigibilidade`.
+     *
+     * É exatamente a forma das 114 parcelas que a contabilidade cobra na inadimplência dela (spec
+     * §10.8): nenhuma delas tem substituto. Em produção, nenhuma das 135 candidatas está nesta
+     * condição — este cenário existe para o dia em que uma estiver.
+     */
+    private function parcelaDentroDoExigivel(Obrigacao $modelo): Obrigacao
+    {
+        $caso = $modelo->getCaso();
+        self::assertNotNull($caso);
+
+        /** @var Obrigacao $viva */
+        $viva = ObrigacaoFactory::createOne([
+            'tenant' => $caso->getTenant(),
+            'caso' => $caso,
+            'descricao' => '1.1 - Taxa de condomínio — competência 03/2026',
+            'referenciaExterna' => '60377',
+            'competencia' => '03/2026',
+            'valorOriginal' => 17000,
+            'vencimentoOriginal' => new \DateTimeImmutable('2026-03-13'),
+        ])->_real();
+
+        $viva->setAcordoOrigem($this->acordo($caso));
+        $viva->definirEncargos(900, 260, 0, 2900, new \DateTimeImmutable('2026-06-30'));
+        $this->em->flush();
+
+        self::assertNull($viva->getAcordoSubstituto(), 'sem substituto é o que a deixa DENTRO do exigível');
+
+        return $viva;
     }
 
     private function recarregar(Obrigacao $o): ?Obrigacao

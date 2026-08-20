@@ -61,7 +61,38 @@ final readonly class ResultadoReconciliacaoHonorario
      */
     public function corrigidasForaDoExigivel(): int
     {
-        return count(array_filter($this->corrigidas, static fn (array $c): bool => $c['foraDoExigivel']));
+        return count($this->foraDoExigivel());
+    }
+
+    /**
+     * As corrigidas que estão FORA do exigível — as que a correção só ajusta a ficha.
+     *
+     * 🔑 **É desta lista, e só dela, que sai a linha `--ids=` pronta para colar.** Sugerir a lista
+     * inteira punha o caminho de menor esforço (copiar a linha) a serviço do pior resultado possível:
+     * gravar um override PERMANENTE numa dívida que alguém está cobrando hoje. A §10.8 mediu que o
+     * defeito do override é a DURAÇÃO, não o valor — então o que precisa de conferência humana extra
+     * não é a existência da candidata, é ela estar viva.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function foraDoExigivel(): array
+    {
+        return array_values(array_filter($this->corrigidas, static fn (array $c): bool => $c['foraDoExigivel']));
+    }
+
+    /**
+     * As corrigidas que estão DENTRO do exigível — nelas a correção muda o que o devedor deve.
+     *
+     * Saem em tabela própria, com aviso, e **fora** da linha pronta para colar: quem quiser corrigir
+     * uma delas inclui o id à mão, depois de conferir na planilha. Medido em produção em 20/08: são
+     * **0 de 135** — todas as candidatas de hoje têm acordo substituto vigente. A separação existe
+     * para o dia em que não forem.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function dentroDoExigivel(): array
+    {
+        return array_values(array_filter($this->corrigidas, static fn (array $c): bool => !$c['foraDoExigivel']));
     }
 
     /** Nenhuma obrigação pode sumir entre o universo encontrado e o que a correção fez. */

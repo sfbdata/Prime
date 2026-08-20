@@ -24,11 +24,18 @@ use Doctrine\ORM\EntityManagerInterface;
  *
  * ⚠️ **Escreve dinheiro em produção.** Simula por padrão; só grava com `--aplicar` e autor.
  *
- * 🔑 **O defeito, em uma frase.** O relatório de acordos da contabilidade não tem coluna de encargo
- * nenhuma — de 8.671 linhas de parcela, ZERO com juros, multa, honorário ou total. Ela publica só o
- * Valor acordado. O sistema já cumpre isso em 301 parcelas (honorário R$ 0,00); em 135 o override
- * ficou faltando e elas cobram R$ 2.764,16 que ela não cobra. É o sistema formando opinião (§1.1), e
- * o conserto é copiar ela.
+ * 🔑 **O defeito, em uma frase.** Estas 135 obrigações cobram R$ 2.764,16 de honorário que a
+ * contabilidade não cobra em relatório nenhum — conferido contra a inadimplência de 17/08: 0 de 135
+ * aparecem lá; no relatório de acordos, o único em que aparecem, ela publica só o Valor acordado. É o
+ * sistema formando opinião (§1.1), e o conserto é copiar ela.
+ *
+ * 🔴 **NÃO generalize isto para "parcela de acordo não cobra encargo".** A frase estava aqui e é
+ * FALSA: vale para o relatório de ACORDOS, que não tem coluna de encargo nenhuma (0 de 8.671 linhas),
+ * mas a parcela ATRASADA migra para o relatório de INADIMPLÊNCIA, que tem as colunas, e lá ela cobra —
+ * 114 parcelas, R$ 6.601,57, medidos no lote de 17/08 (spec §10.8). Olhar um relatório e concluir
+ * sobre os dois foi o erro que reduziu esta fatia pela metade. O que separa as 135 dessas 114 é
+ * medido, não deduzido: as 135 têm acordo substituto vigente e nenhuma recebeu dinheiro; as 114 não
+ * têm substituto nenhum.
  *
  * ⛔ **NÃO é a conta original reconstruída.** A primeira versão desta fatia mirou na procedência
  * ("nasceu de `reconstruirContaOriginal`") em vez do papel ("é parcela"), e teria zerado o honorário
@@ -36,12 +43,18 @@ use Doctrine\ORM\EntityManagerInterface;
  * que a produção já trata assim em 3.473 delas. Ver
  * {@see ObrigacaoRepository::parcelasDeAcordoSemOverrideDeHonorario}.
  *
- * ⛔ **INV-H0 — não escreve sem LISTA APROVADA.** O guard de `completarParcelas` só grava o override
- * quando o `valorOriginal` é o Valor acordado declarado; o comando **não tem a planilha na mão** e não
- * consegue reproduzir essa checagem. Três revisões derrubaram três réguas automáticas para contornar
- * isso (procedência, papel, marca na descrição) — todas erravam em algum recorte. Então a varredura
- * apenas PROPÕE: quem escolhe é o humano, passando os ids que aprovou na simulação. Candidata fora da
- * lista é PULADA com motivo; id aprovado que sumiu do universo ABORTA tudo. Ver spec §10.5.2.
+ * ⛔ **INV-H0 — não escreve sem LISTA APROVADA.** O dado que decide se uma candidata deve ser
+ * corrigida — o Valor acordado que a contabilidade declara — **não está no banco** no momento da
+ * correção. Três revisões derrubaram três réguas automáticas para contornar isso (procedência, papel,
+ * marca na descrição) — todas erravam em algum recorte. Então a varredura apenas PROPÕE: quem escolhe
+ * é o humano, passando os ids que aprovou na simulação. Candidata fora da lista é PULADA com motivo;
+ * id aprovado que sumiu do universo ABORTA tudo. Ver spec §10.5.2.
+ *
+ * ⛔ **INV-H4 — a linha pronta para colar só traz as de FORA do exigível.** O override é PERMANENTE;
+ * numa dívida que está DENTRO do saldo ele desliga para sempre um honorário que a contabilidade pode
+ * voltar a cobrar quando a parcela atrasar (§10.8). As de dentro saem em tabela separada, com aviso, e
+ * entram só se o humano incluir o id à mão. Medido em produção em 20/08: 0 de 135 estão no exigível —
+ * a separação existe para o dia em que não for assim.
  *
  * ⛔ **INV-H1 — não toca obrigação CONGELADA.** Congelada nunca é re-hidratada, então mexer no snapshot
  * dela é decisão de outra natureza. Pular **não é no-op**: o honorário indevido fica, e por isso sai no
@@ -261,8 +274,10 @@ final class ReconciliarHonorarioDeParcelaUseCase
      */
     private function aplicarNa(Obrigacao $obrigacao): void
     {
-        // As DUAS metades vivem na ENTIDADE (`pararDeCobrarHonorario`), com o mesmo chamador do
-        // vinculador do importador: é regra de dinheiro, e duas cópias divergem em silêncio.
+        // As DUAS metades vivem na ENTIDADE (`pararDeCobrarHonorario`) e não podem ser separadas: é
+        // regra de dinheiro, e duas cópias divergem em silêncio. Escrever só o override aqui deixaria
+        // a obrigação em `bp = 0` com honorário sobrando — estado que a consulta deste próprio comando
+        // (`taxaHonorariosBp IS NULL`) nunca mais alcança.
         $obrigacao->pararDeCobrarHonorario();
         $this->obrigacoes->salvar($obrigacao);
     }
@@ -288,10 +303,26 @@ final class ReconciliarHonorarioDeParcelaUseCase
             $caso,
             TipoEventoHistorico::ValorAtualizadoReconhecido,
             $usuario,
+            // 🔴 O QUE ESTE TEXTO PODE AFIRMAR — leia antes de "melhorá-lo".
+            //
+            // Ele fica GRAVADO no histórico do caso, em produção, para sempre: é o rastro pelo qual
+            // alguém, meses depois, entende por que o honorário sumiu e decide se desfaz. Uma redação
+            // anterior dizia "a contabilidade não cobra encargo em parcela de acordo". A frase é
+            // verdadeira sobre o relatório de ACORDOS (0 de 8.671 linhas têm coluna de encargo) e
+            // FALSA como regra: a parcela ATRASADA migra para o relatório de INADIMPLÊNCIA, que tem as
+            // colunas, e lá ela cobra — 114 parcelas, R$ 6.601,57, medidos no lote de 17/08 (spec
+            // §10.8). Carimbar a generalização no banco seria deixar um motivo errado no lugar em que
+            // ninguém mais vai conferi-lo.
+            //
+            // Então o texto afirma só o que vale PARA ESTAS obrigações e nomeia a exceção. O que
+            // autoriza a correção não é uma regra geral: é a conferência humana da lista (INV-H0).
             sprintf(
-                'Honorário retirado de %d parcela(s) de acordo: R$ %s. O relatório de acordos da '
-                . 'contabilidade não traz encargo nenhum na parcela — ela publica só o Valor acordado, '
-                . 'e o sistema passa a copiar isso, como já fazia nas demais parcelas.',
+                'Honorário retirado de %d parcela(s) de acordo: R$ %s. Estas parcelas não aparecem em '
+                . 'nenhum relatório da contabilidade que tenha coluna de encargo — no relatório de '
+                . 'acordos ela publica só o Valor acordado —, e a lista foi conferida contra a planilha '
+                . 'antes da aplicação. ATENÇÃO: isto NÃO é regra geral. Parcela de acordo que ATRASA '
+                . 'migra para o relatório de inadimplência, e lá a contabilidade cobra encargo '
+                . 'normalmente.',
                 count($linhas),
                 number_format($total / 100, 2, ',', '.'),
             ),

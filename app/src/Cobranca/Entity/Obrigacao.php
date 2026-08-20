@@ -265,20 +265,24 @@ class Obrigacao implements TenantAware, Auditavel
      *    `valorExigivel()` — e uma obrigação substituída por acordo vigente pode nunca mais passar por
      *    uma hidratação que o corrigisse.
      *
-     * 🔑 **Mora na ENTIDADE porque tem DOIS chamadores** — o vinculador do importador de acordos e o
-     * comando de reconciliação. Deixar as duas linhas soltas em cada um era regra de dinheiro
-     * duplicada: medido em 19/08, o importador fazia só a metade 1, e isso produziria obrigações em
-     * `bp = 0` com honorário sobrando — estado que a régua do comando (`taxaHonorariosBp IS NULL`)
-     * **nunca mais alcança**. Havia 6.455 avulsas com honorário materializado (R$ 227.126,42) na
-     * fila para cair nele.
+     * 🔑 **Mora na ENTIDADE porque as duas metades não podem ser separadas.** Hoje há UM chamador (o
+     * comando de reconciliação) — o segundo, o vinculador do importador, foi removido em `cc1892c1`
+     * quando a premissa dele caiu (§10.8). O método fica aqui mesmo assim, e o motivo é medido, não
+     * estético: quem escreve só a metade 1 produz obrigação em `bp = 0` **com honorário sobrando**,
+     * estado que a régua do comando (`taxaHonorariosBp IS NULL`) **nunca mais alcança** — o defeito
+     * fica invisível para o próprio instrumento que deveria achá-lo. Em 19/08 havia 6.455 avulsas com
+     * honorário materializado (R$ 227.126,42) na fila para cair nesse estado.
+     *
+     * ⚠️ Se um dia voltar a existir um segundo chamador, ele chama ISTO. Não repita as duas linhas.
      *
      * `encargosAtualizadosEm` é PRESERVADO (INV-H2): isto REMOVE uma soma indevida de um snapshot, não
      * recalcula nada. Sem snapshot (nunca materializada), só o override entra — não há o que zerar, e
      * inventar uma data aqui seria o defeito que a frente vizinha está consertando.
      *
      * ⛔ **CONGELADA é recusada (INV-H1), e a recusa mora AQUI de propósito.** O comando de
-     * reconciliação já filtrava congelada antes de chamar; o vinculador do importador não filtrava
-     * nada — e congelada, em produção, é sinônimo de LIQUIDADA (8.788, todas). O snapshot de uma
+     * reconciliação já filtra congelada antes de chamar, então hoje este ramo é inalcançável por ele —
+     * a recusa fica como a garantia do próximo chamador, que pode não filtrar nada. Congelada, em
+     * produção, é sinônimo de LIQUIDADA (8.788, todas). O snapshot de uma
      * dívida quitada é fato histórico: o valor pelo qual ela foi efetivamente paga. Apagá-lo deixaria
      * `alocado > exigível` numa dívida paga, e `EncargosVivos` nunca re-hidrata congelada — ficaria
      * assim para sempre. Devolve `false` para o chamador poder reportar em vez de silenciar.

@@ -1110,8 +1110,14 @@ final class ImportarAcordosDetalhadosUseCase
         //
         // 🔑 A conta reconstruída NÃO é parcela de acordo — é a dívida VELHA que o acordo engoliu, e
         // nessa a carteira cobra honorário normalmente. A produção já segue essa regra em 3.473
-        // dívidas velhas. Quem não pode cobrar honorário é a PARCELA, e o lugar do guard é onde a
-        // obrigação VIRA parcela: `completarParcelas`.
+        // dívidas velhas.
+        //
+        // ⛔ **E o guard também NÃO vai em `completarParcelas`** — esta frase estava aqui e mandava o
+        // contrário do que a linha ~658 daquele método diz hoje. O guard chegou a existir lá e foi
+        // REVERTIDO em `cc1892c1`, porque a premissa que o autorizava caiu: parcela de acordo atrasada
+        // migra para o relatório de inadimplência e lá a contabilidade **cobra** encargo (spec §10.8).
+        // Nenhum importador grava override de honorário. Quem tira honorário de parcela é o comando
+        // `app:cobranca:reconciliar-honorario-parcela`, com lista conferida por humano.
 
         $nova = $this->registrarObrigacao->executar($input, $tenant, $usuario);
 

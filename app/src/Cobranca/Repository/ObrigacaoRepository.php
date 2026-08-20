@@ -539,15 +539,22 @@ class ObrigacaoRepository extends ServiceEntityRepository
      * As PARCELAS DE ACORDO que ficaram sem o override de honorário — a população da correção da spec
      * `cobranca-honorario-no-total.md` §10.
      *
-     * 🔑 **A régua é o PAPEL da obrigação, não a procedência dela.** O relatório de acordos da
-     * contabilidade não tem coluna de encargo nenhuma: medido em 17/08, de 8.671 linhas de parcela,
-     * ZERO com juros, multa, honorário ou total. Ela publica só o Valor acordado. Logo, parcela não
-     * cobra honorário — decisão #8, e é a regra que a produção já cumpre em 301 parcelas com o
-     * override e honorário R$ 0,00.
+     * 🔑 **A régua é o PAPEL da obrigação, não a procedência dela.** `acordoOrigem IS NOT NULL` é o que
+     * diz "isto é parcela"; a produção já trata 1.906 parcelas assim, com o override e honorário
+     * R$ 0,00.
      *
-     * Medido em produção em 19/08: das 2.041 parcelas de acordo, **1.906 têm o override e 135 não**.
-     * As 135 são as que um vínculo tardio criou sem aplicar a regra (o ramo `parcela-vinculada` de
-     * `ImportarAcordosDetalhadosUseCase`, corrigido nesta mesma fatia).
+     * 🔴 **Esta consulta PROPÕE candidatas; ela não decide que todas devem ser corrigidas.** Uma
+     * redação anterior justificava o filtro com *"parcela de acordo não cobra honorário — 0 de 8.671
+     * linhas"*, e isso é FALSO como regra: vale para o relatório de ACORDOS, que não tem coluna de
+     * encargo nenhuma, mas a parcela ATRASADA migra para o de INADIMPLÊNCIA e lá a contabilidade cobra
+     * (114 parcelas, R$ 6.601,57 — spec §10.8). Por isso a decisão final é do humano (INV-H0) e a
+     * linha pronta para colar só traz as que estão fora do exigível (INV-H4).
+     *
+     * Medido em produção em 20/08: das 2.041 parcelas de acordo, **1.906 têm o override e 135 não**.
+     * As 135 nasceram todas em 07/08, do ramo `parcela-vinculada` de `ImportarAcordosDetalhadosUseCase`
+     * (que liga uma obrigação existente ao acordo sem aplicar o override). ⚠️ Esse ramo **não foi
+     * alterado** — o guard que chegou a existir ali foi revertido em `cc1892c1` (§10.8). Ele continua
+     * podendo produzir candidatas; medido, não produziu nenhuma em 5 importações desde 07/08.
      *
      * ⚠️ **A conta original RECONSTRUÍDA não entra aqui, e a distinção vale R$ 102.126,32.** Ela tem a
      * mesma origem das 135 mas papel diferente: é a dívida VELHA que o acordo engoliu, não parcela — e

@@ -151,6 +151,12 @@ Testes obrigatórios:
 ⚠️ **O total na tela sobe ~R$ 126 mil.** O dono avisa a equipe de cobrança antes do deploy. Não é
 dinheiro novo: é dinheiro que a contabilidade já cobrava e o sistema não mostrava.
 
+⚠️ **E o prefill do botão "Receber" muda em dívida PARCIALMENTE PAGA.** Achado da 8ª revisão; o aviso
+acima não cobria isso. Na dívida intacta o número é o mesmo de antes; na parcialmente paga, não —
+o gross-up antigo multiplicava o RESTANTE (R$ 800 × 1,10 = R$ 880), e agora o honorário incide sobre a
+obrigação inteira (R$ 1.200 + R$ 120 − R$ 400 = **R$ 920**). O valor novo é o correto, mas **quem
+opera vai ver outro número no campo** e precisa saber antes. Guardado por `ObjetoShowControllerTest`.
+
 ## 10. 🔴 O override que faltou em 135 parcelas de acordo
 
 Achado de 19/08, **medido em produção**. É o item que esta fatia fecha antes de qualquer outro: sem
@@ -282,10 +288,18 @@ diferentes, e quem olha a tela precisa saber disso antes.
 3. O comando ignora parcela **sem NN** — nasceu na tela, e ali a escolha é do usuário (§10.7). Zero
    em produção hoje, mas o comando é re-executável e rodá-lo depois daquela fatia apagaria a escolha
    de quem clicou.
-4. Provas por reintrodução executadas nas guardas do CÓDIGO: o override do vínculo, a **condição do
-   valor** (§10.5.1), a régua da população (`acordoOrigem`), a cláusula do NN e o filtro de tenant.
-   A lista aprovada (§10.5.2) e as travas de CLI têm teste próprio
-   (`ReconciliarHonorarioDeParcelaCommandTest`, 10 casos), no molde do comando irmão.
+4. 🔴 **INV-H4 (8ª revisão): a linha pronta para colar só traz as de FORA do exigível.** O override é
+   permanente; numa dívida DENTRO do saldo ele desligaria para sempre um honorário que a contabilidade
+   volta a cobrar quando a parcela atrasa (§10.8). As de dentro saem em tabela separada, com aviso, e
+   entram só se o humano incluir o id à mão. Medido em produção em 20/08: **0 de 135** estão no
+   exigível — a separação existe para o dia em que não for assim. Decisão do dono em 20/08, sobre as
+   alternativas "travar na consulta" e "deixar 100% humano".
+5. Provas por reintrodução executadas nas guardas do CÓDIGO **que existem hoje**: a régua da população
+   (`acordoOrigem`), a cláusula do NN e o filtro de tenant. A lista aprovada (§10.5.2) e as travas de
+   CLI têm teste próprio (`ReconciliarHonorarioDeParcelaCommandTest`), no molde do comando irmão.
+   ⚠️ Uma redação anterior listava aqui também *"o override do vínculo"* e *"a condição do valor
+   (§10.5.1)"* — **essas duas guardas não existem mais** (removidas em `cc1892c1`), e a spec vendia
+   como prova executada algo cujo objeto foi apagado. Achado da 8ª revisão.
 
 ### 10.5.1 ⛔ Por que o guard era CONDICIONADO ao valor bater — HISTÓRICO
 
