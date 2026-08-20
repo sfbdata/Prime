@@ -9,6 +9,16 @@
    As cores saem das variáveis do Bootstrap (`--bs-*`), e não de hex fixo, porque o
    sistema alterna tema por `data-bs-theme` — hex claro chapado fica ilegível no escuro. #}
 
+{% block head_meta %}
+    {# Decisão do dono: a página não aparece nos buscadores. Ela continua PÚBLICA e alcançável
+       por link direto — `noindex` só impede a indexação, não o acesso.
+
+       De propósito NÃO existe `Disallow` num robots.txt: bloquear o rastreamento impediria o
+       buscador de LER esta tag, e uma URL bloqueada pode acabar listada mesmo assim, sem
+       descrição. As duas medidas juntas se anulam; a tag sozinha é a que funciona. #}
+    <meta name="robots" content="noindex, follow">
+{% endblock %}
+
 {% block title %}Política de Privacidade — BlueJus{% endblock %}
 
 {% block stylesheets %}

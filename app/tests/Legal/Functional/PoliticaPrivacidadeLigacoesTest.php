@@ -77,10 +77,16 @@ final class PoliticaPrivacidadeLigacoesTest extends JusPrimeWebTestCase
     public function testTelaDeAceiteLevaAPoliticaESaiDeLa(): void
     {
         $client = static::createClient();
-        // ROLE_SUPER_ADMIN só para atravessar o TenantContextValidatorListener, que roda
-        // ANTES do de termos e desviaria para /escritorio/selecionar. O que se testa aqui
-        // é o portão do aceite: de propósito SEM marcarTermosAceitos.
-        $client->loginUser($this->criarUsuario(['ROLE_SUPER_ADMIN']));
+        // Usuário COMUM, de propósito. A primeira versão deste teste usava ROLE_SUPER_ADMIN
+        // "só para atravessar o TenantContextValidatorListener" — e foi exatamente esse atalho
+        // que escondeu um link quebrado: o super admin é o único que o listener deixa passar
+        // sem escritório. Sem termos aceitos, é o portão do aceite que barra (prioridade 7,
+        // antes do de tenant), e `termo_aceite` já está liberado nos dois listeners.
+        $client->loginUser($this->criarUsuario());
+
+        // Controle: sem isto o teste passaria mesmo que portão nenhum existisse.
+        $client->request('GET', '/perfil');
+        self::assertResponseRedirects('/termos/aceitar');
 
         $crawler = $client->request('GET', '/termos/aceitar');
         self::assertResponseIsSuccessful();
@@ -90,6 +96,29 @@ final class PoliticaPrivacidadeLigacoesTest extends JusPrimeWebTestCase
         $client->request('GET', '/politica-de-privacidade');
         self::assertResponseIsSuccessful();
         self::assertSelectorExists('h1.pp-titulo');
+    }
+
+    #[TestDox('Usuário comum SEM escritório selecionado consegue abrir a Política')]
+    public function testSemEscritorioSelecionadoAindaAbreAPolitica(): void
+    {
+        $client = static::createClient();
+        $client->loginUser($this->criarUsuario());
+        // Termos aceitos para isolar o portão de TENANT: é ele que está sob teste aqui.
+        $this->marcarTermosAceitos($client);
+
+        // Controle: este usuário é de fato barrado nas rotas normais. Sem esta asserção o
+        // teste abaixo passaria mesmo com o listener desligado, e não provaria nada.
+        $client->request('GET', '/perfil');
+        self::assertResponseRedirects('/escritorio/selecionar');
+
+        // E é este o caso que faltava: quem está parado em /escritorio/selecionar vê o link
+        // no menu e precisa conseguir LER a Política, não voltar para a mesma tela.
+        $client->request('GET', '/politica-de-privacidade');
+        self::assertResponseIsSuccessful();
+        self::assertSelectorExists('h1.pp-titulo');
+
+        $client->request('GET', '/politica-de-privacidade.pdf');
+        self::assertResponseIsSuccessful();
     }
 
     #[TestDox('Dentro do sistema, a Política fica no menu do usuário')]
