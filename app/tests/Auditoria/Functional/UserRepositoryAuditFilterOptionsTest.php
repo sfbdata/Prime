@@ -118,15 +118,20 @@ final class UserRepositoryAuditFilterOptionsTest extends KernelTestCase
         );
     }
 
-    #[TestDox('Quem tem vínculo E registro de auditoria aparece uma única vez no filtro')]
+    #[TestDox('Quem tem vínculo E múltiplos registros de auditoria aparece uma única vez no filtro')]
     public function testSemDuplicataQuandoTemVinculoEAuditoria(): void
     {
         $tenant = $this->criarTenant();
         $user = $this->criarUser('vinculado');
         $this->em->flush();
 
+        // DOIS (ou mais) registros de auditoria para o MESMO usuário/tenant — é o caso comum
+        // (qualquer colaborador com mais de uma ação auditada) e é o que gera o fan-out do JOIN
+        // que o GROUP BY precisa colapsar. Com só 1 registro, o teste passaria mesmo sem
+        // GROUP BY: não existe duplicata nenhuma para o SELECT devolver.
         $ut = new UserTenant($user, $tenant);
         $this->em->persist($ut);
+        $this->criarRegistroAuditoria($user->getId(), $tenant->getId());
         $this->criarRegistroAuditoria($user->getId(), $tenant->getId());
         $this->em->flush();
 
@@ -144,6 +149,11 @@ final class UserRepositoryAuditFilterOptionsTest extends KernelTestCase
     public function testRegistroComActorNuloNaoQuebraNemGeraOpcaoVazia(): void
     {
         $tenant = $this->criarTenant();
+        // Usuário REAL, sem vínculo e sem auditoria própria — a única forma de detectar um
+        // vazamento causado por junção mal comparada com NULL é ter alguém que PODERIA vazar
+        // por engano. Sem este usuário, o teste passaria mesmo que a igualdade NULL casasse
+        // com qualquer coisa: não haveria ninguém no banco para aparecer.
+        $estranho = $this->criarUser('estranho_a_tudo');
         $this->em->flush();
 
         // Existe em dev: linhas de audit_log com actor_user_id e tenant_id nulos.
@@ -153,6 +163,11 @@ final class UserRepositoryAuditFilterOptionsTest extends KernelTestCase
 
         $opcoes = $this->repo->findAuditFilterOptions((int) $tenant->getId());
 
+        self::assertSame(
+            [],
+            $opcoes,
+            'Tenant sem vínculo e sem auditoria própria (só registros de actor nulo) deve devolver filtro vazio.'
+        );
         self::assertFalse(
             $this->contemValor($opcoes, ''),
             'Registro de auditoria sem actor não pode virar opção vazia no dropdown.'
