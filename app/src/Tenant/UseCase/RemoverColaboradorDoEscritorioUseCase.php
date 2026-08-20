@@ -45,7 +45,7 @@ final class RemoverColaboradorDoEscritorioUseCase
 
         try {
             $this->passarOBastao($input);
-            // Task 3 encaixa aqui: revogarAcessos($input), antes da auditoria.
+            $this->revogarAcessos($input);
 
             $this->registrarAuditoria($input, $vinculo);
 
@@ -209,6 +209,33 @@ final class RemoverColaboradorDoEscritorioUseCase
 
         return $this->userTenantRepository
             ->findAdminAtivoMaisAntigo($input->tenant, $input->colaborador)?->getUser();
+    }
+
+    /**
+     * Corta o acesso do colaborador removido naquele escritório (spec §3.3, item 3): permissão
+     * item a item, pedido de acesso pendente, liberação de geocerca do ponto (D5) e notificação.
+     * SQL nativo NÃO herda o TenantFilter: cada DELETE carrega tenant_id explícito, senão
+     * remover alguém de um escritório apagaria o acesso dela em outro.
+     */
+    private function revogarAcessos(RemoverColaboradorInput $input): void
+    {
+        $uid = $input->colaborador->getId();
+        $tid = $input->tenant->getId();
+
+        $conn = $this->em->getConnection();
+
+        foreach (['resource_access', 'access_request', 'home_office_config'] as $tabela) {
+            $conn->executeStatement(
+                "DELETE FROM {$tabela} WHERE user_id = :uid AND tenant_id = :tid",
+                ['uid' => $uid, 'tid' => $tid]
+            );
+        }
+
+        // A notificação usa usuario_id, não user_id.
+        $conn->executeStatement(
+            'DELETE FROM notificacao WHERE usuario_id = :uid AND tenant_id = :tid',
+            ['uid' => $uid, 'tid' => $tid]
+        );
     }
 
     /**
