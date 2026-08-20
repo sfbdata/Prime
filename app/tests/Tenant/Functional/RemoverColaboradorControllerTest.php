@@ -226,6 +226,39 @@ final class RemoverColaboradorControllerTest extends JusPrimeWebTestCase
     }
 
     /**
+     * O <select> do modal manda `substituto_id` com string VAZIA quando se escolhe "deixar sem
+     * responsável" — e era exatamente assim que a tela quebrava com 400, porque `getInt()` lança
+     * BadRequestException em string vazia em vez de devolver zero. O teste irmão acima OMITE o
+     * campo, que é o que o navegador nunca faz: por isso a suíte inteira ficava verde com o
+     * caminho padrão da tela quebrado. Defeito achado no smoke de 20/08/2026, não pela suíte.
+     */
+    #[TestDox('POST remover com substituto_id VAZIO, como o navegador manda, nao estoura 400')]
+    public function testRemoverComSubstitutoVazioNaoEstoura400(): void
+    {
+        $client      = static::createClient();
+        $tenant      = $this->criarTenant();
+        $admin       = $this->criarAdmin($tenant);
+        $funcionario = $this->criarFuncionario($tenant);
+
+        $this->instalarCsrfStorage();
+        $client->loginUser($admin);
+        $this->marcarTermosAceitos($client);
+        $client->request('POST', "/tenant/{$tenant->getId()}/user/{$funcionario->getId()}/remover", [
+            '_token'        => $this->gerarCsrf('remover_' . $funcionario->getId()),
+            'substituto_id' => '',
+        ]);
+
+        self::assertResponseRedirects("/tenant/{$tenant->getId()}/users");
+
+        $em      = static::getContainer()->get(EntityManagerInterface::class);
+        $vinculo = $em->getRepository(UserTenant::class)->findOneBy([
+            'user'   => $funcionario,
+            'tenant' => $tenant,
+        ]);
+        self::assertNull($vinculo, 'o vínculo deveria ter sido apagado mesmo sem substituto');
+    }
+
+    /**
      * O caminho principal de produção — e o único que exercita `canAdminister()`. Todos os
      * outros casos felizes desta classe logam com `criarAdmin()`, que marca ROLE_SUPER_ADMIN:
      * o guard do controller (`$isSuperAdmin || ($isOwnTenant && canAdminister(...))`) fica

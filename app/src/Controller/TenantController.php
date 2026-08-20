@@ -777,8 +777,14 @@ final class TenantController extends AbstractController
             throw $this->createAccessDeniedException();
         }
 
-        $substitutoId = $request->request->getInt('substituto_id') ?: null;
-        $substituto   = $substitutoId ? $em->find(User::class, $substitutoId) : null;
+        // O <select> de substituto manda string VAZIA quando se escolhe "deixar sem
+        // responsável", e getInt() lança BadRequestException nesse caso (400) em vez de
+        // devolver zero. Sem este tratamento, o caminho padrão do modal — remover sem
+        // substituto — quebra na cara do usuário. Valor não vazio e não numérico continua
+        // sendo requisição malformada, e segue estourando 400 pelo getInt().
+        $substitutoBruto = (string) $request->request->get('substituto_id', '');
+        $substitutoId    = $substitutoBruto === '' ? null : ($request->request->getInt('substituto_id') ?: null);
+        $substituto      = $substitutoId ? $em->find(User::class, $substitutoId) : null;
 
         if ($substituto !== null && !$userTenantRepository->existeVinculoAtivo($substituto, $tenant)) {
             throw $this->createNotFoundException('Substituto não encontrado.');
