@@ -2207,6 +2207,19 @@ O `feature-review-agent` é read-only e só aponta — quem corrige é o orquest
 8. Apagar pasta com conteúdo → o aviso **conta** as subpastas e os arquivos
 9. Buscar um arquivo que está 3 níveis abaixo → aparece, e mostra em que pasta está
 10. Abrir a tela de **documentos de um caso de Cobrança** → continua funcionando com um nível só
+11. **Reordenar pela alcinha com árvore montada** → com pelo menos 2 níveis criados, arrastar uma pasta
+    pela alça na raiz **e** dentro de uma subpasta. Confira que a ordem final bate e que pastas de
+    **outros níveis não mudaram de lugar**. *(Por que este item existe: o `#fmPastas` agora contém a
+    árvore inteira achatada no DOM, com os níveis que não são o atual apenas escondidos por CSS. O
+    Sortable roda sobre essa lista misturada — é interação nova entre uma lib de terceiros e um DOM
+    que ela não foi pensada para receber.)*
+12. **Arrastar um arquivo do computador para cima de um cartão de pasta**, depois de já ter arrastado
+    alguma pasta na mesma visita → o arquivo tem de subir **e nenhuma pasta pode mudar de lugar**.
+    *(Este item existe porque foi exatamente o defeito Crítico achado na revisão: a variável do arraste
+    não era limpa e o arraste de arquivo disparava um mover silencioso.)*
+13. **Recarregar a página estando dentro de uma subpasta** → volta para a mesma subpasta. E, se você
+    tiver usado a tela antes desta versão, a primeira visita pode cair na raiz em vez de restaurar —
+    é esperado (o formato guardado na sessão mudou) e só acontece uma vez.
 
 - [ ] **Step 6: Tirar a frente do registro**
 
