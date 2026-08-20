@@ -35,11 +35,12 @@ final class RemoverColaboradorDoEscritorioUseCase
 
         $this->validar($input, $vinculo);
 
-        // Spec §3.3 ("Sequência, em uma transação"): passarOBastao() dispara ~9 statements de
-        // SQL/DQL nativo que não passam pelo Unit of Work do Doctrine — sem transação explícita,
-        // uma falha no meio deixa parte das responsabilidades transferida, o resto intacto, e o
-        // vínculo nem chega a ser removido. Mesmo padrão de
-        // App\Tenant\UseCase\PurgarEscritorioUseCase (beginTransaction/commit/rollBack+rethrow).
+        // Spec §3.3 ("Sequência, em uma transação"): passarOBastao() dispara entre 7 e 11
+        // statements de SQL nativo (depende de haver substituto) que não passam pelo Unit of
+        // Work do Doctrine — sem transação explícita, uma falha no meio deixa parte das
+        // responsabilidades transferida, o resto intacto, e o vínculo nem chega a ser removido.
+        // Mesmo padrão de App\Tenant\UseCase\PurgarEscritorioUseCase
+        // (beginTransaction/commit/rollBack+rethrow).
         $conn = $this->em->getConnection();
         $conn->beginTransaction();
 
@@ -111,9 +112,21 @@ final class RemoverColaboradorDoEscritorioUseCase
 
     /**
      * Transfere (com substituto) ou desatribui (sem substituto) tudo que estava no nome do
-     * colaborador removido, escopado ao tenant da remoção: Pasta/Chamado (DQL em massa) e os
-     * quatro vínculos N:N (SQL nativo). Nenhuma dessas queries herda o TenantFilter — o filtro
-     * por tenant é sempre explícito, na tabela DONA de cada vínculo.
+     * colaborador removido, escopado ao tenant da remoção: Pasta/Chamado (responsável direto)
+     * e os quatro vínculos N:N.
+     *
+     * TUDO aqui é SQL nativo de propósito, porque SQL nativo é o único que NÃO herda o
+     * TenantFilter. Em DQL a história é outra: `Pasta` e `Chamado` implementam TenantAware, e
+     * o SqlWalker aplica os filtros do alias raiz também em UPDATE (walkUpdateStatement →
+     * walkWhereClause), não só em SELECT. Pela porta da saída por conta própria a rota é
+     * `/escritorio/{id}/sair`, SEM {tenantId} — o TenantUrlScopeListener não reaponta nada e o
+     * filtro fica preso ao tenant da SESSÃO. Quem está logado no escritório A e sai do B
+     * geraria `... AND tenant_id = B AND pasta.tenant_id = A`: SQL válido, zero linhas,
+     * nenhum erro. O vínculo cairia (isto aqui é nativo) e as pastas e chamados do B ficariam
+     * no nome de quem não é mais colaborador — o defeito exato que esta feature existe para
+     * evitar, e silencioso. Com SQL nativo o resultado não depende de para onde o filtro da
+     * sessão aponta: a única fronteira é o tenant_id explícito de cada statement, sempre na
+     * tabela DONA do dado.
      */
     private function passarOBastao(RemoverColaboradorInput $input): void
     {
@@ -121,35 +134,26 @@ final class RemoverColaboradorDoEscritorioUseCase
         $tid = $input->tenant->getId();
         $sub = $input->substituto?->getId();
 
-        if ($input->substituto !== null) {
-            $this->em->createQuery(
-                'UPDATE App\Pasta\Entity\Pasta p SET p.responsavel = :sub
-                 WHERE p.responsavel = :user AND p.tenant = :tenant'
-            )->setParameter('sub', $input->substituto)
-             ->setParameter('user', $input->colaborador)
-             ->setParameter('tenant', $input->tenant)->execute();
-
-            $this->em->createQuery(
-                'UPDATE App\Entity\ServiceDesk\Chamado c SET c.responsavel = :sub
-                 WHERE c.responsavel = :user AND c.tenant = :tenant'
-            )->setParameter('sub', $input->substituto)
-             ->setParameter('user', $input->colaborador)
-             ->setParameter('tenant', $input->tenant)->execute();
-        } else {
-            $this->em->createQuery(
-                'UPDATE App\Pasta\Entity\Pasta p SET p.responsavel = NULL
-                 WHERE p.responsavel = :user AND p.tenant = :tenant'
-            )->setParameter('user', $input->colaborador)
-             ->setParameter('tenant', $input->tenant)->execute();
-
-            $this->em->createQuery(
-                'UPDATE App\Entity\ServiceDesk\Chamado c SET c.responsavel = NULL
-                 WHERE c.responsavel = :user AND c.tenant = :tenant'
-            )->setParameter('user', $input->colaborador)
-             ->setParameter('tenant', $input->tenant)->execute();
-        }
-
         $conn = $this->em->getConnection();
+
+        // Responsável direto: as duas tabelas carregam responsavel_id e tenant_id.
+        foreach (['pasta', 'chamado'] as $tabela) {
+            if ($sub !== null) {
+                $conn->executeStatement(
+                    "UPDATE {$tabela} SET responsavel_id = :sub
+                     WHERE responsavel_id = :uid AND tenant_id = :tid",
+                    ['sub' => $sub, 'uid' => $uid, 'tid' => $tid]
+                );
+
+                continue;
+            }
+
+            $conn->executeStatement(
+                "UPDATE {$tabela} SET responsavel_id = NULL
+                 WHERE responsavel_id = :uid AND tenant_id = :tid",
+                ['uid' => $uid, 'tid' => $tid]
+            );
+        }
 
         // Cada trio: tabela de vínculo, coluna do dono, tabela dona que carrega o tenant_id.
         $vinculos = [
@@ -194,8 +198,12 @@ final class RemoverColaboradorDoEscritorioUseCase
 
     /**
      * A quem vão os quadros que o colaborador removido criou: o substituto se houver; senão,
-     * pela porta do painel, o próprio executor (é um admin agindo); pela porta da saída
-     * voluntária não há executor-admin, então cai no admin ativo de vínculo mais antigo.
+     * pela porta do painel, o próprio executor — mas SÓ se ele tiver vínculo ativo com este
+     * escritório. O controller deixa um super-admin sem vínculo executar a remoção (o guard
+     * de permissão bypassa por ROLE_SUPER_ADMIN), e dar os quadros a quem não é colaborador
+     * esconde o quadro do escritório inteiro: o KanbanBoardRepository só lista para criador
+     * ou participante, e não existe visão de admin (spec §8). Sem vínculo, o executor cai no
+     * mesmo caminho da porta da saída — o admin ativo de vínculo mais antigo.
      */
     private function resolverHerdeiroDosQuadros(RemoverColaboradorInput $input): ?User
     {
@@ -203,7 +211,10 @@ final class RemoverColaboradorDoEscritorioUseCase
             return $input->substituto;
         }
 
-        if ($input->origem === OrigemRemocao::Painel) {
+        if (
+            $input->origem === OrigemRemocao::Painel
+            && $this->userTenantRepository->existeVinculoAtivo($input->executor, $input->tenant)
+        ) {
             return $input->executor;
         }
 

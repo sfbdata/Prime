@@ -49,7 +49,8 @@ campo **opcional** de substituto.
 
 1. **Valida as travas** (§4). Falhou, nada é tocado.
 2. **Passa o bastão** — com substituto, transfere; sem substituto, desatribui:
-   - `Pasta.responsavel`, `Chamado.responsavel` (DQL, escopado por tenant)
+   - `Pasta.responsavel`, `Chamado.responsavel` (SQL, `tenant_id` explícito — em DQL a
+     UPDATE herdaria o `TenantFilter`, que na porta da saída aponta para o tenant da sessão)
    - `tarefa_responsaveis`, `evento_participante` (SQL, subselect no tenant da tarefa/evento)
    - `kanban_card_responsavel`, `kanban_board_participante` (SQL, subselect em `kanban_card.tenant_id` / `kanban_board.tenant_id`)
    - `kanban_board.criado_por`: vai para o substituto; sem substituto, para o executor; na
