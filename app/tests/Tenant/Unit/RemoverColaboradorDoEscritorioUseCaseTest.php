@@ -135,6 +135,115 @@ final class RemoverColaboradorDoEscritorioUseCaseTest extends TestCase
         $this->useCase->executar(new RemoverColaboradorInput($executor, $colaborador, $tenant, $estranho));
     }
 
+    #[TestDox('recusa remover o ultimo administrador ativo tambem pela porta da saida')]
+    public function testRecusaRemoverOUltimoAdminPelaSaida(): void
+    {
+        $tenant  = new Tenant();
+        $pessoa  = $this->criarUsuario('Unico Admin');
+        $vinculo = $this->criarVinculoAdmin($pessoa, $tenant);
+
+        $this->userTenantRepository->method('findAtivoPorUserETenant')->willReturn($vinculo);
+        $this->userTenantRepository->method('contarAdminsAtivos')->willReturn(1);
+
+        $this->em->expects($this->never())->method('remove');
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessageMatches('/último administrador/i');
+
+        $this->useCase->executar(
+            new RemoverColaboradorInput($pessoa, $pessoa, $tenant, null, OrigemRemocao::Saida)
+        );
+    }
+
+    #[TestDox('permite remover o penultimo administrador')]
+    public function testPermiteRemoverPenultimoAdmin(): void
+    {
+        $tenant      = new Tenant();
+        $executor    = $this->criarUsuario('Admin');
+        $colaborador = $this->criarUsuario('Penultimo Admin');
+        $vinculo     = $this->criarVinculoAdmin($colaborador, $tenant);
+
+        $this->userTenantRepository->method('findAtivoPorUserETenant')->willReturn($vinculo);
+        $this->userTenantRepository->method('contarAdminsAtivos')->willReturn(2);
+
+        $this->em->expects($this->once())->method('remove')->with($vinculo);
+
+        $this->useCase->executar(new RemoverColaboradorInput($executor, $colaborador, $tenant));
+    }
+
+    #[TestDox('recusa remover o ultimo administrador mesmo com executor super-admin')]
+    public function testRecusaRemoverOUltimoAdminMesmoComExecutorSuperAdmin(): void
+    {
+        $tenant      = new Tenant();
+        $executor    = $this->criarUsuario('Super Admin');
+        $executor->setRoles(['ROLE_SUPER_ADMIN']);
+        $colaborador = $this->criarUsuario('Unico Admin');
+        $vinculo     = $this->criarVinculoAdmin($colaborador, $tenant);
+
+        $this->userTenantRepository->method('findAtivoPorUserETenant')->willReturn($vinculo);
+        $this->userTenantRepository->method('contarAdminsAtivos')->willReturn(1);
+
+        $this->em->expects($this->never())->method('remove');
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessageMatches('/último administrador/i');
+
+        $this->useCase->executar(new RemoverColaboradorInput($executor, $colaborador, $tenant));
+    }
+
+    #[TestDox('recusa remover o criador do escritorio pelo painel')]
+    public function testRecusaRemoverCriadorDoEscritorioPeloPainel(): void
+    {
+        $tenant      = new Tenant();
+        $executor    = $this->criarUsuario('Admin');
+        $colaborador = $this->criarUsuario('Fundador');
+        $tenant->setCriadoPor($colaborador);
+        $vinculo = new UserTenant($colaborador, $tenant);
+
+        $this->userTenantRepository->method('findAtivoPorUserETenant')->willReturn($vinculo);
+
+        $this->em->expects($this->never())->method('remove');
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessageMatches('/criador/i');
+
+        $this->useCase->executar(new RemoverColaboradorInput($executor, $colaborador, $tenant));
+    }
+
+    #[TestDox('permite remover colaborador quando ele nao e o criador do escritorio')]
+    public function testPermiteRemoverColaboradorQuandoNaoECriador(): void
+    {
+        $tenant      = new Tenant();
+        $fundador    = $this->criarUsuario('Fundador');
+        $tenant->setCriadoPor($fundador);
+        $executor    = $this->criarUsuario('Admin');
+        $colaborador = $this->criarUsuario('Colaborador');
+        $vinculo     = new UserTenant($colaborador, $tenant);
+
+        $this->userTenantRepository->method('findAtivoPorUserETenant')->willReturn($vinculo);
+
+        $this->em->expects($this->once())->method('remove')->with($vinculo);
+
+        $this->useCase->executar(new RemoverColaboradorInput($executor, $colaborador, $tenant));
+    }
+
+    #[TestDox('permite o criador do escritorio sair sozinho, pois a trava do criador vale so no painel')]
+    public function testPermiteCriadorSairPelaPortaDaSaida(): void
+    {
+        $tenant = new Tenant();
+        $pessoa = $this->criarUsuario('Fundador');
+        $tenant->setCriadoPor($pessoa);
+        $vinculo = new UserTenant($pessoa, $tenant);
+
+        $this->userTenantRepository->method('findAtivoPorUserETenant')->willReturn($vinculo);
+
+        $this->em->expects($this->once())->method('remove')->with($vinculo);
+
+        $this->useCase->executar(
+            new RemoverColaboradorInput($pessoa, $pessoa, $tenant, null, OrigemRemocao::Saida)
+        );
+    }
+
     #[TestDox('grava o registro de auditoria com o tenant da rota, nao o da sessao')]
     public function testGravaAuditoriaComOTenantDaRota(): void
     {
