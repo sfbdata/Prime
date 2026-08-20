@@ -441,7 +441,10 @@
         if (subpastas > 0) partes.push(pluralizar(subpastas, 'subpasta', 'subpastas'));
         if (arquivos > 0) partes.push(pluralizar(arquivos, 'arquivo', 'arquivos'));
 
-        return 'Excluir a pasta "' + nome + '"? Ela contém ' + partes.join(' e ') + ', que serão excluídos junto. Esta ação não pode ser desfeita.';
+        // "Ao todo:" em vez de "São N..." — sem isso "1 subpasta" cai num verbo no plural
+        // ("São 1 subpasta") e "2 subpastas" cai num particípio no masculino ("excluídos"), dois
+        // erros de concordância que a contagem dinâmica não deixa fixar com uma frase só.
+        return 'Excluir a pasta "' + nome + '" e todo o conteúdo dela? Ao todo: ' + partes.join(' e ') + '. Esta ação não pode ser desfeita.';
     }
 
     function excluirPasta(card) {
