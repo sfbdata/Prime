@@ -33,9 +33,6 @@ class UserTenant implements Auditavel
     private ?\DateTimeImmutable $dataAdmissao = null;
 
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
-    private ?\DateTimeImmutable $demitidoEm = null;
-
-    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $lastLoginAt = null;
 
     #[ORM\Column]
@@ -131,29 +128,10 @@ class UserTenant implements Auditavel
         return $this;
     }
 
-    public function getDemitidoEm(): ?\DateTimeImmutable { return $this->demitidoEm; }
-
     public function isActive(): bool { return $this->isActive; }
-
-    public function demitir(): void
-    {
-        $this->isActive   = false;
-        $this->demitidoEm = new \DateTimeImmutable();
-    }
 
     public function reativar(): void
     {
-        $this->isActive   = true;
-        $this->demitidoEm = null;
-    }
-
-    /**
-     * Saída voluntária do escritório (o próprio colaborador sai).
-     * Diferente de demitir(): não preenche demitidoEm, distinguindo
-     * saída espontânea de demissão.
-     */
-    public function sair(): void
-    {
-        $this->isActive = false;
+        $this->isActive = true;
     }
 }

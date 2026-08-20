@@ -135,7 +135,7 @@
                                         <button type="button"
                                                 class="btn btn-danger"
                                                 data-bs-toggle="modal"
-                                                data-bs-target="#modalConfirmarDemissao">
+                                                data-bs-target="#modalConfirmarRemocao">
                                             <i class="bi bi-person-x me-1"></i>Remover do escritório
                                         </button>
                                         <a href="{{ path('app_tenant_users', {tenantId: tenantId}) }}" class="btn btn-outline-secondary">
@@ -390,11 +390,11 @@
     </div>
 </div>
 
-<div class="modal fade" id="modalConfirmarDemissao" tabindex="-1" aria-labelledby="labelModalDemissao" aria-hidden="true">
+<div class="modal fade" id="modalConfirmarRemocao" tabindex="-1" aria-labelledby="labelModalRemocao" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header bg-danger text-white">
-                <h5 class="modal-title" id="labelModalDemissao">
+                <h5 class="modal-title" id="labelModalRemocao">
                     <i class="bi bi-person-x me-2"></i>Remover do escritório
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>

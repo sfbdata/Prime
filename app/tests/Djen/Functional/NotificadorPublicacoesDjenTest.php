@@ -24,7 +24,7 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
  * permissão MESMO sem o filtro do join — um teste só com gestor comum seria falso-positivo para as
  * cláusulas do join. Quem NÃO é barrado pela permissão é o ROLE_SUPER_ADMIN (canAccessModule
  * curto-circuita para true sem olhar o tenant). Por isso os super-admins (de outro escritório e o
- * demitido do próprio) são os casos que travam de fato `ut.tenant = :tenant` e `ut.isActive = true` do
+ * inativo do próprio) são os casos que travam de fato `ut.tenant = :tenant` e `ut.isActive = true` do
  * join — exatamente o comportamento que a troca WITH→ON precisa preservar.
  */
 #[CoversClass(NotificadorPublicacoesDjen::class)]
@@ -43,7 +43,7 @@ final class NotificadorPublicacoesDjenTest extends KernelTestCase
         $tenantA = $this->criarTenant();
         $gestorA = $this->criarGestor($tenantA, 'gestor_a_' . uniqid() . '@test.com'); // ativo + acesso → DEVE receber
         $this->criarUsuarioComum($tenantA);                                            // sem modules.djen.view → NÃO
-        // Super-admin DEMITIDO do tenant A: a permissão o deixaria passar (curto-circuito);
+        // Super-admin INATIVO do tenant A: a permissão o deixaria passar (curto-circuito);
         // só a cláusula `ut.isActive = true` do join o barra.
         $this->criarSuperAdmin($tenantA, ativo: false);                                // inativo → NÃO
 
@@ -93,7 +93,9 @@ final class NotificadorPublicacoesDjenTest extends KernelTestCase
 
         $userTenant = new UserTenant($user, $tenant);
         if (!$ativo) {
-            $userTenant->demitir();
+            // O conceito de demissão não existe mais (UserTenant::demitir() foi enterrado) —
+            // um vínculo inativo só sobra hoje como legado (spec §6.5/§6.6).
+            (new \ReflectionProperty(UserTenant::class, 'isActive'))->setValue($userTenant, false);
         }
         $em->persist($userTenant);
         $em->flush();

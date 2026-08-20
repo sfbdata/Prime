@@ -318,8 +318,10 @@ final class RemoverColaboradorControllerTest extends JusPrimeWebTestCase
         $legado->setPassword($hasher->hashPassword($legado, 'senha123'));
         $em->persist($legado);
 
+        // UserTenant::sair() foi enterrado junto com demitir() — o vínculo inativo legado
+        // (spec §6.5/§6.6) é simulado marcando isActive direto via reflection.
         $vinculo = new UserTenant($legado, $tenant);
-        $vinculo->sair(); // is_active = false, sem demitidoEm — o mesmo estado das 3 linhas legadas de D8
+        (new \ReflectionProperty(UserTenant::class, 'isActive'))->setValue($vinculo, false);
         $em->persist($vinculo);
         $em->flush();
 

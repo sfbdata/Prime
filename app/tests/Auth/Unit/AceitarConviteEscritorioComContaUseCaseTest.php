@@ -65,6 +65,19 @@ final class AceitarConviteEscritorioComContaUseCaseTest extends TestCase
         return $invitation;
     }
 
+    /**
+     * O conceito de demissão não existe mais (UserTenant::demitir() foi enterrado) — um vínculo
+     * inativo só sobra hoje como legado (spec §6.5/§6.6). Para simular esse estado sem recriar
+     * o método, marca `isActive` direto via reflection.
+     */
+    private function criarVinculoInativo(User $user, Tenant $tenant): UserTenant
+    {
+        $vinculo = new UserTenant($user, $tenant);
+        (new \ReflectionProperty(UserTenant::class, 'isActive'))->setValue($vinculo, false);
+
+        return $vinculo;
+    }
+
     public function testHappyPathCriaUserTenantEAceita(): void
     {
         $invitation = $this->makePendingOfficeInvitation('usuario@example.com');
@@ -193,8 +206,7 @@ final class AceitarConviteEscritorioComContaUseCaseTest extends TestCase
     public function testReativaVinculoInativoAoAceitarConvite(): void
     {
         $invitation     = $this->makePendingOfficeInvitation('usuario@example.com');
-        $vinculoInativo = new UserTenant($this->usuario, $this->tenant);
-        $vinculoInativo->demitir();
+        $vinculoInativo = $this->criarVinculoInativo($this->usuario, $this->tenant);
 
         $this->invitationRepo->method('encontrarPorToken')->willReturn($invitation);
         $this->userTenantRepo->method('findPorUserETenant')->willReturn($vinculoInativo);
@@ -207,7 +219,6 @@ final class AceitarConviteEscritorioComContaUseCaseTest extends TestCase
 
         self::assertSame($vinculoInativo, $resultado);
         self::assertTrue($resultado->isActive());
-        self::assertNull($resultado->getDemitidoEm());
         self::assertSame('accepted', $invitation->getStatus());
         self::assertSame($this->usuario, $invitation->getAcceptedAsUser());
     }
@@ -217,8 +228,7 @@ final class AceitarConviteEscritorioComContaUseCaseTest extends TestCase
         $roleAntiga     = new TenantRole();
         $roleNova       = new TenantRole();
         $invitation     = $this->makePendingOfficeInvitation('usuario@example.com', role: $roleNova);
-        $vinculoInativo = new UserTenant($this->usuario, $this->tenant);
-        $vinculoInativo->demitir();
+        $vinculoInativo = $this->criarVinculoInativo($this->usuario, $this->tenant);
         $vinculoInativo->setTenantRole($roleAntiga);
 
         $this->invitationRepo->method('encontrarPorToken')->willReturn($invitation);
@@ -236,8 +246,7 @@ final class AceitarConviteEscritorioComContaUseCaseTest extends TestCase
     {
         $roleAntiga     = new TenantRole();
         $invitation     = $this->makePendingOfficeInvitation('usuario@example.com');
-        $vinculoInativo = new UserTenant($this->usuario, $this->tenant);
-        $vinculoInativo->demitir();
+        $vinculoInativo = $this->criarVinculoInativo($this->usuario, $this->tenant);
         $vinculoInativo->setTenantRole($roleAntiga);
 
         $this->invitationRepo->method('encontrarPorToken')->willReturn($invitation);
@@ -255,8 +264,7 @@ final class AceitarConviteEscritorioComContaUseCaseTest extends TestCase
     {
         $dataAdmissao   = new \DateTimeImmutable('2023-01-15');
         $invitation     = $this->makePendingOfficeInvitation('usuario@example.com');
-        $vinculoInativo = new UserTenant($this->usuario, $this->tenant);
-        $vinculoInativo->demitir();
+        $vinculoInativo = $this->criarVinculoInativo($this->usuario, $this->tenant);
         $vinculoInativo->setDataAdmissao($dataAdmissao);
         $vinculoInativo->setCodigoFuncionario('F-0042');
 
