@@ -325,10 +325,20 @@ final class PastaSecaoController extends AbstractController
      * não toca o disco. A remoção física é responsabilidade de quem chama, e só deve acontecer
      * depois que a exclusão no banco tiver sido confirmada (ver excluir()).
      *
+     * O corte em PastaSecao::LIMITE_SEGURANCA não é o teto de produto (10, validado nos UseCases
+     * ao criar/mover) — é proteção contra ciclo GRAVADO NO BANCO, que viraria recursão infinita.
+     * `DesfazerAlteracaoAuditLogUseCase` grava `pai` direto pelo setter da entidade, sem passar
+     * pelos UseCases nem pelos guards de ciclo deles — é o caminho que provou o estouro de
+     * memória (ver o teste que monta `a.pai = b; b.pai = a` à mão).
+     *
      * @return list<string>
      */
-    private function coletarCaminhosDaArvore(PastaSecao $secao): array
+    private function coletarCaminhosDaArvore(PastaSecao $secao, int $profundidade = 0): array
     {
+        if ($profundidade >= PastaSecao::LIMITE_SEGURANCA) {
+            return [];
+        }
+
         $caminhos = [];
 
         foreach ($secao->getDocumentos() as $doc) {
@@ -336,7 +346,7 @@ final class PastaSecaoController extends AbstractController
         }
 
         foreach ($secao->getFilhas() as $filha) {
-            array_push($caminhos, ...$this->coletarCaminhosDaArvore($filha));
+            array_push($caminhos, ...$this->coletarCaminhosDaArvore($filha, $profundidade + 1));
         }
 
         return $caminhos;

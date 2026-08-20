@@ -74,15 +74,25 @@ class PastaSecaoRepository extends ServiceEntityRepository
      * `arquivos` sai SUBCONTADO. Não estoura exceção nenhuma: é um número errado com cara de
      * certo, silencioso, do jeito mais perigoso de errar.
      *
+     * O corte em PastaSecao::LIMITE_SEGURANCA não é o teto de produto (10, validado nos UseCases
+     * ao criar/mover) — é proteção contra ciclo GRAVADO NO BANCO, que viraria recursão infinita.
+     * `DesfazerAlteracaoAuditLogUseCase` grava `pai` direto pelo setter da entidade, sem passar
+     * pelos UseCases nem pelos guards de ciclo deles — é o caminho que provou o estouro de
+     * memória (ver o teste que monta `a.pai = b; b.pai = a` à mão).
+     *
      * @return array{subpastas: int, arquivos: int}
      */
-    public function contarConteudoRecursivo(PastaSecao $secao): array
+    public function contarConteudoRecursivo(PastaSecao $secao, int $profundidade = 0): array
     {
+        if ($profundidade >= PastaSecao::LIMITE_SEGURANCA) {
+            return ['subpastas' => 0, 'arquivos' => 0];
+        }
+
         $subpastas = 0;
         $arquivos  = $secao->getDocumentos()->count();
 
         foreach ($secao->getFilhas() as $filha) {
-            $abaixo = $this->contarConteudoRecursivo($filha);
+            $abaixo = $this->contarConteudoRecursivo($filha, $profundidade + 1);
             $subpastas += 1 + $abaixo['subpastas'];
             $arquivos  += $abaixo['arquivos'];
         }

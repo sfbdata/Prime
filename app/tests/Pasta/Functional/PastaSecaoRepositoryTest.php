@@ -11,6 +11,7 @@ use App\Pasta\Entity\PastaSecao;
 use App\Pasta\Repository\PastaSecaoRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 #[CoversClass(PastaSecaoRepository::class)]
@@ -113,6 +114,23 @@ final class PastaSecaoRepositoryTest extends KernelTestCase
 
         self::assertSame(2, $total['subpastas'], 'B e C');
         self::assertSame(4, $total['arquivos'], 'os 4 da árvore de A, sem o da raiz da pasta');
+    }
+
+    #[TestDox('ciclo gravado por fora dos guards (ex.: desfazer da auditoria) não estoura a memória em contarConteudoRecursivo()')]
+    public function testContagemRecursivaComCicloNoPaiNaoEstouraAMemoria(): void
+    {
+        // Ciclo montado à mão, em memória, sem passar pelos UseCases (é exatamente o que
+        // DesfazerAlteracaoAuditLogUseCase faz: grava `pai` direto pelo setter, sem guard de ciclo).
+        // Não precisa persistir: contarConteudoRecursivo() só anda por getFilhas()/getDocumentos(),
+        // populadas pelo próprio setPai() em memória.
+        $a = $this->criarSecao('A', null, 1);
+        $b = (new PastaSecao())->setNome('B')->setPai($a);
+        $a->setPai($b);
+
+        $total = $this->repo->contarConteudoRecursivo($a);
+
+        self::assertIsInt($total['subpastas'], 'tem de RETORNAR, não estourar a memória');
+        self::assertIsInt($total['arquivos']);
     }
 
     public function testApagarAMaeApagaFilhasNetasEDocumentos(): void

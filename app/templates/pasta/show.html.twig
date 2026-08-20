@@ -915,6 +915,8 @@
                                                          data-pai-id="{{ secao.pai ? secao.pai.id : '' }}"
                                                          data-url-mover="{{ path('pasta_secao_mover', {secaoId: secao.id}) }}"
                                                          data-csrf-mover="{{ csrf_token('pasta_secao_mover_' ~ secao.id) }}"
+                                                         data-subpastas="{{ contagemSecoes[secao.id].subpastas|default(0) }}"
+                                                         data-arquivos="{{ contagemSecoes[secao.id].arquivos|default(0) }}"
                                                          tabindex="0" role="button" aria-label="Abrir pasta {{ secao.nome|e('html_attr') }}">
                                                         <span class="fm-pasta-grip" title="Arrastar para reordenar"><i class="bi bi-grip-vertical"></i></span>
                                                         <span class="fm-pasta-icone"><i class="bi bi-folder-fill"></i></span>

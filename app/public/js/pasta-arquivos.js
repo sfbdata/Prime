@@ -50,6 +50,11 @@
     let modoView   = localStorage.getItem('fmView') || 'lista';
     let ordem      = localStorage.getItem('fmOrdem') || 'nome';
     let arrastando = null;      // cartão de pasta em arraste (mover para dentro de outra)
+    // true quando o drop acabou de ser tratado como "mover para dentro" (bloco de mover-pasta,
+    // mais abaixo). O Sortable das pastas usa o MESMO gesto (arrastar pela alça) para reordenar
+    // entre irmãs — sem esta trava os dois caminhos disparam POST concorrentes (/mover e
+    // /reordenar) ao soltar sobre outro cartão, e quem chega por último decide a ordem final.
+    let pularReordenarPastas = false;
 
     // ---------------------------------------------------------------- utils --
     function escapeHtml(s) {
@@ -373,6 +378,9 @@
         // em undefined quebraria a criação de pasta nessa página.
         div.dataset.urlMover = cfg.urlMoverTpl ? cfg.urlMoverTpl.replace('__ID__', secao.id) : '';
         div.dataset.csrfMover = secao.csrfMover || '';
+        // Pasta recém-criada nasce vazia: sem isso o aviso de excluirPasta() leria undefined.
+        div.dataset.subpastas = '0';
+        div.dataset.arquivos = '0';
         div.setAttribute('tabindex', '0');
         div.setAttribute('role', 'button');
         div.innerHTML =
@@ -415,8 +423,29 @@
         });
     }
 
+    // Monta o aviso a partir de data-subpastas/data-arquivos, gravados no HTML pelo servidor (e
+    // zerados na criação, em adicionarCartaoPasta) — o número tem de estar disponível ANTES do
+    // clique de excluir, não só na resposta dele (D3).
+    function pluralizar(n, singular, plural) { return n + ' ' + (n === 1 ? singular : plural); }
+
+    function avisoExclusao(card) {
+        const subpastas = Number(card.dataset.subpastas) || 0;
+        const arquivos  = Number(card.dataset.arquivos) || 0;
+        const nome      = card.dataset.nome;
+
+        if (subpastas === 0 && arquivos === 0) {
+            return 'A pasta "' + nome + '" está vazia. Excluir mesmo assim? Esta ação não pode ser desfeita.';
+        }
+
+        const partes = [];
+        if (subpastas > 0) partes.push(pluralizar(subpastas, 'subpasta', 'subpastas'));
+        if (arquivos > 0) partes.push(pluralizar(arquivos, 'arquivo', 'arquivos'));
+
+        return 'A pasta "' + nome + '" contém ' + partes.join(' e ') + '. Esta ação não pode ser desfeita.';
+    }
+
     function excluirPasta(card) {
-        if (!confirm('Excluir a pasta "' + card.dataset.nome + '" e TODOS os arquivos dentro dela? Esta ação não pode ser desfeita.')) return;
+        if (!confirm(avisoExclusao(card))) return;
         const fd = new FormData();
         fd.append('_token', card.dataset.csrfExcluir);
         fetch(card.dataset.urlExcluir, { method: 'POST', body: fd })
@@ -424,9 +453,12 @@
             .then(function (res) {
                 if (!res.ok || !res.j.ok) throw new Error((res.j && res.j.erro) || 'Falha ao excluir.');
                 const secaoId = card.dataset.secaoId;
-                todosArquivos().forEach(function (el) { if (el.dataset.secao === secaoId) el.remove(); });
-                card.remove();
-                if (pastaAtualId() === secaoId) voltarRaiz(); else render();
+                // O back apaga a ÁRVORE inteira (cascade). Sem remover as filhas/netas do DOM aqui,
+                // os cartões e arquivos delas ficam apontando para linhas já apagadas até um reload.
+                const subarvore = [secaoId].concat(descendentes(secaoId));
+                todosArquivos().forEach(function (el) { if (subarvore.indexOf(el.dataset.secao) !== -1) el.remove(); });
+                todasPastas().forEach(function (el) { if (subarvore.indexOf(el.dataset.secaoId) !== -1) el.remove(); });
+                if (subarvore.indexOf(pastaAtualId()) !== -1) voltarRaiz(); else render();
             })
             .catch(function (err) { alert(err.message); });
     }
@@ -632,6 +664,9 @@
             new Sortable(elPastas, {
                 handle: '.fm-pasta-grip', draggable: '.fm-pasta', animation: 150, ghostClass: 'arrastando',
                 onEnd: function () {
+                    // O drop já foi tratado como "mover para dentro" (ver bloco de mover-pasta,
+                    // mais abaixo) — não reordena por cima, senão os dois POSTs correm juntos.
+                    if (pularReordenarPastas) { pularReordenarPastas = false; return; }
                     const ids = todasPastas().map(function (el) { return Number(el.dataset.secaoId); });
                     persistir(cfg.urlReordenarSecoes, cfg.csrfReordenarSecoes, ids);
                 },
@@ -673,6 +708,7 @@
                 alert('Não é possível mover uma pasta para dentro dela mesma.');
                 return;
             }
+            pularReordenarPastas = true;                       // ver onEnd do Sortable acima
             moverPasta(arrastando, alvo.dataset.secaoId);
             arrastando = null;                                 // não confia só no dragend abaixo
         });

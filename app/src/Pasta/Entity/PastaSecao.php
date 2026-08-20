@@ -20,8 +20,12 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ORM\Index(name: 'idx_pasta_secao_pai', columns: ['secao_pai_id'])]
 class PastaSecao implements Auditavel, TenantAware
 {
-    /** Trava anti-laço na travessia da árvore (não é o teto de produto, que é 10). */
-    private const LIMITE_SEGURANCA = 100;
+    /**
+     * Trava anti-laço na travessia da árvore (não é o teto de produto, que é 10). Pública porque
+     * outras recursões que descem a árvore fora desta classe (PastaSecaoRepository::contarConteudoRecursivo,
+     * PastaSecaoController::coletarCaminhosDaArvore) usam o MESMO limite, em vez de duplicar o número.
+     */
+    public const LIMITE_SEGURANCA = 100;
 
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -177,12 +181,24 @@ class PastaSecao implements Auditavel, TenantAware
         return $nivel;
     }
 
-    /** Quantos níveis a subárvore desta seção ocupa, contando ela mesma. Folha = 1. */
-    public function getAltura(): int
+    /**
+     * Quantos níveis a subárvore desta seção ocupa, contando ela mesma. Folha = 1.
+     *
+     * O corte em LIMITE_SEGURANCA aqui não é o teto de produto (10, validado nos UseCases ao
+     * criar/mover) — é proteção contra ciclo GRAVADO NO BANCO, que viraria recursão infinita e
+     * estouraria a memória do PHP. `DesfazerAlteracaoAuditLogUseCase` grava `pai` direto pelo
+     * setter da entidade, sem passar pelos UseCases nem pelos guards de ciclo deles — é o
+     * caminho que provou o estouro (ver o teste que monta `a.pai = b; b.pai = a` à mão).
+     */
+    public function getAltura(int $profundidade = 0): int
     {
+        if ($profundidade >= self::LIMITE_SEGURANCA) {
+            return 1;
+        }
+
         $altura = 1;
         foreach ($this->filhas as $filha) {
-            $altura = max($altura, 1 + $filha->getAltura());
+            $altura = max($altura, 1 + $filha->getAltura($profundidade + 1));
         }
 
         return $altura;

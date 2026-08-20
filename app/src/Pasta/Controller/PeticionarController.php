@@ -8,6 +8,7 @@ use App\Cliente\Entity\Cliente;
 use App\Entity\Auth\User;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
+use App\Pasta\Entity\PastaSecao;
 use App\Pasta\DTO\UploadImagemEditorInput;
 use App\Pasta\Repository\PastaSecaoRepository;
 use App\Pasta\UseCase\EditarPecaTextoUseCase;
@@ -70,6 +71,7 @@ final class PeticionarController extends AbstractController
             'documentos'      => $documentos,
             'nomeCliente'     => $nomeCliente,
             'secoes'          => $secoes,
+            'caminhosSecoes'  => $this->montarCaminhosLegiveis($secoes),
             'categoriaLabels' => [
                 PastaDocumento::CATEGORIA_PECA                    => 'Peça',
                 PastaDocumento::CATEGORIA_PROCURACAO              => 'Procuração',
@@ -80,6 +82,35 @@ final class PeticionarController extends AbstractController
                 PastaDocumento::CATEGORIA_CONTRATO                => 'Contrato',
             ],
         ]);
+    }
+
+    /**
+     * Caminho legível de cada seção, com os ancestrais ("Financeiro › 2026 › Notas") — sem isto os
+     * selects de "Peticionar" listam a árvore achatada, e duas pastas de mesmo nome em galhos
+     * diferentes ficam indistinguíveis. Só lê `getNome()`/`getPai()`, já carregados em memória por
+     * findByPasta() (todas as seções da pasta numa query só) — não dispara SQL extra.
+     *
+     * @param PastaSecao[] $secoes
+     * @return array<int, string>
+     */
+    private function montarCaminhosLegiveis(array $secoes): array
+    {
+        $caminhos = [];
+
+        foreach ($secoes as $secao) {
+            $partes = [];
+            $atual  = $secao;
+            $voltas = 0;
+            while ($atual !== null && $voltas < PastaSecao::LIMITE_SEGURANCA) {
+                array_unshift($partes, $atual->getNome());
+                $atual = $atual->getPai();
+                ++$voltas;
+            }
+
+            $caminhos[$secao->getId()] = implode(' › ', $partes);
+        }
+
+        return $caminhos;
     }
 
     #[Route('/{id}/peticionar/upload', name: 'pasta_peticionar_upload', methods: ['POST'])]

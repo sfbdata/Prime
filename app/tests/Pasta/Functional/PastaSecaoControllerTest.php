@@ -433,6 +433,53 @@ final class PastaSecaoControllerTest extends JusPrimeWebTestCase
         self::assertFalse($storage->existe($caminhoNeta), 'o arquivo da NETA devia ter sido removido do disco — é o que a recursão prova');
     }
 
+    #[TestDox('excluir com ciclo gravado por fora dos guards (ex.: desfazer da auditoria) não estoura a memória')]
+    public function testExcluirComCicloNoPaiNaoEstouraAMemoria(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $a = new PastaSecao();
+        $a->setPasta($pasta);
+        $a->setTenant($tenant);
+        $a->setNome('A');
+        $a->setOrdem(1);
+        $em->persist($a);
+        $em->flush();
+
+        $b = new PastaSecao();
+        $b->setPasta($pasta);
+        $b->setTenant($tenant);
+        $b->setNome('B');
+        $b->setOrdem(1);
+        $b->setPai($a);
+        $em->persist($b);
+        $em->flush();
+
+        // O ciclo NUNCA deveria existir — nenhum UseCase grava isto. É exatamente o que
+        // DesfazerAlteracaoAuditLogUseCase faz na auditoria: chama setPai() direto na entidade,
+        // sem passar pelo MoverPastaSecaoUseCase e sem o guard de ciclo dele (descendeDe()).
+        // Reproduzido aqui do mesmo jeito, por fora do UseCase.
+        $a->setPai($b);
+        $em->flush();
+
+        $aId = $a->getId();
+        $em->clear();
+
+        $client->request('POST', '/pasta/secao/' . $aId . '/excluir', [
+            '_token' => $this->csrf('pasta_secao_excluir_' . $aId),
+        ]);
+
+        // O ponto do teste é NÃO estourar a memória (contarConteudoRecursivo() e
+        // coletarCaminhosDaArvore() têm de RETORNAR, não a resposta em si).
+        self::assertResponseIsSuccessful();
+    }
+
     // ── Mover ──────────────────────────────────────────────────────────────────
 
     #[TestDox('mover recusa destino de outro tenant')]
