@@ -69,6 +69,8 @@ Entrega a espinha: valida, grava o rastro, apaga a linha. Responsabilidades e ac
 - Consumes: nada.
 - Produces: `RemoverColaboradorDoEscritorioUseCase::executar(RemoverColaboradorInput $input): void` · `RemoverColaboradorInput(User $executor, User $colaborador, Tenant $tenant, ?User $substituto = null, OrigemRemocao $origem = OrigemRemocao::Painel)` · `UserTenantRepository::findAdminAtivoMaisAntigo(Tenant $tenant, User $exceto): ?UserTenant`
 
+**Decisão do dono (20/08), quando perguntado se valia promover alguém em vez de travar:** fica a **trava**. Promover não substituiria a trava — quando a pessoa é a única do escritório não há ninguém para promover, então a trava teria que existir de todo jeito e a promoção seria código a mais. Além disso, promover é o sistema conceder Administrador Master sozinho, por antiguidade: elevação silenciosa de privilégio num sistema onde permissão é auditada. O admin que quer sair promove alguém antes — dois cliques, e a escolha continua sendo de uma pessoa.
+
 **Decisão de plano** (a spec §4 não distingue as portas): a trava "não remover o criador do escritório" vale **só na porta do painel**. Quem fundou o escritório pode sair por conta própria — quem o impede de esvaziar a casa é a trava do último admin. É o comportamento de hoje do `sair`, preservado.
 
 - [ ] **Step 1: Escrever o teste que falha**
