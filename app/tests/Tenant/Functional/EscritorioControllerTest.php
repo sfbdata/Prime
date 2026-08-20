@@ -106,7 +106,7 @@ final class EscritorioControllerTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(403);
     }
 
-    #[TestDox('POST sair de colaborador inativa o vínculo e mantém demitidoEm null')]
+    #[TestDox('POST sair de colaborador apaga o vínculo')]
     public function testSaiComSucesso(): void
     {
         $client           = static::createClient();
@@ -123,9 +123,7 @@ final class EscritorioControllerTest extends JusPrimeWebTestCase
 
         $em         = static::getContainer()->get(EntityManagerInterface::class);
         $atualizado = $em->getRepository(UserTenant::class)->findOneBy(['user' => $user, 'tenant' => $tenant]);
-        self::assertNotNull($atualizado);
-        self::assertFalse($atualizado->isActive());
-        self::assertNull($atualizado->getDemitidoEm());
+        self::assertNull($atualizado, 'o vínculo deveria ter sido apagado, não apenas inativado');
     }
 
     #[TestDox('POST sair sendo o único admin é bloqueado e mantém o vínculo ativo')]
@@ -166,7 +164,7 @@ final class EscritorioControllerTest extends JusPrimeWebTestCase
         self::assertNull($client->getSession()->get('current_tenant_id'));
     }
 
-    #[TestDox('Sair de escritório NÃO-ativo mantém o tenant ativo na sessão e inativa só o vínculo certo')]
+    #[TestDox('Sair de escritório NÃO-ativo mantém o tenant ativo na sessão e apaga só o vínculo certo')]
     public function testSaiDeNaoAtivoMantemSessao(): void
     {
         $client  = static::createClient();
@@ -189,8 +187,11 @@ final class EscritorioControllerTest extends JusPrimeWebTestCase
 
         $em2      = static::getContainer()->get(EntityManagerInterface::class);
         $vinculoB = $em2->getRepository(UserTenant::class)->findOneBy(['user' => $user, 'tenant' => $tenantB]);
-        self::assertNotNull($vinculoB);
-        self::assertFalse($vinculoB->isActive());
+        self::assertNull($vinculoB, 'o vínculo com o tenant B deveria ter sido apagado');
+
+        $vinculoA = $em2->getRepository(UserTenant::class)->findOneBy(['user' => $user, 'tenant' => $tenantA]);
+        self::assertNotNull($vinculoA, 'o vínculo com o tenant A não deveria ser tocado');
+        self::assertTrue($vinculoA->isActive());
     }
 
     private function novoUsuario(bool $comOab): User
