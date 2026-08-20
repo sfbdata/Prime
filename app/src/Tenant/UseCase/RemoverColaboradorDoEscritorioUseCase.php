@@ -77,9 +77,15 @@ final class RemoverColaboradorDoEscritorioUseCase
         }
 
         if ($this->ehUltimoAdmin($vinculo, $input->tenant)) {
+            // Duas redações porque são duas telas com leitores diferentes: no painel quem lê
+            // está removendo OUTRA pessoa; na saída por conta própria quem lê é a própria.
+            // Falar dela em terceira pessoa ("removê-lo") lia mal para quem clicou em "Sair".
             throw new \InvalidArgumentException(
-                'Este é o último administrador do escritório. '
-                . 'Promova outro administrador antes de removê-lo.'
+                $input->origem === OrigemRemocao::Saida
+                    ? 'Você é o único administrador do escritório. '
+                        . 'Promova outra pessoa a administrador antes de sair.'
+                    : 'Este é o último administrador do escritório. '
+                        . 'Promova outro administrador antes de removê-lo.'
             );
         }
 

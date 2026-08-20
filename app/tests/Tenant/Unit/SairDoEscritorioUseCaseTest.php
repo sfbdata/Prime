@@ -104,7 +104,7 @@ final class SairDoEscritorioUseCaseTest extends TestCase
         $this->em->expects($this->never())->method('flush');
 
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessageMatches('/último administrador/i');
+        $this->expectExceptionMessageMatches('/único administrador/i');
 
         $this->useCase->executar($usuario, $tenant);
     }

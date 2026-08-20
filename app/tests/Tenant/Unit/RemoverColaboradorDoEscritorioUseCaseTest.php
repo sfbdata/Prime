@@ -235,7 +235,9 @@ final class RemoverColaboradorDoEscritorioUseCaseTest extends TestCase
         $this->em->expects($this->never())->method('remove');
 
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessageMatches('/último administrador/i');
+        // Redação PRÓPRIA da porta da saída: quem lê é a própria pessoa, então a mensagem
+        // fala com ela, não sobre ela. A regex exige as duas metades para travar a distinção.
+        $this->expectExceptionMessageMatches('/único administrador.+antes de sair/is');
 
         $this->useCase->executar(
             new RemoverColaboradorInput($pessoa, $pessoa, $tenant, null, OrigemRemocao::Saida)

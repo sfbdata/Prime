@@ -53,9 +53,13 @@ campo **opcional** de substituto.
      UPDATE herdaria o `TenantFilter`, que na porta da saída aponta para o tenant da sessão)
    - `tarefa_responsaveis`, `evento_participante` (SQL, subselect no tenant da tarefa/evento)
    - `kanban_card_responsavel`, `kanban_board_participante` (SQL, subselect em `kanban_card.tenant_id` / `kanban_board.tenant_id`)
-   - `kanban_board.criado_por`: vai para o substituto; sem substituto, para o executor; na
-     porta da saída própria, para o administrador ativo de vínculo mais antigo
-     (`user_tenant.created_at`, desempate pelo menor `id`).
+   - `kanban_board.criado_por`: vai para o substituto; sem substituto, para o executor **desde
+     que ele tenha vínculo ativo com este escritório**; caso contrário — inclusive na porta da
+     saída própria, e quando quem executa é um super-admin sem vínculo — para o administrador
+     ativo de vínculo mais antigo (`user_tenant.created_at`, desempate pelo menor `id`).
+     *(Regra ajustada em 20/08/2026, aprovada pelo dono: pela regra anterior o suporte técnico
+     virava dono de quadros que ninguém do escritório enxergaria, porque o Kanban só lista para
+     criador ou participante e não tem visão de administrador — ver §8.)*
 3. **Corta o acesso** — apaga, sempre com `WHERE tenant` explícito (nenhuma dessas queries
    herda o `TenantFilter`):
    - `resource_access` (user + tenant)
