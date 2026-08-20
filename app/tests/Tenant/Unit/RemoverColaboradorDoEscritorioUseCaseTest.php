@@ -98,8 +98,74 @@ final class RemoverColaboradorDoEscritorioUseCaseTest extends TestCase
 
         $this->userTenantRepository->method('findAtivoPorUserETenant')->willReturn($vinculo);
 
+        $this->em->expects($this->never())->method('remove');
+
         $this->expectException(\InvalidArgumentException::class);
+        // Sem casar a mensagem, qualquer outra recusa (último admin, criador, substituto)
+        // pintaria este teste de verde — a classe da exceção é a mesma nas cinco travas.
+        $this->expectExceptionMessageMatches('/Sair do escritório/i');
         $this->useCase->executar(new RemoverColaboradorInput($pessoa, $pessoa, $tenant));
+    }
+
+    /**
+     * O caminho feliz que faltava: substituto VÁLIDO (colaborador ativo, e não a própria
+     * pessoa removida). Nenhuma trava dispara, a transferência sai escopada no tenant certo e
+     * o vínculo cai. Os ids são fixados por reflection de propósito — sem eles
+     * `$input->substituto?->getId()` seria null e o UseCase entraria no ramo de DESATRIBUIÇÃO,
+     * que é o oposto do que este teste diz cobrir.
+     */
+    #[TestDox('caminho feliz: substituto valido recebe as responsabilidades e o vinculo e apagado')]
+    public function testTransfereParaSubstitutoValidoEApagaOVinculo(): void
+    {
+        $tenant      = $this->comId(new Tenant(), 77);
+        $executor    = $this->criarUsuario('Admin');
+        $colaborador = $this->comId($this->criarUsuario('Colaborador'), 10);
+        $substituto  = $this->comId($this->criarUsuario('Substituto'), 20);
+        $vinculo     = new UserTenant($colaborador, $tenant);
+
+        $this->userTenantRepository->method('findAtivoPorUserETenant')->willReturn($vinculo);
+        $this->userTenantRepository->method('existeVinculoAtivo')->willReturn(true);
+
+        $statements = [];
+        $this->conn->method('executeStatement')
+            ->willReturnCallback(function (string $sql, array $params = []) use (&$statements): int {
+                $statements[] = ['sql' => $sql, 'params' => $params];
+
+                return 1;
+            });
+
+        $this->em->expects($this->once())->method('remove')->with($vinculo);
+        $this->em->expects($this->once())->method('flush');
+
+        $this->useCase->executar(
+            new RemoverColaboradorInput($executor, $colaborador, $tenant, $substituto)
+        );
+
+        $updatesDePasta = array_values(array_filter(
+            $statements,
+            static fn (array $s): bool => str_contains($s['sql'], 'UPDATE pasta')
+        ));
+
+        self::assertCount(1, $updatesDePasta, 'a pasta do removido tem de ser repassada ao substituto');
+        self::assertSame(
+            ['sub' => 20, 'uid' => 10, 'tid' => 77],
+            $updatesDePasta[0]['params'],
+            'a transferência tem de ir para o substituto e ficar presa ao tenant da remoção'
+        );
+    }
+
+    /**
+     * Fixa o id de uma entidade recém-criada (fora do banco, o id nasce nulo).
+     *
+     * @template T of object
+     * @param T $entidade
+     * @return T
+     */
+    private function comId(object $entidade, int $id): object
+    {
+        (new \ReflectionProperty($entidade::class, 'id'))->setValue($entidade, $id);
+
+        return $entidade;
     }
 
     #[TestDox('permite a propria pessoa sair quando a origem e a saida voluntaria')]

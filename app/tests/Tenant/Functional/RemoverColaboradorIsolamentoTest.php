@@ -436,12 +436,12 @@ final class RemoverColaboradorIsolamentoTest extends JusPrimeWebTestCase
 
     private function montarUseCase(EntityManagerInterface $em): RemoverColaboradorDoEscritorioUseCase
     {
-        // O UseCase ainda não tem consumidor em produção (controller vem em tarefa posterior)
-        // — o compilador do container de teste remove/inlina serviço privado sem consumidor,
-        // então buscá-lo direto por `getContainer()->get()` falha com ServiceNotFoundException.
-        // Suas duas dependências (EM e o repositório) têm outros consumidores e sobrevivem à
-        // compilação; montamos o UseCase à mão com elas, preservando que a query rode contra a
-        // conexão/EM REAIS de teste.
+        // Montado à mão, e não buscado no container, para amarrar o UseCase ao MESMO
+        // EntityManager/conexão que o teste usa para montar o cenário e para conferir o
+        // resultado — é o SQL contra o banco de verdade que está sendo provado aqui.
+        // (O motivo original desta linha era outro: enquanto o UseCase não tinha consumidor,
+        // o compilador do container inlinava o serviço privado e `getContainer()->get()`
+        // falhava. Isso deixou de valer quando o TenantController passou a chamá-lo.)
         return new RemoverColaboradorDoEscritorioUseCase(
             $em,
             static::getContainer()->get(UserTenantRepository::class),

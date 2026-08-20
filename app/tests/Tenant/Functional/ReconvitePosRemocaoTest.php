@@ -62,10 +62,12 @@ final class ReconvitePosRemocaoTest extends JusPrimeWebTestCase
         $em->persist(new UserTenant($colaborador, $tenantB));
         $em->flush();
 
-        // As quatro tabelas da revogação, em CADA escritório. resource_access e access_request
-        // (pendente) têm índice único que NÃO inclui tenant_id (user_id, resource_type,
-        // resource_id[, action]) — resourceId precisa diferir entre A e B, senão a segunda
-        // gravação colide na constraint em vez de exercitar o isolamento.
+        // As quatro tabelas da revogação, em CADA escritório. Quem tem índice único que NÃO
+        // inclui tenant_id é resource_access (uniq_resource_access_user_resource: user_id,
+        // resource_type, resource_id) — ali o resourceId PRECISA diferir entre A e B, senão a
+        // segunda gravação colide na constraint em vez de exercitar o isolamento.
+        // access_request não tem índice único nenhum (medido no banco); o resourceId diferente
+        // dela é só simetria com o vizinho.
         $this->concederResourceAccess($em, $colaborador, $tenantA, 1);
         $this->concederResourceAccess($em, $colaborador, $tenantB, 2);
 
@@ -84,7 +86,10 @@ final class ReconvitePosRemocaoTest extends JusPrimeWebTestCase
 
         $em->flush();
 
-        // Remove pelo UseCase, só no escritório A.
+        // Remove pelo UseCase, só no escritório A. Montado à mão para ficar preso ao MESMO
+        // EntityManager/conexão que o teste usa para montar o cenário e para conferir as
+        // contagens depois — o controller que hoje consome este UseCase é exercitado em
+        // RemoverColaboradorControllerTest.
         $useCase = new RemoverColaboradorDoEscritorioUseCase(
             $em,
             static::getContainer()->get(UserTenantRepository::class),
