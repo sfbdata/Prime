@@ -1,6 +1,7 @@
 # HANDOFF — Pastas aninhadas no gerenciador de arquivos
 
-**Pausado em 2026-08-19.** Frente `pasta-subpastas-aninhadas`, worktree própria, **nada publicado**.
+**ENTREGA 1 COMPLETA em 2026-08-19 — aguardando o smoke do dono.** Frente `pasta-subpastas-aninhadas`,
+worktree própria, **nada publicado**. 18 commits, **3927/3927 verde**, worktree limpa.
 
 **Para retomar, leia nesta ordem:**
 
@@ -30,7 +31,7 @@ A última frase mudou o fatiamento: é demanda de uso corrente, não melhoria es
 | D5 | **Entrega 1 = só o sistema.** O Drive fica para a Entrega 2 |
 | D6 | Mover pasta: **arrastar E menu**, os dois |
 
-## 3. Estado: 6 de 11 tarefas fechadas (Task 0 + Tasks 1-5)
+## 3. Estado: TODAS as 11 tarefas fechadas + onda final de correção
 
 | Tarefa | Estado | Commits |
 |---|---|---|
@@ -40,15 +41,22 @@ A última frase mudou o fatiamento: é demanda de uso corrente, não melhoria es
 | 3 — criar pasta dentro de pasta | ✅ revisão limpa | `1cf7ce52`, `a11b25de` |
 | 4 — mover pasta (guards de ciclo e teto) | ✅ revisão limpa | `6bf8c757`, `3457224f` |
 | 5 — reordenar entre irmãs | ✅ revisão limpa | `b59cbc71`, `603a40ce` |
-| 6 — controller | ⏳ brief pronto | — |
-| 7 — template | ⏳ brief pronto | — |
-| 8 — JavaScript | ⏳ brief pronto | — |
-| 9 — regressão do sync | ⏳ brief pronto | — |
-| 10 — fechamento + smoke | ⏳ brief pronto | — |
+| 6 — controller (+ arquivos órfãos) | ✅ revisão limpa | `7e4704e9`, `11229b2f` |
+| 7 — template | ✅ revisão limpa | `df3be991` |
+| 8 — JavaScript | ✅ revisão limpa (1 Crítico corrigido) | `ca7ed050`, `341b6892` |
+| 9 — regressão do sync | ✅ verde de primeira | `891a81d8` |
+| 10 — fechamento | ✅ suíte, lints e ritual feitos |
+| **Onda final** (5 achados da revisão da branch) | ✅ todos ADDRESSED | `95ac9eb1` |
 
 **Suíte:** **483/483** em `tests/Pasta`; 3888/3888 na suíte completa da frente (medido na Task 1).
 
-**Worktree limpa**, sem alteração pendente. A próxima tarefa é a **6 (controller)**.
+**Worktree limpa.** O que falta é **do humano**: o smoke na tela (§11), o merge e o deploy.
+
+⚠️ A frente está **21 commits atrás do `origin/master`**. Antes de integrar:
+`git -C .claude/worktrees/pasta-subpastas-aninhadas merge origin/master`, resolver o que conflitar, e
+**rodar a suíte de novo** — é o passo que todo mundo pula. A migration da frente
+(`Version20260819175112`) é **posterior** à última do master (`Version20260819160000`) e as duas tocam
+tabelas **diferentes** (`pasta_secao` × `permission`): sem colisão, conferido.
 
 ## 4. Como retomar
 
@@ -129,3 +137,46 @@ O achado caro que a spec guarda: hoje as seções são casadas com o Drive **por
 ## 10. Aviso operacional
 
 Havia **5 sessões ativas** neste repositório durante o trabalho, e uma delas commitou 6 vezes no `master`. Isso produziu um susto de "commits sumiram" que era falso alarme — `git branch --contains` provou que estavam lá. **Ao retomar, confirme a base antes de commitar** e prefira `--contains` ao log linear.
+
+
+---
+
+## 11. 🔬 A LISTA DE SMOKE — é isto que precisa dos seus olhos
+
+A suíte não enxerga tela. **13 pontos**, do mais importante para o menos:
+
+1. 🔴 **Arrastar uma pasta pela alcinha e soltar EM CIMA de outra** → ela entra na outra. Dê **F5** e
+   confira que continua lá **e** que a ordem das irmãs ficou coerente. Repita 3× no mesmo par.
+   *(É o item nº 1 porque a spec descrevia esse gesto errado, e a correção da corrida entre dois
+   pedidos concorrentes não tem como ser testada automaticamente.)*
+2. 🔴 **Arrastar um arquivo do computador** para cima de um cartão de pasta, **depois** de já ter
+   arrastado alguma pasta na mesma visita → o arquivo sobe e **nenhuma pasta muda de lugar**.
+   *(Era um defeito real: a pasta se movia sozinha, em silêncio.)*
+3. **Apagar uma pasta que tem subpastas** → o aviso precisa **contar**: "contém 3 subpastas e 127
+   arquivos". Confira o singular também (1 subpasta, 1 arquivo) e uma pasta vazia.
+4. Criar pasta na raiz → aparece na raiz. Entrar nela e criar outra → aparece **dentro**.
+5. Descer 3 níveis → o caminho no topo mostra os 3, e cada degrau volta para o nível certo.
+6. Arrastar **pela alcinha** soltando **fora** de outro cartão → reordena, não move.
+7. Menu ⋮ → **"Mover para..."** → o destino mostra o caminho completo. Escolher a raiz devolve a
+   pasta ao topo.
+8. Tentar mover uma pasta para dentro da própria filha → recusa com mensagem.
+9. Buscar um arquivo 3 níveis abaixo → aparece, **e diz em que pasta está**.
+10. **Apagar uma pasta com filhas e continuar navegando sem F5** → os cartões das filhas somem, e a
+    busca não lista mais os arquivos delas.
+11. **Aba Peticionar** → os dois campos de seção mostram o caminho (`Financeiro › 2026 › Notas`), não
+    só o nome solto.
+12. **Tela de documentos de um caso de Cobrança** → continua funcionando com um nível só.
+13. Recarregar a página dentro de uma subpasta → volta para ela. *(Na primeira visita depois do
+    deploy pode cair na raiz uma vez — é esperado, o formato guardado mudou.)*
+
+## 12. ⚠️ Um aviso que vale mais que os outros
+
+**Não use o botão "Importar" do Drive até a Entrega 2.**
+
+A revisão final mediu no banco de dev: **27 grupos / 54 seções com nome repetido dentro da mesma
+pasta**. O importador casa seções **pelo nome**, sem olhar hierarquia — então uma pasta do Drive pode
+casar com uma seção aninhada e invisível, e o arquivo aterrissa no lugar errado **sem dar erro**.
+
+Isso não é novo, mas a Entrega 1 é que torna nome repetido a norma. O cron roda só no sentido
+`enviar` (que está provado por teste e continua achatando, como antes), então o dia a dia não é
+afetado. O Importar é ação pontual — e é ela que deve esperar.
