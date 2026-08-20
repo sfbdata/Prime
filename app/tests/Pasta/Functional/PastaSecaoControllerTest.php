@@ -11,6 +11,7 @@ use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaSecao;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Controller\PastaSecaoController;
+use App\Shared\Service\ArquivoStorageInterface;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -351,6 +352,87 @@ final class PastaSecaoControllerTest extends JusPrimeWebTestCase
         self::assertSame(1, $json['subpastasRemovidas']);
     }
 
+    #[TestDox('excluir remove do disco os arquivos de TODA a árvore — mãe, filha e neta')]
+    public function testExcluirRemoveArquivosDaArvoreInteira(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $em         = static::getContainer()->get(EntityManagerInterface::class);
+        $storage    = static::getContainer()->get(ArquivoStorageInterface::class);
+        $uploadsDir = (string) static::getContainer()->getParameter('uploads_dir');
+
+        $mae = $this->criarSecao($pasta, $tenant);
+
+        $filha = new PastaSecao();
+        $filha->setPasta($pasta);
+        $filha->setTenant($tenant);
+        $filha->setNome('FILHA');
+        $filha->setOrdem(1);
+        $filha->setPai($mae);
+        $em->persist($filha);
+
+        $neta = new PastaSecao();
+        $neta->setPasta($pasta);
+        $neta->setTenant($tenant);
+        $neta->setNome('NETA');
+        $neta->setOrdem(1);
+        $neta->setPai($filha);
+        $em->persist($neta);
+        $em->flush();
+
+        // Um arquivo DE VERDADE em cada nível, associado à respectiva seção via setSecao() — sem
+        // isso a coleção documentos() da seção fica vazia e o teste não prova nada.
+        $caminhos = [];
+        foreach ([$mae, $filha, $neta] as $secao) {
+            $nomeStorage = $storage->salvarConteudo('conteudo-' . $secao->getNome(), $uploadsDir, 'pdf');
+
+            $doc = new PastaDocumento();
+            $doc->setTitulo('doc-' . $secao->getNome());
+            $doc->setCategoria(PastaDocumento::CATEGORIA_DEMAIS);
+            $doc->setCaminhoArquivo($nomeStorage);
+            $doc->setNomeOriginal('doc-' . $secao->getNome() . '.pdf');
+            $doc->setMimeType('application/pdf');
+            $doc->setTamanhoBytes(10);
+            $doc->setOrdem(1);
+            $doc->setPasta($pasta);
+            $doc->setTenant($tenant);
+            $doc->setSecao($secao);
+            $em->persist($doc);
+
+            $caminhos[] = $storage->caminho($uploadsDir, $nomeStorage);
+        }
+        $em->flush();
+
+        foreach ($caminhos as $caminho) {
+            self::assertTrue($storage->existe($caminho), 'pré-condição: o arquivo precisa existir antes da exclusão');
+        }
+
+        $maeId = $mae->getId();
+
+        // setSecao() só grava a FK no lado dono, sem sincronizar PastaSecao::$documentos (ver o
+        // docblock de contarConteudoRecursivo()). Sem o clear(), a coleção em memória continua
+        // "presa" vazia mesmo com a FK gravada no banco — o clear() força o controller a carregar
+        // a árvore de verdade, exatamente como aconteceria numa requisição HTTP real.
+        $em->clear();
+
+        $client->request('POST', '/pasta/secao/' . $maeId . '/excluir', [
+            '_token' => $this->csrf('pasta_secao_excluir_' . $maeId),
+        ]);
+
+        self::assertResponseIsSuccessful();
+        $json = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertSame(3, $json['arquivosRemovidos']);
+
+        [$caminhoMae, $caminhoFilha, $caminhoNeta] = $caminhos;
+        self::assertFalse($storage->existe($caminhoMae), 'o arquivo da MÃE devia ter sido removido do disco');
+        self::assertFalse($storage->existe($caminhoFilha), 'o arquivo da FILHA devia ter sido removido do disco');
+        self::assertFalse($storage->existe($caminhoNeta), 'o arquivo da NETA devia ter sido removido do disco — é o que a recursão prova');
+    }
+
     // ── Mover ──────────────────────────────────────────────────────────────────
 
     #[TestDox('mover recusa destino de outro tenant')]
@@ -371,7 +453,9 @@ final class PastaSecaoControllerTest extends JusPrimeWebTestCase
             'destinoId' => (string) $alheia->getId(),
         ]);
 
-        self::assertResponseStatusCodeSame(403);
+        // 404, não 403: mesmo padrão do criar() — não confirma a existência de uma pasta de outro
+        // escritório.
+        self::assertResponseStatusCodeSame(404);
     }
 
     #[TestDox('mover sem destinoId devolve a pasta para a raiz')]

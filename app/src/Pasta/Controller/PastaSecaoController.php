@@ -154,15 +154,25 @@ final class PastaSecaoController extends AbstractController
         // Captura ANTES de excluir: depois da exclusão a árvore não existe mais para percorrer.
         $conteudo = $this->secaoRepository->contarConteudoRecursivo($secao);
 
-        // A limpeza tem de percorrer a ÁRVORE, não só os documentos diretos: o cascade do banco
+        // Só COLETA os caminhos aqui (é leitura, não toca o disco) — a árvore ainda está viva, e a
+        // varredura tem de percorrer TODA ela, não só os documentos diretos: o cascade do banco
         // apaga as linhas de toda a descendência, e sem isto os arquivos das filhas e netas ficam
         // órfãos no disco. Antes das pastas aninhadas o loop raso bastava, porque não havia netas.
-        $this->limparArquivosDaArvore($secao);
+        $caminhos = $this->coletarCaminhosDaArvore($secao);
 
         try {
             $this->excluirUseCase->executar($secao, $currentUser, $tenant);
         } catch (AccessDeniedException $e) {
             return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
+        }
+
+        // A remoção física só acontece DEPOIS da exclusão confirmada no banco: apagar antes seria
+        // "grava e depois valida" — se o UseCase falhasse, os arquivos já teriam sumido e as linhas
+        // do banco continuariam apontando para nada.
+        foreach ($caminhos as $caminho) {
+            if ($this->storage->existe($caminho)) {
+                $this->storage->excluir($caminho);
+            }
         }
 
         return $this->json([
@@ -201,7 +211,9 @@ final class PastaSecaoController extends AbstractController
             // o id de uma seção de outro escritório e só o UseCase pegaria.
             $destino = $this->secaoRepository->findByIdAndPastaAndTenant($destinoId, $pasta, $tenant);
             if ($destino === null) {
-                return $this->json(['erro' => 'Pasta de destino não encontrada.'], Response::HTTP_FORBIDDEN);
+                // 404, não 403 — mesmo padrão do criar(): não confirma a existência de uma pasta de
+                // outro escritório. Um 403 diria "existe, mas você não pode", que é informação a mais.
+                return $this->json(['erro' => 'Pasta de destino não encontrada.'], Response::HTTP_NOT_FOUND);
             }
         }
 
@@ -308,18 +320,25 @@ final class PastaSecaoController extends AbstractController
         return $this->json(['ok' => true]);
     }
 
-    /** Remove do disco os arquivos de $secao e de toda a descendência dela. */
-    private function limparArquivosDaArvore(PastaSecao $secao): void
+    /**
+     * Resolve os caminhos completos dos arquivos de $secao e de toda a descendência dela. Só LÊ —
+     * não toca o disco. A remoção física é responsabilidade de quem chama, e só deve acontecer
+     * depois que a exclusão no banco tiver sido confirmada (ver excluir()).
+     *
+     * @return list<string>
+     */
+    private function coletarCaminhosDaArvore(PastaSecao $secao): array
     {
+        $caminhos = [];
+
         foreach ($secao->getDocumentos() as $doc) {
-            $caminho = $this->storage->caminho($this->uploadsDir, $doc->getCaminhoArquivo());
-            if ($this->storage->existe($caminho)) {
-                $this->storage->excluir($caminho);
-            }
+            $caminhos[] = $this->storage->caminho($this->uploadsDir, $doc->getCaminhoArquivo());
         }
 
         foreach ($secao->getFilhas() as $filha) {
-            $this->limparArquivosDaArvore($filha);
+            array_push($caminhos, ...$this->coletarCaminhosDaArvore($filha));
         }
+
+        return $caminhos;
     }
 }
