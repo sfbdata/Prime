@@ -1,7 +1,34 @@
 # Handoff — Política de Privacidade (frente `politica-privacidade`)
 
-**Estado: implementada, revisada, NÃO aprovada.** 3 commits locais, nada publicado.
-Pausado em 19/08/2026 por limite de contexto, logo após a revisão.
+**Estado: revisão feita, 6 dos 8 achados corrigidos. Falta re-revisão (`/review`).**
+6 commits locais, nada publicado.
+
+## Atualização 19/08 — depois da revisão
+
+✅ **Corrigidos** (commit `80a7e70a`, suíte 3896/3896): Achado 1 (o bloqueante, provado por
+reintrodução — 2 testes vermelhos com o defeito de volta) · 3 · 5 · 6 · 7 · 8 · 9 (a spec agora
+existe em `docs/specs/politica-privacidade.md`).
+
+🔧 **Decisão nova do dono:** a página **não aparece em buscadores**. `noindex, follow` na página,
+`X-Robots-Tag: noindex` no PDF. **De propósito sem `Disallow` em robots.txt** — bloquear o
+rastreamento impediria o buscador de ler a própria tag, e a URL poderia acabar listada sem
+descrição. As duas medidas juntas se anulam.
+
+⚠️ **CORREÇÃO ao Achado 4:** o endereço "QNF 03 – 31, Taguatinga Norte" é **da empresa**, não
+residencial — o dono confirmou. A parte do endereço no Achado 4 **cai**. Sobra só o fato de os
+contatos serem `@gmail.com`, que é aparência e não erro, e o `noindex`, já resolvido.
+
+⏳ **Aberto, aguardando o advogado:** só o **Achado 2** (capítulo 13). O dono escolheu a
+**Opção B — em paralelo**: o texto vai ao advogado enquanto o conserto técnico segue.
+Proposta levada a ele: o capítulo 13 parar de enumerar contratações e **remeter ao Anexo I**,
+porque pagamento e assinatura eletrônica são features **futuras** — assim o texto fica verdadeiro
+hoje e não precisa ser reescrito quando existirem. Segundo ponto na mesma mensagem: a frase
+"contrato escrito com cada um deles" é incompatível com o Drive em conta Gmail comum.
+
+🔴 **Risco MÉDIO → `/review` de novo antes de integrar.** O relatório abaixo é o da PRIMEIRA
+revisão, preservado como está para a re-revisão ter contra o que conferir.
+
+---
 
 ## Onde está
 
