@@ -655,44 +655,30 @@ final class ImportarAcordosDetalhadosUseCase
                     $tocadas->registrarMutada($existente, $caso, $parcela->nn, $parcela->competencia, 'parcela-vinculada', $acordo, $existente->getValorOriginal());
                     if ($usuario !== null) {
                         $existente->setAcordoOrigem($acordo);
-                        // 🔑 O override entra JUNTO do vínculo — mas só quando o valor do sistema É o
-                        // Valor acordado que ela declara para esta parcela (`$divergencia === null`,
-                        // calculado logo acima). A condição não é decoração: ela é o que torna as DUAS
-                        // consequências corretas de uma vez.
+                        // ⚠️ O VÍNCULO entra sozinho: NÃO se grava override de honorário aqui.
                         //
-                        // 1. **O honorário.** O relatório de acordos dela não tem coluna de encargo
-                        //    nenhuma — de 8.671 linhas de parcela, ZERO com juros, multa, honorário ou
-                        //    total. Ela publica só o Valor acordado. Parcela não cobra honorário
-                        //    (decisão #8), e é o que `parcelaInput` já faz na parcela que nasce aqui.
-                        // 2. **A alocação.** `taxa_honorarios_bp = 0` tem um SEGUNDO significado, em
-                        //    `ImportarReceitasUseCase`: é o sinal `$honorarioEmbutidoNoValorOriginal`,
-                        //    que manda alocar o valor BRUTO do recebimento. Gravá-lo numa obrigação cujo
-                        //    `valorOriginal` não é o valor negociado faria a importação de receitas
-                        //    abater a mais — o defeito que aquele UseCase já cometeu e reverteu uma vez.
+                        // Uma versão desta fatia gravava `taxaHonorariosBp = 0` junto, com o argumento
+                        // de que "a contabilidade não cobra encargo em parcela de acordo — 0 de 8.671
+                        // linhas do relatório de acordos". **O argumento estava errado, e a medição de
+                        // 19/08 o derrubou:** a parcela ATRASADA sai do relatório de acordos e entra no
+                        // de INADIMPLÊNCIA, que tem as colunas de encargo — e lá ela cobra. Medido nas
+                        // três carteiras, no lote de 17/08: **114 parcelas de acordo atrasadas, 338
+                        // linhas com honorário, R$ 6.601,57**.
                         //
-                        // Com o valor batendo, os dois significados são verdade ao mesmo tempo: aquele
-                        // número É o valor negociado dela, e o honorário que ela cobrou está dentro dele.
-                        // Divergindo, não se toca em nada — e a divergência já vai no relatório, para o
-                        // humano decidir. Ligar sem esta regra foi o que produziu as 135 de 07/08
-                        // (valorOriginal batendo com a planilha em 135/135, ao centavo).
+                        // 🔑 O defeito do override aqui não é o valor: é a DURAÇÃO. Ele é permanente e o
+                        // fato que descreve é temporário — o honorário está dentro do valor negociado no
+                        // dia em que a parcela nasce, e volta a ser cobrado por fora no dia em que ela
+                        // atrasa. Gravá-lo ao vincular põe o sistema para discordar do dado que a
+                        // própria contabilidade mandou (§1.1).
                         //
-                        // ⚠️ NÃO se estende ao criador de conta original (`reconstruirContaOriginal`):
-                        // conta original é a dívida VELHA que o acordo engoliu, não parcela, e nela a
-                        // carteira cobra honorário — 3.473 em produção, todas assim de propósito.
-                        if ($divergencia === null) {
-                            // As DUAS metades, pelo método da entidade — ver `pararDeCobrarHonorario`.
-                            // Gravar só o override deixaria a obrigação em `bp = 0` com o honorário
-                            // antigo ainda materializado, e a régua do comando de reconciliação
-                            // (`taxaHonorariosBp IS NULL`) nunca mais a alcançaria.
-                            //
-                            // A recusa da CONGELADA vem de dentro do método (INV-H1) e é REPORTADA:
-                            // congelada é dívida quitada, e o snapshot dela é o valor pelo qual foi
-                            // paga. Silenciar aqui esconderia do operador que a parcela ficou com o
-                            // honorário que a contabilidade não cobra.
-                            if (!$existente->pararDeCobrarHonorario()) {
-                                $divergencias[] = sprintf('%s: vinculada ao acordo, mas os encargos estão CONGELADOS (dívida quitada) — o honorário gravado NÃO foi zerado.', $parcela->nn);
-                            }
-                        }
+                        // O efeito já é visível em produção, e é anterior a esta fatia: das 93 parcelas
+                        // em que ela cobra honorário, **12 mostram R$ 0,00** — são as que o cálculo ao
+                        // vivo zerou em 07/08 e nenhuma importação restaurou desde então (R$ 722,92). O
+                        // número OSCILA: certo no dia do lote, zerado no vão entre lotes.
+                        //
+                        // Isto é fatia própria, e a pergunta dela é a regra primordial: o sistema grava
+                        // o encargo que ela informa, sempre — em vez de decidir sozinho quando cobrar.
+                        // Ver `cobranca-honorario-no-total.md` §10.8.
                         $this->obrigacaoRepository->salvar($existente, true);
                     }
                 } elseif ($origem->getId() !== $acordo->getId()) {

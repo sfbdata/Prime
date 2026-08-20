@@ -156,8 +156,17 @@ dinheiro novo: é dinheiro que a contabilidade já cobrava e o sistema não most
 Achado de 19/08, **medido em produção**. É o item que esta fatia fecha antes de qualquer outro: sem
 ele, a própria fatia transforma um defeito de exibição em cobrança a mais.
 
-⚠️ **Esta seção foi REESCRITA depois da 1ª revisão, que derrubou a versão original.** O que a versão
-original dizia — e onde ela errava — está registrado na §10.6, porque o erro é instrutivo.
+⚠️ **Esta seção foi reescrita três vezes.** A §10.6 guarda os erros, porque são instrutivos.
+
+🔴 **AVISO DE PREMISSA — leia antes do resto (19/08, fim do dia).** Esta §10 afirmava, em vários
+pontos, que *"a contabilidade não cobra encargo em parcela de acordo — 0 de 8.671 linhas"*. **A
+afirmação é falsa e a fatia foi reduzida por causa disso.** O número é verdadeiro para o relatório de
+ACORDOS, que não tem coluna de encargo — mas a parcela **atrasada** migra para o relatório de
+INADIMPLÊNCIA, que tem as colunas, e lá ela cobra. Medido no lote de 17/08, três carteiras:
+**114 parcelas de acordo atrasadas, 338 linhas com honorário, R$ 6.601,57.**
+
+Consequência: **a parte prospectiva saiu da fatia** (§10.8). O que resta é a correção das 135, que
+segue válida. Onde o texto abaixo disser "ela não cobra encargo em parcela", leia com esta ressalva.
 
 ### 10.1 O defeito
 
@@ -225,7 +234,11 @@ a soma das parcelas sobe, e `quitada` (`alocado >= valor`) vira `false` em parce
 **Risco adormecido:** se um desses acordos substitutos for rompido, as 135 voltam ao exigível — e aí
 o honorário indevido vira dinheiro no saldo.
 
-### 10.4.1 🔴 O guard PROSPECTIVO age DENTRO do exigível — e isso é decisão do dono
+### 10.4.1 ⛔ O guard PROSPECTIVO — REMOVIDO (histórico, ver §10.8)
+
+⚠️ **Esta subseção descreve algo que não está mais no código.** Fica como registro do teto que foi
+medido e da decisão que o dono chegou a tomar sobre ele — a remoção veio depois, por outro motivo
+(§10.8). O texto original segue abaixo.
 
 Tudo acima é sobre as 135 já gravadas, todas fora do exigível. O guard do vinculador (§10.5.1) é
 outra coisa: daqui para frente, sempre que a planilha de acordos declarar que um boleto EXISTENTE é
@@ -260,10 +273,9 @@ diferentes, e quem olha a tela precisa saber disso antes.
 
 ### 10.5 O que esta fatia faz
 
-1. `completarParcelas` chama `Obrigacao::pararDeCobrarHonorario()` junto do `setAcordoOrigem`, **e só
-   quando o valor do sistema bate com o da planilha** (§10.5.1). São **duas metades**: grava o
-   override E zera o `honorarios` já materializado. Congelada (dívida quitada) é recusada pela
-   entidade e a recusa é reportada — o snapshot dela é o valor pelo qual a dívida foi paga.
+1. ⛔ **REMOVIDO em 19/08 — ver §10.8.** `completarParcelas` chegou a gravar o override junto do
+   `setAcordoOrigem`. A premissa que o autorizava caiu: parcela atrasada volta a cobrar honorário, e o
+   override é permanente. O vínculo entra **sozinho**, como sempre entrou.
 2. Comando `app:cobranca:reconciliar-honorario-parcela` corrige as 135 já gravadas — `bp = 0` **e**
    `honorarios = 0`, preservando juros, multa e a data do snapshot (INV-H2/H3). Simula primeiro, e só
    grava com `--aplicar` **mais `--ids` da lista que o humano aprovou** (§10.5.2).
@@ -275,7 +287,11 @@ diferentes, e quem olha a tela precisa saber disso antes.
    A lista aprovada (§10.5.2) e as travas de CLI têm teste próprio
    (`ReconciliarHonorarioDeParcelaCommandTest`, 10 casos), no molde do comando irmão.
 
-### 10.5.1 🔴 Por que o guard é CONDICIONADO ao valor bater
+### 10.5.1 ⛔ Por que o guard era CONDICIONADO ao valor bater — HISTÓRICO
+
+⚠️ **O guard descrito aqui foi REMOVIDO em 19/08 (§10.8).** A subseção fica porque o raciocínio sobre
+os DOIS significados de `taxa_honorarios_bp` continua valendo e é o que a fatia própria terá de
+resolver. O texto original segue.
 
 `taxa_honorarios_bp = 0` carrega **dois** significados, e essa é a armadilha desta fatia:
 
@@ -386,3 +402,54 @@ os 398 de hoje), para ninguém quebrar o espelho sem querer.
 Sai desta fatia porque exige **migration** (a escolha mora no acordo, para a parcela acrescentada
 depois nascer igual às irmãs) e porque **não muda número nenhum hoje**: medido em produção, das
 2.041 parcelas de acordo, **zero** nasceram na tela — todas têm NN da contabilidade.
+
+### 10.8 🔴 A PREMISSA CAIU — parcela atrasada VOLTA a cobrar encargo
+
+**Medido em 19/08, depois da 7ª revisão, a partir de uma observação do dono.** É o achado que reduziu
+esta fatia.
+
+**O que eu afirmava:** *"a contabilidade não cobra encargo em parcela de acordo"*, apoiado em: de
+8.671 linhas de parcela do relatório de acordos, ZERO têm coluna de juros, multa, honorário ou total.
+
+**Por que estava errado:** olhei **um** relatório e concluí sobre os dois. A parcela atrasada **sai**
+do relatório de acordos e **entra** no de inadimplência, que tem as colunas de encargo. Lá ela cobra.
+
+**A medição (lote de 17/08, três carteiras):**
+
+| | |
+|---|---:|
+| parcelas de acordo que aparecem na inadimplência | **114** |
+| atrasadas | 391 linhas |
+| com juros · com multa · **com honorário** | 389 · 389 · **338** |
+| honorário que **ela** cobra | **R$ 6.601,57** |
+| honorário que o **sistema** tem | R$ 5.878,65 |
+| **diferença — o espelho quebrado** | **R$ 722,92** |
+| parcelas mostrando R$ 0,00 onde ela cobra | **12** |
+
+**O mecanismo, e ele OSCILA.** Separando as 93 com honorário dela pela data do último cálculo:
+
+| | quantas | último cálculo |
+|---|---:|---|
+| sistema bate com ela | 81 | **18/08** — a última importação |
+| sistema mostra zero | 12 | **07/08** — não tocadas desde então |
+
+1. a importação grava o honorário **dela** → certo;
+2. entre lotes, a hidratação ao vivo passa e, como o override diz "não cobrar", **zera**;
+3. o lote seguinte restaura.
+
+Nenhuma das 12 está congelada ou liquidada — são dívidas vivas.
+
+🔑 **O defeito do override não é o valor: é a DURAÇÃO.** Ele nasce certo (no dia em que a parcela é
+criada o honorário está mesmo dentro do valor negociado — R$ 71.073,07 medidos assim) e não sabe se
+desligar quando a parcela atrasa. É permanente sobre um fato temporário.
+
+⚠️ **Isto é ANTERIOR a esta fatia** — o override existe desde julho em `parcelaInput` e
+`obrigacaoInput`. A fatia só ia estendê-lo a mais casos.
+
+**O que foi feito:** a parte prospectiva saiu (§10.5 item 1). A correção das 135 **fica** — são
+parcelas fora do exigível, e a correção só ajusta a ficha delas.
+
+📌 **Fatia própria, e a pergunta dela é a regra primordial:** *o sistema grava o encargo que ela
+informa, sempre, em vez de decidir sozinho quando cobrar.* Isso implica repensar o override
+`taxa_honorarios_bp = 0` inteiro — e provavelmente resolve junto os dois significados da coluna
+(§10.5.1), porque some a necessidade de adivinhar.

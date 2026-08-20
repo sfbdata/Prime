@@ -280,166 +280,38 @@ final class ImportarAcordosDetalhadosTest extends KernelTestCase
     }
 
     /**
-     * Spec `cobranca-honorario-no-total.md` §10 — o override entra quando a obrigação VIRA PARCELA.
-     *
-     * A produção de 19/08 mostra a regra que o sistema já cumpre: 301 parcelas de acordo com o
-     * override e honorário R$ 0,00 (igual ao relatório dela) contra 135 sem, cobrando R$ 2.764,16 que
-     * ela não cobra. As 135 chegaram lá por ESTE ramo — ligadas ao acordo sem receber o override.
-     *
-     * ⚠️ A carteira NEUTRA da factory (taxas em zero) faria este teste passar sem o conserto. Por isso
-     * o cenário usa honorário de 20%, e a asserção de juros > 0 prova que a cascata está VIVA quando o
-     * honorário dá zero.
-     */
-    #[TestDox('Parcela SOLTA ligada ao acordo recebe o override: parcela não cobra honorário')]
-    public function testParcelaVinculadaRecebeOverrideDeHonorario(): void
-    {
-        $tenant = $this->criarTenant();
-        $user = $this->criarUser();
-        $carteiraId = $this->criarCarteira($tenant, [
-            'taxaJurosMensalBp' => 100,
-            'taxaMultaBp' => 200,
-            'formaHonorarios' => FormaHonorarios::AcrescidoDivida,
-            'percentualHonorarios' => '20.00',
-        ]);
-
-        // Nasce SOLTA, pela inadimplência, sem acordo — o estado das 135 antes de serem ligadas.
-        $this->semear($carteiraId, $tenant, $user, [
-            $this->boleto('61600', competencia: '07/2026', vencimento: '2026-07-15', valor: 19939),
-        ]);
-
-        $solta = $this->obrigacao($tenant, '61600');
-        self::assertNotNull($solta);
-        self::assertNull($solta->getTaxaHonorariosBp(), 'o cenário começa no estado defeituoso: sem override');
-
-        // A planilha de acordos declara que aquele boleto é parcela do acordo 37.
-        $leitura = new ResultadoLeituraAcordos([$this->acordoDaPlanilha(
-            numero: 37,
-            contas: [],
-            parcelas: [['61600', 1, 4, '07/2026', '2026-07-15', 19939]],
-        )], [], 0);
-
-        $feito = $this->importarAcordos->confirmar($carteiraId, $leitura, $tenant, $user);
-        self::assertSame(['61600'], $feito->parcelasVinculadas());
-
-        $this->em->clear();
-        $agora = $this->obrigacao($tenant, '61600');
-        self::assertNotNull($agora);
-        self::assertNotNull($agora->getAcordoOrigem(), 'virou parcela');
-        self::assertSame(0, $agora->getTaxaHonorariosBp(), 'o vínculo e o override andam juntos — sem isto nasce mais uma das 135');
-
-        // A CONSEQUÊNCIA, não só a coluna: o override tem de VENCER a cascata. A primeira asserção é o
-        // que impede o teste de ser tautológico — ela prova que, sem o override, a carteira cobraria
-        // 20% nesta obrigação.
-        $resolvedor = new ResolvedorConfigEncargos();
-        $caso = $agora->getCaso();
-        self::assertNotNull($caso);
-        $configCaso = $resolvedor->resolverDoCaso($caso);
-        self::assertSame(2000, $configCaso->taxaHonorariosBp, 'sem os 20% na cascata a carteira está neutra e o teste não prova nada');
-        self::assertSame(0, $resolvedor->aplicarObrigacao($configCaso, $agora)->taxaHonorariosBp, 'o override da obrigação tem de vencer os 20% da carteira');
-    }
-
-    /**
-     * 🔴 O teste que a 2ª revisão apontou como FALTANTE, e ele guarda dinheiro em dois lugares.
-     *
-     * Quando o valor do sistema NÃO é o Valor acordado dela, gravar `bp = 0` seria errado duas vezes:
-     * tiraria honorário de uma dívida cujo valor não o embute, e — pior — ligaria o sinal
-     * `$honorarioEmbutidoNoValorOriginal` de `ImportarReceitasUseCase`, que manda alocar o recebimento
-     * BRUTO. Aquele UseCase já cometeu e reverteu esse defeito uma vez; o guard não pode reintroduzi-lo
-     * por outra porta.
-     */
-    #[TestDox('Parcela vinculada com valor DIVERGENTE da planilha NÃO recebe o override')]
-    public function testParcelaVinculadaComValorDivergenteNaoRecebeOverride(): void
-    {
-        $tenant = $this->criarTenant();
-        $user = $this->criarUser();
-        $carteiraId = $this->criarCarteira($tenant, [
-            'taxaJurosMensalBp' => 100,
-            'taxaMultaBp' => 200,
-            'formaHonorarios' => FormaHonorarios::AcrescidoDivida,
-            'percentualHonorarios' => '20.00',
-        ]);
-
-        // A avulsa nasce com o principal da inadimplência — que NÃO é o valor negociado.
-        $this->semear($carteiraId, $tenant, $user, [
-            $this->boleto('61600', competencia: '07/2026', vencimento: '2026-07-15', valor: 15000),
-        ]);
-
-        // A planilha declara a parcela por outro valor: o sistema não tem o valor negociado dela.
-        $leitura = new ResultadoLeituraAcordos([$this->acordoDaPlanilha(
-            numero: 37,
-            contas: [],
-            parcelas: [['61600', 1, 4, '07/2026', '2026-07-15', 19939]],
-        )], [], 0);
-
-        $feito = $this->importarAcordos->confirmar($carteiraId, $leitura, $tenant, $user);
-
-        self::assertSame(['61600'], $feito->parcelasVinculadas(), 'o VÍNCULO entra de qualquer jeito — ele não depende do valor');
-        self::assertNotSame([], $feito->divergenciasDeValor(), 'a divergência tem de ser reportada ao humano');
-
-        $this->em->clear();
-        $agora = $this->obrigacao($tenant, '61600');
-        self::assertNotNull($agora);
-        self::assertNotNull($agora->getAcordoOrigem(), 'virou parcela');
-        self::assertNull(
-            $agora->getTaxaHonorariosBp(),
-            'sem o valor negociado, gravar bp=0 mandaria a importação de receitas alocar o BRUTO contra um valor que não embute o honorário',
-        );
-    }
-
-    /**
-     * 🔴 A METADE 2, que a 6ª revisão apontou sem prova nenhuma: trocar `pararDeCobrarHonorario()` por
-     * `setTaxaHonorariosBp(0)` deixava a suíte inteira verde. O cenário anterior não observava nada
-     * porque o boleto nascia com honorário ZERO — a metade 2 zerava zero.
-     *
-     * Sem ela a obrigação fica em `bp = 0` com honorário materializado sobrando, e a régua do comando
-     * de reconciliação (`taxaHonorariosBp IS NULL`) **nunca mais a alcança**.
-     */
-    #[TestDox('Parcela vinculada tem o honorário MATERIALIZADO zerado, não só a taxa')]
-    public function testParcelaVinculadaZeraOHonorarioJaMaterializado(): void
-    {
-        [$tenant, $user, $carteiraId, $solta] = $this->cenarioParcelaSoltaComHonorario();
-
-        self::assertGreaterThan(0, $solta->getHonorarios(), 'o cenário só discrimina se houver honorário materializado para zerar');
-
-        $this->importarAcordos->confirmar($carteiraId, $this->leituraParcela61600(), $tenant, $user);
-
-        $this->em->clear();
-        $agora = $this->obrigacao($tenant, '61600');
-        self::assertNotNull($agora);
-        self::assertSame(0, $agora->getTaxaHonorariosBp(), 'metade 1');
-        self::assertSame(0, $agora->getHonorarios(), 'metade 2 — sem ela a obrigação vira um estado que a reconciliação não alcança');
-    }
-
-    /**
-     * ⛔ INV-H1 no vinculador. Congelada é dívida QUITADA, e o snapshot dela é o valor pelo qual ela
-     * foi efetivamente paga — fato histórico. Apagá-lo deixaria `alocado > exigível` numa dívida paga,
-     * e `EncargosVivos` nunca re-hidrata congelada: ficaria assim para sempre.
-     */
-    #[TestDox('Parcela vinculada CONGELADA não tem o snapshot apagado, e a recusa é reportada')]
-    public function testParcelaVinculadaCongeladaPreservaOSnapshot(): void
-    {
-        [$tenant, $user, $carteiraId, $solta] = $this->cenarioParcelaSoltaComHonorario();
-        $honorarioAntes = $solta->getHonorarios();
-        $solta->congelarEncargos(new \DateTimeImmutable('2026-07-20'));
-        $this->em->flush();
-
-        $feito = $this->importarAcordos->confirmar($carteiraId, $this->leituraParcela61600(), $tenant, $user);
-
-        self::assertSame(['61600'], $feito->parcelasVinculadas(), 'o VÍNCULO entra — ele não depende dos encargos');
-        self::assertNotSame([], $feito->divergenciasDeValor(), 'a recusa tem de ser REPORTADA, não silenciada');
-
-        $this->em->clear();
-        $agora = $this->obrigacao($tenant, '61600');
-        self::assertNotNull($agora);
-        self::assertSame($honorarioAntes, $agora->getHonorarios(), 'o valor pelo qual a dívida foi paga é fato histórico');
-        self::assertNull($agora->getTaxaHonorariosBp(), 'nem a taxa: a recusa é das duas metades juntas');
-    }
-
-    /**
      * O contrapeso do teste acima, e ele guarda os R$ 102.126,32 que a primeira versão desta fatia
      * quase apagou: conta original reconstruída **não é parcela**. É a dívida VELHA que o acordo
      * engoliu, e nela a carteira cobra honorário — 3.473 assim em produção, todas de propósito.
      */
+    /**
+     * 🔴 O vínculo entra SOZINHO — medição de 19/08 que derrubou a versão anterior desta fatia.
+     *
+     * Gravar `taxaHonorariosBp = 0` ao vincular parecia certo ("o relatório de acordos não tem coluna
+     * de encargo"). Mas a parcela ATRASADA migra para o relatório de INADIMPLÊNCIA, que tem as colunas
+     * — e lá a contabilidade cobra: 114 parcelas atrasadas, R$ 6.601,57 nas três carteiras.
+     *
+     * O override é permanente; o fato é temporário. Gravá-lo põe o sistema a discordar do dado que ela
+     * mandou. Ver spec §10.8.
+     */
+    #[TestDox('Parcela SOLTA ligada ao acordo NÃO recebe override: parcela atrasada volta a cobrar')]
+    public function testParcelaVinculadaNaoRecebeOverrideDeHonorario(): void
+    {
+        [$tenant, $user, $carteiraId, $solta] = $this->cenarioParcelaSoltaComHonorario();
+        $honorarioAntes = $solta->getHonorarios();
+        self::assertGreaterThan(0, $honorarioAntes, 'o cenário só discrimina com honorário materializado');
+
+        $feito = $this->importarAcordos->confirmar($carteiraId, $this->leituraParcela61600(), $tenant, $user);
+        self::assertSame(['61600'], $feito->parcelasVinculadas(), 'o VÍNCULO entra — é ele que evita dívida dupla no rompimento');
+
+        $this->em->clear();
+        $agora = $this->obrigacao($tenant, '61600');
+        self::assertNotNull($agora);
+        self::assertNotNull($agora->getAcordoOrigem(), 'virou parcela');
+        self::assertNull($agora->getTaxaHonorariosBp(), 'o override é permanente e o fato é temporário — a parcela atrasada volta a cobrar honorário');
+        self::assertSame($honorarioAntes, $agora->getHonorarios(), 'o honorário que a contabilidade informou fica onde está');
+    }
+
     #[TestDox('Conta reconstruída NÃO recebe o override: dívida velha engolida cobra honorário normal')]
     public function testContaReconstruidaNaoRecebeOverride(): void
     {
