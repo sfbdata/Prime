@@ -141,33 +141,53 @@ Havia **5 sessões ativas** neste repositório durante o trabalho, e uma delas c
 
 ---
 
-## 11. 🔬 A LISTA DE SMOKE — é isto que precisa dos seus olhos
+## 11. 🔬 SMOKE — feito em 2026-08-19, a pedido do dono
 
-A suíte não enxerga tela. **13 pontos**, do mais importante para o menos:
+Rodado no navegador com o nginx apontado temporariamente para a worktree (restaurado ao final;
+`nginx.conf` idêntico ao original). **10 de 13 itens passaram. 3 defeitos achados e corrigidos.**
 
-1. 🔴 **Arrastar uma pasta pela alcinha e soltar EM CIMA de outra** → ela entra na outra. Dê **F5** e
-   confira que continua lá **e** que a ordem das irmãs ficou coerente. Repita 3× no mesmo par.
-   *(É o item nº 1 porque a spec descrevia esse gesto errado, e a correção da corrida entre dois
-   pedidos concorrentes não tem como ser testada automaticamente.)*
-2. 🔴 **Arrastar um arquivo do computador** para cima de um cartão de pasta, **depois** de já ter
-   arrastado alguma pasta na mesma visita → o arquivo sobe e **nenhuma pasta muda de lugar**.
-   *(Era um defeito real: a pasta se movia sozinha, em silêncio.)*
-3. **Apagar uma pasta que tem subpastas** → o aviso precisa **contar**: "contém 3 subpastas e 127
-   arquivos". Confira o singular também (1 subpasta, 1 arquivo) e uma pasta vazia.
-4. Criar pasta na raiz → aparece na raiz. Entrar nela e criar outra → aparece **dentro**.
-5. Descer 3 níveis → o caminho no topo mostra os 3, e cada degrau volta para o nível certo.
-6. Arrastar **pela alcinha** soltando **fora** de outro cartão → reordena, não move.
-7. Menu ⋮ → **"Mover para..."** → o destino mostra o caminho completo. Escolher a raiz devolve a
-   pasta ao topo.
-8. Tentar mover uma pasta para dentro da própria filha → recusa com mensagem.
-9. Buscar um arquivo 3 níveis abaixo → aparece, **e diz em que pasta está**.
-10. **Apagar uma pasta com filhas e continuar navegando sem F5** → os cartões das filhas somem, e a
-    busca não lista mais os arquivos delas.
-11. **Aba Peticionar** → os dois campos de seção mostram o caminho (`Financeiro › 2026 › Notas`), não
-    só o nome solto.
-12. **Tela de documentos de um caso de Cobrança** → continua funcionando com um nível só.
-13. Recarregar a página dentro de uma subpasta → volta para ela. *(Na primeira visita depois do
-    deploy pode cair na raiz uma vez — é esperado, o formato guardado mudou.)*
+### ✅ Provado no navegador
+
+- **Arrastar arquivo do computador sobre um cartão não move mais nada** — com o estado sujo forçado
+  de propósito, nenhuma pasta mudou de lugar. Era o defeito Crítico da Task 8.
+- **Recusa de ciclo pelo caminho do atacante** — o front esconde a opção; o POST forjado direto
+  devolveu **422** com a mensagem certa e **nada foi gravado**. A fronteira back/front está provada.
+- Criar na raiz e dentro · breadcrumb de 3 níveis com degraus clicáveis · mover pelo menu com a
+  ordem recalculada · busca com endereço em 33 de 33 resultados · excluir removendo a subárvore
+  inteira do DOM · reload restaurando aba e nível.
+- **Cobrança não regrediu**: criar pasta lá deu **zero erros de JS**, e sem o item "Mover".
+- Contagem recursiva correta no HTML (2 / 1 / 0 numa árvore de 3 níveis).
+
+### 📏 O N+1 foi MEDIDO (A/B contra o master, mesma pasta de 62 seções)
+
+| | master | frente |
+|---|---|---|
+| consultas | 132 | **194** (+62, uma por pasta) |
+| tempo de banco | 100,07 ms | **101,56 ms** (+1,5 ms) |
+
+Linear como previsto, custo desprezível. A adjudicação anterior estava certa — agora com número.
+
+### 🔴 Os 3 defeitos que só o smoke pegou (corrigidos)
+
+1. **O aviso de exclusão não dizia que ia excluir.** Saía *"A pasta X contém 2 subpastas. Esta ação
+   não pode ser desfeita."* — informava e alertava, sem nomear a ação. E a primeira correção trouxe
+   erro de concordância ("1 subpasta, que **serão excluídos**"). Texto final usa "Ao todo:", que é
+   invariante nas quatro combinações.
+2. **O seletor "Mover para..." listava nomes crus**, sem caminho — inconsistente com o Peticionar.
+   Com 62 pastas e 51% com prefixo numérico, ficaria ambíguo.
+3. **No Peticionar a mãe aparecia entre as filhas** — efeito da mudança de significado da coluna
+   `ordem`. O gerenciador **não** sofre (o filtro por nível preserva a ordem do grupo); corrigido
+   só onde a lista é achatada.
+
+### ⏳ O ÚNICO item que ainda precisa do dono
+
+**Arrastar uma pasta pela alcinha e soltar em cima de outra**, dar **F5**, e conferir que ela mudou
+de lugar **e** que a ordem das irmãs ficou coerente. Repetir 3× no mesmo par.
+
+*Por que este ficou de fora:* o `dragTo` do Playwright simula eventos de mouse e não dispara o
+arraste HTML5 nativo — ele **reordenou** as pastas mas não conseguiu movê-las para dentro. Exercitei
+os manipuladores disparando os eventos na mão (funcionaram, e o banco gravou), mas o gesto real, e a
+corrida entre o Sortable e o handler de drop, seguem sem prova. É limite da ferramenta, não do código.
 
 ## 12. ⚠️ Um aviso que vale mais que os outros
 
