@@ -8,9 +8,11 @@ use App\Entity\Auth\User;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaSecao;
+use App\Pasta\Repository\PastaSecaoRepository;
 use App\Pasta\UseCase\CriarPastaSecaoUseCase;
 use App\Pasta\UseCase\ExcluirPastaSecaoUseCase;
 use App\Pasta\UseCase\MoverDocumentoParaSecaoUseCase;
+use App\Pasta\UseCase\MoverPastaSecaoUseCase;
 use App\Pasta\UseCase\ReordenarDocumentosUseCase;
 use App\Pasta\UseCase\ReordenarSecoesUseCase;
 use App\Pasta\UseCase\RenomearPastaSecaoUseCase;
@@ -42,6 +44,8 @@ final class PastaSecaoController extends AbstractController
         private readonly MoverDocumentoParaSecaoUseCase $moverUseCase,
         private readonly ReordenarDocumentosUseCase $reordenarDocumentosUseCase,
         private readonly ReordenarSecoesUseCase $reordenarSecoesUseCase,
+        private readonly MoverPastaSecaoUseCase $moverPastaUseCase,
+        private readonly PastaSecaoRepository $secaoRepository,
     ) {
     }
 
@@ -61,21 +65,34 @@ final class PastaSecaoController extends AbstractController
             return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_BAD_REQUEST);
         }
 
-        $nome = trim((string) $request->request->get('nome', ''));
+        $nome  = trim((string) $request->request->get('nome', ''));
+        $paiId = (int) $request->request->get('paiId', 0);
+
+        $pai = null;
+        if ($paiId > 0) {
+            $pai = $this->secaoRepository->findByIdAndPastaAndTenant($paiId, $pasta, $tenant);
+            if ($pai === null) {
+                return $this->json(['erro' => 'Pasta de destino não encontrada.'], Response::HTTP_NOT_FOUND);
+            }
+        }
 
         try {
-            $secao = $this->criarUseCase->executar($pasta, $currentUser, $nome, $tenant);
+            $secao = $this->criarUseCase->executar($pasta, $currentUser, $nome, $tenant, $pai);
         } catch (\InvalidArgumentException $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+        } catch (AccessDeniedException $e) {
+            return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
         }
 
         return $this->json([
             'id'          => $secao->getId(),
             'nome'        => $secao->getNome(),
             'ordem'       => $secao->getOrdem(),
+            'paiId'       => $pai?->getId(),
             'csrfUpload'  => $this->csrfTokenManager->getToken('upload_documento_pasta_' . $pastaId)->getValue(),
             'csrfRenomear' => $this->csrfTokenManager->getToken('pasta_secao_renomear_' . $secao->getId())->getValue(),
             'csrfExcluir'  => $this->csrfTokenManager->getToken('pasta_secao_excluir_' . $secao->getId())->getValue(),
+            'csrfMover'    => $this->csrfTokenManager->getToken('pasta_secao_mover_' . $secao->getId())->getValue(),
         ], Response::HTTP_CREATED);
     }
 
@@ -134,12 +151,13 @@ final class PastaSecaoController extends AbstractController
             return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_BAD_REQUEST);
         }
 
-        foreach ($secao->getDocumentos() as $doc) {
-            $caminho = $this->storage->caminho($this->uploadsDir, $doc->getCaminhoArquivo());
-            if ($this->storage->existe($caminho)) {
-                $this->storage->excluir($caminho);
-            }
-        }
+        // Captura ANTES de excluir: depois da exclusão a árvore não existe mais para percorrer.
+        $conteudo = $this->secaoRepository->contarConteudoRecursivo($secao);
+
+        // A limpeza tem de percorrer a ÁRVORE, não só os documentos diretos: o cascade do banco
+        // apaga as linhas de toda a descendência, e sem isto os arquivos das filhas e netas ficam
+        // órfãos no disco. Antes das pastas aninhadas o loop raso bastava, porque não havia netas.
+        $this->limparArquivosDaArvore($secao);
 
         try {
             $this->excluirUseCase->executar($secao, $currentUser, $tenant);
@@ -147,7 +165,55 @@ final class PastaSecaoController extends AbstractController
             return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
         }
 
-        return $this->json(['ok' => true]);
+        return $this->json([
+            'ok'                 => true,
+            'subpastasRemovidas' => $conteudo['subpastas'],
+            'arquivosRemovidos'  => $conteudo['arquivos'],
+        ]);
+    }
+
+    #[Route('/secao/{secaoId}/mover', name: 'pasta_secao_mover', methods: ['POST'])]
+    public function mover(int $secaoId, Request $request): JsonResponse
+    {
+        /** @var User $currentUser */
+        $currentUser = $this->getUser();
+        $tenant      = $this->tenantContext->getCurrentTenant();
+
+        $secao = $this->em->find(PastaSecao::class, $secaoId);
+        if ($secao === null) {
+            return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
+        }
+
+        $pasta   = $secao->getPasta();
+        $pastaId = (int) $pasta?->getId();
+        if (!$this->permissionChecker->canAccessResource($currentUser, $tenant, 'pasta', $pastaId, 'edit')) {
+            return $this->json(['erro' => 'Sem permissão para editar esta pasta.'], Response::HTTP_FORBIDDEN);
+        }
+
+        if (!$this->isCsrfTokenValid('pasta_secao_mover_' . $secaoId, (string) $request->request->get('_token'))) {
+            return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $destinoId = (int) $request->request->get('destinoId', 0);
+        $destino   = null;
+        if ($destinoId > 0) {
+            // Busca escopada por pasta+tenant: é o guard IDOR. Um em->find() por id cru aceitaria
+            // o id de uma seção de outro escritório e só o UseCase pegaria.
+            $destino = $this->secaoRepository->findByIdAndPastaAndTenant($destinoId, $pasta, $tenant);
+            if ($destino === null) {
+                return $this->json(['erro' => 'Pasta de destino não encontrada.'], Response::HTTP_FORBIDDEN);
+            }
+        }
+
+        try {
+            $this->moverPastaUseCase->executar($secao, $destino, $currentUser, $tenant);
+        } catch (\InvalidArgumentException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+        } catch (AccessDeniedException $e) {
+            return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
+        }
+
+        return $this->json(['ok' => true, 'paiId' => $destino?->getId()]);
     }
 
     #[Route('/documento/{docId}/mover-secao', name: 'pasta_documento_mover_secao', methods: ['POST'])]
@@ -242,4 +308,18 @@ final class PastaSecaoController extends AbstractController
         return $this->json(['ok' => true]);
     }
 
+    /** Remove do disco os arquivos de $secao e de toda a descendência dela. */
+    private function limparArquivosDaArvore(PastaSecao $secao): void
+    {
+        foreach ($secao->getDocumentos() as $doc) {
+            $caminho = $this->storage->caminho($this->uploadsDir, $doc->getCaminhoArquivo());
+            if ($this->storage->existe($caminho)) {
+                $this->storage->excluir($caminho);
+            }
+        }
+
+        foreach ($secao->getFilhas() as $filha) {
+            $this->limparArquivosDaArvore($filha);
+        }
+    }
 }

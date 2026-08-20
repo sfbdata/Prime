@@ -179,6 +179,67 @@ final class PastaSecaoControllerTest extends JusPrimeWebTestCase
         self::assertGreaterThan(0, $data['id']);
     }
 
+    #[TestDox('criar aceita paiId e aninha a pasta')]
+    public function testCriarComPaiAninha(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $pai             = $this->criarSecao($pasta, $tenant);
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $client->request('POST', '/pasta/' . $pasta->getId() . '/secao', [
+            '_token' => $this->csrf('pasta_secao_criar_' . $pasta->getId()),
+            'nome'   => 'Filha',
+            'paiId'  => (string) $pai->getId(),
+        ]);
+
+        self::assertResponseStatusCodeSame(201);
+        $json = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertSame($pai->getId(), $json['paiId']);
+    }
+
+    #[TestDox('criar acima do 10º nível é recusado mesmo com a requisição forjada')]
+    public function testCriarAcimaDoTetoRecusadoPelaRota(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        // Cadeia de 10: a última fica no nível 10, então criar dentro dela daria 11.
+        $anterior = null;
+        for ($i = 0; $i < 10; ++$i) {
+            $s = new PastaSecao();
+            $s->setPasta($pasta);
+            $s->setTenant($tenant);
+            $s->setNome('N' . $i);
+            $s->setOrdem(1);
+            $s->setPai($anterior);
+            $em->persist($s);
+            $anterior = $s;
+        }
+        $em->flush();
+        $paiId = $anterior->getId();
+
+        // O teto mora SÓ no back — a tela nem sabe qual é o número. Mandamos direto.
+        $client->request('POST', '/pasta/' . $pasta->getId() . '/secao', [
+            '_token' => $this->csrf('pasta_secao_criar_' . $pasta->getId()),
+            'nome'   => 'Decima primeira',
+            'paiId'  => (string) $paiId,
+        ]);
+
+        self::assertResponseStatusCodeSame(422);
+
+        $em->clear();
+        $criadas = $em->getRepository(PastaSecao::class)->count(['pasta' => $pasta->getId()]);
+        self::assertSame(10, $criadas, 'nenhuma seção a mais foi gravada');
+    }
+
     // ── Renomear ───────────────────────────────────────────────────────────────
 
     #[TestDox('POST renomear seção com nome válido retorna 200')]
@@ -259,6 +320,126 @@ final class PastaSecaoControllerTest extends JusPrimeWebTestCase
         ]);
 
         self::assertResponseStatusCodeSame(400);
+    }
+
+    #[TestDox('excluir informa quanto conteúdo foi apagado junto')]
+    public function testExcluirDevolveAContagem(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $pai             = $this->criarSecao($pasta, $tenant);
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $em    = static::getContainer()->get(EntityManagerInterface::class);
+        $filha = new PastaSecao();
+        $filha->setPasta($pasta);
+        $filha->setTenant($tenant);
+        $filha->setNome('FILHA');
+        $filha->setOrdem(1);
+        $filha->setPai($pai);
+        $em->persist($filha);
+        $em->flush();
+
+        $client->request('POST', '/pasta/secao/' . $pai->getId() . '/excluir', [
+            '_token' => $this->csrf('pasta_secao_excluir_' . $pai->getId()),
+        ]);
+
+        self::assertResponseIsSuccessful();
+        $json = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertSame(1, $json['subpastasRemovidas']);
+    }
+
+    // ── Mover ──────────────────────────────────────────────────────────────────
+
+    #[TestDox('mover recusa destino de outro tenant')]
+    public function testMoverRecusaDestinoDeOutroTenant(): void
+    {
+        $client            = static::createClient();
+        [$user, $tenant]   = $this->criarUsuarioAdmin();
+        [, $outroTenant]   = $this->criarUsuarioAdmin();
+        $pasta      = $this->criarPasta($tenant);
+        $secao      = $this->criarSecao($pasta, $tenant);
+        $outraPasta = $this->criarPasta($outroTenant);
+        $alheia     = $this->criarSecao($outraPasta, $outroTenant);
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $client->request('POST', '/pasta/secao/' . $secao->getId() . '/mover', [
+            '_token'    => $this->csrf('pasta_secao_mover_' . $secao->getId()),
+            'destinoId' => (string) $alheia->getId(),
+        ]);
+
+        self::assertResponseStatusCodeSame(403);
+    }
+
+    #[TestDox('mover sem destinoId devolve a pasta para a raiz')]
+    public function testMoverParaRaiz(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $pai             = $this->criarSecao($pasta, $tenant);
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $em     = static::getContainer()->get(EntityManagerInterface::class);
+        $filha  = new PastaSecao();
+        $filha->setPasta($pasta);
+        $filha->setTenant($tenant);
+        $filha->setNome('FILHA');
+        $filha->setOrdem(1);
+        $filha->setPai($pai);
+        $em->persist($filha);
+        $em->flush();
+
+        $client->request('POST', '/pasta/secao/' . $filha->getId() . '/mover', [
+            '_token'    => $this->csrf('pasta_secao_mover_' . $filha->getId()),
+            'destinoId' => '',
+        ]);
+
+        self::assertResponseIsSuccessful();
+        $em->refresh($filha);
+        self::assertNull($filha->getPai());
+    }
+
+    #[TestDox('mover para dentro da própria filha é recusado mesmo com a requisição forjada')]
+    public function testMoverParaDescendenteRecusadoPelaRota(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $em  = static::getContainer()->get(EntityManagerInterface::class);
+        $mae = $this->criarSecao($pasta, $tenant);
+
+        $filha = new PastaSecao();
+        $filha->setPasta($pasta);
+        $filha->setTenant($tenant);
+        $filha->setNome('FILHA');
+        $filha->setOrdem(1);
+        $filha->setPai($mae);
+        $em->persist($filha);
+        $em->flush();
+
+        // A tela esconderia a filha da lista de destinos. Aqui mandamos direto, como faria
+        // qualquer pessoa com o DevTools aberto — o back tem de recusar sozinho.
+        $client->request('POST', '/pasta/secao/' . $mae->getId() . '/mover', [
+            '_token'    => $this->csrf('pasta_secao_mover_' . $mae->getId()),
+            'destinoId' => (string) $filha->getId(),
+        ]);
+
+        self::assertResponseStatusCodeSame(422);
+
+        $maeId = $mae->getId();
+        $em->clear();
+        self::assertNull(
+            $em->find(PastaSecao::class, $maeId)->getPai(),
+            'a mãe continua na raiz — a recusa não pode ter gravado nada',
+        );
     }
 
     // ── Reordenar seções ─────────────────────────────────────────────────────────
