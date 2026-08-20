@@ -311,12 +311,41 @@ Esta frente **tem migration**, e a regra é **uma frente com migration por vez**
 | Unit | Cascade: apagar a mãe apaga filhas, netas e os documentos de toda a árvore |
 | Functional | Criar/mover/excluir via controller, com CSRF |
 | **Cross-tenant** | Mover pasta para destino de OUTRO tenant → `AccessDeniedException` |
+| **Requisição forjada** | POST direto para mover uma pasta para dentro da própria filha → **422**, e nada gravado |
+| **Requisição forjada** | POST direto para criar acima do 10º nível → **422**, e nenhuma seção a mais no banco |
 | Regressão | O sync continua enviando ao Drive achatado, sem erro, com árvore de 3 níveis no sistema |
 
 **Provar por reintrodução** (`feedback_provar_teste_reintroduzindo_defeito`): cada guard só conta como
 provado se, removido o guard, o teste correspondente ficar vermelho.
 
-### 10.4 O que a suíte NÃO prova
+### 10.4 Fronteira back-end × front-end
+
+**Nenhuma regra desta frente existe só no front.** A divisão é:
+
+| Decisão | Onde vive | O front participa? |
+|---|---|---|
+| Tenant da seção e do destino | `MoverPastaSecaoUseCase` / `CriarPastaSecaoUseCase` | ❌ nunca |
+| Permissão de editar a pasta | `canAccessResource` no controller | ❌ nunca |
+| CSRF | `isCsrfTokenValid` no controller | só transporta o token |
+| Teto de 10 níveis | os dois UseCases | ❌ **nem sabe o número** |
+| Destino na mesma pasta | os dois UseCases | ❌ nunca |
+| Nome vazio / > 255 | `CriarPastaSecaoUseCase` | ❌ nunca |
+| Isolamento no banco | `TenantFilter` (PastaSecao é `TenantAware`) | — |
+| **Ciclo** | `MoverPastaSecaoUseCase` | ⚠️ **duplicado como aviso** |
+
+O ciclo é a **única** regra duplicada no JavaScript, e só para dois fins de conforto: tirar destinos
+inválidos do seletor "Mover para...", e avisar antes de enviar quando o alvo do arraste é impossível.
+
+Essa duplicação é legítima porque o back **recalcula do zero, com dados do banco, e nunca pergunta ao
+front o que ele concluiu**. Apagar o JavaScript, forjar a requisição ou mandar `destinoId` na mão dá
+no mesmo: o UseCase recusa. Os dois testes `...RecusadoPelaRota` da §10.3 existem exatamente para
+provar isso pelo caminho que um atacante usaria — sem eles, o guard de ciclo e o teto só estariam
+provados contra objetos em memória.
+
+**Regra para as tarefas restantes:** qualquer validação nova que o JavaScript ganhar precisa ter a
+mesma regra no back **antes** de aparecer na tela. O front pode esconder e avisar; recusar é do back.
+
+### 10.5 O que a suíte NÃO prova
 
 Aparência e arranjo da tela. A regra da casa é explícita: 3.459 testes já passaram com layout
 visivelmente quebrado. **O smoke no navegador é do dono** — a entrega vem com a lista do que precisa
