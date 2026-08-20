@@ -92,7 +92,7 @@ final class PoliticaPrivacidadeControllerTest extends JusPrimeWebTestCase
         // O que ele NÃO consegue fazer, e é honesto dizer: nenhum teste sabe o dia do deploy.
         // Se a frente for publicada semanas depois, a data continuará desatualizada sem quebrar
         // nada. Por isso trocá-la é item da lista de deploy, não só deste arquivo.
-        self::assertSame('2026-08-19', PoliticaPrivacidadeVigente::DATA_PUBLICACAO);
+        self::assertSame('2026-08-20', PoliticaPrivacidadeVigente::DATA_PUBLICACAO);
 
         // Uma política não entra em vigor no futuro: "Vigência: a partir da publicação".
         self::assertLessThanOrEqual(
