@@ -126,6 +126,33 @@ final class PoliticaPrivacidadeControllerTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString('inteligência artificial', $tabela);
     }
 
+    #[TestDox('A Política não promete o que o sistema ainda não faz')]
+    public function testNaoPrometeFuncionalidadeInexistente(): void
+    {
+        $client = static::createClient();
+        $client->request('GET', self::ROTA);
+
+        $html = (string) $client->getResponse()->getContent();
+
+        // Duas afirmações do documento original foram medidas como falsas no código e ajustadas
+        // por decisão do dono (20/08). Este teste existe para elas não voltarem em silêncio —
+        // uma reimportação do .docx as traria de volta, e ninguém notaria numa página de 16
+        // páginas. Promessa falsa ao titular de dados é irreversível depois de publicada.
+        //
+        // 1) 2FA: não existe no sistema (zero ocorrências de 2fa/totp/scheb em app/src).
+        self::assertStringNotContainsString('duplo fator', $html);
+        self::assertStringNotContainsString('dupla autenticação', $html);
+
+        // 2) Arquivos criptografados: ArquivoStorageService grava o upload em claro.
+        self::assertStringNotContainsString('arquivos criptografados', $html);
+
+        // O que continua verdadeiro e deve permanecer: a senha é guardada com hash.
+        self::assertStringContainsString('senha em formato criptografado', $html);
+
+        // Ao implementar 2FA ou criptografia dos arquivos: devolver as palavras ao texto,
+        // apagar as asserções negativas acima e subir a versão para 1.1.
+    }
+
     #[TestDox('A página é pública mas não indexável — decisão do dono')]
     public function testPaginaNaoEIndexavel(): void
     {

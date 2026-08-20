@@ -66,6 +66,28 @@ documento não existia. Fora do login, a Política não era citada em lugar nenh
 - **`getClientIp()` devolve o IP do nginx** enquanto `SYMFONY_TRUSTED_PROXIES` não for confirmado
   na VPS: o limitador tem uma chave só para todos. Daí o limite folgado.
 
+## Três frases ajustadas porque o sistema não fazia o que prometiam (20/08)
+
+Medidas no código, ajustadas com autorização do dono. O `.docx` do advogado **não** foi alterado —
+a divergência existe só no texto publicado, e some quando as features existirem.
+
+| Onde | Dizia | Passou a dizer | Prova |
+|---|---|---|---|
+| cap. 2 | "sendo os arquivos criptografados" | "protegidos por controle de acesso individualizado" | `ArquivoStorageService` grava o upload em claro (`$arquivo->move()`); a única criptografia do repositório cifra o token do Drive |
+| cap. 5 | "…fatores de dupla autenticação e tokens de sessão" | "…e tokens de sessão" | zero ocorrências de `2fa\|totp\|scheb` em `app/src`, `app/config`, `composer.json` |
+| cap. 15 | "com suporte a duplo fator e política de complexidade de senha" | "com política de complexidade de senha" | idem. A política de senha **existe** (mín. 8 caracteres) e ficou |
+
+`testNaoPrometeFuncionalidadeInexistente` trava as três — uma reimportação do `.docx` as traria de
+volta em silêncio. Provado devolvendo a frase e vendo o teste ficar vermelho.
+
+**Duas pendências de produto nascem daqui:** implementar **2FA** e **criptografia dos arquivos em
+repouso**. Quando existirem: devolver as palavras ao texto, apagar as asserções negativas do teste
+e subir para 1.1.
+
+**Não ajustado, por não ter como medir:** o cap. 15 também diz "Criptografia de dados em trânsito
+e em repouso". Em trânsito é verdade (HTTPS). Em repouso depende do disco da VPS, fora do alcance
+daqui — não afirmo nem nego. Fica para o dono conferir com a Hostinger.
+
 ## Pendente de decisão jurídica (não bloqueia o código)
 
 O **capítulo 13** ainda enumera "processamento de pagamento" e "assinatura eletrônica" como

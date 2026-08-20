@@ -13,6 +13,15 @@
      · o Anexo III ficou só com a linha da versão inicial;
      · a "Nota de revisão" final saiu — era recado do advogado ao cliente.
 
+   E três frases foram ajustadas porque o sistema NÃO fazia o que elas prometiam (medido no
+   código, decisão do dono em 20/08). O `.docx` continua como veio do advogado; a divergência
+   é só aqui, e some quando as features existirem:
+     · cap. 2: "sendo os arquivos criptografados" → "protegidos por controle de acesso
+       individualizado". O upload é gravado em claro por ArquivoStorageService;
+     · cap. 5 e cap. 15: saiu a menção a duplo fator / dupla autenticação. Não há 2FA no
+       sistema (zero ocorrências de 2fa/totp/scheb em app/src e app/config).
+   Ao implementar criptografia em repouso ou 2FA, devolver as palavras e subir para 1.1.
+
    Recebe: `versao` (string) e `data_publicacao` (string já formatada dd/mm/aaaa). #}
 <header class="pp-cabecalho">
     <p class="pp-selo">Documento jurídico da plataforma</p>
@@ -89,7 +98,7 @@
         <table class="pp-tabela">
             <thead><tr><th scope="col">Pergunta</th><th scope="col">Resposta objetiva</th></tr></thead>
             <tbody>
-                <tr><td><strong>A BlueJus lê meus documentos?</strong></td><td>Não. O conteúdo armazenado pelo usuário não é acessado, em nenhuma hipótese, sendo os arquivos criptografados.</td></tr>
+                <tr><td><strong>A BlueJus lê meus documentos?</strong></td><td>Não. O conteúdo armazenado pelo usuário não é acessado, em nenhuma hipótese, sendo os arquivos protegidos por controle de acesso individualizado.</td></tr>
                 <tr><td><strong>Meus dados treinam inteligência artificial?</strong></td><td>Não. O conteúdo do usuário não é utilizado para treinamento de modelos, salvo permissão de integração expressa do usuário.</td></tr>
                 <tr><td><strong>A BlueJus vende meus dados?</strong></td><td>Não. Não há comercialização, licenciamento ou exploração econômica dos dados dos usuários.</td></tr>
                 <tr><td><strong>Quem é o responsável pelos dados dos meus clientes?</strong></td><td>O usuário contratante, na qualidade de Controlador. A BlueJus atua como Operadora.</td></tr>
@@ -130,7 +139,7 @@
             <thead><tr><th scope="col">Categoria</th><th scope="col">Exemplos de dados</th><th scope="col">Origem</th></tr></thead>
             <tbody>
                 <tr><td><strong>Cadastrais</strong></td><td>Nome, documento de identificação, número de inscrição na Ordem dos Advogados do Brasil, endereço eletrônico, telefone, cargo e vínculo com a organização contratante</td><td>Fornecidos pelo titular ou pelo Usuário Controlador</td></tr>
-                <tr><td><strong>De autenticação</strong></td><td>Credenciais de acesso, senha em formato criptografado, fatores de dupla autenticação e tokens de sessão</td><td>Gerados na utilização</td></tr>
+                <tr><td><strong>De autenticação</strong></td><td>Credenciais de acesso, senha em formato criptografado e tokens de sessão</td><td>Gerados na utilização</td></tr>
                 <tr><td><strong>De faturamento</strong></td><td>Razão social, inscrição no CNPJ ou no CPF, endereço fiscal, plano contratado, histórico de pagamentos e dados de cobrança</td><td>Fornecidos pelo contratante</td></tr>
                 <tr><td><strong>De utilização</strong></td><td>Registros de acesso, endereço IP, data e hora, funcionalidades acessadas, identificador do dispositivo, navegador e sistema operacional</td><td>Coletados automaticamente</td></tr>
                 <tr><td><strong>De suporte</strong></td><td>Conteúdo de solicitações, protocolos de atendimento e histórico de interações com a equipe</td><td>Fornecidos pelo titular</td></tr>
@@ -253,7 +262,7 @@
     <p>A BLUEJUS adota medidas técnicas, administrativas e organizacionais compatíveis com o estado da técnica e com os padrões de mercado, entre as quais:</p>
     <ul class="pp-lista">
         <li>Criptografia de dados em trânsito e em repouso.</li>
-        <li>Autenticação segura, com suporte a duplo fator e política de complexidade de senha.</li>
+        <li>Autenticação segura, com política de complexidade de senha.</li>
         <li>Controle de acesso por perfil, com aplicação do princípio do menor privilégio.</li>
         <li>Registro de logs de acesso, de alteração e de exclusão, com trilha de auditoria.</li>
         <li>Segregação lógica entre ambientes de contratantes distintos e entre produção, homologação e desenvolvimento.</li>
