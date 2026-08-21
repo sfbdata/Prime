@@ -1,7 +1,16 @@
 # HANDOFF — Pastas aninhadas no gerenciador de arquivos
 
-**ENTREGA 1 COMPLETA em 2026-08-19 — aguardando o smoke do dono.** Frente `pasta-subpastas-aninhadas`,
-worktree própria, **nada publicado**. 18 commits, **3927/3927 verde**, worktree limpa.
+# ✅ ENTREGA 1 — EM PRODUÇÃO desde 2026-08-21. FRENTE FECHADA.
+
+Publicada e deployada. Verificado no banco de prod (não pelo log): coluna `secao_pai_id` existe,
+migration registrada, **623 pastas intactas na raiz**, **12.611 documentos na raiz preservados**.
+Suíte 3976/3976 no master.
+
+👉 **A Entrega 2 tem handoff próprio: `docs/HANDOFF_PASTAS_ANINHADAS_E2.md`** — comece por lá, não
+por este arquivo. Este aqui é histórico da Entrega 1.
+
+🔴 **Arrastar pasta para dentro de outra NÃO EXISTE** (removido em 21/08, decisão do dono após o
+smoke reprovar). Só o menu "Mover para..." move. Ver §7.3 da spec.
 
 **Para retomar, leia nesta ordem:**
 
