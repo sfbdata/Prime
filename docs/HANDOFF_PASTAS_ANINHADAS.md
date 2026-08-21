@@ -179,15 +179,21 @@ Linear como previsto, custo desprezível. A adjudicação anterior estava certa 
    `ordem`. O gerenciador **não** sofre (o filtro por nível preserva a ordem do grupo); corrigido
    só onde a lista é achatada.
 
-### ⏳ O ÚNICO item que ainda precisa do dono
+### ✅ O último item foi verificado pelo dono em 21/08 — e reprovou
 
-**Arrastar uma pasta pela alcinha e soltar em cima de outra**, dar **F5**, e conferir que ela mudou
-de lugar **e** que a ordem das irmãs ficou coerente. Repetir 3× no mesmo par.
+Ele testou e relatou: *"não entrou, só mudou a ordem"*. Diagnostiquei no navegador com instrumentação
+e a causa é **estrutural, não um bug**:
 
-*Por que este ficou de fora:* o `dragTo` do Playwright simula eventos de mouse e não dispara o
-arraste HTML5 nativo — ele **reordenou** as pastas mas não conseguiu movê-las para dentro. Exercitei
-os manipuladores disparando os eventos na mão (funcionaram, e o banco gravou), mas o gesto real, e a
-corrida entre o Sortable e o handler de drop, seguem sem prova. É limite da ferramenta, não do código.
+O SortableJS reposiciona o cartão arrastado **sob o cursor** enquanto ele se move. Ao soltar "em cima"
+de outro cartão, quem está ali é o próprio arrastado — o código pergunta "qual pasta está embaixo?" e
+recebe ela mesma, então a trava de "não mover para dentro de si mesma" dispara. Log medido:
+`drop → o próprio arrastado`, e **zero eventos de `dragover`** (o Sortable consome todos).
+
+**Decisão do dono (21/08): ficar só com o menu "Mover para...".** O código do arrastar-para-dentro foi
+removido (commit `388e13a6`) — estava lá e nunca disparava. A spec §7.3 e a decisão D6 foram corrigidas.
+
+Se o gesto do Drive for importante um dia, a saída é a solução canônica do SortableJS (listas aninhadas
+de verdade) — **reconstruir o gerenciador**, frente própria.
 
 ## 12. ⚠️ Um aviso que vale mais que os outros
 

@@ -61,7 +61,7 @@ cada) é de **~200/mês** (junho: 122; agosto até o dia 19: 241). É o que dime
 | D3 | Apagar pasta com conteúdo **apaga a árvore**, com aviso que **conta** o que vai sumir | Mantém o modelo mental de hoje e o do Drive |
 | D4 | Modelo por **auto-referência**, com teto de **10 níveis** | Migration aditiva; teto é guarda-corpo, não regra de produto |
 | D5 | **Entrega 1 = só o sistema.** Drive fica para a Entrega 2 | O pessoal organiza já; o Drive segue achatado como hoje |
-| D6 | Mover pasta: **arrastar E menu**, os dois | Conflito de gesto resolvido pela alça (§7.3) |
+| D6 | ~~Mover pasta: arrastar E menu~~ → **REVISTA em 21/08: só o menu** | O arrastar-para-dentro é incompatível com o Sortable (§7.3); o gesto da alça fica só para reordenar |
 
 **Decisão técnica do orquestrador, registrada por ser contra-intuitiva:** **não** há unicidade de nome
 entre irmãs. O Drive permite, e como o destino é espelhar (D1), proibir aqui criaria um estado do
@@ -196,27 +196,49 @@ A tela **já é** um gerenciador de arquivos. É extensão, não redesenho.
 | Excluir | Aviso genérico | Aviso que **conta**: *"contém 3 subpastas e 127 arquivos"* (D3) |
 | Busca | Varre a pasta inteira | Igual, e passa a **mostrar em que pasta** cada resultado está |
 
-🔴 **CORREÇÃO (revisão final da branch): o parágrafo abaixo, como eu o escrevi originalmente, estava
-ERRADO.** Eu afirmei que "o conflito dos dois gestos não existe porque o Sortable tem `handle`". A
-premissa é falsa: o `handle` faz o Sortable tornar o cartão arrastável **somente a partir da alça** —
-arrastar pelo corpo não inicia arraste nenhum. Portanto **não existe o gesto "arrastar pelo corpo"**,
-e o gesto da alça dispara os **dois** caminhos.
+🔴 **HISTÓRICO DESTA SEÇÃO — ela errou duas vezes, e a segunda só o navegador pegou.**
 
-O que ficou implementado, e é o que vale:
+*Primeira versão (minha):* afirmei que "o conflito dos dois gestos não existe, porque o Sortable tem
+`handle`". Falso — o `handle` faz o Sortable só **iniciar** o arraste pela alça; arrastar pelo corpo
+não inicia nada, então não existia o gesto "arrastar pelo corpo para mover".
 
-- arrastar **pela alça** → é o único gesto de arraste que existe. Solto **fora** de outro cartão,
-  reordena entre irmãs; solto **em cima** de outro cartão, move para dentro dele;
-- **os dois caminhos disparavam POSTs concorrentes** (`/mover` grava `pai` *e* `ordem`; `/reordenar`
-  grava a ordem do DOM), deixando a `ordem` final indeterminada. Corrigido com uma variável de
-  controle: o `drop` que move marca, e o `onEnd` do Sortable pula a persistência da reordenação;
-- menu de três pontinhos → **"Mover para..."**, com lista de destinos mostrando o caminho completo
-  (funciona no celular e no teclado, e é o caminho recomendado quando há pastas homônimas).
+*Segunda versão:* descrevi que o gesto da alça faria as duas coisas (reordenar ao soltar entre
+cartões, mover ao soltar em cima de um), com uma trava para os dois POSTs não correrem juntos.
+**Também falso**, e o smoke de 21/08 provou: o dono relatou *"não entrou, só mudou a ordem"*.
 
-⚠️ **Isto é o item mais importante do smoke**: soltar uma pasta em cima de outra pela alça, e conferir
-depois de um F5 que a pasta mudou de lugar **e** que a ordem das irmãs ficou coerente.
+**A causa, medida com instrumentação no navegador (21/08):**
 
-O seletor de destino reusa o padrão de modal-com-Promise que o arquivo já tem em `pedirTexto()`
-(`pasta-arquivos.js:358`), com `<select>` no lugar do campo de texto — não `prompt()` nativo.
+O SortableJS assume o arraste e **reposiciona o cartão arrastado sob o cursor** enquanto ele se move —
+é isso que reordenar significa. Quando o usuário solta "em cima" de outro cartão, quem está fisicamente
+ali é **o próprio cartão arrastado**. O `e.target.closest('.fm-pasta')` devolve ele mesmo, a guarda
+`alvo === arrastando` dispara, e nada acontece. O log capturado:
+
+```
+dragstart → MOVEL
+drop      → MOVEL   (o próprio arrastado, não o alvo)
+dragend   → MOVEL
+        ... e ZERO eventos de dragover — o Sortable consome todos
+```
+
+Não é bug de implementação: enquanto o Sortable estiver ativo, **"soltar em cima" e "soltar entre" são
+o mesmo gesto**, separados por poucos pixels. Ambíguo até para quem usa.
+
+## 🔄 O QUE VALE HOJE (decisão do dono, 21/08): só o menu
+
+A decisão **D6** (arrastar **e** menu) foi revista pelo dono depois do diagnóstico:
+
+- **arrastar pela alça** → **reordena entre irmãs**, e só isso. É o que a tela sempre fez;
+- **menu de três pontinhos → "Mover para..."** → **o único caminho para mover uma pasta para dentro
+  de outra**. Mostra o caminho completo do destino (`FINANCEIRO › 2026`), funciona no celular e no
+  teclado, e está provado no navegador.
+
+O código do arrastar-para-dentro **foi removido** — estava lá e nunca disparava, o que é pior que não
+existir, porque engana quem lê. No lugar ficou um comentário com a causa, para ninguém reimplementar
+e cair no mesmo beco.
+
+**Se o gesto do Drive for importante um dia**, a saída é a solução canônica do SortableJS: listas
+aninhadas de verdade (cada pasta vira um contêiner que aceita outras, com `group` compartilhado).
+Isso é **reconstruir o gerenciador**, não ajustar — frente própria.
 
 **Não muda a estratégia de carga:** as ≤62 seções e os documentos já vêm todos no HTML e o filtro é no
 navegador. Continua assim.
