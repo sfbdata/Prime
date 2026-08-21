@@ -42,7 +42,11 @@ MARCAS_DE_REVOGACAO = [
     r"Aqui (havia|saíam|estava)", r"aqui (havia|saíam|estava)",
     r"terminava assim", r"justificativa escrita era",
     r"Uma redação anterior", r"uma redação anterior",
-    r"ENTRAM no", r"AFETAM o saldo", r"DENTRO do valor exigível",
+    r"ENTRAM no", r"ENTRA no exigível", r"AFETAM o saldo", r"DENTRO do valor exigível",
+    # Formas específicas de dizer "revogada" que apareceram na varredura. Mantenha-as ESPECÍFICAS: um
+    # marcador largo (só "caiu", por exemplo) silenciaria afirmações falsas por acidente, e o script
+    # passaria a dar falso negativo — o defeito que ele existe para não ter.
+    r"INV-E2 caiu", r"INV-E2 foi revogada",
 ]
 
 # O HOMÔNIMO: INV-E2 nestes arquivos quer dizer "não implementa Auditavel".
@@ -53,22 +57,33 @@ HOMONIMOS = {
 }
 
 # ⛔ OS QUE DEVEM FICAR. Comentário VERDADEIRO sobre código que continua ERRADO: os lugares que somam o
-# exigível à mão, sem honorário. Corrigir o texto esconderia o defeito — ver spec §7.1 e handoff §7.2.
+# exigível à mão, sem honorário. Corrigir o texto esconderia o defeito — ver spec §7.1 e, no master,
+# handoff §7.2 (o handoff é doc de coordenação e vive só no master; de dentro de uma frente ele parece
+# desatualizado, e isso é esperado).
+#
+# 🔑 ÂNCORA POR CONTEÚDO, NUNCA POR NÚMERO DE LINHA. A 1ª versão deste script ancorava por linha, e a 10ª
+# revisão provou a armadilha: UMA linha inserida acima desloca as âncoras, e o script passa a acusar os
+# honestos como "falsos restantes" — a saída empurra a próxima sessão a apagar exatamente o que ele
+# existe para preservar.
 HONESTOS = {
-    ("app/src/Cobranca/UseCase/EditarObrigacaoUseCase.php", 138):
-        "cópia à mão nº1 — decide se dívida liquidada REABRE",
-    ("app/src/Cobranca/UseCase/EditarObrigacaoUseCase.php", 198):
-        "cópia à mão nº2 — guard ValorAbaixoDoAlocado",
-    ("app/src/Cobranca/Repository/ObrigacaoRepository.php", 211):
-        "cópia nº3, em DQL — having da régua pagasMasNaoLiquidadas",
+    "honorários fora, INV-E2). ⚠️ A frase descreve o código":
+        "EditarObrigacaoUseCase — cópia à mão nº2, o guard ValorAbaixoDoAlocado",
+    "honorários ficam de fora (INV-E2)":
+        "ObrigacaoRepository — cópia nº3, em DQL: having da régua pagasMasNaoLiquidadas",
 }
+
+# 📌 A cópia nº1 (`EditarObrigacaoUseCase`, decide se dívida liquidada REABRE) NÃO entra aqui: até a 10ª
+# revisão ela não tinha comentário nenhum — a de maior consequência era a única sem pista. O comentário
+# que ganhou ali já nomeia a INV-E2 como revogada, então é o caso 3 da spec §7.1 (corrigir E registrar o
+# defeito), não o caso 2, e a varredura o trata como texto correto.
 
 JANELA = 6
 
 
-def varrer() -> tuple[list[str], list[str]]:
+def varrer() -> tuple[list[str], list[str], set[str]]:
     falsos: list[str] = []
     honestos_vistos: list[str] = []
+    vistos: set[str] = set()
     regex = re.compile("|".join(PADROES))
     revogacao = re.compile("|".join(MARCAS_DE_REVOGACAO))
 
@@ -90,8 +105,11 @@ def varrer() -> tuple[list[str], list[str]]:
             if not regex.search(linha):
                 continue
 
-            if (rel, i) in HONESTOS:
-                honestos_vistos.append(f"{rel}:{i} — {HONESTOS[(rel, i)]}")
+            ancora = next((a for a in HONESTOS if a in linha), None)
+
+            if ancora is not None:
+                honestos_vistos.append(f"{rel}:{i} — {HONESTOS[ancora]}")
+                vistos.add(ancora)
                 continue
 
             bloco = "\n".join(linhas[max(0, i - 1 - JANELA):i + JANELA])
@@ -101,11 +119,11 @@ def varrer() -> tuple[list[str], list[str]]:
 
             falsos.append(f"{rel}:{i} :: {linha.strip()[:110]}")
 
-    return falsos, honestos_vistos
+    return falsos, honestos_vistos, vistos
 
 
 def main() -> int:
-    falsos, honestos = varrer()
+    falsos, honestos, vistos = varrer()
 
     print("=" * 78)
     print(f"falsos restantes: {len(falsos) if falsos else 'zero'}")
@@ -120,15 +138,17 @@ def main() -> int:
     for h in honestos:
         print("  ⛔", h)
 
-    faltando = len(HONESTOS) - len(honestos)
+    sumidos = sorted(set(HONESTOS) - vistos)
 
-    if faltando:
+    if sumidos:
         print()
-        print(f"  ⚠️  {faltando} honesto(s) esperado(s) NÃO foram encontrados na linha registrada.")
-        print("      Ou o defeito foi corrigido (então atualize HONESTOS e a spec §7.1),")
+        print(f"  ⚠️  {len(sumidos)} honesto(s) esperado(s) NÃO foram encontrados:")
+        for a in sumidos:
+            print(f"        {HONESTOS[a]}")
+        print("      Ou o defeito do CÓDIGO foi corrigido (então atualize HONESTOS e a spec §7.1),")
         print("      ou o comentário foi apagado — que é justamente o que este script existe para pegar.")
 
-    return 1 if falsos or faltando else 0
+    return 1 if falsos or sumidos else 0
 
 
 if __name__ == "__main__":

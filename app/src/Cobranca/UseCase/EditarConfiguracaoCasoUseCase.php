@@ -113,7 +113,9 @@ final class EditarConfiguracaoCasoUseCase
                 $dias,
             );
 
-            // Grava mantendo juros/multa/correção INTACTOS (o exigível não se move); só o honorário muda.
+            // Grava mantendo juros/multa/correção INTACTOS; só o honorário muda. ⚠️ Aqui dizia "(o
+            // exigível não se move)" — falso desde que a INV-E2 caiu: o honorário ENTRA no exigível,
+            // logo mexer nele MOVE o exigível. É o defeito descrito no topo da classe.
             // Não congela: a obrigação segue Viva e a leitura recalcula ao vivo (este recálculo só mantém
             // o cache do honorário coerente de imediato).
             $obrigacao->definirEncargos(
@@ -146,7 +148,8 @@ final class EditarConfiguracaoCasoUseCase
                 'baseDepois' => $caso->getBaseHonorarios()?->value,
                 'carenciaAntes' => $carenciaAntes,
                 'carenciaDepois' => $caso->getCarenciaHonorariosDias(),
-                // Só o honorário destas foi recalculado; o exigível (juros/multa/correção) não se moveu.
+                // Só o honorário destas foi recalculado — mas o exigível MUDOU junto, porque o
+                // honorário está dentro dele desde que a INV-E2 caiu (ver o topo da classe).
                 'obrigacoesComHonorarioRecalculado' => $recalculadas,
             ],
         );

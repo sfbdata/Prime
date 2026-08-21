@@ -190,11 +190,15 @@
                 <span>O que é</span>
                 {# "Total" aparece DUAS vezes nesta tela com sentidos diferentes: aqui é o total BRUTO
                    do relatório (com honorários, sem abater o que já foi recebido), e no cabeçalho do
-                   objeto é o "Total em aberto" — o saldo exigível, já descontados pagamentos e
-                   liquidações e SEM honorários. Somar esta coluna e comparar com o cabeçalho não fecha,
-                   por dois motivos, e sem esta explicação quem confere conclui que há erro. #}
+                   objeto é o "Total em aberto" — o mesmo saldo exigível, mas já descontados pagamentos
+                   e liquidações. Somar esta coluna e comparar com o cabeçalho não fecha, e sem esta
+                   explicação quem confere conclui que há erro.
+
+                   ⚠️ O tooltip dizia "e SEM honorários", o que era verdade sob a INV-E2. A spec
+                   `cobranca-honorario-no-total.md` a REVOGOU: o honorário entra nos DOIS números, e a
+                   diferença que sobra é só o que já foi recebido. Este texto é lido pelo USUÁRIO. #}
                 <span class="col-total col-valor" data-bs-toggle="tooltip"
-                      title="Total do relatório: original + juros + multa + correção + honorários, sem abater o que já foi recebido. O “Total em aberto” do topo é outra conta — o saldo exigível, já com os recebimentos descontados e sem honorários.">Total</span>
+                      title="Total do relatório: original + juros + multa + correção + honorários, sem abater o que já foi recebido. O “Total em aberto” do topo é a mesma conta, já com os recebimentos descontados.">Total</span>
                 <span></span>
             </div>
 

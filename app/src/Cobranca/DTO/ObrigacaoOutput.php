@@ -10,7 +10,8 @@ use App\Cobranca\Enum\BaseEncargo;
 /**
  * Leitura de uma Obrigação para a seção "Dívida em aberto" da página do objeto (Etapa 8; a partir do
  * ajuste 10, essa seção fundiu as antigas abas Obrigações e Acordos numa fila única). Dinheiro em
- * centavos int (formatado no Twig com `|centavos`); `valorAtual` = original + encargos reconhecidos
+ * centavos int (formatado no Twig com `|centavos`); `valorAtual` = `valorExigivel()` = original +
+ * juros + multa + correção + honorários (INV-E2 revogada por `cobranca-honorario-no-total.md`)
  * (SPEC §10).
  * Sinaliza (vigente-aware) se a obrigação foi substituída por acordo vigente (sai do saldo, invariável
  * 15), se é parcela de acordo vigente, ou se é parcela de acordo rompido/cancelado (`parcelaDeAcordoDesfeito`

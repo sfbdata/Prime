@@ -154,14 +154,26 @@ copiada antes de ser corrigida"*).
 | comentário **VERDADEIRO** sobre código que agora está **ERRADO** | ⛔ **NÃO TOCAR** |
 | comentário falso que **É o argumento de segurança** de um código que ficou inseguro | corrigir **e registrar o defeito aberto na mesma linha** — nunca só corrigir |
 
-🔑 **O segundo caso é o que uma sessão futura vai "limpar" sem entender.** Os três lugares que somam o
+🔑 **O segundo caso é o que uma sessão futura vai "limpar" sem entender.** Os lugares que somam o
 exigível à mão sem honorário estão errados no CÓDIGO; os comentários deles descrevem esse código com
 honestidade. Reescrevê-los para "ficar em dia com a spec" apagaria a única pista do defeito e deixaria
-o defeito. **Eles seguem, de propósito:**
+o defeito.
 
-- `EditarObrigacaoUseCase:138` e `:198` — as duas cópias escritas à mão (decide se dívida liquidada
-  REABRE, e o guard `ValorAbaixoDoAlocado`);
-- `ObrigacaoRepository:211` — a quarta cópia, em DQL (`having` da régua `pagasMasNaoLiquidadas`).
+🔴 **O mapa dessas cópias estava ERRADO na 1ª versão desta seção, e a 10ª revisão o corrigiu.** Vale
+registrar o erro, porque ele é o próprio ponto da regra — classificar mal um comentário faz a varredura
+ou apagar a pista, ou proteger o que não precisa:
+
+| onde | o que é | caso |
+|---|---|---|
+| `EditarObrigacaoUseCase`, `$exigivelSeViva` | cópia à mão nº1 — **decide se dívida liquidada REABRE**. Era a de MAIOR consequência e a **única sem comentário nenhum** | ganhou pista na 10ª rodada (caso 3) |
+| `EditarObrigacaoUseCase`, `$novoExigivel` | cópia à mão nº2 — guard `ValorAbaixoDoAlocado` | ⛔ **caso 2 — não tocar** |
+| `ObrigacaoRepository`, `having` de `pagasMasNaoLiquidadas` | cópia nº3, em DQL | ⛔ **caso 2 — não tocar** |
+| `EditarObrigacaoUseCase`, payload do snapshot de auditoria | **código CERTO, comentário falso** — só registra o antes/depois | era caso 1: **corrigido** |
+
+⚠️ **Nunca ancore a lista por NÚMERO DE LINHA.** A 1ª versão do script fazia isso, e a 10ª revisão
+provou a armadilha: **uma** linha inserida acima desloca as âncoras, o script acusa os honestos como
+"falsos restantes" **e** como "sumidos", e a saída empurra a próxima sessão a apagar exatamente o que
+ele existe para preservar. Âncora por trecho do texto.
 
 ⚠️ **`INV-E2` é HOMÔNIMO neste código.** Em `RelatorioImportado`, `RelatorioLinha` e
 `RelatorioTotalizador` ela significa *"não implementa `Auditavel` de propósito"* — nada a ver com
@@ -171,7 +183,7 @@ descreve legitimamente a obrigação excluída por acordo substituto vigente.
 **A prova da varredura é feita com DUAS listas, nunca uma:**
 
     falsos restantes: zero
-    honestos sobre defeito aberto: 3 — EditarObrigacaoUseCase:138, :198 · ObrigacaoRepository:211
+    honestos sobre defeito aberto: 2, e estes SEGUEM — <arquivo:linha> cada
 
 Uma busca que termine só com "zero" está errada por construção: ela empurra para apagar justamente os
 três que devem ficar.
