@@ -11,7 +11,6 @@ Quem abre uma frente acrescenta a linha. Quem integra tira.
 | `expediente-ux` | Expediente + Pasta (telas) | não | `app/templates/expediente/`, `app/templates/pasta/` | implementando, **28 commits atrás do master** | `origin/codex/colaboracao-cobrancas` |
 | `cobranca-honorario-no-total` | Cobrança (**núcleo do dinheiro**) | não | ver o bloqueio abaixo — é grande | ✅ **7 commits, 3896/3896, 6 revisões; §10 decidida pelo dono (VAI INTEIRO)** — topo `0346df05`; ⏳ 7ª revisão + integrar | `master` local @ `fda1b466` |
 | `cobranca-reconciliar-data-acordo` | Cobrança (comando) | não | `RelatorioLinhaRepository` (método novo), `ComandosComPiiPassamPelaGuardaTest` (1 linha) | ✅ pronta: 3901/3901, prova por reintrodução feita — **aguarda `/review` e integração** | `master` local @ `18555616` |
-| `pasta-subpastas-aninhadas` | Pasta (gerenciador de arquivos) | **sim — 1** (`Version20260819175112`, aditiva em `pasta_secao`) | `app/templates/pasta/show.html.twig`, `app/public/js/pasta-arquivos.js`, `PastaController`, `PeticionarController` | ✅ **pronta: 20 commits, master trazido para dentro, 3976/3976; smoke feito (10 de 13, 3 defeitos corrigidos)** — ⏳ falta 1 item de arraste manual + integrar | `origin/master` @ `19cfd9a9` |
 
 ### ⛔ 19/08 — a frente do honorário TRAVA o núcleo de dinheiro da Cobrança
 
@@ -68,11 +67,23 @@ correm juntas de propósito, com o conflito eliminado por **contrato**, não por
 Se as duas precisarem do mesmo arquivo, a do honorário vai primeiro e a do comando rebaseia — nunca
 o contrário: o núcleo do dinheiro não espera por um comando.
 
-⚠️ **`pasta-subpastas-aninhadas` e `expediente-ux` tocam OS MESMOS arquivos de tela**
-(`app/templates/pasta/show.html.twig`). Quem integrar por último traz o master para dentro e roda a
-suíte de novo **antes** do merge. A frente de pastas aninhadas também mexe em
-`app/public/js/pasta-arquivos.js`, **compartilhado com a Cobrança** (`cobranca/caso/_documentos.html.twig`):
-o JS degrada para um nível quando o container não declara `data-arvore`.
+### ✅ 21/08 — `pasta-subpastas-aninhadas` INTEGRADA (pasta dentro de pasta, até 10 níveis)
+
+21 commits, **3976/3976 no master depois do merge**. Migration `Version20260819175112` (aditiva em
+`pasta_secao`). Smoke feito no navegador: 10 de 13 itens, 3 defeitos achados e corrigidos.
+
+⚠️ **`expediente-ux` toca os MESMOS arquivos de tela** (`app/templates/pasta/show.html.twig`) e está
+28 commits atrás. Quando for integrar, traga o master para dentro e rode a suíte **antes** do merge —
+o `show.html.twig` mudou bastante aqui.
+
+⚠️ `app/public/js/pasta-arquivos.js` é **compartilhado com a Cobrança**
+(`cobranca/caso/_documentos.html.twig`): o JS degrada para um nível quando o container não declara
+`data-arvore`. Provado no navegador — criar pasta na Cobrança não dá erro e não mostra "Mover para".
+
+🔴 **Lição do roteiro de integração:** frente com migration são **TRÊS** bancos, não dois —
+`saas_test<frente>`, `saas_ux` (a tela) e **`saas_test` (a suíte do master)**. Esquecer o terceiro faz
+a suíte do master explodir com `column ... does not exist` e parecer código quebrado. Conserto:
+`doctrine:migrations:execute --up "DoctrineMigrations\VersionXXXX" --env=test` no repositório principal.
 
 `pasta-valor-causa` foi **integrada em 2026-08-17** (fast-forward para `3629b19a`). Trouxe a migration
 `Version20260814120000` — uma coluna `valor_causa` em `pasta`, aditiva e anulável, que não toca nenhuma
