@@ -42,6 +42,11 @@ final class TermoAceiteListener
         'auth_aceite_convite_criar_conta',
         'auth_aceite_convite_aceitar',
         'auth_aceite_convite_recusar',
+        // Quem está sendo parado para aceitar os Termos precisa poder ler a Política de
+        // Privacidade antes de decidir. São rotas públicas e somente de leitura: liberá-las
+        // aqui não afrouxa o portão do aceite, só deixa de transformar o link em beco sem saída.
+        'legal_politica_privacidade',
+        'legal_politica_privacidade_pdf',
     ];
 
     public function __construct(

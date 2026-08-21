@@ -171,10 +171,12 @@ final class LoginTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $crawler->filter('.login-rodape a[data-rede="linkedin"]'));
         self::assertCount(1, $crawler->filter('.login-rodape a[data-rede="instagram"]'));
 
-        // "Todos os botões, mesmo que não levem a lugar nenhum": a privacidade é o
-        // quarto link e o único sem destino previsto, então é o que some sem barulho.
-        $rotulos = $crawler->filter('.login-rodape a')->each(fn ($a) => trim($a->text()));
-        self::assertContains('Privacidade', $rotulos);
+        // A privacidade nasceu como marcador `href="#"` — o rótulo estava lá e o destino
+        // não. Conferir só o rótulo deixava o link morto passar verde, que foi exatamente
+        // o que aconteceu por semanas. Agora o teste exige o destino.
+        $privacidade = $crawler->filter('.login-rodape a[href="/politica-de-privacidade"]');
+        self::assertCount(1, $privacidade);
+        self::assertSame('Privacidade', trim($privacidade->text()));
     }
 
     #[TestDox('Sem URL configurada o botão de suporte aparece, mas não navega')]

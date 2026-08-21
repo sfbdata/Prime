@@ -41,6 +41,7 @@ security:
         - { path: ^/cadastro,         roles: PUBLIC_ACCESS }  # auto-cadastro público (conta + escritório)
         - { path: ^/senha,            roles: PUBLIC_ACCESS }  # recuperação de senha (quem esqueceu não consegue logar)
         - { path: ^/login,            roles: PUBLIC_ACCESS }
+        - { path: ^/politica-de-privacidade, roles: PUBLIC_ACCESS }  # leitura pública: quem ainda não tem conta precisa ler
 
         # A partir daqui: apenas usuário autenticado.
         # Autorização fina (o que pode fazer) é responsabilidade dos controllers

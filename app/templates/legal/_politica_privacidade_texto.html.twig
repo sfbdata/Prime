@@ -1,0 +1,396 @@
+{# Texto da Política de Privacidade e Proteção de Dados Pessoais — versão sincronizada com
+   App\Legal\PoliticaPrivacidadeVigente::VERSAO.
+
+   Este partial é a FONTE ÚNICA: a página (`politica_privacidade.html.twig`) e o PDF
+   (`politica_privacidade_pdf.html.twig`) renderizam os dois este mesmo arquivo, então não
+   existe cópia para sair de sincronia.
+
+   Transcrito de `docs/legal/politica-de-privacidade.docx` sem alterar uma palavra dos 24
+   capítulos nem do Anexo II. O que mudou em relação ao .docx, e só isso:
+     · o cabeçalho passou a tirar versão e data das constantes do código;
+     · o ÍNDICE virou sumário com âncoras (mesmos rótulos, sem o número repetido);
+     · o Anexo I saiu de 6 linhas de campo em branco para os 3 suboperadores medidos;
+     · o Anexo III ficou só com a linha da versão inicial;
+     · a "Nota de revisão" final saiu — era recado do advogado ao cliente.
+
+   E três frases foram ajustadas porque o sistema NÃO fazia o que elas prometiam (medido no
+   código, decisão do dono em 20/08). O `.docx` continua como veio do advogado; a divergência
+   é só aqui, e some quando as features existirem:
+     · cap. 2: "sendo os arquivos criptografados" → "protegidos por controle de acesso
+       individualizado". O upload é gravado em claro por ArquivoStorageService;
+     · cap. 5 e cap. 15: saiu a menção a duplo fator / dupla autenticação. Não há 2FA no
+       sistema (zero ocorrências de 2fa/totp/scheb em app/src e app/config).
+   Ao implementar criptografia em repouso ou 2FA, devolver as palavras e subir para 1.1.
+
+   Recebe: `versao` (string) e `data_publicacao` (string já formatada dd/mm/aaaa). #}
+<header class="pp-cabecalho">
+    <p class="pp-selo">Documento jurídico da plataforma</p>
+    <h1 class="pp-titulo">Política de Privacidade e Proteção de Dados Pessoais</h1>
+    <p class="pp-subtitulo">BlueJus, Sistema de Gestão Jurídica e de Arquivos</p>
+    <p class="pp-conformidade">Elaborada em conformidade com a Lei nº 13.709/2018 (Lei Geral de
+        Proteção de Dados Pessoais), a Lei nº 12.965/2014 (Marco Civil da Internet) e a
+        Lei nº 8.906/1994 (Estatuto da Advocacia).</p>
+    <p class="pp-versao"><strong>Versão {{ versao }}</strong> · Publicada em {{ data_publicacao }}
+        · Vigência: a partir da publicação</p>
+    <p class="pp-praca">Brasília/DF · Maceió/AL</p>
+</header>
+
+    <nav class="pp-sumario" aria-labelledby="pp-sumario-titulo">
+        <h2 id="pp-sumario-titulo">Índice</h2>
+        <ol class="pp-sumario-lista">
+            <li><a href="#cap-1">Quem somos e a quem esta política se aplica</a></li>
+            <li><a href="#cap-2">Resumo dos pontos essenciais</a></li>
+            <li><a href="#cap-3">Definições</a></li>
+            <li><a href="#cap-4">Os dois papéis da BlueJus no tratamento de dados</a></li>
+            <li><a href="#cap-5">Dados pessoais tratados pela BlueJus como Controladora</a></li>
+            <li><a href="#cap-6">Finalidades e bases legais</a></li>
+            <li><a href="#cap-7">Conteúdo do usuário, sigilo profissional e dados de terceiros</a></li>
+            <li><a href="#cap-8">Módulo de gestão de pessoas e ferramentas contábeis</a></li>
+            <li><a href="#cap-9">Central de advocacia correspondente</a></li>
+            <li><a href="#cap-10">Cookies e tecnologias semelhantes</a></li>
+            <li><a href="#cap-11">Inteligência artificial e vedação de uso para treinamento</a></li>
+            <li><a href="#cap-12">Publicidade e conteúdos patrocinados</a></li>
+            <li><a href="#cap-13">Compartilhamento de dados e suboperadores</a></li>
+            <li><a href="#cap-14">Transferência internacional de dados</a></li>
+            <li><a href="#cap-15">Segurança da informação</a></li>
+            <li><a href="#cap-16">Incidentes de segurança</a></li>
+            <li><a href="#cap-17">Retenção e eliminação de dados</a></li>
+            <li><a href="#cap-18">Direitos do titular e forma de exercício</a></li>
+            <li><a href="#cap-19">Dados de crianças e adolescentes</a></li>
+            <li><a href="#cap-20">Obrigações e responsabilidades do Usuário Controlador</a></li>
+            <li><a href="#cap-21">Limitação de responsabilidade e direito de regresso</a></li>
+            <li><a href="#cap-22">Encarregado pelo tratamento de dados pessoais</a></li>
+            <li><a href="#cap-23">Alterações desta política</a></li>
+            <li><a href="#cap-24">Legislação aplicável e foro</a></li>
+            <li><a href="#anexo-i">Relação de suboperadores</a></li>
+            <li><a href="#anexo-ii">Prazos de retenção</a></li>
+            <li><a href="#anexo-iii">Controle de versões</a></li>
+        </ol>
+    </nav>
+
+    <h2 class="pp-capitulo" id="cap-1">1. QUEM SOMOS E A QUEM ESTA POLÍTICA SE APLICA</h2>
+    <p>A presente Política de Privacidade e Proteção de Dados Pessoais descreve como a plataforma BLUEJUS coleta, utiliza, armazena, compartilha, protege e elimina dados pessoais, bem como quais são os direitos dos titulares e a forma de exercê-los.</p>
+    <h3 class="pp-secao">1.1. Identificação do responsável</h3>
+    <div class="pp-tabela-rolagem">
+        <table class="pp-tabela">
+            <thead><tr><th scope="col">Item</th><th scope="col">Informação</th></tr></thead>
+            <tbody>
+                <tr><td><strong>Plataforma</strong></td><td>BLUEJUS, Sistema de Gestão Jurídica e de Arquivos</td></tr>
+                <tr><td><strong>Mantenedora</strong></td><td>PRIME GESTÃO EMPRESARIAL LTDA</td></tr>
+                <tr><td><strong>CNPJ</strong></td><td>62.916.987/0001-46</td></tr>
+                <tr><td><strong>Cidade</strong></td><td>Brasília – Distrito Federal</td></tr>
+                <tr><td><strong>Endereço eletrônico</strong></td><td><a href="mailto:bluejus.86@gmail.com">bluejus.86@gmail.com</a></td></tr>
+                <tr><td><strong>Telefone e WhatsApp</strong></td><td>+55 61 4104-9958</td></tr>
+                <tr><td><strong>Encarregado (DPO)</strong></td><td>Farlei Assis da Rocha</td></tr>
+                <tr><td><strong>Canal do Encarregado</strong></td><td><a href="mailto:farlei.rocha@gmail.com">farlei.rocha@gmail.com</a></td></tr>
+            </tbody>
+        </table>
+    </div>
+    <h3 class="pp-secao">1.2. Âmbito de aplicação</h3>
+    <p>Esta política aplica-se ao tratamento de dados pessoais realizado no sítio eletrônico institucional, no ambiente logado da plataforma, nos aplicativos móveis, nas integrações disponibilizadas, nos canais oficiais de atendimento e em quaisquer outros pontos de contato mantidos pela BLUEJUS.</p>
+    <p>Esta política integra e complementa os Termos e Condições Gerais de Uso da plataforma. Em caso de divergência entre os documentos quanto a matéria de proteção de dados pessoais, prevalecerá o disposto nesta política.</p>
+    <h3 class="pp-secao">1.3. Aceite</h3>
+    <p>O cadastro, o acesso ou a permanência na plataforma caracterizam ciência inequívoca desta política. O aceite eletrônico produz os mesmos efeitos jurídicos da assinatura física, nos termos da legislação brasileira aplicável. Nas hipóteses em que a lei exigir consentimento específico, este será colhido de forma destacada, apartada das demais cláusulas.</p>
+
+    <h2 class="pp-capitulo" id="cap-2">2. RESUMO DOS PONTOS ESSENCIAIS</h2>
+    <p><em>O quadro abaixo tem finalidade exclusivamente informativa e não substitui a leitura integral desta política.</em></p>
+    <div class="pp-tabela-rolagem">
+        <table class="pp-tabela">
+            <thead><tr><th scope="col">Pergunta</th><th scope="col">Resposta objetiva</th></tr></thead>
+            <tbody>
+                <tr><td><strong>A BlueJus lê meus documentos?</strong></td><td>Não. O conteúdo armazenado pelo usuário não é acessado, em nenhuma hipótese, sendo os arquivos protegidos por controle de acesso individualizado.</td></tr>
+                <tr><td><strong>Meus dados treinam inteligência artificial?</strong></td><td>Não. O conteúdo do usuário não é utilizado para treinamento de modelos, salvo permissão de integração expressa do usuário.</td></tr>
+                <tr><td><strong>A BlueJus vende meus dados?</strong></td><td>Não. Não há comercialização, licenciamento ou exploração econômica dos dados dos usuários.</td></tr>
+                <tr><td><strong>Quem é o responsável pelos dados dos meus clientes?</strong></td><td>O usuário contratante, na qualidade de Controlador. A BlueJus atua como Operadora.</td></tr>
+                <tr><td><strong>Posso exportar meus dados?</strong></td><td>Sim, durante a vigência e por até 30 dias após o encerramento da conta.</td></tr>
+                <tr><td><strong>Como exerço meus direitos?</strong></td><td>Pelos canais indicados no <a href="#cap-22">capítulo 22</a>, com resposta nos prazos legais.</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <h2 class="pp-capitulo" id="cap-3">3. DEFINIÇÕES</h2>
+    <p>Para os fins desta política, aplicam-se as definições do artigo 5º da Lei nº 13.709/2018, além das seguintes:</p>
+    <ul class="pp-lista">
+        <li><strong>Plataforma. </strong>O ambiente tecnológico BLUEJUS, em todas as suas interfaces e módulos.</li>
+        <li><strong>Usuário Controlador. </strong>A pessoa natural ou jurídica contratante que insere, organiza ou administra dados pessoais de terceiros na plataforma, tais como escritório de advocacia, departamento jurídico, empresa ou profissional liberal.</li>
+        <li><strong>Usuário Final. </strong>A pessoa natural que acessa a plataforma mediante credencial individual, incluindo sócios, advogados, colaboradores, estagiários e correspondentes.</li>
+        <li><strong>Conteúdo do Usuário. </strong>Documentos, arquivos, cadastros, anotações, mensagens e demais informações inseridas pelo Usuário Controlador ou por sua determinação.</li>
+        <li><strong>Dados de Conta. </strong>Dados cadastrais, de faturamento, de autenticação, de suporte e de utilização da plataforma, tratados pela BLUEJUS na condição de Controladora.</li>
+        <li><strong>Suboperador. </strong>Terceiro contratado pela BLUEJUS para executar parcela das operações de tratamento necessárias à prestação do serviço.</li>
+    </ul>
+
+    <h2 class="pp-capitulo" id="cap-4">4. OS DOIS PAPÉIS DA BLUEJUS NO TRATAMENTO DE DADOS</h2>
+    <p>A compreensão desta distinção é essencial e delimita as responsabilidades de cada parte.</p>
+    <div class="pp-tabela-rolagem">
+        <table class="pp-tabela">
+            <thead><tr><th scope="col">Situação</th><th scope="col">Papel da BlueJus</th><th scope="col">Consequência prática</th></tr></thead>
+            <tbody>
+                <tr><td><strong>Dados de Conta, tratados para operar, faturar, dar suporte e proteger a plataforma</strong></td><td>Controladora, nos termos do artigo 5º, inciso VI, da LGPD</td><td>A BlueJus define finalidades e bases legais, e responde diretamente perante o titular.</td></tr>
+                <tr><td><strong>Conteúdo do Usuário, incluindo dados de clientes, partes, testemunhas, colaboradores e terceiros</strong></td><td>Operadora, nos termos do artigo 5º, inciso VII, da LGPD</td><td>A BlueJus trata os dados exclusivamente em nome e sob instrução do Usuário Controlador, a quem cabe definir finalidade e base legal.</td></tr>
+            </tbody>
+        </table>
+    </div>
+    <p>Na condição de Operadora, a BLUEJUS executará as operações de tratamento estritamente conforme as instruções do Usuário Controlador, comunicando-lhe, quando entender que determinada instrução viola a legislação de proteção de dados. A BLUEJUS não tratará o Conteúdo do Usuário para finalidade própria, salvo quando indispensável ao cumprimento de obrigação legal ou regulatória, ao atendimento de ordem de autoridade competente ou à segurança e integridade da própria plataforma.</p>
+    <p>A definição da base legal do tratamento dos dados inseridos, a coleta de eventual consentimento, o atendimento primário aos titulares e a licitude da coleta originária permanecem sob responsabilidade exclusiva do Usuário Controlador, conforme já previsto nos Termos e Condições Gerais de Uso.</p>
+
+    <h2 class="pp-capitulo" id="cap-5">5. DADOS PESSOAIS TRATADOS PELA BLUEJUS COMO CONTROLADORA</h2>
+    <div class="pp-tabela-rolagem">
+        <table class="pp-tabela">
+            <thead><tr><th scope="col">Categoria</th><th scope="col">Exemplos de dados</th><th scope="col">Origem</th></tr></thead>
+            <tbody>
+                <tr><td><strong>Cadastrais</strong></td><td>Nome, documento de identificação, número de inscrição na Ordem dos Advogados do Brasil, endereço eletrônico, telefone, cargo e vínculo com a organização contratante</td><td>Fornecidos pelo titular ou pelo Usuário Controlador</td></tr>
+                <tr><td><strong>De autenticação</strong></td><td>Credenciais de acesso, senha em formato criptografado e tokens de sessão</td><td>Gerados na utilização</td></tr>
+                <tr><td><strong>De faturamento</strong></td><td>Razão social, inscrição no CNPJ ou no CPF, endereço fiscal, plano contratado, histórico de pagamentos e dados de cobrança</td><td>Fornecidos pelo contratante</td></tr>
+                <tr><td><strong>De utilização</strong></td><td>Registros de acesso, endereço IP, data e hora, funcionalidades acessadas, identificador do dispositivo, navegador e sistema operacional</td><td>Coletados automaticamente</td></tr>
+                <tr><td><strong>De suporte</strong></td><td>Conteúdo de solicitações, protocolos de atendimento e histórico de interações com a equipe</td><td>Fornecidos pelo titular</td></tr>
+                <tr><td><strong>De comunicação</strong></td><td>Preferências de contato, registros de envio e de abertura de comunicados operacionais</td><td>Gerados na relação</td></tr>
+            </tbody>
+        </table>
+    </div>
+    <p>A BLUEJUS não coleta dados pessoais sensíveis de Usuários Finais na condição de Controladora, ressalvadas as hipóteses em que o próprio titular os forneça espontaneamente em solicitação de suporte, caso em que serão tratados exclusivamente para atendimento da demanda e eliminados ao término dela.</p>
+
+    <h2 class="pp-capitulo" id="cap-6">6. FINALIDADES E BASES LEGAIS</h2>
+    <p>Todo tratamento realizado pela BLUEJUS na condição de Controladora observa finalidade determinada e base legal expressa, nos termos dos artigos 6º e 7º da Lei nº 13.709/2018.</p>
+    <div class="pp-tabela-rolagem">
+        <table class="pp-tabela">
+            <thead><tr><th scope="col">Finalidade</th><th scope="col">Base legal</th></tr></thead>
+            <tbody>
+                <tr><td><strong>Criar e administrar a conta, disponibilizar as funcionalidades contratadas e executar o contrato</strong></td><td>Execução de contrato, artigo 7º, inciso V</td></tr>
+                <tr><td><strong>Autenticar o acesso, controlar permissões e manter a integridade das sessões</strong></td><td>Execução de contrato, artigo 7º, inciso V</td></tr>
+                <tr><td><strong>Faturar, cobrar, emitir documentos fiscais e cumprir obrigações tributárias e contábeis</strong></td><td>Cumprimento de obrigação legal ou regulatória, artigo 7º, inciso II</td></tr>
+                <tr><td><strong>Manter registros de acesso a aplicação de internet</strong></td><td>Cumprimento de obrigação legal, artigo 7º, inciso II, combinado com o artigo 15 da Lei nº 12.965/2014</td></tr>
+                <tr><td><strong>Prestar suporte técnico e responder solicitações</strong></td><td>Execução de contrato, artigo 7º, inciso V</td></tr>
+                <tr><td><strong>Prevenir fraudes, detectar incidentes, monitorar abusos e garantir a segurança do ambiente</strong></td><td>Legítimo interesse, artigo 7º, inciso IX, e proteção do crédito, artigo 7º, inciso X, quando aplicável</td></tr>
+                <tr><td><strong>Aprimorar funcionalidades por meio de métricas agregadas e estatísticas de utilização</strong></td><td>Legítimo interesse, artigo 7º, inciso IX</td></tr>
+                <tr><td><strong>Enviar comunicados operacionais, avisos de segurança e alterações contratuais</strong></td><td>Execução de contrato, artigo 7º, inciso V</td></tr>
+                <tr><td><strong>Enviar comunicações comerciais sobre produtos próprios a clientes ativos, com opção de descadastramento</strong></td><td>Legítimo interesse, artigo 7º, inciso IX</td></tr>
+                <tr><td><strong>Enviar comunicações comerciais a interessados que ainda não sejam clientes</strong></td><td>Consentimento, artigo 7º, inciso I</td></tr>
+                <tr><td><strong>Utilizar cookies não essenciais e exibir publicidade personalizada</strong></td><td>Consentimento, artigo 7º, inciso I</td></tr>
+                <tr><td><strong>Exercer direitos em processo judicial, administrativo ou arbitral</strong></td><td>Artigo 7º, inciso VI</td></tr>
+            </tbody>
+        </table>
+    </div>
+    <p>O titular poderá solicitar, pelos canais do <a href="#cap-22">capítulo 22</a>, informação sobre o teste de proporcionalidade que fundamenta as hipóteses de legítimo interesse, bem como opor-se ao tratamento nos termos do artigo 18, parágrafo 2º, da Lei nº 13.709/2018.</p>
+
+    <h2 class="pp-capitulo" id="cap-7">7. CONTEÚDO DO USUÁRIO, SIGILO PROFISSIONAL E DADOS DE TERCEIROS</h2>
+    <p>A plataforma foi concebida para armazenar documentos que, por sua natureza, podem estar protegidos pelo sigilo profissional previsto no artigo 7º, incisos II e XIX, da Lei nº 8.906/1994, bem como por segredo de justiça.</p>
+    <h3 class="pp-secao">7.1. Compromissos da BlueJus</h3>
+    <ul class="pp-lista">
+        <li>Não acessar, divulgar, compartilhar ou utilizar o Conteúdo do Usuário, salvo mediante autorização expressa do contratante, obrigação legal ou ordem judicial válida.</li>
+        <li>Restringir o acesso técnico ao Conteúdo do Usuário aos profissionais estritamente necessários à manutenção do serviço, todos submetidos a termo de confidencialidade e a controle de acesso individualizado com registro de log.</li>
+        <li>Não utilizar o Conteúdo do Usuário para treinamento de modelos, mineração de dados, elaboração de perfis comerciais ou publicidade.</li>
+        <li>Comunicar ao Usuário Controlador, salvo vedação legal, qualquer requisição de autoridade que tenha por objeto o Conteúdo do Usuário, a fim de que possa adotar as medidas judiciais que entender cabíveis.</li>
+        <li>Preservar a segregação lógica entre os ambientes de dados de contratantes distintos.</li>
+    </ul>
+    <h3 class="pp-secao">7.2. Acesso técnico excepcional</h3>
+    <p>O acesso técnico ao Conteúdo do Usuário somente ocorrerá nas seguintes hipóteses, sempre com registro em trilha de auditoria disponibilizável ao contratante: solicitação expressa de suporte formulada pelo próprio Usuário Controlador; investigação de incidente de segurança que atinja a integridade do ambiente; ou cumprimento de ordem judicial ou determinação de autoridade competente.</p>
+    <h3 class="pp-secao">7.3. Dados de terceiros inseridos pelo usuário</h3>
+    <p>Ao inserir dados pessoais de clientes, partes, testemunhas, peritos, colaboradores ou quaisquer terceiros, o Usuário Controlador declara possuir base legal adequada para o tratamento e assume integral responsabilidade pela licitude da coleta, pela informação aos titulares e pelo atendimento primário aos direitos por eles exercidos.</p>
+    <p>Recebendo requisição de titular relativa a dados que constituam Conteúdo do Usuário, a BLUEJUS a encaminhará ao Usuário Controlador e prestará o auxílio técnico razoável para o atendimento, sem assumir a posição de Controladora.</p>
+
+    <h2 class="pp-capitulo" id="cap-8">8. MÓDULO DE GESTÃO DE PESSOAS E FERRAMENTAS CONTÁBEIS</h2>
+    <p>O módulo de gestão de pessoas processa dados de natureza sensível do ponto de vista trabalhista. Neste módulo, a BLUEJUS atua exclusivamente como Operadora, e o empregador contratante figura como Controlador.</p>
+    <div class="pp-tabela-rolagem">
+        <table class="pp-tabela">
+            <thead><tr><th scope="col">Dado tratado</th><th scope="col">Observação sobre o tratamento</th></tr></thead>
+            <tbody>
+                <tr><td><strong>Registro eletrônico de jornada</strong></td><td>Marcações de entrada, saída e intervalo, com data, hora e identificação do dispositivo.</td></tr>
+                <tr><td><strong>Geolocalização da marcação</strong></td><td>Coletada apenas quando o Controlador ativar a funcionalidade, restrita ao momento pontual do registro, sem rastreamento contínuo do colaborador.</td></tr>
+                <tr><td><strong>Dado biométrico, se habilitado</strong></td><td>Qualifica-se como dado pessoal sensível, artigo 5º, inciso II, da LGPD. Exige consentimento específico e destacado ou outra hipótese do artigo 11, cuja obtenção compete ao Controlador.</td></tr>
+                <tr><td><strong>Demonstrativo de pagamento</strong></td><td>Remuneração, descontos, benefícios, saldo de banco de horas e informe de rendimentos.</td></tr>
+                <tr><td><strong>Histórico funcional</strong></td><td>Admissão, cargo, alterações contratuais, afastamentos, férias, medidas disciplinares e desligamento.</td></tr>
+                <tr><td><strong>Documentos do vínculo</strong></td><td>Contrato, aditivos, atestados e exames ocupacionais. Documentos com informação de saúde constituem dado sensível, artigo 11 da LGPD, e recebem controle de acesso reforçado.</td></tr>
+                <tr><td><strong>Dados fiscais e contábeis</strong></td><td>Informações necessárias à apuração de provisões, retenções e obrigações acessórias.</td></tr>
+            </tbody>
+        </table>
+    </div>
+    <p>Compete ao empregador contratante definir a base legal aplicável a cada tratamento, informar previamente os colaboradores, colher consentimento quando exigido, observar a proporcionalidade na coleta de geolocalização e biometria e adequar a configuração do módulo às normas trabalhistas vigentes.</p>
+    <aside class="pp-destaque"><strong>Delimitação. </strong>A BLUEJUS estrutura, calcula, documenta e disponibiliza a informação trabalhista e contábil, além de gerar arquivos de saída no padrão requerido. A revisão e transmissão de obrigações acessórias aos órgãos oficiais e a responsabilidade técnica pela escrituração permanecem com o contador ou profissional habilitado do contratante.</aside>
+
+    <h2 class="pp-capitulo" id="cap-9">9. CENTRAL DE ADVOCACIA CORRESPONDENTE</h2>
+    <p>Na operação da central de correspondentes ocorrem dois tratamentos distintos, com regimes jurídicos diversos.</p>
+    <ul class="pp-lista">
+        <li><strong>Dados cadastrais do correspondente. </strong>Nome, inscrição na Ordem dos Advogados do Brasil, situação de adimplência, comarcas de atuação, áreas de especialidade, dados bancários e histórico de desempenho. Aqui a BLUEJUS atua como Controladora, com fundamento na execução de contrato, artigo 7º, inciso V, e no legítimo interesse quanto à avaliação de desempenho, artigo 7º, inciso IX.</li>
+        <li><strong>Dados do ato praticado. </strong>Peças, instruções, relatórios, atas de audiência e documentos protocolados. Nesses casos a BLUEJUS atua como Operadora do escritório contratante.</li>
+    </ul>
+    <p>O compartilhamento de peças e documentos com o correspondente designado limita-se ao estritamente necessário à realização do ato, observado o princípio da necessidade, artigo 6º, inciso III, da LGPD. O correspondente adere a termo de confidencialidade específico e permanece sujeito ao sigilo profissional próprio da advocacia.</p>
+    <p>A avaliação de desempenho do correspondente é fundamentada em critérios objetivos de prazo, completude e qualidade formal da devolutiva. O correspondente poderá solicitar revisão da avaliação e apresentar impugnação fundamentada, nos termos do artigo 20 da Lei nº 13.709/2018.</p>
+
+    <h2 class="pp-capitulo" id="cap-10">10. COOKIES E TECNOLOGIAS SEMELHANTES</h2>
+    <div class="pp-tabela-rolagem">
+        <table class="pp-tabela">
+            <thead><tr><th scope="col">Categoria</th><th scope="col">Função</th><th scope="col">Regime</th></tr></thead>
+            <tbody>
+                <tr><td><strong>Estritamente necessários</strong></td><td>Autenticação, manutenção de sessão, segurança e prevenção a fraude.</td><td>Indispensáveis, não sujeitos a consentimento.</td></tr>
+                <tr><td><strong>De desempenho</strong></td><td>Métricas agregadas de utilização e diagnóstico de erros.</td><td>Sujeitos a consentimento, com possibilidade de recusa.</td></tr>
+                <tr><td><strong>De funcionalidade</strong></td><td>Memorização de preferências, idioma e configurações de interface.</td><td>Sujeitos a consentimento.</td></tr>
+                <tr><td><strong>De publicidade</strong></td><td>Mensuração e personalização de anúncios nos planos que os contemplem.</td><td>Sujeitos a consentimento, revogável a qualquer tempo.</td></tr>
+            </tbody>
+        </table>
+    </div>
+    <p>O gerenciamento das preferências é realizado por painel próprio disponibilizado no primeiro acesso e acessível permanentemente no rodapé da plataforma. A recusa de cookies não essenciais não impede a utilização das funcionalidades contratadas. O bloqueio de cookies estritamente necessários pelo navegador do usuário pode inviabilizar o acesso ao ambiente logado.</p>
+
+    <h2 class="pp-capitulo" id="cap-11">11. INTELIGÊNCIA ARTIFICIAL E VEDAÇÃO DE USO PARA TREINAMENTO</h2>
+    <p>As funcionalidades de inteligência artificial possuem caráter assistivo e de apoio operacional, não substituindo a análise técnica do profissional habilitado. Toda produção automatizada deve ser submetida a validação humana antes de qualquer protocolo, envio, assinatura ou utilização externa.</p>
+    <p>A BLUEJUS não utiliza o Conteúdo do Usuário para treinamento, ajuste fino ou aprimoramento de modelos de inteligência artificial, próprios ou de terceiros, salvo mediante consentimento expresso, específico e revogável do contratante, colhido de forma destacada.</p>
+    <p>Quando o processamento de determinada funcionalidade depender de fornecedor externo de modelo, a BLUEJUS contratará regime que vede a retenção e a reutilização dos dados submetidos para finalidade própria do fornecedor, e informará essa condição no <a href="#anexo-i">Anexo I</a>.</p>
+    <p>O titular submetido a decisão tomada unicamente com base em tratamento automatizado que afete seus interesses poderá solicitar revisão, nos termos do artigo 20 da Lei nº 13.709/2018. A BLUEJUS informa que não adota decisões automatizadas com efeito jurídico sobre titulares na condição de Controladora, ressalvados os mecanismos antifraude aplicados à segurança do ambiente.</p>
+
+    <h2 class="pp-capitulo" id="cap-12">12. PUBLICIDADE E CONTEÚDOS PATROCINADOS</h2>
+    <p>A plataforma poderá exibir anúncios ou conteúdos patrocinados aos usuários de planos gratuitos ou de planos específicos, conforme a política comercial vigente. Os anúncios serão sempre identificados como conteúdo patrocinado e apresentados de forma visualmente distinta do conteúdo da plataforma.</p>
+    <p>A exibição de anúncios não interfere no funcionamento da plataforma, nos resultados apresentados, nas pesquisas realizadas, no armazenamento de arquivos ou na organização documental.</p>
+    <p>Os anunciantes não possuem acesso a documentos, arquivos, mensagens, dados cadastrais ou histórico de utilização que permita identificar individualmente os usuários. Eventualmente recebem apenas dados estatísticos e agregados de desempenho de campanha, sem identificação pessoal.</p>
+    <p>A personalização de anúncios depende de consentimento e poderá ser revogada a qualquer tempo pelo painel de preferências, sem prejuízo da utilização das funcionalidades contratadas.</p>
+
+    <h2 class="pp-capitulo" id="cap-13">13. COMPARTILHAMENTO DE DADOS E SUBOPERADORES</h2>
+    <p>A BLUEJUS não comercializa, licencia, cede ou explora economicamente dados pessoais. O compartilhamento ocorre apenas nas hipóteses abaixo:</p>
+    <ul class="pp-lista">
+        <li>Suboperadores contratados para hospedagem, processamento de pagamento, envio de comunicações, assinatura eletrônica, monitoramento de segurança e suporte, todos vinculados por contrato com obrigações de confidencialidade e de proteção equivalentes às desta política, conforme relação do <a href="#anexo-i">Anexo I</a>.</li>
+        <li>Autoridades públicas, no cumprimento de obrigação legal, regulatória ou de ordem judicial válida, limitado ao estritamente requerido.</li>
+        <li>Profissionais habilitados indicados pelo contratante, tais como contador responsável, quando o próprio contratante determinar o envio.</li>
+        <li>Correspondentes designados, restrito às informações necessárias à prática do ato.</li>
+        <li>Assessores jurídicos, contábeis e auditores da BLUEJUS, no exercício regular de direitos e sob dever de confidencialidade.</li>
+        <li>Sucessores, em operação societária de fusão, cisão, incorporação ou aquisição, com comunicação prévia aos titulares e manutenção das condições desta política.</li>
+    </ul>
+    <p>A BLUEJUS responde pela escolha diligente de seus suboperadores e mantém contrato escrito com cada um deles, contendo cláusulas de proteção de dados, limitação de finalidade e vedação de subcontratação não autorizada.</p>
+
+    <h2 class="pp-capitulo" id="cap-14">14. TRANSFERÊNCIA INTERNACIONAL DE DADOS</h2>
+    <p>Determinados suboperadores podem processar dados em infraestrutura localizada fora do território nacional. Nessas hipóteses, a transferência observará o Capítulo V da Lei nº 13.709/2018, mediante cláusulas contratuais padrão, cláusulas contratuais específicas ou outro mecanismo reconhecido pela Autoridade Nacional de Proteção de Dados.</p>
+    <p>A BLUEJUS envidará esforços para manter em território nacional a hospedagem primária do Conteúdo do Usuário. Havendo alteração relevante nessa configuração, os contratantes serão previamente comunicados. A relação atualizada de suboperadores e a respectiva localização de processamento constam do <a href="#anexo-i">Anexo I</a>.</p>
+
+    <h2 class="pp-capitulo" id="cap-15">15. SEGURANÇA DA INFORMAÇÃO</h2>
+    <p>A BLUEJUS adota medidas técnicas, administrativas e organizacionais compatíveis com o estado da técnica e com os padrões de mercado, entre as quais:</p>
+    <ul class="pp-lista">
+        <li>Criptografia de dados em trânsito e em repouso.</li>
+        <li>Autenticação segura, com política de complexidade de senha.</li>
+        <li>Controle de acesso por perfil, com aplicação do princípio do menor privilégio.</li>
+        <li>Registro de logs de acesso, de alteração e de exclusão, com trilha de auditoria.</li>
+        <li>Segregação lógica entre ambientes de contratantes distintos e entre produção, homologação e desenvolvimento.</li>
+        <li>Rotina de cópia de segurança, com teste periódico de restauração.</li>
+        <li>Monitoramento de incidentes, gestão de vulnerabilidades e aplicação de correções de segurança.</li>
+        <li>Termo de confidencialidade firmado por colaboradores e prestadores com acesso ao ambiente.</li>
+    </ul>
+    <p>Os usuários reconhecem que nenhum ambiente tecnológico é absolutamente imune a falhas, ataques cibernéticos ou eventos de força maior. A BLUEJUS compromete-se a empregar esforços compatíveis com os padrões de mercado, sem garantir invulnerabilidade absoluta dos sistemas.</p>
+    <p>Constituem responsabilidade do usuário a guarda de suas credenciais, a definição adequada dos perfis de acesso de sua equipe, a revogação tempestiva de acessos de colaboradores desligados e a segurança dos dispositivos que utiliza.</p>
+
+    <h2 class="pp-capitulo" id="cap-16">16. INCIDENTES DE SEGURANÇA</h2>
+    <p>Verificado incidente de segurança que possa acarretar risco ou dano relevante aos titulares, a BLUEJUS adotará as seguintes providências:</p>
+    <ul class="pp-lista">
+        <li>Contenção imediata do evento e preservação de evidências.</li>
+        <li>Avaliação da natureza dos dados atingidos, do número de titulares envolvidos e do risco resultante.</li>
+        <li>Comunicação ao Usuário Controlador em prazo razoável, com as informações necessárias para que este cumpra seus próprios deveres legais, quando o incidente atingir Conteúdo do Usuário.</li>
+        <li>Comunicação à Autoridade Nacional de Proteção de Dados e aos titulares, quando a BLUEJUS figurar como Controladora, nos termos do artigo 48 da Lei nº 13.709/2018 e da regulamentação aplicável.</li>
+        <li>Adoção de medidas corretivas e revisão dos controles afetados.</li>
+    </ul>
+    <p>A comunicação de incidente não implica reconhecimento de culpa, de responsabilidade ou de descumprimento contratual, e será realizada em atenção ao dever legal de transparência.</p>
+
+    <h2 class="pp-capitulo" id="cap-17">17. RETENÇÃO E ELIMINAÇÃO DE DADOS</h2>
+    <p>Os dados pessoais são conservados pelo tempo necessário ao cumprimento das finalidades que motivaram sua coleta, observados os prazos legais de guarda e os prazos prescricionais aplicáveis. O detalhamento consta do <a href="#anexo-ii">Anexo II</a>.</p>
+    <p>Encerrada a conta, o contratante poderá solicitar a exportação de seus dados em formato tecnicamente disponível durante o prazo de 30 dias, conforme os Termos e Condições Gerais de Uso. Decorrido esse prazo, a BLUEJUS poderá promover a eliminação definitiva do Conteúdo do Usuário, ressalvadas as hipóteses do artigo 16 da Lei nº 13.709/2018.</p>
+    <p>A eliminação abrange as cópias de segurança nos ciclos subsequentes de rotação, observado que a exclusão em backups ocorre conforme o ciclo técnico da rotina, e não de forma instantânea.</p>
+
+    <h2 class="pp-capitulo" id="cap-18">18. DIREITOS DO TITULAR E FORMA DE EXERCÍCIO</h2>
+    <p>Nos termos do artigo 18 da Lei nº 13.709/2018, o titular pode requerer:</p>
+    <ul class="pp-lista">
+        <li>Confirmação da existência de tratamento e acesso aos dados.</li>
+        <li>Correção de dados incompletos, inexatos ou desatualizados.</li>
+        <li>Anonimização, bloqueio ou eliminação de dados desnecessários, excessivos ou tratados em desconformidade com a lei.</li>
+        <li>Portabilidade a outro fornecedor, observada a regulamentação da autoridade nacional.</li>
+        <li>Eliminação dos dados tratados com base em consentimento, ressalvadas as hipóteses legais de conservação.</li>
+        <li>Informação sobre entidades públicas e privadas com as quais os dados foram compartilhados.</li>
+        <li>Informação sobre a possibilidade de não fornecer consentimento e sobre as consequências da negativa.</li>
+        <li>Revogação do consentimento e oposição a tratamento fundado em outra base legal, quando houver descumprimento da lei.</li>
+    </ul>
+    <p>As requisições devem ser dirigidas aos canais do <a href="#cap-22">capítulo 22</a> e serão respondidas nos prazos previstos no artigo 19 da Lei nº 13.709/2018. A BLUEJUS poderá solicitar informações adicionais para confirmar a identidade do requerente, medida destinada exclusivamente a impedir o acesso indevido por terceiros.</p>
+    <p>Se a requisição envolver dados que constituam Conteúdo do Usuário, a BLUEJUS encaminhará o pedido ao Usuário Controlador competente e informará o titular a respeito, uma vez que não lhe cabe deliberar sobre tais dados.</p>
+
+    <h2 class="pp-capitulo" id="cap-19">19. DADOS DE CRIANÇAS E ADOLESCENTES</h2>
+    <p>A plataforma destina-se a profissionais e organizações, não sendo dirigida a menores de 18 anos, os quais não devem criar conta própria, ressalvados os estagiários maiores de 16 anos vinculados ao contratante e por ele cadastrados.</p>
+    <p>A BLUEJUS reconhece que documentos processuais podem conter dados de crianças e adolescentes. Nesses casos, o tratamento observará o melhor interesse do menor, nos termos do artigo 14 da Lei nº 13.709/2018, competindo ao Usuário Controlador assegurar a base legal adequada e a estrita necessidade da inserção.</p>
+
+    <h2 class="pp-capitulo" id="cap-20">20. OBRIGAÇÕES E RESPONSABILIDADES DO USUÁRIO CONTROLADOR</h2>
+    <p>O Usuário Controlador obriga-se a:</p>
+    <ul class="pp-lista">
+        <li>Definir a base legal de cada tratamento realizado por meio da plataforma e documentá-la.</li>
+        <li>Informar os titulares sobre o tratamento e atender aos direitos por eles exercidos.</li>
+        <li>Inserir apenas dados necessários à finalidade pretendida, observando os princípios da adequação e da necessidade.</li>
+        <li>Configurar corretamente os perfis de acesso de sua equipe e revogar credenciais de colaboradores desligados.</li>
+        <li>Manter sob sigilo suas credenciais e comunicar imediatamente qualquer suspeita de acesso não autorizado.</li>
+        <li>Obter as autorizações e consentimentos exigidos para o tratamento de dados sensíveis, notadamente biometria e informações de saúde no módulo de gestão de pessoas.</li>
+        <li>Observar o Estatuto da Advocacia, o Código de Ética e Disciplina e as demais normas aplicáveis ao exercício profissional.</li>
+    </ul>
+    <p>O descumprimento dessas obrigações não é imputável à BLUEJUS, que atua conforme as instruções recebidas e não possui ingerência sobre a licitude da coleta originária realizada pelo contratante.</p>
+
+    <h2 class="pp-capitulo" id="cap-21">21. LIMITAÇÃO DE RESPONSABILIDADE E DIREITO DE REGRESSO</h2>
+    <p>A responsabilidade da BLUEJUS restringe-se aos danos comprovadamente decorrentes do descumprimento de suas próprias obrigações legais e contratuais na qualidade de Operadora ou de Controladora, conforme o caso, observados os artigos 42 a 45 da Lei nº 13.709/2018.</p>
+    <p>A BLUEJUS não responde por tratamento realizado em desacordo com a lei por iniciativa do Usuário Controlador, por inserção de dados sem base legal, por configuração inadequada de permissões, por compartilhamento indevido promovido pelo próprio contratante ou por uso de credenciais decorrente de negligência na guarda.</p>
+    <p>Nos termos do artigo 42, parágrafo 4º, da Lei nº 13.709/2018, fica assegurado à BLUEJUS o direito de regresso contra o Usuário Controlador na medida de sua participação no evento danoso, sempre que a BLUEJUS for compelida a reparar dano causado por ato ou omissão do contratante.</p>
+    <p>Em qualquer hipótese, a responsabilidade total da BLUEJUS observará o limite previsto nos Termos e Condições Gerais de Uso, correspondente ao valor efetivamente pago pelo contratante nos 12 meses anteriores ao evento reclamado, ressalvadas as hipóteses em que a limitação seja vedada por lei.</p>
+
+    <h2 class="pp-capitulo" id="cap-22">22. ENCARREGADO PELO TRATAMENTO DE DADOS PESSOAIS</h2>
+    <p>Para exercício de direitos, esclarecimentos e comunicações relativas à proteção de dados, o titular poderá utilizar os seguintes canais:</p>
+    <div class="pp-tabela-rolagem">
+        <table class="pp-tabela">
+            <thead><tr><th scope="col">Canal</th><th scope="col">Contato</th></tr></thead>
+            <tbody>
+                <tr><td><strong>Encarregado (DPO)</strong></td><td>Farlei Assis da Rocha</td></tr>
+                <tr><td><strong>Canal do Encarregado</strong></td><td><a href="mailto:farlei.rocha@gmail.com">farlei.rocha@gmail.com</a></td></tr>
+                <tr><td><strong>Endereço eletrônico geral</strong></td><td><a href="mailto:bluejus.86@gmail.com">bluejus.86@gmail.com</a></td></tr>
+                <tr><td><strong>Telefone e WhatsApp</strong></td><td>+55 61 4104-9958</td></tr>
+                <tr><td><strong>Endereço físico para correspondência</strong></td><td>QNF 03 – 31 – CEP: 72.125-530 – Taguatinga Norte / DF</td></tr>
+            </tbody>
+        </table>
+    </div>
+    <p>O titular que entender não atendido poderá apresentar reclamação à Autoridade Nacional de Proteção de Dados, nos termos do artigo 18, parágrafo 1º, da Lei nº 13.709/2018.</p>
+
+    <h2 class="pp-capitulo" id="cap-23">23. ALTERAÇÕES DESTA POLÍTICA</h2>
+    <p>Esta política poderá ser alterada para adequação legal, regulatória, operacional ou tecnológica. A versão vigente será sempre publicada na plataforma, com indicação de número de versão e data.</p>
+    <p>Alterações substanciais que impliquem nova finalidade de tratamento ou modificação relevante nas condições de compartilhamento serão comunicadas previamente pelos canais cadastrados, com antecedência mínima de 15 dias, ressalvadas as hipóteses de urgência legal ou de segurança.</p>
+    <p>A continuidade da utilização da plataforma após a entrada em vigor da nova versão será considerada ciência das disposições atualizadas, sem prejuízo do direito de revogação de consentimentos específicos.</p>
+
+    <h2 class="pp-capitulo" id="cap-24">24. LEGISLAÇÃO APLICÁVEL E FORO</h2>
+    <p>Esta política é regida pela legislação brasileira, notadamente a Lei nº 13.709/2018, a Lei nº 12.965/2014, a Lei nº 8.078/1990 no que couber e a Lei nº 8.906/1994.</p>
+    <p>Fica eleito o foro da <strong>Comarca de Brasília</strong>, Distrito Federal, para dirimir controvérsias oriundas desta política, com renúncia expressa a qualquer outro, por mais privilegiado que seja, ressalvada a competência de foro protetivo assegurada por lei ao consumidor.</p>
+
+    <h2 class="pp-capitulo" id="anexo-i">Anexo I. RELAÇÃO DE SUBOPERADORES</h2>
+    <p><em>Relação editável, a ser mantida atualizada e disponibilizada aos contratantes. A contratação de novo suboperador com acesso a Conteúdo do Usuário será precedida de comunicação aos contratantes.</em></p>
+    <div class="pp-tabela-rolagem">
+        <table class="pp-tabela" id="anexo-i-suboperadores">
+            <thead><tr><th scope="col">Suboperador</th><th scope="col">Finalidade</th><th scope="col">Categoria de dados</th><th scope="col">Localização</th></tr></thead>
+            <tbody>
+                <tr><td>Hostinger</td><td>Hospedagem, infraestrutura, monitoramento e segurança</td><td>Conteúdo do Usuário, Dados de Conta e registros de acesso</td><td>Brasil (São Paulo)</td></tr>
+                <tr><td>Google LLC (Gmail / SMTP)</td><td>Envio de comunicações transacionais</td><td>Nome e endereço eletrônico</td><td>Estados Unidos</td></tr>
+                <tr><td>Google LLC (Google Drive)</td><td>Sincronização de arquivos, quando ativada pelo contratante</td><td>Conteúdo do Usuário</td><td>Estados Unidos</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <h2 class="pp-capitulo" id="anexo-ii">Anexo II. PRAZOS DE RETENÇÃO</h2>
+    <div class="pp-tabela-rolagem">
+        <table class="pp-tabela">
+            <thead><tr><th scope="col">Categoria</th><th scope="col">Prazo</th><th scope="col">Fundamento</th></tr></thead>
+            <tbody>
+                <tr><td><strong>Registros de acesso a aplicação de internet</strong></td><td>6 meses</td><td>Artigo 15 da Lei nº 12.965/2014</td></tr>
+                <tr><td><strong>Dados cadastrais e contratuais</strong></td><td>Vigência do contrato e até 5 anos após o término</td><td>Prescrição, artigo 206 do Código Civil, e artigo 7º, incisos II e VI, da LGPD</td></tr>
+                <tr><td><strong>Documentos fiscais e de faturamento</strong></td><td>5 anos</td><td>Legislação tributária aplicável</td></tr>
+                <tr><td><strong>Conteúdo do Usuário</strong></td><td>Vigência do contrato e 30 dias após o encerramento, para exportação</td><td>Termos e Condições Gerais de Uso</td></tr>
+                <tr><td><strong>Registros de suporte</strong></td><td>2 anos após o encerramento do atendimento</td><td>Legítimo interesse e exercício regular de direitos</td></tr>
+                <tr><td><strong>Dados de marketing baseados em consentimento</strong></td><td>Até a revogação do consentimento</td><td>Artigo 8º, parágrafo 5º, da LGPD</td></tr>
+                <tr><td><strong>Registros de consentimento e de auditoria</strong></td><td>5 anos após o término do tratamento</td><td>Prestação de contas e comprovação de conformidade</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <h2 class="pp-capitulo" id="anexo-iii">Anexo III. CONTROLE DE VERSÕES</h2>
+    <div class="pp-tabela-rolagem">
+        <table class="pp-tabela">
+            <thead><tr><th scope="col">Versão</th><th scope="col">Data</th><th scope="col">Alterações</th></tr></thead>
+            <tbody>
+                <tr><td>{{ versao }}</td><td>{{ data_publicacao }}</td><td>Publicação inicial.</td></tr>
+            </tbody>
+        </table>
+    </div>
+    <footer class="pp-fecho">
+        <p><strong>BLUEJUS, Sistema de Gestão Jurídica e de Arquivos</strong></p>
+        <p>Brasília/DF</p>
+    </footer>

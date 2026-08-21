@@ -80,6 +80,14 @@
                     <a href="#" class="ms-1" data-bs-toggle="modal" data-bs-target="#modalTermos">Termos de Uso</a>
                 </div>
 
+                {# A Política de Privacidade NÃO entra no aceite: o item 1.3 dela diz que o
+                   cadastro já caracteriza ciência. Por isso fica fora do "Li e aceito" — juntar
+                   as duas criaria um segundo aceite que ninguém decidiu colher. #}
+                <p class="form-text mb-3">
+                    Ao criar a conta você declara ciência da
+                    <a href="{{ path('legal_politica_privacidade') }}" target="_blank" rel="noopener">Política de Privacidade</a>.
+                </p>
+
                 <button type="submit" class="btn btn-primary w-100">
                     <i class="bi bi-building-add me-1"></i> Criar conta e escritório
                 </button>

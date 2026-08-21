@@ -196,13 +196,24 @@ A tela **já é** um gerenciador de arquivos. É extensão, não redesenho.
 | Excluir | Aviso genérico | Aviso que **conta**: *"contém 3 subpastas e 127 arquivos"* (D3) |
 | Busca | Varre a pasta inteira | Igual, e passa a **mostrar em que pasta** cada resultado está |
 
-**O conflito dos dois gestos (D6) NÃO EXISTE — já está resolvido no código.** O Sortable das pastas
-já é declarado com `handle: '.fm-pasta-grip'` (`pasta-arquivos.js:477`), então arrastar pelo corpo do
-cartão **hoje não faz nada**. O gesto está livre:
+🔴 **CORREÇÃO (revisão final da branch): o parágrafo abaixo, como eu o escrevi originalmente, estava
+ERRADO.** Eu afirmei que "o conflito dos dois gestos não existe porque o Sortable tem `handle`". A
+premissa é falsa: o `handle` faz o Sortable tornar o cartão arrastável **somente a partir da alça** —
+arrastar pelo corpo não inicia arraste nenhum. Portanto **não existe o gesto "arrastar pelo corpo"**,
+e o gesto da alça dispara os **dois** caminhos.
 
-- arrastar **pela alça** → reordena entre irmãs (comportamento de hoje, inalterado);
-- arrastar **pelo corpo do cartão** → move para dentro da pasta sob o cursor (gesto novo, sem disputa);
-- menu de três pontinhos → **"Mover para..."**, com lista de destinos (funciona no celular e no teclado).
+O que ficou implementado, e é o que vale:
+
+- arrastar **pela alça** → é o único gesto de arraste que existe. Solto **fora** de outro cartão,
+  reordena entre irmãs; solto **em cima** de outro cartão, move para dentro dele;
+- **os dois caminhos disparavam POSTs concorrentes** (`/mover` grava `pai` *e* `ordem`; `/reordenar`
+  grava a ordem do DOM), deixando a `ordem` final indeterminada. Corrigido com uma variável de
+  controle: o `drop` que move marca, e o `onEnd` do Sortable pula a persistência da reordenação;
+- menu de três pontinhos → **"Mover para..."**, com lista de destinos mostrando o caminho completo
+  (funciona no celular e no teclado, e é o caminho recomendado quando há pastas homônimas).
+
+⚠️ **Isto é o item mais importante do smoke**: soltar uma pasta em cima de outra pela alça, e conferir
+depois de um F5 que a pasta mudou de lugar **e** que a ordem das irmãs ficou coerente.
 
 O seletor de destino reusa o padrão de modal-com-Promise que o arquivo já tem em `pedirTexto()`
 (`pasta-arquivos.js:358`), com `<select>` no lugar do campo de texto — não `prompt()` nativo.
@@ -311,12 +322,41 @@ Esta frente **tem migration**, e a regra é **uma frente com migration por vez**
 | Unit | Cascade: apagar a mãe apaga filhas, netas e os documentos de toda a árvore |
 | Functional | Criar/mover/excluir via controller, com CSRF |
 | **Cross-tenant** | Mover pasta para destino de OUTRO tenant → `AccessDeniedException` |
+| **Requisição forjada** | POST direto para mover uma pasta para dentro da própria filha → **422**, e nada gravado |
+| **Requisição forjada** | POST direto para criar acima do 10º nível → **422**, e nenhuma seção a mais no banco |
 | Regressão | O sync continua enviando ao Drive achatado, sem erro, com árvore de 3 níveis no sistema |
 
 **Provar por reintrodução** (`feedback_provar_teste_reintroduzindo_defeito`): cada guard só conta como
 provado se, removido o guard, o teste correspondente ficar vermelho.
 
-### 10.4 O que a suíte NÃO prova
+### 10.4 Fronteira back-end × front-end
+
+**Nenhuma regra desta frente existe só no front.** A divisão é:
+
+| Decisão | Onde vive | O front participa? |
+|---|---|---|
+| Tenant da seção e do destino | `MoverPastaSecaoUseCase` / `CriarPastaSecaoUseCase` | ❌ nunca |
+| Permissão de editar a pasta | `canAccessResource` no controller | ❌ nunca |
+| CSRF | `isCsrfTokenValid` no controller | só transporta o token |
+| Teto de 10 níveis | os dois UseCases | ❌ **nem sabe o número** |
+| Destino na mesma pasta | os dois UseCases | ❌ nunca |
+| Nome vazio / > 255 | `CriarPastaSecaoUseCase` | ❌ nunca |
+| Isolamento no banco | `TenantFilter` (PastaSecao é `TenantAware`) | — |
+| **Ciclo** | `MoverPastaSecaoUseCase` | ⚠️ **duplicado como aviso** |
+
+O ciclo é a **única** regra duplicada no JavaScript, e só para dois fins de conforto: tirar destinos
+inválidos do seletor "Mover para...", e avisar antes de enviar quando o alvo do arraste é impossível.
+
+Essa duplicação é legítima porque o back **recalcula do zero, com dados do banco, e nunca pergunta ao
+front o que ele concluiu**. Apagar o JavaScript, forjar a requisição ou mandar `destinoId` na mão dá
+no mesmo: o UseCase recusa. Os dois testes `...RecusadoPelaRota` da §10.3 existem exatamente para
+provar isso pelo caminho que um atacante usaria — sem eles, o guard de ciclo e o teto só estariam
+provados contra objetos em memória.
+
+**Regra para as tarefas restantes:** qualquer validação nova que o JavaScript ganhar precisa ter a
+mesma regra no back **antes** de aparecer na tela. O front pode esconder e avisar; recusar é do back.
+
+### 10.5 O que a suíte NÃO prova
 
 Aparência e arranjo da tela. A regra da casa é explícita: 3.459 testes já passaram com layout
 visivelmente quebrado. **O smoke no navegador é do dono** — a entrega vem com a lista do que precisa

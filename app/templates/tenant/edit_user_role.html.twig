@@ -135,8 +135,8 @@
                                         <button type="button"
                                                 class="btn btn-danger"
                                                 data-bs-toggle="modal"
-                                                data-bs-target="#modalConfirmarDemissao">
-                                            <i class="bi bi-person-x me-1"></i>DEMITIR
+                                                data-bs-target="#modalConfirmarRemocao">
+                                            <i class="bi bi-person-x me-1"></i>Remover do escritório
                                         </button>
                                         <a href="{{ path('app_tenant_users', {tenantId: tenantId}) }}" class="btn btn-outline-secondary">
                                             <i class="bi bi-arrow-left me-1"></i>Voltar
@@ -390,29 +390,29 @@
     </div>
 </div>
 
-<div class="modal fade" id="modalConfirmarDemissao" tabindex="-1" aria-labelledby="labelModalDemissao" aria-hidden="true">
+<div class="modal fade" id="modalConfirmarRemocao" tabindex="-1" aria-labelledby="labelModalRemocao" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header bg-danger text-white">
-                <h5 class="modal-title" id="labelModalDemissao">
-                    <i class="bi bi-person-x me-2"></i>Confirmar Demissão
+                <h5 class="modal-title" id="labelModalRemocao">
+                    <i class="bi bi-person-x me-2"></i>Remover do escritório
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <form method="POST" action="{{ path('app_tenant_user_demitir', {tenantId: tenantId, userId: user.id}) }}">
-                <input type="hidden" name="_token" value="{{ csrf_token('demitir_' ~ user.id) }}">
+            <form method="POST" action="{{ path('app_tenant_user_remover', {tenantId: tenantId, userId: user.id}) }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('remover_' ~ user.id) }}">
                 <div class="modal-body">
                     <div class="alert alert-warning d-flex gap-2 align-items-start mb-4">
                         <i class="bi bi-exclamation-triangle-fill flex-shrink-0 mt-1"></i>
                         <div>
-                            Ao demitir <strong>{{ user.fullName }}</strong>, ele será removido de todas as
-                            pastas, tarefas, chamados e eventos em que figura como responsável.
-                            O histórico de criação e participação será mantido.
+                            Ao remover <strong>{{ user.fullName }}</strong>, ela perde o acesso a este escritório e
+                            sai da sua lista de colaboradores. A conta dela continua existindo, e ela pode ser
+                            convidada de volta — voltando sem os acessos de antes.
                         </div>
                     </div>
                     <div class="mb-1">
                         <label for="substitutoSelect" class="form-label fw-bold">
-                            Transferir responsabilidades para
+                            Quem assume o que era dela?
                             <span class="text-muted fw-normal">(opcional)</span>
                         </label>
                         <select name="substituto_id" id="substitutoSelect" class="form-select">
@@ -424,14 +424,14 @@
                             {% endfor %}
                         </select>
                         <div class="form-text text-muted">
-                            Se selecionado, esse colaborador assumirá todas as responsabilidades ativas do demitido.
+                            Se selecionado, esse colaborador assumirá todas as responsabilidades ativas de quem sair.
                         </div>
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
                     <button type="submit" class="btn btn-danger">
-                        <i class="bi bi-person-x me-1"></i>Confirmar Demissão
+                        <i class="bi bi-person-x me-1"></i>Remover do escritório
                     </button>
                 </div>
             </form>
