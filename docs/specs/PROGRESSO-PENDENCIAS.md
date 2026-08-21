@@ -1,5 +1,23 @@
 # Progresso — Pendências do JusPrime
 
+> 🔐 **DUAS PENDÊNCIAS DE PRODUTO nasceram da Política de Privacidade (21/08/2026), em produção.**
+> A Política prometia duas coisas que o sistema **não faz** — medidas no código, e as frases foram
+> retiradas do texto publicado com autorização do dono. Elas **voltam** quando as features existirem:
+>
+> 1. **2FA / duplo fator.** Zero ocorrências de `2fa|totp|scheb` em `app/src`, `app/config` e
+>    `composer.json`. As menções saíram dos capítulos 5 e 15.
+> 2. **Criptografia dos arquivos em repouso.** `ArquivoStorageService` grava o upload em claro
+>    (`$arquivo->move()`); a única criptografia do repositório cifra o refresh token do Drive.
+>    O capítulo 2 saiu de "sendo os arquivos criptografados" para "protegidos por controle de
+>    acesso individualizado". Em produção há **21.219 documentos** guardados assim.
+>
+> Ao implementar qualquer uma: devolver as palavras ao texto, apagar as asserções negativas de
+> `PoliticaPrivacidadeControllerTest::testNaoPrometeFuncionalidadeInexistente`, e subir
+> `PoliticaPrivacidadeVigente::VERSAO` para 1.1. Detalhe em `docs/specs/politica-privacidade.md`.
+>
+> ⚠️ Não medido, fica para conferir com a Hostinger: o cap. 15 ainda diz "criptografia de dados em
+> trânsito **e em repouso**". Em trânsito é verdade (HTTPS); em repouso depende do disco da VPS.
+
 > Documento vivo. Ponto de retomada entre sessões. Atualizar ao fim de cada sub-etapa,
 > **antes** de pedir o commit ao humano. Plano completo:
 > `.claude/plans/atualize-a-questao-do-humming-newell.md`.
