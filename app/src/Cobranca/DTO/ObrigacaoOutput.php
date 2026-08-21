@@ -49,8 +49,9 @@ final class ObrigacaoOutput
         /**
          * Encargos SEPARADOS materializados (centavos) — as colunas do relatório da contabilidade
          * (spec "encargos configuráveis em cascata" §11). `encargosReconhecidos` acima continua
-         * sendo a soma de juros+multa+correcao (INV-E1); honorários ficam FORA do `valorAtual`
-         * (INV-E2), aparecem só na linha. Defaults 0 preservam os chamadores antigos.
+         * sendo a soma de juros+multa+correcao (INV-E1); os honorários ENTRAM no `valorAtual` desde a
+         * spec `cobranca-honorario-no-total.md` (INV-E2 revogada) e seguem aparecendo detalhados na
+         * linha. Defaults 0 preservam os chamadores antigos.
          */
         public readonly int $juros = 0,
         public readonly int $multa = 0,

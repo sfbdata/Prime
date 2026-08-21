@@ -72,7 +72,10 @@ final class BoletoImportavel
      * Encargo agregado (juros + multa + correção), para quem só quer o total — preview, reconciliação,
      * conferência contra a coluna Total do relatório. Fórmula em UM lugar só: é a mesma soma que a
      * `Obrigacao::getEncargosReconhecidos()` faz do outro lado, o que mantém INV-E1 por construção.
-     * Honorários ficam FORA (INV-E2: honorário não é dívida do credor).
+     * Honorários ficam fora DESTA soma porque ela alimenta `encargosReconhecidos`, a coluna-sombra —
+     * que segue sem honorário de propósito (spec `cobranca-honorario-no-total.md` §6: é o valor que a
+     * versão anterior espera ler num rollback). Não confundir com o `valorExigivel()`, onde o
+     * honorário ENTRA desde aquela spec (INV-E2 revogada).
      */
     public function encargosCentavos(): int
     {

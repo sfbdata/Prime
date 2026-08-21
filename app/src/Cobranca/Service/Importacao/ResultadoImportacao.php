@@ -22,7 +22,9 @@ final class ResultadoImportacao
      *                                                       trouxe vencimento novo — boleto reemitido
      * @param int                  $centavosSemBoleto        principal + juros + multa + correção das obrigações que
      *                                                       entraram por chave substituta (criadas E atualizadas).
-     *                                                       Honorário fica FORA (INV-E2: não é dívida do credor)
+     *                                                       Honorário fora DESTA soma: ela é a coluna-sombra
+     *                                                       `encargosReconhecidos` (spec honorário-no-total §6),
+     *                                                       não o exigível — nele o honorário ENTRA
      */
     public function __construct(
         public readonly array $obrigacoesCriadas,

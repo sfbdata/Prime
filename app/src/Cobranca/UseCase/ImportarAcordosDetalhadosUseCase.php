@@ -1116,8 +1116,12 @@ final class ImportarAcordosDetalhadosUseCase
         // contrário do que a linha ~658 daquele método diz hoje. O guard chegou a existir lá e foi
         // REVERTIDO em `cc1892c1`, porque a premissa que o autorizava caiu: parcela de acordo atrasada
         // migra para o relatório de inadimplência e lá a contabilidade **cobra** encargo (spec §10.8).
-        // Nenhum importador grava override de honorário. Quem tira honorário de parcela é o comando
-        // `app:cobranca:reconciliar-honorario-parcela`, com lista conferida por humano.
+        // ⚠️ Nenhum importador grava o override ao VINCULAR uma obrigação que já existe. Não confunda
+        // com a parcela CRIADA aqui (`parcelaInput`, ~290 linhas abaixo), que grava `honorariosBp = 0`
+        // desde julho — como fazem `ImportarReceitasUseCase` e `ImportarRelatorioCarteiraUseCase`. É
+        // esse override de nascença que a §10.8 identificou como defeito de DURAÇÃO, e ele é assunto da
+        // fatia própria, não desta. Quem tira honorário de parcela já gravada é o comando
+        // `app:cobranca:reconciliar-honorario-parcela`, com lista informada por humano.
 
         $nova = $this->registrarObrigacao->executar($input, $tenant, $usuario);
 

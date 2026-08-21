@@ -350,8 +350,9 @@ final class ReconciliarHonorarioDeParcelaCommand extends Command implements Lida
                 $io->warning(sprintf(
                     '%d candidata(s) estão DENTRO do exigível e ficaram FORA da linha acima. Nelas a '
                     . 'correção muda o que o devedor deve, e o override é permanente: se a parcela '
-                    . 'atrasar, a contabilidade volta a cobrar honorário e o sistema não vai mais '
-                    . 'acompanhar. Inclua o id à mão só depois de conferir esta obrigação na planilha.',
+                    . 'atrasar, a contabilidade volta a cobrar honorário e o valor aqui passa a OSCILAR: '
+                    . 'a importação grava o que ela cobra e a atualização ao vivo zera de novo, entre um '
+                    . 'lote e o próximo. Inclua o id à mão só depois de conferir esta obrigação na planilha.',
                     count($vivas),
                 ));
 

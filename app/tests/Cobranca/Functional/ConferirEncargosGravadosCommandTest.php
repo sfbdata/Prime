@@ -271,9 +271,18 @@ final class ConferirEncargosGravadosCommandTest extends KernelTestCase
         self::assertStringContainsString('Lista da reconciliação', $saida);
         // A linha traz o LOTE usado — é o que permite achar e desfazer um erro depois (§17.8).
         self::assertStringContainsString('(12/08/2026)', $saida);
-        // E os dois totais SEPARADOS: a multa move o saldo do devedor, o honorário não.
-        self::assertStringContainsString('sai do SALDO do devedor (juros + multa + correção): R$ 45,45', $saida);
-        self::assertStringContainsString('sai FORA do saldo (honorário', $saida);
+        // 🔴 UM total só, e o rótulo nomeia os QUATRO encargos.
+        //
+        // Aqui o teste exigia dois totais separados — "sai do SALDO do devedor (juros + multa +
+        // correção)" e "sai FORA do saldo (honorário...)" —, porque o honorário ficava fora do
+        // `valorExigivel()`. A spec `cobranca-honorario-no-total.md` REVOGOU isso. Esta é a lista que o
+        // dono lê para autorizar a escrita: o rótulo velho mostraria o número certo com o nome errado.
+        self::assertStringContainsString('sai do SALDO do devedor (juros + multa + correção + honorário): R$ 45,45', $saida);
+
+        // A guarda que sobrevive à mudança e é o motivo de o teste existir: nenhum caminho pode voltar
+        // a anunciar que parte do dinheiro duplicado não move o saldo de ninguém.
+        self::assertStringNotContainsString('FORA do saldo', $saida);
+        self::assertStringNotContainsString('NÃO entra no saldo', $saida);
     }
 
     #[TestDox('N2 — tenant inexistente tem código próprio, fora dos códigos baixos')]

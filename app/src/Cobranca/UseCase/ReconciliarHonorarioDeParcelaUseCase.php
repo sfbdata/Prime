@@ -314,15 +314,23 @@ final class ReconciliarHonorarioDeParcelaUseCase
             // §10.8). Carimbar a generalização no banco seria deixar um motivo errado no lugar em que
             // ninguém mais vai conferi-lo.
             //
-            // Então o texto afirma só o que vale PARA ESTAS obrigações e nomeia a exceção. O que
-            // autoriza a correção não é uma regra geral: é a conferência humana da lista (INV-H0).
+            // 🔴 E ele não pode afirmar FATO SOBRE O MUNDO nem ATO DE TERCEIRO. Uma segunda redação
+            // dizia "estas parcelas não aparecem em nenhum relatório da contabilidade que tenha coluna
+            // de encargo" e "a lista foi conferida contra a planilha antes da aplicação". A primeira é
+            // a medição de 17/08 sobre as 135 candidatas DAQUELE dia, e seria gravada sobre QUALQUER id
+            // que o humano digitasse — inclusive uma parcela dentro do exigível, que é a forma exata
+            // das 114 que a §10.8 mediu APARECENDO na inadimplência. A segunda afirma uma conferência
+            // que o código não observa: `--ids` é uma lista de inteiros, e o INV-H0 existe justamente
+            // porque o dado que decide não está no banco.
+            //
+            // Sobrou o que o sistema SABE: quantas, quanto, que veio de lista informada à mão, e a
+            // exceção nomeada. É a §1.1 — o sistema mostra, a gerência julga.
             sprintf(
-                'Honorário retirado de %d parcela(s) de acordo: R$ %s. Estas parcelas não aparecem em '
-                . 'nenhum relatório da contabilidade que tenha coluna de encargo — no relatório de '
-                . 'acordos ela publica só o Valor acordado —, e a lista foi conferida contra a planilha '
-                . 'antes da aplicação. ATENÇÃO: isto NÃO é regra geral. Parcela de acordo que ATRASA '
-                . 'migra para o relatório de inadimplência, e lá a contabilidade cobra encargo '
-                . 'normalmente.',
+                'Honorário retirado de %d parcela(s) de acordo: R$ %s. A correção foi aplicada a partir '
+                . 'de uma lista de obrigações informada na linha de comando, uma a uma. ATENÇÃO: o '
+                . 'sistema NÃO decidiu que estas parcelas não devem cobrar honorário, e isto NÃO é '
+                . 'regra geral — parcela de acordo que ATRASA migra para o relatório de inadimplência '
+                . 'da contabilidade, e lá ela cobra encargo normalmente.',
                 count($linhas),
                 number_format($total / 100, 2, ',', '.'),
             ),

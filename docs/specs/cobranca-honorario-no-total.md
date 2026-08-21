@@ -139,6 +139,43 @@ Testes obrigatórios:
 6. Suíte completa verde na frente **e de novo no master depois do merge** — é o passo que todo mundo
    pula e que já salvou esta frente duas vezes.
 
+## 7.1 🔴 A varredura da INV-E2 — e a regra que decide o que NÃO se toca
+
+Revogar a INV-E2 deixou dezenas de comentários e rótulos afirmando o contrário do que o código passou a
+fazer. A varredura foi feita na 10ª rodada (decisão do dono em 20/08, contra a alternativa de deixar
+para depois: *"foi assim que a premissa falsa se espalhou por sete revisões — frase errada no código é
+copiada antes de ser corrigida"*).
+
+**A regra de decisão, e ela tem TRÊS casos, não dois:**
+
+| o que você achou | o que fazer |
+|---|---|
+| comentário que ficou **FALSO** — descreve comportamento que mudou | **corrigir** |
+| comentário **VERDADEIRO** sobre código que agora está **ERRADO** | ⛔ **NÃO TOCAR** |
+| comentário falso que **É o argumento de segurança** de um código que ficou inseguro | corrigir **e registrar o defeito aberto na mesma linha** — nunca só corrigir |
+
+🔑 **O segundo caso é o que uma sessão futura vai "limpar" sem entender.** Os três lugares que somam o
+exigível à mão sem honorário estão errados no CÓDIGO; os comentários deles descrevem esse código com
+honestidade. Reescrevê-los para "ficar em dia com a spec" apagaria a única pista do defeito e deixaria
+o defeito. **Eles seguem, de propósito:**
+
+- `EditarObrigacaoUseCase:138` e `:198` — as duas cópias escritas à mão (decide se dívida liquidada
+  REABRE, e o guard `ValorAbaixoDoAlocado`);
+- `ObrigacaoRepository:211` — a quarta cópia, em DQL (`having` da régua `pagasMasNaoLiquidadas`).
+
+⚠️ **`INV-E2` é HOMÔNIMO neste código.** Em `RelatorioImportado`, `RelatorioLinha` e
+`RelatorioTotalizador` ela significa *"não implementa `Auditavel` de propósito"* — nada a ver com
+honorário. Uma varredura cega por `INV-E2` corromperia esses três. Idem para "fora do saldo", que
+descreve legitimamente a obrigação excluída por acordo substituto vigente.
+
+**A prova da varredura é feita com DUAS listas, nunca uma:**
+
+    falsos restantes: zero
+    honestos sobre defeito aberto: 3 — EditarObrigacaoUseCase:138, :198 · ObrigacaoRepository:211
+
+Uma busca que termine só com "zero" está errada por construção: ela empurra para apagar justamente os
+três que devem ficar.
+
 ## 8. O que esta fatia NÃO faz
 
 - Não conserta o honorário zerado da parcela de acordo (**§3.4**) — população e mecanismo diferentes.
@@ -156,6 +193,27 @@ acima não cobria isso. Na dívida intacta o número é o mesmo de antes; na par
 o gross-up antigo multiplicava o RESTANTE (R$ 800 × 1,10 = R$ 880), e agora o honorário incide sobre a
 obrigação inteira (R$ 1.200 + R$ 120 − R$ 400 = **R$ 920**). O valor novo é o correto, mas **quem
 opera vai ver outro número no campo** e precisa saber antes. Guardado por `ObjetoShowControllerTest`.
+
+⚠️ **A régua `app:cobranca:espelho:encargos` mudou de forma.** A coluna "honorário" da lista da
+reconciliação saiu e os dois totais viraram um só ("juros + multa + correção + honorário"). Sem isso o
+relatório mostraria o número certo com o rótulo errado — e imprimia, em vermelho, *"o honorário NÃO
+entra no saldo exigível"*, que é a frase que esta spec derruba, no exato ponto em que o dono decide.
+
+### 9.1 ⚠️ Esta fatia toca um comando que NÃO era desta frente
+
+`app:cobranca:reconciliar-dupla-contagem` **já rodou em produção** (25 dívidas reconciliadas em 13/08).
+Ele não é escopo desta frente, mas consome a régua que ela mudou, e ficar com a definição velha faria a
+mesma regra de dinheiro ter duas definições — o defeito da §2. **É só texto e rótulo, nenhuma mudança
+de cálculo**, e nada muda no que ele grava em `juros`/`multa`/`correcao`/`honorarios`:
+
+- o evento no histórico do caso passa a trazer **um** valor ("saldo devido reduzido em R$ X") em vez de
+  dois; antes diria *"honorário reduzido em R$ 0,00 (o honorário não entra no saldo)"* num caso em que o
+  honorário caiu de verdade — número errado e motivo revogado, permanentes;
+- o payload do evento ganha `regraDoSaldo: 'honorario_incluido'`. **Existe porque a chave
+  `removidoDoSaldoCentavos` mudou de significado**: os eventos de agosto/2026 usam a regra antiga e não
+  trazem a marca. Sem ela, o mesmo nome de campo teria dois sentidos no mesmo histórico.
+
+📌 **Quem for integrar precisa saber disto**: o merge leva alteração num comando de outra frente.
 
 ## 10. 🔴 O override que faltou em 135 parcelas de acordo
 

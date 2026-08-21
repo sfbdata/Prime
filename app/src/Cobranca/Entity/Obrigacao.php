@@ -94,7 +94,7 @@ class Obrigacao implements TenantAware, Auditavel
     #[ORM\Column(type: 'integer', options: ['default' => 0])]
     private int $correcao = 0;
 
-    /** Honorários materializados, em CENTAVOS — FORA do valor exigível (INV-E2). */
+    /** Honorários materializados, em CENTAVOS — DENTRO do valor exigível (INV-E2 revogada, ver :28). */
     #[ORM\Column(type: 'integer', options: ['default' => 0])]
     private int $honorarios = 0;
 

@@ -79,13 +79,21 @@ final readonly class ResultadoConferenciaEncargos
     ) {
     }
 
-    /** O que a reconciliação tiraria do SALDO do devedor (juros + multa + correção). */
+    /**
+     * O que a reconciliação tiraria do SALDO do devedor — juros + multa + correção **+ honorário**.
+     * O honorário entrou aqui com a spec `cobranca-honorario-no-total.md`, que revogou a INV-E2.
+     */
     public function duplicadoNoSaldoEmCentavos(): int
     {
         return array_sum(array_column($this->duplicadas, 'duplicadoNoSaldo'));
     }
 
-    /** O que ela tiraria FORA do saldo (honorário) — não move a conta de ninguém. */
+    /**
+     * ⚠️ **Sempre 0 desde `cobranca-honorario-no-total.md`.** Dizia "o que ela tiraria FORA do saldo
+     * (honorário) — não move a conta de ninguém"; só o honorário caía neste balde e ele agora está
+     * dentro. Mantido para a soma das duas metades continuar fechando com o total duplicado
+     * ({@see self::contasFecham()}); não use este número para afirmar que algo não move o saldo.
+     */
     public function duplicadoForaDoSaldoEmCentavos(): int
     {
         return array_sum(array_column($this->duplicadas, 'duplicadoForaDoSaldo'));

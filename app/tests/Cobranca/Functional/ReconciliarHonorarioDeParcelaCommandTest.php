@@ -103,7 +103,16 @@ final class ReconciliarHonorarioDeParcelaCommandTest extends KernelTestCase
 
         // A de dentro não some: sai com aviso, para o humano poder incluí-la à mão se quiser.
         self::assertStringContainsString('DENTRO do exigível', $saida);
-        self::assertStringContainsString((string) $viva->getId(), $saida);
+
+        // ⚠️ Aqui havia `assertStringContainsString((string) $viva->getId(), $saida)` — o mesmo defeito
+        // que o docblock acima se gaba de evitar: um id curto casa dentro de qualquer outro número da
+        // saída (id 12 "está contido" em 1200, em 4512, na competência...). A asserção passava sempre.
+        // Agora ela mira a LINHA da tabela de avisos: a coluna do NN é única daquela obrigação.
+        self::assertMatchesRegularExpression(
+            '/^\s*' . $viva->getId() . '\s.*\s60377\s/m',
+            $saida,
+            'a candidata de dentro do exigível tem de sair na tabela de aviso, com id e NN na mesma linha',
+        );
     }
 
     /**

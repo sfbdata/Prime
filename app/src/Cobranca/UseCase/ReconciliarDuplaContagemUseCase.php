@@ -259,27 +259,40 @@ final class ReconciliarDuplaContagemUseCase
                 continue;
             }
 
-            $noSaldo = array_sum(array_column($linhas, 'removidoNoSaldo'));
-            $foraDoSaldo = array_sum(array_column($linhas, 'removidoForaDoSaldo'));
+            // 🔴 UM número só, e o texto NÃO explica mais por que ele estaria partido.
+            //
+            // Aqui saíam dois valores e a frase "(o honorário não entra no saldo)" — verdade sob a
+            // INV-E2, que a spec `cobranca-honorario-no-total.md` REVOGOU. Depois dela
+            // `removidoForaDoSaldo` é sempre 0, então o evento gravado no histórico do caso diria
+            // "honorário reduzido em R$ 0,00" num caso em que o honorário caiu de verdade — número
+            // errado E motivo revogado, permanentes, no lugar em que ninguém mais vai conferi-los.
+            $reduzido = array_sum(array_column($linhas, 'removidoNoSaldo'))
+                + array_sum(array_column($linhas, 'removidoForaDoSaldo'));
 
             $this->registrarEvento->registrar(
                 $caso,
                 TipoEventoHistorico::ValorAtualizadoReconhecido,
                 $usuario,
                 sprintf(
-                    'Dupla contagem de encargo corrigida em %d obrigação(ões): saldo devido reduzido em '
-                    . 'R$ %s; honorário reduzido em R$ %s (o honorário não entra no saldo).',
+                    'Dupla contagem de encargo corrigida em %d obrigação(ões): saldo devido reduzido '
+                    . 'em R$ %s (juros, multa, correção e honorário — todos entram no saldo).',
                     count($linhas),
-                    number_format($noSaldo / 100, 2, ',', '.'),
-                    number_format($foraDoSaldo / 100, 2, ',', '.'),
+                    number_format($reduzido / 100, 2, ',', '.'),
                 ),
                 [
                     'origem' => 'reconciliacao_dupla_contagem',
                     // INV-R3 — o lote é o que torna a correção auditável e reversível.
                     'loteId' => $primeira['loteId'],
                     'loteEmitidoEm' => $primeira['loteEmitidoEm']?->format('Y-m-d'),
-                    'removidoDoSaldoCentavos' => $noSaldo,
-                    'removidoForaDoSaldoCentavos' => $foraDoSaldo,
+                    'removidoDoSaldoCentavos' => $reduzido,
+                    // 🔑 A MARCA DE REGRA, e ela existe por um motivo medido: a chave
+                    // `removidoDoSaldoCentavos` mudou de SIGNIFICADO com a spec
+                    // `cobranca-honorario-no-total.md` — antes dela excluía o honorário, depois
+                    // inclui. Os eventos gravados em produção em agosto/2026 usam a regra antiga e não
+                    // trazem esta marca. Sem ela, o mesmo nome de campo teria dois sentidos no mesmo
+                    // histórico, sem nada que distinguisse um do outro. `removidoForaDoSaldoCentavos`
+                    // saiu: era sempre o honorário, que agora está dentro.
+                    'regraDoSaldo' => 'honorario_incluido',
                     'obrigacoes' => array_map(
                         static fn (array $l): array => [
                             'id' => $l['obrigacaoId'],
