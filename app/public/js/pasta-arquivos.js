@@ -49,12 +49,6 @@
     let termoBusca = '';
     let modoView   = localStorage.getItem('fmView') || 'lista';
     let ordem      = localStorage.getItem('fmOrdem') || 'nome';
-    let arrastando = null;      // cartão de pasta em arraste (mover para dentro de outra)
-    // true quando o drop acabou de ser tratado como "mover para dentro" (bloco de mover-pasta,
-    // mais abaixo). O Sortable das pastas usa o MESMO gesto (arrastar pela alça) para reordenar
-    // entre irmãs — sem esta trava os dois caminhos disparam POST concorrentes (/mover e
-    // /reordenar) ao soltar sobre outro cartão, e quem chega por último decide a ordem final.
-    let pularReordenarPastas = false;
 
     // ---------------------------------------------------------------- utils --
     function escapeHtml(s) {
@@ -69,12 +63,6 @@
         return c ? c.dataset.nome : '';
     }
     function toggle(el, mostrar) { if (el) el.classList.toggle('fm-oculto', !mostrar); }
-    // Mesmo teste usado no upload por arraste (mais abaixo, no listener de #fmBody): identifica um
-    // arraste vindo de FORA do navegador (arquivo do SO), que não dispara dragstart em nenhum
-    // elemento da página — distinto do arraste de um cartão de pasta, que dispara.
-    function arrasteContemArquivo(e) {
-        return !!(e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types || [], 'Files') !== -1);
-    }
 
     // ----------------------------------------------------------- navegação ---
     function paiDe(secaoId) {
@@ -669,9 +657,6 @@
             new Sortable(elPastas, {
                 handle: '.fm-pasta-grip', draggable: '.fm-pasta', animation: 150, ghostClass: 'arrastando',
                 onEnd: function () {
-                    // O drop já foi tratado como "mover para dentro" (ver bloco de mover-pasta,
-                    // mais abaixo) — não reordena por cima, senão os dois POSTs correm juntos.
-                    if (pularReordenarPastas) { pularReordenarPastas = false; return; }
                     const ids = todasPastas().map(function (el) { return Number(el.dataset.secaoId); });
                     persistir(cfg.urlReordenarSecoes, cfg.csrfReordenarSecoes, ids);
                 },
@@ -679,52 +664,13 @@
         }
     }
 
-    // Mover pasta arrastando o cartão inteiro sobre outro (aninhar). O Sortable acima cuida do
-    // REORDENAR entre irmãs pelo grip (handle: '.fm-pasta-grip', intocado); este bloco cuida do
-    // SOLTAR sobre outro cartão = mover para dentro dele. Os dois dependem do MESMO gesto porque
-    // o Sortable só inicia o arraste (torna o cartão draggable) a partir do grip — arrastar pelo
-    // corpo do cartão não inicia nada sozinho — então o dragstart abaixo só marca `arrastando`
-    // quando o arraste do Sortable já está em curso.
-    if (elPastas && temArvore) {
-        elPastas.addEventListener('dragstart', function (e) {
-            const card = e.target.closest('.fm-pasta');
-            if (card) arrastando = card;
-        });
-        elPastas.addEventListener('dragover', function (e) {
-            // #fmPastas mora dentro de #fmBody, que TAMBÉM aceita arraste de arquivo do SO para
-            // upload (listener de #fmBody, mais abaixo). Sem esta guarda, um `arrastando` deixado
-            // por um arraste de PASTA anterior (nunca limpo, porque arraste de arquivo externo não
-            // dispara dragstart em elemento nenhum da página) seria reaproveitado por engano aqui.
-            if (arrasteContemArquivo(e)) return;
-            const alvo = e.target.closest('.fm-pasta');
-            if (alvo && arrastando && alvo !== arrastando) { e.preventDefault(); alvo.classList.add('fm-pasta-alvo'); }
-        });
-        elPastas.addEventListener('dragleave', function (e) {
-            const alvo = e.target.closest('.fm-pasta');
-            if (alvo) alvo.classList.remove('fm-pasta-alvo');
-        });
-        elPastas.addEventListener('drop', function (e) {
-            if (arrasteContemArquivo(e)) return;              // arquivo do SO: não é mover pasta
-            const alvo = e.target.closest('.fm-pasta');
-            if (!alvo || !arrastando || alvo === arrastando) return;
-            e.preventDefault();
-            alvo.classList.remove('fm-pasta-alvo');
-            if (descendentes(arrastando.dataset.secaoId).indexOf(alvo.dataset.secaoId) !== -1) {
-                alert('Não é possível mover uma pasta para dentro dela mesma.');
-                return;
-            }
-            pularReordenarPastas = true;                       // ver onEnd do Sortable acima
-            moverPasta(arrastando, alvo.dataset.secaoId);
-            arrastando = null;                                 // não confia só no dragend abaixo
-        });
-        // dragend dispara sempre que o arraste termina — mesmo solto fora de um alvo válido ou
-        // cancelado com Esc — e é o único ponto confiável para isto: sem ele, `arrastando` fica
-        // apontando para o último cartão arrastado para sempre (não existe outro reset no arquivo).
-        elPastas.addEventListener('dragend', function () {
-            arrastando = null;
-            elPastas.querySelectorAll('.fm-pasta-alvo').forEach(function (el) { el.classList.remove('fm-pasta-alvo'); });
-        });
-    }
+    // Não existe "arrastar o cartão de uma pasta para dentro de outra" (mover por drag-and-drop) —
+    // decisão do dono em 21/08, depois de diagnosticar por que o gesto nunca funcionava. O Sortable
+    // (acima) reposiciona o cartão arrastado no DOM sob o próprio cursor a cada passo — é assim que
+    // ele reordena entre irmãs — então, ao soltar "em cima" de outro cartão, quem está fisicamente
+    // ali é sempre o PRÓPRIO cartão arrastado: e.target.closest('.fm-pasta') nunca devolve o vizinho.
+    // Medido com instrumentação: dragstart → o cartão movido, drop → o mesmo cartão movido, zero
+    // eventos de dragover (o Sortable consome todos). Mover pasta é só pelo menu "Mover para...".
 
     function persistir(url, csrf, ids) {
         fetch(url, {
