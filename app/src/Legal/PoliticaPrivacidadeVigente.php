@@ -30,7 +30,7 @@ final class PoliticaPrivacidadeVigente
      * ⚠️ Trocar para o dia do deploy antes de publicar — o documento diz
      * "Vigência: a partir da publicação", então esta data é a que vale.
      */
-    public const DATA_PUBLICACAO = '2026-08-20';
+    public const DATA_PUBLICACAO = '2026-08-21';
 
     public function getVersao(): string
     {
