@@ -202,6 +202,41 @@ Um dos três arquivos abaixo tem CPF com dígito verificador **válido** que cas
 `docs/gestao-cobrancas/mockup-ajuste10-objeto-show.html`. A decisão que ela exige **não é técnica**:
 se limpar histórico já publicado vale o custo, ou se basta remover da árvore e registrar.
 
+### 3.9 🔴 Fatia própria: a garantia do `EditarConfiguracaoCaso` caiu com a INV-E2
+
+Achado em 20/08, durante a varredura da 10ª rodada da frente do honorário. **Não é comentário — é
+comportamento.** Nenhuma das revisões do honorário o pegou, porque as duas estavam limitadas ao diff.
+
+`EditarConfiguracaoCasoUseCase` recalcula **só o honorário** das obrigações do caso, e o argumento de
+segurança escrito ali tinha duas metades:
+
+1. não recompor juros/multa/correção (esses descem da CARTEIRA — recompô-los reduziria o exigível de
+   todas as automáticas num POST, sem guard de alocado). **Essa metade continua de pé.**
+2. *"o honorário fica fora do exigível (INV-E2), logo pode subir OU descer livremente aqui"*.
+   **Essa caiu**: o honorário entra no `valorExigivel()` desde `cobranca-honorario-no-total.md`.
+
+**Consequência:** mexer no percentual de honorário de um caso passa a mover o exigível de todas as
+dívidas automáticas dele, num clique, **sem guard de alocado** — a mesma bomba que a auditoria
+adversarial pegou e que o desenho tinha fechado. Uma dívida com `alocado >= exigível` pode virar
+"quitada" por uma edição de tela.
+
+**Exposição medida em produção (20/08):**
+
+| | |
+|---|---:|
+| casos | **483** |
+| com percentual de honorário próprio | **0** |
+| com base ou carência própria | **0** |
+| já editados (`atualizado_em`) | **0** |
+
+**A tela nunca foi usada.** O risco é real e está dormindo; acorda no primeiro uso.
+
+⏳ **A decisão é do dono, e é o que a fatia precisa antes de escrever código:** se baixar o percentual
+fizer uma dívida virar paga, o sistema **recusa**, **avisa** ou **deixa**?
+
+📌 O comentário no código foi corrigido **mantendo o defeito à vista** (spec §7.1, terceiro caso da
+regra): a frase falsa saiu, o defeito aberto ficou registrado na mesma linha, com estes números.
+
 ## 4. Como medir (nada disso é chute)
 
 Régua pronta, em produção, somente leitura:
@@ -253,13 +288,31 @@ ao master. As worktrees estão limpas e commitadas; não há trabalho solto.
 
 | frente | topo | suíte | veredito |
 |---|---|---|---|
-| `cobranca-honorario-no-total` | `cc1892c1` (9 commits) | 3893/3893 | 🟠 §7.1 **reduzida** na 7ª revisão: correção das 135 pronta, parte prospectiva REMOVIDA; ⏳ 8ª revisão + integrar |
+| `cobranca-honorario-no-total` | 12 commits | 3895/3895 | 🟠 §7.1 reduzida na 7ª; 8ª e 9ª revisões feitas e corrigidas (INV-H4, texto do histórico, varredura da INV-E2); ⏳ **10ª revisão** → integrar |
 | `cobranca-reconciliar-data-acordo` | `6995bb99` | 3901/3901 | ⛔ 2 achados ALTO |
 
 ### 7.1 🟠 As 135 parcelas — CORREÇÃO pronta, parte prospectiva REMOVIDA
 
-**Estado: 9 commits na frente `cobranca-honorario-no-total`, topo `cc1892c1`, suíte 3893/3893.
-SETE revisões. Nada em produção, nada no master.** Detalhe: spec §10 — **comece pela §10.8**.
+**Estado: 12 commits na frente `cobranca-honorario-no-total`, suíte 3895/3895. NOVE revisões, e a
+correção da 9ª feita. Nada em produção, nada no master.** Detalhe: spec §10 — **comece pela §10.8**.
+
+#### O que a 8ª e a 9ª revisões mudaram (20/08)
+
+- **INV-H4** (spec §10.5 item 4): a linha `--ids=` pronta para colar traz **só as candidatas fora do
+  exigível**; as de dentro saem em tabela separada com aviso e entram só se o humano digitar o id.
+  Medido: **0 de 135** estão no exigível hoje — a trava é para o dia em que não for assim.
+- **O texto do histórico** parou de afirmar regra geral, fato sobre o mundo e ato de terceiro. Ele diz
+  o que o sistema SABE (quantas, quanto, que veio de lista à mão) e nomeia a exceção da §10.8.
+- 🔴 **A varredura da INV-E2** — decisão do dono em 20/08, contra deixar para depois: *"foi assim que a
+  premissa falsa se espalhou por sete revisões"*. Regra de três casos e prova de DUAS listas na
+  **spec §7.1**; script `scripts/conferir-varredura-inv-e2.py` (sai 1 se sobrar falso **ou** se um dos
+  3 comentários honestos for apagado). ⛔ **Os 3 honestos ficam de propósito** —
+  `EditarObrigacaoUseCase:138`, `:198` e `ObrigacaoRepository:211` descrevem as cópias da regra do
+  exigível que continuam ERRADAS no código (§7.2); reescrevê-los apagaria a pista e deixaria o defeito.
+- ⚠️ **A fatia passou a tocar `app:cobranca:reconciliar-dupla-contagem`**, que **não é desta frente e
+  já rodou em produção** (25 dívidas em 13/08). Só texto e rótulo, nenhum cálculo mudou — detalhe e
+  motivo na **spec §9.1**. Quem integrar precisa saber.
+- 📌 Achado que virou **fatia própria**: §3.9 (`EditarConfiguracaoCaso`).
 
 #### 🔴 A premissa da fatia caiu na 7ª revisão. Leia isto primeiro.
 
