@@ -3,6 +3,7 @@
 namespace App\Repository;
 
 use App\Auth\Enum\StatusOab;
+use App\Entity\Audit\AuditLog;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
@@ -53,6 +54,20 @@ class UserRepository extends ServiceEntityRepository
     }
 
     /**
+     * Opções do dropdown "usuário" da trilha de auditoria.
+     *
+     * Spec §6.4: com o hard delete do vínculo, quem foi removido some de qualquer JOIN em
+     * `user_tenant` — mas o rastro dela continua em `audit_log`. Por isso a lista une DUAS
+     * fontes, ambas escopadas ao tenant: quem tem vínculo (join de sempre) e os
+     * `actor_user_id` distintos que aparecem no `audit_log` daquele tenant. Os dois JOINs são
+     * LEFT (não INNER) porque o critério de entrada é "está em pelo menos uma das fontes", e o
+     * GROUP BY tira a duplicata de quem está nas duas.
+     *
+     * `audit_log` não tem foreign key nenhuma (`tenant_id`/`actor_user_id` são inteiros soltos):
+     * a condição `= :tenantId` já descarta sozinha as linhas com `tenant_id` NULL (NULL = valor
+     * nunca é verdadeiro), e o mesmo vale para `actor_user_id` NULL — nenhum dos dois precisa de
+     * tratamento explícito de nulo.
+     *
      * @return array<int, array{value: string, label: string}>
      */
     public function findAuditFilterOptions(?int $tenantId): array
@@ -63,12 +78,20 @@ class UserRepository extends ServiceEntityRepository
 
         if (is_int($tenantId)) {
             $queryBuilder
-                ->join(
+                ->leftJoin(
                     'App\Entity\Auth\UserTenant',
                     'ut',
                     'WITH',
                     'ut.user = u AND ut.tenant = :tenantId'
                 )
+                ->leftJoin(
+                    AuditLog::class,
+                    'al',
+                    'WITH',
+                    'al.actorUserId = u.id AND al.tenantId = :tenantId'
+                )
+                ->andWhere('ut.id IS NOT NULL OR al.id IS NOT NULL')
+                ->groupBy('u.id, u.email')
                 ->setParameter('tenantId', $tenantId);
         }
 

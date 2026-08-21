@@ -822,12 +822,11 @@ final class MoverPastaSecaoUseCaseTest extends TestCase
 
     private function secao(string $nome, ?PastaSecao $pai = null): PastaSecao
     {
+        // NÃO acrescente $pai->getFilhas()->add($s) aqui: desde o fix da Task 1, setPai() já
+        // sincroniza os dois lados da associação, e o add() manual DUPLICARIA a entrada.
         $s = (new PastaSecao())->setNome($nome)->setPai($pai);
         $s->setPasta($this->pasta);
         $s->setTenant($this->tenant);
-        if ($pai !== null) {
-            $pai->getFilhas()->add($s);
-        }
 
         return $s;
     }
@@ -844,6 +843,26 @@ final class MoverPastaSecaoUseCaseTest extends TestCase
 
         self::assertSame($a, $b->getPai());
         self::assertSame(1, $b->getOrdem());
+        self::assertTrue($a->getFilhas()->contains($b), 'entrou nas filhas do destino');
+    }
+
+    public function testMoverEntreDoisPaisTiraDoAntigo(): void
+    {
+        $a = $this->secao('A');
+        $b = $this->secao('B');
+        $x = $this->secao('X', $a);
+
+        $this->repo->method('proximaOrdem')->willReturn(1);
+
+        $this->useCase->executar($x, $b, $this->autor, $this->tenant);
+
+        self::assertSame($b, $x->getPai());
+        self::assertTrue($b->getFilhas()->contains($x), 'entrou nas filhas do novo pai');
+        self::assertFalse(
+            $a->getFilhas()->contains($x),
+            'saiu das filhas do pai antigo — senão getAltura() de A fica inflada para sempre',
+        );
+        self::assertSame(1, $a->getAltura(), 'A voltou a ser folha');
     }
 
     public function testMoveDeVoltaParaARaiz(): void
@@ -857,6 +876,7 @@ final class MoverPastaSecaoUseCaseTest extends TestCase
 
         self::assertNull($b->getPai());
         self::assertSame(3, $b->getOrdem());
+        self::assertFalse($a->getFilhas()->contains($b), 'saiu das filhas do pai antigo');
     }
 
     public function testRecusaMoverParaDentroDaPropriaFilha(): void
@@ -1067,7 +1087,7 @@ git commit -m "move pasta entre niveis, barrando ciclo e estouro de profundidade
 
 **Files:**
 - Modify: `app/src/Pasta/UseCase/ReordenarSecoesUseCase.php:22-45`
-- Test: `app/tests/Pasta/Unit/ReordenarSecoesUseCaseTest.php` (criar se não existir)
+- Test: `app/tests/Pasta/Unit/ReordenarSecoesUseCaseTest.php` — ⚠️ **JÁ EXISTE, com 3 testes.** Esta tarefa **acrescenta** um teste e estende um helper; **não** recria o arquivo.
 
 **Interfaces:**
 - Consumes: `PastaSecao::getPai()` (Task 1)
@@ -1075,71 +1095,50 @@ git commit -m "move pasta entre niveis, barrando ciclo e estouro de profundidade
 
 - [ ] **Step 1: Escrever o teste que falha**
 
-Criar `app/tests/Pasta/Unit/ReordenarSecoesUseCaseTest.php`:
+⚠️ **O arquivo já existe** com 3 testes (`testReordenarAtualizaOrdemCorretamente`,
+`testArrayVazioNaoChamaFlush`, `testIdInvalidoIgnoradoSilenciosamente`) e um helper
+`criarSecao(int $id, int $ordem)`. **Não recrie o arquivo — os 3 testes têm de sobreviver.** Eles
+usam só seções de raiz, então continuam válidos com a numeração por irmãs.
+
+Primeiro, **estenda o helper existente** com um terceiro parâmetro opcional:
 
 ```php
-<?php
-
-declare(strict_types=1);
-
-namespace App\Tests\Pasta\Unit;
-
-use App\Entity\Tenant\Tenant;
-use App\Pasta\Entity\Pasta;
-use App\Pasta\Entity\PastaSecao;
-use App\Pasta\Repository\PastaSecaoRepository;
-use App\Pasta\UseCase\ReordenarSecoesUseCase;
-use Doctrine\ORM\EntityManagerInterface;
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\MockObject\MockObject;
-use PHPUnit\Framework\TestCase;
-
-#[CoversClass(ReordenarSecoesUseCase::class)]
-final class ReordenarSecoesUseCaseTest extends TestCase
-{
-    private EntityManagerInterface&MockObject $em;
-    private PastaSecaoRepository&MockObject $repo;
-    private ReordenarSecoesUseCase $useCase;
-
-    protected function setUp(): void
+    private function criarSecao(int $id, int $ordem, ?PastaSecao $pai = null): PastaSecao
     {
-        $this->em      = $this->createMock(EntityManagerInterface::class);
-        $this->repo    = $this->createMock(PastaSecaoRepository::class);
-        $this->useCase = new ReordenarSecoesUseCase($this->em, $this->repo);
-    }
+        $secao = new PastaSecao();
+        $secao->setOrdem($ordem);
+        $secao->setPai($pai);
 
+        $ref = new \ReflectionProperty(PastaSecao::class, 'id');
+        $ref->setValue($secao, $id);
+
+        return $secao;
+    }
+```
+
+As 3 chamadas existentes passam 2 argumentos e continuam funcionando sem alteração.
+
+Depois **acrescente** este teste ao final da classe:
+
+```php
     public function testNumeracaoReiniciaEmCadaGrupoDeIrmas(): void
     {
-        $pasta  = new Pasta();
-        $tenant = new Tenant();
-
-        $reflexao = new \ReflectionProperty(PastaSecao::class, 'id');
-
-        $criar = static function (string $nome, int $id, ?PastaSecao $pai) use ($pasta, $tenant, $reflexao): PastaSecao {
-            $s = (new PastaSecao())->setNome($nome)->setPai($pai);
-            $s->setPasta($pasta);
-            $s->setTenant($tenant);
-            $reflexao->setValue($s, $id);
-
-            return $s;
-        };
-
-        $a  = $criar('A', 1, null);
-        $b  = $criar('B', 2, null);
-        $a1 = $criar('A1', 3, $a);
-        $a2 = $criar('A2', 4, $a);
+        $a  = $this->criarSecao(1, 1);
+        $b  = $this->criarSecao(2, 2);
+        $a1 = $this->criarSecao(3, 1, $a);
+        $a2 = $this->criarSecao(4, 2, $a);
 
         $this->repo->method('findByPasta')->willReturn([$a, $b, $a1, $a2]);
+        $this->em->expects($this->once())->method('flush');
 
         // ordem pedida: B antes de A na raiz; A2 antes de A1 dentro de A
-        $this->useCase->executar($pasta, $tenant, [2, 1, 4, 3]);
+        $this->useCase->executar($this->pasta, $this->tenant, [2, 1, 4, 3]);
 
         self::assertSame(1, $b->getOrdem(), 'B é a 1ª da RAIZ');
         self::assertSame(2, $a->getOrdem(), 'A é a 2ª da RAIZ');
         self::assertSame(1, $a2->getOrdem(), 'A2 é a 1ª DENTRO de A — a numeração reinicia');
         self::assertSame(2, $a1->getOrdem(), 'A1 é a 2ª DENTRO de A');
     }
-}
 ```
 
 - [ ] **Step 2: Rodar para confirmar que falha**
@@ -1289,6 +1288,84 @@ Acrescentar em `app/tests/Pasta/Functional/PastaSecaoControllerTest.php`:
         self::assertNull($filha->getPai());
     }
 
+    #[TestDox('mover para dentro da própria filha é recusado mesmo com a requisição forjada')]
+    public function testMoverParaDescendenteRecusadoPelaRota(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $em  = static::getContainer()->get(EntityManagerInterface::class);
+        $mae = $this->criarSecao($pasta, $tenant);
+
+        $filha = new PastaSecao();
+        $filha->setPasta($pasta);
+        $filha->setTenant($tenant);
+        $filha->setNome('FILHA');
+        $filha->setOrdem(1);
+        $filha->setPai($mae);
+        $em->persist($filha);
+        $em->flush();
+
+        // A tela esconderia a filha da lista de destinos. Aqui mandamos direto, como faria
+        // qualquer pessoa com o DevTools aberto — o back tem de recusar sozinho.
+        $client->request('POST', '/pasta/secao/' . $mae->getId() . '/mover', [
+            '_token'    => $this->csrf('pasta_secao_mover_' . $mae->getId()),
+            'destinoId' => (string) $filha->getId(),
+        ]);
+
+        self::assertResponseStatusCodeSame(422);
+
+        $maeId = $mae->getId();
+        $em->clear();
+        self::assertNull(
+            $em->find(PastaSecao::class, $maeId)->getPai(),
+            'a mãe continua na raiz — a recusa não pode ter gravado nada',
+        );
+    }
+
+    #[TestDox('criar acima do 10º nível é recusado mesmo com a requisição forjada')]
+    public function testCriarAcimaDoTetoRecusadoPelaRota(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        // Cadeia de 10: a última fica no nível 10, então criar dentro dela daria 11.
+        $anterior = null;
+        for ($i = 0; $i < 10; ++$i) {
+            $s = new PastaSecao();
+            $s->setPasta($pasta);
+            $s->setTenant($tenant);
+            $s->setNome('N' . $i);
+            $s->setOrdem(1);
+            $s->setPai($anterior);
+            $em->persist($s);
+            $anterior = $s;
+        }
+        $em->flush();
+        $paiId = $anterior->getId();
+
+        // O teto mora SÓ no back — a tela nem sabe qual é o número. Mandamos direto.
+        $client->request('POST', '/pasta/' . $pasta->getId() . '/secao', [
+            '_token' => $this->csrf('pasta_secao_criar_' . $pasta->getId()),
+            'nome'   => 'Decima primeira',
+            'paiId'  => (string) $paiId,
+        ]);
+
+        self::assertResponseStatusCodeSame(422);
+
+        $em->clear();
+        $criadas = $em->getRepository(PastaSecao::class)->count(['pasta' => $pasta->getId()]);
+        self::assertSame(10, $criadas, 'nenhuma seção a mais foi gravada');
+    }
+
     #[TestDox('excluir informa quanto conteúdo foi apagado junto')]
     public function testExcluirDevolveAContagem(): void
     {
@@ -1312,12 +1389,31 @@ Acrescentar em `app/tests/Pasta/Functional/PastaSecaoControllerTest.php`:
         ]);
 
         self::assertResponseIsSuccessful();
-        $json = json_decode($this->client->getResponse()->getContent(), true);
+        $json = json_decode((string) $client->getResponse()->getContent(), true);
         self::assertSame(1, $json['subpastasRemovidas']);
     }
 ```
 
-> ⚠️ Se os helpers `$this->client` / `$this->csrf()` tiverem outro nome nesta classe, use os que já existem no arquivo — **não** crie helpers paralelos.
+> 🔒 **Os dois testes `...RecusadoPelaRota` são a prova de que o front não é a autoridade.** Todo
+> guard desta frente vive no UseCase, e o JavaScript só esconde opções por conforto. Estes testes
+> atacam pela rota HTTP **ignorando a tela** — é o cenário real de alguém manipulando a requisição.
+> Sem eles, o guard de ciclo e o teto de 10 níveis só estariam provados contra objetos em memória,
+> nunca contra o caminho que um atacante usaria. **Não os transforme em teste de UseCase.**
+
+> ⚠️ **`$this->client` NÃO EXISTE nesta classe** — conferido no arquivo real. O padrão da casa cria o
+> client como variável local e monta o contexto em quatro linhas, nesta ordem:
+>
+> ```php
+>         $client          = static::createClient();
+>         [$user, $tenant] = $this->criarUsuarioAdmin();
+>         $pasta           = $this->criarPasta($tenant);
+>         $this->instalarCsrfStorage();                    // sem isto, $this->csrf() não casa
+>         $this->logarComTenant($client, $user, $tenant);  // faz login E aceita os termos
+> ```
+>
+> Reescreva os quatro testes acima nesse formato, trocando todo `$this->client` por `$client`.
+> `$this->csrf(...)`, `criarUsuarioAdmin()`, `criarPasta()` e `criarSecao()` já existem — use-os,
+> **não** crie helpers paralelos. `instalarCsrfStorage()` e `logarComTenant()` também já existem.
 
 - [ ] **Step 2: Rodar para confirmar que falha**
 
@@ -1426,6 +1522,38 @@ No método `excluir`, **antes** de chamar o UseCase, capturar a contagem (depois
         $conteudo = $this->secaoRepository->contarConteudoRecursivo($secao);
 ```
 
+🔴 **E corrigir um vazamento que a árvore introduz.** O loop de limpeza de disco que já está no método
+percorre **só** `$secao->getDocumentos()` — os documentos diretos. Isso bastava quando só existia um
+nível. Com a árvore, apagar uma pasta remove do **banco**, em cascata, os documentos de filhas e
+netas — mas os **arquivos físicos delas ficam órfãos no disco para sempre**, porque o loop nunca as
+alcança. Substitua o loop atual por uma varredura da árvore inteira:
+
+```php
+        // A limpeza tem de percorrer a ÁRVORE, não só os documentos diretos: o cascade do banco
+        // apaga as linhas de toda a descendência, e sem isto os arquivos das filhas e netas ficam
+        // órfãos no disco. Antes das pastas aninhadas o loop raso bastava, porque não havia netas.
+        $this->limparArquivosDaArvore($secao);
+```
+
+E o método privado, no fim da classe:
+
+```php
+    /** Remove do disco os arquivos de $secao e de toda a descendência dela. */
+    private function limparArquivosDaArvore(PastaSecao $secao): void
+    {
+        foreach ($secao->getDocumentos() as $doc) {
+            $caminho = $this->storage->caminho($this->uploadsDir, $doc->getCaminhoArquivo());
+            if ($this->storage->existe($caminho)) {
+                $this->storage->excluir($caminho);
+            }
+        }
+
+        foreach ($secao->getFilhas() as $filha) {
+            $this->limparArquivosDaArvore($filha);
+        }
+    }
+```
+
 E devolver na resposta:
 
 ```php
@@ -1497,8 +1625,9 @@ Acrescentar em `app/tests/Pasta/Functional/PastaShowDocumentosControllerTest.php
         $em->persist($filha);
         $em->flush();
 
-        $this->client->loginUser($user);
-        $crawler = $this->client->request('GET', '/pasta/' . $pasta->getId());
+        $client = static::createClient();
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
 
         self::assertResponseIsSuccessful();
 
@@ -2078,6 +2207,19 @@ O `feature-review-agent` é read-only e só aponta — quem corrige é o orquest
 8. Apagar pasta com conteúdo → o aviso **conta** as subpastas e os arquivos
 9. Buscar um arquivo que está 3 níveis abaixo → aparece, e mostra em que pasta está
 10. Abrir a tela de **documentos de um caso de Cobrança** → continua funcionando com um nível só
+11. **Reordenar pela alcinha com árvore montada** → com pelo menos 2 níveis criados, arrastar uma pasta
+    pela alça na raiz **e** dentro de uma subpasta. Confira que a ordem final bate e que pastas de
+    **outros níveis não mudaram de lugar**. *(Por que este item existe: o `#fmPastas` agora contém a
+    árvore inteira achatada no DOM, com os níveis que não são o atual apenas escondidos por CSS. O
+    Sortable roda sobre essa lista misturada — é interação nova entre uma lib de terceiros e um DOM
+    que ela não foi pensada para receber.)*
+12. **Arrastar um arquivo do computador para cima de um cartão de pasta**, depois de já ter arrastado
+    alguma pasta na mesma visita → o arquivo tem de subir **e nenhuma pasta pode mudar de lugar**.
+    *(Este item existe porque foi exatamente o defeito Crítico achado na revisão: a variável do arraste
+    não era limpa e o arraste de arquivo disparava um mover silencioso.)*
+13. **Recarregar a página estando dentro de uma subpasta** → volta para a mesma subpasta. E, se você
+    tiver usado a tela antes desta versão, a primeira visita pode cair na raiz em vez de restaurar —
+    é esperado (o formato guardado na sessão mudou) e só acontece uma vez.
 
 - [ ] **Step 6: Tirar a frente do registro**
 

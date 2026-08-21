@@ -5,50 +5,29 @@ declare(strict_types=1);
 namespace App\Tenant\UseCase;
 
 use App\Entity\Auth\User;
-use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
-use App\Repository\UserTenantRepository;
-use Doctrine\ORM\EntityManagerInterface;
+use App\Tenant\DTO\OrigemRemocao;
+use App\Tenant\DTO\RemoverColaboradorInput;
 
 /**
- * Saída voluntária de um colaborador de um escritório.
- *
- * Diferente de DemitirFuncionarioUseCase (ação de um admin sobre outro):
- * aqui o próprio usuário deixa o vínculo. Regra crítica (RN06): o último
- * administrador ativo não pode sair e deixar o escritório órfão.
+ * Saída voluntária: a própria pessoa deixa o escritório. Mesma regra da remoção
+ * pelo painel (o vínculo é apagado), só que sem substituto — o que era dela fica
+ * desatribuído. RemoverColaboradorDoEscritorioUseCase já trata as diferenças da
+ * porta OrigemRemocao::Saida: sem trava de "remover a si mesmo", sem trava do
+ * criador do escritório, e a herança dos quadros de Kanban vai para o
+ * administrador ativo de vínculo mais antigo. A trava do último administrador
+ * (RN06) continua valendo — ela não é condicionada à origem.
  */
 final class SairDoEscritorioUseCase
 {
     public function __construct(
-        private readonly EntityManagerInterface $em,
-        private readonly UserTenantRepository $userTenantRepository,
+        private readonly RemoverColaboradorDoEscritorioUseCase $remover,
     ) {}
 
     public function executar(User $usuario, Tenant $tenant): void
     {
-        $vinculo = $this->userTenantRepository->findAtivoPorUserETenant($usuario, $tenant);
-        if ($vinculo === null) {
-            throw new \InvalidArgumentException('Você não possui vínculo ativo com este escritório.');
-        }
-
-        if ($this->ehUltimoAdmin($vinculo, $tenant)) {
-            throw new \InvalidArgumentException(
-                'Você é o único administrador deste escritório. '
-                . 'Transfira a titularidade ou exclua o escritório antes de sair.'
-            );
-        }
-
-        $vinculo->sair();
-        $this->em->flush();
-    }
-
-    private function ehUltimoAdmin(UserTenant $vinculo, Tenant $tenant): bool
-    {
-        $role = $vinculo->getTenantRole();
-        if ($role === null || !$role->isSystem()) {
-            return false;
-        }
-
-        return $this->userTenantRepository->contarAdminsAtivos($tenant) <= 1;
+        $this->remover->executar(
+            new RemoverColaboradorInput($usuario, $usuario, $tenant, null, OrigemRemocao::Saida)
+        );
     }
 }

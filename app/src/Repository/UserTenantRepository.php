@@ -78,4 +78,26 @@ class UserTenantRepository extends ServiceEntityRepository
             ->getQuery()
             ->getSingleScalarResult();
     }
+
+    /**
+     * Administrador ativo de vínculo mais antigo, ignorando quem está saindo.
+     * Herda os quadros de Kanban quando não há substituto e a remoção veio da
+     * saída por conta própria (não existe executor admin nesse caminho).
+     */
+    public function findAdminAtivoMaisAntigo(Tenant $tenant, User $exceto): ?UserTenant
+    {
+        return $this->createQueryBuilder('ut')
+            ->join('ut.tenantRole', 'r')
+            ->andWhere('ut.tenant = :tenant')
+            ->andWhere('ut.isActive = true')
+            ->andWhere('r.isSystem = true')
+            ->andWhere('ut.user != :exceto')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('exceto', $exceto)
+            ->orderBy('ut.createdAt', 'ASC')
+            ->addOrderBy('ut.id', 'ASC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
 }

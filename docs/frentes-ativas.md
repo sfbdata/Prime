@@ -9,9 +9,8 @@ Quem abre uma frente acrescenta a linha. Quem integra tira.
 |---|---|---|---|---|---|
 | `cobranca-acompanhamento-canonico` | Cobrança (modelo objeto/caso) | **sim — 4** | `docs/gestao-cobrancas/` | 🛑 **PARADA** (ver abaixo) | `origin/master` @ `0bb1f29` |
 | `expediente-ux` | Expediente + Pasta (telas) | não | `app/templates/expediente/`, `app/templates/pasta/` | implementando, **28 commits atrás do master** | `origin/codex/colaboracao-cobrancas` |
-| `cobranca-honorario-no-total` | Cobrança (**núcleo do dinheiro**) | não | ver o bloqueio abaixo — é grande | ⛔ **meia-implementação, suíte vermelha de propósito** (`336b0e41`) | `master` local @ `fda1b466` |
+| `cobranca-honorario-no-total` | Cobrança (**núcleo do dinheiro**) | não | ver o bloqueio abaixo — é grande | ✅ **7 commits, 3896/3896, 6 revisões; §10 decidida pelo dono (VAI INTEIRO)** — topo `0346df05`; ⏳ 7ª revisão + integrar | `master` local @ `fda1b466` |
 | `cobranca-reconciliar-data-acordo` | Cobrança (comando) | não | `RelatorioLinhaRepository` (método novo), `ComandosComPiiPassamPelaGuardaTest` (1 linha) | ✅ pronta: 3901/3901, prova por reintrodução feita — **aguarda `/review` e integração** | `master` local @ `18555616` |
-| `push-processual` | DJEN → Push Processual (rótulo + URLs) | **sim — 1** (só dado: `permission.description`) | `app/templates/_sidebar.html.twig`, `app/src/DataFixtures/PermissionFixture.php` | ✅ pronta: 3886/3886, prova por reintrodução feita — **aguarda `/review`** | `origin/master` @ `19cfd9a9` |
 
 ### ⛔ 19/08 — a frente do honorário TRAVA o núcleo de dinheiro da Cobrança
 
@@ -33,9 +32,17 @@ Cobrança que seja só relatório/importação/tela de listagem, ou qualquer fre
 
 🔑 **Nenhuma das duas tem migration** — não bloqueiam uma frente com migration.
 
-⚠️ `336b0e41` é METADE da opção A e **não pode ser integrado**: o exigível já exige honorário e o
-pagamento ainda o retira antes de abater, então nenhuma dívida quita. A suíte vermelha ali é
-deliberada e está explicada na mensagem do commit.
+⚠️ `336b0e41` é METADE da opção A e **não pode ser integrado sozinho**: o exigível já exige honorário
+e o pagamento ainda o retira antes de abater, então nenhuma dívida quita. Ele e `25658fd6` andam
+juntos. A frente inteira (7 commits, topo `0346df05`) está verde e é o que se integra.
+
+🔴 **A §10 da spec (as 135 parcelas) tem decisão do dono de 19/08: VAI INTEIRO** — o guard
+prospectivo entra junto, com o teto de R$ 125.526,35 apresentado e aceito. Ver
+`docs/HANDOFF_ESPELHO_CONTABILIDADE.md` §7.1, que é autossuficiente.
+
+⚠️ Esta frente passou a tocar `Obrigacao.php` (método novo `pararDeCobrarHonorario`),
+`ImportarAcordosDetalhadosUseCase.php`, `ObrigacaoRepository.php` e `ImportarReceitasUseCase.php` —
+some à lista de bloqueio abaixo.
 
 ### Worktrees que são resto e podem ser fechadas (conferidas por CONTEÚDO com `git cherry`)
 

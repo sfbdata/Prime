@@ -27,11 +27,19 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
- * Publicações do DJEN captadas para o escritório atual + gestão das OABs monitoradas + sincronização
- * sob demanda. Toda action é gateada por `canAccessModule('djen')` e faz busca tenant-safe (o `find` por
- * PK não passa pelo TenantFilter): cross-tenant resulta em 404.
+ * Módulo "Push Processual": publicações captadas do DJEN para o escritório atual + gestão das OABs
+ * monitoradas + sincronização sob demanda.
+ *
+ * O nome do produto é "Push Processual"; DJEN (Diário de Justiça Eletrônico Nacional) segue sendo o
+ * nome do sistema do CNJ de onde as publicações vêm — por isso ele permanece nas classes, no código
+ * da permissão (`modules.djen.view`) e no banco, e some apenas do que o usuário lê.
+ *
+ * As URLs antigas `/djen*` continuam atendidas por `RotasLegadasDjenController`, que redireciona 301.
+ *
+ * Toda action é gateada por `canAccessModule('djen')` e faz busca tenant-safe (o `find` por PK não
+ * passa pelo TenantFilter): cross-tenant resulta em 404.
  */
-#[Route('/djen')]
+#[Route('/push-processual')]
 final class DjenController extends AbstractController
 {
     private const MODULO = 'djen';
@@ -49,7 +57,7 @@ final class DjenController extends AbstractController
     ) {
     }
 
-    #[Route('', name: 'djen_index', methods: ['GET'])]
+    #[Route('', name: 'push_processual_index', methods: ['GET'])]
     public function index(Request $request): Response
     {
         $tenant = $this->tenantComAcesso();
@@ -79,7 +87,7 @@ final class DjenController extends AbstractController
         ]);
     }
 
-    #[Route('/oabs', name: 'djen_oabs', methods: ['GET', 'POST'])]
+    #[Route('/oabs', name: 'push_processual_oabs', methods: ['GET', 'POST'])]
     public function oabs(Request $request): Response
     {
         $tenant = $this->tenantComAcesso();
@@ -99,7 +107,7 @@ final class DjenController extends AbstractController
                 $this->adicionarOab->executar($input, $tenant, $user);
                 $this->addFlash('success', 'OAB adicionada ao monitoramento.');
 
-                return $this->redirectToRoute('djen_oabs');
+                return $this->redirectToRoute('push_processual_oabs');
             } catch (OabMonitoradaJaExisteException $e) {
                 $this->addFlash('warning', $e->getMessage());
             } catch (\InvalidArgumentException $e) {
@@ -116,7 +124,7 @@ final class DjenController extends AbstractController
         ]);
     }
 
-    #[Route('/oabs/{id}/alternar', name: 'djen_oab_alternar', methods: ['POST'], requirements: ['id' => '\d+'])]
+    #[Route('/oabs/{id}/alternar', name: 'push_processual_oab_alternar', methods: ['POST'], requirements: ['id' => '\d+'])]
     public function alternarOabAction(int $id, Request $request): Response
     {
         $tenant = $this->tenantComAcesso();
@@ -131,19 +139,19 @@ final class DjenController extends AbstractController
             throw $this->createNotFoundException('OAB monitorada não encontrada.');
         }
 
-        if (!$this->isCsrfTokenValid('djen_oab_' . $id, (string) $request->request->get('_token'))) {
+        if (!$this->isCsrfTokenValid('push_processual_oab_' . $id, (string) $request->request->get('_token'))) {
             $this->addFlash('danger', 'Token de segurança inválido.');
 
-            return $this->redirectToRoute('djen_oabs');
+            return $this->redirectToRoute('push_processual_oabs');
         }
 
         $ativo = $this->alternarOab->executar($oab);
         $this->addFlash('success', $ativo ? 'Monitoramento reativado.' : 'Monitoramento pausado.');
 
-        return $this->redirectToRoute('djen_oabs');
+        return $this->redirectToRoute('push_processual_oabs');
     }
 
-    #[Route('/oabs/{id}/remover', name: 'djen_oab_remover', methods: ['POST'], requirements: ['id' => '\d+'])]
+    #[Route('/oabs/{id}/remover', name: 'push_processual_oab_remover', methods: ['POST'], requirements: ['id' => '\d+'])]
     public function removerOabAction(int $id, Request $request): Response
     {
         $tenant = $this->tenantComAcesso();
@@ -158,19 +166,19 @@ final class DjenController extends AbstractController
             throw $this->createNotFoundException('OAB monitorada não encontrada.');
         }
 
-        if (!$this->isCsrfTokenValid('djen_oab_' . $id, (string) $request->request->get('_token'))) {
+        if (!$this->isCsrfTokenValid('push_processual_oab_' . $id, (string) $request->request->get('_token'))) {
             $this->addFlash('danger', 'Token de segurança inválido.');
 
-            return $this->redirectToRoute('djen_oabs');
+            return $this->redirectToRoute('push_processual_oabs');
         }
 
         $this->removerOab->executar($oab);
         $this->addFlash('success', 'OAB removida do monitoramento.');
 
-        return $this->redirectToRoute('djen_oabs');
+        return $this->redirectToRoute('push_processual_oabs');
     }
 
-    #[Route('/sincronizar', name: 'djen_sincronizar', methods: ['POST'])]
+    #[Route('/sincronizar', name: 'push_processual_sincronizar', methods: ['POST'])]
     public function sincronizarAction(Request $request): Response
     {
         $tenant = $this->tenantComAcesso();
@@ -178,10 +186,10 @@ final class DjenController extends AbstractController
             return $this->negarAcesso();
         }
 
-        if (!$this->isCsrfTokenValid('djen_sincronizar', (string) $request->request->get('_token'))) {
+        if (!$this->isCsrfTokenValid('push_processual_sincronizar', (string) $request->request->get('_token'))) {
             $this->addFlash('danger', 'Token de segurança inválido.');
 
-            return $this->redirectToRoute('djen_index');
+            return $this->redirectToRoute('push_processual_index');
         }
 
         $periodo = PeriodoConsulta::ultimosDias(1, new \DateTimeImmutable('today'));
@@ -198,10 +206,10 @@ final class DjenController extends AbstractController
             $this->addFlash('danger', 'Não foi possível sincronizar com o DJEN agora. Tente novamente em instantes.');
         }
 
-        return $this->redirectToRoute('djen_index');
+        return $this->redirectToRoute('push_processual_index');
     }
 
-    #[Route('/{id}', name: 'djen_show', methods: ['GET'], requirements: ['id' => '\d+'])]
+    #[Route('/{id}', name: 'push_processual_show', methods: ['GET'], requirements: ['id' => '\d+'])]
     public function show(int $id, FormatadorTeorDjen $formatadorTeor): Response
     {
         $tenant = $this->tenantComAcesso();
@@ -242,7 +250,7 @@ final class DjenController extends AbstractController
 
     private function negarAcesso(): Response
     {
-        $this->addFlash('warning', 'Você não tem permissão para acessar o módulo DJEN.');
+        $this->addFlash('warning', 'Você não tem permissão para acessar o módulo Push Processual.');
 
         return $this->redirectToRoute('homepage');
     }
