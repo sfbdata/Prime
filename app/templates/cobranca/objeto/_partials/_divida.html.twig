@@ -188,17 +188,31 @@
                 <span></span>
                 <span>Venceu em</span>
                 <span>O que é</span>
-                {# "Total" aparece DUAS vezes nesta tela com sentidos diferentes: aqui é o total BRUTO
-                   do relatório (com honorários, sem abater o que já foi recebido), e no cabeçalho do
-                   objeto é o "Total em aberto" — o mesmo saldo exigível, mas já descontados pagamentos
-                   e liquidações. Somar esta coluna e comparar com o cabeçalho não fecha, e sem esta
-                   explicação quem confere conclui que há erro.
+                {# "Total" aparece DUAS vezes nesta tela, e a coluna existe para explicar por que os dois
+                   números não fecham — sem isso quem confere conclui que há erro.
 
-                   ⚠️ O tooltip dizia "e SEM honorários", o que era verdade sob a INV-E2. A spec
-                   `cobranca-honorario-no-total.md` a REVOGOU: o honorário entra nos DOIS números, e a
-                   diferença que sobra é só o que já foi recebido. Este texto é lido pelo USUÁRIO. #}
+                   AQUI: `valorAtual` = `Obrigacao::valorExigivel()` = original + juros + multa +
+                   correção + honorários, por dívida, BRUTO.
+                   NO TOPO: o card `Total vencido` = `totalAtualizadoVencido`, TAMBÉM bruto, mas só das
+                   dívidas já vencidas — `MontarDetalheCasoUseCase` pula `vencimentoOriginal > hoje`,
+                   `quitada()` e `parcelaDeAcordoDesfeito`. A coluna, ao contrário, é renderizada nos
+                   quatro laços desta tela, incluindo pagas e substituídas por acordo.
+
+                   🔴 DUAS CORREÇÕES no texto do usuário, ambas de rodadas de revisão desta frente:
+
+                   1. dizia "e SEM honorários" — verdade sob a INV-E2, que
+                      `cobranca-honorario-no-total.md` REVOGOU. O honorário entra nos dois números;
+                   2. dizia que o topo é o "Total em aberto", "já com os recebimentos descontados".
+                      **Esse número NÃO EXISTE na tela desde 28/07/2026** (`113e5584`): a linha fina
+                      saiu e o que ficou é o card `Total vencido`, que é BRUTO. O tooltip mandava o
+                      operador procurar um número inexistente e afirmava o OPOSTO do que o card faz.
+                      Guardado por `CabecalhoObjetoShowTest`, que assere o card em R$ 1.000,00 com
+                      R$ 400,00 já pagos e alocados, e que "Total em aberto" não está no cabeçalho.
+
+                   ⚠️ A correção 1 sozinha não bastava — foi ela que deixou a 2 passar, porque olhou só
+                   a parte do honorário. Este texto é lido pelo USUÁRIO, sobre dinheiro. #}
                 <span class="col-total col-valor" data-bs-toggle="tooltip"
-                      title="Total do relatório: original + juros + multa + correção + honorários, sem abater o que já foi recebido. O “Total em aberto” do topo é a mesma conta, já com os recebimentos descontados.">Total</span>
+                      title="Total de cada dívida: original + juros + multa + correção + honorários, antes de abater pagamentos. Somar esta coluna não bate com o card “Total vencido” do topo, e isso é esperado: lá entram só as dívidas já vencidas e ainda não quitadas. Os dois são brutos — pagamento parcial não reduz nenhum dos dois.">Total</span>
                 <span></span>
             </div>
 

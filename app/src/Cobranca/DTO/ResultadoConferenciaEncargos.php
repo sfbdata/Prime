@@ -27,10 +27,13 @@ namespace App\Cobranca\DTO;
 final readonly class ResultadoConferenciaEncargos
 {
     /**
-     * `$duplicadoPorCampo` existe porque um escalar único escondia coisas de naturezas diferentes:
-     * multa duplicada entra no saldo cobrado, honorário **não** entra (`Obrigacao::valorExigivel()`
-     * soma principal + juros + multa + correção). Levar um total à contabilidade sem separar os dois
-     * seria apresentar como "saldo cobrado duas vezes" algo que em parte não é saldo.
+     * `$duplicadoPorCampo` existe porque um escalar único escondia de QUAL encargo veio o dinheiro
+     * duplicado, e a lista da reconciliação precisa disso para ser conferível linha a linha.
+     *
+     * ⚠️ O motivo escrito aqui era outro, e hoje é FALSO: *"multa duplicada entra no saldo cobrado,
+     * honorário não entra"*. Era verdade sob a INV-E2, que `cobranca-honorario-no-total.md` REVOGOU —
+     * `valorExigivel()` soma principal + juros + multa + correção **+ honorários**, e todo duplicado
+     * move o saldo. A separação por campo continua útil; a justificativa é que mudou.
      *
      * `$injulgaveis` NÃO é um balde de defeito — é a contagem do que esta régua **não sabe julgar**:
      * obrigação cujo snapshot não corresponde a nenhum lote carregado (INV-CE6). Ela continua
@@ -92,7 +95,7 @@ final readonly class ResultadoConferenciaEncargos
      * ⚠️ **Sempre 0 desde `cobranca-honorario-no-total.md`.** Dizia "o que ela tiraria FORA do saldo
      * (honorário) — não move a conta de ninguém"; só o honorário caía neste balde e ele agora está
      * dentro. Mantido para a soma das duas metades continuar fechando com o total duplicado
-     * ({@see self::contasFecham()}); não use este número para afirmar que algo não move o saldo.
+     * ({@see self::baldesFecham()}); não use este número para afirmar que algo não move o saldo.
      */
     public function duplicadoForaDoSaldoEmCentavos(): int
     {

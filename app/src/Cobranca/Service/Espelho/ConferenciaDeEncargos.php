@@ -108,7 +108,7 @@ final class ConferenciaDeEncargos
      * ⚠️ **Consequência assumida:** com isto, `CAMPOS_NO_SALDO === CAMPOS` e `duplicadoForaDoSaldo`
      * passa a ser sempre 0. A separação vira degenerada de propósito — ela continua no relatório
      * porque a soma das duas ainda tem de fechar com o total duplicado (invariante conferido em
-     * `ResultadoConferenciaEncargos::contasFecham`), e porque apagar coluna de relatório é outra fatia.
+     * `ResultadoConferenciaEncargos::baldesFecham`), e porque apagar coluna de relatório é outra fatia.
      */
     private const CAMPOS_NO_SALDO = ['juros', 'multa', 'correcao', 'honorarios'];
 

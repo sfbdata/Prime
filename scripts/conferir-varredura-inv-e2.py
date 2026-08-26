@@ -27,7 +27,11 @@ RAIZ = pathlib.Path(__file__).resolve().parent.parent
 # Frases que AFIRMAM a regra revogada.
 PADROES = [
     r"INV-E2",
-    r"n[ãa]o entra no saldo",
+    # ⚠️ `\W*` entre as palavras: a 11ª revisão achou um sobrevivente que o padrão simples não pegava —
+    # *"honorário **não** entra"*, com os asteriscos do markdown no meio. Negação de dinheiro aparece
+    # grifada com frequência em docblock, e a versão sem isto dava FALSO NEGATIVO em silêncio.
+    r"n[ãa]o\W*entra no saldo",
+    r"honorário\W*\*{0,2}n[ãa]o\*{0,2}\W*entra",
     r"n[ãa]o é dívida do credor",
     r"honorários ficam (de )?FORA",
     r"Honorário fica (de )?FORA",

@@ -320,10 +320,14 @@ final class ConferirEncargosGravadosCommandTest extends KernelTestCase
         // teria vindo partido, com 45,45 anunciados como "fora do saldo".
         self::assertStringContainsString('sai do SALDO do devedor (juros + multa + correção + honorário): R$ 65,45', $saida);
 
-        // 🔑 AGORA estas guardas valem: o ramo que imprimia as frases revogadas foi executado.
+        // 🔑 AGORA estas guardas valem: o ramo que imprimia as frases revogadas foi executado neste
+        // cenário, então restaurar qualquer uma delas quebra o teste.
+        //
+        // ⚠️ Havia uma terceira, `'fora do saldo'` em MINÚSCULAS, e ela não podia falhar: as duas
+        // frases históricas eram em caixa alta. Saiu — asserção que não pode falhar não é asserção, e
+        // deixá-la aqui daria a impressão de uma cobertura que não existe.
         self::assertStringNotContainsString('NÃO entra no saldo', $saida);
         self::assertStringNotContainsString('FORA do saldo', $saida);
-        self::assertStringNotContainsString('fora do saldo', $saida);
     }
 
     #[TestDox('N2 — tenant inexistente tem código próprio, fora dos códigos baixos')]
