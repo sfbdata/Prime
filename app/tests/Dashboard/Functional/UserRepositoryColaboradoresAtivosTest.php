@@ -74,8 +74,10 @@ final class UserRepositoryColaboradoresAtivosTest extends KernelTestCase
         $ut1 = new UserTenant($ativo, $tenant);
         $this->em->persist($ut1);
 
+        // O conceito de demissão não existe mais (UserTenant::demitir() foi enterrado) — um
+        // vínculo inativo só sobra hoje como legado (spec §6.5/§6.6). Marca isActive direto.
         $ut2 = new UserTenant($inativo, $tenant);
-        $ut2->demitir();
+        (new \ReflectionProperty(UserTenant::class, 'isActive'))->setValue($ut2, false);
         $this->em->persist($ut2);
 
         $this->em->flush();

@@ -69,6 +69,26 @@ touch nginx/maintenance/maintenance.on
 # fora do compose sem precisar derrubar os serviços ativos.
 $COMPOSE_CMD -f docker-compose.prod.yml --env-file .env.prod up -d --remove-orphans
 
+# ─── Faz o nginx reler a config ────────────────────────────────────────────────
+# O container do nginx quase nunca é recriado (a imagem dele não muda), então sem este
+# passo ele segue com a config carregada no último start. Em 19/08/2026 isso deixou a
+# produção 8 semanas servindo uma config de 27/06: CSS/JS ainda com `immutable`/30 dias,
+# sendo que o arquivo tinha `no-cache` desde 17/07. A config agora é montada por PASTA
+# (o mount de arquivo único prendia o inode e o container nem via o arquivo novo); o
+# reload é o outro metade do conserto — é ele que faz o nginx passar a usar o que vê.
+# Tolerante de propósito: config inválida NÃO derruba o site (o nginx continua com a
+# anterior), mas o aviso é barulhento — silêncio aqui foi o que escondeu o problema.
+echo "🔁 Recarregando a config do nginx..."
+if docker exec jusprime_nginx_prod nginx -t >/dev/null 2>&1; then
+  docker exec jusprime_nginx_prod nginx -s reload >/dev/null 2>&1 \
+    && echo "   ✅ config recarregada" \
+    || echo "   ⚠️  o reload falhou — o site segue com a config anterior"
+else
+  echo "   ⚠️  ATENÇÃO: 'nginx -t' REPROVOU a config — reload NÃO executado."
+  echo "      O site continua no ar com a config anterior. Para ver o erro:"
+  echo "      docker exec jusprime_nginx_prod nginx -t"
+fi
+
 echo "Aguardando banco de dados ficar pronto..."
 for i in {1..30}; do
   if $COMPOSE_CMD -f docker-compose.prod.yml --env-file .env.prod exec -T db pg_isready -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" >/dev/null 2>&1; then

@@ -1,7 +1,12 @@
 # Handoff — o sistema como espelho da contabilidade
 
-> Estado em **2026-08-19**. Este documento é autossuficiente: quem o ler não precisa de nenhuma
-> conversa anterior.
+> Estado em **2026-08-19**, fim do dia. Este documento é autossuficiente: quem o ler não precisa de
+> nenhuma conversa anterior.
+>
+> 🔴 **Comece pela §7.1.** Atualizado em 19/08 (fim do dia): a fatia das 135 foi **REDUZIDA** — a 7ª
+> revisão, a partir de uma observação do dono, derrubou a premissa de metade dela. A correção das 135
+> está pronta; a parte prospectiva saiu e virou fatia própria. Falta 8ª revisão, integrar, deployar e
+> o smoke.
 
 ## 1. A regra que manda
 
@@ -71,49 +76,71 @@ desapareceu — confirmação independente de que **a contabilidade calcula por 
 
 ## 3. AS PENDÊNCIAS, em ordem
 
-### 3.1 🔴 O passivo dos 377 acordos com data chutada — O MAIOR
+### 3.1 ✅ O passivo da data do acordo — MEDIDO, e MUITO menor do que este handoff dizia
 
-Medido em prod em **19/08**: **377 de 398 acordos** com `data_acordo` no dia 1º do mês (o acaso daria
-~13). Sobre elas foram calculados **R$ 203.265,07** de encargo, e **256 dívidas cobram R$ 0,00**
-porque a data inventada **precede o vencimento da própria dívida** (pior caso: 679 dias antes).
+🔴 **CORREÇÃO (19/08): os R$ 203.265,07 que este handoff trazia NÃO eram o erro** — eram o tamanho
+do número que a data inventada produziu. O erro dentro dele é **R$ 450,38**, e aponta **para BAIXO**,
+não para cima. A frase "isto faz a cobrança SUBIR", que estava aqui, estava errada.
 
-🔴 **Elas NÃO se consertam sozinhas.** `ImportarAcordosDetalhadosUseCase:395` faz
-`if (!$acordo->temData() && $aba->dataBase !== null)` — **só preenche o vazio, não sobrescreve data
-existente**. A justificativa no comentário é correta para o caso geral (não regravar o mesmo dado a
-cada lote), mas para estes 377 a data guardada **não veio da fonte**: foi inventada, e o importador
-não tem como distinguir.
+**Como foi medido** (régua validada: a fórmula reproduzida em SQL bate com o PHP em **3.909 de 3.909
+obrigações, zero centavo**): a data verdadeira (`Data base`) está no espelho para **398 de 398**
+acordos, uma só por acordo. O principal das contas originais bate com o dela em **398/398, ao
+centavo**.
 
-**O que fazer:** comando de reconciliação, no molde do `app:cobranca:reconciliar-dupla-contagem`
-(que já rodou em produção e é o padrão da casa: simula, mostra número, e só grava com `--aplicar`).
+| | |
+|---|---:|
+| acordos com data diferente da dela | **372** (não 377 — 5 dos que caem no dia 1º estão **certos**) |
+| obrigações afetadas · principal | 3.656 · R$ 524.987,08 |
+| encargo hoje → na data dela | R$ 207.978,50 → R$ 207.528,12 |
+| **efeito líquido** | **− R$ 450,38** |
+| sobem 1.967 · descem 1.561 · iguais 128 | +R$ 5.529,76 · −R$ 5.980,14 |
+| das 258 que cobram R$ 0,00, saem do zero | 130 |
+| maior alta · maior baixa numa dívida | +R$ 59,48 · −R$ 75,12 |
 
-⚠️ **Isto faz a cobrança SUBIR.** Não é decisão de *se* — a data está errada e tem de ficar certa.
-É decisão de *quando e como*, e exige: (a) medir quanto sobe, por dívida e no total; (b) simulação
-com números; (c) autorização explícita do dono; (d) provavelmente aviso à equipe de cobrança.
+**Não toca o saldo:** os 398 acordos são `ativo`/`cumprido`, e `aplicarExigibilidade` exclui do
+exigível toda obrigação com acordo substituto vigente. **Não muda a calibração:** medido, nenhuma das
+3.656 aparece no relatório de inadimplência dela (join validado — 4.559 obrigações casam, nenhuma
+delas substituída). É número de **ficha de acordo**, não dívida cobrável.
 
-### 3.2 🔴 Honorário no total — R$ 126.878,17 — JÁ APROVADO PELO DONO
+🔑 **O critério NÃO pode ser "dia 1º do mês"** — corromperia os 5 que estão certos. É
+`data_acordo <> Data base do espelho`.
 
-Medido no rodapé do relatório de inadimplência dela (emissão 17/08):
+**Estado:** comando `app:cobranca:reconciliar-data-acordo` escrito e provado na frente
+`cobranca-reconciliar-data-acordo` (commit `6995bb99`; 3901/3901; prova por reintrodução executada).
+**Revisado e NÃO aprovado** — ver §7.
 
-| | principal | juros | multa | honorários | total dela |
-|---|---:|---:|---:|---:|---:|
-| 3 carteiras | 535.384,49 | 149.771,17 | 10.705,69 | **126.878,17** | **822.739,52** |
+### 3.2 🟠 Honorário no total — IMPLEMENTADO, revisado, NÃO aprovado
 
-Ela soma `principal + juros + multa + honorários`. O `Obrigacao::valorExigivel()` deixa o honorário
-de fora — a tela mostra ~R$ 126.878,17 **a menos** que o documento dela.
+Ela soma `principal + juros + multa + honorários` (rodapé de 17/08: 535.384,49 + 149.771,17 +
+10.705,69 + **126.878,17** = **822.739,52**). O sistema deixava o honorário fora do exigível.
 
-**Método obrigatório: medir → auditar → só então escrever.** Três coisas a resolver com dado, não
-com bom senso:
+✅ **DECIDIDO PELO DONO (19/08): modelo A** — o honorário passa a viver DENTRO da dívida e a SPEC §18
+(rateio do pagamento) é aposentada. O critério foi o do espelho, medido:
 
-1. **Os 35 pontos de chamada**, sendo que **dois gravam**: o que decide se a dívida **reabre** ao
-   excluir pagamento (`ExcluirPagamentoUseCase:175`) e o que faz a obrigação criada-já-paga não mexer
-   no saldo (`ImportarReceitasUseCase`).
-2. **Quantas dívidas hoje marcadas como quitadas deixariam de estar** — quem pagou principal + juros
-   + multa e não o honorário. Medir em produção **antes** de escrever.
-3. **A ordem de alocação de um pagamento.** Se hoje o dinheiro abate principal → juros → multa,
-   entrar o honorário muda para onde ele vai. **Não escolham uma ordem: descubram a dela** — o
-   relatório de receitas separa o recebido por categoria, inclusive `1.15 - Honorário advocatício`.
+| | honorário sobre dívida em aberto | distância do rodapé dela |
+|---|---:|---:|
+| **ela** | R$ 126.878,17 | — |
+| **modelo A** (honorário gravado por dívida) | R$ 126.362,85 | **R$ 515,32 · 0,4%** |
+| **modelo B** (alíquota lisa sobre o saldo) | R$ 173.625,55 | **R$ 46.747,38 · 37% a mais** |
 
-⚠️ Efeito visível: o total na tela **sobe ~R$ 126 mil**. O dono avisa a equipe; registre na spec.
+B erra porque ignora a carência de 30 dias e as parcelas de acordo — cobra em 1.017 dívidas em que
+ela não cobra. E B **calcula** um rateio que ela **declara** (categoria `1.15` do relatório de
+receitas): é o sistema formando opinião, o defeito da §1.1.
+
+**Três medições que dissolveram perguntas do handoff antigo:**
+- pontos de chamada: **15**, não 35 (os 35 contavam menções em comentário)
+- dívidas quitadas que reabririam: **ZERO**, e as 1.014 com encargo e honorário R$ 0,00 se explicam
+  por inteiro (601 carência · 343 override de parcela · 70 criadas-já-pagas). Sem resto
+- **ordem de alocação: não existe de nenhum dos dois lados.** Ela publica rateio declarado por linha;
+  `cobranca_alocacao_pagamento` guarda **um único valor** por obrigação. Nada a construir
+
+🔑 **O rateio da §18 NUNCA rodou em produção.** Dos 8.902 pagamentos, os **1.154** em que os dois
+modelos divergem alocam **todos** o valor cheio — o importador nunca passou pelo rateio. **Não há
+migração de dado**; a opção A alinha o caminho manual ao que o importador já fazia.
+
+**Estado:** frente `cobranca-honorario-no-total`, 3 commits, suíte 3867/3867.
+🔴 `336b0e41` e `25658fd6` **não podem ser separados** — o primeiro sozinho faz **nenhuma dívida
+quitar**. **Revisada e NÃO aprovada** — ver §7.
 
 ### 3.3 🔴 A baixa que a planilha manda dar e o sistema não dá
 
@@ -175,6 +202,59 @@ Um dos três arquivos abaixo tem CPF com dígito verificador **válido** que cas
 `docs/gestao-cobrancas/mockup-ajuste10-objeto-show.html`. A decisão que ela exige **não é técnica**:
 se limpar histórico já publicado vale o custo, ou se basta remover da árvore e registrar.
 
+### 3.8.1 🔴 O tooltip do "Total" apontava para um número que não existe (CORRIGIDO)
+
+Achado da 11ª revisão, e o mais instrutivo da frente porque **foi uma correção parcial que o criou**.
+
+O tooltip da coluna "Total" mandava o operador comparar com *"o 'Total em aberto' do topo"*, dizendo que
+lá os recebimentos já estavam descontados. Três erros, num texto que o operador lê sobre dinheiro:
+
+1. esse número **saiu da tela em 28/07/2026** (`113e5584`) — o que ficou é o card `Total vencido`;
+2. o card é **BRUTO**: pagamento parcial não o reduz. O tooltip afirmava o **oposto**;
+3. o card só conta o que **já venceu e não foi quitado**; a coluna aparece em todas as linhas.
+
+Provado por teste que já existia: `CabecalhoObjetoShowTest` assere o card em R$ 1.000,00 num cenário com
+R$ 400,00 pagos e alocados, e que "Total em aberto" não está no cabeçalho.
+
+🔑 **A lição:** a rodada anterior corrigiu a metade da frase que falava de honorário ("e SEM honorários"
+saiu, com razão) e **por isso não olhou o resto**. Corrigir metade de uma frase falsa é como não
+corrigir — o que sobra herda a credibilidade do que mudou.
+
+### 3.9 🔴 Fatia própria: a garantia do `EditarConfiguracaoCaso` caiu com a INV-E2
+
+Achado em 20/08, durante a varredura da 10ª rodada da frente do honorário. **Não é comentário — é
+comportamento.** Nenhuma das revisões do honorário o pegou, porque as duas estavam limitadas ao diff.
+
+`EditarConfiguracaoCasoUseCase` recalcula **só o honorário** das obrigações do caso, e o argumento de
+segurança escrito ali tinha duas metades:
+
+1. não recompor juros/multa/correção (esses descem da CARTEIRA — recompô-los reduziria o exigível de
+   todas as automáticas num POST, sem guard de alocado). **Essa metade continua de pé.**
+2. *"o honorário fica fora do exigível (INV-E2), logo pode subir OU descer livremente aqui"*.
+   **Essa caiu**: o honorário entra no `valorExigivel()` desde `cobranca-honorario-no-total.md`.
+
+**Consequência:** mexer no percentual de honorário de um caso passa a mover o exigível de todas as
+dívidas automáticas dele, num clique, **sem guard de alocado** — a mesma bomba que a auditoria
+adversarial pegou e que o desenho tinha fechado. Uma dívida com `alocado >= exigível` pode virar
+"quitada" por uma edição de tela.
+
+**Exposição medida em produção (20/08):**
+
+| | |
+|---|---:|
+| casos | **483** |
+| com percentual de honorário próprio | **0** |
+| com base ou carência própria | **0** |
+| já editados (`atualizado_em`) | **0** |
+
+**A tela nunca foi usada.** O risco é real e está dormindo; acorda no primeiro uso.
+
+⏳ **A decisão é do dono, e é o que a fatia precisa antes de escrever código:** se baixar o percentual
+fizer uma dívida virar paga, o sistema **recusa**, **avisa** ou **deixa**?
+
+📌 O comentário no código foi corrigido **mantendo o defeito à vista** (spec §7.1, terceiro caso da
+regra): a frase falsa saiu, o defeito aberto ficou registrado na mesma linha, com estes números.
+
 ## 4. Como medir (nada disso é chute)
 
 Régua pronta, em produção, somente leitura:
@@ -214,9 +294,188 @@ O rodapé dos relatórios dela está no espelho: `cobranca_relatorio_totalizador
 | **`migrations:status` não lista versão** | só imprime contadores. Para conferir uma versão use `migrations:list` e **leia a coluna** (`not migrated` contém `migrated`) |
 | **Emissão da contábil enfileira** | pode precisar de 2–3 passadas do `emitir`. **"✅" não garante arquivo bom** — em 17/08 um veio com 20K e depois com 292K. **O tamanho é que diz** |
 | **Auditoria estática não substitui teste de tela** | duas vezes nesta frente a auditoria apontou o lugar errado e só o teste que renderiza a tela pegou |
+| **O `cd` persiste entre chamadas de shell** | mordeu em 19/08: um `cd` para a raiz fez três edições caírem no **checkout principal** em vez da worktree. O sinal que denunciou foi a falha voltar **idêntica** — a mutação não estava onde eu pensava. Use caminho ABSOLUTO ao editar worktree, e confira `git status` no master depois |
+| **Inventário por `grep` de método erra a conta** | a spec do honorário mapeou "as três cópias da regra do exigível" grepando `->valorExigivel()`. Havia **cinco**: duas escrevem a soma à mão (`EditarObrigacaoUseCase`) e uma está em DQL. Cópia de regra de dinheiro se esconde de grep de método — procure também pela SOMA (`valorOriginal + juros + multa`) |
+| **Trocar o número de um teste pode matar o invariante que ele guardava** | em 19/08 a asserção `assertSame(0, valorExigivel(), 'a alocação que a acompanha vale R$ 0,00')` virou `assertSame(5000, ...)` e a menção à alocação sumiu — junto com a única guarda de que exigível == alocado na criada-já-paga. **Leia o que a mensagem da asserção protege antes de mexer no número** |
 | **A prova precisa ser provada** | **três vezes** uma correção entrou declarada como "provada por reintrodução" sem estar. Apague a correção, veja vermelho, restaure, veja verde — e diga qual teste morreu |
+| 🔴 **Justificativa inventada é PIOR que a errada** | na 10ª rodada troquei uma justificativa falsa (que citava a INV-E2) por outra falsa (que citava a coluna-sombra, e era invenção). A original a varredura **encontrava**; a inventada ficou **invisível para o instrumento** e teria sobrevivido a todas as varreduras seguintes. **Regra: justificativa nova em comentário de dinheiro cita a medição ou o invariante que a sustenta, senão não entra.** Se você não consegue nomear o que a sustenta, o que falta é medição, não redação — registre a pendência com nome |
+| 🔴 **Inventário por comentário não vê o lugar sem comentário** | as cópias da regra do exigível foram mapeadas a partir dos comentários que existiam. A de MAIOR consequência — a que decide se uma **dívida quitada REABRE** (`EditarObrigacaoUseCase`, `$exigivelSeViva`) — **não tinha comentário nenhum**, e por isso não estava no mapa, não era protegida e não era encontrável. O lugar sem pista é justamente o que ninguém acha |
+| 🔴 **Âncora por número de linha manda apagar o que protege** | um script guardava 3 comentários por `arquivo:linha`. **Uma** linha inserida acima desloca tudo, e a saída passa a listá-los como "falsos restantes" **e** como "sumidos" — empurrando a próxima sessão a apagar exatamente o que ele existe para preservar. **Âncore por trecho do texto**, e prove inserindo uma linha acima para ver a âncora acompanhar |
 
-## 7. O portão do dono
+## 7. 🔴 ONDE PARAMOS (19/08) — as duas revisões, e o que fazer primeiro
+
+Duas frentes prontas, com suíte verde, **as duas revisadas e NENHUMA aprovada**. Nada foi integrado
+ao master. As worktrees estão limpas e commitadas; não há trabalho solto.
+
+| frente | topo | suíte | veredito |
+|---|---|---|---|
+| `cobranca-honorario-no-total` | 18 commits (`34e64543`) | 3896/3896 | ✅ **11 revisões, todas corrigidas. PRONTA PARA MERGE.** Sem migration. Merge simulado: só a spec se sobrepõe e funde limpa (§4.3 do master e §7.1.1/§10.8 da frente convivem) |
+| `cobranca-reconciliar-data-acordo` | `6995bb99` | 3901/3901 | ⛔ 2 achados ALTO |
+
+### 7.1 🟠 As 135 parcelas — CORREÇÃO pronta, parte prospectiva REMOVIDA
+
+**Estado: 12 commits na frente `cobranca-honorario-no-total`, suíte 3895/3895. NOVE revisões, e a
+correção da 9ª feita. Nada em produção, nada no master.** Detalhe: spec §10 — **comece pela §10.8**.
+
+#### O que a 8ª e a 9ª revisões mudaram (20/08)
+
+- **INV-H4** (spec §10.5 item 4): a linha `--ids=` pronta para colar traz **só as candidatas fora do
+  exigível**; as de dentro saem em tabela separada com aviso e entram só se o humano digitar o id.
+  Medido: **0 de 135** estão no exigível hoje — a trava é para o dia em que não for assim.
+- **O texto do histórico** parou de afirmar regra geral, fato sobre o mundo e ato de terceiro. Ele diz
+  o que o sistema SABE (quantas, quanto, que veio de lista à mão) e nomeia a exceção da §10.8.
+- 🔴 **A varredura da INV-E2** — decisão do dono em 20/08, contra deixar para depois: *"foi assim que a
+  premissa falsa se espalhou por sete revisões"*. Regra de três casos e prova de DUAS listas na
+  **spec §7.1**; script `scripts/conferir-varredura-inv-e2.py` (sai 1 se sobrar falso **ou** se um dos
+  3 comentários honestos for apagado). ⛔ **Os 3 honestos ficam de propósito** —
+  `EditarObrigacaoUseCase:138`, `:198` e `ObrigacaoRepository:211` descrevem as cópias da regra do
+  exigível que continuam ERRADAS no código (§7.2); reescrevê-los apagaria a pista e deixaria o defeito.
+- ⚠️ **A fatia passou a tocar `app:cobranca:reconciliar-dupla-contagem`**, que **não é desta frente e
+  já rodou em produção** (25 dívidas em 13/08). Só texto e rótulo, nenhum cálculo mudou — detalhe e
+  motivo na **spec §9.1**. Quem integrar precisa saber.
+- 📌 Achado que virou **fatia própria**: §3.9 (`EditarConfiguracaoCaso`).
+
+#### 🔴 A premissa da fatia caiu na 7ª revisão. Leia isto primeiro.
+
+Eu afirmei, em vários pontos da spec, que *"a contabilidade não cobra encargo em parcela de acordo —
+0 de 8.671 linhas"*. **É falso.** O número é verdadeiro para o relatório de ACORDOS, que não tem
+coluna de encargo — mas a parcela **atrasada** migra para o relatório de INADIMPLÊNCIA, que tem as
+colunas, e lá ela cobra. Olhei um relatório e concluí sobre os dois.
+
+**Medido no lote de 17/08, três carteiras:**
+
+| | |
+|---|---:|
+| parcelas de acordo que aparecem na inadimplência | **114** (391 linhas atrasadas) |
+| com juros · multa · **honorário** | 389 · 389 · **338** |
+| honorário que **ela** cobra | **R$ 6.601,57** |
+| honorário que o **sistema** tem | R$ 5.878,65 |
+| **diferença — espelho quebrado** | **R$ 722,92**, em **12 parcelas** mostrando R$ 0,00 |
+
+**E o número OSCILA:** das 93 com honorário dela, 81 batem (calculadas em 18/08, o último lote) e 12
+estão zeradas (paradas em 07/08). A importação grava o honorário dela → a hidratação ao vivo passa e
+zera (o override diz "não cobrar") → o lote seguinte restaura.
+
+🔑 **O defeito do override é a DURAÇÃO, não o valor.** Ele nasce certo — no dia em que a parcela é
+criada o honorário está mesmo dentro do valor negociado (R$ 71.073,07 medidos assim) — e não sabe se
+desligar quando ela atrasa. **É anterior a esta fatia:** o override existe desde julho em
+`parcelaInput`/`obrigacaoInput`. A fatia só ia estendê-lo.
+
+#### O que SOBROU na fatia (e está pronto)
+
+A **correção das 135 parcelas** já gravadas. Elas continuam sendo defeito legítimo: são parcelas de
+acordo sem o override, todas **fora do exigível** (acordo substituto vigente), nenhuma recebeu
+dinheiro. A correção só ajusta a ficha delas — R$ 2.764,16.
+
+- comando `app:cobranca:reconciliar-honorario-parcela`: simula por padrão; `--aplicar` exige
+  `--ids` com a lista que o humano aprovou olhando a simulação (**INV-H0**);
+- `Obrigacao::pararDeCobrarHonorario()` — as duas metades (override + zerar o materializado), com
+  recusa de congelada;
+- 10 casos de CLI + provas por reintrodução.
+
+#### O que SAIU
+
+`completarParcelas` voltou a **só vincular**. O rótulo do relatório do importador voltou a dizer a
+verdade. Os quatro testes que guardavam o override viraram um que guarda o oposto.
+
+⛔ **A decisão do dono de 19/08 ("vai inteiro", teto de R$ 125.526,35) perdeu o objeto** — ela era
+sobre a parte prospectiva, que não existe mais. **Não a aplique.**
+
+#### 🔴 O QUE FALTA — por aqui a próxima sessão começa
+
+1. **8ª revisão** da fatia reduzida (a 7ª revisou o desenho antigo; o alvo mudou);
+2. **integrar no master** (merge é do dono) + suíte no master depois;
+3. **deploy** e, em prod: rodar **sem `--aplicar`**, conferir contra a planilha, colar
+   `--aplicar --usuario-id=<id> --ids=...`;
+4. **smoke do dono** na tela de detalhe do acordo.
+
+#### 📌 A fatia que nasceu deste achado (§10.8)
+
+*O sistema grava o encargo que ela informa, sempre — em vez de decidir sozinho quando cobrar.* Implica
+repensar o override `taxa_honorarios_bp = 0` inteiro, e provavelmente resolve junto os **dois
+significados** da coluna (override de encargo × sinal de alocação bruta em `ImportarReceitasUseCase`),
+porque some a necessidade de adivinhar. Começa com os R$ 722,92 / 12 parcelas já medidos.
+
+#### Números que já custaram revisão — não reaprender
+
+- as **1.906 parcelas CERTAS não têm** a marca de procedência ("Reconstruída da planilha de acordos");
+  usá-la como régua pula justo as que cobram;
+- **3.473** dívidas velhas engolidas por acordo cobram honorário **de propósito** (R$ 106.682,29) — a
+  1ª versão da fatia as apagaria;
+- `taxa_honorarios_bp = 0` tem **dois** significados: override **e** o sinal de alocação BRUTA em
+  `ImportarReceitasUseCase:~266`;
+- **6.455** avulsas com honorário materializado (R$ 227.126,42) cairiam em `bp=0, honorarios>0`,
+  estado que a régua do comando (`taxaHonorariosBp IS NULL`) nunca alcança;
+- na parcela dela, **26% têm encargo embutido**: R$ 71.073,07 de honorário, R$ 31.638,14 de juros,
+  R$ 5.308,04 de multa, sobre R$ 649.655,13 de valor total.
+
+🔑 **A lição que custou 4 das 7 revisões:** quatro réguas automáticas para decidir QUAIS parcelas
+corrigir vazaram, sempre pelo mesmo motivo — **o dado que decide não existe no banco na hora da
+correção**. A saída foi o comando **parar de decidir**. É a §1.1 aplicada ao próprio comando.
+
+📌 **Decidido pelo dono (19/08), fatia própria:** na tela de criar/editar acordo a escolha de cobrar
+honorário é **do usuário**, padrão *não cobrar*, **somente leitura** em acordo vindo da contabilidade.
+Tem migration; zero acordos de tela em produção hoje. §10.7.
+
+### 7.2 Os outros achados confirmados (frente do honorário)
+
+- 🔴 **Duas cópias a mais da regra do exigível**, escritas à mão em `EditarObrigacaoUseCase:110`
+  (decide se dívida liquidada REABRE) e `:141` (guard `ValorAbaixoDoAlocado`). **A spec §2 conta três
+  cópias e conta ERRADO** — o inventário grepou `->valorExigivel()` e essas escrevem a soma à mão.
+  **Confirmado por medição:** `EditarObrigacaoUseCaseTest` passa 22/22 com DOIS testes que se
+  contradizem — `honorarioNaoEntraNoGuardDoExigivel` e `honorarioAltoEntraNoExigivel`.
+- 🔴 **Saldo fantasma na obrigação criada-já-paga:** `ReceitaImportavel::recuperadoDividaCentavos()`
+  = `divida + encargos`, **sem honorário**, mas `liquidar()` materializa o honorário. Exigível >
+  alocado ⟹ resíduo permanente no saldo de uma obrigação marcada como paga. **Está no caminho do
+  IMPORTADOR** — quebra o espelho. ⚠️ O teste que guardava o invariante foi o reescrito nesta fatia
+  (`ImportarReceitasFluxoTest`, NN 8040): a asserção antiga dizia "a alocação que a acompanha vale
+  R$ 0,00" e foi trocada sem notar que o invariante caiu.
+- 🟠 **Quarta cópia, em DQL:** `ObrigacaoRepository:237` (`having` da régua `pagasMasNaoLiquidadas`).
+  Vai encher de falso positivo o relatório usado para provar o espelho. Medido no dev: 0 hoje.
+- 🟡 Asserção **tautológica** em `MontarDetalheCasoUseCaseTest:227` (compara duas avaliações da mesma
+  expressão). `SecaoJaPagoTest`, em contraste, foi refundado na super-alocação e está honesto.
+- ⚪ **17 comentários que agora mentem** (os piores em `ObrigacaoOutput:43-53` e
+  `show.html.twig:2037`, citando métodos apagados). A §1.1 pediu que ninguém pudesse restaurar INV-E2
+  lendo comentário velho — sobraram 17.
+
+### 7.3 Os achados do comando da data
+
+- 🔴 **A nota impressa afirma "o saldo não muda" e o código não garante:** acordo **rompido/cancelado
+  volta ao exigível** e o comando não filtra nem reporta status. A §4.1 sustenta a afirmação numa
+  medição de 19/08 (todos vigentes) — premissa de um instante virando fato impresso.
+
+  ✅ **DECIDIDO PELO DONO (19/08): opção B — corrigir TODOS e CONTAR.** O comando conserta a data em
+  qualquer acordo (a data errada é errada em todo lugar; é o objetivo da frente), mas:
+  1. conta os candidatos **por status do acordo**, medido na hora da execução;
+  2. a nota final deixa de ser texto fixo e passa a ser **derivada** do que ele achou — com zero
+     não-vigentes, imprime "o saldo não muda"; com N, imprime que N estão em acordo rompido/cancelado
+     e **quanto a cobrança muda neles**;
+  3. o aviso sai na SIMULAÇÃO, antes de qualquer escrita — o dono vê antes de autorizar o `--aplicar`.
+
+  🔑 **O motivo da escolha, para não ser reaberto:** a frase de hoje é o sistema AFIRMANDO algo que
+  não conferiu — exatamente a §1.1 ("o sistema mostra, a gerência julga"). Filtrar por `ehVigente()`
+  (opção A) deixaria data errada gravada, o oposto do objetivo. Precisa de teste do caso não vigente,
+  que hoje tem cobertura zero.
+- 🔴 **A §4 nunca foi reproduzida em produção.** O revisor não tem o MCP; mediu no dev (37
+  candidatos, não 372). A verificação central da frente **ainda não existe**.
+- Sem a trava `--esperado-*`/`LISTA_MUDOU` do molde; `ambiguos` não muda o código de saída; a
+  asserção de buckets não existe; `contasFecham()` é tautológica (`pulados` é inalcançável porque o
+  repositório faz `innerJoin` do caso); o teste de tenant **não prova** o filtro (passaria com o
+  `andWhere` do tenant apagado); 4 comportamentos sem teste (`semDataNoSistema`,
+  `semAcordoNoSistema` — que é 351 de 392 no dev —, acordo não vigente, `RastroIncompletoException`).
+- 5 das 6 decisões do implementador **procedem**; só "sem filtro por status" não.
+
+### 7.4 Registrado como dívida conhecida, com o número medido — NÃO inflar
+
+Ambos medidos como **zero hoje**, e por isso não entram na lista de problemas abertos:
+
+- `retido_recuperado` / `cobrado_separado` ficaram meio-caminho depois da opção A. **0 carteiras** em
+  outra forma; as três são `acrescido_divida`. Risco só para carteira futura (a tela oferece as 4).
+- Pagamento manual passa a gravar `valorHonorarios = 0`, mudando o conteúdo de 3 indicadores de tela.
+  **0 de 8.902 pagamentos** foram lançados à mão — todos vieram do importador, que grava o honorário
+  **declarado por ela**. O espelho não é afetado.
+
+## 8. O portão do dono
 
 > *"Só vou começar a interface depois que O SISTEMA ESTIVER 100% BATENDO COM A CONTABILIDADE."*
 

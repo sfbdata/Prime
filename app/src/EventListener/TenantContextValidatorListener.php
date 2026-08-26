@@ -29,6 +29,13 @@ final class TenantContextValidatorListener
         // ser alcançável antes da seleção de escritório (ver TermoAceiteListener).
         'termo_aceite',
         'termo_aceite_registrar',
+        // Documento legal público: não depende de tenant nem de usuário. Precisa estar aqui
+        // *além* de na lista do TermoAceiteListener — são dois portões diferentes, e este roda
+        // logo depois daquele (prioridade 6 contra 7). Liberar só lá deixava o link quebrado
+        // para quem está logado sem escritório selecionado, que é justamente quem está parado
+        // em tenant_selecionar e em termo_aceite — as duas telas que oferecem o link.
+        'legal_politica_privacidade',
+        'legal_politica_privacidade_pdf',
     ];
 
     public function __construct(

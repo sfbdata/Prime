@@ -148,4 +148,97 @@ final class PastaShowDocumentosControllerTest extends JusPrimeWebTestCase
             'o container precisa ter outras abas — são elas que limpam a flag',
         );
     }
+
+    #[TestDox('a subpasta chega ao HTML com o pai declarado')]
+    public function testSubpastaTrazPaiNoHtml(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+
+        $em  = static::getContainer()->get(EntityManagerInterface::class);
+        $pai = new PastaSecao();
+        $pai->setPasta($pasta);
+        $pai->setTenant($tenant);
+        $pai->setNome('PAI');
+        $pai->setOrdem(1);
+        $em->persist($pai);
+
+        $filha = new PastaSecao();
+        $filha->setPasta($pasta);
+        $filha->setTenant($tenant);
+        $filha->setNome('FILHA');
+        $filha->setOrdem(1);
+        $filha->setPai($pai);
+        $em->persist($filha);
+        $em->flush();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
+
+        self::assertResponseIsSuccessful();
+
+        $noPai = $crawler->filter('.fm-pasta[data-secao-id="' . $pai->getId() . '"]');
+        self::assertSame('', $noPai->attr('data-pai-id'), 'a pasta de topo não tem pai');
+
+        $noFilha = $crawler->filter('.fm-pasta[data-secao-id="' . $filha->getId() . '"]');
+        self::assertSame((string) $pai->getId(), $noFilha->attr('data-pai-id'));
+    }
+
+    #[TestDox('D3: o cartão traz data-subpastas/data-arquivos da árvore inteira, para o aviso de exclusão contar ANTES do clique')]
+    public function testCartaoTrazContagemDaArvoreParaOAvisoDeExclusao(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+
+        $em  = static::getContainer()->get(EntityManagerInterface::class);
+        $pai = new PastaSecao();
+        $pai->setPasta($pasta);
+        $pai->setTenant($tenant);
+        $pai->setNome('PAI');
+        $pai->setOrdem(1);
+        $em->persist($pai);
+
+        $filha = new PastaSecao();
+        $filha->setPasta($pasta);
+        $filha->setTenant($tenant);
+        $filha->setNome('FILHA');
+        $filha->setOrdem(1);
+        $filha->setPai($pai);
+        $em->persist($filha);
+
+        $neta = new PastaSecao();
+        $neta->setPasta($pasta);
+        $neta->setTenant($tenant);
+        $neta->setNome('NETA');
+        $neta->setOrdem(1);
+        $neta->setPai($filha);
+        $em->persist($neta);
+        $em->flush();
+
+        // Um arquivo em cada nível: o PAI acumula os 3 (recursivo), a FILHA acumula 2, a NETA só o dela.
+        $this->criarDocumento($pasta, $tenant, $pai, 'doc-pai.pdf');
+        $this->criarDocumento($pasta, $tenant, $filha, 'doc-filha.pdf');
+        $this->criarDocumento($pasta, $tenant, $neta, 'doc-neta.pdf');
+
+        $em->clear();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
+
+        self::assertResponseIsSuccessful();
+
+        $noPai = $crawler->filter('.fm-pasta[data-secao-id="' . $pai->getId() . '"]');
+        self::assertSame('2', $noPai->attr('data-subpastas'), 'FILHA e NETA');
+        self::assertSame('3', $noPai->attr('data-arquivos'), 'os 3 da árvore inteira do PAI');
+
+        $noFilha = $crawler->filter('.fm-pasta[data-secao-id="' . $filha->getId() . '"]');
+        self::assertSame('1', $noFilha->attr('data-subpastas'), 'só a NETA');
+        self::assertSame('2', $noFilha->attr('data-arquivos'), 'o dela mais o da NETA');
+
+        $noNeta = $crawler->filter('.fm-pasta[data-secao-id="' . $neta->getId() . '"]');
+        self::assertSame('0', $noNeta->attr('data-subpastas'), 'a NETA é folha');
+        self::assertSame('1', $noNeta->attr('data-arquivos'));
+    }
 }

@@ -8,6 +8,7 @@ use App\Cliente\Entity\Cliente;
 use App\Entity\Auth\User;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
+use App\Pasta\Entity\PastaSecao;
 use App\Pasta\DTO\UploadImagemEditorInput;
 use App\Pasta\Repository\PastaSecaoRepository;
 use App\Pasta\UseCase\EditarPecaTextoUseCase;
@@ -63,13 +64,16 @@ final class PeticionarController extends AbstractController
         $clientePrincipal = $pasta->getClientePrincipal();
         $nomeCliente      = ($clientePrincipal instanceof Cliente) ? $clientePrincipal->getNomeExibicao() : null;
 
-        $secoes = $tenant !== null ? $this->pastaSecaoRepository->findByPasta($pasta, $tenant) : [];
+        $secoes         = $tenant !== null ? $this->pastaSecaoRepository->findByPasta($pasta, $tenant) : [];
+        $caminhosSecoes = $this->montarCaminhosLegiveis($secoes);
+        $secoes         = $this->ordenarPorCaminho($secoes, $caminhosSecoes);
 
         return $this->render('pasta/peticionar.html.twig', [
             'pasta'           => $pasta,
             'documentos'      => $documentos,
             'nomeCliente'     => $nomeCliente,
             'secoes'          => $secoes,
+            'caminhosSecoes'  => $caminhosSecoes,
             'categoriaLabels' => [
                 PastaDocumento::CATEGORIA_PECA                    => 'Peça',
                 PastaDocumento::CATEGORIA_PROCURACAO              => 'Procuração',
@@ -80,6 +84,65 @@ final class PeticionarController extends AbstractController
                 PastaDocumento::CATEGORIA_CONTRATO                => 'Contrato',
             ],
         ]);
+    }
+
+    /**
+     * Caminho legível de cada seção, com os ancestrais ("Financeiro › 2026 › Notas") — sem isto os
+     * selects de "Peticionar" listam a árvore achatada, e duas pastas de mesmo nome em galhos
+     * diferentes ficam indistinguíveis. Só lê `getNome()`/`getPai()`, já carregados em memória por
+     * findByPasta() (todas as seções da pasta numa query só) — não dispara SQL extra.
+     *
+     * @param PastaSecao[] $secoes
+     * @return array<int, string>
+     */
+    private function montarCaminhosLegiveis(array $secoes): array
+    {
+        $caminhos = [];
+
+        foreach ($secoes as $secao) {
+            $partes = [];
+            $atual  = $secao;
+            $voltas = 0;
+            while ($atual !== null && $voltas < PastaSecao::LIMITE_SEGURANCA) {
+                array_unshift($partes, $atual->getNome());
+                $atual = $atual->getPai();
+                ++$voltas;
+            }
+
+            $caminhos[$secao->getId()] = implode(' › ', $partes);
+        }
+
+        return $caminhos;
+    }
+
+    /**
+     * findByPasta() ordena por `ordem ASC`, mas essa coluna virou RELATIVA às irmãs nesta frente
+     * (ver PastaSecaoRepository::proximaOrdem) — comparável só DENTRO do mesmo grupo, não entre
+     * níveis. O gerenciador de arquivos não sofre porque filtra por nível antes de exibir; aqui a
+     * lista é achatada num único <select>, então a mãe pode sair espremida entre as próprias
+     * filhas. Reordenando pelo caminho legível ("Financeiro" antes de "Financeiro › 2026"), toda
+     * mãe fica antes das filhas e as irmãs ficam juntas — sem tocar findByPasta(), que o
+     * gerenciador, o sync e o comando de acervo continuam usando como está.
+     *
+     * @param PastaSecao[] $secoes
+     * @param array<int, string> $caminhos
+     * @return PastaSecao[]
+     */
+    private function ordenarPorCaminho(array $secoes, array $caminhos): array
+    {
+        // Mesmo padrão do MontarAtividadeEquipeUseCase: o container roda com LC_COLLATE=C, onde
+        // acento e caixa saem fora da ordem esperada em português.
+        $collator = new \Collator('pt_BR');
+
+        usort(
+            $secoes,
+            static fn (PastaSecao $a, PastaSecao $b): int => (int) $collator->compare(
+                $caminhos[$a->getId()] ?? '',
+                $caminhos[$b->getId()] ?? '',
+            ),
+        );
+
+        return $secoes;
     }
 
     #[Route('/{id}/peticionar/upload', name: 'pasta_peticionar_upload', methods: ['POST'])]

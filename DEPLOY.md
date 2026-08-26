@@ -100,10 +100,19 @@ expõem `location ^~ /.well-known/acme-challenge/`. Não é preciso parar o ngin
 zero downtime nas renovações.
 
 > **Pré-requisito de infra:** o nginx precisa já estar servindo o acme-challenge.
-> Depois de alterar `nginx.prod.conf`/`docker-compose.prod.yml`, faça **recreate** do
-> container (`docker compose -f docker-compose.prod.yml --env-file .env.prod up -d nginx`)
-> e valide com `curl http://<dominio>/.well-known/acme-challenge/teste` (deve dar 200,
+> Alterar `nginx/conf.d/nginx.prod.conf` já basta — desde 19/08/2026 o compose monta a
+> **pasta** `./nginx/conf.d` (e não mais o arquivo solto), então o container enxerga o
+> arquivo novo, e o `deploy-prod*.sh` recarrega o nginx no fim. Só mudança no
+> `docker-compose.prod.yml` exige **recreate**
+> (`docker compose -f docker-compose.prod.yml --env-file .env.prod up -d nginx`).
+> Valide com `curl http://<dominio>/.well-known/acme-challenge/teste` (deve dar 200,
 > não 301) **antes** de qualquer emissão real.
+>
+> ⚠️ **Por que a pasta:** bind-mount de arquivo único amarra o **inode**, e `git pull`
+> grava arquivo novo em vez de editar no lugar. O container ficava preso no inode antigo
+> **sem erro e sem log** — produção rodou de 27/06 a 19/08/2026 com config velha, servindo
+> CSS/JS com cache `immutable` de 30 dias que já tinha sido corrigido em 17/07. `reload`
+> não resolvia (relia o arquivo errado); só recriar o container resolvia.
 
 ### Emissão manual (`letsencrypt.sh issue`)
 

@@ -31,14 +31,19 @@ final class ReordenarSecoesUseCase
             $mapa[$secao->getId()] = $secao;
         }
 
-        $novaOrdem = 1;
+        // A ordem é POSIÇÃO ENTRE IRMÃS: cada grupo de mesmo pai numera do 1. Um contador global
+        // faria a 1ª subpasta de um pai nascer com a ordem do fim da lista da pasta inteira.
+        $proxima = [];
         foreach ($idsOrdenados as $id) {
             $id = (int) $id;
             if (!isset($mapa[$id])) {
                 continue;
             }
-            $mapa[$id]->setOrdem($novaOrdem);
-            ++$novaOrdem;
+            $secao = $mapa[$id];
+            $chave = (string) ($secao->getPai()?->getId() ?? 'raiz');
+            $proxima[$chave] ??= 1;
+            $secao->setOrdem($proxima[$chave]);
+            ++$proxima[$chave];
         }
 
         $this->em->flush();

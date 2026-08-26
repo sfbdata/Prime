@@ -297,6 +297,14 @@ class PastaController extends AbstractController
 
         $secoes = $tenant !== null ? $this->secaoRepository->findByPasta($pasta, $tenant) : [];
 
+        // Alimenta o aviso de exclusão (D3): "esta pasta contém 3 subpastas e 127 arquivos".
+        // Precisa estar disponível no HTML no momento do clique — a contagem chegar só na
+        // RESPOSTA da exclusão é tarde demais para um aviso que acontece ANTES dela.
+        $contagemSecoes = [];
+        foreach ($secoes as $secao) {
+            $contagemSecoes[$secao->getId()] = $this->secaoRepository->contarConteudoRecursivo($secao);
+        }
+
         // Faixa do topo da aba Financeiro. A média por CPF é do cliente PRINCIPAL da pasta —
         // o marcado explicitamente, ou o de cadastro mais antigo enquanto ninguém marcou nada.
         // Sem cliente vinculado não há CPF para agrupar, e a tela mostra travessão em vez de
@@ -323,6 +331,7 @@ class PastaController extends AbstractController
             'totalChecklist'              => $totalChecklist,
             'concluidosChecklist'         => $concluidosChecklist,
             'secoes'                      => $secoes,
+            'contagemSecoes'              => $contagemSecoes,
         ]);
     }
 

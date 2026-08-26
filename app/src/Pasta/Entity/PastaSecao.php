@@ -17,8 +17,16 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ORM\Table(name: 'pasta_secao')]
 #[ORM\Index(name: 'idx_pasta_secao_pasta', columns: ['pasta_id'])]
 #[ORM\Index(name: 'idx_pasta_secao_tenant', columns: ['tenant_id'])]
+#[ORM\Index(name: 'idx_pasta_secao_pai', columns: ['secao_pai_id'])]
 class PastaSecao implements Auditavel, TenantAware
 {
+    /**
+     * Trava anti-laço na travessia da árvore (não é o teto de produto, que é 10). Pública porque
+     * outras recursões que descem a árvore fora desta classe (PastaSecaoRepository::contarConteudoRecursivo,
+     * PastaSecaoController::coletarCaminhosDaArvore) usam o MESMO limite, em vez de duplicar o número.
+     */
+    public const LIMITE_SEGURANCA = 100;
+
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column(type: 'integer')]
@@ -46,10 +54,19 @@ class PastaSecao implements Auditavel, TenantAware
     #[ORM\OneToMany(mappedBy: 'secao', targetEntity: PastaDocumento::class, cascade: ['remove'])]
     private Collection $documentos;
 
+    #[ORM\ManyToOne(targetEntity: self::class, inversedBy: 'filhas')]
+    #[ORM\JoinColumn(name: 'secao_pai_id', nullable: true, onDelete: 'CASCADE')]
+    private ?self $pai = null;
+
+    /** @var Collection<int, PastaSecao> */
+    #[ORM\OneToMany(mappedBy: 'pai', targetEntity: self::class, cascade: ['remove'])]
+    private Collection $filhas;
+
     public function __construct()
     {
         $this->criadaEm = new \DateTimeImmutable();
         $this->documentos = new ArrayCollection();
+        $this->filhas = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -114,5 +131,92 @@ class PastaSecao implements Auditavel, TenantAware
     public function getDocumentos(): Collection
     {
         return $this->documentos;
+    }
+
+    public function getPai(): ?self
+    {
+        return $this->pai;
+    }
+
+    public function setPai(?self $pai): self
+    {
+        if ($this->pai === $pai) {
+            return $this;
+        }
+
+        if ($this->pai !== null) {
+            $this->pai->getFilhas()->removeElement($this);
+        }
+
+        $this->pai = $pai;
+
+        if ($pai !== null && !$pai->getFilhas()->contains($this)) {
+            $pai->getFilhas()->add($this);
+        }
+
+        return $this;
+    }
+
+    /** @return Collection<int, PastaSecao> */
+    public function getFilhas(): Collection
+    {
+        return $this->filhas;
+    }
+
+    /**
+     * Nível desta seção na árvore. Seção sem pai está no nível 1.
+     *
+     * O teto de LIMITE_SEGURANCA não é o teto de produto (que é 10, validado nos UseCases) — é
+     * uma trava contra ciclo gravado no banco, que aqui viraria laço infinito.
+     */
+    public function getProfundidade(): int
+    {
+        $nivel = 1;
+        $atual = $this->pai;
+        while ($atual !== null && $nivel < self::LIMITE_SEGURANCA) {
+            ++$nivel;
+            $atual = $atual->getPai();
+        }
+
+        return $nivel;
+    }
+
+    /**
+     * Quantos níveis a subárvore desta seção ocupa, contando ela mesma. Folha = 1.
+     *
+     * O corte em LIMITE_SEGURANCA aqui não é o teto de produto (10, validado nos UseCases ao
+     * criar/mover) — é proteção contra ciclo GRAVADO NO BANCO, que viraria recursão infinita e
+     * estouraria a memória do PHP. `DesfazerAlteracaoAuditLogUseCase` grava `pai` direto pelo
+     * setter da entidade, sem passar pelos UseCases nem pelos guards de ciclo deles — é o
+     * caminho que provou o estouro (ver o teste que monta `a.pai = b; b.pai = a` à mão).
+     */
+    public function getAltura(int $profundidade = 0): int
+    {
+        if ($profundidade >= self::LIMITE_SEGURANCA) {
+            return 1;
+        }
+
+        $altura = 1;
+        foreach ($this->filhas as $filha) {
+            $altura = max($altura, 1 + $filha->getAltura($profundidade + 1));
+        }
+
+        return $altura;
+    }
+
+    /** Esta seção está em algum lugar abaixo de $possivelAncestral? Não considera a si mesma. */
+    public function descendeDe(self $possivelAncestral): bool
+    {
+        $passos = 0;
+        $atual  = $this->pai;
+        while ($atual !== null && $passos < self::LIMITE_SEGURANCA) {
+            if ($atual === $possivelAncestral) {
+                return true;
+            }
+            $atual = $atual->getPai();
+            ++$passos;
+        }
+
+        return false;
     }
 }

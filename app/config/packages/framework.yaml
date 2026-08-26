@@ -31,6 +31,19 @@ framework:
             policy: sliding_window
             limit: 5
             interval: '1 hour'
+        # PDF da Política de Privacidade: cada requisição roda o dompdf sobre um documento
+        # de 16 páginas com 11 tabelas (~0,6 s de CPU, contra ~0,25 s da versão HTML). Sem
+        # limitador, um curl em laço prende worker de PHP numa rota anônima.
+        #
+        # O limite é FOLGADO de propósito, pela mesma razão do bloco de senha logo abaixo:
+        # enquanto SYMFONY_TRUSTED_PROXIES não estiver confirmado na VPS, getClientIp()
+        # devolve o IP do nginx — a MESMA chave para todos. Limite baixo aqui derrubaria a
+        # leitura de um documento legal para o escritório inteiro de uma vez. 30/minuto
+        # sustenta leitura real e ainda põe teto no laço, onde hoje não há teto nenhum.
+        politica_privacidade_pdf:
+            policy: sliding_window
+            limit: 30
+            interval: '1 minute'
         # Recuperação de senha: dois limites somados, com papéis diferentes.
         #
         # O de e-mail é a defesa REAL da vítima: não importa de onde venha o pedido.

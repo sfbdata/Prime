@@ -801,7 +801,9 @@
                                      data-url-reordenar-docs="{{ path('pasta_documentos_reordenar', {id: pasta.id}) }}"
                                      data-csrf-reordenar-docs="{{ csrf_token('reordenar_docs_pasta_' ~ pasta.id) }}"
                                      data-url-renomear-tpl="{{ path('pasta_secao_renomear', {secaoId: '__ID__'}) }}"
-                                     data-url-excluir-tpl="{{ path('pasta_secao_excluir', {secaoId: '__ID__'}) }}">
+                                     data-url-excluir-tpl="{{ path('pasta_secao_excluir', {secaoId: '__ID__'}) }}"
+                                     data-url-mover-tpl="{{ path('pasta_secao_mover', {secaoId: '__ID__'}) }}"
+                                     data-arvore="1">
 
                                     {# Toolbar #}
                                     <div class="fm-toolbar">
@@ -910,6 +912,11 @@
                                                          data-csrf-renomear="{{ csrf_token('pasta_secao_renomear_' ~ secao.id) }}"
                                                          data-url-excluir="{{ path('pasta_secao_excluir', {secaoId: secao.id}) }}"
                                                          data-csrf-excluir="{{ csrf_token('pasta_secao_excluir_' ~ secao.id) }}"
+                                                         data-pai-id="{{ secao.pai ? secao.pai.id : '' }}"
+                                                         data-url-mover="{{ path('pasta_secao_mover', {secaoId: secao.id}) }}"
+                                                         data-csrf-mover="{{ csrf_token('pasta_secao_mover_' ~ secao.id) }}"
+                                                         data-subpastas="{{ contagemSecoes[secao.id].subpastas|default(0) }}"
+                                                         data-arquivos="{{ contagemSecoes[secao.id].arquivos|default(0) }}"
                                                          tabindex="0" role="button" aria-label="Abrir pasta {{ secao.nome|e('html_attr') }}">
                                                         <span class="fm-pasta-grip" title="Arrastar para reordenar"><i class="bi bi-grip-vertical"></i></span>
                                                         <span class="fm-pasta-icone"><i class="bi bi-folder-fill"></i></span>
@@ -922,6 +929,7 @@
                                                             <ul class="dropdown-menu dropdown-menu-end">
                                                                 <li><button class="dropdown-item fm-pasta-abrir" type="button"><i class="bi bi-folder2-open me-2"></i>Abrir</button></li>
                                                                 <li><button class="dropdown-item fm-pasta-renomear" type="button"><i class="bi bi-pencil me-2"></i>Renomear</button></li>
+                                                                <li><button class="dropdown-item fm-pasta-mover" type="button"><i class="bi bi-folder-symlink me-2"></i>Mover para...</button></li>
                                                                 <li><hr class="dropdown-divider"></li>
                                                                 <li><button class="dropdown-item text-danger fm-pasta-excluir" type="button"><i class="bi bi-trash me-2"></i>Excluir</button></li>
                                                             </ul>
@@ -955,6 +963,7 @@
                                                             <span class="text-truncate">
                                                                 <a href="{{ path('pasta_documento_download', {id: doc.id}) }}" target="_blank" rel="noopener noreferrer" class="fm-arq-nome" title="{{ doc.nomeOriginal|e('html_attr') }}">{{ doc.nomeOriginal }}</a>
                                                                 <span class="fm-arq-sub">{% if doc.numero %}Nº {{ doc.numero }}{% if doc.descricao %} · {% endif %}{% endif %}{{ doc.descricao ?? '' }}</span>
+                                                                <span class="fm-arq-local fm-oculto text-muted small"></span>
                                                             </span>
                                                         </div>
                                                         <div class="fm-arq-tipo"><span class="fm-badge-cat">{{ documentTypeOptions[doc.categoria] ?? doc.categoria }}</span></div>
@@ -1011,6 +1020,19 @@
                                         <div class="modal-content">
                                             <div class="modal-header"><h5 class="modal-title"><i class="bi bi-folder-symlink me-1"></i> Mover para…</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button></div>
                                             <div class="modal-body"><div class="list-group" id="fmMoverLista"></div></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {# Modal escolher pasta de destino (mover pasta pelo menu "Mover para...") #}
+                                <div class="modal fade" id="fmDestinoModal" tabindex="-1" aria-hidden="true">
+                                    <div class="modal-dialog modal-dialog-centered modal-sm">
+                                        <div class="modal-content">
+                                            <div class="modal-header"><h5 class="modal-title" id="fmDestinoTitulo">Mover para</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button></div>
+                                            <div class="modal-body">
+                                                <select class="form-select" id="fmDestinoCampo" aria-label="Pasta de destino"></select>
+                                            </div>
+                                            <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button><button type="button" class="btn btn-primary" id="fmDestinoConfirmar">Mover</button></div>
                                         </div>
                                     </div>
                                 </div>

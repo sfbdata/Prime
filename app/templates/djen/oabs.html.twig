@@ -1,12 +1,12 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}DJEN — OABs monitoradas{% endblock %}
+{% block title %}Push Processual — OABs monitoradas{% endblock %}
 
 {% block body %}
 <section class="content-header">
     <div class="container-fluid d-flex justify-content-between align-items-center">
         <h1 class="m-0">OABs monitoradas</h1>
-        <a href="{{ path('djen_index') }}" class="btn btn-outline-secondary">
+        <a href="{{ path('push_processual_index') }}" class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left me-1"></i> Voltar às publicações
         </a>
     </div>
@@ -68,15 +68,15 @@
                                 </td>
                                 <td>{{ oab.criadoEm ?? '—' }}</td>
                                 <td class="text-end">
-                                    <form method="POST" action="{{ path('djen_oab_alternar', {id: oab.id}) }}" class="d-inline">
-                                        <input type="hidden" name="_token" value="{{ csrf_token('djen_oab_' ~ oab.id) }}">
+                                    <form method="POST" action="{{ path('push_processual_oab_alternar', {id: oab.id}) }}" class="d-inline">
+                                        <input type="hidden" name="_token" value="{{ csrf_token('push_processual_oab_' ~ oab.id) }}">
                                         <button type="submit" class="btn btn-sm btn-outline-secondary">
                                             {{ oab.ativo ? 'Pausar' : 'Reativar' }}
                                         </button>
                                     </form>
-                                    <form method="POST" action="{{ path('djen_oab_remover', {id: oab.id}) }}" class="d-inline"
+                                    <form method="POST" action="{{ path('push_processual_oab_remover', {id: oab.id}) }}" class="d-inline"
                                           onsubmit="return confirm('Remover esta OAB do monitoramento?');">
-                                        <input type="hidden" name="_token" value="{{ csrf_token('djen_oab_' ~ oab.id) }}">
+                                        <input type="hidden" name="_token" value="{{ csrf_token('push_processual_oab_' ~ oab.id) }}">
                                         <button type="submit" class="btn btn-sm btn-outline-danger">
                                             <i class="bi bi-trash"></i>
                                         </button>

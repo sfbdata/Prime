@@ -33,11 +33,11 @@ final class DjenIsolamentoControllerTest extends JusPrimeWebTestCase
         $this->limparIdentityMap();
 
         $this->logarComTenant($client, $gestorB, $tenantB);
-        $client->request('GET', '/djen/' . $id);
+        $client->request('GET', '/push-processual/' . $id);
         self::assertResponseIsSuccessful();
 
         $this->logarComTenant($client, $gestorA, $tenantA);
-        $client->request('GET', '/djen/' . $id);
+        $client->request('GET', '/push-processual/' . $id);
         self::assertResponseStatusCodeSame(404, 'show não pode revelar publicação de outro escritório');
     }
 
@@ -54,7 +54,7 @@ final class DjenIsolamentoControllerTest extends JusPrimeWebTestCase
         $this->limparIdentityMap();
 
         $this->logarComTenant($client, $gestorA, $tenantA);
-        $client->request('GET', '/djen');
+        $client->request('GET', '/push-processual');
 
         self::assertResponseIsSuccessful();
         $html = (string) $client->getResponse()->getContent();
@@ -75,7 +75,7 @@ final class DjenIsolamentoControllerTest extends JusPrimeWebTestCase
         $this->limparIdentityMap();
 
         $this->logarComTenant($client, $gestorA, $tenantA);
-        $client->request('GET', '/djen/' . $id);
+        $client->request('GET', '/push-processual/' . $id);
         self::assertResponseStatusCodeSame(404);
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -100,7 +100,7 @@ final class DjenIsolamentoControllerTest extends JusPrimeWebTestCase
 
         $this->logarComTenant($client, $gestorA, $tenantA);
         // O guard tenant-safe roda ANTES do CSRF: cross-tenant é 404 determinístico (mesmo com token inválido).
-        $client->request('POST', '/djen/oabs/' . $id . '/remover', ['_token' => 'irrelevante']);
+        $client->request('POST', '/push-processual/oabs/' . $id . '/remover', ['_token' => 'irrelevante']);
         self::assertResponseStatusCodeSame(404, 'guard IDOR: remover OAB de outro escritório é 404');
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -125,7 +125,7 @@ final class DjenIsolamentoControllerTest extends JusPrimeWebTestCase
         $this->limparIdentityMap();
 
         $this->logarComTenant($client, $gestorA, $tenantA);
-        $client->request('POST', '/djen/oabs/' . $id . '/alternar', ['_token' => 'irrelevante']);
+        $client->request('POST', '/push-processual/oabs/' . $id . '/alternar', ['_token' => 'irrelevante']);
         self::assertResponseStatusCodeSame(404);
 
         $em = static::getContainer()->get(EntityManagerInterface::class);

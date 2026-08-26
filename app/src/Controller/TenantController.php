@@ -37,8 +37,8 @@ use App\Repository\TenantRoleRepository;
 use App\Profile\DTO\DadosPessoaisInput;
 use App\Profile\Form\DadosPessoaisType;
 use App\Profile\UseCase\ObterOuCriarPerfilUseCase;
-use App\Tenant\DTO\DemitirFuncionarioInput;
-use App\Tenant\UseCase\DemitirFuncionarioUseCase;
+use App\Tenant\DTO\RemoverColaboradorInput;
+use App\Tenant\UseCase\RemoverColaboradorDoEscritorioUseCase;
 use App\Tenant\UseCase\ExcluirEscritorioUseCase;
 use App\Tenant\UseCase\GerarCodigoFuncionario;
 use App\Service\InvitationService;
@@ -343,7 +343,11 @@ final class TenantController extends AbstractController
         // na sessão ainda não vê o label de um recurso de outro escritório.
         $this->escoparFiltroNoTenant($entityManager, $tenant);
 
-        $vinculos = $userTenantRepository->findBy(['tenant' => $tenant]);
+        // A lista mostra só quem é colaborador de verdade: vínculo existe = colaborador
+        // (spec §3.4/§10). Com o hard delete de RemoverColaboradorDoEscritorioUseCase, um
+        // vínculo inativo é sempre legado (as 3 linhas de D8) — nunca alguém que ainda está
+        // no escritório com um selo "Desligado".
+        $vinculos = $userTenantRepository->findBy(['tenant' => $tenant, 'isActive' => true]);
         $users    = array_map(fn($vt) => $vt->getUser(), $vinculos);
         $userTenantByUserId = [];
         foreach ($vinculos as $vt) {
@@ -732,12 +736,12 @@ final class TenantController extends AbstractController
         return $this->redirectToRoute('app_tenant_user_edit_role', ['tenantId' => $tenantId, 'id' => $user->getId()]);
     }
 
-    #[Route('/{tenantId}/user/{userId}/demitir', name: 'app_tenant_user_demitir', methods: ['POST'])]
-    public function demitirFuncionario(
+    #[Route('/{tenantId}/user/{userId}/remover', name: 'app_tenant_user_remover', methods: ['POST'])]
+    public function removerColaborador(
         int $tenantId,
         int $userId,
         Request $request,
-        DemitirFuncionarioUseCase $useCase,
+        RemoverColaboradorDoEscritorioUseCase $useCase,
         PermissionChecker $permissionChecker,
         EntityManagerInterface $em,
         TenantRepository $tenantRepository,
@@ -749,23 +753,21 @@ final class TenantController extends AbstractController
             throw $this->createAccessDeniedException();
         }
 
+        // B-route: o tenant vem da URL e é resolvido pelo repositório, nunca da sessão.
         $tenant = $tenantRepository->find($tenantId);
         if (!$tenant) {
             throw $this->createNotFoundException();
         }
 
-        if (!$this->isCsrfTokenValid('demitir_' . $userId, $request->request->getString('_token'))) {
+        if (!$this->isCsrfTokenValid('remover_' . $userId, $request->request->getString('_token'))) {
             throw $this->createAccessDeniedException('Token CSRF inválido.');
         }
 
-        $funcionario = $em->find(User::class, $userId);
-
-        if (!$funcionario) {
-            throw $this->createNotFoundException('Funcionário não encontrado.');
-        }
-
-        if (!$userTenantRepository->existeVinculoAtivo($funcionario, $tenant)) {
-            throw $this->createNotFoundException('Funcionário não encontrado.');
+        // Guard do alvo antes do guard do executor: o colaborador precisa ter vínculo
+        // ativo com o tenant da rota para sequer existir aos olhos desta ação.
+        $colaborador = $em->find(User::class, $userId);
+        if (!$colaborador || !$userTenantRepository->existeVinculoAtivo($colaborador, $tenant)) {
+            throw $this->createNotFoundException('Colaborador não encontrado.');
         }
 
         $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $executor->getRoles(), true);
@@ -775,16 +777,24 @@ final class TenantController extends AbstractController
             throw $this->createAccessDeniedException();
         }
 
-        $substitutoId = $request->request->getInt('substituto_id') ?: null;
-        $substituto   = $substitutoId ? $em->find(User::class, $substitutoId) : null;
+        // O <select> de substituto manda string VAZIA quando se escolhe "deixar sem
+        // responsável", e getInt() lança BadRequestException nesse caso (400) em vez de
+        // devolver zero. Sem este tratamento, o caminho padrão do modal — remover sem
+        // substituto — quebra na cara do usuário. Valor não vazio e não numérico continua
+        // sendo requisição malformada, e segue estourando 400 pelo getInt().
+        $substitutoBruto = (string) $request->request->get('substituto_id', '');
+        $substitutoId    = $substitutoBruto === '' ? null : ($request->request->getInt('substituto_id') ?: null);
+        $substituto      = $substitutoId ? $em->find(User::class, $substitutoId) : null;
 
         if ($substituto !== null && !$userTenantRepository->existeVinculoAtivo($substituto, $tenant)) {
-            throw $this->createNotFoundException('Funcionário não encontrado.');
+            throw $this->createNotFoundException('Substituto não encontrado.');
         }
 
         try {
-            $useCase->executar(new DemitirFuncionarioInput($executor, $funcionario, $tenant, $substituto));
-            $this->addFlash('success', 'Funcionário demitido com sucesso.');
+            // A trava do último administrador (D7) mora no UseCase e vale também para
+            // super-admin — não é atalhada aqui, mesmo que o guard acima já tenha passado.
+            $useCase->executar(new RemoverColaboradorInput($executor, $colaborador, $tenant, $substituto));
+            $this->addFlash('success', sprintf('%s foi removido do escritório.', $colaborador->getFullName()));
         } catch (\InvalidArgumentException $e) {
             $this->addFlash('danger', $e->getMessage());
         }

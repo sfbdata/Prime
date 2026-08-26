@@ -6,9 +6,11 @@ namespace App\Tests\Tenant\Functional;
 
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
+use App\Entity\ServiceDesk\Chamado;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Expediente\Entity\Marcador;
+use App\Pasta\Entity\Pasta;
 use App\Ponto\Entity\Feriado;
 use App\Tenant\Controller\EscritorioController;
 use App\Tenant\UseCase\ExcluirEscritorioUseCase;
@@ -106,7 +108,7 @@ final class EscritorioControllerTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(403);
     }
 
-    #[TestDox('POST sair de colaborador inativa o vínculo e mantém demitidoEm null')]
+    #[TestDox('POST sair de colaborador apaga o vínculo')]
     public function testSaiComSucesso(): void
     {
         $client           = static::createClient();
@@ -123,9 +125,7 @@ final class EscritorioControllerTest extends JusPrimeWebTestCase
 
         $em         = static::getContainer()->get(EntityManagerInterface::class);
         $atualizado = $em->getRepository(UserTenant::class)->findOneBy(['user' => $user, 'tenant' => $tenant]);
-        self::assertNotNull($atualizado);
-        self::assertFalse($atualizado->isActive());
-        self::assertNull($atualizado->getDemitidoEm());
+        self::assertNull($atualizado, 'o vínculo deveria ter sido apagado, não apenas inativado');
     }
 
     #[TestDox('POST sair sendo o único admin é bloqueado e mantém o vínculo ativo')]
@@ -166,7 +166,7 @@ final class EscritorioControllerTest extends JusPrimeWebTestCase
         self::assertNull($client->getSession()->get('current_tenant_id'));
     }
 
-    #[TestDox('Sair de escritório NÃO-ativo mantém o tenant ativo na sessão e inativa só o vínculo certo')]
+    #[TestDox('Sair de escritório NÃO-ativo mantém o tenant ativo na sessão e apaga só o vínculo certo')]
     public function testSaiDeNaoAtivoMantemSessao(): void
     {
         $client  = static::createClient();
@@ -189,8 +189,99 @@ final class EscritorioControllerTest extends JusPrimeWebTestCase
 
         $em2      = static::getContainer()->get(EntityManagerInterface::class);
         $vinculoB = $em2->getRepository(UserTenant::class)->findOneBy(['user' => $user, 'tenant' => $tenantB]);
-        self::assertNotNull($vinculoB);
-        self::assertFalse($vinculoB->isActive());
+        self::assertNull($vinculoB, 'o vínculo com o tenant B deveria ter sido apagado');
+
+        $vinculoA = $em2->getRepository(UserTenant::class)->findOneBy(['user' => $user, 'tenant' => $tenantA]);
+        self::assertNotNull($vinculoA, 'o vínculo com o tenant A não deveria ser tocado');
+        self::assertTrue($vinculoA->isActive());
+    }
+
+    /**
+     * A porta da saída é `/escritorio/{id}/sair` — rota SEM {tenantId}. O
+     * TenantUrlScopeListener só reaponta o TenantFilter quando a rota traz {tenantId}, então
+     * aqui o filtro fica preso ao tenant da SESSÃO (o A). Quem sai do B logado no A é o
+     * cenário em que uma UPDATE em DQL contra `Pasta`/`Chamado` (ambas TenantAware) ganharia
+     * um segundo `tenant_id = A` colado pelo SqlWalker e atualizaria ZERO linhas — sem erro
+     * nenhum: o vínculo com o B cairia (SQL nativo) e as pastas e chamados do B continuariam
+     * no nome de quem não é mais colaborador. Este teste afirma o contrário: a passagem do
+     * bastão acontece no escritório da ROTA, independentemente de para onde o filtro da
+     * sessão esteja apontando. O escritório A entra como contraprova de escopo.
+     */
+    #[TestDox('Sair do escritório B logado no A desatribui a pasta e o chamado DO B (o filtro da sessão não manda)')]
+    public function testSaiDeNaoAtivoDesatribuiPastaEChamadoDoOutroEscritorio(): void
+    {
+        $client  = static::createClient();
+        $tenantA = $this->criarTenant();
+        $tenantB = $this->criarTenant();
+        [$user]  = $this->criarUsuarioComVinculo($tenantA);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->persist(new UserTenant($user, $tenantB));
+
+        $pastaB   = $this->criarPasta($em, $tenantB, $user);
+        $chamadoB = $this->criarChamado($em, $tenantB, $user);
+        $pastaA   = $this->criarPasta($em, $tenantA, $user);
+        $em->flush();
+
+        $pastaBId   = (int) $pastaB->getId();
+        $chamadoBId = (int) $chamadoB->getId();
+        $pastaAId   = (int) $pastaA->getId();
+        $userId     = (int) $user->getId();
+
+        // Sessão (e portanto o TenantFilter) fixada no escritório A; a saída é do B.
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenantA);
+        $client->request('POST', "/escritorio/{$tenantB->getId()}/sair", [
+            '_token' => $this->gerarCsrf('sair_' . $tenantB->getId()),
+        ]);
+
+        self::assertResponseRedirects('/escritorio/selecionar');
+
+        // Leitura em SQL cru: nem identity map nem TenantFilter no meio do caminho.
+        $conn = static::getContainer()->get(EntityManagerInterface::class)->getConnection();
+
+        self::assertNull(
+            $conn->fetchOne('SELECT responsavel_id FROM pasta WHERE id = ?', [$pastaBId]),
+            'a pasta do escritório B continuou no nome de quem saiu — a UPDATE foi escopada pelo tenant da SESSÃO, não pelo da rota'
+        );
+
+        self::assertNull(
+            $conn->fetchOne('SELECT responsavel_id FROM chamado WHERE id = ?', [$chamadoBId]),
+            'o chamado do escritório B continuou no nome de quem saiu — a UPDATE foi escopada pelo tenant da SESSÃO, não pelo da rota'
+        );
+
+        // Contraprova: o escritório A (onde a pessoa continua colaboradora) não foi tocado.
+        self::assertSame(
+            $userId,
+            (int) $conn->fetchOne('SELECT responsavel_id FROM pasta WHERE id = ?', [$pastaAId]),
+            'a pasta do escritório A não podia ter sido desatribuída — a saída foi do B'
+        );
+    }
+
+    private function criarPasta(EntityManagerInterface $em, Tenant $tenant, User $responsavel): Pasta
+    {
+        $pasta = new Pasta();
+        $pasta->setNup('SAIR-' . uniqid());
+        $pasta->setTenant($tenant);
+        $pasta->setResponsavel($responsavel);
+        $em->persist($pasta);
+        $em->flush();
+
+        return $pasta;
+    }
+
+    private function criarChamado(EntityManagerInterface $em, Tenant $tenant, User $responsavel): Chamado
+    {
+        $chamado = new Chamado();
+        $chamado->setTitulo('Chamado ' . uniqid());
+        $chamado->setDescricao('Descrição');
+        $chamado->setTenant($tenant);
+        $chamado->setSolicitante($responsavel);
+        $chamado->setResponsavel($responsavel);
+        $em->persist($chamado);
+        $em->flush();
+
+        return $chamado;
     }
 
     private function novoUsuario(bool $comOab): User

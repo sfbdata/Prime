@@ -9,6 +9,81 @@ Quem abre uma frente acrescenta a linha. Quem integra tira.
 |---|---|---|---|---|---|
 | `cobranca-acompanhamento-canonico` | Cobrança (modelo objeto/caso) | **sim — 4** | `docs/gestao-cobrancas/` | 🛑 **PARADA** (ver abaixo) | `origin/master` @ `0bb1f29` |
 | `expediente-ux` | Expediente + Pasta (telas) | não | `app/templates/expediente/`, `app/templates/pasta/` | implementando, **28 commits atrás do master** | `origin/codex/colaboracao-cobrancas` |
+| `cobranca-honorario-no-total` | Cobrança (**núcleo do dinheiro**) | não | ver o bloqueio abaixo — é grande | ✅ **7 commits, 3896/3896, 6 revisões; §10 decidida pelo dono (VAI INTEIRO)** — topo `0346df05`; ⏳ 7ª revisão + integrar | `master` local @ `fda1b466` |
+| `cobranca-reconciliar-data-acordo` | Cobrança (comando) | não | `RelatorioLinhaRepository` (método novo), `ComandosComPiiPassamPelaGuardaTest` (1 linha) | ✅ pronta: 3901/3901, prova por reintrodução feita — **aguarda `/review` e integração** | `master` local @ `18555616` |
+
+### ⛔ 19/08 — a frente do honorário TRAVA o núcleo de dinheiro da Cobrança
+
+Decisão do dono (19/08): **modelo A** — o honorário passa a viver dentro da dívida, e a SPEC §18
+(rateio do pagamento) é aposentada. Ver `docs/specs/cobranca-honorario-no-total.md` §4.3.
+
+**Enquanto esta frente estiver aberta, NÃO abra frente que toque estes arquivos:**
+
+`Obrigacao.php` · `EncargosVivos.php` · `ReconciliadorLiquidacao.php` · `CalculadoraSaldo.php` ·
+`AutoAlocadorFifo.php` · `AlocadorPagamento.php` · `CalculadoraHonorarios.php` ·
+`MontarDashboardCobrancaUseCase.php` · `MontarDetalheCasoUseCase.php` · `MontarDetalheAcordoUseCase.php` ·
+`ExcluirPagamentoUseCase.php` · `ImportarReceitasUseCase.php` · `AlertasCobranca.php` ·
+`ObrigacaoOutput.php` · `CasoDetalheOutput.php` · `RegistrarPagamentoInput.php` ·
+`AcordoCriarType.php` · `templates/cobranca/objeto/_partials/_divida.html.twig`
+
+Na prática: **qualquer frente nova de Cobrança que mexa em dívida, pagamento, acordo ou saldo colide.**
+Cobrança que seja só relatório/importação/tela de listagem, ou qualquer frente **fora** de Cobrança
+(Pasta, Expediente, Ponto, Sync, plataforma), está livre.
+
+🔑 **Nenhuma das duas tem migration** — não bloqueiam uma frente com migration.
+
+⚠️ `336b0e41` é METADE da opção A e **não pode ser integrado sozinho**: o exigível já exige honorário
+e o pagamento ainda o retira antes de abater, então nenhuma dívida quita. Ele e `25658fd6` andam
+juntos. A frente inteira (7 commits, topo `0346df05`) está verde e é o que se integra.
+
+🔴 **A §10 da spec (as 135 parcelas) tem decisão do dono de 19/08: VAI INTEIRO** — o guard
+prospectivo entra junto, com o teto de R$ 125.526,35 apresentado e aceito. Ver
+`docs/HANDOFF_ESPELHO_CONTABILIDADE.md` §7.1, que é autossuficiente.
+
+⚠️ Esta frente passou a tocar `Obrigacao.php` (método novo `pararDeCobrarHonorario`),
+`ImportarAcordosDetalhadosUseCase.php`, `ObrigacaoRepository.php` e `ImportarReceitasUseCase.php` —
+some à lista de bloqueio abaixo.
+
+### Worktrees que são resto e podem ser fechadas (conferidas por CONTEÚDO com `git cherry`)
+
+`cobranca-data-acordo-espelho` · `cobranca-espelho-quatro-relatorios` — ambas **100% já no master**.
+`agent-a40e8d8ebf3d119ca` — worktree de subagente; seu commit `67b7e454` foi integrado por
+cherry-pick em `cobranca-reconciliar-data-acordo` (`6995bb99`, mesma árvore).
+
+### 🟡 Duas frentes de Cobrança ao mesmo tempo (19/08) — e por que isto NÃO viola a regra do domínio
+
+A regra é "um domínio por frente, porque duas no mesmo domínio conflitam quase sempre". Aqui elas
+correm juntas de propósito, com o conflito eliminado por **contrato**, não por sorte:
+
+- **Escrita disjunta.** A do honorário mexe no núcleo (`valorExigivel()` e suas duas cópias); a do
+  comando **só cria arquivos novos** (`ReconciliarDataAcordoCommand`, seu UseCase, DTO e testes) e
+  tem proibição explícita de tocar `Obrigacao.php`, `Acordo.php` e os serviços de cálculo.
+- **O acoplamento real foi cortado:** o comando **não pode usar `valorExigivel()` nem
+  `totalComHonorarios()`** (spec `cobranca-reconciliar-data-acordo.md` §5.2). Sem isso, o honorário
+  mudaria os números que o comando imprime e **uma frente falsearia a prova da outra**.
+- **Integração em série**, como sempre: um commit por vez, testes direcionados depois de cada um,
+  suíte completa no master ao final.
+
+Se as duas precisarem do mesmo arquivo, a do honorário vai primeiro e a do comando rebaseia — nunca
+o contrário: o núcleo do dinheiro não espera por um comando.
+
+### ✅ 21/08 — `pasta-subpastas-aninhadas` INTEGRADA (pasta dentro de pasta, até 10 níveis)
+
+21 commits, **3976/3976 no master depois do merge**. Migration `Version20260819175112` (aditiva em
+`pasta_secao`). Smoke feito no navegador: 10 de 13 itens, 3 defeitos achados e corrigidos.
+
+⚠️ **`expediente-ux` toca os MESMOS arquivos de tela** (`app/templates/pasta/show.html.twig`) e está
+28 commits atrás. Quando for integrar, traga o master para dentro e rode a suíte **antes** do merge —
+o `show.html.twig` mudou bastante aqui.
+
+⚠️ `app/public/js/pasta-arquivos.js` é **compartilhado com a Cobrança**
+(`cobranca/caso/_documentos.html.twig`): o JS degrada para um nível quando o container não declara
+`data-arvore`. Provado no navegador — criar pasta na Cobrança não dá erro e não mostra "Mover para".
+
+🔴 **Lição do roteiro de integração:** frente com migration são **TRÊS** bancos, não dois —
+`saas_test<frente>`, `saas_ux` (a tela) e **`saas_test` (a suíte do master)**. Esquecer o terceiro faz
+a suíte do master explodir com `column ... does not exist` e parecer código quebrado. Conserto:
+`doctrine:migrations:execute --up "DoctrineMigrations\VersionXXXX" --env=test` no repositório principal.
 
 `pasta-valor-causa` foi **integrada em 2026-08-17** (fast-forward para `3629b19a`). Trouxe a migration
 `Version20260814120000` — uma coluna `valor_causa` em `pasta`, aditiva e anulável, que não toca nenhuma

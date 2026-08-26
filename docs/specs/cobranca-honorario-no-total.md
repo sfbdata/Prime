@@ -93,6 +93,110 @@ antes desta fatia, remedir.**
 
 O saldo exigível sobe **R$ 126.362,85** nas 3 carteiras. Nenhuma dívida quitada volta a abrir.
 
+## 4.3 🔴 CORREÇÃO DA SPEC (19/08) — a colisão com a SPEC §18, e a decisão do dono
+
+A §2 desta spec estava **incompleta**. Ela mapeou as três cópias do exigível, mas não viu que existe
+um **segundo modelo de honorário** no sistema, que não chama `valorExigivel()` e por isso não
+apareceu nos pontos de chamada:
+
+| modelo | onde | como trata o honorário |
+|---|---|---|
+| **A — encargo materializado** | `CalculadoraEncargos` → coluna `honorarios` da obrigação | um dos quatro encargos, **por dívida**, com carência de 30 dias |
+| **B — SPEC §18** | `CalculadoraHonorarios` + `FormaHonorarios` | **política por carteira**; acrescido por fora, rateado no pagamento |
+
+`INV-E2` era a costura que impedia os dois de colidirem. Removê-la sem mais nada quebra o sistema:
+
+- `brutoParaRecuperar(D) = D × 1,20` passa a cobrar honorário **sobre honorário**;
+- `MontarDashboardCobrancaUseCase:201` projeta o percentual sobre um saldo que já o contém;
+- 🔴 `AutoAlocadorFifo:121` distribui **apenas `valorDivida`**, com o honorário já retirado por
+  `ratearPagamento` — contra um exigível que agora o EXIGE. **Nenhuma dívida quita.**
+
+### A decisão, medida contra o documento dela
+
+| | honorário sobre a dívida em aberto | distância do rodapé dela |
+|---|---:|---:|
+| **ela** (inadimplência 17/08) | R$ 126.878,17 | — |
+| **modelo A** | R$ 126.362,85 | **R$ 515,32 · 0,4%** |
+| **modelo B** | R$ 173.625,55 | **R$ 46.747,38 · 37% a mais** |
+
+B erra porque aplica um percentual liso: cobra honorário em **1.017 dívidas em que ela não cobra**
+(R$ 47.249,43) — 986 dentro da carência de 30 dias, 748 parcelas de acordo.
+
+✅ **DECIDIDO PELO DONO (19/08): modelo A.** O critério foi o do espelho, não o de custo. Ela registra
+honorário **por dívida** (linha a linha, na inadimplência e na `1.15` das receitas); A tem a mesma
+forma do dado dela. B é uma regra de escritório que **calcula** o que ela **declara** — e não é
+interface, é dado gravado (`cobranca_pagamento.valor_honorarios`) que decide quanto do dinheiro abate
+a dívida. É o "derivado que volta a virar dado" do handoff §1.2.
+
+### 🔴 Invariante de execução: as duas metades andam JUNTAS
+
+O exigível e o caminho do pagamento mudam **na mesma fatia**. Meia-A é pior que nada — é o estado do
+commit `336b0e41`, deliberadamente vermelho e marcado como não-integrável. A §18 precisa ser
+aposentada em quatro pontos, e o rateio do pagamento passa a vir **do relatório de receitas dela**
+(categoria `1.15`), não de `p/(1+p)`.
+
+⚠️ **Antes de escrever: medir a superfície da §18** como foi feito com `valorExigivel()` (pontos de
+chamada, quais gravam, quanto muda em produção). Foi essa medição que impediu a quebra silenciosa em
+19/08 — e a §5 abaixo, escrita antes dela, subestimou o problema.
+
+## 4.4 A superfície da SPEC §18, medida (19/08) — e por que A é menor do que parecia
+
+Medido do mesmo jeito que a superfície do `valorExigivel()`: pontos de chamada reais, quais gravam, e
+o que muda no dado de produção.
+
+### Pontos de chamada — 6, em 4 arquivos
+
+| onde | método | grava? | o que A faz com ele |
+|---|---|---|---|
+| `AlocadorPagamento:42` | `ratearPagamento` | 🔴 **sim** | some: aloca o valor cheio |
+| `AutoAlocadorFifo:59` | `ratearPagamento` | 🔴 **sim** | some: distribui o valor cheio |
+| `MontarDetalheCasoUseCase:139` | `brutoParaRecuperar` | não | some: o bruto passa a ser o próprio exigível |
+| `MontarDashboardCobrancaUseCase:181` | `forma` | não | some |
+| `MontarDashboardCobrancaUseCase:184` | `realizadosSobreRecuperacao` | não | some |
+| `MontarDashboardCobrancaUseCase:201` | `projetados` | não | vira Σ do honorário gravado |
+
+E três lugares gravam os baldes do `Pagamento`: `RegistrarPagamentoUseCase:86-88` e
+`CorrigirPagamentoUseCase:103-105` (ambos alimentados pelo rateio) e `ImportarReceitasUseCase:625-627`
+(alimentado pelo **relatório dela** — já é modelo A).
+
+🔑 **`FormaHonorarios` aparece em 21 arquivos, mas quase todos são CONFIGURAÇÃO** (formulários de
+carteira/caso, controllers, DTOs). A aposenta o **rateio**, não o enum. Não confundir os dois
+escopos — é a diferença entre uma fatia média e uma reescrita.
+
+### O dado de produção já está na forma de A
+
+| | |
+|---|---:|
+| pagamentos em produção | 8.902 |
+| **ambíguos** (os dois modelos dariam o mesmo) | 7.748 |
+| **decisivos** (os modelos divergem) | **1.154** · R$ 77.616,81 |
+| decisivos que seguem o **modelo A** (aloca o total) | **1.154** |
+| decisivos que seguem o **modelo B** (aloca só a dívida) | **0** |
+
+**O rateio da §18 nunca produziu uma alocação em produção.** A causa está no código e é deliberada:
+`ImportarReceitasUseCase::registrarRecebimento` **não passa pelo alocador** — cria o pagamento com os
+três baldes exatamente como a contabilidade declara ("*a contabilidade já rateou e é contra o rodapé
+dela que a conferência fecha*") e aloca o valor cheio.
+
+Consequências, todas boas para A:
+
+1. **Não há migração de dado.** A produção já está na forma que A quer.
+2. O rateio governa só o caminho **manual** (registrar/corrigir pagamento pela tela), que neste
+   acervo nunca foi exercido.
+3. A não "muda o sistema": ela **alinha o caminho manual ao que o importador já faz**.
+
+⚠️ **Reporte pelo recorte:** os 7.748 ambíguos não provam nada — não têm encargo nem honorário no
+pagamento, então os dois modelos coincidem. Quem decide são os 1.154, e esses são unânimes.
+
+### O que A precisa decidir (proposta, não decisão tomada)
+
+No caminho manual, quem preenche os três baldes do `Pagamento` se o rateio sumir? A proposta coerente
+com a regra do espelho é: **o sistema não inventa split**. Pagamento manual grava
+`valorDivida = total` e os outros zero; o split só existe quando **ela** o declara (importador). O
+`Pagamento` deixa de ser opinião e passa a ser registro.
+
+Isso muda o que a tela do dashboard chama de "honorário realizado" — e aí é **do dono**.
+
 ## 5. A ordem de alocação — a pergunta se dissolve
 
 O handoff manda *"não escolham uma ordem: descubram a dela"*. Medido, a resposta é que **não há

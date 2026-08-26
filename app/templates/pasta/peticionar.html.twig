@@ -230,7 +230,7 @@
                 <select class="form-select" id="textoSecao" name="secao_id">
                     <option value="">(área geral)</option>
                     {% for secao in secoes %}
-                        <option value="{{ secao.id }}">{{ secao.nome }}</option>
+                        <option value="{{ secao.id }}">{{ caminhosSecoes[secao.id]|default(secao.nome) }}</option>
                     {% endfor %}
                 </select>
             </div>
@@ -302,7 +302,7 @@
                 <select class="form-select" id="uploadSecao" name="secao_id">
                     <option value="">(área geral)</option>
                     {% for secao in secoes %}
-                        <option value="{{ secao.id }}">{{ secao.nome }}</option>
+                        <option value="{{ secao.id }}">{{ caminhosSecoes[secao.id]|default(secao.nome) }}</option>
                     {% endfor %}
                 </select>
             </div>

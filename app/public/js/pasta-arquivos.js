@@ -22,6 +22,7 @@
         csrfReordenarDocs:   fm.dataset.csrfReordenarDocs,
         urlRenomearTpl:      fm.dataset.urlRenomearTpl,
         urlExcluirTpl:       fm.dataset.urlExcluirTpl,
+        urlMoverTpl:         fm.dataset.urlMoverTpl,
     };
 
     // Elementos
@@ -43,7 +44,8 @@
     const uploadCont    = document.getElementById('fmUploadContador');
 
     // Estado
-    let pastaAtual = 'geral';   // 'geral' (raiz) ou id da seção (string)
+    let caminho = [];           // [] = raiz; senão a cadeia de ids até a pasta aberta
+    const temArvore = fm.dataset.arvore === '1';
     let termoBusca = '';
     let modoView   = localStorage.getItem('fmView') || 'lista';
     let ordem      = localStorage.getItem('fmOrdem') || 'nome';
@@ -63,29 +65,63 @@
     function toggle(el, mostrar) { if (el) el.classList.toggle('fm-oculto', !mostrar); }
 
     // ----------------------------------------------------------- navegação ---
+    function paiDe(secaoId) {
+        const c = elPastas ? elPastas.querySelector('.fm-pasta[data-secao-id="' + secaoId + '"]') : null;
+        return c && c.dataset.paiId ? c.dataset.paiId : null;
+    }
+
+    function pastaAtualId() { return caminho.length ? caminho[caminho.length - 1] : 'geral'; }
+
+    function caminhoLegivel(secaoId) {
+        if (!secaoId || secaoId === 'geral') return 'Documentação Geral';
+        const nomes = [];
+        let atual = String(secaoId);
+        let voltas = 0;
+        while (atual && voltas < 100) { nomes.unshift(nomePasta(atual)); atual = paiDe(atual); voltas++; }
+        return nomes.join(' › ');
+    }
+
     function entrar(secaoId) {
-        pastaAtual = String(secaoId);
+        if (!temArvore) { caminho = [String(secaoId)]; }
+        else {
+            // remonta a cadeia inteira subindo pelos pais a partir do id recebido, sem depender
+            // de por onde chegou aqui — garante o mesmo breadcrumb não importa qual `secaoId` entre.
+            const cadeia = [];
+            let atual = String(secaoId);
+            let voltas = 0;
+            while (atual && voltas < 100) { cadeia.unshift(atual); atual = paiDe(atual); voltas++; }
+            caminho = cadeia;
+        }
         termoBusca = '';
         if (elBusca) elBusca.value = '';
-        sessionStorage.setItem('fmFolder_' + pastaId, pastaAtual);
+        sessionStorage.setItem('fmFolder_' + pastaId, JSON.stringify(caminho));
         render();
     }
-    function voltarRaiz() { entrar('geral'); }
+
+    function voltarRaiz() { caminho = []; sessionStorage.setItem('fmFolder_' + pastaId, '[]'); render(); }
 
     // ------------------------------------------------------------- render ----
     function render() {
         const buscando = termoBusca.trim() !== '';
-        const naRaiz = pastaAtual === 'geral';
+        const atual = pastaAtualId();
+        const naRaiz = caminho.length === 0;
 
-        if (buscando)      mostrarCrumb('Resultados da busca');
-        else if (naRaiz)   esconderCrumb();
-        else               mostrarCrumb(nomePasta(pastaAtual));
+        renderCrumb();
 
         toggle(elChecklist, naRaiz && !buscando);
-        toggle(elGrupoPastas, naRaiz && !buscando && todasPastas().length > 0);
+
+        // pastas visíveis = as filhas do nível aberto
+        todasPastas().forEach(function (el) {
+            const pai = el.dataset.paiId || '';
+            const mostra = !buscando && (naRaiz ? pai === '' : pai === atual);
+            el.classList.toggle('fm-oculto', !mostra);
+        });
+        toggle(elGrupoPastas, !buscando && todasPastas().some(function (el) {
+            return !el.classList.contains('fm-oculto');
+        }));
 
         if (elArquivosTitulo) {
-            elArquivosTitulo.textContent = buscando ? 'Resultados' : (naRaiz ? 'Arquivos' : nomePasta(pastaAtual));
+            elArquivosTitulo.textContent = buscando ? 'Resultados' : (naRaiz ? 'Arquivos' : nomePasta(atual));
         }
 
         const termo = termoBusca.trim().toLowerCase();
@@ -93,9 +129,15 @@
         todosArquivos().forEach(function (el) {
             const mostra = buscando
                 ? (el.dataset.nome || '').toLowerCase().indexOf(termo) !== -1
-                : el.dataset.secao === pastaAtual;
+                : el.dataset.secao === atual;
             el.classList.toggle('fm-oculto', !mostra);
             if (mostra) visiveis.push(el);
+
+            const badge = el.querySelector('.fm-arq-local');
+            if (badge) {
+                badge.textContent = buscando ? caminhoLegivel(el.dataset.secao) : '';
+                badge.classList.toggle('fm-oculto', !buscando);
+            }
         });
 
         ordenarNodes(visiveis);
@@ -111,13 +153,27 @@
         }
     }
 
-    function mostrarCrumb(txt) {
-        if (elCrumbSep) elCrumbSep.classList.remove('fm-oculto');
-        if (elCrumbAtual) { elCrumbAtual.classList.remove('fm-oculto'); elCrumbAtual.textContent = txt; }
-    }
-    function esconderCrumb() {
-        if (elCrumbSep) elCrumbSep.classList.add('fm-oculto');
-        if (elCrumbAtual) elCrumbAtual.classList.add('fm-oculto');
+    function renderCrumb() {
+        if (!elCrumbAtual) return;
+        if (termoBusca.trim() !== '') {
+            elCrumbSep && elCrumbSep.classList.remove('fm-oculto');
+            elCrumbAtual.classList.remove('fm-oculto');
+            elCrumbAtual.textContent = 'Resultados da busca';
+            return;
+        }
+        if (caminho.length === 0) {
+            elCrumbSep && elCrumbSep.classList.add('fm-oculto');
+            elCrumbAtual.classList.add('fm-oculto');
+            return;
+        }
+        elCrumbSep && elCrumbSep.classList.remove('fm-oculto');
+        elCrumbAtual.classList.remove('fm-oculto');
+        elCrumbAtual.innerHTML = caminho.map(function (id, i) {
+            const nome = escapeHtml(nomePasta(id));
+            return i === caminho.length - 1
+                ? '<span>' + nome + '</span>'
+                : '<button type="button" class="fm-crumb-nivel btn btn-link p-0 align-baseline" data-nivel="' + i + '">' + nome + '</button>';
+        }).join(' <span class="fm-crumb-sep">›</span> ');
     }
 
     function ordenarNodes(nodes) {
@@ -155,6 +211,7 @@
             if (!card) return;
             if (e.target.closest('.fm-pasta-abrir')) { entrar(card.dataset.secaoId); return; }
             if (e.target.closest('.fm-pasta-renomear')) { renomearPasta(card); return; }
+            if (e.target.closest('.fm-pasta-mover')) { escolherDestino(card); return; }
             if (e.target.closest('.fm-pasta-excluir')) { excluirPasta(card); return; }
             if (e.target.closest('.dropdown') || e.target.closest('.fm-pasta-grip')) return;
             entrar(card.dataset.secaoId);
@@ -169,6 +226,17 @@
     fm.querySelectorAll('.fm-crumb[data-nav="root"]').forEach(function (b) {
         b.addEventListener('click', voltarRaiz);
     });
+
+    // Breadcrumb → nível intermediário da cadeia
+    if (elCrumbAtual) {
+        elCrumbAtual.addEventListener('click', function (e) {
+            const b = e.target.closest('.fm-crumb-nivel');
+            if (!b) return;
+            caminho = caminho.slice(0, parseInt(b.dataset.nivel, 10) + 1);
+            sessionStorage.setItem('fmFolder_' + pastaId, JSON.stringify(caminho));
+            render();
+        });
+    }
 
     // Busca
     if (elBusca) elBusca.addEventListener('input', function () { termoBusca = elBusca.value; render(); });
@@ -270,6 +338,7 @@
                 const fd = new FormData();
                 fd.append('_token', cfg.csrfCriarSecao);
                 fd.append('nome', nome);
+                if (temArvore && caminho.length) fd.append('paiId', pastaAtualId());
                 fetch(cfg.urlCriarSecao, { method: 'POST', body: fd })
                     .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
                     .then(function (res) {
@@ -291,6 +360,15 @@
         div.dataset.csrfRenomear = secao.csrfRenomear || '';
         div.dataset.urlExcluir = cfg.urlExcluirTpl.replace('__ID__', secao.id);
         div.dataset.csrfExcluir = secao.csrfExcluir || '';
+        div.dataset.paiId = secao.paiId ? String(secao.paiId) : '';
+        // cfg.urlMoverTpl só existe quando o template declara data-url-mover-tpl (árvore). Na
+        // Cobrança (fm.dataset.arvore !== '1') o atributo não existe — sem a guarda, o .replace
+        // em undefined quebraria a criação de pasta nessa página.
+        div.dataset.urlMover = cfg.urlMoverTpl ? cfg.urlMoverTpl.replace('__ID__', secao.id) : '';
+        div.dataset.csrfMover = secao.csrfMover || '';
+        // Pasta recém-criada nasce vazia: sem isso o aviso de excluirPasta() leria undefined.
+        div.dataset.subpastas = '0';
+        div.dataset.arquivos = '0';
         div.setAttribute('tabindex', '0');
         div.setAttribute('role', 'button');
         div.innerHTML =
@@ -308,6 +386,8 @@
             '<ul class="dropdown-menu dropdown-menu-end">' +
             '<li><button class="dropdown-item fm-pasta-abrir" type="button"><i class="bi bi-folder2-open me-2"></i>Abrir</button></li>' +
             '<li><button class="dropdown-item fm-pasta-renomear" type="button"><i class="bi bi-pencil me-2"></i>Renomear</button></li>' +
+            // "Mover para..." só existe com árvore — na Cobrança (nível único) não há para onde mover.
+            (temArvore ? '<li><button class="dropdown-item fm-pasta-mover" type="button"><i class="bi bi-folder-symlink me-2"></i>Mover para...</button></li>' : '') +
             '<li><hr class="dropdown-divider"></li>' +
             '<li><button class="dropdown-item text-danger fm-pasta-excluir" type="button"><i class="bi bi-trash me-2"></i>Excluir</button></li>' +
             '</ul></div>';
@@ -325,14 +405,38 @@
                     if (!res.ok || !res.j.ok) throw new Error((res.j && res.j.erro) || 'Falha ao renomear.');
                     card.dataset.nome = res.j.nome;
                     card.querySelector('.fm-pasta-nome').textContent = res.j.nome;
-                    if (pastaAtual === card.dataset.secaoId) render();
+                    if (pastaAtualId() === card.dataset.secaoId) render();
                 })
                 .catch(function (err) { alert(err.message); });
         });
     }
 
+    // Monta o aviso a partir de data-subpastas/data-arquivos, gravados no HTML pelo servidor (e
+    // zerados na criação, em adicionarCartaoPasta) — o número tem de estar disponível ANTES do
+    // clique de excluir, não só na resposta dele (D3).
+    function pluralizar(n, singular, plural) { return n + ' ' + (n === 1 ? singular : plural); }
+
+    function avisoExclusao(card) {
+        const subpastas = Number(card.dataset.subpastas) || 0;
+        const arquivos  = Number(card.dataset.arquivos) || 0;
+        const nome      = card.dataset.nome;
+
+        if (subpastas === 0 && arquivos === 0) {
+            return 'A pasta "' + nome + '" está vazia. Excluir mesmo assim? Esta ação não pode ser desfeita.';
+        }
+
+        const partes = [];
+        if (subpastas > 0) partes.push(pluralizar(subpastas, 'subpasta', 'subpastas'));
+        if (arquivos > 0) partes.push(pluralizar(arquivos, 'arquivo', 'arquivos'));
+
+        // "Ao todo:" em vez de "São N..." — sem isso "1 subpasta" cai num verbo no plural
+        // ("São 1 subpasta") e "2 subpastas" cai num particípio no masculino ("excluídos"), dois
+        // erros de concordância que a contagem dinâmica não deixa fixar com uma frase só.
+        return 'Excluir a pasta "' + nome + '" e todo o conteúdo dela? Ao todo: ' + partes.join(' e ') + '. Esta ação não pode ser desfeita.';
+    }
+
     function excluirPasta(card) {
-        if (!confirm('Excluir a pasta "' + card.dataset.nome + '" e TODOS os arquivos dentro dela? Esta ação não pode ser desfeita.')) return;
+        if (!confirm(avisoExclusao(card))) return;
         const fd = new FormData();
         fd.append('_token', card.dataset.csrfExcluir);
         fetch(card.dataset.urlExcluir, { method: 'POST', body: fd })
@@ -340,11 +444,55 @@
             .then(function (res) {
                 if (!res.ok || !res.j.ok) throw new Error((res.j && res.j.erro) || 'Falha ao excluir.');
                 const secaoId = card.dataset.secaoId;
-                todosArquivos().forEach(function (el) { if (el.dataset.secao === secaoId) el.remove(); });
-                card.remove();
-                if (pastaAtual === secaoId) voltarRaiz(); else render();
+                // O back apaga a ÁRVORE inteira (cascade). Sem remover as filhas/netas do DOM aqui,
+                // os cartões e arquivos delas ficam apontando para linhas já apagadas até um reload.
+                const subarvore = [secaoId].concat(descendentes(secaoId));
+                todosArquivos().forEach(function (el) { if (subarvore.indexOf(el.dataset.secao) !== -1) el.remove(); });
+                todasPastas().forEach(function (el) { if (subarvore.indexOf(el.dataset.secaoId) !== -1) el.remove(); });
+                if (subarvore.indexOf(pastaAtualId()) !== -1) voltarRaiz(); else render();
             })
             .catch(function (err) { alert(err.message); });
+    }
+
+    // --------------------------------------------------- mover pasta ---------
+    function moverPasta(card, destinoId) {
+        const fd = new FormData();
+        fd.append('_token', card.dataset.csrfMover);
+        fd.append('destinoId', destinoId === null ? '' : String(destinoId));
+        return fetch(card.dataset.urlMover, { method: 'POST', body: fd })
+            .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+            .then(function (res) {
+                if (!res.ok || !res.j.ok) throw new Error((res.j && res.j.erro) || 'Falha ao mover.');
+                card.dataset.paiId = res.j.paiId ? String(res.j.paiId) : '';
+                render();
+            })
+            .catch(function (err) { alert(err.message); });
+    }
+
+    function descendentes(secaoId, profundidade) {
+        profundidade = profundidade || 0;
+        // Disjuntor equivalente ao `voltas < 100` das funções que sobem a árvore (paiDe/entrar/
+        // caminhoLegivel). Hoje o back impede ciclo, então isto nunca deveria disparar — mas é
+        // justamente aqui, numa recursão que desce, que estouraria a pilha se o guard falhasse.
+        if (profundidade >= 100) return [];
+        const filhos = todasPastas().filter(function (el) { return el.dataset.paiId === String(secaoId); });
+        return filhos.reduce(function (acc, el) {
+            return acc.concat([el.dataset.secaoId], descendentes(el.dataset.secaoId, profundidade + 1));
+        }, []);
+    }
+
+    function escolherDestino(card) {
+        const proibidos = [card.dataset.secaoId].concat(descendentes(card.dataset.secaoId));
+        const opcoes = todasPastas()
+            .filter(function (el) { return proibidos.indexOf(el.dataset.secaoId) === -1; })
+            // Nome cru repete entre galhos (em prod, 51% das seções têm prefixo numérico manual,
+            // "01 - ", "01.4 - "): caminhoLegivel() mostra os ancestrais, igual ao Peticionar.
+            .map(function (el) { return { id: el.dataset.secaoId, nome: caminhoLegivel(el.dataset.secaoId) }; });
+
+        pedirDestino('Mover "' + card.dataset.nome + '" para', opcoes).then(function (destinoId) {
+            if (destinoId === undefined) return;             // cancelou
+            moverPasta(card, destinoId);                      // null = raiz da pasta
+        });
     }
 
     // --------------------------------------------------- modal de texto ------
@@ -382,6 +530,38 @@
         });
     }
 
+    // --------------------------------------------------- modal de destino ----
+    // Mesmo padrão de Promise do modal de texto acima, com <select> no lugar do campo de texto.
+    let destinoResolve = null;
+    const destinoModalEl = document.getElementById('fmDestinoModal');
+    const destinoModal   = destinoModalEl ? new bootstrap.Modal(destinoModalEl) : null;
+    const destinoCampo   = document.getElementById('fmDestinoCampo');
+    const destinoTitulo  = document.getElementById('fmDestinoTitulo');
+
+    function pedirDestino(titulo, opcoes) {
+        return new Promise(function (resolve) {
+            if (!destinoModal) { resolve(undefined); return; }   // sem o modal, a ação não acontece
+            destinoResolve = resolve;
+            destinoTitulo.textContent = titulo;
+            destinoCampo.innerHTML = '<option value="">Raiz da pasta</option>' +
+                opcoes.map(function (o) {
+                    return '<option value="' + o.id + '">' + escapeHtml(o.nome) + '</option>';
+                }).join('');
+            destinoModal.show();
+        });
+    }
+    if (destinoModalEl) {
+        document.getElementById('fmDestinoConfirmar').addEventListener('click', function () {
+            const v = destinoCampo.value || null;
+            const r = destinoResolve; destinoResolve = null;
+            destinoModal.hide();
+            if (r) r(v);
+        });
+        destinoModalEl.addEventListener('hidden.bs.modal', function () {
+            if (destinoResolve) { const r = destinoResolve; destinoResolve = null; r(undefined); }
+        });
+    }
+
     // ------------------------------------------------------------ upload -----
     const btnUpload = document.getElementById('fmUpload');
     if (btnUpload && fileInput) {
@@ -415,7 +595,7 @@
 
     function enviarArquivos(arquivos) {
         if (typeof window.enviarArquivoComProgresso !== 'function') { alert('Upload indisponível.'); return; }
-        const destino = pastaAtual === 'geral' ? null : pastaAtual;
+        const destino = pastaAtualId() === 'geral' ? null : pastaAtualId();
         let i = 0, houveErro = false;
         uploadBar.classList.add('ativo');
 
@@ -423,7 +603,7 @@
             if (i >= arquivos.length) {
                 uploadCont.textContent = houveErro ? 'Concluído com erros' : 'Concluído';
                 // Recarrega para renderizar as linhas novas com todos os tokens/ações do servidor.
-                sessionStorage.setItem('fmFolder_' + pastaId, pastaAtual);
+                sessionStorage.setItem('fmFolder_' + pastaId, JSON.stringify(caminho));
                 sessionStorage.setItem('fmTab_' + pastaId, '1');
                 setTimeout(function () { window.location.reload(); }, 700);
                 return;
@@ -483,6 +663,15 @@
             });
         }
     }
+
+    // Não existe "arrastar o cartão de uma pasta para dentro de outra" (mover por drag-and-drop) —
+    // decisão do dono em 21/08, depois de diagnosticar por que o gesto nunca funcionava. O Sortable
+    // (acima) reposiciona o cartão arrastado no DOM sob o próprio cursor a cada passo — é assim que
+    // ele reordena entre irmãs — então, ao soltar "em cima" de outro cartão, quem está fisicamente
+    // ali é sempre o PRÓPRIO cartão arrastado: e.target.closest('.fm-pasta') nunca devolve o vizinho.
+    // Medido com instrumentação: dragstart → o cartão movido, drop → o mesmo cartão movido, zero
+    // eventos de dragover (o Sortable consome todos). Mover pasta é só pelo menu "Mover para...".
+
     function persistir(url, csrf, ids) {
         fetch(url, {
             method: 'POST',
@@ -513,8 +702,17 @@
     (function inicializar() {
         fm.querySelectorAll('.fm-view-btn').forEach(function (b) { b.classList.toggle('ativo', b.dataset.view === modoView); });
         const folderSalvo = sessionStorage.getItem('fmFolder_' + pastaId);
-        if (folderSalvo && (folderSalvo === 'geral' || (elPastas && elPastas.querySelector('.fm-pasta[data-secao-id="' + folderSalvo + '"]')))) {
-            pastaAtual = folderSalvo;
+        if (folderSalvo) {
+            try {
+                const c = JSON.parse(folderSalvo);
+                // Só restaura se TODOS os níveis salvos ainda existirem como cartão — pasta salva que
+                // foi excluída (ou sessionStorage de um formato antigo, pré-árvore) cai de volta na raiz.
+                if (Array.isArray(c) && c.every(function (id) {
+                    return elPastas && elPastas.querySelector('.fm-pasta[data-secao-id="' + id + '"]');
+                })) {
+                    caminho = c.map(String);
+                }
+            } catch (e) { /* formato inválido: mantém a raiz */ }
         }
         if (sessionStorage.getItem('fmTab_' + pastaId) === '1' && docTabBtn && window.bootstrap) {
             bootstrap.Tab.getOrCreateInstance(docTabBtn).show();

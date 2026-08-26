@@ -199,6 +199,106 @@ final class PeticionarControllerTest extends JusPrimeWebTestCase
         self::assertStringContainsString('(área geral)', $html);
     }
 
+    #[TestDox('GET peticionar mostra o caminho completo na opção — duas pastas de mesmo nome em galhos diferentes não ficam indistinguíveis')]
+    public function testGetSelectDeSecaoMostraOCaminhoCompletoQuandoAninhada(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $em              = static::getContainer()->get(EntityManagerInterface::class);
+
+        $financeiro = $this->criarSecao($pasta, $tenant, 'Financeiro');
+        $juridico   = $this->criarSecao($pasta, $tenant, 'Jurídico');
+
+        // Mesmo nome de folha em galhos DIFERENTES: com a árvore achatada os dois "DOCUMENTOS"
+        // ficariam indistinguíveis no select — é o defeito que este teste prova corrigido.
+        $docsFinanceiro = new PastaSecao();
+        $docsFinanceiro->setPasta($pasta);
+        $docsFinanceiro->setTenant($tenant);
+        $docsFinanceiro->setNome('DOCUMENTOS');
+        $docsFinanceiro->setPai($financeiro);
+        $em->persist($docsFinanceiro);
+
+        $docsJuridico = new PastaSecao();
+        $docsJuridico->setPasta($pasta);
+        $docsJuridico->setTenant($tenant);
+        $docsJuridico->setNome('DOCUMENTOS');
+        $docsJuridico->setPai($juridico);
+        $em->persist($docsJuridico);
+        $em->flush();
+        $em->clear();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}/peticionar");
+
+        self::assertResponseIsSuccessful();
+
+        $opcoes = $crawler->filter('#uploadSecao option[value="' . $docsFinanceiro->getId() . '"]');
+        self::assertCount(1, $opcoes);
+        self::assertSame('FINANCEIRO › DOCUMENTOS', trim($opcoes->text()));
+
+        $opcoes = $crawler->filter('#uploadSecao option[value="' . $docsJuridico->getId() . '"]');
+        self::assertCount(1, $opcoes);
+        self::assertSame('JURÍDICO › DOCUMENTOS', trim($opcoes->text()));
+
+        // O value continua sendo o id — só a legenda ganhou o caminho.
+        $opcoesTexto = $crawler->filter('#textoSecao option[value="' . $docsFinanceiro->getId() . '"]');
+        self::assertSame('FINANCEIRO › DOCUMENTOS', trim($opcoesTexto->text()));
+    }
+
+    /**
+     * ACHADO 3 do smoke: `ordem` virou relativa às IRMÃS nesta frente (ver
+     * PastaSecaoRepository::proximaOrdem), então ordenar globalmente por ela mistura níveis — a
+     * mãe pode sair espremida entre as próprias filhas. `ordem` das filhas propositalmente MENOR
+     * que a da mãe: sem a correção (ORDER BY ordem ASC puro) as filhas viriam ANTES da mãe.
+     */
+    #[TestDox('GET peticionar ordena o select pelo caminho — a mãe aparece antes das próprias filhas')]
+    public function testGetSelectDeSecaoOrdenaMaeAntesDasFilhas(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $em              = static::getContainer()->get(EntityManagerInterface::class);
+
+        $financeiro = $this->criarSecao($pasta, $tenant, 'Financeiro');
+        $financeiro->setOrdem(5);
+
+        $filha2026 = new PastaSecao();
+        $filha2026->setPasta($pasta);
+        $filha2026->setTenant($tenant);
+        $filha2026->setNome('2026');
+        $filha2026->setPai($financeiro);
+        $filha2026->setOrdem(0);
+        $em->persist($filha2026);
+
+        $filhaNotas = new PastaSecao();
+        $filhaNotas->setPasta($pasta);
+        $filhaNotas->setTenant($tenant);
+        $filhaNotas->setNome('Notas');
+        $filhaNotas->setPai($financeiro);
+        $filhaNotas->setOrdem(1);
+        $em->persist($filhaNotas);
+        $em->flush();
+        $em->clear();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}/peticionar");
+
+        self::assertResponseIsSuccessful();
+
+        $textos = $crawler->filter('#uploadSecao option')->each(static fn ($node) => trim($node->text()));
+
+        $posMae     = array_search('FINANCEIRO', $textos, true);
+        $pos2026    = array_search('FINANCEIRO › 2026', $textos, true);
+        $posNotas   = array_search('FINANCEIRO › NOTAS', $textos, true);
+
+        self::assertNotFalse($posMae, 'a mãe precisa estar na lista');
+        self::assertNotFalse($pos2026, 'a filha "2026" precisa estar na lista');
+        self::assertNotFalse($posNotas, 'a filha "Notas" precisa estar na lista');
+        self::assertLessThan($pos2026, $posMae, 'a mãe tem de aparecer antes da filha "2026"');
+        self::assertLessThan($posNotas, $posMae, 'a mãe tem de aparecer antes da filha "Notas"');
+    }
+
     #[TestDox('GET peticionar de pasta inexistente retorna 404')]
     public function testGetPastaInexistenteRetorna404(): void
     {

@@ -1,17 +1,17 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}DJEN — Publicações{% endblock %}
+{% block title %}Push Processual — Publicações{% endblock %}
 
 {% block body %}
 <section class="content-header">
     <div class="container-fluid d-flex justify-content-between align-items-center">
-        <h1 class="m-0">DJEN — Publicações</h1>
+        <h1 class="m-0">Push Processual — Publicações</h1>
         <div class="d-flex gap-2">
-            <a href="{{ path('djen_oabs') }}" class="btn btn-outline-secondary">
+            <a href="{{ path('push_processual_oabs') }}" class="btn btn-outline-secondary">
                 <i class="bi bi-person-badge me-1"></i> OABs monitoradas
             </a>
-            <form method="POST" action="{{ path('djen_sincronizar') }}" class="d-inline">
-                <input type="hidden" name="_token" value="{{ csrf_token('djen_sincronizar') }}">
+            <form method="POST" action="{{ path('push_processual_sincronizar') }}" class="d-inline">
+                <input type="hidden" name="_token" value="{{ csrf_token('push_processual_sincronizar') }}">
                 <button type="submit" class="btn btn-primary">
                     <i class="bi bi-arrow-repeat me-1"></i> Sincronizar agora
                 </button>
@@ -28,7 +28,7 @@
             </div>
             <div class="collapse{% if filtros.busca or filtros.tribunal or filtros.meio or filtros.vinculo or filtros.data_de or filtros.data_ate %} show{% endif %}" id="filtrosDjen">
                 <div class="card-body">
-                    <form method="GET" action="{{ path('djen_index') }}">
+                    <form method="GET" action="{{ path('push_processual_index') }}">
                         <div class="row g-3">
                             <div class="col-md-3">
                                 <label for="f_busca" class="form-label">Busca</label>
@@ -71,7 +71,7 @@
                             </div>
                             <div class="col-12 d-flex gap-2">
                                 <button type="submit" class="btn btn-primary"><i class="bi bi-search me-1"></i> Filtrar</button>
-                                <a href="{{ path('djen_index') }}" class="btn btn-outline-secondary">Limpar</a>
+                                <a href="{{ path('push_processual_index') }}" class="btn btn-outline-secondary">Limpar</a>
                             </div>
                         </div>
                     </form>
@@ -108,7 +108,7 @@
                                 </td>
                                 <td>{{ pub.nomeOrgao ?? '—' }}</td>
                                 <td class="text-end">
-                                    <a href="{{ path('djen_show', {id: pub.id}) }}" class="btn btn-sm btn-outline-primary">
+                                    <a href="{{ path('push_processual_show', {id: pub.id}) }}" class="btn btn-sm btn-outline-primary">
                                         <i class="bi bi-eye"></i> Ver
                                     </a>
                                 </td>
@@ -128,10 +128,10 @@
                     <small class="text-muted">{{ total }} publicação(ões) · página {{ pagina }} de {{ totalPaginas }}</small>
                     <div class="btn-group">
                         {% if pagina > 1 %}
-                            <a href="{{ path('djen_index', app.request.query.all|merge({'pagina': pagina - 1})) }}" class="btn btn-outline-secondary btn-sm">Anterior</a>
+                            <a href="{{ path('push_processual_index', app.request.query.all|merge({'pagina': pagina - 1})) }}" class="btn btn-outline-secondary btn-sm">Anterior</a>
                         {% endif %}
                         {% if pagina < totalPaginas %}
-                            <a href="{{ path('djen_index', app.request.query.all|merge({'pagina': pagina + 1})) }}" class="btn btn-outline-secondary btn-sm">Próxima</a>
+                            <a href="{{ path('push_processual_index', app.request.query.all|merge({'pagina': pagina + 1})) }}" class="btn btn-outline-secondary btn-sm">Próxima</a>
                         {% endif %}
                     </div>
                 </div>
