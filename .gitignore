@@ -150,3 +150,4 @@ docs/tela_login/*.mp4
 # olha só a extensão, o arquivo derivado no formato seguinte escapa.
 /PEDIDOS-PRIORITARIOS-WHATSAPP.md
 docs/pedidos-whatsapp/
+__pycache__/

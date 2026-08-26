@@ -219,7 +219,9 @@ final class AcordoSemDataNaTelaTest extends CobrancaWebTestCase
         $html = (string) $client->getResponse()->getContent();
 
         self::assertStringNotContainsString('⚠ acordo sem data', $html);
-        self::assertStringContainsString('689,77', $html, 'com data, o exigível é número legítimo');
+        // 600,00 + 77,77 + 12,00 + 34,00 de honorário. Era 689,77 quando o honorário ficava fora do
+        // exigível (INV-E2, revogada pela spec `cobranca-honorario-no-total.md`).
+        self::assertStringContainsString('723,77', $html, 'com data, o exigível é número legítimo');
     }
 
     /**
@@ -256,7 +258,7 @@ final class AcordoSemDataNaTelaTest extends CobrancaWebTestCase
         self::assertStringContainsString('Sem data', $html);
         self::assertStringNotContainsString('ficam sem calcular', $html, 'o aviso promete cálculo num acordo desfeito');
         // E os valores voltam a ser apurados: a obrigação está viva de novo.
-        self::assertStringContainsString('689,77', $html, 'acordo desfeito devolve a obrigação ao cálculo ao vivo');
+        self::assertStringContainsString('723,77', $html, 'acordo desfeito devolve a obrigação ao cálculo ao vivo');
         self::assertCount(0, $client->getCrawler()->filter('.jp-enc-motivo'), 'não pode haver traço aqui');
     }
 

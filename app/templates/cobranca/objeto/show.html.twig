@@ -2034,11 +2034,16 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 if (ehReceber) {
                     var restante = parseInt(linha.getAttribute('data-valor-centavos') || '0', 10);
-                    /* O BRUTO vem PRONTO do servidor (`ObrigacaoOutput::brutoSugerido`, via
-                       `CalculadoraHonorarios::brutoParaRecuperar`). Na forma `acrescido_divida`,
-                       `ratearPagamento` divide o valor DIGITADO: pré-preencher o restante (R$1.200)
-                       devolveria dívida R$1.090,91 e a obrigação NÃO quitaria. O número certo é
-                       R$1.320,00. NUNCA recalcular isso aqui — dinheiro tem uma fonte só, e ela é o PHP. */
+                    /* O BRUTO vem PRONTO do servidor (`ObrigacaoOutput::brutoSugerido`).
+                       NUNCA recalcular isso aqui — dinheiro tem uma fonte só, e ela é o PHP.
+
+                       ⚠️ Aqui havia uma explicação que hoje ENSINA O ERRADO, e foi mantida por engano:
+                       ela citava `CalculadoraHonorarios::brutoParaRecuperar` e `ratearPagamento` para
+                       dizer que pré-preencher o restante (R$ 1.200) não quitaria e que o número certo
+                       era R$ 1.320. Os dois métodos foram APAGADOS pela spec
+                       `cobranca-honorario-no-total.md`: não há mais rateio, o honorário já está dentro
+                       do exigível e o servidor manda exatamente o restante. Quem lesse aquele texto
+                       reintroduziria o gross-up que a spec removeu. */
                     var bruto = parseInt(linha.getAttribute('data-bruto-centavos') || '0', 10);
                     if (valorPago) { valorPago.value = reaisInput(bruto); }
                     if (manual) { manual.checked = true; }

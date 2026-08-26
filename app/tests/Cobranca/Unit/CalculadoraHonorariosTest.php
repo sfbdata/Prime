@@ -33,129 +33,6 @@ final class CalculadoraHonorariosTest extends TestCase
         $this->sut = new CalculadoraHonorarios(new ResolvedorConfigEncargos());
     }
 
-    // ---- projetados -------------------------------------------------------
-
-    #[Test]
-    public function projetadosAplicaOPercentualSobreABase(): void
-    {
-        $caso = $this->caso(FormaHonorarios::AcrescidoDivida, '10.00');
-
-        // 10% de R$1.000,00 (100000 centavos) = R$100,00.
-        self::assertSame(10000, $this->sut->projetados($caso, 100000));
-    }
-
-    #[Test]
-    public function projetadosArredondaMeioParaCimaEmCentavos(): void
-    {
-        $caso = $this->caso(FormaHonorarios::RetidoRecuperado, '12.50');
-
-        // 12,5% de 1234 = 154,25 → 154 (arredonda para baixo, < 0,5).
-        self::assertSame(154, $this->sut->projetados($caso, 1234));
-        // 12,5% de 1236 = 154,50 → 155 (meio para cima).
-        self::assertSame(155, $this->sut->projetados($caso, 1236));
-    }
-
-    #[Test]
-    public function projetadosSemPercentualEZero(): void
-    {
-        $caso = $this->caso(FormaHonorarios::SemPercentual, null);
-
-        self::assertSame(0, $this->sut->projetados($caso, 100000));
-    }
-
-    #[Test]
-    public function projetadosComBaseNaoPositivaEZero(): void
-    {
-        $caso = $this->caso(FormaHonorarios::AcrescidoDivida, '10.00');
-
-        self::assertSame(0, $this->sut->projetados($caso, 0));
-        self::assertSame(0, $this->sut->projetados($caso, -5000));
-    }
-
-    #[Test]
-    public function projetadosComPercentualNuloEZero(): void
-    {
-        // Forma exige percentual, mas o snapshot não tem percentual configurado.
-        $caso = $this->caso(FormaHonorarios::AcrescidoDivida, null);
-
-        self::assertSame(0, $this->sut->projetados($caso, 100000));
-    }
-
-    // ---- ratearPagamento --------------------------------------------------
-
-    #[Test]
-    public function rateiaPagamentoAcrescidoEntreDividaEHonorarios(): void
-    {
-        $caso = $this->caso(FormaHonorarios::AcrescidoDivida, '10.00');
-
-        // Total R$11,00 = dívida R$10,00 + honorários R$1,00 (10% acrescido).
-        self::assertSame([1000, 100], $this->sut->ratearPagamento($caso, 1100));
-    }
-
-    #[Test]
-    public function rateioDeDizimaFechaExatamenteEmCentavos(): void
-    {
-        $caso = $this->caso(FormaHonorarios::AcrescidoDivida, '10.00');
-
-        // 1000 → honorários = 1000·(0,10/1,10) = 90,9... → 91; dívida = 909; soma = 1000.
-        [$divida, $honorarios] = $this->sut->ratearPagamento($caso, 1000);
-
-        self::assertSame(91, $honorarios);
-        self::assertSame(909, $divida);
-        self::assertSame(1000, $divida + $honorarios);
-    }
-
-    /**
-     * @param non-empty-string $percentual
-     */
-    #[Test]
-    #[DataProvider('cenariosDeFechamento')]
-    public function rateioSempreFechaComOTotal(string $percentual, int $total): void
-    {
-        $caso = $this->caso(FormaHonorarios::AcrescidoDivida, $percentual);
-
-        [$divida, $honorarios] = $this->sut->ratearPagamento($caso, $total);
-
-        self::assertSame($total, $divida + $honorarios, 'Rateio deve fechar exatamente com o total.');
-        self::assertGreaterThanOrEqual(0, $divida);
-        self::assertGreaterThanOrEqual(0, $honorarios);
-    }
-
-    /**
-     * @return iterable<string, array{0:string,1:int}>
-     */
-    public static function cenariosDeFechamento(): iterable
-    {
-        yield '10% de 1' => ['10.00', 1];
-        yield '10% de 333' => ['10.00', 333];
-        yield '10% de 1000' => ['10.00', 1000];
-        yield '15% de 99999' => ['15.00', 99999];
-        yield '33.33% de 123457' => ['33.33', 123457];
-        yield '7.77% de 1000003' => ['7.77', 1000003];
-    }
-
-    #[Test]
-    public function rateioNaoAcrescidoNaoSeparaHonorarios(): void
-    {
-        // Retido, cobrado separado e sem percentual: o devedor paga só a dívida.
-        foreach ([FormaHonorarios::RetidoRecuperado, FormaHonorarios::CobradoSeparado] as $forma) {
-            $caso = $this->caso($forma, '20.00');
-
-            self::assertSame([5000, 0], $this->sut->ratearPagamento($caso, 5000));
-        }
-
-        $semPercentual = $this->caso(FormaHonorarios::SemPercentual, null);
-        self::assertSame([5000, 0], $this->sut->ratearPagamento($semPercentual, 5000));
-    }
-
-    #[Test]
-    public function rateioDeValorNaoPositivoNaoSeparaHonorarios(): void
-    {
-        $caso = $this->caso(FormaHonorarios::AcrescidoDivida, '10.00');
-
-        self::assertSame([0, 0], $this->sut->ratearPagamento($caso, 0));
-    }
-
     // ---- realizadosSobreRecuperacao --------------------------------------
 
     #[Test]
@@ -182,85 +59,18 @@ final class CalculadoraHonorariosTest extends TestCase
     // ---- brutoParaRecuperar -----------------------------------------------
 
     /**
-     * @param non-empty-string $percentual
+     * I-1 (T2): a alíquota efetiva de um caso SEM override no objeto vem da CARTEIRA, nunca do
+     * snapshot morto do próprio caso — o cenário dos 194 casos legados fotografados a 10% enquanto a
+     * carteira já estava a 20% (spec §2/§9).
+     *
+     * ⚠️ Este teste conferia DOIS caminhos: o exigível e o split de pagamento. O split deixou de
+     * existir (spec `cobranca-honorario-no-total.md` §4.3 — `ratearPagamento` foi apagado), e com ele
+     * a própria divergência I-1: agora há UMA fonte só. O que sobra é a guarda de que o snapshot
+     * morto do caso não volta a ser lido.
      */
     #[Test]
-    #[DataProvider('percentuaisDeRoundTrip')]
-    public function brutoParaRecuperarFechaORoundTripDoRateio(string $percentual): void
-    {
-        // A propriedade que importa: o bruto sugerido rateia de volta para EXATAMENTE o alvo.
-        // Dupla-arredondamento não se valida por inspeção — só por varredura. O risco (arredonda ao
-        // gerar o bruto T, arredonda de novo ao ratear) varia com o percentual — por isso a varredura
-        // espelha `rateioSempreFechaComOTotal` e inclui percentuais quebrados.
-        $caso = $this->caso(FormaHonorarios::AcrescidoDivida, $percentual);
-
-        foreach ([1, 2, 99, 100, 101, 105, 333, 80000, 120000, 199999] as $alvo) {
-            $bruto = $this->sut->brutoParaRecuperar($caso, $alvo);
-            [$divida, ] = $this->sut->ratearPagamento($caso, $bruto);
-
-            self::assertSame($alvo, $divida, "round-trip falhou para percentual={$percentual}, alvo={$alvo}");
-        }
-    }
-
-    /**
-     * @return iterable<string, array{0:string}>
-     */
-    public static function percentuaisDeRoundTrip(): iterable
-    {
-        yield '10%' => ['10.00'];
-        yield '15%' => ['15.00'];
-        yield '33.33%' => ['33.33'];
-        yield '7.77%' => ['7.77'];
-        yield '3.33%' => ['3.33'];
-        yield '12.34%' => ['12.34'];
-    }
-
-    #[Test]
-    public function brutoParaRecuperarAcrescentaOsHonorariosAoAlvo(): void
-    {
-        $caso = $this->caso(FormaHonorarios::AcrescidoDivida, '10.00');
-
-        // R$1.200,00 de dívida + 10% => R$1.320,00 de boleto.
-        self::assertSame(132000, $this->sut->brutoParaRecuperar($caso, 120000));
-    }
-
-    #[Test]
-    public function brutoParaRecuperarDevolveOAlvoQuandoAFormaNaoAcresce(): void
-    {
-        // Nas outras formas o devedor paga só a dívida — espelha `ratearPagamento`.
-        foreach ([FormaHonorarios::RetidoRecuperado, FormaHonorarios::CobradoSeparado, FormaHonorarios::SemPercentual] as $forma) {
-            $caso = $this->caso($forma, '10.00');
-
-            self::assertSame(120000, $this->sut->brutoParaRecuperar($caso, 120000));
-        }
-    }
-
-    #[Test]
-    public function brutoParaRecuperarDevolveOAlvoQuandoNaoHaPercentual(): void
-    {
-        $caso = $this->caso(FormaHonorarios::AcrescidoDivida, null);
-
-        self::assertSame(120000, $this->sut->brutoParaRecuperar($caso, 120000));
-    }
-
-    #[Test]
-    public function brutoParaRecuperarDevolveOAlvoQuandoEleNaoEPositivo(): void
-    {
-        $caso = $this->caso(FormaHonorarios::AcrescidoDivida, '10.00');
-
-        self::assertSame(0, $this->sut->brutoParaRecuperar($caso, 0));
-        self::assertSame(-5, $this->sut->brutoParaRecuperar($caso, -5));
-    }
-
-    /**
-     * I-1 (T2): prova a consistência SPLIT-vs-EXIGÍVEL para um caso SEM override no objeto — o
-     * cenário dos 194 casos legados (spec §2/§9). O "caso" carrega um snapshot DIVERGENTE (10%) nas
-     * suas próprias colunas mortas; a alíquota efetiva, tanto no exigível quanto no split, é a da
-     * CARTEIRA (20%) — nunca o snapshot morto do caso.
-     */
-    #[Test]
-    #[TestDox('I-1: split (ratearPagamento) e EXIGÍVEL (resolverDoObjeto) usam a MESMA alíquota da carteira — ignoram snapshot divergente do caso')]
-    public function splitEExigivelUsamAMesmaAliquotaDaCarteiraIgnorandoOSnapshotDivergenteDoCaso(): void
+    #[TestDox('I-1: a alíquota efetiva vem da CARTEIRA, ignorando o snapshot divergente do caso')]
+    public function aAliquotaEfetivaVemDaCarteiraIgnorandoOSnapshotDivergenteDoCaso(): void
     {
         $carteira = (new Carteira())
             ->setFormaHonorarios(FormaHonorarios::AcrescidoDivida)
@@ -270,23 +80,17 @@ final class CalculadoraHonorariosTest extends TestCase
         $caso = (new CasoCobranca())->setObjeto($objeto);
 
         // Snapshot MORTO do caso, DIVERGENTE (10%) — simula os 194 casos legados fotografados a 10%
-        // enquanto a carteira já está a 20%. Se qualquer um dos dois caminhos ainda lesse isto, o
-        // teste tem de acusar.
+        // enquanto a carteira já está a 20%. Se o resolvedor voltasse a lê-lo, o teste tem de acusar.
         $caso->setFormaHonorarios(FormaHonorarios::AcrescidoDivida)->setPercentualHonorarios('10.00');
 
         $resolvedor = new ResolvedorConfigEncargos();
 
-        // EXIGÍVEL: a alíquota efetiva do objeto/carteira é 2000 bp (20%), não os 1000 bp (10%) do
-        // snapshot morto do caso.
+        // A alíquota efetiva do objeto/carteira é 2000 bp (20%), não os 1000 bp (10%) do snapshot
+        // morto do caso. É a MESMA fonte que o exigível usa ao materializar o honorário.
         self::assertSame(2000, $resolvedor->resolverDoObjeto($objeto)->taxaHonorariosBp);
 
-        // SPLIT: R$1.200,00 (120000) a 20% acrescido fecha EXATO em dívida 100000 + honorários 20000.
-        // A 10% (o snapshot do caso) o resultado seria [109091, 10909] — bem diferente.
-        [$divida, $honorarios] = $this->sut->ratearPagamento($caso, 120000);
-
-        self::assertSame(100000, $divida, 'o split usa a alíquota da CARTEIRA (20%), não o snapshot do caso');
-        self::assertSame(20000, $honorarios);
-        self::assertSame(120000, $divida + $honorarios);
+        // E a FORMA, que segue vindo da carteira, continua legível pela calculadora.
+        self::assertSame(FormaHonorarios::AcrescidoDivida, $this->sut->forma($caso));
     }
 
     private function caso(FormaHonorarios $forma, ?string $percentual): CasoCobranca

@@ -317,8 +317,14 @@ final class ConferirEncargosGravadosCommand extends Command implements LidaComDa
 
         $io->section(sprintf('Lista da reconciliação — %s (%d dívidas)', $r->carteira, count($r->duplicadas)));
 
+        // 🔴 A coluna "honorário" saiu, e isso NÃO é cosmética: esta é a lista que o dono lê para
+        // aprovar a escrita (INV-CE8). Ela separava "no saldo" de "honorário" porque o honorário
+        // ficava fora do `valorExigivel()` — a INV-E2, que a spec `cobranca-honorario-no-total.md`
+        // REVOGOU. Depois dela a coluna "honorário" viria `—` em toda linha e o valor apareceria
+        // debaixo de "no saldo": o relatório mostraria o número certo com o rótulo errado, no exato
+        // ponto em que alguém decide sobre dinheiro.
         $io->table(
-            ['id', 'unidade', 'referência', 'competência', 'lote (emissão)', 'no saldo', 'honorário', 'total'],
+            ['id', 'unidade', 'referência', 'competência', 'lote (emissão)', 'duplicado (tudo entra no saldo)'],
             array_map(
                 fn (array $d): array => [
                     $d['obrigacaoId'] ?? '—',
@@ -328,23 +334,18 @@ final class ConferirEncargosGravadosCommand extends Command implements LidaComDa
                     // O lote é o que permite achar e desfazer um erro de reconciliação três meses
                     // depois; sem ele a linha não é auditável.
                     sprintf('#%s (%s)', $d['loteId'] ?? '?', $d['loteEmitidoEm']?->format('d/m/Y') ?? '?'),
-                    $d['duplicadoNoSaldo'] > 0 ? $this->reais($d['duplicadoNoSaldo']) : '—',
-                    $d['duplicadoForaDoSaldo'] > 0 ? $this->reais($d['duplicadoForaDoSaldo']) : '—',
                     $this->reais($d['duplicadoNoSaldo'] + $d['duplicadoForaDoSaldo']),
                 ],
                 $r->duplicadas,
             )
         );
 
-        // Os dois totais SEPARADOS, e nunca somados numa manchete só: o honorário não entra no
-        // `valorExigivel()`, então ele não move a conta de devedor nenhum.
+        // UM total só. Aqui havia dois, e o segundo dizia "honorário — não muda o que ninguém deve":
+        // era verdade sob a INV-E2 e hoje é falso. Partir o número ao meio afirmaria que metade dele
+        // não move conta nenhuma.
         $io->text(sprintf(
-            'sai do SALDO do devedor (juros + multa + correção): %s',
-            $this->reais($r->duplicadoNoSaldoEmCentavos()),
-        ));
-        $io->text(sprintf(
-            'sai FORA do saldo (honorário — não muda o que ninguém deve): %s',
-            $this->reais($r->duplicadoForaDoSaldoEmCentavos()),
+            'sai do SALDO do devedor (juros + multa + correção + honorário): %s',
+            $this->reais($r->duplicadoNoSaldoEmCentavos() + $r->duplicadoForaDoSaldoEmCentavos()),
         ));
     }
 
@@ -354,9 +355,14 @@ final class ConferirEncargosGravadosCommand extends Command implements LidaComDa
     }
 
     /**
-     * A decomposição por campo, com a ressalva que muda a leitura do número: **honorário duplicado
-     * não entra no saldo cobrado** (`Obrigacao::valorExigivel()` soma principal + juros + multa +
-     * correção). Sem essa frase, o total é lido como "saldo cobrado duas vezes" e não é.
+     * A decomposição por campo.
+     *
+     * 🔴 Aqui havia uma ressalva que INVERTIA a leitura do número — *"honorário duplicado não entra no
+     * saldo cobrado"* — e ela saía impressa em `$io->error`, em destaque, na tela em que o dono decide
+     * se autoriza a escrita. Era verdade sob a INV-E2; a spec `cobranca-honorario-no-total.md` a
+     * REVOGOU, e o honorário entra no `valorExigivel()` como qualquer outro encargo. Mantê-la seria o
+     * instrumento de decisão mentindo no ponto exato da decisão. O total agora é lido como o que é:
+     * saldo cobrado duas vezes, honorário incluído.
      *
      * @param array<string, int> $porCampo
      */
@@ -372,7 +378,7 @@ final class ConferirEncargosGravadosCommand extends Command implements LidaComDa
 
         if (($porCampo['honorarios'] ?? 0) > 0) {
             $texto .= sprintf(
-                "\n  ATENÇÃO: dos %s, o honorário NÃO entra no saldo exigível — só juros, multa e correção entram.",
+                "\n  desses, %s são de honorário — que entra no saldo exigível como os demais encargos.",
                 $this->reais($porCampo['honorarios']),
             );
         }

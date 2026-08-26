@@ -383,7 +383,8 @@ final class ObrigacaoMutacaoControllerTest extends CobrancaWebTestCase
         self::assertNotNull($criada);
         self::assertSame(600, $criada->getTaxaHonorariosBp(), 'a taxa própria (override) foi gravada, não herdada');
         self::assertSame(6000, $criada->getHonorarios(), 'o motor aplica a taxa própria: 6% de R$1.000,00');
-        self::assertSame(100000, $criada->valorExigivel(), 'honorário fora do exigível (INV-E2)');
+        // INV-E2 revogada (spec `cobranca-honorario-no-total.md`): o honorário entra no que se cobra.
+        self::assertSame(106000, $criada->valorExigivel(), 'exigível = 1.000,00 + 60,00 de honorário');
         self::assertFalse($criada->encargosCongelados(), 'ao vivo: override de honorário não congela — nasce Viva');
     }
 
@@ -423,7 +424,8 @@ final class ObrigacaoMutacaoControllerTest extends CobrancaWebTestCase
         $fresh = $em->find(Obrigacao::class, $obrigacaoId);
         self::assertSame(750, $fresh->getTaxaHonorariosBp(), 'o override de honorário é gravado');
         self::assertSame(7500, $fresh->getHonorarios(), 'o motor aplica a taxa: 7,5% de R$1.000,00');
-        self::assertSame(100000, $fresh->valorExigivel(), 'honorário fora do exigível (INV-E2)');
+        // INV-E2 revogada (spec `cobranca-honorario-no-total.md`): o honorário entra no que se cobra.
+        self::assertSame(107500, $fresh->valorExigivel(), 'exigível = 1.000,00 + 75,00 de honorário');
         self::assertFalse($fresh->encargosCongelados(), 'ao vivo: override de honorário não congela — segue Viva');
     }
 

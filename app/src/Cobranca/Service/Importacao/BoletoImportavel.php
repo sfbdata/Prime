@@ -72,7 +72,19 @@ final class BoletoImportavel
      * Encargo agregado (juros + multa + correção), para quem só quer o total — preview, reconciliação,
      * conferência contra a coluna Total do relatório. Fórmula em UM lugar só: é a mesma soma que a
      * `Obrigacao::getEncargosReconhecidos()` faz do outro lado, o que mantém INV-E1 por construção.
-     * Honorários ficam FORA (INV-E2: honorário não é dívida do credor).
+     * ⏳ **Honorário fica fora DESTA soma, e a justificativa está PENDENTE.** O único chamador em
+     * produção é `ImportarRelatorioCarteiraUseCase::centavosSemBoletoDoBoleto`, que monta o balde
+     * operacional "sem boleto" (`principal + esta soma`). O motivo escrito era a INV-E2 — "honorário
+     * não é dívida do credor" —, que a spec `cobranca-honorario-no-total.md` REVOGOU. O número não foi
+     * mudado junto porque é indicador de operação, não o exigível, e trocá-lo seria decidir sozinho
+     * quanto o operador deve ver (§1.1). A decisão está registrada num lugar só: veja a pendência em
+     * `ImportarRelatorioCarteiraUseCase::centavosSemBoletoDoBoleto`.
+     *
+     * ⚠️ Uma redação anterior justificava a exclusão dizendo que esta soma "alimenta
+     * `encargosReconhecidos`, a coluna-sombra". **É falso** — a coluna-sombra é escrita em
+     * `Obrigacao::sincronizarSombraDeEncargos` a partir dos campos da ENTIDADE, nunca a partir do
+     * boleto. Trocar uma justificativa falsa por outra é pior que a original: a original ao menos
+     * citava a INV-E2 e a varredura a encontrava.
      */
     public function encargosCentavos(): int
     {

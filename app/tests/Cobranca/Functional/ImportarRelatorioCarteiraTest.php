@@ -169,7 +169,10 @@ final class ImportarRelatorioCarteiraTest extends KernelTestCase
         // INV-E1 ponta a ponta: o agregado é o MESMO 1317 de antes da separação, e o exigível é o
         // principal mais esse agregado — nenhum saldo existente se move por causa da mudança.
         self::assertSame(1317, $simples->getEncargosReconhecidos(), 'agregado idêntico ao de antes');
-        self::assertSame(19000 + 1317, $simples->valorExigivel());
+        // O AGREGADO legado (juros+multa+correção) segue intacto — é a INV-E1. O EXIGÍVEL passou a
+        // somar também o honorário declarado no relatório dela (spec `cobranca-honorario-no-total.md`).
+        self::assertSame(4063, $simples->getHonorarios(), 'honorário declarado no relatório');
+        self::assertSame(19000 + 1317 + 4063, $simples->valorExigivel());
 
         // NN=1004: mistura colunas I/J com lançamentos fechados 1.4 (juros) e 1.5 (multa).
         $comClasseEspecial = $repo->findOneBy(['tenant' => $tenant, 'referenciaExterna' => '1004']);
@@ -178,12 +181,11 @@ final class ImportarRelatorioCarteiraTest extends KernelTestCase
         self::assertSame(680, $comClasseEspecial->getMulta(), '3,40 (col. J) + 3,40 (linha 1.5)');
         self::assertSame(0, $comClasseEspecial->getCorrecao());
         self::assertSame(2089, $comClasseEspecial->getEncargosReconhecidos(), 'agregado idêntico ao de antes');
-        self::assertSame(17000 + 2089, $comClasseEspecial->valorExigivel());
 
-        // INV-E2: honorários são materializados, mas FICAM FORA do exigível (não são dívida do credor).
+        // INV-E2 REVOGADA: o honorário é materializado E entra no exigível — a contabilidade o soma
+        // no total que cobra, e o sistema copia o total dela.
         self::assertSame(5000, $comClasseEspecial->getHonorarios());
-        self::assertSame(17000 + 2089, $comClasseEspecial->valorExigivel(), 'honorário não entra no exigível');
-        self::assertSame(17000 + 2089 + 5000, $comClasseEspecial->totalComHonorarios());
+        self::assertSame(17000 + 2089 + 5000, $comClasseEspecial->valorExigivel(), 'honorário entra no exigível');
     }
 
     #[TestDox('Obrigação importada nasce VIVA (ao vivo): materializa o split do relatório, mas NÃO congela')]
@@ -610,10 +612,11 @@ final class ImportarRelatorioCarteiraTest extends KernelTestCase
         );
         // A prova de que o dinheiro não está em dois lugares: principal + encargo não pode conter o
         // valor da linha duas vezes.
+        self::assertSame(8272, $obrigacao->getHonorarios(), 'honorário declarado no relatório');
         self::assertSame(
-            39937 + 2781 + 800,
+            39937 + 2781 + 800 + 8272,
             $obrigacao->valorExigivel(),
-            'exigível = principal + juros + multa + correção, cada real contado uma vez',
+            'exigível = principal + juros + multa + correção + honorário, cada real contado uma vez',
         );
     }
 

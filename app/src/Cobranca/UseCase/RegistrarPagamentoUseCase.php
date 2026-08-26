@@ -78,7 +78,10 @@ final class RegistrarPagamentoUseCase
             $tenant,
         );
 
-        // Composição: dívida do credor separada dos honorários; encargos zerados no MVP (SPEC §11/§18).
+        // Composição: no lançamento MANUAL o sistema NÃO inventa split — grava tudo como dívida
+        // (`valorHonorarios` vem 0 do alocador). O split por categoria existe quando a CONTABILIDADE o
+        // declara, e aí quem o grava é o `ImportarReceitasUseCase`, copiando o relatório dela. Antes
+        // daqui saía um rateio `p/(1+p)` calculado por nós — spec `cobranca-honorario-no-total.md` §4.3.
         $pagamento = new Pagamento();
         $pagamento->setTenant($tenant);
         $pagamento->setCaso($caso);

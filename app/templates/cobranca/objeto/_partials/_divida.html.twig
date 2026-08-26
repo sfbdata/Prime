@@ -28,14 +28,16 @@
        de acordo e obrigação substituída) e os três compartilham a MESMA grade CSS. A célula nasce aqui, e
        não copiada três vezes.
 
-       O "Total" é `totalComHonorarios` — original + os três encargos + honorários —, porque esta linha
-       REPRODUZ o relatório da contabilidade (spec §1.3 e Apêndice A). Não confundir com o `valorAtual`
-       (exigível, SEM honorários, INV-E2), que alimenta saldo, FIFO e acordo. Onde a diferença importa para
-       o usuário — o quanto ainda falta — quem fala é `.jp-obr-restante`. Nada de aritmética de encargo aqui:
-       `juros/multa/correcao/honorarios` vêm materializados do domínio. #}
+       O "Total" é `valorAtual` — original + os três encargos + honorários —, porque esta linha REPRODUZ o
+       relatório da contabilidade (spec §1.3 e Apêndice A). Era `totalComHonorarios`, que somava o honorário
+       por fora porque o exigível o deixava de fora; desde a spec `cobranca-honorario-no-total.md` o
+       honorário está DENTRO do exigível, e somá-lo de novo aqui o contaria duas vezes. **O número exibido
+       é o mesmo de antes** — o que mudou foi o saldo, que antes divergia desta linha. Onde a diferença
+       importa para o usuário — o quanto ainda falta — quem fala é `.jp-obr-restante`. Nada de aritmética de
+       encargo aqui: `juros/multa/correcao/honorarios` vêm materializados do domínio. #}
     {# 🔑 ENCARGO NÃO CALCULADO (acordo substituto vigente SEM data) — decisão do dono, 17/08: traço com
        o MOTIVO NA LINHA. Entra AQUI, na célula do Total, porque é o único lugar em que a obrigação
-       substituída aparece: ela é renderizada sem a faixa de encargos (só o Total), e o `totalComHonorarios`
+       substituída aparece: ela é renderizada sem a faixa de encargos (só o Total), e o `valorAtual`
        SOMA juros+multa+correção+honorários — que, neste estado, são o resto da última hidratação ao vivo,
        de uma data arbitrária. Mostrar esse total trocaria a data inventada no importe por um número velho
        na tela, que também não é espelho.
@@ -52,7 +54,7 @@
     <div class="jp-obr-valor jp-money col-total"
          {%- if o.encargosCongeladosEm is null and o.encargosAtualizadosEm is not null %} data-bs-toggle="tooltip"
          title="Encargos atualizados em {{ o.encargosAtualizadosEm|date('d/m/Y') }}."{% endif %}>
-        {{ o.totalComHonorarios|centavos }}
+        {{ o.valorAtual|centavos }}
         {%- if o.encargosCongeladosEm is not null %}
             {# Congelada (INV-E4): estes encargos não crescem mais — o cron não a toca. Sinal discreto,
                que não pode competir com o número nem ocupar coluna própria. #}
@@ -186,13 +188,31 @@
                 <span></span>
                 <span>Venceu em</span>
                 <span>O que é</span>
-                {# "Total" aparece DUAS vezes nesta tela com sentidos diferentes: aqui é o total BRUTO
-                   do relatório (com honorários, sem abater o que já foi recebido), e no cabeçalho do
-                   objeto é o "Total em aberto" — o saldo exigível, já descontados pagamentos e
-                   liquidações e SEM honorários. Somar esta coluna e comparar com o cabeçalho não fecha,
-                   por dois motivos, e sem esta explicação quem confere conclui que há erro. #}
+                {# "Total" aparece DUAS vezes nesta tela, e a coluna existe para explicar por que os dois
+                   números não fecham — sem isso quem confere conclui que há erro.
+
+                   AQUI: `valorAtual` = `Obrigacao::valorExigivel()` = original + juros + multa +
+                   correção + honorários, por dívida, BRUTO.
+                   NO TOPO: o card `Total vencido` = `totalAtualizadoVencido`, TAMBÉM bruto, mas só das
+                   dívidas já vencidas — `MontarDetalheCasoUseCase` pula `vencimentoOriginal > hoje`,
+                   `quitada()` e `parcelaDeAcordoDesfeito`. A coluna, ao contrário, é renderizada nos
+                   quatro laços desta tela, incluindo pagas e substituídas por acordo.
+
+                   🔴 DUAS CORREÇÕES no texto do usuário, ambas de rodadas de revisão desta frente:
+
+                   1. dizia "e SEM honorários" — verdade sob a INV-E2, que
+                      `cobranca-honorario-no-total.md` REVOGOU. O honorário entra nos dois números;
+                   2. dizia que o topo é o "Total em aberto", "já com os recebimentos descontados".
+                      **Esse número NÃO EXISTE na tela desde 28/07/2026** (`113e5584`): a linha fina
+                      saiu e o que ficou é o card `Total vencido`, que é BRUTO. O tooltip mandava o
+                      operador procurar um número inexistente e afirmava o OPOSTO do que o card faz.
+                      Guardado por `CabecalhoObjetoShowTest`, que assere o card em R$ 1.000,00 com
+                      R$ 400,00 já pagos e alocados, e que "Total em aberto" não está no cabeçalho.
+
+                   ⚠️ A correção 1 sozinha não bastava — foi ela que deixou a 2 passar, porque olhou só
+                   a parte do honorário. Este texto é lido pelo USUÁRIO, sobre dinheiro. #}
                 <span class="col-total col-valor" data-bs-toggle="tooltip"
-                      title="Total do relatório: original + juros + multa + correção + honorários, sem abater o que já foi recebido. O “Total em aberto” do topo é outra conta — o saldo exigível, já com os recebimentos descontados e sem honorários.">Total</span>
+                      title="Total de cada dívida: original + juros + multa + correção + honorários, antes de abater pagamentos. Somar esta coluna não bate com o card “Total vencido” do topo, e isso é esperado: lá entram só as dívidas já vencidas e ainda não quitadas. Os dois são brutos — pagamento parcial não reduz nenhum dos dois.">Total</span>
                 <span></span>
             </div>
 

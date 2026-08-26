@@ -76,7 +76,8 @@ final class MontarDetalheAcordoUseCase
 
         $substituidas = [];
         $valorSubstituidas = 0;
-        // 🔑 Achado 🔴1 da revisão de 17/08. `valorExigivel()` = original + juros + multa + correção. Numa
+        // 🔑 Achado 🔴1 da revisão de 17/08. `valorExigivel()` = original + juros + multa + correção +
+        // honorários (o honorário entrou com `cobranca-honorario-no-total.md`; INV-E2 revogada). Numa
         // obrigação substituída por acordo SEM DATA esses três encargos são o RESÍDUO da última hidratação
         // ao vivo — de uma data arbitrária, porque a materialização não roda sem data. Somá-los aqui
         // produziria os três números de dinheiro desta tela ("Dívida substituída", "Desconto concedido" e

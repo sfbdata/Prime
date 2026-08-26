@@ -25,8 +25,13 @@ use Doctrine\ORM\Mapping as ORM;
  * encargo agregado de antes" — vale POR CONSTRUÇÃO, e não por disciplina de quem escreve o código.
  * Consequência prática: `CalculadoraSaldo`, Dashboard, FIFO e Acordo não mudaram nem precisam mudar.
  *
- * Honorários ficam FORA do `valorExigivel()` (INV-E2/SPEC §18.5): honorário não é dívida do credor.
- * Quem quiser o total exibido na linha do relatório usa `totalComHonorarios()`.
+ * Honorários ENTRAM no `valorExigivel()` (spec `cobranca-honorario-no-total.md`). **INV-E2/SPEC §18.5
+ * está REVOGADA**, e o texto antigo — "honorário não é dívida do credor" — fica registrado aqui só
+ * para que ninguém o restaure lendo um comentário velho: era o sistema formando OPINIÃO. A
+ * contabilidade soma `principal + juros + multa + honorários` no total que cobra, e este sistema
+ * copia o total dela (regra do espelho). Separar quanto do total é honorário continua legítimo —
+ * como DETALHAMENTO de tela, nunca como subtração do total.
+ * `totalComHonorarios()` deixou de existir: virou sinônimo exato de `valorExigivel()`.
  *
  * Crescimento AO VIVO (spec "encargos ao vivo"): para uma obrigação VIVA os quatro campos são um CACHE
  * — o serviço `EncargosVivos` os recalcula EM MEMÓRIA na leitura (vencimento → hoje × taxa), sem flush.
@@ -89,7 +94,7 @@ class Obrigacao implements TenantAware, Auditavel
     #[ORM\Column(type: 'integer', options: ['default' => 0])]
     private int $correcao = 0;
 
-    /** Honorários materializados, em CENTAVOS — FORA do valor exigível (INV-E2). */
+    /** Honorários materializados, em CENTAVOS — DENTRO do valor exigível (INV-E2 revogada, ver :28). */
     #[ORM\Column(type: 'integer', options: ['default' => 0])]
     private int $honorarios = 0;
 
@@ -221,22 +226,80 @@ class Obrigacao implements TenantAware, Auditavel
     }
 
     /**
-     * Valor exigível da obrigação em centavos: original + juros + multa + correção (INV-E1).
-     * Honorários ficam DE FORA de propósito (INV-E2/SPEC §18.5) — não são dívida do credor e não
-     * podem entrar no saldo que alimenta acordos e pagamentos.
+     * 🔑 A REGRA DO EXIGÍVEL, EM UM ÚNICO LUGAR: `original + juros + multa + correção + honorários`.
+     *
+     * Existe como método estático porque a mesma soma precisa ser feita sobre valores que ainda NÃO
+     * estão na entidade — o cálculo ao vivo (`EncargosVivos`) e a decisão de quitar/reabrir
+     * (`ReconciliadorLiquidacao`) partem do array que a `CalculadoraEncargos` acabou de devolver.
+     * Antes desta spec cada um repetia a soma por conta própria: **três cópias da regra do dinheiro**,
+     * e a spec `cobranca-honorario-no-total.md` §2 documenta por que isso é o defeito mais perigoso
+     * daqui — duas definições de dívida divergem em SILÊNCIO, com o saldo dizendo uma coisa e a
+     * quitação dizendo outra. O repositório já registrava a lição em
+     * `ObrigacaoRepository::aplicarExigibilidade`: "regra de dinheiro duplicada diverge em silêncio".
+     *
+     * Quem tiver os quatro encargos em mãos chama ESTE método. Ninguém escreve a soma de novo.
+     */
+    public static function exigivelDe(int $valorOriginal, int $juros, int $multa, int $correcao, int $honorarios): int
+    {
+        return $valorOriginal + $juros + $multa + $correcao + $honorarios;
+    }
+
+    /**
+     * Valor exigível da obrigação em centavos, pela regra única de `exigivelDe()`.
      *
      * Método PURO e sem data: o crescimento no tempo vem da materialização periódica dos campos,
      * nunca de recalcular aqui (INV-E3).
      */
     public function valorExigivel(): int
     {
-        return $this->valorOriginal + $this->juros + $this->multa + $this->correcao;
+        return self::exigivelDe($this->valorOriginal, $this->juros, $this->multa, $this->correcao, $this->honorarios);
     }
 
-    /** Total exibido na linha do relatório: o exigível MAIS os honorários advocatícios. */
-    public function totalComHonorarios(): int
+    /**
+     * A obrigação passa a NÃO cobrar honorário — as DUAS metades juntas, que é a única forma correta
+     * (spec `cobranca-honorario-no-total.md` §10).
+     *
+     * 1. **o override** (`taxaHonorariosBp = 0`): sem ele a hidratação ao vivo recoloca o honorário
+     *    pela taxa da carteira na próxima leitura;
+     * 2. **o campo já materializado**: sem zerá-lo, o valor antigo continua dentro de
+     *    `valorExigivel()` — e uma obrigação substituída por acordo vigente pode nunca mais passar por
+     *    uma hidratação que o corrigisse.
+     *
+     * 🔑 **Mora na ENTIDADE porque as duas metades não podem ser separadas.** Hoje há UM chamador (o
+     * comando de reconciliação) — o segundo, o vinculador do importador, foi removido em `cc1892c1`
+     * quando a premissa dele caiu (§10.8). O método fica aqui mesmo assim, e o motivo é medido, não
+     * estético: quem escreve só a metade 1 produz obrigação em `bp = 0` **com honorário sobrando**,
+     * estado que a régua do comando (`taxaHonorariosBp IS NULL`) **nunca mais alcança** — o defeito
+     * fica invisível para o próprio instrumento que deveria achá-lo. Em 19/08 havia 6.455 avulsas com
+     * honorário materializado (R$ 227.126,42) na fila para cair nesse estado.
+     *
+     * ⚠️ Se um dia voltar a existir um segundo chamador, ele chama ISTO. Não repita as duas linhas.
+     *
+     * `encargosAtualizadosEm` é PRESERVADO (INV-H2): isto REMOVE uma soma indevida de um snapshot, não
+     * recalcula nada. Sem snapshot (nunca materializada), só o override entra — não há o que zerar, e
+     * inventar uma data aqui seria o defeito que a frente vizinha está consertando.
+     *
+     * ⛔ **CONGELADA é recusada (INV-H1), e a recusa mora AQUI de propósito.** O comando de
+     * reconciliação já filtra congelada antes de chamar, então hoje este ramo é inalcançável por ele —
+     * a recusa fica como a garantia do próximo chamador, que pode não filtrar nada. Congelada, em
+     * produção, é sinônimo de LIQUIDADA (8.788, todas). O snapshot de uma
+     * dívida quitada é fato histórico: o valor pelo qual ela foi efetivamente paga. Apagá-lo deixaria
+     * `alocado > exigível` numa dívida paga, e `EncargosVivos` nunca re-hidrata congelada — ficaria
+     * assim para sempre. Devolve `false` para o chamador poder reportar em vez de silenciar.
+     */
+    public function pararDeCobrarHonorario(): bool
     {
-        return $this->valorExigivel() + $this->honorarios;
+        if ($this->encargosCongelados()) {
+            return false;
+        }
+
+        $this->taxaHonorariosBp = 0;
+
+        if ($this->encargosAtualizadosEm !== null) {
+            $this->honorarios = 0;
+        }
+
+        return true;
     }
 
     /**

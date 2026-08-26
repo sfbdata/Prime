@@ -230,8 +230,18 @@ final class ImportarReceitasUseCase
                 // O sinal é o override `taxa_honorarios_bp = 0`: quem grava obrigação COM o honorário
                 // embutido grava esse override junto, na mesma linha de código, exatamente porque o
                 // honorário já foi cobrado uma vez (`ImportarRelatorioCarteiraUseCase:479-481`,
-                // `ImportarAcordosDetalhadosUseCase:662-663` e o `criarObrigacaoJaPaga` daqui). Quem só
-                // VINCULA uma avulsa a um acordo não toca o valor nem o override, que fica NULL.
+                // `ImportarAcordosDetalhadosUseCase::parcelaInput` e o `criarObrigacaoJaPaga` daqui).
+                //
+                // ⚠️ 19/08: `ImportarAcordosDetalhadosUseCase::completarParcelas` passou a gravar o
+                // override AO VINCULAR — mas só quando o `valorOriginal` já é o Valor acordado da
+                // planilha (spec `cobranca-honorario-no-total.md` §10.5.1). A condição existe
+                // exatamente para preservar o que este bloco assume: `bp = 0` continua significando
+                // "o honorário está dentro do valorOriginal". Vínculo com valor divergente não grava
+                // nada, e o override segue NULL.
+                //
+                // O outro escritor novo é `ReconciliarHonorarioDeParcelaUseCase::aplicarNa` — e é o
+                // único que grava SEM ter a planilha para conferir. Por isso ele não decide sozinho:
+                // só escreve nos ids que o humano aprovou olhando a simulação (INV-H0).
                 //
                 // ⚠️ E este comentário JÁ afirmou que isso era "certo por construção". NÃO É — a 3ª
                 // revisão mostrou que a TELA alcança a coluna nos dois sentidos: digitar 0% em
@@ -587,9 +597,11 @@ final class ImportarReceitasUseCase
         }
 
         // ⚠️ O honorário entra em UM lugar só. Na parcela ele já está dentro do `valorOriginal`; se
-        // fosse materializado aqui também, `totalComHonorarios()` o contaria duas vezes e a linha
-        // nasceria devendo o honorário. Na avulsa é o contrário: ele NÃO está no valorOriginal e
-        // precisa ser materializado. As duas metades andam juntas — mexer numa sem a outra é o defeito.
+        // fosse materializado aqui também, `valorExigivel()` o contaria duas vezes e a linha nasceria
+        // devendo o honorário. Na avulsa é o contrário: ele NÃO está no valorOriginal e precisa ser
+        // materializado. As duas metades andam juntas — mexer numa sem a outra é o defeito.
+        // (Antes da spec `cobranca-honorario-no-total.md` quem contava duas vezes era o extinto
+        // `totalComHonorarios()`; a dupla contagem migrou de lugar, a regra é a mesma.)
         $obrigacao->liquidar(
             $receita->valorJurosCentavos,
             $receita->valorMultaCentavos,

@@ -243,6 +243,88 @@ Testes obrigatórios:
 6. Suíte completa verde na frente **e de novo no master depois do merge** — é o passo que todo mundo
    pula e que já salvou esta frente duas vezes.
 
+## 7.1 🔴 A varredura da INV-E2 — e a regra que decide o que NÃO se toca
+
+Revogar a INV-E2 deixou dezenas de comentários e rótulos afirmando o contrário do que o código passou a
+fazer. A varredura foi feita na 10ª rodada (decisão do dono em 20/08, contra a alternativa de deixar
+para depois: *"foi assim que a premissa falsa se espalhou por sete revisões — frase errada no código é
+copiada antes de ser corrigida"*).
+
+**A regra de decisão, e ela tem TRÊS casos, não dois:**
+
+| o que você achou | o que fazer |
+|---|---|
+| comentário que ficou **FALSO** — descreve comportamento que mudou | **corrigir** |
+| comentário **VERDADEIRO** sobre código que agora está **ERRADO** | ⛔ **NÃO TOCAR** |
+| comentário falso que **É o argumento de segurança** de um código que ficou inseguro | corrigir **e registrar o defeito aberto na mesma linha** — nunca só corrigir |
+
+🔑 **O segundo caso é o que uma sessão futura vai "limpar" sem entender.** Os lugares que somam o
+exigível à mão sem honorário estão errados no CÓDIGO; os comentários deles descrevem esse código com
+honestidade. Reescrevê-los para "ficar em dia com a spec" apagaria a única pista do defeito e deixaria
+o defeito.
+
+🔴 **O mapa dessas cópias estava ERRADO na 1ª versão desta seção, e a 10ª revisão o corrigiu.** Vale
+registrar o erro, porque ele é o próprio ponto da regra — classificar mal um comentário faz a varredura
+ou apagar a pista, ou proteger o que não precisa:
+
+| onde | o que é | caso |
+|---|---|---|
+| `EditarObrigacaoUseCase`, `$exigivelSeViva` | cópia à mão nº1 — **decide se dívida liquidada REABRE**. Era a de MAIOR consequência e a **única sem comentário nenhum** | ganhou pista na 10ª rodada (caso 3) |
+| `EditarObrigacaoUseCase`, `$novoExigivel` | cópia à mão nº2 — guard `ValorAbaixoDoAlocado` | ⛔ **caso 2 — não tocar** |
+| `ObrigacaoRepository`, `having` de `pagasMasNaoLiquidadas` | cópia nº3, em DQL | ⛔ **caso 2 — não tocar** |
+| `EditarObrigacaoUseCase`, payload do snapshot de auditoria | **código CERTO, comentário falso** — só registra o antes/depois | era caso 1: **corrigido** |
+
+⚠️ **Nunca ancore a lista por NÚMERO DE LINHA.** A 1ª versão do script fazia isso, e a 10ª revisão
+provou a armadilha: **uma** linha inserida acima desloca as âncoras, o script acusa os honestos como
+"falsos restantes" **e** como "sumidos", e a saída empurra a próxima sessão a apagar exatamente o que
+ele existe para preservar. Âncora por trecho do texto.
+
+⚠️ **`INV-E2` é HOMÔNIMO neste código.** Em `RelatorioImportado`, `RelatorioLinha` e
+`RelatorioTotalizador` ela significa *"não implementa `Auditavel` de propósito"* — nada a ver com
+honorário. Uma varredura cega por `INV-E2` corromperia esses três. Idem para "fora do saldo", que
+descreve legitimamente a obrigação excluída por acordo substituto vigente.
+
+**A prova da varredura é feita com DUAS listas, nunca uma:**
+
+    falsos restantes: zero
+    honestos sobre defeito aberto: 2, e estes SEGUEM — <arquivo:linha> cada
+
+Uma busca que termine só com "zero" está errada por construção: ela empurra para apagar justamente os
+que devem ficar.
+
+### 7.1.1 🔴 A REGRA QUE CUSTOU MAIS CARO: justificativa nova precisa citar a medição
+
+Na 10ª rodada eu troquei uma justificativa **falsa** por **outra falsa**. Escrevi que
+`BoletoImportavel::encargosCentavos()` exclui honorário *"porque alimenta `encargosReconhecidos`, a
+coluna-sombra"* — inventado: o único chamador em produção é o balde operacional "sem boleto", e a
+coluna-sombra é escrita a partir dos campos da ENTIDADE, nunca do boleto.
+
+🔑 **A frase inventada é PIOR que a original.** A original citava a INV-E2, e a varredura a
+encontrava. A inventada não citava nada — ficou **invisível para o instrumento**, e teria sobrevivido
+a todas as varreduras seguintes.
+
+> **REGRA DA CASA, decidida pelo dono em 21/08:** justificativa nova em comentário de dinheiro **tem de
+> citar a medição ou o invariante que a sustenta**. Sem isso, não entra. Vale para explicar por que um
+> número é o que é, por que um campo fica de fora, por que um guard existe.
+
+Corolário prático: se você não consegue nomear o que sustenta a frase, **o que falta não é redação, é
+medição** — e o certo é registrar a pendência com o nome dela (como ficou em
+`ImportarRelatorioCarteiraUseCase::centavosSemBoletoDoBoleto`), não escrever uma explicação plausível.
+
+### 7.1.2 Duas lições da 10ª revisão que viram padrão da casa
+
+**1. A cópia de maior consequência era a única sem pista.** O inventário das cópias da regra do
+exigível listava as que TINHAM comentário. A que decide se uma **dívida quitada REABRE**
+(`EditarObrigacaoUseCase`, `$exigivelSeViva`) não tinha comentário nenhum — e por isso não estava no
+mapa, não era protegida e não era encontrável. **Inventário feito a partir de comentários enxerga só o
+que já foi comentado**; o lugar sem pista é justamente o que ninguém vai achar.
+
+**2. Âncora por número de linha é armadilha, e o modo de falhar é o pior possível.** A 1ª versão do
+script ancorava os "honestos" por `arquivo:linha`. **Uma** linha inserida acima desloca tudo, e a saída
+passa a listar os honestos como *"falsos restantes"* **e** como *"sumidos"* — ou seja, ela **manda
+apagar exatamente o que o script existe para preservar**. Padrão: **âncora por trecho do texto**, e a
+prova é inserir uma linha acima e conferir que a âncora acompanha (foi feito: `147 → 148`, saída 0).
+
 ## 8. O que esta fatia NÃO faz
 
 - Não conserta o honorário zerado da parcela de acordo (**§3.4**) — população e mecanismo diferentes.
@@ -254,3 +336,341 @@ Testes obrigatórios:
 
 ⚠️ **O total na tela sobe ~R$ 126 mil.** O dono avisa a equipe de cobrança antes do deploy. Não é
 dinheiro novo: é dinheiro que a contabilidade já cobrava e o sistema não mostrava.
+
+⚠️ **E o prefill do botão "Receber" muda em dívida PARCIALMENTE PAGA.** Achado da 8ª revisão; o aviso
+acima não cobria isso. Na dívida intacta o número é o mesmo de antes; na parcialmente paga, não —
+o gross-up antigo multiplicava o RESTANTE (R$ 800 × 1,10 = R$ 880), e agora o honorário incide sobre a
+obrigação inteira (R$ 1.200 + R$ 120 − R$ 400 = **R$ 920**). O valor novo é o correto, mas **quem
+opera vai ver outro número no campo** e precisa saber antes. Guardado por `ObjetoShowControllerTest`.
+
+⚠️ **A régua `app:cobranca:espelho:encargos` mudou de forma.** A coluna "honorário" da lista da
+reconciliação saiu e os dois totais viraram um só ("juros + multa + correção + honorário"). Sem isso o
+relatório mostraria o número certo com o rótulo errado — e imprimia, em vermelho, *"o honorário NÃO
+entra no saldo exigível"*, que é a frase que esta spec derruba, no exato ponto em que o dono decide.
+
+### 9.1 ⚠️ Esta fatia toca um comando que NÃO era desta frente
+
+`app:cobranca:reconciliar-dupla-contagem` **já rodou em produção** (25 dívidas reconciliadas em 13/08).
+Ele não é escopo desta frente, mas consome a régua que ela mudou, e ficar com a definição velha faria a
+mesma regra de dinheiro ter duas definições — o defeito da §2. **É só texto e rótulo, nenhuma mudança
+de cálculo**, e nada muda no que ele grava em `juros`/`multa`/`correcao`/`honorarios`:
+
+- o evento no histórico do caso passa a trazer **um** valor ("saldo devido reduzido em R$ X") em vez de
+  dois; antes diria *"honorário reduzido em R$ 0,00 (o honorário não entra no saldo)"* num caso em que o
+  honorário caiu de verdade — número errado e motivo revogado, permanentes;
+- o payload do evento ganha `regraDoSaldo: 'honorario_incluido'`. **Existe porque a chave
+  `removidoDoSaldoCentavos` mudou de significado**: os eventos de agosto/2026 usam a regra antiga e não
+  trazem a marca. Sem ela, o mesmo nome de campo teria dois sentidos no mesmo histórico.
+
+📌 **Quem for integrar precisa saber disto**: o merge leva alteração num comando de outra frente.
+
+## 10. 🔴 O override que faltou em 135 parcelas de acordo
+
+Achado de 19/08, **medido em produção**. É o item que esta fatia fecha antes de qualquer outro: sem
+ele, a própria fatia transforma um defeito de exibição em cobrança a mais.
+
+⚠️ **Esta seção foi reescrita três vezes.** A §10.6 guarda os erros, porque são instrutivos.
+
+🔴 **AVISO DE PREMISSA — leia antes do resto (19/08, fim do dia).** Esta §10 afirmava, em vários
+pontos, que *"a contabilidade não cobra encargo em parcela de acordo — 0 de 8.671 linhas"*. **A
+afirmação é falsa e a fatia foi reduzida por causa disso.** O número é verdadeiro para o relatório de
+ACORDOS, que não tem coluna de encargo — mas a parcela **atrasada** migra para o relatório de
+INADIMPLÊNCIA, que tem as colunas, e lá ela cobra. Medido no lote de 17/08, três carteiras:
+**114 parcelas de acordo atrasadas, 338 linhas com honorário, R$ 6.601,57.**
+
+Consequência: **a parte prospectiva saiu da fatia** (§10.8). O que resta é a correção das 135, que
+segue válida. Onde o texto abaixo disser "ela não cobra encargo em parcela", leia com esta ressalva.
+
+### 10.1 O defeito
+
+O relatório de acordos da contabilidade **não tem coluna de encargo nenhuma**. Medido no espelho de
+17/08, nas três carteiras: de **8.671 linhas de parcela, ZERO** com juros, multa, honorário ou total.
+Ela publica só o **Valor acordado**. E as 135 não aparecem em relatório nenhum dela que tenha coluna
+de encargo — conferido contra a inadimplência de 17/08: **0 de 135**.
+
+O sistema já copia isso quase em toda parte. Das **2.041** parcelas de acordo em produção:
+
+| | override `taxa_honorarios_bp = 0` | honorário |
+|---|---|---:|
+| 1.906 parcelas | ✅ tem | R$ 0,00 nas 301 substituídas |
+| **135 parcelas** | ❌ **não tem** | **R$ 2.764,16** que ela não cobra |
+
+**Não é divergência de critério — é a mesma regra aplicada em 1.906 lugares e esquecida em 135.** O
+conserto é copiar ela (§1.1), não escolher uma regra melhor.
+
+### 10.2 Por onde entraram, e onde o guard vai
+
+As 135 nasceram em 07/08 como **contas originais reconstruídas** (`reconstruirContaOriginal`) —
+provado pela marca de procedência que só ela grava: 135/135 carregam
+*"Reconstruída da planilha de acordos"*. Nasceram corretas: conta original **não é parcela**.
+
+O defeito veio do **segundo passo**: o ramo `parcela-vinculada` de `completarParcelas`
+(`ImportarAcordosDetalhadosUseCase:~652`) as ligou ao acordo — e ligar **sem** aplicar o override é o
+que criou as 135.
+
+⚠️ **Não é o único vinculador.** Há outros dois (`ImportarRelatorioCarteiraUseCase:~246` e
+`ImportarReceitasUseCase::garantirVinculoAoAcordo`), tratados na §10.5. A 1ª redação desta seção dizia
+"é a única mutação que transforma obrigação em parcela" — falso, e é o mesmo tipo de absoluto que
+licenciou o erro da §10.6.
+
+🔑 **O guard vai onde a obrigação VIRA parcela**, junto do `setAcordoOrigem` — e **só quando o
+`valorOriginal` do sistema É o Valor acordado que ela declara** (`$divergencia === null`, já calculado
+ali). Não vai no criador da conta original: ver §10.3.
+
+### 10.3 ⛔ O que NÃO entra — e vale R$ 102.126,32
+
+A conta original reconstruída tem a mesma origem, a mesma marca e a mesma cara das 135. **Mas papel
+diferente:** é a dívida VELHA que o acordo engoliu, e nessa a carteira cobra honorário normalmente.
+
+| | quantas | honorário |
+|---|---:|---:|
+| parcela de acordo, com override | 1.906 | R$ 0,00 nas substituídas |
+| **parcela de acordo, sem override** | **135** | **R$ 2.764,16** ← o defeito |
+| dívida velha engolida (reconstruída) | 3.347 | R$ 102.126,32 ← **legítimo** |
+| dívida velha engolida (boleto real) | 126 | R$ 4.555,97 ← **legítimo** |
+
+**A régua é `acordoOrigem`, não a procedência.** A conta reconstruída nasce só com
+`acordoSubstituto`; a parcela tem `acordoOrigem`. É essa coluna que separa R$ 2.764,16 de conserto de
+R$ 102.126,32 de estrago.
+
+### 10.4 O tamanho, e onde ele NÃO está
+
+⚠️ **Nenhuma das 135 está no exigível.** Todas têm acordo substituto vigente, e
+`aplicarExigibilidade` exclui exatamente isso — rodado contra produção: **0 de 135**. Não há devedor
+sendo cobrado a mais hoje.
+
+O número muda na **tela de detalhe do acordo**: `MontarDetalheAcordoUseCase` lê
+`$acordo->getParcelas()` sem filtro de exigibilidade e as **hidrata ao vivo** (os 135 acordos de
+origem são todos vigentes: 48 `ativo` + 87 `cumprido`). Com o honorário dentro de `valorExigivel()`,
+a soma das parcelas sobe, e `quitada` (`alocado >= valor`) vira `false` em parcela **paga**.
+
+**Risco adormecido:** se um desses acordos substitutos for rompido, as 135 voltam ao exigível — e aí
+o honorário indevido vira dinheiro no saldo.
+
+### 10.4.1 ⛔ O guard PROSPECTIVO — REMOVIDO (histórico, ver §10.8)
+
+⚠️ **Esta subseção descreve algo que não está mais no código.** Fica como registro do teto que foi
+medido e da decisão que o dono chegou a tomar sobre ele — a remoção veio depois, por outro motivo
+(§10.8). O texto original segue abaixo.
+
+Tudo acima é sobre as 135 já gravadas, todas fora do exigível. O guard do vinculador (§10.5.1) é
+outra coisa: daqui para frente, sempre que a planilha de acordos declarar que um boleto EXISTENTE é
+parcela — e o valor bater —, aquele boleto **para de cobrar honorário**. E boleto avulso está
+**dentro** do saldo.
+
+**Teto medido em produção (19/08):**
+
+| carteira | avulsas com honorário, em caso que tem acordo | honorário |
+|---|---:|---:|
+| TOP LIFE I | 3.556 | R$ 122.196,37 |
+| TOP LIFE II | 78 | R$ 2.084,28 |
+| AMLI BR 060 | 48 | R$ 1.245,70 |
+| **total** | **3.682** | **R$ 125.526,35** |
+
+⚠️ **É TETO, não expectativa.** Só sai do saldo o que a planilha dela declarar como parcela com valor
+batendo — historicamente, **zero** (nenhuma avulsa vinculada existe em produção; as 135 são contas
+reconstruídas, fora do exigível). Mas o número é da mesma ordem do +R$ 126.878,17 que a fatia
+acrescenta, **em sentido contrário**, e por isso não pode ir para produção sem o dono ver.
+
+🔑 **Direção da regra:** é o espelho — ela não cobra encargo em parcela de acordo. Mas o tamanho
+potencial faz disto decisão, não conserto automático.
+
+✅ **DECIDIDO PELO DONO (19/08): VAI INTEIRO.** O guard prospectivo entra junto com a correção das
+135, com o teto de R$ 125.526,35 apresentado e aceito. O critério é o mesmo de sempre: a
+contabilidade não cobra encargo em parcela de acordo, e o sistema copia ela. **Não reabrir.**
+
+⚠️ O que isso obriga na hora do deploy: o dono avisa a equipe de cobrança que, além do total subir
+~R$ 126 mil pela fatia (§9), o honorário de um boleto **cai a zero** no dia em que a planilha dela o
+declarar parcela de acordo. As duas coisas são a mesma regra — o total dela — puxando para lados
+diferentes, e quem olha a tela precisa saber disso antes.
+
+### 10.5 O que esta fatia faz
+
+1. ⛔ **REMOVIDO em 19/08 — ver §10.8.** `completarParcelas` chegou a gravar o override junto do
+   `setAcordoOrigem`. A premissa que o autorizava caiu: parcela atrasada volta a cobrar honorário, e o
+   override é permanente. O vínculo entra **sozinho**, como sempre entrou.
+2. Comando `app:cobranca:reconciliar-honorario-parcela` corrige as 135 já gravadas — `bp = 0` **e**
+   `honorarios = 0`, preservando juros, multa e a data do snapshot (INV-H2/H3). Simula primeiro, e só
+   grava com `--aplicar` **mais `--ids` da lista que o humano aprovou** (§10.5.2).
+3. O comando ignora parcela **sem NN** — nasceu na tela, e ali a escolha é do usuário (§10.7). Zero
+   em produção hoje, mas o comando é re-executável e rodá-lo depois daquela fatia apagaria a escolha
+   de quem clicou.
+4. 🔴 **INV-H4 (8ª revisão): a linha pronta para colar só traz as de FORA do exigível.** O override é
+   permanente; numa dívida DENTRO do saldo ele desligaria para sempre um honorário que a contabilidade
+   volta a cobrar quando a parcela atrasa (§10.8). As de dentro saem em tabela separada, com aviso, e
+   entram só se o humano incluir o id à mão. Medido em produção em 20/08: **0 de 135** estão no
+   exigível — a separação existe para o dia em que não for assim. Decisão do dono em 20/08, sobre as
+   alternativas "travar na consulta" e "deixar 100% humano".
+5. Provas por reintrodução executadas nas guardas do CÓDIGO **que existem hoje**: a régua da população
+   (`acordoOrigem`), a cláusula do NN e o filtro de tenant. A lista aprovada (§10.5.2) e as travas de
+   CLI têm teste próprio (`ReconciliarHonorarioDeParcelaCommandTest`), no molde do comando irmão.
+   ⚠️ Uma redação anterior listava aqui também *"o override do vínculo"* e *"a condição do valor
+   (§10.5.1)"* — **essas duas guardas não existem mais** (removidas em `cc1892c1`), e a spec vendia
+   como prova executada algo cujo objeto foi apagado. Achado da 8ª revisão.
+
+### 10.5.1 ⛔ Por que o guard era CONDICIONADO ao valor bater — HISTÓRICO
+
+⚠️ **O guard descrito aqui foi REMOVIDO em 19/08 (§10.8).** A subseção fica porque o raciocínio sobre
+os DOIS significados de `taxa_honorarios_bp` continua valendo e é o que a fatia própria terá de
+resolver. O texto original segue.
+
+`taxa_honorarios_bp = 0` carrega **dois** significados, e essa é a armadilha desta fatia:
+
+1. override de encargo — "não cobre honorário nesta obrigação";
+2. em `ImportarReceitasUseCase:~256`, o sinal `$honorarioEmbutidoNoValorOriginal`, que manda alocar o
+   recebimento **BRUTO** em vez do líquido.
+
+Gravá-lo cegamente ao vincular reintroduziria, por outra porta, um defeito que aquele UseCase já
+cometeu e reverteu: uma obrigação nascida avulsa tem `valorOriginal = principalCentavos` (honorário
+**fora**), e alocar o bruto contra ela abateria do saldo um honorário que não está lá.
+
+**A condição `$divergencia === null` faz a vinculada terminar IDÊNTICA à parcela criada.** Com o
+`valorOriginal` igual ao Valor acordado declarado, o par `(valorOriginal, taxaHonorariosBp)` da
+obrigação vinculada passa a ser exatamente o que `parcelaInput` grava numa parcela que nasce aqui —
+as mesmas 1.906 que já existem. A fatia não introduz assimetria de alocação: iguala a vinculada às
+que já estão lá. Divergindo, nada é tocado, e a divergência já sai no relatório para o humano.
+
+⚠️ **O que esta condição NÃO prova:** que o honorário esteja embutido naquele valor. Igualdade de
+dois números não diz nada sobre a composição de nenhum deles, e o relatório de acordos não tem coluna
+de encargo (§10.1) — não há de onde tirar essa prova. Uma redação anterior desta subseção afirmava
+que sim, e a §10.6 a derruba: das 3.482 reconstruídas, só 27 têm linha `1.15` dentro.
+
+⚠️ **A 1ª redação usava outra prova, e ela era tautológica:** *"o valorOriginal das 135 bate com a
+soma da coluna Valor do NN, 135/135"*. Para a conta reconstruída isso não prova nada — o adapter
+**constrói** o valor como essa soma. A prova que vale é a que a §10.6 traz: das 3.482 reconstruídas,
+só 27 têm linha `1.15` dentro. Por isso o argumento do honorário embutido saiu daqui: quem autoriza o
+override é o **papel** (é parcela) mais a **igualdade com o valor declarado**, não a composição.
+
+⏳ **PENDÊNCIA NOMEADA (não "medido como zero"):** os outros dois vinculadores
+(`ImportarRelatorioCarteiraUseCase:~246`, `ImportarReceitasUseCase::garantirVinculoAoAcordo`)
+produziram **0 linhas erradas** em produção. Medido: das 2.041 parcelas de acordo, 1.906 têm o
+override e 135 não — e as 135 carregam, todas, a marca da conta reconstruída. **Nenhuma parcela sem
+override existe fora desse conjunto.**
+
+⚠️ Não é possível contar "quantas nasceram por `parcelaInput`": `ParcelaAcordoImportavel` registra que
+a parcela criada ali fica **indistinguível** da criada por `ImportarRelatorioCarteiraUseCase`. A
+medição que sustenta a conclusão é a de cima, que não depende dessa separação.
+
+🔴 **Medição do passado não é garantia de comportamento futuro** — é exatamente o raciocínio que
+produziu as 135. Por isso estes dois entram como **pendência aberta**, não como item fechado: eles
+continuam podendo criar parcela sem override, e o conserto certo passa por separar de vez os dois
+significados de `taxa_honorarios_bp`, que é tarefa de outra fatia.
+
+### 10.5.2 🔴 O comando não adivinha: LISTA APROVADA (INV-H0)
+
+O guard acima só grava o override com o valor batendo. **O comando não tem a planilha na mão** e não
+consegue reproduzir essa checagem — o Valor acordado que decide não está no banco no momento da
+correção.
+
+**Três réguas automáticas foram tentadas para contornar isso, e as três caíram em revisão:**
+
+| régua | por que caiu |
+|---|---|
+| procedência (nasceu de `reconstruirContaOriginal`) | atingia 3.482 quando o defeito são 135; apagaria R$ 102.126,32 |
+| papel (`acordoOrigem IS NOT NULL`) sozinho | grava `bp = 0` em avulsa vinculada → alocação BRUTA indevida |
+| marca na descrição como "filtro de segurança" | **medido: as 1.906 parcelas CERTAS não têm a marca**; e no dev 0 de 4 candidatas tinham — pularia justamente as que estão cobrando |
+
+🔑 **Então a varredura deixou de decidir.** Ela PROPÕE; quem escolhe é o humano, passando `--ids` com
+o que aprovou olhando a simulação. Candidata fora da lista é **pulada com motivo**; id aprovado que já
+não é candidato **aborta tudo** (`AprovacaoNaoConfereException`, dentro da transação).
+
+A simulação imprime a linha pronta para colar e diz o que conferir: a coluna **valor NO SISTEMA**
+contra o Valor acordado da planilha. Tirar uma linha da lista é como o humano recusa uma obrigação.
+
+⚠️ **O rótulo da coluna importa:** ela mostra o valor DO SISTEMA, que é justamente o número que quem
+confere vai procurar na planilha. Uma redação anterior a chamava de "valor da planilha", o que
+pré-respondia a pergunta.
+
+📌 **Registrado, não escondido:** o comando é a única peça que grava `taxa_honorarios_bp = 0` sem ter
+a planilha para conferir. É por isso que ele é o único que exige aprovação explícita.
+
+### 10.6 Os erros das versões anteriores, registrados de propósito
+
+A versão original desta §10 punha o guard em `reconstruirContaOriginal` e justificava assim: *"o
+adapter SOMA todas as linhas do NN, então o honorário já está dentro do valorOriginal"*.
+
+A soma é fato (`AcordosDetalhadosAdapter::montarContaOriginal`). **A conclusão não era.** Medido: das
+3.482 contas reconstruídas, apenas **27** têm linha `1.15 - Honorário advocatício` dentro do grupo. A
+justificativa cobria 0,8% da população que o conserto atingia.
+
+Dois erros, os dois pegos pela revisão e confirmados por medição:
+
+- **o número reportado estava 22× menor** — eu disse R$ 4.736,15 procurando com um filtro estreito;
+  o carimbo aparece em 3.482 obrigações, R$ 104.890,48;
+- **o conserto era largo demais** — atingiria 3.482 quando o defeito são 135.
+
+🔑 **A lição, que é a §1.1 de novo:** eu escolhi a régua pela PROCEDÊNCIA ("nasceu daquela rotina")
+quando a regra da contabilidade é sobre o PAPEL ("é parcela"). Régua derivada do código em vez de
+derivada do relatório dela erra em silêncio — e teria apagado R$ 102.126,32.
+
+🔴 **E a lição de segunda ordem, que custou mais duas revisões:** depois de trocar a régua, tentei
+duas vezes salvar a varredura automática com um proxy melhor. Nas duas o proxy vazava, porque o dado
+que decide — o Valor acordado declarado — **não existe no banco no momento da correção**. Quando o
+sistema não tem como saber, a saída não é um proxy mais esperto: é parar de decidir e devolver a
+escolha para quem tem a planilha na mão. É a §1.1 aplicada ao próprio comando.
+
+📌 **Achado menor, medido e registrado, sem virar pendência aberta:** 7 contas originais
+reconstruídas têm linha `1.15` dentro do valor e cobram honorário sobre honorário — **R$ 600,21**.
+É outro mecanismo (não tem a ver com parcela) e não bloqueia nada.
+
+### 10.7 O que fica FORA (fatia própria, decidida pelo dono em 19/08)
+
+`CriarAcordoUseCase` e `EditarAcordoUseCase` criam parcela sem override nenhum. **Decisão do dono: a
+escolha é do usuário, não do sistema** — a tela vai oferecer "cobrar honorário sobre as parcelas?",
+padrão **não cobrar**, e o campo fica **somente leitura** em acordo que veio da contabilidade (todos
+os 398 de hoje), para ninguém quebrar o espelho sem querer.
+
+Sai desta fatia porque exige **migration** (a escolha mora no acordo, para a parcela acrescentada
+depois nascer igual às irmãs) e porque **não muda número nenhum hoje**: medido em produção, das
+2.041 parcelas de acordo, **zero** nasceram na tela — todas têm NN da contabilidade.
+
+### 10.8 🔴 A PREMISSA CAIU — parcela atrasada VOLTA a cobrar encargo
+
+**Medido em 19/08, depois da 7ª revisão, a partir de uma observação do dono.** É o achado que reduziu
+esta fatia.
+
+**O que eu afirmava:** *"a contabilidade não cobra encargo em parcela de acordo"*, apoiado em: de
+8.671 linhas de parcela do relatório de acordos, ZERO têm coluna de juros, multa, honorário ou total.
+
+**Por que estava errado:** olhei **um** relatório e concluí sobre os dois. A parcela atrasada **sai**
+do relatório de acordos e **entra** no de inadimplência, que tem as colunas de encargo. Lá ela cobra.
+
+**A medição (lote de 17/08, três carteiras):**
+
+| | |
+|---|---:|
+| parcelas de acordo que aparecem na inadimplência | **114** |
+| atrasadas | 391 linhas |
+| com juros · com multa · **com honorário** | 389 · 389 · **338** |
+| honorário que **ela** cobra | **R$ 6.601,57** |
+| honorário que o **sistema** tem | R$ 5.878,65 |
+| **diferença — o espelho quebrado** | **R$ 722,92** |
+| parcelas mostrando R$ 0,00 onde ela cobra | **12** |
+
+**O mecanismo, e ele OSCILA.** Separando as 93 com honorário dela pela data do último cálculo:
+
+| | quantas | último cálculo |
+|---|---:|---|
+| sistema bate com ela | 81 | **18/08** — a última importação |
+| sistema mostra zero | 12 | **07/08** — não tocadas desde então |
+
+1. a importação grava o honorário **dela** → certo;
+2. entre lotes, a hidratação ao vivo passa e, como o override diz "não cobrar", **zera**;
+3. o lote seguinte restaura.
+
+Nenhuma das 12 está congelada ou liquidada — são dívidas vivas.
+
+🔑 **O defeito do override não é o valor: é a DURAÇÃO.** Ele nasce certo (no dia em que a parcela é
+criada o honorário está mesmo dentro do valor negociado — R$ 71.073,07 medidos assim) e não sabe se
+desligar quando a parcela atrasa. É permanente sobre um fato temporário.
+
+⚠️ **Isto é ANTERIOR a esta fatia** — o override existe desde julho em `parcelaInput` e
+`obrigacaoInput`. A fatia só ia estendê-lo a mais casos.
+
+**O que foi feito:** a parte prospectiva saiu (§10.5 item 1). A correção das 135 **fica** — são
+parcelas fora do exigível, e a correção só ajusta a ficha delas.
+
+📌 **Fatia própria, e a pergunta dela é a regra primordial:** *o sistema grava o encargo que ela
+informa, sempre, em vez de decidir sozinho quando cobrar.* Isso implica repensar o override
+`taxa_honorarios_bp = 0` inteiro — e provavelmente resolve junto os dois significados da coluna
+(§10.5.1), porque some a necessidade de adivinhar.

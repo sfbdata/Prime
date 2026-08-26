@@ -534,4 +534,58 @@ class ObrigacaoRepository extends ServiceEntityRepository
             ->getQuery()
             ->getResult();
     }
+
+    /**
+     * As PARCELAS DE ACORDO que ficaram sem o override de honorário — a população da correção da spec
+     * `cobranca-honorario-no-total.md` §10.
+     *
+     * 🔑 **A régua é o PAPEL da obrigação, não a procedência dela.** `acordoOrigem IS NOT NULL` é o que
+     * diz "isto é parcela"; a produção já trata 1.906 parcelas assim, com o override e honorário
+     * R$ 0,00.
+     *
+     * 🔴 **Esta consulta PROPÕE candidatas; ela não decide que todas devem ser corrigidas.** Uma
+     * redação anterior justificava o filtro com *"parcela de acordo não cobra honorário — 0 de 8.671
+     * linhas"*, e isso é FALSO como regra: vale para o relatório de ACORDOS, que não tem coluna de
+     * encargo nenhuma, mas a parcela ATRASADA migra para o de INADIMPLÊNCIA e lá a contabilidade cobra
+     * (114 parcelas, R$ 6.601,57 — spec §10.8). Por isso a decisão final é do humano (INV-H0) e a
+     * linha pronta para colar só traz as que estão fora do exigível (INV-H4).
+     *
+     * Medido em produção em 20/08: das 2.041 parcelas de acordo, **1.906 têm o override e 135 não**.
+     * As 135 nasceram todas em 07/08, do ramo `parcela-vinculada` de `ImportarAcordosDetalhadosUseCase`
+     * (que liga uma obrigação existente ao acordo sem aplicar o override). ⚠️ Esse ramo **não foi
+     * alterado** — o guard que chegou a existir ali foi revertido em `cc1892c1` (§10.8). Ele continua
+     * podendo produzir candidatas; medido, não produziu nenhuma em 5 importações desde 07/08.
+     *
+     * ⚠️ **A conta original RECONSTRUÍDA não entra aqui, e a distinção vale R$ 102.126,32.** Ela tem a
+     * mesma origem das 135 mas papel diferente: é a dívida VELHA que o acordo engoliu, não parcela — e
+     * nessa a carteira cobra honorário, como a produção faz em 3.473 delas. `acordoOrigem IS NOT NULL`
+     * é o que separa as duas: a reconstruída nasce só com `acordoSubstituto`.
+     *
+     * ⚠️ **Parcela sem NN fica de fora**: nasceu na tela, e lá a escolha é do usuário (§10.7).
+     *
+     * Devolve ENTIDADES managed: o chamador corrige e flusha na mesma unidade de trabalho.
+     * Tenant EXPLÍCITO — isto roda em console, onde o `TenantFilter` nunca liga.
+     *
+     * @return list<Obrigacao>
+     */
+    public function parcelasDeAcordoSemOverrideDeHonorario(Carteira $carteira, Tenant $tenant): array
+    {
+        return $this->createQueryBuilder('o')
+            ->join('o.caso', 'c')
+            ->join('c.objeto', 'obj')
+            ->andWhere('obj.carteira = :carteira')
+            ->andWhere('o.tenant = :tenant')
+            ->andWhere('o.acordoOrigem IS NOT NULL')
+            ->andWhere('o.taxaHonorariosBp IS NULL')
+            // Só o que veio da CONTABILIDADE: parcela sem NN nasceu na tela, e ali a escolha de cobrar
+            // honorário é do usuário (spec §10.7, decisão do dono em 19/08). Este comando não é
+            // one-shot — sem esta cláusula, rodá-lo depois daquela fatia apagaria a escolha de quem
+            // clicou, em silêncio. Hoje são ZERO em produção: das 2.041 parcelas, todas têm NN.
+            ->andWhere('o.referenciaExterna IS NOT NULL')
+            ->setParameter('carteira', $carteira)
+            ->setParameter('tenant', $tenant)
+            ->orderBy('o.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
 }

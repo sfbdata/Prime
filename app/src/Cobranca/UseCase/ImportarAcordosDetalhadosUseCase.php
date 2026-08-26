@@ -74,6 +74,22 @@ use Doctrine\ORM\EntityManagerInterface;
 final class ImportarAcordosDetalhadosUseCase
 {
     /**
+     * A marca de procedência da conta original RECONSTRUÍDA (§3.2.1), gravada na descrição porque a
+     * `Obrigacao` não tem campo de observação. É o único sinal que distingue a conta reconstruída a
+     * partir da planilha do boleto importado de verdade.
+     *
+     * ⚠️ **Não é durável:** `EditarObrigacaoUseCase` reescreve a descrição, então a marca some se
+     * alguém editar a dívida pela tela. Serve para LER a procedência, nunca para decidir dinheiro.
+     *
+     * ⚠️ **Não é régua de dinheiro, e já foi usada como uma DUAS vezes.** A 1ª versão da fatia do
+     * honorário selecionou por esta marca a população de uma correção — teria zerado R$ 102.126,32 de
+     * honorário legítimo, porque a marca diz de ONDE a obrigação veio, não o QUE ela é. A 4ª versão a
+     * usou como "filtro de segurança" e caiu de novo: medido, as 1.906 parcelas CERTAS em produção
+     * **não têm a marca**. Ver `cobranca-honorario-no-total.md` §10.6.
+     */
+    public const MARCA_RECONSTRUIDA = 'Reconstruída da planilha de acordos';
+
+    /**
      * Situações da fonte que o domínio sabe traduzir (§3). Comparadas em minúsculas e sem acento.
      *
      * As três strings foram MEDIDAS nos arquivos reais de 04/08 (`Situação: …` da primeira aba), não
@@ -639,6 +655,30 @@ final class ImportarAcordosDetalhadosUseCase
                     $tocadas->registrarMutada($existente, $caso, $parcela->nn, $parcela->competencia, 'parcela-vinculada', $acordo, $existente->getValorOriginal());
                     if ($usuario !== null) {
                         $existente->setAcordoOrigem($acordo);
+                        // ⚠️ O VÍNCULO entra sozinho: NÃO se grava override de honorário aqui.
+                        //
+                        // Uma versão desta fatia gravava `taxaHonorariosBp = 0` junto, com o argumento
+                        // de que "a contabilidade não cobra encargo em parcela de acordo — 0 de 8.671
+                        // linhas do relatório de acordos". **O argumento estava errado, e a medição de
+                        // 19/08 o derrubou:** a parcela ATRASADA sai do relatório de acordos e entra no
+                        // de INADIMPLÊNCIA, que tem as colunas de encargo — e lá ela cobra. Medido nas
+                        // três carteiras, no lote de 17/08: **114 parcelas de acordo atrasadas, 338
+                        // linhas com honorário, R$ 6.601,57**.
+                        //
+                        // 🔑 O defeito do override aqui não é o valor: é a DURAÇÃO. Ele é permanente e o
+                        // fato que descreve é temporário — o honorário está dentro do valor negociado no
+                        // dia em que a parcela nasce, e volta a ser cobrado por fora no dia em que ela
+                        // atrasa. Gravá-lo ao vincular põe o sistema para discordar do dado que a
+                        // própria contabilidade mandou (§1.1).
+                        //
+                        // O efeito já é visível em produção, e é anterior a esta fatia: das 93 parcelas
+                        // em que ela cobra honorário, **12 mostram R$ 0,00** — são as que o cálculo ao
+                        // vivo zerou em 07/08 e nenhuma importação restaurou desde então (R$ 722,92). O
+                        // número OSCILA: certo no dia do lote, zerado no vão entre lotes.
+                        //
+                        // Isto é fatia própria, e a pergunta dela é a regra primordial: o sistema grava
+                        // o encargo que ela informa, sempre — em vez de decidir sozinho quando cobrar.
+                        // Ver `cobranca-honorario-no-total.md` §10.8.
                         $this->obrigacaoRepository->salvar($existente, true);
                     }
                 } elseif ($origem->getId() !== $acordo->getId()) {
@@ -1049,7 +1089,7 @@ final class ImportarAcordosDetalhadosUseCase
         ConfigEncargos $configCaso,
     ): void {
         $procedencia = sprintf(
-            'Reconstruída da planilha de acordos (emissão %s)',
+            self::MARCA_RECONSTRUIDA . ' (emissão %s)',
             $aba->emissao?->format('d/m/Y') ?? 'sem data',
         );
 
@@ -1060,6 +1100,28 @@ final class ImportarAcordosDetalhadosUseCase
         $input->vencimentoOriginal = $conta->vencimento;
         $input->referenciaExterna = $conta->nn;
         $input->competencia = $conta->competencia;
+        // ⚠️ SEM override de honorário aqui, e isso é DELIBERADO (spec §10, corrigido em 19/08).
+        //
+        // A primeira versão desta fatia punha `honorariosBp = 0` nesta linha, com o argumento de que
+        // `montarContaOriginal` SOMA todas as linhas do NN e o honorário já estaria dentro. A medição
+        // em produção derrubou o argumento: das 3.482 contas reconstruídas, só **27** têm linha
+        // `1.15 - Honorário advocatício` dentro do grupo. Nas outras 3.455 o honorário está FORA do
+        // valor, e zerá-lo apagaria R$ 102.126,32 de honorário que a carteira cobra legitimamente.
+        //
+        // 🔑 A conta reconstruída NÃO é parcela de acordo — é a dívida VELHA que o acordo engoliu, e
+        // nessa a carteira cobra honorário normalmente. A produção já segue essa regra em 3.473
+        // dívidas velhas.
+        //
+        // ⛔ **E o guard também NÃO vai em `completarParcelas`** — esta frase estava aqui e mandava o
+        // contrário do que a linha ~658 daquele método diz hoje. O guard chegou a existir lá e foi
+        // REVERTIDO em `cc1892c1`, porque a premissa que o autorizava caiu: parcela de acordo atrasada
+        // migra para o relatório de inadimplência e lá a contabilidade **cobra** encargo (spec §10.8).
+        // ⚠️ Nenhum importador grava o override ao VINCULAR uma obrigação que já existe. Não confunda
+        // com a parcela CRIADA aqui (`parcelaInput`, ~290 linhas abaixo), que grava `honorariosBp = 0`
+        // desde julho — como fazem `ImportarReceitasUseCase` e `ImportarRelatorioCarteiraUseCase`. É
+        // esse override de nascença que a §10.8 identificou como defeito de DURAÇÃO, e ele é assunto da
+        // fatia própria, não desta. Quem tira honorário de parcela já gravada é o comando
+        // `app:cobranca:reconciliar-honorario-parcela`, com lista informada por humano.
 
         $nova = $this->registrarObrigacao->executar($input, $tenant, $usuario);
 

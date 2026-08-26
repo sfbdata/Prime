@@ -71,7 +71,9 @@ final class EncargosVivos
             $dataReferencia,
         );
 
-        return $obrigacao->getValorOriginal() + $e['juros'] + $e['multa'] + $e['correcao'];
+        // Regra ÚNICA do exigível (`Obrigacao::exigivelDe`) — aqui havia uma segunda cópia da soma, e
+        // era por ela que o `AutoAlocadorFifo` enxergava a dívida. Ver a spec do honorário §2.
+        return Obrigacao::exigivelDe($obrigacao->getValorOriginal(), $e['juros'], $e['multa'], $e['correcao'], $e['honorarios']);
     }
 
     /**

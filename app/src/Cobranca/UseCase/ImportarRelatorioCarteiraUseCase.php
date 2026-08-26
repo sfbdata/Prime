@@ -47,8 +47,9 @@ use Doctrine\ORM\EntityManagerInterface;
  * Encargos entram SEPARADOS (juros/multa/correção) e a obrigação nasce VIVA (ao vivo, sem congelar) —
  * ver `materializarEncargosImportados()`: o snapshot do relatório é só o valor INICIAL/cache, e a leitura
  * recalcula (vencimento → hoje × taxa), reproduzindo os números da contabilidade ao centavo quando a
- * carteira está configurada (spec §2/§9-revisado). Honorários do relatório passam a ser persistidos,
- * fora do valor exigível (§4.2/INV-E2). NUNCA cruza tenants.
+ * carteira está configurada (spec §2/§9-revisado). Honorários do relatório passam a ser persistidos
+ * (§4.2) e ENTRAM no valor exigível desde a spec `cobranca-honorario-no-total.md` (INV-E2 revogada).
+ * NUNCA cruza tenants.
  *
  * Linhas de acordo (spec `cobranca-importar-linhas-acordo.md` §3.2, tarefa #7-B): quando o adapter
  * reconhece "Acordo N - Parc. p/t" na coluna do relatório (`BoletoImportavel::$acordo`), o NN vira uma
@@ -270,8 +271,9 @@ final class ImportarRelatorioCarteiraUseCase
      * obrigação (cache). Encargos AO VIVO (D6): NÃO congela mais — a obrigação nasce VIVA e a leitura
      * recalcula (vencimento → hoje × taxa). A fórmula reproduz ao centavo os números da contabilidade
      * (spec §2), então, com a carteira configurada, o vivo bate com o importado; sem isso, os valores
-     * importados servem de partida até a primeira hidratação. Honorários são persistidos (§4.2): NÃO
-     * afetam o saldo (`valorExigivel()` = valorOriginal + juros + multa + correção, INV-E2).
+     * importados servem de partida até a primeira hidratação. Honorários são persistidos (§4.2) e
+     * AFETAM o saldo: desde a spec `cobranca-honorario-no-total.md` o `valorExigivel()` é
+     * `valorOriginal + juros + multa + correção + honorários` (INV-E2 revogada).
      *
      * 🔑 **O RAMO É OBRIGATÓRIO — sem ele o mesmo dinheiro entra duas vezes** (spec
      * `cobranca-parcela-de-acordo-so-encargos.md` §5, defeito 2; INV-E5 no `BoletoImportavel`).
@@ -479,15 +481,16 @@ final class ImportarRelatorioCarteiraUseCase
     }
 
     /**
-     * O relatório traz vencimento diferente do que está gravado? Acontece quando a contábil REEMITE o
-     * boleto para o devedor conseguir pagar: mesmo NN, mesma competência, data nova. É a mesma dívida
-     * (por isso não duplica), mas o operador precisa ver — os encargos passam a correr de uma data que
-     * não é a do documento em mãos.
-     */
-    /**
      * Quanto de DÍVIDA (principal + juros + multa + correção) o boleto acrescenta ao balde "sem
-     * boleto" — zero quando ele tem Nosso Número de verdade. Honorário fica de fora por INV-E2: não é
-     * dívida do credor, e somá-lo aqui inflaria o número que o operador usa para decidir cobrança.
+     * boleto" — zero quando ele tem Nosso Número de verdade.
+     *
+     * ⏳ **PENDÊNCIA NOMEADA, não decidida aqui.** O honorário fica de fora desta soma, e a
+     * justificativa escrita era a INV-E2 ("não é dívida do credor"), que a spec
+     * `cobranca-honorario-no-total.md` REVOGOU. O número não foi mudado junto: este balde é um
+     * indicador operacional ("quanto há sem boleto emitido"), não o exigível, e trocá-lo seria decidir
+     * por conta própria quanto o operador deve ver — exatamente o que a §1.1 proíbe. Fica registrado
+     * para a fatia da varredura, com o defeito visível em vez de escondido atrás de um comentário
+     * atualizado.
      */
     private function centavosSemBoletoDoBoleto(BoletoImportavel $boleto): int
     {
@@ -498,6 +501,15 @@ final class ImportarRelatorioCarteiraUseCase
         return $boleto->principalCentavos + $boleto->encargosCentavos();
     }
 
+    /**
+     * O relatório traz vencimento diferente do que está gravado? Acontece quando a contábil REEMITE o
+     * boleto para o devedor conseguir pagar: mesmo NN, mesma competência, data nova. É a mesma dívida
+     * (por isso não duplica), mas o operador precisa ver — os encargos passam a correr de uma data que
+     * não é a do documento em mãos.
+     *
+     * 📌 Este docblock estava DESLOCADO: vivia colado em `centavosSemBoletoDoBoleto`, empilhado sobre o
+     * docblock de lá, onde o PHP o ignorava. Devolvido ao método que ele descreve.
+     */
     private function vencimentoMudou(Obrigacao $obrigacao, BoletoImportavel $boleto): bool
     {
         return $obrigacao->getVencimentoOriginal()->format('Y-m-d') !== $boleto->vencimento->format('Y-m-d');

@@ -176,8 +176,14 @@ final class MontarDashboardCobrancaUseCase
             }
 
             // Honorários realizados no período, conforme a forma EFETIVA da carteira/objeto do caso
-            // (§18; #9-T2 — não mais o snapshot do caso; `CalculadoraHonorarios::forma` é a MESMA
-            // fonte que o split de pagamento usa, para as duas nunca divergirem).
+            // (§18; #9-T2 — não mais o snapshot do caso).
+            //
+            // ⚠️ INTOCADO pela spec `cobranca-honorario-no-total.md`, de propósito. A decisão A aposenta
+            // o RATEIO DO PAGAMENTO e a PROJEÇÃO sobre o saldo (que passou a contar o honorário duas
+            // vezes). A apuração do realizado por forma não é nenhum dos dois: em `acrescido_divida`
+            // — a forma das três carteiras reais — ela já lê o `valorHonorarios` DECLARADO pela
+            // contabilidade, que é exatamente o que o espelho pede. Mexer no ramo `retido_recuperado`
+            // seria mudar comportamento fora do que foi decidido.
             if ($this->calculadoraHonorarios->forma($caso) === FormaHonorarios::AcrescidoDivida) {
                 $honorariosRealizadosNoPeriodo += $honorariosPagamentoPeriodo;
             } else {
@@ -198,7 +204,19 @@ final class MontarDashboardCobrancaUseCase
 
             $saldoEmAberto += $saldoExigivelCaso;
             $saldoVencido += $saldos['vencido'];
-            $honorariosProjetados += $this->calculadoraHonorarios->projetados($caso, $saldoExigivelCaso);
+            // Honorários PROJETADOS: a Σ do honorário JÁ MATERIALIZADO nas dívidas em aberto — o mesmo
+            // número que a contabilidade traz na coluna de honorários da inadimplência.
+            //
+            // Era `projetados($caso, $saldoExigivelCaso)`, uma alíquota lisa sobre o saldo. Duas razões
+            // para sair (spec §4.3): (1) o saldo agora JÁ contém honorário, então a alíquota o contaria
+            // duas vezes; (2) medido contra o rodapé dela, a alíquota lisa erra R$ 46.747,38 (37% a
+            // mais) porque ignora a carência de 30 dias e as parcelas de acordo — o honorário gravado
+            // erra R$ 515,32 (0,4%).
+            foreach ($exigiveis as $obrigacaoEmAberto) {
+                if (!$obrigacaoEmAberto->estaLiquidada()) {
+                    $honorariosProjetados += $obrigacaoEmAberto->getHonorarios();
+                }
+            }
 
             ++$casosAtivos;
 

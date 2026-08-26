@@ -143,8 +143,16 @@ final class ReconciliarDuplaContagemTest extends KernelTestCase
         self::assertNotSame(8000, $obrigacao->getHonorarios(), 'a subtração daria 8000 e perderia a coluna L da 1.15');
 
         // E o efeito reportado é o REAL (125,45 → 90,00 = 35,45), não o "duplicado" da régua (45,45).
-        self::assertSame(3545, $r->removidoForaDoSaldoEmCentavos());
-        self::assertSame(0, $r->removidoDoSaldoEmCentavos(), 'honorário não move o saldo de ninguém');
+        // 🔑 É ESTE o invariante do teste (INV-CE9), e ele não mudou: 3545, nunca 4545.
+        //
+        // 🔴 O que mudou foi o BALDE. Até a spec `cobranca-honorario-no-total.md` os R$ 35,45 saíam em
+        // `removidoForaDoSaldo`, com a asserção "honorário não move o saldo de ninguém" — verdade sob a
+        // INV-E2, que aquela spec REVOGOU. Hoje o honorário está dentro do `valorExigivel()`, então
+        // este dinheiro sai DO SALDO. Trocar só o número e manter a mensagem antiga teria deixado no
+        // teste uma afirmação que o código já contradiz.
+        self::assertSame(3545, $r->removidoDoSaldoEmCentavos(), 'o honorário retirado SAI do saldo');
+        self::assertSame(0, $r->removidoForaDoSaldoEmCentavos(), 'não há mais nada fora do saldo');
+        self::assertNotSame(4545, $r->removidoDoSaldoEmCentavos(), 'o "duplicado" da régua não é o efeito');
     }
 
     #[TestDox('🔴 campo NÃO marcado não se move — nem quando difere da coluna do relatório')]

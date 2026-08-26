@@ -170,7 +170,7 @@ final class CasoDetalheOutput
          * Σ do que ENTROU nas obrigações avulsas já quitadas (Σ `alocado`), em centavos — o número do
          * cabeçalho da seção "Já pago".
          *
-         * ⚠️ É o RECEBIDO, não o `totalComHonorarios` das linhas: a seção responde "quanto este devedor
+         * ⚠️ É o RECEBIDO, não o `valorAtual` das linhas: a seção responde "quanto este devedor
          * já pagou", e é este número que tem de bater com a coluna `Valor recebido` da planilha da
          * contabilidade (spec §8). Somar o total das linhas responderia outra pergunta — quanto foi
          * COBRADO —, e numa obrigação super-alocada os dois divergem.
