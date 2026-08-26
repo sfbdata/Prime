@@ -15,6 +15,8 @@
             <div class="col-sm-6">
                 <h1 class="m-0">
                     <i class="bi bi-folder2-open me-2"></i>{{ pasta.nup }}
+                    {# Copiar seguiu o NUP: era a unica funcao que a aba Dados tinha e o <h1> nao. #}
+                    <i class="bi bi-copy text-primary copy-btn copy-btn--titulo" role="button" data-copy="{{ pasta.nup }}" title="Copiar"></i>
                 </h1>
             </div>
             <div class="col-sm-6">
@@ -360,10 +362,6 @@
                                 <h5 class="mb-3"><i class="bi bi-info-circle me-1"></i> Informações Gerais</h5>
                                 <div class="row mb-4 g-3">
                                     <div class="col-12 col-sm-6 col-lg-4">
-                                        <p class="text-sm text-muted mb-1"><abbr title="Número Único de Pasta">NUP</abbr></p>
-                                        <b>{{ pasta.nup }} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ pasta.nup }}" title="Copiar"></i></b>
-                                    </div>
-                                    <div class="col-12 col-sm-6 col-lg-4">
                                         <p class="text-sm text-muted mb-1">Processo Vinculado</p>
                                         <b>
                                             {% if pasta.processoPrincipal %}
@@ -376,10 +374,6 @@
                                                 <span class="text-muted">—</span>
                                             {% endif %}
                                         </b>
-                                    </div>
-                                    <div class="col-12 col-sm-6 col-lg-4">
-                                        <p class="text-sm text-muted mb-1">Data de Abertura</p>
-                                        <b>{{ pasta.dataAbertura|date('d/m/Y') }} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ pasta.dataAbertura|date('d/m/Y') }}" title="Copiar"></i></b>
                                     </div>
                                     <div class="col-12 col-sm-6 col-lg-4">
                                         <p class="text-sm text-muted mb-1">Responsável</p>
@@ -748,31 +742,24 @@
                             {# Tab: Detalhes #}
                             <div class="tab-pane fade" id="detalhes" role="tabpanel" aria-labelledby="detalhes-tab">
                                 <div class="row">
-                                    <div class="col-md-3">
+                                    <div class="col-md-4">
                                         <div class="text-muted">
                                             <p class="text-sm mb-2"><i class="bi bi-calendar-plus me-2"></i> Criado em
                                                 <b class="d-block">{{ pasta.criadoEm|date('d/m/Y H:i') }}</b>
                                             </p>
                                         </div>
                                     </div>
-                                    <div class="col-md-3">
+                                    <div class="col-md-4">
                                         <div class="text-muted">
                                             <p class="text-sm mb-2"><i class="bi bi-calendar-check me-2"></i> Modificado em
                                                 <b class="d-block">{% if pasta.modificadoEm %}{{ pasta.modificadoEm|date('d/m/Y H:i') }}{% else %}-{% endif %}</b>
                                             </p>
                                         </div>
                                     </div>
-                                    <div class="col-md-3">
+                                    <div class="col-md-4">
                                         <div class="text-muted">
                                             <p class="text-sm mb-2"><i class="bi bi-person-check me-2"></i> Criado por
                                                 <b class="d-block">{% if pasta.criadoPor %}{{ pasta.criadoPor.fullName }}{% else %}-{% endif %}</b>
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <div class="text-muted">
-                                            <p class="text-sm mb-2"><i class="bi bi-person-badge me-2"></i> Responsável
-                                                <b class="d-block">{{ pasta.responsavel ? pasta.responsavel.fullName : '—' }}</b>
                                             </p>
                                         </div>
                                     </div>
@@ -2797,6 +2784,11 @@
 }
 .copy-btn.copied {
     color: #198754 !important;
+}
+/* No <h1> o .85em relativo daria um icone gigante; fixa no corpo do texto. */
+.copy-btn--titulo {
+    font-size: 1rem;
+    vertical-align: middle;
 }
 .vinculo-link {
     transition: background-color 0.2s;
