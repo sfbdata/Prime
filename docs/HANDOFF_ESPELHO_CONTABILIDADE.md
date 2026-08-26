@@ -280,6 +280,9 @@ O rodapé dos relatórios dela está no espelho: `cobranca_relatorio_totalizador
 | **Inventário por `grep` de método erra a conta** | a spec do honorário mapeou "as três cópias da regra do exigível" grepando `->valorExigivel()`. Havia **cinco**: duas escrevem a soma à mão (`EditarObrigacaoUseCase`) e uma está em DQL. Cópia de regra de dinheiro se esconde de grep de método — procure também pela SOMA (`valorOriginal + juros + multa`) |
 | **Trocar o número de um teste pode matar o invariante que ele guardava** | em 19/08 a asserção `assertSame(0, valorExigivel(), 'a alocação que a acompanha vale R$ 0,00')` virou `assertSame(5000, ...)` e a menção à alocação sumiu — junto com a única guarda de que exigível == alocado na criada-já-paga. **Leia o que a mensagem da asserção protege antes de mexer no número** |
 | **A prova precisa ser provada** | **três vezes** uma correção entrou declarada como "provada por reintrodução" sem estar. Apague a correção, veja vermelho, restaure, veja verde — e diga qual teste morreu |
+| 🔴 **Justificativa inventada é PIOR que a errada** | na 10ª rodada troquei uma justificativa falsa (que citava a INV-E2) por outra falsa (que citava a coluna-sombra, e era invenção). A original a varredura **encontrava**; a inventada ficou **invisível para o instrumento** e teria sobrevivido a todas as varreduras seguintes. **Regra: justificativa nova em comentário de dinheiro cita a medição ou o invariante que a sustenta, senão não entra.** Se você não consegue nomear o que a sustenta, o que falta é medição, não redação — registre a pendência com nome |
+| 🔴 **Inventário por comentário não vê o lugar sem comentário** | as cópias da regra do exigível foram mapeadas a partir dos comentários que existiam. A de MAIOR consequência — a que decide se uma **dívida quitada REABRE** (`EditarObrigacaoUseCase`, `$exigivelSeViva`) — **não tinha comentário nenhum**, e por isso não estava no mapa, não era protegida e não era encontrável. O lugar sem pista é justamente o que ninguém acha |
+| 🔴 **Âncora por número de linha manda apagar o que protege** | um script guardava 3 comentários por `arquivo:linha`. **Uma** linha inserida acima desloca tudo, e a saída passa a listá-los como "falsos restantes" **e** como "sumidos" — empurrando a próxima sessão a apagar exatamente o que ele existe para preservar. **Âncore por trecho do texto**, e prove inserindo uma linha acima para ver a âncora acompanhar |
 
 ## 7. 🔴 ONDE PARAMOS (19/08) — as duas revisões, e o que fazer primeiro
 
@@ -288,7 +291,7 @@ ao master. As worktrees estão limpas e commitadas; não há trabalho solto.
 
 | frente | topo | suíte | veredito |
 |---|---|---|---|
-| `cobranca-honorario-no-total` | 12 commits | 3895/3895 | 🟠 §7.1 reduzida na 7ª; 8ª e 9ª revisões feitas e corrigidas (INV-H4, texto do histórico, varredura da INV-E2); ⏳ **10ª revisão** → integrar |
+| `cobranca-honorario-no-total` | 15 commits | 3896/3896 | 🟢 §7.1 reduzida na 7ª; revisões **8, 9 e 10** feitas e corrigidas; ⏳ **11ª (estreita e FINAL)** → integrar. Regra de parada fixada pelo dono: achado de comentário integra assim mesmo; achado no tooltip/teste/dinheiro conserta e integra; **não há 12ª** |
 | `cobranca-reconciliar-data-acordo` | `6995bb99` | 3901/3901 | ⛔ 2 achados ALTO |
 
 ### 7.1 🟠 As 135 parcelas — CORREÇÃO pronta, parte prospectiva REMOVIDA
