@@ -152,13 +152,54 @@ final class PastaShowChipResponsavelTest extends JusPrimeWebTestCase
         self::assertCount(
             0,
             $menu->filter('script'),
-            'nada além das opções pode cair dentro do menu; script aqui significa <div> não fechada'
+            'nada além da busca e das opções pode cair dentro do menu; script aqui significa <div> não fechada'
         );
         self::assertCount(
-            3,
+            2,
             $menu->children(),
-            'o menu tem exatamente as opções como filhos diretos, nada mais'
+            'o menu tem dois filhos diretos: a caixa de busca e a lista — nada mais'
         );
+    }
+
+    #[TestDox('o menu traz o campo de busca fixo no topo e a lista rolável embaixo dele')]
+    public function testMenuTemCampoDeBuscaEListaSeparada(): void
+    {
+        $client                          = static::createClient();
+        [$admin, $tenant, $pasta, $_col] = $this->criarCenario();
+
+        $this->logarComTenant($client, $admin, $tenant);
+
+        $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
+        self::assertResponseIsSuccessful();
+
+        $menu = $crawler->filter('#pastaRespMenu');
+        self::assertCount(1, $menu);
+
+        $busca = $menu->filter('.pasta-resp-busca');
+        self::assertCount(1, $busca, 'o menu tem de ter o campo de filtrar nomes');
+        self::assertSame('off', $busca->attr('autocomplete'), 'o navegador não pode sugerir nada aqui');
+
+        // A busca fica FORA da lista: é ela que rola, não o campo — senão o campo
+        // sobe e some assim que o usuário rola os nomes.
+        self::assertCount(
+            0,
+            $menu->filter('.pasta-resp-lista .pasta-resp-busca'),
+            'o campo de busca não pode estar dentro da área que rola'
+        );
+
+        $lista = $menu->filter('.pasta-resp-lista');
+        self::assertCount(1, $lista, 'as opções moram numa lista própria');
+        self::assertCount(
+            3,
+            $lista->filter('.pasta-resp-opcao'),
+            'todas as opções ficam dentro da lista, para o filtro ter onde mexer'
+        );
+
+        // Sem isto, filtrar até não sobrar ninguém deixa um retângulo vazio com
+        // cara de tela quebrada.
+        $vazio = $menu->filter('.pasta-resp-vazio');
+        self::assertCount(1, $vazio, 'o menu tem de ter o aviso de "nada encontrado"');
+        self::assertNotNull($vazio->attr('hidden'), 'o aviso nasce escondido; só o filtro o revela');
     }
 
     #[TestDox('o token e a url que o chip carrega salvam de verdade: trocar responsável grava no banco')]

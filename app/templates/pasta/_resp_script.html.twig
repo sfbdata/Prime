@@ -42,10 +42,77 @@
         chip.innerHTML = html;
     }
 
+    /* Compara ignorando acento E caixa: 'jose' tem de achar 'José'. Sem isto a
+       busca fica quebrada para metade dos nomes brasileiros. NFD separa a letra
+       do acento e o replace descarta a marca solta. */
+    function normalizar(txt) {
+        return String(txt || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+    }
+
+    function opcoesVisiveis(menu) {
+        return Array.prototype.filter.call(
+            menu.querySelectorAll('.pasta-resp-opcao'),
+            function (op) { return !op.hidden; }
+        );
+    }
+
+    function marcar(menu, opcao) {
+        menu.querySelectorAll('.pasta-resp-opcao.marcada').forEach(function (op) {
+            op.classList.remove('marcada');
+            op.setAttribute('aria-selected', 'false');
+        });
+        if (!opcao) return;
+        opcao.classList.add('marcada');
+        opcao.setAttribute('aria-selected', 'true');
+        // Só rola quando o item marcado saiu de vista; scrollIntoView incondicional
+        // faz a lista tremer a cada tecla.
+        var lista = menu.querySelector('.pasta-resp-lista');
+        if (!lista) return;
+        var ro = opcao.getBoundingClientRect();
+        var rl = lista.getBoundingClientRect();
+        if (ro.top < rl.top)          lista.scrollTop -= (rl.top - ro.top);
+        else if (ro.bottom > rl.bottom) lista.scrollTop += (ro.bottom - rl.bottom);
+    }
+
+    function filtrar(menu) {
+        var campo = menu.querySelector('.pasta-resp-busca');
+        var vazio = menu.querySelector('.pasta-resp-vazio');
+        var termo = normalizar(campo ? campo.value : '');
+        var achou = 0;
+
+        menu.querySelectorAll('.pasta-resp-opcao').forEach(function (op) {
+            var bate = !termo || normalizar(op.dataset.nome).indexOf(termo) !== -1;
+            op.hidden = !bate;
+            if (bate) achou++;
+        });
+
+        if (vazio) vazio.hidden = achou > 0;
+
+        // Digitar troca quem sobrou: o marcado vai para o primeiro da lista nova,
+        // senão o Enter escolheria alguém que o filtro acabou de esconder.
+        var visiveis = opcoesVisiveis(menu);
+        marcar(menu, visiveis.length ? visiveis[0] : null);
+
+        // O menu ENCOLHE ao filtrar. Quando ele abriu para cima (chip perto do
+        // rodapé), encolher deixaria um vão entre ele e o chip.
+        if (chipAtivo) posicionar(menu, chipAtivo);
+    }
+
+    function limparBusca(menu) {
+        var campo = menu.querySelector('.pasta-resp-busca');
+        if (campo) campo.value = '';
+        filtrar(menu);
+    }
+
     function fecharMenu() {
         var menu = document.getElementById('pastaRespMenu');
-        if (menu) menu.hidden = true;
+        // chipAtivo zerado ANTES de limparBusca: filtrar() reposiciona usando ele,
+        // e reposicionar um menu que acabou de fechar nao faz sentido.
         chipAtivo = null;
+        if (menu) {
+            menu.hidden = true;
+            limparBusca(menu);
+        }
     }
 
     function abrirMenu(chip) {
@@ -57,6 +124,20 @@
             op.classList.toggle('ativa', (op.dataset.userId || '') === respId);
         });
         menu.hidden = false;
+
+        // Abre sempre limpo e ja marcando o primeiro, para o Enter ter alvo.
+        limparBusca(menu);
+        posicionar(menu, chip);
+
+        /* Foco no campo e o que faz a busca ser "instantanea": abriu, ja digita.
+           No celular NAO: daria foco a um input e abriria o teclado virtual por
+           cima da propria lista que o usuario quer ler. */
+        var campo = menu.querySelector('.pasta-resp-busca');
+        var toque = window.matchMedia && window.matchMedia('(hover: none)').matches;
+        if (campo && !toque) campo.focus();
+    }
+
+    function posicionar(menu, chip) {
         var r  = chip.getBoundingClientRect();
         var mw = menu.offsetWidth, mh = menu.offsetHeight;
         var left = r.left;
@@ -126,7 +207,48 @@
             if (!e.target.closest('#pastaRespMenu')) fecharMenu();
         });
 
-        document.addEventListener('keydown', function (e) { if (e.key === 'Escape') fecharMenu(); });
+        document.addEventListener('input', function (e) {
+            if (e.target && e.target.classList && e.target.classList.contains('pasta-resp-busca')) {
+                var menu = e.target.closest('.pasta-resp-menu');
+                if (menu) filtrar(menu);
+            }
+        });
+
+        document.addEventListener('keydown', function (e) {
+            var menu = document.getElementById('pastaRespMenu');
+            var aberto = menu && !menu.hidden;
+
+            if (e.key === 'Escape') { fecharMenu(); return; }
+            if (!aberto) return;
+
+            // Setas andam so pelo que o filtro deixou visivel; Enter escolhe o
+            // marcado. E o que o <select> nativo fazia e o chip tinha perdido.
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                e.preventDefault();
+                var visiveis = opcoesVisiveis(menu);
+                if (!visiveis.length) return;
+                var atual = menu.querySelector('.pasta-resp-opcao.marcada');
+                var i = visiveis.indexOf(atual);
+                var passo = e.key === 'ArrowDown' ? 1 : -1;
+                // Circula: descer no ultimo volta ao primeiro, e vice-versa.
+                var prox = (i === -1)
+                    ? (passo === 1 ? 0 : visiveis.length - 1)
+                    : (i + passo + visiveis.length) % visiveis.length;
+                marcar(menu, visiveis[prox]);
+                return;
+            }
+
+            if (e.key === 'Enter') {
+                var alvo = menu.querySelector('.pasta-resp-opcao.marcada');
+                if (!alvo || !chipAtivo) return;
+                e.preventDefault();
+                if ((chipAtivo.dataset.respId || '') !== (alvo.dataset.userId || '')) {
+                    salvarResponsavel(chipAtivo, alvo.dataset.userId || '',
+                                      alvo.dataset.nome || '', alvo.dataset.foto || '');
+                }
+                fecharMenu();
+            }
+        });
         // Fecha ao rolar a PÁGINA (o menu é position:fixed e descolaria do chip),
         // mas não ao rolar DENTRO do próprio menu (lista de colaboradores rolável).
         document.addEventListener('scroll', function (e) {
