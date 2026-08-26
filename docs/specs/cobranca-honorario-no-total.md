@@ -186,7 +186,40 @@ descreve legitimamente a obrigação excluída por acordo substituto vigente.
     honestos sobre defeito aberto: 2, e estes SEGUEM — <arquivo:linha> cada
 
 Uma busca que termine só com "zero" está errada por construção: ela empurra para apagar justamente os
-três que devem ficar.
+que devem ficar.
+
+### 7.1.1 🔴 A REGRA QUE CUSTOU MAIS CARO: justificativa nova precisa citar a medição
+
+Na 10ª rodada eu troquei uma justificativa **falsa** por **outra falsa**. Escrevi que
+`BoletoImportavel::encargosCentavos()` exclui honorário *"porque alimenta `encargosReconhecidos`, a
+coluna-sombra"* — inventado: o único chamador em produção é o balde operacional "sem boleto", e a
+coluna-sombra é escrita a partir dos campos da ENTIDADE, nunca do boleto.
+
+🔑 **A frase inventada é PIOR que a original.** A original citava a INV-E2, e a varredura a
+encontrava. A inventada não citava nada — ficou **invisível para o instrumento**, e teria sobrevivido
+a todas as varreduras seguintes.
+
+> **REGRA DA CASA, decidida pelo dono em 21/08:** justificativa nova em comentário de dinheiro **tem de
+> citar a medição ou o invariante que a sustenta**. Sem isso, não entra. Vale para explicar por que um
+> número é o que é, por que um campo fica de fora, por que um guard existe.
+
+Corolário prático: se você não consegue nomear o que sustenta a frase, **o que falta não é redação, é
+medição** — e o certo é registrar a pendência com o nome dela (como ficou em
+`ImportarRelatorioCarteiraUseCase::centavosSemBoletoDoBoleto`), não escrever uma explicação plausível.
+
+### 7.1.2 Duas lições da 10ª revisão que viram padrão da casa
+
+**1. A cópia de maior consequência era a única sem pista.** O inventário das cópias da regra do
+exigível listava as que TINHAM comentário. A que decide se uma **dívida quitada REABRE**
+(`EditarObrigacaoUseCase`, `$exigivelSeViva`) não tinha comentário nenhum — e por isso não estava no
+mapa, não era protegida e não era encontrável. **Inventário feito a partir de comentários enxerga só o
+que já foi comentado**; o lugar sem pista é justamente o que ninguém vai achar.
+
+**2. Âncora por número de linha é armadilha, e o modo de falhar é o pior possível.** A 1ª versão do
+script ancorava os "honestos" por `arquivo:linha`. **Uma** linha inserida acima desloca tudo, e a saída
+passa a listar os honestos como *"falsos restantes"* **e** como *"sumidos"* — ou seja, ela **manda
+apagar exatamente o que o script existe para preservar**. Padrão: **âncora por trecho do texto**, e a
+prova é inserir uma linha acima e conferir que a âncora acompanha (foi feito: `147 → 148`, saída 0).
 
 ## 8. O que esta fatia NÃO faz
 
