@@ -11,7 +11,6 @@ Quem abre uma frente acrescenta a linha. Quem integra tira.
 | `expediente-ux` | Expediente + Pasta (telas) | não | `app/templates/expediente/`, `app/templates/pasta/` | implementando, **28 commits atrás do master** | `origin/codex/colaboracao-cobrancas` |
 | `cobranca-honorario-no-total` | Cobrança (**núcleo do dinheiro**) | não | ver o bloqueio abaixo — é grande | ✅ **7 commits, 3896/3896, 6 revisões; §10 decidida pelo dono (VAI INTEIRO)** — topo `0346df05`; ⏳ 7ª revisão + integrar | `master` local @ `fda1b466` |
 | `cobranca-reconciliar-data-acordo` | Cobrança (comando) | não | `RelatorioLinhaRepository` (método novo), `ComandosComPiiPassamPelaGuardaTest` (1 linha) | ✅ pronta: 3901/3901, prova por reintrodução feita — **aguarda `/review` e integração** | `master` local @ `18555616` |
-| `pasta-show-chip-responsavel` | Pasta (tela) | não | **`app/templates/pasta/_tabela.html.twig`** (extração de 196 linhas), `app/templates/pasta/show.html.twig`, `app/src/Controller/PastaController.php` | implementando | `master` local @ `89b67522` |
 
 ### ⚠️ `pasta-show-chip-responsavel` extrai 196 linhas do `_tabela.html.twig`
 
