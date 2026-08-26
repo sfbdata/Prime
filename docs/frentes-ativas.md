@@ -11,6 +11,24 @@ Quem abre uma frente acrescenta a linha. Quem integra tira.
 | `expediente-ux` | Expediente + Pasta (telas) | não | `app/templates/expediente/`, `app/templates/pasta/` | implementando, **28 commits atrás do master** | `origin/codex/colaboracao-cobrancas` |
 | `cobranca-honorario-no-total` | Cobrança (**núcleo do dinheiro**) | não | ver o bloqueio abaixo — é grande | ✅ **7 commits, 3896/3896, 6 revisões; §10 decidida pelo dono (VAI INTEIRO)** — topo `0346df05`; ⏳ 7ª revisão + integrar | `master` local @ `fda1b466` |
 | `cobranca-reconciliar-data-acordo` | Cobrança (comando) | não | `RelatorioLinhaRepository` (método novo), `ComandosComPiiPassamPelaGuardaTest` (1 linha) | ✅ pronta: 3901/3901, prova por reintrodução feita — **aguarda `/review` e integração** | `master` local @ `18555616` |
+| `pasta-show-chip-responsavel` | Pasta (tela) | não | **`app/templates/pasta/_tabela.html.twig`** (extração de 196 linhas), `app/templates/pasta/show.html.twig`, `app/src/Controller/PastaController.php` | implementando | `master` local @ `89b67522` |
+
+### ⚠️ `pasta-show-chip-responsavel` extrai 196 linhas do `_tabela.html.twig`
+
+O chip de responsável (CSS + markup do `#pastaRespMenu` + JS delegado) morava dentro do
+`_tabela.html.twig`. Saiu para três partials — `pasta/_resp_estilo`, `pasta/_resp_menu` e
+`pasta/_resp_script` — para que a `pasta_show` use o **mesmo** chip da listagem em vez de um
+`<select>` cru. O `_tabela` passou a incluí-los; comportamento da Expediente inalterado
+(os 3 asserts de `ExpedienteFiltroPastasControllerTest` seguem verdes).
+
+🔴 **`expediente-ux` toca o mesmo `_tabela.html.twig`** e está ~30 commits atrás. Quem revivê-la
+vai encontrar 196 linhas que mudaram de arquivo — conflito garantido, e do tipo que o merge
+resolve errado em silêncio (o bloco existe nos dois lados, em arquivos diferentes). Traga o
+master para dentro **antes** de escrever qualquer linha lá.
+
+🔑 **O CSS não pode voltar para dentro de um `<style>`**: o partial `_resp_estilo` é dono da
+própria tag, e `<style>` aninhado é HTML inválido. Foi por isso que o include dele ficou
+**depois** do `</style>` no `_tabela`, e não no lugar de onde o bloco saiu.
 
 ### ⛔ 19/08 — a frente do honorário TRAVA o núcleo de dinheiro da Cobrança
 

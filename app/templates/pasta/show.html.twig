@@ -377,22 +377,13 @@
                                     </div>
                                     <div class="col-12 col-sm-6 col-lg-4">
                                         <p class="text-sm text-muted mb-1">Responsável</p>
-                                        <div class="pasta-responsavel-inline" data-pasta-id="{{ pasta.id }}"
-                                             data-url="{{ path('pasta_atualizar_responsavel', {id: pasta.id}) }}"
-                                             data-csrf="{{ csrf_token('pasta_responsavel_' ~ pasta.id) }}">
-                                            <select class="form-select form-select-sm pasta-responsavel-select"
-                                                    style="max-width:180px;"
-                                                    data-valor-atual="{{ pasta.responsavel ? pasta.responsavel.id : '' }}">
-                                                <option value="">— Sem responsável —</option>
-                                                {% for u in usuarios %}
-                                                    <option value="{{ u.id }}"
-                                                        {% if pasta.responsavel and pasta.responsavel.id == u.id %}selected{% endif %}>
-                                                        {{ u.fullName }}
-                                                    </option>
-                                                {% endfor %}
-                                            </select>
-                                            <span class="pasta-responsavel-feedback ms-1" style="font-size:.75rem;"></span>
-                                        </div>
+                                        {# Mesmo chip da listagem do Expediente: uma linguagem so para a
+                                           mesma acao. Estilo, menu e comportamento vem dos partials
+                                           incluidos no fim deste bloco. #}
+                                        {{ include('pasta/_resp_chip.html.twig', {
+                                            pasta: pasta,
+                                            fotos: fotosResponsaveis|default({}),
+                                        }) }}
                                     </div>
                                     <div class="col-12 col-sm-6 col-lg-4">
                                         <p class="text-sm text-muted mb-1">Ação</p>
@@ -4170,57 +4161,6 @@ document.addEventListener('DOMContentLoaded', function () {
     delegateSelector: null
 }) }}
 
-<script>
-(function () {
-    var wrapper = document.querySelector('.pasta-responsavel-inline');
-    if (!wrapper) return;
-
-    var select   = wrapper.querySelector('.pasta-responsavel-select');
-    var feedback = wrapper.querySelector('.pasta-responsavel-feedback');
-    var url      = wrapper.dataset.url;
-    var csrf     = wrapper.dataset.csrf;
-    var timer    = null;
-
-    select.addEventListener('change', function () {
-        clearTimeout(timer);
-        feedback.textContent = '';
-        timer = setTimeout(function () {
-            salvarResponsavel(select.value);
-        }, 300);
-    });
-
-    function salvarResponsavel(responsavelId) {
-        select.disabled = true;
-        feedback.textContent = '…';
-        feedback.style.color = '#6c757d';
-
-        var body = new URLSearchParams({ _token: csrf, responsavel_id: responsavelId });
-
-        fetch(url, {
-            method: 'PATCH',
-            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: body.toString(),
-        })
-        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
-        .then(function (res) {
-            select.disabled = false;
-            if (!res.ok) {
-                feedback.textContent = res.data.erro || 'Erro ao salvar.';
-                feedback.style.color = '#dc3545';
-                return;
-            }
-            feedback.textContent = '✓';
-            feedback.style.color = '#198754';
-            setTimeout(function () { feedback.textContent = ''; }, 2000);
-        })
-        .catch(function () {
-            select.disabled = false;
-            feedback.textContent = 'Erro de comunicação.';
-            feedback.style.color = '#dc3545';
-        });
-    }
-}());
-</script>
 
 {# ── Modal: Criar Tarefa ── #}
 <div class="modal fade" id="modalCriarTarefa" tabindex="-1" aria-labelledby="modalCriarTarefaLabel" aria-hidden="true">
@@ -5190,6 +5130,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
 }());
 </script>
+
+{# ── Responsável: estilo, menu e comportamento do chip (mesmos do Expediente) ── #}
+{{ include('pasta/_resp_estilo.html.twig') }}
+{{ include('pasta/_resp_menu.html.twig', {
+    usuarios: usuarios,
+    fotosResponsaveis: fotosResponsaveis|default({}),
+}) }}
+{{ include('pasta/_resp_script.html.twig') }}
 {% endblock %}
 
 {% block javascripts %}

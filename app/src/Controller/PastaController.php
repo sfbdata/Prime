@@ -281,6 +281,12 @@ class PastaController extends AbstractController
             ? $this->userRepository->findColaboradoresAtivosPorTenant($tenant)
             : [];
 
+        // Fotos do menu de responsável, num mapa userId => fotoUrl. Uma consulta para
+        // todos, em vez de acordar o profile de cada colaborador na renderização.
+        $fotosResponsaveis = $tenant !== null
+            ? $this->userRepository->findFotoPorColaboradores($tenant)
+            : [];
+
         $documentosContrato      = $tenant !== null
             ? $this->pastaDocumentoRepository->findByPastaECategoria($pasta, PastaDocumento::CATEGORIA_CONTRATO)
             : [];
@@ -323,6 +329,7 @@ class PastaController extends AbstractController
             'timelineItems'               => $timelineItems,
             'todosMarcadores'             => $todosMarcadores,
             'usuarios'                    => $usuarios,
+            'fotosResponsaveis'           => $fotosResponsaveis,
             'documentosContrato'          => $documentosContrato,
             'financeiro'                  => PastaFinanceiroOutput::montar($pasta, $primeiroCliente, $mediaCpf),
             'observacoesFinanceiras'      => $observacoesFinanceiras,

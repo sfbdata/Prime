@@ -1,0 +1,140 @@
+{# Comportamento do chip de responsavel. Ja era escrito para reuso: delega tudo
+   no document e guarda o bind em document.__pastaRespMenuBound, entao incluir em
+   mais de uma pagina (ou duas vezes na mesma) nao duplica listener. #}
+<script>
+(function () {
+    /* Chip de responsável (avatar + nome) + menu compartilhado #pastaRespMenu.
+       Tudo delegado no document e guardado, porque este script re-executa a cada
+       troca de resultados (busca ao vivo/paginação). O menu e os chips são
+       re-renderizados pelo servidor, então buscamos sempre o DOM atual. */
+    var chipAtivo = null;
+
+    function escResp(s) {
+        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function avatarHtml(nome, fotoUrl) {
+        var partes = String(nome).trim().split(/\s+/).filter(Boolean);
+        var ini = (partes.length > 1 ? (partes[0][0] + partes[partes.length - 1][0]) : String(nome).slice(0, 2)).toUpperCase();
+        if (fotoUrl) {
+            return '<span class="resp-avatar resp-avatar-img" style="width:24px;height:24px;" data-ini="' + escResp(ini) + '">' +
+                   '<img src="' + escResp(fotoUrl) + '" alt="" ' +
+                   'onerror="this.parentNode.classList.remove(\'resp-avatar-img\');this.parentNode.classList.add(\'resp-avatar-ini\');this.parentNode.textContent=this.parentNode.dataset.ini;">' +
+                   '</span>';
+        }
+
+        return '<span class="resp-avatar resp-avatar-ini" style="width:24px;height:24px;font-size:10px;">' + escResp(ini) + '</span>';
+    }
+
+    function renderChip(chip, userId, nome, fotoUrl) {
+        chip.dataset.respId = userId || '';
+        var html;
+        if (userId) {
+            html = avatarHtml(nome, fotoUrl) + '<span class="pasta-resp-nome">' + escResp(nome) + '</span>';
+            chip.title = nome;
+        } else {
+            html = '<span class="resp-avatar resp-avatar-vazio" style="width:24px;height:24px;"><i class="bi bi-person"></i></span>' +
+                   '<span class="pasta-resp-nome text-muted">Sem responsável</span>';
+            chip.title = 'Definir responsável';
+        }
+        html += '<i class="bi bi-chevron-down pasta-resp-caret"></i>';
+        chip.innerHTML = html;
+    }
+
+    function fecharMenu() {
+        var menu = document.getElementById('pastaRespMenu');
+        if (menu) menu.hidden = true;
+        chipAtivo = null;
+    }
+
+    function abrirMenu(chip) {
+        var menu = document.getElementById('pastaRespMenu');
+        if (!menu) return;
+        chipAtivo = chip;
+        var respId = chip.dataset.respId || '';
+        menu.querySelectorAll('.pasta-resp-opcao').forEach(function (op) {
+            op.classList.toggle('ativa', (op.dataset.userId || '') === respId);
+        });
+        menu.hidden = false;
+        var r  = chip.getBoundingClientRect();
+        var mw = menu.offsetWidth, mh = menu.offsetHeight;
+        var left = r.left;
+        var top  = r.bottom + 4;
+        if (left + mw > window.innerWidth - 8)  left = window.innerWidth - 8 - mw;
+        if (left < 8) left = 8;
+        if (top + mh > window.innerHeight - 8)  top = r.top - mh - 4;
+        if (top < 8) top = 8;
+        menu.style.left = left + 'px';
+        menu.style.top  = top + 'px';
+    }
+
+    function salvarResponsavel(chip, userId, nome, fotoUrl) {
+        var prevHtml = chip.innerHTML;
+        var prevId   = chip.dataset.respId || '';
+        renderChip(chip, userId, nome, fotoUrl); // otimista
+        chip.classList.add('salvando');
+
+        var body = new URLSearchParams({ _token: chip.dataset.csrf, responsavel_id: userId || '' });
+        fetch(chip.dataset.url, {
+            method: 'PATCH',
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: body.toString(),
+        })
+        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+        .then(function (res) {
+            chip.classList.remove('salvando');
+            if (!res.ok || !res.data.sucesso) {
+                chip.innerHTML = prevHtml;
+                chip.dataset.respId = prevId;
+                alert((res.data && res.data.erro) || 'Erro ao alterar responsável.');
+            }
+        })
+        .catch(function () {
+            chip.classList.remove('salvando');
+            chip.innerHTML = prevHtml;
+            chip.dataset.respId = prevId;
+        });
+    }
+
+    if (!document.__pastaRespMenuBound) {
+        document.__pastaRespMenuBound = true;
+
+        document.addEventListener('click', function (e) {
+            var chip = e.target.closest('.pasta-resp-chip');
+            if (chip) {
+                e.preventDefault();
+                var menu = document.getElementById('pastaRespMenu');
+                if (menu && !menu.hidden && chipAtivo === chip) { fecharMenu(); return; }
+                abrirMenu(chip);
+
+                return;
+            }
+
+            var opc = e.target.closest('.pasta-resp-opcao');
+            if (opc && chipAtivo) {
+                e.preventDefault();
+                var uid = opc.dataset.userId || '';
+                if ((chipAtivo.dataset.respId || '') !== uid) {
+                    salvarResponsavel(chipAtivo, uid, opc.dataset.nome || '', opc.dataset.foto || '');
+                }
+                fecharMenu();
+
+                return;
+            }
+
+            if (!e.target.closest('#pastaRespMenu')) fecharMenu();
+        });
+
+        document.addEventListener('keydown', function (e) { if (e.key === 'Escape') fecharMenu(); });
+        // Fecha ao rolar a PÁGINA (o menu é position:fixed e descolaria do chip),
+        // mas não ao rolar DENTRO do próprio menu (lista de colaboradores rolável).
+        document.addEventListener('scroll', function (e) {
+            var alvo = e.target;
+            if (alvo && alvo.nodeType === 1 && alvo.closest && alvo.closest('#pastaRespMenu')) return;
+            fecharMenu();
+        }, true);
+        window.addEventListener('resize', fecharMenu);
+    }
+}());
+</script>
