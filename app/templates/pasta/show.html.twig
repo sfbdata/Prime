@@ -359,115 +359,126 @@
                         <div class="tab-content mt-3" id="pastaTabsContent">
                             {# Tab: Dados da Pasta #}
                             <div class="tab-pane fade show active" id="dados" role="tabpanel" aria-labelledby="dados-tab">
-                                <h5 class="mb-3"><i class="bi bi-info-circle me-1"></i> Informações Gerais</h5>
-                                <div class="row mb-4 g-3">
-                                    <div class="col-12 col-sm-6 col-lg-4">
-                                        <p class="text-sm text-muted mb-1">Processo Vinculado</p>
-                                        <b>
-                                            {% if pasta.processoPrincipal %}
-                                                <a href="{{ path('processo_show', {id: pasta.processoPrincipal.id}) }}">{{ pasta.processoPrincipal.numeroProcesso }}</a>
-                                                <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ pasta.processoPrincipal.numeroProcesso }}" title="Copiar"></i>
-                                                {% if pasta.pastaProcessos|length > 1 %}
-                                                    <span class="badge bg-secondary ms-1" title="Outros processos vinculados">+{{ pasta.pastaProcessos|length - 1 }}</span>
-                                                {% endif %}
-                                            {% else %}
-                                                <span class="text-muted">—</span>
-                                            {% endif %}
-                                        </b>
-                                    </div>
-                                    <div class="col-12 col-sm-6 col-lg-4">
-                                        <p class="text-sm text-muted mb-1">Responsável</p>
-                                        {# Mesmo chip da listagem do Expediente: uma linguagem so para a
-                                           mesma acao. Estilo, menu e comportamento vem dos partials
-                                           incluidos no fim deste bloco. #}
-                                        {{ include('pasta/_resp_chip.html.twig', {
-                                            pasta: pasta,
-                                            fotos: fotosResponsaveis|default({}),
-                                        }) }}
-                                    </div>
-                                    <div class="col-12 col-sm-6 col-lg-4">
-                                        <p class="text-sm text-muted mb-1">Ação</p>
-                                        <b>
-                                            {% if pasta.nomeAcao %}
-                                                {{ pasta.nomeAcao }}
-                                            {% elseif pasta.processoPrincipal %}
-                                                {{ pasta.processoPrincipal.classeProcessual ?: pasta.processoPrincipal.assuntoProcessual ?: pasta.processoPrincipal.numeroProcesso }}
-                                            {% else %}
-                                                <span class="text-muted">—</span>
-                                            {% endif %}
-                                        </b>
-                                    </div>
-                                </div>
+                                {# ── Arranjo aprovado pelo dono em 2026-08-26 (proposta B ajustada) ──
+                                   Esquerda: os dados da pasta. Direita: os clientes.
 
-                                <div class="row mb-3 g-3">
-                                    <div class="col-12 col-md-6 col-lg-4">
-                                        <div class="d-flex justify-content-between align-items-center mb-1">
-                                            <p class="text-sm text-muted mb-0"><i class="bi bi-people me-1"></i> Clientes</p>
+                                   Grid CSS em vez de .row/.col do Bootstrap porque a proporcao
+                                   aprovada e 1 : 1,15 — nome de PJ e longo e as tres acoes ocupam
+                                   largura fixa —, e nao existe col-* que de essa razao.
+
+                                   SEM titulo de secao: "O processo"/"As pessoas" foram recusados, e
+                                   "Informacoes Gerais" saiu junto porque a aba ja se chama "Dados da
+                                   Pasta". A regua entre as colunas faz a separacao que os titulos
+                                   faziam. #}
+                                <div class="pasta-dados-arranjo">
+
+                                    <div class="pasta-dados-col--esq">
+                                        <div class="pasta-campo" data-campo="processo">
+                                            <p class="pasta-rotulo">Processo vinculado</p>
+                                            <p class="pasta-valor">
+                                                {% if pasta.processoPrincipal %}
+                                                    <a href="{{ path('processo_show', {id: pasta.processoPrincipal.id}) }}">{{ pasta.processoPrincipal.numeroProcesso }}</a>
+                                                    <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ pasta.processoPrincipal.numeroProcesso }}" title="Copiar"></i>
+                                                    {% if pasta.pastaProcessos|length > 1 %}
+                                                        <span class="badge bg-secondary ms-1" title="Outros processos vinculados">+{{ pasta.pastaProcessos|length - 1 }}</span>
+                                                    {% endif %}
+                                                {% else %}
+                                                    <span class="pasta-valor--vazio">—</span>
+                                                {% endif %}
+                                            </p>
+                                        </div>
+
+                                        <div class="pasta-campo" data-campo="acao">
+                                            <p class="pasta-rotulo">Ação</p>
+                                            <p class="pasta-valor">
+                                                {% if pasta.nomeAcao %}
+                                                    {{ pasta.nomeAcao }}
+                                                {% elseif pasta.processoPrincipal %}
+                                                    {{ pasta.processoPrincipal.classeProcessual ?: pasta.processoPrincipal.assuntoProcessual ?: pasta.processoPrincipal.numeroProcesso }}
+                                                {% else %}
+                                                    <span class="pasta-valor--vazio">—</span>
+                                                {% endif %}
+                                            </p>
+                                        </div>
+
+                                        <div class="pasta-campo" data-campo="responsavel">
+                                            <p class="pasta-rotulo">Responsável</p>
+                                            {{ include('pasta/_resp_chip.html.twig', {
+                                                pasta: pasta,
+                                                fotos: fotosResponsaveis|default({}),
+                                            }) }}
+                                        </div>
+                                    </div>
+
+                                    <div class="pasta-dados-col--dir">
+                                        {# O botao de vincular subiu para ca quando o cabecalho
+                                           "As pessoas" deixou de existir. #}
+                                        <div class="pasta-clientes-cab">
+                                            <p class="pasta-rotulo">
+                                                Clientes
+                                                {% if pasta.clientes|length > 0 %}
+                                                    <span class="pasta-contagem">{{ pasta.clientes|length }}</span>
+                                                {% endif %}
+                                            </p>
                                             <button type="button"
-                                                    class="btn btn-xs btn-outline-primary"
-                                                    title="Adicionar cliente"
+                                                    class="pasta-btn-vincular"
                                                     data-bs-toggle="modal"
                                                     data-bs-target="#modalAdicionarCliente">
-                                                <i class="bi bi-plus-lg"></i>
+                                                <i class="bi bi-plus-lg"></i> Vincular
                                             </button>
                                         </div>
+
                                         <div id="clientesList">
-                                            {# Lista plana: nome + documento + acoes. Arquivos por cliente
-                                               SAIRAM daqui (decisao do dono, 2026-08-26) — a ficha do cliente
-                                               ja os lista e ja recebe upload, entao nada ficou inalcancavel.
+{% set clientePrincipal = pasta.clientePrincipal %}
+                        {% if pasta.clientes|length > 0 %}
+                            {% set outros = pasta.clientes|filter(c => not clientePrincipal or c.id != clientePrincipal.id) %}
 
-                                               Medido na PROD no mesmo dia: 1.072 das 1.073 pastas tem ZERO
-                                               cliente vinculado e caem no ramo do texto legado ali embaixo.
-                                               Ele NAO e caso de borda: e o que a tela mostra todo dia. #}
-                                            {% set clientePrincipal = pasta.clientePrincipal %}
-                                            {% if pasta.clientes|length > 0 %}
-                                                {% set outros = pasta.clientes|filter(c => not clientePrincipal or c.id != clientePrincipal.id) %}
+                            {# ── Principal: FORA do colapso, para nunca sumir ── #}
+                            {% if clientePrincipal %}
+                                <div class="cliente-principal">
+                                    {{ include('pasta/_cliente_linha.html.twig', {
+                                        pasta: pasta, cliente: clientePrincipal, ehPrincipal: true,
+                                    }) }}
+                                </div>
+                            {% endif %}
 
-                                                {# ── Principal: FORA do colapso, para nunca sumir ── #}
-                                                {% if clientePrincipal %}
-                                                    <div class="cliente-principal">
-                                                        {{ include('pasta/_cliente_linha.html.twig', {
-                                                            pasta: pasta, cliente: clientePrincipal, ehPrincipal: true,
-                                                        }) }}
-                                                    </div>
-                                                {% endif %}
+                            {% if outros|length > 0 %}
+                                {# Botao so existe quando ha o que esconder. #}
+                                <button type="button"
+                                        class="btn btn-link btn-sm p-0 clientes-outros-toggle"
+                                        data-bs-toggle="collapse"
+                                        data-bs-target="#clientesOutros"
+                                        aria-expanded="false"
+                                        aria-controls="clientesOutros">
+                                    <i class="bi bi-chevron-right clientes-outros-caret me-1"></i>
+                                    <span class="clientes-outros-label">mostrar outros {{ outros|length }}</span>
+                                </button>
 
-                                                {% if outros|length > 0 %}
-                                                    {# Botao so existe quando ha o que esconder. #}
-                                                    <button type="button"
-                                                            class="btn btn-link btn-sm p-0 clientes-outros-toggle"
-                                                            data-bs-toggle="collapse"
-                                                            data-bs-target="#clientesOutros"
-                                                            aria-expanded="false"
-                                                            aria-controls="clientesOutros">
-                                                        <i class="bi bi-chevron-right clientes-outros-caret me-1"></i>
-                                                        <span class="clientes-outros-label">mostrar outros {{ outros|length }}</span>
-                                                    </button>
-
-                                                    <div class="collapse" id="clientesOutros">
-                                                        {# A rolagem mora AQUI: a lista pode crescer, o cartao nao. #}
-                                                        <div class="clientes-outros">
-                                                            {% for cliente in outros %}
-                                                                {{ include('pasta/_cliente_linha.html.twig', {
-                                                                    pasta: pasta, cliente: cliente, ehPrincipal: false,
-                                                                }) }}
-                                                            {% endfor %}
-                                                        </div>
-                                                    </div>
-                                                {% endif %}
-                                            {% elseif pasta.nomeCliente %}
-                                                {# Texto solto, sem cadastro: NAO ha documento para mostrar.
-                                                   Imprimir um rotulo "CPF" vazio aqui seria inventar dado. #}
-                                                <div id="clientesPlaceholder" class="cliente-nao-vinculado d-flex align-items-center gap-2 py-2">
-                                                    <i class="bi bi-person-circle text-muted"></i>
-                                                    <span class="flex-grow-1">{{ pasta.nomeCliente }}</span>
-                                                    <span class="badge text-bg-secondary" style="font-size:.65rem;">nao vinculado</span>
-                                                </div>
-                                            {% else %}
-                                                <div id="clientesPlaceholder" class="text-muted small mb-0"><i class="bi bi-info-circle me-1"></i> Nenhum cliente vinculado.</div>
-                                            {% endif %}
+                                <div class="collapse" id="clientesOutros">
+                                    {# A rolagem mora AQUI: a lista pode crescer, o cartao nao. #}
+                                    <div class="clientes-outros">
+                                        {% for cliente in outros %}
+                                            {{ include('pasta/_cliente_linha.html.twig', {
+                                                pasta: pasta, cliente: cliente, ehPrincipal: false,
+                                            }) }}
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            {% endif %}
+                        {% elseif pasta.nomeCliente %}
+                            {# Texto solto, sem cadastro: NAO ha documento para mostrar.
+                               Imprimir um rotulo "CPF" vazio aqui seria inventar dado. #}
+                            <div id="clientesPlaceholder" class="cliente-nao-vinculado d-flex align-items-center gap-2 py-2">
+                                <i class="bi bi-person-circle text-muted"></i>
+                                <span class="flex-grow-1">{{ pasta.nomeCliente }}</span>
+                                <span class="badge text-bg-secondary" style="font-size:.65rem;">nao vinculado</span>
+                            </div>
+                        {% else %}
+                            <div id="clientesPlaceholder" class="text-muted small mb-0"><i class="bi bi-info-circle me-1"></i> Nenhum cliente vinculado.</div>
+                        {% endif %}
                                         </div>
                                     </div>
+
                                 </div>
 
                                 {% include 'pasta/_timeline.html.twig' with {timelineItems: timelineItems, pasta: pasta} only %}
@@ -2646,6 +2657,95 @@
     font-size: .75rem;
     line-height: 1.4;
     border-radius: .2rem;
+}
+
+/* =============================================================
+   ARRANJO DA ABA DADOS — proposta B ajustada, aprovada 2026-08-26
+   Esquerda: dados da pasta. Direita: clientes. Sem titulo de secao.
+   Cores SEMPRE por var(--bs-*): a tela tem tema claro e escuro, e
+   hex cravado aqui viraria texto de um tema no fundo do outro.
+   ============================================================= */
+.pasta-dados-arranjo {
+    display: grid;
+    /* 1 : 1,15 — a direita precisa de mais largura: nome de PJ e longo e
+       as tres acoes do cliente ocupam largura fixa. Nenhum col-* do
+       Bootstrap da essa razao, por isso grid e nao .row/.col. */
+    grid-template-columns: 1fr 1.15fr;
+    margin-bottom: 1.25rem;
+}
+.pasta-dados-col--esq {
+    padding-right: 28px;
+    /* A regua faz o trabalho que os titulos de secao faziam. */
+    border-right: 1px solid var(--bs-border-color);
+}
+.pasta-dados-col--dir { padding-left: 28px; min-width: 0; }
+
+.pasta-campo + .pasta-campo { margin-top: 1.0625rem; }
+
+/* Um estilo de rotulo para a aba inteira — antes eram tres. */
+.pasta-rotulo {
+    font-size: .656rem;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    color: var(--bs-secondary-color);
+    font-weight: 700;
+    margin: 0 0 .25rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.pasta-valor {
+    font-size: .875rem;
+    font-weight: 700;
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+.pasta-valor--vazio { color: var(--bs-secondary-color); font-weight: 400; }
+
+.pasta-contagem {
+    font-size: .6875rem;
+    font-weight: 700;
+    color: var(--bs-secondary-color);
+    background: var(--bs-tertiary-bg);
+    border-radius: 999px;
+    padding: 1px 7px;
+    letter-spacing: 0;
+    text-transform: none;
+}
+
+.pasta-clientes-cab {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: .375rem;
+}
+.pasta-btn-vincular {
+    font-size: .6875rem;
+    font-weight: 700;
+    color: var(--bs-primary);
+    border: 1px solid var(--bs-primary-border-subtle);
+    background: transparent;
+    border-radius: 5px;
+    padding: 3px 9px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+}
+.pasta-btn-vincular:hover { background: var(--bs-primary-bg-subtle); }
+
+/* Empilha antes do ponto do Bootstrap: a 768px as duas colunas ja
+   espremem o numero do processo e o nome do cliente. */
+@media (max-width: 991.98px) {
+    .pasta-dados-arranjo { grid-template-columns: 1fr; }
+    .pasta-dados-col--esq {
+        padding-right: 0;
+        border-right: none;
+        padding-bottom: 1.125rem;
+        border-bottom: 1px solid var(--bs-border-color);
+    }
+    .pasta-dados-col--dir { padding-left: 0; padding-top: 1.125rem; }
 }
 
 /* Linha compacta de cliente na aba Dados */
