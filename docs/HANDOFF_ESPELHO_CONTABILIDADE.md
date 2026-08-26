@@ -202,6 +202,24 @@ Um dos três arquivos abaixo tem CPF com dígito verificador **válido** que cas
 `docs/gestao-cobrancas/mockup-ajuste10-objeto-show.html`. A decisão que ela exige **não é técnica**:
 se limpar histórico já publicado vale o custo, ou se basta remover da árvore e registrar.
 
+### 3.8.1 🔴 O tooltip do "Total" apontava para um número que não existe (CORRIGIDO)
+
+Achado da 11ª revisão, e o mais instrutivo da frente porque **foi uma correção parcial que o criou**.
+
+O tooltip da coluna "Total" mandava o operador comparar com *"o 'Total em aberto' do topo"*, dizendo que
+lá os recebimentos já estavam descontados. Três erros, num texto que o operador lê sobre dinheiro:
+
+1. esse número **saiu da tela em 28/07/2026** (`113e5584`) — o que ficou é o card `Total vencido`;
+2. o card é **BRUTO**: pagamento parcial não o reduz. O tooltip afirmava o **oposto**;
+3. o card só conta o que **já venceu e não foi quitado**; a coluna aparece em todas as linhas.
+
+Provado por teste que já existia: `CabecalhoObjetoShowTest` assere o card em R$ 1.000,00 num cenário com
+R$ 400,00 pagos e alocados, e que "Total em aberto" não está no cabeçalho.
+
+🔑 **A lição:** a rodada anterior corrigiu a metade da frase que falava de honorário ("e SEM honorários"
+saiu, com razão) e **por isso não olhou o resto**. Corrigir metade de uma frase falsa é como não
+corrigir — o que sobra herda a credibilidade do que mudou.
+
 ### 3.9 🔴 Fatia própria: a garantia do `EditarConfiguracaoCaso` caiu com a INV-E2
 
 Achado em 20/08, durante a varredura da 10ª rodada da frente do honorário. **Não é comentário — é
@@ -291,7 +309,7 @@ ao master. As worktrees estão limpas e commitadas; não há trabalho solto.
 
 | frente | topo | suíte | veredito |
 |---|---|---|---|
-| `cobranca-honorario-no-total` | 15 commits | 3896/3896 | 🟢 §7.1 reduzida na 7ª; revisões **8, 9 e 10** feitas e corrigidas; ⏳ **11ª (estreita e FINAL)** → integrar. Regra de parada fixada pelo dono: achado de comentário integra assim mesmo; achado no tooltip/teste/dinheiro conserta e integra; **não há 12ª** |
+| `cobranca-honorario-no-total` | 18 commits (`34e64543`) | 3896/3896 | ✅ **11 revisões, todas corrigidas. PRONTA PARA MERGE.** Sem migration. Merge simulado: só a spec se sobrepõe e funde limpa (§4.3 do master e §7.1.1/§10.8 da frente convivem) |
 | `cobranca-reconciliar-data-acordo` | `6995bb99` | 3901/3901 | ⛔ 2 achados ALTO |
 
 ### 7.1 🟠 As 135 parcelas — CORREÇÃO pronta, parte prospectiva REMOVIDA
