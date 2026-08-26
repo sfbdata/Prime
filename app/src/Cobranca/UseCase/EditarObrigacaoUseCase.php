@@ -107,6 +107,14 @@ final class EditarObrigacaoUseCase
         // Liquidada e o snapshot é RESPEITADO (o ramo "congelada" abaixo não materializa por cima — INV-V2).
         if ($obrigacao->estaLiquidada()) {
             $vivo = $this->calculadora->calcular((int) $input->valorOriginal, $input->vencimentoOriginal, $config, $hoje);
+            // ⛔ CÓPIA Nº1 DA REGRA DO EXIGÍVEL, ESCRITA À MÃO — e ela decide se uma dívida LIQUIDADA
+            // REABRE. Está ERRADA desde a spec `cobranca-honorario-no-total.md`: falta o honorário, que
+            // entra no `valorExigivel()` desde que a INV-E2 foi revogada. Deveria ser
+            // `Obrigacao::exigivelDe(...)`, como `EncargosVivos` e `ReconciliadorLiquidacao` já fazem.
+            //
+            // 🔴 NÃO "arrume" só este comentário: o defeito é o CÓDIGO. Ele está registrado como achado
+            // aberto (handoff §7.2, no master) e tem fatia própria. Este comentário existe porque, das
+            // quatro cópias, esta era a ÚNICA sem pista nenhuma — e é a de maior consequência.
             $exigivelSeViva = (int) $input->valorOriginal + $vivo['juros'] + $vivo['multa'] + $vivo['correcao'];
             if ($exigivelSeViva > $totalAlocado) {
                 $obrigacao->reabrir(); // volta a Viva → cai no ramo de recálculo ao vivo abaixo
@@ -134,8 +142,11 @@ final class EditarObrigacaoUseCase
             $vaiMaterializar = true;
         }
 
+        // ⛔ CÓPIA Nº2 DA REGRA DO EXIGÍVEL, ESCRITA À MÃO — o guard `ValorAbaixoDoAlocado`, logo abaixo.
         // O novo valor exigível não pode cair abaixo do que já foi pago/alocado nesta obrigação (INV-E1;
-        // honorários fora, INV-E2). O guard roda ANTES de mutar os campos de cadastro (descrição/valor/
+        // honorários fora, INV-E2). ⚠️ A frase descreve o código com honestidade e por isso FICA: o
+        // defeito é o código, que ainda soma sem honorário depois de a INV-E2 ter sido revogada
+        // (handoff §7.2, no master). O guard roda ANTES de mutar os campos de cadastro (descrição/valor/
         // vencimento/referência/cache) — só a taxa (acima) já foi gravada, pois o próprio cálculo do
         // exigível depende dela.
         $novoExigivel = (int) $input->valorOriginal + $jFinal + $mFinal + $cFinal;
@@ -195,7 +206,9 @@ final class EditarObrigacaoUseCase
             'juros' => $obrigacao->getJuros(),
             'multa' => $obrigacao->getMulta(),
             'correcao' => $obrigacao->getCorrecao(),
-            // Honorário: fora do exigível (INV-E2). O snapshot registra o antes/depois para a auditoria.
+            // Honorário: entra no exigível desde `cobranca-honorario-no-total.md` (INV-E2 revogada). Aqui
+            // o código está CERTO — é só o snapshot do antes/depois para a auditoria —, era o comentário
+            // que estava errado. Não confundir com as cópias nº1 e nº2 acima, onde o defeito é o código.
             'honorarios' => $obrigacao->getHonorarios(),
             'referenciaExterna' => $obrigacao->getReferenciaExterna(),
             // Congelamento no snapshot só para leitura do histórico: numa Viva editada é null antes e

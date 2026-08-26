@@ -106,7 +106,8 @@ final class RegistrarObrigacaoUseCase
                 'juros' => $obrigacao->getJuros(),
                 'multa' => $obrigacao->getMulta(),
                 'correcao' => $obrigacao->getCorrecao(),
-                // Honorário materializado (Ajuste 2): fica FORA do exigível, mas é dinheiro editável — o
+                // Honorário materializado (Ajuste 2): ENTRA no exigível desde a spec
+                // `cobranca-honorario-no-total.md` (INV-E2 revogada), e é dinheiro editável — o
                 // histórico registra com o que a obrigação nasceu para explicar a taxa aplicada depois.
                 'honorarios' => $obrigacao->getHonorarios(),
             ],

@@ -14,6 +14,7 @@ use App\Cobranca\Entity\Obrigacao;
 use App\Cobranca\Entity\Pagamento;
 use App\Cobranca\Entity\Pessoa;
 use App\Cobranca\Entity\VinculoPessoaObjeto;
+use App\Cobranca\Enum\FormaHonorarios;
 use App\Cobranca\Enum\ModoCarteira;
 use App\Cobranca\Enum\StatusAcordo;
 use App\Cobranca\Enum\StatusCaso;
@@ -276,6 +277,65 @@ final class ImportarAcordosDetalhadosTest extends KernelTestCase
         $descricao = (string) $this->obrigacao($tenant, '60049')?->getDescricao();
         self::assertStringContainsString('planilha de acordos', $descricao, 'sem isto ninguém distingue boleto importado de conta reconstruída');
         self::assertStringContainsString('29/07/2026', $descricao, 'a data de emissão do relatório de origem');
+    }
+
+    /**
+     * O contrapeso do teste acima, e ele guarda os R$ 102.126,32 que a primeira versão desta fatia
+     * quase apagou: conta original reconstruída **não é parcela**. É a dívida VELHA que o acordo
+     * engoliu, e nela a carteira cobra honorário — 3.473 assim em produção, todas de propósito.
+     */
+    /**
+     * 🔴 O vínculo entra SOZINHO — medição de 19/08 que derrubou a versão anterior desta fatia.
+     *
+     * Gravar `taxaHonorariosBp = 0` ao vincular parecia certo ("o relatório de acordos não tem coluna
+     * de encargo"). Mas a parcela ATRASADA migra para o relatório de INADIMPLÊNCIA, que tem as colunas
+     * — e lá a contabilidade cobra: 114 parcelas atrasadas, R$ 6.601,57 nas três carteiras.
+     *
+     * O override é permanente; o fato é temporário. Gravá-lo põe o sistema a discordar do dado que ela
+     * mandou. Ver spec §10.8.
+     */
+    #[TestDox('Parcela SOLTA ligada ao acordo NÃO recebe override: parcela atrasada volta a cobrar')]
+    public function testParcelaVinculadaNaoRecebeOverrideDeHonorario(): void
+    {
+        [$tenant, $user, $carteiraId, $solta] = $this->cenarioParcelaSoltaComHonorario();
+        $honorarioAntes = $solta->getHonorarios();
+        self::assertGreaterThan(0, $honorarioAntes, 'o cenário só discrimina com honorário materializado');
+
+        $feito = $this->importarAcordos->confirmar($carteiraId, $this->leituraParcela61600(), $tenant, $user);
+        self::assertSame(['61600'], $feito->parcelasVinculadas(), 'o VÍNCULO entra — é ele que evita dívida dupla no rompimento');
+
+        $this->em->clear();
+        $agora = $this->obrigacao($tenant, '61600');
+        self::assertNotNull($agora);
+        self::assertNotNull($agora->getAcordoOrigem(), 'virou parcela');
+        self::assertNull($agora->getTaxaHonorariosBp(), 'o override é permanente e o fato é temporário — a parcela atrasada volta a cobrar honorário');
+        self::assertSame($honorarioAntes, $agora->getHonorarios(), 'o honorário que a contabilidade informou fica onde está');
+    }
+
+    #[TestDox('Conta reconstruída NÃO recebe o override: dívida velha engolida cobra honorário normal')]
+    public function testContaReconstruidaNaoRecebeOverride(): void
+    {
+        $tenant = $this->criarTenant();
+        $user = $this->criarUser();
+        $carteiraId = $this->criarCarteira($tenant, [
+            'taxaJurosMensalBp' => 100,
+            'taxaMultaBp' => 200,
+            'formaHonorarios' => FormaHonorarios::AcrescidoDivida,
+            'percentualHonorarios' => '20.00',
+        ]);
+
+        $this->semear($carteiraId, $tenant, $user, [
+            $this->boleto('61372', competencia: '07/2026', vencimento: '2026-07-01', valor: 40068, acordo: new AcordoDoRelatorio(31, 1, 3)),
+        ]);
+        $this->casoEAcordo($tenant, 31);
+
+        $this->importarAcordos->confirmar($carteiraId, $this->leituraAcordo31(), $tenant, $user);
+
+        $reconstruida = $this->obrigacao($tenant, '60049');
+        self::assertNotNull($reconstruida);
+        self::assertNull($reconstruida->getAcordoOrigem(), 'conta original NÃO é parcela — nasce só substituída');
+        self::assertNull($reconstruida->getTaxaHonorariosBp(), 'sem override: a carteira cobra honorário na dívida velha, e a contabilidade também');
+        self::assertGreaterThan(0, $reconstruida->getHonorarios(), 'zerar isto apagaria R$ 102.126,32 de honorário legítimo em produção');
     }
 
     #[TestDox('Conta reconstruída não é recriada na segunda execução (idempotência por NN+competência)')]
@@ -3153,6 +3213,45 @@ final class ImportarAcordosDetalhadosTest extends KernelTestCase
     }
 
     /** @param array<string, mixed> $encargos sobrescreve a config NEUTRA da factory (juros/multa zerados) */
+    /**
+     * Uma parcela SOLTA que JÁ tem honorário materializado — o estado das 3.682 avulsas medidas em
+     * produção (R$ 125.526,35). É o cenário que discrimina a metade 2.
+     *
+     * @return array{0: Tenant, 1: User, 2: int, 3: Obrigacao}
+     */
+    private function cenarioParcelaSoltaComHonorario(): array
+    {
+        $tenant = $this->criarTenant();
+        $user = $this->criarUser();
+        $carteiraId = $this->criarCarteira($tenant, [
+            'taxaJurosMensalBp' => 100,
+            'taxaMultaBp' => 200,
+            'formaHonorarios' => FormaHonorarios::AcrescidoDivida,
+            'percentualHonorarios' => '20.00',
+        ]);
+
+        $this->semear($carteiraId, $tenant, $user, [
+            $this->boleto('61600', competencia: '07/2026', vencimento: '2026-07-15', valor: 19939),
+        ]);
+
+        $solta = $this->obrigacao($tenant, '61600');
+        self::assertNotNull($solta);
+        $solta->definirEncargos(1200, 340, 0, 4295, new \DateTimeImmutable('2026-07-20'));
+        $this->em->flush();
+
+        return [$tenant, $user, $carteiraId, $solta];
+    }
+
+    /** A planilha declara 61600 parcela do acordo 37, pelo MESMO valor que o sistema tem. */
+    private function leituraParcela61600(): ResultadoLeituraAcordos
+    {
+        return new ResultadoLeituraAcordos([$this->acordoDaPlanilha(
+            numero: 37,
+            contas: [],
+            parcelas: [['61600', 1, 4, '07/2026', '2026-07-15', 19939]],
+        )], [], 0);
+    }
+
     private function criarCarteira(Tenant $tenant, array $encargos = []): int
     {
         $carteira = CarteiraFactory::createOne([

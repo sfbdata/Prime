@@ -676,7 +676,7 @@ final class EditarObrigacaoUseCaseTest extends TestCase
      * exigível é só valorOriginal + juros + multa + correção — o honorário não infla o saldo.
      */
     #[Test]
-    public function honorarioAltoNaoInflaOExigivel(): void
+    public function honorarioAltoEntraNoExigivel(): void
     {
         $obrigacao = $this->obrigacaoAtiva();
         $this->obrigacaoRepository->method('findOneByIdDoTenant')->willReturn($obrigacao);
@@ -694,6 +694,9 @@ final class EditarObrigacaoUseCaseTest extends TestCase
         $resultado = $this->sut->executar($input, $this->tenant, $this->usuario);
 
         self::assertSame(999999, $resultado->getHonorarios());
-        self::assertSame(10000, $resultado->valorExigivel(), 'exigível = original + j + m + c (herdados = 0); honorário fora (INV-E2)');
+        // INV-E2 revogada: o honorário entra no que se cobra. Era este o teste que travava o exigível
+        // em 10000 mesmo com 9.999,99 de honorário gravado — um número que a tela mostrava e o saldo
+        // ignorava. Spec `cobranca-honorario-no-total.md` §1.1.
+        self::assertSame(1009999, $resultado->valorExigivel(), 'exigível = original + j + m + c + honorário');
     }
 }

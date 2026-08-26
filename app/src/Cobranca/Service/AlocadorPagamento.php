@@ -18,9 +18,10 @@ use App\Entity\Tenant\Tenant;
  * Serviço read-only: NÃO persiste nem flusha — só constrói as AlocacaoPagamento em memória e
  * garante as invariantes de dinheiro.
  *
- * O rateio de honorários vem do CalculadoraHonorarios::ratearPagamento (SPEC §18): dado o BRUTO pago
- * pelo devedor, separa `[parteDivida, parteHonorarios]` (na forma `acrescido_divida`) ou devolve
- * `[total, 0]` nas demais. Toda obrigação alocada tem de ser do MESMO caso do pagamento — comparação
+ * NÃO HÁ MAIS RATEIO (spec `cobranca-honorario-no-total.md` §4.3): o valor pago abate a dívida por
+ * inteiro, porque o honorário agora vive DENTRO do exigível. O split por categoria existe quando a
+ * contabilidade o declara, e quem o copia é o importador de receitas.
+ * Toda obrigação alocada tem de ser do MESMO caso do pagamento — comparação
  * por IDENTIDADE de instância (invariável 12). A Σ das alocações tem de fechar EXATAMENTE com a parte
  * da dívida (invariável 20), senão o pagamento é inconsistente.
  */
@@ -28,7 +29,6 @@ final class AlocadorPagamento
 {
     public function __construct(
         private readonly ObrigacaoRepository $obrigacaoRepository,
-        private readonly CalculadoraHonorarios $calculadoraHonorarios,
     ) {
     }
 
@@ -39,7 +39,19 @@ final class AlocadorPagamento
      */
     public function montar(CasoCobranca $caso, int $valorPago, array $alocacoesInput, Tenant $tenant): array
     {
-        [$valorDivida, $valorHonorarios] = $this->calculadoraHonorarios->ratearPagamento($caso, $valorPago);
+        // 🔑 O PAGAMENTO ABATE O VALOR CHEIO (spec `cobranca-honorario-no-total.md` §4.3).
+        //
+        // Aqui havia `ratearPagamento`, que separava `[dívida, honorário]` por `p/(1+p)` e exigia que a
+        // Σ das alocações fechasse só com a parte-dívida. Com o honorário DENTRO do exigível isso deixa
+        // a dívida permanentemente curta pelo valor do honorário — nenhuma dívida quitaria.
+        //
+        // E o rateio era opinião: a contabilidade DECLARA o split, por linha, na categoria
+        // `1.15 - Honorário advocatício` do relatório de receitas — quem o importa (`ImportarReceitasUseCase`)
+        // sempre copiou o dela e alocou o valor cheio. Medido em produção: dos 1.154 pagamentos em que os
+        // dois caminhos divergem, 1.154 são o cheio e 0 são o rateado. Isto alinha o caminho MANUAL ao
+        // que o importador já fazia; não há migração de dado.
+        $valorDivida = $valorPago;
+        $valorHonorarios = 0;
 
         $alocacoes = [];
         $soma = 0;

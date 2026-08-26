@@ -108,12 +108,11 @@ final class MovimentosCobrancaIsolamentoTenantTest extends KernelTestCase
 
         $registrarEvento = new RegistrarEventoHistorico($eventoRepo);
         $calculadora = new CalculadoraHonorarios(new ResolvedorConfigEncargos());
-        $alocador = new AlocadorPagamento($obrigacaoRepo, $calculadora);
+        $alocador = new AlocadorPagamento($obrigacaoRepo);
         $autoAlocador = new AutoAlocadorFifo(
             $obrigacaoRepo,
             $alocacaoRepo,
             $liquidacaoRepo,
-            $calculadora,
             new EncargosVivos(new MockClock(new \DateTimeImmutable('2026-07-20')), new CalculadoraEncargos(), new ResolvedorConfigEncargos()),
             new ResolvedorConfigEncargos(),
         );
@@ -199,7 +198,7 @@ final class MovimentosCobrancaIsolamentoTenantTest extends KernelTestCase
     }
 
     #[TestDox('Pagamento acrescido_divida rateia honorários e grava a composição no banco')]
-    public function testPagamentoAcrescidoRateiaHonorarios(): void
+    public function testPagamentoAbateOValorCheioSemRatear(): void
     {
         $tenant = $this->criarTenant();
         $user = $this->criarUser();
@@ -207,17 +206,19 @@ final class MovimentosCobrancaIsolamentoTenantTest extends KernelTestCase
 
         $obrig = $this->registrarObrigacao->executar($this->obrigacaoInput((int) $caso->getId(), 100000), $tenant, $user);
 
-        // Devedor paga R$110,00 (11000 centavos): 10% acrescido → dívida 10000 + honorários 1000.
+        // Devedor paga R$110,00 (11000 centavos). O rateio da SPEC §18 SAIU (spec
+        // `cobranca-honorario-no-total.md` §4.3): o valor pago abate a dívida por inteiro, e o sistema
+        // não reparte por categoria — quem declara o split é a contabilidade, no relatório dela.
         $pagamento = $this->registrarPagamento->executar(
-            $this->pagamentoInput((int) $caso->getId(), 11000, [[(int) $obrig->getId(), 10000]]),
+            $this->pagamentoInput((int) $caso->getId(), 11000, [[(int) $obrig->getId(), 11000]]),
             $tenant,
             $user,
         );
 
-        self::assertSame(10000, $pagamento->getValorDivida());
-        self::assertSame(1000, $pagamento->getValorHonorarios());
-        // Só a parte da dívida abate o saldo do credor (100000 − 10000); honorários ficam à parte.
-        self::assertSame(90000, $this->calculadoraSaldo->saldoExigivel($caso));
+        self::assertSame(11000, $pagamento->getValorDivida());
+        self::assertSame(0, $pagamento->getValorHonorarios());
+        // Todo o valor pago abate o saldo: 100000 − 11000.
+        self::assertSame(89000, $this->calculadoraSaldo->saldoExigivel($caso));
     }
 
     #[TestDox('Registrar pagamento não alcança caso de outro escritório (IDOR por tenant)')]

@@ -85,8 +85,9 @@ final class CalculadoraSaldoTest extends TestCase
             ->congelarEncargos(new \DateTimeImmutable('2026-02-01'));
         $this->obrigacaoRepository->method('doCasoExigiveis')->willReturn([$congelada]);
 
-        // Snapshot: 10000 + 999 + 111 + 0 = 11110 (a hidratação NÃO toca a congelada).
-        self::assertSame(11110, $this->sut->saldoExigivel($caso));
+        // Snapshot: 10000 + 999 + 111 + 0 + 222 = 11332 (a hidratação NÃO toca a congelada). O
+        // honorário do snapshot entra no saldo desde a spec `cobranca-honorario-no-total.md`.
+        self::assertSame(11332, $this->sut->saldoExigivel($caso));
     }
 
     #[Test]

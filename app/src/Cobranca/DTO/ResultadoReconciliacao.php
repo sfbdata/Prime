@@ -8,10 +8,12 @@ namespace App\Cobranca\DTO;
  * O que a reconciliação da dupla contagem FEZ (ou faria, na simulação) —
  * SPEC `docs/specs/cobranca-espelho-da-contabilidade.md` §17.8 e §17.11.
  *
- * 🔑 **Os totais são SEPARADOS de propósito, e somá-los numa manchete é proibido.** Juros, multa e
- * correção entram no `Obrigacao::valorExigivel()`; o honorário **não**. Um número único apresentaria
- * como "dívida que baixou" algo que em parte não move a conta de devedor nenhum — e foi exatamente
- * essa confusão que fez o total desta frente ser reportado errado três vezes.
+ * 🔑 **UM total só, e ele é dívida que baixou de verdade.** Aqui estava escrito o oposto — *"os totais
+ * são SEPARADOS de propósito, e somá-los numa manchete é proibido"* —, porque juros, multa e correção
+ * entravam no `Obrigacao::valorExigivel()` e o honorário não. A spec `cobranca-honorario-no-total.md`
+ * REVOGOU essa distinção: o honorário entra como qualquer outro encargo. A preocupação que gerou a
+ * proibição continua válida em espírito (não apresentar como "dívida que baixou" o que não move conta
+ * de ninguém) — só que hoje **tudo** o que esta reconciliação tira move.
  */
 final readonly class ResultadoReconciliacao
 {
@@ -33,13 +35,21 @@ final readonly class ResultadoReconciliacao
     ) {
     }
 
-    /** O que saiu (ou sairia) do SALDO do devedor — juros + multa + correção. É a conta que muda. */
+    /**
+     * O que saiu (ou sairia) do SALDO do devedor — juros + multa + correção **+ honorário**. É a conta
+     * que muda, e desde `cobranca-honorario-no-total.md` ela é a conta INTEIRA: a INV-E2, que deixava
+     * o honorário fora do exigível, foi revogada.
+     */
     public function removidoDoSaldoEmCentavos(): int
     {
         return array_sum(array_column($this->corrigidas, 'removidoNoSaldo'));
     }
 
-    /** O que saiu FORA do saldo — honorário. Não muda o que ninguém deve. */
+    /**
+     * ⚠️ **Sempre 0 desde `cobranca-honorario-no-total.md`** — não há mais nada que saia "fora do
+     * saldo". Só o honorário caía aqui, e ele agora está dentro. Mantido para a soma das duas metades
+     * continuar fechando com o total; não use este número para afirmar que algo não muda o saldo.
+     */
     public function removidoForaDoSaldoEmCentavos(): int
     {
         return array_sum(array_column($this->corrigidas, 'removidoForaDoSaldo'));

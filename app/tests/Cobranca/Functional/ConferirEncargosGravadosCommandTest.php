@@ -271,9 +271,63 @@ final class ConferirEncargosGravadosCommandTest extends KernelTestCase
         self::assertStringContainsString('Lista da reconciliação', $saida);
         // A linha traz o LOTE usado — é o que permite achar e desfazer um erro depois (§17.8).
         self::assertStringContainsString('(12/08/2026)', $saida);
-        // E os dois totais SEPARADOS: a multa move o saldo do devedor, o honorário não.
-        self::assertStringContainsString('sai do SALDO do devedor (juros + multa + correção): R$ 45,45', $saida);
-        self::assertStringContainsString('sai FORA do saldo (honorário', $saida);
+        // 🔴 UM total só, e o rótulo nomeia os QUATRO encargos.
+        //
+        // Aqui o teste exigia dois totais separados — "sai do SALDO do devedor (juros + multa +
+        // correção)" e "sai FORA do saldo (honorário...)" —, porque o honorário ficava fora do
+        // `valorExigivel()`. A spec `cobranca-honorario-no-total.md` REVOGOU isso. Esta é a lista que o
+        // dono lê para autorizar a escrita: o rótulo velho mostraria o número certo com o nome errado.
+        self::assertStringContainsString('sai do SALDO do devedor (juros + multa + correção + honorário): R$ 45,45', $saida);
+
+        // ⚠️ Este cenário NÃO tem honorário duplicado (as duas linhas vêm com honorário 0,00), então
+        // ele não exercita o ramo que fala de honorário — quem faz isso é o teste logo abaixo. Um
+        // `assertStringNotContainsString` aqui pareceria proteção e não seria: passaria mesmo com a
+        // frase revogada restaurada, porque a frase nunca é impressa neste cenário. Achado da 10ª
+        // revisão, e a lição é a mesma de sempre — asserção que não pode falhar não é asserção.
+    }
+
+    /**
+     * 🔴 O ramo do HONORÁRIO na tela que o dono lê para autorizar a escrita.
+     *
+     * Existe porque o cenário acima tem honorário zero e nunca chega aqui. É neste ramo que ficava a
+     * frase *"ATENÇÃO: o honorário NÃO entra no saldo exigível"*, impressa em vermelho, no ponto exato
+     * da decisão — a proposição que a spec `cobranca-honorario-no-total.md` revogou.
+     *
+     * Assinatura em DOIS campos na mesma dívida, como no dado real (NNs 61600/61821, TOP LIFE II):
+     *
+     *   Σ H = 400,00 + 20,00 + 45,45 = 465,45
+     *   multa gravada = (8,00 + 0,40 + 0,91) + 20,00 = 29,31  ← os 20,00 duplicados
+     *   honorário gravado = (80,00 + 4,00) + 45,45 = 129,45   ← os 45,45 duplicados
+     */
+    #[TestDox('🔴 dupla contagem no HONORÁRIO: o rótulo diz que ele ENTRA no saldo')]
+    public function testDuplaContagemNoHonorarioAnunciaQueEleEntraNoSaldo(): void
+    {
+        $carteira = $this->carteiraComDuplaContagemNoHonorario();
+
+        $codigo = $this->comando->execute([
+            '--tenant-id' => (string) $carteira->getTenant()?->getId(),
+            '--duplicadas' => true,
+        ]);
+
+        self::assertSame(ConferirEncargosGravadosCommand::DUPLA_CONTAGEM, $codigo);
+
+        $saida = $this->semQuebras($this->comando->getDisplay());
+
+        // O ramo do honorário É exercitado aqui — sem esta asserção o teste não valeria mais que o de cima.
+        self::assertStringContainsString('R$ 45,45 são de honorário — que entra no saldo exigível', $saida);
+
+        // Multa 20,00 + honorário 45,45 = 65,45, tudo dentro do saldo. Sob a régua revogada o total
+        // teria vindo partido, com 45,45 anunciados como "fora do saldo".
+        self::assertStringContainsString('sai do SALDO do devedor (juros + multa + correção + honorário): R$ 65,45', $saida);
+
+        // 🔑 AGORA estas guardas valem: o ramo que imprimia as frases revogadas foi executado neste
+        // cenário, então restaurar qualquer uma delas quebra o teste.
+        //
+        // ⚠️ Havia uma terceira, `'fora do saldo'` em MINÚSCULAS, e ela não podia falhar: as duas
+        // frases históricas eram em caixa alta. Saiu — asserção que não pode falhar não é asserção, e
+        // deixá-la aqui daria a impressão de uma cobertura que não existe.
+        self::assertStringNotContainsString('NÃO entra no saldo', $saida);
+        self::assertStringNotContainsString('FORA do saldo', $saida);
     }
 
     #[TestDox('N2 — tenant inexistente tem código próprio, fora dos códigos baixos')]
@@ -311,6 +365,44 @@ final class ConferirEncargosGravadosCommandTest extends KernelTestCase
             'Nenhuma carteira foi conferida',
             $this->semQuebras($this->comando->getDisplay()),
         );
+    }
+
+    /**
+     * Como a de cima, mas com a assinatura em DOIS campos — multa E honorário. É o cenário que
+     * exercita o ramo do honorário no relatório; ver o teste que a usa.
+     */
+    private function carteiraComDuplaContagemNoHonorario(): Carteira
+    {
+        $carteira = $this->carteiraVazia();
+        $caso = $this->caso($carteira, '02-04');
+        $vencimento = new \DateTimeImmutable('2025-12-15');
+
+        $obrigacao = ObrigacaoFactory::createOne([
+            'tenant' => $carteira->getTenant(),
+            'caso' => $caso,
+            'referenciaExterna' => '74793',
+            'competencia' => '12/2025',
+            'valorOriginal' => 46545,
+            'vencimentoOriginal' => $vencimento,
+        ])->_real();
+
+        $obrigacao->definirEncargos(3720, 2931, 0, 12945, new \DateTimeImmutable('2026-08-12'));
+        $this->em->flush();
+
+        $comum = [
+            'unidade' => '02-04', 'nn' => '74793', 'competencia' => '12/2025',
+            'vencimento' => '15/12/2025', 'correcao' => 0.0, 'acordo' => 'Acordo 426 - Parc. 1/6',
+        ];
+
+        $arquivo = $this->montarPlanilha([
+            $this->linhaDeDado(...$comum, classe: '1.1 - Taxa de condomínio', valor: 400.00, juros: 32.00, multa: 8.00, honorarios: 80.00),
+            $this->linhaDeDado(...$comum, classe: '1.5 - Multas', valor: 20.00, juros: 1.60, multa: 0.40, honorarios: 4.00),
+            $this->linhaDeDado(...$comum, classe: '1.15 - Honorário', valor: 45.45, juros: 3.60, multa: 0.91, honorarios: 10.00),
+        ], dadosAte: self::EMISSAO_DO_LOTE, emissao: self::EMISSAO_DO_LOTE . ' 09:42');
+
+        $this->gravar->executar(new GravarEspelhoRelatorioInput($carteira, $arquivo));
+
+        return $carteira;
     }
 
     /**

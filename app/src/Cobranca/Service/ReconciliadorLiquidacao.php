@@ -80,8 +80,15 @@ final class ReconciliadorLiquidacao
                 $config,
                 $dataPagamento,
             );
-            $exigivel = $obrigacao->getValorOriginal()
-                + $encargos['juros'] + $encargos['multa'] + $encargos['correcao'];
+            // Regra ÚNICA do exigível (`Obrigacao::exigivelDe`) — aqui havia a terceira cópia da soma,
+            // e era ela que decidia QUITAR ou REABRIR. Ver a spec do honorário §2.
+            $exigivel = Obrigacao::exigivelDe(
+                $obrigacao->getValorOriginal(),
+                $encargos['juros'],
+                $encargos['multa'],
+                $encargos['correcao'],
+                $encargos['honorarios'],
+            );
 
             if ($alocado >= $exigivel) {
                 // Só materializa o snapshot na TRANSIÇÃO Viva → Liquidada. Se já estava liquidada e segue

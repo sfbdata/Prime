@@ -32,13 +32,24 @@ use App\Entity\Tenant\Tenant;
  * intactas. No modelo "ao vivo" o honorário também é recomputado na leitura (hidratação); este recálculo
  * apenas mantém a coluna coerente de imediato para quem lê o cache antes da próxima hidratação.
  *
- * ⚠️ O EXIGÍVEL (juros/multa/correção, INV-E1 — alimenta saldo/FIFO/acordo) fica INTACTO de propósito.
- * Editar a config de HONORÁRIOS não pode mexer no exigível. A versão inicial recompunha os QUATRO
- * encargos com `calcular()`, e uma auditoria adversarial pegou a bomba: juros/multa/correção descem da
- * CARTEIRA (o caso só snapshota a taxa de honorário), então se a taxa da carteira tivesse sido baixada,
- * este laço reduziria o exigível de TODAS as automáticas do caso num POST, sem guard de alocado. Recalcular
- * só o honorário fecha isso POR CONSTRUÇÃO. O honorário fica fora do exigível (INV-E2), logo pode subir OU
- * descer livremente aqui — que era a intenção de D-A2-3.
+ * ⚠️ Juros/multa/correção ficam INTACTOS de propósito. A versão inicial recompunha os QUATRO encargos
+ * com `calcular()`, e uma auditoria adversarial pegou a bomba: eles descem da CARTEIRA (o caso só
+ * snapshota a taxa de honorário), então se a taxa da carteira tivesse sido baixada, este laço reduziria
+ * o exigível de TODAS as automáticas do caso num POST, sem guard de alocado. Recalcular só o honorário
+ * fechava isso por construção.
+ *
+ * 🔴 **A SEGUNDA METADE DESSA GARANTIA CAIU, E O CÓDIGO AQUI NÃO FOI AJUSTADO.** O argumento original
+ * terminava assim: *"o honorário fica fora do exigível (INV-E2), logo pode subir OU descer livremente
+ * aqui"*. A spec `cobranca-honorario-no-total.md` REVOGOU a INV-E2 — o honorário entra no
+ * `valorExigivel()`. Consequência: mexer na config de honorários deste caso **move o exigível de todas
+ * as automáticas dele num POST, sem guard de alocado** — exatamente a bomba que o desenho fechou. Uma
+ * dívida com `alocado >= exigível` pode virar "quitada" por uma edição de tela.
+ *
+ * ⏳ **Fatia própria, e a decisão é do dono** (registrada no `docs/HANDOFF_ESPELHO_CONTABILIDADE.md`):
+ * se baixar o percentual fizer uma dívida virar paga, o sistema recusa, avisa ou deixa? Medido em
+ * produção em 20/08: **483 casos, ZERO com config de honorário própria, ZERO já editados** — a tela
+ * nunca foi usada, então a exposição hoje é nula e o risco acorda no primeiro uso. O comentário fica
+ * assim, com o defeito à vista, em vez de ser "atualizado" e sumir com a única pista dele.
  *
  * Persistência em flush ÚNICO: o evento de auditoria entra sem flush e o `salvar($caso, true)` fecha a
  * transação (o caso, as obrigações managed do laço e o evento numa unidade só).
@@ -102,7 +113,9 @@ final class EditarConfiguracaoCasoUseCase
                 $dias,
             );
 
-            // Grava mantendo juros/multa/correção INTACTOS (o exigível não se move); só o honorário muda.
+            // Grava mantendo juros/multa/correção INTACTOS; só o honorário muda. ⚠️ Aqui dizia "(o
+            // exigível não se move)" — falso desde que a INV-E2 caiu: o honorário ENTRA no exigível,
+            // logo mexer nele MOVE o exigível. É o defeito descrito no topo da classe.
             // Não congela: a obrigação segue Viva e a leitura recalcula ao vivo (este recálculo só mantém
             // o cache do honorário coerente de imediato).
             $obrigacao->definirEncargos(
@@ -135,7 +148,8 @@ final class EditarConfiguracaoCasoUseCase
                 'baseDepois' => $caso->getBaseHonorarios()?->value,
                 'carenciaAntes' => $carenciaAntes,
                 'carenciaDepois' => $caso->getCarenciaHonorariosDias(),
-                // Só o honorário destas foi recalculado; o exigível (juros/multa/correção) não se moveu.
+                // Só o honorário destas foi recalculado — mas o exigível MUDOU junto, porque o
+                // honorário está dentro dele desde que a INV-E2 caiu (ver o topo da classe).
                 'obrigacoesComHonorarioRecalculado' => $recalculadas,
             ],
         );

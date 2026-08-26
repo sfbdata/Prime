@@ -47,13 +47,15 @@ final class ReconciliadorLiquidacaoTest extends TestCase
     {
         // P=170,00, venc 22/11/2025 → 240 dias: juros 1360 · multa 340 · honorários 3740 (TOPLIFE I 20%).
         $o = $this->obrigacao(17000, '2025-11-22');
-        $this->sut()->reconciliar($this->config(), [$o], [$this->idDe($o) => 18700], $this->ref());
+        // 22440 = 187,00 + 37,40 de honorário. Antes 18700 quitava, porque o honorário ficava fora do
+        // exigível (INV-E2, revogada pela spec `cobranca-honorario-no-total.md`).
+        $this->sut()->reconciliar($this->config(), [$o], [$this->idDe($o) => 22440], $this->ref());
 
         self::assertTrue($o->estaLiquidada());
         self::assertSame(1360, $o->getJuros());
         self::assertSame(340, $o->getMulta());
         self::assertSame(3740, $o->getHonorarios());
-        self::assertSame(18700, $o->valorExigivel(), 'exigível SEM honorários (INV-E2)');
+        self::assertSame(22440, $o->valorExigivel(), 'o honorário entra no que se cobra');
     }
 
     #[TestDox('Obrigação viva parcialmente paga continua VIVA (não liquida)')]

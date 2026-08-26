@@ -10,7 +10,8 @@ use App\Cobranca\Enum\BaseEncargo;
 /**
  * Leitura de uma Obrigação para a seção "Dívida em aberto" da página do objeto (Etapa 8; a partir do
  * ajuste 10, essa seção fundiu as antigas abas Obrigações e Acordos numa fila única). Dinheiro em
- * centavos int (formatado no Twig com `|centavos`); `valorAtual` = original + encargos reconhecidos
+ * centavos int (formatado no Twig com `|centavos`); `valorAtual` = `valorExigivel()` = original +
+ * juros + multa + correção + honorários (INV-E2 revogada por `cobranca-honorario-no-total.md`)
  * (SPEC §10).
  * Sinaliza (vigente-aware) se a obrigação foi substituída por acordo vigente (sai do saldo, invariável
  * 15), se é parcela de acordo vigente, ou se é parcela de acordo rompido/cancelado (`parcelaDeAcordoDesfeito`
@@ -49,8 +50,9 @@ final class ObrigacaoOutput
         /**
          * Encargos SEPARADOS materializados (centavos) — as colunas do relatório da contabilidade
          * (spec "encargos configuráveis em cascata" §11). `encargosReconhecidos` acima continua
-         * sendo a soma de juros+multa+correcao (INV-E1); honorários ficam FORA do `valorAtual`
-         * (INV-E2), aparecem só na linha. Defaults 0 preservam os chamadores antigos.
+         * sendo a soma de juros+multa+correcao (INV-E1); os honorários ENTRAM no `valorAtual` desde a
+         * spec `cobranca-honorario-no-total.md` (INV-E2 revogada) e seguem aparecendo detalhados na
+         * linha. Defaults 0 preservam os chamadores antigos.
          */
         public readonly int $juros = 0,
         public readonly int $multa = 0,
@@ -115,11 +117,13 @@ final class ObrigacaoOutput
     ) {
     }
 
-    /** Total exibido na linha do relatório: exigível MAIS honorários (que não entram no saldo). */
-    public function totalComHonorarios(): int
-    {
-        return $this->valorAtual + $this->honorarios;
-    }
+    /*
+     * `totalComHonorarios()` foi REMOVIDO (spec `cobranca-honorario-no-total.md` §3). Ele somava
+     * `valorAtual + honorarios`; agora o honorário já está DENTRO de `valorAtual`, e mantê-lo
+     * contaria o honorário DUAS VEZES na coluna "Total" da tela — em silêncio, porque o número
+     * continuaria plausível. Quem exibe o total da linha usa `valorAtual`, e o valor mostrado é
+     * exatamente o mesmo de antes.
+     */
 
     /**
      * Quanto ainda falta receber nesta obrigação (centavos), com PISO 0: alocação manual não tem teto por

@@ -196,7 +196,8 @@ final class AlertasCobranca
      *    `doCasoExigiveis` inclui a obrigação quitada e a parcela de acordo CUMPRIDO.
      *
      * A régua do item 2 é a MESMA da aba "Dívida em aberto" (`ObrigacaoOutput::quitada()`: alocado >=
-     * valorAtual, sendo `valorAtual` o `valorExigivel()` — honorários ficam de FORA, INV-E2), de
+     * valorAtual, sendo `valorAtual` o `valorExigivel()` — que INCLUI honorários desde a spec
+     * `cobranca-honorario-no-total.md`, INV-E2 revogada), de
      * propósito: com duas réguas a página volta a ter duas definições de "paga" discordando entre si,
      * que é exatamente o defeito que isto corrige.
      *

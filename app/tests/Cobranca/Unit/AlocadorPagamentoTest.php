@@ -34,15 +34,18 @@ final class AlocadorPagamentoTest extends TestCase
     {
         $this->obrigacaoRepository = $this->createMock(ObrigacaoRepository::class);
         // CalculadoraHonorarios é final e pura: usa-se a REAL dentro do alocador REAL.
-        $this->sut = new AlocadorPagamento($this->obrigacaoRepository, new CalculadoraHonorarios(new ResolvedorConfigEncargos()));
+        $this->sut = new AlocadorPagamento($this->obrigacaoRepository);
         $this->tenant = new Tenant();
     }
 
     #[Test]
-    public function rateiaAcrescidoDividaSeparandoHonorariosEFechando(): void
+    public function naoRateiaOPagamento_alocaOValorCheio(): void
     {
-        // Caso 10% na forma acrescido_divida (política vem da carteira via objeto, #9-T2): bruto 1100
-        // → dívida 1000 + honorários 100.
+        // Era `rateiaAcrescidoDividaSeparandoHonorariosEFechando`: 1100 pagos viravam dívida 1000 +
+        // honorário 100, e a Σ das alocações tinha de fechar com os 1000. O rateio SAIU (spec
+        // `cobranca-honorario-no-total.md` §4.3) — o honorário agora está dentro do exigível, e
+        // retirá-lo do pagamento deixaria a dívida curta para sempre. A forma da carteira segue
+        // configurada; ela só não reparte mais o dinheiro.
         $carteira = (new Carteira())->setFormaHonorarios(FormaHonorarios::AcrescidoDivida)->setPercentualHonorarios('10.00');
         $objeto = (new ObjetoCobranca())->setCarteira($carteira);
         $caso = (new CasoCobranca())->setTenant($this->tenant)->setObjeto($objeto);
@@ -52,14 +55,14 @@ final class AlocadorPagamentoTest extends TestCase
 
         $item = new AlocacaoPagamentoInput();
         $item->obrigacaoId = 5;
-        $item->valor = 1000;
+        $item->valor = 1100;
 
         [$valorDivida, $valorHonorarios, $alocacoes] = $this->sut->montar($caso, 1100, [$item], $this->tenant);
 
-        self::assertSame(1000, $valorDivida);
-        self::assertSame(100, $valorHonorarios);
+        self::assertSame(1100, $valorDivida);
+        self::assertSame(0, $valorHonorarios, 'o sistema não inventa split — quem declara é a contabilidade');
         self::assertCount(1, $alocacoes);
-        self::assertSame(1000, $alocacoes[0]->getValor());
+        self::assertSame(1100, $alocacoes[0]->getValor());
         self::assertSame($this->tenant, $alocacoes[0]->getTenant());
         self::assertSame($obrigacao, $alocacoes[0]->getObrigacao());
     }

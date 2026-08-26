@@ -202,6 +202,24 @@ Um dos três arquivos abaixo tem CPF com dígito verificador **válido** que cas
 `docs/gestao-cobrancas/mockup-ajuste10-objeto-show.html`. A decisão que ela exige **não é técnica**:
 se limpar histórico já publicado vale o custo, ou se basta remover da árvore e registrar.
 
+### 3.8.1 🔴 O tooltip do "Total" apontava para um número que não existe (CORRIGIDO)
+
+Achado da 11ª revisão, e o mais instrutivo da frente porque **foi uma correção parcial que o criou**.
+
+O tooltip da coluna "Total" mandava o operador comparar com *"o 'Total em aberto' do topo"*, dizendo que
+lá os recebimentos já estavam descontados. Três erros, num texto que o operador lê sobre dinheiro:
+
+1. esse número **saiu da tela em 28/07/2026** (`113e5584`) — o que ficou é o card `Total vencido`;
+2. o card é **BRUTO**: pagamento parcial não o reduz. O tooltip afirmava o **oposto**;
+3. o card só conta o que **já venceu e não foi quitado**; a coluna aparece em todas as linhas.
+
+Provado por teste que já existia: `CabecalhoObjetoShowTest` assere o card em R$ 1.000,00 num cenário com
+R$ 400,00 pagos e alocados, e que "Total em aberto" não está no cabeçalho.
+
+🔑 **A lição:** a rodada anterior corrigiu a metade da frase que falava de honorário ("e SEM honorários"
+saiu, com razão) e **por isso não olhou o resto**. Corrigir metade de uma frase falsa é como não
+corrigir — o que sobra herda a credibilidade do que mudou.
+
 ### 3.9 🔴 Fatia própria: a garantia do `EditarConfiguracaoCaso` caiu com a INV-E2
 
 Achado em 20/08, durante a varredura da 10ª rodada da frente do honorário. **Não é comentário — é
@@ -280,6 +298,9 @@ O rodapé dos relatórios dela está no espelho: `cobranca_relatorio_totalizador
 | **Inventário por `grep` de método erra a conta** | a spec do honorário mapeou "as três cópias da regra do exigível" grepando `->valorExigivel()`. Havia **cinco**: duas escrevem a soma à mão (`EditarObrigacaoUseCase`) e uma está em DQL. Cópia de regra de dinheiro se esconde de grep de método — procure também pela SOMA (`valorOriginal + juros + multa`) |
 | **Trocar o número de um teste pode matar o invariante que ele guardava** | em 19/08 a asserção `assertSame(0, valorExigivel(), 'a alocação que a acompanha vale R$ 0,00')` virou `assertSame(5000, ...)` e a menção à alocação sumiu — junto com a única guarda de que exigível == alocado na criada-já-paga. **Leia o que a mensagem da asserção protege antes de mexer no número** |
 | **A prova precisa ser provada** | **três vezes** uma correção entrou declarada como "provada por reintrodução" sem estar. Apague a correção, veja vermelho, restaure, veja verde — e diga qual teste morreu |
+| 🔴 **Justificativa inventada é PIOR que a errada** | na 10ª rodada troquei uma justificativa falsa (que citava a INV-E2) por outra falsa (que citava a coluna-sombra, e era invenção). A original a varredura **encontrava**; a inventada ficou **invisível para o instrumento** e teria sobrevivido a todas as varreduras seguintes. **Regra: justificativa nova em comentário de dinheiro cita a medição ou o invariante que a sustenta, senão não entra.** Se você não consegue nomear o que a sustenta, o que falta é medição, não redação — registre a pendência com nome |
+| 🔴 **Inventário por comentário não vê o lugar sem comentário** | as cópias da regra do exigível foram mapeadas a partir dos comentários que existiam. A de MAIOR consequência — a que decide se uma **dívida quitada REABRE** (`EditarObrigacaoUseCase`, `$exigivelSeViva`) — **não tinha comentário nenhum**, e por isso não estava no mapa, não era protegida e não era encontrável. O lugar sem pista é justamente o que ninguém acha |
+| 🔴 **Âncora por número de linha manda apagar o que protege** | um script guardava 3 comentários por `arquivo:linha`. **Uma** linha inserida acima desloca tudo, e a saída passa a listá-los como "falsos restantes" **e** como "sumidos" — empurrando a próxima sessão a apagar exatamente o que ele existe para preservar. **Âncore por trecho do texto**, e prove inserindo uma linha acima para ver a âncora acompanhar |
 
 ## 7. 🔴 ONDE PARAMOS (19/08) — as duas revisões, e o que fazer primeiro
 
@@ -288,7 +309,7 @@ ao master. As worktrees estão limpas e commitadas; não há trabalho solto.
 
 | frente | topo | suíte | veredito |
 |---|---|---|---|
-| `cobranca-honorario-no-total` | 12 commits | 3895/3895 | 🟠 §7.1 reduzida na 7ª; 8ª e 9ª revisões feitas e corrigidas (INV-H4, texto do histórico, varredura da INV-E2); ⏳ **10ª revisão** → integrar |
+| `cobranca-honorario-no-total` | 18 commits (`34e64543`) | 3896/3896 | ✅ **11 revisões, todas corrigidas. PRONTA PARA MERGE.** Sem migration. Merge simulado: só a spec se sobrepõe e funde limpa (§4.3 do master e §7.1.1/§10.8 da frente convivem) |
 | `cobranca-reconciliar-data-acordo` | `6995bb99` | 3901/3901 | ⛔ 2 achados ALTO |
 
 ### 7.1 🟠 As 135 parcelas — CORREÇÃO pronta, parte prospectiva REMOVIDA

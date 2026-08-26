@@ -31,7 +31,6 @@ use App\Cobranca\Repository\ObrigacaoRepository;
 use App\Cobranca\Repository\PagamentoRepository;
 use App\Cobranca\Repository\ProximaAcaoRepository;
 use App\Cobranca\Service\AlertasCobranca;
-use App\Cobranca\Service\CalculadoraHonorarios;
 use App\Cobranca\Service\CalculadoraPrescricao;
 use App\Cobranca\Service\CalculadoraSaldo;
 use App\Cobranca\Service\EncargosVivos;
@@ -44,10 +43,9 @@ use App\Cobranca\Service\ResolvedorConfigEncargos;
  * tenant-scoped e dos serviços de derivação. O caso já vem resolvido por tenant no controller;
  * nada aqui recalcula regra de negócio — só lê e formata via Output DTOs. Documentos entram na 8C.
  *
- * Ajuste 10 (T5): é aqui que o prefill do "Receber" é derivado (`ObrigacaoOutput::brutoSugerido`),
- * delegando a `CalculadoraHonorarios` — este UseCase é quem tem, ao mesmo tempo, o alocado por
- * obrigação e o caso (do qual a calculadora resolve a política de honorários). A regra continua a
- * morar na calculadora.
+ * Ajuste 10 (T5): é aqui que o prefill do "Receber" é derivado (`ObrigacaoOutput::brutoSugerido`).
+ * Ele É o restante da obrigação — o gross-up que delegava à `CalculadoraHonorarios` saiu junto com o
+ * rateio (spec `cobranca-honorario-no-total.md` §4.3), porque o honorário já está dentro do exigível.
  *
  * Redesenho do cabeçalho (2026-07-27): os quatro cards de dinheiro (§1.2), a contagem de obrigações em
  * aberto (§1.1) e o aviso de prescrição (§1.3) são somados/derivados AQUI, sobre EXATAMENTE o conjunto
@@ -70,7 +68,6 @@ final class MontarDetalheCasoUseCase
         private readonly CalculadoraSaldo $calculadoraSaldo,
         private readonly AlertasCobranca $alertasCobranca,
         private readonly AlocacaoPagamentoRepository $alocacaoRepository,
-        private readonly CalculadoraHonorarios $calculadoraHonorarios,
         private readonly ResolvedorConfigEncargos $resolvedorConfig,
         private readonly EncargosVivos $encargosVivos,
         private readonly CalculadoraPrescricao $calculadoraPrescricao,
@@ -135,8 +132,20 @@ final class MontarDetalheCasoUseCase
                 return ObrigacaoOutput::fromEntity(
                     $o,
                     $alocado,
-                    // O prefill do "Receber": o bruto cuja parte-dívida é exatamente o restante (spec §5.1).
-                    $this->calculadoraHonorarios->brutoParaRecuperar($caso, $restante),
+                    // O prefill do "Receber" É o próprio restante (spec `cobranca-honorario-no-total.md`
+                    // §4.3). Era `brutoParaRecuperar($caso, $restante)` = restante × (1+p), que existia
+                    // porque o exigível NÃO continha honorário e o rateio o retirava depois. Agora o
+                    // honorário já está no exigível: multiplicar de novo cobraria honorário sobre
+                    // honorário.
+                    //
+                    // 🔴 **O número na tela MUDA em dívida parcialmente paga** — aqui dizia que "continua
+                    // o mesmo", e é falso. Na dívida intacta os dois caminhos coincidem; na parcialmente
+                    // paga, não: o gross-up antigo multiplicava o RESTANTE (R$ 800 × 1,10 = R$ 880),
+                    // enquanto o honorário do exigível incide sobre a obrigação INTEIRA (R$ 1.200 + R$ 120
+                    // − R$ 400 = R$ 920). O valor novo é o certo — é o que a contabilidade cobra —, mas
+                    // é mudança visível para quem opera, e por isso está no aviso de deploy (spec §9).
+                    // Guardado por `ObjetoShowControllerTest`, que afirma os R$ 920,00.
+                    $restante,
                     // Config resolvida (cascata) só para a UI saber a BASE de multa/honorários e exibir o
                     // "%" sobre a base certa. Grafo caso→objeto→carteira já carregado — sem query nova.
                     $this->resolvedorConfig->resolver($o),
