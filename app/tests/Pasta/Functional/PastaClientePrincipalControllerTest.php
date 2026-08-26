@@ -389,19 +389,19 @@ final class PastaClientePrincipalControllerTest extends JusPrimeWebTestCase
         // Estado: estrela cheia na linha do principal.
         self::assertCount(
             1,
-            $crawler->filter(".cliente-row[data-cliente-id=\"{$b->getId()}\"] .js-cliente-principal-estrela i.bi-star-fill"),
+            $crawler->filter(".cliente-linha[data-cliente-id=\"{$b->getId()}\"] .js-cliente-principal-estrela i.bi-star-fill"),
             'o principal tem estrela cheia, e é estado — não botão'
         );
         // Ação: o outro tem o formulário com a estrela vazia.
         self::assertCount(
             1,
-            $crawler->filter(".cliente-row[data-cliente-id=\"{$a->getId()}\"] form.js-ajax-cliente-principal button i.bi-star"),
+            $crawler->filter(".cliente-linha[data-cliente-id=\"{$a->getId()}\"] form.js-ajax-cliente-principal button i.bi-star"),
             'quem não é principal tem botão para assumir'
         );
         // E o principal NÃO tem o formulário (não faz sentido marcar quem já é).
         self::assertCount(
             0,
-            $crawler->filter(".cliente-row[data-cliente-id=\"{$b->getId()}\"] form.js-ajax-cliente-principal")
+            $crawler->filter(".cliente-linha[data-cliente-id=\"{$b->getId()}\"] form.js-ajax-cliente-principal")
         );
     }
 

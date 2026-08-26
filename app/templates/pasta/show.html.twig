@@ -412,186 +412,56 @@
                                             </button>
                                         </div>
                                         <div id="clientesList">
-                                            {# Quem manda na "Média por CPF" da aba Financeiro. Pasta com cliente SEMPRE
-                                               tem principal — o primeiro vinculado, ou quem o dono marcou depois —, então
-                                               aqui não há caso "ninguém escolheu" para tratar. #}
+                                            {# Lista plana: nome + documento + acoes. Arquivos por cliente
+                                               SAIRAM daqui (decisao do dono, 2026-08-26) — a ficha do cliente
+                                               ja os lista e ja recebe upload, entao nada ficou inalcancavel.
+
+                                               Medido na PROD no mesmo dia: 1.072 das 1.073 pastas tem ZERO
+                                               cliente vinculado e caem no ramo do texto legado ali embaixo.
+                                               Ele NAO e caso de borda: e o que a tela mostra todo dia. #}
                                             {% set clientePrincipal = pasta.clientePrincipal %}
                                             {% if pasta.clientes|length > 0 %}
-                                                {% for cliente in pasta.clientes %}
-                                                    {# Busca dados de documentos deste cliente #}
-                                                    {% set clienteDocs = null %}
-                                                    {% for item in clientesComDocumentos %}
-                                                        {% if item.cliente.id == cliente.id %}
-                                                            {% set clienteDocs = item %}
-                                                        {% endif %}
-                                                    {% endfor %}
+                                                {% set outros = pasta.clientes|filter(c => not clientePrincipal or c.id != clientePrincipal.id) %}
 
-                                                    {# Conta total de docs deste cliente #}
-                                                    {% set totalDocsCliente = 0 %}
-                                                    {% if clienteDocs is not null %}
-                                                        {% for tipo, docs in clienteDocs.documentosPorTipo %}
-                                                            {% set totalDocsCliente = totalDocsCliente + docs|length %}
-                                                        {% endfor %}
-                                                    {% endif %}
+                                                {# ── Principal: FORA do colapso, para nunca sumir ── #}
+                                                {% if clientePrincipal %}
+                                                    <div class="cliente-principal">
+                                                        {{ include('pasta/_cliente_linha.html.twig', {
+                                                            pasta: pasta, cliente: clientePrincipal, ehPrincipal: true,
+                                                        }) }}
+                                                    </div>
+                                                {% endif %}
 
-                                                    <div class="cliente-row border-bottom" data-cliente-id="{{ cliente.id }}"
-                                                         {# O token vai na LINHA, não só no form: quando a estrela cheia
-                                                            (que não tem form) precisa voltar a ser botão, o JS não teria de
-                                                            onde tirá-lo. Mesma exposição dos hidden inputs já na página. #}
-                                                         data-token-principal="{{ csrf_token('pasta_cliente_principal_' ~ pasta.id ~ '_' ~ cliente.id) }}">
-                                                        {# ── Linha compacta: toggle do accordion ── #}
-                                                        <div class="d-flex align-items-center gap-2 py-2 px-1">
-                                                            {# Toggle accordion #}
-                                                            <button class="btn btn-link p-0 text-start text-decoration-none flex-grow-1 cliente-accordion-toggle"
-                                                                    type="button"
-                                                                    data-bs-toggle="collapse"
-                                                                    data-bs-target="#clienteAcc{{ cliente.id }}"
-                                                                    aria-expanded="false"
-                                                                    aria-controls="clienteAcc{{ cliente.id }}">
-                                                                <div class="d-flex align-items-center gap-2">
-                                                                    <i class="bi bi-person-circle text-muted fs-6"></i>
-                                                                    <span class="fw-semibold text-primary small">
-                                                                        {% if cliente.cpf is defined and cliente.cpf %}
-                                                                            {{ cliente.nomeCompleto }}
-                                                                        {% else %}
-                                                                            {{ cliente.razaoSocial }}
-                                                                        {% endif %}
-                                                                    </span>
-                                                                    {% if totalDocsCliente > 0 %}
-                                                                        <span class="badge text-bg-secondary rounded-pill" style="font-size:.65rem;">{{ totalDocsCliente }}</span>
-                                                                    {% endif %}
-                                                                </div>
-                                                            </button>
+                                                {% if outros|length > 0 %}
+                                                    {# Botao so existe quando ha o que esconder. #}
+                                                    <button type="button"
+                                                            class="btn btn-link btn-sm p-0 clientes-outros-toggle"
+                                                            data-bs-toggle="collapse"
+                                                            data-bs-target="#clientesOutros"
+                                                            aria-expanded="false"
+                                                            aria-controls="clientesOutros">
+                                                        <i class="bi bi-chevron-right clientes-outros-caret me-1"></i>
+                                                        <span class="clientes-outros-label">mostrar outros {{ outros|length }}</span>
+                                                    </button>
 
-                                                            {# Ações rápidas: principal + ir ao cliente + desvincular.
-                                                               A classe `js-cliente-acoes` é o gancho do JS: amarrá-lo às classes
-                                                               de layout fazia a linha criada por AJAX (que tem outro layout) ficar
-                                                               invisível para a troca de estrela. #}
-                                                            <div class="d-flex gap-1 flex-shrink-0 js-cliente-acoes">
-                                                                {# Dois estados: cheia = é o principal desta pasta, vazia = clique para
-                                                                   trocar. Não existe "desmarcar": pasta com cliente SEMPRE tem principal
-                                                                   (o primeiro vinculado, ou quem o dono marcou), então não há para onde
-                                                                   voltar — o que existe é trocar. #}
-                                                                {% if clientePrincipal and cliente.id == clientePrincipal.id %}
-                                                                    <span class="btn btn-xs btn-primary disabled js-cliente-principal-estrela"
-                                                                          data-cliente-id="{{ cliente.id }}"
-                                                                          title="Cliente principal desta pasta — a Média por CPF é dele. Clique na estrela de outro para trocar">
-                                                                        <i class="bi bi-star-fill"></i>
-                                                                    </span>
-                                                                {% else %}
-                                                                    <form method="post" action="{{ path('pasta_cliente_principal', {id: pasta.id, cliente: cliente.id}) }}" class="js-ajax-cliente-principal m-0">
-                                                                        <input type="hidden" name="_token" value="{{ csrf_token('pasta_cliente_principal_' ~ pasta.id ~ '_' ~ cliente.id) }}">
-                                                                        <button type="submit" class="btn btn-xs btn-outline-secondary" title="Tornar cliente principal (a Média por CPF passa a ser dele)">
-                                                                            <i class="bi bi-star"></i>
-                                                                        </button>
-                                                                    </form>
-                                                                {% endif %}
-                                                                <a href="{{ path('cliente_show', {id: cliente.id}) }}"
-                                                                   class="btn btn-xs btn-outline-secondary"
-                                                                   title="Abrir ficha do cliente">
-                                                                    <i class="bi bi-box-arrow-up-right"></i>
-                                                                </a>
-                                                                <form method="post" action="{{ path('pasta_cliente_desvincular', {id: pasta.id, cliente: cliente.id}) }}" class="js-ajax-desvincular-cliente m-0">
-                                                                    <input type="hidden" name="_token" value="{{ csrf_token('pasta_cliente_desvincular_' ~ pasta.id ~ '_' ~ cliente.id) }}">
-                                                                    <button type="submit" class="btn btn-xs btn-outline-danger" title="Desvincular cliente da pasta">
-                                                                        <i class="bi bi-trash"></i>
-                                                                    </button>
-                                                                </form>
-                                                            </div>
-                                                        </div>
-
-                                                        {# ── Painel colapsável com arquivos + upload ── #}
-                                                        <div class="collapse" id="clienteAcc{{ cliente.id }}">
-                                                            <div class="cliente-acc-body pb-3 pt-1 px-1">
-
-                                                                {# Documentos existentes #}
-                                                                {% if clienteDocs is not null and totalDocsCliente > 0 %}
-                                                                    <div class="mb-2">
-                                                                        {% for tipo, docs in clienteDocs.documentosPorTipo %}
-                                                                            {% if docs|length > 0 %}
-                                                                                {% set label = documentTypeOptionsCliente[tipo] ?? tipo %}
-                                                                                <div class="text-muted" style="font-size:.7rem;letter-spacing:.03em;text-transform:uppercase;margin-bottom:.25rem;margin-top:.6rem;">
-                                                                                    <i class="bi bi-folder me-1"></i>{{ label }}
-                                                                                </div>
-                                                                                {% for doc in docs %}
-                                                                                    <div class="d-flex align-items-center gap-2 rounded px-2 py-1 mb-1 doc-row-cliente">
-                                                                                        <i class="bi bi-file-earmark-text text-primary flex-shrink-0" style="font-size:.85rem;"></i>
-                                                                                        <span class="text-truncate flex-grow-1" style="font-size:.8rem;">{{ doc.nomeOriginal }}</span>
-                                                                                        <small class="text-muted text-nowrap d-none d-sm-inline" style="font-size:.7rem;">{{ doc.carregadoEm|date('d/m/Y') }}</small>
-                                                                                        <div class="d-flex gap-1 flex-shrink-0">
-                                                                                            <button type="button" class="btn btn-xs btn-outline-primary"
-                                                                                                    title="Visualizar"
-                                                                                                    data-bs-toggle="modal"
-                                                                                                    data-bs-target="#previewDocModal"
-                                                                                                    data-url="{{ path('cliente_documento_view', {id: doc.id}) }}"
-                                                                                                    data-nome="{{ doc.nomeOriginal }}"
-                                                                                                    data-mime="{{ doc.mimeType }}">
-                                                                                                <i class="bi bi-eye"></i>
-                                                                                            </button>
-                                                                                            <button type="button" class="btn btn-xs btn-outline-secondary"
-                                                                                                    title="Editar"
-                                                                                                    data-bs-toggle="modal"
-                                                                                                    data-bs-target="#editDocClienteModal{{ doc.id }}">
-                                                                                                <i class="bi bi-pencil"></i>
-                                                                                            </button>
-                                                                                        </div>
-                                                                                    </div>
-                                                                                {% endfor %}
-                                                                            {% endif %}
-                                                                        {% endfor %}
-                                                                    </div>
-                                                                {% else %}
-                                                                    <p class="text-muted small mb-2"><i class="bi bi-inbox me-1"></i>Nenhum arquivo anexado.</p>
-                                                                {% endif %}
-
-                                                                {# Upload inline — dentro do accordion #}
-                                                                <form method="post" enctype="multipart/form-data"
-                                                                      action="{{ path('cliente_documento_upload', {id: cliente.id}) }}"
-                                                                      class="form-upload-cliente-inline"
-                                                                      data-cliente-id="{{ cliente.id }}">
-                                                                    <input type="hidden" name="_token" value="{{ csrf_token('upload_documento_cliente_' ~ cliente.id) }}">
-                                                                    <input type="file" id="fileInputCliente{{ cliente.id }}"
-                                                                           multiple
-                                                                           accept=".pdf,.jpg,.jpeg,.png,.mp4,.mpeg,.mp3,.ogg,.opus,.wav,.wma,.mov,audio/*,video/*"
-                                                                           class="d-none file-input-cliente">
-
-                                                                    <div id="listaUploadCliente{{ cliente.id }}" class="mb-2"></div>
-
-                                                                    <div class="form-check form-switch small mb-1">
-                                                                        <input type="checkbox" class="form-check-input" id="reduzirTamanhoClienteInline{{ cliente.id }}" name="reduzir_tamanho" value="1">
-                                                                        <label class="form-check-label text-muted" for="reduzirTamanhoClienteInline{{ cliente.id }}">
-                                                                            Reduzir tamanho (PDF assinado pode perder a assinatura)
-                                                                        </label>
-                                                                    </div>
-
-                                                                    <div class="d-flex align-items-center gap-2 mt-1">
-                                                                        <button type="button"
-                                                                                class="btn btn-xs btn-outline-primary btn-escolher-arquivo-cliente"
-                                                                                data-cliente-id="{{ cliente.id }}">
-                                                                            <i class="bi bi-paperclip me-1"></i> Anexar
-                                                                        </button>
-                                                                        <button type="submit"
-                                                                                class="btn btn-xs btn-success btn-enviar-cliente d-none"
-                                                                                data-cliente-id="{{ cliente.id }}">
-                                                                            <i class="bi bi-cloud-upload me-1"></i> Enviar
-                                                                        </button>
-                                                                        <button type="button"
-                                                                                class="btn btn-xs btn-outline-secondary btn-cancelar-cliente d-none"
-                                                                                data-cliente-id="{{ cliente.id }}">
-                                                                            <i class="bi bi-x"></i>
-                                                                        </button>
-                                                                    </div>
-                                                                </form>
-
-                                                            </div>
+                                                    <div class="collapse" id="clientesOutros">
+                                                        {# A rolagem mora AQUI: a lista pode crescer, o cartao nao. #}
+                                                        <div class="clientes-outros">
+                                                            {% for cliente in outros %}
+                                                                {{ include('pasta/_cliente_linha.html.twig', {
+                                                                    pasta: pasta, cliente: cliente, ehPrincipal: false,
+                                                                }) }}
+                                                            {% endfor %}
                                                         </div>
                                                     </div>
-                                                {% endfor %}
+                                                {% endif %}
                                             {% elseif pasta.nomeCliente %}
-                                                <div id="clientesPlaceholder" class="d-flex align-items-center gap-2 mb-3 pb-3 border-bottom">
+                                                {# Texto solto, sem cadastro: NAO ha documento para mostrar.
+                                                   Imprimir um rotulo "CPF" vazio aqui seria inventar dado. #}
+                                                <div id="clientesPlaceholder" class="cliente-nao-vinculado d-flex align-items-center gap-2 py-2">
                                                     <i class="bi bi-person-circle text-muted"></i>
-                                                    <span>{{ pasta.nomeCliente }}</span>
-                                                    <span class="badge text-bg-secondary ms-auto" style="font-size:.65rem;">não vinculado</span>
+                                                    <span class="flex-grow-1">{{ pasta.nomeCliente }}</span>
+                                                    <span class="badge text-bg-secondary" style="font-size:.65rem;">nao vinculado</span>
                                                 </div>
                                             {% else %}
                                                 <div id="clientesPlaceholder" class="text-muted small mb-0"><i class="bi bi-info-circle me-1"></i> Nenhum cliente vinculado.</div>
@@ -1747,128 +1617,82 @@
     let clientesSelecionados = [];
     let debounceTimer        = null;
 
+    /* Monta a MESMA estrutura que _cliente_linha.html.twig gera no servidor.
+       Se as duas divergirem, adicionar um cliente injeta uma linha com outra
+       cara — defeito que so aparece depois de vincular alguem, nunca ao abrir
+       a pagina. Ao mexer numa, conferir a outra. */
+    function mascararDocumento(valor) {
+        const d = String(valor || '').replace(/\D/g, '');
+        if (d.length === 11) return `${d.slice(0,3)}.${d.slice(3,6)}.${d.slice(6,9)}-${d.slice(9)}`;
+        if (d.length === 14) return `${d.slice(0,2)}.${d.slice(2,5)}.${d.slice(5,8)}/${d.slice(8,12)}-${d.slice(12)}`;
+        return String(valor || '');
+    }
+
+    function rotuloDocumento(valor) {
+        const n = String(valor || '').replace(/\D/g, '').length;
+        return n === 11 ? 'CPF' : (n === 14 ? 'CNPJ' : 'Documento');
+    }
+
     function criarClienteRow(cliente) {
         const row = document.createElement('div');
-        row.className = 'cliente-row mb-3 pb-3 border-bottom';
+        row.className = 'cliente-linha d-flex align-items-center gap-2 py-2';
         row.dataset.clienteId = cliente.id;
 
-        // Cabeçalho: nome + botão desvincular
-        const header = document.createElement('div');
-        header.className = 'd-flex align-items-center justify-content-between gap-2 mb-2';
+        const icone = document.createElement('i');
+        icone.className = 'bi bi-person-circle text-muted flex-shrink-0';
 
-        const link = document.createElement('a');
-        link.href = `/clientes/${cliente.id}`;
-        link.className = 'text-decoration-none flex-grow-1 vinculo-link';
+        const identidade = document.createElement('div');
+        identidade.className = 'cliente-identidade flex-grow-1';
 
-        const linkContent = document.createElement('div');
-        linkContent.className = 'd-flex align-items-center gap-2';
+        const nome = document.createElement('div');
+        nome.className = 'cliente-nome';
+        nome.textContent = cliente.nome;
+        identidade.appendChild(nome);
 
-        const icon = document.createElement('i');
-        icon.className = 'bi bi-person-circle text-muted';
+        if (cliente.documento) {
+            const doc = document.createElement('div');
+            doc.className = 'cliente-doc';
 
-        const nameSpan = document.createElement('span');
-        nameSpan.className = 'fw-semibold text-primary';
-        nameSpan.textContent = cliente.nome;
+            const rot = document.createElement('span');
+            rot.className = 'cliente-doc-rotulo';
+            rot.textContent = rotuloDocumento(cliente.documento);
 
-        linkContent.appendChild(icon);
-        linkContent.appendChild(nameSpan);
-        link.appendChild(linkContent);
+            const val = document.createElement('span');
+            val.className = 'cliente-doc-valor';
+            val.textContent = mascararDocumento(cliente.documento);
 
-        const formDesvincular = document.createElement('form');
-        formDesvincular.method = 'post';
-        formDesvincular.action = `/pasta/${pastaId}/cliente/${cliente.id}/desvincular`;
-        formDesvincular.className = 'js-ajax-desvincular-cliente m-0';
+            doc.appendChild(rot);
+            doc.appendChild(val);
+            identidade.appendChild(doc);
+        }
 
-        const tokenInput = document.createElement('input');
-        tokenInput.type = 'hidden';
-        tokenInput.name = '_token';
-        tokenInput.value = cliente.csrfToken;
-
-        const btnDesvincular = document.createElement('button');
-        btnDesvincular.type = 'submit';
-        btnDesvincular.className = 'btn btn-sm btn-outline-danger';
-        btnDesvincular.title = 'Desvincular cliente da pasta';
-        btnDesvincular.innerHTML = '<i class="bi bi-trash"></i>';
-
-        formDesvincular.appendChild(tokenInput);
-        formDesvincular.appendChild(btnDesvincular);
-
-        // As ações vão num container com o MESMO gancho da linha renderizada pelo servidor,
-        // senão a troca de estrela não enxerga esta linha e o cliente recém-vinculado fica sem
-        // como ser marcado até um F5. A estrela nasce em 'outro'; se este cliente passar a ser o
-        // principal (é o de cadastro mais antigo e ninguém marcou nada), quem corrige é o
-        // trocaClientePrincipal disparado logo depois, com o estado que o servidor devolveu.
         const acoes = document.createElement('div');
         acoes.className = 'd-flex gap-1 flex-shrink-0 js-cliente-acoes';
-        acoes.appendChild(montaEstrelaPrincipal(String(cliente.id), false, cliente.csrfTokenPrincipal ?? ''));
-        acoes.appendChild(formDesvincular);
 
-        row.dataset.tokenPrincipal = cliente.csrfTokenPrincipal ?? '';
+        const ficha = document.createElement('a');
+        ficha.href = `/clientes/${cliente.id}`;
+        ficha.className = 'btn btn-xs btn-outline-secondary';
+        ficha.title = 'Abrir ficha do cliente (documentos e anexos ficam lá)';
+        ficha.innerHTML = '<i class="bi bi-box-arrow-up-right"></i>';
 
-        header.appendChild(link);
-        header.appendChild(acoes);
+        const formDesv = document.createElement('form');
+        formDesv.method = 'post';
+        formDesv.action = `/pasta/${pastaId}/cliente/${cliente.id}/desvincular`;
+        formDesv.className = 'js-ajax-desvincular-cliente m-0';
 
-        // Área de arquivos com form de upload
-        const arquivosDiv = document.createElement('div');
-        arquivosDiv.className = 'cliente-arquivos ps-1';
+        const btnDesv = document.createElement('button');
+        btnDesv.type = 'submit';
+        btnDesv.className = 'btn btn-xs btn-outline-danger';
+        btnDesv.title = 'Desvincular cliente da pasta';
+        btnDesv.innerHTML = '<i class="bi bi-trash"></i>';
+        formDesv.appendChild(btnDesv);
 
-        const formUpload = document.createElement('form');
-        formUpload.method = 'post';
-        formUpload.enctype = 'multipart/form-data';
-        formUpload.action = `/clientes/${cliente.id}/documento/upload`;
-        formUpload.className = 'form-upload-cliente-inline mt-2';
-        formUpload.dataset.clienteId = cliente.id;
+        acoes.appendChild(ficha);
+        acoes.appendChild(formDesv);
 
-        const tokenUpload = document.createElement('input');
-        tokenUpload.type = 'hidden';
-        tokenUpload.name = '_token';
-        tokenUpload.value = cliente.csrfTokenUpload;
-
-        const fileInput = document.createElement('input');
-        fileInput.type = 'file';
-        fileInput.id = `fileInputCliente${cliente.id}`;
-        fileInput.multiple = true;
-        fileInput.accept = '.pdf,.jpg,.jpeg,.png,.mp4,.mpeg,.mp3,.ogg,.opus,.wav,.wma,.mov,audio/*,video/*';
-        fileInput.className = 'd-none file-input-cliente';
-
-        const listaUpload = document.createElement('div');
-        listaUpload.id = `listaUploadCliente${cliente.id}`;
-        listaUpload.className = 'mb-2';
-
-        const botoesDiv = document.createElement('div');
-        botoesDiv.className = 'd-flex align-items-center gap-2';
-
-        const btnAnexar = document.createElement('button');
-        btnAnexar.type = 'button';
-        btnAnexar.className = 'btn btn-xs btn-outline-primary btn-escolher-arquivo-cliente';
-        btnAnexar.dataset.clienteId = cliente.id;
-        btnAnexar.innerHTML = '<i class="bi bi-paperclip me-1"></i> Anexar arquivo';
-
-        const btnEnviar = document.createElement('button');
-        btnEnviar.type = 'submit';
-        btnEnviar.className = 'btn btn-xs btn-success btn-enviar-cliente d-none';
-        btnEnviar.dataset.clienteId = cliente.id;
-        btnEnviar.innerHTML = '<i class="bi bi-cloud-upload me-1"></i> Enviar';
-
-        const btnCancelar = document.createElement('button');
-        btnCancelar.type = 'button';
-        btnCancelar.className = 'btn btn-xs btn-outline-secondary btn-cancelar-cliente d-none';
-        btnCancelar.dataset.clienteId = cliente.id;
-        btnCancelar.innerHTML = '<i class="bi bi-x"></i>';
-
-        botoesDiv.appendChild(btnAnexar);
-        botoesDiv.appendChild(btnEnviar);
-        botoesDiv.appendChild(btnCancelar);
-
-        formUpload.appendChild(tokenUpload);
-        formUpload.appendChild(fileInput);
-        formUpload.appendChild(listaUpload);
-        formUpload.appendChild(botoesDiv);
-
-        arquivosDiv.appendChild(formUpload);
-
-        row.appendChild(header);
-        row.appendChild(arquivosDiv);
+        row.appendChild(icone);
+        row.appendChild(identidade);
+        row.appendChild(acoes);
 
         return row;
     }
@@ -1877,6 +1701,45 @@
      * @param {object} cliente
      * @param {object|undefined} principal estado devolvido pelo servidor após o vínculo
      */
+    /* O bloco tem DOIS destinos agora: o principal fica fora do colapso e os
+       demais dentro dele. Jogar tudo no #clientesList, como antes, colocaria o
+       cliente novo ao lado do principal, para fora da area que rola. */
+    function blocoDosOutros() {
+        let bloco = clientesContainer.querySelector('.clientes-outros');
+        if (bloco) return bloco;
+
+        const botao = document.createElement('button');
+        botao.type = 'button';
+        botao.className = 'btn btn-link btn-sm p-0 clientes-outros-toggle';
+        botao.setAttribute('data-bs-toggle', 'collapse');
+        botao.setAttribute('data-bs-target', '#clientesOutros');
+        botao.setAttribute('aria-expanded', 'false');
+        botao.setAttribute('aria-controls', 'clientesOutros');
+        botao.innerHTML = '<i class="bi bi-chevron-right clientes-outros-caret me-1"></i>' +
+                          '<span class="clientes-outros-label"></span>';
+
+        const colapso = document.createElement('div');
+        colapso.className = 'collapse';
+        colapso.id = 'clientesOutros';
+
+        bloco = document.createElement('div');
+        bloco.className = 'clientes-outros';
+        colapso.appendChild(bloco);
+
+        clientesContainer.appendChild(botao);
+        clientesContainer.appendChild(colapso);
+        return bloco;
+    }
+
+    function atualizarRotuloOutros() {
+        const bloco = clientesContainer.querySelector('.clientes-outros');
+        const label = clientesContainer.querySelector('.clientes-outros-label');
+        if (!bloco || !label) return;
+        const n = bloco.querySelectorAll('.cliente-linha').length;
+        const aberto = clientesContainer.querySelector('#clientesOutros')?.classList.contains('show');
+        label.textContent = `${aberto ? 'ocultar' : 'mostrar'} outros ${n}`;
+    }
+
     function appendClienteRow(cliente, principal) {
         if (!clientesContainer) {
             return;
@@ -1885,7 +1748,20 @@
         if (placeholder) {
             placeholder.remove();
         }
-        clientesContainer.appendChild(criarClienteRow(cliente));
+
+        const linha = criarClienteRow(cliente);
+        let blocoPrincipal = clientesContainer.querySelector('.cliente-principal');
+
+        if (!blocoPrincipal) {
+            // Primeiro cliente da pasta: ele E o principal (Pasta::addCliente).
+            blocoPrincipal = document.createElement('div');
+            blocoPrincipal.className = 'cliente-principal';
+            blocoPrincipal.appendChild(linha);
+            clientesContainer.prepend(blocoPrincipal);
+        } else {
+            blocoDosOutros().appendChild(linha);
+            atualizarRotuloOutros();
+        }
 
         // Vincular pode MOVER o principal automático: se o cliente novo for o de cadastro mais
         // antigo e ninguém tiver marcado nada, a Média por CPF passa a ser dele. Sem isto a tela
@@ -1902,16 +1778,16 @@
 
         let row = null;
         if (clienteId) {
-            row = clientesContainer.querySelector(`.cliente-row[data-cliente-id="${clienteId}"]`);
+            row = clientesContainer.querySelector(`.cliente-linha[data-cliente-id="${clienteId}"]`);
         }
         if (!row && form) {
-            row = form.closest('.cliente-row');
+            row = form.closest('.cliente-linha');
         }
 
         if (row) {
             row.remove();
         }
-        if (!clientesContainer.querySelector('.cliente-row')) {
+        if (!clientesContainer.querySelector('.cliente-linha')) {
             clientesContainer.insertAdjacentHTML('beforeend', '<div id="clientesPlaceholder" class="text-muted small mb-0"><i class="bi bi-info-circle me-1"></i> Nenhum cliente vinculado.</div>');
         }
     }
@@ -2175,7 +2051,7 @@
     function trocaClientePrincipal(dados) {
         const novoId = String(dados.clienteId ?? '');
 
-        document.querySelectorAll('#clientesList .cliente-row').forEach((linha) => {
+        document.querySelectorAll('#clientesList .cliente-linha').forEach((linha) => {
             const acoes = linha.querySelector('.js-cliente-acoes');
             if (!acoes) {
                 return;
@@ -2646,58 +2522,6 @@
     </div>
 </div>
 
-{# Modais: Editar Documento do Cliente #}
-{% for cliente in pasta.clientes %}
-    {% for item in clientesComDocumentos %}
-        {% if item.cliente.id == cliente.id %}
-            {% for tipo, docs in item.documentosPorTipo %}
-                {% for doc in docs %}
-                    {% set label = documentTypeOptionsCliente[tipo] ?? tipo %}
-                    <div class="modal fade" id="editDocClienteModal{{ doc.id }}" tabindex="-1" aria-hidden="true">
-                        <div class="modal-dialog">
-                            <div class="modal-content">
-                                <form method="post" action="{{ path('cliente_documento_edit', {id: doc.id}) }}">
-                                    <input type="hidden" name="_token" value="{{ csrf_token('edit_doc_cliente_' ~ doc.id) }}">
-                                    <div class="modal-header">
-                                        <h5 class="modal-title"><i class="bi bi-pencil me-1"></i> Editar documento</h5>
-                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-                                    </div>
-                                    <div class="modal-body">
-                                        <p class="text-muted small mb-3"><i class="bi bi-file-earmark me-1"></i>{{ doc.nomeOriginal }}</p>
-                                        <div class="mb-3">
-                                            <label class="form-label">Tipo de documento</label>
-                                            <select name="categoria" class="form-select" required>
-                                                {% for valor, texto in documentTypeOptionsCliente %}
-                                                    <option value="{{ valor }}" {{ doc.categoria == valor ? 'selected' : '' }}>{{ texto }}</option>
-                                                {% endfor %}
-                                            </select>
-                                        </div>
-                                        <div class="mb-3">
-                                            <label class="form-label">Descrição</label>
-                                            <input type="text" name="descricao" class="form-control"
-                                                   value="{{ doc.descricao ?? '' }}" maxlength="500" placeholder="Descrição (opcional)">
-                                        </div>
-                                        <div class="mb-3">
-                                            <label class="form-label">Número (opcional)</label>
-                                            <input type="text" name="numero" class="form-control"
-                                                   value="{{ doc.numero ?? '' }}" maxlength="255" placeholder="Número">
-                                        </div>
-                                    </div>
-                                    <div class="modal-footer">
-                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                        <button type="submit" class="btn btn-primary">
-                                            <i class="bi bi-check-lg me-1"></i> Salvar
-                                        </button>
-                                    </div>
-                                </form>
-                            </div>
-                        </div>
-                    </div>
-                {% endfor %}
-            {% endfor %}
-        {% endif %}
-    {% endfor %}
-{% endfor %}
 
 {# Modais: Editar Documento (todos os documentos da pasta — gerais e de seções) #}
 {% for doc in pasta.documentos %}
@@ -2824,20 +2648,30 @@
     border-radius: .2rem;
 }
 
-/* Linha compacta de cliente na aba Partes */
-.cliente-row {
-    transition: background-color .12s;
-}
-.cliente-row:hover {
-    background-color: rgba(0,0,0,.02);
-}
-.cliente-accordion-toggle {
-    color: inherit;
-    line-height: 1.3;
-}
-.cliente-accordion-toggle:focus {
-    box-shadow: none;
-}
+/* Linha compacta de cliente na aba Dados */
+.cliente-linha { transition: background-color .12s; }
+.cliente-linha { border-bottom: 1px solid var(--bs-border-color); }
+.cliente-linha:last-child { border-bottom: none; }
+.cliente-linha:hover { background-color: rgba(0,0,0,.02); }
+.cliente-nome { font-size: .82rem; font-weight: 600; line-height: 1.25; }
+.cliente-doc { font-size: .72rem; color: var(--bs-secondary-color); line-height: 1.25; }
+.cliente-doc-rotulo { font-weight: 600; margin-right: 3px; }
+
+/* O principal e o unico que nunca colapsa; o leve realce diz por que ele esta
+   fora da lista, sem precisar de legenda. */
+.cliente-principal { background: var(--bs-primary-bg-subtle); border-radius: 8px; padding: 0 6px; }
+.cliente-principal .cliente-linha { border-bottom: none; }
+
+.clientes-outros-toggle { font-size: .75rem; text-decoration: none; margin: 6px 0 2px; }
+.clientes-outros-toggle:focus { box-shadow: none; }
+.clientes-outros-caret { transition: transform .15s; display: inline-block; }
+.clientes-outros-toggle[aria-expanded="true"] .clientes-outros-caret { transform: rotate(90deg); }
+
+/* A rolagem mora na lista, nao no cartao: com muitos clientes o bloco cresceria
+   sem limite e empurraria o resto da aba para baixo. */
+.clientes-outros { max-height: 200px; overflow-y: auto; }
+.clientes-outros::-webkit-scrollbar { width: 5px; }
+.clientes-outros::-webkit-scrollbar-thumb { background: var(--bs-border-color); border-radius: 3px; }
 
 /* Painel interno do accordion de cliente */
 .cliente-acc-body {
@@ -3239,92 +3073,6 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     }  // fim do guard "if (btnAdicionar)" — upload geral legado
 
-    /* ── Upload inline de documentos do cliente ── */
-    const docTypesCliente = {{ documentTypeOptionsCliente|json_encode|raw }};
-
-    function buildSelectCliente(idx) {
-        let html = '<option value="">Tipo</option>';
-        for (const [v, t] of Object.entries(docTypesCliente)) {
-            html += `<option value="${v}">${t}</option>`;
-        }
-        return `<select name="categorias[${idx}]" class="form-select form-select-sm" required>${html}</select>`;
-    }
-
-    document.querySelectorAll('.form-upload-cliente-inline').forEach(function (form) {
-        const cid      = form.dataset.clienteId;
-        const input    = document.getElementById(`fileInputCliente${cid}`);
-        const lista    = document.getElementById(`listaUploadCliente${cid}`);
-        const btnEsc   = form.querySelector('.btn-escolher-arquivo-cliente');
-        const btnEnv   = form.querySelector('.btn-enviar-cliente');
-        const btnCan   = form.querySelector('.btn-cancelar-cliente');
-
-        if (!input || !lista || !btnEsc) return;
-
-        let fileIdx = 0;
-
-        function atualizar() {
-            const tem = lista.querySelectorAll('.upload-item-cliente').length > 0;
-            btnEnv.classList.toggle('d-none', !tem);
-            btnCan.classList.toggle('d-none', !tem);
-        }
-
-        function adicionarArquivo(file) {
-            const i = fileIdx++;
-            const div = document.createElement('div');
-            div.className = 'upload-item-cliente border rounded p-2 mb-2 small';
-            div._file = file;
-            div.dataset.idx = i;
-            div.innerHTML = `
-                <div class="d-flex align-items-center gap-2 mb-2">
-                    <i class="bi bi-file-earmark-text text-primary flex-shrink-0"></i>
-                    <span class="text-truncate flex-grow-1 fw-semibold">${file.name}</span>
-                    <span class="text-muted text-nowrap">${formatarTamanho(file.size)}</span>
-                    <button type="button" class="btn btn-xs btn-outline-danger btn-rm-upload flex-shrink-0">
-                        <i class="bi bi-x"></i>
-                    </button>
-                </div>
-                <div class="row g-1">
-                    <div class="col-12 col-sm-5">${buildSelectCliente(i)}</div>
-                    <div class="col-12 col-sm-7">
-                        <input type="text" name="descricoes[${i}]" class="form-control form-control-sm"
-                               placeholder="Descrição (opcional)" maxlength="500">
-                    </div>
-                </div>`;
-            div.querySelector('.btn-rm-upload').addEventListener('click', function () {
-                div.remove();
-                atualizar();
-            });
-            lista.appendChild(div);
-        }
-
-        btnEsc.addEventListener('click', function () { input.value = ''; input.click(); });
-
-        input.addEventListener('change', function () {
-            Array.from(this.files).forEach(adicionarArquivo);
-            atualizar();
-        });
-
-        btnCan.addEventListener('click', function () {
-            lista.innerHTML = '';
-            input.value = '';
-            atualizar();
-        });
-
-        form.addEventListener('submit', function (e) {
-            const itens = Array.from(lista.querySelectorAll('.upload-item-cliente'));
-            if (itens.length === 0) { e.preventDefault(); return; }
-            itens.forEach(function (item, novoIdx) {
-                ['categorias', 'descricoes'].forEach(function (campo) {
-                    const el = item.querySelector(`[name^="${campo}["]`);
-                    if (el) el.name = `${campo}[${novoIdx}]`;
-                });
-            });
-            const dt = new DataTransfer();
-            itens.forEach(function (item) { if (item._file) dt.items.add(item._file); });
-            input.name = 'arquivos[]';
-            input.files = dt.files;
-        });
-    });
 });
 
 /* ── Timeline: envio AJAX de mensagem ──────────────────── */
@@ -5128,6 +4876,30 @@ document.addEventListener('DOMContentLoaded', function () {
         return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;');
     }
 
+}());
+</script>
+
+<script>
+/* Rotulo do botao "mostrar/ocultar outros N" clientes.
+
+   Em escopo PROPRIO de proposito: a IIFE do modal de adicionar cliente faz
+   `if (!modal) return`, e pendurar isto la deixaria o rotulo refem de um modal
+   que nada tem a ver com ele. Ouve os eventos do proprio Bootstrap em vez de
+   adivinhar a classe .show no momento do clique. */
+(function () {
+    const colapso = document.getElementById('clientesOutros');
+    if (!colapso) return;
+
+    const label = document.querySelector('.clientes-outros-label');
+    if (!label) return;
+
+    function atualizar() {
+        const n = colapso.querySelectorAll('.cliente-linha').length;
+        label.textContent = `${colapso.classList.contains('show') ? 'ocultar' : 'mostrar'} outros ${n}`;
+    }
+
+    colapso.addEventListener('shown.bs.collapse', atualizar);
+    colapso.addEventListener('hidden.bs.collapse', atualizar);
 }());
 </script>
 

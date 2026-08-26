@@ -15,7 +15,6 @@ use App\Processo\Entity\MovimentacaoProcesso;
 use App\Cliente\Repository\ClienteRepository;
 use App\Cliente\Repository\ClientePFRepository;
 use App\Cliente\Repository\ClientePJRepository;
-use App\Cliente\Entity\ClienteDocumento;
 use App\Repository\ClienteDocumentoRepository;
 use App\Pasta\Repository\PastaDocumentoRepository;
 use App\Pasta\Repository\PastaRepository;
@@ -324,8 +323,6 @@ class PastaController extends AbstractController
             'pasta'                       => $pasta,
             'documentTypeOptions'         => self::DOCUMENT_TYPES,
             'documentosPorTipo'           => $this->groupDocumentsByType($pasta),
-            'documentTypeOptionsCliente'  => self::DOCUMENT_TYPES_CLIENTE,
-            'clientesComDocumentos'       => $this->groupClienteDocumentosByCliente($pasta),
             'timelineItems'               => $timelineItems,
             'todosMarcadores'             => $todosMarcadores,
             'usuarios'                    => $usuarios,
@@ -1239,14 +1236,6 @@ class PastaController extends AbstractController
         PastaDocumento::CATEGORIA_COMPROVANTE_RESIDENCIA => 'Comprovante de residência',
         PastaDocumento::CATEGORIA_GRATUIDADE_JUSTICA    => 'Gratuidade de justiça',
         PastaDocumento::CATEGORIA_DEMAIS                => 'Demais documentos',
-    ];
-
-    private const DOCUMENT_TYPES_CLIENTE = [
-        ClienteDocumento::CATEGORIA_IDENTIFICACAO          => 'Identificação',
-        ClienteDocumento::CATEGORIA_PROCURACAO             => 'Procuração',
-        ClienteDocumento::CATEGORIA_COMPROVANTE_RESIDENCIA => 'Comprovante de residência',
-        ClienteDocumento::CATEGORIA_CONTRATO               => 'Contrato',
-        ClienteDocumento::CATEGORIA_DEMAIS                 => 'Demais documentos',
     ];
 
     private const MIME_LIMITS_CONTRATO = [
@@ -2246,28 +2235,6 @@ class PastaController extends AbstractController
             }
         }
         return $grouped;
-    }
-
-    /**
-     * @return array<int, array{cliente: \App\Cliente\Entity\Cliente, documentosPorTipo: array<string, ClienteDocumento[]>}>
-     */
-    private function groupClienteDocumentosByCliente(Pasta $pasta): array
-    {
-        $result = [];
-        foreach ($pasta->getClientes() as $cliente) {
-            $grouped = [];
-            foreach (array_keys(self::DOCUMENT_TYPES_CLIENTE) as $tipo) {
-                $grouped[$tipo] = [];
-            }
-            foreach ($cliente->getDocumentos() as $doc) {
-                $cat = $doc->getCategoria();
-                if (array_key_exists($cat, $grouped)) {
-                    $grouped[$cat][] = $doc;
-                }
-            }
-            $result[] = ['cliente' => $cliente, 'documentosPorTipo' => $grouped];
-        }
-        return $result;
     }
 
     /**
