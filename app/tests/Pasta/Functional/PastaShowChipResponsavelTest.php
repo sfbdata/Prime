@@ -92,10 +92,18 @@ final class PastaShowChipResponsavelTest extends JusPrimeWebTestCase
         $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
         self::assertResponseIsSuccessful();
 
-        // Filho da aba Dados — "existe na página" seria verdade mesmo com o chip
-        // caído em qualquer outro canto do HTML.
-        $chip = $crawler->filter('#dados .pasta-resp-chip');
-        self::assertCount(1, $chip, 'o chip tem de estar dentro da aba Dados');
+        // Filho da faixa de dados do CABEÇALHO — o chip subiu para lá no
+        // redesenho de 26/08, porque o responsável é do caso inteiro e não de
+        // uma aba só. "Existe na página" seria verdade com o chip caído em
+        // qualquer outro canto do HTML, por isso o combinador é de descendência
+        // a partir do bloco certo.
+        $chip = $crawler->filter('.ps-cab-dados [data-campo="responsavel"] .pasta-resp-chip');
+        self::assertCount(1, $chip, 'o chip tem de estar na faixa de dados do cabeçalho');
+        self::assertCount(
+            0,
+            $crawler->filter('#dados .pasta-resp-chip'),
+            'e NÃO pode ter sobrado uma segunda cópia dentro da aba Dados'
+        );
 
         self::assertSame(
             '/pasta/' . $pasta->getId() . '/responsavel',
@@ -213,7 +221,7 @@ final class PastaShowChipResponsavelTest extends JusPrimeWebTestCase
         $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
         self::assertResponseIsSuccessful();
 
-        $chip = $crawler->filter('#dados .pasta-resp-chip');
+        $chip = $crawler->filter('.ps-cab-dados [data-campo="responsavel"] .pasta-resp-chip');
         self::assertCount(1, $chip);
 
         // Usa EXATAMENTE o que o chip publicou na página — é o que o JS faria.

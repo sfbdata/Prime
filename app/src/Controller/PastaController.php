@@ -42,6 +42,9 @@ use App\Pasta\Entity\PrioridadePasta;
 use App\Pasta\DTO\CriarPastaDTO;
 use App\Pasta\DTO\EditarPastaDTO;
 use App\Pasta\DTO\PastaFinanceiroOutput;
+use App\Pasta\DTO\PastaPrazoOutput;
+use App\Pasta\DTO\TimelineItemDTO;
+use App\Pasta\DTO\TimelineItemType;
 use App\Pasta\UseCase\AdicionarChecklistItemUseCase;
 use App\Pasta\UseCase\CriarPastaUseCase;
 use App\Sync\Service\ReconciliadorDePasta;
@@ -276,6 +279,25 @@ class PastaController extends AbstractController
         $timelineItems   = $this->timelineAssembler->montar($pasta, $tenant, $tenantId, $processoId);
         $todosMarcadores = $this->marcadorRepository->findTodosPorTenant($tenant);
 
+        // O redesenho parte a timeline em dois destinos que antes disputavam a
+        // mesma coluna: o que uma PESSOA escreveu fica na zona quente da aba
+        // Dados ("Anotações do caso"), e o que o SISTEMA registrou vai para o
+        // drawer do Histórico. O histórico automático ocupava mais altura que o
+        // caso inteiro; a divisão é a razão de ser do redesenho.
+        $anotacoes = array_values(array_filter(
+            $timelineItems,
+            static fn (TimelineItemDTO $i) => $i->tipo === TimelineItemType::MENSAGEM,
+        ));
+        $eventosHistorico = array_values(array_filter(
+            $timelineItems,
+            static fn (TimelineItemDTO $i) => $i->tipo === TimelineItemType::EVENTO,
+        ));
+
+        // Cartão "Próximos prazos" do trilho: as metas abertas mais perto do
+        // vencimento. Sai da coleção que a aba Metas já carrega — nenhuma
+        // consulta a mais por causa deste cartão.
+        $proximosPrazos = PastaPrazoOutput::proximas($pasta->getTarefas());
+
         $usuarios = $tenant !== null
             ? $this->userRepository->findColaboradoresAtivosPorTenant($tenant)
             : [];
@@ -324,6 +346,9 @@ class PastaController extends AbstractController
             'documentTypeOptions'         => self::DOCUMENT_TYPES,
             'documentosPorTipo'           => $this->groupDocumentsByType($pasta),
             'timelineItems'               => $timelineItems,
+            'anotacoes'                   => $anotacoes,
+            'eventosHistorico'            => $eventosHistorico,
+            'proximosPrazos'              => $proximosPrazos,
             'todosMarcadores'             => $todosMarcadores,
             'usuarios'                    => $usuarios,
             'fotosResponsaveis'           => $fotosResponsaveis,

@@ -1,0 +1,915 @@
+/* =============================================================================
+   pasta-show.css — redesenho da tela de detalhe da pasta
+   Desenho aprovado: docs/design/pasta-show/ ("Pasta 1A.dc.html").
+
+   Tudo aqui vive sob `.ps-page` / `.ps-body`. Nenhum seletor global: a tela da
+   pasta e a unica que muda, e vazamento para as outras telas seria defeito.
+
+   Tokens: os hex do desenho ficam no tema CLARO; o ESCURO redefine cada um
+   deles em cima de var(--bs-*). Hex cravado direto na regra viraria texto de um
+   tema no fundo do outro — armadilha ja registrada no projeto.
+
+   A fonte NAO e tocada. O desenho esta em Source Sans 3, mas o dono manteve o
+   Arial (decisao de 19/08/2026, reconfirmada nesta rodada): a tela herda
+   --jp-font-sans do app.css.
+   ============================================================================= */
+
+.ps-page {
+    --ps-bg:            #f4f7f9;
+    --ps-card:          #fff;
+    --ps-soft:          #fafcfd;
+    --ps-border:        #dde5eb;
+    --ps-border-ctl:    #cdd7de;
+    --ps-div-strong:    #eef2f5;
+    --ps-div-weak:      #f4f7f9;
+    --ps-hover:         #f2f7fa;
+
+    --ps-text:          #12242f;
+    --ps-body:          #243845;
+    --ps-text-2:        #455c6b;
+    --ps-muted:         #6b8494;
+    --ps-label:         #7b93a2;
+    --ps-faint:         #8496a3;
+    --ps-placeholder:   #95a6b2;
+
+    --ps-accent:        #0f6fc4;
+    --ps-accent-hover:  #0b5596;
+    --ps-accent-bg:     #e8f2fa;
+
+    --ps-ok-text:       #186c47;
+    --ps-ok-dot:        #1f9d61;
+    --ps-ok-bg:         #e2f4ea;
+    --ps-ok-border:     #bde3cd;
+
+    --ps-warn-text:     #8a5a12;
+    --ps-warn-dot:      #c8952a;
+    --ps-warn-bg:       #fdf1dc;
+    --ps-warn-border:   #f0dcb4;
+
+    --ps-danger-text:   #a3232b;
+    --ps-danger-dot:    #c0392f;
+    --ps-danger-bg:     #fdeceb;
+    --ps-danger-border: #f2c9c6;
+    --ps-danger-hover:  #fdf1f0;
+
+    /* Terceiro tom dos prazos: cinza, nao verde. */
+    --ps-cinza-text:    #4a6274;
+
+    --ps-shadow-card:   0 1px 2px rgba(16,42,58,.04);
+    --ps-shadow-pop:    0 10px 30px rgba(16,42,58,.14);
+    --ps-shadow-drawer: -14px 0 40px rgba(12,32,45,.18);
+    --ps-shadow-hover:  0 6px 18px rgba(16,42,58,.09);
+
+    /* Entradas e switches; o spring fica so no indicador de abas. */
+    --ps-ease:          cubic-bezier(.32,.72,0,1);
+    --ps-spring:        cubic-bezier(.22,1.2,.28,1);
+}
+
+/* O escuro nao inverte os hex do claro: cada token volta a apontar para o
+   sistema de cor do Bootstrap, que ja sabe o que fazer nos dois temas. Os
+   realces (ok/atencao/atraso) viram tints translucidos, como o resto do app. */
+[data-bs-theme="dark"] .ps-page {
+    --ps-bg:            var(--bs-body-bg);
+    --ps-card:          var(--bs-tertiary-bg);
+    --ps-soft:          var(--bs-secondary-bg);
+    --ps-border:        var(--bs-border-color);
+    --ps-border-ctl:    var(--bs-border-color);
+    --ps-div-strong:    var(--bs-border-color-translucent);
+    --ps-div-weak:      var(--bs-border-color-translucent);
+    --ps-hover:         rgba(255,255,255,.05);
+
+    --ps-text:          var(--bs-body-color);
+    --ps-body:          var(--bs-body-color);
+    --ps-text-2:        var(--bs-body-color);
+    --ps-muted:         var(--bs-secondary-color);
+    --ps-label:         var(--bs-secondary-color);
+    --ps-faint:         var(--bs-secondary-color);
+    --ps-placeholder:   var(--bs-secondary-color);
+
+    --ps-accent:        #4da3ea;
+    --ps-accent-hover:  #7cbcf2;
+    --ps-accent-bg:     rgba(77,163,234,.14);
+
+    --ps-ok-text:       #6ddaa2;
+    --ps-ok-dot:        #1f9d61;
+    --ps-ok-bg:         rgba(31,157,97,.16);
+    --ps-ok-border:     rgba(31,157,97,.38);
+
+    --ps-warn-text:     #e9be6c;
+    --ps-warn-dot:      #c8952a;
+    --ps-warn-bg:       rgba(200,149,42,.16);
+    --ps-warn-border:   rgba(200,149,42,.38);
+
+    --ps-danger-text:   #f08a84;
+    --ps-danger-dot:    #c0392f;
+    --ps-danger-bg:     rgba(192,57,47,.16);
+    --ps-danger-border: rgba(192,57,47,.38);
+    --ps-danger-hover:  rgba(192,57,47,.12);
+
+    --ps-cinza-text:    var(--bs-secondary-color);
+
+    --ps-shadow-card:   0 1px 2px rgba(0,0,0,.35);
+    --ps-shadow-pop:    0 10px 30px rgba(0,0,0,.5);
+    --ps-shadow-drawer: -14px 0 40px rgba(0,0,0,.55);
+    --ps-shadow-hover:  0 6px 18px rgba(0,0,0,.4);
+}
+
+/* O fundo da pagina e do desenho (#f4f7f9), nao o bg-body-tertiary do resto do
+   sistema. Vai na classe do <body> para cobrir a faixa inteira sem sangria de
+   margem negativa (que produziria barra horizontal). */
+.ps-body,
+.ps-body .app-content,
+.ps-body .app-content-header { background: #f4f7f9; }
+[data-bs-theme="dark"] .ps-body,
+[data-bs-theme="dark"] .ps-body .app-content,
+[data-bs-theme="dark"] .ps-body .app-content-header { background: var(--bs-body-bg); }
+
+/* O recuo horizontal é o DA PÁGINA (26px do desenho), não o do AdminLTE: o
+   .container-fluid perde o dele aqui, senão os dois somariam e o cartão nasceria
+   mais estreito que o desenho em toda largura de tela. Escopo em .ps-body — as
+   outras telas continuam com o recuo do framework. */
+.ps-body .app-content > .container-fluid { padding-left: 0; padding-right: 0; }
+
+.ps-page {
+    max-width: 1500px;
+    margin: 0 auto;
+    padding: 20px 26px 60px;
+    color: var(--ps-text);
+    font-family: var(--jp-font-sans);
+}
+.ps-page a { color: var(--ps-accent); text-decoration: none; }
+.ps-page a:hover { color: var(--ps-accent-hover); text-decoration: underline; }
+.ps-num { font-variant-numeric: tabular-nums; }
+
+/* =============================================================================
+   Cartoes
+   ============================================================================= */
+.ps-card {
+    background: var(--ps-card);
+    border: 1px solid var(--ps-border);
+    border-radius: 14px;
+    box-shadow: var(--ps-shadow-card);
+}
+
+/* =============================================================================
+   Botoes neutros — um unico peso visual. Nada em destaque azul no cabecalho:
+   foi pedido explicito, e "Editar" em azul solido puxava o olho para a acao
+   errada.
+   ============================================================================= */
+.ps-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    height: 34px;
+    padding: 0 13px;
+    border: 1px solid var(--ps-border-ctl);
+    background: var(--ps-card);
+    color: var(--ps-text-2);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    border-radius: 8px;
+    cursor: pointer;
+    white-space: nowrap;
+    text-decoration: none;
+    transition: border-color .15s, color .15s;
+}
+.ps-btn:hover,
+.ps-btn:focus-visible { border-color: var(--ps-accent); color: var(--ps-accent); text-decoration: none; }
+.ps-btn i { font-size: 14px; }
+
+.ps-btn--voltar { height: 30px; padding: 0 11px 0 9px; font-size: 12.5px; flex-shrink: 0; }
+.ps-btn--voltar i { font-size: 13px; }
+
+.ps-btn--icone { width: 34px; height: 34px; padding: 0; justify-content: center; font-size: 15px; }
+.ps-btn--icone i { font-size: 15px; }
+
+.ps-btn--primario {
+    border-color: var(--ps-accent);
+    background: var(--ps-accent);
+    color: #fff;
+    font-weight: 600;
+}
+.ps-btn--primario:hover,
+.ps-btn--primario:focus-visible {
+    border-color: var(--ps-accent-hover);
+    background: var(--ps-accent-hover);
+    color: #fff;
+}
+
+/* =============================================================================
+   CABECALHO DA PASTA
+   ============================================================================= */
+.ps-cabecalho { padding: 20px 24px 0; }
+
+.ps-cab-linha1 { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.ps-cab-trilha { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.ps-cab-acoes  { display: flex; align-items: center; gap: 6px; flex-shrink: 0; margin-left: auto; }
+
+.ps-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: 12.5px;
+    color: var(--ps-muted);
+    min-width: 0;
+}
+.ps-breadcrumb li { display: flex; align-items: center; gap: 8px; }
+.ps-breadcrumb li + li::before { content: '/'; color: var(--ps-muted); }
+.ps-breadcrumb .ps-breadcrumb-atual { color: var(--ps-text); }
+
+/* ── Menu ⋮ e popover de prioridade ── */
+.ps-pop-wrap { position: relative; }
+.ps-pop {
+    position: absolute;
+    z-index: 30;
+    background: var(--ps-card);
+    border: 1px solid var(--ps-border);
+    border-radius: 10px;
+    box-shadow: var(--ps-shadow-pop);
+    padding: 5px;
+    display: none;
+    flex-direction: column;
+}
+.ps-pop.is-aberto { display: flex; }
+.ps-pop--menu { top: 40px; right: 0; width: 216px; }
+.ps-pop--prio { top: 26px; left: 0; width: 176px; }
+
+.ps-pop-item {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 8px 10px;
+    border: none;
+    background: transparent;
+    font-family: inherit;
+    font-size: 13.5px;
+    color: var(--ps-body);
+    border-radius: 7px;
+    cursor: pointer;
+    text-align: left;
+    width: 100%;
+    text-decoration: none;
+}
+.ps-pop-item:hover { background: var(--ps-hover); color: var(--ps-body); text-decoration: none; }
+.ps-pop-item i { font-size: 14px; color: var(--ps-text-2); }
+.ps-pop-item--perigo { color: var(--ps-danger-text); }
+.ps-pop-item--perigo i { color: inherit; }
+.ps-pop-item--perigo:hover { background: var(--ps-danger-hover); color: var(--ps-danger-text); }
+.ps-pop-sep { height: 1px; background: var(--ps-div-strong); margin: 4px 6px; }
+.ps-pop-check { margin-left: auto; color: var(--ps-accent); font-size: 12px; }
+
+/* ── Linha 2: identidade ── */
+.ps-cab-identidade { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; flex-wrap: wrap; }
+.ps-cab-nup {
+    font-variant-numeric: tabular-nums;
+    font-size: 12.5px;
+    font-weight: 500;
+    letter-spacing: .08em;
+    color: var(--ps-muted);
+}
+.ps-cab-sep { width: 1px; height: 16px; background: var(--ps-border); }
+
+.ps-prio {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-family: inherit;
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: .04em;
+    cursor: pointer;
+}
+.ps-prio i.bi-flag-fill { font-size: 10px; }
+.ps-prio i.bi-chevron-down { font-size: 8px; opacity: .7; }
+.ps-prio--normal     { color: var(--ps-text-2);     background: var(--ps-div-strong); border: 1px solid var(--ps-border); }
+.ps-prio--prioridade { color: var(--ps-warn-text);   background: var(--ps-warn-bg);   border: 1px solid var(--ps-warn-border); }
+.ps-prio--urgente    { color: var(--ps-danger-text); background: var(--ps-danger-bg); border: 1px solid var(--ps-danger-border); }
+
+.ps-etiqueta {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .04em;
+    color: var(--ps-text-2);
+    background: var(--ps-div-strong);
+    border: 1px solid var(--ps-border);
+    padding: 3px 9px;
+    border-radius: 999px;
+}
+.ps-etiqueta i { font-size: 10px; opacity: .75; }
+.ps-etiqueta-add {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--ps-muted);
+    background: var(--ps-card);
+    border: 1px dashed var(--ps-border-ctl);
+    padding: 3px 9px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: border-color .15s, color .15s;
+}
+.ps-etiqueta-add:hover { border-color: var(--ps-accent); color: var(--ps-accent); }
+.ps-etiqueta-add i { font-size: 12px; }
+
+/* O dono quer uma linha so, quebrando apenas se passar de metade da tela. */
+.ps-cab-titulo {
+    margin: 14px 0 26px;
+    font-size: 28px;
+    line-height: 1.25;
+    font-weight: 600;
+    letter-spacing: -.015em;
+    max-width: 50vw;
+    text-wrap: pretty;
+    color: var(--ps-text);
+}
+
+.ps-cab-dados { display: flex; gap: 32px 44px; flex-wrap: wrap; padding-bottom: 18px; }
+.ps-rotulo {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--ps-label);
+    margin: 0 0 4px;
+}
+.ps-dado { font-size: 14.5px; margin: 0; }
+.ps-dado--forte { font-weight: 600; }
+.ps-dado--medio { font-weight: 500; }
+.ps-dado--vazio { color: var(--ps-faint); }
+.ps-dado-sub { font-size: 12.5px; color: var(--ps-muted); margin-top: 2px; }
+
+.ps-avatar {
+    border-radius: 50%;
+    background: #e7eef4;
+    color: #2a4353;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    overflow: hidden;
+}
+.ps-avatar img { width: 100%; height: 100%; object-fit: cover; }
+[data-bs-theme="dark"] .ps-avatar { background: rgba(255,255,255,.10); color: var(--ps-body); }
+.ps-avatar--20 { width: 20px; height: 20px; font-size: 9px; }
+.ps-avatar--30 { width: 30px; height: 30px; font-size: 11px; }
+
+.ps-ponto { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.ps-situacao { display: inline-flex; align-items: center; gap: 7px; font-size: 14.5px; font-weight: 600; }
+.ps-situacao--ativo     { color: var(--ps-ok-text); }
+.ps-situacao--ativo     .ps-ponto { background: var(--ps-ok-dot); }
+.ps-situacao--arquivado { color: var(--ps-muted); }
+.ps-situacao--arquivado .ps-ponto { background: var(--ps-faint); }
+
+/* ── Linha 3: abas em controle segmentado ──
+   Abas sublinhadas nao eram reconhecidas como abas por usuario inexperiente;
+   a pilula branca deslizando sobre o trilho cinza diz onde voce esta. */
+.ps-abas-faixa {
+    border-top: 1px solid var(--ps-div-strong);
+    padding: 14px 0 16px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+.ps-abas {
+    position: relative;
+    display: inline-flex;
+    gap: 3px;
+    background: var(--ps-div-strong);
+    border: 1px solid #e0e7ec;
+    border-radius: 11px;
+    padding: 4px;
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+[data-bs-theme="dark"] .ps-abas { border-color: var(--bs-border-color); }
+.ps-abas::-webkit-scrollbar { display: none; }
+
+.ps-abas-ind {
+    position: absolute;
+    z-index: 0;
+    top: 4px;
+    left: 0;
+    width: 0;
+    height: 0;
+    opacity: 0;
+    border-radius: 9px;
+    background: rgba(255,255,255,.96);
+    border: 1px solid #d3dde5;
+    box-shadow: 0 1px 3px rgba(16,42,58,.12), 0 6px 14px rgba(16,42,58,.06), inset 0 1px 0 rgba(255,255,255,.9);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    pointer-events: none;
+    transition: transform .62s var(--ps-spring), width .62s var(--ps-spring);
+    will-change: transform, width;
+}
+[data-bs-theme="dark"] .ps-abas-ind {
+    background: rgba(255,255,255,.10);
+    border-color: rgba(255,255,255,.16);
+    box-shadow: 0 1px 3px rgba(0,0,0,.4), 0 6px 14px rgba(0,0,0,.25);
+}
+/* Sem JS (e antes de ele medir) a pilula nao aparece; a aba ativa entao precisa
+   se distinguir sozinha, senao a tela fica sem indicacao nenhuma. */
+.ps-abas--sem-js .ps-aba.active { background: var(--ps-card); border-radius: 9px; }
+
+.ps-aba {
+    position: relative;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 15px;
+    border: none;
+    background: transparent;
+    font-family: inherit;
+    font-size: 13.5px;
+    font-weight: 500;
+    color: #5f7684;
+    border-radius: 9px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: color .34s;
+}
+[data-bs-theme="dark"] .ps-aba { color: var(--bs-secondary-color); }
+.ps-aba i { font-size: 14px; color: var(--ps-faint); transition: color .34s; }
+.ps-aba.active { font-weight: 600; color: var(--ps-text); }
+.ps-aba.active i { color: var(--ps-accent); }
+.ps-aba-badge {
+    font-variant-numeric: tabular-nums;
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--ps-muted);
+    background: #e2e8ed;
+    padding: 1px 6px;
+    border-radius: 5px;
+}
+[data-bs-theme="dark"] .ps-aba-badge { background: rgba(255,255,255,.10); }
+.ps-aba.active .ps-aba-badge { color: var(--ps-accent); background: var(--ps-accent-bg); }
+
+/* =============================================================================
+   PAINEIS DAS ABAS
+   ============================================================================= */
+@keyframes psPainelEntra {
+    from { opacity: 0; transform: translate3d(0,10px,0) scale(.992); }
+    to   { opacity: 1; transform: none; }
+}
+.ps-paineis > .tab-pane.show.active { animation: psPainelEntra .46s var(--ps-ease) both; }
+@media (prefers-reduced-motion: reduce) {
+    .ps-paineis > .tab-pane.show.active { animation: none; }
+    .ps-abas-ind { transition: none; }
+}
+.ps-paineis { margin-top: 18px; }
+
+/* As cinco abas que ainda nao foram redesenhadas entram num cartao neutro, para
+   nao ficarem flutuando sobre o fundo da pagina. O conteudo delas nao foi
+   tocado: quem vira cartao e o PROPRIO painel, por seletor — encostar no HTML
+   de cinco abas para embrulhar cada uma custaria risco sem ganho nenhum.
+   A aba Dados fica de fora: ela ja e uma grade de cartoes. */
+.ps-paineis > .tab-pane:not(#dados) {
+    background: var(--ps-card);
+    border: 1px solid var(--ps-border);
+    border-radius: 14px;
+    box-shadow: var(--ps-shadow-card);
+    padding: 18px 20px;
+}
+
+/* ── Grade da aba Dados: centro quente + trilho ── */
+.ps-grade {
+    display: grid;
+    grid-template-columns: minmax(0,1fr) 356px;
+    gap: 18px;
+    align-items: start;
+}
+.ps-trilho { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+@media (max-width: 1199.98px) {
+    .ps-grade { grid-template-columns: minmax(0,1fr); }
+}
+
+/* Cabecalho comum dos cartoes do trilho e do painel central */
+.ps-card-cab {
+    padding: 14px 17px;
+    border-bottom: 1px solid var(--ps-div-strong);
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+.ps-card-cab h2 { margin: 0; font-size: 13.5px; font-weight: 600; }
+.ps-card-cab .ps-cab-espaco { flex: 1; }
+.ps-card-cab-link { font-size: 12.5px; font-weight: 500; }
+.ps-contagem { font-variant-numeric: tabular-nums; font-size: 11px; color: var(--ps-label); }
+
+/* =============================================================================
+   Aba Dados — coluna central: Anotacoes do caso
+   O historico automatico do sistema saiu daqui; ele vive no drawer.
+   ============================================================================= */
+.ps-anotacoes > .ps-card-cab { padding: 15px 20px; }
+.ps-anotacoes > .ps-card-cab h2 { font-size: 14px; }
+.ps-anotacoes-dica { font-size: 12.5px; color: var(--ps-muted); }
+
+.ps-compositor { padding: 16px 20px; background: var(--ps-soft); border-bottom: 1px solid var(--ps-div-strong); }
+.ps-compositor-caixa {
+    border: 1px solid #d3dde5;
+    border-radius: 9px;
+    background: var(--ps-card);
+    overflow: hidden;
+}
+[data-bs-theme="dark"] .ps-compositor-caixa { border-color: var(--bs-border-color); }
+.ps-compositor-rodape {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 13px;
+    background: var(--ps-soft);
+    border-top: 1px solid var(--ps-div-strong);
+}
+.ps-compositor-nota { font-size: 12.5px; color: var(--ps-muted); }
+.ps-compositor-erro { font-size: 12.5px; color: var(--ps-danger-text); padding: 0 20px 12px; }
+
+/* O editor rico (Quill) mora dentro da caixa; a borda e o raio sao da caixa,
+   nao dele — senao ficariam duas molduras concentricas. */
+.ps-compositor-caixa .ql-toolbar.ql-snow {
+    border: none;
+    border-bottom: 1px solid var(--ps-div-strong);
+    padding: 6px 9px;
+}
+.ps-compositor-caixa .ql-container.ql-snow { border: none; font-family: inherit; }
+.ps-compositor-caixa .ql-editor { min-height: 70px; padding: 13px 15px; font-size: 14.5px; line-height: 1.5; }
+.ps-compositor-caixa .ql-editor.ql-blank::before { color: var(--ps-placeholder); font-style: normal; left: 15px; }
+
+.ps-anotacao {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--ps-div-weak);
+    display: flex;
+    gap: 13px;
+}
+.ps-anotacao:last-of-type { border-bottom: none; }
+.ps-anotacao-corpo { min-width: 0; flex: 1; }
+.ps-anotacao-topo { display: flex; align-items: baseline; gap: 9px; margin-bottom: 4px; flex-wrap: wrap; }
+.ps-anotacao-autor { font-size: 13.5px; font-weight: 600; }
+.ps-anotacao-data  { font-size: 12px; color: var(--ps-label); }
+/* O desenho traz um selo opcional na anotação (Combinado / Ligação). NÃO foi
+   implementado: `PastaMensagem` não tem campo de rótulo, e inventar um seria
+   dado de mentira na tela. Fica registrado aqui para quando a etiqueta existir. */
+.ps-anotacao-texto { font-size: 14.5px; line-height: 1.6; color: var(--ps-body); text-wrap: pretty; }
+.ps-anotacao-texto .ql-editor { padding: 0; font-size: inherit; line-height: inherit; }
+.ps-anotacao-acoes { display: inline-flex; align-items: center; gap: 2px; margin-left: auto; opacity: 0; transition: opacity .15s; }
+.ps-anotacao:hover .ps-anotacao-acoes,
+.ps-anotacao:focus-within .ps-anotacao-acoes { opacity: 1; }
+.ps-anotacao-acao {
+    border: none;
+    background: transparent;
+    color: var(--ps-faint);
+    font-size: 12px;
+    padding: 2px 5px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+.ps-anotacao-acao:hover { background: var(--ps-hover); color: var(--ps-text-2); }
+.ps-anotacao-acao--perigo:hover { background: var(--ps-danger-hover); color: var(--ps-danger-text); }
+
+.ps-anotacoes-mais {
+    border: none;
+    background: transparent;
+    color: var(--ps-accent);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 13px;
+    cursor: pointer;
+    width: 100%;
+    border-radius: 0 0 14px 14px;
+}
+.ps-anotacoes-mais:hover { background: var(--ps-accent-bg); }
+
+.ps-vazio { padding: 40px 24px; text-align: center; }
+.ps-vazio i { font-size: 30px; color: #c3d2dd; }
+[data-bs-theme="dark"] .ps-vazio i { color: var(--bs-secondary-color); }
+.ps-vazio-titulo { font-size: 14.5px; font-weight: 600; margin-top: 10px; }
+.ps-vazio-nota { font-size: 13px; color: var(--ps-muted); margin-top: 3px; }
+
+/* =============================================================================
+   Aba Dados — trilho direito
+   ============================================================================= */
+.ps-linha {
+    padding: 12px 17px;
+    border-bottom: 1px solid var(--ps-div-weak);
+    display: flex;
+    gap: 11px;
+    align-items: flex-start;
+}
+.ps-linha:last-child { border-bottom: none; }
+.ps-linha-corpo { min-width: 0; flex: 1; }
+.ps-linha-titulo { font-size: 13.5px; font-weight: 500; line-height: 1.35; text-wrap: pretty; }
+.ps-linha-meta { font-size: 12px; color: var(--ps-label); margin-top: 2px; }
+
+.ps-pip { width: 7px; height: 7px; border-radius: 50%; margin-top: 6px; flex-shrink: 0; }
+/* O tom do pip e o mesmo TEXTO do selo ao lado, como no desenho: vermelho ate 2
+   dias, ambar ate 8, e cinza acima — nao verde. Prazo distante nao e "bom",
+   e so nao e urgente. */
+.ps-pip--urgente { background: var(--ps-danger-text); }
+.ps-pip--proximo { background: var(--ps-warn-text); }
+.ps-pip--tranquilo { background: var(--ps-cinza-text); }
+
+.ps-selo {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 999px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.ps-selo--urgente   { color: var(--ps-danger-text); background: var(--ps-danger-bg); border: 1px solid var(--ps-danger-border); }
+.ps-selo--proximo   { color: var(--ps-warn-text);   background: var(--ps-warn-bg);   border: 1px solid var(--ps-warn-border); }
+.ps-selo--tranquilo { color: var(--ps-cinza-text);  background: var(--ps-div-strong); border: 1px solid var(--ps-border); }
+
+.ps-btn-mini {
+    border: 1px solid var(--ps-border-ctl);
+    background: var(--ps-card);
+    color: var(--ps-accent);
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 4px 11px;
+    border-radius: 7px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.ps-btn-mini:hover { background: var(--ps-accent-bg); border-color: var(--ps-accent); }
+
+/* ── Clientes ── */
+.ps-cliente { padding: 11px 17px; border-bottom: 1px solid var(--ps-div-weak); display: flex; gap: 10px; align-items: center; }
+.ps-cliente:last-child { border-bottom: none; }
+.ps-cliente--principal { background: var(--ps-accent-bg); }
+.ps-cliente-nome {
+    font-size: 13.5px;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.ps-cliente-doc { font-variant-numeric: tabular-nums; font-size: 11.5px; color: var(--ps-label); margin-top: 1px; }
+.ps-selo-principal {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--ps-warn-text);
+    background: var(--ps-warn-bg);
+    padding: 2px 7px;
+    border-radius: 999px;
+    flex-shrink: 0;
+}
+.ps-cliente-abrir { font-size: 12px; font-weight: 600; flex-shrink: 0; }
+
+/* A rolagem mora na lista, nao no cartao: com muitos clientes o trilho cresceria
+   sem limite e empurraria o resto para fora da vista. */
+.ps-clientes-rolagem { max-height: 232px; overflow-y: auto; overscroll-behavior: contain; }
+.ps-clientes-rolagem::-webkit-scrollbar { width: 5px; }
+.ps-clientes-rolagem::-webkit-scrollbar-thumb { background: var(--ps-border); border-radius: 3px; }
+
+/* ── Financeiro do caso ── */
+.ps-fin-card { padding: 15px 17px; }
+.ps-fin-topo { display: flex; align-items: center; margin-bottom: 12px; }
+.ps-fin-topo h2 { margin: 0; font-size: 13.5px; font-weight: 600; }
+.ps-fin-caixas { display: flex; gap: 9px; }
+.ps-fin-caixa { flex: 1; min-width: 0; padding: 11px 12px; border-radius: 9px; }
+.ps-fin-caixa--causa { background: #f1f8fc; border: 1px solid #dbeaf3; }
+.ps-fin-caixa--media { background: #fdf7ee; border: 1px solid #f0e2cb; }
+[data-bs-theme="dark"] .ps-fin-caixa--causa { background: var(--ps-accent-bg); border-color: var(--ps-border); }
+[data-bs-theme="dark"] .ps-fin-caixa--media { background: var(--ps-warn-bg); border-color: var(--ps-warn-border); }
+.ps-fin-rotulo { font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; font-weight: 700; }
+.ps-fin-caixa--causa .ps-fin-rotulo { color: #5f7684; }
+.ps-fin-caixa--media .ps-fin-rotulo { color: #8a6a34; }
+[data-bs-theme="dark"] .ps-fin-caixa--causa .ps-fin-rotulo { color: var(--ps-muted); }
+[data-bs-theme="dark"] .ps-fin-caixa--media .ps-fin-rotulo { color: var(--ps-warn-text); }
+.ps-fin-valor {
+    font-variant-numeric: tabular-nums;
+    font-size: 16px;
+    font-weight: 500;
+    margin-top: 3px;
+    overflow-wrap: anywhere;
+}
+.ps-fin-nota { margin-top: 11px; font-size: 12.5px; color: var(--ps-muted); }
+
+/* ── Documentos do trilho ── */
+.ps-doc { padding: 11px 17px; border-bottom: 1px solid var(--ps-div-weak); display: flex; gap: 10px; align-items: center; }
+.ps-doc:last-child { border-bottom: none; }
+.ps-doc-ext {
+    width: 25px;
+    height: 31px;
+    border-radius: 4px;
+    border: 1px solid #d3dde5;
+    background: var(--ps-soft);
+    font-variant-numeric: tabular-nums;
+    font-size: 8px;
+    font-weight: 500;
+    color: var(--ps-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    text-transform: uppercase;
+}
+[data-bs-theme="dark"] .ps-doc-ext { border-color: var(--bs-border-color); }
+.ps-doc-nome {
+    font-size: 13px;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.ps-doc-meta { font-size: 11.5px; color: var(--ps-label); margin-top: 1px; }
+
+/* =============================================================================
+   DRAWER DO HISTORICO
+   O historico automatico ocupava mais altura que o caso inteiro; virou painel.
+   ============================================================================= */
+.ps-drawer-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(12,32,45,.36);
+    z-index: 1055;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity .3s var(--ps-ease), visibility .3s;
+}
+.ps-drawer-overlay.is-aberto { opacity: 1; visibility: visible; }
+
+.ps-drawer {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 430px;
+    max-width: 100vw;
+    background: var(--ps-card);
+    box-shadow: var(--ps-shadow-drawer);
+    z-index: 1056;
+    display: flex;
+    flex-direction: column;
+    transform: translate3d(100%,0,0);
+    /* `visibility` junto com o transform: fora da tela mas ainda VISÍVEL, o
+       drawer continuaria no Tab (foco indo para um painel que ninguém vê) e um
+       elemento fixo deslocado pode acordar barra horizontal. O delay faz a
+       visibilidade só cair DEPOIS que a animação de saída termina. */
+    visibility: hidden;
+    transition: transform .34s var(--ps-ease), visibility 0s linear .34s;
+}
+.ps-drawer.is-aberto {
+    transform: none;
+    visibility: visible;
+    transition: transform .34s var(--ps-ease), visibility 0s;
+}
+@media (prefers-reduced-motion: reduce) {
+    .ps-drawer, .ps-drawer-overlay,
+    .ps-drawer.is-aberto { transition: none; }
+}
+.ps-drawer-cab {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--ps-div-strong);
+    flex-shrink: 0;
+}
+.ps-drawer-cab h2 { margin: 0; font-size: 14px; font-weight: 600; }
+.ps-drawer-fechar {
+    margin-left: auto;
+    border: none;
+    background: transparent;
+    color: var(--ps-text-2);
+    font-size: 16px;
+    line-height: 1;
+    padding: 6px 8px;
+    border-radius: 7px;
+    cursor: pointer;
+}
+.ps-drawer-fechar:hover { background: var(--ps-hover); color: var(--ps-accent); }
+.ps-drawer-corpo { overflow-y: auto; overscroll-behavior: contain; padding: 6px 0 24px; flex: 1; }
+
+.ps-hist-dia {
+    position: sticky;
+    top: 0;
+    background: var(--ps-card);
+    padding: 12px 20px 6px;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--ps-label);
+    z-index: 1;
+}
+.ps-hist-item { display: flex; gap: 11px; padding: 8px 20px; align-items: flex-start; }
+.ps-hist-pip { width: 7px; height: 7px; border-radius: 50%; background: #c3d2dd; margin-top: 6px; flex-shrink: 0; }
+[data-bs-theme="dark"] .ps-hist-pip { background: var(--bs-secondary-color); }
+.ps-hist-corpo { min-width: 0; flex: 1; font-size: 13px; line-height: 1.45; color: var(--ps-body); }
+.ps-hist-autor { font-weight: 600; }
+.ps-hist-detalhe { font-size: 12.5px; color: var(--ps-muted); margin-top: 2px; }
+.ps-hist-hora { font-variant-numeric: tabular-nums; font-size: 11.5px; color: var(--ps-label); flex-shrink: 0; }
+
+/* =============================================================================
+   Responsivo
+   ============================================================================= */
+@media (max-width: 767.98px) {
+    .ps-page { padding: 14px 14px 40px; }
+    .ps-cabecalho { padding: 16px 16px 0; }
+    .ps-cab-titulo { font-size: 22px; max-width: 100%; margin: 12px 0 20px; }
+    .ps-cab-dados { gap: 18px 26px; }
+    .ps-cab-linha1 { flex-wrap: wrap; }
+    .ps-cab-acoes { margin-left: 0; }
+    .ps-btn span { display: none; }
+    .ps-btn { padding: 0 10px; }
+    .ps-btn--voltar span { display: inline; }
+    .ps-drawer { width: 100%; }
+}
+
+/* =============================================================================
+   Peças herdadas que mudaram de lugar
+   O miolo dos clientes e o chip do responsável continuam sendo os componentes
+   entregues antes (com o JS que os acompanha). Aqui eles só recebem a roupa do
+   desenho novo — reescrevê-los custaria o contrato com o JS e nao mudaria nada
+   que o usuário veja.
+   ============================================================================= */
+
+/* ── Chip do responsável dentro da faixa de dados do cabeçalho ──
+   No desenho o responsável é avatar + nome, sem moldura. A moldura só aparece
+   no hover, que é onde ela tem serventia: dizer que dá para clicar e trocar. */
+.ps-cab-dados .pasta-resp-chip {
+    border-color: transparent;
+    background: transparent;
+    border-radius: 999px;
+    padding: 1px 6px 1px 1px;
+    font-size: 14.5px;
+    font-weight: 500;
+    color: var(--ps-text);
+    gap: 7px;
+}
+.ps-cab-dados .pasta-resp-chip:hover,
+.ps-cab-dados .pasta-resp-chip:focus-visible {
+    border-color: var(--ps-border-ctl);
+    background: var(--ps-card);
+}
+.ps-cab-dados .pasta-resp-chip .resp-avatar { width: 20px !important; height: 20px !important; }
+.ps-cab-dados .pasta-resp-chip .resp-avatar-ini { font-size: 9px; }
+.ps-cab-dados .pasta-resp-caret { font-size: .55rem; }
+
+/* ── Lista de clientes no trilho ── */
+.ps-clientes .cliente-linha {
+    padding: 11px 17px !important;
+    gap: 10px !important;
+    border-bottom: 1px solid var(--ps-div-weak);
+}
+.ps-clientes .cliente-linha:hover { background: var(--ps-hover); }
+.ps-clientes .cliente-nome {
+    font-size: 13.5px;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.ps-clientes .cliente-doc {
+    font-variant-numeric: tabular-nums;
+    font-size: 11.5px;
+    color: var(--ps-label);
+    margin-top: 1px;
+}
+.ps-clientes .cliente-doc-rotulo { font-weight: 600; margin-right: 3px; }
+.ps-clientes .cliente-principal {
+    background: var(--ps-accent-bg);
+    border-radius: 0;
+    padding: 0;
+}
+.ps-clientes .cliente-principal .cliente-linha { border-bottom: none; }
+/* As ações só aparecem no hover: no repouso a linha fica igual ao desenho. */
+.ps-clientes .js-cliente-acoes { opacity: 0; transition: opacity .15s; }
+.ps-clientes .cliente-linha:hover .js-cliente-acoes,
+.ps-clientes .cliente-linha:focus-within .js-cliente-acoes { opacity: 1; }
+.ps-clientes .clientes-outros-toggle {
+    font-size: 12.5px;
+    font-weight: 600;
+    text-decoration: none;
+    padding: 9px 17px !important;
+    width: 100%;
+    text-align: left;
+}
+.ps-clientes .clientes-outros { max-height: 232px; }
+
+/* Atalhos "metas" / "detalhar" / "todos" do trilho: são links de troca de aba,
+   não de navegação — o href="#" existe só para o teclado alcançá-los. */
+.ps-page [data-ps-ir-aba] { cursor: pointer; }

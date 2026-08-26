@@ -6,10 +6,13 @@ namespace App\Tests\Pasta\Functional;
 
 use App\Cliente\Entity\ClientePF;
 use App\Controller\PastaController;
+use App\Entity\Tarefa\Tarefa;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PastaProcesso;
+use App\Processo\Entity\Processo;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -17,15 +20,17 @@ use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 /**
- * ARRANJO da aba Dados (proposta B aprovada pelo dono em 2026-08-26):
- * duas colunas — à esquerda os dados da pasta (processo, ação, responsável),
- * à direita os clientes.
+ * ARRANJO do redesenho da tela de pasta (desenho aprovado em
+ * docs/design/pasta-show/, "Pasta 1A.dc.html"): cabeçalho comum a todas as
+ * abas + aba Dados em duas colunas (anotações no centro, trilho à direita).
  *
- * Todo assert usa combinador de FILHO DIRETO. É a única coisa que o PHPUnit
- * consegue provar sobre layout: `.arranjo > .col--esq .chip` distingue "está na
- * coluna da esquerda" de "existe em algum lugar da página", que continuaria
- * verdade com as duas colunas empilhadas erradas. Borda, fonte e cor seguem
- * invisíveis para o teste — isso é smoke do dono.
+ * Todo assert usa combinador de FILHO DIRETO ou de descendência a partir do
+ * bloco certo. É a única coisa que o PHPUnit consegue provar sobre layout:
+ * `.ps-grade > .ps-trilho [data-trilho="prazos"]` distingue "está no trilho" de
+ * "existe em algum lugar da página", que continuaria verdade com os cartões
+ * empilhados na coluna errada. Borda, fonte, cor, a pílula que desliza e a
+ * animação de troca de aba seguem INVISÍVEIS para o teste — isso é smoke do
+ * dono, e suíte verde não diz nada sobre aparência.
  */
 #[CoversClass(PastaController::class)]
 final class PastaDadosArranjoTelaTest extends JusPrimeWebTestCase
@@ -69,8 +74,12 @@ final class PastaDadosArranjoTelaTest extends JusPrimeWebTestCase
         return $crawler;
     }
 
-    #[TestDox('a aba Dados tem exatamente duas colunas, e ambas são filhas diretas do arranjo')]
-    public function testDuasColunasFilhasDiretasDoArranjo(): void
+    // =========================================================================
+    // Cabeçalho
+    // =========================================================================
+
+    #[TestDox('o cabeçalho é UM cartão, comum a todas as abas, e não vive dentro de nenhum painel')]
+    public function testCabecalhoForaDosPaineis(): void
     {
         $client                       = static::createClient();
         [$em, $user, $tenant, $pasta] = $this->criarBase();
@@ -79,54 +88,259 @@ final class PastaDadosArranjoTelaTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $user, $tenant);
         $crawler = $this->abrir($client, $pasta);
 
-        self::assertCount(1, $crawler->filter('.pasta-dados-arranjo'), 'o arranjo de duas colunas existe');
-        self::assertCount(
-            1,
-            $crawler->filter('.pasta-dados-arranjo > .pasta-dados-col--esq'),
-            'a coluna da esquerda é filha DIRETA do arranjo, não neta'
-        );
-        self::assertCount(
-            1,
-            $crawler->filter('.pasta-dados-arranjo > .pasta-dados-col--dir'),
-            'a coluna da direita é filha DIRETA do arranjo'
-        );
-    }
-
-    #[TestDox('processo, ação e responsável ficam na coluna da ESQUERDA')]
-    public function testTresCamposDaPastaNaColunaEsquerda(): void
-    {
-        $client                       = static::createClient();
-        [$em, $user, $tenant, $pasta] = $this->criarBase();
-        $em->flush();
-
-        $this->logarComTenant($client, $user, $tenant);
-        $crawler = $this->abrir($client, $pasta);
-
-        $esq = '.pasta-dados-arranjo > .pasta-dados-col--esq ';
-
-        foreach (['processo', 'acao', 'responsavel'] as $campo) {
-            self::assertCount(
-                1,
-                $crawler->filter($esq . '[data-campo="' . $campo . '"]'),
-                "o campo {$campo} tem de estar na coluna da esquerda"
-            );
-        }
-
-        // O chip é o controle real; se ele ficar na direita, o arranjo aprovado quebrou.
-        self::assertCount(
-            1,
-            $crawler->filter($esq . '.pasta-resp-chip'),
-            'o chip do responsável mora na esquerda (foi o ajuste pedido sobre a proposta B)'
-        );
+        self::assertCount(1, $crawler->filter('.ps-page > .ps-cabecalho'), 'o cabeçalho é filho DIRETO da página');
         self::assertCount(
             0,
-            $crawler->filter('.pasta-dados-col--dir .pasta-resp-chip'),
-            'e NÃO pode aparecer também na direita'
+            $crawler->filter('.tab-pane .ps-cabecalho'),
+            'se o cabeçalho cair dentro de um painel, ele some ao trocar de aba'
+        );
+        self::assertCount(
+            1,
+            $crawler->filter('.ps-page > .ps-paineis'),
+            'os painéis são irmãos do cabeçalho, não filhos dele'
         );
     }
 
-    #[TestDox('os clientes ficam na coluna da DIREITA, e não na esquerda')]
-    public function testClientesNaColunaDireita(): void
+    #[TestDox('as quatro ações do topo estão na ordem aprovada: Arquivar · Editar · Histórico · ⋮')]
+    public function testOrdemDasAcoesDoTopo(): void
+    {
+        $client                       = static::createClient();
+        [$em, $user, $tenant, $pasta] = $this->criarBase();
+        $em->flush();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $this->abrir($client, $pasta);
+
+        $botoes = $crawler->filter('.ps-cab-linha1 > .ps-cab-acoes > .ps-btn, .ps-cab-linha1 > .ps-cab-acoes > .ps-pop-wrap > .ps-btn');
+        self::assertCount(4, $botoes, 'são quatro ações, todas filhas diretas da barra de ações');
+
+        self::assertSame('Arquivar', trim($botoes->eq(0)->text()));
+        self::assertSame('Editar', trim($botoes->eq(1)->text()));
+        self::assertSame('Histórico', trim($botoes->eq(2)->text()));
+        self::assertSame(
+            'psHistorico',
+            $botoes->eq(2)->attr('aria-controls'),
+            'o botão Histórico abre o drawer, não uma seção da página'
+        );
+    }
+
+    #[TestDox('o menu ⋮ tem só ações com back-end: Duplicar pasta ficou de fora por não existir')]
+    public function testMenuDeAcoesSemItemInerte(): void
+    {
+        $client                       = static::createClient();
+        [$em, $user, $tenant, $pasta] = $this->criarBase();
+        $em->flush();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $this->abrir($client, $pasta);
+
+        $menu = $crawler->filter('#psMenuAcoes');
+        self::assertCount(1, $menu);
+        self::assertCount(3, $menu->filter('.ps-pop-item'), 'três itens: vincular, trocar responsável, excluir');
+
+        self::assertStringNotContainsString(
+            'Duplicar',
+            $menu->text(),
+            'não existe rota de duplicação; item inerte ensina o usuário a desconfiar do menu'
+        );
+
+        // O "Excluir Pasta" vermelho do rodapé mudou de lugar — o rodapé sumiu.
+        self::assertCount(
+            1,
+            $menu->filter('form[action$="/deletar"] .ps-pop-item--perigo'),
+            'excluir pasta é o último item do menu, em vermelho, e continua sendo um POST'
+        );
+        self::assertCount(0, $crawler->filter('.card-footer'), 'o rodapé da tela deixou de existir');
+    }
+
+    #[TestDox('a faixa de dados fecha com Situação, na ordem aprovada')]
+    public function testOrdemDaFaixaDeDados(): void
+    {
+        $client                       = static::createClient();
+        [$em, $user, $tenant, $pasta] = $this->criarBase();
+        $em->flush();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $this->abrir($client, $pasta);
+
+        $campos = $crawler->filter('.ps-cabecalho > .ps-cab-dados > [data-campo]');
+        self::assertSame(
+            ['cliente-principal', 'responsavel', 'processo', 'movimentacao', 'situacao'],
+            $campos->each(fn ($n) => $n->attr('data-campo')),
+            'ordem aprovada: Cliente principal · Responsável · Processo vinculado · Última movimentação · Situação'
+        );
+    }
+
+    #[TestDox('o título grande é a AÇÃO; o número da pasta virou o rótulo pequeno acima')]
+    public function testTituloEhAAcaoENaoONumero(): void
+    {
+        $client                       = static::createClient();
+        [$em, $user, $tenant, $pasta] = $this->criarBase();
+        $em->flush();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $this->abrir($client, $pasta);
+
+        $titulo = $crawler->filter('.ps-cabecalho > h1.ps-cab-titulo');
+        self::assertCount(1, $titulo);
+
+        /* MAIÚSCULAS de propósito. O desenho mostra o título em caixa mista,
+           mas `Pasta::setNomeAcao()` grava `mb_strtoupper` — é regra do domínio,
+           a mesma de `ClientePF::setNomeCompleto`. A tela reflete o dado; um
+           `text-transform` no CSS deixaria bonito mentindo sobre o que está
+           gravado, e erraria as preposições ("de", "da") na volta. */
+        self::assertSame('EXECUÇÃO DE TÍTULO EXTRAJUDICIAL', trim($titulo->text()));
+
+        self::assertSame(
+            'PASTA ' . $pasta->getNup(),
+            trim($crawler->filter('.ps-cab-identidade > .ps-cab-nup')->text()),
+            'o NUP fica no rótulo pequeno da linha de identidade'
+        );
+    }
+
+    #[TestDox('as seis abas são o controle segmentado, com o indicador como filho direto do trilho')]
+    public function testAbasSegmentadas(): void
+    {
+        $client                       = static::createClient();
+        [$em, $user, $tenant, $pasta] = $this->criarBase();
+        $em->flush();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $this->abrir($client, $pasta);
+
+        /* Escopo na página, não no documento: os modais de cliente (#tabsPF,
+           #tabsPJ) têm nav-tabs próprios e continuam legítimos. */
+        self::assertCount(
+            0,
+            $crawler->filter('.ps-page ul.nav-tabs'),
+            'as abas sublinhadas saíram da tela da pasta'
+        );
+        self::assertCount(1, $crawler->filter('#pastaTabs.ps-abas[role="tablist"]'));
+        self::assertCount(
+            1,
+            $crawler->filter('#pastaTabs > .ps-abas-ind'),
+            'a pílula que desliza é filha DIRETA do trilho: é dele que o JS mede offsetLeft/offsetWidth'
+        );
+        self::assertCount(6, $crawler->filter('#pastaTabs > button.ps-aba'), 'seis abas, todas filhas diretas');
+
+        // Sem JS a pílula nunca é medida; a classe é a degradação graciosa.
+        self::assertStringContainsString(
+            'ps-abas--sem-js',
+            (string) $crawler->filter('#pastaTabs')->attr('class'),
+            'o HTML nasce marcado como "sem JS"; quem remove a marca é o pasta-show.js'
+        );
+    }
+
+    #[TestDox('a contagem das abas vem do DADO, nunca de um literal')]
+    public function testBadgeDasAbasVemDoDado(): void
+    {
+        $client                       = static::createClient();
+        [$em, $user, $tenant, $pasta] = $this->criarBase();
+        $em->flush();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $this->abrir($client, $pasta);
+
+        // Pasta recém-criada: zero metas e zero documentos. Badge nenhum.
+        self::assertCount(
+            0,
+            $crawler->filter('#pastaTabs .ps-aba-badge'),
+            'sem meta e sem documento não pode aparecer contagem — foi bug corrigido duas vezes na revisão do desenho'
+        );
+    }
+
+    // =========================================================================
+    // Aba Dados
+    // =========================================================================
+
+    #[TestDox('a aba Dados é uma grade de duas colunas: anotações no centro, trilho à direita')]
+    public function testGradeDaAbaDados(): void
+    {
+        $client                       = static::createClient();
+        [$em, $user, $tenant, $pasta] = $this->criarBase();
+        $em->flush();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $this->abrir($client, $pasta);
+
+        self::assertCount(1, $crawler->filter('#dados > .ps-grade'), 'a grade é filha direta do painel da aba');
+        self::assertCount(
+            1,
+            $crawler->filter('#dados > .ps-grade > .ps-anotacoes'),
+            'as anotações são a coluna central — filha DIRETA da grade'
+        );
+        self::assertCount(
+            1,
+            $crawler->filter('#dados > .ps-grade > .ps-trilho'),
+            'o trilho é a segunda coluna'
+        );
+    }
+
+    #[TestDox('o trilho traz os quatro cartões na ordem aprovada')]
+    public function testOrdemDosCartoesDoTrilho(): void
+    {
+        $client                       = static::createClient();
+        [$em, $user, $tenant, $pasta] = $this->criarBase();
+        $em->flush();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $this->abrir($client, $pasta);
+
+        $cartoes = $crawler->filter('#dados > .ps-grade > .ps-trilho > [data-trilho]');
+        self::assertSame(
+            ['prazos', 'clientes', 'financeiro', 'documentos'],
+            $cartoes->each(fn ($n) => $n->attr('data-trilho')),
+            'ordem aprovada: Próximos prazos · Clientes · Financeiro do caso · Documentos'
+        );
+    }
+
+    #[TestDox('o histórico automático saiu da aba Dados e virou drawer, fora de .ps-page')]
+    public function testHistoricoSaiuDaPaginaEViroudrawer(): void
+    {
+        $client                       = static::createClient();
+        [$em, $user, $tenant, $pasta] = $this->criarBase();
+        $em->flush();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $this->abrir($client, $pasta);
+
+        /* Esta é a mudança estrutural que o redesenho existe para fazer: o
+           histórico ocupava mais altura vertical que toda a informação do caso. */
+        self::assertCount(0, $crawler->filter('#pasta-timeline-card'), 'o cartão "Relatórios" saiu da página');
+        self::assertCount(0, $crawler->filter('#dados #psHistorico'), 'o drawer não mora dentro da aba');
+        self::assertCount(1, $crawler->filter('#psHistorico.ps-drawer'), 'o drawer existe, fora do fluxo');
+        self::assertCount(1, $crawler->filter('#psHistoricoOverlay'));
+        self::assertCount(
+            0,
+            $crawler->filter('.ps-page #psHistorico'),
+            'drawer e overlay são fixos e cobrem a tela: ficam FORA de .ps-page'
+        );
+    }
+
+    #[TestDox('o compositor de anotações continua sendo o mesmo formulário que o JS conhece')]
+    public function testContratoDoCompositor(): void
+    {
+        $client                       = static::createClient();
+        [$em, $user, $tenant, $pasta] = $this->criarBase();
+        $em->flush();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $this->abrir($client, $pasta);
+
+        /* Os id abaixo são contrato com o JS de enviar/editar/excluir do
+           show.html.twig. Renomear qualquer um deles quebra o envio EM SILÊNCIO:
+           nenhuma exceção, nenhum erro no log, só um botão que não faz nada. */
+        foreach (['formTimelineMensagem', 'timelineConteudo', 'btnEnviarMensagem', 'timelineMensagemErro', 'timelineList', 'timeline-count'] as $id) {
+            self::assertCount(
+                1,
+                $crawler->filter('#dados #' . $id),
+                "#{$id} é contrato com o JS de anotações e tem de continuar dentro da aba Dados"
+            );
+        }
+    }
+
+    #[TestDox('os clientes ficam no cartão do trilho, e não sobrou cópia em lugar nenhum')]
+    public function testClientesMoramNoTrilho(): void
     {
         $client                       = static::createClient();
         [$em, $user, $tenant, $pasta] = $this->criarBase();
@@ -151,26 +365,24 @@ final class PastaDadosArranjoTelaTest extends JusPrimeWebTestCase
 
         self::assertCount(
             1,
-            $crawler->filter('.pasta-dados-arranjo > .pasta-dados-col--dir #clientesList'),
-            'a lista de clientes é da coluna da direita'
+            $crawler->filter('.ps-trilho > [data-trilho="clientes"] #clientesList'),
+            'a lista de clientes é do cartão Clientes do trilho'
         );
-        self::assertCount(
-            0,
-            $crawler->filter('.pasta-dados-col--esq #clientesList'),
-            'clientes NÃO pode estar na esquerda — é o erro que o arranjo antigo tinha'
-        );
-
-        // O botão de vincular subiu para a linha de Clientes quando o cabeçalho
-        // "As pessoas" deixou de existir. Se ele sumir, some o caminho de vincular.
+        self::assertCount(1, $crawler->filter('#clientesList'), 'existe UMA lista, não duas');
         self::assertCount(
             1,
-            $crawler->filter('.pasta-dados-col--dir .pasta-clientes-cab [data-bs-target="#modalAdicionarCliente"]'),
-            'o botão de vincular fica no cabeçalho da lista de clientes'
+            $crawler->filter('[data-trilho="clientes"] .ps-card-cab [data-bs-target="#modalAdicionarCliente"]'),
+            'o botão "+ Vincular" fica no cabeçalho do cartão'
+        );
+        self::assertCount(
+            1,
+            $crawler->filter('#clientesList .cliente-principal .ps-selo-principal'),
+            'o cliente principal ganha o selo âmbar do desenho'
         );
     }
 
-    #[TestDox('os títulos de seção que o dono recusou não voltam')]
-    public function testSemTitulosDeSecao(): void
+    #[TestDox('o cartão financeiro do trilho mostra valor da causa e média, não parcela inventada')]
+    public function testCartaoFinanceiroDoTrilho(): void
     {
         $client                       = static::createClient();
         [$em, $user, $tenant, $pasta] = $this->criarBase();
@@ -179,67 +391,159 @@ final class PastaDadosArranjoTelaTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $user, $tenant);
         $crawler = $this->abrir($client, $pasta);
 
-        $texto = $crawler->filter('.pasta-dados-arranjo')->text();
+        $card = $crawler->filter('.ps-trilho > [data-trilho="financeiro"]');
+        self::assertCount(1, $card);
+        self::assertCount(2, $card->filter('.ps-fin-caixa'), 'duas caixas: valor da causa e média');
 
-        // Recusados explicitamente em 2026-08-26: a régua entre as colunas já
-        // separa, e o título repetia o que a aba "Dados da Pasta" ja diz.
-        foreach (['O processo', 'As pessoas', 'Informações Gerais'] as $recusado) {
+        /* O protótipo desenha "Recebido / A receber / Próxima parcela": dado que
+           a Pasta NÃO tem — parcelas e recebimentos vivem no módulo Cobrança,
+           sem ligação com pasta. Vale o texto do handoff (decisão do dono). */
+        foreach (['Recebido', 'A receber', 'Próxima parcela'] as $inventado) {
             self::assertStringNotContainsString(
-                $recusado,
-                $texto,
-                "\"{$recusado}\" foi recusado pelo dono e não pode reaparecer"
+                $inventado,
+                $card->text(),
+                "\"{$inventado}\" não tem lastro no modelo da pasta e não pode aparecer"
             );
         }
+
+        // Sem valor preenchido e sem cliente: travessão nos dois, nunca R$ 0,00.
+        self::assertSame(
+            ['—', '—'],
+            $card->filter('.ps-fin-valor')->each(fn ($n) => trim($n->text())),
+            'ausência de dado vira travessão; um zero ali seria número inventado'
+        );
     }
 
-    #[TestDox('o arranjo não vaza da aba: timeline e arranjo continuam dentro do painel #dados')]
-    public function testArranjoNaoVazaDaAba(): void
+    // =========================================================================
+    // Dado real na tela
+    // =========================================================================
+
+    #[TestDox('o número do processo aparece MASCARADO, e igual no cabeçalho e na aba Processo')]
+    public function testNumeroDoProcessoNaoDivergeEntreCabecalhoEAba(): void
     {
         $client                       = static::createClient();
         [$em, $user, $tenant, $pasta] = $this->criarBase();
+
+        $processo = new Processo();
+        $processo->setNumeroProcesso('10593167220224013400');
+        $processo->setOrgaoJulgador('1ª Vara Federal');
+        $processo->setSiglaTribunal('TJDFT');
+        $processo->setClasseProcessual('Cumprimento de sentença');
+        $processo->setAssuntoProcessual('Obrigação de fazer');
+        $processo->setTenant($tenant);
+        $em->persist($processo);
+
+        $vinculo = new PastaProcesso($pasta, $processo);
+        $vinculo->setPrincipal(true);
+        $em->persist($vinculo);
+        $pasta->getPastaProcessos()->add($vinculo);
         $em->flush();
 
         $this->logarComTenant($client, $user, $tenant);
         $crawler = $this->abrir($client, $pasta);
 
-        /* Este é o assert que pega </div> sobrando. Substituir um bloco por outro
-           deixa fácil esquecer as tags de fecho do antigo: o Twig continua válido,
-           a suíte continua verde, e o único sintoma é o parser fechando os
-           ancestrais cedo — o que joga tudo o que vem depois PARA FORA da aba.
-           Aconteceu exatamente isso aqui: 3 tags órfãs, 378 aberturas contra 381
-           fechamentos, e nada acusou até eu contar. */
-        self::assertCount(
-            1,
-            $crawler->filter('#dados .pasta-dados-arranjo'),
-            'o arranjo tem de estar DENTRO do painel da aba Dados'
+        $mascarado = '1059316-72.2022.4.01.3400';
+
+        $noCabecalho = $crawler->filter('.ps-cab-dados [data-campo="processo"] a');
+        self::assertCount(1, $noCabecalho);
+        self::assertSame($mascarado, trim($noCabecalho->text()), 'o cabeçalho mostra o número formatado, não os 20 dígitos colados');
+
+        /* O handoff é explícito: "Header e aba Processo leem a mesma fonte de
+           dados — não podem divergir". Formatar num lugar só produziria dois
+           números com cara diferente para o MESMO processo. */
+        $naAba = $crawler->filter('#processo a[href="/processos/' . $processo->getId() . '"]')->reduce(
+            fn ($n) => trim($n->text()) !== ''
         );
-        self::assertCount(
-            1,
-            $crawler->filter('#dados #pasta-timeline-card'),
-            'a timeline vem depois do arranjo e tem de continuar dentro da mesma aba'
+        self::assertGreaterThan(0, $naAba->count(), 'a aba Processo lista o processo');
+        self::assertSame($mascarado, trim($naAba->first()->text()), 'a aba Processo mostra o MESMO número formatado');
+
+        // O botão de copiar continua entregando os dígitos crus: é o que se cola
+        // no sistema do tribunal.
+        self::assertSame(
+            '10593167220224013400',
+            $crawler->filter('.ps-cab-dados [data-campo="processo"] .copy-btn')->attr('data-copy'),
+            'copiar entrega o número cru, não a máscara'
+        );
+
+        /* Classe · tribunal embaixo do número, como no desenho — mas em
+           MAIÚSCULAS, porque `Processo::setClasseProcessual()` grava
+           `mb_strtoupper`. Normalizar esse rótulo para caixa mista está no
+           handoff como parte da ABA PROCESSO, que é fatia própria: fazer aqui
+           só no cabeçalho recriaria a divergência que este teste existe para
+           impedir. */
+        self::assertSame(
+            'CUMPRIMENTO DE SENTENÇA · TJDFT',
+            trim($crawler->filter('.ps-cab-dados [data-campo="processo"] .ps-dado-sub')->text())
         );
     }
 
-    #[TestDox('todo rótulo da aba usa o mesmo estilo — não sobra o <p class="text-sm text-muted"> antigo')]
-    public function testRotulosUnificados(): void
+    #[TestDox('o cartão de prazos traz as metas abertas mais próximas, com o selo colorido certo')]
+    public function testCartaoDeProximosPrazos(): void
     {
         $client                       = static::createClient();
         [$em, $user, $tenant, $pasta] = $this->criarBase();
+
+        foreach ([['Protocolar contestação', '+1 day'], ['Juntar documentos', '+20 days']] as [$titulo, $prazo]) {
+            $meta = new Tarefa();
+            $meta->setTitulo($titulo);
+            $meta->setDescricao('...');
+            $meta->setPrazo(new \DateTimeImmutable($prazo));
+            $meta->setPasta($pasta);
+            $meta->setTenant($tenant);
+            $meta->setCriadoPor($user);
+            $meta->addResponsavel($user);
+            $em->persist($meta);
+            // Lado inverso: a Pasta já está na identity map, e a coleção não se
+            // atualiza sozinha ao persistir o lado dono.
+            $pasta->getTarefas()->add($meta);
+        }
         $em->flush();
 
         $this->logarComTenant($client, $user, $tenant);
         $crawler = $this->abrir($client, $pasta);
 
-        // 3 campos da esquerda + o de Clientes na direita.
-        self::assertCount(
-            4,
-            $crawler->filter('.pasta-dados-arranjo .pasta-rotulo'),
-            'cada campo tem exatamente um rótulo no estilo novo'
+        $linhas = $crawler->filter('[data-trilho="prazos"] .ps-linha');
+        self::assertCount(2, $linhas);
+
+        // Ordem: a mais próxima primeiro.
+        self::assertStringContainsString('Protocolar contestação', $linhas->eq(0)->text());
+        self::assertSame('1 dia', trim($linhas->eq(0)->filter('.ps-selo')->text()));
+        self::assertStringContainsString(
+            'ps-selo--urgente',
+            (string) $linhas->eq(0)->filter('.ps-selo')->attr('class'),
+            'até 2 dias é vermelho'
         );
+        self::assertStringContainsString(
+            'ps-selo--tranquilo',
+            (string) $linhas->eq(1)->filter('.ps-selo')->attr('class'),
+            'acima de 8 dias é cinza — prazo distante não é "bom", só não é urgente'
+        );
+
+        // Com metas, a aba Metas passa a exibir a contagem.
+        self::assertSame('2', trim($crawler->filter('#tarefas-tab .ps-aba-badge')->text()));
+    }
+
+    #[TestDox('pasta sem cliente cadastrado mostra o texto legado — o estado de 1.072 das 1.073 pastas em produção')]
+    public function testTextoLegadoNoTrilho(): void
+    {
+        $client                       = static::createClient();
+        [$em, $user, $tenant, $pasta] = $this->criarBase();
+        $pasta->setNomeCliente('MARIA DAS GRACAS');
+        $em->flush();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $this->abrir($client, $pasta);
+
+        // No cabeçalho, como "Cliente principal".
+        $cab = $crawler->filter('.ps-cab-dados [data-campo="cliente-principal"]');
+        self::assertStringContainsString('MARIA DAS GRACAS', $cab->text());
+        self::assertStringContainsString('não vinculado', $cab->text(), 'e dizendo que não é cadastro');
+
+        // E no cartão do trilho, sem inventar documento.
         self::assertCount(
             0,
-            $crawler->filter('.pasta-dados-arranjo p.text-sm.text-muted'),
-            'o rótulo antigo não pode conviver com o novo — eram três estilos diferentes na mesma faixa'
+            $crawler->filter('[data-trilho="clientes"] .cliente-doc-rotulo'),
+            'sem cadastro não há CPF; imprimir o rótulo vazio seria inventar dado'
         );
     }
 }

@@ -1,0 +1,118 @@
+{# ============================================================================
+   Aba Dados — coluna central: "Anotações do caso" (a zona quente).
+   Desenho aprovado: docs/design/pasta-show/ ("Pasta 1A.dc.html"), Aba 1.
+
+   Só o que uma PESSOA escreveu. O que o sistema registrou sozinho foi para o
+   drawer do Histórico (`_historico_drawer.html.twig`).
+
+   Os `id` desta tela (#formTimelineMensagem, #timelineList, #timeline-count,
+   #timelineVazio, #pasta-msg-N, .pasta-msg-conteudo, .btn-editar-msg-pasta,
+   .btn-excluir-msg-pasta) são contrato com o JS de enviar/editar/excluir que
+   vive no show.html.twig. Renomear qualquer um quebra o envio em silêncio.
+
+   Contexto: `pasta`, `anotacoes` (TimelineItemDTO do tipo MENSAGEM).
+   ============================================================================ #}
+{# Editor rico (Quill auto-hospedado, sem CDN externo). #}
+<link rel="stylesheet" href="{{ asset('js/quill/quill.snow.css') }}">
+<link rel="stylesheet" href="{{ asset('css/editor-rico.css') }}">
+<script src="{{ asset('js/quill/quill.js') }}"></script>
+<script src="{{ asset('js/editor-rico.js') }}" defer></script>
+
+{% set visiveis = 4 %}
+
+<section class="ps-card ps-anotacoes">
+    <div class="ps-card-cab">
+        <h2>Anotações do caso</h2>
+        <span class="ps-contagem" id="timeline-count">{{ anotacoes|length }}</span>
+        <span class="ps-cab-espaco"></span>
+        <span class="ps-anotacoes-dica">Ctrl + Enter envia</span>
+    </div>
+
+    {# ── Compositor ── #}
+    <div class="ps-compositor">
+        <form id="formTimelineMensagem">
+            <input type="hidden" name="_token" value="{{ csrf_token('pasta_mensagem_' ~ pasta.id) }}">
+            <div class="ps-compositor-caixa">
+                <textarea name="conteudo"
+                          id="timelineConteudo"
+                          data-editor-rico
+                          class="form-control"
+                          rows="2"
+                          maxlength="5000"
+                          placeholder="Adicionar observação, combinado ou andamento do caso…"></textarea>
+                <div class="ps-compositor-rodape">
+                    <span class="ps-compositor-nota">Visível para a equipe</span>
+                    <span class="ps-cab-espaco"></span>
+                    <button type="submit" class="ps-btn ps-btn--primario" id="btnEnviarMensagem">Enviar</button>
+                </div>
+            </div>
+        </form>
+    </div>
+    <div id="timelineMensagemErro" class="ps-compositor-erro d-none"></div>
+
+    {# ── Lista ── #}
+    <div id="timelineList">
+        {% if anotacoes|length == 0 %}
+            <div class="ps-vazio" id="timelineVazio">
+                <i class="bi bi-chat-left-text"></i>
+                <div class="ps-vazio-titulo">Nenhuma anotação ainda</div>
+                <div class="ps-vazio-nota">Registre acima o que foi combinado, ligado ou andado no caso.</div>
+            </div>
+        {% else %}
+            {% for item in anotacoes %}
+                {% set autor = item.autorNome ?? item.autorEmail ?? '' %}
+                {% set partes = autor|trim|split(' ')|filter(p => p is not empty) %}
+                {% set iniciais = partes|length > 0
+                    ? (partes|first|slice(0, 1) ~ (partes|length > 1 ? partes|last|slice(0, 1) : ''))|upper
+                    : '?' %}
+                {# Autor, dentro de 24h: as mesmas condições do endpoint. #}
+                {% set podeGerenciar = item.mensagemId and app.user and item.usuarioId == app.user.id and date(item.dataHora) > date('-24 hours') %}
+
+                <article class="ps-anotacao{{ loop.index0 >= visiveis ? ' ps-anotacao--extra d-none' : '' }}"
+                         {% if item.mensagemId %}id="pasta-msg-{{ item.mensagemId }}"{% endif %}>
+                    <span class="ps-avatar ps-avatar--30">{{ iniciais }}</span>
+                    <div class="ps-anotacao-corpo">
+                        <div class="ps-anotacao-topo">
+                            <span class="ps-anotacao-autor">{{ autor ?: 'Autor desconhecido' }}</span>
+                            <span class="ps-anotacao-data">{{ item.dataHora|date('d/m/Y, H:i') }}</span>
+                            {% if item.editadoEm %}
+                                <small class="ps-anotacao-data fst-italic pasta-msg-editado">(editado)</small>
+                            {% endif %}
+                            {% if podeGerenciar %}
+                                <span class="ps-anotacao-acoes">
+                                    <button type="button"
+                                            class="ps-anotacao-acao btn-editar-msg-pasta"
+                                            title="Editar anotação"
+                                            data-msg-id="{{ item.mensagemId }}"
+                                            data-conteudo="{{ item.detalhe|e('html_attr') }}"
+                                            data-csrf="{{ csrf_token('pasta_mensagem_editar_' ~ item.mensagemId) }}"
+                                            data-url="{{ path('pasta_editar_mensagem', {id: pasta.id, msgId: item.mensagemId}) }}">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button type="button"
+                                            class="ps-anotacao-acao ps-anotacao-acao--perigo btn-excluir-msg-pasta"
+                                            title="Excluir anotação"
+                                            data-msg-id="{{ item.mensagemId }}"
+                                            data-csrf="{{ csrf_token('pasta_mensagem_excluir_' ~ item.mensagemId) }}"
+                                            data-url="{{ path('pasta_excluir_mensagem', {id: pasta.id, msgId: item.mensagemId}) }}">
+                                        <i class="bi bi-trash3"></i>
+                                    </button>
+                                </span>
+                            {% endif %}
+                        </div>
+                        <div class="ps-anotacao-texto pasta-msg-conteudo">
+                            {# Escrito por uma pessoa no editor rico: HTML já sanitizado no servidor. #}
+                            <span class="editor-rico-conteudo"><span class="ql-editor">{{ item.detalhe|texto_rico }}</span></span>
+                        </div>
+                    </div>
+                </article>
+            {% endfor %}
+        {% endif %}
+    </div>
+
+    {% if anotacoes|length > visiveis %}
+        <button type="button" class="ps-anotacoes-mais" id="psAnotacoesMais">
+            Ver anotações anteriores ({{ anotacoes|length - visiveis }})
+        </button>
+    {% endif %}
+</section>

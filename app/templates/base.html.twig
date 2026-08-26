@@ -96,7 +96,10 @@
         O AdminLTE detecta essas classes e interfere no nosso controle customizado.
         O sidebar é gerenciado exclusivamente pelo JS do _sidebar.html.twig.
     #}
-    <body class="layout-fixed sidebar-expand-lg bg-body-tertiary">
+    {# `body_class`: gancho para a página pintar o próprio fundo. Existe porque
+       o redesenho da pasta usa um fundo diferente do bg-body-tertiary do resto
+       do sistema, e não há como uma regra CSS subir do conteúdo até o <body>. #}
+    <body class="layout-fixed sidebar-expand-lg bg-body-tertiary {% block body_class %}{% endblock %}">
         {% if app.user %}
             {# App Wrapper #}
             <div class="app-wrapper">

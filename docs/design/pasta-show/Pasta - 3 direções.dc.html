@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  body { margin:0; background:#e7ebee; font-family:'Source Sans 3',system-ui,sans-serif; -webkit-font-smoothing:antialiased; }
+  a { color:#0f6fc4; text-decoration:none; }
+  a:hover { color:#0b5596; text-decoration:underline; }
+  *, *::before, *::after { box-sizing:border-box; }
+</style>
+</helmet>
+
+<section style="padding:44px 44px 80px;display:flex;flex-direction:column;gap:14px">
+  <div style="display:flex;align-items:baseline;gap:14px;max-width:1100px">
+    <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:500;letter-spacing:0.12em;color:#5f7684">RODADA 1</span>
+    <h1 style="margin:0;font-size:22px;font-weight:600;letter-spacing:-0.01em">Tela de Pasta — três arranjos</h1>
+  </div>
+  <p style="margin:0 0 12px;max-width:78ch;font-size:15px;line-height:1.6;color:#455c6b;text-wrap:pretty">Mesma informação da tela atual, três arranjos diferentes. Em todas: histórico do sistema saiu da página para um painel lateral, prazos ganharam presença, e as ações do topo têm rótulo. Clique nas abas e nos controles — são reais. Me diga por id: <a href="#1a">1a</a>, <a href="#1b">1b</a> ou <a href="#1c">1c</a>.</p>
+
+  <div style="display:flex;flex-wrap:wrap;gap:36px;align-items:flex-start">
+
+    <div id="1a" style="flex:0 0 1400px;width:1400px;min-width:1400px;display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;align-items:center;gap:12px">
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;letter-spacing:0.1em;color:#fff;background:#0f6fc4;padding:4px 10px;border-radius:6px">1A</span>
+        <span style="font-size:16px;font-weight:600">Dossiê — trilho lateral</span>
+        <span style="font-size:14px;color:#5f7684">Anotações no centro; prazos, clientes, financeiro e documentos sempre visíveis à direita.</span>
+      </div>
+
+      <div style="background:#fff;border:1px solid #cdd7de;border-radius:14px;overflow:hidden;box-shadow:0 4px 18px rgba(16,42,58,.08)">
+        <div style="background:#0c7a9c;color:#fff;padding:0 22px;display:flex;align-items:center;gap:22px;height:50px">
+          <img src="bluejus-favicons/logo%20nav/bluejus-white-transparent-nav.png" alt="BlueJus" style="height:26px;width:auto;display:block;flex-shrink:0">
+          <div style="width:1px;height:22px;background:rgba(255,255,255,.3);flex-shrink:0"></div>
+          <nav style="display:flex;gap:2px;align-items:center;height:100%">
+            <span style="font-size:12.5px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;padding:0 13px;height:100%;display:flex;align-items:center;box-shadow:inset 0 -2px 0 #fff">Expediente</span>
+            <span style="font-size:12.5px;font-weight:400;letter-spacing:0.05em;text-transform:uppercase;padding:0 13px;height:100%;display:flex;align-items:center;color:#bfe2ee">Demandas</span>
+            <span style="font-size:12.5px;font-weight:400;letter-spacing:0.05em;text-transform:uppercase;padding:0 13px;height:100%;display:flex;align-items:center;color:#bfe2ee">Processos</span>
+          </nav>
+          <div style="flex:1"></div>
+          <span style="font-size:13px;color:#d6ecf3">Farlei Assis da Rocha S…</span>
+          <div style="width:27px;height:27px;border-radius:50%;background:#fff;color:#0c7a9c;font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center">SF</div>
+        </div>
+
+        <div style="padding:20px 24px 0;background:#fff;border-bottom:1px solid #e4eaef">
+          <div style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:#6b8494;margin-bottom:12px">
+            <span>Pastas</span><span>/</span><span style="color:#12242f">1180</span>
+          </div>
+          <div style="display:flex;gap:26px;align-items:flex-start">
+            <div style="flex:1;min-width:0">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;font-weight:500;letter-spacing:0.08em;color:#6b8494">PASTA 1180</span>
+                <span style="font-size:11px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:#186c47;background:#e2f4ea;border:1px solid #bde3cd;padding:2px 9px;border-radius:999px">Ativo</span>
+                <span style="font-size:11px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:#8a5a12;background:#fdf1dc;border:1px solid #f0dcb4;padding:2px 9px;border-radius:999px">Prioridade normal</span>
+              </div>
+              <h2 style="margin:0 0 16px;font-size:27px;line-height:1.2;font-weight:600;letter-spacing:-0.015em;max-width:24ch;text-wrap:pretty">Obrigação de não fazer e de fazer</h2>
+              <div style="display:flex;gap:32px 40px;flex-wrap:wrap;padding-bottom:18px">
+                <div>
+                  <div style="font-size:10.5px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#7b93a2;margin-bottom:4px">Cliente principal</div>
+                  <div style="font-size:14.5px;font-weight:600">Gleisson Bruno Gabriel</div>
+                </div>
+                <div>
+                  <div style="font-size:10.5px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#7b93a2;margin-bottom:4px">Responsável</div>
+                  <div style="display:flex;align-items:center;gap:7px">
+                    <div style="width:20px;height:20px;border-radius:50%;background:#0c7a9c;color:#fff;font-size:9px;font-weight:600;display:flex;align-items:center;justify-content:center">JM</div>
+                    <span style="font-size:14.5px;font-weight:500">Jéssica Martins</span>
+                  </div>
+                </div>
+                <div>
+                  <div style="font-size:10.5px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#7b93a2;margin-bottom:4px">Processo vinculado</div>
+                  <div style="font-size:14.5px;color:#8a9aa6">— <a href="#1a" style="font-size:13px">vincular</a></div>
+                </div>
+                <div>
+                  <div style="font-size:10.5px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#7b93a2;margin-bottom:4px">Última movimentação</div>
+                  <div style="font-size:14.5px;font-weight:500">hoje, 14:54</div>
+                </div>
+              </div>
+            </div>
+            <div style="width:176px;flex-shrink:0;display:flex;flex-direction:column;gap:8px;padding-top:2px">
+              <button style="border:none;background:#0f6fc4;color:#fff;font-family:inherit;font-size:13.5px;font-weight:600;padding:10px 14px;border-radius:9px;cursor:pointer" style-hover="background:#0b5596">Editar pasta</button>
+              <div style="display:flex;gap:8px">
+                <button style="flex:1;border:1px solid #cdd7de;background:#fff;color:#2a4353;font-family:inherit;font-size:13px;font-weight:500;padding:9px 8px;border-radius:9px;cursor:pointer" style-hover="border-color:#0f6fc4;color:#0f6fc4">Arquivar</button>
+                <button style="flex:1;border:1px solid #cdd7de;background:#fff;color:#2a4353;font-family:inherit;font-size:13px;font-weight:500;padding:9px 8px;border-radius:9px;cursor:pointer" style-hover="border-color:#0f6fc4;color:#0f6fc4">Etiquetas</button>
+              </div>
+              <button onClick="{{ toggleHist }}" style="border:1px solid #cdd7de;background:#fff;color:#2a4353;font-family:inherit;font-size:13px;font-weight:500;padding:9px 12px;border-radius:9px;cursor:pointer;text-align:left" style-hover="border-color:#0f6fc4;color:#0f6fc4">Histórico do sistema →</button>
+            </div>
+          </div>
+          <div style="display:flex;gap:2px">
+            <sc-for list="{{ tabsA }}" as="t" hint-placeholder-count="5">
+              <button onClick="{{ t.select }}" style="{{ t.style }}">
+                <span>{{ t.label }}</span>
+                <sc-if value="{{ t.badge }}" hint-placeholder-val="{{ true }}"><span style="{{ t.badgeStyle }}">{{ t.badge }}</span></sc-if>
+              </button>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="background:#f4f7f9;padding:20px 24px 26px">
+          <sc-if value="{{ aDados }}" hint-placeholder-val="{{ true }}">
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:18px;align-items:start">
+            <div style="background:#fff;border:1px solid #dde5eb;border-radius:14px">
+              <div style="padding:15px 20px;border-bottom:1px solid #eef2f5;display:flex;align-items:center;gap:10px">
+                <h3 style="margin:0;font-size:14px;font-weight:600">Anotações do caso</h3>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#7b93a2">10</span>
+                <div style="flex:1"></div>
+                <span style="font-size:12.5px;color:#6b8494">Ctrl + Enter envia</span>
+              </div>
+              <div style="padding:16px 20px;background:#fafcfd;border-bottom:1px solid #eef2f5">
+                <div style="border:1px solid #d3dde5;border-radius:9px;background:#fff;overflow:hidden">
+                  <div style="display:flex;align-items:center;gap:2px;padding:6px 9px;border-bottom:1px solid #eef2f5">
+                    <sc-for list="{{ toolbar }}" as="t" hint-placeholder-count="7"><span style="{{ t.style }}">{{ t.label }}</span></sc-for>
+                  </div>
+                  <div style="padding:13px 15px;min-height:66px;font-size:14.5px;color:#95a6b2;line-height:1.5">Adicionar observação, combinado ou andamento do caso…</div>
+                  <div style="display:flex;align-items:center;gap:10px;padding:9px 13px;background:#fafcfd;border-top:1px solid #eef2f5">
+                    <span style="font-size:12.5px;color:#6b8494">Visível para a equipe</span>
+                    <div style="flex:1"></div>
+                    <button style="border:none;background:#0f6fc4;color:#fff;font-family:inherit;font-size:13px;font-weight:600;padding:8px 18px;border-radius:7px;cursor:pointer" style-hover="background:#0b5596">Enviar</button>
+                  </div>
+                </div>
+              </div>
+              <sc-for list="{{ notes }}" as="n" hint-placeholder-count="4">
+                <article style="padding:16px 20px;border-bottom:1px solid #f1f4f7;display:flex;gap:13px">
+                  <div style="width:30px;height:30px;border-radius:50%;background:#e7eef4;color:#2a4353;font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0">{{ n.initials }}</div>
+                  <div style="min-width:0;flex:1">
+                    <div style="display:flex;align-items:baseline;gap:9px;margin-bottom:4px">
+                      <span style="font-size:13.5px;font-weight:600">{{ n.author }}</span>
+                      <span style="font-size:12px;color:#7b93a2">{{ n.when }}</span>
+                      <sc-if value="{{ n.tag }}" hint-placeholder-val="{{ true }}"><span style="font-size:10.5px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:#0f6fc4;background:#e8f2fa;padding:2px 8px;border-radius:999px">{{ n.tag }}</span></sc-if>
+                    </div>
+                    <p style="margin:0;font-size:14.5px;line-height:1.6;color:#243845;text-wrap:pretty">{{ n.body }}</p>
+                  </div>
+                </article>
+              </sc-for>
+              <button style="border:none;background:#fff;color:#0f6fc4;font-family:inherit;font-size:13px;font-weight:600;padding:13px;cursor:pointer;width:100%;border-radius:0 0 14px 14px" style-hover="background:#f4f9fd">Ver anotações anteriores (6)</button>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+              <div style="background:#fff;border:1px solid #dde5eb;border-radius:14px">
+                <div style="padding:14px 17px;border-bottom:1px solid #eef2f5;display:flex;align-items:center">
+                  <h3 style="margin:0;font-size:13.5px;font-weight:600">Próximos prazos</h3>
+                  <div style="flex:1"></div>
+                  <a href="#1a" style="font-size:12.5px;font-weight:500">metas</a>
+                </div>
+                <sc-for list="{{ deadlines }}" as="d" hint-placeholder-count="3">
+                  <div style="padding:12px 17px;border-bottom:1px solid #f4f7f9;display:flex;gap:11px;align-items:flex-start">
+                    <div style="{{ d.pipStyle }}"></div>
+                    <div style="min-width:0;flex:1">
+                      <div style="font-size:13.5px;font-weight:500;line-height:1.35;text-wrap:pretty">{{ d.title }}</div>
+                      <div style="font-size:12px;color:#7b93a2;margin-top:2px">{{ d.meta }}</div>
+                    </div>
+                    <span style="{{ d.badgeStyle }}">{{ d.badge }}</span>
+                  </div>
+                </sc-for>
+              </div>
+
+              <div style="background:#fff;border:1px solid #dde5eb;border-radius:14px">
+                <div style="padding:14px 17px;border-bottom:1px solid #eef2f5;display:flex;align-items:center">
+                  <h3 style="margin:0;font-size:13.5px;font-weight:600">Clientes</h3>
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#7b93a2;margin-left:7px">4</span>
+                  <div style="flex:1"></div>
+                  <button style="border:1px solid #cdd7de;background:#fff;color:#0f6fc4;font-family:inherit;font-size:12.5px;font-weight:600;padding:4px 11px;border-radius:7px;cursor:pointer" style-hover="background:#f4f9fd;border-color:#0f6fc4">+ Vincular</button>
+                </div>
+                <sc-for list="{{ clients }}" as="c" hint-placeholder-count="4">
+                  <div style="{{ c.rowStyle }}">
+                    <div style="{{ c.avatarStyle }}">{{ c.initials }}</div>
+                    <div style="min-width:0;flex:1">
+                      <div style="display:flex;align-items:center;gap:7px">
+                        <span style="font-size:13.5px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ c.name }}</span>
+                        <sc-if value="{{ c.primary }}" hint-placeholder-val="{{ false }}"><span style="font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#8a5a12;background:#fdf1dc;padding:2px 7px;border-radius:999px;flex-shrink:0">Principal</span></sc-if>
+                      </div>
+                      <div style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#7b93a2;margin-top:1px">{{ c.cpf }}</div>
+                    </div>
+                    <a href="#1a" style="font-size:12px;font-weight:600;flex-shrink:0">abrir</a>
+                  </div>
+                </sc-for>
+              </div>
+
+              <div style="background:#fff;border:1px solid #dde5eb;border-radius:14px;padding:15px 17px">
+                <div style="display:flex;align-items:center;margin-bottom:12px">
+                  <h3 style="margin:0;font-size:13.5px;font-weight:600">Financeiro do caso</h3>
+                  <div style="flex:1"></div>
+                  <a href="#1a" style="font-size:12.5px;font-weight:500">detalhar</a>
+                </div>
+                <div style="display:flex;gap:9px">
+                  <div style="flex:1;padding:11px 12px;border-radius:9px;background:#f1f8fc;border:1px solid #dbeaf3">
+                    <div style="font-size:10.5px;letter-spacing:0.07em;text-transform:uppercase;color:#5f7684;font-weight:700">Recebido</div>
+                    <div style="font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:500;margin-top:3px">R$ 4.500</div>
+                  </div>
+                  <div style="flex:1;padding:11px 12px;border-radius:9px;background:#fdf7ee;border:1px solid #f0e2cb">
+                    <div style="font-size:10.5px;letter-spacing:0.07em;text-transform:uppercase;color:#8a6a34;font-weight:700">A receber</div>
+                    <div style="font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:500;margin-top:3px">R$ 1.500</div>
+                  </div>
+                </div>
+                <div style="margin-top:11px;font-size:12.5px;color:#6b8494">Próxima parcela 05/09 · 3 de 4 pagas</div>
+              </div>
+
+              <div style="background:#fff;border:1px solid #dde5eb;border-radius:14px">
+                <div style="padding:14px 17px;border-bottom:1px solid #eef2f5;display:flex;align-items:center">
+                  <h3 style="margin:0;font-size:13.5px;font-weight:600">Documentos</h3>
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#7b93a2;margin-left:7px">6</span>
+                  <div style="flex:1"></div>
+                  <a href="#1a" style="font-size:12.5px;font-weight:500">todos</a>
+                </div>
+                <sc-for list="{{ docs }}" as="d" hint-placeholder-count="3">
+                  <div style="padding:11px 17px;border-bottom:1px solid #f4f7f9;display:flex;gap:10px;align-items:center">
+                    <div style="width:25px;height:31px;border-radius:4px;border:1px solid #d3dde5;background:#f7fafc;font-family:'IBM Plex Mono',monospace;font-size:8px;font-weight:500;color:#6b8494;display:flex;align-items:center;justify-content:center;flex-shrink:0">{{ d.ext }}</div>
+                    <div style="min-width:0;flex:1">
+                      <div style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ d.name }}</div>
+                      <div style="font-size:11.5px;color:#7b93a2;margin-top:1px">{{ d.meta }}</div>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+          </sc-if>
+          <sc-if value="{{ aOutra }}" hint-placeholder-val="{{ false }}">
+            <div style="background:#fff;border:1px solid #dde5eb;border-radius:14px;padding:60px 24px;text-align:center">
+              <div style="font-size:19px;font-weight:600;margin-bottom:7px">{{ aOutraTitulo }}</div>
+              <p style="margin:0 auto;max-width:44ch;font-size:14.5px;line-height:1.6;color:#5f7684;text-wrap:pretty">Fora do escopo desta rodada — o combinado foi só a tela de Pasta. Diz se entra e eu desenho no mesmo sistema.</p>
+              <button onClick="{{ aVoltar }}" style="margin-top:18px;border:1px solid #cdd7de;background:#fff;color:#0f6fc4;font-family:inherit;font-size:13px;font-weight:600;padding:9px 16px;border-radius:9px;cursor:pointer" style-hover="background:#f4f9fd">Voltar aos dados</button>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+    </div>
+
+    <div id="1b" style="flex:0 0 1400px;width:1400px;min-width:1400px;display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;align-items:center;gap:12px">
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;letter-spacing:0.1em;color:#fff;background:#0f6fc4;padding:4px 10px;border-radius:6px">1B</span>
+        <span style="font-size:16px;font-weight:600">Cockpit — faixa de situação</span>
+        <span style="font-size:14px;color:#5f7684">Abre respondendo "em que pé está": faixa de indicadores no topo, prazo crítico em destaque, duas colunas iguais.</span>
+      </div>
+
+      <div style="background:#fff;border:1px solid #cdd7de;border-radius:14px;overflow:hidden;box-shadow:0 4px 18px rgba(16,42,58,.08)">
+        <div style="background:#0c7a9c;color:#fff;padding:0 22px;display:flex;align-items:center;gap:18px;height:50px">
+          <img src="bluejus-favicons/logo%20nav/bluejus-white-transparent-nav.png" alt="BlueJus" style="height:26px;width:auto;display:block;flex-shrink:0">
+          <div style="width:1px;height:22px;background:rgba(255,255,255,.3);flex-shrink:0"></div>
+          <span style="font-size:13px;color:#bfe2ee">Expediente / Pastas / <span style="color:#fff;font-weight:600">1180</span></span>
+          <div style="flex:1"></div>
+          <div style="width:27px;height:27px;border-radius:50%;background:#fff;color:#0c7a9c;font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center">SF</div>
+        </div>
+
+        <div style="padding:20px 24px 0">
+          <div style="display:flex;gap:24px;align-items:flex-start;margin-bottom:18px">
+            <div style="flex:1;min-width:0">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:5px">
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:500;letter-spacing:-0.01em">#1180</span>
+                <span style="font-size:11px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:#186c47;background:#e2f4ea;border:1px solid #bde3cd;padding:2px 9px;border-radius:999px">Ativo</span>
+                <span style="font-size:11px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:#8a5a12;background:#fdf1dc;border:1px solid #f0dcb4;padding:2px 9px;border-radius:999px">Normal</span>
+              </div>
+              <h2 style="margin:0;font-size:24px;font-weight:600;line-height:1.25;letter-spacing:-0.01em;max-width:30ch;text-wrap:pretty">Obrigação de não fazer e de fazer</h2>
+              <div style="margin-top:8px;font-size:14px;color:#455c6b">Gleisson Bruno Gabriel <span style="color:#a8b8c3">·</span> +3 clientes <span style="color:#a8b8c3">·</span> resp. Jéssica Martins</div>
+            </div>
+            <div style="display:flex;gap:8px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;max-width:420px">
+              <button style="border:none;background:#0f6fc4;color:#fff;font-family:inherit;font-size:13.5px;font-weight:600;padding:9px 16px;border-radius:9px;cursor:pointer" style-hover="background:#0b5596">Nova anotação</button>
+              <button style="border:1px solid #cdd7de;background:#fff;color:#2a4353;font-family:inherit;font-size:13px;font-weight:500;padding:9px 14px;border-radius:9px;cursor:pointer" style-hover="border-color:#0f6fc4;color:#0f6fc4">Editar</button>
+              <button style="border:1px solid #cdd7de;background:#fff;color:#2a4353;font-family:inherit;font-size:13px;font-weight:500;padding:9px 14px;border-radius:9px;cursor:pointer" style-hover="border-color:#0f6fc4;color:#0f6fc4">Arquivar</button>
+              <button onClick="{{ toggleHist }}" style="border:1px solid #cdd7de;background:#fff;color:#2a4353;font-family:inherit;font-size:13px;font-weight:500;padding:9px 14px;border-radius:9px;cursor:pointer" style-hover="border-color:#0f6fc4;color:#0f6fc4">Histórico</button>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:20px">
+            <div style="padding:14px 16px;border:1px solid #f0cfcb;background:#fdf1f0;border-radius:12px">
+              <div style="font-size:10.5px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:#a3232b">Prazo mais próximo</div>
+              <div style="font-size:19px;font-weight:600;margin-top:5px">2 dias</div>
+              <div style="font-size:12.5px;color:#7c4a48;margin-top:2px">Contestação · 28/08</div>
+            </div>
+            <div style="padding:14px 16px;border:1px solid #dde5eb;background:#fafcfd;border-radius:12px">
+              <div style="font-size:10.5px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:#5f7684">Metas abertas</div>
+              <div style="font-size:19px;font-weight:600;margin-top:5px">3 de 7</div>
+              <div style="font-size:12.5px;color:#7b93a2;margin-top:2px">4 concluídas</div>
+            </div>
+            <div style="padding:14px 16px;border:1px solid #dde5eb;background:#fafcfd;border-radius:12px">
+              <div style="font-size:10.5px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:#5f7684">A receber</div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:19px;font-weight:500;margin-top:5px">R$ 1.500</div>
+              <div style="font-size:12.5px;color:#7b93a2;margin-top:2px">parcela 05/09</div>
+            </div>
+            <div style="padding:14px 16px;border:1px solid #dde5eb;background:#fafcfd;border-radius:12px">
+              <div style="font-size:10.5px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:#5f7684">Processo</div>
+              <div style="font-size:19px;font-weight:600;margin-top:5px;color:#8a9aa6">não vinculado</div>
+              <div style="font-size:12.5px;margin-top:2px"><a href="#1b">vincular agora</a></div>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:2px;border-bottom:1px solid #e4eaef">
+            <sc-for list="{{ tabsB }}" as="t" hint-placeholder-count="5">
+              <button onClick="{{ t.select }}" style="{{ t.style }}">
+                <span>{{ t.label }}</span>
+                <sc-if value="{{ t.badge }}" hint-placeholder-val="{{ true }}"><span style="{{ t.badgeStyle }}">{{ t.badge }}</span></sc-if>
+              </button>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="background:#f4f7f9;padding:20px 24px 26px">
+          <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;align-items:start">
+            <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+              <div style="background:#fff;border:1px solid #dde5eb;border-radius:14px">
+                <div style="padding:14px 18px;border-bottom:1px solid #eef2f5"><h3 style="margin:0;font-size:13.5px;font-weight:600">Metas e prazos</h3></div>
+                <sc-for list="{{ deadlines }}" as="d" hint-placeholder-count="3">
+                  <div style="padding:13px 18px;border-bottom:1px solid #f4f7f9;display:flex;gap:11px;align-items:flex-start">
+                    <div style="width:15px;height:15px;border-radius:4px;border:1.5px solid #c3d2dd;margin-top:1px;flex-shrink:0"></div>
+                    <div style="min-width:0;flex:1">
+                      <div style="font-size:13.5px;font-weight:500;line-height:1.35;text-wrap:pretty">{{ d.title }}</div>
+                      <div style="font-size:12px;color:#7b93a2;margin-top:2px">{{ d.meta }}</div>
+                    </div>
+                    <span style="{{ d.badgeStyle }}">{{ d.badge }}</span>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="background:#fff;border:1px solid #dde5eb;border-radius:14px">
+                <div style="padding:14px 18px;border-bottom:1px solid #eef2f5;display:flex;align-items:center">
+                  <h3 style="margin:0;font-size:13.5px;font-weight:600">Clientes</h3>
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#7b93a2;margin-left:7px">4</span>
+                  <div style="flex:1"></div>
+                  <button style="border:1px solid #cdd7de;background:#fff;color:#0f6fc4;font-family:inherit;font-size:12.5px;font-weight:600;padding:4px 11px;border-radius:7px;cursor:pointer" style-hover="background:#f4f9fd;border-color:#0f6fc4">+ Vincular</button>
+                </div>
+                <sc-for list="{{ clients }}" as="c" hint-placeholder-count="4">
+                  <div style="{{ c.rowStyle }}">
+                    <div style="{{ c.avatarStyle }}">{{ c.initials }}</div>
+                    <div style="min-width:0;flex:1">
+                      <div style="display:flex;align-items:center;gap:7px">
+                        <span style="font-size:13.5px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ c.name }}</span>
+                        <sc-if value="{{ c.primary }}" hint-placeholder-val="{{ false }}"><span style="font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#8a5a12;background:#fdf1dc;padding:2px 7px;border-radius:999px;flex-shrink:0">Principal</span></sc-if>
+                      </div>
+                      <div style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#7b93a2;margin-top:1px">{{ c.cpf }}</div>
+                    </div>
+                    <a href="#1b" style="font-size:12px;font-weight:600;flex-shrink:0">abrir</a>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="background:#fff;border:1px solid #dde5eb;border-radius:14px">
+                <div style="padding:14px 18px;border-bottom:1px solid #eef2f5;display:flex;align-items:center">
+                  <h3 style="margin:0;font-size:13.5px;font-weight:600">Documentos recentes</h3>
+                  <div style="flex:1"></div>
+                  <a href="#1b" style="font-size:12.5px;font-weight:500">todos (6)</a>
+                </div>
+                <sc-for list="{{ docs }}" as="d" hint-placeholder-count="3">
+                  <div style="padding:11px 18px;border-bottom:1px solid #f4f7f9;display:flex;gap:10px;align-items:center">
+                    <div style="width:25px;height:31px;border-radius:4px;border:1px solid #d3dde5;background:#f7fafc;font-family:'IBM Plex Mono',monospace;font-size:8px;font-weight:500;color:#6b8494;display:flex;align-items:center;justify-content:center;flex-shrink:0">{{ d.ext }}</div>
+                    <div style="min-width:0;flex:1">
+                      <div style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ d.name }}</div>
+                      <div style="font-size:11.5px;color:#7b93a2;margin-top:1px">{{ d.meta }}</div>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+
+            <div style="background:#fff;border:1px solid #dde5eb;border-radius:14px;min-width:0">
+              <div style="padding:14px 18px;border-bottom:1px solid #eef2f5;display:flex;align-items:center;gap:10px">
+                <h3 style="margin:0;font-size:13.5px;font-weight:600">Anotações do caso</h3>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#7b93a2">10</span>
+              </div>
+              <div style="padding:15px 18px;background:#fafcfd;border-bottom:1px solid #eef2f5">
+                <div style="border:1px solid #d3dde5;border-radius:9px;background:#fff;padding:12px 14px;font-size:14px;color:#95a6b2">Adicionar observação, combinado ou andamento…</div>
+                <div style="display:flex;align-items:center;gap:10px;margin-top:9px">
+                  <span style="font-size:12.5px;color:#6b8494">Ctrl + Enter envia</span>
+                  <div style="flex:1"></div>
+                  <button style="border:none;background:#0f6fc4;color:#fff;font-family:inherit;font-size:13px;font-weight:600;padding:8px 18px;border-radius:7px;cursor:pointer" style-hover="background:#0b5596">Enviar</button>
+                </div>
+              </div>
+              <sc-for list="{{ notes }}" as="n" hint-placeholder-count="4">
+                <article style="padding:15px 18px;border-bottom:1px solid #f1f4f7;display:flex;gap:12px">
+                  <div style="width:29px;height:29px;border-radius:50%;background:#e7eef4;color:#2a4353;font-size:10.5px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0">{{ n.initials }}</div>
+                  <div style="min-width:0;flex:1">
+                    <div style="display:flex;align-items:baseline;gap:9px;margin-bottom:4px">
+                      <span style="font-size:13.5px;font-weight:600">{{ n.author }}</span>
+                      <span style="font-size:12px;color:#7b93a2">{{ n.when }}</span>
+                    </div>
+                    <p style="margin:0;font-size:14.5px;line-height:1.6;color:#243845;text-wrap:pretty">{{ n.body }}</p>
+                  </div>
+                </article>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="1c" style="flex:0 0 1400px;width:1400px;min-width:1400px;display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;align-items:center;gap:12px">
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;letter-spacing:0.1em;color:#fff;background:#0f6fc4;padding:4px 10px;border-radius:6px">1C</span>
+        <span style="font-size:16px;font-weight:600">Linha do tempo única</span>
+        <span style="font-size:14px;color:#5f7684">Anotações e eventos do sistema num só feed com filtro; contexto do caso fixo à esquerda, sem rolar.</span>
+      </div>
+
+      <div style="background:#fff;border:1px solid #cdd7de;border-radius:14px;overflow:hidden;box-shadow:0 4px 18px rgba(16,42,58,.08)">
+        <div style="background:#0c7a9c;color:#fff;padding:0 22px;display:flex;align-items:center;gap:18px;height:50px">
+          <img src="bluejus-favicons/logo%20nav/bluejus-white-transparent-nav.png" alt="BlueJus" style="height:26px;width:auto;display:block;flex-shrink:0">
+          <div style="width:1px;height:22px;background:rgba(255,255,255,.3);flex-shrink:0"></div>
+          <span style="font-size:13px;color:#bfe2ee">Expediente / Pastas / <span style="color:#fff;font-weight:600">1180</span></span>
+          <div style="flex:1"></div>
+          <div style="width:27px;height:27px;border-radius:50%;background:#fff;color:#0c7a9c;font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center">SF</div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:344px minmax(0,1fr)">
+          <aside style="background:#fafcfd;border-right:1px solid #e4eaef;padding:22px 20px;display:flex;flex-direction:column;gap:20px">
+            <div>
+              <div style="display:flex;align-items:center;gap:9px;margin-bottom:7px">
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;font-weight:500;letter-spacing:0.08em;color:#6b8494">PASTA 1180</span>
+                <span style="font-size:10.5px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:#186c47;background:#e2f4ea;border:1px solid #bde3cd;padding:2px 8px;border-radius:999px">Ativo</span>
+              </div>
+              <h2 style="margin:0 0 14px;font-size:21px;font-weight:600;line-height:1.25;letter-spacing:-0.01em;text-wrap:pretty">Obrigação de não fazer e de fazer</h2>
+              <div style="display:flex;flex-direction:column;gap:10px">
+                <button style="border:none;background:#0f6fc4;color:#fff;font-family:inherit;font-size:13.5px;font-weight:600;padding:10px 14px;border-radius:9px;cursor:pointer;width:100%" style-hover="background:#0b5596">Editar pasta</button>
+                <div style="display:flex;gap:8px">
+                  <button style="flex:1;border:1px solid #cdd7de;background:#fff;color:#2a4353;font-family:inherit;font-size:12.5px;font-weight:500;padding:8px 6px;border-radius:9px;cursor:pointer" style-hover="border-color:#0f6fc4;color:#0f6fc4">Arquivar</button>
+                  <button style="flex:1;border:1px solid #cdd7de;background:#fff;color:#2a4353;font-family:inherit;font-size:12.5px;font-weight:500;padding:8px 6px;border-radius:9px;cursor:pointer" style-hover="border-color:#0f6fc4;color:#0f6fc4">Etiquetas</button>
+                  <button style="flex:1;border:1px solid #cdd7de;background:#fff;color:#2a4353;font-family:inherit;font-size:12.5px;font-weight:500;padding:8px 6px;border-radius:9px;cursor:pointer" style-hover="border-color:#0f6fc4;color:#0f6fc4">Excluir</button>
+                </div>
+              </div>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:13px;padding-top:18px;border-top:1px solid #e9eef2">
+              <div>
+                <div style="font-size:10.5px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#7b93a2;margin-bottom:4px">Responsável</div>
+                <div style="display:flex;align-items:center;gap:7px">
+                  <div style="width:21px;height:21px;border-radius:50%;background:#0c7a9c;color:#fff;font-size:9px;font-weight:600;display:flex;align-items:center;justify-content:center">JM</div>
+                  <span style="font-size:14px;font-weight:500">Jéssica Martins</span>
+                </div>
+              </div>
+              <div>
+                <div style="font-size:10.5px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#7b93a2;margin-bottom:4px">Prioridade</div>
+                <div style="font-size:14px;font-weight:500">Normal</div>
+              </div>
+              <div>
+                <div style="font-size:10.5px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#7b93a2;margin-bottom:4px">Processo vinculado</div>
+                <div style="font-size:14px;color:#8a9aa6">nenhum · <a href="#1c" style="font-size:13px">vincular</a></div>
+              </div>
+            </div>
+
+            <div style="padding-top:18px;border-top:1px solid #e9eef2">
+              <div style="display:flex;align-items:center;margin-bottom:9px">
+                <div style="font-size:10.5px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#7b93a2">Clientes 4</div>
+                <div style="flex:1"></div>
+                <a href="#1c" style="font-size:12.5px;font-weight:600">+ vincular</a>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <sc-for list="{{ clients }}" as="c" hint-placeholder-count="4">
+                  <div style="display:flex;gap:10px;align-items:center">
+                    <div style="{{ c.avatarStyle }}">{{ c.initials }}</div>
+                    <div style="min-width:0;flex:1">
+                      <div style="font-size:13.5px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ c.name }}</div>
+                      <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#7b93a2">{{ c.cpf }}</div>
+                    </div>
+                    <sc-if value="{{ c.primary }}" hint-placeholder-val="{{ false }}"><span style="font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#8a5a12;background:#fdf1dc;padding:2px 7px;border-radius:999px">Principal</span></sc-if>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+
+            <div style="padding-top:18px;border-top:1px solid #e9eef2">
+              <div style="font-size:10.5px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#7b93a2;margin-bottom:9px">Próximo prazo</div>
+              <div style="padding:12px 13px;border:1px solid #f0cfcb;background:#fdf1f0;border-radius:10px">
+                <div style="font-size:13.5px;font-weight:600">Protocolar contestação</div>
+                <div style="font-size:12.5px;color:#7c4a48;margin-top:3px">28/08 · em 2 dias</div>
+              </div>
+              <a href="#1c" style="display:inline-block;margin-top:9px;font-size:12.5px;font-weight:600">ver as 3 metas abertas</a>
+            </div>
+          </aside>
+
+          <div style="min-width:0;display:flex;flex-direction:column">
+            <div style="padding:18px 24px 0;border-bottom:1px solid #e4eaef">
+              <div style="display:flex;gap:2px">
+                <sc-for list="{{ tabsC }}" as="t" hint-placeholder-count="4">
+                  <button onClick="{{ t.select }}" style="{{ t.style }}">
+                    <span>{{ t.label }}</span>
+                    <sc-if value="{{ t.badge }}" hint-placeholder-val="{{ true }}"><span style="{{ t.badgeStyle }}">{{ t.badge }}</span></sc-if>
+                  </button>
+                </sc-for>
+              </div>
+            </div>
+
+            <div style="padding:18px 24px;background:#fafcfd;border-bottom:1px solid #eef2f5">
+              <div style="border:1px solid #d3dde5;border-radius:9px;background:#fff;overflow:hidden">
+                <div style="display:flex;align-items:center;gap:2px;padding:6px 9px;border-bottom:1px solid #eef2f5">
+                  <sc-for list="{{ toolbar }}" as="t" hint-placeholder-count="7"><span style="{{ t.style }}">{{ t.label }}</span></sc-for>
+                </div>
+                <div style="padding:13px 15px;min-height:56px;font-size:14.5px;color:#95a6b2">Adicionar observação, combinado ou andamento do caso…</div>
+                <div style="display:flex;align-items:center;gap:8px;padding:9px 13px;background:#fafcfd;border-top:1px solid #eef2f5">
+                  <span style="font-size:12.5px;color:#6b8494">Ctrl + Enter envia</span>
+                  <div style="flex:1"></div>
+                  <button style="border:none;background:#0f6fc4;color:#fff;font-family:inherit;font-size:13px;font-weight:600;padding:8px 18px;border-radius:7px;cursor:pointer" style-hover="background:#0b5596">Enviar</button>
+                </div>
+              </div>
+            </div>
+
+            <div style="padding:14px 24px;display:flex;align-items:center;gap:8px;border-bottom:1px solid #eef2f5">
+              <span style="font-size:12.5px;color:#6b8494;margin-right:2px">Mostrar</span>
+              <sc-for list="{{ filtersC }}" as="f" hint-placeholder-count="3">
+                <button onClick="{{ f.select }}" style="{{ f.style }}">{{ f.label }}</button>
+              </sc-for>
+            </div>
+
+            <div style="padding:4px 24px 28px">
+              <sc-for list="{{ feed }}" as="f" hint-placeholder-count="7">
+                <div style="{{ f.wrapStyle }}">
+                  <sc-if value="{{ f.isDay }}" hint-placeholder-val="{{ false }}">
+                    <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.11em;color:#7b93a2;padding:20px 0 8px">{{ f.day }}</div>
+                  </sc-if>
+                  <sc-if value="{{ f.isNote }}" hint-placeholder-val="{{ true }}">
+                    <article style="display:flex;gap:13px;padding:14px 0;border-bottom:1px solid #f1f4f7">
+                      <div style="width:30px;height:30px;border-radius:50%;background:#e7eef4;color:#2a4353;font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0">{{ f.initials }}</div>
+                      <div style="min-width:0;flex:1">
+                        <div style="display:flex;align-items:baseline;gap:9px;margin-bottom:4px">
+                          <span style="font-size:13.5px;font-weight:600">{{ f.author }}</span>
+                          <span style="font-size:12px;color:#7b93a2">{{ f.when }}</span>
+                          <sc-if value="{{ f.tag }}" hint-placeholder-val="{{ true }}"><span style="font-size:10.5px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:#0f6fc4;background:#e8f2fa;padding:2px 8px;border-radius:999px">{{ f.tag }}</span></sc-if>
+                        </div>
+                        <p style="margin:0;font-size:14.5px;line-height:1.6;color:#243845;max-width:78ch;text-wrap:pretty">{{ f.body }}</p>
+                      </div>
+                    </article>
+                  </sc-if>
+                  <sc-if value="{{ f.isEvent }}" hint-placeholder-val="{{ false }}">
+                    <div style="display:flex;gap:13px;padding:9px 0;border-bottom:1px solid #f6f8fa;align-items:baseline">
+                      <div style="width:30px;display:flex;justify-content:center;flex-shrink:0"><div style="width:7px;height:7px;border-radius:50%;background:#c3d2dd"></div></div>
+                      <div style="flex:1;min-width:0;font-size:13px;color:#5f7684;line-height:1.5"><span style="font-weight:600;color:#455c6b">{{ f.author }}</span> {{ f.body }}</div>
+                      <span style="font-size:12px;color:#98a9b5;flex-shrink:0">{{ f.when }}</span>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<sc-if value="{{ histOpen }}" hint-placeholder-val="{{ false }}">
+<div onClick="{{ toggleHist }}" style="position:fixed;inset:0;background:rgba(12,32,45,.36);z-index:60"></div>
+<aside style="position:fixed;top:0;right:0;bottom:0;width:430px;background:#fff;z-index:61;box-shadow:-14px 0 40px rgba(12,32,45,.18);display:flex;flex-direction:column;font-family:'Source Sans 3',system-ui,sans-serif">
+  <div style="padding:20px 22px;border-bottom:1px solid #e4eaef;display:flex;align-items:flex-start;gap:12px">
+    <div style="flex:1">
+      <h2 style="margin:0 0 3px;font-size:15px;font-weight:600">Histórico do sistema</h2>
+      <div style="font-size:12.5px;color:#6b8494">10 alterações registradas automaticamente</div>
+    </div>
+    <button onClick="{{ toggleHist }}" style="border:1px solid #dde5eb;background:#fff;color:#2a4353;font-family:inherit;font-size:15px;line-height:1;padding:6px 11px;border-radius:8px;cursor:pointer" style-hover="border-color:#0f6fc4;color:#0f6fc4">×</button>
+  </div>
+  <div style="flex:1;overflow-y:auto;padding:4px 22px 28px">
+    <sc-for list="{{ history }}" as="h" hint-placeholder-count="8">
+      <div style="{{ h.wrapStyle }}">
+        <sc-if value="{{ h.isDay }}" hint-placeholder-val="{{ false }}">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.11em;color:#7b93a2;padding:16px 0 7px">{{ h.day }}</div>
+        </sc-if>
+        <sc-if value="{{ h.isEvent }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;gap:11px;padding:9px 0;border-bottom:1px solid #f4f7f9">
+            <div style="width:7px;height:7px;border-radius:50%;background:#c3d2dd;margin-top:6px;flex-shrink:0"></div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13.5px;line-height:1.45;text-wrap:pretty"><span style="font-weight:600">{{ h.author }}</span> {{ h.body }}</div>
+              <div style="font-size:11.5px;color:#8496a3;margin-top:2px">{{ h.when }}</div>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+    </sc-for>
+  </div>
+</aside>
+</sc-if>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:2960,&quot;height&quot;:2400},&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#0f6fc4&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;options&quot;:[&quot;#0f6fc4&quot;,&quot;#0c7a9c&quot;,&quot;#1f7a4d&quot;,&quot;#0e2b3d&quot;]}}">
+class Component extends DCLogic {
+  state = { tabA: 'dados', tabB: 'dados', tabC: 'feed', filterC: 'tudo', histOpen: false };
+
+  mkTabs(key, defs) {
+    const accent = this.props.accent ?? '#0f6fc4';
+    return defs.map(([id, label, badge]) => {
+      const on = this.state[key] === id;
+      return {
+        label, badge,
+        select: () => this.setState({ [key]: id }),
+        style: 'border:none;background:transparent;font-family:inherit;cursor:pointer;display:flex;align-items:center;gap:7px;padding:12px 15px;font-size:13.5px;font-weight:' +
+          (on ? '600' : '400') + ';color:' + (on ? '#12242f' : '#5f7684') +
+          ';box-shadow:inset 0 -2px 0 ' + (on ? accent : 'transparent'),
+        badgeStyle: 'font-family:IBM Plex Mono,monospace;font-size:10.5px;font-weight:500;color:' +
+          (on ? accent : '#7b93a2') + ';background:' + (on ? '#e8f2fa' : '#eef2f5') + ';padding:2px 6px;border-radius:5px',
+      };
+    });
+  }
+
+  renderVals() {
+    const accent = this.props.accent ?? '#0f6fc4';
+    const mainDefs = [
+      ['dados', 'Dados da pasta', null],
+      ['metas', 'Metas', '3'],
+      ['processo', 'Processo', null],
+      ['financeiro', 'Financeiro', null],
+      ['documentos', 'Documentos', '6'],
+    ];
+    const tabsA = this.mkTabs('tabA', mainDefs);
+    const tabsB = this.mkTabs('tabB', mainDefs);
+    const tabsC = this.mkTabs('tabC', [
+      ['feed', 'Linha do tempo', '10'],
+      ['processo', 'Processo', null],
+      ['financeiro', 'Financeiro', null],
+      ['documentos', 'Documentos', '6'],
+    ]);
+
+    const toolbar = ['B', 'I', 'U', 'S', 'A', '≔', '❝'].map(label => ({
+      label,
+      style: 'font-size:13px;font-weight:500;color:#5f7684;width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer',
+    }));
+
+    const clients = [
+      ['Gleisson Bruno Gabriel', 'CPF 006.462.251-70', true],
+      ['Joaozinho', 'CPF 022.547.725-46', false],
+      ['Farlei Assis da Rocha', 'CPF 022.547.725-46', false],
+      ['Paudo de Sousa da Silva Rocha', 'CPF 022.547.725-45', false],
+    ].map(([name, cpf, primary]) => ({
+      name, cpf, primary,
+      initials: name.split(' ').filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join(''),
+      rowStyle: 'padding:11px 17px;border-bottom:1px solid #f4f7f9;display:flex;gap:10px;align-items:center' + (primary ? ';background:#fbfdfe' : ''),
+      avatarStyle: 'width:28px;height:28px;border-radius:50%;font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0;' +
+        (primary ? 'background:' + accent + ';color:#fff' : 'background:#e7eef4;color:#2a4353'),
+    }));
+
+    const tones = {
+      red: ['#a3232b', '#fdeceb', '#f2c9c6'],
+      amber: ['#8a5a12', '#fdf1dc', '#f0dcb4'],
+      grey: ['#4a6274', '#eef2f5', '#dde5eb'],
+    };
+    const deadlines = [
+      ['Protocolar contestação', 'Jéssica Martins · 28/08', '2 dias', 'red'],
+      ['Reunião de alinhamento com o cliente', 'Samuel Freitas · 03/09', '8 dias', 'amber'],
+      ['Juntada de documentos complementares', 'Jéssica Martins · 15/09', '20 dias', 'grey'],
+    ].map(([title, meta, badge, tone]) => {
+      const [fg, bg, bd] = tones[tone];
+      return {
+        title, meta, badge,
+        pipStyle: 'width:7px;height:7px;border-radius:50%;margin-top:6px;flex-shrink:0;background:' + fg,
+        badgeStyle: 'font-size:11px;font-weight:600;white-space:nowrap;flex-shrink:0;color:' + fg + ';background:' + bg +
+          ';border:1px solid ' + bd + ';padding:3px 8px;border-radius:999px',
+      };
+    });
+
+    const notes = [
+      { author: 'Samuel Freitas', initials: 'SF', when: 'hoje, 14:58', tag: 'Combinado', body: 'Cliente autorizou seguir com o pedido liminar. Honorários adicionais ficam para a fase de cumprimento de sentença.' },
+      { author: 'Jéssica Martins', initials: 'JM', when: 'hoje, 11:20', tag: null, body: 'Recebi por WhatsApp as fotos do imóvel e o comprovante de notificação extrajudicial. Anexei em Documentos.' },
+      { author: 'Samuel Freitas', initials: 'SF', when: '18/08, 15:30', tag: 'Ligação', body: 'Contato com a parte contrária: o advogado pediu prazo até sexta para apresentar proposta de acordo.' },
+      { author: 'Jéssica Martins', initials: 'JM', when: '14/08, 09:04', tag: null, body: 'Pasta aberta a partir do atendimento inicial. Ação definida como obrigação de não fazer e de fazer.' },
+    ];
+
+    const docs = [
+      { ext: 'PDF', name: 'Procuração assinada.pdf', meta: '240 KB · 18/08' },
+      { ext: 'PDF', name: 'Notificação extrajudicial.pdf', meta: '1,2 MB · hoje' },
+      { ext: 'ZIP', name: 'Fotos do imóvel (4).zip', meta: '8,4 MB · hoje' },
+    ];
+
+    const events = [
+      { author: 'Samuel Freitas', body: 'adicionou o cliente Farlei Assis da Rocha', when: '14:54', day: 'HOJE, 26/08' },
+      { author: 'Samuel Freitas', body: 'adicionou o cliente Paudo de Sousa da Silva Rocha', when: '14:54', day: 'HOJE, 26/08' },
+      { author: 'Samuel Freitas', body: 'adicionou o cliente Joaozinho', when: '14:54', day: 'HOJE, 26/08' },
+      { author: 'Samuel Freitas', body: 'definiu Gleisson Bruno Gabriel como cliente principal', when: '15:30', day: '18/08/2026' },
+      { author: 'Samuel Freitas', body: 'alterou a responsável para Jéssica Martins', when: '15:28', day: '18/08/2026' },
+      { author: 'Samuel Freitas', body: 'criou a pasta 1180', when: '09:02', day: '14/08/2026' },
+    ];
+
+    const blank = { wrapStyle: '', isDay: false, isNote: false, isEvent: false, day: '', author: '', body: '', when: '', tag: null, initials: '' };
+    const history = [];
+    let lastDay = null;
+    events.forEach(e => {
+      if (e.day !== lastDay) { history.push({ ...blank, isDay: true, day: e.day }); lastDay = e.day; }
+      history.push({ ...blank, isEvent: true, author: e.author, body: e.body, when: e.when });
+    });
+
+    const filterDefs = [['tudo', 'Tudo'], ['anotacoes', 'Só anotações da equipe'], ['sistema', 'Só alterações do sistema']];
+    const filtersC = filterDefs.map(([id, label]) => {
+      const on = this.state.filterC === id;
+      return {
+        label,
+        select: () => this.setState({ filterC: id }),
+        style: 'font-family:inherit;font-size:12.5px;font-weight:' + (on ? '600' : '500') + ';padding:5px 12px;border-radius:999px;cursor:pointer;border:1px solid ' +
+          (on ? accent : '#cdd7de') + ';background:' + (on ? '#e8f2fa' : '#fff') + ';color:' + (on ? accent : '#455c6b'),
+      };
+    });
+
+    const items = [];
+    const noteDay = { 'hoje, 14:58': 'HOJE, 26/08', 'hoje, 11:20': 'HOJE, 26/08', '18/08, 15:30': '18/08/2026', '14/08, 09:04': '14/08/2026' };
+    if (this.state.filterC !== 'sistema') notes.forEach(n => items.push({ kind: 'note', day: noteDay[n.when], ...n }));
+    if (this.state.filterC !== 'anotacoes') events.forEach(e => items.push({ kind: 'event', ...e }));
+    const order = ['HOJE, 26/08', '18/08/2026', '14/08/2026'];
+    items.sort((a, b) => order.indexOf(a.day) - order.indexOf(b.day));
+    const feed = [];
+    let fDay = null;
+    items.forEach(it => {
+      if (it.day !== fDay) { feed.push({ ...blank, isDay: true, day: it.day }); fDay = it.day; }
+      feed.push({ ...blank, isNote: it.kind === 'note', isEvent: it.kind === 'event', author: it.author, body: it.body, when: it.when, tag: it.tag || null, initials: it.initials || '' });
+    });
+
+    const labels = { metas: 'Metas e prazos', processo: 'Processo', financeiro: 'Financeiro', documentos: 'Documentos' };
+    return {
+      tabsA, tabsB, tabsC, toolbar, clients, deadlines, notes, docs, history, filtersC, feed,
+      aDados: this.state.tabA === 'dados',
+      aOutra: this.state.tabA !== 'dados',
+      aOutraTitulo: labels[this.state.tabA] || '',
+      aVoltar: () => this.setState({ tabA: 'dados' }),
+      histOpen: this.state.histOpen,
+      toggleHist: () => this.setState(s => ({ histOpen: !s.histOpen })),
+    };
+  }
+}
+</script>
+</body>
+</html>

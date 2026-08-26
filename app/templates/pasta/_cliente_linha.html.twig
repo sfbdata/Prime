@@ -15,7 +15,10 @@
     <i class="bi bi-person-circle text-muted flex-shrink-0"></i>
 
     <div class="cliente-identidade flex-grow-1">
-        <div class="cliente-nome">{{ cliente.nomeExibicao }}</div>
+        <div class="cliente-nome">
+            {{- cliente.nomeExibicao -}}
+            {%- if ehPrincipal %} <span class="ps-selo-principal">Principal</span>{% endif -%}
+        </div>
         {% if doc %}
             <div class="cliente-doc">
                 <span class="cliente-doc-rotulo">{{ doc|documento_br_rotulo }}</span>

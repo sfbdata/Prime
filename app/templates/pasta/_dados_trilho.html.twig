@@ -1,0 +1,179 @@
+{# ============================================================================
+   Aba Dados — trilho da direita.
+   Desenho aprovado: docs/design/pasta-show/ ("Pasta 1A.dc.html"), Aba 1.
+
+   Ordem aprovada: Próximos prazos · Clientes · Financeiro do caso · Documentos.
+   O trilho existe para responder "em que pé está o caso" SEM clicar aba por
+   aba — era a queixa nº 3 do handoff.
+
+   Contexto: `pasta`, `proximosPrazos`, `financeiro`.
+   ============================================================================ #}
+
+{# ── Próximos prazos ──────────────────────────────────────────────────────
+   Resumo das metas ABERTAS ordenadas pelo prazo mais próximo (PastaPrazoOutput).
+   Meta sem prazo não entra: não tem lugar numa lista ordenada por data. #}
+<section class="ps-card" data-trilho="prazos">
+    <div class="ps-card-cab">
+        <h2>Próximos prazos</h2>
+        <span class="ps-cab-espaco"></span>
+        <a href="#" class="ps-card-cab-link" data-ps-ir-aba="tarefas-tab">metas</a>
+    </div>
+    {% if proximosPrazos|length == 0 %}
+        <div class="ps-vazio">
+            <i class="bi bi-calendar-check"></i>
+            <div class="ps-vazio-titulo">Nenhum prazo aberto</div>
+            <div class="ps-vazio-nota">Metas com prazo aparecem aqui, da mais próxima para a mais distante.</div>
+        </div>
+    {% else %}
+        {% for prazo in proximosPrazos %}
+            <div class="ps-linha">
+                <span class="ps-pip ps-pip--{{ prazo.tom }}"></span>
+                <div class="ps-linha-corpo">
+                    <div class="ps-linha-titulo">
+                        <a href="{{ path('tarefa_show', {id: prazo.tarefaId}) }}">{{ prazo.titulo }}</a>
+                    </div>
+                    <div class="ps-linha-meta">{{ prazo.meta }}</div>
+                </div>
+                <span class="ps-selo ps-selo--{{ prazo.tom }}">{{ prazo.selo }}</span>
+            </div>
+        {% endfor %}
+    {% endif %}
+</section>
+
+{# ── Clientes ─────────────────────────────────────────────────────────────
+   O miolo (#clientesList, .cliente-linha, o colapso dos "outros") é o mesmo
+   entregue em 26/08 e é contrato com o JS de vincular/desvincular/principal do
+   show.html.twig. Aqui ele só mudou de lugar e de estilo.
+
+   As três ações da linha (tornar principal, abrir ficha, desvincular) NÃO estão
+   no desenho, que mostra apenas "abrir". Ficaram: tirá-las apagaria o único
+   caminho de desvincular cliente e de trocar o principal — e é o principal que
+   define a Média por CPF logo abaixo. Divergência deliberada, reportada. #}
+<section class="ps-card ps-clientes" data-trilho="clientes">
+    <div class="ps-card-cab">
+        <h2>Clientes</h2>
+        {% if pasta.clientes|length > 0 %}
+            <span class="ps-contagem">{{ pasta.clientes|length }}</span>
+        {% endif %}
+        <span class="ps-cab-espaco"></span>
+        <button type="button" class="ps-btn-mini"
+                data-bs-toggle="modal" data-bs-target="#modalAdicionarCliente">+ Vincular</button>
+    </div>
+
+    <div id="clientesList">
+        {% set clientePrincipal = pasta.clientePrincipal %}
+        {% if pasta.clientes|length > 0 %}
+            {% set outros = pasta.clientes|filter(c => not clientePrincipal or c.id != clientePrincipal.id) %}
+
+            {# O principal fica FORA do colapso, para nunca sumir. #}
+            {% if clientePrincipal %}
+                <div class="cliente-principal">
+                    {{ include('pasta/_cliente_linha.html.twig', {
+                        pasta: pasta, cliente: clientePrincipal, ehPrincipal: true,
+                    }) }}
+                </div>
+            {% endif %}
+
+            {% if outros|length > 0 %}
+                <button type="button"
+                        class="btn btn-link btn-sm p-0 clientes-outros-toggle"
+                        data-bs-toggle="collapse"
+                        data-bs-target="#clientesOutros"
+                        aria-expanded="false"
+                        aria-controls="clientesOutros">
+                    <i class="bi bi-chevron-right clientes-outros-caret me-1"></i>
+                    <span class="clientes-outros-label">mostrar outros {{ outros|length }}</span>
+                </button>
+
+                <div class="collapse" id="clientesOutros">
+                    <div class="clientes-outros ps-clientes-rolagem">
+                        {% for cliente in outros %}
+                            {{ include('pasta/_cliente_linha.html.twig', {
+                                pasta: pasta, cliente: cliente, ehPrincipal: false,
+                            }) }}
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endif %}
+        {% elseif pasta.nomeCliente %}
+            {# Texto solto, sem cadastro: NÃO há documento para mostrar. Imprimir um
+               rótulo "CPF" vazio aqui seria inventar dado. Em produção este é o
+               estado de 1.072 das 1.073 pastas — não é caso de borda. #}
+            <div id="clientesPlaceholder" class="ps-cliente">
+                <i class="bi bi-person-circle" style="color: var(--ps-faint)"></i>
+                <span class="ps-cliente-nome flex-grow-1">{{ pasta.nomeCliente }}</span>
+                <span class="ps-selo ps-selo--tranquilo">não vinculado</span>
+            </div>
+        {% else %}
+            <div id="clientesPlaceholder" class="ps-vazio">
+                <i class="bi bi-person-circle"></i>
+                <div class="ps-vazio-titulo">Nenhum cliente vinculado</div>
+                <div class="ps-vazio-nota">Vincule o cliente para calcular a média por CPF.</div>
+            </div>
+        {% endif %}
+    </div>
+</section>
+
+{# ── Financeiro do caso ───────────────────────────────────────────────────
+   O protótipo desenha "Recebido / A receber / próxima parcela", que a Pasta não
+   tem: parcelas e recebimentos vivem no módulo Cobrança, sem ligação com pasta.
+   Vale o texto do handoff — valor da causa + média por CPF, do
+   PastaFinanceiroOutput que já existe. Decisão do dono em 26/08. #}
+<section class="ps-card ps-fin-card" data-trilho="financeiro">
+    <div class="ps-fin-topo">
+        <h2>Financeiro do caso</h2>
+        <span class="ps-cab-espaco"></span>
+        <a href="#" class="ps-card-cab-link" data-ps-ir-aba="financeiro-tab">detalhar</a>
+    </div>
+    <div class="ps-fin-caixas">
+        <div class="ps-fin-caixa ps-fin-caixa--causa">
+            <div class="ps-fin-rotulo">Valor da causa</div>
+            <div class="ps-fin-valor">{{ financeiro.valorCausaFormatado }}</div>
+        </div>
+        <div class="ps-fin-caixa ps-fin-caixa--media">
+            <div class="ps-fin-rotulo">{{ financeiro.mediaRotulo }}</div>
+            <div class="ps-fin-valor">{{ financeiro.mediaCpfFormatada }}</div>
+        </div>
+    </div>
+    {# Ausência de dado é travessão, nunca R$ 0,00 — a nota explica de qual dos
+       dois "não sei" se trata, em vez de deixar o traço mudo. #}
+    <div class="ps-fin-nota">
+        {%- if financeiro.clienteNome -%}
+            {{ pasta.clientes|length }} cliente{{ pasta.clientes|length == 1 ? '' : 's' }} vinculado{{ pasta.clientes|length == 1 ? '' : 's' }} · calculado sobre o valor da causa
+        {%- else -%}
+            Vincule o cliente para calcular a média.
+        {%- endif -%}
+    </div>
+</section>
+
+{# ── Documentos ───────────────────────────────────────────────────────────
+   Três itens e o atalho para a aba, como o desenho pede. A lista completa mora
+   na aba Documentos; repeti-la aqui só empurraria o trilho para fora da vista. #}
+{% set docsRecentes = pasta.documentos|sort((a, b) => b.carregadoEm <=> a.carregadoEm)|slice(0, 3) %}
+<section class="ps-card" data-trilho="documentos">
+    <div class="ps-card-cab">
+        <h2>Documentos</h2>
+        {% if pasta.documentos|length > 0 %}
+            <span class="ps-contagem">{{ pasta.documentos|length }}</span>
+        {% endif %}
+        <span class="ps-cab-espaco"></span>
+        <a href="#" class="ps-card-cab-link" data-ps-ir-aba="documentos-tab">todos</a>
+    </div>
+    {% if docsRecentes|length == 0 %}
+        <div class="ps-vazio">
+            <i class="bi bi-paperclip"></i>
+            <div class="ps-vazio-titulo">Nenhum documento</div>
+            <div class="ps-vazio-nota">Envie arquivos pela aba Documentos.</div>
+        </div>
+    {% else %}
+        {% for doc in docsRecentes %}
+            <div class="ps-doc">
+                <span class="ps-doc-ext">{{ doc.nomeOriginal|split('.')|last|slice(0, 4) }}</span>
+                <div class="ps-linha-corpo">
+                    <div class="ps-doc-nome" title="{{ doc.titulo }}">{{ doc.titulo }}</div>
+                    <div class="ps-doc-meta">{{ doc.tamanhoBytes|formatar_bytes }} · {{ doc.carregadoEm|date('d/m/Y') }}</div>
+                </div>
+            </div>
+        {% endfor %}
+    {% endif %}
+</section>

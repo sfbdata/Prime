@@ -1,0 +1,1344 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=Source+Sans+3:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+  body { margin:0; background:#f4f7f9; font-family:Arial, Helvetica, sans-serif; -webkit-font-smoothing:antialiased; }
+  a { color:#0f6fc4; text-decoration:none; }
+  a:hover { color:#0b5596; text-decoration:underline; }
+  *, *::before, *::after { box-sizing:border-box; }
+  @keyframes tabInA { from { opacity:0; transform:translate3d(0,10px,0) scale(.992); } to { opacity:1; transform:none; } }
+  @keyframes tabInB { from { opacity:0; transform:translate3d(0,10px,0) scale(.992); } to { opacity:1; transform:none; } }
+</style>
+</helmet>
+
+<div style="{{ rootStyle }}">
+
+  <header style="background:#0c7a9c;color:#fff;padding:0 20px;display:flex;align-items:center;gap:18px;height:56px">
+    <button style="border:none;background:transparent;color:#fff;font-size:20px;line-height:1;padding:5px 8px;border-radius:7px;cursor:pointer;display:flex;align-items:center" style-hover="background:rgba(255,255,255,.14)"><i class="bi bi-list"></i></button>
+    <img src="bluejus-favicons/logo%20nav/bluejus-white-transparent-nav.png" alt="BlueJus" style="height:27px;width:auto;display:block;flex-shrink:0">
+    <div style="width:1px;height:22px;background:rgba(255,255,255,.32);flex-shrink:0"></div>
+    <span style="font-size:15px;font-weight:400;color:#e4f3f8">Pastas</span>
+    <div style="flex:1"></div>
+    <div style="display:flex;align-items:center;gap:8px;font-size:14px;color:#e4f3f8">
+      <i class="bi bi-building" style="font-size:15px;opacity:.85"></i>
+      <span>Farlei Assis da Rocha S…</span>
+    </div>
+    <div style="position:relative;width:28px;height:28px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+      <i class="bi bi-bell" style="font-size:17px"></i>
+      <span style="position:absolute;top:-3px;right:-7px;background:#e0472e;color:#fff;font-size:10px;font-weight:700;line-height:1.35;padding:1px 5px;border-radius:999px">9+</span>
+    </div>
+    <div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="bi bi-arrows-fullscreen" style="font-size:15px"></i></div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <span style="font-size:14px;font-weight:600;letter-spacing:0.02em;text-transform:uppercase">Samuel Freitas</span>
+      <div style="width:30px;height:30px;border-radius:50%;background:#fff;color:#0c7a9c;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center">SF</div>
+      <i class="bi bi-caret-down-fill" style="font-size:10px;opacity:.85"></i>
+    </div>
+  </header>
+
+  <nav style="background:#fff;border-bottom:1px solid #dde5eb;padding:0 26px;display:flex;gap:0;height:44px;align-items:stretch">
+    <span style="font-size:13px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#12242f;padding:0 14px;display:flex;align-items:center;box-shadow:inset 0 -2px 0 #0c7a9c">Expediente</span>
+    <span style="font-size:13px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:#5f7684;padding:0 14px;display:flex;align-items:center;cursor:pointer" style-hover="color:#0c7a9c">Demandas</span>
+    <span style="font-size:13px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:#5f7684;padding:0 14px;display:flex;align-items:center;cursor:pointer" style-hover="color:#0c7a9c">Processos</span>
+  </nav>
+
+  <div style="max-width:1500px;margin:0 auto;padding:20px 26px 60px">
+
+    <div style="background:#fff;border:1px solid #dde5eb;border-radius:14px;padding:20px 24px 0;box-shadow:0 1px 2px rgba(16,42,58,.04)">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+        <div style="display:flex;align-items:center;gap:12px;min-width:0">
+          <button title="Voltar à lista de pastas" style="display:flex;align-items:center;gap:7px;height:30px;padding:0 11px 0 9px;border:1px solid #cdd7de;background:#fff;color:#455c6b;font-family:inherit;font-size:12.5px;font-weight:500;border-radius:8px;cursor:pointer;flex-shrink:0" style-hover="border-color:#0f6fc4;color:#0f6fc4"><i class="bi bi-arrow-left" style="font-size:13px"></i><span>Pastas</span></button>
+          <div style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:#6b8494;min-width:0">
+            <a href="#">Home</a><span>/</span><a href="#">Pastas</a><span>/</span><span style="color:#12242f">1180</span>
+          </div>
+        </div>
+        <div style="flex:1"></div>
+        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+          <button title="Arquivar pasta" style="display:flex;align-items:center;gap:7px;height:34px;padding:0 13px;border:1px solid #cdd7de;background:#fff;color:#455c6b;font-family:inherit;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer" style-hover="border-color:#0f6fc4;color:#0f6fc4"><i class="bi bi-archive" style="font-size:14px"></i><span>Arquivar</span></button>
+          <button style="display:flex;align-items:center;gap:7px;height:34px;padding:0 13px;border:1px solid #cdd7de;background:#fff;color:#455c6b;font-family:inherit;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer" style-hover="border-color:#0f6fc4;color:#0f6fc4"><i class="bi bi-pencil" style="font-size:13px"></i><span>Editar</span></button>
+          <button onClick="{{ toggleHist }}" title="Histórico do sistema" style="display:flex;align-items:center;gap:7px;height:34px;padding:0 12px;border:1px solid #cdd7de;background:#fff;color:#455c6b;font-family:inherit;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer" style-hover="border-color:#0f6fc4;color:#0f6fc4"><i class="bi bi-clock-history" style="font-size:14px"></i><span>Histórico</span></button>
+          <div style="position:relative">
+            <button onClick="{{ toggleMenu }}" title="Mais ações" style="width:34px;height:34px;display:flex;align-items:center;justify-content:center;border:1px solid #cdd7de;background:#fff;color:#455c6b;font-size:15px;border-radius:8px;cursor:pointer" style-hover="border-color:#0f6fc4;color:#0f6fc4"><i class="bi bi-three-dots-vertical"></i></button>
+            <sc-if value="{{ menuOpen }}" hint-placeholder-val="{{ false }}">
+              <div style="position:absolute;top:40px;right:0;z-index:30;width:216px;background:#fff;border:1px solid #dde5eb;border-radius:10px;box-shadow:0 10px 30px rgba(16,42,58,.14);padding:5px;display:flex;flex-direction:column">
+                <button style="display:flex;align-items:center;gap:9px;padding:8px 10px;border:none;background:transparent;font-family:inherit;font-size:13.5px;color:#243845;border-radius:7px;cursor:pointer;text-align:left" style-hover="background:#f2f7fa"><i class="bi bi-files" style="font-size:14px;color:#5f7684"></i><span>Duplicar pasta</span></button>
+                <button style="display:flex;align-items:center;gap:9px;padding:8px 10px;border:none;background:transparent;font-family:inherit;font-size:13.5px;color:#243845;border-radius:7px;cursor:pointer;text-align:left" style-hover="background:#f2f7fa"><i class="bi bi-link-45deg" style="font-size:14px;color:#5f7684"></i><span>Vincular processo</span></button>
+                <button style="display:flex;align-items:center;gap:9px;padding:8px 10px;border:none;background:transparent;font-family:inherit;font-size:13.5px;color:#243845;border-radius:7px;cursor:pointer;text-align:left" style-hover="background:#f2f7fa"><i class="bi bi-person-gear" style="font-size:14px;color:#5f7684"></i><span>Trocar responsável</span></button>
+                <div style="height:1px;background:#eef2f5;margin:4px 6px"></div>
+                <button style="display:flex;align-items:center;gap:9px;padding:8px 10px;border:none;background:transparent;font-family:inherit;font-size:13.5px;color:#a3232b;border-radius:7px;cursor:pointer;text-align:left" style-hover="background:#fdf1f0"><i class="bi bi-trash3" style="font-size:14px"></i><span>Excluir pasta</span></button>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;gap:26px;align-items:flex-start">
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+            <span style="font-variant-numeric:tabular-nums;font-size:12.5px;font-weight:500;letter-spacing:0.08em;color:#6b8494">PASTA 1180</span>
+            <div style="position:relative">
+              <button onClick="{{ togglePrio }}" title="Alterar prioridade" style="{{ prioStyle }}">
+                <i class="bi bi-flag-fill" style="font-size:10px"></i>
+                <span>{{ prioLabel }}</span>
+                <i class="bi bi-chevron-down" style="font-size:8px;opacity:.7"></i>
+              </button>
+              <sc-if value="{{ prioOpen }}" hint-placeholder-val="{{ false }}">
+                <div style="position:absolute;top:26px;left:0;z-index:30;width:176px;background:#fff;border:1px solid #dde5eb;border-radius:10px;box-shadow:0 10px 30px rgba(16,42,58,.14);padding:5px;display:flex;flex-direction:column">
+                  <sc-for list="{{ prioOptions }}" as="p" hint-placeholder-count="4">
+                    <button onClick="{{ p.select }}" style="{{ p.style }}">
+                      <i class="bi bi-flag-fill" style="{{ p.iconStyle }}"></i>
+                      <span>{{ p.label }}</span>
+                      <sc-if value="{{ p.current }}" hint-placeholder-val="{{ false }}"><span style="margin-left:auto;color:#0f6fc4;font-size:12px">✓</span></sc-if>
+                    </button>
+                  </sc-for>
+                </div>
+              </sc-if>
+            </div>
+            <div style="width:1px;height:16px;background:#dde5eb"></div>
+            <sc-for list="{{ tags }}" as="g" hint-placeholder-count="2">
+              <span style="{{ g.style }}"><i class="bi bi-tag-fill" style="{{ g.iconStyle }}"></i>{{ g.label }}</span>
+            </sc-for>
+            <button title="Gerenciar etiquetas" style="display:flex;align-items:center;gap:5px;font-family:inherit;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#6b8494;background:#fff;border:1px dashed #cdd7de;padding:3px 9px;border-radius:999px;cursor:pointer" style-hover="border-color:#0f6fc4;color:#0f6fc4"><i class="bi bi-plus" style="font-size:12px"></i><span>Etiqueta</span></button>
+          </div>
+          <h1 style="margin:14px 0 26px;font-size:28px;line-height:1.25;font-weight:600;letter-spacing:-0.015em;max-width:50vw;text-wrap:pretty">Obrigação de não fazer e de fazer</h1>
+          <div style="display:flex;gap:32px 44px;flex-wrap:wrap;padding-bottom:18px">
+            <div>
+              <div style="font-size:10.5px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#7b93a2;margin-bottom:4px">Cliente principal</div>
+              <div style="font-size:14.5px;font-weight:600">Gleisson Bruno Gabriel</div>
+            </div>
+            <div>
+              <div style="font-size:10.5px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#7b93a2;margin-bottom:4px">Responsável</div>
+              <div style="display:flex;align-items:center;gap:7px">
+                <div style="width:20px;height:20px;border-radius:50%;background:#0c7a9c;color:#fff;font-size:9px;font-weight:600;display:flex;align-items:center;justify-content:center">JM</div>
+                <span style="font-size:14.5px;font-weight:500">Jéssica Martins</span>
+              </div>
+            </div>
+            <div>
+              <div style="font-size:10.5px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#7b93a2;margin-bottom:4px">Processo vinculado</div>
+              <sc-if value="{{ temProcesso }}" hint-placeholder-val="{{ true }}">
+                <div>
+                  <a href="#" style="font-variant-numeric:tabular-nums;font-size:14px;font-weight:500">{{ processoNumero }}</a>
+                  <div style="font-size:12.5px;color:#6b8494;margin-top:2px">{{ processoSub }}</div>
+                </div>
+              </sc-if>
+              <sc-if value="{{ semProcesso }}" hint-placeholder-val="{{ false }}">
+                <div style="font-size:14.5px;color:#8a9aa6">— <a href="#" style="font-size:13px">vincular</a></div>
+              </sc-if>
+            </div>
+            <div>
+              <div style="font-size:10.5px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#7b93a2;margin-bottom:4px">Última movimentação</div>
+              <div style="font-size:14.5px;font-weight:500">hoje, 14:54</div>
+            </div>
+            <div>
+              <div style="font-size:10.5px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#7b93a2;margin-bottom:4px">Situação</div>
+              <div style="display:flex;align-items:center;gap:7px">
+                <div style="width:8px;height:8px;border-radius:50%;background:#1f9d61"></div>
+                <span style="font-size:14.5px;font-weight:600;color:#186c47">Ativo</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="border-top:1px solid #eef2f5;padding:14px 0 16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+        <div ref="{{ trackRef }}" style="position:relative;display:inline-flex;gap:3px;background:#eef2f5;border:1px solid #e0e7ec;border-radius:11px;padding:4px">
+          <div style="{{ indStyle }}"></div>
+          <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="5">
+            <button ref="{{ t.ref }}" onClick="{{ t.select }}" style="{{ t.style }}">
+              <i class="{{ t.icon }}" style="{{ t.iconStyle }}"></i>
+              <span>{{ t.label }}</span>
+              <sc-if value="{{ t.badge }}" hint-placeholder-val="{{ true }}"><span style="{{ t.badgeStyle }}">{{ t.badge }}</span></sc-if>
+            </button>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+
+    <sc-if value="{{ isDados }}" hint-placeholder-val="{{ true }}">
+    <div style="{{ panelAnim }}">
+
+      <div style="background:#fff;border:1px solid #dde5eb;border-radius:14px;box-shadow:0 1px 2px rgba(16,42,58,.04)">
+        <div style="padding:15px 20px;border-bottom:1px solid #eef2f5;display:flex;align-items:center;gap:10px">
+          <h2 style="margin:0;font-size:14px;font-weight:600">Anotações do caso</h2>
+          <span style="font-variant-numeric:tabular-nums;font-size:11px;color:#7b93a2">10</span>
+          <div style="flex:1"></div>
+          <span style="font-size:12.5px;color:#6b8494">Ctrl + Enter envia</span>
+        </div>
+        <div style="padding:16px 20px;background:#fafcfd;border-bottom:1px solid #eef2f5">
+          <div style="border:1px solid #d3dde5;border-radius:9px;background:#fff;overflow:hidden">
+            <div style="display:flex;align-items:center;gap:2px;padding:6px 9px;border-bottom:1px solid #eef2f5;flex-wrap:wrap">
+              <button style="display:flex;align-items:center;gap:6px;height:28px;padding:0 8px;border:1px solid #e2e9ee;background:#fff;color:#455c6b;font-family:inherit;font-size:12.5px;font-weight:500;border-radius:6px;cursor:pointer;margin-right:4px" style-hover="border-color:#cdd7de;background:#f7fafc"><span>Normal</span><i class="bi bi-chevron-expand" style="font-size:11px;opacity:.7"></i></button>
+              <sc-for list="{{ toolbar }}" as="t" hint-placeholder-count="9"><button title="{{ t.title }}" style="{{ t.style }}"><i class="{{ t.icon }}"></i></button></sc-for>
+            </div>
+            <div style="padding:13px 15px;min-height:70px;font-size:14.5px;color:#95a6b2;line-height:1.5">Adicionar observação, combinado ou andamento do caso…</div>
+            <div style="display:flex;align-items:center;gap:10px;padding:9px 13px;background:#fafcfd;border-top:1px solid #eef2f5">
+              <span style="font-size:12.5px;color:#6b8494">Visível para a equipe</span>
+              <div style="flex:1"></div>
+              <button style="border:none;background:#0f6fc4;color:#fff;font-family:inherit;font-size:13px;font-weight:600;padding:8px 18px;border-radius:7px;cursor:pointer" style-hover="background:#0b5596">Enviar</button>
+            </div>
+          </div>
+        </div>
+        <sc-for list="{{ notes }}" as="n" hint-placeholder-count="4">
+          <article style="padding:16px 20px;border-bottom:1px solid #f1f4f7;display:flex;gap:13px">
+            <div style="width:30px;height:30px;border-radius:50%;background:#e7eef4;color:#2a4353;font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0">{{ n.initials }}</div>
+            <div style="min-width:0;flex:1">
+              <div style="display:flex;align-items:baseline;gap:9px;margin-bottom:4px">
+                <span style="font-size:13.5px;font-weight:600">{{ n.author }}</span>
+                <span style="font-size:12px;color:#7b93a2">{{ n.when }}</span>
+                <sc-if value="{{ n.tag }}" hint-placeholder-val="{{ true }}"><span style="font-size:10.5px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:#0f6fc4;background:#e8f2fa;padding:2px 8px;border-radius:999px">{{ n.tag }}</span></sc-if>
+              </div>
+              <p style="margin:0;font-size:14.5px;line-height:1.6;color:#243845;text-wrap:pretty">{{ n.body }}</p>
+            </div>
+          </article>
+        </sc-for>
+        <button style="border:none;background:#fff;color:#0f6fc4;font-family:inherit;font-size:13px;font-weight:600;padding:13px;cursor:pointer;width:100%;border-radius:0 0 14px 14px" style-hover="background:#f4f9fd">Ver anotações anteriores (6)</button>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+        <div style="background:#fff;border:1px solid #dde5eb;border-radius:14px;box-shadow:0 1px 2px rgba(16,42,58,.04)">
+          <div style="padding:14px 17px;border-bottom:1px solid #eef2f5;display:flex;align-items:center">
+            <h2 style="margin:0;font-size:13.5px;font-weight:600">Próximos prazos</h2>
+            <div style="flex:1"></div>
+            <a href="#" style="font-size:12.5px;font-weight:500">metas</a>
+          </div>
+          <sc-for list="{{ deadlines }}" as="d" hint-placeholder-count="3">
+            <div style="padding:12px 17px;border-bottom:1px solid #f4f7f9;display:flex;gap:11px;align-items:flex-start">
+              <div style="{{ d.pipStyle }}"></div>
+              <div style="min-width:0;flex:1">
+                <div style="font-size:13.5px;font-weight:500;line-height:1.35;text-wrap:pretty">{{ d.title }}</div>
+                <div style="font-size:12px;color:#7b93a2;margin-top:2px">{{ d.meta }}</div>
+              </div>
+              <span style="{{ d.badgeStyle }}">{{ d.badge }}</span>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="background:#fff;border:1px solid #dde5eb;border-radius:14px;box-shadow:0 1px 2px rgba(16,42,58,.04)">
+          <div style="padding:14px 17px;border-bottom:1px solid #eef2f5;display:flex;align-items:center">
+            <h2 style="margin:0;font-size:13.5px;font-weight:600">Clientes</h2>
+            <span style="font-variant-numeric:tabular-nums;font-size:11px;color:#7b93a2;margin-left:7px">4</span>
+            <div style="flex:1"></div>
+            <button style="border:1px solid #cdd7de;background:#fff;color:#0f6fc4;font-family:inherit;font-size:12.5px;font-weight:600;padding:4px 11px;border-radius:7px;cursor:pointer" style-hover="background:#f4f9fd;border-color:#0f6fc4">+ Vincular</button>
+          </div>
+          <sc-for list="{{ clients }}" as="c" hint-placeholder-count="4">
+            <div style="{{ c.rowStyle }}">
+              <div style="{{ c.avatarStyle }}">{{ c.initials }}</div>
+              <div style="min-width:0;flex:1">
+                <div style="display:flex;align-items:center;gap:7px">
+                  <span style="font-size:13.5px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ c.name }}</span>
+                  <sc-if value="{{ c.primary }}" hint-placeholder-val="{{ false }}"><span style="font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#8a5a12;background:#fdf1dc;padding:2px 7px;border-radius:999px;flex-shrink:0">Principal</span></sc-if>
+                </div>
+                <div style="font-variant-numeric:tabular-nums;font-size:11.5px;color:#7b93a2;margin-top:1px">{{ c.cpf }}</div>
+              </div>
+              <a href="#" style="font-size:12px;font-weight:600;flex-shrink:0">abrir</a>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="background:#fff;border:1px solid #dde5eb;border-radius:14px;padding:15px 17px;box-shadow:0 1px 2px rgba(16,42,58,.04)">
+          <div style="display:flex;align-items:center;margin-bottom:12px">
+            <h2 style="margin:0;font-size:13.5px;font-weight:600">Financeiro do caso</h2>
+            <div style="flex:1"></div>
+            <a href="#" style="font-size:12.5px;font-weight:500">detalhar</a>
+          </div>
+          <div style="display:flex;gap:9px">
+            <div style="flex:1;padding:11px 12px;border-radius:9px;background:#f1f8fc;border:1px solid #dbeaf3">
+              <div style="font-size:10.5px;letter-spacing:0.07em;text-transform:uppercase;color:#5f7684;font-weight:700">Recebido</div>
+              <div style="font-variant-numeric:tabular-nums;font-size:16px;font-weight:500;margin-top:3px">R$ 4.500</div>
+            </div>
+            <div style="flex:1;padding:11px 12px;border-radius:9px;background:#fdf7ee;border:1px solid #f0e2cb">
+              <div style="font-size:10.5px;letter-spacing:0.07em;text-transform:uppercase;color:#8a6a34;font-weight:700">A receber</div>
+              <div style="font-variant-numeric:tabular-nums;font-size:16px;font-weight:500;margin-top:3px">R$ 1.500</div>
+            </div>
+          </div>
+          <div style="margin-top:11px;font-size:12.5px;color:#6b8494">Próxima parcela 05/09 · 3 de 4 pagas</div>
+        </div>
+
+        <div style="background:#fff;border:1px solid #dde5eb;border-radius:14px;box-shadow:0 1px 2px rgba(16,42,58,.04)">
+          <div style="padding:14px 17px;border-bottom:1px solid #eef2f5;display:flex;align-items:center">
+            <h2 style="margin:0;font-size:13.5px;font-weight:600">Documentos</h2>
+            <span style="font-variant-numeric:tabular-nums;font-size:11px;color:#7b93a2;margin-left:7px">6</span>
+            <div style="flex:1"></div>
+            <a href="#" style="font-size:12.5px;font-weight:500">todos</a>
+          </div>
+          <sc-for list="{{ docs }}" as="d" hint-placeholder-count="3">
+            <div style="padding:11px 17px;border-bottom:1px solid #f4f7f9;display:flex;gap:10px;align-items:center">
+              <div style="width:25px;height:31px;border-radius:4px;border:1px solid #d3dde5;background:#f7fafc;font-variant-numeric:tabular-nums;font-size:8px;font-weight:500;color:#6b8494;display:flex;align-items:center;justify-content:center;flex-shrink:0">{{ d.ext }}</div>
+              <div style="min-width:0;flex:1">
+                <div style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ d.name }}</div>
+                <div style="font-size:11.5px;color:#7b93a2;margin-top:1px">{{ d.meta }}</div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+    </sc-if>
+
+    <sc-if value="{{ isMetas }}" hint-placeholder-val="{{ false }}">
+    <div style="{{ metasAnim }}">
+      <div style="display:grid;grid-template-columns:minmax(0,1fr) 356px;gap:18px;align-items:start">
+        <div style="background:#fff;border:1px solid #dde5eb;border-radius:14px;box-shadow:0 1px 2px rgba(16,42,58,.04);min-width:0">
+          <div style="padding:15px 20px;border-bottom:1px solid #eef2f5;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <h2 style="margin:0;font-size:14px;font-weight:600">Metas da pasta</h2>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <sc-for list="{{ metaFilters }}" as="f" hint-placeholder-count="4">
+                <button onClick="{{ f.select }}" style="{{ f.style }}"><span>{{ f.label }}</span><span style="{{ f.countStyle }}">{{ f.count }}</span></button>
+              </sc-for>
+            </div>
+            <div style="flex:1"></div>
+            <button style="display:flex;align-items:center;gap:7px;height:32px;padding:0 13px;border:1px solid #0f6fc4;background:#0f6fc4;color:#fff;font-family:inherit;font-size:13px;font-weight:600;border-radius:8px;cursor:pointer" style-hover="background:#0b5596;border-color:#0b5596"><i class="bi bi-plus-lg" style="font-size:12px"></i><span>Criar meta</span></button>
+          </div>
+
+          <sc-for list="{{ metas }}" as="m" hint-placeholder-count="4">
+            <article style="{{ m.rowStyle }}">
+              <div style="min-width:0;flex:1">
+                <div style="{{ m.titleStyle }}">{{ m.titulo }}</div>
+                <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:5px">
+                  <span style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:#6b8494"><i class="bi bi-person" style="font-size:12px;opacity:.8"></i>{{ m.criador }}</span>
+                  <span style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:#6b8494"><i class="bi bi-people" style="font-size:12px;opacity:.8"></i>{{ m.responsaveis }}</span>
+                  <span style="{{ m.prazoStyle }}"><i class="bi bi-calendar-event" style="font-size:11px"></i>{{ m.prazoLabel }}</span>
+                </div>
+              </div>
+              <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0">
+                <span style="{{ m.statusStyle }}">{{ m.status }}</span>
+                <span style="font-variant-numeric:tabular-nums;font-size:11px;color:#8496a3">{{ m.datas }}</span>
+              </div>
+              <button title="Mais ações da meta" style="width:30px;height:30px;flex-shrink:0;display:flex;align-items:center;justify-content:center;border:1px solid transparent;background:transparent;color:#8496a3;font-size:14px;border-radius:7px;cursor:pointer" style-hover="border-color:#cdd7de;color:#455c6b"><i class="bi bi-three-dots-vertical"></i></button>
+            </article>
+          </sc-for>
+
+          <sc-if value="{{ metasVazio }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:52px 24px;text-align:center">
+              <i class="bi bi-check2-square" style="font-size:30px;color:#c3d2dd"></i>
+              <div style="font-size:14.5px;font-weight:600;margin-top:10px">Nenhuma meta neste filtro</div>
+              <div style="font-size:13px;color:#6b8494;margin-top:3px">Troque o filtro acima ou crie uma nova meta.</div>
+            </div>
+          </sc-if>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+          <div style="background:#fff;border:1px solid #dde5eb;border-radius:14px;padding:16px 17px;box-shadow:0 1px 2px rgba(16,42,58,.04)">
+            <h2 style="margin:0 0 13px;font-size:13.5px;font-weight:600">Andamento das metas</h2>
+            <div style="display:flex;align-items:baseline;gap:8px">
+              <span style="font-variant-numeric:tabular-nums;font-size:26px;font-weight:500;letter-spacing:-0.01em">{{ progressoTexto }}</span>
+              <span style="font-size:13px;color:#6b8494">concluídas</span>
+            </div>
+            <div style="height:7px;border-radius:999px;background:#eef2f5;margin-top:12px;overflow:hidden">
+              <div style="{{ progressoBarra }}"></div>
+            </div>
+            <div style="display:flex;gap:16px;margin-top:14px;flex-wrap:wrap">
+              <div style="display:flex;align-items:center;gap:7px;font-size:12.5px;color:#455c6b"><div style="width:8px;height:8px;border-radius:50%;background:#1f9d61"></div><span>{{ resumoConcluidas }}</span></div>
+              <div style="display:flex;align-items:center;gap:7px;font-size:12.5px;color:#455c6b"><div style="width:8px;height:8px;border-radius:50%;background:#c8952a"></div><span>{{ resumoPendentes }}</span></div>
+              <div style="display:flex;align-items:center;gap:7px;font-size:12.5px;color:#455c6b"><div style="width:8px;height:8px;border-radius:50%;background:#c0392f"></div><span>{{ resumoAtrasadas }}</span></div>
+            </div>
+          </div>
+
+          <div style="background:#fff;border:1px solid #dde5eb;border-radius:14px;box-shadow:0 1px 2px rgba(16,42,58,.04)">
+            <div style="padding:14px 17px;border-bottom:1px solid #eef2f5">
+              <h2 style="margin:0;font-size:13.5px;font-weight:600">Precisa de atenção</h2>
+            </div>
+            <sc-for list="{{ atencao }}" as="a" hint-placeholder-count="1">
+              <div style="padding:13px 17px;border-bottom:1px solid #f4f7f9;display:flex;gap:11px;align-items:flex-start">
+                <i class="bi bi-exclamation-triangle-fill" style="font-size:13px;color:#c0392f;margin-top:2px"></i>
+                <div style="min-width:0;flex:1">
+                  <div style="font-size:13.5px;font-weight:500;line-height:1.35;text-wrap:pretty">{{ a.titulo }}</div>
+                  <div style="font-size:12px;color:#7c4a48;margin-top:2px">{{ a.meta }}</div>
+                </div>
+              </div>
+            </sc-for>
+            <div style="padding:12px 17px;font-size:12.5px;color:#6b8494">Metas atrasadas continuam contando dias até serem concluídas.</div>
+          </div>
+
+          <div style="background:#fff;border:1px solid #dde5eb;border-radius:14px;padding:16px 17px;box-shadow:0 1px 2px rgba(16,42,58,.04)">
+            <h2 style="margin:0 0 11px;font-size:13.5px;font-weight:600">Responsáveis nas metas</h2>
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <sc-for list="{{ pessoasMetas }}" as="p" hint-placeholder-count="3">
+                <div style="display:flex;align-items:center;gap:10px">
+                  <div style="width:27px;height:27px;border-radius:50%;background:#e7eef4;color:#2a4353;font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0">{{ p.initials }}</div>
+                  <span style="font-size:13.5px;font-weight:500;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ p.nome }}</span>
+                  <span style="font-variant-numeric:tabular-nums;font-size:11.5px;color:#6b8494">{{ p.contagem }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    </sc-if>
+
+    <sc-if value="{{ isProcesso }}" hint-placeholder-val="{{ false }}">
+    <div style="{{ processoAnim }}">
+      <div style="background:#fff;border:1px solid #dde5eb;border-radius:14px;box-shadow:0 1px 2px rgba(16,42,58,.04)">
+        <div style="padding:15px 20px;border-bottom:1px solid #eef2f5;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <h2 style="margin:0;font-size:14px;font-weight:600">Processos vinculados</h2>
+          <span style="font-variant-numeric:tabular-nums;font-size:11px;color:#7b93a2">1</span>
+          <div style="flex:1"></div>
+          <button style="display:flex;align-items:center;gap:7px;height:32px;padding:0 13px;border:1px solid #cdd7de;background:#fff;color:#455c6b;font-family:inherit;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer" style-hover="border-color:#0f6fc4;color:#0f6fc4"><i class="bi bi-link-45deg" style="font-size:14px"></i><span>Vincular processo</span></button>
+          <button style="display:flex;align-items:center;gap:7px;height:32px;padding:0 13px;border:1px solid #0f6fc4;background:#0f6fc4;color:#fff;font-family:inherit;font-size:13px;font-weight:600;border-radius:8px;cursor:pointer" style-hover="background:#0b5596;border-color:#0b5596"><i class="bi bi-file-earmark-text" style="font-size:13px"></i><span>Peticionar na pasta</span></button>
+        </div>
+
+        <sc-for list="{{ processos }}" as="p" hint-placeholder-count="1">
+          <article style="padding:18px 20px;border-bottom:1px solid #f1f4f7;display:flex;gap:18px;align-items:flex-start">
+            <div style="min-width:0;flex:1">
+              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                <a href="#" style="font-variant-numeric:tabular-nums;font-size:17px;font-weight:500;letter-spacing:-0.01em">{{ p.numero }}</a>
+                <button title="Copiar número do processo" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border:1px solid transparent;background:transparent;color:#8496a3;font-size:13px;border-radius:7px;cursor:pointer" style-hover="border-color:#cdd7de;color:#455c6b"><i class="bi bi-copy"></i></button>
+                <sc-if value="{{ p.principal }}" hint-placeholder-val="{{ true }}">
+                  <span style="display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:#2a5f8f;background:#eaf2fa;border:1px solid #cfe0f0;padding:3px 9px;border-radius:999px"><i class="bi bi-star-fill" style="font-size:9px"></i>Principal</span>
+                </sc-if>
+              </div>
+              <div style="display:flex;gap:30px;flex-wrap:wrap;margin-top:14px">
+                <div>
+                  <div style="font-size:10.5px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#7b93a2;margin-bottom:4px">Classe</div>
+                  <div style="font-size:14px;font-weight:500">{{ p.classe }}</div>
+                </div>
+                <div>
+                  <div style="font-size:10.5px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#7b93a2;margin-bottom:4px">Tribunal</div>
+                  <div style="font-size:14px;font-weight:500">{{ p.tribunal }}</div>
+                </div>
+                <div>
+                  <div style="font-size:10.5px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#7b93a2;margin-bottom:4px">Situação</div>
+                  <div style="display:flex;align-items:center;gap:7px">
+                    <div style="width:8px;height:8px;border-radius:50%;background:#1f9d61"></div>
+                    <span style="font-size:14px;font-weight:600;color:#186c47">{{ p.situacao }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div style="display:flex;gap:7px;flex-shrink:0">
+              <button title="Abrir o processo" style="display:flex;align-items:center;gap:7px;height:32px;padding:0 12px;border:1px solid #cdd7de;background:#fff;color:#455c6b;font-family:inherit;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer" style-hover="border-color:#0f6fc4;color:#0f6fc4"><i class="bi bi-box-arrow-up-right" style="font-size:13px"></i><span>Abrir</span></button>
+              <button title="Desvincular da pasta" style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;border:1px solid #cdd7de;background:#fff;color:#a3232b;font-size:14px;border-radius:8px;cursor:pointer" style-hover="background:#fdf1f0;border-color:#d99a95"><i class="bi bi-x-lg"></i></button>
+            </div>
+          </article>
+        </sc-for>
+
+        <div style="padding:14px 20px;display:flex;align-items:center;gap:9px;font-size:12.5px;color:#6b8494">
+          <i class="bi bi-info-circle" style="font-size:13px;opacity:.75"></i>
+          <span>O processo principal é o que aparece no cabeçalho da pasta e nas listagens. Uma pasta pode ter vários processos vinculados.</span>
+        </div>
+      </div>
+    </div>
+    </sc-if>
+
+    <sc-if value="{{ isFinanceiro }}" hint-placeholder-val="{{ false }}">
+    <div style="{{ financeiroAnim }}">
+      <div style="display:grid;grid-template-columns:minmax(0,1fr) 356px;gap:18px;align-items:start">
+
+        <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+          <div style="background:#fff;border:1px solid #dde5eb;border-radius:14px;box-shadow:0 1px 2px rgba(16,42,58,.04)">
+            <div style="padding:15px 20px;border-bottom:1px solid #eef2f5;display:flex;align-items:center;gap:10px">
+              <h2 style="margin:0;font-size:14px;font-weight:600">Observações financeiras</h2>
+              <span style="font-variant-numeric:tabular-nums;font-size:11px;color:#7b93a2">2</span>
+              <div style="flex:1"></div>
+              <span style="font-size:12.5px;color:#6b8494">Ctrl + Enter envia</span>
+            </div>
+            <div style="padding:16px 20px;background:#fafcfd;border-bottom:1px solid #eef2f5">
+              <div style="border:1px solid #d3dde5;border-radius:9px;background:#fff;overflow:hidden">
+                <div style="display:flex;align-items:center;gap:2px;padding:6px 9px;border-bottom:1px solid #eef2f5;flex-wrap:wrap">
+                  <button style="display:flex;align-items:center;gap:6px;height:28px;padding:0 8px;border:1px solid #e2e9ee;background:#fff;color:#455c6b;font-family:inherit;font-size:12.5px;font-weight:500;border-radius:6px;cursor:pointer;margin-right:4px" style-hover="border-color:#cdd7de;background:#f7fafc"><span>Normal</span><i class="bi bi-chevron-expand" style="font-size:11px;opacity:.7"></i></button>
+                  <sc-for list="{{ toolbar }}" as="t" hint-placeholder-count="9"><button title="{{ t.title }}" style="{{ t.style }}"><i class="{{ t.icon }}"></i></button></sc-for>
+                </div>
+                <div style="padding:13px 15px;min-height:64px;font-size:14.5px;color:#95a6b2;line-height:1.5">Adicionar observação, combinado ou anotação financeira…</div>
+                <div style="display:flex;align-items:center;gap:10px;padding:9px 13px;background:#fafcfd;border-top:1px solid #eef2f5">
+                  <span style="font-size:12.5px;color:#6b8494">Visível para a equipe</span>
+                  <div style="flex:1"></div>
+                  <button style="border:none;background:#0f6fc4;color:#fff;font-family:inherit;font-size:13px;font-weight:600;padding:8px 18px;border-radius:7px;cursor:pointer" style-hover="background:#0b5596">Enviar</button>
+                </div>
+              </div>
+            </div>
+            <div style="max-height:390px;overflow-y:auto;overscroll-behavior:contain">
+            <sc-for list="{{ obsFin }}" as="n" hint-placeholder-count="2">
+              <article style="padding:16px 20px;border-bottom:1px solid #f1f4f7;display:flex;gap:13px">
+                <div style="width:30px;height:30px;border-radius:50%;background:#e7eef4;color:#2a4353;font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0">{{ n.initials }}</div>
+                <div style="min-width:0;flex:1">
+                  <div style="display:flex;align-items:baseline;gap:9px;margin-bottom:4px">
+                    <span style="font-size:13.5px;font-weight:600">{{ n.author }}</span>
+                    <span style="font-size:12px;color:#7b93a2">{{ n.when }}</span>
+                  </div>
+                  <p style="margin:0;font-size:14.5px;line-height:1.6;color:#243845;text-wrap:pretty">{{ n.body }}</p>
+                </div>
+              </article>
+            </sc-for>
+            </div>
+          </div>
+
+          <div style="background:#fff;border:1px solid #dde5eb;border-radius:14px;box-shadow:0 1px 2px rgba(16,42,58,.04)">
+            <div style="padding:15px 20px 0;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <h2 style="margin:0;font-size:14px;font-weight:600">Arquivos financeiros</h2>
+              <span style="font-variant-numeric:tabular-nums;font-size:11px;color:#7b93a2">{{ finTotal }}</span>
+              <div style="flex:1"></div>
+              <div style="display:flex;align-items:center;gap:8px;height:32px;padding:0 11px;border:1px solid #dde5eb;background:#fafcfd;border-radius:8px;min-width:210px">
+                <i class="bi bi-search" style="font-size:12px;color:#8496a3"></i>
+                <span style="font-size:13px;color:#95a6b2">Buscar arquivo…</span>
+              </div>
+              <button style="display:flex;align-items:center;gap:7px;height:32px;padding:0 13px;border:1px solid #cdd7de;background:#fff;color:#455c6b;font-family:inherit;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer" style-hover="border-color:#0f6fc4;color:#0f6fc4"><i class="bi bi-plus-lg" style="font-size:12px"></i><span>Adicionar</span></button>
+            </div>
+            <div style="padding:13px 20px 14px;border-bottom:1px solid #eef2f5;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+              <sc-for list="{{ finCats }}" as="c" hint-placeholder-count="4">
+                <button onClick="{{ c.select }}" style="{{ c.style }}"><span>{{ c.label }}</span><span style="{{ c.countStyle }}">{{ c.count }}</span></button>
+              </sc-for>
+              <div style="flex:1"></div>
+              <button style="display:flex;align-items:center;gap:6px;font-family:inherit;font-size:12.5px;font-weight:500;color:#455c6b;background:transparent;border:none;cursor:pointer;padding:4px 2px" style-hover="color:#0f6fc4"><i class="bi bi-sort-down" style="font-size:13px"></i><span>Mais recentes</span></button>
+            </div>
+
+            <sc-for list="{{ arquivosFin }}" as="a" hint-placeholder-count="5">
+              <div style="padding:12px 20px;border-bottom:1px solid #f4f7f9;display:flex;gap:12px;align-items:center">
+                <div style="width:27px;height:33px;border-radius:4px;border:1px solid #d3dde5;background:#f7fafc;font-variant-numeric:tabular-nums;font-size:8px;font-weight:600;color:#6b8494;display:flex;align-items:center;justify-content:center;flex-shrink:0">{{ a.ext }}</div>
+                <div style="min-width:0;flex:1">
+                  <div style="font-size:13.5px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ a.nome }}</div>
+                  <div style="font-size:12px;color:#7b93a2;margin-top:2px">{{ a.meta }}</div>
+                </div>
+                <sc-if value="{{ a.assinado }}" hint-placeholder-val="{{ false }}">
+                  <span style="display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#186c47;background:#e2f4ea;border:1px solid #bde3cd;padding:3px 9px;border-radius:999px;flex-shrink:0"><i class="bi bi-patch-check-fill" style="font-size:10px"></i>Assinado</span>
+                </sc-if>
+                <button title="Mais ações do arquivo" style="width:30px;height:30px;flex-shrink:0;display:flex;align-items:center;justify-content:center;border:1px solid transparent;background:transparent;color:#8496a3;font-size:14px;border-radius:7px;cursor:pointer" style-hover="border-color:#cdd7de;color:#455c6b"><i class="bi bi-three-dots-vertical"></i></button>
+              </div>
+            </sc-for>
+
+            <sc-if value="{{ finTemMais }}" hint-placeholder-val="{{ true }}">
+              <div style="padding:13px 20px;border-bottom:1px solid #eef2f5;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+                <button onClick="{{ finVerMais }}" style="display:flex;align-items:center;gap:7px;height:32px;padding:0 13px;border:1px solid #cdd7de;background:#fff;color:#455c6b;font-family:inherit;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer" style-hover="border-color:#0f6fc4;color:#0f6fc4"><i class="bi bi-chevron-down" style="font-size:12px"></i><span>{{ finVerMaisLabel }}</span></button>
+                <span style="font-size:12.5px;color:#6b8494">{{ finContagem }}</span>
+                <div style="flex:1"></div>
+                <button style="display:flex;align-items:center;gap:7px;font-family:inherit;font-size:12.5px;font-weight:600;color:#0f6fc4;background:transparent;border:none;cursor:pointer;padding:4px 2px" style-hover="color:#0b5596"><i class="bi bi-folder2-open" style="font-size:13px"></i><span>Abrir no gerenciador de arquivos</span></button>
+              </div>
+            </sc-if>
+
+            <div style="margin:14px 20px 16px;padding:14px 16px;border:1.5px dashed #cdd7de;border-radius:11px;display:flex;align-items:center;gap:13px;background:#fafcfd">
+              <i class="bi bi-cloud-arrow-up" style="font-size:20px;color:#8496a3"></i>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:13.5px;font-weight:500">Arraste contratos, recibos e comprovantes aqui</div>
+                <div style="font-size:12.5px;color:#6b8494;margin-top:2px">PDF, imagem ou documento do Word</div>
+              </div>
+              <button onClick="{{ toggleReduzir }}" style="{{ reduzirStyle }}">
+                <div style="{{ reduzirTrack }}"><div style="{{ reduzirKnob }}"></div></div>
+                <span>Reduzir tamanho ao enviar</span>
+              </button>
+            </div>
+            <sc-if value="{{ reduzirOn }}" hint-placeholder-val="{{ false }}">
+              <div style="margin:0 20px 16px;padding:11px 14px;border-radius:9px;background:#fdf7ee;border:1px solid #f0e2cb;display:flex;gap:10px;align-items:flex-start">
+                <i class="bi bi-exclamation-triangle" style="font-size:13px;color:#8a5a12;margin-top:2px"></i>
+                <div style="font-size:12.5px;color:#6f5222;line-height:1.5">Com a redução ligada, um <strong>PDF assinado digitalmente pode perder a assinatura</strong>. Desligue antes de enviar contratos assinados.</div>
+              </div>
+            </sc-if>
+          </div>
+
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+          <div style="background:#fff;border:1px solid #dde5eb;border-radius:14px;padding:17px;box-shadow:0 1px 2px rgba(16,42,58,.04)">
+            <div style="display:flex;align-items:flex-start;gap:12px">
+              <div style="flex:1;min-width:0">
+                <div style="font-size:13.5px;font-weight:600">Caso pró-bono</div>
+                <div style="font-size:12.5px;color:#6b8494;margin-top:3px;line-height:1.5">{{ proBonoNota }}</div>
+              </div>
+              <button onClick="{{ toggleProBono }}" title="Marcar como pró-bono" style="border:none;background:transparent;padding:0;cursor:pointer;flex-shrink:0">
+                <div style="{{ proBonoTrack }}"><div style="{{ proBonoKnob }}"></div></div>
+              </button>
+            </div>
+          </div><div style="background:#fff;border:1px solid #dde5eb;border-radius:14px;padding:17px;box-shadow:0 1px 2px rgba(16,42,58,.04)">
+            <div style="display:flex;align-items:center;margin-bottom:4px">
+              <div style="font-size:10.5px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#7b93a2">Valor da causa</div>
+              <div style="flex:1"></div>
+              <button title="Editar valor da causa" style="width:26px;height:26px;display:flex;align-items:center;justify-content:center;border:1px solid transparent;background:transparent;color:#8496a3;font-size:12px;border-radius:6px;cursor:pointer" style-hover="border-color:#cdd7de;color:#455c6b"><i class="bi bi-pencil"></i></button>
+            </div>
+            <div style="font-variant-numeric:tabular-nums;font-size:26px;font-weight:600;letter-spacing:-0.01em">R$ 12.860,00</div>
+            <div style="height:1px;background:#eef2f5;margin:15px 0"></div>
+            <div style="font-size:10.5px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#7b93a2;margin-bottom:4px">Média por CPF</div>
+            <div style="font-variant-numeric:tabular-nums;font-size:20px;font-weight:600">R$ 3.215,00</div>
+            <div style="font-size:12.5px;color:#6b8494;margin-top:4px">4 clientes vinculados · calculado sobre o valor da causa</div>
+          </div>
+
+          <div style="background:#fff;border:1px solid #dde5eb;border-radius:14px;padding:17px;box-shadow:0 1px 2px rgba(16,42,58,.04)">
+            <div style="font-size:10.5px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#7b93a2;margin-bottom:9px">Contrato</div>
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <span style="{{ contratoChip }}"><i class="{{ contratoIcon }}" style="font-size:11px"></i>{{ contratoLabel }}</span>
+              <button onClick="{{ toggleContrato }}" style="font-family:inherit;font-size:12.5px;font-weight:600;color:#0f6fc4;background:transparent;border:none;padding:0;cursor:pointer;text-decoration:underline" style-hover="color:#0b5596">{{ contratoAcao }}</button>
+            </div>
+            <div style="font-size:12.5px;color:#6b8494;margin-top:10px;line-height:1.5">{{ contratoNota }}</div>
+          </div>
+
+          
+        </div>
+
+      </div>
+    </div>
+    </sc-if>
+
+    <sc-if value="{{ isDocumentos }}" hint-placeholder-val="{{ false }}">
+    <div style="{{ documentosAnim }}">
+      <div style="background:#fff;border:1px solid #dde5eb;border-radius:14px;box-shadow:0 1px 2px rgba(16,42,58,.04)">
+
+        <div style="padding:15px 20px;border-bottom:1px solid #eef2f5;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:7px;min-width:0">
+            <i class="bi bi-folder2-open" style="font-size:15px;color:#8496a3"></i>
+            <span style="font-size:14px;font-weight:600">Documentos</span>
+            <span style="font-variant-numeric:tabular-nums;font-size:11px;color:#7b93a2">224</span>
+          </div>
+          <div style="flex:1"></div>
+          <div style="display:flex;align-items:center;gap:8px;height:32px;padding:0 11px;border:1px solid #dde5eb;background:#fafcfd;border-radius:999px;min-width:230px">
+            <i class="bi bi-search" style="font-size:12px;color:#8496a3"></i>
+            <span style="font-size:13px;color:#95a6b2">Buscar arquivos e pastas…</span>
+          </div>
+          <button style="display:flex;align-items:center;gap:7px;height:32px;padding:0 13px;border:1px solid #cdd7de;background:#fff;color:#455c6b;font-family:inherit;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer" style-hover="border-color:#0f6fc4;color:#0f6fc4"><i class="bi bi-folder-plus" style="font-size:14px"></i><span>Nova pasta</span></button>
+          <button style="display:flex;align-items:center;gap:7px;height:32px;padding:0 13px;border:1px solid #0f6fc4;background:#0f6fc4;color:#fff;font-family:inherit;font-size:13px;font-weight:600;border-radius:8px;cursor:pointer" style-hover="background:#0b5596;border-color:#0b5596"><i class="bi bi-upload" style="font-size:13px"></i><span>Enviar</span></button>
+          <div style="display:inline-flex;border:1px solid #cdd7de;border-radius:8px;overflow:hidden">
+            <sc-for list="{{ docViews }}" as="v" hint-placeholder-count="2">
+              <button onClick="{{ v.select }}" title="{{ v.title }}" style="{{ v.style }}"><i class="{{ v.icon }}"></i></button>
+            </sc-for>
+          </div>
+          <button style="display:flex;align-items:center;gap:7px;height:32px;padding:0 11px;border:1px solid #cdd7de;background:#fff;color:#455c6b;font-family:inherit;font-size:12.5px;font-weight:500;border-radius:8px;cursor:pointer" style-hover="border-color:#0f6fc4;color:#0f6fc4"><i class="bi bi-arrows-move" style="font-size:13px"></i><span>Manual (arrastar)</span><i class="bi bi-chevron-down" style="font-size:10px;opacity:.7"></i></button>
+        </div>
+
+        <div style="margin:16px 20px;border:1px solid #dde5eb;border-radius:11px;overflow:hidden">
+          <div style="padding:13px 16px;background:#fafcfd;border-bottom:1px solid #eef2f5;display:flex;align-items:center;gap:11px;flex-wrap:wrap">
+            <i class="bi bi-check2-square" style="font-size:14px;color:#8496a3"></i>
+            <span style="font-size:13.5px;font-weight:600">Checklist de documentação</span>
+            <span style="{{ checklistBadge }}">{{ checklistTexto }}</span>
+            <div style="width:150px;height:6px;border-radius:999px;background:#e7edf2;overflow:hidden">
+              <div style="{{ checklistBarra }}"></div>
+            </div>
+            <div style="flex:1"></div>
+            <button title="Editar checklist" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border:1px solid #cdd7de;background:#fff;color:#455c6b;font-size:12px;border-radius:7px;cursor:pointer" style-hover="border-color:#0f6fc4;color:#0f6fc4"><i class="bi bi-pencil"></i></button>
+            <button title="Adicionar item" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border:1px solid #cdd7de;background:#fff;color:#455c6b;font-size:13px;border-radius:7px;cursor:pointer" style-hover="border-color:#0f6fc4;color:#0f6fc4"><i class="bi bi-plus-lg"></i></button>
+          </div>
+          <div style="display:flex;flex-wrap:wrap">
+            <sc-for list="{{ checklist }}" as="c" hint-placeholder-count="4">
+              <button onClick="{{ c.toggle }}" style="{{ c.rowStyle }}">
+                <div style="{{ c.boxStyle }}"><i class="bi bi-check2" style="{{ c.iconStyle }}"></i></div>
+                <span style="{{ c.textStyle }}">{{ c.titulo }}</span>
+              </button>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="padding:4px 20px 0">
+          <div style="display:flex;align-items:center;gap:9px;padding:10px 2px">
+            <i class="bi bi-folder" style="font-size:12px;color:#8496a3"></i>
+            <span style="font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#7b93a2">Pastas</span>
+            <span style="font-variant-numeric:tabular-nums;font-size:11px;color:#8496a3">9</span>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;padding-bottom:6px">
+            <sc-for list="{{ docFolders }}" as="f" hint-placeholder-count="9">
+              <button style="display:flex;align-items:center;gap:12px;padding:13px;border:1px solid #dde5eb;border-radius:14px;background:#fff;cursor:pointer;text-align:left;font-family:inherit;transition:border-color .18s ease,box-shadow .18s ease,transform .18s ease" style-hover="border-color:#0f6fc4;box-shadow:0 6px 18px rgba(16,42,58,.09);transform:translateY(-1px)">
+                <i class="bi bi-folder-fill" style="font-size:22px;color:#0f6fc4;flex-shrink:0"></i>
+                <div style="min-width:0;flex:1">
+                  <div style="font-size:13px;font-weight:600;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ f.nome }}</div>
+                  <div style="font-size:12px;color:#7b93a2;margin-top:2px">{{ f.contagem }}</div>
+                </div>
+              </button>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="padding:10px 20px 0">
+          <div style="display:flex;align-items:center;gap:9px;padding:10px 2px">
+            <i class="bi bi-file-earmark" style="font-size:12px;color:#8496a3"></i>
+            <span style="font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#7b93a2">Arquivos nesta pasta</span>
+            <span style="font-variant-numeric:tabular-nums;font-size:11px;color:#8496a3">{{ docFilesTotal }}</span>
+          </div>
+
+          <sc-if value="{{ docListaOn }}" hint-placeholder-val="{{ true }}">
+            <div>
+              <div style="display:grid;grid-template-columns:minmax(0,1fr) 150px 90px 110px 40px;gap:12px;align-items:center;padding:8px 12px;border-bottom:1px solid #e6ecf1">
+                <span style="font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#7b93a2">Nome</span>
+                <span style="font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#7b93a2">Categoria</span>
+                <span style="font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#7b93a2">Tamanho</span>
+                <span style="font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#7b93a2">Modificado</span>
+                <span></span>
+              </div>
+              <sc-for list="{{ docFiles }}" as="d" hint-placeholder-count="6">
+                <div style="display:grid;grid-template-columns:minmax(0,1fr) 150px 90px 110px 40px;gap:12px;align-items:center;padding:9px 12px;border-bottom:1px solid #f4f7f9;border-radius:9px;transition:background .15s ease" style-hover="background:#f7fafc">
+                  <div style="display:flex;align-items:center;gap:11px;min-width:0">
+                    <i class="{{ d.icon }}" style="{{ d.iconStyle }}"></i>
+                    <a href="#" style="font-size:13.5px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ d.nome }}</a>
+                  </div>
+                  <span style="font-size:11.5px;font-weight:500;color:#5f7684;background:#eef2f5;border:1px solid #e0e7ec;padding:2px 9px;border-radius:999px;justify-self:start;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%">{{ d.categoria }}</span>
+                  <span style="font-variant-numeric:tabular-nums;font-size:12.5px;color:#6b8494">{{ d.tamanho }}</span>
+                  <span style="font-variant-numeric:tabular-nums;font-size:12.5px;color:#6b8494">{{ d.modificado }}</span>
+                  <button title="Mais ações do arquivo" style="width:30px;height:30px;display:flex;align-items:center;justify-content:center;border:1px solid transparent;background:transparent;color:#8496a3;font-size:14px;border-radius:7px;cursor:pointer;justify-self:end" style-hover="border-color:#cdd7de;color:#455c6b"><i class="bi bi-three-dots-vertical"></i></button>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ docGradeOn }}" hint-placeholder-val="{{ false }}">
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(158px,1fr));gap:12px">
+              <sc-for list="{{ docFiles }}" as="d" hint-placeholder-count="6">
+                <div style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;padding:18px 12px 12px;border:1px solid #dde5eb;border-radius:14px;background:#fff;min-height:150px;transition:border-color .18s ease,box-shadow .18s ease" style-hover="border-color:#0f6fc4;box-shadow:0 6px 18px rgba(16,42,58,.09)">
+                  <i class="{{ d.icon }}" style="{{ d.iconGradeStyle }}"></i>
+                  <a href="#" style="font-size:13px;font-weight:500;line-height:1.3;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere;word-break:break-word;max-width:100%">{{ d.nome }}</a>
+                  <span style="font-variant-numeric:tabular-nums;font-size:11.5px;color:#7b93a2">{{ d.tamanho }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+
+        <div style="padding:14px 20px 18px;font-size:12.5px;color:#6b8494">{{ docFilesTotal }} arquivos nesta pasta · 224 no total, contando subpastas</div>
+      </div>
+    </div>
+    </sc-if>
+
+    <sc-if value="{{ isDetalhes }}" hint-placeholder-val="{{ false }}">
+    <div style="{{ detalhesAnim }}">
+      <div style="display:grid;grid-template-columns:minmax(0,1fr) 356px;gap:18px;align-items:start">
+
+        <div style="background:#fff;border:1px solid #dde5eb;border-radius:14px;box-shadow:0 1px 2px rgba(16,42,58,.04);min-width:0">
+          <div style="padding:15px 20px;border-bottom:1px solid #eef2f5;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <h2 style="margin:0;font-size:14px;font-weight:600">Observações da pasta</h2>
+            <span style="font-variant-numeric:tabular-nums;font-size:11px;color:#7b93a2">{{ obsDetTotal }}</span>
+            <div style="flex:1"></div>
+            <span style="font-size:12.5px;color:#6b8494">Ctrl + Enter envia</span>
+          </div>
+
+          <div style="padding:16px 20px;background:#fafcfd;border-bottom:1px solid #eef2f5">
+            <div style="border:1px solid #d3dde5;border-radius:9px;background:#fff;overflow:hidden">
+              <div style="display:flex;align-items:center;gap:2px;padding:6px 9px;border-bottom:1px solid #eef2f5;flex-wrap:wrap">
+                <button style="display:flex;align-items:center;gap:6px;height:28px;padding:0 8px;border:1px solid #e2e9ee;background:#fff;color:#455c6b;font-family:inherit;font-size:12.5px;font-weight:500;border-radius:6px;cursor:pointer;margin-right:4px" style-hover="border-color:#cdd7de;background:#f7fafc"><span>Normal</span><i class="bi bi-chevron-expand" style="font-size:11px;opacity:.7"></i></button>
+                <sc-for list="{{ toolbar }}" as="t" hint-placeholder-count="9"><button title="{{ t.title }}" style="{{ t.style }}"><i class="{{ t.icon }}"></i></button></sc-for>
+              </div>
+              <div style="padding:13px 15px;min-height:64px;font-size:14.5px;color:#95a6b2;line-height:1.5">Adicionar observação…</div>
+              <div style="display:flex;align-items:center;gap:10px;padding:9px 13px;background:#fafcfd;border-top:1px solid #eef2f5">
+                <span style="font-size:12.5px;color:#6b8494">Visível para a equipe</span>
+                <div style="flex:1"></div>
+                <button style="border:none;background:#0f6fc4;color:#fff;font-family:inherit;font-size:13px;font-weight:600;padding:8px 18px;border-radius:7px;cursor:pointer" style-hover="background:#0b5596">Enviar</button>
+              </div>
+            </div>
+          </div>
+
+          <sc-for list="{{ obsDet }}" as="o" hint-placeholder-count="2">
+            <article style="padding:18px 20px;border-bottom:1px solid #f1f4f7">
+              <div style="display:flex;align-items:center;gap:11px;margin-bottom:11px;flex-wrap:wrap">
+                <div style="width:30px;height:30px;border-radius:50%;background:#e7eef4;color:#2a4353;font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0">{{ o.initials }}</div>
+                <span style="font-size:13.5px;font-weight:600">{{ o.author }}</span>
+                <span style="font-size:12px;color:#7b93a2">{{ o.when }}</span>
+                <sc-if value="{{ o.tag }}" hint-placeholder-val="{{ true }}"><span style="font-size:10.5px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:#0f6fc4;background:#e8f2fa;padding:2px 8px;border-radius:999px">{{ o.tag }}</span></sc-if>
+                <div style="flex:1"></div>
+                <button title="Mais ações da observação" style="width:30px;height:30px;flex-shrink:0;display:flex;align-items:center;justify-content:center;border:1px solid transparent;background:transparent;color:#8496a3;font-size:14px;border-radius:7px;cursor:pointer" style-hover="border-color:#cdd7de;color:#455c6b"><i class="bi bi-three-dots-vertical"></i></button>
+              </div>
+              <div style="{{ o.bodyStyle }}">
+                <sc-for list="{{ o.paragrafos }}" as="p" hint-placeholder-count="4">
+                  <p style="{{ p.style }}">{{ p.texto }}</p>
+                </sc-for>
+              </div>
+              <sc-if value="{{ o.temMais }}" hint-placeholder-val="{{ true }}">
+                <button onClick="{{ o.toggle }}" style="display:flex;align-items:center;gap:7px;margin-top:11px;font-family:inherit;font-size:12.5px;font-weight:600;color:#0f6fc4;background:transparent;border:none;padding:0;cursor:pointer" style-hover="color:#0b5596"><i class="{{ o.toggleIcon }}" style="font-size:11px"></i><span>{{ o.toggleLabel }}</span></button>
+              </sc-if>
+            </article>
+          </sc-for>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+          <div style="background:#fff;border:1px solid #dde5eb;border-radius:14px;padding:17px;box-shadow:0 1px 2px rgba(16,42,58,.04)">
+            <h2 style="margin:0 0 14px;font-size:13.5px;font-weight:600">Registro da pasta</h2>
+            <div style="display:flex;flex-direction:column;gap:14px">
+              <div>
+                <div style="font-size:10.5px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#7b93a2;margin-bottom:4px">Criada em</div>
+                <div style="font-variant-numeric:tabular-nums;font-size:14.5px;font-weight:500">{{ criadaEm }}</div>
+              </div>
+              <div>
+                <div style="font-size:10.5px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#7b93a2;margin-bottom:4px">Modificada em</div>
+                <div style="font-variant-numeric:tabular-nums;font-size:14.5px;font-weight:500">{{ modificadaEm }}</div>
+              </div>
+              <div>
+                <div style="font-size:10.5px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#7b93a2;margin-bottom:4px">Criada por</div>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <div style="width:24px;height:24px;border-radius:50%;background:#e7eef4;color:#2a4353;font-size:9.5px;font-weight:600;display:flex;align-items:center;justify-content:center">{{ criadaPorIniciais }}</div>
+                  <span style="font-size:14.5px;font-weight:500">{{ criadaPor }}</span>
+                </div>
+              </div>
+            </div>
+            <div style="height:1px;background:#eef2f5;margin:16px 0 14px"></div>
+            <button onClick="{{ toggleHist }}" style="display:flex;align-items:center;gap:8px;width:100%;height:34px;padding:0 12px;border:1px solid #cdd7de;background:#fff;color:#455c6b;font-family:inherit;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer" style-hover="border-color:#0f6fc4;color:#0f6fc4"><i class="bi bi-clock-history" style="font-size:14px"></i><span>Ver histórico do sistema</span></button>
+          </div>
+
+          <div style="background:#fff;border:1px solid #dde5eb;border-radius:14px;padding:17px;box-shadow:0 1px 2px rgba(16,42,58,.04)">
+            <h2 style="margin:0 0 11px;font-size:13.5px;font-weight:600">Como usar esta aba</h2>
+            <p style="margin:0;font-size:13px;line-height:1.6;color:#5f7684;text-wrap:pretty">Observações longas — relato de atendimento, resumo da demanda, tese — moram aqui. Anotações curtas do dia a dia ficam em <strong>Dados da pasta</strong>, e combinados de honorários em <strong>Financeiro</strong>.</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    </sc-if>
+
+    <sc-if value="{{ isOutra }}" hint-placeholder-val="{{ false }}">
+    <div style="{{ emptyAnim }}">
+      <div style="font-size:19px;font-weight:600;margin-bottom:7px">{{ outraTitulo }}</div>
+      <p style="margin:0 auto;max-width:44ch;font-size:14.5px;line-height:1.6;color:#5f7684;text-wrap:pretty">Fora do escopo desta rodada — o combinado foi só a tela de Pasta. Diz se entra e eu desenho no mesmo sistema.</p>
+      <button onClick="{{ voltar }}" style="margin-top:18px;border:1px solid #cdd7de;background:#fff;color:#0f6fc4;font-family:inherit;font-size:13px;font-weight:600;padding:9px 16px;border-radius:9px;cursor:pointer" style-hover="background:#f4f9fd">Voltar aos dados</button>
+    </div>
+    </sc-if>
+
+
+
+  </div>
+
+  <sc-if value="{{ histOpen }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ toggleHist }}" style="position:fixed;inset:0;background:rgba(12,32,45,.36);z-index:60"></div>
+  <aside style="position:fixed;top:0;right:0;bottom:0;width:430px;background:#fff;z-index:61;box-shadow:-14px 0 40px rgba(12,32,45,.18);display:flex;flex-direction:column">
+    <div style="padding:20px 22px;border-bottom:1px solid #e4eaef;display:flex;align-items:flex-start;gap:12px">
+      <div style="flex:1">
+        <h2 style="margin:0 0 3px;font-size:15px;font-weight:600">Histórico do sistema</h2>
+        <div style="font-size:12.5px;color:#6b8494">10 alterações registradas automaticamente</div>
+      </div>
+      <button onClick="{{ toggleHist }}" style="border:1px solid #dde5eb;background:#fff;color:#2a4353;font-family:inherit;font-size:15px;line-height:1;padding:6px 11px;border-radius:8px;cursor:pointer" style-hover="border-color:#0f6fc4;color:#0f6fc4">×</button>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:4px 22px 28px">
+      <sc-for list="{{ history }}" as="h" hint-placeholder-count="8">
+        <div style="{{ h.wrapStyle }}">
+          <sc-if value="{{ h.isDay }}" hint-placeholder-val="{{ false }}">
+            <div style="font-variant-numeric:tabular-nums;font-size:11px;font-weight:500;letter-spacing:0.11em;color:#7b93a2;padding:16px 0 7px">{{ h.day }}</div>
+          </sc-if>
+          <sc-if value="{{ h.isEvent }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;gap:11px;padding:9px 0;border-bottom:1px solid #f4f7f9">
+              <div style="width:7px;height:7px;border-radius:50%;background:#c3d2dd;margin-top:6px;flex-shrink:0"></div>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:13.5px;line-height:1.45;text-wrap:pretty"><span style="font-weight:600">{{ h.author }}</span> {{ h.body }}</div>
+                <div style="font-size:11.5px;color:#8496a3;margin-top:2px">{{ h.when }}</div>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+      </sc-for>
+    </div>
+  </aside>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#0f6fc4&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;options&quot;:[&quot;#0f6fc4&quot;,&quot;#0c7a9c&quot;,&quot;#1f7a4d&quot;,&quot;#0e2b3d&quot;]},&quot;fonte&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;Source Sans 3&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;options&quot;:[&quot;Arial (atual do sistema)&quot;,&quot;Nativa (Segoe UI no Windows)&quot;,&quot;IBM Plex Sans&quot;,&quot;Source Sans 3&quot;,&quot;Times New Roman&quot;],&quot;section&quot;:&quot;Tipografia&quot;}}">
+class Component extends DCLogic {
+  state = {
+    tab: 'dados', histOpen: false, menuOpen: false, prioOpen: false, prio: 'normal', switches: 0, ind: null,
+    metaFilter: 'abertas', reduzir: false, proBono: false, contrato: 'pendente',
+    finCat: 'todos', finVisiveis: 5,
+    docView: 'lista', docVisiveis: 6, obsAbertas: [],
+    checklistData: [
+      { id: 1, titulo: 'Procuração assinada', ok: true },
+      { id: 2, titulo: 'Documento de identidade', ok: true },
+      { id: 3, titulo: 'Comprovante de residência', ok: true },
+      { id: 4, titulo: 'Contrato de honorários assinado', ok: false },
+      { id: 5, titulo: 'Declaração de hipossuficiência', ok: false },
+    ],
+    metasData: [
+      { id: 1, titulo: 'Análise processual e providência', criador: 'Farlei Assis da Rocha', responsaveis: 'Mariana Costa', prazo: '18/06/2026', mod: '24/06/2026', atraso: 0, concluida: true },
+      { id: 2, titulo: 'Correção de dados de cadastro', criador: 'Mariana Costa', responsaveis: 'Samuel Freitas', prazo: '24/06/2026', mod: null, atraso: 63, concluida: false },
+      { id: 3, titulo: 'Incluir o processo no acompanhamento processual', criador: 'Mariana Costa', responsaveis: 'Thâmara Thays Silva Carvalho dos Santos +1', prazo: '24/06/2026', mod: '02/07/2026', atraso: 0, concluida: true },
+      { id: 4, titulo: 'Regularização de pasta — Processo 1059316-72.2022.4.01.3400', criador: 'Mariana Costa', responsaveis: 'Farlei Assis da Rocha', prazo: '24/06/2026', mod: '25/07/2026', atraso: 0, concluida: true },
+    ],
+  };
+
+  tabNodes = {};
+  setTabNode = (id) => (el) => { if (el) { this.tabNodes[id] = el; this.measure(); } };
+  setTrack = (el) => { this.track = el; this.measure(); };
+
+  measure() {
+    const el = this.tabNodes[this.state.tab];
+    if (!el || !this.track) return;
+    const left = el.offsetLeft, width = el.offsetWidth, height = el.offsetHeight, top = el.offsetTop;
+    const i = this.state.ind;
+    if (i && i.left === left && i.width === width && i.height === height && i.top === top) return;
+    clearTimeout(this._mt);
+    this._mt = setTimeout(() => this.setState({ ind: { left, width, height, top } }), 0);
+  }
+
+  componentDidMount() { this.measure(); window.addEventListener('resize', this.onResize); }
+  componentDidUpdate() { this.measure(); }
+  componentWillUnmount() { clearTimeout(this._mt); window.removeEventListener('resize', this.onResize); }
+  onResize = () => { this.setState({ ind: null }, () => this.measure()); };
+
+  renderVals() {
+    const accent = this.props.accent ?? '#0f6fc4';
+    const tabs = [
+      ['dados', 'Dados da pasta', null, 'bi bi-folder2-open'],
+      ['metas', 'Metas', String(this.state.metasData.length), 'bi bi-check2-square'],
+      ['processo', 'Processo', null, 'bi bi-bank'],
+      ['financeiro', 'Financeiro', null, 'bi bi-cash-coin'],
+      ['detalhes', 'Detalhes', null, 'bi bi-info-circle'],
+      ['documentos', 'Documentos', '224', 'bi bi-paperclip'],
+    ].map(([id, label, badge, icon]) => {
+      const on = this.state.tab === id;
+      return {
+        label, badge, icon,
+        ref: this.setTabNode(id),
+        select: () => this.setState(s => (s.tab === id ? null : { tab: id, switches: s.switches + 1 })),
+        style: 'position:relative;z-index:1;font-family:inherit;cursor:pointer;display:flex;align-items:center;gap:8px;padding:9px 15px;font-size:13.5px;border-radius:9px;background:transparent;border:1px solid transparent;transition:color .34s cubic-bezier(.32,.72,0,1);font-weight:' +
+          (on ? '600' : '500') + ';color:' + (on ? '#12242f' : '#5f7684'),
+        iconStyle: 'font-size:14px;color:' + (on ? accent : '#8496a3'),
+        badgeStyle: 'font-variant-numeric:tabular-nums;font-size:10.5px;font-weight:600;color:' +
+          (on ? accent : '#6b8494') + ';background:' + (on ? '#e8f2fa' : '#e2e8ed') + ';padding:1px 6px;border-radius:5px',
+      };
+    });
+
+    const toolbar = [
+      ['bi bi-type-bold', 'Negrito'],
+      ['bi bi-type-italic', 'Itálico'],
+      ['bi bi-type-underline', 'Sublinhado'],
+      ['bi bi-type-strikethrough', 'Riscado'],
+      ['bi bi-palette', 'Cor do texto'],
+      ['bi bi-list-ol', 'Lista numerada'],
+      ['bi bi-list-ul', 'Lista com marcadores'],
+      ['bi bi-quote', 'Citação'],
+      ['bi bi-eraser', 'Limpar formatação'],
+    ].map(([icon, title]) => ({
+      icon, title,
+      style: 'font-size:14px;color:#5f7684;width:28px;height:28px;border:none;background:transparent;border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer',
+    }));
+
+    const clients = [
+      ['Gleisson Bruno Gabriel', 'CPF 006.462.251-70', true],
+      ['Joaozinho', 'CPF 022.547.725-46', false],
+      ['Farlei Assis da Rocha', 'CPF 022.547.725-46', false],
+      ['Paudo de Sousa da Silva Rocha', 'CPF 022.547.725-45', false],
+    ].map(([name, cpf, primary]) => ({
+      name, cpf, primary,
+      initials: name.split(' ').filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join(''),
+      rowStyle: 'padding:11px 17px;border-bottom:1px solid #f4f7f9;display:flex;gap:10px;align-items:center' + (primary ? ';background:#fbfdfe' : ''),
+      avatarStyle: 'width:28px;height:28px;border-radius:50%;font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0;' +
+        (primary ? 'background:' + accent + ';color:#fff' : 'background:#e7eef4;color:#2a4353'),
+    }));
+
+    const tones = {
+      red: ['#a3232b', '#fdeceb', '#f2c9c6'],
+      amber: ['#8a5a12', '#fdf1dc', '#f0dcb4'],
+      grey: ['#4a6274', '#eef2f5', '#dde5eb'],
+    };
+    const deadlines = [
+      ['Protocolar contestação', 'Jéssica Martins · 28/08', '2 dias', 'red'],
+      ['Reunião de alinhamento com o cliente', 'Samuel Freitas · 03/09', '8 dias', 'amber'],
+      ['Juntada de documentos complementares', 'Jéssica Martins · 15/09', '20 dias', 'grey'],
+    ].map(([title, meta, badge, tone]) => {
+      const [fg, bg, bd] = tones[tone];
+      return {
+        title, meta, badge,
+        pipStyle: 'width:7px;height:7px;border-radius:50%;margin-top:6px;flex-shrink:0;background:' + fg,
+        badgeStyle: 'font-size:11px;font-weight:600;white-space:nowrap;flex-shrink:0;color:' + fg + ';background:' + bg +
+          ';border:1px solid ' + bd + ';padding:3px 8px;border-radius:999px',
+      };
+    });
+
+    const notes = [
+      { author: 'Samuel Freitas', initials: 'SF', when: 'hoje, 14:58', tag: 'Combinado', body: 'Cliente autorizou seguir com o pedido liminar. Honorários adicionais ficam para a fase de cumprimento de sentença.' },
+      { author: 'Jéssica Martins', initials: 'JM', when: 'hoje, 11:20', tag: null, body: 'Recebi por WhatsApp as fotos do imóvel e o comprovante de notificação extrajudicial. Anexei em Documentos.' },
+      { author: 'Samuel Freitas', initials: 'SF', when: '18/08, 15:30', tag: 'Ligação', body: 'Contato com a parte contrária: o advogado pediu prazo até sexta para apresentar proposta de acordo.' },
+      { author: 'Jéssica Martins', initials: 'JM', when: '14/08, 09:04', tag: null, body: 'Pasta aberta a partir do atendimento inicial. Ação definida como obrigação de não fazer e de fazer.' },
+    ];
+
+    const docs = [
+      { ext: 'PDF', name: 'Procuração assinada.pdf', meta: '240 KB · 18/08' },
+      { ext: 'PDF', name: 'Notificação extrajudicial.pdf', meta: '1,2 MB · hoje' },
+      { ext: 'ZIP', name: 'Fotos do imóvel (4).zip', meta: '8,4 MB · hoje' },
+    ];
+
+    const events = [
+      ['HOJE, 26/08', 'Samuel Freitas', 'adicionou o cliente Farlei Assis da Rocha', '14:54'],
+      ['HOJE, 26/08', 'Samuel Freitas', 'adicionou o cliente Paudo de Sousa da Silva Rocha', '14:54'],
+      ['HOJE, 26/08', 'Samuel Freitas', 'adicionou o cliente Joaozinho', '14:54'],
+      ['18/08/2026', 'Samuel Freitas', 'definiu Gleisson Bruno Gabriel como cliente principal', '15:30'],
+      ['18/08/2026', 'Samuel Freitas', 'alterou a responsável para Jéssica Martins', '15:28'],
+      ['14/08/2026', 'Samuel Freitas', 'criou a pasta 1180', '09:02'],
+    ];
+    const blank = { wrapStyle: '', isDay: false, isEvent: false, day: '', author: '', body: '', when: '' };
+    const history = [];
+    let lastDay = null;
+    events.forEach(([day, author, body, when]) => {
+      if (day !== lastDay) { history.push({ ...blank, isDay: true, day }); lastDay = day; }
+      history.push({ ...blank, isEvent: true, author, body, when });
+    });
+
+    const prioTones = {
+      normal: ['Normal', '#4a6274', '#eef2f5', '#dde5eb'],
+      prioridade: ['Prioridade', '#8a5a12', '#fdf1dc', '#f0dcb4'],
+      urgente: ['Urgente', '#a3232b', '#fdeceb', '#f2c9c6'],
+    };
+    const [prioLabel, pFg, pBg, pBd] = prioTones[this.state.prio];
+    const prioStyle = 'display:flex;align-items:center;gap:6px;font-family:inherit;font-size:11px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;cursor:pointer;padding:3px 9px;border-radius:999px;color:' +
+      pFg + ';background:' + pBg + ';border:1px solid ' + pBd;
+    const prioOptions = ['normal', 'prioridade', 'urgente'].map(id => {
+      const [label, fg] = prioTones[id];
+      return {
+        label,
+        current: this.state.prio === id,
+        select: () => this.setState({ prio: id, prioOpen: false }),
+        style: 'display:flex;align-items:center;gap:9px;padding:8px 10px;border:none;background:transparent;font-family:inherit;font-size:13.5px;color:#243845;border-radius:7px;cursor:pointer;text-align:left;font-weight:' +
+          (this.state.prio === id ? '600' : '400'),
+        iconStyle: 'font-size:11px;color:' + fg,
+      };
+    });
+
+    const tags = [
+      ['Liminar', '#2a5f8f', '#eaf2fa', '#cfe0f0'],
+      ['Cliente VIP', '#6b4b8a', '#f3edfa', '#e0d4ee'],
+    ].map(([label, fg, bg, bd]) => ({
+      label,
+      style: 'display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;padding:3px 9px;border-radius:999px;color:' +
+        fg + ';background:' + bg + ';border:1px solid ' + bd,
+      iconStyle: 'font-size:9px;color:' + fg + ';opacity:.75',
+    }));
+
+    const all = this.state.metasData;
+    const isLate = (m) => !m.concluida && m.atraso > 0;
+    const counts = {
+      todas: all.length,
+      abertas: all.filter(m => !m.concluida).length,
+      atrasadas: all.filter(isLate).length,
+      concluidas: all.filter(m => m.concluida).length,
+    };
+    const metaFilters = [
+      ['abertas', 'Abertas'], ['atrasadas', 'Atrasadas'], ['concluidas', 'Concluídas'], ['todas', 'Todas'],
+    ].map(([id, label]) => {
+      const on = this.state.metaFilter === id;
+      return {
+        label, count: counts[id],
+        select: () => this.setState({ metaFilter: id }),
+        style: 'display:flex;align-items:center;gap:7px;font-family:inherit;font-size:12.5px;font-weight:' + (on ? '600' : '500') +
+          ';padding:5px 11px;border-radius:999px;cursor:pointer;transition:background .2s ease,border-color .2s ease,color .2s ease;border:1px solid ' +
+          (on ? accent : '#dde5eb') + ';background:' + (on ? '#e8f2fa' : '#fff') + ';color:' + (on ? accent : '#455c6b'),
+        countStyle: 'font-variant-numeric:tabular-nums;font-size:10.5px;font-weight:600;padding:0 5px;border-radius:4px;color:' +
+          (on ? accent : '#6b8494') + ';background:' + (on ? '#d6e9f8' : '#eef2f5'),
+      };
+    });
+
+    const filtered = all.filter(m => {
+      if (this.state.metaFilter === 'abertas') return !m.concluida;
+      if (this.state.metaFilter === 'atrasadas') return isLate(m);
+      if (this.state.metaFilter === 'concluidas') return m.concluida;
+      return true;
+    });
+
+    const metas = filtered.map(m => {
+      const late = isLate(m);
+      const bar = m.concluida ? '#1f9d61' : (late ? '#c0392f' : '#c8952a');
+      return {
+        titulo: m.titulo,
+        criador: m.criador,
+        responsaveis: m.responsaveis,
+        status: m.concluida ? 'Concluída' : (late ? 'Atrasada' : 'Pendente'),
+        datas: m.mod ? m.prazo + ' · mod. ' + m.mod : m.prazo,
+        prazoLabel: m.concluida ? 'concluída no prazo ' + m.prazo : (late ? m.atraso + ' dias em atraso' : 'vence ' + m.prazo),
+        rowStyle: 'display:flex;gap:13px;align-items:flex-start;padding:15px 20px;border-bottom:1px solid #f1f4f7;border-left:3px solid ' + bar +
+          ';transition:background .2s ease' + (m.concluida ? ';background:#fcfdfe' : ''),
+        titleStyle: 'font-size:14.5px;font-weight:600;line-height:1.35;text-wrap:pretty;color:' +
+          (m.concluida ? '#6b8494' : '#12242f') + (m.concluida ? ';text-decoration:line-through;text-decoration-color:#c3d2dd' : ''),
+        statusStyle: (() => {
+          const t = m.concluida ? ['#186c47', '#e2f4ea', '#bde3cd'] : (late ? ['#a3232b', '#fdeceb', '#f2c9c6'] : ['#8a5a12', '#fdf1dc', '#f0dcb4']);
+          return 'font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;white-space:nowrap;padding:3px 9px;border-radius:999px;color:' +
+            t[0] + ';background:' + t[1] + ';border:1px solid ' + t[2];
+        })(),
+        prazoStyle: 'display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:' + (late ? '600' : '400') + ';color:' +
+          (late ? '#c0392f' : '#6b8494'),
+      };
+    });
+
+    const pct = counts.todas ? Math.round((counts.concluidas / counts.todas) * 100) : 0;
+    const atencao = all.filter(isLate).map(m => ({
+      titulo: m.titulo,
+      meta: 'prazo ' + m.prazo + ' · ' + m.atraso + ' dias em atraso · ' + m.responsaveis,
+    }));
+    const pessoasMetas = [
+      ['Mariana Costa', '3 metas'],
+      ['Farlei Assis da Rocha', '1 meta'],
+      ['Samuel Freitas', '1 meta'],
+    ].map(([nome, contagem]) => ({
+      nome, contagem,
+      initials: nome.split(' ').filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join(''),
+    }));
+
+    const processos = [{
+      numero: '1059316-72.2022.4.01.3400',
+      principal: true,
+      classe: 'Cumprimento de sentença',
+      tribunal: 'TJDFT',
+      situacao: 'Em andamento',
+    }];
+    const principal = processos.find(p => p.principal) || null;
+
+    const fontStacks = {
+      'Arial (atual do sistema)': 'Arial, Helvetica, sans-serif',
+      'Nativa (Segoe UI no Windows)': '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif',
+      'IBM Plex Sans': '"IBM Plex Sans", Arial, sans-serif',
+      'Source Sans 3': '"Source Sans 3", Arial, sans-serif',
+      'Times New Roman': '"Times New Roman", Times, serif',
+    };
+    const fonte = fontStacks[this.props.fonte] || fontStacks['Source Sans 3'];
+
+    const sw = (on) => ({
+      track: 'width:38px;height:22px;border-radius:999px;padding:2px;display:flex;align-items:center;transition:background .26s cubic-bezier(.32,.72,0,1);background:' +
+        (on ? '#1f9d61' : '#cdd7de'),
+      knob: 'width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(16,42,58,.28);transition:transform .26s cubic-bezier(.32,.72,0,1);transform:translateX(' +
+        (on ? '16px' : '0') + ')',
+    });
+    const red = sw(this.state.reduzir);
+    const pb = sw(this.state.proBono);
+    const contratoOk = this.state.contrato === 'assinado';
+
+    const finFiles = [
+      ['Contrato de honorários.pdf', 'contratos', 'PDF', '380 KB · 18/06/2026 · Farlei Assis da Rocha', false],
+      ['Contrato de honorários — assinado.pdf', 'contratos', 'PDF', '412 KB · 19/06/2026 · Farlei Assis da Rocha', true],
+      ['Recibo primeira parcela.pdf', 'recibos', 'PDF', '112 KB · 24/06/2026 · Mariana Costa', true],
+      ['Recibo segunda parcela.pdf', 'recibos', 'PDF', '109 KB · 24/07/2026 · Mariana Costa', true],
+      ['Comprovante PIX entrada.png', 'comprovantes', 'PNG', '640 KB · 18/06/2026 · Samuel Freitas', false],
+      ['Comprovante TED honorários.pdf', 'comprovantes', 'PDF', '88 KB · 24/07/2026 · Samuel Freitas', false],
+      ['Planilha de custas.xlsx', 'outros', 'XLSX', '24 KB · 02/07/2026 · Mariana Costa', false],
+      ['Guia de custas iniciais.pdf', 'outros', 'PDF', '96 KB · 20/06/2026 · Mariana Costa', false],
+      ['Recibo terceira parcela.pdf', 'recibos', 'PDF', '110 KB · 24/08/2026 · Mariana Costa', true],
+      ['Comprovante PIX terceira parcela.png', 'comprovantes', 'PNG', '580 KB · 24/08/2026 · Samuel Freitas', false],
+      ['Aditivo contratual.pdf', 'contratos', 'PDF', '204 KB · 30/07/2026 · Farlei Assis da Rocha', true],
+      ['Nota fiscal 0451.pdf', 'outros', 'PDF', '71 KB · 25/07/2026 · Mariana Costa', false],
+    ].map(([nome, cat, ext, meta, assinado]) => ({ nome, cat, ext, meta, assinado }));
+
+    const finCounts = {
+      todos: finFiles.length,
+      contratos: finFiles.filter(f => f.cat === 'contratos').length,
+      recibos: finFiles.filter(f => f.cat === 'recibos').length,
+      comprovantes: finFiles.filter(f => f.cat === 'comprovantes').length,
+      outros: finFiles.filter(f => f.cat === 'outros').length,
+    };
+    const finCats = [
+      ['todos', 'Todos'], ['contratos', 'Contratos'], ['recibos', 'Recibos'],
+      ['comprovantes', 'Comprovantes'], ['outros', 'Outros'],
+    ].map(([id, label]) => {
+      const on = this.state.finCat === id;
+      return {
+        label, count: finCounts[id],
+        select: () => this.setState({ finCat: id, finVisiveis: 5 }),
+        style: 'display:flex;align-items:center;gap:7px;font-family:inherit;font-size:12.5px;font-weight:' + (on ? '600' : '500') +
+          ';padding:5px 11px;border-radius:999px;cursor:pointer;transition:background .2s ease,border-color .2s ease,color .2s ease;border:1px solid ' +
+          (on ? accent : '#dde5eb') + ';background:' + (on ? '#e8f2fa' : '#fff') + ';color:' + (on ? accent : '#455c6b'),
+        countStyle: 'font-variant-numeric:tabular-nums;font-size:10.5px;font-weight:600;padding:0 5px;border-radius:4px;color:' +
+          (on ? accent : '#6b8494') + ';background:' + (on ? '#d6e9f8' : '#eef2f5'),
+      };
+    });
+    const finFiltrados = this.state.finCat === 'todos' ? finFiles : finFiles.filter(f => f.cat === this.state.finCat);
+    const finMostrados = finFiltrados.slice(0, this.state.finVisiveis);
+    const finRestantes = finFiltrados.length - finMostrados.length;
+
+    const checklist = this.state.checklistData.map(c => ({
+      titulo: c.titulo,
+      toggle: () => this.setState(s => ({
+        checklistData: s.checklistData.map(x => (x.id === c.id ? { ...x, ok: !x.ok } : x)),
+      })),
+      rowStyle: 'display:flex;align-items:center;gap:10px;padding:11px 16px;border:none;border-right:1px solid #f1f4f7;border-bottom:1px solid #f1f4f7;background:' +
+        (c.ok ? '#fcfdfe' : '#fff') + ';cursor:pointer;font-family:inherit;text-align:left;flex:1 1 260px;min-width:0;transition:background .15s ease',
+      boxStyle: 'width:19px;height:19px;flex-shrink:0;display:flex;align-items:center;justify-content:center;border-radius:5px;transition:background .2s ease,border-color .2s ease;border:1.5px solid ' +
+        (c.ok ? '#1f9d61' : '#c3d2dd') + ';background:' + (c.ok ? '#1f9d61' : '#fff'),
+      iconStyle: 'font-size:11px;color:#fff;opacity:' + (c.ok ? '1' : '0'),
+      textStyle: 'font-size:13.5px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:' +
+        (c.ok ? '#6b8494' : '#243845') + (c.ok ? ';text-decoration:line-through;text-decoration-color:#c3d2dd' : ''),
+    }));
+    const ckOk = this.state.checklistData.filter(c => c.ok).length;
+    const ckTotal = this.state.checklistData.length;
+    const ckPct = ckTotal ? Math.round((ckOk / ckTotal) * 100) : 0;
+    const ckCompleto = ckOk === ckTotal;
+
+    const fileIcon = (ext) => {
+      const map = {
+        PDF: ['bi bi-filetype-pdf', '#c0392f'],
+        DOCX: ['bi bi-filetype-docx', '#2a5f8f'],
+        XLSX: ['bi bi-filetype-xlsx', '#1f7a4d'],
+        PNG: ['bi bi-filetype-png', '#6b4b8a'],
+      };
+      return map[ext] || ['bi bi-file-earmark', '#6b8494'];
+    };
+    const docFilesAll = [
+      ['6º_DOCUMENTO_RELAÇÃO_DOS_ASSOCIADOS_FUNDADORES_TOP_LIFE_2.docx', 'DOCX', 'Demais documentos', '10,8 KB', '13/07/2026'],
+      ['4º_DOCUMENTO_ESTATUTO_SOCIAL_TOP_LIFE_2 (1).docx', 'DOCX', 'Demais documentos', '31,0 KB', '13/07/2026'],
+      ['3º_DOCUMENTO_ATA_DE_FUNDAÇÃO_TOP_LIFE_2.docx', 'DOCX', 'Demais documentos', '28,4 KB', '13/07/2026'],
+      ['PROCURAÇÃO_GLEISSON_BRUNO.pdf', 'PDF', 'Procuração', '240 KB', '18/06/2026'],
+      ['NOTIFICAÇÃO_EXTRAJUDICIAL.pdf', 'PDF', 'Notificação', '1,2 MB', '20/06/2026'],
+      ['FOTOS_IMÓVEL_FACHADA.png', 'PNG', 'Provas', '2,1 MB', '24/06/2026'],
+      ['PLANILHA_CUSTAS_2026.xlsx', 'XLSX', 'Financeiro', '24 KB', '02/07/2026'],
+      ['CONTRATO_HONORÁRIOS_ASSINADO.pdf', 'PDF', 'Contrato', '412 KB', '19/06/2026'],
+      ['ATA_ASSEMBLEIA_06_2026.docx', 'DOCX', 'Demais documentos', '18,2 KB', '06/07/2026'],
+      ['CESSÃO_DE_DIREITO_047.pdf', 'PDF', 'Cessões', '188 KB', '11/07/2026'],
+    ].map(([nome, ext, categoria, tamanho, modificado]) => {
+      const [icon, cor] = fileIcon(ext);
+      return {
+        nome, categoria, tamanho, modificado, icon,
+        iconStyle: 'font-size:19px;flex-shrink:0;color:' + cor,
+        iconGradeStyle: 'font-size:34px;color:' + cor,
+      };
+    });
+    const docFiles = docFilesAll;
+    const docViews = [
+      ['lista', 'bi bi-list-ul', 'Ver em lista'],
+      ['grade', 'bi bi-grid-3x3-gap-fill', 'Ver em grade'],
+    ].map(([id, icon, title]) => {
+      const on = this.state.docView === id;
+      return {
+        icon, title,
+        select: () => this.setState({ docView: id }),
+        style: 'width:32px;height:32px;display:flex;align-items:center;justify-content:center;border:none;font-size:13px;cursor:pointer;transition:background .18s ease,color .18s ease;background:' +
+          (on ? accent : '#fff') + ';color:' + (on ? '#fff' : '#8496a3'),
+      };
+    });
+    const docFolders = [
+      ['01 - Documento de fundação da associação', '22 arquivos'],
+      ['Assembleia 22.03.2026', '2 arquivos'],
+      ['Atas de assembleia Top Life II 23/01/2026', '1 arquivo'],
+      ['Cessões de direito', '26 arquivos'],
+      ['Chapas', '90 arquivos'],
+      ['Modelos', '25 arquivos'],
+      ['Procurações', '26 arquivos'],
+      ['Atas de assembleia Top Life II', '1 arquivo'],
+      ['Ata de assembleia 06/2026', '13 arquivos'],
+    ].map(([nome, contagem]) => ({ nome, contagem }));
+
+    const registro = {
+      criadaEm: '14/08/2026 09:02',
+      criadaPor: 'Samuel Freitas',
+      modificadaEm: 'hoje, 26/08/2026 14:58',
+    };
+    const obsDetData = [
+      {
+        id: 1, author: 'Samuel Freitas', when: '14/08/2026, 09:20', tag: 'Atendimento',
+        paragrafos: [
+          'Data do atendimento: 14/08/2026',
+          'Assunto: análise de Ação de Obrigação de Não Fazer c/c Obrigação de Fazer e Pedido de Tutela de Urgência.',
+          'Foi realizado atendimento ao Sr. Gleisson Bruno Gabriel para análise da situação envolvendo a instalação e o funcionamento de usina de fabricação de artefatos de concreto nas proximidades de sua residência, localizada no Núcleo Rural Alexandre Gusmão, Ceilândia/DF.',
+          'Resumo da demanda',
+          'A pretensão consiste no ajuizamento de Ação de Obrigação de Não Fazer c/c Obrigação de Fazer, com pedido de tutela de urgência, visando à paralisação das atividades desenvolvidas pela empresa CONCRE DF Comércio de Materiais de Construção Ltda., em razão dos impactos causados à vizinhança e da alegada incompatibilidade da atividade industrial com o zoneamento da região.',
+          'Segundo relatado e documentado pelos moradores, a atividade empresarial vem causando emissão de poeira de cimento, ruídos excessivos, vibrações, intensa movimentação de veículos pesados, iluminação industrial durante o período noturno e outros transtornos que afetam diretamente o sossego, a saúde e a segurança da vizinhança.',
+          'Providências combinadas com o cliente: juntada das fotos e vídeos já produzidos, obtenção de certidão de zoneamento junto à administração regional e envio de notificação extrajudicial antes do ajuizamento.',
+        ],
+      },
+      {
+        id: 2, author: 'Jéssica Martins', when: 'hoje, 11:05', tag: null,
+        paragrafos: [
+          'Certidão de zoneamento obtida junto à administração regional de Ceilândia. O uso industrial não consta como permitido para o lote, o que reforça o pedido de tutela.',
+        ],
+      },
+    ];
+    const obsDet = obsDetData.map(o => {
+      const aberta = this.state.obsAbertas.includes(o.id);
+      const temMais = o.paragrafos.length > 3;
+      const mostrados = aberta || !temMais ? o.paragrafos : o.paragrafos.slice(0, 3);
+      return {
+        author: o.author, when: o.when, tag: o.tag, temMais,
+        initials: o.author.split(' ').filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join(''),
+        paragrafos: mostrados.map((texto, i) => ({
+          texto,
+          style: 'margin:' + (i === 0 ? '0' : '12px') + ' 0 0;font-size:14.5px;line-height:1.65;color:#243845;max-width:86ch;text-wrap:pretty',
+        })),
+        bodyStyle: 'padding-left:14px;border-left:3px solid #dbe9f2',
+        toggleLabel: aberta ? 'mostrar menos' : 'continuar lendo (' + (o.paragrafos.length - 3) + ' parágrafos)',
+        toggleIcon: aberta ? 'bi bi-chevron-up' : 'bi bi-chevron-down',
+        toggle: () => this.setState(s => ({
+          obsAbertas: s.obsAbertas.includes(o.id) ? s.obsAbertas.filter(x => x !== o.id) : s.obsAbertas.concat(o.id),
+        })),
+      };
+    });
+
+    const labels = { metas: 'Metas e prazos', processo: 'Processo', financeiro: 'Financeiro', documentos: 'Documentos' };
+    return {
+      tabs, toolbar, clients, deadlines, notes, docs, history, tags,
+      rootStyle: 'min-height:100vh;background:#f4f7f9;color:#12242f;font-family:' + fonte,
+      trackRef: this.setTrack,
+      indStyle: (() => {
+        const i = this.state.ind;
+        const base = 'position:absolute;z-index:0;border-radius:9px;background:rgba(255,255,255,.96);border:1px solid #d3dde5;' +
+          'box-shadow:0 1px 3px rgba(16,42,58,.12),0 6px 14px rgba(16,42,58,.06),inset 0 1px 0 rgba(255,255,255,.9);' +
+          'backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);pointer-events:none;' +
+          'transition:transform .62s cubic-bezier(.22,1.2,.28,1),width .62s cubic-bezier(.22,1.2,.28,1);will-change:transform,width;';
+        if (!i) return base + 'opacity:0;top:4px;left:0;width:0;height:0';
+        return base + 'top:' + i.top + 'px;left:0;height:' + i.height + 'px;width:' + i.width + 'px;transform:translate3d(' + i.left + 'px,0,0)';
+      })(),
+      panelAnim: 'display:grid;grid-template-columns:minmax(0,1fr) 356px;gap:18px;margin-top:18px;align-items:start;animation:' +
+        (this.state.switches % 2 ? 'tabInA' : 'tabInB') + ' .46s cubic-bezier(.32,.72,0,1) both',
+      emptyAnim: 'margin-top:18px;background:#fff;border:1px solid #dde5eb;border-radius:14px;padding:60px 24px;text-align:center;animation:' +
+        (this.state.switches % 2 ? 'tabInA' : 'tabInB') + ' .46s cubic-bezier(.32,.72,0,1) both',
+      prioLabel, prioStyle, prioOptions,
+      prioOpen: this.state.prioOpen,
+      togglePrio: () => this.setState(s => ({ prioOpen: !s.prioOpen, menuOpen: false })),
+      menuOpen: this.state.menuOpen,
+      toggleMenu: () => this.setState(s => ({ menuOpen: !s.menuOpen, prioOpen: false })),
+      isDados: this.state.tab === 'dados',
+      isMetas: this.state.tab === 'metas',
+      isProcesso: this.state.tab === 'processo',
+      isFinanceiro: this.state.tab === 'financeiro',
+      isDocumentos: this.state.tab === 'documentos',
+      isDetalhes: this.state.tab === 'detalhes',
+      isOutra: !['dados', 'metas', 'processo', 'financeiro', 'documentos', 'detalhes'].includes(this.state.tab),
+      detalhesAnim: 'margin-top:18px;animation:' + (this.state.switches % 2 ? 'tabInA' : 'tabInB') + ' .46s cubic-bezier(.32,.72,0,1) both',
+      obsDet,
+      obsDetTotal: obsDetData.length,
+      criadaEm: registro.criadaEm,
+      criadaPor: registro.criadaPor,
+      criadaPorIniciais: registro.criadaPor.split(' ').filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join(''),
+      modificadaEm: registro.modificadaEm,
+      documentosAnim: 'margin-top:18px;animation:' + (this.state.switches % 2 ? 'tabInA' : 'tabInB') + ' .46s cubic-bezier(.32,.72,0,1) both',
+      checklist, docFolders, docFiles, docViews,
+      checklistTexto: ckOk + '/' + ckTotal + ' itens',
+      checklistBadge: 'font-variant-numeric:tabular-nums;font-size:11px;font-weight:600;padding:2px 9px;border-radius:999px;' +
+        (ckCompleto ? 'color:#186c47;background:#e2f4ea;border:1px solid #bde3cd' : 'color:#8a5a12;background:#fdf1dc;border:1px solid #f0dcb4'),
+      checklistBarra: 'height:100%;border-radius:999px;transition:width .6s cubic-bezier(.32,.72,0,1);background:' +
+        (ckCompleto ? '#1f9d61' : '#c8952a') + ';width:' + ckPct + '%',
+      docListaOn: this.state.docView === 'lista',
+      docGradeOn: this.state.docView === 'grade',
+      docFilesTotal: docFilesAll.length,
+      financeiroAnim: 'margin-top:18px;animation:' + (this.state.switches % 2 ? 'tabInA' : 'tabInB') + ' .46s cubic-bezier(.32,.72,0,1) both',
+      arquivosFin: finMostrados,
+      finCats,
+      finTotal: finFiles.length,
+      finTemMais: finRestantes > 0,
+      finVerMaisLabel: 'Mostrar mais ' + Math.min(5, finRestantes),
+      finContagem: finMostrados.length + ' de ' + finFiltrados.length + ' arquivos',
+      finVerMais: () => this.setState(s => ({ finVisiveis: s.finVisiveis + 5 })),
+      obsFin: [
+        { author: 'Samuel Freitas', initials: 'SF', when: '24/06/2026, 10:12', body: 'Honorários combinados em 20% sobre o proveito econômico, com entrada de R$ 1.500 já recebida.' },
+        { author: 'Mariana Costa', initials: 'MC', when: '18/06/2026, 16:40', body: 'Cliente pediu para emitir o recibo no CPF do Gleisson, não no da esposa.' },
+      ],
+      reduzirOn: this.state.reduzir,
+      toggleReduzir: () => this.setState(s => ({ reduzir: !s.reduzir })),
+      reduzirStyle: 'display:flex;align-items:center;gap:9px;flex-shrink:0;font-family:inherit;font-size:12.5px;font-weight:500;color:#455c6b;background:transparent;border:none;padding:0;cursor:pointer',
+      reduzirTrack: red.track,
+      reduzirKnob: red.knob,
+      proBonoTrack: pb.track,
+      proBonoKnob: pb.knob,
+      toggleProBono: () => this.setState(s => ({ proBono: !s.proBono })),
+      proBonoNota: this.state.proBono
+        ? 'Marcada como pró-bono: a pasta sai dos relatórios de honorários.'
+        : 'Sem cobrança de honorários. Marque quando o escritório atender sem custo.',
+      contratoLabel: contratoOk ? 'Assinado' : 'Pendente',
+      contratoIcon: contratoOk ? 'bi bi-patch-check-fill' : 'bi bi-hourglass-split',
+      contratoChip: 'display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;padding:4px 10px;border-radius:999px;' +
+        (contratoOk ? 'color:#186c47;background:#e2f4ea;border:1px solid #bde3cd' : 'color:#a3232b;background:#fdeceb;border:1px solid #f2c9c6'),
+      contratoAcao: contratoOk ? 'marcar como pendente' : 'marcar como assinado',
+      contratoNota: contratoOk
+        ? 'Contrato assinado. O arquivo assinado fica na lista ao lado.'
+        : 'Enquanto estiver pendente, a pasta aparece na lista de contratos a assinar.',
+      toggleContrato: () => this.setState(s => ({ contrato: s.contrato === 'assinado' ? 'pendente' : 'assinado' })),
+      processos,
+      temProcesso: !!principal,
+      semProcesso: !principal,
+      processoNumero: principal ? principal.numero : '',
+      processoSub: principal ? principal.classe + ' · ' + principal.tribunal : '',
+      processoAnim: 'margin-top:18px;animation:' + (this.state.switches % 2 ? 'tabInA' : 'tabInB') + ' .46s cubic-bezier(.32,.72,0,1) both',
+      metaFilters, metas, atencao, pessoasMetas,
+      metasVazio: metas.length === 0,
+      metasAnim: 'margin-top:18px;animation:' + (this.state.switches % 2 ? 'tabInA' : 'tabInB') + ' .46s cubic-bezier(.32,.72,0,1) both',
+      progressoTexto: counts.concluidas + '/' + counts.todas,
+      progressoBarra: 'height:100%;border-radius:999px;background:#1f9d61;transition:width .6s cubic-bezier(.32,.72,0,1);width:' + pct + '%',
+      resumoConcluidas: counts.concluidas + ' concluídas',
+      resumoPendentes: (counts.abertas - counts.atrasadas) + ' pendentes',
+      resumoAtrasadas: counts.atrasadas + ' atrasadas',
+      outraTitulo: labels[this.state.tab] || '',
+      voltar: () => this.setState({ tab: 'dados' }),
+      histOpen: this.state.histOpen,
+      toggleHist: () => this.setState(s => ({ histOpen: !s.histOpen })),
+    };
+  }
+}
+</script>
+</body>
+</html>

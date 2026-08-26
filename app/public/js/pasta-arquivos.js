@@ -685,12 +685,19 @@
     if (docTabBtn) {
         docTabBtn.addEventListener('shown.bs.tab', function () { sessionStorage.setItem('fmTab_' + pastaId, '1'); });
         /* O container das abas é resolvido a partir do PRÓPRIO botão, não por id fixo: este script é
-           COMPARTILHADO e o `<ul>` tem id diferente em cada página (`#pastaTabs` em pasta/show,
+           COMPARTILHADO e o container tem id diferente em cada página (`#pastaTabs` em pasta/show,
            `#objetoTabs` no objeto de cobrança). Com `#pastaTabs` fixo o clear só achava o alvo em Pastas;
            na Cobrança a flag entrava e NUNCA saía, e a aba Documentos grudava a cada reload até fechar o
-           navegador (spec §2.1). O `closest` pode não achar o container — sem ele, não há irmão para
-           escutar e o mecanismo simplesmente não registra nada. */
-        const abas = docTabBtn.closest('.nav-tabs');
+           navegador (spec §2.1).
+
+           O gancho é `[role="tablist"]`, não `.nav-tabs`: o redesenho da pasta trocou o `<ul class=
+           "nav-tabs">` por um controle segmentado (`.ps-abas`), e a classe do Bootstrap deixou de
+           existir naquela página. `role="tablist"` é o que os DOIS containers têm — e é o que define
+           semanticamente um container de abas, então não volta a quebrar no próximo redesenho.
+
+           O `closest` pode não achar o container — sem ele, não há irmão para escutar e o mecanismo
+           simplesmente não registra nada. */
+        const abas = docTabBtn.closest('[role="tablist"]');
         if (abas) {
             abas.querySelectorAll('[data-bs-toggle="tab"]').forEach(function (b) {
                 if (b !== docTabBtn) b.addEventListener('shown.bs.tab', function () { sessionStorage.removeItem('fmTab_' + pastaId); });

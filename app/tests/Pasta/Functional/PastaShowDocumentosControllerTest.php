@@ -126,8 +126,8 @@ final class PastaShowDocumentosControllerTest extends JusPrimeWebTestCase
         self::assertSame($secaoId, $linhaSecao->attr('data-secao'));
     }
 
-    #[TestDox('Cobrança ajuste 10 B2: o botão Documentos vive dentro de um .nav-tabs com irmãos — contrato do clear da flag')]
-    public function testBotaoDocumentosViveDentroDeNavTabsComIrmaos(): void
+    #[TestDox('Cobrança ajuste 10 B2: o botão Documentos vive dentro de um [role=tablist] com irmãos — contrato do clear da flag')]
+    public function testBotaoDocumentosViveDentroDeTablistComIrmaos(): void
     {
         $client          = static::createClient();
         [$user, $tenant] = $this->criarUsuarioAdmin();
@@ -138,10 +138,19 @@ final class PastaShowDocumentosControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseIsSuccessful();
         // O `pasta-arquivos.js` é COMPARTILHADO entre esta página e a do objeto de Cobrança. O clear da
-        // flag `fmTab_<id>` deixou de procurar `#pastaTabs` fixo e passou a subir do próprio botão
-        // (`closest('.nav-tabs')`), porque lá o container é `#objetoTabs`. Este teste trava o contrato do
-        // lado de Pastas: aqui o clear JÁ funcionava e não pode regredir (spec §2.1).
-        self::assertCount(1, $crawler->filter('ul.nav-tabs #documentos-tab'), 'o botão tem de estar dentro do .nav-tabs');
+        // flag `fmTab_<id>` deixou de procurar `#pastaTabs` fixo e passou a subir do próprio botão,
+        // porque lá o container é `#objetoTabs`. Este teste trava o contrato do lado de Pastas: aqui o
+        // clear JÁ funcionava e não pode regredir (spec §2.1).
+        //
+        // O gancho é `[role="tablist"]` e não `.nav-tabs`: o redesenho de 26/08 trocou o `<ul
+        // class="nav-tabs">` desta tela pelo controle segmentado `.ps-abas`, e a classe do Bootstrap
+        // sumiu daqui. Com o seletor antigo o clear parava de achar o container — a flag entraria e
+        // nunca sairia, e a aba Documentos grudaria a cada reload. Foi ESTE teste que pegou.
+        self::assertCount(
+            1,
+            $crawler->filter('[role="tablist"] #documentos-tab'),
+            'o botão tem de estar dentro de um container com role="tablist"'
+        );
         self::assertGreaterThan(
             1,
             $crawler->filter('#pastaTabs [data-bs-toggle="tab"]')->count(),

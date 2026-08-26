@@ -2,175 +2,40 @@
 
 {% block title %}Pasta {{ pasta.nup }}{% endblock %}
 
+{% block body_class %}ps-body{% endblock %}
+
 {% block stylesheets %}
 {{ parent() }}
 <link rel="stylesheet" href="/css/pasta-arquivos.css">
+{# Redesenho da tela de pasta — desenho aprovado em docs/design/pasta-show/. #}
+<link rel="stylesheet" href="/css/pasta-show.css">
 {% endblock %}
 
 {% block body %}
-{# Content Header #}
-<div class="content-header">
-    <div class="container-fluid">
-        <div class="row mb-2">
-            <div class="col-sm-6">
-                <h1 class="m-0">
-                    <i class="bi bi-folder2-open me-2"></i>{{ pasta.nup }}
-                    {# Copiar seguiu o NUP: era a unica funcao que a aba Dados tinha e o <h1> nao. #}
-                    <i class="bi bi-copy text-primary copy-btn copy-btn--titulo" role="button" data-copy="{{ pasta.nup }}" title="Copiar"></i>
-                </h1>
-            </div>
-            <div class="col-sm-6">
-                <ol class="breadcrumb float-sm-end">
-                    <li class="breadcrumb-item"><a href="{{ path('homepage') }}">Home</a></li>
-                    <li class="breadcrumb-item"><a href="{{ path('expediente_index') }}">Pastas</a></li>
-                    <li class="breadcrumb-item active">Detalhes</li>
-                </ol>
-            </div>
-        </div>
-    </div>
-</div>
+{# ============================================================================
+   Redesenho aprovado: docs/design/pasta-show/ ("Pasta 1A.dc.html").
 
-{# Main Content #}
-<section class="content">
-    <div class="container-fluid">
-        <div class="card card-primary card-outline">
-            <div class="card-header d-flex align-items-center">
-                <h3 class="card-title mb-0"><i class="bi bi-folder me-1"></i> Pasta</h3>
+   O que mudou de ESTRUTURA nesta tela:
+     · o cabeçalho virou cartão próprio (`pasta/_cabecalho.html.twig`), com as
+       ações rotuladas, prioridade, etiquetas e a faixa de dados do caso;
+     · as abas viraram controle segmentado, e cada painel é um cartão solto —
+       não mais o miolo de um `.card-body` único;
+     · o histórico automático do sistema saiu da página e virou drawer;
+     · o rodapé sumiu: "Voltar às Pastas" virou o botão "Pastas" da linha 1 e
+       "Excluir Pasta" foi para o menu ⋮.
 
-                {# ── Barra de ações minimalistas ── #}
-                <div class="pasta-acoes-bar d-flex align-items-center" style="margin-left: 3rem;">
-                    <button type="button" class="pasta-acao-btn" title="Editar pasta"
-                            data-bs-toggle="modal" data-bs-target="#modalEditarPasta">
-                        <i class="bi bi-pencil"></i>
-                    </button>
-                    <button type="button"
-                            id="btn-alternar-status"
-                            class="pasta-acao-btn {{ pasta.situacao == 'arquivado' ? 'pasta-acao-btn--arquivado' : '' }}"
-                            title="{{ pasta.situacao == 'ativo' ? 'Arquivar pasta' : 'Reativar pasta' }}"
-                            data-pasta-id="{{ pasta.id }}"
-                            data-situacao-atual="{{ pasta.situacao }}"
-                            data-csrf="{{ csrf_token('pasta_alternar_situacao_' ~ pasta.id) }}"
-                            data-url="{{ path('pasta_alternar_situacao', {id: pasta.id}) }}">
-                        <i class="bi {{ pasta.situacao == 'ativo' ? 'bi-archive' : 'bi-archive-fill' }}"></i>
-                        <span class="pasta-acao-label">{{ pasta.situacao == 'ativo' ? 'Arquivar' : 'Ativar' }}</span>
-                    </button>
-                    <span class="pasta-acao-sep"></span>
-                    <button type="button" class="pasta-acao-btn" title="Adiar">
-                        <i class="bi bi-clock"></i>
-                    </button>
-                    <span class="pasta-acao-sep"></span>
-                    <form method="post" action="{{ path('pasta_delete', {id: pasta.id}) }}"
-                          onsubmit="return confirm('Tem certeza que deseja excluir a pasta {{ pasta.nup|e('js') }}?');"
-                          class="d-contents">
-                        <input type="hidden" name="_token" value="{{ csrf_token('delete_pasta_' ~ pasta.id) }}">
-                        <button type="submit" class="pasta-acao-btn pasta-acao-btn--danger" title="Excluir pasta">
-                            <i class="bi bi-trash3"></i>
-                        </button>
-                    </form>
-                    <span class="pasta-acao-sep"></span>
-                    <button type="button" class="pasta-acao-btn js-mover-para" title="Mover para marcador"
-                            data-pasta-id="{{ pasta.id }}"
-                            data-pasta-nome="{{ pasta.nup }}"
-                            data-marcadores-ativos="{{ pasta.marcadores|map(m => m.id)|join(',') }}"
-                            data-csrf-token="{{ csrf_token('pasta_marcadores_' ~ pasta.id) }}">
-                        <i class="bi bi-tag"></i>
-                    </button>
-                    <div class="dropdown" style="margin-right:4px;">
-                        <button type="button"
-                                class="btn btn-sm badge {{ pasta.prioridadeBadgeClass }} dropdown-toggle pasta-prioridade-btn"
-                                style="font-size:.78rem;font-weight:500;"
-                                data-bs-toggle="dropdown"
-                                aria-expanded="false"
-                                data-pasta-id="{{ pasta.id }}"
-                                data-csrf="{{ csrf_token('pasta_prioridade_' ~ pasta.id) }}"
-                                data-url="{{ path('pasta_alterar_prioridade', {id: pasta.id}) }}">
-                            <i class="bi bi-flag-fill me-1"></i>{{ pasta.prioridadeLabel }}
-                        </button>
-                        <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="font-size:.85rem;min-width:150px;">
-                            <li><button class="dropdown-item prioridade-opt" data-valor="normal" type="button">
-                                <span class="badge text-bg-secondary me-2" style="font-size:.6rem;">●</span>Normal
-                            </button></li>
-                            <li><button class="dropdown-item prioridade-opt" data-valor="prioridade" type="button">
-                                <span class="badge text-bg-warning me-2" style="font-size:.6rem;">●</span>Prioridade
-                            </button></li>
-                            <li><button class="dropdown-item prioridade-opt" data-valor="urgente" type="button">
-                                <span class="badge text-bg-danger me-2" style="font-size:.6rem;">●</span>Urgente
-                            </button></li>
-                        </ul>
-                    </div>
-                    <button type="button" class="pasta-acao-btn" title="Mais ações"
-                            data-bs-toggle="dropdown" aria-expanded="false">
-                        <i class="bi bi-three-dots-vertical"></i>
-                    </button>
-                    <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="font-size:.85rem;min-width:170px;">
-                        <li>
-                            <a class="dropdown-item" href="#">
-                                <i class="bi bi-printer me-2 text-muted"></i>Imprimir
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="#">
-                                <i class="bi bi-share me-2 text-muted"></i>Compartilhar
-                            </a>
-                        </li>
-                    </ul>
-                </div>
+   O chrome do topo (barra teal + EXPEDIENTE/DEMANDAS/PROCESSOS) NÃO foi tocado:
+   pedido explícito do dono.
+   ============================================================================ #}
+<div class="ps-page">
 
-                <div class="card-tools ms-auto">
-                    <span class="badge {{ pasta.situacao == 'ativo' ? 'text-bg-success' : 'text-bg-secondary' }}">
-                        {{ pasta.situacao == 'ativo' ? 'Ativo' : 'Arquivado' }}
-                    </span>
-                </div>
-            </div>
+    {{ include('pasta/_cabecalho.html.twig', {
+        pasta: pasta,
+        fotosResponsaveis: fotosResponsaveis|default({}),
+    }) }}
+
 
             <style>
-            .pasta-acoes-bar {
-                gap: 2px;
-                position: relative;
-            }
-            .pasta-acao-btn {
-                background: none;
-                border: none;
-                padding: 6px 8px;
-                color: #7bafd4;
-                font-size: 1rem;
-                border-radius: 50%;
-                cursor: pointer;
-                line-height: 1;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                transition: background .15s, color .15s;
-            }
-            .pasta-acao-btn:hover {
-                background: rgba(123,175,212,.15);
-                color: #4a90c4;
-            }
-            .pasta-acao-btn--danger:hover {
-                background: rgba(220,53,69,.10);
-                color: #dc3545;
-            }
-            .pasta-acao-btn--arquivado {
-                color: #fd7e14;
-            }
-            .pasta-acao-btn--arquivado:hover {
-                background: rgba(253,126,20,.12);
-                color: #e06200;
-            }
-            .pasta-acao-label {
-                font-size: .75rem;
-                margin-left: 4px;
-                font-weight: 500;
-                letter-spacing: .01em;
-            }
-            .pasta-acao-sep {
-                width: 1px;
-                height: 18px;
-                background: var(--bs-border-color);
-                margin: 0 4px;
-                flex-shrink: 0;
-            }
-            .d-contents { display: contents; }
             .docs-list-scroll {
                 max-height: 320px;
                 overflow-y: auto;
@@ -313,177 +178,36 @@
                 }
             }
             </style>
-            <div class="card-body">
-                <div class="row">
-                    {# Coluna única — documentos viraram a aba "Documentos" (largura total) #}
-                    <div class="col-12">
-                        {% set totalArquivos = pasta.documentos|length %}
-                        {# Tabs #}
-                        <ul class="nav nav-tabs" id="pastaTabs" role="tablist">
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link active" id="dados-tab" data-bs-toggle="tab" data-bs-target="#dados" type="button" role="tab" aria-controls="dados" aria-selected="true">
-                                    <i class="bi bi-folder me-1"></i> Dados da Pasta
-                                </button>
-                            </li>
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="tarefas-tab" data-bs-toggle="tab" data-bs-target="#tarefas" type="button" role="tab" aria-controls="tarefas" aria-selected="false">
-                                    <i class="bi bi-check2-square me-1"></i> Metas
-                                    {% if pasta.tarefas|length > 0 %}
-                                        <span class="badge text-bg-secondary ms-1">{{ pasta.tarefas|length }}</span>
-                                    {% endif %}
-                                </button>
-                            </li>
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="processo-tab" data-bs-toggle="tab" data-bs-target="#processo" type="button" role="tab" aria-controls="processo" aria-selected="false">
-                                    <i class="bi bi-briefcase me-1"></i> Processo
-                                </button>
-                            </li>
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="financeiro-tab" data-bs-toggle="tab" data-bs-target="#financeiro" type="button" role="tab" aria-controls="financeiro" aria-selected="false">
-                                    <i class="bi bi-cash-coin me-1"></i> Financeiro
-                                </button>
-                            </li>
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="detalhes-tab" data-bs-toggle="tab" data-bs-target="#detalhes" type="button" role="tab" aria-controls="detalhes" aria-selected="false">
-                                    <i class="bi bi-info-circle me-1"></i> Detalhes
-                                </button>
-                            </li>
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="documentos-tab" data-bs-toggle="tab" data-bs-target="#documentos" type="button" role="tab" aria-controls="documentos" aria-selected="false">
-                                    <i class="bi bi-folder2-open me-1"></i> Documentos
-                                    {% if totalArquivos > 0 %}<span class="badge text-bg-secondary ms-1">{{ totalArquivos }}</span>{% endif %}
-                                </button>
-                            </li>
-                        </ul>
+    {# Os painéis das abas. O <ul class="nav-tabs"> saiu daqui: virou o controle
+       segmentado da linha 3 do cabeçalho. Os `id` dos painéis não mudaram —
+       são o alvo dos `data-bs-target` e do bootstrap.Tab do pasta-arquivos.js. #}
+    <div class="tab-content ps-paineis" id="pastaTabsContent">
+        {# ── Aba 1: Dados da Pasta ──────────────────────────────────────────
+           Duas colunas: as anotações do caso no centro (a zona quente) e o
+           trilho à direita com Próximos prazos, Clientes, Financeiro e
+           Documentos — o que responde "em que pé está o caso" sem clicar aba
+           por aba.
 
-                        <div class="tab-content mt-3" id="pastaTabsContent">
-                            {# Tab: Dados da Pasta #}
-                            <div class="tab-pane fade show active" id="dados" role="tabpanel" aria-labelledby="dados-tab">
-                                {# ── Arranjo aprovado pelo dono em 2026-08-26 (proposta B ajustada) ──
-                                   Esquerda: os dados da pasta. Direita: os clientes.
+           O que saiu daqui: o histórico automático do sistema (foi para o
+           drawer) e a faixa de processo/ação/responsável (subiu para o
+           cabeçalho, que é comum a todas as abas). #}
+        <div class="tab-pane fade show active" id="dados" role="tabpanel" aria-labelledby="dados-tab">
+            <div class="ps-grade">
+                {{ include('pasta/_dados_anotacoes.html.twig', {
+                    pasta: pasta,
+                    anotacoes: anotacoes,
+                }) }}
 
-                                   Grid CSS em vez de .row/.col do Bootstrap porque a proporcao
-                                   aprovada e 1 : 1,15 — nome de PJ e longo e as tres acoes ocupam
-                                   largura fixa —, e nao existe col-* que de essa razao.
+                <div class="ps-trilho">
+                    {{ include('pasta/_dados_trilho.html.twig', {
+                        pasta: pasta,
+                        proximosPrazos: proximosPrazos,
+                        financeiro: financeiro,
+                    }) }}
+                </div>
+            </div>
+        </div>
 
-                                   SEM titulo de secao: "O processo"/"As pessoas" foram recusados, e
-                                   "Informacoes Gerais" saiu junto porque a aba ja se chama "Dados da
-                                   Pasta". A regua entre as colunas faz a separacao que os titulos
-                                   faziam. #}
-                                <div class="pasta-dados-arranjo">
-
-                                    <div class="pasta-dados-col--esq">
-                                        <div class="pasta-campo" data-campo="processo">
-                                            <p class="pasta-rotulo">Processo vinculado</p>
-                                            <p class="pasta-valor">
-                                                {% if pasta.processoPrincipal %}
-                                                    <a href="{{ path('processo_show', {id: pasta.processoPrincipal.id}) }}">{{ pasta.processoPrincipal.numeroProcesso }}</a>
-                                                    <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ pasta.processoPrincipal.numeroProcesso }}" title="Copiar"></i>
-                                                    {% if pasta.pastaProcessos|length > 1 %}
-                                                        <span class="badge bg-secondary ms-1" title="Outros processos vinculados">+{{ pasta.pastaProcessos|length - 1 }}</span>
-                                                    {% endif %}
-                                                {% else %}
-                                                    <span class="pasta-valor--vazio">—</span>
-                                                {% endif %}
-                                            </p>
-                                        </div>
-
-                                        <div class="pasta-campo" data-campo="acao">
-                                            <p class="pasta-rotulo">Ação</p>
-                                            <p class="pasta-valor">
-                                                {% if pasta.nomeAcao %}
-                                                    {{ pasta.nomeAcao }}
-                                                {% elseif pasta.processoPrincipal %}
-                                                    {{ pasta.processoPrincipal.classeProcessual ?: pasta.processoPrincipal.assuntoProcessual ?: pasta.processoPrincipal.numeroProcesso }}
-                                                {% else %}
-                                                    <span class="pasta-valor--vazio">—</span>
-                                                {% endif %}
-                                            </p>
-                                        </div>
-
-                                        <div class="pasta-campo" data-campo="responsavel">
-                                            <p class="pasta-rotulo">Responsável</p>
-                                            {{ include('pasta/_resp_chip.html.twig', {
-                                                pasta: pasta,
-                                                fotos: fotosResponsaveis|default({}),
-                                            }) }}
-                                        </div>
-                                    </div>
-
-                                    <div class="pasta-dados-col--dir">
-                                        {# O botao de vincular subiu para ca quando o cabecalho
-                                           "As pessoas" deixou de existir. #}
-                                        <div class="pasta-clientes-cab">
-                                            <p class="pasta-rotulo">
-                                                Clientes
-                                                {% if pasta.clientes|length > 0 %}
-                                                    <span class="pasta-contagem">{{ pasta.clientes|length }}</span>
-                                                {% endif %}
-                                            </p>
-                                            <button type="button"
-                                                    class="pasta-btn-vincular"
-                                                    data-bs-toggle="modal"
-                                                    data-bs-target="#modalAdicionarCliente">
-                                                <i class="bi bi-plus-lg"></i> Vincular
-                                            </button>
-                                        </div>
-
-                                        <div id="clientesList">
-{% set clientePrincipal = pasta.clientePrincipal %}
-                        {% if pasta.clientes|length > 0 %}
-                            {% set outros = pasta.clientes|filter(c => not clientePrincipal or c.id != clientePrincipal.id) %}
-
-                            {# ── Principal: FORA do colapso, para nunca sumir ── #}
-                            {% if clientePrincipal %}
-                                <div class="cliente-principal">
-                                    {{ include('pasta/_cliente_linha.html.twig', {
-                                        pasta: pasta, cliente: clientePrincipal, ehPrincipal: true,
-                                    }) }}
-                                </div>
-                            {% endif %}
-
-                            {% if outros|length > 0 %}
-                                {# Botao so existe quando ha o que esconder. #}
-                                <button type="button"
-                                        class="btn btn-link btn-sm p-0 clientes-outros-toggle"
-                                        data-bs-toggle="collapse"
-                                        data-bs-target="#clientesOutros"
-                                        aria-expanded="false"
-                                        aria-controls="clientesOutros">
-                                    <i class="bi bi-chevron-right clientes-outros-caret me-1"></i>
-                                    <span class="clientes-outros-label">mostrar outros {{ outros|length }}</span>
-                                </button>
-
-                                <div class="collapse" id="clientesOutros">
-                                    {# A rolagem mora AQUI: a lista pode crescer, o cartao nao. #}
-                                    <div class="clientes-outros">
-                                        {% for cliente in outros %}
-                                            {{ include('pasta/_cliente_linha.html.twig', {
-                                                pasta: pasta, cliente: cliente, ehPrincipal: false,
-                                            }) }}
-                                        {% endfor %}
-                                    </div>
-                                </div>
-                            {% endif %}
-                        {% elseif pasta.nomeCliente %}
-                            {# Texto solto, sem cadastro: NAO ha documento para mostrar.
-                               Imprimir um rotulo "CPF" vazio aqui seria inventar dado. #}
-                            <div id="clientesPlaceholder" class="cliente-nao-vinculado d-flex align-items-center gap-2 py-2">
-                                <i class="bi bi-person-circle text-muted"></i>
-                                <span class="flex-grow-1">{{ pasta.nomeCliente }}</span>
-                                <span class="badge text-bg-secondary" style="font-size:.65rem;">nao vinculado</span>
-                            </div>
-                        {% else %}
-                            <div id="clientesPlaceholder" class="text-muted small mb-0"><i class="bi bi-info-circle me-1"></i> Nenhum cliente vinculado.</div>
-                        {% endif %}
-                                        </div>
-                                    </div>
-
-                                </div>
-
-                                {% include 'pasta/_timeline.html.twig' with {timelineItems: timelineItems, pasta: pasta} only %}
-
-                            </div>
 
                             {# Tab: Processo #}
                             <div class="tab-pane fade" id="processo" role="tabpanel" aria-labelledby="processo-tab">
@@ -898,7 +622,6 @@
                             </div>{# /tab-pane #documentos #}
 
                         </div>
-                    </div>
 
                     {# Coluna antiga de documentos — movida para a aba "Documentos". Desativada (mantida para referência; remover no cleanup). #}
                     {% if false %}
@@ -1224,29 +947,14 @@
 
                     </div>
                     {% endif %}
-                </div>
-            </div>
-            <div class="card-footer">
-                <div class="d-flex justify-content-between">
-                    <a href="{{ path('expediente_index') }}" class="btn btn-secondary">
-                        <i class="bi bi-arrow-left me-1"></i> Voltar às Pastas
-                    </a>
-                    <form method="post" action="{{ path('pasta_delete', {id: pasta.id}) }}"
-                          class="d-flex"
-                          onsubmit="return confirm('Tem certeza que deseja excluir esta pasta? Esta ação não pode ser desfeita.');">
-                        <input type="hidden" name="_token" value="{{ csrf_token('delete_pasta_' ~ pasta.id) }}">
-                        <button type="submit"
-                                class="btn btn-outline-danger btn-sm"
-                                title="Excluir pasta"
-                                aria-label="Excluir pasta">
-                            <i class="bi bi-trash me-1"></i> Excluir Pasta
-                        </button>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
-</section>
+</div>{# /.ps-page #}
+
+{# O histórico do sistema virou painel lateral: fora do fluxo da página, aberto
+   pelo botão "Histórico" do cabeçalho. Fica FORA de .ps-page porque é fixo e
+   cobre a tela inteira, overlay incluído. #}
+{{ include('pasta/_historico_drawer.html.twig', {
+    eventosHistorico: eventosHistorico,
+}) }}
 
 {# Modal: Adicionar Cliente #}
 <div class="modal fade" id="modalAdicionarCliente" tabindex="-1" aria-labelledby="modalAdicionarClienteLabel" aria-hidden="true">
@@ -3315,12 +3023,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function marcarEditado(item) {
         if (item.querySelector('.pasta-msg-editado')) { return; }
-        const btn = item.querySelector('.btn-editar-msg-pasta');
-        if (!btn) { return; }
+        /* Antes da caixa de ações, não DENTRO dela: as ações só aparecem no
+           hover, e o "(editado)" precisa ficar visível o tempo todo. */
+        const acoes = item.querySelector('.ps-anotacao-acoes');
+        const topo  = item.querySelector('.ps-anotacao-topo');
+        if (!topo) { return; }
         const marca = document.createElement('small');
-        marca.className = 'text-muted fst-italic pasta-msg-editado';
+        marca.className = 'ps-anotacao-data fst-italic pasta-msg-editado';
         marca.textContent = '(editado)';
-        btn.parentNode.insertBefore(marca, btn);
+        topo.insertBefore(marca, acoes);
     }
 
     if (!form) { return; }
@@ -3374,8 +3085,9 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     function inserirMensagem(data) {
-        const dt   = new Date(data.criadaEmTs);
-        const hora = dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        const dt       = new Date(data.criadaEmTs);
+        const dataHora = dt.toLocaleDateString('pt-BR')
+            + ', ' + dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
         // `conteudoHtml` vem SANITIZADO do servidor: entra como HTML (e o que mostra a formatacao).
         const corpo = '<span class="editor-rico-conteudo"><span class="ql-editor">'
             + (data.conteudoHtml ?? '') + '</span></span>';
@@ -3383,48 +3095,50 @@ document.addEventListener('DOMContentLoaded', function () {
         const urlEditar  = urlEditarTpl.replace('__ID__', data.id);
         const urlExcluir = urlExcluirTpl.replace('__ID__', data.id);
 
+        /* Tem de sair a MESMA estrutura que o _dados_anotacoes.html.twig gera no
+           servidor: se divergirem, a anotação recém-enviada aparece com outra
+           cara — defeito que só se vê depois de enviar, nunca ao abrir a tela. */
         const html = `
-        <div class="d-flex gap-2 mb-2 timeline-entry timeline-entry--mensagem timeline-entry--new" id="pasta-msg-${data.id}">
-            <div class="flex-shrink-0 pt-1">
-                <span class="badge rounded-circle timeline-icon text-bg-info">
-                    <i class="bi bi-chat-left-text"></i>
-                </span>
-            </div>
-            <div class="flex-grow-1 timeline-item-body timeline-item-body--mensagem" style="min-width:0">
-                <div class="d-flex justify-content-between align-items-start gap-1 flex-wrap">
-                    <span class="fw-semibold small lh-sm">Mensagem</span>
-                    <span class="d-flex align-items-center gap-1 flex-shrink-0">
-                        <small class="text-muted lh-sm">
-                            <i class="bi bi-clock me-1"></i>${hora}
-                        </small>
-                        <button type="button" class="btn btn-link btn-sm p-0 text-secondary btn-editar-msg-pasta"
-                                title="Editar mensagem"
+        <article class="ps-anotacao" id="pasta-msg-${data.id}">
+            <span class="ps-avatar ps-avatar--30">${esc(iniciaisDe(data.autorNome))}</span>
+            <div class="ps-anotacao-corpo">
+                <div class="ps-anotacao-topo">
+                    <span class="ps-anotacao-autor">${esc(data.autorNome ?? 'Autor desconhecido')}</span>
+                    <span class="ps-anotacao-data">${dataHora}</span>
+                    <span class="ps-anotacao-acoes">
+                        <button type="button" class="ps-anotacao-acao btn-editar-msg-pasta"
+                                title="Editar anotação"
                                 data-msg-id="${data.id}"
                                 data-conteudo="${esc(data.conteudo)}"
                                 data-csrf="${esc(data.csrfEditar ?? '')}"
                                 data-url="${esc(urlEditar)}">
                             <i class="bi bi-pencil"></i>
                         </button>
-                        <button type="button" class="btn btn-link btn-sm p-0 text-danger btn-excluir-msg-pasta"
-                                title="Excluir mensagem"
+                        <button type="button" class="ps-anotacao-acao ps-anotacao-acao--perigo btn-excluir-msg-pasta"
+                                title="Excluir anotação"
                                 data-msg-id="${data.id}"
                                 data-csrf="${esc(data.csrfExcluir ?? '')}"
                                 data-url="${esc(urlExcluir)}">
-                            <i class="bi bi-trash"></i>
+                            <i class="bi bi-trash3"></i>
                         </button>
                     </span>
                 </div>
-                <div class="lh-sm">
-                    <small class="text-muted">
-                        <i class="bi bi-person me-1"></i>${esc(data.autorNome ?? '')}
-                    </small>
-                </div>
-                <div class="mt-1 small text-body pasta-msg-conteudo">${corpo}</div>
+                <div class="ps-anotacao-texto pasta-msg-conteudo">${corpo}</div>
             </div>
-        </div>`;
+        </article>`;
 
         list.insertAdjacentHTML('afterbegin', html);
         list.scrollTop = 0;
+    }
+
+    /* Iniciais do avatar: mesma regra do Twig (primeira letra do primeiro e do
+       último nome). */
+    function iniciaisDe(nome) {
+        const partes = String(nome || '').trim().split(/\s+/).filter(Boolean);
+        if (partes.length === 0) { return '?'; }
+        const primeira = partes[0][0];
+        const ultima   = partes.length > 1 ? partes[partes.length - 1][0] : '';
+        return (primeira + ultima).toUpperCase();
     }
 
     function mostrarErro(msg) {
@@ -3920,7 +3634,9 @@ document.addEventListener('DOMContentLoaded', function () {
     var btn = document.getElementById('btn-alternar-status');
     if (!btn) return;
 
-    var badgeEl = document.querySelector('.card-tools .badge');
+    // A situação deixou de ser um badge solto no topo: virou o último item da
+    // faixa de dados do cabeçalho (bolinha + rótulo).
+    var situacaoEl = document.querySelector('[data-campo="situacao"] .ps-situacao');
 
     btn.addEventListener('click', function () {
         var url  = btn.dataset.url;
@@ -3951,19 +3667,16 @@ document.addEventListener('DOMContentLoaded', function () {
             icone.className = 'bi ' + (eAtivo ? 'bi-archive' : 'bi-archive-fill');
 
             /* label */
-            var label = btn.querySelector('.pasta-acao-label');
+            var label = btn.querySelector('.ps-arquivar-label');
             label.textContent = eAtivo ? 'Arquivar' : 'Ativar';
 
             /* title */
             btn.title = eAtivo ? 'Arquivar pasta' : 'Reativar pasta';
 
-            /* cor do botão */
-            btn.classList.toggle('pasta-acao-btn--arquivado', !eAtivo);
-
-            /* badge de situação no card-tools */
-            if (badgeEl) {
-                badgeEl.textContent = eAtivo ? 'Ativo' : 'Arquivado';
-                badgeEl.className = 'badge ' + (eAtivo ? 'text-bg-success' : 'text-bg-secondary');
+            /* faixa de dados do cabeçalho */
+            if (situacaoEl) {
+                situacaoEl.className = 'ps-situacao ps-situacao--' + (eAtivo ? 'ativo' : 'arquivado');
+                situacaoEl.innerHTML = '<span class="ps-ponto"></span>' + (eAtivo ? 'Ativo' : 'Arquivado');
             }
 
             btn.disabled = false;
@@ -3974,11 +3687,14 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
-    /* ── Dropdown de prioridade ── */
+    /* ── Selo de prioridade (popover do cabeçalho novo) ──
+       A classe do selo sai do PRÓPRIO valor escolhido, não do `badgeClass` que
+       o endpoint devolve: aquele é `text-bg-*` do Bootstrap e não descreve a
+       pílula do desenho (Normal cinza · Prioridade âmbar · Urgente vermelho). */
     document.querySelectorAll('.prioridade-opt').forEach(function (optBtn) {
         optBtn.addEventListener('click', async function () {
-            var dd  = optBtn.closest('.dropdown');
-            var tog = dd.querySelector('.pasta-prioridade-btn');
+            var pop = optBtn.closest('.ps-pop-wrap');
+            var tog = pop.querySelector('.pasta-prioridade-btn');
             var fd  = new FormData();
             fd.append('prioridade', optBtn.dataset.valor);
             fd.append('_token', tog.dataset.csrf);
@@ -3989,11 +3705,23 @@ document.addEventListener('DOMContentLoaded', function () {
                     body: fd,
                     headers: { 'X-Requested-With': 'XMLHttpRequest' },
                 });
-                if (res.ok) {
-                    var json = await res.json();
-                    tog.className = 'btn btn-sm badge ' + json.badgeClass + ' dropdown-toggle pasta-prioridade-btn';
-                    tog.querySelector('i').nextSibling.textContent = json.label;
-                }
+                if (!res.ok) { alert('Erro ao alterar prioridade.'); return; }
+
+                var json = await res.json();
+                tog.className = 'ps-prio ps-prio--' + optBtn.dataset.valor + ' pasta-prioridade-btn';
+                tog.querySelector('.ps-prio-label').textContent = json.label;
+
+                /* O ✓ acompanha a escolha; sem isso o popover continuaria
+                   apontando a prioridade antiga na próxima abertura. */
+                pop.querySelectorAll('.prioridade-opt .ps-pop-check').forEach(function (check) {
+                    check.classList.add('d-none');
+                });
+                optBtn.querySelector('.ps-pop-check').classList.remove('d-none');
+
+                /* Trocar fecha o popover — comportamento do desenho. */
+                var painel = pop.querySelector('.ps-pop--prio');
+                if (painel) { painel.classList.remove('is-aberto'); }
+                tog.setAttribute('aria-expanded', 'false');
             } catch (e) {
                 alert('Erro ao alterar prioridade.');
             }
@@ -5015,6 +4743,8 @@ document.addEventListener('DOMContentLoaded', function () {
 {% block javascripts %}
 {{ parent() }}
 <script src="/js/pasta-arquivos.js"></script>
+{# Indicador das abas, drawer do histórico e popovers do cabeçalho redesenhado. #}
+<script src="/js/pasta-show.js"></script>
 <script>
 // Select2 múltiplo para os responsáveis no modal "Nova Meta".
 // Roda neste bloco (após jQuery/Select2 do base) e usa dropdownParent para

@@ -1,0 +1,248 @@
+{# ============================================================================
+   Cabeçalho da pasta — comum a todas as abas.
+   Desenho aprovado: docs/design/pasta-show/ ("Pasta 1A.dc.html"), seção
+   "Cabeçalho da pasta".
+
+   Três linhas:
+     1. voltar + trilha + ações (todas com o MESMO peso visual — nada em azul);
+     2. identidade: PASTA nnnn, prioridade, etiquetas, título da ação e a faixa
+        de dados (Cliente principal · Responsável · Processo vinculado ·
+        Última movimentação · Situação);
+     3. abas em controle segmentado.
+
+   Contexto: `pasta`, `fotosResponsaveis`, `contagemAbas`.
+   ============================================================================ #}
+{% set proc = pasta.processoPrincipal %}
+
+<header class="ps-card ps-cabecalho">
+
+    {# ── Linha 1 ─────────────────────────────────────────────────────────── #}
+    <div class="ps-cab-linha1">
+        <div class="ps-cab-trilha">
+            {# Substitui o "Voltar às Pastas" que ficava no rodapé, longe do olho. #}
+            <a href="{{ path('expediente_index') }}" class="ps-btn ps-btn--voltar" title="Voltar à lista de pastas">
+                <i class="bi bi-arrow-left"></i><span>Pastas</span>
+            </a>
+            <ol class="ps-breadcrumb">
+                <li><a href="{{ path('homepage') }}">Home</a></li>
+                <li><a href="{{ path('expediente_index') }}">Pastas</a></li>
+                <li><span class="ps-breadcrumb-atual ps-num">{{ pasta.nup }}</span></li>
+            </ol>
+        </div>
+
+        <div class="ps-cab-acoes">
+            <button type="button"
+                    id="btn-alternar-status"
+                    class="ps-btn"
+                    title="{{ pasta.situacao == 'ativo' ? 'Arquivar pasta' : 'Reativar pasta' }}"
+                    data-pasta-id="{{ pasta.id }}"
+                    data-situacao-atual="{{ pasta.situacao }}"
+                    data-csrf="{{ csrf_token('pasta_alternar_situacao_' ~ pasta.id) }}"
+                    data-url="{{ path('pasta_alternar_situacao', {id: pasta.id}) }}">
+                <i class="bi {{ pasta.situacao == 'ativo' ? 'bi-archive' : 'bi-archive-fill' }}"></i>
+                <span class="ps-arquivar-label">{{ pasta.situacao == 'ativo' ? 'Arquivar' : 'Ativar' }}</span>
+            </button>
+
+            <button type="button" class="ps-btn" title="Editar pasta"
+                    data-bs-toggle="modal" data-bs-target="#modalEditarPasta">
+                <i class="bi bi-pencil"></i><span>Editar</span>
+            </button>
+
+            {# O histórico automático do sistema saía daqui para o meio da página
+               e ocupava mais altura que o caso inteiro. Virou drawer. #}
+            <button type="button" class="ps-btn" id="psHistoricoAbrir"
+                    title="Histórico do sistema"
+                    aria-controls="psHistorico" aria-expanded="false">
+                <i class="bi bi-clock-history"></i><span>Histórico</span>
+            </button>
+
+            <div class="ps-pop-wrap">
+                <button type="button" class="ps-btn ps-btn--icone" title="Mais ações"
+                        data-ps-pop="psMenuAcoes" aria-haspopup="true" aria-expanded="false">
+                    <i class="bi bi-three-dots-vertical"></i>
+                </button>
+                {# "Duplicar pasta" está no desenho e ficou de FORA por decisão do
+                   dono (26/08): não existe rota nem UseCase de duplicação, e item
+                   inerte no menu ensina o usuário a desconfiar do menu inteiro. #}
+                <div class="ps-pop ps-pop--menu" id="psMenuAcoes" role="menu">
+                    <button type="button" class="ps-pop-item" role="menuitem"
+                            data-bs-toggle="modal" data-bs-target="#modalVincularProcesso">
+                        <i class="bi bi-link-45deg"></i><span>Vincular processo</span>
+                    </button>
+                    <button type="button" class="ps-pop-item" role="menuitem" id="psMenuTrocarResponsavel">
+                        <i class="bi bi-person-gear"></i><span>Trocar responsável</span>
+                    </button>
+                    <div class="ps-pop-sep"></div>
+                    {# O confirm() nativo fica: trocá-lo por modal é frente própria
+                       (63 deles no projeto), registrada no README do redesenho. #}
+                    <form method="post" action="{{ path('pasta_delete', {id: pasta.id}) }}"
+                          onsubmit="return confirm('Tem certeza que deseja excluir a pasta {{ pasta.nup|e('js') }}?');">
+                        <input type="hidden" name="_token" value="{{ csrf_token('delete_pasta_' ~ pasta.id) }}">
+                        <button type="submit" class="ps-pop-item ps-pop-item--perigo" role="menuitem">
+                            <i class="bi bi-trash3"></i><span>Excluir pasta</span>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ── Linha 2: identidade ─────────────────────────────────────────────── #}
+    <div class="ps-cab-identidade">
+        <span class="ps-cab-nup">PASTA {{ pasta.nup }}</span>
+
+        <div class="ps-pop-wrap">
+            <button type="button"
+                    class="ps-prio ps-prio--{{ pasta.prioridade.value }} pasta-prioridade-btn"
+                    title="Alterar prioridade"
+                    data-ps-pop="psPrioridade"
+                    aria-haspopup="true" aria-expanded="false"
+                    data-pasta-id="{{ pasta.id }}"
+                    data-csrf="{{ csrf_token('pasta_prioridade_' ~ pasta.id) }}"
+                    data-url="{{ path('pasta_alterar_prioridade', {id: pasta.id}) }}">
+                <i class="bi bi-flag-fill"></i>
+                <span class="ps-prio-label">{{ pasta.prioridadeLabel }}</span>
+                <i class="bi bi-chevron-down"></i>
+            </button>
+            <div class="ps-pop ps-pop--prio" id="psPrioridade" role="menu">
+                {% for opcao in ['normal', 'prioridade', 'urgente'] %}
+                    <button type="button" class="ps-pop-item prioridade-opt" role="menuitem" data-valor="{{ opcao }}">
+                        <i class="bi bi-flag-fill"></i>
+                        <span>{{ opcao == 'normal' ? 'Normal' : (opcao == 'prioridade' ? 'Prioridade' : 'Urgente') }}</span>
+                        <span class="ps-pop-check{{ pasta.prioridade.value == opcao ? '' : ' d-none' }}">&check;</span>
+                    </button>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="ps-cab-sep"></div>
+
+        {% for marcador in pasta.marcadores %}
+            <span class="ps-etiqueta"><i class="bi bi-tag-fill"></i>{{ marcador.nome }}</span>
+        {% endfor %}
+
+        <button type="button" class="ps-etiqueta-add js-mover-para" title="Gerenciar etiquetas"
+                data-pasta-id="{{ pasta.id }}"
+                data-pasta-nome="{{ pasta.nup }}"
+                data-marcadores-ativos="{{ pasta.marcadores|map(m => m.id)|join(',') }}"
+                data-csrf-token="{{ csrf_token('pasta_marcadores_' ~ pasta.id) }}">
+            <i class="bi bi-plus"></i><span>Etiqueta</span>
+        </button>
+    </div>
+
+    {# O título é o nome da AÇÃO, não o número — o número virou o rótulo acima.
+       Sem nome de ação, cai na mesma cadeia que a aba Dados já usava. #}
+    <h1 class="ps-cab-titulo">
+        {%- if pasta.nomeAcao -%}
+            {{ pasta.nomeAcao }}
+        {%- elseif proc -%}
+            {{ proc.classeProcessual ?: proc.assuntoProcessual ?: (proc.numeroProcesso|numero_cnj) }}
+        {%- else -%}
+            <span class="ps-dado--vazio">Ação não informada</span>
+        {%- endif -%}
+    </h1>
+
+    <div class="ps-cab-dados">
+        <div data-campo="cliente-principal">
+            <p class="ps-rotulo">Cliente principal</p>
+            {# 1.072 de 1.073 pastas em produção não têm cliente CADASTRADO, só o
+               texto legado. Esse texto é o estado real da tela, não caso de borda. #}
+            {% if pasta.clientePrincipal %}
+                <p class="ps-dado ps-dado--forte">{{ pasta.clientePrincipal.nomeExibicao }}</p>
+            {% elseif pasta.nomeCliente %}
+                <p class="ps-dado ps-dado--forte">{{ pasta.nomeCliente }}</p>
+                <div class="ps-dado-sub">não vinculado</div>
+            {% else %}
+                <p class="ps-dado ps-dado--vazio">—</p>
+            {% endif %}
+        </div>
+
+        <div data-campo="responsavel">
+            <p class="ps-rotulo">Responsável</p>
+            {# O chip é o mesmo do Expediente: mostrar avatar + nome como o desenho
+               pede E continuar trocando o responsável sem sair da tela. #}
+            {{ include('pasta/_resp_chip.html.twig', {
+                pasta: pasta,
+                fotos: fotosResponsaveis|default({}),
+            }) }}
+        </div>
+
+        <div data-campo="processo">
+            <p class="ps-rotulo">Processo vinculado</p>
+            {% if proc %}
+                <p class="ps-dado ps-dado--medio">
+                    <a class="ps-num" href="{{ path('processo_show', {id: proc.id}) }}">{{ proc.numeroProcesso|numero_cnj }}</a>
+                    <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ proc.numeroProcesso }}" title="Copiar"></i>
+                    {% if pasta.pastaProcessos|length > 1 %}
+                        <span class="ps-contagem" title="Outros processos vinculados">+{{ pasta.pastaProcessos|length - 1 }}</span>
+                    {% endif %}
+                </p>
+                {% if proc.classeProcessual or proc.siglaTribunal %}
+                    <div class="ps-dado-sub">
+                        {{- proc.classeProcessual -}}
+                        {%- if proc.classeProcessual and proc.siglaTribunal %} · {% endif -%}
+                        {{- proc.siglaTribunal -}}
+                    </div>
+                {% endif %}
+            {% else %}
+                <p class="ps-dado ps-dado--vazio">— <a href="#" data-bs-toggle="modal" data-bs-target="#modalVincularProcesso">vincular</a></p>
+            {% endif %}
+        </div>
+
+        <div data-campo="movimentacao">
+            <p class="ps-rotulo">Última movimentação</p>
+            <p class="ps-dado ps-dado--medio ps-num">
+                {%- if pasta.modificadoEm -%}
+                    {{ pasta.modificadoEm|date('d/m/Y H:i') }}
+                {%- else -%}
+                    <span class="ps-dado--vazio">—</span>
+                {%- endif -%}
+            </p>
+        </div>
+
+        {# "Situação" fecha a linha; o selo verde que ficava solto no topo veio para cá. #}
+        <div data-campo="situacao">
+            <p class="ps-rotulo">Situação</p>
+            <p class="ps-dado">
+                <span class="ps-situacao ps-situacao--{{ pasta.situacao == 'ativo' ? 'ativo' : 'arquivado' }}">
+                    <span class="ps-ponto"></span>{{ pasta.situacao == 'ativo' ? 'Ativo' : 'Arquivado' }}
+                </span>
+            </p>
+        </div>
+    </div>
+
+    {# ── Linha 3: abas ───────────────────────────────────────────────────── #}
+    {# Contagens SEMPRE do dado, nunca literais — foi bug corrigido duas vezes na
+       revisão do desenho. Só Metas e Documentos exibem badge (o desenho não dá
+       badge às outras quatro). Os `id` seguem os antigos porque o
+       pasta-arquivos.js chama bootstrap.Tab em `#documentos-tab` depois do
+       upload; renomear aqui quebraria aquele retorno em silêncio. #}
+    {% set abas = [
+        {id: 'dados',      painel: 'dados',      rotulo: 'Dados da pasta', icone: 'bi-folder2-open',  contagem: null},
+        {id: 'tarefas',    painel: 'tarefas',    rotulo: 'Metas',          icone: 'bi-check2-square', contagem: pasta.tarefas|length},
+        {id: 'processo',   painel: 'processo',   rotulo: 'Processo',       icone: 'bi-bank',          contagem: null},
+        {id: 'financeiro', painel: 'financeiro', rotulo: 'Financeiro',     icone: 'bi-cash-coin',     contagem: null},
+        {id: 'detalhes',   painel: 'detalhes',   rotulo: 'Detalhes',       icone: 'bi-info-circle',   contagem: null},
+        {id: 'documentos', painel: 'documentos', rotulo: 'Documentos',     icone: 'bi-paperclip',     contagem: pasta.documentos|length},
+    ] %}
+    <div class="ps-abas-faixa">
+        {# `ps-abas--sem-js` sai no boot do pasta-show.js. Sem JS a pílula nunca é
+           medida, e sem esta classe a aba ativa ficaria sem marca nenhuma. #}
+        <div class="ps-abas ps-abas--sem-js" id="pastaTabs" role="tablist">
+            <div class="ps-abas-ind" aria-hidden="true"></div>
+            {% for aba in abas %}
+                <button class="ps-aba{{ loop.first ? ' active' : '' }}"
+                        id="{{ aba.id }}-tab"
+                        data-bs-toggle="tab"
+                        data-bs-target="#{{ aba.painel }}"
+                        type="button" role="tab"
+                        aria-controls="{{ aba.painel }}"
+                        aria-selected="{{ loop.first ? 'true' : 'false' }}">
+                    <i class="bi {{ aba.icone }}"></i>
+                    <span>{{ aba.rotulo }}</span>
+                    {% if aba.contagem %}<span class="ps-aba-badge ps-num">{{ aba.contagem }}</span>{% endif %}
+                </button>
+            {% endfor %}
+        </div>
+    </div>
+</header>

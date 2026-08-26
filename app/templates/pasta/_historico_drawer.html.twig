@@ -1,0 +1,75 @@
+{# ============================================================================
+   Drawer do histórico do sistema.
+   Desenho aprovado: docs/design/pasta-show/ ("Pasta 1A.dc.html").
+
+   Aqui fica SÓ o que o sistema registrou sozinho ("Pasta atualizada", "Cliente
+   da pasta alterado"). O que uma pessoa escreveu ficou na aba Dados, em
+   "Anotações do caso". Essa divisão é a razão de ser do redesenho: o histórico
+   automático ocupava mais altura vertical que toda a informação do caso.
+
+   Contexto: `eventosHistorico` (lista de TimelineItemDTO do tipo EVENTO).
+   ============================================================================ #}
+<div class="ps-drawer-overlay" id="psHistoricoOverlay" tabindex="-1"></div>
+
+<aside class="ps-drawer" id="psHistorico" role="dialog" aria-modal="true"
+       aria-labelledby="psHistoricoTitulo" aria-hidden="true">
+    <div class="ps-drawer-cab">
+        <i class="bi bi-clock-history"></i>
+        <h2 id="psHistoricoTitulo">Histórico do sistema</h2>
+        <span class="ps-contagem">{{ eventosHistorico|length }}</span>
+        <button type="button" class="ps-drawer-fechar" aria-label="Fechar histórico">
+            <i class="bi bi-x-lg"></i>
+        </button>
+    </div>
+
+    <div class="ps-drawer-corpo">
+        {% if eventosHistorico|length == 0 %}
+            <div class="ps-vazio">
+                <i class="bi bi-clock-history"></i>
+                <div class="ps-vazio-titulo">Nenhum evento registrado</div>
+                <div class="ps-vazio-nota">O sistema anota aqui cada alteração da pasta.</div>
+            </div>
+        {% else %}
+            {% set diaAnterior = null %}
+            {% for evento in eventosHistorico %}
+                {% set dia = evento.dataHora|date('Y-m-d') %}
+                {% if dia != diaAnterior %}
+                    <div class="ps-hist-dia">
+                        {%- if dia == 'now'|date('Y-m-d') -%}
+                            Hoje, {{ evento.dataHora|date('d/m') }}
+                        {%- else -%}
+                            {{ evento.dataHora|date('d/m/Y') }}
+                        {%- endif -%}
+                    </div>
+                    {% set diaAnterior = dia %}
+                {% endif %}
+
+                <div class="ps-hist-item">
+                    <span class="ps-hist-pip"></span>
+                    <div class="ps-hist-corpo">
+                        <div>
+                            {%- if evento.autorNome or evento.autorEmail -%}
+                                <span class="ps-hist-autor">{{ evento.autorNome ?? evento.autorEmail }}</span>
+                            {% endif %}
+                            {{ evento.titulo }}
+                        </div>
+                        {% if evento.metaTitulo %}
+                            <div class="ps-hist-detalhe">
+                                {%- if evento.metaId -%}
+                                    <a href="{{ path('tarefa_show', {id: evento.metaId}) }}">«{{ evento.metaTitulo }}»</a>
+                                {%- else -%}
+                                    «{{ evento.metaTitulo }}»
+                                {%- endif -%}
+                                {%- if evento.detalhe %} — {{ evento.detalhe }}{% endif -%}
+                            </div>
+                        {% elseif evento.detalhe %}
+                            {# Texto gerado pelo sistema: escapado, sem editor rico. #}
+                            <div class="ps-hist-detalhe">{{ evento.detalhe|nl2br }}</div>
+                        {% endif %}
+                    </div>
+                    <span class="ps-hist-hora">{{ evento.dataHora|date('H:i') }}</span>
+                </div>
+            {% endfor %}
+        {% endif %}
+    </div>
+</aside>

@@ -247,9 +247,18 @@ final class PastaShowClientesTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $user, $tenant);
         $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
 
-        $legado = $crawler->filter('#clientesList .cliente-nao-vinculado');
+        // `#clientesPlaceholder`: o mesmo nó que o JS de vincular procura para
+        // substituir quando o primeiro cliente entra. A classe visual mudou no
+        // redesenho de 26/08 (`.cliente-nao-vinculado` → a linha do trilho), o
+        // id não — e é o id que é contrato.
+        $legado = $crawler->filter('#clientesList #clientesPlaceholder');
         self::assertCount(1, $legado, 'a pasta sem vínculo mostra o nome solto, marcado como não vinculado');
         self::assertStringContainsString('MARIA DAS GRACAS', $legado->text());
+        self::assertStringContainsString(
+            'não vinculado',
+            $legado->text(),
+            'o texto legado tem de dizer que NÃO é um cliente cadastrado'
+        );
 
         self::assertCount(
             0,

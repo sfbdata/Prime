@@ -38,7 +38,9 @@
                     <div class="d-flex flex-wrap align-items-start justify-content-between gap-2">
                         <div class="flex-grow-1">
                             <div class="d-flex align-items-center flex-wrap gap-2 mb-1">
-                                <a href="{{ path('processo_show', {id: proc.id}) }}" class="fw-semibold text-decoration-none">{{ proc.numeroProcesso }}</a>
+                                {# Mesma máscara do cabeçalho: o handoff exige que header e aba
+                                   Processo NÃO divirjam, e o cabeçalho passou a formatar. #}
+                                <a href="{{ path('processo_show', {id: proc.id}) }}" class="fw-semibold text-decoration-none">{{ proc.numeroProcesso|numero_cnj }}</a>
                                 <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ proc.numeroProcesso }}" title="Copiar"></i>
                                 {% if ehPrincipal %}
                                     <span class="badge text-bg-primary"><i class="bi bi-star-fill me-1"></i>Principal</span>
