@@ -869,7 +869,20 @@
 .ps-cab-dados .pasta-resp-chip .resp-avatar-ini { font-size: 9px; }
 .ps-cab-dados .pasta-resp-caret { font-size: .55rem; }
 
-/* ── Lista de clientes no trilho ── */
+/* ── Lista de clientes no trilho ──
+   `overflow: hidden` no cartão: ele tem raio de 14px, e sem isto qualquer linha
+   mais larga que a coluna de 356px escapa por cima da borda em vez de ser
+   cortada. */
+.ps-clientes { overflow: hidden; }
+
+/* A corrente inteira precisa poder encolher. Item de flex tem `min-width: auto`
+   por padrão — ou seja, nunca fica menor que o conteúdo —, então sem estes três
+   `min-width: 0` o `text-overflow: ellipsis` do nome NUNCA entra em ação e é a
+   linha que cresce. Era o que fazia os clientes vazarem do cartão. */
+.ps-clientes .cliente-linha,
+.ps-clientes .cliente-identidade,
+.ps-clientes .cliente-nome { min-width: 0; }
+
 .ps-clientes .cliente-linha {
     padding: 11px 17px !important;
     gap: 10px !important;
@@ -877,12 +890,20 @@
 }
 .ps-clientes .cliente-linha:hover { background: var(--ps-hover); }
 .ps-clientes .cliente-nome {
+    display: flex;
+    align-items: center;
+    gap: 7px;
     font-size: 13.5px;
     font-weight: 500;
+}
+/* Só o TEXTO trunca. O selo "Principal" ao lado não pode virar reticência: ele é
+   a resposta de "qual destes é o principal", que é a razão de ele existir. */
+.ps-clientes .cliente-nome-texto {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+.ps-clientes .ps-selo-principal { flex-shrink: 0; }
 .ps-clientes .cliente-doc {
     font-variant-numeric: tabular-nums;
     font-size: 11.5px;
@@ -896,10 +917,30 @@
     padding: 0;
 }
 .ps-clientes .cliente-principal .cliente-linha { border-bottom: none; }
-/* As ações só aparecem no hover: no repouso a linha fica igual ao desenho. */
-.ps-clientes .js-cliente-acoes { opacity: 0; transition: opacity .15s; }
-.ps-clientes .cliente-linha:hover .js-cliente-acoes,
-.ps-clientes .cliente-linha:focus-within .js-cliente-acoes { opacity: 1; }
+/* As ações só aparecem no hover: no repouso a linha fica igual ao desenho.
+   `pointer-events` junto com a opacidade — invisível e clicável é pior que
+   visível, porque o clique acontece sem o usuário saber no que clicou. */
+.ps-clientes .js-cliente-acoes > * {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .15s;
+}
+.ps-clientes .cliente-linha:hover .js-cliente-acoes > *,
+.ps-clientes .cliente-linha:focus-within .js-cliente-acoes > * {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* A estrela CHEIA é a exceção, e é exceção por não ser uma ação: ela é o SINAL
+   de qual cliente é o principal da pasta — o que decide a Média por CPF do
+   cartão logo abaixo. Escondê-la no repouso apaga a informação, e o usuário
+   passa a ter de varrer a lista com o mouse para descobrir o que a tela já
+   deveria estar dizendo. Ela vive só na linha do principal (nas outras, o
+   controle é um <form> com a estrela VAZIA, que segue no hover para trocar). */
+.ps-clientes .js-cliente-principal-estrela {
+    opacity: 1;
+    pointer-events: auto;
+}
 .ps-clientes .clientes-outros-toggle {
     font-size: 12.5px;
     font-weight: 600;
@@ -908,7 +949,10 @@
     width: 100%;
     text-align: left;
 }
-.ps-clientes .clientes-outros { max-height: 232px; }
+/* A rolagem é só vertical. Com `overflow-y: auto` sozinho o navegador promove o
+   eixo X para `auto` também, e qualquer sobra horizontal vira barra de rolagem
+   dentro do cartão. */
+.ps-clientes .clientes-outros { max-height: 232px; overflow-x: hidden; }
 
 /* Atalhos "metas" / "detalhar" / "todos" do trilho: são links de troca de aba,
    não de navegação — o href="#" existe só para o teclado alcançá-los. */

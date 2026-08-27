@@ -381,6 +381,102 @@ final class PastaDadosArranjoTelaTest extends JusPrimeWebTestCase
         );
     }
 
+    #[TestDox('quem é o principal se vê SEM passar o mouse: a estrela cheia e o selo são estruturais')]
+    public function testSinalDoPrincipalNaoDependeDeHover(): void
+    {
+        $client                       = static::createClient();
+        [$em, $user, $tenant, $pasta] = $this->criarBase();
+
+        foreach (['Joao Batista Moreira da Silva Santos Junior', 'Maria Aparecida'] as $i => $nome) {
+            $cliente = new ClientePF();
+            $cliente->setEmail('sin' . $i . uniqid() . '@test.com');
+            $cliente->setCep('80000-000');
+            $cliente->setEndereco('Rua Um, 1');
+            $cliente->setCidade('Curitiba');
+            $cliente->setEstado('PR');
+            $cliente->setTenant($tenant);
+            $cliente->setNomeCompleto($nome);
+            $cliente->setCpf('1234567890' . $i);
+            $cliente->setRg('12.345.678-9');
+            $cliente->setRgOrgaoExpedidor('SSP');
+            $em->persist($cliente);
+            $pasta->addCliente($cliente);
+        }
+        $em->flush();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $this->abrir($client, $pasta);
+
+        /* A estrela CHEIA existe só na linha do principal, e é a classe abaixo
+           que o CSS usa para mantê-la visível no repouso enquanto as outras
+           ações esperam o hover. Se ela migrar para dentro de outro nó, ou o
+           nome da classe mudar, o sinal volta a depender do mouse — e o teste
+           não veria, porque opacidade é invisível para o PHPUnit. Travar a
+           ESTRUTURA é o que dá para provar aqui; o resto é smoke. */
+        self::assertCount(
+            1,
+            $crawler->filter('#clientesList .cliente-principal .js-cliente-acoes > .js-cliente-principal-estrela'),
+            'a estrela cheia é filha DIRETA da caixa de ações da linha do principal'
+        );
+        self::assertCount(
+            1,
+            $crawler->filter('#clientesList .js-cliente-principal-estrela'),
+            'e existe UMA só: nas outras linhas o controle é o form da estrela vazia'
+        );
+        self::assertCount(
+            1,
+            $crawler->filter('#clientesOutros form.js-ajax-cliente-principal'),
+            'os clientes ocultos trazem o form de tornar principal, que é o que aparece no hover'
+        );
+    }
+
+    #[TestDox('nome comprido trunca dentro do cartão em vez de empurrar a linha para fora')]
+    public function testNomeCompridoNaoVazaDoCartao(): void
+    {
+        $client                       = static::createClient();
+        [$em, $user, $tenant, $pasta] = $this->criarBase();
+
+        $cliente = new ClientePF();
+        $cliente->setEmail('long' . uniqid() . '@test.com');
+        $cliente->setCep('80000-000');
+        $cliente->setEndereco('Rua Um, 1');
+        $cliente->setCidade('Curitiba');
+        $cliente->setEstado('PR');
+        $cliente->setTenant($tenant);
+        $cliente->setNomeCompleto('Joao Batista Moreira da Silva Santos Junior Neto');
+        $cliente->setCpf('12345678901');
+        $cliente->setRg('12.345.678-9');
+        $cliente->setRgOrgaoExpedidor('SSP');
+        $em->persist($cliente);
+        $pasta->addCliente($cliente);
+        $em->flush();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $this->abrir($client, $pasta);
+
+        /* O nome tem de estar num <span> PRÓPRIO. Solto ao lado do selo ele vira
+           item anônimo de flex, que não encolhe: o `text-overflow: ellipsis`
+           nunca dispara e quem cresce é a linha, que escapa do cartão de 356px.
+           O selo fica FORA do span truncável — senão "Principal" viraria "…". */
+        $base = '#clientesList .cliente-principal .cliente-nome';
+
+        self::assertCount(1, $crawler->filter($base . ' > .cliente-nome-texto'), 'o texto do nome tem span próprio');
+        self::assertSame(
+            'JOAO BATISTA MOREIRA DA SILVA SANTOS JUNIOR NETO',
+            trim($crawler->filter($base . ' > .cliente-nome-texto')->text())
+        );
+        self::assertCount(
+            1,
+            $crawler->filter($base . ' > .ps-selo-principal'),
+            'o selo é IRMÃO do span do nome, não filho — dentro dele viraria reticência'
+        );
+        self::assertCount(
+            0,
+            $crawler->filter($base . ' > .cliente-nome-texto .ps-selo-principal'),
+            'e não pode ter caído para dentro do span que trunca'
+        );
+    }
+
     #[TestDox('o cartão financeiro do trilho mostra valor da causa e média, não parcela inventada')]
     public function testCartaoFinanceiroDoTrilho(): void
     {

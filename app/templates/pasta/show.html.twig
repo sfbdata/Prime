@@ -1365,7 +1365,12 @@
 
         const nome = document.createElement('div');
         nome.className = 'cliente-nome';
-        nome.textContent = cliente.nome;
+        // Mesmo <span> interno do Twig: é ele que trunca. Texto solto dentro do
+        // flex vira item anônimo e não encolhe — a linha vazava do cartão.
+        const nomeTexto = document.createElement('span');
+        nomeTexto.className = 'cliente-nome-texto';
+        nomeTexto.textContent = cliente.nome;
+        nome.appendChild(nomeTexto);
         identidade.appendChild(nome);
 
         if (cliente.documento) {
@@ -1442,7 +1447,10 @@
         colapso.id = 'clientesOutros';
 
         bloco = document.createElement('div');
-        bloco.className = 'clientes-outros';
+        // `ps-clientes-rolagem` junto: é dela que vem a altura máxima do trilho.
+        // Sem a classe, o bloco criado pelo JS cresceria diferente do bloco que
+        // o servidor renderiza.
+        bloco.className = 'clientes-outros ps-clientes-rolagem';
         colapso.appendChild(bloco);
 
         clientesContainer.appendChild(botao);

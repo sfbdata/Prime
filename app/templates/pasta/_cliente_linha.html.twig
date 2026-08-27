@@ -15,9 +15,12 @@
     <i class="bi bi-person-circle text-muted flex-shrink-0"></i>
 
     <div class="cliente-identidade flex-grow-1">
+        {# O nome vai num <span> proprio, e nao solto: e ELE que trunca com
+           reticencias quando nao cabe. Texto solto ao lado do selo nao encolhe,
+           e a linha inteira vazava para fora do cartao. #}
         <div class="cliente-nome">
-            {{- cliente.nomeExibicao -}}
-            {%- if ehPrincipal %} <span class="ps-selo-principal">Principal</span>{% endif -%}
+            <span class="cliente-nome-texto">{{ cliente.nomeExibicao }}</span>
+            {%- if ehPrincipal %}<span class="ps-selo-principal">Principal</span>{% endif -%}
         </div>
         {% if doc %}
             <div class="cliente-doc">
