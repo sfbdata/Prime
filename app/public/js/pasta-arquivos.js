@@ -141,6 +141,7 @@
         });
 
         ordenarNodes(visiveis);
+        sincronizarCabecalho();
         toggle(elArquivosVazio, visiveis.length === 0);
         toggle(elArquivos, visiveis.length > 0);
 
@@ -186,11 +187,53 @@
                 case 'data_desc':    return -cmpData(a, b);
                 case 'tamanho':      return cmpNum(a, b, 'tamanho');
                 case 'tamanho_desc': return -cmpNum(a, b, 'tamanho');
+                case 'categoria':      return cmpTxt(a, b, 'categoria') || cmpTxt(a, b, 'nome');
+                case 'categoria_desc': return -cmpTxt(a, b, 'categoria') || cmpTxt(a, b, 'nome');
                 default:             return 0;
             }
         });
         nodes.forEach(function (n) { elArquivos.appendChild(n); });
     }
+    /* ---------------------------------------- ordenar pelo titulo da coluna ---
+       O estado e um so (`ordem`), compartilhado com o seletor "Ordenar". Duas
+       formas de pedir a mesma coisa; se cada uma guardasse a sua, a tela
+       mostraria uma ordem e diria outra. */
+
+    // Primeiro clique de cada coluna. Nome e Categoria comecam em A–Z; Tamanho e
+    // Modificado comecam no DECRESCENTE, que e o que se quer 9 vezes em 10
+    // (maiores primeiro, mais recentes primeiro) e e o que o proprio seletor ja
+    // oferecia primeiro na lista.
+    const SENTIDO_INICIAL = { nome: '', categoria: '', tamanho: '_desc', data: '_desc' };
+
+    function ordenarPorColuna(coluna) {
+        const base = String(ordem).replace(/_desc$/, '');
+        ordem = base === coluna
+            ? (ordem.endsWith('_desc') ? coluna : coluna + '_desc')   // mesma coluna: inverte
+            : coluna + SENTIDO_INICIAL[coluna];                        // coluna nova: sentido util
+        localStorage.setItem('fmOrdem', ordem);
+        if (elOrdenar) { elOrdenar.value = ordem; }
+        render();
+    }
+
+    function sincronizarCabecalho() {
+        const base = String(ordem).replace(/_desc$/, '');
+        const desc = String(ordem).endsWith('_desc');
+
+        fm.querySelectorAll('.fm-lista-head .fmh-btn').forEach(function (btn) {
+            const ativa  = btn.dataset.ordenar === base;
+            const coluna = btn.parentElement;
+            const caret  = btn.querySelector('.fmh-caret');
+
+            btn.classList.toggle('ativa', ativa);
+            if (coluna) { coluna.setAttribute('aria-sort', ativa ? (desc ? 'descending' : 'ascending') : 'none'); }
+            if (caret) {
+                // A seta so existe na coluna ativa; nas outras ela ocuparia
+                // espaco sugerindo uma ordem que nao esta em vigor.
+                caret.className = 'bi fmh-caret' + (ativa ? (desc ? ' bi-caret-down-fill' : ' bi-caret-up-fill') : '');
+            }
+        });
+    }
+
     function cmpTxt(a, b, k) { return (a.dataset[k] || '').localeCompare(b.dataset[k] || '', 'pt-BR', { sensitivity: 'base' }); }
     function cmpNum(a, b, k) { return (Number(a.dataset[k]) || 0) - (Number(b.dataset[k]) || 0); }
     function cmpData(a, b) { return String(a.dataset.data || '').localeCompare(String(b.dataset.data || '')); }
@@ -241,7 +284,18 @@
     // Busca
     if (elBusca) elBusca.addEventListener('input', function () { termoBusca = elBusca.value; render(); });
 
-    // Ordenar
+    // Ordenar pelo titulo da coluna
+    if (elArquivos) {
+        const cabecalho = elArquivos.querySelector('.fm-lista-head');
+        if (cabecalho) {
+            cabecalho.addEventListener('click', function (e) {
+                const btn = e.target.closest('.fmh-btn');
+                if (btn) { ordenarPorColuna(btn.dataset.ordenar); }
+            });
+        }
+    }
+
+    // Ordenar pelo seletor
     if (elOrdenar) {
         elOrdenar.value = ordem;
         elOrdenar.addEventListener('change', function () {
@@ -654,6 +708,10 @@
                         ordem = 'manual';
                         if (elOrdenar) elOrdenar.value = 'manual';
                         localStorage.setItem('fmOrdem', 'manual');
+                        // Sem render() de proposito (ele desfaria o arraste), mas a
+                        // seta da coluna tem de sair: ela apontaria uma ordem que
+                        // acabou de deixar de valer.
+                        sincronizarCabecalho();
                     }
                     persistir(cfg.urlReordenarDocs, cfg.csrfReordenarDocs, visiveis.map(function (el) { return Number(el.dataset.docId); }));
                 },

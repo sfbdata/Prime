@@ -415,6 +415,8 @@
                                                 <option value="data">Mais antigos</option>
                                                 <option value="tamanho_desc">Maiores</option>
                                                 <option value="tamanho">Menores</option>
+                                                <option value="categoria">Categoria (A–Z)</option>
+                                                <option value="categoria_desc">Categoria (Z–A)</option>
                                             </select>
                                         </div>
                                     </div>
@@ -526,9 +528,25 @@
                                         <div class="fm-grupo" id="fmGrupoArquivos">
                                             <div class="fm-grupo-titulo"><i class="bi bi-files"></i> <span id="fmArquivosTitulo">Arquivos</span></div>
                                             <div class="fm-arquivos fm-lista" id="fmArquivos">
+                                                {# Clicar no titulo da coluna ordena por ela; clicar de novo inverte.
+                                                   E o mesmo estado do seletor "Ordenar" ao lado — os dois sao duas caras
+                                                   do mesmo `fmOrdem`, e mudar num atualiza o outro. Sem isso a tela
+                                                   mostraria duas ordens diferentes ao mesmo tempo. #}
                                                 <div class="fm-lista-head">
-                                                    <span class="fmh-grip"></span><span>Nome</span><span class="fmh-tipo">Categoria</span>
-                                                    <span class="fmh-tam">Tamanho</span><span class="fmh-data">Modificado</span><span class="fmh-acoes"></span>
+                                                    <span class="fmh-grip"></span>
+                                                    <span class="fmh-nome" aria-sort="none">
+                                                        <button type="button" class="fmh-btn" data-ordenar="nome" title="Ordenar por nome">Nome<i class="bi fmh-caret" aria-hidden="true"></i></button>
+                                                    </span>
+                                                    <span class="fmh-tipo" aria-sort="none">
+                                                        <button type="button" class="fmh-btn" data-ordenar="categoria" title="Ordenar por categoria">Categoria<i class="bi fmh-caret" aria-hidden="true"></i></button>
+                                                    </span>
+                                                    <span class="fmh-tam" aria-sort="none">
+                                                        <button type="button" class="fmh-btn" data-ordenar="tamanho" title="Ordenar por tamanho">Tamanho<i class="bi fmh-caret" aria-hidden="true"></i></button>
+                                                    </span>
+                                                    <span class="fmh-data" aria-sort="none">
+                                                        <button type="button" class="fmh-btn" data-ordenar="data" title="Ordenar por modificado">Modificado<i class="bi fmh-caret" aria-hidden="true"></i></button>
+                                                    </span>
+                                                    <span class="fmh-acoes"></span>
                                                 </div>
                                                 {% for item in arquivosFm %}
                                                     {% set doc = item.doc %}
@@ -538,6 +556,10 @@
                                                          data-nome="{{ doc.nomeOriginal|e('html_attr') }}" data-tamanho="{{ doc.tamanhoBytes }}"
                                                          data-data="{{ doc.carregadoEm|date('Y-m-d H:i:s') }}" data-tipo="{{ ic.rotulo|e('html_attr') }}"
                                                          data-mime="{{ doc.mimeType|e('html_attr') }}"
+                                                         {# Ordena pelo RÓTULO que a coluna mostra. Ordenar pela chave do
+                                                            enum agruparia certo e listaria numa ordem que a tela não
+                                                            exibe — o usuário veria o alfabeto errado. #}
+                                                         data-categoria="{{ (documentTypeOptions[doc.categoria] ?? doc.categoria)|e('html_attr') }}"
                                                          data-url-mover="{{ path('pasta_documento_mover_secao', {docId: doc.id}) }}"
                                                          data-csrf-mover="{{ csrf_token('pasta_doc_mover_' ~ doc.id) }}">
                                                         <span class="fm-arq-grip" title="Arrastar para reordenar"><i class="bi bi-grip-vertical"></i></span>

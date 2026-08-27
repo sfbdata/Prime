@@ -314,4 +314,79 @@ final class PastaShowDocumentosControllerTest extends JusPrimeWebTestCase
             'o modal de preview tem de continuar com o Baixar no rodapé'
         );
     }
+
+    #[TestDox('cada coluna ordenável do gerenciador é um botão, com a chave que o JS usa para ordenar')]
+    public function testCabecalhoDasColunasEhOrdenavel(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $this->criarDocumento($pasta, $tenant, null, 'a.pdf');
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
+        self::assertResponseIsSuccessful();
+
+        /* Grip e a coluna de ações NÃO entram: não há o que ordenar num punho de
+           arrastar nem num menu. Se um deles virar botão, o usuário clica e nada
+           acontece — que é pior que não poder clicar. */
+        self::assertSame(
+            ['nome', 'categoria', 'tamanho', 'data'],
+            $crawler->filter('#fmArquivos .fm-lista-head .fmh-btn')->each(fn ($n) => $n->attr('data-ordenar')),
+            'as quatro colunas com conteúdo ordenável, na ordem em que aparecem'
+        );
+
+        // `aria-sort` nasce em "none": nenhuma coluna manda até alguém clicar.
+        self::assertSame(
+            ['none', 'none', 'none', 'none'],
+            $crawler->filter('#fmArquivos .fm-lista-head [aria-sort]')->each(fn ($n) => $n->attr('aria-sort'))
+        );
+    }
+
+    #[TestDox('a coluna Categoria ordena pelo rótulo que a tela mostra, não pela chave do enum')]
+    public function testCategoriaOrdenaPeloRotuloExibido(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $doc             = $this->criarDocumento($pasta, $tenant, null, 'x.pdf');
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
+
+        $linha = $crawler->filter('#fmArquivos .fm-arquivo[data-doc-id="' . $doc->getId() . '"]');
+        self::assertCount(1, $linha);
+
+        /* Ordenar pela chave (`demais`) agruparia certo e listaria numa ordem que
+           a tela não exibe: o usuário veria "Demais documentos" fora do alfabeto
+           e não teria como saber por quê. O `data-categoria` carrega o RÓTULO. */
+        $rotuloNaTela = trim($linha->filter('.fm-arq-tipo .fm-badge-cat')->text());
+        self::assertNotSame('', $rotuloNaTela);
+        self::assertSame(
+            $rotuloNaTela,
+            $linha->attr('data-categoria'),
+            'o atributo que ordena tem de ser o mesmo texto que a coluna imprime'
+        );
+    }
+
+    #[TestDox('o seletor Ordenar sabe dizer tudo que as colunas dizem — os dois compartilham um estado só')]
+    public function testSeletorCobreAsMesmasChavesDasColunas(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
+
+        $valores = $crawler->filter('#fmOrdenar option')->each(fn ($n) => $n->attr('value'));
+
+        /* Clicar na coluna grava o mesmo `fmOrdem` que o seletor lê. Se a coluna
+           produzir uma chave que o <select> não tem, o seletor fica em branco e
+           passa a dizer que NÃO há ordenação — mentindo sobre o que a lista faz. */
+        foreach (['nome', 'nome_desc', 'data', 'data_desc', 'tamanho', 'tamanho_desc', 'categoria', 'categoria_desc'] as $chave) {
+            self::assertContains($chave, $valores, "o seletor precisa saber representar \"{$chave}\"");
+        }
+        self::assertContains('manual', $valores, 'e o modo manual, que o arraste liga');
+    }
 }

@@ -467,3 +467,31 @@
     .fm-busca { margin-left: 0; max-width: none; order: 5; flex-basis: 100%; }
     .fm-pastas { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
 }
+
+/* ------------------------------------------- Ordenar pelo título da coluna --
+   O cabeçalho da lista deixou de ser rótulo e virou controle. O botão herda a
+   tipografia da faixa (maiúsculas, .74rem) para que a coluna continue PARECENDO
+   um cabeçalho: quem clica descobre pelo cursor e pelo hover, não por um
+   controle novo pedindo atenção no meio da tela. */
+.fm-lista-head .fmh-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0;
+    border: none;
+    background: none;
+    font: inherit;
+    letter-spacing: inherit;
+    text-transform: inherit;
+    color: inherit;
+    cursor: pointer;
+    max-width: 100%;
+}
+.fm-lista-head .fmh-btn:hover,
+.fm-lista-head .fmh-btn:focus-visible { color: var(--bs-primary); }
+.fm-lista-head .fmh-btn.ativa { color: var(--bs-body-color); }
+
+/* A seta só existe na coluna ativa. Uma seta apagada em cada coluna sugeriria
+   quatro ordens em vigor ao mesmo tempo. */
+.fm-lista-head .fmh-caret { font-size: .62rem; line-height: 1; }
+.fm-lista-head .fmh-btn.ativa .fmh-caret { color: var(--bs-primary); }
