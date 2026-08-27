@@ -11,6 +11,7 @@ use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaProcesso;
 use App\Processo\Entity\Processo;
 use App\Tests\Functional\JusPrimeWebTestCase;
@@ -641,5 +642,43 @@ final class PastaDadosArranjoTelaTest extends JusPrimeWebTestCase
             $crawler->filter('[data-trilho="clientes"] .cliente-doc-rotulo'),
             'sem cadastro não há CPF; imprimir o rótulo vazio seria inventar dado'
         );
+    }
+
+    #[TestDox('o documento do trilho abre o MESMO pré-visualizador da aba Documentos')]
+    public function testDocumentoDoTrilhoAbreOPreVisualizador(): void
+    {
+        $client                       = static::createClient();
+        [$em, $user, $tenant, $pasta] = $this->criarBase();
+
+        $doc = new PastaDocumento();
+        $doc->setTitulo('Procuração');
+        $doc->setCategoria(PastaDocumento::CATEGORIA_DEMAIS);
+        $doc->setCaminhoArquivo('uploads/fake/procuracao.pdf');
+        $doc->setNomeOriginal('procuracao.pdf');
+        $doc->setMimeType('application/pdf');
+        $doc->setTamanhoBytes(2048);
+        $doc->setPasta($pasta);
+        $doc->setTenant($tenant);
+        $em->persist($doc);
+        $pasta->addDocumento($doc);
+        $em->flush();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $this->abrir($client, $pasta);
+
+        $linha = $crawler->filter('[data-trilho="documentos"] a.ps-doc');
+        self::assertCount(1, $linha, 'a linha inteira é o alvo do clique');
+
+        /* Mesmo gesto e MESMO modal da aba Documentos: dois caminhos para o
+           mesmo arquivo não podem se comportar diferente. */
+        self::assertSame('#previewDocModal', $linha->attr('data-bs-target'));
+        self::assertSame('modal', $linha->attr('data-bs-toggle'));
+        self::assertSame('/pasta/documento/' . $doc->getId() . '/visualizar', $linha->attr('data-url'));
+        self::assertSame('procuracao.pdf', $linha->attr('data-nome'));
+        self::assertSame('application/pdf', $linha->attr('data-mime'));
+
+        // Sem JS, o href leva ao arquivo em outra aba.
+        self::assertSame('/pasta/documento/' . $doc->getId() . '/visualizar', $linha->attr('href'));
+        self::assertSame('_blank', $linha->attr('target'));
     }
 }

@@ -544,7 +544,20 @@
                                                         <div class="fm-arq-principal">
                                                             <span class="fm-arq-icone"><i class="bi {{ ic.icone }}" style="color: {{ ic.cor }}"></i></span>
                                                             <span class="text-truncate">
-                                                                <a href="{{ path('pasta_documento_download', {id: doc.id}) }}" target="_blank" rel="noopener noreferrer" class="fm-arq-nome" title="{{ doc.nomeOriginal|e('html_attr') }}">{{ doc.nomeOriginal }}</a>
+                                                                {# Clicar no nome ABRE O PRE-VISUALIZADOR (que ja tem o botao Baixar no
+                                                                   rodape), nao baixa. Baixar sem olhar obriga a abrir o arquivo fora do
+                                                                   sistema so para saber se era o certo.
+
+                                                                   Continua sendo <a> de verdade, apontando para a URL de visualizacao:
+                                                                   ctrl/cmd+clique e o botao do meio seguem abrindo em outra aba, e sem
+                                                                   JS o link ainda leva ao arquivo. Quem intercepta o clique simples e
+                                                                   o pasta-arquivos.js, pela classe .fm-arq-preview. #}
+                                                                <a href="{{ path('pasta_documento_view', {id: doc.id}) }}" target="_blank" rel="noopener noreferrer"
+                                                                   class="fm-arq-nome fm-arq-preview"
+                                                                   data-url="{{ path('pasta_documento_view', {id: doc.id}) }}"
+                                                                   data-nome="{{ doc.nomeOriginal|e('html_attr') }}"
+                                                                   data-mime="{{ doc.mimeType|e('html_attr') }}"
+                                                                   title="{{ doc.nomeOriginal|e('html_attr') }}">{{ doc.nomeOriginal }}</a>
                                                                 <span class="fm-arq-sub">{% if doc.numero %}Nº {{ doc.numero }}{% if doc.descricao %} · {% endif %}{% endif %}{{ doc.descricao ?? '' }}</span>
                                                                 <span class="fm-arq-local fm-oculto text-muted small"></span>
                                                             </span>

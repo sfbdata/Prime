@@ -277,6 +277,12 @@
     elArquivos.addEventListener('click', function (e) {
         const prev = e.target.closest('.fm-arq-preview');
         if (prev) {
+            /* O nome do arquivo tambem e um `.fm-arq-preview`, e e um <a> de
+               verdade: ctrl/cmd/shift+clique tem de continuar abrindo em outra
+               aba, que e o que o usuario pediu ao segurar a tecla. So o clique
+               simples vira modal. */
+            if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) { return; }
+            e.preventDefault();
             bootstrap.Modal.getOrCreateInstance(document.getElementById('previewDocModal')).show(prev);
             return;
         }

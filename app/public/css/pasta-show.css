@@ -707,9 +707,28 @@
 }
 .ps-fin-nota { margin-top: 11px; font-size: 12.5px; color: var(--ps-muted); }
 
-/* ── Documentos do trilho ── */
-.ps-doc { padding: 11px 17px; border-bottom: 1px solid var(--ps-div-weak); display: flex; gap: 10px; align-items: center; }
+/* ── Documentos do trilho ──
+   A linha inteira é o alvo: clicar abre o pré-visualizador. Cor de texto normal
+   (e não a de link) porque quem convida ao clique é a linha, não uma palavra
+   sublinhada no meio dela. */
+.ps-doc {
+    padding: 11px 17px;
+    border-bottom: 1px solid var(--ps-div-weak);
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    color: var(--ps-text);
+    text-decoration: none;
+    cursor: pointer;
+    transition: background .12s;
+}
 .ps-doc:last-child { border-bottom: none; }
+.ps-doc:hover,
+.ps-doc:focus-visible { background: var(--ps-hover); color: var(--ps-text); text-decoration: none; }
+.ps-doc:hover .ps-doc-nome { color: var(--ps-accent); }
+.ps-doc .ps-linha-corpo { display: block; }
+.ps-doc .ps-doc-nome,
+.ps-doc .ps-doc-meta { display: block; }
 .ps-doc-ext {
     width: 25px;
     height: 31px;

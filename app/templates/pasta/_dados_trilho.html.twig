@@ -166,14 +166,24 @@
             <div class="ps-vazio-nota">Envie arquivos pela aba Documentos.</div>
         </div>
     {% else %}
+        {# Clicar abre o pré-visualizador — o MESMO gesto da aba Documentos, e o
+           mesmo modal (#previewDocModal), que já traz o botão Baixar no rodapé.
+           O `data-bs-toggle` do Bootstrap basta aqui: o handler delegado do
+           gerenciador de arquivos escuta só dentro dele. #}
         {% for doc in docsRecentes %}
-            <div class="ps-doc">
+            <a class="ps-doc"
+               href="{{ path('pasta_documento_view', {id: doc.id}) }}"
+               target="_blank" rel="noopener noreferrer"
+               data-bs-toggle="modal" data-bs-target="#previewDocModal"
+               data-url="{{ path('pasta_documento_view', {id: doc.id}) }}"
+               data-nome="{{ doc.nomeOriginal|e('html_attr') }}"
+               data-mime="{{ doc.mimeType|e('html_attr') }}">
                 <span class="ps-doc-ext">{{ doc.nomeOriginal|split('.')|last|slice(0, 4) }}</span>
-                <div class="ps-linha-corpo">
-                    <div class="ps-doc-nome" title="{{ doc.titulo }}">{{ doc.titulo }}</div>
-                    <div class="ps-doc-meta">{{ doc.tamanhoBytes|formatar_bytes }} · {{ doc.carregadoEm|date('d/m/Y') }}</div>
-                </div>
-            </div>
+                <span class="ps-linha-corpo">
+                    <span class="ps-doc-nome" title="{{ doc.titulo }}">{{ doc.titulo }}</span>
+                    <span class="ps-doc-meta">{{ doc.tamanhoBytes|formatar_bytes }} · {{ doc.carregadoEm|date('d/m/Y') }}</span>
+                </span>
+            </a>
         {% endfor %}
     {% endif %}
 </section>

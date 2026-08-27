@@ -250,4 +250,68 @@ final class PastaShowDocumentosControllerTest extends JusPrimeWebTestCase
         self::assertSame('0', $noNeta->attr('data-subpastas'), 'a NETA é folha');
         self::assertSame('1', $noNeta->attr('data-arquivos'));
     }
+
+    #[TestDox('clicar no nome do arquivo abre o pré-visualizador, e não baixa direto')]
+    public function testNomeDoArquivoAbreOPreVisualizador(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $doc             = $this->criarDocumento($pasta, $tenant, null, 'contrato-assinado.pdf');
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
+        self::assertResponseIsSuccessful();
+
+        $nome = $crawler->filter('#fmArquivos .fm-arquivo .fm-arq-nome');
+        self::assertCount(1, $nome);
+
+        /* Baixar sem olhar obriga o usuário a abrir o arquivo FORA do sistema só
+           para descobrir se era o certo. O clique agora abre o modal, que já tem
+           o botão Baixar no rodapé. */
+        self::assertSame(
+            '/pasta/documento/' . $doc->getId() . '/visualizar',
+            $nome->attr('href'),
+            'o href aponta para a visualização, não para o download'
+        );
+        self::assertStringContainsString(
+            'fm-arq-preview',
+            (string) $nome->attr('class'),
+            'é a classe que o pasta-arquivos.js intercepta para abrir o modal'
+        );
+
+        // O modal lê estes três; sem qualquer um deles ele abre vazio ou sem nome.
+        self::assertSame('/pasta/documento/' . $doc->getId() . '/visualizar', $nome->attr('data-url'));
+        self::assertSame('contrato-assinado.pdf', $nome->attr('data-nome'));
+        self::assertSame('application/pdf', $nome->attr('data-mime'));
+
+        /* Sem JS o link ainda leva ao arquivo, em outra aba — degradação, não
+           beco sem saída. E baixar continua a UM clique, pelo menu da linha. */
+        self::assertSame('_blank', $nome->attr('target'));
+        self::assertCount(
+            1,
+            $crawler->filter('#fmArquivos .fm-arquivo a[href="/pasta/documento/' . $doc->getId() . '/download"]'),
+            'o menu ⋮ da linha continua tendo o Baixar direto'
+        );
+    }
+
+    #[TestDox('o pré-visualizador traz o botão Baixar no rodapé — é ele que substitui o clique no nome')]
+    public function testPreVisualizadorTemBotaoBaixar(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $this->criarDocumento($pasta, $tenant, null, 'peticao.pdf');
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
+
+        /* Se este botão sumir, tirar o download do clique no nome deixa o usuário
+           SEM caminho nenhum dentro do modal. */
+        self::assertCount(
+            1,
+            $crawler->filter('#previewDocModal .modal-footer #previewDocDownload'),
+            'o modal de preview tem de continuar com o Baixar no rodapé'
+        );
+    }
 }
