@@ -9,7 +9,6 @@ Quem abre uma frente acrescenta a linha. Quem integra tira.
 |---|---|---|---|---|---|
 | `cobranca-acompanhamento-canonico` | Cobrança (modelo objeto/caso) | **sim — 4** | `docs/gestao-cobrancas/` | 🛑 **PARADA** (ver abaixo) | `origin/master` @ `0bb1f29` |
 | `expediente-ux` | Expediente + Pasta (telas) | não | `app/templates/expediente/`, `app/templates/pasta/` | implementando, **28 commits atrás do master** | `origin/codex/colaboracao-cobrancas` |
-| `cobranca-honorario-no-total` | Cobrança (**núcleo do dinheiro**) | não | ver o bloqueio abaixo — é grande | ✅ **7 commits, 3896/3896, 6 revisões; §10 decidida pelo dono (VAI INTEIRO)** — topo `0346df05`; ⏳ 7ª revisão + integrar | `master` local @ `fda1b466` |
 | `cobranca-reconciliar-data-acordo` | Cobrança (comando) | não | `RelatorioLinhaRepository` (método novo), `ComandosComPiiPassamPelaGuardaTest` (1 linha) | ✅ pronta: 3901/3901, prova por reintrodução feita — **aguarda `/review` e integração** | `master` local @ `18555616` |
 
 ### ⚠️ `pasta-show-chip-responsavel` extrai 196 linhas do `_tabela.html.twig`
@@ -29,37 +28,17 @@ master para dentro **antes** de escrever qualquer linha lá.
 própria tag, e `<style>` aninhado é HTML inválido. Foi por isso que o include dele ficou
 **depois** do `</style>` no `_tabela`, e não no lugar de onde o bloco saiu.
 
-### ⛔ 19/08 — a frente do honorário TRAVA o núcleo de dinheiro da Cobrança
+### ✅ 21/08 — a frente do honorário FOI INTEGRADA, e o bloqueio caiu
 
-Decisão do dono (19/08): **modelo A** — o honorário passa a viver dentro da dívida, e a SPEC §18
-(rateio do pagamento) é aposentada. Ver `docs/specs/cobranca-honorario-no-total.md` §4.3.
+`cobranca-honorario-no-total` foi mergeada no master (`aacc4814`), publicada e **deployada**. A
+worktree e a branch foram removidas. **O núcleo de dinheiro da Cobrança está LIVRE de novo** — a
+lista de arquivos bloqueados que ficava aqui não vale mais.
 
-**Enquanto esta frente estiver aberta, NÃO abra frente que toque estes arquivos:**
-
-`Obrigacao.php` · `EncargosVivos.php` · `ReconciliadorLiquidacao.php` · `CalculadoraSaldo.php` ·
-`AutoAlocadorFifo.php` · `AlocadorPagamento.php` · `CalculadoraHonorarios.php` ·
-`MontarDashboardCobrancaUseCase.php` · `MontarDetalheCasoUseCase.php` · `MontarDetalheAcordoUseCase.php` ·
-`ExcluirPagamentoUseCase.php` · `ImportarReceitasUseCase.php` · `AlertasCobranca.php` ·
-`ObrigacaoOutput.php` · `CasoDetalheOutput.php` · `RegistrarPagamentoInput.php` ·
-`AcordoCriarType.php` · `templates/cobranca/objeto/_partials/_divida.html.twig`
-
-Na prática: **qualquer frente nova de Cobrança que mexa em dívida, pagamento, acordo ou saldo colide.**
-Cobrança que seja só relatório/importação/tela de listagem, ou qualquer frente **fora** de Cobrança
-(Pasta, Expediente, Ponto, Sync, plataforma), está livre.
-
-🔑 **Nenhuma das duas tem migration** — não bloqueiam uma frente com migration.
-
-⚠️ `336b0e41` é METADE da opção A e **não pode ser integrado sozinho**: o exigível já exige honorário
-e o pagamento ainda o retira antes de abater, então nenhuma dívida quita. Ele e `25658fd6` andam
-juntos. A frente inteira (7 commits, topo `0346df05`) está verde e é o que se integra.
-
-🔴 **A §10 da spec (as 135 parcelas) tem decisão do dono de 19/08: VAI INTEIRO** — o guard
-prospectivo entra junto, com o teto de R$ 125.526,35 apresentado e aceito. Ver
+O que a frente entregou e o que ela deixou aberto está em
 `docs/HANDOFF_ESPELHO_CONTABILIDADE.md` §7.1, que é autossuficiente.
 
-⚠️ Esta frente passou a tocar `Obrigacao.php` (método novo `pararDeCobrarHonorario`),
-`ImportarAcordosDetalhadosUseCase.php`, `ObrigacaoRepository.php` e `ImportarReceitasUseCase.php` —
-some à lista de bloqueio abaixo.
+⚠️ **Falta rodar o comando das 135 em produção** (simula → o dono confere contra a planilha →
+`--aplicar --ids=...`). O código está no ar; as dívidas gravadas ainda não foram corrigidas.
 
 ### Worktrees que são resto e podem ser fechadas (conferidas por CONTEÚDO com `git cherry`)
 
