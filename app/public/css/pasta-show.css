@@ -469,7 +469,14 @@
     from { opacity: 0; transform: translate3d(0,10px,0) scale(.992); }
     to   { opacity: 1; transform: none; }
 }
-.ps-paineis > .tab-pane.show.active { animation: psPainelEntra .46s var(--ps-ease) both; }
+/* `backwards`, não `both`. O `forwards` do `both` mantém a animação APLICADA
+   para sempre depois de terminar — e uma animação viva de `transform` deixa o
+   painel sendo o bloco de contenção de qualquer `position: fixed` descendente,
+   o que prende modal abaixo do backdrop. `backwards` garante o que interessa
+   (o painel já entra invisível, sem piscar no primeiro quadro) e o efeito
+   deixa de valer quando acaba. Cinto e suspensório: os modais do gerenciador
+   também saíram de dentro do painel. */
+.ps-paineis > .tab-pane.show.active { animation: psPainelEntra .46s var(--ps-ease) backwards; }
 @media (prefers-reduced-motion: reduce) {
     .ps-paineis > .tab-pane.show.active { animation: none; }
     .ps-abas-ind { transition: none; }

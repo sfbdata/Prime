@@ -529,4 +529,59 @@ final class PastaShowDocumentosControllerTest extends JusPrimeWebTestCase
         $cartao = $crawler->filter('#fmPastas .fm-pasta[data-secao-id="' . $secao->getId() . '"]');
         self::assertCount(1, $cartao, 'a pasta de destino é um cartão identificado');
     }
+
+    #[TestDox('nenhum modal mora dentro de um painel de aba — lá ele fica abaixo do backdrop e não aceita clique')]
+    public function testNenhumModalDentroDoPainelDaAba(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
+        self::assertResponseIsSuccessful();
+
+        /* Modal é `position: fixed`. Um ancestral com `transform` — inclusive o que
+           vem de uma ANIMAÇÃO, como a de entrada dos painéis — passa a ser o bloco
+           de contenção dele: o modal deixa de se posicionar pela janela e cai
+           ABAIXO do `.modal-backdrop`, que o Bootstrap prega no <body>. O sintoma
+           é o modal aparecer e não aceitar clique nem digitação.
+           Foi exatamente o que aconteceu com os três modais do gerenciador de
+           arquivos (Nova pasta, Mover arquivo, Mover pasta) quando o painel ganhou
+           a animação de entrada. */
+        $dentro = $crawler->filter('.ps-paineis .modal')->each(fn ($n) => $n->attr('id') ?? '(sem id)');
+        self::assertSame(
+            [],
+            $dentro,
+            'estes modais estão dentro de um painel animado e vão ficar inertes: ' . implode(', ', $dentro)
+        );
+
+        // E os três do gerenciador continuam existindo — fora do painel.
+        foreach (['fmInputModal', 'fmMoverModal', 'fmDestinoModal'] as $id) {
+            self::assertCount(1, $crawler->filter('#' . $id), "#{$id} tem de continuar na página");
+            self::assertCount(0, $crawler->filter('.ps-page #' . $id), "#{$id} não pode voltar para dentro de .ps-page");
+        }
+    }
+
+    #[TestDox('o modal de Nova pasta continua com o campo e o botão que o JS aciona')]
+    public function testModalNovaPastaIntacto(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
+
+        /* Mudar um bloco de lugar é onde se perde um pedaço sem perceber: o
+           template continua válido e a tela continua abrindo. Estes são os id que
+           o `pedirTexto()` do pasta-arquivos.js procura. */
+        self::assertCount(1, $crawler->filter('#fmInputModal #fmInputTitulo'));
+        self::assertCount(1, $crawler->filter('#fmInputModal #fmInputCampo'));
+        self::assertCount(1, $crawler->filter('#fmInputModal #fmInputErro'));
+        self::assertCount(1, $crawler->filter('#fmInputModal #fmInputConfirmar'));
+        self::assertCount(1, $crawler->filter('#fmMoverModal #fmMoverLista'));
+        self::assertCount(1, $crawler->filter('#fmDestinoModal #fmDestinoCampo'));
+        self::assertCount(1, $crawler->filter('#fmDestinoModal #fmDestinoConfirmar'));
+    }
 }

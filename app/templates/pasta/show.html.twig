@@ -636,42 +636,6 @@
                                     </div>{# /fm-body #}
                                 </div>{# /fm #}
 
-                                {# Modal reutilizável de texto (nova pasta / renomear) #}
-                                <div class="modal fade" id="fmInputModal" tabindex="-1" aria-hidden="true">
-                                    <div class="modal-dialog modal-dialog-centered modal-sm">
-                                        <div class="modal-content">
-                                            <div class="modal-header"><h5 class="modal-title" id="fmInputTitulo">Nova pasta</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button></div>
-                                            <div class="modal-body">
-                                                <input type="text" class="form-control" id="fmInputCampo" maxlength="255" placeholder="Nome da pasta...">
-                                                <div class="text-danger small mt-1 d-none" id="fmInputErro"></div>
-                                            </div>
-                                            <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button><button type="button" class="btn btn-primary" id="fmInputConfirmar">Salvar</button></div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {# Modal mover arquivo para pasta #}
-                                <div class="modal fade" id="fmMoverModal" tabindex="-1" aria-hidden="true">
-                                    <div class="modal-dialog modal-dialog-centered">
-                                        <div class="modal-content">
-                                            <div class="modal-header"><h5 class="modal-title"><i class="bi bi-folder-symlink me-1"></i> Mover para…</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button></div>
-                                            <div class="modal-body"><div class="list-group" id="fmMoverLista"></div></div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {# Modal escolher pasta de destino (mover pasta pelo menu "Mover para...") #}
-                                <div class="modal fade" id="fmDestinoModal" tabindex="-1" aria-hidden="true">
-                                    <div class="modal-dialog modal-dialog-centered modal-sm">
-                                        <div class="modal-content">
-                                            <div class="modal-header"><h5 class="modal-title" id="fmDestinoTitulo">Mover para</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button></div>
-                                            <div class="modal-body">
-                                                <select class="form-select" id="fmDestinoCampo" aria-label="Pasta de destino"></select>
-                                            </div>
-                                            <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button><button type="button" class="btn btn-primary" id="fmDestinoConfirmar">Mover</button></div>
-                                        </div>
-                                    </div>
-                                </div>
                             </div>{# /tab-pane #documentos #}
 
                         </div>
@@ -1008,6 +972,53 @@
 {{ include('pasta/_historico_drawer.html.twig', {
     eventosHistorico: eventosHistorico,
 }) }}
+
+{# ── Modais do gerenciador de arquivos ──────────────────────────────────────
+   Vivem AQUI, fora de .ps-page, e não dentro do painel da aba Documentos, que é
+   onde estavam. Modal é `position: fixed`, e um ancestral com `transform` (mesmo
+   vindo de uma animação) vira o bloco de contenção dele: o modal deixa de se
+   posicionar pela janela e cai ABAIXO do backdrop, que o Bootstrap prega no
+   <body>. O sintoma é o modal aparecer e não aceitar clique nem digitação.
+
+   Eram os três ÚNICOS modais desta tela dentro de um painel animado — os outros
+   sete sempre estiveram aqui fora e nunca tiveram o problema. `PastaShowDocumentos
+   ControllerTest` trava esse invariante para não voltar. #}
+{# Modal reutilizável de texto (nova pasta / renomear) #}
+<div class="modal fade" id="fmInputModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title" id="fmInputTitulo">Nova pasta</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button></div>
+            <div class="modal-body">
+                <input type="text" class="form-control" id="fmInputCampo" maxlength="255" placeholder="Nome da pasta...">
+                <div class="text-danger small mt-1 d-none" id="fmInputErro"></div>
+            </div>
+            <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button><button type="button" class="btn btn-primary" id="fmInputConfirmar">Salvar</button></div>
+        </div>
+    </div>
+</div>
+
+{# Modal mover arquivo para pasta #}
+<div class="modal fade" id="fmMoverModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title"><i class="bi bi-folder-symlink me-1"></i> Mover para…</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button></div>
+            <div class="modal-body"><div class="list-group" id="fmMoverLista"></div></div>
+        </div>
+    </div>
+</div>
+
+{# Modal escolher pasta de destino (mover pasta pelo menu "Mover para...") #}
+<div class="modal fade" id="fmDestinoModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title" id="fmDestinoTitulo">Mover para</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button></div>
+            <div class="modal-body">
+                <select class="form-select" id="fmDestinoCampo" aria-label="Pasta de destino"></select>
+            </div>
+            <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button><button type="button" class="btn btn-primary" id="fmDestinoConfirmar">Mover</button></div>
+        </div>
+    </div>
+</div>
 
 {# Modal: Adicionar Cliente #}
 <div class="modal fade" id="modalAdicionarCliente" tabindex="-1" aria-labelledby="modalAdicionarClienteLabel" aria-hidden="true">
