@@ -7,8 +7,15 @@
 {%- set partes = nome|trim|split(' ')|filter(p => p is not empty) -%}
 {%- set iniciais = (partes|length > 1 ? (partes|first|slice(0, 1) ~ partes|last|slice(0, 1)) : nome|slice(0, 2))|upper -%}
 {%- if fotoUrl -%}
-    <span class="resp-avatar resp-avatar-img" style="width:{{ size }}px;height:{{ size }}px;" data-ini="{{ iniciais }}">
+    {# O recorte e o tamanho vão INLINE, não só na folha de estilo. A folha pode
+       chegar depois desta marcação (e chegava: o estilo do chip morava no fim do
+       <body>), e até lá o navegador pinta a foto no tamanho natural, transbordando
+       do círculo. Inline, a imagem nasce do tamanho certo em qualquer ordem de
+       carregamento — inclusive na listagem do Expediente, que usa este mesmo macro. #}
+    <span class="resp-avatar resp-avatar-img" style="width:{{ size }}px;height:{{ size }}px;overflow:hidden;" data-ini="{{ iniciais }}">
         <img src="{{ path('app_profile_foto_serve', {nome: fotoUrl}) }}" alt="" loading="lazy"
+             width="{{ size }}" height="{{ size }}"
+             style="width:100%;height:100%;object-fit:cover;display:block;"
              onerror="this.parentNode.classList.remove('resp-avatar-img');this.parentNode.classList.add('resp-avatar-ini');this.parentNode.textContent=this.parentNode.dataset.ini;">
     </span>
 {%- else -%}

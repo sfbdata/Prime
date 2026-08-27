@@ -9,6 +9,14 @@
 <link rel="stylesheet" href="/css/pasta-arquivos.css">
 {# Redesenho da tela de pasta — desenho aprovado em docs/design/pasta-show/. #}
 <link rel="stylesheet" href="/css/pasta-show.css">
+
+{# O estilo do chip de responsável sobe para o <head>. Ele ficava no fim do
+   <body>, a ~4.800 linhas de HTML do chip — e o chip agora abre a página, no
+   cabeçalho. Nesse intervalo o navegador pintava a FOTO NO TAMANHO NATURAL:
+   quem recorta a imagem no círculo de 24px é `.resp-avatar{overflow:hidden}` e
+   `.resp-avatar-img img{width:100%}`, as duas aqui dentro. Estilo tem de chegar
+   antes da marcação que ele dimensiona. #}
+{{ include('pasta/_resp_estilo.html.twig') }}
 {% endblock %}
 
 {% block body %}
@@ -4820,8 +4828,8 @@ document.addEventListener('DOMContentLoaded', function () {
 }());
 </script>
 
-{# ── Responsável: estilo, menu e comportamento do chip (mesmos do Expediente) ── #}
-{{ include('pasta/_resp_estilo.html.twig') }}
+{# ── Responsável: menu e comportamento do chip (mesmos do Expediente).
+   O estilo NÃO vem mais daqui — subiu para o bloco `stylesheets`, no <head>. ── #}
 {{ include('pasta/_resp_menu.html.twig', {
     usuarios: usuarios,
     fotosResponsaveis: fotosResponsaveis|default({}),

@@ -9,6 +9,7 @@ use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
+use App\Profile\Entity\UserProfile;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -261,6 +262,69 @@ final class PastaShowChipResponsavelTest extends JusPrimeWebTestCase
             0,
             $crawler->filter('.pasta-responsavel-select'),
             'o <select> antigo foi substituído pelo chip; deixá-lo é ter dois controles para a mesma ação'
+        );
+    }
+
+    #[TestDox('o estilo do chip chega ANTES do chip no HTML — senão a foto pinta no tamanho natural')]
+    public function testEstiloDoChipVemAntesDoChip(): void
+    {
+        $client                          = static::createClient();
+        [$admin, $tenant, $pasta, $_col] = $this->criarCenario();
+
+        $this->logarComTenant($client, $admin, $tenant);
+        $client->request('GET', '/pasta/' . $pasta->getId());
+        self::assertResponseIsSuccessful();
+
+        $html = (string) $client->getResponse()->getContent();
+
+        /* Quem recorta a foto no círculo de 24px é `.resp-avatar{overflow:hidden}`
+           e `.resp-avatar-img img{width:100%}`. Esse <style> morava no FIM do
+           <body>, a ~4.800 linhas do chip — e o chip passou a abrir a página, no
+           cabeçalho. No intervalo, o navegador pintava a foto no TAMANHO NATURAL
+           por cima da tela.
+
+           O assert compara POSIÇÃO no documento, que é a única coisa que importa
+           aqui: o navegador lê de cima para baixo. */
+        $posEstilo = strpos($html, '.resp-avatar-img img');
+        $posChip   = strpos($html, 'class="pasta-resp-chip"');
+
+        self::assertNotFalse($posEstilo, 'o estilo do avatar tem de estar na página');
+        self::assertNotFalse($posChip, 'o chip tem de estar na página');
+        self::assertLessThan(
+            $posChip,
+            $posEstilo,
+            'o <style> do avatar tem de vir ANTES do chip; depois dele, a foto pisca em tamanho natural'
+        );
+    }
+
+    #[TestDox('a foto do responsável se dimensiona sozinha, sem depender da folha de estilo')]
+    public function testFotoTemTamanhoNaMarcacao(): void
+    {
+        $client                          = static::createClient();
+        [$admin, $tenant, $pasta, $_col] = $this->criarCenario();
+
+        $em      = static::getContainer()->get(EntityManagerInterface::class);
+        $profile = new UserProfile($admin);
+        $profile->setFotoUrl('foto-teste.jpg');
+        $em->persist($profile);
+        $em->flush();
+
+        $this->logarComTenant($client, $admin, $tenant);
+        $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
+
+        $img = $crawler->filter('.ps-cab-dados .pasta-resp-chip .resp-avatar-img img');
+        self::assertCount(1, $img, 'com foto cadastrada o chip mostra a imagem, não as iniciais');
+
+        /* Defesa em profundidade: mesmo que a folha de estilo chegue tarde (ou não
+           chegue), a imagem já nasce do tamanho do círculo. Sem isto, a única coisa
+           que a segurava era CSS — e CSS que chega depois não segura nada. */
+        self::assertSame('24', $img->attr('width'), 'o atributo width reserva o espaço antes de qualquer CSS');
+        self::assertSame('24', $img->attr('height'));
+        self::assertStringContainsString('object-fit:cover', (string) $img->attr('style'));
+        self::assertStringContainsString(
+            'overflow:hidden',
+            (string) $img->closest('.resp-avatar')->attr('style'),
+            'e o círculo recorta o que sobrar, sem esperar a folha de estilo'
         );
     }
 }
