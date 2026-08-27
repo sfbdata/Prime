@@ -12,6 +12,7 @@
                 <h5 class="modal-title fw-semibold" id="modalAlertaPontoLabel">
                     <i class="bi bi-clock-history me-2"></i>Registro de Ponto
                 </h5>
+                <button type="button" class="btn-close" style="filter: none;" data-bs-dismiss="modal" aria-label="Fechar aviso"></button>
             </div>
             <div class="modal-body py-4 text-center">
                 <p class="fs-5 mb-1" id="alertaPontoMensagem"></p>
@@ -172,7 +173,7 @@
             }
         }
 
-        // Para de piscar e marca como dispensado ao fechar (qualquer forma: X, ESC ou botão)
+        // Para de piscar e marca como dispensado ao fechar (pelo X ou pelo botão)
         modalEl.addEventListener('hidden.bs.modal', function () {
             pararPiscarTitulo();
             if (modalEl._tipoAtual) {
