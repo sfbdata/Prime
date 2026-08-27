@@ -232,10 +232,15 @@ final class ExpedienteController extends AbstractController
 
         return $this->json([
             'pastaId'    => $pasta->getId(),
-            'marcadores' => array_map(
+            // array_values é obrigatório: removeMarcador() deixa lacunas nos índices da coleção
+            // e toArray()/array_map() preservam essas chaves, fazendo json_encode() serializar
+            // um OBJETO ({"2":{…}}) em vez de uma lista. O JS consumidor faz marcadores.map(),
+            // que estoura TypeError nesse formato — a gravação já ocorreu, mas a tela acusa
+            // "Erro de comunicação." e o modal não fecha.
+            'marcadores' => array_values(array_map(
                 fn($m) => ['id' => $m->getId(), 'nome' => $m->getNome(), 'cor' => $m->getCor()],
                 $pasta->getMarcadores()->toArray()
-            ),
+            )),
         ]);
     }
 
