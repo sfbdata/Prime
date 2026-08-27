@@ -46,6 +46,11 @@ final class JudicializarCasoType extends AbstractType
                 // não existe. O campo sempre tem valor (o Input nasce em `criar`), então o `required`
                 // padrão é o certo.
                 'choice_translation_domain' => false,
+                // A classe cai no CONTAINER dos rádios (é o que `widget_container_attributes` faz
+                // num ChoiceType `expanded`), e é ela que o `cobrancas.css` ancora para afastar as
+                // duas opções. Sem uma classe nossa, o CSS teria de contar os `div`s que o tema de
+                // formulário gera — que são DOIS acima dos inputs e mudam se o tema mudar.
+                'attr' => ['class' => 'cob-judicializar-opcoes'],
             ])
             ->add('nomeCliente', TextType::class, [
                 'label' => 'Nome do cliente',

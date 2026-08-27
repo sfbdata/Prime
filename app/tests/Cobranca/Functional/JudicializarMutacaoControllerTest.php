@@ -233,6 +233,16 @@ final class JudicializarMutacaoControllerTest extends CobrancaWebTestCase
             $crawler->filter('#modalJudicializar input[name="judicializar_caso[modo]"]'),
             'o grupo de modo é renderizado UMA vez (dois rádios, não quatro)',
         );
+
+        // Arranjo: a regra que AFASTA as duas opções (`cobrancas.css`, `.cob-judicializar-opcoes`)
+        // precisa que os rádios sejam FILHOS DIRETOS dessa classe. Sem a âncora eles voltam a sair
+        // colados, e nenhum teste de HTML enxergaria isso. O combinador de filho direto é o que
+        // distingue "está aninhado assim" de "existe em algum lugar do modal".
+        self::assertCount(
+            2,
+            $crawler->filter('#modalJudicializar .cob-judicializar-opcoes > input[name="judicializar_caso[modo]"]'),
+            'os rádios são filhos diretos da classe que o CSS de espaçamento ancora',
+        );
     }
 
     #[TestDox('Judicializar cria a pasta com o nome do responsável e AÇÃO MONITÓRIA')]

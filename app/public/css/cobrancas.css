@@ -1395,3 +1395,30 @@ html[data-bs-theme="dark"] .cob-cab {
 .cob-qualif-item [data-acao="desfazer-qualificacao"] { color: var(--bs-secondary-color); font-size: .8rem; }
 .cob-qualif-item [data-acao="desfazer-qualificacao"]:hover,
 .cob-qualif-item [data-acao="desfazer-qualificacao"]:focus-visible { color: var(--bs-danger); }
+
+/* ── Modal "Judicializar caso": as duas opções de modo ────────────────────────────────────────────
+   O `form_div_layout` (o tema de formulário deste projeto) renderiza um `ChoiceType` `expanded` como
+   input+label soltos, um atrás do outro, INLINE e sem espaço nenhum — na tela os dois rótulos ficam
+   praticamente encostados ("Criar uma pasta novaVincular uma pasta existente").
+
+   A grade de duas colunas resolve sem tocar no tema global nem em nenhum outro formulário do sistema:
+   o input cai na primeira coluna, o label na segunda, e cada par ocupa a própria linha. O
+   `row-gap` é o afastamento pedido; o `column-gap` é o respiro entre a bolinha e o texto.
+
+   A âncora é uma classe NOSSA no container dos rádios (`attr` do ChoiceType, em JudicializarCasoType),
+   não a contagem de `div`s: o tema gera DOIS wrappers acima dos inputs, e contar depth quebraria se o
+   tema mudasse. O aninhamento está travado por teste funcional. */
+.cob-judicializar-opcoes {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    column-gap: .5rem;
+    row-gap: .6rem;
+}
+
+/* Rótulo de opção é escolha, não título de campo: peso normal e clicável no texto inteiro. */
+.cob-judicializar-opcoes label {
+    margin-bottom: 0;
+    font-weight: 400;
+    cursor: pointer;
+}
