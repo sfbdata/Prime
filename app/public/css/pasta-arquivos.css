@@ -610,3 +610,27 @@
        Documentos veio pelos arquivos. */
     .fm-body { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* ------------------------------- Soltar arquivo dentro de uma pasta --------
+   O realce voltou. Ele existiu para o gesto de arrastar PASTA para dentro de
+   pasta e saiu junto com ele em 21/08, quando aquele gesto foi removido por
+   nunca ter funcionado. Agora quem recebe o arraste é o arquivo, e sem sinal
+   nenhum o usuário não teria como saber que pode soltar ali. */
+
+/* Enquanto um arquivo está em arraste, TODAS as pastas do nível se anunciam
+   como destino possível — descobrir isso só ao passar por cima de uma delas
+   exigiria adivinhar que o gesto existe. */
+.fm-pastas.fm-pastas-recebendo .fm-pasta {
+    border-style: dashed;
+    border-color: var(--bs-primary-border-subtle);
+}
+
+/* E a que está sob o cursor se destaca das outras: é ela que vai receber. */
+.fm-pasta.fm-pasta-alvo {
+    border-style: solid;
+    border-color: var(--bs-primary);
+    background: var(--bs-primary-bg-subtle);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--bs-primary) 18%, transparent);
+}
+.fm-pasta.fm-pasta-alvo .fm-pasta-icone,
+.fm-pasta.fm-pasta-alvo .bi-folder-fill { color: var(--bs-primary) !important; }

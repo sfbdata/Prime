@@ -698,13 +698,86 @@
         proximo();
     }
 
+    // -------------------------------- soltar arquivo dentro de pasta ---------
+    /* Arrastar a linha do arquivo (pela alça) e soltar sobre um cartão de pasta
+       MOVE o arquivo para dentro dela. Reordenar continua sendo o mesmo gesto —
+       o que decide é ONDE se solta.
+
+       Por que isto funciona agora, sendo que o gesto irmão (pasta para dentro de
+       pasta) foi removido em 21/08 por nunca funcionar: aquela tentativa
+       perguntava "que elemento está sob o cursor?" (`e.target.closest`), e a
+       resposta era sempre o PRÓPRIO cartão arrastado, porque o Sortable o
+       reposiciona sob o cursor a cada passo. Aqui não se pergunta isso — compara-se
+       a COORDENADA do soltar contra o retângulo de cada cartão de pasta. Retângulo
+       não depende de quem está por cima.
+
+       E a coordenada não vem de um listener em #fmPastas (aquele diagnóstico
+       mediu ZERO dragover chegando lá) nem do `dragend` (que reporta 0,0 no
+       Firefox): vem de um listener de CAPTURA no document, que roda antes de
+       qualquer stopPropagation do Sortable. */
+    let arquivoArrastado = null;
+    let ultimoPonto      = null;
+    let alvoRealcado     = null;
+
+    function pastaSobPonto(x, y) {
+        if (!elPastas || x == null) { return null; }
+        // Só pastas VISÍVEIS no nível aberto: as escondidas têm retângulo zerado
+        // ou de outro nível, e acertá-las moveria o arquivo para um lugar que o
+        // usuário não está vendo.
+        const cartoes = Array.prototype.slice.call(elPastas.querySelectorAll('.fm-pasta:not(.fm-oculto)'));
+        for (let i = 0; i < cartoes.length; i++) {
+            const r = cartoes[i].getBoundingClientRect();
+            if (r.width && x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) { return cartoes[i]; }
+        }
+        return null;
+    }
+
+    function realcarAlvo(card) {
+        if (alvoRealcado === card) { return; }
+        if (alvoRealcado) { alvoRealcado.classList.remove('fm-pasta-alvo'); }
+        alvoRealcado = card;
+        if (alvoRealcado) { alvoRealcado.classList.add('fm-pasta-alvo'); }
+    }
+
+    document.addEventListener('dragover', function (e) {
+        if (!arquivoArrastado) { return; }
+        ultimoPonto = { x: e.clientX, y: e.clientY };
+        realcarAlvo(pastaSobPonto(e.clientX, e.clientY));
+    }, true);
+
     // ------------------------------------------------------ drag & drop ------
     if (window.Sortable) {
         if (elArquivos) {
             new Sortable(elArquivos, {
                 handle: '.fm-arq-grip', draggable: '.fm-arquivo', animation: 150,
                 filter: '.fm-lista-head', ghostClass: 'arrastando',
-                onEnd: function () {
+                onStart: function (evt) {
+                    arquivoArrastado = evt.item;
+                    ultimoPonto      = null;
+                    if (elPastas) { elPastas.classList.add('fm-pastas-recebendo'); }
+                },
+                onEnd: function (evt) {
+                    const arrastado = arquivoArrastado;
+                    arquivoArrastado = null;
+                    if (elPastas) { elPastas.classList.remove('fm-pastas-recebendo'); }
+                    realcarAlvo(null);
+
+                    const ponto = ultimoPonto || (evt.originalEvent
+                        ? { x: evt.originalEvent.clientX, y: evt.originalEvent.clientY }
+                        : null);
+                    const destino = ponto ? pastaSobPonto(ponto.x, ponto.y) : null;
+
+                    /* Soltou sobre uma pasta: é mover, não reordenar — e sai ANTES
+                       de persistir a ordem. Os dois POSTs juntos (/mover e
+                       /reordenar) correriam um contra o outro, e quem chegasse por
+                       último decidiria; foi a mesma armadilha que a versão antiga
+                       precisou travar à mão. Pasta onde o arquivo já está: nada a
+                       fazer, e mover para ela mesma só gastaria um POST. */
+                    if (arrastado && destino && destino.dataset.secaoId !== arrastado.dataset.secao) {
+                        moverArquivo(arrastado, destino.dataset.secaoId);
+                        return;
+                    }
+
                     const visiveis = todosArquivos().filter(function (el) { return !el.classList.contains('fm-oculto'); });
                     // Fixa a nova ordem manual no próprio DOM e ativa o modo "Manual",
                     // senão o próximo render() reordenaria por nome/data e o arraste sumiria.

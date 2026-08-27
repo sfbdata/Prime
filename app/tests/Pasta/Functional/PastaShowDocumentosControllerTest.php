@@ -492,4 +492,41 @@ final class PastaShowDocumentosControllerTest extends JusPrimeWebTestCase
         self::assertContains('incompleto', $classes);
         self::assertNotContains('completo', $classes, '0/0 não é documentação conferida: é documentação não listada');
     }
+
+    #[TestDox('a linha do arquivo carrega o que o arraste-para-dentro-de-pasta precisa enviar')]
+    public function testLinhaDoArquivoTemOContratoDoArrastar(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $secao           = $this->criarSecao($pasta, $tenant);
+        $doc             = $this->criarDocumento($pasta, $tenant, null, 'na-raiz.pdf');
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
+        self::assertResponseIsSuccessful();
+
+        $linha = $crawler->filter('#fmArquivos .fm-arquivo[data-doc-id="' . $doc->getId() . '"]');
+        self::assertCount(1, $linha);
+
+        /* Soltar o arquivo sobre um cartão de pasta chama o MESMO `moverArquivo()`
+           do menu "Mover para…". Ele monta o POST a partir destes três atributos:
+           sem qualquer um deles o gesto acontece na tela e não grava nada — falha
+           silenciosa, que é a pior de todas aqui. */
+        self::assertSame(
+            '/pasta/documento/' . $doc->getId() . '/mover-secao',
+            $linha->attr('data-url-mover'),
+            'para onde o POST do arraste vai'
+        );
+        self::assertNotEmpty($linha->attr('data-csrf-mover'), 'o token que o POST leva');
+        self::assertSame('geral', $linha->attr('data-secao'), 'de onde ele sai — é o que impede mover para a pasta em que já está');
+
+        // A alça: o Sortable só inicia o arraste a partir dela.
+        self::assertCount(1, $linha->filter('.fm-arq-grip'), 'sem a alça não há como iniciar o arraste');
+
+        /* E o alvo: o cartão precisa dizer QUAL seção é, senão o drop acerta o
+           retângulo certo e envia um destino vazio. */
+        $cartao = $crawler->filter('#fmPastas .fm-pasta[data-secao-id="' . $secao->getId() . '"]');
+        self::assertCount(1, $cartao, 'a pasta de destino é um cartão identificado');
+    }
 }
