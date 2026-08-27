@@ -9,6 +9,7 @@ use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PastaChecklistItem;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaSecao;
 use App\Tests\Functional\JusPrimeWebTestCase;
@@ -388,5 +389,107 @@ final class PastaShowDocumentosControllerTest extends JusPrimeWebTestCase
             self::assertContains($chave, $valores, "o seletor precisa saber representar \"{$chave}\"");
         }
         self::assertContains('manual', $valores, 'e o modo manual, que o arraste liga');
+    }
+
+    #[TestDox('o checklist é a coluna da DIREITA do gerenciador, irmã da coluna de pastas e arquivos')]
+    public function testChecklistNaColunaDaDireita(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $this->criarDocumento($pasta, $tenant, null, 'a.pdf');
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
+        self::assertResponseIsSuccessful();
+
+        /* Combinador de FILHO DIRETO nas duas colunas. É o que distingue "está
+           ao lado" de "existe em algum lugar da aba" — que continuaria verdade
+           com o checklist empilhado de volta no topo. E, porque roda sobre o DOM
+           já PARSEADO, é também o que pega `</div>` sobrando: tag desbalanceada
+           faz o parser fechar os ancestrais cedo e a relação pai→filho some. */
+        self::assertCount(1, $crawler->filter('#fmBody > .fm-col-principal'), 'a coluna principal é filha direta do corpo');
+        self::assertCount(1, $crawler->filter('#fmBody > #fmChecklist'), 'o checklist é IRMÃO dela, não filho');
+
+        foreach (['fmGrupoPastas', 'fmGrupoArquivos'] as $grupo) {
+            self::assertCount(
+                1,
+                $crawler->filter('#fmBody > .fm-col-principal > #' . $grupo),
+                "#{$grupo} tem de estar na coluna principal"
+            );
+        }
+        self::assertCount(
+            0,
+            $crawler->filter('.fm-col-principal #fmChecklist'),
+            'o checklist NÃO pode ter caído dentro da coluna principal'
+        );
+
+        // Os id que o JS do checklist procura seguem todos dentro do bloco.
+        foreach (['checklistLista', 'checklistBadge', 'btnChecklistEditar', 'btnChecklistAdicionar', 'checklistFormAdicionar'] as $id) {
+            self::assertCount(
+                1,
+                $crawler->filter('#fmChecklist #' . $id),
+                "#{$id} é contrato com o JS e tem de continuar dentro do checklist"
+            );
+        }
+    }
+
+    #[TestDox('a barra de progresso do checklist reflete os itens concluídos, e não um número solto')]
+    public function testBarraDeProgressoDoChecklist(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $em              = static::getContainer()->get(EntityManagerInterface::class);
+
+        // 4 itens, 1 concluído → 25%.
+        foreach ([true, false, false, false] as $i => $concluido) {
+            $item = new PastaChecklistItem();
+            $item->setPasta($pasta);
+            $item->setTenant($tenant);
+            $item->setTitulo('Item ' . $i);
+            $item->setOrdem($i);
+            if ($concluido) {
+                $item->toggle();
+            }
+            $em->persist($item);
+        }
+        $em->flush();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
+
+        self::assertSame('1/4 itens', trim($crawler->filter('#checklistBadge')->text()));
+        self::assertStringContainsString(
+            'width: 25%',
+            (string) $crawler->filter('#checklistBarra')->attr('style'),
+            'a barra vem preenchida do servidor — não pode depender do JS para deixar de mentir no primeiro paint'
+        );
+        self::assertStringContainsString('incompleto', (string) $crawler->filter('#checklistBarra')->attr('class'));
+        self::assertStringContainsString('incompleto', (string) $crawler->filter('#checklistBadge')->attr('class'));
+    }
+
+    #[TestDox('checklist sem item nenhum não divide por zero nem nasce dizendo 100%')]
+    public function testChecklistVazioNaoDividePorZero(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
+        self::assertResponseIsSuccessful();
+
+        /* 0/0 é o estado de toda pasta nova. "Completo" ali seria dizer que a
+           documentação está conferida quando ninguém listou o que conferir. */
+        self::assertSame('0/0 itens', trim($crawler->filter('#checklistBadge')->text()));
+        self::assertStringContainsString('width: 0%', (string) $crawler->filter('#checklistBarra')->attr('style'));
+
+        /* Compara a LISTA de classes, não substring: "incompleto" contém
+           "completo", e um assertStringNotContainsString('completo') falharia
+           para o caso certo — foi exatamente o que aconteceu ao escrever isto. */
+        $classes = preg_split('/\s+/', trim((string) $crawler->filter('#checklistBadge')->attr('class')));
+        self::assertContains('incompleto', $classes);
+        self::assertNotContains('completo', $classes, '0/0 não é documentação conferida: é documentação não listada');
     }
 }

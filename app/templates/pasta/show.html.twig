@@ -431,62 +431,9 @@
 
                                     <div class="fm-body" id="fmBody">
 
-                                        {# Checklist (relocado da coluna antiga; JS de checklist existente permanece intacto) #}
-                                        <div class="fm-grupo" id="fmChecklist">
-                                            <div class="card card-outline card-secondary mb-0">
-                                                <div class="card-body">
-                                                    <div class="d-flex justify-content-between align-items-center mb-2">
-                                                        <h6 class="text-muted mb-0"><i class="bi bi-check2-square me-1"></i> Checklist de Documentação</h6>
-                                                        <div class="d-flex align-items-center gap-2">
-                                                            <span id="checklistBadge" class="badge {{ concluidosChecklist == totalChecklist and totalChecklist > 0 ? 'text-bg-success' : 'text-bg-warning' }}">
-                                                                {{ concluidosChecklist }}/{{ totalChecklist }} itens
-                                                            </span>
-                                                            <button type="button" id="btnChecklistEditar" class="btn btn-sm btn-outline-secondary" title="Editar checklist">
-                                                                <i class="bi bi-pencil"></i>
-                                                            </button>
-                                                            <button type="button" id="btnChecklistAdicionar" class="btn btn-sm btn-outline-primary" title="Adicionar item">
-                                                                <i class="bi bi-plus-lg"></i>
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                    <ul id="checklistLista" class="list-unstyled mb-2">
-                                                        {% for item in checklistItens %}
-                                                        <li class="checklist-item d-flex align-items-center gap-2 py-1 border-bottom"
-                                                            data-item-id="{{ item.id }}"
-                                                            data-csrf-item="{{ csrf_token('checklist_item_' ~ item.id) }}">
-                                                            <button type="button" class="btn btn-link p-0 border-0 js-checklist-toggle" title="{{ item.concluido ? 'Marcar como pendente' : 'Marcar como concluído' }}">
-                                                                <i class="bi {{ item.concluido ? 'bi-check-circle-fill text-success' : 'bi-x-circle-fill text-danger' }} fs-5"></i>
-                                                            </button>
-                                                            <span class="checklist-drag-handle d-none text-muted" style="cursor:grab" title="Arrastar para reordenar">
-                                                                <i class="bi bi-grip-vertical"></i>
-                                                            </span>
-                                                            <span class="checklist-item-titulo flex-grow-1 {{ item.concluido ? 'text-decoration-line-through text-muted' : '' }}">
-                                                                {{ item.titulo|e }}
-                                                            </span>
-                                                            <input type="text" class="checklist-item-input form-control form-control-sm flex-grow-1 d-none"
-                                                                   value="{{ item.titulo|e('html_attr') }}" maxlength="255">
-                                                            <button type="button" class="btn btn-sm btn-outline-danger js-checklist-excluir d-none" title="Excluir item">
-                                                                <i class="bi bi-trash"></i>
-                                                            </button>
-                                                        </li>
-                                                        {% else %}
-                                                        <li id="checklistVazio" class="text-muted small py-2">
-                                                            Nenhum item. Clique em <i class="bi bi-plus-lg"></i> para adicionar.
-                                                        </li>
-                                                        {% endfor %}
-                                                    </ul>
-                                                    <div id="checklistFormAdicionar" class="d-none mb-1">
-                                                        <div class="input-group input-group-sm">
-                                                            <input type="text" id="checklistNovoTitulo" class="form-control" placeholder="Descrição do item..." maxlength="255">
-                                                            <button type="button" id="btnChecklistSalvarNovo" class="btn btn-primary"><i class="bi bi-check-lg"></i></button>
-                                                            <button type="button" id="btnChecklistCancelarNovo" class="btn btn-outline-secondary"><i class="bi bi-x-lg"></i></button>
-                                                        </div>
-                                                        <div id="checklistErroNovo" class="text-danger small mt-1 d-none"></div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-
+                                        {# Coluna principal: pastas e arquivos. O checklist é a
+                                           coluna da direita, logo abaixo. #}
+                                        <div class="fm-col-principal">
                                         {# Pastas (só na raiz) #}
                                         <div class="fm-grupo" id="fmGrupoPastas">
                                             <div class="fm-grupo-titulo"><i class="bi bi-folder2"></i> Pastas</div>
@@ -612,6 +559,77 @@
                                                 <div class="fm-vazio-icone"><i class="bi bi-cloud-arrow-up"></i></div>
                                                 <div class="fm-vazio-titulo">Nenhum arquivo aqui</div>
                                                 <div class="fm-vazio-dica">Arraste arquivos do computador para esta área ou clique em <strong>Enviar</strong>.</div>
+                                            </div>
+                                        </div>
+                                        </div>{# /fm-col-principal #}
+
+                                        {# ── Checklist de documentação — coluna da DIREITA ──
+                                           Estava numa faixa de largura total no topo do gerenciador,
+                                           empurrando pastas e arquivos para baixo. Aqui ele acompanha
+                                           a conferência de lado, sem disputar a vertical com o que a
+                                           aba existe para mostrar.
+
+                                           Os `id` são contrato com o JS de marcar/editar/reordenar
+                                           mais abaixo nesta página: mudaram de LUGAR, não de nome. #}
+                                        {% set pctChecklist = totalChecklist > 0 ? (concluidosChecklist / totalChecklist * 100)|round : 0 %}
+                                        {% set checklistCompleto = totalChecklist > 0 and concluidosChecklist == totalChecklist %}
+                                        <div class="fm-grupo" id="fmChecklist">
+                                            <div class="fm-checklist">
+                                                <div class="fm-checklist-corpo">
+                                                    <div class="fm-checklist-cab">
+                                                        <i class="bi bi-check2-square"></i>
+                                                        <h6>Checklist de documentação</h6>
+                                                        <span id="checklistBadge" class="fm-checklist-selo {{ checklistCompleto ? 'completo' : 'incompleto' }}">{{ concluidosChecklist }}/{{ totalChecklist }} itens</span>
+                                                    </div>
+                                                    {# A barra diz de relance o que a contagem só diz depois de lida. #}
+                                                    <div class="fm-checklist-progresso">
+                                                        <div class="fm-checklist-barra" role="progressbar"
+                                                             aria-label="Itens concluídos do checklist"
+                                                             aria-valuenow="{{ concluidosChecklist }}" aria-valuemin="0" aria-valuemax="{{ totalChecklist }}">
+                                                            <div id="checklistBarra" class="fm-checklist-barra-fill {{ checklistCompleto ? 'completo' : 'incompleto' }}" style="width: {{ pctChecklist }}%"></div>
+                                                        </div>
+                                                        <button type="button" id="btnChecklistEditar" class="fm-checklist-acao" title="Editar checklist">
+                                                            <i class="bi bi-pencil"></i>
+                                                        </button>
+                                                        <button type="button" id="btnChecklistAdicionar" class="fm-checklist-acao" title="Adicionar item">
+                                                            <i class="bi bi-plus-lg"></i>
+                                                        </button>
+                                                    </div>
+                                                    <ul id="checklistLista" class="list-unstyled mb-2">
+                                                        {% for item in checklistItens %}
+                                                        <li class="checklist-item d-flex align-items-center gap-2 py-1 border-bottom"
+                                                            data-item-id="{{ item.id }}"
+                                                            data-csrf-item="{{ csrf_token('checklist_item_' ~ item.id) }}">
+                                                            <button type="button" class="btn btn-link p-0 border-0 js-checklist-toggle" title="{{ item.concluido ? 'Marcar como pendente' : 'Marcar como concluído' }}">
+                                                                <i class="bi {{ item.concluido ? 'bi-check-circle-fill text-success' : 'bi-x-circle-fill text-danger' }} fs-5"></i>
+                                                            </button>
+                                                            <span class="checklist-drag-handle d-none text-muted" style="cursor:grab" title="Arrastar para reordenar">
+                                                                <i class="bi bi-grip-vertical"></i>
+                                                            </span>
+                                                            <span class="checklist-item-titulo flex-grow-1 {{ item.concluido ? 'text-decoration-line-through text-muted' : '' }}">
+                                                                {{ item.titulo|e }}
+                                                            </span>
+                                                            <input type="text" class="checklist-item-input form-control form-control-sm flex-grow-1 d-none"
+                                                                   value="{{ item.titulo|e('html_attr') }}" maxlength="255">
+                                                            <button type="button" class="btn btn-sm btn-outline-danger js-checklist-excluir d-none" title="Excluir item">
+                                                                <i class="bi bi-trash"></i>
+                                                            </button>
+                                                        </li>
+                                                        {% else %}
+                                                        <li id="checklistVazio" class="text-muted small py-2">
+                                                            Nenhum item. Clique em <i class="bi bi-plus-lg"></i> para adicionar.
+                                                        </li>
+                                                        {% endfor %}
+                                                    </ul>
+                                                    <div id="checklistFormAdicionar" class="d-none mb-1">
+                                                        <div class="input-group input-group-sm">
+                                                            <input type="text" id="checklistNovoTitulo" class="form-control" placeholder="Descrição do item..." maxlength="255">
+                                                            <button type="button" id="btnChecklistSalvarNovo" class="btn btn-primary"><i class="bi bi-check-lg"></i></button>
+                                                            <button type="button" id="btnChecklistCancelarNovo" class="btn btn-outline-secondary"><i class="bi bi-x-lg"></i></button>
+                                                        </div>
+                                                        <div id="checklistErroNovo" class="text-danger small mt-1 d-none"></div>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
 
@@ -3909,6 +3927,8 @@ document.addEventListener('DOMContentLoaded', function () {
     var modoEdicao = false;
     var sortable   = null;
 
+    var barra = document.getElementById('checklistBarra');
+
     function atualizarBadge() {
         var itens      = lista.querySelectorAll('.checklist-item');
         var total      = itens.length;
@@ -3916,8 +3936,23 @@ document.addEventListener('DOMContentLoaded', function () {
             var icon = li.querySelector('.js-checklist-toggle i');
             return icon && icon.classList.contains('text-success');
         }).length;
+        // 0/0 NÃO é completo: é documentação não listada, não conferida.
+        var completo = total > 0 && concluidos === total;
+
         badge.textContent = concluidos + '/' + total + ' itens';
-        badge.className   = 'badge ' + (total > 0 && concluidos === total ? 'text-bg-success' : 'text-bg-warning');
+        badge.className   = 'fm-checklist-selo ' + (completo ? 'completo' : 'incompleto');
+
+        // A barra vive no mesmo lugar que a contagem; atualizar uma e esquecer a
+        // outra deixaria as duas dizendo coisas diferentes na mesma linha.
+        if (barra) {
+            barra.className   = 'fm-checklist-barra-fill ' + (completo ? 'completo' : 'incompleto');
+            barra.style.width = (total > 0 ? Math.round(concluidos / total * 100) : 0) + '%';
+            var trilho = barra.parentElement;
+            if (trilho) {
+                trilho.setAttribute('aria-valuenow', concluidos);
+                trilho.setAttribute('aria-valuemax', total);
+            }
+        }
     }
 
     function escapeHtml(str) {

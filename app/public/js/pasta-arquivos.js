@@ -108,7 +108,12 @@
 
         renderCrumb();
 
-        toggle(elChecklist, naRaiz && !buscando);
+        // O checklist só vale na raiz e fora da busca (regra que já existia). Com
+        // ele escondido, a coluna da direita tem de sumir junto — senão sobra uma
+        // faixa de 356px vazia ao lado dos arquivos.
+        const comChecklist = naRaiz && !buscando;
+        toggle(elChecklist, comChecklist);
+        if (elBody) { elBody.classList.toggle('fm-body--sem-lateral', !comChecklist); }
 
         // pastas visíveis = as filhas do nível aberto
         todasPastas().forEach(function (el) {

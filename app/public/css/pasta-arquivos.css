@@ -495,3 +495,118 @@
    quatro ordens em vigor ao mesmo tempo. */
 .fm-lista-head .fmh-caret { font-size: .62rem; line-height: 1; }
 .fm-lista-head .fmh-btn.ativa .fmh-caret { color: var(--bs-primary); }
+
+/* ------------------------------------- Checklist na coluna da direita ------
+   O corpo do gerenciador virou duas colunas: pastas e arquivos à esquerda, o
+   checklist de documentação à direita. Antes ele era uma faixa de largura
+   total no topo e empurrava para baixo tudo o que a aba existe para mostrar.
+   Os 356px são os mesmos do trilho da aba Dados — duas laterais com larguras
+   diferentes na mesma tela leem como desalinhamento, não como intenção. */
+.fm-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 356px;
+    gap: 18px;
+    align-items: start;
+}
+/* O checklist some fora da raiz e durante a busca (regra que já existia). Com
+   ele escondido a coluna precisa sumir junto: uma faixa de 356px vazia ao lado
+   dos arquivos é pior que não ter coluna. Quem liga a classe é o render(). */
+.fm-body.fm-body--sem-lateral { grid-template-columns: minmax(0, 1fr); }
+.fm-col-principal { min-width: 0; }
+
+.fm-checklist {
+    border: 1px solid var(--bs-border-color);
+    border-radius: 10px;
+    background: var(--bs-body-bg);
+    overflow: hidden;
+}
+.fm-checklist-corpo { padding: 13px 15px; }
+
+.fm-checklist-cab { display: flex; align-items: center; gap: 8px; }
+.fm-checklist-cab > .bi { color: var(--bs-primary); font-size: .95rem; }
+.fm-checklist-cab h6 {
+    margin: 0;
+    font-size: .82rem;
+    font-weight: 600;
+    flex: 1;
+    min-width: 0;
+}
+.fm-checklist-selo {
+    font-variant-numeric: tabular-nums;
+    font-size: .69rem;
+    font-weight: 600;
+    padding: 2px 9px;
+    border-radius: 999px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.fm-checklist-selo.incompleto {
+    color: var(--bs-warning-text-emphasis);
+    background: var(--bs-warning-bg-subtle);
+    border: 1px solid var(--bs-warning-border-subtle);
+}
+.fm-checklist-selo.completo {
+    color: var(--bs-success-text-emphasis);
+    background: var(--bs-success-bg-subtle);
+    border: 1px solid var(--bs-success-border-subtle);
+}
+
+.fm-checklist-progresso { display: flex; align-items: center; gap: 8px; margin: 10px 0 4px; }
+.fm-checklist-barra {
+    flex: 1;
+    min-width: 0;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--bs-tertiary-bg);
+    overflow: hidden;
+}
+.fm-checklist-barra-fill {
+    height: 100%;
+    border-radius: 999px;
+    transition: width .6s cubic-bezier(.32,.72,0,1), background-color .3s;
+}
+.fm-checklist-barra-fill.incompleto { background: var(--bs-warning); }
+.fm-checklist-barra-fill.completo   { background: var(--bs-success); }
+
+.fm-checklist-acao {
+    width: 26px;
+    height: 26px;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--bs-border-color);
+    background: transparent;
+    color: var(--bs-secondary-color);
+    border-radius: 6px;
+    font-size: .78rem;
+    cursor: pointer;
+    transition: color .15s, border-color .15s, background .15s;
+}
+.fm-checklist-acao:hover { color: var(--bs-primary); border-color: var(--bs-primary); }
+/* `.active` é o que o JS liga no modo de edição (arrastar / excluir itens). */
+.fm-checklist-acao.active {
+    color: var(--bs-primary);
+    border-color: var(--bs-primary);
+    background: var(--bs-primary-bg-subtle);
+}
+
+/* A lista rola dentro do cartão: um checklist longo não pode esticar a coluna
+   até passar da altura dos arquivos ao lado. */
+.fm-checklist #checklistLista {
+    max-height: 340px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    margin-bottom: .5rem;
+}
+.fm-checklist #checklistLista::-webkit-scrollbar { width: 5px; }
+.fm-checklist #checklistLista::-webkit-scrollbar-thumb { background: var(--bs-border-color); border-radius: 3px; }
+.fm-checklist .checklist-item { font-size: .82rem; }
+.fm-checklist .checklist-item:last-child { border-bottom: none !important; }
+
+@media (max-width: 1199.98px) {
+    /* Abaixo disto a coluna de 356px espremeria as duas: o checklist vai para
+       baixo dos arquivos, e não de volta para o topo — quem abre a aba
+       Documentos veio pelos arquivos. */
+    .fm-body { grid-template-columns: minmax(0, 1fr); }
+}
