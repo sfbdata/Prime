@@ -43,6 +43,7 @@ use App\Entity\Tenant\Tenant;
 use App\Pasta\Repository\PastaRepository;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
+use App\Sync\Service\SincronizacaoPastaDispatcher;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -80,6 +81,7 @@ final class CasoController extends AbstractController
         private readonly EditarAnotacaoUseCase $editarAnotacao,
         private readonly ExcluirAnotacaoUseCase $excluirAnotacao,
         private readonly EventoHistoricoRepository $eventoRepository,
+        private readonly SincronizacaoPastaDispatcher $syncDispatcher,
     ) {
     }
 
@@ -238,8 +240,24 @@ final class CasoController extends AbstractController
 
         if ($form->isSubmitted() && $form->isValid()) {
             try {
-                $this->judicializarCaso->executar($input, $tenant, $this->usuarioLogado());
-                $this->addFlash('success', 'Caso judicializado.');
+                $usuario = $this->usuarioLogado();
+                $casoJudicializado = $this->judicializarCaso->executar($input, $tenant, $usuario);
+
+                if ($input->ehModoCriar()) {
+                    $pastaNova = $casoJudicializado->getPastaJudicial();
+                    // O dispatch do Drive mora na camada de CONTROLLER de propósito: o reconciliador
+                    // do Sync chama os mesmos UseCases e um dispatch lá dispararia durante a própria
+                    // reconciliação (duplo-disparo). Sem escritório conectado, é no-op.
+                    if ($pastaNova !== null) {
+                        $this->syncDispatcher->despachar($pastaNova, $usuario, $tenant);
+                    }
+                    $nup = $pastaNova?->getNup();
+                    $this->addFlash('success', $nup === null
+                        ? 'Caso judicializado e pasta criada.'
+                        : sprintf('Caso judicializado e pasta %s criada.', $nup));
+                } else {
+                    $this->addFlash('success', 'Caso judicializado.');
+                }
             } catch (CasoNaoEncontradoException | CasoEncerradoException | CasoJaJudicializadoException | PastaNaoEncontradaException $e) {
                 $this->addFlash('danger', $e->getMessage());
             }

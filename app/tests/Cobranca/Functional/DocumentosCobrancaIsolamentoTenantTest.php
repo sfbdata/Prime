@@ -106,7 +106,18 @@ final class DocumentosCobrancaIsolamentoTenantTest extends KernelTestCase
         $registrarEvento = new RegistrarEventoHistorico($eventoRepo);
 
         $this->abrirCaso = new AbrirCasoUseCase($casoRepo, $objetoRepo, $pessoaRepo, $registrarEvento);
-        $this->judicializar = new JudicializarCasoUseCase($casoRepo, $pastaRepo, $registrarEvento);
+        // Este arquivo só usa o modo `vincular` (pasta EXISTENTE); os dois serviços do modo `criar`
+        // entram reais e não chegam a ser chamados. O repositório de ClientePF vem do CONTAINER —
+        // `ClientePF` não declara repositoryClass, então `getRepository()` daria o genérico.
+        /** @var \App\Cliente\Repository\ClientePFRepository $clientePFRepo */
+        $clientePFRepo = $c->get(\App\Cliente\Repository\ClientePFRepository::class);
+        $this->judicializar = new JudicializarCasoUseCase(
+            $casoRepo,
+            $pastaRepo,
+            $registrarEvento,
+            new \App\Pasta\UseCase\CriarPastaUseCase($this->em, new \App\Pasta\UseCase\GerarNumeroDePasta($this->em)),
+            new \App\Cobranca\Service\ResolvedorClienteDoResponsavel($clientePFRepo),
+        );
         $this->enviarDocumento = new EnviarDocumentoUseCase($docRepo, $this->storage, $compressor, $this->cobrancasUploadsDir);
         $this->moverDocumento = new MoverDocumentoUseCase($docRepo);
         $this->criarSecao = new CriarSecaoUseCase($secaoRepo);
@@ -176,6 +187,7 @@ final class DocumentosCobrancaIsolamentoTenantTest extends KernelTestCase
         $pasta = PastaFactory::createOne(['tenant' => $tenant]);
         $jInput = new JudicializarCasoInput();
         $jInput->casoId = (int) $caso->getId();
+        $jInput->modo = JudicializarCasoInput::MODO_VINCULAR;
         $jInput->pastaId = (int) $pasta->getId();
         $casoJudicializado = $this->judicializar->executar($jInput, $tenant, $user);
 

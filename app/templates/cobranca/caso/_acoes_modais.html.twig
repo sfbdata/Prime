@@ -257,7 +257,18 @@
     </div>
 </div>
 
-{# ── Judicializar caso (só com o módulo pastas: forms.judicializar existe) ── #}
+{# ── Judicializar caso (só com o módulo pastas: forms.judicializar existe) ──────────────────────────
+   Spec `docs/specs/cobranca-judicializar-cria-pasta.md`. O modal ABRE PREENCHIDO e o botão principal
+   CRIA a pasta: o cliente é o responsável principal do caso e a ação é `AÇÃO MONITÓRIA` (a de todos
+   os casos de cobrança). Os dois campos são editáveis — o gestor vê antes de criar.
+
+   Vincular uma pasta EXISTENTE continua possível, no bloco de baixo. O modo é um `radio` de verdade,
+   então o caminho secundário funciona SEM JavaScript — que era o que um bloco escondido por JS não
+   daria.
+
+   ⚠️ O grupo do modo é renderizado INTEIRO, com `form_row`. Renderizar só um dos rádios deixa o
+   `modo` como campo não-renderizado, e aí o `form_end` reimprime o grupo completo no rodapé do
+   formulário — os dois rádios apareceriam duas vezes. #}
 {% if forms.judicializar is defined %}
 <div class="modal fade" id="modalJudicializar" tabindex="-1" aria-labelledby="tituloJudicializar" aria-hidden="true">
     <div class="modal-dialog">
@@ -270,9 +281,33 @@
             <div class="modal-body">
                 <div class="alert alert-info small d-flex align-items-start gap-2 mb-3">
                     <i class="bi bi-info-circle-fill"></i>
-                    <div>Vincula uma pasta judicial existente ao caso. A judicialização <strong>não encerra</strong> o caso — o acompanhamento financeiro continua.</div>
+                    <div>Abre a pasta judicial do caso e liga as duas. A judicialização <strong>não encerra</strong> o caso — o acompanhamento financeiro continua.</div>
                 </div>
-                {{ form_row(forms.judicializar.pastaId) }}
+
+                <div class="cob-judicializar-modo mb-3">{{ form_row(forms.judicializar.modo) }}</div>
+
+                <div class="cob-judicializar-criar">
+                    {{ form_row(forms.judicializar.nomeCliente) }}
+                    {{ form_row(forms.judicializar.nomeAcao) }}
+
+                    {# O cadastro do cliente principal depende de a ficha ter CPF. Dizer isso aqui evita
+                       a pergunta "por que esta pasta ficou sem cliente e a outra não" — a resposta é o
+                       dado que falta na ficha, não a operação. #}
+                    <p class="small text-secondary mb-0">
+                        {% if caso.pessoaCobradaCpf %}
+                            <i class="bi bi-person-check me-1"></i>{{ caso.pessoaCobradaNome }} entra na pasta como <strong>cliente principal</strong>, com os dados da ficha.
+                        {% else %}
+                            <i class="bi bi-info-circle me-1"></i>A pasta nasce só com o nome e a ação: sem CPF na ficha de {{ caso.pessoaCobradaNome }}, não há cliente a cadastrar.
+                        {% endif %}
+                    </p>
+                </div>
+
+                <hr class="my-3">
+
+                <div class="cob-judicializar-vincular">
+                    {{ form_row(forms.judicializar.pastaId) }}
+                    <p class="small text-secondary mb-0">Só é usada se você marcar <strong>Vincular uma pasta existente</strong> acima.</p>
+                </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>

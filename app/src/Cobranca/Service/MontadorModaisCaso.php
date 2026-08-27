@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Cobranca\Service;
 
 use App\Cobranca\DTO\CriarAcordoInput;
+use App\Cobranca\DTO\JudicializarCasoInput;
 use App\Cobranca\DTO\RegistrarPagamentoInput;
 use App\Cobranca\DTO\RegistrarTentativaCobrancaInput;
 use App\Cobranca\Entity\CasoCobranca;
@@ -131,7 +132,14 @@ final class MontadorModaisCaso
         ];
 
         if ($incluirJudicializar) {
-            $views['judicializar'] = $this->reidratarSeErro($this->formFactory->create(JudicializarCasoType::class, null, [
+            // O modal abre PREENCHIDO (spec `cobranca-judicializar-cria-pasta.md` §1): o cliente da
+            // pasta nova é o responsável principal do caso, e a ação é `AÇÃO MONITÓRIA` — a de todos
+            // os casos de cobrança. Os dois seguem editáveis; o gestor vê antes de criar.
+            $judicializar = new JudicializarCasoInput();
+            $judicializar->nomeCliente = $caso->getPessoaCobradaAtual()?->getNome();
+            $judicializar->nomeAcao = JudicializarCasoInput::ACAO_PADRAO;
+
+            $views['judicializar'] = $this->reidratarSeErro($this->formFactory->create(JudicializarCasoType::class, $judicializar, [
                 'pastas' => $this->pastaRepository->opcoesDoTenant($caso->getTenant()),
             ]), 'judicializar', $erroModal);
         }

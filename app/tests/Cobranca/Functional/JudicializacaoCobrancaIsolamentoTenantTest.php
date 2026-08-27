@@ -114,7 +114,19 @@ final class JudicializacaoCobrancaIsolamentoTenantTest extends KernelTestCase
 
         $this->abrirCaso = new AbrirCasoUseCase($casoRepo, $objetoRepo, $pessoaRepo, $registrarEvento);
         $this->registrarObrigacao = new RegistrarObrigacaoUseCase($obrigacaoRepo, $casoRepo, $registrarEvento, new CalculadoraEncargos(), new ResolvedorConfigEncargos(), new ConversorTaxaEncargo(new CalculadoraEncargos()));
-        $this->judicializar = new JudicializarCasoUseCase($casoRepo, $pastaRepo, $registrarEvento);
+        // Os testes deste arquivo exercitam o modo `vincular` (pasta EXISTENTE); os dois serviços do
+        // modo `criar` entram reais, pelo EM de verdade, e não chegam a ser chamados.
+        // `ClientePF` NÃO declara repositoryClass no mapeamento — `getRepository()` devolveria o
+        // EntityRepository genérico. O repositório vem do container, que é onde ele é serviço.
+        /** @var \App\Cliente\Repository\ClientePFRepository $clientePFRepo */
+        $clientePFRepo = $c->get(\App\Cliente\Repository\ClientePFRepository::class);
+        $this->judicializar = new JudicializarCasoUseCase(
+            $casoRepo,
+            $pastaRepo,
+            $registrarEvento,
+            new \App\Pasta\UseCase\CriarPastaUseCase($this->em, new \App\Pasta\UseCase\GerarNumeroDePasta($this->em)),
+            new \App\Cobranca\Service\ResolvedorClienteDoResponsavel($clientePFRepo),
+        );
         $this->encerrar = new EncerrarCasoUseCase($casoRepo, $calculadoraSaldo, $registrarEvento);
         $this->definirProximaAcao = new DefinirProximaAcaoUseCase($casoRepo, $proximaAcaoRepo);
         $this->concluirAcao = new ConcluirAcaoUseCase($proximaAcaoRepo);
@@ -130,6 +142,7 @@ final class JudicializacaoCobrancaIsolamentoTenantTest extends KernelTestCase
 
         $input = new JudicializarCasoInput();
         $input->casoId = (int) $caso->getId();
+        $input->modo = JudicializarCasoInput::MODO_VINCULAR;
         $input->pastaId = (int) $pasta->getId();
 
         $resultado = $this->judicializar->executar($input, $tenant, $user);
@@ -152,6 +165,7 @@ final class JudicializacaoCobrancaIsolamentoTenantTest extends KernelTestCase
 
         $input = new JudicializarCasoInput();
         $input->casoId = (int) $casoA->getId();
+        $input->modo = JudicializarCasoInput::MODO_VINCULAR;
         $input->pastaId = (int) $pastaB->getId();
 
         $this->expectException(PastaNaoEncontradaException::class);
@@ -170,6 +184,7 @@ final class JudicializacaoCobrancaIsolamentoTenantTest extends KernelTestCase
 
         $input = new JudicializarCasoInput();
         $input->casoId = (int) $casoA->getId();
+        $input->modo = JudicializarCasoInput::MODO_VINCULAR;
         $input->pastaId = (int) $pastaB->getId();
 
         $this->expectException(CasoNaoEncontradoException::class);
@@ -190,6 +205,7 @@ final class JudicializacaoCobrancaIsolamentoTenantTest extends KernelTestCase
         $pasta = PastaFactory::createOne(['tenant' => $tenant]);
         $jInput = new JudicializarCasoInput();
         $jInput->casoId = (int) $caso->getId();
+        $jInput->modo = JudicializarCasoInput::MODO_VINCULAR;
         $jInput->pastaId = (int) $pasta->getId();
         $this->judicializar->executar($jInput, $tenant, $user);
 

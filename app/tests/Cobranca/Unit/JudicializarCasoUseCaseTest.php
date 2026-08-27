@@ -14,12 +14,17 @@ use App\Cobranca\Exception\CasoNaoEncontradoException;
 use App\Cobranca\Exception\PastaNaoEncontradaException;
 use App\Cobranca\Repository\CasoCobrancaRepository;
 use App\Cobranca\Repository\EventoHistoricoRepository;
+use App\Cliente\Repository\ClientePFRepository;
 use App\Cobranca\Service\RegistrarEventoHistorico;
+use App\Cobranca\Service\ResolvedorClienteDoResponsavel;
 use App\Cobranca\UseCase\JudicializarCasoUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Repository\PastaRepository;
+use App\Pasta\UseCase\CriarPastaUseCase;
+use App\Pasta\UseCase\GerarNumeroDePasta;
+use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -31,6 +36,7 @@ final class JudicializarCasoUseCaseTest extends TestCase
     private CasoCobrancaRepository&MockObject $casoRepository;
     private PastaRepository&MockObject $pastaRepository;
     private EventoHistoricoRepository&MockObject $eventoRepository;
+    private EntityManagerInterface&MockObject $em;
     private JudicializarCasoUseCase $sut;
     private Tenant $tenant;
     private User $usuario;
@@ -42,10 +48,16 @@ final class JudicializarCasoUseCaseTest extends TestCase
         // O serviço é final: usa-se o REAL com o repositório de eventos mockado.
         $this->eventoRepository = $this->createMock(EventoHistoricoRepository::class);
         $registrarEvento = new RegistrarEventoHistorico($this->eventoRepository);
+        // CriarPastaUseCase e ResolvedorClienteDoResponsavel também são final: entram REAIS, com as
+        // dependências mockadas. Nos casos deste arquivo (modo `vincular` e as três guardas) eles não
+        // devem ser chamados — e é justamente isso que `wrapInTransaction` never prova.
+        $this->em = $this->createMock(EntityManagerInterface::class);
         $this->sut = new JudicializarCasoUseCase(
             $this->casoRepository,
             $this->pastaRepository,
             $registrarEvento,
+            new CriarPastaUseCase($this->em, new GerarNumeroDePasta($this->em)),
+            new ResolvedorClienteDoResponsavel($this->createMock(ClientePFRepository::class)),
         );
         $this->tenant = new Tenant();
         $this->usuario = new User();
@@ -86,6 +98,7 @@ final class JudicializarCasoUseCaseTest extends TestCase
 
         $input = new JudicializarCasoInput();
         $input->casoId = 50;
+        $input->modo = JudicializarCasoInput::MODO_VINCULAR;
         $input->pastaId = 70;
 
         $resultado = $this->sut->executar($input, $this->tenant, $this->usuario);
@@ -111,6 +124,7 @@ final class JudicializarCasoUseCaseTest extends TestCase
 
         $input = new JudicializarCasoInput();
         $input->casoId = 999;
+        $input->modo = JudicializarCasoInput::MODO_VINCULAR;
         $input->pastaId = 70;
 
         $this->sut->executar($input, $this->tenant, $this->usuario);
@@ -131,6 +145,7 @@ final class JudicializarCasoUseCaseTest extends TestCase
 
         $input = new JudicializarCasoInput();
         $input->casoId = 50;
+        $input->modo = JudicializarCasoInput::MODO_VINCULAR;
         $input->pastaId = 70;
 
         $this->sut->executar($input, $this->tenant, $this->usuario);
@@ -152,6 +167,7 @@ final class JudicializarCasoUseCaseTest extends TestCase
 
         $input = new JudicializarCasoInput();
         $input->casoId = 50;
+        $input->modo = JudicializarCasoInput::MODO_VINCULAR;
         $input->pastaId = 70;
 
         $this->sut->executar($input, $this->tenant, $this->usuario);
@@ -176,8 +192,63 @@ final class JudicializarCasoUseCaseTest extends TestCase
 
         $input = new JudicializarCasoInput();
         $input->casoId = 50;
+        $input->modo = JudicializarCasoInput::MODO_VINCULAR;
         $input->pastaId = 70;
 
         $this->sut->executar($input, $this->tenant, $this->usuario);
+    }
+
+    #[Test]
+    public function noModoCriarAsGuardasRodamAntesDeAbrirAPasta(): void
+    {
+        // Ordem que importa: criar a pasta de um caso encerrado e só depois recusar deixaria uma
+        // pasta órfã no acervo a cada clique errado. `wrapInTransaction` never prova que nada foi
+        // aberto — é por ele que o CriarPastaUseCase passa antes de gravar qualquer coisa.
+        $caso = (new CasoCobranca())->setTenant($this->tenant);
+        $caso->setStatus(StatusCaso::Encerrado);
+
+        $this->casoRepository->method('findOneByIdDoTenant')->willReturn($caso);
+        $this->em->expects($this->never())->method('wrapInTransaction');
+        $this->casoRepository->expects($this->never())->method('salvar');
+        $this->eventoRepository->expects($this->never())->method('salvar');
+
+        $this->expectException(CasoEncerradoException::class);
+
+        $input = new JudicializarCasoInput();
+        $input->casoId = 50;
+        $input->modo = JudicializarCasoInput::MODO_CRIAR;
+        $input->nomeCliente = 'FULANO DE TAL';
+        $input->nomeAcao = JudicializarCasoInput::ACAO_PADRAO;
+
+        $this->sut->executar($input, $this->tenant, $this->usuario);
+    }
+
+    #[Test]
+    public function oHistoricoDizQueAPastaJaExistiaQuandoElaFoiApenasVinculada(): void
+    {
+        // O histórico tem de distinguir pasta CRIADA de pasta VINCULADA: se ela depois aparecer
+        // errada, a consequência é diferente em cada caso.
+        $caso = (new CasoCobranca())->setTenant($this->tenant);
+        $pasta = (new Pasta())->setTenant($this->tenant);
+        $pasta->setNup('1232');
+
+        $this->casoRepository->method('findOneByIdDoTenant')->willReturn($caso);
+        $this->pastaRepository->method('findOneBy')->willReturn($pasta);
+
+        $mensagens = [];
+        $this->eventoRepository
+            ->method('salvar')
+            ->willReturnCallback(function (EventoHistorico $evento) use (&$mensagens): void {
+                $mensagens[] = $evento->getDescricao();
+            });
+
+        $input = new JudicializarCasoInput();
+        $input->casoId = 50;
+        $input->modo = JudicializarCasoInput::MODO_VINCULAR;
+        $input->pastaId = 70;
+
+        $this->sut->executar($input, $this->tenant, $this->usuario);
+
+        self::assertSame(['Caso judicializado.', 'Vínculo com a pasta 1232.'], $mensagens);
     }
 }
