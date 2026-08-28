@@ -12,6 +12,7 @@ use App\Tests\Factory\Cliente\ClientePFFactory;
 use App\Tests\Factory\Cobranca\CarteiraFactory;
 use App\Tests\Factory\Cobranca\CasoCobrancaFactory;
 use App\Tests\Factory\Cobranca\ObjetoCobrancaFactory;
+use App\Tests\Factory\Cobranca\ObrigacaoFactory;
 use App\Tests\Factory\Cobranca\PessoaFactory;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -219,5 +220,116 @@ final class CarteiraRedesenho1BTest extends CobrancaWebTestCase
             'Linha que some conforme o dado faz o trilho mudar de altura entre carteiras — e some junto '
             . 'com a pergunta que ela responde',
         );
+    }
+
+    /** Uma cobrança com as obrigações informadas: [valor em centavos, vencimento]. */
+    private function carteiraComUmCaso(Tenant $tenant, array $obrigacoes): Carteira
+    {
+        $cliente = ClientePFFactory::createOne(['tenant' => $tenant]);
+        // A factory já nasce com encargos NEUTROS (taxas 0): o saldo é a soma crua das obrigações,
+        // sem juros vivos entrando na conta e embaralhando a comparação exigível × vencido.
+        $carteira = CarteiraFactory::createOne(['tenant' => $tenant, 'cliente' => $cliente])->_real();
+        $objeto = ObjetoCobrancaFactory::createOne([
+            'tenant' => $tenant, 'carteira' => $carteira, 'identificacao' => 'UNIDADE 42',
+        ])->_real();
+        $caso = CasoCobrancaFactory::createOne([
+            'tenant' => $tenant,
+            'objeto' => $objeto,
+            'pessoaCobradaAtual' => PessoaFactory::createOne(['tenant' => $tenant]),
+        ])->_real();
+
+        foreach ($obrigacoes as [$valor, $vencimento]) {
+            ObrigacaoFactory::createOne([
+                'tenant' => $tenant, 'caso' => $caso,
+                'valorOriginal' => $valor, 'encargosReconhecidos' => 0,
+                'vencimentoOriginal' => new \DateTimeImmutable($vencimento),
+            ]);
+        }
+
+        return $carteira;
+    }
+
+    #[TestDox('Saldo TODO vencido nao imprime o mesmo numero duas vezes')]
+    public function testSaldoTotalmenteVencidoNaoRepeteONumero(): void
+    {
+        // É o caso NORMAL, não a exceção: 242 das 248 cobranças do banco de desenvolvimento têm o
+        // saldo inteiro vencido. Repetir o valor na sub-linha não informava nada e ainda fazia o
+        // olho conferir se eram dois números diferentes.
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        $carteira = $this->carteiraComUmCaso($tenant, [[30000, '-40 days']]);
+
+        $crawler = $client->request('GET', '/cobrancas/carteiras/' . $carteira->getId());
+
+        self::assertResponseIsSuccessful();
+        $celula = $crawler->filter('[data-filtro-resultado] tbody tr td.cs-td-saldo');
+
+        self::assertSame(1, substr_count($celula->html(), 'R$ 300,00'), 'O valor aparecia duas vezes na mesma célula');
+        self::assertStringContainsString('tudo vencido', $celula->text());
+    }
+
+    #[TestDox('Saldo PARCIALMENTE vencido continua mostrando quanto e a parte vencida')]
+    public function testSaldoParcialmenteVencidoMostraAParte(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        $carteira = $this->carteiraComUmCaso($tenant, [[10000, '-40 days'], [20000, '+40 days']]);
+
+        $crawler = $client->request('GET', '/cobrancas/carteiras/' . $carteira->getId());
+
+        self::assertResponseIsSuccessful();
+        $celula = $crawler->filter('[data-filtro-resultado] tbody tr td.cs-td-saldo')->text();
+
+        // Aqui os dois números são DIFERENTES, então a sub-linha ganha o seu: é a informação que
+        // some se a regra do "tudo vencido" for aplicada larga demais.
+        self::assertStringContainsString('R$ 300,00', $celula, 'O exigível é a soma das duas obrigações');
+        self::assertStringContainsString('R$ 100,00 vencido', $celula);
+        self::assertStringNotContainsString('tudo vencido', $celula);
+    }
+
+    #[TestDox('A paginacao traz botoes NUMERADOS, com a pagina atual marcada')]
+    public function testPaginacaoTrazBotoesNumerados(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+
+        $cliente = ClientePFFactory::createOne(['tenant' => $tenant]);
+        $carteira = CarteiraFactory::createOne(['tenant' => $tenant, 'cliente' => $cliente])->_real();
+        // 21 casos com 20 por página = 2 páginas.
+        for ($i = 1; $i <= 21; ++$i) {
+            $objeto = ObjetoCobrancaFactory::createOne([
+                'tenant' => $tenant, 'carteira' => $carteira, 'identificacao' => sprintf('UNIDADE %03d', $i),
+            ])->_real();
+            CasoCobrancaFactory::createOne([
+                'tenant' => $tenant,
+                'objeto' => $objeto,
+                'pessoaCobradaAtual' => PessoaFactory::createOne(['tenant' => $tenant]),
+            ]);
+        }
+
+        $crawler = $client->request('GET', '/cobrancas/carteiras/' . $carteira->getId());
+
+        self::assertResponseIsSuccessful();
+
+        // Números de verdade, não o "1 / 2" do paginador genérico do sistema.
+        $numeros = $crawler->filter('.cs-rodape .cs-pag-btn[data-page]:not([aria-label*="ágina anterior"]):not([aria-label*="Próxima"])')->each(
+            static fn ($no): string => trim($no->text()),
+        );
+        self::assertSame(['1', '2'], $numeros);
+
+        $atual = $crawler->filter('.cs-rodape .cs-pag-btn.is-atual');
+        self::assertSame(1, $atual->count(), 'Uma e só uma página pode estar marcada como atual');
+        self::assertSame('1', trim($atual->text()));
+        self::assertSame('page', $atual->attr('aria-current'));
+
+        // Continua sendo o motor genérico quem navega: TODO botão do paginador precisa falar o
+        // contrato do filtro-tabela.js (classe + data-page), ou vira botão morto.
+        $botoes = $crawler->filter('.cs-rodape .cs-pag-btn')->count();
+        self::assertSame(
+            $botoes,
+            $crawler->filter('.cs-rodape .cs-pag-btn.js-filtro-pagina[data-page]')->count(),
+            'Algum botao do paginador ficou sem o gancho que o motor de filtro escuta',
+        );
+        self::assertSame(4, $botoes, 'anterior + 1 + 2 + proxima');
     }
 }

@@ -1,0 +1,52 @@
+{# ───────────────────────────────────────────────────────────────────────────
+   Paginação NUMERADA da lista da carteira (desenho 1B): ‹ · números · ›.
+
+   É partial próprio, e não o `_partials/_filtro_paginacao.html.twig`, porque
+   aquele é compartilhado com o Expediente, a listagem de carteiras e a de casos
+   — trocar o "‹ 1/2 ›" dele por números mudaria essas telas junto, sem pedido.
+
+   Mantém o contrato do `public/js/filtro-tabela.js`: quem navega é qualquer
+   `.js-filtro-pagina[data-page]` dentro do root, e este bloco vive DENTRO de
+   [data-filtro-resultado], então é re-renderizado a cada troca.
+
+   Com muitas páginas não dá para imprimir todas: a faixa mostra a atual com duas
+   vizinhas de cada lado, mais a primeira e a última fixas, e "…" no que foi
+   pulado. Sem as âncoras das pontas, quem está na página 9 de 40 perde o caminho
+   de volta para o começo.
+
+   Parâmetros: pagina (1-based), total_paginas
+─────────────────────────────────────────────────────────────────────────── #}
+{% if total_paginas|default(1) > 1 %}
+{% set janela = 2 %}
+{% set inicio = max(1, pagina - janela) %}
+{% set fim = min(total_paginas, pagina + janela) %}
+
+<nav class="cs-pag" aria-label="Paginação da lista">
+    <button type="button" class="cs-pag-btn js-filtro-pagina" data-page="{{ pagina - 1 }}"
+            {{ pagina <= 1 ? 'disabled' : '' }} aria-label="Página anterior">
+        <i class="bi bi-chevron-left"></i>
+    </button>
+
+    {% if inicio > 1 %}
+        <button type="button" class="cs-pag-btn js-filtro-pagina" data-page="1" aria-label="Página 1">1</button>
+        {% if inicio > 2 %}<span class="cs-pag-elipse" aria-hidden="true">…</span>{% endif %}
+    {% endif %}
+
+    {% for n in inicio..fim %}
+        <button type="button" class="cs-pag-btn js-filtro-pagina{{ n == pagina ? ' is-atual' : '' }}"
+                data-page="{{ n }}" aria-label="Página {{ n }}"
+                {{ n == pagina ? 'aria-current="page"' : '' }}>{{ n }}</button>
+    {% endfor %}
+
+    {% if fim < total_paginas %}
+        {% if fim < total_paginas - 1 %}<span class="cs-pag-elipse" aria-hidden="true">…</span>{% endif %}
+        <button type="button" class="cs-pag-btn js-filtro-pagina" data-page="{{ total_paginas }}"
+                aria-label="Página {{ total_paginas }}">{{ total_paginas }}</button>
+    {% endif %}
+
+    <button type="button" class="cs-pag-btn js-filtro-pagina" data-page="{{ pagina + 1 }}"
+            {{ pagina >= total_paginas ? 'disabled' : '' }} aria-label="Próxima página">
+        <i class="bi bi-chevron-right"></i>
+    </button>
+</nav>
+{% endif %}

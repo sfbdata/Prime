@@ -81,7 +81,19 @@
                 </td>
                 <td class="cs-td-saldo">
                     <div class="cs-saldo{{ caso.saldoExigivel == 0 ? ' is-zero' : '' }}">{{ caso.saldoExigivel|centavos }}</div>
-                    {% if caso.temVencido %}<div class="cs-saldo-vencido">{{ caso.saldoVencido|centavos }} vencido</div>{% endif %}
+                    {# A sub-linha só repete o VALOR quando o vencido é uma PARTE do saldo. Com o saldo
+                       inteiro vencido — que é o caso de 242 das 248 cobranças do dev — imprimir o mesmo
+                       número duas vezes na mesma célula não informa nada e faz o olho conferir se são
+                       dois valores diferentes. Aí basta dizer que é tudo. #}
+                    {% if caso.temVencido %}
+                    <div class="cs-saldo-vencido">
+                        {%- if caso.saldoVencido == caso.saldoExigivel -%}
+                            tudo vencido
+                        {%- else -%}
+                            {{ caso.saldoVencido|centavos }} vencido
+                        {%- endif -%}
+                    </div>
+                    {% endif %}
                 </td>
                 <td class="cs-td-anexo">
                     {% if caso.temDocumentos %}<i class="bi bi-paperclip" title="O objeto tem documentos" aria-label="O objeto tem documentos"></i>{% endif %}
@@ -99,7 +111,7 @@
 {% set primeiro = (pagina - 1) * por_pagina + 1 %}
 <div class="cs-rodape">
     <span class="cs-faixa">Mostrando {{ primeiro }}–{{ primeiro + casos|length - 1 }} de {{ total }}</span>
-    {{ include('_partials/_filtro_paginacao.html.twig', { pagina: pagina, total_paginas: total_paginas }) }}
+    {{ include('cobranca/carteira/_paginacao.html.twig', { pagina: pagina, total_paginas: total_paginas }) }}
 </div>
 
 {% else %}

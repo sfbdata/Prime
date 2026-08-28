@@ -419,14 +419,30 @@
     border-top: 1px solid var(--cs-div-weak);
 }
 .cs-faixa { font-variant-numeric: tabular-nums; font-size: 13px; color: var(--cs-muted); }
-.cs-rodape .filtro-paginacao { margin-left: auto; gap: 4px; }
-.cs-rodape .filtro-paginacao .btn {
-    width: 32px; height: 32px; padding: 0; border-radius: 8px;
-    border-color: var(--cs-border-ctl); color: var(--cs-text-2); background: var(--cs-card);
+
+/* Paginação numerada. Os botões são todos da MESMA largura mínima (32px) e crescem
+   com o número: com `tabular-nums` os dígitos têm largura fixa, então a faixa não
+   dança ao passar de 9 para 10. */
+.cs-pag { display: flex; align-items: center; gap: 4px; margin-left: auto; flex-wrap: wrap; }
+.cs-pag-btn {
+    min-width: 32px; height: 32px; padding: 0 8px;
+    display: inline-flex; align-items: center; justify-content: center;
+    border: 1px solid var(--cs-border-ctl); border-radius: 8px;
+    background: var(--cs-card); color: var(--cs-text-2);
+    font-family: inherit; font-size: 13px; font-weight: 500;
+    font-variant-numeric: tabular-nums; line-height: 1; cursor: pointer;
 }
-.cs-rodape .filtro-paginacao .btn:disabled { border-color: var(--cs-border); color: #b9c7d1; opacity: 1; }
-[data-bs-theme="dark"] .cs-rodape .filtro-paginacao .btn:disabled { color: var(--cs-faint); }
-.cs-rodape .filtro-paginacao-info { font-variant-numeric: tabular-nums; font-size: 13px; color: var(--cs-text-2); }
+.cs-pag-btn:hover:not(:disabled):not(.is-atual) { border-color: var(--cs-link); color: var(--cs-link); }
+.cs-pag-btn:focus-visible { outline: 2px solid var(--cs-foco); outline-offset: 1px; }
+/* A página atual é a única cheia: é âncora de leitura, não uma opção a mais. */
+.cs-pag-btn.is-atual {
+    background: var(--cs-foco); border-color: var(--cs-foco);
+    color: #fff; font-weight: 600; cursor: default;
+}
+[data-bs-theme="dark"] .cs-pag-btn.is-atual { color: var(--bs-body-bg); }
+.cs-pag-btn:disabled { border-color: var(--cs-border); color: #b9c7d1; cursor: default; }
+[data-bs-theme="dark"] .cs-pag-btn:disabled { color: var(--cs-faint); }
+.cs-pag-elipse { padding: 0 2px; color: var(--cs-faint); font-size: 13px; user-select: none; }
 
 /* ── Estados vazios ──────────────────────────────────────────────────────── */
 .cs-vazio {
