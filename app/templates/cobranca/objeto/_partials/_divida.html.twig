@@ -120,27 +120,30 @@
     {% set baseMultaVal = o.baseMulta.value == 'composta' ? baseComposta : o.valorOriginal %}
     {% set baseHonVal = o.baseHonorarios.value == 'composta' ? baseComposta : o.valorOriginal %}
     <div class="cob-obr-detalhe collapse" id="detalheObr{{ o.id }}">
+        {# Cinco células IGUAIS e todas alinhadas à esquerda: o painel é uma linha de componentes para
+           comparar de relance, e a última (`Honorários`) alinhada à direita — como o desenho a traz —
+           quebrava essa leitura, porque aqui ela não fica sob nenhuma coluna de total. #}
         <div class="cob-obr-detalhe-caixa">
-            <div>
+            <div class="cob-obr-detalhe-item">
                 <div class="cob-obr-detalhe-rot">Original</div>
                 <div class="cob-obr-detalhe-val col-original">{{ o.valorOriginal|centavos }}</div>
-                <div class="cob-vazio-dica">valor de face do boleto</div>
+                <div class="cob-obr-detalhe-nota">valor de face do boleto</div>
             </div>
             {# A obrigação SUBSTITUÍDA não passa por aqui: ela é renderizada sem painel e sem chevron, só
                com a célula do Total (ver macro `valores`, onde mora o traço do encargo não calculado). #}
-            <div>
+            <div class="cob-obr-detalhe-item">
                 <div class="cob-obr-detalhe-rot">Juros{% if o.taxaJurosEfetivaBp %} <span class="cob-obr-detalhe-pct">{{ (o.taxaJurosEfetivaBp / 100)|round(2)|replace({'.': ','}) }}% a.m. pró-rata</span>{% endif %}</div>
                 <div class="cob-obr-detalhe-val col-juros {{ o.juros == 0 ? 'is-zero' }}">{{ o.juros|centavos }}</div>
             </div>
-            <div>
+            <div class="cob-obr-detalhe-item">
                 <div class="cob-obr-detalhe-rot">Multa{% if baseMultaVal > 0 and o.multa > 0 %} <span class="cob-obr-detalhe-pct">{{ (o.multa * 100 / baseMultaVal)|round(2)|replace({'.': ','}) }}%</span>{% endif %}</div>
                 <div class="cob-obr-detalhe-val col-multa {{ o.multa == 0 ? 'is-zero' }}">{{ o.multa|centavos }}</div>
             </div>
-            <div>
+            <div class="cob-obr-detalhe-item">
                 <div class="cob-obr-detalhe-rot">Correção</div>
                 <div class="cob-obr-detalhe-val col-correcao {{ o.correcao == 0 ? 'is-zero' }}">{{ o.correcao|centavos }}</div>
             </div>
-            <div class="text-end">
+            <div class="cob-obr-detalhe-item">
                 <div class="cob-obr-detalhe-rot">Honorários{% if baseHonVal > 0 and o.honorarios > 0 %} <span class="cob-obr-detalhe-pct">{{ (o.honorarios * 100 / baseHonVal)|round(2)|replace({'.': ','}) }}%</span>{% endif %}</div>
                 <div class="cob-obr-detalhe-val col-honorarios {{ o.honorarios == 0 ? 'is-zero' }}">{{ o.honorarios|centavos }}</div>
             </div>

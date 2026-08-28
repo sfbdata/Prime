@@ -490,15 +490,26 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
    mesmo tamanho de tudo o mais. O `%` de incidência não sumiu: mudou de lugar, do rótulo da pílula
    para o rótulo do detalhe.
 
-   Grade: check · venceu · o que é · Original · Acréscimos · Total · ações · chevron. */
+   Grade: check · venceu · o que é · Original · Acréscimos · Total · ações · chevron.
+
+   🔴 A coluna de AÇÕES é FIXA (13.5rem), e não `auto`. O cabeçalho de colunas e as linhas são grades
+   SEPARADAS: com um track `auto` no fim, ele mede 0 no cabeçalho (a célula é vazia) e ~265px na linha
+   (os três botões), e o `1fr` da descrição absorve sobras diferentes em cada um — o resultado é que
+   `ORIGINAL`/`ACRÉSCIMOS`/`TOTAL` aparecem ~250px à direita dos próprios números. Só um track de
+   largura FIXA nas duas grades faz o `1fr` resolver igual e as colunas baterem.
+
+   🔴 `gap: 0`, como no desenho: cada célula carrega o próprio respiro. Com `gap` de .9rem, os sete
+   vãos somavam ~100px que a fila não tem para dar antes de estourar. */
 #secao-divida .jp-lista-head,
 #secao-divida .jp-obr:not(.is-substituida) {
-    grid-template-columns: 34px 108px minmax(7rem, 1fr) 110px 120px 130px minmax(0, auto) 34px;
+    grid-template-columns: 34px 108px minmax(7rem, 1fr) 110px 120px 130px 13.5rem 34px;
     grid-template-areas: none;
+    gap: 0;
+    /* 🔴 O padding HORIZONTAL tem de ser o MESMO nos dois. Tracks idênticos não bastam: o cabeçalho
+       herdava .65rem da regra base e a linha usa 1rem, e essa diferença de 5,6px por lado desloca a
+       origem de cada grade — as colunas nasceriam desalinhadas mesmo com a mesma lista de tracks. */
+    padding-left: 1rem; padding-right: 1rem;
 }
-#secao-divida .jp-lista-head .col-original,
-#secao-divida .jp-lista-head .col-acrescimos,
-#secao-divida .jp-lista-head .col-total { text-align: right; }
 
 #secao-divida .jp-obr {
     row-gap: 0;
@@ -509,13 +520,38 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
     padding: .7rem 1rem;
 }
 /* As três colunas de dinheiro. `Original` e `Acréscimos` são CONTEXTO do `Total` — secundárias de
-   propósito, para o número que decide continuar sendo o maior da linha. */
-#secao-divida .col-original,
-#secao-divida .col-acrescimos,
-#secao-divida .col-total { text-align: right; font-variant-numeric: tabular-nums; }
-#secao-divida .col-original,
-#secao-divida .col-acrescimos { color: var(--bs-secondary-color); font-size: .84375rem; font-weight: 500; }
-#secao-divida .jp-obr .col-total { font-size: .9375rem; font-weight: 700; letter-spacing: -.01em; }
+   propósito, para o número que decide continuar sendo o maior da linha.
+
+   ⚠️ Combinador de FILHO DIRETO (`>`), não descendente: `col-original` e as irmãs aparecem TAMBÉM
+   dentro do painel de encargos, que é neto da linha. Sem o `>`, o `text-align: right` daqui vazava
+   para lá e jogava só o `Original` do painel para a borda direita, desalinhado dos outros quatro
+   componentes — que não têm essas classes de coluna. */
+#secao-divida .jp-lista-head > .col-original,
+#secao-divida .jp-lista-head > .col-acrescimos,
+#secao-divida .jp-lista-head > .col-total,
+#secao-divida .jp-obr > .col-original,
+#secao-divida .jp-obr > .col-acrescimos,
+#secao-divida .jp-obr > .col-total {
+    text-align: right; font-variant-numeric: tabular-nums; padding-left: .5rem;
+}
+#secao-divida .jp-obr > .col-original,
+#secao-divida .jp-obr > .col-acrescimos { color: var(--bs-secondary-color); font-size: .84375rem; font-weight: 500; }
+#secao-divida .jp-obr > .col-total { font-size: .9375rem; font-weight: 700; letter-spacing: -.01em; }
+/* Sem `gap`, o respiro entre a descrição e o primeiro número vem daqui. */
+#secao-divida .jp-obr > .jp-obr-desc,
+#secao-divida .jp-lista-head > *:nth-child(3) { padding-right: 1rem; }
+#secao-divida .jp-obr > .jp-obr-acoes { padding-left: .75rem; }
+
+/* Botões da linha no tamanho do desenho (28px de altura, 12px de texto), e não no `btn-sm` do
+   Bootstrap: são três por linha (`Receber`, `Acordar`, `⋯`) e no tamanho padrão eles não cabem na
+   coluna fixa de 13.5rem — passariam a quebrar em duas linhas e a fila cresceria de altura. */
+#secao-divida .jp-obr-acoes { gap: .3125rem; }
+#secao-divida .jp-obr-acoes .btn {
+    height: 1.75rem; padding: 0 .625rem; font-size: .75rem;
+    display: inline-flex; align-items: center; border-radius: .4375rem;
+}
+#secao-divida .jp-obr-acoes .btn .bi { font-size: .75rem; }
+#secao-divida .jp-obr-acoes .cob-row-menu .btn { padding: 0 .5rem; }
 
 /* Botão do chevron: só ganha moldura quando a linha está aberta — fechado ele é um alvo discreto, não
    mais um ícone competindo com "Receber". O `aria-expanded` é alternado pelo próprio Bootstrap
@@ -535,26 +571,45 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
 
 /* Detalhe: os cinco componentes com o % de incidência. `grid-column: 1 / -1` porque ele é filho DIRETO
    da mesma grade da fila — sem isso o Bootstrap o colocaria na próxima célula livre, no meio da linha.
-   Indentado até a coluna da descrição, para ler como continuação da linha e não como bloco novo. */
-.cob-obr-detalhe { grid-column: 1 / -1; padding: 0 1rem .875rem 9.875rem; }
+
+   Indentado até a coluna da descrição (34px do check + 108px da data = 142px), para ler como
+   continuação da linha e não como bloco novo. Sem `padding-right`: a caixa do grid já termina no
+   padding direito da própria linha, e somar 1rem aqui a deixava mais curta que a fila acima. */
+.cob-obr-detalhe { grid-column: 1 / -1; padding: 0 0 .875rem 8.875rem; }
 /* `.collapse` do Bootstrap já resolve o fechado; aqui só o respiro de quando ele abre. */
 .cob-obr-detalhe.show, .cob-obr-detalhe.collapsing { padding-top: .5rem; }
+
+/* 🔴 `align-items: start`, NÃO `end`. Com `end` (o que o desenho traz) as cinco células encostam pela
+   BASE — e a primeira tem três linhas (rótulo, valor e a nota "valor de face do boleto") contra duas
+   das outras. O resultado é que os cinco rótulos ficam em alturas diferentes e o painel lê como cinco
+   blocos soltos, não como uma linha de componentes. Com `start` os rótulos alinham no topo e os
+   valores logo abaixo, que é o que a leitura pede: comparar os cinco de relance.
+
+   Divergência consciente do desenho, e a única deste painel. */
 .cob-obr-detalhe-caixa {
-    display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)) 130px;
-    gap: .875rem; align-items: end;
+    display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: .5rem 1.25rem; align-items: start;
     padding: .75rem .875rem; border-radius: .625rem;
     border: 1px solid var(--bs-border-color); background: var(--bs-tertiary-bg);
 }
+.cob-obr-detalhe-item { min-width: 0; }
 .cob-obr-detalhe-rot {
-    font-size: .6875rem; font-weight: 700;
+    font-size: .6875rem; font-weight: 700; line-height: 1.3;
     text-transform: uppercase; letter-spacing: .08em; color: var(--bs-secondary-color);
 }
-/* O % vive DENTRO do rótulo: é contexto, não dinheiro. `text-transform: none` para não virar caixa-alta. */
-.cob-obr-detalhe-pct { font-weight: 600; text-transform: none; letter-spacing: 0; opacity: .8; }
+/* O % vive DENTRO do rótulo: é contexto, não dinheiro. `text-transform: none` para não virar caixa-alta.
+   `white-space: nowrap` no par número+unidade, para "1% a.m. pró-rata" não quebrar no meio. */
+.cob-obr-detalhe-pct {
+    font-weight: 600; text-transform: none; letter-spacing: 0; opacity: .8; white-space: nowrap;
+}
 .cob-obr-detalhe-val { font-size: .875rem; font-weight: 600; margin-top: .1875rem; font-variant-numeric: tabular-nums; }
 /* Encargo zerado fica CINZA, não some (decisão do dono mantida do desenho anterior): a ausência do
    encargo é informação, e escondê-la faria a soma parecer não fechar. */
 .cob-obr-detalhe-val.is-zero { color: var(--bs-tertiary-color); }
+/* A nota do `Original` ("valor de face do boleto"). Classe própria em vez do `.cob-vazio-dica`
+   emprestado: ela não tem nada a ver com estado vazio, e o empréstimo amarrava dois blocos que mudam
+   por motivos diferentes. */
+.cob-obr-detalhe-nota { font-size: .6875rem; color: var(--bs-tertiary-color); margin-top: .0625rem; }
 
 /* Substituídas (dentro de um collapse, de-emphasizadas): sem colunas de dinheiro nem chevron — só a
    fila em 5 colunas, sem áreas. A célula vazia final é track `auto` que colapsa a 0. */
@@ -575,11 +630,14 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
    anuncia, nunca se disfarça de data. */
 .jp-sem-data { font-weight: 600; color: var(--bs-warning-text-emphasis); }
 
-/* ── Coluna da dívida estreita (< 720px de LARGURA DA SEÇÃO, não do viewport): cartão empilhado ──
-   CONTAINER QUERY, não media query: a dívida encolhe com a sidebar, não só com o viewport. Com oito
-   colunas o aperto chega antes — as três de dinheiro viram uma linha própria, rotulada, e a fila deixa
-   de existir. Nada fixo grande o bastante para empurrar a rolagem horizontal. */
-@container divida (max-width: 720px) {
+/* ── Coluna da dívida estreita: cartão empilhado ────────────────────────────────────────────────
+   CONTAINER QUERY, não media query: a dívida encolhe com a sidebar, não só com o viewport.
+
+   O corte subiu de 720px para 920px porque a fila passou a ter largura mínima MEDIDA, e não elástica:
+   34 + 108 + 112 (piso da descrição) + 110 + 120 + 130 + 216 (as ações, agora fixas) + 34 = 864px,
+   mais os 32px de padding da linha = 896px. Abaixo disso a fila estouraria em rolagem horizontal, que
+   é exatamente o que o cartão empilhado existe para evitar. Ao mexer nos tracks, REFAÇA esta conta. */
+@container divida (max-width: 920px) {
     #secao-divida .jp-lista-head { display: none; }
     #secao-divida .jp-obr:not(.is-substituida) {
         grid-template-columns: auto minmax(0, 1fr) auto;
@@ -590,8 +648,15 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
             "acoes acoes acoes"
             "detalhe detalhe detalhe";
         align-items: start;
+        /* A fila deixou de existir, então o respiro volta a ser `gap` em vez do padding célula a célula
+           que a grade de oito colunas usa. */
         column-gap: .6rem; row-gap: .1rem;
     }
+    #secao-divida .jp-obr:not(.is-substituida) > .jp-obr-desc,
+    #secao-divida .jp-obr:not(.is-substituida) > .col-original,
+    #secao-divida .jp-obr:not(.is-substituida) > .col-acrescimos,
+    #secao-divida .jp-obr:not(.is-substituida) > .col-total,
+    #secao-divida .jp-obr:not(.is-substituida) > .jp-obr-acoes { padding-left: 0; padding-right: 0; }
     #secao-divida .jp-obr:not(.is-substituida) > .jp-check,
     #secao-divida .jp-obr:not(.is-substituida) > *:first-child { grid-area: check; align-self: center; }
     #secao-divida .jp-obr:not(.is-substituida) > .jp-obr-data { grid-area: data; }
@@ -619,6 +684,7 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
     }
 
     .cob-obr-detalhe-caixa { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    #secao-divida .jp-obr:not(.is-substituida) > .cob-obr-detalhe { padding-left: 0; }
 
     /* Substituídas: seguem em fila (não têm ações para empilhar), mas com colunas e gap menores para caber
        indentadas dentro do collapse do acordo mesmo num telefone estreito. A última célula (vazia) vira
@@ -1193,12 +1259,23 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
    leitura de "cockpit" — identidade e dinheiro num painel, o trabalho no corpo branco abaixo. O tom
    é `--bs-secondary-bg` com um sopro do accent do módulo (a maquete usa azul; o módulo é verde, e
    cor aqui vem de variável, nunca de hex). Os dois lados do `color-mix` trocam sozinhos com o tema. */
+/* ⚠️ 2026-08-28: o fundo TINGIDO DE VERDE saiu. O desenho "Objeto 1A" não põe o cabeçalho numa faixa
+   colorida — ele é um CARTÃO BRANCO com borda fina e sombra de 1px, o mesmo material do corpo da
+   página logo abaixo. O tint (`color-mix` do `--bs-secondary-bg` com o accent) vinha da maquete
+   anterior, que era azul, e era ele que fazia a tela inteira parecer outra coisa.
+
+   Sem padding horizontal PRÓPRIO, de propósito: cada bloco de dentro carrega o seu. É o que faz a
+   divisória do dinheiro e a vertical entre as duas colunas irem de BORDA A BORDA do cartão, como no
+   desenho — com padding no painel elas nasceriam recuadas e o cartão leria como duas caixas soltas. */
 .cob-cab-painel {
     border: 1px solid var(--bs-border-color);
-    border-radius: .9rem;
-    padding: 1rem 1.15rem 1.15rem;
-    background: color-mix(in srgb, var(--bs-secondary-bg) 92%, var(--jp-accent));
+    border-radius: .875rem;
+    padding: 0;
+    background: var(--bs-body-bg);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .04);
 }
+.cob-cab-topo { padding: 1rem 1.25rem 0; }
+.cob-cab { padding: 0 1.25rem; }
 
 /* `.cob-cab` é a linha identidade + ações; `.cob-cab-lateral` (a antiga coluna da direita) deixou de
    existir junto com a `.row`, e a regra dela saiu para não sobrar seletor sem dono. */
@@ -1287,9 +1364,9 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
 }
 .cob-cabecalho > * { min-width: 0; }
 .cob-cabecalho > * + * { border-left: 1px solid var(--bs-border-color); }
-.cob-cabecalho-dinheiro { padding: 1.15rem 1.25rem .25rem 0; }
+.cob-cabecalho-dinheiro { padding: 1.15rem 1.25rem 1.25rem; }
 .cob-cabecalho-contexto {
-    padding: 1.15rem 0 .25rem 1.25rem;
+    padding: 1.15rem 1.25rem 1.25rem;
     display: flex; flex-direction: column; gap: .75rem;
 }
 
@@ -1371,8 +1448,8 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
 @media (max-width: 991.98px) {
     .cob-cabecalho { grid-template-columns: minmax(0, 1fr); }
     .cob-cabecalho > * + * { border-left: 0; border-top: 1px solid var(--bs-border-color); }
-    .cob-cabecalho-dinheiro { padding: 1rem 0 .25rem; }
-    .cob-cabecalho-contexto { padding: 1rem 0 .25rem; }
+    .cob-cabecalho-dinheiro { padding: 1rem 1.25rem; }
+    .cob-cabecalho-contexto { padding: 1rem 1.25rem; }
     .cob-heroi-valor { font-size: 2.25rem; }
 }
 
