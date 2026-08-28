@@ -137,8 +137,13 @@
     color: var(--ps-text);
     font-family: var(--jp-font-sans);
 }
-.ps-page a { color: var(--ps-accent); text-decoration: none; }
-.ps-page a:hover { color: var(--ps-accent-hover); text-decoration: underline; }
+/* Ancora que e BOTAO fica de fora: `.ps-page a` (0,1,1) vence `.btn-primary` e
+   `.ps-btn--primario` (0,1,0), entao o texto virava azul de link em cima do
+   fundo azul do proprio botao — ilegivel. Foi o que aconteceu com "Peticionar
+   na Pasta", na aba Processo, e com os botoes neutros do cabecalho, que o
+   desenho pede em cinza e apareciam azuis. */
+.ps-page a:not(.btn):not(.ps-btn) { color: var(--ps-accent); text-decoration: none; }
+.ps-page a:not(.btn):not(.ps-btn):hover { color: var(--ps-accent-hover); text-decoration: underline; }
 .ps-num { font-variant-numeric: tabular-nums; }
 
 /* =============================================================================
