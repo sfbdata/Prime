@@ -196,9 +196,12 @@ final class ObjetoShowContratoJsTest extends CobrancaWebTestCase
             'O handler de abertura do modal de Editar parou de ler o data-taxa-*-bp por encargo (rehidratação morta)',
         );
 
-        // A "Próxima ação" saiu do cartão do trilho e virou faixa compacta no topo da aba Cobrança —
-        // o gancho visual, não só o modal que ela abre. O trilho não existe mais.
-        self::assertSelectorExists('#tab-cobranca .cob-proxima-faixa', 'Sumiu a faixa Próxima ação da aba Cobrança');
+        // A "Próxima ação" mudou de lugar duas vezes: saiu do cartão do trilho (que não existe mais),
+        // virou faixa no topo da aba Cobrança e, com o redesenho 1a, subiu para a coluna de CONTEXTO do
+        // cabeçalho, logo abaixo da prescrição. O gancho visual continua sendo o mesmo elemento.
+        self::assertSelectorExists('.cob-cabecalho-contexto .cob-proxima-faixa', 'Sumiu a faixa Próxima ação do cabeçalho');
+        // Não pode ficar nos DOIS lugares: seria o mesmo par de modais duas vezes na mesma tela.
+        self::assertSelectorNotExists('#tab-cobranca .cob-proxima-faixa', 'a faixa não pode ter ficado também na aba Cobrança');
         self::assertSelectorExists('.cob-proxima-faixa [data-bs-target="#modalDefinirAcao"], .cob-proxima-faixa [data-bs-target="#modalConcluirAcao"]', 'a faixa perdeu o gatilho de definir/concluir');
 
         // SPEC UX §6.1 (2026-07-26): "Encerrar cobrança" saiu do cartão do trilho e virou botão do

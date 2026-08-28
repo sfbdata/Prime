@@ -32,7 +32,7 @@ use PHPUnit\Framework\Attributes\TestDox;
 #[CoversClass(ObjetoController::class)]
 final class ObjetoShowUxReorganizacaoTest extends CobrancaWebTestCase
 {
-    #[TestDox('SPEC §7: a aba Cobrança abre por padrão e o editor de anotação é o primeiro elemento útil')]
+    #[TestDox('Redesenho 1a: a DÍVIDA abre por padrão; na aba Cobrança o editor é o primeiro elemento útil')]
     public function testAbaCobrancaAbreComOEditorDeAnotacao(): void
     {
         $client = static::createClient();
@@ -42,9 +42,15 @@ final class ObjetoShowUxReorganizacaoTest extends CobrancaWebTestCase
         $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
 
         self::assertResponseIsSuccessful();
-        // A aba que nasce ativa é a Cobrança.
-        self::assertSelectorExists('#objetoTabs .nav-link.active[data-bs-target="#tab-cobranca"]');
-        self::assertSelectorExists('#tab-cobranca.show.active');
+        // ⚠️ A aba padrão MUDOU: era Cobrança (SPEC §7), passou a ser Dívida por decisão do desenho
+        // aprovado de 28/08 — é ela que responde "quanto deve", a pergunta com que se chega na tela.
+        self::assertSelectorExists('#objetoTabs .nav-link.active[data-bs-target="#tab-divida"]');
+        self::assertSelectorExists('#tab-divida.show.active');
+        // E uma só nasce ativa: duas `.show.active` deixariam os dois painéis empilhados na tela.
+        self::assertCount(1, $crawler->filter('#objetoTabs .nav-link.active'), 'exatamente uma aba nasce ativa');
+        // Escopado em `#objetoConteudo`: os modais desta página (a ficha da pessoa) têm abas próprias, e
+        // um seletor solto de `.tab-pane.show.active` contaria as delas junto.
+        self::assertCount(1, $crawler->filter('#objetoConteudo > .tab-pane.show.active'), 'e exatamente um painel');
 
         // E o editor vem ANTES da lista — é o primeiro elemento útil, não um campo no rodapé.
         self::assertSelectorExists('#tab-cobranca .cob-anotacao-nova textarea[data-editor-rico]');
@@ -239,8 +245,11 @@ final class ObjetoShowUxReorganizacaoTest extends CobrancaWebTestCase
         // A coluna de honorários da dívida NÃO foi substituída — a SPEC exige as duas coisas.
         self::assertSelectorExists('#tab-divida #secao-divida .col-honorarios');
 
-        // "Editar configuração de encargos" continua acessível no contexto financeiro, sem virar aba.
-        self::assertSelectorExists('#tab-divida [data-bs-target="#modalConfigEncargosObjeto"]');
+        // "Editar configuração de encargos" continua acessível e continua NÃO sendo aba — só mudou de
+        // lugar: virou o botão `Encargos` do cabeçalho (desenho §1.4), junto das ações de situação.
+        // Mesmo modal, mesma rota, mesmo gate.
+        self::assertSelectorExists('.content-header .cob-acoes [data-bs-target="#modalConfigEncargosObjeto"]');
+        self::assertSelectorNotExists('#tab-divida [data-bs-target="#modalConfigEncargosObjeto"]', 'não pode ficar nos dois lugares');
         self::assertSelectorNotExists('#objetoTabs [data-bs-target="#tab-encargos"]');
     }
 

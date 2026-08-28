@@ -14,15 +14,18 @@
 
    Contexto herdado do show: `caso`, `podeGerenciar`, `formConfigEncargos`.
 ─────────────────────────────────────────────────────────────────────────── #}
+{# Revestimento do redesenho 1a: os dois números e a configuração passaram a dividir UMA faixa de três
+   painéis dentro do mesmo cartão. Nenhum valor mudou de origem nem de significado. #}
 <div class="jp-secao">
-    <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-3">
-        <h5 class="mb-0"><i class="bi bi-percent me-1"></i>Honorários</h5>
-        {% if podeGerenciar and formConfigEncargos %}
-        <button type="button" class="btn btn-sm jp-btn-outline" data-bs-toggle="modal" data-bs-target="#modalConfigEncargosObjeto">
-            <i class="bi bi-pencil me-1"></i>Editar configuração de encargos
-        </button>
-        {% endif %}
-    </div>
+    <div class="jp-lista mb-3">
+        <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap p-3 border-bottom">
+            <h5 class="mb-0"><i class="bi bi-percent me-1"></i>Honorários</h5>
+            {% if podeGerenciar and formConfigEncargos %}
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalConfigEncargosObjeto">
+                <i class="bi bi-sliders me-1"></i>Editar configuração de encargos
+            </button>
+            {% endif %}
+        </div>
 
     {# ── Os dois números que respondem "quanto rendeu e quanto falta" ──
        `A receber` é RECORTE de `honorariosDasObrigacoes` — o que ainda está EM ABERTO —, não uma terceira
@@ -33,44 +36,44 @@
        linha com o que está na tela, e `A receber` pode ser MENOR que ele. Deliberadamente NÃO existe
        um "total geral" somando os dois — receber e ter recebido são estados diferentes do mesmo
        honorário, e somá-los produziria um número que não significa nada. #}
-    <div class="cob-hon-cards mb-4">
-        <div class="cob-hon-card">
-            <span class="cob-hon-card-rot">A receber</span>
-            <span class="cob-hon-card-val">{{ caso.honorariosEmAberto|centavos }}</span>
-            <span class="cob-hon-card-nota">honorários das obrigações ainda em aberto</span>
-        </div>
-        <div class="cob-hon-card">
-            <span class="cob-hon-card-rot">Já recebido</span>
-            <span class="cob-hon-card-val is-recebido">{{ caso.honorariosRecebidos|centavos }}</span>
-            <span class="cob-hon-card-nota">
-                {% if caso.pagamentos|length > 0 %}
-                    em {{ caso.pagamentos|length }} recebimento{{ caso.pagamentos|length > 1 ? 's' : '' }}
-                {% else %}
-                    nenhum recebimento ainda
-                {% endif %}
-            </span>
-        </div>
-    </div>
-
-    {# ── Como está configurado ── #}
-    <h6 class="mb-2">Configuração</h6>
-    <div class="cob-hon-config mb-4">
-        <div class="cob-hon-item">
-            <span class="cob-hon-rot">Forma configurada</span>
-            <span class="cob-hon-val">{{ caso.formaHonorariosLabel }}</span>
-        </div>
-        <div class="cob-hon-item">
-            <span class="cob-hon-rot">Percentual</span>
-            {# O DTO carrega o decimal cru ("15.00"); a vírgula é só apresentação, como no resto da tela. #}
-            <span class="cob-hon-val">{% if caso.percentualHonorarios %}{{ caso.percentualHonorarios|replace({'.': ','}) }}%{% else %}—{% endif %}</span>
-        </div>
-        <div class="cob-hon-item">
-            <span class="cob-hon-rot">Base de cálculo</span>
-            <span class="cob-hon-val">{{ caso.baseHonorariosComposta ? 'Composta' : 'Principal' }}</span>
-        </div>
-        <div class="cob-hon-item">
-            <span class="cob-hon-rot">Carência</span>
-            <span class="cob-hon-val">{% if caso.carenciaHonorariosDias is not null %}{{ caso.carenciaHonorariosDias }} dia(s){% else %}—{% endif %}</span>
+        <div class="cob-hon-faixa">
+            <div>
+                <span class="cob-hon-card-rot">A receber</span>
+                <span class="cob-hon-card-val">{{ caso.honorariosEmAberto|centavos }}</span>
+                <span class="cob-hon-card-nota">honorários das obrigações ainda em aberto</span>
+            </div>
+            <div>
+                <span class="cob-hon-card-rot">Já recebido</span>
+                <span class="cob-hon-card-val is-recebido {{ caso.honorariosRecebidos == 0 ? 'is-zero' }}">{{ caso.honorariosRecebidos|centavos }}</span>
+                <span class="cob-hon-card-nota">
+                    {% if caso.pagamentos|length > 0 %}
+                        em {{ caso.pagamentos|length }} recebimento{{ caso.pagamentos|length > 1 ? 's' : '' }}
+                    {% else %}
+                        nenhum recebimento ainda
+                    {% endif %}
+                </span>
+            </div>
+            {# ── Como está configurado ── O título "Configuração" saiu: virou o terceiro painel da faixa,
+               e um rótulo de seção sobre quatro rótulos de campo seria rótulo de rótulo. #}
+            <div class="cob-hon-config">
+                <div class="cob-hon-item">
+                    <span class="cob-hon-rot">Forma configurada</span>
+                    <span class="cob-hon-val">{{ caso.formaHonorariosLabel }}</span>
+                </div>
+                <div class="cob-hon-item">
+                    <span class="cob-hon-rot">Percentual</span>
+                    {# O DTO carrega o decimal cru ("15.00"); a vírgula é só apresentação, como no resto da tela. #}
+                    <span class="cob-hon-val">{% if caso.percentualHonorarios %}{{ caso.percentualHonorarios|replace({'.': ','}) }}%{% else %}—{% endif %}</span>
+                </div>
+                <div class="cob-hon-item">
+                    <span class="cob-hon-rot">Base de cálculo</span>
+                    <span class="cob-hon-val">{{ caso.baseHonorariosComposta ? 'Composta' : 'Principal' }}</span>
+                </div>
+                <div class="cob-hon-item">
+                    <span class="cob-hon-rot">Carência</span>
+                    <span class="cob-hon-val">{% if caso.carenciaHonorariosDias is not null %}{{ caso.carenciaHonorariosDias }} dia(s){% else %}—{% endif %}</span>
+                </div>
+            </div>
         </div>
     </div>
 

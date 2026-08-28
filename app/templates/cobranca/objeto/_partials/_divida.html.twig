@@ -21,8 +21,11 @@
 
 {% macro valores(o) %}
     {# ── Célula do "Total" do relatório (com o floco de congelado e o "falta …" quando sobrou saldo) ──
-       O detalhamento dos encargos (Original/Juros/Multa/Correção/Honorários) vive na FAIXA sempre visível
-       da linha (`resumoEncargos`), não mais atrás de um chevron: o dono quis ver cada encargo sem expandir.
+       Redesenho 1a: o detalhamento dos cinco componentes voltou para trás de um chevron
+       (`detalheEncargos`), e a linha ganhou duas colunas de dinheiro ANTES desta — `Original` e
+       `Acréscimos` (macro `colunasDinheiro`), que fecham com este Total a olho. A faixa de pílulas
+       sempre visível saiu: com 161 obrigações na tela ela repetia cinco pílulas por linha e nivelava
+       o que importa com o que é contexto.
 
        DEFINIÇÃO ÚNICA, de propósito: a linha aparece em TRÊS lugares desta seção (obrigação avulsa, parcela
        de acordo e obrigação substituída) e os três compartilham a MESMA grade CSS. A célula nasce aqui, e
@@ -69,15 +72,42 @@
     {%- endif %}
 {% endmacro %}
 
-{% macro resumoEncargos(o) %}
-    {# CADA encargo VISÍVEL na própria linha — rótulo + valor + o % de incidência, colorido, numa faixa que
-       ocupa a largura toda e QUEBRA sozinha (flex-wrap), sem as colunas rígidas que apertavam (F4). O dono
-       quis ver tudo sem expandir, então não há mais chevron nem painel: os "%" que moravam no expandir
-       vieram para dentro das pílulas. As pílulas de valor zero PERMANECEM (decisão do dono: manter todos).
+{% macro colunasDinheiro(o) %}
+    {# ── As duas colunas novas do redesenho 1a, antes do Total ──────────────────────────────────────
+       `Original` = valor de face; `Acréscimos` = tudo que foi somado a ele. Os três fecham a olho:
+       `valorOriginal + acrescimos() == valorAtual`.
+
+       A soma vem do DTO (`ObrigacaoOutput::acrescimos()`), NUNCA de um `+` aqui: é dinheiro, e a regra
+       da casa é que dinheiro se soma onde há teste. #}
+    <div class="jp-obr-valor jp-money col-original">{{ o.valorOriginal|centavos }}</div>
+    <div class="jp-obr-valor jp-money col-acrescimos">{{ o.acrescimos|centavos }}</div>
+{% endmacro %}
+
+{% macro chevron(o) %}
+    {# Abre o detalhe da própria linha. `collapse` do Bootstrap e não JS nosso: é ele que alterna o
+       `aria-expanded`, e o CSS lê ESSE atributo para a moldura e o giro — assim moldura, giro e painel
+       nunca ficam dessincronizados. A espinha vermelha da linha aberta sai de `:has()` sobre o mesmo
+       estado real, pelo mesmo motivo. #}
+    <button type="button" class="cob-obr-chevron" data-bs-toggle="collapse"
+            data-bs-target="#detalheObr{{ o.id }}" aria-expanded="false"
+            aria-controls="detalheObr{{ o.id }}"
+            title="Detalhar encargos" aria-label="Detalhar os encargos de {{ o.descricao|e('html_attr') }}">
+        <i class="bi bi-chevron-down"></i>
+    </button>
+{% endmacro %}
+
+{% macro detalheEncargos(o) %}
+    {# CADA componente rotulado com o seu % de incidência, agora SOB DEMANDA (redesenho 1a) — era a faixa
+       de pílulas sempre visível. Encargo zerado aparece em cinza claro, NÃO some (decisão do dono
+       preservada): a ausência do encargo é informação, e escondê-la faria a soma parecer não fechar.
 
        As classes `col-original/col-juros/col-multa/col-correcao/col-honorarios` são lidas pelos functional
-       de `ObjetoShowControllerTest` (F4) pelo TEXTO do valor — agora vivem AQUI (a faixa é o único lugar do
-       split). O `col-total` fica na célula do Total (macro `valores`), fora da faixa. #}
+       de `ObjetoShowControllerTest` (F4) pelo TEXTO do valor — continuam AQUI, no painel, com os mesmos
+       nomes. `col-original` aparece DUAS vezes na linha agora (a coluna e o painel), com o MESMO valor:
+       é o mesmo campo exibido em dois lugares, não dois números que possam divergir.
+
+       ⚠️ O painel nasce dentro da grade da linha (`grid-column: 1 / -1` no CSS) porque é filho direto
+       dela — solto, o grid o jogaria na próxima célula livre, no meio da fila. #}
     {# Base de incidência de cada encargo — RESOLVIDA da cascata (o.baseMulta/o.baseHonorarios), não fixa.
        Multa e honorários podem operar sobre o PRINCIPAL puro ou a base COMPOSTA (valor + juros + multa +
        correção); derivar o "%" sobre a base errada mostra um número factualmente falso para quem configura
@@ -89,29 +119,32 @@
     {% set baseComposta = o.valorOriginal + o.juros + o.multa + o.correcao %}
     {% set baseMultaVal = o.baseMulta.value == 'composta' ? baseComposta : o.valorOriginal %}
     {% set baseHonVal = o.baseHonorarios.value == 'composta' ? baseComposta : o.valorOriginal %}
-    <div class="jp-obr-encargos">
-        <span class="jp-obr-enc jp-enc-original">
-            <span class="jp-enc-rot">Original</span>
-            <span class="jp-enc-val col-original">{{ o.valorOriginal|centavos }}</span>
-        </span>
-        {# A obrigação SUBSTITUÍDA não passa por aqui: ela é renderizada sem esta faixa, só com a
-           célula do Total (ver macro `valores`, onde mora o traço do encargo não calculado). #}
-        <span class="jp-obr-enc jp-enc-juros">
-            <span class="jp-enc-rot">Juros{% if o.taxaJurosEfetivaBp %} <span class="jp-enc-pct">{{ (o.taxaJurosEfetivaBp / 100)|round(2)|replace({'.': ','}) }}% a.m. pró-rata</span>{% endif %}</span>
-            <span class="jp-enc-val col-juros">{{ o.juros|centavos }}</span>
-        </span>
-        <span class="jp-obr-enc jp-enc-multa">
-            <span class="jp-enc-rot">Multa{% if baseMultaVal > 0 and o.multa > 0 %} <span class="jp-enc-pct">{{ (o.multa * 100 / baseMultaVal)|round(2)|replace({'.': ','}) }}%</span>{% endif %}</span>
-            <span class="jp-enc-val col-multa">{{ o.multa|centavos }}</span>
-        </span>
-        <span class="jp-obr-enc jp-enc-correcao">
-            <span class="jp-enc-rot">Correção</span>
-            <span class="jp-enc-val col-correcao">{{ o.correcao|centavos }}</span>
-        </span>
-        <span class="jp-obr-enc jp-enc-honorarios">
-            <span class="jp-enc-rot">Honorários{% if baseHonVal > 0 and o.honorarios > 0 %} <span class="jp-enc-pct">{{ (o.honorarios * 100 / baseHonVal)|round(2)|replace({'.': ','}) }}%</span>{% endif %}</span>
-            <span class="jp-enc-val col-honorarios">{{ o.honorarios|centavos }}</span>
-        </span>
+    <div class="cob-obr-detalhe collapse" id="detalheObr{{ o.id }}">
+        <div class="cob-obr-detalhe-caixa">
+            <div>
+                <div class="cob-obr-detalhe-rot">Original</div>
+                <div class="cob-obr-detalhe-val col-original">{{ o.valorOriginal|centavos }}</div>
+                <div class="cob-vazio-dica">valor de face do boleto</div>
+            </div>
+            {# A obrigação SUBSTITUÍDA não passa por aqui: ela é renderizada sem painel e sem chevron, só
+               com a célula do Total (ver macro `valores`, onde mora o traço do encargo não calculado). #}
+            <div>
+                <div class="cob-obr-detalhe-rot">Juros{% if o.taxaJurosEfetivaBp %} <span class="cob-obr-detalhe-pct">{{ (o.taxaJurosEfetivaBp / 100)|round(2)|replace({'.': ','}) }}% a.m. pró-rata</span>{% endif %}</div>
+                <div class="cob-obr-detalhe-val col-juros {{ o.juros == 0 ? 'is-zero' }}">{{ o.juros|centavos }}</div>
+            </div>
+            <div>
+                <div class="cob-obr-detalhe-rot">Multa{% if baseMultaVal > 0 and o.multa > 0 %} <span class="cob-obr-detalhe-pct">{{ (o.multa * 100 / baseMultaVal)|round(2)|replace({'.': ','}) }}%</span>{% endif %}</div>
+                <div class="cob-obr-detalhe-val col-multa {{ o.multa == 0 ? 'is-zero' }}">{{ o.multa|centavos }}</div>
+            </div>
+            <div>
+                <div class="cob-obr-detalhe-rot">Correção</div>
+                <div class="cob-obr-detalhe-val col-correcao {{ o.correcao == 0 ? 'is-zero' }}">{{ o.correcao|centavos }}</div>
+            </div>
+            <div class="text-end">
+                <div class="cob-obr-detalhe-rot">Honorários{% if baseHonVal > 0 and o.honorarios > 0 %} <span class="cob-obr-detalhe-pct">{{ (o.honorarios * 100 / baseHonVal)|round(2)|replace({'.': ','}) }}%</span>{% endif %}</div>
+                <div class="cob-obr-detalhe-val col-honorarios {{ o.honorarios == 0 ? 'is-zero' }}">{{ o.honorarios|centavos }}</div>
+            </div>
+        </div>
     </div>
 {% endmacro %}
 
@@ -188,6 +221,13 @@
                 <span></span>
                 <span>Venceu em</span>
                 <span>O que é</span>
+                {# As duas colunas novas do redesenho 1a. `Original` é o valor de face; `Acréscimos` é a
+                   soma de juros + multa + correção + honorários, feita no DTO. Juntas explicam o Total
+                   ao lado sem obrigar a abrir o detalhe. #}
+                <span class="col-original" data-bs-toggle="tooltip"
+                      title="Valor de face da dívida, como veio da contabilidade — antes de qualquer encargo.">Original</span>
+                <span class="col-acrescimos" data-bs-toggle="tooltip"
+                      title="Tudo que foi somado ao valor de face: juros, multa, correção monetária e honorários. Abra o ⌄ da linha para ver cada um com o seu percentual.">Acréscimos</span>
                 {# "Total" aparece DUAS vezes nesta tela, e a coluna existe para explicar por que os dois
                    números não fecham — sem isso quem confere conclui que há erro.
 
@@ -213,7 +253,8 @@
                    a parte do honorário. Este texto é lido pelo USUÁRIO, sobre dinheiro. #}
                 <span class="col-total col-valor" data-bs-toggle="tooltip"
                       title="Total de cada dívida: original + juros + multa + correção + honorários, antes de abater pagamentos. Somar esta coluna não bate com o card “Total vencido” do topo, e isso é esperado: lá entram só as dívidas já vencidas e ainda não quitadas. Os dois são brutos — pagamento parcial não reduz nenhum dos dois.">Total</span>
-                <span></span>
+                <span></span>{# ações #}
+                <span></span>{# chevron #}
             </div>
 
             {# R5: só o que está EM ABERTO. O que já foi pago desceu para a seção própria no fim desta
@@ -246,13 +287,22 @@
                         <div class="jp-obr-data-rel {{ vencida ? 'is-atrasado' }}">{{ o.vencimentoOriginal|tempo_relativo }}</div>
                     </div>
 
+                    {# Redesenho 1a: descrição em UMA linha (reticências) com a referência e o recebido
+                       na sub-linha abaixo — é o que deixa varrer 161 vencimentos sem a lista virar um
+                       muro de texto. O `title` carrega o texto inteiro, então reticência não esconde
+                       dado: a descrição traz as unidades associadas, e elas continuam alcançáveis. #}
                     <div class="jp-obr-desc">
-                        {{ o.descricao }}{% if o.referenciaExterna %} <span class="jp-obr-sub">#{{ o.referenciaExterna }}</span>{% endif %}
-                        {% if o.alocado > 0 and not o.quitada %}
-                            <span class="jp-obr-sub">{{ o.alocado|centavos }} já recebidos</span>
+                        <div class="jp-obr-desc-titulo" title="{{ o.descricao|e('html_attr') }}">{{ o.descricao }}</div>
+                        {% if o.referenciaExterna or (o.alocado > 0 and not o.quitada) %}
+                        <div class="jp-obr-sub">
+                            {%- if o.referenciaExterna %}#{{ o.referenciaExterna }}{% endif -%}
+                            {%- if o.referenciaExterna and o.alocado > 0 and not o.quitada %} · {% endif -%}
+                            {%- if o.alocado > 0 and not o.quitada %}{{ o.alocado|centavos }} já recebidos{% endif -%}
+                        </div>
                         {% endif %}
                     </div>
 
+                    {{ colunas.colunasDinheiro(o) }}
                     {{ colunas.valores(o) }}
 
                     {# A obrigação e o pagamento dela são a mesma conversa: as ações vêm para a linha (T5).
@@ -330,7 +380,8 @@
                         </div>
                         {% endif %}
                     </div>
-                    {{ colunas.resumoEncargos(o) }}
+                    {{ colunas.chevron(o) }}
+                    {{ colunas.detalheEncargos(o) }}
                 </div>
             {% else %}
                 <div class="jp-vazio">
@@ -386,9 +437,10 @@
                     <div class="jp-obr-data-rel {{ parcelaVencida ? 'is-atrasado' }}">{{ p.vencimentoOriginal|tempo_relativo }}</div>
                 </div>
                 <div class="jp-obr-desc">
-                    {{ p.descricao }}
-                    {% if p.alocado > 0 and not p.quitada %}<span class="jp-obr-sub">{{ p.alocado|centavos }} já recebidos</span>{% endif %}
+                    <div class="jp-obr-desc-titulo" title="{{ p.descricao|e('html_attr') }}">{{ p.descricao }}</div>
+                    {% if p.alocado > 0 and not p.quitada %}<div class="jp-obr-sub">{{ p.alocado|centavos }} já recebidos</div>{% endif %}
                 </div>
+                {{ colunas.colunasDinheiro(p) }}
                 {{ colunas.valores(p) }}
                 {# Parcela é gerida pelo acordo: para editar, abra o acordo. Receber, porém, é o fluxo
                    NORMAL — a parcela é exigível e está no select do modal de pagamento.
@@ -406,7 +458,8 @@
                     </button>
                     {% endif %}
                 </div>
-                {{ colunas.resumoEncargos(p) }}
+                {{ colunas.chevron(p) }}
+                {{ colunas.detalheEncargos(p) }}
             </div>
             {% endfor %}
 
@@ -427,8 +480,8 @@
                     <span></span>
                     <div class="jp-obr-data"><div class="jp-obr-data-dia">{{ s.vencimentoOriginal|date('d/m/Y') }}</div></div>
                     <div class="jp-obr-desc">
-                        {{ s.descricao }}
-                        <span class="jp-obr-sub">trocada pelo acordo #{{ g.acordoId }} · volta ao total se o acordo for rompido</span>
+                        <div class="jp-obr-desc-titulo" title="{{ s.descricao|e('html_attr') }}">{{ s.descricao }}</div>
+                        <div class="jp-obr-sub">trocada pelo acordo #{{ g.acordoId }} · volta ao total se o acordo for rompido</div>
                     </div>
                     {{ colunas.valores(s) }}
                     <span></span>
@@ -438,6 +491,38 @@
             {% endif %}
         </div>
     {% endfor %}
+
+    {# ── Os dois estados vazios que ENSINAM (desenho 1a) ────────────────────────────────────────────
+       Antes, "sem acordo" e "nada pago" eram simplesmente a AUSÊNCIA de duas seções — a aba não dizia
+       se não havia acordo ou se ele estava escondido em algum lugar. Agora cada um se anuncia e ensina o
+       caminho.
+
+       Guardados por `temAlgumaCoisa`: numa cobrança sem NENHUMA obrigação a fila já mostra o vazio
+       "Nenhuma obrigação registrada", e empilhar mais dois blocos vazios embaixo dele seria ruído sobre
+       ruído — três caixas dizendo que não há nada. #}
+    {% set temAlgumaCoisa = caso.obrigacoesAvulsas|length > 0 or caso.gruposAcordo|length > 0 %}
+    {% if temAlgumaCoisa and caso.gruposAcordo|length == 0 %}
+    <div class="cob-vazio-linha mt-3">
+        <div class="cob-vazio-ico"><i class="bi bi-file-earmark-text"></i></div>
+        <div class="cob-vazio-corpo">
+            <div class="cob-vazio-titulo">Nenhum acordo nesta cobrança</div>
+            <div class="cob-vazio-dica">Marque as obrigações que entram no acordo e use “Fazer acordo com estas”, ou comece do zero.</div>
+        </div>
+        {% if podeGerenciar %}
+        {# Mesmo gate e mesmo tooltip do botão do cabeçalho da seção: sem dívida original acordável ele
+           nasce desabilitado, em vez de revelar o vazio depois de dois cliques (§5.2). #}
+        <span {% if acordaveis|length == 0 %}data-bs-toggle="tooltip"
+              title="Não há dívida original em aberto para acordar. Se já existe acordo vigente, rompa-o primeiro: as originais voltam ao total."{% endif %}>
+            {# Sem `data-acao="novo-acordo"`: esse gancho é do botão do cabeçalho da seção, e é por ele
+               que os testes contam "o gatilho canônico". Este aqui é uma segunda porta para o MESMO
+               modal (`#modalCriarAcordo`), não um segundo gatilho a rastrear. #}
+            <button type="button" class="btn btn-sm jp-btn-outline"
+                    data-bs-toggle="modal" data-bs-target="#modalCriarAcordo"
+                    {{ acordaveis|length == 0 ? 'disabled' : '' }}>Novo acordo</button>
+        </span>
+        {% endif %}
+    </div>
+    {% endif %}
 
     {# ── R5: "Já pago" — o histórico de faturamento, fora da fila de cobrança ──────────────────────
        Por que a seção existe (spec `cobranca-importar-receitas.md` §3.1): a importação de receitas cria
@@ -491,16 +576,31 @@
             </div>
         </div>
     </div>
+    {% elseif temAlgumaCoisa %}
+    {# Contraparte do bloco acima: há o que cobrar, e nada entrou ainda. O `R$ 0,00 recebido` à direita é
+       literal de propósito — `totalPagoDasAvulsas` é zero por definição neste ramo (a seção só existe
+       quando há avulsa quitada), e imprimir o campo aqui só criaria um segundo caminho para o mesmo zero. #}
+    <div class="cob-vazio-linha mt-3">
+        <div class="cob-vazio-ico"><i class="bi bi-check2-circle"></i></div>
+        <div class="cob-vazio-corpo">
+            <div class="cob-vazio-titulo">Nada quitado ainda nesta unidade</div>
+            <div class="cob-vazio-dica">Quando houver recebimento, ele aparece aqui como “Já pago”, com o valor que entrou.</div>
+        </div>
+        <span class="cob-vazio-num">R$ 0,00 recebido</span>
+    </div>
     {% endif %}
 
     {# Barra de seleção (§5.2): aparece só com alguma linha marcada. Some do fluxo quando não há seleção —
        por isso nasce `hidden` e o JS a revela. Sem acordável, nem existe. #}
     {% if podeGerenciar and acordaveis|length > 0 %}
-    <div class="jp-selecao" id="barraSelecaoDivida" hidden>
-        <span class="jp-selecao-info">
-            <strong data-selecao-qtd>0</strong> selecionada(s) · total <strong data-selecao-total>R$ 0,00</strong>
+    {# Redesenho 1a: a barra é ESCURA e flutua sobre a lista. `#barraSelecaoDivida`,
+       `[data-selecao-qtd]` e `[data-selecao-total]` são contrato do JS de `show.html.twig` e não mudam —
+       só a classe do container (`.jp-selecao` → `.jp-selbar`, que já existia na folha sem dono). #}
+    <div class="jp-selbar" id="barraSelecaoDivida" hidden>
+        <span class="jp-selbar-info">
+            <strong data-selecao-qtd>0</strong> selecionada(s) · total <strong class="jp-selbar-total" data-selecao-total>R$ 0,00</strong>
         </span>
-        <button type="button" class="btn btn-sm jp-btn-outline" data-acao="limpar-selecao">Limpar</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-acao="limpar-selecao">Limpar seleção</button>
         <button type="button" class="btn btn-sm jp-btn-accent" data-acao="acordar-selecionadas">
             <i class="bi bi-file-earmark-text me-1"></i>Fazer acordo com estas
         </button>

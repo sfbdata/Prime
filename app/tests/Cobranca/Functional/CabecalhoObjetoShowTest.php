@@ -40,7 +40,7 @@ use Symfony\Component\DomCrawler\Crawler;
 #[CoversClass(ObjetoController::class)]
 final class CabecalhoObjetoShowTest extends CobrancaWebTestCase
 {
-    #[TestDox('§1.1: a trilha tem os DOIS níveis (Carteira › Unidade), com o título e o badge de status')]
+    #[TestDox('Redesenho 1a: a trilha tem TRÊS níveis (Cobranças / Carteira / Unidade), com título e badge')]
     public function testTrilhaTituloEStatus(): void
     {
         $client = static::createClient();
@@ -49,20 +49,40 @@ final class CabecalhoObjetoShowTest extends CobrancaWebTestCase
         $this->renomear($caso->getObjeto(), 'Apto 302');
 
         $crawler = $this->abrir($client, $caso->getObjeto()->getId());
-        $cabecalho = $crawler->filter('.content-header .cob-cab');
+        $painel = $crawler->filter('.content-header .cob-cab-painel');
 
-        $trilha = $cabecalho->filter('.cob-cab-trilha');
-        self::assertCount(1, $trilha, 'a trilha tem de existir');
-        self::assertStringContainsString('Carteira ' . $carteira->getNome(), $trilha->text());
+        // A trilha ganhou o nível do módulo (`Cobranças`) e mudou de lugar: mora na linha do topo do
+        // painel, ao lado do botão de voltar e das setas — não mais dentro da coluna da identidade.
+        $trilha = $painel->filter('.cob-cab-topo > .cob-cab-trilha');
+        self::assertCount(1, $trilha, 'a trilha tem de existir, na linha do topo do painel');
+        self::assertStringContainsString('Cobranças', $trilha->text());
+        self::assertStringContainsString($carteira->getNome(), $trilha->text());
         self::assertStringContainsString('Unidade Apto 302', $trilha->text());
+
+        $links = $trilha->filter('a')->each(static fn ($a) => $a->attr('href'));
         self::assertSame(
-            '/cobrancas/carteiras/' . $carteira->getId(),
-            $trilha->filter('a')->attr('href'),
-            'o primeiro nível da trilha é o caminho de volta para a carteira',
+            ['/cobrancas', '/cobrancas/carteiras/' . $carteira->getId()],
+            $links,
+            'os dois níveis navegáveis são o módulo e a carteira; a unidade é o nível atual',
         );
 
-        self::assertSame('Apto 302', trim($cabecalho->filter('h1')->text()), 'o título é a identificação da unidade');
-        self::assertStringContainsString('Ativo', $cabecalho->filter('h1 + .badge')->text(), 'o badge de status fica ao lado do título');
+        // O botão de voltar leva ao MESMO lugar do segundo nível da trilha — duplicação deliberada do
+        // desenho: o botão é o alvo grande de "sair daqui", a trilha é orientação.
+        self::assertSame(
+            '/cobrancas/carteiras/' . $carteira->getId(),
+            $painel->filter('.cob-cab-voltar')->attr('href'),
+        );
+
+        $identidade = $painel->filter('.cob-cab-identidade');
+        self::assertSame('Apto 302', trim($identidade->filter('h1')->text()), 'o título é a identificação da unidade');
+        // O selo de estado subiu para a linha do sobretítulo `Unidade`, ACIMA do `h1` (desenho); antes
+        // era irmão imediato dele (`h1 + .badge`). Ancoro no bloco que os contém e na ordem entre eles.
+        self::assertStringContainsString('Ativo', $identidade->filter('.badge')->text(), 'o badge de status abre o bloco de identidade');
+        self::assertStringContainsString(
+            'Unidade',
+            $identidade->filter('.cob-cab-sobretitulo')->text(),
+            'o sobretítulo diz o que é a coisa; o h1 diz qual é',
+        );
     }
 
     #[TestDox('§1.1: a linha meta traz a descrição e a contagem de obrigações em aberto, com plural certo')]
@@ -122,7 +142,9 @@ final class CabecalhoObjetoShowTest extends CobrancaWebTestCase
             'vencimentoOriginal' => new \DateTimeImmutable('-120 days'),
         ]);
 
-        $cabecalho = $this->abrir($client, $caso->getObjeto()->getId())->filter('.cob-cab');
+        // Âncora no PAINEL, não em `.cob-cab`: desde o redesenho 1a a linha de identidade e a faixa de
+        // dinheiro são irmãs dentro dele, e o dinheiro deixou de estar dentro de `.cob-cab`.
+        $cabecalho = $this->abrir($client, $caso->getObjeto()->getId())->filter('.cob-cab-painel');
 
         $principal = $this->valorDoCard($cabecalho, 'principal');
         $encargos = $this->valorDoCard($cabecalho, 'encargos');
@@ -140,9 +162,11 @@ final class CabecalhoObjetoShowTest extends CobrancaWebTestCase
             'o card Total vencido tem de ser a soma dos três, centavo a centavo',
         );
 
+        // O "atualizado em" saiu de dentro do card e virou a nota ao lado do herói (desenho): mesma
+        // informação, mesmo dado (`totaisAtualizadosEm`), outro lugar.
         self::assertMatchesRegularExpression(
             '/atualizado em \d{2}\/\d{2}\/\d{4}/',
-            $cabecalho->filter('.cob-cab-card[data-card="total"] .cob-cab-card-nota')->text(),
+            $cabecalho->filter('.cob-heroi .cob-heroi-quando')->text(),
             'o Total vencido diz de quando é o número',
         );
     }
@@ -171,14 +195,14 @@ final class CabecalhoObjetoShowTest extends CobrancaWebTestCase
         ]);
 
         $crawler = $this->abrir($client, $caso->getObjeto()->getId());
-        $cabecalho = $crawler->filter('.cob-cab');
+        $cabecalho = $crawler->filter('.cob-cab-painel');
 
         self::assertSame(100000, $this->valorDoCard($cabecalho, 'principal'), 'só a vencida entra no Principal');
         self::assertSame(100000, $this->valorDoCard($cabecalho, 'total'), 'e o Total vencido segue a mesma régua');
         self::assertStringContainsString(
             'Total vencido',
-            $cabecalho->filter('.cob-cab-card[data-card="total"]')->text(),
-            'o card do total diz que é do vencido — o rótulo é o que explica o recorte ao gestor',
+            $cabecalho->filter('.cob-heroi-rotulo')->text(),
+            'o número herói diz que é do vencido — o rótulo é o que explica o recorte ao gestor',
         );
 
         // A linha meta continua contando o que está EM ABERTO (as duas): são perguntas diferentes, e a
@@ -213,7 +237,9 @@ final class CabecalhoObjetoShowTest extends CobrancaWebTestCase
             'tenant' => $tenant, 'pagamento' => $pagamento, 'obrigacao' => $obrigacao, 'valor' => 40000,
         ]);
 
-        $cabecalho = $this->abrir($client, $caso->getObjeto()->getId())->filter('.cob-cab');
+        // Âncora no PAINEL, não em `.cob-cab`: desde o redesenho 1a a linha de identidade e a faixa de
+        // dinheiro são irmãs dentro dele, e o dinheiro deixou de estar dentro de `.cob-cab`.
+        $cabecalho = $this->abrir($client, $caso->getObjeto()->getId())->filter('.cob-cab-painel');
 
         self::assertSame(
             100000,
@@ -250,7 +276,9 @@ final class CabecalhoObjetoShowTest extends CobrancaWebTestCase
             'vencimentoOriginal' => new \DateTimeImmutable('-30 days'),
         ]);
 
-        $caixa = $this->abrir($client, $caso->getObjeto()->getId())->filter('.cob-cab-lateral .cob-presc');
+        // A caixa saiu da coluna `.cob-cab-lateral` (que deixou de existir) e virou bloco na coluna de
+        // CONTEXTO da faixa do cabeçalho, ao lado do dinheiro.
+        $caixa = $this->abrir($client, $caso->getObjeto()->getId())->filter('.cob-cabecalho-contexto > .cob-presc');
 
         self::assertCount(1, $caixa, 'com obrigação em aberto a caixa tem de aparecer');
         self::assertSame('critica', $caixa->attr('data-severidade'), 'faltando ~60 dias, a faixa é crítica');
@@ -278,7 +306,7 @@ final class CabecalhoObjetoShowTest extends CobrancaWebTestCase
         self::assertSame('#secao-divida', $link->attr('href'));
     }
 
-    #[TestDox('§1.3: com o prazo vencido a caixa diz "Prazo esgotado em", não dias negativos')]
+    #[TestDox('§1.3: com o prazo vencido a caixa diz "Prazo de ajuizamento esgotado em", não dias negativos')]
     public function testPrescricaoEsgotada(): void
     {
         $client = static::createClient();
@@ -295,7 +323,7 @@ final class CabecalhoObjetoShowTest extends CobrancaWebTestCase
 
         self::assertSame('esgotada', $caixa->attr('data-severidade'));
         self::assertMatchesRegularExpression(
-            '/Prazo esgotado em \d{2}\/\d{2}\/\d{4}/',
+            '/Prazo de ajuizamento esgotado em \d{2}\/\d{2}\/\d{4}/',
             $caixa->filter('.cob-presc-destaque')->text(),
         );
         self::assertStringNotContainsString('Faltam', $caixa->filter('.cob-presc-destaque')->text());
@@ -356,18 +384,19 @@ final class CabecalhoObjetoShowTest extends CobrancaWebTestCase
         $primeiro = $this->objetoComCaso($tenant, $carteira, 'Unidade 100');
         $ultimo = $this->objetoComCaso($tenant, $carteira, 'Unidade 300');
 
-        // As setas moram ACIMA do painel do cabeçalho, encostadas à direita (§1.5, decidido pelo dono
-        // em 2026-07-27 — antes ficavam ao lado do título, depois ao lado da caixa de prescrição).
-        // Ancoro na linha própria E afirmo que elas NÃO estão dentro do painel: sem a segunda asserção
-        // o teste passaria de novo se elas voltassem para dentro da faixa.
+        // ⚠️ QUARTA posição das setas. Elas nasceram ao lado do título, foram para o topo da coluna da
+        // direita, e em 2026-07-27 saíram do painel por decisão do dono. O desenho aprovado de 28/08
+        // ("Objeto 1A") as traz de VOLTA para dentro do painel, na linha da trilha, encostadas à
+        // direita — e é o desenho que manda. Ancoro na linha da trilha E afirmo que elas continuam
+        // sendo UMA só na página: sem a segunda asserção o teste passaria com as setas duplicadas
+        // dentro e fora, que é como uma migração meio-feita costuma terminar.
         $pagina = $this->abrir($client, $caso->getObjeto()->getId());
         self::assertCount(
             1,
-            $pagina->filter('.content-header .cob-cab-nav-linha > .cob-cab-nav'),
-            'as setas ficam na linha própria acima do painel',
+            $pagina->filter('.cob-cab-painel .cob-cab-topo > .cob-cab-nav'),
+            'as setas ficam na linha da trilha, dentro do painel',
         );
-        self::assertCount(0, $pagina->filter('.cob-cab-painel .cob-cab-nav'), 'e não dentro do painel');
-        self::assertCount(0, $pagina->filter('.cob-cab-identidade .cob-cab-nav'));
+        self::assertCount(1, $pagina->filter('.cob-cab-nav'), 'e existem uma única vez na página');
 
         $meio = $pagina->filter('.cob-cab-nav');
         self::assertSame(
@@ -392,22 +421,31 @@ final class CabecalhoObjetoShowTest extends CobrancaWebTestCase
         self::assertNotNull($naUltima->filter('[data-nav="anterior"]')->attr('href'), 'mas a seta ‹ continua viva');
     }
 
-    #[TestDox('§1: as duas colunas do cabeçalho só se separam a partir de 992px (col-lg)')]
-    public function testDuasColunasSoAPartirDe992px(): void
+    #[TestDox('Redesenho 1a: dinheiro e contexto são as DUAS colunas da faixa `.cob-cabecalho`')]
+    public function testFaixaTemDinheiroEContextoLadoALado(): void
     {
         $client = static::createClient();
         [, $tenant] = $this->criarAdminLogado($client);
         [, $caso] = $this->semearGrafo($tenant);
 
-        $cabecalho = $this->abrir($client, $caso->getObjeto()->getId())->filter('.cob-cab');
+        $pagina = $this->abrir($client, $caso->getObjeto()->getId());
 
-        // `col-12 col-lg-*`: uma coluna abaixo de 992px, duas a partir dali. É a regra da §1, e ela vive
-        // na classe — sem isso o cabeçalho nasce em duas colunas espremidas no celular.
-        foreach (['cob-cab-identidade', 'cob-cab-lateral'] as $coluna) {
-            $classe = (string) $cabecalho->filter('.' . $coluna)->attr('class');
-            self::assertStringContainsString('col-12', $classe, "{$coluna} tem de ocupar a largura toda no estreito");
-            self::assertMatchesRegularExpression('/\bcol-lg-\d+\b/', $classe, "{$coluna} tem de separar só no lg");
-        }
+        // As duas colunas deixaram de ser `col-12 col-lg-*` do Bootstrap e viraram uma grade CSS
+        // própria (`.cob-cabecalho`), porque elas precisam da MESMA ALTURA para a divisória vertical
+        // entre elas ir de ponta a ponta — coisa que a `.row` não dá. O ponto de quebra (991.98px)
+        // agora vive só na folha, e teste de PHPUnit não enxerga CSS.
+        //
+        // O que dá para provar aqui é o ARRANJO, com combinador de FILHO DIRETO: os dois painéis são
+        // filhos da mesma faixa, e não "existem em algum lugar da página" — que era verdade mesmo com
+        // o layout errado (a lição do `CarteiraArranjoTelaTest`).
+        $faixa = $pagina->filter('.cob-cab-painel > .cob-cabecalho');
+        self::assertCount(1, $faixa, 'a faixa de dinheiro + contexto tem de existir dentro do painel');
+        self::assertCount(1, $faixa->filter('.cob-cabecalho > .cob-cabecalho-dinheiro'), 'a coluna do dinheiro é filha direta da faixa');
+        self::assertCount(1, $faixa->filter('.cob-cabecalho > .cob-cabecalho-contexto'), 'a coluna de contexto é filha direta da faixa');
+
+        // A `.cob-cab-lateral` foi embora junto com a `.row`: se ela voltar, é sinal de que alguém
+        // remontou o cabeçalho antigo por cima deste.
+        self::assertCount(0, $pagina->filter('.cob-cab-lateral'), 'a coluna lateral da grade antiga não volta por descuido');
     }
 
     // ── apoio ────────────────────────────────────────────────────────────────────────────────────
@@ -476,10 +514,17 @@ final class CabecalhoObjetoShowTest extends CobrancaWebTestCase
         ]);
     }
 
+    /**
+     * Os quatro números do cabeçalho. Desde o redesenho 1a eles não são mais quatro cards iguais — o
+     * total é o HERÓI (`.cob-heroi-valor`) e os outros três são apoios (`.cob-apoio-valor`) —, mas o
+     * gancho `data-card` continua no elemento que carrega o número, de propósito: é o que permite ao
+     * teste conferir a identidade entre eles sem depender da hierarquia visual, que o desenho pode
+     * mudar de novo.
+     */
     private function valorDoCard(Crawler $cabecalho, string $card): int
     {
-        $val = $cabecalho->filter('.cob-cab-card[data-card="' . $card . '"] .cob-cab-card-val');
-        self::assertCount(1, $val, "não achei o card \"{$card}\" no cabeçalho");
+        $val = $cabecalho->filter('[data-card="' . $card . '"]');
+        self::assertCount(1, $val, "não achei o valor \"{$card}\" no cabeçalho");
 
         return $this->centavos($val->text());
     }

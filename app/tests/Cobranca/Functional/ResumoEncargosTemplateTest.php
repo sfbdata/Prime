@@ -12,8 +12,9 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Twig\Environment;
 
 /**
- * A macro `resumoEncargos` (cobranca/objeto/_partials/_divida.html.twig) desenha a faixa de encargos de
- * cada obrigação. O foco deste teste é o RÓTULO da taxa de juros: ele tem de mostrar a taxa CONFIGURADA
+ * A macro `detalheEncargos` (cobranca/objeto/_partials/_divida.html.twig) desenha o painel de encargos
+ * de cada obrigação — desde o redesenho 1a ele abre atrás do chevron da linha, e não é mais a faixa de
+ * pílulas sempre visível (o nome da macro mudou junto). O foco deste teste é o RÓTULO da taxa de juros: ele tem de mostrar a taxa CONFIGURADA
  * ("1% a.m. pró-rata"), não o percentual que o valor pró-rata do dia representa sobre o principal — este
  * último cresce a cada dia (R$7,54 sobre R$170 = 4,44% hoje, 4,53% amanhã...) e engana quem lê o card,
  * embora o VALOR em reais esteja certo. O valor em dinheiro não é assunto deste teste (é do domínio).
@@ -26,7 +27,7 @@ final class ResumoEncargosTemplateTest extends KernelTestCase
         $twig = self::getContainer()->get(Environment::class);
 
         return $twig->createTemplate(
-            "{% import 'cobranca/objeto/_partials/_divida.html.twig' as d %}{{ d.resumoEncargos(o) }}",
+            "{% import 'cobranca/objeto/_partials/_divida.html.twig' as d %}{{ d.detalheEncargos(o) }}",
         )->render(['o' => $o]);
     }
 

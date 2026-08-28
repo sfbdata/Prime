@@ -17,185 +17,148 @@
 <div class="cobrancas-page">
 <section class="content-header">
     <div class="container-fluid">
-        {# ── Cabeçalho redesenhado (spec `cobranca-objeto-show-cabecalho-responsaveis.md` §1) ──────────
-           Duas colunas a partir de 992px (`col-lg-*`), empilhando abaixo disso: identidade + dinheiro à
-           esquerda, prescrição + ações à direita. O CSS de acabamento é da Etapa 7; a estrutura já se
-           sustenta na grade do Bootstrap para não haver uma janela em que a página fique quebrada.
+        {# ── Cabeçalho redesenhado — desenho aprovado "Objeto 1A", direção 1a, coluna única ──────────
+           Handoff: `docs/design/design_handoff_objeto_show/`. O que mudou em relação ao Ajuste 11:
 
-           O `.cob-cab-painel` é a faixa da maquete: o cabeçalho inteiro vira um painel destacado do
-           corpo branco da página. É wrapper e nada mais — a grade de duas colunas segue sendo a `.row`
-           de dentro (pôr padding na própria `.row` brigaria com as margens negativas do gutter). #}
-        {# ── Setas ‹ › entre unidades da MESMA carteira (§1.5) ──────────────────────────────────────
-           ACIMA do cabeçalho e encostadas à direita, fora da faixa (decidido pelo dono em 2026-07-27).
-           É o terceiro lugar em que elas moram: nasceram ao lado do título, passaram pelo topo da
-           coluna da direita e vieram para cá — fora do painel elas param de disputar atenção com o
-           dinheiro e com a prescrição, e ficam no eixo da navegação, junto da subnav.
+           1. os QUATRO cards do vencido viraram UM herói (`totalAtualizadoVencido`, 2.75rem) mais três
+              apoios; a identidade entre eles é a mesma e continua garantida no UseCase;
+           2. entrou a BARRA DE COMPOSIÇÃO do vencido, com os percentuais vindos prontos do DTO;
+           3. a prescrição saiu da largura total e virou bloco na coluna de contexto, ao lado do dinheiro;
+           4. a PRÓXIMA AÇÃO veio da aba Cobrança para logo abaixo da prescrição, na mesma coluna;
+           5. as seis ações ficam juntas, em duas linhas de três (frequentes em cima, raras embaixo);
+           6. as setas ‹ › voltaram para DENTRO do painel, na linha da trilha.
 
-           A ordem é `identificacao ASC, id ASC`, decidida no repositório: a ordem da listagem
-           (`atualizadoEm DESC`) muda sozinha a cada registro e a mesma seta levaria a lugares
-           diferentes a cada visita. Ponta da lista → `null` no DTO → seta desabilitada; o template não
-           recalcula vizinhança nenhuma.
+           ⚠️ O item 6 REVERTE a decisão de 2026-07-27, que as tinha posto fora da faixa. É o desenho de
+           28/08 que manda aqui — a §1.5 da spec antiga registra as três posições anteriores, e esta é a
+           quarta. Se o dono quiser as setas de volta para fora, o lugar é a `.cob-cab-nav-linha` acima.
 
-           Elas dividem a linha com a subnav do módulo (B3: esta era a única página que perdia a
-           subnav e virava beco sem saída): navegação de módulo à esquerda, navegação entre unidades
-           à direita, no mesmo eixo. Em tela estreita a linha quebra e as setas caem embaixo. #}
+           A subnav do módulo (B3: esta era a única página que perdia a subnav e virava beco sem saída)
+           NÃO está no desenho — que desenhou só a nav global do sistema, marcada "não mexer". Omissão do
+           desenho não é remoção: ela fica. #}
         <div class="cob-cab-nav-linha d-flex justify-content-between align-items-center flex-wrap gap-2 mt-3">
             {{ include('cobranca/_partials/_subnav.html.twig', {ativo: 'carteiras'}) }}
-            <div class="cob-cab-nav btn-group btn-group-sm ms-auto" role="group" aria-label="Navegar entre unidades da carteira">
-                {% if objeto.objetoAnteriorId %}
-                <a href="{{ path('cobranca_objeto_show', {id: objeto.objetoAnteriorId}) }}"
-                   class="btn btn-outline-secondary" data-nav="anterior"
-                   data-bs-toggle="tooltip" title="Unidade anterior da carteira"
-                   aria-label="Unidade anterior da carteira">‹</a>
-                {% else %}
-                <span class="btn btn-outline-secondary disabled" data-nav="anterior" aria-disabled="true"
-                      data-bs-toggle="tooltip" title="Esta é a primeira unidade da carteira">‹</span>
-                {% endif %}
-                {% if objeto.objetoProximoId %}
-                <a href="{{ path('cobranca_objeto_show', {id: objeto.objetoProximoId}) }}"
-                   class="btn btn-outline-secondary" data-nav="proximo"
-                   data-bs-toggle="tooltip" title="Próxima unidade da carteira"
-                   aria-label="Próxima unidade da carteira">›</a>
-                {% else %}
-                <span class="btn btn-outline-secondary disabled" data-nav="proximo" aria-disabled="true"
-                      data-bs-toggle="tooltip" title="Esta é a última unidade da carteira">›</span>
-                {% endif %}
-            </div>
         </div>
 
         <div class="cob-cab-painel mt-2">
-        <div class="cob-cab row g-3">
-            <div class="col-12 col-lg-7 cob-cab-identidade">
-                {# Trilha de DOIS níveis (§1.1). O `Cond. Top Life` da maquete (o cliente da carteira)
-                   saiu por decisão do dono: a hierarquia real do sistema é Carteira › Unidade. Este link
-                   é também o caminho de volta — por isso a seta solta que existia aqui saiu, em vez de
-                   duplicar o mesmo destino a 2cm de distância. #}
+            {# ── Linha da trilha: voltar · trilha de três níveis · setas entre unidades ───────────────
+               O botão de voltar e o link da trilha levam ao MESMO lugar (a carteira) — duplicação que a
+               reorganização anterior tinha removido e que o desenho traz de volta de propósito: o botão
+               é o alvo grande de "sair daqui", a trilha é orientação.
+
+               A contagem "unidade 47 de 121" do desenho NÃO ENTROU: o sistema não a tem. O DTO carrega
+               só `objetoAnteriorId`/`objetoProximoId`, e o repositório evita de propósito carregar a
+               carteira inteira em memória (a TOP LIFE I tem 224 unidades). Decisão do dono, 28/08:
+               omitir a contagem em vez de abrir duas consultas novas. #}
+            <div class="cob-cab-topo d-flex align-items-center gap-2 flex-wrap">
+                <a href="{{ path('cobranca_carteira_show', {id: objeto.carteiraId}) }}"
+                   class="btn btn-sm btn-outline-secondary cob-cab-voltar">
+                    <i class="bi bi-arrow-left me-1"></i>{{ objeto.carteiraNome }}
+                </a>
                 <nav class="cob-cab-trilha small" aria-label="Trilha de navegação">
-                    <a href="{{ path('cobranca_carteira_show', {id: objeto.carteiraId}) }}">Carteira {{ objeto.carteiraNome }}</a>
-                    <span class="cob-cab-trilha-sep" aria-hidden="true">›</span>
+                    <a href="{{ path('cobranca_carteira_index') }}">Cobranças</a>
+                    <span class="cob-cab-trilha-sep" aria-hidden="true">/</span>
+                    <a href="{{ path('cobranca_carteira_show', {id: objeto.carteiraId}) }}">{{ objeto.carteiraNome }}</a>
+                    <span class="cob-cab-trilha-sep" aria-hidden="true">/</span>
                     <span class="cob-cab-trilha-atual">Unidade {{ objeto.identificacao }}</span>
                 </nav>
-
-                {# As setas ‹ › ficavam aqui, ao lado do título. Em 2026-07-27 foram para a direita da
-                   caixa de prescrição e, no mesmo dia, para a linha própria ACIMA do painel — é lá que
-                   elas estão, e a §1.5 registra as três posições para ninguém refazer o caminho. #}
-                <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
-                    <h1 class="m-0 d-flex align-items-center gap-2"><i class="bi bi-box-seam"></i>{{ objeto.identificacao }}</h1>
-                    <span class="badge {{ caso.statusBadgeClass }}">{{ caso.statusLabel }}</span>
-                    {% if caso.prontoParaEncerrar %}<span class="badge text-bg-success" data-bs-toggle="tooltip" title="Saldo exigível zerado — o gestor pode encerrar (SPEC §17)">Pronto para encerrar</span>{% endif %}
-                </div>
-
-                {# Linha meta (§1.1). `Matrícula` da maquete NÃO entra: o sistema tem `referenciaExterna`,
-                   que é genérica e nem sempre é matrícula — decisão do dono. #}
-                <div class="cob-cab-meta text-secondary small">
-                    {% if objeto.descricao %}{{ objeto.descricao }} · {% endif %}
-                    <span data-meta="obrigacoes-em-aberto">{{ caso.obrigacoesEmAbertoQtd }} {{ caso.obrigacoesEmAbertoQtd == 1 ? 'obrigação' : 'obrigações' }} em aberto</span>
-                    {% if caso.pastaJudicialId %} · <a href="{{ path('pasta_show', {id: caso.pastaJudicialId}) }}"><i class="bi bi-folder-symlink me-1"></i>Pasta judicial</a>{% endif %}
-                </div>
-
-                {# ── Os quatro cards que SOMAM ENTRE SI (§1.2) ────────────────────────────────────────
-                   Principal + Juros e multa + Honorários = Total vencido, por construção no
-                   `MontarDetalheCasoUseCase` (é dinheiro: soma-se onde há teste, nunca no Twig).
-
-                   Desde 2026-07-27 os quatro são sobre o VENCIDO, não sobre tudo que está em aberto —
-                   decisão do dono. Com isso a linha fina `Total em aberto` / `Total vencido` que ficava
-                   aqui embaixo saiu: o vencido virou o próprio card, e o saldo exigível deixou de ser
-                   exibido (continua governando o `Encerrar cobrança` e o tooltip que diz o que falta).
-
-                   ⚠️ Os quatro são BRUTOS: pagamento PARCIAL não os reduz (a obrigação segue em aberto
-                   e entra pelo valor cheio); só a quitação tira a obrigação da soma. Isso já era assim
-                   antes — o que mudou é que não há mais o número líquido ao lado para comparar. #}
-                <div class="cob-cab-cards mt-3">
-                    <div class="cob-cab-card" data-card="principal">
-                        <span class="cob-cab-card-rot" data-bs-toggle="tooltip" title="Valor original das obrigações vencidas até hoje.">Principal</span>
-                        <span class="cob-cab-card-val">{{ caso.totalPrincipalVencido|centavos }}</span>
-                    </div>
-                    <div class="cob-cab-card" data-card="encargos">
-                        <span class="cob-cab-card-rot" data-bs-toggle="tooltip" title="Juros, multa e correção monetária das obrigações vencidas até hoje.">Juros e multa</span>
-                        <span class="cob-cab-card-val">{{ caso.totalEncargosVencido|centavos }}</span>
-                    </div>
-                    <div class="cob-cab-card" data-card="honorarios">
-                        <span class="cob-cab-card-rot" data-bs-toggle="tooltip" title="Honorários das obrigações vencidas até hoje. A aba Honorários mostra o A receber, que inclui também as parcelas a vencer.">Honorários</span>
-                        <span class="cob-cab-card-val">{{ caso.honorariosVencidos|centavos }}</span>
-                    </div>
-                    <div class="cob-cab-card is-total" data-card="total">
-                        <span class="cob-cab-card-rot" data-bs-toggle="tooltip" title="Soma das obrigações vencidas até hoje (principal + juros e multa + honorários), antes de abater pagamentos.">Total vencido</span>
-                        <span class="cob-cab-card-val">{{ caso.totalAtualizadoVencido|centavos }}</span>
-                        {% if caso.totaisAtualizadosEm %}
-                        <span class="cob-cab-card-nota">atualizado em {{ caso.totaisAtualizadosEm|date('d/m/Y') }}</span>
-                        {% endif %}
-                    </div>
+                <div class="cob-cab-nav btn-group btn-group-sm ms-auto" role="group" aria-label="Navegar entre unidades da carteira">
+                    {% if objeto.objetoAnteriorId %}
+                    <a href="{{ path('cobranca_objeto_show', {id: objeto.objetoAnteriorId}) }}"
+                       class="btn btn-outline-secondary" data-nav="anterior"
+                       data-bs-toggle="tooltip" title="Unidade anterior da carteira"
+                       aria-label="Unidade anterior da carteira">‹</a>
+                    {% else %}
+                    <span class="btn btn-outline-secondary disabled" data-nav="anterior" aria-disabled="true"
+                          data-bs-toggle="tooltip" title="Esta é a primeira unidade da carteira">‹</span>
+                    {% endif %}
+                    {% if objeto.objetoProximoId %}
+                    <a href="{{ path('cobranca_objeto_show', {id: objeto.objetoProximoId}) }}"
+                       class="btn btn-outline-secondary" data-nav="proximo"
+                       data-bs-toggle="tooltip" title="Próxima unidade da carteira"
+                       aria-label="Próxima unidade da carteira">›</a>
+                    {% else %}
+                    <span class="btn btn-outline-secondary disabled" data-nav="proximo" aria-disabled="true"
+                          data-bs-toggle="tooltip" title="Esta é a última unidade da carteira">›</span>
+                    {% endif %}
                 </div>
             </div>
 
-            <div class="col-12 col-lg-5 cob-cab-lateral">
-                {# ── Prescrição (§1.3) ─────────────────────────────────────────────────────────────────
-                   `caso.prescricao` é `null` quando não há obrigação em aberto — e aí a caixa nem nasce,
-                   porque não há o que prescrever. A severidade, o prazo e os dias vêm prontos do
-                   `CalculadoraPrescricao`; o template só escolhe a cor e a frase. #}
-                {% if caso.prescricao %}
-                {% set presc = caso.prescricao %}
-                {% set sevClasse = {'esgotada': 'sev-danger', 'critica': 'sev-danger', 'atencao': 'sev-warning'}[presc.severidade]|default('sev-info') %}
-                {# A forma é a do aviso da maquete, não a de um cartão de relatório: uma frase que já diz
-                   tudo (`Risco de prescrição em N dias`), uma linha de detalhe e nada mais. O rótulo
-                   `PRESCRIÇÃO` em caixa-alta saiu — a própria frase o diz —, e o detalhe perdeu a
-                   derivação do prazo (`Prazo de 5 anos →`), que era conta na cara do gestor. #}
-                <div class="cob-presc {{ sevClasse }}" data-severidade="{{ presc.severidade }}">
-                    <div class="cob-presc-destaque">
-                        <i class="bi {{ presc.esgotada ? 'bi-x-octagon-fill' : 'bi-exclamation-triangle-fill' }}"></i>
-                        <span>
-                        {% if presc.esgotada %}
-                            Prazo esgotado em {{ presc.prazoLimite|date('d/m/Y') }}
-                        {% else %}
-                            Risco de prescrição em {{ presc.diasRestantes }} {{ presc.diasRestantes == 1 ? 'dia' : 'dias' }}
+            {# ── Identidade à esquerda, as seis ações à direita ─────────────────────────────────────
+               O selo de estado subiu para a linha do sobretítulo `UNIDADE` (desenho): antes ficava ao
+               lado do `h1`. O `Pronto para encerrar` acompanha, porque é do mesmo assunto. #}
+            <div class="cob-cab d-flex align-items-start gap-3 flex-wrap mt-3">
+                <div class="cob-cab-identidade">
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <span class="cob-cab-sobretitulo">Unidade</span>
+                        <span class="badge {{ caso.statusBadgeClass }}">{{ caso.statusLabel }}</span>
+                        {% if caso.prontoParaEncerrar %}<span class="badge text-bg-success" data-bs-toggle="tooltip" title="Saldo exigível zerado — o gestor pode encerrar (SPEC §17)">Pronto para encerrar</span>{% endif %}
+                    </div>
+
+                    <h1 class="m-0 mt-2 mb-1">{{ objeto.identificacao }}</h1>
+
+                    {# Linha meta. `Matrícula` da maquete NÃO entra: o sistema tem `referenciaExterna`,
+                       que é genérica e nem sempre é matrícula — decisão do dono.
+
+                       O `desde MM/AAAA` do desenho é o vencimento mais antigo AINDA EM ABERTO, que é
+                       exatamente o que a `CalculadoraPrescricao` já resolveu para a caixa ao lado — não
+                       há segunda definição de "desde quando ele deve". Sem obrigação em aberto não há
+                       prescrição e o trecho nem nasce. #}
+                    <div class="cob-cab-meta text-secondary small">
+                        {% if objeto.descricao %}{{ objeto.descricao }} · {% endif %}
+                        <span data-meta="obrigacoes-em-aberto">{{ caso.obrigacoesEmAbertoQtd }} {{ caso.obrigacoesEmAbertoQtd == 1 ? 'obrigação' : 'obrigações' }} em aberto</span>
+                        {% if caso.prescricao %} · desde {{ caso.prescricao.vencimentoMaisAntigo|date('m/Y') }}{% endif %}
+                        {% if objeto.temCobradaAtual %} · responsável <a href="#tab-responsaveis" data-abrir-aba="responsaveis" class="fw-semibold">{{ caso.pessoaCobradaNome }}</a>{% endif %}
+                        {% if caso.pastaJudicialId %} · <a href="{{ path('pasta_show', {id: caso.pastaJudicialId}) }}"><i class="bi bi-folder-symlink me-1"></i>Pasta judicial</a>{% endif %}
+                    </div>
+                </div>
+
+                {# ── As seis ações, em duas linhas de três (desenho §1.4) ───────────────────────────
+                   Linha de cima, FREQUENTES: registrar contato (a primária, cheia no accent), simular
+                   acordo e planilha atualizada. Linha de baixo, RARAS: judicializar, encargos e encerrar.
+
+                   `Simular acordo` e `Planilha atualizada` continuam SEM FUNÇÃO no sistema: entram
+                   desabilitados com tooltip dizendo isso, em vez de virarem links que quebram. Tooltip em
+                   elemento `disabled` não dispara — daí o `<span>` de fora.
+
+                   `Encargos` é o mesmo `#modalConfigEncargosObjeto` que vivia dentro da aba Dívida; o
+                   desenho o traz para o cabeçalho, junto das outras ações de situação. A rota não muda.
+
+                   A classe dupla é de propósito: `.cob-acoes` traz as duas linhas do redesenho e
+                   `.cob-cab-acoes` mantém o acabamento dos botões sobre a faixa (e o cursor
+                   `not-allowed` nos desabilitados), que já estava resolvido. #}
+                <div class="cob-acoes cob-cab-acoes ms-auto">
+                    <div class="cob-acoes-linha">
+                        {% if podeGerenciar %}
+                        <button type="button" class="btn btn-sm jp-btn-accent" data-bs-toggle="modal" data-bs-target="#modalRegistrarTentativa">
+                            <i class="bi bi-telephone me-1"></i>Registrar contato
+                        </button>
                         {% endif %}
+                        <span class="d-inline-block" data-bs-toggle="tooltip" title="Ainda não tem função — será definida com o gestor.">
+                            <button type="button" class="btn btn-sm btn-outline-secondary is-disabled" data-acao="simular-acordo" disabled>
+                                <i class="bi bi-calculator me-1"></i>Simular acordo
+                            </button>
+                        </span>
+                        <span class="d-inline-block" data-bs-toggle="tooltip" title="Ainda não tem função — será definida com o gestor.">
+                            <button type="button" class="btn btn-sm btn-outline-secondary is-disabled" data-acao="planilha-atualizada" disabled>
+                                <i class="bi bi-file-earmark-spreadsheet me-1"></i>Planilha atualizada
+                            </button>
                         </span>
                     </div>
-                    <div class="cob-presc-detalhe small">
-                        Competência mais antiga <strong>{{ presc.obrigacaoDescricao }}</strong>,
-                        vencida em {{ presc.vencimentoMaisAntigo|date('d/m/Y') }}.
-                        Prazo limite para ajuizamento: {{ presc.prazoLimite|date('d/m/Y') }}.
-                    </div>
-                    {# A ressalva "Estimativa — não considera interrupção nem suspensão do prazo" ficava
-                       aqui e SAIU a pedido do dono (2026-07-27), depois de já ter sido encurtada para uma
-                       linha. O cálculo continua sendo o mesmo: `CalculadoraPrescricao` conta dias a partir
-                       do vencimento mais antigo e não conhece interrupção nem suspensão do prazo — a nota
-                       da classe explica. O que mudou é que a tela não diz mais isso; se um dia precisar
-                       voltar sem ocupar linha, o lugar é o tooltip da frase de destaque acima. #}
-                    {# Mesmo mecanismo `data-abrir-aba` dos alertas do topo: o alvo mora dentro de um pane
-                       oculto, e navegador nenhum rola até elemento invisível. #}
-                    <a href="#secao-divida" data-abrir-aba="divida" class="cob-presc-link small">Ver competência</a>
-                </div>
-                {% endif %}
-
-                {# ── Barra de ações (§1.4) ─────────────────────────────────────────────────────────────
-                   `Simular acordo` e `Planilha atualizada` NÃO EXISTEM no sistema: entram desabilitados
-                   com tooltip dizendo isso, em vez de virarem links que quebram. O dono decide depois o
-                   que fazem. Tooltip em elemento `disabled` não dispara — daí o `<span>` de fora, mesmo
-                   padrão que o `Encerrar cobrança` desabilitado já usava. Os três pontinhos da maquete
-                   saíram: não há o que colocar neles. #}
-                <div class="cob-cab-acoes mt-3 d-flex gap-2 flex-wrap">
                     {% if podeGerenciar %}
-                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalRegistrarTentativa">
-                        <i class="bi bi-telephone me-1"></i>Registrar contato
-                    </button>
-                    {% endif %}
-                    <span class="d-inline-block" data-bs-toggle="tooltip" title="Ainda não tem função — será definida com o gestor.">
-                        <button type="button" class="btn btn-sm btn-outline-secondary is-disabled" data-acao="simular-acordo" disabled>
-                            <i class="bi bi-calculator me-1"></i>Simular acordo
-                        </button>
-                    </span>
-                    <span class="d-inline-block" data-bs-toggle="tooltip" title="Ainda não tem função — será definida com o gestor.">
-                        <button type="button" class="btn btn-sm btn-outline-secondary is-disabled" data-acao="planilha-atualizada" disabled>
-                            <i class="bi bi-file-earmark-spreadsheet me-1"></i>Planilha atualizada
-                        </button>
-                    </span>
-                    {# Ações de SITUAÇÃO (raras) seguem no cabeçalho, junto do status que elas mudam —
-                       mesmos gates e mesmos modais de sempre. #}
-                    {% if podeGerenciar %}
+                    <div class="cob-acoes-linha">
                         {% if can_access_module('pastas') and not caso.pastaJudicialId %}
                         <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalJudicializar">
                             <i class="bi bi-bank me-1"></i>Judicializar
+                        </button>
+                        {% endif %}
+                        {% if formConfigEncargos %}
+                        {# `Encargos` é abreviação de "Editar configuração de encargos" — o rótulo curto é
+                           do desenho, e o título nativo do navegador diz o nome inteiro. Não pode ser
+                           tooltip do Bootstrap: `data-bs-toggle` já está ocupado pelo modal. #}
+                        <button type="button" class="btn btn-sm btn-outline-secondary"
+                                data-bs-toggle="modal" data-bs-target="#modalConfigEncargosObjeto"
+                                title="Editar configuração de encargos">
+                            <i class="bi bi-sliders me-1"></i>Encargos
                         </button>
                         {% endif %}
                         {# Espelha o guard do servidor (`EncerrarCasoUseCase`: só encerra com saldo exigível
@@ -212,10 +175,133 @@
                             </button>
                         </span>
                         {% endif %}
+                    </div>
                     {% endif %}
                 </div>
             </div>
-        </div>
+
+            {# ── A faixa de dinheiro (esquerda) e o contexto (direita) ──────────────────────────────
+               ⚠️ Os quatro números continuam sendo os MESMOS de antes e continuam fechando entre si por
+               construção no `MontarDetalheCasoUseCase`:
+               `totalAtualizadoVencido = totalPrincipalVencido + totalEncargosVencido + honorariosVencidos`.
+               O que mudou é a hierarquia — o total virou o herói, os outros três o explicam.
+
+               ⚠️ Os quatro são BRUTOS: pagamento PARCIAL não os reduz (a obrigação segue em aberto e
+               entra pelo valor cheio); só a quitação tira a obrigação da soma. O líquido é o
+               `saldoExigivel`, que não é exibido — ele governa o `Encerrar cobrança` e o tooltip. #}
+            <div class="cob-cabecalho">
+                <div class="cob-cabecalho-dinheiro">
+                    <div class="cob-heroi">
+                        <div>
+                            <div class="cob-heroi-rotulo" data-bs-toggle="tooltip"
+                                 title="Soma das obrigações vencidas até hoje (principal + juros e multa + honorários), antes de abater pagamentos.">Total vencido hoje</div>
+                            <div class="cob-heroi-valor jp-money" data-card="total">{{ caso.totalAtualizadoVencido|centavos }}</div>
+                        </div>
+                        {% if caso.totaisAtualizadosEm %}
+                        <div class="cob-heroi-quando">atualizado em {{ caso.totaisAtualizadosEm|date('d/m/Y') }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="cob-apoios">
+                        <div class="cob-apoio">
+                            <div class="cob-apoio-rotulo" data-bs-toggle="tooltip" title="Valor original das obrigações vencidas até hoje.">Principal</div>
+                            <div class="cob-apoio-valor jp-money" data-card="principal">{{ caso.totalPrincipalVencido|centavos }}</div>
+                        </div>
+                        <div class="cob-apoio">
+                            <div class="cob-apoio-rotulo" data-bs-toggle="tooltip" title="Juros, multa e correção monetária das obrigações vencidas até hoje.">Juros e multa</div>
+                            <div class="cob-apoio-valor jp-money" data-card="encargos">{{ caso.totalEncargosVencido|centavos }}</div>
+                        </div>
+                        <div class="cob-apoio">
+                            <div class="cob-apoio-rotulo" data-bs-toggle="tooltip" title="Honorários das obrigações vencidas até hoje. A aba Honorários mostra o A receber, que inclui também as parcelas a vencer.">Honorários</div>
+                            <div class="cob-apoio-valor jp-money" data-card="honorarios">{{ caso.honorariosVencidos|centavos }}</div>
+                        </div>
+                    </div>
+
+                    {# ── Barra de composição do vencido ────────────────────────────────────────────
+                       Os três percentuais vêm prontos de `CasoDetalheOutput::composicaoVencido()`, que
+                       faz o terceiro ser o RESTO para os três fecharem 100 mesmo com arredondamento.
+                       Nada é dividido aqui — a conta tem teste lá.
+
+                       Sem vencido não há composição: a barra some, em vez de desenhar um trilho vazio
+                       que pareceria "0% de tudo". #}
+                    {% if caso.totalAtualizadoVencido > 0 %}
+                    {% set comp = caso.composicaoVencido %}
+                    <div class="cob-composicao" role="img"
+                         aria-label="Composição do vencido: principal {{ comp.principal }}%, juros e multa {{ comp.encargos }}%, honorários {{ comp.honorarios }}%">
+                        <div class="cob-composicao-principal" style="width:{{ comp.principal }}%"></div>
+                        <div class="cob-composicao-encargos" style="width:{{ comp.encargos }}%"></div>
+                        <div class="cob-composicao-honorarios" style="width:{{ comp.honorarios }}%"></div>
+                    </div>
+                    <div class="cob-legenda">
+                        <span class="cob-legenda-item"><span class="cob-legenda-cor is-principal"></span>Principal {{ comp.principal|number_format(1, ',', '.') }}%</span>
+                        <span class="cob-legenda-item"><span class="cob-legenda-cor is-encargos"></span>Juros e multa {{ comp.encargos|number_format(1, ',', '.') }}%</span>
+                        <span class="cob-legenda-item"><span class="cob-legenda-cor is-honorarios"></span>Honorários {{ comp.honorarios|number_format(1, ',', '.') }}%</span>
+                        <span class="cob-legenda-sep" aria-hidden="true">·</span>
+                        {# `Recuperado` é Σ `PagamentoOutput::valorTotal`, somado no UseCase. NÃO é o
+                           honorário recebido somado ao total dos pagamentos: o `valorTotal` já contém o
+                           honorário, e somá-lo por fora o contaria duas vezes. #}
+                        <span data-meta="recuperado">Recuperado <strong>{{ caso.totalRecuperado|centavos }}</strong></span>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div class="cob-cabecalho-contexto">
+                    {# ── Prescrição ─────────────────────────────────────────────────────────────────
+                       `caso.prescricao` é `null` quando não há obrigação em aberto — e aí a caixa nem
+                       nasce, porque não há o que prescrever. A severidade, o prazo e os dias vêm prontos
+                       do `CalculadoraPrescricao`; o template só escolhe a cor e a frase. #}
+                    {% if caso.prescricao %}
+                    {% set presc = caso.prescricao %}
+                    {% set sevClasse = {'esgotada': 'sev-danger', 'critica': 'sev-danger', 'atencao': 'sev-warning'}[presc.severidade]|default('sev-info') %}
+                    <div class="cob-presc {{ sevClasse }}" data-severidade="{{ presc.severidade }}">
+                        <i class="bi {{ presc.esgotada ? 'bi-exclamation-octagon-fill' : 'bi-exclamation-triangle-fill' }}"></i>
+                        <div class="cob-presc-corpo">
+                            <div class="cob-presc-destaque">
+                            {% if presc.esgotada %}
+                                Prazo de ajuizamento esgotado em {{ presc.prazoLimite|date('d/m/Y') }}
+                            {% else %}
+                                Risco de prescrição em {{ presc.diasRestantes }} {{ presc.diasRestantes == 1 ? 'dia' : 'dias' }}
+                            {% endif %}
+                            </div>
+                            <div class="cob-presc-detalhe">
+                                Competência mais antiga: <strong>{{ presc.obrigacaoDescricao }}</strong>,
+                                vencida em {{ presc.vencimentoMaisAntigo|date('d/m/Y') }}.
+                                {# Com o prazo ESGOTADO a data-limite já está na frase de destaque acima;
+                                   repeti-la aqui seria dizer duas vezes a mesma coisa. Enquanto o prazo
+                                   corre, o destaque fala em DIAS e a data ainda é informação nova. #}
+                                {% if not presc.esgotada %}Prazo limite para ajuizamento: {{ presc.prazoLimite|date('d/m/Y') }}.{% endif %}
+                            </div>
+                            {# Mesmo mecanismo `data-abrir-aba` dos alertas: o alvo mora dentro de um pane
+                               oculto, e navegador nenhum rola até elemento invisível. #}
+                            <a href="#secao-divida" data-abrir-aba="divida" class="cob-presc-link">Ver competência na dívida →</a>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {# ── Próxima ação ───────────────────────────────────────────────────────────────
+                       Veio do topo da aba Cobrança para cá (desenho §4): a faixa de largura total virou
+                       um bloco na mesma coluna da prescrição. Mesmo conteúdo e MESMOS gatilhos
+                       (#modalConcluirAcao / #modalDefinirAcao) — só o lugar mudou. #}
+                    <div class="cob-proxima-faixa {{ caso.proximaAcao and caso.proximaAcao.atrasada ? 'atrasada' : '' }}">
+                        <i class="bi {{ caso.proximaAcao ? 'bi-flag-fill' : 'bi-flag' }}"></i>
+                        <span class="cob-proxima-rotulo">Próxima ação{% if caso.proximaAcao and caso.proximaAcao.atrasada %} · <span class="text-warning-emphasis fw-semibold">atrasada</span>{% endif %}</span>
+                        {% if caso.proximaAcao %}
+                            <span class="cob-proxima-texto">{{ caso.proximaAcao.descricao }}</span>
+                            {% if caso.proximaAcao.prazo %}
+                            <span class="cob-proxima-prazo">Prazo: {{ caso.proximaAcao.prazo|date('d/m/Y') }}{% if caso.proximaAcao.responsavelNome %} · {{ caso.proximaAcao.responsavelNome }}{% endif %}</span>
+                            {% endif %}
+                            {% if podeGerenciar %}
+                            <button type="button" class="btn btn-sm jp-btn-accent py-0 ms-auto flex-shrink-0" data-bs-toggle="modal" data-bs-target="#modalConcluirAcao">Concluir</button>
+                            {% endif %}
+                        {% else %}
+                            <span class="cob-proxima-texto text-secondary">Nenhuma definida</span>
+                            {% if podeGerenciar %}
+                            <button type="button" class="btn btn-sm jp-btn-outline py-0 ms-auto flex-shrink-0" data-bs-toggle="modal" data-bs-target="#modalDefinirAcao">Definir</button>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
         </div>{# /.cob-cab-painel #}
     </div>
 </section>
@@ -264,97 +350,90 @@
         </div>
         {% endif %}
 
-        {# ── Barra de atividades (SPEC UX §6.2) ─────────────────────────────────────────────────────
-           Uma região só reúne o que antes estava espalhado entre abas, cabeçalho, trilho e card da
-           pessoa. Dois comportamentos convivem: item de CONTEÚDO troca o painel (aba Bootstrap); item de
-           AÇÃO abre o modal/collapse que já existia. Nenhuma rota, modal ou permissão mudou — só o lugar
-           do gatilho. Ordem e rótulos vêm da SPEC; `id="objetoTabs"` é preservado porque o JS do `?aba=`
-           e o `pasta-arquivos.js` dependem dele. #}
-        <ul class="nav nav-tabs cob-barra" id="objetoTabs" role="tablist">
+        {# ── As SEIS abas em controle segmentado (desenho "Objeto 1A") ──────────────────────────────
+           Mudou o quê, em relação à barra anterior:
+
+           1. a ordem é a do desenho — Dívida · Cobrança · Responsáveis · Honorários · Documentos ·
+              Histórico —, e a DÍVIDA é a primeira e a PADRÃO. Ela responde "quanto deve", que é a
+              pergunta com que se chega nesta tela; antes abria em Cobrança;
+           2. as seis estão SEMPRE visíveis. O dropdown "Mais ações", que escondia Responsáveis, Dívida e
+              Honorários abaixo de 1200px, saiu: o segmentado ocupa só a largura do conteúdo e quebra
+              para uma segunda linha quando faltar espaço, em vez de esconder aba atrás de menu.
+
+           Contrato preservado (spec do Ajuste 11 §2): `id="objetoTabs"` (o JS do `?aba=` e o
+           `data-abrir-aba` dependem dele), `id="documentos-tab"` (o `pasta-arquivos.js` restaura a aba
+           por este id depois do upload) e `id="historico-tab"`. Os `data-bs-target` não mudaram. #}
+        <ul class="nav cob-abas" id="objetoTabs" role="tablist">
             <li class="nav-item" role="presentation">
-                <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-cobranca" type="button">
-                    <i class="bi bi-pencil-square me-1"></i>Cobrança
+                <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-divida" type="button">
+                    <i class="bi bi-cash-stack"></i><span>Dívida</span>
+                    <span class="badge">{{ caso.obrigacoesEmAbertoQtd }}</span>
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-cobranca" type="button">
+                    <i class="bi bi-briefcase"></i><span>Cobrança</span>
+                </button>
+            </li>
+            {# "Ficha completa" virou "Responsáveis", e é ÁREA DE CONTEÚDO, não link para outra página.
+               Sem gate de capacidade: ver quem responde pela unidade é leitura; as ações lá dentro
+               mantêm cada uma o seu gate. #}
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-responsaveis" type="button">
+                    <i class="bi bi-people"></i><span>Responsáveis</span>
+                    <span class="badge">{{ objeto.vinculos|length }}</span>
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-honorarios" type="button">
+                    <i class="bi bi-percent"></i><span>Honorários</span>
                 </button>
             </li>
             {# `id="documentos-tab"`: o pasta-arquivos.js usa este id para restaurar a aba após o upload. #}
             <li class="nav-item" role="presentation">
                 <button class="nav-link" id="documentos-tab" data-bs-toggle="tab" data-bs-target="#tab-documentos" type="button">
-                    <i class="bi bi-folder me-1"></i>Documentos <span class="badge text-bg-secondary">{{ arquivosFm|length }}</span>
+                    <i class="bi bi-folder2"></i><span>Documentos</span>
+                    <span class="badge">{{ arquivosFm|length }}</span>
                 </button>
             </li>
             <li class="nav-item" role="presentation">
                 <button class="nav-link" id="historico-tab" data-bs-toggle="tab" data-bs-target="#tab-historico" type="button">
-                    <i class="bi bi-clock-history me-1"></i>Histórico <span class="badge text-bg-secondary">{{ caso.historico|length }}</span>
+                    <i class="bi bi-clock-history"></i><span>Histórico</span>
+                    <span class="badge">{{ caso.historico|length }}</span>
                 </button>
-            </li>
-            {# "Ficha completa" virou "Responsáveis", e agora é ÁREA DE CONTEÚDO, não link para outra
-               página: a aba reúne a lista de vinculados, a troca de responsável e o acesso à ficha —
-               as três coisas que antes viviam em lugares diferentes. Sem gate de capacidade, como o
-               antigo "Envolvidos": ver quem responde pela unidade é leitura; as ações lá dentro
-               mantêm cada uma o seu gate. #}
-            <li class="nav-item cob-item-extra" role="presentation">
-                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-responsaveis" type="button">
-                    <i class="bi bi-people me-1"></i>Responsáveis <span class="badge text-bg-secondary">{{ objeto.vinculos|length }}</span>
-                </button>
-            </li>
-            {# `Registrar contato` SAIU daqui: a spec do cabeçalho (§1.4) o coloca na barra de ações, junto
-               das outras quatro. Mantê-lo nos dois lugares poria o MESMO gatilho do mesmo modal duas vezes
-               na mesma dobra — a barra volta a ser só o que ela deve ser, áreas de CONTEÚDO. #}
-            <li class="nav-item cob-item-extra" role="presentation">
-                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-divida" type="button">
-                    <i class="bi bi-cash-coin me-1"></i>Dívida
-                </button>
-            </li>
-            <li class="nav-item cob-item-extra" role="presentation">
-                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-honorarios" type="button">
-                    <i class="bi bi-percent me-1"></i>Honorários
-                </button>
-            </li>
-
-            {# Estreito (SPEC UX §6.4): Cobrança, Registrar contato, Documentos e Histórico continuam
-               visíveis; o resto recolhe aqui em vez de quebrar a barra em várias linhas. O corte desceu
-               para 1200px porque a barra encolheu de 9 para 7 opções (ver a medição em cobrancas.css). #}
-            <li class="nav-item dropdown cob-mais d-xl-none" role="presentation">
-                <button class="nav-link dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                    <i class="bi bi-three-dots me-1"></i>Mais ações
-                </button>
-                <ul class="dropdown-menu dropdown-menu-end">
-                    <li><button class="dropdown-item" type="button" data-bs-toggle="tab" data-bs-target="#tab-responsaveis"><i class="bi bi-people me-2"></i>Responsáveis <span class="badge text-bg-secondary">{{ objeto.vinculos|length }}</span></button></li>
-                    <li><button class="dropdown-item" type="button" data-bs-toggle="tab" data-bs-target="#tab-divida"><i class="bi bi-cash-coin me-2"></i>Dívida</button></li>
-                    <li><button class="dropdown-item" type="button" data-bs-toggle="tab" data-bs-target="#tab-honorarios"><i class="bi bi-percent me-2"></i>Honorários</button></li>
-                </ul>
             </li>
         </ul>
         {# Coluna única: o trilho direito (card da pessoa + próxima ação) saiu, e o conteúdo passou a
            ocupar a largura toda. A dívida e o histórico são as duas coisas que mais sofriam com a
            coluna estreita. #}
-        <div class="tab-content border rounded p-3 bg-body">
-            {# ── Cobrança: a anotação é a atividade inicial da página (SPEC UX §7). O editor é o primeiro
-               elemento útil; as anotações recentes vêm logo abaixo. O histórico completo (com os eventos
-               automáticos) continua na sua própria opção. ── #}
-            <div class="tab-pane fade show active" id="tab-cobranca">
-                {# ── Próxima ação, compacta ── Saiu do cartão do trilho e virou uma FAIXA de uma linha
-                   aqui, onde o trabalho do dia acontece. Mesmo conteúdo e mesmos gatilhos
-                   (#modalConcluirAcao / #modalDefinirAcao) — só o formato mudou. ── #}
-                <div class="cob-proxima-faixa {{ caso.proximaAcao and caso.proximaAcao.atrasada ? 'atrasada' : '' }}">
-                    <i class="bi {{ caso.proximaAcao ? 'bi-flag-fill' : 'bi-dash-circle' }}"></i>
-                    <span class="cob-proxima-rotulo">Próxima ação{% if caso.proximaAcao and caso.proximaAcao.atrasada %} · <span class="text-warning-emphasis fw-semibold">atrasada</span>{% endif %}</span>
-                    {% if caso.proximaAcao %}
-                        <span class="cob-proxima-texto">{{ caso.proximaAcao.descricao }}</span>
-                        {% if caso.proximaAcao.prazo %}
-                        <span class="cob-proxima-prazo">Prazo: {{ caso.proximaAcao.prazo|date('d/m/Y') }}{% if caso.proximaAcao.responsavelNome %} · {{ caso.proximaAcao.responsavelNome }}{% endif %}</span>
-                        {% endif %}
-                        {% if podeGerenciar %}
-                        <button type="button" class="btn btn-sm jp-btn-accent py-0 ms-auto flex-shrink-0" data-bs-toggle="modal" data-bs-target="#modalConcluirAcao">Concluir</button>
-                        {% endif %}
-                    {% else %}
-                        <span class="cob-proxima-texto text-secondary">Nenhuma ação definida</span>
-                        {% if podeGerenciar %}
-                        <button type="button" class="btn btn-sm jp-btn-outline py-0 ms-auto flex-shrink-0" data-bs-toggle="modal" data-bs-target="#modalDefinirAcao">Definir</button>
-                        {% endif %}
-                    {% endif %}
-                </div>
+        {# `id` só para ancoragem: distingue os painéis DA PÁGINA dos painéis dos modais (a ficha da
+           pessoa tem abas próprias, também `.tab-pane`). Nenhum JS depende dele. #}
+        <div class="tab-content border rounded p-3 bg-body" id="objetoConteudo">
+            {# ── Cobrança: a anotação é a atividade da página (SPEC UX §7) ─────────────────────────
+               Redesenho 1a: as DUAS COLUNAS do desenho (editor à esquerda, o resto à direita), na mesma
+               proporção (1.4fr / 1fr). O editor deixou de atravessar a página inteira — um textarea de
+               1400px para três linhas de texto era largura sem função.
 
+               ⚠️ Duas divergências do desenho, DECIDIDAS pelo dono em 28/08, não escolhidas aqui:
+
+               1. `Qualificar contato` NÃO é duplicado nesta aba. O painel mora na Responsáveis, e o
+                  próprio handoff manda deixar aquela aba exatamente como está. Duas cópias do mesmo
+                  gravador (o POST de qualificação, mais o `desfazer` de 5 min) na MESMA página é
+                  convite a registrar duas vezes sem perceber.
+               2. `O que já entrou` continua na aba Dívida, e não vem para cá. Ele é o alvo da âncora
+                  `#secao-movimentos`, para onde ~15 rotas de recebimento redirecionam depois do POST;
+                  numa aba inativa o navegador não rola até ele e o redirect passa a cair no topo da
+                  página, em silêncio. Mover exige consertar os redirects — trabalho que o dono optou
+                  por não fazer agora.
+
+               O que ocupa a coluna da direita são as ANOTAÇÕES já registradas, que o desenho não mostra
+               porque a unidade dele não tem nenhuma. ── #}
+            <div class="tab-pane fade" id="tab-cobranca">
+                {# A faixa de `Próxima ação` que abria esta aba SUBIU para a coluna de contexto do
+                   cabeçalho (desenho §4), ao lado da prescrição — mesmos gatilhos, mesmo conteúdo. Não
+                   fica nos dois lugares: seria o mesmo par de modais duas vezes na mesma tela. #}
+                <div class="cob-cobranca-grade">
+                <div class="cob-cobranca-editor">
                 {% if podeGerenciar and not caso.encerrado and forms.registrarAnotacao is defined %}
                 <div class="cob-anotacao-nova mb-4">
                     <h6 class="mb-2"><i class="bi bi-pencil-square me-1"></i>Nova anotação</h6>
@@ -378,6 +457,9 @@
                    o Histórico, onde ela some no meio dos eventos automáticos. Nada muda em consulta —
                    `EventoHistoricoRepository::doCaso` sempre trouxe o histórico inteiro; o corte era só
                    de exibição. `tabindex="0"` porque região rolável tem de ser alcançável pelo teclado. #}
+                </div>{# /.cob-cobranca-editor #}
+
+                <div class="cob-cobranca-lado">
                 {% set anotacoes = caso.historico|filter(e => e.tipoValue == 'anotacao') %}
                 <h6 class="mb-2">
                     <i class="bi bi-chat-left-text me-1"></i>Anotações
@@ -400,20 +482,18 @@
                     {% endfor %}
                 </ul>
                 {% else %}
-                <p class="text-muted mb-0 py-3">Nenhuma anotação ainda. Use o campo acima para registrar o que aconteceu.</p>
+                <p class="text-muted mb-0 py-3">Nenhuma anotação ainda. Use o campo ao lado para registrar o que aconteceu.</p>
                 {% endif %}
+                </div>{# /.cob-cobranca-lado #}
+                </div>{# /.cob-cobranca-grade #}
             </div>
 
-            {# ── Dívida: a composição financeira e o que já entrou (SPEC UX §14.1) — o mesmo conteúdo de
-               antes, agora com opção própria na barra. ── #}
-            <div class="tab-pane fade" id="tab-divida">
-                {% if podeGerenciar and formConfigEncargos %}
-                <div class="d-flex justify-content-end mb-2">
-                    <button type="button" class="btn btn-sm jp-btn-outline" data-bs-toggle="modal" data-bs-target="#modalConfigEncargosObjeto">
-                        <i class="bi bi-pencil me-1"></i>Editar configuração de encargos
-                    </button>
-                </div>
-                {% endif %}
+            {# ── Dívida: a aba PADRÃO desde o redesenho 1a (era Cobrança) — é ela que responde "quanto
+               deve", a pergunta com que se chega nesta tela.
+
+               `Editar configuração de encargos` SAIU daqui: virou o botão `Encargos` no cabeçalho, junto
+               das outras ações de situação (desenho §1.4). Mesmo modal, mesma rota, mesmo gate. ── #}
+            <div class="tab-pane fade show active" id="tab-divida">
                 {{ include('cobranca/objeto/_partials/_divida.html.twig') }}
                 {{ include('cobranca/objeto/_partials/_movimentos.html.twig') }}
             </div>
@@ -433,44 +513,78 @@
                 {{ include('cobranca/caso/_documentos.html.twig') }}
             </div>
 
-            {# Histórico (timeline — SPEC §13): todos os eventos, na ordem de sempre. #}
+            {# ── Histórico (timeline — SPEC §13, revestida pelo desenho 1a) ─────────────────────────
+               Todos os eventos, na ordem de sempre, agora com chip de família e ponto colorido.
+
+               Os FILTROS (Tudo · Contatos · Dinheiro · Obrigações · Anotações) recortam no CLIENTE, sobre
+               os itens já renderizados. O handoff supunha que isso exigiria um recorte novo por
+               `TipoEventoHistorico` no `EventoHistoricoRepository` — não exige: `doCaso` sempre trouxe o
+               histórico inteiro, e ele inteiro já está neste HTML. Nenhuma consulta nova, nenhuma
+               paginação: filtrar aqui é esconder linha, não deixar de buscá-la.
+
+               A família de cada evento vem pronta do enum (`TipoEventoHistorico::familia()`), não de um
+               mapa aqui: é lá que ela tem teste e que um tipo novo quebra em vez de cair num balde.
+
+               O botão "Carregar mais 20 eventos" do desenho NÃO ENTROU (decisão do dono, 28/08): a lista
+               é completa hoje, e paginar tiraria do Ctrl+F o que ficasse de fora. ── #}
             <div class="tab-pane fade" id="tab-historico">
                 {% if caso.historico|length > 0 %}
-                <ul class="caso-timeline">
+                <div class="d-flex align-items-center gap-2 flex-wrap mb-3">
+                    <h5 class="mb-0"><i class="bi bi-clock-history me-1"></i>Histórico</h5>
+                    <span class="text-secondary small">{{ caso.historico|length }} {{ caso.historico|length == 1 ? 'evento' : 'eventos' }}</span>
+                    <div class="cob-hist-filtros ms-auto" role="group" aria-label="Filtrar o histórico por tipo de evento">
+                        {% for filtro in filtrosHistorico %}
+                        <button type="button" class="cob-hist-filtro {{ loop.first ? 'active' }}"
+                                data-hist-filtro="{{ filtro.chave }}" aria-pressed="{{ loop.first ? 'true' : 'false' }}">{{ filtro.label }}</button>
+                        {% endfor %}
+                    </div>
+                </div>
+                <ul class="cob-hist" data-hist-lista>
                     {# Sem `|reverse`: a ordem vem pronta do repositório (mais recente primeiro).
                        Antes eram DOIS lugares decidindo a ordem — consulta em ASC e inversão aqui —,
                        e mexer só num deles invertia a lista sem querer. #}
                     {% for e in caso.historico %}
-                    <li class="caso-timeline-item">
-                        <div class="caso-timeline-tipo d-flex align-items-center gap-2">
-                            <span>{{ e.tipoLabel }}</span>
-                            {% if e.editadoEm %}<span class="text-muted fst-italic fw-normal">(editado)</span>{% endif %}
-                            {# `editavel` vem decidido do SERVIDOR (anotação própria, dentro das 48h) — o
-                               template não recalcula prazo nem compara autoria, senão tela e servidor
-                               poderiam discordar. Passada a janela, os botões somem sozinhos. #}
-                            {{ include('cobranca/objeto/_partials/_anotacao_acoes.html.twig', {e: e}) }}
+                    <li class="cob-hist-item" data-hist-familia="{{ e.familia }}">
+                        <div class="cob-hist-trilho" aria-hidden="true">
+                            <span class="cob-hist-ponto is-{{ e.familia }}"></span>
+                            <span class="cob-hist-linha"></span>
                         </div>
-                        <div>
-                            {% if e.tipoValue == 'anotacao' %}
-                                {# Escrita por uma pessoa no editor rico. #}
-                                <span class="editor-rico-conteudo"><span class="ql-editor">{{ e.descricao|texto_rico }}</span></span>
-                            {% else %}
-                                {# Evento gerado pelo sistema: segue escapado.
+                        <div class="cob-hist-corpo">
+                            <div class="d-flex align-items-center gap-2 flex-wrap">
+                                <span class="cob-hist-tipo">{{ e.tipoLabel }}</span>
+                                <span class="cob-hist-chip">{{ e.familiaLabel }}</span>
+                                {% if e.editadoEm %}<span class="text-muted fst-italic small">(editado)</span>{% endif %}
+                                {# `editavel` vem decidido do SERVIDOR (anotação própria, dentro das 48h) — o
+                                   template não recalcula prazo nem compara autoria, senão tela e servidor
+                                   poderiam discordar. Passada a janela, os botões somem sozinhos. #}
+                                {{ include('cobranca/objeto/_partials/_anotacao_acoes.html.twig', {e: e}) }}
+                            </div>
+                            <div>
+                                {% if e.tipoValue == 'anotacao' %}
+                                    {# Escrita por uma pessoa no editor rico. #}
+                                    <span class="editor-rico-conteudo"><span class="ql-editor">{{ e.descricao|texto_rico }}</span></span>
+                                {% else %}
+                                    {# Evento gerado pelo sistema: segue escapado.
 
-                                   `contato_realizado` chegou a passar por `texto_rico` nesta frente e
-                                   VOLTOU para `nl2br`: o discriminador do sanitizador trata qualquer
-                                   texto com `<` como HTML, e relato legado em texto puro perde o trecho.
-                                   Medido no sanitizador real: "cliente diz valor < 500 nao paga" sai
-                                   "cliente diz valor  500 nao paga"; "e-mail <fulano@x.com> confirmado"
-                                   sai "e-mail ". O dev tem 4 contatos e nenhum com `<` — amostra que não
-                                   autoriza concluir nada sobre produção. #}
-                                {{ e.descricao|nl2br }}
-                            {% endif %}
+                                       `contato_realizado` chegou a passar por `texto_rico` nesta frente e
+                                       VOLTOU para `nl2br`: o discriminador do sanitizador trata qualquer
+                                       texto com `<` como HTML, e relato legado em texto puro perde o trecho.
+                                       Medido no sanitizador real: "cliente diz valor < 500 nao paga" sai
+                                       "cliente diz valor  500 nao paga"; "e-mail <fulano@x.com> confirmado"
+                                       sai "e-mail ". O dev tem 4 contatos e nenhum com `<` — amostra que não
+                                       autoriza concluir nada sobre produção. #}
+                                    {{ e.descricao|nl2br }}
+                                {% endif %}
+                            </div>
+                            <div class="cob-hist-meta">{{ e.ocorridoEm|date('d/m/Y H:i') }}{% if e.usuarioNome %} · {{ e.usuarioNome }}{% endif %}</div>
                         </div>
-                        <div class="caso-timeline-meta">{{ e.ocorridoEm|date('d/m/Y H:i') }}{% if e.usuarioNome %} · {{ e.usuarioNome }}{% endif %}</div>
                     </li>
                     {% endfor %}
                 </ul>
+                {# Filtro que não deixa nada de pé não pode virar tela muda. Revelado pelo JS. #}
+                <p class="cob-hist-sem-resultado text-center py-3 mb-0" data-hist-vazio hidden>
+                    Nenhum evento deste tipo neste histórico.
+                </p>
                 {% else %}<p class="text-muted mb-0 text-center py-3">Sem eventos no histórico.</p>{% endif %}
             </div>
         </div>
@@ -1154,6 +1268,44 @@ document.addEventListener('DOMContentLoaded', function () {
         paramsUrl.delete('aba');
         var queryLimpa = paramsUrl.toString();
         window.history.replaceState({}, '', window.location.pathname + (queryLimpa ? '?' + queryLimpa : ''));
+    }
+
+    /* ── Filtros da timeline do Histórico (redesenho 1a) ──────────────────────────────────────────
+       Recorte no CLIENTE, sobre os itens JÁ renderizados: `EventoHistoricoRepository::doCaso` sempre
+       trouxe o histórico inteiro, então não há consulta a fazer — só linha a esconder. Cada item carrega
+       a própria família em `data-hist-familia`, decidida no servidor por `TipoEventoHistorico::familia()`.
+
+       `hidden` (e não `display:none` por classe) porque item escondido tem de sair também da árvore de
+       acessibilidade e da busca do navegador — meio-termo aqui seria um leitor de tela anunciando evento
+       que a tela não mostra.
+
+       Sem `aria-live`: a contagem não muda e o foco permanece no botão clicado, que já anuncia o próprio
+       estado por `aria-pressed`. */
+    var listaHist = document.querySelector('[data-hist-lista]');
+    if (listaHist) {
+        var vazioHist = document.querySelector('[data-hist-vazio]');
+        var botoesHist = Array.prototype.slice.call(document.querySelectorAll('[data-hist-filtro]'));
+
+        botoesHist.forEach(function (botao) {
+            botao.addEventListener('click', function () {
+                var alvo = botao.getAttribute('data-hist-filtro') || 'tudo';
+                var visiveis = 0;
+
+                Array.prototype.slice.call(listaHist.querySelectorAll('.cob-hist-item')).forEach(function (item) {
+                    var mostra = alvo === 'tudo' || item.getAttribute('data-hist-familia') === alvo;
+                    item.hidden = !mostra;
+                    if (mostra) { visiveis++; }
+                });
+
+                botoesHist.forEach(function (b) {
+                    var ativo = b === botao;
+                    b.classList.toggle('active', ativo);
+                    b.setAttribute('aria-pressed', ativo ? 'true' : 'false');
+                });
+
+                if (vazioHist) { vazioHist.hidden = visiveis > 0; }
+            });
+        });
     }
 
     /* Atalho para uma aba a partir de fora dela (hoje: "Ver na dívida", nos alertas do topo). O alvo da

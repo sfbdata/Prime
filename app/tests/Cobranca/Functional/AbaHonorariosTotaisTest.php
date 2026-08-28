@@ -186,11 +186,18 @@ final class AbaHonorariosTotaisTest extends CobrancaWebTestCase
         self::fail("Não achei o rodapé \"{$rotulo}\" na aba Honorários.");
     }
 
+    /**
+     * Os dois números do topo. O redesenho 1a juntou-os com a configuração numa FAIXA de três painéis
+     * (`.cob-hon-faixa`) dentro do mesmo cartão — os `.cob-hon-card` soltos deixaram de existir. Os
+     * ganchos do rótulo e do valor (`.cob-hon-card-rot` / `.cob-hon-card-val`) foram preservados de
+     * propósito: é o que este teste lê, e o assunto dele é o NÚMERO, não a moldura.
+     */
     private function cardDoTopo(Crawler $aba, string $rotulo): string
     {
-        foreach ($aba->filter('.cob-hon-card')->each(fn (Crawler $n): Crawler => $n) as $card) {
-            if (str_contains($card->filter('.cob-hon-card-rot')->text(), $rotulo)) {
-                return $card->filter('.cob-hon-card-val')->text();
+        foreach ($aba->filter('.cob-hon-faixa > div')->each(fn (Crawler $n): Crawler => $n) as $painel) {
+            $rot = $painel->filter('.cob-hon-card-rot');
+            if ($rot->count() > 0 && str_contains($rot->text(), $rotulo)) {
+                return $painel->filter('.cob-hon-card-val')->text();
             }
         }
 

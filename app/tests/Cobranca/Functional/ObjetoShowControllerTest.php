@@ -85,15 +85,21 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
 
         self::assertResponseIsSuccessful();
 
-        // Contagem EXATA, não só "existe". Depois da consolidação em "Responsáveis" a barra tinha 6 áreas
-        // de conteúdo + 1 ação (Registrar contato) + "Mais ações" = 8 itens; com o cabeçalho redesenhado
-        // (spec cabecalho-responsaveis §1.4) a ação MUDOU DE LUGAR para a barra de ações do cabeçalho, e
-        // sobram 6 áreas + "Mais ações" = 7. Sem travar o número, um item duplicado a mais — ou um que
-        // deveria ter saído e ficou — passaria despercebido.
-        self::assertCount(7, $crawler->filter('#objetoTabs > li'), 'a barra tem 6 opções de conteúdo + Mais ações');
-        self::assertCount(7, $crawler->filter('#objetoTabs > li > .nav-link'), 'cada item da barra é um nav-link');
-        self::assertCount(3, $crawler->filter('#objetoTabs .cob-mais .dropdown-item'), 'o dropdown repete só as menos frequentes');
-        self::assertCount(3, $crawler->filter('#objetoTabs > li.cob-item-extra'), 'as 3 que recolhem abaixo de 1200px');
+        // Contagem EXATA, não só "existe". A barra já teve 8 itens (6 áreas + "Registrar contato" +
+        // "Mais ações"), depois 7 (a ação foi para o cabeçalho). Com o redesenho 1a ela tem SEIS: o
+        // controle segmentado mostra as seis abas sempre, e o dropdown "Mais ações" — que escondia
+        // Responsáveis, Dívida e Honorários abaixo de 1200px — deixou de existir. Sem travar o número,
+        // um item duplicado a mais, ou um que deveria ter saído e ficou, passaria despercebido.
+        self::assertCount(6, $crawler->filter('#objetoTabs > li'), 'a barra tem as 6 áreas de conteúdo, e só');
+        self::assertCount(6, $crawler->filter('#objetoTabs > li > .nav-link'), 'cada item da barra é um nav-link');
+        self::assertCount(0, $crawler->filter('#objetoTabs .cob-mais'), 'o dropdown "Mais ações" foi eliminado');
+        self::assertCount(0, $crawler->filter('#objetoTabs .dropdown-toggle'), 'nenhuma aba se esconde atrás de menu');
+        // A DÍVIDA é a primeira: é ela que responde "quanto deve", a pergunta com que se chega na tela.
+        self::assertSame(
+            '#tab-divida',
+            $crawler->filter('#objetoTabs > li:first-child > .nav-link')->attr('data-bs-target'),
+            'a ordem do desenho começa pela Dívida',
+        );
 
         // As 6 ÁREAS DE CONTEÚDO. Dívida e Honorários seguem opções DIFERENTES, e nenhuma aba de
         // "encargos" foi criada.
@@ -115,12 +121,13 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
         self::assertSelectorNotExists('#objetoTabs [data-bs-target="#vinculosObjeto"]', 'Envolvidos tinha de sair da barra');
         self::assertSelectorNotExists('#vinculosObjeto', 'o collapse de envolvidos do card lateral não existe mais');
 
-        // O card lateral da pessoa e o cartão de próxima ação saíram; a próxima ação virou faixa dentro
-        // da aba Cobrança (a função continua, o cartão não).
+        // O card lateral da pessoa e o cartão de próxima ação saíram; a próxima ação virou faixa (a
+        // função continua, o cartão não) — primeiro no topo da aba Cobrança, e desde o redesenho 1a na
+        // coluna de contexto do CABEÇALHO, ao lado da prescrição.
         self::assertSelectorNotExists('#objetoTabs [data-bs-target="#tab-pessoas"]');
         self::assertSelectorNotExists('.jp-pessoa-card', 'o card lateral da pessoa foi removido');
         self::assertSelectorNotExists('.cob-rail', 'o trilho direito foi removido');
-        self::assertSelectorExists('#tab-cobranca .cob-proxima-faixa', 'a próxima ação tem de continuar visível, compacta, na aba Cobrança');
+        self::assertSelectorExists('.cob-cabecalho-contexto .cob-proxima-faixa', 'a próxima ação tem de continuar visível, compacta, no cabeçalho');
         // A subnav do módulo voltou (B3): esta página era a única que a perdia.
         self::assertSelectorExists('.cobranca-subnav');
         // E marca CARTEIRAS: o objeto se chega por Carteira→Objeto (ajuste 2, decisão G). Sem travar o
@@ -130,8 +137,8 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
         self::assertStringContainsString('Carteiras', $ativo->text());
     }
 
-    #[TestDox('Ajuste 10: a aba Cobrança abre por padrão — o cadastro deixou de ser a primeira coisa')]
-    public function testAbaCobrancaAbrePorPadrao(): void
+    #[TestDox('Redesenho 1a: a aba DÍVIDA abre por padrão — era Cobrança desde o Ajuste 10')]
+    public function testAbaDividaAbrePorPadrao(): void
     {
         $client = static::createClient();
         [, $tenant] = $this->criarAdminLogado($client);
@@ -141,10 +148,10 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSame(
-            '#tab-cobranca',
+            '#tab-divida',
             $crawler->filter('#objetoTabs .nav-link.active')->attr('data-bs-target'),
         );
-        self::assertSelectorExists('#tab-cobranca.show.active');
+        self::assertSelectorExists('#tab-divida.show.active');
     }
 
     #[TestDox('Ajuste 10: a dívida mostra quanto FALTA quando há pagamento parcial')]
@@ -231,8 +238,8 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
         self::assertGreaterThan(0, $crawler->filter('[data-bs-target="#modalRegistrarObrigacao"]')->count());
     }
 
-    #[TestDox('Ajuste 10 B2: o botão Documentos vive dentro de um .nav-tabs com irmãos — contrato do clear da flag')]
-    public function testBotaoDocumentosViveDentroDeNavTabsComIrmaos(): void
+    #[TestDox('Ajuste 10 B2: o botão Documentos vive dentro de um [role=tablist] com irmãos — contrato do clear da flag')]
+    public function testBotaoDocumentosViveDentroDoTablistComIrmaos(): void
     {
         $client = static::createClient();
         [, $tenant] = $this->criarAdminLogado($client);
@@ -242,10 +249,15 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
 
         self::assertResponseIsSuccessful();
         // O `pasta-arquivos.js` é COMPARTILHADO com `pasta/show` e resolve o container das abas subindo do
-        // próprio botão (`docTabBtn.closest('.nav-tabs')`) — o id do `<ul>` difere entre as duas páginas
-        // (`#objetoTabs` aqui, `#pastaTabs` lá). Se o botão sair do `.nav-tabs`, o `closest` devolve null,
-        // nenhum listener de limpeza é registrado e a aba Documentos volta a grudar (spec §2.1).
-        self::assertCount(1, $crawler->filter('ul.nav-tabs #documentos-tab'), 'o botão tem de estar dentro do .nav-tabs');
+        // próprio botão — o id do `<ul>` difere entre as duas páginas (`#objetoTabs` aqui, `#pastaTabs`
+        // lá). Se o botão sair do container, o `closest` devolve null, nenhum listener de limpeza é
+        // registrado e a aba Documentos volta a grudar (spec §2.1).
+        //
+        // ⚠️ O gancho é `[role="tablist"]`, NÃO `.nav-tabs`: o JS migrou para ele quando o redesenho da
+        // pasta trocou o `<ul class="nav-tabs">` por um segmentado, e esta asserção ficou para trás —
+        // continuava passando só porque esta página ainda tinha a classe do Bootstrap. O redesenho 1a
+        // trocou o segmentado aqui também; agora o teste afirma o contrato que o JS realmente usa.
+        self::assertCount(1, $crawler->filter('ul[role="tablist"] #documentos-tab'), 'o botão tem de estar dentro do container de abas');
         // Os IRMÃOS são quem limpa a flag ao serem escolhidos: sem eles no mesmo container, nada limpa.
         self::assertGreaterThan(
             1,
@@ -984,23 +996,42 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
         $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
 
         self::assertResponseIsSuccessful();
-        // A linha é COMPACTA, então o cabeçalho nomeia só as colunas fixas — o detalhamento dos encargos
-        // vive na faixa sempre visível de cada linha, não em colunas próprias.
+        // Redesenho 1a: a linha ganhou DUAS colunas de dinheiro antes do Total (`Original` e
+        // `Acréscimos`), e o cabeçalho nomeia as cinco.
         $cabecalho = $crawler->filter('#secao-divida .jp-lista-head');
         self::assertCount(1, $cabecalho);
         $textoCabecalho = $cabecalho->text();
-        foreach (['Venceu em', 'O que é', 'Total'] as $coluna) {
+        foreach (['Venceu em', 'O que é', 'Original', 'Acréscimos', 'Total'] as $coluna) {
             self::assertStringContainsString($coluna, $textoCabecalho, "o cabeçalho precisa nomear a coluna {$coluna}");
         }
-        // Cada número de dinheiro é ROTULADO onde ele aparece — na FAIXA sempre visível da linha (o dono
-        // quer ver cada encargo sem expandir; não há mais chevron/painel). O "Total" fica na célula própria
-        // (col-total), fora da faixa.
-        $faixa = $crawler->filter('#secao-divida .jp-obr .jp-obr-encargos');
-        self::assertCount(1, $faixa);
-        $textoFaixa = $faixa->text();
+
+        // As três colunas FECHAM A OLHO: Original + Acréscimos = Total. É a identidade que a linha existe
+        // para mostrar, e ela vem de `ObrigacaoOutput::acrescimos()` — nunca de um `+` no Twig.
+        $linha = $crawler->filter('#secao-divida .jp-obr')->eq(0);
+        $centavos = static fn (string $t): int => (int) (preg_replace('/\D/', '', $t) ?? '');
+        self::assertSame(
+            $centavos($linha->filter('.col-total')->eq(0)->text()),
+            $centavos($linha->filter('.col-original')->eq(0)->text()) + $centavos($linha->filter('.col-acrescimos')->text()),
+            'Original + Acréscimos tem de fechar com o Total da mesma linha',
+        );
+
+        // O detalhamento dos cinco componentes voltou para trás do chevron (era a faixa sempre visível).
+        // Ele nasce FECHADO — `.collapse` sem `.show` —, e é isso que o chevron abre.
+        $detalhe = $crawler->filter('#secao-divida .jp-obr .cob-obr-detalhe');
+        self::assertCount(1, $detalhe);
+        self::assertStringNotContainsString('show', (string) $detalhe->attr('class'), 'o detalhe nasce fechado');
+        $textoDetalhe = $detalhe->text();
         foreach (['Original', 'Juros', 'Multa', 'Correção', 'Honorários'] as $encargo) {
-            self::assertStringContainsString($encargo, $textoFaixa, "a faixa precisa rotular o encargo {$encargo}");
+            self::assertStringContainsString($encargo, $textoDetalhe, "o detalhe precisa rotular o encargo {$encargo}");
         }
+
+        // O chevron aponta para o painel DESTA linha, e o Bootstrap é quem alterna o `aria-expanded` —
+        // é dele que saem a moldura do botão e a espinha vermelha da linha aberta, no CSS.
+        $chevron = $crawler->filter('#secao-divida .jp-obr .cob-obr-chevron');
+        self::assertCount(1, $chevron);
+        self::assertSame('collapse', $chevron->attr('data-bs-toggle'));
+        self::assertSame('#' . $detalhe->attr('id'), $chevron->attr('data-bs-target'), 'o chevron abre o painel da própria linha');
+        self::assertSame('false', $chevron->attr('aria-expanded'));
     }
 
     #[TestDox('F4 (INV-E4): obrigação congelada avisa que os encargos não crescem mais; a normal não avisa')]
@@ -1075,16 +1106,23 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertCount(3, $crawler->filter('#secao-divida .jp-obr'), 'as três variantes de linha estão na tela');
-        // A dívida VIVA — avulsa e parcela de acordo — mostra a faixa de encargos na própria linha. A
-        // substituída é histórico (já dentro do collapse do acordo que a trocou), então fica SIMPLES: só o
-        // Total, sem a faixa (não repete o split de quem já saiu do total em aberto).
-        self::assertCount(2, $crawler->filter('#secao-divida .jp-obr-encargos'), 'avulsa e parcela têm a faixa de encargos');
+        // A dívida VIVA — avulsa e parcela de acordo — leva o painel de encargos e o chevron que o abre.
+        // A substituída é histórico (já dentro do collapse do acordo que a trocou), então fica SIMPLES:
+        // só o Total, sem colunas de dinheiro, sem painel e sem chevron — não repete o split de quem já
+        // saiu do total em aberto, e a grade dela continua sendo a de 5 células.
+        self::assertCount(2, $crawler->filter('#secao-divida .cob-obr-detalhe'), 'avulsa e parcela têm o painel de encargos');
+        self::assertCount(2, $crawler->filter('#secao-divida .cob-obr-chevron'), 'e cada uma tem o chevron que o abre');
         self::assertCount(1, $crawler->filter('#secao-divida .jp-obr.is-substituida'), 'a substituída está na tela');
-        self::assertCount(0, $crawler->filter('#secao-divida .jp-obr.is-substituida .jp-obr-encargos'), 'a substituída NÃO mostra a faixa');
-        // Os encargos rotulados do relatório vivem na faixa — presentes nas duas variantes vivas.
-        foreach (['.col-original', '.col-juros', '.col-multa', '.col-correcao', '.col-honorarios'] as $coluna) {
-            self::assertCount(2, $crawler->filter('#secao-divida .jp-obr-encargos ' . $coluna), "faltou {$coluna} nas faixas");
+        self::assertCount(0, $crawler->filter('#secao-divida .jp-obr.is-substituida .cob-obr-detalhe'), 'a substituída NÃO mostra o painel');
+        self::assertCount(0, $crawler->filter('#secao-divida .jp-obr.is-substituida .cob-obr-chevron'), 'nem o chevron');
+        self::assertCount(0, $crawler->filter('#secao-divida .jp-obr.is-substituida .col-acrescimos'), 'nem as colunas de dinheiro novas');
+        // Os encargos rotulados do relatório vivem no painel — presentes nas duas variantes vivas.
+        foreach (['.col-juros', '.col-multa', '.col-correcao', '.col-honorarios'] as $coluna) {
+            self::assertCount(2, $crawler->filter('#secao-divida .cob-obr-detalhe ' . $coluna), "faltou {$coluna} nos painéis");
         }
+        // `col-original` aparece DUAS vezes por linha viva (a coluna da fila e o painel), com o mesmo
+        // valor: é o mesmo campo em dois lugares, não dois números que possam divergir.
+        self::assertCount(4, $crawler->filter('#secao-divida .jp-obr:not(.is-substituida) .col-original'));
     }
 
     #[TestDox('F4: o menu Editar leva o split de encargos (contrato dos data-* lido pelo JS do modal)')]
@@ -1181,12 +1219,13 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
         self::assertResponseIsSuccessful();
         self::assertStringContainsString('27,20', $crawlerDepois->filter('#secao-divida .jp-obr .col-juros')->text());
         // Total do caso (cabeçalho): 170,00 + 27,20 de juros (multa/correção seguem 0, herdadas da
-        // carteira neutra) = 197,20. O valor já andou pela tela: hero → linha fina `.cob-resumo` →
-        // card `Total vencido` (2026-07-27, quando a linha fina saiu e os cards passaram a somar o
-        // vencido). A obrigação deste teste venceu há meses, então ela entra no card.
+        // carteira neutra) = 197,20. O valor já andou pela tela: hero → linha fina `.cob-resumo` → card
+        // `Total vencido` (2026-07-27) → número HERÓI do redesenho 1a (2026-08-28). O gancho `data-card`
+        // atravessou todas as mudanças de forma, que é para isso que ele existe. A obrigação deste teste
+        // venceu há meses, então ela entra no total.
         self::assertStringContainsString(
             '197,20',
-            $crawlerDepois->filter('.cob-cab-card[data-card="total"]')->text(),
+            $crawlerDepois->filter('[data-card="total"]')->text(),
         );
     }
 

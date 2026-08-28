@@ -276,20 +276,71 @@ html[data-bs-theme="dark"] .cobrancas-page {
     border: 1px solid var(--bs-border-color); background: var(--bs-body-bg);
 }
 
-/* Timeline do histórico (SPEC §13) */
-.caso-timeline { list-style: none; margin: 0; padding: 0; position: relative; }
-.caso-timeline::before {
-    content: ""; position: absolute; left: 7px; top: 4px; bottom: 4px;
-    width: 2px; background: var(--bs-border-color);
+/* ── Timeline do histórico (SPEC §13, revestida pelo redesenho 1a) ──────────────────────────────
+   Era `.caso-timeline`: trilho por `::before` absoluto e ponto sempre no accent verde. Virou uma grade
+   de duas colunas (trilho · corpo) com o ponto COLORIDO POR FAMÍLIA de evento — dinheiro no accent,
+   cadastro no info, o resto neutro. A cor não é decoração: é o que deixa varrer 162 eventos e achar os
+   três de dinheiro sem ler linha por linha.
+
+   Grade e não posicionamento absoluto porque o trilho precisa da altura REAL do corpo — com `::before`
+   ele era uma linha contínua atrás de tudo e não sabia onde cada evento começava e terminava. */
+.cob-hist { list-style: none; margin: 0; padding: 0; }
+.cob-hist-item { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: .75rem; }
+/* O último não desenha rabicho para baixo: a linha pararia no vazio, abaixo do último evento. */
+.cob-hist-item:last-child .cob-hist-linha { display: none; }
+.cob-hist-trilho { display: flex; flex-direction: column; align-items: center; }
+.cob-hist-ponto { width: 9px; height: 9px; border-radius: 999px; margin-top: .3125rem; flex: none; background: var(--bs-secondary-color); }
+.cob-hist-ponto.is-dinheiro { background: var(--jp-accent); }
+.cob-hist-ponto.is-cadastro { background: var(--bs-info); }
+.cob-hist-ponto.is-anotacao { background: var(--bs-warning); }
+.cob-hist-linha { flex: 1; width: 2px; background: var(--bs-border-color); }
+.cob-hist-corpo { padding-bottom: 1rem; min-width: 0; overflow-wrap: anywhere; }
+.cob-hist-tipo { font-size: .84375rem; font-weight: 700; }
+.cob-hist-meta { font-size: .75rem; color: var(--bs-secondary-color); font-variant-numeric: tabular-nums; }
+/* Chip da família do evento: neutro sempre — quem codifica família por cor é o PONTO, e dois códigos
+   de cor para a mesma informação brigariam. O chip está aqui para quem lê, não para quem varre. */
+.cob-hist-chip {
+    font-size: .6875rem; font-weight: 600; padding: .0625rem .5rem; border-radius: 999px;
+    background: var(--bs-tertiary-bg); border: 1px solid var(--bs-border-color);
+    color: var(--bs-secondary-color); white-space: nowrap;
 }
-.caso-timeline-item { position: relative; padding: 0 0 1rem 1.75rem; }
-.caso-timeline-item::before {
-    content: ""; position: absolute; left: 2px; top: 4px;
-    width: 12px; height: 12px; border-radius: 50%;
-    background: var(--jp-accent); border: 2px solid var(--bs-body-bg);
+/* Filtros. O recorte é no CLIENTE, sobre os eventos JÁ renderizados — o histórico inteiro sempre veio
+   no HTML (`EventoHistoricoRepository::doCaso` nunca paginou), então não há consulta nova nem
+   `TipoEventoHistorico` novo envolvido. Item escondido leva `hidden`, que é o que o JS alterna. */
+.cob-hist-filtros { display: flex; gap: .3125rem; flex-wrap: wrap; }
+.cob-hist-filtro {
+    height: 28px; padding: 0 .6875rem; border-radius: 999px;
+    border: 1px solid var(--bs-border-color); background: var(--bs-body-bg);
+    color: var(--bs-secondary-color); font-size: .78125rem; font-weight: 500; cursor: pointer;
 }
-.caso-timeline-tipo { font-weight: 600; }
-.caso-timeline-meta { font-size: .8rem; color: var(--bs-secondary-color); }
+.cob-hist-filtro:hover { color: var(--bs-body-color); }
+.cob-hist-filtro.active {
+    border-color: var(--jp-accent); color: var(--jp-accent); font-weight: 600;
+    background: rgba(var(--jp-accent-rgb), .1);
+}
+.cob-hist-filtro:focus-visible { outline: 2px solid var(--jp-accent); outline-offset: 1px; }
+.cob-hist-item[hidden] { display: none; }
+/* Quando o filtro não deixa nada de pé, a lista não pode ficar muda. */
+.cob-hist-sem-resultado { color: var(--bs-secondary-color); }
+
+/* ── Estados vazios que ENSINAM (abas Dívida e Cobrança) ────────────────────────────────────────
+   Linha com ícone circular à esquerda, título, dica e — quando há — a ação à direita. Diferente do
+   `.jp-vazio` (que é o vazio de dentro de uma lista, centralizado e alto): este é um bloco de página,
+   que convive com conteúdo acima dele. */
+.cob-vazio-linha {
+    display: flex; align-items: center; gap: .75rem; flex-wrap: wrap;
+    padding: 1rem 1.125rem; border-radius: var(--cob-radius, 1rem);
+    border: 1px solid var(--bs-border-color); background: var(--bs-body-bg);
+}
+.cob-vazio-ico {
+    width: 34px; height: 34px; flex: none; border-radius: 999px;
+    display: grid; place-items: center;
+    background: var(--bs-tertiary-bg); color: var(--bs-secondary-color);
+}
+.cob-vazio-corpo { min-width: 0; margin-right: auto; }
+.cob-vazio-titulo { font-size: .875rem; font-weight: 600; }
+.cob-vazio-dica { font-size: .78125rem; color: var(--bs-secondary-color); text-wrap: pretty; }
+.cob-vazio-num { font-size: .8125rem; color: var(--bs-secondary-color); font-variant-numeric: tabular-nums; }
 
 /* ── Dashboard do escritório (Etapa 9) ─────────────────────────── */
 .dash-section { margin-bottom: 1.5rem; }
@@ -429,60 +480,91 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
    quando a coluna aperta, seja qual for o motivo (viewport pequeno OU sidebar presente). */
 #secao-divida { container-type: inline-size; container-name: divida; }
 
-/* Cabeçalho: alinhado às colunas do compacto. Some no cartão empilhado (dispensa cabeçalho). */
-#secao-divida .jp-lista-head {
-    grid-template-columns: 18px 96px minmax(7rem, 1fr) minmax(90px, auto) auto;
+/* ── Redesenho 1a (2026-08-28): a linha da dívida ganhou COLUNAS DE DINHEIRO ────────────────────────
+   A faixa de pílulas com todos os encargos sempre visível (`.jp-obr-encargos`) SAIU. No lugar, três
+   colunas que fecham a olho — `Original` + `Acréscimos` = `Total` — e o detalhe dos cinco componentes
+   atrás de um chevron, sob demanda.
+
+   Por que a troca: com 161 obrigações na tela (a carteira real chega a 206 — medido em prod), a faixa
+   repetia cinco pílulas por linha e a coluna que importa — quanto esta dívida vale hoje — ficava do
+   mesmo tamanho de tudo o mais. O `%` de incidência não sumiu: mudou de lugar, do rótulo da pílula
+   para o rótulo do detalhe.
+
+   Grade: check · venceu · o que é · Original · Acréscimos · Total · ações · chevron. */
+#secao-divida .jp-lista-head,
+#secao-divida .jp-obr:not(.is-substituida) {
+    grid-template-columns: 34px 108px minmax(7rem, 1fr) 110px 120px 130px minmax(0, auto) 34px;
     grid-template-areas: none;
 }
+#secao-divida .jp-lista-head .col-original,
+#secao-divida .jp-lista-head .col-acrescimos,
 #secao-divida .jp-lista-head .col-total { text-align: right; }
 
-/* Linha = fila compacta (6 colunas) + painel full-width na linha de baixo. As áreas nomeadas deixam o
-   painel abrir sem bagunçar a fila, e permitem o reflow limpo para cartão no mobile (abaixo). */
 #secao-divida .jp-obr {
-    /* `desc` tem PISO de 7rem (nunca `minmax(0,…)`): sem ele, quando o container estreita — a dívida vive
-       na coluna esquerda do cockpit e encolhe com a sidebar — a coluna de ações (`auto` = largura dos três
-       botões numa linha só) comia toda a largura, a descrição ia a ZERO e quebrava letra a letra (linha de
-       2000px de altura, o mesmo bug da F4). `acoes` virou `minmax(0, auto)`: pode ENCOLHER, e aí os botões
-       quebram em duas linhas (flex-wrap) em vez de starvar a descrição. */
-    grid-template-columns: 18px 96px minmax(7rem, 1fr) minmax(90px, auto) minmax(0, auto);
-    grid-template-areas:
-        "check data desc total acoes"
-        "resumo resumo resumo resumo resumo";
     row-gap: 0;
     /* Separação ENTRE cards de obrigação mais evidente (pedido do dono): divisória com mais contraste que
        a `--bs-border-color` padrão — o color-mix puxa a borda na direção do texto, então ganha contraste
-       tanto no tema claro quanto no escuro — e mais respiro vertical, para cada obrigação ler como um bloco
-       próprio. Escopo `#secao-divida` de propósito: não mexe no extrato de movimentos. */
+       tanto no tema claro quanto no escuro. Escopo `#secao-divida`: não mexe no extrato de movimentos. */
     border-top: 1px solid color-mix(in srgb, var(--bs-border-color), var(--bs-body-color) 28%);
-    padding-top: .9rem; padding-bottom: .9rem;
+    padding: .7rem 1rem;
 }
-#secao-divida .jp-obr:not(.is-substituida) > *:first-child { grid-area: check; }
-#secao-divida .jp-obr:not(.is-substituida) > .jp-obr-data { grid-area: data; }
-#secao-divida .jp-obr:not(.is-substituida) > .jp-obr-desc { grid-area: desc; }
-#secao-divida .jp-obr:not(.is-substituida) > .col-total { grid-area: total; }
-#secao-divida .jp-obr:not(.is-substituida) > .jp-obr-acoes { grid-area: acoes; }
-#secao-divida .jp-obr:not(.is-substituida) > .jp-obr-encargos { grid-area: resumo; }
-#secao-divida .jp-obr .col-total { text-align: right; }
+/* As três colunas de dinheiro. `Original` e `Acréscimos` são CONTEXTO do `Total` — secundárias de
+   propósito, para o número que decide continuar sendo o maior da linha. */
+#secao-divida .col-original,
+#secao-divida .col-acrescimos,
+#secao-divida .col-total { text-align: right; font-variant-numeric: tabular-nums; }
+#secao-divida .col-original,
+#secao-divida .col-acrescimos { color: var(--bs-secondary-color); font-size: .84375rem; font-weight: 500; }
+#secao-divida .jp-obr .col-total { font-size: .9375rem; font-weight: 700; letter-spacing: -.01em; }
 
-/* Faixa de encargos SEMPRE visível na linha (o dono quer ver CADA encargo, mesmo zerado, sem expandir).
-   Flui e quebra sozinha (flex-wrap), sem as colunas rígidas que apertavam (F4). DISCRETA de propósito
-   (pedido do dono): pílulas NEUTRAS (sem código de cor por encargo), fundo faint uniforme, separador
-   interno suave — a faixa não pode competir com a divisória ENTRE cards nem com o Total. */
-.jp-obr-encargos {
-    display: flex; flex-wrap: wrap; gap: .3rem .4rem;
-    margin-top: .4rem; padding-top: .4rem;
-    border-top: 1px dashed color-mix(in srgb, var(--bs-border-color), transparent 45%);
+/* Botão do chevron: só ganha moldura quando a linha está aberta — fechado ele é um alvo discreto, não
+   mais um ícone competindo com "Receber". O `aria-expanded` é alternado pelo próprio Bootstrap
+   (collapse), então moldura e giro nunca ficam dessincronizados do estado real. */
+.cob-obr-chevron {
+    width: 26px; height: 26px; display: flex; align-items: center; justify-content: center;
+    border: 1px solid transparent; background: transparent;
+    color: var(--bs-secondary-color); border-radius: .4375rem; padding: 0;
 }
-.jp-obr-enc {
-    display: inline-flex; align-items: baseline; gap: .3rem;
-    padding: .1rem .45rem; border-radius: .35rem; white-space: nowrap;
-    background: var(--bs-tertiary-bg);
+.cob-obr-chevron:hover { color: var(--bs-body-color); background: var(--bs-tertiary-bg); }
+.cob-obr-chevron[aria-expanded="true"] {
+    border-color: var(--bs-border-color); background: var(--bs-tertiary-bg);
 }
-.jp-enc-rot { font-size: .64rem; font-weight: 700; text-transform: uppercase; letter-spacing: .02em; color: var(--bs-secondary-color); }
-/* O % de incidência, dentro do rótulo (veio do painel do chevron, que foi removido). Discreto: não é
-   dinheiro, é contexto — não pode competir com o valor. `text-transform:none` para não virar caixa-alta. */
-.jp-enc-pct { font-weight: 600; text-transform: none; letter-spacing: 0; opacity: .85; }
-.jp-enc-val { font-size: .8rem; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--bs-body-color); }
+.cob-obr-chevron .bi { transition: transform .15s ease-in-out; }
+.cob-obr-chevron[aria-expanded="true"] .bi { transform: rotate(180deg); }
+@media (prefers-reduced-motion: reduce) { .cob-obr-chevron .bi { transition: none; } }
+
+/* Detalhe: os cinco componentes com o % de incidência. `grid-column: 1 / -1` porque ele é filho DIRETO
+   da mesma grade da fila — sem isso o Bootstrap o colocaria na próxima célula livre, no meio da linha.
+   Indentado até a coluna da descrição, para ler como continuação da linha e não como bloco novo. */
+.cob-obr-detalhe { grid-column: 1 / -1; padding: 0 1rem .875rem 9.875rem; }
+/* `.collapse` do Bootstrap já resolve o fechado; aqui só o respiro de quando ele abre. */
+.cob-obr-detalhe.show, .cob-obr-detalhe.collapsing { padding-top: .5rem; }
+.cob-obr-detalhe-caixa {
+    display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)) 130px;
+    gap: .875rem; align-items: end;
+    padding: .75rem .875rem; border-radius: .625rem;
+    border: 1px solid var(--bs-border-color); background: var(--bs-tertiary-bg);
+}
+.cob-obr-detalhe-rot {
+    font-size: .6875rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .08em; color: var(--bs-secondary-color);
+}
+/* O % vive DENTRO do rótulo: é contexto, não dinheiro. `text-transform: none` para não virar caixa-alta. */
+.cob-obr-detalhe-pct { font-weight: 600; text-transform: none; letter-spacing: 0; opacity: .8; }
+.cob-obr-detalhe-val { font-size: .875rem; font-weight: 600; margin-top: .1875rem; font-variant-numeric: tabular-nums; }
+/* Encargo zerado fica CINZA, não some (decisão do dono mantida do desenho anterior): a ausência do
+   encargo é informação, e escondê-la faria a soma parecer não fechar. */
+.cob-obr-detalhe-val.is-zero { color: var(--bs-tertiary-color); }
+
+/* Substituídas (dentro de um collapse, de-emphasizadas): sem colunas de dinheiro nem chevron — só a
+   fila em 5 colunas, sem áreas. A célula vazia final é track `auto` que colapsa a 0. */
+#secao-divida .jp-obr.is-substituida {
+    grid-template-columns: 18px 96px minmax(7rem, 1fr) minmax(90px, auto) auto;
+    grid-template-areas: none;
+}
+
+/* Sinal de encargos congelados (INV-E4): discreto, ao lado do Total, sem coluna própria. */
+.jp-obr-congelado { font-size: .78rem; color: var(--bs-secondary-color); margin-left: .25rem; }
 
 /* Encargo NÃO CALCULADO (acordo substituto sem data) — decisão do dono de 17/08: traço com o motivo NA
    LINHA. O motivo não pode ser só tooltip: a gerência precisa julgar a falta varrendo a coluna com o
@@ -493,38 +575,50 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
    anuncia, nunca se disfarça de data. */
 .jp-sem-data { font-weight: 600; color: var(--bs-warning-text-emphasis); }
 
-/* Substituídas (dentro de um collapse, de-emphasizadas): sem faixa de encargos — só a fila em 5 colunas,
-   sem áreas. A célula vazia final é track `auto` que colapsa a 0 — assim a linha cabe mesmo indentada
-   dentro do acordo, em qualquer largura. Os tracks 1–4 batem com as parcelas de cima. */
-#secao-divida .jp-obr.is-substituida {
-    grid-template-columns: 18px 96px minmax(7rem, 1fr) minmax(90px, auto) auto;
-    grid-template-areas: none;
-}
-
-/* Sinal de encargos congelados (INV-E4): discreto, ao lado do Total, sem coluna própria. */
-.jp-obr-congelado { font-size: .78rem; color: var(--bs-secondary-color); margin-left: .25rem; }
-
-/* ── Coluna da dívida estreita (< 720px de LARGURA DA SEÇÃO, não do viewport): cartão empilhado. Só 2
-   colunas (check · conteúdo elástico); as ações e a faixa ganham a largura toda embaixo. Nada fixo grande
-   o bastante para empurrar a rolagem horizontal. Dispara tanto num telefone quanto num desktop 1024px em
-   que a sidebar do cockpit espremeu a coluna — foi ali que a fila de 6 colunas quebrava a
-   descrição letra a letra. */
+/* ── Coluna da dívida estreita (< 720px de LARGURA DA SEÇÃO, não do viewport): cartão empilhado ──
+   CONTAINER QUERY, não media query: a dívida encolhe com a sidebar, não só com o viewport. Com oito
+   colunas o aperto chega antes — as três de dinheiro viram uma linha própria, rotulada, e a fila deixa
+   de existir. Nada fixo grande o bastante para empurrar a rolagem horizontal. */
 @container divida (max-width: 720px) {
     #secao-divida .jp-lista-head { display: none; }
     #secao-divida .jp-obr:not(.is-substituida) {
-        grid-template-columns: auto minmax(0, 1fr);
+        grid-template-columns: auto minmax(0, 1fr) auto;
         grid-template-areas:
-            "check data"
-            "check desc"
-            "check total"
-            "resumo resumo"
-            "acoes acoes";
+            "check data chevron"
+            "check desc chevron"
+            "check dinheiro dinheiro"
+            "acoes acoes acoes"
+            "detalhe detalhe detalhe";
         align-items: start;
         column-gap: .6rem; row-gap: .1rem;
     }
-    #secao-divida .jp-obr:not(.is-substituida) > *:first-child { align-self: center; }
-    #secao-divida .jp-obr:not(.is-substituida) .col-total { text-align: left; margin-top: .1rem; }
-    #secao-divida .jp-obr:not(.is-substituida) .jp-obr-acoes { justify-content: flex-start; margin-top: .35rem; }
+    #secao-divida .jp-obr:not(.is-substituida) > .jp-check,
+    #secao-divida .jp-obr:not(.is-substituida) > *:first-child { grid-area: check; align-self: center; }
+    #secao-divida .jp-obr:not(.is-substituida) > .jp-obr-data { grid-area: data; }
+    #secao-divida .jp-obr:not(.is-substituida) > .jp-obr-desc { grid-area: desc; }
+    #secao-divida .jp-obr:not(.is-substituida) > .cob-obr-chevron { grid-area: chevron; align-self: center; }
+    #secao-divida .jp-obr:not(.is-substituida) > .jp-obr-acoes { grid-area: acoes; justify-content: flex-start; margin-top: .35rem; }
+    #secao-divida .jp-obr:not(.is-substituida) > .cob-obr-detalhe { grid-area: detalhe; padding-left: 0; padding-right: 0; }
+    /* As três colunas de dinheiro viram UMA faixa própria: sem o cabeçalho de colunas elas ficariam
+       sem nome, e três números soltos na vertical não dizem qual é qual. Daí os rótulos no `::before`. */
+    #secao-divida .jp-obr:not(.is-substituida) > .col-original,
+    #secao-divida .jp-obr:not(.is-substituida) > .col-acrescimos,
+    #secao-divida .jp-obr:not(.is-substituida) > .col-total {
+        grid-area: dinheiro; display: flex; justify-content: space-between; gap: .5rem;
+        text-align: right; margin-top: .1rem;
+    }
+    #secao-divida .jp-obr:not(.is-substituida) > .col-original { grid-row: span 1; }
+    #secao-divida .jp-obr:not(.is-substituida) > .col-original::before { content: "Original"; }
+    #secao-divida .jp-obr:not(.is-substituida) > .col-acrescimos::before { content: "Acréscimos"; }
+    #secao-divida .jp-obr:not(.is-substituida) > .col-total::before { content: "Total"; }
+    #secao-divida .jp-obr:not(.is-substituida) > .col-original::before,
+    #secao-divida .jp-obr:not(.is-substituida) > .col-acrescimos::before,
+    #secao-divida .jp-obr:not(.is-substituida) > .col-total::before {
+        font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+        color: var(--bs-secondary-color); align-self: center;
+    }
+
+    .cob-obr-detalhe-caixa { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
     /* Substituídas: seguem em fila (não têm ações para empilhar), mas com colunas e gap menores para caber
        indentadas dentro do collapse do acordo mesmo num telefone estreito. A última célula (vazia) vira
@@ -535,25 +629,61 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
     }
 }
 
-.jp-obr:hover { background: var(--bs-tertiary-bg); }
-/* Linha vencida: tint danger translúcido + "espinha" de 3px à esquerda — mesmo padrão do
-   `.jp-obr.is-selecionada` logo abaixo (box-shadow inset, não uma coluna de grid dedicada). */
-.jp-obr.is-vencida { background: rgba(var(--bs-danger-rgb), .06); box-shadow: inset 3px 0 0 var(--bs-danger); }
-.jp-obr.is-vencida:hover { background: rgba(var(--bs-danger-rgb), .1); }
-.jp-obr.is-quitada { color: var(--bs-secondary-color); }
-.jp-obr.is-selecionada { background: rgba(var(--jp-accent-rgb), .07); box-shadow: inset 3px 0 0 var(--jp-accent); }
 
-/* Barra de seleção (T5): gruda no rodapé da janela enquanto há linhas marcadas, para que a ação
-   fique ao alcance mesmo com a lista longa. `[hidden]` some do fluxo quando não há seleção. */
-.jp-selecao {
-    position: sticky; bottom: .75rem; z-index: 3;
-    display: flex; align-items: center; gap: .75rem; flex-wrap: wrap;
-    margin-top: .75rem; padding: .6rem .9rem;
-    border: 1px solid rgba(var(--jp-accent-rgb), .35); border-radius: .75rem;
-    background: var(--bs-body-bg); box-shadow: var(--bs-box-shadow);
+.jp-obr:hover { background: var(--bs-tertiary-bg); }
+/* ── Os três estados da linha, sempre por espinha de 3px (`box-shadow: inset`), nunca por coluna de
+   grid ──────────────────────────────────────────────────────────────────────────────────────────
+   Ordem de força: VENCIDA é o estado de repouso desta tela (numa carteira real quase toda linha está
+   vencida — 242 das 248 cobranças da TOP LIFE I têm o saldo inteiro vencido), então ela é a mais
+   fraca das três: se gritasse, a tela inteira gritaria e nada se destacaria. ABERTA e SELECIONADA são
+   escolhas de quem está operando, e essas sim ganham a espinha cheia. */
+.jp-obr.is-vencida { background: rgba(var(--bs-danger-rgb), .04); box-shadow: inset 3px 0 0 rgba(var(--bs-danger-rgb), .35); }
+.jp-obr.is-vencida:hover { background: rgba(var(--bs-danger-rgb), .08); }
+.jp-obr.is-quitada { color: var(--bs-secondary-color); }
+/* Linha EXPANDIDA. `:has()` em vez de uma classe alternada por JS: quem abre e fecha o painel é o
+   collapse do Bootstrap, e um estado espelhado à mão sai de sincronia na primeira borda (fechar pelo
+   teclado, dois abertos ao mesmo tempo, `hide` disparado de fora). O seletor lê o estado REAL do DOM.
+   O `>` limita ao painel da própria linha — o collapse das obrigações substituídas mora dentro do
+   grupo do acordo e acenderia a linha errada. */
+#secao-divida .jp-obr:has(> .cob-obr-detalhe.show),
+#secao-divida .jp-obr:has(> .cob-obr-detalhe.collapsing) {
+    background: rgba(var(--bs-danger-rgb), .06); box-shadow: inset 3px 0 0 var(--bs-danger);
 }
-.jp-selecao[hidden] { display: none; }
-.jp-selecao-info { margin-right: auto; font-size: .85rem; color: var(--bs-body-color); }
+/* A seleção vence a expansão: marcar é a ação que leva ao acordo, e é ela que a barra do rodapé soma. */
+#secao-divida .jp-obr.is-selecionada,
+#secao-divida .jp-obr.is-selecionada:has(> .cob-obr-detalhe.show) {
+    background: rgba(var(--jp-accent-rgb), .08); box-shadow: inset 3px 0 0 var(--jp-accent);
+}
+
+/* ── Barra de seleção: escura, sticky no rodapé ──────────────────────────────────────────────────
+   Gruda no rodapé enquanto há linhas marcadas, para a ação ficar ao alcance mesmo com 200 linhas na
+   lista. `[hidden]` some do fluxo quando não há seleção — é o JS de `show.html.twig` que alterna.
+
+   ESCURA (redesenho 1a): a barra flutua SOBRE a lista, e uma superfície clara sobre linhas claras
+   dependia só da sombra para se separar. `--bs-emphasis-color` sobre `--bs-body-bg` é o par que o
+   Bootstrap 5.3 já inverte sozinho entre os dois temas — no escuro a barra vira clara sobre fundo
+   escuro, e o contraste se mantém sem nenhum hex fixo. */
+.jp-selbar {
+    position: sticky; bottom: .875rem; z-index: 5;
+    display: flex; align-items: center; gap: .875rem; flex-wrap: wrap;
+    margin-top: .875rem; padding: .7rem 1rem; border-radius: .75rem;
+    background: var(--bs-emphasis-color); color: var(--bs-body-bg);
+    box-shadow: 0 .625rem 1.75rem rgba(0, 0, 0, .28);
+}
+.jp-selbar[hidden] { display: none; }
+.jp-selbar-info { margin-right: auto; font-size: .85rem; }
+.jp-selbar-total { font-weight: 700; font-variant-numeric: tabular-nums; }
+/* Os botões vivem sobre a barra escura: o contorno padrão do módulo sumiria nela. `Limpar` fica
+   fantasma (contorno na cor do próprio texto da barra) e `Fazer acordo` mantém o accent cheio, que
+   é a ação primária e continua legível sobre o escuro. */
+.jp-selbar .btn-outline-secondary {
+    border-color: rgba(var(--bs-body-bg-rgb), .35); color: var(--bs-body-bg); background: transparent;
+}
+.jp-selbar .btn-outline-secondary:hover,
+.jp-selbar .btn-outline-secondary:focus-visible {
+    border-color: var(--bs-body-bg); color: var(--bs-body-bg);
+    background: rgba(var(--bs-body-bg-rgb), .12);
+}
 
 /* A coluna de data É o eixo do tempo — alinhada e tabular, para escanear de cima a baixo */
 .jp-obr-data { font-variant-numeric: tabular-nums; line-height: 1.25; }
@@ -564,8 +694,23 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
 /* `min-width: 0` + quebra em qualquer ponto: com as colunas de encargos, a descrição é a coluna
    elástica (`minmax(0,1fr)`). Sem a quebra, uma descrição longa sem espaços (ex.: uma referência
    externa colada) viraria o piso da linha e jogaria a página inteira na rolagem horizontal. */
-.jp-obr-desc { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
-.jp-obr-sub { font-size: .78rem; color: var(--bs-secondary-color); font-weight: 400; }
+/* Redesenho 1a: título em UMA linha com reticências, sub-linha abaixo. Com 161 obrigações na tela,
+   descrição que quebra em três linhas transforma a fila num muro e mata a varredura pelo vencimento.
+   Reticência aqui NÃO esconde dado: o `title` do Twig carrega a descrição inteira. */
+.jp-obr-desc { font-weight: 600; min-width: 0; padding-right: .5rem; }
+.jp-obr-desc-titulo {
+    font-size: .84375rem; font-weight: 600;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.jp-obr-sub {
+    font-size: .71875rem; color: var(--bs-secondary-color); font-weight: 400;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* Na coluna estreita a fila deixa de existir e o cartão tem a largura toda: aí a descrição pode
+   quebrar em vez de ser cortada — não há mais vizinho para desalinhar. */
+@container divida (max-width: 720px) {
+    .jp-obr-desc-titulo, .jp-obr-sub { white-space: normal; overflow: visible; overflow-wrap: anywhere; }
+}
 .jp-obr-valor { text-align: right; white-space: nowrap; font-weight: 700; font-variant-numeric: tabular-nums; }
 .jp-obr-restante { display: block; font-size: .72rem; color: var(--bs-secondary-color); font-weight: 500; }
 /* `flex-wrap`: com seis colunas de dinheiro disputando a largura, "Receber" + "Acordar" + "⋯" quebram
@@ -666,20 +811,6 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
     .jp-pagas-valor { text-align: left; }
 }
 
-/* ── Barra de seleção flutuante ── */
-.jp-selbar {
-    position: sticky; bottom: 1rem; z-index: 5; margin-top: .8rem;
-    display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
-    padding: .7rem 1rem; border-radius: .75rem;
-    border: 1px solid rgba(var(--jp-accent-rgb), .35);
-    background: var(--bs-body-bg);
-    box-shadow: 0 .5rem 1.5rem rgba(0, 0, 0, .18);
-}
-.jp-selbar[hidden] { display: none; }
-.jp-selbar-info { font-size: .9rem; }
-.jp-selbar-total { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--jp-accent); }
-.jp-selbar-acoes { margin-left: auto; display: flex; gap: .5rem; }
-
 /* ── Alertas acionáveis ── */
 .jp-alerta {
     display: flex; align-items: center; gap: .7rem; flex-wrap: wrap;
@@ -731,11 +862,13 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
    não fica para trás — vira armadilha na próxima leitura. */
 .cobrancas-page { --cob-radius: 1rem; }
 
-/* Próxima ação, compacta no topo da aba Cobrança: uma linha só, que quebra sozinha se faltar largura. */
+/* Próxima ação: desde o redesenho 1a ela vive na coluna de contexto do cabeçalho, logo abaixo da
+   prescrição — não mais como faixa de largura total no topo da aba Cobrança. Uma linha só, que quebra
+   sozinha se faltar largura. Sem `margin-bottom`: quem espaça agora é o `gap` da coluna. */
 .cob-proxima-faixa {
     display: flex; align-items: center; gap: .6rem; flex-wrap: wrap;
     border: 1px solid rgba(var(--jp-accent-rgb), .30); background: rgba(var(--jp-accent-rgb), .07);
-    border-radius: .625rem; padding: .55rem .85rem; margin-bottom: 1.25rem;
+    border-radius: .625rem; padding: .55rem .85rem;
 }
 .cob-proxima-faixa > .bi { color: var(--jp-accent); }
 .cob-proxima-rotulo { font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: var(--jp-accent); font-weight: 600; }
@@ -849,40 +982,57 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
    existe mais). Se a linha voltar, ela nasce de novo com a hierarquia da §1.2: rótulo e valor na
    mesma linha, valor menor que o do card `Total vencido`, que é quem manda no dinheiro. */
 
-/* Barra de atividades (§6.2) — conteúdo e ação na mesma região. Texto SEMPRE junto do ícone (§6.2:
-   "não usar apenas ícone em ação importante"). Quebra permitida, mas com `row-gap` para não parecer
-   acidente; abaixo de `lg` os itens menos frequentes recolhem em "Mais ações" (§6.4). */
-/* A barra vive em LARGURA TOTAL, acima da grade de 2 colunas — dentro da coluna principal as 9 opções
-   quebravam em três linhas. Como não fica mais "colada" no painel, o item ativo é marcado por um traço
-   inferior no accent, não pelo truque de borda da aba clássica do Bootstrap. */
-.cob-barra { border-bottom: 1px solid var(--bs-border-color); gap: .15rem; row-gap: .25rem; margin-bottom: 1rem; }
-.cob-barra .nav-link {
-    display: inline-flex; align-items: center; white-space: nowrap;
-    padding: .5rem .75rem; /* mais enxuto que o padrão do Bootstrap: 9 opções numa linha só */
-    color: var(--bs-secondary-color); border: 1px solid transparent; cursor: pointer;
-}
-.cob-barra .nav-link:hover { color: var(--bs-body-color); background: var(--bs-tertiary-bg); }
-/* Aba ativa evidente (§19.1): accent no texto, fundo suave e traço inferior. */
-.cob-barra .nav-link.active {
-    color: var(--jp-accent); font-weight: 600;
-    background: rgba(var(--jp-accent-rgb), .10); border-color: transparent;
-    box-shadow: inset 0 -2px 0 var(--jp-accent);
-}
-.cob-barra .nav-link:focus-visible { outline: 2px solid var(--jp-accent); outline-offset: -2px; }
+/* ── Abas em CONTROLE SEGMENTADO (redesenho 1a) ─────────────────────────────────────────────────
+   Era uma `nav-tabs` de largura total (`.cob-barra`) com traço inferior no accent e um dropdown
+   "Mais ações" que escondia Responsáveis/Dívida/Honorários abaixo de 1200px. As duas coisas saíram:
+   as seis abas cabem no segmentado (que ocupa só a largura do conteúdo, não a da página) e quebram
+   para uma segunda linha quando faltar espaço, em vez de sumirem atrás de um menu.
 
-/* Abaixo de 1400px Dívida e Honorários só existem dentro de "Mais ações" — a SPEC §19.1 exige que a
-   opção ativa continue evidente. O próprio "Mais ações" já se destaca sozinho: o Bootstrap marca o
-   dropdown-toggle com `.active` quando a aba ativa está dentro dele, e a regra acima pega isso. Falta
-   só trocar o azul padrão do item do dropdown pelo accent do módulo. */
-.cob-barra .dropdown-item.active {
-    background: rgba(var(--jp-accent-rgb), .12); color: var(--jp-accent); font-weight: 600;
+   Com isso o `@media (max-width: 1199.98px)` que escondia `.cob-item-extra` também saiu — não há mais
+   item escondido, e a medição de largura que justificava aquele corte perdeu o objeto.
+
+   A aba ativa é a pastilha CLARA sobre o trilho cinza — o mesmo idioma do resto do redesenho (fundo
+   `--bs-body-bg` sobre `--bs-secondary-bg`), que inverte sozinho no tema escuro. */
+.cob-abas {
+    display: inline-flex; flex-wrap: wrap; gap: .125rem; padding: .1875rem;
+    border-radius: .6875rem; background: var(--bs-secondary-bg);
+    border-bottom: 0; margin-bottom: 1rem;
 }
-/* Ponto de corte MEDIDO, não escolhido no chute. Com a consolidação em "Responsáveis" a barra caiu de
-   9 para 7 opções e passou a somar ~937px (eram ~1265px), então o corte desceu de 1400 para 1200: em
-   1280 e 1366 — as telas mais comuns — as 7 agora cabem numa linha. Abaixo de 1200 valem as 4 que a
-   SPEC §6.4 manda manter visíveis (Cobrança, Documentos, Histórico e Registrar contato) e o resto
-   recolhe em "Mais ações". Ao mexer nos itens da barra, MEÇA de novo em vez de herdar este número. */
-@media (max-width: 1199.98px) { .cob-barra .cob-item-extra { display: none; } }
+.cob-abas .nav-link {
+    display: inline-flex; align-items: center; gap: .45rem; white-space: nowrap;
+    height: 2rem; padding: 0 .8rem; border: 0; border-radius: .5625rem;
+    font-size: .8125rem; font-weight: 500; color: var(--bs-secondary-color); cursor: pointer;
+}
+.cob-abas .nav-link:hover { color: var(--bs-body-color); }
+.cob-abas .nav-link.active {
+    background: var(--bs-body-bg); color: var(--bs-body-color); font-weight: 600;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .12);
+}
+.cob-abas .nav-link:focus-visible { outline: 2px solid var(--jp-accent); outline-offset: -2px; }
+/* A contagem é CONTEXTO da aba, não um segundo rótulo: sempre em tom de apoio, nos dois estados. O
+   `text-bg-secondary` do Bootstrap traria um cinza cheio que competiria com o nome da aba. */
+.cob-abas .badge {
+    font-size: .6875rem; font-weight: 700; padding: .0625rem .375rem;
+    border-radius: 999px; background: var(--bs-tertiary-bg);
+    color: var(--bs-secondary-color); font-variant-numeric: tabular-nums;
+}
+.cob-abas .nav-link.active .badge { background: var(--bs-secondary-bg); }
+
+/* ── Aba Cobrança em DUAS COLUNAS (redesenho 1a) ────────────────────────────────────────────────
+   Editor à esquerda, anotações registradas à direita, na proporção do desenho. Antes o editor
+   atravessava a página inteira — largura sem função para um campo de três linhas — e a lista ficava
+   embaixo, longe do olho de quem acabou de escrever.
+
+   `align-items: start` porque as duas colunas têm alturas independentes: sem ele o editor esticaria
+   até a altura da lista de anotações, que pode ter 30 itens. */
+.cob-cobranca-grade {
+    display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+    gap: 1rem; align-items: start;
+}
+.cob-cobranca-editor, .cob-cobranca-lado { min-width: 0; }
+@media (max-width: 991.98px) {
+    .cob-cobranca-grade { grid-template-columns: minmax(0, 1fr); }
+}
 
 /* Anotação (§7) — primeiro elemento útil da aba Cobrança. */
 .cob-anotacao-nova { border: 1px solid var(--bs-border-color); border-radius: var(--cob-radius); padding: 1rem; background: var(--bs-tertiary-bg); }
@@ -965,22 +1115,39 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
 
 /* Aba Honorários (§14.2) — leitura pura: os números são os mesmos da dívida e do extrato, e os totais
    são somas deles, feitas no UseCase. */
-.cob-hon-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 1rem; }
-.cob-hon-card {
-    display: flex; flex-direction: column; gap: .15rem;
-    border: 1px solid var(--bs-border-color); border-radius: var(--cob-radius);
-    padding: .9rem 1rem; background: var(--bs-tertiary-bg);
+/* Redesenho 1a: os dois números e a configuração vivem numa FAIXA ÚNICA de três painéis divididos por
+   hairline, dentro do mesmo cartão — não mais dois cards soltos e uma lista de config abaixo deles. A
+   config deixou de ser uma seção com título próprio e virou o terceiro painel, que é o seu peso real:
+   ela explica os dois números à esquerda, não compete com eles. */
+.cob-hon-faixa {
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.5fr);
 }
-.cob-hon-card-rot { font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: var(--bs-secondary-color); font-weight: 600; }
-.cob-hon-card-val { font-size: 1.5rem; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; color: var(--bs-body-color); }
-/* Recebido é o único valor "bom" da aba — mesma leitura verde do saldo zerado do cabeçalho. */
-.cob-hon-card-val.is-recebido { color: var(--bs-success); }
-.cob-hon-card-nota { font-size: .8rem; color: var(--bs-secondary-color); }
+.cob-hon-faixa > * { padding: 1.15rem 1.25rem; min-width: 0; }
+.cob-hon-faixa > * + * { border-left: 1px solid var(--bs-border-color); }
+.cob-hon-card-rot {
+    display: block; font-size: .6875rem; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--bs-secondary-color); font-weight: 700; margin-bottom: .3125rem;
+}
+.cob-hon-card-val {
+    display: block; font-size: 1.8125rem; font-weight: 600; line-height: 1.1; letter-spacing: -.02em;
+    font-variant-numeric: tabular-nums; color: var(--bs-body-color); overflow-wrap: anywhere;
+}
+/* Zero recebido não é uma conquista: fica em tom de apoio, como qualquer outro vazio da tela. Só quando
+   entrou dinheiro é que o número ganha o verde do accent. */
+.cob-hon-card-val.is-recebido { color: var(--jp-accent); }
+.cob-hon-card-val.is-recebido.is-zero { color: var(--bs-secondary-color); }
+.cob-hon-card-nota { display: block; font-size: .75rem; color: var(--bs-secondary-color); margin-top: .1875rem; }
 
-.cob-hon-config { display: flex; flex-wrap: wrap; gap: 1.5rem; }
-.cob-hon-item { display: flex; flex-direction: column; gap: .1rem; }
-.cob-hon-rot { font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: var(--bs-secondary-color); font-weight: 600; }
-.cob-hon-val { font-weight: 600; color: var(--bs-body-color); }
+/* A configuração em 2×2 dentro do terceiro painel (desenho). */
+.cob-hon-config { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem 1.125rem; align-content: start; }
+.cob-hon-item { min-width: 0; }
+.cob-hon-rot { display: block; font-size: .6875rem; letter-spacing: .08em; text-transform: uppercase; color: var(--bs-secondary-color); font-weight: 700; }
+.cob-hon-val { display: block; font-size: .84375rem; font-weight: 600; color: var(--bs-body-color); margin-top: .125rem; overflow-wrap: anywhere; }
+
+@media (max-width: 991.98px) {
+    .cob-hon-faixa { grid-template-columns: minmax(0, 1fr); }
+    .cob-hon-faixa > * + * { border-left: 0; border-top: 1px solid var(--bs-border-color); }
+}
 .cob-hon-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
 .cob-hon-lista > li {
     display: flex; align-items: baseline; gap: .75rem; flex-wrap: wrap;
@@ -1033,31 +1200,33 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
     background: color-mix(in srgb, var(--bs-secondary-bg) 92%, var(--jp-accent));
 }
 
-/* Os cards de dinheiro são blocos CHEIOS sobre a faixa (maquete §1.2) — não dá para pintá-los com
-   `--bs-tertiary-bg` como antes, porque sobre a faixa eles sumiriam. Este é o único par de cores
-   local do bloco, e existe declarado NOS DOIS TEMAS de propósito: a regra do topo proíbe hex CLARO
-   fixo (que vira placa branca no escuro), e o que há aqui é uma superfície escura em ambos —
-   no tema escuro ela é mais funda que o fundo da página, então continua lendo como bloco. */
-.cob-cab {
-    --cob-card-forte-bg: #2b3038;
-    --cob-card-forte-fg: #f1f3f5;
-    --cob-card-forte-rot: rgba(255, 255, 255, .62);
-    --cob-card-forte-borda: rgba(255, 255, 255, .09);
+/* `.cob-cab` é a linha identidade + ações; `.cob-cab-lateral` (a antiga coluna da direita) deixou de
+   existir junto com a `.row`, e a regra dela saiu para não sobrar seletor sem dono. */
+.cob-cab-identidade { min-width: 0; }
+/* Linha do topo do painel: voltar · trilha · setas. A trilha encolhe (`min-width: 0`) para que um nome
+   de carteira longo não empurre as setas para fora da linha. */
+.cob-cab-topo > .cob-cab-trilha { min-width: 0; }
+/* Sobre a faixa tingida, botão de contorno transparente afunda no fundo: o voltar ganha a superfície
+   da página, como as setas ao lado dele já ganhavam. */
+.cob-cab-voltar:not(:disabled) { background-color: var(--bs-body-bg); }
+.cob-cab-voltar:not(:disabled):hover, .cob-cab-voltar:not(:disabled):focus-visible {
+    background-color: rgba(var(--jp-accent-rgb), .12);
+    border-color: rgba(var(--jp-accent-rgb), .4);
+    color: var(--jp-accent);
 }
-html[data-bs-theme="dark"] .cob-cab {
-    --cob-card-forte-bg: #12161c;
-    --cob-card-forte-fg: #e9ecef;
-    --cob-card-forte-rot: rgba(255, 255, 255, .55);
-    --cob-card-forte-borda: rgba(255, 255, 255, .07);
+/* Sobretítulo `UNIDADE` (desenho): diz o que a coisa é; o `h1` logo abaixo diz qual é. Peso médio e
+   caixa-alta pequena — ele orienta, não compete com o título. */
+.cob-cab-sobretitulo {
+    font-size: .78125rem; font-weight: 500; text-transform: uppercase;
+    letter-spacing: .08em; color: var(--bs-secondary-color);
 }
-
-.cob-cab-identidade, .cob-cab-lateral { min-width: 0; }
-/* O `h1` sai do tamanho padrão do Bootstrap (2.5rem): `objeto.identificacao` costuma ser um nome
-   longo de unidade, que nesse corpo ocupava duas linhas e roubava o cabeçalho dos números. Continua
-   sendo o maior texto da coluna — só que agora não maior que o card do total. `overflow-wrap`
-   porque a identificação vem do cadastro e pode ser uma sequência longa sem espaço. */
+/* 1.875rem = os 30px do desenho (o padrão do Bootstrap é 2.5rem, que fazia a identificação ocupar duas
+   linhas e roubar o cabeçalho dos números). Continua sendo o maior texto da coluna — e menor que o
+   herói do vencido, que é quem manda na tela. `overflow-wrap` porque a identificação vem do cadastro e
+   pode ser uma sequência longa sem espaço. */
 .cob-cab-identidade h1 {
-    font-size: 1.5rem; min-width: 0; overflow-wrap: anywhere;
+    font-size: 1.875rem; font-weight: 600; line-height: 1.15; letter-spacing: -.015em;
+    min-width: 0; overflow-wrap: anywhere;
 }
 
 /* Trilha de dois níveis (§1.1). Discreta: é orientação, não conteúdo — o título é que manda. */
@@ -1096,57 +1265,116 @@ html[data-bs-theme="dark"] .cob-cab {
 
 .cob-cab-meta { overflow-wrap: anywhere; }
 
-/* ── §1.2 Os quatro cards que somam entre si ────────────────────────────────────────────────────
-   Flex com quebra em vez de grade de colunas iguais: cada card ocupa a largura do próprio conteúdo
-   (o mais largo entre rótulo, valor e nota), então R$ 1.200,00 não fica dentro de uma caixa
-   dimensionada para R$ 1.234.567,89 — pedido do dono. Quando a coluna aperta (viewport estreito ou
-   a própria grade de duas colunas do cabeçalho), eles quebram sozinhos, sem media query.
-   `max-width: 100%` impede que um valor muito longo estoure a linha. */
-.cob-cab-cards {
-    display: flex; flex-wrap: wrap; gap: .6rem;
-}
-/* `justify-content: center` porque os cards têm a MESMA altura (o do total é mais alto por causa da
-   nota "atualizado em"): sem ele, rótulo e valor colam no topo e sobra um vazio embaixo nos outros
-   três. Centralizado, a folga se divide em cima e embaixo e a linha fica alinhada. */
-.cob-cab-card {
-    display: flex; flex-direction: column; justify-content: center;
-    gap: .15rem; min-width: 0; max-width: 100%;
-    border: 1px solid var(--cob-card-forte-borda); border-radius: .625rem;
-    padding: .7rem .9rem; background: var(--cob-card-forte-bg);
-}
-.cob-cab-card-rot {
-    font-size: .68rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em;
-    color: var(--cob-card-forte-rot);
-}
-.cob-cab-card-val {
-    font-size: 1.2rem; font-weight: 700; line-height: 1.15;
-    font-variant-numeric: tabular-nums; color: var(--cob-card-forte-fg); overflow-wrap: anywhere;
-}
-/* A nota "atualizado em dd/mm/aaaa" é CONTEXTO do total, não um segundo dado: menor que o rótulo e
-   sem caixa-alta, para não disputar leitura com o valor logo acima. */
-.cob-cab-card-nota { font-size: .68rem; color: var(--bs-secondary-color); margin-top: .05rem; }
+/* ── §1.2 → redesenho 1a: UM herói + três apoios + a barra de composição ────────────────────────
+   Os quatro cards que somavam entre si viraram uma hierarquia: `totalAtualizadoVencido` é o número de
+   2.75rem, e `totalPrincipalVencido` / `totalEncargosVencido` / `honorariosVencidos` ficam em 1.1875rem
+   ao lado. A identidade não mudou — os quatro continuam fechando por construção no
+   `MontarDetalheCasoUseCase` —, mudou quem manda na leitura.
 
-/* `Total atualizado` é a soma dos três anteriores — o destaque diz "leia este" sem precisar de um
-   quinto elemento explicando a relação. Ele é o card CLARO no meio dos escuros (maquete §1.2): a
-   inversão sozinha já o separa, sem precisar de tamanho maior que o dos outros três. O `color-mix`
-   parte do fundo da página, então o card acompanha o tema em vez de fixar um verde claro. */
-.cob-cab-card.is-total {
-    border-color: rgba(var(--jp-accent-rgb), .45);
-    background: color-mix(in srgb, var(--bs-body-bg) 88%, var(--jp-accent));
-}
-.cob-cab-card.is-total .cob-cab-card-rot { color: var(--jp-accent); }
-.cob-cab-card.is-total .cob-cab-card-val { font-size: 1.35rem; color: var(--jp-accent); }
+   Por que: com quatro caixas do mesmo tamanho, a pergunta que a tela responde ("quanto está vencido
+   hoje?") tinha de ser procurada entre quatro números iguais. Agora ela se lê de longe, e os três
+   componentes explicam o herói em vez de competirem com ele.
 
-/* Rótulo que esconde explicação atrás de tooltip avisa que é clicável-de-mouse-parado. Só nos
-   RÓTULOS: nos botões desabilitados o cursor certo é `not-allowed`, logo abaixo. */
-.cob-cab-card-rot[data-bs-toggle="tooltip"] {
+   O par de variáveis `--cob-card-forte-*` que pintava os cards cheios foi APAGADO junto com eles: não
+   há mais superfície escura no cabeçalho, o dinheiro vive direto sobre a faixa. */
+
+/* A faixa divide-se em DINHEIRO (esquerda, mais larga) e CONTEXTO (direita: prescrição + próxima ação).
+   Grade, e não duas `col-lg-*` do Bootstrap, porque as duas colunas precisam da mesma altura para a
+   divisória vertical entre elas ir de ponta a ponta. */
+.cob-cabecalho {
+    display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+    border-top: 1px solid var(--bs-border-color); margin-top: 1rem;
+}
+.cob-cabecalho > * { min-width: 0; }
+.cob-cabecalho > * + * { border-left: 1px solid var(--bs-border-color); }
+.cob-cabecalho-dinheiro { padding: 1.15rem 1.25rem .25rem 0; }
+.cob-cabecalho-contexto {
+    padding: 1.15rem 0 .25rem 1.25rem;
+    display: flex; flex-direction: column; gap: .75rem;
+}
+
+.cob-heroi { display: flex; align-items: flex-end; gap: 1.125rem; flex-wrap: wrap; }
+.cob-heroi-rotulo {
+    font-size: .6875rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .1em;
+    color: var(--bs-danger); margin-bottom: .25rem;
+}
+/* 2.75rem ≈ 44px. `tabular-nums` porque o número muda a cada hidratação e não pode "dançar" na largura
+   entre um render e outro. `overflow-wrap` porque a carteira real chega a seis dígitos antes da vírgula. */
+.cob-heroi-valor {
+    font-size: 2.75rem; font-weight: 600; line-height: 1;
+    letter-spacing: -.025em; color: var(--bs-danger);
+    font-variant-numeric: tabular-nums; overflow-wrap: anywhere;
+}
+.cob-heroi-quando { font-size: .75rem; color: var(--bs-tertiary-color); padding-bottom: .375rem; }
+
+/* Os três apoios. Flex com quebra (não colunas iguais): cada um ocupa a largura do próprio número, e
+   quando a coluna aperta eles quebram sozinhos, sem media query. */
+.cob-apoios { display: flex; gap: 1.6rem; flex-wrap: wrap; margin-top: 1rem; }
+.cob-apoio { min-width: 0; }
+.cob-apoio-rotulo {
+    font-size: .6875rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .1em;
+    color: var(--bs-secondary-color); margin-bottom: .2rem;
+}
+.cob-apoio-valor {
+    font-size: 1.1875rem; font-weight: 600; letter-spacing: -.01em;
+    font-variant-numeric: tabular-nums; overflow-wrap: anywhere;
+}
+/* Rótulo que esconde explicação atrás de tooltip avisa que é clicável-de-mouse-parado. */
+.cob-apoio-rotulo[data-bs-toggle="tooltip"],
+.cob-heroi-rotulo[data-bs-toggle="tooltip"] {
     cursor: help;
-    text-decoration: underline dotted var(--bs-border-color);
+    text-decoration: underline dotted currentColor;
     text-underline-offset: .2em;
 }
-/* Dentro do card cheio, o pontilhado tem de sair do próprio rótulo: `--bs-border-color` é cor de
-   borda de superfície CLARA e some sobre o fundo escuro do card. */
-.cob-cab-card .cob-cab-card-rot[data-bs-toggle="tooltip"] { text-decoration-color: currentColor; }
+
+/* Barra de composição do vencido: Principal · Juros e multa · Honorários. Os três segmentos SOMAM 100%
+   por construção — `CasoDetalheOutput::composicaoVencido()` faz o terceiro ser o RESTO, justamente para
+   não sobrar fresta nem estourar aqui. A largura vem inline, do servidor: é a única coisa nesta folha
+   que um valor calculado atravessa, e é assim de propósito (percentual não é classe CSS). */
+.cob-composicao {
+    display: flex; height: 8px; margin-top: 1rem;
+    border-radius: 999px; overflow: hidden;
+    background: var(--bs-tertiary-bg);
+}
+.cob-composicao-principal { background: var(--bs-danger); }
+.cob-composicao-encargos  { background: var(--bs-warning); }
+.cob-composicao-honorarios { background: var(--bs-secondary-color); }
+
+.cob-legenda {
+    display: flex; flex-wrap: wrap; gap: .4rem 1rem;
+    margin-top: .45rem; font-size: .71875rem; color: var(--bs-secondary-color);
+}
+.cob-legenda-item { display: inline-flex; align-items: center; gap: .3rem; }
+.cob-legenda-cor { width: 8px; height: 8px; border-radius: 2px; flex: none; }
+.cob-legenda-cor.is-principal { background: var(--bs-danger); }
+.cob-legenda-cor.is-encargos { background: var(--bs-warning); }
+.cob-legenda-cor.is-honorarios { background: var(--bs-secondary-color); }
+.cob-legenda strong { color: var(--bs-body-color); font-weight: 700; font-variant-numeric: tabular-nums; }
+.cob-legenda-sep { opacity: .5; }
+
+/* ── Ações do cabeçalho: 6 botões em 2 linhas de 3 ──────────────────────────────────────────────
+   Coluna de linhas, não um `flex-wrap` só: a quebra tem de ser SEMPRE depois da terceira (frequentes
+   em cima, raras embaixo), e não onde a largura mandar. O dropdown `⋯` foi eliminado — com seis ações
+   em duas linhas não sobra nada para esconder. */
+.cob-acoes { display: flex; flex-direction: column; align-items: flex-end; gap: .375rem; }
+.cob-acoes-linha { display: flex; align-items: center; gap: .375rem; flex-wrap: wrap; justify-content: flex-end; }
+@media (max-width: 991.98px) {
+    .cob-acoes { align-items: stretch; }
+    .cob-acoes-linha { justify-content: flex-start; }
+}
+
+/* ── Responsivo: abaixo de lg a faixa vira uma coluna só ────────────────────────────────────────
+   A divisória vertical entre dinheiro e contexto vira horizontal, e o herói encolhe — 2.75rem num
+   telefone ocuparia a linha inteira com um número só. */
+@media (max-width: 991.98px) {
+    .cob-cabecalho { grid-template-columns: minmax(0, 1fr); }
+    .cob-cabecalho > * + * { border-left: 0; border-top: 1px solid var(--bs-border-color); }
+    .cob-cabecalho-dinheiro { padding: 1rem 0 .25rem; }
+    .cob-cabecalho-contexto { padding: 1rem 0 .25rem; }
+    .cob-heroi-valor { font-size: 2.25rem; }
+}
 
 /* ── §1.3 Caixa de prescrição ────────────────────────────────────────────────────────────────────
    A caixa só existe quando há obrigação em aberto (guard no Twig, `caso.prescricao`), e a severidade
@@ -1158,26 +1386,34 @@ html[data-bs-theme="dark"] .cob-cab {
 
    A grade de duas colunas existe só para o link subir para a linha do título sem posicionamento
    absoluto (que sobreporia o texto quando a coluna aperta). Detalhe e aviso atravessam as duas. */
+/* Redesenho 1a: a caixa saiu da largura total e virou BLOCO na coluna de contexto, ao lado do
+   dinheiro. Por caber num espaço menor, encolheu — raio .625rem, título .84375rem, espinha de 3px em
+   vez da borda de .3rem — e o link desceu para o fim do texto, em vez de disputar a linha do título
+   com ele. Ícone e corpo são irmãos num flex; antes o ícone morava dentro do título. */
 .cob-presc {
-    display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .15rem .75rem;
-    align-items: start; min-width: 0;
-    border: 1px solid var(--bs-border-color); border-left-width: .3rem;
-    border-radius: var(--cob-radius);
-    padding: .8rem 1rem; background: var(--bs-body-bg);
+    display: flex; gap: .6rem; align-items: flex-start; min-width: 0;
+    border: 1px solid var(--bs-border-color); border-left-width: 3px;
+    border-radius: .625rem;
+    padding: .7rem .8rem; background: var(--bs-body-bg);
 }
+.cob-presc > .bi { font-size: .95rem; flex: none; line-height: 1.5; }
+.cob-presc-corpo { min-width: 0; }
 .cob-presc-destaque {
-    grid-column: 1; display: flex; align-items: baseline; gap: .45rem; min-width: 0;
-    font-size: 1.02rem; font-weight: 700; line-height: 1.3; color: var(--bs-body-color);
+    font-size: .84375rem; font-weight: 600; line-height: 1.3; color: var(--bs-body-color);
     overflow-wrap: anywhere;
 }
-.cob-presc-destaque > .bi { font-size: .95em; flex: none; }
-.cob-presc-detalhe { grid-column: 1 / -1; color: var(--bs-secondary-color); overflow-wrap: anywhere; }
+.cob-presc-detalhe {
+    font-size: .78125rem; color: var(--bs-secondary-color);
+    text-wrap: pretty; overflow-wrap: anywhere; margin-top: .125rem;
+}
 .cob-presc-detalhe strong { color: var(--bs-body-color); font-weight: 600; }
 /* O aviso de estimativa (`.cob-presc-aviso`) saiu da caixa em 2026-07-27, a pedido do dono, e as
    regras dele saíram junto para não sobrar CSS órfão. A caixa ficou com destaque, detalhe e link. */
-/* O link fica na linha do título, à direita, e discreto — a ação principal da caixa é LER. */
+/* O link fecha o bloco: a ação principal da caixa continua sendo LER, mas quem quer conferir a
+   competência tem para onde ir sem procurar. */
 .cob-presc-link {
-    grid-column: 2; grid-row: 1; justify-self: end; white-space: nowrap;
+    display: inline-block; margin-top: .3125rem;
+    font-size: .78125rem; font-weight: 600; white-space: nowrap;
     color: var(--bs-secondary-color); text-decoration: none;
 }
 .cob-presc-link:hover, .cob-presc-link:focus-visible { color: var(--jp-accent); text-decoration: underline; }
@@ -1190,15 +1426,18 @@ html[data-bs-theme="dark"] .cob-cab {
     border-color: rgba(var(--bs-danger-rgb), .25); border-left-color: var(--bs-danger);
     background: rgba(var(--bs-danger-rgb), .09);
 }
-.cob-presc.sev-danger .cob-presc-destaque { color: var(--bs-danger-text-emphasis); }
+.cob-presc.sev-danger .cob-presc-destaque,
+.cob-presc.sev-danger > .bi { color: var(--bs-danger-text-emphasis); }
 
 .cob-presc.sev-warning {
     border-color: rgba(var(--bs-warning-rgb), .3); border-left-color: var(--bs-warning);
     background: rgba(var(--bs-warning-rgb), .1);
 }
-.cob-presc.sev-warning .cob-presc-destaque { color: var(--bs-warning-text-emphasis); }
+.cob-presc.sev-warning .cob-presc-destaque,
+.cob-presc.sev-warning > .bi { color: var(--bs-warning-text-emphasis); }
 
 .cob-presc.sev-info { border-left-color: var(--bs-secondary-color); }
+.cob-presc.sev-info > .bi { color: var(--bs-secondary-color); }
 
 /* ── §1.4 Ações do cabeçalho ────────────────────────────────────────────────────────────────────
    `Simular acordo` e `Planilha atualizada` entram desabilitados de propósito (não existem ainda). O
