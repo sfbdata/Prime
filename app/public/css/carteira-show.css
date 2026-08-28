@@ -280,8 +280,28 @@
 /* Sem `overflow: hidden`: o menu do filtro de Estado abre DENTRO deste cartão, e recorte no
    container corta menu — não há como um descendente escapar do overflow do ancestral. Quem
    arredonda o canto de baixo passa a ser o próprio rodapé (é o único filho com fundo colorido
-   encostado na borda). `position: relative` fica: é o berço da contagem posicionada. */
-.cs-lista { position: relative; }
+   encostado na borda).
+
+   O cartão é uma FAIXA FLEX para resolver um problema de dono diferente: a barra de busca vive
+   FORA da área trocável (senão o campo perde o foco ao digitar) e a contagem vive DENTRO (ela
+   muda a cada filtro) — e o desenho põe as duas na MESMA linha. `display: contents` no
+   [data-filtro-resultado] faz os filhos do fragmento participarem desta faixa como se o
+   invólucro não existisse: a contagem senta ao lado da barra, e tabela, rodapé e estado vazio
+   quebram para a linha de baixo.
+
+   A primeira tentativa foi posicionar a contagem por cima da barra (`position: absolute`), e ela
+   caiu em cima do botão de Estado — reservar folga no chute só adiaria a colisão. */
+.cs-lista { position: relative; display: flex; flex-wrap: wrap; align-items: stretch; }
+.cs-lista > form.filtro-barra { flex: 1 1 320px; min-width: 0; }
+.cs-lista [data-filtro-resultado] { display: contents; }
+/* `display: contents` some com a caixa, e com ela o fade de carregando que o motor aplica no
+   invólucro. Reaplicado nos filhos, que agora são os elementos reais da faixa. */
+.cs-lista [data-filtro-resultado].filtro-carregando > * {
+    opacity: .55; transition: opacity .12s ease; pointer-events: none;
+}
+.cs-lista-rolagem,
+.cs-lista .cs-rodape,
+.cs-lista .cs-vazio { flex: 0 0 100%; min-width: 0; }
 
 /* A barra de busca/filtro fica FORA da área trocável (o campo mantém o foco
    enquanto digita) — quem a monta é o `_partials/_filtro_barra.html.twig`. */
@@ -355,16 +375,15 @@
 .cs-estado-opcao.is-atual { font-weight: 600; }
 .cs-estado-opcao.is-atual .bi-check2 { visibility: visible; }
 
-/* A contagem pertence à barra (é onde o desenho a põe), mas VIVE dentro do
-   fragmento trocável — ela muda a cada busca, e a barra não recarrega. Em tela
-   larga ela é levada para a barra por posicionamento; abaixo de 992px, onde a
-   barra pode quebrar em duas linhas, volta a fluir logo abaixo dela. */
+/* Item da faixa, à direita da barra. Carrega a MESMA borda de baixo da barra para as duas
+   comporem uma linha contínua sob a régua do cartão. Em tela estreita ela quebra sozinha para a
+   linha de baixo e o `margin-left: auto` a mantém encostada à direita. */
 .cs-contagem {
+    flex: 0 1 auto; margin-left: auto;
+    display: flex; align-items: center; padding: 0 16px;
+    border-bottom: 1px solid var(--cs-div-strong);
     font-variant-numeric: tabular-nums; font-size: 13px; color: var(--cs-muted);
-    padding: 0 16px 11px; text-align: right;
-}
-@media (min-width: 992px) {
-    .cs-contagem { position: absolute; top: 0; right: 16px; height: 60px; padding: 0; display: flex; align-items: center; }
+    white-space: nowrap;
 }
 
 /* ── Tabela ──────────────────────────────────────────────────────────────── */
