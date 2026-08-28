@@ -165,32 +165,27 @@ final class CarteiraController extends AbstractController
             // Documentos da carteira (Ajuste #5): lista cronológica abaixo da configuração.
             'documentos' => $this->carteiraDocumentoRepository->listarPorCarteira($carteira),
             'categoriasCarteira' => CategoriaDocumentoCarteira::cases(),
-            'facetasEstado' => self::facetasDaLista(),
+            'estadoOpcoes' => self::opcoesDeEstado(),
         ]);
     }
 
     /**
-     * Opções da faceta de Estado, no formato do `_partials/_filtro_barra.html.twig`. Só na página
-     * cheia: a barra de filtro vive FORA do fragmento trocável, então nunca viaja no XHR.
+     * Opções do filtro de Estado da lista. Só na página cheia: o controle vive FORA do fragmento
+     * trocável (é o que mantém o foco do campo de busca), então nunca viaja no XHR.
      *
-     * @return list<array{name: string, rotulo: string, tipo: string, opcoes: list<array{valor: string, label: string}>}>
+     * @return list<array{valor: string, label: string}>
      */
-    private static function facetasDaLista(): array
+    private static function opcoesDeEstado(): array
     {
-        return [[
-            'name' => 'estado',
-            'rotulo' => 'Estado',
-            'tipo' => 'select',
-            'opcoes' => [
-                ['valor' => 'ativo', 'label' => 'Ativo'],
-                ['valor' => 'judicializado', 'label' => 'Judicializado'],
-                ['valor' => 'encerrado', 'label' => 'Encerrado'],
-                // Não é um estado, é o recorte derivado "tem atraso" — por isso vem por último e
-                // com rótulo que não imita os três de cima, para não se ler como um quarto
-                // valor de `StatusCaso`.
-                ['valor' => 'vencidos', 'label' => 'Só com atraso'],
-            ],
-        ]];
+        return [
+            ['valor' => 'ativo', 'label' => 'Ativo'],
+            ['valor' => 'judicializado', 'label' => 'Judicializado'],
+            ['valor' => 'encerrado', 'label' => 'Encerrado'],
+            // Não é um estado, é o recorte derivado "tem atraso" — por isso vem por último e com
+            // rótulo que não imita os três de cima, para não se ler como um quarto valor de
+            // `StatusCaso`.
+            ['valor' => 'vencidos', 'label' => 'Só com atraso'],
+        ];
     }
 
     #[Route('/carteiras/nova', name: 'cobranca_carteira_criar', methods: ['POST'])]

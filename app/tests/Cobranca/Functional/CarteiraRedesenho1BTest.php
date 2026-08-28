@@ -332,4 +332,41 @@ final class CarteiraRedesenho1BTest extends CobrancaWebTestCase
         );
         self::assertSame(4, $botoes, 'anterior + 1 + 2 + proxima');
     }
+
+    #[TestDox('O filtro de Estado e botao com menu, mas o campo REAL continua sendo o select')]
+    public function testFiltroDeEstadoMantemOSelectComoCampoReal(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        $carteira = $this->carteiraComDoisEstados($tenant);
+
+        $crawler = $client->request('GET', '/cobrancas/carteiras/' . $carteira->getId() . '?estado=vencidos');
+
+        self::assertResponseIsSuccessful();
+
+        // O <select> é o campo de verdade por DOIS motivos, e os dois são invisíveis num smoke:
+        // é ele que entra no FormData do XHR (sem ele o filtro simplesmente não filtra) e é dele
+        // que o motor tira o RÓTULO do chip. O botão desenhado só o pilota.
+        $select = $crawler->filter('[data-filtro-form] select.js-filtro-campo[name="estado"]');
+        self::assertSame(1, $select->count());
+
+        $valores = $select->filter('option')->each(static fn ($no): string => (string) $no->attr('value'));
+        self::assertSame(['', 'ativo', 'judicializado', 'encerrado', 'vencidos'], $valores);
+
+        // O menu não pode oferecer opção que o campo não aceita — divergir aqui daria um filtro que
+        // parece funcionar e devolve a lista inteira, porque o UseCase ignora valor fora da lista.
+        $doMenu = $crawler->filter('[data-estado-menu] [data-estado-valor]')->each(
+            static fn ($no): string => (string) $no->attr('data-estado-valor'),
+        );
+        self::assertSame($valores, $doMenu);
+
+        self::assertSame(1, $crawler->filter('[data-estado-menu] .cs-estado-btn')->count(), 'Sumiu o botão desenhado');
+
+        // O que veio na URL tem de chegar marcado no campo: é daí que o script tira o rótulo do
+        // botão ao carregar a página.
+        self::assertSame(
+            'Só com atraso',
+            trim($select->filter('option[selected]')->text()),
+        );
+    }
 }

@@ -203,11 +203,61 @@
                    (mantém o foco no campo enquanto digita) e o fragmento devolvido pelo XHR não
                    carrega nada permissionado. #}
                 <div class="cs-card cs-lista" data-filtro-root data-filtro-endpoint="{{ path('cobranca_carteira_show', {id: carteira.id}) }}">
-                    {{ include('_partials/_filtro_barra.html.twig', {
-                        busca_placeholder: 'Buscar ' ~ rotulo|lower ~ ' ou pessoa cobrada…',
-                        filtros: filtros,
-                        facetas: facetasEstado
-                    }) }}
+                    {# Barra própria, e não o `_partials/_filtro_barra.html.twig`: o desenho pede um
+                       botão com funil e menu no lugar do `<select>` genérico, e aquele partial é
+                       compartilhado com o Expediente e as outras listagens — dar um tipo novo de
+                       faceta a ele mudaria a superfície das outras telas sem pedido.
+
+                       O contrato do `public/js/filtro-tabela.js` é o que continua valendo, e ele é
+                       todo por atributo/classe: `[data-filtro-form]`, `.js-filtro-busca`,
+                       `.js-filtro-campo`, os dois hidden de ordenação e `[data-filtro-chips]`. #}
+                    <form data-filtro-form method="get" class="filtro-barra cs-barra">
+                        <div class="filtro-linha">
+                            <div class="filtro-busca">
+                                <i class="bi bi-search"></i>
+                                <input type="text" name="busca" class="form-control form-control-sm js-filtro-busca"
+                                       data-rotulo="Busca" placeholder="Buscar {{ rotulo|lower }} ou pessoa cobrada…"
+                                       autocomplete="off" value="{{ filtros.busca|default('') }}">
+                            </div>
+
+                            {# O `<select>` é quem guarda o valor: é ele que entra no FormData do XHR e
+                               é dele que o motor tira o RÓTULO do chip ("Estado: Só com atraso"), coisa
+                               que um input escondido com o valor cru não daria. O botão desenhado só o
+                               pilota. Sem JS o `<select>` continua à vista e funcionando — quem o
+                               esconde é o próprio script, depois de montar o menu. #}
+                            <div class="cs-estado dropdown" data-estado-menu data-estado-padrao="Estado">
+                                <select name="estado" class="form-select form-select-sm filtro-select js-filtro-campo cs-estado-nativo"
+                                        data-rotulo="Estado" aria-label="Filtrar por estado">
+                                    <option value="">Todos os estados</option>
+                                    {% for o in estadoOpcoes %}
+                                    <option value="{{ o.valor }}" {{ filtros.estado|default('') == o.valor ? 'selected' : '' }}>{{ o.label }}</option>
+                                    {% endfor %}
+                                </select>
+                                <button type="button" class="cs-estado-btn" data-bs-toggle="dropdown"
+                                        data-bs-auto-close="true" aria-expanded="false" aria-label="Filtrar por estado">
+                                    <i class="bi bi-funnel"></i>
+                                    <span data-estado-rotulo>Estado</span>
+                                    <i class="bi bi-chevron-down"></i>
+                                </button>
+                                <div class="dropdown-menu dropdown-menu-end cs-estado-menu">
+                                    <button type="button" class="cs-estado-opcao" data-estado-valor="">
+                                        <span>Todos os estados</span><i class="bi bi-check2"></i>
+                                    </button>
+                                    {% for o in estadoOpcoes %}
+                                    <button type="button" class="cs-estado-opcao" data-estado-valor="{{ o.valor }}">
+                                        <span>{{ o.label }}</span><i class="bi bi-check2"></i>
+                                    </button>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <input type="hidden" name="ordenar" value="{{ filtros.ordenar|default('') }}">
+                        <input type="hidden" name="direcao" value="{{ filtros.direcao|default('') }}">
+
+                        {# Chips dos filtros ativos — montados pelo motor a partir do estado do form. #}
+                        <div class="filtro-chips" data-filtro-chips></div>
+                    </form>
                     <div data-filtro-resultado>
                         {{ include('cobranca/carteira/_resultado_casos.html.twig') }}
                     </div>
@@ -326,6 +376,9 @@
 {{ parent() }}
 <script src="{{ asset('js/filtro-tabela.js') }}"></script>
 <script src="{{ asset('js/cobranca-carteira-form.js') }}"></script>
+{# Troca o <select> de Estado pelo botão com funil e menu do desenho. Melhoria progressiva:
+   sem este script o <select> continua à vista e a tela filtra do mesmo jeito. #}
+<script src="{{ asset('js/carteira-filtro-estado.js') }}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     /* Clique na linha delegado no document — sobrevive à troca do fragmento pela busca. */

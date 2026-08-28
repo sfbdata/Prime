@@ -41,6 +41,7 @@
     --cs-verde:         #1f7a4d;
     --cs-verde-escuro:  #1a6b43;
     --cs-verde-texto:   #186c47;
+    --cs-verde-suave:   #e8f3ed;
 
     --cs-vermelho:      #a3232b;
     --cs-vermelho-bg:   #fdf1f0;
@@ -80,6 +81,7 @@
     --cs-verde:         #1f7a4d;
     --cs-verde-escuro:  #17603b;
     --cs-verde-texto:   #6ddaa2;
+    --cs-verde-suave:   rgba(31, 122, 77, .18);
 
     --cs-vermelho:      #f08a84;
     --cs-vermelho-bg:   rgba(192, 57, 47, .16);
@@ -270,9 +272,16 @@
 }
 .cs-coluna-lista { min-width: 0; }
 .cs-trilho { display: flex; flex-direction: column; gap: 16px; }
+/* Recorte aqui é seguro (nenhum menu abre dentro) e é o que segura o canto arredondado sob o
+   realce de hover da última linha de documento. */
+.cs-trilho > .cs-card { overflow: hidden; }
 
 /* ── Cartão da lista ─────────────────────────────────────────────────────── */
-.cs-lista { overflow: hidden; position: relative; }
+/* Sem `overflow: hidden`: o menu do filtro de Estado abre DENTRO deste cartão, e recorte no
+   container corta menu — não há como um descendente escapar do overflow do ancestral. Quem
+   arredonda o canto de baixo passa a ser o próprio rodapé (é o único filho com fundo colorido
+   encostado na borda). `position: relative` fica: é o berço da contagem posicionada. */
+.cs-lista { position: relative; }
 
 /* A barra de busca/filtro fica FORA da área trocável (o campo mantém o foco
    enquanto digita) — quem a monta é o `_partials/_filtro_barra.html.twig`. */
@@ -293,6 +302,58 @@
     border-color: var(--cs-foco); outline: none; box-shadow: 0 0 0 3px var(--cs-foco-anel);
 }
 .cs-lista .filtro-chips { margin-top: 9px; }
+
+/* ── Filtro de Estado: o botão com funil e menu do desenho ───────────────── */
+/* Enquanto o script não roda, o <select> nativo é o controle — e o botão nem existe
+   na tela. Quem inverte isso é a classe `is-melhorado`, posta pelo JS. */
+.cs-estado { flex-shrink: 0; }
+.cs-estado .cs-estado-btn,
+.cs-estado .cs-estado-menu { display: none; }
+.cs-estado.is-melhorado .cs-estado-nativo {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+.cs-estado.is-melhorado .cs-estado-btn { display: inline-flex; }
+.cs-estado.is-melhorado .cs-estado-menu { display: none; }
+.cs-estado.is-melhorado .cs-estado-menu.show { display: block; }
+
+.cs-estado-btn {
+    align-items: center; gap: 7px; height: 34px; padding: 0 12px;
+    border: 1px solid var(--cs-border-ctl); border-radius: 9px;
+    background: var(--cs-card); color: var(--cs-muted);
+    font-family: inherit; font-size: 13px; font-weight: 500; line-height: 1;
+    cursor: pointer; white-space: nowrap;
+}
+.cs-estado-btn .bi-funnel { font-size: 13px; }
+.cs-estado-btn .bi-chevron-down { font-size: 9px; opacity: .7; }
+.cs-estado-btn:hover { border-color: var(--cs-link); color: var(--cs-link); }
+.cs-estado-btn:focus-visible { outline: 2px solid var(--cs-foco); outline-offset: 1px; }
+/* Filtro ligado veste o verde do módulo: é o aviso de que a lista está RECORTADA, e ele
+   precisa ser visível sem ler o rótulo — é o que separa "lista curta" de "lista filtrada". */
+.cs-estado.is-ativo .cs-estado-btn {
+    border-color: var(--cs-verde); background: var(--cs-verde-suave, #e8f3ed); color: var(--cs-verde-texto);
+    font-weight: 600;
+}
+
+.cs-estado-menu {
+    width: 210px; padding: 5px; margin-top: 6px;
+    border: 1px solid var(--cs-border); border-radius: 10px;
+    background: var(--cs-card); box-shadow: var(--cs-shadow-pop);
+}
+.cs-estado-opcao {
+    width: 100%; display: flex; align-items: center; gap: 8px;
+    padding: 8px 10px; border: none; border-radius: 7px; background: transparent;
+    font-family: inherit; font-size: 13.5px; color: var(--cs-body);
+    text-align: left; cursor: pointer;
+}
+.cs-estado-opcao > span { flex: 1; }
+.cs-estado-opcao:hover { background: var(--cs-hover); }
+.cs-estado-opcao:focus-visible { outline: 2px solid var(--cs-foco); outline-offset: -2px; }
+/* O check só existe na opção escolhida; nas outras ele ocupa o lugar, invisível, para o
+   texto não pular de posição ao trocar de opção. */
+.cs-estado-opcao .bi-check2 { font-size: 13px; color: var(--cs-link); visibility: hidden; }
+.cs-estado-opcao.is-atual { font-weight: 600; }
+.cs-estado-opcao.is-atual .bi-check2 { visibility: visible; }
 
 /* A contagem pertence à barra (é onde o desenho a põe), mas VIVE dentro do
    fragmento trocável — ela muda a cada busca, e a barra não recarrega. Em tela
@@ -417,6 +478,8 @@
     padding: 12px 14px; background: var(--cs-soft);
     display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
     border-top: 1px solid var(--cs-div-weak);
+    /* 13px = os 14 do cartão menos a borda de 1px. */
+    border-radius: 0 0 13px 13px;
 }
 .cs-faixa { font-variant-numeric: tabular-nums; font-size: 13px; color: var(--cs-muted); }
 
