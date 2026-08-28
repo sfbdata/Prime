@@ -11,6 +11,7 @@ use App\Cobranca\Entity\Obrigacao;
 use App\Cobranca\Enum\StatusAcordo;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -28,6 +29,73 @@ final class ObrigacaoOutputTest extends TestCase
     private function obrigacaoCom(int $valorOriginal, int $encargos = 0): Obrigacao
     {
         return (new Obrigacao())->setDescricao('X')->setValorOriginal($valorOriginal)->setEncargosReconhecidos($encargos);
+    }
+
+    #[Test]
+    #[TestDox('acrescimos() fecha a identidade da linha: valorOriginal + acrescimos == valorAtual')]
+    public function acrescimosFechaComOTotalDaLinha(): void
+    {
+        // A coluna `Acréscimos` do redesenho 1a existe para explicar a distância entre `Original` e
+        // `Total` na mesma linha. Se ela não fechar, a linha passa a mostrar três números que não se
+        // relacionam — e quem confere contra a contabilidade conclui que há erro onde não há.
+        $out = new ObrigacaoOutput(
+            id: 1,
+            descricao: 'Taxa de condomínio',
+            valorOriginal: 5000,
+            encargosReconhecidos: 5000,
+            // `valorAtual` é `Obrigacao::valorExigivel()`: original + os TRÊS encargos + honorários.
+            valorAtual: 5000 + 4900 + 100 + 0 + 2000,
+            vencimentoOriginal: new \DateTimeImmutable('2018-08-10'),
+            referenciaExterna: null,
+            substituidaPorAcordo: false,
+            ehParcelaAcordo: false,
+            parcelaDeAcordoDesfeito: false,
+            juros: 4900,
+            multa: 100,
+            correcao: 0,
+            honorarios: 2000,
+        );
+
+        self::assertSame(7000, $out->acrescimos(), 'juros + multa + correção + honorários');
+        self::assertSame($out->valorAtual, $out->valorOriginal + $out->acrescimos());
+    }
+
+    #[Test]
+    #[TestDox('acrescimos() inclui o HONORÁRIO — `encargosReconhecidos` (INV-E1) deixa ele de fora')]
+    public function acrescimosNaoEhOEncargosReconhecidos(): void
+    {
+        // Armadilha real: `encargosReconhecidos` é a soma dos TRÊS encargos, sem honorário. Desde a spec
+        // `cobranca-honorario-no-total.md` o honorário está DENTRO do exigível, então usá-lo na coluna
+        // `Acréscimos` faria `Original + Acréscimos` ficar MENOR que o `Total` ao lado, em toda carteira
+        // que cobra honorário — que são todas as três de produção.
+        $out = new ObrigacaoOutput(
+            id: 1,
+            descricao: 'X',
+            valorOriginal: 10000,
+            encargosReconhecidos: 1000,
+            valorAtual: 10000 + 1000 + 2000,
+            vencimentoOriginal: new \DateTimeImmutable('2026-01-10'),
+            referenciaExterna: null,
+            substituidaPorAcordo: false,
+            ehParcelaAcordo: false,
+            parcelaDeAcordoDesfeito: false,
+            juros: 1000,
+            honorarios: 2000,
+        );
+
+        self::assertSame(3000, $out->acrescimos());
+        self::assertNotSame($out->encargosReconhecidos, $out->acrescimos(), 'os dois NÃO são a mesma coisa');
+        self::assertSame($out->valorAtual, $out->valorOriginal + $out->acrescimos());
+    }
+
+    #[Test]
+    #[TestDox('Sem nenhum encargo, acrescimos() é zero e Original == Total')]
+    public function semEncargosAcrescimosEZero(): void
+    {
+        $out = ObrigacaoOutput::fromEntity($this->obrigacaoCom(10000));
+
+        self::assertSame(0, $out->acrescimos());
+        self::assertSame($out->valorAtual, $out->valorOriginal);
     }
 
     #[Test]

@@ -134,6 +134,24 @@ final class ObrigacaoOutput
         return max(0, $this->valorAtual - $this->alocado);
     }
 
+    /**
+     * Coluna `Acréscimos` da linha da dívida (redesenho 1a): tudo que foi somado ao valor de face —
+     * juros + multa + correção + honorários.
+     *
+     * Vive AQUI e não no Twig porque é dinheiro (a mesma regra dos totais do `MontarDetalheCasoUseCase`):
+     * aqui há teste. E é a identidade que faz as três colunas da linha fecharem a olho:
+     * `valorOriginal + acrescimos() === valorAtual`, porque `valorAtual` é exatamente
+     * `Obrigacao::valorExigivel()` = original + juros + multa + correção + honorários.
+     *
+     * ⚠️ NÃO é `encargosReconhecidos`: aquele é a soma dos TRÊS encargos (INV-E1), sem o honorário — o
+     * honorário entrou no exigível pela spec `cobranca-honorario-no-total.md` e, se ficasse de fora
+     * aqui, a coluna `Original + Acréscimos` não bateria com o `Total` ao lado.
+     */
+    public function acrescimos(): int
+    {
+        return $this->juros + $this->multa + $this->correcao + $this->honorarios;
+    }
+
     /** Alocado cobre o exigível — espelha `ParcelaAcordoResumoOutput::quitada`. */
     public function quitada(): bool
     {

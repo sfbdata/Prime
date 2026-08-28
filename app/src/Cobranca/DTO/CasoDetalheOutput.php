@@ -113,6 +113,19 @@ final class CasoDetalheOutput
         public readonly int $honorariosEmAberto = 0,
         public readonly int $honorariosRecebidos = 0,
         /**
+         * Σ do que ENTROU nesta cobrança (Σ `PagamentoOutput::valorTotal`), em centavos — o `Recuperado`
+         * da legenda da barra de composição do cabeçalho (redesenho 1a).
+         *
+         * ⚠️ NÃO é `honorariosRecebidos` + isto: o `valorTotal` de cada pagamento já soma dívida +
+         * encargos + honorários, então acrescentar o honorário por fora o contaria duas vezes. É o mesmo
+         * conjunto que o extrato de Movimentos lista, e por isso os dois fecham.
+         *
+         * ⚠️ Também não é o par de `totalPagoDasAvulsas`: aquele é Σ `alocado` das obrigações avulsas já
+         * QUITADAS (o número da seção "Já pago"); este é todo o dinheiro recebido no caso, inclusive o
+         * que foi alocado em obrigação ainda em aberto e em parcela de acordo.
+         */
+        public readonly int $totalRecuperado = 0,
+        /**
          * Os quatro cards de dinheiro do cabeçalho (spec §1.2), em centavos. Somados AQUI (no UseCase) e
          * nunca no Twig, sobre EXATAMENTE o mesmo conjunto que a aba Dívida lista — `obrigacoesAvulsas`
          * mais as parcelas dos `gruposAcordo` —, restrito ao que ainda não foi quitado E JÁ VENCEU. É a
@@ -177,5 +190,38 @@ final class CasoDetalheOutput
          */
         public readonly int $totalPagoDasAvulsas = 0,
     ) {
+    }
+
+    /**
+     * Os três segmentos da barra de composição do vencido (redesenho 1a), em % do `totalAtualizadoVencido`.
+     *
+     * Derivado na LEITURA (aqui) e não no Twig, pelo mesmo motivo dos totais: a barra é a leitura visual
+     * do dinheiro do cabeçalho, e uma conta no template não teria teste. Não é dinheiro novo — são os
+     * MESMOS três campos que os apoios já exibem, expressos em proporção.
+     *
+     * Os três somam exatamente 100 por construção: os dois primeiros são arredondados a uma casa e o
+     * terceiro é o RESTO. Sem isso, três arredondamentos independentes podem fechar em 99,9% ou 100,1% e
+     * deixar uma fresta (ou um estouro) na barra — o mesmo motivo pelo qual `totalAtualizadoVencido` é a
+     * soma dos outros três, e não uma quarta conta.
+     *
+     * Total zero devolve zeros: sem vencido não há composição, e o Twig não desenha a barra.
+     *
+     * @return array{principal: float, encargos: float, honorarios: float}
+     */
+    public function composicaoVencido(): array
+    {
+        if ($this->totalAtualizadoVencido <= 0) {
+            return ['principal' => 0.0, 'encargos' => 0.0, 'honorarios' => 0.0];
+        }
+
+        $principal = round($this->totalPrincipalVencido * 100 / $this->totalAtualizadoVencido, 1);
+        $encargos = round($this->totalEncargosVencido * 100 / $this->totalAtualizadoVencido, 1);
+
+        return [
+            'principal' => $principal,
+            'encargos' => $encargos,
+            // O RESTO, para os três fecharem 100 mesmo com arredondamento (ver nota acima).
+            'honorarios' => round(100 - $principal - $encargos, 1),
+        ];
     }
 }

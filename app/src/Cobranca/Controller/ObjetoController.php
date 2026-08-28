@@ -15,6 +15,7 @@ use App\Cobranca\Entity\ObjetoCobranca;
 use App\Cobranca\Entity\Pessoa;
 use App\Cobranca\Enum\FormaHonorarios;
 use App\Cobranca\Enum\QualificacaoContato;
+use App\Cobranca\Enum\TipoEventoHistorico;
 use App\Cobranca\Enum\TipoTelefone;
 use App\Cobranca\Exception\ObjetoNaoEncontradoException;
 use App\Cobranca\Exception\PessoaNaoEncontradaException;
@@ -149,6 +150,11 @@ final class ObjetoController extends AbstractController
             'modalErroId' => $erroModal['modalId'] ?? null,
             'modalErroAcao' => $erroModal['acao'] ?? null,
             'casoId' => $caso->getId(),
+            // Os chips de filtro da timeline do Histórico (redesenho 1a). Lista ESTÁTICA do enum, não
+            // derivada dos eventos deste caso: o desenho mostra os quatro filtros sempre, e um filtro
+            // que aparece e some conforme o caso tem ou não evento daquele tipo muda a tela de lugar
+            // entre uma unidade e outra. O recorte em si é no cliente, sobre o que já veio no HTML.
+            'filtrosHistorico' => TipoEventoHistorico::filtrosDaTimeline(),
             'podeGerenciarDocumentos' => $podeGerenciar,
             'secoes' => $documentos['secoes'],
             'arquivosFm' => $documentos['arquivos'],

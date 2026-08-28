@@ -275,8 +275,18 @@ final class MontarDetalheCasoUseCase
         $pagamentos = array_map(PagamentoOutput::fromEntity(...), $this->pagamentoRepository->doCaso($caso));
 
         $honorariosRecebidos = 0;
+        // `Recuperado` da legenda da barra de composição (redesenho 1a): TUDO que entrou nesta cobrança,
+        // não só a fatia do escritório. Somado aqui, e não no Twig, pela mesma regra dos demais: é
+        // dinheiro, e aqui há teste.
+        //
+        // ⚠️ É Σ `valorTotal`, e NÃO `honorariosRecebidos + Σ pagamentos`: o `valorTotal` do
+        // `PagamentoOutput` já É `valorDivida + valorEncargos + valorHonorarios` (ver `fromEntity`), então
+        // somar o honorário por fora o contaria DUAS VEZES. O handoff do desenho trazia as duas fórmulas
+        // em seções diferentes; esta é a que fecha com o extrato.
+        $totalRecuperado = 0;
         foreach ($pagamentos as $pagamento) {
             $honorariosRecebidos += $pagamento->valorHonorarios;
+            $totalRecuperado += $pagamento->valorTotal;
         }
 
         // #9-T2: FORMA sempre da carteira (não sobreponível); ALÍQUOTA já resolvida em `$configCaso`
@@ -338,6 +348,7 @@ final class MontarDetalheCasoUseCase
             honorariosDasObrigacoes: $honorariosDasObrigacoes,
             honorariosEmAberto: $honorariosEmAberto,
             honorariosRecebidos: $honorariosRecebidos,
+            totalRecuperado: $totalRecuperado,
             totalPrincipalVencido: $totalPrincipalVencido,
             totalEncargosVencido: $totalEncargosVencido,
             honorariosVencidos: $honorariosVencidos,

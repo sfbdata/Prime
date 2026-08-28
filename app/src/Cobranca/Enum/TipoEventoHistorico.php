@@ -142,6 +142,84 @@ enum TipoEventoHistorico: string
     }
 
     /**
+     * FAMÍLIA do evento na timeline do objeto (redesenho 1a): é ela que dá o chip, a cor do ponto e o
+     * recorte dos filtros `Tudo · Contatos · Dinheiro · Obrigações · Anotações`.
+     *
+     * É classificação de APRESENTAÇÃO — não muda regra, não decide dinheiro. Mora aqui, e não num mapa
+     * no Twig, por dois motivos: tem teste, e um tipo novo no enum quebra este `match` em vez de cair
+     * num balde genérico sem ninguém perceber (mesma razão do `ehTrabalhoDeCobranca()` acima).
+     *
+     * ⚠️ NÃO reusa `ehTrabalhoDeCobranca()`: aquele é um corte binário para a Central (quem cobrou
+     * alguém?) e junta num lado só coisas que aqui precisam ficar separadas — `Anotacao`,
+     * `PagamentoRegistrado` e `Judicializacao` são todos "trabalho de cobrança" e são três famílias
+     * diferentes na tela. Dois cortes, dois propósitos.
+     *
+     * `cadastro` não tem botão de filtro (o desenho lista só quatro): esses eventos aparecem em `Tudo`.
+     */
+    public function familia(): string
+    {
+        return match ($this) {
+            self::ContatoRealizado,
+            self::QualificacaoContato,
+            self::BoletoEnviado,
+            self::NovoPrazo,
+            self::Negociacao => 'contatos',
+
+            self::PagamentoRegistrado,
+            self::PagamentoCorrigido,
+            self::PagamentoExcluido,
+            self::LiquidacaoRegistrada,
+            self::AcordoCriado,
+            self::AcordoEditado,
+            self::AcordoRompido,
+            self::AcordoCancelado,
+            self::AcordoCumprido => 'dinheiro',
+
+            self::ObrigacaoCriada,
+            self::ObrigacaoEditada,
+            self::ObrigacaoExcluida,
+            self::ValorAtualizadoReconhecido => 'obrigacoes',
+
+            self::Anotacao => 'anotacoes',
+
+            self::CasoAberto,
+            self::PessoaCobradaAlterada,
+            self::RevisaoVinculo,
+            self::Judicializacao,
+            self::VinculoPasta,
+            self::Encerramento => 'cadastro',
+        };
+    }
+
+    /** Rótulo do chip da família, ao lado do tipo do evento na timeline. */
+    public function familiaLabel(): string
+    {
+        return match ($this->familia()) {
+            'contatos' => 'Contato',
+            'dinheiro' => 'Dinheiro',
+            'obrigacoes' => 'Obrigação',
+            'anotacoes' => 'Anotação',
+            default => 'Cadastro',
+        };
+    }
+
+    /**
+     * Os filtros da timeline, na ordem do desenho. `Tudo` é o estado inicial e não tem família.
+     *
+     * @return list<array{chave: string, label: string}>
+     */
+    public static function filtrosDaTimeline(): array
+    {
+        return [
+            ['chave' => 'tudo', 'label' => 'Tudo'],
+            ['chave' => 'contatos', 'label' => 'Contatos'],
+            ['chave' => 'dinheiro', 'label' => 'Dinheiro'],
+            ['chave' => 'obrigacoes', 'label' => 'Obrigações'],
+            ['chave' => 'anotacoes', 'label' => 'Anotações'],
+        ];
+    }
+
+    /**
      * @return list<self>
      */
     public static function trabalhoDeCobranca(): array

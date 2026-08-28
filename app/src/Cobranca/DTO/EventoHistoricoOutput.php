@@ -18,6 +18,14 @@ final class EventoHistoricoOutput
         public readonly int $id,
         public readonly string $tipoValue,
         public readonly string $tipoLabel,
+        /**
+         * Família do evento para a timeline do objeto (`contatos`/`dinheiro`/`obrigacoes`/`anotacoes`/
+         * `cadastro`) — dá o chip, a cor do ponto e o recorte dos filtros. Vem de
+         * `TipoEventoHistorico::familia()`; o Twig não classifica nada.
+         */
+        public readonly string $familia,
+        /** Rótulo do chip da família (`Contato`, `Dinheiro`, `Obrigação`, `Anotação`, `Cadastro`). */
+        public readonly string $familiaLabel,
         public readonly \DateTimeImmutable $ocorridoEm,
         public readonly ?string $usuarioNome,
         public readonly string $descricao,
@@ -41,6 +49,8 @@ final class EventoHistoricoOutput
             id: $e->getId() ?? 0,
             tipoValue: $e->getTipo()->value,
             tipoLabel: $e->getTipo()->label(),
+            familia: $e->getTipo()->familia(),
+            familiaLabel: $e->getTipo()->familiaLabel(),
             ocorridoEm: $e->getOcorridoEm(),
             usuarioNome: $usuario?->getFullName() ?? $usuario?->getEmail(),
             descricao: $e->getDescricao(),
