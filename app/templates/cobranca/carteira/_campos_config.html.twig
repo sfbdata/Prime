@@ -10,6 +10,11 @@
 
 {{ form_errors(form) }}
 
+{# As três seções são as do desenho 1B (Operação · Honorários · Encargos por atraso). Este partial
+   também alimenta o modal "Nova carteira" da listagem — os títulos aparecem lá igualmente, que é
+   o comportamento desejado: é o mesmo formulário. #}
+<h6 class="cs-secao">Operação</h6>
+
 <div class="mb-3">
     <label class="form-label" for="{{ form.modo.vars.id }}">
         {{ form.modo.vars.label }}
@@ -21,6 +26,12 @@
     {{ form_widget(form.modo) }}
     {{ form_errors(form.modo) }}
 </div>
+
+{{ form_row(form.toleranciaAtrasoDias) }}
+{{ form_row(form.tipoVinculoPreferido) }}
+{{ form_row(form.rotuloObjeto) }}
+
+<h6 class="cs-secao mt-4">Honorários</h6>
 
 <div class="mb-3">
     <label class="form-label" for="{{ form.formaHonorarios.vars.id }}">
@@ -43,18 +54,12 @@
     {{ form_errors(form.percentualHonorarios) }}
 </div>
 
-{{ form_row(form.toleranciaAtrasoDias) }}
-{{ form_row(form.tipoVinculoPreferido) }}
-{{ form_row(form.rotuloObjeto) }}
-
 {# Encargos por atraso (spec "encargos configuráveis em cascata" §4.1) — presentes nos DOIS forms que
    incluem este partial (criar e editar configuração). São o NÍVEL 1 da cascata Carteira → Objeto →
    Obrigação, resolvido NA LEITURA (spec #9): não há mais snapshot no caso, então editar aqui move ao
    vivo tudo que herda e não está congelado. Por isso não há guarda `is defined` aqui — campo faltando
    vira erro de template, que é o que se quer, em vez de sumir calado da tela. #}
-<hr class="my-4">
-
-<h6 class="fw-semibold mb-1">Encargos por atraso</h6>
+<h6 class="cs-secao mt-4">Encargos por atraso</h6>
 <div class="form-text mb-3">
     Estas taxas valem <strong>ao vivo</strong>: alterar aqui <strong>recalcula na hora</strong> os
     encargos de toda obrigação <strong>em aberto</strong> que herda desta carteira. Não muda o que já

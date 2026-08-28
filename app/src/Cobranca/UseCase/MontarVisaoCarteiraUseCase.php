@@ -7,6 +7,7 @@ namespace App\Cobranca\UseCase;
 use App\Cobranca\DTO\CarteiraDetalheOutput;
 use App\Cobranca\DTO\CasoResumoOutput;
 use App\Cobranca\Entity\Carteira;
+use App\Cobranca\Enum\StatusCaso;
 use App\Cobranca\Repository\CasoCobrancaRepository;
 use App\Cobranca\Repository\ObjetoCobrancaRepository;
 use App\Cobranca\Service\CalculadoraSaldo;
@@ -34,6 +35,13 @@ final class MontarVisaoCarteiraUseCase
     public const ORDENACOES = ['saldo', 'objeto', 'pessoa'];
 
     /**
+     * Filtros de Estado aceitos na lista. Os três primeiros são o `StatusCaso`; `vencidos` NÃO é
+     * estado — é o recorte derivado "só o que tem atraso", que atravessa os três (um caso
+     * judicializado também vence). Qualquer outro valor é ignorado, e a lista volta inteira.
+     */
+    public const ESTADOS = ['ativo', 'judicializado', 'encerrado', 'vencidos'];
+
+    /**
      * @param string $busca   busca livre da página (objeto ou pessoa cobrada); vazia = sem filtro.
      *                        Filtra SÓ a lista — os agregados do cabeçalho (saldo consolidado,
      *                        vencido, nº de objetos e de casos) continuam sendo os da carteira
@@ -42,6 +50,10 @@ final class MontarVisaoCarteiraUseCase
      * @param int    $porPagina >= 1
      * @param string $ordenar uma de self::ORDENACOES; qualquer outra coisa cai no padrão
      * @param string $direcao 'asc' ou 'desc'
+     * @param string $estado  uma de self::ESTADOS; vazia (ou desconhecida) = sem filtro. Filtra SÓ
+     *                        a lista, pela MESMA razão da busca: o cabeçalho responde "quanto esta
+     *                        carteira tem a receber", e essa resposta não pode mudar porque alguém
+     *                        escolheu ver um recorte
      *
      * @return array{carteira: CarteiraDetalheOutput, casos: list<CasoResumoOutput>, total: int, pagina: int, total_paginas: int, por_pagina: int}
      */
@@ -52,9 +64,11 @@ final class MontarVisaoCarteiraUseCase
         int $porPagina = 25,
         string $ordenar = 'saldo',
         string $direcao = 'desc',
+        string $estado = '',
     ): array {
         $casos = $this->casoRepository->daCarteira($carteira);
         $busca = trim($busca);
+        $estado = in_array($estado, self::ESTADOS, true) ? $estado : '';
         $idsCasando = $busca !== ''
             ? $this->casoRepository->idsDaCarteiraCasandoBusca($carteira, $busca)
             : null;
@@ -89,6 +103,13 @@ final class MontarVisaoCarteiraUseCase
             }
 
             if ($idsCasando !== null && !isset($idsCasando[$caso->getId() ?? 0])) {
+                continue;
+            }
+
+            // Depois da soma, de propósito: o `continue` esconde a linha da lista sem tirar o valor
+            // do cabeçalho. `vencidos` lê o saldo já calculado (não custa consulta); os demais
+            // comparam o estado do caso.
+            if ($estado !== '' && !self::casaComEstado($caso->getStatus(), $saldo['vencido'], $estado)) {
                 continue;
             }
 
@@ -133,6 +154,12 @@ final class MontarVisaoCarteiraUseCase
             // que é a única que vem incompleta.
             'por_pagina' => $porPagina,
         ];
+    }
+
+    /** `vencidos` é recorte derivado (tem atraso); o resto compara o estado do caso. */
+    private static function casaComEstado(StatusCaso $status, int $vencido, string $estado): bool
+    {
+        return $estado === 'vencidos' ? $vencido > 0 : $status->value === $estado;
     }
 
     /**

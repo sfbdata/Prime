@@ -100,7 +100,8 @@ final class CarteiraDadosAtualizadosNaTelaTest extends CobrancaWebTestCase
         // O elo MAIS FRACO manda: a carteira é a soma dos relatórios, então vale a emissão mais antiga.
         self::assertStringContainsString('Dados atualizados até', $topo);
         self::assertStringContainsString((new \DateTimeImmutable('-3 days'))->format('d/m/Y'), $topo);
-        self::assertStringContainsString('3 dias atrás', $topo);
+        // Texto do desenho 1B. A CONTA continua a mesma (instante contra instante); só a frase mudou.
+        self::assertStringContainsString('há 3 dias', $topo);
         self::assertStringNotContainsString('Nenhum relatório importado ainda', $topo);
         self::assertStringNotContainsString('Data dos relatórios desconhecida', $topo);
     }

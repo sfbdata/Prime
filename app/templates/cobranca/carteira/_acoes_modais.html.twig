@@ -1,24 +1,35 @@
-{# Modais de mutação da Carteira (Onda 8B-E). Só renderizados para quem tem a capacidade correspondente
-   (o gate real é no controller). Config exige gerenciar carteira; objeto/vínculo/abrir-caso exigem
-   gerenciar cobrança. Vincular/encerrar/abrir-caso são modais REUTILIZÁVEIS: o botão da linha injeta a
-   URL de ação (data-acao-url) via JS. #}
+{# Modais de mutação da Carteira. Só renderizados para quem tem a capacidade correspondente (o gate
+   real é no controller): configuração exige gerenciar carteira; objeto e documento exigem gerenciar
+   cobrança.
+
+   Redesenho 1B: a mecânica continua sendo a do Bootstrap (é o que o resto do sistema usa e o que os
+   testes acionam); o que mudou é a moldura — cabeçalho com subtítulo, corpo em seções e rodapé com a
+   ação principal em verde, como no desenho. A classe `.cs-modal` é quem veste isso.
+
+   Os CAMPOS de configuração seguem vindo do partial compartilhado `_campos_config.html.twig`, que é o
+   mesmo do modal "Nova carteira" da listagem — mexer na composição dos campos aqui mudaria a outra
+   tela junto. #}
 
 {# ── Editar configuração da carteira ─────────────────────────────── #}
 {% if forms.editarConfiguracao is defined %}
-<div class="modal fade" id="modalEditarConfiguracao" tabindex="-1" aria-labelledby="tituloEditarConfiguracao" aria-hidden="true">
-    <div class="modal-dialog">
+<div class="modal fade cs-modal cs-modal-largo" id="modalEditarConfiguracao" tabindex="-1" aria-labelledby="tituloEditarConfiguracao" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content">
             {{ form_start(forms.editarConfiguracao, {action: path('cobranca_carteira_configurar', {id: carteira.id})}) }}
             <div class="modal-header">
-                <h5 class="modal-title" id="tituloEditarConfiguracao"><i class="bi bi-gear me-1"></i>Editar configuração</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                <div>
+                    <h5 class="modal-title" id="tituloEditarConfiguracao">Configuração da carteira</h5>
+                    <div class="cs-modal-sub">Vale para os casos desta carteira. Encargos já gravados não são recalculados.</div>
+                </div>
+                <button type="button" class="cs-modal-fechar" data-bs-dismiss="modal" aria-label="Fechar"><i class="bi bi-x-lg"></i></button>
             </div>
             <div class="modal-body">
                 {{ include('cobranca/carteira/_campos_config.html.twig', { form: forms.editarConfiguracao }) }}
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Salvar</button>
+                <span class="cs-modal-nota">Exige a permissão <code>resources.carteira.gerenciar</code></span>
+                <button type="button" class="cs-btn" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="cs-btn cs-btn-verde">Salvar configuração</button>
             </div>
             {{ form_end(forms.editarConfiguracao) }}
         </div>
@@ -28,23 +39,29 @@
 
 {# ── Novo objeto (por carteira; action fixa) ─────────────────────── #}
 {% if forms.criarObjeto is defined %}
-<div class="modal fade" id="modalCriarObjeto" tabindex="-1" aria-labelledby="tituloCriarObjeto" aria-hidden="true">
+<div class="modal fade cs-modal" id="modalCriarObjeto" tabindex="-1" aria-labelledby="tituloCriarObjeto" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
             {{ form_start(forms.criarObjeto, {action: path('cobranca_objeto_criar', {id: carteira.id})}) }}
             <div class="modal-header">
-                <h5 class="modal-title" id="tituloCriarObjeto"><i class="bi bi-plus-circle me-1"></i>Novo objeto</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                <div>
+                    <h5 class="modal-title" id="tituloCriarObjeto">{{ carteira.rotuloObjeto ? 'Nova ' ~ carteira.rotuloObjeto|lower : 'Novo objeto' }}</h5>
+                    <div class="cs-modal-sub">Criar o objeto já abre a cobrança e leva para a página dela.</div>
+                </div>
+                <button type="button" class="cs-modal-fechar" data-bs-dismiss="modal" aria-label="Fechar"><i class="bi bi-x-lg"></i></button>
             </div>
             <div class="modal-body">
+                {# O desenho mostra dois campos (identificação e descrição). O nome de quem será cobrado
+                   fica: ele é obrigatório no `CriarObjetoInput` — sem ele o formulário nunca envia, e
+                   um campo escondido que impede o envio é pior do que um campo a mais. #}
                 {{ form_row(forms.criarObjeto.identificacao) }}
                 {{ form_row(forms.criarObjeto.nomeCobrado) }}
                 {{ form_row(forms.criarObjeto.descricao) }}
                 {{ form_row(forms.criarObjeto.referenciaExterna) }}
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Criar</button>
+                <button type="button" class="cs-btn" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="cs-btn cs-btn-verde">Criar e abrir cobrança</button>
             </div>
             {{ form_end(forms.criarObjeto) }}
         </div>
@@ -52,21 +69,25 @@
 </div>
 {% endif %}
 
-{# ── Adicionar documento da carteira (Ajuste #5; form multipart puro, sem FormType) ── #}
+{# ── Adicionar documento da carteira (form multipart puro, sem FormType) ── #}
 {% if has_permission('resources.cobranca.gerenciar') %}
-<div class="modal fade" id="modalAdicionarDocumentoCarteira" tabindex="-1" aria-labelledby="tituloAdicionarDocumentoCarteira" aria-hidden="true">
+<div class="modal fade cs-modal" id="modalAdicionarDocumentoCarteira" tabindex="-1" aria-labelledby="tituloAdicionarDocumentoCarteira" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
             <form method="post" action="{{ path('cobranca_carteira_documento_upload', {id: carteira.id}) }}" enctype="multipart/form-data">
                 <input type="hidden" name="_token" value="{{ csrf_token('cobranca_carteira_documento_upload_' ~ carteira.id) }}">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="tituloAdicionarDocumentoCarteira"><i class="bi bi-paperclip me-1"></i>Adicionar documento</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                    <div>
+                        <h5 class="modal-title" id="tituloAdicionarDocumentoCarteira">Adicionar documento</h5>
+                        <div class="cs-modal-sub">Atas de assembleia e o contrato de honorários ficam na carteira.</div>
+                    </div>
+                    <button type="button" class="cs-modal-fechar" data-bs-dismiss="modal" aria-label="Fechar"><i class="bi bi-x-lg"></i></button>
                 </div>
                 <div class="modal-body">
                     <div class="mb-3">
                         <label class="form-label" for="carteiraDocumentoArquivo">Arquivo</label>
                         <input type="file" class="form-control" id="carteiraDocumentoArquivo" name="arquivo" required>
+                        <div class="form-text">PDF, imagem ou planilha.</div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label" for="carteiraDocumentoCategoria">Categoria</label>
@@ -77,13 +98,14 @@
                         </select>
                     </div>
                     <div class="mb-0">
-                        <label class="form-label" for="carteiraDocumentoObservacao">Observação</label>
-                        <textarea class="form-control" id="carteiraDocumentoObservacao" name="observacao" rows="2"></textarea>
+                        <label class="form-label" for="carteiraDocumentoObservacao">Observação <span class="cs-modal-opcional">(opcional)</span></label>
+                        <textarea class="form-control" id="carteiraDocumentoObservacao" name="observacao" rows="3"
+                                  placeholder="Ex.: assembleia que autorizou a cobrança judicial"></textarea>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary"><i class="bi bi-upload me-1"></i>Enviar</button>
+                    <button type="button" class="cs-btn" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="cs-btn cs-btn-verde">Adicionar</button>
                 </div>
             </form>
         </div>

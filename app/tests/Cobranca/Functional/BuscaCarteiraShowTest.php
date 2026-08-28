@@ -68,8 +68,8 @@ final class BuscaCarteiraShowTest extends CobrancaWebTestCase
         self::assertSame(1, $crawler->filter('[data-filtro-root][data-filtro-endpoint="' . $url . '"]')->count());
         self::assertSame(1, $crawler->filter('[data-filtro-root] [data-filtro-resultado]')->count());
         self::assertSame(1, $crawler->filter('input.js-filtro-busca[name="busca"]')->count());
-        // Sem facetas: só a busca livre, como pedido.
-        self::assertSame(0, $crawler->filter('[data-filtro-root] select.js-filtro-campo')->count());
+        // Uma faceta só, a de Estado (redesenho 1B) — a busca livre continua sendo o controle principal.
+        self::assertSame(1, $crawler->filter('[data-filtro-root] select.js-filtro-campo[name="estado"]')->count());
     }
 
     #[TestDox('Busca por nome da pessoa cobrada esconde quem não casa e mantém quem casa')]
@@ -140,7 +140,10 @@ final class BuscaCarteiraShowTest extends CobrancaWebTestCase
 
         self::assertResponseIsSuccessful();
         $lista = $crawler->filter('[data-filtro-resultado]')->text();
-        self::assertStringContainsString('Nenhuma cobrança encontrada', $lista);
+        // Copy do desenho 1B: o vazio de BUSCA diz o que a busca cobre e oferece limpá-la; o vazio
+        // de carteira sem caso algum é outro texto, e confundir os dois foi o defeito original.
+        self::assertStringContainsString('Nenhum caso casa', $lista);
+        self::assertStringContainsString('Limpar busca', $lista);
         self::assertStringNotContainsString('Nenhuma cobrança nesta carteira', $lista);
         self::assertSame(0, $crawler->filter('[data-filtro-resultado] tbody tr')->count());
     }

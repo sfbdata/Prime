@@ -33,6 +33,13 @@ final class CasoResumoOutput
         public readonly bool $temVencido,
         public readonly ?\DateTimeImmutable $atualizadoEm,
         public readonly bool $temDocumentos = false,
+        /**
+         * O estado CRU do caso (`ativo`/`judicializado`/`encerrado`), ao lado do rótulo já pronto.
+         * Serve à apresentação: o selo de estado do desenho tem cor própria por estado, e derivar
+         * isso do rótulo (texto que pode mudar) ou da classe Bootstrap (que fala de cor, não de
+         * estado) amarraria o CSS a um acidente. Default vazio para quem constrói a DTO à mão.
+         */
+        public readonly string $statusValue = '',
     ) {
     }
 
@@ -63,6 +70,7 @@ final class CasoResumoOutput
             temVencido: $saldoVencido > 0,
             atualizadoEm: $c->getAtualizadoEm() ?? $c->getCriadoEm(),
             temDocumentos: $temDocumentos,
+            statusValue: $status->value,
         );
     }
 }

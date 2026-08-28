@@ -14,8 +14,12 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 
 /**
- * Arranjo da página da carteira: lista à ESQUERDA (8/12), trilho de Configuração e Documentos à
- * DIREITA (4/12), lado a lado na MESMA linha do grid.
+ * Arranjo da página da carteira: lista à ESQUERDA, trilho de Configuração e Documentos à DIREITA
+ * (faixa fixa de 340px), lado a lado na MESMA grade.
+ *
+ * A grade deixou de ser `.row`/`.col-lg-*` no redesenho 1B: o desenho pede
+ * `minmax(0,1fr) 340px`, medida que as 12 colunas do Bootstrap não sabem expressar. O que este
+ * teste guarda não mudou — é a ESTRUTURA, não os nomes das classes.
  *
  * Este teste existe por causa de um defeito que passou por tudo. Ao trocar o arranjo, sobrou um
  * `</div>` que fechava a `.row` antes do trilho: o Bootstrap então desenhava o `col-lg-4` como
@@ -51,19 +55,19 @@ final class CarteiraArranjoTelaTest extends CobrancaWebTestCase
 
         self::assertResponseIsSuccessful();
 
-        $linha = $crawler->filter('.cobrancas-page .row');
-        self::assertGreaterThan(0, $linha->count(), 'Sumiu a linha do grid que divide lista e trilho');
+        $grade = $crawler->filter('.cobrancas-page .cs-grade');
+        self::assertGreaterThan(0, $grade->count(), 'Sumiu a grade que divide lista e trilho');
 
         self::assertSame(
             1,
-            $crawler->filter('.cobrancas-page .row > .col-lg-8 [data-filtro-resultado]')->count(),
-            'A lista de objetos cobrados tem de ser filha direta de uma coluna 8/12 da linha',
+            $crawler->filter('.cobrancas-page .cs-grade > .cs-coluna-lista [data-filtro-resultado]')->count(),
+            'A lista de objetos cobrados tem de estar dentro da coluna flexível da grade',
         );
         self::assertSame(
             1,
-            $crawler->filter('.cobrancas-page .row > .col-lg-4 .carteira-trilho')->count(),
-            'O trilho tem de ser filho direto de uma coluna 4/12 da MESMA linha — solto fora da .row '
-            . 'o Bootstrap o joga para baixo da lista, que foi o defeito original',
+            $crawler->filter('.cobrancas-page .cs-grade > .cs-trilho')->count(),
+            'O trilho tem de ser filho DIRETO da grade — solto fora dela ele cai para baixo da lista, '
+            . 'que foi o defeito original',
         );
     }
 
@@ -84,11 +88,11 @@ final class CarteiraArranjoTelaTest extends CobrancaWebTestCase
         // volta a aparecer em largura inteira embaixo da página — o arranjo que o dono recusou.
         self::assertSame(
             2,
-            $crawler->filter('.carteira-trilho > .card')->count(),
+            $crawler->filter('.cs-trilho > .cs-card')->count(),
             'O trilho tem de conter exatamente os dois cartoes: Configuracao e Documentos',
         );
 
-        $trilho = $crawler->filter('.carteira-trilho')->text();
+        $trilho = $crawler->filter('.cs-trilho')->text();
         self::assertStringContainsString('Configuração', $trilho);
         self::assertStringContainsString('Documentos', $trilho);
     }

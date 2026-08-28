@@ -2,230 +2,310 @@
 
 {% block title %}Cobranças · {{ carteira.nome }}{% endblock %}
 
+{% block body_class %}cs-body{% endblock %}
+
+{# ============================================================================
+   Redesenho aprovado: docs/design/design_handoff_carteira_show/ ("Carteira 1B.dc.html"),
+   direção 1B — "Lista + trilho lateral", escolhida pelo dono em 27/08/2026.
+
+   O que mudou de ESTRUTURA:
+     · o cabeçalho virou CARTÃO (voltar + migalhas + ações · selos · nome · credor
+       + frescor · 4 indicadores), no lugar do título solto sobre o fundo;
+     · o frescor do dado virou selo CLICÁVEL, com o detalhamento por relatório;
+     · lista e trilho passaram de `.row/.col-lg-*` para uma grade de
+       `minmax(0,1fr) 340px` — é a medida do desenho, que a grade de 12 colunas
+       do Bootstrap não sabe expressar;
+     · a lista ganhou filtro por Estado (única peça do desenho que exigiu
+       back-end) e o realce de atraso virou raia lateral, não fundo vermelho.
+
+   O que NÃO mudou, de propósito:
+     · o `.content-header` continua existindo e continua abrigando o selo de
+       "dados atualizados até" — é onde o CarteiraDadosAtualizadosNaTelaTest procura;
+     · a lista segue sendo <table>: além de ser a semântica certa para dado
+       tabular, é o contrato dos testes de acessibilidade da lista;
+     · "Importar relatório" continua levando à tela de 2 passos (upload → prévia
+       → confirmar). O desenho propõe um modal com 4 tipos; hoje existe UM tipo
+       na tela e os outros três só como comando. Decisão do dono em 28/08: não
+       mexer no caminho que grava dinheiro nesta fatia;
+     · o menu "⋮" do desenho ficou de fora: 3 dos seus 4 itens (espelho contábil,
+       exportar .xlsx, excluir carteira) não têm rota no sistema. Decisão do dono
+       na mesma conversa — volta quando as ações existirem.
+============================================================================ #}
 {% block body %}
-<div class="cobrancas-page">
+{% set rotulo = carteira.rotuloObjeto|default('Objeto') %}
+<div class="cobrancas-page cs-page">
+
 <section class="content-header">
     <div class="container-fluid">
-        <div class="d-flex align-items-center gap-2 mb-1">
-            <a href="{{ path('cobranca_carteira_index') }}" class="btn btn-sm btn-outline-secondary">
-                <i class="bi bi-arrow-left"></i>
-            </a>
-            <h1 class="m-0 d-flex align-items-center gap-2"><i class="bi bi-folder2-open"></i>{{ carteira.nome }}</h1>
-            {% if has_permission('resources.cobranca.gerenciar') %}
-            {# Verde cheio (`jp-btn-accent`), como no desenho aprovado: importar relatório é a ação
-               primária desta tela, e contorno azul a deixava com o mesmo peso do botão de voltar —
-               além de trazer para cá um azul que não pertence à paleta do módulo. #}
-            <a href="{{ path('cobranca_importacao_upload', {id: carteira.id}) }}" class="btn btn-sm jp-btn-accent ms-auto">
-                <i class="bi bi-upload me-1"></i>Importar relatório
-            </a>
-            {% endif %}
-        </div>
-        {# Cliente e frescor do dado dividem a mesma linha: são as duas credenciais da carteira
-           (de quem é, e de quando é). Antes o frescor vinha como terceira linha solta, com o
-           menor peso visual da tela — apesar de ser o que responde "posso confiar neste saldo?". #}
-        <div class="carteira-meta">
-            <span class="carteira-cliente"><i class="bi bi-person-badge"></i>{{ carteira.clienteNome }}</span>
+        <div class="cs-card cs-cabecalho">
+            <div class="cs-cab-topo">
+                <a href="{{ path('cobranca_carteira_index') }}" class="cs-btn cs-btn-voltar">
+                    <i class="bi bi-arrow-left"></i><span>Carteiras</span>
+                </a>
+                <nav class="cs-migalhas" aria-label="Você está aqui">
+                    <a href="{{ path('homepage') }}">Home</a><span>/</span>
+                    <a href="{{ path('cobranca_carteira_index') }}">Cobranças</a><span>/</span>
+                    <span class="cs-migalha-atual" aria-current="page">{{ carteira.nome }}</span>
+                </nav>
+                <div class="cs-cab-acoes">
+                    {% if has_permission('resources.cobranca.gerenciar') %}
+                    <button type="button" class="cs-btn" data-bs-toggle="modal" data-bs-target="#modalCriarObjeto">
+                        <i class="bi bi-plus-lg"></i><span>Novo objeto</span>
+                    </button>
+                    {# Verde cheio: importar relatório é a ação primária desta tela. #}
+                    <a href="{{ path('cobranca_importacao_upload', {id: carteira.id}) }}" class="cs-btn cs-btn-verde">
+                        <i class="bi bi-upload"></i><span>Importar relatório</span>
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
 
-        {# ── Até quando os dados estão em dia ────────────────────────────────
-           É a EMISSÃO do relatório, não a hora em que a importação rodou: importar hoje um arquivo de
-           três dias atrás deixa os dados de três dias atrás. E, entre os tipos, mostramos o MAIS
-           ANTIGO — a carteira é a soma dos relatórios, então o elo mais fraco é que manda.
+            <div class="cs-cab-corpo">
+                <div class="cs-cab-selos">
+                    <span class="cs-kicker">Carteira</span>
+                    <span class="cs-cab-sep"></span>
+                    <span class="cs-pill"><i class="bi bi-diagram-3"></i>{{ carteira.modoLabel }}</span>
+                    <span class="cs-pill">
+                        <i class="bi bi-percent"></i>{{ carteira.formaHonorariosLabel }}{% if carteira.percentualHonorarios %} · {{ carteira.percentualHonorarios }}%{% endif %}
+                    </span>
+                </div>
 
-           São TRÊS estados, não dois (defeito achado no smoke de 10/08). Sem emissão gravada NÃO quer
-           dizer "nada foi importado": a emissão só passou a ser registrada em 07/08, e todo o dado
-           anterior — 81, 121 e 51 unidades, R$ 663 mil em aberto — ficou sem ela. A tela dizia
-           "Nenhum relatório importado ainda" ao lado da lista de unidades, mentindo no único lugar
-           que existe para responder "posso confiar neste saldo?". Quem separa os dois estados é
-           `totalObjetos`, que o DTO já traz — sem consulta nova. #}
-        {% if carteira.dadosAtualizadosAte %}
-            {% set dias = date().diff(carteira.dadosAtualizadosAte).days %}
-            <span class="carteira-chip {{ dias > 7 ? 'is-alerta' : 'is-neutro' }}"
-                 data-bs-toggle="tooltip"
-                 title="{% for tipo, emissao in carteira.emissaoPorTipo %}{{ tipo|capitalize }}: {{ emissao|date('d/m/Y H:i') }}{{ not loop.last ? ' · ' }}{% endfor %}">
-                <i class="bi bi-clock-history"></i>Dados atualizados até
-                <strong>{{ carteira.dadosAtualizadosAte|date('d/m/Y') }}</strong>
-                {%- if dias == 0 %} (hoje)
-                {%- elseif dias == 1 %} (ontem)
-                {%- else %} ({{ dias }} dias atrás)
-                {%- endif %}
-                <span class="carteira-chip-fonte">· pela importação dos relatórios</span>
-            </span>
-        {% elseif carteira.totalObjetos > 0 %}
-            <span class="carteira-chip is-alerta"
-                 data-bs-toggle="tooltip"
-                 title="A data de emissão passou a ser registrada em 07/08/2026. O que foi importado antes disso ficou sem ela.">
-                <i class="bi bi-clock-history"></i>Data dos relatórios desconhecida
-                <span class="carteira-chip-fonte">· aparece aqui na próxima importação</span>
-            </span>
-        {% else %}
-            <span class="carteira-chip is-neutro">
-                <i class="bi bi-clock-history"></i>Nenhum relatório importado ainda
-            </span>
-        {% endif %}
+                <h1 class="cs-titulo">{{ carteira.nome }}</h1>
+
+                <div class="cs-cab-credor">
+                    <span>Credor:
+                        {%- if carteira.clienteId %}
+                            <a href="{{ path('cliente_show', {id: carteira.clienteId}) }}">{{ carteira.clienteNome }}</a>
+                        {%- else %}
+                            <strong>{{ carteira.clienteNome }}</strong>
+                        {%- endif %}
+                    </span>
+
+                    {# ── Até quando os dados estão em dia ────────────────────────────────
+                       É a EMISSÃO do relatório, não a hora em que a importação rodou: importar hoje um
+                       arquivo de três dias atrás deixa os dados de três dias atrás. E, entre os tipos,
+                       manda o MAIS ANTIGO — a carteira é a soma dos relatórios, então o elo mais fraco
+                       decide. O detalhamento abaixo mostra isso: é ele que responde "de onde saiu esta
+                       data" sem obrigar ninguém a adivinhar.
+
+                       São TRÊS estados, não dois (defeito achado no smoke de 10/08). Sem emissão gravada
+                       NÃO quer dizer "nada foi importado": a emissão só passou a ser registrada em
+                       07/08, e todo o dado anterior ficou sem ela. Quem separa os dois estados é
+                       `totalObjetos`, que o DTO já traz — sem consulta nova. #}
+                    {% if carteira.dadosAtualizadosAte %}
+                        {% set dias = date().diff(carteira.dadosAtualizadosAte).days %}
+                        <div class="dropdown">
+                            <button type="button" class="cs-frescor" data-bs-toggle="dropdown" data-bs-auto-close="true" aria-expanded="false">
+                                <i class="bi bi-clock-history"></i>
+                                <span>Dados atualizados até {{ carteira.dadosAtualizadosAte|date('d/m/Y') }}</span>
+                                {# A defasagem sai de `date().diff(...)`, NÃO do filtro `tempo_relativo`: o filtro
+                                   compara a data contra a MEIA-NOITE de hoje, e a emissão carrega hora — o que
+                                   devolve um dia a menos para quase toda emissão da tarde. Aqui os dois lados são
+                                   instantes, que é a conta que a tela sempre fez. #}
+                                <span class="{{ dias > 7 ? 'cs-frescor-atraso' : '' }}">
+                                    {%- if dias == 0 %}· hoje
+                                    {%- elseif dias == 1 %}· há 1 dia
+                                    {%- else %}· há {{ dias }} dias
+                                    {%- endif %}
+                                </span>
+                                <i class="bi bi-chevron-down"></i>
+                            </button>
+                            <div class="dropdown-menu cs-frescor-menu">
+                                <div class="cs-frescor-titulo">Emissão por relatório</div>
+                                <div class="cs-frescor-lista">
+                                    {% set ordemEmissao = ['inadimplencia', 'acordos', 'receitas', 'cadastro'] %}
+                                    {% set rotulosEmissao = {
+                                        'inadimplencia': 'Inadimplência',
+                                        'acordos': 'Acordos detalhados',
+                                        'receitas': 'Receitas',
+                                        'cadastro': 'Dados cadastrais'
+                                    } %}
+                                    {% set maisAntiga = carteira.dadosAtualizadosAte|date('Y-m-d H:i:s') %}
+                                    {% for tipo in ordemEmissao %}
+                                        {% if carteira.emissaoPorTipo[tipo] is defined %}
+                                        <div class="cs-frescor-item">
+                                            <span>{{ rotulosEmissao[tipo] }}</span>
+                                            <span class="cs-leader"></span>
+                                            <span class="cs-frescor-data {{ carteira.emissaoPorTipo[tipo]|date('Y-m-d H:i:s') == maisAntiga ? 'is-mais-antiga' : '' }}">{{ carteira.emissaoPorTipo[tipo]|date('d/m/Y') }}</span>
+                                        </div>
+                                        {% endif %}
+                                    {% endfor %}
+                                    {# Tipo novo de relatório aparece aqui sem precisar mexer no template. #}
+                                    {% for tipo, emissao in carteira.emissaoPorTipo|filter((e, t) => t not in ordemEmissao) %}
+                                        <div class="cs-frescor-item">
+                                            <span>{{ tipo|capitalize }}</span>
+                                            <span class="cs-leader"></span>
+                                            <span class="cs-frescor-data {{ emissao|date('Y-m-d H:i:s') == maisAntiga ? 'is-mais-antiga' : '' }}">{{ emissao|date('d/m/Y') }}</span>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                                <div class="cs-frescor-nota">
+                                    A carteira só está em dia até a emissão <strong>mais antiga</strong> — é ela, em
+                                    vermelho, que define a data do selo.
+                                </div>
+                            </div>
+                        </div>
+                    {% elseif carteira.totalObjetos > 0 %}
+                        <span class="cs-frescor is-mudo" title="A data de emissão passou a ser registrada em 07/08/2026. O que foi importado antes disso ficou sem ela.">
+                            <i class="bi bi-clock-history"></i>
+                            <span class="cs-frescor-atraso">Data dos relatórios desconhecida</span>
+                        </span>
+                    {% else %}
+                        <span class="cs-frescor is-mudo">
+                            <i class="bi bi-clock-history"></i>
+                            <span>Nenhum relatório importado ainda</span>
+                        </span>
+                    {% endif %}
+                </div>
+            </div>
+
+            {# ── Os 4 indicadores ────────────────────────────────────────────
+               A sub-linha do primeiro existe para evitar o chamado "o total não bate com a lista":
+               busca e filtro recortam a LISTA, nunca os agregados. #}
+            <div class="cs-kpis">
+                <div class="cs-kpi">
+                    <div class="cs-kpi-rotulo">Saldo consolidado</div>
+                    <div class="cs-kpi-valor">{{ carteira.saldoConsolidado|centavos }}</div>
+                    <div class="cs-kpi-sub">carteira inteira, não a página</div>
+                </div>
+                <div class="cs-kpi">
+                    <div class="cs-kpi-rotulo">Vencido</div>
+                    <div class="cs-kpi-valor {{ carteira.saldoVencido > 0 ? 'is-vencido' : '' }}">{{ carteira.saldoVencido|centavos }}</div>
+                    <div class="cs-kpi-sub">
+                        {{ carteira.totalComAtraso }} caso{{ carteira.totalComAtraso == 1 ? '' : 's' }} com atraso
+                        {%- if carteira.saldoConsolidado > 0 %} · {{ (carteira.saldoVencido * 100 / carteira.saldoConsolidado)|number_format(1, ',', '.') }}% do saldo{% endif %}
+                    </div>
+                </div>
+                <div class="cs-kpi">
+                    <div class="cs-kpi-rotulo">Objetos cobrados</div>
+                    <div class="cs-kpi-valor">{{ carteira.totalObjetos }}</div>
+                    <div class="cs-kpi-sub">rótulo: {{ rotulo }}</div>
+                </div>
+                <div class="cs-kpi">
+                    <div class="cs-kpi-rotulo">Casos abertos</div>
+                    <div class="cs-kpi-valor">{{ carteira.totalCasos }}</div>
+                    <div class="cs-kpi-sub">tolerância de atraso: {{ carteira.toleranciaAtrasoDias }} dia{{ carteira.toleranciaAtrasoDias == 1 ? '' : 's' }}</div>
+                </div>
+            </div>
         </div>
     </div>
 </section>
 
 <section class="content">
     <div class="container-fluid">
-        {# ── Resumo da carteira ─────────────────────────────────────────────
-           Usava `.caso-header` + `.caso-metrics`, emprestadas da tela de detalhe do Caso — lá
-           elas envolvem um `.caso-header-top` com título e subtítulo, que aqui não existe. Sobrava
-           uma borda arredondada em volta de dois números soltos, e os dois com o mesmo tamanho:
-           dinheiro empatando com contagem. Container próprio, e o saldo manda. #}
-        <div class="carteira-resumo mb-3">
-            <div class="carteira-resumo-item is-principal">
-                <span class="carteira-resumo-label">Saldo consolidado</span>
-                <span class="carteira-resumo-valor {{ carteira.saldoConsolidado == 0 ? 'is-zerado' : '' }}">{{ carteira.saldoConsolidado|centavos }}</span>
-            </div>
-            {# O vencido sai do MESMO lote que já calcula o saldo por caso (o que acende o realce de
-               linha) — o UseCase só o descartava no agregado. Zero consulta a mais. Fica em vermelho
-               só quando existe: carteira em dia não precisa de um zero vermelho chamando atenção. #}
-            <div class="carteira-resumo-item">
-                <span class="carteira-resumo-label">Vencido</span>
-                <span class="carteira-resumo-valor {{ carteira.saldoVencido > 0 ? 'is-vencido' : '' }}">{{ carteira.saldoVencido|centavos }}</span>
-            </div>
-            <div class="carteira-resumo-item">
-                <span class="carteira-resumo-label">Objetos cobrados</span>
-                <span class="carteira-resumo-valor">{{ carteira.totalObjetos }}</span>
-            </div>
-            <div class="carteira-resumo-item">
-                <span class="carteira-resumo-label">Com atraso</span>
-                <span class="carteira-resumo-valor {{ carteira.totalComAtraso > 0 ? 'is-vencido' : '' }}">{{ carteira.totalComAtraso }}</span>
-            </div>
-        </div>
-
-        {# ── Arranjo: lista à esquerda, trilho à direita ─────────────────────
-           A lista de objetos cobrados é a razão de existir da página, então vem PRIMEIRO no DOM e
-           fica com 8/12. Configuração e Documentos recuam para um trilho de 4/12 — visíveis sem
-           clique (foi o que o dono escolheu entre os dois arranjos desenhados), mas claramente
-           secundários. Antes era o contrário: Configuração, que quase nunca é lida, abria a página
-           e empurrava a lista para a direita, e Documentos ocupava a largura inteira embaixo com o
-           mesmo peso de card da lista. #}
-        <div class="row g-3">
-            {# ── Cobranças da carteira ─────────────────────────── #}
-            <div class="col-lg-8">
-                {# O card inteiro é o root do filtro: a barra de busca fica FORA da área trocável
-                   (mantém o foco no campo enquanto digita), e o botão "Novo objeto" — que é
-                   permissionado — nunca viaja no fragmento devolvido pelo XHR. #}
-                <div class="card cobranca-card h-100" data-filtro-root data-filtro-endpoint="{{ path('cobranca_carteira_show', {id: carteira.id}) }}">
-                    <div class="card-header fw-semibold d-flex align-items-center justify-content-between">
-                        <span><i class="bi bi-briefcase me-1"></i>Cobranças da carteira</span>
-                        {% if has_permission('resources.cobranca.gerenciar') %}
-                        <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalCriarObjeto">
-                            <i class="bi bi-plus-lg me-1"></i>Novo objeto
-                        </button>
-                        {% endif %}
-                    </div>
-                    <div class="card-body pb-0">
-                        {{ include('_partials/_filtro_barra.html.twig', {
-                            busca_placeholder: 'Buscar por objeto ou pessoa cobrada…',
-                            filtros: filtros,
-                            facetas: []
-                        }) }}
-                    </div>
+        {# ── Grade do desenho: a lista manda, o trilho acompanha ─────────────
+           A lista é a razão de existir da página: vem primeiro no DOM e fica com todo o espaço que
+           sobra. Configuração e Documentos recuam para uma faixa fixa de 340px — visíveis sem
+           clique (foi o que o dono escolheu entre os dois arranjos), mas claramente secundários. #}
+        <div class="cs-grade">
+            <div class="cs-coluna-lista">
+                {# O cartão inteiro é o root do filtro: a barra de busca fica FORA da área trocável
+                   (mantém o foco no campo enquanto digita) e o fragmento devolvido pelo XHR não
+                   carrega nada permissionado. #}
+                <div class="cs-card cs-lista" data-filtro-root data-filtro-endpoint="{{ path('cobranca_carteira_show', {id: carteira.id}) }}">
+                    {{ include('_partials/_filtro_barra.html.twig', {
+                        busca_placeholder: 'Buscar ' ~ rotulo|lower ~ ' ou pessoa cobrada…',
+                        filtros: filtros,
+                        facetas: facetasEstado
+                    }) }}
                     <div data-filtro-resultado>
                         {{ include('cobranca/carteira/_resultado_casos.html.twig') }}
                     </div>
                 </div>
             </div>
 
-            {# ── Trilho: Configuração + Documentos ─────────────── #}
-            <div class="col-lg-4">
-                <div class="carteira-trilho">
-                    <div class="card cobranca-card">
-                        <div class="card-header fw-semibold d-flex align-items-center justify-content-between">
-                            <span><i class="bi bi-gear me-1"></i>Configuração</span>
-                            {% if has_permission('resources.carteira.gerenciar') %}
-                            <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalEditarConfiguracao">
-                                <i class="bi bi-pencil me-1"></i>Editar
-                            </button>
-                            {% endif %}
-                        </div>
-                        {# Rótulo à esquerda, valor à direita, um por linha — em 4/12 o `dl.row` de
-                           duas colunas quebrava "Tolerância de atraso" no meio da palavra. #}
-                        <dl class="carteira-trilho-dl mb-0">
-                            <div class="carteira-trilho-linha">
-                                <dt>Modo</dt>
-                                <dd>{{ carteira.modoLabel }}</dd>
-                            </div>
-                            <div class="carteira-trilho-linha">
-                                <dt>Honorários</dt>
-                                <dd>{{ carteira.formaHonorariosLabel }}{% if carteira.percentualHonorarios %} ({{ carteira.percentualHonorarios }}%){% endif %}</dd>
-                            </div>
-                            <div class="carteira-trilho-linha">
-                                <dt>Tolerância de atraso</dt>
-                                <dd>{{ carteira.toleranciaAtrasoDias }} dia(s)</dd>
-                            </div>
-                            {% if carteira.tipoVinculoPreferidoLabel %}
-                            <div class="carteira-trilho-linha">
-                                <dt>Vínculo preferido</dt>
-                                <dd>{{ carteira.tipoVinculoPreferidoLabel }}</dd>
-                            </div>
-                            {% endif %}
-                            {% if carteira.rotuloObjeto %}
-                            <div class="carteira-trilho-linha">
-                                <dt>Rótulo do objeto</dt>
-                                <dd>{{ carteira.rotuloObjeto }}</dd>
-                            </div>
-                            {% endif %}
-                        </dl>
-                    </div>
-
-                    {# ── Documentos da carteira (Ajuste #5) ──────
-                       Saiu da tabela de 5 colunas para uma lista: em 4/12 aquela tabela viraria
-                       scroll horizontal. Nome em cima, categoria e data embaixo.
-
-                       A observação continua como TEXTO, numa terceira linha que só existe quando
-                       há observação. Cheguei a jogá-la para dentro de um `title` — o teste de
-                       upload pegou, e estava certo: tooltip não existe para quem usa toque nem
-                       para leitor de tela, e o que justificava a troca ("é quase sempre vazia")
-                       era chute meu, não medição. #}
-                    <div class="card cobranca-card">
-                        <div class="card-header fw-semibold d-flex align-items-center justify-content-between">
-                            <span><i class="bi bi-paperclip me-1"></i>Documentos{% if documentos|length %} <span class="carteira-trilho-contagem">{{ documentos|length }}</span>{% endif %}</span>
-                            {% if has_permission('resources.cobranca.gerenciar') %}
-                            <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalAdicionarDocumentoCarteira" title="Adicionar documento" aria-label="Adicionar documento">
-                                <i class="bi bi-plus-lg"></i>
-                            </button>
-                            {% endif %}
-                        </div>
-                        {% if documentos|length > 0 %}
-                        <ul class="carteira-docs list-unstyled mb-0">
-                            {% for doc in documentos %}
-                            <li class="carteira-doc">
-                                <div class="carteira-doc-texto">
-                                    <span class="carteira-doc-nome">{{ doc.nomeOriginal }}</span>
-                                    <span class="carteira-doc-meta">{{ doc.categoria.rotulo }} · {{ doc.carregadoEm|date('d/m/Y') }}</span>
-                                    {% if doc.observacao %}<span class="carteira-doc-obs">{{ doc.observacao }}</span>{% endif %}
-                                </div>
-                                <div class="carteira-doc-acoes">
-                                    <a href="{{ path('cobranca_carteira_documento_download', {docId: doc.id}) }}" class="btn btn-sm btn-outline-secondary" title="Baixar {{ doc.nomeOriginal }}" aria-label="Baixar {{ doc.nomeOriginal }}">
-                                        <i class="bi bi-download"></i>
-                                    </a>
-                                    {% if has_permission('resources.cobranca.gerenciar') %}
-                                    <form method="post" action="{{ path('cobranca_carteira_documento_excluir', {docId: doc.id}) }}" class="d-inline" onsubmit="return confirm('Excluir este documento?');">
-                                        <input type="hidden" name="_token" value="{{ csrf_token('cobranca_carteira_documento_excluir_' ~ doc.id) }}">
-                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Excluir {{ doc.nomeOriginal }}" aria-label="Excluir {{ doc.nomeOriginal }}">
-                                            <i class="bi bi-trash"></i>
-                                        </button>
-                                    </form>
-                                    {% endif %}
-                                </div>
-                            </li>
-                            {% endfor %}
-                        </ul>
-                        {% else %}
-                        <div class="cobranca-empty">
-                            <div class="empty-ico"><i class="bi bi-paperclip"></i></div>
-                            <p class="empty-title">Nenhum documento anexado</p>
-                        </div>
+            <div class="cs-trilho">
+                <div class="cs-card">
+                    <div class="cs-card-cabeca">
+                        <h2>Configuração</h2>
+                        {% if has_permission('resources.carteira.gerenciar') %}
+                        <button type="button" class="cs-btn cs-btn-mini" data-bs-toggle="modal" data-bs-target="#modalEditarConfiguracao">
+                            <i class="bi bi-pencil"></i><span>Editar</span>
+                        </button>
                         {% endif %}
                     </div>
+                    {# Rótulo à esquerda, valor à direita, linha pontilhada ligando os dois. As sete
+                       linhas aparecem SEMPRE: uma que some conforme o dado faz o trilho mudar de
+                       altura entre carteiras e some junto com a pergunta que ela responde. #}
+                    <dl class="cs-config">
+                        <div class="cs-config-linha">
+                            <dt>Modo</dt><span class="cs-leader"></span><dd>{{ carteira.modoLabel }}</dd>
+                        </div>
+                        <div class="cs-config-linha">
+                            <dt>Honorários</dt><span class="cs-leader"></span>
+                            <dd>{{ carteira.formaHonorariosLabel }}{% if carteira.percentualHonorarios %} · {{ carteira.percentualHonorarios }}%{% endif %}</dd>
+                        </div>
+                        <div class="cs-config-linha">
+                            <dt>Tolerância de atraso</dt><span class="cs-leader"></span>
+                            <dd>{{ carteira.toleranciaAtrasoDias }} dia{{ carteira.toleranciaAtrasoDias == 1 ? '' : 's' }}</dd>
+                        </div>
+                        <div class="cs-config-linha">
+                            <dt>Juros</dt><span class="cs-leader"></span><dd>{{ carteira.jurosLabel }}</dd>
+                        </div>
+                        <div class="cs-config-linha">
+                            <dt>Multa</dt><span class="cs-leader"></span><dd>{{ carteira.multaLabel }}</dd>
+                        </div>
+                        <div class="cs-config-linha">
+                            <dt>Vínculo preferido</dt><span class="cs-leader"></span><dd>{{ carteira.tipoVinculoPreferidoLabel|default('—') }}</dd>
+                        </div>
+                        <div class="cs-config-linha">
+                            <dt>Rótulo do objeto</dt><span class="cs-leader"></span><dd>{{ carteira.rotuloObjeto|default('—') }}</dd>
+                        </div>
+                    </dl>
+                </div>
+
+                {# ── Documentos da carteira ──────────────────────────────────
+                   Lista, não tabela: em 340px as cinco colunas viravam rolagem horizontal. A
+                   observação continua como TEXTO numa terceira linha (só existe quando há
+                   observação) — chegou a virar `title`, e o teste de upload pegou: tooltip não
+                   existe para quem usa toque nem para leitor de tela. #}
+                <div class="cs-card">
+                    <div class="cs-card-cabeca">
+                        <h2>Documentos</h2>
+                        {% if documentos|length %}<span class="cs-contador">{{ documentos|length }}</span>{% endif %}
+                        {% if has_permission('resources.cobranca.gerenciar') %}
+                        <button type="button" class="cs-btn cs-btn-quadrado" data-bs-toggle="modal" data-bs-target="#modalAdicionarDocumentoCarteira" title="Adicionar documento" aria-label="Adicionar documento">
+                            <i class="bi bi-plus-lg"></i>
+                        </button>
+                        {% endif %}
+                    </div>
+                    {% if documentos|length > 0 %}
+                    <ul class="cs-docs">
+                        {% for doc in documentos %}
+                        {% set ico = arquivo_icone(doc.nomeOriginal) %}
+                        <li class="cs-doc">
+                            <i class="bi {{ ico.icone }} cs-doc-ico" style="color: {{ ico.cor }}" aria-hidden="true"></i>
+                            <div class="cs-doc-texto">
+                                <a class="cs-doc-nome" href="{{ path('cobranca_carteira_documento_download', {docId: doc.id}) }}" title="Baixar {{ doc.nomeOriginal }}">{{ doc.nomeOriginal }}</a>
+                                <div class="cs-doc-meta">{{ doc.categoria.rotulo }} · {{ doc.carregadoEm|date('d/m/Y') }}</div>
+                                {% if doc.observacao %}<div class="cs-doc-obs">{{ doc.observacao }}</div>{% endif %}
+                            </div>
+                            <div class="cs-doc-acoes">
+                                <a href="{{ path('cobranca_carteira_documento_download', {docId: doc.id}) }}" class="cs-doc-acao" title="Baixar {{ doc.nomeOriginal }}" aria-label="Baixar {{ doc.nomeOriginal }}">
+                                    <i class="bi bi-download"></i>
+                                </a>
+                                {% if has_permission('resources.cobranca.gerenciar') %}
+                                {# O `confirm()` nativo continua: são 63 no sistema e não existe componente
+                                   de confirmação. Trocar 1 cria inconsistência com 62 — é frente própria. #}
+                                <form method="post" action="{{ path('cobranca_carteira_documento_excluir', {docId: doc.id}) }}" class="d-inline" onsubmit="return confirm('Excluir este documento?');">
+                                    <input type="hidden" name="_token" value="{{ csrf_token('cobranca_carteira_documento_excluir_' ~ doc.id) }}">
+                                    <button type="submit" class="cs-doc-acao is-perigo" title="Excluir {{ doc.nomeOriginal }}" aria-label="Excluir {{ doc.nomeOriginal }}">
+                                        <i class="bi bi-trash3"></i>
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <div class="cs-docs-vazio">
+                        Nenhum documento na carteira. Atas de assembleia e o contrato de honorários ficam aqui.
+                    </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
-
     </div>
 </section>
 
@@ -237,6 +317,9 @@
 {{ parent() }}
 <link rel="stylesheet" href="{{ asset('css/filtro-tabela.css') }}">
 <link rel="stylesheet" href="{{ asset('css/cobrancas.css') }}">
+{# Redesenho da carteira — desenho aprovado em docs/design/design_handoff_carteira_show/.
+   Vem DEPOIS do cobrancas.css: é ele que redefine o que a tela herda das outras. #}
+<link rel="stylesheet" href="{{ asset('css/carteira-show.css') }}">
 {% endblock %}
 
 {% block javascripts %}
@@ -247,16 +330,13 @@
 document.addEventListener('DOMContentLoaded', function () {
     /* Clique na linha delegado no document — sobrevive à troca do fragmento pela busca. */
     document.addEventListener('click', function (e) {
-        var tr = e.target.closest('tr.cobranca-row-link');
+        var tr = e.target.closest('tr.cs-linha');
         if (!tr) { return; }
         if (e.target.closest('button, a, form, input, select')) { return; }
         window.location.href = tr.dataset.href;
     });
-    /* `getOrCreateInstance`: o fragmento da lista também liga os seus ao ser injetado —
-       criar duas instâncias no mesmo elemento é erro no Bootstrap. */
-    document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function (el) {
-        if (typeof bootstrap !== 'undefined') { bootstrap.Tooltip.getOrCreateInstance(el); }
-    });
+    /* Não há tooltip do Bootstrap nesta tela: o desenho usa `title` nativo, que sobrevive à
+       troca do fragmento sem precisar ser religado a cada busca. */
 });
 </script>
 {% endblock %}

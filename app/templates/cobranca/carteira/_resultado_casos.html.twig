@@ -1,92 +1,131 @@
 {# ───────────────────────────────────────────────────────────────────────────
    Fragmento trocável da lista de cobranças da carteira (dentro de
-   [data-filtro-resultado]). Reexecutado a cada busca por public/js/filtro-tabela.js —
-   no XHR o controller devolve SÓ este arquivo.
+   [data-filtro-resultado]). Reexecutado a cada busca, filtro, ordenação ou
+   virada de página por public/js/filtro-tabela.js — no XHR o controller devolve
+   SÓ este arquivo. Nada permissionado entra aqui.
    Recebe Output DTOs (CasoResumoOutput), nunca entidades cruas.
 ─────────────────────────────────────────────────────────────────────────── #}
 {% set busca = filtros.busca|default('') %}
+{% set estado = filtros.estado|default('') %}
+{% set ordenar = filtros.ordenar|default('saldo') %}
+{% set direcao = filtros.direcao|default('desc') %}
+{% set rotulo = carteira.rotuloObjeto|default('Objeto') %}
 
-{# Contagem em cima, paginação embaixo: numa tabela de 20 linhas o olho termina no rodapé, e é lá
-   que a próxima página tem de estar. `total` é o tamanho da lista JÁ filtrada pela busca — não é o
-   `carteira.totalCasos` do cabeçalho, que conta a carteira inteira. #}
-<div class="cobranca-resultado-head">
-    <div class="cobranca-count">
-        <i class="bi bi-briefcase"></i> <strong>{{ total }}</strong>&nbsp;objeto(s) cobrado(s)
-    </div>
+{# A contagem pertence visualmente à barra de busca (o CSS a leva para lá em tela larga), mas mora
+   AQUI porque muda a cada filtro — e a barra, que guarda o foco do campo, não recarrega.
+   `total` é o tamanho da lista JÁ filtrada; `carteira.totalCasos` é a carteira inteira. #}
+<div class="cs-contagem">
+    {%- if total == carteira.totalCasos -%}
+        {{ total }} caso{{ total == 1 ? '' : 's' }}
+    {%- else -%}
+        {{ total }} de {{ carteira.totalCasos }} casos
+    {%- endif -%}
 </div>
 
-<div class="table-responsive">
-    {% if casos|length > 0 %}
-    <table class="table mb-0">
+{% if casos|length > 0 %}
+<div class="cs-lista-rolagem">
+    <table class="cs-tabela">
         <thead>
             <tr>
-                {# `data-ordenar` é o contrato do filtro-tabela.js: ele lê o valor, alterna a direção
-                   e recarrega o fragmento na página 1. Os valores aceitos são os de
-                   MontarVisaoCarteiraUseCase::ORDENACOES — inventar um aqui cai no padrão em
-                   silêncio. "Estado" não entra: ordenar por rótulo de status não responde pergunta
-                   nenhuma que a tela faça. #}
-                <th class="sortable ps-3{{ filtros.ordenar == 'objeto' ? ' ' ~ filtros.direcao : '' }}" data-ordenar="objeto">Objeto <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                <th class="sortable{{ filtros.ordenar == 'pessoa' ? ' ' ~ filtros.direcao : '' }}" data-ordenar="pessoa">Pessoa cobrada <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                <th class="cobranca-col-estado">Estado</th>
-                <th class="sortable text-end cobranca-col-saldo{{ filtros.ordenar == 'saldo' ? ' ' ~ filtros.direcao : '' }}" data-ordenar="saldo">Saldo exigível <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                {# `data-ordenar` é o contrato do filtro-tabela.js: ele lê o valor, alterna a direção e
+                   recarrega o fragmento na página 1. Os valores aceitos são os de
+                   MontarVisaoCarteiraUseCase::ORDENACOES — inventar um aqui cai no padrão em silêncio.
+                   "Estado" NÃO ordena, e por isso não ganha seta: o UseCase não aceita, e uma seta que
+                   não faz nada é pior do que seta nenhuma. #}
+                <th class="cs-col-obj cs-th-ordenavel{{ ordenar == 'objeto' ? ' ' ~ direcao : '' }}" data-ordenar="objeto" scope="col"
+                    aria-sort="{{ ordenar == 'objeto' ? (direcao == 'asc' ? 'ascending' : 'descending') : 'none' }}">
+                    <button type="button" class="cs-ordenar">
+                        <span>{{ rotulo }}</span>
+                        <i class="bi bi-arrow-{{ ordenar == 'objeto' ? (direcao == 'asc' ? 'up' : 'down') : 'down-up' }}"></i>
+                    </button>
+                </th>
+                <th class="cs-col-pessoa cs-th-ordenavel{{ ordenar == 'pessoa' ? ' ' ~ direcao : '' }}" data-ordenar="pessoa" scope="col"
+                    aria-sort="{{ ordenar == 'pessoa' ? (direcao == 'asc' ? 'ascending' : 'descending') : 'none' }}">
+                    <button type="button" class="cs-ordenar">
+                        <span>Pessoa cobrada</span>
+                        <i class="bi bi-arrow-{{ ordenar == 'pessoa' ? (direcao == 'asc' ? 'up' : 'down') : 'down-up' }}"></i>
+                    </button>
+                </th>
+                <th class="cs-col-estado" scope="col">Estado</th>
+                <th class="cs-col-saldo cs-th-saldo cs-th-ordenavel{{ ordenar == 'saldo' ? ' ' ~ direcao : '' }}" data-ordenar="saldo" scope="col"
+                    aria-sort="{{ ordenar == 'saldo' ? (direcao == 'asc' ? 'ascending' : 'descending') : 'none' }}">
+                    <button type="button" class="cs-ordenar">
+                        <span>Saldo</span>
+                        <i class="bi bi-arrow-{{ ordenar == 'saldo' ? (direcao == 'asc' ? 'up' : 'down') : 'down-up' }}"></i>
+                    </button>
+                </th>
+                <th class="cs-col-anexo" scope="col"><span class="visually-hidden">Anexos</span></th>
             </tr>
         </thead>
         <tbody>
             {% for caso in casos %}
-            {# A linha inteira é clicável por JS (conveniência de mouse), mas quem carrega o
-               destino de verdade é o <a> do identificador: é ele que dá acesso por teclado,
-               abre em nova aba pelo Ctrl+clique e mostra a URL na barra de status. O listener
-               da linha já ignora cliques em <a>, então os dois não disputam. #}
-            <tr class="cobranca-row-link{{ caso.temVencido ? ' cobranca-row-vencido' : '' }}" data-href="{{ path('cobranca_objeto_show', {id: caso.objetoId}) }}">
-                <td class="ps-3 align-middle">
-                    <a class="cobranca-row-alvo" href="{{ path('cobranca_objeto_show', {id: caso.objetoId}) }}">{{ caso.objetoIdentificacao }}</a>
-                    {% if caso.temDocumentos %}<i class="bi bi-paperclip text-muted ms-1" title="Possui documentos anexados" aria-label="Possui documentos anexados" data-bs-toggle="tooltip"></i>{% endif %}
-                    {% if caso.objetoDescricao %}<div class="text-muted small">{{ caso.objetoDescricao }}</div>{% endif %}
+            {# A linha inteira é clicável por JS (conveniência de mouse), mas quem carrega o destino de
+               verdade é o <a> da identificação: é ele que dá acesso por teclado, abre em nova aba pelo
+               Ctrl+clique e mostra a URL na barra de status. O listener da linha ignora cliques em <a>,
+               então os dois não disputam. #}
+            <tr class="cs-linha{{ caso.temVencido ? ' cs-linha-vencida' : '' }}" data-href="{{ path('cobranca_objeto_show', {id: caso.objetoId}) }}">
+                <td>
+                    <a class="cs-obj-nome" href="{{ path('cobranca_objeto_show', {id: caso.objetoId}) }}">{{ caso.objetoIdentificacao }}</a>
+                    {% if caso.objetoDescricao %}<div class="cs-obj-desc">{{ caso.objetoDescricao }}</div>{% endif %}
                 </td>
-                <td class="align-middle">{{ caso.pessoaCobradaNome }}</td>
-                <td class="align-middle">
-                    <span class="badge {{ caso.statusBadgeClass }}">{{ caso.statusLabel }}</span>
-                    {% if caso.prontoParaEncerrar %}<span class="badge text-bg-success ms-1" data-bs-toggle="tooltip" title="Saldo exigível zerado — pode ser encerrado">Pronto</span>{% endif %}
+                <td class="cs-pessoa">{{ caso.pessoaCobradaNome }}</td>
+                <td>
+                    <span class="cs-selo cs-selo-{{ caso.statusValue }}">{{ caso.statusLabel }}</span>
+                    {# "Pronto p/ encerrar" é indicador DERIVADO (saldo zerado e caso não encerrado),
+                       não um quarto estado — por isso texto miúdo abaixo, nunca um selo do mesmo peso. #}
+                    {% if caso.prontoParaEncerrar %}
+                    <span class="cs-pronto" title="Saldo exigível zerado — o caso pode ser encerrado">
+                        <i class="bi bi-check2-circle"></i>Pronto p/ encerrar
+                    </span>
+                    {% endif %}
                 </td>
-                <td class="align-middle text-end jp-money">{{ caso.saldoExigivel|centavos }}</td>
+                <td class="cs-td-saldo">
+                    <div class="cs-saldo{{ caso.saldoExigivel == 0 ? ' is-zero' : '' }}">{{ caso.saldoExigivel|centavos }}</div>
+                    {% if caso.temVencido %}<div class="cs-saldo-vencido">{{ caso.saldoVencido|centavos }} vencido</div>{% endif %}
+                </td>
+                <td class="cs-td-anexo">
+                    {% if caso.temDocumentos %}<i class="bi bi-paperclip" title="O objeto tem documentos" aria-label="O objeto tem documentos"></i>{% endif %}
+                </td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
-    {% else %}
-    <div class="cobranca-empty">
-        <div class="empty-ico"><i class="bi bi-briefcase"></i></div>
-        {% if busca is not empty %}
-            <p class="empty-title">Nenhuma cobrança encontrada</p>
-            <p class="text-muted small mb-0">Ajuste ou limpe a busca aplicada.</p>
-        {% else %}
-            <p class="empty-title">Nenhuma cobrança nesta carteira</p>
-        {% endif %}
-    </div>
-    {% endif %}
 </div>
 
-{# O rodapé só existe quando há o que paginar — o próprio partial já se cala com uma página só,
-   mas sem esta guarda sobraria uma faixa cinza vazia embaixo da lista curta. #}
-{% if total_paginas|default(1) > 1 %}
-<div class="cobranca-resultado-rodape">
-    {# O deslocamento sai de `por_pagina`, NÃO de `casos|length`: a última página vem incompleta, e
-       usar o tamanho da lista devolvida faria "Mostrando 7–7 de 121" no lugar de "121–121". #}
-    {% set primeiro = (pagina - 1) * por_pagina + 1 %}
-    <span class="cobranca-count">
-        Mostrando {{ primeiro }}–{{ primeiro + casos|length - 1 }} de {{ total }}
-    </span>
+{# O rodapé acompanha a lista sempre que ela tem linha: a faixa ("Mostrando 1–20 de 121") responde
+   "onde eu estou" mesmo quando há uma página só. No estado vazio ele some — "0 de 0" com paginador
+   ao lado é ruído. O deslocamento sai de `por_pagina`, NÃO de `casos|length`: a última página vem
+   incompleta, e usar o tamanho da lista devolvida faria "Mostrando 7–7 de 121". #}
+{% set primeiro = (pagina - 1) * por_pagina + 1 %}
+<div class="cs-rodape">
+    <span class="cs-faixa">Mostrando {{ primeiro }}–{{ primeiro + casos|length - 1 }} de {{ total }}</span>
     {{ include('_partials/_filtro_paginacao.html.twig', { pagina: pagina, total_paginas: total_paginas }) }}
 </div>
-{% endif %}
 
-{# Tooltips do fragmento: o innerHTML é substituído a cada busca, então quem foi ligado no
-   DOMContentLoaded morre junto. O motor recria os <script> do fragmento ao injetá-lo. #}
-<script>
-(function () {
-    if (typeof bootstrap === 'undefined') { return; }
-    document.querySelectorAll('.cobrancas-page [data-bs-toggle="tooltip"]').forEach(function (el) {
-        bootstrap.Tooltip.getOrCreateInstance(el);
-    });
-})();
-</script>
+{% else %}
+<div class="cs-vazio">
+    {% if busca is not empty %}
+        <i class="bi bi-search"></i>
+        <p class="cs-vazio-titulo">Nenhum caso casa “{{ busca }}”</p>
+        <p class="cs-vazio-texto">
+            A busca cobre a identificação {{ rotulo == 'Objeto' ? 'do objeto' : ('da ' ~ rotulo|lower) }} e o nome da pessoa
+            cobrada. Os valores do cabeçalho continuam sendo os da carteira inteira.
+        </p>
+        <button type="button" class="cs-btn js-filtro-limpar"><i class="bi bi-x-lg"></i><span>Limpar busca</span></button>
+    {% elseif estado is not empty %}
+        <i class="bi bi-funnel"></i>
+        <p class="cs-vazio-titulo">Nenhum caso neste recorte</p>
+        <p class="cs-vazio-texto">
+            A carteira tem {{ carteira.totalCasos }} caso{{ carteira.totalCasos == 1 ? '' : 's' }}, mas nenhum no estado
+            escolhido. Os valores do cabeçalho continuam sendo os da carteira inteira.
+        </p>
+        <button type="button" class="cs-btn js-filtro-limpar"><i class="bi bi-x-lg"></i><span>Limpar filtro</span></button>
+    {% else %}
+        <i class="bi bi-briefcase"></i>
+        <p class="cs-vazio-titulo">Nenhuma cobrança nesta carteira</p>
+        <p class="cs-vazio-texto">
+            As cobranças aparecem aqui depois de importar um relatório ou de criar {{ rotulo == 'Objeto' ? 'um objeto' : ('uma ' ~ rotulo|lower) }} à mão.
+        </p>
+    {% endif %}
+</div>
+{% endif %}

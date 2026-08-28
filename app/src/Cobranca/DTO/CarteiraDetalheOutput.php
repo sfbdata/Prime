@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Cobranca\DTO;
 
 use App\Cobranca\Entity\Carteira;
+use App\Cobranca\Enum\BaseEncargo;
+use App\Cobranca\Enum\RegimeJuros;
 
 /**
  * Leitura da Carteira para a visão da carteira (Etapa 8): cabeçalho de configuração (modo, honorários,
@@ -44,6 +46,19 @@ final class CarteiraDetalheOutput
         public readonly ?\DateTimeImmutable $dadosAtualizadosAte = null,
         /** @var array<string, \DateTimeImmutable> tipo de relatório => emissão, para o detalhamento */
         public readonly array $emissaoPorTipo = [],
+        /**
+         * Id do cliente CREDOR — só para o link do cabeçalho ("Credor: <a>"). Null quando a carteira
+         * está sem cliente (o `clienteNome` já cai em "—" nesse caso); a tela então não linka.
+         */
+        public readonly ?int $clienteId = null,
+        /**
+         * Encargos por atraso já em forma de FRASE, para o trilho de Configuração ("1% ao mês,
+         * simples" · "2% sobre o principal"). Taxa e regime/base são dois campos no domínio e uma
+         * linha só na tela: quem junta é a DTO, porque é decisão de apresentação — e assim o Twig não
+         * precisa saber que a taxa está gravada em pontos-base.
+         */
+        public readonly string $jurosLabel = 'Sem juros',
+        public readonly string $multaLabel = 'Sem multa',
     ) {
     }
 
@@ -75,6 +90,49 @@ final class CarteiraDetalheOutput
             totalComAtraso: $totalComAtraso,
             dadosAtualizadosAte: $c->getDadosAtualizadosAte(),
             emissaoPorTipo: $c->getEmissaoPorTipoDeRelatorio(),
+            clienteId: $cliente?->getId(),
+            jurosLabel: self::juros($c->getTaxaJurosMensalBp(), $c->getRegimeJuros()),
+            multaLabel: self::multa($c->getTaxaMultaBp(), $c->getBaseMulta()),
         );
+    }
+
+    /** "1% ao mês, simples" — ou "Sem juros" quando a carteira não cobra juros. */
+    private static function juros(int $taxaBp, RegimeJuros $regime): string
+    {
+        if ($taxaBp <= 0) {
+            return 'Sem juros';
+        }
+
+        return sprintf(
+            '%s%% ao mês, %s',
+            self::percentual($taxaBp),
+            $regime === RegimeJuros::Composto ? 'composto' : 'simples',
+        );
+    }
+
+    /** "2% sobre o principal" — ou "Sem multa" quando a carteira não cobra multa. */
+    private static function multa(int $taxaBp, BaseEncargo $base): string
+    {
+        if ($taxaBp <= 0) {
+            return 'Sem multa';
+        }
+
+        return sprintf(
+            '%s%% sobre %s',
+            self::percentual($taxaBp),
+            $base === BaseEncargo::Composta ? 'o principal + encargos' : 'o principal',
+        );
+    }
+
+    /**
+     * Pontos-base → percentual brasileiro sem zero à toa: 100 → "1", 150 → "1,5", 233 → "2,33".
+     * Cortar o decimal vazio importa porque a linha do trilho é estreita e "1%" cabe onde "1,00%"
+     * já começa a disputar espaço com o rótulo.
+     */
+    private static function percentual(int $bp): string
+    {
+        $texto = number_format($bp / 100, 2, ',', '.');
+
+        return str_contains($texto, ',') ? rtrim(rtrim($texto, '0'), ',') : $texto;
     }
 }

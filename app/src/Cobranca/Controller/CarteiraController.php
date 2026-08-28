@@ -136,8 +136,11 @@ final class CarteiraController extends AbstractController
         $pagina = max(1, (int) $request->query->get('page', 1));
         $ordenar = (string) $request->query->get('ordenar', '') ?: 'saldo';
         $direcao = strtolower((string) $request->query->get('direcao', 'desc')) === 'asc' ? 'asc' : 'desc';
+        // Faceta de Estado (desenho 1B): recorta a lista por `StatusCaso` ou pelo derivado "só com
+        // atraso". Como a busca, NÃO toca os agregados do cabeçalho — quem garante isso é o UseCase.
+        $estado = (string) $request->query->get('estado', '');
 
-        $visao = $this->montarVisaoCarteira->executar($carteira, $busca, $pagina, self::POR_PAGINA, $ordenar, $direcao);
+        $visao = $this->montarVisaoCarteira->executar($carteira, $busca, $pagina, self::POR_PAGINA, $ordenar, $direcao, $estado);
 
         $dados = [
             'carteira' => $visao['carteira'],
@@ -148,7 +151,7 @@ final class CarteiraController extends AbstractController
             'pagina' => $visao['pagina'],
             'total_paginas' => $visao['total_paginas'],
             'por_pagina' => $visao['por_pagina'],
-            'filtros' => ['busca' => $busca, 'ordenar' => $ordenar, 'direcao' => $direcao],
+            'filtros' => ['busca' => $busca, 'estado' => $estado, 'ordenar' => $ordenar, 'direcao' => $direcao],
         ];
 
         // Contrato do `filtro-tabela.js`: no XHR devolve só o innerHTML do [data-filtro-resultado].
@@ -162,7 +165,32 @@ final class CarteiraController extends AbstractController
             // Documentos da carteira (Ajuste #5): lista cronológica abaixo da configuração.
             'documentos' => $this->carteiraDocumentoRepository->listarPorCarteira($carteira),
             'categoriasCarteira' => CategoriaDocumentoCarteira::cases(),
+            'facetasEstado' => self::facetasDaLista(),
         ]);
+    }
+
+    /**
+     * Opções da faceta de Estado, no formato do `_partials/_filtro_barra.html.twig`. Só na página
+     * cheia: a barra de filtro vive FORA do fragmento trocável, então nunca viaja no XHR.
+     *
+     * @return list<array{name: string, rotulo: string, tipo: string, opcoes: list<array{valor: string, label: string}>}>
+     */
+    private static function facetasDaLista(): array
+    {
+        return [[
+            'name' => 'estado',
+            'rotulo' => 'Estado',
+            'tipo' => 'select',
+            'opcoes' => [
+                ['valor' => 'ativo', 'label' => 'Ativo'],
+                ['valor' => 'judicializado', 'label' => 'Judicializado'],
+                ['valor' => 'encerrado', 'label' => 'Encerrado'],
+                // Não é um estado, é o recorte derivado "tem atraso" — por isso vem por último e
+                // com rótulo que não imita os três de cima, para não se ler como um quarto
+                // valor de `StatusCaso`.
+                ['valor' => 'vencidos', 'label' => 'Só com atraso'],
+            ],
+        ]];
     }
 
     #[Route('/carteiras/nova', name: 'cobranca_carteira_criar', methods: ['POST'])]

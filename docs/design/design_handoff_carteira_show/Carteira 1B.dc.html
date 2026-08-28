@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+  body { margin:0; background:#f4f7f9; font-family:'Source Sans 3', Arial, Helvetica, sans-serif; -webkit-font-smoothing:antialiased; color:#12242f; }
+  a { color:#0f6fc4; text-decoration:none; }
+  a:hover { color:#0b5596; text-decoration:underline; }
+  *, *::before, *::after { box-sizing:border-box; }
+  @keyframes ovIn { from { opacity:0; } to { opacity:1; } }
+  @keyframes dlgIn { from { opacity:0; transform:translate3d(0,14px,0) scale(.985); } to { opacity:1; transform:none; } }
+</style>
+</helmet>
+
+<div>
+  <header style="background:#0c7a9c;color:#fff;padding:0 20px;display:flex;align-items:center;gap:18px;height:56px">
+    <button style="border:none;background:transparent;color:#fff;font-size:20px;line-height:1;padding:5px 8px;border-radius:7px;cursor:pointer;display:flex;align-items:center" style-hover="background:rgba(255,255,255,.14)"><i class="bi bi-list"></i></button>
+    <img src="assets/bluejus-white-transparent-nav.png" alt="BlueJus" style="height:27px;width:auto;display:block;flex-shrink:0">
+    <div style="width:1px;height:22px;background:rgba(255,255,255,.32);flex-shrink:0"></div>
+    <span style="font-size:15px;color:#e4f3f8">Cobranças</span>
+    <div style="flex:1"></div>
+    <div style="display:flex;align-items:center;gap:8px;font-size:14px;color:#e4f3f8">
+      <i class="bi bi-building" style="font-size:15px;opacity:.85"></i>
+      <span>Farlei Assis da Rocha S…</span>
+    </div>
+    <div style="position:relative;width:28px;height:28px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+      <i class="bi bi-bell" style="font-size:17px"></i>
+      <span style="position:absolute;top:-3px;right:-7px;background:#e0472e;color:#fff;font-size:10px;font-weight:700;line-height:1.35;padding:1px 5px;border-radius:999px">9+</span>
+    </div>
+    <div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="bi bi-arrows-fullscreen" style="font-size:15px"></i></div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <span style="font-size:14px;font-weight:600;letter-spacing:0.02em;text-transform:uppercase">Samuel Freitas</span>
+      <div style="width:30px;height:30px;border-radius:50%;background:#fff;color:#0c7a9c;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center">SF</div>
+      <i class="bi bi-caret-down-fill" style="font-size:10px;opacity:.85"></i>
+    </div>
+  </header>
+
+  <nav style="background:#fff;border-bottom:1px solid #dde5eb;padding:0 26px;display:flex;height:44px;align-items:stretch">
+    <span style="font-size:13px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#12242f;padding:0 14px;display:flex;align-items:center;box-shadow:inset 0 -2px 0 #0c7a9c">Expediente</span>
+    <span style="font-size:13px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:#5f7684;padding:0 14px;display:flex;align-items:center;cursor:pointer" style-hover="color:#0c7a9c">Demandas</span>
+    <span style="font-size:13px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:#5f7684;padding:0 14px;display:flex;align-items:center;cursor:pointer" style-hover="color:#0c7a9c">Processos</span>
+  </nav>
+
+  <sc-if value="{{ flashOn }}" hint-placeholder-val="{{ false }}">
+    <div style="max-width:1500px;margin:14px auto 0;padding:0 26px">
+      <div style="display:flex;align-items:center;gap:10px;background:#e8f3ed;border:1px solid #cfe6da;border-radius:11px;padding:11px 14px;font-size:13.5px;color:#186c47">
+        <i class="bi bi-check-circle-fill" style="font-size:15px"></i>
+        <span style="font-weight:500">{{ flashText }}</span>
+        <div style="flex:1"></div>
+        <button onClick="{{ closeFlash }}" style="border:none;background:transparent;color:#186c47;font-size:14px;cursor:pointer;padding:2px 4px;border-radius:5px" style-hover="background:#d6ebe0"><i class="bi bi-x-lg"></i></button>
+      </div>
+    </div>
+  </sc-if>
+
+  <div style="max-width:1500px;margin:0 auto;padding:20px 26px 70px;display:flex;flex-direction:column;gap:16px">
+
+    <div style="background:#fff;border:1px solid #dde5eb;border-radius:14px;box-shadow:0 1px 2px rgba(16,42,58,.04)">
+      <div style="padding:18px 22px 0;display:flex;align-items:center;gap:12px">
+        <button style="display:flex;align-items:center;gap:7px;height:30px;padding:0 11px 0 9px;border:1px solid #cdd7de;background:#fff;color:#455c6b;font-family:inherit;font-size:12.5px;font-weight:500;border-radius:8px;cursor:pointer;flex-shrink:0" style-hover="border-color:#0f6fc4;color:#0f6fc4"><i class="bi bi-arrow-left" style="font-size:13px"></i><span>Carteiras</span></button>
+        <div style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:#6b8494;min-width:0">
+          <a href="#">Home</a><span>/</span><a href="#">Cobranças</a><span>/</span><span style="color:#12242f">TOP LIFE II</span>
+        </div>
+        <div style="flex:1"></div>
+        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+          <button onClick="{{ openObjeto }}" style="display:flex;align-items:center;gap:7px;height:34px;padding:0 13px;border:1px solid #cdd7de;background:#fff;color:#455c6b;font-family:inherit;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer" style-hover="border-color:#0f6fc4;color:#0f6fc4"><i class="bi bi-plus-lg" style="font-size:13px"></i><span>Novo objeto</span></button>
+          <button onClick="{{ openImport }}" style="display:flex;align-items:center;gap:7px;height:34px;padding:0 14px;border:1px solid #1a6b43;background:#1f7a4d;color:#fff;font-family:inherit;font-size:13px;font-weight:600;border-radius:8px;cursor:pointer" style-hover="background:#1a6b43"><i class="bi bi-upload" style="font-size:13px"></i><span>Importar relatório</span></button>
+          <div style="position:relative">
+            <button onClick="{{ toggleMenu }}" title="Mais ações" style="width:34px;height:34px;display:flex;align-items:center;justify-content:center;border:1px solid #cdd7de;background:#fff;color:#455c6b;font-size:15px;border-radius:8px;cursor:pointer" style-hover="border-color:#0f6fc4;color:#0f6fc4"><i class="bi bi-three-dots-vertical"></i></button>
+            <sc-if value="{{ menuOpen }}" hint-placeholder-val="{{ false }}">
+              <div style="position:absolute;top:40px;right:0;z-index:30;width:242px;background:#fff;border:1px solid #dde5eb;border-radius:10px;box-shadow:0 10px 30px rgba(16,42,58,.14);padding:5px;display:flex;flex-direction:column">
+                <button onClick="{{ openConfig }}" style="display:flex;align-items:center;gap:9px;padding:8px 10px;border:none;background:transparent;font-family:inherit;font-size:13.5px;color:#243845;border-radius:7px;cursor:pointer;text-align:left" style-hover="background:#f2f7fa"><i class="bi bi-sliders" style="font-size:14px;color:#5f7684"></i><span>Editar configuração</span></button>
+                <button style="display:flex;align-items:center;gap:9px;padding:8px 10px;border:none;background:transparent;font-family:inherit;font-size:13.5px;color:#243845;border-radius:7px;cursor:pointer;text-align:left" style-hover="background:#f2f7fa"><i class="bi bi-clipboard-data" style="font-size:14px;color:#5f7684"></i><span>Conferir espelho contábil</span></button>
+                <button style="display:flex;align-items:center;gap:9px;padding:8px 10px;border:none;background:transparent;font-family:inherit;font-size:13.5px;color:#243845;border-radius:7px;cursor:pointer;text-align:left" style-hover="background:#f2f7fa"><i class="bi bi-file-earmark-spreadsheet" style="font-size:14px;color:#5f7684"></i><span>Exportar lista (.xlsx)</span></button>
+                <div style="height:1px;background:#eef2f5;margin:4px 6px"></div>
+                <button style="display:flex;align-items:center;gap:9px;padding:8px 10px;border:none;background:transparent;font-family:inherit;font-size:13.5px;color:#a3232b;border-radius:7px;cursor:pointer;text-align:left" style-hover="background:#fdf1f0"><i class="bi bi-trash3" style="font-size:14px"></i><span>Excluir carteira</span></button>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+      </div>
+
+      <div style="padding:14px 22px 0">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <span style="font-size:12.5px;font-weight:500;letter-spacing:0.08em;color:#6b8494">CARTEIRA 3</span>
+          <div style="width:1px;height:16px;background:#dde5eb"></div>
+          <span style="display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;color:#455c6b;background:#f1f5f7;border:1px solid #e2eaef;padding:3px 10px;border-radius:999px"><i class="bi bi-diagram-3" style="font-size:11px;color:#6b8494"></i>Uma cobrança ativa por objeto</span>
+          <span style="display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;color:#455c6b;background:#f1f5f7;border:1px solid #e2eaef;padding:3px 10px;border-radius:999px"><i class="bi bi-percent" style="font-size:11px;color:#6b8494"></i>Retidos do recuperado · 20%</span>
+        </div>
+        <h1 style="margin:12px 0 6px;font-size:28px;line-height:1.2;font-weight:600;letter-spacing:-0.015em">TOP LIFE II</h1>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding-bottom:18px">
+          <span style="font-size:14.5px;color:#5f7684">Credor: <a href="#" style="font-weight:600">Condomínio Edifício Top Life II</a></span>
+          <div style="position:relative">
+            <button onClick="{{ toggleFresh }}" style="{{ freshStyle }}">
+              <i class="bi bi-clock-history" style="font-size:11px"></i>
+              <span>Dados atualizados até 12/08/2026</span>
+              <span style="color:#a3232b;font-weight:700">· há 15 dias</span>
+              <i class="bi bi-chevron-down" style="font-size:8px;opacity:.7"></i>
+            </button>
+            <sc-if value="{{ freshOpen }}" hint-placeholder-val="{{ false }}">
+              <div style="position:absolute;top:30px;left:0;z-index:30;width:318px;background:#fff;border:1px solid #dde5eb;border-radius:11px;box-shadow:0 12px 34px rgba(16,42,58,.16);padding:12px 14px">
+                <div style="font-size:10.5px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#7b93a2;margin-bottom:9px">Emissão por relatório</div>
+                <div style="display:flex;flex-direction:column;gap:7px">
+                  <sc-for list="{{ emissoes }}" as="e" hint-placeholder-count="4">
+                    <div style="display:flex;align-items:center;gap:10px;font-size:13px">
+                      <span style="color:#455c6b">{{ e.tipo }}</span>
+                      <div style="flex:1;border-bottom:1px dotted #cdd7de"></div>
+                      <span style="{{ e.style }}">{{ e.data }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+                <div style="margin-top:11px;padding-top:10px;border-top:1px solid #eef2f5;font-size:12px;color:#6b8494;text-wrap:pretty">A carteira só está em dia até a emissão <strong style="font-weight:600">mais antiga</strong>. Importe o cadastro para fechar a defasagem.</div>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+      </div>
+
+      <div style="border-top:1px solid #eef2f5;display:grid;grid-template-columns:1.15fr 1.15fr .8fr .8fr">
+        <div style="padding:16px 22px;border-right:1px solid #eef2f5">
+          <div style="font-size:10.5px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#7b93a2;margin-bottom:5px">Saldo consolidado</div>
+          <div style="font-variant-numeric:tabular-nums;font-size:29px;font-weight:600;letter-spacing:-0.02em;line-height:1.1">R$ 197.906,55</div>
+          <div style="font-size:12px;color:#8a9aa6;margin-top:3px">carteira inteira, não a página</div>
+        </div>
+        <div style="padding:16px 22px;border-right:1px solid #eef2f5">
+          <div style="font-size:10.5px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#7b93a2;margin-bottom:5px">Vencido</div>
+          <div style="font-variant-numeric:tabular-nums;font-size:29px;font-weight:600;letter-spacing:-0.02em;color:#a3232b;line-height:1.1">R$ 58.117,05</div>
+          <div style="font-size:12px;color:#8a9aa6;margin-top:3px">42 casos com atraso · 29,4% do saldo</div>
+        </div>
+        <div style="padding:16px 22px;border-right:1px solid #eef2f5">
+          <div style="font-size:10.5px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#7b93a2;margin-bottom:5px">Objetos cobrados</div>
+          <div style="font-variant-numeric:tabular-nums;font-size:29px;font-weight:600;letter-spacing:-0.02em;line-height:1.1">121</div>
+          <div style="font-size:12px;color:#8a9aa6;margin-top:3px">rótulo: Unidade</div>
+        </div>
+        <div style="padding:16px 22px">
+          <div style="font-size:10.5px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#7b93a2;margin-bottom:5px">Casos abertos</div>
+          <div style="font-variant-numeric:tabular-nums;font-size:29px;font-weight:600;letter-spacing:-0.02em;line-height:1.1">121</div>
+          <div style="font-size:12px;color:#8a9aa6;margin-top:3px">tolerância de atraso: 5 dias</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px;align-items:start">
+
+      <div style="background:#fff;border:1px solid #dde5eb;border-radius:14px;box-shadow:0 1px 2px rgba(16,42,58,.04);overflow:hidden;min-width:0">
+        <div style="padding:13px 16px;display:flex;align-items:center;gap:9px;border-bottom:1px solid #eef2f5;flex-wrap:wrap">
+          <div style="position:relative;flex:1;min-width:220px">
+            <i class="bi bi-search" style="position:absolute;left:11px;top:10px;font-size:13px;color:#8a9aa6"></i>
+            <input value="{{ busca }}" onChange="{{ onBusca }}" placeholder="Buscar unidade ou pessoa cobrada…" style="width:100%;height:34px;padding:0 11px 0 32px;border:1px solid #cdd7de;border-radius:9px;font-family:inherit;font-size:13px;color:#243845;background:#fff" style-focus="border-color:#0c7a9c;outline:none;box-shadow:0 0 0 3px rgba(12,122,156,.12)">
+          </div>
+          <sc-if value="{{ mostraFiltro }}" hint-placeholder-val="{{ true }}">
+            <div style="position:relative;flex-shrink:0">
+              <button onClick="{{ toggleEstado }}" title="Proposta — exige filtro de estado no MontarVisaoCarteiraUseCase" style="{{ estadoBtnStyle }}">
+                <i class="bi bi-funnel" style="font-size:13px"></i><span>{{ estadoLabel }}</span><i class="bi bi-chevron-down" style="font-size:9px;opacity:.7"></i>
+              </button>
+              <sc-if value="{{ estadoOpen }}" hint-placeholder-val="{{ false }}">
+                <div style="position:absolute;top:40px;right:0;z-index:25;width:200px;background:#fff;border:1px solid #dde5eb;border-radius:10px;box-shadow:0 10px 30px rgba(16,42,58,.14);padding:5px;display:flex;flex-direction:column">
+                  <sc-for list="{{ estadoOpcoes }}" as="o" hint-placeholder-count="4">
+                    <button onClick="{{ o.select }}" style="{{ o.style }}">
+                      <span>{{ o.label }}</span>
+                      <sc-if value="{{ o.current }}" hint-placeholder-val="{{ false }}"><span style="margin-left:auto;color:#0f6fc4;font-size:12px">✓</span></sc-if>
+                    </button>
+                  </sc-for>
+                </div>
+              </sc-if>
+            </div>
+          </sc-if>
+          <span style="font-variant-numeric:tabular-nums;font-size:13px;color:#6b8494;flex-shrink:0">{{ contagem }}</span>
+        </div>
+
+        <div style="display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1.2fr) 118px 172px 30px;align-items:center;background:#fafcfd;border-bottom:1px solid #e6edf1;padding:0 14px;height:40px">
+          <button onClick="{{ sortObjeto }}" style="{{ sortObjetoStyle }}"><span>Unidade</span><i class="{{ sortObjetoIcon }}" style="font-size:10px"></i></button>
+          <button onClick="{{ sortPessoa }}" style="{{ sortPessoaStyle }}"><span>Pessoa cobrada</span><i class="{{ sortPessoaIcon }}" style="font-size:10px"></i></button>
+          <span style="font-size:10.5px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#7b93a2">Estado</span>
+          <button onClick="{{ sortSaldo }}" style="{{ sortSaldoStyle }}"><i class="{{ sortSaldoIcon }}" style="font-size:10px"></i><span>Saldo</span></button>
+          <span></span>
+        </div>
+
+        <sc-for list="{{ rows }}" as="r" hint-placeholder-count="10">
+          <div style="{{ r.rowStyle }}">
+            <div style="min-width:0;padding-right:10px">
+              <a href="#" style="font-size:14.5px;font-weight:600;color:#0f6fc4;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.objeto }}</a>
+              <div style="font-size:12.5px;color:#8a9aa6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.descricao }}</div>
+            </div>
+            <div style="min-width:0;padding-right:10px;font-size:14px;color:#243845;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.pessoa }}</div>
+            <div style="min-width:0;display:flex;flex-direction:column;gap:4px;align-items:flex-start">
+              <span style="{{ r.statusStyle }}">{{ r.status }}</span>
+              <sc-if value="{{ r.pronto }}" hint-placeholder-val="{{ false }}">
+                <span title="Saldo exigível zerado e caso não encerrado — indicador derivado, não um estado" style="display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:600;color:#1f7a4d;white-space:nowrap"><i class="bi bi-check2-circle" style="font-size:10px"></i>Pronto p/ encerrar</span>
+              </sc-if>
+            </div>
+            <div style="text-align:right;padding-right:6px">
+              <div style="{{ r.saldoStyle }}">{{ r.saldo }}</div>
+              <sc-if value="{{ r.temVencido }}" hint-placeholder-val="{{ true }}">
+                <div style="font-variant-numeric:tabular-nums;font-size:12px;font-weight:600;color:#a3232b;margin-top:2px">{{ r.vencido }} vencido</div>
+              </sc-if>
+            </div>
+            <div style="display:flex;justify-content:center">
+              <sc-if value="{{ r.temDocs }}" hint-placeholder-val="{{ true }}">
+                <i class="bi bi-paperclip" title="O objeto tem documentos" style="font-size:14px;color:#8a9aa6"></i>
+              </sc-if>
+            </div>
+          </div>
+        </sc-for>
+
+        <sc-if value="{{ vazio }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:54px 24px;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center">
+            <i class="bi bi-search" style="font-size:26px;color:#c3d1da"></i>
+            <div style="font-size:15px;font-weight:600">Nenhum caso casa “{{ busca }}”</div>
+            <div style="font-size:13.5px;color:#6b8494;max-width:400px;text-wrap:pretty">A busca cobre a identificação da unidade e o nome da pessoa cobrada. Os valores do cabeçalho continuam sendo os da carteira inteira.</div>
+            <button onClick="{{ limparBusca }}" style="margin-top:6px;display:flex;align-items:center;gap:7px;height:32px;padding:0 13px;border:1px solid #cdd7de;background:#fff;color:#455c6b;font-family:inherit;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer" style-hover="border-color:#0f6fc4;color:#0f6fc4"><i class="bi bi-x-lg" style="font-size:12px"></i><span>Limpar busca</span></button>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ temRodape }}" hint-placeholder-val="{{ true }}">
+          <div style="padding:12px 14px;display:flex;align-items:center;gap:10px;background:#fafcfd;flex-wrap:wrap">
+            <span style="font-variant-numeric:tabular-nums;font-size:13px;color:#6b8494">{{ faixa }}</span>
+            <div style="flex:1"></div>
+            <div style="display:flex;align-items:center;gap:4px">
+              <button onClick="{{ prevPage }}" style="{{ prevStyle }}"><i class="bi bi-chevron-left"></i></button>
+              <sc-for list="{{ pages }}" as="p" hint-placeholder-count="7">
+                <button onClick="{{ p.select }}" style="{{ p.style }}">{{ p.label }}</button>
+              </sc-for>
+              <button onClick="{{ nextPage }}" style="{{ nextStyle }}"><i class="bi bi-chevron-right"></i></button>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <div style="background:#fff;border:1px solid #dde5eb;border-radius:14px;box-shadow:0 1px 2px rgba(16,42,58,.04);overflow:hidden">
+          <div style="padding:13px 16px;border-bottom:1px solid #eef2f5;display:flex;align-items:center;gap:10px">
+            <h2 style="margin:0;font-size:14px;font-weight:600">Configuração</h2>
+            <div style="flex:1"></div>
+            <button onClick="{{ openConfig }}" style="display:flex;align-items:center;gap:6px;height:28px;padding:0 10px;border:1px solid #cdd7de;background:#fff;color:#455c6b;font-family:inherit;font-size:12px;font-weight:500;border-radius:7px;cursor:pointer" style-hover="border-color:#0f6fc4;color:#0f6fc4"><i class="bi bi-pencil" style="font-size:11px"></i><span>Editar</span></button>
+          </div>
+          <div style="padding:4px 16px 12px;display:flex;flex-direction:column">
+            <sc-for list="{{ config }}" as="c" hint-placeholder-count="7">
+              <div style="display:flex;align-items:baseline;gap:10px;padding:8px 0;border-bottom:1px solid #f5f8fa">
+                <span style="font-size:12.5px;color:#7b93a2;flex-shrink:0">{{ c.label }}</span>
+                <div style="flex:1;border-bottom:1px dotted #e2eaef"></div>
+                <span style="font-size:13px;font-weight:600;color:#243845;text-align:right;max-width:186px;text-wrap:pretty">{{ c.valor }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="background:#fff;border:1px solid #dde5eb;border-radius:14px;box-shadow:0 1px 2px rgba(16,42,58,.04);overflow:hidden">
+          <div style="padding:13px 16px;border-bottom:1px solid #eef2f5;display:flex;align-items:center;gap:9px">
+            <h2 style="margin:0;font-size:14px;font-weight:600">Documentos</h2>
+            <span style="font-variant-numeric:tabular-nums;font-size:11px;font-weight:600;color:#5f7684;background:#eef2f5;padding:1px 7px;border-radius:999px">{{ totalDocs }}</span>
+            <div style="flex:1"></div>
+            <button onClick="{{ openDoc }}" title="Adicionar documento" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border:1px solid #cdd7de;background:#fff;color:#455c6b;border-radius:7px;font-size:13px;cursor:pointer" style-hover="border-color:#0f6fc4;color:#0f6fc4"><i class="bi bi-plus-lg"></i></button>
+          </div>
+          <sc-for list="{{ docs }}" as="d" hint-placeholder-count="3">
+            <div style="padding:11px 16px;border-bottom:1px solid #f5f8fa;display:flex;align-items:center;gap:11px" style-hover="background:#f7fbfc">
+              <i class="bi bi-file-earmark-pdf" style="font-size:17px;color:#a3232b;flex-shrink:0"></i>
+              <div style="min-width:0;flex:1">
+                <a href="#" style="font-size:13.5px;font-weight:500;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ d.nome }}</a>
+                <div style="font-size:11.5px;color:#8a9aa6">{{ d.meta }}</div>
+              </div>
+              <button onClick="{{ d.remover }}" title="Excluir documento" style="width:26px;height:26px;display:flex;align-items:center;justify-content:center;border:none;background:transparent;color:#8a9aa6;border-radius:6px;font-size:13px;cursor:pointer;flex-shrink:0" style-hover="background:#fdf1f0;color:#a3232b"><i class="bi bi-trash3"></i></button>
+            </div>
+          </sc-for>
+          <sc-if value="{{ semDocs }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:26px 16px;text-align:center">
+              <div style="font-size:13.5px;color:#6b8494;text-wrap:pretty">Nenhum documento na carteira. Atas de assembleia e o contrato de honorários ficam aqui.</div>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <sc-if value="{{ configOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;inset:0;z-index:60;background:rgba(11,32,44,.42);display:flex;align-items:flex-start;justify-content:center;padding:44px 20px;overflow:auto;animation:ovIn .16s ease-out">
+      <div style="width:720px;max-width:100%;background:#fff;border-radius:16px;box-shadow:0 26px 70px rgba(11,32,44,.32);animation:dlgIn .2s cubic-bezier(.2,.8,.2,1);overflow:hidden">
+        <div style="padding:18px 22px;border-bottom:1px solid #eef2f5;display:flex;align-items:center;gap:12px">
+          <div>
+            <h2 style="margin:0;font-size:17px;font-weight:600">Configuração da carteira</h2>
+            <div style="font-size:12.5px;color:#6b8494;margin-top:2px">Vale para os casos desta carteira. Encargos passados já gravados não são recalculados.</div>
+          </div>
+          <div style="flex:1"></div>
+          <button onClick="{{ closeAll }}" style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;border:none;background:#f1f5f7;color:#5f7684;border-radius:8px;font-size:14px;cursor:pointer;flex-shrink:0" style-hover="background:#e4eaee"><i class="bi bi-x-lg"></i></button>
+        </div>
+        <div style="padding:20px 22px;display:flex;flex-direction:column;gap:22px;max-height:62vh;overflow:auto">
+          <div>
+            <div style="font-size:10.5px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#7b93a2;margin-bottom:12px">Operação</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+              <label style="display:flex;flex-direction:column;gap:6px">
+                <span style="font-size:12.5px;font-weight:600;color:#455c6b">Modo</span>
+                <select style="height:36px;padding:0 10px;border:1px solid #cdd7de;border-radius:9px;font-family:inherit;font-size:13.5px;color:#243845;background:#fff">
+                  <option>Uma cobrança ativa por objeto</option>
+                  <option>Várias cobranças ativas por objeto</option>
+                </select>
+              </label>
+              <label style="display:flex;flex-direction:column;gap:6px">
+                <span style="font-size:12.5px;font-weight:600;color:#455c6b">Rótulo do objeto</span>
+                <input value="Unidade" style="height:36px;padding:0 10px;border:1px solid #cdd7de;border-radius:9px;font-family:inherit;font-size:13.5px;color:#243845" style-focus="border-color:#0c7a9c;outline:none;box-shadow:0 0 0 3px rgba(12,122,156,.12)">
+              </label>
+              <label style="display:flex;flex-direction:column;gap:6px">
+                <span style="font-size:12.5px;font-weight:600;color:#455c6b">Vínculo preferido</span>
+                <select style="height:36px;padding:0 10px;border:1px solid #cdd7de;border-radius:9px;font-family:inherit;font-size:13.5px;color:#243845;background:#fff">
+                  <option>Proprietário</option>
+                  <option>Locatário</option>
+                  <option>Responsável financeiro</option>
+                </select>
+              </label>
+              <label style="display:flex;flex-direction:column;gap:6px">
+                <span style="font-size:12.5px;font-weight:600;color:#455c6b">Tolerância de atraso (dias)</span>
+                <input value="5" style="height:36px;padding:0 10px;border:1px solid #cdd7de;border-radius:9px;font-family:inherit;font-size:13.5px;color:#243845;font-variant-numeric:tabular-nums" style-focus="border-color:#0c7a9c;outline:none;box-shadow:0 0 0 3px rgba(12,122,156,.12)">
+              </label>
+            </div>
+          </div>
+          <div>
+            <div style="font-size:10.5px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#7b93a2;margin-bottom:12px">Honorários</div>
+            <div style="display:grid;grid-template-columns:1.4fr .8fr .8fr;gap:14px">
+              <label style="display:flex;flex-direction:column;gap:6px">
+                <span style="font-size:12.5px;font-weight:600;color:#455c6b">Forma</span>
+                <select style="height:36px;padding:0 10px;border:1px solid #cdd7de;border-radius:9px;font-family:inherit;font-size:13.5px;color:#243845;background:#fff">
+                  <option>Honorários retidos do valor recuperado</option>
+                  <option>Honorários acrescidos à dívida</option>
+                  <option>Honorários cobrados separadamente do cliente</option>
+                  <option>Sem honorário percentual</option>
+                </select>
+              </label>
+              <label style="display:flex;flex-direction:column;gap:6px">
+                <span style="font-size:12.5px;font-weight:600;color:#455c6b">Percentual</span>
+                <input value="20,00 %" style="height:36px;padding:0 10px;border:1px solid #cdd7de;border-radius:9px;font-family:inherit;font-size:13.5px;color:#243845;font-variant-numeric:tabular-nums" style-focus="border-color:#0c7a9c;outline:none;box-shadow:0 0 0 3px rgba(12,122,156,.12)">
+              </label>
+              <label style="display:flex;flex-direction:column;gap:6px">
+                <span style="font-size:12.5px;font-weight:600;color:#455c6b">Carência (dias)</span>
+                <input value="0" style="height:36px;padding:0 10px;border:1px solid #cdd7de;border-radius:9px;font-family:inherit;font-size:13.5px;color:#243845;font-variant-numeric:tabular-nums" style-focus="border-color:#0c7a9c;outline:none;box-shadow:0 0 0 3px rgba(12,122,156,.12)">
+              </label>
+            </div>
+          </div>
+          <div>
+            <div style="font-size:10.5px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#7b93a2;margin-bottom:12px">Encargos por atraso</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px">
+              <label style="display:flex;flex-direction:column;gap:6px">
+                <span style="font-size:12.5px;font-weight:600;color:#455c6b">Juros ao mês</span>
+                <input value="1,00 %" style="height:36px;padding:0 10px;border:1px solid #cdd7de;border-radius:9px;font-family:inherit;font-size:13.5px;color:#243845;font-variant-numeric:tabular-nums" style-focus="border-color:#0c7a9c;outline:none;box-shadow:0 0 0 3px rgba(12,122,156,.12)">
+              </label>
+              <label style="display:flex;flex-direction:column;gap:6px">
+                <span style="font-size:12.5px;font-weight:600;color:#455c6b">Regime</span>
+                <select style="height:36px;padding:0 10px;border:1px solid #cdd7de;border-radius:9px;font-family:inherit;font-size:13.5px;color:#243845;background:#fff">
+                  <option>Simples</option>
+                  <option>Composto</option>
+                </select>
+              </label>
+              <label style="display:flex;flex-direction:column;gap:6px">
+                <span style="font-size:12.5px;font-weight:600;color:#455c6b">Multa</span>
+                <input value="2,00 %" style="height:36px;padding:0 10px;border:1px solid #cdd7de;border-radius:9px;font-family:inherit;font-size:13.5px;color:#243845;font-variant-numeric:tabular-nums" style-focus="border-color:#0c7a9c;outline:none;box-shadow:0 0 0 3px rgba(12,122,156,.12)">
+              </label>
+              <label style="display:flex;flex-direction:column;gap:6px">
+                <span style="font-size:12.5px;font-weight:600;color:#455c6b">Base da multa</span>
+                <select style="height:36px;padding:0 10px;border:1px solid #cdd7de;border-radius:9px;font-family:inherit;font-size:13.5px;color:#243845;background:#fff">
+                  <option>Principal</option>
+                  <option>Principal + correção</option>
+                </select>
+              </label>
+              <label style="display:flex;flex-direction:column;gap:6px">
+                <span style="font-size:12.5px;font-weight:600;color:#455c6b">Correção</span>
+                <input value="0,00 %" style="height:36px;padding:0 10px;border:1px solid #cdd7de;border-radius:9px;font-family:inherit;font-size:13.5px;color:#243845;font-variant-numeric:tabular-nums" style-focus="border-color:#0c7a9c;outline:none;box-shadow:0 0 0 3px rgba(12,122,156,.12)">
+              </label>
+              <label style="display:flex;flex-direction:column;gap:6px">
+                <span style="font-size:12.5px;font-weight:600;color:#455c6b">Tolerância juros/multa</span>
+                <input value="5 dias" style="height:36px;padding:0 10px;border:1px solid #cdd7de;border-radius:9px;font-family:inherit;font-size:13.5px;color:#243845;font-variant-numeric:tabular-nums" style-focus="border-color:#0c7a9c;outline:none;box-shadow:0 0 0 3px rgba(12,122,156,.12)">
+              </label>
+            </div>
+          </div>
+        </div>
+        <div style="padding:14px 22px;border-top:1px solid #eef2f5;display:flex;align-items:center;gap:9px;background:#fafcfd">
+          <span style="font-size:12.5px;color:#8a9aa6">Exige a permissão <code style="font-size:12px">resources.carteira.gerenciar</code></span>
+          <div style="flex:1"></div>
+          <button onClick="{{ closeAll }}" style="height:36px;padding:0 15px;border:1px solid #cdd7de;background:#fff;color:#455c6b;font-family:inherit;font-size:13.5px;font-weight:500;border-radius:9px;cursor:pointer" style-hover="border-color:#0f6fc4;color:#0f6fc4">Cancelar</button>
+          <button onClick="{{ salvarConfig }}" style="height:36px;padding:0 17px;border:1px solid #1a6b43;background:#1f7a4d;color:#fff;font-family:inherit;font-size:13.5px;font-weight:600;border-radius:9px;cursor:pointer" style-hover="background:#1a6b43">Salvar configuração</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ importOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;inset:0;z-index:60;background:rgba(11,32,44,.42);display:flex;align-items:flex-start;justify-content:center;padding:60px 20px;overflow:auto;animation:ovIn .16s ease-out">
+      <div style="width:600px;max-width:100%;background:#fff;border-radius:16px;box-shadow:0 26px 70px rgba(11,32,44,.32);animation:dlgIn .2s cubic-bezier(.2,.8,.2,1);overflow:hidden">
+        <div style="padding:18px 22px;border-bottom:1px solid #eef2f5;display:flex;align-items:center;gap:12px">
+          <div>
+            <h2 style="margin:0;font-size:17px;font-weight:600">Importar relatório</h2>
+            <div style="font-size:12.5px;color:#6b8494;margin-top:2px">A importação é simulada antes de gravar. Nada muda até você confirmar.</div>
+          </div>
+          <div style="flex:1"></div>
+          <button onClick="{{ closeAll }}" style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;border:none;background:#f1f5f7;color:#5f7684;border-radius:8px;font-size:14px;cursor:pointer;flex-shrink:0" style-hover="background:#e4eaee"><i class="bi bi-x-lg"></i></button>
+        </div>
+        <div style="padding:20px 22px;display:flex;flex-direction:column;gap:18px">
+          <div>
+            <div style="font-size:12.5px;font-weight:600;color:#455c6b;margin-bottom:9px">Tipo de relatório</div>
+            <div style="display:flex;flex-direction:column;gap:7px">
+              <sc-for list="{{ tiposRelatorio }}" as="t" hint-placeholder-count="4">
+                <button onClick="{{ t.select }}" style="{{ t.style }}">
+                  <i class="{{ t.icon }}" style="{{ t.iconStyle }}"></i>
+                  <div style="min-width:0;text-align:left;flex:1">
+                    <div style="font-size:13.5px;font-weight:600">{{ t.label }}</div>
+                    <div style="font-size:12px;color:#8a9aa6">{{ t.sub }}</div>
+                  </div>
+                  <sc-if value="{{ t.current }}" hint-placeholder-val="{{ false }}"><i class="bi bi-check-circle-fill" style="font-size:15px;color:#1f7a4d;flex-shrink:0"></i></sc-if>
+                </button>
+              </sc-for>
+            </div>
+          </div>
+          <div>
+            <div style="font-size:12.5px;font-weight:600;color:#455c6b;margin-bottom:9px">Arquivo</div>
+            <div style="border:1px dashed #cdd7de;border-radius:11px;padding:22px;display:flex;flex-direction:column;align-items:center;gap:7px;background:#fafcfd">
+              <i class="bi bi-file-earmark-spreadsheet" style="font-size:24px;color:#1f7a4d"></i>
+              <div style="font-size:13.5px;font-weight:600">toplife2_inadimplencia_2026-08.xlsx</div>
+              <div style="font-size:12px;color:#8a9aa6">1,4 MB · emissão detectada no rodapé: 20/08/2026</div>
+              <button style="margin-top:5px;height:30px;padding:0 12px;border:1px solid #cdd7de;background:#fff;color:#455c6b;font-family:inherit;font-size:12.5px;font-weight:500;border-radius:8px;cursor:pointer" style-hover="border-color:#0f6fc4;color:#0f6fc4">Escolher outro arquivo</button>
+            </div>
+          </div>
+          <sc-if value="{{ previsto }}" hint-placeholder-val="{{ false }}">
+            <div style="border:1px solid #cfe6da;background:#f4fbf7;border-radius:11px;padding:14px 16px">
+              <div style="font-size:12.5px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#186c47;margin-bottom:10px">Simulação — nada foi gravado</div>
+              <div style="display:flex;flex-direction:column;gap:6px">
+                <sc-for list="{{ projecao }}" as="p" hint-placeholder-count="4">
+                  <div style="display:flex;align-items:center;gap:10px;font-size:13.5px">
+                    <span style="color:#455c6b">{{ p.label }}</span>
+                    <div style="flex:1;border-bottom:1px dotted #cfe6da"></div>
+                    <span style="font-variant-numeric:tabular-nums;font-weight:600;color:#12242f">{{ p.valor }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+        <div style="padding:14px 22px;border-top:1px solid #eef2f5;display:flex;align-items:center;gap:9px;background:#fafcfd">
+          <button onClick="{{ closeAll }}" style="height:36px;padding:0 15px;border:1px solid #cdd7de;background:#fff;color:#455c6b;font-family:inherit;font-size:13.5px;font-weight:500;border-radius:9px;cursor:pointer" style-hover="border-color:#0f6fc4;color:#0f6fc4">Cancelar</button>
+          <div style="flex:1"></div>
+          <button onClick="{{ simular }}" style="{{ simularStyle }}">Simular</button>
+          <button onClick="{{ confirmarImport }}" style="{{ confirmarStyle }}">Confirmar importação</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ docOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;inset:0;z-index:60;background:rgba(11,32,44,.42);display:flex;align-items:flex-start;justify-content:center;padding:80px 20px;overflow:auto;animation:ovIn .16s ease-out">
+      <div style="width:520px;max-width:100%;background:#fff;border-radius:16px;box-shadow:0 26px 70px rgba(11,32,44,.32);animation:dlgIn .2s cubic-bezier(.2,.8,.2,1);overflow:hidden">
+        <div style="padding:18px 22px;border-bottom:1px solid #eef2f5;display:flex;align-items:center;gap:12px">
+          <h2 style="margin:0;font-size:17px;font-weight:600">Adicionar documento</h2>
+          <div style="flex:1"></div>
+          <button onClick="{{ closeAll }}" style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;border:none;background:#f1f5f7;color:#5f7684;border-radius:8px;font-size:14px;cursor:pointer;flex-shrink:0" style-hover="background:#e4eaee"><i class="bi bi-x-lg"></i></button>
+        </div>
+        <div style="padding:20px 22px;display:flex;flex-direction:column;gap:16px">
+          <div style="border:1px dashed #cdd7de;border-radius:11px;padding:24px;display:flex;flex-direction:column;align-items:center;gap:6px;background:#fafcfd">
+            <i class="bi bi-cloud-arrow-up" style="font-size:24px;color:#8a9aa6"></i>
+            <div style="font-size:13.5px;font-weight:600">Arraste o arquivo ou clique para escolher</div>
+            <div style="font-size:12px;color:#8a9aa6">PDF, imagem ou planilha · até 10 MB</div>
+          </div>
+          <label style="display:flex;flex-direction:column;gap:6px">
+            <span style="font-size:12.5px;font-weight:600;color:#455c6b">Categoria</span>
+            <select style="height:36px;padding:0 10px;border:1px solid #cdd7de;border-radius:9px;font-family:inherit;font-size:13.5px;color:#243845;background:#fff">
+              <option>Ata de reunião</option>
+              <option>Contrato</option>
+              <option>Outro</option>
+            </select>
+          </label>
+          <label style="display:flex;flex-direction:column;gap:6px">
+            <span style="font-size:12.5px;font-weight:600;color:#455c6b">Observação <span style="font-weight:400;color:#8a9aa6">(opcional)</span></span>
+            <textarea rows="3" placeholder="Ex.: assembleia que autorizou a cobrança judicial" style="padding:9px 10px;border:1px solid #cdd7de;border-radius:9px;font-family:inherit;font-size:13.5px;color:#243845;resize:vertical" style-focus="border-color:#0c7a9c;outline:none;box-shadow:0 0 0 3px rgba(12,122,156,.12)"></textarea>
+          </label>
+        </div>
+        <div style="padding:14px 22px;border-top:1px solid #eef2f5;display:flex;align-items:center;gap:9px;background:#fafcfd">
+          <div style="flex:1"></div>
+          <button onClick="{{ closeAll }}" style="height:36px;padding:0 15px;border:1px solid #cdd7de;background:#fff;color:#455c6b;font-family:inherit;font-size:13.5px;font-weight:500;border-radius:9px;cursor:pointer" style-hover="border-color:#0f6fc4;color:#0f6fc4">Cancelar</button>
+          <button onClick="{{ salvarDoc }}" style="height:36px;padding:0 17px;border:1px solid #1a6b43;background:#1f7a4d;color:#fff;font-family:inherit;font-size:13.5px;font-weight:600;border-radius:9px;cursor:pointer" style-hover="background:#1a6b43">Adicionar</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ objetoOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;inset:0;z-index:60;background:rgba(11,32,44,.42);display:flex;align-items:flex-start;justify-content:center;padding:80px 20px;overflow:auto;animation:ovIn .16s ease-out">
+      <div style="width:520px;max-width:100%;background:#fff;border-radius:16px;box-shadow:0 26px 70px rgba(11,32,44,.32);animation:dlgIn .2s cubic-bezier(.2,.8,.2,1);overflow:hidden">
+        <div style="padding:18px 22px;border-bottom:1px solid #eef2f5;display:flex;align-items:center;gap:12px">
+          <div>
+            <h2 style="margin:0;font-size:17px;font-weight:600">Nova unidade</h2>
+            <div style="font-size:12.5px;color:#6b8494;margin-top:2px">Criar o objeto já abre a cobrança e leva para a página dela.</div>
+          </div>
+          <div style="flex:1"></div>
+          <button onClick="{{ closeAll }}" style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;border:none;background:#f1f5f7;color:#5f7684;border-radius:8px;font-size:14px;cursor:pointer;flex-shrink:0" style-hover="background:#e4eaee"><i class="bi bi-x-lg"></i></button>
+        </div>
+        <div style="padding:20px 22px;display:flex;flex-direction:column;gap:14px">
+          <label style="display:flex;flex-direction:column;gap:6px">
+            <span style="font-size:12.5px;font-weight:600;color:#455c6b">Identificação</span>
+            <input placeholder="Ex.: 1204" style="height:36px;padding:0 10px;border:1px solid #cdd7de;border-radius:9px;font-family:inherit;font-size:13.5px;color:#243845" style-focus="border-color:#0c7a9c;outline:none;box-shadow:0 0 0 3px rgba(12,122,156,.12)">
+          </label>
+          <label style="display:flex;flex-direction:column;gap:6px">
+            <span style="font-size:12.5px;font-weight:600;color:#455c6b">Descrição <span style="font-weight:400;color:#8a9aa6">(opcional)</span></span>
+            <input placeholder="Ex.: Apartamento 1204 · Torre A" style="height:36px;padding:0 10px;border:1px solid #cdd7de;border-radius:9px;font-family:inherit;font-size:13.5px;color:#243845" style-focus="border-color:#0c7a9c;outline:none;box-shadow:0 0 0 3px rgba(12,122,156,.12)">
+          </label>
+        </div>
+        <div style="padding:14px 22px;border-top:1px solid #eef2f5;display:flex;align-items:center;gap:9px;background:#fafcfd">
+          <div style="flex:1"></div>
+          <button onClick="{{ closeAll }}" style="height:36px;padding:0 15px;border:1px solid #cdd7de;background:#fff;color:#455c6b;font-family:inherit;font-size:13.5px;font-weight:500;border-radius:9px;cursor:pointer" style-hover="border-color:#0f6fc4;color:#0f6fc4">Cancelar</button>
+          <button onClick="{{ salvarObjeto }}" style="height:36px;padding:0 17px;border:1px solid #1a6b43;background:#1f7a4d;color:#fff;font-family:inherit;font-size:13.5px;font-weight:600;border-radius:9px;cursor:pointer" style-hover="background:#1a6b43">Criar e abrir cobrança</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1500,&quot;height&quot;:1250},&quot;filtroEstado&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Propostas que exigem back-end&quot;}}">
+const HL = 'font-size:10.5px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;font-family:inherit;background:transparent;border:none;padding:0;cursor:pointer;display:flex;align-items:center;gap:5px;';
+
+const BADGES = {
+  ativo: ['Ativo', '#0c5f7c', '#e4f1f6', '#c9e3ec'],
+  jud: ['Judicializado', '#8a5a00', '#fdf3e0', '#f0dfbd'],
+  enc: ['Encerrado', '#5f7684', '#f1f5f7', '#e2eaef'],
+};
+
+const DADOS = [
+  ['1204', 'Apartamento 1204 · Torre A', 'Mariana Albuquerque Ferraz', 'jud', 1840255, 1287000, true],
+  ['0803', 'Apartamento 0803 · Torre A', 'Roberto Cavalcanti Nunes', 'ativo', 911740, 0, true],
+  ['1502', 'Apartamento 1502 · Torre B', 'Helena Peçanha de Moura', 'ativo', 894012, 321045, false],
+  ['0301', 'Apartamento 0301 · Torre A', 'Eduardo Vasconcelos Lima', 'ativo', 765500, 765500, false],
+  ['2201', 'Cobertura 2201 · Torre B', 'Aurora Participações Ltda.', 'ativo', 641288, 0, true],
+  ['0907', 'Apartamento 0907 · Torre B', 'Patrícia Sampaio Rezende', 'ativo', 598000, 112000, false],
+  ['0112', 'Loja 0112 · Térreo', 'Comercial Bandeirantes ME', 'jud', 524030, 524030, true],
+  ['1810', 'Apartamento 1810 · Torre A', 'Sérgio Andrade Pinheiro', 'ativo', 487090, 0, false],
+  ['1103', 'Apartamento 1103 · Torre B', 'Beatriz Nogueira Tavares', 'ativo', 452310, 88400, true],
+  ['0410', 'Apartamento 0410 · Torre A', 'Marcelo Duarte Vasques', 'ativo', 418760, 0, false],
+  ['1707', 'Apartamento 1707 · Torre B', 'Ana Cláudia Bittencourt', 'jud', 396540, 396540, false],
+  ['0208', 'Apartamento 0208 · Torre A', 'Fernando Queiroz Machado', 'ativo', 371200, 45300, true],
+  ['1305', 'Apartamento 1305 · Torre A', 'Rita de Cássia Monteiro', 'ativo', 344890, 0, false],
+  ['0114', 'Loja 0114 · Térreo', 'Padaria Trigo Nobre Ltda.', 'ativo', 318640, 118640, true],
+  ['1912', 'Apartamento 1912 · Torre B', 'Gustavo Henrique Sarmento', 'ativo', 296100, 0, false],
+  ['0506', 'Apartamento 0506 · Torre B', 'Isabela Correia Fontes', 'ativo', 274330, 62800, false],
+  ['1408', 'Apartamento 1408 · Torre A', 'Paulo Roberto Aguiar', 'ativo', 251900, 0, true],
+  ['0702', 'Apartamento 0702 · Torre A', 'Vera Lúcia Antunes', 'jud', 228470, 228470, false],
+  ['2005', 'Apartamento 2005 · Torre B', 'Diego Ramalho Cunha', 'ativo', 204150, 0, false],
+  ['1001', 'Apartamento 1001 · Torre A', 'Cristina Barbosa Leal', 'ativo', 187620, 37400, true],
+  ['0609', 'Apartamento 0609 · Torre B', 'Otávio Mendes Siqueira', 'ativo', 163080, 0, false],
+  ['1611', 'Apartamento 1611 · Torre B', 'Juliana Esteves Prado', 'ativo', 141550, 28900, false],
+  ['0805', 'Apartamento 0805 · Torre B', 'Ricardo Salgado Vieira', 'enc', 0, 0, true],
+  ['0605', 'Apartamento 0605 · Torre B', 'Luciana Prado Barreto', 'ativo', 0, 0, false],
+];
+
+// Enche a carteira até os 121 objetos que o cabeçalho anuncia (produção chega a ~230).
+// Determinístico de propósito: os agregados literais do cabeçalho são a soma exata desta lista.
+const NOMES = ['Adriana Lopes Ferreira', 'Bruno Teixeira Amaral', 'Camila Rezende Braga', 'Daniel Moreira Pinto', 'Elaine Cardoso Vieira', 'Fábio Nunes Rocha', 'Gabriela Souza Martins', 'Hugo Barreto Lima', 'Iara Mendonça Alves', 'João Vitor Assunção', 'Karina Belchior Reis', 'Leandro Furtado Dias', 'Marina Guimarães Sá', 'Nelson Ribeiro Castro', 'Olívia Campos Bastos', 'Pedro Henrique Vilela', 'Quéren Almeida Pires', 'Rafael Coutinho Neves', 'Simone Barros Aragão', 'Tiago Marinho Cordeiro', 'Ubirajara Melo Santos', 'Valéria Pontes Cabral', 'Wagner Estrela Freitas', 'Yasmin Colares Rangel'];
+const TORRES = ['Torre A', 'Torre B'];
+const FILLER = Array.from({ length: 97 }, (_, i) => {
+  const saldo = 180000 - i * 1800;
+  const vencido = i < 29 ? 72000 - i * 720 : 0;
+  const andar = String(22 + (i % 20));
+  const apto = String(6 + Math.floor(i / 20)).padStart(2, '0');
+  const torre = TORRES[i % 2];
+  return [
+    andar + apto,
+    'Apartamento ' + andar + apto + ' · ' + torre,
+    NOMES[i % NOMES.length],
+    i % 9 === 3 ? 'jud' : 'ativo',
+    saldo,
+    vencido,
+    i % 3 === 0,
+  ];
+});
+
+const brl = c => 'R$ ' + (c / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+const TODOS = DADOS.concat(FILLER);
+
+class Component extends DCLogic {
+  state = {
+    sort: 'saldo', dir: 'desc', page: 1, busca: '', estado: 'todos',
+    freshOpen: false, menuOpen: false, estadoOpen: false,
+    configOpen: false, importOpen: false, docOpen: false, objetoOpen: false,
+    previsto: false, tipoRel: 'inadimplencia',
+    flash: '', docs: [
+      { nome: 'ata-assembleia-2026-06.pdf', meta: 'Ata de reunião · 02/08/2026' },
+      { nome: 'contrato-honorarios-toplife2.pdf', meta: 'Contrato · 28/07/2026' },
+      { nome: 'procuracao-sindico.pdf', meta: 'Outro · 15/07/2026' },
+    ],
+  };
+
+  head(key, right) {
+    const on = this.state.sort === key;
+    return {
+      style: HL + (right ? 'justify-content:flex-end;' : '') + (on ? 'color:#1f7a4d;' : 'color:#7b93a2;'),
+      icon: on ? (this.state.dir === 'desc' ? 'bi bi-arrow-down' : 'bi bi-arrow-up') : 'bi bi-arrow-down-up',
+      click: () => this.setState(s => ({ sort: key, dir: s.sort === key && s.dir === 'desc' ? 'asc' : 'desc', page: 1 })),
+    };
+  }
+
+  filtradas() {
+    const { busca, estado, sort, dir } = this.state;
+    const q = busca.trim().toLowerCase();
+    let out = TODOS.filter(d => {
+      if (q && !(d[0].toLowerCase().includes(q) || d[2].toLowerCase().includes(q) || d[1].toLowerCase().includes(q))) return false;
+      if (estado === 'vencidos') return d[5] > 0;
+      if (estado !== 'todos') return d[3] === estado;
+      return true;
+    });
+    const sinal = dir === 'asc' ? 1 : -1;
+    const idx = sort === 'objeto' ? 0 : sort === 'pessoa' ? 2 : 4;
+    out = out.slice().sort((a, b) => {
+      const c = idx === 4 ? (a[4] - b[4]) : String(a[idx]).localeCompare(String(b[idx]), 'pt-BR');
+      return c !== 0 ? sinal * c : String(a[0]).localeCompare(String(b[0]));
+    });
+    return out;
+  }
+
+  flash(text) {
+    this.setState({ flash: text, configOpen: false, importOpen: false, docOpen: false, objetoOpen: false, previsto: false });
+  }
+
+  renderVals() {
+    const s = this.state;
+    const POR = 20;
+    const todas = this.filtradas();
+    const totalPaginas = Math.max(1, Math.ceil(todas.length / POR));
+    const page = Math.min(s.page, totalPaginas);
+    const inicio = (page - 1) * POR;
+    const fatia = todas.slice(inicio, inicio + POR);
+
+    const o = this.head('objeto'), p = this.head('pessoa'), sa = this.head('saldo', true);
+    const estados = [['todos', 'Todos os estados'], ['ativo', 'Ativo'], ['jud', 'Judicializado'], ['enc', 'Encerrado'], ['vencidos', 'Só com atraso']];
+    const estadoAtual = estados.find(e => e[0] === s.estado);
+    const navBtn = (ativo, on) => 'width:32px;height:32px;display:flex;align-items:center;justify-content:center;border:1px solid ' + (ativo ? '#cdd7de' : '#dde5eb') + ';background:#fff;color:' + (ativo ? '#455c6b' : '#b9c7d1') + ';border-radius:8px;font-size:12px;cursor:' + (ativo ? 'pointer' : 'default');
+
+    return {
+      busca: s.busca,
+      onBusca: e => this.setState({ busca: e.target.value, page: 1 }),
+      limparBusca: () => this.setState({ busca: '', page: 1 }),
+      vazio: todas.length === 0,
+      temRodape: todas.length > 0,
+      contagem: todas.length === TODOS.length ? TODOS.length + ' casos' : todas.length + ' de ' + TODOS.length + ' casos',
+      faixa: 'Mostrando ' + (inicio + 1) + '–' + (inicio + fatia.length) + ' de ' + todas.length,
+
+      rows: fatia.map(([obj, desc, pessoa, kind, saldo, venc, docs]) => {
+        const b = BADGES[kind];
+        return {
+          objeto: obj, descricao: desc, pessoa,
+          status: b[0],
+          statusStyle: `display:inline-flex;align-items:center;font-size:11.5px;font-weight:600;color:${b[1]};background:${b[2]};border:1px solid ${b[3]};padding:2px 9px;border-radius:6px;white-space:nowrap`,
+          pronto: saldo === 0 && kind !== 'enc',
+          saldo: brl(saldo),
+          saldoStyle: 'font-variant-numeric:tabular-nums;font-size:15px;font-weight:600;letter-spacing:-0.01em;color:' + (saldo === 0 ? '#8a9aa6' : '#12242f'),
+          temVencido: venc > 0,
+          vencido: venc > 0 ? brl(venc) : '',
+          temDocs: docs,
+          rowStyle: 'display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1.2fr) 118px 172px 30px;align-items:center;border-bottom:1px solid #f2f6f8;padding:9px 14px;min-height:60px;cursor:pointer;box-shadow:' + (venc > 0 ? 'inset 3px 0 0 #e5b4ae' : 'none'),
+        };
+      }),
+
+      sortObjeto: o.click, sortObjetoStyle: o.style, sortObjetoIcon: o.icon,
+      sortPessoa: p.click, sortPessoaStyle: p.style, sortPessoaIcon: p.icon,
+      sortSaldo: sa.click, sortSaldoStyle: sa.style, sortSaldoIcon: sa.icon,
+
+      pages: Array.from({ length: totalPaginas }, (_, i) => i + 1).map(n => ({
+        label: String(n),
+        select: () => this.setState({ page: n }),
+        style: 'min-width:32px;height:32px;padding:0 8px;font-variant-numeric:tabular-nums;font-family:inherit;font-size:13px;font-weight:' + (page === n ? '600' : '500') + ';border:1px solid ' + (page === n ? '#0c7a9c' : '#cdd7de') + ';background:' + (page === n ? '#0c7a9c' : '#fff') + ';color:' + (page === n ? '#fff' : '#455c6b') + ';border-radius:8px;cursor:pointer',
+      })),
+      prevPage: () => this.setState({ page: Math.max(1, page - 1) }),
+      nextPage: () => this.setState({ page: Math.min(totalPaginas, page + 1) }),
+      prevStyle: navBtn(page > 1),
+      nextStyle: navBtn(page < totalPaginas),
+
+      mostraFiltro: this.props.filtroEstado ?? true,
+      estadoOpen: s.estadoOpen,
+      toggleEstado: () => this.setState(st => ({ estadoOpen: !st.estadoOpen })),
+      estadoLabel: s.estado === 'todos' ? 'Estado' : estadoAtual[1],
+      estadoBtnStyle: 'display:flex;align-items:center;gap:7px;height:34px;padding:0 12px;border:1px dashed ' + (s.estado === 'todos' ? '#b9c7d1' : '#1f7a4d') + ';background:' + (s.estado === 'todos' ? '#fff' : '#e8f3ed') + ';color:' + (s.estado === 'todos' ? '#5f7684' : '#186c47') + ';font-family:inherit;font-size:13px;font-weight:500;border-radius:9px;cursor:pointer',
+      estadoOpcoes: estados.map(([key, label]) => ({
+        label, current: s.estado === key,
+        select: () => this.setState({ estado: key, estadoOpen: false, page: 1 }),
+        style: 'display:flex;align-items:center;gap:8px;padding:8px 10px;border:none;background:transparent;font-family:inherit;font-size:13.5px;color:#243845;border-radius:7px;cursor:pointer;text-align:left',
+      })),
+
+      freshOpen: s.freshOpen,
+      toggleFresh: () => this.setState(st => ({ freshOpen: !st.freshOpen, menuOpen: false })),
+      freshStyle: 'display:inline-flex;align-items:center;gap:7px;font-family:inherit;font-size:12px;font-weight:600;color:#455c6b;background:' + (s.freshOpen ? '#e8eef2' : '#f1f5f7') + ';border:1px solid #e2eaef;padding:4px 11px;border-radius:999px;cursor:pointer',
+      emissoes: [['Inadimplência', '20/08/2026', false], ['Acordos detalhados', '20/08/2026', false], ['Receitas', '18/08/2026', false], ['Dados cadastrais', '12/08/2026', true]]
+        .map(([tipo, data, velho]) => ({ tipo, data, style: 'font-variant-numeric:tabular-nums;font-weight:600;color:' + (velho ? '#a3232b' : '#243845') })),
+
+      menuOpen: s.menuOpen,
+      toggleMenu: () => this.setState(st => ({ menuOpen: !st.menuOpen, freshOpen: false })),
+
+      configOpen: s.configOpen, importOpen: s.importOpen, docOpen: s.docOpen, objetoOpen: s.objetoOpen,
+      openConfig: () => this.setState({ configOpen: true, menuOpen: false }),
+      openImport: () => this.setState({ importOpen: true, previsto: false, menuOpen: false }),
+      openDoc: () => this.setState({ docOpen: true }),
+      openObjeto: () => this.setState({ objetoOpen: true }),
+      closeAll: () => this.setState({ configOpen: false, importOpen: false, docOpen: false, objetoOpen: false, previsto: false }),
+      salvarConfig: () => this.flash('Configuração da carteira atualizada.'),
+      salvarObjeto: () => this.flash('Objeto criado — cobrança iniciada.'),
+      salvarDoc: () => {
+        this.setState(st => ({ docs: [{ nome: 'ata-assembleia-2026-08.pdf', meta: 'Ata de reunião · 27/08/2026' }].concat(st.docs) }));
+        this.flash('Documento adicionado.');
+      },
+      simular: () => this.setState({ previsto: true }),
+      confirmarImport: () => this.flash('Relatório importado — 121 dívidas conferidas, 8 novas.'),
+      previsto: s.previsto,
+      simularStyle: 'height:36px;padding:0 15px;border:1px solid #cdd7de;background:#fff;color:#455c6b;font-family:inherit;font-size:13.5px;font-weight:500;border-radius:9px;cursor:pointer',
+      confirmarStyle: 'height:36px;padding:0 17px;border:1px solid ' + (s.previsto ? '#1a6b43' : '#d5dee4') + ';background:' + (s.previsto ? '#1f7a4d' : '#eef2f5') + ';color:' + (s.previsto ? '#fff' : '#a7b6c0') + ';font-family:inherit;font-size:13.5px;font-weight:600;border-radius:9px;cursor:' + (s.previsto ? 'pointer' : 'default'),
+      projecao: [
+        { label: 'Dívidas lidas no arquivo', valor: '129' },
+        { label: 'Já existentes (idempotente)', valor: '121' },
+        { label: 'Novas a gravar', valor: '8' },
+        { label: 'Variação do saldo consolidado', valor: '+ R$ 38.204,10' },
+      ],
+      tiposRelatorio: [['inadimplencia', 'Inadimplência', 'Dívidas em aberto — define o saldo', 'bi bi-exclamation-triangle'], ['acordos', 'Acordos detalhados', 'Parcelas e acordos vigentes', 'bi bi-file-earmark-text'], ['receitas', 'Receitas', 'Pagamentos recebidos', 'bi bi-cash-coin'], ['cadastro', 'Dados cadastrais', 'Pessoas, vínculos e contatos', 'bi bi-people']]
+        .map(([key, label, sub, icon]) => {
+          const on = s.tipoRel === key;
+          return {
+            label, sub, icon, current: on,
+            select: () => this.setState({ tipoRel: key, previsto: false }),
+            style: 'display:flex;align-items:center;gap:11px;padding:11px 13px;border:1px solid ' + (on ? '#cfe6da' : '#dde5eb') + ';background:' + (on ? '#f4fbf7' : '#fff') + ';border-radius:11px;font-family:inherit;color:#12242f;cursor:pointer;text-align:left',
+            iconStyle: 'font-size:16px;flex-shrink:0;color:' + (on ? '#1f7a4d' : '#8a9aa6'),
+          };
+        }),
+
+      totalDocs: String(s.docs.length),
+      semDocs: s.docs.length === 0,
+      docs: s.docs.map((d, i) => ({
+        nome: d.nome, meta: d.meta,
+        remover: () => this.setState(st => ({ docs: st.docs.filter((_, j) => j !== i), flash: 'Documento removido.' })),
+      })),
+
+      config: [
+        { label: 'Modo', valor: 'Uma cobrança ativa por objeto' },
+        { label: 'Honorários', valor: 'Retidos do recuperado · 20%' },
+        { label: 'Tolerância de atraso', valor: '5 dias' },
+        { label: 'Juros', valor: '1% ao mês, simples' },
+        { label: 'Multa', valor: '2% sobre o principal' },
+        { label: 'Vínculo preferido', valor: 'Proprietário' },
+        { label: 'Rótulo do objeto', valor: 'Unidade' },
+      ],
+
+      flashOn: s.flash !== '',
+      flashText: s.flash,
+      closeFlash: () => this.setState({ flash: '' }),
+    };
+  }
+}
+
+</script>
+</body>
+</html>

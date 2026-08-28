@@ -196,7 +196,7 @@ final class DocumentoCarteiraControllerTest extends CobrancaWebTestCase
         $crawler = $client->request('GET', '/cobrancas/carteiras/' . $carteira->getId());
 
         self::assertResponseIsSuccessful();
-        self::assertGreaterThan(0, $crawler->filter('.bi-paperclip[title="Possui documentos anexados"]')->count());
+        self::assertGreaterThan(0, $crawler->filter('.bi-paperclip[title="O objeto tem documentos"]')->count());
     }
 
     #[TestDox('Grampo (#6): sem documento, o ícone não aparece na linha do caso')]
@@ -209,7 +209,7 @@ final class DocumentoCarteiraControllerTest extends CobrancaWebTestCase
         $crawler = $client->request('GET', '/cobrancas/carteiras/' . $carteira->getId());
 
         self::assertResponseIsSuccessful();
-        self::assertCount(0, $crawler->filter('.bi-paperclip[title="Possui documentos anexados"]'));
+        self::assertCount(0, $crawler->filter('.bi-paperclip[title="O objeto tem documentos"]'));
     }
 
     private function arquivoTexto(): UploadedFile

@@ -518,4 +518,96 @@ final class MontarVisaoCarteiraUseCaseTest extends KernelTestCase
         self::assertCount(1, $resultado['casos'], 'A ultima pagina de 3 itens com 2 por pagina tem 1 item');
         self::assertSame(2, $resultado['por_pagina'], 'por_pagina alimenta o "Mostrando X-Y de Z" da tela');
     }
+
+    /**
+     * Carteira com os três estados representados e atraso atravessando dois deles — é este cruzamento
+     * que separa "filtrar por estado" de "filtrar por atraso".
+     *
+     * @return array{Tenant, Carteira}
+     */
+    private function carteiraComEstadosVariados(): array
+    {
+        $tenant = $this->tenant();
+        $carteira = $this->carteira($tenant);
+
+        $ativoVencido = $this->caso($tenant, $carteira, StatusCaso::Ativo);
+        $this->obrigacao($tenant, $ativoVencido, 30000, '2026-06-01');       // vencida
+
+        $judVencido = $this->caso($tenant, $carteira, StatusCaso::Judicializado);
+        $this->obrigacao($tenant, $judVencido, 10000, '2026-06-15');         // vencida
+
+        $ativoEmDia = $this->caso($tenant, $carteira, StatusCaso::Ativo);
+        $this->obrigacao($tenant, $ativoEmDia, 20000, '2026-12-01');         // a vencer
+
+        $this->em->clear();
+
+        return [$tenant, $carteira];
+    }
+
+    #[TestDox('Filtro de Estado recorta a lista pelo status do caso')]
+    public function testFiltroDeEstadoRecortaPeloStatus(): void
+    {
+        [, $carteira] = $this->carteiraComEstadosVariados();
+
+        $ativos = $this->sut->executar($carteira, '', 1, 25, 'saldo', 'desc', 'ativo');
+        $judicializados = $this->sut->executar($carteira, '', 1, 25, 'saldo', 'desc', 'judicializado');
+        $encerrados = $this->sut->executar($carteira, '', 1, 25, 'saldo', 'desc', 'encerrado');
+
+        self::assertSame(2, $ativos['total'], 'Dois casos ativos: o vencido e o em dia');
+        self::assertSame(['ativo', 'ativo'], array_map(static fn ($c): string => $c->statusValue, $ativos['casos']));
+
+        self::assertSame(1, $judicializados['total']);
+        self::assertSame('judicializado', $judicializados['casos'][0]->statusValue);
+
+        self::assertSame(0, $encerrados['total'], 'A carteira nao tem caso encerrado');
+        self::assertSame([], $encerrados['casos']);
+    }
+
+    #[TestDox('"So com atraso" atravessa os estados — nao e um quarto estado')]
+    public function testFiltroDeVencidosAtravessaOsEstados(): void
+    {
+        [, $carteira] = $this->carteiraComEstadosVariados();
+
+        $resultado = $this->sut->executar($carteira, '', 1, 25, 'saldo', 'desc', 'vencidos');
+
+        self::assertSame(2, $resultado['total'], 'Um ativo e um judicializado estao vencidos');
+        self::assertSame(
+            ['ativo', 'judicializado'],
+            array_map(static fn ($c): string => $c->statusValue, $resultado['casos']),
+            'A ordem e por saldo desc (30000 ativo, 10000 judicializado); o que importa e que os DOIS estados vieram',
+        );
+        foreach ($resultado['casos'] as $caso) {
+            self::assertTrue($caso->temVencido, 'Entrou na lista de "so com atraso" um caso sem atraso');
+        }
+    }
+
+    #[TestDox('Filtrar por Estado NAO mexe nos agregados do cabecalho')]
+    public function testFiltroDeEstadoNaoMexeNosAgregados(): void
+    {
+        [, $carteira] = $this->carteiraComEstadosVariados();
+
+        $semFiltro = $this->sut->executar($carteira);
+        $soJudicializados = $this->sut->executar($carteira, '', 1, 25, 'saldo', 'desc', 'judicializado');
+
+        self::assertSame(3, $semFiltro['total']);
+        self::assertSame(1, $soJudicializados['total'], 'O filtro tinha de recortar a LISTA');
+
+        // O cabecalho responde "quanto esta carteira tem a receber". Escolher um recorte na lista nao
+        // pode mudar essa resposta — e o defeito seria invisivel: um numero menor, com cara de certo.
+        self::assertSame(60000, $semFiltro['carteira']->saldoConsolidado);
+        self::assertSame($semFiltro['carteira']->saldoConsolidado, $soJudicializados['carteira']->saldoConsolidado);
+        self::assertSame($semFiltro['carteira']->saldoVencido, $soJudicializados['carteira']->saldoVencido);
+        self::assertSame($semFiltro['carteira']->totalComAtraso, $soJudicializados['carteira']->totalComAtraso);
+        self::assertSame($semFiltro['carteira']->totalCasos, $soJudicializados['carteira']->totalCasos);
+    }
+
+    #[TestDox('Estado desconhecido na URL e ignorado — a lista volta inteira')]
+    public function testEstadoDesconhecidoNaoFiltra(): void
+    {
+        [, $carteira] = $this->carteiraComEstadosVariados();
+
+        $resultado = $this->sut->executar($carteira, '', 1, 25, 'saldo', 'desc', 'pronto-para-encerrar');
+
+        self::assertSame(3, $resultado['total'], 'Valor fora da lista branca nao pode esvaziar a tela');
+    }
 }

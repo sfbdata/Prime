@@ -1,0 +1,588 @@
+/* =============================================================================
+   carteira-show.css — redesenho da tela da carteira de cobrança.
+   Desenho aprovado: docs/design/design_handoff_carteira_show/ ("Carteira 1B.dc.html"),
+   direção 1B ("Lista + trilho lateral"), aprovada pelo dono em 27/08/2026.
+
+   Tudo aqui vive sob `.cs-page` / `.cs-body`. Nenhum seletor global: as outras
+   telas de cobrança continuam com o `cobrancas.css`, e vazamento para elas seria
+   defeito — este arquivo carrega SÓ na `cobranca_carteira_show`.
+
+   Tokens: os hex do desenho ficam no tema CLARO; o ESCURO redefine cada um em
+   cima de var(--bs-*). Mesma receita do `pasta-show.css`, pelo mesmo motivo —
+   hex cravado direto na regra vira texto de um tema no fundo do outro.
+
+   A fonte NÃO é tocada. O desenho está em Source Sans 3, mas o dono manteve o
+   Arial (decisão de 19/08/2026): a tela herda --jp-font-sans do app.css.
+   ============================================================================= */
+
+.cs-page {
+    --cs-bg:            #f4f7f9;
+    --cs-card:          #fff;
+    --cs-soft:          #fafcfd;
+    --cs-border:        #dde5eb;
+    --cs-border-ctl:    #cdd7de;
+    --cs-div-strong:    #eef2f5;   /* divisor entre blocos do cartão */
+    --cs-div-weak:      #f2f6f8;   /* divisor entre linhas da tabela */
+    --cs-div-faint:     #f5f8fa;   /* divisor das linhas do trilho */
+    --cs-hover:         #f7fbfc;
+
+    --cs-text:          #12242f;
+    --cs-body:          #243845;
+    --cs-text-2:        #455c6b;
+    --cs-muted:         #6b8494;
+    --cs-label:         #7b93a2;
+    --cs-faint:         #8a9aa6;
+
+    --cs-link:          #0f6fc4;
+    --cs-link-hover:    #0b5596;
+    --cs-foco:          #0c7a9c;
+    --cs-foco-anel:     rgba(12, 122, 156, .12);
+
+    --cs-verde:         #1f7a4d;
+    --cs-verde-escuro:  #1a6b43;
+    --cs-verde-texto:   #186c47;
+
+    --cs-vermelho:      #a3232b;
+    --cs-vermelho-bg:   #fdf1f0;
+    --cs-vermelho-raia: #e5b4ae;   /* realce lateral da linha com atraso */
+
+    --cs-ativo-txt:     #0c5f7c;  --cs-ativo-bg:  #e4f1f6;  --cs-ativo-bd:  #c9e3ec;
+    --cs-jud-txt:       #8a5a00;  --cs-jud-bg:    #fdf3e0;  --cs-jud-bd:    #f0dfbd;
+    --cs-enc-txt:       #5f7684;  --cs-enc-bg:    #f1f5f7;  --cs-enc-bd:    #e2eaef;
+
+    --cs-shadow-card:   0 1px 2px rgba(16, 42, 58, .04);
+    --cs-shadow-pop:    0 12px 34px rgba(16, 42, 58, .16);
+}
+
+[data-bs-theme="dark"] .cs-page {
+    --cs-bg:            var(--bs-body-bg);
+    --cs-card:          var(--bs-tertiary-bg);
+    --cs-soft:          var(--bs-secondary-bg);
+    --cs-border:        var(--bs-border-color);
+    --cs-border-ctl:    var(--bs-border-color);
+    --cs-div-strong:    var(--bs-border-color-translucent);
+    --cs-div-weak:      var(--bs-border-color-translucent);
+    --cs-div-faint:     var(--bs-border-color-translucent);
+    --cs-hover:         rgba(255, 255, 255, .05);
+
+    --cs-text:          var(--bs-body-color);
+    --cs-body:          var(--bs-body-color);
+    --cs-text-2:        var(--bs-body-color);
+    --cs-muted:         var(--bs-secondary-color);
+    --cs-label:         var(--bs-secondary-color);
+    --cs-faint:         var(--bs-secondary-color);
+
+    --cs-link:          #4da3ea;
+    --cs-link-hover:    #7cbcf2;
+    --cs-foco:          #4cc38a;
+    --cs-foco-anel:     rgba(76, 195, 138, .18);
+
+    --cs-verde:         #1f7a4d;
+    --cs-verde-escuro:  #17603b;
+    --cs-verde-texto:   #6ddaa2;
+
+    --cs-vermelho:      #f08a84;
+    --cs-vermelho-bg:   rgba(192, 57, 47, .16);
+    --cs-vermelho-raia: rgba(192, 57, 47, .75);
+
+    --cs-ativo-txt: #7cc9e4; --cs-ativo-bg: rgba(12, 122, 156, .18); --cs-ativo-bd: rgba(12, 122, 156, .42);
+    --cs-jud-txt:   #e9be6c; --cs-jud-bg:   rgba(200, 149, 42, .16); --cs-jud-bd:   rgba(200, 149, 42, .38);
+    --cs-enc-txt:   var(--bs-secondary-color); --cs-enc-bg: var(--bs-secondary-bg); --cs-enc-bd: var(--bs-border-color);
+
+    --cs-shadow-card:   0 1px 2px rgba(0, 0, 0, .35);
+    --cs-shadow-pop:    0 12px 34px rgba(0, 0, 0, .5);
+}
+
+/* O fundo da página é o do desenho (#f4f7f9). Vai na classe do <body> porque
+   nenhuma regra sobe do conteúdo até lá — mesmo gancho `body_class` da pasta. */
+.cs-body,
+.cs-body .app-content,
+.cs-body .app-content-header { background: #f4f7f9; }
+[data-bs-theme="dark"] .cs-body,
+[data-bs-theme="dark"] .cs-body .app-content,
+[data-bs-theme="dark"] .cs-body .app-content-header { background: var(--bs-body-bg); }
+
+/* O recuo horizontal é o DA PÁGINA (26px do desenho), não o do AdminLTE: sem
+   isto os dois somam e o cartão nasce mais estreito do que o desenho. */
+.cs-body .app-content > .container-fluid { padding-left: 0; padding-right: 0; }
+
+/* As duas <section> do corpo (`content-header` e `content`) não têm estilo
+   próprio no sistema — quem dá forma à página é esta camada. O `content-header`
+   permanece como container do cabeçalho porque é onde os testes de "dados
+   atualizados até" procuram o selo. */
+.cs-page > .content-header > .container-fluid,
+.cs-page > .content > .container-fluid { padding: 0; }
+.cs-page > .content-header { padding-bottom: 16px; }
+
+.cs-page {
+    max-width: 1500px;
+    margin: 0 auto;
+    padding: 20px 26px 70px;
+    color: var(--cs-text);
+    font-family: var(--jp-font-sans);
+}
+.cs-page a { color: var(--cs-link); text-decoration: none; }
+.cs-page a:hover { color: var(--cs-link-hover); text-decoration: underline; }
+
+/* ── Cartão base ─────────────────────────────────────────────────────────── */
+.cs-card {
+    background: var(--cs-card);
+    border: 1px solid var(--cs-border);
+    border-radius: 14px;
+    box-shadow: var(--cs-shadow-card);
+}
+
+/* ── Botões ──────────────────────────────────────────────────────────────── */
+.cs-btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+    height: 34px; padding: 0 13px;
+    border: 1px solid var(--cs-border-ctl); border-radius: 8px;
+    background: var(--cs-card); color: var(--cs-text-2);
+    font-family: inherit; font-size: 13px; font-weight: 500; line-height: 1;
+    cursor: pointer; white-space: nowrap; text-decoration: none;
+}
+.cs-btn:hover { border-color: var(--cs-link); color: var(--cs-link); text-decoration: none; }
+.cs-btn:focus-visible { outline: 2px solid var(--cs-foco); outline-offset: 1px; }
+.cs-btn .bi { font-size: 13px; }
+
+.cs-btn-voltar { height: 30px; padding: 0 11px 0 9px; font-size: 12.5px; flex-shrink: 0; }
+.cs-btn-mini   { height: 28px; padding: 0 10px; font-size: 12px; border-radius: 7px; }
+.cs-btn-mini .bi { font-size: 11px; }
+.cs-btn-quadrado { width: 28px; height: 28px; padding: 0; border-radius: 7px; font-size: 13px; }
+
+/* Verde cheio: importar relatório é a ação primária desta tela. */
+.cs-btn-verde {
+    border-color: var(--cs-verde-escuro); background: var(--cs-verde);
+    color: #fff; font-weight: 600; padding: 0 14px;
+}
+.cs-btn-verde:hover { background: var(--cs-verde-escuro); border-color: var(--cs-verde-escuro); color: #fff; }
+
+/* ── Cabeçalho ───────────────────────────────────────────────────────────── */
+.cs-cab-topo {
+    padding: 18px 22px 0;
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+}
+.cs-migalhas {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12.5px; color: var(--cs-muted); min-width: 0;
+}
+.cs-migalhas .cs-migalha-atual {
+    color: var(--cs-text);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.cs-cab-acoes { display: flex; align-items: center; gap: 6px; flex-shrink: 0; margin-left: auto; }
+
+.cs-cab-corpo { padding: 14px 22px 0; }
+.cs-cab-selos { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.cs-kicker {
+    font-size: 12.5px; font-weight: 500; letter-spacing: .08em;
+    color: var(--cs-muted); text-transform: uppercase;
+}
+.cs-cab-sep { width: 1px; height: 16px; background: var(--cs-border); }
+.cs-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11.5px; font-weight: 600; color: var(--cs-text-2);
+    background: var(--cs-enc-bg); border: 1px solid var(--cs-enc-bd);
+    padding: 3px 10px; border-radius: 999px;
+}
+.cs-pill .bi { font-size: 11px; color: var(--cs-muted); }
+
+.cs-page .cs-cab-corpo h1.cs-titulo {
+    margin: 12px 0 6px;
+    font-size: 28px; line-height: 1.2; font-weight: 600; letter-spacing: -.015em;
+    color: var(--cs-text);
+}
+.cs-cab-credor {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding-bottom: 18px;
+    font-size: 14.5px; color: var(--cs-muted);
+}
+.cs-cab-credor a { font-weight: 600; }
+
+/* ── Selo "dados atualizados até" + detalhamento por relatório ───────────── */
+.cs-frescor {
+    display: inline-flex; align-items: center; gap: 7px;
+    height: auto; padding: 4px 11px; border-radius: 999px;
+    border: 1px solid var(--cs-enc-bd); background: var(--cs-enc-bg);
+    color: var(--cs-text-2); font-family: inherit; font-size: 12px; font-weight: 600;
+    cursor: pointer;
+}
+.cs-frescor .bi { font-size: 11px; }
+.cs-frescor .bi-chevron-down { font-size: 8px; opacity: .7; }
+.cs-frescor:hover { background: #e8eef2; }
+[data-bs-theme="dark"] .cs-frescor:hover { background: var(--cs-hover); }
+.cs-frescor[aria-expanded="true"] { background: #e8eef2; }
+[data-bs-theme="dark"] .cs-frescor[aria-expanded="true"] { background: var(--cs-hover); }
+/* A defasagem que incomoda é o único vermelho do cabeçalho. */
+.cs-frescor-atraso { color: var(--cs-vermelho); font-weight: 700; }
+/* Sem emissão gravada o selo não é clicável — não há o que detalhar. */
+.cs-frescor.is-mudo { cursor: default; }
+
+.cs-frescor-menu {
+    width: 318px; padding: 12px 14px;
+    border: 1px solid var(--cs-border); border-radius: 11px;
+    background: var(--cs-card); box-shadow: var(--cs-shadow-pop);
+}
+.cs-frescor-titulo {
+    font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--cs-label); margin-bottom: 9px;
+}
+.cs-frescor-lista { display: flex; flex-direction: column; gap: 7px; }
+.cs-frescor-item { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.cs-frescor-item > span:first-child { color: var(--cs-text-2); }
+.cs-frescor-item .cs-leader { flex: 1; border-bottom: 1px dotted var(--cs-border-ctl); }
+.cs-frescor-data { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--cs-body); }
+/* A emissão mais antiga é a que DEFINE a data do selo — é ela que precisa saltar. */
+.cs-frescor-data.is-mais-antiga { color: var(--cs-vermelho); }
+.cs-frescor-nota {
+    margin-top: 11px; padding-top: 10px; border-top: 1px solid var(--cs-div-strong);
+    font-size: 12px; color: var(--cs-muted); text-wrap: pretty;
+}
+.cs-frescor-nota strong { font-weight: 600; }
+
+/* ── Os 4 indicadores ────────────────────────────────────────────────────── */
+.cs-kpis {
+    border-top: 1px solid var(--cs-div-strong);
+    display: grid; grid-template-columns: 1.15fr 1.15fr .8fr .8fr;
+}
+.cs-kpi { padding: 16px 22px; border-right: 1px solid var(--cs-div-strong); min-width: 0; }
+.cs-kpi:last-child { border-right: 0; }
+.cs-kpi-rotulo {
+    font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--cs-label); margin-bottom: 5px;
+}
+.cs-kpi-valor {
+    font-variant-numeric: tabular-nums;
+    font-size: 29px; font-weight: 600; letter-spacing: -.02em; line-height: 1.1;
+    color: var(--cs-text);
+}
+.cs-kpi-valor.is-vencido { color: var(--cs-vermelho); }
+.cs-kpi-sub { font-size: 12px; color: var(--cs-faint); margin-top: 3px; text-wrap: pretty; }
+
+/* ── Grade: lista + trilho de 340px ──────────────────────────────────────── */
+.cs-grade {
+    display: grid; grid-template-columns: minmax(0, 1fr) 340px;
+    gap: 16px; align-items: start;
+}
+.cs-coluna-lista { min-width: 0; }
+.cs-trilho { display: flex; flex-direction: column; gap: 16px; }
+
+/* ── Cartão da lista ─────────────────────────────────────────────────────── */
+.cs-lista { overflow: hidden; position: relative; }
+
+/* A barra de busca/filtro fica FORA da área trocável (o campo mantém o foco
+   enquanto digita) — quem a monta é o `_partials/_filtro_barra.html.twig`. */
+.cs-lista .filtro-barra { margin: 0; padding: 13px 16px; border-bottom: 1px solid var(--cs-div-strong); }
+.cs-lista .filtro-linha { gap: 9px; }
+.cs-lista .filtro-busca { flex: 1 1 220px; max-width: none; }
+.cs-lista .filtro-busca .bi-search { left: 11px; color: var(--cs-faint); font-size: 13px; }
+.cs-lista .filtro-busca input.js-filtro-busca,
+.cs-lista .filtro-select {
+    height: 34px; border-radius: 9px;
+    border: 1px solid var(--cs-border-ctl); background: var(--cs-card);
+    color: var(--cs-body); font-size: 13px;
+}
+.cs-lista .filtro-busca input.js-filtro-busca { padding-left: 32px; }
+.cs-lista .filtro-select { max-width: 190px; padding-left: 11px; }
+.cs-lista .filtro-busca input.js-filtro-busca:focus,
+.cs-lista .filtro-select:focus {
+    border-color: var(--cs-foco); outline: none; box-shadow: 0 0 0 3px var(--cs-foco-anel);
+}
+.cs-lista .filtro-chips { margin-top: 9px; }
+
+/* A contagem pertence à barra (é onde o desenho a põe), mas VIVE dentro do
+   fragmento trocável — ela muda a cada busca, e a barra não recarrega. Em tela
+   larga ela é levada para a barra por posicionamento; abaixo de 992px, onde a
+   barra pode quebrar em duas linhas, volta a fluir logo abaixo dela. */
+.cs-contagem {
+    font-variant-numeric: tabular-nums; font-size: 13px; color: var(--cs-muted);
+    padding: 0 16px 11px; text-align: right;
+}
+@media (min-width: 992px) {
+    .cs-contagem { position: absolute; top: 0; right: 16px; height: 60px; padding: 0; display: flex; align-items: center; }
+}
+
+/* ── Tabela ──────────────────────────────────────────────────────────────── */
+/* As larguras são as do desenho: 118px / 172px / 30px fixos e o resto dividido
+   1,3 : 1,2 entre Unidade e Pessoa. `table-layout: fixed` é o que faz o
+   cabeçalho e as linhas usarem a MESMA grade — sem ele a largura seguiria o
+   conteúdo e as duas se desalinhariam. */
+.cs-tabela { width: 100%; table-layout: fixed; border-collapse: collapse; margin: 0; }
+/* 334px = 118 (Estado) + 172 (Saldo) + 44 (clipe: os 30px do desenho mais o recuo de 14px que a
+   linha tem na borda direita). O que sobra vai 1,3 : 1,2 entre Unidade e Pessoa, como no desenho.
+   `box-sizing: border-box` é global aqui, então a largura declarada JÁ inclui o recuo da célula. */
+.cs-col-obj    { width: calc((100% - 334px) * .52); }
+.cs-col-pessoa { width: calc((100% - 334px) * .48); }
+.cs-col-estado { width: 118px; }
+.cs-col-saldo  { width: 172px; }
+.cs-col-anexo  { width: 44px; }
+
+.cs-tabela thead th {
+    height: 40px; padding: 0 0 0 0;
+    background: var(--cs-soft); border-bottom: 1px solid #e6edf1;
+    font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--cs-label); text-align: left; vertical-align: middle;
+}
+[data-bs-theme="dark"] .cs-tabela thead th { border-bottom-color: var(--cs-border); }
+.cs-tabela thead th:first-child { padding-left: 14px; }
+.cs-tabela thead th:last-child  { padding-right: 14px; }
+
+/* Só Unidade, Pessoa e Saldo ordenam — o UseCase não aceita ordenar por Estado,
+   e uma seta que não faz nada é pior do que seta nenhuma. */
+.cs-th-ordenavel { cursor: pointer; }
+.cs-ordenar {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: transparent; border: none; padding: 0;
+    font: inherit; letter-spacing: inherit; text-transform: inherit;
+    color: inherit; cursor: pointer;
+}
+.cs-ordenar .bi { font-size: 10px; opacity: .45; }
+.cs-th-ordenavel:hover .cs-ordenar { color: var(--cs-text-2); }
+.cs-th-ordenavel.asc .cs-ordenar,
+.cs-th-ordenavel.desc .cs-ordenar { color: var(--cs-text); }
+.cs-th-ordenavel.asc .cs-ordenar .bi,
+.cs-th-ordenavel.desc .cs-ordenar .bi { opacity: 1; }
+.cs-ordenar:focus-visible { outline: 2px solid var(--cs-foco); outline-offset: 2px; border-radius: 3px; }
+.cs-th-saldo { text-align: right; }
+.cs-th-saldo .cs-ordenar { flex-direction: row-reverse; }
+
+.cs-tabela tbody td {
+    padding: 9px 10px 9px 0; height: 60px; vertical-align: middle;
+    border-bottom: 1px solid var(--cs-div-weak);
+    font-size: 14px; color: var(--cs-body);
+}
+.cs-tabela tbody td:first-child { padding-left: 14px; }
+.cs-tabela tbody td:last-child  { padding-right: 14px; padding-left: 0; }
+.cs-tabela tbody tr:last-child td { border-bottom: 0; }
+.cs-tabela tbody tr { cursor: pointer; }
+.cs-tabela tbody tr:hover { background: var(--cs-hover); }
+
+/* Realce lateral, NÃO fundo colorido: sobre fundo vermelho o número perde
+   legibilidade, e é o número que a pessoa veio ler. */
+.cs-linha-vencida td:first-child { box-shadow: inset 3px 0 0 var(--cs-vermelho-raia); }
+
+.cs-obj-nome {
+    display: block; font-size: 14.5px; font-weight: 600; color: var(--cs-link);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cs-tabela tbody tr:hover .cs-obj-nome,
+.cs-obj-nome:hover { text-decoration: underline; }
+/* O anel de foco do Bootstrap é box-shadow, e box-shadow dentro de célula de
+   tabela é recortado; contorno real resolve. */
+.cs-obj-nome:focus-visible { outline: 2px solid var(--cs-foco); outline-offset: 2px; border-radius: 3px; text-decoration: underline; }
+.cs-tabela tbody tr:has(.cs-obj-nome:focus-visible) { background: var(--cs-hover); }
+.cs-obj-desc {
+    font-size: 12.5px; color: var(--cs-faint);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cs-pessoa { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.cs-selo {
+    display: inline-flex; align-items: center;
+    font-size: 11.5px; font-weight: 600; white-space: nowrap;
+    padding: 2px 9px; border-radius: 6px; border: 1px solid transparent;
+}
+.cs-selo-ativo         { color: var(--cs-ativo-txt); background: var(--cs-ativo-bg); border-color: var(--cs-ativo-bd); }
+.cs-selo-judicializado { color: var(--cs-jud-txt);   background: var(--cs-jud-bg);   border-color: var(--cs-jud-bd); }
+.cs-selo-encerrado     { color: var(--cs-enc-txt);   background: var(--cs-enc-bg);   border-color: var(--cs-enc-bd); }
+
+/* "Pronto p/ encerrar" é indicador DERIVADO, não um quarto estado: texto miúdo
+   abaixo do selo, nunca um selo do mesmo peso. */
+.cs-pronto {
+    display: inline-flex; align-items: center; gap: 4px; margin-top: 4px;
+    font-size: 10.5px; font-weight: 600; color: var(--cs-verde-texto); white-space: nowrap;
+}
+.cs-pronto .bi { font-size: 10px; }
+
+.cs-tabela tbody td.cs-td-saldo { text-align: right; padding-right: 6px; }
+.cs-saldo {
+    font-variant-numeric: tabular-nums;
+    font-size: 15px; font-weight: 600; letter-spacing: -.01em; color: var(--cs-text);
+}
+/* Saldo zero em cinza: é ausência de dívida, não um valor a perseguir. */
+.cs-saldo.is-zero { color: var(--cs-faint); }
+.cs-saldo-vencido {
+    font-variant-numeric: tabular-nums;
+    font-size: 12px; font-weight: 600; color: var(--cs-vermelho); margin-top: 2px;
+}
+.cs-td-anexo { text-align: center; }
+.cs-td-anexo .bi { font-size: 14px; color: var(--cs-faint); }
+
+/* ── Rodapé da lista ─────────────────────────────────────────────────────── */
+.cs-rodape {
+    padding: 12px 14px; background: var(--cs-soft);
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    border-top: 1px solid var(--cs-div-weak);
+}
+.cs-faixa { font-variant-numeric: tabular-nums; font-size: 13px; color: var(--cs-muted); }
+.cs-rodape .filtro-paginacao { margin-left: auto; gap: 4px; }
+.cs-rodape .filtro-paginacao .btn {
+    width: 32px; height: 32px; padding: 0; border-radius: 8px;
+    border-color: var(--cs-border-ctl); color: var(--cs-text-2); background: var(--cs-card);
+}
+.cs-rodape .filtro-paginacao .btn:disabled { border-color: var(--cs-border); color: #b9c7d1; opacity: 1; }
+[data-bs-theme="dark"] .cs-rodape .filtro-paginacao .btn:disabled { color: var(--cs-faint); }
+.cs-rodape .filtro-paginacao-info { font-variant-numeric: tabular-nums; font-size: 13px; color: var(--cs-text-2); }
+
+/* ── Estados vazios ──────────────────────────────────────────────────────── */
+.cs-vazio {
+    padding: 54px 24px;
+    display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center;
+}
+.cs-vazio .bi { font-size: 26px; color: #c3d1da; }
+[data-bs-theme="dark"] .cs-vazio .bi { color: var(--cs-faint); }
+.cs-vazio-titulo { font-size: 15px; font-weight: 600; color: var(--cs-text); margin: 0; }
+.cs-vazio-texto { font-size: 13.5px; color: var(--cs-muted); max-width: 400px; text-wrap: pretty; margin: 0; }
+.cs-vazio .cs-btn { margin-top: 6px; height: 32px; }
+
+/* ── Trilho: cabeçalho de cartão ─────────────────────────────────────────── */
+.cs-card-cabeca {
+    padding: 13px 16px; border-bottom: 1px solid var(--cs-div-strong);
+    display: flex; align-items: center; gap: 9px;
+}
+.cs-card-cabeca h2 { margin: 0; font-size: 14px; font-weight: 600; color: var(--cs-text); }
+.cs-card-cabeca .cs-btn { margin-left: auto; }
+.cs-contador {
+    font-variant-numeric: tabular-nums; font-size: 11px; font-weight: 600;
+    color: var(--cs-enc-txt); background: var(--cs-div-strong);
+    padding: 1px 7px; border-radius: 999px;
+}
+
+/* ── Trilho: configuração ────────────────────────────────────────────────── */
+.cs-config { padding: 4px 16px 12px; margin: 0; }
+.cs-config-linha {
+    display: flex; align-items: baseline; gap: 10px;
+    padding: 8px 0; border-bottom: 1px solid var(--cs-div-faint);
+}
+.cs-config-linha:last-child { border-bottom: 0; }
+.cs-config-linha dt { font-size: 12.5px; font-weight: 400; color: var(--cs-label); flex-shrink: 0; }
+.cs-config-linha dd {
+    margin: 0; font-size: 13px; font-weight: 600; color: var(--cs-body);
+    text-align: right; max-width: 186px; text-wrap: pretty;
+}
+.cs-leader { flex: 1; border-bottom: 1px dotted var(--cs-enc-bd); }
+
+/* ── Trilho: documentos ──────────────────────────────────────────────────── */
+.cs-docs { margin: 0; padding: 0; list-style: none; }
+.cs-doc {
+    padding: 11px 16px; border-bottom: 1px solid var(--cs-div-faint);
+    display: flex; align-items: center; gap: 11px;
+}
+.cs-doc:last-child { border-bottom: 0; }
+.cs-doc:hover { background: var(--cs-hover); }
+.cs-doc-ico { font-size: 17px; flex-shrink: 0; line-height: 1; }
+.cs-doc-texto { min-width: 0; flex: 1; }
+.cs-doc-nome {
+    display: block; font-size: 13.5px; font-weight: 500;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cs-doc-meta { font-size: 11.5px; color: var(--cs-faint); }
+/* A observação é texto que alguém escreveu para ser lido: quebra em até duas
+   linhas em vez de virar tooltip (que não existe para toque nem leitor de tela). */
+.cs-doc-obs {
+    font-size: 11.5px; color: var(--cs-muted); text-wrap: pretty;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.cs-doc-acoes { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+.cs-doc-acao {
+    width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center;
+    border: none; background: transparent; color: var(--cs-faint);
+    border-radius: 6px; font-size: 13px; cursor: pointer; text-decoration: none;
+}
+.cs-doc-acao:hover { background: var(--cs-div-strong); color: var(--cs-text-2); text-decoration: none; }
+.cs-doc-acao.is-perigo:hover { background: var(--cs-vermelho-bg); color: var(--cs-vermelho); }
+.cs-doc-acao:focus-visible { outline: 2px solid var(--cs-foco); outline-offset: 1px; }
+.cs-docs-vazio { padding: 26px 16px; text-align: center; font-size: 13.5px; color: var(--cs-muted); text-wrap: pretty; }
+
+/* ── Telas menores ───────────────────────────────────────────────────────── */
+@media (max-width: 1199.98px) {
+    .cs-grade { grid-template-columns: minmax(0, 1fr) 300px; }
+}
+@media (max-width: 991.98px) {
+    /* O trilho desce para baixo da lista: em coluna estreita a tabela de cinco
+       colunas viraria rolagem horizontal permanente. */
+    .cs-grade { grid-template-columns: minmax(0, 1fr); }
+    .cs-kpis { grid-template-columns: 1fr 1fr; }
+    .cs-kpi:nth-child(2) { border-right: 0; }
+    .cs-kpi:nth-child(-n+2) { border-bottom: 1px solid var(--cs-div-strong); }
+}
+@media (max-width: 767.98px) {
+    .cs-page { padding: 14px 14px 48px; }
+    .cs-cab-topo, .cs-cab-corpo { padding-left: 16px; padding-right: 16px; }
+    .cs-kpi { padding: 14px 16px; }
+    .cs-page .cs-cab-corpo h1.cs-titulo { font-size: 23px; }
+    .cs-kpi-valor { font-size: 24px; }
+    /* Abaixo daqui a grade de 5 colunas não cabe: a tabela rola dentro do
+       cartão em vez de esticar a página. */
+    .cs-lista-rolagem { overflow-x: auto; }
+    .cs-tabela { min-width: 660px; }
+}
+@media (max-width: 575.98px) {
+    .cs-kpis { grid-template-columns: 1fr; }
+    .cs-kpi { border-right: 0; border-bottom: 1px solid var(--cs-div-strong); }
+    .cs-kpi:last-child { border-bottom: 0; }
+}
+
+/* ── Modais ──────────────────────────────────────────────────────────────── */
+/* A mecânica continua sendo a do Bootstrap; o que muda é a moldura. Os modais
+   vivem DENTRO de `.cs-page`, então herdam os tokens — e nenhum ancestral daqui
+   tem `transform`/`filter`, que transformaria o `position: fixed` do modal num
+   bloco de contenção e o prenderia abaixo do backdrop (armadilha já paga uma vez
+   neste projeto, no redesenho da pasta). */
+.cs-modal .modal-dialog { max-width: 520px; }
+.cs-modal-largo .modal-dialog { max-width: 720px; }
+.cs-modal .modal-content {
+    border: 0; border-radius: 16px; overflow: hidden;
+    background: var(--cs-card); color: var(--cs-text);
+    box-shadow: 0 26px 70px rgba(11, 32, 44, .32);
+}
+.cs-modal .modal-header {
+    padding: 18px 22px; gap: 12px; align-items: flex-start;
+    border-bottom: 1px solid var(--cs-div-strong);
+}
+.cs-modal .modal-title { font-size: 17px; font-weight: 600; color: var(--cs-text); }
+.cs-modal-sub { font-size: 12.5px; color: var(--cs-muted); margin-top: 2px; text-wrap: pretty; }
+.cs-modal-fechar {
+    width: 32px; height: 32px; flex-shrink: 0; margin-left: auto;
+    display: inline-flex; align-items: center; justify-content: center;
+    border: none; border-radius: 8px; font-size: 14px; cursor: pointer;
+    background: var(--cs-enc-bg); color: var(--cs-enc-txt);
+}
+.cs-modal-fechar:hover { background: var(--cs-div-strong); }
+.cs-modal-fechar:focus-visible { outline: 2px solid var(--cs-foco); outline-offset: 1px; }
+
+.cs-modal .modal-body { padding: 20px 22px; }
+.cs-modal .modal-footer {
+    padding: 14px 22px; gap: 9px;
+    border-top: 1px solid var(--cs-div-strong); background: var(--cs-soft);
+}
+.cs-modal .modal-footer > * { margin: 0; }
+.cs-modal .modal-footer .cs-btn { height: 36px; border-radius: 9px; font-size: 13.5px; }
+/* A frase da permissão empurra os botões para a direita e explica, ali mesmo, por
+   que alguém pode não conseguir salvar. */
+.cs-modal-nota { margin-right: auto; font-size: 12.5px; color: var(--cs-faint); }
+.cs-modal-nota code { font-size: 12px; color: inherit; }
+.cs-modal-opcional { font-weight: 400; color: var(--cs-faint); }
+
+.cs-modal .form-label { font-size: 12.5px; font-weight: 600; color: var(--cs-text-2); margin-bottom: 6px; }
+.cs-modal .form-control,
+.cs-modal .form-select {
+    min-height: 36px; border-radius: 9px; font-size: 13.5px;
+    border-color: var(--cs-border-ctl); color: var(--cs-body); background-color: var(--cs-card);
+}
+.cs-modal textarea.form-control { min-height: 0; }
+.cs-modal .form-control:focus,
+.cs-modal .form-select:focus {
+    border-color: var(--cs-foco); box-shadow: 0 0 0 3px var(--cs-foco-anel);
+}
+.cs-modal .input-group-text {
+    border-radius: 9px; font-size: 13.5px;
+    border-color: var(--cs-border-ctl); background: var(--cs-soft); color: var(--cs-muted);
+}
+.cs-modal .form-text { font-size: 12px; color: var(--cs-faint); }
+/* Rótulo de seção do formulário de configuração, no formato do desenho. */
+.cs-modal .cs-secao {
+    font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--cs-label); margin: 0 0 12px;
+}
+.cs-modal .cs-secao + * { margin-top: 0; }
