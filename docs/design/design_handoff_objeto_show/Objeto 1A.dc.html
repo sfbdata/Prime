@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+  body { margin:0; background:#f4f7f9; font-family:'Source Sans 3', Arial, Helvetica, sans-serif; -webkit-font-smoothing:antialiased; color:#12242f; }
+  a { color:#0f6fc4; text-decoration:none; }
+  a:hover { color:#0b5596; text-decoration:underline; }
+  *, *::before, *::after { box-sizing:border-box; }
+</style>
+</helmet>
+
+<div>
+  <header style="background:#0c7a9c;color:#fff;padding:0 20px;display:flex;align-items:center;gap:18px;height:56px">
+    <button style="border:none;background:transparent;color:#fff;font-size:20px;line-height:1;padding:5px 8px;border-radius:7px;cursor:pointer;display:flex;align-items:center" style-hover="background:rgba(255,255,255,.14)"><i class="bi bi-list"></i></button>
+    <img src="bluejus-favicons/logo%20nav/bluejus-white-transparent-nav.png" alt="BlueJus" style="height:27px;width:auto;display:block;flex-shrink:0">
+    <div style="width:1px;height:22px;background:rgba(255,255,255,.32);flex-shrink:0"></div>
+    <span style="font-size:15px;color:#e4f3f8">Cobranças</span>
+    <div style="flex:1"></div>
+    <div style="display:flex;align-items:center;gap:8px;font-size:14px;color:#e4f3f8"><i class="bi bi-building" style="font-size:15px;opacity:.85"></i><span>Farlei Assis da Rocha S…</span></div>
+    <div style="position:relative;width:28px;height:28px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="bi bi-bell" style="font-size:17px"></i><span style="position:absolute;top:-3px;right:-7px;background:#e0472e;color:#fff;font-size:10px;font-weight:700;line-height:1.35;padding:1px 5px;border-radius:999px">9+</span></div>
+    <div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="bi bi-arrows-fullscreen" style="font-size:15px"></i></div>
+    <div style="display:flex;align-items:center;gap:8px"><span style="font-size:14px;font-weight:600;letter-spacing:0.02em;text-transform:uppercase">Samuel Freitas</span><div style="width:30px;height:30px;border-radius:50%;background:#fff;color:#0c7a9c;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center">SF</div><i class="bi bi-caret-down-fill" style="font-size:10px;opacity:.85"></i></div>
+  </header>
+
+  <nav style="background:#fff;border-bottom:1px solid #dde5eb;padding:0 26px;display:flex;height:44px;align-items:stretch">
+    <span style="font-size:13px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#12242f;padding:0 14px;display:flex;align-items:center;box-shadow:inset 0 -2px 0 #0c7a9c">Expediente</span>
+    <span style="font-size:13px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:#5f7684;padding:0 14px;display:flex;align-items:center;cursor:pointer" style-hover="color:#0c7a9c">Demandas</span>
+    <span style="font-size:13px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:#5f7684;padding:0 14px;display:flex;align-items:center;cursor:pointer" style-hover="color:#0c7a9c">Processos</span>
+  </nav>
+
+  <div style="max-width:1500px;margin:0 auto;padding:18px 26px 70px;display:flex;flex-direction:column;gap:14px">
+
+    <div style="background:#fff;border:1px solid #dde5eb;border-radius:14px;box-shadow:0 1px 2px rgba(16,42,58,.04)">
+      <div style="padding:16px 20px 0;display:flex;align-items:center;gap:12px">
+        <button style="display:flex;align-items:center;gap:7px;height:30px;padding:0 11px 0 9px;border:1px solid #cdd7de;background:#fff;color:#455c6b;font-family:inherit;font-size:12.5px;font-weight:500;border-radius:8px;cursor:pointer;flex-shrink:0" style-hover="border-color:#0f6fc4;color:#0f6fc4"><i class="bi bi-arrow-left" style="font-size:13px"></i><span>TOP LIFE I</span></button>
+        <div style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:#6b8494;min-width:0"><a href="#">Cobranças</a><span>/</span><a href="#">TOP LIFE I</a><span>/</span><span style="color:#12242f">Unidade 03-07</span></div>
+        <div style="flex:1"></div>
+        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+          <span style="font-size:12px;color:#8a9aa6;margin-right:2px">unidade 47 de 121</span>
+          <button title="Unidade anterior" style="width:30px;height:30px;display:flex;align-items:center;justify-content:center;border:1px solid #cdd7de;background:#fff;color:#455c6b;font-size:13px;border-radius:8px;cursor:pointer" style-hover="border-color:#0f6fc4;color:#0f6fc4"><i class="bi bi-chevron-left"></i></button>
+          <button title="Próxima unidade" style="width:30px;height:30px;display:flex;align-items:center;justify-content:center;border:1px solid #cdd7de;background:#fff;color:#455c6b;font-size:13px;border-radius:8px;cursor:pointer" style-hover="border-color:#0f6fc4;color:#0f6fc4"><i class="bi bi-chevron-right"></i></button>
+        </div>
+      </div>
+
+      <div style="padding:12px 20px 0;display:flex;align-items:flex-start;gap:24px;flex-wrap:wrap">
+        <div style="min-width:0">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <span style="font-size:12.5px;font-weight:500;letter-spacing:0.08em;color:#6b8494">UNIDADE</span>
+            <span style="display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;color:#186c47;background:#e8f3ed;border:1px solid #cfe6da;padding:3px 10px;border-radius:999px"><i class="bi bi-circle-fill" style="font-size:6px"></i>Cobrança ativa</span>
+          </div>
+          <h1 style="margin:10px 0 5px;font-size:30px;line-height:1.15;font-weight:600;letter-spacing:-0.015em">03-07</h1>
+          <div style="font-size:14.5px;color:#5f7684">161 obrigações em aberto · desde 08/2018 · responsável <a href="#" style="font-weight:600">EDIO ANTONIO DA COSTA BATISTA</a></div>
+        </div>
+        <div style="flex:1"></div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end">
+            <button style="display:flex;align-items:center;gap:7px;height:34px;padding:0 14px;border:1px solid #1a6b43;background:#1f7a4d;color:#fff;font-family:inherit;font-size:13px;font-weight:600;border-radius:8px;cursor:pointer" style-hover="background:#1a6b43"><i class="bi bi-telephone" style="font-size:13px"></i><span>Registrar contato</span></button>
+            <button style="display:flex;align-items:center;gap:7px;height:34px;padding:0 13px;border:1px solid #cdd7de;background:#fff;color:#455c6b;font-family:inherit;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer" style-hover="border-color:#0f6fc4;color:#0f6fc4"><i class="bi bi-calculator" style="font-size:13px"></i><span>Simular acordo</span></button>
+            <button style="display:flex;align-items:center;gap:7px;height:34px;padding:0 13px;border:1px solid #cdd7de;background:#fff;color:#455c6b;font-family:inherit;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer" style-hover="border-color:#0f6fc4;color:#0f6fc4"><i class="bi bi-file-earmark-spreadsheet" style="font-size:13px"></i><span>Planilha atualizada</span></button>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end">
+            <button style="display:flex;align-items:center;gap:7px;height:34px;padding:0 13px;border:1px solid #cdd7de;background:#fff;color:#455c6b;font-family:inherit;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer" style-hover="border-color:#0f6fc4;color:#0f6fc4"><i class="bi bi-bank" style="font-size:13px"></i><span>Judicializar</span></button>
+            <button style="display:flex;align-items:center;gap:7px;height:34px;padding:0 13px;border:1px solid #cdd7de;background:#fff;color:#455c6b;font-family:inherit;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer" style-hover="border-color:#0f6fc4;color:#0f6fc4"><i class="bi bi-sliders" style="font-size:13px"></i><span>Encargos</span></button>
+            <button disabled="disabled" title="Só é possível encerrar com saldo zerado — faltam R$ 37.653,96 em aberto" style="display:flex;align-items:center;gap:7px;height:34px;padding:0 13px;border:1px dashed #cdd7de;background:#f7fafb;color:#a8b6bf;font-family:inherit;font-size:13px;font-weight:500;border-radius:8px;cursor:not-allowed"><i class="bi bi-flag" style="font-size:13px"></i><span>Encerrar cobrança</span></button>
+          </div>
+        </div>
+      </div>
+
+      <div style="border-top:1px solid #eef2f5;margin-top:16px;display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);align-items:stretch">
+        <div style="padding:18px 20px 20px;border-right:1px solid #eef2f5">
+          <div style="display:flex;align-items:flex-end;gap:18px;flex-wrap:wrap">
+            <div>
+              <div style="font-size:10.5px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#a3232b;margin-bottom:4px">Total vencido hoje</div>
+              <div style="font-variant-numeric:tabular-nums;font-size:44px;font-weight:600;letter-spacing:-0.025em;line-height:1;color:#a3232b">R$ 37.653,96</div>
+            </div>
+            <div style="font-size:12px;color:#8a9aa6;padding-bottom:6px">atualizado em 28/08/2026</div>
+          </div>
+          <div style="display:flex;gap:26px;margin-top:16px;flex-wrap:wrap">
+            <div>
+              <div style="font-size:10.5px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#7b93a2;margin-bottom:3px">Principal</div>
+              <div style="font-variant-numeric:tabular-nums;font-size:19px;font-weight:600;letter-spacing:-0.01em">R$ 22.400,00</div>
+            </div>
+            <div>
+              <div style="font-size:10.5px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#7b93a2;margin-bottom:3px">Juros e multa</div>
+              <div style="font-variant-numeric:tabular-nums;font-size:19px;font-weight:600;letter-spacing:-0.01em">R$ 8.978,21</div>
+            </div>
+            <div>
+              <div style="font-size:10.5px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#7b93a2;margin-bottom:3px">Honorários</div>
+              <div style="font-variant-numeric:tabular-nums;font-size:19px;font-weight:600;letter-spacing:-0.01em">R$ 6.275,75</div>
+            </div>
+          </div>
+          <div style="margin-top:16px">
+            <div style="display:flex;height:8px;border-radius:999px;overflow:hidden;background:#eef2f5">
+              <div style="width:59.5%;background:#a3232b"></div>
+              <div style="width:23.8%;background:#d98b3a"></div>
+              <div style="width:16.7%;background:#7b93a2"></div>
+            </div>
+            <div style="display:flex;gap:16px;margin-top:7px;font-size:11.5px;color:#6b8494;flex-wrap:wrap">
+              <span style="display:inline-flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:2px;background:#a3232b"></span>Principal 59,5%</span>
+              <span style="display:inline-flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:2px;background:#d98b3a"></span>Juros e multa 23,8%</span>
+              <span style="display:inline-flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:2px;background:#7b93a2"></span>Honorários 16,7%</span>
+              <span style="color:#8a9aa6">·</span>
+              <span>Recuperado <strong style="font-weight:700;color:#12242f">R$ 0,00</strong> · 161 obrigações em aberto desde 08/2018</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="padding:18px 20px 20px;display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;gap:10px;background:#fdf1f0;border:1px solid #f2cfcb;border-left:3px solid #a3232b;border-radius:10px;padding:11px 13px">
+            <i class="bi bi-exclamation-octagon-fill" style="font-size:15px;color:#a3232b;flex-shrink:0"></i>
+            <div style="min-width:0">
+              <div style="font-size:13.5px;font-weight:600;color:#7d1b22">Prazo de ajuizamento esgotado em 10/08/2023</div>
+              <div style="font-size:12.5px;color:#8a5c5c;text-wrap:pretty;margin-top:2px">Competência mais antiga: 1.1 — Taxa de condomínio 08/2018, vencida em 10/08/2018.</div>
+              <a href="#" style="font-size:12.5px;font-weight:600;display:inline-block;margin-top:5px">Ver competência na dívida →</a>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;background:#e9f3ee;border:1px solid #cfe6da;border-radius:10px;padding:9px 13px;flex-wrap:wrap">
+            <i class="bi bi-flag" style="font-size:13px;color:#1f7a4d"></i>
+            <span style="font-size:10.5px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#1f7a4d">Próxima ação</span>
+            <span style="font-size:13.5px;color:#5f7684">Nenhuma definida</span>
+            <div style="flex:1"></div>
+            <button style="height:28px;padding:0 12px;border:1px solid #b9d6c7;background:#fff;color:#186c47;font-family:inherit;font-size:12.5px;font-weight:600;border-radius:7px;cursor:pointer" style-hover="background:#f2faf6">Definir</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <div style="display:inline-flex;background:#e6ecf0;border-radius:11px;padding:3px;gap:2px">
+        <sc-for list="{{ abas }}" as="t" hint-placeholder-count="6">
+          <button onClick="{{ t.go }}" style="{{ t.style }}">
+            <i class="{{ t.icon }}" style="font-size:12.5px;opacity:.75"></i><span>{{ t.label }}</span>
+            <span style="{{ t.badgeStyle }}">{{ t.badge }}</span>
+          </button>
+        </sc-for>
+      </div>
+    </div>
+
+    <sc-if value="{{ ehDivida }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div style="background:#fff;border:1px solid #dde5eb;border-radius:14px;box-shadow:0 1px 2px rgba(16,42,58,.04)">
+          <div style="padding:14px 18px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-bottom:1px solid #eef2f5">
+            <h3 style="margin:0;font-size:15.5px;font-weight:600">Dívida em aberto</h3>
+            <span style="font-size:13px;color:#6b8494">161 obrigações</span>
+            <button style="display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border:1px dashed #cdd7de;background:#fff;color:#5f7684;font-family:inherit;font-size:12px;border-radius:999px;cursor:pointer" style-hover="border-color:#0f6fc4;color:#0f6fc4"><i class="bi bi-sort-down" style="font-size:12px"></i>Da mais antiga para a mais nova</button>
+            <div style="flex:1"></div>
+            <button style="display:flex;align-items:center;gap:7px;height:32px;padding:0 12px;border:1px solid #cdd7de;background:#fff;color:#455c6b;font-family:inherit;font-size:12.5px;font-weight:500;border-radius:8px;cursor:pointer" style-hover="border-color:#0f6fc4;color:#0f6fc4"><i class="bi bi-plus-lg" style="font-size:12px"></i>Nova obrigação</button>
+            <button style="display:flex;align-items:center;gap:7px;height:32px;padding:0 12px;border:1px solid #cdd7de;background:#fff;color:#455c6b;font-family:inherit;font-size:12.5px;font-weight:500;border-radius:8px;cursor:pointer" style-hover="border-color:#0f6fc4;color:#0f6fc4"><i class="bi bi-file-earmark-text" style="font-size:12px"></i>Novo acordo</button>
+          </div>
+
+          <div style="display:grid;grid-template-columns:34px 108px minmax(0,1fr) 110px 120px 130px 128px 34px;align-items:center;background:#fafcfd;border-bottom:1px solid #e6edf1;padding:0 16px;height:38px;font-size:10.5px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#7b93a2">
+            <span></span><span>Venceu em</span><span>O que é</span>
+            <span style="text-align:right">Original</span><span style="text-align:right">Acréscimos</span><span style="text-align:right">Total</span><span></span><span></span>
+          </div>
+
+          <sc-for list="{{ obrigacoes }}" as="o" hint-placeholder-count="6">
+            <div style="{{ o.rowStyle }}">
+              <div style="display:grid;grid-template-columns:34px 108px minmax(0,1fr) 110px 120px 130px 128px 34px;align-items:center;padding:11px 16px">
+                <span><input type="checkbox" checked="{{ o.sel }}" onChange="{{ o.check }}" style="width:15px;height:15px;accent-color:#1f7a4d;cursor:pointer"></span>
+                <div style="font-variant-numeric:tabular-nums;line-height:1.25">
+                  <div style="font-size:13.5px;font-weight:600">{{ o.venc }}</div>
+                  <div style="font-size:11.5px;color:#a3232b;font-weight:600">{{ o.dias }}</div>
+                </div>
+                <div style="min-width:0;padding-right:16px">
+                  <div style="font-size:13.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ o.desc }}</div>
+                  <div style="font-size:11.5px;color:#8a9aa6;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ o.sub }}</div>
+                </div>
+                <div style="text-align:right;font-variant-numeric:tabular-nums;font-size:13.5px;color:#5f7684">{{ o.original }}</div>
+                <div style="text-align:right;font-variant-numeric:tabular-nums;font-size:13.5px;color:#5f7684">{{ o.acrescimos }}</div>
+                <div style="text-align:right;font-variant-numeric:tabular-nums;font-size:15px;font-weight:700;letter-spacing:-0.01em">{{ o.total }}</div>
+                <div style="display:flex;justify-content:flex-end;gap:5px;padding-left:10px">
+                  <button style="display:flex;align-items:center;gap:5px;height:28px;padding:0 10px;border:1px solid #1a6b43;background:#1f7a4d;color:#fff;font-family:inherit;font-size:12px;font-weight:600;border-radius:7px;cursor:pointer" style-hover="background:#1a6b43"><i class="bi bi-cash-coin" style="font-size:12px"></i>Receber</button>
+                  <button title="Mais ações" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border:1px solid #cdd7de;background:#fff;color:#5f7684;font-size:13px;border-radius:7px;cursor:pointer" style-hover="border-color:#0f6fc4;color:#0f6fc4"><i class="bi bi-three-dots"></i></button>
+                </div>
+                <button onClick="{{ o.toggle }}" title="Detalhar encargos" style="{{ o.caretStyle }}"><i class="{{ o.caretIcon }}"></i></button>
+              </div>
+              <sc-if value="{{ o.aberta }}" hint-placeholder-val="{{ false }}">
+                <div style="padding:0 16px 14px 158px">
+                  <div style="background:#fafcfd;border:1px solid #e6edf1;border-radius:10px;padding:12px 14px;display:grid;grid-template-columns:repeat(4, minmax(0,1fr)) 130px;gap:14px;align-items:end">
+                    <div>
+                      <div style="font-size:10.5px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#7b93a2">Original</div>
+                      <div style="font-variant-numeric:tabular-nums;font-size:14px;font-weight:600;margin-top:3px">{{ o.original }}</div>
+                      <div style="font-size:11px;color:#8a9aa6;margin-top:1px">valor de face do boleto</div>
+                    </div>
+                    <div>
+                      <div style="font-size:10.5px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#7b93a2">Juros <span style="font-weight:600;letter-spacing:0;text-transform:none;color:#8a9aa6">1% a.m. pró-rata</span></div>
+                      <div style="font-variant-numeric:tabular-nums;font-size:14px;font-weight:600;margin-top:3px">{{ o.juros }}</div>
+                    </div>
+                    <div>
+                      <div style="font-size:10.5px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#7b93a2">Multa <span style="font-weight:600;letter-spacing:0;text-transform:none;color:#8a9aa6">2%</span></div>
+                      <div style="font-variant-numeric:tabular-nums;font-size:14px;font-weight:600;margin-top:3px">{{ o.multa }}</div>
+                    </div>
+                    <div>
+                      <div style="font-size:10.5px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#7b93a2">Correção</div>
+                      <div style="font-variant-numeric:tabular-nums;font-size:14px;font-weight:600;margin-top:3px;color:#a8b6bf">{{ o.correcao }}</div>
+                    </div>
+                    <div style="text-align:right">
+                      <div style="font-size:10.5px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#7b93a2">Honorários <span style="font-weight:600;letter-spacing:0;text-transform:none;color:#8a9aa6">20%</span></div>
+                      <div style="font-variant-numeric:tabular-nums;font-size:14px;font-weight:600;margin-top:3px">{{ o.honorarios }}</div>
+                    </div>
+                  </div>
+                </div>
+              </sc-if>
+            </div>
+          </sc-for>
+
+          <div style="padding:12px 16px;display:flex;align-items:center;gap:10px;border-top:1px solid #eef2f5;background:#fafcfd;border-radius:0 0 14px 14px">
+            <span style="font-size:13px;color:#6b8494">Mostrando 6 de 161 obrigações</span>
+            <div style="flex:1"></div>
+            <button style="height:30px;padding:0 13px;border:1px solid #cdd7de;background:#fff;color:#455c6b;font-family:inherit;font-size:12.5px;font-weight:500;border-radius:8px;cursor:pointer" style-hover="border-color:#0f6fc4;color:#0f6fc4">Carregar mais 20</button>
+          </div>
+        </div>
+
+        <sc-if value="{{ temSelecao }}" hint-placeholder-val="{{ false }}">
+          <div style="position:sticky;bottom:14px;display:flex;align-items:center;gap:14px;background:#12242f;color:#fff;border-radius:12px;padding:11px 16px;box-shadow:0 10px 28px rgba(16,42,58,.28)">
+            <span style="font-size:13.5px">{{ selLabel }}</span>
+            <span style="font-variant-numeric:tabular-nums;font-size:15px;font-weight:700">{{ selTotal }}</span>
+            <div style="flex:1"></div>
+            <button onClick="{{ limpar }}" style="height:30px;padding:0 12px;border:1px solid rgba(255,255,255,.28);background:transparent;color:#dfe9ef;font-family:inherit;font-size:12.5px;border-radius:8px;cursor:pointer" style-hover="background:rgba(255,255,255,.1)">Limpar seleção</button>
+            <button style="height:30px;padding:0 14px;border:1px solid #1f7a4d;background:#1f7a4d;color:#fff;font-family:inherit;font-size:12.5px;font-weight:600;border-radius:8px;cursor:pointer" style-hover="background:#186c47">Fazer acordo com estas</button>
+          </div>
+        </sc-if>
+
+        <div style="background:#fff;border:1px solid #dde5eb;border-radius:14px;box-shadow:0 1px 2px rgba(16,42,58,.04);padding:16px 18px;display:flex;align-items:center;gap:12px">
+          <div style="width:34px;height:34px;border-radius:999px;background:#f1f5f7;color:#8a9aa6;display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="bi bi-check2-circle" style="font-size:16px"></i></div>
+          <div style="min-width:0">
+            <div style="font-size:14px;font-weight:600">Nada quitado ainda nesta unidade</div>
+            <div style="font-size:12.5px;color:#8a9aa6">Quando houver recebimento, ele aparece aqui como "Já pago", com o valor que entrou.</div>
+          </div>
+          <div style="flex:1"></div>
+          <span style="font-variant-numeric:tabular-nums;font-size:13px;color:#8a9aa6">R$ 0,00 recebido</span>
+        </div>
+
+        <div style="background:#fff;border:1px solid #dde5eb;border-radius:14px;box-shadow:0 1px 2px rgba(16,42,58,.04);padding:16px 18px;display:flex;align-items:center;gap:12px">
+          <div style="width:34px;height:34px;border-radius:999px;background:#f1f5f7;color:#8a9aa6;display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="bi bi-file-earmark-text" style="font-size:16px"></i></div>
+          <div style="min-width:0">
+            <div style="font-size:14px;font-weight:600">Nenhum acordo nesta cobrança</div>
+            <div style="font-size:12.5px;color:#8a9aa6">Marque as obrigações que entram no acordo e use "Fazer acordo com estas", ou comece do zero.</div>
+          </div>
+          <div style="flex:1"></div>
+          <button style="height:32px;padding:0 13px;border:1px solid #cdd7de;background:#fff;color:#455c6b;font-family:inherit;font-size:12.5px;font-weight:500;border-radius:8px;cursor:pointer" style-hover="border-color:#0f6fc4;color:#0f6fc4">Novo acordo</button>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ ehCobranca }}" hint-placeholder-val="{{ false }}">
+      <div style="display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:14px;align-items:start">
+        <div style="background:#fff;border:1px solid #dde5eb;border-radius:14px;box-shadow:0 1px 2px rgba(16,42,58,.04)">
+          <div style="padding:14px 18px;border-bottom:1px solid #eef2f5;display:flex;align-items:center;gap:9px">
+            <i class="bi bi-pencil-square" style="font-size:14px;color:#5f7684"></i>
+            <h3 style="margin:0;font-size:15px;font-weight:600">Nova anotação</h3>
+            <span style="font-size:12.5px;color:#8a9aa6">registra no histórico da cobrança</span>
+          </div>
+          <div style="padding:14px 18px">
+            <div style="border:1px solid #cdd7de;border-radius:10px;overflow:hidden">
+              <div style="display:flex;align-items:center;gap:2px;padding:5px 8px;background:#fafcfd;border-bottom:1px solid #eef2f5;flex-wrap:wrap">
+                <sc-for list="{{ ferramentas }}" as="f" hint-placeholder-count="8">
+                  <button title="{{ f.nome }}" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border:none;background:transparent;color:#5f7684;font-size:13px;border-radius:6px;cursor:pointer" style-hover="background:#eef2f5;color:#12242f"><i class="{{ f.icon }}"></i></button>
+                </sc-for>
+              </div>
+              <textarea placeholder="Anote o que foi combinado, o que o devedor disse ou qualquer contexto importante" style="width:100%;height:120px;resize:vertical;border:none;padding:12px 13px;font-family:inherit;font-size:13.5px;color:#243845;display:block" style-focus="outline:none"></textarea>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;margin-top:10px">
+              <span style="font-size:12px;color:#8a9aa6">Você pode corrigir a própria anotação nas 48 horas seguintes.</span>
+              <div style="flex:1"></div>
+              <button style="display:flex;align-items:center;gap:7px;height:34px;padding:0 14px;border:1px solid #1a6b43;background:#1f7a4d;color:#fff;font-family:inherit;font-size:13px;font-weight:600;border-radius:8px;cursor:pointer" style-hover="background:#1a6b43"><i class="bi bi-check-lg" style="font-size:13px"></i>Salvar anotação</button>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div style="background:#fff;border:1px solid #dde5eb;border-radius:14px;box-shadow:0 1px 2px rgba(16,42,58,.04);padding:14px 18px">
+            <div style="font-size:10.5px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#7b93a2;margin-bottom:10px">Qualificar contato</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <button style="display:flex;align-items:center;gap:7px;height:32px;padding:0 12px;border:1px solid #cdd7de;background:#fff;color:#455c6b;font-family:inherit;font-size:12.5px;font-weight:500;border-radius:8px;cursor:pointer" style-hover="border-color:#a3232b;color:#a3232b"><i class="bi bi-hand-thumbs-down" style="font-size:13px"></i>Recusa de pagamento</button>
+              <button style="display:flex;align-items:center;gap:7px;height:32px;padding:0 12px;border:1px solid #cdd7de;background:#fff;color:#455c6b;font-family:inherit;font-size:12.5px;font-weight:500;border-radius:8px;cursor:pointer" style-hover="border-color:#a3232b;color:#a3232b"><i class="bi bi-telephone-x" style="font-size:13px"></i>Telefone inexistente</button>
+              <button style="display:flex;align-items:center;gap:7px;height:32px;padding:0 12px;border:1px solid #1a6b43;background:#1f7a4d;color:#fff;font-family:inherit;font-size:12.5px;font-weight:600;border-radius:8px;cursor:pointer" style-hover="background:#1a6b43"><i class="bi bi-hand-thumbs-up" style="font-size:13px"></i>Promessa de pagamento</button>
+            </div>
+            <div style="font-size:12px;color:#8a9aa6;margin-top:9px">Nenhuma qualificação registrada. Um clique registra no histórico.</div>
+          </div>
+
+          <div style="background:#fff;border:1px solid #dde5eb;border-radius:14px;box-shadow:0 1px 2px rgba(16,42,58,.04);padding:14px 18px">
+            <div style="display:flex;align-items:center;gap:9px;margin-bottom:10px">
+              <div style="font-size:10.5px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#7b93a2">O que já entrou</div>
+              <div style="flex:1"></div>
+              <span style="font-variant-numeric:tabular-nums;font-size:13px;font-weight:700">R$ 0,00</span>
+            </div>
+            <div style="border:1px dashed #dde5eb;border-radius:10px;padding:22px 16px;text-align:center">
+              <i class="bi bi-cash-stack" style="font-size:22px;color:#c3ced6"></i>
+              <div style="font-size:13.5px;font-weight:600;margin-top:7px">Nenhum recebimento registrado</div>
+              <div style="font-size:12.5px;color:#8a9aa6;margin-top:2px;text-wrap:pretty">Ao receber, use o botão <strong style="font-weight:600">Receber</strong> na linha da obrigação — o valor é decomposto em dívida, encargos e honorários.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ ehResponsaveis }}" hint-placeholder-val="{{ false }}">
+      <div style="background:#fff;border:1px solid #dde5eb;border-radius:14px;box-shadow:0 1px 2px rgba(16,42,58,.04);padding:18px 20px 20px">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <h3 style="margin:0;font-size:19px;font-weight:600;display:inline-flex;align-items:center;gap:9px"><i class="bi bi-people" style="font-size:17px;color:#5f7684"></i>Responsáveis (2)</h3>
+          <span style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;color:#3d3016;background:#ffc720;padding:4px 11px;border-radius:7px"><i class="bi bi-exclamation-triangle-fill" style="font-size:11px"></i>Qualificação incompleta</span>
+          <div style="flex:1"></div>
+          <button style="display:flex;align-items:center;gap:7px;height:32px;padding:0 12px;border:1px solid #cdd7de;background:#fff;color:#455c6b;font-family:inherit;font-size:12.5px;font-weight:500;border-radius:8px;cursor:pointer" style-hover="border-color:#0f6fc4;color:#0f6fc4"><i class="bi bi-arrow-left-right" style="font-size:12px"></i>Trocar responsável</button>
+          <button style="display:flex;align-items:center;gap:7px;height:32px;padding:0 12px;border:1px solid #cdd7de;background:#fff;color:#455c6b;font-family:inherit;font-size:12.5px;font-weight:500;border-radius:8px;cursor:pointer" style-hover="border-color:#0f6fc4;color:#0f6fc4"><i class="bi bi-pencil" style="font-size:12px"></i>Editar</button>
+          <button style="display:flex;align-items:center;gap:7px;height:32px;padding:0 12px;border:1px solid #e6c4c1;background:#fff;color:#a3232b;font-family:inherit;font-size:12.5px;font-weight:500;border-radius:8px;cursor:pointer" style-hover="background:#fdf1f0"><i class="bi bi-x-circle" style="font-size:12px"></i>Encerrar vínculo</button>
+        </div>
+
+        <div style="display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:28px;align-items:start;margin-top:16px">
+          <div style="min-width:0">
+            <div style="width:fit-content;max-width:100%;border:1px solid #dde5eb;border-radius:12px;background:#fafcfd;box-shadow:0 1px 2px rgba(16,42,58,.05);padding:12px 16px">
+              <div style="font-size:16px;font-weight:700;line-height:1.3">EDIO ANTONIO DA COSTA BATISTA</div>
+              <div style="font-size:13.5px;color:#6b8494;margin-top:2px"><span style="font-weight:600;color:#455c6b">Responsável atual</span> · Outro · desde 07/2026</div>
+            </div>
+
+            <div style="display:flex;align-items:center;gap:9px;margin-top:20px">
+              <span style="font-size:15px;font-weight:600;display:inline-flex;align-items:center;gap:8px"><i class="bi bi-telephone" style="font-size:14px;color:#5f7684"></i>Telefones</span>
+              <span style="font-variant-numeric:tabular-nums;font-size:11px;font-weight:700;padding:1px 7px;border-radius:999px;background:#eef2f5;color:#6b8494">0</span>
+            </div>
+            <div style="font-size:13.5px;color:#6b8494;margin-top:6px">Nenhum telefone cadastrado.</div>
+            <div style="display:flex;align-items:center;gap:11px;margin-top:10px">
+              <button title="Adicionar telefone" style="width:30px;height:30px;display:flex;align-items:center;justify-content:center;border:1px dashed #cdd7de;background:#fff;color:#8a9aa6;font-size:14px;border-radius:999px;cursor:pointer" style-hover="border-color:#1f7a4d;color:#1f7a4d"><i class="bi bi-plus"></i></button>
+              <span style="font-size:13.5px;color:#6b8494">Clique em + para adicionar.</span>
+            </div>
+
+            <div style="display:grid;grid-template-columns:repeat(4, minmax(0,1fr));gap:14px;margin-top:18px;background:#fafcfd;border:1px solid #eef2f5;border-radius:10px;padding:14px 16px">
+              <sc-for list="{{ fichaCampos }}" as="c" hint-placeholder-count="4">
+                <div style="min-width:0">
+                  <div style="font-size:10.5px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#7b93a2">{{ c.rot }}</div>
+                  <div style="{{ c.valStyle }}">{{ c.val }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="border:1px solid #eef2f5;background:#fafcfd;border-radius:12px;padding:14px 16px">
+            <div style="display:flex;align-items:center;gap:7px"><i class="bi bi-tag" style="font-size:13px;color:#5f7684"></i><span style="font-size:10.5px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#7b93a2">Qualificação de contato</span></div>
+            <div style="font-size:12.5px;color:#8a9aa6;margin-top:4px">Um clique registra no histórico da cobrança.</div>
+            <div style="display:flex;flex-direction:column;gap:7px;margin-top:12px">
+              <button style="display:flex;align-items:center;justify-content:center;gap:8px;height:34px;border:1px solid #cdd7de;background:#fff;color:#455c6b;font-family:inherit;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer" style-hover="border-color:#a3232b;color:#a3232b"><i class="bi bi-hand-thumbs-down" style="font-size:13px"></i>Recusa de pagamento</button>
+              <button style="display:flex;align-items:center;justify-content:center;gap:8px;height:34px;border:1px solid #cdd7de;background:#fff;color:#455c6b;font-family:inherit;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer" style-hover="border-color:#a3232b;color:#a3232b"><i class="bi bi-telephone-x" style="font-size:13px"></i>Telefone inexistente</button>
+              <button style="display:flex;align-items:center;justify-content:center;gap:8px;height:34px;border:1px solid #1a6b43;background:#1f7a4d;color:#fff;font-family:inherit;font-size:13px;font-weight:600;border-radius:8px;cursor:pointer" style-hover="background:#1a6b43"><i class="bi bi-hand-thumbs-up" style="font-size:13px"></i>Promessa de pagamento</button>
+            </div>
+            <div style="font-size:12.5px;color:#8a9aa6;margin-top:11px">Nenhuma qualificação registrada.</div>
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:22px">
+          <h4 style="margin:0;font-size:16px;font-weight:600">Outras pessoas vinculadas</h4>
+          <span style="font-variant-numeric:tabular-nums;font-size:11px;font-weight:700;padding:1px 7px;border-radius:999px;background:#eef2f5;color:#6b8494">1</span>
+          <div style="flex:1"></div>
+          <button style="display:flex;align-items:center;gap:7px;height:34px;padding:0 13px;border:1px solid #1a6b43;background:#1f7a4d;color:#fff;font-family:inherit;font-size:13px;font-weight:600;border-radius:8px;cursor:pointer" style-hover="background:#1a6b43"><i class="bi bi-person-plus" style="font-size:13px"></i>Adicionar pessoa<i class="bi bi-caret-down-fill" style="font-size:9px;opacity:.85"></i></button>
+        </div>
+        <div style="margin-top:10px;border:1px solid #e6edf1;border-radius:10px">
+          <button onClick="{{ toggleVinculo }}" style="width:100%;display:flex;align-items:center;gap:10px;padding:12px 14px;border:none;background:transparent;font-family:inherit;cursor:pointer;text-align:left">
+            <i class="bi bi-person" style="font-size:14px;color:#8a9aa6"></i>
+            <span style="font-size:14px;font-weight:600">LINDOMAR APARECIDO GOMES DE LIMA</span>
+            <span style="font-size:11.5px;font-weight:600;color:#5f7684;background:#f1f5f7;border:1px solid #e2eaef;padding:2px 9px;border-radius:999px">Outro</span>
+            <div style="flex:1"></div>
+            <i class="{{ vinculoIcon }}" style="font-size:14px;color:#8a9aa6"></i>
+          </button>
+          <sc-if value="{{ vinculoAberto }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:0 14px 14px 38px;display:grid;grid-template-columns:repeat(4, minmax(0,1fr));gap:14px">
+              <sc-for list="{{ fichaCampos }}" as="c" hint-placeholder-count="4">
+                <div style="min-width:0">
+                  <div style="font-size:10.5px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#7b93a2">{{ c.rot }}</div>
+                  <div style="{{ c.valStyle }}">{{ c.val }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+
+        <div style="display:flex;align-items:center;margin-top:22px">
+          <button style="display:flex;align-items:center;gap:7px;height:34px;padding:0 13px;border:1px solid #cdd7de;background:#fff;color:#455c6b;font-family:inherit;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer" style-hover="border-color:#0f6fc4;color:#0f6fc4"><i class="bi bi-arrow-left" style="font-size:13px"></i>Voltar</button>
+          <div style="flex:1"></div>
+          <button style="display:flex;align-items:center;gap:7px;height:34px;padding:0 14px;border:1px solid #1a6b43;background:#1f7a4d;color:#fff;font-family:inherit;font-size:13px;font-weight:600;border-radius:8px;cursor:pointer" style-hover="background:#1a6b43">Próxima unidade<i class="bi bi-arrow-right" style="font-size:13px"></i></button>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ ehDocumentos }}" hint-placeholder-val="{{ false }}">
+      <div style="background:#fff;border:1px solid #dde5eb;border-radius:14px;box-shadow:0 1px 2px rgba(16,42,58,.04)">
+        <div style="padding:13px 18px;display:flex;align-items:center;gap:9px;flex-wrap:wrap;border-bottom:1px solid #eef2f5">
+          <i class="bi bi-folder2" style="font-size:14px;color:#5f7684"></i>
+          <h3 style="margin:0;font-size:15.5px;font-weight:600">Documentos</h3>
+          <div style="position:relative;flex:1;min-width:220px;max-width:420px;margin-left:8px">
+            <i class="bi bi-search" style="position:absolute;left:11px;top:9px;font-size:13px;color:#8a9aa6"></i>
+            <input placeholder="Buscar arquivos…" style="width:100%;height:32px;padding:0 11px 0 32px;border:1px solid #cdd7de;border-radius:9px;font-family:inherit;font-size:13px;color:#243845;background:#fff" style-focus="border-color:#0c7a9c;outline:none;box-shadow:0 0 0 3px rgba(12,122,156,.12)">
+          </div>
+          <div style="flex:1"></div>
+          <button style="display:flex;align-items:center;gap:7px;height:32px;padding:0 12px;border:1px solid #cdd7de;background:#fff;color:#455c6b;font-family:inherit;font-size:12.5px;font-weight:500;border-radius:8px;cursor:pointer" style-hover="border-color:#0f6fc4;color:#0f6fc4"><i class="bi bi-folder-plus" style="font-size:12px"></i>Nova pasta</button>
+          <button style="display:flex;align-items:center;gap:7px;height:32px;padding:0 13px;border:1px solid #1a6b43;background:#1f7a4d;color:#fff;font-family:inherit;font-size:12.5px;font-weight:600;border-radius:8px;cursor:pointer" style-hover="background:#1a6b43"><i class="bi bi-upload" style="font-size:12px"></i>Enviar</button>
+          <div style="display:flex;border:1px solid #cdd7de;border-radius:8px;overflow:hidden">
+            <button style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;border:none;background:#eef2f5;color:#12242f;font-size:13px;cursor:pointer"><i class="bi bi-list-ul"></i></button>
+            <button style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;border:none;border-left:1px solid #cdd7de;background:#fff;color:#5f7684;font-size:13px;cursor:pointer" style-hover="background:#f7fafb"><i class="bi bi-grid-3x3-gap"></i></button>
+          </div>
+        </div>
+        <div style="padding:18px">
+          <div style="font-size:10.5px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#7b93a2;margin-bottom:10px">Arquivos</div>
+          <div style="border:2px dashed #dde5eb;border-radius:12px;padding:46px 20px;text-align:center;background:#fafcfd">
+            <i class="bi bi-cloud-arrow-up" style="font-size:30px;color:#c3ced6"></i>
+            <div style="font-size:15px;font-weight:600;margin-top:9px">Nenhum arquivo aqui</div>
+            <div style="font-size:13px;color:#8a9aa6;margin-top:3px;text-wrap:pretty">Arraste arquivos do computador para esta área ou clique em <strong style="font-weight:600">Enviar</strong>.</div>
+            <div style="display:flex;gap:7px;justify-content:center;margin-top:14px;flex-wrap:wrap">
+              <span style="font-size:11.5px;color:#8a9aa6;background:#f1f5f7;border:1px solid #e2eaef;padding:3px 10px;border-radius:999px">Boletos</span>
+              <span style="font-size:11.5px;color:#8a9aa6;background:#f1f5f7;border:1px solid #e2eaef;padding:3px 10px;border-radius:999px">Notificações</span>
+              <span style="font-size:11.5px;color:#8a9aa6;background:#f1f5f7;border:1px solid #e2eaef;padding:3px 10px;border-radius:999px">Acordos assinados</span>
+              <span style="font-size:11.5px;color:#8a9aa6;background:#f1f5f7;border:1px solid #e2eaef;padding:3px 10px;border-radius:999px">Comprovantes</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ ehHistorico }}" hint-placeholder-val="{{ false }}">
+      <div style="background:#fff;border:1px solid #dde5eb;border-radius:14px;box-shadow:0 1px 2px rgba(16,42,58,.04)">
+        <div style="padding:13px 18px;display:flex;align-items:center;gap:9px;flex-wrap:wrap;border-bottom:1px solid #eef2f5">
+          <i class="bi bi-clock-history" style="font-size:14px;color:#5f7684"></i>
+          <h3 style="margin:0;font-size:15.5px;font-weight:600">Histórico</h3>
+          <span style="font-size:13px;color:#6b8494">162 eventos</span>
+          <div style="flex:1"></div>
+          <div style="display:flex;gap:5px;flex-wrap:wrap">
+            <sc-for list="{{ filtros }}" as="f" hint-placeholder-count="5">
+              <button onClick="{{ f.go }}" style="{{ f.style }}">{{ f.label }}</button>
+            </sc-for>
+          </div>
+        </div>
+        <div style="padding:16px 18px">
+          <sc-for list="{{ eventos }}" as="e" hint-placeholder-count="6">
+            <div style="display:grid;grid-template-columns:20px minmax(0,1fr);gap:12px">
+              <div style="display:flex;flex-direction:column;align-items:center">
+                <span style="{{ e.dotStyle }}"></span>
+                <div style="flex:1;width:2px;background:#eef2f5"></div>
+              </div>
+              <div style="padding-bottom:16px;min-width:0">
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                  <span style="font-size:13.5px;font-weight:700">{{ e.tipo }}</span>
+                  <span style="{{ e.chipStyle }}">{{ e.chip }}</span>
+                </div>
+                <div style="font-size:13.5px;color:#243845;margin-top:2px;text-wrap:pretty">{{ e.desc }}</div>
+                <div style="font-variant-numeric:tabular-nums;font-size:12px;color:#8a9aa6;margin-top:3px">{{ e.quando }} · {{ e.quem }}</div>
+              </div>
+            </div>
+          </sc-for>
+          <div style="display:flex;justify-content:center;padding-top:4px">
+            <button style="height:32px;padding:0 14px;border:1px solid #cdd7de;background:#fff;color:#455c6b;font-family:inherit;font-size:12.5px;font-weight:500;border-radius:8px;cursor:pointer" style-hover="border-color:#0f6fc4;color:#0f6fc4">Carregar mais 20 eventos</button>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ ehHonorarios }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div style="background:#fff;border:1px solid #dde5eb;border-radius:14px;box-shadow:0 1px 2px rgba(16,42,58,.04)">
+          <div style="padding:13px 18px;display:flex;align-items:center;gap:9px;border-bottom:1px solid #eef2f5">
+            <i class="bi bi-percent" style="font-size:14px;color:#5f7684"></i>
+            <h3 style="margin:0;font-size:15.5px;font-weight:600">Honorários</h3>
+            <div style="flex:1"></div>
+            <button style="display:flex;align-items:center;gap:7px;height:32px;padding:0 12px;border:1px solid #cdd7de;background:#fff;color:#455c6b;font-family:inherit;font-size:12.5px;font-weight:500;border-radius:8px;cursor:pointer" style-hover="border-color:#0f6fc4;color:#0f6fc4"><i class="bi bi-sliders" style="font-size:12px"></i>Editar configuração de encargos</button>
+          </div>
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.5fr)">
+            <div style="padding:18px 20px;border-right:1px solid #eef2f5">
+              <div style="font-size:10.5px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#7b93a2;margin-bottom:5px">A receber</div>
+              <div style="font-variant-numeric:tabular-nums;font-size:29px;font-weight:600;letter-spacing:-0.02em;line-height:1.1">R$ 6.275,75</div>
+              <div style="font-size:12px;color:#8a9aa6;margin-top:3px">honorários das obrigações ainda em aberto</div>
+            </div>
+            <div style="padding:18px 20px;border-right:1px solid #eef2f5">
+              <div style="font-size:10.5px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#7b93a2;margin-bottom:5px">Já recebido</div>
+              <div style="font-variant-numeric:tabular-nums;font-size:29px;font-weight:600;letter-spacing:-0.02em;line-height:1.1;color:#8a9aa6">R$ 0,00</div>
+              <div style="font-size:12px;color:#8a9aa6;margin-top:3px">nenhum recebimento ainda</div>
+            </div>
+            <div style="padding:18px 20px;display:grid;grid-template-columns:repeat(2, minmax(0,1fr));gap:12px 18px;align-content:start">
+              <sc-for list="{{ configHonorarios }}" as="c" hint-placeholder-count="4">
+                <div style="min-width:0">
+                  <div style="font-size:10.5px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#7b93a2">{{ c.rot }}</div>
+                  <div style="font-size:13.5px;font-weight:600;margin-top:2px">{{ c.val }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+
+        <div style="background:#fff;border:1px solid #dde5eb;border-radius:14px;box-shadow:0 1px 2px rgba(16,42,58,.04)">
+          <div style="padding:13px 18px;border-bottom:1px solid #eef2f5">
+            <h4 style="margin:0;font-size:14.5px;font-weight:600">Por obrigação</h4>
+            <div style="font-size:12.5px;color:#8a9aa6;margin-top:2px;text-wrap:pretty">A configuração acima é a que vale hoje para novas incidências. Cada obrigação pode ter taxa própria — por isso um valor da lista pode não bater com o percentual exibido.</div>
+          </div>
+          <sc-for list="{{ obrigacoes }}" as="o" hint-placeholder-count="6">
+            <div style="display:grid;grid-template-columns:minmax(0,1fr) 130px 110px;align-items:center;gap:12px;padding:11px 18px;border-top:1px solid #eef2f5">
+              <div style="font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ o.desc }}</div>
+              <div style="font-variant-numeric:tabular-nums;font-size:12.5px;color:#8a9aa6;text-align:right">venc. {{ o.venc }}</div>
+              <div style="font-variant-numeric:tabular-nums;font-size:14px;font-weight:700;text-align:right">{{ o.honorarios }}</div>
+            </div>
+          </sc-for>
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) 110px;align-items:center;gap:12px;padding:12px 18px;border-top:1px solid #dde5eb;background:#fafcfd;border-radius:0 0 14px 14px">
+            <span style="font-size:13px;color:#6b8494">Somando as 161 obrigações em aberto</span>
+            <span style="font-variant-numeric:tabular-nums;font-size:15px;font-weight:700;text-align:right">R$ 6.275,75</span>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;abaInicial&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;divida&quot;,&quot;cobranca&quot;,&quot;responsaveis&quot;,&quot;honorarios&quot;,&quot;documentos&quot;,&quot;historico&quot;],&quot;default&quot;:&quot;divida&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Tela&quot;}}">
+const DADOS = [
+  { id:1, venc:'10/08/2018', dias:'há 2940 dias', comp:'08/2018', ref:'#69678', original:'R$ 50,00', juros:'R$ 49,00', multa:'R$ 1,00', correcao:'R$ 0,00', honorarios:'R$ 20,00', acrescimos:'R$ 70,00', total:'R$ 120,00', cents:12000 },
+  { id:2, venc:'10/09/2018', dias:'há 2909 dias', comp:'09/2018', ref:'#69679', original:'R$ 50,00', juros:'R$ 48,48', multa:'R$ 1,00', correcao:'R$ 0,00', honorarios:'R$ 19,90', acrescimos:'R$ 69,38', total:'R$ 119,38', cents:11938 },
+  { id:3, venc:'10/10/2018', dias:'há 2879 dias', comp:'10/2018', ref:'#69680', original:'R$ 50,00', juros:'R$ 47,98', multa:'R$ 1,00', correcao:'R$ 0,00', honorarios:'R$ 19,80', acrescimos:'R$ 68,78', total:'R$ 118,78', cents:11878 },
+  { id:4, venc:'10/12/2018', dias:'há 2818 dias', comp:'12/2018', ref:'#69681', original:'R$ 50,00', juros:'R$ 46,97', multa:'R$ 1,00', correcao:'R$ 0,00', honorarios:'R$ 19,59', acrescimos:'R$ 67,56', total:'R$ 117,56', cents:11756 },
+  { id:5, venc:'10/01/2019', dias:'há 2787 dias', comp:'01/2019', ref:'#69682', original:'R$ 50,00', juros:'R$ 46,45', multa:'R$ 1,00', correcao:'R$ 0,00', honorarios:'R$ 19,49', acrescimos:'R$ 66,94', total:'R$ 116,94', cents:11694 },
+  { id:6, venc:'10/02/2019', dias:'há 2756 dias', comp:'02/2019', ref:'#69683', original:'R$ 50,00', juros:'R$ 45,94', multa:'R$ 1,00', correcao:'R$ 0,00', honorarios:'R$ 19,38', acrescimos:'R$ 66,32', total:'R$ 116,32', cents:11632 },
+];
+
+const ABAS = [
+  { key:'divida', label:'Dívida', icon:'bi bi-cash-stack', badge:'161' },
+  { key:'cobranca', label:'Cobrança', icon:'bi bi-briefcase', badge:'' },
+  { key:'responsaveis', label:'Responsáveis', icon:'bi bi-people', badge:'2' },
+  { key:'honorarios', label:'Honorários', icon:'bi bi-percent', badge:'' },
+  { key:'documentos', label:'Documentos', icon:'bi bi-folder2', badge:'0' },
+  { key:'historico', label:'Histórico', icon:'bi bi-clock-history', badge:'162' },
+];
+
+const FILTROS = ['Tudo', 'Contatos', 'Dinheiro', 'Obrigações', 'Anotações'];
+
+const EVENTOS = [
+  { tipo:'Obrigação criada', chip:'Obrigação', cor:'#5f7684', desc:'1.1 - Taxa de condomínio — competência 06/2026 | Unidades associadas: 05-03, 06-01, 06-02, 06-03 e 06-04', quando:'11/07/2026 16:40', quem:'FARLEI ASSIS DA ROCHA' },
+  { tipo:'Obrigação criada', chip:'Obrigação', cor:'#5f7684', desc:'1.1 - Taxa de condomínio — competência 05/2026 | Unidades associadas: 05-03, 06-01, 06-02, 06-03 e 06-04', quando:'11/07/2026 16:40', quem:'FARLEI ASSIS DA ROCHA' },
+  { tipo:'Obrigação criada', chip:'Obrigação', cor:'#5f7684', desc:'1.1 - Taxa de condomínio — competência 04/2026 | Unidades associadas: 05-03, 06-01, 06-02, 06-03 e 06-04', quando:'11/07/2026 16:40', quem:'FARLEI ASSIS DA ROCHA' },
+  { tipo:'Pessoa vinculada', chip:'Cadastro', cor:'#0f6fc4', desc:'EDIO ANTONIO DA COSTA BATISTA passou a ser o responsável atual da unidade 03-07.', quando:'11/07/2026 16:38', quem:'FARLEI ASSIS DA ROCHA' },
+  { tipo:'Cobrança aberta', chip:'Caso', cor:'#1f7a4d', desc:'Cobrança aberta para a unidade 03-07 da carteira TOP LIFE I.', quando:'11/07/2026 16:38', quem:'FARLEI ASSIS DA ROCHA' },
+  { tipo:'Objeto criado', chip:'Cadastro', cor:'#0f6fc4', desc:'Unidade 03-07 importada do relatório de cadastro de condôminos.', quando:'11/07/2026 16:37', quem:'Importação automática' },
+];
+
+const FICHA = [
+  { rot:'CPF', val:'não informado' },
+  { rot:'E-mail', val:'não informado' },
+  { rot:'Estado civil', val:'não informado' },
+  { rot:'Endereço', val:'não informado' },
+];
+
+const CONFIG_HON = [
+  { rot:'Forma configurada', val:'Honorários acrescidos à dívida' },
+  { rot:'Percentual', val:'20,00%' },
+  { rot:'Base de cálculo', val:'Composta' },
+  { rot:'Carência', val:'30 dias' },
+];
+
+class Component extends DCLogic {
+  state = { tab:null, abertas:{}, sel:{}, filtro:'Tudo', vinculoAberto:false };
+
+  aba() { return this.state.tab || this.props.abaInicial || 'divida'; }
+
+  renderVals() {
+    const atual = this.aba();
+    const { abertas, sel } = this.state;
+
+    const obrigacoes = DADOS.map(o => {
+      const aberta = !!abertas[o.id];
+      const marcada = !!sel[o.id];
+      return {
+        ...o,
+        desc: '1.1 - Taxa de condomínio — competência ' + o.comp,
+        sub: 'Unidades associadas: 05-03, 06-01, 06-02, 06-03 e 06-04 · ' + o.ref,
+        aberta,
+        sel: marcada,
+        rowStyle: 'border-top:1px solid #eef2f5;'
+          + (marcada ? 'background:#f1f8f4;box-shadow:inset 3px 0 0 #1f7a4d;'
+             : aberta ? 'background:#fdf7f6;box-shadow:inset 3px 0 0 #a3232b;'
+             : 'background:#fffbfa;box-shadow:inset 3px 0 0 #e6b4ae;'),
+        caretStyle: 'width:26px;height:26px;display:flex;align-items:center;justify-content:center;border:1px solid '
+          + (aberta ? '#cdd7de;background:#eef2f5;' : 'transparent;background:transparent;')
+          + 'color:#5f7684;font-size:12px;border-radius:7px;cursor:pointer',
+        caretIcon: aberta ? 'bi bi-chevron-up' : 'bi bi-chevron-down',
+        toggle: () => this.setState(s => ({ abertas: { ...s.abertas, [o.id]: !s.abertas[o.id] } })),
+        check: () => this.setState(s => ({ sel: { ...s.sel, [o.id]: !s.sel[o.id] } })),
+      };
+    });
+
+    const marcadas = DADOS.filter(o => sel[o.id]);
+    const soma = marcadas.reduce((a, o) => a + o.cents, 0);
+
+    return {
+      abas: ABAS.map(t => {
+        const on = t.key === atual;
+        return {
+          ...t,
+          go: () => this.setState({ tab: t.key }),
+          style: 'display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 13px;border:none;border-radius:9px;font-family:inherit;font-size:13px;cursor:pointer;'
+            + (on ? 'background:#fff;color:#12242f;font-weight:600;box-shadow:0 1px 2px rgba(16,42,58,.14)'
+                  : 'background:transparent;color:#5f7684;font-weight:500'),
+          badgeStyle: t.badge
+            ? 'font-variant-numeric:tabular-nums;font-size:11px;font-weight:700;padding:1px 6px;border-radius:999px;'
+              + (on ? 'background:#eef2f5;color:#5f7684' : 'background:#dbe3e8;color:#6b8494')
+            : 'display:none',
+        };
+      }),
+      ehDivida: atual === 'divida',
+      ehCobranca: atual === 'cobranca',
+      ehResponsaveis: atual === 'responsaveis',
+      ehDocumentos: atual === 'documentos',
+      ehHistorico: atual === 'historico',
+      ehHonorarios: atual === 'honorarios',
+
+      obrigacoes,
+      temSelecao: marcadas.length > 0,
+      selLabel: marcadas.length === 1 ? '1 obrigação selecionada' : marcadas.length + ' obrigações selecionadas',
+      selTotal: 'R$ ' + (soma / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      limpar: () => this.setState({ sel: {} }),
+
+      ferramentas: [
+        { nome:'Negrito', icon:'bi bi-type-bold' },
+        { nome:'Itálico', icon:'bi bi-type-italic' },
+        { nome:'Sublinhado', icon:'bi bi-type-underline' },
+        { nome:'Lista numerada', icon:'bi bi-list-ol' },
+        { nome:'Lista', icon:'bi bi-list-ul' },
+        { nome:'Citação', icon:'bi bi-quote' },
+        { nome:'Link', icon:'bi bi-link-45deg' },
+        { nome:'Limpar formatação', icon:'bi bi-eraser' },
+      ],
+
+      fichaCampos: FICHA.map(c => ({ ...c, valStyle: 'font-size:13.5px;margin-top:2px;color:#a8b6bf;font-style:italic' })),
+      configHonorarios: CONFIG_HON,
+
+      vinculoAberto: this.state.vinculoAberto,
+      vinculoIcon: this.state.vinculoAberto ? 'bi bi-chevron-up' : 'bi bi-chevron-down',
+      toggleVinculo: () => this.setState(s => ({ vinculoAberto: !s.vinculoAberto })),
+
+      filtros: FILTROS.map(f => {
+        const on = f === this.state.filtro;
+        return {
+          label: f,
+          go: () => this.setState({ filtro: f }),
+          style: 'height:28px;padding:0 11px;border-radius:999px;font-family:inherit;font-size:12.5px;cursor:pointer;'
+            + (on ? 'border:1px solid #0c7a9c;background:#e8f4f8;color:#0a6683;font-weight:600'
+                  : 'border:1px solid #dde5eb;background:#fff;color:#5f7684;font-weight:500'),
+        };
+      }),
+      eventos: EVENTOS.map(e => ({
+        ...e,
+        dotStyle: 'width:9px;height:9px;border-radius:999px;margin-top:5px;flex-shrink:0;background:' + e.cor,
+        chipStyle: 'font-size:11px;font-weight:600;padding:1px 8px;border-radius:999px;background:#f1f5f7;border:1px solid #e2eaef;color:#6b8494',
+      })),
+    };
+  }
+}
+
+</script>
+</body>
+</html>

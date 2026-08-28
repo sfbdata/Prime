@@ -1,0 +1,228 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   Redesenho da página do objeto (2026-08-28) — direção 1a, coluna única.
+   Para colar em app/public/css/cobrancas.css. Mesma convenção do arquivo:
+   só variáveis --bs-* + o accent do módulo --jp-accent. Nada de hex solto,
+   nada de sistema --cob-* paralelo com claro/escuro fixos.
+
+   O que este bloco SUBSTITUI (apagar junto, para não deixar CSS órfão):
+   .jp-obr-encargos, .jp-obr-enc, .jp-enc-rot, .jp-enc-pct, .jp-enc-val
+   — a faixa de pílulas sempre visível deu lugar ao detalhe expansível.
+═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Cabeçalho: herói do vencido ─────────────────────────────────────────── */
+.cob-cabecalho {
+    display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+    border-top: 1px solid var(--bs-border-color);
+}
+.cob-cabecalho > * + * { border-left: 1px solid var(--bs-border-color); }
+.cob-cabecalho-dinheiro { padding: 1.15rem 1.25rem 1.25rem; }
+.cob-cabecalho-contexto {
+    padding: 1.15rem 1.25rem 1.25rem;
+    display: flex; flex-direction: column; gap: .75rem;
+}
+
+.cob-heroi-rotulo {
+    font-size: .6875rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .1em;
+    color: var(--bs-danger); margin-bottom: .25rem;
+}
+/* 2.75rem ≈ 44px. `tabular-nums` porque o número muda a cada hidratação e não
+   pode "dançar" na largura entre um render e outro. */
+.cob-heroi-valor {
+    font-size: 2.75rem; font-weight: 600; line-height: 1;
+    letter-spacing: -.025em; color: var(--bs-danger);
+    font-variant-numeric: tabular-nums;
+}
+.cob-heroi-quando { font-size: .75rem; color: var(--bs-tertiary-color); }
+
+.cob-apoios { display: flex; gap: 1.6rem; flex-wrap: wrap; margin-top: 1rem; }
+.cob-apoio-rotulo {
+    font-size: .6875rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .1em;
+    color: var(--bs-secondary-color); margin-bottom: .2rem;
+}
+.cob-apoio-valor {
+    font-size: 1.1875rem; font-weight: 600; letter-spacing: -.01em;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Barra de composição do vencido: Principal · Juros e multa · Honorários.
+   Os três segmentos SOMAM 100% por construção (é a mesma identidade que o
+   UseCase garante entre os quatro campos) — largura vem inline, do servidor. */
+.cob-composicao {
+    display: flex; height: 8px; margin-top: 1rem;
+    border-radius: 999px; overflow: hidden;
+    background: var(--bs-tertiary-bg);
+}
+.cob-composicao-principal { background: var(--bs-danger); }
+.cob-composicao-encargos  { background: var(--bs-warning); }
+.cob-composicao-honorarios { background: var(--bs-secondary-color); }
+
+.cob-legenda {
+    display: flex; flex-wrap: wrap; gap: .4rem 1rem;
+    margin-top: .45rem; font-size: .71875rem; color: var(--bs-secondary-color);
+}
+.cob-legenda-item { display: inline-flex; align-items: center; gap: .3rem; }
+.cob-legenda-cor { width: 8px; height: 8px; border-radius: 2px; }
+.cob-legenda strong { color: var(--bs-body-color); font-weight: 700; }
+
+/* Prescrição: bloco na coluna de contexto, não faixa de largura total. */
+.cob-prescricao {
+    display: flex; gap: .6rem; padding: .7rem .8rem;
+    border: 1px solid rgba(var(--bs-danger-rgb), .3);
+    border-left: 3px solid var(--bs-danger);
+    border-radius: .625rem;
+    background: rgba(var(--bs-danger-rgb), .06);
+}
+.cob-prescricao-titulo { font-size: .84375rem; font-weight: 600; color: var(--bs-danger-text-emphasis); }
+.cob-prescricao-texto { font-size: .78125rem; color: var(--bs-secondary-color); text-wrap: pretty; }
+
+/* Próxima ação: logo abaixo da prescrição, mesma coluna. Âmbar quando atrasada. */
+.cob-proxima-faixa {
+    display: flex; align-items: center; gap: .6rem; flex-wrap: wrap;
+    border: 1px solid rgba(var(--jp-accent-rgb), .30);
+    background: rgba(var(--jp-accent-rgb), .07);
+    border-radius: .625rem; padding: .55rem .85rem;
+}
+.cob-proxima-rotulo {
+    font-size: .6875rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .1em; color: var(--jp-accent);
+}
+.cob-proxima-faixa.atrasada {
+    border-color: rgba(var(--bs-warning-rgb), .5);
+    background: rgba(var(--bs-warning-rgb), .1);
+}
+.cob-proxima-faixa.atrasada .cob-proxima-rotulo { color: var(--bs-warning-text-emphasis); }
+
+/* ── Ações do cabeçalho: 6 botões em 2 linhas de 3 ───────────────────────── */
+/* Coluna de linhas, não `flex-wrap`: a quebra tem de ser SEMPRE depois da
+   terceira (frequentes em cima, raras embaixo), e não onde a largura mandar. */
+.cob-acoes { display: flex; flex-direction: column; align-items: flex-end; gap: .375rem; }
+.cob-acoes-linha { display: flex; align-items: center; gap: .375rem; flex-wrap: wrap; justify-content: flex-end; }
+@media (max-width: 991.98px) {
+    .cob-acoes { align-items: stretch; }
+    .cob-acoes-linha { justify-content: flex-start; }
+}
+
+/* ── Abas em controle segmentado ─────────────────────────────────────────── */
+.cob-abas {
+    display: inline-flex; gap: .125rem; padding: .1875rem;
+    border-radius: .6875rem; background: var(--bs-secondary-bg);
+}
+.cob-abas .nav-link {
+    display: inline-flex; align-items: center; gap: .45rem;
+    height: 2rem; padding: 0 .8rem; border: 0; border-radius: .5625rem;
+    font-size: .8125rem; font-weight: 500; color: var(--bs-secondary-color);
+}
+.cob-abas .nav-link:hover { color: var(--bs-body-color); }
+.cob-abas .nav-link.active {
+    background: var(--bs-body-bg); color: var(--bs-body-color); font-weight: 600;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .12);
+}
+.cob-abas .badge {
+    font-size: .6875rem; font-weight: 700; padding: .0625rem .375rem;
+    border-radius: 999px; background: var(--bs-tertiary-bg);
+    color: var(--bs-secondary-color); font-variant-numeric: tabular-nums;
+}
+
+/* ── Linha da dívida: Original · Acréscimos · Total + detalhe expansível ─── */
+/* Mantém o container query do arquivo atual (`#secao-divida` é o container):
+   a coluna aperta e a linha vira cartão empilhado, sem rolagem horizontal. */
+#secao-divida .jp-lista-head,
+#secao-divida .jp-obr:not(.is-substituida) {
+    grid-template-columns: 34px 108px minmax(7rem, 1fr) 110px 120px 130px minmax(0, auto) 34px;
+    grid-template-areas: none;
+}
+#secao-divida .jp-obr { padding: .7rem 1rem; }
+#secao-divida .col-original,
+#secao-divida .col-acrescimos,
+#secao-divida .col-total { text-align: right; font-variant-numeric: tabular-nums; }
+#secao-divida .col-original,
+#secao-divida .col-acrescimos { color: var(--bs-secondary-color); font-size: .84375rem; }
+#secao-divida .col-total { font-size: .9375rem; font-weight: 700; letter-spacing: -.01em; }
+
+/* Botão do chevron: só ganha moldura quando a linha está aberta — fechado ele
+   é um alvo discreto, não mais um ícone competindo com "Receber". */
+.cob-obr-chevron {
+    width: 26px; height: 26px; display: flex; align-items: center; justify-content: center;
+    border: 1px solid transparent; background: transparent;
+    color: var(--bs-secondary-color); border-radius: .4375rem;
+}
+.cob-obr-chevron[aria-expanded="true"] {
+    border-color: var(--bs-border-color); background: var(--bs-tertiary-bg);
+}
+
+/* Detalhe: os cinco componentes com o % de incidência. Indentado até a coluna
+   da descrição, para ler como continuação da linha e não como bloco novo. */
+.cob-obr-detalhe { padding: 0 1rem .875rem 9.875rem; }
+.cob-obr-detalhe-caixa {
+    display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)) 130px;
+    gap: .875rem; align-items: end;
+    padding: .75rem .875rem; border-radius: .625rem;
+    border: 1px solid var(--bs-border-color); background: var(--bs-tertiary-bg);
+}
+.cob-obr-detalhe-rot {
+    font-size: .6875rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .08em; color: var(--bs-secondary-color);
+}
+/* O % vive DENTRO do rótulo: é contexto, não dinheiro. */
+.cob-obr-detalhe-pct { font-weight: 600; text-transform: none; letter-spacing: 0; opacity: .8; }
+.cob-obr-detalhe-val { font-size: .875rem; font-weight: 600; margin-top: .1875rem; font-variant-numeric: tabular-nums; }
+.cob-obr-detalhe-val.is-zero { color: var(--bs-tertiary-color); }
+@container divida (max-width: 720px) {
+    .cob-obr-detalhe { padding-left: 1rem; }
+    .cob-obr-detalhe-caixa { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* Estados da linha: vencida (padrão desta tela), selecionada, expandida.
+   Sempre espinha de 3px por `box-shadow: inset`, nunca coluna de grid. */
+.jp-obr.is-vencida { background: rgba(var(--bs-danger-rgb), .04); box-shadow: inset 3px 0 0 rgba(var(--bs-danger-rgb), .35); }
+.jp-obr.is-aberta  { background: rgba(var(--bs-danger-rgb), .06); box-shadow: inset 3px 0 0 var(--bs-danger); }
+.jp-obr.is-selecionada { background: rgba(var(--jp-accent-rgb), .08); box-shadow: inset 3px 0 0 var(--jp-accent); }
+
+/* ── Barra de seleção: escura, sticky no rodapé ──────────────────────────── */
+.jp-selbar {
+    position: sticky; bottom: .875rem; z-index: 5;
+    display: flex; align-items: center; gap: .875rem; flex-wrap: wrap;
+    padding: .7rem 1rem; border-radius: .75rem;
+    background: var(--bs-emphasis-color); color: var(--bs-body-bg);
+    box-shadow: 0 .625rem 1.75rem rgba(0, 0, 0, .28);
+}
+.jp-selbar-total { font-weight: 700; font-variant-numeric: tabular-nums; }
+.jp-selbar[hidden] { display: none; }
+
+/* ── Estados vazios que ensinam (aba Dívida e aba Cobrança) ──────────────── */
+.cob-vazio-linha {
+    display: flex; align-items: center; gap: .75rem;
+    padding: 1rem 1.125rem; border-radius: var(--cob-radius, 1rem);
+    border: 1px solid var(--bs-border-color); background: var(--bs-body-bg);
+}
+.cob-vazio-ico {
+    width: 34px; height: 34px; flex-shrink: 0; border-radius: 999px;
+    display: grid; place-items: center;
+    background: var(--bs-tertiary-bg); color: var(--bs-secondary-color);
+}
+.cob-vazio-titulo { font-size: .875rem; font-weight: 600; }
+.cob-vazio-dica { font-size: .78125rem; color: var(--bs-secondary-color); text-wrap: pretty; }
+
+/* ── Histórico: timeline com chip de tipo e filtros ──────────────────────── */
+.cob-hist-item { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: .75rem; }
+.cob-hist-trilho { display: flex; flex-direction: column; align-items: center; }
+.cob-hist-ponto { width: 9px; height: 9px; border-radius: 999px; margin-top: .3125rem; background: var(--bs-secondary-color); }
+.cob-hist-ponto.is-dinheiro { background: var(--jp-accent); }
+.cob-hist-ponto.is-cadastro { background: var(--bs-info); }
+.cob-hist-linha { flex: 1; width: 2px; background: var(--bs-border-color); }
+.cob-hist-corpo { padding-bottom: 1rem; min-width: 0; }
+.cob-hist-tipo { font-size: .84375rem; font-weight: 700; }
+.cob-hist-meta { font-size: .75rem; color: var(--bs-secondary-color); font-variant-numeric: tabular-nums; }
+.cob-hist-filtro.active {
+    border-color: var(--jp-accent); color: var(--jp-accent); font-weight: 600;
+    background: rgba(var(--jp-accent-rgb), .1);
+}
+
+/* ── Responsivo: abaixo de lg o cabeçalho vira uma coluna ────────────────── */
+@media (max-width: 991.98px) {
+    .cob-cabecalho { grid-template-columns: minmax(0, 1fr); }
+    .cob-cabecalho > * + * { border-left: 0; border-top: 1px solid var(--bs-border-color); }
+    .cob-heroi-valor { font-size: 2.25rem; }
+}
