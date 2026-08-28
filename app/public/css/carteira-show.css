@@ -121,8 +121,12 @@
     color: var(--cs-text);
     font-family: var(--jp-font-sans);
 }
-.cs-page a { color: var(--cs-link); text-decoration: none; }
-.cs-page a:hover { color: var(--cs-link-hover); text-decoration: underline; }
+/* Âncora que é BOTÃO fica de fora: `.cs-page a` (0,1,1) vence `.cs-btn` e
+   `.cs-btn-verde` (0,1,0), então o texto viraria azul de link em cima do verde do
+   próprio botão — ilegível. Mesmo defeito que a `pasta_show` acabou de pagar; aqui
+   atingiria "Importar relatório", "Carteiras" e o ícone de baixar do documento. */
+.cs-page a:not(.cs-btn):not(.cs-doc-acao) { color: var(--cs-link); text-decoration: none; }
+.cs-page a:not(.cs-btn):not(.cs-doc-acao):hover { color: var(--cs-link-hover); text-decoration: underline; }
 
 /* ── Cartão base ─────────────────────────────────────────────────────────── */
 .cs-card {
