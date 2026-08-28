@@ -1096,7 +1096,15 @@
                     </div>
 
                     {# — Formulário PF — #}
-                    <div id="formPF" class="d-none">
+                    {# `fieldset disabled`, e não `div`: PF e PJ moram no MESMO form, e os oito
+                       campos comuns (email, cep, endereco, cidade, estado, complemento e os dois
+                       telefones) repetem o mesmo `name` nos dois blocos. Campo de bloco escondido
+                       que continue ATIVO é validado pelo navegador e entra no FormData — o usuário
+                       levava "Insira uma parte depois de @" apontando para um e-mail que ele não
+                       enxerga (o preenchimento automático casa por `name` e preenche os dois).
+                       `disabled` tira o bloco inativo da validação nativa E do envio de uma vez;
+                       quem alterna é `mostrar()`/`voltar()`, nunca o handler de submit. #}
+                    <fieldset id="formPF" class="d-none" disabled>
                         <div class="d-flex align-items-center gap-2 mb-3 pb-2 border-bottom">
                             <button type="button" class="btn btn-sm btn-link p-0 text-secondary" id="btnVoltarPF">
                                 <i class="bi bi-arrow-left"></i>
@@ -1220,10 +1228,10 @@
                             </div>
 
                         </div>{# /tab-content PF #}
-                    </div>{# /formPF #}
+                    </fieldset>{# /formPF #}
 
                     {# — Formulário PJ — #}
-                    <div id="formPJ" class="d-none">
+                    <fieldset id="formPJ" class="d-none" disabled>
                         <div class="d-flex align-items-center gap-2 mb-3 pb-2 border-bottom">
                             <button type="button" class="btn btn-sm btn-link p-0 text-secondary" id="btnVoltarPJ">
                                 <i class="bi bi-arrow-left"></i>
@@ -1348,7 +1356,7 @@
                             </div>
 
                         </div>{# /tab-content PJ #}
-                    </div>{# /formPJ #}
+                    </fieldset>{# /formPJ #}
 
                 </div>{# /modal-body #}
 
@@ -1609,24 +1617,27 @@
         footerEscolha.style.setProperty('display', 'none', 'important');
         footerForm.style.removeProperty('display');
 
-        if (tipo === 'pf') {
-            formPF.classList.remove('d-none');
-            formPJ.classList.add('d-none');
-            campoTipo.value = 'pf';
-            // Ativa primeira aba do PF
-            bootstrap.Tab.getOrCreateInstance(modal.querySelector('#pf-dados-tab')).show();
-        } else {
-            formPJ.classList.remove('d-none');
-            formPF.classList.add('d-none');
-            campoTipo.value = 'pj';
-            // Ativa primeira aba do PJ
-            bootstrap.Tab.getOrCreateInstance(modal.querySelector('#pj-empresa-tab')).show();
-        }
+        // O `disabled` anda junto com o `d-none`: esconder sem desabilitar deixa os campos
+        // repetidos do outro bloco sendo validados pelo navegador e enviados no FormData.
+        // Habilitar ANTES do Tab.show() — botão de aba dentro de fieldset desabilitado não ativa.
+        const ativo    = tipo === 'pf' ? formPF : formPJ;
+        const inativo  = tipo === 'pf' ? formPJ : formPF;
+        const primeira = tipo === 'pf' ? '#pf-dados-tab' : '#pj-empresa-tab';
+
+        ativo.disabled = false;
+        ativo.classList.remove('d-none');
+        inativo.disabled = true;
+        inativo.classList.add('d-none');
+        campoTipo.value = tipo === 'pf' ? 'pf' : 'pj';
+
+        bootstrap.Tab.getOrCreateInstance(modal.querySelector(primeira)).show();
     }
 
     function voltar() {
         ocultarErro();
+        formPF.disabled = true;
         formPF.classList.add('d-none');
+        formPJ.disabled = true;
         formPJ.classList.add('d-none');
         passoEscolha.classList.remove('d-none');
         footerForm.style.setProperty('display', 'none', 'important');
@@ -1642,11 +1653,11 @@
         const icone = btnSalvar.querySelector('i');
         if (icone) icone.className = 'bi bi-hourglass-split me-1';
 
-        // Desabilita inputs do form inativo para não serem incluídos no FormData
-        const tipoAtivo = campoTipo.value;
-        const formInativo = tipoAtivo === 'pf' ? formPJ : formPF;
-        const inputsDesabilitados = formInativo.querySelectorAll('input, select, textarea');
-        inputsDesabilitados.forEach(el => { el.disabled = true; });
+        // O bloco inativo já está `disabled` desde mostrar()/voltar() — nada a desabilitar aqui.
+        // Fazer isso no submit era tarde demais: a validação nativa do navegador roda ANTES deste
+        // handler, e o `finally` devolvia o bloco escondido para o ar depois de cada erro do
+        // servidor. A partir da segunda tentativa o navegador barrava o envio por causa do e-mail
+        // de um formulário que o usuário não estava preenchendo.
 
         try {
             const resp = await fetch(form.action, {
@@ -1677,7 +1688,6 @@
             mostrarErro('Erro de comunicação. Tente novamente.');
             console.error('[formNovoCliente]', err);
         } finally {
-            inputsDesabilitados.forEach(el => { el.disabled = false; });
             btnSalvar.disabled = false;
             if (icone) icone.className = 'bi bi-check-lg me-1';
         }
