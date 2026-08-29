@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Pasta\UseCase;
 
 use App\Entity\Tenant\Tenant;
-use Doctrine\ORM\EntityManagerInterface;
+use App\Pasta\Service\NumeracaoDePastaInterface;
 
 /**
  * Devolve o próximo número livre de pasta do escritório (spec fase2 §12.5/D12.1).
@@ -22,61 +22,23 @@ use Doctrine\ORM\EntityManagerInterface;
  *
  * O sufixo de letra do legado (10A/10B) é tolerado na leitura — conta como prefixo 10 — mas
  * nunca é gerado.
+ *
+ * A trava e a leitura do maior número moram no `NumeracaoDePasta`, compartilhado com o
+ * `ExcluirPastaUseCase`: os dois precisam concordar sobre o que é o número de uma pasta.
+ * O chamador continua obrigado a abrir transação — é o que dá validade à trava (é o que o
+ * `CriarPastaUseCase` faz com `wrapInTransaction`).
  */
 final class GerarNumeroDePasta
 {
-    /**
-     * Espaço de nomes da trava consultiva. Advisory lock é global ao banco inteiro, então a
-     * chave precisa de duas partes: esta constante isola "numeração de pasta" de qualquer
-     * outro uso futuro, e o tenant_id isola um escritório do outro (dois escritórios geram
-     * número ao mesmo tempo sem esperar um pelo outro).
-     */
-    private const CLASSE_TRAVA = 4713;
-
     public function __construct(
-        private readonly EntityManagerInterface $em,
+        private readonly NumeracaoDePastaInterface $numeracao,
     ) {
     }
 
     public function executar(Tenant $tenant): string
     {
-        $conn     = $this->em->getConnection();
-        $tenantId = $tenant->getId();
+        $this->numeracao->travar($tenant);
 
-        if ($tenantId === null) {
-            throw new \InvalidArgumentException('O escritório precisa estar persistido para gerar número de pasta.');
-        }
-
-        // `pg_advisory_xact_lock` só é liberada no fim da TRANSAÇÃO. Sem uma transação aberta
-        // ela cairia no mesmo instante e a trava viraria enfeite: o MAX+1 voltaria a ter
-        // corrida, e o defeito seria silencioso — duas pastas com o mesmo número, sem erro
-        // nenhum. Por isso o chamador é obrigado a envolver geração+persistência (é o que o
-        // `CriarPastaUseCase` faz com `wrapInTransaction`).
-        if (!$conn->isTransactionActive()) {
-            throw new \LogicException(
-                'GerarNumeroDePasta exige uma transação aberta: a trava por escritório só '
-                . 'segura até o commit. Envolva a criação em wrapInTransaction().'
-            );
-        }
-
-        // Serializa a geração dentro do escritório. Quem chegar depois espera aqui e só lê o
-        // MAX quando o anterior já gravou — que é o ponto inteiro desta classe.
-        $conn->executeStatement(
-            'SELECT pg_advisory_xact_lock(?, ?)',
-            [self::CLASSE_TRAVA, $tenantId]
-        );
-
-        // SQL cru NÃO passa pelo TenantFilter do Doctrine (o filtro age no ORM). O
-        // `tenant_id = ?` abaixo é o isolamento — não é redundante, é o único que existe aqui.
-        // A expressão do prefixo é a mesma do CAST_INT_PREFIXO (Shared/Doctrine/DQL), para
-        // que "maior número" signifique o mesmo na geração e na ordenação da lista.
-        $maior = $conn->fetchOne(
-            "SELECT MAX(CASE WHEN nup ~ '^[0-9]'
-                             THEN CAST(substring(nup FROM '^[0-9]{1,18}') AS BIGINT) END)
-             FROM pasta WHERE tenant_id = ?",
-            [$tenantId]
-        );
-
-        return (string) ((int) $maior + 1);
+        return (string) ($this->numeracao->maiorNumero($tenant) + 1);
     }
 }

@@ -23,6 +23,7 @@ use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Repository\PastaRepository;
 use App\Pasta\UseCase\CriarPastaUseCase;
+use App\Pasta\Service\NumeracaoDePastaInterface;
 use App\Pasta\UseCase\GerarNumeroDePasta;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -56,7 +57,7 @@ final class JudicializarCasoUseCaseTest extends TestCase
             $this->casoRepository,
             $this->pastaRepository,
             $registrarEvento,
-            new CriarPastaUseCase($this->em, new GerarNumeroDePasta($this->em)),
+            new CriarPastaUseCase($this->em, new GerarNumeroDePasta($this->createMock(NumeracaoDePastaInterface::class))),
             new ResolvedorClienteDoResponsavel($this->createMock(ClientePFRepository::class)),
         );
         $this->tenant = new Tenant();
