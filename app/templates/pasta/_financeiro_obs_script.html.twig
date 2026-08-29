@@ -1,0 +1,277 @@
+{# ============================================================================
+   Aba Financeiro — enviar / editar / excluir no Relatório financeiro.
+
+   Saiu de dentro do `_financeiro.html.twig` na fatia 2 do redesenho: com o
+   arranjo novo o arquivo passava de 900 linhas, e a marcação ficava soterrada
+   pelo script. O comportamento é o mesmo; o que mudou foi a marcação que ele
+   gera, que agora é a das anotações (`.ps-anotacao`).
+
+   Contrato de ids com o `_financeiro.html.twig`:
+   #formFinanceiroObservacao · #financeiroObsConteudo · #btnEnviarObsFinanceiro
+   #financeiroObsErro · #financeiroObsLista · #financeiroObsVazio
+   #financeiro-obs-<id> · .obs-conteudo · .btn-editar-obs · .btn-excluir-obs
+   ============================================================================ #}
+<script>
+(function () {
+    'use strict';
+
+    function esc(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    /** As mesmas iniciais que o Twig calcula na primeira renderização. */
+    function iniciaisDe(nome) {
+        const partes = String(nome ?? '').trim().split(' ').filter(Boolean);
+        if (partes.length === 0) { return '?'; }
+
+        return (partes[0].slice(0, 1) + (partes.length > 1 ? partes[partes.length - 1].slice(0, 1) : '')).toUpperCase();
+    }
+
+    const formObs      = document.getElementById('formFinanceiroObservacao');
+    const obsConteudo  = document.getElementById('financeiroObsConteudo');
+    const btnEnviarObs = document.getElementById('btnEnviarObsFinanceiro');
+    const obsErro      = document.getElementById('financeiroObsErro');
+    const obsLista     = document.getElementById('financeiroObsLista');
+    const obsContagem  = document.getElementById('financeiro-obs-count');
+    const urlEnviarObs = '{{ path("pasta_financeiro_observacao_enviar", {id: pasta.id}) }}';
+
+    /** A contagem do cabeçalho conta o que está na lista, não um número à parte. */
+    function atualizarContagem() {
+        if (obsContagem && obsLista) {
+            obsContagem.textContent = String(obsLista.querySelectorAll('.ps-anotacao').length);
+        }
+    }
+
+    function mostrarObsErro(msg) {
+        obsErro.textContent = msg;
+        obsErro.classList.remove('d-none');
+    }
+
+    if (formObs) {
+        obsConteudo.addEventListener('keydown', function (e) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { formObs.requestSubmit(); }
+        });
+
+        formObs.addEventListener('submit', async function (e) {
+            e.preventDefault();
+            const conteudo = obsConteudo.value.trim();
+            if (conteudo === '') { mostrarObsErro('O registro não pode ser vazio.'); return; }
+
+            btnEnviarObs.disabled = true;
+            btnEnviarObs.textContent = 'Enviando…';
+            obsErro.classList.add('d-none');
+
+            try {
+                const resp = await fetch(urlEnviarObs, {
+                    method: 'POST',
+                    body: new FormData(formObs),
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                });
+                const data = await resp.json();
+                if (!resp.ok) { mostrarObsErro(data.erro ?? 'Erro ao enviar.'); return; }
+
+                const vazioMsg = document.getElementById('financeiroObsVazio');
+                if (vazioMsg) { vazioMsg.remove(); }
+                // Mais recente PRIMEIRO (mesma ordem do servidor).
+                obsLista.prepend(criarItemObs(data));
+                obsLista.scrollTop = 0;
+                atualizarContagem();
+                // Limpa o editor (fonte da textarea); sem isso o texto enviado ficaria na tela.
+                if (window.EditorRico) { EditorRico.limpar(obsConteudo); } else { obsConteudo.value = ''; }
+            } catch (_) {
+                mostrarObsErro('Erro de rede. Tente novamente.');
+            } finally {
+                btnEnviarObs.disabled = false;
+                btnEnviarObs.textContent = 'Enviar';
+            }
+        });
+    }
+
+    function criarItemObs(data) {
+        const art = document.createElement('article');
+        art.className = 'ps-anotacao';
+        art.id = 'financeiro-obs-' + data.id;
+
+        const urlEditar  = '{{ path("pasta_financeiro_observacao_editar", {id: pasta.id, obsId: 0})|replace({"/0/": "/__ID__/"}) }}'.replace('__ID__', data.id);
+        const urlExcluir = '{{ path("pasta_financeiro_observacao_excluir", {id: pasta.id, obsId: 0})|replace({"/0/": "/__ID__/"}) }}'.replace('__ID__', data.id);
+
+        art.innerHTML = `
+            <span class="ps-avatar ps-avatar--30">${esc(iniciaisDe(data.autorNome))}</span>
+            <div class="ps-anotacao-corpo">
+                <div class="ps-anotacao-topo">
+                    <span class="ps-anotacao-autor">${esc(data.autorNome)}</span>
+                    <span class="ps-anotacao-data">${esc(data.criadaEm)}</span>
+                    <span class="ps-anotacao-acoes">
+                        <button type="button"
+                                class="ps-anotacao-acao btn-editar-obs"
+                                title="Editar registro"
+                                data-obs-id="${data.id}"
+                                data-conteudo="${esc(data.conteudo)}"
+                                data-conteudo-html="${esc(data.conteudoHtml ?? '')}"
+                                data-csrf="${esc(data.csrfEditar)}"
+                                data-url="${esc(urlEditar)}">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button type="button"
+                                class="ps-anotacao-acao ps-anotacao-acao--perigo btn-excluir-obs"
+                                title="Excluir registro"
+                                data-obs-id="${data.id}"
+                                data-csrf="${esc(data.csrfExcluir)}"
+                                data-url="${esc(urlExcluir)}">
+                            <i class="bi bi-trash3"></i>
+                        </button>
+                    </span>
+                </div>
+                <div class="ps-anotacao-texto obs-conteudo">
+                    <span class="editor-rico-conteudo"><span class="ql-editor"></span></span>
+                </div>
+            </div>`;
+
+        // `conteudoHtml` vem SANITIZADO do servidor, então entra como HTML (é o que mostra a
+        // formatação). Os demais campos continuam escapados via esc() no template acima.
+        art.querySelector('.ql-editor').innerHTML = data.conteudoHtml ?? '';
+
+        return art;
+    }
+
+    // ── Editar / Excluir ─────────────────────────────────────────────────────
+    if (obsLista) {
+        obsLista.addEventListener('click', async function (e) {
+            const btnEditar = e.target.closest('.btn-editar-obs');
+            if (btnEditar) {
+                const obsId         = btnEditar.dataset.obsId;
+                const item          = document.getElementById('financeiro-obs-' + obsId);
+                const conteudoDiv   = item.querySelector('.obs-conteudo');
+                const conteudoAtual = btnEditar.dataset.conteudo;
+                const htmlAtual     = btnEditar.dataset.conteudoHtml ?? '';
+
+                const textarea = document.createElement('textarea');
+                textarea.className = 'form-control form-control-sm w-100 mb-2';
+                textarea.rows = 3;
+                textarea.maxLength = 5000;
+                textarea.value = conteudoAtual;
+
+                // Devolve o conteúdo à tela quando a edição termina (cancelar, salvar ou erro).
+                function restaurarExibicao(html) {
+                    if (window.EditorRico) { EditorRico.desmontar(textarea); }
+                    const div = document.createElement('div');
+                    div.className = 'ps-anotacao-texto obs-conteudo';
+                    const externo = document.createElement('span');
+                    externo.className = 'editor-rico-conteudo';
+                    const interno = document.createElement('span');
+                    interno.className = 'ql-editor';
+                    interno.innerHTML = html ?? '';   // sempre sanitizado no servidor
+                    externo.appendChild(interno);
+                    div.appendChild(externo);
+                    textarea.replaceWith(div);
+                }
+
+                const btnConfirmar = document.createElement('button');
+                btnConfirmar.type = 'button';
+                btnConfirmar.className = 'ps-btn ps-btn--primario me-1';
+                btnConfirmar.textContent = 'Salvar';
+
+                const btnCancelar = document.createElement('button');
+                btnCancelar.type = 'button';
+                btnCancelar.className = 'ps-btn';
+                btnCancelar.textContent = 'Cancelar';
+
+                const acoesBtns = document.createElement('div');
+                acoesBtns.className = 'mb-1';
+                acoesBtns.appendChild(btnConfirmar);
+                acoesBtns.appendChild(btnCancelar);
+
+                conteudoDiv.replaceWith(textarea);
+                textarea.after(acoesBtns);
+
+                // Transforma a textarea recém-criada em editor (o auto-init só pega o DOM inicial).
+                if (window.EditorRico) {
+                    const quill = EditorRico.montar(textarea);
+                    if (quill) { quill.focus(); } else { textarea.focus(); }
+                } else {
+                    textarea.focus();
+                }
+
+                btnCancelar.addEventListener('click', function () {
+                    acoesBtns.remove();
+                    restaurarExibicao(htmlAtual);
+                });
+
+                btnConfirmar.addEventListener('click', async function () {
+                    // O editor esvazia a textarea quando não há texto real (`<p><br></p>` não conta).
+                    const vazio = window.EditorRico
+                        ? EditorRico.estaVazio(textarea)
+                        : textarea.value.trim() === '';
+                    if (vazio) { alert('O registro não pode ser vazio.'); return; }
+
+                    const fd = new FormData();
+                    fd.append('_token', btnEditar.dataset.csrf);
+                    fd.append('conteudo', textarea.value);
+
+                    try {
+                        const resp = await fetch(btnEditar.dataset.url, {
+                            method: 'POST',
+                            body: fd,
+                            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                        });
+                        const data = await resp.json();
+                        acoesBtns.remove();
+
+                        if (resp.ok) {
+                            restaurarExibicao(data.conteudoHtml);
+                            btnEditar.dataset.conteudo     = data.conteudo;
+                            btnEditar.dataset.conteudoHtml = data.conteudoHtml ?? '';
+                        } else {
+                            restaurarExibicao(htmlAtual);
+                            alert(data.erro ?? 'Erro ao editar.');
+                        }
+                    } catch (_) {
+                        alert('Erro de rede.');
+                    }
+                });
+
+                return;
+            }
+
+            const btnExcluir = e.target.closest('.btn-excluir-obs');
+            if (btnExcluir) {
+                if (!confirm('Excluir este registro? Esta ação não pode ser desfeita.')) return;
+
+                const obsId = btnExcluir.dataset.obsId;
+                const fd    = new FormData();
+                fd.append('_token', btnExcluir.dataset.csrf);
+
+                try {
+                    const resp = await fetch(btnExcluir.dataset.url, {
+                        method: 'POST',
+                        body: fd,
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    });
+                    if (resp.ok) {
+                        document.getElementById('financeiro-obs-' + obsId)?.remove();
+                        atualizarContagem();
+                        if (obsLista.children.length === 0) {
+                            const div = document.createElement('div');
+                            div.className = 'ps-vazio';
+                            div.id = 'financeiroObsVazio';
+                            div.innerHTML = '<i class="bi bi-cash-coin"></i>'
+                                + '<div class="ps-vazio-titulo">Nada registrado ainda</div>'
+                                + '<div class="ps-vazio-nota">Anote acima o que foi combinado de honorário, custas ou reembolso.</div>';
+                            obsLista.appendChild(div);
+                        }
+                    } else {
+                        const data = await resp.json();
+                        alert(data.erro ?? 'Erro ao excluir.');
+                    }
+                } catch (_) {
+                    alert('Erro de rede.');
+                }
+            }
+        });
+    }
+})();
+</script>

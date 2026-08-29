@@ -1,313 +1,364 @@
-{# Editor rico (barra de formatação). Quill auto-hospedado — sem CDN externo. #}
+{# ============================================================================
+   Aba Financeiro — fatia 2 do redesenho.
+   Desenho aprovado: docs/design/pasta-show/ ("Pasta 1A.dc.html"), Aba 4, na
+   revisão de 28/08/2026. Spec: docs/specs/pasta-show-financeiro-fatia2.md.
+
+   Arranjo: faixa de QUATRO cards iguais no topo (Contrato · Pró-bono · Valor da
+   causa · Média), depois grade de duas colunas — Relatório financeiro ao centro,
+   Arquivos e Pagamentos no trilho.
+
+   Os `id` desta tela são contrato com o JS do fim deste arquivo. Renomear
+   qualquer um quebra o envio em silêncio:
+   #financeiro-situacao-btn · #financeiro-probono-btn · #financeiro-valor-causa
+   #financeiro-media-cpf · #financeiro-docs-lista · #financeiro-upload-input
+   #formFinanceiroObservacao · #financeiroObsLista · #psPagamentosCorpo
+
+   Contexto: `pasta`, `financeiro`, `documentosContrato`, `observacoesFinanceiras`,
+   `pagamentos` (PastaPagamentosOutput).
+   ============================================================================ #}
+{# Editor rico (Quill auto-hospedado, sem CDN externo). #}
 <link rel="stylesheet" href="{{ asset('js/quill/quill.snow.css') }}">
 <link rel="stylesheet" href="{{ asset('css/editor-rico.css') }}">
 <script src="{{ asset('js/quill/quill.js') }}"></script>
 <script src="{{ asset('js/editor-rico.js') }}" defer></script>
 
-<style>
-/* ── Aba Financeiro ─────────────────────────────────────── */
-#financeiro-situacao-btn.situacao-pendente {
-    color: #dc3545;
-    border-color: #dc3545;
-    background-color: rgba(220, 53, 69, 0.08);
-}
-#financeiro-situacao-btn.situacao-regular {
-    color: #198754;
-    border-color: #198754;
-    background-color: rgba(25, 135, 84, 0.08);
-}
+{% set contratoAssinado = pasta.situacaoContrato == 'REGULAR' %}
+{% set arquivosVisiveis = 3 %}
 
-.financeiro-doc-item {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 4px 8px;
-    border: 1px solid var(--bs-border-color);
-    border-radius: 5px;
-    background: var(--bs-tertiary-bg);
-    font-size: .82rem;
-}
-.financeiro-doc-item .doc-titulo {
-    flex-grow: 1;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: .875rem;
-}
-.financeiro-doc-item .doc-titulo-input {
-    flex-grow: 1;
-    min-width: 0;
-    font-size: .875rem;
-}
-.financeiro-doc-item .financeiro-doc-acoes { opacity: 0; transition: opacity .15s; }
-.financeiro-doc-item:hover .financeiro-doc-acoes { opacity: 1; }
+{# ── Faixa de status: quatro cards de MESMO peso ──────────────────────────────
+   O desenho pede quatro blocos alinhados entre si — rótulo numa linha de 18px e
+   o conteúdo na mesma altura nos quatro. Nenhum ganha destaque sobre o outro.
+   Arranjo sob teste (PastaFinanceiroArranjoTelaTest). #}
+<div class="ps-fin-faixa">
 
-.financeiro-obs-item {
-    border: 1px solid var(--bs-border-color);
-    border-left: 3px solid #0dcaf0;
-    border-radius: 0 6px 6px 0;
-    padding: 8px 12px;
-    background: rgba(13, 202, 240, 0.04);
-}
-.financeiro-obs-item .obs-conteudo {
-    font-size: .875rem;
-    word-break: break-word;
-}
-.financeiro-obs-textarea {
-    font-size: .875rem;
-    resize: vertical;
-}
-
-/* Indicadores da faixa do topo: os dois têm o MESMO peso visual, como no
-   desenho aprovado — nenhum dos dois ganha destaque sobre o outro. */
-.financeiro-indicador-rotulo {
-    font-size: 1rem;
-    font-weight: 600;
-    margin-bottom: .25rem;
-}
-.financeiro-indicador-valor {
-    font-size: 1.5rem;
-    font-weight: 700;
-    line-height: 1.2;
-    margin-bottom: 0;
-}
-#financeiro-valor-causa { cursor: pointer; }
-#financeiro-valor-causa:hover { text-decoration: underline dotted; }
-.financeiro-indicador-nota {
-    font-size: .75rem;
-    margin-top: .25rem;
-    margin-bottom: 0;
-}
-</style>
-
-{# ── Seção 1: Arquivos + Média por CPF + Valor da causa + Contrato + Pró-Bono ──
-   A ordem dos blocos é a do desenho aprovado e está sob teste
-   (PastaFinanceiroArranjoTelaTest). Mexer aqui sem mexer lá quebra a suíte. #}
-<div class="row g-3 mb-4 financeiro-faixa">
-
-    <div class="col-md-4">
-        <div class="d-flex align-items-center gap-3 mb-2">
-            <span class="small fw-semibold text-muted text-uppercase" style="letter-spacing:.04em;"><i class="bi bi-file-earmark-text me-1"></i>Arquivos</span>
-            <label class="btn btn-sm btn-outline-secondary py-0 mb-0" style="cursor:pointer;font-size:.78rem;" title="Adicionar arquivo (PDF, DOCX, JPEG, PNG — máx. 10 MB)">
-                <i class="bi bi-plus-lg"></i> Adicionar
-                <input type="file"
-                       id="financeiro-upload-input"
-                       accept=".pdf,.docx,.doc,.jpg,.jpeg,.png"
-                       style="display:none;"
-                       data-pasta-id="{{ pasta.id }}"
-                       data-csrf="{{ csrf_token('pasta_financeiro_upload_' ~ pasta.id) }}"
-                       data-url="{{ path('pasta_financeiro_upload', {id: pasta.id}) }}"
-                       data-base-url-renomear="{{ path('pasta_financeiro_documento_renomear', {id: pasta.id, docId: 0})|replace({'/0/': '/__ID__/'}) }}"
-                       data-base-url-excluir="{{ path('pasta_financeiro_documento_excluir', {id: pasta.id, docId: 0})|replace({'/0/': '/__ID__/'}) }}"
-                       data-base-url-visualizar="{{ path('pasta_financeiro_documento_view', {id: pasta.id, docId: 0})|replace({'/0/': '/__ID__/'}) }}"
-                       data-base-url-download="{{ path('pasta_financeiro_documento_download', {id: pasta.id, docId: 0})|replace({'/0/': '/__ID__/'}) }}">
-            </label>
+    {# Contrato — o SELO é o botão. O link "marcar como assinado" saiu na revisão
+       de 28/08: dois alvos para a mesma ação ensinam o usuário a procurar o
+       texto e ignorar o selo. #}
+    <div class="ps-fin-bloco">
+        <div class="ps-fin-rotulo-linha">
+            <span class="ps-fin-rotulo">Contrato</span>
         </div>
-        <div class="form-check form-switch small mb-2">
-            <input type="checkbox" class="form-check-input" id="financeiro-reduzir-tamanho">
-            <label class="form-check-label text-muted" for="financeiro-reduzir-tamanho">
-                Reduzir tamanho ao enviar (PDF assinado pode perder a assinatura)
-            </label>
-        </div>
-        <div id="financeiro-docs-lista" class="d-flex flex-column gap-1">
-            {% if documentosContrato is empty %}
-                <p class="text-muted small mb-0" id="financeiro-docs-vazio">Nenhum arquivo.</p>
-            {% else %}
-                {% for doc in documentosContrato %}
-                    <div class="financeiro-doc-item" id="financeiro-doc-{{ doc.id }}">
-                        {% if doc.mimeType == 'application/pdf' %}
-                            <i class="bi bi-file-earmark-pdf text-danger flex-shrink-0"></i>
-                        {% elseif 'image/' in doc.mimeType %}
-                            <i class="bi bi-file-earmark-image text-primary flex-shrink-0"></i>
-                        {% else %}
-                            <i class="bi bi-file-earmark-word text-primary flex-shrink-0"></i>
-                        {% endif %}
-                        <span class="doc-titulo" title="{{ doc.titulo }}">{{ doc.titulo }}</span>
-                        <div class="financeiro-doc-acoes d-flex gap-1 flex-shrink-0">
-                            <button type="button"
-                                    class="btn btn-link btn-sm p-0 text-primary flex-shrink-0"
-                                    title="Visualizar"
-                                    data-bs-toggle="modal"
-                                    data-bs-target="#previewDocModal"
-                                    data-url="{{ path('pasta_financeiro_documento_view', {id: pasta.id, docId: doc.id}) }}"
-                                    data-download="{{ path('pasta_financeiro_documento_download', {id: pasta.id, docId: doc.id}) }}"
-                                    data-nome="{{ doc.titulo }}"
-                                    data-mime="{{ doc.mimeType }}">
-                                <i class="bi bi-eye"></i>
-                            </button>
-                            <button type="button"
-                                    class="btn btn-link btn-sm p-0 text-secondary flex-shrink-0 btn-renomear-doc"
-                                    title="Renomear"
-                                    data-doc-id="{{ doc.id }}"
-                                    data-titulo="{{ doc.titulo }}"
-                                    data-csrf="{{ csrf_token('pasta_financeiro_renomear_' ~ doc.id) }}"
-                                    data-url="{{ path('pasta_financeiro_documento_renomear', {id: pasta.id, docId: doc.id}) }}">
-                                <i class="bi bi-pencil"></i>
-                            </button>
-                            <button type="button"
-                                    class="btn btn-link btn-sm p-0 text-danger flex-shrink-0 btn-excluir-doc"
-                                    title="Excluir"
-                                    data-doc-id="{{ doc.id }}"
-                                    data-csrf="{{ csrf_token('pasta_financeiro_excluir_' ~ doc.id) }}"
-                                    data-url="{{ path('pasta_financeiro_documento_excluir', {id: pasta.id, docId: doc.id}) }}">
-                                <i class="bi bi-trash"></i>
-                            </button>
-                        </div>
-                    </div>
-                {% endfor %}
-            {% endif %}
-        </div>
-        <div id="financeiro-upload-erro" class="text-danger small mt-1 d-none"></div>
-        <div id="financeiro-upload-spinner" class="d-none mt-1">
-            <span class="spinner-border spinner-border-sm me-1"></span><span class="small">Enviando…</span>
+        <div class="ps-fin-corpo">
+            <button type="button"
+                    id="financeiro-situacao-btn"
+                    class="ps-fin-selo ps-fin-selo--{{ contratoAssinado ? 'ok' : 'perigo' }}"
+                    title="{{ contratoAssinado
+                        ? 'Contrato assinado — clique para reabrir como pendente'
+                        : 'Contrato pendente — clique para marcar como assinado' }}"
+                    data-pasta-id="{{ pasta.id }}"
+                    data-situacao-atual="{{ pasta.situacaoContrato }}"
+                    data-csrf="{{ csrf_token('pasta_situacao_contrato_' ~ pasta.id) }}"
+                    data-url="{{ path('pasta_alternar_situacao_contrato', {id: pasta.id}) }}">
+                <i class="bi {{ contratoAssinado ? 'bi-patch-check-fill' : 'bi-hourglass-split' }}"></i>
+                <span class="ps-fin-selo-texto">{{ contratoAssinado ? 'Assinado' : 'Pendente' }}</span>
+            </button>
         </div>
     </div>
 
-    {# Média por CPF — o ticket médio do cliente: a média do valor da causa de
-       todas as pastas dele. Sem cliente vinculado não há CPF para agrupar, e a
-       tela mostra travessão em vez de inventar um número. #}
-    <div class="col-md-2 text-center">
-        <p class="financeiro-indicador-rotulo">{{ financeiro.mediaRotulo }}</p>
-        <p id="financeiro-media-cpf" class="financeiro-indicador-valor">{{ financeiro.mediaCpfFormatada }}</p>
-        {% if financeiro.clienteNome %}
-            <p class="financeiro-indicador-nota text-muted" title="Média das pastas deste cliente">
-                {{ financeiro.clienteNome }}
-            </p>
-        {% else %}
-            <p class="financeiro-indicador-nota text-muted">
-                Vincule o cliente para calcular
-            </p>
-        {% endif %}
+    {# Pró-bono — selo idêntico ao do contrato, porque é o mesmo gesto. #}
+    <div class="ps-fin-bloco">
+        <div class="ps-fin-rotulo-linha">
+            <span class="ps-fin-rotulo">Pró-bono</span>
+        </div>
+        <div class="ps-fin-corpo">
+            <button type="button"
+                    id="financeiro-probono-btn"
+                    class="ps-fin-selo ps-fin-selo--{{ pasta.proBono ? 'ok' : 'neutro' }}"
+                    title="Alternar caso pró-bono"
+                    aria-pressed="{{ pasta.proBono ? 'true' : 'false' }}"
+                    data-pasta-id="{{ pasta.id }}"
+                    data-ativo="{{ pasta.proBono ? '1' : '0' }}"
+                    data-csrf="{{ csrf_token('pasta_pro_bono_' ~ pasta.id) }}"
+                    data-url="{{ path('pasta_atualizar_pro_bono', {id: pasta.id}) }}">
+                <i class="bi {{ pasta.proBono ? 'bi-check2-circle' : 'bi-dash-circle' }}"></i>
+                <span class="ps-fin-selo-texto">{{ pasta.proBono ? 'Pró-bono ativo' : 'Não é pró-bono' }}</span>
+            </button>
+        </div>
     </div>
 
     {# Valor da causa — editável no lugar: clique no número, digite, Enter grava. #}
-    <div class="col-md-2 text-center"
+    <div class="ps-fin-bloco"
          id="financeiro-valor-causa-bloco"
          data-csrf="{{ csrf_token('pasta_valor_causa_' ~ pasta.id) }}"
          data-url="{{ path('pasta_atualizar_valor_causa', {id: pasta.id}) }}">
-        <p class="financeiro-indicador-rotulo">Valor da causa</p>
-        <p id="financeiro-valor-causa"
-           class="financeiro-indicador-valor"
-           tabindex="0"
-           role="button"
-           title="Clique para editar"
-           data-valor="{{ financeiro.valorCausa ?? '' }}">{{ financeiro.valorCausaFormatado }}</p>
-        <input type="text"
-               id="financeiro-valor-causa-input"
-               class="form-control form-control-sm text-center d-none"
-               inputmode="decimal"
-               maxlength="20"
-               placeholder="0,00"
-               aria-label="Valor da causa">
-        <p id="financeiro-valor-causa-erro" class="financeiro-indicador-nota text-danger d-none"></p>
+        <div class="ps-fin-rotulo-linha">
+            <span class="ps-fin-rotulo">Valor da causa</span>
+            <span class="ps-cab-espaco"></span>
+            <button type="button" class="ps-fin-lapis" id="financeiro-valor-causa-lapis" title="Editar valor da causa">
+                <i class="bi bi-pencil"></i>
+            </button>
+        </div>
+        <div class="ps-fin-corpo">
+            <div id="financeiro-valor-causa"
+                 class="ps-fin-numero ps-num"
+                 tabindex="0"
+                 role="button"
+                 title="Clique para editar"
+                 data-valor="{{ financeiro.valorCausa ?? '' }}">{{ financeiro.valorCausaFormatado }}</div>
+            <input type="text"
+                   id="financeiro-valor-causa-input"
+                   class="form-control form-control-sm d-none"
+                   inputmode="decimal"
+                   maxlength="20"
+                   placeholder="0,00"
+                   aria-label="Valor da causa">
+            <div class="ps-fin-sub">valor cadastrado na pasta</div>
+            <div id="financeiro-valor-causa-erro" class="ps-fin-sub ps-fin-sub--erro d-none"></div>
+        </div>
     </div>
 
-    <div class="col-md-2">
-        <p class="fw-semibold small text-muted text-uppercase mb-2" style="letter-spacing:.04em;">CONTRATO</p>
-        <button type="button"
-                id="financeiro-situacao-btn"
-                class="btn btn-sm fw-semibold situacao-{{ pasta.situacaoContrato|lower }}"
-                data-pasta-id="{{ pasta.id }}"
-                data-situacao-atual="{{ pasta.situacaoContrato }}"
-                data-csrf="{{ csrf_token('pasta_situacao_contrato_' ~ pasta.id) }}"
-                data-url="{{ path('pasta_alternar_situacao_contrato', {id: pasta.id}) }}">
-            {{ pasta.situacaoContrato }}
-        </button>
-    </div>
-
-    <div class="col-md-2">
-        <p class="fw-semibold small text-muted text-uppercase mb-2" style="letter-spacing:.04em;">PRÓ-BONO</p>
-        <div class="form-check mb-0">
-            <input class="form-check-input"
-                   type="checkbox"
-                   id="financeiro-probono-check"
-                   {% if pasta.proBono %}checked{% endif %}
-                   data-pasta-id="{{ pasta.id }}"
-                   data-csrf="{{ csrf_token('pasta_pro_bono_' ~ pasta.id) }}"
-                   data-url="{{ path('pasta_atualizar_pro_bono', {id: pasta.id}) }}"
-                   style="width:1.2em;height:1.2em;cursor:pointer;">
+    {# Média por CPF — a média das pastas de UM cliente: o principal. Por isso a
+       sublinha nomeia esse cliente em vez de contar os vinculados, como mostrava
+       o protótipo: "4 clientes vinculados" ao lado de um número que é de um só
+       deles diz uma coisa por outra. Desvio do desenho decidido pelo dono
+       em 28/08. #}
+    <div class="ps-fin-bloco ps-fin-bloco--media">
+        <div class="ps-fin-rotulo-linha">
+            <span class="ps-fin-rotulo" id="financeiro-media-rotulo">{{ financeiro.mediaRotulo }}</span>
+        </div>
+        <div class="ps-fin-corpo">
+            <div id="financeiro-media-cpf" class="ps-fin-numero ps-num">{{ financeiro.mediaCpfFormatada }}</div>
+            <div class="ps-fin-sub" id="financeiro-media-nota"
+                 {% if financeiro.clienteNome %}title="Média das pastas deste cliente"{% endif %}>
+                {{- financeiro.clienteNome ?? 'Vincule o cliente para calcular' -}}
+            </div>
         </div>
     </div>
 
 </div>
 
-{# ── Seção 3: Observações ─────────────────────────────────────────────────── #}
-<div class="card">
-    <div class="card-header">
-        <span class="card-title mb-0 small fw-semibold"><i class="bi bi-chat-left-text me-1"></i> Observações</span>
-    </div>
+<div class="ps-grade">
 
-    <div class="card-body border-bottom pb-3">
-        <form id="formFinanceiroObservacao">
-            <input type="hidden" name="_token" value="{{ csrf_token('pasta_financeiro_obs_' ~ pasta.id) }}">
-            <div class="d-flex gap-2 align-items-end">
-                <div class="flex-grow-1">
-                    <textarea name="conteudo"
-                              id="financeiroObsConteudo"
-                              class="form-control form-control-sm financeiro-obs-textarea"
-                              data-editor-rico
-                              rows="2"
-                              maxlength="5000"
-                              placeholder="Adicionar observação, combinado ou anotação financeira… (Ctrl+Enter para enviar)"></textarea>
-                </div>
-                <button type="submit" class="btn btn-primary btn-sm flex-shrink-0" id="btnEnviarObsFinanceiro">
-                    <i class="bi bi-send me-1"></i> Enviar
-                </button>
+    {# ── Coluna central: Relatório financeiro ─────────────────────────────────
+       Nome da tela de produção; era "Observações financeiras" no handoff antigo.
+       Mesmo compositor das anotações do caso — mexer só aqui desalinharia os
+       três compositores da tela. #}
+    <div class="ps-coluna">
+        <section class="ps-card ps-anotacoes" id="financeiroRelatorio">
+            <div class="ps-card-cab">
+                <h2>Relatório financeiro</h2>
+                <span class="ps-contagem" id="financeiro-obs-count">{{ observacoesFinanceiras|length }}</span>
+                <span class="ps-cab-espaco"></span>
+                <span class="ps-anotacoes-dica">Ctrl + Enter envia</span>
             </div>
-            <div id="financeiroObsErro" class="text-danger small mt-1 d-none"></div>
-        </form>
+
+            <div class="ps-compositor">
+                <form id="formFinanceiroObservacao">
+                    <input type="hidden" name="_token" value="{{ csrf_token('pasta_financeiro_obs_' ~ pasta.id) }}">
+                    <div class="ps-compositor-caixa">
+                        <textarea name="conteudo"
+                                  id="financeiroObsConteudo"
+                                  data-editor-rico
+                                  class="form-control"
+                                  rows="2"
+                                  maxlength="5000"
+                                  placeholder="Registrar combinado, honorário ou movimento financeiro do caso…"></textarea>
+                        <div class="ps-compositor-rodape">
+                            <span class="ps-compositor-nota">Visível para a equipe</span>
+                            <span class="ps-cab-espaco"></span>
+                            <button type="submit" class="ps-btn ps-btn--primario" id="btnEnviarObsFinanceiro">Enviar</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div id="financeiroObsErro" class="ps-compositor-erro d-none"></div>
+
+            <div id="financeiroObsLista" class="ps-fin-obs-rolagem">
+                {% if observacoesFinanceiras is empty %}
+                    <div class="ps-vazio" id="financeiroObsVazio">
+                        <i class="bi bi-cash-coin"></i>
+                        <div class="ps-vazio-titulo">Nada registrado ainda</div>
+                        <div class="ps-vazio-nota">Anote acima o que foi combinado de honorário, custas ou reembolso.</div>
+                    </div>
+                {% else %}
+                    {% for obs in observacoesFinanceiras %}
+                        {% set autor = obs.autor.fullName ?? obs.autor.email ?? '' %}
+                        {% set partes = autor|trim|split(' ')|filter(p => p is not empty) %}
+                        {% set iniciais = partes|length > 0
+                            ? (partes|first|slice(0, 1) ~ (partes|length > 1 ? partes|last|slice(0, 1) : ''))|upper
+                            : '?' %}
+                        {# Autor, dentro de 24h: as mesmas condições do endpoint. #}
+                        {% set podeGerenciar = obs.autor and app.user and obs.autor.id == app.user.id and date(obs.criadaEm) > date('-24 hours') %}
+
+                        <article class="ps-anotacao" id="financeiro-obs-{{ obs.id }}">
+                            <span class="ps-avatar ps-avatar--30">{{ iniciais }}</span>
+                            <div class="ps-anotacao-corpo">
+                                <div class="ps-anotacao-topo">
+                                    <span class="ps-anotacao-autor">{{ autor ?: 'Autor desconhecido' }}</span>
+                                    <span class="ps-anotacao-data">{{ obs.criadaEm|date('d/m/Y, H:i') }}</span>
+                                    {% if obs.editadaEm %}
+                                        <small class="ps-anotacao-data fst-italic">(editado)</small>
+                                    {% endif %}
+                                    {% if podeGerenciar %}
+                                        <span class="ps-anotacao-acoes">
+                                            <button type="button"
+                                                    class="ps-anotacao-acao btn-editar-obs"
+                                                    title="Editar registro"
+                                                    data-obs-id="{{ obs.id }}"
+                                                    data-conteudo="{{ obs.conteudo|e('html_attr') }}"
+                                                    data-conteudo-html="{{ obs.conteudo|texto_rico|e('html_attr') }}"
+                                                    data-csrf="{{ csrf_token('pasta_financeiro_obs_editar_' ~ obs.id) }}"
+                                                    data-url="{{ path('pasta_financeiro_observacao_editar', {id: pasta.id, obsId: obs.id}) }}">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                            <button type="button"
+                                                    class="ps-anotacao-acao ps-anotacao-acao--perigo btn-excluir-obs"
+                                                    title="Excluir registro"
+                                                    data-obs-id="{{ obs.id }}"
+                                                    data-csrf="{{ csrf_token('pasta_financeiro_obs_excluir_' ~ obs.id) }}"
+                                                    data-url="{{ path('pasta_financeiro_observacao_excluir', {id: pasta.id, obsId: obs.id}) }}">
+                                                <i class="bi bi-trash3"></i>
+                                            </button>
+                                        </span>
+                                    {% endif %}
+                                </div>
+                                <div class="ps-anotacao-texto obs-conteudo">
+                                    {# `texto_rico` sanitiza e já é `is_safe: html`. #}
+                                    <span class="editor-rico-conteudo"><span class="ql-editor">{{ obs.conteudo|texto_rico }}</span></span>
+                                </div>
+                            </div>
+                        </article>
+                    {% endfor %}
+                {% endif %}
+            </div>
+        </section>
     </div>
 
-    <div class="card-body p-2">
-        <div id="financeiroObsLista"
-             style="max-height: 400px; overflow-y: auto; padding: 4px 8px;">
-            {% if observacoesFinanceiras is empty %}
-                <div class="text-center text-muted py-4" id="financeiroObsVazio">
-                    <i class="bi bi-chat-left fs-2 d-block mb-2 opacity-25"></i>
-                    <span class="small">Nenhuma observação registrada.</span>
-                </div>
-            {% else %}
-                {% for obs in observacoesFinanceiras %}
-                    <div class="financeiro-obs-item mb-2" id="financeiro-obs-{{ obs.id }}">
-                        <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
-                            <div class="small text-muted">
-                                <i class="bi bi-person me-1"></i>{{ obs.autor.fullName ?? obs.autor.email }}
-                                <span class="ms-2"><i class="bi bi-clock me-1"></i>{{ obs.criadaEm|date('d/m/Y H:i') }}</span>
-                                {% if obs.editadaEm %}
-                                    <span class="ms-1 fst-italic">(editado)</span>
-                                {% endif %}
+    {# ── Trilho: Arquivos e Pagamentos ────────────────────────────────────────
+       O gerenciador de arquivos NÃO vive mais nesta aba (revisão de 28/08): sem
+       busca, sem filtro por categoria, sem "mostrar mais 5" e sem dropzone. Aqui
+       ficam no máximo 3 arquivos; o gerenciador completo é a aba Documentos, que
+       lista os documentos da pasta sem filtrar categoria — arquivo financeiro
+       aparece lá. #}
+    <div class="ps-trilho">
+
+        <section class="ps-card" data-trilho="arquivos">
+            <div class="ps-card-cab">
+                <h2>Arquivos</h2>
+                {% if documentosContrato|length > 0 %}
+                    <span class="ps-contagem" id="financeiro-docs-contagem">{{ documentosContrato|length }}</span>
+                {% endif %}
+                <span class="ps-cab-espaco"></span>
+                <label class="ps-btn-mini ps-fin-adicionar"
+                       title="Adicionar arquivo (PDF, DOCX, JPEG, PNG — máx. 10 MB)">
+                    <i class="bi bi-plus-lg"></i> Adicionar
+                    <input type="file"
+                           id="financeiro-upload-input"
+                           accept=".pdf,.docx,.doc,.jpg,.jpeg,.png"
+                           hidden
+                           data-pasta-id="{{ pasta.id }}"
+                           data-csrf="{{ csrf_token('pasta_financeiro_upload_' ~ pasta.id) }}"
+                           data-url="{{ path('pasta_financeiro_upload', {id: pasta.id}) }}"
+                           data-base-url-renomear="{{ path('pasta_financeiro_documento_renomear', {id: pasta.id, docId: 0})|replace({'/0/': '/__ID__/'}) }}"
+                           data-base-url-excluir="{{ path('pasta_financeiro_documento_excluir', {id: pasta.id, docId: 0})|replace({'/0/': '/__ID__/'}) }}"
+                           data-base-url-visualizar="{{ path('pasta_financeiro_documento_view', {id: pasta.id, docId: 0})|replace({'/0/': '/__ID__/'}) }}"
+                           data-base-url-download="{{ path('pasta_financeiro_documento_download', {id: pasta.id, docId: 0})|replace({'/0/': '/__ID__/'}) }}">
+                </label>
+            </div>
+
+            <div id="financeiro-docs-lista">
+                {% if documentosContrato is empty %}
+                    <div class="ps-fin-doc-vazio" id="financeiro-docs-vazio">Nenhum arquivo financeiro anexado.</div>
+                {% else %}
+                    {% for doc in documentosContrato|slice(0, arquivosVisiveis) %}
+                        <div class="ps-fin-doc" id="financeiro-doc-{{ doc.id }}">
+                            <span class="ps-doc-ext">{{ doc.titulo|split('.')|last|slice(0, 4)|upper }}</span>
+                            <div class="ps-fin-doc-corpo">
+                                <div class="ps-doc-nome" title="{{ doc.titulo }}">{{ doc.titulo }}</div>
+                                <div class="ps-doc-meta">{{ doc.tamanhoBytes|formatar_bytes }} · {{ doc.carregadoEm|date('d/m/Y') }}</div>
                             </div>
-                            {% set podeGerenciar = obs.autor and app.user and obs.autor.id == app.user.id and date(obs.criadaEm) > date('-24 hours') %}
-                            {% if podeGerenciar %}
-                            <div class="d-flex gap-1 flex-shrink-0">
+                            <div class="ps-fin-doc-acoes">
                                 <button type="button"
-                                        class="btn btn-link btn-sm p-0 text-secondary btn-editar-obs"
-                                        title="Editar observação"
-                                        data-obs-id="{{ obs.id }}"
-                                        data-conteudo="{{ obs.conteudo|e('html_attr') }}"
-                                        data-conteudo-html="{{ obs.conteudo|texto_rico|e('html_attr') }}"
-                                        data-csrf="{{ csrf_token('pasta_financeiro_obs_editar_' ~ obs.id) }}"
-                                        data-url="{{ path('pasta_financeiro_observacao_editar', {id: pasta.id, obsId: obs.id}) }}">
+                                        class="ps-anotacao-acao"
+                                        title="Visualizar"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#previewDocModal"
+                                        data-url="{{ path('pasta_financeiro_documento_view', {id: pasta.id, docId: doc.id}) }}"
+                                        data-download="{{ path('pasta_financeiro_documento_download', {id: pasta.id, docId: doc.id}) }}"
+                                        data-nome="{{ doc.titulo }}"
+                                        data-mime="{{ doc.mimeType }}">
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                                <button type="button"
+                                        class="ps-anotacao-acao btn-renomear-doc"
+                                        title="Renomear"
+                                        data-doc-id="{{ doc.id }}"
+                                        data-titulo="{{ doc.titulo }}"
+                                        data-csrf="{{ csrf_token('pasta_financeiro_renomear_' ~ doc.id) }}"
+                                        data-url="{{ path('pasta_financeiro_documento_renomear', {id: pasta.id, docId: doc.id}) }}">
                                     <i class="bi bi-pencil"></i>
                                 </button>
                                 <button type="button"
-                                        class="btn btn-link btn-sm p-0 text-danger btn-excluir-obs"
-                                        title="Excluir observação"
-                                        data-obs-id="{{ obs.id }}"
-                                        data-csrf="{{ csrf_token('pasta_financeiro_obs_excluir_' ~ obs.id) }}"
-                                        data-url="{{ path('pasta_financeiro_observacao_excluir', {id: pasta.id, obsId: obs.id}) }}">
-                                    <i class="bi bi-trash"></i>
+                                        class="ps-anotacao-acao ps-anotacao-acao--perigo btn-excluir-doc"
+                                        title="Excluir"
+                                        data-doc-id="{{ doc.id }}"
+                                        data-csrf="{{ csrf_token('pasta_financeiro_excluir_' ~ doc.id) }}"
+                                        data-url="{{ path('pasta_financeiro_documento_excluir', {id: pasta.id, docId: doc.id}) }}">
+                                    <i class="bi bi-trash3"></i>
                                 </button>
                             </div>
-                            {% endif %}
                         </div>
-                        {# `texto_rico` sanitiza e já é `is_safe: html`; legado sai escapado com as quebras. #}
-                        <div class="obs-conteudo editor-rico-conteudo"><div class="ql-editor">{{ obs.conteudo|texto_rico }}</div></div>
-                    </div>
-                {% endfor %}
+                    {% endfor %}
+                {% endif %}
+            </div>
+
+            {# Passou de 3, o resto não some da vista sem dizer para onde foi. #}
+            {% if documentosContrato|length > arquivosVisiveis %}
+                <div class="ps-fin-doc-excedente" id="financeiro-docs-excedente">
+                    <button type="button" class="ps-fin-link" data-ps-ir-aba="documentos-tab">
+                        ver os outros {{ documentosContrato|length - arquivosVisiveis }} no gerenciador
+                    </button>
+                </div>
             {% endif %}
-        </div>
+
+            <div class="ps-fin-rodape">
+                <button type="button"
+                        id="financeiro-reduzir-btn"
+                        class="ps-fin-switch"
+                        role="switch"
+                        aria-checked="false">
+                    <span class="ps-fin-switch-trilho"><span class="ps-fin-switch-knob"></span></span>
+                    <span>Reduzir tamanho ao enviar</span>
+                </button>
+                <div class="ps-fin-sub" id="financeiro-reduzir-nota">Envios mantêm o arquivo original — recomendado para contratos assinados.</div>
+                <div id="financeiro-upload-erro" class="ps-fin-sub ps-fin-sub--erro d-none"></div>
+                <div id="financeiro-upload-spinner" class="ps-fin-sub d-none">
+                    <span class="spinner-border spinner-border-sm me-1"></span>Enviando…
+                </div>
+            </div>
+        </section>
+
+        {# ── Pagamentos ───────────────────────────────────────────────────────
+           O que o CLIENTE combinou pagar por este caso. Nada a ver com a
+           Cobrança, onde o dinheiro é a dívida de um devedor numa carteira. #}
+        <section class="ps-card" data-trilho="pagamentos"
+                 id="psPagamentos"
+                 data-url-registrar="{{ path('pasta_pagamento_registrar', {id: pasta.id}) }}"
+                 data-csrf-registrar="{{ csrf_token('pasta_pagamento_' ~ pasta.id) }}"
+                 data-base-url-quitacao="{{ path('pasta_pagamento_alternar_quitacao', {id: pasta.id, pagamentoId: 0})|replace({'/0/': '/__ID__/'}) }}"
+                 data-base-url-excluir="{{ path('pasta_pagamento_excluir', {id: pasta.id, pagamentoId: 0})|replace({'/0/': '/__ID__/'}) }}">
+            <div class="ps-card-cab">
+                <h2>Pagamentos</h2>
+                <span class="ps-contagem" id="psPagamentosTotal">{{ pagamentos.total }}</span>
+                <span class="ps-cab-espaco"></span>
+                {% if pagamentos.total > 0 %}
+                    <button type="button" class="ps-fin-link" id="psPagamentosVerTodos"
+                            title="Mostrar também os já pagos">ver todos</button>
+                {% endif %}
+            </div>
+
+            <div id="psPagamentosCorpo">
+                {{ include('pasta/_financeiro_pagamentos.html.twig', {pagamentos: pagamentos}) }}
+            </div>
+
+            <div class="ps-fin-rodape">
+                <button type="button" class="ps-btn ps-fin-btn-largo"
+                        data-bs-toggle="modal" data-bs-target="#modalNovoPagamento">
+                    <i class="bi bi-plus-lg"></i> Adicionar pagamento
+                </button>
+            </div>
+        </section>
+
     </div>
 </div>
 
@@ -324,21 +375,19 @@
     }
 
     // ── Situação do Contrato ──────────────────────────────────────────────────
+    // O SELO é o botão: o clique nele alterna Pendente ⇄ Assinado.
     const btnSituacao = document.getElementById('financeiro-situacao-btn');
     if (btnSituacao) {
         btnSituacao.addEventListener('click', async function () {
-            const pastaId   = this.dataset.pastaId;
-            const atual     = this.dataset.situacaoAtual;
-            const nova      = atual === 'PENDENTE' ? 'REGULAR' : 'PENDENTE';
-            const url       = this.dataset.url;
-            const csrf      = this.dataset.csrf;
+            const atual = this.dataset.situacaoAtual;
+            const nova  = atual === 'PENDENTE' ? 'REGULAR' : 'PENDENTE';
 
             const fd = new FormData();
-            fd.append('_token', csrf);
+            fd.append('_token', this.dataset.csrf);
             fd.append('situacao', nova);
 
             try {
-                const resp = await fetch(url, {
+                const resp = await fetch(this.dataset.url, {
                     method: 'POST',
                     body: fd,
                     headers: { 'X-Requested-With': 'XMLHttpRequest' },
@@ -346,9 +395,14 @@
                 const data = await resp.json();
                 if (!resp.ok) { alert(data.erro ?? 'Erro ao alterar situação.'); return; }
 
+                const assinado = data.situacao === 'REGULAR';
                 this.dataset.situacaoAtual = data.situacao;
-                this.textContent = data.situacao;
-                this.className = 'btn btn-sm fw-semibold situacao-' + data.situacao.toLowerCase();
+                this.className = 'ps-fin-selo ps-fin-selo--' + (assinado ? 'ok' : 'perigo');
+                this.title = assinado
+                    ? 'Contrato assinado — clique para reabrir como pendente'
+                    : 'Contrato pendente — clique para marcar como assinado';
+                this.querySelector('i').className = 'bi ' + (assinado ? 'bi-patch-check-fill' : 'bi-hourglass-split');
+                this.querySelector('.ps-fin-selo-texto').textContent = assinado ? 'Assinado' : 'Pendente';
             } catch (_) {
                 alert('Erro de rede. Tente novamente.');
             }
@@ -356,28 +410,30 @@
     }
 
     // ── Pró-Bono ─────────────────────────────────────────────────────────────
-    const checkProBono = document.getElementById('financeiro-probono-check');
-    if (checkProBono) {
-        checkProBono.addEventListener('change', async function () {
-            const url  = this.dataset.url;
-            const csrf = this.dataset.csrf;
+    const btnProBono = document.getElementById('financeiro-probono-btn');
+    if (btnProBono) {
+        btnProBono.addEventListener('click', async function () {
+            const ativo = this.dataset.ativo === '1';
+            const novo  = !ativo;
 
             const fd = new FormData();
-            fd.append('_token', csrf);
-            fd.append('pro_bono', this.checked ? '1' : '0');
+            fd.append('_token', this.dataset.csrf);
+            fd.append('pro_bono', novo ? '1' : '0');
 
             try {
-                const resp = await fetch(url, {
+                const resp = await fetch(this.dataset.url, {
                     method: 'POST',
                     body: fd,
                     headers: { 'X-Requested-With': 'XMLHttpRequest' },
                 });
-                if (!resp.ok) {
-                    this.checked = !this.checked;
-                    alert('Erro ao salvar pró-bono.');
-                }
+                if (!resp.ok) { alert('Erro ao salvar pró-bono.'); return; }
+
+                this.dataset.ativo = novo ? '1' : '0';
+                this.setAttribute('aria-pressed', novo ? 'true' : 'false');
+                this.className = 'ps-fin-selo ps-fin-selo--' + (novo ? 'ok' : 'neutro');
+                this.querySelector('i').className = 'bi ' + (novo ? 'bi-check2-circle' : 'bi-dash-circle');
+                this.querySelector('.ps-fin-selo-texto').textContent = novo ? 'Pró-bono ativo' : 'Não é pró-bono';
             } catch (_) {
-                this.checked = !this.checked;
                 alert('Erro de rede. Tente novamente.');
             }
         });
@@ -388,6 +444,7 @@
     const vcTexto  = document.getElementById('financeiro-valor-causa');
     const vcInput  = document.getElementById('financeiro-valor-causa-input');
     const vcErro   = document.getElementById('financeiro-valor-causa-erro');
+    const vcLapis  = document.getElementById('financeiro-valor-causa-lapis');
     const vcMedia  = document.getElementById('financeiro-media-cpf');
 
     if (vcBloco && vcTexto && vcInput) {
@@ -464,6 +521,7 @@
         vcTexto.addEventListener('keydown', function (e) {
             if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrirEdicao(); }
         });
+        if (vcLapis) { vcLapis.addEventListener('click', abrirEdicao); }
 
         vcInput.addEventListener('keydown', function (e) {
             if (e.key === 'Enter') { e.preventDefault(); gravar(); }
@@ -482,28 +540,85 @@
         });
     }
 
-    // ── Upload de arquivo ─────────────────────────────────────────────────────
-    const uploadInput  = document.getElementById('financeiro-upload-input');
-    const docLista     = document.getElementById('financeiro-docs-lista');
-    const uploadErro   = document.getElementById('financeiro-upload-erro');
-    const uploadSpinner = document.getElementById('financeiro-upload-spinner');
-
-    function iconeParaMime(mime) {
-        if (mime === 'application/pdf') return '<i class="bi bi-file-earmark-pdf text-danger fs-5 flex-shrink-0"></i>';
-        if (mime.startsWith('image/')) return '<i class="bi bi-file-earmark-image text-primary fs-5 flex-shrink-0"></i>';
-        return '<i class="bi bi-file-earmark-word text-primary fs-5 flex-shrink-0"></i>';
+    // ── Switch "reduzir tamanho ao enviar" ───────────────────────────────────
+    // A nota de apoio é CONSEQUÊNCIA do estado, não um aviso fixo ao lado: era
+    // texto cinza permanente e ninguém lia.
+    const reduzirBtn  = document.getElementById('financeiro-reduzir-btn');
+    const reduzirNota = document.getElementById('financeiro-reduzir-nota');
+    if (reduzirBtn) {
+        reduzirBtn.addEventListener('click', function () {
+            const ligado = this.getAttribute('aria-checked') !== 'true';
+            this.setAttribute('aria-checked', ligado ? 'true' : 'false');
+            this.classList.toggle('is-ligado', ligado);
+            if (reduzirNota) {
+                reduzirNota.textContent = ligado
+                    ? 'Atenção: um PDF assinado digitalmente pode perder a assinatura ao ser reduzido.'
+                    : 'Envios mantêm o arquivo original — recomendado para contratos assinados.';
+                reduzirNota.classList.toggle('ps-fin-sub--aviso', ligado);
+            }
+        });
     }
 
-    function criarItemDoc(id, titulo, mimeType, urlVisualizar, urlDownload, urlRenomear, csrfRenomear, urlExcluir, csrfExcluir) {
+    // ── Upload de arquivo ─────────────────────────────────────────────────────
+    const uploadInput   = document.getElementById('financeiro-upload-input');
+    const docLista      = document.getElementById('financeiro-docs-lista');
+    const uploadErro    = document.getElementById('financeiro-upload-erro');
+    const uploadSpinner = document.getElementById('financeiro-upload-spinner');
+
+    // Espelha o `arquivosVisiveis` do Twig acima: os dois lados têm de contar o
+    // mesmo teto, senão a lista cresce no navegador e encolhe na recarga.
+    const MAX_ARQUIVOS = {{ arquivosVisiveis }};
+
+    /** A contagem do cabeçalho segue o total do SERVIDOR, não o que está à vista. */
+    function atualizarContagemDocs(delta) {
+        const cab = document.querySelector('[data-trilho="arquivos"] .ps-card-cab');
+        if (!cab) { return; }
+
+        let badge = document.getElementById('financeiro-docs-contagem');
+        if (!badge) {
+            badge = document.createElement('span');
+            badge.className = 'ps-contagem';
+            badge.id = 'financeiro-docs-contagem';
+            badge.textContent = '0';
+            cab.querySelector('h2').after(badge);
+        }
+        badge.textContent = String(Math.max(0, (parseInt(badge.textContent, 10) || 0) + delta));
+    }
+
+    /** Atalho para o gerenciador quando há mais arquivos do que o card mostra. */
+    function mostrarExcedente() {
+        if (document.getElementById('financeiro-docs-excedente')) { return; }
+
+        const bloco = document.createElement('div');
+        bloco.className = 'ps-fin-doc-excedente';
+        bloco.id = 'financeiro-docs-excedente';
+        bloco.innerHTML = '<button type="button" class="ps-fin-link" data-ps-ir-aba="documentos-tab">'
+            + 'ver os demais no gerenciador</button>';
+        bloco.querySelector('button').addEventListener('click', function () {
+            const gatilho = document.getElementById('documentos-tab');
+            if (gatilho && window.bootstrap) { bootstrap.Tab.getOrCreateInstance(gatilho).show(); }
+        });
+        docLista.after(bloco);
+    }
+
+    function extDoTitulo(titulo) {
+        const ponto = String(titulo).lastIndexOf('.');
+        return ponto > 0 ? String(titulo).slice(ponto + 1, ponto + 5).toUpperCase() : '?';
+    }
+
+    function criarItemDoc(id, titulo, mimeType, urlVisualizar, urlDownload, urlRenomear, csrfRenomear, urlExcluir, csrfExcluir, meta) {
         const div = document.createElement('div');
-        div.className = 'financeiro-doc-item';
+        div.className = 'ps-fin-doc';
         div.id = 'financeiro-doc-' + id;
         div.innerHTML = `
-            ${iconeParaMime(mimeType)}
-            <span class="doc-titulo" title="${esc(titulo)}">${esc(titulo)}</span>
-            <div class="financeiro-doc-acoes d-flex gap-1 flex-shrink-0">
+            <span class="ps-doc-ext">${esc(extDoTitulo(titulo))}</span>
+            <div class="ps-fin-doc-corpo">
+                <div class="ps-doc-nome" title="${esc(titulo)}">${esc(titulo)}</div>
+                <div class="ps-doc-meta">${esc(meta ?? '')}</div>
+            </div>
+            <div class="ps-fin-doc-acoes">
                 <button type="button"
-                        class="btn btn-link btn-sm p-0 text-primary flex-shrink-0"
+                        class="ps-anotacao-acao"
                         title="Visualizar"
                         data-bs-toggle="modal"
                         data-bs-target="#previewDocModal"
@@ -514,7 +629,7 @@
                     <i class="bi bi-eye"></i>
                 </button>
                 <button type="button"
-                        class="btn btn-link btn-sm p-0 text-secondary flex-shrink-0 btn-renomear-doc"
+                        class="ps-anotacao-acao btn-renomear-doc"
                         title="Renomear"
                         data-doc-id="${id}"
                         data-titulo="${esc(titulo)}"
@@ -523,12 +638,12 @@
                     <i class="bi bi-pencil"></i>
                 </button>
                 <button type="button"
-                        class="btn btn-link btn-sm p-0 text-danger flex-shrink-0 btn-excluir-doc"
+                        class="ps-anotacao-acao ps-anotacao-acao--perigo btn-excluir-doc"
                         title="Excluir"
                         data-doc-id="${id}"
                         data-csrf="${esc(csrfExcluir)}"
                         data-url="${esc(urlExcluir)}">
-                    <i class="bi bi-trash"></i>
+                    <i class="bi bi-trash3"></i>
                 </button>
             </div>`;
         return div;
@@ -549,12 +664,10 @@
             uploadErro.classList.add('d-none');
             uploadSpinner.classList.remove('d-none');
 
-            const reduzirCb = document.getElementById('financeiro-reduzir-tamanho');
-
             const fd = new FormData();
             fd.append('_token', csrf);
             fd.append('arquivo', file);
-            fd.append('reduzir_tamanho', reduzirCb && reduzirCb.checked ? '1' : '0');
+            fd.append('reduzir_tamanho', reduzirBtn && reduzirBtn.getAttribute('aria-checked') === 'true' ? '1' : '0');
 
             try {
                 const resp = await fetch(url, {
@@ -577,8 +690,19 @@
                 const urlExc = baseExc.replace('__ID__', data.id);
                 const urlVis = baseVis ? baseVis.replace('__ID__', data.id) : data.urlVisualizar;
                 const urlDl  = baseDl  ? baseDl.replace('__ID__', data.id)  : data.urlDownload;
-                const item   = criarItemDoc(data.id, data.titulo, data.mimeType, urlVis, urlDl, urlRen, data.csrfRenomear, urlExc, data.csrfExcluir);
-                docLista.appendChild(item);
+
+                // O trilho mostra no máximo TRÊS. Passando disso a lista curta não
+                // cresce: o arquivo existe no servidor e o atalho para o
+                // gerenciador aparece. Sem isto o card inchava até o rodapé sair
+                // da vista, contrariando o desenho no caso em que ele mais importa.
+                if (docLista.querySelectorAll('.ps-fin-doc').length < MAX_ARQUIVOS) {
+                    docLista.appendChild(
+                        criarItemDoc(data.id, data.titulo, data.mimeType, urlVis, urlDl, urlRen, data.csrfRenomear, urlExc, data.csrfExcluir, data.meta)
+                    );
+                } else {
+                    mostrarExcedente();
+                }
+                atualizarContagemDocs(+1);
             } catch (_) {
                 uploadErro.textContent = 'Erro de rede. Tente novamente.';
                 uploadErro.classList.remove('d-none');
@@ -589,7 +713,7 @@
         });
     }
 
-    // ── Renomear / Excluir ────────────────────────────────────────────────────
+    // ── Renomear / Excluir arquivo ────────────────────────────────────────────
     if (docLista) {
         docLista.addEventListener('click', async function (e) {
 
@@ -597,7 +721,7 @@
             if (btnRen) {
                 const docId  = btnRen.dataset.docId;
                 const item   = document.getElementById('financeiro-doc-' + docId);
-                const spanTitulo = item.querySelector('.doc-titulo');
+                const spanTitulo = item.querySelector('.ps-doc-nome');
                 const tituloAtual = btnRen.dataset.titulo;
 
                 // Isola a extensão para protegê-la da edição
@@ -605,19 +729,18 @@
                 const nomeBase = pontoIdx > 0 ? tituloAtual.slice(0, pontoIdx) : tituloAtual;
                 const extensao = pontoIdx > 0 ? tituloAtual.slice(pontoIdx) : '';
 
-                const wrapper = document.createElement('span');
-                wrapper.className = 'd-flex align-items-center gap-1 flex-grow-1 min-width-0';
+                const wrapper = document.createElement('div');
+                wrapper.className = 'ps-fin-doc-renomear';
 
                 const input = document.createElement('input');
                 input.type = 'text';
-                input.className = 'form-control form-control-sm doc-titulo-input';
+                input.className = 'form-control form-control-sm';
                 input.value = nomeBase;
-                input.style.minWidth = '0';
 
                 wrapper.appendChild(input);
                 if (extensao) {
                     const extSpan = document.createElement('span');
-                    extSpan.className = 'text-muted small flex-shrink-0';
+                    extSpan.className = 'ps-doc-meta';
                     extSpan.textContent = extensao;
                     wrapper.appendChild(extSpan);
                 }
@@ -627,8 +750,8 @@
                 input.select();
 
                 function restaurarSpan(titulo) {
-                    const span = document.createElement('span');
-                    span.className = 'doc-titulo';
+                    const span = document.createElement('div');
+                    span.className = 'ps-doc-nome';
                     span.title = titulo;
                     span.textContent = titulo;
                     wrapper.replaceWith(span);
@@ -658,9 +781,11 @@
                         if (!resp.ok) { alert(data.erro ?? 'Erro ao renomear.'); }
                         restaurarSpan(titulo);
                         btnRen.dataset.titulo = titulo;
-                        // Atualiza data-nome do botão de preview para manter consistência
+                        // Mantém o pré-visualizador e o selo de extensão coerentes.
                         const btnPrevItem = item.querySelector('[data-bs-target="#previewDocModal"]');
                         if (btnPrevItem) { btnPrevItem.dataset.nome = titulo; }
+                        const selo = item.querySelector('.ps-doc-ext');
+                        if (selo) { selo.textContent = extDoTitulo(titulo); }
                     } catch (_) {
                         alert('Erro de rede.');
                         restaurarSpan(tituloAtual);
@@ -676,7 +801,6 @@
                 return;
             }
 
-            // ── Excluir documento ─────────────────────────────────────────────
             const btnExc = e.target.closest('.btn-excluir-doc');
             if (btnExc) {
                 if (!confirm('Excluir este arquivo? Esta ação não pode ser desfeita.')) return;
@@ -693,240 +817,13 @@
                     });
                     if (resp.ok) {
                         document.getElementById('financeiro-doc-' + docId)?.remove();
+                        atualizarContagemDocs(-1);
                         if (docLista.children.length === 0) {
-                            const p = document.createElement('p');
-                            p.className = 'text-muted small mb-0 ps-1';
-                            p.id = 'financeiro-docs-vazio';
-                            p.textContent = 'Nenhum arquivo adicionado.';
-                            docLista.appendChild(p);
-                        }
-                    } else {
-                        const data = await resp.json();
-                        alert(data.erro ?? 'Erro ao excluir.');
-                    }
-                } catch (_) {
-                    alert('Erro de rede.');
-                }
-            }
-        });
-    }
-
-    // ── Enviar observação ─────────────────────────────────────────────────────
-    const formObs      = document.getElementById('formFinanceiroObservacao');
-    const obsConteudo  = document.getElementById('financeiroObsConteudo');
-    const btnEnviarObs = document.getElementById('btnEnviarObsFinanceiro');
-    const obsErro      = document.getElementById('financeiroObsErro');
-    const obsLista     = document.getElementById('financeiroObsLista');
-    const urlEnviarObs = '{{ path("pasta_financeiro_observacao_enviar", {id: pasta.id}) }}';
-
-    if (formObs) {
-        obsConteudo.addEventListener('keydown', function (e) {
-            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { formObs.requestSubmit(); }
-        });
-
-        formObs.addEventListener('submit', async function (e) {
-            e.preventDefault();
-            const conteudo = obsConteudo.value.trim();
-            if (conteudo === '') { mostrarObsErro('A observação não pode ser vazia.'); return; }
-
-            btnEnviarObs.disabled = true;
-            btnEnviarObs.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Enviando…';
-            obsErro.classList.add('d-none');
-
-            try {
-                const resp = await fetch(urlEnviarObs, {
-                    method: 'POST',
-                    body: new FormData(formObs),
-                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
-                });
-                const data = await resp.json();
-                if (!resp.ok) { mostrarObsErro(data.erro ?? 'Erro ao enviar.'); return; }
-
-                const vazioMsg = document.getElementById('financeiroObsVazio');
-                if (vazioMsg) { vazioMsg.remove(); }
-                // Mais recente PRIMEIRO (mesma ordem do servidor).
-                obsLista.prepend(criarItemObs(data));
-                obsLista.scrollTop = 0;
-                // Limpa o editor (fonte da textarea); sem isso o texto enviado ficaria na tela.
-                if (window.EditorRico) { EditorRico.limpar(obsConteudo); } else { obsConteudo.value = ''; }
-            } catch (_) {
-                mostrarObsErro('Erro de rede. Tente novamente.');
-            } finally {
-                btnEnviarObs.disabled = false;
-                btnEnviarObs.innerHTML = '<i class="bi bi-send me-1"></i> Enviar';
-            }
-        });
-    }
-
-    function mostrarObsErro(msg) {
-        obsErro.textContent = msg;
-        obsErro.classList.remove('d-none');
-    }
-
-    function criarItemObs(data) {
-        const div = document.createElement('div');
-        div.className = 'financeiro-obs-item mb-2';
-        div.id = 'financeiro-obs-' + data.id;
-
-        const urlEditar  = '{{ path("pasta_financeiro_observacao_editar", {id: pasta.id, obsId: 0})|replace({"/0/": "/__ID__/"}) }}'.replace('__ID__', data.id);
-        const urlExcluir = '{{ path("pasta_financeiro_observacao_excluir", {id: pasta.id, obsId: 0})|replace({"/0/": "/__ID__/"}) }}'.replace('__ID__', data.id);
-
-        div.innerHTML = `
-            <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
-                <div class="small text-muted">
-                    <i class="bi bi-person me-1"></i>${esc(data.autorNome)}
-                    <span class="ms-2"><i class="bi bi-clock me-1"></i>${esc(data.criadaEm)}</span>
-                </div>
-                <div class="d-flex gap-1 flex-shrink-0">
-                    <button type="button"
-                            class="btn btn-link btn-sm p-0 text-secondary btn-editar-obs"
-                            title="Editar observação"
-                            data-obs-id="${data.id}"
-                            data-conteudo="${esc(data.conteudo)}"
-                            data-conteudo-html="${esc(data.conteudoHtml ?? '')}"
-                            data-csrf="${esc(data.csrfEditar)}"
-                            data-url="${esc(urlEditar)}">
-                        <i class="bi bi-pencil"></i>
-                    </button>
-                    <button type="button"
-                            class="btn btn-link btn-sm p-0 text-danger btn-excluir-obs"
-                            title="Excluir observação"
-                            data-obs-id="${data.id}"
-                            data-csrf="${esc(data.csrfExcluir)}"
-                            data-url="${esc(urlExcluir)}">
-                        <i class="bi bi-trash"></i>
-                    </button>
-                </div>
-            </div>
-            <div class="obs-conteudo editor-rico-conteudo"><div class="ql-editor"></div></div>`;
-
-        // `conteudoHtml` vem SANITIZADO do servidor, então entra como HTML (é o que mostra a
-        // formatação). Os demais campos continuam escapados via esc() no template acima.
-        div.querySelector('.ql-editor').innerHTML = data.conteudoHtml ?? '';
-        return div;
-    }
-
-    // ── Editar / Excluir observações ──────────────────────────────────────────
-    if (obsLista) {
-        obsLista.addEventListener('click', async function (e) {
-            // Editar
-            const btnEditar = e.target.closest('.btn-editar-obs');
-            if (btnEditar) {
-                const obsId      = btnEditar.dataset.obsId;
-                const item       = document.getElementById('financeiro-obs-' + obsId);
-                const conteudoDiv = item.querySelector('.obs-conteudo');
-                const conteudoAtual = btnEditar.dataset.conteudo;
-
-                const textarea = document.createElement('textarea');
-                textarea.className = 'form-control form-control-sm financeiro-obs-textarea w-100 mb-2';
-                textarea.rows = 3;
-                textarea.maxLength = 5000;
-                textarea.value = conteudoAtual;
-
-                const htmlAtual = btnEditar.dataset.conteudoHtml ?? '';
-
-                // Devolve o conteudo a tela quando a edicao termina (cancelar, salvar ou erro).
-                function restaurarExibicao(html) {
-                    if (window.EditorRico) { EditorRico.desmontar(textarea); }
-                    const div = document.createElement('div');
-                    div.className = 'obs-conteudo editor-rico-conteudo';
-                    const interno = document.createElement('div');
-                    interno.className = 'ql-editor';
-                    interno.innerHTML = html ?? '';   // sempre sanitizado no servidor
-                    div.appendChild(interno);
-                    textarea.replaceWith(div);
-                }
-
-                const btnConfirmar = document.createElement('button');
-                btnConfirmar.type = 'button';
-                btnConfirmar.className = 'btn btn-sm btn-success me-1';
-                btnConfirmar.textContent = 'Salvar';
-
-                const btnCancelar = document.createElement('button');
-                btnCancelar.type = 'button';
-                btnCancelar.className = 'btn btn-sm btn-outline-secondary';
-                btnCancelar.textContent = 'Cancelar';
-
-                const acoesBtns = document.createElement('div');
-                acoesBtns.className = 'mb-1';
-                acoesBtns.appendChild(btnConfirmar);
-                acoesBtns.appendChild(btnCancelar);
-
-                conteudoDiv.replaceWith(textarea);
-                textarea.after(acoesBtns);
-
-                // Transforma a textarea recem-criada em editor (o auto-init so pega o DOM inicial).
-                if (window.EditorRico) {
-                    const quill = EditorRico.montar(textarea);
-                    if (quill) { quill.focus(); } else { textarea.focus(); }
-                } else {
-                    textarea.focus();
-                }
-
-                btnCancelar.addEventListener('click', function () {
-                    acoesBtns.remove();
-                    restaurarExibicao(htmlAtual);
-                });
-
-                btnConfirmar.addEventListener('click', async function () {
-                    // O editor esvazia a textarea quando nao ha texto real (`<p><br></p>` nao conta).
-                    const vazio = window.EditorRico
-                        ? EditorRico.estaVazio(textarea)
-                        : textarea.value.trim() === '';
-                    if (vazio) { alert('A observação não pode ser vazia.'); return; }
-
-                    const fd = new FormData();
-                    fd.append('_token', btnEditar.dataset.csrf);
-                    fd.append('conteudo', textarea.value);
-
-                    try {
-                        const resp = await fetch(btnEditar.dataset.url, {
-                            method: 'POST',
-                            body: fd,
-                            headers: { 'X-Requested-With': 'XMLHttpRequest' },
-                        });
-                        const data = await resp.json();
-                        acoesBtns.remove();
-
-                        if (resp.ok) {
-                            restaurarExibicao(data.conteudoHtml);
-                            btnEditar.dataset.conteudo     = data.conteudo;
-                            btnEditar.dataset.conteudoHtml = data.conteudoHtml ?? '';
-                        } else {
-                            restaurarExibicao(htmlAtual);
-                            alert(data.erro ?? 'Erro ao editar.');
-                        }
-                    } catch (_) {
-                        alert('Erro de rede.');
-                    }
-                });
-
-                return;
-            }
-
-            // Excluir
-            const btnExcluir = e.target.closest('.btn-excluir-obs');
-            if (btnExcluir) {
-                if (!confirm('Excluir esta observação? Esta ação não pode ser desfeita.')) return;
-
-                const obsId = btnExcluir.dataset.obsId;
-                const fd    = new FormData();
-                fd.append('_token', btnExcluir.dataset.csrf);
-
-                try {
-                    const resp = await fetch(btnExcluir.dataset.url, {
-                        method: 'POST',
-                        body: fd,
-                        headers: { 'X-Requested-With': 'XMLHttpRequest' },
-                    });
-                    if (resp.ok) {
-                        document.getElementById('financeiro-obs-' + obsId)?.remove();
-                        if (obsLista.children.length === 0) {
-                            const div = document.createElement('div');
-                            div.className = 'text-center text-muted py-4';
-                            div.id = 'financeiroObsVazio';
-                            div.innerHTML = '<i class="bi bi-chat-left fs-2 d-block mb-2 opacity-25"></i><span class="small">Nenhuma observação registrada.</span>';
-                            obsLista.appendChild(div);
+                            const vazio = document.createElement('div');
+                            vazio.className = 'ps-fin-doc-vazio';
+                            vazio.id = 'financeiro-docs-vazio';
+                            vazio.textContent = 'Nenhum arquivo financeiro anexado.';
+                            docLista.appendChild(vazio);
                         }
                     } else {
                         const data = await resp.json();
@@ -940,3 +837,6 @@
     }
 })();
 </script>
+
+{{ include('pasta/_financeiro_obs_script.html.twig') }}
+{{ include('pasta/_financeiro_pagamentos_script.html.twig') }}

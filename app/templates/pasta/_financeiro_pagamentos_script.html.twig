@@ -1,0 +1,148 @@
+{# ============================================================================
+   Aba Financeiro — card Pagamentos: quitar, excluir, "ver todos" e o modal de
+   novo lançamento.
+
+   O corpo do card NÃO é remendado no navegador: toda mudança devolve o bloco
+   inteiro já renderizado pelo servidor (`_financeiro_pagamentos.html.twig`), e o
+   JS só troca o innerHTML. É o que garante que o total, a barra e as linhas
+   contem sempre a mesma história.
+
+   O modal `#modalNovoPagamento` vive FORA de `.ps-page`, no show.html.twig:
+   modal dentro do painel animado fica preso abaixo do backdrop (ancestral com
+   `transform` vira bloco de contenção de `position: fixed`). Já aconteceu nesta
+   tela com três modais do gerenciador de arquivos, e há teste travando isso.
+   ============================================================================ #}
+<script>
+(function () {
+    'use strict';
+
+    const cartao = document.getElementById('psPagamentos');
+    if (!cartao) { return; }
+
+    const corpo    = document.getElementById('psPagamentosCorpo');
+    const contagem = document.getElementById('psPagamentosTotal');
+    const verTodos = document.getElementById('psPagamentosVerTodos');
+
+    /** Troca o card inteiro pelo HTML que o servidor acabou de renderizar. */
+    function aplicarResumo(resumo) {
+        if (!resumo) { return; }
+        corpo.innerHTML = resumo.html;
+        if (contagem) { contagem.textContent = String(resumo.total); }
+
+        // Sem pagamento nenhum não há o que "ver todos" mostrar.
+        if (verTodos) {
+            verTodos.classList.toggle('d-none', resumo.total === 0);
+        }
+    }
+
+    async function postar(url, csrf, extras) {
+        const fd = new FormData();
+        fd.append('_token', csrf);
+        for (const [chave, valor] of Object.entries(extras ?? {})) { fd.append(chave, valor); }
+
+        const resp = await fetch(url, {
+            method: 'POST',
+            body: fd,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        });
+
+        return { ok: resp.ok, data: await resp.json() };
+    }
+
+    // ── "ver todos": só uma classe, sem ida ao servidor ──────────────────────
+    // As linhas pagas já estão no HTML, escondidas por CSS.
+    if (verTodos) {
+        verTodos.addEventListener('click', function () {
+            const mostrando = cartao.classList.toggle('is-mostrando-todos');
+            this.textContent = mostrando ? 'ver só os próximos' : 'ver todos';
+            this.title = mostrando ? 'Esconder os já pagos' : 'Mostrar também os já pagos';
+        });
+    }
+
+    // ── Quitar / desfazer e excluir ──────────────────────────────────────────
+    corpo.addEventListener('click', async function (e) {
+        const alvo = e.target.closest('[data-acao]');
+        if (!alvo) { return; }
+
+        const id = alvo.dataset.pagamentoId;
+
+        if (alvo.dataset.acao === 'quitacao') {
+            const url = cartao.dataset.baseUrlQuitacao.replace('__ID__', id);
+            alvo.disabled = true;
+            try {
+                const { ok, data } = await postar(url, alvo.dataset.csrf);
+                if (!ok) { alert(data.erro ?? 'Erro ao alterar o pagamento.'); return; }
+                aplicarResumo(data.resumo);
+            } catch (_) {
+                alert('Erro de rede. Tente novamente.');
+            } finally {
+                alvo.disabled = false;
+            }
+
+            return;
+        }
+
+        if (alvo.dataset.acao === 'excluir') {
+            if (!confirm('Excluir este lançamento? Esta ação não pode ser desfeita.')) { return; }
+
+            const url = cartao.dataset.baseUrlExcluir.replace('__ID__', id);
+            try {
+                const { ok, data } = await postar(url, alvo.dataset.csrf);
+                if (!ok) { alert(data.erro ?? 'Erro ao excluir.'); return; }
+                aplicarResumo(data.resumo);
+            } catch (_) {
+                alert('Erro de rede. Tente novamente.');
+            }
+        }
+    });
+
+    // ── Modal de novo pagamento ──────────────────────────────────────────────
+    const form = document.getElementById('formNovoPagamento');
+    if (!form) { return; }
+
+    const erro    = document.getElementById('novoPagamentoErro');
+    const btn     = document.getElementById('btnSalvarPagamento');
+    const modalEl = document.getElementById('modalNovoPagamento');
+
+    // O vencimento abre em hoje: é o palpite certo mais vezes que o campo vazio,
+    // e o campo continua editável.
+    modalEl.addEventListener('show.bs.modal', function () {
+        erro.classList.add('d-none');
+        form.reset();
+        const hoje = new Date();
+        const iso  = hoje.getFullYear()
+            + '-' + String(hoje.getMonth() + 1).padStart(2, '0')
+            + '-' + String(hoje.getDate()).padStart(2, '0');
+        form.querySelector('[name="vencimento"]').value = iso;
+    });
+
+    form.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        erro.classList.add('d-none');
+        btn.disabled = true;
+
+        try {
+            const resp = await fetch(cartao.dataset.urlRegistrar, {
+                method: 'POST',
+                body: new FormData(form),
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            });
+            const data = await resp.json();
+
+            if (!resp.ok) {
+                erro.textContent = data.erro ?? 'Erro ao lançar o pagamento.';
+                erro.classList.remove('d-none');
+                return;
+            }
+
+            aplicarResumo(data.resumo);
+            bootstrap.Modal.getInstance(modalEl)?.hide();
+        } catch (_) {
+            erro.textContent = 'Erro de rede. Tente novamente.';
+            erro.classList.remove('d-none');
+        } finally {
+            btn.disabled = false;
+        }
+    });
+})();
+</script>

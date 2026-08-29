@@ -701,30 +701,6 @@
 .ps-clientes-rolagem::-webkit-scrollbar { width: 5px; }
 .ps-clientes-rolagem::-webkit-scrollbar-thumb { background: var(--ps-border); border-radius: 3px; }
 
-/* ── Financeiro do caso ── */
-.ps-fin-card { padding: 15px 17px; }
-.ps-fin-topo { display: flex; align-items: center; margin-bottom: 12px; }
-.ps-fin-topo h2 { margin: 0; font-size: 13.5px; font-weight: 600; }
-.ps-fin-caixas { display: flex; gap: 9px; }
-.ps-fin-caixa { flex: 1; min-width: 0; padding: 11px 12px; border-radius: 9px; }
-.ps-fin-caixa--causa { background: #f1f8fc; border: 1px solid #dbeaf3; }
-.ps-fin-caixa--media { background: #fdf7ee; border: 1px solid #f0e2cb; }
-[data-bs-theme="dark"] .ps-fin-caixa--causa { background: var(--ps-accent-bg); border-color: var(--ps-border); }
-[data-bs-theme="dark"] .ps-fin-caixa--media { background: var(--ps-warn-bg); border-color: var(--ps-warn-border); }
-.ps-fin-rotulo { font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; font-weight: 700; }
-.ps-fin-caixa--causa .ps-fin-rotulo { color: #5f7684; }
-.ps-fin-caixa--media .ps-fin-rotulo { color: #8a6a34; }
-[data-bs-theme="dark"] .ps-fin-caixa--causa .ps-fin-rotulo { color: var(--ps-muted); }
-[data-bs-theme="dark"] .ps-fin-caixa--media .ps-fin-rotulo { color: var(--ps-warn-text); }
-.ps-fin-valor {
-    font-variant-numeric: tabular-nums;
-    font-size: 16px;
-    font-weight: 500;
-    margin-top: 3px;
-    overflow-wrap: anywhere;
-}
-.ps-fin-nota { margin-top: 11px; font-size: 12.5px; color: var(--ps-muted); }
-
 /* ── Documentos do trilho ──
    A linha inteira é o alvo: clicar abre o pré-visualizador. Cor de texto normal
    (e não a de link) porque quem convida ao clique é a linha, não uma palavra
@@ -994,3 +970,247 @@
 /* Atalhos "metas" / "detalhar" / "todos" do trilho: são links de troca de aba,
    não de navegação — o href="#" existe só para o teclado alcançá-los. */
 .ps-page [data-ps-ir-aba] { cursor: pointer; }
+
+/* =============================================================================
+   Aba Financeiro — fatia 2 do redesenho
+   Desenho: docs/design/pasta-show/ ("Pasta 1A.dc.html", Aba 4, revisão 28/08).
+   Spec: docs/specs/pasta-show-financeiro-fatia2.md
+   ============================================================================= */
+
+/* ── Faixa de status: quatro cards de MESMO peso ──
+   `auto-fit` com mínimo de 200px: em tela estreita eles quebram em duas linhas
+   em vez de espremer o número a ponto de quebrar "R$ 12.860,00" no meio.
+   `align-items: stretch` mantém os quatro da mesma altura, que é o que faz a
+   faixa parecer uma faixa e não quatro caixas soltas. */
+.ps-fin-faixa {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+    align-items: stretch;
+}
+.ps-fin-bloco {
+    min-width: 0;
+    background: var(--ps-card);
+    border: 1px solid var(--ps-border);
+    border-radius: 14px;
+    box-shadow: var(--ps-shadow-card);
+    padding: 13px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+}
+/* O rótulo ocupa uma faixa de altura FIXA nos quatro cards. Com altura `auto` um
+   rótulo de duas palavras empurraria só o seu conteúdo para baixo, e os quatro
+   números deixariam de se alinhar — o desenho pede exatamente o contrário. */
+.ps-fin-rotulo-linha { display: flex; align-items: center; gap: 8px; height: 18px; }
+.ps-fin-rotulo {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--ps-label);
+}
+.ps-fin-corpo { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; }
+.ps-fin-bloco--media { background: #fdf8ef; border-color: #ecdfc7; }
+.ps-fin-bloco--media .ps-fin-rotulo { color: #a08444; }
+.ps-fin-bloco--media .ps-fin-sub { color: #8a6f3d; }
+[data-bs-theme="dark"] .ps-fin-bloco--media { background: var(--ps-warn-bg); border-color: var(--ps-warn-border); }
+[data-bs-theme="dark"] .ps-fin-bloco--media .ps-fin-rotulo,
+[data-bs-theme="dark"] .ps-fin-bloco--media .ps-fin-sub { color: var(--ps-warn-text); }
+
+.ps-fin-numero {
+    font-size: 24px;
+    font-weight: 600;
+    letter-spacing: -.01em;
+    line-height: 1.1;
+    overflow-wrap: anywhere;
+}
+#financeiro-valor-causa { cursor: pointer; }
+#financeiro-valor-causa:hover { text-decoration: underline dotted; }
+.ps-fin-sub { font-size: 11.5px; color: var(--ps-label); margin-top: 3px; line-height: 1.45; }
+.ps-fin-sub--erro { color: var(--ps-danger-text); }
+.ps-fin-sub--aviso { color: var(--ps-warn-text); }
+
+/* Selo que é botão: Contrato e Pró-bono. O mesmo gesto nos dois, porque são a
+   mesma pergunta ("qual é o estado?") com a mesma resposta ("clique para virar"). */
+.ps-fin-selo {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 30px;
+    padding: 0 12px;
+    border-radius: 999px;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: filter .15s;
+}
+.ps-fin-selo i { font-size: 11px; }
+.ps-fin-selo:hover { filter: brightness(.97); }
+[data-bs-theme="dark"] .ps-fin-selo:hover { filter: brightness(1.15); }
+.ps-fin-selo--ok     { color: var(--ps-ok-text);     background: var(--ps-ok-bg);     border: 1px solid var(--ps-ok-border); }
+.ps-fin-selo--perigo { color: var(--ps-danger-text); background: var(--ps-danger-bg); border: 1px solid var(--ps-danger-border); }
+.ps-fin-selo--neutro { color: var(--ps-cinza-text);  background: var(--ps-div-strong); border: 1px solid var(--ps-border); }
+
+.ps-fin-lapis {
+    width: 22px;
+    height: 22px;
+    margin-right: -6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--ps-faint);
+    font-size: 12px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+.ps-fin-lapis:hover { border-color: var(--ps-border-ctl); color: var(--ps-text-2); }
+
+/* A coluna central da aba Financeiro é uma coluna só; existe para o `.ps-grade`
+   ter dois filhos diretos, como na aba Dados. */
+.ps-coluna { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+
+/* ── Relatório financeiro ── */
+.ps-fin-obs-rolagem { max-height: 390px; overflow-y: auto; overscroll-behavior: contain; }
+.ps-fin-obs-rolagem::-webkit-scrollbar { width: 5px; }
+.ps-fin-obs-rolagem::-webkit-scrollbar-thumb { background: var(--ps-border); border-radius: 3px; }
+
+/* ── Card Arquivos (trilho) ──
+   Sem gerenciador: nada de busca, filtro por categoria, paginação ou dropzone.
+   O gerenciador completo é a aba Documentos. */
+.ps-fin-adicionar { display: inline-flex; align-items: center; gap: 5px; margin: 0; }
+.ps-fin-doc {
+    padding: 9px 17px;
+    border-bottom: 1px solid var(--ps-div-weak);
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+.ps-fin-doc:last-child { border-bottom: none; }
+.ps-fin-doc-corpo { min-width: 0; flex: 1; }
+/* 24×29 é a medida do desenho para ESTA lista, mais compacta que a do trilho de
+   Dados (25×31). Um pixel, mas veio do documento — não é opinião. */
+.ps-fin-doc .ps-doc-ext { width: 24px; height: 29px; }
+.ps-fin-doc-renomear { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.ps-fin-doc-vazio { padding: 16px 17px; font-size: 12.5px; color: var(--ps-faint); text-align: center; }
+/* As ações só aparecem no hover da linha — a lista em repouso é para LER.
+   Continuam alcançáveis pelo teclado: `:focus-within` traz as três de volta. */
+.ps-fin-doc-acoes { display: flex; gap: 2px; flex-shrink: 0; opacity: 0; transition: opacity .15s; }
+.ps-fin-doc:hover .ps-fin-doc-acoes,
+.ps-fin-doc:focus-within .ps-fin-doc-acoes { opacity: 1; }
+.ps-fin-doc-excedente { padding: 0 17px 4px; }
+.ps-fin-link {
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--ps-text-2);
+    background: transparent;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+}
+.ps-fin-link:hover { color: var(--ps-accent); }
+.ps-fin-rodape { padding: 12px 17px 15px; border-top: 1px solid var(--ps-div-strong); }
+.ps-fin-btn-largo { width: 100%; justify-content: center; }
+
+/* Switch "reduzir tamanho ao enviar". A nota de apoio abaixo muda com o estado —
+   o aviso sobre assinatura digital deixou de ser texto cinza permanente. */
+.ps-fin-switch {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--ps-text-2);
+    background: transparent;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+}
+.ps-fin-switch-trilho {
+    width: 38px;
+    height: 22px;
+    border-radius: 999px;
+    background: var(--ps-border);
+    padding: 2px;
+    flex-shrink: 0;
+    transition: background .2s;
+}
+.ps-fin-switch-knob {
+    display: block;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(16,42,58,.3);
+    transition: transform .26s var(--ps-ease);
+}
+.ps-fin-switch.is-ligado .ps-fin-switch-trilho { background: var(--ps-ok-dot); }
+.ps-fin-switch.is-ligado .ps-fin-switch-knob { transform: translateX(16px); }
+
+/* ── Card Pagamentos (trilho) ── */
+.ps-pag-total { padding: 12px 17px 14px; border-bottom: 1px solid var(--ps-div-strong); }
+.ps-pag-total-linha { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.ps-pag-recebido { font-size: 22px; font-weight: 600; letter-spacing: -.01em; }
+.ps-pag-previsto { font-size: 12.5px; color: var(--ps-muted); }
+.ps-pag-barra {
+    height: 6px;
+    border-radius: 999px;
+    background: var(--ps-div-strong);
+    overflow: hidden;
+    margin-top: 9px;
+}
+.ps-pag-barra-cheia {
+    height: 100%;
+    border-radius: 999px;
+    background: var(--ps-ok-dot);
+    transition: width .6s var(--ps-ease);
+}
+.ps-pag-secao { padding: 11px 17px 4px; display: flex; align-items: center; gap: 8px; }
+.ps-pag-nota { font-size: 12px; color: var(--ps-label); }
+.ps-pag-quitado { padding: 4px 17px 12px; font-size: 12.5px; color: var(--ps-muted); }
+.ps-pag-linha {
+    padding: 10px 17px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    border-top: 1px solid var(--ps-div-weak);
+}
+.ps-pag-corpo { min-width: 0; flex: 1; }
+.ps-pag-descricao {
+    font-size: 13.5px;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.ps-pag-quando { font-size: 12px; color: var(--ps-label); margin-top: 2px; }
+.ps-pag-direita { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.ps-pag-valor { font-size: 13.5px; font-weight: 600; }
+/* O selo é o botão de quitar: herda o visual de `.ps-selo` e ganha o cursor. */
+.ps-pag-selo {
+    font-family: inherit;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    font-size: 10.5px;
+    cursor: pointer;
+}
+.ps-pag-excluir { flex-shrink: 0; opacity: 0; transition: opacity .15s; }
+.ps-pag-linha:hover .ps-pag-excluir,
+.ps-pag-linha:focus-within .ps-pag-excluir { opacity: 1; }
+/* Já pagos ficam no HTML e escondidos: o "ver todos" do cabeçalho é só esta
+   classe no cartão, sem ida ao servidor. */
+.ps-pag-linha--pago { display: none; }
+#psPagamentos.is-mostrando-todos .ps-pag-linha--pago { display: flex; }
+
+/* O selo verde faltava na paleta: os três tons de `.ps-selo` cobriam prazo
+   (urgente/próximo/tranquilo), e pagamento tem um quarto estado — pago. */
+.ps-selo--ok { color: var(--ps-ok-text); background: var(--ps-ok-bg); border: 1px solid var(--ps-ok-border); }

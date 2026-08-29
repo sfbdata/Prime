@@ -210,7 +210,6 @@
                     {{ include('pasta/_dados_trilho.html.twig', {
                         pasta: pasta,
                         proximosPrazos: proximosPrazos,
-                        financeiro: financeiro,
                     }) }}
                 </div>
             </div>
@@ -231,6 +230,7 @@
                                     documentosContrato: documentosContrato,
                                     observacoesFinanceiras: observacoesFinanceiras,
                                     financeiro: financeiro,
+                                    pagamentos: pagamentos,
                                 } only %}
                             </div>
 
@@ -973,6 +973,49 @@
                     </div>
                     {% endif %}
 </div>{# /.ps-page #}
+
+{# ── Modal: novo pagamento da pasta ─────────────────────────────────────────
+   FORA de .ps-page pelo mesmo motivo dos modais do gerenciador logo abaixo: um
+   ancestral com `transform` (a animação de entrada dos painéis) vira bloco de
+   contenção de `position: fixed` e prende o modal abaixo do backdrop. #}
+<div class="modal fade" id="modalNovoPagamento" tabindex="-1" aria-labelledby="modalNovoPagamentoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content">
+            <form id="formNovoPagamento">
+                <div class="modal-header py-2">
+                    <h6 class="modal-title" id="modalNovoPagamentoLabel">
+                        <i class="bi bi-wallet2 me-1"></i> Novo pagamento
+                    </h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold" for="novoPagamentoDescricao">Descrição</label>
+                        <input type="text" class="form-control form-control-sm" id="novoPagamentoDescricao"
+                               name="descricao" maxlength="120" required
+                               placeholder="Ex.: 2ª parcela — honorários">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold" for="novoPagamentoValor">Valor</label>
+                        <input type="text" class="form-control form-control-sm" id="novoPagamentoValor"
+                               name="valor" inputmode="decimal" maxlength="20" required
+                               placeholder="1.300,00">
+                    </div>
+                    <div class="mb-1">
+                        <label class="form-label small fw-semibold" for="novoPagamentoVencimento">Vencimento</label>
+                        <input type="date" class="form-control form-control-sm" id="novoPagamentoVencimento"
+                               name="vencimento" required>
+                    </div>
+                    <div id="novoPagamentoErro" class="text-danger small mt-2 d-none"></div>
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary btn-sm" id="btnSalvarPagamento">Lançar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
 {# O histórico do sistema virou painel lateral: fora do fluxo da página, aberto
    pelo botão "Histórico" do cabeçalho. Fica FORA de .ps-page porque é fixo e
@@ -1878,11 +1921,15 @@
         if (media && dados.mediaFormatada) {
             media.textContent = dados.mediaFormatada;
         }
-        const rotulo = document.querySelector('#financeiro-media-cpf')?.closest('.col-md-2')?.querySelector('.financeiro-indicador-rotulo');
+        // O rotulo e a nota tem id proprio desde a fatia 2 do redesenho. Antes
+        // eram encontrados subindo ate `.col-md-2`, a coluna do grid Bootstrap
+        // que a faixa de quatro cards nao tem mais: a busca devolvia null e os
+        // dois textos ficavam defasados em silencio ao trocar o principal.
+        const rotulo = document.getElementById('financeiro-media-rotulo');
         if (rotulo && dados.mediaRotulo) {
             rotulo.textContent = dados.mediaRotulo;
         }
-        const nota = document.querySelector('#financeiro-media-cpf')?.closest('.col-md-2')?.querySelector('.financeiro-indicador-nota');
+        const nota = document.getElementById('financeiro-media-nota');
         if (nota && dados.clienteNome) {
             nota.textContent = dados.clienteNome;
         }

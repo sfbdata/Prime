@@ -25,6 +25,7 @@ use App\Entity\Permission\AccessRequest;
 use App\Repository\UserRepository;
 use App\Repository\UserTenantRepository;
 use App\Expediente\Repository\MarcadorRepository;
+use App\Twig\ArquivoIconeExtension;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use App\Pasta\Service\PastaTimelineAssembler;
@@ -42,6 +43,7 @@ use App\Pasta\Entity\PrioridadePasta;
 use App\Pasta\DTO\CriarPastaDTO;
 use App\Pasta\DTO\EditarPastaDTO;
 use App\Pasta\DTO\PastaFinanceiroOutput;
+use App\Pasta\DTO\PastaPagamentosOutput;
 use App\Pasta\DTO\PastaPrazoOutput;
 use App\Pasta\DTO\TimelineItemDTO;
 use App\Pasta\DTO\TimelineItemType;
@@ -74,6 +76,7 @@ use App\Pasta\UseCase\ToggleChecklistItemUseCase;
 use App\Pasta\Repository\PastaChecklistItemRepository;
 use App\Pasta\Repository\PastaObservacaoDetalhesRepository;
 use App\Pasta\Repository\PastaObservacaoFinanceiraRepository;
+use App\Pasta\Repository\PastaPagamentoRepository;
 use App\Pasta\Repository\PastaSecaoRepository;
 use App\Pasta\Entity\PastaSecao;
 use Doctrine\ORM\EntityManagerInterface;
@@ -135,6 +138,12 @@ class PastaController extends AbstractController
         private readonly EditarObservacaoFinanceiraUseCase $editarObservacaoFinanceiraUseCase,
         private readonly ExcluirObservacaoFinanceiraUseCase $excluirObservacaoFinanceiraUseCase,
         private readonly PastaObservacaoFinanceiraRepository $observacaoFinanceiraRepository,
+        private readonly PastaPagamentoRepository $pastaPagamentoRepository,
+        // A MESMA formatação de tamanho que o filtro `formatar_bytes` do Twig usa:
+        // a linha que o JS insere depois do upload fica ao lado das que o Twig
+        // desenhou, e o `formatarBytes` privado deste controller escreve
+        // "380.5 KB" onde o Twig escreve "380,5 KB".
+        private readonly ArquivoIconeExtension $arquivoIcone,
         private readonly EnviarObservacaoDetalhesUseCase $enviarObservacaoDetalhesUseCase,
         private readonly EditarObservacaoDetalhesUseCase $editarObservacaoDetalhesUseCase,
         private readonly ExcluirObservacaoDetalhesUseCase $excluirObservacaoDetalhesUseCase,
@@ -314,6 +323,13 @@ class PastaController extends AbstractController
         $observacoesFinanceiras  = $tenant !== null
             ? $this->observacaoFinanceiraRepository->findByPasta($pasta, $tenant)
             : [];
+
+        // Card Pagamentos do trilho da aba Financeiro: o que o cliente combinou
+        // pagar por ESTE caso. Nada a ver com a Cobrança, onde o dinheiro é a
+        // dívida de um devedor numa carteira.
+        $pagamentosDaPasta = $tenant !== null
+            ? $this->pastaPagamentoRepository->findByPasta($pasta, $tenant)
+            : [];
         $observacoesDetalhes     = $tenant !== null
             ? $this->observacaoDetalhesRepository->findByPasta($pasta, $tenant)
             : [];
@@ -355,6 +371,7 @@ class PastaController extends AbstractController
             'documentosContrato'          => $documentosContrato,
             'financeiro'                  => PastaFinanceiroOutput::montar($pasta, $primeiroCliente, $mediaCpf),
             'observacoesFinanceiras'      => $observacoesFinanceiras,
+            'pagamentos'                  => PastaPagamentosOutput::montar($pagamentosDaPasta),
             'observacoesDetalhes'         => $observacoesDetalhes,
             'checklistItens'              => $checklistItens,
             'totalChecklist'              => $totalChecklist,
@@ -1738,6 +1755,10 @@ class PastaController extends AbstractController
             'id'           => $doc->getId(),
             'titulo'       => $doc->getTitulo(),
             'mimeType'     => $mimeType,
+            // Linha de apoio da lista, montada aqui pelo mesmo critério do Twig
+            // (tamanho · data). Sem ela a linha recém-enviada nasceria com a
+            // segunda linha vazia até a próxima recarga.
+            'meta'         => $this->arquivoIcone->formatarBytes($tamanhoFinal) . ' · ' . $doc->getCarregadoEm()->format('d/m/Y'),
             'urlVisualizar' => $this->generateUrl('pasta_financeiro_documento_view', ['id' => $pastaId, 'docId' => $doc->getId()]),
             'urlDownload'   => $this->generateUrl('pasta_financeiro_documento_download', ['id' => $pastaId, 'docId' => $doc->getId()]),
             'csrfRenomear' => $this->csrfTokenManager->getToken('pasta_financeiro_renomear_' . $doc->getId())->getValue(),

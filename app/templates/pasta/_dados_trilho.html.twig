@@ -2,11 +2,14 @@
    Aba Dados — trilho da direita.
    Desenho aprovado: docs/design/pasta-show/ ("Pasta 1A.dc.html"), Aba 1.
 
-   Ordem aprovada: Próximos prazos · Clientes · Financeiro do caso · Documentos.
+   Ordem aprovada: Próximos prazos · Clientes · Documentos.
+   O cartão "Financeiro do caso" saiu na revisão de 28/08 do desenho: o
+   financeiro vive na aba dele, e repetir valor da causa e média aqui criava
+   dois lugares para o mesmo número.
    O trilho existe para responder "em que pé está o caso" SEM clicar aba por
    aba — era a queixa nº 3 do handoff.
 
-   Contexto: `pasta`, `proximosPrazos`, `financeiro`.
+   Contexto: `pasta`, `proximosPrazos`.
    ============================================================================ #}
 
 {# ── Próximos prazos ──────────────────────────────────────────────────────
@@ -111,38 +114,6 @@
                 <div class="ps-vazio-nota">Vincule o cliente para calcular a média por CPF.</div>
             </div>
         {% endif %}
-    </div>
-</section>
-
-{# ── Financeiro do caso ───────────────────────────────────────────────────
-   O protótipo desenha "Recebido / A receber / próxima parcela", que a Pasta não
-   tem: parcelas e recebimentos vivem no módulo Cobrança, sem ligação com pasta.
-   Vale o texto do handoff — valor da causa + média por CPF, do
-   PastaFinanceiroOutput que já existe. Decisão do dono em 26/08. #}
-<section class="ps-card ps-fin-card" data-trilho="financeiro">
-    <div class="ps-fin-topo">
-        <h2>Financeiro do caso</h2>
-        <span class="ps-cab-espaco"></span>
-        <a href="#" class="ps-card-cab-link" data-ps-ir-aba="financeiro-tab">detalhar</a>
-    </div>
-    <div class="ps-fin-caixas">
-        <div class="ps-fin-caixa ps-fin-caixa--causa">
-            <div class="ps-fin-rotulo">Valor da causa</div>
-            <div class="ps-fin-valor">{{ financeiro.valorCausaFormatado }}</div>
-        </div>
-        <div class="ps-fin-caixa ps-fin-caixa--media">
-            <div class="ps-fin-rotulo">{{ financeiro.mediaRotulo }}</div>
-            <div class="ps-fin-valor">{{ financeiro.mediaCpfFormatada }}</div>
-        </div>
-    </div>
-    {# Ausência de dado é travessão, nunca R$ 0,00 — a nota explica de qual dos
-       dois "não sei" se trata, em vez de deixar o traço mudo. #}
-    <div class="ps-fin-nota">
-        {%- if financeiro.clienteNome -%}
-            {{ pasta.clientes|length }} cliente{{ pasta.clientes|length == 1 ? '' : 's' }} vinculado{{ pasta.clientes|length == 1 ? '' : 's' }} · calculado sobre o valor da causa
-        {%- else -%}
-            Vincule o cliente para calcular a média.
-        {%- endif -%}
     </div>
 </section>
 

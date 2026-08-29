@@ -309,7 +309,7 @@ final class PastaClientePrincipalControllerTest extends JusPrimeWebTestCase
         // ANTES: sem marcação, manda o de cadastro mais antigo (10.000 e 30.000).
         $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
         self::assertSame('R$ 20.000,00', trim($crawler->filter('#financeiro-media-cpf')->text()));
-        self::assertStringContainsString('ANTONIO ANTIGO', $crawler->filter('.financeiro-faixa')->text());
+        self::assertStringContainsString('ANTONIO ANTIGO', $crawler->filter('.ps-fin-faixa')->text());
 
         // Marca a Zulmira.
         $pasta->definirClientePrincipal($recente);
@@ -322,8 +322,8 @@ final class PastaClientePrincipalControllerTest extends JusPrimeWebTestCase
             trim($crawler->filter('#financeiro-media-cpf')->text()),
             'a média exibida tem de seguir a marcação, não a ordem de cadastro'
         );
-        self::assertStringContainsString('ZULMIRA RECENTE', $crawler->filter('.financeiro-faixa')->text());
-        self::assertStringNotContainsString('ANTONIO ANTIGO', $crawler->filter('.financeiro-faixa')->text());
+        self::assertStringContainsString('ZULMIRA RECENTE', $crawler->filter('.ps-fin-faixa')->text());
+        self::assertStringNotContainsString('ANTONIO ANTIGO', $crawler->filter('.ps-fin-faixa')->text());
     }
 
     #[TestDox('A REGRESSÃO QUE A FEATURE MATA: vincular depois um cliente mais antigo não muda a tela')]
@@ -365,7 +365,7 @@ final class PastaClientePrincipalControllerTest extends JusPrimeWebTestCase
             trim($crawler->filter('#financeiro-media-cpf')->text()),
             'vincular um cliente mais antigo NÃO pode trocar o número — era exatamente esse o defeito'
         );
-        self::assertStringContainsString('ESCOLHIDO DONO', $crawler->filter('.financeiro-faixa')->text());
+        self::assertStringContainsString('ESCOLHIDO DONO', $crawler->filter('.ps-fin-faixa')->text());
     }
 
     #[TestDox('A estrela cheia marca quem manda, e os outros ganham botão para assumir')]

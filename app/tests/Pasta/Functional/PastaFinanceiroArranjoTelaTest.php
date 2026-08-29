@@ -84,8 +84,8 @@ final class PastaFinanceiroArranjoTelaTest extends JusPrimeWebTestCase
         return $cliente;
     }
 
-    #[TestDox('Os quatro blocos da faixa são filhos diretos da MESMA linha do grid')]
-    public function testQuatroBlocosNaMesmaLinha(): void
+    #[TestDox('A faixa do topo tem QUATRO cards, todos filhos diretos dela')]
+    public function testQuatroCardsNaFaixa(): void
     {
         $client          = static::createClient();
         [$user, $tenant] = $this->criarUsuarioAdmin();
@@ -97,32 +97,32 @@ final class PastaFinanceiroArranjoTelaTest extends JusPrimeWebTestCase
 
         self::assertSame(
             1,
-            $crawler->filter('.financeiro-faixa')->count(),
-            'sumiu a linha do grid que segura os indicadores e os controles'
+            $crawler->filter('.ps-fin-faixa')->count(),
+            'sumiu a faixa que segura os quatro cards de status'
+        );
+
+        self::assertSame(
+            4,
+            $crawler->filter('.ps-fin-faixa > .ps-fin-bloco')->count(),
+            'o desenho pede quatro cards de mesmo peso, filhos diretos da faixa'
         );
 
         foreach ([
-            '#financeiro-media-cpf'     => 'Média por CPF',
+            '#financeiro-situacao-btn'  => 'Contrato',
+            '#financeiro-probono-btn'   => 'Pró-bono',
             '#financeiro-valor-causa'   => 'Valor da causa',
-            '#financeiro-situacao-btn'  => 'CONTRATO',
-            '#financeiro-probono-check' => 'PRÓ-BONO',
+            '#financeiro-media-cpf'     => 'Média por CPF',
         ] as $seletor => $rotulo) {
             self::assertSame(
                 1,
-                $crawler->filter('.financeiro-faixa > div ' . $seletor)->count(),
-                sprintf('o bloco "%s" saiu da faixa', $rotulo)
+                $crawler->filter('.ps-fin-faixa > .ps-fin-bloco ' . $seletor)->count(),
+                sprintf('o card "%s" saiu da faixa', $rotulo)
             );
         }
-
-        self::assertSame(
-            1,
-            $crawler->filter('.financeiro-faixa > div #financeiro-docs-lista')->count(),
-            'a lista de Arquivos tem de continuar na mesma faixa, à esquerda'
-        );
     }
 
-    #[TestDox('A ordem dos blocos segue o desenho: Arquivos, Média por CPF, Valor da causa, CONTRATO, PRÓ-BONO')]
-    public function testOrdemDosBlocosSegueODesenho(): void
+    #[TestDox('A ordem dos cards segue o desenho: Contrato, Pró-bono, Valor da causa, Média')]
+    public function testOrdemDosCardsSegueODesenho(): void
     {
         $client          = static::createClient();
         [$user, $tenant] = $this->criarUsuarioAdmin();
@@ -132,18 +132,18 @@ final class PastaFinanceiroArranjoTelaTest extends JusPrimeWebTestCase
         $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
 
         $marcadores = [
-            '#financeiro-docs-lista'    => 'arquivos',
-            '#financeiro-media-cpf'     => 'media',
-            '#financeiro-valor-causa'   => 'valor',
             '#financeiro-situacao-btn'  => 'contrato',
-            '#financeiro-probono-check' => 'probono',
+            '#financeiro-probono-btn'   => 'probono',
+            '#financeiro-valor-causa'   => 'valor',
+            '#financeiro-media-cpf'     => 'media',
         ];
 
         $ordemNaTela = [];
-        foreach ($crawler->filter('.financeiro-faixa > div') as $indice => $noColuna) {
-            $coluna = $crawler->filter('.financeiro-faixa > div')->eq($indice);
+        $cards       = $crawler->filter('.ps-fin-faixa > .ps-fin-bloco');
+        foreach ($cards as $indice => $no) {
+            $card = $cards->eq($indice);
             foreach ($marcadores as $seletor => $apelido) {
-                if ($coluna->filter($seletor)->count() > 0) {
+                if ($card->filter($seletor)->count() > 0) {
                     $ordemNaTela[] = $apelido;
                     break;
                 }
@@ -151,9 +151,122 @@ final class PastaFinanceiroArranjoTelaTest extends JusPrimeWebTestCase
         }
 
         self::assertSame(
-            ['arquivos', 'media', 'valor', 'contrato', 'probono'],
+            ['contrato', 'probono', 'valor', 'media'],
             $ordemNaTela,
             'a faixa tem de sair na ordem do desenho aprovado'
+        );
+    }
+
+    #[TestDox('Arquivos saiu da faixa e virou card do TRILHO, ao lado de Pagamentos')]
+    public function testArquivosEPagamentosVivemNoTrilho(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant, '12860.00');
+        $this->logarComTenant($client, $user, $tenant);
+
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
+
+        // Combinador de filho DIRETO: distingue "está no trilho" de "existe em
+        // algum lugar da aba", que era verdade mesmo com o layout antigo.
+        self::assertSame(
+            1,
+            $crawler->filter('#financeiro .ps-grade > .ps-trilho > [data-trilho="arquivos"]')->count(),
+            'Arquivos é o primeiro card do trilho'
+        );
+        self::assertSame(
+            1,
+            $crawler->filter('#financeiro .ps-grade > .ps-trilho > [data-trilho="pagamentos"]')->count(),
+            'Pagamentos é o segundo card do trilho'
+        );
+        self::assertSame(
+            0,
+            $crawler->filter('.ps-fin-faixa #financeiro-docs-lista')->count(),
+            'a lista de arquivos não pode ter ficado na faixa do topo'
+        );
+
+        self::assertSame(
+            ['arquivos', 'pagamentos'],
+            $crawler->filter('#financeiro .ps-grade > .ps-trilho > [data-trilho]')
+                ->each(fn ($n) => $n->attr('data-trilho')),
+            'ordem do trilho no desenho: Arquivos, depois Pagamentos'
+        );
+    }
+
+    #[TestDox('O gerenciador de arquivos NÃO existe nesta aba: nem busca, nem filtro, nem dropzone')]
+    public function testAbaNaoTemMaisGerenciadorDeArquivos(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant, '12860.00');
+        $this->logarComTenant($client, $user, $tenant);
+
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
+        $aba     = $crawler->filter('#financeiro')->text();
+
+        /* Revisão de 28/08: busca, categorias, "mostrar mais 5" e dropzone saíram
+           daqui. O gerenciador completo continua sendo a aba Documentos. */
+        foreach (['Buscar arquivo', 'Comprovantes', 'Mostrar mais', 'Arraste contratos'] as $queSaiu) {
+            self::assertStringNotContainsString(
+                $queSaiu,
+                $aba,
+                "\"{$queSaiu}\" é do gerenciador, que saiu da aba Financeiro"
+            );
+        }
+    }
+
+    #[TestDox('"Observações financeiras" virou "Relatório financeiro", o nome da produção')]
+    public function testRelatorioFinanceiroTemONomeDaProducao(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant, '12860.00');
+        $this->logarComTenant($client, $user, $tenant);
+
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
+
+        self::assertSame(
+            'Relatório financeiro',
+            trim($crawler->filter('#financeiroRelatorio > .ps-card-cab h2')->text())
+        );
+        // O compositor é o mesmo das anotações: mexer só aqui desalinharia os três da tela.
+        self::assertSame(
+            1,
+            $crawler->filter('#financeiroRelatorio .ps-compositor #formFinanceiroObservacao')->count(),
+            'o Relatório financeiro perdeu o compositor'
+        );
+    }
+
+    #[TestDox('Contrato e Pró-bono são SELOS clicáveis, sem link "marcar como" ao lado')]
+    public function testContratoEProBonoSaoSelosClicaveis(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant, '12860.00');
+        $this->logarComTenant($client, $user, $tenant);
+
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
+
+        $contrato = $crawler->filter('#financeiro-situacao-btn');
+        self::assertSame('button', $contrato->nodeName());
+        self::assertStringContainsString('ps-fin-selo', (string) $contrato->attr('class'));
+        self::assertSame('Pendente', trim($contrato->text()), 'pasta nova nasce com contrato pendente');
+        self::assertStringContainsString(
+            'clique para marcar como assinado',
+            (string) $contrato->attr('title'),
+            'o próprio selo tem de dizer o que o clique faz'
+        );
+
+        $proBono = $crawler->filter('#financeiro-probono-btn');
+        self::assertSame('button', $proBono->nodeName());
+        self::assertStringContainsString('ps-fin-selo', (string) $proBono->attr('class'));
+        self::assertSame('Não é pró-bono', trim($proBono->text()));
+
+        // O link "marcar como assinado / pendente" saiu na revisão de 28/08.
+        self::assertStringNotContainsString(
+            'marcar como',
+            $crawler->filter('.ps-fin-faixa')->text(),
+            'dois alvos para a mesma ação ensinam o usuário a ignorar o selo'
         );
     }
 
@@ -170,7 +283,7 @@ final class PastaFinanceiroArranjoTelaTest extends JusPrimeWebTestCase
         self::assertSame('—', trim($crawler->filter('#financeiro-media-cpf')->text()));
         self::assertStringContainsString(
             'Vincule o cliente',
-            $crawler->filter('.financeiro-faixa')->text(),
+            $crawler->filter('.ps-fin-faixa')->text(),
             'sem CPF a tela precisa dizer o que falta, não só mostrar um traço'
         );
     }
@@ -198,7 +311,7 @@ final class PastaFinanceiroArranjoTelaTest extends JusPrimeWebTestCase
         // então é assim que ele aparece na faixa.
         self::assertStringContainsString(
             'MARIA SOUZA',
-            $crawler->filter('.financeiro-faixa')->text(),
+            $crawler->filter('.ps-fin-faixa')->text(),
             'a média é de um cliente específico — a tela tem de dizer de quem'
         );
     }
@@ -253,8 +366,8 @@ final class PastaFinanceiroArranjoTelaTest extends JusPrimeWebTestCase
             trim($crawler->filter('#financeiro-media-cpf')->text()),
             'a média tem de ser a do primeiro cliente vinculado (10.000 e 30.000)'
         );
-        self::assertStringContainsString('ZULMIRA SEGUNDA', $crawler->filter('.financeiro-faixa')->text());
-        self::assertStringNotContainsString('ANTONIO PRIMEIRO', $crawler->filter('.financeiro-faixa')->text());
+        self::assertStringContainsString('ZULMIRA SEGUNDA', $crawler->filter('.ps-fin-faixa')->text());
+        self::assertStringNotContainsString('ANTONIO PRIMEIRO', $crawler->filter('.ps-fin-faixa')->text());
     }
 
     #[TestDox('Cliente empresa troca o rótulo para "Média por CNPJ" — empresa não tem CPF')]
@@ -289,7 +402,7 @@ final class PastaFinanceiroArranjoTelaTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $user, $tenant);
         $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
 
-        $faixa = $crawler->filter('.financeiro-faixa')->text();
+        $faixa = $crawler->filter('.ps-fin-faixa')->text();
         self::assertStringContainsString('Média por CNPJ', $faixa);
         self::assertStringNotContainsString('Média por CPF', $faixa);
         self::assertSame('R$ 50.000,00', trim($crawler->filter('#financeiro-media-cpf')->text()));
@@ -317,7 +430,7 @@ final class PastaFinanceiroArranjoTelaTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $user, $tenant);
 
         $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
-        $bloco   = $crawler->filter('#financeiro-valor-causa-bloco');
+        $bloco   = $crawler->filter('.ps-fin-faixa > #financeiro-valor-causa-bloco');
 
         self::assertSame(1, $bloco->count());
         self::assertNotEmpty($bloco->attr('data-csrf'));

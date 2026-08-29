@@ -277,7 +277,7 @@ final class PastaDadosArranjoTelaTest extends JusPrimeWebTestCase
         );
     }
 
-    #[TestDox('o trilho traz os quatro cartões na ordem aprovada')]
+    #[TestDox('o trilho traz os três cartões na ordem aprovada')]
     public function testOrdemDosCartoesDoTrilho(): void
     {
         $client                       = static::createClient();
@@ -289,9 +289,9 @@ final class PastaDadosArranjoTelaTest extends JusPrimeWebTestCase
 
         $cartoes = $crawler->filter('#dados > .ps-grade > .ps-trilho > [data-trilho]');
         self::assertSame(
-            ['prazos', 'clientes', 'financeiro', 'documentos'],
+            ['prazos', 'clientes', 'documentos'],
             $cartoes->each(fn ($n) => $n->attr('data-trilho')),
-            'ordem aprovada: Próximos prazos · Clientes · Financeiro do caso · Documentos'
+            'ordem aprovada (revisão 28/08): Próximos prazos · Clientes · Documentos'
         );
     }
 
@@ -478,8 +478,8 @@ final class PastaDadosArranjoTelaTest extends JusPrimeWebTestCase
         );
     }
 
-    #[TestDox('o cartão financeiro do trilho mostra valor da causa e média, não parcela inventada')]
-    public function testCartaoFinanceiroDoTrilho(): void
+    #[TestDox('o cartão financeiro NÃO está mais no trilho: o financeiro tem aba própria')]
+    public function testTrilhoNaoTemMaisCartaoFinanceiro(): void
     {
         $client                       = static::createClient();
         [$em, $user, $tenant, $pasta] = $this->criarBase();
@@ -488,27 +488,26 @@ final class PastaDadosArranjoTelaTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $user, $tenant);
         $crawler = $this->abrir($client, $pasta);
 
-        $card = $crawler->filter('.ps-trilho > [data-trilho="financeiro"]');
-        self::assertCount(1, $card);
-        self::assertCount(2, $card->filter('.ps-fin-caixa'), 'duas caixas: valor da causa e média');
+        /* Revisão de 28/08 do desenho: o cartão saiu do trilho. Repetir valor da
+           causa e média aqui criava DOIS lugares para o mesmo número — e quem
+           edita o valor edita num deles só. */
+        self::assertCount(
+            0,
+            $crawler->filter('.ps-trilho > [data-trilho="financeiro"]'),
+            'o cartão "Financeiro do caso" saiu do trilho da aba Dados'
+        );
 
-        /* O protótipo desenha "Recebido / A receber / Próxima parcela": dado que
-           a Pasta NÃO tem — parcelas e recebimentos vivem no módulo Cobrança,
-           sem ligação com pasta. Vale o texto do handoff (decisão do dono). */
-        foreach (['Recebido', 'A receber', 'Próxima parcela'] as $inventado) {
+        /* E não voltou disfarçado: os rótulos do cartão não podem sobrar no
+           trilho depois da remoção. O escopo é o trilho, não a página — o valor
+           da causa segue legítimo na aba Financeiro. */
+        $trilho = $crawler->filter('#dados > .ps-grade > .ps-trilho')->text();
+        foreach (['Financeiro do caso', 'Valor da causa'] as $rotuloQueSaiu) {
             self::assertStringNotContainsString(
-                $inventado,
-                $card->text(),
-                "\"{$inventado}\" não tem lastro no modelo da pasta e não pode aparecer"
+                $rotuloQueSaiu,
+                $trilho,
+                "\"{$rotuloQueSaiu}\" pertence à aba Financeiro, não ao trilho de Dados"
             );
         }
-
-        // Sem valor preenchido e sem cliente: travessão nos dois, nunca R$ 0,00.
-        self::assertSame(
-            ['—', '—'],
-            $card->filter('.ps-fin-valor')->each(fn ($n) => trim($n->text())),
-            'ausência de dado vira travessão; um zero ali seria número inventado'
-        );
     }
 
     // =========================================================================
