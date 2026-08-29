@@ -83,6 +83,9 @@ final class PastaPushProcessualController extends AbstractController
         // Teor externo (CNJ): sanitizado pelo mesmo formatador da tela do módulo antes de exibir.
         return $this->render('pasta/_push_teor.html.twig', [
             'publicacao' => PublicacaoDjenOutput::fromEntity($publicacao, $formatadorTeor->formatar($publicacao->getTexto())),
+            // Quem sair daqui para o módulo volta para ESTA pasta, já na aba certa. O fragmento
+            // precisa ir explícito: o navegador não manda `#push` no Referer.
+            'voltarPara' => $this->generateUrl('pasta_show', ['id' => $pasta->getId()]) . '#push',
         ]);
     }
 

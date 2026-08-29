@@ -186,4 +186,25 @@ final class PastaPushTeorControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseIsSuccessful();
     }
+
+    #[TestDox('O link "Abrir no módulo" leva o caminho de volta para ESTA pasta, com a aba certa')]
+    public function testLinkParaOModuloLevaOCaminhoDeVolta(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $processo        = $this->criarProcesso($tenant, self::NUMERO_DA_PASTA);
+        $this->vincular($pasta, $processo);
+        $pub = $this->criarPublicacao($tenant, '30000070', self::NUMERO_DA_PASTA, '2026-08-20', $processo);
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}/push/{$pub->getId()}");
+
+        self::assertResponseIsSuccessful();
+        // Compara o VALOR, não o texto codificado: o gerador de URL do Symfony deixa a barra crua
+        // e escapa só o `#`, e um assert sobre a codificação quebraria sem defeito nenhum.
+        $href = (string) $crawler->filter('.ps-push-teor-pe a[href^="/push-processual/"]')->attr('href');
+        parse_str((string) parse_url($href, PHP_URL_QUERY), $parametros);
+        self::assertSame("/pasta/{$pasta->getId()}#push", $parametros['voltar'] ?? null);
+    }
 }

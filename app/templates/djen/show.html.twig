@@ -17,8 +17,11 @@
 <section class="content-header">
     <div class="container-fluid d-flex justify-content-between align-items-center">
         <h1 class="m-0">Publicação do DJEN</h1>
-        <a href="{{ path('push_processual_index') }}" class="btn btn-outline-secondary">
-            <i class="bi bi-arrow-left me-1"></i> Voltar
+        {# Volta para a origem quando ela é conhecida e interna (ver DjenController::destinoDeVolta);
+           sem origem, o destino é a lista — que era o comportamento fixo de antes. #}
+        <a href="{{ voltarPara ?: path('push_processual_index') }}"
+           id="push-voltar" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i> {{ voltarPara ? 'Voltar' : 'Voltar para as publicações' }}
         </a>
     </div>
 </section>

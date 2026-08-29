@@ -22,7 +22,7 @@
             </a>
         {% endif %}
         {% if can_access_module('djen') %}
-            <a href="{{ path('push_processual_show', {id: publicacao.id}) }}">Abrir no módulo</a>
+            <a href="{{ path('push_processual_show', {id: publicacao.id, voltar: voltarPara}) }}">Abrir no módulo</a>
         {% endif %}
     </div>
 </div>

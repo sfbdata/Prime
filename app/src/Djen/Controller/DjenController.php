@@ -210,7 +210,7 @@ final class DjenController extends AbstractController
     }
 
     #[Route('/{id}', name: 'push_processual_show', methods: ['GET'], requirements: ['id' => '\d+'])]
-    public function show(int $id, FormatadorTeorDjen $formatadorTeor): Response
+    public function show(int $id, Request $request, FormatadorTeorDjen $formatadorTeor): Response
     {
         $tenant = $this->tenantComAcesso();
         if ($tenant === null) {
@@ -230,6 +230,7 @@ final class DjenController extends AbstractController
         // Teor externo (CNJ): formata/sanitiza mantendo a leitura segura antes de exibir.
         return $this->render('djen/show.html.twig', [
             'publicacao' => PublicacaoDjenOutput::fromEntity($publicacao, $formatadorTeor->formatar($publicacao->getTexto())),
+            'voltarPara' => $this->destinoDeVolta($request),
         ]);
     }
 
@@ -253,5 +254,68 @@ final class DjenController extends AbstractController
         $this->addFlash('warning', 'Você não tem permissão para acessar o módulo Push Processual.');
 
         return $this->redirectToRoute('homepage');
+    }
+
+    /**
+     * Para onde o botão "Voltar" da publicação leva: a página de onde o usuário veio.
+     *
+     * Ordem: `?voltar=` (posto por quem linka daqui de dentro — a aba da pasta manda o fragmento
+     * `#push` junto, que o Referer não carregaria) e, na falta dele, o Referer. Quem chega pela
+     * listagem filtrada volta com o filtro, que o "Voltar" fixo perdia.
+     *
+     * Nada disso é confiável: são dado de fora. Só caminho INTERNO passa — senão a nossa tela
+     * exibiria um botão "Voltar" apontando para outro site, com a credibilidade do sistema
+     * emprestada a ele. Sem origem válida, devolve null e a tela cai na lista.
+     */
+    private function destinoDeVolta(Request $request): ?string
+    {
+        $candidato = trim((string) $request->query->get('voltar', ''));
+
+        if ($candidato === '') {
+            $referer = trim((string) $request->headers->get('referer', ''));
+            if ($referer === '') {
+                return null;
+            }
+
+            $partes = parse_url($referer);
+            if ($partes === false) {
+                return null;
+            }
+
+            // Referer de outro host não é "a página onde estávamos" — é outro site.
+            if (isset($partes['host']) && $partes['host'] !== $request->getHost()) {
+                return null;
+            }
+
+            $candidato = ($partes['path'] ?? '')
+                . (isset($partes['query']) ? '?' . $partes['query'] : '')
+                . (isset($partes['fragment']) ? '#' . $partes['fragment'] : '');
+        }
+
+        $destino = self::caminhoInterno($candidato);
+
+        // Voltar para a própria publicação não é volta nenhuma (acontece no F5).
+        if ($destino !== null && str_starts_with($destino, $request->getPathInfo())) {
+            return null;
+        }
+
+        return $destino;
+    }
+
+    /**
+     * Caminho do próprio sistema, ou null. `//outro-site` e `/\outro-site` são lidos pelo
+     * navegador como OUTRO host mesmo começando com barra — é o disfarce clássico desta validação.
+     */
+    private static function caminhoInterno(string $caminho): ?string
+    {
+        if ($caminho === '' || !str_starts_with($caminho, '/')) {
+            return null;
+        }
+
+        if (str_starts_with($caminho, '//') || str_starts_with($caminho, '/\\')) {
+            return null;
+        }
+
+        return $caminho;
     }
 }

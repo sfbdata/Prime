@@ -24,6 +24,7 @@
         verAnotacoesAnteriores();
         acoesDoMenu();
         acordeaoDoPush();
+        abaDoFragmento();
     });
 
     /* ── 1. Indicador das abas ────────────────────────────────────────────── */
@@ -230,6 +231,20 @@
                     painel.innerHTML = '<p class="ps-push-sem-teor">Não foi possível carregar o teor. Tente de novo.</p>';
                 });
         });
+    }
+
+    /* ── 8. A aba que o fragmento da URL pedir ────────────────────────────
+       `/pasta/223#push` abre na aba Push Processual. E o que faz o "Voltar"
+       da publicacao devolver o usuario onde ele estava, e nao na aba Dados.
+       Roda por ultimo: o indicador ja mediu a pilula e reage ao shown.bs.tab.
+       Fragmento que nao seja de aba (ex.: #partes, ancora dentro de Dados) nao
+       encontra gatilho e passa reto. */
+    function abaDoFragmento() {
+        var hash = window.location.hash;
+        if (!hash || hash.length < 2 || !window.bootstrap) { return; }
+
+        var gatilho = document.getElementById(hash.slice(1) + '-tab');
+        if (gatilho) { bootstrap.Tab.getOrCreateInstance(gatilho).show(); }
     }
 
 }());
