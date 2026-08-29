@@ -71,6 +71,27 @@ class Pasta implements Auditavel, TenantAware
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $modificadoEm = null;
 
+    /**
+     * Exclusão-lápide. Preenchido = a pasta foi excluída pela tela, mas a linha continua no banco:
+     * ela aparece riscada na lista do Expediente, some das telas de trabalho (a situação vai para
+     * ARQUIVADA junto) e fica somente-leitura.
+     *
+     * Existe porque o número da pasta é derivado de MAX(prefixo)+1 (ver GerarNumeroDePasta): apagar
+     * a linha de uma pasta do MEIO da sequência deixava o número órfão para sempre, sem nenhum
+     * registro de que ele existiu. Medido em produção em 28/08/2026 — a pasta 1238 foi apagada
+     * quando a 1239 já existia, e a seguinte nasceu 1240. A lápide mantém o número ocupado e
+     * explica na tela para onde ele foi.
+     *
+     * Só vale para pasta que TEM posterior. Apagar a última continua apagando de verdade (decisão
+     * do dono): erro na hora de criar some sem deixar rastro e devolve o número.
+     */
+    #[ORM\Column(name: 'excluida_em', type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $excluidaEm = null;
+
+    #[ORM\ManyToOne]
+    #[ORM\JoinColumn(name: 'excluida_por_id', nullable: true, onDelete: 'SET NULL')]
+    private ?User $excluidaPor = null;
+
     #[ORM\ManyToOne]
     #[ORM\JoinColumn(nullable: true)]
     private ?User $criadoPor = null;
@@ -282,6 +303,59 @@ $this->documentos = new ArrayCollection();
     public function getModificadoEm(): ?\DateTimeImmutable
     {
         return $this->modificadoEm;
+    }
+
+    /** A pasta foi excluída pela tela e continua no banco como lápide. */
+    public function estaExcluida(): bool
+    {
+        return $this->excluidaEm !== null;
+    }
+
+    public function getExcluidaEm(): ?\DateTimeImmutable
+    {
+        return $this->excluidaEm;
+    }
+
+    public function getExcluidaPor(): ?User
+    {
+        return $this->excluidaPor;
+    }
+
+    /**
+     * Vira lápide: guarda quem e quando, e arquiva junto — pasta excluída não pode continuar
+     * contando como trabalho ativo em nenhuma tela que filtra por situação.
+     *
+     * Recusa a segunda marcação de propósito: sobrescrever apagaria o autor e a data da exclusão
+     * de verdade, que é justamente o que a lápide existe para guardar.
+     */
+    public function marcarExcluida(User $por, \DateTimeImmutable $em): self
+    {
+        if ($this->estaExcluida()) {
+            throw new \LogicException('Esta pasta já está excluída.');
+        }
+
+        $this->excluidaEm  = $em;
+        $this->excluidaPor = $por;
+        $this->situacao    = self::SITUACAO_ARQUIVADA;
+
+        return $this;
+    }
+
+    /**
+     * Desfaz a lápide. Volta para ATIVA — e não para a situação anterior à exclusão, que não é
+     * guardada: quem arquiva de propósito usa o botão de arquivar, não o de excluir.
+     */
+    public function restaurar(): self
+    {
+        if (!$this->estaExcluida()) {
+            throw new \LogicException('Esta pasta não está excluída.');
+        }
+
+        $this->excluidaEm  = null;
+        $this->excluidaPor = null;
+        $this->situacao    = self::SITUACAO_ATIVA;
+
+        return $this;
     }
 
     public function getCriadoPor(): ?User
