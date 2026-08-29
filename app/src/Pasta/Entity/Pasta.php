@@ -158,6 +158,11 @@ class Pasta implements Auditavel, TenantAware
     #[ORM\OneToMany(mappedBy: 'pasta', targetEntity: PastaMensagem::class)]
     private Collection $mensagens;
 
+    /** O que o cliente combinou pagar por este caso. Some com a pasta. */
+    #[ORM\OneToMany(mappedBy: 'pasta', targetEntity: PastaPagamento::class, cascade: ['persist', 'remove'], orphanRemoval: true)]
+    #[ORM\OrderBy(['vencimento' => 'ASC'])]
+    private Collection $pagamentos;
+
     public function __construct()
     {
         $this->dataAbertura = new \DateTimeImmutable();
@@ -173,6 +178,7 @@ $this->documentos = new ArrayCollection();
         $this->checklistItens = new ArrayCollection();
         $this->secoes = new ArrayCollection();
         $this->mensagens = new ArrayCollection();
+        $this->pagamentos = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -654,6 +660,12 @@ $this->documentos = new ArrayCollection();
     public function getObservacoesFinanceiras(): Collection
     {
         return $this->observacoesFinanceiras;
+    }
+
+    /** @return Collection<int, PastaPagamento> */
+    public function getPagamentos(): Collection
+    {
+        return $this->pagamentos;
     }
 
     /** @return Collection<int, PastaObservacaoDetalhes> */

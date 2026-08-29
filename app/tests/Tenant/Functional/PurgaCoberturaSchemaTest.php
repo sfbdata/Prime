@@ -31,6 +31,7 @@ final class PurgaCoberturaSchemaTest extends KernelTestCase
         'pasta_mensagem',                // ← pasta
         'pasta_observacao_detalhes',     // ← pasta
         'pasta_observacao_financeira',   // ← pasta
+        'pasta_pagamento',               // ← pasta (delete_rule CASCADE conferido no banco)
         'tarefa_mensagem',               // ← tarefa
         'cobranca_pessoa_endereco',      // ← cobranca_pessoa
         'cobranca_pessoa_telefone',      // ← cobranca_pessoa
