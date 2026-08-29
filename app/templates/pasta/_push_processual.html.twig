@@ -19,7 +19,10 @@
         <h2>Push Processual</h2>
         {% if push.total > 0 %}<span class="ps-contagem">{{ push.total }}</span>{% endif %}
         <span class="ps-cab-espaco"></span>
-        {% if push.numeroUnico %}
+        {# O atalho para o módulo só para quem pode entrar nele: a aba NÃO exige
+           `modules.djen.view` (o push é conteúdo da pasta), mas a tela do módulo exige. Sem esta
+           guarda o link levaria metade dos usuários a um acesso negado. #}
+        {% if push.numeroUnico and can_access_module('djen') %}
             <a class="ps-card-cab-link"
                href="{{ path('push_processual_index', {busca: push.numeroUnico}) }}">ver no módulo</a>
         {% endif %}
@@ -72,7 +75,7 @@
         {% if push.limiteAtingido %}
             <p class="ps-push-teto">
                 Exibindo as {{ push.total }} publicações mais recentes deste caso.
-                {% if push.numeroUnico %}
+                {% if push.numeroUnico and can_access_module('djen') %}
                     <a href="{{ path('push_processual_index', {busca: push.numeroUnico}) }}">Ver todas no módulo</a>.
                 {% endif %}
             </p>

@@ -156,4 +156,38 @@ final class PastaPushProcessualTest extends JusPrimeWebTestCase
         self::assertSame(1, $crawler->filter('#pastaTabs > #push-tab')->count());
         self::assertSame(1, $crawler->filter('.ps-push-item[data-push-id="' . $pub->getId() . '"]')->count());
     }
+
+    #[TestDox('O atalho "ver no módulo" só aparece para quem pode entrar no módulo')]
+    public function testAtalhoParaOModuloRespeitaAPermissaoDoModulo(): void
+    {
+        $client   = static::createClient();
+        $tenant   = $this->criarTenant();
+        $semPush  = $this->criarUsuarioSemPermissaoDoModulo($tenant);
+        $pasta    = $this->criarPasta($tenant);
+        $processo = $this->criarProcesso($tenant, self::NUMERO_DA_PASTA);
+        $this->vincular($pasta, $processo);
+        $this->criarPublicacao($tenant, '20000040', self::NUMERO_DA_PASTA, '2026-08-20', $processo);
+
+        $this->logarComTenant($client, $semPush, $tenant);
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
+
+        self::assertSame(1, $crawler->filter('.ps-push-lista > .ps-push-item')->count(), 'a lista continua visível');
+        self::assertSame(
+            0,
+            $crawler->filter('.ps-push a[href^="/push-processual"]')->count(),
+            'sem a permissão do módulo o atalho não pode aparecer: levaria a um acesso negado',
+        );
+
+        // E quem tem acesso ao módulo continua vendo o atalho.
+        [$admin, $tenantAdmin] = $this->criarAdmin();
+        $pastaAdmin            = $this->criarPasta($tenantAdmin);
+        $processoAdmin         = $this->criarProcesso($tenantAdmin, self::NUMERO_DA_PASTA);
+        $this->vincular($pastaAdmin, $processoAdmin);
+        $this->criarPublicacao($tenantAdmin, '20000041', self::NUMERO_DA_PASTA, '2026-08-20', $processoAdmin);
+
+        $this->logarComTenant($client, $admin, $tenantAdmin);
+        $crawler = $client->request('GET', "/pasta/{$pastaAdmin->getId()}");
+
+        self::assertSame(1, $crawler->filter('.ps-push a[href^="/push-processual"]')->count());
+    }
 }
