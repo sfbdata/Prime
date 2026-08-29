@@ -1,0 +1,81 @@
+{# ============================================================================
+   Aba Push Processual — as publicações captadas do DJEN para os processos DESTA
+   pasta.
+
+   O casamento é pelo NÚMERO CNJ do processo, não pela FK da publicação: a FK só
+   é gravada durante a sincronização, então publicação que chegou antes de o
+   processo entrar no cadastro nunca a recebe. Por isso não há selo
+   "avulsa/vinculada" aqui — dentro da pasta toda publicação listada é do caso,
+   e a distinção é assunto do módulo.
+
+   Os dois vazios têm textos diferentes de propósito: sem processo vinculado a
+   pasta nunca receberá nada (e o caminho é a aba Processo); com processo e sem
+   publicação, o que falta é o processo estar sob uma OAB monitorada.
+
+   Contexto: `pasta`, `push` (App\Pasta\DTO\PastaPushOutput).
+   ============================================================================ #}
+<section class="ps-card ps-push" data-aba="push">
+    <div class="ps-card-cab">
+        <h2>Push Processual</h2>
+        {% if push.total > 0 %}<span class="ps-contagem">{{ push.total }}</span>{% endif %}
+        <span class="ps-cab-espaco"></span>
+        {% if push.numeroUnico %}
+            <a class="ps-card-cab-link"
+               href="{{ path('push_processual_index', {busca: push.numeroUnico}) }}">ver no módulo</a>
+        {% endif %}
+    </div>
+
+    {% if not push.temProcesso %}
+        <div class="ps-vazio" id="push-vazio-sem-processo">
+            <i class="bi bi-broadcast"></i>
+            <div class="ps-vazio-titulo">Esta pasta não tem processo vinculado</div>
+            <div class="ps-vazio-nota">
+                O Push Processual acompanha as publicações pelo número do processo.
+                <button type="button" class="ps-push-link" data-ps-ir-aba="processo-tab">Vincule um processo</button>
+                para que as publicações dele apareçam aqui.
+            </div>
+        </div>
+    {% elseif push.total == 0 %}
+        <div class="ps-vazio" id="push-vazio-sem-publicacao">
+            <i class="bi bi-broadcast"></i>
+            <div class="ps-vazio-titulo">Nenhuma publicação captada para este caso</div>
+            <div class="ps-vazio-nota">
+                O sistema capta o que sai no DJEN para as OABs monitoradas do escritório.
+                Se o processo não estiver sob uma OAB monitorada, nada chega aqui.
+            </div>
+        </div>
+    {% else %}
+        <ul class="ps-push-lista">
+            {% for item in push.itens %}
+                <li class="ps-push-item{{ item.lida ? '' : ' ps-push-item--nova' }}"
+                    data-push-id="{{ item.id }}">
+                    <button type="button" class="ps-push-cab"
+                            aria-expanded="false"
+                            aria-controls="push-teor-{{ item.id }}"
+                            data-push-url="{{ path('pasta_push_teor', {id: pasta.id, publicacaoId: item.id}) }}">
+                        <span class="ps-push-data">{{ item.dataDisponibilizacao ?? '—' }}</span>
+                        <span class="ps-push-corpo">
+                            <span class="ps-push-titulo">{{ item.tipoComunicacao ?? 'Publicação' }}</span>
+                            <span class="ps-push-meta">
+                                {{ item.siglaTribunal }}
+                                {%- if item.nomeOrgao %} · {{ item.nomeOrgao }}{% endif -%}
+                                {%- if push.numeroUnico is null and item.numeroProcessoExibicao %} · {{ item.numeroProcessoExibicao }}{% endif -%}
+                            </span>
+                        </span>
+                        {% if not item.lida %}<span class="ps-push-pip" title="Não lida"></span>{% endif %}
+                        <i class="bi bi-chevron-down ps-push-seta" aria-hidden="true"></i>
+                    </button>
+                    <div class="ps-push-teor" id="push-teor-{{ item.id }}" hidden></div>
+                </li>
+            {% endfor %}
+        </ul>
+        {% if push.limiteAtingido %}
+            <p class="ps-push-teto">
+                Exibindo as {{ push.total }} publicações mais recentes deste caso.
+                {% if push.numeroUnico %}
+                    <a href="{{ path('push_processual_index', {busca: push.numeroUnico}) }}">Ver todas no módulo</a>.
+                {% endif %}
+            </p>
+        {% endif %}
+    {% endif %}
+</section>

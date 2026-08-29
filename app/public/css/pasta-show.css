@@ -1230,3 +1230,98 @@
 /* O selo verde faltava na paleta: os três tons de `.ps-selo` cobriam prazo
    (urgente/próximo/tranquilo), e pagamento tem um quarto estado — pago. */
 .ps-selo--ok { color: var(--ps-ok-text); background: var(--ps-ok-bg); border: 1px solid var(--ps-ok-border); }
+
+/* ── Aba Push Processual ─────────────────────────────────────────────────────
+   Lista de publicações do caso, cada uma abrindo o teor no lugar. A data ocupa
+   uma faixa de largura FIXA: com `auto` cada linha mede a sua e as datas saem
+   desalinhadas entre si — foi o mesmo defeito da grade de colunas da Cobrança.
+   Nenhum seletor de elemento solto (`a`, `button`): regra genérica de folha nova
+   já pintou botão-âncora de azul duas vezes neste projeto. */
+.ps-push-lista { list-style: none; margin: 0; padding: 0; }
+.ps-push-item + .ps-push-item { border-top: 1px solid var(--ps-div-weak); }
+
+.ps-push-cab {
+    width: 100%;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 16px;
+    background: none;
+    border: 0;
+    text-align: left;
+    font: inherit;
+    color: var(--ps-body);
+    cursor: pointer;
+}
+.ps-push-cab:hover { background: var(--ps-hover); }
+.ps-push-data {
+    flex: 0 0 76px;
+    font-size: 12.5px;
+    color: var(--ps-label);
+    padding-top: 1px;
+    font-variant-numeric: tabular-nums;
+}
+.ps-push-corpo { flex: 1 1 auto; min-width: 0; }
+.ps-push-titulo { display: block; font-size: 13.5px; color: var(--ps-text); }
+.ps-push-meta {
+    display: block;
+    font-size: 12px;
+    color: var(--ps-muted);
+    margin-top: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.ps-push-item--nova .ps-push-titulo { font-weight: 600; }
+.ps-push-pip {
+    flex: 0 0 auto;
+    width: 7px;
+    height: 7px;
+    margin-top: 6px;
+    border-radius: 50%;
+    background: var(--ps-accent);
+}
+.ps-push-seta {
+    flex: 0 0 auto;
+    color: var(--ps-faint);
+    font-size: 12px;
+    margin-top: 2px;
+    transition: transform .18s var(--ps-ease);
+}
+.ps-push-cab[aria-expanded="true"] .ps-push-seta { transform: rotate(180deg); }
+
+.ps-push-teor { padding: 0 16px 14px 104px; }
+.ps-push-teor-corpo { font-size: 13px; color: var(--ps-body); }
+.ps-push-sem-teor { color: var(--ps-muted); margin: 0; }
+.ps-push-teor-pe {
+    display: flex;
+    gap: 16px;
+    margin-top: 10px;
+    font-size: 12.5px;
+}
+.ps-push-teor-pe > a { color: var(--ps-accent); text-decoration: none; }
+.ps-push-teor-pe > a:hover { color: var(--ps-accent-hover); text-decoration: underline; }
+.ps-push-carregando { color: var(--ps-muted); font-size: 12.5px; }
+
+/* Botão que se comporta como link dentro do texto do estado vazio. */
+.ps-push-link {
+    background: none;
+    border: 0;
+    padding: 0;
+    font: inherit;
+    color: var(--ps-accent);
+    cursor: pointer;
+}
+.ps-push-link:hover { color: var(--ps-accent-hover); text-decoration: underline; }
+
+.ps-push-teto { padding: 10px 16px 14px; margin: 0; font-size: 12.5px; color: var(--ps-muted); }
+
+/* O teor vem do CNJ e pode trazer tabela e cabeçalho próprios (já sanitizados).
+   Espelha o que a tela do módulo faz, escopado à pasta. */
+.ps-push-teor .djen-teor { line-height: 1.6; word-break: break-word; }
+.ps-push-teor .djen-teor table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+.ps-push-teor .djen-teor td,
+.ps-push-teor .djen-teor th { border: 1px solid var(--ps-border); padding: 5px 8px; vertical-align: top; }
+.ps-push-teor .djen-teor section { margin-bottom: 14px; }
+.ps-push-teor .djen-teor p { margin-bottom: 8px; }
+.ps-push-teor .djen-teor :is(h1, h2, h3, h4, h5, h6) { font-size: 13.5px; font-weight: 600; margin: 10px 0 5px; }

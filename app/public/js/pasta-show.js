@@ -23,6 +23,7 @@
         atalhosDeAba();
         verAnotacoesAnteriores();
         acoesDoMenu();
+        acordeaoDoPush();
     });
 
     /* ── 1. Indicador das abas ────────────────────────────────────────────── */
@@ -184,4 +185,51 @@
             });
         }
     }
+    /* ── 7. Acordeao da aba Push Processual ───────────────────────────────
+       O teor vem do servidor no primeiro clique — ele nao viaja no HTML da
+       pasta: sao textos longos, e a pasta_show ja e a pagina mais pesada do
+       sistema. Uma vez carregado fica no DOM, e abrir/fechar nao consulta de
+       novo. */
+    function acordeaoDoPush() {
+        var lista = document.querySelector('.ps-push-lista');
+        if (!lista) { return; }
+
+        lista.addEventListener('click', function (e) {
+            var cabecalho = e.target.closest('.ps-push-cab');
+            if (!cabecalho) { return; }
+
+            var painel = document.getElementById(cabecalho.getAttribute('aria-controls'));
+            if (!painel) { return; }
+
+            var abrindo = cabecalho.getAttribute('aria-expanded') !== 'true';
+            cabecalho.setAttribute('aria-expanded', abrindo ? 'true' : 'false');
+            painel.hidden = !abrindo;
+
+            if (!abrindo || painel.dataset.carregado === '1') { return; }
+
+            painel.innerHTML = '<p class="ps-push-carregando">Carregando o teor…</p>';
+            fetch(cabecalho.getAttribute('data-push-url'), {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                credentials: 'same-origin'
+            })
+                .then(function (r) {
+                    if (!r.ok) { throw new Error('falha ' + r.status); }
+                    return r.text();
+                })
+                .then(function (html) {
+                    painel.innerHTML = html;
+                    painel.dataset.carregado = '1';
+                    // Abrir e ler: o servidor marcou como lida, entao a linha
+                    // para de se anunciar como nova.
+                    var item = cabecalho.closest('.ps-push-item');
+                    if (item) { item.classList.remove('ps-push-item--nova'); }
+                    var pip = cabecalho.querySelector('.ps-push-pip');
+                    if (pip) { pip.remove(); }
+                })
+                .catch(function () {
+                    painel.innerHTML = '<p class="ps-push-sem-teor">Não foi possível carregar o teor. Tente de novo.</p>';
+                });
+        });
+    }
+
 }());

@@ -40,6 +40,7 @@
     {{ include('pasta/_cabecalho.html.twig', {
         pasta: pasta,
         fotosResponsaveis: fotosResponsaveis|default({}),
+        push: push,
     }) }}
 
 
@@ -231,6 +232,14 @@
                                     observacoesFinanceiras: observacoesFinanceiras,
                                     financeiro: financeiro,
                                     pagamentos: pagamentos,
+                                } only %}
+                            </div>
+
+                            {# Tab: Push Processual #}
+                            <div class="tab-pane fade" id="push" role="tabpanel" aria-labelledby="push-tab">
+                                {% include 'pasta/_push_processual.html.twig' with {
+                                    pasta: pasta,
+                                    push: push,
                                 } only %}
                             </div>
 

@@ -44,6 +44,8 @@ use App\Pasta\DTO\CriarPastaDTO;
 use App\Pasta\DTO\EditarPastaDTO;
 use App\Pasta\DTO\PastaFinanceiroOutput;
 use App\Pasta\DTO\PastaPagamentosOutput;
+use App\Pasta\DTO\PastaPushOutput;
+use App\Djen\Repository\PublicacaoDjenRepository;
 use App\Pasta\DTO\PastaPrazoOutput;
 use App\Pasta\DTO\TimelineItemDTO;
 use App\Pasta\DTO\TimelineItemType;
@@ -168,6 +170,7 @@ class PastaController extends AbstractController
         private readonly DefinirProcessoPrincipalUseCase $definirProcessoPrincipalUseCase,
         private readonly DefinirClientePrincipalUseCase $definirClientePrincipalUseCase,
         private readonly SincronizacaoPastaDispatcher $syncDispatcher,
+        private readonly PublicacaoDjenRepository $publicacaoDjenRepository,
     ) {}
 
     #[Route('', name: 'pasta_index', methods: ['GET'])]
@@ -360,6 +363,22 @@ class PastaController extends AbstractController
             ? $this->pastaRepository->mediaValorCausaPorCliente($primeiroCliente, $tenant)
             : null;
 
+        // Aba Push Processual: as publicações captadas do DJEN para os processos DESTA pasta.
+        // O casamento é pelo NÚMERO CNJ e não pela FK `processo` da publicação — a FK só é
+        // gravada durante a sincronização, então publicação que chegou ANTES de o processo entrar
+        // no cadastro nunca a recebe (em produção, 8 das 59 publicações de pastas estavam assim).
+        $numerosDosProcessos = [];
+        foreach ($pasta->getPastaProcessos() as $vinculo) {
+            $numerosDosProcessos[] = $vinculo->getProcesso()->getNumeroProcesso();
+        }
+        $push = PastaPushOutput::montar(
+            $tenant !== null
+                ? $this->publicacaoDjenRepository->listarItensPorNumerosDoTenant($tenant, $numerosDosProcessos, self::PUSH_LIMITE)
+                : [],
+            $numerosDosProcessos,
+            self::PUSH_LIMITE,
+        );
+
         return $this->render('pasta/show.html.twig', [
             'pasta'                       => $pasta,
             'documentTypeOptions'         => self::DOCUMENT_TYPES,
@@ -381,6 +400,7 @@ class PastaController extends AbstractController
             'concluidosChecklist'         => $concluidosChecklist,
             'secoes'                      => $secoes,
             'contagemSecoes'              => $contagemSecoes,
+            'push'                        => $push,
         ]);
     }
 
@@ -1319,6 +1339,14 @@ class PastaController extends AbstractController
     // -------------------------------------------------------------------------
 
     /** @var array<string, string> */
+    /**
+     * Teto de publicações carregadas na aba Push Processual. A maior pasta de produção tem 6; o
+     * teto existe para que uma pasta com processo antigo e muito movimentado não engorde a
+     * `pasta_show`, que já é a página mais pesada do sistema. Ao bater no teto a tela avisa, em
+     * vez de deixar o usuário achar que aquilo é tudo.
+     */
+    private const PUSH_LIMITE = 100;
+
     private const DOCUMENT_TYPES = [
         PastaDocumento::CATEGORIA_PECA                  => 'Peça',
         PastaDocumento::CATEGORIA_PROCURACAO            => 'Procuração',

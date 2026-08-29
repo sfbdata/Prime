@@ -1,0 +1,26 @@
+{# ============================================================================
+   Fragmento do acordeão da aba Push Processual: o teor de UMA publicação.
+
+   Devolvido por `pasta_push_teor` e injetado pelo pasta-show.js. É fragmento, e
+   não JSON montado em JS, para que o escape do link e a marcação fiquem no Twig
+   — que é onde o resto da tela já os tem.
+
+   Contexto: `publicacao` (App\Djen\DTO\PublicacaoDjenOutput).
+   ============================================================================ #}
+<div class="ps-push-teor-corpo">
+    {% if publicacao.textoHtml %}
+        {# Sanitizado no controller pelo HtmlSanitizer 'djen' — o mesmo caminho da tela do módulo. #}
+        <div class="djen-teor">{{ publicacao.textoHtml|raw }}</div>
+    {% else %}
+        <p class="ps-push-sem-teor">Esta publicação não trouxe teor textual.</p>
+    {% endif %}
+
+    <div class="ps-push-teor-pe">
+        {% if publicacao.link %}
+            <a href="{{ publicacao.link|e('html_attr') }}" target="_blank" rel="noopener noreferrer">
+                <i class="bi bi-box-arrow-up-right"></i> Inteiro teor na origem
+            </a>
+        {% endif %}
+        <a href="{{ path('push_processual_show', {id: publicacao.id}) }}">Abrir no módulo</a>
+    </div>
+</div>
