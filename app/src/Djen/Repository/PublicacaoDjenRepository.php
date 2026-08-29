@@ -145,6 +145,24 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
     }
 
     /**
+     * Publicações do escritório ainda sem vínculo com Processo — a entrada da reconciliação.
+     * Devolve ENTIDADES (e não projeção) porque quem chama vai gravar a FK nelas.
+     *
+     * @return PublicacaoDjen[]
+     */
+    public function listarAvulsasDoTenant(Tenant $tenant): array
+    {
+        return $this->createQueryBuilder('p')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.processo IS NULL')
+            ->andWhere("p.numeroProcesso != ''")
+            ->setParameter('tenant', $tenant)
+            ->orderBy('p.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
      * Lista PROJETADA das publicações do escritório cujo número CNJ está entre os informados —
      * é o que alimenta a aba Push Processual da pasta, com os números dos processos dela.
      *

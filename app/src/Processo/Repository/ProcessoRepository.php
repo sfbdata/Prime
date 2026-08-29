@@ -59,6 +59,36 @@ class ProcessoRepository extends ServiceEntityRepository
     }
 
     /**
+     * Processos do escritório cujos números estão na lista, indexados PELO número — uma consulta
+     * no lugar de uma por número. Usado pela reconciliação das publicações do Push Processual.
+     *
+     * @param string[] $numeros
+     *
+     * @return array<string, Processo>
+     */
+    public function findPorNumerosDoTenant(array $numeros, Tenant $tenant): array
+    {
+        if ($numeros === []) {
+            return [];
+        }
+
+        $processos = $this->createQueryBuilder('p')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.numeroProcesso IN (:numeros)')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('numeros', $numeros)
+            ->getQuery()
+            ->getResult();
+
+        $porNumero = [];
+        foreach ($processos as $processo) {
+            $porNumero[$processo->getNumeroProcesso()] = $processo;
+        }
+
+        return $porNumero;
+    }
+
+    /**
      * Busca processos do escritório por termo livre (número, classe, assunto ou tribunal),
      * para o autocomplete de "vincular processo existente". Filtra por tenant explicitamente
      * e permite excluir processos já vinculados.

@@ -14,6 +14,7 @@ use App\Djen\Repository\PublicacaoDjenRepository;
 use App\Djen\Service\DjenClientInterface;
 use App\Djen\Service\DjenPublicacaoMapper;
 use App\Djen\Service\NotificadorPublicacoesDjenInterface;
+use App\Djen\UseCase\ReconciliarPublicacoesComProcessosUseCase;
 use App\Djen\UseCase\SincronizarPublicacoesDjenUseCase;
 use App\Entity\Tenant\Tenant;
 use App\Processo\Entity\Processo;
@@ -50,6 +51,9 @@ final class SincronizarPublicacoesDjenUseCaseTest extends TestCase
             $this->publicacaoRepository,
             $this->processoRepository,
             $this->notificador,
+            // Real, não dublê: o UseCase é final (padrão da casa) e, com os mesmos repositórios
+            // mockados, `listarAvulsasDoTenant` devolve [] e a reconciliação vira no-op aqui.
+            new ReconciliarPublicacoesComProcessosUseCase($this->publicacaoRepository, $this->processoRepository),
         );
     }
 

@@ -54,6 +54,25 @@ final class PastaPushProcessualTest extends JusPrimeWebTestCase
         self::assertSame('2', trim($crawler->filter('#push-tab .ps-aba-badge')->text()));
     }
 
+    #[TestDox('Arranjo: a aba é a última da faixa e o painel dela é filho direto do conteúdo das abas')]
+    public function testArranjoDaAbaEDoPainel(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $this->logarComTenant($client, $user, $tenant);
+
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
+
+        $abas = $crawler->filter('#pastaTabs > .ps-aba');
+        self::assertSame(7, $abas->count(), 'a faixa passa a ter sete abas');
+        self::assertSame('push-tab', $abas->last()->attr('id'), 'a aba nova entra no fim, sem mexer na posição das seis que já existiam');
+
+        // Filho DIRETO: "existe na página" não distingue painel no lugar certo de painel solto.
+        self::assertSame(1, $crawler->filter('#pastaTabsContent > #push')->count());
+        self::assertSame(1, $crawler->filter('#push > .ps-push')->count());
+    }
+
     #[TestDox('Publicação AVULSA cujo número casa com o processo da pasta aparece — o caso dos 8 de produção')]
     public function testAvulsaComNumeroDoProcessoAparece(): void
     {

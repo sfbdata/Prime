@@ -41,6 +41,7 @@ final class SincronizarPublicacoesDjenUseCase
         private readonly PublicacaoDjenRepository $publicacaoRepository,
         private readonly ProcessoRepository $processoRepository,
         private readonly NotificadorPublicacoesDjenInterface $notificador,
+        private readonly ReconciliarPublicacoesComProcessosUseCase $reconciliar,
     ) {
     }
 
@@ -66,6 +67,14 @@ final class SincronizarPublicacoesDjenUseCase
         if (!$dryRun && $resultado->getNovas() > 0) {
             $this->publicacaoRepository->flush();
             $resultado->definirNotificados($this->notificador->notificar($tenant, $resultado->getNovas()));
+        }
+
+        // A vinculação acima olha o cadastro no instante da captura. Quando o processo entra no
+        // sistema DEPOIS — o caso normal ao assumir um caso em andamento —, a publicação ficaria
+        // órfã para sempre e a tela do módulo a chamaria de "Avulsa", que é falso. Reconciliar aqui
+        // faz a captação diária curar o passivo sozinha, em duas consultas.
+        if (!$dryRun) {
+            $this->reconciliar->executar($tenant);
         }
 
         return $resultado;
