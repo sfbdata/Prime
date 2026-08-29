@@ -31,6 +31,18 @@
         </div>
 
         <div class="ps-cab-acoes">
+            {% if pasta.estaExcluida %}
+            {# Pasta riscada é somente-leitura: arquivar e editar sairiam do ar no servidor de
+               qualquer jeito (PastaSomenteLeituraListener), mas botão que existe e não funciona
+               é pior que botão ausente. Fica só o caminho de volta. #}
+            <form method="post" action="{{ path('pasta_restaurar', {id: pasta.id}) }}"
+                  onsubmit="return confirm('Restaurar a pasta {{ pasta.nup|e('js') }}?');">
+                <input type="hidden" name="_token" value="{{ csrf_token('restaurar_pasta_' ~ pasta.id) }}">
+                <button type="submit" class="ps-btn" title="Restaurar pasta excluída">
+                    <i class="bi bi-arrow-counterclockwise"></i><span>Restaurar</span>
+                </button>
+            </form>
+            {% else %}
             <button type="button"
                     id="btn-alternar-status"
                     class="ps-btn"
@@ -48,14 +60,19 @@
                 <i class="bi bi-pencil"></i><span>Editar</span>
             </button>
 
+            {% endif %}
+
             {# O histórico automático do sistema saía daqui para o meio da página
-               e ocupava mais altura que o caso inteiro. Virou drawer. #}
+               e ocupava mais altura que o caso inteiro. Virou drawer.
+               Continua na pasta riscada de propósito: é lá que está o registro de quem
+               excluiu e quando. #}
             <button type="button" class="ps-btn" id="psHistoricoAbrir"
                     title="Histórico do sistema"
                     aria-controls="psHistorico" aria-expanded="false">
                 <i class="bi bi-clock-history"></i><span>Histórico</span>
             </button>
 
+            {% if not pasta.estaExcluida %}
             <div class="ps-pop-wrap">
                 <button type="button" class="ps-btn ps-btn--icone" title="Mais ações"
                         data-ps-pop="psMenuAcoes" aria-haspopup="true" aria-expanded="false">
@@ -84,8 +101,24 @@
                     </form>
                 </div>
             </div>
+            {% endif %}
         </div>
     </div>
+
+    {% if pasta.estaExcluida %}
+    {# A faixa existe porque a pasta riscada continua abrindo normalmente: sem ela, quem chega
+       pelo link não tem como saber por que os botões sumiram. #}
+    <div class="ps-cab-excluida" role="status">
+        <i class="bi bi-trash3"></i>
+        <span>
+            <strong>Pasta excluída</strong>
+            em {{ pasta.excluidaEm|date('d/m/Y') }} às {{ pasta.excluidaEm|date('H:i') }}
+            {%- if pasta.excluidaPor %} por {{ pasta.excluidaPor.fullName }}{% endif %}.
+            Ela continua aqui porque o número {{ pasta.nup }} não pode ser reaproveitado —
+            já existem pastas posteriores. Somente leitura até ser restaurada.
+        </span>
+    </div>
+    {% endif %}
 
     {# ── Linha 2: identidade ─────────────────────────────────────────────── #}
     <div class="ps-cab-identidade">

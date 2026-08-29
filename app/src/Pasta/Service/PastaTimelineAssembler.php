@@ -269,6 +269,28 @@ class PastaTimelineAssembler
     {
         $diff = $changes['diff']['changes'] ?? [];
 
+        // ANTES do laço de propósito: `marcarExcluida()` mexe em excluidaEm, excluidaPor E
+        // situacao no mesmo flush. Deixado para o laço abaixo, o campo `situacao` casaria
+        // primeiro e o histórico anunciaria "Status da pasta alterado" numa exclusão — o evento
+        // mais importante da pasta apareceria com o nome do menos importante.
+        if (is_array($diff) && array_key_exists('excluidaEm', $diff)) {
+            $virouLapide = ($diff['excluidaEm']['to'] ?? null) !== null;
+
+            return $virouLapide
+                ? [
+                    'Pasta excluída',
+                    'bi-trash3',
+                    'text-bg-danger',
+                    'A pasta continua na lista, riscada: o número dela não pode ser reaproveitado.',
+                ]
+                : [
+                    'Pasta restaurada',
+                    'bi-arrow-counterclockwise',
+                    'text-bg-success',
+                    null,
+                ];
+        }
+
         if (is_array($diff)) {
             foreach (array_keys($diff) as $field) {
                 if (preg_match('/^clientes\[/', (string) $field)) {

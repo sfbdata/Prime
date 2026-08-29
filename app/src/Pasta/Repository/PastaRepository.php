@@ -135,6 +135,10 @@ class PastaRepository extends ServiceEntityRepository
 
         return $this->createQueryBuilder('p')
             ->andWhere('p.tenant = :tenant')
+            // Pasta excluída (lápide) não é pasta duplicada: avisar "já existe uma pasta deste
+            // cliente" apontando para uma que a pessoa acabou de excluir faria ela desistir de
+            // criar a pasta certa.
+            ->andWhere('p.excluidaEm IS NULL')
             ->andWhere('UNACCENT(LOWER(p.nomeCliente)) = UNACCENT(LOWER(:cliente))')
             // Ação ausente conta como ausente dos dois lados: pasta sem ação só é semelhante a
             // outra sem ação. COALESCE evita o NULL != NULL do SQL, que nunca casaria.

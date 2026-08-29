@@ -9,7 +9,7 @@
     ?: (pasta.processoPrincipal
         ? (pasta.processoPrincipal.classeProcessual ?: pasta.processoPrincipal.assuntoProcessual ?: pasta.processoPrincipal.numeroProcesso)
         : null) %}
-<div class="pasta-card pasta-row-link pasta-prio-{{ pasta.prioridade.value }}"
+<div class="pasta-card pasta-row-link pasta-prio-{{ pasta.prioridade.value }}{% if pasta.estaExcluida %} pasta-excluida{% endif %}"
      data-href="{{ path('pasta_show', {id: pasta.id}) }}">
 
     {# Linha 1: NUP + cliente | prioridade + situação #}
@@ -38,6 +38,13 @@
             <span class="badge {{ pasta.prioridadeBadgeClass }}{% if pasta.prioridade.value == 'urgente' %} badge-urgente-pulso{% endif %}">
                 {{ pasta.prioridadeLabel }}
             </span>
+            {% if pasta.estaExcluida %}
+            {# Rótulo inerte: sem js-toggle-situacao, o duplo-clique não ressuscita a pasta. #}
+            <span class="badge text-bg-danger pasta-badge-excluida"
+                  title="Excluída em {{ pasta.excluidaEm|date('d/m/Y H:i') }}{% if pasta.excluidaPor %} por {{ pasta.excluidaPor.fullName }}{% endif %}">
+                Excluída
+            </span>
+            {% else %}
             <span class="badge js-toggle-situacao {{ pasta.situacao == 'ativo' ? 'text-bg-success' : 'text-bg-secondary' }}"
                   style="cursor:pointer;user-select:none;"
                   data-situacao="{{ pasta.situacao }}"
@@ -46,6 +53,7 @@
                   title="Dê duplo-clique para alternar entre ativo e arquivado">
                 {{ pasta.situacao == 'ativo' ? 'Ativo' : 'Arquivado' }}
             </span>
+            {% endif %}
         </div>
     </div>
 

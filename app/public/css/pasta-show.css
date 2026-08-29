@@ -267,6 +267,22 @@
 .ps-pop-sep { height: 1px; background: var(--ps-div-strong); margin: 4px 6px; }
 .ps-pop-check { margin-left: auto; color: var(--ps-accent); font-size: 12px; }
 
+/* ── Faixa da pasta excluída (lápide) ──
+   Usa os tokens de perigo da própria folha, não vermelho solto: a faixa precisa dizer
+   "estado excepcional" sem competir com o cabeçalho, que continua sendo o assunto da tela. */
+.ps-cab-excluida {
+    display: flex; align-items: flex-start; gap: 10px;
+    margin: 0 0 14px;
+    padding: 10px 14px;
+    border: 1px solid var(--ps-danger-border);
+    border-radius: 8px;
+    background: var(--ps-danger-bg);
+    color: var(--ps-danger-text);
+    font-size: .875rem;
+    line-height: 1.45;
+}
+.ps-cab-excluida i { font-size: 1rem; line-height: 1.35; flex-shrink: 0; }
+
 /* ── Linha 2: identidade ── */
 .ps-cab-identidade { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; flex-wrap: wrap; }
 .ps-cab-nup {

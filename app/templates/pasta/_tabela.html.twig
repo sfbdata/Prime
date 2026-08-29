@@ -85,7 +85,7 @@
             <tbody>
                 {% for pasta in pastas %}
                 {% set dias = date().diff(pasta.dataAbertura).days %}
-                <tr class="pasta-row-link{% if pasta.prioridade.value == 'urgente' %} pasta-row-urgente{% endif %}" style="cursor:pointer;" data-href="{{ path('pasta_show', {id: pasta.id}) }}">
+                <tr class="pasta-row-link{% if pasta.prioridade.value == 'urgente' %} pasta-row-urgente{% endif %}{% if pasta.estaExcluida %} pasta-excluida{% endif %}" style="cursor:pointer;" data-href="{{ path('pasta_show', {id: pasta.id}) }}">
                     <td class="fw-semibold ps-3 align-middle">{{ pasta.nup }}</td>
                     <td class="align-middle">
                         {% if pasta.clientes|length > 0 %}
@@ -167,6 +167,15 @@
                         </div>
                     </td>
                     <td class="align-middle">
+                        {% if pasta.estaExcluida %}
+                            {# Sem js-toggle-situacao de propósito: o duplo-clique não pode
+                               ressuscitar uma pasta excluída por acidente. Quem restaura usa o
+                               botão da própria pasta, que passa pelo CSRF e pela permissão. #}
+                            <span class="badge text-bg-danger pasta-badge-excluida"
+                                  title="Excluída em {{ pasta.excluidaEm|date('d/m/Y H:i') }}{% if pasta.excluidaPor %} por {{ pasta.excluidaPor.fullName }}{% endif %}">
+                                Excluída
+                            </span>
+                        {% else %}
                         <span class="badge js-toggle-situacao {{ pasta.situacao == 'ativo' ? 'text-bg-success' : 'text-bg-secondary' }}"
                               style="cursor:pointer;user-select:none;"
                               data-situacao="{{ pasta.situacao }}"
@@ -175,6 +184,7 @@
                               title="Dê duplo-clique para alternar entre ativo e arquivado">
                             {{ pasta.situacao == 'ativo' ? 'Ativo' : 'Arquivado' }}
                         </span>
+                        {% endif %}
                     </td>
                 </tr>
                 {% endfor %}
@@ -316,6 +326,16 @@
     font-size: .95rem; font-weight: 600; color: var(--bs-body-color); text-transform: uppercase;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+/* Pasta excluída (lápide): continua na lista, riscada, para o número dela não sumir sem
+   explicação. O risco vai no TEXTO das células, não na linha inteira, senão ele atravessa
+   badge e foto de responsável — que não são texto e ficam ilegíveis. */
+.pasta-excluida { opacity: .65; }
+.pasta-excluida td:first-child,
+.pasta-excluida td .text-truncate,
+.pasta-excluida .pasta-card-cliente,
+.pasta-excluida .pasta-card-nup { text-decoration: line-through; }
+.pasta-badge-excluida { cursor: default; user-select: none; }
+
 .pasta-card-flags { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 .pasta-card-flags .badge { font-size: .72rem; }
 
