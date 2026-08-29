@@ -73,10 +73,9 @@ Levantado lendo o repositório. Isto é o que separa "só template" de "mexe no 
 | Documentos: pastas, arquivos, categoria, busca, lista/grade, ordenação manual | Real — `pasta-arquivos.css` / `pasta-arquivos.js`, `PastaSecao`, `PastaDocumento` |
 | Observações por aba (Detalhes, Financeiro) | Real — `PastaObservacaoDetalhes`, `PastaObservacaoFinanceira` |
 | Card "Próximos prazos" no trilho de Dados | **Proposta**: é um resumo das metas abertas ordenadas por prazo. Precisa de consulta nova (ordenação por prazo + limite), não existe hoje nessa tela |
-| Card "Financeiro do caso" no trilho de Dados | **Proposta**: exibe valor da causa + média por CPF. Usa o `PastaFinanceiroOutput` que já existe |
 | Card "Andamento das metas" (barra 2/4) e "Precisa de atenção" | **Proposta**: agregados calculados sobre as metas da pasta |
 | Card "Responsáveis nas metas" | **Proposta**: contagem por pessoa |
-| Categorias dos arquivos financeiros (Contratos/Recibos/Comprovantes/Outros) | **Proposta**: depende de existir categoria nos documentos financeiros; confirme no modelo |
+| Pagamentos da pasta (previstos, recebidos, vencimentos) | **Proposta**: precisa de modelo/consulta de parcelas; confirme se já existe algo em `App\\Pasta\\*` ou se vem do módulo de cobrança |
 | Etiquetas visíveis no cabeçalho | Real como feature (`SincronizarMarcadoresDaPastaUseCase`), mas a exibição no cabeçalho é proposta |
 
 Os textos e números do protótipo são dados de demonstração das pastas 1180 e 1183 (dos prints do
@@ -164,8 +163,9 @@ Coluna central — **Anotações do caso**:
 
 Trilho direito, nesta ordem: **Próximos prazos** (bolinha colorida + título + responsável/data +
 selo de dias restantes: vermelho ≤2 dias, âmbar ≤8, cinza acima), **Clientes** (avatar, nome,
-CPF em `tabular-nums`, selo Principal âmbar, link "abrir", botão `+ Vincular`),
-**Financeiro do caso**, **Documentos** (3 itens + link "todos").
+CPF em `tabular-nums`, selo Principal âmbar, link "abrir", botão `+ Vincular`) e
+**Documentos** (3 itens + link "todos"). O card "Financeiro do caso" foi removido deste trilho —
+o financeiro vive na sua própria aba.
 
 ### Aba 2 — Metas
 
@@ -202,30 +202,46 @@ Painel de largura total.
 
 ### Aba 4 — Financeiro
 
-Grid `minmax(0,1fr) 356px`. **Observações financeiras vêm primeiro** na coluna central — pedido
-explícito: "não pode ficar na zona fria". Arquivos vêm depois.
+**Atualizada em 28/08/2026** (ver "Mudanças desta revisão" no fim do README). A estrutura abaixo é
+a vigente.
 
-- **Observações financeiras**: mesmo compositor das anotações; lista com
-  `max-height: 390px; overflow-y: auto; overscroll-behavior: contain`.
-- **Arquivos financeiros**: busca em pílula, botão Adicionar, filtros por categoria com contagem
-  (Todos / Contratos / Recibos / Comprovantes / Outros), ordenação "Mais recentes";
-  lista com ícone de tipo 27×33, nome, "380 KB · 18/06/2026 · autor", selo **Assinado**
-  (`bi-patch-check-fill`), `⋮`.
-  Contra o volume: mostra 5 e tem **"Mostrar mais 5"** + contador "5 de 12 arquivos" +
-  atalho "Abrir no gerenciador de arquivos". Isto é deliberado — o
-  `docs/design/carteira-show/README.md` já registra o problema de renderizar centenas de linhas
-  de uma vez. Nesta tela, **não** renderize tudo.
-- **Dropzone** tracejada com `bi-cloud-arrow-up` + switch **"Reduzir tamanho ao enviar"**
-  (38×22, verde `#1f9d61` quando ligado, knob 18px com
-  `transition: transform .26s cubic-bezier(.32,.72,0,1)`). Ligado, mostra aviso âmbar:
-  "um PDF assinado digitalmente pode perder a assinatura". Hoje esse aviso é texto cinza fixo ao
-  lado do toggle; virou consequência visível do estado.
+Faixa de status no topo, **grade de 4 cards iguais**
+(`grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px`) — cada um card branco
+padrão (raio 14px, borda `#dde5eb`), rótulo uppercase numa linha de 18px de altura e o conteúdo
+alinhado na mesma altura entre os quatro:
 
-Trilho: **Valor da causa** (26px/600, com lápis para editar) + **Média por CPF** (20px/600, com a
-frase "4 clientes vinculados · calculado sobre o valor da causa"; sem cliente vinculado, mostrar
-travessão e "Vincule o cliente para calcular", conforme o DTO); **Contrato** (selo
-Pendente/Assinado + link "marcar como assinado" + nota); **Caso pró-bono** (switch + nota que muda
-com o estado).
+1. **Contrato** — selo Pendente/Assinado que **é o próprio botão**: clicar alterna o estado
+   (mesmo comportamento do pró-bono). Altura 30px, raio 999px, verde quando assinado, vermelho
+   quando pendente. O `title` explica a ação ("Contrato pendente — clique para marcar como
+   assinado"). Não há mais link "marcar como assinado".
+2. **Pró-bono** — selo clicável idêntico: "Pró-bono ativo" (verde) ⇄ "Não é pró-bono" (cinza).
+3. **Valor da causa** — 24px/600 `tabular-nums`, lápis de editar no canto do rótulo,
+   sublinha de apoio "valor cadastrado na pasta".
+4. **Média por CPF** — card bege (`#fdf8ef` / borda `#ecdfc7`, rótulo `#a08444`), 24px/600,
+   sublinha "4 clientes vinculados". Sem cliente vinculado: travessão + "Vincule o cliente para
+   calcular", conforme o DTO.
+
+Abaixo, grid `minmax(0,1fr) 356px`.
+
+Coluna central — **Relatório financeiro** (nome usado na tela de produção; antes "Observações
+financeiras"): mesmo compositor das anotações; lista com
+`max-height: 390px; overflow-y: auto; overscroll-behavior: contain`.
+
+Trilho direito:
+
+- **Arquivos** — card próprio, no máximo 3 arquivos nesta área. Cabeçalho com contagem e botão
+  **Adicionar**; lista compacta (ícone 24×29, nome com ellipsis, "412 KB · 19/06/2026 · autor",
+  selo **Assinado** quando aplicável, `⋮`); rodapé com o switch **"Reduzir tamanho ao enviar"**
+  (38×22, verde `#1f9d61` ligado, knob 18px, `.26s`) e uma linha de apoio que muda com o estado —
+  ligado: "um PDF assinado digitalmente pode perder a assinatura"; desligado: "envios mantêm o
+  arquivo original". Vazio: "Nenhum arquivo financeiro anexado."
+  **Não há mais gerenciador de arquivos nesta aba** — nada de busca, filtros por categoria,
+  "mostrar mais 5" ou dropzone. O gerenciador completo continua sendo a aba Documentos.
+- **Pagamentos** — card com total recebido (22px `tabular-nums`) sobre o previsto, barra de
+  progresso 6px, seção "Próximos vencimentos" com a nota "1 já pago", linhas
+  descrição / vencimento / valor / selo de estado (Pendente âmbar, Pago verde) e botão
+  **Adicionar pagamento** de largura total. Link "ver todos" no cabeçalho.
+  Dados de demonstração: entrada de R$ 1.500 paga + 3 parcelas de R$ 1.300 = R$ 5.400 previstos.
 
 ### Aba 5 — Detalhes
 
@@ -274,16 +290,16 @@ Painel de largura total.
 | Drawer de histórico | Eventos agrupados por dia (HOJE, 26/08 · 18/08/2026 · 14/08/2026), bolinha 7px `#c3d2dd`, "**Autor** ação" + hora |
 | Selo de prioridade | Popover com Normal / Prioridade / Urgente, ✓ na atual; troca fecha o popover |
 | Menu ⋮ | Abre/fecha e fecha o popover de prioridade (e vice-versa) |
-| Filtros de metas / categorias de arquivos | Filtram a lista e resetam a paginação para 5 |
+| Filtros de metas | Filtram a lista |
 | Checklist de documentação | Marca/desmarca, recalcula "3/5 itens" e a barra |
 | Switches (reduzir tamanho, pró-bono) | Knob desliza `.26s`; textos de apoio mudam com o estado |
-| Contrato | Alterna Pendente ⇄ Assinado, muda selo, ícone e nota |
+| Contrato | O próprio selo é o botão: clique alterna Pendente ⇄ Assinado (igual ao pró-bono) |
 | "Continuar lendo" | Expande a observação inteira e vira "mostrar menos" |
 | Lista/grade em Documentos | Troca a apresentação dos arquivos, mantém as pastas em grade |
 | Hover geral | Botões neutros: borda e texto vão para `#0f6fc4`. Cards de pasta: sobem 1px com sombra |
 
 Estado necessário (nomes do protótipo): `tab`, `histOpen`, `menuOpen`, `prioOpen`, `prio`,
-`metaFilter`, `finCat`, `finVisiveis`, `docView`, `obsAbertas[]`, `checklist[].ok`,
+`metaFilter`, `docView`, `obsAbertas[]`, `checklist[].ok`,
 `reduzir`, `proBono`, `contrato`, e a geometria medida do indicador de abas.
 
 ## Tokens
@@ -355,3 +371,22 @@ Easing: `cubic-bezier(.32,.72,0,1)` para entradas e switches; `cubic-bezier(.22,
 - `Pasta - 3 direções.dc.html` — as três direções da rodada 1 (registro histórico).
 - `support.js` — runtime do protótipo. Não é parte do design.
 - `assets/bluejus-white-transparent-nav.png` — logo.
+
+## Mudanças desta revisão — 28/08/2026
+
+Atualização pontual em cima do handoff já entregue. **O resto do documento continua válido**;
+só a aba Financeiro e um card da aba Dados mudaram. Quem já começou a implementar não precisa
+refazer nada fora destes pontos:
+
+1. **Aba Financeiro reorganizada** a partir da tela de produção enviada pelo dono: faixa superior
+   com quatro cards de status/valor (Contrato, Pró-bono, Valor da causa, Média por CPF), alinhados
+   entre si.
+2. **Card Pagamentos** (novo) no trilho direito: recebido/previsto com barra, próximos vencimentos
+   com selo de estado, botão Adicionar pagamento. **Depende de back-end** — ver a tabela "O que é
+   dado real e o que é proposta".
+3. **Gerenciador de arquivos removido do Financeiro.** No lugar, card **Arquivos** no trilho, com
+   no máximo 3 itens, botão Adicionar e o switch "Reduzir tamanho ao enviar". Sem busca, filtros,
+   paginação ou dropzone nesta aba.
+4. **Contrato virou selo clicável** — o link "marcar como assinado / marcar como pendente" saiu.
+5. "Observações financeiras" passou a se chamar **Relatório financeiro**, como na produção.
+6. **Card "Financeiro do caso" removido** do trilho da aba Dados da Pasta.

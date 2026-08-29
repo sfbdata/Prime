@@ -242,25 +242,6 @@
           </sc-for>
         </div>
 
-        <div style="background:#fff;border:1px solid #dde5eb;border-radius:14px;padding:15px 17px;box-shadow:0 1px 2px rgba(16,42,58,.04)">
-          <div style="display:flex;align-items:center;margin-bottom:12px">
-            <h2 style="margin:0;font-size:13.5px;font-weight:600">Financeiro do caso</h2>
-            <div style="flex:1"></div>
-            <a href="#" style="font-size:12.5px;font-weight:500">detalhar</a>
-          </div>
-          <div style="display:flex;gap:9px">
-            <div style="flex:1;padding:11px 12px;border-radius:9px;background:#f1f8fc;border:1px solid #dbeaf3">
-              <div style="font-size:10.5px;letter-spacing:0.07em;text-transform:uppercase;color:#5f7684;font-weight:700">Recebido</div>
-              <div style="font-variant-numeric:tabular-nums;font-size:16px;font-weight:500;margin-top:3px">R$ 4.500</div>
-            </div>
-            <div style="flex:1;padding:11px 12px;border-radius:9px;background:#fdf7ee;border:1px solid #f0e2cb">
-              <div style="font-size:10.5px;letter-spacing:0.07em;text-transform:uppercase;color:#8a6a34;font-weight:700">A receber</div>
-              <div style="font-variant-numeric:tabular-nums;font-size:16px;font-weight:500;margin-top:3px">R$ 1.500</div>
-            </div>
-          </div>
-          <div style="margin-top:11px;font-size:12.5px;color:#6b8494">Próxima parcela 05/09 · 3 de 4 pagas</div>
-        </div>
-
         <div style="background:#fff;border:1px solid #dde5eb;border-radius:14px;box-shadow:0 1px 2px rgba(16,42,58,.04)">
           <div style="padding:14px 17px;border-bottom:1px solid #eef2f5;display:flex;align-items:center">
             <h2 style="margin:0;font-size:13.5px;font-weight:600">Documentos</h2>
@@ -430,12 +411,51 @@
 
     <sc-if value="{{ isFinanceiro }}" hint-placeholder-val="{{ false }}">
     <div style="{{ financeiroAnim }}">
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:16px;align-items:stretch">
+
+        <div style="min-width:0;background:#fff;border:1px solid #dde5eb;border-radius:14px;box-shadow:0 1px 2px rgba(16,42,58,.04);padding:13px 16px;display:flex;flex-direction:column;gap:9px">
+          <div style="display:flex;align-items:center;height:18px;font-size:10.5px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#7b93a2">Contrato</div>
+          <div style="flex:1;display:flex;align-items:center;gap:9px;flex-wrap:wrap">
+            <button onClick="{{ toggleContrato }}" title="{{ contratoTitle }}" style="{{ contratoChip }}"><i class="{{ contratoIcon }}" style="font-size:11px"></i>{{ contratoLabel }}</button>
+          </div>
+        </div>
+
+        <div style="min-width:0;background:#fff;border:1px solid #dde5eb;border-radius:14px;box-shadow:0 1px 2px rgba(16,42,58,.04);padding:13px 16px;display:flex;flex-direction:column;gap:9px">
+          <div style="display:flex;align-items:center;height:18px;font-size:10.5px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#7b93a2">Pró-bono</div>
+          <div style="flex:1;display:flex;align-items:center;gap:9px;flex-wrap:wrap">
+            <button onClick="{{ toggleProBono }}" title="Alternar caso pró-bono" style="{{ proBonoChip }}"><i class="{{ proBonoIcon }}" style="font-size:11px"></i>{{ proBonoLabel }}</button>
+          </div>
+        </div>
+
+        <div style="min-width:0;background:#fff;border:1px solid #dde5eb;border-radius:14px;box-shadow:0 1px 2px rgba(16,42,58,.04);padding:13px 16px;display:flex;flex-direction:column;justify-content:space-between;gap:9px">
+          <div style="display:flex;align-items:center;gap:8px;height:18px">
+            <div style="font-size:10.5px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#7b93a2">Valor da causa</div>
+            <div style="flex:1"></div>
+            <button title="Editar valor da causa" style="width:22px;height:22px;margin-right:-6px;display:flex;align-items:center;justify-content:center;border:1px solid transparent;background:transparent;color:#8496a3;font-size:12px;border-radius:6px;cursor:pointer" style-hover="border-color:#cdd7de;color:#455c6b"><i class="bi bi-pencil"></i></button>
+          </div>
+          <div>
+            <div style="font-variant-numeric:tabular-nums;font-size:24px;font-weight:600;letter-spacing:-0.01em;line-height:1.1">R$ 12.860,00</div>
+            <div style="font-size:11.5px;color:#7b93a2;margin-top:3px">valor cadastrado na pasta</div>
+          </div>
+        </div>
+
+        <div style="min-width:0;background:#fdf8ef;border:1px solid #ecdfc7;border-radius:14px;box-shadow:0 1px 2px rgba(16,42,58,.04);padding:13px 16px;display:flex;flex-direction:column;justify-content:space-between;gap:9px">
+          <div style="display:flex;align-items:center;height:18px;font-size:10.5px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#a08444">Média por CPF</div>
+          <div>
+            <div style="font-variant-numeric:tabular-nums;font-size:24px;font-weight:600;letter-spacing:-0.01em;line-height:1.1">R$ 3.215,00</div>
+            <div style="font-size:11.5px;color:#8a6f3d;margin-top:3px">4 clientes vinculados</div>
+          </div>
+        </div>
+
+      </div>
+
       <div style="display:grid;grid-template-columns:minmax(0,1fr) 356px;gap:18px;align-items:start">
 
         <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
           <div style="background:#fff;border:1px solid #dde5eb;border-radius:14px;box-shadow:0 1px 2px rgba(16,42,58,.04)">
             <div style="padding:15px 20px;border-bottom:1px solid #eef2f5;display:flex;align-items:center;gap:10px">
-              <h2 style="margin:0;font-size:14px;font-weight:600">Observações financeiras</h2>
+              <h2 style="margin:0;font-size:14px;font-weight:600">Relatório financeiro</h2>
               <span style="font-variant-numeric:tabular-nums;font-size:11px;color:#7b93a2">2</span>
               <div style="flex:1"></div>
               <span style="font-size:12.5px;color:#6b8494">Ctrl + Enter envia</span>
@@ -470,103 +490,88 @@
             </div>
           </div>
 
-          <div style="background:#fff;border:1px solid #dde5eb;border-radius:14px;box-shadow:0 1px 2px rgba(16,42,58,.04)">
-            <div style="padding:15px 20px 0;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-              <h2 style="margin:0;font-size:14px;font-weight:600">Arquivos financeiros</h2>
-              <span style="font-variant-numeric:tabular-nums;font-size:11px;color:#7b93a2">{{ finTotal }}</span>
-              <div style="flex:1"></div>
-              <div style="display:flex;align-items:center;gap:8px;height:32px;padding:0 11px;border:1px solid #dde5eb;background:#fafcfd;border-radius:8px;min-width:210px">
-                <i class="bi bi-search" style="font-size:12px;color:#8496a3"></i>
-                <span style="font-size:13px;color:#95a6b2">Buscar arquivo…</span>
-              </div>
-              <button style="display:flex;align-items:center;gap:7px;height:32px;padding:0 13px;border:1px solid #cdd7de;background:#fff;color:#455c6b;font-family:inherit;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer" style-hover="border-color:#0f6fc4;color:#0f6fc4"><i class="bi bi-plus-lg" style="font-size:12px"></i><span>Adicionar</span></button>
-            </div>
-            <div style="padding:13px 20px 14px;border-bottom:1px solid #eef2f5;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-              <sc-for list="{{ finCats }}" as="c" hint-placeholder-count="4">
-                <button onClick="{{ c.select }}" style="{{ c.style }}"><span>{{ c.label }}</span><span style="{{ c.countStyle }}">{{ c.count }}</span></button>
-              </sc-for>
-              <div style="flex:1"></div>
-              <button style="display:flex;align-items:center;gap:6px;font-family:inherit;font-size:12.5px;font-weight:500;color:#455c6b;background:transparent;border:none;cursor:pointer;padding:4px 2px" style-hover="color:#0f6fc4"><i class="bi bi-sort-down" style="font-size:13px"></i><span>Mais recentes</span></button>
-            </div>
-
-            <sc-for list="{{ arquivosFin }}" as="a" hint-placeholder-count="5">
-              <div style="padding:12px 20px;border-bottom:1px solid #f4f7f9;display:flex;gap:12px;align-items:center">
-                <div style="width:27px;height:33px;border-radius:4px;border:1px solid #d3dde5;background:#f7fafc;font-variant-numeric:tabular-nums;font-size:8px;font-weight:600;color:#6b8494;display:flex;align-items:center;justify-content:center;flex-shrink:0">{{ a.ext }}</div>
-                <div style="min-width:0;flex:1">
-                  <div style="font-size:13.5px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ a.nome }}</div>
-                  <div style="font-size:12px;color:#7b93a2;margin-top:2px">{{ a.meta }}</div>
-                </div>
-                <sc-if value="{{ a.assinado }}" hint-placeholder-val="{{ false }}">
-                  <span style="display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#186c47;background:#e2f4ea;border:1px solid #bde3cd;padding:3px 9px;border-radius:999px;flex-shrink:0"><i class="bi bi-patch-check-fill" style="font-size:10px"></i>Assinado</span>
-                </sc-if>
-                <button title="Mais ações do arquivo" style="width:30px;height:30px;flex-shrink:0;display:flex;align-items:center;justify-content:center;border:1px solid transparent;background:transparent;color:#8496a3;font-size:14px;border-radius:7px;cursor:pointer" style-hover="border-color:#cdd7de;color:#455c6b"><i class="bi bi-three-dots-vertical"></i></button>
-              </div>
-            </sc-for>
-
-            <sc-if value="{{ finTemMais }}" hint-placeholder-val="{{ true }}">
-              <div style="padding:13px 20px;border-bottom:1px solid #eef2f5;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-                <button onClick="{{ finVerMais }}" style="display:flex;align-items:center;gap:7px;height:32px;padding:0 13px;border:1px solid #cdd7de;background:#fff;color:#455c6b;font-family:inherit;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer" style-hover="border-color:#0f6fc4;color:#0f6fc4"><i class="bi bi-chevron-down" style="font-size:12px"></i><span>{{ finVerMaisLabel }}</span></button>
-                <span style="font-size:12.5px;color:#6b8494">{{ finContagem }}</span>
-                <div style="flex:1"></div>
-                <button style="display:flex;align-items:center;gap:7px;font-family:inherit;font-size:12.5px;font-weight:600;color:#0f6fc4;background:transparent;border:none;cursor:pointer;padding:4px 2px" style-hover="color:#0b5596"><i class="bi bi-folder2-open" style="font-size:13px"></i><span>Abrir no gerenciador de arquivos</span></button>
-              </div>
-            </sc-if>
-
-            <div style="margin:14px 20px 16px;padding:14px 16px;border:1.5px dashed #cdd7de;border-radius:11px;display:flex;align-items:center;gap:13px;background:#fafcfd">
-              <i class="bi bi-cloud-arrow-up" style="font-size:20px;color:#8496a3"></i>
-              <div style="flex:1;min-width:0">
-                <div style="font-size:13.5px;font-weight:500">Arraste contratos, recibos e comprovantes aqui</div>
-                <div style="font-size:12.5px;color:#6b8494;margin-top:2px">PDF, imagem ou documento do Word</div>
-              </div>
-              <button onClick="{{ toggleReduzir }}" style="{{ reduzirStyle }}">
-                <div style="{{ reduzirTrack }}"><div style="{{ reduzirKnob }}"></div></div>
-                <span>Reduzir tamanho ao enviar</span>
-              </button>
-            </div>
-            <sc-if value="{{ reduzirOn }}" hint-placeholder-val="{{ false }}">
-              <div style="margin:0 20px 16px;padding:11px 14px;border-radius:9px;background:#fdf7ee;border:1px solid #f0e2cb;display:flex;gap:10px;align-items:flex-start">
-                <i class="bi bi-exclamation-triangle" style="font-size:13px;color:#8a5a12;margin-top:2px"></i>
-                <div style="font-size:12.5px;color:#6f5222;line-height:1.5">Com a redução ligada, um <strong>PDF assinado digitalmente pode perder a assinatura</strong>. Desligue antes de enviar contratos assinados.</div>
-              </div>
-            </sc-if>
-          </div>
 
         </div>
 
         <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
-          <div style="background:#fff;border:1px solid #dde5eb;border-radius:14px;padding:17px;box-shadow:0 1px 2px rgba(16,42,58,.04)">
-            <div style="display:flex;align-items:flex-start;gap:12px">
-              <div style="flex:1;min-width:0">
-                <div style="font-size:13.5px;font-weight:600">Caso pró-bono</div>
-                <div style="font-size:12.5px;color:#6b8494;margin-top:3px;line-height:1.5">{{ proBonoNota }}</div>
-              </div>
-              <button onClick="{{ toggleProBono }}" title="Marcar como pró-bono" style="border:none;background:transparent;padding:0;cursor:pointer;flex-shrink:0">
-                <div style="{{ proBonoTrack }}"><div style="{{ proBonoKnob }}"></div></div>
-              </button>
-            </div>
-          </div><div style="background:#fff;border:1px solid #dde5eb;border-radius:14px;padding:17px;box-shadow:0 1px 2px rgba(16,42,58,.04)">
-            <div style="display:flex;align-items:center;margin-bottom:4px">
-              <div style="font-size:10.5px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#7b93a2">Valor da causa</div>
+          <div style="background:#fff;border:1px solid #dde5eb;border-radius:14px;box-shadow:0 1px 2px rgba(16,42,58,.04)">
+            <div style="padding:15px 17px 0;display:flex;align-items:center;gap:9px">
+              <h2 style="margin:0;font-size:14px;font-weight:600">Arquivos</h2>
+              <span style="font-variant-numeric:tabular-nums;font-size:11px;color:#7b93a2">{{ finTotal }}</span>
               <div style="flex:1"></div>
-              <button title="Editar valor da causa" style="width:26px;height:26px;display:flex;align-items:center;justify-content:center;border:1px solid transparent;background:transparent;color:#8496a3;font-size:12px;border-radius:6px;cursor:pointer" style-hover="border-color:#cdd7de;color:#455c6b"><i class="bi bi-pencil"></i></button>
+              <button style="display:flex;align-items:center;gap:6px;height:28px;padding:0 11px;border:1px solid #cdd7de;background:#fff;color:#455c6b;font-family:inherit;font-size:12.5px;font-weight:500;border-radius:7px;cursor:pointer" style-hover="border-color:#0f6fc4;color:#0f6fc4"><i class="bi bi-plus-lg" style="font-size:11px"></i><span>Adicionar</span></button>
             </div>
-            <div style="font-variant-numeric:tabular-nums;font-size:26px;font-weight:600;letter-spacing:-0.01em">R$ 12.860,00</div>
-            <div style="height:1px;background:#eef2f5;margin:15px 0"></div>
-            <div style="font-size:10.5px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#7b93a2;margin-bottom:4px">Média por CPF</div>
-            <div style="font-variant-numeric:tabular-nums;font-size:20px;font-weight:600">R$ 3.215,00</div>
-            <div style="font-size:12.5px;color:#6b8494;margin-top:4px">4 clientes vinculados · calculado sobre o valor da causa</div>
+            <div style="padding:12px 17px 0">
+              <div style="border:1px solid #e7edf2;border-radius:10px;overflow:hidden">
+                <sc-for list="{{ finLista }}" as="a" hint-placeholder-count="3">
+                  <div style="{{ a.rowStyle }}">
+                    <div style="width:24px;height:29px;border-radius:4px;border:1px solid #d3dde5;background:#f7fafc;font-variant-numeric:tabular-nums;font-size:7.5px;font-weight:600;color:#6b8494;display:flex;align-items:center;justify-content:center;flex-shrink:0">{{ a.ext }}</div>
+                    <div style="min-width:0;flex:1">
+                      <div style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ a.nome }}</div>
+                      <div style="font-size:11.5px;color:#7b93a2;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ a.meta }}</div>
+                    </div>
+                    <sc-if value="{{ a.assinado }}" hint-placeholder-val="{{ false }}">
+                      <span style="display:flex;align-items:center;gap:4px;font-size:10px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#186c47;background:#e2f4ea;border:1px solid #bde3cd;padding:2px 7px;border-radius:999px;flex-shrink:0;white-space:nowrap"><i class="bi bi-patch-check-fill" style="font-size:9px"></i>Assinado</span>
+                    </sc-if>
+                    <button title="Mais ações do arquivo" style="width:26px;height:26px;flex-shrink:0;display:flex;align-items:center;justify-content:center;border:1px solid transparent;background:transparent;color:#8496a3;font-size:13px;border-radius:6px;cursor:pointer" style-hover="border-color:#cdd7de;color:#455c6b"><i class="bi bi-three-dots-vertical"></i></button>
+                  </div>
+                </sc-for>
+                <sc-if value="{{ finVazio }}" hint-placeholder-val="{{ false }}">
+                  <div style="padding:14px 12px;text-align:center;font-size:12.5px;color:#8496a3">Nenhum arquivo financeiro anexado.</div>
+                </sc-if>
+              </div>
+            </div>
+            <div style="padding:12px 17px 15px">
+              <button onClick="{{ toggleReduzir }}" style="{{ reduzirStyle }}">
+                <div style="{{ reduzirTrack }}"><div style="{{ reduzirKnob }}"></div></div>
+                <span>Reduzir tamanho ao enviar</span>
+              </button>
+              <div style="font-size:11.5px;color:#7b93a2;margin-top:5px;line-height:1.45">{{ reduzirNota }}</div>
+            </div>
           </div>
 
-          <div style="background:#fff;border:1px solid #dde5eb;border-radius:14px;padding:17px;box-shadow:0 1px 2px rgba(16,42,58,.04)">
-            <div style="font-size:10.5px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#7b93a2;margin-bottom:9px">Contrato</div>
-            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-              <span style="{{ contratoChip }}"><i class="{{ contratoIcon }}" style="font-size:11px"></i>{{ contratoLabel }}</span>
-              <button onClick="{{ toggleContrato }}" style="font-family:inherit;font-size:12.5px;font-weight:600;color:#0f6fc4;background:transparent;border:none;padding:0;cursor:pointer;text-decoration:underline" style-hover="color:#0b5596">{{ contratoAcao }}</button>
+          <div style="background:#fff;border:1px solid #dde5eb;border-radius:14px;box-shadow:0 1px 2px rgba(16,42,58,.04)">
+            <div style="padding:15px 17px 0;display:flex;align-items:center;gap:9px">
+              <h2 style="margin:0;font-size:14px;font-weight:600">Pagamentos</h2>
+              <span style="font-variant-numeric:tabular-nums;font-size:11px;color:#7b93a2">{{ pagTotal }}</span>
+              <div style="flex:1"></div>
+              <button title="Ver todos os pagamentos" style="font-family:inherit;font-size:12.5px;font-weight:500;color:#455c6b;background:transparent;border:none;padding:0;cursor:pointer" style-hover="color:#0f6fc4">ver todos</button>
             </div>
-            <div style="font-size:12.5px;color:#6b8494;margin-top:10px;line-height:1.5">{{ contratoNota }}</div>
+
+            <div style="padding:12px 17px 14px;border-bottom:1px solid #eef2f5">
+              <div style="display:flex;align-items:baseline;gap:8px">
+                <span style="font-variant-numeric:tabular-nums;font-size:22px;font-weight:600;letter-spacing:-0.01em">{{ pagRecebido }}</span>
+                <span style="font-size:12.5px;color:#6b8494">recebidos de {{ pagPrevisto }}</span>
+              </div>
+              <div style="height:6px;border-radius:999px;background:#e7edf2;overflow:hidden;margin-top:9px">
+                <div style="{{ pagBarra }}"></div>
+              </div>
+            </div>
+
+            <div style="padding:11px 17px 4px;display:flex;align-items:center;gap:8px">
+              <span style="font-size:10.5px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#7b93a2">Próximos vencimentos</span>
+              <div style="flex:1"></div>
+              <span style="font-size:12px;color:#7b93a2">1 já pago</span>
+            </div>
+
+            <sc-for list="{{ pagamentos }}" as="p" hint-placeholder-count="3">
+              <div style="{{ p.rowStyle }}">
+                <div style="min-width:0;flex:1">
+                  <div style="font-size:13.5px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ p.descricao }}</div>
+                  <div style="font-variant-numeric:tabular-nums;font-size:12px;color:#7b93a2;margin-top:2px">{{ p.quando }}</div>
+                </div>
+                <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">
+                  <span style="font-variant-numeric:tabular-nums;font-size:13.5px;font-weight:600">{{ p.valor }}</span>
+                  <span style="{{ p.chip }}">{{ p.estado }}</span>
+                </div>
+              </div>
+            </sc-for>
+
+            <div style="padding:12px 17px 15px">
+              <button style="width:100%;display:flex;align-items:center;justify-content:center;gap:7px;height:34px;border:1px solid #cdd7de;background:#fff;color:#455c6b;font-family:inherit;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer" style-hover="border-color:#0f6fc4;color:#0f6fc4"><i class="bi bi-plus-lg" style="font-size:12px"></i><span>Adicionar pagamento</span></button>
+            </div>
           </div>
 
-          
         </div>
 
       </div>
@@ -1083,45 +1088,13 @@ class Component extends DCLogic {
     const contratoOk = this.state.contrato === 'assinado';
 
     const finFiles = [
-      ['Contrato de honorários.pdf', 'contratos', 'PDF', '380 KB · 18/06/2026 · Farlei Assis da Rocha', false],
-      ['Contrato de honorários — assinado.pdf', 'contratos', 'PDF', '412 KB · 19/06/2026 · Farlei Assis da Rocha', true],
-      ['Recibo primeira parcela.pdf', 'recibos', 'PDF', '112 KB · 24/06/2026 · Mariana Costa', true],
-      ['Recibo segunda parcela.pdf', 'recibos', 'PDF', '109 KB · 24/07/2026 · Mariana Costa', true],
-      ['Comprovante PIX entrada.png', 'comprovantes', 'PNG', '640 KB · 18/06/2026 · Samuel Freitas', false],
-      ['Comprovante TED honorários.pdf', 'comprovantes', 'PDF', '88 KB · 24/07/2026 · Samuel Freitas', false],
-      ['Planilha de custas.xlsx', 'outros', 'XLSX', '24 KB · 02/07/2026 · Mariana Costa', false],
-      ['Guia de custas iniciais.pdf', 'outros', 'PDF', '96 KB · 20/06/2026 · Mariana Costa', false],
-      ['Recibo terceira parcela.pdf', 'recibos', 'PDF', '110 KB · 24/08/2026 · Mariana Costa', true],
-      ['Comprovante PIX terceira parcela.png', 'comprovantes', 'PNG', '580 KB · 24/08/2026 · Samuel Freitas', false],
-      ['Aditivo contratual.pdf', 'contratos', 'PDF', '204 KB · 30/07/2026 · Farlei Assis da Rocha', true],
-      ['Nota fiscal 0451.pdf', 'outros', 'PDF', '71 KB · 25/07/2026 · Mariana Costa', false],
-    ].map(([nome, cat, ext, meta, assinado]) => ({ nome, cat, ext, meta, assinado }));
-
-    const finCounts = {
-      todos: finFiles.length,
-      contratos: finFiles.filter(f => f.cat === 'contratos').length,
-      recibos: finFiles.filter(f => f.cat === 'recibos').length,
-      comprovantes: finFiles.filter(f => f.cat === 'comprovantes').length,
-      outros: finFiles.filter(f => f.cat === 'outros').length,
-    };
-    const finCats = [
-      ['todos', 'Todos'], ['contratos', 'Contratos'], ['recibos', 'Recibos'],
-      ['comprovantes', 'Comprovantes'], ['outros', 'Outros'],
-    ].map(([id, label]) => {
-      const on = this.state.finCat === id;
-      return {
-        label, count: finCounts[id],
-        select: () => this.setState({ finCat: id, finVisiveis: 5 }),
-        style: 'display:flex;align-items:center;gap:7px;font-family:inherit;font-size:12.5px;font-weight:' + (on ? '600' : '500') +
-          ';padding:5px 11px;border-radius:999px;cursor:pointer;transition:background .2s ease,border-color .2s ease,color .2s ease;border:1px solid ' +
-          (on ? accent : '#dde5eb') + ';background:' + (on ? '#e8f2fa' : '#fff') + ';color:' + (on ? accent : '#455c6b'),
-        countStyle: 'font-variant-numeric:tabular-nums;font-size:10.5px;font-weight:600;padding:0 5px;border-radius:4px;color:' +
-          (on ? accent : '#6b8494') + ';background:' + (on ? '#d6e9f8' : '#eef2f5'),
-      };
-    });
-    const finFiltrados = this.state.finCat === 'todos' ? finFiles : finFiles.filter(f => f.cat === this.state.finCat);
-    const finMostrados = finFiltrados.slice(0, this.state.finVisiveis);
-    const finRestantes = finFiltrados.length - finMostrados.length;
+      ['Contrato de honorários — minuta.pdf', 'PDF', '380 KB · 18/06/2026 · Farlei Assis', false],
+      ['Recibo — entrada de honorários.pdf', 'PDF', '112 KB · 24/06/2026 · Mariana Costa', false],
+      ['Guia de custas iniciais.pdf', 'PDF', '96 KB · 20/06/2026 · Mariana Costa', false],
+    ].map(([nome, ext, meta, assinado], i) => ({
+      nome, ext, meta, assinado,
+      rowStyle: 'padding:9px 11px;display:flex;gap:10px;align-items:center;' + (i ? 'border-top:1px solid #f1f4f7' : ''),
+    }));
 
     const checklist = this.state.checklistData.map(c => ({
       titulo: c.titulo,
@@ -1287,13 +1260,28 @@ class Component extends DCLogic {
       docGradeOn: this.state.docView === 'grade',
       docFilesTotal: docFilesAll.length,
       financeiroAnim: 'margin-top:18px;animation:' + (this.state.switches % 2 ? 'tabInA' : 'tabInB') + ' .46s cubic-bezier(.32,.72,0,1) both',
-      arquivosFin: finMostrados,
-      finCats,
+      finLista: finFiles,
       finTotal: finFiles.length,
-      finTemMais: finRestantes > 0,
-      finVerMaisLabel: 'Mostrar mais ' + Math.min(5, finRestantes),
-      finContagem: finMostrados.length + ' de ' + finFiltrados.length + ' arquivos',
-      finVerMais: () => this.setState(s => ({ finVisiveis: s.finVisiveis + 5 })),
+      finVazio: finFiles.length === 0,
+      pagamentos: (() => {
+        const dados = [
+          { descricao: '2ª parcela — honorários', quando: 'vence 28/08/2026 · em 2 dias', valor: 'R$ 1.300,00', estado: 'Pendente' },
+          { descricao: '3ª parcela — honorários', quando: 'vence 10/09/2026', valor: 'R$ 1.300,00', estado: 'Pendente' },
+          { descricao: 'Custas iniciais (reembolso)', quando: 'vence 10/10/2026', valor: 'R$ 1.300,00', estado: 'Pendente' },
+        ];
+        const chipBase = 'font-size:10.5px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;padding:2px 8px;border-radius:999px;';
+        return dados.map((p, i) => ({
+          ...p,
+          rowStyle: 'padding:10px 17px;display:flex;gap:12px;align-items:center;' + (i ? 'border-top:1px solid #f4f7f9' : ''),
+          chip: chipBase + (p.estado === 'Pago'
+            ? 'color:#186c47;background:#e2f4ea;border:1px solid #bde3cd'
+            : 'color:#8a5a12;background:#fdf1dc;border:1px solid #f0dcb4'),
+        }));
+      })(),
+      pagTotal: 4,
+      pagRecebido: 'R$ 1.500,00',
+      pagPrevisto: 'R$ 5.400,00',
+      pagBarra: 'height:100%;border-radius:999px;background:#1f9d61;width:28%;transition:width .6s cubic-bezier(.32,.72,0,1)',
       obsFin: [
         { author: 'Samuel Freitas', initials: 'SF', when: '24/06/2026, 10:12', body: 'Honorários combinados em 20% sobre o proveito econômico, com entrada de R$ 1.500 já recebida.' },
         { author: 'Mariana Costa', initials: 'MC', when: '18/06/2026, 16:40', body: 'Cliente pediu para emitir o recibo no CPF do Gleisson, não no da esposa.' },
@@ -1301,6 +1289,15 @@ class Component extends DCLogic {
       reduzirOn: this.state.reduzir,
       toggleReduzir: () => this.setState(s => ({ reduzir: !s.reduzir })),
       reduzirStyle: 'display:flex;align-items:center;gap:9px;flex-shrink:0;font-family:inherit;font-size:12.5px;font-weight:500;color:#455c6b;background:transparent;border:none;padding:0;cursor:pointer',
+      reduzirNota: this.state.reduzir
+        ? 'Atenção: um PDF assinado digitalmente pode perder a assinatura ao ser reduzido.'
+        : 'Envios mantêm o arquivo original — recomendado para contratos assinados.',
+      proBonoLabel: this.state.proBono ? 'Pró-bono ativo' : 'Não é pró-bono',
+      proBonoIcon: this.state.proBono ? 'bi bi-check2-circle' : 'bi bi-dash-circle',
+      proBonoChip: 'display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;white-space:nowrap;border-radius:999px;font-family:inherit;font-size:12px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;cursor:pointer;' +
+        (this.state.proBono
+          ? 'color:#186c47;background:#e2f4ea;border:1px solid #bde3cd'
+          : 'color:#5f7684;background:#f4f7f9;border:1px solid #dde5eb'),
       reduzirTrack: red.track,
       reduzirKnob: red.knob,
       proBonoTrack: pb.track,
@@ -1311,9 +1308,9 @@ class Component extends DCLogic {
         : 'Sem cobrança de honorários. Marque quando o escritório atender sem custo.',
       contratoLabel: contratoOk ? 'Assinado' : 'Pendente',
       contratoIcon: contratoOk ? 'bi bi-patch-check-fill' : 'bi bi-hourglass-split',
-      contratoChip: 'display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;padding:4px 10px;border-radius:999px;' +
+      contratoChip: 'display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;font-family:inherit;font-size:12px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;white-space:nowrap;border-radius:999px;cursor:pointer;' +
         (contratoOk ? 'color:#186c47;background:#e2f4ea;border:1px solid #bde3cd' : 'color:#a3232b;background:#fdeceb;border:1px solid #f2c9c6'),
-      contratoAcao: contratoOk ? 'marcar como pendente' : 'marcar como assinado',
+      contratoTitle: contratoOk ? 'Contrato assinado — clique para reabrir como pendente' : 'Contrato pendente — clique para marcar como assinado',
       contratoNota: contratoOk
         ? 'Contrato assinado. O arquivo assinado fica na lista ao lado.'
         : 'Enquanto estiver pendente, a pasta aparece na lista de contratos a assinar.',
