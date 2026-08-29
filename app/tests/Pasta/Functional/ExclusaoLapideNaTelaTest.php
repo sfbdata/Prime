@@ -196,4 +196,34 @@ final class ExclusaoLapideNaTelaTest extends JusPrimeWebTestCase
         self::assertStringContainsString('Pasta excluída', $historico);
         self::assertStringContainsString('Pasta restaurada', $historico);
     }
+
+    #[TestDox('Pasta recuperada: o delete antigo da auditoria vira "Pasta excluída", não evento genérico')]
+    public function testDeleteAntigoNaAuditoriaEhLidoComoExclusao(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $recuperada      = $this->criarPasta($tenant, '1238');
+
+        // Reproduz o estado de uma pasta APAGADA antes da exclusão-lápide e recuperada depois:
+        // a linha existe de novo, e a auditoria dela carrega o `delete` da exclusão original.
+        static::getContainer()->get(EntityManagerInterface::class)->getConnection()->executeStatement(
+            "INSERT INTO audit_log (action, entity_class, entity_id, changes, actor_user_id, actor_email, tenant_id, route, created_at)
+             VALUES ('delete', ?, ?, ?, ?, ?, ?, 'pasta_delete', '2026-08-28 16:57:06')",
+            [
+                Pasta::class,
+                (string) $recuperada->getId(),
+                json_encode(['diff' => ['before' => ['nup' => '1238']]], JSON_THROW_ON_ERROR),
+                $user->getId(),
+                $user->getEmail(),
+                $tenant->getId(),
+            ],
+        );
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $client->request('GET', "/pasta/{$recuperada->getId()}");
+
+        $historico = $crawler->filter('#psHistorico')->html();
+        self::assertStringContainsString('Pasta excluída', $historico);
+        self::assertStringNotContainsString('Evento registrado', $historico);
+    }
 }

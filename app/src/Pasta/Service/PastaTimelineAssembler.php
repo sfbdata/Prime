@@ -177,6 +177,16 @@ class PastaTimelineAssembler
             str_ends_with($entityClass, '\Pasta') && $action === 'update' => [
                 ...($this->resolverAtualizacaoPasta($changes)),
             ],
+            // Exclusão que APAGOU a linha (pasta que era a última da sequência). Só chega a ser
+            // renderizado quando o id volta a existir — hoje, numa recuperação manual de pasta
+            // apagada antes da exclusão-lápide. Sem este braço a linha cairia no `default` e o
+            // histórico anunciaria "Evento registrado" para o evento mais grave da pasta.
+            str_ends_with($entityClass, '\Pasta') && $action === 'delete' => [
+                'Pasta excluída',
+                'bi-trash3',
+                'text-bg-danger',
+                'A pasta foi apagada nesta data; o registro atual é uma recuperação.',
+            ],
             str_ends_with($entityClass, 'Processo') && $action === 'create' => [
                 'Processo vinculado',
                 'bi-briefcase',
