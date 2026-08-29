@@ -222,7 +222,9 @@ final class PastaDadosArranjoTelaTest extends JusPrimeWebTestCase
             $crawler->filter('#pastaTabs > .ps-abas-ind'),
             'a pílula que desliza é filha DIRETA do trilho: é dele que o JS mede offsetLeft/offsetWidth'
         );
-        self::assertCount(6, $crawler->filter('#pastaTabs > button.ps-aba'), 'seis abas, todas filhas diretas');
+        // Eram seis no desenho aprovado; a sétima (Push Processual) foi pedida pelo dono em
+        // 29/08/2026 e entrou NO FIM, para não mover a posição das outras.
+        self::assertCount(7, $crawler->filter('#pastaTabs > button.ps-aba'), 'sete abas, todas filhas diretas');
 
         // Sem JS a pílula nunca é medida; a classe é a degradação graciosa.
         self::assertStringContainsString(
