@@ -71,6 +71,8 @@ use App\Pasta\UseCase\EnviarObservacaoFinanceiraUseCase;
 use App\Pasta\UseCase\ExcluirObservacaoFinanceiraUseCase;
 use App\Pasta\UseCase\ExcluirChecklistItemUseCase;
 use App\Pasta\UseCase\ExcluirPastaUseCase;
+use App\Pasta\UseCase\ResultadoExclusaoPasta;
+use App\Pasta\UseCase\RestaurarPastaUseCase;
 use App\Pasta\UseCase\ReordenarChecklistItensUseCase;
 use App\Pasta\UseCase\ToggleChecklistItemUseCase;
 use App\Pasta\Repository\PastaChecklistItemRepository;
@@ -160,6 +162,7 @@ class PastaController extends AbstractController
         private readonly CriarPastaUseCase $criarPastaUseCase,
         private readonly EditarPastaUseCase $editarPastaUseCase,
         private readonly ExcluirPastaUseCase $excluirPastaUseCase,
+        private readonly RestaurarPastaUseCase $restaurarPastaUseCase,
         private readonly VincularProcessoUseCase $vincularProcessoUseCase,
         private readonly DesvincularProcessoUseCase $desvincularProcessoUseCase,
         private readonly DefinirProcessoPrincipalUseCase $definirProcessoPrincipalUseCase,
@@ -1259,11 +1262,56 @@ class PastaController extends AbstractController
             throw $this->createAccessDeniedException('Token CSRF inválido.');
         }
 
-        $this->excluirPastaUseCase->executar($pasta, $this->getUser(), $this->tenantContext->getCurrentTenant());
+        $resultado = $this->excluirPastaUseCase->executar($pasta, $currentUser, $this->tenantContext->getCurrentTenant());
+
+        // Os dois desfechos precisam de mensagens diferentes: a lápide continua existindo e pode
+        // ser aberta (e restaurada), a removida não. Dizer "removida" nos dois casos faria a
+        // pessoa procurar na lixeira uma pasta que está bem ali na lista, riscada.
+        if ($resultado === ResultadoExclusaoPasta::Lapide) {
+            $this->addFlash(
+                'success',
+                sprintf(
+                    'Pasta %s excluída. Ela continua na lista, riscada, porque o número dela não pode '
+                    . 'ser reaproveitado — já existem pastas posteriores.',
+                    $pasta->getNup(),
+                ),
+            );
+
+            return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId()]);
+        }
 
         $this->addFlash('success', 'Pasta removida com sucesso.');
 
         return $this->redirectToRoute('expediente_index');
+    }
+
+    #[Route('/{id}/restaurar', name: 'pasta_restaurar', methods: ['POST'])]
+    public function restaurar(Pasta $pasta, Request $request): Response
+    {
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+
+        $pastaId = (int) $pasta->getId();
+        // Mesma permissão do excluir: quem pode pôr a lápide pode tirar (decisão do dono).
+        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, $this->tenantContext->getCurrentTenant(), AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_DELETE, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
+            return $redirect;
+        }
+
+        if (!$this->isCsrfTokenValid('restaurar_pasta_'.$pasta->getId(), (string) $request->request->get('_token'))) {
+            throw $this->createAccessDeniedException('Token CSRF inválido.');
+        }
+
+        try {
+            $this->restaurarPastaUseCase->executar($pasta, $this->tenantContext->getCurrentTenant());
+        } catch (\InvalidArgumentException $e) {
+            $this->addFlash('warning', $e->getMessage());
+
+            return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId()]);
+        }
+
+        $this->addFlash('success', sprintf('Pasta %s restaurada.', $pasta->getNup()));
+
+        return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId()]);
     }
 
     // -------------------------------------------------------------------------
