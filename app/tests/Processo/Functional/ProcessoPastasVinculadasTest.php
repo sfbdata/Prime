@@ -18,7 +18,8 @@ use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 /**
- * Aba "Pastas" do processo_show: as pastas em que o processo está vinculado.
+ * Cartão "Vínculos" da barra lateral do processo_show: as pastas em que o processo está
+ * vinculado. Molde escolhido pelo dono — o mesmo cartão do cliente_show, e não uma aba.
  *
  * O que cada teste realmente prova:
  * - o CASAMENTO (a pasta irmã, do MESMO escritório e SEM o vínculo, não pode aparecer) — este é
@@ -29,14 +30,17 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
  *   é exigência da camada);
  * - a lápide, o selo Principal e o vazio, que são regra de exibição.
  *
- * Aparência (posição da aba, borda, cor do selo) segue invisível para o PHPUnit — isso é smoke.
+ * O ARRANJO é a única coisa que o PHPUnit prova sobre layout, e só com combinador de filho
+ * direto: `.row > .col-lg-4 > #card-vinculos` distingue "está na barra lateral" de "existe em
+ * algum lugar da página", que continuaria verdade com o cartão empilhado dentro das abas.
+ * Borda, cor do selo e espaçamento seguem invisíveis — isso é smoke.
  */
 #[CoversClass(ProcessoController::class)]
 final class ProcessoPastasVinculadasTest extends JusPrimeWebTestCase
 {
     private int $seq = 0;
 
-    #[TestDox('a pasta vinculada aparece na aba Pastas, com link para a pasta e contagem na aba')]
+    #[TestDox('a pasta vinculada aparece no cartão Vínculos, com link para a pasta e contagem')]
     public function testPastaVinculadaAparece(): void
     {
         $client = static::createClient();
@@ -54,21 +58,21 @@ final class ProcessoPastasVinculadasTest extends JusPrimeWebTestCase
         $crawler = $client->request('GET', '/processos/' . $processo->getId());
         self::assertResponseIsSuccessful();
 
-        $painel = $crawler->filter('#pastas');
-        self::assertCount(1, $painel, 'a aba Pastas tem painel próprio');
+        $cartao = $crawler->filter('#card-vinculos');
+        self::assertCount(1, $cartao, 'o cartão Vínculos existe na tela');
 
-        $link = $painel->filter('a[href="/pasta/' . $pasta->getId() . '"]');
+        $link = $cartao->filter('a[href="/pasta/' . $pasta->getId() . '"]');
         self::assertGreaterThan(0, $link->count(), 'a pasta vinculada precisa levar à própria pasta');
-        self::assertStringContainsString($pasta->getNup(), $painel->text(), 'o NUP identifica a pasta');
+        self::assertStringContainsString($pasta->getNup(), $cartao->text(), 'o NUP identifica a pasta');
         // O domínio grava em MAIÚSCULAS (Pasta::setNomeCliente/setNomeAcao) e a tela reflete o
         // dado como ele está no banco — a asserção segue o dado, não a digitação do teste.
-        self::assertStringContainsString('CLIENTE DA PASTA', $painel->text());
-        self::assertStringContainsString('EXECUÇÃO DE TÍTULO', $painel->text());
+        self::assertStringContainsString('CLIENTE DA PASTA', $cartao->text());
+        self::assertStringContainsString('EXECUÇÃO DE TÍTULO', $cartao->text());
 
         self::assertSame(
             '1',
-            trim($crawler->filter('#pastas-tab .badge')->text()),
-            'a contagem da aba diz quantas pastas há sem precisar clicar'
+            trim($crawler->filter('#card-vinculos h6 .badge')->text()),
+            'a contagem no cartão diz quantas pastas há'
         );
     }
 
@@ -99,11 +103,11 @@ final class ProcessoPastasVinculadasTest extends JusPrimeWebTestCase
         $crawler = $client->request('GET', '/processos/' . $processo->getId());
         self::assertResponseIsSuccessful();
 
-        $painel = $crawler->filter('#pastas');
-        self::assertStringContainsString($vinculada->getNup(), $painel->text());
+        $cartao = $crawler->filter('#card-vinculos');
+        self::assertStringContainsString($vinculada->getNup(), $cartao->text());
         self::assertStringNotContainsString(
             $irma->getNup(),
-            $painel->text(),
+            $cartao->text(),
             'pasta sem vínculo com este processo não pode entrar na lista'
         );
     }
@@ -134,14 +138,14 @@ final class ProcessoPastasVinculadasTest extends JusPrimeWebTestCase
         $crawler = $client->request('GET', '/processos/' . $processo->getId());
         self::assertResponseIsSuccessful();
 
-        $painel = $crawler->filter('#pastas');
-        self::assertStringContainsString($pastaA->getNup(), $painel->text());
+        $cartao = $crawler->filter('#card-vinculos');
+        self::assertStringContainsString($pastaA->getNup(), $cartao->text());
         self::assertStringNotContainsString(
             $pastaB->getNup(),
-            $painel->text(),
+            $cartao->text(),
             'pasta de outro escritório não pode aparecer na tela do processo'
         );
-        self::assertSame('1', trim($crawler->filter('#pastas-tab .badge')->text()));
+        self::assertSame('1', trim($crawler->filter('#card-vinculos h6 .badge')->text()));
     }
 
     #[TestDox('o selo Principal marca só a pasta em que ESTE processo é o principal')]
@@ -172,7 +176,7 @@ final class ProcessoPastasVinculadasTest extends JusPrimeWebTestCase
         $crawler = $client->request('GET', '/processos/' . $processo->getId());
         self::assertResponseIsSuccessful();
 
-        $cartoes = $crawler->filter('#pastas .pasta-vinculada');
+        $cartoes = $crawler->filter('#card-vinculos .pasta-vinculada');
         self::assertCount(2, $cartoes, 'as duas pastas vinculadas aparecem');
 
         // Principal primeiro: a ordenação é `pp.principal DESC`.
@@ -208,14 +212,14 @@ final class ProcessoPastasVinculadasTest extends JusPrimeWebTestCase
         $crawler = $client->request('GET', '/processos/' . $processo->getId());
         self::assertResponseIsSuccessful();
 
-        $cartao = $crawler->filter('#pastas .pasta-vinculada');
+        $cartao = $crawler->filter('#card-vinculos .pasta-vinculada');
         self::assertCount(1, $cartao, 'sumir com a pasta excluída esconderia um vínculo que existe');
         self::assertStringContainsString($pasta->getNup(), $cartao->text());
         self::assertCount(1, $cartao->filter('.pasta-badge-excluida'), 'a lápide é declarada na tela');
         self::assertStringContainsString('pasta-excluida', (string) $cartao->attr('class'));
     }
 
-    #[TestDox('processo sem pasta: mensagem de vazio e aba sem contagem')]
+    #[TestDox('processo sem pasta: mensagem de vazio e cartão sem contagem')]
     public function testProcessoSemPasta(): void
     {
         $client = static::createClient();
@@ -230,15 +234,50 @@ final class ProcessoPastasVinculadasTest extends JusPrimeWebTestCase
         $crawler = $client->request('GET', '/processos/' . $processo->getId());
         self::assertResponseIsSuccessful();
 
-        self::assertCount(0, $crawler->filter('#pastas .pasta-vinculada'));
+        self::assertCount(0, $crawler->filter('#card-vinculos .pasta-vinculada'));
         self::assertStringContainsString(
             'não está vinculado a nenhuma pasta',
-            $crawler->filter('#pastas')->text()
+            $crawler->filter('#card-vinculos')->text()
         );
         self::assertCount(
             0,
-            $crawler->filter('#pastas-tab .badge'),
-            'contagem zero não vira selo — a aba fica limpa'
+            $crawler->filter('#card-vinculos h6 .badge'),
+            'contagem zero não vira selo — o cartão fica limpo'
+        );
+    }
+
+    #[TestDox('o cartão Vínculos fica na barra lateral, irmão da coluna das abas — não dentro delas')]
+    public function testArranjoDoCartaoNaBarraLateral(): void
+    {
+        $client = static::createClient();
+        $em     = $this->em();
+
+        $tenant   = $this->criarTenant();
+        $usuario  = $this->criarGestor($tenant);
+        $processo = $this->criarProcesso($tenant);
+        $pasta    = $this->criarPasta($tenant, $usuario);
+        $pasta->vincularProcesso($processo, $usuario);
+        $em->flush();
+        $em->clear();
+
+        $this->logarComTenant($client, $usuario, $tenant);
+        $crawler = $client->request('GET', '/processos/' . $processo->getId());
+        self::assertResponseIsSuccessful();
+
+        self::assertCount(
+            1,
+            $crawler->filter('.row > .col-lg-4 > #card-vinculos'),
+            'o cartão é filho DIRETO da coluna lateral de 4/12, ao lado das abas'
+        );
+        self::assertCount(
+            0,
+            $crawler->filter('.tab-pane #card-vinculos'),
+            'dentro de um painel de aba, o cartão sumiria ao trocar de aba'
+        );
+        self::assertCount(
+            0,
+            $crawler->filter('[data-bs-target="#pastas"]'),
+            'não sobrou aba de Pastas: o dono escolheu o cartão no lugar dela'
         );
     }
 
