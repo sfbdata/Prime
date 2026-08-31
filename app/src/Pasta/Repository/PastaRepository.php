@@ -6,10 +6,12 @@ use App\Cliente\Entity\Cliente;
 use App\Cliente\Entity\ClientePF;
 use App\Cliente\Entity\ClientePJ;
 use App\Entity\Auth\User;
+use App\Pasta\DTO\PastaVinculadaOutput;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PrioridadePasta;
 use App\Entity\Tenant\Tenant;
 use App\Expediente\Entity\Marcador;
+use App\Processo\Entity\Processo;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\ORM\AbstractQuery;
 use Doctrine\ORM\QueryBuilder;
@@ -174,6 +176,46 @@ class PastaRepository extends ServiceEntityRepository
         }
 
         return $opcoes;
+    }
+
+    /**
+     * Pastas do escritório que têm ESTE processo vinculado, projetadas para a tela do
+     * processo (`processo_show`). É o espelho da aba "Processos vinculados" da pasta.
+     *
+     * Escopa por tenant EXPLICITAMENTE: `PastaProcesso` não é TenantAware — quem carrega o
+     * escritório é a Pasta dona do vínculo. Pasta excluída continua na lista, marcada como
+     * lápide, pela mesma razão das listagens do acervo: sumir com ela esconde o vínculo que
+     * de fato existe.
+     *
+     * @return PastaVinculadaOutput[]
+     */
+    public function listarVinculadasAoProcesso(Processo $processo, Tenant $tenant): array
+    {
+        $linhas = $this->createQueryBuilder('p')
+            ->select(
+                'p.id AS id',
+                'p.nup AS nup',
+                'p.nomeCliente AS nomeCliente',
+                'p.nomeAcao AS nomeAcao',
+                'p.situacao AS situacao',
+                'p.excluidaEm AS excluidaEm',
+                'pp.principal AS principal',
+                'pp.vinculadoEm AS vinculadoEm',
+            )
+            ->join('p.pastaProcessos', 'pp')
+            ->andWhere('pp.processo = :processo')
+            ->setParameter('processo', $processo)
+            ->andWhere('p.tenant = :tenant')
+            ->setParameter('tenant', $tenant)
+            ->orderBy('pp.principal', 'DESC')
+            ->addOrderBy('p.id', 'DESC')
+            ->getQuery()
+            ->getArrayResult();
+
+        return array_map(
+            static fn (array $linha): PastaVinculadaOutput => PastaVinculadaOutput::fromRow($linha),
+            $linhas,
+        );
     }
 
     /**

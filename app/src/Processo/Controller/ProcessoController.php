@@ -10,6 +10,7 @@ use App\Processo\Entity\AssuntoProcesso;
 use App\Processo\Repository\ProcessoRepository;
 use App\Entity\Permission\AccessRequest;
 use App\Cliente\Repository\ClienteRepository;
+use App\Pasta\Repository\PastaRepository;
 use App\Tarefa\Repository\TarefaRepository;
 use App\Processo\Enum\MotivoFalhaDatajud;
 use App\Processo\Exception\ConsultaDatajudException;
@@ -177,7 +178,12 @@ class ProcessoController extends AbstractController
     }
 
     #[Route('/{id}', name: 'processo_show', methods: ['GET'])]
-    public function show(Processo $processo, TarefaRepository $tarefaRepository, PermissionChecker $permissionChecker): Response
+    public function show(
+        Processo $processo,
+        TarefaRepository $tarefaRepository,
+        PastaRepository $pastaRepository,
+        PermissionChecker $permissionChecker,
+    ): Response
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
@@ -221,9 +227,16 @@ class ProcessoController extends AbstractController
             fn (array $a, array $b): int => $b['dataCriacao'] <=> $a['dataCriacao']
         );
 
+        // Sem escritório no contexto não há a quem perguntar quais pastas são visíveis —
+        // lista vazia é o único resultado seguro (o super admin global cai aqui).
+        $pastasVinculadas = $tenant !== null
+            ? $pastaRepository->listarVinculadasAoProcesso($processo, $tenant)
+            : [];
+
         return $this->render('processo/show.html.twig', [
             'processo' => $processo,
             'historicoTarefas' => $historicoTarefas,
+            'pastasVinculadas' => $pastasVinculadas,
         ]);
     }
 

@@ -2,6 +2,16 @@
 
 {% block title %}Processo {{ processo.numeroProcesso }}{% endblock %}
 
+{% block stylesheets %}
+{{ parent() }}
+<style>
+    /* Lápide da pasta excluída na aba Pastas: mesma linguagem do acervo
+       (templates/pasta/_tabela.html.twig) — apagada e riscada, nunca escondida. */
+    .pasta-vinculada.pasta-excluida { opacity: .65; }
+    .pasta-vinculada.pasta-excluida a.fw-semibold { text-decoration: line-through; }
+</style>
+{% endblock %}
+
 {% block body %}
 {# Content Header #}
 <div class="content-header">
@@ -88,6 +98,12 @@
                                 <button class="nav-link" id="tarefas-tab" data-bs-toggle="tab" data-bs-target="#tarefas" type="button" role="tab" aria-controls="tarefas" aria-selected="false">
                                     <i class="bi bi-list-task me-1"></i> Tarefas
                                     {% if historicoTarefas|length > 0 %}<span class="badge text-bg-secondary ms-1">{{ historicoTarefas|length }}</span>{% endif %}
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="pastas-tab" data-bs-toggle="tab" data-bs-target="#pastas" type="button" role="tab" aria-controls="pastas" aria-selected="false">
+                                    <i class="bi bi-folder2-open me-1"></i> Pastas
+                                    {% if pastasVinculadas|length > 0 %}<span class="badge text-bg-secondary ms-1">{{ pastasVinculadas|length }}</span>{% endif %}
                                 </button>
                             </li>
                             <li class="nav-item" role="presentation">
@@ -326,6 +342,63 @@
                                     {% endfor %}
                                 {% else %}
                                     <div class="alert alert-info mb-0"><i class="bi bi-info-circle me-1"></i> Não há tarefas vinculadas a este processo.</div>
+                                {% endif %}
+                            </div>
+
+                            {# Tab: Pastas — espelho de "Processos vinculados" da pasta
+                               (templates/pasta/_processos_vinculados.html.twig), visto do lado
+                               do processo. Só leitura: quem vincula, desvincula ou troca o
+                               principal continua fazendo isso de dentro da pasta, onde estão o
+                               CSRF e a permissão do recurso. #}
+                            <div class="tab-pane fade" id="pastas" role="tabpanel" aria-labelledby="pastas-tab">
+                                {% if pastasVinculadas|length > 0 %}
+                                    <h4 class="mb-3"><i class="bi bi-folder2-open me-1"></i> Pastas vinculadas</h4>
+                                    <div class="d-flex flex-column gap-2">
+                                        {% for pasta in pastasVinculadas %}
+                                            <div class="card border pasta-vinculada{% if pasta.excluida %} pasta-excluida{% endif %}">
+                                                <div class="card-body py-2 px-3">
+                                                    <div class="d-flex flex-wrap align-items-start justify-content-between gap-2">
+                                                        <div class="flex-grow-1">
+                                                            <div class="d-flex align-items-center flex-wrap gap-2 mb-1">
+                                                                <a href="{{ path('pasta_show', {id: pasta.id}) }}" class="fw-semibold text-decoration-none">{{ pasta.rotulo }}</a>
+                                                                {% if pasta.principal %}
+                                                                    <span class="badge text-bg-primary" title="Este processo é o principal da pasta">
+                                                                        <i class="bi bi-star-fill me-1"></i>Principal
+                                                                    </span>
+                                                                {% endif %}
+                                                                {% if pasta.excluida %}
+                                                                    <span class="badge text-bg-danger pasta-badge-excluida"
+                                                                          title="Excluída em {{ pasta.excluidaEm|date('d/m/Y H:i') }}">
+                                                                        Excluída
+                                                                    </span>
+                                                                {% else %}
+                                                                    <span class="badge {{ pasta.situacao == 'ativo' ? 'text-bg-success' : 'text-bg-secondary' }}">
+                                                                        {{ pasta.situacao|capitalize }}
+                                                                    </span>
+                                                                {% endif %}
+                                                            </div>
+                                                            <div class="small text-muted">
+                                                                {% set detalhes = [pasta.nomeCliente, pasta.nomeAcao]|filter(v => v) %}
+                                                                {{ detalhes|join(' · ') ?: '—' }}
+                                                            </div>
+                                                        </div>
+                                                        <div class="d-flex align-items-center gap-1">
+                                                            <a href="{{ path('pasta_show', {id: pasta.id}) }}" class="btn btn-sm btn-outline-primary" title="Abrir a pasta">
+                                                                <i class="bi bi-box-arrow-up-right"></i>
+                                                            </a>
+                                                        </div>
+                                                    </div>
+                                                    {% if pasta.vinculadoEm %}
+                                                        <div class="small text-muted mt-1">
+                                                            <i class="bi bi-link-45deg me-1"></i>Vinculado em {{ pasta.vinculadoEm|date('d/m/Y') }}
+                                                        </div>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        {% endfor %}
+                                    </div>
+                                {% else %}
+                                    <div class="alert alert-info mb-0"><i class="bi bi-info-circle me-1"></i> Este processo não está vinculado a nenhuma pasta.</div>
                                 {% endif %}
                             </div>
                         </div>
