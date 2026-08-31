@@ -60,16 +60,32 @@ lista que registra "sem 2FA por enquanto".
 
 ### Configuração
 
-Parâmetros novos com **fallback para os do sync**, usando o padrão `default:<parâmetro>:<ENV>`
-que já existe em [`services.yaml:44`](../../app/config/services.yaml#L44):
+**Corrigido em 31/08/2026, depois de apurar o tipo do cliente OAuth.** A primeira versão desta
+spec propunha herdar as credenciais do sync por fallback. **Está errado** e foi removido: o
+cliente atual do `bluejus-sync` é do tipo **Desktop app**
+([registrado em 07/2026](fase2-tempo-real-sistema-drive.md#L311)), e cliente Desktop **não
+aceita** `redirect_uri` de site — só `localhost`. Herdar aquele `client_id` faria todo login
+morrer com `redirect_uri_mismatch`.
+
+Portanto, variáveis **próprias e obrigatórias**, sem fallback:
 
 ```yaml
-google_oauth_client_id:     '%env(string:default:google_drive_oauth_client_id:GOOGLE_OAUTH_CLIENT_ID)%'
-google_oauth_client_secret: '%env(string:default:google_drive_oauth_client_secret:GOOGLE_OAUTH_CLIENT_SECRET)%'
+google_oauth_client_id:     '%env(string:default::GOOGLE_OAUTH_CLIENT_ID)%'
+google_oauth_client_secret: '%env(string:default::GOOGLE_OAUTH_CLIENT_SECRET)%'
 ```
 
-Assim a decisão 3 não custa nada na VPS hoje (herda o app do sync), e separar os apps depois é
-só definir as duas variáveis novas — sem tocar em código.
+Faltando qualquer uma, o serviço lança com mensagem explícita — mesmo padrão do
+[`GoogleDriveOAuth::clientBase()`](../../app/src/Sync/Service/GoogleDriveOAuth.php). Falha
+barulhenta na configuração é melhor que login quebrado na cara do usuário.
+
+Elas recebem uma credencial **"Aplicativo da Web"** criada no **mesmo projeto** `bluejus-sync`
+(a decisão 3 do dono se mantém: mesmo projeto, mesma tela de consentimento, mesma conta
+administradora — só uma credencial a mais dentro dele). Redirect a registrar:
+`https://bluejus.com.br/login/google/callback`.
+
+**Essa mesma credencial Web destrava a pendência do "Conectar meu Drive"**, aberta desde 07/2026
+pelo mesmo motivo — lá o redirect é `https://bluejus.com.br/sync/drive/conexao/callback`. Vale
+registrar os dois de uma vez. A credencial Desktop atual continua servindo o CLI/rclone.
 
 ## Invariantes (o que os testes travam)
 
@@ -116,9 +132,28 @@ Cada item vira teste, e cada teste é **provado por reintrodução do defeito** 
    [`ConfirmarCadastroUseCase`](../../app/src/Auth/UseCase/ConfirmarCadastroUseCase.php)
    (User + Tenant + `TenantBootstrapService` + aceite dos Termos, tudo em uma transação) deve ser
    extraído para um UseCase único, chamado pelo caminho por senha e pelo caminho Google.
-6. **Fora do código, e só o dono consegue fazer:** registrar a URI de redirecionamento nova no
-   Google Cloud Console. E se a tela de consentimento do `bluejus-sync` ainda estiver em modo
-   *Testing*, **só usuários de teste conseguem entrar** — verificar antes do deploy.
+6. **Fora do código, e só o dono consegue fazer:** criar a credencial **"Aplicativo da Web"** no
+   projeto `bluejus-sync` e registrar os redirects (ver *Configuração*). **Não** é conta nova —
+   é uma credencial a mais no projeto que já existe.
+
+## Duas ressalvas que caíram ao serem apuradas (31/08/2026)
+
+Ambas estavam nesta spec como risco e **não são risco**:
+
+1. **"E se o app estiver em modo Testing?"** Não está. O `bluejus-sync` foi **publicado em
+   Produção em 13/07/2026** — justamente para o `refresh_token` do sync parar de expirar em 7
+   dias ([sincronizacao-drive-bidirecional.md:620](sincronizacao-drive-bidirecional.md#L620)).
+   Não há lista de usuários de teste para manter.
+2. **"O usuário vai ver a tela de app não verificado?"** Não, e nem esbarra no limite de 100
+   usuários. O Google trata `openid` + `userinfo.email` + `userinfo.profile` como **exceção
+   explícita**: pedindo só esses, o usuário não precisa estar em lista de confiança, não vê
+   aviso, e a autorização não expira em 7 dias. A tela de aviso e o cap de 100 valem para
+   requisições com escopo **sensível ou restrito** — o caso do `drive`, que o login não pede.
+   Fonte: [Unverified apps](https://support.google.com/cloud/answer/7454865) (Google Cloud
+   Console Help).
+
+   **Consequência prática:** reusar o projeto do sync não contamina o login com o ônus do escopo
+   Drive. O que separa os dois é a requisição, não o projeto.
 
 ## Comportamento que já funciona e deve ser preservado
 
