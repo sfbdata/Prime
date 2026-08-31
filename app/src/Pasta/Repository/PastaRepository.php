@@ -11,6 +11,7 @@ use App\Pasta\Entity\PrioridadePasta;
 use App\Entity\Tenant\Tenant;
 use App\Expediente\Entity\Marcador;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\ORM\AbstractQuery;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -564,6 +565,122 @@ class PastaRepository extends ServiceEntityRepository
         }
 
         return $fimDoDia ? $data->setTime(23, 59, 59) : $data;
+    }
+
+    /**
+     * As pastas vizinhas no acervo — o que as setas ‹ › do cabeçalho percorrem.
+     *
+     * A ordem é a MESMA da lista padrão do Expediente (`aplicarOrdenacao`, ramo
+     * `default`): número da pasta decrescente, com o `id` desempatando. Por isso
+     * "anterior" é a linha de CIMA na lista (número maior) e "próxima" a de baixo
+     * (número menor) — quem percorre o acervo com as setas vê a mesma sequência
+     * que veria descendo a lista.
+     *
+     * O desempate por `id` não é enfeite: há NUP repetido em produção (no dev,
+     * três pastas com o número 1214). Sem ele, duas pastas de mesmo número
+     * apontariam uma para a outra e a navegação entraria em looping.
+     *
+     * Entram TODAS as pastas do escritório — ativas, arquivadas e a lápide da
+     * excluída (decisão do dono, 31/08): é o mesmo conjunto que a lista mostra.
+     *
+     * Custo medido no acervo do dev (1.055 pastas): ~2,6 ms por lado, varredura sequencial
+     * mais `top-N heapsort`. A chave é uma expressão sobre o NUP e nenhum índice a atende;
+     * num acervo desta ordem de grandeza isso é ruído perto do resto da tela. Se um dia o
+     * número de pastas por escritório mudar de patamar, o conserto é um índice funcional
+     * sobre o prefixo — não uma reescrita da consulta.
+     *
+     * @return array{anterior: ?array{id: int, nup: ?string}, proxima: ?array{id: int, nup: ?string}}
+     */
+    public function vizinhasNoAcervo(Pasta $pasta): array
+    {
+        $tenant = $pasta->getTenant();
+        $id     = $pasta->getId();
+
+        // Pasta sem tenant ou ainda não persistida não tem vizinhança definível, e devolver as
+        // duas pontas nulas desliga as duas setas — que é o comportamento honesto.
+        if ($tenant === null || $id === null) {
+            return ['anterior' => null, 'proxima' => null];
+        }
+
+        $nup = (string) $pasta->getNup();
+
+        return [
+            'anterior' => $this->vizinha($tenant, $nup, $id, 'ASC'),
+            'proxima'  => $this->vizinha($tenant, $nup, $id, 'DESC'),
+        ];
+    }
+
+    /**
+     * Um lado da vizinhança, por chave composta (prefixo numérico do NUP, NUP cru, id).
+     *
+     * `DESC` procura a maior chave MENOR que a atual (a próxima, linha de baixo); `ASC` procura a
+     * menor chave MAIOR (a anterior, linha de cima) — a comparação e a ordenação viram juntas,
+     * senão a consulta devolveria a ponta do acervo em vez do vizinho.
+     *
+     * @return ?array{id: int, nup: ?string}
+     */
+    private function vizinha(Tenant $tenant, string $nup, int $id, string $direcao): ?array
+    {
+        $qb = $this->createQueryBuilder('p');
+
+        $comparar = $direcao === 'ASC'
+            ? static fn (string $campo, string $parametro) => $qb->expr()->gt($campo, $parametro)
+            : static fn (string $campo, string $parametro) => $qb->expr()->lt($campo, $parametro);
+
+        // Os mesmos três níveis do ORDER BY da lista, com os NULLs neutralizados: NUP sem prefixo
+        // numérico vira -1 e cai no fim da ordem decrescente, exatamente onde o `CASE ... IS NULL`
+        // da listagem o põe. Sem isso a comparação com NULL não casaria com nada e a pasta de NUP
+        // não numérico ficaria sem vizinhos dos dois lados.
+        // `CASE WHEN` e não `COALESCE`: o parser do DQL aceita COALESCE no WHERE mas o recusa no
+        // ORDER BY ("Expected known function, got 'COALESCE'"), e as duas cláusulas têm de usar
+        // exatamente a mesma expressão — é a mesma chave dos dois lados.
+        $prefixo = 'CASE WHEN CAST_INT_PREFIXO(p.nup) IS NULL THEN -1 ELSE CAST_INT_PREFIXO(p.nup) END';
+        $nupCru  = "CASE WHEN p.nup IS NULL THEN '' ELSE p.nup END";
+
+        $linha = $qb
+            ->select('p.id', 'p.nup')
+            ->andWhere('p.tenant = :tenant')
+            // `orX`/`andX` (e não uma string com OR solto) para o parêntese existir de fato: sem ele
+            // o OR escaparia do filtro de tenant e a seta atravessaria escritórios.
+            ->andWhere($qb->expr()->orX(
+                $comparar($prefixo, ':prefixo'),
+                $qb->expr()->andX(
+                    $qb->expr()->eq($prefixo, ':prefixo'),
+                    $comparar($nupCru, ':nup'),
+                ),
+                $qb->expr()->andX(
+                    $qb->expr()->eq($prefixo, ':prefixo'),
+                    $qb->expr()->eq($nupCru, ':nup'),
+                    $comparar('p.id', ':id'),
+                ),
+            ))
+            ->setParameter('tenant', $tenant)
+            ->setParameter('prefixo', self::prefixoNumerico($nup))
+            ->setParameter('nup', $nup)
+            ->setParameter('id', $id)
+            ->orderBy($prefixo, $direcao)
+            ->addOrderBy($nupCru, $direcao)
+            ->addOrderBy('p.id', $direcao)
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult(AbstractQuery::HYDRATE_ARRAY);
+
+        if ($linha === null) {
+            return null;
+        }
+
+        return ['id' => (int) $linha['id'], 'nup' => $linha['nup']];
+    }
+
+    /**
+     * Espelho em PHP do `CAST_INT_PREFIXO` do banco: o prefixo numérico do NUP ('10' → 10,
+     * '10A' → 10), ou -1 quando não há prefixo. As duas leituras precisam concordar — é a
+     * mesma chave dos dois lados da comparação. O limite de 18 dígitos é o do BIGINT, o
+     * mesmo da função DQL.
+     */
+    private static function prefixoNumerico(string $nup): int
+    {
+        return preg_match('/^[0-9]{1,18}/', $nup, $casou) === 1 ? (int) $casou[0] : -1;
     }
 
     /**

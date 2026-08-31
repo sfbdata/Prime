@@ -10,7 +10,7 @@
         Última movimentação · Situação);
      3. abas em controle segmentado.
 
-   Contexto: `pasta`, `fotosResponsaveis`, `contagemAbas`.
+   Contexto: `pasta`, `fotosResponsaveis`, `contagemAbas`, `vizinhas`.
    ============================================================================ #}
 {% set proc = pasta.processoPrincipal %}
 
@@ -29,6 +29,42 @@
                 <li><span class="ps-breadcrumb-atual ps-num">{{ pasta.nup }}</span></li>
             </ol>
         </div>
+
+        {# ── Navegar entre pastas ─────────────────────────────────────────────
+           Percorrem o acervo do escritório na ordem da lista do Expediente
+           (número decrescente): ‹ é a linha de cima e › a de baixo. Ficam na
+           linha da trilha, separadas das ações por uma divisória — navegar não
+           pode se confundir com Arquivar/Editar/Excluir, que são irreversíveis
+           ou quase. Na ponta do acervo a seta vira `<span>` inerte em vez de
+           sumir: botão que aparece e some conforme a pasta faz o olho procurar.
+           O rótulo diz o número de destino porque "anterior" num acervo ordenado
+           do maior para o menor é ambíguo sem ele. #}
+        <nav class="ps-cab-nav" aria-label="Navegar entre pastas do acervo">
+            {% if vizinhas.anteriorId %}
+                <a href="{{ path('pasta_show', {id: vizinhas.anteriorId}) }}"
+                   class="ps-btn ps-btn--seta" data-nav="anterior"
+                   title="{{ vizinhas.rotuloAnterior }}" aria-label="{{ vizinhas.rotuloAnterior }}">
+                    <i class="bi bi-chevron-left"></i>
+                </a>
+            {% else %}
+                <span class="ps-btn ps-btn--seta ps-btn--inerte" data-nav="anterior" aria-disabled="true"
+                      title="{{ vizinhas.rotuloAnterior }}" aria-label="{{ vizinhas.rotuloAnterior }}">
+                    <i class="bi bi-chevron-left"></i>
+                </span>
+            {% endif %}
+            {% if vizinhas.proximaId %}
+                <a href="{{ path('pasta_show', {id: vizinhas.proximaId}) }}"
+                   class="ps-btn ps-btn--seta" data-nav="proxima"
+                   title="{{ vizinhas.rotuloProxima }}" aria-label="{{ vizinhas.rotuloProxima }}">
+                    <i class="bi bi-chevron-right"></i>
+                </a>
+            {% else %}
+                <span class="ps-btn ps-btn--seta ps-btn--inerte" data-nav="proxima" aria-disabled="true"
+                      title="{{ vizinhas.rotuloProxima }}" aria-label="{{ vizinhas.rotuloProxima }}">
+                    <i class="bi bi-chevron-right"></i>
+                </span>
+            {% endif %}
+        </nav>
 
         <div class="ps-cab-acoes">
             {% if pasta.estaExcluida %}

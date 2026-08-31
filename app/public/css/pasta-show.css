@@ -211,6 +211,23 @@
 .ps-cab-trilha { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .ps-cab-acoes  { display: flex; align-items: center; gap: 6px; flex-shrink: 0; margin-left: auto; }
 
+/* ── Setas ‹ › de navegação entre pastas ──────────────────────────────────────
+   Ficam na linha da trilha, empurradas para a direita, e a divisória as separa
+   das ações: navegar não pode se confundir com Arquivar/Editar/Excluir.
+   Quem carrega o `margin-left: auto` passa a ser a nav; sem esta troca os dois
+   `auto` dividiriam a sobra entre si e as setas parariam no meio da linha. */
+.ps-cab-nav { display: flex; align-items: center; gap: 4px; flex-shrink: 0; margin-left: auto; }
+.ps-cab-nav + .ps-cab-acoes { margin-left: 0; padding-left: 12px; border-left: 1px solid var(--ps-border); }
+
+/* Altura de 30px para casar com o botão "Pastas" ao lado, não com os 34px das ações. */
+.ps-btn--seta { width: 30px; height: 30px; padding: 0; justify-content: center; }
+.ps-btn--seta i { font-size: 13px; }
+
+/* Ponta do acervo: a seta continua no lugar, apagada e sem alvo de clique — sumir
+   faria o par de botões mudar de largura de pasta para pasta. */
+.ps-btn--inerte { opacity: .4; cursor: default; }
+.ps-btn--inerte:hover { border-color: var(--ps-border-ctl); color: var(--ps-text-2); }
+
 .ps-breadcrumb {
     display: flex;
     align-items: center;
@@ -862,6 +879,14 @@
     .ps-cab-dados { gap: 18px 26px; }
     .ps-cab-linha1 { flex-wrap: wrap; }
     .ps-cab-acoes { margin-left: 0; }
+    /* A linha quebra aqui: a divisória vertical entre navegar e agir passaria a
+       abrir a linha das ações, sem nada à esquerda para separar. */
+    .ps-cab-nav { margin-left: 0; }
+    .ps-cab-nav + .ps-cab-acoes { padding-left: 0; border-left: none; }
+    /* `.ps-btn span { display: none }` some com o rótulo dos botões de ação; as setas
+       não têm rótulo, e sem esta linha ficariam com o padding lateral de um botão de
+       texto vazio. */
+    .ps-btn--seta { padding: 0; }
     .ps-btn span { display: none; }
     .ps-btn { padding: 0 10px; }
     .ps-btn--voltar span { display: inline; }

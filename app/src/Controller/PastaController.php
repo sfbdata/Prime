@@ -43,6 +43,7 @@ use App\Pasta\Entity\PrioridadePasta;
 use App\Pasta\DTO\CriarPastaDTO;
 use App\Pasta\DTO\EditarPastaDTO;
 use App\Pasta\DTO\PastaFinanceiroOutput;
+use App\Pasta\DTO\PastaVizinhasOutput;
 use App\Pasta\DTO\PastaPagamentosOutput;
 use App\Pasta\DTO\PastaPushOutput;
 use App\Djen\Repository\PublicacaoDjenRepository;
@@ -379,8 +380,13 @@ class PastaController extends AbstractController
             self::PUSH_LIMITE,
         );
 
+        // Setas ‹ › do cabeçalho: a pasta de cima e a de baixo na ordem da lista do Expediente.
+        // Não dependem de filtro nem de sessão — quem chega por link direto navega igual.
+        $vizinhas = PastaVizinhasOutput::montar($this->pastaRepository->vizinhasNoAcervo($pasta));
+
         return $this->render('pasta/show.html.twig', [
             'pasta'                       => $pasta,
+            'vizinhas'                    => $vizinhas,
             'documentTypeOptions'         => self::DOCUMENT_TYPES,
             'documentosPorTipo'           => $this->groupDocumentsByType($pasta),
             'timelineItems'               => $timelineItems,
