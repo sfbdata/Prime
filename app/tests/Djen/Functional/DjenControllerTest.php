@@ -116,6 +116,38 @@ final class DjenControllerTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
     }
 
+    /**
+     * O módulo se chama "Push Processual" desde `Version20260819160000`, mas a renomeação passou por
+     * cima do título desta tela: o `<h1>` continuou dizendo "Publicação do DJEN" por dias, com o
+     * `{% block title %}` da MESMA tela já correto — divergência que nenhum teste via.
+     *
+     * O buraco tinha endereço: `RotasLegadasDjenControllerTest` confere o `<h1>` da LISTAGEM, e só
+     * dela. Aqui a tela de detalhe passa a ter a mesma trava.
+     *
+     * A asserção é sobre o nome do MÓDULO, não sobre a frase inteira — reescrever "Publicação" para
+     * "Comunicação" é decisão de rótulo, e não deve quebrar teste; voltar a chamar o módulo de DJEN,
+     * sim. Por isso `assertStringNotContainsString('DJEN')` acompanha: é o texto que já vazou.
+     */
+    #[Test]
+    public function showExibeONomeNovoDoModuloNoTitulo(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $gestor = $this->criarGestor($tenant, 'g_' . uniqid() . '@test.com');
+        $pub = $this->criarPublicacao($tenant, '900002', '50636766220224047000');
+        $pubId = (int) $pub->getId();
+        $this->logarComTenant($client, $gestor, $tenant);
+        $this->limparIdentityMap();
+
+        $crawler = $client->request('GET', '/push-processual/' . $pubId);
+
+        self::assertResponseIsSuccessful();
+
+        $titulo = $crawler->filter('h1')->text();
+        self::assertStringContainsString('Push Processual', $titulo);
+        self::assertStringNotContainsString('DJEN', $titulo, 'o título da tela voltou ao nome antigo do módulo');
+    }
+
     #[Test]
     public function sincronizarAgoraRedirecionaComClienteMockado(): void
     {
