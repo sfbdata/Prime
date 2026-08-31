@@ -26,7 +26,7 @@ final class AtualizarValorCausaUseCase
 
     public function executar(Pasta $pasta, ?string $entrada): void
     {
-        $pasta->setValorCausa(ValorEmReais::normalizar($entrada, 'valor da causa'));
+        $pasta->setValorCausa(ValorEmReais::normalizar($entrada, 'valor dos honorários contratuais'));
         $this->em->flush();
     }
 }

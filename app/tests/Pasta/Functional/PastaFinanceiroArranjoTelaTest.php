@@ -110,7 +110,7 @@ final class PastaFinanceiroArranjoTelaTest extends JusPrimeWebTestCase
         foreach ([
             '#financeiro-situacao-btn'  => 'Contrato',
             '#financeiro-probono-btn'   => 'Pró-bono',
-            '#financeiro-valor-causa'   => 'Valor da causa',
+            '#financeiro-valor-causa'   => 'Honorários contratuais',
             '#financeiro-media-cpf'     => 'Média por CPF',
         ] as $seletor => $rotulo) {
             self::assertSame(
@@ -121,7 +121,43 @@ final class PastaFinanceiroArranjoTelaTest extends JusPrimeWebTestCase
         }
     }
 
-    #[TestDox('A ordem dos cards segue o desenho: Contrato, Pró-bono, Valor da causa, Média')]
+    #[TestDox('O card do valor mostra "Honorários contratuais", não mais "Valor da causa"')]
+    public function testRotuloDoCardEHonorariosContratuais(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant, '12860.00');
+        $this->logarComTenant($client, $user, $tenant);
+
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
+
+        $bloco = $crawler->filter('#financeiro-valor-causa-bloco');
+        self::assertSame(1, $bloco->count());
+        self::assertSame(
+            'Honorários contratuais',
+            trim($bloco->filter('.ps-fin-rotulo')->text()),
+            'o rótulo do card não é o nome que o dono pediu'
+        );
+
+        /* O nome antigo não pode sobrar em canto nenhum do card — nem no rótulo,
+           nem no lápis, nem no rótulo acessível do campo de edição. O escopo é o
+           card, não a página: ids e rota seguem chamando `valor-causa`. */
+        self::assertStringNotContainsStringIgnoringCase(
+            'Valor da causa',
+            $bloco->html(),
+            'o nome antigo continua visível em algum ponto do card'
+        );
+        self::assertSame(
+            'Editar honorários contratuais',
+            $bloco->filter('#financeiro-valor-causa-lapis')->attr('title')
+        );
+        self::assertSame(
+            'Honorários contratuais',
+            $bloco->filter('#financeiro-valor-causa-input')->attr('aria-label')
+        );
+    }
+
+    #[TestDox('A ordem dos cards segue o desenho: Contrato, Pró-bono, Honorários contratuais, Média')]
     public function testOrdemDosCardsSegueODesenho(): void
     {
         $client          = static::createClient();
@@ -408,7 +444,7 @@ final class PastaFinanceiroArranjoTelaTest extends JusPrimeWebTestCase
         self::assertSame('R$ 50.000,00', trim($crawler->filter('#financeiro-media-cpf')->text()));
     }
 
-    #[TestDox('Pasta sem valor da causa mostra travessão no lugar do número')]
+    #[TestDox('Pasta sem honorários contratuais mostra travessão no lugar do número')]
     public function testSemValorMostraTravessao(): void
     {
         $client          = static::createClient();
@@ -421,7 +457,7 @@ final class PastaFinanceiroArranjoTelaTest extends JusPrimeWebTestCase
         self::assertSame('—', trim($crawler->filter('#financeiro-valor-causa')->text()));
     }
 
-    #[TestDox('O valor da causa é editável na própria tela, com token CSRF e rota de gravação')]
+    #[TestDox('Os honorários contratuais são editáveis na própria tela, com token CSRF e rota de gravação')]
     public function testValorCausaTemGanchoDeEdicao(): void
     {
         $client          = static::createClient();

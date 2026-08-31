@@ -76,15 +76,17 @@
         </div>
     </div>
 
-    {# Valor da causa — editável no lugar: clique no número, digite, Enter grava. #}
+    {# Honorários contratuais — editável no lugar: clique no número, digite, Enter grava.
+       O dado por trás segue sendo o `valor_causa` da pasta (rota, coluna e ids
+       inalterados); o dono renomeou só o que a tela mostra. #}
     <div class="ps-fin-bloco"
          id="financeiro-valor-causa-bloco"
          data-csrf="{{ csrf_token('pasta_valor_causa_' ~ pasta.id) }}"
          data-url="{{ path('pasta_atualizar_valor_causa', {id: pasta.id}) }}">
         <div class="ps-fin-rotulo-linha">
-            <span class="ps-fin-rotulo">Valor da causa</span>
+            <span class="ps-fin-rotulo">Honorários contratuais</span>
             <span class="ps-cab-espaco"></span>
-            <button type="button" class="ps-fin-lapis" id="financeiro-valor-causa-lapis" title="Editar valor da causa">
+            <button type="button" class="ps-fin-lapis" id="financeiro-valor-causa-lapis" title="Editar honorários contratuais">
                 <i class="bi bi-pencil"></i>
             </button>
         </div>
@@ -101,7 +103,7 @@
                    inputmode="decimal"
                    maxlength="20"
                    placeholder="0,00"
-                   aria-label="Valor da causa">
+                   aria-label="Honorários contratuais">
             <div class="ps-fin-sub">valor cadastrado na pasta</div>
             <div id="financeiro-valor-causa-erro" class="ps-fin-sub ps-fin-sub--erro d-none"></div>
         </div>
@@ -439,7 +441,7 @@
         });
     }
 
-    // ── Valor da causa (edição no lugar) ─────────────────────────────────────
+    // ── Honorários contratuais (edição no lugar; campo valor_causa) ──────────
     const vcBloco  = document.getElementById('financeiro-valor-causa-bloco');
     const vcTexto  = document.getElementById('financeiro-valor-causa');
     const vcInput  = document.getElementById('financeiro-valor-causa-input');

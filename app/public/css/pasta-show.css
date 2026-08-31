@@ -1027,6 +1027,16 @@
     text-transform: uppercase;
     color: var(--ps-label);
 }
+/* "HONORÁRIOS CONTRATUAIS" é o rótulo mais longo da faixa: em largura de card
+   mínima (200px) ele não cabe ao lado do lápis. Sem esta guarda o texto quebraria
+   em duas linhas dentro de uma linha de altura fixa e vazaria por cima do número.
+   Só age quando falta espaço; nas larguras normais nada muda. */
+.ps-fin-faixa .ps-fin-rotulo {
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
 .ps-fin-corpo { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; }
 .ps-fin-bloco--media { background: #fdf8ef; border-color: #ecdfc7; }
 .ps-fin-bloco--media .ps-fin-rotulo { color: #a08444; }

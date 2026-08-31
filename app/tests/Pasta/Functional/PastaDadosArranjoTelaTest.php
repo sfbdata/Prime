@@ -500,10 +500,10 @@ final class PastaDadosArranjoTelaTest extends JusPrimeWebTestCase
         );
 
         /* E não voltou disfarçado: os rótulos do cartão não podem sobrar no
-           trilho depois da remoção. O escopo é o trilho, não a página — o valor
-           da causa segue legítimo na aba Financeiro. */
+           trilho depois da remoção. O escopo é o trilho, não a página — os
+           honorários contratuais seguem legítimos na aba Financeiro. */
         $trilho = $crawler->filter('#dados > .ps-grade > .ps-trilho')->text();
-        foreach (['Financeiro do caso', 'Valor da causa'] as $rotuloQueSaiu) {
+        foreach (['Financeiro do caso', 'Honorários contratuais'] as $rotuloQueSaiu) {
             self::assertStringNotContainsString(
                 $rotuloQueSaiu,
                 $trilho,
