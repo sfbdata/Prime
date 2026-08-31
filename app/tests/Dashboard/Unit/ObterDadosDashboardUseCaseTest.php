@@ -49,6 +49,7 @@ final class ObterDadosDashboardUseCaseTest extends TestCase
         $this->tarefaRepo->method('countPrazosProximosPorResponsavel')->willReturn([]);
         $this->pastaRepo->method('countPorResponsavel')->willReturn([]);
         $this->pastaRepo->method('countAtivasPorResponsavel')->willReturn([]);
+        $this->pastaRepo->method('countCriadasPorCriador')->willReturn([]);
         $this->userRepo->method('findCargoPorColaboradores')->willReturn([]);
         $this->userRepo->method('findFotoPorColaboradores')->willReturn([]);
     }
@@ -152,6 +153,7 @@ final class ObterDadosDashboardUseCaseTest extends TestCase
         self::assertSame(0, $linha->prazosProximos);
         self::assertSame(0, $linha->totalDemandas);
         self::assertSame(0, $linha->demandasAtivas);
+        self::assertSame(0, $linha->pastasCriadas);
     }
 
     // ─── TABELA — counts parciais ─────────────────────────────────────
@@ -452,5 +454,42 @@ final class ObterDadosDashboardUseCaseTest extends TestCase
 
         self::assertSame(4, $output->totalMetasAtivas);
         self::assertSame(1, $output->demandasUrgentes);
+    }
+
+    // ─── TABELA — pastas criadas (por quem abriu) ────────────────────
+
+    #[TestDox('pastasCriadas vem do mapa por CRIADOR, independente de quem responde pela pasta')]
+    public function testPastasCriadasVemDoMapaPorCriador(): void
+    {
+        $this->tarefaRepo->method('countMetasAtivas')->willReturn(0);
+        $this->pastaRepo->method('countUrgentes')->willReturn(0);
+        $this->tarefaRepo->method('countMetasGlobal')->willReturn(['concluidas' => 0, 'total' => 0]);
+
+        $this->tarefaRepo->method('countPorResponsavel')->willReturn([]);
+        $this->tarefaRepo->method('countAtivasPorResponsavel')->willReturn([]);
+        $this->tarefaRepo->method('countVencidasPorResponsavel')->willReturn([]);
+        $this->tarefaRepo->method('countPrazosProximosPorResponsavel')->willReturn([]);
+        // Ana abriu 9 pastas e não responde por nenhuma; Bruno responde por 4 e não abriu nenhuma.
+        $this->pastaRepo->method('countPorResponsavel')->willReturn([31 => 4]);
+        $this->pastaRepo->method('countAtivasPorResponsavel')->willReturn([31 => 4]);
+        $this->pastaRepo->method('countCriadasPorCriador')->willReturn([30 => 9]);
+
+        $ana   = $this->mockUser(30, 'Ana Lima');
+        $bruno = $this->mockUser(31, 'Bruno Melo');
+        $this->userRepo->method('findColaboradoresAtivosPorTenant')->willReturn([$ana, $bruno]);
+        $this->userRepo->method('findCargoPorColaboradores')->willReturn([]);
+        $this->userRepo->method('findFotoPorColaboradores')->willReturn([]);
+
+        $output = $this->sut->executar($this->tenant, $this->referencia);
+
+        $porId = [];
+        foreach ($output->porAdvogado as $linha) {
+            $porId[$linha->userId] = $linha;
+        }
+
+        self::assertSame(9, $porId[30]->pastasCriadas);
+        self::assertSame(0, $porId[30]->totalDemandas);
+        self::assertSame(0, $porId[31]->pastasCriadas);
+        self::assertSame(4, $porId[31]->totalDemandas);
     }
 }

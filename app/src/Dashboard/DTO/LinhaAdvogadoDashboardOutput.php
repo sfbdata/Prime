@@ -19,5 +19,7 @@ final class LinhaAdvogadoDashboardOutput
         // Pasta
         public readonly int    $totalDemandas,
         public readonly int    $demandasAtivas,
+        /** Pastas abertas POR este colaborador (criadoPor), não as que ele responde. */
+        public readonly int    $pastasCriadas,
     ) {}
 }

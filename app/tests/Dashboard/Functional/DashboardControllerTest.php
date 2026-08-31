@@ -181,6 +181,32 @@ final class DashboardControllerTest extends JusPrimeWebTestCase
         self::assertSelectorExists('table tbody tr');
     }
 
+    #[TestDox('GET /dashboard mostra a coluna Pastas Criadas com o total de pastas abertas pelo colaborador')]
+    public function testColunaPastasCriadasMostraQuemAbriuAPasta(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $user   = $this->criarUsuarioComPermissaoBi($tenant);
+        $outro  = $this->criarUsuarioSemPermissao($tenant);
+
+        // Quem ABRIU as duas pastas foi o $user; quem RESPONDE por elas é o $outro. A coluna
+        // nova tem de creditar o $user — se ela lesse o responsável, mostraria zero aqui.
+        PastaFactory::createMany(2, ['tenant' => $tenant, 'criadoPor' => $user, 'responsavel' => $outro]);
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $client->request('GET', '/dashboard');
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('table thead', 'Pastas Criadas');
+
+        $linha = $crawler->filter('table tbody tr')->reduce(
+            static fn ($tr): bool => str_contains($tr->text(), 'Com Permissão BI'),
+        );
+        self::assertCount(1, $linha, 'a linha do colaborador que abriu as pastas deve estar na tabela');
+        self::assertSame('2', trim($linha->filter('td')->last()->text()), 'Pastas Criadas');
+        self::assertSame('0', trim($linha->filter('td')->eq(6)->text()), 'Total Demandas segue por responsável');
+    }
+
     #[TestDox('GET /dashboard renderiza a barra de filtro global (período/responsável/cargo)')]
     public function testExibeBarraDeFiltro(): void
     {

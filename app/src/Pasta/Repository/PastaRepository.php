@@ -436,6 +436,47 @@ class PastaRepository extends ServiceEntityRepository
     }
 
     /**
+     * Pastas ABERTAS por cada colaborador — a coluna "Pastas Criadas" do Dashboard.
+     *
+     * Mede coisa diferente do `countPorResponsavel`: aquele conta a pasta para quem responde
+     * por ela hoje, este conta para quem a abriu. Em produção, 614 das 1.083 pastas têm criador
+     * diferente do responsável (medido em 31/08/2026) — as duas colunas não são redundantes.
+     *
+     * Pasta-lápide fica de fora (decisão do dono, 31/08/2026): pasta excluída não conta como
+     * trabalho entregue. Pasta sem criador (legado) não entra na contagem de ninguém — o JOIN
+     * interno com `p.criadoPor` já a descarta.
+     *
+     * O período usa a mesma régua das demais colunas do painel (`p.dataAbertura`, via
+     * aplicarFiltrosDashboard) para que um mesmo filtro signifique a mesma janela na linha
+     * inteira. Em produção as duas datas coincidem: `data_abertura` e `created_at` caem no mesmo
+     * dia nas 1.083 pastas.
+     *
+     * @param array<string, mixed> $filtros  filtros do Dashboard (data_de, data_ate)
+     * @return array<int, int>  userId => total de pastas criadas
+     */
+    public function countCriadasPorCriador(Tenant $tenant, array $filtros = []): array
+    {
+        $qb = $this->createQueryBuilder('p')
+            ->select('c.id AS criador_id, COUNT(p.id) AS total')
+            ->join('p.criadoPor', 'c')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.excluidaEm IS NULL')
+            ->setParameter('tenant', $tenant)
+            ->groupBy('c.id');
+
+        $this->aplicarFiltrosDashboard($qb, $filtros, false);
+
+        $rows = $qb->getQuery()->getArrayResult();
+
+        $counts = [];
+        foreach ($rows as $row) {
+            $counts[(int) $row['criador_id']] = (int) $row['total'];
+        }
+
+        return $counts;
+    }
+
+    /**
      * Aplica os filtros globais do Dashboard a uma query cujo alias raiz é 'p':
      * período por `p.dataAbertura` e, quando $filtrarResponsavel, o responsável.
      *

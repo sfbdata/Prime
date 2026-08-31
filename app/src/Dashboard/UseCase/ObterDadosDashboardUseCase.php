@@ -36,13 +36,16 @@ final class ObterDadosDashboardUseCase
             ? (int) round($global['concluidas'] / $global['total'] * 100)
             : 0;
 
-        // 6 mapas userId => count (período aplicado; vencidas/prazos são relativos à referência)
+        // 7 mapas userId => count (período aplicado; vencidas/prazos são relativos à referência)
         $mTotalTarefa  = $this->tarefaRepository->countPorResponsavel($tenant, $filtros);
         $mAtivasTarefa = $this->tarefaRepository->countAtivasPorResponsavel($tenant, $filtros);
         $mVencidas     = $this->tarefaRepository->countVencidasPorResponsavel($tenant, $referencia);
         $mPrazos       = $this->tarefaRepository->countPrazosProximosPorResponsavel($tenant, $referencia);
         $mTotalPasta   = $this->pastaRepository->countPorResponsavel($tenant, $filtros);
         $mAtivasPasta  = $this->pastaRepository->countAtivasPorResponsavel($tenant, $filtros);
+        // Por CRIADOR, não por responsável: mede quem abriu a pasta (uso do sistema e
+        // produtividade), enquanto os dois mapas acima medem quem responde por ela.
+        $mCriadasPasta = $this->pastaRepository->countCriadasPorCriador($tenant, $filtros);
 
         // Lista canônica: todos os colaboradores ativos do tenant
         $colaboradores = $this->userRepository->findColaboradoresAtivosPorTenant($tenant);
@@ -83,6 +86,7 @@ final class ObterDadosDashboardUseCase
                 prazosProximos: $mPrazos[$id]       ?? 0,
                 totalDemandas:  $mTotalPasta[$id]   ?? 0,
                 demandasAtivas: $mAtivasPasta[$id]  ?? 0,
+                pastasCriadas:  $mCriadasPasta[$id] ?? 0,
             );
         }
 

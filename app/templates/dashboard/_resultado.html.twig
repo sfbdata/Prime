@@ -61,6 +61,8 @@
                     <th class="text-center">Prazos Próximos</th>
                     <th class="text-center">Total Demandas</th>
                     <th class="text-center">Demandas Ativas</th>
+                    {# Por quem ABRIU a pasta (criadoPor) — as duas colunas acima são por responsável. #}
+                    <th class="text-center">Pastas Criadas</th>
                 </tr>
             </thead>
             <tbody>
@@ -103,6 +105,7 @@
                     </td>
                     <td class="text-center">{{ linha.totalDemandas }}</td>
                     <td class="text-center">{{ linha.demandasAtivas }}</td>
+                    <td class="text-center">{{ linha.pastasCriadas }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
