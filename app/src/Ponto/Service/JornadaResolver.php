@@ -66,11 +66,16 @@ class JornadaResolver
     /**
      * Tipos de batida que a escala daquele dia pede — a "forma" do dia.
      *
-     * É o que permite dizer se um dia está mal batido sem inventar exigência: se o bloco vigente
-     * prevê intervalo, o dia só é apurável com os quatro registros; se não prevê (ou se o dia está
-     * fora da escala — sábado, domingo, feriado), entrada e saída bastam. Exigir as quatro batidas
-     * num sábado seria exigir o que a escala não pede, e descartaria hora extra real de fim de
-     * semana.
+     * ⚠️ **Não decide mais saldo.** Até 31/08/2026 era daqui que `CalculadoraJornada` tirava o que
+     * cobrar de um dia para apurá-lo; hoje a apuração exige entrada e saída e nada mais, porque
+     * trabalhar sem tirar almoço é permitido (ver
+     * `docs/specs/ponto-registro-incompleto-entrada-saida.md`). O método continua aqui como
+     * consulta à escala, com testes próprios — se voltar a ser usado para julgar dia mal batido,
+     * é regressão daquela decisão, não conserto.
+     *
+     * Se o bloco vigente prevê intervalo, a forma do dia são os quatro registros; se não prevê (ou
+     * se o dia está fora da escala — sábado, domingo, feriado), entrada e saída bastam. Exigir as
+     * quatro batidas num sábado seria exigir o que a escala não pede.
      *
      * Deriva de `resolverBatidasEsperadasHoje()` de propósito: a cascata bloco do colaborador →
      * bloco do tenant → fallback legado já mora lá, e duplicá-la aqui deixaria as duas divergirem

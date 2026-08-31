@@ -471,21 +471,21 @@ class CalculadoraJornadaTest extends TestCase
         $this->assertSame(0, $saldo);
     }
 
-    public function testDiaUtilSemBatidasDeIntervaloNaoCreditaOAlmoco(): void
+    public function testDiaUtilSemBatidasDeIntervaloContaOSpanInteiro(): void
     {
         $jornada = $this->jornadaComIntervalo();
         $user = $this->novoUsuario($jornada);
 
-        // 27/07/2026: 09:02→18:10 sem bater o almoço. Antes o span inteiro (548 min) contava como
-        // trabalhado e o dia CREDITAVA +20, apesar de a escala prever 1h de intervalo.
+        // 27/07/2026: 09:02→18:10 sem bater o almoço. **É permitido trabalhar sem tirar almoço**
+        // (dono, 31/08/2026): o span inteiro são 548 min contra a meta de 528, então o dia credita
+        // +20. A escala prevê intervalo e isso deixou de importar — a meta já vem líquida dele.
         $batidas = [
             $this->batida(RegistroPonto::TIPO_ENTRADA, '09:02'),
             $this->batida(RegistroPonto::TIPO_SAIDA, '18:10'),
         ];
 
-        $saldo = $this->calculadora->calcularSaldoDia($user, $this->segunda(), $batidas, $jornada, []);
-
-        $this->assertSame(0, $saldo);
+        $this->assertFalse($this->calculadora->registroIncompleto($batidas));
+        $this->assertSame(20, $this->calculadora->calcularSaldoDia($user, $this->segunda(), $batidas, $jornada, []));
     }
 
     public function testDiaUtilSemBatidaNenhumaContinuaSendoFalta(): void
@@ -551,19 +551,16 @@ class CalculadoraJornadaTest extends TestCase
 
     public function testRegistroIncompletoEhFalsoQuandoNaoHaBatidaNenhuma(): void
     {
-        $jornada = $this->jornadaComIntervalo();
-        $user = $this->novoUsuario($jornada);
-
         $this->assertFalse(
-            $this->calculadora->registroIncompleto($user, $this->segunda(), [])
+            $this->calculadora->registroIncompleto([])
         );
     }
 
-    public function testRegistroIncompletoEhVerdadeiroQuandoFaltaORetorno(): void
+    public function testRegistroIncompletoEhVerdadeiroQuandoBateuSoMetadeDoIntervalo(): void
     {
-        $jornada = $this->jornadaComIntervalo();
-        $user = $this->novoUsuario($jornada);
-
+        // Bateu o `repouso` e esqueceu o `retorno`: PROVOU que saiu para almoçar, mas não por
+        // quanto tempo. Contar o span inteiro creditaria esse almoço — por isso a exceção à regra
+        // de "entrada e saída bastam". Decisão do dono em 31/08/2026, perguntado explicitamente.
         $batidas = [
             $this->batida(RegistroPonto::TIPO_ENTRADA, '09:07'),
             $this->batida(RegistroPonto::TIPO_REPOUSO, '12:31'),
@@ -571,15 +568,45 @@ class CalculadoraJornadaTest extends TestCase
         ];
 
         $this->assertTrue(
-            $this->calculadora->registroIncompleto($user, $this->segunda(), $batidas)
+            $this->calculadora->registroIncompleto($batidas)
         );
+    }
+
+    public function testRegistroIncompletoEhVerdadeiroQuandoBateuSoORetornoDoIntervalo(): void
+    {
+        // Espelho do anterior: bateu o `retorno` sem o `repouso`. Mesma incógnita, mesmo veredito —
+        // e é o que impede a regra do XOR de valer só para um dos lados.
+        $batidas = [
+            $this->batida(RegistroPonto::TIPO_ENTRADA, '09:07'),
+            $this->batida(RegistroPonto::TIPO_RETORNO, '13:31'),
+            $this->batida(RegistroPonto::TIPO_SAIDA, '18:00'),
+        ];
+
+        $this->assertTrue($this->calculadora->registroIncompleto($batidas));
+    }
+
+    public function testDiaComAlmocoBatidoMasSemSaidaContinuaIncompleto(): void
+    {
+        $jornada = $this->jornadaComIntervalo();
+        $user = $this->novoUsuario($jornada);
+
+        // 16/07/2026: três batidas, faltando só a saída. Não há fim para medir, então o dia não
+        // credita nem debita — vale mesmo com o intervalo inteiro registrado.
+        $batidas = [
+            $this->batida(RegistroPonto::TIPO_ENTRADA, '09:07'),
+            $this->batida(RegistroPonto::TIPO_REPOUSO, '12:31'),
+            $this->batida(RegistroPonto::TIPO_RETORNO, '13:32'),
+        ];
+
+        $this->assertTrue($this->calculadora->registroIncompleto($batidas));
+        $this->assertSame(0, $this->calculadora->calcularSaldoDia($user, $this->segunda(), $batidas, $jornada, []));
     }
 
     public function testJornadaSemIntervaloCadastradoNaoExigeBatidaDeAlmoco(): void
     {
-        // A forma vem da ESCALA: bloco sem repouso/retorno não pede batida de intervalo, e o dia
-        // segue apurável com entrada e saída. É o que preserva o comportamento de quem nunca
-        // cadastrou horário de almoço.
+        // Bloco sem repouso/retorno cadastrado: o dia é apurável com entrada e saída, como todo
+        // dia agora é. Preserva o comportamento de quem nunca cadastrou horário de almoço — e o
+        // teste continua aqui porque essa escala existe em produção e não pode regredir.
         $bloco = new BlocoJornadaColaborador();
         $bloco->setDiasSemana([1, 2, 3, 4, 5]);
         $bloco->setEntrada('09:00');
@@ -595,7 +622,7 @@ class CalculadoraJornadaTest extends TestCase
             $this->batida(RegistroPonto::TIPO_SAIDA, '18:30'),
         ];
 
-        $this->assertFalse($this->calculadora->registroIncompleto($user, $this->segunda(), $batidas));
+        $this->assertFalse($this->calculadora->registroIncompleto($batidas));
         $this->assertSame(90, $this->calculadora->calcularSaldoDia($user, $this->segunda(), $batidas, $jornada, []));
     }
 }

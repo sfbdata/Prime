@@ -34,7 +34,7 @@ class CalculadoraJornada
         // entrada e esqueceu o resto valia `0 - carga` = a jornada inteira negativa: em 07/2026 quatro
         // dias assim custaram −35:12 a uma colaboradora que estava no escritório. Fica antes da
         // tolerância de 5 min porque não há déficit a tolerar — não há medição.
-        if ($this->registroIncompleto($user, $data, $batidas, $jornadaTenant)) {
+        if ($this->registroIncompleto($batidas)) {
             return 0;
         }
 
@@ -103,18 +103,24 @@ class CalculadoraJornada
     }
 
     /**
-     * O dia tem batida, mas não as que a escala pede — logo não dá para apurar a jornada dele.
+     * O dia tem batida, mas não as que permitem apurar a jornada.
      *
      * **Dia sem batida nenhuma não é incompleto, é ausência**, e continua gerando débito. Sem essa
      * distinção a regra apagaria toda falta do sistema, que é o oposto do que ela existe para fazer.
      *
-     * A forma esperada vem de `JornadaResolver::tiposEsperadosNoDia()`: dia útil cuja escala prevê
-     * intervalo exige os quatro registros (é o que impede creditar o almoço de quem só bateu entrada
-     * e saída); dia fora da escala exige entrada e saída.
+     * O que a apuração exige é **entrada e saída**, e só. Trabalhar sem tirar almoço é permitido, e
+     * nesse dia o span inteiro é a jornada — a meta da escala já vem líquida do intervalo, então
+     * quem ficou vale o que ficou. (Decisão do dono em 31/08/2026. Até então a forma vinha da
+     * escala, e o dia batido só na entrada e na saída era descartado por falta das batidas de
+     * intervalo — ver `docs/specs/ponto-registro-incompleto-entrada-saida.md`.)
+     *
+     * A exceção é ter batido **metade** do intervalo: quem registrou o `repouso` provou que saiu
+     * para almoçar, mas não por quanto tempo ficou fora. Aí o span inteiro creditaria esse almoço,
+     * que é o defeito que a frente de 05/08 removeu — então o dia segue pendente de correção.
      *
      * @param RegistroPonto[] $batidas
      */
-    public function registroIncompleto(User $user, \DateTimeInterface $data, array $batidas, ?JornadaTenant $jornadaTenant = null): bool
+    public function registroIncompleto(array $batidas): bool
     {
         if ($batidas === []) {
             return false;
@@ -125,13 +131,13 @@ class CalculadoraJornada
             $presentes[$batida->getTipo()] = true;
         }
 
-        foreach ($this->jornadaResolver->tiposEsperadosNoDia($user, $data, $jornadaTenant) as $tipo) {
-            if (!isset($presentes[$tipo])) {
-                return true;
-            }
+        if (!isset($presentes[RegistroPonto::TIPO_ENTRADA]) || !isset($presentes[RegistroPonto::TIPO_SAIDA])) {
+            return true;
         }
 
-        return false;
+        // Metade do intervalo batida: um `!==` entre dois booleanos é o XOR que separa "não bateu
+        // almoço nenhum" (apurável) de "bateu só um lado" (duração do almoço desconhecida).
+        return isset($presentes[RegistroPonto::TIPO_REPOUSO]) !== isset($presentes[RegistroPonto::TIPO_RETORNO]);
     }
 
     /**

@@ -164,12 +164,7 @@ class FolhaPontoBuilder
                         $minutos = $this->calculadora->calcularMinutosTrabalhados($batidasDoDia);
                         $saldoDia = $this->calculadora->calcularSaldoDia($jornada->getUser(), $dia, $batidasDoDia, $jornada, $feriados, $jornadaTenant);
 
-                        $registroIncompleto = $this->calculadora->registroIncompleto(
-                            $jornada->getUser(),
-                            $dia,
-                            $batidasDoDia,
-                            $jornadaTenant
-                        );
+                        $registroIncompleto = $this->calculadora->registroIncompleto($batidasDoDia);
 
                         $justificativaDoDia = $justificativasDoMes[$chaveDia] ?? null;
                         $justificadoDia = false;

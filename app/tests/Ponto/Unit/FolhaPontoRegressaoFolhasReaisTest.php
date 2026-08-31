@@ -31,7 +31,9 @@ use PHPUnit\Framework\TestCase;
  * descarta a fração (`$diff->i`), perdendo até 1 min por par de batidas — ~11 min por mês nestes
  * dois. Como o PDF só publica HH:MM, os segundos originais não são recuperáveis; este teste usa
  * `:00` e portanto mede a jornada **sem** essa perda. O truncamento é defeito conhecido e está
- * registrado fora do escopo na spec. Em produção estes dois meses saem em +6:29 e −30:33.
+ * registrado fora do escopo na spec. Em produção estes dois meses saíam em +6:29 e −30:33 quando a
+ * frente de 05/08 subiu; a regra de 31/08 os move para perto de +12:00 e −30:00 (ver
+ * `docs/specs/ponto-registro-incompleto-entrada-saida.md`).
  *
  * @see docs/specs/ponto-abono-nao-perdoa-jornada.md
  */
@@ -144,20 +146,26 @@ final class FolhaPontoRegressaoFolhasReaisTest extends TestCase
     // Os totais dos dois meses
     // ──────────────────────────────────────────────────────────────────
 
-    public function testJunhoFechaEmSeisHorasEQuarentaMinutos(): void
+    public function testJunhoFechaEmDozeHorasEDoisMinutos(): void
     {
         $rows = $this->montarMes('2026-06');
 
-        // Antes da frente: +22:51 (1371 min).
-        self::assertSame(400, $this->builder->saldoAcumuladoFinal($rows));
+        // 1371 (antes da frente de 05/08) → 400 (com ela) → 722 (com a regra de 31/08).
+        //
+        // O salto de +322 são NOVE dias que só tinham entrada e saída e agora são apurados:
+        // 01 (+307), 02 (+89), 03 (−228), 05 (+220), 09 (+59), 10 (+24), 11 (+6), 12 (−229) e
+        // 16 (+74). Os sete primeiros com `ajuste_jornada` levam +228 do abono parcial por cima do
+        // saldo — é o rebaseline do meio período dela, que a pendência antes engolia junto com o dia.
+        self::assertSame(722, $this->builder->saldoAcumuladoFinal($rows));
     }
 
-    public function testJulhoFechaEmTrintaHorasEVinteEDoisMinutosNegativos(): void
+    public function testJulhoFechaEmTrintaHorasEDoisMinutosNegativos(): void
     {
         $rows = $this->montarMes('2026-07');
 
-        // Antes da frente: −62:02 (−3722 min).
-        self::assertSame(-1822, $this->builder->saldoAcumuladoFinal($rows));
+        // −3722 (antes da frente de 05/08) → −1822 (com ela) → −1802 (com a regra de 31/08).
+        // Um único dia muda: 27/07, o só-entrada-e-saída do mês, que passa a creditar +20.
+        self::assertSame(-1802, $this->builder->saldoAcumuladoFinal($rows));
     }
 
     // ──────────────────────────────────────────────────────────────────
@@ -188,13 +196,43 @@ final class FolhaPontoRegressaoFolhasReaisTest extends TestCase
         }
     }
 
-    public function testDiaSemBatidaDeIntervaloDeixaDeCreditarOAlmoco(): void
+    public function testDiaSemBatidaDeIntervaloVoltaAContarOSpanInteiro(): void
     {
         $rows = $this->indexarPorDia($this->montarMes('2026-07'));
 
-        // 27/07: 09:02→18:10 sem bater o almoço. Antes creditava +20 com a hora de almoço dentro.
-        self::assertSame(0, $rows['27']['saldoDia']);
-        self::assertTrue($rows['27']['registroIncompleto']);
+        // 27/07: 09:02→18:10 sem bater o almoço = 548 min contra meta de 528. Creditava +20 antes
+        // de 05/08, passou a valer 0, e volta a +20 em 31/08 — desta vez por decisão explícita:
+        // trabalhar sem tirar almoço é permitido, e a meta da escala já vem líquida do intervalo.
+        self::assertSame(20, $rows['27']['saldoDia']);
+        self::assertFalse($rows['27']['registroIncompleto']);
+    }
+
+    public function testDiaComMetadeDoIntervaloBatidaContinuaPendente(): void
+    {
+        $rows = $this->indexarPorDia($this->montarMes('2026-06'));
+
+        // 15/06: 08:47 · (sem repouso) · 13:23 · 18:28. Ela SAIU para almoçar — o retorno prova —,
+        // mas não se sabe quando saiu. Contar 09:41 de span creditaria esse almoço, então o dia
+        // segue sem creditar nem debitar, com o selo pedindo a correção da batida.
+        self::assertSame(0, $rows['15']['saldoDia']);
+        self::assertTrue($rows['15']['registroIncompleto']);
+    }
+
+    public function testOsNoveDiasDeJunhoSoComEntradaESaidaPassamASerApurados(): void
+    {
+        $rows = $this->indexarPorDia($this->montarMes('2026-06'));
+
+        // Os nove que compõem os +322 do total do mês, cada um conferido à mão contra a folha.
+        // Sem esta tabela o total sozinho poderia bater por compensação entre dois erros.
+        $esperado = [
+            '01' => 307, '02' => 89, '03' => -228, '05' => 220, '09' => 59,
+            '10' => 24, '11' => 6, '12' => -229, '16' => 74,
+        ];
+
+        foreach ($esperado as $dia => $saldo) {
+            self::assertFalse($rows[$dia]['registroIncompleto'], "dia {$dia}/06 deixou de ser pendência");
+            self::assertSame($saldo, $rows[$dia]['saldoDia'], "saldo de {$dia}/06");
+        }
     }
 
     public function testAsTresFaltasDeJulhoContinuamSendoFaltas(): void
