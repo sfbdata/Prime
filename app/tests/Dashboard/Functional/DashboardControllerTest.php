@@ -207,6 +207,55 @@ final class DashboardControllerTest extends JusPrimeWebTestCase
         self::assertSame('0', trim($linha->filter('td')->eq(6)->text()), 'Total Demandas segue por responsável');
     }
 
+    #[TestDox('Cabeçalho da tabela é clicável para ordenar e marca a coluna ordenada')]
+    public function testOrdenaPelaColunaDoCabecalho(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $user   = $this->criarUsuarioComPermissaoBi($tenant);
+        $outro  = $this->criarUsuarioSemPermissao($tenant);
+
+        // O $outro abriu 3 pastas; o $user, nenhuma.
+        PastaFactory::createMany(3, ['tenant' => $tenant, 'criadoPor' => $outro]);
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $client->request('GET', '/dashboard?ordenar=pastas_criadas&direcao=desc');
+
+        self::assertResponseIsSuccessful();
+
+        // Cabeçalho clicável, com o ícone de seta e a marca da direção corrente.
+        $th = $crawler->filter('table thead th[data-ordenar="pastas_criadas"]');
+        self::assertCount(1, $th);
+        self::assertStringContainsString('sortable', (string) $th->attr('class'));
+        self::assertStringContainsString('desc', (string) $th->attr('class'));
+        self::assertCount(1, $th->filter('i.sort-icon'));
+
+        // Quem criou mais aparece primeiro. (A célula traz a inicial do avatar antes do nome.)
+        $primeira = static fn ($c): string => trim($c->filter('table tbody tr')->first()->filter('td')->first()->text());
+        self::assertStringContainsString('Sem Permissão', $primeira($crawler));
+        self::assertStringNotContainsString('Com Permissão BI', $primeira($crawler));
+
+        // E a direção inverte quando a mesma coluna é pedida em asc.
+        $crawler = $client->request('GET', '/dashboard?ordenar=pastas_criadas&direcao=asc');
+        self::assertStringContainsString('Com Permissão BI', $primeira($crawler));
+    }
+
+    #[TestDox('XHR preserva a marca da coluna ordenada no fragmento (a seta não some ao filtrar)')]
+    public function testXhrMantemMarcaDaColunaOrdenada(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $user   = $this->criarUsuarioComPermissaoBi($tenant);
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $client->xmlHttpRequest('GET', '/dashboard?ordenar=advogado&direcao=asc');
+
+        self::assertResponseIsSuccessful();
+        $th = $crawler->filter('table thead th[data-ordenar="advogado"]');
+        self::assertCount(1, $th);
+        self::assertStringContainsString('asc', (string) $th->attr('class'));
+    }
+
     #[TestDox('GET /dashboard renderiza a barra de filtro global (período/responsável/cargo)')]
     public function testExibeBarraDeFiltro(): void
     {

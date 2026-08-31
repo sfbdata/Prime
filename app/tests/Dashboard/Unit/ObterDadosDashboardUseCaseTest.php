@@ -492,4 +492,91 @@ final class ObterDadosDashboardUseCaseTest extends TestCase
         self::assertSame(0, $porId[31]->pastasCriadas);
         self::assertSame(4, $porId[31]->totalDemandas);
     }
+
+    // ─── TABELA — ordenação por coluna ───────────────────────────────
+
+    /** Três colaboradores com números distintos em cada coluna, para ordenar por qualquer uma. */
+    private function cenarioTresColaboradores(): void
+    {
+        $this->tarefaRepo->method('countMetasAtivas')->willReturn(0);
+        $this->pastaRepo->method('countUrgentes')->willReturn(0);
+        $this->tarefaRepo->method('countMetasGlobal')->willReturn(['concluidas' => 0, 'total' => 0]);
+
+        $this->tarefaRepo->method('countPorResponsavel')->willReturn([1 => 5, 2 => 9, 3 => 1]);
+        $this->tarefaRepo->method('countAtivasPorResponsavel')->willReturn([]);
+        $this->tarefaRepo->method('countVencidasPorResponsavel')->willReturn([]);
+        $this->tarefaRepo->method('countPrazosProximosPorResponsavel')->willReturn([]);
+        $this->pastaRepo->method('countPorResponsavel')->willReturn([]);
+        $this->pastaRepo->method('countAtivasPorResponsavel')->willReturn([]);
+        $this->pastaRepo->method('countCriadasPorCriador')->willReturn([1 => 7, 2 => 2, 3 => 40]);
+
+        $this->userRepo->method('findColaboradoresAtivosPorTenant')->willReturn([
+            $this->mockUser(1, 'Zulmira Torres'),
+            $this->mockUser(2, 'Ana Lima'),
+            $this->mockUser(3, 'Élida Souza'),
+        ]);
+        $this->userRepo->method('findCargoPorColaboradores')->willReturn([1 => 'Sócio', 2 => 'Advogada', 3 => 'Estagiária']);
+        $this->userRepo->method('findFotoPorColaboradores')->willReturn([]);
+    }
+
+    /** @return int[] ids na ordem em que saíram */
+    private function idsNaOrdem(array $filtros): array
+    {
+        $output = $this->sut->executar($this->tenant, $this->referencia, $filtros);
+
+        return array_map(static fn ($l): int => $l->userId, $output->porAdvogado);
+    }
+
+    #[TestDox('sem ordenação escolhida, a tabela segue no padrão: mais metas primeiro')]
+    public function testOrdemPadraoContinuaPorTotalDeMetas(): void
+    {
+        $this->cenarioTresColaboradores();
+
+        self::assertSame([2, 1, 3], $this->idsNaOrdem([]));
+    }
+
+    #[TestDox('ordena por Pastas Criadas nas duas direções')]
+    public function testOrdenaPorPastasCriadas(): void
+    {
+        $this->cenarioTresColaboradores();
+
+        self::assertSame([3, 1, 2], $this->idsNaOrdem(['ordenar' => 'pastas_criadas', 'direcao' => 'desc']));
+        self::assertSame([2, 1, 3], $this->idsNaOrdem(['ordenar' => 'pastas_criadas', 'direcao' => 'asc']));
+    }
+
+    #[TestDox('ordena por nome do advogado respeitando acento (Élida não vai para o fim)')]
+    public function testOrdenaPorNomeComAcento(): void
+    {
+        $this->cenarioTresColaboradores();
+
+        // Ana, Élida, Zulmira — e não Ana, Zulmira, Élida, que é a ordem dos BYTES: o container
+        // roda com LC_COLLATE=C, onde 'É' (0xC3) cai depois de 'Z' (0x5A).
+        self::assertSame([2, 3, 1], $this->idsNaOrdem(['ordenar' => 'advogado', 'direcao' => 'asc']));
+        self::assertSame([1, 3, 2], $this->idsNaOrdem(['ordenar' => 'advogado', 'direcao' => 'desc']));
+    }
+
+    #[TestDox('ordena por Cargo')]
+    public function testOrdenaPorCargo(): void
+    {
+        $this->cenarioTresColaboradores();
+
+        // Advogada, Estagiária, Sócio
+        self::assertSame([2, 3, 1], $this->idsNaOrdem(['ordenar' => 'cargo', 'direcao' => 'asc']));
+    }
+
+    #[TestDox('coluna inventada na URL cai no padrão em vez de quebrar a tela')]
+    public function testColunaDesconhecidaCaiNoPadrao(): void
+    {
+        $this->cenarioTresColaboradores();
+
+        self::assertSame([2, 1, 3], $this->idsNaOrdem(['ordenar' => 'coluna_que_nao_existe', 'direcao' => 'asc']));
+    }
+
+    #[TestDox('direção inventada na URL é tratada como decrescente')]
+    public function testDirecaoDesconhecidaViraDesc(): void
+    {
+        $this->cenarioTresColaboradores();
+
+        self::assertSame([3, 1, 2], $this->idsNaOrdem(['ordenar' => 'pastas_criadas', 'direcao' => 'xyz']));
+    }
 }

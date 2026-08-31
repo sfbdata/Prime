@@ -73,6 +73,17 @@
     white-space: nowrap;
     background: var(--bs-tertiary-bg);
 }
+/* ── Cabeçalho ordenável (mesmo visual do Expediente) ───────────
+   O <th> vive no fragmento trocável; o estilo mora aqui, na casca, para
+   sobreviver a cada recarga por filtro. */
+.db-table thead th.sortable { cursor: pointer; user-select: none; }
+.db-table thead th.sortable:hover { background: var(--bs-secondary-bg); }
+.sort-icon { font-size: 0.68em; opacity: 0.35; flex-shrink: 0; vertical-align: middle; margin-left: 2px; }
+.db-table thead th.sortable.asc .sort-icon,
+.db-table thead th.sortable.desc .sort-icon { opacity: 1; color: #0d6efd; }
+.db-table thead th.sortable.asc .sort-icon::before  { content: "\F148"; }  /* seta para cima  */
+.db-table thead th.sortable.desc .sort-icon::before { content: "\F128"; }  /* seta para baixo */
+
 .db-table tbody td {
     padding: .75rem 1rem;
     border-bottom: 1px solid var(--bs-border-color);

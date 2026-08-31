@@ -13,6 +13,23 @@ use App\Tarefa\Repository\TarefaRepository;
 
 final class ObterDadosDashboardUseCase
 {
+    /**
+     * Colunas que o cabeçalho da tabela deixa ordenar: chave usada no `data-ordenar` do <th>
+     * => propriedade da linha. A chave chega pela URL, então tudo que não estiver aqui é
+     * ignorado (ver ordenar()).
+     */
+    private const ORDENAVEIS = [
+        'advogado'        => 'nomeAdvogado',
+        'cargo'           => 'cargoNome',
+        'metas'           => 'totalMetas',
+        'metas_ativas'    => 'metasAtivas',
+        'metas_vencidas'  => 'metasVencidas',
+        'prazos'          => 'prazosProximos',
+        'demandas'        => 'totalDemandas',
+        'demandas_ativas' => 'demandasAtivas',
+        'pastas_criadas'  => 'pastasCriadas',
+    ];
+
     public function __construct(
         private readonly PastaRepository  $pastaRepository,
         private readonly TarefaRepository $tarefaRepository,
@@ -25,6 +42,8 @@ final class ObterDadosDashboardUseCase
      *                                        responsável recalculam cards + linhas; cargo e
      *                                        responsável estreitam quais colaboradores aparecem.
      *                                        Vencidas/prazos próximos seguem relativos a $referencia.
+     *                                        `ordenar`/`direcao` ordenam a tabela pela coluna
+     *                                        clicada no cabeçalho.
      */
     public function executar(Tenant $tenant, \DateTimeImmutable $referencia, array $filtros = []): DashboardOutput
     {
@@ -90,8 +109,49 @@ final class ObterDadosDashboardUseCase
             );
         }
 
-        usort($linhas, static fn($a, $b) => $b->totalMetas <=> $a->totalMetas);
+        return new DashboardOutput(
+            $totalMetasAtivas,
+            $demandasUrgentes,
+            $metaGlobalPercent,
+            $this->ordenar($linhas, $filtros),
+        );
+    }
 
-        return new DashboardOutput($totalMetasAtivas, $demandasUrgentes, $metaGlobalPercent, $linhas);
+    /**
+     * Ordena a tabela pela coluna clicada no cabeçalho. Sem coluna escolhida — ou com uma que não
+     * existe, já que a chave chega pela URL — mantém o padrão histórico do painel: mais metas
+     * primeiro. Qualquer direção diferente de `asc` é decrescente.
+     *
+     * @param LinhaAdvogadoDashboardOutput[] $linhas
+     * @param array<string, mixed>           $filtros
+     *
+     * @return LinhaAdvogadoDashboardOutput[]
+     */
+    private function ordenar(array $linhas, array $filtros): array
+    {
+        $coluna = (string) ($filtros['ordenar'] ?? '');
+
+        if (!isset(self::ORDENAVEIS[$coluna])) {
+            usort($linhas, static fn (LinhaAdvogadoDashboardOutput $a, LinhaAdvogadoDashboardOutput $b): int => $b->totalMetas <=> $a->totalMetas);
+
+            return $linhas;
+        }
+
+        $campo = self::ORDENAVEIS[$coluna];
+        $asc   = ($filtros['direcao'] ?? '') === 'asc';
+
+        // Nome e cargo ordenam como gente lê, não como bytes: o container roda com LC_COLLATE=C,
+        // onde "Élida" cairia depois de "Zulmira". Mesmo caminho do MontarAtividadeEquipeUseCase.
+        $collator = in_array($campo, ['nomeAdvogado', 'cargoNome'], true) ? new \Collator('pt_BR') : null;
+
+        usort($linhas, static function (LinhaAdvogadoDashboardOutput $a, LinhaAdvogadoDashboardOutput $b) use ($campo, $asc, $collator): int {
+            $cmp = $collator !== null
+                ? (int) $collator->compare((string) $a->$campo, (string) $b->$campo)
+                : $a->$campo <=> $b->$campo;
+
+            return $asc ? $cmp : -$cmp;
+        });
+
+        return $linhas;
     }
 }

@@ -52,17 +52,22 @@
         {% else %}
         <table class="table db-table mb-0">
             <thead>
+                {# Ordenação por clique no cabeçalho (padrão Expediente): o th leva `data-ordenar`,
+                   o motor filtro-tabela.js grava nos hidden ordenar/direcao do form e recarrega o
+                   fragmento. A classe asc/desc troca o glifo da setinha (ver CSS na casca). #}
+                {% set ordCol = filtros.ordenar|default('') %}
+                {% set ordDir = filtros.direcao|default('') == 'asc' ? 'asc' : 'desc' %}
                 <tr>
-                    <th>Advogado</th>
-                    <th>Cargo</th>
-                    <th class="text-center">Total Metas</th>
-                    <th class="text-center">Metas Ativas</th>
-                    <th class="text-center">Metas Vencidas</th>
-                    <th class="text-center">Prazos Próximos</th>
-                    <th class="text-center">Total Demandas</th>
-                    <th class="text-center">Demandas Ativas</th>
+                    <th class="sortable{{ ordCol == 'advogado' ? ' ' ~ ordDir : '' }}" data-ordenar="advogado">Advogado <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                    <th class="sortable{{ ordCol == 'cargo' ? ' ' ~ ordDir : '' }}" data-ordenar="cargo">Cargo <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                    <th class="sortable text-center{{ ordCol == 'metas' ? ' ' ~ ordDir : '' }}" data-ordenar="metas">Total Metas <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                    <th class="sortable text-center{{ ordCol == 'metas_ativas' ? ' ' ~ ordDir : '' }}" data-ordenar="metas_ativas">Metas Ativas <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                    <th class="sortable text-center{{ ordCol == 'metas_vencidas' ? ' ' ~ ordDir : '' }}" data-ordenar="metas_vencidas">Metas Vencidas <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                    <th class="sortable text-center{{ ordCol == 'prazos' ? ' ' ~ ordDir : '' }}" data-ordenar="prazos">Prazos Próximos <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                    <th class="sortable text-center{{ ordCol == 'demandas' ? ' ' ~ ordDir : '' }}" data-ordenar="demandas">Total Demandas <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                    <th class="sortable text-center{{ ordCol == 'demandas_ativas' ? ' ' ~ ordDir : '' }}" data-ordenar="demandas_ativas">Demandas Ativas <i class="bi bi-arrow-down-up sort-icon"></i></th>
                     {# Por quem ABRIU a pasta (criadoPor) — as duas colunas acima são por responsável. #}
-                    <th class="text-center">Pastas Criadas</th>
+                    <th class="sortable text-center{{ ordCol == 'pastas_criadas' ? ' ' ~ ordDir : '' }}" data-ordenar="pastas_criadas">Pastas Criadas <i class="bi bi-arrow-down-up sort-icon"></i></th>
                 </tr>
             </thead>
             <tbody>

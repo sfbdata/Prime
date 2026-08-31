@@ -37,12 +37,21 @@ final class DashboardController extends AbstractController
             'data_ate'    => (string) $request->query->get('data_ate', ''),
             'responsavel' => (string) $request->query->get('responsavel', ''),
             'cargo'       => (string) $request->query->get('cargo', ''),
+            // Coluna clicada no cabeçalho da tabela. A validação é do UseCase: chave que não
+            // existe cai no padrão do painel em vez de quebrar a tela.
+            'ordenar'     => (string) $request->query->get('ordenar', ''),
+            'direcao'     => (string) $request->query->get('direcao', ''),
         ];
 
         $output = $this->obterDadosUseCase->executar($tenant, new \DateTimeImmutable(), $filtros);
 
         if ($request->isXmlHttpRequest()) {
-            return $this->render('dashboard/_resultado.html.twig', ['dashboard' => $output]);
+            // `filtros` vai junto para o fragmento marcar a coluna ordenada — sem ele a seta
+            // sumiria do cabeçalho a cada recarga por filtro.
+            return $this->render('dashboard/_resultado.html.twig', [
+                'dashboard' => $output,
+                'filtros'   => $filtros,
+            ]);
         }
 
         // Opções das facetas — só no render completo (a barra vive na casca). Passa arrays
