@@ -838,7 +838,10 @@ class PastaRepository extends ServiceEntityRepository
                 $qb->leftJoin('p.clientes', 'cli_ord')
                    ->leftJoin(ClientePF::class, 'cpf_ord', 'WITH', 'cpf_ord.id = cli_ord.id')
                    ->leftJoin(ClientePJ::class, 'cpj_ord', 'WITH', 'cpj_ord.id = cli_ord.id')
-                   ->orderBy('MIN(LOWER(COALESCE(cpf_ord.nomeCompleto, cpj_ord.razaoSocial, p.nomeCliente)))', $dir);
+                   // A precedência espelha a da TELA (`_tabela.html.twig` / `_card.html.twig`): o
+                   // nome da pasta primeiro, o cliente cadastrado como fallback. Se as duas
+                   // divergirem, a lista ordena por um nome que o usuário não vê na coluna.
+                   ->orderBy('MIN(LOWER(COALESCE(p.nomeCliente, cpf_ord.nomeCompleto, cpj_ord.razaoSocial)))', $dir);
                 break;
 
             case 'acao':

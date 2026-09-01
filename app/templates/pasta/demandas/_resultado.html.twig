@@ -35,7 +35,11 @@
                         data-href="{{ path('pasta_show', {id: pasta.id}) }}">
                         <td class="nup-cell ps-3 align-middle">{{ pasta.nup }}</td>
                         <td class="align-middle">
-                            {% if pasta.clientes|length > 0 %}
+                            {# Mesma precedência da tabela do Expediente (`_tabela.html.twig`): o nome
+                               da PASTA vem primeiro, o cliente cadastrado é o fallback. #}
+                            {% if pasta.nomeCliente %}
+                                {{ pasta.nomeCliente }}
+                            {% elseif pasta.clientes|length > 0 %}
                                 {% if pasta.clientes|length == 1 %}
                                     {{ pasta.clientes[0].nomeExibicao }}
                                 {% else %}
@@ -46,8 +50,6 @@
                                         <span class="badge text-bg-secondary ms-1" style="font-size:.65rem;">+{{ pasta.clientes|length - 1 }}</span>
                                     </span>
                                 {% endif %}
-                            {% elseif pasta.nomeCliente %}
-                                {{ pasta.nomeCliente }}
                             {% else %}
                                 <span class="text-muted">—</span>
                             {% endif %}

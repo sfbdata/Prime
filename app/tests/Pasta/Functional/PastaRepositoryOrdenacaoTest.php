@@ -183,6 +183,32 @@ final class PastaRepositoryOrdenacaoTest extends KernelTestCase
         self::assertTrue($this->vemAntes($pa->getNup(), $pz->getNup(), $asc));
     }
 
+    #[TestDox('ordena por cliente seguindo o NOME DA PASTA, não o do cliente cadastrado')]
+    public function testOrdenaPorClientePrefereONomeDaPasta(): void
+    {
+        $t = $this->criarTenant();
+
+        // Cruzado de propósito: o nome da PASTA e o do CLIENTE CADASTRADO ordenam em sentidos
+        // opostos. É o único arranjo que distingue as duas precedências — com pastas que só têm
+        // cliente cadastrado (como no teste acima) as duas dão o mesmo resultado.
+        $primeira = $this->criarPasta($t, 'CLI-PREC-A');
+        $primeira->setNomeCliente('Aaa Pasta Precedencia');
+        $primeira->addCliente($this->criarClientePF($t, 'Zzz Cadastro Precedencia'));
+
+        $segunda = $this->criarPasta($t, 'CLI-PREC-Z');
+        $segunda->setNomeCliente('Zzz Pasta Precedencia');
+        $segunda->addCliente($this->criarClientePF($t, 'Aaa Cadastro Precedencia'));
+
+        $this->em->flush();
+
+        $asc = $this->nupsOrdenados($t, 'cliente', 'asc');
+
+        self::assertTrue(
+            $this->vemAntes($primeira->getNup(), $segunda->getNup(), $asc),
+            'a ordem tem de seguir a coluna que o usuário vê, que é o nome da pasta',
+        );
+    }
+
     #[TestDox('ordena por nome da ação (asc)')]
     public function testOrdenaPorAcao(): void
     {

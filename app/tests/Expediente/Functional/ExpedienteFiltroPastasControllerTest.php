@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Expediente\Functional;
 
+use App\Cliente\Entity\ClientePF;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
@@ -211,6 +212,65 @@ final class ExpedienteFiltroPastasControllerTest extends JusPrimeWebTestCase
         $em->flush();
 
         return $user;
+    }
+
+    #[TestDox('acervo geral: a coluna Cliente mostra o nome da PASTA, não o do cliente cadastrado')]
+    public function testColunaClienteMostraONomeDaPastaMesmoComClienteCadastrado(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $admin  = $this->criarUsuario($tenant, 'Admin Coluna', admin: true);
+
+        $sufixo = strtoupper(uniqid());
+        $pasta  = $this->criarPasta($tenant, 'COLUNA-' . $sufixo, nomeAcao: 'AÇÃO MONITÓRIA');
+        $pasta->setNomeCliente('APLC TOP LIFE 1 - JOAO BATISTA FERREIRA GOMES');
+        $this->vincularClienteCadastrado($pasta, $tenant, 'JOAO BATISTA FERREIRA GOMES');
+
+        $this->logarComTenant($client, $admin, $tenant);
+        $crawler = $client->xmlHttpRequest('GET', '/expediente/painel/acervo-geral?busca=' . rawurlencode('COLUNA-' . $sufixo));
+
+        self::assertResponseIsSuccessful();
+
+        // ⚠️ Ancorar em CADA modo separadamente, não no corpo inteiro: o fragmento traz a TABELA e os
+        // CARTÕES juntos, então uma asserção de "contém o texto" fica verde com a tabela errada,
+        // satisfeita pelo cartão. Isso foi medido — a primeira versão deste teste passava com o
+        // defeito reintroduzido na tabela.
+        self::assertSame(
+            'APLC TOP LIFE 1 - JOAO BATISTA FERREIRA GOMES',
+            trim($crawler->filter('#tabelaPastas tbody tr td')->eq(1)->text()),
+            'a coluna Cliente da TABELA mostra o nome da pasta, onde vive o padrão do escritório',
+        );
+
+        self::assertSame(
+            'APLC TOP LIFE 1 - JOAO BATISTA FERREIRA GOMES',
+            trim($crawler->filter('.pasta-card-cliente')->first()->text()),
+            'o CARTÃO (modo lista) mostra o mesmo — os dois modos da tela não podem divergir',
+        );
+    }
+
+    /**
+     * Cliente PF cadastrado e vinculado — é o que fazia a listagem trocar o nome da pasta pelo nome
+     * do cadastro, escondendo o prefixo da carteira.
+     */
+    private function vincularClienteCadastrado(Pasta $pasta, Tenant $tenant, string $nomeCompleto): void
+    {
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $cliente = new ClientePF();
+        $cliente->setTenant($tenant);
+        $cliente->setNomeCompleto($nomeCompleto);
+        $cliente->setCpf('111.222.333-44');
+        $cliente->setRg('');
+        $cliente->setRgOrgaoExpedidor('');
+        $cliente->setEmail('cli_' . uniqid() . '@test.com');
+        $cliente->setCep('');
+        $cliente->setEndereco('');
+        $cliente->setCidade('');
+        $cliente->setEstado('');
+        $em->persist($cliente);
+
+        $pasta->addCliente($cliente);
+        $em->flush();
     }
 
     private function criarPasta(
