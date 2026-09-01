@@ -46,7 +46,21 @@ final class ComporNomeDaPastaJudicial
      */
     public function paraCaso(CasoCobranca $caso): ?string
     {
-        $nomeDaPessoa = trim($caso->getPessoaCobradaAtual()?->getNome() ?? '');
+        return $this->compor(
+            $this->nomeFantasiaDoClienteDaCarteira($caso),
+            $caso->getPessoaCobradaAtual()?->getNome(),
+        );
+    }
+
+    /**
+     * A regra, a partir dos dois valores soltos. Existe além do {@see self::paraCaso()} porque a
+     * listagem resolve o identificador de uma página inteira de pastas numa consulta só e recebe
+     * COLUNAS, não entidades. Duplicar a regra nos dois lugares seria a receita para a tela e o
+     * modal divergirem com o tempo — aqui ela é uma só.
+     */
+    public function compor(?string $nomeFantasia, ?string $nomeDaPessoa): ?string
+    {
+        $nomeDaPessoa = trim((string) $nomeDaPessoa);
 
         // Sem pessoa não há o que compor: devolver só o prefixo produziria `APLC TOP LIFE 1 - ` —
         // um nome de pasta que parece certo e está pela metade.
@@ -54,9 +68,9 @@ final class ComporNomeDaPastaJudicial
             return null;
         }
 
-        $prefixo = $this->nomeFantasiaDoClienteDaCarteira($caso);
+        $prefixo = trim((string) $nomeFantasia);
 
-        if ($prefixo === null) {
+        if ($prefixo === '') {
             return $nomeDaPessoa;
         }
 

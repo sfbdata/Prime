@@ -37,8 +37,9 @@
                         <td class="align-middle">
                             {# Mesma precedência da tabela do Expediente (`_tabela.html.twig`): o nome
                                da PASTA vem primeiro, o cliente cadastrado é o fallback. #}
-                            {% if pasta.nomeCliente %}
-                                {{ pasta.nomeCliente }}
+                            {% set identificador = identificador_pasta(pasta) %}
+                            {% if identificador %}
+                                {{ identificador }}
                             {% elseif pasta.clientes|length > 0 %}
                                 {% if pasta.clientes|length == 1 %}
                                     {{ pasta.clientes[0].nomeExibicao }}

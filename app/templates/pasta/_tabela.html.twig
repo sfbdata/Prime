@@ -94,8 +94,9 @@
                            quando ele tem CPF, e aí a coluna passava a mostrar só o nome dele. A
                            ordenação por cliente (`PastaRepository`) segue esta mesma precedência —
                            mudar uma sem a outra ordena a lista por um nome que não está na tela. #}
-                        {% if pasta.nomeCliente %}
-                            <span class="text-truncate d-block" style="width:100%;">{{ pasta.nomeCliente }}</span>
+                        {% set identificador = identificador_pasta(pasta) %}
+                        {% if identificador %}
+                            <span class="text-truncate d-block" style="width:100%;">{{ identificador }}</span>
                         {% elseif pasta.clientes|length > 0 %}
                             {% if pasta.clientes|length == 1 %}
                                 <span class="text-truncate d-block" style="width:100%;">{{ pasta.clientes[0].nomeExibicao }}</span>

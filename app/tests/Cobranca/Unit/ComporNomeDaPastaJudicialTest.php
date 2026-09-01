@@ -109,6 +109,34 @@ final class ComporNomeDaPastaJudicialTest extends TestCase
         self::assertSame($fantasia . ' - ' . $nome, $composto);
     }
 
+    #[Test]
+    #[TestDox('A regra também aceita valores soltos, para o mapa em lote da listagem')]
+    public function comporAceitaFantasiaENomeSoltos(): void
+    {
+        // A listagem resolve o identificador de 50 pastas numa consulta só e recebe COLUNAS, não
+        // entidades. A regra tem de ser a mesma dos dois lados — duplicá-la em PHP seria a receita
+        // para a tela e o modal divergirem com o tempo.
+        self::assertSame(
+            'APLC TOP LIFE 1 - CLAUDIO SILVA DA CRUZ',
+            $this->sut->compor('APLC TOP LIFE 1', 'CLAUDIO SILVA DA CRUZ'),
+        );
+    }
+
+    #[Test]
+    #[TestDox('Valores soltos seguem as MESMAS quedas da entidade')]
+    public function comporSegueAsMesmasQuedas(): void
+    {
+        self::assertSame('CLAUDIO', $this->sut->compor(null, 'CLAUDIO'), 'sem fantasia, só a pessoa');
+        self::assertSame('CLAUDIO', $this->sut->compor('   ', 'CLAUDIO'), 'fantasia em branco, só a pessoa');
+        self::assertNull($this->sut->compor('APLC TOP LIFE 1', '  '), 'sem pessoa não há nome a compor');
+        self::assertNull($this->sut->compor(null, null), 'sem nada, nada');
+        self::assertSame(
+            str_repeat('B', 100),
+            $this->sut->compor(str_repeat('A', 200), str_repeat('B', 100)),
+            'acima de 255 cai para o nome da pessoa',
+        );
+    }
+
     private function caso(string $nomeDaPessoa, Cliente $clienteDaCarteira): CasoCobranca
     {
         $pessoa = new Pessoa();

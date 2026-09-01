@@ -5,6 +5,7 @@ namespace App\Pasta\Repository;
 use App\Cliente\Entity\Cliente;
 use App\Cliente\Entity\ClientePF;
 use App\Cliente\Entity\ClientePJ;
+use App\Cobranca\Entity\CasoCobranca;
 use App\Entity\Auth\User;
 use App\Pasta\DTO\PastaVinculadaOutput;
 use App\Pasta\Entity\Pasta;
@@ -25,6 +26,33 @@ class PastaRepository extends ServiceEntityRepository
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, Pasta::class);
+    }
+
+    /**
+     * Subconsulta que casa a pasta cujo CREDOR (fantasia da carteira) ou DEVEDOR (pessoa cobrada)
+     * bate com o termo — é o que faz a busca enxergar o identificador DERIVADO das pastas
+     * judicializadas, que não existe gravado em lugar nenhum
+     * (spec `pasta-prefixo-do-credor-derivado.md` §6).
+     *
+     * É `EXISTS`, e não `JOIN`, de propósito: um JOIN multiplicaria as linhas da listagem principal,
+     * que serve todos os domínios. O EXISTS não altera a cardinalidade nem o custo das outras buscas.
+     */
+    private static function existeCredorOuDevedorCasando(string $parametro, bool $acentoInsensivel = false): string
+    {
+        $campo = static fn (string $expr): string => $acentoInsensivel
+            ? sprintf('UNACCENT(LOWER(%s)) LIKE UNACCENT(:%s)', $expr, $parametro)
+            : sprintf('LOWER(%s) LIKE :%s', $expr, $parametro);
+
+        return sprintf(
+            'EXISTS (SELECT 1 FROM %s cc_b LEFT JOIN cc_b.objeto obj_b LEFT JOIN obj_b.carteira cart_b '
+            . 'LEFT JOIN cart_b.cliente clc_b LEFT JOIN %s pjc_b WITH pjc_b.id = clc_b.id '
+            . 'LEFT JOIN cc_b.pessoaCobradaAtual pes_b '
+            . 'WHERE cc_b.pastaJudicial = p AND (%s OR %s))',
+            CasoCobranca::class,
+            ClientePJ::class,
+            $campo('pjc_b.nomeFantasia'),
+            $campo('pes_b.nome'),
+        );
     }
 
     /**
@@ -585,6 +613,7 @@ class PastaRepository extends ServiceEntityRepository
                     'LOWER(cpf.nomeCompleto) LIKE :cliente',
                     'LOWER(cpj.razaoSocial) LIKE :cliente',
                     'LOWER(p.nomeCliente) LIKE :cliente',
+                    self::existeCredorOuDevedorCasando('cliente'),
                 )
             )->setParameter('cliente', '%' . mb_strtolower($filters['cliente']) . '%');
         }
@@ -599,6 +628,7 @@ class PastaRepository extends ServiceEntityRepository
                 $qb->expr()->orX(
                     'UNACCENT(LOWER(p.nup)) LIKE UNACCENT(:busca)',
                     'UNACCENT(LOWER(p.nomeCliente)) LIKE UNACCENT(:busca)',
+                    self::existeCredorOuDevedorCasando('busca', acentoInsensivel: true),
                     'UNACCENT(LOWER(p.nomeAcao)) LIKE UNACCENT(:busca)',
                     'UNACCENT(LOWER(cpf.nomeCompleto)) LIKE UNACCENT(:busca)',
                     'UNACCENT(LOWER(cpj.razaoSocial)) LIKE UNACCENT(:busca)',
@@ -838,10 +868,25 @@ class PastaRepository extends ServiceEntityRepository
                 $qb->leftJoin('p.clientes', 'cli_ord')
                    ->leftJoin(ClientePF::class, 'cpf_ord', 'WITH', 'cpf_ord.id = cli_ord.id')
                    ->leftJoin(ClientePJ::class, 'cpj_ord', 'WITH', 'cpj_ord.id = cli_ord.id')
-                   // A precedência espelha a da TELA (`_tabela.html.twig` / `_card.html.twig`): o
-                   // nome da pasta primeiro, o cliente cadastrado como fallback. Se as duas
-                   // divergirem, a lista ordena por um nome que o usuário não vê na coluna.
-                   ->orderBy('MIN(LOWER(COALESCE(p.nomeCliente, cpf_ord.nomeCompleto, cpj_ord.razaoSocial)))', $dir);
+                   // Caminho da cobrança, só neste ramo: é o que permite ordenar pelo
+                   // identificador DERIVADO das pastas judicializadas.
+                   ->leftJoin(CasoCobranca::class, 'cc_ord', 'WITH', 'cc_ord.pastaJudicial = p')
+                   ->leftJoin('cc_ord.objeto', 'obj_ord')
+                   ->leftJoin('obj_ord.carteira', 'cart_ord')
+                   ->leftJoin('cart_ord.cliente', 'clc_ord')
+                   ->leftJoin(ClientePJ::class, 'pjc_ord', 'WITH', 'pjc_ord.id = clc_ord.id')
+                   ->leftJoin('cc_ord.pessoaCobradaAtual', 'pes_ord')
+                   // A precedência espelha a da TELA (`identificador_pasta`): derivado primeiro, o
+                   // nome gravado depois, o cliente cadastrado por último. Se divergirem, a lista
+                   // ordena por um nome que o usuário não vê na coluna. O CONCAT devolve NULL quando
+                   // falta a fantasia, e o COALESCE então cai para a pessoa cobrada sozinha — que é
+                   // exatamente a queda que o `ComporNomeDaPastaJudicial` faz.
+                   ->orderBy(
+                       'MIN(LOWER(COALESCE('
+                       . "CONCAT(pjc_ord.nomeFantasia, ' - ', pes_ord.nome), "
+                       . 'pes_ord.nome, p.nomeCliente, cpf_ord.nomeCompleto, cpj_ord.razaoSocial)))',
+                       $dir,
+                   );
                 break;
 
             case 'acao':

@@ -19,8 +19,9 @@
             <span class="pasta-card-cliente">
                 {# Mesma precedência da tabela (`_tabela.html.twig`): o nome da PASTA vem primeiro, o
                    cliente cadastrado é o fallback. Os dois modos da mesma tela não podem divergir. #}
-                {% if pasta.nomeCliente %}
-                    {{ pasta.nomeCliente }}
+                {% set identificador = identificador_pasta(pasta) %}
+                {% if identificador %}
+                    {{ identificador }}
                 {% elseif pasta.clientes|length > 0 %}
                     {% if pasta.clientes|length == 1 %}
                         {{ pasta.clientes[0].nomeExibicao }}

@@ -3780,11 +3780,26 @@ document.addEventListener('DOMContentLoaded', function () {
                        ninguém tocar no campo. São coisas diferentes e ambas precisam existir aqui:
                        o TÍTULO da pasta (texto livre, hoje no padrão `CREDOR - DEVEDOR`) e os
                        CLIENTES cadastrados, que viram contexto logo abaixo. #}
+                    {% set identificadorDerivado = identificador_pasta(pasta) %}
+                    {% set derivadoDaCobranca = identificadorDerivado is not null and identificadorDerivado != pasta.nomeCliente %}
                     <div class="mb-3">
-                        <label for="edit_nome_cliente" class="form-label form-label-sm">Nome do cliente</label>
+                        <label {% if not derivadoDaCobranca %}for="edit_nome_cliente" {% endif %}class="form-label form-label-sm">Nome do cliente</label>
+                        {% if derivadoDaCobranca %}
+                            {# Pasta judicializada pela cobrança: o identificador é MONTADO do credor da
+                               carteira + a pessoa cobrada, e por isso não se edita aqui. Campo que
+                               some sem explicação vira chamado de suporte — o texto abaixo diz onde
+                               mudar. O `nome_cliente` não é enviado, e o controller trata chave
+                               AUSENTE como "não mexe", então nada é apagado. #}
+                            <p class="form-control form-control-sm bg-body-secondary mb-1" style="height:auto;">{{ identificadorDerivado }}</p>
+                            <div class="form-text text-muted">
+                                Montado a partir do credor da carteira e do responsável cobrado.
+                                Para mudar, altere o <strong>cadastro do cliente</strong> ou o responsável do caso.
+                            </div>
+                        {% else %}
                         <input type="text" id="edit_nome_cliente" name="nome_cliente"
                                class="form-control form-control-sm"
                                value="{{ pasta.nomeCliente }}" autocomplete="off">
+                        {% endif %}
                         {% if pasta.clientes|length > 0 %}
                             <div class="d-flex flex-wrap gap-1 mt-1">
                                 {% for cliente in pasta.clientes %}

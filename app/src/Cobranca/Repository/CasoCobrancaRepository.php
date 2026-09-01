@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Cobranca\Repository;
 
 use App\Cobranca\Entity\Carteira;
+use App\Cliente\Entity\ClientePJ;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\ObjetoCobranca;
 use App\Cobranca\Enum\StatusCaso;
@@ -186,6 +187,58 @@ class CasoCobrancaRepository extends ServiceEntityRepository
      *
      * @return CasoCobranca[]
      */
+    /**
+     * Credor e devedor das pastas dadas, para a listagem montar o IDENTIFICADOR derivado das pastas
+     * judicializadas (spec `pasta-prefixo-do-credor-derivado.md` §5.1).
+     *
+     * Devolve COLUNAS, não entidades, e resolve a página inteira numa consulta: a alternativa seria
+     * um N+1 sobre 50 pastas por página, atravessando quatro tabelas em cada uma.
+     *
+     * Quem monta a frase é o {@see ComporNomeDaPastaJudicial}; aqui só se busca o dado. A ligação é
+     * de MÃO ÚNICA (`CasoCobranca.pastaJudicial` → Pasta), então o caminho é percorrido ao contrário,
+     * partindo do caso. Escopo por tenant explícito além do TenantFilter global.
+     *
+     * @param list<int> $pastaIds
+     *
+     * @return array<int, array{fantasia: ?string, pessoa: ?string}> indexado pelo id da pasta
+     */
+    public function credorEDevedorPorPasta(array $pastaIds, Tenant $tenant): array
+    {
+        if ($pastaIds === []) {
+            return [];
+        }
+
+        $linhas = $this->createQueryBuilder('c')
+            ->select(
+                'IDENTITY(c.pastaJudicial) AS pastaId',
+                'pj.nomeFantasia AS fantasia',
+                'pes.nome AS pessoa',
+            )
+            ->leftJoin('c.objeto', 'o')
+            ->leftJoin('o.carteira', 'ct')
+            ->leftJoin('ct.cliente', 'cl')
+            // Só ClientePJ tem nome fantasia; o JOIN por id é o mesmo padrão que o PastaRepository
+            // já usa para alcançar a subclasse a partir da referência ao Cliente.
+            ->leftJoin(ClientePJ::class, 'pj', 'WITH', 'pj.id = cl.id')
+            ->leftJoin('c.pessoaCobradaAtual', 'pes')
+            ->andWhere('c.pastaJudicial IN (:pastas)')
+            ->andWhere('c.tenant = :tenant')
+            ->setParameter('pastas', $pastaIds)
+            ->setParameter('tenant', $tenant)
+            ->getQuery()
+            ->getArrayResult();
+
+        $mapa = [];
+        foreach ($linhas as $linha) {
+            $mapa[(int) $linha['pastaId']] = [
+                'fantasia' => $linha['fantasia'] !== null ? (string) $linha['fantasia'] : null,
+                'pessoa' => $linha['pessoa'] !== null ? (string) $linha['pessoa'] : null,
+            ];
+        }
+
+        return $mapa;
+    }
+
     public function daCarteira(Carteira $carteira): array
     {
         // Fetch-join (addSelect) de objeto/carteira/pessoa: o `CasoResumoOutput` monta a linha a partir
