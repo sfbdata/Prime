@@ -47,9 +47,10 @@ final class JudicializarCasoInput
     public ?string $modo = self::MODO_CRIAR;
 
     /**
-     * Nome do cliente da pasta nova. Vem pré-preenchido com o nome do RESPONSÁVEL PRINCIPAL (a pessoa
-     * cobrada atual) — decisão do dono, spec §2.1: nestas pastas o campo guarda a parte contrária, não
-     * o condomínio credor. O limite é o da coluna `pasta.nome_cliente`.
+     * Nome do cliente da pasta nova. Vem pré-preenchido no padrão do escritório — `<fantasia do
+     * credor da carteira> - <responsável principal>`, montado por `ComporNomeDaPastaJudicial` (spec
+     * §2.5, decisão do dono de 2026-09-01). Antes disso vinha só o nome do responsável, e o prefixo
+     * era digitado à mão. O limite é o da coluna `pasta.nome_cliente`.
      */
     #[Assert\Length(max: 255, maxMessage: 'O nome do cliente pode ter no máximo {{ limit }} caracteres.')]
     public ?string $nomeCliente = null;

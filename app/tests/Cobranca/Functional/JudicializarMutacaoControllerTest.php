@@ -13,6 +13,7 @@ use App\Cobranca\Enum\StatusCaso;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
 use App\Tests\Factory\Cliente\ClientePFFactory;
+use App\Tests\Factory\Cliente\ClientePJFactory;
 use App\Tests\Factory\Cobranca\PessoaFactory;
 use App\Tests\Factory\Pasta\PastaFactory;
 use Doctrine\ORM\EntityManagerInterface;
@@ -450,6 +451,67 @@ final class JudicializarMutacaoControllerTest extends CobrancaWebTestCase
             'não troca a pasta de um caso já judicializado',
         );
         self::assertSame($pastasAntes, $this->contarPastas($tenant), 'a guarda roda antes de abrir a pasta');
+    }
+
+    #[TestDox('Carteira de credor PJ: o modal abre com "FANTASIA - PESSOA COBRADA"')]
+    public function testModalAbreComOPadraoDoCredorDaCarteira(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        $credor = ClientePJFactory::createOne(['tenant' => $tenant, 'nomeFantasia' => 'APLC TOP LIFE 1']);
+        $pessoa = PessoaFactory::createOne(['tenant' => $tenant, 'nome' => 'CLAUDIO SILVA DA CRUZ'])->_real();
+        [, $caso] = $this->semearGrafo($tenant, ['pessoaCobradaAtual' => $pessoa], ['cliente' => $credor]);
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+
+        self::assertSame(
+            'APLC TOP LIFE 1 - CLAUDIO SILVA DA CRUZ',
+            $crawler->filter('#modalJudicializar input[name="judicializar_caso[nomeCliente]"]')->attr('value'),
+            'o nome da pasta nasce no padrão do escritório: fantasia do credor + pessoa cobrada',
+        );
+    }
+
+    #[TestDox('Enviar o modal como ele abre grava a pasta com o nome no padrão')]
+    public function testJudicializarGravaAPastaComONomeNoPadrao(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        $credor = ClientePJFactory::createOne(['tenant' => $tenant, 'nomeFantasia' => 'APLC TOP LIFE 1']);
+        $pessoa = PessoaFactory::createOne(['tenant' => $tenant, 'nome' => 'CLAUDIO SILVA DA CRUZ'])->_real();
+        [, $caso] = $this->semearGrafo($tenant, ['pessoaCobradaAtual' => $pessoa], ['cliente' => $credor]);
+        $casoId = (int) $caso->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+
+        // Submete o formulário COMO ELE ABRE, sem digitar nada: é o que o gestor faz ao clicar em
+        // Judicializar direto. Postar valores montados à mão provaria o UseCase, não o padrão.
+        $client->submit($crawler->filter('#modalJudicializar button[type="submit"]')->form());
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $pasta = $em->find(CasoCobranca::class, $casoId)->getPastaJudicial();
+
+        self::assertNotNull($pasta, 'a pasta foi criada e vinculada');
+        self::assertSame('APLC TOP LIFE 1 - CLAUDIO SILVA DA CRUZ', $pasta->getNomeCliente());
+    }
+
+    #[TestDox('Credor PJ sem nome fantasia: a pasta fica só com a pessoa cobrada')]
+    public function testCredorSemNomeFantasiaNaoInventaPrefixo(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        $credor = ClientePJFactory::createOne(['tenant' => $tenant, 'nomeFantasia' => null]);
+        $pessoa = PessoaFactory::createOne(['tenant' => $tenant, 'nome' => 'CLAUDIO SILVA DA CRUZ'])->_real();
+        [, $caso] = $this->semearGrafo($tenant, ['pessoaCobradaAtual' => $pessoa], ['cliente' => $credor]);
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+
+        // Sem fantasia cadastrada não há prefixo — e a razão social NÃO entra no lugar dela: tem 93
+        // caracteres no maior caso de produção e viraria um nome de pasta ilegível.
+        self::assertSame(
+            'CLAUDIO SILVA DA CRUZ',
+            $crawler->filter('#modalJudicializar input[name="judicializar_caso[nomeCliente]"]')->attr('value'),
+        );
     }
 
     /** Endereço ATUAL da ficha — é dele que descem CEP, endereço, cidade e UF do cliente. */

@@ -33,10 +33,11 @@ use App\Pasta\UseCase\CriarPastaUseCase;
  *
  * Desde 2026-08-27 (`docs/specs/cobranca-judicializar-cria-pasta.md`) há DOIS caminhos:
  *
- * - **criar** (o normal): o sistema ABRE a pasta na hora, com número automático, o nome do
- *   responsável principal como cliente e `AÇÃO MONITÓRIA` como ação — os dois vindos do modal, onde
- *   o gestor já os viu e pôde corrigir. Quando o responsável tem CPF, ele também é cadastrado e vira
- *   o cliente principal da pasta (ver ResolvedorClienteDoResponsavel);
+ * - **criar** (o normal): o sistema ABRE a pasta na hora, com número automático, o nome do cliente no
+ *   padrão `<fantasia do credor da carteira> - <responsável principal>` (spec §2.5, montado por
+ *   `ComporNomeDaPastaJudicial`) e `AÇÃO MONITÓRIA` como ação — os dois vindos do modal, onde o gestor
+ *   já os viu e pôde corrigir. Quando o responsável tem CPF, ele também é cadastrado e vira o cliente
+ *   principal da pasta (ver ResolvedorClienteDoResponsavel);
  * - **vincular**: o caminho antigo, para o caso já ajuizado antes — uma Pasta EXISTENTE do próprio
  *   escritório.
  *

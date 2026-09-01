@@ -54,6 +54,7 @@ final class MontadorModaisCaso
         private readonly CobrancaDocumentoRepository $documentoRepository,
         private readonly EncargosVivos $encargosVivos,
         private readonly ResolvedorConfigEncargos $resolvedorConfig,
+        private readonly ComporNomeDaPastaJudicial $comporNomeDaPastaJudicial,
     ) {
     }
 
@@ -133,10 +134,11 @@ final class MontadorModaisCaso
 
         if ($incluirJudicializar) {
             // O modal abre PREENCHIDO (spec `cobranca-judicializar-cria-pasta.md` §1): o cliente da
-            // pasta nova é o responsável principal do caso, e a ação é `AÇÃO MONITÓRIA` — a de todos
-            // os casos de cobrança. Os dois seguem editáveis; o gestor vê antes de criar.
+            // pasta nova sai no padrão `<fantasia do credor da carteira> - <pessoa cobrada>`, e a ação
+            // é `AÇÃO MONITÓRIA` — a de todos os casos de cobrança. Os dois seguem editáveis; o gestor
+            // vê antes de criar.
             $judicializar = new JudicializarCasoInput();
-            $judicializar->nomeCliente = $caso->getPessoaCobradaAtual()?->getNome();
+            $judicializar->nomeCliente = $this->comporNomeDaPastaJudicial->paraCaso($caso);
             $judicializar->nomeAcao = JudicializarCasoInput::ACAO_PADRAO;
 
             $views['judicializar'] = $this->reidratarSeErro($this->formFactory->create(JudicializarCasoType::class, $judicializar, [

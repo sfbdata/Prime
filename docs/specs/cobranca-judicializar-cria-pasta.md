@@ -14,7 +14,7 @@ Passa a ser: **um clique abre o modal já preenchido**, e o botão principal **c
 | campo da pasta nova | de onde vem |
 |---|---|
 | número (NUP) | gerado pelo sistema (`GerarNumeroDePasta`), como em qualquer pasta |
-| **nome do cliente** | nome do **responsável principal** — a pessoa cobrada atual do caso |
+| **nome do cliente** | `<nome fantasia do credor da carteira> - <responsável principal>` (§2.5, decisão de 2026-09-01) |
 | **ação** | **`AÇÃO MONITÓRIA`**, fixo: é a ação de todos os casos de cobrança |
 | **cliente principal** | cadastrado a partir da ficha do responsável, quando ela tem CPF (§3) |
 
@@ -32,6 +32,50 @@ corrigir. Vincular uma pasta **já existente** continua possível, como caminho 
    não só texto.
 3. **O clique abre modal de confirmação**, com os campos preenchidos e editáveis — não cria direto.
 4. **Vincular pasta existente continua existindo**, como opção secundária.
+
+## 2.5. 2026-09-01 — o nome ganhou o prefixo do credor (revisão da decisão 1)
+
+A decisão 1 continha três opções: condomínio da carteira / devedor / **os dois combinados**. Em
+27/08 o dono escolheu o devedor sozinho. Em **01/09 ele passou para "os dois combinados"** e pediu
+o padrão:
+
+```
+<nome fantasia do cliente da carteira> - <nome da pessoa cobrada>
+APLC TOP LIFE 1 - CLAUDIO SILVA DA CRUZ
+```
+
+**O que motivou a revisão foi o próprio uso.** Medido em produção em 01/09: das 3 pastas judiciais
+existentes, **duas já se chamavam `APLC TOP LIFE 1 - <NOME>`** — o escritório vinha digitando o
+prefixo à mão — e a terceira ficou só com o nome da pessoa. O padrão não é novo; o sistema é que
+não o conhecia.
+
+**O prefixo vem do CLIENTE da carteira, não da carteira**, e por um caminho que vale registrar
+porque nenhum dos três campos candidatos reproduz o exemplo do dono sozinho:
+
+| fonte | valor real (carteira TOP LIFE I, prod 01/09) |
+|---|---|
+| `carteira.nome` | `TOP LIFE I` — sem o `APLC`, e em algarismo romano |
+| `cliente_pj.razao_social` | 93 caracteres; ilegível como nome de pasta |
+| **`cliente_pj.nome_fantasia`** ✅ | `APLC - TOP LIFE 1` |
+
+O `nome_fantasia` era o mais próximo, mas trazia um traço a mais (`APLC - TOP LIFE 1`), que
+produziria `APLC - TOP LIFE 1 - CLAUDIO...`. **Decisão do dono: usar o `nome_fantasia` e corrigir o
+cadastro dos clientes** (tirar o traço), em vez de criar um campo novo na carteira ou normalizar a
+pontuação no código. ⚠️ Consequência: o padrão depende do cadastro estar certo — fantasia com
+pontuação entra no nome da pasta como está, e o conserto é no cliente, não no serviço.
+
+**Quedas, sem inventar prefixo** (`App\Cobranca\Service\ComporNomeDaPastaJudicial`):
+
+- credor PF, ou PJ com fantasia em branco → **só o nome da pessoa** (o comportamento anterior);
+- caso sem pessoa cobrada → campo vazio;
+- composição acima de 255 (limite de `pasta.nome_cliente`) → só o nome da pessoa. Nome cortado no
+  meio é pior que nome curto, e o campo segue editável. Pior caso medido em prod: 63 caracteres.
+
+A razão social **nunca** substitui a fantasia ausente — há teste para isso
+(`testCredorSemNomeFantasiaNaoInventaPrefixo`), porque é o "conserto" que alguém tentaria depois.
+
+⚠️ **A consequência aceita da decisão 1 continua valendo**: `pasta.nome_cliente` guarda a parte
+contrária. O prefixo do credor não muda isso — só o torna visível no nome.
 
 ## 3. 🔴 O RG em branco — decisão consciente, NÃO é bug
 
