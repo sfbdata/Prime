@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Pasta\Functional;
 
+use App\Cliente\Entity\ClientePF;
 use App\Controller\PastaController;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
@@ -71,6 +72,89 @@ final class EditarPastaControllerTest extends JusPrimeWebTestCase
     private function gerarCsrf(string $tokenId): string
     {
         return 'TOKEN_' . $tokenId;
+    }
+
+    /**
+     * Cliente PF cadastrado e vinculado à pasta — é o que faz `pasta.clientes` deixar de ser vazio,
+     * e era essa condição que escondia o campo `nome_cliente` do formulário de edição.
+     */
+    private function vincularClienteCadastrado(Pasta $pasta, Tenant $tenant): void
+    {
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $cliente = new ClientePF();
+        $cliente->setTenant($tenant);
+        $cliente->setNomeCompleto('LEANDRO DA SILVA E SOUSA');
+        $cliente->setCpf('111.222.333-44');
+        $cliente->setRg('');
+        $cliente->setRgOrgaoExpedidor('');
+        $cliente->setEmail('leandro_' . uniqid() . '@test.com');
+        $cliente->setCep('');
+        $cliente->setEndereco('');
+        $cliente->setCidade('');
+        $cliente->setEstado('');
+        $em->persist($cliente);
+
+        $pasta->addCliente($cliente);
+        $em->flush();
+    }
+
+    #[TestDox('Salvar a edição de uma pasta COM cliente cadastrado não apaga o nome do cliente')]
+    public function testSalvarNaoApagaONomeDoClienteQuandoHaClienteCadastrado(): void
+    {
+        $client                  = static::createClient();
+        [$user, $tenant, $pasta] = $this->criarCenario();
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $pasta->setNomeCliente('APLC TOP LIFE 1 - LEANDRO DA SILVA E SOUSA');
+        $pasta->setNomeAcao('AÇÃO MONITÓRIA');
+        $em->flush();
+        $this->vincularClienteCadastrado($pasta, $tenant);
+        $pastaId = (int) $pasta->getId();
+
+        $this->logarComTenant($client, $user, $tenant);
+
+        $crawler = $client->request('GET', '/pasta/' . $pastaId);
+        self::assertResponseIsSuccessful();
+
+        // Submete o formulário COMO O NAVEGADOR O ENVIA. Montar o POST à mão (como fazem os outros
+        // testes deste arquivo) incluiria a chave `nome_cliente` que a TELA pode não renderizar — e
+        // o teste passaria verde com o defeito de pé. Foi assim que 3 pastas de produção perderam o
+        // nome do cliente sem ninguém tocar no campo: bastava abrir "Editar Pasta" e salvar.
+        $client->submit($crawler->filter('form[action$="/editar"]')->form());
+
+        $em->clear();
+        $atualizada = $em->find(Pasta::class, $pastaId);
+
+        self::assertSame(
+            'APLC TOP LIFE 1 - LEANDRO DA SILVA E SOUSA',
+            $atualizada->getNomeCliente(),
+            'salvar sem mexer no campo não pode apagar o nome do cliente',
+        );
+        self::assertSame('AÇÃO MONITÓRIA', $atualizada->getNomeAcao(), 'nem trocar a ação');
+    }
+
+    #[TestDox('O formulário de editar mostra o campo do nome do cliente mesmo com cliente cadastrado')]
+    public function testFormularioMostraOCampoDoNomeDoClienteComClienteCadastrado(): void
+    {
+        $client                  = static::createClient();
+        [$user, $tenant, $pasta] = $this->criarCenario();
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $pasta->setNomeCliente('APLC TOP LIFE 1 - LEANDRO DA SILVA E SOUSA');
+        $em->flush();
+        $this->vincularClienteCadastrado($pasta, $tenant);
+
+        $this->logarComTenant($client, $user, $tenant);
+
+        $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
+
+        // O campo tem de existir E vir preenchido: um input vazio devolveria o mesmo apagamento pela
+        // porta da frente, agora com a assinatura do usuário.
+        self::assertSame(
+            'APLC TOP LIFE 1 - LEANDRO DA SILVA E SOUSA',
+            $crawler->filter('form[action$="/editar"] input[name="nome_cliente"]')->attr('value'),
+        );
     }
 
     #[TestDox('POST /{id}/editar com dados válidos atualiza pasta e redireciona para pasta_show')]

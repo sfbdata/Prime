@@ -3774,21 +3774,26 @@ document.addEventListener('DOMContentLoaded', function () {
                                value="{{ pasta.nup }}" required autocomplete="off">
                     </div>
 
+                    {# O campo é renderizado SEMPRE, mesmo com cliente cadastrado. Ele já foi
+                       escondido nesse caso, e o resultado era o pior possível: o navegador não
+                       mandava a chave, o controller lia vazio e APAGAVA o nome ao salvar — sem
+                       ninguém tocar no campo. São coisas diferentes e ambas precisam existir aqui:
+                       o TÍTULO da pasta (texto livre, hoje no padrão `CREDOR - DEVEDOR`) e os
+                       CLIENTES cadastrados, que viram contexto logo abaixo. #}
                     <div class="mb-3">
-                        <label class="form-label form-label-sm">Nome do cliente</label>
+                        <label for="edit_nome_cliente" class="form-label form-label-sm">Nome do cliente</label>
+                        <input type="text" id="edit_nome_cliente" name="nome_cliente"
+                               class="form-control form-control-sm"
+                               value="{{ pasta.nomeCliente }}" autocomplete="off">
                         {% if pasta.clientes|length > 0 %}
-                            <div class="d-flex flex-wrap gap-1 form-control form-control-sm h-auto py-1" style="min-height:2.1rem;">
+                            <div class="d-flex flex-wrap gap-1 mt-1">
                                 {% for cliente in pasta.clientes %}
                                     <span class="badge text-bg-secondary fw-normal">
                                         <i class="bi bi-person me-1"></i>{{ cliente.cpf is defined and cliente.cpf ? cliente.nomeCompleto : cliente.razaoSocial }}
                                     </span>
                                 {% endfor %}
                             </div>
-                            <div class="form-text text-muted">Para alterar clientes, use a seção de Clientes na aba Dados.</div>
-                        {% else %}
-                            <input type="text" id="edit_nome_cliente" name="nome_cliente"
-                                   class="form-control form-control-sm"
-                                   value="{{ pasta.nomeCliente }}" autocomplete="off">
+                            <div class="form-text text-muted">Clientes cadastrados da pasta. Para alterá-los, use a seção de Clientes na aba Dados.</div>
                         {% endif %}
                     </div>
 

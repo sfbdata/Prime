@@ -1134,6 +1134,22 @@ class PastaController extends AbstractController
         return implode(' · ', $partes);
     }
 
+    /**
+     * Lê um campo de texto opcional do POST distinguindo AUSENTE de VAZIO: ausente devolve o valor
+     * atual (a tela não ofereceu o campo, então não houve decisão do usuário sobre ele); presente e
+     * vazio devolve `null` (o usuário apagou de propósito). Ver o comentário em `editar()`.
+     */
+    private function textoOuMantemAtual(Request $request, string $chave, ?string $atual): ?string
+    {
+        if (!$request->request->has($chave)) {
+            return $atual;
+        }
+
+        $valor = trim((string) $request->request->get($chave, ''));
+
+        return $valor !== '' ? $valor : null;
+    }
+
     #[Route('/{id}/editar', name: 'pasta_edit', methods: ['POST'])]
     public function editar(Pasta $pasta, Request $request): Response
     {
@@ -1153,10 +1169,17 @@ class PastaController extends AbstractController
         // antigos — depois do UseCase já é tarde. É ele que decide se vale um write no Drive.
         $nomeAntes = ReconciliadorDePasta::nomeEsperado($pasta->getNup(), $pasta->getNomeCliente(), $pasta->getNomeAcao());
 
+        // 🔴 Campo AUSENTE no POST significa "não mexe"; campo PRESENTE e vazio significa "limpa".
+        // Sem essa distinção, uma tela que deixa de renderizar o campo APAGA o dado no primeiro
+        // save — e foi exatamente o que aconteceu: o formulário escondia `nome_cliente` quando a
+        // pasta tinha cliente cadastrado, e 3 pastas de produção perderam o nome sem ninguém tocar
+        // nele (a primeira em 19/06, percebida só em 01/09). O template voltou a renderizar o campo,
+        // mas a guarda fica aqui também: é a camada que impede QUALQUER tela futura de destruir por
+        // omissão.
         $dto = new EditarPastaDTO(
             nup: (string) $request->request->get('nup', ''),
-            nomeCliente: ($v = trim((string) $request->request->get('nome_cliente', ''))) !== '' ? $v : null,
-            nomeAcao: ($v = trim((string) $request->request->get('nome_acao', ''))) !== '' ? $v : null,
+            nomeCliente: $this->textoOuMantemAtual($request, 'nome_cliente', $pasta->getNomeCliente()),
+            nomeAcao: $this->textoOuMantemAtual($request, 'nome_acao', $pasta->getNomeAcao()),
             situacao: (string) $request->request->get('situacao', Pasta::SITUACAO_ATIVA),
         );
         try {
