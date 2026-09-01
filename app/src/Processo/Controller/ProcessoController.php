@@ -18,6 +18,7 @@ use App\Processo\Exception\TribunalNaoIdentificadoException;
 use App\Processo\Service\DatajudClient;
 use App\Processo\Service\DatajudProcessoMapper;
 use App\Processo\Service\TribunalCnjResolver;
+use App\Processo\Service\ValidadorNumeroCnj;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use Doctrine\ORM\EntityManagerInterface;
@@ -263,7 +264,7 @@ class ProcessoController extends AbstractController
     }
 
     #[Route('/api/search', name: 'api_datajud_search', methods: ['POST'])]
-    public function datajudSearch(Request $request, DatajudClient $datajudClient, DatajudProcessoMapper $mapper, EntityManagerInterface $em, PermissionChecker $permissionChecker, LoggerInterface $logger): JsonResponse
+    public function datajudSearch(Request $request, DatajudClient $datajudClient, DatajudProcessoMapper $mapper, EntityManagerInterface $em, PermissionChecker $permissionChecker, LoggerInterface $logger, ValidadorNumeroCnj $validadorNumeroCnj): JsonResponse
     {
         // Gateia pela permissão do módulo: a action dispara consulta à API externa do CNJ — sem
         // guard, qualquer logado abusaria do custo/rate-limit. Não persiste nada (B8).
@@ -293,12 +294,10 @@ class ProcessoController extends AbstractController
             }
 
             if ($hits === []) {
-                $sigla = $this->derivarSiglaSegura($numeroProcesso);
-                $mensagem = $sigla !== null
-                    ? sprintf('Consultamos a base do %s e não encontramos nenhum processo com esse número. Confira o número digitado.', $sigla)
-                    : 'Não encontramos nenhum processo com esse número. Confira o número digitado.';
-
-                return $this->erroDatajud($mensagem, 404);
+                return $this->erroDatajud(
+                    $this->mensagemNaoEncontrado($numeroProcesso, $validadorNumeroCnj),
+                    404
+                );
             }
 
             $processData = $hits[0]['_source'] ?? [];
@@ -385,6 +384,40 @@ class ProcessoController extends AbstractController
         $response->setEncodingOptions(JSON_UNESCAPED_UNICODE);
 
         return $response;
+    }
+
+    /**
+     * Mensagem para "o CNJ respondeu, mas sem nenhum resultado".
+     *
+     * Zero resultados tem duas causas muito diferentes e a mensagem anterior culpava o usuário
+     * pelas duas — mandava "conferir o número digitado" mesmo quando o número estava correto.
+     * O dígito verificador (Res. CNJ 65/2008) separa os casos sem custo nenhum:
+     *
+     *  - DV não confere  → erro de digitação, e agora dizemos POR QUE desconfiamos;
+     *  - DV confere      → o número existe; quem não tem o processo é a base pública do CNJ,
+     *                      que é publicada com semanas de atraso e omite segredo de justiça.
+     *
+     * O DV é conferido só AQUI, para escolher o texto: número com DV errado continua sendo
+     * consultado no CNJ normalmente. Bloquear a consulta deixaria o usuário sem saída diante
+     * de um número atípico, e não é isso que estamos consertando.
+     */
+    private function mensagemNaoEncontrado(string $numeroProcesso, ValidadorNumeroCnj $validador): string
+    {
+        $sigla = $this->derivarSiglaSegura($numeroProcesso);
+
+        if (!$validador->digitoVerificadorConfere($numeroProcesso)) {
+            $abertura = $sigla !== null
+                ? sprintf('Consultamos a base do %s e não encontramos nenhum processo com esse número.', $sigla)
+                : 'Não encontramos nenhum processo com esse número.';
+
+            return $abertura . ' Confira o número digitado: o dígito verificador não confere, o que costuma indicar erro de digitação.';
+        }
+
+        $abertura = $sigla !== null
+            ? sprintf('O número é válido, mas não encontramos este processo na base do %s.', $sigla)
+            : 'O número é válido, mas não encontramos este processo na base pública do CNJ.';
+
+        return $abertura . ' A base pública do CNJ é publicada com atraso de algumas semanas e não inclui processos em segredo de justiça — se o processo é recente, tente de novo em alguns dias ou preencha os dados manualmente.';
     }
 
     /**

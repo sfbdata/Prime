@@ -165,6 +165,81 @@ final class ProcessoIsolamentoControllerTest extends JusPrimeWebTestCase
         self::assertStringContainsString('TJSP', $payload['error'], 'a mensagem cita o tribunal detectado');
     }
 
+    #[TestDox('Zero resultados com DV VÁLIDO não culpa o usuário: explica o atraso da base do CNJ')]
+    public function testNaoEncontradoComDigitoVerificadorValidoExplicaAtrasoDaBase(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $tenant = $this->criarTenant();
+        $gestor = $this->criarGestor($tenant, 'gestorDvOk_' . uniqid() . '@test.com');
+        $this->limparIdentityMap();
+        $this->logarComTenant($client, $gestor, $tenant);
+
+        $mock = $this->createMock(DatajudClient::class);
+        $mock->method('searchByNumeroProcesso')->willReturn(['hits' => ['hits' => []]]);
+        static::getContainer()->set(DatajudClient::class, $mock);
+
+        $client->request(
+            'POST',
+            '/processos/api/search',
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json'],
+            // Caso real que originou esta distinção: número do TJDFT com DV correto (84) que a
+            // base pública do CNJ ainda não tinha publicado.
+            (string) json_encode(['numeroProcesso' => '0782731-84.2026.8.07.0016']),
+        );
+
+        self::assertResponseStatusCodeSame(404);
+        $erro = json_decode((string) $client->getResponse()->getContent(), true)['error'];
+        self::assertStringContainsString('TJDFT', $erro, 'a mensagem cita o tribunal detectado');
+        self::assertStringContainsString('válido', $erro, 'precisa dizer que o número está certo');
+        self::assertStringContainsString('atraso', $erro, 'precisa explicar o atraso da base pública');
+        self::assertStringContainsString('segredo de justiça', $erro, 'precisa citar a outra causa possível');
+        self::assertStringNotContainsString(
+            'Confira o número digitado',
+            $erro,
+            'número com DV correto NÃO pode mandar o usuário conferir a digitação'
+        );
+    }
+
+    #[TestDox('Zero resultados com DV INVÁLIDO aponta o erro de digitação (e diz que o DV não confere)')]
+    public function testNaoEncontradoComDigitoVerificadorInvalidoApontaDigitacao(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $tenant = $this->criarTenant();
+        $gestor = $this->criarGestor($tenant, 'gestorDvRuim_' . uniqid() . '@test.com');
+        $this->limparIdentityMap();
+        $this->logarComTenant($client, $gestor, $tenant);
+
+        $mock = $this->createMock(DatajudClient::class);
+        $mock->method('searchByNumeroProcesso')->willReturn(['hits' => ['hits' => []]]);
+        static::getContainer()->set(DatajudClient::class, $mock);
+
+        $client->request(
+            'POST',
+            '/processos/api/search',
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json'],
+            // Mesmo processo do teste acima com o DV trocado (84 → 85): erro de digitação típico.
+            (string) json_encode(['numeroProcesso' => '0782731-85.2026.8.07.0016']),
+        );
+
+        self::assertResponseStatusCodeSame(404);
+        $erro = json_decode((string) $client->getResponse()->getContent(), true)['error'];
+        self::assertStringContainsString('TJDFT', $erro, 'a mensagem cita o tribunal detectado');
+        self::assertStringContainsString('Confira o número digitado', $erro);
+        self::assertStringContainsString('dígito verificador', $erro, 'precisa dizer POR QUE suspeitamos da digitação');
+        self::assertStringNotContainsString(
+            'atraso',
+            $erro,
+            'número com DV errado não deve ser explicado pelo atraso da base'
+        );
+    }
+
+
     #[TestDox('CNJ instável usa a mensagem e o status do motivo Indisponivel (502)')]
     public function testDatajudSearchCnjInstavelUsaMensagemDoMotivo(): void
     {
