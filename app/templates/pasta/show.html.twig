@@ -606,6 +606,10 @@
                                                              aria-valuenow="{{ concluidosChecklist }}" aria-valuemin="0" aria-valuemax="{{ totalChecklist }}">
                                                             <div id="checklistBarra" class="fm-checklist-barra-fill {{ checklistCompleto ? 'completo' : 'incompleto' }}" style="width: {{ pctChecklist }}%"></div>
                                                         </div>
+                                                        <button type="button" id="btnChecklistModelos" class="fm-checklist-acao" title="Modelos de checklist"
+                                                                aria-expanded="false" aria-controls="checklistModelosPainel">
+                                                            <i class="bi bi-bookmarks"></i>
+                                                        </button>
                                                         <button type="button" id="btnChecklistEditar" class="fm-checklist-acao" title="Editar checklist">
                                                             <i class="bi bi-pencil"></i>
                                                         </button>
@@ -646,6 +650,45 @@
                                                             <button type="button" id="btnChecklistCancelarNovo" class="btn btn-outline-secondary"><i class="bi bi-x-lg"></i></button>
                                                         </div>
                                                         <div id="checklistErroNovo" class="text-danger small mt-1 d-none"></div>
+                                                    </div>
+
+                                                    {# ── Modelos de checklist ──────────────────────────
+                                                       Painel INLINE, não modal: o gerenciador de arquivos
+                                                       é animado, e ancestral com `transform` prende modal
+                                                       abaixo do backdrop (foi o defeito de 28/08 nesta
+                                                       mesma tela). Inline também deixa a lista da pasta
+                                                       visível enquanto se escolhe o modelo.
+                                                       A lista é carregada por AJAX na primeira abertura. #}
+                                                    <div id="checklistModelosPainel" class="fm-checklist-modelos d-none"
+                                                         data-url-listar="{{ path('pasta_checklist_modelo_listar', {id: pasta.id}) }}"
+                                                         data-url-salvar="{{ path('pasta_checklist_modelo_salvar', {id: pasta.id}) }}"
+                                                         data-csrf-pasta="{{ csrf_token('checklist_modelo_pasta_' ~ pasta.id) }}">
+                                                        <div class="fm-checklist-modelos-cab">
+                                                            <i class="bi bi-bookmarks"></i>
+                                                            <span>Modelos do escritório</span>
+                                                            <button type="button" id="btnChecklistModelosFechar" class="fm-checklist-modelos-fechar" title="Fechar">
+                                                                <i class="bi bi-x-lg"></i>
+                                                            </button>
+                                                        </div>
+
+                                                        <div id="checklistModelosCarregando" class="fm-checklist-modelos-nota d-none">Carregando…</div>
+                                                        <div id="checklistModelosVazio" class="fm-checklist-modelos-nota d-none">
+                                                            Nenhum modelo salvo ainda. Monte o checklist desta pasta e salve abaixo para reaproveitá-lo nas próximas.
+                                                        </div>
+                                                        <ul id="checklistModelosLista" class="list-unstyled mb-0"></ul>
+
+                                                        <div class="fm-checklist-modelos-salvar">
+                                                            <label class="fm-checklist-modelos-rotulo" for="checklistModeloNome">Salvar o checklist desta pasta como modelo</label>
+                                                            <div class="input-group input-group-sm">
+                                                                <input type="text" id="checklistModeloNome" class="form-control" placeholder="Nome do modelo..." maxlength="120">
+                                                                <button type="button" id="btnChecklistModeloSalvar" class="btn btn-primary" title="Salvar como modelo">
+                                                                    <i class="bi bi-bookmark-plus"></i>
+                                                                </button>
+                                                            </div>
+                                                        </div>
+
+                                                        <div id="checklistModelosErro" class="text-danger small mt-2 d-none"></div>
+                                                        <div id="checklistModelosAviso" class="text-success small mt-2 d-none"></div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -4309,6 +4352,305 @@ document.addEventListener('DOMContentLoaded', function () {
             '<button type="button" class="btn btn-sm btn-outline-danger js-checklist-excluir ' + excluirDisplay + '" title="Excluir item"><i class="bi bi-trash"></i></button>';
 
         return li;
+    }
+
+    // ── Modelos de checklist ──────────────────────────────────────────────────
+    //
+    // Vive dentro DESTE IIFE de propósito: aplicar um modelo insere itens na mesma
+    // lista, e precisa das mesmas peças que o resto do checklist já usa
+    // (`criarItemLi`, `atualizarBadge`, `modoEdicao`). Duplicá-las num bloco
+    // separado é como as duas metades de uma tela começam a divergir.
+
+    var painelModelos   = document.getElementById('checklistModelosPainel');
+    var btnModelos      = document.getElementById('btnChecklistModelos');
+
+    if (painelModelos && btnModelos) {
+        var listaModelos     = document.getElementById('checklistModelosLista');
+        var modelosVazio     = document.getElementById('checklistModelosVazio');
+        var modelosCarregando = document.getElementById('checklistModelosCarregando');
+        var modelosErro      = document.getElementById('checklistModelosErro');
+        var modelosAviso     = document.getElementById('checklistModelosAviso');
+        var inputNomeModelo  = document.getElementById('checklistModeloNome');
+        var btnSalvarModelo  = document.getElementById('btnChecklistModeloSalvar');
+        var btnFecharModelos = document.getElementById('btnChecklistModelosFechar');
+
+        var URL_MODELOS_LISTAR = painelModelos.dataset.urlListar;
+        var URL_MODELOS_SALVAR = painelModelos.dataset.urlSalvar;
+        var CSRF_MODELOS_PASTA = painelModelos.dataset.csrfPasta;
+
+        function URL_MODELO_APLICAR(id)  { return URL_MODELOS_LISTAR + '/' + id + '/aplicar'; }
+        function URL_MODELO_RENOMEAR(id) { return URL_MODELOS_LISTAR + '/' + id + '/renomear'; }
+        function URL_MODELO_EXCLUIR(id)  { return URL_MODELOS_LISTAR + '/' + id + '/excluir'; }
+
+        var modelosCarregados = false;
+
+        function mostrarErroModelos(msg) {
+            modelosAviso.classList.add('d-none');
+            modelosErro.textContent = msg;
+            modelosErro.classList.remove('d-none');
+        }
+
+        function mostrarAvisoModelos(msg) {
+            modelosErro.classList.add('d-none');
+            modelosAviso.textContent = msg;
+            modelosAviso.classList.remove('d-none');
+        }
+
+        function limparRecados() {
+            modelosErro.classList.add('d-none');
+            modelosAviso.classList.add('d-none');
+        }
+
+        // Erro do servidor vem como JSON com `erro`; fora isso, a mensagem genérica.
+        function lerResposta(r) {
+            return r.json()
+                .catch(function () { throw new Error('Erro de comunicação.'); })
+                .then(function (data) {
+                    if (!r.ok) { throw new Error(data.erro || data.mensagem || 'Erro.'); }
+                    return data;
+                });
+        }
+
+        function renderModelos(modelos) {
+            listaModelos.innerHTML = '';
+            modelosVazio.classList.toggle('d-none', modelos.length > 0);
+
+            modelos.forEach(function (modelo) {
+                var li = document.createElement('li');
+                li.className = 'fm-modelo';
+                li.dataset.modeloId = modelo.id;
+                li.dataset.csrf     = modelo.csrf;
+
+                var plural = modelo.totalItens === 1 ? 'item' : 'itens';
+
+                li.innerHTML =
+                    '<div class="fm-modelo-info">' +
+                        '<span class="fm-modelo-nome" title="' + escapeAttr(modelo.itens.join(' · ')) + '">' + escapeHtml(modelo.nome) + '</span>' +
+                        '<span class="fm-modelo-qtd">' + modelo.totalItens + ' ' + plural + '</span>' +
+                        '<input type="text" class="fm-modelo-input form-control form-control-sm d-none" value="' + escapeAttr(modelo.nome) + '" maxlength="120">' +
+                    '</div>' +
+                    '<div class="fm-modelo-acoes">' +
+                        '<button type="button" class="fm-modelo-aplicar js-modelo-aplicar">Aplicar</button>' +
+                        '<button type="button" class="fm-modelo-icone js-modelo-renomear" title="Renomear modelo"><i class="bi bi-pencil"></i></button>' +
+                        '<button type="button" class="fm-modelo-icone perigo js-modelo-excluir" title="Excluir modelo"><i class="bi bi-trash"></i></button>' +
+                    '</div>';
+
+                listaModelos.appendChild(li);
+            });
+        }
+
+        function carregarModelos() {
+            modelosCarregando.classList.remove('d-none');
+            modelosVazio.classList.add('d-none');
+
+            return fetch(URL_MODELOS_LISTAR, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(lerResposta)
+                .then(function (data) {
+                    renderModelos(data.modelos || []);
+                    modelosCarregados = true;
+                })
+                .catch(function (err) { mostrarErroModelos(err.message || 'Erro ao carregar os modelos.'); })
+                .finally(function () { modelosCarregando.classList.add('d-none'); });
+        }
+
+        btnModelos.addEventListener('click', function () {
+            var abrindo = painelModelos.classList.contains('d-none');
+
+            painelModelos.classList.toggle('d-none', !abrindo);
+            btnModelos.classList.toggle('active', abrindo);
+            btnModelos.setAttribute('aria-expanded', abrindo ? 'true' : 'false');
+
+            if (abrindo && !modelosCarregados) { carregarModelos(); }
+        });
+
+        btnFecharModelos.addEventListener('click', function () {
+            painelModelos.classList.add('d-none');
+            btnModelos.classList.remove('active');
+            btnModelos.setAttribute('aria-expanded', 'false');
+        });
+
+        // ── Salvar o checklist desta pasta como modelo ─────────────────────────
+
+        function salvarModelo(substituir) {
+            var nome = inputNomeModelo.value.trim();
+
+            if (nome === '') {
+                mostrarErroModelos('Dê um nome ao modelo.');
+                return;
+            }
+
+            btnSalvarModelo.disabled = true;
+            limparRecados();
+
+            var fd = new FormData();
+            fd.append('nome', nome);
+            fd.append('_token', CSRF_MODELOS_PASTA);
+            if (substituir) { fd.append('substituir', '1'); }
+
+            fetch(URL_MODELOS_SALVAR, {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: fd,
+            })
+            .then(function (r) {
+                // 409 = o escritório já tem um modelo com esse nome. É a única resposta de
+                // erro que vira PERGUNTA em vez de recado: sem ela não haveria como corrigir
+                // um modelo salvo errado, só excluir e refazer.
+                if (r.status === 409) {
+                    return r.json().then(function (data) {
+                        if (confirm('Já existe o modelo "' + data.nome + '". Substituir os itens dele pelo checklist desta pasta?')) {
+                            salvarModelo(true);
+                        }
+                        return null;
+                    });
+                }
+                return lerResposta(r);
+            })
+            .then(function (data) {
+                if (!data) { return; }
+                inputNomeModelo.value = '';
+                mostrarAvisoModelos('Modelo "' + data.modelo.nome + '" salvo com ' + data.modelo.totalItens + ' itens.');
+                return carregarModelos();
+            })
+            .catch(function (err) { mostrarErroModelos(err.message || 'Erro ao salvar o modelo.'); })
+            .finally(function () { btnSalvarModelo.disabled = false; });
+        }
+
+        btnSalvarModelo.addEventListener('click', function () { salvarModelo(false); });
+
+        inputNomeModelo.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') { e.preventDefault(); salvarModelo(false); }
+        });
+
+        // ── Aplicar / renomear / excluir ───────────────────────────────────────
+
+        listaModelos.addEventListener('click', function (e) {
+            var li = e.target.closest('.fm-modelo');
+            if (!li) { return; }
+
+            if (e.target.closest('.js-modelo-aplicar'))  { aplicarModelo(li); return; }
+            if (e.target.closest('.js-modelo-renomear')) { abrirRenomear(li);  return; }
+            if (e.target.closest('.js-modelo-excluir'))  { excluirModelo(li);  return; }
+        });
+
+        function aplicarModelo(li) {
+            var btn = li.querySelector('.js-modelo-aplicar');
+            btn.disabled = true;
+            limparRecados();
+
+            var fd = new FormData();
+            fd.append('_token', li.dataset.csrf);
+
+            fetch(URL_MODELO_APLICAR(li.dataset.modeloId), {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: fd,
+            })
+            .then(lerResposta)
+            .then(function (data) {
+                var vazio = document.getElementById('checklistVazio');
+                if (vazio && data.criados.length > 0) { vazio.remove(); }
+
+                data.criados.forEach(function (item) { lista.appendChild(criarItemLi(item)); });
+                atualizarBadge();
+
+                mostrarAvisoModelos(recadoDoAplicar(data));
+            })
+            .catch(function (err) { mostrarErroModelos(err.message || 'Erro ao aplicar o modelo.'); })
+            .finally(function () { btn.disabled = false; });
+        }
+
+        // O que já existia é CONTADO, não escondido: sem esse número, aplicar um modelo
+        // cujos itens a pasta já tinha pareceria um botão que não fez nada.
+        function recadoDoAplicar(data) {
+            if (data.totalCriados === 0 && data.totalIgnorados > 0) {
+                return 'Nada a adicionar: esta pasta já tinha todos os itens de "' + data.nome + '".';
+            }
+
+            var recado = data.totalCriados + (data.totalCriados === 1 ? ' item adicionado' : ' itens adicionados');
+
+            if (data.totalIgnorados > 0) {
+                recado += ', ' + data.totalIgnorados + (data.totalIgnorados === 1 ? ' já existia' : ' já existiam');
+            }
+
+            return recado + '.';
+        }
+
+        function abrirRenomear(li) {
+            var input = li.querySelector('.fm-modelo-input');
+            li.querySelector('.fm-modelo-nome').classList.add('d-none');
+            li.querySelector('.fm-modelo-qtd').classList.add('d-none');
+            input.classList.remove('d-none');
+            input.focus();
+            input.select();
+        }
+
+        function fecharRenomear(li) {
+            li.querySelector('.fm-modelo-input').classList.add('d-none');
+            li.querySelector('.fm-modelo-nome').classList.remove('d-none');
+            li.querySelector('.fm-modelo-qtd').classList.remove('d-none');
+        }
+
+        listaModelos.addEventListener('keydown', function (e) {
+            var input = e.target.closest('.fm-modelo-input');
+            if (!input) { return; }
+
+            var li = input.closest('.fm-modelo');
+            if (e.key === 'Escape') { input.value = li.querySelector('.fm-modelo-nome').textContent.trim(); fecharRenomear(li); }
+            if (e.key === 'Enter')  { e.preventDefault(); salvarRenomear(li); }
+        });
+
+        function salvarRenomear(li) {
+            var input = li.querySelector('.fm-modelo-input');
+            var nome  = input.value.trim();
+
+            if (nome === '') { fecharRenomear(li); return; }
+
+            limparRecados();
+
+            var fd = new FormData();
+            fd.append('nome', nome);
+            fd.append('_token', li.dataset.csrf);
+
+            fetch(URL_MODELO_RENOMEAR(li.dataset.modeloId), {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: fd,
+            })
+            .then(lerResposta)
+            .then(function (data) {
+                li.querySelector('.fm-modelo-nome').textContent = data.nome;
+                input.value = data.nome;
+                fecharRenomear(li);
+            })
+            .catch(function (err) {
+                mostrarErroModelos(err.message || 'Erro ao renomear o modelo.');
+                fecharRenomear(li);
+            });
+        }
+
+        function excluirModelo(li) {
+            var nome = li.querySelector('.fm-modelo-nome').textContent.trim();
+
+            if (!confirm('Excluir o modelo "' + nome + '"? Os checklists já aplicados nas pastas não mudam.')) { return; }
+
+            limparRecados();
+
+            var fd = new FormData();
+            fd.append('_token', li.dataset.csrf);
+
+            fetch(URL_MODELO_EXCLUIR(li.dataset.modeloId), {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: fd,
+            })
+            .then(lerResposta)
+            .then(function () {
+                li.remove();
+                modelosVazio.classList.toggle('d-none', listaModelos.children.length > 0);
+            })
+            .catch(function (err) { mostrarErroModelos(err.message || 'Erro ao excluir o modelo.'); });
+        }
     }
 
 }());

@@ -111,6 +111,11 @@ final class PurgarEscritorioUseCase
         ['cobranca_carteira_documento', 'tenant_id = :tenant'],
         ['cobranca_carteira', 'tenant_id = :tenant'],
         ['cobranca_pessoa', 'tenant_id = :tenant'],
+        // Modelos de checklist de documentos: pendem do TENANT, não da pasta — por isso NÃO caem
+        // pela cascata de `pasta` logo abaixo e precisam de deleção própria. As linhas
+        // (`pasta_checklist_modelo_item`) caem por CASCADE do modelo.
+        ['pasta_checklist_modelo', 'tenant_id = :tenant'],
+
         // Fase 2 — raízes de subsistema (a CASCADE do banco derruba os filhos estruturais).
         ['tarefa', 'tenant_id = :tenant'],
         ['notificacao', 'tenant_id = :tenant'],

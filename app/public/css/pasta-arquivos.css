@@ -591,6 +591,106 @@
     background: var(--bs-primary-bg-subtle);
 }
 
+/* ── Modelos de checklist ─────────────────────────────────────────────────
+   Painel inline (nunca modal: o gerenciador é animado e `transform` num
+   ancestral prende modal abaixo do backdrop). Fica dentro do próprio cartão
+   do checklist, separado por um filete, para não parecer outra seção da aba.
+
+   Todas as regras abaixo são de CLASSE, nunca de elemento: uma regra solta
+   como `.fm-checklist-modelos a {}` pintaria o texto de qualquer botão-âncora
+   que caísse aqui dentro — defeito que esta tela já pagou. */
+.fm-checklist-modelos {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--bs-border-color);
+}
+.fm-checklist-modelos-cab {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-bottom: 8px;
+    font-size: .78rem;
+    font-weight: 600;
+    color: var(--bs-secondary-color);
+}
+.fm-checklist-modelos-cab > .bi { color: var(--bs-primary); }
+.fm-checklist-modelos-cab > span { flex: 1; min-width: 0; }
+.fm-checklist-modelos-fechar {
+    flex-shrink: 0;
+    border: 0;
+    background: transparent;
+    color: var(--bs-secondary-color);
+    font-size: .7rem;
+    line-height: 1;
+    padding: 2px 4px;
+    cursor: pointer;
+    border-radius: 4px;
+}
+.fm-checklist-modelos-fechar:hover { color: var(--bs-body-color); background: var(--bs-tertiary-bg); }
+
+.fm-checklist-modelos-nota { font-size: .74rem; color: var(--bs-secondary-color); padding: 4px 0 8px; }
+
+/* Lista curta por natureza (é configuração do escritório), mas rola se a equipe
+   criar muitos — sem esticar a coluna além dos arquivos ao lado. */
+#checklistModelosLista { max-height: 208px; overflow-y: auto; overscroll-behavior: contain; }
+
+.fm-modelo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--bs-border-color-translucent);
+}
+.fm-modelo:last-child { border-bottom: 0; }
+.fm-modelo-info { flex: 1; min-width: 0; }
+.fm-modelo-nome {
+    display: block;
+    font-size: .78rem;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.fm-modelo-qtd { font-size: .68rem; color: var(--bs-secondary-color); font-variant-numeric: tabular-nums; }
+.fm-modelo-acoes { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.fm-modelo-aplicar {
+    border: 1px solid var(--bs-primary);
+    background: var(--bs-primary);
+    color: #fff;
+    border-radius: 6px;
+    font-size: .7rem;
+    font-weight: 600;
+    padding: 3px 10px;
+    cursor: pointer;
+}
+.fm-modelo-aplicar:hover { filter: brightness(1.08); }
+.fm-modelo-aplicar:disabled { opacity: .6; cursor: default; filter: none; }
+.fm-modelo-icone {
+    width: 24px;
+    height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--bs-border-color);
+    background: transparent;
+    color: var(--bs-secondary-color);
+    border-radius: 6px;
+    font-size: .7rem;
+    cursor: pointer;
+}
+.fm-modelo-icone:hover { color: var(--bs-primary); border-color: var(--bs-primary); }
+.fm-modelo-icone.perigo:hover { color: var(--bs-danger); border-color: var(--bs-danger); }
+/* O input de renomear ocupa o lugar do nome, na própria linha. */
+.fm-modelo-input { font-size: .78rem; padding: 2px 6px; }
+
+.fm-checklist-modelos-salvar { margin-top: 10px; }
+.fm-checklist-modelos-rotulo {
+    display: block;
+    font-size: .7rem;
+    color: var(--bs-secondary-color);
+    margin-bottom: 4px;
+}
+
 /* A lista rola dentro do cartão: um checklist longo não pode esticar a coluna
    até passar da altura dos arquivos ao lado. */
 .fm-checklist #checklistLista {
