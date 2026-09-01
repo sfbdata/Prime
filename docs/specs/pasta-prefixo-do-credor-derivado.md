@@ -1,8 +1,37 @@
-# O prefixo do credor deixa de ser gravado e passa a ser montado na exibição
+# ⛔ DESCARTADA — não implementar
 
-> Decisão do dono em 2026-09-01, depois de ver a primeira versão em produção. Risco BAIXO pela escala
-> do projeto (não toca dinheiro, ponto eletrônico nem permissão), mas atravessa **quatro** domínios —
-> Pasta, Cobrança, Expediente e Sync —, e por isso a spec existe.
+> **Decisão do dono em 2026-09-01, no mesmo dia em que esta spec foi escrita.** Nada daqui foi
+> implementado, e nada daqui deve ser implementado. O arquivo fica no repositório porque as medições
+> das §3 a §7 são verdadeiras e caras de refazer — mas o **desenho** foi substituído.
+>
+> **O que a substituiu:** o dono reformulou o problema em termos de responsabilidade, não de
+> mecanismo. `pasta.nome_cliente` **é o IDENTIFICADOR da pasta** — um campo com dono e função
+> próprios, que continua valendo depois de o cliente ser cadastrado e nunca é sobrescrito por ele. O
+> cliente cadastrado (`pasta_cliente`) é outra coisa, com outra função. Os dois convivem.
+>
+> **Por que isso dispensa toda esta spec:** o prefixo pode continuar **gravado** no identificador. Ele
+> não precisa ser derivado da carteira, porque o problema nunca foi "o prefixo está guardado no lugar
+> errado" — era "as telas tratavam o campo como um nome provisório e o descartavam quando havia
+> cliente cadastrado". Isso foi corrigido em `ef56cad8` (exibição e ordenação) e `22d106c9` (o
+> formulário parou de apagar o campo).
+>
+> 🔑 **A prova de que o modelo novo é o certo:** o campo só é escrito em DOIS lugares —
+> `CriarPastaUseCase` e `EditarPastaUseCase`. **Nunca existiu substituição automática no código.** O
+> "nome provisório" era uma ficção que vivia só na camada de exibição, e produziu três defeitos com a
+> mesma forma (*"havendo cliente cadastrado, ignore o `nome_cliente`"*): o formulário que apagava, a
+> coluna que escondia o prefixo e a ordenação que ordenava pelo nome errado.
+>
+> **Duas consequências que o dono aceitou de olhos abertos:** o rótulo da tela continua dizendo
+> "Cliente" (a separação vale no código, não nas palavras), e o identificador **pode envelhecer** —
+> corrigir o nome da pessoa no cadastro não atualiza o identificador da pasta, e isso é o desejado,
+> porque ele é o título da pasta e não a ficha da pessoa.
+
+---
+
+## (histórico) O desenho descartado: o prefixo do credor montado na exibição
+
+> Escrita em 2026-09-01. Risco BAIXO pela escala do projeto (não toca dinheiro, ponto eletrônico nem
+> permissão), mas atravessa **quatro** domínios — Pasta, Cobrança, Expediente e Sync.
 
 ## 1. Por que mudar o que acabou de entrar
 
