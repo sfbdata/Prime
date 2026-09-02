@@ -439,6 +439,25 @@ o contador vive dentro de `driveParaSistema()`, que não roda — o zero é aus�
 ausência de divergência (mesma armadilha do §12.4 da spec). Medir exigiria `--modo=ambos --dry-run`;
 pelo D12.7 o acervo legado não se alinha mesmo, então provavelmente nunca será preciso.
 
+🔴 **MAS O SYNC ESTÁ PARADO EM PRODUÇÃO — incidente ABERTO, não confunda com o estado da frente.**
+A fatia de código está entregue e correta; a **conexão** com o Google Drive é que quebrou. Última
+sincronização bem-sucedida: **21/08/2026 09:34:43**. Medido em 02/09: **44 pastas fora do Drive**
+(eram 27 em 01/09 — está crescendo), contra 1.072 que estão lá. Erro na fila `failed`:
+`Google\Service\Exception 403 — "Method doesn't allow unregistered callers"`, ou seja, a chamada
+chega ao Google **sem credencial nenhuma**.
+
+Duas causas possíveis, não distinguíveis sem o servidor: (1) `GOOGLE_DRIVE_OAUTH_CLIENT_ID/SECRET`
+sumiram do `.env.prod` — o `%env(string:default::...)%` do `services.yaml` entrega **string vazia em
+silêncio**, transformando "config faltando" em "erro do Google"; (2) o refresh token foi revogado.
+Comando que separa as duas (não mostra segredo, só o tamanho):
+
+```bash
+docker exec jusprime_worker_prod printenv | awk -F= '/^GOOGLE_DRIVE_OAUTH_CLIENT_(ID|SECRET)=/ {print $1 " tem " length($2) " caracteres"}'
+```
+
+Nada impresso ou 0 → causa 1. Ambos com tamanho → causa 2 (reconectar o Drive pela tela). ⏳ O dono
+decidiu em 01/09 **deixar para depois** — nada disso bloqueia o sistema, só o Drive.
+
 `cobranca-dupla-contagem` foi **integrada, publicada e deployada em 2026-08-13** (`99948524`), e a
 reconciliação **rodou em produção**: 25 dívidas corrigidas, R$ 1.429,55 fora do saldo do devedor, e a
 régua confirma **zero** dívidas com assinatura de dupla contagem nas três carteiras. Conferido por
