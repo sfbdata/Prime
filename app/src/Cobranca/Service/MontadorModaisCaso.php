@@ -141,9 +141,11 @@ final class MontadorModaisCaso
             $judicializar->nomeCliente = $this->comporNomeDaPastaJudicial->paraCaso($caso);
             $judicializar->nomeAcao = JudicializarCasoInput::ACAO_PADRAO;
 
-            $views['judicializar'] = $this->reidratarSeErro($this->formFactory->create(JudicializarCasoType::class, $judicializar, [
-                'pastas' => $this->pastaRepository->opcoesDoTenant($caso->getTenant()),
-            ]), 'judicializar', $erroModal);
+            $views['judicializar'] = $this->reidratarSeErro(
+                $this->formFactory->create(JudicializarCasoType::class, $judicializar),
+                'judicializar',
+                $erroModal,
+            );
         }
 
         return $views;

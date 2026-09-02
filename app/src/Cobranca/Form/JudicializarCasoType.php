@@ -7,6 +7,7 @@ namespace App\Cobranca\Form;
 use App\Cobranca\DTO\JudicializarCasoInput;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
+use Symfony\Component\Form\Extension\Core\Type\HiddenType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
@@ -67,13 +68,21 @@ final class JudicializarCasoType extends AbstractType
                 'required' => false,
                 'attr' => ['class' => 'form-control', 'maxlength' => 255, 'autocomplete' => 'off', 'readonly' => true],
             ])
-            ->add('pastaId', ChoiceType::class, [
-                'label' => 'Pasta judicial',
-                'choices' => $options['pastas'],
-                'placeholder' => 'Selecione a pasta',
+            // Campo OCULTO, preenchido pela busca (`cobranca_pastas_buscar`). Era um ChoiceType com
+            // TODAS as pastas do escritório — 1.099 em produção, rotuladas só pelo número, e
+            // renderizadas em toda abertura da página da unidade.
+            //
+            // ⚠️ Com isso cai a lista branca que o ChoiceType fazia. Quem recusa pasta de outro
+            // escritório passa a ser SÓ o UseCase (resolve por `id + tenant`) — a guarda continua,
+            // mas em uma camada em vez de duas. Há teste de isolamento para ela desde 27/08.
+            ->add('pastaId', HiddenType::class, [
                 'required' => false,
-                'choice_translation_domain' => false,
-                'attr' => ['class' => 'form-select'],
+                // 🪤 `HiddenType` liga `error_bubbling` por padrão (campo oculto não exibe erro, então
+                // ele sobe). Aqui isso mandava "Informe a pasta judicial." para a RAIZ do formulário,
+                // e erro de raiz é tratado como falha de CSRF: flash seco, sem reabrir o modal. O erro
+                // tem de ficar no campo, e o template o imprime ao lado da busca.
+                'error_bubbling' => false,
+                'attr' => ['data-buscar-pasta-alvo' => true],
             ]);
     }
 
@@ -81,8 +90,6 @@ final class JudicializarCasoType extends AbstractType
     {
         $resolver->setDefaults([
             'data_class' => JudicializarCasoInput::class,
-            'pastas' => [],
         ]);
-        $resolver->setAllowedTypes('pastas', 'array');
     }
 }

@@ -46,6 +46,7 @@ use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use App\Sync\Service\SincronizacaoPastaDispatcher;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -217,6 +218,30 @@ final class CasoController extends AbstractController
     }
 
     /**
+     * Busca as pastas do escritório para o modal "Vincular uma pasta existente".
+     *
+     * Substituiu um `<select>` com TODAS as pastas (1.099 em produção) que era renderizado em toda
+     * abertura da página da unidade. Mesmo portão da judicialização — capacidade de gerenciar
+     * cobrança + módulo `pastas` —, porque quem pode buscar é quem pode vincular.
+     */
+    #[Route('/pastas/buscar', name: 'cobranca_pastas_buscar', methods: ['GET'])]
+    public function buscarPastas(Request $request): JsonResponse
+    {
+        $tenant = $this->tenantComCapacidade('resources.cobranca.gerenciar');
+
+        if ($tenant === null || !$this->permissionChecker->canAccessModule($this->usuarioLogado(), $tenant, self::MODULO_PASTAS)) {
+            return $this->json(['results' => []], JsonResponse::HTTP_FORBIDDEN);
+        }
+
+        return $this->json([
+            'results' => array_map(
+                static fn (array $linha): array => ['id' => $linha['id'], 'text' => $linha['texto']],
+                $this->pastaRepository->buscarParaVinculo((string) $request->query->get('q', ''), $tenant),
+            ),
+        ]);
+    }
+
+    /**
      * Nome ESPERADO da pasta no Drive antes de a judicialização normalizá-la. Devolve `null` quando a
      * pasta escolhida não existe ou é de outro escritório — nesse caso o UseCase recusa logo adiante,
      * e não há sincronização a despachar.
@@ -255,8 +280,7 @@ final class CasoController extends AbstractController
 
         $input = new JudicializarCasoInput();
         $input->casoId = $id;
-        $opcoes = ['pastas' => $this->pastaRepository->opcoesDoTenant($tenant)];
-        $form = $this->createForm(JudicializarCasoType::class, $input, $opcoes);
+        $form = $this->createForm(JudicializarCasoType::class, $input);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {

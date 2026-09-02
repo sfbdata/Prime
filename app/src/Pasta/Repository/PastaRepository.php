@@ -207,6 +207,56 @@ class PastaRepository extends ServiceEntityRepository
     }
 
     /**
+     * Pastas do escritório que casam com o termo — alimenta a busca do modal "Vincular uma pasta
+     * existente" da judicialização.
+     *
+     * Substituiu o {@see self::opcoesDoTenant()} naquele modal: aquele carregava TODAS as pastas
+     * (1.099 em produção) em toda abertura da página da unidade, rotuladas só pelo número. Sem o
+     * nome ninguém reconhecia a pasta, e sem reconhecer ninguém vinculava.
+     *
+     * Busca em número, nome e ação, ignorando acento e caixa — o mesmo tratamento da busca livre do
+     * Expediente. Pasta EXCLUÍDA (lápide) fica de fora: vincular um caso a uma pasta que o escritório
+     * já descartou é sempre engano.
+     *
+     * @return list<array{id: int, texto: string}>
+     */
+    public function buscarParaVinculo(string $termo, Tenant $tenant, int $limite = 20): array
+    {
+        $qb = $this->createQueryBuilder('p')
+            ->select('p.id AS id', 'p.nup AS nup', 'p.nomeCliente AS nomeCliente', 'p.nomeAcao AS nomeAcao')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.excluidaEm IS NULL')
+            ->setParameter('tenant', $tenant)
+            ->orderBy('p.id', 'DESC')
+            ->setMaxResults($limite);
+
+        $termo = trim($termo);
+
+        if ($termo !== '') {
+            $qb->andWhere($qb->expr()->orX(
+                'UNACCENT(LOWER(p.nup)) LIKE UNACCENT(:termo)',
+                'UNACCENT(LOWER(p.nomeCliente)) LIKE UNACCENT(:termo)',
+                'UNACCENT(LOWER(p.nomeAcao)) LIKE UNACCENT(:termo)',
+            ))->setParameter('termo', '%' . mb_strtolower($termo) . '%');
+        }
+
+        $resultados = [];
+        foreach ($qb->getQuery()->getArrayResult() as $linha) {
+            $partes = array_filter(
+                [$linha['nup'], $linha['nomeCliente'], $linha['nomeAcao']],
+                static fn (?string $v): bool => $v !== null && trim($v) !== '',
+            );
+
+            $resultados[] = [
+                'id' => (int) $linha['id'],
+                'texto' => $partes === [] ? 'Pasta #' . $linha['id'] : implode(' — ', $partes),
+            ];
+        }
+
+        return $resultados;
+    }
+
+    /**
      * Pastas do escritório que têm ESTE processo vinculado, projetadas para a tela do
      * processo (`processo_show`). É o espelho da aba "Processos vinculados" da pasta.
      *

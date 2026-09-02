@@ -304,8 +304,21 @@
 
                 <hr class="my-3">
 
+                {# Busca no lugar do antigo `<select>` com TODAS as pastas do escritório (1.099 em
+                   produção, rotuladas só pelo número). O id escolhido vai no campo oculto; a lista
+                   vem do servidor conforme se digita. #}
                 <div class="cob-judicializar-vincular">
-                    {{ form_row(forms.judicializar.pastaId) }}
+                    <label class="form-label" for="buscarPastaJudicial">Pasta judicial</label>
+                    <div data-buscar-pasta
+                         data-url="{{ path('cobranca_pastas_buscar') }}">
+                        <input type="text" id="buscarPastaJudicial" class="form-control"
+                               placeholder="Digite o número, o cliente ou a ação da pasta…"
+                               autocomplete="off" data-buscar-pasta-campo>
+                        <div class="cob-buscar-pasta-resultados list-group mt-1 d-none" data-buscar-pasta-lista></div>
+                        <p class="small text-secondary mb-0 mt-1" data-buscar-pasta-escolhida hidden></p>
+                    </div>
+                    {{ form_widget(forms.judicializar.pastaId) }}
+                    {{ form_errors(forms.judicializar.pastaId) }}
                     <p class="small text-secondary mb-0">Só é usada se você marcar <strong>Vincular uma pasta existente</strong> acima.</p>
                 </div>
             </div>
