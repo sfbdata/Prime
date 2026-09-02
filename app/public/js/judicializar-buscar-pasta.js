@@ -6,10 +6,38 @@
  * oculto que o formulário envia.
  *
  * Os nomes das pastas são dado do usuário: entram por `textContent`, NUNCA por innerHTML.
+ *
+ * Também alterna os dois blocos do modal conforme o rádio: criar mostra nome/ação, vincular mostra a
+ * busca. É realce PROGRESSIVO — o HTML entregue não esconde nada, então sem este script o modal
+ * continua funcionando com os dois blocos à vista, como antes. Esconder no servidor deixaria o
+ * caminho de vincular dependendo de JavaScript para existir.
  */
 (function () {
     'use strict';
 
+    // ── Alternar os blocos conforme o modo escolhido ──────────────────────────
+    var radios = document.querySelectorAll('input[name="judicializar_caso[modo]"]');
+    var blocos = document.querySelectorAll('[data-modo-bloco]');
+    var separador = document.querySelector('[data-modo-separador]');
+
+    if (radios.length && blocos.length) {
+        var aplicarModo = function () {
+            var marcado = document.querySelector('input[name="judicializar_caso[modo]"]:checked');
+            var modo = marcado ? marcado.value : 'criar';
+
+            blocos.forEach(function (bloco) {
+                bloco.hidden = bloco.dataset.modoBloco !== modo;
+            });
+
+            // A divisória separava os dois blocos; com um só à vista ela não separa nada.
+            if (separador) separador.hidden = true;
+        };
+
+        radios.forEach(function (radio) { radio.addEventListener('change', aplicarModo); });
+        aplicarModo();
+    }
+
+    // ── Busca da pasta ────────────────────────────────────────────────────────
     var raiz = document.querySelector('[data-buscar-pasta]');
     if (!raiz) return;
 
@@ -37,8 +65,12 @@
             escolhida.hidden = false;
         }
         // Escolher a pasta implica querer vincular: marca o rádio para quem clicou aqui direto.
+        // `checked` por script NÃO dispara `change`, e sem o evento os blocos ficariam no modo velho.
         var radioVincular = document.querySelector('input[name="judicializar_caso[modo]"][value="vincular"]');
-        if (radioVincular) radioVincular.checked = true;
+        if (radioVincular && !radioVincular.checked) {
+            radioVincular.checked = true;
+            radioVincular.dispatchEvent(new Event('change', { bubbles: true }));
+        }
     }
 
     function desenhar(resultados) {

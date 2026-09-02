@@ -286,7 +286,7 @@
 
                 <div class="cob-judicializar-modo mb-3">{{ form_row(forms.judicializar.modo) }}</div>
 
-                <div class="cob-judicializar-criar">
+                <div class="cob-judicializar-criar" data-modo-bloco="criar">
                     {{ form_row(forms.judicializar.nomeCliente) }}
                     {{ form_row(forms.judicializar.nomeAcao) }}
 
@@ -302,12 +302,12 @@
                     </p>
                 </div>
 
-                <hr class="my-3">
+                <hr class="my-3" data-modo-separador>
 
                 {# Busca no lugar do antigo `<select>` com TODAS as pastas do escritório (1.099 em
                    produção, rotuladas só pelo número). O id escolhido vai no campo oculto; a lista
                    vem do servidor conforme se digita. #}
-                <div class="cob-judicializar-vincular">
+                <div class="cob-judicializar-vincular" data-modo-bloco="vincular">
                     <label class="form-label" for="buscarPastaJudicial">Pasta judicial</label>
                     <div data-buscar-pasta
                          data-url="{{ path('cobranca_pastas_buscar') }}">

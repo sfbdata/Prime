@@ -246,6 +246,40 @@ final class JudicializarMutacaoControllerTest extends CobrancaWebTestCase
         );
     }
 
+    #[TestDox('O modal marca os dois blocos por modo, para alternarem conforme o rádio')]
+    public function testModalTemOsBlocosMarcadosPorModo(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+
+        // O que a suíte consegue provar é o CONTRATO do markup: os dois blocos existem e estão
+        // rotulados pelo modo a que pertencem. Esconder e mostrar é do JS, e a suíte é cega para isso
+        // — precisa do smoke na tela.
+        foreach (['criar', 'vincular'] as $modo) {
+            self::assertNotNull(
+                $crawler->filter('#modalJudicializar [data-modo-bloco="' . $modo . '"]')->getNode(0),
+                sprintf('o bloco do modo %s está marcado', $modo),
+            );
+        }
+
+        // Sem JavaScript nada é escondido: os dois blocos continuam visíveis, como antes. É realce
+        // progressivo — o caminho de vincular não pode depender de script para existir.
+        self::assertCount(
+            0,
+            $crawler->filter('#modalJudicializar [data-modo-bloco][hidden]'),
+            'o HTML entregue não esconde bloco nenhum',
+        );
+
+        // A busca vive DENTRO do bloco de vincular: fora dele, o JS a mostraria no modo errado.
+        self::assertNotNull(
+            $crawler->filter('#modalJudicializar [data-modo-bloco="vincular"] [data-buscar-pasta]')->getNode(0),
+            'o campo de busca está dentro do bloco de vincular',
+        );
+    }
+
     #[TestDox('Judicializar cria a pasta com o nome do responsável e AÇÃO MONITÓRIA')]
     public function testJudicializarCriaPasta(): void
     {
