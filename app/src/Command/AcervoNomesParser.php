@@ -175,6 +175,35 @@ final class AcervoNomesParser
     }
 
     /** @return array{nup: string, cliente: string, parte_contraria: string, acao: string, motivo_revisao: string} */
+    /**
+     * Parte o texto no ÚLTIMO " - ": o que vem antes é o nome, o que vem depois é a ação.
+     *
+     * Era o PRIMEIRO, e por isso um nome com hífen dentro perdia metade para a ação — o formato
+     * `CREDOR - DEVEDOR` das pastas judicializadas pela cobrança lia
+     * `1263 - APLC TOP LIFE 1 - SALVADOR - AÇÃO MONITÓRIA` como cliente "APLC TOP LIFE 1" e ação
+     * "SALVADOR - AÇÃO MONITÓRIA".
+     *
+     * ⚠️ Limite inerente ao formato, não desta implementação: `A - B - C` não diz sozinho se são
+     * dois campos ou três. A regra escolhe assumir que o último pedaço é a AÇÃO — verdade em toda
+     * pasta da cobrança, que sempre tem `AÇÃO MONITÓRIA`. Uma pasta com nome hifenizado e SEM ação
+     * teria o fim do nome lido como ação; não há como distinguir sem outra informação.
+     *
+     * @return array{0: string, 1: string} nome e ação (ação vazia quando não há separador)
+     */
+    private function separarNoUltimoTraco(string $texto): array
+    {
+        $posicao = mb_strrpos($texto, ' - ');
+
+        if ($posicao === false) {
+            return [trim($texto), ''];
+        }
+
+        return [
+            trim(mb_substr($texto, 0, $posicao)),
+            trim(mb_substr($texto, $posicao + 3)),
+        ];
+    }
+
     private function extrairCampos(string $linha): array
     {
         $partes = explode(' - ', $linha, 2);
@@ -190,14 +219,10 @@ final class AcervoNomesParser
             $cliente = trim($m[1]);
             $apósX   = trim($m[2]);
 
-            // Dentro do lado direito, primeiro " - " separa contraparte de ação
-            $partesDireita = explode(' - ', $apósX, 2);
-            $parteContraria = trim($partesDireita[0]);
-            $acao           = isset($partesDireita[1]) ? trim($partesDireita[1]) : '';
+            // Dentro do lado direito, o ÚLTIMO " - " separa contraparte de ação
+            [$parteContraria, $acao] = $this->separarNoUltimoTraco($apósX);
         } else {
-            $partesSemX = explode(' - ', $resto, 2);
-            $cliente    = trim($partesSemX[0]);
-            $acao       = isset($partesSemX[1]) ? trim($partesSemX[1]) : '';
+            [$cliente, $acao] = $this->separarNoUltimoTraco($resto);
         }
 
         return [

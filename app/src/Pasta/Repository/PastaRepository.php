@@ -249,7 +249,11 @@ class PastaRepository extends ServiceEntityRepository
 
             $resultados[] = [
                 'id' => (int) $linha['id'],
-                'texto' => $partes === [] ? 'Pasta #' . $linha['id'] : implode(' — ', $partes),
+                // Hífen, o mesmo separador do nome no Drive e do próprio identificador: um separador
+                // só no sistema inteiro. A ambiguidade que o travessão evitaria (onde termina o nome
+                // e começa a ação) é resolvida na LEITURA, pela regra do último traço
+                // (`AcervoNomesParser::separarNoUltimoTraco`), não por um símbolo diferente na tela.
+                'texto' => $partes === [] ? 'Pasta #' . $linha['id'] : implode(' - ', $partes),
             ];
         }
 
