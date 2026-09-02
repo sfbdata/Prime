@@ -52,15 +52,20 @@ final class JudicializarCasoType extends AbstractType
                 // formulário gera — que são DOIS acima dos inputs e mudam se o tema mudar.
                 'attr' => ['class' => 'cob-judicializar-opcoes'],
             ])
+            // SOMENTE-LEITURA desde 02/09: quem decide o nome e a ação é o caso, nos dois caminhos
+            // (ver JudicializarCasoUseCase::normalizarPastaJudicial). Os campos ficam na tela para o
+            // gestor CONFERIR o que será gravado — campo que aceita digitação e descarta o valor é
+            // pior que campo ausente. `readonly` e não `disabled`: disabled não envia o valor e o
+            // formulário passaria a exibir vazio ao reabrir com erro.
             ->add('nomeCliente', TextType::class, [
                 'label' => 'Nome do cliente',
                 'required' => false,
-                'attr' => ['class' => 'form-control', 'maxlength' => 255, 'autocomplete' => 'off'],
+                'attr' => ['class' => 'form-control', 'maxlength' => 255, 'autocomplete' => 'off', 'readonly' => true],
             ])
             ->add('nomeAcao', TextType::class, [
                 'label' => 'Ação',
                 'required' => false,
-                'attr' => ['class' => 'form-control', 'maxlength' => 255, 'autocomplete' => 'off'],
+                'attr' => ['class' => 'form-control', 'maxlength' => 255, 'autocomplete' => 'off', 'readonly' => true],
             ])
             ->add('pastaId', ChoiceType::class, [
                 'label' => 'Pasta judicial',

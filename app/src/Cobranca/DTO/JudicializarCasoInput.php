@@ -76,15 +76,10 @@ final class JudicializarCasoInput
     #[Assert\Callback]
     public function validarPorModo(ExecutionContextInterface $context): void
     {
+        // Criar não exige mais nome nem ação: desde 02/09 quem os fornece é o SISTEMA, a partir do
+        // caso, e os campos do modal são somente-leitura. Exigi-los aqui bloquearia a judicialização
+        // por um campo que o usuário nem pode preencher.
         if ($this->ehModoCriar()) {
-            if (trim((string) $this->nomeCliente) === '') {
-                $context->buildViolation('Informe o nome do cliente da pasta.')->atPath('nomeCliente')->addViolation();
-            }
-
-            if (trim((string) $this->nomeAcao) === '') {
-                $context->buildViolation('Informe a ação da pasta.')->atPath('nomeAcao')->addViolation();
-            }
-
             return;
         }
 

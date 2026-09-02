@@ -16,6 +16,7 @@ use App\Cobranca\Repository\CasoCobrancaRepository;
 use App\Cobranca\Repository\EventoHistoricoRepository;
 use App\Cliente\Repository\ClientePFRepository;
 use App\Cobranca\Service\RegistrarEventoHistorico;
+use App\Cobranca\Service\ComporNomeDaPastaJudicial;
 use App\Cobranca\Service\ResolvedorClienteDoResponsavel;
 use App\Cobranca\UseCase\JudicializarCasoUseCase;
 use App\Entity\Auth\User;
@@ -59,6 +60,7 @@ final class JudicializarCasoUseCaseTest extends TestCase
             $registrarEvento,
             new CriarPastaUseCase($this->em, new GerarNumeroDePasta($this->createMock(NumeracaoDePastaInterface::class))),
             new ResolvedorClienteDoResponsavel($this->createMock(ClientePFRepository::class)),
+            new ComporNomeDaPastaJudicial(),
         );
         $this->tenant = new Tenant();
         $this->usuario = new User();

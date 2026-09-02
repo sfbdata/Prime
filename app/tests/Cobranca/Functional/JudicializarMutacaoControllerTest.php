@@ -329,6 +329,88 @@ final class JudicializarMutacaoControllerTest extends CobrancaWebTestCase
         self::assertSame('DF', $clientePrincipal->getEstado(), 'o endereço atual da ficha desceu para o cliente');
     }
 
+    #[TestDox('VINCULAR normaliza a pasta existente: nome, ação e cliente principal')]
+    public function testVincularNormalizaAPastaExistente(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+
+        $credor = ClientePJFactory::createOne(['tenant' => $tenant, 'nomeFantasia' => 'APLC TOP LIFE 1']);
+        $pessoa = PessoaFactory::createOne([
+            'tenant' => $tenant,
+            'nome' => 'SALVADOR PAULO DE OLIVEIRA',
+            'cpf' => '52998224725',
+            'email' => 'salvador@exemplo.test',
+        ])->_real();
+        $this->darEnderecoAtual($pessoa, $tenant);
+
+        // A pasta existente é o retrato do que acontece em produção: criada à mão, nomeada com OUTRO
+        // coproprietário e com uma ação diferente. 26 das 30 pastas judicializadas vieram por aqui.
+        $pasta = PastaFactory::createOne([
+            'tenant' => $tenant,
+            'nomeCliente' => 'APLC TOP LIFE 1 - EVANDRO CAMPELO COUTINHO',
+            'nomeAcao' => 'EXECUÇÃO DE TÍTULO',
+        ])->_real();
+
+        [, $caso] = $this->semearGrafo($tenant, ['pessoaCobradaAtual' => $pessoa], ['cliente' => $credor]);
+        $casoId = (int) $caso->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        $token = $this->tokenDoFormulario($crawler, 'judicializar_caso');
+
+        $client->request('POST', '/cobrancas/casos/' . $casoId . '/judicializar', [
+            'judicializar_caso' => ['modo' => 'vincular', 'pastaId' => (string) $pasta->getId(), '_token' => $token],
+        ]);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $fresh = $em->find(CasoCobranca::class, $casoId)->getPastaJudicial();
+
+        self::assertSame(
+            'APLC TOP LIFE 1 - SALVADOR PAULO DE OLIVEIRA',
+            $fresh->getNomeCliente(),
+            'vincular normaliza o nome pelo credor + responsável, sobrescrevendo o que foi digitado',
+        );
+        self::assertSame(
+            'AÇÃO MONITÓRIA',
+            $fresh->getNomeAcao(),
+            'a ação é sobrescrita mesmo quando já havia outra — decisão do dono',
+        );
+
+        $principal = $fresh->getClientePrincipal();
+        self::assertInstanceOf(ClientePF::class, $principal, 'o responsável vira o cliente principal também ao vincular');
+        self::assertSame('SALVADOR PAULO DE OLIVEIRA', $principal->getNomeCompleto());
+    }
+
+    #[TestDox('VINCULAR sem pessoa com CPF: normaliza o nome e a ação, e NÃO inventa cliente')]
+    public function testVincularSemCpfNormalizaMasNaoCadastraCliente(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+
+        $credor = ClientePJFactory::createOne(['tenant' => $tenant, 'nomeFantasia' => 'APLC TOP LIFE 1']);
+        // Sem CPF na ficha — o caso de 202 dos 248 responsáveis medidos em 27/08.
+        $pessoa = PessoaFactory::createOne(['tenant' => $tenant, 'nome' => 'JOANA SEM CPF'])->_real();
+        $pasta = PastaFactory::createOne(['tenant' => $tenant, 'nomeCliente' => 'NOME ANTIGO'])->_real();
+
+        [, $caso] = $this->semearGrafo($tenant, ['pessoaCobradaAtual' => $pessoa], ['cliente' => $credor]);
+        $casoId = (int) $caso->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        $token = $this->tokenDoFormulario($crawler, 'judicializar_caso');
+
+        $client->request('POST', '/cobrancas/casos/' . $casoId . '/judicializar', [
+            'judicializar_caso' => ['modo' => 'vincular', 'pastaId' => (string) $pasta->getId(), '_token' => $token],
+        ]);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $fresh = $em->find(CasoCobranca::class, $casoId)->getPastaJudicial();
+
+        self::assertSame('APLC TOP LIFE 1 - JOANA SEM CPF', $fresh->getNomeCliente());
+        self::assertCount(0, $fresh->getClientes(), 'sem CPF não há identidade para cadastrar — não inventa');
+    }
+
     #[TestDox('CPF já cadastrado no escritório REUSA o cliente, mesmo com máscara diferente')]
     public function testJudicializarReusaClienteDoMesmoCpf(): void
     {
@@ -400,29 +482,52 @@ final class JudicializarMutacaoControllerTest extends CobrancaWebTestCase
         self::assertCount(0, $pasta->getClientes());
     }
 
-    #[TestDox('B5: criar sem o nome do cliente reabre o modal com o erro e NÃO cria pasta')]
-    public function testCriarSemNomeReabreModalComErro(): void
+    #[TestDox('Criar IGNORA o que vier do formulário: quem nomeia a pasta é o caso')]
+    public function testCriarIgnoraOQueVemDoFormulario(): void
     {
         $client = static::createClient();
         [, $tenant] = $this->criarAdminLogado($client);
-        [, $caso] = $this->semearGrafo($tenant);
+
+        $credor = ClientePJFactory::createOne(['tenant' => $tenant, 'nomeFantasia' => 'APLC TOP LIFE 1']);
+        $pessoa = PessoaFactory::createOne(['tenant' => $tenant, 'nome' => 'CLAUDIO SILVA DA CRUZ'])->_real();
+        [, $caso] = $this->semearGrafo($tenant, ['pessoaCobradaAtual' => $pessoa], ['cliente' => $credor]);
         $casoId = (int) $caso->getId();
         $objetoId = (int) $caso->getObjeto()->getId();
 
         $crawler = $client->request('GET', '/cobrancas/objetos/' . $objetoId);
         $token = $this->tokenDoFormulario($crawler, 'judicializar_caso');
-        $pastasAntes = $this->contarPastas($tenant);
 
+        // Nome VAZIO e ação ERRADA no payload. Os campos são somente-leitura na tela, mas readonly é
+        // do navegador — quem manda o POST à mão passa por cima. O servidor tem de ignorar os dois:
+        // antes de 02/09 isto devolvia "Informe o nome do cliente da pasta." e não criava pasta.
         $client->request('POST', '/cobrancas/casos/' . $casoId . '/judicializar', [
-            'judicializar_caso' => ['modo' => 'criar', 'nomeCliente' => '', 'nomeAcao' => 'AÇÃO MONITÓRIA', '_token' => $token],
+            'judicializar_caso' => ['modo' => 'criar', 'nomeCliente' => '', 'nomeAcao' => 'QUALQUER COISA', '_token' => $token],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/objetos/' . $objetoId);
-        $crawler = $client->followRedirect();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $pasta = $em->find(CasoCobranca::class, $casoId)->getPastaJudicial();
 
-        self::assertSame('modalJudicializar', $crawler->filter('[data-modal-erro]')->attr('data-modal-erro'));
-        self::assertStringContainsString('Informe o nome do cliente da pasta.', $crawler->filter('#modalJudicializar')->html());
-        self::assertSame($pastasAntes, $this->contarPastas($tenant), 'formulário inválido não deixa pasta órfã');
+        self::assertNotNull($pasta, 'campo vazio não bloqueia mais a judicialização');
+        self::assertSame('APLC TOP LIFE 1 - CLAUDIO SILVA DA CRUZ', $pasta->getNomeCliente());
+        self::assertSame('AÇÃO MONITÓRIA', $pasta->getNomeAcao(), 'a ação enviada foi descartada');
+    }
+
+    #[TestDox('Os campos do modal são somente-leitura — servem para conferir, não para digitar')]
+    public function testCamposDoModalSaoSomenteLeitura(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+
+        foreach (['nomeCliente', 'nomeAcao'] as $campo) {
+            self::assertNotNull(
+                $crawler->filter('#modalJudicializar input[name="judicializar_caso[' . $campo . ']"][readonly]')->getNode(0),
+                sprintf('o campo %s é somente-leitura', $campo),
+            );
+        }
     }
 
     #[TestDox('Caso já judicializado no modo criar: recusa ANTES de abrir a pasta')]

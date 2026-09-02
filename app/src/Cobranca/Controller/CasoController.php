@@ -8,6 +8,7 @@ use App\Cobranca\DTO\AlterarPessoaCobradaInput;
 use App\Cobranca\DTO\EditarConfiguracaoCasoInput;
 use App\Cobranca\DTO\EncerrarCasoInput;
 use App\Cobranca\DTO\JudicializarCasoInput;
+use App\Sync\Service\ReconciliadorDePasta;
 use App\Cobranca\DTO\EditarAnotacaoInput;
 use App\Cobranca\DTO\RegistrarAnotacaoInput;
 use App\Cobranca\DTO\RegistrarTentativaCobrancaInput;
@@ -215,6 +216,26 @@ final class CasoController extends AbstractController
         return $this->redirectToRoute('cobranca_objeto_show', ['id' => $this->objetoIdDoCaso($caso)]);
     }
 
+    /**
+     * Nome ESPERADO da pasta no Drive antes de a judicialização normalizá-la. Devolve `null` quando a
+     * pasta escolhida não existe ou é de outro escritório — nesse caso o UseCase recusa logo adiante,
+     * e não há sincronização a despachar.
+     */
+    private function nomeNoDriveAntesDeVincular(JudicializarCasoInput $input, Tenant $tenant): ?string
+    {
+        if ($input->pastaId === null) {
+            return null;
+        }
+
+        $pasta = $this->pastaRepository->findOneBy(['id' => $input->pastaId, 'tenant' => $tenant]);
+
+        if ($pasta === null) {
+            return null;
+        }
+
+        return ReconciliadorDePasta::nomeEsperado($pasta->getNup(), $pasta->getNomeCliente(), $pasta->getNomeAcao());
+    }
+
     #[Route('/{id}/judicializar', name: 'cobranca_caso_judicializar', methods: ['POST'], requirements: ['id' => '\d+'])]
     public function judicializar(int $id, Request $request): Response
     {
@@ -241,6 +262,12 @@ final class CasoController extends AbstractController
         if ($form->isSubmitted() && $form->isValid()) {
             try {
                 $usuario = $this->usuarioLogado();
+
+                // R3: o nome de ANTES tem de ser lido enquanto a pasta ainda o tem. Vincular agora
+                // NORMALIZA a pasta (nome + ação), então o nome dela no Drive muda — e sem esta
+                // fotografia o Drive ficaria com o nome velho para sempre.
+                $nomeAntes = $input->ehModoCriar() ? null : $this->nomeNoDriveAntesDeVincular($input, $tenant);
+
                 $casoJudicializado = $this->judicializarCaso->executar($input, $tenant, $usuario);
 
                 if ($input->ehModoCriar()) {
@@ -256,6 +283,12 @@ final class CasoController extends AbstractController
                         ? 'Caso judicializado e pasta criada.'
                         : sprintf('Caso judicializado e pasta %s criada.', $nup));
                 } else {
+                    // A pasta vinculada já existe no Drive; o que muda é o NOME dela. Mesmo caminho
+                    // da edição de pasta: só enfileira se o nome realmente mudou.
+                    $pastaVinculada = $casoJudicializado->getPastaJudicial();
+                    if ($pastaVinculada !== null && $nomeAntes !== null) {
+                        $this->syncDispatcher->despacharSeNomeMudou($pastaVinculada, $usuario, $tenant, $nomeAntes);
+                    }
                     $this->addFlash('success', 'Caso judicializado.');
                 }
             } catch (CasoNaoEncontradoException | CasoEncerradoException | CasoJaJudicializadoException | PastaNaoEncontradaException $e) {

@@ -13,6 +13,7 @@ use App\Cobranca\Exception\CasoJaJudicializadoException;
 use App\Cobranca\Exception\CasoNaoEncontradoException;
 use App\Cobranca\Exception\PastaNaoEncontradaException;
 use App\Cobranca\Repository\CasoCobrancaRepository;
+use App\Cobranca\Service\ComporNomeDaPastaJudicial;
 use App\Cobranca\Service\RegistrarEventoHistorico;
 use App\Cobranca\Service\ResolvedorClienteDoResponsavel;
 use App\Entity\Auth\User;
@@ -56,6 +57,7 @@ final class JudicializarCasoUseCase
         private readonly RegistrarEventoHistorico $registrarEvento,
         private readonly CriarPastaUseCase $criarPasta,
         private readonly ResolvedorClienteDoResponsavel $resolvedorCliente,
+        private readonly ComporNomeDaPastaJudicial $comporNome,
     ) {
     }
 
@@ -81,8 +83,13 @@ final class JudicializarCasoUseCase
         // As guardas vêm ANTES de qualquer escrita: criar a pasta de um caso encerrado e só depois
         // recusar deixaria uma pasta órfã no acervo a cada clique errado.
         $pasta = $input->ehModoCriar()
-            ? $this->abrirPastaJudicial($input, $caso, $tenant, $usuario)
+            ? $this->abrirPastaJudicial($caso, $tenant, $usuario)
             : $this->pastaExistenteDoTenant($input, $tenant);
+
+        // As três ações valem nos DOIS caminhos (decisão do dono, 02/09). Vincular deixava a pasta
+        // exatamente como o usuário a tinha digitado — sem cliente e com o nome de quem ele quis —,
+        // e 26 das 30 pastas judicializadas vieram por aí: era o caminho comum, não o secundário.
+        $this->normalizarPastaJudicial($pasta, $caso, $tenant, $usuario);
 
         $caso->setPastaJudicial($pasta);
         $caso->setStatus(StatusCaso::Judicializado);
@@ -119,32 +126,52 @@ final class JudicializarCasoUseCase
      * `GerarNumeroDePasta`, dentro da transação do CriarPastaUseCase (é lá que a trava por escritório
      * tem validade).
      */
-    private function abrirPastaJudicial(
-        JudicializarCasoInput $input,
-        CasoCobranca $caso,
-        Tenant $tenant,
-        User $usuario,
-    ): Pasta {
-        $pasta = $this->criarPasta->executar(
+    private function abrirPastaJudicial(CasoCobranca $caso, Tenant $tenant, User $usuario): Pasta
+    {
+        // Nasce já com os valores certos; a normalização depois é idempotente aqui. O formulário
+        // NÃO é lido: seus campos são somente-leitura desde 02/09, e quem decide o nome é o caso.
+        return $this->criarPasta->executar(
             new CriarPastaDTO(
-                nomeCliente: trim((string) $input->nomeCliente),
-                nomeAcao: trim((string) $input->nomeAcao),
+                nomeCliente: $this->comporNome->paraCaso($caso),
+                nomeAcao: JudicializarCasoInput::ACAO_PADRAO,
             ),
             $usuario,
             // O tenant é o DO CASO, não o da sessão: é o caso que manda de quem é a pasta.
             $tenant,
         );
+    }
 
-        // Sem CPF na ficha do responsável não há cliente a cadastrar, e a pasta segue só com nome e
-        // ação — o dado que falta é da ficha, não desta operação (spec §3.1).
-        $cliente = $this->resolvedorCliente->resolver($caso->getPessoaCobradaAtual(), $tenant, $usuario);
+    /**
+     * As três ações que deixam a pasta no padrão da cobrança, iguais nos dois caminhos:
+     * nome `CREDOR - DEVEDOR`, ação `AÇÃO MONITÓRIA` e o responsável como cliente principal.
+     *
+     * ⚠️ Sobrescreve o que houver — inclusive uma ação diferente e um nome digitado à mão. É o
+     * pedido do dono: a pasta judicializada se identifica pelo caso, não pelo que alguém digitou.
+     */
+    private function normalizarPastaJudicial(Pasta $pasta, CasoCobranca $caso, Tenant $tenant, User $usuario): void
+    {
+        $nome = $this->comporNome->paraCaso($caso);
 
-        if ($cliente !== null) {
-            // `addCliente` já grava o principal no PRIMEIRO vínculo — a pasta é nova, então é este.
-            $pasta->addCliente($cliente);
+        // Só sobrescreve quando há o que compor. Sem pessoa cobrada, manter o nome que estava é
+        // melhor que apagá-lo — apagar em silêncio foi o defeito que custou 3 pastas até 01/09.
+        if ($nome !== null) {
+            $pasta->setNomeCliente($nome);
         }
 
-        return $pasta;
+        $pasta->setNomeAcao(JudicializarCasoInput::ACAO_PADRAO);
+
+        // Sem CPF na ficha do responsável não há identidade a cadastrar, e a pasta segue sem cliente
+        // — o dado que falta é da ficha, não desta operação (spec §3.1). Nunca inventa.
+        $cliente = $this->resolvedorCliente->resolver($caso->getPessoaCobradaAtual(), $tenant, $usuario);
+
+        if ($cliente === null) {
+            return;
+        }
+
+        $pasta->addCliente($cliente);
+        // `addCliente` só marca o principal no PRIMEIRO vínculo. A pasta VINCULADA pode já ter
+        // outros clientes, e o responsável do caso tem de ser o principal de qualquer maneira.
+        $pasta->definirClientePrincipal($cliente);
     }
 
     /**
