@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\Controller\Trait\ResourceAccessTrait;
+use App\Cobranca\Repository\CasoCobrancaRepository;
 use App\Entity\Auth\User;
 use App\Cliente\Entity\Cliente;
 use App\Cliente\Entity\ClientePF;
@@ -137,6 +138,7 @@ class PastaController extends AbstractController
         private readonly ExcluirMensagemPastaUseCase $excluirMensagemUseCase,
         private readonly CsrfTokenManagerInterface $csrfTokenManager,
         private readonly MarcadorRepository $marcadorRepository,
+        private readonly CasoCobrancaRepository $casoCobrancaRepository,
         private readonly AlterarSituacaoContratoUseCase $alterarSituacaoContratoUseCase,
         private readonly AtualizarValorCausaUseCase $atualizarValorCausaUseCase,
         private readonly EnviarObservacaoFinanceiraUseCase $enviarObservacaoFinanceiraUseCase,
@@ -407,6 +409,12 @@ class PastaController extends AbstractController
             'secoes'                      => $secoes,
             'contagemSecoes'              => $contagemSecoes,
             'push'                        => $push,
+            // Atalho para a UNIDADE cobrada — só existe em pasta que veio de uma
+            // judicialização (6 das 1.099 em produção). `null` nas demais, e o cabeçalho
+            // simplesmente não desenha o campo.
+            'unidadeCobrada'              => $tenant === null
+                ? null
+                : $this->casoCobrancaRepository->unidadeCobradaDaPasta($pasta, $tenant),
         ]);
     }
 

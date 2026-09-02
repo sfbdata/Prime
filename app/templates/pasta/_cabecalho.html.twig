@@ -258,6 +258,25 @@
             {% endif %}
         </div>
 
+        {# Atalho para a UNIDADE cobrada — espelho do link "Pasta judicial" que a tela da unidade já
+           oferece. Fica ao lado de "Processo vinculado" porque é o campo irmão: um aponta para o
+           processo, o outro para a cobrança que originou esta pasta.
+
+           ⚠️ Some para quem não tem o módulo `cobrancas`: a tela de destino tem gate de módulo, e
+           oferecer o link a quem seria recusado é pior que não oferecer. #}
+        {% if unidadeCobrada|default(null) and can_access_module('cobrancas') %}
+            <div data-campo="cobranca">
+                <p class="ps-rotulo">Cobrança</p>
+                <p class="ps-dado ps-dado--medio">
+                    <a class="ps-num" href="{{ path('cobranca_objeto_show', {id: unidadeCobrada.objetoId}) }}"
+                       title="Abrir a unidade cobrada">{{ unidadeCobrada.identificacao }}</a>
+                </p>
+                {% if unidadeCobrada.credor %}
+                    <div class="ps-dado-sub">{{ unidadeCobrada.credor }}</div>
+                {% endif %}
+            </div>
+        {% endif %}
+
         <div data-campo="movimentacao">
             <p class="ps-rotulo">Última movimentação</p>
             <p class="ps-dado ps-dado--medio ps-num">

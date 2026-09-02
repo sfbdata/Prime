@@ -6,6 +6,7 @@ namespace App\Cobranca\Repository;
 
 use App\Cobranca\Entity\Carteira;
 use App\Cliente\Entity\ClientePJ;
+use App\Pasta\Entity\Pasta;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\ObjetoCobranca;
 use App\Cobranca\Enum\StatusCaso;
@@ -237,6 +238,45 @@ class CasoCobrancaRepository extends ServiceEntityRepository
         }
 
         return $mapa;
+    }
+
+    /**
+     * A UNIDADE cobrada de uma pasta judicializada, para o atalho no cabeçalho da `pasta_show` —
+     * o espelho do link "Pasta judicial" que a tela da unidade já oferece no sentido contrário.
+     *
+     * Existe porque a ligação é de MÃO ÚNICA (`CasoCobranca.pastaJudicial` → Pasta): a Pasta não
+     * sabe de qual caso veio, então quem responde é a Cobrança.
+     *
+     * Devolve `null` quando a pasta não veio de uma judicialização — que é o caso de 1.093 das
+     * 1.099 pastas em produção.
+     *
+     * @return array{objetoId: int, identificacao: string, credor: ?string}|null
+     */
+    public function unidadeCobradaDaPasta(Pasta $pasta, Tenant $tenant): ?array
+    {
+        $linhas = $this->createQueryBuilder('c')
+            ->select('o.id AS objetoId', 'o.identificacao AS identificacao', 'pj.nomeFantasia AS credor')
+            ->join('c.objeto', 'o')
+            ->leftJoin('o.carteira', 'ct')
+            ->leftJoin('ct.cliente', 'cl')
+            ->leftJoin(ClientePJ::class, 'pj', 'WITH', 'pj.id = cl.id')
+            ->andWhere('c.pastaJudicial = :pasta')
+            ->andWhere('c.tenant = :tenant')
+            ->setParameter('pasta', $pasta)
+            ->setParameter('tenant', $tenant)
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getArrayResult();
+
+        if ($linhas === []) {
+            return null;
+        }
+
+        return [
+            'objetoId' => (int) $linhas[0]['objetoId'],
+            'identificacao' => (string) $linhas[0]['identificacao'],
+            'credor' => $linhas[0]['credor'] !== null ? (string) $linhas[0]['credor'] : null,
+        ];
     }
 
     public function daCarteira(Carteira $carteira): array
