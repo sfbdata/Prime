@@ -8,7 +8,7 @@ use App\Cobranca\DTO\AbrirCasoInput;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Enum\ModoCarteira;
 use App\Cobranca\Enum\TipoEventoHistorico;
-use App\Cobranca\Exception\CasoAtivoJaExisteException;
+use App\Cobranca\Exception\CasoCobravelJaExisteException;
 use App\Cobranca\Exception\ObjetoNaoEncontradoException;
 use App\Cobranca\Exception\PessoaNaoEncontradaException;
 use App\Cobranca\Repository\CasoCobrancaRepository;
@@ -24,8 +24,8 @@ use App\Entity\Tenant\Tenant;
  * História: o gestor inicia um episódio de cobrança sobre um objeto de uma carteira, indicando quem
  * será cobrado. Objeto e pessoa vivem DENTRO do escritório: ambos são resolvidos por id + tenant
  * (guarda multi-tenant, invariável 24) — inexistente/de outro escritório é erro de entrada. No modo A
- * (uma cobrança ativa por objeto, SPEC §6) um segundo caso ativo é rejeitado; enquanto houver caso
- * ativo, novas pendências entram nele. A abertura e o evento "caso aberto" são commitados juntos
+ * (uma cobrança viva por objeto, SPEC §6) um segundo caso COBRÁVEL é rejeitado; enquanto houver caso
+ * não encerrado — `ativo` ou `judicializado` —, novas pendências entram nele. A abertura e o evento "caso aberto" são commitados juntos
  * (flush único no registro do evento).
  *
  * #9-T2 (cascata de encargos ao vivo sem snapshot): o caso NÃO fotografa mais a config de encargos da
@@ -64,9 +64,11 @@ final class AbrirCasoUseCase
 
         $carteira = $objeto->getCarteira();
 
-        // Modo A (SPEC §6): enquanto houver caso ativo para o objeto, não se abre um segundo.
-        if ($carteira->getModo() === ModoCarteira::Unico && $this->casoRepository->existeCasoAtivoParaObjeto($objeto)) {
-            throw new CasoAtivoJaExisteException((int) $objeto->getId());
+        // Modo A (SPEC §6): enquanto houver caso COBRÁVEL (não encerrado) para o objeto, não se abre
+        // um segundo. Contava só o `ativo` até 09/2026 — e era o segundo furo do defeito da dívida
+        // duplicada: objeto com caso judicializado respondia "não tem caso" e ganhava outro.
+        if ($carteira->getModo() === ModoCarteira::Unico && $this->casoRepository->existeCasoCobravelParaObjeto($objeto)) {
+            throw new CasoCobravelJaExisteException((int) $objeto->getId());
         }
 
         // #9-T2: SEM snapshot — o caso nasce sem cópia da config da carteira (spec §3.2). A config de

@@ -31,7 +31,7 @@ O adapter (`TopLifeInadimplenciaAdapter`) passa a **parsear** a coluna em `{ num
 
 ### 3.2. Criar/achar o Acordo e anexar a parcela
 No `ImportarRelatorioCarteiraUseCase`, para um NN com acordo:
-1. Resolver o Objeto/Caso como hoje (dedup por identificação; caso ativo do objeto).
+1. Resolver o Objeto/Caso como hoje (dedup por identificação; caso **cobrável** do objeto — não encerrado, retificado em 03/09/2026).
 2. **Achar ou criar o Acordo** por **(carteira + número)** — via um campo novo de identidade externa no Acordo
    (§4). O acordo pertence ao **caso** do objeto.
 3. Criar a obrigação daquele NN como **parcela** do acordo (`acordoOrigem = acordo`), **não** como dívida solta:

@@ -45,7 +45,7 @@ class Carteira implements TenantAware, Auditavel
     #[ORM\Column(length: 255)]
     private string $nome = '';
 
-    /** Modo A (uma cobrança ativa por objeto) ou B (várias). SPEC §6. */
+    /** Modo A (uma cobrança NÃO ENCERRADA por objeto) ou B (várias). SPEC §6. */
     #[ORM\Column(enumType: ModoCarteira::class)]
     private ModoCarteira $modo = ModoCarteira::Unico;
 

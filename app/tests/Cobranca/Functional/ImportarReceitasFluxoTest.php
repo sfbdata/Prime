@@ -7,6 +7,7 @@ namespace App\Tests\Cobranca\Functional;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\Obrigacao;
 use App\Cobranca\Entity\Pessoa;
+use App\Cobranca\Enum\StatusCaso;
 use App\Cobranca\Service\CalculadoraSaldo;
 use App\Cobranca\Service\Importacao\ReceitaImportavel;
 use App\Cobranca\Service\Importacao\ResultadoImportacaoReceitas;
@@ -511,6 +512,81 @@ final class ImportarReceitasFluxoTest extends CobrancaWebTestCase
         [$d, $m, $a] = explode('/', $ddmmaaaa);
 
         return sprintf('%s-%s-%s', $a, $m, $d);
+    }
+
+    #[TestDox('🔑 Unidade JUDICIALIZADA: o recebimento pousa na dívida existente e a prévia bate em TODOS os campos')]
+    public function testUnidadeJudicializadaPousaNaDividaExistenteEMantemParidade(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [$carteira, $caso] = $this->semearGrafo($tenant, ['status' => StatusCaso::Judicializado]);
+        $carteiraId = (int) $carteira->getId();
+        $casoId = (int) $caso->getId();
+        $identificacao = $caso->getObjeto()->getIdentificacao();
+        $usuario = $this->em()->getRepository(\App\Entity\Auth\User::class)->findAll()[0];
+
+        // Receitas é o SEGUNDO importador que abre caso (`ImportarReceitasUseCase:191`) — o mesmo
+        // mecanismo da dívida duplicada que a inadimplência sofreu. Enquanto ele resolvia o caso por
+        // `= ativo`, esta unidade era lida como "sem cobrança": nascia um caso paralelo e o dinheiro
+        // era alocado LÁ, deixando a dívida real intocada no caso judicializado.
+        ObrigacaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso,
+            'descricao' => 'Taxa 05/2026', 'valorOriginal' => 20000, 'encargosReconhecidos' => 0,
+            'referenciaExterna' => '8040', 'competencia' => '05/2026',
+            'vencimentoOriginal' => new \DateTimeImmutable('2026-05-10'),
+        ]);
+
+        $leitura = $this->leitura([
+            $this->receita($identificacao, 'Fulano', '8040', '05/2026', '20/05/2026', divida: 20000),
+        ]);
+
+        $sut = static::getContainer()->get(ImportarReceitasUseCase::class);
+        $previa = $sut->prever($carteiraId, $leitura, $tenant);
+        $confirmacao = $sut->confirmar($carteiraId, $leitura, $tenant, $usuario);
+
+        // T4: paridade por REFLEXÃO, campo a campo — não por amostra. É o que pega a prévia mentindo
+        // num contador que ninguém lembrou de comparar, defeito que já aconteceu duas vezes aqui.
+        self::assertSame($this->achatar($previa), $this->achatar($confirmacao), 'a prévia tem de projetar EXATAMENTE o que a confirmação faz');
+
+        // T3: e os números certos, senão "idênticas" poderia significar "idênticas e erradas".
+        self::assertSame(0, $previa->casosCriados, 'o caso judicializado É a cobrança da unidade');
+        self::assertSame(0, $previa->objetosCriados);
+        self::assertSame(0, $previa->pessoasCriadas);
+        self::assertCount(0, $previa->obrigacoesCriadas, 'a dívida já existe — criar outra é contá-la duas vezes');
+        self::assertCount(1, $previa->pagamentosCriados);
+
+        // A prova no banco: um caso só, e o dinheiro caiu na dívida que já estava lá.
+        self::assertCount(
+            1,
+            $this->em()->getRepository(CasoCobranca::class)->findBy(['objeto' => $caso->getObjeto()]),
+            'nenhum caso paralelo nasceu',
+        );
+        self::assertSame(1, $this->em()->getRepository(Obrigacao::class)->count(['caso' => $casoId]), 'uma dívida, não duas');
+    }
+
+    #[TestDox('Receitas: caso ENCERRADO continua fora — nasce caso novo, como manda a SPEC §17')]
+    public function testReceitasComCasoEncerradoAbreCasoNovo(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [$carteira, $caso] = $this->semearGrafo($tenant, ['status' => StatusCaso::Encerrado]);
+        $carteiraId = (int) $carteira->getId();
+        $identificacao = $caso->getObjeto()->getIdentificacao();
+        $usuario = $this->em()->getRepository(\App\Entity\Auth\User::class)->findAll()[0];
+
+        // Alargar a régua de `= ativo` para `não encerrado` não pode virar "aceita tudo": este é o
+        // teste que impede a mudança de passar do ponto TAMBÉM neste importador.
+        $leitura = $this->leitura([
+            $this->receita($identificacao, 'Fulano', '8050', '05/2026', '20/05/2026', divida: 15000),
+        ]);
+
+        $sut = static::getContainer()->get(ImportarReceitasUseCase::class);
+        $previa = $sut->prever($carteiraId, $leitura, $tenant);
+        $confirmacao = $sut->confirmar($carteiraId, $leitura, $tenant, $usuario);
+
+        self::assertSame($this->achatar($previa), $this->achatar($confirmacao));
+        self::assertSame(1, $previa->casosCriados, 'caso encerrado NÃO recebe dívida nova: nasce outro');
+        self::assertSame(0, $this->em()->getRepository(Obrigacao::class)->count(['caso' => (int) $caso->getId()]), 'o encerrado fica intacto');
     }
 
     /**

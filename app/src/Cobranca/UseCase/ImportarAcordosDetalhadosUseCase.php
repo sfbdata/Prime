@@ -487,7 +487,7 @@ final class ImportarAcordosDetalhadosUseCase
      *    criá-lo deixaria um acordo vazio no sistema, e contraria "cancelados ficam de fora";
      * 3. **sem `Data base`** — é a data em que o relógio dos juros das dívidas renegociadas para
      *    (`materializarNaDataDoAcordo`). Chutá-la é decidir dinheiro no escuro;
-     * 4. **unidade sem cobrança ativa na carteira** — decisão do dono de 07/08: este relatório NÃO abre
+     * 4. **unidade sem cobrança cobrável (não encerrada) na carteira** — decisão do dono de 07/08: este relatório NÃO abre
      *    cobrança nova (objeto/pessoa/caso), diferente da inadimplência e da receitas. Medido no mesmo dia:
      *    38 de 38 unidades já existem, então a recusa não custa nada hoje; o que ela evita é o relatório de
      *    Acordos ganhar poder de abrir cobrança por um caminho que nunca foi exercitado no dado real.
@@ -543,12 +543,19 @@ final class ImportarAcordosDetalhadosUseCase
 
         $identificacao = $aba->objetoIdentificacao();
         $objeto = $this->objetoRepository->findOnePorIdentificacaoNaCarteira($carteira, $identificacao, $tenant);
-        // `casosAtivosDoObjeto` já devolve só os ATIVOS — caso encerrado não recebe obrigação (SPEC §17)
-        // e, por consequência, também não recebe acordo.
-        $caso = $objeto !== null ? ($this->casoRepository->casosAtivosDoObjeto($objeto)[0] ?? null) : null;
+        // `casosCobraveisDoObjeto` devolve os NÃO ENCERRADOS — caso encerrado não recebe obrigação
+        // (SPEC §17) e, por consequência, também não recebe acordo. Caso JUDICIALIZADO recebe: pela
+        // §16 a judicialização não encerra a cobrança, e o ramo que ATUALIZA acordo existente (mais
+        // acima, via `AcordoRepository`) já operava sobre ele — só a criação recusava. Era o mesmo
+        // importador com dois pesos.
+        //
+        // ⚠️ Isto NÃO afrouxa a decisão D2 (`cobranca-importar-acordos-criar-acordo.md`): o relatório
+        // de Acordos continua sem abrir cobrança nova (objeto/pessoa/caso). Ele apenas deixa de
+        // recusar onde a cobrança JÁ existe.
+        $caso = $objeto !== null ? ($this->casoRepository->casosCobraveisDoObjeto($objeto)[0] ?? null) : null;
         if ($caso === null) {
             return sprintf(
-                'Acordo %d não existe nesta carteira e a unidade "%s" não tem cobrança ativa aqui — acordo NÃO criado. Importe a inadimplência desta carteira primeiro e rode de novo.',
+                'Acordo %d não existe nesta carteira e a unidade "%s" não tem cobrança aqui — acordo NÃO criado. Importe a inadimplência desta carteira primeiro e rode de novo.',
                 $aba->numero,
                 $identificacao,
             );

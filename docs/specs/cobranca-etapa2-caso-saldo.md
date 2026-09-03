@@ -4,7 +4,7 @@
 
 ## Storytelling (derivado da SPEC — nenhuma decisão de negócio pendente, PLAN §3.1)
 
-**AbrirCaso** — Quem: gestor autorizado. O quê: iniciar um Caso de Cobrança para um Objeto, escolhendo a Pessoa cobrada atual. Pré: objeto e pessoa existem no MESMO tenant. Modo A (carteira `unico`): só pode existir 1 caso ativo por objeto → rejeita 2º. Modo B (`multiplo`): vários casos ativos permitidos. Pós: caso `ativo`, snapshot da regra de honorários da carteira (SPEC §18.2/§18.3 — não recalcula depois), evento `caso_aberto`. Erros: objeto/pessoa de outro tenant (não encontrado), caso ativo já existe (modo A).
+**AbrirCaso** — Quem: gestor autorizado. O quê: iniciar um Caso de Cobrança para um Objeto, escolhendo a Pessoa cobrada atual. Pré: objeto e pessoa existem no MESMO tenant. Modo A (carteira `unico`): só pode existir 1 caso **cobrável** (não encerrado — `ativo` ou `judicializado`) por objeto → rejeita 2º. Modo B (`multiplo`): vários permitidos. Pós: caso `ativo`, snapshot da regra de honorários da carteira (SPEC §18.2/§18.3 — não recalcula depois), evento `caso_aberto`. Erros: objeto/pessoa de outro tenant (não encontrado), caso ativo já existe (modo A).
 
 **RegistrarObrigacao** — Quem: gestor. O quê: lançar uma obrigação (competência/parcela/taxa) num caso. Pré: caso existe no tenant e NÃO está encerrado (SPEC §17). Pós: `Obrigacao` com `valorOriginal`+`vencimentoOriginal` preservados (SPEC §10), evento `obrigacao_criada`. Erros: caso não encontrado; caso encerrado.
 
@@ -25,7 +25,7 @@
 - **TipoEventoHistorico**: lista completa da PLAN §4.2 (caso_aberto, obrigacao_criada, valor_atualizado_reconhecido, contato_realizado, boleto_enviado, novo_prazo, negociacao, acordo_*, pagamento_*, liquidacao_registrada, pessoa_cobrada_alterada, revisao_vinculo, judicializacao, vinculo_pasta, encerramento).
 
 ## Serviços (read-only / append)
-- **CalculadoraSaldo** (Service, sem persistir; centavos int): `saldoExigivel(caso)` = Σ `valorExigivel()` das obrigações do caso; `saldoVencido(caso, ?hoje)` = idem restrito a `vencimentoOriginal ≤ hoje`; `saldoConsolidadoObjeto(objeto)` = Σ `saldoExigivel` dos casos **ativos** do objeto (modo B, SPEC §6). Em Etapa 2 não há pagamentos/liquidações/acordos → a subtração desses entra na Etapa 3/4 (extensão orquestrador-owned). Fonte = eventos/valores (SPEC §10, invariável 20); nunca coluna de saldo manual.
+- **CalculadoraSaldo** (Service, sem persistir; centavos int): `saldoExigivel(caso)` = Σ `valorExigivel()` das obrigações do caso; `saldoVencido(caso, ?hoje)` = idem restrito a `vencimentoOriginal ≤ hoje`; `saldoConsolidadoObjeto(objeto)` = Σ `saldoExigivel` dos casos **cobráveis (não encerrados)** do objeto (modo B, SPEC §6 — retificado em 03/09/2026). Em Etapa 2 não há pagamentos/liquidações/acordos → a subtração desses entra na Etapa 3/4 (extensão orquestrador-owned). Fonte = eventos/valores (SPEC §10, invariável 20); nunca coluna de saldo manual.
 - **RegistrarEventoHistorico** (Service): `registrar(caso, tipo, usuario, descricao, dados=[])` → cria+persiste o `EventoHistorico` (SEM flush; o UseCase flusha uma vez).
 
 ## Migration
@@ -35,7 +35,7 @@
 Inserir na `ORDEM_DELECAO` ANTES do bloco Etapa 1 (caso → objeto/pessoa): `cobranca_evento_historico` → `cobranca_obrigacao` → `cobranca_caso`. Semear no teste da purga.
 
 ## Testes
-Unit de cada UseCase (mock repos); `CalculadoraSaldo` (parcial/encargos/consolidado modo B, centavos); cross-tenant (caso/obrigação de outro escritório rejeitados); modo A rejeita 2º caso ativo; caso encerrado rejeita obrigação; boleto atualizado NÃO cria obrigação nem altera original; `EventoHistorico` gravado nos eventos certos.
+Unit de cada UseCase (mock repos); `CalculadoraSaldo` (parcial/encargos/consolidado modo B, centavos); cross-tenant (caso/obrigação de outro escritório rejeitados); modo A rejeita 2º caso cobrável (inclusive quando o existente está judicializado); caso encerrado rejeita obrigação; boleto atualizado NÃO cria obrigação nem altera original; `EventoHistorico` gravado nos eventos certos.
 
 ## Invariáveis cobertas: 5,6,7,8,9,10,20,26 (+ 1/23/24 multi-tenant transversal).
 ## Fora de escopo (etapas seguintes): pagamentos/liquidações/honorários realizados (E3), acordos e substituição de obrigações (E4), judicialização/encerramento/próxima ação/revisão/alertas (E5), pastaJudicial (E5).

@@ -99,7 +99,7 @@ final class ImportarReceitasUseCase
 
         foreach ($leitura->receitas as $receita) {
             $objeto = $this->objetoRepository->findOnePorIdentificacaoNaCarteira($carteira, $receita->objetoIdentificacao, $tenant);
-            $caso = $objeto === null ? null : ($this->casoRepository->casosAtivosDoObjeto($objeto)[0] ?? null);
+            $caso = $objeto === null ? null : ($this->casoRepository->casosCobraveisDoObjeto($objeto)[0] ?? null);
 
             // ESTADO: o mesmo objeto/caso aparece em vários recebimentos do arquivo. Sem isto, a prévia
             // contaria uma criação por linha e prometeria um número que a confirmação não entrega.
@@ -163,7 +163,7 @@ final class ImportarReceitasUseCase
                     $objeto = $this->criarObjeto->executar($this->objetoInput($carteira, $receita), $tenant, $user);
                 }
 
-                $caso = $this->casoRepository->casosAtivosDoObjeto($objeto)[0] ?? null;
+                $caso = $this->casoRepository->casosCobraveisDoObjeto($objeto)[0] ?? null;
                 $casoExistia = $caso !== null;
 
                 // Resposta MEMORIZADA por unidade, no primeiro encontro e antes de qualquer escrita —

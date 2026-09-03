@@ -169,7 +169,7 @@ final class CalculadoraSaldoTest extends TestCase
     }
 
     #[Test]
-    public function saldoConsolidadoSomaExigivelVivoDeTodosOsCasosAtivosDoObjeto(): void
+    public function saldoConsolidadoSomaExigivelVivoDeTodosOsCasosCobraveisDoObjeto(): void
     {
         $objeto = new ObjetoCobranca();
         $casoA = $this->casoTopLife();
@@ -177,7 +177,7 @@ final class CalculadoraSaldoTest extends TestCase
 
         $this->casoRepository
             ->expects($this->once())
-            ->method('casosAtivosDoObjeto')
+            ->method('casosCobraveisDoObjeto')
             ->with($objeto)
             ->willReturn([$casoA, $casoB]);
 

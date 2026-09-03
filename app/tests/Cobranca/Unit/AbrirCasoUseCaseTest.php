@@ -14,7 +14,7 @@ use App\Cobranca\Enum\BaseEncargo;
 use App\Cobranca\Enum\FormaHonorarios;
 use App\Cobranca\Enum\ModoCarteira;
 use App\Cobranca\Enum\RegimeJuros;
-use App\Cobranca\Exception\CasoAtivoJaExisteException;
+use App\Cobranca\Exception\CasoCobravelJaExisteException;
 use App\Cobranca\Exception\ObjetoNaoEncontradoException;
 use App\Cobranca\Exception\PessoaNaoEncontradaException;
 use App\Cobranca\Repository\CasoCobrancaRepository;
@@ -85,7 +85,7 @@ final class AbrirCasoUseCaseTest extends TestCase
             ->willReturn($pessoa);
 
         // Modo B: a guarda de caso único não se aplica.
-        $this->casoRepository->method('existeCasoAtivoParaObjeto')->willReturn(false);
+        $this->casoRepository->method('existeCasoCobravelParaObjeto')->willReturn(false);
 
         // Caso persistido sem flush; o evento fecha a transação com flush: true.
         $this->casoRepository
@@ -165,19 +165,19 @@ final class AbrirCasoUseCaseTest extends TestCase
     }
 
     #[Test]
-    public function rejeitaSegundoCasoAtivoNoModoUnico(): void
+    public function rejeitaSegundoCasoCobravelNoModoUnico(): void
     {
         $carteira = (new Carteira())->setModo(ModoCarteira::Unico);
         $objeto = (new ObjetoCobranca())->setCarteira($carteira);
 
         $this->objetoRepository->method('findOneByIdDoTenant')->willReturn($objeto);
         $this->pessoaRepository->method('findOneByIdDoTenant')->willReturn(new Pessoa());
-        $this->casoRepository->method('existeCasoAtivoParaObjeto')->willReturn(true);
+        $this->casoRepository->method('existeCasoCobravelParaObjeto')->willReturn(true);
 
         $this->casoRepository->expects($this->never())->method('salvar');
         $this->eventoRepository->expects($this->never())->method('salvar');
 
-        $this->expectException(CasoAtivoJaExisteException::class);
+        $this->expectException(CasoCobravelJaExisteException::class);
 
         $input = new AbrirCasoInput();
         $input->objetoId = 50;
@@ -246,7 +246,7 @@ final class AbrirCasoUseCaseTest extends TestCase
 
         $this->objetoRepository->method('findOneByIdDoTenant')->willReturn($objeto);
         $this->pessoaRepository->method('findOneByIdDoTenant')->willReturn(new Pessoa());
-        $this->casoRepository->method('existeCasoAtivoParaObjeto')->willReturn(false);
+        $this->casoRepository->method('existeCasoCobravelParaObjeto')->willReturn(false);
 
         $input = new AbrirCasoInput();
         $input->objetoId = 50;

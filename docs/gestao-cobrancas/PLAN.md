@@ -130,7 +130,7 @@ Namespace `App\Cobranca`. Nomenclatura oficial da SPEC §4 preservada nos nomes 
 **`CalculadoraSaldo` (serviço, read-only, sem persistir):**
 - `saldoExigivel(caso)` = Σ(`valorOriginal` + `encargosReconhecidos`) das obrigações **não substituídas por acordo** − Σ alocações de pagamento − Σ `valorReconhecido` de liquidações.
 - `saldoVencido(caso)` = idem, restrito a obrigações com `vencimentoOriginal`/prazo de parcela ≤ hoje e ainda não quitadas.
-- `saldoConsolidadoObjeto(objeto)` = Σ dos saldos dos casos ativos do objeto (modo B, §6). Nenhum caso isolado representa o total.
+- `saldoConsolidadoObjeto(objeto)` = Σ dos saldos dos casos cobráveis — não encerrados — do objeto (modo B, §6; retificado em 03/09/2026). Nenhum caso isolado representa o total.
 - Fonte de verdade = eventos/valores (SPEC §10). Cache/otimização de leitura é permitido depois, mas não como fonte.
 - **Honorários "acrescidos à dívida" (§18, invariável 18):** `saldoExigivel` acima é o **saldo do credor** (só a dívida). O honorário do escritório é componente **separado**, calculado por `CalculadoraHonorarios`, exibido e cobrado à parte. Quando a forma é `acrescido_divida`, o **total a cobrar do devedor** = saldo do credor + honorário projetado — mas os dois nunca se misturam no modelo (a composição de cada pagamento em `valorDivida`/`valorHonorarios` preserva a separação). Nenhum dos dois é valor manual.
 

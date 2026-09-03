@@ -43,7 +43,7 @@ use Doctrine\ORM\EntityManagerInterface;
  * origem era uma planilha. Decisões de mapeamento em `docs/gestao-cobrancas/MAPEAMENTO_FONTE_TOPLIFE.md`.
  *
  * Por boleto, na ordem: resolve/cria Objeto (dedup por identificação na Carteira) → resolve/cria Pessoa
- * cobrada (por nome no Objeto — decisão A) e Caso ativo → resolve/cria/atualiza Obrigação (dedup por NN).
+ * cobrada (por nome no Objeto — decisão A) e Caso cobrável → resolve/cria/atualiza Obrigação (dedup por NN).
  * Encargos entram SEPARADOS (juros/multa/correção) e a obrigação nasce VIVA (ao vivo, sem congelar) —
  * ver `materializarEncargosImportados()`: o snapshot do relatório é só o valor INICIAL/cache, e a leitura
  * recalcula (vencimento → hoje × taxa), reproduzindo os números da contabilidade ao centavo quando a
@@ -90,7 +90,7 @@ final class ImportarRelatorioCarteiraUseCase
         $centavosSemBoleto = 0;
         $divergentes = [];
         $objetosNovos = [];
-        $temCasoPorObjeto = [];   // identificacao => bool (caso ativo real ou simulado nesta prévia)
+        $temCasoPorObjeto = [];   // identificacao => bool (caso cobrável real ou simulado nesta prévia)
         $nomesPorObjeto = [];     // identificacao => list<string> nomes normalizados já representados
         $pessoasNovas = 0;
         $casosNovos = 0;
@@ -102,7 +102,7 @@ final class ImportarRelatorioCarteiraUseCase
                 $objetosNovos[$identif] = true;
             }
 
-            $caso = $objeto !== null ? ($this->casoRepository->casosAtivosDoObjeto($objeto)[0] ?? null) : null;
+            $caso = $objeto !== null ? ($this->casoRepository->casosCobraveisDoObjeto($objeto)[0] ?? null) : null;
             if (!isset($nomesPorObjeto[$identif])) {
                 $nomesPorObjeto[$identif] = $this->nomesRepresentadosNoObjeto($objeto, $caso);
                 $temCasoPorObjeto[$identif] = $caso !== null;
@@ -187,7 +187,7 @@ final class ImportarRelatorioCarteiraUseCase
                     ++$objetosCriados;
                 }
 
-                $caso = $this->casoRepository->casosAtivosDoObjeto($objeto)[0] ?? null;
+                $caso = $this->casoRepository->casosCobraveisDoObjeto($objeto)[0] ?? null;
                 if ($caso === null) {
                     // Sem caso, a unidade PODE já ter dono: é o estado que o importe de cadastro deixa
                     // (pessoa vinculada, com CPF e contato, e nenhum caso aberto). Criar pessoa aqui sem

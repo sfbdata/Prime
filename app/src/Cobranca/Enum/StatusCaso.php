@@ -16,6 +16,50 @@ enum StatusCaso: string
     case Judicializado = 'judicializado';
     case Encerrado = 'encerrado';
 
+    /**
+     * O caso ainda recebe movimento de cobrança (dívida, pagamento, acordo)?
+     *
+     * A régua é `não encerrado`, NÃO `ativo`: pela SPEC §16 a judicialização "não encerra a cobrança,
+     * representa uma mudança de fase — o caso continua acompanhando saldo, pagamentos, acordos e
+     * liquidações". A §17 reserva a proibição de receber obrigação nova só ao `encerrado`, e é essa a
+     * régua que as 18 guardas de mutação do domínio já aplicam via `CasoCobranca::estaEncerrado()`.
+     *
+     * 🔑 Existe num lugar só de propósito. Os importadores tinham régua própria (`= ativo`) e, quando
+     * o escritório judicializou 54 casos da TOP LIFE I em 09/2026, eles deixaram de enxergar a
+     * cobrança, abriram um segundo caso por unidade e recriaram 2.609 obrigações que já existiam —
+     * R$ 390.370,46 de principal contado duas vezes. Espelha `StatusAcordo::ehVigente()`.
+     */
+    public function ehCobravel(): bool
+    {
+        // `match` exaustivo e NÃO `!== Encerrado`: com o `!==`, um status novo no enum entraria como
+        // cobrável por OMISSÃO — fail-open, e num lugar onde "cobrável" decide se dívida é gravada.
+        // Assim o status novo quebra alto na hora de decidir, que é o comportamento que o docblock de
+        // `cobraveis()` promete.
+        return match ($this) {
+            self::Ativo, self::Judicializado => true,
+            self::Encerrado => false,
+        };
+    }
+
+    /**
+     * Os valores dos status cobráveis, para o `IN` das consultas.
+     *
+     * 🔑 É isto que faz `ehCobravel()` ser a definição ÚNICA em vez de um enfeite: as consultas do
+     * `CasoCobrancaRepository` derivam a lista daqui, então um status novo no enum entra (ou não
+     * entra) nas duas por decisão de um lugar só. A alternativa — repetir `!= :encerrado` em cada
+     * DQL — é o par que diverge na próxima manutenção, exatamente o defeito que esta frente veio
+     * corrigir.
+     *
+     * @return list<string>
+     */
+    public static function cobraveis(): array
+    {
+        return array_values(array_map(
+            static fn (self $status): string => $status->value,
+            array_filter(self::cases(), static fn (self $status): bool => $status->ehCobravel()),
+        ));
+    }
+
     public function label(): string
     {
         return match ($this) {

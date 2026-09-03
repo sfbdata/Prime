@@ -38,7 +38,7 @@ Toda aritmética em centavos inteiros, sem float onde possível; fechamento gara
 Passa a **subtrair** os movimentos da Etapa 3 (SPEC §10, invariável 20 — saldo sempre derivado):
 - `saldoExigivel(caso)` = `Σ obrigação.valorExigivel()` **− Σ alocações de pagamento do caso − Σ liquidação.valorReconhecido do caso`. (Substituição por acordo entra na Etapa 4.)
 - `saldoVencido(caso, ?hoje)` = `Σ exigível das vencidas − Σ alocações às obrigações vencidas − Σ liquidação do caso`, **piso 0** (`max(0, …)`; liquidação/pagamento amortizam o vencido primeiro).
-- `saldoConsolidadoObjeto(objeto)` = inalterado na fórmula (Σ `saldoExigivel` dos casos ativos), mas agora reflete os abatimentos.
+- `saldoConsolidadoObjeto(objeto)` = inalterado na fórmula (Σ `saldoExigivel` dos casos cobráveis — não encerrados; retificado em 03/09/2026), mas agora reflete os abatimentos.
 - Novas dependências injetadas: `AlocacaoPagamentoRepository`, `LiquidacaoRepository`. Fonte de verdade continua sendo obrigações + movimentos; **nunca coluna de saldo**.
 
 ## Repositórios (stubs no andaime; queries agregadas do saldo são contrato compartilhado)

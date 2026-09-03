@@ -1008,8 +1008,8 @@ final class ImportarAcordosDetalhadosTest extends KernelTestCase
         self::assertSame($acordosAntes, $this->em->getRepository(Acordo::class)->count(['tenant' => $tenant]));
     }
 
-    #[TestDox('T5 — RECUSA: objeto existe mas sem caso ATIVO não cria acordo')]
-    public function testObjetoSemCasoAtivoRecusa(): void
+    #[TestDox('T5 — RECUSA: objeto existe mas com o caso ENCERRADO não cria acordo')]
+    public function testObjetoComCasoEncerradoRecusa(): void
     {
         [$tenant, $user, $carteiraId, $caso] = $this->cenarioAcordo37();
 
@@ -1025,6 +1025,43 @@ final class ImportarAcordosDetalhadosTest extends KernelTestCase
         self::assertSame(1, $resultado->totalAbasIgnoradas());
         self::assertSame($acordosAntes, $this->em->getRepository(Acordo::class)->count(['tenant' => $tenant]));
         self::assertSame([], $resultado->nnsContasReconstruidas());
+    }
+
+    #[TestDox('T5b — ACEITA: objeto com caso JUDICIALIZADO cria o acordo (a recusa R1 não vale ali)')]
+    public function testObjetoComCasoJudicializadoCriaAcordo(): void
+    {
+        [$tenant, $user, $carteiraId, $caso] = $this->cenarioAcordo37();
+
+        // Este importador era assimétrico consigo mesmo: o ramo que ATUALIZA acordo existente sempre
+        // operou sobre caso judicializado (via AcordoRepository, barrado só no encerrado), enquanto a
+        // CRIAÇÃO recusava por R1. Dois pesos no mesmo arquivo. Pela SPEC §16 judicializar não encerra
+        // a cobrança, então a unidade tem onde pendurar o acordo.
+        $caso->setStatus(StatusCaso::Judicializado);
+        $this->em->flush();
+        $userId = (int) $user->getId();
+        $tenantId = (int) $tenant->getId();
+        $this->em->clear();
+
+        // Reanexa depois do clear: ao contrário do T5 irmão (que só RECUSA), aqui o acordo é de fato
+        // criado, e um `criadoPor` destacado faz o Doctrine recusar a persistência em cascata.
+        $user = $this->em->getRepository(\App\Entity\Auth\User::class)->find($userId);
+        $tenant = $this->em->getRepository(\App\Entity\Tenant\Tenant::class)->find($tenantId);
+
+        $acordosAntes = $this->em->getRepository(Acordo::class)->count(['tenant' => $tenant]);
+
+        $resultado = $this->importarAcordos->confirmar($carteiraId, $this->leituraAcordoNovo(), $tenant, $user);
+
+        self::assertSame([999], $resultado->numerosDeAcordosCriados(), 'a aba deixa de ser recusada e o acordo nasce');
+        self::assertSame($acordosAntes + 1, $this->em->getRepository(Acordo::class)->count(['tenant' => $tenant]));
+
+        // E ele nasce pendurado no caso JUDICIALIZADO — não num caso paralelo, que é o defeito irmão.
+        $criado = $this->em->getRepository(Acordo::class)->findOneBy(['tenant' => $tenant, 'numeroExterno' => 999]);
+        self::assertSame(StatusCaso::Judicializado, $criado?->getCaso()?->getStatus());
+        self::assertCount(
+            1,
+            $this->em->getRepository(CasoCobranca::class)->findBy(['objeto' => $criado?->getCaso()?->getObjeto()]),
+            'D2 continua valendo: este relatório não abre cobrança nova',
+        );
     }
 
     #[TestDox('T6 — RECUSA: situação fora do mapa não cria acordo (nunca adivinhar status)')]

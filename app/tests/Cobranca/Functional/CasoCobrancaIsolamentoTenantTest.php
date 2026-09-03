@@ -16,7 +16,7 @@ use App\Cobranca\Entity\Obrigacao;
 use App\Cobranca\Entity\Pessoa;
 use App\Cobranca\Enum\ModoCarteira;
 use App\Cobranca\Enum\StatusCaso;
-use App\Cobranca\Exception\CasoAtivoJaExisteException;
+use App\Cobranca\Exception\CasoCobravelJaExisteException;
 use App\Cobranca\Exception\CasoNaoEncontradoException;
 use App\Cobranca\Exception\ObjetoNaoEncontradoException;
 use App\Cobranca\Exception\PessoaNaoEncontradaException;
@@ -174,7 +174,7 @@ final class CasoCobrancaIsolamentoTenantTest extends KernelTestCase
 
         $this->abrirCaso->executar($this->abrirInput($objeto, $pessoa), $tenant, $user);
 
-        $this->expectException(CasoAtivoJaExisteException::class);
+        $this->expectException(CasoCobravelJaExisteException::class);
 
         $this->abrirCaso->executar($this->abrirInput($objeto, $pessoa), $tenant, $user);
     }

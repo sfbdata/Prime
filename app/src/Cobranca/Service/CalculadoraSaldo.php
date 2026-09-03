@@ -123,14 +123,17 @@ class CalculadoraSaldo
     }
 
     /**
-     * Saldo consolidado do objeto (SPEC §6, modo B): soma do exigível de TODOS os casos ativos do
-     * objeto, em centavos. Nenhum caso isolado representa o total do objeto.
+     * Saldo consolidado do objeto (SPEC §6, modo B): soma do exigível de TODOS os casos COBRÁVEIS
+     * (não encerrados) do objeto, em centavos. Nenhum caso isolado representa o total do objeto.
+     *
+     * Judicializado entra: pela SPEC §16 ele continua acompanhando saldo, e é assim que o dashboard
+     * já conta (`cobranca-etapa9-dashboard-alertas.md:93`).
      */
     public function saldoConsolidadoObjeto(ObjetoCobranca $objeto): int
     {
         $total = 0;
 
-        foreach ($this->casoRepository->casosAtivosDoObjeto($objeto) as $caso) {
+        foreach ($this->casoRepository->casosCobraveisDoObjeto($objeto) as $caso) {
             $total += $this->saldoExigivel($caso);
         }
 

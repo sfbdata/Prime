@@ -59,20 +59,43 @@ class CasoCobrancaRepository extends ServiceEntityRepository
     }
 
     /**
-     * Casos ATIVOS de um objeto (modo B pode ter vários; SPEC §6). Escopo por tenant do objeto
-     * (defesa em profundidade — o objeto já é tenant-bound).
+     * Casos COBRÁVEIS de um objeto — os que ainda recebem movimento, ou seja **não encerrados**
+     * (`ativo` + `judicializado`). A lista vem de `StatusCaso::cobraveis()`, derivada de
+     * `ehCobravel()` — a régua mora no enum, não repetida em cada DQL. Modo B pode ter vários; SPEC §6.
+     * Escopo por tenant do objeto (defesa em profundidade — o objeto já é tenant-bound).
+     *
+     * ⚠️ Filtrava `= ativo` até 09/2026, e isso escondia o caso judicializado dos importadores: eles
+     * concluíam "unidade sem cobrança" e abriam um SEGUNDO caso, duplicando a dívida. Ver
+     * `docs/specs/cobranca-importe-enxerga-caso-judicializado.md`.
+     *
+     * **Ordem determinística e igual à da tela:** ativo antes de judicializado, depois o mais recente.
+     * Os chamadores pegam `[0]`, e sem `ORDER BY` isso era loteria assim que o conjunto passou a ter
+     * mais de um elemento. `casoAncoraDoObjeto` já preferia o ativo — então, ENTRE CASOS COBRÁVEIS,
+     * tela e importe passam a eleger o mesmo caso.
+     *
+     * ⚠️ Eles seguem divergindo de propósito num ponto: com objeto que só tem caso ENCERRADO, a
+     * âncora cai no fallback de qualquer status e devolve o encerrado (deep-link da tela), enquanto
+     * aqui a resposta é `[]` — porque encerrado não recebe movimento (SPEC §17).
+     *
+     * 🪤 A prioridade vai por `CASE WHEN` porque o DQL aceita `COALESCE` no `WHERE` e o recusa no
+     * `ORDER BY`; e por `HIDDEN` para o `getResult()` devolver entidades, não tuplas.
      *
      * @return CasoCobranca[]
      */
-    public function casosAtivosDoObjeto(ObjetoCobranca $objeto): array
+    public function casosCobraveisDoObjeto(ObjetoCobranca $objeto): array
     {
         return $this->createQueryBuilder('c')
+            ->addSelect('CASE WHEN c.status = :ativo THEN 0 ELSE 1 END AS HIDDEN prioridade')
             ->andWhere('c.objeto = :objeto')
             ->andWhere('c.tenant = :tenant')
-            ->andWhere('c.status = :ativo')
+            ->andWhere('c.status IN (:cobraveis)')
             ->setParameter('objeto', $objeto)
             ->setParameter('tenant', $objeto->getTenant())
             ->setParameter('ativo', StatusCaso::Ativo->value)
+            ->setParameter('cobraveis', StatusCaso::cobraveis())
+            ->orderBy('prioridade', 'ASC')
+            ->addOrderBy('c.criadoEm', 'DESC')
+            ->addOrderBy('c.id', 'DESC')
             ->getQuery()
             ->getResult();
     }
@@ -120,17 +143,24 @@ class CasoCobrancaRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
     }
 
-    /** Há caso ativo para o objeto? Usado pela guarda do modo A (uma cobrança ativa por objeto). */
-    public function existeCasoAtivoParaObjeto(ObjetoCobranca $objeto): bool
+    /**
+     * Há caso COBRÁVEL (não encerrado) para o objeto? Usado pela guarda do modo A — uma cobrança viva
+     * por objeto.
+     *
+     * ⚠️ Contava só o `ativo` até 09/2026, e esse era o **segundo** furo do mesmo defeito: mesmo com
+     * os importadores corrigidos, um objeto com caso judicializado respondia `false` aqui e a guarda
+     * deixava passar o segundo caso por qualquer outro caminho de escrita.
+     */
+    public function existeCasoCobravelParaObjeto(ObjetoCobranca $objeto): bool
     {
         $total = (int) $this->createQueryBuilder('c')
             ->select('COUNT(c.id)')
             ->andWhere('c.objeto = :objeto')
             ->andWhere('c.tenant = :tenant')
-            ->andWhere('c.status = :ativo')
+            ->andWhere('c.status IN (:cobraveis)')
             ->setParameter('objeto', $objeto)
             ->setParameter('tenant', $objeto->getTenant())
-            ->setParameter('ativo', StatusCaso::Ativo->value)
+            ->setParameter('cobraveis', StatusCaso::cobraveis())
             ->getQuery()
             ->getSingleScalarResult();
 

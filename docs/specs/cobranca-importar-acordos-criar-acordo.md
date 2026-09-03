@@ -119,6 +119,16 @@ morto: é o que impede o importe de pendurar acordo onde não há cobrança. A a
 Acordos ganhar poder de abrir cobrança nova. O custo é a ordem de execução (§7): rodar Acordos **antes**
 da Inadimplência recusa as abas, sem gravar nada, e basta rodar de novo na ordem certa.
 
+> 📌 **Retificação de 03/09/2026** (`cobranca-importe-enxerga-caso-judicializado.md`): onde D2 e R1
+> diziam *"caso **ativo**"*, passa a valer *"caso **cobrável**"* — ou seja, **não encerrado**, o que
+> inclui o `judicializado`. **A decisão D2 não muda**: o relatório de Acordos continua sem abrir
+> cobrança nova (objeto/pessoa/caso); ele apenas deixa de recusar onde a cobrança **já existe**.
+>
+> O motivo veio de produção: o escritório judicializou 54 casos da TOP LIFE I e o importe passou a
+> tratá-los como "unidade sem cobrança", duplicando dívida. Vale notar que este mesmo importador já
+> era assimétrico — o ramo que **atualiza** acordo existente sempre operou sobre caso judicializado
+> (via `AcordoRepository`, barrado só no encerrado); apenas a **criação** recusava.
+
 Sobre **D3**: divergem em 4 das 38 abas (ex.: acordo 39 — base 13/07, digitado 30/07). `Data base` é o que
 `materializarNaDataDoAcordo` usa para tirar o snapshot dos encargos das contas substituídas — e o T9 prova
 o EFEITO (o `encargosAtualizadosEm` da reconstruída), não só o campo do acordo.
@@ -187,7 +197,7 @@ Todas viram aba ignorada com motivo próprio, nunca exceção — uma aba estran
 
 | # | quando | por quê |
 |---|---|---|
-| R1 | a **unidade** não tem objeto na carteira, ou o objeto não tem caso **ativo** | **D2**. Sem caso não há onde pendurar o acordo, e abrir cobrança não é papel deste relatório |
+| R1 | a **unidade** não tem objeto na carteira, ou o objeto não tem caso **cobrável (não encerrado)** | **D2**. Sem caso não há onde pendurar o acordo, e abrir cobrança não é papel deste relatório |
 | R2 | a **situação** não está no mapa (`SITUACOES`) | nunca adivinhar status: é a mesma régua que a sobrescrita já aplica |
 | R3 | a situação está no mapa mas **não é vigente** (`Cancelado`) | acordo não vigente tem a aba pulada inteira de qualquer forma (`:312-337`) — criá-lo deixaria um acordo vazio no sistema. Coerente com **D4** |
 | R4 | a aba **não tem `Data base`** | é a data que para o relógio dos juros (**D3**). Chutá-la é decidir dinheiro no escuro |
@@ -195,7 +205,7 @@ Todas viram aba ignorada com motivo próprio, nunca exceção — uma aba estran
 ⚠️ **Corrigido após a 1ª revisão: as QUATRO recusas nascem mortas, não duas.** Medido nas 6 planilhas:
 situações presentes = `{Em andamento, Liquidado}` apenas (R2 nunca dispara) · `0` abas sem `Data base`
 (R4) · o `*_CANCELADO.xlsx` é barrado pelo validador do item 6 antes de chegar aqui (R3) · 38 de 38 abas
-têm unidade com caso ativo (R1). Ficam registradas como o que são: ramos não exercitados pela fonte,
+têm unidade com caso cobrável, isto é não encerrado (R1 — ver a retificação de 03/09 acima). Ficam registradas como o que são: ramos não exercitados pela fonte,
 provados só por teste — a mesma honestidade que a spec-mãe registra para `Cumprido → Ativo`. Nenhuma
 consequência em dinheiro; a consequência de escondê-las seria alguém supor cobertura que não existe.
 
@@ -272,7 +282,7 @@ que não avermelha o teste previsto significa que o teste não prova o que diz (
 | T2 | as **parcelas e contas** da aba são processadas depois de criar (não é só o acordo que nasce) | criar o acordo e devolver `abaIgnorada` na sequência |
 | T3 | `Liquidado` nasce **`Cumprido`**, e a aba é processada (é vigente) | mapear `Liquidado` para `Ativo` |
 | T4 | **R1** — sem objeto na carteira, recusa e não cria | resolver o caso por outro caminho |
-| T5 | **R1** — objeto existe mas sem caso ativo, recusa e não cria | aceitar caso encerrado |
+| T5 | **R1** — objeto existe mas com o caso **encerrado**, recusa e não cria | aceitar caso encerrado |
 | T6 | **R2** — situação fora do mapa, recusa e não cria | criar com `Ativo` por padrão |
 | T7 | **R3** — `Cancelado` não cria acordo | criar e deixar a aba pulada |
 | T8 | **R4** — sem `Data base`, recusa e não cria | cair para `Criado em` ou para hoje |
