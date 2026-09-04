@@ -26,7 +26,7 @@ class RegistroPontoManualType extends AbstractType
                 'label'        => 'Hora',
                 'widget'       => 'single_text',
                 'mapped'       => false,
-                'with_seconds' => $options['with_seconds'],
+                'with_seconds' => true,
                 'constraints'  => [new NotBlank(message: 'Informe o horário.')],
             ])
             ->add('tipo', ChoiceType::class, [
@@ -55,8 +55,6 @@ class RegistroPontoManualType extends AbstractType
             // 'ponto_manual_add'/'ponto_manual_edit'), NÃO pelo form — evita mecanismo duplo
             // com o token 'submit' stateless. Ver TenantController::pontoAdd/pontoEdit.
             'csrf_protection' => false,
-            'with_seconds'    => false,
         ]);
-        $resolver->setAllowedTypes('with_seconds', 'bool');
     }
 }

@@ -414,15 +414,6 @@ final class TenantController extends AbstractController
         return $labels;
     }
 
-    // --- FEATURE FLAG TEMPORÁRIA: remover quando não for mais necessário ---
-    private function deveMostrarSegundosBatida(): bool
-    {
-        $user = $this->getUser();
-        return $user instanceof \App\Entity\Auth\User
-            && $user->getEmail() === 'jusprime.samuel@gmail.com';
-    }
-    // --- FIM FEATURE FLAG ---
-
     /**
      * @return array{cargaHorariaSemanal: int, fonte: string}|null
      */
@@ -679,7 +670,6 @@ final class TenantController extends AbstractController
             'justificativas'         => $justificativas,
             'tiposJustificativa'     => TipoJustificativa::asPlanarChoices(),
             'lancamentosHorasPagas'  => $lancamentoHorasPagasRepository->listarPorUser($user, $tenant),
-            'comSegundos'            => $this->deveMostrarSegundosBatida(),
             'colegas'                => $colegas,
             'formDadosPessoais'      => $formDadosPessoais->createView(),
         ]);
@@ -930,8 +920,7 @@ final class TenantController extends AbstractController
 
         $dataHoraAtual = $registro->getDataHora();
 
-        $comSegundos = $this->deveMostrarSegundosBatida();
-        $form = $this->createForm(RegistroPontoManualType::class, null, ['with_seconds' => $comSegundos]);
+        $form = $this->createForm(RegistroPontoManualType::class);
 
         // Pré-popular campos virtuais
         $form->get('data')->setData($dataHoraAtual instanceof \DateTimeInterface ? \DateTime::createFromInterface($dataHoraAtual) : null);
@@ -976,7 +965,6 @@ final class TenantController extends AbstractController
             'user'        => $user,
             'tenantId'    => $tenantId,
             'competencia' => $competencia,
-            'comSegundos' => $comSegundos,
         ]);
     }
 
