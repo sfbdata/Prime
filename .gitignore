@@ -151,3 +151,7 @@ docs/tela_login/*.mp4
 /PEDIDOS-PRIORITARIOS-WHATSAPP.md
 docs/pedidos-whatsapp/
 __pycache__/
+
+# Relatório de auditoria de segurança + gerador. O PDF é confidencial: descreve falhas
+# exploráveis e referencia credenciais — nunca pode entrar na história do repositório.
+docs/security-audit/
