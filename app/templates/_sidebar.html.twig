@@ -44,16 +44,6 @@
                     </a>
                 </li>
 
-{% if can_access_module('clientes') %}
-                    <li class="pje-menu-item">
-                        <a href="{{ path('cliente_index') }}"
-                           class="pje-menu-link {{ currentRoute starts with 'cliente_' ? 'active' : '' }}">
-                            <i class="bi bi-people pje-nav-icon"></i>
-                            <span>Financeiro</span>
-                        </a>
-                    </li>
-                {% endif %}
-
                 {% if can_access_module('processos') %}
                     <li class="pje-menu-item">
                         <a href="{{ path('processo_index') }}"

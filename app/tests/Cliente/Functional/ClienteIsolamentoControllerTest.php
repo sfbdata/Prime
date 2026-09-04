@@ -132,28 +132,6 @@ final class ClienteIsolamentoControllerTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(404, 'show não pode revelar cliente PJ de outro tenant');
     }
 
-    #[TestDox('A listagem (index) não mostra clientes de outro tenant')]
-    public function testIndexNaoVazaOutroTenant(): void
-    {
-        $client = static::createClient();
-        $tenantA = $this->criarTenant();
-        $tenantB = $this->criarTenant();
-        $gestorA = $this->criarGestor($tenantA, 'gestorA_' . uniqid() . '@test.com');
-        $clienteA = $this->criarClientePF($tenantA);
-        $clienteB = $this->criarClientePF($tenantB);
-        $nomeA = $clienteA->getNomeCompleto();
-        $nomeB = $clienteB->getNomeCompleto();
-        $this->limparIdentityMap();
-
-        $this->logarComTenant($client, $gestorA, $tenantA);
-        $client->request('GET', '/clientes/');
-
-        self::assertResponseIsSuccessful();
-        $body = (string) $client->getResponse()->getContent();
-        self::assertStringContainsString($nomeA, $body, 'index deveria listar o cliente do próprio tenant');
-        self::assertStringNotContainsString($nomeB, $body, 'index vazou cliente de outro tenant');
-    }
-
     // ----------------------------------------------------------------- helpers
 
     /**

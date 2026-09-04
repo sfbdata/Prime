@@ -10,8 +10,6 @@ use App\Cliente\Entity\ClientePJ;
 use App\Cliente\Form\ClientePFType;
 use App\Cliente\Form\ClientePJType;
 use App\Cliente\Repository\ClienteRepository;
-use App\Cliente\Repository\ClientePFRepository;
-use App\Cliente\Repository\ClientePJRepository;
 use App\Repository\ClienteDocumentoRepository;
 use App\Pasta\Repository\PastaRepository;
 use App\Entity\Permission\AccessRequest;
@@ -27,15 +25,13 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
- * ClienteController - Gerencia clientes (PF e PJ).
+ * ClienteController - Gerencia a ficha do cliente (PF e PJ).
+ *
+ * O cadastro de cliente novo acontece dentro da Pasta (PastaController::novoCliente).
+ * Este controller só atende a ficha (visualizar/editar/excluir) e os documentos anexados,
+ * abertas a partir de links em Pasta e Cobrança.
  *
  * Estrutura de rotas REST:
- * - GET  /clientes                                    → Lista todos os clientes
- * - GET  /clientes/novo-pf                            → Formulário de criação PF
- * - POST /clientes/novo-pf                            → Cria cliente PF
- * - GET  /clientes/novo-pj                            → Formulário de criação PJ
- * - POST /clientes/novo-pj                            → Cria cliente PJ
- * - GET  /clientes/from-pre-cadastro/{id}             → Cria cliente a partir de pré-cadastro
  * - GET  /clientes/{id}                               → Exibe detalhes do cliente
  * - GET  /clientes/{id}/editar                        → Formulário de edição
  * - POST /clientes/{id}/editar                        → Atualiza cliente
@@ -90,8 +86,6 @@ class ClienteController extends AbstractController
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly ClienteRepository $clienteRepository,
-        private readonly ClientePFRepository $clientePFRepository,
-        private readonly ClientePJRepository $clientePJRepository,
         private readonly ClienteDocumentoRepository $clienteDocumentoRepository,
         private readonly PastaRepository $pastaRepository,
         private readonly PermissionChecker $permissionChecker,
@@ -100,93 +94,6 @@ class ClienteController extends AbstractController
         private readonly CompressorArquivoInterface $compressor,
         private readonly string $clientesUploadsDir,
     ) {}
-
-    #[Route('/', name: 'cliente_index', methods: ['GET'])]
-    public function index(Request $request): Response
-    {
-        /** @var \App\Entity\Auth\User $currentUser */
-        $currentUser = $this->getUser();
-        $tenant = $this->tenantContext->getCurrentTenant();
-        if (!$this->permissionChecker->canAccessModule($currentUser, $tenant, 'clientes')) {
-            $this->addFlash('warning', 'Você não tem permissão para acessar o módulo de clientes.');
-            return $this->redirectToRoute('homepage');
-        }
-
-        $filters = [
-            'nome' => $request->query->get('nome', ''),
-            'documento' => $request->query->get('documento', ''),
-            'tipo' => $request->query->get('tipo', ''),
-            'celular' => $request->query->get('celular', ''),
-        ];
-
-        $hasFilters = array_filter($filters, fn($v) => $v !== '');
-
-        return $this->render('cliente/index.html.twig', [
-            'clientes' => $hasFilters ? $this->clienteRepository->findByFilters($filters) : $this->clienteRepository->findAll(),
-            'filters' => $filters,
-            'nomes' => $this->clienteRepository->findAllNomes(),
-            'documentos' => $this->clienteRepository->findAllDocumentos(),
-            'celulares' => $this->clienteRepository->findAllCelulares(),
-        ]);
-    }
-
-    #[Route('/novo-pf', name: 'cliente_new_pf', methods: ['GET', 'POST'])]
-    public function newPF(Request $request): Response
-    {
-        /** @var \App\Entity\Auth\User $currentUser */
-        $currentUser = $this->getUser();
-        $tenant = $this->tenantContext->getCurrentTenant();
-        if (!$this->permissionChecker->canAccessModule($currentUser, $tenant, 'clientes')) {
-            $this->addFlash('warning', 'Você não tem permissão para acessar o módulo de clientes.');
-            return $this->redirectToRoute('homepage');
-        }
-
-        $cliente = new ClientePF();
-        // tenant setado ANTES da validação: o UniqueEntity(['cpf','tenant']) escopa o cpf
-        // por escritório (e funciona mesmo com o TenantFilter desligado).
-        $cliente->setTenant($tenant);
-        $form = $this->createForm(ClientePFType::class, $cliente);
-        $form->handleRequest($request);
-
-        if ($form->isSubmitted() && $form->isValid()) {
-            $cliente->setCriadoPor($this->getUser());
-            $this->clientePFRepository->save($cliente, true);
-            return $this->redirectToRoute('cliente_index');
-        }
-
-        return $this->render('cliente/new_pf.html.twig', [
-            'form' => $form,
-        ]);
-    }
-
-    #[Route('/novo-pj', name: 'cliente_new_pj', methods: ['GET', 'POST'])]
-    public function newPJ(Request $request): Response
-    {
-        /** @var \App\Entity\Auth\User $currentUser */
-        $currentUser = $this->getUser();
-        $tenant = $this->tenantContext->getCurrentTenant();
-        if (!$this->permissionChecker->canAccessModule($currentUser, $tenant, 'clientes')) {
-            $this->addFlash('warning', 'Você não tem permissão para acessar o módulo de clientes.');
-            return $this->redirectToRoute('homepage');
-        }
-
-        $cliente = new ClientePJ();
-        // tenant setado ANTES da validação: o UniqueEntity(['cnpj','tenant']) escopa o cnpj
-        // por escritório (e funciona mesmo com o TenantFilter desligado).
-        $cliente->setTenant($tenant);
-        $form = $this->createForm(ClientePJType::class, $cliente);
-        $form->handleRequest($request);
-
-        if ($form->isSubmitted() && $form->isValid()) {
-            $cliente->setCriadoPor($this->getUser());
-            $this->clientePJRepository->save($cliente, true);
-            return $this->redirectToRoute('cliente_index');
-        }
-
-        return $this->render('cliente/new_pj.html.twig', [
-            'form' => $form,
-        ]);
-    }
 
     #[Route('/{id}', name: 'cliente_show', methods: ['GET'])]
     public function show(int $id): Response
@@ -201,7 +108,7 @@ class ClienteController extends AbstractController
         $currentUser = $this->getUser();
         $tenant = $this->tenantContext->getCurrentTenant();
 
-        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, $tenant, AccessRequest::RESOURCE_CLIENTE, $id, AccessRequest::ACTION_VIEW, 'cliente_index', $cliente->getNomeExibicao())) {
+        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, $tenant, AccessRequest::RESOURCE_CLIENTE, $id, AccessRequest::ACTION_VIEW, 'homepage', $cliente->getNomeExibicao())) {
             return $redirect;
         }
 
@@ -226,7 +133,7 @@ class ClienteController extends AbstractController
         $currentUser = $this->getUser();
         $tenant = $this->tenantContext->getCurrentTenant();
 
-        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, $tenant, AccessRequest::RESOURCE_CLIENTE, $id, AccessRequest::ACTION_EDIT, 'cliente_index', $cliente->getNomeExibicao())) {
+        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, $tenant, AccessRequest::RESOURCE_CLIENTE, $id, AccessRequest::ACTION_EDIT, 'homepage', $cliente->getNomeExibicao())) {
             return $redirect;
         }
 
@@ -269,7 +176,7 @@ class ClienteController extends AbstractController
             throw $this->createNotFoundException('Cliente não encontrado');
         }
 
-        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, $tenant, AccessRequest::RESOURCE_CLIENTE, $id, AccessRequest::ACTION_DELETE, 'cliente_index', $cliente->getNomeExibicao())) {
+        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, $tenant, AccessRequest::RESOURCE_CLIENTE, $id, AccessRequest::ACTION_DELETE, 'homepage', $cliente->getNomeExibicao())) {
             return $redirect;
         }
 
@@ -286,7 +193,7 @@ class ClienteController extends AbstractController
             }
         }
 
-        return $this->redirectToRoute('cliente_index');
+        return $this->redirectToRoute('homepage');
     }
 
     // -------------------------------------------------------------------------

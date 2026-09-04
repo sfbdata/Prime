@@ -15,7 +15,7 @@
             <div class="col-sm-6">
                 <ol class="breadcrumb float-sm-end">
                     <li class="breadcrumb-item"><a href="{{ path('homepage') }}">Home</a></li>
-                    <li class="breadcrumb-item"><a href="{{ path('cliente_index') }}">Clientes</a></li>
+                    <li class="breadcrumb-item">Clientes</li>
                     <li class="breadcrumb-item active">Detalhes</li>
                 </ol>
             </div>
@@ -388,10 +388,7 @@
                 </div>
             </div>
             <div class="card-footer">
-                <div class="d-flex justify-content-between">
-                    <a href="{{ path('cliente_index') }}" class="btn btn-secondary">
-                        <i class="bi bi-arrow-left me-1"></i> Voltar aos Clientes
-                    </a>
+                <div class="d-flex justify-content-end">
                     <div class="d-flex gap-2">
                         <a href="{{ path('cliente_edit', {id: cliente.id}) }}"
                            class="btn btn-outline-primary btn-sm"
