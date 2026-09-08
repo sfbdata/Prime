@@ -1,0 +1,70 @@
+# vhost do BlueJus Sign COM HTTPS — ainda NÃO ativo.
+#
+# ── POR QUE ESTÁ PENDENTE ─────────────────────────────────────────────────────
+# sign.bluejus.com.br NÃO EXISTE NO DNS (08/09/2026). Não resolve nem de fora nem
+# da própria VPS, enquanto bluejus.com.br, connect. e reuniao. resolvem para
+# 72.60.146.89. Sem DNS, o desafio HTTP-01 do Let's Encrypt não tem como chegar
+# aqui e a emissão falha — gastando tentativa no limite da conta.
+#
+# ── NÃO RENOMEIE ESTE ARQUIVO PARA .conf ANTES DO CERTIFICADO EXISTIR ─────────
+# O nginx carrega /etc/nginx/conf.d/*.conf. Um bloco `listen 443 ssl` apontando
+# para certificado inexistente faz o nginx FALHAR AO CARREGAR — e este nginx é
+# compartilhado: derrubaria bluejus.com.br, connect, reuniao e grupojusprime
+# junto. Por isso o arquivo fica com sufixo .https-pendente.
+#
+# ── ORDEM CORRETA ─────────────────────────────────────────────────────────────
+#   1. criar o registro A  sign.bluejus.com.br -> 72.60.146.89  (Hostinger)
+#   2. conferir:  getent hosts sign.bluejus.com.br
+#   3. emitir:    certbot certonly --webroot -w /opt/jusprime/certbot/www \
+#                   -d sign.bluejus.com.br --key-type ecdsa
+#   4. só então:  mv bluejus-sign.conf.https-pendente bluejus-sign.conf
+#   5. testar:    docker exec jusprime_nginx_prod nginx -t
+#   6. recarregar: docker exec jusprime_nginx_prod nginx -s reload
+#
+# O cron das 3h (`certbot renew`) passa a renovar este cert junto com os demais,
+# sem configuração adicional.
+
+server {
+    listen 80;
+    server_name sign.bluejus.com.br;
+    server_tokens off;
+
+    # Precisa vir ANTES do redirect: com `return 301` no nível do server, o
+    # desafio do Let's Encrypt tomaria 301 e a validação falharia.
+    location ^~ /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    server_name sign.bluejus.com.br;
+    server_tokens off;
+    client_max_body_size 70m;
+
+    ssl_certificate     /etc/letsencrypt/live/sign.bluejus.com.br/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/sign.bluejus.com.br/privkey.pem;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_ciphers         HIGH:!aNULL:!MD5;
+    ssl_session_cache   shared:SSL:10m;
+    ssl_session_timeout 10m;
+
+    add_header X-Frame-Options "DENY" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+    location / {
+        resolver 127.0.0.11 valid=10s;
+        set $bluejus_sign_upstream http://bluejus_sign_app:3000;
+        proxy_pass $bluejus_sign_upstream;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 120s;
+    }
+}
