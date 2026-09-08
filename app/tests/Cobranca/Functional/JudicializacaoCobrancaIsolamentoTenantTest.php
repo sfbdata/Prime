@@ -120,13 +120,14 @@ final class JudicializacaoCobrancaIsolamentoTenantTest extends KernelTestCase
         // EntityRepository genérico. O repositório vem do container, que é onde ele é serviço.
         /** @var \App\Cliente\Repository\ClientePFRepository $clientePFRepo */
         $clientePFRepo = $c->get(\App\Cliente\Repository\ClientePFRepository::class);
+        $comporNome = new \App\Cobranca\Service\ComporNomeDaPastaJudicial();
         $this->judicializar = new JudicializarCasoUseCase(
             $casoRepo,
             $pastaRepo,
             $registrarEvento,
             new \App\Pasta\UseCase\CriarPastaUseCase($this->em, $c->get(\App\Pasta\UseCase\GerarNumeroDePasta::class)),
-            new \App\Cobranca\Service\ResolvedorClienteDoResponsavel($clientePFRepo),
-            new \App\Cobranca\Service\ComporNomeDaPastaJudicial(),
+            $comporNome,
+            new \App\Cobranca\Service\NormalizadorDePastaJudicial($comporNome, new \App\Cobranca\Service\ResolvedorClienteDoResponsavel($clientePFRepo)),
         );
         $this->encerrar = new EncerrarCasoUseCase($casoRepo, $calculadoraSaldo, $registrarEvento);
         $this->definirProximaAcao = new DefinirProximaAcaoUseCase($casoRepo, $proximaAcaoRepo);

@@ -105,6 +105,37 @@ final class JudicializarMutacaoControllerTest extends CobrancaWebTestCase
         self::assertSame((int) $pastaOriginal->getId(), (int) $em->find(CasoCobranca::class, $casoId)->getPastaJudicial()->getId(), 'não revincula pasta num caso já judicializado');
     }
 
+    #[TestDox('Vincular pasta já usada por OUTRO caso: erro de domínio, não judicializa (Problema B)')]
+    public function testJudicializarPastaJaVinculadaAOutroCaso(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        $pastaCompartilhada = PastaFactory::createOne(['tenant' => $tenant])->_real();
+        // Outro caso do MESMO escritório já usa essa pasta — é exatamente o retrato dos 2 casos reais
+        // medidos em produção (mesma pessoa em unidades diferentes, ou pessoas diferentes).
+        [, $casoDono] = $this->semearGrafo($tenant, ['status' => StatusCaso::Judicializado, 'pastaJudicial' => $pastaCompartilhada]);
+        [, $caso] = $this->semearGrafo($tenant);
+        $casoId = (int) $caso->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        $token = $this->tokenDoFormulario($crawler, 'judicializar_caso');
+
+        $client->request('POST', '/cobrancas/casos/' . $casoId . '/judicializar', [
+            'judicializar_caso' => ['modo' => 'vincular', 'pastaId' => (string) $pastaCompartilhada->getId(), '_token' => $token],
+        ]);
+
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        self::assertSame(StatusCaso::Ativo, $em->find(CasoCobranca::class, $casoId)->getStatus(), 'pasta já vinculada a outro caso não pode judicializar este');
+        self::assertSame(
+            (int) $pastaCompartilhada->getId(),
+            (int) $em->find(CasoCobranca::class, (int) $casoDono->getId())->getPastaJudicial()->getId(),
+            'o caso dono original da pasta continua com ela',
+        );
+    }
+
     #[TestDox('Judicializar sem o módulo pastas (mesmo com gerenciar): negado no servidor')]
     public function testJudicializarSemModuloPastas(): void
     {

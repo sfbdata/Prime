@@ -30,6 +30,10 @@ final class TipoEventoHistoricoTrabalhoTest extends TestCase
         // 2026-07-27: carimbo de qualificação do devedor (recusa / telefone inexistente / promessa).
         // Sai de uma ligação, não de importação — por isso conta como trabalho de cobrança.
         'qualificacao_contato',
+        // 2026-09-08: cancelar a judicialização é decisão manual do gestor (desvincula a pasta, volta
+        // o status), mesma família de `judicializacao`/`vinculo_pasta`/`encerramento` — não é
+        // lançamento de cadastro/importação.
+        'judicializacao_cancelada',
     ];
 
     /** Lista literal da spec §5.1. */

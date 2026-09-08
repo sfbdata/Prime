@@ -218,9 +218,15 @@ class PastaRepository extends ServiceEntityRepository
      * Expediente. Pasta EXCLUÍDA (lápide) fica de fora: vincular um caso a uma pasta que o escritório
      * já descartou é sempre engano.
      *
+     * `$idsExcluidos` é genérico de propósito (a Pasta não conhece `CasoCobranca` — ligação
+     * unidirecional, ver `CasoCobranca::$pastaJudicial`): quem decide QUAIS ids excluir é o chamador
+     * (hoje, o controller de Cobrança, tirando pastas já judicializadas por outro caso — Problema B).
+     *
+     * @param list<int> $idsExcluidos
+     *
      * @return list<array{id: int, texto: string}>
      */
-    public function buscarParaVinculo(string $termo, Tenant $tenant, int $limite = 20): array
+    public function buscarParaVinculo(string $termo, Tenant $tenant, int $limite = 20, array $idsExcluidos = []): array
     {
         $qb = $this->createQueryBuilder('p')
             ->select('p.id AS id', 'p.nup AS nup', 'p.nomeCliente AS nomeCliente', 'p.nomeAcao AS nomeAcao')
@@ -229,6 +235,10 @@ class PastaRepository extends ServiceEntityRepository
             ->setParameter('tenant', $tenant)
             ->orderBy('p.id', 'DESC')
             ->setMaxResults($limite);
+
+        if ($idsExcluidos !== []) {
+            $qb->andWhere('p.id NOT IN (:idsExcluidos)')->setParameter('idsExcluidos', $idsExcluidos);
+        }
 
         $termo = trim($termo);
 

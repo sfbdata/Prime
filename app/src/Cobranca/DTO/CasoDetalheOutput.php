@@ -52,6 +52,10 @@ final class CasoDetalheOutput
         public readonly string $statusLabel,
         public readonly string $statusBadgeClass,
         public readonly bool $encerrado,
+        /** Gate do botão "Judicializar"/"Cancelar judicialização" no cabeçalho — é o STATUS do caso,
+         *  não a presença de `pastaJudicialId` (que pode ser null com o caso ainda `Judicializado`,
+         *  se a pasta vinculada foi excluída — ver `CancelarJudicializacaoUseCase`). */
+        public readonly bool $judicializado,
         public readonly bool $prontoParaEncerrar,
         /**
          * Saldo exigível do caso (líquido de pagamentos e liquidações). NÃO é mais exibido no

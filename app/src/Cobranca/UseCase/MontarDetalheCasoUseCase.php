@@ -316,6 +316,7 @@ final class MontarDetalheCasoUseCase
             statusLabel: $status->label(),
             statusBadgeClass: $status->badgeClass(),
             encerrado: $status === StatusCaso::Encerrado,
+            judicializado: $status === StatusCaso::Judicializado,
             prontoParaEncerrar: $status !== StatusCaso::Encerrado && $saldoExigivel === 0,
             saldoExigivel: $saldoExigivel,
             formaHonorariosLabel: $formaHonorarios->label(),

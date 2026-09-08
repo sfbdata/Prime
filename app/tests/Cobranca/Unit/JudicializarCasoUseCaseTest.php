@@ -11,12 +11,14 @@ use App\Cobranca\Enum\StatusCaso;
 use App\Cobranca\Exception\CasoEncerradoException;
 use App\Cobranca\Exception\CasoJaJudicializadoException;
 use App\Cobranca\Exception\CasoNaoEncontradoException;
+use App\Cobranca\Exception\PastaJaVinculadaAOutroCasoException;
 use App\Cobranca\Exception\PastaNaoEncontradaException;
 use App\Cobranca\Repository\CasoCobrancaRepository;
 use App\Cobranca\Repository\EventoHistoricoRepository;
 use App\Cliente\Repository\ClientePFRepository;
 use App\Cobranca\Service\RegistrarEventoHistorico;
 use App\Cobranca\Service\ComporNomeDaPastaJudicial;
+use App\Cobranca\Service\NormalizadorDePastaJudicial;
 use App\Cobranca\Service\ResolvedorClienteDoResponsavel;
 use App\Cobranca\UseCase\JudicializarCasoUseCase;
 use App\Entity\Auth\User;
@@ -54,13 +56,17 @@ final class JudicializarCasoUseCaseTest extends TestCase
         // dependências mockadas. Nos casos deste arquivo (modo `vincular` e as três guardas) eles não
         // devem ser chamados — e é justamente isso que `wrapInTransaction` never prova.
         $this->em = $this->createMock(EntityManagerInterface::class);
+        $comporNome = new ComporNomeDaPastaJudicial();
         $this->sut = new JudicializarCasoUseCase(
             $this->casoRepository,
             $this->pastaRepository,
             $registrarEvento,
             new CriarPastaUseCase($this->em, new GerarNumeroDePasta($this->createMock(NumeracaoDePastaInterface::class))),
-            new ResolvedorClienteDoResponsavel($this->createMock(ClientePFRepository::class)),
-            new ComporNomeDaPastaJudicial(),
+            $comporNome,
+            new NormalizadorDePastaJudicial(
+                $comporNome,
+                new ResolvedorClienteDoResponsavel($this->createMock(ClientePFRepository::class)),
+            ),
         );
         $this->tenant = new Tenant();
         $this->usuario = new User();
@@ -253,5 +259,34 @@ final class JudicializarCasoUseCaseTest extends TestCase
         $this->sut->executar($input, $this->tenant, $this->usuario);
 
         self::assertSame(['Caso judicializado.', 'Vínculo com a pasta 1232.'], $mensagens);
+    }
+
+    #[Test]
+    public function rejeitaPastaJaVinculadaAOutroCaso(): void
+    {
+        // Problema B (medido em produção): a mesma pasta acabando ligada a duas unidades/pessoas.
+        // outroCasoComPastaJudicial() achando outro caso é o sinal de que vincular aqui duplicaria.
+        $caso = (new CasoCobranca())->setTenant($this->tenant);
+        $pasta = (new Pasta())->setTenant($this->tenant);
+        $outroCaso = (new CasoCobranca())->setTenant($this->tenant);
+
+        $this->casoRepository->method('findOneByIdDoTenant')->willReturn($caso);
+        $this->pastaRepository->method('findOneBy')->willReturn($pasta);
+        $this->casoRepository
+            ->expects($this->once())
+            ->method('outroCasoComPastaJudicial')
+            ->with($pasta, $this->tenant)
+            ->willReturn($outroCaso);
+        $this->casoRepository->expects($this->never())->method('salvar');
+        $this->eventoRepository->expects($this->never())->method('salvar');
+
+        $this->expectException(PastaJaVinculadaAOutroCasoException::class);
+
+        $input = new JudicializarCasoInput();
+        $input->casoId = 50;
+        $input->modo = JudicializarCasoInput::MODO_VINCULAR;
+        $input->pastaId = 70;
+
+        $this->sut->executar($input, $this->tenant, $this->usuario);
     }
 }

@@ -54,6 +54,7 @@ enum TipoEventoHistorico: string
     case RevisaoVinculo = 'revisao_vinculo';
     case Judicializacao = 'judicializacao';
     case VinculoPasta = 'vinculo_pasta';
+    case JudicializacaoCancelada = 'judicializacao_cancelada';
     case Encerramento = 'encerramento';
 
     public function label(): string
@@ -81,6 +82,7 @@ enum TipoEventoHistorico: string
             self::RevisaoVinculo => 'Revisão de vínculo',
             self::Judicializacao => 'Judicialização',
             self::VinculoPasta => 'Vínculo com pasta',
+            self::JudicializacaoCancelada => 'Judicialização cancelada',
             self::Encerramento => 'Encerramento',
             self::Anotacao => 'Anotação',
             self::QualificacaoContato => 'Qualificação de contato',
@@ -121,6 +123,7 @@ enum TipoEventoHistorico: string
             self::PessoaCobradaAlterada,
             self::Judicializacao,
             self::VinculoPasta,
+            self::JudicializacaoCancelada,
             self::Encerramento,
             self::Anotacao,
             // Qualificar o devedor é trabalho de cobrança: sai de uma ligação ou de uma tentativa de
@@ -187,6 +190,7 @@ enum TipoEventoHistorico: string
             self::RevisaoVinculo,
             self::Judicializacao,
             self::VinculoPasta,
+            self::JudicializacaoCancelada,
             self::Encerramento => 'cadastro',
         };
     }

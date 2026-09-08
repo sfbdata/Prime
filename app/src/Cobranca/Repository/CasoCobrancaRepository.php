@@ -294,6 +294,11 @@ class CasoCobrancaRepository extends ServiceEntityRepository
             ->andWhere('c.tenant = :tenant')
             ->setParameter('pasta', $pasta)
             ->setParameter('tenant', $tenant)
+            // Determinístico mesmo que a pasta esteja (por engano) ligada a mais de um caso — o de
+            // menor id é o mesmo critério que a correção de duplicidade usa para eleger o "vencedor"
+            // (Problema B). Depois da migration + correção de dados isso deixa de ser ambíguo, mas o
+            // orderBy fica como defesa em profundidade.
+            ->orderBy('c.id', 'ASC')
             ->setMaxResults(1)
             ->getQuery()
             ->getArrayResult();
@@ -307,6 +312,88 @@ class CasoCobrancaRepository extends ServiceEntityRepository
             'identificacao' => (string) $linhas[0]['identificacao'],
             'credor' => $linhas[0]['credor'] !== null ? (string) $linhas[0]['credor'] : null,
         ];
+    }
+
+    /**
+     * O OUTRO Caso (se houver) já vinculado a ESTA pasta — guarda contra duplicidade (Problema B:
+     * mesma pasta acabando ligada a duas unidades/pessoas). Chamada pela judicialização ANTES de
+     * vincular, nunca depois.
+     */
+    public function outroCasoComPastaJudicial(Pasta $pasta, Tenant $tenant): ?CasoCobranca
+    {
+        return $this->createQueryBuilder('c')
+            ->andWhere('c.pastaJudicial = :pasta')
+            ->andWhere('c.tenant = :tenant')
+            ->setParameter('pasta', $pasta)
+            ->setParameter('tenant', $tenant)
+            ->orderBy('c.id', 'ASC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    /**
+     * IDs de todas as pastas já judicializadas (vinculadas a algum Caso) do tenant — usado para tirar
+     * essas pastas da busca de "vincular uma pasta existente" (Problema B): oferecer na lista uma
+     * pasta que o backend vai recusar no submit é pior UX do que não oferecer.
+     *
+     * @return list<int>
+     */
+    public function pastaIdsJudicializadosDoTenant(Tenant $tenant): array
+    {
+        $linhas = $this->createQueryBuilder('c')
+            ->select('IDENTITY(c.pastaJudicial) AS pastaId')
+            ->andWhere('c.tenant = :tenant')
+            ->andWhere('c.pastaJudicial IS NOT NULL')
+            ->setParameter('tenant', $tenant)
+            ->getQuery()
+            ->getSingleColumnResult();
+
+        return array_map('intval', $linhas);
+    }
+
+    /**
+     * Grupos de `CasoCobranca` que hoje compartilham a MESMA pasta judicial (Problema B) — insumo da
+     * correção de dados (`CorrigirPastaJudicialDuplicadaUseCase`). Cada grupo tem 2+ casos; o UseCase
+     * decide qual fica (o de vínculo mais antigo) e cria pasta nova para os demais.
+     *
+     * @return list<list<CasoCobranca>> um array por pasta duplicada, cada um com os casos que a
+     *                                  compartilham (ordenados por id, não por antiguidade do vínculo —
+     *                                  quem decide a ordem "quem ficou primeiro" é o UseCase, lendo o
+     *                                  histórico de eventos)
+     */
+    public function pastasJudiciaisDuplicadas(Tenant $tenant): array
+    {
+        $pastaIds = $this->createQueryBuilder('c')
+            ->select('IDENTITY(c.pastaJudicial) AS pastaId')
+            ->andWhere('c.tenant = :tenant')
+            ->andWhere('c.pastaJudicial IS NOT NULL')
+            ->setParameter('tenant', $tenant)
+            ->groupBy('c.pastaJudicial')
+            ->having('COUNT(c.id) > 1')
+            ->getQuery()
+            ->getSingleColumnResult();
+
+        if ($pastaIds === []) {
+            return [];
+        }
+
+        $casos = $this->createQueryBuilder('c')
+            ->andWhere('c.tenant = :tenant')
+            ->andWhere('IDENTITY(c.pastaJudicial) IN (:pastaIds)')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('pastaIds', array_map('intval', $pastaIds))
+            ->orderBy('c.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+
+        $grupos = [];
+        foreach ($casos as $caso) {
+            $pastaId = (int) $caso->getPastaJudicial()?->getId();
+            $grupos[$pastaId][] = $caso;
+        }
+
+        return array_values($grupos);
     }
 
     public function daCarteira(Carteira $carteira): array

@@ -111,13 +111,14 @@ final class DocumentosCobrancaIsolamentoTenantTest extends KernelTestCase
         // `ClientePF` não declara repositoryClass, então `getRepository()` daria o genérico.
         /** @var \App\Cliente\Repository\ClientePFRepository $clientePFRepo */
         $clientePFRepo = $c->get(\App\Cliente\Repository\ClientePFRepository::class);
+        $comporNome = new \App\Cobranca\Service\ComporNomeDaPastaJudicial();
         $this->judicializar = new JudicializarCasoUseCase(
             $casoRepo,
             $pastaRepo,
             $registrarEvento,
             new \App\Pasta\UseCase\CriarPastaUseCase($this->em, $c->get(\App\Pasta\UseCase\GerarNumeroDePasta::class)),
-            new \App\Cobranca\Service\ResolvedorClienteDoResponsavel($clientePFRepo),
-            new \App\Cobranca\Service\ComporNomeDaPastaJudicial(),
+            $comporNome,
+            new \App\Cobranca\Service\NormalizadorDePastaJudicial($comporNome, new \App\Cobranca\Service\ResolvedorClienteDoResponsavel($clientePFRepo)),
         );
         $this->enviarDocumento = new EnviarDocumentoUseCase($docRepo, $this->storage, $compressor, $this->cobrancasUploadsDir);
         $this->moverDocumento = new MoverDocumentoUseCase($docRepo);

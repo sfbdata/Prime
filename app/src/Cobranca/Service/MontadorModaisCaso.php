@@ -12,6 +12,7 @@ use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Form\AcordoCriarType;
 use App\Cobranca\Form\AlterarPessoaCobradaType;
 use App\Cobranca\Form\CancelarAcordoType;
+use App\Cobranca\Form\CancelarJudicializacaoType;
 use App\Cobranca\Form\ConcluirAcaoType;
 use App\Cobranca\Form\CorrigirPagamentoType;
 use App\Cobranca\Form\DefinirProximaAcaoType;
@@ -144,6 +145,15 @@ final class MontadorModaisCaso
             $views['judicializar'] = $this->reidratarSeErro(
                 $this->formFactory->create(JudicializarCasoType::class, $judicializar),
                 'judicializar',
+                $erroModal,
+            );
+
+            // Par inverso de `judicializar` (decisão do dono, 08/09): disponível sempre que o caso já
+            // estiver judicializado, para desfazer tanto um vínculo enganado quanto uma pasta excluída
+            // que travava a re-judicialização. Mesmo gate `$incluirJudicializar` (módulo `pastas`).
+            $views['cancelarJudicializacao'] = $this->reidratarSeErro(
+                $this->formFactory->create(CancelarJudicializacaoType::class),
+                'cancelarJudicializacao',
                 $erroModal,
             );
         }

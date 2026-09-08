@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Cobranca\Controller;
 
 use App\Cobranca\DTO\AlterarPessoaCobradaInput;
+use App\Cobranca\DTO\CancelarJudicializacaoInput;
 use App\Cobranca\DTO\EditarConfiguracaoCasoInput;
 use App\Cobranca\DTO\EncerrarCasoInput;
 use App\Cobranca\DTO\JudicializarCasoInput;
@@ -17,10 +18,13 @@ use App\Cobranca\Exception\CasoEncerradoException;
 use App\Cobranca\Exception\EventoNaoEncontradoException;
 use App\Cobranca\Exception\CasoJaJudicializadoException;
 use App\Cobranca\Exception\CasoNaoEncontradoException;
+use App\Cobranca\Exception\CasoNaoJudicializadoException;
+use App\Cobranca\Exception\PastaJaVinculadaAOutroCasoException;
 use App\Cobranca\Exception\PastaNaoEncontradaException;
 use App\Cobranca\Exception\PessoaNaoEncontradaException;
 use App\Cobranca\Exception\SaldoNaoResolvidoException;
 use App\Cobranca\Form\AlterarPessoaCobradaType;
+use App\Cobranca\Form\CancelarJudicializacaoType;
 use App\Cobranca\Form\EditarConfiguracaoCasoType;
 use App\Cobranca\Form\EncerrarCasoType;
 use App\Cobranca\Form\JudicializarCasoType;
@@ -32,6 +36,7 @@ use App\Cobranca\Repository\CasoCobrancaRepository;
 use App\Cobranca\Repository\EventoHistoricoRepository;
 use App\Cobranca\Repository\PessoaRepository;
 use App\Cobranca\UseCase\AlterarPessoaCobradaUseCase;
+use App\Cobranca\UseCase\CancelarJudicializacaoUseCase;
 use App\Cobranca\UseCase\EditarConfiguracaoCasoUseCase;
 use App\Cobranca\UseCase\EncerrarCasoUseCase;
 use App\Cobranca\UseCase\JudicializarCasoUseCase;
@@ -75,6 +80,7 @@ final class CasoController extends AbstractController
         private readonly EncerrarCasoUseCase $encerrarCaso,
         private readonly RegistrarTentativaCobrancaUseCase $registrarTentativa,
         private readonly JudicializarCasoUseCase $judicializarCaso,
+        private readonly CancelarJudicializacaoUseCase $cancelarJudicializacao,
         private readonly PastaRepository $pastaRepository,
         private readonly AlterarPessoaCobradaUseCase $alterarPessoaCobrada,
         private readonly PessoaRepository $pessoaRepository,
@@ -233,10 +239,15 @@ final class CasoController extends AbstractController
             return $this->json(['results' => []], JsonResponse::HTTP_FORBIDDEN);
         }
 
+        // Pastas já judicializadas por OUTRO caso não entram na lista (Problema B, medido em produção:
+        // mesma pasta acabando ligada a duas unidades/pessoas) — o backend recusaria no submit, e
+        // oferecer aqui só para falhar depois é pior UX do que não oferecer.
+        $idsJaVinculados = $this->casoRepository->pastaIdsJudicializadosDoTenant($tenant);
+
         return $this->json([
             'results' => array_map(
                 static fn (array $linha): array => ['id' => $linha['id'], 'text' => $linha['texto']],
-                $this->pastaRepository->buscarParaVinculo((string) $request->query->get('q', ''), $tenant),
+                $this->pastaRepository->buscarParaVinculo((string) $request->query->get('q', ''), $tenant, 20, $idsJaVinculados),
             ),
         ]);
     }
@@ -315,12 +326,56 @@ final class CasoController extends AbstractController
                     }
                     $this->addFlash('success', 'Caso judicializado.');
                 }
-            } catch (CasoNaoEncontradoException | CasoEncerradoException | CasoJaJudicializadoException | PastaNaoEncontradaException $e) {
+            } catch (CasoNaoEncontradoException | CasoEncerradoException | CasoJaJudicializadoException | PastaNaoEncontradaException | PastaJaVinculadaAOutroCasoException $e) {
                 $this->addFlash('danger', $e->getMessage());
             }
         } else {
             // B5: erro de campo reabre o modal com o digitado; CSRF (erro de raiz) segue com flash.
             $this->tratarFormInvalido($request, $form, $this->objetoIdDoCaso($caso), 'judicializar', 'modalJudicializar', 'judicializar_caso');
+        }
+
+        return $this->redirectToRoute('cobranca_objeto_show', ['id' => $this->objetoIdDoCaso($caso)]);
+    }
+
+    /**
+     * Cancela a judicialização de um caso: desvincula a pasta e volta o status para `Ativo`. Par
+     * inverso de `judicializar()` — mesmo gate (capacidade + módulo `pastas`), mesma resolução
+     * tenant-safe. Não checa o estado da pasta vinculada de propósito (ver
+     * `CancelarJudicializacaoUseCase`) — é justamente o caminho de volta para quando ela foi excluída.
+     */
+    #[Route('/{id}/cancelar-judicializacao', name: 'cobranca_caso_cancelar_judicializacao', methods: ['POST'], requirements: ['id' => '\d+'])]
+    public function cancelarJudicializacao(int $id, Request $request): Response
+    {
+        $tenant = $this->tenantComCapacidade('resources.cobranca.gerenciar');
+        if ($tenant === null) {
+            return $this->semAcesso();
+        }
+        // Mesmo gate adicional do módulo `pastas` que `judicializar()` usa — quem pode ligar a pasta é
+        // quem pode desligar.
+        if (!$this->permissionChecker->canAccessModule($this->usuarioLogado(), $tenant, self::MODULO_PASTAS)) {
+            return $this->semAcesso();
+        }
+
+        $caso = $this->casoRepository->findOneByIdDoTenant($id, $tenant);
+        if ($caso === null) {
+            throw $this->createNotFoundException('Caso de cobrança não encontrado.');
+        }
+
+        $input = new CancelarJudicializacaoInput();
+        $input->casoId = $id;
+        $form = $this->createForm(CancelarJudicializacaoType::class, $input);
+        $form->handleRequest($request);
+
+        if ($form->isSubmitted() && $form->isValid()) {
+            try {
+                $this->cancelarJudicializacao->executar($input, $tenant, $this->usuarioLogado());
+                $this->addFlash('success', 'Judicialização cancelada. O caso voltou a ser extrajudicial.');
+            } catch (CasoNaoEncontradoException | CasoNaoJudicializadoException $e) {
+                $this->addFlash('danger', $e->getMessage());
+            }
+        } else {
+            // B5: erro de campo reabre o modal com o digitado; CSRF (erro de raiz) segue com flash.
+            $this->tratarFormInvalido($request, $form, $this->objetoIdDoCaso($caso), 'cancelarJudicializacao', 'modalCancelarJudicializacao', 'cancelar_judicializacao');
         }
 
         return $this->redirectToRoute('cobranca_objeto_show', ['id' => $this->objetoIdDoCaso($caso)]);

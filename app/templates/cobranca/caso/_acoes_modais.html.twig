@@ -332,6 +332,33 @@
 </div>
 {% endif %}
 
+{% if forms.cancelarJudicializacao is defined %}
+{# ── Cancelar judicialização (par inverso do Judicializar) ───────── #}
+<div class="modal fade" id="modalCancelarJudicializacao" tabindex="-1" aria-labelledby="tituloCancelarJudicializacao" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            {{ form_start(forms.cancelarJudicializacao, {action: path('cobranca_caso_cancelar_judicializacao', {id: caso.id})}) }}
+            <div class="modal-header">
+                <h5 class="modal-title" id="tituloCancelarJudicializacao"><i class="bi bi-x-octagon me-1"></i>Cancelar judicialização</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning small d-flex align-items-start gap-2 mb-3">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                    <div>Desvincula a pasta judicial do caso e volta o status para <strong>ativo</strong>. A pasta em si <strong>não é apagada</strong> — só o vínculo com este caso.</div>
+                </div>
+                {{ form_row(forms.cancelarJudicializacao.motivo) }}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-danger"><i class="bi bi-x-octagon me-1"></i>Cancelar judicialização</button>
+            </div>
+            {{ form_end(forms.cancelarJudicializacao) }}
+        </div>
+    </div>
+</div>
+{% endif %}
+
 {# ── Registrar contato de cobrança ───────────────────────────────── #}
 <div class="modal fade" id="modalRegistrarTentativa" tabindex="-1" aria-labelledby="tituloRegistrarTentativa" aria-hidden="true">
     <div class="modal-dialog">

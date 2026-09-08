@@ -146,10 +146,19 @@
                     </div>
                     {% if podeGerenciar %}
                     <div class="cob-acoes-linha">
-                        {% if can_access_module('pastas') and not caso.pastaJudicialId %}
-                        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalJudicializar">
-                            <i class="bi bi-bank me-1"></i>Judicializar
-                        </button>
+                        {% if can_access_module('pastas') %}
+                            {% if not caso.judicializado %}
+                            <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalJudicializar">
+                                <i class="bi bi-bank me-1"></i>Judicializar
+                            </button>
+                            {% else %}
+                            {# Gate é o STATUS (`caso.judicializado`), não `pastaJudicialId`: a pasta pode
+                               ter sido excluída (FK zera) e o caso continuar judicializado — mostrar
+                               "Judicializar" de novo bateria em CasoJaJudicializadoException. #}
+                            <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalCancelarJudicializacao">
+                                <i class="bi bi-x-octagon me-1"></i>Cancelar judicialização
+                            </button>
+                            {% endif %}
                         {% endif %}
                         {% if formConfigEncargos %}
                         {# `Encargos` é abreviação de "Editar configuração de encargos" — o rótulo curto é

@@ -11,11 +11,12 @@ use App\Cobranca\Enum\TipoEventoHistorico;
 use App\Cobranca\Exception\CasoEncerradoException;
 use App\Cobranca\Exception\CasoJaJudicializadoException;
 use App\Cobranca\Exception\CasoNaoEncontradoException;
+use App\Cobranca\Exception\PastaJaVinculadaAOutroCasoException;
 use App\Cobranca\Exception\PastaNaoEncontradaException;
 use App\Cobranca\Repository\CasoCobrancaRepository;
 use App\Cobranca\Service\ComporNomeDaPastaJudicial;
+use App\Cobranca\Service\NormalizadorDePastaJudicial;
 use App\Cobranca\Service\RegistrarEventoHistorico;
-use App\Cobranca\Service\ResolvedorClienteDoResponsavel;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\DTO\CriarPastaDTO;
@@ -56,8 +57,8 @@ final class JudicializarCasoUseCase
         private readonly PastaRepository $pastaRepository,
         private readonly RegistrarEventoHistorico $registrarEvento,
         private readonly CriarPastaUseCase $criarPasta,
-        private readonly ResolvedorClienteDoResponsavel $resolvedorCliente,
         private readonly ComporNomeDaPastaJudicial $comporNome,
+        private readonly NormalizadorDePastaJudicial $normalizador,
     ) {
     }
 
@@ -89,7 +90,7 @@ final class JudicializarCasoUseCase
         // As três ações valem nos DOIS caminhos (decisão do dono, 02/09). Vincular deixava a pasta
         // exatamente como o usuário a tinha digitado — sem cliente e com o nome de quem ele quis —,
         // e 26 das 30 pastas judicializadas vieram por aí: era o caminho comum, não o secundário.
-        $this->normalizarPastaJudicial($pasta, $caso, $tenant, $usuario);
+        $this->normalizador->normalizar($pasta, $caso, $tenant, $usuario);
 
         $caso->setPastaJudicial($pasta);
         $caso->setStatus(StatusCaso::Judicializado);
@@ -142,41 +143,13 @@ final class JudicializarCasoUseCase
     }
 
     /**
-     * As três ações que deixam a pasta no padrão da cobrança, iguais nos dois caminhos:
-     * nome `CREDOR - DEVEDOR`, ação `AÇÃO MONITÓRIA` e o responsável como cliente principal.
-     *
-     * ⚠️ Sobrescreve o que houver — inclusive uma ação diferente e um nome digitado à mão. É o
-     * pedido do dono: a pasta judicializada se identifica pelo caso, não pelo que alguém digitou.
-     */
-    private function normalizarPastaJudicial(Pasta $pasta, CasoCobranca $caso, Tenant $tenant, User $usuario): void
-    {
-        $nome = $this->comporNome->paraCaso($caso);
-
-        // Só sobrescreve quando há o que compor. Sem pessoa cobrada, manter o nome que estava é
-        // melhor que apagá-lo — apagar em silêncio foi o defeito que custou 3 pastas até 01/09.
-        if ($nome !== null) {
-            $pasta->setNomeCliente($nome);
-        }
-
-        $pasta->setNomeAcao(JudicializarCasoInput::ACAO_PADRAO);
-
-        // Sem CPF na ficha do responsável não há identidade a cadastrar, e a pasta segue sem cliente
-        // — o dado que falta é da ficha, não desta operação (spec §3.1). Nunca inventa.
-        $cliente = $this->resolvedorCliente->resolver($caso->getPessoaCobradaAtual(), $tenant, $usuario);
-
-        if ($cliente === null) {
-            return;
-        }
-
-        $pasta->addCliente($cliente);
-        // `addCliente` só marca o principal no PRIMEIRO vínculo. A pasta VINCULADA pode já ter
-        // outros clientes, e o responsável do caso tem de ser o principal de qualquer maneira.
-        $pasta->definirClientePrincipal($cliente);
-    }
-
-    /**
      * Guarda crítica do caminho antigo: a Pasta tem de ser do MESMO tenant do caso (resolve por id +
      * tenant). Pasta inexistente OU de outro escritório cai no mesmo erro (não vaza existência alheia).
+     *
+     * ⚠️ Guarda contra duplicidade (Problema B, medido em produção: mesma pessoa em unidades
+     * diferentes ou pessoas diferentes acabando na mesma pasta): uma Pasta só pode responder por UM
+     * Caso de Cobrança por vez. Sem isso, `unidadeCobradaDaPasta()` fica ambígua sobre qual
+     * unidade/pessoa a pasta representa.
      */
     private function pastaExistenteDoTenant(JudicializarCasoInput $input, Tenant $tenant): Pasta
     {
@@ -184,6 +157,12 @@ final class JudicializarCasoUseCase
 
         if ($pasta === null) {
             throw new PastaNaoEncontradaException((int) $input->pastaId);
+        }
+
+        $outroCaso = $this->casoRepository->outroCasoComPastaJudicial($pasta, $tenant);
+
+        if ($outroCaso !== null) {
+            throw new PastaJaVinculadaAOutroCasoException((int) $pasta->getId(), (int) $outroCaso->getId());
         }
 
         return $pasta;

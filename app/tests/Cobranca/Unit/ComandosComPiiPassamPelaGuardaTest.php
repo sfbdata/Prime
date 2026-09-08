@@ -91,10 +91,10 @@ final class ComandosComPiiPassamPelaGuardaTest extends TestCase
         $noDisco = count(glob(\dirname(__DIR__, 3) . '/src/Cobranca/Command/*Command.php') ?: []);
 
         self::assertSame($noDisco, $encontrados);
-        // 11 desde 19/08: entrou `ReconciliarHonorarioDeParcelaCommand`, declarado
-        // `LidaComDadoPessoal` — ele imprime a UNIDADE junto do NN, e essa dupla identifica o devedor.
+        // 12 desde 08/09: entrou `CorrigirPastaJudicialDuplicadaCommand`, declarado
+        // `LidaComDadoPessoal` — o relatório imprime unidade e nome da pessoa dos casos corrigidos.
         self::assertSame(
-            11,
+            12,
             $encontrados,
             'o número de comandos de cobrança mudou — atualize este teste CONSCIENTEMENTE, '
             . 'depois de decidir a qual das duas interfaces o comando novo pertence',
