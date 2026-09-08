@@ -1,0 +1,19 @@
+[Unit]
+# Mantém o nginx compartilhado conectado às redes dos sistemas co-hospedados.
+# Substitui condominio-nginx-reconnect.service, que fazia o mesmo para uma única
+# rede hardcoded. Instalar em /etc/systemd/system/.
+Description=Conecta jusprime_nginx_prod as redes dos sistemas co-hospedados
+Documentation=file:///opt/bluejus-infra/redes-conectar.conf
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+ExecStart=/opt/bluejus-infra/nginx-redes-conectar.sh --daemon
+# Se o stream de `docker events` cair (restart do daemon Docker), o serviço sobe
+# de novo e a passada inicial já reconecta tudo.
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
