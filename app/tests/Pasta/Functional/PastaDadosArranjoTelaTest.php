@@ -318,6 +318,22 @@ final class PastaDadosArranjoTelaTest extends JusPrimeWebTestCase
             $crawler->filter('.ps-page #psHistorico'),
             'drawer e overlay são fixos e cobrem a tela: ficam FORA de .ps-page'
         );
+        self::assertCount(
+            0,
+            $crawler->filter('.ps-page #psHistoricoOverlay'),
+            'o overlay segue a mesma regra do drawer'
+        );
+
+        /* Estando fora de `.ps-page`, é do <body> que o drawer herda os tokens
+           `--ps-*` do redesenho. Ele já abriu TRANSPARENTE por eles serem
+           declarados só na página: `var(--ps-card)` sem valor invalida a
+           declaração e o fundo cai para o inicial. O outro lado do par — os
+           tokens existirem nesse escopo — é o PastaShowTokensDoDrawerTest. */
+        self::assertCount(
+            1,
+            $crawler->filter('body.ps-body #psHistorico'),
+            'sem a classe no <body> o drawer nasce sem fundo e sem cor de texto'
+        );
     }
 
     #[TestDox('o compositor de anotações continua sendo o mesmo formulário que o JS conhece')]
