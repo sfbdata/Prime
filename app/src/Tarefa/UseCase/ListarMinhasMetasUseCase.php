@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tarefa\UseCase;
 
 use App\Entity\Auth\User;
+use App\Entity\Tarefa\Tarefa;
 use App\Tarefa\DTO\MinhasMetasOutput;
 use App\Tarefa\Enum\AbaMetas;
 use App\Tarefa\Repository\TarefaRepository;
@@ -28,6 +29,8 @@ use App\Tarefa\Service\AgrupadorDeMetas;
  */
 final class ListarMinhasMetasUseCase
 {
+    private const KPIS_VAZIOS = ['atrasadas' => 0, 'proximas' => 0, 'sem_prazo' => 0, 'aguardando_revisao' => 0];
+
     public function __construct(
         private readonly TarefaRepository $repository,
         private readonly AgrupadorDeMetas $agrupador,
@@ -36,20 +39,35 @@ final class ListarMinhasMetasUseCase
 
     /**
      * @param array<string, string> $filtros  busca, status, prioridade, prazo
+     * @param bool $soAListagem  recarga parcial (XHR do filtro): o topo da tela não é
+     *                           redesenhado, então as 8 contagens dele seriam calculadas e
+     *                           jogadas fora — a cada tecla digitada na busca.
      */
-    public function executar(User $usuario, AbaMetas $aba, array $filtros, bool $modoLista = false): MinhasMetasOutput
-    {
+    public function executar(
+        User $usuario,
+        AbaMetas $aba,
+        array $filtros,
+        bool $modoLista = false,
+        bool $soAListagem = false,
+    ): MinhasMetasOutput {
         $metas = $this->repository->findParaMinhasMetas($usuario, $aba, $filtros);
+
+        $marcadores = $this->repository->carregarMarcadoresDaLista(
+            $usuario,
+            array_map(static fn (Tarefa $m): int => (int) $m->getId(), $metas),
+        );
 
         return new MinhasMetasOutput(
             aba: $aba,
             grupos: $this->agrupador->agrupar($metas, $aba),
-            contagensPorAba: $this->repository->contarPorAba($usuario),
-            kpis: $this->repository->contarPainelMinhasMetas($usuario),
+            contagensPorAba: $soAListagem ? [] : $this->repository->contarPorAba($usuario),
+            kpis: $soAListagem ? self::KPIS_VAZIOS : $this->repository->contarPainelMinhasMetas($usuario),
             filtros: $filtros,
             modoLista: $modoLista,
             // O trilho não é desenhado no modo lista — não vale pagar duas consultas por ele.
             pessoas: $modoLista ? [] : $this->repository->contarPessoasDoTrilho($usuario, $aba),
+            acompanhadas: $marcadores['acompanhadas'],
+            mensagensPorMeta: $marcadores['mensagens'],
         );
     }
 }

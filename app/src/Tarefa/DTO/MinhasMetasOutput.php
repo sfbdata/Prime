@@ -21,6 +21,8 @@ final class MinhasMetasOutput
      * @param array{atrasadas: int, proximas: int, sem_prazo: int, aguardando_revisao: int} $kpis
      * @param array<string, string>                                                     $filtros
      * @param PessoaNoTrilhoOutput[]                                                    $pessoas
+     * @param int[]                                                                     $acompanhadas
+     * @param array<int, int>                                                           $mensagensPorMeta
      */
     public function __construct(
         public readonly AbaMetas $aba,
@@ -30,7 +32,24 @@ final class MinhasMetasOutput
         public readonly array $filtros,
         public readonly bool $modoLista,
         public readonly array $pessoas = [],
+        public readonly array $acompanhadas = [],
+        public readonly array $mensagensPorMeta = [],
     ) {
+    }
+
+    /**
+     * Estes dois vêm pré-carregados do repositório, em duas consultas para a lista inteira.
+     * Perguntar à entidade (`meta.ehAcompanhadaPor`, `meta.mensagens|length`) custaria uma ida
+     * ao banco por linha, porque as coleções são lazy.
+     */
+    public function estaAcompanhando(int $metaId): bool
+    {
+        return in_array($metaId, $this->acompanhadas, true);
+    }
+
+    public function totalDeMensagens(int $metaId): int
+    {
+        return $this->mensagensPorMeta[$metaId] ?? 0;
     }
 
     /** @return PessoaNoTrilhoOutput[] */
@@ -86,7 +105,9 @@ final class MinhasMetasOutput
 
         return array_values(array_filter([
             ['rotulo' => 'concluídas', 'total' => $this->totalConcluidas(), 'tom' => 'ok'],
-            ['rotulo' => 'no prazo', 'total' => $noPrazo, 'tom' => 'warn'],
+            // "em aberto", e não "no prazo": este balde soma as que têm prazo folgado E as sem
+            // prazo nenhum. Chamar de "no prazo" o que não tem prazo seria mentir no rótulo.
+            ['rotulo' => 'em aberto', 'total' => $noPrazo, 'tom' => 'warn'],
             ['rotulo' => 'atrasadas', 'total' => $this->grupo('atrasadas')?->total() ?? 0, 'tom' => 'danger'],
             ['rotulo' => 'em revisão', 'total' => $this->totalEmRevisao(), 'tom' => 'accent'],
         ], static fn (array $f): bool => $f['total'] > 0));

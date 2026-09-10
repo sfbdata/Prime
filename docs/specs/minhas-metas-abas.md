@@ -79,10 +79,18 @@ Os KPIs são sempre do usuário logado e **não** acompanham o filtro de busca a
 fixo, não um resumo do resultado filtrado. O rótulo do terceiro diz "criadas por você" para o usuário
 não ler os quatro como se fossem do mesmo universo.
 
+🔑 **O KPI e a faceta que ele abre têm de enxergar o MESMO universo.** Os três de prazo e as facetas
+`vencidas`/`proximas`/`sem` compartilham o recorte `TarefaRepository::FORA_DA_FILA` (fora: concluída e
+em revisão) e o mesmo corte por dia. Sem isso o usuário clica em "Atrasadas: 4" e recebe 7 linhas —
+foi o que a primeira versão fazia, porque a faceta excluía só `concluida`. O teste
+`testKpiBateComALista` compara os dois lados; é ele que trava a regressão.
+
 ## Trilho lateral (coluna direita, 356px)
 
-- **Andamento** — barra de progresso e as quatro fatias: concluídas (30 dias), no prazo, atrasadas,
-  em revisão. As fatias somam o total exibido; se não somarem, o número está errado.
+- **Andamento** — barra de progresso e as quatro fatias: concluídas (30 dias), **em aberto**,
+  atrasadas, em revisão. As fatias somam o total exibido; se não somarem, o número está errado.
+  A segunda chama-se "em aberto", e não "no prazo", porque soma as de prazo folgado **e** as sem
+  prazo nenhum — chamar de "no prazo" o que não tem prazo seria mentir no rótulo.
 - **Quem delegou para você** (aba `responsavel`) / **Com quem estão** (aba `criei`) — pessoas com
   contagem de abertas e de atrasadas. Teto de 5 linhas, com "e mais N pessoas".
 - **Precisa de atenção** — as atrasadas, no máximo 5, com "ver todas" quando houver mais.
@@ -104,10 +112,18 @@ Marcação **por usuário**, invisível para os colegas: marcar não muda a meta
 que é `TenantAware` e passa pelo `TenantFilter`. O teste cross-tenant tem de provar isso, e provar
 com o **recurso irmão** (usuário de outro tenant tentando marcar), não só com a listagem.
 
+**Desempenho:** o estado do marcador e a contagem de comentários de TODA a lista vêm de
+`carregarMarcadoresDaLista`, em duas consultas. Perguntar à entidade linha a linha
+(`meta.ehAcompanhadaPor`, `meta.mensagens|length`) custa uma ida ao banco por meta, porque as
+coleções são lazy e não há `EXTRA_LAZY` no projeto — com 87 linhas na tela seriam 174 consultas.
+
 ## Modo lista
 
 Alternador cartões/lista, uma linha por meta, sem trilho. A escolha vai na query (`modo=lista`) e é
-lembrada no `localStorage` — nunca no servidor: é preferência de tela, não dado do escritório.
+lembrada no `localStorage` — nunca no servidor: é preferência de tela, não dado do escritório. O
+script grava quando `modo` vem explícito na URL e só redireciona quando ele está ausente, para não
+sobrescrever a escolha que o usuário acabou de fazer; armazenamento bloqueado cai no padrão sem
+quebrar a tela.
 
 Colunas: marcador · Meta (título + pasta) · quem (delegou/responsável, conforme a aba) · Prazo ·
 Status · Atualizada · ações.
@@ -153,9 +169,20 @@ GET /tarefas/minhas?aba=&modo=&busca=&status=&prioridade=&prazo=
 **Isolamento (obrigatório)**
 14. Usuário do tenant B não vê meta do tenant A em nenhuma aba.
 15. Usuário do tenant B recebe 403/404 ao tentar marcar acompanhamento numa meta do tenant A.
+16. Cada KPI de prazo bate **exatamente** com o tamanho da lista que ele abre (item 10 medido de
+    verdade, comparando os dois lados — não só os KPIs entre si).
 
 Cada teste dos itens 1–5 é provado **reintroduzindo o defeito** (voltando o `OR` antigo) antes de
 valer como verde.
+
+## Dívida conhecida e aceita
+
+- **O template recebe `Tarefa`, não um Output DTO**, contra o que `app/templates/CLAUDE.md` manda.
+  Os dois N+1 que isso causava foram mortos por pré-carga, mas restam `meta.pasta.prioridade` e
+  `meta.responsaveis` (ambos pré-existentes: a tela antiga já os lia). Um `MetaOutput` resolvido por
+  DQL fecharia a conta — é uma frente própria, não um remendo desta.
+- **Metas de pasta arquivada entram nos KPIs** (34 no dev). A lista sempre as trouxe; o que é novo é
+  pôr um número em cima. Decisão do dono se `situacao` deve entrar no recorte.
 
 ## Fora do escopo (decisões do dono, não implementar sem pedir)
 

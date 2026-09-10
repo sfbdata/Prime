@@ -20,6 +20,13 @@ use Doctrine\Persistence\ManagerRegistry;
  */
 class TarefaRepository extends ServiceEntityRepository
 {
+    /**
+     * Status que saem da fila de trabalho do responsável: concluída acabou, e em revisão já foi
+     * entregue — a bola está com quem criou. Usada pelos KPIs e pelas facetas de prazo, que
+     * PRECISAM enxergar o mesmo universo (o KPI é o atalho que abre a faceta).
+     */
+    private const FORA_DA_FILA = [Tarefa::STATUS_CONCLUIDA, Tarefa::STATUS_EM_REVISAO];
+
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, Tarefa::class);
@@ -134,6 +141,53 @@ class TarefaRepository extends ServiceEntityRepository
     }
 
     /**
+     * Quais destas metas o usuário acompanha, e quantas mensagens cada uma tem.
+     *
+     * Existe para matar dois N+1 do template: `meta.ehAcompanhadaPor(app.user)` e
+     * `meta.mensagens|length` inicializavam a coleção meta a meta — com 87 linhas na tela isso
+     * era 174 idas ao banco. Aqui são duas, e o Twig só consulta arrays.
+     *
+     * @param int[] $metaIds
+     * @return array{acompanhadas: int[], mensagens: array<int, int>}
+     */
+    public function carregarMarcadoresDaLista(User $usuario, array $metaIds): array
+    {
+        if ($metaIds === []) {
+            return ['acompanhadas' => [], 'mensagens' => []];
+        }
+
+        // A raiz das duas consultas é `Tarefa` (TenantAware) de propósito: assim o TenantFilter
+        // prende o escopo, e um id forjado na lista não alcançaria meta de outro escritório.
+        $acompanhadas = $this->createQueryBuilder('t')
+            ->select('t.id')
+            ->andWhere('t.id IN (:ids)')
+            ->andWhere(':usuario MEMBER OF t.acompanhantes')
+            ->setParameter('ids', $metaIds)
+            ->setParameter('usuario', $usuario)
+            ->getQuery()
+            ->getSingleColumnResult();
+
+        $linhas = $this->createQueryBuilder('t')
+            ->select('t.id AS id, COUNT(m.id) AS total')
+            ->join('t.mensagens', 'm')
+            ->andWhere('t.id IN (:ids)')
+            ->setParameter('ids', $metaIds)
+            ->groupBy('t.id')
+            ->getQuery()
+            ->getArrayResult();
+
+        $mensagens = [];
+        foreach ($linhas as $linha) {
+            $mensagens[(int) $linha['id']] = (int) $linha['total'];
+        }
+
+        return [
+            'acompanhadas' => array_map('intval', $acompanhadas),
+            'mensagens'    => $mensagens,
+        ];
+    }
+
+    /**
      * As pessoas do trilho lateral, com quantas metas em aberto e quantas atrasadas cada uma.
      *
      * A pergunta muda com a aba, e é essa a razão de o trilho existir:
@@ -196,7 +250,7 @@ class TarefaRepository extends ServiceEntityRepository
             ->andWhere('t.status NOT IN (:foraDaFila)')
             ->andWhere('t.prazo IS NOT NULL AND t.prazo < :hoje')
             ->setParameter('usuario', $usuario)
-            ->setParameter('foraDaFila', [Tarefa::STATUS_CONCLUIDA, Tarefa::STATUS_EM_REVISAO])
+            ->setParameter('foraDaFila', self::FORA_DA_FILA)
             ->setParameter('hoje', new \DateTimeImmutable('today'));
 
         if ($porCriador) {
@@ -224,7 +278,7 @@ class TarefaRepository extends ServiceEntityRepository
             ->andWhere(':usuario MEMBER OF t.responsaveis')
             ->andWhere('t.status NOT IN (:foraDaFila)')
             ->setParameter('usuario', $usuario)
-            ->setParameter('foraDaFila', [Tarefa::STATUS_CONCLUIDA, Tarefa::STATUS_EM_REVISAO]);
+            ->setParameter('foraDaFila', self::FORA_DA_FILA);
 
         $recorte($qb);
 
@@ -305,19 +359,27 @@ class TarefaRepository extends ServiceEntityRepository
             return;
         }
 
-        $agora = new \DateTimeImmutable();
+        // As três facetas de prazo usam o MESMO recorte dos KPIs (`self::FORA_DA_FILA` e o
+        // corte por dia). O KPI é um atalho: se ele conta um universo e o filtro que ele abre
+        // devolve outro, o usuário clica em "Atrasadas: 4" e recebe 7 linhas. Isso acontecia:
+        // meta `em_revisao` vencida entrava na lista sem entrar na contagem, e meta concluída
+        // sem prazo entrava em "Sem prazo" com o KPI marcando zero.
+        if ($prazo === 'vencidas' || $prazo === 'proximas' || $prazo === 'sem') {
+            $qb->andWhere('t.status NOT IN (:foraDaFilaFiltro)')
+               ->setParameter('foraDaFilaFiltro', self::FORA_DA_FILA);
+        }
+
+        $hoje = new \DateTimeImmutable('today');
 
         if ($prazo === 'vencidas') {
-            $qb->andWhere('t.prazo IS NOT NULL AND t.prazo < :agora AND t.status != :naoConcluida')
-               ->setParameter('agora', $agora)
-               ->setParameter('naoConcluida', Tarefa::STATUS_CONCLUIDA);
+            $qb->andWhere('t.prazo IS NOT NULL AND t.prazo < :hojeFiltro')
+               ->setParameter('hojeFiltro', $hoje);
         }
 
         if ($prazo === 'proximas') {
-            $qb->andWhere('t.prazo IS NOT NULL AND t.prazo >= :agora AND t.prazo <= :limitePrazo AND t.status != :naoConcluida')
-               ->setParameter('agora', $agora)
-               ->setParameter('limitePrazo', $agora->modify('+7 days'))
-               ->setParameter('naoConcluida', Tarefa::STATUS_CONCLUIDA);
+            $qb->andWhere('t.prazo IS NOT NULL AND t.prazo >= :hojeFiltro AND t.prazo <= :limitePrazo')
+               ->setParameter('hojeFiltro', $hoje)
+               ->setParameter('limitePrazo', $hoje->modify('+7 days')->setTime(23, 59, 59));
         }
 
         if ($prazo === 'sem') {

@@ -330,7 +330,11 @@ final class TarefaRepositoryAbasTest extends KernelTestCase
         self::assertSame(1, $porNome['Mariana Costa']->atrasadas);
         self::assertSame(1, $porNome['Samuel Freitas']->abertas);
         self::assertSame(0, $porNome['Samuel Freitas']->atrasadas);
-        self::assertArrayNotHasKey('Que eu deleguei', $porNome, 'O trilho desta aba lista quem delegou PARA mim.');
+        self::assertArrayNotHasKey(
+            $eu->getFullName(),
+            $porNome,
+            'O trilho desta aba lista quem delegou PARA mim — eu mesmo não entro por ter delegado a outro.',
+        );
     }
 
     #[TestDox('Trilho da aba "Criei": com quem estão as metas que eu deleguei')]
@@ -355,7 +359,12 @@ final class TarefaRepositoryAbasTest extends KernelTestCase
         self::assertSame(2, $porNome['Ana Lima']->abertas);
         self::assertSame(1, $porNome['Ana Lima']->atrasadas);
         self::assertSame(1, $porNome['Bruno Reis']->abertas, 'Meta com dois responsáveis conta para os dois.');
-        self::assertArrayNotHasKey('Me atribuíram', $porNome);
+        self::assertArrayNotHasKey(
+            $ana->getFullName() . ' (como criadora)',
+            $porNome,
+            'O trilho agrupa por responsável, não por quem criou.',
+        );
+        self::assertSame([], array_diff(array_keys($porNome), ['Ana Lima', 'Bruno Reis']), 'Só os responsáveis das metas que EU criei entram.');
     }
 
     #[TestDox('O trilho ignora metas concluídas — mede carga de hoje, não histórico')]
@@ -374,5 +383,51 @@ final class TarefaRepositoryAbasTest extends KernelTestCase
 
         self::assertCount(1, $pessoas);
         self::assertSame(1, $pessoas[0]->abertas);
+    }
+
+    /**
+     * O teto que a spec §Testes item 10 pede, e que faltava: o KPI é um ATALHO, então o
+     * número que ele mostra e o tamanho da lista que ele abre têm de ser o mesmo.
+     *
+     * O revisor mediu a divergência em dados de ensaio: 3 metas `em_revisao` com prazo
+     * vencido entravam na lista de "Atrasadas" sem entrar na contagem, e metas concluídas
+     * sem prazo entravam em "Sem prazo" com o KPI marcando zero.
+     */
+    #[TestDox('Cada KPI bate exatamente com a lista que ele abre')]
+    public function testKpiBateComALista(): void
+    {
+        $tenant = TenantFactory::createOne()->_real();
+        $eu     = UserFactory::createOne()->_real();
+        $colega = UserFactory::createOne()->_real();
+
+        $atrasada = $this->meta($tenant, 'Atrasada de verdade', $colega, [$eu]);
+        $atrasada->setPrazo(new \DateTimeImmutable('-3 days'));
+
+        // Entregue e vencida: sai da fila do responsável, então NÃO pode entrar nem no
+        // número nem na lista de atrasadas.
+        $entregue = $this->meta($tenant, 'Entregue e vencida', $colega, [$eu], Tarefa::STATUS_EM_REVISAO);
+        $entregue->setPrazo(new \DateTimeImmutable('-9 days'));
+
+        $proxima = $this->meta($tenant, 'Vence em 2 dias', $colega, [$eu]);
+        $proxima->setPrazo(new \DateTimeImmutable('+2 days'));
+
+        $this->meta($tenant, 'Sem prazo, aberta', $colega, [$eu]);
+
+        // Concluída sem prazo: fora dos dois lados.
+        $fechada = $this->meta($tenant, 'Sem prazo, concluída', $colega, [$eu], Tarefa::STATUS_CONCLUIDA);
+        $fechada->setDataConclusao(new \DateTimeImmutable('-2 days'));
+        $this->em->flush();
+
+        $kpis = $this->repo->contarPainelMinhasMetas($eu);
+
+        foreach ([['atrasadas', 'vencidas'], ['proximas', 'proximas'], ['sem_prazo', 'sem']] as [$kpi, $faceta]) {
+            $lista = $this->repo->findParaMinhasMetas($eu, AbaMetas::RESPONSAVEL, ['prazo' => $faceta]);
+
+            self::assertSame(
+                $kpis[$kpi],
+                count($lista),
+                "O KPI '{$kpi}' mostra {$kpis[$kpi]}, mas o filtro '{$faceta}' devolve " . count($lista) . ' meta(s).',
+            );
+        }
     }
 }

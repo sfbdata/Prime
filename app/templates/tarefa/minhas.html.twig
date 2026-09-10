@@ -155,6 +155,28 @@
         });
 }());
 
+// O modo (cartões/lista) é preferência de tela, não dado do escritório: fica no navegador de
+// quem escolheu. Guardado só quando veio explícito na URL, e reaplicado na próxima visita —
+// nunca no servidor, e nunca sobrescrevendo uma escolha que o usuário acabou de fazer.
+(function () {
+    var CHAVE = 'jusprime.minhasMetas.modo';
+    var url   = new URL(window.location.href);
+    var naUrl = url.searchParams.get('modo');
+
+    try {
+        if (naUrl !== null) {
+            window.localStorage.setItem(CHAVE, naUrl === 'lista' ? 'lista' : 'cartoes');
+            return;
+        }
+        if (window.localStorage.getItem(CHAVE) === 'lista') {
+            url.searchParams.set('modo', 'lista');
+            window.location.replace(url.toString());
+        }
+    } catch (e) {
+        // Navegador com armazenamento bloqueado: a tela segue no modo padrão, sem quebrar.
+    }
+}());
+
 // Marcador de acompanhamento — alterna sem recarregar a página.
 document.addEventListener('click', function (e) {
     var botao = e.target.closest('[data-acompanhar]');

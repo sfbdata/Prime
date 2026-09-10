@@ -68,13 +68,23 @@ final class TarefaController extends AbstractController
             'prazo'      => (string) $request->query->get('prazo', ''),
         ];
 
-        $aba   = AbaMetas::deQueryString($request->query->get('aba'));
+        $aba        = AbaMetas::deQueryString($request->query->get('aba'));
+        $soAListagem = $request->isXmlHttpRequest();
+
         $dados = [
-            'painel'  => $useCase->executar($usuario, $aba, $filtros, $request->query->get('modo') === 'lista'),
+            'painel'  => $useCase->executar(
+                $usuario,
+                $aba,
+                $filtros,
+                $request->query->get('modo') === 'lista',
+                // Na recarga parcial só o fragmento da lista é redesenhado; calcular as
+                // contagens do topo ali seria pagar 8 consultas por tecla digitada na busca.
+                $soAListagem,
+            ),
             'filtros' => $filtros,
         ];
 
-        if ($request->isXmlHttpRequest()) {
+        if ($soAListagem) {
             return $this->render('tarefa/_resultado.html.twig', $dados);
         }
 

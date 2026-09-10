@@ -3,7 +3,8 @@
 {% set info = meta.prazoInfo %}
 {% set concluida = meta.status == 'concluida' %}
 {% set emRevisao = meta.status == 'em_revisao' %}
-{% set acompanhando = meta.ehAcompanhadaPor(app.user) %}
+{# Vem pré-carregado do UseCase: perguntar à entidade custaria uma consulta por linha. #}
+{% set acompanhando = painel.estaAcompanhando(meta.id) %}
 
 {% set tomPrazo = concluida ? 'muted' : (emRevisao ? 'accent' : (info.cor == 'danger' ? 'danger' : (info.cor == 'warning' ? 'warn' : 'cinza'))) %}
 {% set tomStatus = concluida ? 'ok' : (emRevisao ? 'accent' : (info.cor == 'danger' ? 'danger' : 'warn')) %}
@@ -46,9 +47,10 @@
                 {%- else %}{{ info.texto }}{% endif %}
             </span>
 
-            {% if meta.mensagens|length > 0 %}
+            {% set comentarios = painel.totalDeMensagens(meta.id) %}
+            {% if comentarios > 0 %}
                 <span class="mm-meta-info" title="Comentários na meta">
-                    <i class="bi bi-chat"></i>{{ meta.mensagens|length }}
+                    <i class="bi bi-chat"></i>{{ comentarios }}
                 </span>
             {% endif %}
         </div>

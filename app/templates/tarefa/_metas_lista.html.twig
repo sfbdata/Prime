@@ -28,7 +28,8 @@
                     {% set info = meta.prazoInfo %}
                     {% set concluida = meta.status == 'concluida' %}
                     {% set emRevisao = meta.status == 'em_revisao' %}
-                    {% set acompanhando = meta.ehAcompanhadaPor(app.user) %}
+                    {# Vem pré-carregado do UseCase: perguntar à entidade custaria uma consulta por linha. #}
+{% set acompanhando = painel.estaAcompanhando(meta.id) %}
                     {% set tomPrazo = concluida ? 'muted' : (emRevisao ? 'accent' : (info.cor == 'danger' ? 'danger' : (info.cor == 'warning' ? 'warn' : 'cinza'))) %}
                     {% set tomStatus = concluida ? 'ok' : (emRevisao ? 'accent' : (info.dias is not null and info.dias < 0 ? 'danger' : 'warn')) %}
                     {% set rotuloStatus = concluida ? 'Concluída' : (emRevisao ? 'Em revisão' : (info.dias is not null and info.dias < 0 ? 'Atrasada' : 'Pendente')) %}

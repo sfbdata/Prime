@@ -120,7 +120,9 @@
                     {% endfor %}
                     <div class="mm-trilho-rodape">
                         {% if painel.atrasadasOcultas > 0 %}
-                            e mais {{ painel.atrasadasOcultas }} atrasada{{ painel.atrasadasOcultas > 1 ? 's' : '' }}.
+                            <a href="{{ path('tarefa_minhas', {aba: aba.value, prazo: 'vencidas'}) }}" class="fw-semibold">
+                                Ver todas as {{ painel.atrasadasOcultas + 5 }} atrasadas
+                            </a> ·
                         {% endif %}
                         Metas atrasadas continuam contando dias até serem concluídas.
                     </div>

@@ -312,7 +312,6 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
         $client->request('GET', '/tarefas/minhas?aba=acompanhando');
         self::assertStringNotContainsString('Vou acompanhar esta', (string) $client->getResponse()->getContent());
 
-        $token = (string) $client->getCrawler()->filter('body')->count();  // força o crawler a existir
         $client->request('GET', '/tarefas/minhas?aba=criei');
         $botao = $client->getCrawler()->filter('[data-acompanhar]')->first();
         self::assertGreaterThan(0, $botao->count(), 'O cartão precisa oferecer o marcador.');
