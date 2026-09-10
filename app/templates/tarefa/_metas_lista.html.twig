@@ -1,0 +1,87 @@
+{# Modo lista: uma linha por meta, sem trilho. Para quem acumula centenas de metas.
+   Mantém os MESMOS grupos do modo cartões — muda a densidade, não a organização. #}
+{% set aba = painel.aba %}
+
+<div class="mm-cartao">
+    <div class="mm-tabela-scroll">
+        <div class="mm-tabela">
+
+            <div class="mm-linha mm-linha-cabeca">
+                <div></div>
+                <div class="mm-th">Meta</div>
+                <div class="mm-th">{{ aba.value == 'responsavel' ? 'Delegada por' : 'Responsável' }}</div>
+                <div class="mm-th">Prazo</div>
+                <div class="mm-th">Status</div>
+                <div class="mm-th">Atualizada</div>
+                <div></div>
+            </div>
+
+            {% for grupo in painel.grupos %}
+                <div class="mm-separador">
+                    <span class="mm-dot" style="background: var(--mm-{{ grupo.tom }}-dot, var(--mm-cinza-dot))"></span>
+                    <span class="mm-grupo-nome">{{ grupo.rotulo }}</span>
+                    <span class="mm-grupo-contagem">{{ grupo.total }}</span>
+                    {% if grupo.nota %}<span class="mm-grupo-nota">{{ grupo.nota }}</span>{% endif %}
+                </div>
+
+                {% for meta in grupo.metas %}
+                    {% set info = meta.prazoInfo %}
+                    {% set concluida = meta.status == 'concluida' %}
+                    {% set emRevisao = meta.status == 'em_revisao' %}
+                    {% set acompanhando = meta.ehAcompanhadaPor(app.user) %}
+                    {% set tomPrazo = concluida ? 'muted' : (emRevisao ? 'accent' : (info.cor == 'danger' ? 'danger' : (info.cor == 'warning' ? 'warn' : 'cinza'))) %}
+                    {% set tomStatus = concluida ? 'ok' : (emRevisao ? 'accent' : (info.dias is not null and info.dias < 0 ? 'danger' : 'warn')) %}
+                    {% set rotuloStatus = concluida ? 'Concluída' : (emRevisao ? 'Em revisão' : (info.dias is not null and info.dias < 0 ? 'Atrasada' : 'Pendente')) %}
+                    {% set quem = aba.value == 'responsavel' ? meta.criadoPor : (meta.responsaveis|length > 0 ? meta.responsaveis|first : null) %}
+
+                    <div class="mm-linha">
+                        <button type="button"
+                                class="mm-marcador {{ acompanhando ? 'is-marcada' : '' }}"
+                                data-acompanhar="{{ path('tarefa_acompanhar', {id: meta.id}) }}"
+                                data-token="{{ csrf_token('acompanhar_tarefa_' ~ meta.id) }}"
+                                aria-pressed="{{ acompanhando ? 'true' : 'false' }}"
+                                title="{{ acompanhando ? 'Deixar de acompanhar' : 'Acompanhar' }}">
+                            <i class="bi {{ acompanhando ? 'bi-bookmark-fill' : 'bi-bookmark' }}"></i>
+                        </button>
+
+                        <div class="mm-linha-meta">
+                            <a href="{{ path('tarefa_show', {id: meta.id}) }}" class="mm-linha-titulo" title="{{ meta.titulo }}">{{ meta.titulo }}</a>
+                            <a href="{{ path('pasta_show', {id: meta.pasta.id}) }}" class="mm-linha-pasta">
+                                {{ meta.pasta.nup }}{% if meta.pasta.nomeCliente %} · {{ meta.pasta.nomeCliente }}{% endif %}
+                            </a>
+                        </div>
+
+                        <div class="mm-linha-quem">
+                            {% if quem %}
+                                <span class="mm-avatar mm-avatar-sm">{{ quem.fullName|slice(0, 1) }}</span>
+                                <span title="{{ quem.fullName }}">{{ quem.fullName }}</span>
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </div>
+
+                        <span class="mm-prazo tom-{{ tomPrazo }}">
+                            <i class="bi bi-calendar-event"></i>
+                            {%- if meta.prazo is null %}sem prazo
+                            {%- elseif concluida %}{{ meta.prazo|date('d/m/Y') }}
+                            {%- else %}{{ info.texto }}{% endif %}
+                        </span>
+
+                        <div><span class="mm-pilula tom-{{ tomStatus }}">{{ rotuloStatus }}</span></div>
+
+                        <span class="mm-linha-atualizada">{{ (meta.dataAlteracao ?: meta.dataCriacao)|date('d/m/Y') }}</span>
+
+                        <a href="{{ path('tarefa_show', {id: meta.id}) }}" class="mm-acao-icone" title="Abrir a meta">
+                            <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </div>
+                {% endfor %}
+            {% endfor %}
+
+        </div>
+    </div>
+
+    <div class="mm-separador" style="border-bottom: none;">
+        <span class="mm-grupo-nota">Mostrando {{ painel.totalExibido }} meta{{ painel.totalExibido == 1 ? '' : 's' }} nesta aba.</span>
+    </div>
+</div>

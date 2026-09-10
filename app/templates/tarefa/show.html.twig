@@ -345,6 +345,21 @@
                             </div>
                         </div>
 
+                        {# Acompanhar — marcação PESSOAL: não muda a meta para os colegas. #}
+                        {% set acompanhando = tarefa.ehAcompanhadaPor(app.user) %}
+                        <div class="mb-3">
+                            <button type="button"
+                                    id="btnAcompanharMeta"
+                                    class="btn btn-sm w-100 {{ acompanhando ? 'btn-primary' : 'btn-outline-secondary' }}"
+                                    data-url="{{ path('tarefa_acompanhar', {id: tarefa.id}) }}"
+                                    data-token="{{ csrf_token('acompanhar_tarefa_' ~ tarefa.id) }}"
+                                    aria-pressed="{{ acompanhando ? 'true' : 'false' }}">
+                                <i class="bi {{ acompanhando ? 'bi-bookmark-fill' : 'bi-bookmark' }} me-1"></i>
+                                <span>{{ acompanhando ? 'Acompanhando' : 'Acompanhar' }}</span>
+                            </button>
+                            <div class="form-text small">Só você vê esta marcação.</div>
+                        </div>
+
                         {# Concluir tarefa #}
                         {% if tarefa.status != 'concluida' %}
                         <div class="mb-3">
@@ -1055,6 +1070,39 @@ document.addEventListener('DOMContentLoaded', function () {
         previewConteudo.innerHTML = '';
     });
 });
+</script>
+
+<script>
+// Marcador de acompanhamento — alterna sem sair da página. Marcação PESSOAL: nada muda para
+// os colegas, então não há confirmação nem recarga.
+(function () {
+    var botao = document.getElementById('btnAcompanharMeta');
+    if (!botao) { return; }
+
+    botao.addEventListener('click', function () {
+        if (botao.disabled) { return; }
+        botao.disabled = true;
+
+        var dados = new FormData();
+        dados.append('_token', botao.dataset.token);
+
+        fetch(botao.dataset.url, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: dados,
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+            if (!d.sucesso) { return; }
+            botao.classList.toggle('btn-primary', d.acompanhando);
+            botao.classList.toggle('btn-outline-secondary', !d.acompanhando);
+            botao.setAttribute('aria-pressed', d.acompanhando ? 'true' : 'false');
+            botao.querySelector('i').className = (d.acompanhando ? 'bi bi-bookmark-fill' : 'bi bi-bookmark') + ' me-1';
+            botao.querySelector('span').textContent = d.acompanhando ? 'Acompanhando' : 'Acompanhar';
+        })
+        .finally(function () { botao.disabled = false; });
+    });
+}());
 </script>
 
 {% endblock %}

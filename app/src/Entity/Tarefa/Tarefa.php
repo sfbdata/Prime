@@ -68,6 +68,16 @@ class Tarefa implements Auditavel, TenantAware
     #[ORM\JoinTable(name: 'tarefa_responsaveis')]
     private Collection $responsaveis;
 
+    /**
+     * Quem marcou esta meta para acompanhar. É marcação PESSOAL: acompanhar não muda a meta
+     * para os colegas nem dá qualquer permissão — só coloca a meta na aba "Em acompanhamento"
+     * de quem marcou. Sem tenant próprio, como `tarefa_responsaveis`: o escopo vem da Tarefa,
+     * que é TenantAware.
+     */
+    #[ORM\ManyToMany(targetEntity: User::class)]
+    #[ORM\JoinTable(name: 'tarefa_acompanhamento')]
+    private Collection $acompanhantes;
+
     #[ORM\OneToMany(mappedBy: 'tarefa', targetEntity: TarefaMensagem::class, orphanRemoval: true, cascade: ['persist', 'remove'])]
     #[ORM\OrderBy(['criadoEm' => 'ASC'])]
     private Collection $mensagens;
@@ -77,6 +87,7 @@ class Tarefa implements Auditavel, TenantAware
         $this->dataCriacao = new \DateTimeImmutable();
         $this->mensagens   = new ArrayCollection();
         $this->responsaveis = new ArrayCollection();
+        $this->acompanhantes = new ArrayCollection();
     }
 
     #[ORM\PreUpdate]
@@ -213,6 +224,36 @@ class Tarefa implements Auditavel, TenantAware
     {
         $this->responsaveis->removeElement($responsavel);
         return $this;
+    }
+
+    /**
+     * @return Collection<int, User>
+     */
+    public function getAcompanhantes(): Collection
+    {
+        return $this->acompanhantes;
+    }
+
+    public function ehAcompanhadaPor(User $usuario): bool
+    {
+        return $this->acompanhantes->contains($usuario);
+    }
+
+    /**
+     * Liga/desliga o acompanhamento de UM usuário e devolve o estado final — o botão da tela
+     * é um alternador, e devolver o estado evita que a view precise recontar a coleção.
+     */
+    public function alternarAcompanhamento(User $usuario): bool
+    {
+        if ($this->acompanhantes->contains($usuario)) {
+            $this->acompanhantes->removeElement($usuario);
+
+            return false;
+        }
+
+        $this->acompanhantes->add($usuario);
+
+        return true;
     }
 
     /**

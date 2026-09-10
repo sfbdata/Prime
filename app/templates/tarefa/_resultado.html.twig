@@ -1,78 +1,153 @@
 {# ───────────────────────────────────────────────────────────────────────────
    Fragmento trocável das Minhas Metas (dentro de [data-filtro-resultado]).
-   Reexecutado a cada filtro pelo motor public/js/filtro-tabela.js. Mantém o
-   agrupamento por status (cartões); sem paginação.
+   Reexecutado a cada filtro pelo motor public/js/filtro-tabela.js.
+
+   O agrupamento NÃO é feito aqui: vem pronto do AgrupadorDeMetas, porque decidir o
+   que é urgente é regra de negócio e precisa de teste. Este arquivo só desenha.
 ─────────────────────────────────────────────────────────────────────────── #}
-{% set statusBadge = {
-    'pendente':   'text-bg-secondary',
-    'em_revisao': 'text-bg-warning',
-    'concluida':  'text-bg-success',
-} %}
-{% set statusLabel = {
-    'pendente':   'Pendente',
-    'em_revisao': 'Para Revisão',
-    'concluida':  'Concluída',
-} %}
-{% set temFiltro = filtros.busca or filtros.status or filtros.prioridade or filtros.prazo %}
+{% set aba = painel.aba %}
+{% set semTrilho = painel.modoLista or painel.estaVazia %}
 
-{% if tarefas|length == 0 %}
-    <div class="text-center py-5 text-muted">
-        <i class="bi bi-check2-all fs-1 d-block mb-2 opacity-25"></i>
-        {% if temFiltro %}
-            <span>Nenhuma meta encontrada com esses filtros.</span>
+<div class="mm-arranjo {{ semTrilho ? 'mm-sem-trilho' : '' }}">
+
+    <div class="mm-coluna-lista min-w-0">
+        {% if painel.estaVazia %}
+            <div class="mm-cartao">
+                <div class="mm-vazio">
+                    <i class="bi bi-check2-all"></i>
+                    {% if painel.temFiltroAtivo %}
+                        <div class="mm-vazio-titulo">Nenhuma meta encontrada com esses filtros</div>
+                        <div class="mm-vazio-sub">Limpe os filtros ou tente outro termo de busca.</div>
+                    {% elseif aba.value == 'responsavel' %}
+                        <div class="mm-vazio-titulo">Nenhuma meta atribuída a você</div>
+                        <div class="mm-vazio-sub">Quando alguém delegar uma meta para você, ela aparece aqui.</div>
+                    {% elseif aba.value == 'criei' %}
+                        <div class="mm-vazio-titulo">Você ainda não criou nenhuma meta</div>
+                        <div class="mm-vazio-sub">Metas são criadas de dentro da pasta, na aba Metas.</div>
+                    {% elseif aba.value == 'acompanhando' %}
+                        <div class="mm-vazio-titulo">Nenhuma meta em acompanhamento</div>
+                        <div class="mm-vazio-sub">Use o marcador <i class="bi bi-bookmark"></i> em qualquer meta para acompanhá-la aqui.</div>
+                    {% else %}
+                        <div class="mm-vazio-titulo">Nenhuma meta por aqui</div>
+                        <div class="mm-vazio-sub">Nada atribuído, criado ou marcado por você.</div>
+                    {% endif %}
+                </div>
+            </div>
+        {% elseif painel.modoLista %}
+            {{ include('tarefa/_metas_lista.html.twig') }}
         {% else %}
-            <span>Nenhuma meta atribuída a você.</span>
-        {% endif %}
-    </div>
-{% else %}
-
-    {# Agrupar por status #}
-    {% set pendentes  = tarefas|filter(t => t.status == 'pendente') %}
-    {% set emRevisao  = tarefas|filter(t => t.status == 'em_revisao') %}
-    {% set concluidas = tarefas|filter(t => t.status == 'concluida') %}
-
-    {# Pendentes + Para Revisão primeiro #}
-    {% if pendentes|length > 0 or emRevisao|length > 0 %}
-    <div class="card card-outline card-primary mb-3">
-        <div class="card-header py-2">
-            <h6 class="card-title mb-0">
-                <i class="bi bi-hourglass-split me-1 text-muted"></i>Em aberto
-                <span class="badge text-bg-secondary ms-1">{{ pendentes|length + emRevisao|length }}</span>
-            </h6>
-        </div>
-        <div class="card-body p-2">
-            <div class="d-flex flex-column gap-2">
-                {% for tarefa in emRevisao %}
-                    {% include 'tarefa/_card_minhas.html.twig' with {tarefa: tarefa, statusBadge: statusBadge, statusLabel: statusLabel} %}
-                {% endfor %}
-                {% for tarefa in pendentes %}
-                    {% include 'tarefa/_card_minhas.html.twig' with {tarefa: tarefa, statusBadge: statusBadge, statusLabel: statusLabel} %}
+            <div class="mm-cartao">
+                {% for grupo in painel.grupos %}
+                    {% if grupo.recolhido %}
+                        <button class="mm-grupo-cabeca" type="button"
+                                data-bs-toggle="collapse" data-bs-target="#grupo-{{ grupo.chave }}"
+                                aria-expanded="false" aria-controls="grupo-{{ grupo.chave }}">
+                            <span class="mm-dot" style="background: var(--mm-{{ grupo.tom }}-dot, var(--mm-cinza-dot))"></span>
+                            <span class="mm-grupo-nome">{{ grupo.rotulo }}</span>
+                            <span class="mm-grupo-contagem">{{ grupo.total }}</span>
+                            {% if grupo.nota %}<span class="mm-grupo-nota">{{ grupo.nota }}</span>{% endif %}
+                            <i class="bi bi-chevron-right mm-grupo-seta"></i>
+                        </button>
+                        <div class="collapse" id="grupo-{{ grupo.chave }}">
+                            {% for meta in grupo.metas %}
+                                {{ include('tarefa/_meta_cartao.html.twig', {meta: meta, tom: grupo.tom}) }}
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="mm-grupo-cabeca">
+                            <span class="mm-dot" style="background: var(--mm-{{ grupo.tom }}-dot, var(--mm-cinza-dot))"></span>
+                            <span class="mm-grupo-nome">{{ grupo.rotulo }}</span>
+                            <span class="mm-grupo-contagem">{{ grupo.total }}</span>
+                            {% if grupo.nota %}<span class="mm-grupo-nota">{{ grupo.nota }}</span>{% endif %}
+                        </div>
+                        {% for meta in grupo.metas %}
+                            {{ include('tarefa/_meta_cartao.html.twig', {meta: meta, tom: grupo.tom}) }}
+                        {% endfor %}
+                    {% endif %}
                 {% endfor %}
             </div>
-        </div>
+        {% endif %}
     </div>
-    {% endif %}
 
-    {# Concluídas colapsadas #}
-    {% if concluidas|length > 0 %}
-    <div class="card card-outline card-secondary">
-        <div class="card-header py-2" style="cursor:pointer;"
-             data-bs-toggle="collapse" data-bs-target="#tarefasConcluidas">
-            <h6 class="card-title mb-0">
-                <i class="bi bi-check-circle me-1 text-success"></i>Concluídas
-                <span class="badge text-bg-success ms-1">{{ concluidas|length }}</span>
-            </h6>
-        </div>
-        <div class="collapse" id="tarefasConcluidas">
-            <div class="card-body p-2">
-                <div class="d-flex flex-column gap-2">
-                    {% for tarefa in concluidas %}
-                        {% include 'tarefa/_card_minhas.html.twig' with {tarefa: tarefa, statusBadge: statusBadge, statusLabel: statusLabel} %}
+    {% if not semTrilho %}
+        <div class="mm-trilho">
+
+            {# ── Andamento ── #}
+            <div class="mm-cartao mm-trilho-bloco">
+                <div class="d-flex align-items-baseline gap-2 mb-3">
+                    <h2 class="mm-cartao-titulo">{{ aba.value == 'criei' ? 'O que você delegou' : 'Seu andamento' }}</h2>
+                    <span class="mm-grupo-nota">últimos 30 dias</span>
+                </div>
+                <div class="d-flex align-items-baseline gap-2">
+                    <span class="mm-progresso-numero">{{ painel.totalConcluidas }} de {{ painel.totalExibido }}</span>
+                    <span class="mm-kpi-sub">concluídas</span>
+                </div>
+                <div class="mm-progresso-barra" role="progressbar"
+                     aria-valuenow="{{ painel.percentualConcluido }}" aria-valuemin="0" aria-valuemax="100"
+                     aria-label="Percentual de metas concluídas">
+                    <span style="width: {{ painel.percentualConcluido }}%"></span>
+                </div>
+                <div class="mm-fatias">
+                    {% for fatia in painel.fatiasDoAndamento %}
+                        <span class="mm-fatia">
+                            <span class="mm-dot" style="background: var(--mm-{{ fatia.tom }}-dot, var(--mm-accent))"></span>
+                            {{ fatia.total }} {{ fatia.rotulo }}
+                        </span>
                     {% endfor %}
                 </div>
             </div>
-        </div>
-    </div>
-    {% endif %}
 
-{% endif %}
+            {# ── Precisa de atenção ── #}
+            {% set atencao = painel.metasQuePrecisamDeAtencao %}
+            {% if atencao|length > 0 %}
+                <div class="mm-cartao">
+                    <div class="mm-cartao-cabeca">
+                        <h2 class="mm-cartao-titulo">Precisa de atenção</h2>
+                    </div>
+                    {% for meta in atencao %}
+                        {% set info = meta.prazoInfo %}
+                        <div class="mm-atencao-item">
+                            <i class="bi bi-exclamation-triangle-fill" style="color: var(--mm-danger-dot); margin-top: 2px;"></i>
+                            <div class="min-w-0 flex-grow-1">
+                                <a href="{{ path('tarefa_show', {id: meta.id}) }}" class="mm-atencao-titulo d-block">{{ meta.titulo }}</a>
+                                <div class="mm-atencao-meta">
+                                    prazo {{ meta.prazo ? meta.prazo|date('d/m/Y') : '—' }} · {{ info.texto }}
+                                    {%- if aba.value == 'criei' and meta.responsaveis|length > 0 %} · {{ (meta.responsaveis|first).fullName }}
+                                    {%- elseif meta.criadoPor %} · de {{ meta.criadoPor.fullName }}{% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                    <div class="mm-trilho-rodape">
+                        {% if painel.atrasadasOcultas > 0 %}
+                            e mais {{ painel.atrasadasOcultas }} atrasada{{ painel.atrasadasOcultas > 1 ? 's' : '' }}.
+                        {% endif %}
+                        Metas atrasadas continuam contando dias até serem concluídas.
+                    </div>
+                </div>
+            {% endif %}
+
+            {# ── Pessoas ── #}
+            {% if painel.pessoas|length > 0 %}
+                <div class="mm-cartao mm-trilho-bloco">
+                    <h2 class="mm-cartao-titulo mb-3">{{ aba.value == 'responsavel' ? 'Quem delegou para você' : 'Com quem estão' }}</h2>
+                    <div class="d-flex flex-column gap-2">
+                        {% for pessoa in painel.pessoasVisiveis %}
+                            <div class="mm-pessoa">
+                                <span class="mm-avatar">{{ pessoa.iniciais }}</span>
+                                <span class="mm-pessoa-nome">{{ pessoa.nome }}</span>
+                                <span class="mm-pessoa-conta">
+                                    {{ pessoa.abertas }} abertas{% if pessoa.atrasadas > 0 %}<span class="mm-atrasadas"> · {{ pessoa.atrasadas }} atrasada{{ pessoa.atrasadas > 1 ? 's' : '' }}</span>{% endif %}
+                                </span>
+                            </div>
+                        {% endfor %}
+                        {% if painel.pessoasOcultas > 0 %}
+                            <div class="mm-grupo-nota">e mais {{ painel.pessoasOcultas }} pessoa{{ painel.pessoasOcultas > 1 ? 's' : '' }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endif %}
+
+        </div>
+    {% endif %}
+</div>
