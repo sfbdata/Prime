@@ -365,6 +365,77 @@
         console.log('GPS não disponível:', error.message);
     }
 
+    // Prazo próprio para atualizar a posição antes de enviar a batida.
+    //
+    // `getCurrentPosition` resolve apenas pelos callbacks do navegador, e existe um estado em que
+    // ele não chama nenhum dos dois: com o documento oculto (tela apagada, troca de aplicativo,
+    // celular no bolso) o Android SUSPENDE a geolocalização — e aí o `timeout` da própria API
+    // também não corre, porque o relógio dele é do pedido de posição. Um `await` direto nessa
+    // promessa trava para sempre e a batida NUNCA chega a ser enviada: sem erro, sem aviso e sem
+    // linha no banco. Foi o defeito que originou esta frente
+    // (`docs/specs/ponto-batida-nao-se-perde-no-navegador.md`).
+    //
+    // 🔑 O ganho é sobre a SUSPENSÃO, não sobre o relógio: `setTimeout` também é do navegador, e
+    // aba oculta o estrangula (e página congelada nem roda JS). A diferença é que timer estrangulado
+    // volta a disparar quando a página volta, enquanto a geolocalização suspensa pode não chamar
+    // callback nenhum. Por isso o invariante abaixo vale em tempo de PÁGINA RODANDO, não em tempo
+    // de relógio de parede — e é por isso que existe o `LIMITE_ATRASO_ENVIO_MS` lá no envio.
+    //
+    // Invariante: esta função NUNCA rejeita e, com a página rodando, NUNCA demora mais que
+    // `prazoMs`. É o que garante que o `fetch` da batida sempre acontece. Devolve `null` quando não
+    // deu para atualizar a posição — e aí vale a que já está na mão, mesmo comportamento do antigo
+    // ramo de erro.
+    const GPS_PRAZO_ATUALIZACAO_MS = 5000;
+
+    // Teto entre o toque e o envio. O caminho normal gasta no máximo o prazo do GPS acima; só
+    // estoura quando a aba ficou congelada no meio. Ver a guarda no envio da batida.
+    const LIMITE_ATRASO_ENVIO_MS = 60000;
+
+    function lerPosicaoComPrazo(prazoMs) {
+        return new Promise((resolve) => {
+            let jaRespondeu = false;
+            const responder = (valor) => {
+                if (jaRespondeu) return;
+                jaRespondeu = true;
+                resolve(valor);
+            };
+
+            const prazo = setTimeout(() => responder(null), prazoMs);
+
+            // Posição que chega DEPOIS do prazo não serve mais para esta batida (já respondemos),
+            // mas serve para a próxima: guardá-la evita a página aberta o dia todo ficar presa na
+            // posição da carga.
+            const guardarEResponder = (position) => {
+                currentLocation = {
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude,
+                    precisaoGps: position.coords.accuracy,
+                };
+                clearTimeout(prazo);
+                responder(position);
+            };
+
+            try {
+                if (!("geolocation" in navigator)) {
+                    clearTimeout(prazo);
+                    responder(null);
+                    return;
+                }
+
+                navigator.geolocation.getCurrentPosition(
+                    guardarEResponder,
+                    () => { clearTimeout(prazo); responder(null); },
+                    { enableHighAccuracy: true, timeout: prazoMs }
+                );
+            } catch (erro) {
+                // Lançamento SÍNCRONO (extensão de privacidade que stuba a API, WebView de MDM):
+                // sem este catch a promessa rejeitaria e o botão travaria — o sintoma original.
+                clearTimeout(prazo);
+                responder(null);
+            }
+        });
+    }
+
     if (homeOfficeHoje) {
         gpsStatus.innerHTML = `<i class="bi bi-house-laptop"></i> Home Office hoje — o ponto será registrado sem exigir localização.`;
         gpsStatus.className = 'alert alert-info small mb-3';
@@ -439,6 +510,7 @@
         btnPonto.disabled = true;
         btnPonto.innerHTML = '<i class="bi bi-hourglass-split"></i> Registrando...';
 
+        const momentoDoToque = Date.now();
         const payload = { tipo: tipoRegistro.value };
 
         if (!homeOfficeHoje) {
@@ -446,24 +518,36 @@
             let longitude = currentLocation.longitude;
             let precisaoGps = currentLocation.precisaoGps;
 
-            if ("geolocation" in navigator) {
-                try {
-                    const position = await new Promise((resolve, reject) => {
-                        navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 5000 });
-                    });
-
-                    latitude = position.coords.latitude;
-                    longitude = position.coords.longitude;
-                    precisaoGps = position.coords.accuracy;
-                    currentLocation = { latitude, longitude, precisaoGps };
-                } catch (err) {
-                    console.log('Não foi possível atualizar GPS:', err);
-                }
+            // Atualizar a posição é uma MELHORIA, nunca uma condição para enviar: sem o prazo
+            // próprio de `lerPosicaoComPrazo`, esta espera trava o envio inteiro (ver o comentário
+            // dela). Não atualizou, segue com a posição que ligou o botão.
+            const position = await lerPosicaoComPrazo(GPS_PRAZO_ATUALIZACAO_MS);
+            if (position) {
+                latitude = position.coords.latitude;
+                longitude = position.coords.longitude;
+                precisaoGps = position.coords.accuracy;
+                currentLocation = { latitude, longitude, precisaoGps };
+            } else {
+                console.log('Não foi possível atualizar o GPS a tempo; usando a última posição conhecida.');
             }
 
             payload.latitude = latitude;
             payload.longitude = longitude;
             payload.precisaoGps = precisaoGps;
+        }
+
+        // O servidor carimba a batida com a hora de CHEGADA da requisição
+        // (`PontoController::batida` → `setDataHora(new \DateTime())`); o payload não leva o
+        // instante do toque. Se a aba foi congelada e o envio só sair minutos depois, a batida
+        // entraria com a hora errada e com cara de certa. Num módulo de risco ALTO, dado errado
+        // silencioso é pior que ausência visível — então aqui NÃO se envia: devolve o botão e
+        // manda repetir, que é o comportamento que a pessoa já conhecia.
+        if (Date.now() - momentoDoToque > LIMITE_ATRASO_ENVIO_MS) {
+            gpsStatus.innerHTML = `<i class="bi bi-exclamation-triangle"></i> Demorou demais para enviar e a hora da batida ficaria errada. Aperte de novo com a tela ligada.`;
+            gpsStatus.className = 'alert alert-danger small mb-3';
+            btnPonto.disabled = false;
+            btnPonto.innerHTML = '<i class="bi bi-fingerprint"></i> Bater Ponto';
+            return;
         }
 
         try {
