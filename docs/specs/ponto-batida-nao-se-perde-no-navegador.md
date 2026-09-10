@@ -36,15 +36,50 @@ com autor, horário e `user_agent`. Ele responde onde a batida se perde.
 | — dessas, **sem** exclusão registrada | 18 |
 
 🔑 **A chave do cruzamento não é o `entity_id`.** O `AuditLogSubscriber` monta o log no `onFlush`,
-**antes** de o INSERT gerar o id, então todo `create` de `RegistroPonto` tem `entity_id` nulo. O
-casamento é por **`actor_user_id` + `tipo` + `dataHora`**, os três lidos de
-`changes->'diff'->'after'`, contra `user_id` + `tipo` + `data_hora` da tabela. As exclusões saem de
-`changes->'diff'->'before'` com `entity_class LIKE '%RegistroPonto%'`, que cobre a classe legada e a
-atual. Sem esta nota o número não é reproduzível — e a primeira versão desta tabela trazia "2.460
-presentes", que não fechava com 105 ausentes.
+**antes** de o INSERT gerar o id, então todo `create` de `RegistroPonto` tem `entity_id` nulo.
 
-⚠️ **Limite da chave:** batida cuja `dataHora` foi editada depois deixaria de casar e apareceria
-como ausente. Conferido nas 18: nenhuma tem `update` registrado no mesmo dia.
+A consulta vai inteira aqui porque prosa não basta: duas escolhas silenciosas viram números
+completamente diferentes. `data_hora` é `timestamp without time zone` e o JSON grava com offset
+(`2026-04-07T20:11:52-03:00`), então o `left(..., 19)` **descarta o offset de propósito** — com
+`::timestamptz` a sessão converte para UTC e *nada* casa. E do lado da exclusão o usuário é o
+`before.user_id` (dono da batida), **não** o `actor_user_id`, que é quem apagou: 43% das exclusões
+foram feitas por outra pessoa.
+
+```sql
+WITH criadas AS (
+  SELECT a.actor_user_id AS uid,
+         (left(a.changes->'diff'->'after'->>'dataHora', 19))::timestamp AS dh,
+         a.changes->'diff'->'after'->>'tipo' AS tipo
+  FROM audit_log a WHERE a.route = 'ponto_batida' AND a.action = 'create'
+), apagadas AS (
+  SELECT (a.changes->'diff'->'before'->>'user_id')::int AS uid,
+         (left(a.changes->'diff'->'before'->>'dataHora', 19))::timestamp AS dh,
+         a.changes->'diff'->'before'->>'tipo' AS tipo
+  FROM audit_log a WHERE a.action = 'delete' AND a.entity_class LIKE '%RegistroPonto%'
+)
+SELECT count(*) AS confirmadas,
+       count(*) FILTER (WHERE r.id IS NOT NULL) AS ainda_presentes,
+       count(*) FILTER (WHERE r.id IS NULL) AS ausentes,
+       count(*) FILTER (WHERE r.id IS NULL AND p.uid IS NOT NULL) AS ausentes_com_exclusao,
+       count(*) FILTER (WHERE r.id IS NULL AND p.uid IS NULL) AS ausentes_sem_exclusao
+FROM criadas c
+LEFT JOIN registro_ponto r ON r.user_id = c.uid AND r.tipo = c.tipo AND r.data_hora = c.dh
+LEFT JOIN apagadas   p ON p.uid   = c.uid AND p.tipo   = c.tipo AND p.dh        = c.dh;
+```
+
+O `entity_class LIKE '%RegistroPonto%'` do lado da exclusão cobre a classe legada
+(`App\Entity\Ponto\RegistroPonto`) e a atual (`App\Ponto\Entity\RegistroPonto`).
+
+⚠️ **Limite da chave, fechado por medição e não por amostra:** batida cuja `dataHora` fosse editada
+depois deixaria de casar e apareceria como ausente. Como o `diff` só grava campo alterado, basta
+uma consulta para saber que isso nunca aconteceu — **76 edições de `RegistroPonto` em produção,
+`0` tocaram `dataHora`**:
+
+```sql
+SELECT count(*) AS updates,
+       count(*) FILTER (WHERE (changes->'diff'->'before'->>'dataHora') IS NOT NULL) AS mexeram_na_data
+FROM audit_log WHERE action = 'update' AND entity_class LIKE '%RegistroPonto%';
+```
 
 As 18 estão espalhadas por 5 meses e 7 pessoas, com concentração em abril (mês de implantação).
 Não sustentam um relato de "vários usuários".
@@ -154,6 +189,18 @@ que é a data em **UTC**, e combina com um horário **local**. Entre 21h e meia-
 UTC já virou o dia seguinte, o relógio calcula diferença negativa e mostra `00:00:00`.
 
 ### Frente 4 — tentativa que falhou fica guardada e é reenviada
+
+🪤 **Aviso para quem pegar esta frente.** O teste da Frente 1 proíbe **promessa embrulhando
+`getCurrentPosition`** — a forma do defeito, não a classe dele. A classe é *"`await` que pode não
+assentar antes do `fetch`"*, e a escrita mais natural do reenvio cai nela sem disparar teste nenhum:
+
+```js
+await new Promise(r => window.addEventListener('online', r, { once: true }));
+```
+
+Mesmo handler, mesmo travamento, quatro testes verdes. Toda espera nova nesse fluxo precisa de
+prazo próprio, como `lerPosicaoComPrazo`.
+
 
 Guardar a tentativa no próprio navegador e reenviar quando a conexão voltar, e **registrar a recusa
 no servidor**. É o que tira o problema da invisibilidade: hoje batida recusada e batida esquecida

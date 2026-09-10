@@ -44,7 +44,7 @@ final class BatidaNaoTravaNoGpsTest extends TestCase
     public function testNenhumaOutraPromessaEsperaOGpsDireto(): void
     {
         $leitor  = $this->corpoDoLeitorDePosicao();
-        $fora    = str_replace($leitor, '', $this->fonteDaTela());
+        $fora    = str_replace($leitor, '', $this->fonteSemComentariosNemTextos());
         $achadas = [];
 
         foreach ($this->corposDeNewPromise($fora) as $corpo) {
@@ -114,12 +114,13 @@ final class BatidaNaoTravaNoGpsTest extends TestCase
         $fonte = $this->fonteDaTela();
 
         self::assertStringContainsString(
-            'const momentoDoToque = Date.now();',
+            'const momentoDoToque = performance.now();',
             $fonte,
-            'sem marcar o instante do toque não dá para saber que o envio atrasou'
+            'sem marcar o instante do toque não dá para saber que o envio atrasou — e tem que ser '
+            . 'relógio monotônico, senão acerto de hora do aparelho mascara o congelamento'
         );
         self::assertStringContainsString(
-            'Date.now() - momentoDoToque > LIMITE_ATRASO_ENVIO_MS',
+            'performance.now() - momentoDoToque > LIMITE_ATRASO_ENVIO_MS',
             $fonte,
             'o servidor carimba a hora de CHEGADA; envio atrasado gravaria batida com hora errada'
         );
@@ -131,7 +132,7 @@ final class BatidaNaoTravaNoGpsTest extends TestCase
      */
     private function corpoDoLeitorDePosicao(): string
     {
-        $fonte  = $this->fonteDaTela();
+        $fonte  = $this->fonteSemComentariosNemTextos();
         $inicio = strpos($fonte, 'function lerPosicaoComPrazo(');
         self::assertIsInt($inicio, 'o leitor de posição com prazo deveria existir na tela');
 
@@ -196,5 +197,91 @@ final class BatidaNaoTravaNoGpsTest extends TestCase
         self::assertIsString($fonte, 'não consegui ler a tela do ponto');
 
         return $fonte;
+    }
+
+    /**
+     * A tela com o miolo de comentários e de literais de texto apagado (trocado por espaço, para
+     * os deslocamentos continuarem valendo). É sobre ISTO que os dois parsers abaixo trabalham.
+     *
+     * 🪤 Sem esta limpeza o teste erra dos dois lados, e as duas formas foram medidas:
+     * - falso POSITIVO: um comentário do tipo "não voltar ao `new Promise(getCurrentPosition)`" —
+     *   que é exatamente o que a próxima frente vai escrever aqui — seria acusado de ser o defeito;
+     * - falso NEGATIVO, pior porque é mudo: um `)` solto dentro de uma string fecha a contagem de
+     *   parênteses cedo, trunca o corpo da promessa e esconde o `getCurrentPosition` que vem depois.
+     */
+    private function fonteSemComentariosNemTextos(): string
+    {
+        $fonte  = $this->fonteDaTela();
+        $limpa  = '';
+        $estado = 'codigo';
+        $tamanho = strlen($fonte);
+
+        for ($i = 0; $i < $tamanho; $i++) {
+            $c    = $fonte[$i];
+            $prox = $i + 1 < $tamanho ? $fonte[$i + 1] : '';
+
+            if ($estado === 'codigo') {
+                if ($c === '/' && $prox === '/') {
+                    $estado = 'linha';
+                    $limpa .= '  ';
+                    $i++;
+                    continue;
+                }
+                if ($c === '/' && $prox === '*') {
+                    $estado = 'bloco';
+                    $limpa .= '  ';
+                    $i++;
+                    continue;
+                }
+                if ($c === "'" || $c === '"' || $c === '`') {
+                    $estado = 'texto:' . $c;
+                    $limpa .= ' ';
+                    continue;
+                }
+                $limpa .= $c;
+                continue;
+            }
+
+            if ($estado === 'linha') {
+                if ($c === "\n") {
+                    $estado = 'codigo';
+                    $limpa .= "\n";
+                    continue;
+                }
+                $limpa .= ' ';
+                continue;
+            }
+
+            if ($estado === 'bloco') {
+                if ($c === '*' && $prox === '/') {
+                    $estado = 'codigo';
+                    $limpa .= '  ';
+                    $i++;
+                    continue;
+                }
+                $limpa .= $c === "\n" ? "\n" : ' ';
+                continue;
+            }
+
+            // texto:<aspa>
+            $aspa = substr($estado, -1);
+            if ($c === '\\') {
+                $limpa .= '  ';
+                $i++;
+                continue;
+            }
+            if ($c === $aspa) {
+                $estado = 'codigo';
+            }
+            $limpa .= $c === "\n" ? "\n" : ' ';
+        }
+
+        self::assertSame(
+            strlen($fonte),
+            strlen($limpa),
+            'a limpeza deveria preservar o tamanho do arquivo, senão os deslocamentos não valem'
+        );
+
+        return $limpa;
     }
 }

@@ -339,7 +339,12 @@
     tipoRegistro.addEventListener('change', updateButtonState);
 
     // Geolocalização obrigatória
-    function aplicarPosicao(position) {
+    //
+    // Guardar a posição e mexer no botão são coisas separadas de propósito: uma posição pode chegar
+    // com a batida JÁ em envio (callback atrasado do leitor com prazo), e aí `updateButtonState()`
+    // reabilitaria um botão que o envio desabilitou — abrindo caminho para batida duplicada. Quem
+    // chega atrasado guarda a posição e atualiza o aviso; quem manda no botão é o fluxo do envio.
+    function guardarPosicao(position) {
         const accuracy = position.coords.accuracy;
         currentLocation = {
             latitude: position.coords.latitude,
@@ -354,7 +359,10 @@
             gpsStatus.innerHTML = `<i class="bi bi-exclamation-triangle"></i> GPS impreciso (${accuracy.toFixed(1)}m). O sistema ainda validará se você está dentro do raio de alguma sede.`;
             gpsStatus.className = 'alert alert-warning small mb-3';
         }
+    }
 
+    function aplicarPosicao(position) {
+        guardarPosicao(position);
         updateButtonState();
     }
 
@@ -404,15 +412,20 @@
 
             // Posição que chega DEPOIS do prazo não serve mais para esta batida (já respondemos),
             // mas serve para a próxima: guardá-la evita a página aberta o dia todo ficar presa na
-            // posição da carga.
+            // posição da carga. `guardarPosicao` também acerta o aviso de precisão — sem isso a
+            // tela seguiria anunciando 12 m enquanto a próxima batida sairia com 800 m.
+            //
+            // 🔑 Ordem importa: responde ANTES de guardar. Nada depois de `responder` pode impedir
+            // o envio — se `guardarPosicao` lançasse antes dele, com o prazo já cancelado, a
+            // promessa nunca resolveria e o travamento voltaria pela porta dos fundos.
             const guardarEResponder = (position) => {
-                currentLocation = {
-                    latitude: position.coords.latitude,
-                    longitude: position.coords.longitude,
-                    precisaoGps: position.coords.accuracy,
-                };
                 clearTimeout(prazo);
                 responder(position);
+                try {
+                    guardarPosicao(position);
+                } catch (erro) {
+                    console.log('Não consegui guardar a posição para a próxima batida:', erro);
+                }
             };
 
             try {
@@ -510,7 +523,10 @@
         btnPonto.disabled = true;
         btnPonto.innerHTML = '<i class="bi bi-hourglass-split"></i> Registrando...';
 
-        const momentoDoToque = Date.now();
+        // `performance.now()` e nao `Date.now()`: e relogio monotonico de tempo decorrido.
+        // Acerto de relogio do aparelho para tras mascararia o congelamento que esta guarda
+        // existe para pegar; para a frente descartaria batida legitima.
+        const momentoDoToque = performance.now();
         const payload = { tipo: tipoRegistro.value };
 
         if (!homeOfficeHoje) {
@@ -542,7 +558,7 @@
         // entraria com a hora errada e com cara de certa. Num módulo de risco ALTO, dado errado
         // silencioso é pior que ausência visível — então aqui NÃO se envia: devolve o botão e
         // manda repetir, que é o comportamento que a pessoa já conhecia.
-        if (Date.now() - momentoDoToque > LIMITE_ATRASO_ENVIO_MS) {
+        if (performance.now() - momentoDoToque > LIMITE_ATRASO_ENVIO_MS) {
             gpsStatus.innerHTML = `<i class="bi bi-exclamation-triangle"></i> Demorou demais para enviar e a hora da batida ficaria errada. Aperte de novo com a tela ligada.`;
             gpsStatus.className = 'alert alert-danger small mb-3';
             btnPonto.disabled = false;
