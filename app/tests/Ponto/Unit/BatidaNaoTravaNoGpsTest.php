@@ -43,6 +43,9 @@ final class BatidaNaoTravaNoGpsTest extends TestCase
     /** Prazo máximo aceitável para o envio da batida, em milissegundos. */
     private const TETO_PRAZO_ENVIO_MS = 30000;
 
+    /** Espaçamento máximo aceitável entre checagens de virada do dia, em milissegundos. */
+    private const TETO_CHECAGEM_DIA_MS = 300000;
+
     #[TestDox('a única promessa que embrulha getCurrentPosition é a do leitor com prazo')]
     public function testNenhumaOutraPromessaEsperaOGpsDireto(): void
     {
@@ -184,7 +187,7 @@ final class BatidaNaoTravaNoGpsTest extends TestCase
         // recarregamento chama `updateButtonState()`, que reabilitava o botão e deixava sair uma
         // SEGUNDA batida. Quem manda no botão durante o envio é o envio.
         self::assertStringContainsString(
-            'if (envioEmAndamento || diaVirou)',
+            'if (envioEmAndamento)',
             $fonte,
             'durante o envio o botão não pode ser reabilitado por nenhum outro caminho'
         );
@@ -202,14 +205,42 @@ final class BatidaNaoTravaNoGpsTest extends TestCase
             . 'mostraria a batida de ONTEM como se fosse de hoje'
         );
         self::assertStringContainsString(
-            'setInterval(conferirViradaDoDia,',
+            'setInterval(conferirViradaDoDia, INTERVALO_CHECAGEM_DIA_MS)',
             $fonte,
             'a virada precisa ser percebida com a página já aberta, não só na carga'
         );
+        preg_match('/const INTERVALO_CHECAGEM_DIA_MS = (\d+);/', $fonte, $captura);
+
+        self::assertNotEmpty($captura, 'o espaçamento da checagem deveria ser uma constante nomeada');
+        self::assertLessThanOrEqual(
+            self::TETO_CHECAGEM_DIA_MS,
+            (int) $captura[1],
+            'intervalo grande demais mata a checagem sem barulho: a pessoa passa a manhã inteira '
+            . 'olhando para a lista de ontem'
+        );
+
+        // 🔴 A comparação é do aparelho contra ele mesmo. Comparar com a data do SERVIDOR dava ao
+        // relógio do celular poder de veto: fuso errado às 21h travava o botão, e recarregar não
+        // resolvia porque a causa era o aparelho. Ficava impossível bater a saída.
         self::assertStringContainsString(
-            'diaVirou = true;',
+            'new Date().toDateString() === DIA_DO_APARELHO_NA_CARGA',
             $fonte,
-            'a virada tem que travar o botão, senão a pessoa bate olhando para o dia errado'
+            'detectar a MUDANÇA de dia no próprio aparelho é imune a fuso errado; comparar com a '
+            . 'data do servidor não é'
+        );
+    }
+
+    #[TestDox('a virada do dia avisa, mas nunca impede a pessoa de bater o ponto')]
+    public function testViradaDoDiaNaoBloqueiaABatida(): void
+    {
+        $fonte = $this->fonteSemComentariosNemTextos();
+        $corpo = $this->corpoDaFuncao($fonte, 'function updateButtonState(');
+
+        self::assertStringNotContainsString(
+            'diaVirou',
+            $corpo,
+            'quem carimba a hora é o servidor, então bater com a página velha grava certo: impedir '
+            . 'a batida por causa da tela seria trocar um engano por uma falta'
         );
     }
 
@@ -258,12 +289,17 @@ final class BatidaNaoTravaNoGpsTest extends TestCase
      */
     private function corpoDoLeitorDePosicao(): string
     {
-        $fonte  = $this->fonteSemComentariosNemTextos();
-        $inicio = strpos($fonte, 'function lerPosicaoComPrazo(');
-        self::assertIsInt($inicio, 'o leitor de posição com prazo deveria existir na tela');
+        return $this->corpoDaFuncao($this->fonteSemComentariosNemTextos(), 'function lerPosicaoComPrazo(');
+    }
+
+    /** Corpo de uma função do script, delimitado por contagem de chaves. */
+    private function corpoDaFuncao(string $fonte, string $assinatura): string
+    {
+        $inicio = strpos($fonte, $assinatura);
+        self::assertIsInt($inicio, sprintf('não achei `%s` na tela', $assinatura));
 
         $abre = strpos($fonte, '{', $inicio);
-        self::assertIsInt($abre, 'não achei a abertura do corpo do leitor de posição');
+        self::assertIsInt($abre, 'não achei a abertura do corpo da função');
 
         $profundidade = 0;
         for ($i = $abre; $i < strlen($fonte); $i++) {
@@ -277,7 +313,7 @@ final class BatidaNaoTravaNoGpsTest extends TestCase
             }
         }
 
-        self::fail('o corpo do leitor de posição não fecha — chaves desbalanceadas na tela');
+        self::fail('o corpo da função não fecha — chaves desbalanceadas na tela');
     }
 
     /**

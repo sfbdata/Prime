@@ -76,6 +76,14 @@
                        navegador some quando a pessoa toca em OK e não deixa nada para conferir. #}
                     <div id="batida-aviso" class="alert small mt-2 mb-0 text-start d-none" role="alert" aria-live="polite"></div>
 
+                    {# A lista abaixo é do momento em que a página carregou. Quando a resposta do
+                       servidor não volta, mandar conferir a lista SEM atualizá-la é pior do que não
+                       mandar nada: ela ainda diz "ainda não registrada" e confirma a conclusão
+                       errada, levando à segunda batida. Este botão é o jeito honesto de conferir. #}
+                    <button type="button" id="btn-atualizar-pagina" class="btn btn-sm btn-outline-secondary w-100 mt-2 d-none">
+                        <i class="bi bi-arrow-clockwise me-1"></i> Atualizar e conferir minhas batidas
+                    </button>
+
                     {# Batidas de hoje. A tela não mostrava NENHUMA: depois do recarregamento a
                        confirmação verde sumia e a pessoa só conferia rolando até a folha, que no
                        celular fica abaixo deste card. Era o que sustentava o "parece que registrou". #}
@@ -380,13 +388,12 @@
     // está pensando na próxima batida, e que fazia sair uma segunda antes do reload.
     let envioEmAndamento = false;
 
-    // Página aberta da noite para o dia seguinte: o bloco "suas batidas de hoje" é renderizado no
-    // servidor e congela. Às 08h ele mostraria a entrada de ONTEM como se fosse de hoje, e a pessoa
-    // concluiria que já bateu — o mesmo defeito que esta frente existe para matar.
+    // Marca que o dia virou com a página aberta. Serve só para avisar uma vez; NÃO entra em
+    // `updateButtonState` de propósito — ver o comentário de `conferirViradaDoDia`.
     let diaVirou = false;
 
     function updateButtonState() {
-        if (envioEmAndamento || diaVirou) {
+        if (envioEmAndamento) {
             btnPonto.disabled = true;
             return;
         }
@@ -466,23 +473,35 @@
     const ENVIO_PRAZO_MS = 15000;
 
     // Texto dos casos em que a resposta não voltou. Afirmar "não foi registrada" seria mentira: a
-    // requisição pode ter chegado e gravado. Manda conferir antes de repetir, que é o que evita a
-    // segunda batida do mesmo tipo.
-    const AVISO_SEM_CONFIRMACAO = 'Não recebemos a confirmação do servidor. Confira suas batidas de hoje aqui embaixo: se a batida estiver lá, está registrada. Só aperte de novo se ela não aparecer.';
+    // requisição pode ter chegado e gravado.
+    //
+    // 🔴 E mandar "conferir a lista aqui embaixo" também era mentira, de um jeito PIOR: a lista é
+    // renderizada na carga da página e não se atualiza sozinha, então ela ainda diria "ainda não
+    // registrada" e confirmaria a conclusão errada — falso com cara de verificado. Por isso o texto
+    // manda ATUALIZAR primeiro, e o botão de atualizar aparece junto.
+    const AVISO_SEM_CONFIRMACAO = 'Não recebemos a confirmação do servidor e a batida PODE ter sido registrada. A lista abaixo é de antes da tentativa: atualize a página e confira ANTES de apertar de novo.';
+
+    // Falha em que dá para afirmar que nada entrou: o servidor recusou antes de gravar.
+    const AVISO_NAO_ENTROU = 'A batida não foi registrada por falha de segurança da sessão. Atualize a página, entre de novo se precisar, e repita.';
 
     const avisoBatida = document.getElementById('batida-aviso');
+    const btnAtualizarPagina = document.getElementById('btn-atualizar-pagina');
+
+    btnAtualizarPagina.addEventListener('click', () => window.location.reload());
 
     // O `alert` do navegador era o único retorno de falha: some quando a pessoa toca em OK, não
     // deixa rastro na tela, e navegador nenhum o mostra em aba que não está visível. O aviso
     // agora FICA até a próxima tentativa.
-    function mostrarAvisoBatida(texto, tom) {
+    function mostrarAvisoBatida(texto, tom, oferecerAtualizar) {
         avisoBatida.textContent = texto;
         avisoBatida.className = `alert alert-${tom} small mt-2 mb-0 text-start`;
+        btnAtualizarPagina.classList.toggle('d-none', !oferecerAtualizar);
     }
 
     function limparAvisoBatida() {
         avisoBatida.textContent = '';
         avisoBatida.className = 'alert small mt-2 mb-0 text-start d-none';
+        btnAtualizarPagina.classList.add('d-none');
     }
 
     function liberarBotaoBatida() {
@@ -495,31 +514,34 @@
     // renderizado no servidor e congela. Às 08h ele mostraria a entrada de ONTEM como se fosse de
     // hoje, e a pessoa concluiria que já bateu — exatamente o defeito que esta frente existe para
     // matar, reintroduzido pelo próprio remédio. O relógio e a folha congelam junto.
+    //
+    // 🔑 A comparação é do aparelho CONTRA ELE MESMO, não contra a data do servidor. Uma primeira
+    // versão comparava com `dataHoje` e dava ao relógio do aparelho poder de VETO: celular com fuso
+    // errado (roaming, hora automática desligada) via data diferente às 21h, travava o botão, e
+    // recarregar não resolvia porque a causa é o aparelho. Ficava impossível bater a saída — o
+    // contrário do objetivo desta frente. Detectar só a MUDANÇA é imune a fuso errado: um relógio
+    // errado e parado não dispara nada.
+    const DIA_DO_APARELHO_NA_CARGA = new Date().toDateString();
+    const INTERVALO_CHECAGEM_DIA_MS = 30000;
+
     function conferirViradaDoDia() {
-        if (diaVirou) {
+        if (diaVirou || new Date().toDateString() === DIA_DO_APARELHO_NA_CARGA) {
             return;
         }
 
-        const agora = new Date();
-        const mesmoDia = agora.getFullYear() === anoHoje
-            && agora.getMonth() === mesHoje - 1
-            && agora.getDate() === diaHoje;
-
-        if (mesmoDia) {
-            return;
-        }
-
+        // ⚠️ AVISA, não bloqueia. Quem carimba a hora é o servidor, então bater com a página velha
+        // grava certo; o risco desta tela é só a pessoa LER o dia errado e achar que já bateu.
+        // Impedir a batida por causa disso seria trocar um engano por uma falta.
         diaVirou = true;
         document.getElementById('batidas-de-hoje').classList.add('opacity-50');
         mostrarAvisoBatida(
-            'Esta página é de ontem: o que aparece abaixo NÃO é do dia de hoje. Atualize a página antes de bater o ponto.',
-            'warning'
+            'O dia virou com esta página aberta: a lista abaixo é de ontem. Atualize antes de conferir.',
+            'warning',
+            true
         );
-        updateButtonState();
     }
 
-    setInterval(conferirViradaDoDia, 30000);
-    conferirViradaDoDia();
+    setInterval(conferirViradaDoDia, INTERVALO_CHECAGEM_DIA_MS);
 
     function lerPosicaoComPrazo(prazoMs) {
         return new Promise((resolve) => {
@@ -725,10 +747,13 @@
                 setTimeout(() => window.location.reload(), 1500);
             } else if (data && data.message) {
                 mostrarAvisoBatida(data.message, 'danger');
-            } else if (response.status === 401 || response.redirected) {
-                mostrarAvisoBatida('Sua sessão expirou. Entre de novo, confira suas batidas de hoje aqui embaixo e só repita se a batida não estiver lá.', 'danger');
+            } else if (response.status === 401 || response.status === 403 || response.redirected) {
+                // Recusa de regra vem com JSON e foi tratada no ramo acima. Chegar aqui com 401/403
+                // é sessão expirada ou token de segurança inválido: nesses o servidor barra ANTES
+                // de gravar, então dá para afirmar que a batida não entrou.
+                mostrarAvisoBatida(AVISO_NAO_ENTROU, 'danger', true);
             } else {
-                mostrarAvisoBatida(AVISO_SEM_CONFIRMACAO, 'danger');
+                mostrarAvisoBatida(AVISO_SEM_CONFIRMACAO, 'danger', true);
             }
         } catch (error) {
             // 🔑 Aqui o navegador NÃO SABE se a batida entrou. O aborto cancela só o lado de cá: a
@@ -737,7 +762,7 @@
             // guarda de duplicata (`PontoController::batida` só valida repouso e interjornada).
             // Por isso o aviso manda CONFERIR o bloco de hoje, que é logo abaixo e mostra inclusive
             // quantos registros existem de cada tipo.
-            mostrarAvisoBatida(AVISO_SEM_CONFIRMACAO, 'danger');
+            mostrarAvisoBatida(AVISO_SEM_CONFIRMACAO, 'danger', true);
             console.error('Erro ao registrar ponto:', error);
         } finally {
             clearTimeout(prazoDoEnvio);

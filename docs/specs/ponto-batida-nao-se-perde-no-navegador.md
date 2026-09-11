@@ -189,6 +189,12 @@ mostra em aba que não está visível. No lugar, `#batida-aviso`, que **fica** a
 login e erro do servidor devolve HTML; os dois quebravam no `.json()` e caíam no `catch` como falha
 de rede. Diagnóstico errado, e mandava a pessoa tentar de novo sem sair do lugar.
 
+⚠️ **Nada disto IMPEDE batida duplicada no servidor.** `PontoController::batida` continua sem
+guarda: duas `entrada`, dois `repouso` ou duas `saida` entram sem recusa. O que a frente faz é parar
+de *induzir* a duplicata e passar a *mostrá-la* quando acontece. Fechar de verdade é decisão de
+regra — recusar a segunda batida do mesmo tipo no mesmo dia, ou aceitar e sinalizar — e não está
+feito.
+
 🔴 **O aviso não pode afirmar que a batida não entrou.** A primeira versão dizia "a batida NÃO foi
 registrada, tente de novo" no aborto e na falha de rede. O aborto cancela **só o lado do
 navegador**: a requisição já saiu e o servidor pode ter gravado antes de a resposta se perder. Como
@@ -220,10 +226,25 @@ teste asserir invariante e não rótulo.
 a duplicata que o aviso de "sem confirmação" pode provocar, no lugar para onde esse aviso manda a
 pessoa olhar. `quantasHoje` vem do controller e o card marca `N registros` quando passa de um.
 
-🪤 **O bloco é renderizado no servidor e congela.** Página esquecida aberta da noite para o dia
-seguinte mostraria a entrada de **ontem** sob o título "suas batidas de hoje", e a pessoa concluiria
-que já bateu — o defeito desta frente reintroduzido pelo próprio remédio. `conferirViradaDoDia` roda
-a cada 30 s, avisa que a tela é de ontem e trava o botão até recarregar.
+🪤 **O bloco é renderizado no servidor e congela.** Isso mordeu duas vezes, de jeitos diferentes, e
+as duas viraram regra:
+
+**(a) Página esquecida aberta da noite para o dia seguinte** mostraria a entrada de **ontem** sob o
+título "suas batidas de hoje". `conferirViradaDoDia` roda a cada 30 s e avisa.
+
+🔴 Ele **avisa e não bloqueia**, e compara o aparelho **contra ele mesmo**
+(`new Date().toDateString()` da carga contra o de agora). A primeira versão comparava com a data do
+servidor e travava o botão: celular com fuso errado (roaming, hora automática desligada) via data
+diferente às 21h, o botão travava, e **recarregar não resolvia** porque a causa é o aparelho. Ficava
+impossível bater a saída — o oposto do objetivo da frente. Detectar só a *mudança* é imune a fuso
+errado, porque relógio errado e parado não muda. E quem carimba a hora é o servidor: bater com a
+página velha grava certo, então impedir a batida trocaria um engano de leitura por uma falta.
+
+**(b) O aviso de "sem confirmação" não pode mandar conferir a lista sem atualizá-la.** A primeira
+versão dizia "confira aqui embaixo, só aperte de novo se não aparecer". A lista é da carga da
+página: ela ainda diria "ainda não registrada" e **confirmaria a conclusão errada**, levando à
+segunda batida. Falso com cara de verificado, que é pior que falso sozinho. Agora o texto diz que a
+lista é de antes e manda **atualizar primeiro**, com o botão `#btn-atualizar-pagina` junto do aviso.
 
 🪤 `parseHMS` corrigida junto. Montava a data com `new Date().toISOString().slice(0,10)`, que é a
 data em **UTC**, e combinava com horário **local**. Entre 21h e meia-noite (BRT = UTC−3) o UTC já
