@@ -330,6 +330,20 @@ raiz, atualizando a posição enquanto a pessoa se desloca, e o botão destrava 
 com a página aberta, o servidor passa a aceitar e a tela seguiria cinza. Por isso quem está fora da
 área recebe o botão **Atualizar e conferir** junto da mensagem.
 
+🔴 **O botão "Atualizar e conferir" tem dois donos, e quando eles discordam o aviso de envio vence.**
+A razão é assimétrica: existe um caso em que **mostrar** o botão é dano, e nenhum em que escondê-lo
+seja. Sem rede, recarregar entrega a página de erro do navegador e leva junto o aviso e a lista de
+batidas de hoje — a única prova de que a batida pode ter entrado. Por isso a cerca só mexe no botão
+quando não há aviso de envio ativo **nem** envio em andamento (`cercaMandaNoBotaoAtualizar`).
+
+Sem esse guarda havia o caminho: bater no subsolo sem sinal → `AVISO_SEM_REDE` esconde o botão →
+andar até o carro e sair do raio → a cerca reexibe o botão proibido ao lado do aviso que manda **não**
+atualizar. Não dependia de modo avião.
+
+⚠️ **Custo aceito conscientemente: `watchPosition` com `enableHighAccuracy` fica ligado enquanto a
+tela estiver aberta**, e a tela é feita para ficar aberta o dia todo. Gasta bateria. A alternativa,
+que é parar o watch quando a aba sai de foco, não foi feita nesta fatia.
+
 A tela espelha as duas exclusões do servidor (sede sem coordenada, raio não positivo) para não
 bloquear por uma cerca que a regra não aplica. 🪤 Sede **sem coordenada** não é testável: a coluna é
 `NOT NULL` no banco. O guard existe nos dois lados como defesa em profundidade.

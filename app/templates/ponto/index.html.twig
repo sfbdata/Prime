@@ -395,6 +395,27 @@
     // Sedes do escritório ativo, para a tela saber dizer "fora da área" ANTES do toque.
     const SEDES = JSON.parse('{{ sedesDaTela|json_encode|e('js') }}');
 
+    // Declarados AQUI, e não junto do resto do fluxo de envio, porque `guardarPosicao` os usa e é
+    // chamada de callback de GPS. `const` não é içado: a ordem só não quebrava por acidente de o
+    // callback ser assíncrono, e um refactor deixaria a tela morrer na carga.
+    const avisoBatida = document.getElementById('batida-aviso');
+    const btnAtualizarPagina = document.getElementById('btn-atualizar-pagina');
+
+    /**
+     * O botão "Atualizar e conferir" tem DOIS donos: a cerca (fora da área) e o aviso de envio.
+     *
+     * 🔴 Quando discordam, **o aviso de envio vence**. O motivo é assimétrico e vale registrar: há
+     * um caso em que mostrar o botão é dano, e nenhum em que escondê-lo seja. Sem rede, recarregar
+     * entrega a página de erro do navegador e leva junto o aviso e a lista de batidas de hoje — a
+     * única prova de que a batida pode ter entrado, e o que evita a segunda batida. Por isso
+     * `AVISO_SEM_REDE` esconde o botão de propósito, e a cerca não pode reexibi-lo por cima.
+     *
+     * O envio em andamento também tranca: um clique com a requisição em voo recarrega no meio dela.
+     */
+    function cercaMandaNoBotaoAtualizar() {
+        return !envioEmAndamento && avisoBatida.classList.contains('d-none');
+    }
+
     function distanciaEmMetros(lat1, lon1, lat2, lon2) {
         const raioTerra = 6371000;
         const rad = (g) => g * Math.PI / 180;
@@ -426,6 +447,8 @@
         let maisProxima = null;
         let menorDistancia = Infinity;
         let menorExcedente = Infinity;
+        let decisiva = null;
+        let distanciaDecisiva = null;
         let dentro = false;
 
         for (const sede of SEDES) {
@@ -446,7 +469,15 @@
             // diferentes, a sede mais próxima pode ter raio pequeno enquanto outra, mais distante,
             // tem raio grande o bastante para a pessoa estar dentro. Olhar só a mais próxima
             // bloquearia quem o servidor aceitaria — a tela ficaria mais rígida que a regra.
-            menorExcedente = Math.min(menorExcedente, distancia - sede.raio);
+            //
+            // A sede CITADA na mensagem e a decisiva, nao a mais perto em metros: mandar a
+            // pessoa olhar para a sede errada e conselho ruim, e com raios diferentes elas
+            // divergem. Medido por fuzz: aconteceria em 10% dos bloqueios.
+            if ((distancia - sede.raio) < menorExcedente) {
+                menorExcedente = distancia - sede.raio;
+                decisiva = sede;
+                distanciaDecisiva = distancia;
+            }
             if (distancia <= sede.raio) {
                 dentro = true;
             }
@@ -466,8 +497,8 @@
 
         return {
             situacao: certamenteFora ? 'fora' : 'indeterminado',
-            distancia: menorDistancia,
-            sede: maisProxima,
+            distancia: distanciaDecisiva,
+            sede: decisiva,
         };
     }
 
@@ -514,13 +545,13 @@
             // gestor conceder com a página aberta, o servidor passa a aceitar e a tela continuaria
             // cinza. O botão de atualizar é a saída, e serve também para quem quiser forçar uma
             // releitura em vez de esperar a atualização contínua.
-            btnAtualizarPagina.classList.remove('d-none');
+            if (cercaMandaNoBotaoAtualizar()) {
+                btnAtualizarPagina.classList.remove('d-none');
+            }
             return;
         }
 
-        // Só esconde se ninguém mais estiver precisando dele: um aviso de envio ativo é dono do
-        // botão, e uma atualização de posição não pode apagar a saída que aquele aviso ofereceu.
-        if (avisoBatida.classList.contains('d-none')) {
+        if (cercaMandaNoBotaoAtualizar()) {
             btnAtualizarPagina.classList.add('d-none');
         }
 
@@ -592,9 +623,6 @@
 
     // Falha em que dá para afirmar que nada entrou: o servidor recusou antes de gravar.
     const AVISO_NAO_ENTROU = 'A batida não foi registrada: o servidor recusou o pedido antes de gravar. Atualize a página, entre de novo se precisar, e repita.';
-
-    const avisoBatida = document.getElementById('batida-aviso');
-    const btnAtualizarPagina = document.getElementById('btn-atualizar-pagina');
 
     btnAtualizarPagina.addEventListener('click', () => window.location.reload());
 
@@ -719,6 +747,10 @@
         gpsStatus.className = 'alert alert-info small mb-3';
         updateButtonState();
     } else if ("geolocation" in navigator) {
+        // A API pode lancar de forma SINCRONA (extensao de privacidade que a stuba, WebView de MDM).
+        // Sem este try o script morre aqui, ANTES de registrar o handler do botao: a tela fica com
+        // um botao que nao faz nada e sem erro nenhum na cara da pessoa.
+        try {
         navigator.geolocation.getCurrentPosition(
             aplicarPosicao,
             (error) => {
@@ -746,6 +778,9 @@
             (error) => console.log('Atualização contínua de GPS falhou:', error && error.message),
             { enableHighAccuracy: true, maximumAge: 30000 }
         );
+        } catch (erro) {
+            erroGps({ message: 'API de geolocalizacao indisponivel: ' + (erro && erro.message) });
+        }
     } else {
         gpsStatus.innerHTML = `<i class="bi bi-exclamation-triangle"></i> Seu navegador não suporta geolocalização.`;
         gpsStatus.className = 'alert alert-danger small mb-3';

@@ -57,10 +57,18 @@ final class CercaDaTelaNaoEndureceARegraTest extends TestCase
         // Medido na produção em 11/09/2026, sobre 1.683 batidas desde 01/06: p90 de 99 m, com raio
         // de 100 m. Uma em cada dez leituras tem incerteza do tamanho do raio inteiro — é esse
         // número que torna a margem obrigatória, e não uma cortesia.
-        self::assertStringContainsString(
-            'menorExcedente = Math.min(menorExcedente, distancia - sede.raio)',
+        self::assertMatchesRegularExpression(
+            '/if \(\(distancia - sede\.raio\) < menorExcedente\)/',
             $corpo,
             'com raios diferentes, olhar só a sede mais próxima bloquearia quem o servidor aceita'
+        );
+        // A sede citada na mensagem tem de ser a DECISIVA. Medido por fuzz na revisão: com raios
+        // diferentes, a mais próxima em metros não é a que decide em ~10% dos bloqueios, e a
+        // pessoa seria mandada olhar para o lugar errado.
+        self::assertStringContainsString(
+            'sede: decisiva,',
+            $corpo,
+            'a sede devolvida tem que ser a que decidiu o bloqueio, não a mais próxima'
         );
     }
 
@@ -142,6 +150,34 @@ final class CercaDaTelaNaoEndureceARegraTest extends TestCase
             $corpo,
             'a liberação do dia é decidida no servidor e só chega na carga: sem o botão de '
             . 'atualizar, quem consegue a liberação com a página aberta continua bloqueado'
+        );
+    }
+
+    #[TestDox('a cerca nunca reexibe o botão de atualizar por cima de um aviso de envio')]
+    public function testCercaNaoAtropelaOAvisoDeEnvio(): void
+    {
+        $corpo = $this->corpoDaFuncao('function guardarPosicao(');
+
+        // 🔴 Existe um caso em que MOSTRAR o botão é dano, e nenhum em que escondê-lo seja: sem
+        // rede, recarregar entrega a página de erro do navegador e leva o aviso e a lista de
+        // batidas de hoje, que é a única prova de que a batida pode ter entrado. `AVISO_SEM_REDE`
+        // esconde o botão de propósito, e a cerca não pode reexibi-lo por cima.
+        self::assertSame(
+            2,
+            substr_count($corpo, 'cercaMandaNoBotaoAtualizar()'),
+            'os dois lados, mostrar E esconder, precisam passar pelo mesmo dono do botão'
+        );
+
+        $dono = $this->corpoDaFuncao('function cercaMandaNoBotaoAtualizar(');
+        self::assertStringContainsString(
+            '!envioEmAndamento',
+            $dono,
+            'clique com a requisição em voo recarrega no meio dela'
+        );
+        self::assertStringContainsString(
+            "avisoBatida.classList.contains('d-none')",
+            $dono,
+            'aviso de envio ativo é dono do botão, e a cerca não manda enquanto ele existir'
         );
     }
 
