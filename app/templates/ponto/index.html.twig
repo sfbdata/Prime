@@ -392,6 +392,68 @@
     // `updateButtonState` de propósito — ver o comentário de `conferirViradaDoDia`.
     let diaVirou = false;
 
+    // Sedes do escritório ativo, para a tela saber dizer "fora da área" ANTES do toque.
+    const SEDES = JSON.parse('{{ sedesDaTela|json_encode|e('js') }}');
+
+    function distanciaEmMetros(lat1, lon1, lat2, lon2) {
+        const raioTerra = 6371000;
+        const rad = (g) => g * Math.PI / 180;
+        const dLat = rad(lat2 - lat1);
+        const dLon = rad(lon2 - lon1);
+        const a = Math.sin(dLat / 2) ** 2
+            + Math.cos(rad(lat1)) * Math.cos(rad(lat2)) * Math.sin(dLon / 2) ** 2;
+
+        return raioTerra * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    /**
+     * Onde a pessoa está, em relação às sedes.
+     *
+     * 🔑 Três situações, não duas. `indeterminado` existe porque precisão de GPS não é enfeite: com
+     * 120 m de erro e 70 m de distância o aparelho LITERALMENTE não sabe dizer se está dentro. A
+     * tela trata isso como "pode tentar" e deixa o servidor decidir.
+     *
+     * 🔑 Esta avaliação é de propósito MAIS PERMISSIVA que a do servidor: só acusa `fora` quando a
+     * distância supera o raio mesmo descontando a margem de precisão. A regra continua sendo a do
+     * servidor, e divergir para o lado permissivo é seguro — divergir para o rígido transformaria
+     * imprecisão de GPS em falta, que é o que não pode acontecer.
+     */
+    function avaliarPosicao() {
+        if (!currentLocation || SEDES.length === 0) {
+            return { situacao: 'indeterminado', distancia: null, sede: null };
+        }
+
+        let maisProxima = null;
+        let menorDistancia = Infinity;
+        let dentro = false;
+
+        for (const sede of SEDES) {
+            const distancia = distanciaEmMetros(
+                currentLocation.latitude, currentLocation.longitude, sede.latitude, sede.longitude
+            );
+            if (distancia < menorDistancia) {
+                menorDistancia = distancia;
+                maisProxima = sede;
+            }
+            if (distancia <= sede.raio) {
+                dentro = true;
+            }
+        }
+
+        if (dentro) {
+            return { situacao: 'dentro', distancia: menorDistancia, sede: maisProxima };
+        }
+
+        const margem = Number(currentLocation.precisaoGps) || 0;
+        const certamenteFora = (menorDistancia - margem) > maisProxima.raio;
+
+        return {
+            situacao: certamenteFora ? 'fora' : 'indeterminado',
+            distancia: menorDistancia,
+            sede: maisProxima,
+        };
+    }
+
     function updateButtonState() {
         if (envioEmAndamento) {
             btnPonto.disabled = true;
@@ -401,7 +463,11 @@
             btnPonto.disabled = !tipoRegistro.value;
             return;
         }
-        btnPonto.disabled = !currentLocation || !tipoRegistro.value;
+        if (!currentLocation || avaliarPosicao().situacao === 'fora') {
+            btnPonto.disabled = true;
+            return;
+        }
+        btnPonto.disabled = !tipoRegistro.value;
     }
 
     tipoRegistro.addEventListener('change', updateButtonState);
@@ -419,6 +485,16 @@
             longitude: position.coords.longitude,
             precisaoGps: accuracy,
         };
+
+        // Botão desabilitado precisa DIZER o motivo e o caminho. Antes ele só ficava cinza, e a
+        // pessoa fora da área nem sabia por que não conseguia bater nem o que fazer a respeito.
+        const onde = avaliarPosicao();
+
+        if (onde.situacao === 'fora') {
+            gpsStatus.innerHTML = `<i class="bi bi-geo-alt-fill"></i> Você está a ${Math.round(onde.distancia)}m de <strong>${onde.sede.nome}</strong>, fora da área permitida para bater o ponto.<br>Se está em trabalho externo ou home office, peça ao gestor a liberação do dia antes de bater.`;
+            gpsStatus.className = 'alert alert-danger small mb-3';
+            return;
+        }
 
         if (accuracy <= GPS_PRECISAO_ACEITAVEL_METROS) {
             gpsStatus.innerHTML = `<i class="bi bi-geo-alt-fill"></i> GPS: ${accuracy.toFixed(1)}m de precisão`;

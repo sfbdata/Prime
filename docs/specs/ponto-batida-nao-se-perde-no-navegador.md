@@ -290,17 +290,38 @@ contando com ~60 m de imprecisão e de que nunca houve problema de localização
 Também decidiu **não** corrigir a coordenada do QNF 03 e **manter** exclusão e alteração de batida
 pelo administrador, para ajustar depois.
 
-Correções de rumo que isso impõe, e que **não** estão implementadas:
+Correções de rumo que isso impõe:
 
-- **O botão precisa bloquear pelo raio na própria tela.** Hoje ele só desabilita quando não há
-  posição nenhuma; quem está fora do raio consegue apertar e é o servidor que recusa, depois. A
-  checagem da tela tem de ser **mais permissiva** que a do servidor (descontando a margem de
-  precisão), porque trabalha com posição possivelmente antiga — bloquear na tela quem o servidor
-  aceitaria seria transformar imprecisão em falta.
-- **O botão desabilitado precisa dizer por quê e o que fazer.** Hoje fica só cinza.
-- **A autorização prévia vira peça central.** Quem estiver bloqueado não registra de jeito nenhum, e
-  cai em Esquecimento de Registro. A liberação hoje existe pela metade (`HomeOfficeConfig`, por
-  pessoa e por dia) e precisa ser concedível rápido, inclusive no mesmo dia.
+### ✅ O botão bloqueia pelo raio na própria tela (entregue)
+
+Antes ele só desabilitava quando não havia posição **nenhuma**; quem estava fora do raio apertava e
+levava o erro depois. `index()` passa as sedes do escritório ativo (`sedesDaTela`) e `avaliarPosicao`
+decide na tela.
+
+🔑 **A avaliação da tela é deliberadamente MAIS PERMISSIVA que a do servidor, e o sentido do desvio é
+o invariante.** Três situações, não duas: `dentro`, `fora` e **`indeterminado`**. Só bloqueia no
+`fora`, que exige `(distância − precisão) > raio`. Com 120 m de erro e 70 m de distância o aparelho
+não sabe dizer se está dentro, e decidir contra a pessoa aí seria transformar imprecisão de GPS em
+**falta**. Divergir para o permissivo é inofensivo: o servidor recusa e a mensagem aparece.
+
+A tela espelha as duas exclusões do servidor (sede sem coordenada, raio não positivo) para não
+bloquear por uma cerca que a regra não aplica. 🪤 Sede **sem coordenada** não é testável: a coluna é
+`NOT NULL` no banco. O guard existe nos dois lados como defesa em profundidade.
+
+⚠️ Isto **não** substitui a regra: uma verificação no navegador é contornável em segundos, e
+`batida()` continua sendo quem decide.
+
+### ✅ O botão desabilitado diz por quê e o que fazer (entregue)
+
+Fora da área, a faixa de GPS passa a mostrar a distância, o nome da sede mais próxima, e a instrução:
+pedir ao gestor a liberação do dia se estiver em trabalho externo ou home office. Antes ficava só
+cinza.
+
+### ✅ A autorização prévia já existe — o que faltava era saber dela
+
+`HomeOfficeConfig` tem `datasAvulsas`, e a aba **Home Office** em `tenant/edit_user_role` já deixa o
+gestor incluir um dia solto por pessoa. Não foi preciso construir nada: o buraco era a pessoa
+bloqueada não saber que esse caminho existe, e é isso que a mensagem acima resolve.
 
 ⚠️ **O registro de tentativa recusada (Frente 4) ficou menor do que eu vendi.** Com o botão
 bloqueando por raio, a recusa por localização deixa de chegar ao servidor. O log passa a valer para

@@ -66,7 +66,8 @@ final class PontoController extends AbstractController
         FeriadoRepository $feriadoRepository,
         JustificativaPontoRepository $justificativaRepository,
         FolhaPontoBuilder $folhaPontoBuilder,
-        HomeOfficeResolver $homeOfficeResolver
+        HomeOfficeResolver $homeOfficeResolver,
+        SedeRepository $sedeRepository
     ): Response {
         /** @var User $user */
         $user = $this->getUser();
@@ -153,6 +154,32 @@ final class PontoController extends AbstractController
 
         $homeOfficeHoje = $homeOfficeResolver->estaLiberado($user, $tenant, $agora);
 
+        // Sedes do escritório ATIVO, para a tela conseguir dizer "você está fora da área" ANTES de
+        // a pessoa apertar. Hoje o botão só trava por falta de posição: quem está fora do raio
+        // aperta e leva um erro depois, o que o dono pediu para mudar.
+        //
+        // 🔑 Isto NÃO é a regra. A regra continua em `batida()`, no servidor, que é quem decide.
+        // A tela é cortesia, e por isso é deliberadamente mais permissiva (ver `avaliarPosicao` no
+        // template): uma verificação só no navegador é contornável em segundos.
+        //
+        // Espelha as duas exclusões do servidor: sede sem coordenada e raio não positivo não
+        // delimitam nada e ficam de fora nos dois lados.
+        $sedesDaTela = [];
+        foreach ($sedeRepository->findBy(['tenant' => $tenant]) as $sede) {
+            if ($sede->getLatitude() === null || $sede->getLongitude() === null) {
+                continue;
+            }
+            if ((int) $sede->getRaioPermitido() <= 0) {
+                continue;
+            }
+            $sedesDaTela[] = [
+                'nome'      => $sede->getNome(),
+                'latitude'  => (float) $sede->getLatitude(),
+                'longitude' => (float) $sede->getLongitude(),
+                'raio'      => (int) $sede->getRaioPermitido(),
+            ];
+        }
+
         $justificativasDaCompetencia = $justificativaRepository->findByUserAndCompetencia($user, $anoSelecionado, $mesSelecionado);
 
         // Atalho "+" da folha: célula que já tem esquecimento pendente ou abonado não oferece o
@@ -177,6 +204,7 @@ final class PontoController extends AbstractController
 
         return $this->render('ponto/index.html.twig', [
             'homeOfficeHoje' => $homeOfficeHoje,
+            'sedesDaTela'    => $sedesDaTela,
             'folhaRows' => $folhaRows,
             'mesAtual' => $mesSelecionado,
             'anoAtual' => $anoSelecionado,
