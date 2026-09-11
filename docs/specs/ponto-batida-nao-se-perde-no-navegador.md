@@ -187,8 +187,21 @@ mostra em aba que não está visível. No lugar, `#batida-aviso`, que **fica** a
 
 🔑 **Resposta que não é JSON deixou de virar "erro de conexão".** Sessão expirada devolve a tela de
 login e erro do servidor devolve HTML; os dois quebravam no `.json()` e caíam no `catch` como falha
-de rede. Diagnóstico errado, e mandava a pessoa tentar de novo sem sair do lugar. Agora a mensagem
-diz que a sessão expirou e que a batida **não** foi registrada.
+de rede. Diagnóstico errado, e mandava a pessoa tentar de novo sem sair do lugar.
+
+🔴 **O aviso não pode afirmar que a batida não entrou.** A primeira versão dizia "a batida NÃO foi
+registrada, tente de novo" no aborto e na falha de rede. O aborto cancela **só o lado do
+navegador**: a requisição já saiu e o servidor pode ter gravado antes de a resposta se perder. Como
+`PontoController::batida` **não tem guarda de duplicata** (as únicas travas são repouso e
+interjornada, e nenhuma delas pega uma segunda `entrada` ou `saida`), o texto produzia batida
+dobrada. Agora esses casos usam `AVISO_SEM_CONFIRMACAO`, que manda **conferir o bloco de hoje antes
+de repetir**. A certeza só aparece quando o servidor respondeu recusando.
+
+🔴 **A flag `sucesso` não fechava o duplo envio sozinha.** `tipoRegistro` tem
+`addEventListener('change', updateButtonState)`: trocar o tipo durante o 1,5 s até o recarregamento
+reabilitava o botão, e trocar de tipo é o gesto natural de quem já pensa na próxima batida. Entrou
+`envioEmAndamento`, respeitado dentro do próprio `updateButtonState` — durante o envio o botão é do
+envio e de mais ninguém.
 
 ### Frente 3 — a tela mostra as quatro batidas do dia ✅ (entregue)
 
@@ -202,10 +215,26 @@ Entrou `#batidas-de-hoje` dentro do card do botão: os quatro tipos, com o horá
 **"ainda não registrada"** escrito para quem falta. O estado também vai em `data-registrada`, para o
 teste asserir invariante e não rótulo.
 
+🔑 **O bloco mostra a CONTAGEM por tipo, não só o horário.** `pontoHoje` guarda um registro por tipo
+(o último vence), então duas entradas no mesmo dia apareceriam como uma. Isso esconderia justamente
+a duplicata que o aviso de "sem confirmação" pode provocar, no lugar para onde esse aviso manda a
+pessoa olhar. `quantasHoje` vem do controller e o card marca `N registros` quando passa de um.
+
+🪤 **O bloco é renderizado no servidor e congela.** Página esquecida aberta da noite para o dia
+seguinte mostraria a entrada de **ontem** sob o título "suas batidas de hoje", e a pessoa concluiria
+que já bateu — o defeito desta frente reintroduzido pelo próprio remédio. `conferirViradaDoDia` roda
+a cada 30 s, avisa que a tela é de ontem e trava o botão até recarregar.
+
 🪤 `parseHMS` corrigida junto. Montava a data com `new Date().toISOString().slice(0,10)`, que é a
 data em **UTC**, e combinava com horário **local**. Entre 21h e meia-noite (BRT = UTC−3) o UTC já
 virou o dia seguinte, a diferença contra `agora` dava negativa e o relógio mostrava `00:00:00` para
-quem estava trabalhando. Agora a data vem do servidor (`dataHoje`) e a montagem é local.
+quem estava trabalhando. Agora a data vem do servidor (`dataHoje`).
+
+⚠️ **A correção é PARCIAL e é honesto dizer.** `new Date(ano, mes, dia, ...)` constrói na timezone
+**do aparelho**, e o servidor roda em `America/Sao_Paulo`. Celular com fuso divergente (roaming,
+config errada) continua contando errado — só que agora com número plausível em vez do `00:00:00`
+óbvio, que é mais difícil de notar. Fechar de vez exige o servidor mandar o próprio deslocamento.
+**Não está feito.**
 
 ### Frente 4 — tentativa que falhou fica guardada e é reenviada
 

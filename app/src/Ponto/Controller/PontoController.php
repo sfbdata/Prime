@@ -129,10 +129,16 @@ final class PontoController extends AbstractController
         );
 
         $pontoHoje = ['entrada' => null, 'repouso' => null, 'retorno' => null, 'saida' => null];
+        // Quantas batidas de cada tipo existem HOJE. `$pontoHoje` guarda uma só por tipo (a última
+        // vence), e o card usa isso para a pessoa conferir se registrou. Sem a contagem, duas
+        // entradas no mesmo dia apareceriam como uma — justamente a duplicata que o aviso de envio
+        // sem confirmação pode provocar, escondida no lugar que existe para revelá-la.
+        $quantasHoje = ['entrada' => 0, 'repouso' => 0, 'retorno' => 0, 'saida' => 0];
         foreach ($batidasHoje as $batida) {
             $tipo = $batida->getTipo();
             if (array_key_exists($tipo, $pontoHoje)) {
                 $pontoHoje[$tipo] = $batida->getDataHora()->format('H:i:s');
+                $quantasHoje[$tipo]++;
             }
         }
 
@@ -177,6 +183,7 @@ final class PontoController extends AbstractController
             'competenciasPonto' => $competenciasPonto,
             'competenciaSelecionada' => $competenciaSelecionada,
             'pontoHoje' => $pontoHoje,
+            'quantasHoje' => $quantasHoje,
             'saldoMes' => $saldoMes,
             'horasPagasMinutos' => $horasPagasMinutos,
             // Bloco de totais do rodapé da folha (spec §7). Vem pronto do controller de propósito:

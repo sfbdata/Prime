@@ -92,8 +92,8 @@ final class BatidasDeHojeNaTelaTest extends JusPrimeWebTestCase
         $tenant = $this->criarTenant();
         $user   = $this->criarUsuario($tenant);
 
-        $ontem = (new \DateTimeImmutable('yesterday'))->setTime(9, 47, 11);
-        $this->criarBatidaEm($user, $tenant, 'entrada', $ontem);
+        $outroDia = $this->outroDiaDoMesmoMes()->setTime(9, 47, 11);
+        $this->criarBatidaEm($user, $tenant, 'entrada', $outroDia);
 
         $this->logarComTenant($client, $user, $tenant);
         $crawler = $client->request('GET', '/ponto/');
@@ -127,14 +127,53 @@ final class BatidasDeHojeNaTelaTest extends JusPrimeWebTestCase
         // lugar da página". No celular o card do botão é o que fica no alto; a folha vem depois.
         self::assertCount(
             1,
-            $crawler->filter('.card-body > #batidas-de-hoje'),
+            $crawler->filter('.card-primary > .card-body > #batidas-de-hoje'),
             'o bloco precisa estar no corpo do card de registrar ponto'
         );
         self::assertCount(
             1,
-            $crawler->filter('.card-body > #batida-aviso'),
+            $crawler->filter('.card-primary > .card-body > #batida-aviso'),
             'o aviso de resultado precisa estar no mesmo card, onde a pessoa acabou de apertar'
         );
+    }
+
+    #[TestDox('duas batidas do mesmo tipo no dia aparecem como duplicata, não como uma só')]
+    public function testMostraQuandoHaMaisDeUmaBatidaDoMesmoTipo(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $user   = $this->criarUsuario($tenant);
+
+        // O cenário real: a primeira batida gravou, a resposta não voltou, a pessoa apertou de novo.
+        $this->criarBatida($user, $tenant, 'entrada', '08:12:03');
+        $this->criarBatida($user, $tenant, 'entrada', '08:12:40');
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $client->request('GET', '/ponto/');
+
+        self::assertResponseIsSuccessful();
+
+        // `pontoHoje` guarda uma só por tipo (a última vence). Sem a contagem, o card mostraria
+        // "Entrada 08:12:40" e esconderia a duplicata — no lugar que existe para revelá-la, e para
+        // o qual o aviso de "sem confirmação" manda a pessoa olhar antes de bater de novo.
+        self::assertCount(
+            1,
+            $crawler->filter('#batidas-de-hoje .batida-de-hoje[data-tipo="entrada"][data-quantas="2"]'),
+            'o card precisa dizer que existem DUAS entradas hoje'
+        );
+        self::assertStringContainsString(
+            '2 registros',
+            $this->blocoDeHoje($client),
+            'a duplicata tem que estar legível, não só num atributo'
+        );
+    }
+
+    /** Um dia do mês corrente que não é hoje: 'ontem' no dia 1º cai fora da competência exibida. */
+    private function outroDiaDoMesmoMes(): \DateTimeImmutable
+    {
+        $hoje = new \DateTimeImmutable('today');
+
+        return (int) $hoje->format('d') === 1 ? $hoje->modify('+1 day') : $hoje->modify('-1 day');
     }
 
     private function blocoDeHoje(object $client): string

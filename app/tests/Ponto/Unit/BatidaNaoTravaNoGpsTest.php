@@ -40,6 +40,9 @@ final class BatidaNaoTravaNoGpsTest extends TestCase
     /** Prazo máximo aceitável para a atualização de posição, em milissegundos. */
     private const TETO_PRAZO_GPS_MS = 10000;
 
+    /** Prazo máximo aceitável para o envio da batida, em milissegundos. */
+    private const TETO_PRAZO_ENVIO_MS = 30000;
+
     #[TestDox('a única promessa que embrulha getCurrentPosition é a do leitor com prazo')]
     public function testNenhumaOutraPromessaEsperaOGpsDireto(): void
     {
@@ -141,10 +144,24 @@ final class BatidaNaoTravaNoGpsTest extends TestCase
             $fonte,
             'o prazo do envio só vale se o sinal de aborto chegar ao `fetch`'
         );
+        // Existir não basta: a constante pode virar código morto com o prazo real chumbado no
+        // `setTimeout`. O assert amarra a constante AO aborto, e põe teto no valor.
+        self::assertStringContainsString(
+            'setTimeout(() => abortoDoEnvio.abort(), ENVIO_PRAZO_MS)',
+            $fonte,
+            'o prazo do envio tem que ser o da constante, não um número solto no setTimeout'
+        );
         self::assertMatchesRegularExpression(
             '/const ENVIO_PRAZO_MS = (\d+);/',
             $fonte,
             'a constante do prazo de envio deveria existir'
+        );
+        preg_match('/const ENVIO_PRAZO_MS = (\d+);/', $fonte, $captura);
+
+        self::assertLessThanOrEqual(
+            self::TETO_PRAZO_ENVIO_MS,
+            (int) $captura[1],
+            'prazo grande demais devolve o botão preso em "Registrando…", que é o defeito original'
         );
     }
 
@@ -154,7 +171,7 @@ final class BatidaNaoTravaNoGpsTest extends TestCase
         $fonte = $this->fonteSemComentariosNemTextos();
 
         self::assertMatchesRegularExpression(
-            '/\}\s*finally\s*\{[^}]*liberarBotaoBatida\(\)/s',
+            '/\}\s*finally\s*\{.*?liberarBotaoBatida\(\)/s',
             $fonte,
             'sem `finally` um caminho de erro novo deixa o botão preso em "Registrando…" de novo'
         );
@@ -163,6 +180,37 @@ final class BatidaNaoTravaNoGpsTest extends TestCase
             $fonte,
             'no caminho bom o botão fica travado de propósito até a página recarregar'
         );
+        // A flag `sucesso` sozinha não fecha: trocar o tipo no select durante o 1,5 s até o
+        // recarregamento chama `updateButtonState()`, que reabilitava o botão e deixava sair uma
+        // SEGUNDA batida. Quem manda no botão durante o envio é o envio.
+        self::assertStringContainsString(
+            'if (envioEmAndamento || diaVirou)',
+            $fonte,
+            'durante o envio o botão não pode ser reabilitado por nenhum outro caminho'
+        );
+    }
+
+    #[TestDox('página aberta da noite para o dia seguinte avisa que o que está na tela é de ontem')]
+    public function testAvisaQuandoODiaVirouComAPaginaAberta(): void
+    {
+        $fonte = $this->fonteSemComentariosNemTextos();
+
+        self::assertStringContainsString(
+            'function conferirViradaDoDia()',
+            $fonte,
+            'o bloco de batidas de hoje é renderizado no servidor e congela: sem esta checagem ele '
+            . 'mostraria a batida de ONTEM como se fosse de hoje'
+        );
+        self::assertStringContainsString(
+            'setInterval(conferirViradaDoDia,',
+            $fonte,
+            'a virada precisa ser percebida com a página já aberta, não só na carga'
+        );
+        self::assertStringContainsString(
+            'diaVirou = true;',
+            $fonte,
+            'a virada tem que travar o botão, senão a pessoa bate olhando para o dia errado'
+        );
     }
 
     #[TestDox('falha de batida aparece em aviso que fica na tela, nunca em alert descartável')]
@@ -170,9 +218,12 @@ final class BatidaNaoTravaNoGpsTest extends TestCase
     {
         $fonte = $this->fonteSemComentariosNemTextos();
 
+        // Arquivo INTEIRO, não uma fatia: `mostrarAvisoBatida` e as outras funções de aviso são
+        // declaradas ACIMA do handler, e um `alert` colocado dentro delas devolve o defeito por
+        // completo. Foi esse recorte frouxo que a revisão pegou aqui.
         self::assertStringNotContainsString(
             'alert(',
-            $this->trechoDoBotaoDeBater($fonte),
+            $fonte,
             'o `alert` some quando a pessoa toca em OK e navegador nenhum o mostra em aba oculta: '
             . 'a falha tem que ficar escrita na tela'
         );
@@ -199,15 +250,6 @@ final class BatidaNaoTravaNoGpsTest extends TestCase
             $fonte,
             'a data do dia tem que vir do servidor e ser montada em hora local'
         );
-    }
-
-    /** O trecho do `click` do botão de bater ponto até o fim do arquivo. */
-    private function trechoDoBotaoDeBater(string $fonte): string
-    {
-        $inicio = strpos($fonte, "btnPonto.addEventListener(");
-        self::assertIsInt($inicio, 'não achei o handler do botão de bater ponto na tela');
-
-        return substr($fonte, $inicio);
     }
 
     /**

@@ -86,10 +86,16 @@
                         <ul class="list-unstyled mb-0">
                             {% for tipo, rotulo in {'entrada': 'Entrada', 'repouso': 'Repouso', 'retorno': 'Retorno', 'saida': 'Saída'} %}
                                 {% set horario = pontoHoje[tipo]|default(null) %}
+                                {% set quantas = quantasHoje[tipo]|default(0) %}
                                 <li class="d-flex justify-content-between align-items-center py-1 batida-de-hoje"
-                                    data-tipo="{{ tipo }}" data-registrada="{{ horario ? '1' : '0' }}">
+                                    data-tipo="{{ tipo }}" data-registrada="{{ horario ? '1' : '0' }}" data-quantas="{{ quantas }}">
                                     <span class="small {{ horario ? '' : 'text-muted' }}">
                                         <i class="bi {{ horario ? 'bi-check-circle-fill text-success' : 'bi-circle' }} me-1"></i>{{ rotulo }}
+                                        {% if quantas > 1 %}
+                                            {# Duplicata precisa aparecer AQUI. É este bloco que o aviso de "sem
+                                               confirmação" manda conferir antes de bater de novo. #}
+                                            <span class="badge text-bg-warning ms-1">{{ quantas }} registros</span>
+                                        {% endif %}
                                     </span>
                                     <span class="small fw-semibold {{ horario ? '' : 'text-muted fw-normal' }}">
                                         {{ horario ? horario : 'ainda não registrada' }}
@@ -232,18 +238,25 @@
 <script>
     const GPS_PRECISAO_ACEITAVEL_METROS = 90;
 
+    // Data de hoje SEGUNDO O SERVIDOR. Fica no escopo do script inteiro porque dois trechos
+    // precisam dela: o relógio, para montar os horários do dia, e a checagem de virada do dia.
+    //
+    // 🪤 O relógio usava `new Date().toISOString().slice(0,10)`, que é a data em UTC, combinada com
+    // horário LOCAL. Das 21h à meia-noite (BRT = UTC−3) o UTC já virou o dia seguinte, a diferença
+    // contra `agora` dava negativa e o contador mostrava 00:00:00 para quem estava trabalhando.
+    //
+    // Ainda resta o fuso DO APARELHO na montagem: `new Date(ano, mes, dia, ...)` constrói na
+    // timezone do dispositivo, e o servidor roda em America/Sao_Paulo. Celular com fuso divergente
+    // continua contando errado — deixou de ser o 00:00:00 óbvio e virou número plausível, que é
+    // pior de notar. Fechar isso exige o servidor mandar o próprio deslocamento; não está feito.
+    const [anoHoje, mesHoje, diaHoje] = JSON.parse('{{ dataHoje|json_encode|e('js') }}').split('-').map(Number);
+
     // Contador de tempo trabalhado no dia
     (function() {
         const pontoHoje = {{ pontoHoje|default({})|json_encode|raw }};
 
         const clockEl = document.getElementById('clock');
         const labelEl = document.getElementById('clock-label');
-
-        // 🪤 Usava `new Date().toISOString().slice(0,10)`, que é a data em UTC, combinada com um
-        // horário LOCAL. Das 21h à meia-noite (BRT = UTC−3) o UTC já virou o dia seguinte, a
-        // diferença contra `agora` dava negativa e o relógio mostrava 00:00:00 para quem estava
-        // trabalhando. A data vem do SERVIDOR (`dataHoje`) e a montagem é local, sem fuso no meio.
-        const [anoHoje, mesHoje, diaHoje] = '{{ dataHoje }}'.split('-').map(Number);
 
         function parseHMS(hms) {
             if (!hms) return null;
@@ -361,7 +374,22 @@
     // Flag de home office de hoje (controlada pelo servidor): quando true, a batida dispensa GPS.
     const homeOfficeHoje = {{ homeOfficeHoje ? 'true' : 'false' }};
 
+    // Enquanto uma batida está em envio, ou já foi aceita e a página vai recarregar, o botão é do
+    // envio e de mais ninguém. Sem esta trava, trocar o tipo no select durante o 1,5 s até o
+    // recarregamento chamava `updateButtonState()` e reabilitava o botão — gesto natural de quem já
+    // está pensando na próxima batida, e que fazia sair uma segunda antes do reload.
+    let envioEmAndamento = false;
+
+    // Página aberta da noite para o dia seguinte: o bloco "suas batidas de hoje" é renderizado no
+    // servidor e congela. Às 08h ele mostraria a entrada de ONTEM como se fosse de hoje, e a pessoa
+    // concluiria que já bateu — o mesmo defeito que esta frente existe para matar.
+    let diaVirou = false;
+
     function updateButtonState() {
+        if (envioEmAndamento || diaVirou) {
+            btnPonto.disabled = true;
+            return;
+        }
         if (homeOfficeHoje) {
             btnPonto.disabled = !tipoRegistro.value;
             return;
@@ -437,6 +465,11 @@
     // desiste sozinho quando o sistema operacional decide, o que pode não acontecer nunca.
     const ENVIO_PRAZO_MS = 15000;
 
+    // Texto dos casos em que a resposta não voltou. Afirmar "não foi registrada" seria mentira: a
+    // requisição pode ter chegado e gravado. Manda conferir antes de repetir, que é o que evita a
+    // segunda batida do mesmo tipo.
+    const AVISO_SEM_CONFIRMACAO = 'Não recebemos a confirmação do servidor. Confira suas batidas de hoje aqui embaixo: se a batida estiver lá, está registrada. Só aperte de novo se ela não aparecer.';
+
     const avisoBatida = document.getElementById('batida-aviso');
 
     // O `alert` do navegador era o único retorno de falha: some quando a pessoa toca em OK, não
@@ -453,9 +486,40 @@
     }
 
     function liberarBotaoBatida() {
+        envioEmAndamento = false;
         btnPonto.innerHTML = '<i class="bi bi-fingerprint"></i> Bater Ponto';
         updateButtonState();
     }
+
+    // Página esquecida aberta da noite para o dia seguinte: o bloco "suas batidas de hoje" é
+    // renderizado no servidor e congela. Às 08h ele mostraria a entrada de ONTEM como se fosse de
+    // hoje, e a pessoa concluiria que já bateu — exatamente o defeito que esta frente existe para
+    // matar, reintroduzido pelo próprio remédio. O relógio e a folha congelam junto.
+    function conferirViradaDoDia() {
+        if (diaVirou) {
+            return;
+        }
+
+        const agora = new Date();
+        const mesmoDia = agora.getFullYear() === anoHoje
+            && agora.getMonth() === mesHoje - 1
+            && agora.getDate() === diaHoje;
+
+        if (mesmoDia) {
+            return;
+        }
+
+        diaVirou = true;
+        document.getElementById('batidas-de-hoje').classList.add('opacity-50');
+        mostrarAvisoBatida(
+            'Esta página é de ontem: o que aparece abaixo NÃO é do dia de hoje. Atualize a página antes de bater o ponto.',
+            'warning'
+        );
+        updateButtonState();
+    }
+
+    setInterval(conferirViradaDoDia, 30000);
+    conferirViradaDoDia();
 
     function lerPosicaoComPrazo(prazoMs) {
         return new Promise((resolve) => {
@@ -579,6 +643,7 @@
         }
 
         limparAvisoBatida();
+        envioEmAndamento = true;
         btnPonto.disabled = true;
         btnPonto.innerHTML = '<i class="bi bi-hourglass-split"></i> Registrando...';
 
@@ -660,17 +725,19 @@
                 setTimeout(() => window.location.reload(), 1500);
             } else if (data && data.message) {
                 mostrarAvisoBatida(data.message, 'danger');
-            } else if (response.status === 401 || response.status === 403 || response.redirected) {
-                mostrarAvisoBatida('Sua sessão expirou e a batida NÃO foi registrada. Entre de novo e repita.', 'danger');
+            } else if (response.status === 401 || response.redirected) {
+                mostrarAvisoBatida('Sua sessão expirou. Entre de novo, confira suas batidas de hoje aqui embaixo e só repita se a batida não estiver lá.', 'danger');
             } else {
-                mostrarAvisoBatida('A batida NÃO foi registrada. Tente de novo e avise o gestor se repetir.', 'danger');
+                mostrarAvisoBatida(AVISO_SEM_CONFIRMACAO, 'danger');
             }
         } catch (error) {
-            if (error.name === 'AbortError') {
-                mostrarAvisoBatida('O envio demorou demais e a batida NÃO foi registrada. Confira a conexão e tente de novo.', 'danger');
-            } else {
-                mostrarAvisoBatida('Sem conexão: a batida NÃO foi registrada. Tente de novo assim que a internet voltar.', 'danger');
-            }
+            // 🔑 Aqui o navegador NÃO SABE se a batida entrou. O aborto cancela só o lado de cá: a
+            // requisição já saiu e o servidor pode ter gravado antes de a resposta se perder. Dizer
+            // "não foi registrada" e mandar repetir produzia batida duplicada, e o servidor não tem
+            // guarda de duplicata (`PontoController::batida` só valida repouso e interjornada).
+            // Por isso o aviso manda CONFERIR o bloco de hoje, que é logo abaixo e mostra inclusive
+            // quantos registros existem de cada tipo.
+            mostrarAvisoBatida(AVISO_SEM_CONFIRMACAO, 'danger');
             console.error('Erro ao registrar ponto:', error);
         } finally {
             clearTimeout(prazoDoEnvio);
