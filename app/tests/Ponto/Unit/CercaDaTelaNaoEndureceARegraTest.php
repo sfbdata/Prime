@@ -158,14 +158,18 @@ final class CercaDaTelaNaoEndureceARegraTest extends TestCase
     {
         $corpo = $this->corpoDaFuncao('function guardarPosicao(');
 
-        // 🔴 Existe um caso em que MOSTRAR o botão é dano, e nenhum em que escondê-lo seja: sem
-        // rede, recarregar entrega a página de erro do navegador e leva o aviso e a lista de
-        // batidas de hoje, que é a única prova de que a batida pode ter entrado. `AVISO_SEM_REDE`
-        // esconde o botão de propósito, e a cerca não pode reexibi-lo por cima.
-        self::assertSame(
-            2,
-            substr_count($corpo, 'cercaMandaNoBotaoAtualizar()'),
-            'os dois lados, mostrar E esconder, precisam passar pelo mesmo dono do botão'
+        // 🪤 Contar chamadas era frouxo dos dois lados: duas chamadas no MESMO ramo passavam, e
+        // extrair o resultado para uma variável quebrava sem defeito. Os asserts amarram a guarda
+        // a CADA mutação do botão.
+        self::assertMatchesRegularExpression(
+            '/if \(cercaMandaNoBotaoAtualizar\(\)\) \{\s*btnAtualizarPagina\.classList\.remove/',
+            $corpo,
+            'mostrar o botão tem que passar pela guarda'
+        );
+        self::assertMatchesRegularExpression(
+            '/if \(cercaMandaNoBotaoAtualizar\(\)\) \{\s*btnAtualizarPagina\.classList\.add/',
+            $corpo,
+            'esconder o botão tem que passar pela mesma guarda'
         );
 
         $dono = $this->corpoDaFuncao('function cercaMandaNoBotaoAtualizar(');
@@ -174,10 +178,35 @@ final class CercaDaTelaNaoEndureceARegraTest extends TestCase
             $dono,
             'clique com a requisição em voo recarrega no meio dela'
         );
+
+        // 🔴 SÓ o aviso de sem rede veta, porque só ele protege prova. Vetar por qualquer aviso
+        // criava tela sem saída: recusa do servidor deixava o aviso na tela, e depois a cerca
+        // mandava "atualize esta página" com o botão de atualizar escondido pelo aviso da recusa.
         self::assertStringContainsString(
-            "avisoBatida.classList.contains('d-none')",
+            'avisoBatida.textContent !== AVISO_SEM_REDE',
             $dono,
-            'aviso de envio ativo é dono do botão, e a cerca não manda enquanto ele existir'
+            'o veto é do aviso de sem rede, não de qualquer aviso'
+        );
+        self::assertStringNotContainsString(
+            "classList.contains('d-none')",
+            $dono,
+            'vetar por presença de aviso deixa quem está fora da área sem saída nenhuma'
+        );
+    }
+
+    #[TestDox('a virada do dia não atropela o aviso de sem rede')]
+    public function testViradaDoDiaNaoAtropelaOAvisoSemRede(): void
+    {
+        $corpo = $this->corpoDaFuncao('function conferirViradaDoDia(');
+
+        // 🪤 Terceiro cliente do botão de atualizar, e o mais fácil de esquecer. Quem bateu sem rede
+        // e deixou a página aberta até a virada do dia tinha o aviso SUBSTITUÍDO e o botão de
+        // atualizar reaparecia — ainda sem rede, apagando a única pista de que a batida pode ter
+        // entrado.
+        self::assertStringContainsString(
+            'avisoBatida.textContent === AVISO_SEM_REDE',
+            $corpo,
+            'a virada do dia não pode substituir o aviso de sem rede nem reexibir o botão'
         );
     }
 

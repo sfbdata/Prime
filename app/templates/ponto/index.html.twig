@@ -402,18 +402,24 @@
     const btnAtualizarPagina = document.getElementById('btn-atualizar-pagina');
 
     /**
-     * O botão "Atualizar e conferir" tem DOIS donos: a cerca (fora da área) e o aviso de envio.
+     * Quem manda no botão "Atualizar e conferir" quando a cerca e um aviso discordam.
      *
-     * 🔴 Quando discordam, **o aviso de envio vence**. O motivo é assimétrico e vale registrar: há
-     * um caso em que mostrar o botão é dano, e nenhum em que escondê-lo seja. Sem rede, recarregar
-     * entrega a página de erro do navegador e leva junto o aviso e a lista de batidas de hoje — a
-     * única prova de que a batida pode ter entrado, e o que evita a segunda batida. Por isso
-     * `AVISO_SEM_REDE` esconde o botão de propósito, e a cerca não pode reexibi-lo por cima.
+     * 🔴 **Só UM aviso veta: o de sem rede.** Ele é o único que protege prova — recarregar sem
+     * conexão entrega a página de erro do navegador e leva junto o aviso e a lista de batidas de
+     * hoje, que é a única pista de que a batida pode ter entrado.
+     *
+     * 🪤 A primeira versão vetava por QUALQUER aviso na tela, e isso criou tela sem saída: pessoa em
+     * situação indeterminada aperta → o servidor recusa com 403 e mensagem → o aviso fica → depois a
+     * posição piora e a cerca escreve "peça a liberação e ATUALIZE esta página" → mas o botão de
+     * atualizar seguia vetado pelo aviso da recusa. Botão de bater cinza, botão de atualizar
+     * escondido, e a instrução mandando fazer o que não dá. Os avisos de tipo não escolhido, sem
+     * localização, envio atrasado e recusa do servidor não têm prova nenhuma a proteger: neles o
+     * servidor barrou antes de gravar, ou nada chegou a ser enviado.
      *
      * O envio em andamento também tranca: um clique com a requisição em voo recarrega no meio dela.
      */
     function cercaMandaNoBotaoAtualizar() {
-        return !envioEmAndamento && avisoBatida.classList.contains('d-none');
+        return !envioEmAndamento && avisoBatida.textContent !== AVISO_SEM_REDE;
     }
 
     function distanciaEmMetros(lat1, lon1, lat2, lon2) {
@@ -683,6 +689,15 @@
         // Impedir a batida por causa disso seria trocar um engano por uma falta.
         diaVirou = true;
         document.getElementById('batidas-de-hoje').classList.add('opacity-50');
+
+        // 🪤 Terceiro cliente do botão de atualizar, e o mais fácil de esquecer. Sem esta saída,
+        // quem bateu sem rede e deixou a página aberta até a virada do dia tinha o
+        // `AVISO_SEM_REDE` SUBSTITUÍDO por este texto, e o botão de atualizar reaparecia — ainda
+        // sem rede. Recarregar ali apaga a única pista de que a batida pode ter entrado.
+        if (avisoBatida.textContent === AVISO_SEM_REDE) {
+            return;
+        }
+
         mostrarAvisoBatida(
             'O dia virou com esta página aberta: a lista abaixo é de ontem. Atualize antes de conferir.',
             'warning',
@@ -779,7 +794,12 @@
             { enableHighAccuracy: true, maximumAge: 30000 }
         );
         } catch (erro) {
-            erroGps({ message: 'API de geolocalizacao indisponivel: ' + (erro && erro.message) });
+            // Diagnóstico PRÓPRIO: mandar "permita o acesso à localização" aqui é mentira, e a
+            // pessoa vai procurar uma permissão que está concedida. A causa é a API ter lançado.
+            gpsStatus.innerHTML = `<i class="bi bi-exclamation-triangle"></i> A localização do navegador não está funcionando nesta tela. Tente outro navegador ou fale com o gestor.`;
+            gpsStatus.className = 'alert alert-danger small mb-3';
+            btnPonto.disabled = true;
+            console.log('API de geolocalização lançou de forma síncrona:', erro && erro.message);
         }
     } else {
         gpsStatus.innerHTML = `<i class="bi bi-exclamation-triangle"></i> Seu navegador não suporta geolocalização.`;

@@ -390,7 +390,55 @@ Prova por reintrodução feita nas **duas** formas — a literal (voltar o `awai
 e a extraída (helper acima do recorte). As duas derrubam o teste; o arquivo foi restaurado e
 conferido com `diff -q` depois de cada uma. Ver `feedback_provar_teste_reintroduzindo_defeito`.
 
-**Smoke do dono, na tela** (é dele, não meu):
+## ✅ Smoke AUTOMATIZADO (Playwright) — 9 testes, tudo que a suíte não vê
+
+`e2e/tests/ponto-batida-cerca.spec.js`. Feito a pedido do dono em 11/09. Prova **comportamento**,
+não arranjo: GPS falseado, rede cortada, botão, aviso. O que cobre:
+
+| | |
+|---|---|
+| dentro do raio, o botão libera | ✅ |
+| fora do raio, bloqueia, diz a distância e oferece atualizar | ✅ |
+| 🔑 GPS impreciso **não** bloqueia (150 m de distância, 200 m de erro) | ✅ |
+| 🔑 a posição se atualiza sozinha e o botão destrava ao chegar | ✅ |
+| 🔑 GPS que **nunca responde** não impede o envio | ✅ |
+| 🔑 sem internet: o aviso fica e **não** oferece atualizar | ✅ |
+| falha com rede: o aviso não afirma que a batida não entrou | ✅ |
+| sucesso trava o botão até recarregar, mesmo trocando o tipo | ✅ |
+| as quatro batidas do dia aparecem no card | ✅ |
+
+🔑 **Nada é gravado no banco**: todo teste que aperta o botão intercepta `POST /ponto/batida` antes
+de sair do navegador. Prova por reintrodução feita em 3 defeitos (tirar o `watchPosition`, tirar a
+margem de precisão, oferecer atualizar sem rede) — os três derrubam o smoke.
+
+### Como rodar
+
+```bash
+# 1. a worktree precisa do .env.local (gitignored) e de uma porta própria: `localhost:8080` sempre
+#    serve o repositório PRINCIPAL, porque o nginx fixa `root /var/www/app/public`
+cp app/.env.local .claude/worktrees/<frente>/app/.env.local
+docker exec -d jusprime_php_dev bash -c 'cd /var/www/.claude/worktrees/<frente>/app && exec php -S 0.0.0.0:8099 -t public var/router-smoke.php'
+
+# 2. 🪤 a API de geolocalização só funciona em ORIGEM SEGURA. `http://<ip>` não é uma; `localhost`
+#    é. Sem esta ponte o GPS nunca chega e TODO teste de cerca falha por "botão desabilitado".
+node <ponte tcp 127.0.0.1:8099 -> 172.20.0.3:8099>
+
+# 3. rodar
+cd e2e && SMOKE_BASE_URL=http://localhost:8099 SMOKE_EMAIL=<email> SMOKE_SENHA=<senha> \
+  npx playwright test --config=<config apontando testDir para a worktree>
+```
+
+🪤 **Três armadilhas que custaram tempo e estão aqui para não custar de novo:**
+1. `page.click()` no botão de login **não envia** aquele formulário (o `<svg>` dentro do botão e o
+   `aria-busy` do script da tela atrapalham). Use `form.requestSubmit()`.
+2. Depois do login vem `/escritorio/selecionar` para quem tem mais de um vínculo.
+3. O lembrete "hora de bater o ponto" abre como modal `static` **por cima do botão** e é
+   redisparado por `/ponto/alerta-horario`. Esconder uma vez não resolve: silencie o endpoint.
+
+---
+
+**Smoke do dono, na tela** (é dele, não meu — o automatizado acima não substitui o celular de
+verdade, que é onde a suspensão de GPS do Android realmente acontece):
 
 1. `/ponto` no celular, escolher o tipo, apertar **Bater Ponto** e **apagar a tela na hora**.
    Voltar depois de uns segundos: a batida tem que estar gravada.

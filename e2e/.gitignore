@@ -4,3 +4,5 @@ storage/auth.json
 scripts/.e2e-baseline.json
 .env
 scripts/_*.mjs
+# Sessão do smoke da frente do ponto (contém cookie de login).
+storage/sessao-ponto.json
