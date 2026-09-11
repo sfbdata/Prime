@@ -72,7 +72,34 @@
                         <i class="bi bi-fingerprint"></i> Bater Ponto
                     </button>
 
-                    <button type="button" class="btn btn-outline-warning w-100 mt-2"
+                    {# Resultado da última tentativa. Fica na tela até a próxima: o `alert` do
+                       navegador some quando a pessoa toca em OK e não deixa nada para conferir. #}
+                    <div id="batida-aviso" class="alert small mt-2 mb-0 text-start d-none" role="alert" aria-live="polite"></div>
+
+                    {# Batidas de hoje. A tela não mostrava NENHUMA: depois do recarregamento a
+                       confirmação verde sumia e a pessoa só conferia rolando até a folha, que no
+                       celular fica abaixo deste card. Era o que sustentava o "parece que registrou". #}
+                    <div id="batidas-de-hoje" class="mt-3 text-start border-top pt-3">
+                        <p class="text-muted fw-semibold mb-2" style="font-size:0.75rem;">
+                            <i class="bi bi-list-check me-1"></i>Suas batidas de hoje
+                        </p>
+                        <ul class="list-unstyled mb-0">
+                            {% for tipo, rotulo in {'entrada': 'Entrada', 'repouso': 'Repouso', 'retorno': 'Retorno', 'saida': 'Saída'} %}
+                                {% set horario = pontoHoje[tipo]|default(null) %}
+                                <li class="d-flex justify-content-between align-items-center py-1 batida-de-hoje"
+                                    data-tipo="{{ tipo }}" data-registrada="{{ horario ? '1' : '0' }}">
+                                    <span class="small {{ horario ? '' : 'text-muted' }}">
+                                        <i class="bi {{ horario ? 'bi-check-circle-fill text-success' : 'bi-circle' }} me-1"></i>{{ rotulo }}
+                                    </span>
+                                    <span class="small fw-semibold {{ horario ? '' : 'text-muted fw-normal' }}">
+                                        {{ horario ? horario : 'ainda não registrada' }}
+                                    </span>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+
+                    <button type="button" class="btn btn-outline-warning w-100 mt-3"
                             data-bs-toggle="modal" data-bs-target="#modalJustificativa">
                         <i class="bi bi-calendar-x me-1"></i> Justificar Falta
                     </button>
@@ -212,10 +239,16 @@
         const clockEl = document.getElementById('clock');
         const labelEl = document.getElementById('clock-label');
 
+        // 🪤 Usava `new Date().toISOString().slice(0,10)`, que é a data em UTC, combinada com um
+        // horário LOCAL. Das 21h à meia-noite (BRT = UTC−3) o UTC já virou o dia seguinte, a
+        // diferença contra `agora` dava negativa e o relógio mostrava 00:00:00 para quem estava
+        // trabalhando. A data vem do SERVIDOR (`dataHoje`) e a montagem é local, sem fuso no meio.
+        const [anoHoje, mesHoje, diaHoje] = '{{ dataHoje }}'.split('-').map(Number);
+
         function parseHMS(hms) {
             if (!hms) return null;
-            const today = new Date().toISOString().slice(0, 10);
-            return new Date(today + 'T' + hms);
+            const [hora, minuto, segundo] = hms.split(':').map(Number);
+            return new Date(anoHoje, mesHoje - 1, diaHoje, hora, minuto, segundo || 0);
         }
 
         const tEntrada = parseHMS(pontoHoje.entrada);
@@ -399,6 +432,31 @@
     // estoura quando a aba ficou congelada no meio. Ver a guarda no envio da batida.
     const LIMITE_ATRASO_ENVIO_MS = 60000;
 
+    // Teto do envio em si. Sem ele, conexão pendurada deixa o botão em "Registrando..." para
+    // sempre — o MESMO sintoma que o prazo do GPS resolveu, por outro caminho. `fetch` só
+    // desiste sozinho quando o sistema operacional decide, o que pode não acontecer nunca.
+    const ENVIO_PRAZO_MS = 15000;
+
+    const avisoBatida = document.getElementById('batida-aviso');
+
+    // O `alert` do navegador era o único retorno de falha: some quando a pessoa toca em OK, não
+    // deixa rastro na tela, e navegador nenhum o mostra em aba que não está visível. O aviso
+    // agora FICA até a próxima tentativa.
+    function mostrarAvisoBatida(texto, tom) {
+        avisoBatida.textContent = texto;
+        avisoBatida.className = `alert alert-${tom} small mt-2 mb-0 text-start`;
+    }
+
+    function limparAvisoBatida() {
+        avisoBatida.textContent = '';
+        avisoBatida.className = 'alert small mt-2 mb-0 text-start d-none';
+    }
+
+    function liberarBotaoBatida() {
+        btnPonto.innerHTML = '<i class="bi bi-fingerprint"></i> Bater Ponto';
+        updateButtonState();
+    }
+
     function lerPosicaoComPrazo(prazoMs) {
         return new Promise((resolve) => {
             let jaRespondeu = false;
@@ -511,15 +569,16 @@
     // Botão de Bater Ponto
     btnPonto.addEventListener('click', async function() {
         if (!tipoRegistro.value) {
-            alert('Selecione o tipo de registro (Entrada, Repouso, Retorno ou Saída).');
+            mostrarAvisoBatida('Selecione o tipo de registro (Entrada, Repouso, Retorno ou Saída).', 'warning');
             return;
         }
 
         if (!homeOfficeHoje && !currentLocation) {
-            alert('A localização é obrigatória para registrar o ponto.');
+            mostrarAvisoBatida('A localização é obrigatória para registrar o ponto.', 'warning');
             return;
         }
 
+        limparAvisoBatida();
         btnPonto.disabled = true;
         btnPonto.innerHTML = '<i class="bi bi-hourglass-split"></i> Registrando...';
 
@@ -559,12 +618,20 @@
         // silencioso é pior que ausência visível — então aqui NÃO se envia: devolve o botão e
         // manda repetir, que é o comportamento que a pessoa já conhecia.
         if (performance.now() - momentoDoToque > LIMITE_ATRASO_ENVIO_MS) {
-            gpsStatus.innerHTML = `<i class="bi bi-exclamation-triangle"></i> Demorou demais para enviar e a hora da batida ficaria errada. Aperte de novo com a tela ligada.`;
-            gpsStatus.className = 'alert alert-danger small mb-3';
-            btnPonto.disabled = false;
-            btnPonto.innerHTML = '<i class="bi bi-fingerprint"></i> Bater Ponto';
+            mostrarAvisoBatida(
+                'Demorou demais para enviar e a hora da batida ficaria errada. Aperte de novo com a tela ligada.',
+                'danger'
+            );
+            liberarBotaoBatida();
             return;
         }
+
+        // `sucesso` existe por causa do `finally`: no caminho bom o botão fica desabilitado de
+        // propósito até a página recarregar, senão ele volta a clicável por 1,5 s e aceita uma
+        // segunda batida do mesmo tipo.
+        let sucesso = false;
+        const abortoDoEnvio = new AbortController();
+        const prazoDoEnvio  = setTimeout(() => abortoDoEnvio.abort(), ENVIO_PRAZO_MS);
 
         try {
             const response = await fetch('{{ path('ponto_batida') }}', {
@@ -573,25 +640,43 @@
                     'Content-Type': 'application/json',
                     'X-Requested-With': 'XMLHttpRequest'
                 },
-                body: JSON.stringify(payload)
+                body: JSON.stringify(payload),
+                signal: abortoDoEnvio.signal
             });
 
-            const data = await response.json();
+            // Resposta que não é JSON (sessão expirada devolve a tela de login, erro do servidor
+            // devolve HTML) quebrava no `.json()` e caía no catch como "erro de conexão", que é
+            // diagnóstico errado e manda a pessoa tentar de novo sem sair do lugar.
+            let data = null;
+            try {
+                data = await response.json();
+            } catch (erroDeLeitura) {
+                data = null;
+            }
 
-            if (response.ok && data.success) {
-                gpsStatus.innerHTML = `<i class="bi bi-check-circle"></i> ${data.message}`;
-                gpsStatus.className = 'alert alert-success small mb-3';
+            if (response.ok && data && data.success) {
+                sucesso = true;
+                mostrarAvisoBatida(data.message, 'success');
                 setTimeout(() => window.location.reload(), 1500);
+            } else if (data && data.message) {
+                mostrarAvisoBatida(data.message, 'danger');
+            } else if (response.status === 401 || response.status === 403 || response.redirected) {
+                mostrarAvisoBatida('Sua sessão expirou e a batida NÃO foi registrada. Entre de novo e repita.', 'danger');
             } else {
-                alert(data.message || 'Erro ao registrar ponto.');
-                btnPonto.disabled = false;
-                btnPonto.innerHTML = '<i class="bi bi-fingerprint"></i> Bater Ponto';
+                mostrarAvisoBatida('A batida NÃO foi registrada. Tente de novo e avise o gestor se repetir.', 'danger');
             }
         } catch (error) {
-            alert('Erro de conexão. Tente novamente.');
-            console.error('Erro:', error);
-            btnPonto.disabled = false;
-            btnPonto.innerHTML = '<i class="bi bi-fingerprint"></i> Bater Ponto';
+            if (error.name === 'AbortError') {
+                mostrarAvisoBatida('O envio demorou demais e a batida NÃO foi registrada. Confira a conexão e tente de novo.', 'danger');
+            } else {
+                mostrarAvisoBatida('Sem conexão: a batida NÃO foi registrada. Tente de novo assim que a internet voltar.', 'danger');
+            }
+            console.error('Erro ao registrar ponto:', error);
+        } finally {
+            clearTimeout(prazoDoEnvio);
+            if (!sucesso) {
+                liberarBotaoBatida();
+            }
         }
     });
 </script>

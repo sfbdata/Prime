@@ -171,22 +171,41 @@ descartá-la, mas muda o significado de `data_hora` no ponto — é decisão de 
 A precisão enviada continua sendo a real da posição usada; nada é inventado. Usar a posição da
 carga da página é o mesmo comportamento que o código já tinha no ramo `catch` de erro de GPS.
 
-### Frente 2 — falha nunca mais passa despercebida
+### Frente 2 — falha nunca mais passa despercebida ✅ (entregue)
 
-`finally` devolvendo `disabled`/rótulo do botão em todo caminho, e o `alert` (descartável, e
-suprimido por navegador em aba não-visível) trocado por aviso que **fica na tela** até a pessoa
-resolver. Sem isso, um `fetch` travado ainda deixa o botão preso em "Registrando…".
+O `fetch` não tinha prazo nenhum. Conexão pendurada deixava o botão em "Registrando…" para sempre,
+que é **o mesmo sintoma da Frente 1 por outro caminho**: `fetch` só desiste quando o sistema
+operacional decide, e isso pode não acontecer. Entrou `ENVIO_PRAZO_MS` (15 s) com `AbortController`.
 
-### Frente 3 — a tela mostra as quatro batidas do dia
+O `finally` devolve o botão em **todo** caminho de falha, por `updateButtonState()` e não por
+`disabled = false`, para respeitar o estado do GPS. A flag `sucesso` existe porque no caminho bom o
+botão fica travado de propósito até a página recarregar — sem ela ele voltaria a clicável por 1,5 s
+e aceitaria uma segunda batida do mesmo tipo.
 
-Hoje a tela **não mostra nenhuma**. O controller já calcula `pontoHoje` com os quatro horários, mas
-ele só alimenta o relógio em JS; nada é renderizado. Depois do `window.location.reload()` a
-confirmação verde some e a pessoa não tem como conferir sem rolar até a folha (que no celular fica
-**abaixo** do card, porque `col-md-8` empilha sob `col-md-4`).
+O `alert` saiu. Ele some quando a pessoa toca em OK, não deixa rastro na tela, e navegador nenhum o
+mostra em aba que não está visível. No lugar, `#batida-aviso`, que **fica** até a próxima tentativa.
 
-🪤 Ao mexer nisso, corrigir `parseHMS`: ela monta a data com `new Date().toISOString().slice(0,10)`,
-que é a data em **UTC**, e combina com um horário **local**. Entre 21h e meia-noite (BRT = UTC−3) o
-UTC já virou o dia seguinte, o relógio calcula diferença negativa e mostra `00:00:00`.
+🔑 **Resposta que não é JSON deixou de virar "erro de conexão".** Sessão expirada devolve a tela de
+login e erro do servidor devolve HTML; os dois quebravam no `.json()` e caíam no `catch` como falha
+de rede. Diagnóstico errado, e mandava a pessoa tentar de novo sem sair do lugar. Agora a mensagem
+diz que a sessão expirou e que a batida **não** foi registrada.
+
+### Frente 3 — a tela mostra as quatro batidas do dia ✅ (entregue)
+
+A tela **não mostrava nenhuma**. O controller já calculava `pontoHoje` com os quatro horários, mas
+ele só alimentava o relógio em JS; nada era renderizado. Depois do `window.location.reload()` a
+confirmação verde sumia e a pessoa não tinha como conferir sem rolar até a folha, que no celular
+fica **abaixo** do card porque `col-md-8` empilha sob `col-md-4`. Era o que sustentava o
+"parece que registrou".
+
+Entrou `#batidas-de-hoje` dentro do card do botão: os quatro tipos, com o horário de quem já bateu e
+**"ainda não registrada"** escrito para quem falta. O estado também vai em `data-registrada`, para o
+teste asserir invariante e não rótulo.
+
+🪤 `parseHMS` corrigida junto. Montava a data com `new Date().toISOString().slice(0,10)`, que é a
+data em **UTC**, e combinava com horário **local**. Entre 21h e meia-noite (BRT = UTC−3) o UTC já
+virou o dia seguinte, a diferença contra `agora` dava negativa e o relógio mostrava `00:00:00` para
+quem estava trabalhando. Agora a data vem do servidor (`dataHoje`) e a montagem é local.
 
 ### Frente 4 — tentativa que falhou fica guardada e é reenviada
 
@@ -206,6 +225,33 @@ Guardar a tentativa no próprio navegador e reenviar quando a conexão voltar, e
 no servidor**. É o que tira o problema da invisibilidade: hoje batida recusada e batida esquecida
 ficam idênticas depois do fato, para o colaborador e para o gestor — e foi por isso que a medição
 acima não conseguiu separar as duas.
+
+## 🔑 Decisão do dono em 11/09/2026: a cerca continua bloqueando
+
+Medi que a coordenada do QNF 03 está 62 m fora e que a precisão do GPS passa de 100 m com
+frequência, e propus trocar bloqueio por sinalização, citando o art. 74 da Portaria 671 e a Súmula
+338 do TST. **O dono manteve o bloqueio**, com o argumento de que o raio de 100 m já foi escolhido
+contando com ~60 m de imprecisão e de que nunca houve problema de localização ruim na prática.
+Também decidiu **não** corrigir a coordenada do QNF 03 e **manter** exclusão e alteração de batida
+pelo administrador, para ajustar depois.
+
+Correções de rumo que isso impõe, e que **não** estão implementadas:
+
+- **O botão precisa bloquear pelo raio na própria tela.** Hoje ele só desabilita quando não há
+  posição nenhuma; quem está fora do raio consegue apertar e é o servidor que recusa, depois. A
+  checagem da tela tem de ser **mais permissiva** que a do servidor (descontando a margem de
+  precisão), porque trabalha com posição possivelmente antiga — bloquear na tela quem o servidor
+  aceitaria seria transformar imprecisão em falta.
+- **O botão desabilitado precisa dizer por quê e o que fazer.** Hoje fica só cinza.
+- **A autorização prévia vira peça central.** Quem estiver bloqueado não registra de jeito nenhum, e
+  cai em Esquecimento de Registro. A liberação hoje existe pela metade (`HomeOfficeConfig`, por
+  pessoa e por dia) e precisa ser concedível rápido, inclusive no mesmo dia.
+
+⚠️ **O registro de tentativa recusada (Frente 4) ficou menor do que eu vendi.** Com o botão
+bloqueando por raio, a recusa por localização deixa de chegar ao servidor. O log passa a valer para
+as outras: trava de repouso e de interjornada (a maior fonte real — 58 pedidos de esquecimento de
+`retorno`), divergência entre tela e servidor na borda, sessão expirada, e quem reabilitar o botão
+no navegador.
 
 ## Como conferir a Frente 1
 
@@ -232,3 +278,11 @@ conferido com `diff -q` depois de cada uma. Ver `feedback_provar_teste_reintrodu
    com a hora da retomada.
 3. Bater normalmente com a tela ligada: continua gravando com a precisão de GPS de sempre.
 4. Negar a permissão de localização: o botão continua desabilitado, como antes.
+5. **Frentes 2 e 3:** depois de bater, as quatro batidas do dia têm que aparecer logo abaixo do
+   botão, com horário em quem já bateu e "ainda não registrada" em quem falta. O aviso do resultado
+   tem que **ficar** na tela, sem caixa de alerta para fechar.
+6. **Frente 2, a falha:** bater com o celular em modo avião. Tem que aparecer aviso vermelho dizendo
+   que a batida **não** foi registrada, e o botão tem que voltar a "Bater Ponto" em vez de ficar
+   preso em "Registrando…".
+7. **Relógio:** abrir a tela **depois das 21h** com entrada batida. O contador tem que mostrar o
+   tempo trabalhado, não `00:00:00`.

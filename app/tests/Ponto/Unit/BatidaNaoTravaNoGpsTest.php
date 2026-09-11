@@ -126,6 +126,90 @@ final class BatidaNaoTravaNoGpsTest extends TestCase
         );
     }
 
+    #[TestDox('o envio tem prazo próprio: conexão pendurada não deixa o botão preso para sempre')]
+    public function testEnvioTemPrazoProprio(): void
+    {
+        $fonte = $this->fonteSemComentariosNemTextos();
+
+        self::assertStringContainsString(
+            'new AbortController()',
+            $fonte,
+            '`fetch` só desiste quando o sistema operacional decide, o que pode não acontecer nunca'
+        );
+        self::assertStringContainsString(
+            'signal: abortoDoEnvio.signal',
+            $fonte,
+            'o prazo do envio só vale se o sinal de aborto chegar ao `fetch`'
+        );
+        self::assertMatchesRegularExpression(
+            '/const ENVIO_PRAZO_MS = (\d+);/',
+            $fonte,
+            'a constante do prazo de envio deveria existir'
+        );
+    }
+
+    #[TestDox('o botão sempre volta ao normal quando a batida não foi registrada')]
+    public function testBotaoVoltaEmQualquerFalha(): void
+    {
+        $fonte = $this->fonteSemComentariosNemTextos();
+
+        self::assertMatchesRegularExpression(
+            '/\}\s*finally\s*\{[^}]*liberarBotaoBatida\(\)/s',
+            $fonte,
+            'sem `finally` um caminho de erro novo deixa o botão preso em "Registrando…" de novo'
+        );
+        self::assertStringContainsString(
+            'if (!sucesso)',
+            $fonte,
+            'no caminho bom o botão fica travado de propósito até a página recarregar'
+        );
+    }
+
+    #[TestDox('falha de batida aparece em aviso que fica na tela, nunca em alert descartável')]
+    public function testFalhaNaoUsaAlertDoNavegador(): void
+    {
+        $fonte = $this->fonteSemComentariosNemTextos();
+
+        self::assertStringNotContainsString(
+            'alert(',
+            $this->trechoDoBotaoDeBater($fonte),
+            'o `alert` some quando a pessoa toca em OK e navegador nenhum o mostra em aba oculta: '
+            . 'a falha tem que ficar escrita na tela'
+        );
+        self::assertStringContainsString(
+            'mostrarAvisoBatida(',
+            $fonte,
+            'o aviso que fica na tela deveria substituir o alert'
+        );
+    }
+
+    #[TestDox('o relógio do dia monta a data local a partir do servidor, não da data em UTC')]
+    public function testRelogioNaoUsaDataUtc(): void
+    {
+        $fonte = $this->fonteSemComentariosNemTextos();
+
+        self::assertStringNotContainsString(
+            'toISOString',
+            $fonte,
+            '`toISOString().slice(0,10)` é a data em UTC: combinada com hora local, zerava o '
+            . 'relógio de quem trabalhava entre 21h e a meia-noite'
+        );
+        self::assertStringContainsString(
+            'new Date(anoHoje, mesHoje - 1, diaHoje,',
+            $fonte,
+            'a data do dia tem que vir do servidor e ser montada em hora local'
+        );
+    }
+
+    /** O trecho do `click` do botão de bater ponto até o fim do arquivo. */
+    private function trechoDoBotaoDeBater(string $fonte): string
+    {
+        $inicio = strpos($fonte, "btnPonto.addEventListener(");
+        self::assertIsInt($inicio, 'não achei o handler do botão de bater ponto na tela');
+
+        return substr($fonte, $inicio);
+    }
+
     /**
      * Corpo da função `lerPosicaoComPrazo`, delimitado por contagem de chaves — não por recorte
      * até o próximo marco, que arrastava 60 linhas de código alheio para dentro dos asserts.
