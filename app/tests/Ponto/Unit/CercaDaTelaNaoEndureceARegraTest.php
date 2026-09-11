@@ -18,8 +18,10 @@ use PHPUnit\Framework\TestCase;
  *
  * Divergir para o lado permissivo é inofensivo — o servidor recusa e a pessoa vê a mensagem.
  * Divergir para o lado rígido transforma imprecisão de GPS em **falta**, que num módulo de risco
- * ALTO é o dano que não se pode aceitar. Medido em produção: a precisão do GPS passa de 100 m com
- * frequência, e o raio é de 100 m.
+ * ALTO é o dano que não se pode aceitar. Medido em produção em 11/09/2026, sobre 1.683 batidas
+ * desde 01/06: mediana de 27,1 m, **p90 de 99,0 m** e 7,5% acima de 100 m — contra raio de 100 m.
+ * Uma em cada dez leituras carrega incerteza do tamanho do raio inteiro. ⚠️ A amostra é de batidas
+ * ACEITAS, então é otimista: as recusadas por posição não estão nela.
  *
  * Spec: `docs/specs/ponto-batida-nao-se-perde-no-navegador.md`.
  *
@@ -36,15 +38,29 @@ final class CercaDaTelaNaoEndureceARegraTest extends TestCase
         $corpo = $this->corpoDaFuncao('function avaliarPosicao(');
 
         self::assertMatchesRegularExpression(
-            '/\(\s*menorDistancia\s*-\s*margem\s*\)\s*>\s*maisProxima\.raio/',
+            '/\(\s*menorExcedente\s*-\s*margem\s*\)\s*>\s*0/',
             $corpo,
             'sem descontar a margem, a tela vira MAIS rígida que o servidor e transforma GPS '
             . 'impreciso em falta'
         );
+
+        // 🪤 Pinar a EXPRESSÃO INTEIRA, e não só a presença de `precisaoGps`. Um
+        // `Math.min(Number(currentLocation.precisaoGps) || 0, 30)` endurece a tela e passava nos
+        // dois asserts anteriores: a forma da comparação continuava a mesma e a string também.
         self::assertStringContainsString(
-            'currentLocation.precisaoGps',
+            'const margem = Math.max(Number(currentLocation.precisaoGps) || 0, 0);',
             $corpo,
-            'a margem tem que ser a precisão real da leitura, não um número inventado'
+            'a margem é a precisão real, sem teto e sem piso negativo: teto endurece a tela, '
+            . 'precisão negativa somaria à distância e endureceria também'
+        );
+
+        // Medido na produção em 11/09/2026, sobre 1.683 batidas desde 01/06: p90 de 99 m, com raio
+        // de 100 m. Uma em cada dez leituras tem incerteza do tamanho do raio inteiro — é esse
+        // número que torna a margem obrigatória, e não uma cortesia.
+        self::assertStringContainsString(
+            'menorExcedente = Math.min(menorExcedente, distancia - sede.raio)',
+            $corpo,
+            'com raios diferentes, olhar só a sede mais próxima bloquearia quem o servidor aceita'
         );
     }
 
@@ -94,6 +110,38 @@ final class CercaDaTelaNaoEndureceARegraTest extends TestCase
             $antesDaCerca,
             'o ramo de home office tem que sair ANTES da cerca, senão quem está liberado do dia '
             . 'passa a ser bloqueado por estar em casa — o servidor dispensa o geofencing nesse caso'
+        );
+    }
+
+    #[TestDox('a posição continua sendo atualizada com a página aberta, não só na carga')]
+    public function testPosicaoNaoCongelaNaCarga(): void
+    {
+        $fonte = (string) file_get_contents(self::CAMINHO_TELA);
+
+        // 🔴 Desde que o botão bloqueia por raio, decidir com a leitura da carga vira armadilha:
+        // quem abre a tela no caminho, longe do escritório, ficaria travado mesmo depois de chegar.
+        self::assertStringContainsString(
+            'navigator.geolocation.watchPosition(',
+            $fonte,
+            'sem atualização contínua, o bloqueio usa uma posição velha e não há como destravar'
+        );
+        self::assertMatchesRegularExpression(
+            '/watchPosition\(\s*aplicarPosicao/',
+            $fonte,
+            'a atualização contínua tem que reavaliar a posição e o botão, não só guardar o dado'
+        );
+    }
+
+    #[TestDox('quem está fora da área recebe uma saída na tela, não só um botão cinza')]
+    public function testBloqueadoTemCaminhoDeSaida(): void
+    {
+        $corpo = $this->corpoDaFuncao('function guardarPosicao(');
+
+        self::assertStringContainsString(
+            "btnAtualizarPagina.classList.remove('d-none')",
+            $corpo,
+            'a liberação do dia é decidida no servidor e só chega na carga: sem o botão de '
+            . 'atualizar, quem consegue a liberação com a página aberta continua bloqueado'
         );
     }
 

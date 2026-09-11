@@ -300,9 +300,35 @@ decide na tela.
 
 🔑 **A avaliação da tela é deliberadamente MAIS PERMISSIVA que a do servidor, e o sentido do desvio é
 o invariante.** Três situações, não duas: `dentro`, `fora` e **`indeterminado`**. Só bloqueia no
-`fora`, que exige `(distância − precisão) > raio`. Com 120 m de erro e 70 m de distância o aparelho
-não sabe dizer se está dentro, e decidir contra a pessoa aí seria transformar imprecisão de GPS em
-**falta**. Divergir para o permissivo é inofensivo: o servidor recusa e a mensagem aparece.
+`fora`, que exige `(menor excedente − precisão) > 0`. Com 120 m de erro e 70 m de distância o
+aparelho não sabe dizer se está dentro, e decidir contra a pessoa aí seria transformar imprecisão de
+GPS em **falta**. Divergir para o permissivo é inofensivo: o servidor recusa e a mensagem aparece.
+
+O número que torna a margem obrigatória, medido em prod em 11/09 sobre 1.683 batidas desde 01/06:
+
+| | |
+|---|---|
+| mediana da precisão | 27,1 m |
+| **p90** | **99,0 m** |
+| acima de 100 m | 7,5% |
+
+Uma em cada dez leituras carrega incerteza do tamanho do raio inteiro. ⚠️ E a amostra é **otimista**,
+porque só contém batidas aceitas: as recusadas por posição não estão nela.
+
+🔑 **O excedente é o MENOR entre as sedes, não o da mais próxima.** Com raios diferentes, a sede mais
+perto pode ter raio pequeno enquanto outra, mais longe, tem raio grande o bastante. Olhar só a mais
+próxima bloquearia quem o servidor aceita. Hoje as 4 sedes têm raio 100 e os dois critérios
+coincidem; a diferença aparece no dia em que cadastrarem raios diferentes.
+
+🔴 **A posição não pode congelar na carga.** Esta foi a lição mais cara desta fatia. Com o botão
+bloqueando por raio, decidir com a leitura da carga vira armadilha: quem abre a tela no caminho, a
+300 m do escritório, ficava travado e **continuava travado depois de chegar**, sem nada na tela que
+sugerisse recarregar. Era o defeito desta frente de volta por outra porta. `watchPosition` resolve na
+raiz, atualizando a posição enquanto a pessoa se desloca, e o botão destrava quando ela chega.
+
+⚠️ **A liberação do dia (`homeOfficeHoje`) continua sendo um retrato da carga.** Se o gestor conceder
+com a página aberta, o servidor passa a aceitar e a tela seguiria cinza. Por isso quem está fora da
+área recebe o botão **Atualizar e conferir** junto da mensagem.
 
 A tela espelha as duas exclusões do servidor (sede sem coordenada, raio não positivo) para não
 bloquear por uma cerca que a regra não aplica. 🪤 Sede **sem coordenada** não é testável: a coluna é
@@ -310,6 +336,11 @@ bloquear por uma cerca que a regra não aplica. 🪤 Sede **sem coordenada** nã
 
 ⚠️ Isto **não** substitui a regra: uma verificação no navegador é contornável em segundos, e
 `batida()` continua sendo quem decide.
+
+⚠️ **Efeito colateral registrado para o dono decidir:** a coordenada exata da sede e o raio passam a
+ir para o navegador de **todo colaborador**. Antes esse dado só aparecia na tela de sedes, atrás da
+permissão de gerenciá-las. Não muda a natureza do risco (falsear GPS já era possível), mas troca
+"descobrir a coordenada" por "copiar do HTML" — inclusive o raio, que era desconhecido.
 
 ### ✅ O botão desabilitado diz por quê e o que fazer (entregue)
 

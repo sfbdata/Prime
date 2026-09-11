@@ -425,27 +425,44 @@
 
         let maisProxima = null;
         let menorDistancia = Infinity;
+        let menorExcedente = Infinity;
         let dentro = false;
 
         for (const sede of SEDES) {
             const distancia = distanciaEmMetros(
                 currentLocation.latitude, currentLocation.longitude, sede.latitude, sede.longitude
             );
+            // Coordenada que não vira número devolve NaN, e `NaN < x` é falso: sem esta guarda a
+            // sede mais próxima ficaria null e o `.raio` lá embaixo lançaria, deixando o botão
+            // desabilitado desde a carga sem explicação nenhuma.
+            if (!Number.isFinite(distancia)) {
+                continue;
+            }
             if (distancia < menorDistancia) {
                 menorDistancia = distancia;
                 maisProxima = sede;
             }
+            // 🔑 O que decide "fora" é o MENOR excedente, não a sede mais próxima. Com raios
+            // diferentes, a sede mais próxima pode ter raio pequeno enquanto outra, mais distante,
+            // tem raio grande o bastante para a pessoa estar dentro. Olhar só a mais próxima
+            // bloquearia quem o servidor aceitaria — a tela ficaria mais rígida que a regra.
+            menorExcedente = Math.min(menorExcedente, distancia - sede.raio);
             if (distancia <= sede.raio) {
                 dentro = true;
             }
+        }
+
+        if (maisProxima === null) {
+            return { situacao: 'indeterminado', distancia: null, sede: null };
         }
 
         if (dentro) {
             return { situacao: 'dentro', distancia: menorDistancia, sede: maisProxima };
         }
 
-        const margem = Number(currentLocation.precisaoGps) || 0;
-        const certamenteFora = (menorDistancia - margem) > maisProxima.raio;
+        // `Math.max(..., 0)` porque precisão negativa somaria à distância e ENDURECERIA a tela.
+        const margem = Math.max(Number(currentLocation.precisaoGps) || 0, 0);
+        const certamenteFora = (menorExcedente - margem) > 0;
 
         return {
             situacao: certamenteFora ? 'fora' : 'indeterminado',
@@ -491,9 +508,20 @@
         const onde = avaliarPosicao();
 
         if (onde.situacao === 'fora') {
-            gpsStatus.innerHTML = `<i class="bi bi-geo-alt-fill"></i> Você está a ${Math.round(onde.distancia)}m de <strong>${onde.sede.nome}</strong>, fora da área permitida para bater o ponto.<br>Se está em trabalho externo ou home office, peça ao gestor a liberação do dia antes de bater.`;
+            gpsStatus.innerHTML = `<i class="bi bi-geo-alt-fill"></i> Você está a ${Math.round(onde.distancia)}m de <strong>${onde.sede.nome}</strong>, fora da área permitida para bater o ponto.<br>Se está em trabalho externo ou home office, peça ao gestor a liberação do dia e depois atualize esta página.`;
             gpsStatus.className = 'alert alert-danger small mb-3';
+            // A liberação do dia (`homeOfficeHoje`) é decidida no servidor e só chega na carga. Se o
+            // gestor conceder com a página aberta, o servidor passa a aceitar e a tela continuaria
+            // cinza. O botão de atualizar é a saída, e serve também para quem quiser forçar uma
+            // releitura em vez de esperar a atualização contínua.
+            btnAtualizarPagina.classList.remove('d-none');
             return;
+        }
+
+        // Só esconde se ninguém mais estiver precisando dele: um aviso de envio ativo é dono do
+        // botão, e uma atualização de posição não pode apagar a saída que aquele aviso ofereceu.
+        if (avisoBatida.classList.contains('d-none')) {
+            btnAtualizarPagina.classList.add('d-none');
         }
 
         if (accuracy <= GPS_PRECISAO_ACEITAVEL_METROS) {
@@ -698,6 +726,25 @@
                 navigator.geolocation.getCurrentPosition(aplicarPosicao, erroGps, { timeout: 10000 });
             },
             { enableHighAccuracy: true, timeout: 10000 }
+        );
+
+        // 🔴 A posição precisa CONTINUAR chegando, não só a da carga.
+        //
+        // Desde que o botão passou a bloquear por raio, decidir com a leitura da carga vira armadilha:
+        // quem abre a tela no caminho, a 300 m do escritório, fica com o botão travado e continua
+        // travado depois de chegar, porque nada busca posição nova. Não havia caminho de recuperação
+        // na tela — nem botão, nem instrução para recarregar. Seria o defeito desta frente de volta
+        // por outra porta: a pessoa sem conseguir registrar e sem saber por quê.
+        //
+        // `watchPosition` resolve na raiz: a posição se atualiza sozinha enquanto a pessoa se
+        // desloca, e o botão destrava quando ela chega. De quebra, a batida deixa de depender da
+        // leitura feita no clique, que é o que travava antes da Frente 1.
+        navigator.geolocation.watchPosition(
+            aplicarPosicao,
+            // Erro aqui NÃO derruba o que já temos: `erroGps` desabilitaria o botão de quem está no
+            // escritório com uma posição boa na mão, por causa de uma leitura ruim no meio do dia.
+            (error) => console.log('Atualização contínua de GPS falhou:', error && error.message),
+            { enableHighAccuracy: true, maximumAge: 30000 }
         );
     } else {
         gpsStatus.innerHTML = `<i class="bi bi-exclamation-triangle"></i> Seu navegador não suporta geolocalização.`;
