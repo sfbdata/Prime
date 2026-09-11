@@ -237,8 +237,13 @@ título "suas batidas de hoje". `conferirViradaDoDia` roda a cada 30 s e avisa.
 servidor e travava o botão: celular com fuso errado (roaming, hora automática desligada) via data
 diferente às 21h, o botão travava, e **recarregar não resolvia** porque a causa é o aparelho. Ficava
 impossível bater a saída — o oposto do objetivo da frente. Detectar só a *mudança* é imune a fuso
-errado, porque relógio errado e parado não muda. E quem carimba a hora é o servidor: bater com a
-página velha grava certo, então impedir a batida trocaria um engano de leitura por uma falta.
+errado. E quem carimba a hora é o servidor: bater com a página velha grava certo, então impedir a
+batida trocaria um engano de leitura por uma falta.
+
+⚠️ Tirar o veto não é o mesmo que ter pontaria: relógio errado **anda** e cruza a própria
+meia-noite na hora errada. Aparelho em UTC avisa às 21h BRT (falso) e depois fica calado na virada
+real, porque `diaVirou` já saiu. Como aqui só se avisa, o custo é um alarme fora de hora que o
+próprio recarregamento conserta.
 
 **(b) O aviso de "sem confirmação" não pode mandar conferir a lista sem atualizá-la.** A primeira
 versão dizia "confira aqui embaixo, só aperte de novo se não aparecer". A lista é da carga da
@@ -331,8 +336,16 @@ conferido com `diff -q` depois de cada uma. Ver `feedback_provar_teste_reintrodu
 5. **Frentes 2 e 3:** depois de bater, as quatro batidas do dia têm que aparecer logo abaixo do
    botão, com horário em quem já bateu e "ainda não registrada" em quem falta. O aviso do resultado
    tem que **ficar** na tela, sem caixa de alerta para fechar.
-6. **Frente 2, a falha:** bater com o celular em modo avião. Tem que aparecer aviso vermelho dizendo
-   que a batida **não** foi registrada, e o botão tem que voltar a "Bater Ponto" em vez de ficar
-   preso em "Registrando…".
-7. **Relógio:** abrir a tela **depois das 21h** com entrada batida. O contador tem que mostrar o
+6. **Frente 2, a falha sem rede:** bater com o celular em **modo avião**. O aviso deve dizer que
+   você está **sem internet** e que **não dá para saber** se a batida saiu, pedindo para não fechar
+   a tela. O botão deve voltar a "Bater Ponto" em vez de ficar preso em "Registrando…".
+   🔴 **O botão "Atualizar e conferir" NÃO pode aparecer aqui.** Atualizar sem rede entrega a página
+   de erro do navegador e leva junto o aviso e a lista, que é a única pista que sobrou. Tire o modo
+   avião sem recarregar: o aviso deve mudar sozinho, dizendo que a internet voltou, e **aí** o botão
+   de atualizar aparece.
+7. **Frente 2, a falha com rede:** o aviso **não** pode afirmar que a batida não foi registrada. Ele
+   tem que dizer que ela **pode** ter entrado e mandar atualizar e conferir antes de repetir. Se ele
+   afirmar, é regressão: o servidor pode ter gravado e só a resposta ter se perdido, e repetir
+   nessas condições cria batida duplicada.
+8. **Relógio:** abrir a tela **depois das 21h** com entrada batida. O contador tem que mostrar o
    tempo trabalhado, não `00:00:00`.

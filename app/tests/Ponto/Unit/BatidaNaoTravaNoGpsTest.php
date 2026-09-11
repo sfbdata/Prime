@@ -223,6 +223,12 @@ final class BatidaNaoTravaNoGpsTest extends TestCase
         // relógio do celular poder de veto: fuso errado às 21h travava o botão, e recarregar não
         // resolvia porque a causa era o aparelho. Ficava impossível bater a saída.
         self::assertStringContainsString(
+            'const DIA_DO_APARELHO_NA_CARGA = new Date().toDateString();',
+            $fonte,
+            'a linha de base tem que ser o relógio DO APARELHO na carga; vinda do servidor, a '
+            . 'comparação volta a ser aparelho contra servidor'
+        );
+        self::assertStringContainsString(
             'new Date().toDateString() === DIA_DO_APARELHO_NA_CARGA',
             $fonte,
             'detectar a MUDANÇA de dia no próprio aparelho é imune a fuso errado; comparar com a '
@@ -234,13 +240,30 @@ final class BatidaNaoTravaNoGpsTest extends TestCase
     public function testViradaDoDiaNaoBloqueiaABatida(): void
     {
         $fonte = $this->fonteSemComentariosNemTextos();
-        $corpo = $this->corpoDaFuncao($fonte, 'function updateButtonState(');
 
+        // 🔑 Dois lados, porque o invariante é "a virada nunca desabilita o botão" e não "a string
+        // `diaVirou` não aparece aqui". Olhar só `updateButtonState` deixava de fora o caminho mais
+        // curto para o defeito voltar: `btnPonto.disabled = true` dentro da própria
+        // `conferirViradaDoDia`. Foi a terceira vez que um recorte estreito deixou passar o defeito
+        // neste arquivo — ver o 🔑 do docblock da classe.
         self::assertStringNotContainsString(
             'diaVirou',
-            $corpo,
+            $this->corpoDaFuncao($fonte, 'function updateButtonState('),
             'quem carimba a hora é o servidor, então bater com a página velha grava certo: impedir '
             . 'a batida por causa da tela seria trocar um engano por uma falta'
+        );
+
+        $virada = $this->corpoDaFuncao($fonte, 'function conferirViradaDoDia(');
+        self::assertStringNotContainsString(
+            'btnPonto',
+            $virada,
+            'a checagem de virada do dia não pode mexer no botão: ela avisa, quem decide sobre o '
+            . 'botão é o fluxo do envio'
+        );
+        self::assertStringNotContainsString(
+            'updateButtonState',
+            $virada,
+            'chamar `updateButtonState` daqui é o caminho indireto para o mesmo bloqueio'
         );
     }
 

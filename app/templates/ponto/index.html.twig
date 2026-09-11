@@ -481,13 +481,26 @@
     // manda ATUALIZAR primeiro, e o botão de atualizar aparece junto.
     const AVISO_SEM_CONFIRMACAO = 'Não recebemos a confirmação do servidor e a batida PODE ter sido registrada. A lista abaixo é de antes da tentativa: atualize a página e confira ANTES de apertar de novo.';
 
+    // 🪤 Sem internet, mandar atualizar é conselho que destrói prova: o recarregamento entrega a
+    // página de erro do navegador e leva junto o aviso, a lista e o estado inteiro da tela. Por isso
+    // este caso tem texto próprio e NÃO oferece o botão de atualizar enquanto a conexão não voltar.
+    const AVISO_SEM_REDE = 'Você está sem internet e não dá para saber se a batida saiu. NÃO feche esta tela. Quando a conexão voltar, atualize a página e confira antes de apertar de novo.';
+
     // Falha em que dá para afirmar que nada entrou: o servidor recusou antes de gravar.
-    const AVISO_NAO_ENTROU = 'A batida não foi registrada por falha de segurança da sessão. Atualize a página, entre de novo se precisar, e repita.';
+    const AVISO_NAO_ENTROU = 'A batida não foi registrada: o servidor recusou o pedido antes de gravar. Atualize a página, entre de novo se precisar, e repita.';
 
     const avisoBatida = document.getElementById('batida-aviso');
     const btnAtualizarPagina = document.getElementById('btn-atualizar-pagina');
 
     btnAtualizarPagina.addEventListener('click', () => window.location.reload());
+
+    // Conexão de volta depois de uma falha sem rede: aí sim atualizar resolve, então o botão
+    // aparece. Sem isto a pessoa ficaria olhando um aviso que pede uma ação indisponível.
+    window.addEventListener('online', function () {
+        if (!avisoBatida.classList.contains('d-none') && avisoBatida.textContent === AVISO_SEM_REDE) {
+            mostrarAvisoBatida('A internet voltou. Atualize a página e confira suas batidas antes de apertar de novo.', 'warning', true);
+        }
+    });
 
     // O `alert` do navegador era o único retorno de falha: some quando a pessoa toca em OK, não
     // deixa rastro na tela, e navegador nenhum o mostra em aba que não está visível. O aviso
@@ -519,8 +532,12 @@
     // versão comparava com `dataHoje` e dava ao relógio do aparelho poder de VETO: celular com fuso
     // errado (roaming, hora automática desligada) via data diferente às 21h, travava o botão, e
     // recarregar não resolvia porque a causa é o aparelho. Ficava impossível bater a saída — o
-    // contrário do objetivo desta frente. Detectar só a MUDANÇA é imune a fuso errado: um relógio
-    // errado e parado não dispara nada.
+    // contrário do objetivo desta frente.
+    //
+    // ⚠️ Detectar só a MUDANÇA tira o veto, mas não dá pontaria: um relógio errado ANDA e cruza a
+    // própria meia-noite na hora errada. Aparelho em UTC avisa às 21h BRT (falso) e depois fica
+    // calado na virada real, porque `diaVirou` já saiu. Como aqui só se avisa, o custo é um alarme
+    // fora de hora que o próprio recarregamento conserta.
     const DIA_DO_APARELHO_NA_CARGA = new Date().toDateString();
     const INTERVALO_CHECAGEM_DIA_MS = 30000;
 
@@ -762,7 +779,10 @@
             // guarda de duplicata (`PontoController::batida` só valida repouso e interjornada).
             // Por isso o aviso manda CONFERIR o bloco de hoje, que é logo abaixo e mostra inclusive
             // quantos registros existem de cada tipo.
-            mostrarAvisoBatida(AVISO_SEM_CONFIRMACAO, 'danger', true);
+            // `navigator.onLine` só é confiável quando diz FALSO (o sistema sabe que não há rota).
+            // Usá-lo para ESCONDER o botão é seguro; usá-lo para afirmar que há internet não seria.
+            const semRede = navigator.onLine === false;
+            mostrarAvisoBatida(semRede ? AVISO_SEM_REDE : AVISO_SEM_CONFIRMACAO, 'danger', !semRede);
             console.error('Erro ao registrar ponto:', error);
         } finally {
             clearTimeout(prazoDoEnvio);

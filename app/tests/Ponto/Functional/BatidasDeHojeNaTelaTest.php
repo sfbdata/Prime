@@ -135,6 +135,13 @@ final class BatidasDeHojeNaTelaTest extends JusPrimeWebTestCase
             $crawler->filter('.card-primary > .card-body > #batida-aviso'),
             'o aviso de resultado precisa estar no mesmo card, onde a pessoa acabou de apertar'
         );
+        // O script desreferencia este id na carga, sem guarda: sumindo do HTML, o `TypeError`
+        // derruba o script inteiro e a tela do ponto para de funcionar com a suíte verde.
+        self::assertCount(
+            1,
+            $crawler->filter('.card-primary > .card-body > #btn-atualizar-pagina'),
+            'o botão de atualizar precisa existir: o script o desreferencia na carga'
+        );
     }
 
     #[TestDox('duas batidas do mesmo tipo no dia aparecem como duplicata, não como uma só')]
