@@ -145,15 +145,9 @@ class CalculadoraJornada
      */
     public function calcularMinutosTrabalhados(array $batidas): int
     {
-        $mapa = [];
-        foreach ($batidas as $batida) {
-            $mapa[$batida->getTipo()] = $batida->getDataHora();
-        }
-
-        $entrada = $mapa[RegistroPonto::TIPO_ENTRADA] ?? null;
-        $repouso = $mapa[RegistroPonto::TIPO_REPOUSO] ?? null;
-        $retorno = $mapa[RegistroPonto::TIPO_RETORNO] ?? null;
-        $saida   = $mapa[RegistroPonto::TIPO_SAIDA]   ?? null;
+        $entrada = $this->primeira($batidas, RegistroPonto::TIPO_ENTRADA);
+        $saida   = $this->ultima($batidas, RegistroPonto::TIPO_SAIDA);
+        [$repouso, $retorno] = $this->parDoIntervalo($batidas);
 
         if (!$entrada) {
             return 0;
@@ -169,6 +163,114 @@ class CalculadoraJornada
         }
 
         return 0;
+    }
+
+    /**
+     * O par (repouso, retorno) que delimita o intervalo, escolhido pela cronologia.
+     *
+     * Tomar simplesmente a primeira batida de cada tipo não serve, porque os dois lados precisam
+     * casar entre si: com `repouso 09:00` (tipo errado), `repouso 12:00` e `retorno 13:00`, o
+     * primeiro repouso apagaria três horas de manhã trabalhada. E tomar a última de cada tipo —
+     * o que o sistema fazia até 14/09/2026 — deixava um `retorno` batido no fim do dia encolher a
+     * tarde inteira para poucos minutos.
+     *
+     * A regra que sobra é o par ADJACENTE: o primeiro retorno que tenha algum repouso antes dele,
+     * e o último repouso antes desse retorno. É o menor almoço compatível com as batidas, e as duas
+     * pontas saem da mesma decisão em vez de serem escolhidas em separado.
+     *
+     * **Sem par válido, não há intervalo mensurável** e os dois voltam nulos: o dia cai no span
+     * inteiro, que é a regra que o dono aprovou em 31/08/2026 para quem não bateu almoço nenhum.
+     * Acontece quando os tipos estão trocados (bateu `retorno` antes de qualquer `repouso`), e aí
+     * nenhuma escolha recupera a duração do almoço. ⚠️ O span credita esse almoço, mas está preso
+     * ao tempo físico entre a entrada e a saída — o que a versão anterior desta função não estava:
+     * o fallback que ela usava chegava a somar 509 minutos numa janela de 508, contando duas vezes
+     * o trecho entre o retorno e o repouso.
+     *
+     * @param RegistroPonto[] $batidas
+     * @return array{0: ?\DateTimeInterface, 1: ?\DateTimeInterface}
+     */
+    private function parDoIntervalo(array $batidas): array
+    {
+        $retornos = $this->horasDoTipo($batidas, RegistroPonto::TIPO_RETORNO);
+        sort($retornos);
+
+        foreach ($retornos as $retorno) {
+            $repouso = $this->ultimaAntesDe($batidas, RegistroPonto::TIPO_REPOUSO, $retorno);
+            if ($repouso !== null) {
+                return [$repouso, $retorno];
+            }
+        }
+
+        return [null, null];
+    }
+
+    /**
+     * @param RegistroPonto[] $batidas
+     * @return \DateTimeInterface[]
+     */
+    private function horasDoTipo(array $batidas, string $tipo): array
+    {
+        $horas = [];
+        foreach ($batidas as $batida) {
+            if ($batida->getTipo() === $tipo) {
+                $horas[] = $batida->getDataHora();
+            }
+        }
+
+        return $horas;
+    }
+
+    /**
+     * @param RegistroPonto[] $batidas
+     */
+    private function ultimaAntesDe(array $batidas, string $tipo, \DateTimeInterface $limite): ?\DateTimeInterface
+    {
+        $escolhida = null;
+        foreach ($this->horasDoTipo($batidas, $tipo) as $hora) {
+            if ($hora >= $limite) {
+                continue;
+            }
+            if ($escolhida === null || $hora > $escolhida) {
+                $escolhida = $hora;
+            }
+        }
+
+        return $escolhida;
+    }
+
+    /**
+     * A primeira batida do tipo.
+     *
+     * @param RegistroPonto[] $batidas
+     */
+    private function primeira(array $batidas, string $tipo): ?\DateTimeInterface
+    {
+        $escolhida = null;
+        foreach ($this->horasDoTipo($batidas, $tipo) as $hora) {
+            if ($escolhida === null || $hora < $escolhida) {
+                $escolhida = $hora;
+            }
+        }
+
+        return $escolhida;
+    }
+
+    /**
+     * A última batida do tipo. Só a saída usa isto: quem bate a saída, volta e bate de novo
+     * trabalhou até o fim — nos outros três tipos a repetição é duplo clique ou tipo errado.
+     *
+     * @param RegistroPonto[] $batidas
+     */
+    private function ultima(array $batidas, string $tipo): ?\DateTimeInterface
+    {
+        $escolhida = null;
+        foreach ($this->horasDoTipo($batidas, $tipo) as $hora) {
+            if ($escolhida === null || $hora > $escolhida) {
+                $escolhida = $hora;
+            }
+        }
+
+        return $escolhida;
     }
 
     public function diffMinutos(\DateTimeInterface $inicio, \DateTimeInterface $fim): int

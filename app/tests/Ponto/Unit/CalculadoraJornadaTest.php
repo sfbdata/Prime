@@ -625,4 +625,202 @@ class CalculadoraJornadaTest extends TestCase
         $this->assertFalse($this->calculadora->registroIncompleto($batidas));
         $this->assertSame(90, $this->calculadora->calcularSaldoDia($user, $this->segunda(), $batidas, $jornada, []));
     }
+
+    // ──────────────────────────────────────────────────────────────────
+    // Pareamento cronológico — batida repetida ou de tipo errado não destrói o dia
+    //
+    // Até 14/09/2026 `calcularMinutosTrabalhados` montava um mapa `tipo => hora` varrendo as
+    // batidas em ordem crescente, então a ÚLTIMA de cada tipo sobrescrevia as anteriores. Uma
+    // batida de tipo errado horas depois arruinava o dia inteiro. Medido em PROD: 30 dias errados
+    // em 7 pessoas desde 01/04/2026, 62h líquidas a devolver aos colaboradores.
+    // Ver docs/specs/ponto-batida-que-responde-e-conta-certa.md.
+    //
+    // Os cenários abaixo são dias REAIS de produção, com as horas como aconteceram.
+    // ──────────────────────────────────────────────────────────────────
+
+    /** RAIMUNDO NONATO, 11/08/2026: bateu `retorno` às 17:12 quando queria bater a saída. */
+    public function testRetornoDeTipoErradoNoFimDoDiaNaoEncolheATarde(): void
+    {
+        $batidas = [
+            $this->batida(RegistroPonto::TIPO_ENTRADA, '07:17'),
+            $this->batida(RegistroPonto::TIPO_REPOUSO, '12:50'),
+            $this->batida(RegistroPonto::TIPO_RETORNO, '13:50'),
+            $this->batida(RegistroPonto::TIPO_RETORNO, '17:12'),
+            $this->batida(RegistroPonto::TIPO_SAIDA, '17:30'),
+        ];
+
+        // Manhã 07:17→12:50 (333) + tarde 13:50→17:30 (220). Antes: a tarde virava 18 min (351).
+        $this->assertSame(553, $this->calculadora->calcularMinutosTrabalhados($batidas));
+    }
+
+    /** EDLUCIA, 21/08/2026: bateu `repouso` às 13:55, DOIS minutos depois do retorno. */
+    public function testRepousoBatidoDepoisDoRetornoNaoCreditaOAlmoco(): void
+    {
+        $batidas = [
+            $this->batida(RegistroPonto::TIPO_ENTRADA, '09:01'),
+            $this->batida(RegistroPonto::TIPO_REPOUSO, '12:43'),
+            $this->batida(RegistroPonto::TIPO_RETORNO, '13:53'),
+            $this->batida(RegistroPonto::TIPO_REPOUSO, '13:55'),
+            $this->batida(RegistroPonto::TIPO_SAIDA, '18:35'),
+        ];
+
+        // Manhã 09:01→12:43 (222) + tarde 13:53→18:35 (282). Antes: 576, com o almoço dentro.
+        $this->assertSame(504, $this->calculadora->calcularMinutosTrabalhados($batidas));
+    }
+
+    /** RAIMUNDO NONATO, 14/04/2026: bateu `entrada` às 14:51 no meio da tarde. */
+    public function testEntradaDeTipoErradoNoMeioDoDiaNaoDestroiAManha(): void
+    {
+        $batidas = [
+            $this->batida(RegistroPonto::TIPO_ENTRADA, '07:30'),
+            $this->batida(RegistroPonto::TIPO_REPOUSO, '12:00'),
+            $this->batida(RegistroPonto::TIPO_RETORNO, '13:00'),
+            $this->batida(RegistroPonto::TIPO_ENTRADA, '14:51'),
+            $this->batida(RegistroPonto::TIPO_SAIDA, '17:09'),
+        ];
+
+        // Manhã 07:30→12:00 (270) + tarde 13:00→17:09 (249). Antes: a manhã virava o |12:00-14:51|
+        // do `diff` sem sinal, e o dia dava 420.
+        $this->assertSame(519, $this->calculadora->calcularMinutosTrabalhados($batidas));
+    }
+
+    /** SAMUEL, 07/05/2026: bateu `entrada` às 14:35 e o `repouso` certo um minuto depois. */
+    public function testEntradaErradaAntesDoRepousoNaoApagaAJornadaInteira(): void
+    {
+        $batidas = [
+            $this->batida(RegistroPonto::TIPO_ENTRADA, '08:18'),
+            $this->batida(RegistroPonto::TIPO_ENTRADA, '14:35'),
+            $this->batida(RegistroPonto::TIPO_REPOUSO, '14:36'),
+            $this->batida(RegistroPonto::TIPO_RETORNO, '15:39'),
+            $this->batida(RegistroPonto::TIPO_SAIDA, '18:03'),
+        ];
+
+        // Manhã 08:18→14:36 (378) + tarde 15:39→18:03 (144). Antes: a manhã virava 1 minuto (145).
+        $this->assertSame(522, $this->calculadora->calcularMinutosTrabalhados($batidas));
+    }
+
+    /** Duplo clique nos quatro tipos: o resultado é o mesmo do dia batido uma vez só. */
+    public function testDuploCliqueEmTodosOsTiposNaoMudaOResultado(): void
+    {
+        $limpo = [
+            $this->batida(RegistroPonto::TIPO_ENTRADA, '09:00'),
+            $this->batida(RegistroPonto::TIPO_REPOUSO, '12:00'),
+            $this->batida(RegistroPonto::TIPO_RETORNO, '13:00'),
+            $this->batida(RegistroPonto::TIPO_SAIDA, '18:00'),
+        ];
+
+        $comDuploClique = [
+            $this->batida(RegistroPonto::TIPO_ENTRADA, '09:00'),
+            $this->batida(RegistroPonto::TIPO_ENTRADA, '09:00'),
+            $this->batida(RegistroPonto::TIPO_REPOUSO, '12:00'),
+            $this->batida(RegistroPonto::TIPO_REPOUSO, '12:00'),
+            $this->batida(RegistroPonto::TIPO_RETORNO, '13:00'),
+            $this->batida(RegistroPonto::TIPO_RETORNO, '13:00'),
+            $this->batida(RegistroPonto::TIPO_SAIDA, '18:00'),
+            $this->batida(RegistroPonto::TIPO_SAIDA, '18:00'),
+        ];
+
+        $this->assertSame(
+            $this->calculadora->calcularMinutosTrabalhados($limpo),
+            $this->calculadora->calcularMinutosTrabalhados($comDuploClique)
+        );
+        $this->assertSame(480, $this->calculadora->calcularMinutosTrabalhados($comDuploClique));
+    }
+
+    /**
+     * A saída continua sendo a ÚLTIMA: quem bate a saída, volta e bate de novo trabalhou até o fim.
+     * É o único dos quatro tipos em que a última é a verdadeira.
+     */
+    public function testSaidaRepetidaUsaAUltima(): void
+    {
+        $batidas = [
+            $this->batida(RegistroPonto::TIPO_ENTRADA, '09:00'),
+            $this->batida(RegistroPonto::TIPO_REPOUSO, '12:00'),
+            $this->batida(RegistroPonto::TIPO_RETORNO, '13:00'),
+            $this->batida(RegistroPonto::TIPO_SAIDA, '18:00'),
+            $this->batida(RegistroPonto::TIPO_SAIDA, '19:30'),
+        ];
+
+        // 3h + 6h30 = 570
+        $this->assertSame(570, $this->calculadora->calcularMinutosTrabalhados($batidas));
+    }
+
+    /**
+     * YLKA, 31/08/2026: bateu `retorno` 12:15 ANTES do `repouso` 12:16 — os dois tipos trocados.
+     *
+     * Não há par (repouso, retorno) válido e, portanto, não há almoço mensurável: o dia cai no span
+     * inteiro, como todo dia sem intervalo batido. 🪤 O span CREDITA esse almoço, mas está preso ao
+     * tempo físico entre a entrada e a saída — e é justamente esse teto que faltava. A primeira
+     * versão desta regra devolvia 509 minutos para uma janela de 508, contando duas vezes o trecho
+     * entre o retorno e o repouso. Ninguém trabalha 509 minutos numa janela de 508.
+     */
+    public function testRetornoAnteriorAoRepousoCaiNoSpanENuncaOExcede(): void
+    {
+        $batidas = [
+            $this->batida(RegistroPonto::TIPO_ENTRADA, '08:35'),
+            $this->batida(RegistroPonto::TIPO_RETORNO, '12:15'),
+            $this->batida(RegistroPonto::TIPO_REPOUSO, '12:16'),
+            $this->batida(RegistroPonto::TIPO_REPOUSO, '12:26'),
+            $this->batida(RegistroPonto::TIPO_SAIDA, '17:03'),
+        ];
+
+        // Span 08:35→17:03 = 508 minutos, e nem um a mais.
+        $this->assertSame(508, $this->calculadora->calcularMinutosTrabalhados($batidas));
+    }
+
+    /**
+     * `repouso` batido cedo por engano não pode apagar a manhã.
+     *
+     * Contraparte do `retorno` de tipo errado no fim do dia: a proteção tem de ser simétrica, senão
+     * o mesmo engano derruba o dia pela outra ponta. O par escolhido é o ADJACENTE — o último
+     * repouso antes do retorno —, não o primeiro repouso do dia.
+     */
+    public function testRepousoPrecoceDeTipoErradoNaoApagaAManha(): void
+    {
+        $batidas = [
+            $this->batida(RegistroPonto::TIPO_ENTRADA, '08:00'),
+            $this->batida(RegistroPonto::TIPO_REPOUSO, '09:00'),
+            $this->batida(RegistroPonto::TIPO_REPOUSO, '12:00'),
+            $this->batida(RegistroPonto::TIPO_RETORNO, '13:00'),
+            $this->batida(RegistroPonto::TIPO_SAIDA, '18:00'),
+        ];
+
+        // Manhã 08:00→12:00 (240) + tarde 13:00→18:00 (300). Com o primeiro repouso: 360.
+        $this->assertSame(540, $this->calculadora->calcularMinutosTrabalhados($batidas));
+    }
+
+    /**
+     * No ramo SEM par de intervalo, o apurado não passa do tempo entre a entrada e a saída.
+     *
+     * ⚠️ O teto vale só para este ramo, e o nome do teste diz isso de propósito. Com par válido e
+     * batidas FORA DE ORDEM (`saida` antes da `entrada`, `entrada` depois do almoço), o `abs()` de
+     * `diffMinutos` continua creditando além da janela física — 🔢 8 dias e 5.461 minutos em
+     * produção desde 01/04/2026, o pior deles 1.552 minutos acima. Isso é **pré-existente**: a
+     * regra antiga produzia exatamente os mesmos números nesses 8 dias. Está fora do escopo desta
+     * frente e registrado na spec; o que não pode acontecer é um nome de teste universal dar a
+     * entender que o teto já existe em todo lugar.
+     */
+    public function testDiaSemParDeIntervaloNuncaExcedeOSpan(): void
+    {
+        $cenarios = [
+            'retorno de tipo errado logo após a entrada' => [
+                [['entrada', '08:35'], ['retorno', '08:40'], ['repouso', '12:00'], ['saida', '17:00']],
+                505,
+            ],
+            'tipos trocados no meio do dia' => [
+                [['entrada', '08:00'], ['retorno', '11:00'], ['repouso', '11:30'], ['saida', '17:00']],
+                540,
+            ],
+        ];
+
+        foreach ($cenarios as $nome => [$definicao, $span]) {
+            $batidas = array_map(fn(array $b) => $this->batida($b[0], $b[1]), $definicao);
+
+            $this->assertLessThanOrEqual(
+                $span,
+                $this->calculadora->calcularMinutosTrabalhados($batidas),
+                sprintf('"%s" apurou mais tempo do que cabe entre a entrada e a saída', $nome)
+            );
+        }
+    }
 }
