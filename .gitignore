@@ -98,6 +98,23 @@ docs/gestao-cobrancas/**/*.pdf
 docs/gestao-cobrancas/*.xlsx
 docs/gestao-cobrancas/*.pdf
 
+# .docx pelo mesmo motivo, e é a MESMA lição de 03/08 acontecendo de novo: a regra olhava .xlsx e
+# .pdf, então os relatórios de inadimplência da TOP LIFE I gerados em .docx (nome de devedor,
+# unidade e valor em aberto) ficaram versionáveis. Terceira vez que um formato novo escapa de uma
+# regra por extensão — por isso as pastas novas abaixo entram INTEIRAS.
+docs/gestao-cobrancas/**/*.docx
+docs/gestao-cobrancas/*.docx
+
+# Relatórios de atividade de colaborador (metas, movimentações, processos tocados), gerados sob
+# demanda em .docx e .pdf. Trazem nome de funcionário e número de processo de cliente — dado
+# pessoal de terceiro, o mesmo motivo de docs/folha-de-ponto/. A PASTA INTEIRA, não as extensões:
+# é artefato de saída, nada que nasce ali precisa de história.
+docs/relatorios/
+
+# ⚠️ docs/legal/*.docx NÃO entra em nenhuma regra acima, e é de propósito: a Política de
+# Privacidade e os Termos de Uso são documentos PÚBLICOS, sem dado de ninguém, e continuam
+# versionados como fonte das páginas publicadas.
+
 # A pasta INTEIRA, e não só as extensões acima: em 03/08 um .txt derivado das planilhas (com nome de
 # devedor e NN) caiu aqui e ficou versionável, porque a regra só olhava .xlsx/.pdf. Todo arquivo que
 # nasce dessa pasta carrega a PII da fonte, seja qual for o formato.
