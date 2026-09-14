@@ -6,6 +6,7 @@ namespace App\Tests\Tarefa\Functional;
 
 use App\Entity\Tarefa\Tarefa;
 use App\Pasta\Entity\PrioridadePasta;
+use App\Tarefa\Enum\AbaMetas;
 use App\Tarefa\Repository\TarefaRepository;
 use App\Tests\Factory\Auth\UserFactory;
 use App\Tests\Factory\Pasta\PastaFactory;
@@ -18,6 +19,13 @@ use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Zenstruck\Foundry\Test\Factories;
 
+/**
+ * Facetas da barra de filtro, exercitadas na aba "Sou responsável".
+ *
+ * Antes da frente `minhas-metas-abas` o método sob teste era `findByResponsavelComFiltros`,
+ * que misturava responsável e criador numa lista só. O escopo por papel agora é do enum
+ * `AbaMetas`; o que estes testes garantem é que a FACETA continua valendo dentro da aba.
+ */
 #[CoversClass(TarefaRepository::class)]
 #[Group('tarefa')]
 final class TarefaRepositoryFiltrosTest extends KernelTestCase
@@ -48,7 +56,7 @@ final class TarefaRepositoryFiltrosTest extends KernelTestCase
         $doColega->addResponsavel($colega);
         $this->em->flush();
 
-        $resultado = $this->repo->findByResponsavelComFiltros($eu, []);
+        $resultado = $this->repo->findParaMinhasMetas($eu, AbaMetas::RESPONSAVEL, []);
 
         self::assertCount(1, $resultado);
         self::assertSame($minha->getId(), $resultado[0]->getId());
@@ -67,7 +75,7 @@ final class TarefaRepositoryFiltrosTest extends KernelTestCase
         $outra->addResponsavel($eu);
         $this->em->flush();
 
-        $resultado = $this->repo->findByResponsavelComFiltros($eu, ['busca' => 'recurso']);
+        $resultado = $this->repo->findParaMinhasMetas($eu, AbaMetas::RESPONSAVEL, ['busca' => 'recurso']);
 
         self::assertCount(1, $resultado);
         self::assertSame($achavel->getId(), $resultado[0]->getId());
@@ -87,7 +95,7 @@ final class TarefaRepositoryFiltrosTest extends KernelTestCase
         $this->em->flush();
 
         // termo sem ç, sem ~ e minúsculo deve casar com "Petição"
-        $resultado = $this->repo->findByResponsavelComFiltros($eu, ['busca' => 'peticao']);
+        $resultado = $this->repo->findParaMinhasMetas($eu, AbaMetas::RESPONSAVEL, ['busca' => 'peticao']);
 
         self::assertCount(1, $resultado);
         self::assertSame($achavel->getId(), $resultado[0]->getId());
@@ -104,10 +112,13 @@ final class TarefaRepositoryFiltrosTest extends KernelTestCase
         $pendente->addResponsavel($eu);
         $concluida = TarefaFactory::createOne(['pasta' => $pasta, 'status' => Tarefa::STATUS_CONCLUIDA])->_real();
         $concluida->addResponsavel($eu);
+        // A tela corta concluídas com mais de 30 dias, e usa `dataConclusao` como referência.
+        // O fluxo real (ExcluirTarefa/concluir) sempre grava essa data; a factory não.
+        $concluida->setDataConclusao(new \DateTimeImmutable('-1 day'));
         $this->em->flush();
 
-        self::assertCount(1, $this->repo->findByResponsavelComFiltros($eu, ['status' => Tarefa::STATUS_CONCLUIDA]));
-        self::assertCount(1, $this->repo->findByResponsavelComFiltros($eu, ['status' => Tarefa::STATUS_PENDENTE]));
+        self::assertCount(1, $this->repo->findParaMinhasMetas($eu, AbaMetas::RESPONSAVEL, ['status' => Tarefa::STATUS_CONCLUIDA]));
+        self::assertCount(1, $this->repo->findParaMinhasMetas($eu, AbaMetas::RESPONSAVEL, ['status' => Tarefa::STATUS_PENDENTE]));
     }
 
     #[TestDox('Faceta de prioridade filtra pela prioridade da pasta vinculada')]
@@ -124,7 +135,7 @@ final class TarefaRepositoryFiltrosTest extends KernelTestCase
         $tNor->addResponsavel($eu);
         $this->em->flush();
 
-        $resultado = $this->repo->findByResponsavelComFiltros($eu, ['prioridade' => 'urgente']);
+        $resultado = $this->repo->findParaMinhasMetas($eu, AbaMetas::RESPONSAVEL, ['prioridade' => 'urgente']);
 
         self::assertCount(1, $resultado);
         self::assertSame($tUrg->getId(), $resultado[0]->getId());
@@ -148,15 +159,15 @@ final class TarefaRepositoryFiltrosTest extends KernelTestCase
         $semPrazo->addResponsavel($eu);
         $this->em->flush();
 
-        $vencidas = $this->repo->findByResponsavelComFiltros($eu, ['prazo' => 'vencidas']);
+        $vencidas = $this->repo->findParaMinhasMetas($eu, AbaMetas::RESPONSAVEL, ['prazo' => 'vencidas']);
         self::assertCount(1, $vencidas);
         self::assertSame($vencida->getId(), $vencidas[0]->getId());
 
-        $proximas = $this->repo->findByResponsavelComFiltros($eu, ['prazo' => 'proximas']);
+        $proximas = $this->repo->findParaMinhasMetas($eu, AbaMetas::RESPONSAVEL, ['prazo' => 'proximas']);
         self::assertCount(1, $proximas);
         self::assertSame($proxima->getId(), $proximas[0]->getId());
 
-        $sem = $this->repo->findByResponsavelComFiltros($eu, ['prazo' => 'sem']);
+        $sem = $this->repo->findParaMinhasMetas($eu, AbaMetas::RESPONSAVEL, ['prazo' => 'sem']);
         self::assertCount(1, $sem);
         self::assertSame($semPrazo->getId(), $sem[0]->getId());
     }

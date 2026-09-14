@@ -1,26 +1,103 @@
 {% extends 'base.html.twig' %}
 
+{#
+   Tela "Minhas Metas" — reorganizada por PAPEL (abas).
+   Desenho aprovado: docs/design/minhas-metas/ · Spec: docs/specs/minhas-metas-abas.md
+
+   O que fica FORA de [data-filtro-resultado] (título, KPIs, abas, barra de filtro) não recarrega
+   ao filtrar — é o que mantém o foco no campo de busca, padrão do Expediente.
+#}
+
 {% block title %}Minhas Metas{% endblock %}
 
+{% set aba = painel.aba %}
+
 {% block body %}
+<div class="mm-page">
 <div class="content-header">
     <div class="container-fluid">
-        <div class="row mb-2">
-            <div class="col-sm-6">
-                <h1 class="m-0"><i class="bi bi-check2-square me-2"></i>Minhas Metas</h1>
+        <div class="d-flex align-items-end gap-3 flex-wrap mb-2">
+            <div class="min-w-0">
+                <h1 class="mm-titulo"><i class="bi bi-check2-square me-2"></i>Minhas Metas</h1>
+                <p class="mm-subtitulo">O que está com você, o que você delegou, o que você marcou para acompanhar — ou tudo junto.</p>
             </div>
-            <div class="col-sm-6">
-                <ol class="breadcrumb float-sm-end">
-                    <li class="breadcrumb-item"><a href="{{ path('homepage') }}">Home</a></li>
-                    <li class="breadcrumb-item active">Minhas Metas</li>
-                </ol>
-            </div>
+            <div class="flex-grow-1"></div>
+            <ol class="breadcrumb mb-0">
+                <li class="breadcrumb-item"><a href="{{ path('homepage') }}">Home</a></li>
+                <li class="breadcrumb-item active">Minhas Metas</li>
+            </ol>
         </div>
     </div>
 </div>
 
 <section class="content">
     <div class="container-fluid">
+
+        {# ── KPIs: atalhos, não resumo do filtro ── #}
+        {% set kpis = painel.kpis %}
+        {% set atalhos = [
+            { chave: 'atrasadas',  rotulo: 'Atrasadas',           valor: kpis.atrasadas,          sub: 'sob sua responsabilidade',      tom: 'danger', destino: { aba: 'responsavel', prazo: 'vencidas' } },
+            { chave: 'proximas',   rotulo: 'Vencem em 7 dias',    valor: kpis.proximas,           sub: 'ainda dá tempo',                tom: 'warn',   destino: { aba: 'responsavel', prazo: 'proximas' } },
+            { chave: 'revisao',    rotulo: 'Aguardando sua revisão', valor: kpis.aguardando_revisao, sub: 'criadas por você',           tom: 'accent', destino: { aba: 'criei' } },
+            { chave: 'sem_prazo',  rotulo: 'Sem prazo',           valor: kpis.sem_prazo,          sub: 'abertas sem data definida',     tom: 'cinza',  destino: { aba: 'responsavel', prazo: 'sem' } }
+        ] %}
+        <div class="mm-kpis mb-3">
+            {% for k in atalhos %}
+                {% set ativo = (k.destino.aba == aba.value) and ((k.destino.prazo|default('')) == filtros.prazo) and (k.destino.prazo is defined or filtros.prazo == '') %}
+                <a href="{{ path('tarefa_minhas', k.destino) }}"
+                   class="mm-kpi {{ ativo and k.destino.prazo is defined ? 'is-ativo' : '' }}"
+                   title="Ver {{ k.rotulo|lower }}">
+                    <span class="mm-kpi-rotulo">
+                        <span class="mm-dot mm-kpi-dot" style="background: var(--mm-{{ k.tom == 'accent' ? 'accent' : (k.tom == 'cinza' ? 'cinza-dot' : k.tom ~ '-dot') }})"></span>
+                        {{ k.rotulo }}
+                    </span>
+                    <span class="mm-kpi-valor">{{ k.valor }}</span>
+                    <span class="mm-kpi-sub">{{ k.sub }}</span>
+                </a>
+            {% endfor %}
+        </div>
+
+        {# ── Abas (papel) + modo de exibição ── #}
+        {% set contagens = painel.contagensPorAba %}
+        {% set abas = [
+            { valor: 'responsavel',  rotulo: 'Sou responsável',   icone: 'bi-person-check' },
+            { valor: 'criei',        rotulo: 'Criei',             icone: 'bi-send' },
+            { valor: 'acompanhando', rotulo: 'Em acompanhamento', icone: 'bi-bookmark' },
+            { valor: 'todas',        rotulo: 'Todas',             icone: 'bi-layers' }
+        ] %}
+        {# Só filtros preenchidos entram na URL — parâmetro vazio na barra de endereço é ruído,
+           e `modo` só aparece quando não é o padrão (cartões). #}
+        {% set base = filtros|filter(v => v != '') %}
+        {% set comModo = painel.modoLista ? base|merge({modo: 'lista'}) : base %}
+        <div class="mm-barra-abas mb-3">
+            <div class="mm-abas" role="tablist" aria-label="Papel nas metas">
+                {% for a in abas %}
+                    <a href="{{ path('tarefa_minhas', comModo|merge({aba: a.valor})) }}"
+                       class="mm-aba {{ aba.value == a.valor ? 'is-ativa' : '' }}"
+                       role="tab" aria-selected="{{ aba.value == a.valor ? 'true' : 'false' }}"
+                       data-aba="{{ a.valor }}">
+                        <i class="bi {{ a.icone }}"></i>
+                        <span>{{ a.rotulo }}</span>
+                        <span class="mm-aba-badge">{{ contagens[a.valor] ?? 0 }}</span>
+                    </a>
+                {% endfor %}
+            </div>
+
+            <div class="flex-grow-1"></div>
+
+            <div class="mm-modos" role="group" aria-label="Modo de exibição">
+                <a href="{{ path('tarefa_minhas', base|merge({aba: aba.value})) }}"
+                   class="mm-modo {{ painel.modoLista ? '' : 'is-ativo' }}" title="Cartões" aria-label="Cartões">
+                    <i class="bi bi-grid-1x2"></i>
+                </a>
+                <a href="{{ path('tarefa_minhas', base|merge({aba: aba.value, modo: 'lista'})) }}"
+                   class="mm-modo {{ painel.modoLista ? 'is-ativo' : '' }}" title="Lista" aria-label="Lista">
+                    <i class="bi bi-list-ul"></i>
+                </a>
+            </div>
+        </div>
+
+        {# ── Filtros + resultado ── #}
         <div data-filtro-root data-filtro-endpoint="{{ path('tarefa_minhas') }}">
             {{ include('_partials/_filtro_barra.html.twig', {
                 busca_placeholder: 'Buscar por título ou descrição da meta…',
@@ -50,10 +127,125 @@
         </div>
     </div>
 </section>
+</div>
 {% endblock %}
 
 {% block javascripts %}
 {{ parent() }}
-<link rel="stylesheet" href="{{ asset('css/filtro-tabela.css') }}">
 <script src="{{ asset('js/filtro-tabela.js') }}"></script>
+<script>
+// A aba e o modo são estado da tela, não filtro: entram no form de filtro como campos
+// ocultos para sobreviverem à recarga parcial. Sem isso, filtrar dentro de "Criei" jogaria
+// o usuário de volta em "Sou responsável" — o mesmo modo de falha já registrado no
+// Expediente, quando um filtro não representável no form se perdia na primeira interação.
+(function () {
+    var raiz = document.querySelector('[data-filtro-root]');
+    if (!raiz) { return; }
+    var form = raiz.querySelector('[data-filtro-form]');
+    if (!form) { return; }
+
+    [['aba', {{ aba.value|json_encode|raw }}], ['modo', {{ (painel.modoLista ? 'lista' : '')|json_encode|raw }}]]
+        .forEach(function (par) {
+            if (!par[1]) { return; }
+            var campo = document.createElement('input');
+            campo.type  = 'hidden';
+            campo.name  = par[0];
+            campo.value = par[1];
+            form.appendChild(campo);
+        });
+}());
+
+// O modo (cartões/lista) é preferência de tela, não dado do escritório: fica no navegador de
+// quem escolheu. Guardado só quando veio explícito na URL, e reaplicado na próxima visita —
+// nunca no servidor, e nunca sobrescrevendo uma escolha que o usuário acabou de fazer.
+(function () {
+    var CHAVE = 'jusprime.minhasMetas.modo';
+    var url   = new URL(window.location.href);
+    var naUrl = url.searchParams.get('modo');
+
+    try {
+        if (naUrl !== null) {
+            window.localStorage.setItem(CHAVE, naUrl === 'lista' ? 'lista' : 'cartoes');
+            return;
+        }
+        if (window.localStorage.getItem(CHAVE) === 'lista') {
+            url.searchParams.set('modo', 'lista');
+            window.location.replace(url.toString());
+        }
+    } catch (e) {
+        // Navegador com armazenamento bloqueado: a tela segue no modo padrão, sem quebrar.
+    }
+}());
+
+// Marcador de acompanhamento — alterna sem recarregar a página.
+var ABA_ATUAL = {{ aba.value|json_encode|raw }};
+document.addEventListener('click', function (e) {
+    var botao = e.target.closest('[data-acompanhar]');
+    if (!botao) { return; }
+
+    e.preventDefault();
+    if (botao.disabled) { return; }
+    botao.disabled = true;
+
+    var dados = new FormData();
+    dados.append('_token', botao.dataset.token);
+
+    fetch(botao.dataset.acompanhar, {
+        method: 'POST',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        body: dados,
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+        if (!d.sucesso) { return; }
+
+        botao.classList.toggle('is-marcada', d.acompanhando);
+        var icone = botao.querySelector('i');
+        if (icone) { icone.className = d.acompanhando ? 'bi bi-bookmark-fill' : 'bi bi-bookmark'; }
+        botao.title = d.acompanhando ? 'Deixar de acompanhar' : 'Acompanhar';
+        botao.setAttribute('aria-pressed', d.acompanhando ? 'true' : 'false');
+
+        // O clique muda o conteúdo de OUTRA aba, então o badge dela tem de acompanhar na
+        // hora. Os números vêm do servidor na mesma resposta — sem isso a aba "Em
+        // acompanhamento" ficava em zero até o usuário apertar F5.
+        if (d.contagens) {
+            Object.keys(d.contagens).forEach(function (chave) {
+                var aba = document.querySelector('.mm-aba[data-aba="' + chave + '"] .mm-aba-badge');
+                if (aba) { aba.textContent = d.contagens[chave]; }
+            });
+        }
+
+        // Desmarcar estando NA aba "Em acompanhamento" tira a meta da lista que se está
+        // olhando. Some com a linha e acerta o contador do grupo, em vez de deixar na tela
+        // um item que não pertence mais ali.
+        if (!d.acompanhando && ABA_ATUAL === 'acompanhando') {
+            var linha = botao.closest('.mm-meta, .mm-linha');
+            if (linha) {
+                // No bloco "Concluídas" as metas ficam dentro de um .collapse, então o
+                // cabeçalho do grupo não é irmão da linha: sobe-se um nível antes de procurar.
+                var ancora = linha.closest('.collapse') || linha;
+                var grupo  = ancora.previousElementSibling;
+                while (grupo && !grupo.matches('.mm-grupo-cabeca, .mm-separador')) {
+                    grupo = grupo.previousElementSibling;
+                }
+                var contador = grupo ? grupo.querySelector('.mm-grupo-contagem') : null;
+                if (contador) {
+                    contador.textContent = Math.max(0, parseInt(contador.textContent, 10) - 1);
+                }
+
+                linha.style.transition = 'opacity .2s';
+                linha.style.opacity    = '0';
+                window.setTimeout(function () { linha.remove(); }, 200);
+            }
+        }
+    })
+    .finally(function () { botao.disabled = false; });
+});
+</script>
+{% endblock %}
+
+{% block stylesheets %}
+{{ parent() }}
+<link rel="stylesheet" href="{{ asset('css/filtro-tabela.css') }}">
+<link rel="stylesheet" href="{{ asset('css/minhas-metas.css') }}">
 {% endblock %}

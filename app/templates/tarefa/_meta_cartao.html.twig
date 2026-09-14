@@ -1,0 +1,79 @@
+{# Uma meta no modo cartões.
+   `meta` = App\Entity\Tarefa\Tarefa · `tom` = tom do grupo que a contém (pinta a faixa lateral) #}
+{% set info = meta.prazoInfo %}
+{% set concluida = meta.status == 'concluida' %}
+{% set emRevisao = meta.status == 'em_revisao' %}
+{# Vem pré-carregado do UseCase: perguntar à entidade custaria uma consulta por linha. #}
+{% set acompanhando = painel.estaAcompanhando(meta.id) %}
+
+{% set tomPrazo = concluida ? 'muted' : (emRevisao ? 'accent' : (info.cor == 'danger' ? 'danger' : (info.cor == 'warning' ? 'warn' : 'cinza'))) %}
+{% set tomStatus = concluida ? 'ok' : (emRevisao ? 'accent' : (info.cor == 'danger' ? 'danger' : 'warn')) %}
+{% set rotuloStatus = concluida ? 'Concluída' : (emRevisao ? 'Em revisão' : (info.dias is not null and info.dias < 0 ? 'Atrasada' : 'Pendente')) %}
+
+<article class="mm-meta tom-{{ tom }}">
+    <div class="mm-meta-corpo">
+        <div class="mm-meta-topo">
+            <a href="{{ path('tarefa_show', {id: meta.id}) }}" class="mm-meta-titulo">{{ meta.titulo }}</a>
+            {% if meta.pasta.prioridade.value != 'normal' %}
+                <span class="mm-prioridade tom-{{ meta.pasta.prioridade.value == 'urgente' ? 'danger' : 'warn' }}">
+                    <i class="bi bi-flag-fill"></i>{{ meta.pasta.prioridadeLabel }}
+                </span>
+            {% endif %}
+        </div>
+
+        <div class="mm-meta-linha2">
+            <a href="{{ path('pasta_show', {id: meta.pasta.id}) }}" class="mm-meta-info" title="Abrir a pasta">
+                {# Corte no Twig, não no CSS: aqui o texto é um item flex no meio de outros,
+                   e `text-overflow` num flex item sem largura fixa não corta nada. #}
+                <i class="bi bi-folder"></i>{{ meta.pasta.nup }}{% if meta.pasta.nomeCliente %} · {{ meta.pasta.nomeCliente|length > 38 ? meta.pasta.nomeCliente|slice(0, 38) ~ '…' : meta.pasta.nomeCliente }}{% endif %}
+            </a>
+
+            {% if painel.aba.value == 'responsavel' %}
+                <span class="mm-meta-info" title="Quem delegou esta meta">
+                    <i class="bi bi-person"></i>{{ meta.criadoPor ? 'de ' ~ meta.criadoPor.fullName : 'sem criador' }}
+                </span>
+            {% elseif meta.responsaveis|length > 0 %}
+                <span class="mm-meta-info" title="Responsáveis: {{ meta.responsaveis|map(r => r.fullName)|join(', ') }}">
+                    <i class="bi bi-people"></i>{{ (meta.responsaveis|first).fullName }}{% if meta.responsaveis|length > 1 %} +{{ meta.responsaveis|length - 1 }}{% endif %}
+                </span>
+            {% else %}
+                <span class="mm-meta-info"><i class="bi bi-people"></i>sem responsável</span>
+            {% endif %}
+
+            <span class="mm-prazo tom-{{ tomPrazo }}">
+                <i class="bi bi-calendar-event"></i>
+                {%- if meta.prazo is null %}sem prazo
+                {%- elseif concluida %}prazo {{ meta.prazo|date('d/m/Y') }}
+                {%- else %}{{ info.texto }}{% endif %}
+            </span>
+
+            {% set comentarios = painel.totalDeMensagens(meta.id) %}
+            {% if comentarios > 0 %}
+                <span class="mm-meta-info" title="Comentários na meta">
+                    <i class="bi bi-chat"></i>{{ comentarios }}
+                </span>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="mm-meta-lado">
+        <span class="mm-pilula tom-{{ tomStatus }}">{{ rotuloStatus }}</span>
+        <span class="mm-meta-datas">
+            criada {{ meta.dataCriacao|date('d/m/Y') }}{% if meta.dataAlteracao %} · mod. {{ meta.dataAlteracao|date('d/m/Y') }}{% endif %}
+        </span>
+    </div>
+
+    <div class="mm-meta-acoes">
+        <button type="button"
+                class="mm-marcador {{ acompanhando ? 'is-marcada' : '' }}"
+                data-acompanhar="{{ path('tarefa_acompanhar', {id: meta.id}) }}"
+                data-token="{{ csrf_token('acompanhar_tarefa_' ~ meta.id) }}"
+                aria-pressed="{{ acompanhando ? 'true' : 'false' }}"
+                title="{{ acompanhando ? 'Deixar de acompanhar' : 'Acompanhar' }}">
+            <i class="bi {{ acompanhando ? 'bi-bookmark-fill' : 'bi-bookmark' }}"></i>
+        </button>
+        <a href="{{ path('tarefa_show', {id: meta.id}) }}" class="mm-acao-icone" title="Abrir a meta">
+            <i class="bi bi-chevron-right"></i>
+        </a>
+    </div>
+</article>

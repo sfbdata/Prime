@@ -10,6 +10,7 @@ Quem abre uma frente acrescenta a linha. Quem integra tira.
 | `cobranca-acompanhamento-canonico` | Cobrança (modelo objeto/caso) | **sim — 4** | `docs/gestao-cobrancas/` | 🛑 **PARADA** (ver abaixo) | `origin/master` @ `0bb1f29` |
 | `expediente-ux` | Expediente + Pasta (telas) | não | `app/templates/expediente/`, `app/templates/pasta/` | implementando, **28 commits atrás do master** | `origin/codex/colaboracao-cobrancas` |
 | `cobranca-reconciliar-data-acordo` | Cobrança (comando) | não | `RelatorioLinhaRepository` (método novo), `ComandosComPiiPassamPelaGuardaTest` (1 linha) | ✅ pronta: 3901/3901, prova por reintrodução feita — **aguarda `/review` e integração** | `master` local @ `18555616` |
+| `minhas-metas-abas` | Tarefa (Metas) | **sim — 1** (`tarefa_acompanhamento`, tabela nova) | `app/templates/tarefa/*`, `TarefaRepository`, `src/Controller/TarefaController.php` | ✅ implementada: 4493/4493, commit local `87d7fdeb` — **aguarda `/review` e smoke do dono** | `origin/master` @ `d14f0240` |
 
 ### ⚠️ `pasta-show-chip-responsavel` extrai 196 linhas do `_tabela.html.twig`
 

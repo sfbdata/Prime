@@ -1,0 +1,61 @@
+{
+  "artboards": [
+    {
+      "file": "Main.dc.html",
+      "title": "Aba Sou responsável",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 1840
+    },
+    {
+      "file": "Criei.dc.html",
+      "title": "Aba Criei",
+      "x": 1540,
+      "y": 0,
+      "w": 1440,
+      "h": 1540
+    },
+    {
+      "file": "Lista.dc.html",
+      "title": "Modo lista",
+      "x": 3080,
+      "y": 0,
+      "w": 1440,
+      "h": 1500
+    }
+  ],
+  "annotations": [
+    {
+      "id": "nota-responsavel",
+      "x": 0,
+      "y": -230,
+      "w": 560,
+      "text": "SOU RESPONSÁVEL (aba padrão)\nSó o que está com você, agrupado pelo que importa agora: atrasadas, próximos 7 dias, depois, sem prazo. O que você enviou para revisão sai da fila de trabalho e fica num bloco próprio. O que você criou para outras pessoas NÃO aparece aqui — era isso que misturava as listas."
+    },
+    {
+      "id": "nota-criei",
+      "x": 1540,
+      "y": -230,
+      "w": 560,
+      "text": "CRIEI (fila de acompanhamento)\nO que espera a sua revisão vem primeiro, com botão Revisar. Depois o que está em andamento com quem você delegou, ordenado por prazo. O trilho mostra com quem estão as metas e quantas estão atrasadas por pessoa."
+    },
+    {
+      "id": "nota-lista",
+      "x": 3080,
+      "y": -230,
+      "w": 560,
+      "text": "MODO LISTA\nPara quem acumula centenas de metas (hoje há usuário com 318 na tela): mesma organização, uma linha por meta, sem trilho lateral. Os mesmos filtros, KPIs e abas ficam no lugar. O marcador coloca a meta em acompanhamento em qualquer modo."
+    },
+    {
+      "id": "nota-geral",
+      "x": 0,
+      "y": -420,
+      "w": 900,
+      "text": "MINHAS METAS — proposta de reorganização\nOs KPIs do topo são atalhos: Atrasadas, Vencem em 7 dias e Sem prazo filtram a aba Sou responsável; Aguardando sua revisão abre a aba Criei já no grupo certo. Todas as contagens das abas são de metas em aberto (concluídas ficam recolhidas). Em acompanhamento é marcação pessoal (o marcador de cada um), não muda a meta para os outros. A linguagem visual é a do desenho aprovado da pasta (Pasta 1A): mesmos cartões, pílulas, abas segmentadas e trilho da direita."
+    }
+  ],
+  "launch": {
+    "view": "canvas"
+  }
+}

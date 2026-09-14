@@ -9,6 +9,7 @@ use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tarefa\TarefaMensagem;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Repository\PastaRepository;
+use App\Tarefa\Enum\AbaMetas;
 use App\Tarefa\Repository\TarefaRepository;
 use App\Tarefa\Exception\MetaNaoExcluivelException;
 use App\Tarefa\Exception\PrazoNaoEditavelException;
@@ -16,6 +17,7 @@ use App\Tarefa\UseCase\AtualizarPrazoTarefaUseCase;
 use App\Shared\Service\SanitizadorTextoRico;
 use App\Tarefa\UseCase\EditarTarefaMensagemUseCase;
 use App\Tarefa\UseCase\ExcluirTarefaUseCase;
+use App\Tarefa\UseCase\ListarMinhasMetasUseCase;
 use App\Repository\UserRepository;
 use App\Repository\UserTenantRepository;
 use App\Service\NotificacaoService;
@@ -47,10 +49,13 @@ final class TarefaController extends AbstractController
     }
 
     /**
-     * Lista de tarefas atribuídas ao usuário logado.
+     * Tela "Minhas Metas": as metas do usuário logado, separadas pelo PAPEL dele (a aba).
+     *
+     * A aba e o modo vêm da query string porque precisam ser linkáveis — os KPIs do topo são
+     * atalhos que apontam para uma aba já filtrada, e o usuário precisa poder guardar o link.
      */
     #[Route('/minhas', name: 'tarefa_minhas', methods: ['GET'])]
-    public function minhas(Request $request, TarefaRepository $tarefaRepository): Response
+    public function minhas(Request $request, ListarMinhasMetasUseCase $useCase): Response
     {
         /** @var User $usuario */
         $usuario = $this->getUser();
@@ -63,16 +68,64 @@ final class TarefaController extends AbstractController
             'prazo'      => (string) $request->query->get('prazo', ''),
         ];
 
+        $aba        = AbaMetas::deQueryString($request->query->get('aba'));
+        $soAListagem = $request->isXmlHttpRequest();
+
         $dados = [
-            'tarefas' => $tarefaRepository->findByResponsavelComFiltros($usuario, $filtros),
+            'painel'  => $useCase->executar(
+                $usuario,
+                $aba,
+                $filtros,
+                $request->query->get('modo') === 'lista',
+                // Na recarga parcial só o fragmento da lista é redesenhado; calcular as
+                // contagens do topo ali seria pagar 8 consultas por tecla digitada na busca.
+                $soAListagem,
+            ),
             'filtros' => $filtros,
         ];
 
-        if ($request->isXmlHttpRequest()) {
+        if ($soAListagem) {
             return $this->render('tarefa/_resultado.html.twig', $dados);
         }
 
         return $this->render('tarefa/minhas.html.twig', $dados);
+    }
+
+    /**
+     * Liga/desliga o acompanhamento pessoal de uma meta.
+     *
+     * É marcação PRIVADA de quem clica: não muda a meta para os colegas, não notifica ninguém
+     * e não concede permissão nenhuma. Só coloca a meta na aba "Em acompanhamento" de quem
+     * marcou.
+     */
+    #[Route('/{id}/acompanhar', name: 'tarefa_acompanhar', methods: ['POST'])]
+    public function acompanhar(
+        Tarefa $tarefa,
+        Request $request,
+        EntityManagerInterface $entityManager,
+        TarefaRepository $tarefaRepository,
+    ): JsonResponse {
+        /** @var User $usuario */
+        $usuario = $this->getUser();
+        $tenant  = $this->assertAccess($usuario);
+        $this->verificarAcessoTarefa($usuario, $tarefa, $tenant);
+
+        if (!$this->isCsrfTokenValid('acompanhar_tarefa_' . $tarefa->getId(), (string) $request->request->get('_token'))) {
+            return $this->json(['erro' => 'Token inválido.'], 403);
+        }
+
+        $acompanhando = $tarefa->alternarAcompanhamento($usuario);
+        $entityManager->flush();
+
+        // As contagens voltam na MESMA resposta porque o clique muda o conteúdo de outra aba:
+        // sem elas o usuário marcava, via o ícone pintar e o badge de "Em acompanhamento"
+        // continuar em zero até apertar F5. Vem do banco, e não de um +1 no cliente, para o
+        // número não dessincronizar com o que a próxima carga da tela vai mostrar.
+        return $this->json([
+            'sucesso'      => true,
+            'acompanhando' => $acompanhando,
+            'contagens'    => $tarefaRepository->contarPorAba($usuario),
+        ]);
     }
 
     /**
