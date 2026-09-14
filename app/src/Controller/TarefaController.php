@@ -99,8 +99,12 @@ final class TarefaController extends AbstractController
      * marcou.
      */
     #[Route('/{id}/acompanhar', name: 'tarefa_acompanhar', methods: ['POST'])]
-    public function acompanhar(Tarefa $tarefa, Request $request, EntityManagerInterface $entityManager): JsonResponse
-    {
+    public function acompanhar(
+        Tarefa $tarefa,
+        Request $request,
+        EntityManagerInterface $entityManager,
+        TarefaRepository $tarefaRepository,
+    ): JsonResponse {
         /** @var User $usuario */
         $usuario = $this->getUser();
         $tenant  = $this->assertAccess($usuario);
@@ -113,7 +117,15 @@ final class TarefaController extends AbstractController
         $acompanhando = $tarefa->alternarAcompanhamento($usuario);
         $entityManager->flush();
 
-        return $this->json(['sucesso' => true, 'acompanhando' => $acompanhando]);
+        // As contagens voltam na MESMA resposta porque o clique muda o conteúdo de outra aba:
+        // sem elas o usuário marcava, via o ícone pintar e o badge de "Em acompanhamento"
+        // continuar em zero até apertar F5. Vem do banco, e não de um +1 no cliente, para o
+        // número não dessincronizar com o que a próxima carga da tela vai mostrar.
+        return $this->json([
+            'sucesso'      => true,
+            'acompanhando' => $acompanhando,
+            'contagens'    => $tarefaRepository->contarPorAba($usuario),
+        ]);
     }
 
     /**

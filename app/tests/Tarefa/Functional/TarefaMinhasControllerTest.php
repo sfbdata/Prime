@@ -387,4 +387,56 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
 
         return $tarefa;
     }
+
+    /**
+     * O marcador é um alternador que muda o conteúdo de OUTRA aba. Sem a contagem nova na
+     * resposta, o badge de "Em acompanhamento" só mudava com F5 — o usuário marcava, via o
+     * ícone pintar e a aba continuar em zero. Relatado pelo dono no smoke de 14/09.
+     */
+    #[TestDox('Acompanhar devolve as contagens novas das abas, para a tela não precisar de F5')]
+    public function testAcompanharDevolveContagemAtualizada(): void
+    {
+        $client             = static::createClient();
+        [$usuario, $tenant] = $this->autenticar($client);
+        $colega             = $this->criarColega($tenant);
+
+        $meta = $this->criarMetaDelegada($tenant, $usuario, $colega, 'Vou acompanhar');
+        $id   = (int) $meta->getId();
+
+        $client->request('GET', '/tarefas/minhas?aba=criei');
+        $token = $client->getCrawler()->filter('[data-acompanhar]')->first()->attr('data-token');
+
+        $client->request('POST', "/tarefas/{$id}/acompanhar", ['_token' => $token]);
+        $marcou = json_decode((string) $client->getResponse()->getContent(), true);
+
+        self::assertTrue($marcou['acompanhando']);
+        self::assertSame(1, $marcou['contagens']['acompanhando'], 'A aba "Em acompanhamento" tem de vir com 1 na mesma resposta.');
+
+        $client->request('POST', "/tarefas/{$id}/acompanhar", ['_token' => $token]);
+        $desmarcou = json_decode((string) $client->getResponse()->getContent(), true);
+
+        self::assertFalse($desmarcou['acompanhando']);
+        self::assertSame(0, $desmarcou['contagens']['acompanhando'], 'Desmarcar devolve a aba a zero, sem recarregar.');
+    }
+
+    #[TestDox('A resposta traz as quatro abas, para o badge de cada uma poder ser atualizado')]
+    public function testAcompanharDevolveAsQuatroAbas(): void
+    {
+        $client             = static::createClient();
+        [$usuario, $tenant] = $this->autenticar($client);
+        $meta               = $this->criarMeta($tenant, $usuario, 'Uma meta');
+        $id                 = (int) $meta->getId();
+
+        $client->request('GET', '/tarefas/minhas');
+        $token = $client->getCrawler()->filter('[data-acompanhar]')->first()->attr('data-token');
+
+        $client->request('POST', "/tarefas/{$id}/acompanhar", ['_token' => $token]);
+        $contagens = json_decode((string) $client->getResponse()->getContent(), true)['contagens'];
+
+        self::assertSame(
+            ['responsavel', 'criei', 'acompanhando', 'todas'],
+            array_keys($contagens),
+            'O JS atualiza os badges pela chave da aba; faltar uma deixaria o número velho na tela.',
+        );
+    }
 }

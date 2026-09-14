@@ -178,6 +178,7 @@
 }());
 
 // Marcador de acompanhamento — alterna sem recarregar a página.
+var ABA_ATUAL = {{ aba.value|json_encode|raw }};
 document.addEventListener('click', function (e) {
     var botao = e.target.closest('[data-acompanhar]');
     if (!botao) { return; }
@@ -197,11 +198,46 @@ document.addEventListener('click', function (e) {
     .then(function (r) { return r.json(); })
     .then(function (d) {
         if (!d.sucesso) { return; }
+
         botao.classList.toggle('is-marcada', d.acompanhando);
         var icone = botao.querySelector('i');
         if (icone) { icone.className = d.acompanhando ? 'bi bi-bookmark-fill' : 'bi bi-bookmark'; }
         botao.title = d.acompanhando ? 'Deixar de acompanhar' : 'Acompanhar';
         botao.setAttribute('aria-pressed', d.acompanhando ? 'true' : 'false');
+
+        // O clique muda o conteúdo de OUTRA aba, então o badge dela tem de acompanhar na
+        // hora. Os números vêm do servidor na mesma resposta — sem isso a aba "Em
+        // acompanhamento" ficava em zero até o usuário apertar F5.
+        if (d.contagens) {
+            Object.keys(d.contagens).forEach(function (chave) {
+                var aba = document.querySelector('.mm-aba[data-aba="' + chave + '"] .mm-aba-badge');
+                if (aba) { aba.textContent = d.contagens[chave]; }
+            });
+        }
+
+        // Desmarcar estando NA aba "Em acompanhamento" tira a meta da lista que se está
+        // olhando. Some com a linha e acerta o contador do grupo, em vez de deixar na tela
+        // um item que não pertence mais ali.
+        if (!d.acompanhando && ABA_ATUAL === 'acompanhando') {
+            var linha = botao.closest('.mm-meta, .mm-linha');
+            if (linha) {
+                // No bloco "Concluídas" as metas ficam dentro de um .collapse, então o
+                // cabeçalho do grupo não é irmão da linha: sobe-se um nível antes de procurar.
+                var ancora = linha.closest('.collapse') || linha;
+                var grupo  = ancora.previousElementSibling;
+                while (grupo && !grupo.matches('.mm-grupo-cabeca, .mm-separador')) {
+                    grupo = grupo.previousElementSibling;
+                }
+                var contador = grupo ? grupo.querySelector('.mm-grupo-contagem') : null;
+                if (contador) {
+                    contador.textContent = Math.max(0, parseInt(contador.textContent, 10) - 1);
+                }
+
+                linha.style.transition = 'opacity .2s';
+                linha.style.opacity    = '0';
+                window.setTimeout(function () { linha.remove(); }, 200);
+            }
+        }
     })
     .finally(function () { botao.disabled = false; });
 });
