@@ -50,6 +50,25 @@ Por que morde ele em especial: QNF 03 e QND 14 estão a **788 m** uma da outra, 
 - O texto da cerca em `#gps-status` **permanece**: ele informa antes do toque e aponta o caminho
   (pedir liberação do dia). O que se acrescenta é a resposta ao toque.
 
+### 🎨 Onde ficam as duas mensagens — decisão do dono no smoke de 14/09
+
+O primeiro arranjo deixou as duas caixas exibindo **o mesmo texto longo ao mesmo tempo**, uma no
+topo do cartão e outra abaixo do botão: na tela do celular virou parede de texto repetida. O dono
+viu na captura do smoke e pediu para resolver. Arranjo aprovado:
+
+> O indicador de posição sai do topo e vai para **logo acima do botão**. As duas caixas continuam
+> existindo, com **textos diferentes**: a de cima explica a situação e o caminho; a de baixo é uma
+> linha curta que diz o que aconteceu com o toque e remete à de cima.
+
+🪤 **Fundir numa caixa só foi considerado e recusado, por motivo técnico e não estético:** o GPS
+atualiza sozinho a cada poucos segundos e apagaria a resposta do toque logo depois de ela aparecer.
+É a armadilha do **elemento com dois donos**, que já derrubou uma entrega nesta mesma frente (o
+botão "Atualizar", disputado pela cerca e pelo aviso de envio). Duas caixas = dois donos, cada um
+com o seu elemento. O que se corrigiu foi a distância entre elas e a repetição do texto.
+
+Ordem final na tela, medida no smoke: `tipo de registro` → `#gps-status` → **botão** →
+`#batida-aviso`.
+
 🪤 **Não vale "só tirar o `disabled`".** Sem a verificação no clique, o toque enviaria batida fora do
 raio ao servidor e a cerca do servidor recusaria — funciona, mas gasta uma ida ao servidor para
 dizer o que a tela já sabe, e falha offline. A verificação no clique é parte da regra.

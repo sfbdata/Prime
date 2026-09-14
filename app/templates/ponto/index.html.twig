@@ -53,10 +53,6 @@
                         <div id="repouso-status" class="mt-1"></div>
                     </div>
 
-                    <div id="gps-status" class="alert alert-info small mb-3">
-                        <i class="bi bi-geo-alt"></i> Aguardando geolocalização
-                    </div>
-
                     {# Próximo tipo esperado: a primeira das quatro batidas que hoje ainda não
                        tem. O select nascia sempre em "Selecione...", e como a tela recarrega 1,5 s
                        depois de cada batida que dá certo, ele voltava a nascer vazio o dia inteiro
@@ -78,6 +74,18 @@
                             <option value="retorno" {{ tipoSugerido == 'retorno' ? 'selected' : '' }}>Retorno</option>
                             <option value="saida" {{ tipoSugerido == 'saida' ? 'selected' : '' }}>Saída</option>
                         </select>
+                    </div>
+
+                    {# O indicador de posição fica COLADO no botão, e não mais no topo do cartão.
+                       São duas caixas de propósito, com donos diferentes: esta conta o ESTADO
+                       (atualiza sozinha com o GPS, e é a única que fala antes de qualquer toque),
+                       e `#batida-aviso`, logo abaixo do botão, responde à AÇÃO. Fundi-las numa só
+                       traria de volta a disputa de dois donos pelo mesmo elemento — a atualização
+                       do GPS apagaria a resposta do toque segundos depois. O que se resolveu aqui
+                       foi a distância entre elas e a repetição do texto: esta explica a situação e
+                       o caminho, a de baixo é curta e fala só do que aconteceu com o toque. #}
+                    <div id="gps-status" class="alert alert-info small mb-3">
+                        <i class="bi bi-geo-alt"></i> Aguardando geolocalização
                     </div>
 
                     {# Nasce `disabled` e é o JS que o liga, na inicialização. Nenhum impedimento de
@@ -918,8 +926,12 @@
         if (!homeOfficeHoje) {
             const onde = avaliarPosicao();
             if (onde.situacao === 'fora') {
+                // Curto de propósito: a caixa acima do botão já está dizendo de qual sede, a que
+                // distância e o que fazer. Repetir o texto inteiro aqui vira parede de texto na
+                // tela do celular. O que esta precisa dar é a resposta ao toque — que a batida
+                // NÃO foi registrada —, e a distância só para amarrar as duas mensagens.
                 mostrarAvisoBatida(
-                    `Você está a ${Math.round(onde.distancia)}m de ${onde.sede.nome}, fora da área permitida para bater o ponto. Se está em trabalho externo ou home office, peça ao gestor a liberação do dia e depois atualize esta página.`,
+                    `Não registrou: você está a ${Math.round(onde.distancia)}m, fora da área permitida. Veja o aviso acima.`,
                     'danger'
                 );
                 return;

@@ -126,7 +126,7 @@ final class BotaoDoPontoRespondeAoToqueTest extends TestCase
         $impedimentos = [
             'tipo não escolhido' => '/!tipoRegistro\.value\s*\)\s*\{\s*mostrarAvisoBatida\(/',
             'sem posição'        => '/!homeOfficeHoje && !currentLocation\s*\)\s*\{\s*mostrarAvisoBatida\(/',
-            'fora do raio'       => '/situacao\s*===\s*\'fora\'\s*\)\s*\{\s*mostrarAvisoBatida\(/',
+            'fora do raio'       => '/situacao\s*===\s*\'fora\'\s*\)\s*\{\s*(?:\/\/[^\n]*\n\s*)*mostrarAvisoBatida\(/',
         ];
 
         foreach ($impedimentos as $nome => $padrao) {
@@ -181,7 +181,7 @@ final class BotaoDoPontoRespondeAoToqueTest extends TestCase
         $tela = $this->tela();
 
         self::assertMatchesRegularExpression(
-            '/situacao\s*===\s*\'fora\'\s*\)\s*\{\s*mostrarAvisoBatida\(/',
+            '/situacao\s*===\s*\'fora\'\s*\)\s*\{\s*(?:\/\/[^\n]*\n\s*)*mostrarAvisoBatida\(/',
             $tela,
             'quem está fora do raio voltou a tocar no botão sem receber resposta'
         );
@@ -211,7 +211,7 @@ final class BotaoDoPontoRespondeAoToqueTest extends TestCase
 
         // E o ramo sai sem enviar.
         self::assertMatchesRegularExpression(
-            '/onde\.situacao\s*===\s*\'fora\'[\s\S]{0,600}?\breturn;/',
+            '/onde\.situacao\s*===\s*\'fora\'[\s\S]{0,1200}?\breturn;/',
             $handler,
             'o ramo da cerca deixou de interromper o envio'
         );
