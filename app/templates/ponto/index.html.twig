@@ -57,17 +57,43 @@
                         <i class="bi bi-geo-alt"></i> Aguardando geolocalização
                     </div>
 
+                    {# Próximo tipo esperado: a primeira das quatro batidas que hoje ainda não
+                       tem. O select nascia sempre em "Selecione...", e como a tela recarrega 1,5 s
+                       depois de cada batida que dá certo, ele voltava a nascer vazio o dia inteiro
+                       — quem tocasse no botão sem abrir a lista não registrava nada. A sugestão é
+                       pré-seleção, não trava: os quatro tipos seguem disponíveis. #}
+                    {% set tipoSugerido = null %}
+                    {% for tipoPossivel in ['entrada', 'repouso', 'retorno', 'saida'] %}
+                        {% if tipoSugerido is null and pontoHoje[tipoPossivel] is null %}
+                            {% set tipoSugerido = tipoPossivel %}
+                        {% endif %}
+                    {% endfor %}
+
                     <div class="mb-3 text-start">
                         <label for="tipo-registro" class="form-label fw-semibold">Tipo de registro <span class="text-danger">*</span></label>
                         <select id="tipo-registro" class="form-select" required>
                             <option value="">Selecione...</option>
-                            <option value="entrada">Entrada</option>
-                            <option value="repouso">Repouso</option>
-                            <option value="retorno">Retorno</option>
-                            <option value="saida">Saída</option>
+                            <option value="entrada" {{ tipoSugerido == 'entrada' ? 'selected' : '' }}>Entrada</option>
+                            <option value="repouso" {{ tipoSugerido == 'repouso' ? 'selected' : '' }}>Repouso</option>
+                            <option value="retorno" {{ tipoSugerido == 'retorno' ? 'selected' : '' }}>Retorno</option>
+                            <option value="saida" {{ tipoSugerido == 'saida' ? 'selected' : '' }}>Saída</option>
                         </select>
                     </div>
 
+                    {# Nasce `disabled` e é o JS que o liga, na inicialização. Nenhum impedimento de
+                       REGRA desabilita mais: botão cinza não emite clique, e o toque de quem não
+                       escolheu o tipo ou está fora do raio não produzia NADA — indistinguível de
+                       "registrou" para quem não tem intimidade com a tela. Quem impede responde no
+                       clique, em `#batida-aviso`, logo abaixo.
+
+                       O `disabled` do HTML guarda o único caso que o clique NÃO alcança: o script
+                       não ter rodado (erro de JS, navegador antigo). Aí o botão fica cinza de
+                       verdade, porque bater ponto realmente não vai funcionar — e cinza honesto é
+                       melhor que um botão vivo que não responde, que é o defeito que esta frente
+                       existe para matar.
+
+                       O rótulo diz o tipo porque pré-selecionar sem mostrar trocaria o erro de
+                       "não escolheu" pelo de "não percebeu o que ia registrar". #}
                     <button id="btn-bater-ponto" class="btn btn-lg btn-primary w-100" disabled>
                         <i class="bi bi-fingerprint"></i> Bater Ponto
                     </button>
@@ -508,23 +534,38 @@
         };
     }
 
+    // O botão só fica cinza durante o envio (~1,5 s, com "Registrando..." escrito nele), que é o
+    // único caso em que a pessoa acabou de ver o sistema responder e a trava impede batida
+    // duplicada. Nenhum impedimento de REGRA desabilita mais: tipo não escolhido, falta de posição
+    // e cerca são verificados no clique (ver o handler de `btnPonto`), cada um com sua mensagem em
+    // `#batida-aviso`. A cerca continua bloqueando o envio — o que mudou foi só o feedback.
     function updateButtonState() {
-        if (envioEmAndamento) {
-            btnPonto.disabled = true;
-            return;
-        }
-        if (homeOfficeHoje) {
-            btnPonto.disabled = !tipoRegistro.value;
-            return;
-        }
-        if (!currentLocation || avaliarPosicao().situacao === 'fora') {
-            btnPonto.disabled = true;
-            return;
-        }
-        btnPonto.disabled = !tipoRegistro.value;
+        btnPonto.disabled = envioEmAndamento;
     }
 
-    tipoRegistro.addEventListener('change', updateButtonState);
+    const ROTULOS_TIPO = { entrada: 'Entrada', repouso: 'Repouso', retorno: 'Retorno', saida: 'Saída' };
+
+    function rotuloBotaoBatida() {
+        const nome = ROTULOS_TIPO[tipoRegistro.value];
+        return '<i class="bi bi-fingerprint"></i> Bater Ponto' + (nome ? ' — ' + nome : '');
+    }
+
+    function atualizarRotuloBotao() {
+        // Durante o envio o botão é do envio: sobrescrever aqui apagaria o "Registrando...".
+        if (envioEmAndamento) {
+            return;
+        }
+        btnPonto.innerHTML = rotuloBotaoBatida();
+    }
+
+    tipoRegistro.addEventListener('change', function() {
+        updateButtonState();
+        atualizarRotuloBotao();
+    });
+
+    // Liga o botão que o HTML entregou cinza. Daqui em diante só o envio o desabilita.
+    updateButtonState();
+    atualizarRotuloBotao();
 
     // Geolocalização obrigatória
     //
@@ -578,7 +619,9 @@
     function erroGps(error) {
         gpsStatus.innerHTML = `<i class="bi bi-exclamation-triangle"></i> Permita o acesso à localização para registrar o ponto.`;
         gpsStatus.className = 'alert alert-danger small mb-3';
-        btnPonto.disabled = true;
+        // O botão NÃO é desabilitado aqui: ele precisa continuar respondendo ao toque. Quem
+        // aperta sem posição recebe "A localização é obrigatória para registrar o ponto." no
+        // handler, em `#batida-aviso`. Desabilitar aqui devolvia o botão morto por outra porta.
         console.log('GPS não disponível:', error.message);
     }
 
@@ -657,7 +700,7 @@
 
     function liberarBotaoBatida() {
         envioEmAndamento = false;
-        btnPonto.innerHTML = '<i class="bi bi-fingerprint"></i> Bater Ponto';
+        btnPonto.innerHTML = rotuloBotaoBatida();
         updateButtonState();
     }
 
@@ -689,6 +732,15 @@
         // Impedir a batida por causa disso seria trocar um engano por uma falta.
         diaVirou = true;
         document.getElementById('batidas-de-hoje').classList.add('opacity-50');
+
+        // A sugestão do select foi calculada no servidor, para ONTEM, e agora está velha. Quem
+        // esqueceu a saída ontem encontraria "Bater Ponto — Saída" de manhã: um toque gravaria
+        // `saida` no dia novo e, pior, a interjornada de 11 h do servidor
+        // (`PontoController::batida`) passaria a RECUSAR a entrada dele pelo resto da manhã.
+        // Devolver o select ao vazio faz o toque cair na guarda "Selecione o tipo de registro",
+        // que hoje responde em `#batida-aviso` em vez de emudecer o botão.
+        tipoRegistro.value = '';
+        atualizarRotuloBotao();
 
         // 🪤 Terceiro cliente do botão de atualizar, e o mais fácil de esquecer. Sem esta saída,
         // quem bateu sem rede e deixou a página aberta até a virada do dia tinha o
@@ -798,7 +850,7 @@
             // pessoa vai procurar uma permissão que está concedida. A causa é a API ter lançado.
             gpsStatus.innerHTML = `<i class="bi bi-exclamation-triangle"></i> A localização do navegador não está funcionando nesta tela. Tente outro navegador ou fale com o gestor.`;
             gpsStatus.className = 'alert alert-danger small mb-3';
-            btnPonto.disabled = true;
+            // Idem `erroGps`: quem impede responde no clique, não apagando o botão.
             console.log('API de geolocalização lançou de forma síncrona:', erro && erro.message);
         }
     } else {
@@ -857,6 +909,21 @@
         if (!homeOfficeHoje && !currentLocation) {
             mostrarAvisoBatida('A localização é obrigatória para registrar o ponto.', 'warning');
             return;
+        }
+
+        // A cerca impede o ENVIO, e agora diz isso onde a pessoa lê o resultado da batida. Antes
+        // ela só deixava o botão cinza e escrevia em `#gps-status`, no topo do card: quem tocava no
+        // botão não recebia resposta nenhuma. O texto de `#gps-status` continua, para informar
+        // ANTES do toque; este responde AO toque.
+        if (!homeOfficeHoje) {
+            const onde = avaliarPosicao();
+            if (onde.situacao === 'fora') {
+                mostrarAvisoBatida(
+                    `Você está a ${Math.round(onde.distancia)}m de ${onde.sede.nome}, fora da área permitida para bater o ponto. Se está em trabalho externo ou home office, peça ao gestor a liberação do dia e depois atualize esta página.`,
+                    'danger'
+                );
+                return;
+            }
         }
 
         limparAvisoBatida();

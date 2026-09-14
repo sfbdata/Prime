@@ -23,6 +23,10 @@ use PHPUnit\Framework\TestCase;
  * Uma em cada dez leituras carrega incerteza do tamanho do raio inteiro. ⚠️ A amostra é de batidas
  * ACEITAS, então é otimista: as recusadas por posição não estão nela.
  *
+ * ⚠️ Em 14/09/2026 o impedimento MUDOU DE LUGAR: saiu de `updateButtonState` (que deixava o botão
+ * cinza) para o handler do clique, que responde ao toque em `#batida-aviso`. A regra é a mesma; o
+ * que mudou é que agora ela fala. Ver `docs/specs/ponto-batida-que-responde-e-conta-certa.md`.
+ *
  * Spec: `docs/specs/ponto-batida-nao-se-perde-no-navegador.md`.
  *
  * Confere o ARRANJO do JS no fonte, que é o que a suíte alcança: PHPUnit não executa JavaScript.
@@ -90,15 +94,25 @@ final class CercaDaTelaNaoEndureceARegraTest extends TestCase
         );
     }
 
-    #[TestDox('o botão só é bloqueado pela cerca quando a avaliação diz fora, nunca em indeterminado')]
+    #[TestDox('a batida só é impedida pela cerca quando a avaliação diz fora, nunca em indeterminado')]
     public function testBotaoSoBloqueiaNoForaCerteza(): void
     {
-        $corpo = $this->corpoDaFuncao('function updateButtonState(');
+        // Em 14/09/2026 o impedimento saiu de `updateButtonState` para o handler do clique: botão
+        // `disabled` não emite evento, e o toque de quem estava fora do raio não produzia resposta
+        // nenhuma. O invariante NÃO mudou — quem decide continua sendo `avaliarPosicao()`, com a
+        // margem de precisão descontada. Mudou só onde a decisão é tomada e onde ela é dita.
+        // Ver `App\Tests\Ponto\Unit\BotaoDoPontoRespondeAoToqueTest`.
+        $corpo = $this->corpoDaFuncao("btnPonto.addEventListener('click'");
 
         self::assertStringContainsString(
-            "avaliarPosicao().situacao === 'fora'",
+            "onde.situacao === 'fora'",
             $corpo,
-            'o bloqueio da tela tem que depender da avaliação com margem, não da distância crua'
+            'o impedimento da tela tem que depender da avaliação com margem, não da distância crua'
+        );
+        self::assertStringContainsString(
+            'const onde = avaliarPosicao();',
+            $corpo,
+            'a cerca do clique precisa consultar `avaliarPosicao()`, que é quem desconta a margem'
         );
         self::assertStringNotContainsString(
             "'indeterminado'",
@@ -110,14 +124,18 @@ final class CercaDaTelaNaoEndureceARegraTest extends TestCase
     #[TestDox('home office continua dispensando a cerca na tela, como no servidor')]
     public function testHomeOfficeNaoPassaPelaCerca(): void
     {
-        $corpo = $this->corpoDaFuncao('function updateButtonState(');
-        $antesDaCerca = substr($corpo, 0, (int) strpos($corpo, 'avaliarPosicao()'));
+        $corpo = $this->corpoDaFuncao("btnPonto.addEventListener('click'");
 
-        self::assertStringContainsString(
-            'homeOfficeHoje',
-            $antesDaCerca,
-            'o ramo de home office tem que sair ANTES da cerca, senão quem está liberado do dia '
-            . 'passa a ser bloqueado por estar em casa — o servidor dispensa o geofencing nesse caso'
+        // 🪤 Procurar `homeOfficeHoje` em qualquer ponto ANTES de `avaliarPosicao()` não prova
+        // nada: o guarda de posição (`!homeOfficeHoje && !currentLocation`) já aparece antes no
+        // handler, e apagar o guarda DA CERCA deixaria a asserção verde. O que precisa ser
+        // provado é que a chamada da cerca está dentro do bloco condicionado ao home office.
+        self::assertMatchesRegularExpression(
+            '/if \(!homeOfficeHoje\)\s*\{\s*const onde = avaliarPosicao\(\);/',
+            $corpo,
+            'a cerca do clique tem que estar DENTRO do `if (!homeOfficeHoje)`, senão quem está '
+            . 'liberado do dia passa a ser bloqueado por estar em casa — a tela ficaria mais '
+            . 'rígida que o servidor, que dispensa o geofencing nesse caso'
         );
     }
 
