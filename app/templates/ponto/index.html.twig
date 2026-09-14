@@ -72,7 +72,48 @@
                         <i class="bi bi-fingerprint"></i> Bater Ponto
                     </button>
 
-                    <button type="button" class="btn btn-outline-warning w-100 mt-2"
+                    {# Resultado da última tentativa. Fica na tela até a próxima: o `alert` do
+                       navegador some quando a pessoa toca em OK e não deixa nada para conferir. #}
+                    <div id="batida-aviso" class="alert small mt-2 mb-0 text-start d-none" role="alert" aria-live="polite"></div>
+
+                    {# A lista abaixo é do momento em que a página carregou. Quando a resposta do
+                       servidor não volta, mandar conferir a lista SEM atualizá-la é pior do que não
+                       mandar nada: ela ainda diz "ainda não registrada" e confirma a conclusão
+                       errada, levando à segunda batida. Este botão é o jeito honesto de conferir. #}
+                    <button type="button" id="btn-atualizar-pagina" class="btn btn-sm btn-outline-secondary w-100 mt-2 d-none">
+                        <i class="bi bi-arrow-clockwise me-1"></i> Atualizar e conferir minhas batidas
+                    </button>
+
+                    {# Batidas de hoje. A tela não mostrava NENHUMA: depois do recarregamento a
+                       confirmação verde sumia e a pessoa só conferia rolando até a folha, que no
+                       celular fica abaixo deste card. Era o que sustentava o "parece que registrou". #}
+                    <div id="batidas-de-hoje" class="mt-3 text-start border-top pt-3">
+                        <p class="text-muted fw-semibold mb-2" style="font-size:0.75rem;">
+                            <i class="bi bi-list-check me-1"></i>Suas batidas de hoje
+                        </p>
+                        <ul class="list-unstyled mb-0">
+                            {% for tipo, rotulo in {'entrada': 'Entrada', 'repouso': 'Repouso', 'retorno': 'Retorno', 'saida': 'Saída'} %}
+                                {% set horario = pontoHoje[tipo]|default(null) %}
+                                {% set quantas = quantasHoje[tipo]|default(0) %}
+                                <li class="d-flex justify-content-between align-items-center py-1 batida-de-hoje"
+                                    data-tipo="{{ tipo }}" data-registrada="{{ horario ? '1' : '0' }}" data-quantas="{{ quantas }}">
+                                    <span class="small {{ horario ? '' : 'text-muted' }}">
+                                        <i class="bi {{ horario ? 'bi-check-circle-fill text-success' : 'bi-circle' }} me-1"></i>{{ rotulo }}
+                                        {% if quantas > 1 %}
+                                            {# Duplicata precisa aparecer AQUI. É este bloco que o aviso de "sem
+                                               confirmação" manda conferir antes de bater de novo. #}
+                                            <span class="badge text-bg-warning ms-1">{{ quantas }} registros</span>
+                                        {% endif %}
+                                    </span>
+                                    <span class="small fw-semibold {{ horario ? '' : 'text-muted fw-normal' }}">
+                                        {{ horario ? horario : 'ainda não registrada' }}
+                                    </span>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+
+                    <button type="button" class="btn btn-outline-warning w-100 mt-3"
                             data-bs-toggle="modal" data-bs-target="#modalJustificativa">
                         <i class="bi bi-calendar-x me-1"></i> Justificar Falta
                     </button>
@@ -205,6 +246,19 @@
 <script>
     const GPS_PRECISAO_ACEITAVEL_METROS = 90;
 
+    // Data de hoje SEGUNDO O SERVIDOR. Fica no escopo do script inteiro porque dois trechos
+    // precisam dela: o relógio, para montar os horários do dia, e a checagem de virada do dia.
+    //
+    // 🪤 O relógio usava `new Date().toISOString().slice(0,10)`, que é a data em UTC, combinada com
+    // horário LOCAL. Das 21h à meia-noite (BRT = UTC−3) o UTC já virou o dia seguinte, a diferença
+    // contra `agora` dava negativa e o contador mostrava 00:00:00 para quem estava trabalhando.
+    //
+    // Ainda resta o fuso DO APARELHO na montagem: `new Date(ano, mes, dia, ...)` constrói na
+    // timezone do dispositivo, e o servidor roda em America/Sao_Paulo. Celular com fuso divergente
+    // continua contando errado — deixou de ser o 00:00:00 óbvio e virou número plausível, que é
+    // pior de notar. Fechar isso exige o servidor mandar o próprio deslocamento; não está feito.
+    const [anoHoje, mesHoje, diaHoje] = JSON.parse('{{ dataHoje|json_encode|e('js') }}').split('-').map(Number);
+
     // Contador de tempo trabalhado no dia
     (function() {
         const pontoHoje = {{ pontoHoje|default({})|json_encode|raw }};
@@ -214,8 +268,8 @@
 
         function parseHMS(hms) {
             if (!hms) return null;
-            const today = new Date().toISOString().slice(0, 10);
-            return new Date(today + 'T' + hms);
+            const [hora, minuto, segundo] = hms.split(':').map(Number);
+            return new Date(anoHoje, mesHoje - 1, diaHoje, hora, minuto, segundo || 0);
         }
 
         const tEntrada = parseHMS(pontoHoje.entrada);
@@ -328,24 +382,184 @@
     // Flag de home office de hoje (controlada pelo servidor): quando true, a batida dispensa GPS.
     const homeOfficeHoje = {{ homeOfficeHoje ? 'true' : 'false' }};
 
+    // Enquanto uma batida está em envio, ou já foi aceita e a página vai recarregar, o botão é do
+    // envio e de mais ninguém. Sem esta trava, trocar o tipo no select durante o 1,5 s até o
+    // recarregamento chamava `updateButtonState()` e reabilitava o botão — gesto natural de quem já
+    // está pensando na próxima batida, e que fazia sair uma segunda antes do reload.
+    let envioEmAndamento = false;
+
+    // Marca que o dia virou com a página aberta. Serve só para avisar uma vez; NÃO entra em
+    // `updateButtonState` de propósito — ver o comentário de `conferirViradaDoDia`.
+    let diaVirou = false;
+
+    // Sedes do escritório ativo, para a tela saber dizer "fora da área" ANTES do toque.
+    const SEDES = JSON.parse('{{ sedesDaTela|json_encode|e('js') }}');
+
+    // Declarados AQUI, e não junto do resto do fluxo de envio, porque `guardarPosicao` os usa e é
+    // chamada de callback de GPS. `const` não é içado: a ordem só não quebrava por acidente de o
+    // callback ser assíncrono, e um refactor deixaria a tela morrer na carga.
+    const avisoBatida = document.getElementById('batida-aviso');
+    const btnAtualizarPagina = document.getElementById('btn-atualizar-pagina');
+
+    /**
+     * Quem manda no botão "Atualizar e conferir" quando a cerca e um aviso discordam.
+     *
+     * 🔴 **Só UM aviso veta: o de sem rede.** Ele é o único que protege prova — recarregar sem
+     * conexão entrega a página de erro do navegador e leva junto o aviso e a lista de batidas de
+     * hoje, que é a única pista de que a batida pode ter entrado.
+     *
+     * 🪤 A primeira versão vetava por QUALQUER aviso na tela, e isso criou tela sem saída: pessoa em
+     * situação indeterminada aperta → o servidor recusa com 403 e mensagem → o aviso fica → depois a
+     * posição piora e a cerca escreve "peça a liberação e ATUALIZE esta página" → mas o botão de
+     * atualizar seguia vetado pelo aviso da recusa. Botão de bater cinza, botão de atualizar
+     * escondido, e a instrução mandando fazer o que não dá. Os avisos de tipo não escolhido, sem
+     * localização, envio atrasado e recusa do servidor não têm prova nenhuma a proteger: neles o
+     * servidor barrou antes de gravar, ou nada chegou a ser enviado.
+     *
+     * O envio em andamento também tranca: um clique com a requisição em voo recarrega no meio dela.
+     */
+    function cercaMandaNoBotaoAtualizar() {
+        return !envioEmAndamento && avisoBatida.textContent !== AVISO_SEM_REDE;
+    }
+
+    function distanciaEmMetros(lat1, lon1, lat2, lon2) {
+        const raioTerra = 6371000;
+        const rad = (g) => g * Math.PI / 180;
+        const dLat = rad(lat2 - lat1);
+        const dLon = rad(lon2 - lon1);
+        const a = Math.sin(dLat / 2) ** 2
+            + Math.cos(rad(lat1)) * Math.cos(rad(lat2)) * Math.sin(dLon / 2) ** 2;
+
+        return raioTerra * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    /**
+     * Onde a pessoa está, em relação às sedes.
+     *
+     * 🔑 Três situações, não duas. `indeterminado` existe porque precisão de GPS não é enfeite: com
+     * 120 m de erro e 70 m de distância o aparelho LITERALMENTE não sabe dizer se está dentro. A
+     * tela trata isso como "pode tentar" e deixa o servidor decidir.
+     *
+     * 🔑 Esta avaliação é de propósito MAIS PERMISSIVA que a do servidor: só acusa `fora` quando a
+     * distância supera o raio mesmo descontando a margem de precisão. A regra continua sendo a do
+     * servidor, e divergir para o lado permissivo é seguro — divergir para o rígido transformaria
+     * imprecisão de GPS em falta, que é o que não pode acontecer.
+     */
+    function avaliarPosicao() {
+        if (!currentLocation || SEDES.length === 0) {
+            return { situacao: 'indeterminado', distancia: null, sede: null };
+        }
+
+        let maisProxima = null;
+        let menorDistancia = Infinity;
+        let menorExcedente = Infinity;
+        let decisiva = null;
+        let distanciaDecisiva = null;
+        let dentro = false;
+
+        for (const sede of SEDES) {
+            const distancia = distanciaEmMetros(
+                currentLocation.latitude, currentLocation.longitude, sede.latitude, sede.longitude
+            );
+            // Coordenada que não vira número devolve NaN, e `NaN < x` é falso: sem esta guarda a
+            // sede mais próxima ficaria null e o `.raio` lá embaixo lançaria, deixando o botão
+            // desabilitado desde a carga sem explicação nenhuma.
+            if (!Number.isFinite(distancia)) {
+                continue;
+            }
+            if (distancia < menorDistancia) {
+                menorDistancia = distancia;
+                maisProxima = sede;
+            }
+            // 🔑 O que decide "fora" é o MENOR excedente, não a sede mais próxima. Com raios
+            // diferentes, a sede mais próxima pode ter raio pequeno enquanto outra, mais distante,
+            // tem raio grande o bastante para a pessoa estar dentro. Olhar só a mais próxima
+            // bloquearia quem o servidor aceitaria — a tela ficaria mais rígida que a regra.
+            //
+            // A sede CITADA na mensagem e a decisiva, nao a mais perto em metros: mandar a
+            // pessoa olhar para a sede errada e conselho ruim, e com raios diferentes elas
+            // divergem. Medido por fuzz: aconteceria em 10% dos bloqueios.
+            if ((distancia - sede.raio) < menorExcedente) {
+                menorExcedente = distancia - sede.raio;
+                decisiva = sede;
+                distanciaDecisiva = distancia;
+            }
+            if (distancia <= sede.raio) {
+                dentro = true;
+            }
+        }
+
+        if (maisProxima === null) {
+            return { situacao: 'indeterminado', distancia: null, sede: null };
+        }
+
+        if (dentro) {
+            return { situacao: 'dentro', distancia: menorDistancia, sede: maisProxima };
+        }
+
+        // `Math.max(..., 0)` porque precisão negativa somaria à distância e ENDURECERIA a tela.
+        const margem = Math.max(Number(currentLocation.precisaoGps) || 0, 0);
+        const certamenteFora = (menorExcedente - margem) > 0;
+
+        return {
+            situacao: certamenteFora ? 'fora' : 'indeterminado',
+            distancia: distanciaDecisiva,
+            sede: decisiva,
+        };
+    }
+
     function updateButtonState() {
+        if (envioEmAndamento) {
+            btnPonto.disabled = true;
+            return;
+        }
         if (homeOfficeHoje) {
             btnPonto.disabled = !tipoRegistro.value;
             return;
         }
-        btnPonto.disabled = !currentLocation || !tipoRegistro.value;
+        if (!currentLocation || avaliarPosicao().situacao === 'fora') {
+            btnPonto.disabled = true;
+            return;
+        }
+        btnPonto.disabled = !tipoRegistro.value;
     }
 
     tipoRegistro.addEventListener('change', updateButtonState);
 
     // Geolocalização obrigatória
-    function aplicarPosicao(position) {
+    //
+    // Guardar a posição e mexer no botão são coisas separadas de propósito: uma posição pode chegar
+    // com a batida JÁ em envio (callback atrasado do leitor com prazo), e aí `updateButtonState()`
+    // reabilitaria um botão que o envio desabilitou — abrindo caminho para batida duplicada. Quem
+    // chega atrasado guarda a posição e atualiza o aviso; quem manda no botão é o fluxo do envio.
+    function guardarPosicao(position) {
         const accuracy = position.coords.accuracy;
         currentLocation = {
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
             precisaoGps: accuracy,
         };
+
+        // Botão desabilitado precisa DIZER o motivo e o caminho. Antes ele só ficava cinza, e a
+        // pessoa fora da área nem sabia por que não conseguia bater nem o que fazer a respeito.
+        const onde = avaliarPosicao();
+
+        if (onde.situacao === 'fora') {
+            gpsStatus.innerHTML = `<i class="bi bi-geo-alt-fill"></i> Você está a ${Math.round(onde.distancia)}m de <strong>${onde.sede.nome}</strong>, fora da área permitida para bater o ponto.<br>Se está em trabalho externo ou home office, peça ao gestor a liberação do dia e depois atualize esta página.`;
+            gpsStatus.className = 'alert alert-danger small mb-3';
+            // A liberação do dia (`homeOfficeHoje`) é decidida no servidor e só chega na carga. Se o
+            // gestor conceder com a página aberta, o servidor passa a aceitar e a tela continuaria
+            // cinza. O botão de atualizar é a saída, e serve também para quem quiser forçar uma
+            // releitura em vez de esperar a atualização contínua.
+            if (cercaMandaNoBotaoAtualizar()) {
+                btnAtualizarPagina.classList.remove('d-none');
+            }
+            return;
+        }
+
+        if (cercaMandaNoBotaoAtualizar()) {
+            btnAtualizarPagina.classList.add('d-none');
+        }
 
         if (accuracy <= GPS_PRECISAO_ACEITAVEL_METROS) {
             gpsStatus.innerHTML = `<i class="bi bi-geo-alt-fill"></i> GPS: ${accuracy.toFixed(1)}m de precisão`;
@@ -354,7 +568,10 @@
             gpsStatus.innerHTML = `<i class="bi bi-exclamation-triangle"></i> GPS impreciso (${accuracy.toFixed(1)}m). O sistema ainda validará se você está dentro do raio de alguma sede.`;
             gpsStatus.className = 'alert alert-warning small mb-3';
         }
+    }
 
+    function aplicarPosicao(position) {
+        guardarPosicao(position);
         updateButtonState();
     }
 
@@ -365,11 +582,190 @@
         console.log('GPS não disponível:', error.message);
     }
 
+    // Prazo próprio para atualizar a posição antes de enviar a batida.
+    //
+    // `getCurrentPosition` resolve apenas pelos callbacks do navegador, e existe um estado em que
+    // ele não chama nenhum dos dois: com o documento oculto (tela apagada, troca de aplicativo,
+    // celular no bolso) o Android SUSPENDE a geolocalização — e aí o `timeout` da própria API
+    // também não corre, porque o relógio dele é do pedido de posição. Um `await` direto nessa
+    // promessa trava para sempre e a batida NUNCA chega a ser enviada: sem erro, sem aviso e sem
+    // linha no banco. Foi o defeito que originou esta frente
+    // (`docs/specs/ponto-batida-nao-se-perde-no-navegador.md`).
+    //
+    // 🔑 O ganho é sobre a SUSPENSÃO, não sobre o relógio: `setTimeout` também é do navegador, e
+    // aba oculta o estrangula (e página congelada nem roda JS). A diferença é que timer estrangulado
+    // volta a disparar quando a página volta, enquanto a geolocalização suspensa pode não chamar
+    // callback nenhum. Por isso o invariante abaixo vale em tempo de PÁGINA RODANDO, não em tempo
+    // de relógio de parede — e é por isso que existe o `LIMITE_ATRASO_ENVIO_MS` lá no envio.
+    //
+    // Invariante: esta função NUNCA rejeita e, com a página rodando, NUNCA demora mais que
+    // `prazoMs`. É o que garante que o `fetch` da batida sempre acontece. Devolve `null` quando não
+    // deu para atualizar a posição — e aí vale a que já está na mão, mesmo comportamento do antigo
+    // ramo de erro.
+    const GPS_PRAZO_ATUALIZACAO_MS = 5000;
+
+    // Teto entre o toque e o envio. O caminho normal gasta no máximo o prazo do GPS acima; só
+    // estoura quando a aba ficou congelada no meio. Ver a guarda no envio da batida.
+    const LIMITE_ATRASO_ENVIO_MS = 60000;
+
+    // Teto do envio em si. Sem ele, conexão pendurada deixa o botão em "Registrando..." para
+    // sempre — o MESMO sintoma que o prazo do GPS resolveu, por outro caminho. `fetch` só
+    // desiste sozinho quando o sistema operacional decide, o que pode não acontecer nunca.
+    const ENVIO_PRAZO_MS = 15000;
+
+    // Texto dos casos em que a resposta não voltou. Afirmar "não foi registrada" seria mentira: a
+    // requisição pode ter chegado e gravado.
+    //
+    // 🔴 E mandar "conferir a lista aqui embaixo" também era mentira, de um jeito PIOR: a lista é
+    // renderizada na carga da página e não se atualiza sozinha, então ela ainda diria "ainda não
+    // registrada" e confirmaria a conclusão errada — falso com cara de verificado. Por isso o texto
+    // manda ATUALIZAR primeiro, e o botão de atualizar aparece junto.
+    const AVISO_SEM_CONFIRMACAO = 'Não recebemos a confirmação do servidor e a batida PODE ter sido registrada. A lista abaixo é de antes da tentativa: atualize a página e confira ANTES de apertar de novo.';
+
+    // 🪤 Sem internet, mandar atualizar é conselho que destrói prova: o recarregamento entrega a
+    // página de erro do navegador e leva junto o aviso, a lista e o estado inteiro da tela. Por isso
+    // este caso tem texto próprio e NÃO oferece o botão de atualizar enquanto a conexão não voltar.
+    const AVISO_SEM_REDE = 'Você está sem internet e não dá para saber se a batida saiu. NÃO feche esta tela. Quando a conexão voltar, atualize a página e confira antes de apertar de novo.';
+
+    // Falha em que dá para afirmar que nada entrou: o servidor recusou antes de gravar.
+    const AVISO_NAO_ENTROU = 'A batida não foi registrada: o servidor recusou o pedido antes de gravar. Atualize a página, entre de novo se precisar, e repita.';
+
+    btnAtualizarPagina.addEventListener('click', () => window.location.reload());
+
+    // Conexão de volta depois de uma falha sem rede: aí sim atualizar resolve, então o botão
+    // aparece. Sem isto a pessoa ficaria olhando um aviso que pede uma ação indisponível.
+    window.addEventListener('online', function () {
+        if (!avisoBatida.classList.contains('d-none') && avisoBatida.textContent === AVISO_SEM_REDE) {
+            mostrarAvisoBatida('A internet voltou. Atualize a página e confira suas batidas antes de apertar de novo.', 'warning', true);
+        }
+    });
+
+    // O `alert` do navegador era o único retorno de falha: some quando a pessoa toca em OK, não
+    // deixa rastro na tela, e navegador nenhum o mostra em aba que não está visível. O aviso
+    // agora FICA até a próxima tentativa.
+    function mostrarAvisoBatida(texto, tom, oferecerAtualizar) {
+        avisoBatida.textContent = texto;
+        avisoBatida.className = `alert alert-${tom} small mt-2 mb-0 text-start`;
+        btnAtualizarPagina.classList.toggle('d-none', !oferecerAtualizar);
+    }
+
+    function limparAvisoBatida() {
+        avisoBatida.textContent = '';
+        avisoBatida.className = 'alert small mt-2 mb-0 text-start d-none';
+        btnAtualizarPagina.classList.add('d-none');
+    }
+
+    function liberarBotaoBatida() {
+        envioEmAndamento = false;
+        btnPonto.innerHTML = '<i class="bi bi-fingerprint"></i> Bater Ponto';
+        updateButtonState();
+    }
+
+    // Página esquecida aberta da noite para o dia seguinte: o bloco "suas batidas de hoje" é
+    // renderizado no servidor e congela. Às 08h ele mostraria a entrada de ONTEM como se fosse de
+    // hoje, e a pessoa concluiria que já bateu — exatamente o defeito que esta frente existe para
+    // matar, reintroduzido pelo próprio remédio. O relógio e a folha congelam junto.
+    //
+    // 🔑 A comparação é do aparelho CONTRA ELE MESMO, não contra a data do servidor. Uma primeira
+    // versão comparava com `dataHoje` e dava ao relógio do aparelho poder de VETO: celular com fuso
+    // errado (roaming, hora automática desligada) via data diferente às 21h, travava o botão, e
+    // recarregar não resolvia porque a causa é o aparelho. Ficava impossível bater a saída — o
+    // contrário do objetivo desta frente.
+    //
+    // ⚠️ Detectar só a MUDANÇA tira o veto, mas não dá pontaria: um relógio errado ANDA e cruza a
+    // própria meia-noite na hora errada. Aparelho em UTC avisa às 21h BRT (falso) e depois fica
+    // calado na virada real, porque `diaVirou` já saiu. Como aqui só se avisa, o custo é um alarme
+    // fora de hora que o próprio recarregamento conserta.
+    const DIA_DO_APARELHO_NA_CARGA = new Date().toDateString();
+    const INTERVALO_CHECAGEM_DIA_MS = 30000;
+
+    function conferirViradaDoDia() {
+        if (diaVirou || new Date().toDateString() === DIA_DO_APARELHO_NA_CARGA) {
+            return;
+        }
+
+        // ⚠️ AVISA, não bloqueia. Quem carimba a hora é o servidor, então bater com a página velha
+        // grava certo; o risco desta tela é só a pessoa LER o dia errado e achar que já bateu.
+        // Impedir a batida por causa disso seria trocar um engano por uma falta.
+        diaVirou = true;
+        document.getElementById('batidas-de-hoje').classList.add('opacity-50');
+
+        // 🪤 Terceiro cliente do botão de atualizar, e o mais fácil de esquecer. Sem esta saída,
+        // quem bateu sem rede e deixou a página aberta até a virada do dia tinha o
+        // `AVISO_SEM_REDE` SUBSTITUÍDO por este texto, e o botão de atualizar reaparecia — ainda
+        // sem rede. Recarregar ali apaga a única pista de que a batida pode ter entrado.
+        if (avisoBatida.textContent === AVISO_SEM_REDE) {
+            return;
+        }
+
+        mostrarAvisoBatida(
+            'O dia virou com esta página aberta: a lista abaixo é de ontem. Atualize antes de conferir.',
+            'warning',
+            true
+        );
+    }
+
+    setInterval(conferirViradaDoDia, INTERVALO_CHECAGEM_DIA_MS);
+
+    function lerPosicaoComPrazo(prazoMs) {
+        return new Promise((resolve) => {
+            let jaRespondeu = false;
+            const responder = (valor) => {
+                if (jaRespondeu) return;
+                jaRespondeu = true;
+                resolve(valor);
+            };
+
+            const prazo = setTimeout(() => responder(null), prazoMs);
+
+            // Posição que chega DEPOIS do prazo não serve mais para esta batida (já respondemos),
+            // mas serve para a próxima: guardá-la evita a página aberta o dia todo ficar presa na
+            // posição da carga. `guardarPosicao` também acerta o aviso de precisão — sem isso a
+            // tela seguiria anunciando 12 m enquanto a próxima batida sairia com 800 m.
+            //
+            // 🔑 Ordem importa: responde ANTES de guardar. Nada depois de `responder` pode impedir
+            // o envio — se `guardarPosicao` lançasse antes dele, com o prazo já cancelado, a
+            // promessa nunca resolveria e o travamento voltaria pela porta dos fundos.
+            const guardarEResponder = (position) => {
+                clearTimeout(prazo);
+                responder(position);
+                try {
+                    guardarPosicao(position);
+                } catch (erro) {
+                    console.log('Não consegui guardar a posição para a próxima batida:', erro);
+                }
+            };
+
+            try {
+                if (!("geolocation" in navigator)) {
+                    clearTimeout(prazo);
+                    responder(null);
+                    return;
+                }
+
+                navigator.geolocation.getCurrentPosition(
+                    guardarEResponder,
+                    () => { clearTimeout(prazo); responder(null); },
+                    { enableHighAccuracy: true, timeout: prazoMs }
+                );
+            } catch (erro) {
+                // Lançamento SÍNCRONO (extensão de privacidade que stuba a API, WebView de MDM):
+                // sem este catch a promessa rejeitaria e o botão travaria — o sintoma original.
+                clearTimeout(prazo);
+                responder(null);
+            }
+        });
+    }
+
     if (homeOfficeHoje) {
         gpsStatus.innerHTML = `<i class="bi bi-house-laptop"></i> Home Office hoje — o ponto será registrado sem exigir localização.`;
         gpsStatus.className = 'alert alert-info small mb-3';
         updateButtonState();
     } else if ("geolocation" in navigator) {
+        // A API pode lancar de forma SINCRONA (extensao de privacidade que a stuba, WebView de MDM).
+        // Sem este try o script morre aqui, ANTES de registrar o handler do botao: a tela fica com
+        // um botao que nao faz nada e sem erro nenhum na cara da pessoa.
+        try {
         navigator.geolocation.getCurrentPosition(
             aplicarPosicao,
             (error) => {
@@ -378,6 +774,33 @@
             },
             { enableHighAccuracy: true, timeout: 10000 }
         );
+
+        // 🔴 A posição precisa CONTINUAR chegando, não só a da carga.
+        //
+        // Desde que o botão passou a bloquear por raio, decidir com a leitura da carga vira armadilha:
+        // quem abre a tela no caminho, a 300 m do escritório, fica com o botão travado e continua
+        // travado depois de chegar, porque nada busca posição nova. Não havia caminho de recuperação
+        // na tela — nem botão, nem instrução para recarregar. Seria o defeito desta frente de volta
+        // por outra porta: a pessoa sem conseguir registrar e sem saber por quê.
+        //
+        // `watchPosition` resolve na raiz: a posição se atualiza sozinha enquanto a pessoa se
+        // desloca, e o botão destrava quando ela chega. De quebra, a batida deixa de depender da
+        // leitura feita no clique, que é o que travava antes da Frente 1.
+        navigator.geolocation.watchPosition(
+            aplicarPosicao,
+            // Erro aqui NÃO derruba o que já temos: `erroGps` desabilitaria o botão de quem está no
+            // escritório com uma posição boa na mão, por causa de uma leitura ruim no meio do dia.
+            (error) => console.log('Atualização contínua de GPS falhou:', error && error.message),
+            { enableHighAccuracy: true, maximumAge: 30000 }
+        );
+        } catch (erro) {
+            // Diagnóstico PRÓPRIO: mandar "permita o acesso à localização" aqui é mentira, e a
+            // pessoa vai procurar uma permissão que está concedida. A causa é a API ter lançado.
+            gpsStatus.innerHTML = `<i class="bi bi-exclamation-triangle"></i> A localização do navegador não está funcionando nesta tela. Tente outro navegador ou fale com o gestor.`;
+            gpsStatus.className = 'alert alert-danger small mb-3';
+            btnPonto.disabled = true;
+            console.log('API de geolocalização lançou de forma síncrona:', erro && erro.message);
+        }
     } else {
         gpsStatus.innerHTML = `<i class="bi bi-exclamation-triangle"></i> Seu navegador não suporta geolocalização.`;
         gpsStatus.className = 'alert alert-danger small mb-3';
@@ -427,18 +850,24 @@
     // Botão de Bater Ponto
     btnPonto.addEventListener('click', async function() {
         if (!tipoRegistro.value) {
-            alert('Selecione o tipo de registro (Entrada, Repouso, Retorno ou Saída).');
+            mostrarAvisoBatida('Selecione o tipo de registro (Entrada, Repouso, Retorno ou Saída).', 'warning');
             return;
         }
 
         if (!homeOfficeHoje && !currentLocation) {
-            alert('A localização é obrigatória para registrar o ponto.');
+            mostrarAvisoBatida('A localização é obrigatória para registrar o ponto.', 'warning');
             return;
         }
 
+        limparAvisoBatida();
+        envioEmAndamento = true;
         btnPonto.disabled = true;
         btnPonto.innerHTML = '<i class="bi bi-hourglass-split"></i> Registrando...';
 
+        // `performance.now()` e nao `Date.now()`: e relogio monotonico de tempo decorrido.
+        // Acerto de relogio do aparelho para tras mascararia o congelamento que esta guarda
+        // existe para pegar; para a frente descartaria batida legitima.
+        const momentoDoToque = performance.now();
         const payload = { tipo: tipoRegistro.value };
 
         if (!homeOfficeHoje) {
@@ -446,25 +875,45 @@
             let longitude = currentLocation.longitude;
             let precisaoGps = currentLocation.precisaoGps;
 
-            if ("geolocation" in navigator) {
-                try {
-                    const position = await new Promise((resolve, reject) => {
-                        navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 5000 });
-                    });
-
-                    latitude = position.coords.latitude;
-                    longitude = position.coords.longitude;
-                    precisaoGps = position.coords.accuracy;
-                    currentLocation = { latitude, longitude, precisaoGps };
-                } catch (err) {
-                    console.log('Não foi possível atualizar GPS:', err);
-                }
+            // Atualizar a posição é uma MELHORIA, nunca uma condição para enviar: sem o prazo
+            // próprio de `lerPosicaoComPrazo`, esta espera trava o envio inteiro (ver o comentário
+            // dela). Não atualizou, segue com a posição que ligou o botão.
+            const position = await lerPosicaoComPrazo(GPS_PRAZO_ATUALIZACAO_MS);
+            if (position) {
+                latitude = position.coords.latitude;
+                longitude = position.coords.longitude;
+                precisaoGps = position.coords.accuracy;
+                currentLocation = { latitude, longitude, precisaoGps };
+            } else {
+                console.log('Não foi possível atualizar o GPS a tempo; usando a última posição conhecida.');
             }
 
             payload.latitude = latitude;
             payload.longitude = longitude;
             payload.precisaoGps = precisaoGps;
         }
+
+        // O servidor carimba a batida com a hora de CHEGADA da requisição
+        // (`PontoController::batida` → `setDataHora(new \DateTime())`); o payload não leva o
+        // instante do toque. Se a aba foi congelada e o envio só sair minutos depois, a batida
+        // entraria com a hora errada e com cara de certa. Num módulo de risco ALTO, dado errado
+        // silencioso é pior que ausência visível — então aqui NÃO se envia: devolve o botão e
+        // manda repetir, que é o comportamento que a pessoa já conhecia.
+        if (performance.now() - momentoDoToque > LIMITE_ATRASO_ENVIO_MS) {
+            mostrarAvisoBatida(
+                'Demorou demais para enviar e a hora da batida ficaria errada. Aperte de novo com a tela ligada.',
+                'danger'
+            );
+            liberarBotaoBatida();
+            return;
+        }
+
+        // `sucesso` existe por causa do `finally`: no caminho bom o botão fica desabilitado de
+        // propósito até a página recarregar, senão ele volta a clicável por 1,5 s e aceita uma
+        // segunda batida do mesmo tipo.
+        let sucesso = false;
+        const abortoDoEnvio = new AbortController();
+        const prazoDoEnvio  = setTimeout(() => abortoDoEnvio.abort(), ENVIO_PRAZO_MS);
 
         try {
             const response = await fetch('{{ path('ponto_batida') }}', {
@@ -473,25 +922,51 @@
                     'Content-Type': 'application/json',
                     'X-Requested-With': 'XMLHttpRequest'
                 },
-                body: JSON.stringify(payload)
+                body: JSON.stringify(payload),
+                signal: abortoDoEnvio.signal
             });
 
-            const data = await response.json();
+            // Resposta que não é JSON (sessão expirada devolve a tela de login, erro do servidor
+            // devolve HTML) quebrava no `.json()` e caía no catch como "erro de conexão", que é
+            // diagnóstico errado e manda a pessoa tentar de novo sem sair do lugar.
+            let data = null;
+            try {
+                data = await response.json();
+            } catch (erroDeLeitura) {
+                data = null;
+            }
 
-            if (response.ok && data.success) {
-                gpsStatus.innerHTML = `<i class="bi bi-check-circle"></i> ${data.message}`;
-                gpsStatus.className = 'alert alert-success small mb-3';
+            if (response.ok && data && data.success) {
+                sucesso = true;
+                mostrarAvisoBatida(data.message, 'success');
                 setTimeout(() => window.location.reload(), 1500);
+            } else if (data && data.message) {
+                mostrarAvisoBatida(data.message, 'danger');
+            } else if (response.status === 401 || response.status === 403 || response.redirected) {
+                // Recusa de regra vem com JSON e foi tratada no ramo acima. Chegar aqui com 401/403
+                // é sessão expirada ou token de segurança inválido: nesses o servidor barra ANTES
+                // de gravar, então dá para afirmar que a batida não entrou.
+                mostrarAvisoBatida(AVISO_NAO_ENTROU, 'danger', true);
             } else {
-                alert(data.message || 'Erro ao registrar ponto.');
-                btnPonto.disabled = false;
-                btnPonto.innerHTML = '<i class="bi bi-fingerprint"></i> Bater Ponto';
+                mostrarAvisoBatida(AVISO_SEM_CONFIRMACAO, 'danger', true);
             }
         } catch (error) {
-            alert('Erro de conexão. Tente novamente.');
-            console.error('Erro:', error);
-            btnPonto.disabled = false;
-            btnPonto.innerHTML = '<i class="bi bi-fingerprint"></i> Bater Ponto';
+            // 🔑 Aqui o navegador NÃO SABE se a batida entrou. O aborto cancela só o lado de cá: a
+            // requisição já saiu e o servidor pode ter gravado antes de a resposta se perder. Dizer
+            // "não foi registrada" e mandar repetir produzia batida duplicada, e o servidor não tem
+            // guarda de duplicata (`PontoController::batida` só valida repouso e interjornada).
+            // Por isso o aviso manda CONFERIR o bloco de hoje, que é logo abaixo e mostra inclusive
+            // quantos registros existem de cada tipo.
+            // `navigator.onLine` só é confiável quando diz FALSO (o sistema sabe que não há rota).
+            // Usá-lo para ESCONDER o botão é seguro; usá-lo para afirmar que há internet não seria.
+            const semRede = navigator.onLine === false;
+            mostrarAvisoBatida(semRede ? AVISO_SEM_REDE : AVISO_SEM_CONFIRMACAO, 'danger', !semRede);
+            console.error('Erro ao registrar ponto:', error);
+        } finally {
+            clearTimeout(prazoDoEnvio);
+            if (!sucesso) {
+                liberarBotaoBatida();
+            }
         }
     });
 </script>

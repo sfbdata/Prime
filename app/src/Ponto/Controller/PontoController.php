@@ -66,7 +66,8 @@ final class PontoController extends AbstractController
         FeriadoRepository $feriadoRepository,
         JustificativaPontoRepository $justificativaRepository,
         FolhaPontoBuilder $folhaPontoBuilder,
-        HomeOfficeResolver $homeOfficeResolver
+        HomeOfficeResolver $homeOfficeResolver,
+        SedeRepository $sedeRepository
     ): Response {
         /** @var User $user */
         $user = $this->getUser();
@@ -129,10 +130,16 @@ final class PontoController extends AbstractController
         );
 
         $pontoHoje = ['entrada' => null, 'repouso' => null, 'retorno' => null, 'saida' => null];
+        // Quantas batidas de cada tipo existem HOJE. `$pontoHoje` guarda uma só por tipo (a última
+        // vence), e o card usa isso para a pessoa conferir se registrou. Sem a contagem, duas
+        // entradas no mesmo dia apareceriam como uma — justamente a duplicata que o aviso de envio
+        // sem confirmação pode provocar, escondida no lugar que existe para revelá-la.
+        $quantasHoje = ['entrada' => 0, 'repouso' => 0, 'retorno' => 0, 'saida' => 0];
         foreach ($batidasHoje as $batida) {
             $tipo = $batida->getTipo();
             if (array_key_exists($tipo, $pontoHoje)) {
                 $pontoHoje[$tipo] = $batida->getDataHora()->format('H:i:s');
+                $quantasHoje[$tipo]++;
             }
         }
 
@@ -146,6 +153,32 @@ final class PontoController extends AbstractController
         $justificativaForm = $this->createForm(JustificativaPontoType::class);
 
         $homeOfficeHoje = $homeOfficeResolver->estaLiberado($user, $tenant, $agora);
+
+        // Sedes do escritório ATIVO, para a tela conseguir dizer "você está fora da área" ANTES de
+        // a pessoa apertar. Hoje o botão só trava por falta de posição: quem está fora do raio
+        // aperta e leva um erro depois, o que o dono pediu para mudar.
+        //
+        // 🔑 Isto NÃO é a regra. A regra continua em `batida()`, no servidor, que é quem decide.
+        // A tela é cortesia, e por isso é deliberadamente mais permissiva (ver `avaliarPosicao` no
+        // template): uma verificação só no navegador é contornável em segundos.
+        //
+        // Espelha as duas exclusões do servidor: sede sem coordenada e raio não positivo não
+        // delimitam nada e ficam de fora nos dois lados.
+        $sedesDaTela = [];
+        foreach ($sedeRepository->findBy(['tenant' => $tenant]) as $sede) {
+            if ($sede->getLatitude() === null || $sede->getLongitude() === null) {
+                continue;
+            }
+            if ((int) $sede->getRaioPermitido() <= 0) {
+                continue;
+            }
+            $sedesDaTela[] = [
+                'nome'      => $sede->getNome(),
+                'latitude'  => (float) $sede->getLatitude(),
+                'longitude' => (float) $sede->getLongitude(),
+                'raio'      => (int) $sede->getRaioPermitido(),
+            ];
+        }
 
         $justificativasDaCompetencia = $justificativaRepository->findByUserAndCompetencia($user, $anoSelecionado, $mesSelecionado);
 
@@ -171,12 +204,14 @@ final class PontoController extends AbstractController
 
         return $this->render('ponto/index.html.twig', [
             'homeOfficeHoje' => $homeOfficeHoje,
+            'sedesDaTela'    => $sedesDaTela,
             'folhaRows' => $folhaRows,
             'mesAtual' => $mesSelecionado,
             'anoAtual' => $anoSelecionado,
             'competenciasPonto' => $competenciasPonto,
             'competenciaSelecionada' => $competenciaSelecionada,
             'pontoHoje' => $pontoHoje,
+            'quantasHoje' => $quantasHoje,
             'saldoMes' => $saldoMes,
             'horasPagasMinutos' => $horasPagasMinutos,
             // Bloco de totais do rodapé da folha (spec §7). Vem pronto do controller de propósito:
