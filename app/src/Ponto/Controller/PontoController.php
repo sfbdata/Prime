@@ -348,7 +348,21 @@ final class PontoController extends AbstractController
                 $justificativasCriadas[] = $justificativa;
             }
 
-            $entityManager->flush();
+            try {
+                $entityManager->flush();
+            } catch (\Throwable $e) {
+                // Mesma prioridade da substituição (SubstituirAnexoDoLoteUseCase): o arquivo foi
+                // gravado antes do flush; se o banco recusar, ninguém chegou a referenciá-lo e ele
+                // não pode ficar no disco para sempre. Falhar aqui deixa órfão recuperável — o
+                // lado aceitável —, mas o silêncio total não é.
+                if ($anexoPath !== null) {
+                    $this->storage->excluir(
+                        $this->storage->caminho($this->justificativasUploadsDir, $anexoPath),
+                    );
+                }
+
+                throw $e;
+            }
 
             if (!$isFaltaNaoJustificada) {
                 // Leva o gestor direto à aba de justificativas do colaborador (aprovar/recusar)

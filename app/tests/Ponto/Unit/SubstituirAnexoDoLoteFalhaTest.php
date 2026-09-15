@@ -16,11 +16,17 @@ use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
+use App\Tests\Ponto\Doubles\StorageDeDiscoParaTeste;
 use Symfony\Component\Validator\Validation;
 
 /**
  * O caminho de FALHA da fase 1 — o único que a suíte funcional não alcança, e justamente aquele
  * cuja existência é a garantia de consistência.
+ *
+ * `app/tests/CLAUDE.md` diz para não mockar `EntityManagerInterface` diretamente. Aqui a exceção
+ * é o próprio objeto do teste: o que se quer provar é o comportamento quando a TRANSAÇÃO falha,
+ * e não existe outra forma de provocar isso sem derrubar a conexão de verdade. Sob DAMA a
+ * transação do teste é aninhada, então o commit real nunca falha.
  *
  * A falha mais provável da fase 1 é o COMMIT, não o `flush()`: `wrapInTransaction` executa o
  * closure, e só DEPOIS faz flush e commit, por fora dele. Um `try/catch` interno ao closure não
@@ -162,61 +168,5 @@ final class SubstituirAnexoDoLoteFalhaTest extends TestCase
         file_put_contents($origem, "%PDF-1.4\n% novo\n");
 
         return new UploadedFile($origem, 'novo.pdf', 'application/pdf', null, true);
-    }
-}
-
-/**
- * Storage mínimo que mexe em disco de verdade — mock não serviria, porque o que se quer provar é
- * que o ARQUIVO deixou de existir.
- */
-final class StorageDeDiscoParaTeste implements ArquivoStorageInterface
-{
-    public ?string $ultimoNomeSalvo = null;
-
-    public function salvar(UploadedFile $arquivo, string $diretorio): string
-    {
-        $nome = bin2hex(random_bytes(8)) . '.pdf';
-        copy($arquivo->getPathname(), $diretorio . '/' . $nome);
-        $this->ultimoNomeSalvo = $nome;
-
-        return $nome;
-    }
-
-    public function salvarConteudo(string $conteudo, string $diretorio, string $extensao): string
-    {
-        $nome = bin2hex(random_bytes(8)) . '.' . ltrim($extensao, '.');
-        file_put_contents($diretorio . '/' . $nome, $conteudo);
-
-        return $nome;
-    }
-
-    public function moverParaArmazenamento(string $caminhoOrigem, string $diretorio, string $extensao): string
-    {
-        $nome = bin2hex(random_bytes(8)) . '.' . ltrim($extensao, '.');
-        rename($caminhoOrigem, $diretorio . '/' . $nome);
-
-        return $nome;
-    }
-
-    public function servir(string $caminhoCompleto, string $nomeOriginal, bool $inline = true): \Symfony\Component\HttpFoundation\BinaryFileResponse
-    {
-        return new \Symfony\Component\HttpFoundation\BinaryFileResponse($caminhoCompleto);
-    }
-
-    public function excluir(string $caminhoCompleto): void
-    {
-        if (file_exists($caminhoCompleto)) {
-            unlink($caminhoCompleto);
-        }
-    }
-
-    public function existe(string $caminhoCompleto): bool
-    {
-        return file_exists($caminhoCompleto);
-    }
-
-    public function caminho(string $diretorio, string $nomeArquivo): string
-    {
-        return $diretorio . '/' . $nomeArquivo;
     }
 }

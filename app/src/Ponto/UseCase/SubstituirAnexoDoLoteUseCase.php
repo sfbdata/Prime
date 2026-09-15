@@ -100,10 +100,17 @@ final class SubstituirAnexoDoLoteUseCase
                     // duas edições simultâneas do mesmo lote poderiam ressuscitar um valor velho.
                     $lote = $this->loteDe($justificativa, $tenant);
 
-                    // O anexo a remover também sai da leitura SOB A TRAVA. Capturá-lo antes
-                    // deixaria a fase 2 decidindo sobre um valor que outra transação já trocou —
-                    // o arquivo realmente substituído nunca seria contado nem removido.
-                    $anexoAntigo = $lote[0]->getAnexoPath();
+                    // O anexo a remover sai do BANCO, sob a trava, por projeção escalar — não
+                    // pelo getter. `findLotePorBatchId()` não relê os campos de uma entidade que
+                    // já esteja no identity map (sem HINT_REFRESH o UnitOfWork devolve a
+                    // instância gerenciada como está em memória), e a justificativa chega aqui
+                    // carregada pelo EntityValueResolver, muito antes da trava. Pelo getter,
+                    // a fase 2 decidiria sobre um valor que outra transação já pode ter trocado,
+                    // e o arquivo realmente substituído nunca seria contado nem removido.
+                    $anexoAntigo = $this->repositorio->anexoNoBancoPorId(
+                        (int) $lote[0]->getId(),
+                        $tenant,
+                    );
 
                     $novoAnexo = $this->storage->salvar($arquivo, $this->justificativasUploadsDir);
 

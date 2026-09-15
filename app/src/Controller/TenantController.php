@@ -1501,7 +1501,20 @@ final class TenantController extends AbstractController
             }
         }
 
-        $entityManager->flush();
+        try {
+            $entityManager->flush();
+        } catch (\Throwable $e) {
+            // Mesma prioridade da substituição (SubstituirAnexoDoLoteUseCase): o arquivo foi
+            // gravado antes do flush; se o banco recusar, ninguém chegou a referenciá-lo e ele não
+            // pode ficar no disco para sempre.
+            if ($anexoPath !== null) {
+                $this->storage->excluir(
+                    $this->storage->caminho($this->justificativasUploadsDir, $anexoPath),
+                );
+            }
+
+            throw $e;
+        }
 
         if ($isFaltaNaoJustificada) {
             $this->addFlash('success', sprintf('Falta registrada como não justificada para %d dia(s).', count($datasValidas)));

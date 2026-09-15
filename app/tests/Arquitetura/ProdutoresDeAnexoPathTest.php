@@ -35,20 +35,27 @@ final class ProdutoresDeAnexoPathTest extends TestCase
     ];
 
     /**
-     * Quem LÊ `anexo_path` — a porta pela qual uma cópia entraria de forma indireta
-     * (`$v = $a->getAnexoPath(); $b->setAnexoPath($v);`). Os leitores atuais servem o arquivo
-     * (download) ou decidem a remoção; nenhum repassa o valor para outro registro.
+     * Quem LÊ `anexo_path` pelo getter — a porta pela qual uma cópia entraria de forma indireta
+     * (`$v = $a->getAnexoPath(); $b->setAnexoPath($v);`). Os dois leitores atuais só servem o
+     * arquivo (download); nenhum repassa o valor para outro registro.
+     *
+     * `SubstituirAnexoDoLoteUseCase` NÃO está aqui de propósito: ele lê o anexo por projeção
+     * escalar (`anexoNoBancoPorId`), justamente para pegar o valor do banco sob a trava em vez do
+     * que estiver no identity map.
      */
     private const LEITORES = [
         'src/Controller/TenantController.php',
         'src/Ponto/Controller/PontoController.php',
-        'src/Ponto/UseCase/SubstituirAnexoDoLoteUseCase.php',
     ];
 
-    /** Quem toca a coluna por SQL cru. A purga só LÊ, para saber o que apagar do disco. */
-    private const SQL_CRU = [
-        'src/Tenant/UseCase/PurgarEscritorioUseCase.php',
-    ];
+    /**
+     * Quem ESCREVE a coluna fora do ORM. Vazia de propósito: hoje ninguém escreve `anexo_path` por
+     * SQL cru nem por DQL bulk. `PurgarEscritorioUseCase` só faz `SELECT anexo_path`, então não
+     * precisa de isenção — e isentá-lo "por precaução" deixaria um `UPDATE` futuro passar calado.
+     *
+     * @var string[]
+     */
+    private const ESCRITA_FORA_DO_ORM = [];
 
     private const ENTIDADE = 'src/Ponto/Entity/JustificativaPonto.php';
 
@@ -72,25 +79,30 @@ final class ProdutoresDeAnexoPathTest extends TestCase
         );
     }
 
-    #[TestDox('Ninguém escreve anexo_path por SQL cru (INSERT/UPDATE fora do ORM)')]
-    public function testNinguemEscrevePorSqlCru(): void
+    #[TestDox('Ninguém escreve anexo_path fora do ORM (SQL cru ou DQL bulk)')]
+    public function testNinguemEscreveForaDoOrm(): void
     {
         $suspeitos = [];
 
         foreach ($this->arquivosPhp() as $relativo => $conteudo) {
-            if (!preg_match('/\banexo_path\b/', $conteudo)) {
-                continue;
-            }
-            // Só INSERT/UPDATE interessam: SELECT não cria referência.
-            if (preg_match('/\b(UPDATE|INSERT)\b[^;]{0,400}\banexo_path\b/is', $conteudo) === 1) {
+            // (a) SQL cru: coluna em snake_case, num INSERT/UPDATE. Só esses criam referência.
+            $sqlCru = preg_match('/\b(UPDATE|INSERT)\b[^;]{0,400}\banexo_path\b/is', $conteudo) === 1;
+
+            // (b) DQL bulk: `->update(...)->set('j.anexoPath', ...)`. Escapa do item (a) porque
+            // usa o nome da PROPRIEDADE, não o da coluna — e escapa dos testes de escritor/leitor
+            // porque não chama setter nem getter. Este repositório já usa UPDATE em DQL noutro
+            // domínio, então o portão é real.
+            $dqlBulk = preg_match('/->set\s*\(\s*[\'"][A-Za-z0-9_]*\.?anexoPath[\'"]/i', $conteudo) === 1;
+
+            if ($sqlCru || $dqlBulk) {
                 $suspeitos[] = $relativo;
             }
         }
 
         self::assertSame(
             [],
-            array_values(array_diff($suspeitos, self::SQL_CRU)),
-            'SQL cru gravando anexo_path escapa de qualquer guarda do ORM e pode duplicar uma chave '
+            array_values(array_diff($suspeitos, self::ESCRITA_FORA_DO_ORM)),
+            'Escrita de anexo_path fora do ORM escapa de toda guarda e pode duplicar uma chave '
             . 'existente, derrubando a monotonicidade das referências.',
         );
     }

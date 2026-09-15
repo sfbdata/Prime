@@ -49,6 +49,34 @@ class JustificativaPontoRepository extends ServiceEntityRepository
     }
 
     /**
+     * O `anexo_path` COMO ESTÁ NO BANCO, por projeção escalar.
+     *
+     * Existe porque `findLotePorBatchId()` **não** relê os campos de uma entidade que já esteja no
+     * identity map: sem `Query::HINT_REFRESH`, o `UnitOfWork` devolve a instância gerenciada com
+     * os valores que ela já tinha em memória (ver `UnitOfWork::createEntity`). Como a justificativa
+     * chega ao UseCase carregada pelo EntityValueResolver — muito antes da trava —, ler o anexo
+     * pelo getter daria o valor de ANTES da trava, que é justamente o que a trava existe para
+     * evitar.
+     *
+     * Uma projeção escalar não hidrata entidade e não consulta o identity map: o valor vem do
+     * banco, já sob a trava.
+     */
+    public function anexoNoBancoPorId(int $id, Tenant $tenant): ?string
+    {
+        /** @var array<int,array{anexoPath: string|null}> $linhas */
+        $linhas = $this->createQueryBuilder('j')
+            ->select('j.anexoPath')
+            ->andWhere('j.id = :id')
+            ->andWhere('j.tenant = :tenant')
+            ->setParameter('id', $id)
+            ->setParameter('tenant', $tenant)
+            ->getQuery()
+            ->getScalarResult();
+
+        return $linhas[0]['anexoPath'] ?? null;
+    }
+
+    /**
      * Todos os registros de um lote de abono (mesmo `batchId`) dentro do escritório.
      *
      * O lote nasce como unidade: `PontoController::novaJustificativa` faz UM upload e grava a
