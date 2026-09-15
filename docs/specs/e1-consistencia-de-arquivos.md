@@ -72,12 +72,17 @@ lote vazio é **recusado** em vez de cair num fallback de um registro.
 
 **Fase 1 — transação (banco):**
 
+0. validar o arquivo (MIME + tamanho) — **fora** da transação: arquivo recusado não chega a abrir
+   transação nem a tomar trava;
 1. `wrapInTransaction`;
 2. `pg_advisory_xact_lock` com chave derivada de `(tenant, batchId)` — serializa quem mexe no lote;
 3. **reler o lote sob o lock** — e tirar dele também o nome do anexo a remover. Capturar esse
    nome antes da trava faria a fase 2 decidir sobre um valor que outra transação já trocou, e o
    arquivo efetivamente substituído nunca seria contado nem removido;
-4. validar o arquivo recebido (MIME + tamanho);
+4. ler o anexo a remover **do banco**, por projeção escalar (`anexoNoBancoPorId`) e não pelo
+   getter: `findLotePorBatchId()` não relê os campos de uma entidade que já esteja no identity map
+   (sem `HINT_REFRESH` o `UnitOfWork` devolve a instância gerenciada como está em memória), e a
+   justificativa chega ao UseCase carregada pelo EntityValueResolver, muito antes da trava;
 5. `storage->salvar()` → nome novo `Y`;
 6. `setAnexoPath(Y)` em **todos** os registros do lote;
 7. `COMMIT`.
@@ -103,8 +108,9 @@ A janela existiria se, entre a contagem devolver zero e o `unlink` acontecer, al
 uma referência nova a `X`. **Ela está fechada por construção, não por sincronização.**
 
 O argumento é a **monotonicidade decrescente das referências**. Existem exatamente três produtores
-de `anexo_path` em todo o repositório — `PontoController.php:331`, `PontoController.php:446` e
-`TenantController.php:1459` — e os três recebem o retorno de
+de `anexo_path` em todo o repositório — a criação pelo colaborador (`PontoController`), a criação
+pelo admin (`TenantController`) e o próprio `SubstituirAnexoDoLoteUseCase` — e os três recebem o
+retorno de
 `ArquivoStorageService::salvar()`, que gera `bin2hex(random_bytes(16))`: 128 bits de aleatoriedade,
 nome novo a cada chamada. **Nenhum caminho do código copia um `anexo_path` existente para outro
 registro.** Logo, depois que a transação que removeu a última referência a `X` comita, o conjunto de
@@ -134,10 +140,17 @@ o que esta spec quer evitar — e prenderia uma conexão do pool durante I/O.
 - `JustificativaPontoRepository::contarReferenciasAoAnexo(string $anexoPath, Tenant $tenant): int`
   — DQL com filtro **explícito** de tenant (modelo de `JustificativaPontoRepository.php:30-36`).
 - `JustificativaPontoRepository::findLotePorBatchId(string $batchId, Tenant $tenant): array`.
-- `App\Ponto\Validacao\RestricoesAnexoJustificativa` — `MAX_BYTES`, `MIMES_PERMITIDOS` e a
-  `Assert\File` compartilhada. Consumida pelo `JustificativaPontoType` **e** pela edição.
+- `App\Ponto\Validacao\RestricoesAnexoJustificativa` — `MAX_LEGIVEL`, `MIMES_PERMITIDOS` e a
+  `Assert\File` compartilhada. Consumida pelas TRÊS portas: `JustificativaPontoType`
+  (colaborador), `TenantController::novaJustificativaAdmin` (admin) e a edição. O limite é
+  declarado só na forma legível — o `File` do Symfony trata `10M` como 10.000.000, não 10.485.760,
+  então uma constante em bytes ao lado dela seria uma segunda regra divergente.
 - `App\Ponto\UseCase\SubstituirAnexoDoLoteUseCase` — implementa as fases 1 e 2.
 - `PontoController::editarJustificativa` delega ao UseCase.
+
+As **duas portas de criação** também passaram a remover o arquivo em best-effort quando o `flush`
+falha: é a mesma classe de defeito que a fase 1 resolve na edição — arquivo gravado, banco não
+referenciou — e estava aberta nos dois controllers.
 
 **Não** será criada rota de exclusão de justificativa.
 
@@ -244,7 +257,7 @@ diretamente com o valor malicioso.
 | A | lote de 3 dias, troca de anexo | os **3** registros passam a apontar para o novo |
 | A | idem | o arquivo antigo some quando ninguém mais o referencia |
 | A | idem | o arquivo antigo **permanece** se outro registro ainda o referencia |
-| A | `contarReferenciasAoAnexo` | não enxerga registro de outro tenant nem de outro usuário |
+| A | `contarReferenciasAoAnexo` | conta só o próprio escritório (**não** filtra usuário, de propósito: escopo mais largo conta mais e apaga menos) |
 | A | validação na edição | arquivo acima de 10 MB é recusado; MIME fora da lista é recusado |
 | A | invariante | nenhum `batchId` termina com dois `anexo_path` distintos |
 | A | produtores de `anexo_path` | falha se surgir um quarto produtor (sustenta a monotonicidade) |
