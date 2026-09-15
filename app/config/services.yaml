@@ -21,6 +21,11 @@ parameters:
     # cobrancas/<tenantId>/<hash> (padrão M5), então o diretório efetivo de cada operação é
     # `%cobrancas_uploads_dir%/<tenantId>`.
     cobrancas_uploads_dir: '%kernel.project_dir%/public/uploads/cobrancas'
+    # Anexos de card do Kanban. Antes da E1 o diretório era o literal 'kanban' passado no
+    # AdicionarAnexoUseCase — caminho RELATIVO, resolvido contra o WORKDIR do PHP-FPM
+    # (/var/www/app em prod), portanto FORA do volume uploads_prod: o arquivo sobrevivia só até
+    # o próximo deploy. Agora é absoluto e explícito, como os outros seis.
+    kanban_uploads_dir: '%kernel.project_dir%/public/uploads/kanban'
     ghostscript_bin: '%env(default:default_ghostscript_bin:GHOSTSCRIPT_BIN)%'
     default_ghostscript_bin: '/usr/bin/gs'
     # API pública do SGS do Banco Central (índices INPC/IPCA/taxa legal da calculadora de atualização
@@ -74,6 +79,7 @@ services:
             string $clientesUploadsDir: '%clientes_uploads_dir%'
             string $fotosPerfilDir: '%fotos_perfil_dir%'
             string $cobrancasUploadsDir: '%cobrancas_uploads_dir%'
+            string $kanbanUploadsDir: '%kanban_uploads_dir%'
             string $ghostscriptBin: '%ghostscript_bin%'
             string $bcbSgsBaseUrl: '%bcb_sgs_base_url%'
             int $tenantMaxPorUsuario: '%tenant_max_por_usuario%'
@@ -160,3 +166,4 @@ when@test:
         clientes_uploads_dir: '%kernel.project_dir%/var/uploads-test/clientes'
         fotos_perfil_dir: '%kernel.project_dir%/var/uploads-test/perfil'
         cobrancas_uploads_dir: '%kernel.project_dir%/var/uploads-test/cobrancas'
+        kanban_uploads_dir: '%kernel.project_dir%/var/uploads-test/kanban'

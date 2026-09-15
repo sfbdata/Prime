@@ -9,6 +9,7 @@ use App\Entity\Tenant\Tenant;
 use App\Kanban\Repository\KanbanAnexoRepository;
 use App\Kanban\Repository\KanbanCardRepository;
 use App\Kanban\UseCase\AdicionarAnexoUseCase;
+use App\Kanban\Service\ArquivosDeAnexoDoKanban;
 use App\Kanban\UseCase\ExcluirAnexoUseCase;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
@@ -31,6 +32,7 @@ final class KanbanAnexoController extends AbstractController
         private readonly KanbanCardRepository $cardRepository,
         private readonly KanbanAnexoRepository $anexoRepository,
         private readonly ArquivoStorageInterface $storage,
+        private readonly ArquivosDeAnexoDoKanban $arquivos,
         private readonly PermissionChecker $permissionChecker,
         private readonly TenantContext $tenantContext,
     ) {
@@ -82,7 +84,13 @@ final class KanbanAnexoController extends AbstractController
             throw $this->createNotFoundException('Anexo não encontrado.');
         }
 
-        return $this->storage->servir($anexo->getCaminho(), $anexo->getNomeOriginal(), inline: true);
+        $caminho = $this->arquivos->caminhoDe($anexo);
+
+        if (!$this->storage->existe($caminho)) {
+            throw $this->createNotFoundException('Arquivo não encontrado.');
+        }
+
+        return $this->storage->servir($caminho, $anexo->getNomeOriginal(), inline: true);
     }
 
     #[Route('/anexo/{id}/excluir', name: 'kanban_anexo_excluir', methods: ['POST'], requirements: ['id' => '\d+'])]
