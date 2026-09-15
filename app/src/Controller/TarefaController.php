@@ -23,6 +23,7 @@ use App\Repository\UserTenantRepository;
 use App\Service\NotificacaoService;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
+use App\Tarefa\Service\CaminhoDeAnexoDeTarefa;
 use App\Tarefa\Service\TarefaTimelineAssembler;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -40,6 +41,7 @@ final class TarefaController extends AbstractController
 {
     public function __construct(
         private readonly ParameterBagInterface $parameterBag,
+        private readonly CaminhoDeAnexoDeTarefa $caminhoDeAnexo,
         private readonly TarefaTimelineAssembler $timelineAssembler,
         private readonly TenantContext $tenantContext,
         private readonly PermissionChecker $permissionChecker,
@@ -541,15 +543,15 @@ final class TarefaController extends AbstractController
         }
     }
 
+    /**
+     * Delegado a `CaminhoDeAnexoDeTarefa`, que aplica allowlist + normalização + confinamento.
+     * A lógica vive num serviço porque a guarda contra travessia não é testável pela rota: o
+     * roteador do Symfony normaliza `../..` antes do controller (ver o comentário em
+     * `ServirFotoControllerTest::testServirFotoComPathTraversalRetorna404`).
+     */
     private function resolverCaminhoArquivo(string $caminhoPublico): ?string
     {
-        if ($caminhoPublico === '') {
-            return null;
-        }
-
-        $projectDir = rtrim((string) $this->parameterBag->get('kernel.project_dir'), '/');
-
-        return $projectDir . '/public' . $caminhoPublico;
+        return $this->caminhoDeAnexo->resolver($caminhoPublico);
     }
 
     /**
