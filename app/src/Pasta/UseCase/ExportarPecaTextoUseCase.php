@@ -11,6 +11,7 @@ use Dompdf\Dompdf;
 use Dompdf\Options;
 use PhpOffice\PhpWord\IOFactory;
 use PhpOffice\PhpWord\PhpWord;
+use App\Pasta\Service\ReferenciasDePecaHtml;
 use PhpOffice\PhpWord\Shared\Html;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
@@ -19,6 +20,7 @@ final class ExportarPecaTextoUseCase
     public function __construct(
         private readonly ArquivoStorageInterface $storage,
         private readonly string $uploadsDir,
+        private readonly ReferenciasDePecaHtml $referencias,
         #[Autowire('%kernel.project_dir%')]
         private readonly string $projectDir,
     ) {}
@@ -59,11 +61,10 @@ final class ExportarPecaTextoUseCase
         $prefixoDisco = $this->projectDir . '/public/uploads/pastas/'
             . ($tenantId !== null ? $tenantId . '/' : '');
 
-        return (string) preg_replace_callback(
-            '#(?:\.{1,2}/)*/?uploads/pastas/#',
-            static fn (): string => $prefixoDisco,
-            $html,
-        );
+        // O padrão mora em `ReferenciasDePecaHtml` desde a E1: é o mesmo conhecimento que decide
+        // quais arquivos uma peça referencia, e ter duas cópias dele era o caminho para uma
+        // rotina de limpeza divergir do export.
+        return $this->referencias->reescreverPrefixo($html, $prefixoDisco);
     }
 
     private function sanitizarParaXhtml(string $html): string
