@@ -20,6 +20,60 @@ class JustificativaPontoRepository extends ServiceEntityRepository
     }
 
     /**
+     * Quantos registros do escritório ainda apontam para este anexo.
+     *
+     * É a pergunta que decide se o arquivo físico pode ser apagado, então o escopo importa na
+     * direção contrária à intuição: escopo mais LARGO conta mais e apaga MENOS (seguro); escopo
+     * mais ESTREITO é o que apagaria arquivo ainda em uso.
+     *
+     * Contar por tenant é, tecnicamente, o escopo estreito — e o diretório de justificativas é
+     * plano, compartilhado por todos os escritórios. É seguro por uma razão específica: o nome do
+     * arquivo é `bin2hex(random_bytes(16))`, único globalmente, então dois escritórios não têm
+     * como referenciar o mesmo arquivo físico. É a mesma unicidade de que
+     * `PurgarEscritorioUseCase` já depende para apagar por nome nos quatro diretórios planos.
+     *
+     * O filtro de tenant é EXPLÍCITO, e não delegado ao TenantFilter do Doctrine, porque esta
+     * contagem autoriza um `unlink` e não pode depender de um filtro que só é ligado no
+     * `kernel.request`.
+     */
+    public function contarReferenciasAoAnexo(string $anexoPath, Tenant $tenant): int
+    {
+        return (int) $this->createQueryBuilder('j')
+            ->select('COUNT(j.id)')
+            ->andWhere('j.anexoPath = :anexo')
+            ->andWhere('j.tenant = :tenant')
+            ->setParameter('anexo', $anexoPath)
+            ->setParameter('tenant', $tenant)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    /**
+     * Todos os registros de um lote de abono (mesmo `batchId`) dentro do escritório.
+     *
+     * O lote nasce como unidade: `PontoController::novaJustificativa` faz UM upload e grava a
+     * mesma string em N registros, um por dia. Em produção há um lote de 27 dias com um único
+     * atestado. Por isso substituir o anexo tem de atingir o lote inteiro — caso contrário 1 dia
+     * ficaria com o arquivo novo e 26 com o antigo.
+     *
+     * @return JustificativaPonto[]
+     */
+    public function findLotePorBatchId(string $batchId, Tenant $tenant): array
+    {
+        /** @var JustificativaPonto[] $lote */
+        $lote = $this->createQueryBuilder('j')
+            ->andWhere('j.batchId = :batch')
+            ->andWhere('j.tenant = :tenant')
+            ->setParameter('batch', $batchId)
+            ->setParameter('tenant', $tenant)
+            ->orderBy('j.data', 'ASC')
+            ->getQuery()
+            ->getResult();
+
+        return $lote;
+    }
+
+    /**
      * Data da justificativa ABONADA mais antiga do colaborador no escritório. Junto com a primeira
      * batida, define quando a folha começa a contar — um abono deferido também é registro de ponto.
      *
