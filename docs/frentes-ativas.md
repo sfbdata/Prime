@@ -7,11 +7,58 @@ Quem abre uma frente acrescenta a linha. Quem integra tira.
 
 | Frente (branch) | Domínio | Migration? | Arquivos compartilhados que toca | Estágio | Base |
 |---|---|---|---|---|---|
-| `cobranca-acompanhamento-canonico` | Cobrança (modelo objeto/caso) | **sim — 4** | `docs/gestao-cobrancas/` | 🛑 **PARADA** (ver abaixo) | `origin/master` @ `0bb1f29` |
+| `cobranca-acompanhamento-canonico` | Cobrança (modelo objeto/caso) | **sim — 4, fora de ordem** | `docs/gestao-cobrancas/` | 🧊 **CONGELADA** — referência histórica, não integrável direto (ver abaixo) | `origin/master` @ `0bb1f29` |
 | `expediente-ux` | Expediente + Pasta (telas) | não | `app/templates/expediente/`, `app/templates/pasta/` | implementando, **28 commits atrás do master** | `origin/codex/colaboracao-cobrancas` |
 | `cobranca-reconciliar-data-acordo` | Cobrança (comando) | não | `RelatorioLinhaRepository` (método novo), `ComandosComPiiPassamPelaGuardaTest` (1 linha) | ✅ pronta: 3901/3901, prova por reintrodução feita — **aguarda `/review` e integração** | `master` local @ `18555616` |
-| `import/acervo-pastas` | Pasta (importação de acervo) | não | **`PastaController`**, **`SalvarPecaTextoUseCase`**, **`UploadPecaUseCase`** | 3 commits pendentes, tem remota `origin/import/acervo-pastas`. Estava FORA deste registro até 15/09 | (não declarada) |
-| `e2-abstracao-storage` | **transversal** — Shared + 9 domínios | **não** | `app/src/Shared/`, `app/config/services.yaml`, `app/src/Shared/CLAUDE.md`, + 35 arquivos de produção | E2.0 fechada: só a spec, nenhum código. D1–D9 ratificadas. **E2.1 não autorizada** | `origin/master` @ `c365fe72` |
+| `import/acervo-pastas` | Pasta (importação de acervo) | não | **nenhum** — os 3 pendentes só tocam `IMPORTACAO-ACERVO.md` | 🗑️ **DESCARTE APROVADO**, aguardando execução humana (ver abaixo) | `c3bfe8ff` (25/05) |
+| `e2-abstracao-storage` | **transversal** — Shared + 9 domínios | **não** | `app/src/Shared/`, `app/config/services.yaml`, `app/src/Shared/CLAUDE.md`, + 35 arquivos de produção | E2.0 fechada (`d15535fd`), D1–D9 ratificadas. **Destravada**; E2.1 aguarda autorização | `origin/master` @ `c365fe72` |
+
+### 🧊 `cobranca-acompanhamento-canonico` — CONGELADA em 15/09/2026
+
+**CONGELADA — frente histórica não integrável diretamente; 5/26 fatias; 579 commits atrás no
+momento da auditoria; usar como referência para futura re-derivação a partir do master; referência
+histórica `8ac4d1b6`.**
+
+A branch e a worktree **ficam preservadas**, com os 16 commits documentais dentro (SPEC canônica,
+PLAN, as 6 decisões bloqueantes, o diário e as 4 contradições resolvidas da A4). Não foi criada
+frente nenhuma para copiar esses documentos — eles vivem na branch congelada.
+
+O que a auditoria de 15/09 mediu, e que justifica o congelamento:
+
+- **23 commits pendentes** por conteúdo (16 docs + 7 de código); base `0bb1f29` de 24/07.
+- **103 arquivos em superfície de conflito** com o master, no núcleo de dinheiro:
+  `ObrigacaoRepository` (381 linhas mudadas no master), `ObjetoController` (379),
+  `CasoCobrancaRepository` (273), `ImportarRelatorioCarteiraUseCase` (207), `Obrigacao` (164),
+  `objeto/show.html.twig` (1.389).
+- **128 commits** tocaram `app/src/Cobranca` no master desde a base dela — vários **em produção**
+  (judicializar cria pasta, cancelar judicialização, o importe que enxerga caso judicializado).
+- **4 migrations `20260725*` fora de ordem**: o master ganhou 22, de `20260728` a `20260910`.
+- Ela **apaga `EncerrarCasoUseCase`**, que segue vivo no master com dois meses de trabalho em cima.
+- ✅ **Zero colisão com a E1** — não toca nenhum dos 34 arquivos do merge `c365fe72`.
+
+**Quando a Cobrança for retomada:** partir do master **daquele** momento, reler SPEC/PLAN/decisões
+da branch congelada, investigar de novo o modelo atual, re-derivar o que ainda valer — e **nunca
+transplantar automaticamente as migrations ou o código antigos**.
+
+### 🗑️ `import/acervo-pastas` — descarte aprovado em 15/09/2026, aguardando execução humana
+
+Auditoria read-only provou que **nada se perde**:
+
+- 11 commits, **8 já no master por conteúdo**; os **3 pendentes tocam só `IMPORTACAO-ACERVO.md`**;
+- desses 3, dois já estão no master por título (`64febed5` e `451711b1`, de 28/05) e o terceiro é
+  aviso obsoleto sobre a própria branch;
+- **nenhuma migration exclusiva** (as 74 que aparecem num diff contra o master são do **master**,
+  que a branch não tem — ela está 1168 atrás);
+- **nenhum arquivo exclusivo**: os 14 que "só existem na branch" já existiam no merge-base, ou
+  seja, foi o master que os moveu (`JustificativaPontoRepository` → `app/src/Ponto/Repository/`,
+  `nginx.prod.conf` → `nginx/conf.d/`);
+- local e remota (`origin/import/acervo-pastas`) apontam para o mesmo `ec8f2faa`;
+- não existe worktree.
+
+🪤 **A lição que valia a pena salvar dela** (e que fica aqui, em vez de num commit): *manter o
+documento da frente atualizado NO MESMO commit da mudança que ele descreve.* A branch virou "branch
+mista" — importação de acervo + quatro commits paralelos de pasta/peticionar — e precisou de um
+commit só para explicar a si mesma.
 
 ### 🔴 `e2-abstracao-storage` é transversal — da fatia E2.1 em diante ela vai SOZINHA
 
@@ -32,11 +79,13 @@ ninguém.
 
 Varredura das 24 branches locais com os dois filtros, em 15/09:
 
-- 🔴 **`cobranca-acompanhamento-canonico`** — 23 pendentes; altera `AcordoController`,
-  `DocumentoCobrancaController`, `EnviarDocumentoUseCase` e **`PurgarEscritorioUseCase`** (o
-  consumidor de risco ALTO da fatia E2.5).
-- 🔴 **`import/acervo-pastas`** — 3 pendentes; altera `PastaController`, `SalvarPecaTextoUseCase` e
-  `UploadPecaUseCase`. **Não estava neste registro** até agora.
+- 🧊 **`cobranca-acompanhamento-canonico`** — 23 pendentes; altera `AcordoController`,
+  `DocumentoCobrancaController`, `EnviarDocumentoUseCase` e `PurgarEscritorioUseCase`. **Resolvida
+  por congelamento em 15/09**, não por integração. Dos 103 arquivos em conflito dela com o master,
+  **só 2 são alvo da E2** — ou seja, a E2 acrescenta 2 a um conflito de 103 que já existia sem ela.
+- ✅ **`import/acervo-pastas`** — **não colide.** Chegou a ser listada aqui em vermelho a partir de
+  um diff de três pontos; os 3 commits pendentes tocam só `IMPORTACAO-ACERVO.md`. Descarte
+  aprovado (bloco acima).
 - 🟢 8 branches com pendências que **não** tocam alvo da E2 (`expediente-ux`,
   `cobranca-reconciliar-data-acordo`, os três `fix/*`, `integracao-sync-master`,
   `polimento-objeto-show-cabecalho`, `worktree-agent-…`).
