@@ -8,6 +8,7 @@ use App\Entity\Auth\User;
 use App\Cliente\Entity\Cliente;
 use App\Cliente\Entity\ClientePF;
 use App\Cliente\Entity\ClientePJ;
+use App\Pasta\Armazenamento\ChavesDePasta;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Processo\Entity\Processo;
@@ -87,6 +88,7 @@ use App\Pasta\Repository\PastaSecaoRepository;
 use App\Pasta\Entity\PastaSecao;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Service\ArquivoStorageInterface;
 use App\Shared\Service\CompressorArquivoInterface;
 use App\Shared\Service\SanitizadorTextoRico;
@@ -129,6 +131,7 @@ class PastaController extends AbstractController
         private readonly ValidatorInterface $validator,
         private readonly string $uploadsDir,
         private readonly ArquivoStorageInterface $storage,
+        private readonly ArmazenamentoDeArquivos $armazenamento,
         private readonly CompressorArquivoInterface $compressor,
         private readonly PermissionChecker $permissionChecker,
         private readonly TenantContext $tenantContext,
@@ -1604,11 +1607,11 @@ class PastaController extends AbstractController
             throw $this->createAccessDeniedException('Você não tem permissão para acessar documentos desta pasta.');
         }
 
-        $caminho = $this->storage->caminho($this->uploadsDir, $doc->getCaminhoArquivo());
-
-        if (!$this->storage->existe($caminho)) {
+        if (!$this->armazenamento->existe(ChavesDePasta::documento($doc))) {
             throw $this->createNotFoundException('Arquivo não encontrado no servidor.');
         }
+
+        $caminho = $this->storage->caminho($this->uploadsDir, $doc->getCaminhoArquivo());
 
         return $this->storage->servir($caminho, $doc->getNomeOriginal(), inline: true);
     }
@@ -1623,13 +1626,13 @@ class PastaController extends AbstractController
             throw $this->createAccessDeniedException('Você não tem permissão para acessar documentos desta pasta.');
         }
 
-        $caminho = $this->storage->caminho($this->uploadsDir, $doc->getCaminhoArquivo());
-
-        if (!$this->storage->existe($caminho)) {
+        if (!$this->armazenamento->existe(ChavesDePasta::documento($doc))) {
             $this->addFlash('error', 'Arquivo não encontrado no servidor.');
 
             return $this->redirectToRoute('pasta_show', ['id' => $doc->getPasta()?->getId()]);
         }
+
+        $caminho = $this->storage->caminho($this->uploadsDir, $doc->getCaminhoArquivo());
 
         return $this->storage->servir($caminho, $doc->getNomeOriginal(), inline: false);
     }
@@ -1903,10 +1906,11 @@ class PastaController extends AbstractController
             throw $this->createNotFoundException('Documento não encontrado.');
         }
 
-        $caminho = $this->storage->caminho($this->uploadsDir, $doc->getCaminhoArquivo());
-        if (!$this->storage->existe($caminho)) {
+        if (!$this->armazenamento->existe(ChavesDePasta::documento($doc))) {
             throw $this->createNotFoundException('Arquivo não encontrado no servidor.');
         }
+
+        $caminho = $this->storage->caminho($this->uploadsDir, $doc->getCaminhoArquivo());
 
         return $this->storage->servir($caminho, $doc->getNomeOriginal(), inline: true);
     }
@@ -1929,10 +1933,11 @@ class PastaController extends AbstractController
             throw $this->createNotFoundException('Documento não encontrado.');
         }
 
-        $caminho = $this->storage->caminho($this->uploadsDir, $doc->getCaminhoArquivo());
-        if (!$this->storage->existe($caminho)) {
+        if (!$this->armazenamento->existe(ChavesDePasta::documento($doc))) {
             throw $this->createNotFoundException('Arquivo não encontrado no servidor.');
         }
+
+        $caminho = $this->storage->caminho($this->uploadsDir, $doc->getCaminhoArquivo());
 
         return $this->storage->servir($caminho, $doc->getNomeOriginal(), inline: false);
     }

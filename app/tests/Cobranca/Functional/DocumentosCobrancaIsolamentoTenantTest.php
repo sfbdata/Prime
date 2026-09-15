@@ -123,7 +123,12 @@ final class DocumentosCobrancaIsolamentoTenantTest extends KernelTestCase
         $this->enviarDocumento = new EnviarDocumentoUseCase($docRepo, $this->storage, $compressor, $this->cobrancasUploadsDir);
         $this->moverDocumento = new MoverDocumentoUseCase($docRepo);
         $this->criarSecao = new CriarSecaoUseCase($secaoRepo);
-        $this->excluirSecao = new ExcluirSecaoUseCase($secaoRepo, $this->storage, $this->cobrancasUploadsDir);
+        $this->excluirSecao = new ExcluirSecaoUseCase(
+            $secaoRepo,
+            $this->storage,
+            $c->get(\App\Shared\Armazenamento\ArmazenamentoDeArquivos::class),
+            $this->cobrancasUploadsDir,
+        );
     }
 
     protected function tearDown(): void

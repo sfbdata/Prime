@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Ponto\Controller;
 
 use App\Entity\Auth\User;
+use App\Ponto\Armazenamento\ChavesDePonto;
 use App\Ponto\UseCase\SubstituirAnexoDoLoteUseCase;
 use App\Ponto\Entity\JornadaColaborador;
 use App\Ponto\Entity\JornadaTenant;
@@ -33,6 +34,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Dompdf\Dompdf;
 use Dompdf\Options;
 use App\Ponto\Service\FolhaPontoXlsxExporter;
+use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Service\ArquivoStorageService;
 use App\Shared\Trait\ValidaCsrfAjaxTrait;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -53,6 +55,7 @@ final class PontoController extends AbstractController
         private readonly string $justificativasUploadsDir,
         private readonly VerificadorAlertaPonto $verificadorAlerta,
         private readonly ArquivoStorageService $storage,
+        private readonly ArmazenamentoDeArquivos $armazenamento,
         private readonly JornadaResolver $jornadaResolver,
         private readonly GerarCodigoFuncionario $gerarCodigo,
         private readonly TenantContext $tenantContext,
@@ -503,11 +506,11 @@ final class PontoController extends AbstractController
             throw $this->createNotFoundException('Esta justificativa não possui atestado.');
         }
 
-        $filePath = $this->storage->caminho($this->justificativasUploadsDir, $justificativa->getAnexoPath());
-
-        if (!$this->storage->existe($filePath)) {
+        if (!$this->armazenamento->existe(ChavesDePonto::anexoDeJustificativa($justificativa))) {
             throw $this->createNotFoundException('Arquivo não encontrado.');
         }
+
+        $filePath = $this->storage->caminho($this->justificativasUploadsDir, $justificativa->getAnexoPath());
 
         return $this->storage->servir($filePath, $justificativa->getAnexoPath(), inline: true);
     }

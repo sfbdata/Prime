@@ -137,7 +137,7 @@ operador) e `GoogleDriveClient.php:58` (`is_file` no JSON de credencial).
 4. `PeticionarController.php:334` devolve a URL literal `/uploads/pastas/<hex>` ao TinyMCE, e ela é
    **gravada dentro do HTML da peça** — dado persistido com formato de path.
 5. `ArquivosDeAnexoDoKanban::diretorio()` (`:40-43`) devolve o diretório cru e **não tem consumidor
-   em `app/src/`** — vazamento de path sem uso. Remover na E2.2.
+   em `app/src/`** — vazamento de path sem uso. **Removido na E2.2.**
 
 ---
 
@@ -401,7 +401,7 @@ de propósito (`PurgarEscritorioUseCase.php:344`).
 | # | Decisão | Consequência |
 |---|---|---|
 | **D7** | **Operação por prefixo só existe quando o adapter consegue PROVAR que o prefixo físico pertence exclusivamente ao escopo.** A barreira é de **tipo** (`CategoriaComIsolamentoFisico`, 2 casos), não de runtime — a API não pode aceitar qualquer categoria e depender de o chamador lembrar quais são seguras. Nas categorias de layout plano/compartilhado: **não** usar `excluirPrefixo`; identificar os arquivos pelos **registros do tenant** e excluir um a um. Isolamento lógico não se infere de diretório fisicamente compartilhado | §3.1, §3.3, §3.4, E2.5, teste em §11.2 |
-| **D8 — pendência aberta na E2.1** | A extensão de arquivo NOVO **nunca é recusada**: o que não serve vira `bin`. A revisão mediu contra os 20.954 `nome_original` reais: a versão que recusava derrubaria **18** arquivos (`açaí - 02 junho 2025`, `pdf canvelado por atraso - refeito`, …), e o único chamador que deriva extensão de dado do usuário é o sync do Drive (`ReconciliadorDePasta.php:440`). ⏳ **Ratificar antes da E2.4**: com isso, um arquivo que hoje vira `hash.açaí - 02 junho 2025` passará a `hash.bin`. Nada se perde (o nome do usuário mora em `nome_original`), mas é mudança de comportamento no sync |
+| **D8 — política de extensão, RATIFICADA em 15/09 (antes da E2.2)** | A extensão de arquivo NOVO **nunca é recusada**: extensão válida/segura é preservada; o que não serve vira `bin`; o nome do usuário continua em `nome_original`; o MIME é autoritativo para entrega quando aplicável. A revisão mediu contra os 20.954 `nome_original` reais: a versão que recusava derrubaria **18** arquivos (`açaí - 02 junho 2025`, `pdf canvelado por atraso - refeito`, …), e o único chamador que deriva extensão de dado do usuário é o sync do Drive (`ReconciliadorDePasta.php:440`). Consequência aceita: um arquivo que hoje vira `hash.açaí - 02 junho 2025` passará a `hash.bin` na E2.4. Nada se perde, mas é mudança de comportamento no sync |
 | **D8** | **O storage cunha nomes opacos** para arquivo novo (`NovoArquivo(escopo, categoria, extensao)`), com entropia equivalente à atual (128 bits). A gravação distingue **novo** (storage gera) de **chave existente** (`ChaveDeArquivo` = o nome persistido no banco). Para chave legada: **sem `trim()`, sem normalização Unicode, sem mexer em espaço, sem remover ponto final, sem sanitização destrutiva, sem exigir formato hash** — as 184 da E0 continuam endereçáveis byte a byte | §3.1 (duas regras próprias), §3.2, §11.1 |
 | **D9** | **Ownership e lifetime são explícitos no contrato, em dois tipos distintos.** Emprestado (`ArquivoEmprestado`, o path persistido do Local): não é propriedade, cleanup não apaga, destrutor não apaga, nunca `deleteFileAfterSend`. Possuído (`ArquivoTemporarioPossuido`): lifecycle explícito, cleanup apaga só ele. A distinção tem de ser **impossível de ignorar acidentalmente** — por isso tipos, não flag | INV-9, §3.3, §5, 4 testes em §11.2 |
 
@@ -464,13 +464,90 @@ integrar.
 |---|---|---|---|
 | **E2.0** | esta spec + registro da frente | 2 docs | revisão adversarial feita |
 | **E2.1** | VOs, `ArmazenamentoDeArquivos`, `ArmazenamentoComPrefixo` (contrato só), `ArmazenamentoLocal`, `ResolvedorDeCaminhoLocal`, `ArmazenamentoEmMemoria`. `ArquivoStorageInterface` e `ArquivoStorageService` **intactos e ainda ligados** aos 33 consumidores; o `ArmazenamentoLocal` implementa **só a interface nova** | só arquivos novos | suíte verde sem tocar consumidor + `MapaDeChaveParaCaminhoLocalTest` + suíte de contrato |
-| **E2.2** | fábricas de chave por domínio; `existe()` (27 chamadas) e tamanho; **remover `ArquivosDeAnexoDoKanban::diretorio()`** | 22 | testes existentes + testes de escopo das fábricas (R1) |
+| **E2.2** — ✅ **entregue em 15/09** | fábricas de chave por domínio (`app/src/<Dominio>/Armazenamento/ChavesDe*`, 7 classes); `existe()` migrado em **26 chamadas / 21 arquivos**; **`ArquivosDeAnexoDoKanban::diretorio()` removido**. Fora, por decisão do dono: `PurgarEscritorioUseCase` (a 27ª chamada) fica **inteiro** para a E2.5; "tamanho" **não tem consumidor** nesta fatia (`metadados()` já existe desde a E2.1; os 3 `filesize()` seguem nas fatias previstas). Detalhes no bloco "E2.2 — entregue", abaixo | 21 + 7 fábricas | testes de fábrica (categoria, tenant da entidade, tenant nulo, nome byte a byte, sem parâmetro de tenant, este por reflexão) + materialização do escopo nos UseCases contra `ArmazenamentoEmMemoria` + 404 nas 2 rotas com nome pela URL + reconciliador com arquivo ausente, com nome inválido e com disco ilegível + exclusão de seção com disco ilegível pós-commit; **8 provas por reintrodução de defeito**; revisão adversarial feita e os 6 achados de código corrigidos |
 | **E2.3** | `EntregaDeArquivo` + as 15 rotas de `servir()` | 11 controllers | golden de cabeçalhos + `Range` → 206 + **teste de INV-9** |
 | **E2.4** | `gravar()` nos 18 pontos de escrita (inclui `EditarPecaTextoUseCase`) e leitura em `ArquivosReferenciadosEmPecas`/`ExportarPecaTextoUseCase` | 18 | unit de cada UseCase + teste de falha de I/O + teste de INV-10 |
 | **E2.5** | `excluir()` (19 chamadas) + `ArmazenamentoComPrefixo` nas 2 categorias com escopo físico | 15 | purga + isolamento cross-tenant + allowlist do arch test |
 | **E2.6** | `MaterializadorDeArquivo`; os 4 chamadores do compressor, o export e o `ReconciliadorDePasta` | 6 (todos já entre os 33) | **pré-requisito D4**: testes de modo de falha do compressor verdes **antes** |
 | **E2.7** | investigação de Tarefa e, se viável sem migration, entrada na abstração (**D5**) | `TarefaController`, `CaminhoDeAnexoDeTarefa` | teste de travessia atacando o VO, não a rota |
 | **E2.8** | remoção de `caminho()`/`servir()`; docblocks de DT-5; teste de arquitetura | limpeza | suíte + arch test |
+
+**E2.2 — entregue em 15/09/2026.** O que foi decidido e feito ao executar:
+
+- **A purga fica inteira para a E2.5.** O `existe()` de `PurgarEscritorioUseCase:363` mistura nomes
+  de sete tabelas, duas sem tradução para chave (`tarefa_mensagem`, com `/`, e `documento_processo`,
+  sem categoria); está acoplado ao `excluir()` no mesmo laço; roda pós-commit **sem `try/catch`**, e o
+  `existe()` novo lança em diretório ilegível; e o laço de hoje **não inclui** `kanbanUploadsDir`,
+  então uma conversão fiel por categoria mudaria comportamento. Nada ali foi tocado. Contagem efetiva
+  da fatia: **21 arquivos, 26 chamadas**.
+- **"Tamanho" sem consumidor.** `MetadadosDeArquivo`/`metadados()` vieram na E2.1 e nenhum dos 21
+  arquivos lê tamanho do disco. Os `filesize()` de `CompressorArquivo`, `GoogleDriveClient` e
+  `CopiarArquivosAcervoCommand` ficam onde a spec já os colocou (E2.6 e categoria C).
+- **Fábricas em `app/src/<Dominio>/Armazenamento/`**, uma classe final por domínio: `ChavesDePasta`,
+  `ChavesDeCliente`, `ChavesDeServiceDesk` (primeiro arquivo de `App\ServiceDesk\` — o domínio ainda
+  mora em `src/Entity/ServiceDesk/`, e arquivo novo não entra em pasta legada), `ChavesDePonto`,
+  `ChavesDeCobranca`, `ChavesDeKanban`, `ChavesDePerfil`. Recebem a entidade e tiram dela tenant,
+  categoria e nome; falham com `ChaveDeArquivoInvalida` se o tenant obrigatório estiver nulo ou sem
+  id; `ChamadoAnexo` chega ao tenant pelo `Chamado`, como no modelo. Nenhuma recebe `Tenant` por
+  parâmetro — os testes afirmam isso por reflexão. Onde há `$tenant` por parâmetro e tenant na
+  entidade (UseCases de Cobrança, lote do ponto), a chave usa a **entidade**. Três formas sem
+  entidade, documentadas como exceção: `ChavesDePasta::documentoPorNome(int, string)` para projeção
+  escalar já filtrada por tenant (`ArquivosReferenciadosEmPecas`, `ReconciliadorDePasta`);
+  `ChavesDePasta::imagemDoEditor(Tenant, string)` para a imagem sem linha no banco; e
+  `ChavesDePonto::anexoDeJustificativaPorNome(JustificativaPonto, string)` para o lote, cujo anexo
+  antigo sai por projeção sob a trava e cujo anexo novo ainda não foi persistido no rollback.
+- **Estado misto, de propósito (D2):** presença por chave no armazenamento novo; `caminho()`,
+  `servir()`, `excluir()` e `salvar()` continuam na interface antiga. Em Cobrança o diretório do
+  `excluir()` segue `cobrancasUploadsDir/<tenant do parâmetro>`, exatamente como antes. O
+  `KanbanAnexoController` pergunta a presença ao serviço `ArquivosDeAnexoDoKanban::existe()`, que
+  substituiu o `diretorio()` removido.
+- **Nome que `ChaveDeArquivo` recusa — medido em PRODUÇÃO em 15/09, não inferido.** As nove colunas
+  da E2.2 em prod: `pasta_documento` 22.676 linhas, `justificativa_ponto` 61, `user_profiles` 9,
+  `cliente_documento` 4 — **22.750 chaves reais, zero recusável** (nenhuma vazia, com `/`, `\`,
+  `..`, byte nulo ou caractere de controle). As outras cinco (`chamado_anexo`, `cobranca_documento`,
+  `cobranca_acordo_documento`, `cobranca_carteira_documento`, `kanban_anexo`) têm **0 linhas em
+  prod**: ali "zero recusável" é vácuo, não medição. Confirmadas também as 165 chaves terminadas em
+  `.` e as 3 com espaço na borda de `pasta_documento` — as que um `trim()` tornaria inalcançáveis
+  (D8). Fora da E2.2: `tarefa_mensagem` tem 12 anexos, todos com `/` (é o caso reservado à E2.7 por
+  D5), e `documento_processo` está vazia.
+
+  Onde o nome vem da **URL** (`PecaImagemController`, `ProfileController::servirFoto`): **404**, com
+  teste e prova por reintrodução. Onde é varredura (`ArquivosReferenciadosEmPecas`,
+  `ReconciliadorDePasta`): o item é pulado / conta erro, e a rodada segue.
+
+  ⚠️ **Nos demais pontos a recusa PROPAGA, e isso é mudança de comportamento** — improvável, não
+  impossível: o único nome derivado de dado do usuário é o do sync do Drive
+  (`ReconciliadorDePasta`, via `pathinfo(...)`, que devolve `\` e caractere de controle se
+  estiverem no nome do arquivo no Drive). São **13 rotas de download** (500 onde antes era 404 ou
+  flash+redirect) e os **UseCases de exclusão**, que passam a **abortar** a operação inteira onde
+  antes pulavam o arquivo e removiam a linha: `ExcluirDocumento{,Acordo,Carteira}UseCase`,
+  `ExcluirSecaoUseCase` (Cobrança), `ExcluirPastaUseCase` (**dentro** da transação → rollback, a
+  pasta não é excluída), `ArquivosDeAnexoDoKanban::removerDoAnexo` (e com ele `ExcluirAnexoUseCase`,
+  `ExcluirCardUseCase`, `ExcluirBoardUseCase`) e `PastaSecaoController::coletarArquivosDaArvore`
+  (roda **antes** do UseCase). Todos falham **fechado**: nada é excluído do banco. A política de
+  entrega fica reservada à E2.3 (`EntregaDeArquivo`).
+- **Falha de I/O (`FalhaDeArmazenamento`) onde a decisão já foi tomada.** O `existe()` novo lança
+  quando não consegue **determinar** a presença (diretório ilegível), onde o antigo devolvia false.
+  Nos dois pontos em que isso aconteceria **depois** de o banco já ter mudado, ou numa varredura em
+  lote, a exceção é absorvida e registrada, preservando o comportamento anterior — cada um com
+  teste que torna o diretório ilegível de verdade (não dublê) e prova por reintrodução:
+  `PastaSecaoController::excluir` (laço pós-commit: a seção já foi apagada, 500 seria erro sem
+  reparo possível) e `ReconciliadorDePasta` (uma rodada de cron não pode morrer inteira, sem
+  contabilizar nada e sem marcar `fatal`, por causa de um documento). Nos pontos **antes** da
+  mudança de banco a propagação fica: falhar fechado ali é melhor que apagar linha às cegas.
+- `ProdutoresDeAnexoPathTest` ganhou `ChavesDePonto` na allowlist de leitores de `anexo_path`: a
+  fábrica lê o getter só para montar a chave e nunca copia o valor para outro registro.
+- `ServirFotoControllerTest` deixou de trocar o storage antigo por um dublê num diretório
+  temporário: com a presença perguntada ao armazenamento novo, os dois storages precisam enxergar o
+  mesmo lugar, e o teste passou a gravar em `fotos_perfil_dir`.
+- **O que a materialização do escopo prova, e o que não prova.** Os testes de exclusão contra
+  `ArmazenamentoEmMemoria` (documento do escritório 99 invisível para o 7) provam que a chave
+  carrega o escopo — o que o disco plano de hoje esconderia. Eles **não** distinguem "escopo da
+  entidade" de "escopo do parâmetro", porque a guarda `getTenant() !== $tenant` obriga os dois a
+  serem iguais; essa distinção é provada nos testes de reflexão das fábricas, que afirmam que
+  nenhuma aceita `Tenant` por parâmetro.
+- **No `ReconciliadorDePasta` o escopo sai do `tenant_id` do DOCUMENTO**, não do da pasta. Em dados
+  é o mesmo (medido em `saas_ux`: 0 de 20.954 divergindo), mas quem responde pela linha é ela.
 
 **Três armadilhas de ordenação, já mapeadas:**
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Cobranca\Controller;
 
+use App\Cobranca\Armazenamento\ChavesDeCobranca;
 use App\Cobranca\DTO\AcordoDetalheOutput;
 use App\Cobranca\DTO\CancelarAcordoInput;
 use App\Cobranca\DTO\CriarAcordoInput;
@@ -47,6 +48,7 @@ use App\Cobranca\UseCase\MontarDetalheAcordoUseCase;
 use App\Cobranca\UseCase\RomperAcordoUseCase;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
+use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Service\ArquivoStorageInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -84,6 +86,7 @@ final class AcordoController extends AbstractController
         private readonly EnviarDocumentoAcordoUseCase $enviarDocumentoAcordo,
         private readonly ExcluirDocumentoAcordoUseCase $excluirDocumentoAcordo,
         private readonly ArquivoStorageInterface $storage,
+        private readonly ArmazenamentoDeArquivos $armazenamento,
         private readonly string $cobrancasUploadsDir,
     ) {
     }
@@ -445,10 +448,11 @@ final class AcordoController extends AbstractController
             $this->recusarSeCancelado($documento->getAcordo());
         }
 
-        $caminho = $this->storage->caminho($this->cobrancasUploadsDir . '/' . $tenant->getId(), $documento->getCaminhoArquivo());
-        if (!$this->storage->existe($caminho)) {
+        if (!$this->armazenamento->existe(ChavesDeCobranca::documentoDeAcordo($documento))) {
             throw $this->createNotFoundException('Arquivo não encontrado no armazenamento.');
         }
+
+        $caminho = $this->storage->caminho($this->cobrancasUploadsDir . '/' . $tenant->getId(), $documento->getCaminhoArquivo());
 
         return $this->storage->servir($caminho, $documento->getNomeOriginal(), inline: false);
     }

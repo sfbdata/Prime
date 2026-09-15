@@ -4,12 +4,18 @@ declare(strict_types=1);
 
 namespace App\Tests\Cobranca\Unit;
 
+use App\Cobranca\Armazenamento\ChavesDeCobranca;
 use App\Cobranca\Entity\CobrancaDocumento;
 use App\Cobranca\Entity\CobrancaSecao;
 use App\Cobranca\Repository\CobrancaSecaoRepository;
 use App\Cobranca\UseCase\ExcluirSecaoUseCase;
 use App\Entity\Tenant\Tenant;
+use App\Shared\Armazenamento\CategoriaDeArquivo;
+use App\Shared\Armazenamento\ChaveDeArquivo;
+use App\Shared\Armazenamento\EscopoDeArquivo;
+use App\Shared\Armazenamento\FonteDeConteudo;
 use App\Shared\Service\ArquivoStorageInterface;
+use App\Tests\Shared\Doubles\ArmazenamentoEmMemoria;
 use Doctrine\Common\Collections\Collection;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -23,6 +29,7 @@ final class ExcluirSecaoUseCaseTest extends TestCase
 
     private CobrancaSecaoRepository&MockObject $secaoRepository;
     private ArquivoStorageInterface&MockObject $storage;
+    private ArmazenamentoEmMemoria $armazenamento;
     private ExcluirSecaoUseCase $sut;
     private Tenant $tenant;
 
@@ -30,7 +37,8 @@ final class ExcluirSecaoUseCaseTest extends TestCase
     {
         $this->secaoRepository = $this->createMock(CobrancaSecaoRepository::class);
         $this->storage = $this->createMock(ArquivoStorageInterface::class);
-        $this->sut = new ExcluirSecaoUseCase($this->secaoRepository, $this->storage, self::UPLOADS_DIR);
+        $this->armazenamento = new ArmazenamentoEmMemoria();
+        $this->sut = new ExcluirSecaoUseCase($this->secaoRepository, $this->storage, $this->armazenamento, self::UPLOADS_DIR);
         $this->tenant = $this->tenantComId(7);
     }
 
@@ -38,12 +46,15 @@ final class ExcluirSecaoUseCaseTest extends TestCase
     public function apagaArquivosFisicosNoDiretorioDoTenantERemoveASecao(): void
     {
         $secao = (new CobrancaSecao())->setTenant($this->tenant);
-        $this->adicionarDocumento($secao, 'hashA');
-        $this->adicionarDocumento($secao, 'hashB');
+        $docA  = $this->adicionarDocumento($secao, 'hashA');
+        $docB  = $this->adicionarDocumento($secao, 'hashB');
+        $this->armazenamento->gravar(ChavesDeCobranca::documentoDeCaso($docA), FonteDeConteudo::deTexto('A'));
+        $this->armazenamento->gravar(ChavesDeCobranca::documentoDeCaso($docB), FonteDeConteudo::deTexto('B'));
 
         $diretorio = self::UPLOADS_DIR . '/7';
 
-        // O caminho físico é reconstruído no diretório isolado por tenant (padrão M5).
+        // Presença pelo armazenamento novo; remoção pela interface antiga, no caminho isolado por tenant (M5).
+        $this->storage->expects($this->never())->method('existe');
         $this->storage
             ->expects($this->exactly(2))
             ->method('caminho')
@@ -52,9 +63,6 @@ final class ExcluirSecaoUseCaseTest extends TestCase
                 [$diretorio, 'hashB', $diretorio . '/hashB'],
             ]);
 
-        $this->storage->method('existe')->willReturn(true);
-
-        // Ambos os arquivos existentes são excluídos do disco.
         $excluidos = [];
         $this->storage
             ->expects($this->exactly(2))
@@ -80,18 +88,28 @@ final class ExcluirSecaoUseCaseTest extends TestCase
         $secao = (new CobrancaSecao())->setTenant($this->tenant);
         $this->adicionarDocumento($secao, 'hashFantasma');
 
-        $this->storage->method('caminho')->willReturn(self::UPLOADS_DIR . '/7/hashFantasma');
-        // Arquivo já não está no disco.
-        $this->storage->method('existe')->willReturn(false);
-
-        // Nada a excluir fisicamente.
+        // Nada a excluir fisicamente; a remoção da linha ocorre mesmo assim.
         $this->storage->expects($this->never())->method('excluir');
-
-        // A remoção da linha ocorre mesmo assim.
         $this->secaoRepository
             ->expects($this->once())
             ->method('remover')
             ->with($secao, true);
+
+        $this->sut->executar($secao, $this->tenant);
+    }
+
+    #[Test]
+    public function naoEnxergaArquivoDeOutroEscritorioComOMesmoNome(): void
+    {
+        $secao = (new CobrancaSecao())->setTenant($this->tenant);
+        $this->adicionarDocumento($secao, 'hashA');
+        $this->armazenamento->gravar(
+            new ChaveDeArquivo(EscopoDeArquivo::deTenant(99), CategoriaDeArquivo::COBRANCA_DOCUMENTO, 'hashA'),
+            FonteDeConteudo::deTexto('de outro escritório'),
+        );
+
+        $this->storage->expects($this->never())->method('excluir');
+        $this->secaoRepository->expects($this->once())->method('remover');
 
         $this->sut->executar($secao, $this->tenant);
     }
@@ -104,7 +122,6 @@ final class ExcluirSecaoUseCaseTest extends TestCase
 
         // Nenhum efeito colateral: nem disco, nem banco.
         $this->storage->expects($this->never())->method('caminho');
-        $this->storage->expects($this->never())->method('existe');
         $this->storage->expects($this->never())->method('excluir');
         $this->secaoRepository->expects($this->never())->method('remover');
 
@@ -124,15 +141,18 @@ final class ExcluirSecaoUseCaseTest extends TestCase
 
     /**
      * Injeta um documento na coleção interna da seção (populada pelo Doctrine em runtime).
-     * No teste unit não há ORM, então adicionamos direto à ArrayCollection via reflexão.
+     * No teste unit não há ORM, então adicionamos direto à ArrayCollection via reflexão. O
+     * documento nasce com o tenant da seção, como no banco (coluna NOT NULL).
      */
-    private function adicionarDocumento(CobrancaSecao $secao, string $hash): void
+    private function adicionarDocumento(CobrancaSecao $secao, string $hash): CobrancaDocumento
     {
-        $documento = (new CobrancaDocumento())->setCaminhoArquivo($hash);
+        $documento = (new CobrancaDocumento())->setTenant($secao->getTenant())->setCaminhoArquivo($hash);
 
         $reflexao = new \ReflectionProperty(CobrancaSecao::class, 'documentos');
         /** @var Collection<int, CobrancaDocumento> $colecao */
         $colecao = $reflexao->getValue($secao);
         $colecao->add($documento);
+
+        return $documento;
     }
 }

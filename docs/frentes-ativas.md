@@ -11,7 +11,7 @@ Quem abre uma frente acrescenta a linha. Quem integra tira.
 | `expediente-ux` | Expediente + Pasta (telas) | não | `app/templates/expediente/`, `app/templates/pasta/` | implementando, **28 commits atrás do master** | `origin/codex/colaboracao-cobrancas` |
 | `cobranca-reconciliar-data-acordo` | Cobrança (comando) | não | `RelatorioLinhaRepository` (método novo), `ComandosComPiiPassamPelaGuardaTest` (1 linha) | ✅ pronta: 3901/3901, prova por reintrodução feita — **aguarda `/review` e integração** | `master` local @ `18555616` |
 | `import/acervo-pastas` | Pasta (importação de acervo) | não | **nenhum** — os 3 pendentes só tocam `IMPORTACAO-ACERVO.md` | 🗑️ **DESCARTE APROVADO**, aguardando execução humana (ver abaixo) | `c3bfe8ff` (25/05) |
-| `e2-abstracao-storage` | **transversal** — Shared + 9 domínios | **não** | `app/src/Shared/`, `app/config/services.yaml`, `app/src/Shared/CLAUDE.md`, + 35 arquivos de produção | **E2.1 entregue**: contratos e fundações em `app/src/Shared/Armazenamento/`, zero consumidor migrado. E2.0 em `d15535fd`, congelamento em `80ac07cb`. D1–D9 ratificadas | `origin/master` @ `c365fe72` |
+| `e2-abstracao-storage` | **transversal** — Shared + 9 domínios | **não** | `app/src/Shared/`, `app/config/services.yaml`, `app/src/Shared/CLAUDE.md`, + 35 arquivos de produção | **E2.2 entregue**: 7 fábricas de chave (`app/src/<Dominio>/Armazenamento/`), `existe()` migrado em 21 arquivos / 26 chamadas, `diretorio()` do Kanban removido; purga reservada inteira à E2.5. E2.0 em `d15535fd`, congelamento em `80ac07cb`, E2.1 em `f37d5706`. D1–D9 ratificadas (D8 inclusive) | `origin/master` @ `c365fe72` |
 
 ### 🧊 `cobranca-acompanhamento-canonico` — CONGELADA em 15/09/2026
 
@@ -66,11 +66,14 @@ A E2 tira o código de negócio de cima do filesystem: 33 arquivos de produção
 de pedir caminho ao storage e passam a endereçar arquivo por chave. Spec:
 `docs/specs/e2-abstracao-de-storage.md`.
 
-**Estado: E2.1 entregue.** A frente tem a spec, este registro e os contratos novos em
-`app/src/Shared/Armazenamento/` (17 arquivos) mais os testes deles. **Nenhum dos 33 consumidores
-foi migrado**, `ArquivoStorageInterface` e `ArquivoStorageService` seguem intactos e ainda são
-quem atende todo mundo — é o shim de D2. `debug:autowiring` mostra as duas interfaces vivas em
-paralelo, cada uma apontando para a sua implementação.
+**Estado: E2.2 entregue (15/09).** Contratos e fundações em `app/src/Shared/Armazenamento/` (E2.1) e,
+agora, **7 fábricas de chave por domínio** em `app/src/<Dominio>/Armazenamento/` e a presença de
+arquivo (`existe()`) perguntada ao armazenamento novo em **21 arquivos / 26 chamadas**. Estado misto
+de propósito (D2): `caminho()`, `servir()`, `excluir()` e `salvar()` continuam na interface antiga,
+que segue intacta. `PurgarEscritorioUseCase` não foi tocado — fica inteiro para a E2.5 (decisão do
+dono: nomes de sete tabelas, dois sem categoria/chave, laço pós-commit sem `try/catch`). Revisão
+adversarial feita, 6 achados de código corrigidos e reprovados por reintrodução; nenhum bloqueante.
+Detalhes e decisões da execução no bloco "E2.2 — entregue" da spec (§10).
 
 🔑 **Como medir colisão com a E2 — dois filtros, e errar qualquer um dá resposta errada:**
 

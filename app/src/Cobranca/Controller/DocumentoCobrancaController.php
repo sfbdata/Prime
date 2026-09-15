@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Cobranca\Controller;
 
+use App\Cobranca\Armazenamento\ChavesDeCobranca;
 use App\Cobranca\Enum\CategoriaDocumentoCobranca;
 use App\Cobranca\Exception\ArquivoMuitoGrandeException;
 use App\Cobranca\Exception\SecaoNaoEncontradaException;
@@ -21,6 +22,7 @@ use App\Cobranca\UseCase\ReordenarDocumentosCasoUseCase;
 use App\Cobranca\UseCase\ReordenarSecoesCasoUseCase;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
+use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Service\ArquivoStorageInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -59,6 +61,7 @@ final class DocumentoCobrancaController extends AbstractController
         private readonly CobrancaSecaoRepository $secaoRepository,
         private readonly CobrancaDocumentoRepository $documentoRepository,
         private readonly ArquivoStorageInterface $storage,
+        private readonly ArmazenamentoDeArquivos $armazenamento,
         private readonly CsrfTokenManagerInterface $csrfTokenManager,
         private readonly EnviarDocumentoUseCase $enviarDocumento,
         private readonly MoverDocumentoUseCase $moverDocumento,
@@ -308,10 +311,11 @@ final class DocumentoCobrancaController extends AbstractController
             throw $this->createNotFoundException('Documento não encontrado.');
         }
 
-        $caminho = $this->storage->caminho($this->cobrancasUploadsDir . '/' . $tenant->getId(), $documento->getCaminhoArquivo());
-        if (!$this->storage->existe($caminho)) {
+        if (!$this->armazenamento->existe(ChavesDeCobranca::documentoDeCaso($documento))) {
             throw $this->createNotFoundException('Arquivo não encontrado no armazenamento.');
         }
+
+        $caminho = $this->storage->caminho($this->cobrancasUploadsDir . '/' . $tenant->getId(), $documento->getCaminhoArquivo());
 
         return $this->storage->servir($caminho, $documento->getNomeOriginal(), inline: false);
     }

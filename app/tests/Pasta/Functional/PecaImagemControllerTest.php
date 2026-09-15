@@ -54,6 +54,20 @@ final class PecaImagemControllerTest extends JusPrimeWebTestCase
         self::assertStringContainsString('/login', (string) $client->getResponse()->headers->get('Location'));
     }
 
+    #[TestDox('Nome que o armazenamento se recusa a endereçar (".." embutido) responde 404, nunca 500')]
+    public function testNomeQueOArmazenamentoRecusaRetorna404(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioComTenant();
+        $this->logarComTenant($client, $user, $tenant);
+
+        // Passa pelo requirement da rota e pelo basename(): só a chave de armazenamento o recusa.
+        // Para quem pede, é o mesmo que não existir — e a recusa não pode virar erro 500.
+        $client->request('GET', '/uploads/pastas/a..b.jpg');
+
+        self::assertResponseStatusCodeSame(404);
+    }
+
     #[TestDox('Autenticado recebe a imagem da PRÓPRIA subpasta de tenant (200, inline)')]
     public function testAutenticadoServeImagemDaPropriaSubpasta(): void
     {

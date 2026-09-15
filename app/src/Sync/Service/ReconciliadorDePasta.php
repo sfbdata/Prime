@@ -5,10 +5,14 @@ declare(strict_types=1);
 namespace App\Sync\Service;
 
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Armazenamento\ChavesDePasta;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaSecao;
 use App\Pasta\Repository\PastaSecaoRepository;
+use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
+use App\Shared\Armazenamento\Exception\ChaveDeArquivoInvalida;
+use App\Shared\Armazenamento\Exception\FalhaDeArmazenamento;
 use App\Shared\Service\ArquivoStorageInterface;
 use App\Sync\DTO\ResultadoReconciliacaoPasta;
 use App\Sync\Enum\ModoSincronizacao;
@@ -31,6 +35,7 @@ final class ReconciliadorDePasta
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly ArquivoStorageInterface $storage,
+        private readonly ArmazenamentoDeArquivos $armazenamento,
         private readonly PastaSecaoRepository $secaoRepository,
         #[Autowire('%uploads_dir%')]
         private readonly string $uploadsDir,
@@ -201,15 +206,38 @@ final class ReconciliadorDePasta
 
         // --- Via A — sistema→Drive: cada doc sem drive_file_id sobe (seção vira subpasta-espelho, Fork 1). ---
         $docRows = $modo->envia() ? $conn->fetchAllAssociative(
-            'SELECT id, caminho_arquivo FROM pasta_documento WHERE pasta_id = :p AND drive_file_id IS NULL ORDER BY id ASC',
+            'SELECT id, caminho_arquivo, tenant_id FROM pasta_documento WHERE pasta_id = :p AND drive_file_id IS NULL ORDER BY id ASC',
             ['p' => $pastaId],
         ) : [];
         foreach ($docRows as $docRow) {
-            $caminho = $this->storage->caminho($this->uploadsDir, (string) $docRow['caminho_arquivo']);
-            // Checagem read-only, faz sentido no dry-run também (preview fiel ao lote real, §10.6/passo 4).
-            if (!$this->storage->existe($caminho)) {
+            $nomeArquivo = (string) $docRow['caminho_arquivo'];
+            // O caminho ainda é necessário para o envio ao Drive (o client lê por path até a E2.6).
+            $caminho = $this->storage->caminho($this->uploadsDir, $nomeArquivo);
+
+            // E2.2: a presença é perguntada por chave, e o escopo sai do tenant DO DOCUMENTO (R1),
+            // não do tenant da pasta — em dados são o mesmo, mas quem responde pela linha é ela.
+            //
+            // Os dois modos de falha viram erro DO ITEM, como o arquivo ausente já era: nome que o
+            // armazenamento se recusa a endereçar (medido em prod 15/09: zero em 22.750 chaves, mas
+            // aqui a extensão vem do nome do arquivo NO DRIVE, que é dado de fora), e
+            // impossibilidade de determinar a presença
+            // (diretório ilegível, onde o `existe()` novo lança e o antigo devolvia false). A
+            // rodada da pasta segue nos dois casos — uma rodada de cron não pode morrer inteira,
+            // sem contabilizar nada, por causa de um documento.
+            try {
+                $chave    = ChavesDePasta::documentoPorNome((int) $docRow['tenant_id'], $nomeArquivo);
+                $presente = $this->armazenamento->existe($chave);
+            } catch (ChaveDeArquivoInvalida | FalhaDeArmazenamento $e) {
                 $r->erros++;
-                $r->log(sprintf('[erro] doc_id=%d: arquivo físico ausente (%s)', (int) $docRow['id'], (string) $docRow['caminho_arquivo']));
+                $r->log(sprintf('[erro] doc_id=%d: não foi possível endereçar o arquivo (%s): %s', (int) $docRow['id'], $nomeArquivo, $e->getMessage()));
+
+                continue;
+            }
+
+            // Checagem read-only, faz sentido no dry-run também (preview fiel ao lote real, §10.6/passo 4).
+            if (!$presente) {
+                $r->erros++;
+                $r->log(sprintf('[erro] doc_id=%d: arquivo físico ausente (%s)', (int) $docRow['id'], $nomeArquivo));
 
                 continue;
             }

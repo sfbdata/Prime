@@ -84,13 +84,11 @@ final class KanbanAnexoController extends AbstractController
             throw $this->createNotFoundException('Anexo não encontrado.');
         }
 
-        $caminho = $this->arquivos->caminhoDe($anexo);
-
-        if (!$this->storage->existe($caminho)) {
+        if (!$this->arquivos->existe($anexo)) {
             throw $this->createNotFoundException('Arquivo não encontrado.');
         }
 
-        return $this->storage->servir($caminho, $anexo->getNomeOriginal(), inline: true);
+        return $this->storage->servir($this->arquivos->caminhoDe($anexo), $anexo->getNomeOriginal(), inline: true);
     }
 
     #[Route('/anexo/{id}/excluir', name: 'kanban_anexo_excluir', methods: ['POST'], requirements: ['id' => '\d+'])]

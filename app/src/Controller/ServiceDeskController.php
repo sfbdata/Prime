@@ -15,6 +15,8 @@ use App\Repository\UserRepository;
 use App\Service\NotificacaoService;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
+use App\ServiceDesk\Armazenamento\ChavesDeServiceDesk;
+use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Service\ArquivoStorageService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -60,6 +62,7 @@ class ServiceDeskController extends AbstractController
         private readonly string $chamadosUploadsDir,
         private readonly NotificacaoService $notificacaoService,
         private readonly ArquivoStorageService $storage,
+        private readonly ArmazenamentoDeArquivos $armazenamento,
         private readonly TenantContext $tenantContext,
     ) {
     }
@@ -423,10 +426,11 @@ class ServiceDeskController extends AbstractController
             throw $this->createNotFoundException('Anexo não encontrado.');
         }
 
-        $caminho = $this->storage->caminho($this->chamadosUploadsDir, $anexo->getNomeArquivo());
-        if (!$this->storage->existe($caminho)) {
+        if (!$this->armazenamento->existe(ChavesDeServiceDesk::anexoDeChamado($anexo))) {
             throw $this->createNotFoundException('Arquivo não encontrado.');
         }
+
+        $caminho = $this->storage->caminho($this->chamadosUploadsDir, $anexo->getNomeArquivo());
 
         return $this->storage->servir($caminho, $anexo->getNomeOriginal(), inline: true);
     }

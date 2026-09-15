@@ -42,9 +42,14 @@ final class ProdutoresDeAnexoPathTest extends TestCase
      * `SubstituirAnexoDoLoteUseCase` NÃO está aqui de propósito: ele lê o anexo por projeção
      * escalar (`anexoNoBancoPorId`), justamente para pegar o valor do banco sob a trava em vez do
      * que estiver no identity map.
+     *
+     * `ChavesDePonto` (E2.2) lê o getter para montar a `ChaveDeArquivo` da própria justificativa —
+     * o valor vai para o storage como endereço e nunca para `setAnexoPath()` de outro registro.
+     * Leitor legítimo; a monotonicidade das referências continua de pé.
      */
     private const LEITORES = [
         'src/Controller/TenantController.php',
+        'src/Ponto/Armazenamento/ChavesDePonto.php',
         'src/Ponto/Controller/PontoController.php',
     ];
 

@@ -2,6 +2,7 @@
 
 namespace App\Controller;
 
+use App\Ponto\Armazenamento\ChavesDePonto;
 use App\Ponto\Validacao\RestricoesAnexoJustificativa;
 use App\Ponto\Entity\JornadaColaborador;
 use App\Ponto\Entity\JustificativaPonto;
@@ -55,6 +56,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Form\FormError;
+use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Service\ArquivoStorageService;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -69,6 +71,7 @@ final class TenantController extends AbstractController
     public function __construct(
         private readonly string $justificativasUploadsDir,
         private readonly ArquivoStorageService $storage,
+        private readonly ArmazenamentoDeArquivos $armazenamento,
         private readonly TenantContext $tenantContext,
         private readonly InicioContagemResolver $inicioContagemResolver,
     ) {}
@@ -1576,11 +1579,11 @@ final class TenantController extends AbstractController
             throw $this->createNotFoundException('Esta justificativa não possui atestado.');
         }
 
-        $filePath = $this->storage->caminho($this->justificativasUploadsDir, $justificativa->getAnexoPath());
-
-        if (!$this->storage->existe($filePath)) {
+        if (!$this->armazenamento->existe(ChavesDePonto::anexoDeJustificativa($justificativa))) {
             throw $this->createNotFoundException('Arquivo não encontrado.');
         }
+
+        $filePath = $this->storage->caminho($this->justificativasUploadsDir, $justificativa->getAnexoPath());
 
         return $this->storage->servir($filePath, $justificativa->getAnexoPath(), inline: true);
     }

@@ -53,6 +53,25 @@ final class ReconciliadorDePastaTest extends KernelTestCase
         $em->flush();
     }
 
+    /** Linha de `pasta_documento` apontando para um nome que NÃO existe em disco. */
+    private function criarDocumentoSemArquivo(int $pastaId, string $caminhoArquivo): void
+    {
+        $em    = $this->em();
+        $pasta = $em->find(Pasta::class, $pastaId);
+
+        $doc = (new PastaDocumento())
+            ->setTitulo('fantasma')
+            ->setCategoria(PastaDocumento::CATEGORIA_DEMAIS)
+            ->setCaminhoArquivo($caminhoArquivo)
+            ->setNomeOriginal('fantasma.pdf')
+            ->setMimeType('application/pdf')
+            ->setTamanhoBytes(10)
+            ->setPasta($pasta)
+            ->setTenant($pasta->getTenant());
+        $em->persist($doc);
+        $em->flush();
+    }
+
     #[TestDox('sincronizarPasta cria o folder no Drive e sobe o documento pendente')]
     public function testSincronizaUmaPastaPontaAPonta(): void
     {
@@ -84,6 +103,73 @@ final class ReconciliadorDePastaTest extends KernelTestCase
         self::assertNotFalse($driveFileId);
         self::assertNotNull($driveFileId);
         self::assertSame($folderId, $fake->arquivos[$driveFileId]['folder']);
+    }
+
+    #[TestDox('documento cujo arquivo físico sumiu conta erro e a rodada segue (E2.2 preserva o comportamento)')]
+    public function testArquivoFisicoAusenteContaErroESegue(): void
+    {
+        self::bootKernel();
+        $tenant = TenantFactory::createOne();
+        $pasta  = PastaFactory::createOne(['tenant' => $tenant, 'nup' => '889', 'nomeCliente' => 'AUSENTE']);
+        $this->criarDocumentoSemArquivo($pasta->getId(), 'nunca-gravado-' . uniqid() . '.pdf');
+
+        $fake = new FakeGoogleDriveClient();
+        $r    = self::getContainer()->get(ReconciliadorDePasta::class)->sincronizarPasta($pasta->getId(), 'RAIZ', $fake);
+
+        self::assertSame(1, $r->erros);
+        self::assertSame(0, $r->arquivosEnviados);
+        self::assertFalse($r->fatal, 'arquivo ausente não é fatal: a rodada continua');
+        self::assertCount(0, $fake->arquivos, 'nada pode subir ao Drive sem o arquivo');
+        self::assertStringContainsString('arquivo físico ausente', implode("\n", $r->mensagens));
+    }
+
+    #[TestDox('disco ilegível conta erro do item e a rodada segue — não derruba a reconciliação inteira')]
+    public function testDiscoIlegivelContaErroESegue(): void
+    {
+        self::bootKernel();
+        $tenant = TenantFactory::createOne();
+        $pasta  = PastaFactory::createOne(['tenant' => $tenant, 'nup' => '891', 'nomeCliente' => 'ILEGIVEL']);
+        $this->criarDocumento($pasta->getId(), 'peca.pdf');
+
+        $uploadsDir   = rtrim((string) self::getContainer()->getParameter('uploads_dir'), '/');
+        $modoOriginal = fileperms($uploadsDir) & 0777;
+        self::assertTrue(chmod($uploadsDir, 0o000), 'pré-condição: o teste precisa tornar o diretório ilegível');
+
+        $fake = new FakeGoogleDriveClient();
+
+        try {
+            self::assertFalse(is_readable($uploadsDir), 'pré-condição: o processo não pode estar rodando como root');
+
+            // Uma rodada de cron varre milhares de documentos. Se o `existe()` novo propagasse a
+            // falha de I/O, a rodada morreria inteira, sem contabilizar nada e sem marcar `fatal`.
+            $r = self::getContainer()->get(ReconciliadorDePasta::class)->sincronizarPasta($pasta->getId(), 'RAIZ', $fake);
+        } finally {
+            chmod($uploadsDir, $modoOriginal);
+        }
+
+        self::assertSame(1, $r->erros);
+        self::assertSame(0, $r->arquivosEnviados);
+        self::assertFalse($r->fatal);
+        self::assertStringContainsString('não foi possível endereçar o arquivo', implode("\n", $r->mensagens));
+    }
+
+    #[TestDox('documento cujo nome o armazenamento se recusa a endereçar conta erro e a rodada segue')]
+    public function testNomeQueOArmazenamentoRecusaContaErroESegue(): void
+    {
+        self::bootKernel();
+        $tenant = TenantFactory::createOne();
+        $pasta  = PastaFactory::createOne(['tenant' => $tenant, 'nup' => '890', 'nomeCliente' => 'INVALIDO']);
+        // Nunca gravado pelo sistema (medido: zero no acervo) — mas se aparecer, é erro do item,
+        // não queda da rodada inteira.
+        $this->criarDocumentoSemArquivo($pasta->getId(), 'sub/dir/peca.pdf');
+
+        $fake = new FakeGoogleDriveClient();
+        $r    = self::getContainer()->get(ReconciliadorDePasta::class)->sincronizarPasta($pasta->getId(), 'RAIZ', $fake);
+
+        self::assertSame(1, $r->erros);
+        self::assertSame(0, $r->arquivosEnviados);
+        self::assertFalse($r->fatal);
+        self::assertStringContainsString('não foi possível endereçar o arquivo', implode("\n", $r->mensagens));
     }
 
     #[TestDox('sincronizarPasta é idempotente — a 2ª chamada não recria nem re-sobe nada')]

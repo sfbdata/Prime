@@ -12,6 +12,7 @@ use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Repository\PastaDocumentoRepository;
 use App\Pasta\Service\ArquivosReferenciadosEmPecas;
 use App\Pasta\Service\ReferenciasDePecaHtml;
+use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Service\ArquivoStorageInterface;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
@@ -123,6 +124,34 @@ final class ArquivosReferenciadosEmPecasTest extends JusPrimeWebTestCase
         self::assertSame([], $servico->doTenant($tenant));
     }
 
+    #[TestDox('Peça cujo nome o armazenamento se recusa a endereçar é ignorada, sem estourar')]
+    public function testPecaComNomeImpossivelDeEnderecarEhIgnorada(): void
+    {
+        self::bootKernel();
+        [$tenant] = $this->criarTenantComUsuario();
+
+        $em    = static::getContainer()->get(EntityManagerInterface::class);
+        $pasta = $this->criarPasta($tenant);
+
+        // Um nome com separador de caminho nunca foi gravado pelo sistema (medido: zero no acervo),
+        // mas se um dia aparecer, a regra é a mesma do arquivo ausente: a peça não consegue
+        // referenciar nada — e a rotina de limpeza não pode estourar por causa dela.
+        $doc = new PastaDocumento();
+        $doc->setTitulo('peça com nome impossível');
+        $doc->setCategoria(PastaDocumento::CATEGORIA_DEMAIS);
+        $doc->setCaminhoArquivo('sub/peca.html');
+        $doc->setNomeOriginal('peca.html');
+        $doc->setMimeType('text/html');
+        $doc->setTamanhoBytes(10);
+        $doc->setOrdem(1);
+        $doc->setPasta($pasta);
+        $doc->setTenant($tenant);
+        $em->persist($doc);
+        $em->flush();
+
+        self::assertSame([], $this->servico()->doTenant($tenant));
+    }
+
     // ------------------------------------------------------------------ helpers
 
     /**
@@ -136,6 +165,7 @@ final class ArquivosReferenciadosEmPecasTest extends JusPrimeWebTestCase
         return new ArquivosReferenciadosEmPecas(
             static::getContainer()->get(PastaDocumentoRepository::class),
             static::getContainer()->get(ArquivoStorageInterface::class),
+            static::getContainer()->get(ArmazenamentoDeArquivos::class),
             new ReferenciasDePecaHtml(),
             (string) static::getContainer()->getParameter('uploads_dir'),
         );

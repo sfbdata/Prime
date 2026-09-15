@@ -5,13 +5,19 @@ declare(strict_types=1);
 namespace App\Tests\Pasta\Unit;
 
 use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
+use App\Pasta\Armazenamento\ChavesDePasta;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
-use App\Entity\Tenant\Tenant;
 use App\Pasta\Service\NumeracaoDePastaInterface;
 use App\Pasta\UseCase\ExcluirPastaUseCase;
 use App\Pasta\UseCase\ResultadoExclusaoPasta;
+use App\Shared\Armazenamento\CategoriaDeArquivo;
+use App\Shared\Armazenamento\ChaveDeArquivo;
+use App\Shared\Armazenamento\EscopoDeArquivo;
+use App\Shared\Armazenamento\FonteDeConteudo;
 use App\Shared\Service\ArquivoStorageInterface;
+use App\Tests\Shared\Doubles\ArmazenamentoEmMemoria;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -26,12 +32,17 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
  *
  * O que ele NÃO prova, de propósito: se a resposta da sequência está certa. Isso é expressão SQL
  * contra o Postgres e tem prova própria em ExcluirPastaLapideTest (funcional).
+ *
+ * Estado misto da E2.2: a presença do arquivo é perguntada ao armazenamento novo, por chave (o
+ * dublê em memória materializa o escopo — tenant errado quebra aqui, R1); a remoção ainda é da
+ * interface antiga, por caminho, até a E2.5.
  */
 #[CoversClass(ExcluirPastaUseCase::class)]
 final class ExcluirPastaUseCaseTest extends TestCase
 {
     private EntityManagerInterface&MockObject $em;
     private ArquivoStorageInterface&MockObject $storage;
+    private ArmazenamentoEmMemoria $armazenamento;
     private NumeracaoDePastaInterface&MockObject $numeracao;
     private ExcluirPastaUseCase $useCase;
     private Tenant $tenant;
@@ -39,9 +50,10 @@ final class ExcluirPastaUseCaseTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->em        = $this->createMock(EntityManagerInterface::class);
-        $this->storage   = $this->createMock(ArquivoStorageInterface::class);
-        $this->numeracao = $this->createMock(NumeracaoDePastaInterface::class);
+        $this->em            = $this->createMock(EntityManagerInterface::class);
+        $this->storage       = $this->createMock(ArquivoStorageInterface::class);
+        $this->armazenamento = new ArmazenamentoEmMemoria();
+        $this->numeracao     = $this->createMock(NumeracaoDePastaInterface::class);
 
         // O UseCase envolve tudo em transação; aqui a transação é o próprio callback.
         $this->em->method('wrapInTransaction')->willReturnCallback(
@@ -51,11 +63,13 @@ final class ExcluirPastaUseCaseTest extends TestCase
         $this->useCase = new ExcluirPastaUseCase(
             $this->em,
             $this->storage,
+            $this->armazenamento,
             '/uploads/pastas',
             $this->numeracao,
         );
 
         $this->tenant = new Tenant();
+        (new \ReflectionProperty(Tenant::class, 'id'))->setValue($this->tenant, 7);
         $this->autor  = (new User())->setEmail('autor@test.com');
     }
 
@@ -98,14 +112,15 @@ final class ExcluirPastaUseCaseTest extends TestCase
     public function testUltimaComDocumentosApagaOsArquivos(): void
     {
         $this->ehAUltima(true);
-        $pasta = $this->criarPasta($this->tenant, [
-            $this->criarDocumento('arquivo1.pdf'),
-            $this->criarDocumento('arquivo2.pdf'),
-        ]);
+        $doc1  = $this->criarDocumento('arquivo1.pdf');
+        $doc2  = $this->criarDocumento('arquivo2.pdf');
+        $pasta = $this->criarPasta($this->tenant, [$doc1, $doc2]);
+        $this->armazenamento->gravar(ChavesDePasta::documento($doc1), FonteDeConteudo::deTexto('1'));
+        $this->armazenamento->gravar(ChavesDePasta::documento($doc2), FonteDeConteudo::deTexto('2'));
 
         $this->storage->method('caminho')
             ->willReturnCallback(fn (string $dir, string $nome) => $dir . '/' . $nome);
-        $this->storage->method('existe')->willReturn(true);
+        $this->storage->expects($this->never())->method('existe');
 
         $this->storage->expects($this->exactly(2))->method('excluir');
         $this->em->expects($this->once())->method('remove')->with($pasta);
@@ -122,8 +137,21 @@ final class ExcluirPastaUseCaseTest extends TestCase
         $this->ehAUltima(true);
         $pasta = $this->criarPasta($this->tenant, [$this->criarDocumento('ausente.pdf')]);
 
-        $this->storage->method('caminho')->willReturn('/uploads/pastas/ausente.pdf');
-        $this->storage->method('existe')->willReturn(false);
+        $this->storage->expects($this->never())->method('excluir');
+        $this->em->expects($this->once())->method('remove')->with($pasta);
+
+        $this->useCase->executar($pasta, $this->autor, $this->tenant);
+    }
+
+    #[TestDox('Arquivo de OUTRO escritório com o mesmo nome não é enxergado — nem apagado')]
+    public function testNaoEnxergaArquivoDeOutroEscritorioComOMesmoNome(): void
+    {
+        $this->ehAUltima(true);
+        $pasta = $this->criarPasta($this->tenant, [$this->criarDocumento('mesmo-nome.pdf')]);
+        $this->armazenamento->gravar(
+            new ChaveDeArquivo(EscopoDeArquivo::deTenant(99), CategoriaDeArquivo::PASTA_DOCUMENTO, 'mesmo-nome.pdf'),
+            FonteDeConteudo::deTexto('do escritório 99'),
+        );
 
         $this->storage->expects($this->never())->method('excluir');
         $this->em->expects($this->once())->method('remove')->with($pasta);
@@ -152,10 +180,11 @@ final class ExcluirPastaUseCaseTest extends TestCase
     public function testLapidePreservaOsArquivosNoDisco(): void
     {
         $this->ehAUltima(false);
-        $pasta = $this->criarPasta($this->tenant, [
-            $this->criarDocumento('contrato.pdf'),
-            $this->criarDocumento('procuracao.pdf'),
-        ]);
+        $doc1  = $this->criarDocumento('contrato.pdf');
+        $doc2  = $this->criarDocumento('procuracao.pdf');
+        $pasta = $this->criarPasta($this->tenant, [$doc1, $doc2]);
+        $this->armazenamento->gravar(ChavesDePasta::documento($doc1), FonteDeConteudo::deTexto('c'));
+        $this->armazenamento->gravar(ChavesDePasta::documento($doc2), FonteDeConteudo::deTexto('p'));
 
         // O ponto da decisão do dono: a pasta riscada tem que abrir e mostrar o que já foi feito.
         $this->storage->expects($this->never())->method('excluir');
@@ -164,6 +193,8 @@ final class ExcluirPastaUseCaseTest extends TestCase
             ResultadoExclusaoPasta::Lapide,
             $this->useCase->executar($pasta, $this->autor, $this->tenant),
         );
+        self::assertTrue($this->armazenamento->existe(ChavesDePasta::documento($doc1)));
+        self::assertTrue($this->armazenamento->existe(ChavesDePasta::documento($doc2)));
     }
 
     #[TestDox('A sequência é travada ANTES de decidir, senão a decisão nasce errada em silêncio')]
@@ -208,6 +239,7 @@ final class ExcluirPastaUseCaseTest extends TestCase
     {
         $doc = $this->createMock(PastaDocumento::class);
         $doc->method('getCaminhoArquivo')->willReturn($caminhoArquivo);
+        $doc->method('getTenant')->willReturn($this->tenant);
 
         return $doc;
     }

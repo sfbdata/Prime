@@ -3,6 +3,7 @@
 namespace App\Cliente\Controller;
 
 use App\Controller\Trait\ResourceAccessTrait;
+use App\Cliente\Armazenamento\ChavesDeCliente;
 use App\Cliente\Entity\Cliente;
 use App\Cliente\Entity\ClienteDocumento;
 use App\Cliente\Entity\ClientePF;
@@ -15,6 +16,7 @@ use App\Pasta\Repository\PastaRepository;
 use App\Entity\Permission\AccessRequest;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
+use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Service\ArquivoStorageService;
 use App\Shared\Service\CompressorArquivoInterface;
 use Doctrine\DBAL\Exception\ForeignKeyConstraintViolationException;
@@ -91,6 +93,7 @@ class ClienteController extends AbstractController
         private readonly PermissionChecker $permissionChecker,
         private readonly TenantContext $tenantContext,
         private readonly ArquivoStorageService $storage,
+        private readonly ArmazenamentoDeArquivos $armazenamento,
         private readonly CompressorArquivoInterface $compressor,
         private readonly string $clientesUploadsDir,
     ) {}
@@ -350,11 +353,11 @@ class ClienteController extends AbstractController
             throw $this->createAccessDeniedException('Você não tem permissão para acessar documentos deste cliente.');
         }
 
-        $caminho = $this->storage->caminho($this->clientesUploadsDir, $doc->getCaminhoArquivo());
-
-        if (!$this->storage->existe($caminho)) {
+        if (!$this->armazenamento->existe(ChavesDeCliente::documento($doc))) {
             throw $this->createNotFoundException('Arquivo não encontrado no servidor.');
         }
+
+        $caminho = $this->storage->caminho($this->clientesUploadsDir, $doc->getCaminhoArquivo());
 
         return $this->storage->servir($caminho, $doc->getNomeOriginal(), inline: true);
     }
@@ -370,12 +373,12 @@ class ClienteController extends AbstractController
             throw $this->createAccessDeniedException('Você não tem permissão para acessar documentos deste cliente.');
         }
 
-        $caminho = $this->storage->caminho($this->clientesUploadsDir, $doc->getCaminhoArquivo());
-
-        if (!$this->storage->existe($caminho)) {
+        if (!$this->armazenamento->existe(ChavesDeCliente::documento($doc))) {
             $this->addFlash('error', 'Arquivo não encontrado no servidor.');
             return $this->redirectToRoute('cliente_show', ['id' => $doc->getCliente()?->getId()]);
         }
+
+        $caminho = $this->storage->caminho($this->clientesUploadsDir, $doc->getCaminhoArquivo());
 
         return $this->storage->servir($caminho, $doc->getNomeOriginal(), inline: false);
     }

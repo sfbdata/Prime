@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Pasta\Controller;
 
+use App\Pasta\Armazenamento\ChavesDePasta;
 use App\Service\Tenant\TenantContext;
+use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
+use App\Shared\Armazenamento\Exception\ChaveDeArquivoInvalida;
 use App\Shared\Service\ArquivoStorageInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
@@ -31,6 +34,7 @@ final class PecaImagemController extends AbstractController
 {
     public function __construct(
         private readonly ArquivoStorageInterface $storage,
+        private readonly ArmazenamentoDeArquivos $armazenamento,
         private readonly TenantContext $tenantContext,
         private readonly string $uploadsDir,
     ) {
@@ -55,10 +59,19 @@ final class PecaImagemController extends AbstractController
             throw $this->createNotFoundException();
         }
 
-        $caminho = $this->storage->caminho($this->uploadsDir . '/' . $tenant->getId(), $nome);
-        if (!$this->storage->existe($caminho)) {
+        // O nome vem da URL, não do banco: se o armazenamento se recusa a endereçá-lo (".."
+        // embutido, por exemplo), para quem pede é o mesmo que não existir — 404, nunca 500.
+        try {
+            $chave = ChavesDePasta::imagemDoEditor($tenant, $nome);
+        } catch (ChaveDeArquivoInvalida) {
             throw $this->createNotFoundException();
         }
+
+        if (!$this->armazenamento->existe($chave)) {
+            throw $this->createNotFoundException();
+        }
+
+        $caminho = $this->storage->caminho($this->uploadsDir . '/' . $tenant->getId(), $nome);
 
         return $this->storage->servir($caminho, $nome, inline: true);
     }

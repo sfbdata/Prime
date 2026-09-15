@@ -7,82 +7,48 @@ use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Profile\Controller\ProfileController;
 use App\Profile\Entity\UserProfile;
-use App\Shared\Service\ArquivoStorageInterface;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use App\Tests\Functional\JusPrimeWebTestCase;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
-use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 #[CoversClass(ProfileController::class)]
 final class ServirFotoControllerTest extends JusPrimeWebTestCase
 {
-    private string $tempDir = '';
-
-    protected function setUp(): void
-    {
-        parent::setUp();
-        $this->tempDir = sys_get_temp_dir() . '/jusprime_foto_test_' . uniqid();
-        mkdir($this->tempDir, 0755, true);
-    }
+    /** @var list<string> */
+    private array $arquivosCriados = [];
 
     protected function tearDown(): void
     {
-        foreach (glob($this->tempDir . '/*') ?: [] as $arquivo) {
+        foreach ($this->arquivosCriados as $arquivo) {
             @unlink($arquivo);
         }
-        @rmdir($this->tempDir);
+        $this->arquivosCriados = [];
         parent::tearDown();
     }
 
+    /**
+     * Grava a foto no diretório REAL de fotos do ambiente de teste (`fotos_perfil_dir`, que em
+     * `APP_ENV=test` aponta para `var/uploads-test/perfil`). Antes da E2.2 o teste trocava o
+     * storage por um dublê apontando para um diretório temporário; com a presença perguntada ao
+     * armazenamento novo, os dois storages precisam enxergar o mesmo lugar — e o único jeito
+     * honesto de garantir isso é usar o diretório configurado, sem dublê nenhum.
+     */
     private function criarArquivoFoto(string $nomeArquivo): void
     {
+        $dir = (string) static::getContainer()->getParameter('fotos_perfil_dir');
+        if (!is_dir($dir)) {
+            mkdir($dir, 0775, true);
+        }
+
         // JPEG mínimo válido para o BinaryFileResponse ter um arquivo real
+        $caminho = $dir . '/' . $nomeArquivo;
         file_put_contents(
-            $this->tempDir . '/' . $nomeArquivo,
+            $caminho,
             "\xFF\xD8\xFF\xE0\x00\x10JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00\xFF\xD9"
         );
-    }
-
-    private function storageFakeComDir(string $dir): ArquivoStorageInterface
-    {
-        return new class($dir) implements ArquivoStorageInterface {
-            public function __construct(private readonly string $dir) {}
-
-            public function salvar(UploadedFile $arquivo, string $diretorio): string
-            {
-                throw new \LogicException('não utilizado neste teste');
-            }
-
-            public function servir(string $caminhoCompleto, string $nomeOriginal, bool $inline = true): BinaryFileResponse
-            {
-                return new BinaryFileResponse($caminhoCompleto);
-            }
-
-            public function excluir(string $caminhoCompleto): void {}
-
-            public function existe(string $caminhoCompleto): bool
-            {
-                return file_exists($caminhoCompleto);
-            }
-
-            public function salvarConteudo(string $conteudo, string $diretorio, string $extensao): string
-            {
-                throw new \LogicException('não utilizado neste teste');
-            }
-
-            public function moverParaArmazenamento(string $caminhoOrigem, string $diretorio, string $extensao): string
-            {
-                throw new \LogicException('não utilizado neste teste');
-            }
-
-            public function caminho(string $diretorio, string $nomeArquivo): string
-            {
-                return $this->dir . '/' . $nomeArquivo;
-            }
-        };
+        $this->arquivosCriados[] = $caminho;
     }
 
     private function criarTenant(string $prefixo = 'Tenant'): Tenant
@@ -150,7 +116,6 @@ final class ServirFotoControllerTest extends JusPrimeWebTestCase
         $fotoB  = 'foto_colaborador_' . uniqid() . '.jpg';
 
         $this->criarArquivoFoto($fotoB);
-        static::getContainer()->set(ArquivoStorageInterface::class, $this->storageFakeComDir($this->tempDir));
 
         $userA = $this->criarUsuarioSemFoto($tenant);
         $this->criarUsuarioComFoto($tenant, $fotoB);
@@ -202,7 +167,6 @@ final class ServirFotoControllerTest extends JusPrimeWebTestCase
         $fotoA  = 'foto_dono_' . uniqid() . '.jpg';
 
         $this->criarArquivoFoto($fotoA);
-        static::getContainer()->set(ArquivoStorageInterface::class, $this->storageFakeComDir($this->tempDir));
 
         $userA = $this->criarUsuarioComFoto($tenant, $fotoA);
 
@@ -210,6 +174,23 @@ final class ServirFotoControllerTest extends JusPrimeWebTestCase
         $client->request('GET', '/perfil/foto/' . $fotoA);
 
         self::assertResponseIsSuccessful();
+    }
+
+    #[TestDox('GET /perfil/foto/{nome} com fotoUrl que o armazenamento se recusa a endereçar retorna 404, nunca 500')]
+    public function testServirFotoComNomeQueOArmazenamentoRecusaRetorna404(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+
+        // ".." embutido passa pelo requirement da rota ([^/]+) e pelo basename(); só a chave de
+        // armazenamento o recusa. O nome está no BANCO (é o fotoUrl do próprio usuário), então a
+        // consulta encontra o perfil e a recusa acontece depois — e tem de virar 404.
+        $userA = $this->criarUsuarioComFoto($tenant, 'a..b.jpg');
+
+        $this->logarComTenant($client, $userA, $tenant);
+        $client->request('GET', '/perfil/foto/a..b.jpg');
+
+        self::assertResponseStatusCodeSame(404);
     }
 
     #[TestDox('GET /perfil/foto/{nome} com tentativa de path traversal retorna 404')]

@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace App\Pasta\Service;
 
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Armazenamento\ChavesDePasta;
 use App\Pasta\Repository\PastaDocumentoRepository;
+use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
+use App\Shared\Armazenamento\Exception\ChaveDeArquivoInvalida;
 use App\Shared\Service\ArquivoStorageInterface;
 
 /**
@@ -28,6 +31,7 @@ final class ArquivosReferenciadosEmPecas
     public function __construct(
         private readonly PastaDocumentoRepository $documentos,
         private readonly ArquivoStorageInterface $storage,
+        private readonly ArmazenamentoDeArquivos $armazenamento,
         private readonly ReferenciasDePecaHtml $referencias,
         private readonly string $uploadsDir,
     ) {
@@ -38,24 +42,36 @@ final class ArquivosReferenciadosEmPecas
      *
      * Peça cujo arquivo não existe mais em disco é ignorada em silêncio: ela não consegue
      * referenciar nada, e estourar aqui transformaria uma inconsistência velha num erro novo.
+     * Vale a mesma regra para um nome que o armazenamento se recusa a endereçar (medido em prod
+     * 15/09: zero em 22.750 chaves) — a peça também não referencia nada, e a rotina de limpeza
+     * não pode estourar por causa dela.
+     *
+     * E2.2: a presença é perguntada por chave; a leitura do HTML continua crua até a E2.4.
      *
      * @return string[]
      */
     public function doTenant(Tenant $tenant): array
     {
         $referenciados = [];
+        $tenantId      = $tenant->getId() ?? throw new ChaveDeArquivoInvalida(
+            'Escritório sem id: não há como montar a chave de armazenamento das peças dele.',
+        );
 
-        foreach ($this->documentos->chavesDePecasHtmlDoTenant($tenant) as $chave) {
-            $caminho = $this->storage->caminho($this->uploadsDir, $chave);
-
-            if (!$this->storage->existe($caminho)) {
+        foreach ($this->documentos->chavesDePecasHtmlDoTenant($tenant) as $nomeDaPeca) {
+            try {
+                $chave = ChavesDePasta::documentoPorNome($tenantId, $nomeDaPeca);
+            } catch (ChaveDeArquivoInvalida) {
                 continue;
             }
 
-            $html = (string) file_get_contents($caminho);
+            if (!$this->armazenamento->existe($chave)) {
+                continue;
+            }
 
-            foreach ($this->referencias->extrair($html) as $nome) {
-                $referenciados[$nome] = true;
+            $html = (string) file_get_contents($this->storage->caminho($this->uploadsDir, $nomeDaPeca));
+
+            foreach ($this->referencias->extrair($html) as $nomeReferenciado) {
+                $referenciados[$nomeReferenciado] = true;
             }
         }
 

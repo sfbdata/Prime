@@ -433,6 +433,64 @@ final class PastaSecaoControllerTest extends JusPrimeWebTestCase
         self::assertFalse($storage->existe($caminhoNeta), 'o arquivo da NETA devia ter sido removido do disco — é o que a recursão prova');
     }
 
+    #[TestDox('disco ilegível DEPOIS do commit não vira 500: a seção já foi excluída e não há como repetir')]
+    public function testFalhaDeDiscoDepoisDoCommitNaoDerrubaARequisicao(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $em         = static::getContainer()->get(EntityManagerInterface::class);
+        $storage    = static::getContainer()->get(ArquivoStorageInterface::class);
+        $uploadsDir = rtrim((string) static::getContainer()->getParameter('uploads_dir'), '/');
+
+        $secao       = $this->criarSecao($pasta, $tenant);
+        $nomeStorage = $storage->salvarConteudo('conteudo', $uploadsDir, 'pdf');
+
+        $doc = new PastaDocumento();
+        $doc->setTitulo('doc');
+        $doc->setCategoria(PastaDocumento::CATEGORIA_DEMAIS);
+        $doc->setCaminhoArquivo($nomeStorage);
+        $doc->setNomeOriginal('doc.pdf');
+        $doc->setMimeType('application/pdf');
+        $doc->setTamanhoBytes(10);
+        $doc->setOrdem(1);
+        $doc->setPasta($pasta);
+        $doc->setTenant($tenant);
+        $doc->setSecao($secao);
+        $em->persist($doc);
+        $em->flush();
+
+        $secaoId = (int) $secao->getId();
+        $em->clear();
+
+        // Diretório ilegível de verdade — não um dublê. É a diferença que a E2.2 introduziu: o
+        // `existe()` novo LANÇA quando não consegue determinar a presença, onde o antigo devolvia
+        // false. Como o laço roda DEPOIS do COMMIT, propagar viraria 500 com a seção já apagada.
+        $modoOriginal = fileperms($uploadsDir) & 0777;
+        self::assertTrue(chmod($uploadsDir, 0o000), 'pré-condição: o teste precisa conseguir tornar o diretório ilegível');
+
+        try {
+            self::assertFalse(is_readable($uploadsDir), 'pré-condição: o processo não pode estar rodando como root');
+
+            $client->request('POST', '/pasta/secao/' . $secaoId . '/excluir', [
+                '_token' => $this->csrf('pasta_secao_excluir_' . $secaoId),
+            ]);
+
+            self::assertResponseIsSuccessful('falha de disco pós-commit não pode virar erro para quem chamou');
+        } finally {
+            chmod($uploadsDir, $modoOriginal);
+        }
+
+        $em->clear();
+        self::assertNull(
+            $em->find(PastaSecao::class, $secaoId),
+            'a seção foi excluída no banco antes do disco: o resultado da requisição tem de refletir isso',
+        );
+    }
+
     #[TestDox('excluir com ciclo gravado por fora dos guards (ex.: desfazer da auditoria) não estoura a memória')]
     public function testExcluirComCicloNoPaiNaoEstouraAMemoria(): void
     {

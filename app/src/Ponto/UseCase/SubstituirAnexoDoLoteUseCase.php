@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Ponto\UseCase;
 
 use App\Entity\Tenant\Tenant;
+use App\Ponto\Armazenamento\ChavesDePonto;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Repository\JustificativaPontoRepository;
 use App\Ponto\Validacao\RestricoesAnexoJustificativa;
+use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Service\ArquivoStorageInterface;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
@@ -48,6 +50,13 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
  * Como defesa em profundidade, a fase 2 roda sob trava derivada do ARQUIVO (não do lote): o recurso
  * disputado é o arquivo, e travar pelo lote não bastaria se um dia um arquivo passasse a ser
  * referenciado por dois lotes.
+ *
+ * ## Estado misto da E2.2 (D2)
+ *
+ * A PRESENÇA do arquivo é perguntada ao armazenamento novo, por chave montada a partir da
+ * justificativa dona (`ChavesDePonto` — o escopo sai da entidade, nunca do `$tenant` recebido por
+ * parâmetro, R1). A gravação e a REMOÇÃO continuam pela interface antiga, por caminho, até as
+ * fatias E2.4/E2.5.
  */
 final class SubstituirAnexoDoLoteUseCase
 {
@@ -59,6 +68,7 @@ final class SubstituirAnexoDoLoteUseCase
         private readonly EntityManagerInterface $em,
         private readonly JustificativaPontoRepository $repositorio,
         private readonly ArquivoStorageInterface $storage,
+        private readonly ArmazenamentoDeArquivos $armazenamento,
         private readonly ValidatorInterface $validator,
         private readonly LoggerInterface $logger,
         private readonly string $justificativasUploadsDir,
@@ -130,7 +140,7 @@ final class SubstituirAnexoDoLoteUseCase
             // statement_timeout). O arquivo novo foi gravado antes do commit; se o banco
             // recusou, ninguém chegou a referenciá-lo.
             if (isset($novoAnexo) && \is_string($novoAnexo)) {
-                $this->removerBestEffort($novoAnexo, 'rollback da substituição');
+                $this->removerBestEffort($novoAnexo, $justificativa, 'rollback da substituição');
             }
 
             throw $e;
@@ -138,7 +148,7 @@ final class SubstituirAnexoDoLoteUseCase
 
         // ---- Fase 2: só agora o disco, e só se ninguém mais referenciar -------------------
         if ($anexoAntigo !== null && $anexoAntigo !== '' && $anexoAntigo !== $novoAnexo) {
-            $this->apagarAntigoSeOrfao($anexoAntigo, $tenant);
+            $this->apagarAntigoSeOrfao($anexoAntigo, $justificativa, $tenant);
         }
 
         return $atingidos;
@@ -183,20 +193,23 @@ final class SubstituirAnexoDoLoteUseCase
         return $lote;
     }
 
-    private function apagarAntigoSeOrfao(string $anexoAntigo, Tenant $tenant): void
+    /**
+     * `$dona` é a justificativa persistida que apontava para o anexo antigo: é dela que sai o
+     * escopo da chave. O nome vem de fora porque foi lido por projeção escalar sob a trava — o
+     * getter pode estar velho (ver fase 1).
+     */
+    private function apagarAntigoSeOrfao(string $anexoAntigo, JustificativaPonto $dona, Tenant $tenant): void
     {
         try {
-            $this->em->wrapInTransaction(function () use ($anexoAntigo, $tenant): void {
+            $this->em->wrapInTransaction(function () use ($anexoAntigo, $dona, $tenant): void {
                 $this->travar(self::CLASSE_TRAVA_ARQUIVO, $this->chaveDoArquivo($anexoAntigo));
 
                 if ($this->repositorio->contarReferenciasAoAnexo($anexoAntigo, $tenant) > 0) {
                     return;
                 }
 
-                $caminho = $this->storage->caminho($this->justificativasUploadsDir, $anexoAntigo);
-
-                if ($this->storage->existe($caminho)) {
-                    $this->storage->excluir($caminho);
+                if ($this->armazenamento->existe(ChavesDePonto::anexoDeJustificativaPorNome($dona, $anexoAntigo))) {
+                    $this->storage->excluir($this->storage->caminho($this->justificativasUploadsDir, $anexoAntigo));
                 }
             });
         } catch (\Throwable $e) {
@@ -255,13 +268,15 @@ final class SubstituirAnexoDoLoteUseCase
         return $valor > 2147483647 ? $valor - 4294967296 : $valor;
     }
 
-    private function removerBestEffort(string $nomeArquivo, string $motivo): void
+    /**
+     * `$dona` é a justificativa para a qual o arquivo foi gravado: o escopo da chave sai dela,
+     * mesmo que o nome (recém-cunhado) ainda não tenha sido persistido em registro nenhum.
+     */
+    private function removerBestEffort(string $nomeArquivo, JustificativaPonto $dona, string $motivo): void
     {
         try {
-            $caminho = $this->storage->caminho($this->justificativasUploadsDir, $nomeArquivo);
-
-            if ($this->storage->existe($caminho)) {
-                $this->storage->excluir($caminho);
+            if ($this->armazenamento->existe(ChavesDePonto::anexoDeJustificativaPorNome($dona, $nomeArquivo))) {
+                $this->storage->excluir($this->storage->caminho($this->justificativasUploadsDir, $nomeArquivo));
             }
         } catch (\Throwable $e) {
             $this->logger->warning('Não foi possível remover o anexo recém-gravado.', [

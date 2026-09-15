@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Cobranca\Controller;
 
 use App\Cliente\Repository\ClienteRepository;
+use App\Cobranca\Armazenamento\ChavesDeCobranca;
 use App\Cobranca\DTO\CriarCarteiraInput;
 use App\Cobranca\DTO\CriarObjetoInput;
 use App\Cobranca\DTO\EditarConfiguracaoCarteiraInput;
@@ -31,6 +32,7 @@ use App\Cobranca\UseCase\MontarVisaoCarteiraUseCase;
 use App\Entity\Tenant\Tenant;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
+use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Service\ArquivoStorageInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -68,6 +70,7 @@ final class CarteiraController extends AbstractController
         private readonly EnviarDocumentoCarteiraUseCase $enviarDocumentoCarteira,
         private readonly ExcluirDocumentoCarteiraUseCase $excluirDocumentoCarteira,
         private readonly ArquivoStorageInterface $storage,
+        private readonly ArmazenamentoDeArquivos $armazenamento,
         private readonly string $cobrancasUploadsDir,
     ) {
     }
@@ -367,10 +370,11 @@ final class CarteiraController extends AbstractController
             throw $this->createNotFoundException('Documento não encontrado.');
         }
 
-        $caminho = $this->storage->caminho($this->cobrancasUploadsDir . '/' . $tenant->getId(), $documento->getCaminhoArquivo());
-        if (!$this->storage->existe($caminho)) {
+        if (!$this->armazenamento->existe(ChavesDeCobranca::documentoDeCarteira($documento))) {
             throw $this->createNotFoundException('Arquivo não encontrado no armazenamento.');
         }
+
+        $caminho = $this->storage->caminho($this->cobrancasUploadsDir . '/' . $tenant->getId(), $documento->getCaminhoArquivo());
 
         return $this->storage->servir($caminho, $documento->getNomeOriginal(), inline: false);
     }

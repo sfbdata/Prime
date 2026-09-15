@@ -8,6 +8,8 @@ use App\Entity\Tenant\Tenant;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Repository\JustificativaPontoRepository;
 use App\Ponto\UseCase\SubstituirAnexoDoLoteUseCase;
+use App\Shared\Armazenamento\ArmazenamentoLocal;
+use App\Shared\Armazenamento\ResolvedorDeCaminhoLocal;
 use App\Shared\Service\ArquivoStorageInterface;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
@@ -78,6 +80,7 @@ final class SubstituirAnexoDoLoteFalhaTest extends TestCase
             $em,
             $repositorio,
             $storage,
+            $this->armazenamentoNoDiretorioDoTeste(),
             Validation::createValidator(),
             new NullLogger(),
             $this->diretorio,
@@ -115,6 +118,7 @@ final class SubstituirAnexoDoLoteFalhaTest extends TestCase
             $em,
             $this->createMock(JustificativaPontoRepository::class),
             $storage,
+            $this->armazenamentoNoDiretorioDoTeste(),
             Validation::createValidator(),
             new NullLogger(),
             $this->diretorio,
@@ -130,6 +134,23 @@ final class SubstituirAnexoDoLoteFalhaTest extends TestCase
     }
 
     // ------------------------------------------------------------------ helpers
+
+    /**
+     * O armazenamento novo precisa enxergar o MESMO diretório do dublê de disco antigo: na E2.2
+     * a presença é perguntada a ele (por chave), e a remoção ainda é do dublê (por caminho).
+     */
+    private function armazenamentoNoDiretorioDoTeste(): ArmazenamentoLocal
+    {
+        return new ArmazenamentoLocal(new ResolvedorDeCaminhoLocal(
+            uploadsDir: $this->diretorio,
+            clientesUploadsDir: $this->diretorio,
+            chamadosUploadsDir: $this->diretorio,
+            justificativasUploadsDir: $this->diretorio,
+            fotosPerfilDir: $this->diretorio,
+            cobrancasUploadsDir: $this->diretorio,
+            kanbanUploadsDir: $this->diretorio,
+        ));
+    }
 
     private function conexaoEmTransacao(): Connection
     {

@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Pasta\UseCase;
 
 use App\Entity\Auth\User;
-use App\Pasta\Entity\Pasta;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Armazenamento\ChavesDePasta;
+use App\Pasta\Entity\Pasta;
 use App\Pasta\Service\NumeracaoDePastaInterface;
+use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Service\ArquivoStorageInterface;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
@@ -30,12 +32,17 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
  * gravação. Sem isso a decisão pode nascer errada em silêncio: entre ler e gravar, alguém criando a
  * próxima pasta faria esta virar do meio — e ela teria sido apagada de verdade como se fosse a
  * última, criando exatamente o buraco que a lápide existe para impedir.
+ *
+ * Estado misto da E2.2 (D2): a PRESENÇA de cada arquivo é perguntada ao armazenamento novo, por
+ * chave montada a partir do documento (`ChavesDePasta`); a REMOÇÃO ainda passa pela interface
+ * antiga, por caminho, até a E2.5 migrar `excluir()`.
  */
 final class ExcluirPastaUseCase
 {
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly ArquivoStorageInterface $storage,
+        private readonly ArmazenamentoDeArquivos $armazenamento,
         private readonly string $uploadsDir,
         private readonly NumeracaoDePastaInterface $numeracao,
     ) {}
@@ -63,9 +70,8 @@ final class ExcluirPastaUseCase
             }
 
             foreach ($pasta->getDocumentos() as $doc) {
-                $caminho = $this->storage->caminho($this->uploadsDir, $doc->getCaminhoArquivo());
-                if ($this->storage->existe($caminho)) {
-                    $this->storage->excluir($caminho);
+                if ($this->armazenamento->existe(ChavesDePasta::documento($doc))) {
+                    $this->storage->excluir($this->storage->caminho($this->uploadsDir, $doc->getCaminhoArquivo()));
                 }
             }
 
