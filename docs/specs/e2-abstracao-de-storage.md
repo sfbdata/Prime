@@ -401,6 +401,7 @@ de propósito (`PurgarEscritorioUseCase.php:344`).
 | # | Decisão | Consequência |
 |---|---|---|
 | **D7** | **Operação por prefixo só existe quando o adapter consegue PROVAR que o prefixo físico pertence exclusivamente ao escopo.** A barreira é de **tipo** (`CategoriaComIsolamentoFisico`, 2 casos), não de runtime — a API não pode aceitar qualquer categoria e depender de o chamador lembrar quais são seguras. Nas categorias de layout plano/compartilhado: **não** usar `excluirPrefixo`; identificar os arquivos pelos **registros do tenant** e excluir um a um. Isolamento lógico não se infere de diretório fisicamente compartilhado | §3.1, §3.3, §3.4, E2.5, teste em §11.2 |
+| **D8 — pendência aberta na E2.1** | A extensão de arquivo NOVO **nunca é recusada**: o que não serve vira `bin`. A revisão mediu contra os 20.954 `nome_original` reais: a versão que recusava derrubaria **18** arquivos (`açaí - 02 junho 2025`, `pdf canvelado por atraso - refeito`, …), e o único chamador que deriva extensão de dado do usuário é o sync do Drive (`ReconciliadorDePasta.php:440`). ⏳ **Ratificar antes da E2.4**: com isso, um arquivo que hoje vira `hash.açaí - 02 junho 2025` passará a `hash.bin`. Nada se perde (o nome do usuário mora em `nome_original`), mas é mudança de comportamento no sync |
 | **D8** | **O storage cunha nomes opacos** para arquivo novo (`NovoArquivo(escopo, categoria, extensao)`), com entropia equivalente à atual (128 bits). A gravação distingue **novo** (storage gera) de **chave existente** (`ChaveDeArquivo` = o nome persistido no banco). Para chave legada: **sem `trim()`, sem normalização Unicode, sem mexer em espaço, sem remover ponto final, sem sanitização destrutiva, sem exigir formato hash** — as 184 da E0 continuam endereçáveis byte a byte | §3.1 (duas regras próprias), §3.2, §11.1 |
 | **D9** | **Ownership e lifetime são explícitos no contrato, em dois tipos distintos.** Emprestado (`ArquivoEmprestado`, o path persistido do Local): não é propriedade, cleanup não apaga, destrutor não apaga, nunca `deleteFileAfterSend`. Possuído (`ArquivoTemporarioPossuido`): lifecycle explícito, cleanup apaga só ele. A distinção tem de ser **impossível de ignorar acidentalmente** — por isso tipos, não flag | INV-9, §3.3, §5, 4 testes em §11.2 |
 
@@ -442,6 +443,11 @@ de propósito (`PurgarEscritorioUseCase.php:344`).
   peça: dado persistido com formato de path.
 - **DT-4** — `PecaImagemController` e `ProfileController::servirFoto` servem por tenant sem checagem
   de permissão de módulo (§1.2). Fora do escopo da E2; registrado para não virar teste falso.
+- **DT-6 (nasceu na E2.1)** — a escrita atômica do `ArmazenamentoLocal` cria
+  `<destino>.parcial-<hex>` no **mesmo diretório** do destino, porque `rename()` só é atômico
+  dentro do mesmo sistema de arquivos. O caminho de erro apaga o temporário e há teste para
+  isso, mas um processo morto entre o `fopen` e o `rename` deixa resíduo no volume persistido.
+  Quem escrever a varredura da E3 precisa saber que `*.parcial-*` é lixo de escrita, não órfão.
 - **DT-5** — 3 docblocks em `app/src/` citam `ArquivoStorageInterface` pelo nome
   (`AcordoDocumento.php:20`, `CarteiraDocumento.php:21`, `ArquivosDeAnexoDoKanban.php:18`) e ficam
   obsoletos quando a interface sair na E2.8.
@@ -457,7 +463,7 @@ integrar.
 | Fatia | Entregável | Arquivos | Prova |
 |---|---|---|---|
 | **E2.0** | esta spec + registro da frente | 2 docs | revisão adversarial feita |
-| **E2.1** | VOs, `ArmazenamentoDeArquivos`, `ArmazenamentoLocal`, `ResolvedorDeCaminhoLocal`, `ArmazenamentoEmMemoria`. `ArquivoStorageInterface` **intacta**; o Local implementa as duas | só arquivos novos | suíte verde sem tocar consumidor + `MapaDeChaveParaCaminhoLocalTest` + suíte de contrato |
+| **E2.1** | VOs, `ArmazenamentoDeArquivos`, `ArmazenamentoComPrefixo` (contrato só), `ArmazenamentoLocal`, `ResolvedorDeCaminhoLocal`, `ArmazenamentoEmMemoria`. `ArquivoStorageInterface` e `ArquivoStorageService` **intactos e ainda ligados** aos 33 consumidores; o `ArmazenamentoLocal` implementa **só a interface nova** | só arquivos novos | suíte verde sem tocar consumidor + `MapaDeChaveParaCaminhoLocalTest` + suíte de contrato |
 | **E2.2** | fábricas de chave por domínio; `existe()` (27 chamadas) e tamanho; **remover `ArquivosDeAnexoDoKanban::diretorio()`** | 22 | testes existentes + testes de escopo das fábricas (R1) |
 | **E2.3** | `EntregaDeArquivo` + as 15 rotas de `servir()` | 11 controllers | golden de cabeçalhos + `Range` → 206 + **teste de INV-9** |
 | **E2.4** | `gravar()` nos 18 pontos de escrita (inclui `EditarPecaTextoUseCase`) e leitura em `ArquivosReferenciadosEmPecas`/`ExportarPecaTextoUseCase` | 18 | unit de cada UseCase + teste de falha de I/O + teste de INV-10 |
@@ -511,8 +517,11 @@ dois formatos, e provar que o construtor **não aplica `trim()`** — um `trim()
 
 - **`MapaDeChaveParaCaminhoLocalTest`** — para as 9 categorias, o caminho resolvido é idêntico ao
   que o código produz hoje, **com os parâmetros de produção fixados no próprio teste** (em
-  `APP_ENV=test` eles apontam para `var/uploads-test/*`, `services.yaml:161-169`). `TAREFA_ANEXO`
-  entra com a raiz literal de `CaminhoDeAnexoDeTarefa.php:32`, que não vem de parâmetro.
+  `APP_ENV=test` eles apontam para `var/uploads-test/*`, `services.yaml:161-169`). São **8
+  categorias resolvidas**; `TAREFA_ANEXO` é a nona e o teste afirma que ela **lança** com
+  mensagem apontando para a E2.7 — a coluna guarda caminho público com `/`, que `ChaveDeArquivo`
+  recusa por D5, então não existe chave a resolver. Deixar a categoria no enum, lançando, mantém
+  o buraco visível; tirá-la do enum o esconderia.
 - **Golden de download** — um PDF e uma imagem por rota-tipo: status, `Content-Type`,
   `Content-Disposition` (inline e attachment), `Accept-Ranges`; e `Range: bytes=0-99` → **206** com
   `Content-Range` correto.
