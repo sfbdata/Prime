@@ -2,6 +2,7 @@
 
 namespace App\Controller;
 
+use App\Ponto\Validacao\RestricoesAnexoJustificativa;
 use App\Ponto\Entity\JornadaColaborador;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Enum\TipoJustificativa;
@@ -60,6 +61,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 #[Route('/tenant')]
 final class TenantController extends AbstractController
@@ -1348,7 +1350,8 @@ final class TenantController extends AbstractController
         EntityManagerInterface $entityManager,
         PermissionChecker $permissionChecker,
         TenantRepository $tenantRepository,
-        UserTenantRepository $userTenantRepository
+        UserTenantRepository $userTenantRepository,
+        ValidatorInterface $validator
     ): Response {
         $tenant = $tenantRepository->find($tenantId);
         if (!$tenant) {
@@ -1444,6 +1447,18 @@ final class TenantController extends AbstractController
         $anexoPath = null;
         $anexoFile = $request->files->get('anexo');
         if ($anexoFile !== null) {
+            // Mesma regra da porta do colaborador (JustificativaPontoType) e da edição
+            // (SubstituirAnexoDoLoteUseCase). Antes da E1 esta porta não validava nada: um admin
+            // podia gravar qualquer tipo e qualquer tamanho como atestado, no mesmo diretório
+            // plano e servido pela mesma rota de download.
+            $violacoes = $validator->validate($anexoFile, RestricoesAnexoJustificativa::constraint());
+
+            if (count($violacoes) > 0) {
+                $this->addFlash('warning', (string) $violacoes->get(0)->getMessage());
+
+                return $redirect();
+            }
+
             $anexoPath = $this->storage->salvar($anexoFile, $this->justificativasUploadsDir);
         }
 
@@ -1486,7 +1501,20 @@ final class TenantController extends AbstractController
             }
         }
 
-        $entityManager->flush();
+        try {
+            $entityManager->flush();
+        } catch (\Throwable $e) {
+            // Mesma prioridade da substituição (SubstituirAnexoDoLoteUseCase): o arquivo foi
+            // gravado antes do flush; se o banco recusar, ninguém chegou a referenciá-lo e ele não
+            // pode ficar no disco para sempre.
+            if ($anexoPath !== null) {
+                $this->storage->excluir(
+                    $this->storage->caminho($this->justificativasUploadsDir, $anexoPath),
+                );
+            }
+
+            throw $e;
+        }
 
         if ($isFaltaNaoJustificada) {
             $this->addFlash('success', sprintf('Falta registrada como não justificada para %d dia(s).', count($datasValidas)));

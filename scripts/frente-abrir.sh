@@ -69,7 +69,7 @@ docker exec "$container" bash -c "cd '$caminho_container' && composer install --
 # permissao, nao por codigo.
 echo "==> criando dirs de upload e alinhando o dono"
 docker exec "$container" bash -c \
-    "mkdir -p '$caminho_container'/public/uploads/{chamados,clientes,cobrancas,justificativas,pastas,perfil,tarefas}"
+    "mkdir -p '$caminho_container'/public/uploads/{chamados,clientes,cobrancas,justificativas,kanban,pastas,perfil,tarefas}"
 docker exec -u 0 "$container" bash -c \
     "chown -R 1000:1000 '$caminho_container'/public/uploads" || \
     echo "    aviso: nao consegui alinhar o dono dos uploads (siga e confira no smoke)"

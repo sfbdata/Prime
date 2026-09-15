@@ -3,6 +3,7 @@
 namespace App\Ponto\Form;
 
 use App\Ponto\Enum\TipoJustificativa;
+use App\Ponto\Validacao\RestricoesAnexoJustificativa;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
@@ -11,7 +12,6 @@ use Symfony\Component\Form\Extension\Core\Type\HiddenType;
 use Symfony\Component\Form\Extension\Core\Type\TimeType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
-use Symfony\Component\Validator\Constraints\File;
 use Symfony\Component\Validator\Constraints\NotBlank;
 
 class JustificativaPontoType extends AbstractType
@@ -71,14 +71,9 @@ class JustificativaPontoType extends AbstractType
                 'label'       => 'Atestado / Comprovante',
                 'mapped'      => false,
                 'required'    => false,
-                'constraints' => [
-                    new File(
-                        maxSize: '10M',
-                        mimeTypes: ['application/pdf', 'image/jpeg', 'image/png'],
-                        maxSizeMessage: 'O arquivo não pode exceder 10 MB.',
-                        mimeTypesMessage: 'Somente PDF, JPEG ou PNG são aceitos.',
-                    ),
-                ],
+                // A regra mora em RestricoesAnexoJustificativa desde a E1: a edição aplica
+                // exatamente a mesma, e antes não aplicava nenhuma.
+                'constraints' => [RestricoesAnexoJustificativa::constraint()],
             ])
 ;
     }

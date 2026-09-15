@@ -7,6 +7,7 @@ namespace App\Tests\Pasta\Unit;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\DTO\ExportarPecaTextoOutput;
+use App\Pasta\Service\ReferenciasDePecaHtml;
 use App\Pasta\UseCase\ExportarPecaTextoUseCase;
 use App\Shared\Service\ArquivoStorageInterface;
 use PhpOffice\PhpWord\IOFactory;
@@ -35,6 +36,7 @@ final class ExportarPecaTextoUseCaseTest extends TestCase
         $this->useCase = new ExportarPecaTextoUseCase(
             $this->storage,
             '/uploads/pastas',
+            new ReferenciasDePecaHtml(),
             sys_get_temp_dir(),
         );
 

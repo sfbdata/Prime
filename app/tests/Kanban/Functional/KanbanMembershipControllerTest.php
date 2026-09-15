@@ -347,13 +347,21 @@ final class KanbanMembershipControllerTest extends JusPrimeWebTestCase
         $comentario = new KanbanComentario('Comentário', $card, $dono);
         $em->persist($comentario);
 
-        // Anexo com arquivo real em disco (dentro do container) p/ o `servir` ter o que entregar
-        // no controle positivo e na mutação.
-        $arquivo = (string) tempnam(sys_get_temp_dir(), 'kanban_anexo_m3_');
+        // Anexo com arquivo real em disco p/ o `servir` ter o que entregar no controle positivo
+        // e na mutação. Desde a E1 a coluna `caminho` guarda só o NOME — o diretório vem de
+        // `%kanban_uploads_dir%` e é recomposto por `ArquivosDeAnexoDoKanban`. Antes o teste
+        // gravava aqui um caminho ABSOLUTO de /tmp, que era o contrato antigo (e o motivo de o
+        // arquivo nunca cair no volume persistido).
+        $diretorio = (string) static::getContainer()->getParameter('kanban_uploads_dir');
+        if (!is_dir($diretorio)) {
+            mkdir($diretorio, 0775, true);
+        }
+        $nomeArquivo = 'kanban_anexo_m3_' . bin2hex(random_bytes(8)) . '.txt';
+        $arquivo     = $diretorio . '/' . $nomeArquivo;
         file_put_contents($arquivo, 'conteudo do anexo de teste');
         $this->arquivosTemp[] = $arquivo;
 
-        $anexo = new KanbanAnexo('anexo.txt', $arquivo, 26, 'text/plain', $card, $dono);
+        $anexo = new KanbanAnexo('anexo.txt', $nomeArquivo, 26, 'text/plain', $card, $dono);
         $em->persist($anexo);
 
         $em->flush();

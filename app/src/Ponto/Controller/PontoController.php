@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Ponto\Controller;
 
 use App\Entity\Auth\User;
+use App\Ponto\UseCase\SubstituirAnexoDoLoteUseCase;
 use App\Ponto\Entity\JornadaColaborador;
 use App\Ponto\Entity\JornadaTenant;
 use App\Ponto\Entity\JustificativaPonto;
@@ -36,6 +37,7 @@ use App\Shared\Service\ArquivoStorageService;
 use App\Shared\Trait\ValidaCsrfAjaxTrait;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -57,6 +59,7 @@ final class PontoController extends AbstractController
         private readonly PermissionChecker $permissionChecker,
         private readonly UserTenantRepository $userTenantRepository,
         private readonly InicioContagemResolver $inicioContagemResolver,
+        private readonly SubstituirAnexoDoLoteUseCase $substituirAnexoDoLote,
     ) {}
 
     #[Route('/', name: 'ponto_index')]
@@ -345,7 +348,21 @@ final class PontoController extends AbstractController
                 $justificativasCriadas[] = $justificativa;
             }
 
-            $entityManager->flush();
+            try {
+                $entityManager->flush();
+            } catch (\Throwable $e) {
+                // Mesma prioridade da substituição (SubstituirAnexoDoLoteUseCase): o arquivo foi
+                // gravado antes do flush; se o banco recusar, ninguém chegou a referenciá-lo e ele
+                // não pode ficar no disco para sempre. Falhar aqui deixa órfão recuperável — o
+                // lado aceitável —, mas o silêncio total não é.
+                if ($anexoPath !== null) {
+                    $this->storage->excluir(
+                        $this->storage->caminho($this->justificativasUploadsDir, $anexoPath),
+                    );
+                }
+
+                throw $e;
+            }
 
             if (!$isFaltaNaoJustificada) {
                 // Leva o gestor direto à aba de justificativas do colaborador (aprovar/recusar)
@@ -386,8 +403,8 @@ final class PontoController extends AbstractController
         EntityManagerInterface $entityManager,
     ): Response {
         /** @var User $user */
-        $user = $this->getUser();
-        $this->assertAccess($user);
+        $user   = $this->getUser();
+        $tenant = $this->assertAccess($user);
 
         if ($justificativa->getUser()->getId() !== $user->getId()) {
             throw $this->createAccessDeniedException('Acesso negado a esta justificativa.');
@@ -440,13 +457,31 @@ final class PontoController extends AbstractController
             $justificativa->setHoraRegistroEsquecido(null);
         }
 
+        // A troca do anexo vem ANTES do flush de propósito. Se o arquivo for recusado, a edição
+        // inteira tem de ser descartada: validar depois de gravar deixaria o tipo/abono já salvos
+        // na folha com uma mensagem de erro na tela — o usuário concluiria que nada foi salvo.
+        // A troca atinge o LOTE inteiro e tem ordem própria entre banco e disco
+        // (ver SubstituirAnexoDoLoteUseCase); o flush dela cobre também os campos acima.
         $anexoFile = $request->files->get('anexo');
-        if ($anexoFile !== null) {
-            $novoAnexoPath = $this->storage->salvar($anexoFile, $this->justificativasUploadsDir);
-            $justificativa->setAnexoPath($novoAnexoPath);
-        }
 
-        $entityManager->flush();
+        if ($anexoFile instanceof UploadedFile) {
+            try {
+                $atingidos = $this->substituirAnexoDoLote->executar($justificativa, $anexoFile, $tenant);
+            } catch (\InvalidArgumentException $e) {
+                $this->addFlash('warning', $e->getMessage());
+
+                return $this->redirectToRoute('ponto_index');
+            }
+
+            if ($atingidos > 1) {
+                $this->addFlash('info', sprintf(
+                    'O anexo foi trocado nos %d dias deste abono.',
+                    $atingidos,
+                ));
+            }
+        } else {
+            $entityManager->flush();
+        }
 
         $this->addFlash('success', 'Justificativa atualizada com sucesso.');
         return $this->redirectToRoute('ponto_index');
