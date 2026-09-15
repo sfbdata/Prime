@@ -10,6 +10,51 @@ Quem abre uma frente acrescenta a linha. Quem integra tira.
 | `cobranca-acompanhamento-canonico` | Cobrança (modelo objeto/caso) | **sim — 4** | `docs/gestao-cobrancas/` | 🛑 **PARADA** (ver abaixo) | `origin/master` @ `0bb1f29` |
 | `expediente-ux` | Expediente + Pasta (telas) | não | `app/templates/expediente/`, `app/templates/pasta/` | implementando, **28 commits atrás do master** | `origin/codex/colaboracao-cobrancas` |
 | `cobranca-reconciliar-data-acordo` | Cobrança (comando) | não | `RelatorioLinhaRepository` (método novo), `ComandosComPiiPassamPelaGuardaTest` (1 linha) | ✅ pronta: 3901/3901, prova por reintrodução feita — **aguarda `/review` e integração** | `master` local @ `18555616` |
+| `import/acervo-pastas` | Pasta (importação de acervo) | não | **`PastaController`**, **`SalvarPecaTextoUseCase`**, **`UploadPecaUseCase`** | 3 commits pendentes, tem remota `origin/import/acervo-pastas`. Estava FORA deste registro até 15/09 | (não declarada) |
+| `e2-abstracao-storage` | **transversal** — Shared + 9 domínios | **não** | `app/src/Shared/`, `app/config/services.yaml`, `app/src/Shared/CLAUDE.md`, + 35 arquivos de produção | E2.0 fechada: só a spec, nenhum código. D1–D9 ratificadas. **E2.1 não autorizada** | `origin/master` @ `c365fe72` |
+
+### 🔴 `e2-abstracao-storage` é transversal — da fatia E2.1 em diante ela vai SOZINHA
+
+A E2 tira o código de negócio de cima do filesystem: 33 arquivos de produção em 9 domínios deixam
+de pedir caminho ao storage e passam a endereçar arquivo por chave. Spec:
+`docs/specs/e2-abstracao-de-storage.md`.
+
+**Hoje (E2.0) a frente só tem a spec e este registro** — nenhum código, nenhum conflito com
+ninguém.
+
+🔑 **Como medir colisão com a E2 — dois filtros, e errar qualquer um dá resposta errada:**
+
+1. **O predicado não é "toca `app/src/Shared/`"** — é "toca um dos **35** arquivos que a E2 vai
+   reescrever" (os 33 que chamam o storage + `TarefaController` + `CaminhoDeAnexoDeTarefa`).
+2. **`git diff master...<branch>` sozinho MENTE.** Ele mostra o que a branch adicionou desde que
+   divergiu, e acusa como conflito uma branch cujo trabalho **já está no master**. O filtro
+   autoritativo é `git cherry origin/master <branch>`: só linha `+` é commit pendente de verdade.
+
+Varredura das 24 branches locais com os dois filtros, em 15/09:
+
+- 🔴 **`cobranca-acompanhamento-canonico`** — 23 pendentes; altera `AcordoController`,
+  `DocumentoCobrancaController`, `EnviarDocumentoUseCase` e **`PurgarEscritorioUseCase`** (o
+  consumidor de risco ALTO da fatia E2.5).
+- 🔴 **`import/acervo-pastas`** — 3 pendentes; altera `PastaController`, `SalvarPecaTextoUseCase` e
+  `UploadPecaUseCase`. **Não estava neste registro** até agora.
+- 🟢 8 branches com pendências que **não** tocam alvo da E2 (`expediente-ux`,
+  `cobranca-reconciliar-data-acordo`, os três `fix/*`, `integracao-sync-master`,
+  `polimento-objeto-show-cabecalho`, `worktree-agent-…`).
+- ✅ 13 branches com **zero** commits pendentes — já estão no master por conteúdo. São
+  worktrees-resto, candidatas a `git branch -d`.
+
+⚠️ **`pasta-push-processual` NÃO colide.** Os 5 commits dela estão todos no master por conteúdo
+(`git cherry` devolve `-` para os cinco, e os títulos aparecem no log do master). Ela chegou a ser
+listada aqui como colisão a partir de um diff de três pontos — era **alarme falso**, exatamente o
+que o CLAUDE.md manda conferir com `git cherry`/`--contains` antes de anunciar.
+
+⚠️ **A partir da E2.1 nenhuma outra frente pode ser integrada enquanto esta correr**, e as duas
+frentes em vermelho precisam ser integradas ou explicitamente congeladas antes. A E2 toca
+`app/src/Shared/`, `app/config/services.yaml` e arquivos de Pasta, Cobrança, Cliente, Kanban,
+Ponto, Profile, ServiceDesk, Sync, Tarefa e Tenant.
+
+✅ **Não tem migration** — não disputa a vaga da regra "uma frente com migration por vez", e o
+rollback de qualquer fatia é reverter o commit de código, sem dado a desfazer.
 
 ### ⚠️ `pasta-show-chip-responsavel` extrai 196 linhas do `_tabela.html.twig`
 
