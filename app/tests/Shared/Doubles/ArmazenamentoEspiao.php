@@ -1,0 +1,72 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Tests\Shared\Doubles;
+
+use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
+use App\Shared\Armazenamento\ArquivoArmazenado;
+use App\Shared\Armazenamento\ChaveDeArquivo;
+use App\Shared\Armazenamento\FonteDeConteudo;
+use App\Shared\Armazenamento\MetadadosDeArquivo;
+use App\Shared\Armazenamento\NovoArquivo;
+
+/**
+ * Decorador de qualquer backend — inclusive o disco de verdade — que registra as chaves gravadas e
+ * deixa o teste mexer no que acontece DEPOIS de uma gravação bem-sucedida.
+ *
+ * Existe para os casos que o {@see ArmazenamentoEmMemoria} não alcança: provar, contra o disco, que
+ * o arquivo que um chamador gravou foi removido quando a operação falhou mais adiante (a limpeza
+ * mira o disco, não o dublê), ou que uma falha posterior à escrita não consumiu a origem.
+ *
+ * `depoisDeGravar` recebe o resultado real e a ordem da gravação (1, 2, ...) e devolve o que o
+ * chamador vai ver — o mesmo resultado, um resultado alterado, ou uma exceção. O arquivo já está
+ * gravado quando ele roda.
+ */
+final class ArmazenamentoEspiao implements ArmazenamentoDeArquivos
+{
+    /** @var list<ChaveDeArquivo> */
+    public array $gravadas = [];
+
+    /** @var (\Closure(ArquivoArmazenado, int): ArquivoArmazenado)|null */
+    public ?\Closure $depoisDeGravar = null;
+
+    public function __construct(private readonly ArmazenamentoDeArquivos $real)
+    {
+    }
+
+    public function gravar(ChaveDeArquivo|NovoArquivo $destino, FonteDeConteudo $fonte): ArquivoArmazenado
+    {
+        $gravado          = $this->real->gravar($destino, $fonte);
+        $this->gravadas[] = $gravado->chave;
+
+        return $this->depoisDeGravar === null
+            ? $gravado
+            : ($this->depoisDeGravar)($gravado, \count($this->gravadas));
+    }
+
+    public function abrir(ChaveDeArquivo $chave): mixed
+    {
+        return $this->real->abrir($chave);
+    }
+
+    public function ler(ChaveDeArquivo $chave): string
+    {
+        return $this->real->ler($chave);
+    }
+
+    public function existe(ChaveDeArquivo $chave): bool
+    {
+        return $this->real->existe($chave);
+    }
+
+    public function excluir(ChaveDeArquivo $chave): void
+    {
+        $this->real->excluir($chave);
+    }
+
+    public function metadados(ChaveDeArquivo $chave): ?MetadadosDeArquivo
+    {
+        return $this->real->metadados($chave);
+    }
+}

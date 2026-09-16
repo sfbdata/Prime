@@ -7,13 +7,16 @@ namespace App\Tests\Pasta\Functional;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Armazenamento\ChavesDePasta;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Repository\PastaDocumentoRepository;
 use App\Pasta\Service\ArquivosReferenciadosEmPecas;
 use App\Pasta\Service\ReferenciasDePecaHtml;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
-use App\Shared\Service\ArquivoStorageInterface;
+use App\Shared\Armazenamento\ChaveDeArquivo;
+use App\Shared\Armazenamento\Exception\FalhaDeArmazenamento;
+use App\Shared\Armazenamento\FonteDeConteudo;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -32,6 +35,21 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 #[CoversClass(ArquivosReferenciadosEmPecas::class)]
 final class ArquivosReferenciadosEmPecasTest extends JusPrimeWebTestCase
 {
+    /** @var list<ChaveDeArquivo> peças gravadas no disco de teste, apagadas no fim */
+    private array $pecasGravadas = [];
+
+    protected function tearDown(): void
+    {
+        if ($this->pecasGravadas !== []) {
+            $armazenamento = static::getContainer()->get(ArmazenamentoDeArquivos::class);
+            foreach ($this->pecasGravadas as $chave) {
+                $armazenamento->excluir($chave);
+            }
+        }
+
+        parent::tearDown();
+    }
+
     #[TestDox('Imagem SEM linha no banco, citada no HTML da peça, é reconhecida como referenciada')]
     public function testImagemSemLinhaNoBancoEstaReferenciada(): void
     {
@@ -152,6 +170,57 @@ final class ArquivosReferenciadosEmPecasTest extends JusPrimeWebTestCase
         self::assertSame([], $this->servico()->doTenant($tenant));
     }
 
+    /**
+     * E2.4B: a peça existe mas não pôde ser lida. Responder "sem referências" aqui faria a limpeza
+     * apagar as imagens dela — antes da E2.4B, em produção, o `file_get_contents` devolvia `''`
+     * com um warning e era exatamente isso que acontecia.
+     */
+    #[TestDox('Peça presente e ILEGÍVEL faz a consulta falhar — não vira "peça sem imagens"')]
+    public function testPecaIlegivelFalhaEmVezDeResponderVazio(): void
+    {
+        $this->pularSeRoot();
+        self::bootKernel();
+        [$tenant] = $this->criarTenantComUsuario();
+
+        $doc     = $this->criarPecaHtml($tenant, '<img src="/uploads/pastas/em_uso.png">');
+        $caminho = (string) static::getContainer()->getParameter('uploads_dir') . '/' . $doc->getCaminhoArquivo();
+        chmod($caminho, 0o000);
+        self::assertFalse(is_readable($caminho), 'não pode estar rodando como root');
+
+        try {
+            $this->servico()->doTenant($tenant);
+            self::fail('a peça ilegível devia fazer a consulta falhar');
+        } catch (FalhaDeArmazenamento $e) {
+            self::assertStringContainsString('não pôde ser lido', $e->getMessage());
+        } finally {
+            chmod($caminho, 0o644);
+            @unlink($caminho);
+        }
+    }
+
+    #[TestDox('Diretório de uploads ilegível faz a consulta falhar — não vira "peça ausente"')]
+    public function testDiretorioIlegivelFalhaEmVezDeIgnorarAPeca(): void
+    {
+        $this->pularSeRoot();
+        self::bootKernel();
+        [$tenant] = $this->criarTenantComUsuario();
+
+        $doc        = $this->criarPecaHtml($tenant, '<img src="/uploads/pastas/em_uso.png">');
+        $uploadsDir = (string) static::getContainer()->getParameter('uploads_dir');
+        $modo       = fileperms($uploadsDir) & 0o7777;
+        chmod($uploadsDir, 0o000);
+
+        try {
+            $this->servico()->doTenant($tenant);
+            self::fail('o diretório ilegível devia fazer a consulta falhar');
+        } catch (FalhaDeArmazenamento $e) {
+            self::assertStringContainsString('não é legível', $e->getMessage());
+        } finally {
+            chmod($uploadsDir, $modo);
+            @unlink($uploadsDir . '/' . $doc->getCaminhoArquivo());
+        }
+    }
+
     // ------------------------------------------------------------------ helpers
 
     /**
@@ -164,25 +233,33 @@ final class ArquivosReferenciadosEmPecasTest extends JusPrimeWebTestCase
     {
         return new ArquivosReferenciadosEmPecas(
             static::getContainer()->get(PastaDocumentoRepository::class),
-            static::getContainer()->get(ArquivoStorageInterface::class),
             static::getContainer()->get(ArmazenamentoDeArquivos::class),
             new ReferenciasDePecaHtml(),
-            (string) static::getContainer()->getParameter('uploads_dir'),
         );
+    }
+
+    private function pularSeRoot(): void
+    {
+        if (function_exists('posix_geteuid') && posix_geteuid() === 0) {
+            self::markTestSkipped('root ignora permissão; o guarda não é observável');
+        }
     }
 
     private function criarPecaHtml(Tenant $tenant, string $html): PastaDocumento
     {
-        $em        = static::getContainer()->get(EntityManagerInterface::class);
-        $storage   = static::getContainer()->get(ArquivoStorageInterface::class);
-        $uploadsDir = (string) static::getContainer()->getParameter('uploads_dir');
-
-        $nomeArquivo = $storage->salvarConteudo($html, $uploadsDir, 'html');
+        $em = static::getContainer()->get(EntityManagerInterface::class);
 
         $doc = new PastaDocumento();
+        $doc->setTenant($tenant);
+        $armazenado = static::getContainer()->get(ArmazenamentoDeArquivos::class)->gravar(
+            ChavesDePasta::novoDocumento($doc, 'html'),
+            FonteDeConteudo::deTexto($html),
+        );
+        $this->pecasGravadas[] = $armazenado->chave;
+
         $doc->setTitulo('Peça de teste');
         $doc->setCategoria(PastaDocumento::CATEGORIA_DEMAIS);
-        $doc->setCaminhoArquivo($nomeArquivo);
+        $doc->setCaminhoArquivo($armazenado->chave->nome);
         $doc->setNomeOriginal('peca.html');
         $doc->setMimeType('text/html');
         $doc->setTamanhoBytes(\strlen($html));

@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Pasta\UseCase;
 
+use App\Pasta\Armazenamento\ChavesDePasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\DTO\ExportarPecaTextoOutput;
-use App\Shared\Service\ArquivoStorageInterface;
+use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
+use App\Shared\Armazenamento\Exception\ArquivoNaoEncontrado;
 use Dompdf\Dompdf;
 use Dompdf\Options;
 use PhpOffice\PhpWord\IOFactory;
@@ -15,20 +17,34 @@ use App\Pasta\Service\ReferenciasDePecaHtml;
 use PhpOffice\PhpWord\Shared\Html;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
+/**
+ * Exporta uma peça escrita no editor para DOCX, ODT, PDF ou TXT.
+ *
+ * ## Peça ausente ≠ storage indisponível (D13)
+ *
+ * O HTML é lido do armazenamento por chave. Sem arquivo na chave, `ler()` lança
+ * {@see ArquivoNaoEncontrado} e o controller responde 404. Pane do storage (diretório ou arquivo
+ * ilegível, backend fora) é `FalhaDeArmazenamento` e propaga como erro — nunca vira 404. Antes da
+ * E2.4B, o `file_get_contents` devolvia false com um warning e o export saía VAZIO, com 200.
+ *
+ * As imagens embutidas (`reescreverImagensParaDisco`) e o `chroot` do Dompdf ainda leem do disco
+ * pelo `projectDir`: são da E2.6, com o materializador.
+ */
 final class ExportarPecaTextoUseCase
 {
     public function __construct(
-        private readonly ArquivoStorageInterface $storage,
-        private readonly string $uploadsDir,
+        private readonly ArmazenamentoDeArquivos $armazenamento,
         private readonly ReferenciasDePecaHtml $referencias,
         #[Autowire('%kernel.project_dir%')]
         private readonly string $projectDir,
     ) {}
 
+    /**
+     * @throws ArquivoNaoEncontrado quando o arquivo da peça não existe
+     */
     public function executar(PastaDocumento $doc, string $formato): ExportarPecaTextoOutput
     {
-        $caminho = $this->storage->caminho($this->uploadsDir, $doc->getCaminhoArquivo());
-        $html    = (string) file_get_contents($caminho);
+        $html = $this->armazenamento->ler(ChavesDePasta::documento($doc));
 
         $htmlExport = $this->reescreverImagensParaDisco($html, $doc->getTenant()?->getId());
 

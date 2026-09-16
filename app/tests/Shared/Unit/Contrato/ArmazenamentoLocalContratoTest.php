@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace App\Tests\Shared\Unit\Contrato;
 
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
+use App\Shared\Armazenamento\Exception\ArquivoNaoEncontrado;
 use App\Shared\Armazenamento\Exception\FalhaDeArmazenamento;
 use App\Shared\Armazenamento\FonteDeConteudo;
 use App\Shared\Armazenamento\ArmazenamentoLocal;
 use App\Shared\Armazenamento\ResolvedorDeCaminhoLocal;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
+use PHPUnit\Framework\Attributes\TestWith;
 
 /**
  * O backend de disco cumprindo o contrato, contra arquivos de verdade.
@@ -77,6 +79,106 @@ final class ArmazenamentoLocalContratoTest extends ArmazenamentoContratoTestCase
         } finally {
             chmod($this->raiz, 0o755);
         }
+    }
+
+    /**
+     * A mesma promessa, agora para quem LÊ (E2.4B, D13). Antes da E2.4B, `ler()` e `abrir()` só
+     * perguntavam `is_file()`: com o avô ilegível respondiam "não encontrado", e o export de peça
+     * transformaria a pane em 404.
+     *
+     * @param 'ler'|'abrir' $metodo
+     */
+    #[TestDox('$metodo() LANÇA falha, e não "não encontrado", quando um ancestral não é legível')]
+    #[TestWith(['ler'])]
+    #[TestWith(['abrir'])]
+    public function testLeituraLancaFalhaQuandoAncestralNaoEhLegivel(string $metodo): void
+    {
+        if (function_exists('posix_geteuid') && posix_geteuid() === 0) {
+            self::markTestSkipped('root ignora permissão de diretório; o guarda não é observável');
+        }
+
+        $chave = $this->chave('escondido.pdf');
+        $this->backend->gravar($chave, FonteDeConteudo::deTexto('x'));
+
+        chmod($this->raiz, 0o000); // o AVÔ de clientes/escondido.pdf
+
+        try {
+            $this->backend->{$metodo}($chave);
+            self::fail('a leitura devia ter lançado');
+        } catch (FalhaDeArmazenamento $e) {
+            self::assertStringContainsString('não é legível', $e->getMessage());
+        } finally {
+            chmod($this->raiz, 0o755);
+        }
+    }
+
+    /**
+     * O outro lado da distinção: com a cadeia legível, ausência continua sendo ausência.
+     *
+     * @param 'ler'|'abrir' $metodo
+     */
+    #[TestDox('$metodo() de chave ausente num diretório legível lança ArquivoNaoEncontrado')]
+    #[TestWith(['ler'])]
+    #[TestWith(['abrir'])]
+    public function testLeituraDeAusenteComCadeiaLegivelEhNaoEncontrado(string $metodo): void
+    {
+        $this->backend->gravar($this->chave('vizinho.pdf'), FonteDeConteudo::deTexto('x'));
+
+        $this->expectException(ArquivoNaoEncontrado::class);
+
+        $this->backend->{$metodo}($this->chave('nunca-gravado.pdf'));
+    }
+
+    /**
+     * Origem EMPRESTADA (D15, acervo do operador): gravar sem `consumirOrigem` só LÊ a origem.
+     *
+     * `assertFileExists` não bastaria — um `rename()` para o destino e uma cópia de volta
+     * deixariam o arquivo "existindo" com outro inode, outro modo e outro mtime. Aqui a origem é
+     * fotografada inteira antes e depois, no modo em que um operador a deixaria (`0640`), e o
+     * teste roda com o default e com o `false` explícito.
+     */
+    #[TestDox('gravar sem consumirOrigem não altera a origem: conteúdo, inode, modo e mtime')]
+    public function testOrigemEmprestadaFicaIntacta(): void
+    {
+        foreach ([false, null] as $consumir) {
+            $origem = $this->arquivoTemporarioCom(random_bytes(4096));
+            chmod($origem, 0o640);
+            touch($origem, 1_600_000_000);
+            clearstatcache();
+            $antes = $this->foto($origem);
+
+            $fonte = $consumir === null
+                ? FonteDeConteudo::deArquivoLocal($origem)
+                : FonteDeConteudo::deArquivoLocal($origem, consumirOrigem: $consumir);
+
+            $gravado = $this->backend->gravar($this->novo('bin'), $fonte);
+
+            clearstatcache();
+            self::assertSame($antes, $this->foto($origem), 'a origem emprestada mudou');
+            self::assertSame(
+                $antes['sha256'],
+                hash('sha256', $this->backend->ler($gravado->chave)),
+                'o conteúdo gravado difere da origem',
+            );
+            self::assertSame($antes['tamanho'], $gravado->tamanhoBytes);
+
+            @unlink($origem);
+        }
+    }
+
+    /** @return array{ino: int, modo: int, mtime: int, tamanho: int, sha256: string} */
+    private function foto(string $caminho): array
+    {
+        $stat = stat($caminho);
+        self::assertIsArray($stat);
+
+        return [
+            'ino'     => $stat['ino'],
+            'modo'    => $stat['mode'] & 0o7777,
+            'mtime'   => $stat['mtime'],
+            'tamanho' => $stat['size'],
+            'sha256'  => (string) hash_file('sha256', $caminho),
+        ];
     }
 
     /**
@@ -231,6 +333,47 @@ final class ArmazenamentoLocalContratoTest extends ArmazenamentoContratoTestCase
             self::assertStringEqualsFile($origem, 'conteúdo que não pode sumir');
             self::assertSame([], glob($this->raiz . '/clientes/*.parcial-*') ?: []);
         } finally {
+            @unlink($origem);
+        }
+    }
+
+    /**
+     * A falha realista NO MEIO da gravação de uma origem EMPRESTADA (D15): a cópia para o
+     * `.parcial-` termina e a publicação é recusada (um diretório no lugar do destino). A origem só
+     * foi lida — mesmo inode, modo e mtime — e nada fica para trás. Com `consumirOrigem: true` o
+     * caminho rápido a moveria e acertaria o modo dela antes de tentar publicar; este teste cai.
+     */
+    #[TestDox('D15: publicação que falha com origem emprestada não toca na origem nem deixa .parcial-')]
+    public function testPublicacaoQueFalhaNaoTocaNaOrigemEmprestada(): void
+    {
+        mkdir($this->raiz . '/clientes/ocupado.pdf', 0o755, true); // um diretório no lugar do arquivo
+        $origem = $this->arquivoTemporarioCom(random_bytes(2048));
+        chmod($origem, 0o640);
+        touch($origem, 1_600_000_000);
+        clearstatcache();
+        $antes = $this->foto($origem);
+
+        // Na mesma partição, mover e devolver preserva inode e data; o que denuncia o atalho é o modo
+        // que o backend acerta (`0666 & ~umask`). Com umask 022 ele vira 0644, diferente do 0640.
+        $umaskAnterior = umask(0o022);
+
+        try {
+            $falhou = false;
+            try {
+                $this->backend->gravar(
+                    $this->chave('ocupado.pdf'),
+                    FonteDeConteudo::deArquivoLocal($origem, consumirOrigem: false),
+                );
+            } catch (FalhaDeArmazenamento) {
+                $falhou = true;
+            }
+
+            clearstatcache();
+            self::assertTrue($falhou, 'A publicação sobre um diretório foi aceita.');
+            self::assertSame($antes, $this->foto($origem), 'a origem emprestada mudou');
+            self::assertSame([], glob($this->raiz . '/clientes/*.parcial-*') ?: []);
+        } finally {
+            umask($umaskAnterior);
             @unlink($origem);
         }
     }

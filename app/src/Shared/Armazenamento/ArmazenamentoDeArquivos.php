@@ -48,6 +48,11 @@ interface ArmazenamentoDeArquivos
     /**
      * Abre o conteúdo para leitura em streaming. Quem recebe o recurso é quem o fecha.
      *
+     * `ArquivoNaoEncontrado` só quando a AUSÊNCIA está provada. Não conseguir consultar (permissão,
+     * I/O, backend fora, recusa que não distingue "não existe" de "não pode ver") é
+     * `FalhaDeArmazenamento` — quem chama transforma a primeira em 404 e deixa a segunda passar
+     * (D10, D13).
+     *
      * @return resource
      *
      * @throws ArquivoNaoEncontrado
@@ -61,6 +66,9 @@ interface ArmazenamentoDeArquivos
      * Conveniência para arquivo pequeno e conhecido — o HTML de peça é o caso real. Para qualquer
      * coisa que possa ser grande, use {@see abrir()}: carregar arquivo grande em memória viola
      * INV-4.
+     *
+     * Mesma regra de {@see abrir()}: `ArquivoNaoEncontrado` só com a ausência provada; pane é
+     * `FalhaDeArmazenamento`.
      *
      * @throws ArquivoNaoEncontrado
      * @throws FalhaDeArmazenamento

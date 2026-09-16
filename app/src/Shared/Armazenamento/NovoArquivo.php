@@ -73,17 +73,19 @@ final readonly class NovoArquivo
      * `açaí - 02 junho 2025`, `pdf canvelado por atraso - refeito`, `208／2024-1`… São arquivos
      * legítimos cujo nome simplesmente não tem extensão de verdade.
      *
-     * O único chamador que deriva extensão de dado do usuário é o sync do Drive
-     * (`ReconciliadorDePasta.php:440`). Recusar ali transformaria "arquivo com nome esquisito" em
-     * "arquivo que não entra no sistema" — num sync que já acumula backlog. Um contrato de
+     * Dois chamadores derivam extensão do nome dado pelo usuário: o sync do Drive
+     * (`ReconciliadorDePasta::baixarArquivo`) e a cópia do acervo (`CopiarArquivosAcervoCommand`).
+     * Recusar ali transformaria "arquivo com nome esquisito" em "arquivo que não entra no sistema" —
+     * num sync que já acumula backlog. Um contrato de
      * storage não tem autoridade para reprovar o arquivo de um cliente por causa do nome dele.
      *
      * Então: o que não serve como extensão vira `bin`. Nada se perde — o nome original do
      * usuário mora em coluna própria (`nome_original`), nunca na chave.
      *
-     * ⚠️ Isto MUDA o que o sync gravaria hoje: `hash.açaí - 02 junho 2025` passaria a
-     * `hash.bin`. Decisão ratificada (D8). Na E2.4A só o upload HTTP usa isto, e a extensão
-     * dele vem de `guessExtension()`, que já produz extensão válida; o sync entra na E2.4B.
+     * ⚠️ Isto MUDOU o que o sync e o acervo gravam (E2.4B): `hash.açaí - 02 junho 2025` passou a
+     * `hash.bin`, `hash.PDF` a `hash.pdf`, e o acervo deixou de gerar `hash.` para arquivo sem
+     * extensão. Decisão ratificada (D8). O upload HTTP usa isto desde a E2.4A, com a extensão de
+     * `guessExtension()`, que já é válida.
      */
     private function normalizarExtensao(string $extensao): string
     {

@@ -13,7 +13,8 @@ use App\Shared\Armazenamento\Exception\FalhaDeArmazenamento;
  *
  * Convive de propósito com `ArquivoStorageService`, que **não foi tocado** e continua atendendo
  * `ArquivoStorageInterface` para os consumidores que ainda não migraram — 33 no início da E2; depois
- * da E2.3 sobram os que gravam e excluem por caminho, que migram na E2.4 e na E2.5. É o shim de D2:
+ * da E2.4B sobram os que excluem por caminho (E2.5) e os que pedem caminho ao compressor e ao envio
+ * do Drive (E2.6). É o shim de D2:
  * os dois escrevem no mesmo disco, pelo mesmo layout, enquanto os consumidores migram fatia a
  * fatia. Esta classe
  * **não** implementa a interface antiga — duas implementações da mesma interface quebrariam o
@@ -67,11 +68,7 @@ final readonly class ArmazenamentoLocal implements ArmazenamentoDeArquivos, Mate
 
     public function abrir(ChaveDeArquivo $chave): mixed
     {
-        $caminho = $this->resolvedor->caminhoDe($chave);
-
-        if (!is_file($caminho)) {
-            throw ArquivoNaoEncontrado::para($chave);
-        }
+        $caminho = $this->exigirArquivoPresente($chave);
 
         $recurso = @fopen($caminho, 'rb');
         if ($recurso === false) {
@@ -85,11 +82,7 @@ final readonly class ArmazenamentoLocal implements ArmazenamentoDeArquivos, Mate
 
     public function ler(ChaveDeArquivo $chave): string
     {
-        $caminho = $this->resolvedor->caminhoDe($chave);
-
-        if (!is_file($caminho)) {
-            throw ArquivoNaoEncontrado::para($chave);
-        }
+        $caminho = $this->exigirArquivoPresente($chave);
 
         $conteudo = @file_get_contents($caminho);
         if ($conteudo === false) {
@@ -190,6 +183,27 @@ final readonly class ArmazenamentoLocal implements ArmazenamentoDeArquivos, Mate
      */
     public function paraLeitura(ChaveDeArquivo $chave): ArquivoEmprestado
     {
+        $caminho = $this->exigirArquivoPresente($chave);
+
+        if (!is_readable($caminho)) {
+            throw new FalhaDeArmazenamento(
+                sprintf('Arquivo existe mas não é legível: %s', $chave->comoTexto()),
+            );
+        }
+
+        return new ArquivoEmprestado($caminho);
+    }
+
+    /**
+     * O caminho do arquivo, ou a exceção CERTA quando ele não está lá (D10, D13).
+     *
+     * Com um diretório ilegível no caminho, `is_file()` também devolve false. Sem provar antes que
+     * dava para olhar, a leitura responderia "não encontrado" a uma pane — e quem chama transforma
+     * isso em 404 (o export de peça) ou em "a peça não referencia nada" (a pergunta que uma
+     * rotina de limpeza faz antes de apagar imagem). Os três leitores passam por aqui.
+     */
+    private function exigirArquivoPresente(ChaveDeArquivo $chave): string
+    {
         $caminho = $this->resolvedor->caminhoDe($chave);
         clearstatcache(true, $caminho);
 
@@ -199,13 +213,7 @@ final readonly class ArmazenamentoLocal implements ArmazenamentoDeArquivos, Mate
             throw ArquivoNaoEncontrado::para($chave);
         }
 
-        if (!is_readable($caminho)) {
-            throw new FalhaDeArmazenamento(
-                sprintf('Arquivo existe mas não é legível: %s', $chave->comoTexto()),
-            );
-        }
-
-        return new ArquivoEmprestado($caminho);
+        return $caminho;
     }
 
     private function cunharChaveLivre(NovoArquivo $novo): ChaveDeArquivo

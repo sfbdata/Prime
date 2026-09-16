@@ -13,6 +13,7 @@ use App\Pasta\Repository\PastaSecaoRepository;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Armazenamento\Exception\ChaveDeArquivoInvalida;
 use App\Shared\Armazenamento\Exception\FalhaDeArmazenamento;
+use App\Shared\Armazenamento\FonteDeConteudo;
 use App\Shared\Service\ArquivoStorageInterface;
 use App\Sync\DTO\ResultadoReconciliacaoPasta;
 use App\Sync\Enum\ModoSincronizacao;
@@ -31,6 +32,19 @@ final class ReconciliadorDePasta
 {
     /** Teto de pasta_documento.tamanho_bytes (coluna INT4 do Postgres). */
     private const TAMANHO_MAX_INT4 = 2147483647;
+
+    /** Largura de pasta_documento.mime_type (varchar). */
+    private const MIME_MAX = 100;
+
+    /** O que o sync sempre gravou quando o Drive não informa MIME. */
+    private const MIME_DESCONHECIDO = 'application/octet-stream';
+
+    /**
+     * Forma de um MIME (`tipo/subtipo`, RFC 6838), sem parâmetros. Sem distinção de caixa — o
+     * banco já tem `text/x-Algol68`, vindo do libmagic — e com `D`, para o `$` não aceitar um
+     * `\n` no fim.
+     */
+    private const MIME_VALIDO = '~^[a-z0-9][a-z0-9!#$&^_.+-]{0,126}/[a-z0-9][a-z0-9!#$&^_.+-]{0,126}$~iD';
 
     public function __construct(
         private readonly EntityManagerInterface $em,
@@ -463,29 +477,54 @@ final class ReconciliadorDePasta
         $nomeStorage = null;
         try {
             // Fork 2 / D8: o client baixa em streaming direto para o $tmp (sem carregar o arquivo
-            // inteiro em memória) e aqui o $tmp é MOVIDO para o storage, também sem reler o conteúdo.
+            // inteiro em memória), e o storage MOVE o $tmp, também sem reler o conteúdo — o
+            // temporário é nosso, por isso `consumirOrigem: true`. O `finally` abaixo continua
+            // valendo para o download que falha e para a gravação que devolve a origem.
             $client->baixarArquivo($arq['id'], $tmp);
-            $extensao = pathinfo($arq['nome'], PATHINFO_EXTENSION);
-            if ($extensao === '') {
-                $extensao = 'bin';
-            }
-            $nomeStorage = $this->storage->moverParaArmazenamento($tmp, $this->uploadsDir, $extensao);
 
             $pasta = $this->em->find(Pasta::class, $pastaId);
             if ($pasta === null) {
                 throw new \RuntimeException('Pasta desapareceu durante o download.');
             }
+
+            // O escritório antes da gravação: é dele que sai o escopo da chave, pelo mesmo getter
+            // que a leitura vai usar (R1). A extensão vem do nome no Drive e é saneada pelo
+            // storage — o que não servir vira `bin` (D8).
+            $doc = (new PastaDocumento())->setTenant($this->em->getReference(Tenant::class, $tenantId));
+
+            $armazenado = $this->armazenamento->gravar(
+                ChavesDePasta::novoDocumento($doc, pathinfo($arq['nome'], PATHINFO_EXTENSION)),
+                FonteDeConteudo::deArquivoLocal($tmp, consumirOrigem: true),
+            );
+            $nomeStorage = $armazenado->chave->nome;
+
+            // D16: o tamanho persistido é o do conteúdo GRAVADO. O `size` da listagem do Drive é
+            // só metadado (e vem 0 quando ausente); quando diverge, vale o recebido — e a
+            // divergência fica registrada, porque é sinal de download que não trouxe o arquivo.
+            if ($armazenado->tamanhoBytes > self::TAMANHO_MAX_INT4) {
+                throw new \RuntimeException(sprintf(
+                    'conteúdo recebido (%d bytes) acima do limite da coluna de tamanho',
+                    $armazenado->tamanhoBytes,
+                ));
+            }
+            if ($arq['tamanho'] !== $armazenado->tamanhoBytes) {
+                $r->log(sprintf(
+                    '[aviso] drive_file_id=%s: o Drive informou %d bytes e chegaram %d — gravado o tamanho recebido',
+                    $arq['id'],
+                    $arq['tamanho'],
+                    $armazenado->tamanhoBytes,
+                ));
+            }
+
             $secao = $secaoId !== null ? $this->em->getReference(PastaSecao::class, $secaoId) : null;
-            $doc = (new PastaDocumento())
-                ->setTitulo($arq['nome'])
+            $doc->setTitulo($arq['nome'])
                 ->setCategoria(PastaDocumento::CATEGORIA_DEMAIS)
                 ->setCaminhoArquivo($nomeStorage)
                 ->setNomeOriginal($arq['nome'])
-                ->setMimeType($arq['mimeType'] !== '' ? $arq['mimeType'] : 'application/octet-stream')
-                ->setTamanhoBytes($arq['tamanho'])
+                ->setMimeType(self::mimeParaPersistir($arq['mimeType']))
+                ->setTamanhoBytes($armazenado->tamanhoBytes)
                 ->setPasta($pasta)
                 ->setSecao($secao)
-                ->setTenant($this->em->getReference(Tenant::class, $tenantId))
                 ->setDriveFileId($arq['id']);
             $this->em->persist($doc);
             $this->em->flush();
@@ -512,5 +551,26 @@ final class ReconciliadorDePasta
         }
 
         return true;
+    }
+
+    /**
+     * D16: o MIME que o Drive informa é informação semântica e é preservado quando é um MIME de
+     * verdade. Nada é inferido — nem pela extensão, nem pelo conteúdo.
+     *
+     * Sem MIME válido, vale o mesmo `application/octet-stream` que o sync já gravava para MIME
+     * vazio. A diferença é que um valor malformado ou maior que a coluna também cai aqui, em vez de
+     * ir cru para o banco — com mais de 100 caracteres o INSERT estourava, o EntityManager fechava e
+     * a rodada inteira virava fatal. Usar o MIME medido pelo storage seria política nova (um
+     * `text/html` medido transformaria o arquivo em peça editável); fica para decisão do dono.
+     * Os `application/vnd.google-apps.*` nem chegam aqui: não têm conteúdo e são pulados no início
+     * de {@see baixarArquivo()}.
+     */
+    private static function mimeParaPersistir(string $doDrive): string
+    {
+        if (strlen($doDrive) <= self::MIME_MAX && preg_match(self::MIME_VALIDO, $doDrive) === 1) {
+            return $doDrive;
+        }
+
+        return self::MIME_DESCONHECIDO;
     }
 }

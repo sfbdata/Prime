@@ -67,8 +67,12 @@ final class FakeGoogleDriveClient implements GoogleDriveClientInterface
         return $id;
     }
 
+    /** @var list<string> Onde cada download foi escrito — para o teste conferir que o temporário não sobrou. */
+    public array $destinosDeDownload = [];
+
     public function baixarArquivo(string $fileId, string $destinoLocal): void
     {
+        $this->destinosDeDownload[] = $destinoLocal;
         file_put_contents($destinoLocal, 'conteudo-fake-' . $fileId);
     }
 

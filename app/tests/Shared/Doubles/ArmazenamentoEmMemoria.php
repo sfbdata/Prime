@@ -63,6 +63,14 @@ final class ArmazenamentoEmMemoria implements ArmazenamentoDeArquivos
      */
     public ?\Throwable $falhaAoGravar = null;
 
+    /**
+     * Quando preenchidos, `gravar()` DEVOLVE estes metadados em vez dos reais (o conteúdo gravado
+     * não muda). Serve para provar que o chamador persiste o que o storage mediu — e não a própria
+     * conta (`strlen`, `filesize` da origem, metadado do Drive), que num teste comum coincidiria.
+     */
+    public ?int $tamanhoRelatado = null;
+    public ?string $mimeRelatado = null;
+
     public function gravar(ChaveDeArquivo|NovoArquivo $destino, FonteDeConteudo $fonte): ArquivoArmazenado
     {
         if ($this->falhaAoGravar !== null) {
@@ -99,7 +107,11 @@ final class ArmazenamentoEmMemoria implements ArmazenamentoDeArquivos
         $this->chavesGravadas[] = $chave->comoTexto();
         $this->gravadas[]       = $chave;
 
-        return new ArquivoArmazenado($chave, strlen($conteudo), 'application/octet-stream');
+        return new ArquivoArmazenado(
+            $chave,
+            $this->tamanhoRelatado ?? strlen($conteudo),
+            $this->mimeRelatado ?? 'application/octet-stream',
+        );
     }
 
     public function abrir(ChaveDeArquivo $chave): mixed

@@ -8,8 +8,9 @@ use App\Entity\Tenant\Tenant;
 use App\Pasta\Armazenamento\ChavesDePasta;
 use App\Pasta\Repository\PastaDocumentoRepository;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
+use App\Shared\Armazenamento\Exception\ArquivoNaoEncontrado;
 use App\Shared\Armazenamento\Exception\ChaveDeArquivoInvalida;
-use App\Shared\Service\ArquivoStorageInterface;
+use App\Shared\Armazenamento\Exception\FalhaDeArmazenamento;
 
 /**
  * Responde à única pergunta que uma rotina de limpeza precisa fazer antes de apagar qualquer
@@ -30,10 +31,8 @@ final class ArquivosReferenciadosEmPecas
 {
     public function __construct(
         private readonly PastaDocumentoRepository $documentos,
-        private readonly ArquivoStorageInterface $storage,
         private readonly ArmazenamentoDeArquivos $armazenamento,
         private readonly ReferenciasDePecaHtml $referencias,
-        private readonly string $uploadsDir,
     ) {
     }
 
@@ -46,9 +45,14 @@ final class ArquivosReferenciadosEmPecas
      * 15/09: zero em 22.750 chaves) — a peça também não referencia nada, e a rotina de limpeza
      * não pode estourar por causa dela.
      *
-     * E2.2: a presença é perguntada por chave; a leitura do HTML continua crua até a E2.4.
+     * **Pane do storage NÃO é ignorada** (E2.4B): uma peça que existe e não pôde ser lida
+     * pareceria "sem imagens", e a limpeza que confiasse nesta resposta apagaria imagem em uso.
+     * `FalhaDeArmazenamento` propaga e a rotina inteira para — é o lado seguro. Antes da E2.4B o
+     * `file_get_contents` cru devolvia `''` com um warning em produção: falha aberta.
      *
      * @return string[]
+     *
+     * @throws FalhaDeArmazenamento quando alguma peça não pôde ser lida
      */
     public function doTenant(Tenant $tenant): array
     {
@@ -64,11 +68,13 @@ final class ArquivosReferenciadosEmPecas
                 continue;
             }
 
-            if (!$this->armazenamento->existe($chave)) {
+            // `ler()` só responde "não encontrado" depois de provar que dava para olhar; diretório
+            // ou arquivo ilegível é `FalhaDeArmazenamento` e não passa por este catch.
+            try {
+                $html = $this->armazenamento->ler($chave);
+            } catch (ArquivoNaoEncontrado) {
                 continue;
             }
-
-            $html = (string) file_get_contents($this->storage->caminho($this->uploadsDir, $nomeDaPeca));
 
             foreach ($this->referencias->extrair($html) as $nomeReferenciado) {
                 $referenciados[$nomeReferenciado] = true;

@@ -424,6 +424,16 @@ de propósito (`PurgarEscritorioUseCase.php:344`).
 | **D10** | **Política de erro na entrega.** Nas rotas de visualização e download: (1) chave inválida vinda da requisição/URL → **404**; (2) chave válida, arquivo inexistente → **404**; (3) erro operacional real do storage (permissão, I/O, backend indisponível, falha inesperada) → **não** é mascarado como 404. A camada preserva a distinção entre "o arquivo não existe" e "não consegui consultar/ler o storage"; nenhum catch genérico transforma `FalhaDeArmazenamento` em 404. Autorização e permissão de negócio continuam acima do storage | `ArquivoNaoEncontrado` ≠ `FalhaDeArmazenamento` no materializador; `EntregaDeArquivo` só captura a primeira; teste de arquitetura trava o catch |
 | **D11** | **Entrega endereçada por chave.** A camada de entrega recebe `ChaveDeArquivo`, nunca caminho físico pronto. `Controller → ChaveDeArquivo → EntregaDeArquivo → abstração de armazenamento → backend (Local hoje, R2 depois)`. O controller não conhece `/public/uploads`, raiz física, resolvedor local, caminho absoluto nem detalhe S3/R2; `ResolvedorDeCaminhoLocal` é detalhe do backend Local | `paraLeitura()` mora no `ArmazenamentoLocal`, que mantém o resolvedor privado; teste de arquitetura proíbe resolvedor e backend concreto fora do núcleo |
 
+### Ratificadas pelo dono antes da E2.4B (2026-09-16)
+
+| # | Decisão | Consequência |
+|---|---|---|
+| **D12** | **Falha operacional do storage ao salvar/editar peça não vira 404.** Erro de I/O ou de storage continua sendo erro operacional; nenhum catch genérico transforma essa falha em ausência | `SalvarPecaTextoUseCase`/`EditarPecaTextoUseCase` deixam `FalhaDeArmazenamento` propagar; o controller não a captura (500) |
+| **D13** | **Peça ausente no export → 404.** Com chave válida e autorização aprovada, arquivo inexistente responde 404. Falha operacional ao consultar/ler o storage **não** vira 404. Ausente ≠ storage indisponível | `ler()`/`abrir()` do `ArmazenamentoLocal` passam a provar a cadeia de diretórios antes de lançar `ArquivoNaoEncontrado`; o controller captura só essa |
+| **D14** | **Editar peça cujo arquivo sumiu: falhar fechado, sem recriar.** Um registro que afirma haver peça persistida, sem o arquivo correspondente, é perda ou inconsistência do acervo, e recriar esconderia isso | `EditarPecaTextoUseCase` pergunta `existe()` antes de gravar; ausência → 404 JSON com mensagem fixa e log de erro. **Muda comportamento:** antes o arquivo era recriado em silêncio |
+| **D15** | **`CopiarArquivosAcervoCommand` migra; não é aposentado.** O comando não tinha teste: a cobertura nasce junto com a migração. `consumirOrigem=false` é obrigatório: o arquivo do operador é emprestado e não pode ser movido nem apagado, nem no sucesso nem na falha | `CopiarArquivosAcervoCommandTest` fotografa a origem (inode, modo, mtime, tamanho, SHA-256) antes e depois |
+| **D16** | **Sync do Drive: tamanho medido, MIME do Drive.** O tamanho persistido é o do conteúdo efetivamente gravado; o `size` da API não é autoritativo quando diverge. O MIME válido informado pela API é preservado; não se infere MIME só pela extensão | `ReconciliadorDePasta` usa `ArquivoArmazenado::tamanhoBytes`, registra aviso na divergência e usa o MIME do Drive quando ele é válido |
+
 ---
 
 ## 9. Riscos e dívidas
@@ -477,6 +487,14 @@ de propósito (`PurgarEscritorioUseCase.php:344`).
   diretório é `0700` e conferido a cada upload (dono e modo), então o resíduo não fica legível por
   outros usuários, mas também não é limpo por ninguém. Candidato a uma limpeza por idade junto da
   varredura da E3.
+- **DT-8 (achado na E2.4B, anterior à E2)** — `GoogleDriveClient::baixarArquivo` usa o cliente
+  autorizado do Google, que herda `'http_errors' => false` (`vendor/google/apiclient/src/Client.php`,
+  `AuthHandler/Guzzle6AuthHandler.php`). Um 403 (cota, arquivo bloqueado), 404 ou 5xx no download
+  **não lança**: o corpo do erro vai para o `sink` e é gravado como se fosse o arquivo do cliente,
+  com o `drive_file_id` preenchido — e a idempotência por esse id impede que ele seja baixado de
+  novo. Lido no vendor, não executado. A E2.4B não piora (o tamanho gravado passa a ser o do corpo
+  recebido e a divergência gera `[aviso]`), mas não corrige: o arquivo está fora dos seis pontos.
+  A Via B só roda com `--modo=importar|ambos`. **Decisão do dono** (ver o bloco da E2.4B).
 - **DT-5** — 3 docblocks em `app/src/` citam `ArquivoStorageInterface` pelo nome
   (`AcordoDocumento.php:20`, `CarteiraDocumento.php:21`, `ArquivosDeAnexoDoKanban.php:18`) e ficam
   obsoletos quando a interface sair na E2.8.
@@ -496,7 +514,7 @@ integrar.
 | **E2.2** — ✅ **entregue em 15/09** | fábricas de chave por domínio (`app/src/<Dominio>/Armazenamento/ChavesDe*`, 7 classes); `existe()` migrado em **26 chamadas / 21 arquivos**; **`ArquivosDeAnexoDoKanban::diretorio()` removido**. Fora, por decisão do dono: `PurgarEscritorioUseCase` (a 27ª chamada) fica **inteiro** para a E2.5; "tamanho" **não tem consumidor** nesta fatia (`metadados()` já existe desde a E2.1; os 3 `filesize()` seguem nas fatias previstas). Detalhes no bloco "E2.2 — entregue", abaixo | 21 + 7 fábricas | testes de fábrica (categoria, tenant da entidade, tenant nulo, nome byte a byte, sem parâmetro de tenant, este por reflexão) + materialização do escopo nos UseCases contra `ArmazenamentoEmMemoria` + 404 nas 2 rotas com nome pela URL + reconciliador com arquivo ausente, com nome inválido e com disco ilegível + exclusão de seção com disco ilegível pós-commit; **8 provas por reintrodução de defeito**; revisão adversarial feita e os 6 achados de código corrigidos |
 | **E2.3** — ✅ **entregue em 16/09** | `MaterializadorDeArquivo::paraLeitura()` (Local, cópia zero) + `EntregaDeArquivo` + as **15 rotas** de `servir()` migradas; `ArquivosDeAnexoDoKanban::caminhoDe()` privado. Detalhes no bloco "E2.3 — entregue", abaixo | 11 controllers + 2 classes novas (`MaterializadorDeArquivo`, `EntregaDeArquivo`) + 2 alteradas (`ArmazenamentoLocal`, `ArquivosDeAnexoDoKanban`) | equivalência de cabeçalhos com o `servir()` antigo + `Range` → 206 + INV-9 #3 + arquivo de 64 MB sem ir para a memória + D10 (ausente → 404, pane ≠ 404, inclusive pela rota) + teste de arquitetura; 14 provas por reintrodução; revisão adversarial feita, sem bloqueante, achados corrigidos |
 | **E2.4A** — ✅ **entregue em 16/09** | os **14 uploads HTTP** (`salvar(UploadedFile)`) pela ponte `FonteDeUploadHttp` + `gravar(NovoArquivo)`, com fábricas `ChavesDe*::novo*`; publicação em dois passos no `ArmazenamentoLocal`. Detalhes no bloco "E2.4A — entregue", abaixo | 13 consumidores + ponte + 7 fábricas + backend | unit/funcional de cada ponto (válido, inválido, R1 pela rota contra dublê em memória, falha do storage sem linha, cleanup do flush onde existe) + INV-10 + testes de arquitetura; 22 provas por reintrodução; revisão (4) e re-revisão feitas |
-| **E2.4B** | as **4 escritas internas** — `SalvarPecaTextoUseCase`, `CopiarArquivosAcervoCommand`, `ReconciliadorDePasta`, `EditarPecaTextoUseCase` (sobrescrita por chave) — e a leitura em `ArquivosReferenciadosEmPecas`/`ExportarPecaTextoUseCase` | 6 | unit de cada ponto + teste de falha de I/O |
+| **E2.4B** — ✅ **entregue em 16/09** | as **4 escritas internas** — `SalvarPecaTextoUseCase`, `CopiarArquivosAcervoCommand`, `ReconciliadorDePasta`, `EditarPecaTextoUseCase` (sobrescrita por chave) — e as leituras em `ArquivosReferenciadosEmPecas`/`ExportarPecaTextoUseCase`; `ler()`/`abrir()` do backend provam a cadeia de diretórios (D13). Detalhes no bloco "E2.4B — entregue", abaixo | 6 + `PeticionarController` + backend + contrato | unit e funcional de cada ponto (os 12 itens pedidos pelo dono) + primeiro teste do comando do acervo + guarda estrutural do shim; 31 provas por reintrodução; revisão (4) e re-revisão feitas |
 | **E2.5** | `excluir()` (19 chamadas) + `ArmazenamentoComPrefixo` nas 2 categorias com escopo físico | 15 | purga + isolamento cross-tenant + allowlist do arch test |
 | **E2.6** | `MaterializadorDeArquivo::copiaGravavel()` (o `paraLeitura()` já existe desde a E2.3); os 4 chamadores do compressor, o export e o `ReconciliadorDePasta` | 6 (todos já entre os 33) | **pré-requisito D4**: testes de modo de falha do compressor verdes **antes** |
 | **E2.7** | investigação de Tarefa e, se viável sem migration, entrada na abstração (**D5**) | `TarefaController`, `CaminhoDeAnexoDeTarefa` | teste de travessia atacando o VO, não a rota |
@@ -795,7 +813,132 @@ integrar.
   - o anexo de chamado passa a funcionar em produção pela primeira vez (smoke: abrir chamado com
     anexo e baixá-lo).
 
+**E2.4B — entregue em 16/09/2026.** As 4 escritas internas e as 2 leituras, sob D12–D16. O que foi
+decidido e feito ao executar:
+
+- **Escopo conferido antes de escrever** (quatro investigações em paralelo): 2 `salvarConteudo` + 1
+  `moverParaArmazenamento` + 1 `file_put_contents` = 4 escritas; 2 `file_get_contents` sobre
+  `caminho()` = 2 leituras. Nenhum escritor interno fora da lista. Dos 26 `caminho()` que restavam,
+  3 saíram; sobram 6 da E2.6 e 17 ligados a `excluir()`. As 19 `excluir()` seguem intactas.
+- **Núcleo: `ler()` e `abrir()` provam a cadeia de diretórios antes de responder "não encontrado"**
+  (`ArmazenamentoLocal::exigirArquivoPresente`, o mesmo caminho do `paraLeitura()`). Antes só
+  perguntavam `is_file()`: com um diretório ilegível, o export responderia 404 a uma pane. Os únicos
+  chamadores em `src/` são os dois desta fatia. A regra foi para o docblock do contrato — um backend
+  remoto que confunda "não existe" com "não posso ver" (o 403 do S3 sem `ListBucket`) terá de
+  respeitá-la. Limite conhecido, herdado de `existe()`: a prova exige `r` em cada ancestral, então
+  um diretório `0711` dá 500 em vez de 404 (falha fechada).
+- **Peça nova.** O documento recebe o escritório, o título e o nome original; o storage grava e
+  cunha o nome; só então o documento é completado e persistido. `FalhaDeArmazenamento` propaga antes
+  do `persist` (500, D12) — antes, o `file_put_contents` falhava calado em produção e a peça era
+  salva apontando para arquivo ausente. O MIME continua `text/html` fixo: medido no container, o
+  libmagic devolve `text/plain` para fragmentos (`<p>`, `<div>`, `<img>`) e `text/html` só com
+  `<html>`, `<!DOCTYPE>` ou `<table>`; editar, exportar e a listagem de peças decidem por
+  `text/html`. O tamanho vem do `ArquivoArmazenado`.
+- **Título que não cabe na coluna é recusado antes de gravar** (achado da revisão, anterior à E2):
+  `titulo` e `nome_original` são VARCHAR(255) e o campo da tela aceita 255 caracteres, então um
+  título de 251 a 255 passava pela validação, o arquivo era gravado e o banco o recusava no `flush`
+  — órfão por falha previsível. Na edição era pior: o conteúdo novo já estava publicado e o usuário
+  recebia 500. Agora `TituloDePecaLongoDemaisException` (estende `InvalidArgumentException`) antes de
+  tocar no storage, 400 com a mensagem nos dois endpoints; a conta usa o título já em maiúsculas
+  (`ß` vira `SS`). A edição captura **só** essa exceção — um `catch` de `InvalidArgumentException`
+  pegaria também o `ORMInvalidArgumentException` do `flush` (achado da re-revisão). O campo da tela
+  passou de `maxlength="255"` para `250`. Consequência: uma peça importada com título de 251 a 255
+  caracteres só aceita edição de conteúdo depois de o título ser encurtado (antes, a edição dava
+  500 com o conteúdo já sobrescrito).
+- **Peça editada (D14).** `existe()` antes de `gravar(ChaveDeArquivo)`. Ausente →
+  `ArquivoNaoEncontrado` → 404 JSON com mensagem fixa (a da exceção expõe escritório e chave) e
+  `logger->error` com o id do documento. Pane → 500. **Mudança de comportamento:** antes o arquivo
+  era recriado em silêncio e a resposta era sucesso. A sobrescrita passou a ser atômica (vizinho +
+  `rename()`); o arquivo ganha inode e modo novos, e a escrita passa a exigir permissão no
+  diretório, não só no arquivo. Os campos da entidade só mudam depois de o conteúdo estar publicado.
+  **Janela residual:** os seis verbos não têm "gravar só se existir"; se o arquivo sumir entre o
+  `existe()` e o `gravar()`, ele é recriado.
+- **Export (D13).** `ler()` por chave. Ausente → 404 (antes: 200 com arquivo VAZIO em produção,
+  onde o warning não vira exceção) e log. Pane → 500. Uma chave recusada vinda do banco
+  (`ChaveDeArquivoInvalida`, que estende `InvalidArgumentException`) é relançada antes do `catch`
+  do formato inválido — continua 500, não 400 com a mensagem interna (regra da E2.3); o mesmo no
+  criar e no editar. As `<img>` e o `chroot` do Dompdf seguem no disco até a E2.6.
+- **`ArquivosReferenciadosEmPecas`.** `ler()` com `catch (ArquivoNaoEncontrado)` → a peça é pulada;
+  pane propaga e a consulta inteira falha. Antes, em produção, uma peça presente e ilegível virava
+  `''` e parecia "sem imagens" — a limpeza que confiasse nisso apagaria imagem em uso. O `existe()`
+  que a preparação mandava manter antes do `ler()` saiu: a prova da cadeia agora está no próprio
+  `ler()`. O serviço ainda não tem consumidor em produção.
+- **Acervo (D15).** `gravar(novoDocumento, deArquivoLocal($path, consumirOrigem: false))` — `false`
+  **explícito**. Cópia em streaming (resolve DT-2). O documento recebe o escritório antes, e o
+  `persist` só acontece depois da gravação: uma falha do storage é erro do item, sem linha, e o
+  lote segue. Tamanho e MIME vêm do `ArquivoArmazenado` (o mesmo libmagic de antes, agora sobre o
+  que foi gravado). Extensão saneada por `NovoArquivo` (D8): sem extensão vira `hash.bin` em vez de
+  `hash.` — a origem das 165 chaves legadas —, e maiúscula vira minúscula. Se o `flush` da pasta for
+  recusado, o comando lista os nomes gravados ("podem ter ficado sem linha — confira no banco antes
+  de apagar"; um COMMIT que falha não diz se as linhas chegaram) e relança; não apaga nada (E2.5, e
+  `LimpezaDeArquivosArquiteturaTest` recusa `excluir` num arquivo com `scandir`). Primeiro teste do
+  comando: `CopiarArquivosAcervoCommandTest`, que fotografa a origem (inode, modo, mtime, tamanho,
+  SHA-256) no sucesso, na origem ilegível, na falha depois de gravar e na recusa do banco.
+- **Drive (D16).** O documento recebe o escritório (`getReference` do `tenant_id` da pasta) e a
+  pasta é buscada **antes** de gravar; `gravar(novoDocumento, deArquivoLocal($tmp, consumirOrigem:
+  true))`; o `finally` do `tempnam` continua (download que falha, origem devolvida pela publicação).
+  Tamanho = `ArquivoArmazenado::tamanhoBytes`; quando diverge do `size` da listagem, `[aviso]` no
+  resultado. Guarda do INT4 também sobre o tamanho **recebido** (sem ela, um `size` errado deixaria
+  o INSERT estourar, o EntityManager fechar e a rodada virar fatal). MIME: o do Drive, quando casa
+  `tipo/subtipo` da RFC 6838 (sem parâmetros, sem distinção de caixa, com `D`) e cabe nos 100 da
+  coluna — medido em `saas_ux`: 26 valores distintos em 20.954 linhas, a regra recusa zero. Sem MIME
+  válido: `application/octet-stream`, o valor que o sync já gravava para MIME vazio (antes, um valor
+  não vazio ia cru, e um maior que a coluna derrubava a rodada). **Não** se usa o MIME medido como
+  fallback: seria política nova — um `text/html` medido transformaria o arquivo em peça editável.
+  Extensão saneada (D8). A limpeza do item que falha continua no storage antigo, por caminho (E2.5);
+  agora provada no disco (INT4 e banco recusado).
+- **Guarda estrutural** (`EscritaInternaPorChaveArquiteturaTest`): a lista de quem ainda depende de
+  `ArquivoStorageInterface`/`ArquivoStorageService` é fechada (19 arquivos, cada um com a fatia de
+  saída) e só diminui — a revisão lembrou que travar primitiva por primitiva (`file_put_contents`)
+  é fácil de contornar com `copy()`. Além dela: ninguém chama `salvarConteudo()`/
+  `moverParaArmazenamento()`; `file_put_contents()` só no shim; `file_get_contents()` só nas 5
+  exceções justificadas.
+- **Dublês:** `ArmazenamentoEmMemoria` ganhou `tamanhoRelatado`/`mimeRelatado` (prova que o chamador
+  persiste o que o storage mediu, e não a própria conta, que num teste comum coincide);
+  `ArmazenamentoEspiao` (novo) decora qualquer backend, inclusive o disco; `FakeGoogleDriveClient`
+  registra onde escreveu cada download.
+- **Os 12 itens pedidos pelo dono:** peça nova, edição, edição sem arquivo (unit + rota, arquivo não
+  recriado), export sem arquivo (404 + mensagem + log), pane ≠ 404 (diretório e arquivo ilegíveis,
+  falha de gravação, contrato de `ler`/`abrir`), acervo preserva a origem (sucesso), acervo preserva a
+  origem na falha (origem ilegível, falha depois de gravar, recusa do banco, e a publicação recusada
+  no contrato), conteúdo idêntico (SHA-256), chave do Drive (R1), tamanho gravado (Drive, acervo e
+  peça, com valor relatado distinto), MIME válido do Drive preservado, falha do storage sem estado
+  errado no banco (peça, edição, acervo, Drive — e sem órfão no Drive).
+- **Provas por reintrodução (32 mutações, todas derrubaram o teste certo):** acervo com `consumirOrigem:true`
+  (duas vezes, antes e depois das correções); backend consumindo origem sem a flag; edição sem
+  `existe()`; export capturando `RuntimeException` como 404; `ler()` e `abrir()` sem a prova da
+  cadeia; Drive com o tamanho da API, com MIME sempre medido, com a regra antiga de MIME, com o
+  fallback medido, com escopo de outro escritório, sem a guarda INT4 e sem a limpeza do item; peça
+  com MIME medido; `persist` antes de gravar (peça e acervo); referências engolindo pane; export sem
+  o relançamento de `ChaveDeArquivoInvalida`; edição e export sem o `catch` de ausência; acervo sem a
+  lista de órfãos, com tamanho e com MIME da origem; `file_put_contents` e `salvarConteudo`
+  reintroduzidos; storage antigo reinjetado na peça; limite de título removido (criar e editar), sem
+  as maiúsculas, e o editar sem o 400 ou com o `catch` largo; log da D14 removido. **Uma prova estava errada na própria
+  mutação** (`false && A || B` ainda checava `B`) — refeita.
+- **Revisão:** quatro revisores (arquitetura, banco × arquivo, Drive/acervo/metadados, testes) e uma
+  re-revisão focada nas correções (sem bloqueante e sem regressão; os MENOR dela foram corrigidos:
+  exceção própria do título, `maxlength`, umask fixo no teste de publicação, limpeza em `finally`).
+  Nenhum bloqueante. O que mudou por causa deles: limpeza do Drive
+  provada no disco; título longo recusado antes de gravar; fallback de MIME conservador; guarda
+  estrutural do shim; mensagem do acervo sem afirmar o que não sabe; teste de publicação recusada
+  com origem emprestada; tamanho/MIME relatados; log da D14 testado; temporário do Drive conferido
+  de forma determinística; testes que engoliam `fail()` ou vazavam arquivo corrigidos.
+- **Riscos residuais, sem mudança nesta fatia:**
+  - ⚠️ **DT-8** (download do Drive grava corpo de erro HTTP como arquivo) — decisão do dono;
+  - órfão sem registro se o `filesize()` falhar depois da publicação (núcleo, desde a E2.1; raro);
+  - acervo: a lista de órfãos cobre só a recusa do `flush`; a deduplicação por `nome_original` só
+    enxerga o que já passou por `flush`; `getRealPath()` devolvendo `false` derruba o comando com
+    `TypeError` fora do `try` do item (os três anteriores à E2);
+  - `ler()` carrega o HTML inteiro em memória, como o `file_get_contents` de antes;
+  - o Drive checa `mb_strlen($nome) > 255` sem considerar que `mb_strtoupper` pode crescer o texto,
+    e o acervo não checa: um nome desses estouraria o INSERT (no Drive, rodada fatal). Anterior à E2;
+  - a prova de "rodada segue" com o banco recusando o item no Drive é simulada no `onFlush`, antes
+    do BEGIN; uma recusa real fecha o EntityManager e a rodada vira fatal (comportamento anterior);
+  - os testes de `chmod` e o do log supõem uma suíte por worktree.
+
 **Preparação da E2.4B e da E2.5 — investigação antecipada em 16/09, read-only, nada implementado.**
+*(A parte da E2.4B foi respondida pela fatia acima: as decisões (1)–(5) viraram D12–D16, e o
+`existe()` antes do `ler()` foi substituído pela prova da cadeia no próprio `ler()`.)*
 Levantada em paralelo à E2.4A para encurtar as próximas fatias. Linhas conferidas no código daquele
 dia; confira de novo antes de usar.
 
@@ -864,6 +1007,43 @@ dia; confira de novo antes de usar.
     tenant 1 em `uploads/clientes`" não existe em disco; nem `cobrancas/<id>`, symlink, escopo
     global, Kanban, Tarefa, `documento_processo`, disco ilegível na limpeza.
   - R2: `cobranca-acompanhamento-canonico` toca a purga e segue congelada (`80ac07cb`).
+- **E2.5 — rodada 2 da investigação (16/09, read-only, durante a E2.4B).** Nada implementado.
+  - **Contagem confirmada:** 19 `excluir()` em 15 arquivos (9 pré-commit, 6 pós-commit, 4 em
+    `catch`). Linhas que mudaram: `PastaController` :1702 e :2018, `ClienteController` :192 e :448.
+    Nenhum `unlink` cru sobre arquivo persistido fora do shim.
+  - **O antigo, medido na configuração:** `framework.php_errors` não é configurado, então vale
+    `throw = kernel.debug`. Em dev/test o warning do `unlink` vira `ErrorException`; em produção
+    (`APP_DEBUG=0`) só vai para o log e a execução segue. O novo lança `FalhaDeArmazenamento` sempre
+    que o arquivo continua lá depois do `unlink`.
+  - **Compartilhamento, medido em `saas_ux`:** nenhum nome repetido em `pasta_documento` (20.954),
+    `cliente_documento`, `cobranca_documento`, `user_profiles`; zero nomes repetidos ENTRE tabelas.
+    A única referência múltipla é o anexo do lote do Ponto (4 nomes em 13 linhas, máximo 7, sempre
+    dentro do mesmo lote) — e o `SubstituirAnexoDoLoteUseCase` já conta referências sob trava. Não há
+    "duplicar pasta" nem cópia de `caminho_arquivo` em `src/`.
+  - **Defeito concreto do `ClienteController:192`:** a FK que derruba a exclusão é
+    `cobranca_carteira → cliente` (NO ACTION), não "pré-cadastro" como diz o flash. Em `saas_ux`, 3
+    clientes têm carteira e 2 deles têm documentos: excluí-los apaga os arquivos e depois o cliente
+    fica, sem eles.
+  - **COMMIT duvidoso — são QUATRO cleanups, não três:** `ReconciliadorDePasta` (catch do download)
+    tem o mesmo defeito dos três do Ponto. Fato que ajuda a decidir: no `flush()` simples o ORM 3.6
+    embrulha a falha do COMMIT em `OptimisticLockException('Commit failed')` (`UnitOfWork.php`
+    :431-441), enquanto falhas de INSERT/UPDATE saem cruas (antes do COMMIT, seguras para limpar). No
+    `wrapInTransaction` do lote não há essa marca. O tipo da exceção DBAL não serve de critério
+    (queda do lado do cliente vem como `DriverException` genérica). PG 15 oferece
+    `pg_current_xact_id()` + `pg_xact_status()` para perguntar o destino da transação. Nenhum
+    precedente no projeto.
+  - **Kanban fora da purga:** confirmado; `kanban_anexo` some por CASCADE (board → card → anexo) e os
+    arquivos ficam órfãos. 0 anexos em `saas_ux`; produção não medida nesta rodada.
+  - **`documento_processo`:** entidade e repositório existem, **nenhum escritor em `src/`** (só a
+    fixture, com `fixtures/<nome>`, que a chave recusaria), 0 linhas, nenhum diretório; cai por
+    CASCADE de `processo`.
+  - **Purga:** `excluirPrefixo` entra exatamente no lugar de `removerDiretorioDeTenant` (as duas
+    categorias com diretório por escritório); as planas seguem um a um pelos registros. Hoje: produto
+    cartesiano nomes × 4 diretórios, Kanban e Tarefa são no-op de fato, `glob` segue symlink e ignora
+    dotfile, o contador conta antes do `excluir`. Com o `excluir()` novo lançando, a exceção sai
+    **depois** do COMMIT: o comando reporta "Falha ao purgar" com o banco já purgado, e o que sobrou
+    no disco vira órfão definitivo (a próxima rodada não acha mais as linhas).
+  - A matriz de decisão por chamada está no relatório da E2.4B ao dono (16/09).
 
 **Três armadilhas de ordenação, já mapeadas:**
 
