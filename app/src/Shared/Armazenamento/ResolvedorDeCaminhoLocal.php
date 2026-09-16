@@ -50,6 +50,49 @@ final readonly class ResolvedorDeCaminhoLocal
     }
 
     /**
+     * O diretório exclusivo de (escopo, categoria) e a raiz de onde ele desce — só para as duas
+     * categorias que isolam o escritório em disco (D7, E2.5).
+     *
+     * É a MESMA conta que {@see caminhoDe()} faz para essas categorias (`diretorioDe()` passa por
+     * aqui), então o prefixo apagado pela purga é, por construção, o diretório em que os arquivos
+     * do escritório foram gravados. A prova de que o prefixo realmente pertence só ao escopo é do
+     * backend, que olha o disco; aqui só se monta o endereço.
+     *
+     * @return array{raiz: string, prefixo: string}
+     */
+    public function prefixoDe(EscopoDeArquivo $escopo, CategoriaComIsolamentoFisico $categoria): array
+    {
+        $raiz = match ($categoria) {
+            CategoriaComIsolamentoFisico::PASTA_IMAGEM_EDITOR => $this->raiz($this->uploadsDir),
+            CategoriaComIsolamentoFisico::COBRANCA_DOCUMENTO  => $this->raiz($this->cobrancasUploadsDir),
+        };
+
+        return ['raiz' => $raiz, 'prefixo' => $raiz . '/' . $escopo->tenantIdObrigatorio()];
+    }
+
+    /**
+     * As sete raízes configuradas, sem escopo.
+     *
+     * Existe para o backend recusar um prefixo que coincida com alguma delas ou as contenha — o
+     * acidente de configuração em que `cobrancas/5` fosse, na verdade, o diretório de outra
+     * categoria inteira. Não serve para montar caminho de arquivo.
+     *
+     * @return list<string>
+     */
+    public function raizesConfiguradas(): array
+    {
+        return array_map($this->raiz(...), [
+            $this->uploadsDir,
+            $this->clientesUploadsDir,
+            $this->chamadosUploadsDir,
+            $this->justificativasUploadsDir,
+            $this->fotosPerfilDir,
+            $this->cobrancasUploadsDir,
+            $this->kanbanUploadsDir,
+        ]);
+    }
+
+    /**
      * Diretório onde a categoria mora, para o escopo informado.
      *
      * Só `PASTA_IMAGEM_EDITOR` e `COBRANCA_DOCUMENTO` descem para a subpasta do tenant — são as
@@ -59,10 +102,15 @@ final readonly class ResolvedorDeCaminhoLocal
      * isso era o contrário do que D7 pede: um método público do núcleo que aceita categoria
      * plana e devolve o diretório COMPARTILHADO entre escritórios, sem escopo aplicado. O teste
      * passou a comparar `caminhoDe()` de dois tenants, que prova a mesma coisa sem alargar a API.
-     * Quando a E2.5 implementar `excluirPrefixo`, ela usa {@see CategoriaComIsolamentoFisico}.
+     * A operação por prefixo usa {@see prefixoDe()}, que só aceita {@see CategoriaComIsolamentoFisico}.
      */
     private function diretorioDe(EscopoDeArquivo $escopo, CategoriaDeArquivo $categoria): string
     {
+        $isolada = CategoriaComIsolamentoFisico::deCategoriaOuNull($categoria);
+        if ($isolada !== null) {
+            return $this->prefixoDe($escopo, $isolada)['prefixo'];
+        }
+
         return match ($categoria) {
             CategoriaDeArquivo::PASTA_DOCUMENTO     => $this->raiz($this->uploadsDir),
             CategoriaDeArquivo::CLIENTE_DOCUMENTO   => $this->raiz($this->clientesUploadsDir),
@@ -71,10 +119,8 @@ final readonly class ResolvedorDeCaminhoLocal
             CategoriaDeArquivo::FOTO_PERFIL         => $this->raiz($this->fotosPerfilDir),
             CategoriaDeArquivo::KANBAN_ANEXO        => $this->raiz($this->kanbanUploadsDir),
 
-            CategoriaDeArquivo::PASTA_IMAGEM_EDITOR => $this->raiz($this->uploadsDir)
-                . '/' . $escopo->tenantIdObrigatorio(),
-            CategoriaDeArquivo::COBRANCA_DOCUMENTO  => $this->raiz($this->cobrancasUploadsDir)
-                . '/' . $escopo->tenantIdObrigatorio(),
+            CategoriaDeArquivo::PASTA_IMAGEM_EDITOR,
+            CategoriaDeArquivo::COBRANCA_DOCUMENTO  => throw new \LogicException('resolvidas por prefixoDe()'),
 
             CategoriaDeArquivo::TAREFA_ANEXO        => throw $this->tarefaAindaNaoResolvivel(),
         };

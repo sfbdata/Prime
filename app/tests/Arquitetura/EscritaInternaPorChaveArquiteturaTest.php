@@ -57,38 +57,27 @@ final class EscritaInternaPorChaveArquiteturaTest extends TestCase
      * Quem ainda depende de `ArquivoStorageInterface`/`ArquivoStorageService` (fora comentários), e
      * por quê. A lista só pode diminuir; cada entrada sai na fatia indicada.
      *
-     *  - E2.5 (`excluir()` por caminho): Cobrança ×4, `ExcluirPastaUseCase`, `PastaSecaoController`,
-     *    `ArquivosDeAnexoDoKanban`, `AtualizarFotoPerfilUseCase`, `SubstituirAnexoDoLoteUseCase`,
-     *    `PontoController`, `TenantController`, `PurgarEscritorioUseCase`;
-     *  - E2.6 (`caminho()` para o compressor): `EnviarDocumentoUseCase`, `UploadPecaUseCase`;
-     *  - E2.5 e E2.6: `ClienteController`, `PastaController` e `ReconciliadorDePasta` (o cleanup
-     *    do download que falhou e o caminho do envio ao Drive);
+     *  - E2.6 (`caminho()` para o compressor e para o envio ao Drive): `ClienteController`,
+     *    `PastaController`, `EnviarDocumentoUseCase`, `UploadPecaUseCase`, `ReconciliadorDePasta`;
      *  - E2.8: a própria interface e o serviço.
      *
      * Os seis pontos da E2.4B (`SalvarPecaTextoUseCase`, `EditarPecaTextoUseCase`,
      * `ExportarPecaTextoUseCase`, `ArquivosReferenciadosEmPecas`, `CopiarArquivosAcervoCommand` e a
-     * gravação do `ReconciliadorDePasta`) saíram — os cinco primeiros não podem voltar.
+     * gravação do `ReconciliadorDePasta`) saíram — os cinco primeiros não podem voltar. Na E2.5
+     * saíram os doze que só excluíam por caminho: Cobrança ×4, `ExcluirPastaUseCase`,
+     * `PastaSecaoController`, `ArquivosDeAnexoDoKanban`, `AtualizarFotoPerfilUseCase`,
+     * `SubstituirAnexoDoLoteUseCase`, `PontoController`, `TenantController` e
+     * `PurgarEscritorioUseCase`. Nenhum deles pode voltar; os três que ficam não chamam mais o
+     * `excluir()` antigo (`ExclusaoAposTransacaoArquiteturaTest`).
      */
     private const QUEM_AINDA_USA_O_SHIM = [
         'src/Cliente/Controller/ClienteController.php',
         'src/Cobranca/UseCase/EnviarDocumentoUseCase.php',
-        'src/Cobranca/UseCase/ExcluirDocumentoAcordoUseCase.php',
-        'src/Cobranca/UseCase/ExcluirDocumentoCarteiraUseCase.php',
-        'src/Cobranca/UseCase/ExcluirDocumentoUseCase.php',
-        'src/Cobranca/UseCase/ExcluirSecaoUseCase.php',
         'src/Controller/PastaController.php',
-        'src/Controller/TenantController.php',
-        'src/Kanban/Service/ArquivosDeAnexoDoKanban.php',
-        'src/Pasta/Controller/PastaSecaoController.php',
-        'src/Pasta/UseCase/ExcluirPastaUseCase.php',
         'src/Pasta/UseCase/UploadPecaUseCase.php',
-        'src/Ponto/Controller/PontoController.php',
-        'src/Ponto/UseCase/SubstituirAnexoDoLoteUseCase.php',
-        'src/Profile/UseCase/AtualizarFotoPerfilUseCase.php',
         'src/Shared/Service/ArquivoStorageInterface.php',
         'src/Shared/Service/ArquivoStorageService.php',
         'src/Sync/Service/ReconciliadorDePasta.php',
-        'src/Tenant/UseCase/PurgarEscritorioUseCase.php',
     ];
 
     #[TestDox('só os consumidores conhecidos ainda dependem do storage antigo — a lista só diminui')]

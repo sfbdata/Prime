@@ -90,6 +90,7 @@ use App\Pasta\Entity\PastaSecao;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
+use App\Shared\Armazenamento\RemocaoAposTransacao;
 use App\Shared\Http\FonteDeUploadHttp;
 use App\Shared\Service\ArquivoStorageInterface;
 use App\Shared\Service\CompressorArquivoInterface;
@@ -134,6 +135,7 @@ class PastaController extends AbstractController
         private readonly string $uploadsDir,
         private readonly ArquivoStorageInterface $storage,
         private readonly ArmazenamentoDeArquivos $armazenamento,
+        private readonly RemocaoAposTransacao $remocao,
         private readonly EntregaDeArquivo $entrega,
         private readonly CompressorArquivoInterface $compressor,
         private readonly PermissionChecker $permissionChecker,
@@ -1699,10 +1701,14 @@ class PastaController extends AbstractController
             throw $this->createAccessDeniedException('Token CSRF inválido.');
         }
 
-        $this->storage->excluir($this->storage->caminho($this->uploadsDir, $doc->getCaminhoArquivo()));
+        $chave = ChavesDePasta::documento($doc);
 
         $this->em->remove($doc);
         $this->em->flush();
+
+        // O arquivo só sai depois do COMMIT (E2.5, INV-6): antes, um flush recusado deixava a
+        // linha apontando para o arquivo já apagado. Falha física aqui vira registro, não 500.
+        $this->remocao->remover([$chave], 'PastaController::deleteDocumento');
 
         $this->addFlash('success', 'Documento removido com sucesso.');
 
@@ -2012,10 +2018,12 @@ class PastaController extends AbstractController
             return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_FORBIDDEN);
         }
 
-        $caminho = $this->storage->caminho($this->uploadsDir, $doc->getCaminhoArquivo());
+        $chave = ChavesDePasta::documento($doc);
         $this->em->remove($doc);
         $this->em->flush();
-        $this->storage->excluir($caminho);
+
+        // Depois do COMMIT, e sem 500 se o disco falhar: a exclusão já está confirmada (E2.5).
+        $this->remocao->remover([$chave], 'PastaController::financeiroExcluirDocumento');
 
         return $this->json(['sucesso' => true]);
     }

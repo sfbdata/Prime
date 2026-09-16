@@ -131,9 +131,7 @@ final class DocumentosCobrancaIsolamentoTenantTest extends KernelTestCase
         $this->criarSecao = new CriarSecaoUseCase($secaoRepo);
         $this->excluirSecao = new ExcluirSecaoUseCase(
             $secaoRepo,
-            $this->storage,
-            $c->get(\App\Shared\Armazenamento\ArmazenamentoDeArquivos::class),
-            $this->cobrancasUploadsDir,
+            $c->get(\App\Shared\Armazenamento\RemocaoAposTransacao::class),
         );
     }
 

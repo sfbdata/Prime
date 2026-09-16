@@ -14,13 +14,19 @@ use App\Ponto\Controller\PontoController;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Shared\Armazenamento\CategoriaDeArquivo;
 use App\Shared\Armazenamento\Exception\FalhaDeArmazenamento;
+use App\Shared\Armazenamento\RemocaoAposTransacao;
+use App\Shared\Doctrine\Transacao\DestinoDaTransacao;
+use App\Shared\Doctrine\Transacao\TransacaoComArquivoNovo;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use App\Tests\Shared\Doubles\ArmazenamentoEmMemoriaNoContainer;
+use App\Tests\Shared\Doubles\ConsultaDeDestinoFixa;
+use App\Tests\Shared\Doubles\FalhaDeCommitArmavel;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Event\OnFlushEventArgs;
 use Doctrine\ORM\Events;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
+use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
@@ -39,6 +45,12 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
  * banco, não o disco, e todo arquivo que surgir durante a requisição é apagado no tearDown. Os
  * casos de R1 e de falha de gravação trocam o storage pelo dublê em memória — é o único jeito de
  * ver o escopo da chave e de provocar a falha.
+ *
+ * **E2.5 — o COMMIT que falha de verdade.** `FalhaDeCommitArmavel` faz o COMMIT da requisição
+ * lançar depois de o banco ter recusado (linhas somem) ou depois de ele ter confirmado (linhas
+ * ficam). Sem prova do destino — e sob o DAMA a consulta real responde "em andamento" — o arquivo
+ * FICA: com a resposta perdida, as justificativas existem e apontam para ele. Só quando o banco
+ * prova `aborted` (consulta trocada) o arquivo sai.
  */
 #[CoversClass(PontoController::class)]
 #[CoversClass(TenantController::class)]
@@ -51,6 +63,8 @@ final class NovaJustificativaComAnexoControllerTest extends JusPrimeWebTestCase
 
     protected function tearDown(): void
     {
+        FalhaDeCommitArmavel::desarmar();
+
         foreach ($this->arquivosCriados as $caminho) {
             if (is_file($caminho)) {
                 @unlink($caminho);
@@ -153,6 +167,113 @@ final class NovaJustificativaComAnexoControllerTest extends JusPrimeWebTestCase
         self::assertSame([], $this->anexosDasJustificativasDo($user));
     }
 
+    #[TestDox('colaborador: COMMIT com a resposta perdida — as justificativas existem, e o atestado FICA')]
+    public function testColaboradorCommitComRespostaPerdidaPreservaOArquivo(): void
+    {
+        [$client, $user] = $this->colaboradorLogado();
+        FalhaDeCommitArmavel::perderRespostaDoProximoCommit();
+
+        $novos = $this->enviarComoColaborador($client, $this->doisDiasUteisDoMesAnterior());
+
+        self::assertResponseStatusCodeSame(500);
+        self::assertSame(1, FalhaDeCommitArmavel::$disparos, 'o COMMIT da transação é que falhou');
+        self::assertCount(1, $novos, 'sem prova do destino, o atestado não pode sair');
+        self::assertSame(
+            [$novos[0], $novos[0]],
+            $this->anexosDasJustificativasDo($user),
+            'o banco confirmou: as duas justificativas apontam para o arquivo — apagá-lo seria INV-6 quebrado',
+        );
+        self::assertStringEqualsFile($this->diretorio() . '/' . $novos[0], self::PDF);
+    }
+
+    #[TestDox('colaborador: COMMIT recusado sem prova do destino — nada no banco, e o atestado fica (órfão aceito)')]
+    public function testColaboradorCommitRecusadoSemProvaPreservaOArquivo(): void
+    {
+        [$client, $user] = $this->colaboradorLogado();
+        FalhaDeCommitArmavel::recusarProximoCommit();
+
+        $novos = $this->enviarComoColaborador($client, $this->doisDiasUteisDoMesAnterior());
+
+        self::assertResponseStatusCodeSame(500);
+        self::assertSame(1, FalhaDeCommitArmavel::$disparos);
+        self::assertSame([], $this->anexosDasJustificativasDo($user));
+        self::assertCount(1, $novos, 'a consulta real responde "em andamento" sob o DAMA: não há prova para apagar');
+    }
+
+    #[TestDox('colaborador: COMMIT recusado e o banco PROVA aborted — o atestado sai')]
+    public function testColaboradorCommitRecusadoComProvaRemoveOArquivo(): void
+    {
+        [$client, $user] = $this->colaboradorLogado();
+        $consulta = $this->bancoResponde(DestinoDaTransacao::NaoConfirmada);
+        FalhaDeCommitArmavel::recusarProximoCommit();
+
+        $novos = $this->enviarComoColaborador($client, $this->doisDiasUteisDoMesAnterior());
+
+        self::assertResponseStatusCodeSame(500);
+        self::assertCount(1, $consulta->perguntados, 'o destino foi perguntado ao banco');
+        self::assertSame([], $this->anexosDasJustificativasDo($user));
+        self::assertSame([], $novos, 'com aborted provado, o atestado recém-gravado sai');
+    }
+
+    #[TestDox('colaborador: COMMIT com resposta perdida e o banco PROVA committed — o atestado fica')]
+    public function testColaboradorCommitConfirmadoPreservaOArquivo(): void
+    {
+        [$client, $user] = $this->colaboradorLogado();
+        $this->bancoResponde(DestinoDaTransacao::Confirmada);
+        FalhaDeCommitArmavel::perderRespostaDoProximoCommit();
+
+        $novos = $this->enviarComoColaborador($client, $this->doisDiasUteisDoMesAnterior());
+
+        self::assertResponseStatusCodeSame(500);
+        self::assertCount(1, $novos);
+        self::assertSame([$novos[0], $novos[0]], $this->anexosDasJustificativasDo($user));
+    }
+
+    #[TestDox('administrador: COMMIT com a resposta perdida — a justificativa existe, e o atestado FICA')]
+    public function testAdministradorCommitComRespostaPerdidaPreservaOArquivo(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $tenant = $this->criarTenant();
+        $admin  = $this->criarUsuario(['ROLE_SUPER_ADMIN']);
+        $user   = $this->criarUsuario();
+        $this->vincular($admin, $tenant);
+        $this->vincular($user, $tenant);
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $admin, $tenant);
+        FalhaDeCommitArmavel::perderRespostaDoProximoCommit();
+
+        $novos = $this->enviarComoAdministrador($client, $tenant, $user, $this->doisDiasUteisDoMesAnterior()[0]);
+
+        self::assertResponseStatusCodeSame(500);
+        self::assertSame(1, FalhaDeCommitArmavel::$disparos);
+        self::assertCount(1, $novos);
+        self::assertSame([$novos[0]], $this->anexosDasJustificativasDo($user));
+        self::assertStringEqualsFile($this->diretorio() . '/' . $novos[0], self::PDF);
+    }
+
+    #[TestDox('administrador: COMMIT recusado e o banco PROVA aborted — o atestado sai')]
+    public function testAdministradorCommitRecusadoComProvaRemoveOArquivo(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $tenant = $this->criarTenant();
+        $admin  = $this->criarUsuario(['ROLE_SUPER_ADMIN']);
+        $user   = $this->criarUsuario();
+        $this->vincular($admin, $tenant);
+        $this->vincular($user, $tenant);
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $admin, $tenant);
+        $this->bancoResponde(DestinoDaTransacao::NaoConfirmada);
+        FalhaDeCommitArmavel::recusarProximoCommit();
+
+        $novos = $this->enviarComoAdministrador($client, $tenant, $user, $this->doisDiasUteisDoMesAnterior()[0]);
+
+        self::assertResponseStatusCodeSame(500);
+        self::assertSame([], $this->anexosDasJustificativasDo($user));
+        self::assertSame([], $novos);
+    }
+
     /**
      * R1: no disco o escopo não aparece (a categoria é plana). Contra o dublê, a chave gravada
      * tem de ser a que a leitura monta a partir de CADA justificativa do lote.
@@ -231,6 +352,38 @@ final class NovaJustificativaComAnexoControllerTest extends JusPrimeWebTestCase
     }
 
     // ----------------------------------------------------------------- helpers
+
+    /** @return array{KernelBrowser, User} */
+    private function colaboradorLogado(): array
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $tenant = $this->criarTenant();
+        $user   = $this->criarUsuario();
+        $this->vincular($user, $tenant);
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenant);
+
+        return [$client, $user];
+    }
+
+    /**
+     * O banco "responde" o destino escolhido. Troca a transação inteira, e não só a consulta: com
+     * um único consumidor, a consulta é embutida na definição da transação pelo container.
+     */
+    private function bancoResponde(DestinoDaTransacao $destino): ConsultaDeDestinoFixa
+    {
+        $container = static::getContainer();
+        $consulta  = new ConsultaDeDestinoFixa($destino);
+        $container->set(TransacaoComArquivoNovo::class, new TransacaoComArquivoNovo(
+            $container->get(EntityManagerInterface::class),
+            $consulta,
+            $container->get(RemocaoAposTransacao::class),
+            new NullLogger(),
+        ));
+
+        return $consulta;
+    }
 
     /**
      * @param list<\DateTimeImmutable> $dias

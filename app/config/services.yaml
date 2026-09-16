@@ -167,3 +167,12 @@ when@test:
         fotos_perfil_dir: '%kernel.project_dir%/var/uploads-test/perfil'
         cobrancas_uploads_dir: '%kernel.project_dir%/var/uploads-test/cobrancas'
         kanban_uploads_dir: '%kernel.project_dir%/var/uploads-test/kanban'
+
+    services:
+        # E2.5 — faz o próximo COMMIT da aplicação falhar, sob demanda. Sob o DAMA nenhum COMMIT
+        # falha de verdade; sem isto o ramo "o COMMIT lançou" só seria testável com mock.
+        # Prioridade abaixo da do DAMA (100): fica por fora dele e recebe o commit() primeiro.
+        # Inerte até um teste armar; ver o docblock da classe.
+        App\Tests\Shared\Doubles\FalhaDeCommitArmavel:
+            tags:
+                - { name: doctrine.middleware, priority: -100 }

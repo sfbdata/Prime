@@ -64,6 +64,26 @@ final class ChavesDePerfilTest extends TestCase
         self::assertSame(UserProfile::class, (string) $parametros[0]->getType());
     }
 
+    #[TestDox('fotoPorNome(): mesma chave que foto() daria — global, FOTO_PERFIL, nome byte a byte')]
+    public function testFotoPorNomeEhAMesmaChaveDaFoto(): void
+    {
+        foreach (['abc.jpg', ' abc.jpg ', 'hash.'] as $nome) {
+            $porNome = ChavesDePerfil::fotoPorNome($nome);
+
+            self::assertTrue($porNome->ehIgualA(ChavesDePerfil::foto($this->perfil($nome))), $nome);
+            self::assertTrue($porNome->escopo->ehGlobal());
+            self::assertSame($nome, $porNome->nome);
+        }
+    }
+
+    #[TestDox('fotoPorNome(): nome que a chave recusa lança')]
+    public function testFotoPorNomeRecusaNomeImpossivel(): void
+    {
+        $this->expectException(ChaveDeArquivoInvalida::class);
+
+        ChavesDePerfil::fotoPorNome('../outra.jpg');
+    }
+
     private function perfil(?string $fotoUrl): UserProfile
     {
         return (new UserProfile(new User()))->setFotoUrl($fotoUrl);

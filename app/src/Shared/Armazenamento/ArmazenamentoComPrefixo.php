@@ -38,7 +38,8 @@ use App\Shared\Armazenamento\Exception\FalhaDeArmazenamento;
  * `PASTA_DOCUMENTO`. Um escopo global, ou um bug de resolução que devolvesse a raiz, apagaria o
  * acervo de peças inteiro.
  *
- * Implementada na fatia E2.5, junto com a migração da purga.
+ * Implementada na fatia E2.5 pelo `ArmazenamentoLocal`, junto com a migração da purga: prova de
+ * pertencimento, inventário sem seguir link e remoção recursiva (ocultos e subpastas inclusive).
  */
 interface ArmazenamentoComPrefixo
 {
@@ -52,9 +53,14 @@ interface ArmazenamentoComPrefixo
     public function listar(EscopoDeArquivo $escopo, CategoriaComIsolamentoFisico $categoria): iterable;
 
     /**
-     * Remove tudo sob (escopo, categoria). Devolve quantos arquivos foram removidos.
+     * Remove tudo sob (escopo, categoria).
+     *
+     * Duas formas de "não deu", e a diferença importa para quem reporta:
+     *  - pertencimento não provado (ou escape): LANÇA, e nada é removido;
+     *  - item que o backend não conseguiu remover depois de começar: NÃO lança — volta em
+     *    `naoRemovidas`, ao lado do que foi removido, para a conta de quem chama fechar.
      *
      * @throws FalhaDeArmazenamento se o prefixo resolvido não pertencer exclusivamente ao escopo
      */
-    public function excluirPrefixo(EscopoDeArquivo $escopo, CategoriaComIsolamentoFisico $categoria): int;
+    public function excluirPrefixo(EscopoDeArquivo $escopo, CategoriaComIsolamentoFisico $categoria): ResultadoDaRemocao;
 }

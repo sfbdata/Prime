@@ -14,6 +14,8 @@ use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Armazenamento\Exception\ChaveDeArquivoInvalida;
 use App\Shared\Armazenamento\Exception\FalhaDeArmazenamento;
 use App\Shared\Armazenamento\FonteDeConteudo;
+use App\Shared\Armazenamento\RemocaoAposTransacao;
+use App\Shared\Doctrine\Transacao\TransacaoComArquivoNovo;
 use App\Shared\Service\ArquivoStorageInterface;
 use App\Sync\DTO\ResultadoReconciliacaoPasta;
 use App\Sync\Enum\ModoSincronizacao;
@@ -50,6 +52,8 @@ final class ReconciliadorDePasta
         private readonly EntityManagerInterface $em,
         private readonly ArquivoStorageInterface $storage,
         private readonly ArmazenamentoDeArquivos $armazenamento,
+        private readonly TransacaoComArquivoNovo $transacao,
+        private readonly RemocaoAposTransacao $remocao,
         private readonly PastaSecaoRepository $secaoRepository,
         #[Autowire('%uploads_dir%')]
         private readonly string $uploadsDir,
@@ -474,7 +478,9 @@ final class ReconciliadorDePasta
 
             return true;
         }
-        $nomeStorage = null;
+        // Preenchida só enquanto o arquivo gravado depende DESTE catch para sair: da gravação até a
+        // transação começar. Dali em diante quem decide é `TransacaoComArquivoNovo` (E2.5).
+        $chaveGravada = null;
         try {
             // Fork 2 / D8: o client baixa em streaming direto para o $tmp (sem carregar o arquivo
             // inteiro em memória), e o storage MOVE o $tmp, também sem reler o conteúdo — o
@@ -496,7 +502,8 @@ final class ReconciliadorDePasta
                 ChavesDePasta::novoDocumento($doc, pathinfo($arq['nome'], PATHINFO_EXTENSION)),
                 FonteDeConteudo::deArquivoLocal($tmp, consumirOrigem: true),
             );
-            $nomeStorage = $armazenado->chave->nome;
+            $chaveGravada = $armazenado->chave;
+            $nomeStorage  = $armazenado->chave->nome;
 
             // D16: o tamanho persistido é o do conteúdo GRAVADO. O `size` da listagem do Drive é
             // só metadado (e vem 0 quando ausente); quando diverge, vale o recebido — e a
@@ -527,16 +534,37 @@ final class ReconciliadorDePasta
                 ->setSecao($secao)
                 ->setDriveFileId($arq['id']);
             $this->em->persist($doc);
-            $this->em->flush();
+
+            // Se a transação falhar, o arquivo só sai quando estiver PROVADO que o documento não
+            // foi confirmado; num COMMIT de resultado incerto ele pode existir e apontar para o
+            // arquivo (INV-6). Antes da E2.5 este catch apagava em qualquer falha do flush.
+            $chaveDoItem  = $chaveGravada;
+            $chaveGravada = null;
+            $this->transacao->confirmar(
+                static fn (): array => [$chaveDoItem],
+                sprintf('ReconciliadorDePasta: drive_file_id=%s', $arq['id']),
+            );
             $this->em->clear();
             $conhecidos[$arq['id']] = true;
             $r->arquivosBaixados++;
         } catch (\Throwable $e) {
             $r->erros++;
             $r->log(sprintf('[erro] drive_file_id=%s (Drive→sistema): %s', $arq['id'], $e->getMessage()));
-            // Remove o arquivo já gravado no storage cujo doc não persistiu (evita órfão em disco).
-            if ($nomeStorage !== null) {
-                $this->storage->excluir($this->storage->caminho($this->uploadsDir, $nomeStorage));
+            // Falha ANTES da transação (a guarda do tamanho, um setter): o documento nunca chegou ao
+            // banco, e o arquivo gravado não tem quem o referencie. Sem `try` próprio: a remoção
+            // nunca lança, e o que não sair fica registrado — a rodada segue.
+            if ($chaveGravada !== null) {
+                $remocao = $this->remocao->remover(
+                    [$chaveGravada],
+                    sprintf('ReconciliadorDePasta: drive_file_id=%s', $arq['id']),
+                );
+                if (!$remocao->completa()) {
+                    $r->log(sprintf(
+                        '[aviso] drive_file_id=%s: o arquivo gravado não pôde ser removido e ficou órfão: %s',
+                        $arq['id'],
+                        implode(', ', $remocao->naoRemovidas),
+                    ));
+                }
             }
             if (!$this->em->isOpen()) {
                 $r->fatal = true;

@@ -59,7 +59,7 @@ use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Form\FormError;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
-use App\Shared\Service\ArquivoStorageService;
+use App\Shared\Doctrine\Transacao\TransacaoComArquivoNovo;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
@@ -71,9 +71,8 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 final class TenantController extends AbstractController
 {
     public function __construct(
-        private readonly string $justificativasUploadsDir,
-        private readonly ArquivoStorageService $storage,
         private readonly ArmazenamentoDeArquivos $armazenamento,
+        private readonly TransacaoComArquivoNovo $transacao,
         private readonly EntregaDeArquivo $entrega,
         private readonly TenantContext $tenantContext,
         private readonly InicioContagemResolver $inicioContagemResolver,
@@ -1450,8 +1449,9 @@ final class TenantController extends AbstractController
             return $redirect();
         }
 
-        $anexoPath = null;
-        $anexoFile = $request->files->get('anexo');
+        $anexoPath  = null;
+        $chaveAnexo = null;
+        $anexoFile  = $request->files->get('anexo');
         if ($anexoFile !== null) {
             // Mesma regra da porta do colaborador (JustificativaPontoType) e da edição
             // (SubstituirAnexoDoLoteUseCase). Antes da E1 esta porta não validava nada: um admin
@@ -1466,13 +1466,13 @@ final class TenantController extends AbstractController
             }
 
             // O arquivo nasce ANTES das justificativas do lote (ordem da E1); o escopo é o mesmo
-            // `$tenant` da URL que cada uma recebe abaixo em setTenant(). A remoção no catch do
-            // flush segue pela interface antiga até a E2.5.
-            $upload    = FonteDeUploadHttp::de($anexoFile);
-            $anexoPath = $upload->gravarEm(
+            // `$tenant` da URL que cada uma recebe abaixo em setTenant().
+            $upload     = FonteDeUploadHttp::de($anexoFile);
+            $chaveAnexo = $upload->gravarEm(
                 $this->armazenamento,
                 ChavesDePonto::novoAnexoDeLote($tenant, $upload->extensao),
-            )->chave->nome;
+            )->chave;
+            $anexoPath  = $chaveAnexo->nome;
         }
 
         $batchId    = bin2hex(random_bytes(16));
@@ -1514,20 +1514,13 @@ final class TenantController extends AbstractController
             }
         }
 
-        try {
-            $entityManager->flush();
-        } catch (\Throwable $e) {
-            // Mesma prioridade da substituição (SubstituirAnexoDoLoteUseCase): o arquivo foi
-            // gravado antes do flush; se o banco recusar, ninguém chegou a referenciá-lo e ele não
-            // pode ficar no disco para sempre.
-            if ($anexoPath !== null) {
-                $this->storage->excluir(
-                    $this->storage->caminho($this->justificativasUploadsDir, $anexoPath),
-                );
-            }
-
-            throw $e;
-        }
+        // O arquivo foi gravado antes da transação. Se ela falhar, ele só sai quando estiver
+        // PROVADO que nada foi confirmado; num COMMIT de resultado incerto as justificativas podem
+        // existir e apontar para ele, e o arquivo fica (E2.5, INV-6). A exceção original sobe.
+        $this->transacao->confirmar(
+            static fn (): array => $chaveAnexo === null ? [] : [$chaveAnexo],
+            'TenantController::novaJustificativaAdmin: atestado do lote',
+        );
 
         if ($isFaltaNaoJustificada) {
             $this->addFlash('success', sprintf('Falta registrada como não justificada para %d dia(s).', count($datasValidas)));

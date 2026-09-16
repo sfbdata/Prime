@@ -41,6 +41,18 @@ final class ChavesDePerfil
     }
 
     /**
+     * Foto que o perfil JÁ NÃO referencia — a anterior, removida depois da troca (E2.5).
+     *
+     * Existe porque {@see foto()} lê o perfil: depois do `setFotoUrl($nova)` ela devolveria a chave
+     * da foto NOVA, e a remoção da antiga apagaria a recém-gravada. O escopo é global de qualquer
+     * jeito (D1), então aceitar o nome solto não abre porta para tenant errado.
+     */
+    public static function fotoPorNome(string $nome): ChaveDeArquivo
+    {
+        return new ChaveDeArquivo(EscopoDeArquivo::global(), CategoriaDeArquivo::FOTO_PERFIL, $nome);
+    }
+
+    /**
      * Foto nova (E2.4A): o nome é cunhado pelo storage (D8). Não há entidade a consultar — o
      * escopo da foto é global por definição (D1).
      */

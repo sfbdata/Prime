@@ -31,6 +31,21 @@ final class ArmazenamentoEspiao implements ArmazenamentoDeArquivos
     /** @var (\Closure(ArquivoArmazenado, int): ArquivoArmazenado)|null */
     public ?\Closure $depoisDeGravar = null;
 
+    /**
+     * As chaves que chegaram a `excluir()` sem falha simulada, na ordem (E2.5).
+     *
+     * @var list<ChaveDeArquivo>
+     */
+    public array $excluidas = [];
+
+    /**
+     * Consultada antes de repassar cada `excluir()`: se devolver uma exceção, ela é lançada e o
+     * backend real nem é chamado — o arquivo fica no disco.
+     *
+     * @var (\Closure(ChaveDeArquivo): ?\Throwable)|null
+     */
+    public ?\Closure $falhaAoExcluir = null;
+
     public function __construct(private readonly ArmazenamentoDeArquivos $real)
     {
     }
@@ -62,7 +77,13 @@ final class ArmazenamentoEspiao implements ArmazenamentoDeArquivos
 
     public function excluir(ChaveDeArquivo $chave): void
     {
+        $falha = $this->falhaAoExcluir === null ? null : ($this->falhaAoExcluir)($chave);
+        if ($falha !== null) {
+            throw $falha;
+        }
+
         $this->real->excluir($chave);
+        $this->excluidas[] = $chave;
     }
 
     public function metadados(ChaveDeArquivo $chave): ?MetadadosDeArquivo

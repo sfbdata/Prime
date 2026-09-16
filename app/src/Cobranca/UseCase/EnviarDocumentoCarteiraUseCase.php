@@ -25,9 +25,9 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
  * Espelha `EnviarDocumentoUseCase` (documentos de Caso): mesma whitelist de MIME + limites
  * (`EnviarDocumentoUseCase::MIME_LIMITS`, fonte ÚNICA — sem duplicar) e o arquivo físico é salvo
  * no MESMO diretório flat dos documentos de caso — `<cobrancasUploadsDir>/<tenantId>/<hash>`
- * (decisão deliberada: a purga (`PurgarEscritorioUseCase::removerDiretorioDeTenant`) só varre esse
- * diretório flat e não é recursiva; um diretório novo deixaria PII órfã em disco ao purgar o
- * tenant). `caminhoArquivo` guarda só o hash.
+ * (decisão deliberada: a purga apaga `cobrancas/<tenantId>` inteiro, por prefixo —
+ * `ArmazenamentoComPrefixo::excluirPrefixo`, desde a E2.5 —; um diretório fora dele deixaria PII
+ * órfã em disco ao purgar o tenant). `caminhoArquivo` guarda só o hash.
  */
 final class EnviarDocumentoCarteiraUseCase
 {

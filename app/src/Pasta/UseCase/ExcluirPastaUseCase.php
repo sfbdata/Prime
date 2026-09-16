@@ -9,8 +9,8 @@ use App\Entity\Tenant\Tenant;
 use App\Pasta\Armazenamento\ChavesDePasta;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Service\NumeracaoDePastaInterface;
-use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
-use App\Shared\Service\ArquivoStorageInterface;
+use App\Shared\Armazenamento\ChaveDeArquivo;
+use App\Shared\Armazenamento\RemocaoAposTransacao;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
@@ -33,17 +33,17 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
  * próxima pasta faria esta virar do meio — e ela teria sido apagada de verdade como se fosse a
  * última, criando exatamente o buraco que a lápide existe para impedir.
  *
- * Estado misto da E2.2 (D2): a PRESENÇA de cada arquivo é perguntada ao armazenamento novo, por
- * chave montada a partir do documento (`ChavesDePasta`); a REMOÇÃO ainda passa pela interface
- * antiga, por caminho, até a E2.5 migrar `excluir()`.
+ * **Arquivos só saem depois do COMMIT (E2.5, INV-6).** As chaves são montadas dentro da
+ * transação, antes do `remove` (depois dele a coleção pertence a uma entidade removida); os
+ * arquivos são removidos quando o `wrapInTransaction` já retornou. Antes da E2.5 eles saíam dentro
+ * da transação: um `flush` ou COMMIT recusado deixava a pasta de pé apontando para arquivos
+ * apagados. Falha física depois do COMMIT vira registro no log e órfão recuperável.
  */
 final class ExcluirPastaUseCase
 {
     public function __construct(
         private readonly EntityManagerInterface $em,
-        private readonly ArquivoStorageInterface $storage,
-        private readonly ArmazenamentoDeArquivos $armazenamento,
-        private readonly string $uploadsDir,
+        private readonly RemocaoAposTransacao $remocao,
         private readonly NumeracaoDePastaInterface $numeracao,
     ) {}
 
@@ -57,7 +57,10 @@ final class ExcluirPastaUseCase
             throw new \LogicException('Esta pasta já está excluída.');
         }
 
-        return $this->em->wrapInTransaction(function () use ($pasta, $autor, $tenant): ResultadoExclusaoPasta {
+        /** @var list<ChaveDeArquivo> $chaves */
+        $chaves = [];
+
+        $resultado = $this->em->wrapInTransaction(function () use ($pasta, $autor, $tenant, &$chaves): ResultadoExclusaoPasta {
             $this->numeracao->travar($tenant);
 
             if ($this->numeracao->existeNumeroMaiorQue($tenant, $pasta->getNup())) {
@@ -70,9 +73,7 @@ final class ExcluirPastaUseCase
             }
 
             foreach ($pasta->getDocumentos() as $doc) {
-                if ($this->armazenamento->existe(ChavesDePasta::documento($doc))) {
-                    $this->storage->excluir($this->storage->caminho($this->uploadsDir, $doc->getCaminhoArquivo()));
-                }
+                $chaves[] = ChavesDePasta::documento($doc);
             }
 
             $this->em->remove($pasta);
@@ -80,5 +81,10 @@ final class ExcluirPastaUseCase
 
             return ResultadoExclusaoPasta::Removida;
         });
+
+        // Fora do closure: o COMMIT do wrapInTransaction acontece depois que ele retorna.
+        $this->remocao->remover($chaves, 'ExcluirPastaUseCase');
+
+        return $resultado;
     }
 }

@@ -14,6 +14,8 @@ use App\Pasta\Controller\PastaSecaoController;
 use App\Shared\Service\ArquivoStorageInterface;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\Event\OnFlushEventArgs;
+use Doctrine\ORM\Events;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
@@ -489,6 +491,82 @@ final class PastaSecaoControllerTest extends JusPrimeWebTestCase
             $em->find(PastaSecao::class, $secaoId),
             'a seção foi excluída no banco antes do disco: o resultado da requisição tem de refletir isso',
         );
+        self::assertTrue(
+            $storage->existe($uploadsDir . '/' . $nomeStorage),
+            'o disco recusou: o arquivo fica, órfão recuperável e registrado',
+        );
+        $storage->excluir($uploadsDir . '/' . $nomeStorage);
+    }
+
+    /**
+     * E2.5 (INV-6): a remoção física vem DEPOIS do UseCase que confirma a exclusão. Se o banco
+     * recusar, nenhum arquivo da árvore pode ter saído. A recusa é simulada no `onFlush`, antes de
+     * qualquer SQL — exatamente onde um `excluir()` adiantado já teria apagado.
+     */
+    #[TestDox('banco recusa a exclusão da seção: a seção fica e o arquivo continua no disco')]
+    public function testBancoQueRecusaNaoApagaArquivos(): void
+    {
+        $client          = static::createClient();
+        $client->disableReboot();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $em         = static::getContainer()->get(EntityManagerInterface::class);
+        $storage    = static::getContainer()->get(ArquivoStorageInterface::class);
+        $uploadsDir = rtrim((string) static::getContainer()->getParameter('uploads_dir'), '/');
+
+        $secao       = $this->criarSecao($pasta, $tenant);
+        $nomeStorage = $storage->salvarConteudo('conteudo', $uploadsDir, 'pdf');
+
+        $doc = new PastaDocumento();
+        $doc->setTitulo('doc');
+        $doc->setCategoria(PastaDocumento::CATEGORIA_DEMAIS);
+        $doc->setCaminhoArquivo($nomeStorage);
+        $doc->setNomeOriginal('doc.pdf');
+        $doc->setMimeType('application/pdf');
+        $doc->setTamanhoBytes(10);
+        $doc->setOrdem(1);
+        $doc->setPasta($pasta);
+        $doc->setTenant($tenant);
+        $doc->setSecao($secao);
+        $em->persist($doc);
+        $em->flush();
+
+        $secaoId = (int) $secao->getId();
+        $em->clear();
+
+        $recusa = new class {
+            public int $recusas = 0;
+
+            public function onFlush(OnFlushEventArgs $args): void
+            {
+                if ($args->getObjectManager()->getUnitOfWork()->getScheduledEntityDeletions() !== []) {
+                    ++$this->recusas;
+
+                    throw new \LogicException('banco recusou a exclusão da seção');
+                }
+            }
+        };
+        $em->getEventManager()->addEventListener([Events::onFlush], $recusa);
+
+        try {
+            $client->request('POST', '/pasta/secao/' . $secaoId . '/excluir', [
+                '_token' => $this->csrf('pasta_secao_excluir_' . $secaoId),
+            ]);
+        } finally {
+            $em->getEventManager()->removeEventListener([Events::onFlush], $recusa);
+        }
+
+        try {
+            self::assertSame(1, $recusa->recusas);
+            self::assertResponseStatusCodeSame(500);
+            self::assertSame(1, (int) $em->getConnection()->fetchOne('SELECT COUNT(*) FROM pasta_secao WHERE id = ?', [$secaoId]));
+            self::assertTrue($storage->existe($uploadsDir . '/' . $nomeStorage), 'a ordem: nenhum arquivo sai antes de o banco confirmar');
+        } finally {
+            @unlink($uploadsDir . '/' . $nomeStorage);
+        }
     }
 
     #[TestDox('excluir com ciclo gravado por fora dos guards (ex.: desfazer da auditoria) não estoura a memória')]

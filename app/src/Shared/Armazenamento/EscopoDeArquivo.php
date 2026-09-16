@@ -14,7 +14,7 @@ use App\Shared\Armazenamento\Exception\ChaveDeArquivoInvalida;
  *  - `deTenant(id)` — o arquivo é do escritório. É o caso de oito das nove categorias.
  *  - `global()`     — o arquivo não pertence a escritório nenhum. Hoje só a foto de perfil, que é
  *                     do `User`: é exatamente por isso que a purga de escritório a poupa de
- *                     propósito (`PurgarEscritorioUseCase.php:344`).
+ *                     propósito (`PurgarEscritorioUseCase`, que nem a consulta).
  *
  * **O escopo é semântico e o disco local pode ignorá-lo.** Sete das nove categorias moram hoje em
  * diretório plano, compartilhado entre escritórios; nelas o `ResolvedorDeCaminhoLocal` não usa o

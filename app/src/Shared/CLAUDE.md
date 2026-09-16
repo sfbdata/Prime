@@ -15,6 +15,9 @@ Se um código só é usado por um domínio, ele vai no próprio domínio — nã
   `tests/Arquitetura/NucleoDeArmazenamentoArquiteturaTest`).
 - `Http/` — a borda HTTP do armazenamento: `EntregaDeArquivo` (download e visualização) e
   `FonteDeUploadHttp` (upload → armazenamento).
+- `Doctrine/Transacao/` — `TransacaoComArquivoNovo`: confirma no banco uma operação que acabou de
+  gravar arquivo e decide, se ela falhar, se o arquivo pode sair (só com a ausência de COMMIT
+  PROVADA — ver "Arquivo novo + transação que pode falhar" abaixo).
 - `Trait/` — traits utilitários (ex.: `TimestampableTrait`, `TenantAwareTrait`)
 - `DTO/` — DTOs genéricos reutilizáveis entre domínios
 - `Exception/` — exceções base do sistema
@@ -85,6 +88,45 @@ A fábrica de arquivo novo (`ChavesDe*::novo*`) tira o escopo de onde a **leitur
 depois — a gravação e a leitura têm de montar a mesma chave. `tests/Arquitetura/FabricasDeArquivoNovoTest`
 trava isso e proíbe `new NovoArquivo(` fora das fábricas.
 
+**Excluir — o arquivo sai DEPOIS do COMMIT (INV-6):**
+```php
+$chave = ChavesDePasta::documento($doc);          // 1. a chave antes: depois do flush a dona some
+
+$this->em->remove($doc);
+$this->em->flush();                               // 2. o banco decide
+
+$this->remocao->remover([$chave], 'contexto');    // 3. RemocaoAposTransacao: nunca lança
+```
+
+Numa `wrapInTransaction`, colete as chaves dentro do closure e remova **fora** dele — o COMMIT
+acontece depois que o closure retorna. Falha física depois do COMMIT não desfaz nada nem vira 500:
+vira `logger->error` e órfão recuperável. Ninguém chama `->excluir(` fora da `RemocaoAposTransacao`
+(`tests/Arquitetura/ExclusaoAposTransacaoArquiteturaTest`).
+
+**Arquivo novo + transação que pode falhar:**
+```php
+$chave = $upload->gravarEm($this->armazenamento, ChavesDePonto::novoAnexoDeLote(...))->chave;
+// ... persist das linhas que apontam para o arquivo ...
+$this->transacao->confirmar(static fn (): array => [$chave], 'contexto');   // TransacaoComArquivoNovo
+```
+
+`confirmar()` abre a transação, faz o `flush` e o COMMIT; `executar($trabalho, …)` roda o trabalho
+antes do `flush` (a semântica do `wrapInTransaction`). Em qualquer falha o EntityManager é fechado,
+a exceção original sobe, e o arquivo só sai se o COMMIT comprovadamente não aconteceu: falha antes
+do COMMIT, ou `pg_xact_status = aborted`. COMMIT de resultado incerto (a resposta se perdeu)
+preserva o arquivo — as linhas podem ter sido confirmadas apontando para ele —, e dentro de
+transação aberta por fora nunca apaga.
+
+`RemocaoAposTransacao` e `TransacaoComArquivoNovo` são concretas de propósito: são política, não
+infraestrutura trocável. A costura para teste é a interface de baixo (`ArmazenamentoDeArquivos`,
+`ConsultaDeDestinoDaTransacao`).
+
+**Apagar um escritório inteiro** é só da purga: `ArmazenamentoComPrefixo::excluirPrefixo()`, que
+aceita apenas `CategoriaComIsolamentoFisico` (D7), prova o pertencimento antes de apagar (e lança se
+não conseguir) e devolve removidos e sobras. Nas categorias planas a purga identifica os arquivos
+pelos registros do escritório — só os que nenhum registro de outro escritório referencia — e os
+apaga um a um.
+
 Regras que acompanham os exemplos:
 
 - controller não conhece diretório de upload, raiz física, `ResolvedorDeCaminhoLocal` nem
@@ -98,8 +140,8 @@ Regras que acompanham os exemplos:
   `UploadedFile` depois de gravar — tamanho e MIME medidos vêm em `ArquivoArmazenado`;
 - arquivo novo não escolhe nome: o storage cunha (`NovoArquivo`, D8). Chave de arquivo que já existe
   vai byte a byte, sem `trim()` nem normalização;
-- remoção física de arquivo substituído só **depois** do COMMIT (INV-6): órfão recuperável é
-  aceitável, registro apontando para arquivo inexistente não é;
+- remoção física de arquivo só **depois** do COMMIT (INV-6), pela `RemocaoAposTransacao`: órfão
+  recuperável é aceitável, registro apontando para arquivo inexistente não é;
 - `ArquivoEmprestado` (o caminho do arquivo persistido) nunca é apagado; só
   `ArquivoTemporarioPossuido` tem cleanup (D9).
 
@@ -107,9 +149,11 @@ Regras que acompanham os exemplos:
 
 - `Armazenamento\ArmazenamentoDeArquivos` + `Http\EntregaDeArquivo` + `Http\FonteDeUploadHttp` —
   armazenamento, entrega e upload por chave.
-- `Service\ArquivoStorageInterface` / `ArquivoStorageService` — **em extinção** (shim de D2): ainda
-  atende as gravações internas (`salvarConteudo()`/`moverParaArmazenamento()`, até a E2.4B),
-  `excluir()` (até a E2.5) e `caminho()` (até a E2.6); sai na E2.8. Não usar em código novo.
+- `Armazenamento\RemocaoAposTransacao` — remoção física depois da transação;
+  `Doctrine\Transacao\TransacaoComArquivoNovo` — COMMIT com decisão sobre o arquivo novo.
+- `Service\ArquivoStorageInterface` / `ArquivoStorageService` — **em extinção** (shim de D2): só
+  resta `caminho()`, para o compressor e o envio ao Drive (até a E2.6); sai na E2.8. Não usar em
+  código novo — gravar, ler, excluir e entregar já são por chave.
 
 ## Traits
 

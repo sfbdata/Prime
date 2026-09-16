@@ -4,15 +4,19 @@ declare(strict_types=1);
 
 namespace App\Tests\Shared\Doubles;
 
+use App\Shared\Armazenamento\ArmazenamentoComPrefixo;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Armazenamento\ArmazenamentoLocal;
 use App\Shared\Armazenamento\ArquivoArmazenado;
 use App\Shared\Armazenamento\ArquivoEmprestado;
+use App\Shared\Armazenamento\CategoriaComIsolamentoFisico;
 use App\Shared\Armazenamento\ChaveDeArquivo;
+use App\Shared\Armazenamento\EscopoDeArquivo;
 use App\Shared\Armazenamento\FonteDeConteudo;
 use App\Shared\Armazenamento\MaterializadorDeArquivo;
 use App\Shared\Armazenamento\MetadadosDeArquivo;
 use App\Shared\Armazenamento\NovoArquivo;
+use App\Shared\Armazenamento\ResultadoDaRemocao;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -27,11 +31,13 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  * `ArmazenamentoDeArquivos` para `ArmazenamentoLocal` na compilação, então trocar só o alias não
  * chega aos controllers. E o `ArmazenamentoLocal` também é o `MaterializadorDeArquivo` que a
  * `EntregaDeArquivo` recebe — por isso este dublê implementa as duas interfaces. A entrega não é
- * exercitada aqui: rota de download continua sendo testada contra o disco real.
+ * exercitada aqui: rota de download continua sendo testada contra o disco real. Desde a E2.5 o
+ * backend concreto também é o `ArmazenamentoComPrefixo` da purga, e o dublê o implementa pelo
+ * mesmo motivo.
  *
  * Instale ANTES da primeira requisição: serviço privado já usado não pode mais ser trocado.
  */
-final class ArmazenamentoEmMemoriaNoContainer implements ArmazenamentoDeArquivos, MaterializadorDeArquivo
+final class ArmazenamentoEmMemoriaNoContainer implements ArmazenamentoDeArquivos, MaterializadorDeArquivo, ArmazenamentoComPrefixo
 {
     public readonly ArmazenamentoEmMemoria $memoria;
 
@@ -76,6 +82,16 @@ final class ArmazenamentoEmMemoriaNoContainer implements ArmazenamentoDeArquivos
     public function metadados(ChaveDeArquivo $chave): ?MetadadosDeArquivo
     {
         return $this->memoria->metadados($chave);
+    }
+
+    public function listar(EscopoDeArquivo $escopo, CategoriaComIsolamentoFisico $categoria): iterable
+    {
+        return $this->memoria->listar($escopo, $categoria);
+    }
+
+    public function excluirPrefixo(EscopoDeArquivo $escopo, CategoriaComIsolamentoFisico $categoria): ResultadoDaRemocao
+    {
+        return $this->memoria->excluirPrefixo($escopo, $categoria);
     }
 
     public function paraLeitura(ChaveDeArquivo $chave): ArquivoEmprestado

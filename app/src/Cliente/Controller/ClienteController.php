@@ -17,6 +17,7 @@ use App\Entity\Permission\AccessRequest;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
+use App\Shared\Armazenamento\RemocaoAposTransacao;
 use App\Shared\Http\EntregaDeArquivo;
 use App\Shared\Http\FonteDeUploadHttp;
 use App\Shared\Service\ArquivoStorageService;
@@ -96,6 +97,7 @@ class ClienteController extends AbstractController
         private readonly TenantContext $tenantContext,
         private readonly ArquivoStorageService $storage,
         private readonly ArmazenamentoDeArquivos $armazenamento,
+        private readonly RemocaoAposTransacao $remocao,
         private readonly EntregaDeArquivo $entrega,
         private readonly CompressorArquivoInterface $compressor,
         private readonly string $clientesUploadsDir,
@@ -187,16 +189,25 @@ class ClienteController extends AbstractController
         }
 
         if ($this->isCsrfTokenValid('delete' . $id, $request->request->get('_token'))) {
+            // As chaves saem antes; os arquivos, só depois de o banco aceitar a exclusão (E2.5).
+            // Antes, os arquivos eram apagados aqui e o flush vinha depois: quando uma FK recusava
+            // (cobranca_carteira → cliente é NO ACTION), o cliente ficava — sem os documentos.
+            $chaves = [];
+            foreach ($cliente->getDocumentos() as $doc) {
+                $chaves[] = ChavesDeCliente::documento($doc);
+            }
+
             try {
-                foreach ($cliente->getDocumentos() as $doc) {
-                    $this->storage->excluir($this->storage->caminho($this->clientesUploadsDir, $doc->getCaminhoArquivo()));
-                }
                 $this->em->remove($cliente);
                 $this->em->flush();
-                $this->addFlash('success', 'Cliente excluído com sucesso.');
             } catch (ForeignKeyConstraintViolationException) {
                 $this->addFlash('error', 'Não é possível excluir este cliente porque ele está vinculado a outros registros (ex.: pré-cadastro).');
+
+                return $this->redirectToRoute('homepage');
             }
+
+            $this->remocao->remover($chaves, 'ClienteController::delete');
+            $this->addFlash('success', 'Cliente excluído com sucesso.');
         }
 
         return $this->redirectToRoute('homepage');
@@ -445,9 +456,12 @@ class ClienteController extends AbstractController
             throw $this->createAccessDeniedException('Token CSRF inválido.');
         }
 
-        $this->storage->excluir($this->storage->caminho($this->clientesUploadsDir, $doc->getCaminhoArquivo()));
+        $chave = ChavesDeCliente::documento($doc);
         $this->em->remove($doc);
         $this->em->flush();
+
+        // Só depois do COMMIT (E2.5, INV-6); falha física vira registro, não 500.
+        $this->remocao->remover([$chave], 'ClienteController::deleteDocumento');
 
         $this->addFlash('success', 'Documento removido com sucesso.');
 

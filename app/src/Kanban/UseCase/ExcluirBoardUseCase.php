@@ -29,9 +29,12 @@ final class ExcluirBoardUseCase
             throw new \RuntimeException('Apenas o criador ou administrador pode excluir o mural.');
         }
 
-        // Cascade em cadeia: board -> colunas -> cards -> anexos. Limpa o disco antes.
-        $this->arquivos->removerDoBoard($board);
+        // Cascade em cadeia: board -> colunas -> cards -> anexos. As chaves saem antes do remove,
+        // enquanto a cadeia é de entidades vivas; os arquivos, só depois do COMMIT (E2.5, INV-6).
+        $chaves = $this->arquivos->chavesDoBoard($board);
 
         $this->boardRepository->remover($board, flush: true);
+
+        $this->arquivos->remover($chaves, 'ExcluirBoardUseCase');
     }
 }

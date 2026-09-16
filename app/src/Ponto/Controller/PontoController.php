@@ -37,7 +37,7 @@ use Dompdf\Dompdf;
 use Dompdf\Options;
 use App\Ponto\Service\FolhaPontoXlsxExporter;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
-use App\Shared\Service\ArquivoStorageService;
+use App\Shared\Doctrine\Transacao\TransacaoComArquivoNovo;
 use App\Shared\Trait\ValidaCsrfAjaxTrait;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -54,10 +54,9 @@ final class PontoController extends AbstractController
     use ValidaCsrfAjaxTrait;
 
     public function __construct(
-        private readonly string $justificativasUploadsDir,
         private readonly VerificadorAlertaPonto $verificadorAlerta,
-        private readonly ArquivoStorageService $storage,
         private readonly ArmazenamentoDeArquivos $armazenamento,
+        private readonly TransacaoComArquivoNovo $transacao,
         private readonly EntregaDeArquivo $entrega,
         private readonly JornadaResolver $jornadaResolver,
         private readonly GerarCodigoFuncionario $gerarCodigo,
@@ -320,17 +319,18 @@ final class PontoController extends AbstractController
             }
 
             // Upload do atestado
-            $anexoPath = null;
-            $anexoFile = $form->get('anexo')->getData();
+            $anexoPath  = null;
+            $chaveAnexo = null;
+            $anexoFile  = $form->get('anexo')->getData();
             if ($anexoFile !== null) {
                 // O arquivo nasce ANTES das justificativas do lote (ordem da E1); o escopo é o
-                // mesmo `$tenant` que cada uma recebe abaixo em setTenant(). A remoção no catch do
-                // flush segue pela interface antiga até a E2.5.
-                $upload    = FonteDeUploadHttp::de($anexoFile);
-                $anexoPath = $upload->gravarEm(
+                // mesmo `$tenant` que cada uma recebe abaixo em setTenant().
+                $upload     = FonteDeUploadHttp::de($anexoFile);
+                $chaveAnexo = $upload->gravarEm(
                     $this->armazenamento,
                     ChavesDePonto::novoAnexoDeLote($tenant, $upload->extensao),
-                )->chave->nome;
+                )->chave;
+                $anexoPath  = $chaveAnexo->nome;
             }
 
             $batchId = bin2hex(random_bytes(16));
@@ -361,21 +361,14 @@ final class PontoController extends AbstractController
                 $justificativasCriadas[] = $justificativa;
             }
 
-            try {
-                $entityManager->flush();
-            } catch (\Throwable $e) {
-                // Mesma prioridade da substituição (SubstituirAnexoDoLoteUseCase): o arquivo foi
-                // gravado antes do flush; se o banco recusar, ninguém chegou a referenciá-lo e ele
-                // não pode ficar no disco para sempre. Falhar aqui deixa órfão recuperável — o
-                // lado aceitável —, mas o silêncio total não é.
-                if ($anexoPath !== null) {
-                    $this->storage->excluir(
-                        $this->storage->caminho($this->justificativasUploadsDir, $anexoPath),
-                    );
-                }
-
-                throw $e;
-            }
+            // O arquivo foi gravado antes da transação. Se ela falhar, ele só sai quando estiver
+            // PROVADO que nada foi confirmado; num COMMIT de resultado incerto as justificativas
+            // podem existir e apontar para ele, e o arquivo fica (E2.5, INV-6). A exceção original
+            // continua subindo.
+            $this->transacao->confirmar(
+                static fn (): array => $chaveAnexo === null ? [] : [$chaveAnexo],
+                'PontoController::novaJustificativa: atestado do lote',
+            );
 
             if (!$isFaltaNaoJustificada) {
                 // Leva o gestor direto à aba de justificativas do colaborador (aprovar/recusar)

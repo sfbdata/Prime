@@ -7,10 +7,12 @@ use App\Profile\DTO\AtualizarFotoInput;
 use App\Profile\Entity\UserProfile;
 use App\Profile\Repository\UserProfileRepository;
 use App\Profile\UseCase\AtualizarFotoPerfilUseCase;
+use App\Profile\Armazenamento\ChavesDePerfil;
 use App\Shared\Armazenamento\CategoriaDeArquivo;
 use App\Shared\Armazenamento\Exception\FalhaDeArmazenamento;
-use App\Shared\Service\ArquivoStorageInterface;
+use App\Shared\Armazenamento\RemocaoAposTransacao;
 use App\Tests\Shared\Doubles\ArmazenamentoEmMemoria;
+use App\Tests\Shared\Doubles\LoggerEmMemoria;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -19,17 +21,17 @@ use Symfony\Component\HttpFoundation\File\UploadedFile;
 
 /**
  * A foto nova é gravada pelo armazenamento por chave (E2.4A), sobre um upload REAL em diretório
- * temporário próprio. O storage antigo só continua aqui para excluir a foto anterior (E2.5).
+ * temporário próprio. A anterior sai depois do COMMIT, pela chave montada a partir do NOME guardado
+ * (E2.5) — pelo perfil, ela já seria a chave da foto nova.
  */
 #[CoversClass(AtualizarFotoPerfilUseCase::class)]
 final class AtualizarFotoPerfilUseCaseTest extends TestCase
 {
-    private const DIR = '/tmp/fotos_perfil_test';
     private const TRES_MB = 3 * 1024 * 1024;
 
     private UserProfileRepository&MockObject $repository;
-    private ArquivoStorageStub $storage;
     private ArmazenamentoEmMemoria $armazenamento;
+    private LoggerEmMemoria $logger;
     private AtualizarFotoPerfilUseCase $sut;
     private UserProfile $perfil;
     private string $dirTemp;
@@ -40,9 +42,13 @@ final class AtualizarFotoPerfilUseCaseTest extends TestCase
         mkdir($this->dirTemp, 0o700, true);
 
         $this->repository = $this->createMock(UserProfileRepository::class);
-        $this->storage = new ArquivoStorageStub();
         $this->armazenamento = new ArmazenamentoEmMemoria();
-        $this->sut = new AtualizarFotoPerfilUseCase($this->repository, $this->storage, $this->armazenamento, self::DIR);
+        $this->logger = new LoggerEmMemoria();
+        $this->sut = new AtualizarFotoPerfilUseCase(
+            $this->repository,
+            $this->armazenamento,
+            new RemocaoAposTransacao($this->armazenamento, $this->logger),
+        );
 
         $this->perfil = new UserProfile($this->createStub(User::class));
     }
@@ -108,7 +114,7 @@ final class AtualizarFotoPerfilUseCaseTest extends TestCase
     #[TestDox('Ordem: grava a nova, salva o perfil e SÓ DEPOIS exclui a antiga')]
     public function testNovaFotoSalvaAntesDeExcluirAntiga(): void
     {
-        $this->perfil->setFotoUrl('foto_antiga.jpg');
+        $this->comFotoAnterior('foto_antiga.jpg');
 
         $ordemChamadas = [];
         $this->repository->method('salvar')->willReturnCallback(function () use (&$ordemChamadas): void {
@@ -116,7 +122,7 @@ final class AtualizarFotoPerfilUseCaseTest extends TestCase
             // apontaria para um arquivo inexistente.
             $ordemChamadas[] = sprintf('salvar-perfil (fotos gravadas: %d)', \count($this->armazenamento->gravadas));
         });
-        $this->storage->onExcluir = function () use (&$ordemChamadas): void {
+        $this->armazenamento->aoExcluir = function () use (&$ordemChamadas): void {
             $ordemChamadas[] = 'excluir-antiga';
         };
 
@@ -125,32 +131,35 @@ final class AtualizarFotoPerfilUseCaseTest extends TestCase
         self::assertSame(['salvar-perfil (fotos gravadas: 1)', 'excluir-antiga'], $ordemChamadas);
     }
 
-    #[TestDox('Foto anterior é excluída após salvar a nova')]
+    #[TestDox('A anterior sai e a NOVA fica — a chave da anterior não sai do perfil já trocado')]
     public function testFotoAnteriorExcluidaAposSalvarNova(): void
     {
-        $this->perfil->setFotoUrl('foto_antiga.jpg');
+        $antiga = $this->comFotoAnterior('foto_antiga.jpg');
         $this->repository->method('salvar');
 
         $this->sut->executar($this->perfil, $this->input($this->jpeg()));
 
-        self::assertSame($this->armazenamento->ultimaGravada()->nome, $this->perfil->getFotoUrl());
-        self::assertSame(self::DIR . '/foto_antiga.jpg', $this->storage->caminhoExcluido);
+        $nova = $this->armazenamento->ultimaGravada();
+        self::assertSame($nova->nome, $this->perfil->getFotoUrl());
+        self::assertFalse($this->armazenamento->existe($antiga));
+        self::assertTrue($this->armazenamento->existe($nova), 'a foto recém-gravada não pode ser a apagada');
+        self::assertEquals([$antiga], $this->armazenamento->excluidas);
     }
 
-    #[TestDox('Sem foto anterior, excluir não é chamado')]
+    #[TestDox('Sem foto anterior, nada é excluído')]
     public function testSemFotoAnteriorNaoExclui(): void
     {
         $this->repository->method('salvar');
 
         $this->sut->executar($this->perfil, $this->input($this->jpeg()));
 
-        self::assertNull($this->storage->caminhoExcluido);
+        self::assertSame([], $this->armazenamento->excluidas);
     }
 
     #[TestDox('Falha do storage propaga, o perfil não é salvo e a foto anterior fica intacta')]
     public function testFalhaDoArmazenamentoNaoTocaOPerfil(): void
     {
-        $this->perfil->setFotoUrl('foto_antiga.jpg');
+        $antiga = $this->comFotoAnterior('foto_antiga.jpg');
         $this->armazenamento->falhaAoGravar = new FalhaDeArmazenamento('disco indisponível');
         $this->repository->expects($this->never())->method('salvar');
 
@@ -161,7 +170,52 @@ final class AtualizarFotoPerfilUseCaseTest extends TestCase
         }
 
         self::assertSame('foto_antiga.jpg', $this->perfil->getFotoUrl());
-        self::assertNull($this->storage->caminhoExcluido, 'a foto anterior não pode ser excluída sem a nova');
+        self::assertTrue($this->armazenamento->existe($antiga), 'a foto anterior não pode ser excluída sem a nova');
+    }
+
+    #[TestDox('Banco recusa o perfil: a exceção sobe e a foto anterior FICA (rollback sem perda física)')]
+    public function testBancoQueRecusaNaoApagaAAnterior(): void
+    {
+        $antiga = $this->comFotoAnterior('foto_antiga.jpg');
+        $recusa = new \RuntimeException('flush recusado');
+        $this->repository->method('salvar')->willThrowException($recusa);
+
+        $capturada = null;
+        try {
+            $this->sut->executar($this->perfil, $this->input($this->jpeg()));
+        } catch (\RuntimeException $e) {
+            $capturada = $e;
+        }
+
+        self::assertSame($recusa, $capturada);
+        self::assertTrue($this->armazenamento->existe($antiga));
+        self::assertSame([], $this->armazenamento->excluidas);
+    }
+
+    #[TestDox('Disco falha ao apagar a anterior depois do COMMIT: a troca vale, e o órfão é registrado')]
+    public function testDiscoQueFalhaDepoisDoCommitNaoDerrubaATroca(): void
+    {
+        $antiga = $this->comFotoAnterior('foto_antiga.jpg');
+        $this->repository->method('salvar');
+        $this->armazenamento->falhaAoExcluir = static fn (): \Throwable => new FalhaDeArmazenamento('disco ilegível');
+
+        $this->sut->executar($this->perfil, $this->input($this->jpeg()));
+
+        self::assertSame($this->armazenamento->ultimaGravada()->nome, $this->perfil->getFotoUrl());
+        self::assertTrue($this->armazenamento->existe($antiga));
+        self::assertSame($antiga->comoTexto(), $this->logger->doNivel('error')[0]['contexto']['chave']);
+    }
+
+    #[TestDox('Nome anterior que a chave recusa vira registro — não 422 com a foto nova já salva')]
+    public function testNomeAnteriorRecusadoViraRegistro(): void
+    {
+        $this->perfil->setFotoUrl('legado/com-barra.jpg');
+        $this->repository->expects($this->once())->method('salvar');
+
+        $this->sut->executar($this->perfil, $this->input($this->jpeg()));
+
+        self::assertSame($this->armazenamento->ultimaGravada()->nome, $this->perfil->getFotoUrl());
+        self::assertCount(1, $this->logger->doNivel('error'));
     }
 
     #[TestDox('Mime GIF lança InvalidArgumentException sem gravar')]
@@ -214,6 +268,15 @@ final class AtualizarFotoPerfilUseCaseTest extends TestCase
         self::fail('Esperava InvalidArgumentException.');
     }
 
+    private function comFotoAnterior(string $nome): \App\Shared\Armazenamento\ChaveDeArquivo
+    {
+        $this->perfil->setFotoUrl($nome);
+        $chave = ChavesDePerfil::fotoPorNome($nome);
+        $this->armazenamento->semear($chave, 'antiga');
+
+        return $chave;
+    }
+
     /** Upload real em modo de teste (pula `is_uploaded_file`), sobre um arquivo com conteúdo real. */
     private function input(string $conteudo): AtualizarFotoInput
     {
@@ -255,54 +318,5 @@ final class AtualizarFotoPerfilUseCaseTest extends TestCase
     {
         return "GIF89a\x01\x00\x01\x00\x80\x00\x00\x00\x00\x00\xff\xff\xff!\xf9\x04\x01\x00\x00\x00\x00,"
             . "\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;";
-    }
-}
-
-/**
- * Dublê do storage antigo: só a exclusão da foto anterior ainda passa por ele. Gravar por aqui é
- * regressão — `salvar()` falha alto.
- */
-final class ArquivoStorageStub implements ArquivoStorageInterface
-{
-    public ?string $caminhoExcluido = null;
-    /** @var callable|null */
-    public $onExcluir = null;
-
-    public function salvar(UploadedFile $arquivo, string $diretorio): string
-    {
-        throw new \LogicException('salvar() saiu de uso na E2.4A: a foto é gravada pelo ArmazenamentoDeArquivos.');
-    }
-
-    public function servir(string $caminhoCompleto, string $nomeOriginal, bool $inline = true): \Symfony\Component\HttpFoundation\BinaryFileResponse
-    {
-        throw new \LogicException('Não deve ser chamado nos testes de unidade.');
-    }
-
-    public function excluir(string $caminhoCompleto): void
-    {
-        $this->caminhoExcluido = $caminhoCompleto;
-        if ($this->onExcluir !== null) {
-            ($this->onExcluir)();
-        }
-    }
-
-    public function existe(string $caminhoCompleto): bool
-    {
-        return false;
-    }
-
-    public function salvarConteudo(string $conteudo, string $diretorio, string $extensao): string
-    {
-        throw new \LogicException('Não deve ser chamado nos testes de unidade.');
-    }
-
-    public function moverParaArmazenamento(string $caminhoOrigem, string $diretorio, string $extensao): string
-    {
-        throw new \LogicException('Não deve ser chamado nos testes de unidade.');
-    }
-
-    public function caminho(string $diretorio, string $nomeArquivo): string
-    {
-        return $diretorio . '/' . $nomeArquivo;
     }
 }

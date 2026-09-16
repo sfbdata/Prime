@@ -4,12 +4,16 @@ declare(strict_types=1);
 
 namespace App\Tests\Shared\Doubles;
 
+use App\Shared\Armazenamento\ArmazenamentoComPrefixo;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Armazenamento\ArquivoArmazenado;
+use App\Shared\Armazenamento\CategoriaComIsolamentoFisico;
 use App\Shared\Armazenamento\ChaveDeArquivo;
+use App\Shared\Armazenamento\EscopoDeArquivo;
 use App\Shared\Armazenamento\FonteDeConteudo;
 use App\Shared\Armazenamento\MetadadosDeArquivo;
 use App\Shared\Armazenamento\NovoArquivo;
+use App\Shared\Armazenamento\ResultadoDaRemocao;
 use App\Shared\Armazenamento\Exception\ArquivoNaoEncontrado;
 use App\Shared\Armazenamento\Exception\FalhaDeArmazenamento;
 
@@ -32,19 +36,26 @@ use App\Shared\Armazenamento\Exception\FalhaDeArmazenamento;
  *
  * ## Onde ele NÃO é fiel, e por quê
  *
- * Dois pontos em que ele diverge do `ArmazenamentoLocal`, ambos fora do que o contrato promete:
+ * Pontos em que ele diverge do `ArmazenamentoLocal`, todos fora do que o contrato promete:
  *
  *  - **MIME**: devolve sempre `application/octet-stream`; o local devolve o tipo real. O
  *    contrato não assere MIME em caso nenhum, então um teste que dependa dele está dependendo
  *    de detalhe de backend e vai mentir aqui;
  *  - **colisão de chave cunhada**: não verifica se a chave já existe; o local tenta cinco vezes
  *    (`ArmazenamentoLocal::cunharChaveLivre()`). Com 128 bits a diferença é teórica, mas quem
- *    for testar comportamento de colisão precisa do backend real.
+ *    for testar comportamento de colisão precisa do backend real;
+ *  - **prefixo** (E2.5): não há diretório, então não há link, subpasta, oculto nem remoção
+ *    parcial — `listar()` devolve toda chave do escopo e da categoria, e `excluirPrefixo()` nunca
+ *    devolve sobra nem passa por `excluidas`. O que o disco faz de verdade é provado em
+ *    `ArmazenamentoLocalPrefixoTest`; aqui se prova só o ESCOPO pedido (R1).
  */
-final class ArmazenamentoEmMemoria implements ArmazenamentoDeArquivos
+final class ArmazenamentoEmMemoria implements ArmazenamentoDeArquivos, ArmazenamentoComPrefixo
 {
     /** @var array<string, array{conteudo: string, mime: string, em: \DateTimeImmutable}> */
     private array $arquivos = [];
+
+    /** @var array<string, ChaveDeArquivo> */
+    private array $chavesPorIndice = [];
 
     /** @var list<string> */
     public array $chavesGravadas = [];
@@ -70,6 +81,31 @@ final class ArmazenamentoEmMemoria implements ArmazenamentoDeArquivos
      */
     public ?int $tamanhoRelatado = null;
     public ?string $mimeRelatado = null;
+
+    /**
+     * As chaves efetivamente removidas por `excluir()`, na ordem (E2.5) — para afirmar QUE e
+     * QUANDO um chamador apagou, inclusive em relação ao COMMIT.
+     *
+     * @var list<ChaveDeArquivo>
+     */
+    public array $excluidas = [];
+
+    /**
+     * Quando preenchida, é consultada a cada `excluir()` com a chave; se devolver uma exceção, ela
+     * é lançada e o arquivo FICA. Seletiva de propósito: prova a remoção parcial em laço (a 2ª de
+     * 3 falha, as outras saem).
+     *
+     * @var (\Closure(ChaveDeArquivo): ?\Throwable)|null
+     */
+    public ?\Closure $falhaAoExcluir = null;
+
+    /**
+     * Chamada a cada `excluir()` bem-sucedido, depois de remover — o gancho para o teste
+     * perguntar ao banco, naquele instante, se a transação já tinha sido confirmada.
+     *
+     * @var (\Closure(ChaveDeArquivo): void)|null
+     */
+    public ?\Closure $aoExcluir = null;
 
     public function gravar(ChaveDeArquivo|NovoArquivo $destino, FonteDeConteudo $fonte): ArquivoArmazenado
     {
@@ -104,6 +140,7 @@ final class ArmazenamentoEmMemoria implements ArmazenamentoDeArquivos
             'mime'     => 'application/octet-stream',
             'em'       => new \DateTimeImmutable(),
         ];
+        $this->chavesPorIndice[$this->indice($chave)] = $chave;
         $this->chavesGravadas[] = $chave->comoTexto();
         $this->gravadas[]       = $chave;
 
@@ -147,7 +184,87 @@ final class ArmazenamentoEmMemoria implements ArmazenamentoDeArquivos
 
     public function excluir(ChaveDeArquivo $chave): void
     {
-        unset($this->arquivos[$this->indice($chave)]);
+        $falha = $this->falhaAoExcluir === null ? null : ($this->falhaAoExcluir)($chave);
+        if ($falha !== null) {
+            throw $falha;
+        }
+
+        $indice = $this->indice($chave);
+        if (!array_key_exists($indice, $this->arquivos)) {
+            return;
+        }
+
+        unset($this->arquivos[$indice]);
+        $this->excluidas[] = $chave;
+
+        if ($this->aoExcluir !== null) {
+            ($this->aoExcluir)($chave);
+        }
+    }
+
+    /** Põe um arquivo no armazenamento sem passar por `gravar()` — cenário de teste. */
+    public function semear(ChaveDeArquivo $chave, string $conteudo = 'x'): void
+    {
+        $this->chavesPorIndice[$this->indice($chave)] = $chave;
+        $this->arquivos[$this->indice($chave)] = [
+            'conteudo' => $conteudo,
+            'mime'     => 'application/octet-stream',
+            'em'       => new \DateTimeImmutable(),
+        ];
+    }
+
+    /**
+     * Fiel ao contrato de D7: só o escopo e a categoria pedidos, e escopo global recusado — no
+     * disco não existe "prefixo global", e aceitar aqui esconderia o defeito no teste.
+     *
+     * @return list<ChaveDeArquivo>
+     */
+    public function listar(EscopoDeArquivo $escopo, CategoriaComIsolamentoFisico $categoria): iterable
+    {
+        $this->recusarEscopoGlobal($escopo);
+
+        $chaves = [];
+        foreach ($this->gravadasOuSemeadas() as $chave) {
+            if ($chave->categoria === $categoria->paraCategoria() && $chave->escopo->ehIgualA($escopo)) {
+                $chaves[] = $chave;
+            }
+        }
+
+        return $chaves;
+    }
+
+    /** @var list<string> prefixos removidos, como "escopo/categoria" */
+    public array $prefixosExcluidos = [];
+
+    public function excluirPrefixo(EscopoDeArquivo $escopo, CategoriaComIsolamentoFisico $categoria): ResultadoDaRemocao
+    {
+        $removidos = 0;
+        foreach ($this->listar($escopo, $categoria) as $chave) {
+            unset($this->arquivos[$this->indice($chave)]);
+            $removidos++;
+        }
+
+        $this->prefixosExcluidos[] = $escopo->comoTexto() . '/' . $categoria->value;
+
+        return new ResultadoDaRemocao($removidos, []);
+    }
+
+    /** @return list<ChaveDeArquivo> */
+    private function gravadasOuSemeadas(): array
+    {
+        $chaves = [];
+        foreach (array_keys($this->arquivos) as $indice) {
+            $chaves[] = $this->chavesPorIndice[$indice] ?? throw new \LogicException('índice sem chave: ' . $indice);
+        }
+
+        return $chaves;
+    }
+
+    private function recusarEscopoGlobal(EscopoDeArquivo $escopo): void
+    {
+        if ($escopo->ehGlobal()) {
+            throw new FalhaDeArmazenamento('Operação por prefixo exige escopo de escritório.');
+        }
     }
 
     /** A última chave gravada; falha o teste se nada foi gravado. */

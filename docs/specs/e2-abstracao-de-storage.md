@@ -18,7 +18,8 @@
 > alterar qualquer registro do banco.
 >
 > **Decisões D1–D9 todas ratificadas** (D1–D6 em 15/09; D7, D8 e D9 nasceram da revisão adversarial
-> da própria spec e foram ratificadas na sequência) — ver §8.
+> da própria spec e foram ratificadas na sequência) — ver §8. D10–D16 antes da E2.3/E2.4B; D17–D24
+> antes da E2.5 (16/09).
 
 ## Por que esta frente existe
 
@@ -160,7 +161,9 @@ Condições de parada, não metas finais. Se uma cair, a fatia não está pronta
   duas que não checam permissão de módulo).
 - **INV-6 — Ordem de operações da E1 preservada.** É aceitável deixar arquivo órfão recuperável;
   **não** é aceitável deixar registro válido apontando para arquivo inexistente. Remoção física
-  sempre **depois** do COMMIT.
+  sempre **depois** do COMMIT. *(A ambiguidade que a investigação apontou — "ordem da E1" × "sempre
+  depois" — foi resolvida por D17: vale o texto, e os nove pontos que apagavam antes passaram para
+  depois. O arquivo NOVO de uma transação que falhou só sai com a ausência de COMMIT provada, D18.)*
 - **INV-7 — Falha de compressão nunca destrói o arquivo persistente válido** (**D4**).
 - **INV-8 — O núcleo de armazenamento não importa `Symfony\Component\HttpFoundation`.**
 - **INV-9 — Nada apaga um arquivo emprestado** (**D9**). No `ArmazenamentoLocal`, `paraLeitura()`
@@ -237,7 +240,7 @@ nem autorização, nem MIME de apresentação, nem auditoria, nem transação.
 
 ### 3.3 Abstrações segregadas
 
-- **`ArmazenamentoComPrefixo`** (**D7**) —
+- **`ArmazenamentoComPrefixo`** (**D7**, implementada na E2.5 pelo `ArmazenamentoLocal`, D22) —
   `listar(EscopoDeArquivo, CategoriaComIsolamentoFisico): iterable<ChaveDeArquivo>` e
   `excluirPrefixo(EscopoDeArquivo, CategoriaComIsolamentoFisico)`.
   **A barreira é de tipo, não de runtime:** o parâmetro é o enum `CategoriaComIsolamentoFisico`,
@@ -434,6 +437,19 @@ de propósito (`PurgarEscritorioUseCase.php:344`).
 | **D15** | **`CopiarArquivosAcervoCommand` migra; não é aposentado.** O comando não tinha teste: a cobertura nasce junto com a migração. `consumirOrigem=false` é obrigatório: o arquivo do operador é emprestado e não pode ser movido nem apagado, nem no sucesso nem na falha | `CopiarArquivosAcervoCommandTest` fotografa a origem (inode, modo, mtime, tamanho, SHA-256) antes e depois |
 | **D16** | **Sync do Drive: tamanho medido, MIME do Drive.** O tamanho persistido é o do conteúdo efetivamente gravado; o `size` da API não é autoritativo quando diverge. O MIME válido informado pela API é preservado; não se infere MIME só pela extensão | `ReconciliadorDePasta` usa `ArquivoArmazenado::tamanhoBytes`, registra aviso na divergência e usa o MIME do Drive quando ele é válido |
 
+### Ratificadas pelo dono antes da E2.5 (2026-09-16)
+
+| # | Decisão | Consequência |
+|---|---|---|
+| **D17** | **Exclusão física só depois do COMMIT, em todos os pontos.** O banco é autoritativo: falha na limpeza física não desfaz alteração confirmada — vira log/diagnóstico e órfão recuperável | `RemocaoAposTransacao` (nunca lança, tenta cada chave, registra a que ficou); os nove pontos que apagavam antes do COMMIT foram reordenados |
+| **D18** | **COMMIT de resultado incerto não apaga arquivo.** Distinguir falha anterior ao COMMIT de falha do próprio COMMIT; `pg_xact_status` só com prova; sem prova, preservar | `TransacaoComArquivoNovo` (transação explícita, xid lido antes do COMMIT) + `ConsultaDeDestinoNoPostgres`: só `aborted` autoriza apagar; `committed`, `in progress`, NULL, erro e transação aninhada preservam |
+| **D19** | **Kanban entra na purga, com prova de pertencimento** | anexo, card e mural precisam concordar no escritório; nome também referenciado por outro escritório fica e é reportado |
+| **D20** | **`documento_processo` não ganha categoria.** Sai da purga, com teste que documente e prove a ausência de escritor | `DocumentoProcessoSemEscritorTest` |
+| **D21** | **O defeito da FK do `ClienteController` é corrigido junto**, limitado à atomicidade banco × arquivo | arquivos só saem depois de o banco aceitar; o texto do aviso não mudou |
+| **D22** | **`excluirPrefixo` só em `CategoriaComIsolamentoFisico`**, provando pertencimento, confinado ao prefixo, com ocultos e subpastas, sem seguir link, falhando fechado diante de escape ou pertencimento não comprovado | ver o bloco da E2.5 no §10 |
+| **D23** | **O fallback de MIME do Drive continua `application/octet-stream`** | nada mudou na E2.5 |
+| **D24** | **DT-8 fica fora da E2.5, como bloqueio operacional** | ver DT-8 no §9 |
+
 ---
 
 ## 9. Riscos e dívidas
@@ -494,7 +510,26 @@ de propósito (`PurgarEscritorioUseCase.php:344`).
   com o `drive_file_id` preenchido — e a idempotência por esse id impede que ele seja baixado de
   novo. Lido no vendor, não executado. A E2.4B não piora (o tamanho gravado passa a ser o do corpo
   recebido e a divergência gera `[aviso]`), mas não corrige: o arquivo está fora dos seis pontos.
-  A Via B só roda com `--modo=importar|ambos`. **Decisão do dono** (ver o bloco da E2.4B).
+  A Via B só roda com `--modo=importar|ambos`. **Decisão do dono (D24): fora da E2.5 e BLOQUEIO
+  OPERACIONAL** — até uma frente própria validar a resposta HTTP antes de persistir, **não é seguro
+  executar importação/migração real de produção que dependa desse download** (`sync:reconciliar
+  --modo=importar|ambos`, e qualquer migração de acervo que passe pela Via B).
+- **DT-9 (nasceu na E2.5)** — `import-tmp/<tenantId>` (D3) é irmão do prefixo de cobrança, não
+  filho: a purga não o alcança, e as prévias de planilha do escritório purgado ficam no volume.
+- **DT-10 (herdada da E2.4A, confirmada na E2.5)** — nove uploads (Cobrança ×3, Kanban, Perfil,
+  Cliente, ServiceDesk, Pasta ×2 e `UploadPecaUseCase`) não removem o arquivo novo quando o banco
+  recusa: órfão recuperável, aceito por INV-6. Não entrou na E2.5 (fora da matriz das 19); se
+  entrar, é por `TransacaoComArquivoNovo`, nunca por um `catch` que apague.
+- **DT-11 (nasceu na E2.5)** — quando o COMMIT falha do ponto de vista da aplicação mas o banco
+  confirmou (`committed`), o usuário recebe erro com os dados salvos: pode reenviar e duplicar (um
+  lote de justificativas, por exemplo). O arquivo fica, corretamente; a experiência é decisão de
+  produto.
+- **DT-12 (nasceu na E2.5)** — `excluirPrefixo` confere inode e caminho real antes de cada `unlink`,
+  mas o PHP não tem `unlinkat`: entre a conferência e a remoção há uma janela. Explorá-la exige
+  escrever no volume de uploads.
+- **DT-13 (nasceu na E2.5)** — `in progress` é tratado como incerto sem nova tentativa: um COMMIT
+  que o servidor ainda está concluindo deixa o arquivo, mesmo que depois termine `aborted`. Órfão,
+  nunca perda.
 - **DT-5** — 3 docblocks em `app/src/` citam `ArquivoStorageInterface` pelo nome
   (`AcordoDocumento.php:20`, `CarteiraDocumento.php:21`, `ArquivosDeAnexoDoKanban.php:18`) e ficam
   obsoletos quando a interface sair na E2.8.
@@ -515,7 +550,7 @@ integrar.
 | **E2.3** — ✅ **entregue em 16/09** | `MaterializadorDeArquivo::paraLeitura()` (Local, cópia zero) + `EntregaDeArquivo` + as **15 rotas** de `servir()` migradas; `ArquivosDeAnexoDoKanban::caminhoDe()` privado. Detalhes no bloco "E2.3 — entregue", abaixo | 11 controllers + 2 classes novas (`MaterializadorDeArquivo`, `EntregaDeArquivo`) + 2 alteradas (`ArmazenamentoLocal`, `ArquivosDeAnexoDoKanban`) | equivalência de cabeçalhos com o `servir()` antigo + `Range` → 206 + INV-9 #3 + arquivo de 64 MB sem ir para a memória + D10 (ausente → 404, pane ≠ 404, inclusive pela rota) + teste de arquitetura; 14 provas por reintrodução; revisão adversarial feita, sem bloqueante, achados corrigidos |
 | **E2.4A** — ✅ **entregue em 16/09** | os **14 uploads HTTP** (`salvar(UploadedFile)`) pela ponte `FonteDeUploadHttp` + `gravar(NovoArquivo)`, com fábricas `ChavesDe*::novo*`; publicação em dois passos no `ArmazenamentoLocal`. Detalhes no bloco "E2.4A — entregue", abaixo | 13 consumidores + ponte + 7 fábricas + backend | unit/funcional de cada ponto (válido, inválido, R1 pela rota contra dublê em memória, falha do storage sem linha, cleanup do flush onde existe) + INV-10 + testes de arquitetura; 22 provas por reintrodução; revisão (4) e re-revisão feitas |
 | **E2.4B** — ✅ **entregue em 16/09** | as **4 escritas internas** — `SalvarPecaTextoUseCase`, `CopiarArquivosAcervoCommand`, `ReconciliadorDePasta`, `EditarPecaTextoUseCase` (sobrescrita por chave) — e as leituras em `ArquivosReferenciadosEmPecas`/`ExportarPecaTextoUseCase`; `ler()`/`abrir()` do backend provam a cadeia de diretórios (D13). Detalhes no bloco "E2.4B — entregue", abaixo | 6 + `PeticionarController` + backend + contrato | unit e funcional de cada ponto (os 12 itens pedidos pelo dono) + primeiro teste do comando do acervo + guarda estrutural do shim; 31 provas por reintrodução; revisão (4) e re-revisão feitas |
-| **E2.5** | `excluir()` (19 chamadas) + `ArmazenamentoComPrefixo` nas 2 categorias com escopo físico | 15 | purga + isolamento cross-tenant + allowlist do arch test |
+| **E2.5** — ✅ **entregue em 16/09** | `excluir()` (19 chamadas) pós-COMMIT + `ArmazenamentoComPrefixo` nas 2 categorias com escopo físico + a decisão sobre o arquivo novo em transação que falha. Detalhes no bloco "E2.5 — entregue", abaixo | 22 de produção + 5 novos | matriz das 19 + purga + isolamento cross-tenant + COMMIT real que falha nos funcionais + allowlist do arch test |
 | **E2.6** | `MaterializadorDeArquivo::copiaGravavel()` (o `paraLeitura()` já existe desde a E2.3); os 4 chamadores do compressor, o export e o `ReconciliadorDePasta` | 6 (todos já entre os 33) | **pré-requisito D4**: testes de modo de falha do compressor verdes **antes** |
 | **E2.7** | investigação de Tarefa e, se viável sem migration, entrada na abstração (**D5**) | `TarefaController`, `CaminhoDeAnexoDeTarefa` | teste de travessia atacando o VO, não a rota |
 | **E2.8** | remoção de `caminho()`/`servir()`; docblocks de DT-5; teste de arquitetura | limpeza | suíte + arch test |
@@ -936,7 +971,291 @@ decidido e feito ao executar:
     do BEGIN; uma recusa real fecha o EntityManager e a rodada vira fatal (comportamento anterior);
   - os testes de `chmod` e o do log supõem uma suíte por worktree.
 
+**E2.5 — entregue em 16/09/2026.** As 19 exclusões, a purga e o arquivo novo de transação que
+falha, sob D17–D24. O que foi decidido e feito ao executar:
+
+- **Escopo conferido antes de escrever** (três investigações em paralelo): 19 `excluir()` em 15
+  arquivos — 9 antes do COMMIT, 6 depois, 4 em `catch` —, exatamente a contagem da rodada 2.
+- **Duas peças novas, e só duas.**
+  - `App\Shared\Armazenamento\RemocaoAposTransacao` — quem chama monta as chaves antes, confirma o
+    banco e entrega as chaves. Ela tenta cada uma isoladamente (`existe()` → `excluir()`), nunca
+    lança (nem com o logger quebrado), registra em `logger->error` a que ficou e devolve `ResultadoDaRemocao` (removidos +
+    não removidas). Aceita a chave adiada (`Closure`) para quem só pode montá-la depois do COMMIT.
+    Usa `Psr\Log`, que o teste do núcleo não proíbe (proíbe Symfony, Doctrine, AWS, Cloudflare,
+    Google, Guzzle).
+  - `App\Shared\Doctrine\Transacao\TransacaoComArquivoNovo` — mesma semântica do
+    `wrapInTransaction` (trabalho, `flush`, COMMIT, EntityManager fechado na falha, **exceção original
+    relançada**), com a fase controlada: `BEGIN → trabalho → flush → pg_current_xact_id() → COMMIT`.
+    Falha antes do COMMIT → `NaoConfirmada`, o arquivo novo sai. Falha do próprio COMMIT → o destino
+    é perguntado ao banco (`ConsultaDeDestinoNoPostgres`): só `aborted` apaga; `committed`,
+    `in progress`, NULL, erro de consulta e xid malformado ou especial (1, 2) preservam, com `logger->warning` por
+    chave. Transação aberta por fora → sempre `Incerta`, e o `rollBack` só desfaz o nível que ela
+    abriu. Uma consulta que lance também é `Incerta`, e nenhuma falha da decisão troca a exceção
+    original. **Efeito colateral aceito:** o EntityManager é fechado em QUALQUER falha, como no
+    `wrapInTransaction`; no download do Drive, uma falha antes do BEGIN do UnitOfWork (um `onFlush`
+    que lance) passou a encerrar a rodada (`fatal`), o que antes só uma recusa real do INSERT fazia.
+- **`pg_xact_status` foi validado antes de ser adotado (D18).** Medido no PG 15.17 do dev: `committed`
+  depois de COMMIT, `aborted` depois de ROLLBACK, `in progress` visto de outra sessão, `aborted`
+  depois de um COMMIT recusado pelo servidor (UNIQUE deferida), `aborted` com o backend derrubado
+  antes do COMMIT. O caso ambíguo foi **reproduzido**: cliente morto durante o COMMIT → `committed`;
+  rede do cliente caída → `DriverException` genérica, `in progress` e, 4 s depois, `committed`. No
+  código-fonte do PG 15 (`xid8funcs.c`), "em andamento" é testado antes do CLOG, então `aborted` é
+  definitivo. A queda do lado do cliente deixa o DBAL "conectado" sobre um PDO quebrado — por isso a
+  consulta faz `close()` antes de perguntar (a reconexão usa os mesmos parâmetros). Produção:
+  `postgres:15`, sem pooler, `synchronous_commit=on`.
+- **Por que transação explícita:** com `flush()` simples o UnitOfWork abre e fecha a transação por
+  dentro; a marca `OptimisticLockException('Commit failed')` só existe ali, some dentro de
+  transação explícita e seria contornada por um `postFlush` que lançasse. O tipo da exceção do DBAL
+  não serve de critério.
+
+**A matriz das 19 — antes, depois, posição e política de falha do storage.**
+
+| # | Ponto | Antes | Depois | Em relação ao COMMIT | Falha do storage |
+|---|---|---|---|---|---|
+| 1 | `ExcluirPastaUseCase` | `existe`+`excluir` por caminho dentro do `wrapInTransaction`, antes do `remove`/`flush` | chaves coletadas dentro do closure; `RemocaoAposTransacao` fora dele | antes → **depois** | log, órfão; a pasta sai |
+| 2 | `AtualizarFotoPerfilUseCase` (foto anterior) | `excluir` por caminho depois do `flush`, sem `try` (500 em dev com a foto nova salva) | chave montada **depois** do COMMIT por `ChavesDePerfil::fotoPorNome` (a do perfil já é a nova) | depois | log; nome recusado também vira log |
+| 3 | `PastaSecaoController::excluir` | presença por chave + `excluir` por caminho, `try` com warning | `RemocaoAposTransacao` | depois | log por item, os demais seguem |
+| 4 | `ExcluirSecaoUseCase` (Cobrança) | laço `existe`+`excluir` antes do `remover(flush)` | chaves antes; `remover(flush)`; remoção | antes → **depois** | log por item |
+| 5 | `ReconciliadorDePasta` (catch do download) | `excluir` em qualquer `Throwable`, sem `try` (podia derrubar a rodada) | falha **antes** da transação (gravação já feita, guarda INT4): `RemocaoAposTransacao` + `[aviso]` no resultado se não sair; falha **na** transação: `TransacaoComArquivoNovo` decide | catch | nunca derruba a rodada; COMMIT incerto preserva |
+| 6 | `ArquivosDeAnexoDoKanban` (+ `ExcluirAnexo/Card/BoardUseCase`) | `removerDo*` antes do `flush` | `chavesDo*` antes; `remover()` depois | antes → **depois** | log por item |
+| 7 | `ClienteController::delete` | laço `excluir` antes de `remove`/`flush`; **a FK recusava e os arquivos já tinham ido** (D21) | chaves antes; `flush` em `try` (FK → aviso, nada tocado); remoção só no sucesso | antes → **depois** | log por item |
+| 8 | `ClienteController::deleteDocumento` | `excluir` antes do `flush` | chave antes; remoção depois | antes → **depois** | log, sem 500 |
+| 9 | `ExcluirDocumentoCarteiraUseCase` | `existe`+`excluir` antes do `remover(flush)` | chave antes; remoção depois | antes → **depois** | log |
+| 10 | `ExcluirDocumentoAcordoUseCase` | idem | idem | antes → **depois** | log |
+| 11 | `ExcluirDocumentoUseCase` | idem | idem | antes → **depois** | log |
+| 12 | Purga — arquivos planos | 7 consultas × 4 diretórios (produto cartesiano), `existe`+`excluir` sem `try` → "Falha ao purgar" com o banco purgado; Kanban e Tarefa no-op de fato; `documento_processo` consultado | 5 consultas com prova de pertencimento, dentro da transação (sob trava) e antes dos DELETEs; cada nome só na própria categoria; Kanban dentro (D19); `documento_processo` fora (D20); Tarefa listada em `arquivosForaDoEscopo` sem virar chave | depois; COMMIT que falha → destino perguntado ao banco | item em `arquivosNaoRemovidos` + log; o comando reporta sobra, não falha; COMMIT incerto → nada tocado e `PurgaComDestinoIncerto` |
+| 13 | Purga — diretórios do escritório | `glob` (segue link, ignora oculto, não desce) + `excluir` + `@rmdir` calado | `excluirPrefixo` nas duas categorias com isolamento físico (D22) | depois | idem |
+| 14 | `PontoController::novaJustificativa` | `catch` de qualquer `Throwable` do `flush` → `excluir` sem `try` (podia mascarar a exceção) | `TransacaoComArquivoNovo::confirmar()` | catch | só pré-COMMIT ou `aborted` apaga; a exceção original sobe |
+| 15 | `TenantController::novaJustificativaAdmin` | idem | idem | catch | idem |
+| 16 | Lote — fase 2 (anexo antigo) | `existe`+`excluir` por caminho sob trava, depois do COMMIT da fase 1 | mesma posição e mesma trava (defesa em profundidade; a fase 2 não grava), `RemocaoAposTransacao` | depois | log |
+| 17 | Lote — fase 1 (anexo novo, catch) | `removerBestEffort` em qualquer falha, **inclusive COMMIT** (o teste fixava "apaga") | `TransacaoComArquivoNovo` substitui o `wrapInTransaction` | catch | só pré-COMMIT ou `aborted` apaga — o teste foi invertido |
+| 18 | `PastaController::deleteDocumento` | `excluir` antes de `remove`/`flush`; **nenhum teste** | chave antes; remoção depois; teste novo | antes → **depois** | log, sem 500 |
+| 19 | `PastaController::financeiroExcluirDocumento` | `excluir` depois do `flush`, sem `try` (falha de disco → 500 com a exclusão feita) | `RemocaoAposTransacao` | depois | log, sem 500 |
+
+- **`excluir()` do núcleo passou a provar a cadeia de diretórios** antes de responder
+  "idempotente". Antes, com um diretório ilegível, voltava calado e o arquivo ficava sem registro
+  (achado das três investigações). Agora lança, e a remoção pós-transação transforma isso em log.
+- **`excluirPrefixo()`/`listar()` no disco (D22).** Prova do prefixo, nesta ordem: escopo de
+  escritório (global é recusado); último componente igual ao id; pai igual à raiz da categoria;
+  `lstat` do prefixo — ausente só com a cadeia legível (senão falha); link simbólico → recusa;
+  não-diretório → recusa; `realpath(prefixo) === realpath(raiz)/id`; o prefixo não coincide com
+  nenhuma das sete raízes configuradas nem as contém. Cache de `realpath` limpo por inteiro antes
+  (medido: devolvia caminho velho com a permissão do pai trocada). Depois, **inventário completo sem
+  apagar nada**, por `lstat`: link, arquivo especial, outro sistema de arquivos montado dentro ou
+  diretório ilegível → a operação para antes do primeiro `unlink` (falha fechada: o prefixo fica
+  inteiro e a purga reporta). Só então a remoção: arquivos (ocultos e resíduos inclusive), cada um
+  conferido de novo (mesmo inode, ainda regular, pai ainda no caminho real inventariado),
+  diretórios do mais fundo para o mais raso e o próprio prefixo. Antes da remoção, a identidade do
+  prefixo (dispositivo e inode, ainda diretório) é conferida de novo — um prefixo trocado entre a
+  prova e a remoção não apaga nada —, e a reconferência de cada arquivo compara também o
+  dispositivo e limpa o cache de `realpath()` inteiro (limpar só o caminho deixava os ancestrais em
+  cache; medido na revisão). Falha de I/O num item não segura os demais e **não lança**:
+  `excluirPrefixo()` devolve `ResultadoDaRemocao` (removidos + sobras, em caminho relativo ao
+  escopo, nunca absoluto) — só pertencimento não provado lança. Raiz que é link quebrado é falha,
+  não ausência. `listar()` devolve só arquivos regulares endereçáveis logo abaixo do prefixo (sem
+  ocultos, sem `.parcial-`, sem descer em subpasta) e falha diante de link ou arquivo especial
+  nesse nível. O resolvedor ganhou `prefixoDe()` (tipado no enum restrito) e
+  `raizesConfiguradas()`; `diretorioDe()` passa por `prefixoDe()` para as duas categorias, então o
+  prefixo apagado é, por construção, onde a gravação escreve. `import-tmp/<id>` é irmão e não é
+  alcançado (DT-9).
+- **Purga.** A prova de pertencimento é por junção (`LEFT JOIN … GROUP BY`, `IS DISTINCT FROM` para
+  não perder linha com escritório nulo): medido em 20.954 documentos, a subconsulta correlacionada
+  por linha levou 32 s, a junção 10 ms. Valor de `compartilhado` que não seja falso claro conta como
+  compartilhado (falha fechada). Nome que a chave recusa vira item não removido. Além do "outro
+  escritório referencia o mesmo nome", a prova exige a CADEIA do registro inteira do escritório —
+  anexo, card, mural do card e mural da coluna no Kanban; documento e seção na pasta —, porque uma
+  linha alheia pendurada num pai deste cai por CASCADE: o arquivo dela fica e é reportado.
+  - **Trava:** a linha do escritório (e os chamados dele) é travada `FOR UPDATE` antes da coleta.
+    Um INSERT concorrente de linha do escritório — o cron do Drive continua sincronizando escritório
+    soft-deletado com conexão ativa — espera o COMMIT e falha na FK; sem a trava, em READ COMMITTED,
+    uma linha confirmada entre a coleta e o DELETE sumiria sem o arquivo ter sido coletado. Sem
+    teste de concorrência (a mutação que tira a trava sobrevive; ver as provas).
+  - **COMMIT que falha (D18):** o xid é lido antes; o destino é perguntado ao banco. Confirmado → o
+    disco segue. Desfeito → a exceção original sobe e "nada foi apagado" é verdade. Sem prova →
+    `PurgaComDestinoIncerto`, nenhum arquivo tocado, e a lista do que seria removido vai para o log
+    (o único rastro se o banco tiver confirmado). O `rollBack` do caminho de erro só desfaz o nível
+    da purga e não troca a exceção original.
+  - **Registros só depois do desfecho:** o log de "sem prova de pertencimento" sai depois do COMMIT
+    (antes saía dentro de uma transação que ainda podia ser desfeita).
+  - **Simulação:** o dry-run conta os arquivos que a purga removeria (planos existentes + os do
+    primeiro nível dos prefixos — um mínimo, e a saída do comando diz isso), lista o que ficaria
+    sem prova e os anexos de Tarefa — antes mostrava zero.
+  - **Resultado e comando:** o resultado ganhou `arquivosNaoRemovidos`, `arquivosForaDoEscopo`,
+    `arquivosPrevistos`, `teveSobraNoDisco()` e `teveArquivoNaoRemovido()`. O comando mostra
+    "Arquivos removidos/a remover", "Não removidos (itens)" (um prefixo retido conta como um item) e
+    "Fora da purga"; arquivo não removido → aviso "purgado no banco; ficaram arquivos…" e `FAILURE`
+    sem contar o escritório como falho; anexos de Tarefa → nota para limpeza manual, **sem**
+    `FAILURE` (dívida conhecida até a E2.7, não alerta); COMMIT incerto → erro "resultado
+    INCERTO". "Falha ao purgar … nada foi apagado" ficou reservado para falha antes do COMMIT ou
+    COMMIT que o banco provou desfeito — os registros depois da decisão passam por um método que
+    não lança, então nem um logger quebrado muda isso. ⚠️ **Medição
+  cross-tenant do `saas_ux` é vazia** (só um escritório tem arquivos): a regra "nenhum nome
+  compartilhado" não foi medida em produção nesta fatia.
+- **Nenhum `->excluir(` fora da remoção** (`ExclusaoAposTransacaoArquiteturaTest`), que também
+  trava o consumidor único do prefixo (a purga) e da consulta do destino (a transação).
+  `LimpezaDeArquivosArquiteturaTest` foi endurecido: lê sem comentários, enxerga
+  `FilesystemIterator`/`GlobIterator`/`opendir`/`readdir`/`dir()`/Finder e `rmdir`/`excluirPrefixo`, e
+  uma entrada da allowlist só vale enquanto ainda varre E remove. A allowlist tem uma entrada, o
+  `ArmazenamentoLocal`; a purga saiu dela. A lista do shim encolheu de 19 para 7 (os que ainda pedem
+  `caminho()` para a E2.6, e a própria interface).
+- **Dublês.** `ArmazenamentoEmMemoria` implementa o prefixo (recusa escopo global; não simula link,
+  oculto nem sobra — isso é do teste do disco), registra `excluidas`, falha seletivamente
+  (`falhaAoExcluir`) e avisa a cada remoção (`aoExcluir`, que o teste da pasta usa para CONTAR as
+  remoções anteriores ao COMMIT: um `assert` dentro do gancho seria engolido pela própria remoção,
+  que captura qualquer `Throwable` — achado da revisão); `ArmazenamentoEspiao` também registra e falha; o dublê do container
+  implementa o prefixo. `FalhaDeCommitArmavel` (middleware do DBAL só em `when@test`, por fora do
+  DAMA) faz o COMMIT da `TransacaoComArquivoNovo` falhar de verdade nos funcionais — recusado (as
+  linhas somem) ou com a resposta perdida (as linhas ficam) —, disparando só depois da leitura do
+  xid. `ConsultaDeDestinoFixa` e `LoggerEmMemoria` completam. Saíram `StorageDeDiscoParaTeste` e o
+  `ArquivoStorageStub` do perfil (dois dos cinco dublês da interface antiga).
+- **Provas pedidas pelo dono, onde estão:** rollback sem perda física (unitários de Cobrança,
+  pasta — com COMMIT recusado —, perfil; FK real do cliente; purga abortada pela guarda anti-drift
+  com arquivos planos e de prefixo no disco; nos funcionais de Kanban, `PastaController`, seção e
+  documento de cliente a recusa é simulada no `onFlush`, antes do BEGIN — ali o que se prova é a
+  ORDEM: nenhum arquivo sai antes de o banco confirmar); COMMIT confirmado + falha física (unit
+  da remoção, dos UseCases, funcionais de Cliente e `PastaController` com o diretório sem escrita,
+  purga com o diretório sem escrita, fase 2 do lote); COMMIT incerto sem exclusão (unit da
+  transação; funcionais das duas portas de justificativa, do lote e do reconciliador com o COMMIT
+  falhando de verdade); exclusão parcial em laço (seção de Cobrança, remoção, pasta, prefixo); FK
+  (`ExcluirClienteArquivosTest`, FK real); anexo compartilhado do Ponto (contagem de referências da
+  fase 2; na purga, o nome repetido do lote vira uma chave só); purga do Kanban; isolamento entre
+  escritórios (dois escritórios nos mesmos diretórios planos, nome compartilhado nas CINCO
+  consultas, cadeias divergentes por CASCADE, nome procurado só na própria categoria, R1 com
+  dublê); COMMIT da purga nos três destinos; ocultos e subpastas; link e escape (prefixo que é link para a raiz e para fora, link e
+  FIFO dentro, raiz cruzada); categoria plana impossível (tipo + reflexão, nada apagado); ausência
+  de escritor de `documento_processo` (teste de arquitetura + purga que não apaga nome coincidente).
+
+- **Provas por reintrodução (94 mutações: 86 derrubaram o teste esperado, 8 sobrevivem por
+  desenho).** Uma de cada vez, com `php -l` do arquivo mutado, restauração byte a byte conferida por
+  sha256 e retrato da worktree antes e depois de cada uma:
+  - **os 19 pontos:** a ordem antiga de volta nos nove que apagavam antes do COMMIT (Cobrança ×4,
+    pasta, Kanban ×3, cliente, `PastaController`), a FK do cliente reintroduzida, a remoção esquecida
+    (cliente, `PastaController`), a foto apagada pela chave do perfil já trocado ou antes do `flush`,
+    o financeiro com `excluir` direto, o mural sem coletar os cards, a fase 2 do lote que nunca apaga
+    ou que apaga anexo compartilhado, e o `catch` antigo nas duas portas do Ponto, no lote e no
+    reconciliador;
+  - **a transação e a consulta:** falha do COMMIT sempre apagando, aninhamento ignorado, a regra de
+    rollback do `wrapInTransaction`, xid lido depois, decisão que mascara a exceção original,
+    `in progress` tratado como `aborted`, consulta sem reconectar, sem a guarda de formato, com `$` no
+    lugar de `\z` e com os xids especiais aceitos;
+  - **o núcleo:** `excluir()` sem a prova da cadeia; prefixo sem recusar link e sem a igualdade de
+    `realpath`, sem conferir as raízes configuradas, ancestral ilegível lido como ausência, raiz link
+    quebrado lida como ausência, escopo global aceito, ocultos ignorados, subpasta não percorrida,
+    diretórios do mais raso para o mais fundo, parada na primeira falha, identidade do prefixo não
+    reconferida, reconferência sem inode, sem dispositivo, sem o caminho real do pai e com o cache de
+    `realpath` limpo só no caminho; inventário sem dispositivo e com link virando item; `listar()`
+    pulando arquivo especial; a remoção parando na primeira falha, lançando depois do COMMIT e
+    lançando quando o logger lança;
+  - **a purga:** "compartilhado" ignorado e retirado de cada uma das cinco consultas, sem a cadeia da
+    coluna e da seção, Kanban fora, `documento_processo` de volta, produto cartesiano de volta,
+    disco antes dos DELETEs, falha do COMMIT sempre seguindo para o disco, COMMIT incerto como "nada
+    foi apagado", COMMIT desfeito subindo com a causa errada, pergunta ao banco por outro xid,
+    falha do prefixo subindo depois do COMMIT, `excluir` direto, sobras do prefixo parcial só no log,
+    removidos do prefixo fora da conta, logger que lança trocando o desfecho, Tarefa sumindo do
+    relatório, chaves com escopo de outro escritório (R1), simulação cega; o comando com sobra em
+    `SUCCESS` e com Tarefa derrubando o código de saída;
+  - **arquitetura e dublês:** varredura + remoção num arquivo novo, `->excluir(` fora da remoção,
+    escritor novo de `DocumentoProcesso`, o dublê que arma o COMMIT desligado.
+  - **Sobrevivem por desenho (8):** a igualdade de `realpath` do prefixo sozinha (o `lstat` recusa o
+    link antes); só alcançáveis numa corrida, sem teste de concorrência — a reconferência de
+    identidade do prefixo, a reconferência por arquivo dentro do laço (provada por reflexão), a
+    limpeza do cache de `realpath` na prova do prefixo, e as travas `FOR UPDATE` do escritório e dos
+    chamados; sem chamador nem teste — a purga aninhada tratada como não aninhada e o `try` do
+    `rollBack` do caminho de erro (um ROLLBACK que falhe trocaria a exceção original, e "nada foi
+    apagado" continuaria verdadeiro).
+  - **Três provas não pegavam na primeira rodada, e a correção foi no teste:** a cadeia da seção e a
+    da coluna (o teste só tinha o registro alheio pendurado num pai deste — ali a primeira condição
+    já basta; entrou o caso inverso, `testRegistroComPaiDeOutroEscritorioFicaEEhReportado`) e o cache
+    de `realpath` parcial (o teste chamava a reconferência de identidade, que limpa o cache inteiro,
+    e trocava a pasta com o `rename()` do PHP, que também limpa quando dá certo; o teste novo move a
+    pasta por OUTRO processo, como seria na vida real, e confere antes que o pai está no cache).
+  - **A guarda de formato do xid não é redundante** (a primeira lista a tinha como tal): no PG 15 o
+    `CAST` para `xid8` aceita lixo no fim — `'1;SELECT 1'`, `'1abc'` e `"1\n"` viram o xid 1, que
+    `pg_xact_status` dá como `committed` (1 e 2 são especiais e sempre `committed`). Sem a guarda, um
+    xid malformado passaria por COMMIT confirmado — na purga, o disco seguiria. Hoje o xid sempre vem
+    de `pg_current_xact_id()` e nunca é malformado; a guarda passou a usar `\z` e a recusar 1 e 2.
+  - 🪤 **A primeira rodada foi interrompida no meio de uma mutação**: a sessão caiu com a M39 (raiz
+    link quebrado lida como ausência) aplicada no `ArmazenamentoLocal`. A recuperação comparou cada
+    arquivo com o retrato tirado antes das mutações, confirmou que desfazer exatamente aquela troca
+    devolvia o sha do retrato e só então restaurou. O executor passou a gravar um diário (original +
+    sha do original e do mutado) antes de cada mutação e recusa rodar com diário pendente.
+
+- **Revisão (4 revisores read-only: transações/Doctrine, filesystem/segurança, tenant/purga,
+  testes/arquitetura).** Nenhum bloqueante. Importantes, todos corrigidos: a purga dizia "nada foi
+  apagado" com COMMIT incerto (apontado por três revisores); o dry-run mentia sobre arquivos; a
+  prova de "compartilhado" só tinha teste numa das cinco consultas; o teste de arquitetura de
+  limpeza não enxergava `->remover(`, callable nem caixa diferente; a contagem da purga não fechava
+  com prefixo parcial; o teste de remoção parcial não pegava "para na primeira falha"; a purga não
+  tinha prova de rollback com arquivos no disco; `deleteDocumento` do cliente não tinha caminho
+  feliz. Menores corrigidos: consulta do destino protegida; a guarda "antes do COMMIT" do teste da
+  pasta, que era engolida; teste de "não mascara" que não passava pelo `catch` certo; teste de
+  aninhamento que não distinguia as duas regras; reconferência com cache de `realpath` parcial e
+  sem dispositivo; raiz link quebrado; `listar()` pulando arquivo especial; log antes do COMMIT;
+  cadeia coluna/seção fora da prova; rótulos; Tarefa em `FAILURE` permanente; testes que vazavam
+  arquivo na falha; docblocks; o teste de integração da consulta (movido para
+  `tests/Shared/Integration`, com o nome do banco tirado da conexão do kernel); `fotoPorNome` sem
+  teste próprio; falha de disco pós-COMMIT sem teste no Kanban e na exclusão de cliente.
+- **Re-revisão focada nas correções (2 revisores read-only: transações + purga; filesystem +
+  testes/arquitetura).** Nenhum bloqueante; cada achado da primeira rodada conferido no código e no
+  teste. Um importante, corrigido: a propagação das sobras do prefixo parcial até o resultado não
+  tinha prova no nível da purga (`testPrefixoQueSaiEmParteEhReportado`). Menores corrigidos: a
+  guarda do xid aceitava `"1\n"` e os xids especiais; a purga não conferia qual xid perguntava ao
+  banco nem a mensagem do COMMIT recusado; um logger que lançasse ainda trocava o desfecho (a purga
+  e a `RemocaoAposTransacao` registram por um método que não lança — "Falha ao purgar … nada foi
+  apagado" agora é verdade mesmo com o log quebrado); o dry-run passou a dizer que a contagem do
+  prefixo é um mínimo; a mensagem da guarda anti-drift passou a citar a linha pendurada em registro
+  alheio; os testes do lote da E2.5 recolhem os arquivos no `tearDown`; duas mensagens diziam
+  "rollback" onde a prova é de ordem; pré-condição do cache no teste da troca por link; referência
+  errada no `Shared/CLAUDE.md`. O resto virou residual, abaixo.
+- **Riscos residuais:** DT-9 a DT-13 (§9); DT-8 segue como bloqueio operacional (D24);
+  - um bind mount do MESMO sistema de arquivos dentro do prefixo tem o mesmo dispositivo e não é
+    detectado (criá-lo exige root);
+  - ELOOP/EIO no último componente de `excluir()` e numa raiz cujo `lstat` falha continuam lidos
+    como ausência (limite de `is_file`/`lstat` do PHP, o mesmo registrado na E2.3);
+  - `exigirCadeiaLegivel` pede leitura em todo ancestral (um `0711` vira falha), herdado;
+  - nomes legados com resto do nome original (19 de 20.954 no `saas_ux`) podem aparecer na saída e
+    no log da purga quando ficarem sem prova ou falharem;
+  - a consulta do Kanban na purga faz leitura sequencial das tabelas do Kanban (volume de produção
+    não medido);
+  - os testes que mexem em permissão de diretório compartilhado, o que arma o COMMIT e os que purgam
+    `pastas/<id>`/`cobrancas/<id>` supõem uma suíte por worktree — com ParaTest, bancos diferentes
+    gerariam ids de escritório que colidem no mesmo diretório de uploads de teste;
+  - `TransacaoComArquivoNovoTest` mocka EntityManager e conexão — exceção consciente à regra de
+    `tests/CLAUDE.md`, complementada pelos funcionais com o COMMIT falhando de verdade;
+  - nada impede, estruturalmente, chamar a `RemocaoAposTransacao` antes do `flush` ou num `catch`
+    que envolva o COMMIT: a guarda são os testes de cada ponto;
+  - **simulação × purga real:** o dry-run conta só o primeiro nível dos prefixos (sem ocultos,
+    resíduos e subpastas) e não enxerga link ou arquivo especial abaixo dele — o número é um mínimo,
+    e um prefixo retido só aparece na execução real (falha fechada e reportada, sem perda). Medido no
+    dev: nenhum oculto nem subpasta nos prefixos;
+  - **cadeia mais funda na pasta:** documento de outro escritório numa seção dele cuja pasta, ou
+    seção-pai, é do escritório purgado cai por CASCADE (`pasta_secao.pasta_id`/`secao_pai_id`) sem o
+    arquivo ser coletado nem reportado — o arquivo fica (nada é apagado por engano), mas sem aviso.
+    Só com dado já inconsistente; 0 casos em 593 seções do `saas_ux`;
+  - **reconferência:** arquivo que sumiu por fora entre o inventário e a remoção aparece como sobra
+    "(mudou desde o inventário)"; `unlink` que falha com `lstat` também sem permissão não nomeia o
+    arquivo (só o diretório aparece); a fase de `rmdir` não reconfere — numa corrida, um `rmdir` pode
+    remover um diretório VAZIO fora do prefixo (a janela da DT-12 vale também para ele); sistema de
+    arquivos montado NO próprio prefixo não é detectado (o dispositivo de referência vem dele; exige
+    root);
+  - raiz de categoria que existe mas não é diretório ainda é lida como "prefixo ausente" (zero
+    arquivos, nada apagado);
+  - `LimpezaDeArquivosArquiteturaTest` é regex: não enxerga `rename()` para quarentena, remoção pelo
+    shell (`exec('rm …')`, `Process`, `find -delete`), `'\unlink'` como callable nem SDK remoto
+    (`deleteObjects`) — vale revisitar na E4;
+  - `ArmazenamentoContratoTestCase` não cobre `ArmazenamentoComPrefixo`: o prefixo do dublê em memória
+    é provado só pelos testes que o usam (R1 da purga);
+  - o teste da troca por link precisa de `exec()` (senão é pulado) e do cache de `realpath` ligado (a
+    pré-condição falha se estiver desligado);
+  - anterior à E2.5: os testes antigos de `SubstituirAnexoDoLoteUseCaseTest` e de
+    `PastaSecaoControllerTest` ainda deixam arquivos no diretório de uploads de teste; a lista de
+    pastas do `Shared/CLAUDE.md` cita `DTO/`, `Exception/` e `Interface/`, que não existem; e
+    `garantirElegivel()` confere a entidade carregada antes do laço — agora que existe a trava
+    `FOR UPDATE`, dá para reler `is_active`/`excluido_em` sob ela (a corrida seria só com uma
+    restauração manual por SQL: nenhum código reativa escritório).
+
 **Preparação da E2.4B e da E2.5 — investigação antecipada em 16/09, read-only, nada implementado.**
+*(Respondida: a E2.4B virou D12–D16, e a E2.5, D17–D24 — ver os blocos acima.)*
 *(A parte da E2.4B foi respondida pela fatia acima: as decisões (1)–(5) viraram D12–D16, e o
 `existe()` antes do `ler()` foi substituído pela prova da cadeia no próprio `ler()`.)*
 Levantada em paralelo à E2.4A para encurtar as próximas fatias. Linhas conferidas no código daquele

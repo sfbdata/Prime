@@ -19,11 +19,9 @@ use App\Pasta\UseCase\ReordenarSecoesUseCase;
 use App\Pasta\UseCase\RenomearPastaSecaoUseCase;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
-use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Armazenamento\ChaveDeArquivo;
-use App\Shared\Service\ArquivoStorageInterface;
+use App\Shared\Armazenamento\RemocaoAposTransacao;
 use Doctrine\ORM\EntityManagerInterface;
-use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -39,10 +37,7 @@ final class PastaSecaoController extends AbstractController
         private readonly EntityManagerInterface $em,
         private readonly PermissionChecker $permissionChecker,
         private readonly TenantContext $tenantContext,
-        private readonly ArquivoStorageInterface $storage,
-        private readonly ArmazenamentoDeArquivos $armazenamento,
-        private readonly LoggerInterface $logger,
-        private readonly string $uploadsDir,
+        private readonly RemocaoAposTransacao $remocao,
         private readonly CsrfTokenManagerInterface $csrfTokenManager,
         private readonly CriarPastaSecaoUseCase $criarUseCase,
         private readonly RenomearPastaSecaoUseCase $renomearUseCase,
@@ -160,11 +155,11 @@ final class PastaSecaoController extends AbstractController
         // Captura ANTES de excluir: depois da exclusão a árvore não existe mais para percorrer.
         $conteudo = $this->secaoRepository->contarConteudoRecursivo($secao);
 
-        // Só COLETA os caminhos aqui (é leitura, não toca o disco) — a árvore ainda está viva, e a
+        // Só COLETA as chaves aqui (é leitura, não toca o disco) — a árvore ainda está viva, e a
         // varredura tem de percorrer TODA ela, não só os documentos diretos: o cascade do banco
         // apaga as linhas de toda a descendência, e sem isto os arquivos das filhas e netas ficam
         // órfãos no disco. Antes das pastas aninhadas o loop raso bastava, porque não havia netas.
-        $arquivos = $this->coletarArquivosDaArvore($secao);
+        $chaves = $this->coletarArquivosDaArvore($secao);
 
         try {
             $this->excluirUseCase->executar($secao, $currentUser, $tenant);
@@ -174,27 +169,9 @@ final class PastaSecaoController extends AbstractController
 
         // A remoção física só acontece DEPOIS da exclusão confirmada no banco: apagar antes seria
         // "grava e depois valida" — se o UseCase falhasse, os arquivos já teriam sumido e as linhas
-        // do banco continuariam apontando para nada.
-        // E2.2: presença por chave (armazenamento novo); remoção por caminho (interface antiga) até a E2.5.
-        //
-        // O `try` é obrigatório aqui, e não é zelo: o `existe()` novo LANÇA quando não consegue
-        // determinar a presença (diretório ilegível), onde o antigo devolvia false. Sem ele, uma
-        // falha de I/O depois do COMMIT devolveria 500 com a seção JÁ excluída do banco — e os
-        // arquivos seguintes nem seriam tentados, sem chance de repetir a operação. Arquivo órfão
-        // recuperável é o lado aceitável da troca (INV-6); erro na cara do usuário depois de a
-        // exclusão ter dado certo, não.
-        foreach ($arquivos as ['chave' => $chave, 'caminho' => $caminho]) {
-            try {
-                if ($this->armazenamento->existe($chave)) {
-                    $this->storage->excluir($caminho);
-                }
-            } catch (\Throwable $e) {
-                $this->logger->warning('Não foi possível remover o arquivo da seção excluída.', [
-                    'chave' => $chave->comoTexto(),
-                    'erro'  => $e->getMessage(),
-                ]);
-            }
-        }
+        // do banco continuariam apontando para nada. Uma falha de disco aqui não vira 500: a seção
+        // JÁ foi excluída, e a remoção registra o órfão no log e segue com os demais (INV-6).
+        $this->remocao->remover($chaves, 'PastaSecaoController::excluir');
 
         return $this->json([
             'ok'                 => true,
@@ -342,8 +319,7 @@ final class PastaSecaoController extends AbstractController
     }
 
     /**
-     * Chave (para perguntar se existe) e caminho (para remover) de cada arquivo de $secao e de
-     * toda a descendência dela. Só LÊ — não toca o disco, e é capturado ANTES da exclusão, porque
+     * A chave de cada arquivo de $secao e de toda a descendência dela. Só LÊ — não toca o disco, e é capturado ANTES da exclusão, porque
      * depois dela a árvore não existe mais para percorrer. A remoção física é responsabilidade de
      * quem chama, e só deve acontecer depois que a exclusão no banco tiver sido confirmada (ver
      * excluir()).
@@ -354,7 +330,7 @@ final class PastaSecaoController extends AbstractController
      * pelos UseCases nem pelos guards de ciclo deles — é o caminho que provou o estouro de
      * memória (ver o teste que monta `a.pai = b; b.pai = a` à mão).
      *
-     * @return list<array{chave: ChaveDeArquivo, caminho: string}>
+     * @return list<ChaveDeArquivo>
      */
     private function coletarArquivosDaArvore(PastaSecao $secao, int $profundidade = 0): array
     {
@@ -365,10 +341,7 @@ final class PastaSecaoController extends AbstractController
         $arquivos = [];
 
         foreach ($secao->getDocumentos() as $doc) {
-            $arquivos[] = [
-                'chave'   => ChavesDePasta::documento($doc),
-                'caminho' => $this->storage->caminho($this->uploadsDir, $doc->getCaminhoArquivo()),
-            ];
+            $arquivos[] = ChavesDePasta::documento($doc);
         }
 
         foreach ($secao->getFilhas() as $filha) {

@@ -12,6 +12,10 @@ use App\Shared\Armazenamento\ArquivoArmazenado;
 use App\Shared\Armazenamento\CategoriaDeArquivo;
 use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Shared\Armazenamento\Exception\FalhaDeArmazenamento;
+use App\Shared\Armazenamento\RemocaoAposTransacao;
+use App\Shared\Doctrine\Transacao\ConsultaDeDestinoDaTransacao;
+use App\Shared\Doctrine\Transacao\DestinoDaTransacao;
+use App\Shared\Doctrine\Transacao\TransacaoComArquivoNovo;
 use App\Shared\Service\ArquivoStorageInterface;
 use App\Sync\DTO\ResultadoReconciliacaoPasta;
 use App\Sync\Enum\ModoSincronizacao;
@@ -20,6 +24,8 @@ use App\Tests\Factory\Pasta\PastaFactory;
 use App\Tests\Factory\Tenant\TenantFactory;
 use App\Tests\Shared\Doubles\ArmazenamentoEmMemoria;
 use App\Tests\Shared\Doubles\ArmazenamentoEspiao;
+use App\Tests\Shared\Doubles\ConsultaDeDestinoFixa;
+use App\Tests\Shared\Doubles\FalhaDeCommitArmavel;
 use App\Tests\Sync\Support\FakeGoogleDriveClient;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\ORM\EntityManagerInterface;
@@ -28,6 +34,7 @@ use Doctrine\ORM\Events;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
+use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Zenstruck\Foundry\Test\Factories;
 
@@ -42,7 +49,8 @@ use Zenstruck\Foundry\Test\Factories;
  *
  * O reconciliador é montado à mão para escolher o backend: o dublê em memória guarda o escopo (R1)
  * e injeta falha; o disco de teste é o único que mede MIME de verdade e o único em que a limpeza
- * do item que falhou (feita ainda pelo storage antigo, por caminho — E2.5) é observável.
+ * do item que falhou é observável. Desde a E2.5 essa limpeza é por chave e, quando a falha é da
+ * transação, só acontece se o banco PROVAR que nada foi confirmado.
  */
 #[CoversClass(ReconciliadorDePasta::class)]
 final class ReconciliadorDownloadPorChaveTest extends KernelTestCase
@@ -56,6 +64,8 @@ final class ReconciliadorDownloadPorChaveTest extends KernelTestCase
 
     protected function tearDown(): void
     {
+        FalhaDeCommitArmavel::desarmar();
+
         if ($this->gravadasNoDisco !== []) {
             $disco = static::getContainer()->get(ArmazenamentoDeArquivos::class);
             foreach ($this->gravadasNoDisco as $chave) {
@@ -299,11 +309,11 @@ final class ReconciliadorDownloadPorChaveTest extends KernelTestCase
 
     /**
      * O banco recusa o item depois de o arquivo estar gravado: a linha não nasce e o arquivo sai do
-     * disco. A limpeza ainda é do storage antigo, por caminho (E2.5) — só o disco a enxerga.
+     * disco. A recusa acontece ANTES do COMMIT, então a limpeza não precisa perguntar nada ao banco.
      *
-     * A recusa é simulada no `onFlush`, que roda antes do BEGIN: o EntityManager continua aberto. Uma
-     * recusa real do INSERT o fecharia e a rodada viraria fatal — a limpeza roda antes dessa
-     * checagem, então a prova de "sem órfão" vale nos dois casos; a de "rodada segue", não.
+     * A recusa é simulada no `onFlush`. Desde a E2.5 o flush roda dentro da transação explícita da
+     * `TransacaoComArquivoNovo`, que fecha o EntityManager em QUALQUER falha (como o
+     * `wrapInTransaction`): a rodada vira fatal, o mesmo que uma recusa real do INSERT já causava.
      */
     #[TestDox('banco recusou o item: sem linha e arquivo removido do disco')]
     public function testBancoRecusadoNaoDeixaOrfao(): void
@@ -337,6 +347,7 @@ final class ReconciliadorDownloadPorChaveTest extends KernelTestCase
         }
 
         self::assertSame(1, $r->erros);
+        self::assertTrue($r->fatal, 'a transação fechou o EntityManager: a rodada para');
         self::assertSame(0, $r->arquivosBaixados);
         self::assertStringContainsString('banco recusou o documento', implode("\n", $r->mensagens));
         self::assertSame(0, $this->linhasDoDrive(['F-RECUSADO']));
@@ -345,15 +356,118 @@ final class ReconciliadorDownloadPorChaveTest extends KernelTestCase
         $this->assertTemporariosNaoSobraram($fake, 1);
     }
 
+    /**
+     * E2.5: o COMMIT do item chega ao banco e a resposta se perde. O documento existe e aponta para
+     * o arquivo — e sem prova do destino (sob o DAMA a consulta real diz "em andamento") o arquivo
+     * FICA. Antes da E2.5 este catch o apagava. O EntityManager fechou: a rodada vira fatal, como
+     * em qualquer falha de COMMIT.
+     */
+    #[TestDox('COMMIT do item com resposta perdida: o documento existe, o arquivo fica, a rodada para')]
+    public function testCommitComRespostaPerdidaPreservaOArquivo(): void
+    {
+        self::bootKernel();
+        [, $pastaId] = $this->pastaVinculada();
+        $fake = new FakeGoogleDriveClient();
+        $fake->seedArquivo('F-PERDIDO', 'sentenca.pdf', self::PASTA_NO_DRIVE);
+
+        $disco  = $this->disco();
+        $espiao = new ArmazenamentoEspiao($disco);
+        FalhaDeCommitArmavel::perderRespostaDoProximoCommit();
+
+        try {
+            $r = $this->importar($espiao, $pastaId, $fake);
+        } finally {
+            array_push($this->gravadasNoDisco, ...$espiao->gravadas);
+        }
+
+        self::assertSame(1, FalhaDeCommitArmavel::$disparos);
+        self::assertTrue($r->fatal);
+        self::assertSame(1, $this->linhasDoDrive(['F-PERDIDO']), 'o banco confirmou o documento');
+        self::assertCount(1, $espiao->gravadas);
+        self::assertTrue($disco->existe($espiao->gravadas[0]), 'o documento aponta para o arquivo: ele não pode ter saído');
+        self::assertSame([], $espiao->excluidas);
+    }
+
+    #[TestDox('COMMIT do item recusado e o banco PROVA aborted: sem linha, e o arquivo sai')]
+    public function testCommitRecusadoComProvaRemoveOArquivo(): void
+    {
+        self::bootKernel();
+        [, $pastaId] = $this->pastaVinculada();
+        $fake = new FakeGoogleDriveClient();
+        $fake->seedArquivo('F-ABORTADO', 'sentenca.pdf', self::PASTA_NO_DRIVE);
+
+        $disco    = $this->disco();
+        $espiao   = new ArmazenamentoEspiao($disco);
+        $consulta = new ConsultaDeDestinoFixa(DestinoDaTransacao::NaoConfirmada);
+        FalhaDeCommitArmavel::recusarProximoCommit();
+
+        try {
+            $r = $this->importar($espiao, $pastaId, $fake, $consulta);
+        } finally {
+            array_push($this->gravadasNoDisco, ...$espiao->gravadas);
+        }
+
+        self::assertTrue($r->fatal);
+        self::assertCount(1, $consulta->perguntados);
+        self::assertSame(0, $this->linhasDoDrive(['F-ABORTADO']));
+        self::assertCount(1, $espiao->gravadas);
+        self::assertFalse($disco->existe($espiao->gravadas[0]), 'com aborted provado, o arquivo do item sai');
+    }
+
+    /**
+     * Falha física na limpeza do item (antes da transação): não derruba a rodada e vira aviso no
+     * resultado — o órfão tem rastro.
+     */
+    #[TestDox('limpeza do item que falha: rodada segue e o órfão aparece no resultado')]
+    public function testLimpezaQueFalhaViraAviso(): void
+    {
+        self::bootKernel();
+        [, $pastaId] = $this->pastaVinculada();
+        $fake = new FakeGoogleDriveClient();
+        $fake->seedArquivo('F-GIGANTE', 'video.mp4', self::PASTA_NO_DRIVE);
+        $fake->seedArquivo('F-NORMAL', 'normal.pdf', self::PASTA_NO_DRIVE);
+
+        $disco                  = $this->disco();
+        $espiao                 = new ArmazenamentoEspiao($disco);
+        $espiao->depoisDeGravar = static fn (ArquivoArmazenado $gravado, int $ordem): ArquivoArmazenado => $ordem === 1
+            ? new ArquivoArmazenado($gravado->chave, 2_147_483_648, $gravado->mimeType)
+            : $gravado;
+        $espiao->falhaAoExcluir = static fn (): \Throwable => new FalhaDeArmazenamento('disco ilegível');
+
+        try {
+            $r = $this->importar($espiao, $pastaId, $fake);
+        } finally {
+            array_push($this->gravadasNoDisco, ...$espiao->gravadas);
+        }
+
+        self::assertFalse($r->fatal);
+        self::assertSame(1, $r->arquivosBaixados);
+        self::assertTrue($disco->existe($espiao->gravadas[0]));
+        self::assertStringContainsString('não pôde ser removido e ficou órfão', implode("\n", $r->mensagens));
+    }
+
     // ── helpers ───────────────────────────────────────────────────────────────
 
-    private function importar(ArmazenamentoDeArquivos $armazenamento, int $pastaId, FakeGoogleDriveClient $fake): ResultadoReconciliacaoPasta
-    {
+    private function importar(
+        ArmazenamentoDeArquivos $armazenamento,
+        int $pastaId,
+        FakeGoogleDriveClient $fake,
+        ?ConsultaDeDestinoDaTransacao $consulta = null,
+    ): ResultadoReconciliacaoPasta {
         $container     = static::getContainer();
+        $em            = $container->get(EntityManagerInterface::class);
+        $remocao       = new RemocaoAposTransacao($armazenamento, new NullLogger());
         $reconciliador = new ReconciliadorDePasta(
-            $container->get(EntityManagerInterface::class),
+            $em,
             $container->get(ArquivoStorageInterface::class),
             $armazenamento,
+            new TransacaoComArquivoNovo(
+                $em,
+                $consulta ?? $container->get(ConsultaDeDestinoDaTransacao::class),
+                $remocao,
+                new NullLogger(),
+            ),
+            $remocao,
             $container->get(PastaSecaoRepository::class),
             (string) $container->getParameter('uploads_dir'),
         );

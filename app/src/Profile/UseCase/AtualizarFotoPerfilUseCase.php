@@ -7,8 +7,8 @@ use App\Profile\DTO\AtualizarFotoInput;
 use App\Profile\Entity\UserProfile;
 use App\Profile\Repository\UserProfileRepository;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
+use App\Shared\Armazenamento\RemocaoAposTransacao;
 use App\Shared\Http\FonteDeUploadHttp;
-use App\Shared\Service\ArquivoStorageInterface;
 
 final class AtualizarFotoPerfilUseCase
 {
@@ -17,10 +17,8 @@ final class AtualizarFotoPerfilUseCase
 
     public function __construct(
         private readonly UserProfileRepository $repository,
-        // O storage antigo e o diretório ficam só para excluir a foto anterior (migra na E2.5).
-        private readonly ArquivoStorageInterface $storage,
         private readonly ArmazenamentoDeArquivos $armazenamento,
-        private readonly string $fotosPerfilDir,
+        private readonly RemocaoAposTransacao $remocao,
     ) {
     }
 
@@ -43,8 +41,14 @@ final class AtualizarFotoPerfilUseCase
         $perfil->setFotoUrl($novoNome);
         $this->repository->salvar($perfil, flush: true);
 
+        // A anterior só sai depois do COMMIT, e a chave é montada ali, pelo nome guardado: o perfil
+        // já aponta para a foto nova. Falha física (ou nome recusado) vira registro, não 500 com a
+        // foto nova já salva (E2.5).
         if ($fotoAnterior !== null) {
-            $this->storage->excluir($this->storage->caminho($this->fotosPerfilDir, $fotoAnterior));
+            $this->remocao->remover(
+                [static fn () => ChavesDePerfil::fotoPorNome($fotoAnterior)],
+                'AtualizarFotoPerfilUseCase: foto anterior',
+            );
         }
     }
 }
