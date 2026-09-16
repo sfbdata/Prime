@@ -18,6 +18,7 @@ use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Http\EntregaDeArquivo;
+use App\Shared\Http\FonteDeUploadHttp;
 use App\Shared\Service\ArquivoStorageService;
 use App\Shared\Service\CompressorArquivoInterface;
 use Doctrine\DBAL\Exception\ForeignKeyConstraintViolationException;
@@ -266,7 +267,11 @@ class ClienteController extends AbstractController
             $descricao    = isset($descricoes[$i]) ? trim((string) $descricoes[$i]) : '';
             $numero       = isset($numeros[$i]) ? trim((string) $numeros[$i]) : '';
 
-            $nomeUnico = $this->storage->salvar($file, $this->clientesUploadsDir);
+            // O escopo sai do cliente dono (R1). O storage antigo segue abaixo só para o
+            // `caminho()` do compressor, que migra na E2.6.
+            $upload     = FonteDeUploadHttp::de($file);
+            $armazenado = $upload->gravarEm($this->armazenamento, ChavesDeCliente::novoDocumento($cliente, $upload->extensao));
+            $nomeUnico  = $armazenado->chave->nome;
 
             $tamanhoFinal = $tamanho;
             if ($reduzirTamanho) {

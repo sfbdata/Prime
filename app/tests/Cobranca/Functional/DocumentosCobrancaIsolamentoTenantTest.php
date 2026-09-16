@@ -120,7 +120,13 @@ final class DocumentosCobrancaIsolamentoTenantTest extends KernelTestCase
             $comporNome,
             new \App\Cobranca\Service\NormalizadorDePastaJudicial($comporNome, new \App\Cobranca\Service\ResolvedorClienteDoResponsavel($clientePFRepo)),
         );
-        $this->enviarDocumento = new EnviarDocumentoUseCase($docRepo, $this->storage, $compressor, $this->cobrancasUploadsDir);
+        $this->enviarDocumento = new EnviarDocumentoUseCase(
+            $docRepo,
+            $this->storage,
+            $c->get(\App\Shared\Armazenamento\ArmazenamentoDeArquivos::class),
+            $compressor,
+            $this->cobrancasUploadsDir,
+        );
         $this->moverDocumento = new MoverDocumentoUseCase($docRepo);
         $this->criarSecao = new CriarSecaoUseCase($secaoRepo);
         $this->excluirSecao = new ExcluirSecaoUseCase(

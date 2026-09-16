@@ -10,6 +10,7 @@ use App\Shared\Armazenamento\CategoriaDeArquivo;
 use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Shared\Armazenamento\EscopoDeArquivo;
 use App\Shared\Armazenamento\Exception\ChaveDeArquivoInvalida;
+use App\Shared\Armazenamento\NovoArquivo;
 
 /**
  * Traduz o que o domínio Pasta persiste em {@see ChaveDeArquivo} — o único lugar do domínio que
@@ -38,6 +39,16 @@ use App\Shared\Armazenamento\Exception\ChaveDeArquivoInvalida;
  *    do HTML e é endereçada pelo tenant da sessão mais o nome da URL.
  *
  * Nenhuma das duas deve ser usada onde a entidade existe.
+ *
+ * ## Arquivo novo (E2.4A)
+ *
+ * Arquivo que ainda não existe não tem nome — quem cunha é o storage (D8). `novoDocumento()`
+ * recebe o **próprio documento** que vai guardar a chave, já com o escritório atribuído, e tira o
+ * escopo dele — pelo mesmo getter que `documento()` usa na leitura. Gravação e leitura ficam
+ * simétricas por construção: não depende de o escritório da sessão coincidir com o da pasta (só
+ * o TenantFilter garante isso). `novaImagemDoEditor()` segue a mesma exceção de
+ * `imagemDoEditor()`: sem linha no banco, o escopo é o tenant da sessão — o mesmo que a rota de
+ * leitura usa.
  */
 final class ChavesDePasta
 {
@@ -75,6 +86,31 @@ final class ChavesDePasta
             self::escopoDe($tenant, 'imagem do editor'),
             CategoriaDeArquivo::PASTA_IMAGEM_EDITOR,
             $nome,
+        );
+    }
+
+    /**
+     * `$documento` ainda não tem nome nem precisa estar persistido; basta o escritório. Chame
+     * ANTES de gravar e só persista depois.
+     */
+    public static function novoDocumento(PastaDocumento $documento, string $extensao): NovoArquivo
+    {
+        return new NovoArquivo(
+            self::escopoDe($documento->getTenant(), 'documento novo de pasta'),
+            CategoriaDeArquivo::PASTA_DOCUMENTO,
+            $extensao,
+        );
+    }
+
+    /**
+     * Imagem nova do editor: mesmo endereçamento de {@see imagemDoEditor()}, para a leitura achar.
+     */
+    public static function novaImagemDoEditor(Tenant $tenant, string $extensao): NovoArquivo
+    {
+        return new NovoArquivo(
+            self::escopoDe($tenant, 'imagem nova do editor'),
+            CategoriaDeArquivo::PASTA_IMAGEM_EDITOR,
+            $extensao,
         );
     }
 

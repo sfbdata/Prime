@@ -424,6 +424,12 @@ final class PeticionarControllerTest extends JusPrimeWebTestCase
         self::assertNotNull($doc);
         self::assertSame($secao->getId(), $doc->getSecao()?->getId());
 
+        // O arquivo está no diretório plano de documentos, com o nome cunhado pelo storage.
+        $gravado                    = static::getContainer()->getParameter('uploads_dir') . '/' . $doc->getCaminhoArquivo();
+        $this->arquivosParaLimpar[] = $gravado;
+        self::assertMatchesRegularExpression('/^[0-9a-f]{32}\.pdf$/', $doc->getCaminhoArquivo());
+        self::assertStringEqualsFile($gravado, '%PDF-1.4 dummy');
+
         @unlink($tmpFile);
     }
 

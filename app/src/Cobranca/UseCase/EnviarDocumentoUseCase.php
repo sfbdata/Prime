@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Cobranca\UseCase;
 
+use App\Cobranca\Armazenamento\ChavesDeCobranca;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\CobrancaDocumento;
 use App\Cobranca\Entity\CobrancaSecao;
@@ -13,6 +14,8 @@ use App\Cobranca\Exception\SecaoNaoEncontradaException;
 use App\Cobranca\Exception\TipoArquivoNaoPermitidoException;
 use App\Cobranca\Repository\CobrancaDocumentoRepository;
 use App\Entity\Tenant\Tenant;
+use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
+use App\Shared\Http\FonteDeUploadHttp;
 use App\Shared\Service\ArquivoStorageInterface;
 use App\Shared\Service\CompressorArquivoInterface;
 use App\Shared\Service\ResultadoCompressao;
@@ -24,7 +27,7 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
  * pertence ao Caso — NUNCA à Pasta — e pode existir antes de qualquer judicialização. A organização em
  * seções é opcional: quando informada, a seção precisa ser do mesmo tenant e do mesmo caso.
  *
- * A mecânica de arquivo é 100% reusada do App\Shared\Service (§24): o arquivo físico é salvo em
+ * A mecânica de arquivo é 100% reusada do Shared (§24): o arquivo físico é gravado em
  * `cobrancas/<tenantId>/<hash>` (isolamento físico por tenant no disco, padrão M5) e o `caminhoArquivo`
  * do documento guarda apenas o hash. A whitelist de MIME + limites de tamanho espelha o upload de peças
  * da Pasta (App\Pasta\UseCase\UploadPecaUseCase), mantendo o mesmo contrato de tipos aceitos.
@@ -61,7 +64,9 @@ final class EnviarDocumentoUseCase
 
     public function __construct(
         private readonly CobrancaDocumentoRepository $documentoRepository,
+        // O storage antigo fica só para `caminho()` do compressor, que migra na E2.6.
         private readonly ArquivoStorageInterface $storage,
+        private readonly ArmazenamentoDeArquivos $armazenamento,
         private readonly CompressorArquivoInterface $compressor,
         private readonly string $cobrancasUploadsDir,
     ) {
@@ -107,7 +112,11 @@ final class EnviarDocumentoUseCase
         // Isolamento físico por tenant no disco (contrato congelado, padrão M5).
         $diretorio = $this->cobrancasUploadsDir . '/' . $tenant->getId();
 
-        $hash = $this->storage->salvar($file, $diretorio);
+        // O escopo da chave sai do CASO, nunca do parâmetro `$tenant` (R1). A guarda acima já os
+        // igualou, então o arquivo cai no mesmo `$diretorio` que o compressor recebe.
+        $upload     = FonteDeUploadHttp::de($file);
+        $armazenado = $upload->gravarEm($this->armazenamento, ChavesDeCobranca::novoDocumentoDeCaso($caso, $upload->extensao));
+        $hash       = $armazenado->chave->nome;
 
         $compressao = ResultadoCompressao::naoComprimido($tamanho);
         if ($reduzirTamanho) {

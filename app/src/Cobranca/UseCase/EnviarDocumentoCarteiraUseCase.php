@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Cobranca\UseCase;
 
+use App\Cobranca\Armazenamento\ChavesDeCobranca;
 use App\Cobranca\Entity\Carteira;
 use App\Cobranca\Entity\CarteiraDocumento;
 use App\Cobranca\Enum\CategoriaDocumentoCarteira;
@@ -11,7 +12,8 @@ use App\Cobranca\Exception\ArquivoMuitoGrandeException;
 use App\Cobranca\Exception\TipoArquivoNaoPermitidoException;
 use App\Cobranca\Repository\CarteiraDocumentoRepository;
 use App\Entity\Tenant\Tenant;
-use App\Shared\Service\ArquivoStorageInterface;
+use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
+use App\Shared\Http\FonteDeUploadHttp;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
@@ -31,8 +33,7 @@ final class EnviarDocumentoCarteiraUseCase
 {
     public function __construct(
         private readonly CarteiraDocumentoRepository $documentoRepository,
-        private readonly ArquivoStorageInterface $storage,
-        private readonly string $cobrancasUploadsDir,
+        private readonly ArmazenamentoDeArquivos $armazenamento,
     ) {
     }
 
@@ -62,10 +63,12 @@ final class EnviarDocumentoCarteiraUseCase
         }
 
         // Isolamento físico por tenant no disco — MESMO diretório flat dos documentos de caso
-        // (a purga não é recursiva; não criar subdiretório novo).
-        $diretorio = $this->cobrancasUploadsDir . '/' . $tenant->getId();
-
-        $hash = $this->storage->salvar($file, $diretorio);
+        // (a purga não é recursiva; não criar subdiretório novo): é a categoria
+        // COBRANCA_DOCUMENTO da fábrica que garante isso. O escopo sai da CARTEIRA,
+        // nunca do parâmetro `$tenant` (R1).
+        $upload     = FonteDeUploadHttp::de($file);
+        $armazenado = $upload->gravarEm($this->armazenamento, ChavesDeCobranca::novoDocumentoDeCarteira($carteira, $upload->extensao));
+        $hash       = $armazenado->chave->nome;
 
         $documento = new CarteiraDocumento();
         $documento->setCarteira($carteira);

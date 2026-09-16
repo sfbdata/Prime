@@ -38,7 +38,6 @@ final class PeticionarController extends AbstractController
         private readonly UploadImagemEditorUseCase $uploadImagemEditorUseCase,
         private readonly PastaSecaoRepository $pastaSecaoRepository,
         private readonly SincronizacaoPastaDispatcher $syncDispatcher,
-        private readonly string $uploadsDir,
     ) {}
 
     #[Route('/{id}/peticionar', name: 'pasta_peticionar', methods: ['GET'])]
@@ -321,11 +320,12 @@ final class PeticionarController extends AbstractController
         }
 
         try {
-            // Isolamento por tenant (M5): grava na subpasta do tenant dono. A URL retornada é o
-            // basename (sem o tenant), e o PecaImagemController re-injeta a subpasta do tenant da
-            // sessão ao servir — o HTML salvo da peça continua `/uploads/pastas/<hex>`.
+            // Isolamento por tenant (M5): a imagem é do escritório da sessão, e o storage a grava na
+            // subpasta dele. A URL retornada é só o nome (sem o tenant); o PecaImagemController
+            // monta a chave com o tenant da sessão ao servir — o HTML salvo da peça continua
+            // `/uploads/pastas/<hex>` (DT-3).
             $output = $this->uploadImagemEditorUseCase->executar(
-                new UploadImagemEditorInput($arquivo, $this->uploadsDir . '/' . $tenant->getId()),
+                new UploadImagemEditorInput($arquivo, $tenant),
             );
         } catch (\InvalidArgumentException $e) {
             return new JsonResponse(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);

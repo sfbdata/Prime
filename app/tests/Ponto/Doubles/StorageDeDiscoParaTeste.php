@@ -14,15 +14,13 @@ use Symfony\Component\HttpFoundation\File\UploadedFile;
  */
 final class StorageDeDiscoParaTeste implements ArquivoStorageInterface
 {
-    public ?string $ultimoNomeSalvo = null;
-
+    /**
+     * Desde a E2.4A nenhum produtor de anexo grava pela interface antiga — a gravação é da
+     * `FonteDeUploadHttp` + `ArmazenamentoDeArquivos`. Chamar isto é regressão.
+     */
     public function salvar(UploadedFile $arquivo, string $diretorio): string
     {
-        $nome = bin2hex(random_bytes(8)) . '.pdf';
-        copy($arquivo->getPathname(), $diretorio . '/' . $nome);
-        $this->ultimoNomeSalvo = $nome;
-
-        return $nome;
+        throw new \LogicException('salvar() da interface antiga não deveria mais ser chamado (E2.4A).');
     }
 
     public function salvarConteudo(string $conteudo, string $diretorio, string $extensao): string

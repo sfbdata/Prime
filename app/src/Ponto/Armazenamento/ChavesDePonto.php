@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Ponto\Armazenamento;
 
+use App\Entity\Tenant\Tenant;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Shared\Armazenamento\CategoriaDeArquivo;
 use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Shared\Armazenamento\EscopoDeArquivo;
 use App\Shared\Armazenamento\Exception\ChaveDeArquivoInvalida;
+use App\Shared\Armazenamento\NovoArquivo;
 
 /**
  * Traduz o anexo (atestado) da justificativa de ponto em {@see ChaveDeArquivo} (E2.2, risco ALTO).
@@ -45,7 +47,41 @@ final class ChavesDePonto
 
     public static function anexoDeJustificativaPorNome(JustificativaPonto $dona, string $nomeArquivo): ChaveDeArquivo
     {
-        $id = $dona->getTenant()?->getId();
+        return new ChaveDeArquivo(
+            self::escopoDe($dona->getTenant()),
+            CategoriaDeArquivo::JUSTIFICATIVA_ANEXO,
+            $nomeArquivo,
+        );
+    }
+
+    /**
+     * Anexo novo que SUBSTITUI o de uma justificativa existente (E2.4A). O nome é cunhado pelo
+     * storage (D8); o escopo sai da justificativa dona, como em {@see anexoDeJustificativaPorNome()}.
+     */
+    public static function novoAnexoDeJustificativa(JustificativaPonto $dona, string $extensao): NovoArquivo
+    {
+        return new NovoArquivo(self::escopoDe($dona->getTenant()), CategoriaDeArquivo::JUSTIFICATIVA_ANEXO, $extensao);
+    }
+
+    /**
+     * Anexo novo de um LOTE que ainda não existe (E2.4A) — a única forma que recebe `Tenant`.
+     *
+     * Nas duas portas de criação (`PontoController::novaJustificativa`,
+     * `TenantController::novaJustificativaAdmin`) o arquivo é gravado **antes** das N
+     * justificativas que vão apontar para ele: essa ordem é da E1 (arquivo antes do banco,
+     * remoção no catch do flush) e não muda aqui. Não há entidade dona para consultar. O tenant
+     * informado é a mesma variável que, linhas abaixo, vai para `setTenant()` de cada
+     * justificativa do lote — e é dela que {@see anexoDeJustificativa()} tira o escopo na leitura.
+     * Onde a justificativa já existe, use {@see novoAnexoDeJustificativa()}.
+     */
+    public static function novoAnexoDeLote(Tenant $tenant, string $extensao): NovoArquivo
+    {
+        return new NovoArquivo(self::escopoDe($tenant), CategoriaDeArquivo::JUSTIFICATIVA_ANEXO, $extensao);
+    }
+
+    private static function escopoDe(?Tenant $tenant): EscopoDeArquivo
+    {
+        $id = $tenant?->getId();
 
         if ($id === null) {
             throw new ChaveDeArquivoInvalida(
@@ -53,10 +89,6 @@ final class ChavesDePonto
             );
         }
 
-        return new ChaveDeArquivo(
-            EscopoDeArquivo::deTenant($id),
-            CategoriaDeArquivo::JUSTIFICATIVA_ANEXO,
-            $nomeArquivo,
-        );
+        return EscopoDeArquivo::deTenant($id);
     }
 }

@@ -10,6 +10,7 @@ use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Repository\JustificativaPontoRepository;
 use App\Ponto\Validacao\RestricoesAnexoJustificativa;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
+use App\Shared\Http\FonteDeUploadHttp;
 use App\Shared\Service\ArquivoStorageInterface;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
@@ -40,8 +41,9 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
  * ## A janela entre COMMIT, contagem e DELETE
  *
  * Ela está fechada **por construção**, não por sincronização: existem exatamente três produtores de
- * `anexo_path` no repositório, e os três gravam o retorno de `ArquivoStorageService::salvar()`,
- * que é `bin2hex(random_bytes(16))` — nome novo a cada chamada, nunca reaproveitado. Nenhum caminho
+ * `anexo_path` no repositório, e os três gravam o nome que o storage cunha para um `NovoArquivo`
+ * (`NovoArquivo::cunharChave()`, desde a E2.4A), que é `bin2hex(random_bytes(16))` — nome novo a
+ * cada chamada, nunca reaproveitado. Nenhum caminho
  * copia um `anexo_path` existente para outro registro. Logo, depois que a transação que removeu a
  * última referência comita, o conjunto de referências àquele arquivo só pode DIMINUIR: uma
  * contagem que dá zero é definitiva. `ProdutoresDeAnexoPathTest` é o que mantém essa premissa
@@ -122,7 +124,13 @@ final class SubstituirAnexoDoLoteUseCase
                         $tenant,
                     );
 
-                    $novoAnexo = $this->storage->salvar($arquivo, $this->justificativasUploadsDir);
+                    // O escopo sai da justificativa dona, já conferida contra `$tenant` na
+                    // pré-condição (R1). Continua dentro da transação, como antes: a ordem é a da E1.
+                    $upload    = FonteDeUploadHttp::de($arquivo);
+                    $novoAnexo = $upload->gravarEm(
+                        $this->armazenamento,
+                        ChavesDePonto::novoAnexoDeJustificativa($justificativa, $upload->extensao),
+                    )->chave->nome;
 
                     foreach ($lote as $registro) {
                         $registro->setAnexoPath($novoAnexo);

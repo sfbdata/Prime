@@ -49,8 +49,26 @@ final class ArmazenamentoEmMemoria implements ArmazenamentoDeArquivos
     /** @var list<string> */
     public array $chavesGravadas = [];
 
+    /**
+     * As chaves gravadas, como objeto — para afirmar escopo e categoria de quem gravou (R1).
+     *
+     * @var list<ChaveDeArquivo>
+     */
+    public array $gravadas = [];
+
+    /**
+     * Quando preenchida, `gravar()` lança esta exceção ANTES de tocar em qualquer coisa — a
+     * origem fica onde estava, como no backend real quando a publicação falha. É o dublê que o
+     * §11.2 pede para provar "falha de I/O na escrita não deixa linha no banco".
+     */
+    public ?\Throwable $falhaAoGravar = null;
+
     public function gravar(ChaveDeArquivo|NovoArquivo $destino, FonteDeConteudo $fonte): ArquivoArmazenado
     {
+        if ($this->falhaAoGravar !== null) {
+            throw $this->falhaAoGravar;
+        }
+
         $chave = $destino instanceof NovoArquivo ? $destino->cunharChave() : $destino;
 
         $buffer = fopen('php://temp', 'w+b');
@@ -79,6 +97,7 @@ final class ArmazenamentoEmMemoria implements ArmazenamentoDeArquivos
             'em'       => new \DateTimeImmutable(),
         ];
         $this->chavesGravadas[] = $chave->comoTexto();
+        $this->gravadas[]       = $chave;
 
         return new ArquivoArmazenado($chave, strlen($conteudo), 'application/octet-stream');
     }
@@ -117,6 +136,16 @@ final class ArmazenamentoEmMemoria implements ArmazenamentoDeArquivos
     public function excluir(ChaveDeArquivo $chave): void
     {
         unset($this->arquivos[$this->indice($chave)]);
+    }
+
+    /** A última chave gravada; falha o teste se nada foi gravado. */
+    public function ultimaGravada(): ChaveDeArquivo
+    {
+        if ($this->gravadas === []) {
+            throw new \LogicException('Nada foi gravado neste armazenamento.');
+        }
+
+        return $this->gravadas[\count($this->gravadas) - 1];
     }
 
     public function metadados(ChaveDeArquivo $chave): ?MetadadosDeArquivo

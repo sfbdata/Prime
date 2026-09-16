@@ -82,8 +82,8 @@ final readonly class NovoArquivo
      * usuário mora em coluna própria (`nome_original`), nunca na chave.
      *
      * ⚠️ Isto MUDA o que o sync gravaria hoje: `hash.açaí - 02 junho 2025` passaria a
-     * `hash.bin`. Nenhum consumidor usa `NovoArquivo` nesta fatia, então nada muda agora — mas é
-     * decisão a ratificar antes da E2.4, que é quando o sync passa a usar isto.
+     * `hash.bin`. Decisão ratificada (D8). Na E2.4A só o upload HTTP usa isto, e a extensão
+     * dele vem de `guessExtension()`, que já produz extensão válida; o sync entra na E2.4B.
      */
     private function normalizarExtensao(string $extensao): string
     {

@@ -9,6 +9,7 @@ use App\Shared\Armazenamento\CategoriaDeArquivo;
 use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Shared\Armazenamento\EscopoDeArquivo;
 use App\Shared\Armazenamento\Exception\ChaveDeArquivoInvalida;
+use App\Shared\Armazenamento\NovoArquivo;
 
 /**
  * Traduz a foto de perfil em {@see ChaveDeArquivo} (E2.2).
@@ -37,5 +38,14 @@ final class ChavesDePerfil
             CategoriaDeArquivo::FOTO_PERFIL,
             $nome,
         );
+    }
+
+    /**
+     * Foto nova (E2.4A): o nome é cunhado pelo storage (D8). Não há entidade a consultar — o
+     * escopo da foto é global por definição (D1).
+     */
+    public static function novaFoto(string $extensao): NovoArquivo
+    {
+        return new NovoArquivo(EscopoDeArquivo::global(), CategoriaDeArquivo::FOTO_PERFIL, $extensao);
     }
 }

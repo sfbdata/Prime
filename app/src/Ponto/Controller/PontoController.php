@@ -26,6 +26,7 @@ use App\Entity\Tenant\Tenant;
 use App\Repository\UserTenantRepository;
 use App\Service\NotificacaoService;
 use App\Shared\Http\EntregaDeArquivo;
+use App\Shared\Http\FonteDeUploadHttp;
 use App\Tenant\UseCase\GerarCodigoFuncionario;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
@@ -322,7 +323,14 @@ final class PontoController extends AbstractController
             $anexoPath = null;
             $anexoFile = $form->get('anexo')->getData();
             if ($anexoFile !== null) {
-                $anexoPath = $this->storage->salvar($anexoFile, $this->justificativasUploadsDir);
+                // O arquivo nasce ANTES das justificativas do lote (ordem da E1); o escopo é o
+                // mesmo `$tenant` que cada uma recebe abaixo em setTenant(). A remoção no catch do
+                // flush segue pela interface antiga até a E2.5.
+                $upload    = FonteDeUploadHttp::de($anexoFile);
+                $anexoPath = $upload->gravarEm(
+                    $this->armazenamento,
+                    ChavesDePonto::novoAnexoDeLote($tenant, $upload->extensao),
+                )->chave->nome;
             }
 
             $batchId = bin2hex(random_bytes(16));

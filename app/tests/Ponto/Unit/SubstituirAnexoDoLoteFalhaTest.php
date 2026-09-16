@@ -8,7 +8,16 @@ use App\Entity\Tenant\Tenant;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Repository\JustificativaPontoRepository;
 use App\Ponto\UseCase\SubstituirAnexoDoLoteUseCase;
+use App\Ponto\Armazenamento\ChavesDePonto;
+use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Armazenamento\ArmazenamentoLocal;
+use App\Shared\Armazenamento\ArquivoArmazenado;
+use App\Shared\Armazenamento\CategoriaDeArquivo;
+use App\Shared\Armazenamento\ChaveDeArquivo;
+use App\Shared\Armazenamento\Exception\FalhaDeArmazenamento;
+use App\Shared\Armazenamento\FonteDeConteudo;
+use App\Shared\Armazenamento\MetadadosDeArquivo;
+use App\Shared\Armazenamento\NovoArquivo;
 use App\Shared\Armazenamento\ResolvedorDeCaminhoLocal;
 use App\Shared\Service\ArquivoStorageInterface;
 use Doctrine\DBAL\Connection;
@@ -76,11 +85,13 @@ final class SubstituirAnexoDoLoteFalhaTest extends TestCase
 
         $storage = new StorageDeDiscoParaTeste();
 
+        $armazenamento = $this->espiao($this->armazenamentoNoDiretorioDoTeste());
+
         $useCase = new SubstituirAnexoDoLoteUseCase(
             $em,
             $repositorio,
             $storage,
-            $this->armazenamentoNoDiretorioDoTeste(),
+            $armazenamento,
             Validation::createValidator(),
             new NullLogger(),
             $this->diretorio,
@@ -93,15 +104,65 @@ final class SubstituirAnexoDoLoteFalhaTest extends TestCase
             self::assertSame('commit falhou', $e->getMessage());
         }
 
-        self::assertNotNull($storage->ultimoNomeSalvo, 'o arquivo novo chegou a ser gravado');
+        // O closure apontou o registro em memória para o arquivo novo antes de o commit falhar:
+        // é assim que se sabe o nome que chegou a ser gravado.
+        $novo = $justificativa->getAnexoPath();
+        self::assertNotSame('antigo.pdf', $novo, 'o arquivo novo chegou a ser gravado');
+        self::assertMatchesRegularExpression('/^[0-9a-f]{32}\.pdf$/', (string) $novo);
         self::assertFileDoesNotExist(
-            $this->diretorio . '/' . $storage->ultimoNomeSalvo,
+            $this->diretorio . '/' . $novo,
             'o arquivo novo tinha de ter sido removido: o banco nunca chegou a referenciá-lo',
         );
+        self::assertSame(['antigo.pdf'], $this->arquivosNoDiretorio(), 'nada além do anexo antigo pode sobrar');
         self::assertFileExists(
             $this->diretorio . '/antigo.pdf',
             'o anexo ANTIGO não podia ser tocado — a fase 2 nem deveria ter rodado',
         );
+
+        // R1: o diretório de justificativas é plano, então o escopo só aparece na chave. Ela tem
+        // de ser a que a leitura monta a partir do registro que passou a apontar para o arquivo.
+        self::assertCount(1, $armazenamento->gravadas);
+        self::assertSame(CategoriaDeArquivo::JUSTIFICATIVA_ANEXO, $armazenamento->gravadas[0]->categoria);
+        self::assertSame(7, $armazenamento->gravadas[0]->escopo->tenantIdOuNull());
+        self::assertTrue($armazenamento->gravadas[0]->ehIgualA(ChavesDePonto::anexoDeJustificativa($justificativa)));
+    }
+
+    #[TestDox('Falha do storage na fase 1: nada é apontado, nada é gravado, o anexo antigo fica')]
+    public function testFalhaDoStorageNaoMexeEmNada(): void
+    {
+        $tenant        = $this->tenant(7);
+        $justificativa = $this->justificativa($tenant, 'antigo.pdf', 'lote-1');
+
+        $em = $this->createMock(EntityManagerInterface::class);
+        $em->method('getConnection')->willReturn($this->conexaoEmTransacao());
+        $em->method('wrapInTransaction')->willReturnCallback(static fn (callable $func): mixed => $func());
+        $em->expects(self::never())->method('flush');
+
+        $repositorio = $this->createMock(JustificativaPontoRepository::class);
+        $repositorio->method('findLotePorBatchId')->willReturn([$justificativa]);
+        $repositorio->method('anexoNoBancoPorId')->willReturn('antigo.pdf');
+
+        $armazenamento = $this->espiao($this->armazenamentoNoDiretorioDoTeste(), new FalhaDeArmazenamento('disco cheio'));
+
+        $useCase = new SubstituirAnexoDoLoteUseCase(
+            $em,
+            $repositorio,
+            new StorageDeDiscoParaTeste(),
+            $armazenamento,
+            Validation::createValidator(),
+            new NullLogger(),
+            $this->diretorio,
+        );
+
+        try {
+            $useCase->executar($justificativa, $this->upload(), $tenant);
+            self::fail('a falha do storage deveria ter sido propagada');
+        } catch (FalhaDeArmazenamento $e) {
+            self::assertSame('disco cheio', $e->getMessage());
+        }
+
+        self::assertSame('antigo.pdf', $justificativa->getAnexoPath(), 'nenhum registro pode apontar para um arquivo que não foi gravado');
+        self::assertSame(['antigo.pdf'], $this->arquivosNoDiretorio());
     }
 
     #[TestDox('Justificativa de outro escritório é recusada sem gravar nada')]
@@ -129,15 +190,16 @@ final class SubstituirAnexoDoLoteFalhaTest extends TestCase
         try {
             $useCase->executar($justificativa, $this->upload(), $this->tenant(99));
         } finally {
-            self::assertNull($storage->ultimoNomeSalvo, 'nada podia ter sido gravado em disco');
+            self::assertSame(['antigo.pdf'], $this->arquivosNoDiretorio(), 'nada podia ter sido gravado em disco');
         }
     }
 
     // ------------------------------------------------------------------ helpers
 
     /**
-     * O armazenamento novo precisa enxergar o MESMO diretório do dublê de disco antigo: na E2.2
-     * a presença é perguntada a ele (por chave), e a remoção ainda é do dublê (por caminho).
+     * O armazenamento novo precisa enxergar o MESMO diretório do dublê de disco antigo: desde a
+     * E2.4A ele grava (por chave) e, desde a E2.2, responde a presença; a remoção ainda é do dublê
+     * (por caminho), até a E2.5.
      */
     private function armazenamentoNoDiretorioDoTeste(): ArmazenamentoLocal
     {
@@ -150,6 +212,70 @@ final class SubstituirAnexoDoLoteFalhaTest extends TestCase
             cobrancasUploadsDir: $this->diretorio,
             kanbanUploadsDir: $this->diretorio,
         ));
+    }
+
+    /**
+     * Delega ao backend real e anota cada chave gravada; com `$falha`, recusa a gravação antes de
+     * tocar em qualquer coisa.
+     */
+    private function espiao(ArmazenamentoDeArquivos $real, ?\Throwable $falha = null): object
+    {
+        return new class ($real, $falha) implements ArmazenamentoDeArquivos {
+            /** @var list<ChaveDeArquivo> */
+            public array $gravadas = [];
+
+            public function __construct(
+                private readonly ArmazenamentoDeArquivos $real,
+                private readonly ?\Throwable $falha,
+            ) {
+            }
+
+            public function gravar(ChaveDeArquivo|NovoArquivo $destino, FonteDeConteudo $fonte): ArquivoArmazenado
+            {
+                if ($this->falha !== null) {
+                    throw $this->falha;
+                }
+
+                $armazenado       = $this->real->gravar($destino, $fonte);
+                $this->gravadas[] = $armazenado->chave;
+
+                return $armazenado;
+            }
+
+            public function abrir(ChaveDeArquivo $chave): mixed
+            {
+                return $this->real->abrir($chave);
+            }
+
+            public function ler(ChaveDeArquivo $chave): string
+            {
+                return $this->real->ler($chave);
+            }
+
+            public function existe(ChaveDeArquivo $chave): bool
+            {
+                return $this->real->existe($chave);
+            }
+
+            public function excluir(ChaveDeArquivo $chave): void
+            {
+                $this->real->excluir($chave);
+            }
+
+            public function metadados(ChaveDeArquivo $chave): ?MetadadosDeArquivo
+            {
+                return $this->real->metadados($chave);
+            }
+        };
+    }
+
+    /** @return list<string> */
+    private function arquivosNoDiretorio(): array
+    {
+        $nomes = array_values(array_diff(scandir($this->diretorio) ?: [], ['.', '..']));
+        sort($nomes);
+
+        return $nomes;
     }
 
     private function conexaoEmTransacao(): Connection

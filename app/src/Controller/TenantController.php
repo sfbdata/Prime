@@ -40,6 +40,7 @@ use App\Profile\DTO\DadosPessoaisInput;
 use App\Profile\Form\DadosPessoaisType;
 use App\Profile\UseCase\ObterOuCriarPerfilUseCase;
 use App\Shared\Http\EntregaDeArquivo;
+use App\Shared\Http\FonteDeUploadHttp;
 use App\Tenant\DTO\RemoverColaboradorInput;
 use App\Tenant\UseCase\RemoverColaboradorDoEscritorioUseCase;
 use App\Tenant\UseCase\ExcluirEscritorioUseCase;
@@ -1464,7 +1465,14 @@ final class TenantController extends AbstractController
                 return $redirect();
             }
 
-            $anexoPath = $this->storage->salvar($anexoFile, $this->justificativasUploadsDir);
+            // O arquivo nasce ANTES das justificativas do lote (ordem da E1); o escopo é o mesmo
+            // `$tenant` da URL que cada uma recebe abaixo em setTenant(). A remoção no catch do
+            // flush segue pela interface antiga até a E2.5.
+            $upload    = FonteDeUploadHttp::de($anexoFile);
+            $anexoPath = $upload->gravarEm(
+                $this->armazenamento,
+                ChavesDePonto::novoAnexoDeLote($tenant, $upload->extensao),
+            )->chave->nome;
         }
 
         $batchId    = bin2hex(random_bytes(16));

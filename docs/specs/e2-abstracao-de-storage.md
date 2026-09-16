@@ -309,6 +309,12 @@ Quatro razões medidas para o núcleo não depender de `UploadedFile`:
 Ler tamanho, MIME e extensão **antes** de mover, dentro do adaptador, elimina a classe de bug do
 Kanban: nenhum chamador volta a tocar o `UploadedFile` depois da escrita.
 
+**Como ficou na E2.4A.** A ponte não chama `move_uploaded_file()` nem `chmod` por conta própria:
+move o upload para o temporário com o **próprio** `UploadedFile::move()`, que faz os três itens de
+INV-10 e ainda respeita o modo de teste do framework (a flag `$test` é privada). O temporário é um
+`ArquivoTemporarioPossuido` num diretório privado do uid efetivo (DT-7). Detalhes e provas no bloco
+"E2.4A — entregue" do §10.
+
 ---
 
 ## 4. Como o LocalStorage preserva os arquivos atuais (INV-1 e INV-2)
@@ -461,6 +467,16 @@ de propósito (`PurgarEscritorioUseCase.php:344`).
   dentro do mesmo sistema de arquivos. O caminho de erro apaga o temporário e há teste para
   isso, mas um processo morto entre o `fopen` e o `rename` deixa resíduo no volume persistido.
   Quem escrever a varredura da E3 precisa saber que `*.parcial-*` é lixo de escrita, não órfão.
+  Desde a E2.4A o caminho rápido (origem consumível) também publica a partir do `.parcial-`
+  vizinho, e o ramo de falha dupla — publicação e devolução à origem falhando juntas — deixa ali,
+  de propósito, a única cópia do conteúdo: nesse caso o resíduo **não** é lixo.
+- **DT-7 (nasceu na E2.4A)** — depois do `UploadedFile::move()` o PHP deixa de tratar o arquivo como
+  upload e não o apaga mais no fim da requisição. Se o processo morrer entre o `move()` e a
+  gravação (fatal, falta de memória, `request_terminate_timeout`), sobra um `upload-*` em
+  `sys_get_temp_dir()/jusprime-upload-<uid>` — fora do backup, da purga e de qualquer varredura. O
+  diretório é `0700` e conferido a cada upload (dono e modo), então o resíduo não fica legível por
+  outros usuários, mas também não é limpo por ninguém. Candidato a uma limpeza por idade junto da
+  varredura da E3.
 - **DT-5** — 3 docblocks em `app/src/` citam `ArquivoStorageInterface` pelo nome
   (`AcordoDocumento.php:20`, `CarteiraDocumento.php:21`, `ArquivosDeAnexoDoKanban.php:18`) e ficam
   obsoletos quando a interface sair na E2.8.
@@ -479,7 +495,8 @@ integrar.
 | **E2.1** | VOs, `ArmazenamentoDeArquivos`, `ArmazenamentoComPrefixo` (contrato só), `ArmazenamentoLocal`, `ResolvedorDeCaminhoLocal`, `ArmazenamentoEmMemoria`. `ArquivoStorageInterface` e `ArquivoStorageService` **intactos e ainda ligados** aos 33 consumidores; o `ArmazenamentoLocal` implementa **só a interface nova** | só arquivos novos | suíte verde sem tocar consumidor + `MapaDeChaveParaCaminhoLocalTest` + suíte de contrato |
 | **E2.2** — ✅ **entregue em 15/09** | fábricas de chave por domínio (`app/src/<Dominio>/Armazenamento/ChavesDe*`, 7 classes); `existe()` migrado em **26 chamadas / 21 arquivos**; **`ArquivosDeAnexoDoKanban::diretorio()` removido**. Fora, por decisão do dono: `PurgarEscritorioUseCase` (a 27ª chamada) fica **inteiro** para a E2.5; "tamanho" **não tem consumidor** nesta fatia (`metadados()` já existe desde a E2.1; os 3 `filesize()` seguem nas fatias previstas). Detalhes no bloco "E2.2 — entregue", abaixo | 21 + 7 fábricas | testes de fábrica (categoria, tenant da entidade, tenant nulo, nome byte a byte, sem parâmetro de tenant, este por reflexão) + materialização do escopo nos UseCases contra `ArmazenamentoEmMemoria` + 404 nas 2 rotas com nome pela URL + reconciliador com arquivo ausente, com nome inválido e com disco ilegível + exclusão de seção com disco ilegível pós-commit; **8 provas por reintrodução de defeito**; revisão adversarial feita e os 6 achados de código corrigidos |
 | **E2.3** — ✅ **entregue em 16/09** | `MaterializadorDeArquivo::paraLeitura()` (Local, cópia zero) + `EntregaDeArquivo` + as **15 rotas** de `servir()` migradas; `ArquivosDeAnexoDoKanban::caminhoDe()` privado. Detalhes no bloco "E2.3 — entregue", abaixo | 11 controllers + 2 classes novas (`MaterializadorDeArquivo`, `EntregaDeArquivo`) + 2 alteradas (`ArmazenamentoLocal`, `ArquivosDeAnexoDoKanban`) | equivalência de cabeçalhos com o `servir()` antigo + `Range` → 206 + INV-9 #3 + arquivo de 64 MB sem ir para a memória + D10 (ausente → 404, pane ≠ 404, inclusive pela rota) + teste de arquitetura; 14 provas por reintrodução; revisão adversarial feita, sem bloqueante, achados corrigidos |
-| **E2.4** | `gravar()` nos 18 pontos de escrita (inclui `EditarPecaTextoUseCase`) e leitura em `ArquivosReferenciadosEmPecas`/`ExportarPecaTextoUseCase` | 18 | unit de cada UseCase + teste de falha de I/O + teste de INV-10 |
+| **E2.4A** — ✅ **entregue em 16/09** | os **14 uploads HTTP** (`salvar(UploadedFile)`) pela ponte `FonteDeUploadHttp` + `gravar(NovoArquivo)`, com fábricas `ChavesDe*::novo*`; publicação em dois passos no `ArmazenamentoLocal`. Detalhes no bloco "E2.4A — entregue", abaixo | 13 consumidores + ponte + 7 fábricas + backend | unit/funcional de cada ponto (válido, inválido, R1 pela rota contra dublê em memória, falha do storage sem linha, cleanup do flush onde existe) + INV-10 + testes de arquitetura; 22 provas por reintrodução; revisão (4) e re-revisão feitas |
+| **E2.4B** | as **4 escritas internas** — `SalvarPecaTextoUseCase`, `CopiarArquivosAcervoCommand`, `ReconciliadorDePasta`, `EditarPecaTextoUseCase` (sobrescrita por chave) — e a leitura em `ArquivosReferenciadosEmPecas`/`ExportarPecaTextoUseCase` | 6 | unit de cada ponto + teste de falha de I/O |
 | **E2.5** | `excluir()` (19 chamadas) + `ArmazenamentoComPrefixo` nas 2 categorias com escopo físico | 15 | purga + isolamento cross-tenant + allowlist do arch test |
 | **E2.6** | `MaterializadorDeArquivo::copiaGravavel()` (o `paraLeitura()` já existe desde a E2.3); os 4 chamadores do compressor, o export e o `ReconciliadorDePasta` | 6 (todos já entre os 33) | **pré-requisito D4**: testes de modo de falha do compressor verdes **antes** |
 | **E2.7** | investigação de Tarefa e, se viável sem migration, entrada na abstração (**D5**) | `TarefaController`, `CaminhoDeAnexoDeTarefa` | teste de travessia atacando o VO, não a rota |
@@ -635,9 +652,218 @@ integrar.
 - **O teste de rota que torna o diretório ilegível** faz `chmod` no diretório **compartilhado** de
   uploads de teste e restaura em `finally` (mesmo padrão do `PastaSecaoControllerTest` da E2.2).
   Duas suítes simultâneas na mesma worktree podem colidir nessa janela.
-- ⏳ **`app/src/Shared/CLAUDE.md` ainda ensina `servir()`**, que o teste de arquitetura agora
-  proíbe, e não lista `Http/`. É documento de arquitetura: a atualização foi **proposta** ao dono
-  (critério 8 do §12), não aplicada.
+- ✅ **`app/src/Shared/CLAUDE.md` ensinava `servir()`**, que o teste de arquitetura agora
+  proíbe, e não listava `Http/`. A atualização, proposta ao dono nesta fatia (critério 8 do §12),
+  foi autorizada e aplicada na E2.4A.
+
+**E2.4A — entregue em 16/09/2026.** A E2.4 foi dividida: **E2.4A** = os 14 uploads HTTP;
+**E2.4B** = as 4 escritas internas (`SalvarPecaTextoUseCase`, `CopiarArquivosAcervoCommand`,
+`ReconciliadorDePasta`, `EditarPecaTextoUseCase`) e as leituras de `ArquivosReferenciadosEmPecas` /
+`ExportarPecaTextoUseCase`, que não foram tocadas. O que foi decidido e feito ao executar:
+
+- **Escopo conferido antes de escrever:** 14 chamadas de `salvar(UploadedFile)` em **13 arquivos**
+  (o `PastaController` tem duas), exatamente a contagem do §1.2. Fora delas, `UploadedFile::move()`
+  só em `TarefaController` (E2.7) e `ImportacaoController` (`import-tmp`, D3).
+- **A ponte é `App\Shared\Http\FonteDeUploadHttp`**, em duas etapas: `de(UploadedFile)` confere
+  `isValid()` e lê a extensão (`guessExtension() ?? 'bin'`, a mesma regra do `salvar()` antigo)
+  **antes** de qualquer movimentação; `gravarEm(ArmazenamentoDeArquivos, NovoArquivo)` move o
+  upload para um `ArquivoTemporarioPossuido` **com o próprio `UploadedFile::move()`** e grava com
+  `consumirOrigem: true`, liberando o temporário em `finally`. O temporário mora em
+  `sys_get_temp_dir()/jusprime-upload-<uid efetivo>`, criado `0700` (o mesmo sistema de arquivos do
+  upload do PHP, então o `move()` é um `rename()` barato) — ver DT-7. "Privado" é conferido: o
+  diretório tem de ser do uid efetivo e sem permissão para grupo/outros, e o temporário tem de nascer
+  nele (o `tempnam()` cai em silêncio no `/tmp` quando não consegue escrever); qualquer desvio lança,
+  **antes** de o upload sair do lugar. Reimplementar o `move()` perderia o
+  modo de teste (a flag `$test` é privada) e copiaria código do framework; delegar preserva os três
+  itens de INV-10 por construção. Upload inválido delega ao `move()` só para lançar a exceção
+  tipada — nada é lido nem movido antes dela. Mudança observável: nenhuma nos 14 pontos, porque em
+  todos a validação de MIME/tamanho (ou o `FileValidator`) já recusava upload com erro antes do
+  `salvar()`; na ponte isolada, upload com erro passa a dar sempre a exceção tipada, onde antes o
+  `guessExtension()` estourava primeiro com a do componente Mime.
+- **A prova de origem tem duas barreiras** (o `isValid()` de `de()` e o `move()` de `gravarEm()`, que
+  também chama `is_uploaded_file()`). Medido: tirar só uma deixa o teste verde; o teste cai quando as
+  duas somem. Registrado no docblock do teste para ninguém "simplificar" uma delas.
+- **Fábricas de arquivo novo nos domínios (`ChavesDe*::novo*`)**, par de escrita das fábricas da E2.2.
+  O escopo sai de onde a **leitura** vai tirá-lo depois: caso/acordo/carteira (a guarda do UseCase
+  iguala ao `$tenant` que o documento recebe), card (o anexo copia no construtor), chamado (a
+  leitura passa por ele), cliente (o documento copia), justificativa dona (lote) e, em Pasta, o
+  **próprio documento** — criado e com escritório atribuído antes da gravação, persistido depois.
+  A primeira versão tirava o escopo da pasta; a revisão apontou que o documento recebe o escritório
+  da sessão e que só o TenantFilter iguala os dois. Com o documento como fonte, gravação e leitura
+  usam o mesmo getter, e sessão sem escritório falha **antes** de gravar (antes: 500 no flush, com
+  órfão).
+  Duas exceções recebem `Tenant`, documentadas: `ChavesDePasta::novaImagemDoEditor()` (sem linha no
+  banco, mesmo endereçamento da leitura) e `ChavesDePonto::novoAnexoDeLote()` (o arquivo nasce
+  **antes** das N justificativas — ordem da E1 —, e o tenant é a mesma variável que vai para o
+  `setTenant()` de cada uma). `ChavesDePerfil::novaFoto()` é global (D1). O inventário é travado por
+  `FabricasDeArquivoNovoTest` (abaixo).
+- **Só a gravação mudou.** Ordem de validação, persistência e cleanup idêntica em todos os pontos.
+  Onde o arquivo ainda precisa de `caminho()` (compressor: Cliente, Pasta ×2, `UploadPecaUseCase`,
+  `EnviarDocumentoUseCase`) ou de `excluir(caminho())` (cleanup do flush nos dois controllers de
+  Ponto e no lote; foto anterior do perfil), a interface antiga continua injetada e recebe o nome
+  cunhado — são da E2.6 e da E2.5. As 19 chamadas de `excluir()` da E2.5 seguem intactas.
+  Largaram o storage antigo e o parâmetro de diretório: `EnviarDocumentoAcordoUseCase`,
+  `EnviarDocumentoCarteiraUseCase`, `AdicionarAnexoUseCase`, `UploadImagemEditorUseCase`,
+  `ServiceDeskController` e `PeticionarController` (que perdeu `$uploadsDir`; o DTO
+  `UploadImagemEditorInput` leva o `Tenant` em vez do diretório já montado).
+- **Defeito vivo corrigido de carona — ServiceDesk.** `processarAnexos` lia `$arquivo->getSize()`
+  **depois** do `move()`: "stat failed", todo chamado com anexo terminava em 500 e deixava órfão
+  (mesma classe do bug do Kanban; em prod `chamado_anexo` tem 0 linhas). O tamanho passou a vir de
+  `ArquivoArmazenado::tamanhoBytes`. O MIME gravado continua o informado pelo cliente
+  (`getClientMimeType()`), como antes.
+- **Ajuste no backend — a publicação é sempre um `rename()` vizinho.** Medido no container: entre
+  sistemas de arquivos o `rename()` do PHP **não falha** com EXDEV; copia por dentro, direto no nome
+  que recebeu, e devolve `true` (`/tmp` no dispositivo 100, `var/` no 2096). O comentário da E2.1
+  supunha o contrário. Para o upload isso é o caso normal de produção (o PHP guarda o upload em
+  `/tmp`, os uploads moram num volume): com `rename($origem, $destino)`, a cópia não é atômica — um
+  parcial com nome final sobraria num processo morto, fora do alcance da varredura de DT-6, e numa
+  sobrescrita por chave (E2.6) o inode publicado seria truncado no lugar. O caminho rápido passou a
+  ser `publicarMovendo()`: `rename()` da origem para um `.parcial-` vizinho (onde a eventual cópia
+  acontece sob nome temporário) e, dali, para o destino, no mesmo diretório. O modo é acertado no
+  vizinho, **antes** de o arquivo ficar visível (nos dois caminhos). Se o segundo passo falhar, o
+  conteúdo volta para a origem (provado com um diretório no lugar do destino: a gravação falha, a
+  origem fica intacta e não sobra `.parcial-`); se nem a devolução funcionar, o conteúdo fica no
+  vizinho e a exceção diz onde — **nunca é apagado**: nesse ramo, raríssimo, conteúdo vale mais que
+  limpeza, e o resíduo é o `.parcial-` que a varredura de DT-6 já reconhece. A primeira versão perguntava o dispositivo (`st_dev`); a revisão lembrou que dois pontos
+  de montagem do mesmo sistema de arquivos têm o mesmo `st_dev` e ainda dão EXDEV, e os dois passos
+  dispensam a heurística. O `move_uploaded_file` antigo tinha a mesma cópia não atômica — não era
+  regressão, mas a E2.4A é quem passa a rotear produção por esse atalho. Provado com vínculo físico
+  (o `link()` enxerga o inode antigo; a cópia no lugar o reescreve; a origem vem de
+  `sys_get_temp_dir()` ou `/dev/shm`, o primeiro que estiver em outro dispositivo que `var/`) e com
+  o inode preservado no mesmo dispositivo.
+- **Cleanup em falha de flush: só onde já existia.** Nove pontos não removem o arquivo novo se o
+  banco recusar (Cobrança ×3, Kanban, Perfil, Cliente, ServiceDesk, Pasta ×2, `UploadPecaUseCase`) —
+  órfão recuperável, aceito por INV-6 e pré-existente. Acrescentar esse cleanup é `excluir()`, e fica
+  para a E2.5, junto da política de `FalhaDeArmazenamento` no caminho de erro (o `excluir()` novo
+  lança; o antigo só emitia warning em produção).
+- **Cobertura que não existia:** upload com arquivo real em Cliente, Pasta (`uploadDocumento`),
+  ServiceDesk e nas duas portas de criação de justificativa com atestado, incluindo o cleanup do
+  catch do flush nos dois controllers de Ponto, que nunca tinha sido exercitado (falha injetada por
+  um listener `onFlush`, que fotografa o anexo e prova que o arquivo existia na hora da recusa). Os
+  unitários trocaram `salvar()` mockado por `ArmazenamentoEmMemoria` + `UploadedFile` real, e
+  afirmam escopo e categoria da chave gravada (R1). O dublê ganhou `falhaAoGravar` (o "dublê que
+  lança em `gravar()`" do §11.2), `gravadas` e `ultimaGravada()`.
+- **R1 e "falha do storage → nenhuma linha" provados pela ROTA nos seis pontos que são controller**
+  (§11.2 pede os funcionais contra o dublê em memória — a primeira versão os tinha só contra o disco
+  plano, onde o escopo não aparece). `ArmazenamentoEmMemoriaNoContainer` substitui o serviço
+  **concreto** `ArmazenamentoLocal` no container de teste: trocar só o alias da interface não chega
+  aos controllers (o container resolve o alias na compilação), e o mesmo serviço é o materializador
+  da `EntregaDeArquivo` — por isso o dublê implementa as duas interfaces. A asserção é a mais forte
+  disponível: a chave gravada é **igual** à que a fábrica de leitura monta a partir do registro
+  persistido. No administrador do Ponto, a sessão fica num escritório e a URL em outro — é o caso em
+  que tirar o escopo da sessão passaria calado. Os 500 de falha conferem a mensagem da falha
+  injetada, para não provarem outra barreira. O lote (`SubstituirAnexoDoLoteUseCase`) prova o mesmo
+  no unitário, com um espião sobre o backend real, e ganhou o caso de falha do storage na fase 1.
+- **Testes de arquitetura.** `UploadPorChaveArquiteturaTest`: ninguém chama o `salvar()` antigo
+  (duas redes: `storage->salvar(` e a assinatura `->salvar($x, $...dir)`); `->move(` só na ponte e
+  nas três exceções datadas (`ArquivoStorageService` até a E2.8, `ImportacaoController` por D3,
+  `TarefaController` até a E2.7); ninguém chama `move_uploaded_file()` direto.
+  `FabricasDeArquivoNovoTest`: descobre as fábricas em `src/*/Armazenamento/ChavesDe*.php`, confere
+  cada `novo*` contra a dona, recusa escritório recebido por fora (tipo `Tenant`, anulável, união ou
+  parâmetro com "tenant" no nome) fora das duas exceções, e proíbe `new NovoArquivo(` fora das
+  fábricas e do núcleo — senão a rede toda seria contornável.
+- **Provas por reintrodução (22 sobre o código final):** `rename()` direto para o destino (vínculo
+  físico); ponte sem `isValid()`; ponte sem as duas barreiras de origem; ServiceDesk lendo
+  `getSize()` depois de mover; escopo global no acordo; falha do storage engolida no Kanban; sem
+  cleanup no `PontoController`; sem cleanup no `TenantController`; sem `removerBestEffort` no lote;
+  categoria trocada na peça; imagem do editor em categoria plana; `salvar()`/`move()` reintroduzidos;
+  administrador tirando o escopo da sessão; `PastaController` com escopo de outro escritório (caem o
+  R1 da rota **e** o guarda de `new NovoArquivo(`); `salvar()` antigo por outra propriedade;
+  `UploadPecaUseCase` lendo `getSize()` depois de gravar; ServiceDesk com escopo global; ponte sem a
+  checagem de diretório privado; ponte aceitando `tempnam()` desviado; backend sem devolver a origem
+  quando a publicação falha; `new NovoArquivo` escondido atrás de apelido (`use … as`); `salvar()`
+  antigo com diretório concatenado. Todas derrubaram o teste que diziam derrubar. **Uma prova pegou um teste vazio:** o guarda de
+  `new NovoArquivo(` tinha um escape de aspas simples do PHP que transformava `\\?` em `?` literal e
+  passava verde com a violação no código; corrigido e provado de novo.
+- **Revisão:** quatro revisores (arquitetura, consistência banco × disco, segurança/tenant, testes)
+  e uma re-revisão focada nas correções. Nenhum bloqueante. O que mudou por causa deles: R1 e falha
+  do storage provados pela rota; escopo de Pasta pelo documento; publicação em dois passos; modo antes
+  de publicar; diretório privado conferido; inventário das fábricas por descoberta; testes vazios
+  retirados ou reforçados (o guarda de `NovoArquivo` e o teste de "não sobra temporário").
+- **Riscos residuais registrados, sem mudança de comportamento nesta fatia:**
+  - o lote de justificativas continua gravando **dentro** da transação, sob a trava — irrelevante
+    com disco local, transação longa com backend remoto (E4);
+  - ⚠️ **para a E2.5 — ambiguidade de COMMIT nos três cleanups de Ponto** (`PontoController`,
+    `TenantController`, `SubstituirAnexoDoLoteUseCase`, herdados da E1): o catch apaga o arquivo novo
+    em qualquer `Throwable` do flush/commit, inclusive quando o COMMIT chegou ao banco e só a
+    resposta se perdeu (queda de conexão). Aí sobra registro válido apontando para arquivo
+    inexistente — o que INV-6 proíbe. É raro e anterior à E2, e a E2.4A não mudou nada disso; a
+    E2.5, que migra esses cleanups para `excluir()` por chave, é o lugar de decidir a política
+    (recontar as referências numa conexão nova antes de apagar; na dúvida, deixar o órfão);
+  - os funcionais que limpam "tudo o que surgiu no diretório durante a requisição" supõem **uma
+    suíte por worktree** (a mesma restrição já registrada para os testes de `chmod` da E2.3);
+  - o anexo de chamado passa a funcionar em produção pela primeira vez (smoke: abrir chamado com
+    anexo e baixá-lo).
+
+**Preparação da E2.4B e da E2.5 — investigação antecipada em 16/09, read-only, nada implementado.**
+Levantada em paralelo à E2.4A para encurtar as próximas fatias. Linhas conferidas no código daquele
+dia; confira de novo antes de usar.
+
+- **E2.4B — as 4 escritas internas e as 2 leituras.**
+  - Linhas que mudaram desde a spec: `ReconciliadorDePasta` `tempnam` :456, extensão :468,
+    `moverParaArmazenamento` :472 (a spec dizia :428/:440/:444); leitura crua de
+    `ArquivosReferenciadosEmPecas` em :71.
+  - `SalvarPecaTextoUseCase:43` → `gravar(ChavesDePasta::novoDocumento($doc, 'html'), deTexto())`.
+    **Não** usar o `mimeType` medido: HTML curto sai `text/plain`, e editar/exportar exigem
+    `text/html` — o tipo continua fixo. Hoje uma falha do `file_put_contents` passa em silêncio e o
+    documento é salvo apontando para arquivo ausente ou truncado; depois, `FalhaDeArmazenamento` vem
+    antes do `persist`, mas o controller só captura `InvalidArgumentException` (vira 500).
+  - `CopiarArquivosAcervoCommand:381` → `deArquivoLocal($path, consumirOrigem: **false**)` — `true`
+    apagaria o acervo do operador. Resolve DT-2 (streaming em vez de `file_get_contents`).
+    Extensão vazia deixa de gerar `hash.` (a origem das 165 chaves legadas) e vira `hash.bin`;
+    maiúscula vira minúscula. **Não tem teste nenhum.** Já casa o padrão de varredura de
+    `LimpezaDeArquivosArquiteturaTest`: qualquer `unlink`/`excluir` ali derruba o teste.
+  - `ReconciliadorDePasta:472` → `deArquivoLocal($tmp, consumirOrigem: true)`; o `finally` que apaga o
+    `tempnam` continua valendo. Muda: nome esquisito → `bin` (D8); o arquivo deixa de nascer `0600`.
+    O cleanup do catch (:500) é `excluir()` (E2.5) e, se migrar antes, precisa de `try` próprio para
+    não derrubar a rodada. A Via A (:215 `caminho`, :255 envio ao Drive) é da E2.6.
+    `FakeGoogleDriveClient` não sabe simular falha.
+  - `EditarPecaTextoUseCase:21-22` → `gravar(ChavesDePasta::documento($doc), deTexto())`: passa a ser
+    atômico (hoje trunca no lugar) e ganha inode e modo novos. `EditarPecaTextoUseCaseTest` usa
+    documento sem tenant — a fábrica vai lançar.
+  - Leituras: `ArquivosReferenciadosEmPecas` → `ler()`, **mantendo o `existe()` antes** (o `ler()` do
+    Local não prova a cadeia de diretórios; sem isso, peça ilegível pareceria sem imagens e uma
+    limpeza apagaria as imagens dela). `ExportarPecaTextoUseCase:30-31` → `ler()`; hoje peça ausente
+    dá warning e export vazio com 200. As `<img>` e o `chroot` do Dompdf são da E2.6.
+  - Sem dependência técnica da E2.5/E2.6, mas `Reconciliador` e `Exportar` aparecem em mais de uma
+    fatia: sequencial.
+  - **Decisões do dono antes de implementar:** (1) resposta HTTP para `FalhaDeArmazenamento` ao
+    salvar/editar peça; (2) peça ausente no export: 404 ou 500; (3) editar peça cujo arquivo sumiu:
+    recriar (hoje) ou falhar; (4) `CopiarArquivosAcervoCommand`: migrar e escrever o primeiro teste,
+    ou aposentar; (5) tamanho/MIME do sync: metadado do Drive (hoje) ou medido na gravação.
+- **E2.5 — exclusões e purga.**
+  - **19 `excluir()` em 15 arquivos**, confirmados: 9 **antes** do commit (`ExcluirDocumento{,Acordo,
+    Carteira}UseCase`, `ExcluirSecaoUseCase`, `ExcluirPastaUseCase`, `PastaController:1696`,
+    `ClienteController:191` e `:443`, `ArquivosDeAnexoDoKanban`), 6 depois (`PastaSecaoController`,
+    `PastaController:2008`, foto anterior, antigo do lote, 2 da purga) e 4 em catch (cleanup do lote,
+    `TenantController`, `PontoController`, `ReconciliadorDePasta:500`).
+  - O `excluir()` novo **lança sempre**; o antigo, em produção (`APP_DEBUG=0`), só registrava warning.
+    Precisa de política por grupo — sugestão: pós-commit e cleanups registram e seguem (sem mascarar
+    o `$e` original); pré-commit propaga. Controller não pode capturar `FalhaDeArmazenamento`
+    (`EntregaDeArquivoArquiteturaTest`): `catch (\Throwable)` ou mover para UseCase.
+  - **INV-6 é ambígua para os 9 pré-commit** (o título diz "ordem da E1 preservada", o texto diz
+    "remoção sempre pós-COMMIT"); nos laços, arquivo já apagado + rollback = registro apontando para
+    o vazio, hoje. **Decisão do dono:** migrar 1:1 ou passar para depois do commit.
+  - Defeito anterior: `ClienteController:191` apaga os arquivos e depois captura a violação de FK — o
+    cliente fica, sem os arquivos. Ambiguidade de COMMIT nos cleanups de Ponto: ver o bloco da E2.4A.
+  - Purga (`PurgarEscritorioUseCase`): não injeta `kanbanUploadsDir` (anexos de Kanban do tenant
+    purgado ficam órfãos hoje); `tarefa_mensagem` é **no-op de fato** (o valor tem `/`) e deve ficar
+    no-op **explícito** até a E2.7; `documento_processo` não tem escritor em `src/` nem diretório —
+    parece mais honesto tirar a consulta com justificativa e um teste-guarda (**decisão do dono**);
+    produto cartesiano nomes × 4 diretórios (restringir por categoria muda comportamento);
+    `rmdir` falha calado com dotfile (`.compress_*`); falha de disco pós-commit não tem nova
+    tentativa e o comando reporta "Falha ao purgar" com o banco já purgado.
+  - `excluirPrefixo` — prova de pertencimento proposta: só o enum restrito; `basename` do prefixo
+    igual ao id (`^[1-9]\d*$`); `!is_link` (hoje `pastas/5 -> pastas` apagaria a raiz compartilhada);
+    `realpath` igual a `realpath(raiz)/id`; prefixo diferente de toda raiz e não ancestral dela;
+    não recursivo; política para dotfiles e para nomes que `ChaveDeArquivo` recusa. `import-tmp` é
+    **irmão** (`cobrancas/import-tmp/<id>`), não filho: o prefixo de Cobrança não o alcança (D3).
+  - `LimpezaDeArquivosArquiteturaTest`: entra `ArmazenamentoLocal` na allowlist (D7); a entrada da
+    purga fica inútil quando o `glob` sair — remover, e endurecer o teste contra entrada morta.
+  - Lacunas de teste frente ao §11.2: o cenário literal "purga do tenant 5 não apaga arquivo do
+    tenant 1 em `uploads/clientes`" não existe em disco; nem `cobrancas/<id>`, symlink, escopo
+    global, Kanban, Tarefa, `documento_processo`, disco ilegível na limpeza.
+  - R2: `cobranca-acompanhamento-canonico` toca a purga e segue congelada (`80ac07cb`).
 
 **Três armadilhas de ordenação, já mapeadas:**
 

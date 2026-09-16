@@ -8,6 +8,9 @@ use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaSecao;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Armazenamento\ChavesDePasta;
+use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
+use App\Shared\Http\FonteDeUploadHttp;
 use App\Shared\Service\ArquivoStorageInterface;
 use App\Shared\Service\CompressorArquivoInterface;
 use App\Shared\Service\ResultadoCompressao;
@@ -41,6 +44,8 @@ final class UploadPecaUseCase
 
     public function __construct(
         private readonly EntityManagerInterface $em,
+        private readonly ArmazenamentoDeArquivos $armazenamento,
+        // O storage antigo fica só para o `caminho()` do compressor, que migra na E2.6.
         private readonly ArquivoStorageInterface $storage,
         private readonly CompressorArquivoInterface $compressor,
         private readonly string $uploadsDir,
@@ -81,7 +86,14 @@ final class UploadPecaUseCase
             ));
         }
 
-        $nomeUnico = $this->storage->salvar($file, $this->uploadsDir);
+        // O escopo sai do próprio documento (R1): o mesmo escritório que a leitura vai usar. O
+        // documento só é persistido depois da gravação.
+        $doc = new PastaDocumento();
+        $doc->setTenant($tenant);
+
+        $upload     = FonteDeUploadHttp::de($file);
+        $armazenado = $upload->gravarEm($this->armazenamento, ChavesDePasta::novoDocumento($doc, $upload->extensao));
+        $nomeUnico  = $armazenado->chave->nome;
 
         $compressao = ResultadoCompressao::naoComprimido((int) $tamanho);
         if ($reduzirTamanho) {
@@ -89,9 +101,7 @@ final class UploadPecaUseCase
             $compressao = $this->compressor->comprimir($caminho, $mimeType);
         }
 
-        $doc = new PastaDocumento();
         $doc->setPasta($pasta);
-        $doc->setTenant($tenant);
         $doc->setTitulo($file->getClientOriginalName());
         $doc->setCategoria($categoria);
         $doc->setDescricao(($descricao !== null && $descricao !== '') ? $descricao : null);

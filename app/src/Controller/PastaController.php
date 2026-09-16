@@ -90,6 +90,7 @@ use App\Pasta\Entity\PastaSecao;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
+use App\Shared\Http\FonteDeUploadHttp;
 use App\Shared\Service\ArquivoStorageInterface;
 use App\Shared\Service\CompressorArquivoInterface;
 use App\Shared\Service\SanitizadorTextoRico;
@@ -1511,7 +1512,14 @@ class PastaController extends AbstractController
             $descricao    = isset($descricoes[$i]) ? trim((string) $descricoes[$i]) : '';
             $numero       = isset($numeros[$i]) ? trim((string) $numeros[$i]) : '';
 
-            $nomeUnico = $this->storage->salvar($file, $this->uploadsDir);
+            // O escopo sai do próprio documento (R1), só persistido depois da gravação. O storage
+            // antigo segue abaixo só para o `caminho()` do compressor, que migra na E2.6.
+            $doc = new PastaDocumento();
+            $doc->setTenant($tenant);
+
+            $upload     = FonteDeUploadHttp::de($file);
+            $armazenado = $upload->gravarEm($this->armazenamento, ChavesDePasta::novoDocumento($doc, $upload->extensao));
+            $nomeUnico  = $armazenado->chave->nome;
 
             $tamanhoFinal = $tamanho;
             if ($reduzirTamanho) {
@@ -1524,9 +1532,7 @@ class PastaController extends AbstractController
                 }
             }
 
-            $doc = new PastaDocumento();
             $doc->setPasta($pasta);
-            $doc->setTenant($tenant);
             $doc->setTitulo($file->getClientOriginalName());
             $doc->setCategoria($categoria);
             $doc->setDescricao($descricao !== '' ? $descricao : null);
@@ -1842,7 +1848,13 @@ class PastaController extends AbstractController
 
         $reduzirTamanho = $request->request->getBoolean('reduzir_tamanho');
 
-        $nomeUnico = $this->storage->salvar($file, $this->uploadsDir);
+        // O escopo sai do próprio documento (R1), só persistido depois da gravação.
+        $doc = new PastaDocumento();
+        $doc->setTenant($tenant);
+
+        $upload     = FonteDeUploadHttp::de($file);
+        $armazenado = $upload->gravarEm($this->armazenamento, ChavesDePasta::novoDocumento($doc, $upload->extensao));
+        $nomeUnico  = $armazenado->chave->nome;
 
         $tamanhoFinal = $tamanho;
         $compressao   = null;
@@ -1852,9 +1864,7 @@ class PastaController extends AbstractController
             $tamanhoFinal = $compressao->tamanhoFinal;
         }
 
-        $doc = new PastaDocumento();
         $doc->setPasta($pasta);
-        $doc->setTenant($tenant);
         $doc->setTitulo($file->getClientOriginalName());
         $doc->setCategoria(PastaDocumento::CATEGORIA_CONTRATO);
         $doc->setCaminhoArquivo($nomeUnico);

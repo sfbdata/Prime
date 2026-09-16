@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Pasta\UseCase;
 
 use App\Pasta\DTO\UploadImagemEditorInput;
+use App\Pasta\Armazenamento\ChavesDePasta;
 use App\Pasta\DTO\UploadImagemEditorOutput;
-use App\Shared\Service\ArquivoStorageInterface;
+use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
+use App\Shared\Http\FonteDeUploadHttp;
 
 final class UploadImagemEditorUseCase
 {
@@ -14,7 +16,7 @@ final class UploadImagemEditorUseCase
     private const TAMANHO_MAXIMO_BYTES  = 3 * 1024 * 1024;
 
     public function __construct(
-        private readonly ArquivoStorageInterface $storage,
+        private readonly ArmazenamentoDeArquivos $armazenamento,
     ) {}
 
     public function executar(UploadImagemEditorInput $input): UploadImagemEditorOutput
@@ -29,8 +31,14 @@ final class UploadImagemEditorUseCase
             throw new \InvalidArgumentException('A imagem não pode ter mais de 3 MB.');
         }
 
-        $nomeArquivo = $this->storage->salvar($input->arquivo, $input->diretorio);
+        // PASTA_IMAGEM_EDITOR mora na subpasta do escritório (isolamento físico, M5); quem monta o
+        // caminho é o storage, a partir do tenant da sessão — o mesmo que a leitura usa.
+        $upload     = FonteDeUploadHttp::de($input->arquivo);
+        $armazenado = $upload->gravarEm(
+            $this->armazenamento,
+            ChavesDePasta::novaImagemDoEditor($input->tenant, $upload->extensao),
+        );
 
-        return new UploadImagemEditorOutput($nomeArquivo);
+        return new UploadImagemEditorOutput($armazenado->chave->nome);
     }
 }

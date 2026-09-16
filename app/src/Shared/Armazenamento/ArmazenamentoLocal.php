@@ -228,13 +228,12 @@ final readonly class ArmazenamentoLocal implements ArmazenamentoDeArquivos, Mate
      * Grava num temporário do MESMO diretório e move para o lugar.
      *
      * O temporário precisa ser vizinho do destino: `rename()` só é atômico dentro do mesmo
-     * sistema de arquivos, e é justamente por cruzar `/tmp` e o volume de uploads que o
-     * `moverParaArmazenamento()` de hoje precisa do fallback de EXDEV
-     * (`ArquivoStorageService.php:40-50`).
+     * sistema de arquivos. A publicação — o `rename()` que torna o arquivo visível com o nome
+     * final — é SEMPRE feita a partir de um `.parcial-` vizinho, nos dois caminhos.
      *
-     * Quando a fonte é um arquivo local que pode ser consumido, o caminho rápido é um `rename()`
-     * direto da origem: atômico e sem reler o conteúdo, que é o que permite mover arquivo grande
-     * (o download do Drive) sem carregar nada em memória.
+     * Quando a fonte é um arquivo local que pode ser consumido, o caminho rápido
+     * ({@see publicarMovendo()}) move a origem em vez de relê-la, o que é o que permite gravar
+     * arquivo grande sem carregar nada em memória.
      */
     private function escreverAtomicamente(string $destino, FonteDeConteudo $fonte): void
     {
@@ -242,13 +241,11 @@ final readonly class ArmazenamentoLocal implements ArmazenamentoDeArquivos, Mate
 
         $origem = $fonte->caminhoLocalOuNull();
 
-        if ($origem !== null && $fonte->consomeOrigem() && @rename($origem, $destino)) {
-            $this->normalizarModo($destino);
-
+        if ($origem !== null && $fonte->consomeOrigem() && $this->publicarMovendo($origem, $destino)) {
             return;
         }
 
-        $temporario = $destino . '.parcial-' . bin2hex(random_bytes(8));
+        $temporario = $this->vizinhoParcial($destino);
 
         $saida = @fopen($temporario, 'wb');
         if ($saida === false) {
@@ -272,6 +269,8 @@ final readonly class ArmazenamentoLocal implements ArmazenamentoDeArquivos, Mate
 
         fclose($saida);
 
+        $this->normalizarModo($temporario);
+
         if (!@rename($temporario, $destino)) {
             @unlink($temporario);
 
@@ -279,8 +278,6 @@ final readonly class ArmazenamentoLocal implements ArmazenamentoDeArquivos, Mate
                 sprintf('Não foi possível publicar o arquivo em %s.', $destino),
             );
         }
-
-        $this->normalizarModo($destino);
 
         // Só agora: a origem só some depois de o destino estar publicado. É a mesma prioridade da
         // E1 — órfão recuperável é aceitável, perda de conteúdo não.
@@ -290,13 +287,73 @@ final readonly class ArmazenamentoLocal implements ArmazenamentoDeArquivos, Mate
     }
 
     /**
+     * Caminho rápido: move a origem para um `.parcial-` vizinho e só então para o destino.
+     *
+     * ## Por que dois passos, e não `rename($origem, $destino)`
+     *
+     * O `rename()` do PHP **não falha** com EXDEV: entre sistemas de arquivos — ou entre dois
+     * pontos de montagem do mesmo — ele copia por dentro, direto no nome que recebeu, e devolve
+     * true (medido no container na E2.4A: `/tmp` no dispositivo 100, `var/` no 2096). Com o nome
+     * final como alvo, essa cópia não é atômica: um leitor vê o arquivo pela metade, um processo
+     * morto deixa um parcial com nome de arquivo bom, e numa sobrescrita o conteúdo publicado é
+     * truncado no lugar. É o caso normal do upload em produção — o PHP guarda o upload em `/tmp`,
+     * e os uploads moram num volume. Com o vizinho como alvo, a eventual cópia acontece sob nome
+     * temporário, e a publicação é um `rename()` dentro do mesmo diretório, que é atômico. Não há
+     * heurística de dispositivo a errar.
+     *
+     * @return bool false quando nada saiu do lugar — a origem está intacta e o caminho lento pode
+     *              tentar
+     *
+     * @throws FalhaDeArmazenamento quando o conteúdo já saiu da origem, não chegou ao destino e
+     *                              também não pôde voltar — ele fica no vizinho, nunca é apagado
+     */
+    private function publicarMovendo(string $origem, string $destino): bool
+    {
+        $vizinho = $this->vizinhoParcial($destino);
+
+        if (!@rename($origem, $vizinho)) {
+            // A cópia entre sistemas de arquivos pode ter morrido no meio; o PHP só apaga a
+            // origem quando termina. O parcial tem nome nosso e acabou de nascer.
+            @unlink($vizinho);
+
+            return false;
+        }
+
+        // O modo é acertado ANTES de o arquivo ficar visível: publicado, ele já nasce legível.
+        $this->normalizarModo($vizinho);
+
+        if (@rename($vizinho, $destino)) {
+            return true;
+        }
+
+        // O conteúdo saiu da origem e não foi publicado: devolve-o antes de desistir, para a
+        // origem não desaparecer sem o arquivo existir no destino.
+        if (@rename($vizinho, $origem)) {
+            return false;
+        }
+
+        // Falha dupla: o vizinho é a única cópia do conteúdo. Fica no volume — resíduo `.parcial-`
+        // que a varredura de DT-6 reconhece — em vez de ser apagado: conteúdo vale mais que limpeza.
+        throw new FalhaDeArmazenamento(sprintf(
+            'Não foi possível publicar %s nem devolver a origem; o conteúdo ficou em %s.',
+            $destino,
+            $vizinho,
+        ));
+    }
+
+    private function vizinhoParcial(string $destino): string
+    {
+        return $destino . '.parcial-' . bin2hex(random_bytes(8));
+    }
+
+    /**
      * Mesmo modo nos dois ramos de publicação.
      *
-     * Sem isto o resultado depende de qual ramo rodou: `rename()` preserva o modo da origem (um
-     * `tempnam()` nasce `0600`), enquanto `fopen('wb')` cria com `0666 & ~umask` (tipicamente
-     * `0644`). E qual ramo roda depende do sistema de arquivos — origem e destino no mesmo mount
-     * usam o caminho rápido, em mounts diferentes cai no lento por EXDEV. Arquivo de upload que
-     * nasce `0600` é invisível para o nginx e para o worker.
+     * Sem isto o resultado depende de qual ramo rodou e de onde veio a origem: `rename()` no
+     * mesmo sistema de arquivos preserva o modo dela (um `tempnam()` nasce `0600`), a cópia que o
+     * PHP faz entre sistemas de arquivos recria o arquivo, e `fopen('wb')` cria com
+     * `0666 & ~umask` (tipicamente `0644`). Arquivo de upload que nasce `0600` é invisível para o
+     * nginx e para o worker.
      *
      * `0666 & ~umask` é exatamente o que `UploadedFile::move()` aplica hoje
      * (`vendor/symfony/http-foundation/File/UploadedFile.php`), então isto preserva o

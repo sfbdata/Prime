@@ -105,8 +105,9 @@ final class ArmazenamentoLocalContratoTest extends ArmazenamentoContratoTestCase
 
     /**
      * Os dois ramos de publicação (rename rápido × cópia em stream) têm de deixar o MESMO modo.
-     * Qual deles roda depende do sistema de arquivos (EXDEV), então um modo divergente daria
-     * arquivo ora legível, ora não, sem nada no código explicando.
+     * O modo que o rename leva depende de onde a origem estava (no mesmo sistema de arquivos ele
+     * preserva o 0600 do `tempnam()`), então um modo divergente daria arquivo ora legível, ora
+     * não, sem nada no código explicando.
      */
     #[TestDox('os dois caminhos de gravação publicam com o mesmo modo de arquivo')]
     public function testModoDeArquivoEhDeterministico(): void
@@ -124,6 +125,136 @@ final class ArmazenamentoLocalContratoTest extends ArmazenamentoContratoTestCase
 
         self::assertSame($esperado, $this->modoDe($this->raiz . '/clientes/pelo-rename.bin'));
         self::assertSame($esperado, $this->modoDe($this->raiz . '/clientes/pelo-stream.bin'));
+    }
+
+    /**
+     * O caminho rápido continua existindo: no mesmo sistema de arquivos a origem é MOVIDA (mesmo
+     * inode, pelos dois renames), não copiada. Guarda contra "resolver" a atomicidade relendo o
+     * arquivo sempre.
+     */
+    #[TestDox('origem no mesmo dispositivo é movida por rename, sem cópia')]
+    public function testOrigemNoMesmoDispositivoEhMovidaSemCopia(): void
+    {
+        $origem = $this->arquivoTemporarioCom('movido inteiro');
+        $inode  = fileinode($origem);
+
+        $this->backend->gravar($this->chave('movido.bin'), FonteDeConteudo::deArquivoLocal($origem, consumirOrigem: true));
+
+        $destino = $this->raiz . '/clientes/movido.bin';
+        clearstatcache();
+        self::assertSame($inode, fileinode($destino), 'o arquivo foi copiado onde podia ser movido');
+        self::assertFileDoesNotExist($origem);
+    }
+
+    /**
+     * O `rename()` do PHP não falha entre sistemas de arquivos: ele copia por dentro, **direto no
+     * nome que recebeu**. Se esse nome fosse o final, numa sobrescrita a cópia truncaria e
+     * reescreveria o inode do arquivo que já estava publicado — quem o lia via o conteúdo pela
+     * metade.
+     *
+     * O vínculo físico (`link()`) torna isso observável sem depender de tempo: ele aponta para o
+     * inode ANTIGO. Com a publicação atômica (vizinho `.parcial-` + rename), o inode antigo nunca é
+     * tocado e o vínculo continua com o conteúdo antigo. Com a cópia no lugar, o vínculo passa a
+     * mostrar o conteúdo novo.
+     *
+     * Precisa de dois dispositivos: o destino mora em `var/` e a origem vem do primeiro candidato
+     * que esteja em outro — `sys_get_temp_dir()` ou `/dev/shm` (medido no container: 100, 204 e
+     * 2096 para `var/`). É o mesmo arranjo da produção: upload em `/tmp`, uploads num volume.
+     */
+    #[TestDox('sobrescrita com origem em outro dispositivo não reescreve o arquivo publicado no lugar')]
+    public function testOrigemEmOutroDispositivoNaoReescreveOInodePublicado(): void
+    {
+        $raizEmOutroDisco = \dirname(__DIR__, 4) . '/var/e2-dispositivo-' . bin2hex(random_bytes(6));
+        mkdir($raizEmOutroDisco, 0o755, true);
+
+        $origem = $this->origemEmOutroDispositivoQue($raizEmOutroDisco, 'conteúdo novo');
+
+        try {
+            if ($origem === null) {
+                self::markTestSkipped('nenhum diretório gravável em outro dispositivo que var/ (tentados: sys_get_temp_dir(), /dev/shm)');
+            }
+
+            $backend = new ArmazenamentoLocal(new ResolvedorDeCaminhoLocal(
+                uploadsDir: $raizEmOutroDisco . '/pastas',
+                clientesUploadsDir: $raizEmOutroDisco . '/clientes',
+                chamadosUploadsDir: $raizEmOutroDisco . '/chamados',
+                justificativasUploadsDir: $raizEmOutroDisco . '/justificativas',
+                fotosPerfilDir: $raizEmOutroDisco . '/perfil',
+                cobrancasUploadsDir: $raizEmOutroDisco . '/cobrancas',
+                kanbanUploadsDir: $raizEmOutroDisco . '/kanban',
+            ));
+
+            $chave = $this->chave('publicado.pdf');
+            $backend->gravar($chave, FonteDeConteudo::deTexto('conteúdo antigo'));
+
+            $publicado = $raizEmOutroDisco . '/clientes/publicado.pdf';
+            $vinculo   = $raizEmOutroDisco . '/clientes/vinculo-do-antigo';
+            self::assertTrue(link($publicado, $vinculo));
+
+            $backend->gravar($chave, FonteDeConteudo::deArquivoLocal($origem, consumirOrigem: true));
+
+            self::assertSame('conteúdo novo', file_get_contents($publicado));
+            self::assertSame(
+                'conteúdo antigo',
+                file_get_contents($vinculo),
+                'o arquivo publicado foi reescrito no lugar — a cópia entre dispositivos não foi atômica',
+            );
+            self::assertFileDoesNotExist($origem);
+            self::assertSame([], glob($raizEmOutroDisco . '/clientes/*.parcial-*') ?: []);
+        } finally {
+            if ($origem !== null) {
+                @unlink($origem);
+            }
+            $this->removerArvore($raizEmOutroDisco);
+        }
+    }
+
+    /**
+     * O ramo de falha do caminho rápido: a origem já foi para o vizinho e o destino não aceita a
+     * publicação (é um diretório). O conteúdo tem de voltar para a origem, o caminho lento também
+     * falha, e nada fica para trás — nem perdido, nem `.parcial-` no volume.
+     */
+    #[TestDox('destino impublicável: a gravação falha, a origem volta intacta e não sobra .parcial-')]
+    public function testDestinoImpublicavelDevolveAOrigem(): void
+    {
+        mkdir($this->raiz . '/clientes/ocupado.pdf', 0o755, true); // um diretório no lugar do arquivo
+        $origem = $this->arquivoTemporarioCom('conteúdo que não pode sumir');
+
+        try {
+            $this->backend->gravar($this->chave('ocupado.pdf'), FonteDeConteudo::deArquivoLocal($origem, consumirOrigem: true));
+            self::fail('A publicação sobre um diretório foi aceita.');
+        } catch (FalhaDeArmazenamento) {
+            // esperado
+        }
+
+        try {
+            self::assertStringEqualsFile($origem, 'conteúdo que não pode sumir');
+            self::assertSame([], glob($this->raiz . '/clientes/*.parcial-*') ?: []);
+        } finally {
+            @unlink($origem);
+        }
+    }
+
+    private function origemEmOutroDispositivoQue(string $destino, string $conteudo): ?string
+    {
+        $dispositivo = stat($destino)['dev'];
+
+        foreach ([sys_get_temp_dir(), '/dev/shm'] as $candidato) {
+            if (!is_dir($candidato) || !is_writable($candidato) || stat($candidato)['dev'] === $dispositivo) {
+                continue;
+            }
+
+            $caminho = tempnam($candidato, 'contrato-origem-');
+            if ($caminho === false || \dirname($caminho) !== rtrim($candidato, '/')) {
+                continue; // tempnam caiu em silêncio no temporário do sistema
+            }
+
+            file_put_contents($caminho, $conteudo);
+
+            return $caminho;
+        }
+
+        return null;
     }
 
     private function modoDe(string $caminho): int

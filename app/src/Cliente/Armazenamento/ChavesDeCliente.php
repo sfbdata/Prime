@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Cliente\Armazenamento;
 
+use App\Cliente\Entity\Cliente;
 use App\Cliente\Entity\ClienteDocumento;
 use App\Shared\Armazenamento\CategoriaDeArquivo;
 use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Shared\Armazenamento\EscopoDeArquivo;
 use App\Shared\Armazenamento\Exception\ChaveDeArquivoInvalida;
+use App\Shared\Armazenamento\NovoArquivo;
 
 /**
  * Traduz o documento do cliente em {@see ChaveDeArquivo} (E2.2).
@@ -26,18 +28,35 @@ final class ChavesDeCliente
 
     public static function documento(ClienteDocumento $documento): ChaveDeArquivo
     {
-        $id = $documento->getTenant()?->getId();
-
-        if ($id === null) {
-            throw new ChaveDeArquivoInvalida(
-                'Não dá para montar a chave de armazenamento de documento de cliente sem o escritório dono.',
-            );
-        }
-
         return new ChaveDeArquivo(
-            EscopoDeArquivo::deTenant($id),
+            self::escopoDe($documento->getTenant()?->getId(), 'documento de cliente'),
             CategoriaDeArquivo::CLIENTE_DOCUMENTO,
             $documento->getCaminhoArquivo(),
         );
+    }
+
+    /**
+     * Arquivo novo (E2.4A): o nome é cunhado pelo storage (D8); o escopo sai do cliente, de quem o
+     * documento copia o escritório na criação.
+     */
+    public static function novoDocumento(Cliente $cliente, string $extensao): NovoArquivo
+    {
+        return new NovoArquivo(
+            self::escopoDe($cliente->getTenant()?->getId(), 'documento novo de cliente'),
+            CategoriaDeArquivo::CLIENTE_DOCUMENTO,
+            $extensao,
+        );
+    }
+
+    private static function escopoDe(?int $tenantId, string $oQue): EscopoDeArquivo
+    {
+        if ($tenantId === null) {
+            throw new ChaveDeArquivoInvalida(sprintf(
+                'Não dá para montar a chave de armazenamento de %s sem o escritório dono.',
+                $oQue,
+            ));
+        }
+
+        return EscopoDeArquivo::deTenant($tenantId);
     }
 }
