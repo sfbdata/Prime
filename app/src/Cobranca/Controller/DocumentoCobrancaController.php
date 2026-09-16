@@ -23,9 +23,8 @@ use App\Cobranca\UseCase\ReordenarSecoesCasoUseCase;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
-use App\Shared\Service\ArquivoStorageInterface;
+use App\Shared\Http\EntregaDeArquivo;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -60,8 +59,8 @@ final class DocumentoCobrancaController extends AbstractController
         private readonly CasoCobrancaRepository $casoRepository,
         private readonly CobrancaSecaoRepository $secaoRepository,
         private readonly CobrancaDocumentoRepository $documentoRepository,
-        private readonly ArquivoStorageInterface $storage,
         private readonly ArmazenamentoDeArquivos $armazenamento,
+        private readonly EntregaDeArquivo $entrega,
         private readonly CsrfTokenManagerInterface $csrfTokenManager,
         private readonly EnviarDocumentoUseCase $enviarDocumento,
         private readonly MoverDocumentoUseCase $moverDocumento,
@@ -71,7 +70,6 @@ final class DocumentoCobrancaController extends AbstractController
         private readonly ExcluirSecaoUseCase $excluirSecao,
         private readonly ReordenarDocumentosCasoUseCase $reordenarDocumentos,
         private readonly ReordenarSecoesCasoUseCase $reordenarSecoes,
-        private readonly string $cobrancasUploadsDir,
     ) {
     }
 
@@ -299,7 +297,7 @@ final class DocumentoCobrancaController extends AbstractController
     }
 
     #[Route('/documentos/{docId}/download', name: 'cobranca_documento_download', methods: ['GET'], requirements: ['docId' => '\d+'])]
-    public function download(int $docId): BinaryFileResponse
+    public function download(int $docId): Response
     {
         $tenant = $this->tenantComModulo();
         if ($tenant === null) {
@@ -311,13 +309,13 @@ final class DocumentoCobrancaController extends AbstractController
             throw $this->createNotFoundException('Documento não encontrado.');
         }
 
-        if (!$this->armazenamento->existe(ChavesDeCobranca::documentoDeCaso($documento))) {
+        $chave = ChavesDeCobranca::documentoDeCaso($documento);
+
+        if (!$this->armazenamento->existe($chave)) {
             throw $this->createNotFoundException('Arquivo não encontrado no armazenamento.');
         }
 
-        $caminho = $this->storage->caminho($this->cobrancasUploadsDir . '/' . $tenant->getId(), $documento->getCaminhoArquivo());
-
-        return $this->storage->servir($caminho, $documento->getNomeOriginal(), inline: false);
+        return $this->entrega->resposta($chave, $documento->getNomeOriginal(), inline: false);
     }
 
     // -------------------------------------------------------- reordenação -----

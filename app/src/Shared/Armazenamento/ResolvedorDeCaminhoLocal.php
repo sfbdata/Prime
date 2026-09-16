@@ -19,8 +19,9 @@ use App\Shared\Armazenamento\Exception\FalhaDeArmazenamento;
  *
  * `%uploads_dir%`, `%clientes_uploads_dir%`, `%chamados_uploads_dir%`,
  * `%justificativas_uploads_dir%`, `%fotos_perfil_dir%`, `%cobrancas_uploads_dir%` e
- * `%kanban_uploads_dir%` hoje são injetados em 33 arquivos de domínio. Ao fim da E2 nenhum
- * domínio os recebe, e o teste de arquitetura da E2.8 cobra isso.
+ * `%kanban_uploads_dir%` eram injetados em 33 arquivos de domínio no início da E2; a E2.3 tirou o
+ * diretório de cinco controllers de download, e os demais saem nas fatias seguintes. Ao fim da E2
+ * nenhum domínio os recebe, e o teste de arquitetura da E2.8 cobra isso.
  *
  * ## O escopo é ignorado em sete das nove categorias — e isso é deliberado
  *

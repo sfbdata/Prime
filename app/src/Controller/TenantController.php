@@ -39,6 +39,7 @@ use App\Repository\TenantRoleRepository;
 use App\Profile\DTO\DadosPessoaisInput;
 use App\Profile\Form\DadosPessoaisType;
 use App\Profile\UseCase\ObterOuCriarPerfilUseCase;
+use App\Shared\Http\EntregaDeArquivo;
 use App\Tenant\DTO\RemoverColaboradorInput;
 use App\Tenant\UseCase\RemoverColaboradorDoEscritorioUseCase;
 use App\Tenant\UseCase\ExcluirEscritorioUseCase;
@@ -72,6 +73,7 @@ final class TenantController extends AbstractController
         private readonly string $justificativasUploadsDir,
         private readonly ArquivoStorageService $storage,
         private readonly ArmazenamentoDeArquivos $armazenamento,
+        private readonly EntregaDeArquivo $entrega,
         private readonly TenantContext $tenantContext,
         private readonly InicioContagemResolver $inicioContagemResolver,
     ) {}
@@ -1579,13 +1581,13 @@ final class TenantController extends AbstractController
             throw $this->createNotFoundException('Esta justificativa não possui atestado.');
         }
 
-        if (!$this->armazenamento->existe(ChavesDePonto::anexoDeJustificativa($justificativa))) {
+        $chave = ChavesDePonto::anexoDeJustificativa($justificativa);
+
+        if (!$this->armazenamento->existe($chave)) {
             throw $this->createNotFoundException('Arquivo não encontrado.');
         }
 
-        $filePath = $this->storage->caminho($this->justificativasUploadsDir, $justificativa->getAnexoPath());
-
-        return $this->storage->servir($filePath, $justificativa->getAnexoPath(), inline: true);
+        return $this->entrega->resposta($chave, $justificativa->getAnexoPath(), inline: true);
     }
 
     private function calcularCargaDiaria(JornadaColaborador $jornada): int

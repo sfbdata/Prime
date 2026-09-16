@@ -33,9 +33,8 @@ use App\Entity\Tenant\Tenant;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
-use App\Shared\Service\ArquivoStorageInterface;
+use App\Shared\Http\EntregaDeArquivo;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -69,9 +68,8 @@ final class CarteiraController extends AbstractController
         private readonly CriarObjetoComCobrancaUseCase $criarObjeto,
         private readonly EnviarDocumentoCarteiraUseCase $enviarDocumentoCarteira,
         private readonly ExcluirDocumentoCarteiraUseCase $excluirDocumentoCarteira,
-        private readonly ArquivoStorageInterface $storage,
         private readonly ArmazenamentoDeArquivos $armazenamento,
-        private readonly string $cobrancasUploadsDir,
+        private readonly EntregaDeArquivo $entrega,
     ) {
     }
 
@@ -358,7 +356,7 @@ final class CarteiraController extends AbstractController
     }
 
     #[Route('/carteiras/documentos/{docId}/download', name: 'cobranca_carteira_documento_download', methods: ['GET'], requirements: ['docId' => '\d+'])]
-    public function downloadDocumento(int $docId): BinaryFileResponse
+    public function downloadDocumento(int $docId): Response
     {
         $tenant = $this->tenantComModulo();
         if ($tenant === null) {
@@ -370,13 +368,13 @@ final class CarteiraController extends AbstractController
             throw $this->createNotFoundException('Documento não encontrado.');
         }
 
-        if (!$this->armazenamento->existe(ChavesDeCobranca::documentoDeCarteira($documento))) {
+        $chave = ChavesDeCobranca::documentoDeCarteira($documento);
+
+        if (!$this->armazenamento->existe($chave)) {
             throw $this->createNotFoundException('Arquivo não encontrado no armazenamento.');
         }
 
-        $caminho = $this->storage->caminho($this->cobrancasUploadsDir . '/' . $tenant->getId(), $documento->getCaminhoArquivo());
-
-        return $this->storage->servir($caminho, $documento->getNomeOriginal(), inline: false);
+        return $this->entrega->resposta($chave, $documento->getNomeOriginal(), inline: false);
     }
 
     /**

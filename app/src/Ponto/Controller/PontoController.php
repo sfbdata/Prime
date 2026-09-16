@@ -25,6 +25,7 @@ use App\Repository\UserRepository;
 use App\Entity\Tenant\Tenant;
 use App\Repository\UserTenantRepository;
 use App\Service\NotificacaoService;
+use App\Shared\Http\EntregaDeArquivo;
 use App\Tenant\UseCase\GerarCodigoFuncionario;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
@@ -56,6 +57,7 @@ final class PontoController extends AbstractController
         private readonly VerificadorAlertaPonto $verificadorAlerta,
         private readonly ArquivoStorageService $storage,
         private readonly ArmazenamentoDeArquivos $armazenamento,
+        private readonly EntregaDeArquivo $entrega,
         private readonly JornadaResolver $jornadaResolver,
         private readonly GerarCodigoFuncionario $gerarCodigo,
         private readonly TenantContext $tenantContext,
@@ -506,13 +508,13 @@ final class PontoController extends AbstractController
             throw $this->createNotFoundException('Esta justificativa não possui atestado.');
         }
 
-        if (!$this->armazenamento->existe(ChavesDePonto::anexoDeJustificativa($justificativa))) {
+        $chave = ChavesDePonto::anexoDeJustificativa($justificativa);
+
+        if (!$this->armazenamento->existe($chave)) {
             throw $this->createNotFoundException('Arquivo não encontrado.');
         }
 
-        $filePath = $this->storage->caminho($this->justificativasUploadsDir, $justificativa->getAnexoPath());
-
-        return $this->storage->servir($filePath, $justificativa->getAnexoPath(), inline: true);
+        return $this->entrega->resposta($chave, $justificativa->getAnexoPath(), inline: true);
     }
 
     #[Route('/alerta-horario', name: 'ponto_alerta_horario', methods: ['GET'])]

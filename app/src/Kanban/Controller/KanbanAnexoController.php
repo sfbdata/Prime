@@ -6,6 +6,7 @@ namespace App\Kanban\Controller;
 
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Kanban\Armazenamento\ChavesDeKanban;
 use App\Kanban\Repository\KanbanAnexoRepository;
 use App\Kanban\Repository\KanbanCardRepository;
 use App\Kanban\UseCase\AdicionarAnexoUseCase;
@@ -13,7 +14,7 @@ use App\Kanban\Service\ArquivosDeAnexoDoKanban;
 use App\Kanban\UseCase\ExcluirAnexoUseCase;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
-use App\Shared\Service\ArquivoStorageInterface;
+use App\Shared\Http\EntregaDeArquivo;
 use App\Shared\Trait\ValidaCsrfAjaxTrait;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -31,8 +32,8 @@ final class KanbanAnexoController extends AbstractController
         private readonly ExcluirAnexoUseCase $excluirAnexo,
         private readonly KanbanCardRepository $cardRepository,
         private readonly KanbanAnexoRepository $anexoRepository,
-        private readonly ArquivoStorageInterface $storage,
         private readonly ArquivosDeAnexoDoKanban $arquivos,
+        private readonly EntregaDeArquivo $entrega,
         private readonly PermissionChecker $permissionChecker,
         private readonly TenantContext $tenantContext,
     ) {
@@ -88,7 +89,11 @@ final class KanbanAnexoController extends AbstractController
             throw $this->createNotFoundException('Arquivo não encontrado.');
         }
 
-        return $this->storage->servir($this->arquivos->caminhoDe($anexo), $anexo->getNomeOriginal(), inline: true);
+        return $this->entrega->resposta(
+            ChavesDeKanban::anexo($anexo),
+            $anexo->getNomeOriginal(),
+            inline: true,
+        );
     }
 
     #[Route('/anexo/{id}/excluir', name: 'kanban_anexo_excluir', methods: ['POST'], requirements: ['id' => '\d+'])]

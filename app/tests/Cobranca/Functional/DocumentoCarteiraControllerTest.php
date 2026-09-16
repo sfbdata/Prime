@@ -75,6 +75,8 @@ final class DocumentoCarteiraControllerTest extends CobrancaWebTestCase
         $client->request('GET', '/cobrancas/carteiras/documentos/' . $doc->getId() . '/download');
 
         self::assertResponseIsSuccessful();
+        // E2.3: a entrega por chave preserva a disposição e o nome que o usuário enviou.
+        self::assertResponseHeaderSame('Content-Disposition', 'attachment; filename=comprovante.txt');
     }
 
     #[TestDox('Excluir documento da carteira: some da lista (PRG)')]

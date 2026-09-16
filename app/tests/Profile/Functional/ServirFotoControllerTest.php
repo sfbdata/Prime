@@ -124,6 +124,7 @@ final class ServirFotoControllerTest extends JusPrimeWebTestCase
         $client->request('GET', '/perfil/foto/' . $fotoB);
 
         self::assertResponseIsSuccessful();
+        self::assertResponseHeaderSame('Content-Disposition', 'inline; filename=' . $fotoB);
     }
 
     #[TestDox('GET /perfil/foto/{nome} com filename real de outro tenant retorna 404 (prova isolamento cross-tenant)')]
@@ -174,6 +175,7 @@ final class ServirFotoControllerTest extends JusPrimeWebTestCase
         $client->request('GET', '/perfil/foto/' . $fotoA);
 
         self::assertResponseIsSuccessful();
+        self::assertResponseHeaderSame('Content-Disposition', 'inline; filename=' . $fotoA);
     }
 
     #[TestDox('GET /perfil/foto/{nome} com fotoUrl que o armazenamento se recusa a endereçar retorna 404, nunca 500')]

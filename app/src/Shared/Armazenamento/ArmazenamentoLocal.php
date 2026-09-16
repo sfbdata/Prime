@@ -12,10 +12,12 @@ use App\Shared\Armazenamento\Exception\FalhaDeArmazenamento;
  * nos mesmos caminhos (INV-1).
  *
  * Convive de propósito com `ArquivoStorageService`, que **não foi tocado** e continua atendendo
- * `ArquivoStorageInterface` para os 33 consumidores atuais. É o shim de D2: os dois escrevem no
- * mesmo disco, pelo mesmo layout, enquanto os consumidores migram fatia a fatia. Esta classe
+ * `ArquivoStorageInterface` para os consumidores que ainda não migraram — 33 no início da E2; depois
+ * da E2.3 sobram os que gravam e excluem por caminho, que migram na E2.4 e na E2.5. É o shim de D2:
+ * os dois escrevem no mesmo disco, pelo mesmo layout, enquanto os consumidores migram fatia a
+ * fatia. Esta classe
  * **não** implementa a interface antiga — duas implementações da mesma interface quebrariam o
- * autowiring por interface e derrubariam os 33 de uma vez.
+ * autowiring por interface e derrubariam todos de uma vez.
  *
  * ## O que ele faz melhor que o antigo, sem mudar nenhum caminho
  *
@@ -25,8 +27,14 @@ use App\Shared\Armazenamento\Exception\FalhaDeArmazenamento;
  *  - **erro não some**: toda falha de I/O vira `FalhaDeArmazenamento`;
  *  - **metadados no retorno**: tamanho e MIME medidos DEPOIS da escrita, o que remove o motivo de
  *    alguém tocar na origem depois de gravar (a causa do 500 do Kanban).
+ *
+ * ## Também é o materializador do disco (E2.3)
+ *
+ * Aqui `paraLeitura()` é cópia zero: o arquivo já está em disco, então o caminho emprestado é o
+ * dele. Mora nesta classe, e não numa vizinha, para que o `ResolvedorDeCaminhoLocal` continue
+ * sendo detalhe privado do backend (D11) — ninguém fora daqui converte chave em caminho.
  */
-final readonly class ArmazenamentoLocal implements ArmazenamentoDeArquivos
+final readonly class ArmazenamentoLocal implements ArmazenamentoDeArquivos, MaterializadorDeArquivo
 {
     /** Tentativas de cunhagem antes de desistir. Com 128 bits, colidir uma vez já é anedota. */
     private const TENTATIVAS_DE_CUNHAGEM = 5;
@@ -171,6 +179,33 @@ final readonly class ArmazenamentoLocal implements ArmazenamentoDeArquivos
             atualizadoEm: (new \DateTimeImmutable())->setTimestamp($mtime),
             checksum: null, // D6: cálculo fica para a E3
         );
+    }
+
+    /**
+     * Cópia zero: devolve, emprestado, o caminho do próprio arquivo persistido.
+     *
+     * A ordem das checagens é o D10. Antes de afirmar "não existe", prova que dava para olhar —
+     * com o diretório ilegível o `is_file()` também devolve false, e sem a prova isso viraria 404
+     * na rota. E um arquivo presente mas ilegível é pane, não ausência.
+     */
+    public function paraLeitura(ChaveDeArquivo $chave): ArquivoEmprestado
+    {
+        $caminho = $this->resolvedor->caminhoDe($chave);
+        clearstatcache(true, $caminho);
+
+        if (!is_file($caminho)) {
+            $this->exigirCadeiaLegivel($caminho, $chave);
+
+            throw ArquivoNaoEncontrado::para($chave);
+        }
+
+        if (!is_readable($caminho)) {
+            throw new FalhaDeArmazenamento(
+                sprintf('Arquivo existe mas não é legível: %s', $chave->comoTexto()),
+            );
+        }
+
+        return new ArquivoEmprestado($caminho);
     }
 
     private function cunharChaveLivre(NovoArquivo $novo): ChaveDeArquivo

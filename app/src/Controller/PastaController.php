@@ -27,6 +27,7 @@ use App\Entity\Permission\AccessRequest;
 use App\Repository\UserRepository;
 use App\Repository\UserTenantRepository;
 use App\Expediente\Repository\MarcadorRepository;
+use App\Shared\Http\EntregaDeArquivo;
 use App\Twig\ArquivoIconeExtension;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
@@ -132,6 +133,7 @@ class PastaController extends AbstractController
         private readonly string $uploadsDir,
         private readonly ArquivoStorageInterface $storage,
         private readonly ArmazenamentoDeArquivos $armazenamento,
+        private readonly EntregaDeArquivo $entrega,
         private readonly CompressorArquivoInterface $compressor,
         private readonly PermissionChecker $permissionChecker,
         private readonly TenantContext $tenantContext,
@@ -1607,13 +1609,13 @@ class PastaController extends AbstractController
             throw $this->createAccessDeniedException('Você não tem permissão para acessar documentos desta pasta.');
         }
 
-        if (!$this->armazenamento->existe(ChavesDePasta::documento($doc))) {
+        $chave = ChavesDePasta::documento($doc);
+
+        if (!$this->armazenamento->existe($chave)) {
             throw $this->createNotFoundException('Arquivo não encontrado no servidor.');
         }
 
-        $caminho = $this->storage->caminho($this->uploadsDir, $doc->getCaminhoArquivo());
-
-        return $this->storage->servir($caminho, $doc->getNomeOriginal(), inline: true);
+        return $this->entrega->resposta($chave, $doc->getNomeOriginal(), inline: true);
     }
 
     #[Route('/documento/{id}/download', name: 'pasta_documento_download', methods: ['GET'])]
@@ -1626,15 +1628,15 @@ class PastaController extends AbstractController
             throw $this->createAccessDeniedException('Você não tem permissão para acessar documentos desta pasta.');
         }
 
-        if (!$this->armazenamento->existe(ChavesDePasta::documento($doc))) {
+        $chave = ChavesDePasta::documento($doc);
+
+        if (!$this->armazenamento->existe($chave)) {
             $this->addFlash('error', 'Arquivo não encontrado no servidor.');
 
             return $this->redirectToRoute('pasta_show', ['id' => $doc->getPasta()?->getId()]);
         }
 
-        $caminho = $this->storage->caminho($this->uploadsDir, $doc->getCaminhoArquivo());
-
-        return $this->storage->servir($caminho, $doc->getNomeOriginal(), inline: false);
+        return $this->entrega->resposta($chave, $doc->getNomeOriginal(), inline: false);
     }
 
     #[Route('/documento/{id}/editar', name: 'pasta_documento_edit', methods: ['POST'])]
@@ -1906,13 +1908,13 @@ class PastaController extends AbstractController
             throw $this->createNotFoundException('Documento não encontrado.');
         }
 
-        if (!$this->armazenamento->existe(ChavesDePasta::documento($doc))) {
+        $chave = ChavesDePasta::documento($doc);
+
+        if (!$this->armazenamento->existe($chave)) {
             throw $this->createNotFoundException('Arquivo não encontrado no servidor.');
         }
 
-        $caminho = $this->storage->caminho($this->uploadsDir, $doc->getCaminhoArquivo());
-
-        return $this->storage->servir($caminho, $doc->getNomeOriginal(), inline: true);
+        return $this->entrega->resposta($chave, $doc->getNomeOriginal(), inline: true);
     }
 
     // ── Financeiro: Download documento de contrato ────────────────────────────
@@ -1933,13 +1935,13 @@ class PastaController extends AbstractController
             throw $this->createNotFoundException('Documento não encontrado.');
         }
 
-        if (!$this->armazenamento->existe(ChavesDePasta::documento($doc))) {
+        $chave = ChavesDePasta::documento($doc);
+
+        if (!$this->armazenamento->existe($chave)) {
             throw $this->createNotFoundException('Arquivo não encontrado no servidor.');
         }
 
-        $caminho = $this->storage->caminho($this->uploadsDir, $doc->getCaminhoArquivo());
-
-        return $this->storage->servir($caminho, $doc->getNomeOriginal(), inline: false);
+        return $this->entrega->resposta($chave, $doc->getNomeOriginal(), inline: false);
     }
 
     // ── Financeiro: Renomear documento de contrato ───────────────────────────

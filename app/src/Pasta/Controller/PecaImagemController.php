@@ -8,7 +8,7 @@ use App\Pasta\Armazenamento\ChavesDePasta;
 use App\Service\Tenant\TenantContext;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Armazenamento\Exception\ChaveDeArquivoInvalida;
-use App\Shared\Service\ArquivoStorageInterface;
+use App\Shared\Http\EntregaDeArquivo;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -18,14 +18,15 @@ use Symfony\Component\Routing\Attribute\Route;
  * `<img src="/uploads/pastas/<hex>.<ext>">` (e o ExportarPecaTextoUseCase reescreve `/uploads/`
  * para caminho de disco no export). Antes do C5 essa URL era servida ESTÁTICA pelo nginx, sem
  * qualquer auth; agora o nginx roteia `/uploads/` ao front controller e esta rota entrega o
- * arquivo via ArquivoStorageInterface.
+ * arquivo pela EntregaDeArquivo, endereçado por chave — sem conhecer o diretório físico (E2.3).
  *
- * Isolamento por tenant (M5): a imagem mora em `%uploads_dir%/<tenantId>/` (gravada lá pelo upload
- * em `PeticionarController::uploadImagemEditor`) e esta rota só resolve sob a subpasta do tenant da
- * SESSÃO. Um logado do escritório A não baixa a imagem de B mesmo sabendo o nome hex → 404. A URL
- * embutida no HTML continua `/uploads/pastas/<hex>` (o tenant é injetado aqui, no disco, não na URL).
- * Fail-closed: sem tenant na sessão (super-admin) → 404. Fecha de quebra o caminho paralelo às
- * imagens de documento (que só ficam acessíveis pela rota de entidade `pasta_documento_*`).
+ * Isolamento por tenant (M5): a imagem é da categoria `PASTA_IMAGEM_EDITOR`, que o backend isola
+ * fisicamente por escritório (gravada pelo upload em `PeticionarController::uploadImagemEditor`), e
+ * esta rota monta a chave com o tenant da SESSÃO. Um logado do escritório A não baixa a imagem de B
+ * mesmo sabendo o nome hex → 404. A URL embutida no HTML continua `/uploads/pastas/<hex>` (o tenant
+ * entra na chave, não na URL). Fail-closed: sem tenant na sessão (super-admin) → 404. Fecha de
+ * quebra o caminho paralelo às imagens de documento (que só ficam acessíveis pela rota de entidade
+ * `pasta_documento_*`).
  *
  * Restrita a extensões de imagem: documentos/peças (pdf/html/docx) NÃO são servidos por aqui —
  * eles têm rotas próprias por entidade (pasta_documento_*), com checagem de tenant/posse.
@@ -33,10 +34,9 @@ use Symfony\Component\Routing\Attribute\Route;
 final class PecaImagemController extends AbstractController
 {
     public function __construct(
-        private readonly ArquivoStorageInterface $storage,
         private readonly ArmazenamentoDeArquivos $armazenamento,
+        private readonly EntregaDeArquivo $entrega,
         private readonly TenantContext $tenantContext,
-        private readonly string $uploadsDir,
     ) {
     }
 
@@ -71,8 +71,6 @@ final class PecaImagemController extends AbstractController
             throw $this->createNotFoundException();
         }
 
-        $caminho = $this->storage->caminho($this->uploadsDir . '/' . $tenant->getId(), $nome);
-
-        return $this->storage->servir($caminho, $nome, inline: true);
+        return $this->entrega->resposta($chave, $nome, inline: true);
     }
 }

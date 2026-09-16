@@ -62,6 +62,8 @@ final class KanbanAnexoCicloDeVidaTest extends JusPrimeWebTestCase
         $client->request('GET', "/kanban/anexo/{$anexoId}");
 
         self::assertResponseIsSuccessful('o anexo recém-enviado deveria ser servível');
+        self::assertResponseHeaderSame('Content-Disposition', 'inline; filename=documento.pdf');
+        self::assertSame('%PDF-1.4 conteudo de teste', $client->getInternalResponse()->getContent());
     }
 
     #[TestDox('Excluir o anexo remove o arquivo do disco')]

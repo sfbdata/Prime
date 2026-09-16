@@ -27,9 +27,10 @@ use App\Shared\Service\ArquivoStorageInterface;
  *    de ser limpo ANTES de o ORM cascatear.
  *
  * Estado misto da E2.2 (D2): a PRESENÇA é perguntada ao armazenamento novo, por chave montada a
- * partir da entidade (`ChavesDeKanban`); `caminhoDe()` e a remoção ainda são da interface antiga,
- * até a E2.3/E2.5. O antigo `diretorio()` saiu: devolvia o diretório cru e não tinha consumidor —
- * vazamento de caminho sem uso (spec E2, §1.3-D5).
+ * partir da entidade (`ChavesDeKanban`); a remoção ainda é da interface antiga, por caminho, até a
+ * E2.5. O antigo `diretorio()` saiu na E2.2 (devolvia o diretório cru e não tinha consumidor), e
+ * `caminhoDe()` virou privado na E2.3: o controller passou a entregar o anexo por chave, e o único
+ * uso que sobrou do caminho é a remoção, aqui dentro.
  */
 final class ArquivosDeAnexoDoKanban
 {
@@ -40,7 +41,7 @@ final class ArquivosDeAnexoDoKanban
     ) {
     }
 
-    public function caminhoDe(KanbanAnexo $anexo): string
+    private function caminhoDe(KanbanAnexo $anexo): string
     {
         return $this->storage->caminho($this->kanbanUploadsDir, $anexo->getCaminho());
     }

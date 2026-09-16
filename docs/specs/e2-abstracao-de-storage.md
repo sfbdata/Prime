@@ -259,8 +259,12 @@ nem autorização, nem MIME de apresentação, nem auditoria, nem transação.
   No Local, `paraLeitura()` é **cópia zero** — devolve o caminho do arquivo de produção.
   Existe porque quatro consumidores exigem caminho real: Ghostscript via `Process`, GD,
   Dompdf/PhpWord com imagens locais, e o upload em blocos do Drive.
-- **`EntregaDeArquivo`** (camada HTTP, fora de `Shared\Armazenamento`) —
-  `resposta(ChaveDeArquivo, string $nomeParaDownload, bool $inline, PoliticaDeEntrega): Response`.
+  **Entrou em duas partes:** `paraLeitura()` na E2.3, porque a entrega HTTP precisa dele;
+  `copiaGravavel()` fica para a E2.6, junto dos consumidores e dos testes de modo de falha de D4.
+- **`EntregaDeArquivo`** (camada HTTP, `App\Shared\Http\`, fora de `Shared\Armazenamento`) —
+  `resposta(ChaveDeArquivo, string $nomeParaDownload, bool $inline): Response`. Entregue na E2.3
+  **sem** o parâmetro `PoliticaDeEntrega`: nenhum backend sabe redirecionar ainda, e decidir a
+  política é da E4 (ver §5 e o bloco da E2.3 no §10).
 
 ### 3.4 Responsabilidades
 
@@ -344,8 +348,10 @@ Verificado no vendor instalado (Symfony 7.4.5): `BinaryFileResponse` trata `Acce
 cópia zero — comportamento bit a bit igual ao de hoje, **sob INV-9**: esse path é o arquivo de
 produção, e nada pode apagá-lo.
 
-O contrato já admite `PoliticaDeEntrega` (`SEMPRE_PELO_BACKEND` | `PERMITE_REDIRECT`) e o storage
-declara como consegue entregar. **Nenhuma implementação de redirect ou presigned entra na E2** — o
+O contrato **previa** `PoliticaDeEntrega` (`SEMPRE_PELO_BACKEND` | `PERMITE_REDIRECT`), com o storage
+declarando como consegue entregar. A E2.3 entregou a assinatura **sem** esse parâmetro: todas as 15
+rotas passariam o mesmo valor, e nenhuma implementação o leria — a E4 o acrescenta quando houver o
+que decidir. **Nenhuma implementação de redirect ou presigned entra na E2** — o
 espaço existe para a E4 decidir, com o trade-off já levantado: presigned economiza banda da VPS
 (egress do R2 é grátis) e serve arquivo grande e futura gravação de videoconferência, ao custo de
 perder o evento de auditoria por request.
@@ -404,6 +410,13 @@ de propósito (`PurgarEscritorioUseCase.php:344`).
 | **D8 — política de extensão, RATIFICADA em 15/09 (antes da E2.2)** | A extensão de arquivo NOVO **nunca é recusada**: extensão válida/segura é preservada; o que não serve vira `bin`; o nome do usuário continua em `nome_original`; o MIME é autoritativo para entrega quando aplicável. A revisão mediu contra os 20.954 `nome_original` reais: a versão que recusava derrubaria **18** arquivos (`açaí - 02 junho 2025`, `pdf canvelado por atraso - refeito`, …), e o único chamador que deriva extensão de dado do usuário é o sync do Drive (`ReconciliadorDePasta.php:440`). Consequência aceita: um arquivo que hoje vira `hash.açaí - 02 junho 2025` passará a `hash.bin` na E2.4. Nada se perde, mas é mudança de comportamento no sync |
 | **D8** | **O storage cunha nomes opacos** para arquivo novo (`NovoArquivo(escopo, categoria, extensao)`), com entropia equivalente à atual (128 bits). A gravação distingue **novo** (storage gera) de **chave existente** (`ChaveDeArquivo` = o nome persistido no banco). Para chave legada: **sem `trim()`, sem normalização Unicode, sem mexer em espaço, sem remover ponto final, sem sanitização destrutiva, sem exigir formato hash** — as 184 da E0 continuam endereçáveis byte a byte | §3.1 (duas regras próprias), §3.2, §11.1 |
 | **D9** | **Ownership e lifetime são explícitos no contrato, em dois tipos distintos.** Emprestado (`ArquivoEmprestado`, o path persistido do Local): não é propriedade, cleanup não apaga, destrutor não apaga, nunca `deleteFileAfterSend`. Possuído (`ArquivoTemporarioPossuido`): lifecycle explícito, cleanup apaga só ele. A distinção tem de ser **impossível de ignorar acidentalmente** — por isso tipos, não flag | INV-9, §3.3, §5, 4 testes em §11.2 |
+
+### Ratificadas pelo dono antes da E2.3 (2026-09-16)
+
+| # | Decisão | Consequência |
+|---|---|---|
+| **D10** | **Política de erro na entrega.** Nas rotas de visualização e download: (1) chave inválida vinda da requisição/URL → **404**; (2) chave válida, arquivo inexistente → **404**; (3) erro operacional real do storage (permissão, I/O, backend indisponível, falha inesperada) → **não** é mascarado como 404. A camada preserva a distinção entre "o arquivo não existe" e "não consegui consultar/ler o storage"; nenhum catch genérico transforma `FalhaDeArmazenamento` em 404. Autorização e permissão de negócio continuam acima do storage | `ArquivoNaoEncontrado` ≠ `FalhaDeArmazenamento` no materializador; `EntregaDeArquivo` só captura a primeira; teste de arquitetura trava o catch |
+| **D11** | **Entrega endereçada por chave.** A camada de entrega recebe `ChaveDeArquivo`, nunca caminho físico pronto. `Controller → ChaveDeArquivo → EntregaDeArquivo → abstração de armazenamento → backend (Local hoje, R2 depois)`. O controller não conhece `/public/uploads`, raiz física, resolvedor local, caminho absoluto nem detalhe S3/R2; `ResolvedorDeCaminhoLocal` é detalhe do backend Local | `paraLeitura()` mora no `ArmazenamentoLocal`, que mantém o resolvedor privado; teste de arquitetura proíbe resolvedor e backend concreto fora do núcleo |
 
 ---
 
@@ -465,10 +478,10 @@ integrar.
 | **E2.0** | esta spec + registro da frente | 2 docs | revisão adversarial feita |
 | **E2.1** | VOs, `ArmazenamentoDeArquivos`, `ArmazenamentoComPrefixo` (contrato só), `ArmazenamentoLocal`, `ResolvedorDeCaminhoLocal`, `ArmazenamentoEmMemoria`. `ArquivoStorageInterface` e `ArquivoStorageService` **intactos e ainda ligados** aos 33 consumidores; o `ArmazenamentoLocal` implementa **só a interface nova** | só arquivos novos | suíte verde sem tocar consumidor + `MapaDeChaveParaCaminhoLocalTest` + suíte de contrato |
 | **E2.2** — ✅ **entregue em 15/09** | fábricas de chave por domínio (`app/src/<Dominio>/Armazenamento/ChavesDe*`, 7 classes); `existe()` migrado em **26 chamadas / 21 arquivos**; **`ArquivosDeAnexoDoKanban::diretorio()` removido**. Fora, por decisão do dono: `PurgarEscritorioUseCase` (a 27ª chamada) fica **inteiro** para a E2.5; "tamanho" **não tem consumidor** nesta fatia (`metadados()` já existe desde a E2.1; os 3 `filesize()` seguem nas fatias previstas). Detalhes no bloco "E2.2 — entregue", abaixo | 21 + 7 fábricas | testes de fábrica (categoria, tenant da entidade, tenant nulo, nome byte a byte, sem parâmetro de tenant, este por reflexão) + materialização do escopo nos UseCases contra `ArmazenamentoEmMemoria` + 404 nas 2 rotas com nome pela URL + reconciliador com arquivo ausente, com nome inválido e com disco ilegível + exclusão de seção com disco ilegível pós-commit; **8 provas por reintrodução de defeito**; revisão adversarial feita e os 6 achados de código corrigidos |
-| **E2.3** | `EntregaDeArquivo` + as 15 rotas de `servir()` | 11 controllers | golden de cabeçalhos + `Range` → 206 + **teste de INV-9** |
+| **E2.3** — ✅ **entregue em 16/09** | `MaterializadorDeArquivo::paraLeitura()` (Local, cópia zero) + `EntregaDeArquivo` + as **15 rotas** de `servir()` migradas; `ArquivosDeAnexoDoKanban::caminhoDe()` privado. Detalhes no bloco "E2.3 — entregue", abaixo | 11 controllers + 2 classes novas (`MaterializadorDeArquivo`, `EntregaDeArquivo`) + 2 alteradas (`ArmazenamentoLocal`, `ArquivosDeAnexoDoKanban`) | equivalência de cabeçalhos com o `servir()` antigo + `Range` → 206 + INV-9 #3 + arquivo de 64 MB sem ir para a memória + D10 (ausente → 404, pane ≠ 404, inclusive pela rota) + teste de arquitetura; 14 provas por reintrodução; revisão adversarial feita, sem bloqueante, achados corrigidos |
 | **E2.4** | `gravar()` nos 18 pontos de escrita (inclui `EditarPecaTextoUseCase`) e leitura em `ArquivosReferenciadosEmPecas`/`ExportarPecaTextoUseCase` | 18 | unit de cada UseCase + teste de falha de I/O + teste de INV-10 |
 | **E2.5** | `excluir()` (19 chamadas) + `ArmazenamentoComPrefixo` nas 2 categorias com escopo físico | 15 | purga + isolamento cross-tenant + allowlist do arch test |
-| **E2.6** | `MaterializadorDeArquivo`; os 4 chamadores do compressor, o export e o `ReconciliadorDePasta` | 6 (todos já entre os 33) | **pré-requisito D4**: testes de modo de falha do compressor verdes **antes** |
+| **E2.6** | `MaterializadorDeArquivo::copiaGravavel()` (o `paraLeitura()` já existe desde a E2.3); os 4 chamadores do compressor, o export e o `ReconciliadorDePasta` | 6 (todos já entre os 33) | **pré-requisito D4**: testes de modo de falha do compressor verdes **antes** |
 | **E2.7** | investigação de Tarefa e, se viável sem migration, entrada na abstração (**D5**) | `TarefaController`, `CaminhoDeAnexoDeTarefa` | teste de travessia atacando o VO, não a rota |
 | **E2.8** | remoção de `caminho()`/`servir()`; docblocks de DT-5; teste de arquitetura | limpeza | suíte + arch test |
 
@@ -548,6 +561,83 @@ integrar.
   nenhuma aceita `Tenant` por parâmetro.
 - **No `ReconciliadorDePasta` o escopo sai do `tenant_id` do DOCUMENTO**, não do da pasta. Em dados
   é o mesmo (medido em `saas_ux`: 0 de 20.954 divergindo), mas quem responde pela linha é ela.
+
+**E2.3 — entregue em 16/09/2026.** O que foi decidido e feito ao executar:
+
+- **Escopo conferido antes de escrever:** 15 chamadas de `servir()` em 11 controllers, exatamente
+  a contagem da spec. As duas entregas cruas do `TarefaController` ficam na E2.7 (D5); o
+  `StreamedResponse` do ponto é exportação gerada, não arquivo persistido.
+- **Ajuste de ordenação: o materializador de leitura entrou aqui, não na E2.6.** A entrega por
+  chave precisa de um caminho real, e o §5 já dizia que ela seria montada "sobre o caminho
+  materializado em cópia zero". Entrou só `paraLeitura()`; `copiaGravavel()` continua na E2.6.
+  `paraLeitura()` mora no `ArmazenamentoLocal` para o resolvedor seguir privado (D11).
+- **Ausente ≠ ilegível (D10), no próprio backend.** Sem arquivo, o `paraLeitura()` primeiro prova
+  que dava para olhar a cadeia de diretórios e só então lança `ArquivoNaoEncontrado`; diretório
+  ilegível ou arquivo presente e ilegível lançam `FalhaDeArmazenamento`. A `EntregaDeArquivo` só
+  transforma a primeira em 404; a segunda passa direto e vira 500 na rota. **Qual barreira cada
+  teste de rota exercita** (achado da revisão): com o **diretório** ilegível, e com o arquivo
+  **ausente**, quem responde é a checagem de presença que o controller faz antes (E2.2) — a entrega
+  nem é alcançada. A prova de D10 **pela entrega**, via HTTP, é o arquivo **presente e ilegível**:
+  a checagem diz "existe", o materializador lança, e a rota responde 500. Com a entrega
+  capturando `FalhaDeArmazenamento` como 404, só esse teste de rota falha — medido. O 404 da
+  própria entrega (ausente) é provado no teste unitário, porque pela rota ele só aparece na janela
+  entre a checagem e o envio.
+- **Risco residual de D10(3) no disco local:** `is_file()` não distingue "não existe" de erro de
+  I/O no próprio arquivo (EIO, ESTALE, ELOOP). Com a cadeia de diretórios legível, esses erros
+  ainda viram `ArquivoNaoEncontrado` → 404. Não é regressão — o `file_exists()` antigo fazia o
+  mesmo, e o `existe()` da E2.1 também —, mas é um limite conhecido da distinção.
+- **Equivalência com o `servir()` antigo, não só "parece igual".** Para oito casos (PDF e PNG,
+  inline e anexo, nome com acento, com `%`, hash como nome, chave legada sem extensão) os
+  cabeçalhos `Content-Type`, `Content-Disposition`, `Accept-Ranges`, `Content-Length`,
+  `Last-Modified`, `Cache-Control` e `ETag`, o status e o corpo são idênticos entre as duas
+  implementações. O serviço antigo continua existindo para essa comparação até a E2.8.
+- **INV-9:** a entrega nunca liga `deleteFileAfterSend` (teste por reflexão e teste de
+  arquitetura), e o arquivo persistido continua lá, com o mesmo conteúdo, depois de
+  `sendContent()`. **INV-9 #4 não tem conteúdo na cópia zero:** `paraLeitura()` não escreve
+  nada, então não há como afetar o original. O teste que existe só trava essa propriedade (se a
+  cópia zero virar cópia, ele passa a provar algo); **a obrigação real — disco cheio, origem
+  sumida, falha no meio da cópia — é da `copiaGravavel()`, na E2.6**. **Temporário possuído não
+  se aplica nesta fatia:** o
+  materializador devolve só `ArquivoEmprestado`, então a entrega não tem como receber um
+  possuído; o ciclo de vida dele segue provado pelos testes da E2.1.
+- **Memória:** arquivo esparso de 64 MB enviado por inteiro com pico abaixo de 8 MB — a resposta
+  sai em blocos, como antes.
+- **Os controllers mantiveram a checagem de presença da E2.2** antes de entregar. Duas rotas
+  (download de documento da pasta e do cliente) respondem arquivo ausente com aviso e
+  redirecionamento, não com 404, e as mensagens de cada rota continuam as mesmas. O 404 da
+  própria entrega cobre a janela entre a checagem e o envio.
+- **Seis controllers deixaram de conhecer disco por completo:** `PecaImagemController`,
+  `ProfileController`, `KanbanAnexoController` e os três de Cobrança perderam o storage antigo; os
+  cinco que recebiam parâmetro de diretório o perderam também (o do Kanban nunca teve — o
+  diretório dele mora no serviço `ArquivosDeAnexoDoKanban`). Os outros cinco ainda os usam para gravar e excluir (E2.4 e E2.5). As
+  três ações de download de Cobrança passaram a declarar `Response`, não `BinaryFileResponse`.
+  `ArquivosDeAnexoDoKanban::caminhoDe()` virou privado — era o wrapper que o critério de aceite
+  1 (§12) mandava fechar, e o único uso que sobrou é a remoção interna.
+- **Cobertura que não existia:** sete das quinze rotas não tinham nenhum teste de sucesso — as
+  quatro de documento da pasta, as duas de documento do cliente e o atestado do colaborador, que
+  não tinha teste algum. Ganharam `EntregaDeArquivoRotasTest`, escrito **antes** da migração e
+  verde contra o código antigo. As outras oito ganharam a asserção exata de disposição e nome — a
+  da imagem do editor só depois da revisão, que apontou que ela tinha ficado de fora; agora ela
+  confere também `Content-Type: image/png`, `Accept-Ranges` e o corpo, com um PNG de verdade.
+- **Interpretação de D10 registrada:** o item (1) fala de chave inválida vinda da requisição ou
+  URL, e é assim nas duas rotas em que o nome vem da URL. Nas 13 rotas em que o nome vem do banco,
+  uma chave recusada continua **propagando** (500): não é "arquivo ausente", é dado que o sistema
+  nunca gravou (medido em prod: zero em 22.750 chaves), e mascará-lo iria contra o item (3).
+- **Teste de arquitetura estreito já nesta fatia** (`EntregaDeArquivoArquiteturaTest`): nenhum
+  `->servir(` em `src/`; arquivo despejado (`BinaryFileResponse`, `file()`, `readfile()`,
+  `fpassthru()`) só pela entrega — exceções datadas: `TarefaController` até a E2.7,
+  `ArquivoStorageService` até a E2.8; resolvedor e backend concreto invisíveis fora do núcleo;
+  **só a entrega injeta o materializador** (que devolve caminho físico — a porta pela qual um
+  controller voltaria a conhecer disco; a E2.6 amplia a lista com justificativa); nenhum controller
+  captura `FalhaDeArmazenamento`; entrega sem `deleteFileAfterSend` e com um único catch. Não pega
+  `StreamedResponse` montado à mão — hoje o único do sistema é exportação gerada. O teste amplo do
+  §11.3 continua sendo da E2.8.
+- **O teste de rota que torna o diretório ilegível** faz `chmod` no diretório **compartilhado** de
+  uploads de teste e restaura em `finally` (mesmo padrão do `PastaSecaoControllerTest` da E2.2).
+  Duas suítes simultâneas na mesma worktree podem colidir nessa janela.
+- ⏳ **`app/src/Shared/CLAUDE.md` ainda ensina `servir()`**, que o teste de arquitetura agora
+  proíbe, e não lista `Http/`. É documento de arquitetura: a atualização foi **proposta** ao dono
+  (critério 8 do §12), não aplicada.
 
 **Três armadilhas de ordenação, já mapeadas:**
 
@@ -731,6 +821,13 @@ E3/E4 definir; a presigned entra como terceira forma de resposta da `EntregaDeAr
 consumidor nenhum; o materializador ganha uma implementação que baixa para temporário — e nela
 `paraLeitura()` passa a ser **possuído**, ao contrário do Local (INV-9), o que o contrato já
 distingue.
+
+⚠️ **Nota da E2.3 — isto não cabe mais sem decisão.** `MaterializadorDeArquivo::paraLeitura()`
+declara `ArquivoEmprestado`, e um teste trava isso; um backend remoto não pode devolver emprestado.
+A E4 terá de escolher entre um método novo ou um retorno em união — e, se a entrega passar a
+receber um possuído, `deleteFileAfterSend` volta a ser legítimo **sobre o temporário**, o que o
+teste de arquitetura da E2.3 hoje proíbe na entrega inteira e terá de ser refinado. "Sem tocar
+consumidor nenhum" também só vale se `PoliticaDeEntrega` entrar com valor padrão.
 
 A E2 **não conhece nada da Cloudflare**. O único traço de formato remoto vive dentro do resolvedor
 de cada adapter — nunca no contrato.

@@ -24,7 +24,7 @@ use App\Profile\UseCase\ObterOuCriarPerfilUseCase;
 use App\Service\Tenant\TenantContext;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Armazenamento\Exception\ChaveDeArquivoInvalida;
-use App\Shared\Service\ArquivoStorageInterface;
+use App\Shared\Http\EntregaDeArquivo;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -41,9 +41,8 @@ final class ProfileController extends AbstractController
         private readonly AtualizarStatusUseCase $atualizarStatus,
         private readonly AtualizarDadosPessoaisUseCase $atualizarDadosPessoais,
         private readonly AtualizarFotoPerfilUseCase $atualizarFoto,
-        private readonly ArquivoStorageInterface $storage,
         private readonly ArmazenamentoDeArquivos $armazenamento,
-        private readonly string $fotosPerfilDir,
+        private readonly EntregaDeArquivo $entrega,
         private readonly TenantContext $tenantContext,
         private readonly UserProfileRepository $profileRepository,
         private readonly AtualizarOabPerfilUseCase $atualizarOab,
@@ -272,8 +271,6 @@ final class ProfileController extends AbstractController
             throw $this->createNotFoundException('Arquivo não encontrado.');
         }
 
-        $caminho = $this->storage->caminho($this->fotosPerfilDir, $nome);
-
-        return $this->storage->servir($caminho, $nome, inline: true);
+        return $this->entrega->resposta($chave, $nome, inline: true);
     }
 }
