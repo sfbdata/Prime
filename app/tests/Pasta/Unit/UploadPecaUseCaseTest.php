@@ -12,7 +12,7 @@ use App\Pasta\UseCase\ResultadoUploadPeca;
 use App\Pasta\UseCase\UploadPecaUseCase;
 use App\Shared\Armazenamento\CategoriaDeArquivo;
 use App\Shared\Armazenamento\Exception\FalhaDeArmazenamento;
-use App\Shared\Service\ArquivoStorageInterface;
+use App\Shared\Service\CompressaoDeArquivoArmazenado;
 use App\Shared\Service\CompressorArquivoInterface;
 use App\Shared\Service\ResultadoCompressao;
 use App\Tests\Shared\Doubles\ArmazenamentoEmMemoria;
@@ -21,12 +21,17 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\NullLogger;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
 /**
- * Upload de peça na pasta. Desde a E2.4A a gravação é da ponte HTTP + `ArmazenamentoDeArquivos`;
- * o storage antigo só responde o `caminho()` do compressor (E2.6).
+ * Upload de peça na pasta. Desde a E2.4A a gravação é da ponte HTTP + `ArmazenamentoDeArquivos` e,
+ * desde a E2.6B, a compressão é pela CHAVE: o use case não conhece caminho nem diretório.
+ *
+ * O serviço de compressão entra REAL, com o dublê em memória fazendo os dois papéis (armazenamento e
+ * materializador) — é política, não infraestrutura trocável; a costura de teste é a interface de
+ * baixo, como em `RemocaoAposTransacao`.
  */
 #[CoversClass(UploadPecaUseCase::class)]
 final class UploadPecaUseCaseTest extends TestCase
@@ -34,7 +39,6 @@ final class UploadPecaUseCaseTest extends TestCase
     private const PDF = "%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\ntrailer << /Root 1 0 R >>\n%%EOF\n";
 
     private EntityManagerInterface&MockObject $em;
-    private ArquivoStorageInterface&MockObject $storage;
     private CompressorArquivoInterface&MockObject $compressor;
     private ArmazenamentoEmMemoria $armazenamento;
     private UploadPecaUseCase $useCase;
@@ -45,15 +49,15 @@ final class UploadPecaUseCaseTest extends TestCase
     protected function setUp(): void
     {
         $this->em            = $this->createMock(EntityManagerInterface::class);
-        $this->storage       = $this->createMock(ArquivoStorageInterface::class);
         $this->compressor    = $this->createMock(CompressorArquivoInterface::class);
         $this->armazenamento = new ArmazenamentoEmMemoria();
-        $this->useCase       = new UploadPecaUseCase($this->em, $this->armazenamento, $this->storage, $this->compressor, '/uploads/pastas');
+        $this->useCase       = new UploadPecaUseCase(
+            $this->em,
+            $this->armazenamento,
+            new CompressaoDeArquivoArmazenado($this->armazenamento, $this->armazenamento, $this->compressor, new NullLogger()),
+        );
         $this->tenant        = $this->tenant(7);
         $this->pasta         = (new Pasta())->setTenant($this->tenant);
-
-        // A gravação não passa mais pelo storage antigo.
-        $this->storage->expects(self::never())->method('salvar');
 
         $this->diretorio = sys_get_temp_dir() . '/e2-upload-peca-' . bin2hex(random_bytes(6));
         mkdir($this->diretorio, 0o755, true);
@@ -84,7 +88,8 @@ final class UploadPecaUseCaseTest extends TestCase
         self::assertSame('PETICAO.PDF', $doc->getTitulo());
         self::assertSame('PECA', $doc->getCategoria());
         self::assertSame('application/pdf', $doc->getMimeType());
-        self::assertSame(1024, $doc->getTamanhoBytes());
+        // D30: o tamanho é o que o storage mediu, não os 1024 que o upload declarou.
+        self::assertSame(\strlen(self::PDF), $doc->getTamanhoBytes());
         self::assertSame('peticao.pdf', $doc->getNomeOriginal());
         self::assertSame($this->pasta, $doc->getPasta());
         self::assertNull($doc->getSecao());
@@ -275,14 +280,14 @@ final class UploadPecaUseCaseTest extends TestCase
 
     public function testReduzirTamanhoComprimeEGravaTamanhoFinal(): void
     {
-        $this->storage->method('caminho')
-            ->willReturnCallback(static fn (string $dir, string $nome): string => $dir . '/' . $nome);
-
+        $menor      = 'pdf menor';
         $comprimido = null;
         $this->compressor->expects($this->once())
             ->method('comprimir')
-            ->willReturnCallback(static function (string $caminho, string $mime) use (&$comprimido): ResultadoCompressao {
-                $comprimido = [$caminho, $mime];
+            ->willReturnCallback(static function (string $caminho, string $mime) use (&$comprimido, $menor): ResultadoCompressao {
+                // O que chega é uma CÓPIA gravável com o conteúdo do arquivo, fora do volume.
+                $comprimido = [file_get_contents($caminho), $mime];
+                file_put_contents($caminho, $menor);
 
                 return new ResultadoCompressao(5000, 1500, true, true);
             });
@@ -292,11 +297,25 @@ final class UploadPecaUseCaseTest extends TestCase
 
         $resultado = $this->useCase->executar($this->pasta, null, $this->upload('application/pdf', 5000, 'grande.pdf'), 'PECA', null, null, $this->tenant, true);
 
-        self::assertSame(1500, $resultado->documento->getTamanhoBytes());
+        $gravada = $this->armazenamento->ultimaGravada();
+        self::assertSame([self::PDF, 'application/pdf'], $comprimido, 'o compressor não recebeu o conteúdo recém-gravado');
+        self::assertSame($menor, $this->armazenamento->ler($gravada), 'a versão comprimida não voltou para a chave');
+        // D30: o tamanho é o MEDIDO depois da regravação, não os 1500 que o compressor relatou.
+        self::assertSame(\strlen($menor), $resultado->documento->getTamanhoBytes());
         self::assertTrue($resultado->compressao->comprimido);
         self::assertTrue($resultado->compressao->eraAssinado);
-        // O compressor recebe o caminho do arquivo que acabou de ser gravado — não de outro.
-        self::assertSame(['/uploads/pastas/' . $this->armazenamento->ultimaGravada()->nome, 'application/pdf'], $comprimido);
+    }
+
+    #[TestDox('D30: sem reduzir, o tamanho gravado é o medido pelo storage — não o declarado no upload')]
+    public function testTamanhoVemDoStorageMesmoSemComprimir(): void
+    {
+        $this->armazenamento->tamanhoRelatado = 4242;
+        $this->em->method('persist');
+        $this->em->method('flush');
+
+        $resultado = $this->useCase->executar($this->pasta, null, $this->upload('application/pdf', 1024, 'peticao.pdf'), 'PECA', null, null, $this->tenant);
+
+        self::assertSame(4242, $resultado->documento->getTamanhoBytes());
     }
 
     /**

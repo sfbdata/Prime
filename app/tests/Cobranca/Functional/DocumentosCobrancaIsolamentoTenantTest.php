@@ -32,8 +32,6 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Repository\PastaRepository;
-use App\Shared\Service\ArquivoStorageInterface;
-use App\Shared\Service\CompressorArquivoInterface;
 use App\Tests\Factory\Cliente\ClientePFFactory;
 use App\Tests\Factory\Cobranca\CarteiraFactory;
 use App\Tests\Factory\Cobranca\ObjetoCobrancaFactory;
@@ -66,7 +64,6 @@ final class DocumentosCobrancaIsolamentoTenantTest extends KernelTestCase
     use Factories;
 
     private EntityManagerInterface $em;
-    private ArquivoStorageInterface $storage;
     private string $cobrancasUploadsDir;
     private AbrirCasoUseCase $abrirCaso;
     private JudicializarCasoUseCase $judicializar;
@@ -83,10 +80,7 @@ final class DocumentosCobrancaIsolamentoTenantTest extends KernelTestCase
         self::bootKernel();
         $c = static::getContainer();
         $this->em = $c->get(EntityManagerInterface::class);
-        $this->storage = $c->get(ArquivoStorageInterface::class);
         $this->cobrancasUploadsDir = (string) $c->getParameter('cobrancas_uploads_dir');
-
-        $compressor = $c->get(CompressorArquivoInterface::class);
 
         /** @var CasoCobrancaRepository $casoRepo */
         $casoRepo = $this->em->getRepository(CasoCobranca::class);
@@ -122,10 +116,8 @@ final class DocumentosCobrancaIsolamentoTenantTest extends KernelTestCase
         );
         $this->enviarDocumento = new EnviarDocumentoUseCase(
             $docRepo,
-            $this->storage,
             $c->get(\App\Shared\Armazenamento\ArmazenamentoDeArquivos::class),
-            $compressor,
-            $this->cobrancasUploadsDir,
+            $c->get(\App\Shared\Service\CompressaoDeArquivoArmazenado::class),
         );
         $this->moverDocumento = new MoverDocumentoUseCase($docRepo);
         $this->criarSecao = new CriarSecaoUseCase($secaoRepo);

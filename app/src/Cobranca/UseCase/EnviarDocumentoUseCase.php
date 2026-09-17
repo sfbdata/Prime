@@ -16,8 +16,7 @@ use App\Cobranca\Repository\CobrancaDocumentoRepository;
 use App\Entity\Tenant\Tenant;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Http\FonteDeUploadHttp;
-use App\Shared\Service\ArquivoStorageInterface;
-use App\Shared\Service\CompressorArquivoInterface;
+use App\Shared\Service\CompressaoDeArquivoArmazenado;
 use App\Shared\Service\ResultadoCompressao;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
@@ -64,11 +63,8 @@ final class EnviarDocumentoUseCase
 
     public function __construct(
         private readonly CobrancaDocumentoRepository $documentoRepository,
-        // O storage antigo fica só para `caminho()` do compressor, que migra na E2.6.
-        private readonly ArquivoStorageInterface $storage,
         private readonly ArmazenamentoDeArquivos $armazenamento,
-        private readonly CompressorArquivoInterface $compressor,
-        private readonly string $cobrancasUploadsDir,
+        private readonly CompressaoDeArquivoArmazenado $compressao,
     ) {
     }
 
@@ -109,19 +105,17 @@ final class EnviarDocumentoUseCase
             throw new ArquivoMuitoGrandeException($file->getClientOriginalName(), $limite);
         }
 
-        // Isolamento físico por tenant no disco (contrato congelado, padrão M5).
-        $diretorio = $this->cobrancasUploadsDir . '/' . $tenant->getId();
-
-        // O escopo da chave sai do CASO, nunca do parâmetro `$tenant` (R1). A guarda acima já os
-        // igualou, então o arquivo cai no mesmo `$diretorio` que o compressor recebe.
+        // O escopo da chave sai do CASO, nunca do parâmetro `$tenant` (R1) — a guarda acima já os
+        // igualou. O isolamento físico por tenant no disco (padrão M5) é do resolvedor de caminho.
         $upload     = FonteDeUploadHttp::de($file);
         $armazenado = $upload->gravarEm($this->armazenamento, ChavesDeCobranca::novoDocumentoDeCaso($caso, $upload->extensao));
         $hash       = $armazenado->chave->nome;
 
-        $compressao = ResultadoCompressao::naoComprimido($tamanho);
+        // D30: o tamanho vem do storage, medido depois da gravação (igual nos UseCases irmãos
+        // de Carteira e Acordo, que espelham este).
+        $compressao = ResultadoCompressao::naoComprimido($armazenado->tamanhoBytes);
         if ($reduzirTamanho) {
-            $caminho    = $this->storage->caminho($diretorio, $hash);
-            $compressao = $this->compressor->comprimir($caminho, $mimeType);
+            $compressao = $this->compressao->comprimir($armazenado->chave, $mimeType);
         }
 
         $documento = new CobrancaDocumento();

@@ -16,7 +16,7 @@ use App\Cobranca\UseCase\EnviarDocumentoUseCase;
 use App\Entity\Tenant\Tenant;
 use App\Shared\Armazenamento\CategoriaDeArquivo;
 use App\Shared\Armazenamento\Exception\FalhaDeArmazenamento;
-use App\Shared\Service\ArquivoStorageInterface;
+use App\Shared\Service\CompressaoDeArquivoArmazenado;
 use App\Shared\Service\CompressorArquivoInterface;
 use App\Shared\Service\ResultadoCompressao;
 use App\Tests\Shared\Doubles\ArmazenamentoEmMemoria;
@@ -24,23 +24,22 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\NullLogger;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
 /**
  * Os uploads são arquivos REAIS em diretório temporário próprio (E2.4A): a ponte HTTP lê MIME e
- * extensão do conteúdo e move o arquivo, então um mock de `UploadedFile` não provaria nada. O
- * storage antigo só continua aqui por causa do `caminho()` do compressor — `salvar()` saiu de uso.
+ * extensão do conteúdo e move o arquivo, então um mock de `UploadedFile` não provaria nada. Desde a
+ * E2.6B o use case não conhece caminho nem diretório: comprime pela CHAVE, com o serviço real sobre
+ * o dublê em memória.
  */
 #[CoversClass(EnviarDocumentoUseCase::class)]
 final class EnviarDocumentoUseCaseTest extends TestCase
 {
-    private const UPLOADS_DIR = '/uploads/cobrancas';
-
     private const PDF = "%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\ntrailer << /Root 1 0 R >>\n%%EOF\n";
 
     private CobrancaDocumentoRepository&MockObject $documentoRepository;
-    private ArquivoStorageInterface&MockObject $storage;
     private ArmazenamentoEmMemoria $armazenamento;
     private CompressorArquivoInterface&MockObject $compressor;
     private EnviarDocumentoUseCase $sut;
@@ -54,17 +53,12 @@ final class EnviarDocumentoUseCaseTest extends TestCase
         mkdir($this->dirTemp, 0o700, true);
 
         $this->documentoRepository = $this->createMock(CobrancaDocumentoRepository::class);
-        $this->storage = $this->createMock(ArquivoStorageInterface::class);
-        // A gravação é do armazenamento novo; o antigo não pode voltar a gravar.
-        $this->storage->expects(self::never())->method('salvar');
         $this->armazenamento = new ArmazenamentoEmMemoria();
         $this->compressor = $this->createMock(CompressorArquivoInterface::class);
         $this->sut = new EnviarDocumentoUseCase(
             $this->documentoRepository,
-            $this->storage,
             $this->armazenamento,
-            $this->compressor,
-            self::UPLOADS_DIR,
+            new CompressaoDeArquivoArmazenado($this->armazenamento, $this->armazenamento, $this->compressor, new NullLogger()),
         );
         $this->tenant = $this->tenantComId(7);
     }
@@ -180,23 +174,19 @@ final class EnviarDocumentoUseCaseTest extends TestCase
         $caso = (new CasoCobranca())->setTenant($this->tenant);
         $file = $this->upload(self::PDF, 'peticao.pdf');
 
-        // O compressor ainda recebe o caminho pela interface antiga (migra na E2.6): o diretório é
-        // o do tenant e o nome é exatamente o que o armazenamento novo acabou de cunhar.
-        $this->storage
-            ->expects($this->once())
-            ->method('caminho')
-            ->with(
-                self::UPLOADS_DIR . '/7',
-                self::callback(fn (string $nome): bool => $nome === $this->armazenamento->ultimaGravada()->nome),
-            )
-            ->willReturn('/caminho/fisico/doc.pdf');
-
-        // Compressão reduz o tamanho: o documento guarda o tamanho FINAL.
+        // O compressor recebe uma CÓPIA gravável com o conteúdo do arquivo recém-gravado, e o que
+        // ele escrever lá volta para a MESMA chave.
+        $menor   = 'pdf bem menor';
+        $recebeu = null;
         $this->compressor
             ->expects($this->once())
             ->method('comprimir')
-            ->with('/caminho/fisico/doc.pdf', 'application/pdf')
-            ->willReturn(new ResultadoCompressao(\strlen(self::PDF), 40, true));
+            ->willReturnCallback(function (string $caminho, string $mime) use (&$recebeu, $menor): ResultadoCompressao {
+                $recebeu = [file_get_contents($caminho), $mime];
+                file_put_contents($caminho, $menor);
+
+                return new ResultadoCompressao(\strlen(self::PDF), 40, true);
+            });
 
         $this->documentoRepository->method('proximaOrdem')->willReturn(0);
         $this->documentoRepository->expects($this->once())->method('salvar');
@@ -211,7 +201,30 @@ final class EnviarDocumentoUseCaseTest extends TestCase
             reduzirTamanho: true,
         );
 
-        self::assertSame(40, $documento->getTamanhoBytes());
+        self::assertSame([self::PDF, 'application/pdf'], $recebeu, 'o compressor não recebeu o conteúdo recém-gravado');
+        self::assertSame($menor, $this->armazenamento->ler($this->armazenamento->ultimaGravada()));
+        // D30: o tamanho é o MEDIDO depois da regravação, não os 40 que o compressor relatou.
+        self::assertSame(\strlen($menor), $documento->getTamanhoBytes());
+    }
+
+    #[Test]
+    public function tamanhoVemDoStorageMesmoSemComprimir(): void
+    {
+        $caso = (new CasoCobranca())->setTenant($this->tenant);
+        $this->armazenamento->tamanhoRelatado = 4242;
+        $this->documentoRepository->method('proximaOrdem')->willReturn(0);
+        $this->documentoRepository->expects($this->once())->method('salvar');
+
+        $documento = $this->sut->executar(
+            $caso,
+            null,
+            $this->upload(self::PDF, 'contrato.pdf'),
+            CategoriaDocumentoCobranca::Outro,
+            null,
+            $this->tenant,
+        );
+
+        self::assertSame(4242, $documento->getTamanhoBytes(), 'D30: o tamanho tem de vir do storage');
     }
 
     #[Test]

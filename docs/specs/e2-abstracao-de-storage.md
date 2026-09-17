@@ -588,7 +588,7 @@ integrar.
 | **E2.5** — ✅ **entregue em 16/09** | `excluir()` (19 chamadas) pós-COMMIT + `ArmazenamentoComPrefixo` nas 2 categorias com escopo físico + a decisão sobre o arquivo novo em transação que falha. Detalhes no bloco "E2.5 — entregue", abaixo | 22 de produção + 5 novos | matriz das 19 + purga + isolamento cross-tenant + COMMIT real que falha nos funcionais + allowlist do arch test |
 | **E2.6** | dividida em três (D25): | 6 consumidores (todos já entre os 33) + núcleo | ver 6A–6C |
 | **E2.6A** — ✅ **entregue em 17/09** | **D4 cumprido** (modos de falha, timeout injetável, `finally`, validação da saída — D27, D28); `DiretorioTemporarioPrivado` no núcleo (D29); `MaterializadorDeArquivo::copiaGravavel()` no Local e nos dublês; `CompressaoDeArquivoArmazenado` (D26, D30, D31) | `CompressorArquivo`, núcleo, `FonteDeUploadHttp`, serviço novo, dublês | modos de falha verdes **antes** de qualquer consumidor; contrato da cópia (INV-9 #4 real); serviço contra dublê e contra o disco |
-| **E2.6B** | as **5 chamadas** do compressor (`ClienteController`, `PastaController` ×2, `UploadPecaUseCase`, `EnviarDocumentoUseCase`) pelo serviço; tamanho medido (D30) | 4 arquivos de produção + testes | funcional de cada rota com `reduzir_tamanho`; persistido íntegro e tamanho = arquivo real em sucesso e em falha |
+| **E2.6B** — ✅ **entregue em 17/09** | as **5 chamadas** do compressor (`ClienteController`, `PastaController` ×2, `UploadPecaUseCase`, `EnviarDocumentoUseCase`) pelo serviço; tamanho medido (D30) | 4 arquivos de produção + testes | funcional de cada rota com `reduzir_tamanho`; persistido íntegro e tamanho = arquivo real em sucesso e em falha |
 | **E2.6C** | export por chave + escritório com diretório temporário privado e aleatório, fechando SSRF e leitura entre escritórios (D32, provados **antes**); Via A do Drive por `paraLeitura()`; o shim perde o último consumidor e os testes que dependiam dele migram (D33); `Shared/CLAUDE.md` (D34) | `ExportarPecaTextoUseCase`, `ReferenciasDePecaHtml`, `ReconciliadorDePasta` + testes | provas locais das vulnerabilidades antes do conserto; DOCX/ODT/PDF com imagem, ausente, de outro escritório e maliciosa |
 | **E2.7** | investigação de Tarefa e, se viável sem migration, entrada na abstração (**D5**) | `TarefaController`, `CaminhoDeAnexoDeTarefa` | teste de travessia atacando o VO, não a rota |
 | **E2.8** | remoção de `caminho()`/`servir()`; docblocks de DT-5; teste de arquitetura | limpeza | suíte + arch test |
@@ -1343,6 +1343,45 @@ como a D28 exige, e entrega a peça que a 6B vai consumir.
   a compressão (comportamento anterior à E2) remove assinatura, formulário (`AcroForm`), cifra e
   marcação PDF/A, e descarta EXIF/ICC de JPEG — inclusive a orientação, que deita foto em retrato.
   A tela avisa "a assinatura pode ter sido invalidada"; medido, ela é **removida**.
+
+**E2.6B — entregue em 17/09/2026.** As 5 chamadas do compressor passaram a ser pela chave; nenhum
+consumidor conhece mais caminho, diretório ou o shim.
+
+- **O que saiu dos construtores:** `ClienteController` (`ArquivoStorageService`,
+  `$clientesUploadsDir`), `PastaController` (`ArquivoStorageInterface`, `$uploadsDir`),
+  `UploadPecaUseCase` (shim, compressor e `$uploadsDir`) e `EnviarDocumentoUseCase` (shim, compressor
+  e `$cobrancasUploadsDir`). No lugar, um parâmetro só: `CompressaoDeArquivoArmazenado`. Os binds de
+  `services.yaml` continuam (quem os usa agora é só o `ResolvedorDeCaminhoLocal`).
+- **D30 aplicada também sem compressão:** o tamanho persistido passou a ser `$armazenado->tamanhoBytes`
+  — quem responde é o storage — em vez do `getSize()` do upload; onde há compressão, é o tamanho
+  medido depois da regravação. **O ganho medido HOJE é zero**, e a revisão da fatia cobrou esta
+  honestidade: `UploadedFile` não sobrescreve `getSize()` (nem ele nem `File`, que estende
+  `\SplFileInfo`), então o número é o `stat()` do próprio temporário — os mesmos bytes que o backend
+  de disco grava. O que muda é de onde a resposta vem: no R2/E4 só o backend saberá o que ficou lá, e
+  `getSize()` devolvendo `false` deixa de virar `0` na coluna (os dois controllers são legado, sem
+  `strict_types`, onde `false` era coagido em silêncio). A prova pela rota usa o dublê em memória
+  RELATANDO outro tamanho — é teste de fiação, e não a correção de uma divergência que exista hoje.
+- **Os dois UseCases irmãos de Cobrança** (`EnviarDocumentoCarteiraUseCase`,
+  `EnviarDocumentoAcordoUseCase`) entraram junto, uma linha cada: o docblock do
+  `EnviarDocumentoUseCase` obriga os três a espelharem-se, e deixar dois gravando o tamanho do upload
+  criaria na mesma tela duas origens para o mesmo número.
+- **`QUEM_AINDA_USA_O_SHIM` caiu de 7 para 3**: sobram a interface, o serviço e o
+  `ReconciliadorDePasta` (Via A, E2.6C). Os binds de diretório do `services.yaml` continuam em uso
+  por três consumidores — `ResolvedorDeCaminhoLocal`, `ImportacaoController` (DT-1) e o próprio
+  `ReconciliadorDePasta`.
+- **Provas pela ROTA, uma por consumidor** (`reduzir_tamanho=1` com um PDF que o Ghostscript reduz
+  de verdade): o arquivo que fica no volume é a versão comprimida e íntegra (`%PDF-`, `%%EOF`), a
+  coluna guarda o tamanho **do arquivo no disco**, nenhum `.compress_*` sobra e, no financeiro, o
+  JSON da resposta traz os mesmos números. No Cliente há também o caso que **não** reduz: o arquivo
+  fica byte a byte e o tamanho é o dele. Esses testes exercitam a regravação **entre sistemas de
+  arquivos** (cópia no `/tmp` do container, volume em `var/uploads-test`; medido: devices 84 e 2096),
+  que o unit não alcança. O apoio `GhostscriptDeTeste::pdfGordo()` gera o PDF que o gs reduz de
+  verdade.
+- **Gatilho novo, registrado:** num upload de VÁRIOS arquivos, a compressão agora pode lançar
+  (pane de leitura ou de medição, D26) e derrubar o lote inteiro — as linhas dos arquivos anteriores
+  não são persistidas e os bytes já gravados viram órfãos. A forma do dano não é nova (a gravação
+  lança desde a E2.4A e o 500 já era provado), mas o gatilho é; há teste do caso "o primeiro arquivo
+  grava, o segundo dá pane".
 
 **Preparação da E2.6 — levantamento de 17/09, read-only, feito sobre `3ecc77fb` (E2.5 + master com o
 DT-8).** Três investigações paralelas; os achados que mudam o plano foram conferidos no código. As

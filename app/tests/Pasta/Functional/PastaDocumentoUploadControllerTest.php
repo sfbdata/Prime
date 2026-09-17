@@ -16,6 +16,7 @@ use App\Shared\Armazenamento\CategoriaDeArquivo;
 use App\Shared\Armazenamento\Exception\FalhaDeArmazenamento;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use App\Tests\Shared\Doubles\ArmazenamentoEmMemoriaNoContainer;
+use App\Tests\Shared\Doubles\GhostscriptDeTeste;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -93,6 +94,89 @@ final class PastaDocumentoUploadControllerTest extends JusPrimeWebTestCase
             self::assertSame(\strlen($conteudo), $doc->getTamanhoBytes());
             self::assertSame($tenant->getId(), $doc->getTenant()?->getId());
         }
+    }
+
+    /**
+     * E2.6B: compressão pela CHAVE, em upload MÚLTIPLO — o que o unit não cobre é cada arquivo
+     * terminar com a própria versão comprimida e o próprio tamanho medido, sem um contaminar o outro.
+     */
+    #[TestDox('reduzir_tamanho: cada arquivo fica comprimido, íntegro e com o tamanho do disco')]
+    public function testReduzirTamanhoComprimeCadaArquivo(): void
+    {
+        if (!GhostscriptDeTeste::disponivel()) {
+            self::markTestSkipped('Ghostscript indisponível neste ambiente.');
+        }
+
+        $client = static::createClient();
+        $this->instalarCsrfStorage();
+        $tenant = $this->criarTenant();
+        $gestor = $this->criarGestor($tenant);
+        $pasta  = $this->criarPasta($tenant);
+        $id     = (int) $pasta->getId();
+        static::getContainer()->get(EntityManagerInterface::class)->clear();
+
+        $this->logarComTenant($client, $gestor, $tenant);
+
+        $gordo    = $this->pdfGordo();
+        $pequeno  = self::PDF;
+
+        $this->enviar($client, $id, [
+            ['conteudo' => $gordo, 'nome' => 'peticao.pdf'],
+            ['conteudo' => $pequeno, 'nome' => 'nota.pdf'],
+        ], reduzirTamanho: true);
+
+        self::assertResponseRedirects();
+        $documentos = $this->documentosDaPasta($id);
+        self::assertCount(2, $documentos);
+
+        foreach ($documentos as $doc) {
+            $caminho = $this->diretorio() . '/' . $doc->getCaminhoArquivo();
+            self::assertFileExists($caminho);
+            $gravado = (string) file_get_contents($caminho);
+
+            self::assertStringStartsWith('%PDF-', $gravado);
+            self::assertSame(\strlen($gravado), $doc->getTamanhoBytes(), 'D30: a coluna não tem o tamanho do arquivo real');
+
+            if ($doc->getNomeOriginal() === 'peticao.pdf') {
+                self::assertLessThan(\strlen($gordo), \strlen($gravado), 'o arquivo gordo não foi comprimido');
+                continue;
+            }
+
+            // O pequeno não encolhe: o original fica byte a byte (INV-7).
+            self::assertSame($pequeno, $gravado);
+        }
+
+        self::assertSame([], glob($this->diretorio() . '/.compress_*') ?: [], 'sobrou temporário de compressão no volume');
+    }
+
+    #[TestDox('D30: a coluna guarda o tamanho que o STORAGE mediu, não o que o upload declarou')]
+    public function testTamanhoPersistidoVemDoStorage(): void
+    {
+        $client = static::createClient();
+        $this->instalarCsrfStorage();
+        $duble  = ArmazenamentoEmMemoriaNoContainer::instalarEm(static::getContainer());
+        $duble->memoria->tamanhoRelatado = 4242;
+        $tenant = $this->criarTenant();
+        $gestor = $this->criarGestor($tenant);
+        $pasta  = $this->criarPasta($tenant);
+        $id     = (int) $pasta->getId();
+        static::getContainer()->get(EntityManagerInterface::class)->clear();
+
+        $this->logarComTenant($client, $gestor, $tenant);
+
+        $this->enviar($client, $id, [['conteudo' => self::PDF, 'nome' => 'procuracao.pdf']]);
+
+        $documentos = $this->documentosDaPasta($id);
+        self::assertCount(1, $documentos);
+        self::assertSame(4242, $documentos[0]->getTamanhoBytes());
+    }
+
+    private function pdfGordo(): string
+    {
+        $temporario = sys_get_temp_dir() . '/gordo_' . bin2hex(random_bytes(6)) . '.pdf';
+        $this->arquivosCriados[] = $temporario;
+
+        return GhostscriptDeTeste::pdfGordo($temporario);
     }
 
     #[TestDox('tipo fora da lista é recusado sem gravar arquivo nem registrar documento')]
@@ -233,7 +317,7 @@ final class PastaDocumentoUploadControllerTest extends JusPrimeWebTestCase
      *
      * @return list<string> nomes que surgiram no diretório durante a requisição
      */
-    private function enviar(KernelBrowser $client, int $pastaId, array $arquivos): array
+    private function enviar(KernelBrowser $client, int $pastaId, array $arquivos, bool $reduzirTamanho = false): array
     {
         $uploads = [];
         foreach ($arquivos as $i => $arquivo) {
@@ -248,7 +332,7 @@ final class PastaDocumentoUploadControllerTest extends JusPrimeWebTestCase
             [
                 '_token'     => 'TOKEN_upload_documento_pasta_' . $pastaId,
                 'categorias' => array_fill(0, \count($arquivos), PastaDocumento::CATEGORIA_DEMAIS),
-            ],
+            ] + ($reduzirTamanho ? ['reduzir_tamanho' => '1'] : []),
             ['arquivos' => $uploads],
         );
 

@@ -82,7 +82,18 @@ $armazenado = $upload->gravarEm(
 );
 
 $doc->setCaminhoArquivo($armazenado->chave->nome);  // só então completa e persiste
+$doc->setTamanhoBytes($armazenado->tamanhoBytes);   // quem responde o tamanho é o storage (D30)
 ```
+
+**Comprimir o que acabou de ser gravado** (só onde o usuário pede, pela chave):
+```php
+$compressao = $this->compressao->comprimir($armazenado->chave, $mimeType);  // CompressaoDeArquivoArmazenado
+$doc->setTamanhoBytes($compressao->tamanhoFinal);   // medido depois da regravação
+```
+
+Compressão é **melhor esforço**: falha de compressão ou do temporário mantém o arquivo como estava e
+vira log. O que **não** é engolido: não conseguir ler ou medir o arquivo persistido é pane e sobe
+(D26) — o mesmo critério do D10.
 
 A fábrica de arquivo novo (`ChavesDe*::novo*`) tira o escopo de onde a **leitura** vai tirá-lo
 depois — a gravação e a leitura têm de montar a mesma chave. `tests/Arquitetura/FabricasDeArquivoNovoTest`
@@ -151,9 +162,14 @@ Regras que acompanham os exemplos:
   armazenamento, entrega e upload por chave.
 - `Armazenamento\RemocaoAposTransacao` — remoção física depois da transação;
   `Doctrine\Transacao\TransacaoComArquivoNovo` — COMMIT com decisão sobre o arquivo novo.
-- `Service\ArquivoStorageInterface` / `ArquivoStorageService` — **em extinção** (shim de D2): só
-  resta `caminho()`, para o compressor e o envio ao Drive (até a E2.6); sai na E2.8. Não usar em
-  código novo — gravar, ler, excluir e entregar já são por chave.
+- `Service\CompressaoDeArquivoArmazenado` — comprimir arquivo JÁ persistido, **pela chave**: ele
+  materializa uma cópia gravável fora do volume, chama o compressor nela, regrava na mesma chave e
+  devolve os tamanhos MEDIDOS pelo storage. É o único lugar que junta materializador e compressor;
+  nenhum controller ou UseCase toca em `CompressorArquivoInterface` direto.
+- `Service\ArquivoStorageInterface` / `ArquivoStorageService` — **em extinção** (shim de D2): desde a
+  E2.6B só resta `caminho()` para o envio ao Drive (Via A do `ReconciliadorDePasta`), que sai na
+  E2.6C; a interface e o serviço saem na E2.8. Não usar em código novo — gravar, ler, excluir,
+  entregar e comprimir já são por chave.
 
 ## Traits
 

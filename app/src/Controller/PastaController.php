@@ -92,8 +92,7 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Armazenamento\RemocaoAposTransacao;
 use App\Shared\Http\FonteDeUploadHttp;
-use App\Shared\Service\ArquivoStorageInterface;
-use App\Shared\Service\CompressorArquivoInterface;
+use App\Shared\Service\CompressaoDeArquivoArmazenado;
 use App\Shared\Service\SanitizadorTextoRico;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -132,12 +131,10 @@ class PastaController extends AbstractController
         private readonly ClientePJRepository $clientePJRepository,
         private readonly UserRepository $userRepository,
         private readonly ValidatorInterface $validator,
-        private readonly string $uploadsDir,
-        private readonly ArquivoStorageInterface $storage,
         private readonly ArmazenamentoDeArquivos $armazenamento,
         private readonly RemocaoAposTransacao $remocao,
         private readonly EntregaDeArquivo $entrega,
-        private readonly CompressorArquivoInterface $compressor,
+        private readonly CompressaoDeArquivoArmazenado $compressao,
         private readonly PermissionChecker $permissionChecker,
         private readonly TenantContext $tenantContext,
         private readonly PastaTimelineAssembler $timelineAssembler,
@@ -1514,8 +1511,8 @@ class PastaController extends AbstractController
             $descricao    = isset($descricoes[$i]) ? trim((string) $descricoes[$i]) : '';
             $numero       = isset($numeros[$i]) ? trim((string) $numeros[$i]) : '';
 
-            // O escopo sai do próprio documento (R1), só persistido depois da gravação. O storage
-            // antigo segue abaixo só para o `caminho()` do compressor, que migra na E2.6.
+            // O escopo sai do próprio documento (R1), só persistido depois da gravação. A
+            // compressão é pela CHAVE (E2.6B), sobre cópia gravável fora do volume.
             $doc = new PastaDocumento();
             $doc->setTenant($tenant);
 
@@ -1523,10 +1520,10 @@ class PastaController extends AbstractController
             $armazenado = $upload->gravarEm($this->armazenamento, ChavesDePasta::novoDocumento($doc, $upload->extensao));
             $nomeUnico  = $armazenado->chave->nome;
 
-            $tamanhoFinal = $tamanho;
+            // D30: quem responde o tamanho é o storage (ver ClienteController).
+            $tamanhoFinal = $armazenado->tamanhoBytes;
             if ($reduzirTamanho) {
-                $caminho    = $this->storage->caminho($this->uploadsDir, $nomeUnico);
-                $compressao = $this->compressor->comprimir($caminho, $mimeType);
+                $compressao   = $this->compressao->comprimir($armazenado->chave, $mimeType);
                 $tamanhoFinal = $compressao->tamanhoFinal;
                 $bytesEconomizados += $compressao->tamanhoOriginal - $compressao->tamanhoFinal;
                 if ($compressao->comprimido && $compressao->eraAssinado) {
@@ -1862,11 +1859,10 @@ class PastaController extends AbstractController
         $armazenado = $upload->gravarEm($this->armazenamento, ChavesDePasta::novoDocumento($doc, $upload->extensao));
         $nomeUnico  = $armazenado->chave->nome;
 
-        $tamanhoFinal = $tamanho;
+        $tamanhoFinal = $armazenado->tamanhoBytes; // D30: quem responde o tamanho é o storage
         $compressao   = null;
         if ($reduzirTamanho) {
-            $caminho      = $this->storage->caminho($this->uploadsDir, $nomeUnico);
-            $compressao   = $this->compressor->comprimir($caminho, $mimeType);
+            $compressao   = $this->compressao->comprimir($armazenado->chave, $mimeType);
             $tamanhoFinal = $compressao->tamanhoFinal;
         }
 

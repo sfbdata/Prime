@@ -13,6 +13,7 @@ use App\Entity\Tenant\Tenant;
 use App\Pasta\Controller\PeticionarController;
 use App\Tests\Factory\Cliente\ClientePFFactory;
 use App\Tests\Functional\JusPrimeWebTestCase;
+use App\Tests\Shared\Doubles\GhostscriptDeTeste;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -389,6 +390,58 @@ final class PeticionarControllerTest extends JusPrimeWebTestCase
         self::assertSame('PECA', $data['documento']['categoria']);
 
         if (isset($tmpFile) && file_exists($tmpFile)) {
+            @unlink($tmpFile);
+        }
+    }
+
+    /**
+     * E2.6B pela rota do peticionar: o use case não conhece mais caminho nem diretório, e o
+     * documento tem de terminar com o arquivo comprimido no volume e a coluna com o tamanho dele.
+     */
+    #[TestDox('reduzir_tamanho: a peça fica comprimida no volume e a coluna traz o tamanho do disco')]
+    public function testUploadComReducaoDeTamanho(): void
+    {
+        if (!GhostscriptDeTeste::disponivel()) {
+            self::markTestSkipped('Ghostscript indisponível neste ambiente.');
+        }
+
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $tmpFile = sys_get_temp_dir() . '/peca_gorda_' . uniqid() . '.pdf';
+        $gordo   = GhostscriptDeTeste::pdfGordo($tmpFile);
+
+        $client->request(
+            'POST',
+            "/pasta/{$pasta->getId()}/peticionar/upload",
+            [
+                '_token'          => $this->csrf('peticionar_upload_' . $pasta->getId()),
+                'categoria'       => 'PECA',
+                'reduzir_tamanho' => '1',
+            ],
+            ['arquivo' => new UploadedFile($tmpFile, 'peticao.pdf', 'application/pdf', null, true)],
+        );
+
+        self::assertResponseIsSuccessful();
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertTrue($data['success']);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $doc     = $em->find(PastaDocumento::class, $data['documento']['id']);
+        $gravado = static::getContainer()->getParameter('uploads_dir') . '/' . $doc->getCaminhoArquivo();
+
+        try {
+            $conteudo = (string) file_get_contents($gravado);
+            self::assertStringStartsWith('%PDF-', $conteudo);
+            self::assertLessThan(\strlen($gordo), \strlen($conteudo), 'a peça não foi comprimida');
+            self::assertSame(\strlen($conteudo), $doc->getTamanhoBytes(), 'D30: a coluna não tem o tamanho do arquivo real');
+            self::assertSame([], glob(static::getContainer()->getParameter('uploads_dir') . '/.compress_*') ?: []);
+        } finally {
+            @unlink($gravado);
             @unlink($tmpFile);
         }
     }

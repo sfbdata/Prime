@@ -18,22 +18,44 @@ use Symfony\Component\Process\Process;
  */
 final class GhostscriptDeTeste
 {
+    /** O padrão da imagem; `GHOSTSCRIPT_BIN` manda, como no `%ghostscript_bin%` da aplicação. */
     public const BINARIO_REAL = '/usr/bin/gs';
+
+    public static function binario(): string
+    {
+        $doAmbiente = getenv('GHOSTSCRIPT_BIN');
+
+        return \is_string($doAmbiente) && $doAmbiente !== '' ? $doAmbiente : self::BINARIO_REAL;
+    }
 
     public static function disponivel(): bool
     {
-        return is_executable(self::BINARIO_REAL);
+        return is_executable(self::binario());
     }
 
     /** Um PDF válido de `$paginas` páginas, gerado pelo Ghostscript real. */
     public static function pdfReal(string $destino, int $paginas): void
     {
         $processo = new Process([
-            self::BINARIO_REAL, '-q', '-dBATCH', '-dNOPAUSE', '-dSAFER', '-sDEVICE=pdfwrite',
+            self::binario(), '-q', '-dBATCH', '-dNOPAUSE', '-dSAFER', '-sDEVICE=pdfwrite',
             '-sOutputFile=' . $destino,
             '-c', sprintf('/Helvetica findfont 20 scalefont setfont %d { 72 720 moveto (pagina) show showpage } repeat', $paginas),
         ]);
         $processo->mustRun();
+    }
+
+    /**
+     * Um PDF válido que o Ghostscript reduz DE VERDADE: o mesmo PDF real, engordado depois do
+     * `%%EOF` (o enchimento é comentário; o gs lê as mesmas páginas e devolve o arquivo limpo).
+     *
+     * Medido: 3 páginas com 4000 linhas de enchimento saem de ~55 KB para ~3,8 KB.
+     */
+    public static function pdfGordo(string $destino, int $paginas = 3, int $linhasDeEnchimento = 4000): string
+    {
+        self::pdfReal($destino, $paginas);
+        file_put_contents($destino, str_repeat("% enchimento\n", $linhasDeEnchimento), \FILE_APPEND);
+
+        return (string) file_get_contents($destino);
     }
 
     /**
@@ -44,7 +66,7 @@ final class GhostscriptDeTeste
     public static function falso(string $diretorio, string $aoComprimir): string
     {
         $caminho = $diretorio . '/gs-falso-' . bin2hex(random_bytes(4));
-        $real    = self::BINARIO_REAL;
+        $real    = self::binario();
         $script  = <<<SH
             #!/bin/sh
             out=""; device=""; in=""

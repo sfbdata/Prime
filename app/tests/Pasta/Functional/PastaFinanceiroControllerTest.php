@@ -11,6 +11,8 @@ use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Entity\Tenant\Tenant;
 use App\Tests\Functional\JusPrimeWebTestCase;
+use App\Tests\Shared\Doubles\ArmazenamentoEmMemoriaNoContainer;
+use App\Tests\Shared\Doubles\GhostscriptDeTeste;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -251,6 +253,93 @@ final class PastaFinanceiroControllerTest extends JusPrimeWebTestCase
         self::assertStringContainsString('não permitido', $data['erro']);
 
         @unlink($tmpPath);
+    }
+
+    #[TestDox('D30: a coluna guarda o tamanho que o STORAGE mediu, não o que o upload declarou')]
+    public function testTamanhoPersistidoVemDoStorage(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+
+        $this->instalarCsrfStorage();
+        $duble = ArmazenamentoEmMemoriaNoContainer::instalarEm(static::getContainer());
+        $duble->memoria->tamanhoRelatado = 4242;
+        $this->logarComTenant($client, $user, $tenant);
+
+        $tmpPath = sys_get_temp_dir() . '/test_medido_' . uniqid() . '.pdf';
+        file_put_contents($tmpPath, '%PDF-1.4 conteudo qualquer');
+
+        $client->request(
+            'POST',
+            "/pasta/{$pasta->getId()}/financeiro/upload",
+            ['_token' => $this->gerarCsrf('pasta_financeiro_upload_' . $pasta->getId())],
+            ['arquivo' => new UploadedFile($tmpPath, 'contrato.pdf', 'application/pdf', null, true)],
+        );
+
+        self::assertResponseStatusCodeSame(201);
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $doc = $em->find(PastaDocumento::class, $data['id']);
+
+        self::assertSame(4242, $doc->getTamanhoBytes());
+        @unlink($tmpPath);
+    }
+
+    /**
+     * E2.6B: a resposta JSON desta rota informa a compressão à tela. O que se prova aqui é que os
+     * números do JSON são os do ARQUIVO no volume — antes vinham do que o compressor relatava.
+     */
+    #[TestDox('reduzir_tamanho: o 201 traz a compressão e o arquivo do volume é o comprimido')]
+    public function testUploadComReducaoDeTamanho(): void
+    {
+        if (!GhostscriptDeTeste::disponivel()) {
+            self::markTestSkipped('Ghostscript indisponível neste ambiente.');
+        }
+
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $tmpPath = sys_get_temp_dir() . '/test_gordo_' . uniqid() . '.pdf';
+        $gordo   = GhostscriptDeTeste::pdfGordo($tmpPath);
+
+        $client->request(
+            'POST',
+            "/pasta/{$pasta->getId()}/financeiro/upload",
+            [
+                '_token'          => $this->gerarCsrf('pasta_financeiro_upload_' . $pasta->getId()),
+                'reduzir_tamanho' => '1',
+            ],
+            ['arquivo' => new UploadedFile($tmpPath, 'contrato.pdf', 'application/pdf', null, true)],
+        );
+
+        self::assertResponseStatusCodeSame(201);
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $doc     = $em->find(PastaDocumento::class, $data['id']);
+        $gravado = static::getContainer()->getParameter('uploads_dir') . '/' . $doc->getCaminhoArquivo();
+
+        try {
+            $conteudo = (string) file_get_contents($gravado);
+            self::assertTrue($data['compressao']['comprimido']);
+            self::assertSame(\strlen($gordo), $data['compressao']['tamanhoOriginal']);
+            self::assertSame(\strlen($conteudo), $data['compressao']['tamanhoFinal'], 'o JSON não informa o tamanho do arquivo real');
+            self::assertSame(\strlen($conteudo), $doc->getTamanhoBytes(), 'D30: a coluna não tem o tamanho do arquivo real');
+            self::assertStringStartsWith('%PDF-', $conteudo);
+            self::assertLessThan(\strlen($gordo), \strlen($conteudo));
+            self::assertSame([], glob(static::getContainer()->getParameter('uploads_dir') . '/.compress_*') ?: []);
+        } finally {
+            @unlink($gravado);
+            @unlink($tmpPath);
+        }
     }
 
     #[TestDox('POST financeiro/upload com arquivo PDF válido retorna 201 com dados do documento')]

@@ -54,9 +54,12 @@ final class EscritaInternaPorChaveArquiteturaTest extends TestCase
      * Quem ainda depende de `ArquivoStorageInterface`/`ArquivoStorageService` (fora comentários), e
      * por quê. A lista só pode diminuir; cada entrada sai na fatia indicada.
      *
-     *  - E2.6 (`caminho()` para o compressor e para o envio ao Drive): `ClienteController`,
-     *    `PastaController`, `EnviarDocumentoUseCase`, `UploadPecaUseCase`, `ReconciliadorDePasta`;
+     *  - E2.6C (`caminho()` para o envio ao Drive, Via A): `ReconciliadorDePasta`;
      *  - E2.8: a própria interface e o serviço.
+     *
+     * Na E2.6B saíram os quatro consumidores do compressor — `ClienteController`, `PastaController`,
+     * `UploadPecaUseCase` e `EnviarDocumentoUseCase` —, que agora comprimem pela CHAVE, com o
+     * `CompressaoDeArquivoArmazenado`. Nenhum deles pode voltar.
      *
      * Os seis pontos da E2.4B (`SalvarPecaTextoUseCase`, `EditarPecaTextoUseCase`,
      * `ExportarPecaTextoUseCase`, `ArquivosReferenciadosEmPecas`, `CopiarArquivosAcervoCommand` e a
@@ -68,10 +71,6 @@ final class EscritaInternaPorChaveArquiteturaTest extends TestCase
      * `excluir()` antigo (`ExclusaoAposTransacaoArquiteturaTest`).
      */
     private const QUEM_AINDA_USA_O_SHIM = [
-        'src/Cliente/Controller/ClienteController.php',
-        'src/Cobranca/UseCase/EnviarDocumentoUseCase.php',
-        'src/Controller/PastaController.php',
-        'src/Pasta/UseCase/UploadPecaUseCase.php',
         'src/Shared/Service/ArquivoStorageInterface.php',
         'src/Shared/Service/ArquivoStorageService.php',
         'src/Sync/Service/ReconciliadorDePasta.php',

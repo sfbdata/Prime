@@ -16,6 +16,7 @@ use App\Shared\Armazenamento\CategoriaDeArquivo;
 use App\Shared\Armazenamento\Exception\FalhaDeArmazenamento;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use App\Tests\Shared\Doubles\ArmazenamentoEmMemoriaNoContainer;
+use App\Tests\Shared\Doubles\GhostscriptDeTeste;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -84,6 +85,173 @@ final class ClienteDocumentoUploadControllerTest extends JusPrimeWebTestCase
         self::assertSame(\strlen(self::PDF), $doc->getTamanhoBytes());
         self::assertSame(ClienteDocumento::CATEGORIA_IDENTIFICACAO, $doc->getCategoria());
         self::assertSame($tenant->getId(), $doc->getTenant()?->getId());
+    }
+
+    /**
+     * E2.6B: a compressão passou a ser pela CHAVE. O que se prova pela ROTA é o que nenhum unit
+     * prova: o arquivo que fica no volume é a versão comprimida, íntegra, e a coluna guarda o
+     * tamanho DELE — medido no disco, não o que o navegador declarou nem o que o compressor disse.
+     */
+    #[TestDox('reduzir_tamanho: o arquivo do volume é a versão comprimida e o tamanho é o do disco')]
+    public function testReduzirTamanhoGravaVersaoComprimidaEOTamanhoReal(): void
+    {
+        $this->exigirGhostscript();
+        $client = static::createClient();
+        $this->instalarCsrfStorage();
+        $tenant  = $this->criarTenant();
+        $gestor  = $this->criarGestor($tenant);
+        $cliente = $this->criarClientePF($tenant);
+        $id      = (int) $cliente->getId();
+        $this->limparIdentityMap();
+
+        $this->logarComTenant($client, $gestor, $tenant);
+        $gordo = $this->pdfGordo();
+
+        $this->enviar($client, $id, $gordo, 'contrato.pdf', ClienteDocumento::CATEGORIA_DEMAIS, reduzirTamanho: true);
+
+        self::assertResponseRedirects('/clientes/' . $id);
+        $documentos = $this->documentosDoCliente($id);
+        self::assertCount(1, $documentos);
+        $doc     = $documentos[0];
+        $caminho = $this->diretorio() . '/' . $doc->getCaminhoArquivo();
+
+        self::assertFileExists($caminho);
+        $gravado = (string) file_get_contents($caminho);
+        self::assertNotSame($gordo, $gravado, 'o arquivo não foi comprimido');
+        self::assertLessThan(\strlen($gordo), \strlen($gravado));
+        self::assertStringStartsWith('%PDF-', $gravado);
+        self::assertStringContainsString('%%EOF', substr($gravado, -2048));
+        self::assertSame(\strlen($gravado), $doc->getTamanhoBytes(), 'D30: a coluna não tem o tamanho do arquivo real');
+        self::assertSame([], glob($this->diretorio() . '/.compress_*') ?: [], 'sobrou temporário de compressão no volume');
+        self::assertStringContainsString('Economia de', $this->flashes($client), 'a tela não informou a economia');
+    }
+
+    #[TestDox('reduzir_tamanho que não reduz: o arquivo fica byte a byte, e o tamanho é o dele')]
+    public function testReduzirTamanhoQueNaoReduzMantemOArquivo(): void
+    {
+        $this->exigirGhostscript();
+        $client = static::createClient();
+        $this->instalarCsrfStorage();
+        $tenant  = $this->criarTenant();
+        $gestor  = $this->criarGestor($tenant);
+        $cliente = $this->criarClientePF($tenant);
+        $id      = (int) $cliente->getId();
+        $this->limparIdentityMap();
+
+        $this->logarComTenant($client, $gestor, $tenant);
+
+        // PDF minúsculo: a saída do Ghostscript é MAIOR, então nada é trocado.
+        $this->enviar($client, $id, self::PDF, 'nota.pdf', ClienteDocumento::CATEGORIA_DEMAIS, reduzirTamanho: true);
+
+        $documentos = $this->documentosDoCliente($id);
+        self::assertCount(1, $documentos);
+        $caminho = $this->diretorio() . '/' . $documentos[0]->getCaminhoArquivo();
+
+        self::assertStringEqualsFile($caminho, self::PDF, 'o original foi alterado (INV-7)');
+        self::assertSame(\strlen(self::PDF), $documentos[0]->getTamanhoBytes());
+        self::assertSame([], glob($this->diretorio() . '/.compress_*') ?: []);
+    }
+
+    /**
+     * D30 pela rota: o dublê RELATA um tamanho diferente do conteúdo, então só passa quem persiste o
+     * que o storage mediu. Com o disco real os dois números coincidem e o defeito seria invisível.
+     */
+    #[TestDox('D30: a coluna guarda o tamanho que o STORAGE mediu, não o que o upload declarou')]
+    public function testTamanhoPersistidoVemDoStorage(): void
+    {
+        $client = static::createClient();
+        $this->instalarCsrfStorage();
+        $duble   = ArmazenamentoEmMemoriaNoContainer::instalarEm(static::getContainer());
+        $duble->memoria->tamanhoRelatado = 4242;
+        $tenant  = $this->criarTenant();
+        $gestor  = $this->criarGestor($tenant);
+        $cliente = $this->criarClientePF($tenant);
+        $id      = (int) $cliente->getId();
+        $this->limparIdentityMap();
+
+        $this->logarComTenant($client, $gestor, $tenant);
+
+        $this->enviar($client, $id, self::PDF, 'rg.pdf');
+
+        $documentos = $this->documentosDoCliente($id);
+        self::assertCount(1, $documentos);
+        self::assertSame(4242, $documentos[0]->getTamanhoBytes());
+    }
+
+    /**
+     * Gatilho que a E2.6B acrescentou: no lote, a COMPRESSÃO também pode lançar (pane de leitura ou
+     * de medição, D26). O `persist()` é dentro do laço e o `flush()` depois, então uma pane no
+     * segundo arquivo descarta a linha do primeiro — e os bytes dos dois ficam no storage.
+     *
+     * A forma do dano não é nova (a gravação já lançava desde a E2.4A, e o 500 é provado acima); o
+     * que este teste trava é o comportamento com o gatilho novo, para ele não mudar sem alguém ver.
+     */
+    #[TestDox('lote: pane na compressão do 2º arquivo derruba o lote — nenhuma linha, bytes no storage')]
+    public function testPaneNaCompressaoDoSegundoArquivoDerrubaOLote(): void
+    {
+        $client = static::createClient();
+        $this->instalarCsrfStorage();
+        $duble   = ArmazenamentoEmMemoriaNoContainer::instalarEm(static::getContainer());
+        $tenant  = $this->criarTenant();
+        $gestor  = $this->criarGestor($tenant);
+        $cliente = $this->criarClientePF($tenant);
+        $id      = (int) $cliente->getId();
+        $this->limparIdentityMap();
+
+        $this->logarComTenant($client, $gestor, $tenant);
+
+        // O 1º arquivo consome duas medições (antes e depois de tentar comprimir); a pane cai na
+        // TERCEIRA, que é a primeira do 2º arquivo.
+        $duble->memoria->falhaAoMedir = static fn (int $chamada): ?\Throwable => $chamada > 2
+            ? new FalhaDeArmazenamento('não foi possível medir')
+            : null;
+
+        $origens = [];
+        foreach (['um.pdf', 'dois.pdf'] as $indice => $nome) {
+            $caminho = sys_get_temp_dir() . '/lote_' . bin2hex(random_bytes(5));
+            file_put_contents($caminho, self::PDF . '% ' . $nome);
+            $this->arquivosCriados[] = $caminho;
+            $origens[$indice] = new UploadedFile($caminho, $nome, null, null, true);
+        }
+
+        $client->request(
+            'POST',
+            "/clientes/{$id}/documento/upload",
+            [
+                '_token'          => 'TOKEN_upload_documento_cliente_' . $id,
+                'categorias'      => [0 => ClienteDocumento::CATEGORIA_DEMAIS, 1 => ClienteDocumento::CATEGORIA_DEMAIS],
+                'descricoes'      => [0 => '', 1 => ''],
+                'numeros'         => [0 => '', 1 => ''],
+                'reduzir_tamanho' => '1',
+            ],
+            ['arquivos' => $origens],
+        );
+
+        self::assertResponseStatusCodeSame(500, 'pane de medição tem de subir (D26), não virar upload "com sucesso"');
+        self::assertCount(0, $this->documentosDoCliente($id), 'o lote não pode salvar linha pela metade');
+        self::assertCount(2, $duble->memoria->gravadas, 'os bytes gravados antes da pane ficam órfãos — INV-6 aceita isso');
+    }
+
+    private function exigirGhostscript(): void
+    {
+        if (!GhostscriptDeTeste::disponivel()) {
+            self::markTestSkipped('Ghostscript indisponível neste ambiente.');
+        }
+    }
+
+    private function pdfGordo(): string
+    {
+        $temporario = sys_get_temp_dir() . '/gordo_' . bin2hex(random_bytes(6)) . '.pdf';
+        $this->arquivosCriados[] = $temporario;
+
+        return GhostscriptDeTeste::pdfGordo($temporario);
+    }
+
+    private function flashes(KernelBrowser $client): string
+    {
+        $sessao = $client->getRequest()->getSession();
+
+        return json_encode($sessao->getFlashBag()->peekAll(), \JSON_UNESCAPED_UNICODE) ?: '';
     }
 
     #[TestDox('Tipo fora da whitelist é recusado sem gravar arquivo nem registrar documento')]
@@ -194,6 +362,7 @@ final class ClienteDocumentoUploadControllerTest extends JusPrimeWebTestCase
         string $conteudo,
         string $nomeOriginal,
         string $categoria = ClienteDocumento::CATEGORIA_DEMAIS,
+        bool $reduzirTamanho = false,
     ): array {
         $origem = sys_get_temp_dir() . '/cliente_doc_' . bin2hex(random_bytes(6));
         file_put_contents($origem, $conteudo);
@@ -209,7 +378,7 @@ final class ClienteDocumentoUploadControllerTest extends JusPrimeWebTestCase
                 'categorias' => [0 => $categoria],
                 'descricoes' => [0 => 'Documento de teste'],
                 'numeros'    => [0 => ''],
-            ],
+            ] + ($reduzirTamanho ? ['reduzir_tamanho' => '1'] : []),
             ['arquivos' => [0 => new UploadedFile($origem, $nomeOriginal, null, null, true)]],
         );
 

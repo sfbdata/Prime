@@ -11,8 +11,7 @@ use App\Entity\Tenant\Tenant;
 use App\Pasta\Armazenamento\ChavesDePasta;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Http\FonteDeUploadHttp;
-use App\Shared\Service\ArquivoStorageInterface;
-use App\Shared\Service\CompressorArquivoInterface;
+use App\Shared\Service\CompressaoDeArquivoArmazenado;
 use App\Shared\Service\ResultadoCompressao;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
@@ -45,10 +44,7 @@ final class UploadPecaUseCase
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly ArmazenamentoDeArquivos $armazenamento,
-        // O storage antigo fica só para o `caminho()` do compressor, que migra na E2.6.
-        private readonly ArquivoStorageInterface $storage,
-        private readonly CompressorArquivoInterface $compressor,
-        private readonly string $uploadsDir,
+        private readonly CompressaoDeArquivoArmazenado $compressao,
     ) {}
 
     public function executar(
@@ -95,10 +91,10 @@ final class UploadPecaUseCase
         $armazenado = $upload->gravarEm($this->armazenamento, ChavesDePasta::novoDocumento($doc, $upload->extensao));
         $nomeUnico  = $armazenado->chave->nome;
 
-        $compressao = ResultadoCompressao::naoComprimido((int) $tamanho);
+        // D30: sem compressão, o tamanho gravado é o que o storage mediu ao gravar.
+        $compressao = ResultadoCompressao::naoComprimido($armazenado->tamanhoBytes);
         if ($reduzirTamanho) {
-            $caminho    = $this->storage->caminho($this->uploadsDir, $nomeUnico);
-            $compressao = $this->compressor->comprimir($caminho, $mimeType);
+            $compressao = $this->compressao->comprimir($armazenado->chave, $mimeType);
         }
 
         $doc->setPasta($pasta);

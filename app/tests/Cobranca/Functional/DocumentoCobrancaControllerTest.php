@@ -9,6 +9,7 @@ use App\Cobranca\Entity\CobrancaDocumento;
 use App\Cobranca\Entity\CobrancaSecao;
 use App\Tests\Factory\Cobranca\CobrancaDocumentoFactory;
 use App\Tests\Factory\Cobranca\CobrancaSecaoFactory;
+use App\Tests\Shared\Doubles\GhostscriptDeTeste;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -295,6 +296,59 @@ final class DocumentoCobrancaControllerTest extends CobrancaWebTestCase
         self::assertResponseIsSuccessful();
         self::assertCount(0, $crawler->filter('#fileManager'), 'leitor NÃO vê o file-manager de escrita');
         self::assertStringContainsString('contrato.pdf', (string) $client->getResponse()->getContent());
+    }
+
+    /**
+     * E2.6B na Cobrança: o documento do Caso mora em `cobrancas/<tenantId>/<hash>` (isolamento
+     * físico, padrão M5) e o use case não conhece mais esse caminho. A prova pela rota é que o
+     * arquivo comprimido está no lugar certo e a coluna guarda o tamanho dele.
+     */
+    #[TestDox('reduzir_tamanho: o documento do Caso fica comprimido no diretório do escritório')]
+    public function testUploadComReducaoDeTamanho(): void
+    {
+        if (!GhostscriptDeTeste::disponivel()) {
+            self::markTestSkipped('Ghostscript indisponível neste ambiente.');
+        }
+
+        $client = static::createClient();
+        $client->disableReboot();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso]   = $this->semearGrafo($tenant);
+        $casoId     = (int) $caso->getId();
+        $this->instalarCsrfStorage();
+
+        $caminhoLocal = sys_get_temp_dir() . '/cob_gordo_' . bin2hex(random_bytes(6)) . '.pdf';
+        $gordo        = GhostscriptDeTeste::pdfGordo($caminhoLocal);
+
+        $client->request(
+            'POST',
+            "/cobrancas/casos/{$casoId}/documentos",
+            [
+                '_token'          => $this->csrf('cobranca_documento_upload_' . $casoId),
+                'reduzir_tamanho' => '1',
+            ],
+            ['arquivo' => new UploadedFile($caminhoLocal, 'acordo.pdf', 'application/pdf', null, true)],
+        );
+
+        self::assertResponseIsSuccessful();
+
+        $em  = static::getContainer()->get(EntityManagerInterface::class);
+        $doc = $em->getRepository(CobrancaDocumento::class)->findOneBy(['tenant' => $tenant]);
+        self::assertNotNull($doc);
+
+        $diretorio = static::getContainer()->getParameter('cobrancas_uploads_dir') . '/' . $tenant->getId();
+        $gravado   = $diretorio . '/' . $doc->getCaminhoArquivo();
+
+        try {
+            self::assertFileExists($gravado, 'o documento não está no diretório do escritório');
+            $conteudo = (string) file_get_contents($gravado);
+            self::assertStringStartsWith('%PDF-', $conteudo);
+            self::assertLessThan(\strlen($gordo), \strlen($conteudo), 'o documento não foi comprimido');
+            self::assertSame(\strlen($conteudo), $doc->getTamanhoBytes(), 'D30: a coluna não tem o tamanho do arquivo real');
+            self::assertSame([], glob($diretorio . '/.compress_*') ?: [], 'sobrou temporário de compressão no volume');
+        } finally {
+            @unlink($caminhoLocal);
+        }
     }
 
     private function arquivoTexto(): UploadedFile

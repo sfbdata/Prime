@@ -79,7 +79,9 @@ final class EnviarDocumentoAcordoUseCase
         $documento->setCaminhoArquivo($hash);
         $documento->setNomeOriginal($file->getClientOriginalName());
         $documento->setMimeType($mimeType);
-        $documento->setTamanhoBytes($tamanho);
+        // D30: o tamanho é o que o storage mediu depois de gravar — o mesmo critério dos
+        // documentos de caso, que a whitelist acima já obriga a espelhar.
+        $documento->setTamanhoBytes($armazenado->tamanhoBytes);
 
         $this->documentoRepository->salvar($documento, flush: true);
 
