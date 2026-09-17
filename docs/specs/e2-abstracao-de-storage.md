@@ -375,7 +375,7 @@ sempre apagado por quem o possui.**
 | Consumidor | Precisa de path porque | Como fica na E2 |
 |---|---|---|
 | Ghostscript + GD (`CompressorArquivo`) | binário externo e GD só escrevem em path | **o compressor não muda de assinatura** — continua recebendo path. Quem muda é o chamador: `copiaGravavel()` → `comprimir(<temp>)` → `gravar()` na mesma chave (fatia E2.6, sob **D4**). Falha em qualquer etapa não chega ao `gravar()`, e o persistido fica intacto (INV-7) |
-| **Dompdf, PhpWord (DOCX) e ODT** no export | `ExportarPecaTextoUseCase:33` reescreve as `<img>` para disco **antes** do `match` de formato (`:36-38`) — os três formatos leem imagem local | `paraLeitura()` de cada imagem referenciada; o `chroot` do Dompdf passa a apontar para o diretório que contiver os materializados. No Local, cópia zero mantém isso em `public/` |
+| **Dompdf, PhpWord (DOCX) e ODT** no export | `ExportarPecaTextoUseCase:33` reescreve as `<img>` para disco **antes** do `match` de formato (`:36-38`) — os três formatos leem imagem local | ~~`paraLeitura()` de cada imagem, em cópia zero~~ **D32:** cada imagem resolvida por chave + escritório do documento e copiada para um diretório temporário privado e aleatório; o `chroot` do Dompdf é esse diretório; o resto das `<img>` sai |
 | Upload ao Drive (`GoogleDriveClient.php:190`) | `fread` em blocos | `ReconciliadorDePasta` materializa e passa o path. **`GoogleDriveClientInterface` não muda** (§14) |
 | PhpSpreadsheet **leitura** | `createReaderForFile` exige path | nada muda: já lê temporário ou path de CLI |
 | PhpWord/PhpSpreadsheet **escrita** do arquivo final | — | nada muda (`php://output` / `ob_get_clean`) |
@@ -449,6 +449,21 @@ de propósito (`PurgarEscritorioUseCase.php:344`).
 | **D22** | **`excluirPrefixo` só em `CategoriaComIsolamentoFisico`**, provando pertencimento, confinado ao prefixo, com ocultos e subpastas, sem seguir link, falhando fechado diante de escape ou pertencimento não comprovado | ver o bloco da E2.5 no §10 |
 | **D23** | **O fallback de MIME do Drive continua `application/octet-stream`** | nada mudou na E2.5 |
 | **D24** | **DT-8 fica fora da E2.5, como bloqueio operacional** | ver DT-8 no §9 |
+
+### Ratificadas pelo dono antes da E2.6 (2026-09-17)
+
+| # | Decisão | Consequência |
+|---|---|---|
+| **D25** | **A E2.6 vai em três fatias:** 6A (D4 cumprido, `copiaGravavel()`, serviço de compressão), 6B (as 5 chamadas do compressor), 6C (export, Via A do Drive e o fim do shim como consumidor) | cada fatia só começa com a anterior comprovadamente verde |
+| **D26** | **Falha de compressão ou de regravação nunca destrói o original.** Preserva o original e registra log quando a compressão não pode ser aplicada; **se nem a leitura ou a medição segura for possível, o erro sobe** | INV-7; o serviço de compressão |
+| **D27** | **A saída do compressor é validada antes de substituir.** PDF tem de ser PDF válido — cabeçalho `%PDF-`, Ghostscript relê com `-dPDFSTOPONERROR` e a contagem de páginas bate com a do original; imagem tem de decodificar pelo GD com as mesmas dimensões. **Resultado menor, sozinho, nunca é prova** | `CompressorArquivo` (a interface não muda, §14) |
+| **D28** | **D4 é cumprido primeiro, na 6A:** testes dos modos de falha, timeout injetável, temporários sempre limpos em `finally` e os defeitos reais corrigidos — verde **antes** de migrar consumidor | `CompressorArquivoTest` |
+| **D29** | **`copiaGravavel()` nasce num temporário privado, fora do volume persistente, com a política no núcleo** — sem duplicar a da ponte HTTP | `DiretorioTemporarioPrivado` no núcleo; `FonteDeUploadHttp` passa a usá-lo |
+| **D30** | **O tamanho persistido é o medido pelo storage depois da última gravação válida** | os 5 pontos do compressor; os testes que consagravam banco ≠ disco mudam |
+| **D31** | **Um serviço único em `Shared` coordena materializar → comprimir → regravar → medir.** O materializador não se espalha pelos 5 consumidores | `CompressaoDeArquivoArmazenado`; a allowlist do materializador ganha só ele (e, na 6C, o export e o reconciliador) |
+| **D32** | **O export fecha também o risco que ele carrega (SSRF e leitura entre escritórios).** Primeiro reproduzir com testes locais e controlados, sem rede externa; depois só imagem do storage, resolvida **por chave + escritório do documento**; URL `http`/`https`/`file` e caminho arbitrário recusados; imagem ausente pode ser pulada; nada de confiar em comparação textual de prefixo ou `chroot`; materialização num diretório temporário privado e aleatório. `data:` só fica se houver necessidade legítima **medida** (uso real, código, testes) | 6C |
+| **D33** | **Os testes que dependem do storage antigo migram na fatia que remover o último consumidor dele** | 6C |
+| **D34** | **`app/src/Shared/CLAUDE.md` é atualizado** para refletir a arquitetura efetivamente entregue | autorizado |
 
 ---
 
@@ -565,7 +580,10 @@ integrar.
 | **E2.4A** — ✅ **entregue em 16/09** | os **14 uploads HTTP** (`salvar(UploadedFile)`) pela ponte `FonteDeUploadHttp` + `gravar(NovoArquivo)`, com fábricas `ChavesDe*::novo*`; publicação em dois passos no `ArmazenamentoLocal`. Detalhes no bloco "E2.4A — entregue", abaixo | 13 consumidores + ponte + 7 fábricas + backend | unit/funcional de cada ponto (válido, inválido, R1 pela rota contra dublê em memória, falha do storage sem linha, cleanup do flush onde existe) + INV-10 + testes de arquitetura; 22 provas por reintrodução; revisão (4) e re-revisão feitas |
 | **E2.4B** — ✅ **entregue em 16/09** | as **4 escritas internas** — `SalvarPecaTextoUseCase`, `CopiarArquivosAcervoCommand`, `ReconciliadorDePasta`, `EditarPecaTextoUseCase` (sobrescrita por chave) — e as leituras em `ArquivosReferenciadosEmPecas`/`ExportarPecaTextoUseCase`; `ler()`/`abrir()` do backend provam a cadeia de diretórios (D13). Detalhes no bloco "E2.4B — entregue", abaixo | 6 + `PeticionarController` + backend + contrato | unit e funcional de cada ponto (os 12 itens pedidos pelo dono) + primeiro teste do comando do acervo + guarda estrutural do shim; 31 provas por reintrodução; revisão (4) e re-revisão feitas |
 | **E2.5** — ✅ **entregue em 16/09** | `excluir()` (19 chamadas) pós-COMMIT + `ArmazenamentoComPrefixo` nas 2 categorias com escopo físico + a decisão sobre o arquivo novo em transação que falha. Detalhes no bloco "E2.5 — entregue", abaixo | 22 de produção + 5 novos | matriz das 19 + purga + isolamento cross-tenant + COMMIT real que falha nos funcionais + allowlist do arch test |
-| **E2.6** | `MaterializadorDeArquivo::copiaGravavel()` (o `paraLeitura()` já existe desde a E2.3); os 4 chamadores do compressor, o export e o `ReconciliadorDePasta` | 6 (todos já entre os 33) | **pré-requisito D4**: testes de modo de falha do compressor verdes **antes** |
+| **E2.6** | dividida em três (D25): | 6 consumidores (todos já entre os 33) + núcleo | ver 6A–6C |
+| **E2.6A** | **D4 cumprido** (modos de falha, timeout injetável, `finally`, validação da saída — D27, D28); `DiretorioTemporarioPrivado` no núcleo (D29); `MaterializadorDeArquivo::copiaGravavel()` no Local e nos dublês; `CompressaoDeArquivoArmazenado` (D26, D30, D31) | `CompressorArquivo`, núcleo, `FonteDeUploadHttp`, serviço novo, dublês | modos de falha verdes **antes** de qualquer consumidor; contrato da cópia (INV-9 #4 real); serviço contra dublê e contra o disco |
+| **E2.6B** | as **5 chamadas** do compressor (`ClienteController`, `PastaController` ×2, `UploadPecaUseCase`, `EnviarDocumentoUseCase`) pelo serviço; tamanho medido (D30) | 4 arquivos de produção + testes | funcional de cada rota com `reduzir_tamanho`; persistido íntegro e tamanho = arquivo real em sucesso e em falha |
+| **E2.6C** | export por chave + escritório com diretório temporário privado e aleatório, fechando SSRF e leitura entre escritórios (D32, provados **antes**); Via A do Drive por `paraLeitura()`; o shim perde o último consumidor e os testes que dependiam dele migram (D33); `Shared/CLAUDE.md` (D34) | `ExportarPecaTextoUseCase`, `ReferenciasDePecaHtml`, `ReconciliadorDePasta` + testes | provas locais das vulnerabilidades antes do conserto; DOCX/ODT/PDF com imagem, ausente, de outro escritório e maliciosa |
 | **E2.7** | investigação de Tarefa e, se viável sem migration, entrada na abstração (**D5**) | `TarefaController`, `CaminhoDeAnexoDeTarefa` | teste de travessia atacando o VO, não a rota |
 | **E2.8** | remoção de `caminho()`/`servir()`; docblocks de DT-5; teste de arquitetura | limpeza | suíte + arch test |
 
@@ -1267,6 +1285,65 @@ falha, sob D17–D24. O que foi decidido e feito ao executar:
     `garantirElegivel()` confere a entidade carregada antes do laço — agora que existe a trava
     `FOR UPDATE`, dá para reler `is_active`/`excluido_em` sob ela (a corrida seria só com uma
     restauração manual por SQL: nenhum código reativa escritório).
+
+**Preparação da E2.6 — levantamento de 17/09, read-only, feito sobre `3ecc77fb` (E2.5 + master com o
+DT-8).** Três investigações paralelas; os achados que mudam o plano foram conferidos no código. As
+decisões que ele pedia viraram D25–D34.
+
+- **Escopo real.** Sobram **6 chamadas** de `caminho()` do shim em 5 arquivos, e nenhum `servir()`,
+  `salvar()` ou `excluir()` antigo:
+  - compressor — **4 arquivos, 5 chamadas**: `ClienteController:289`, `PastaController:1528` e
+    `:1868` (upload múltiplo e `financeiroUpload`), `UploadPecaUseCase:100`,
+    `EnviarDocumentoUseCase:123` (Cobrança, já nomeado no bloco da E2.4A). Fluxo comum de hoje:
+    `getSize()` → `gravar(NovoArquivo)` → `caminho()` → `comprimir()` in-place → tamanho do
+    `ResultadoCompressao` no banco. Nenhum usa `TransacaoComArquivoNovo` (DT-10);
+  - Via A do Drive — `ReconciliadorDePasta:233` (`caminho()` antes até de validar a chave; envio na
+    `:273`, pelo `enviarArquivo`, que continua lendo o caminho em blocos);
+  - o export (`ExportarPecaTextoUseCase`) **não usa o shim**, e por isso nenhum guarda o via: monta
+    `%kernel.project_dir%/public/uploads/pastas/` no código (`:38`, `:77`) e fixa o `chroot` do
+    Dompdf em `public` (`:159`).
+- **D4 não estava cumprido.** `CompressorArquivoTest` tinha 7 testes, todos de sucesso ou no-op. O
+  timeout era constante privada (`:19`). Defeitos reais medidos:
+  1. timeout ou processo morto: o `run()` lança antes do `@unlink` de `:145` e o `.compress_*`
+     parcial **sobra dentro do volume de uploads**;
+  2. o `rename()` de `:58` fica fora do `try` e sem supressão — um aviso vira exceção em debug e
+     escapa do "nunca lança" da interface;
+  3. **saída corrompida e menor, com código 0, substitui o original**: só o tamanho é conferido;
+  4. `UploadPecaUseCaseTest:276` e `EnviarDocumentoUseCaseTest:178` consagram banco ≠ disco (mock
+     que devolve 5000→1500 sem tocar no arquivo); nenhum funcional envia `reduzir_tamanho`.
+- **Ghostscript, medido no container (10.05.1):** lixo e corrupção no meio saem com código 1; um PDF
+  cuja escrita foi interrompida saiu com **código 0 sem processar página nenhuma** — por isso a
+  validação (D27) exige também a mesma contagem de páginas ("Processing pages 1 through N") na
+  compressão e na releitura. `-q` suprime essa linha. GD e Ghostscript existem no dev e na imagem de
+  produção (`Dockerfile`, estágio `base`).
+- **Materializador e dublês.** Só `paraLeitura()` existe. `ArquivoTemporarioPossuido::criarEm()` não
+  confere privacidade — a política (uid no nome, `0700`, dono, não-link, `tempnam` que caiu fora)
+  mora em `FonteDeUploadHttp` (D29 a leva para o núcleo). `ArmazenamentoEmMemoria` não é
+  materializador e `ArmazenamentoEmMemoriaNoContainer::paraLeitura` lança `LogicException`.
+- **Regravar na mesma chave é seguro no disco:** a sobrescrita por chave está no contrato e a
+  publicação é atômica (vizinho `.parcial-` + `rename`). Armadilha: `gravar()` pode lançar **depois**
+  de publicar ("Gravou mas não conseguiu medir") — tratar isso como "nada mudou" e persistir o
+  tamanho antigo criaria divergência; o serviço mede de novo e, se não conseguir, o erro sobe (D26).
+- **Export — riscos anteriores à E2, lidos no código (a 6C os reproduz antes de corrigir):**
+  - `ReferenciasDePecaHtml` só troca o prefixo `uploads/pastas/`; o resto do `src` passa cru. O
+    PhpWord (DOCX/ODT) faz `urldecode` e, se não for arquivo local, `file_get_contents($src)`, com
+    `allow_url_fopen=1` no container → **SSRF**; e `/uploads/pastas/%2e%2e/<id>/<nome>` lê imagem de
+    **outro escritório** (exige conhecer um nome de 128 bits);
+  - o HTML da peça não passa pelo `SanitizadorTextoRico`;
+  - o `chroot` do Dompdf é comparação de prefixo sem barra (`Options::validateLocalUri`, `strpos`);
+  - imagem ausente: DOCX/ODT lançam `Could not load image` (500); o PDF sai com a imagem quebrada.
+    Um `ArquivoNaoEncontrado` de imagem não pode subir: o controller o leria como "peça sem arquivo";
+  - em `APP_ENV=test` o `uploads_dir` é `var/uploads-test` — o materializado fica fora de `public`;
+  - os testes de reescrita usam reflexão e o caso "sem escritório", que `ChavesDePasta` não aceita.
+- **Via A.** Nenhuma premissa mudou com o DT-8: `enviarArquivo` e a interface estão iguais; uma
+  recusa de token no envio cai no `catch (\Throwable)` do item. O `descartar()` do DT-8 só roda no
+  download da Via B, sobre `tempnam` — nunca passar caminho materializado ao `baixarArquivo`.
+  Recomendação: materializar dentro do `try` do item, antes de criar subpasta no Drive.
+- **Container e guardas.** Quando o shim perder o último consumidor (6C), o serviço privado sai do
+  container de teste e os 11 arquivos de teste que o pedem pela classe quebram (D33).
+  `QUEM_AINDA_USA_O_SHIM` cai de 7 para 2; `QUEM_PODE_MATERIALIZAR` cresce, e a regex precisa
+  enxergar `copiaGravavel`. A allowlist planejada do §11.3 precisa citar o `CompressorArquivo`
+  lendo o temporário.
 
 **Preparação da E2.4B e da E2.5 — investigação antecipada em 16/09, read-only, nada implementado.**
 *(Respondida: a E2.4B virou D12–D16, e a E2.5, D17–D24 — ver os blocos acima.)*
