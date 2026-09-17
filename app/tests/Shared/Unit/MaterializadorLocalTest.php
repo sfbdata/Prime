@@ -140,6 +140,34 @@ final class MaterializadorLocalTest extends TestCase
         }
     }
 
+    /**
+     * `metadados()` era o furo: devolvia null com o diretório ilegível, e quem MEDE primeiro (a
+     * compressão da E2.6) lia esse null como "arquivo não encontrado" — pane virando 404.
+     */
+    #[TestDox('D10: com ancestral ilegível, metadados() lança em vez de devolver null')]
+    public function testMetadadosComAncestralIlegivelLanca(): void
+    {
+        $this->pularSeRoot();
+        $chave = $this->chave('medido.pdf');
+        $this->local->gravar($chave, FonteDeConteudo::deTexto('x'));
+
+        chmod($this->raiz, 0o000);
+
+        try {
+            $metadados = $this->local->metadados($chave);
+            self::fail('metadados() respondeu ' . var_export($metadados, true) . ' com o diretório ilegível');
+        } catch (FalhaDeArmazenamento $e) {
+            self::assertStringContainsString('não é legível', $e->getMessage());
+        } finally {
+            chmod($this->raiz, 0o755);
+        }
+
+        self::assertNull(
+            $this->local->metadados($this->chave('nunca-gravado.pdf')),
+            'ausência comprovada continua sendo null',
+        );
+    }
+
     #[TestDox('arquivo presente mas ilegível lança FalhaDeArmazenamento — não 404 disfarçado')]
     public function testArquivoIlegivel(): void
     {

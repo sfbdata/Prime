@@ -7,7 +7,7 @@ namespace App\Shared\Http;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Armazenamento\ArquivoArmazenado;
 use App\Shared\Armazenamento\ArquivoTemporarioPossuido;
-use App\Shared\Armazenamento\Exception\FalhaDeArmazenamento;
+use App\Shared\Armazenamento\DiretorioTemporarioPrivado;
 use App\Shared\Armazenamento\FonteDeConteudo;
 use App\Shared\Armazenamento\NovoArquivo;
 use Symfony\Component\HttpFoundation\File\Exception\FileException;
@@ -62,14 +62,13 @@ use Symfony\Component\HttpFoundation\File\UploadedFile;
  * processo morrer entre o `move()` e a gravação, o atestado ou documento de cliente que sobrar não
  * pode ficar legível por outros usuários da máquina (DT-7).
  *
- * "Privado" é conferido, não suposto: o nome leva o uid efetivo (um `docker exec -u 0` cria o do
- * root, não toma o do FPM), o diretório tem de ser nosso e sem permissão para grupo e outros, e o
- * temporário tem de nascer nele — o `tempnam()` cai em silêncio no `/tmp` quando não consegue
- * escrever onde pediram. Qualquer desvio lança em vez de seguir com o arquivo exposto.
+ * "Privado" é conferido, não suposto — e a conferência é a do núcleo, {@see DiretorioTemporarioPrivado}
+ * (D29, desde a E2.6A): a mesma política vale para a cópia gravável do compressor. Qualquer desvio
+ * lança em vez de seguir com o arquivo exposto.
  */
 final class FonteDeUploadHttp
 {
-    private const PREFIXO_DO_DIRETORIO_PRIVADO = 'jusprime-upload-';
+    private const FINALIDADE_DO_DIRETORIO_PRIVADO = 'upload';
 
     private bool $consumida = false;
 
@@ -120,17 +119,10 @@ final class FonteDeUploadHttp
             throw new \LogicException('Este upload já foi gravado; o arquivo de origem não existe mais.');
         }
 
-        $diretorio  = self::exigirPrivado($this->diretorioTemporario ?? self::diretorioPadrao());
-        $temporario = ArquivoTemporarioPossuido::criarEm($diretorio, 'upload-');
-
-        if (\dirname($temporario->caminho()) !== rtrim($diretorio, '/')) {
-            $temporario->liberar();
-
-            throw new FalhaDeArmazenamento(sprintf(
-                'O temporário de upload não nasceu em %s (o tempnam caiu em outro diretório).',
-                $diretorio,
-            ));
-        }
+        $diretorio = $this->diretorioTemporario !== null
+            ? DiretorioTemporarioPrivado::existente($this->diretorioTemporario)
+            : DiretorioTemporarioPrivado::doProcesso(self::FINALIDADE_DO_DIRETORIO_PRIVADO);
+        $temporario = $diretorio->novoArquivo('upload-');
 
         // Daqui em diante o `move()` pode ter levado o upload embora, mesmo que algo falhe depois.
         $this->consumida = true;
@@ -145,40 +137,5 @@ final class FonteDeUploadHttp
         } finally {
             $temporario->liberar();
         }
-    }
-
-    private static function diretorioPadrao(): string
-    {
-        $diretorio = sys_get_temp_dir() . '/' . self::PREFIXO_DO_DIRETORIO_PRIVADO . self::uidEfetivo();
-
-        // A corrida entre workers é normal: o segundo `is_dir` distingue "outro criou" de erro.
-        if (!is_dir($diretorio) && !@mkdir($diretorio, 0o700) && !is_dir($diretorio)) {
-            throw new FalhaDeArmazenamento(
-                sprintf('Não foi possível preparar o diretório temporário de upload %s.', $diretorio),
-            );
-        }
-
-        return $diretorio;
-    }
-
-    /** Vale também para o diretório informado em teste: é assim que a recusa é provada. */
-    private static function exigirPrivado(string $diretorio): string
-    {
-        clearstatcache(true, $diretorio);
-        $info = is_link($diretorio) ? false : @stat($diretorio);
-
-        if ($info === false || $info['uid'] !== self::uidEfetivo() || ($info['mode'] & 0o077) !== 0) {
-            throw new FalhaDeArmazenamento(sprintf(
-                'O diretório temporário de upload %s não é privado deste processo (dono ou permissão errados).',
-                $diretorio,
-            ));
-        }
-
-        return $diretorio;
-    }
-
-    private static function uidEfetivo(): int
-    {
-        return \function_exists('posix_geteuid') ? posix_geteuid() : (int) getmyuid();
     }
 }

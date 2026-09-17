@@ -70,18 +70,24 @@ final class EntregaDeArquivoArquiteturaTest extends TestCase
 
     /**
      * O materializador devolve CAMINHO FÍSICO. Quem o injeta enxerga disco — é a porta por onde um
-     * controller voltaria a conhecer o path (D11). Consumidor novo entra aqui com justificativa: a
-     * E2.6 vai acrescentar os chamadores do compressor, o export e o reconciliador do Drive.
+     * controller voltaria a conhecer o path (D11). Consumidor novo entra aqui com justificativa:
+     *
+     *  - `EntregaDeArquivo` (E2.3) — a resposta HTTP é montada sobre um caminho real;
+     *  - `CompressaoDeArquivoArmazenado` (E2.6A, D31) — o compressor (Ghostscript, GD) só escreve em
+     *    caminho; é o ÚNICO ponto que pede cópia gravável, e os cinco uploads chamam só ele.
+     *
+     * A E2.6C ainda acrescenta o export e o reconciliador do Drive.
      */
     private const QUEM_PODE_MATERIALIZAR = [
         'src/Shared/Http/EntregaDeArquivo.php',
+        'src/Shared/Service/CompressaoDeArquivoArmazenado.php',
     ];
 
-    #[TestDox('fora do núcleo, só a EntregaDeArquivo pede caminho materializado (D11)')]
+    #[TestDox('fora do núcleo, só quem está na lista pede caminho materializado (D11)')]
     public function testSoAEntregaMaterializa(): void
     {
         $achados = array_filter(
-            $this->arquivosQueCasam('/\bMaterializadorDeArquivo\b|->paraLeitura\s*\(/'),
+            $this->arquivosQueCasam('/\bMaterializadorDeArquivo\b|->(?:paraLeitura|copiaGravavel)\s*\(/'),
             static fn (string $arquivo): bool => !str_starts_with($arquivo, 'src/Shared/Armazenamento/'),
         );
 

@@ -40,8 +40,15 @@ final class LimpezaDeArquivosArquiteturaTest extends TestCase
      *
      * A purga saiu daqui na E2.5: ela não varre mais nada — pede o prefixo ao backend.
      */
+    /**
+     * `ExecucaoDoGhostscript` (E2.6A) varre e apaga um diretório que ELE MESMO acabou de criar, por
+     * execução, dentro do temporário privado do processo — o `TMPDIR` do gs. Nunca vê o
+     * armazenamento: o caminho é montado aqui (`<privado>/<hex aleatório>`), nada externo entra, e
+     * o que some são os `gs_*` que o próprio Ghostscript escreveu ali dentro.
+     */
     private const ALLOWLIST = [
         'src/Shared/Armazenamento/ArmazenamentoLocal.php',
+        'src/Shared/Service/ExecucaoDoGhostscript.php',
     ];
 
     /** Sem distinção de caixa: o PHP aceita `GLOB(` e `Unlink(`. */

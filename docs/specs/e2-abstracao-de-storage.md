@@ -517,7 +517,13 @@ de propósito (`PurgarEscritorioUseCase.php:344`).
   `sys_get_temp_dir()/jusprime-upload-<uid>` — fora do backup, da purga e de qualquer varredura. O
   diretório é `0700` e conferido a cada upload (dono e modo), então o resíduo não fica legível por
   outros usuários, mas também não é limpo por ninguém. Candidato a uma limpeza por idade junto da
-  varredura da E3.
+  varredura da E3. **Desde a E2.6A o mesmo vale para mais dois lugares**, pela mesma política e com
+  a mesma dívida: `jusprime-copia-<uid>/copia-*` (a cópia gravável do compressor — o documento
+  INTEIRO, não só o upload em trânsito, e o `.compress_*` ao lado dela) e `jusprime-gs-<uid>/<hex>/`
+  (o `TMPDIR` do Ghostscript). Os dois saem em `finally`; o que escapa é o PHP morto por Fatal ou
+  SIGKILL, que não roda `finally` nem destrutor. "Fora do volume persistente" continua sendo
+  **premissa de implantação** (não há `sys_temp_dir` no php.ini nem `TMPDIR` no ambiente, e o compose
+  monta só o volume de uploads), não uma checagem do código.
 - **DT-8 (achado na E2.4B, anterior à E2)** — `GoogleDriveClient::baixarArquivo` usa o cliente
   autorizado do Google, que herda `'http_errors' => false` (`vendor/google/apiclient/src/Client.php`,
   `AuthHandler/Guzzle6AuthHandler.php`). Um 403 (cota, arquivo bloqueado), 404 ou 5xx no download
@@ -581,7 +587,7 @@ integrar.
 | **E2.4B** — ✅ **entregue em 16/09** | as **4 escritas internas** — `SalvarPecaTextoUseCase`, `CopiarArquivosAcervoCommand`, `ReconciliadorDePasta`, `EditarPecaTextoUseCase` (sobrescrita por chave) — e as leituras em `ArquivosReferenciadosEmPecas`/`ExportarPecaTextoUseCase`; `ler()`/`abrir()` do backend provam a cadeia de diretórios (D13). Detalhes no bloco "E2.4B — entregue", abaixo | 6 + `PeticionarController` + backend + contrato | unit e funcional de cada ponto (os 12 itens pedidos pelo dono) + primeiro teste do comando do acervo + guarda estrutural do shim; 31 provas por reintrodução; revisão (4) e re-revisão feitas |
 | **E2.5** — ✅ **entregue em 16/09** | `excluir()` (19 chamadas) pós-COMMIT + `ArmazenamentoComPrefixo` nas 2 categorias com escopo físico + a decisão sobre o arquivo novo em transação que falha. Detalhes no bloco "E2.5 — entregue", abaixo | 22 de produção + 5 novos | matriz das 19 + purga + isolamento cross-tenant + COMMIT real que falha nos funcionais + allowlist do arch test |
 | **E2.6** | dividida em três (D25): | 6 consumidores (todos já entre os 33) + núcleo | ver 6A–6C |
-| **E2.6A** | **D4 cumprido** (modos de falha, timeout injetável, `finally`, validação da saída — D27, D28); `DiretorioTemporarioPrivado` no núcleo (D29); `MaterializadorDeArquivo::copiaGravavel()` no Local e nos dublês; `CompressaoDeArquivoArmazenado` (D26, D30, D31) | `CompressorArquivo`, núcleo, `FonteDeUploadHttp`, serviço novo, dublês | modos de falha verdes **antes** de qualquer consumidor; contrato da cópia (INV-9 #4 real); serviço contra dublê e contra o disco |
+| **E2.6A** — ✅ **entregue em 17/09** | **D4 cumprido** (modos de falha, timeout injetável, `finally`, validação da saída — D27, D28); `DiretorioTemporarioPrivado` no núcleo (D29); `MaterializadorDeArquivo::copiaGravavel()` no Local e nos dublês; `CompressaoDeArquivoArmazenado` (D26, D30, D31) | `CompressorArquivo`, núcleo, `FonteDeUploadHttp`, serviço novo, dublês | modos de falha verdes **antes** de qualquer consumidor; contrato da cópia (INV-9 #4 real); serviço contra dublê e contra o disco |
 | **E2.6B** | as **5 chamadas** do compressor (`ClienteController`, `PastaController` ×2, `UploadPecaUseCase`, `EnviarDocumentoUseCase`) pelo serviço; tamanho medido (D30) | 4 arquivos de produção + testes | funcional de cada rota com `reduzir_tamanho`; persistido íntegro e tamanho = arquivo real em sucesso e em falha |
 | **E2.6C** | export por chave + escritório com diretório temporário privado e aleatório, fechando SSRF e leitura entre escritórios (D32, provados **antes**); Via A do Drive por `paraLeitura()`; o shim perde o último consumidor e os testes que dependiam dele migram (D33); `Shared/CLAUDE.md` (D34) | `ExportarPecaTextoUseCase`, `ReferenciasDePecaHtml`, `ReconciliadorDePasta` + testes | provas locais das vulnerabilidades antes do conserto; DOCX/ODT/PDF com imagem, ausente, de outro escritório e maliciosa |
 | **E2.7** | investigação de Tarefa e, se viável sem migration, entrada na abstração (**D5**) | `TarefaController`, `CaminhoDeAnexoDeTarefa` | teste de travessia atacando o VO, não a rota |
@@ -1285,6 +1291,58 @@ falha, sob D17–D24. O que foi decidido e feito ao executar:
     `garantirElegivel()` confere a entidade carregada antes do laço — agora que existe a trava
     `FOR UPDATE`, dá para reler `is_active`/`excluido_em` sob ela (a corrida seria só com uma
     restauração manual por SQL: nenhum código reativa escritório).
+
+**E2.6A — entregue em 17/09/2026.** Nenhum consumidor migrou nesta fatia: ela cumpre a D4 primeiro,
+como a D28 exige, e entrega a peça que a 6B vai consumir.
+
+- **Validação da saída (D27).** `ValidadorDeArquivoComprimido`: o PDF tem de começar em `%PDF-`,
+  terminar com `%%EOF` nos últimos 2 KB e ser relido pelo Ghostscript (`-dPDFSTOPONERROR
+  -sDEVICE=nullpage`) anunciando as MESMAS páginas que a compressão leu; a imagem tem de terminar
+  com o marcador do formato e decodificar nas mesmas dimensões. Medições que sustentam cada regra:
+  - um PDF de escrita interrompida sai da releitura com **código 0 e zero página** — o código de
+    saída sozinho aprovaria;
+  - `-q`/`-dQUIET` esconde a linha "Processing pages 1 through N.", que é a única fonte da contagem;
+  - o gs **aceita**, com as 3 páginas, um PDF precedido de `"\n"` e um PDF sem `%%EOF`: nesses dois
+    casos quem recusa é só a checagem do cabeçalho e a do fim (há teste com controle, que cai se uma
+    versão futura do gs passar a recusá-los sozinha);
+  - o GD decodifica JPEG truncado (`gd.jpeg_ignore_warning`), completando de cinza.
+- **Compressor (D4, D26, D28).** Timeout virou **orçamento da operação inteira** (padrão 90 s: o
+  nginx corta em 120 s, e dois processos de 120 s davam 504 com o PHP ainda trabalhando); a validação
+  recebe o que sobrou. Orçamento menor que 1 s é recusado (`setTimeout(0)` no Symfony é *sem
+  limite*). O `.compress_*` nasce com nome conhecido antes de qualquer processo e sai em `finally`.
+  Imagem que não cabe na memória disponível não é decodificada (`OrcamentoDeMemoriaDeImagem`):
+  estourar o `memory_limit` é **Fatal error**, que nenhum `catch` pega e nenhum `finally` limpa —
+  medido, 7000x7000 matava o processo com 128 MB. A compressão roda com `-dPDFSTOPONERROR` (um PDF
+  danificado era "reparado" e a reconstrução substituía o original em silêncio) e com `TMPDIR`
+  próprio (`ExecucaoDoGhostscript`), removido em `finally`: os `gs_*` do Ghostscript ficavam no
+  `/tmp` do container quando ele era morto. `pdfEstaAssinado()` lê em blocos, com sobreposição.
+- **Temporário privado no núcleo (D29).** `DiretorioTemporarioPrivado` — a política que era da
+  `FonteDeUploadHttp` — confere tipo, dono, ausência de permissão para grupo/outros **e** uso pelo
+  dono, e exige que o `tempnam()` tenha nascido lá dentro (reconferindo depois, porque o diretório
+  pode sumir e renascer exposto). O `chmod` corrige só o que este processo acabou de criar (umask);
+  diretório preexistente exposto continua sendo recusado, nunca corrigido.
+- **Cópia gravável (D29) e a culpa certa (D26).** `MaterializadorDeArquivo::copiaGravavel()` no
+  `ArmazenamentoLocal`: abre pelo `abrir()` (D10), copia inteiro e confere os bytes. A falha diz de
+  quem é: `FalhaNoTemporario` (nova subclasse de `FalhaDeArmazenamento`) quando o `/tmp` é que não
+  serviu, `FalhaDeArmazenamento` quando a leitura do persistido é que falhou. O `stream_copy_to_stream`
+  devolve `false` nos dois casos; quem separa é a posição dos dois fluxos.
+- **Serviço único (D31).** `CompressaoDeArquivoArmazenado::comprimir(ChaveDeArquivo, mime)`:
+  materializa → comprime → regrava na mesma chave → mede. Só a falha do temporário vira aviso; pane
+  de leitura e impossibilidade de medir sobem (D26). O tamanho é sempre o medido pelo storage
+  (D30) — o do compressor é ignorado. Quando a regravação falha **depois** de publicar, o tamanho
+  medido decide: mudou, então o chamador é avisado de que o arquivo já não é o original.
+- **D10 corrigido no backend.** `ArmazenamentoLocal::metadados()` devolvia `null` com um ancestral
+  ilegível, e quem mede primeiro lia isso como "arquivo não encontrado" — pane virando 404. Agora
+  prova a cadeia, como `existe()` já fazia.
+- **Provas.** 65 mutações em duas rodadas (50 + 15), 63 derrubadas. Sobreviventes documentadas: A12 e
+  V10 (defensivas — o cabeçalho e a contagem já recusam antes), S12 (`consumirOrigem`, só
+  desempenho), D6 e L2 (o destrutor do `ArquivoTemporarioPossuido` apaga de qualquer forma) e L8
+  (erro de leitura no meio da cópia, sem reprodução local; o padrão do ramo é o seguro — propagar).
+- **Revisão adversarial** em duas frentes (compressor/validação e temporário/cópia/serviço), sem
+  bloqueante; os achados de código viraram as correções acima. Fica **aberta uma decisão do dono**:
+  a compressão (comportamento anterior à E2) remove assinatura, formulário (`AcroForm`), cifra e
+  marcação PDF/A, e descarta EXIF/ICC de JPEG — inclusive a orientação, que deita foto em retrato.
+  A tela avisa "a assinatura pode ter sido invalidada"; medido, ela é **removida**.
 
 **Preparação da E2.6 — levantamento de 17/09, read-only, feito sobre `3ecc77fb` (E2.5 + master com o
 DT-8).** Três investigações paralelas; os achados que mudam o plano foram conferidos no código. As

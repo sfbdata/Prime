@@ -133,7 +133,7 @@ final class FonteDeConteudo
 
         $escrito = 0;
         while ($escrito < $total) {
-            $n = fwrite($destino, substr($texto, $escrito, self::TAMANHO_DO_BLOCO));
+            $n = @fwrite($destino, substr($texto, $escrito, self::TAMANHO_DO_BLOCO));
             if ($n === false || $n === 0) {
                 throw new FalhaDeArmazenamento('Escrita interrompida antes do fim do conteúdo.');
             }
@@ -166,7 +166,10 @@ final class FonteDeConteudo
      */
     private function copiarDeStream(mixed $destino, mixed $origem): int
     {
-        $copiado = stream_copy_to_stream($origem, $destino);
+        // Com `@`: disco cheio emite aviso, e em debug (`APP_ENV=dev`/`test`) aviso vira exceção —
+        // ela escaparia como `ErrorException` de quem só espera `FalhaDeArmazenamento`, e o mesmo
+        // caso viraria 500 no dev e erro tratado em produção.
+        $copiado = @stream_copy_to_stream($origem, $destino);
         if ($copiado === false) {
             throw new FalhaDeArmazenamento('Falha ao copiar o conteúdo para o destino.');
         }

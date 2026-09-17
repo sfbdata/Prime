@@ -9,6 +9,7 @@ use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Armazenamento\ArmazenamentoLocal;
 use App\Shared\Armazenamento\ArquivoArmazenado;
 use App\Shared\Armazenamento\ArquivoEmprestado;
+use App\Shared\Armazenamento\ArquivoTemporarioPossuido;
 use App\Shared\Armazenamento\CategoriaComIsolamentoFisico;
 use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Shared\Armazenamento\EscopoDeArquivo;
@@ -97,5 +98,10 @@ final class ArmazenamentoEmMemoriaNoContainer implements ArmazenamentoDeArquivos
     public function paraLeitura(ChaveDeArquivo $chave): ArquivoEmprestado
     {
         throw new \LogicException('Dublê de gravação: a entrega de arquivo é testada contra o disco real.');
+    }
+
+    public function copiaGravavel(ChaveDeArquivo $chave): ArquivoTemporarioPossuido
+    {
+        return $this->memoria->copiaGravavel($chave);
     }
 }

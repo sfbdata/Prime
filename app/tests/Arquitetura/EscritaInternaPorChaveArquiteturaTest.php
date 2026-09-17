@@ -39,8 +39,6 @@ final class EscritaInternaPorChaveArquiteturaTest extends TestCase
      *
      *  - `ImportarRelatorioInput` — assinatura dos primeiros bytes do upload ainda temporário,
      *    antes de ele virar arquivo persistido;
-     *  - `CompressorArquivo` — recebe caminho por contrato (`CompressorArquivoInterface`); o
-     *    chamador passa a entregar cópia gravável na E2.6;
      *  - `ArmazenamentoLocal` — é o backend: é aqui que a leitura por chave vira disco;
      *  - `MapearAcervoCommand`, `ParsearAcervoCommand` — leem arquivos do operador (JSON e
      *    planilhas do acervo), fora do armazenamento.
@@ -50,7 +48,6 @@ final class EscritaInternaPorChaveArquiteturaTest extends TestCase
         'src/Command/MapearAcervoCommand.php',
         'src/Command/ParsearAcervoCommand.php',
         'src/Shared/Armazenamento/ArmazenamentoLocal.php',
-        'src/Shared/Service/CompressorArquivo.php',
     ];
 
     /**

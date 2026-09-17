@@ -6,6 +6,7 @@ namespace App\Shared\Armazenamento;
 
 use App\Shared\Armazenamento\Exception\ArquivoNaoEncontrado;
 use App\Shared\Armazenamento\Exception\FalhaDeArmazenamento;
+use App\Shared\Armazenamento\Exception\FalhaNoTemporario;
 
 /**
  * O backend de disco — o único que existe na E2, e o que continua servindo os mesmos arquivos,
@@ -13,7 +14,7 @@ use App\Shared\Armazenamento\Exception\FalhaDeArmazenamento;
  *
  * Convive de propósito com `ArquivoStorageService`, que **não foi tocado** e continua atendendo
  * `ArquivoStorageInterface` para os consumidores que ainda não migraram — 33 no início da E2; depois
- * da E2.5 sobram só os que pedem caminho ao compressor e ao envio do Drive (E2.6). É o shim de D2:
+ * da E2.5 sobram só os que pedem caminho ao compressor e ao envio do Drive (E2.6B e E2.6C). É o shim de D2:
  * os dois escrevem no mesmo disco, pelo mesmo layout, enquanto os consumidores migram fatia a
  * fatia. Esta classe
  * **não** implementa a interface antiga — duas implementações da mesma interface quebrariam o
@@ -28,10 +29,11 @@ use App\Shared\Armazenamento\Exception\FalhaDeArmazenamento;
  *  - **metadados no retorno**: tamanho e MIME medidos DEPOIS da escrita, o que remove o motivo de
  *    alguém tocar na origem depois de gravar (a causa do 500 do Kanban).
  *
- * ## Também é o materializador do disco (E2.3)
+ * ## Também é o materializador do disco (E2.3, E2.6A)
  *
  * Aqui `paraLeitura()` é cópia zero: o arquivo já está em disco, então o caminho emprestado é o
- * dele. Mora nesta classe, e não numa vizinha, para que o `ResolvedorDeCaminhoLocal` continue
+ * dele. `copiaGravavel()` copia para o {@see DiretorioTemporarioPrivado} (D29) — fora do volume, só
+ * para o dono. Moram nesta classe, e não numa vizinha, para que o `ResolvedorDeCaminhoLocal` continue
  * sendo detalhe privado do backend (D11) — ninguém fora daqui converte chave em caminho.
  *
  * ## E a operação por prefixo (E2.5)
@@ -52,9 +54,18 @@ final readonly class ArmazenamentoLocal implements ArmazenamentoDeArquivos, Mate
     private const S_IFREG = 0o100000;
     private const S_IFLNK = 0o120000;
 
+    private DiretorioTemporarioPrivado $temporarios;
+
+    /**
+     * @param DiretorioTemporarioPrivado|null $temporarios onde nascem as cópias graváveis; o padrão é
+     *                                                     o diretório privado do processo — informar
+     *                                                     só em teste
+     */
     public function __construct(
         private ResolvedorDeCaminhoLocal $resolvedor,
+        ?DiretorioTemporarioPrivado $temporarios = null,
     ) {
+        $this->temporarios = $temporarios ?? DiretorioTemporarioPrivado::doProcesso('copia');
     }
 
     public function gravar(ChaveDeArquivo|NovoArquivo $destino, FonteDeConteudo $fonte): ArquivoArmazenado
@@ -170,12 +181,21 @@ final readonly class ArmazenamentoLocal implements ArmazenamentoDeArquivos, Mate
         }
     }
 
+    /**
+     * Null é ausência PROVADA, como em `existe()` (D10).
+     *
+     * Sem a prova, um diretório ilegível acima do arquivo fazia `is_file()` devolver false e a
+     * medição respondia "não existe" a uma pane — e quem mede primeiro (a compressão da E2.6)
+     * transformava isso em `ArquivoNaoEncontrado`, ou seja, em 404 numa rota.
+     */
     public function metadados(ChaveDeArquivo $chave): ?MetadadosDeArquivo
     {
         $caminho = $this->resolvedor->caminhoDe($chave);
         clearstatcache(true, $caminho);
 
         if (!is_file($caminho)) {
+            $this->exigirCadeiaLegivel($caminho, $chave->comoTexto());
+
             return null;
         }
 
@@ -214,6 +234,112 @@ final readonly class ArmazenamentoLocal implements ArmazenamentoDeArquivos, Mate
         }
 
         return new ArquivoEmprestado($caminho);
+    }
+
+    /**
+     * Cópia completa do persistido num temporário privado (D29).
+     *
+     * A ordem é a do D10 — a origem é aberta por {@see abrir()}, que distingue ausência de pane — e
+     * a cópia só é devolvida com TODOS os bytes; qualquer parcial é apagada. A origem só é lida.
+     *
+     * Quem falhou importa (D26): falta de espaço ou diretório temporário inválido viram
+     * {@see FalhaNoTemporario} (o persistido está intacto, dá para seguir sem comprimir); leitura
+     * que não entrega o arquivo inteiro vira {@see FalhaDeArmazenamento} (pane, tem de subir).
+     */
+    public function copiaGravavel(ChaveDeArquivo $chave): ArquivoTemporarioPossuido
+    {
+        $origem = $this->abrir($chave);
+
+        try {
+            $copia = $this->temporarios->novoArquivo('copia-');
+
+            try {
+                $this->copiarInteiro($origem, $copia->caminho(), $chave);
+            } catch (\Throwable $e) {
+                $copia->liberar();
+
+                throw $e;
+            }
+
+            return $copia;
+        } finally {
+            fclose($origem);
+        }
+    }
+
+    /**
+     * Copia tudo, e diz de QUEM foi a culpa quando não copia (D26).
+     *
+     * O `stream_copy_to_stream` devolve `false` tanto para escrita recusada (o `/tmp` encheu) quanto
+     * para erro de leitura — medido na E2.6A. Quem separa os dois é a posição: numa falha de
+     * escrita, o destino ficou atrás da origem; num erro de leitura, os dois pararam juntos. A
+     * diferença decide se a compressão segue sem comprimir (temporário) ou se a pane sobe (leitura).
+     *
+     * @param resource $origem
+     */
+    private function copiarInteiro(mixed $origem, string $destino, ChaveDeArquivo $chave): void
+    {
+        $esperado = fstat($origem)['size'] ?? null;
+        if ($esperado === null) {
+            throw new FalhaDeArmazenamento(
+                sprintf('Não foi possível medir a origem de %s para copiar.', $chave->comoTexto()),
+            );
+        }
+
+        $saida = @fopen($destino, 'wb');
+        if ($saida === false) {
+            throw new FalhaNoTemporario(
+                sprintf('Não foi possível abrir a cópia gravável de %s.', $chave->comoTexto()),
+            );
+        }
+
+        try {
+            $copiados = @stream_copy_to_stream($origem, $saida);
+
+            if ($copiados === false) {
+                throw $this->culpaDaCopia($origem, $saida, $chave);
+            }
+
+            if ($copiados !== $esperado) {
+                throw new FalhaDeArmazenamento(sprintf(
+                    'A leitura de %s entregou %d de %d bytes.',
+                    $chave->comoTexto(),
+                    $copiados,
+                    $esperado,
+                ));
+            }
+        } finally {
+            fclose($saida);
+        }
+    }
+
+    /**
+     * De quem foi a falha quando `stream_copy_to_stream` devolve `false`.
+     *
+     * Destino atrás da origem = os bytes foram lidos e não couberam: é o temporário. Empatados (ou
+     * posição indisponível) = na dúvida, pane de leitura, que SOBE — errar para o lado de subir
+     * mostra o problema; errar para o outro lado o esconde num log.
+     *
+     * @param resource $origem
+     * @param resource $saida
+     */
+    private function culpaDaCopia(mixed $origem, mixed $saida, ChaveDeArquivo $chave): FalhaDeArmazenamento
+    {
+        $escritos = ftell($saida);
+        $lidos    = ftell($origem);
+
+        if ($escritos !== false && $lidos !== false && $escritos < $lidos) {
+            return new FalhaNoTemporario(sprintf(
+                'Não foi possível escrever a cópia gravável de %s (%d de %d bytes).',
+                $chave->comoTexto(),
+                $escritos,
+                $lidos,
+            ));
+        }
+
+        return new FalhaDeArmazenamento(
+            sprintf('A leitura de %s foi interrompida no meio da cópia.', $chave->comoTexto()),
+        );
     }
 
     /**

@@ -7,10 +7,14 @@ namespace App\Tests\Shared\Doubles;
 use App\Shared\Armazenamento\ArmazenamentoComPrefixo;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Armazenamento\ArquivoArmazenado;
+use App\Shared\Armazenamento\ArquivoEmprestado;
+use App\Shared\Armazenamento\ArquivoTemporarioPossuido;
 use App\Shared\Armazenamento\CategoriaComIsolamentoFisico;
 use App\Shared\Armazenamento\ChaveDeArquivo;
+use App\Shared\Armazenamento\DiretorioTemporarioPrivado;
 use App\Shared\Armazenamento\EscopoDeArquivo;
 use App\Shared\Armazenamento\FonteDeConteudo;
+use App\Shared\Armazenamento\MaterializadorDeArquivo;
 use App\Shared\Armazenamento\MetadadosDeArquivo;
 use App\Shared\Armazenamento\NovoArquivo;
 use App\Shared\Armazenamento\ResultadoDaRemocao;
@@ -47,9 +51,13 @@ use App\Shared\Armazenamento\Exception\FalhaDeArmazenamento;
  *  - **prefixo** (E2.5): não há diretório, então não há link, subpasta, oculto nem remoção
  *    parcial — `listar()` devolve toda chave do escopo e da categoria, e `excluirPrefixo()` nunca
  *    devolve sobra nem passa por `excluidas`. O que o disco faz de verdade é provado em
- *    `ArmazenamentoLocalPrefixoTest`; aqui se prova só o ESCOPO pedido (R1).
+ *    `ArmazenamentoLocalPrefixoTest`; aqui se prova só o ESCOPO pedido (R1);
+ *  - **materialização** (E2.6): a cópia gravável e o empréstimo são arquivos reais num diretório
+ *    privado do processo, escritos a partir do conteúdo em memória. O empréstimo é do DUBLÊ — fica
+ *    vivo enquanto ele existir, como o arquivo de produção fica para quem pega emprestado. Disco
+ *    cheio, cadeia ilegível e diretório exposto são provados em `CopiaGravavelLocalTest`.
  */
-final class ArmazenamentoEmMemoria implements ArmazenamentoDeArquivos, ArmazenamentoComPrefixo
+final class ArmazenamentoEmMemoria implements ArmazenamentoDeArquivos, ArmazenamentoComPrefixo, MaterializadorDeArquivo
 {
     /** @var array<string, array{conteudo: string, mime: string, em: \DateTimeImmutable}> */
     private array $arquivos = [];
@@ -73,6 +81,13 @@ final class ArmazenamentoEmMemoria implements ArmazenamentoDeArquivos, Armazenam
      * §11.2 pede para provar "falha de I/O na escrita não deixa linha no banco".
      */
     public ?\Throwable $falhaAoGravar = null;
+
+    /**
+     * Quando preenchida, `gravar()` guarda o conteúdo E DEPOIS lança — o backend de disco publica
+     * com `rename()` e só então mede, então "publicou mas a chamada falhou" é um estado real. É a
+     * única forma de exercitar o ramo em que o storage já não tem o original.
+     */
+    public ?\Throwable $falhaDepoisDeGravar = null;
 
     /**
      * Quando preenchidos, `gravar()` DEVOLVE estes metadados em vez dos reais (o conteúdo gravado
@@ -106,6 +121,66 @@ final class ArmazenamentoEmMemoria implements ArmazenamentoDeArquivos, Armazenam
      * @var (\Closure(ChaveDeArquivo): void)|null
      */
     public ?\Closure $aoExcluir = null;
+
+    /**
+     * Quando preenchida, `copiaGravavel()` lança esta exceção sem criar nada — a origem fica.
+     */
+    public ?\Throwable $falhaAoCopiar = null;
+
+    /**
+     * Quando preenchida, é consultada a cada `metadados()` com o número da chamada (a partir de 1);
+     * se devolver uma exceção, ela é lançada. Permite "mede antes, não consegue medir depois".
+     *
+     * @var (\Closure(int): ?\Throwable)|null
+     */
+    public ?\Closure $falhaAoMedir = null;
+
+    private int $medicoes = 0;
+
+    /** @var list<ArquivoTemporarioPossuido> as cópias graváveis entregues, para conferir a liberação */
+    public array $copiasEntregues = [];
+
+    /** @var list<ArquivoTemporarioPossuido> os arquivos por trás dos empréstimos — do dublê */
+    private array $emprestimos = [];
+
+    public function copiaGravavel(ChaveDeArquivo $chave): ArquivoTemporarioPossuido
+    {
+        if ($this->falhaAoCopiar !== null) {
+            throw $this->falhaAoCopiar;
+        }
+
+        $copia = $this->arquivoReal($this->ler($chave));
+        $this->copiasEntregues[] = $copia;
+
+        return $copia;
+    }
+
+    public function paraLeitura(ChaveDeArquivo $chave): ArquivoEmprestado
+    {
+        $arquivo             = $this->arquivoReal($this->ler($chave));
+        $this->emprestimos[] = $arquivo;
+
+        return new ArquivoEmprestado($arquivo->caminho());
+    }
+
+    public function __destruct()
+    {
+        foreach ($this->emprestimos as $arquivo) {
+            $arquivo->liberar();
+        }
+    }
+
+    private function arquivoReal(string $conteudo): ArquivoTemporarioPossuido
+    {
+        $arquivo = DiretorioTemporarioPrivado::doProcesso('testememoria')->novoArquivo('memoria-');
+        if (file_put_contents($arquivo->caminho(), $conteudo) !== strlen($conteudo)) {
+            $arquivo->liberar();
+
+            throw new FalhaDeArmazenamento('Não foi possível materializar o conteúdo em memória.');
+        }
+
+        return $arquivo;
+    }
 
     public function gravar(ChaveDeArquivo|NovoArquivo $destino, FonteDeConteudo $fonte): ArquivoArmazenado
     {
@@ -143,6 +218,10 @@ final class ArmazenamentoEmMemoria implements ArmazenamentoDeArquivos, Armazenam
         $this->chavesPorIndice[$this->indice($chave)] = $chave;
         $this->chavesGravadas[] = $chave->comoTexto();
         $this->gravadas[]       = $chave;
+
+        if ($this->falhaDepoisDeGravar !== null) {
+            throw $this->falhaDepoisDeGravar;
+        }
 
         return new ArquivoArmazenado(
             $chave,
@@ -279,6 +358,12 @@ final class ArmazenamentoEmMemoria implements ArmazenamentoDeArquivos, Armazenam
 
     public function metadados(ChaveDeArquivo $chave): ?MetadadosDeArquivo
     {
+        $this->medicoes++;
+        $falha = $this->falhaAoMedir === null ? null : ($this->falhaAoMedir)($this->medicoes);
+        if ($falha !== null) {
+            throw $falha;
+        }
+
         $indice = $this->indice($chave);
 
         if (!array_key_exists($indice, $this->arquivos)) {

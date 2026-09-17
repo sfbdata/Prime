@@ -87,7 +87,11 @@ final class CompressorArquivoTest extends TestCase
         imagepng($origem, $caminho, 0);
         imagedestroy($origem);
 
-        $this->compressor->comprimir($caminho, 'image/png');
+        $compressao = $this->compressor->comprimir($caminho, 'image/png');
+
+        // Sem isto o teste passaria com o compressor tendo desistido: a transparência "preservada"
+        // seria a do arquivo original, intocado.
+        self::assertTrue($compressao->comprimido, 'o PNG não chegou a ser reescrito; a transparência provada é a do original');
 
         $resultado = imagecreatefrompng($caminho);
         self::assertInstanceOf(\GdImage::class, $resultado);
@@ -130,6 +134,24 @@ final class CompressorArquivoTest extends TestCase
         $comum = $this->dir . '/comum.pdf';
         file_put_contents($comum, "%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\n%%EOF");
         self::assertFalse($this->compressor->pdfEstaAssinado($comum));
+    }
+
+    /**
+     * O arquivo é lido em blocos de 1 MB (um PDF pode ter 65 MB e o `memory_limit`, 128 MB). Um
+     * marcador que cai EXATAMENTE na emenda entre dois blocos ainda tem de ser visto — sem
+     * sobreposição, o aviso "esse PDF é assinado" desapareceria justamente nos arquivos grandes.
+     */
+    #[TestDox('assinatura detectada mesmo com o marcador partido na emenda dos blocos de leitura')]
+    public function testPdfAssinadoComMarcadorNaEmendaDosBlocos(): void
+    {
+        $marcador = '/ByteRange';
+        $caminho  = $this->dir . '/assinado-grande.pdf';
+        $cabecalho = "%PDF-1.4\n/Sig\n";
+        // Enchimento até faltarem 4 bytes para o primeiro megabyte: o marcador nasce partido.
+        $enchimento = str_repeat('x', 1024 * 1024 - \strlen($cabecalho) - 4);
+        file_put_contents($caminho, $cabecalho . $enchimento . $marcador . "\n%%EOF\n");
+
+        self::assertTrue($this->compressor->pdfEstaAssinado($caminho));
     }
 
     public function testPdfNaoEhCorrompidoQuandoComprime(): void

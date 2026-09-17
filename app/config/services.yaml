@@ -95,6 +95,11 @@ services:
     # this creates a service per class whose id is the fully-qualified class name
     App\:
         resource: '../src/'
+        exclude:
+            # E2.6A (D29) — valor, não serviço: construtor privado, criado por
+            # `DiretorioTemporarioPrivado::doProcesso()`. Registrado, o autowiring o injetaria no
+            # parâmetro opcional do `ArmazenamentoLocal` e o container quebraria na compilação.
+            - '../src/Shared/Armazenamento/DiretorioTemporarioPrivado.php'
 
     # Backend de verificação de OAB: dormente (manual-first) enquanto não houver chave do
     # web service oficial. Trocar aqui quando houver backend real.
