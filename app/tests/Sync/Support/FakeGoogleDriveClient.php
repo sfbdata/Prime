@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Sync\Support;
 
+use App\Sync\Exception\DownloadDoDriveFalhouException;
 use App\Sync\Service\GoogleDriveClientInterface;
 
 /** Double em memória: nenhum acesso à rede. */
@@ -74,6 +75,7 @@ final class FakeGoogleDriveClient implements GoogleDriveClientInterface
     {
         $this->destinosDeDownload[] = $destinoLocal;
         file_put_contents($destinoLocal, 'conteudo-fake-' . $fileId);
+        $this->simularFalhaDeDownload($fileId, $destinoLocal);
     }
 
     /** @var list<array{folderId: string, nome: string}> Rastro das renomeações, para asserção. */
@@ -87,5 +89,29 @@ final class FakeGoogleDriveClient implements GoogleDriveClientInterface
 
         $this->pastas[$folderId]['nome'] = $novoNome;
         $this->renomeacoes[] = ['folderId' => $folderId, 'nome' => $novoNome];
+    }
+
+    /** @var array<string, int> Quantas tentativas de baixar cada id ainda devem falhar (DT-8). */
+    private array $falhasDeDownload = [];
+
+    /** As próximas $vezes tentativas de baixar $fileId falham como o client real falha num 403. */
+    public function falharDownload(string $fileId, int $vezes = 1): void
+    {
+        $this->falhasDeDownload[$fileId] = $vezes;
+    }
+
+    /**
+     * Pior caso de propósito: o corpo do erro FICA no destino antes da exceção. O client real remove o
+     * destino; o chamador não pode depender disso para não gravar lixo.
+     */
+    private function simularFalhaDeDownload(string $fileId, string $destinoLocal): void
+    {
+        if (($this->falhasDeDownload[$fileId] ?? 0) === 0) {
+            return;
+        }
+        --$this->falhasDeDownload[$fileId];
+        file_put_contents($destinoLocal, '{"error":{"code":403,"message":"The download quota for this file has been exceeded."}}');
+
+        throw DownloadDoDriveFalhouException::respostaInvalida($fileId, 403, 'downloadQuotaExceeded: The download quota for this file has been exceeded.');
     }
 }

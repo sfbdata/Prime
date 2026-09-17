@@ -514,6 +514,20 @@ de propósito (`PurgarEscritorioUseCase.php:344`).
   OPERACIONAL** — até uma frente própria validar a resposta HTTP antes de persistir, **não é seguro
   executar importação/migração real de produção que dependa desse download** (`sync:reconciliar
   --modo=importar|ambos`, e qualquer migração de acervo que passe pela Via B).
+  **Situação em 17/09/2026 — código corrigido, bloqueio mantido.** A frente própria
+  `fix-dt8-download-drive` corrigiu o download (commit `4cf8c2e0`, merge no master `43cc8be0`,
+  spec `docs/specs/dt8-download-drive.md`): só a resposta final 200 vale, o destino da falha é
+  descartado e, no modo OAuth, o download não sai sem access token — com as ressalvas do §4 daquela
+  spec (modo service account, operações que não são download, janela de microssegundos, link
+  simbólico). A E2 trouxe esse master para dentro. O `ReconciliadorDePasta` da E2 não mudou por causa
+  disso: o download lança antes do `gravar()`, então não há chave gravada nem transação, e o erro do
+  item é contado com a rodada seguindo (uma recusa de token vinda da listagem derruba a rodada, como
+  antes); D16 intacta. O
+  `FakeGoogleDriveClient` passou a simular falha (`falharDownload`). **O bloqueio operacional da D24
+  continua valendo** até (1) o deploy em produção de um master com a correção — a produção ainda
+  roda o download antigo — e (2) a decisão explícita do dono de liberar a importação. **Pendência
+  separada, não resolvida pela correção:** auditar os documentos que a Via B já criou em produção
+  (janela provável 11/07–14/08), o que exige ler o disco — ver o §4 da spec do DT-8.
 - **DT-9 (nasceu na E2.5)** — `import-tmp/<tenantId>` (D3) é irmão do prefixo de cobrança, não
   filho: a purga não o alcança, e as prévias de planilha do escritório purgado ficam no volume.
 - **DT-10 (herdada da E2.4A, confirmada na E2.5)** — nove uploads (Cobrança ×3, Kanban, Perfil,
@@ -1474,7 +1488,9 @@ explícita por arquivo e justificativa em comentário**. Barra em `src/`:
 
 **Allowlist obrigatória:** `sys_get_temp_dir()`/`tempnam`, os 4 lock files, os 10
 `createReaderForFile`, e — enquanto a E2.7 não concluir — `TarefaController` e
-`CaminhoDeAnexoDeTarefa`. **Filesystem temporário legítimo não pode ser proibido.** Regex não faz
+`CaminhoDeAnexoDeTarefa`. Desde o DT-8, também o `GoogleDriveClient`: `@unlink`, `fopen('r+')` e
+`ftruncate` sobre o temporário que o chamador passa ao `baixarArquivo` (descarte do download que
+falhou; fora do armazenamento). **Filesystem temporário legítimo não pode ser proibido.** Regex não faz
 análise de fluxo: por isso a allowlist é por arquivo, como no teste que já existe.
 
 ---

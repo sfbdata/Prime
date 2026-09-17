@@ -24,7 +24,14 @@ interface GoogleDriveClientInterface
     /** Envia um arquivo local para $folderId. Retorna o ID do arquivo criado. */
     public function enviarArquivo(string $folderId, string $nome, string $caminhoLocal, string $mimeType): string;
 
-    /** Baixa o arquivo $fileId para $destinoLocal. */
+    /**
+     * Baixa o arquivo $fileId para $destinoLocal. Só retorna quando o Drive entregou o conteúdo (resposta
+     * final 200). Em qualquer outro caso lança {@see \App\Sync\Exception\TokenDoDriveRecusadoException}
+     * (o Google não deu access token utilizável; nenhuma chamada saiu) ou
+     * {@see \App\Sync\Exception\DownloadDoDriveFalhouException} (qualquer outra falha: resposta que não é
+     * 200, transferência, renovação no caminho, erro da biblioteca do Google) — e $destinoLocal não fica
+     * com conteúdo. O chamador nunca persiste nada de um download que lançou (DT-8).
+     */
     public function baixarArquivo(string $fileId, string $destinoLocal): void;
 
     /**
