@@ -59,6 +59,11 @@ final class CompressaoDeArquivoArmazenado
     {
         $tamanhoOriginal = $this->medir($chave);
 
+        if (!$this->compressor->trata($mimeType)) {
+            // Sem isto, o arquivo inteiro ia para o temporário só para ouvir "não trato".
+            return ResultadoCompressao::naoComprimido($tamanhoOriginal);
+        }
+
         try {
             $copia = $this->materializador->copiaGravavel($chave);
         } catch (FalhaNoTemporario $e) {

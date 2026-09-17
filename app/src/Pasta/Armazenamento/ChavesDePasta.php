@@ -35,8 +35,10 @@ use App\Shared\Armazenamento\NovoArquivo;
  *  - `documentoPorNome()` serve a quem lê **projeção escalar** já filtrada pelo tenant
  *    (`chavesDePecasHtmlDoTenant`, a linha crua do reconciliador do Drive). Ali não existe
  *    entidade na mão, e o tenant informado É o da linha persistida — a consulta o fixou.
- *  - `imagemDoEditor()` serve à imagem de peça, que **não tem linha no banco**: vive só dentro
- *    do HTML e é endereçada pelo tenant da sessão mais o nome da URL.
+ *  - `imagemDoEditor()` serve à imagem de peça, que **não tem linha no banco**: vive só dentro do
+ *    HTML e é endereçada por um escritório mais o nome que a URL carrega. Quem serve a imagem na
+ *    tela passa o tenant da SESSÃO; o export (E2.6C) passa o tenant do DOCUMENTO — mais estrito, e
+ *    é o que impede a peça de um escritório de alcançar a imagem de outro (D32).
  *
  * Nenhuma das duas deve ser usada onde a entidade existe.
  *
@@ -78,7 +80,10 @@ final class ChavesDePasta
     }
 
     /**
-     * Imagem embutida numa peça: sem linha no banco, endereçada pelo tenant da sessão + nome.
+     * Imagem embutida numa peça: sem linha no banco, endereçada por escritório + nome.
+     *
+     * O escritório é o de quem PODE ver a imagem: a sessão, ao servir na tela; o do documento, no
+     * export. Nunca o que vier escrito na URL.
      */
     public static function imagemDoEditor(Tenant $tenant, string $nome): ChaveDeArquivo
     {

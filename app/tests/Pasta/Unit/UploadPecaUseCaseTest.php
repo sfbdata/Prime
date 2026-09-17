@@ -50,6 +50,8 @@ final class UploadPecaUseCaseTest extends TestCase
     {
         $this->em            = $this->createMock(EntityManagerInterface::class);
         $this->compressor    = $this->createMock(CompressorArquivoInterface::class);
+        // O serviço só materializa se o compressor disser que trata o MIME (E2.6C).
+        $this->compressor->method('trata')->willReturn(true);
         $this->armazenamento = new ArmazenamentoEmMemoria();
         $this->useCase       = new UploadPecaUseCase(
             $this->em,

@@ -71,26 +71,6 @@ final class ReferenciasDePecaHtmlTest extends TestCase
         self::assertSame([], $this->servico->extrair($html));
     }
 
-    #[TestDox('reescreverPrefixo troca o prefixo e preserva o nome — o comportamento do export')]
-    public function testReescreverPrefixoPreservaONome(): void
-    {
-        $html = '<img src="../../uploads/pastas/abc123.png" />';
-
-        $resultado = $this->servico->reescreverPrefixo($html, '/var/www/app/public/uploads/pastas/7/');
-
-        self::assertSame('<img src="/var/www/app/public/uploads/pastas/7/abc123.png" />', $resultado);
-    }
-
-    #[TestDox('reescreverPrefixo não interpreta $ e \\ do caminho como referência de grupo')]
-    public function testReescreverPrefixoComCaracteresEspeciais(): void
-    {
-        $html = '<img src="/uploads/pastas/x.png">';
-
-        $resultado = $this->servico->reescreverPrefixo($html, '/tmp/a$1b\\2/');
-
-        self::assertStringContainsString('/tmp/a$1b\\2/x.png', $resultado);
-    }
-
     // ----------------------------------------------- allowlist do export (E2.6C, D32)
 
     /** @return iterable<string, array{string}> */

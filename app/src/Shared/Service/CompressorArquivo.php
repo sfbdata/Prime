@@ -70,6 +70,12 @@ final class CompressorArquivo implements CompressorArquivoInterface
         $this->validador = $validador ?? new ValidadorDeArquivoComprimido($ghostscriptBin, $timeoutPdfSegundos);
     }
 
+    /** A mesma lista do `match` de {@see comprimir()} — os dois não podem divergir. */
+    public function trata(string $mimeType): bool
+    {
+        return \in_array($mimeType, ['image/jpeg', 'image/png', 'application/pdf'], true);
+    }
+
     public function comprimir(string $caminhoCompleto, string $mimeType): ResultadoCompressao
     {
         clearstatcache(true, $caminhoCompleto);

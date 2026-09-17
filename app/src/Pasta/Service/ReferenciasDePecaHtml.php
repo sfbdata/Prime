@@ -24,13 +24,6 @@ namespace App\Pasta\Service;
  */
 final class ReferenciasDePecaHtml
 {
-    /**
-     * Consome o prefixo inteiro (`./`, `../`, `/`) antes de `uploads/pastas/`. É o mesmo padrão
-     * que `ExportarPecaTextoUseCase` já usava para apontar as imagens ao disco no export — a E1
-     * apenas o trouxe para cá, sem alterar o comportamento.
-     */
-    private const PADRAO_PREFIXO = '#(?:\.{1,2}/)*/?uploads/pastas/#';
-
     /** Mesmo prefixo, capturando o `<tenantId>/` opcional e o nome do arquivo. */
     private const PADRAO_REFERENCIA = '#(?:\.{1,2}/)*/?uploads/pastas/(?:(\d+)/)?([A-Za-z0-9][A-Za-z0-9._-]*)#';
 
@@ -90,20 +83,5 @@ final class ReferenciasDePecaHtml
         }
 
         return $partes[2];
-    }
-
-    /**
-     * Troca o prefixo das URLs pelo caminho em disco informado, preservando o nome do arquivo.
-     *
-     * `preg_replace_callback` com callback fixo (e não `preg_replace`) evita que `$` e `\` do
-     * caminho sejam interpretados como referência de grupo no valor de substituição.
-     */
-    public function reescreverPrefixo(string $html, string $prefixoDisco): string
-    {
-        return (string) preg_replace_callback(
-            self::PADRAO_PREFIXO,
-            static fn (): string => $prefixoDisco,
-            $html,
-        );
     }
 }

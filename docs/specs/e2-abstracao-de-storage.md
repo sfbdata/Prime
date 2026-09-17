@@ -486,9 +486,16 @@ de propósito (`PurgarEscritorioUseCase.php:344`).
   | Branch | Pendentes | Colide com a E2 |
   |---|---|---|
   | `cobranca-acompanhamento-canonico` | 23 | 🔴 `AcordoController`, `DocumentoCobrancaController`, `EnviarDocumentoUseCase`, **`PurgarEscritorioUseCase`** |
-  | `import/acervo-pastas` | 3 | 🔴 `PastaController`, `SalvarPecaTextoUseCase`, `UploadPecaUseCase` |
+  | `import/acervo-pastas` | 3 | 🟢 **nenhum** — remedido em 17/09: os 3 pendentes tocam SÓ `IMPORTACAO-ACERVO.md` |
   | `cobranca-reconciliar-data-acordo`, `expediente-ux`, `fix/*` (3), `integracao-sync-master`, `polimento-objeto-show-cabecalho`, `worktree-agent-…` | 1–7 | 🟢 nenhum alvo da E2 |
   | 13 branches, entre elas `pasta-push-processual`, `pasta-*`, `ponto-batida-nao-trava`, `sync-sistema-manda` | **0** | ✅ já no master por conteúdo — são worktrees-resto |
+
+  **Atualização de 17/09 (E2.6):** a colisão com `cobranca-acompanhamento-canonico` deixou de ser
+  genérica e virou concreta — a E2.6B mudou o **construtor** do `EnviarDocumentoUseCase` (saem o shim,
+  o `CompressorArquivoInterface` e o `$cobrancasUploadsDir`; entra o `CompressaoDeArquivoArmazenado`)
+  e o teste unitário dele. Quem integrar as duas frentes escolhe a ordem: com a E2 primeiro, os 23
+  commits daquela frente se adaptam ao construtor novo; com a cobrança primeiro, a E2 traz o master
+  para dentro mais uma vez. É decisão do dono, não da spec.
 
   **`pasta-push-processual` NÃO colide** — os 5 commits dela estão todos no master por conteúdo
   (`git cherry` devolve `-` para os cinco). Uma versão anterior desta spec a listou como colisão a
@@ -517,11 +524,13 @@ de propósito (`PurgarEscritorioUseCase.php:344`).
   `sys_get_temp_dir()/jusprime-upload-<uid>` — fora do backup, da purga e de qualquer varredura. O
   diretório é `0700` e conferido a cada upload (dono e modo), então o resíduo não fica legível por
   outros usuários, mas também não é limpo por ninguém. Candidato a uma limpeza por idade junto da
-  varredura da E3. **Desde a E2.6A o mesmo vale para mais dois lugares**, pela mesma política e com
-  a mesma dívida: `jusprime-copia-<uid>/copia-*` (a cópia gravável do compressor — o documento
-  INTEIRO, não só o upload em trânsito, e o `.compress_*` ao lado dela) e `jusprime-gs-<uid>/<hex>/`
-  (o `TMPDIR` do Ghostscript). Os dois saem em `finally`; o que escapa é o PHP morto por Fatal ou
-  SIGKILL, que não roda `finally` nem destrutor. "Fora do volume persistente" continua sendo
+  varredura da E3. **Desde a E2.6 o mesmo vale para mais TRÊS lugares**, pela mesma política e com a
+  mesma dívida: `jusprime-copia-<uid>/copia-*` (a cópia gravável do compressor — o documento INTEIRO,
+  não só o upload em trânsito, e o `.compress_*` ao lado dela), `jusprime-gs-<uid>/<hex>/` (o
+  `TMPDIR` do Ghostscript) e `jusprime-export-<uid>/<hex>/` (a área do export, com as **imagens do
+  cliente** materializadas por chave — é o que mais importa para quem escrever a varredura, porque é
+  conteúdo, não fragmento). Os três saem em `finally` e no destrutor; o que escapa é o PHP morto por
+  Fatal ou SIGKILL, que não roda nem um nem outro. "Fora do volume persistente" continua sendo
   **premissa de implantação** (não há `sys_temp_dir` no php.ini nem `TMPDIR` no ambiente, e o compose
   monta só o volume de uploads), não uma checagem do código.
 - **DT-8 (achado na E2.4B, anterior à E2)** — `GoogleDriveClient::baixarArquivo` usa o cliente
@@ -1453,6 +1462,39 @@ do Drive materializa, e o shim ficou sem consumidor de produção.
   decisão e execução do dono: o escritório dono de um arquivo plano só se descobre pela peça que o
   referencia. No disco do DEV são 2 arquivos nessa situação (e nenhuma subpasta `<tenantId>/`
   existe lá); a contagem que vale é a de produção, não consultada aqui.
+
+**Acertos da revisão FINAL da E2.6 (17/09), depois dos três commits.** Ela não derrubou código — as
+três fatias compõem em vez de se sobrepor, as exceções têm um significado só, nenhuma rota mudou o
+que o usuário vê, não há migration e o merge é fast-forward. O que ela derrubou foi documentação, e
+isso virou:
+
+- `docs/frentes-ativas.md` tinha quatro afirmações falsas de uma vez (número de suíte que não
+  correspondia a fatia nenhuma, um "Próxima: E2.6 … não autorizada" sobrando da E2.5, a base
+  `origin/master` errada e "349 peças" onde a spec já dizia "arquivos de disco sem linha no banco").
+  Corrigidas. **É a linha que o dono lê na hora do merge; errar ali custa mais do que errar no
+  código**;
+- a DT-7 (§9) ganhou o terceiro temporário, `jusprime-export-<uid>/<hex>/` — o único dos três que
+  materializa **imagem de cliente**, e o que mais importa para a varredura da E3;
+- `ReferenciasDePecaHtml::reescreverPrefixo()` e a constante do prefixo **saíram**: ficaram sem
+  consumidor de produção quando o export passou a resolver por chave, e deixar um reescritor por
+  regex vivo numa classe de segurança é convite para alguém usá-lo de novo;
+- o docblock do `ArmazenamentoLocal` ainda dizia que o shim atendia consumidores, e o da fábrica
+  `ChavesDePasta::imagemDoEditor()` dizia "tenant da sessão" — o export usa o tenant do DOCUMENTO,
+  que é mais estrito. Os dois foram acertados;
+- **custo novo eliminado:** com `reduzir_tamanho` num tipo que o compressor não trata (DOCX, por
+  exemplo), o serviço copiava o arquivo inteiro para o `/tmp` só para ouvir "não trato". O contrato
+  ganhou `CompressorArquivoInterface::trata()` e a cópia deixou de acontecer (com teste e mutação).
+
+Dois pontos ficam REGISTRADOS, não consertados, por decisão consciente:
+
+- **fail-open do parser:** se `loadHTML()` falhasse, o export devolveria o HTML original à biblioteca
+  — a mesma forma do bloqueante que a 6C corrigiu. Medido que hoje é inalcançável: com o prefixo
+  `<?xml…><html><body>`, o `loadHTML` devolveu `true` para UTF-8 inválido, byte NUL, nó de 12 MB,
+  comentário aberto, CDATA e 1000 níveis de aninhamento (o libxml corta em 256 e a `<img>` profunda
+  é DESCARTADA, não chega à biblioteca). Fechar o ramo custaria perder a peça inteira num caso que
+  não existe; se um dia existir, a escolha é do dono;
+- **`AreaTemporariaPrivada::caminho()` usa `FalhaNoTemporario` para "área já liberada"**, que é erro
+  de programação e o export engole como "imagem pulada". Inalcançável no fluxo atual.
 
 **Preparação da E2.6 — levantamento de 17/09, read-only, feito sobre `3ecc77fb` (E2.5 + master com o
 DT-8).** Três investigações paralelas; os achados que mudam o plano foram conferidos no código. As

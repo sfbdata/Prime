@@ -55,6 +55,8 @@ final class EnviarDocumentoUseCaseTest extends TestCase
         $this->documentoRepository = $this->createMock(CobrancaDocumentoRepository::class);
         $this->armazenamento = new ArmazenamentoEmMemoria();
         $this->compressor = $this->createMock(CompressorArquivoInterface::class);
+        // O serviço só materializa se o compressor disser que trata o MIME (E2.6C).
+        $this->compressor->method('trata')->willReturn(true);
         $this->sut = new EnviarDocumentoUseCase(
             $this->documentoRepository,
             $this->armazenamento,

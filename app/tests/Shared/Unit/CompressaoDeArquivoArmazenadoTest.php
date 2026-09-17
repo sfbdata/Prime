@@ -81,6 +81,11 @@ final class CompressaoDeArquivoArmazenadoTest extends TestCase
                 return new ResultadoCompressao(99_999, 1, $this->comprimido, eraAssinado: true);
             }
 
+            public function trata(string $mimeType): bool
+            {
+                return $mimeType !== 'application/zip'; // o tipo que o teste usa para "não trato"
+            }
+
             public function pdfEstaAssinado(string $caminhoCompleto): bool
             {
                 return false;
@@ -260,6 +265,24 @@ final class CompressaoDeArquivoArmazenadoTest extends TestCase
         self::assertTrue($resultado->eraAssinado);
         $this->assertAvisou();
         $this->assertCopiasLiberadas();
+    }
+
+    /**
+     * Antes desta guarda o arquivo inteiro ia para o temporário só para o compressor responder
+     * "não trato" — num DOCX de 10 MB, ida e volta de `/tmp` a cada upload com redução marcada.
+     */
+    #[TestDox('MIME que o compressor não trata: nem materializa, e o tamanho é o medido')]
+    public function testMimeNaoTratadoNemMaterializa(): void
+    {
+        $compressor = $this->compressor(self::COMPRIMIDO, true);
+
+        $resultado = $this->servico($compressor)->comprimir($this->chave, 'application/zip');
+
+        self::assertSame([], $this->armazenamento->copiasEntregues, 'copiou o arquivo à toa');
+        self::assertSame([], $compressor->chamadas);
+        self::assertSame(self::ORIGINAL, $this->armazenamento->ler($this->chave));
+        self::assertFalse($resultado->comprimido);
+        self::assertSame(\strlen(self::ORIGINAL), $resultado->tamanhoFinal);
     }
 
     #[TestDox('arquivo ausente: ArquivoNaoEncontrado sobe, sem materializar')]

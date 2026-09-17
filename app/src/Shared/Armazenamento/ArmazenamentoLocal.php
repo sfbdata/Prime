@@ -12,11 +12,10 @@ use App\Shared\Armazenamento\Exception\FalhaNoTemporario;
  * O backend de disco — o único que existe na E2, e o que continua servindo os mesmos arquivos,
  * nos mesmos caminhos (INV-1).
  *
- * Convive de propósito com `ArquivoStorageService`, que **não foi tocado** e continua atendendo
- * `ArquivoStorageInterface` para os consumidores que ainda não migraram — 33 no início da E2; depois
- * da E2.5 sobram só os que pedem caminho ao compressor e ao envio do Drive (E2.6B e E2.6C). É o shim de D2:
- * os dois escrevem no mesmo disco, pelo mesmo layout, enquanto os consumidores migram fatia a
- * fatia. Esta classe
+ * Conviveu de propósito com `ArquivoStorageService` — o shim de D2 — enquanto os 33 consumidores do
+ * início da E2 migravam fatia a fatia: os dois escrevem no mesmo disco, pelo mesmo layout. **Desde a
+ * E2.6C o shim não atende mais ninguém em produção** (o último era o envio ao Drive) e sai na E2.8.
+ * Esta classe
  * **não** implementa a interface antiga — duas implementações da mesma interface quebrariam o
  * autowiring por interface e derrubariam todos de uma vez.
  *
