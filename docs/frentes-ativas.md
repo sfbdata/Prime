@@ -10,6 +10,7 @@ Quem abre uma frente acrescenta a linha. Quem integra tira.
 | `cobranca-acompanhamento-canonico` | Cobrança (modelo objeto/caso) | **sim — 4** | `docs/gestao-cobrancas/` | 🛑 **PARADA** (ver abaixo) | `origin/master` @ `0bb1f29` |
 | `expediente-ux` | Expediente + Pasta (telas) | não | `app/templates/expediente/`, `app/templates/pasta/` | implementando, **28 commits atrás do master** | `origin/codex/colaboracao-cobrancas` |
 | `cobranca-reconciliar-data-acordo` | Cobrança (comando) | não | `RelatorioLinhaRepository` (método novo), `ComandosComPiiPassamPelaGuardaTest` (1 linha) | ✅ pronta: 3901/3901, prova por reintrodução feita — **aguarda `/review` e integração** | `master` local @ `18555616` |
+| `fix-dt8-download-drive` | Sync (cliente do Drive) | não | `app/tests/Sync/Support/FakeGoogleDriveClient.php` (a E2 acrescenta as mesmas linhas; sem conflito previsto) · esta tabela (conflito com a E2) | DT-8 (`docs/specs/dt8-download-drive.md`, §4 lista a integração com a E2); **integrar antes da E2**, que depois traz o master | `origin/master` @ `c365fe72` |
 
 ### ⚠️ `pasta-show-chip-responsavel` extrai 196 linhas do `_tabela.html.twig`
 
