@@ -6,8 +6,11 @@ namespace App\Tests\Shared\Doubles;
 
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Armazenamento\ArquivoArmazenado;
+use App\Shared\Armazenamento\ArquivoEmprestado;
+use App\Shared\Armazenamento\ArquivoTemporarioPossuido;
 use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Shared\Armazenamento\FonteDeConteudo;
+use App\Shared\Armazenamento\MaterializadorDeArquivo;
 use App\Shared\Armazenamento\MetadadosDeArquivo;
 use App\Shared\Armazenamento\NovoArquivo;
 
@@ -23,7 +26,7 @@ use App\Shared\Armazenamento\NovoArquivo;
  * chamador vai ver — o mesmo resultado, um resultado alterado, ou uma exceção. O arquivo já está
  * gravado quando ele roda.
  */
-final class ArmazenamentoEspiao implements ArmazenamentoDeArquivos
+final class ArmazenamentoEspiao implements ArmazenamentoDeArquivos, MaterializadorDeArquivo
 {
     /** @var list<ChaveDeArquivo> */
     public array $gravadas = [];
@@ -48,6 +51,29 @@ final class ArmazenamentoEspiao implements ArmazenamentoDeArquivos
 
     public function __construct(private readonly ArmazenamentoDeArquivos $real)
     {
+    }
+
+    /**
+     * Materializar é REPASSE puro: o espião observa gravação e exclusão, não leitura. Desde a
+     * E2.6C o reconciliador do Drive materializa por chave, e sem isto ele não caberia no dublê.
+     */
+    public function paraLeitura(ChaveDeArquivo $chave): ArquivoEmprestado
+    {
+        return $this->materializador()->paraLeitura($chave);
+    }
+
+    public function copiaGravavel(ChaveDeArquivo $chave): ArquivoTemporarioPossuido
+    {
+        return $this->materializador()->copiaGravavel($chave);
+    }
+
+    private function materializador(): MaterializadorDeArquivo
+    {
+        if (!$this->real instanceof MaterializadorDeArquivo) {
+            throw new \LogicException('O backend decorado não materializa arquivo.');
+        }
+
+        return $this->real;
     }
 
     public function gravar(ChaveDeArquivo|NovoArquivo $destino, FonteDeConteudo $fonte): ArquivoArmazenado

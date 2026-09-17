@@ -34,6 +34,9 @@ final class ReferenciasDePecaHtml
     /** Mesmo prefixo, capturando o `<tenantId>/` opcional e o nome do arquivo. */
     private const PADRAO_REFERENCIA = '#(?:\.{1,2}/)*/?uploads/pastas/(?:(\d+)/)?([A-Za-z0-9][A-Za-z0-9._-]*)#';
 
+    /** O mesmo, ANCORADO nas duas pontas: é allowlist, não "achar no meio da string". */
+    private const PADRAO_IMAGEM_DO_EDITOR = '#^(?:\.{1,2}/)*/?uploads/pastas/(?:(\d+)/)?([A-Za-z0-9][A-Za-z0-9._-]*)$#';
+
     /**
      * Nomes de arquivo referenciados pelo HTML, sem diretório e sem repetição.
      *
@@ -58,6 +61,35 @@ final class ReferenciasDePecaHtml
         }
 
         return array_keys($nomes);
+    }
+
+    /**
+     * O NOME do arquivo quando o `src` é uma referência legítima a uma imagem do editor DESTE
+     * escritório; `null` para todo o resto (E2.6C, D32).
+     *
+     * É a porta que o export usa, e ela é uma **allowlist**: só passa `src` que seja exatamente o
+     * formato que o editor produz — prefixo relativo ou absoluto, `uploads/pastas/`, subpasta do
+     * escritório opcional e um nome sem barra. Fica de fora, por construção, tudo o que a revisão
+     * provou ser perigoso: `http://` e `https://` (o PhpWord BUSCA a URL), `file://`, `data:`,
+     * caminho absoluto de disco, `../` e `%2e%2e` (o PhpWord decodifica DEPOIS de qualquer reescrita
+     * nossa, então a travessia só morre aqui), e a subpasta de OUTRO escritório.
+     *
+     * Trocar prefixo por regex não serve para isto: o que não casa o padrão continuava passando
+     * intacto para a biblioteca.
+     */
+    public function nomeDeImagemDoEscritorio(string $src, ?int $tenantId): ?string
+    {
+        if (preg_match(self::PADRAO_IMAGEM_DO_EDITOR, trim($src), $partes) !== 1) {
+            return null;
+        }
+
+        $escritorioNaUrl = $partes[1] === '' ? null : (int) $partes[1];
+
+        if ($escritorioNaUrl !== null && $escritorioNaUrl !== $tenantId) {
+            return null; // a peça aponta para a subpasta de outro escritório
+        }
+
+        return $partes[2];
     }
 
     /**

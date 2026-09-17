@@ -20,14 +20,19 @@ use App\Shared\Armazenamento\MetadadosDeArquivo;
 use App\Shared\Armazenamento\NovoArquivo;
 use App\Tests\Shared\Doubles\ArmazenamentoEmMemoria;
 use PhpOffice\PhpWord\IOFactory;
+use Psr\Log\NullLogger;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
 
 /**
  * Export de peça. Desde a E2.4B o HTML é lido por chave (D13: ausente → `ArquivoNaoEncontrado`,
- * pane → `FalhaDeArmazenamento`); as imagens embutidas ainda saem do disco pelo `projectDir`
- * (E2.6).
+ * pane → `FalhaDeArmazenamento`).
+ *
+ * A imagem embutida saiu daqui na E2.6C: ela não é mais um prefixo trocado por caminho de disco, e
+ * sim uma resolução por chave + escritório com materialização em área privada. Tudo o que dizia
+ * respeito a isso — inclusive os vetores que a reescrita por prefixo deixava passar — está em
+ * {@see ExportarPecaImagemSeguraTest}.
  */
 #[CoversClass(ExportarPecaTextoUseCase::class)]
 final class ExportarPecaTextoUseCaseTest extends TestCase
@@ -243,104 +248,9 @@ final class ExportarPecaTextoUseCaseTest extends TestCase
         self::assertStringEndsWith('.txt', $this->useCase->executar($this->doc, 'txt')->nomeArquivo);
     }
 
-    #[TestDox('M5: reescrita de imagem aponta /uploads/pastas/ para a subpasta do tenant do doc')]
-    public function testReescritaApontaParaSubpastaDoTenant(): void
-    {
-        $html = '<p>Peça</p><img src="/uploads/pastas/foto.png" alt="">';
-
-        $resultado = $this->invocarReescrita($html, 77);
-
-        self::assertSame(
-            '<p>Peça</p><img src="' . sys_get_temp_dir() . '/public/uploads/pastas/77/foto.png" alt="">',
-            $resultado,
-        );
-    }
-
-    #[TestDox('M5: reescrita normaliza caminho RELATIVO (../../uploads/pastas/) do TinyMCE para a subpasta')]
-    public function testReescritaNormalizaCaminhoRelativo(): void
-    {
-        // O TinyMCE grava URL relativa por default (convert_urls). O str_replace antigo deixava o
-        // `../..` para trás e quebrava a imagem no export; o regex consome o prefixo inteiro.
-        $html = '<p>X</p><img src="../../uploads/pastas/foto.png" alt="">';
-
-        $resultado = $this->invocarReescrita($html, 77);
-
-        self::assertSame(
-            '<p>X</p><img src="' . sys_get_temp_dir() . '/public/uploads/pastas/77/foto.png" alt="">',
-            $resultado,
-        );
-    }
-
-    #[TestDox('M5: reescrita troca TODAS as imagens do HTML (absoluta, relativa e ./) na mesma peça')]
-    public function testReescritaTrocaMultiplasImagens(): void
-    {
-        $base = sys_get_temp_dir() . '/public/uploads/pastas/77/';
-        $html = '<img src="/uploads/pastas/a.png">texto'
-            . '<img src="../../uploads/pastas/b.jpg">mais'
-            . '<img src="./uploads/pastas/c.png">';
-
-        $resultado = $this->invocarReescrita($html, 77);
-
-        self::assertSame(
-            '<img src="' . $base . 'a.png">texto'
-            . '<img src="' . $base . 'b.jpg">mais'
-            . '<img src="' . $base . 'c.png">',
-            $resultado,
-        );
-    }
-
-    #[TestDox('Reescrita sem tenant (degenerado) cai no caminho sem subpasta')]
-    public function testReescritaSemTenantUsaCaminhoSemSubpasta(): void
-    {
-        $html = '<img src="/uploads/pastas/foto.png">';
-
-        $resultado = $this->invocarReescrita($html, null);
-
-        self::assertSame(
-            '<img src="' . sys_get_temp_dir() . '/public/uploads/pastas/foto.png">',
-            $resultado,
-        );
-    }
-
-    #[TestDox('M5/PDF: a imagem do disco é EMBUTIDA no PDF (o chroot do Dompdf libera a leitura)')]
-    public function testPdfEmbuteImagemDoDisco(): void
-    {
-        // doc no tenant 99 → a reescrita aponta p/ {projectDir}/public/uploads/pastas/99/
-        $tenant = new Tenant();
-        (new \ReflectionProperty(Tenant::class, 'id'))->setValue($tenant, 99);
-        $this->doc->setTenant($tenant);
-
-        $dir = sys_get_temp_dir() . '/public/uploads/pastas/99';
-        @mkdir($dir, 0775, true);
-        $img = $dir . '/foto.png';
-        $gd  = imagecreatetruecolor(80, 80);
-        imagefill($gd, 0, 0, imagecolorallocate($gd, 12, 120, 200));
-        imagepng($gd, $img);
-        imagedestroy($gd);
-
-        $html = '<p>Peça com imagem</p><img src="/uploads/pastas/foto.png">';
-
-        $this->gravarPeca($html);
-        $comImagem = $this->useCase->executar($this->doc, 'pdf')->conteudo;
-
-        // baseline: mesma peça, arquivo de imagem AUSENTE → Dompdf não embute → PDF menor
-        @unlink($img);
-        $this->gravarPeca($html);
-        $semImagem = $this->useCase->executar($this->doc, 'pdf')->conteudo;
-
-        @rmdir($dir);
-
-        self::assertStringStartsWith('%PDF-', $comImagem);
-        self::assertGreaterThan(
-            strlen($semImagem),
-            strlen($comImagem),
-            'com o arquivo presente o PDF deve ser maior (imagem embutida) que sem — prova o chroot',
-        );
-    }
-
     private function useCaseCom(ArmazenamentoDeArquivos $armazenamento): ExportarPecaTextoUseCase
     {
-        return new ExportarPecaTextoUseCase($armazenamento, new ReferenciasDePecaHtml(), sys_get_temp_dir());
+        return new ExportarPecaTextoUseCase($armazenamento, new ReferenciasDePecaHtml(), new NullLogger());
     }
 
     /** Grava o HTML na chave do documento como ele está AGORA (escritório incluído). */
@@ -355,12 +265,5 @@ final class ExportarPecaTextoUseCaseTest extends TestCase
         (new \ReflectionProperty(Tenant::class, 'id'))->setValue($tenant, $id);
 
         return $tenant;
-    }
-
-    private function invocarReescrita(string $html, ?int $tenantId): string
-    {
-        $metodo = new \ReflectionMethod($this->useCase, 'reescreverImagensParaDisco');
-
-        return (string) $metodo->invoke($this->useCase, $html, $tenantId);
     }
 }

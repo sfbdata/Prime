@@ -95,6 +95,26 @@ Compressão é **melhor esforço**: falha de compressão ou do temporário mant�
 vira log. O que **não** é engolido: não conseguir ler ou medir o arquivo persistido é pane e sobe
 (D26) — o mesmo critério do D10.
 
+**Arquivo que vai para uma biblioteca de terceiros (export, PDF, DOCX):**
+```php
+$area = AreaTemporariaPrivada::criar('export');
+try {
+    $caminho = $area->gravar($this->armazenamento->ler($chave), 'png'); // materializa por CHAVE
+    // ... entregar $caminho à biblioteca, com o chroot dela apontando para $area->caminho()
+} finally {
+    $area->liberar();
+}
+```
+A regra que a E2.6C institui: **o que a biblioteca enxerga é só o que você colocou lá**. Referência
+escrita pelo usuário (o `src` de um `<img>`, por exemplo) nunca chega à biblioteca — ela passa antes
+por uma allowlist e vira chave + escritório, ou é descartada. Provado com teste: sem isso, o PhpWord
+BUSCA `http://` (SSRF) e o `%2e%2e` decodificado alcança o arquivo de outro escritório.
+
+🪤 **E o caminho de erro conta como caminho.** Na revisão da 6C, a limpeza do HTML tinha um fallback
+"se não sobrou nada, usa o original" — e uma peça composta SÓ pela imagem maliciosa caía nele, com
+tudo de volta. Se você filtra conteúdo, o resultado vazio é resposta legítima: o original só volta
+quando não houve filtragem nenhuma. E teste de filtro precisa do caso em que o filtro remove TUDO.
+
 A fábrica de arquivo novo (`ChavesDe*::novo*`) tira o escopo de onde a **leitura** vai tirá-lo
 depois — a gravação e a leitura têm de montar a mesma chave. `tests/Arquitetura/FabricasDeArquivoNovoTest`
 trava isso e proíbe `new NovoArquivo(` fora das fábricas.
@@ -166,10 +186,14 @@ Regras que acompanham os exemplos:
   materializa uma cópia gravável fora do volume, chama o compressor nela, regrava na mesma chave e
   devolve os tamanhos MEDIDOS pelo storage. É o único lugar que junta materializador e compressor;
   nenhum controller ou UseCase toca em `CompressorArquivoInterface` direto.
+- `Armazenamento\AreaTemporariaPrivada` — um diretório aleatório **por operação**, dentro do
+  temporário privado do processo, que se apaga inteiro no `finally`. É onde o export materializa as
+  imagens da peça (e é o `chroot` que o Dompdf recebe) e onde o Ghostscript escreve os temporários
+  dele.
 - `Service\ArquivoStorageInterface` / `ArquivoStorageService` — **em extinção** (shim de D2): desde a
-  E2.6B só resta `caminho()` para o envio ao Drive (Via A do `ReconciliadorDePasta`), que sai na
-  E2.6C; a interface e o serviço saem na E2.8. Não usar em código novo — gravar, ler, excluir,
-  entregar e comprimir já são por chave.
+  E2.6C não há mais consumidor de produção; a interface e o serviço saem na E2.8. Não usar em código
+  novo — gravar, ler, excluir, entregar e comprimir já são por chave. Em teste ele também não está
+  mais disponível: sem consumidor, o container de teste não o expõe.
 
 ## Traits
 

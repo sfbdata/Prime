@@ -589,7 +589,7 @@ integrar.
 | **E2.6** | dividida em três (D25): | 6 consumidores (todos já entre os 33) + núcleo | ver 6A–6C |
 | **E2.6A** — ✅ **entregue em 17/09** | **D4 cumprido** (modos de falha, timeout injetável, `finally`, validação da saída — D27, D28); `DiretorioTemporarioPrivado` no núcleo (D29); `MaterializadorDeArquivo::copiaGravavel()` no Local e nos dublês; `CompressaoDeArquivoArmazenado` (D26, D30, D31) | `CompressorArquivo`, núcleo, `FonteDeUploadHttp`, serviço novo, dublês | modos de falha verdes **antes** de qualquer consumidor; contrato da cópia (INV-9 #4 real); serviço contra dublê e contra o disco |
 | **E2.6B** — ✅ **entregue em 17/09** | as **5 chamadas** do compressor (`ClienteController`, `PastaController` ×2, `UploadPecaUseCase`, `EnviarDocumentoUseCase`) pelo serviço; tamanho medido (D30) | 4 arquivos de produção + testes | funcional de cada rota com `reduzir_tamanho`; persistido íntegro e tamanho = arquivo real em sucesso e em falha |
-| **E2.6C** | export por chave + escritório com diretório temporário privado e aleatório, fechando SSRF e leitura entre escritórios (D32, provados **antes**); Via A do Drive por `paraLeitura()`; o shim perde o último consumidor e os testes que dependiam dele migram (D33); `Shared/CLAUDE.md` (D34) | `ExportarPecaTextoUseCase`, `ReferenciasDePecaHtml`, `ReconciliadorDePasta` + testes | provas locais das vulnerabilidades antes do conserto; DOCX/ODT/PDF com imagem, ausente, de outro escritório e maliciosa |
+| **E2.6C** — ✅ **entregue em 17/09** | export por chave + escritório com diretório temporário privado e aleatório, fechando SSRF e leitura entre escritórios (D32, provados **antes**); Via A do Drive por `paraLeitura()`; o shim perde o último consumidor e os testes que dependiam dele migram (D33); `Shared/CLAUDE.md` (D34) | `ExportarPecaTextoUseCase`, `ReferenciasDePecaHtml`, `ReconciliadorDePasta` + testes | provas locais das vulnerabilidades antes do conserto; DOCX/ODT/PDF com imagem, ausente, de outro escritório e maliciosa |
 | **E2.7** | investigação de Tarefa e, se viável sem migration, entrada na abstração (**D5**) | `TarefaController`, `CaminhoDeAnexoDeTarefa` | teste de travessia atacando o VO, não a rota |
 | **E2.8** | remoção de `caminho()`/`servir()`; docblocks de DT-5; teste de arquitetura | limpeza | suíte + arch test |
 
@@ -1382,6 +1382,77 @@ consumidor conhece mais caminho, diretório ou o shim.
   não são persistidas e os bytes já gravados viram órfãos. A forma do dano não é nova (a gravação
   lança desde a E2.4A e o 500 já era provado), mas o gatilho é; há teste do caso "o primeiro arquivo
   grava, o segundo dá pane".
+
+**E2.6C — entregue em 17/09/2026.** O export passou a resolver imagem por chave + escritório, a Via A
+do Drive materializa, e o shim ficou sem consumidor de produção.
+
+- **Os vetores foram PROVADOS antes (D32a)**, localmente e sem rede — o `http://` foi atendido por um
+  wrapper espião de stream, e o "outro escritório" é um diretório do próprio teste. Contra o código
+  da E2.6B:
+
+  | vetor | DOCX/ODT (PhpWord) | PDF (Dompdf) |
+  |---|---|---|
+  | `<img src="http://169.254.169.254/…">` | **buscou a URL e embutiu a resposta** | bloqueado (remote off) |
+  | `<img src="file:///tmp/…">` | **embutiu** | bloqueado (chroot) |
+  | `%2e%2e` para outro escritório | **embutiu** (o PhpWord decodifica depois da reescrita) | não resolveu |
+  | `../` para outro escritório | **embutiu** | **embutiu** (o chroot era `public/` inteiro) |
+  | `data:image/png;base64,…` | embutiu | embutiu |
+  | imagem ausente | **exceção → 500** | imagem quebrada |
+
+- **O conserto.** Cada `<img>` passa por uma allowlist ancorada
+  (`ReferenciasDePecaHtml::nomeDeImagemDoEscritorio()`), que só aceita a forma que o editor produz e
+  recusa a subpasta de OUTRO escritório; a imagem é resolvida por
+  `ChavesDePasta::imagemDoEditor($escritório do documento, $nome)` e materializada numa
+  `AreaTemporariaPrivada` desta execução. O trabalho é no DOM, não na string. O `chroot` do Dompdf
+  passou a ser a área, com `setAllowedProtocols(['file://'])`, e o PhpWord recebe `tempDir` dela.
+  O que não resolve é **pulado** (D32d) — inclusive a imagem ausente, que antes derrubava o DOCX.
+- **`data:` — medido e recusado (D32g).** No disco do DEV há **349 arquivos `.html` de peça: zero
+  `data:`**, zero `http/https`, zero `file:`. A revisão da fatia cobrou a precisão deste número, e ele
+  vale com a ressalva: esses arquivos **não têm linha** em nenhum dos dois bancos de DEV (`saas` e
+  `saas_ux` têm zero `pasta_documento` com `caminho_arquivo` terminando em `.html`) — são peças
+  reais, escritas pelo editor, mas resíduo de disco, não o acervo vivo. Produção não foi consultada
+  (proibida nesta execução). No código, o editor sobe a imagem e insere a URL; `data:` só apareceria
+  no fallback do TinyMCE quando o upload falha. Sem necessidade legítima comprovada, o export recusa.
+- **Via A do Drive.** `ReconciliadorDePasta` deixou de pedir `caminho()` ao shim: materializa por
+  chave com `paraLeitura()` (empréstimo, cópia zero — o Drive só lê), **dentro do `try` do item**,
+  para a pane virar erro daquele documento e não derrubar a rodada. O `$uploadsDir` saiu do
+  construtor.
+- **O shim perdeu o último consumidor (D33).** `QUEM_AINDA_USA_O_SHIM` ficou só com a interface e o
+  serviço, e o container de teste deixou de expô-lo — 57 erros em 8 arquivos de teste, todos
+  migrados para chave (Sync ×5, Pasta ×1, Ponto ×2). O `ArmazenamentoEspiao` passou a materializar
+  por repasse.
+- **Provas:** 15 mutações no export, 14 derrubadas (a sobrevivente, "área não liberada no `finally`",
+  é coberta pelo destrutor). Entre elas: allowlist sem âncora, escritório da URL ignorado, `<img>`
+  que não resolve mantida, materialização fora da área, `chroot` largo, protocolos liberados e o
+  fallback do corpo vazio (abaixo), a extensão que a área recusaria, a falha do temporário virando
+  pane em vez de imagem pulada, o conteúdo que não é imagem sendo embutido e a imagem fora do corpo
+  sendo materializada à toa.
+- **Também fechados na revisão, todos com teste:** imagem PRESENTE mas corrompida era
+  `InvalidImageException` do PhpWord (500 permanente para aquela peça em DOCX/ODT) e passou a ser
+  pulada — o editor só aceita JPEG e PNG, então o cabeçalho decide; trecho que o parser joga para
+  FORA do `<body>` não é mais materializado à toa e o descarte é avisado; o `tempDir` do PhpWord
+  (estado global) é restaurado em `finally`; e o teste do TXT passou a provar, pelas LEITURAS
+  registradas no dublê, que a imagem nem é lida — antes ele comparava diretórios, o que não
+  distinguia "não criou área" de "criou e liberou".
+- 🪤 **Limite medido do parser:** nó de TEXTO acima de ~10 MB é truncado em silêncio pelo libxml
+  (peça de 12 MB sem tags saiu com 10.000.000 bytes). Para DOCX/ODT isso já valia; para o PDF é novo,
+  porque antes o HTML ia cru ao Dompdf. Registrado no docblock da classe.
+- 🪤 **O defeito que a revisão pegou, e que os testes deixavam passar:** removida a única `<img>` de
+  uma peça, o corpo ficava vazio e um fallback devolvia o HTML ORIGINAL à biblioteca — com o `src`
+  malicioso intacto. O SSRF, o `data:` e a leitura de arquivo local seguiam abertos no DOCX/ODT para
+  **peça composta só de imagem**, que é HTML que o usuário controla inteiro. Os testes não viam
+  porque todo caso do provider era montado como `<p>oi</p><img …>`: o `<p>` impedia o corpo de ficar
+  vazio. Agora cada referência proibida é exercitada em três formas (com texto ao lado, sozinha e
+  duplicada), e corpo vazio é resultado válido — só a ausência de `<body>` volta ao original.
+- **Imagem de peça ANTIGA (diretório plano, anterior ao isolamento da M5) não é endereçável por
+  `imagemDoEditor()` e é pulada no export.** Isso **não é regressão**, e a revisão da fatia é que
+  mostrou: o código anterior reescrevia a referência para `public/uploads/pastas/<tenantId>/<nome>`,
+  onde o arquivo legado não está — o DOCX já quebrava com exceção do PhpWord (500) e o PDF já saía
+  sem a imagem. Agora sai sem a imagem, com log, e sem 500. Quem quiser essas imagens de volta no
+  export precisa de **migração de dados** (mover a imagem legada para `pastas/<tenantId>/`), que é
+  decisão e execução do dono: o escritório dono de um arquivo plano só se descobre pela peça que o
+  referencia. No disco do DEV são 2 arquivos nessa situação (e nenhuma subpasta `<tenantId>/`
+  existe lá); a contagem que vale é a de produção, não consultada aqui.
 
 **Preparação da E2.6 — levantamento de 17/09, read-only, feito sobre `3ecc77fb` (E2.5 + master com o
 DT-8).** Três investigações paralelas; os achados que mudam o plano foram conferidos no código. As

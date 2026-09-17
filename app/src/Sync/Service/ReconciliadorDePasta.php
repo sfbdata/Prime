@@ -11,16 +11,15 @@ use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaSecao;
 use App\Pasta\Repository\PastaSecaoRepository;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
+use App\Shared\Armazenamento\MaterializadorDeArquivo;
 use App\Shared\Armazenamento\Exception\ChaveDeArquivoInvalida;
 use App\Shared\Armazenamento\Exception\FalhaDeArmazenamento;
 use App\Shared\Armazenamento\FonteDeConteudo;
 use App\Shared\Armazenamento\RemocaoAposTransacao;
 use App\Shared\Doctrine\Transacao\TransacaoComArquivoNovo;
-use App\Shared\Service\ArquivoStorageInterface;
 use App\Sync\DTO\ResultadoReconciliacaoPasta;
 use App\Sync\Enum\ModoSincronizacao;
 use Doctrine\ORM\EntityManagerInterface;
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
  * Motor de reconciliação de UMA pasta (aditivo, nunca apaga), extraído do ReconciliarCommand
@@ -50,13 +49,11 @@ final class ReconciliadorDePasta
 
     public function __construct(
         private readonly EntityManagerInterface $em,
-        private readonly ArquivoStorageInterface $storage,
+        private readonly MaterializadorDeArquivo $materializador,
         private readonly ArmazenamentoDeArquivos $armazenamento,
         private readonly TransacaoComArquivoNovo $transacao,
         private readonly RemocaoAposTransacao $remocao,
         private readonly PastaSecaoRepository $secaoRepository,
-        #[Autowire('%uploads_dir%')]
-        private readonly string $uploadsDir,
     ) {
     }
 
@@ -229,8 +226,6 @@ final class ReconciliadorDePasta
         ) : [];
         foreach ($docRows as $docRow) {
             $nomeArquivo = (string) $docRow['caminho_arquivo'];
-            // O caminho ainda é necessário para o envio ao Drive (o client lê por path até a E2.6).
-            $caminho = $this->storage->caminho($this->uploadsDir, $nomeArquivo);
 
             // E2.2: a presença é perguntada por chave, e o escopo sai do tenant DO DOCUMENTO (R1),
             // não do tenant da pasta — em dados são o mesmo, mas quem responde pela linha é ela.
@@ -269,8 +264,15 @@ final class ReconciliadorDePasta
                 continue;
             }
             try {
-                $alvo   = $this->resolverPastaAlvoNoDrive($doc->getSecao(), $caseFolder, $subpastasDoCaso, $client);
-                $fileId = $client->enviarArquivo($alvo, $doc->getNomeOriginal(), $caminho, $doc->getMimeType());
+                // E2.6C: o caminho vem do materializador, por CHAVE — o cliente do Drive continua
+                // lendo por path (§14), mas quem o produz é o armazenamento. `paraLeitura()` é
+                // empréstimo, cópia zero: o Drive só LÊ, e o arquivo persistido não pode ser
+                // tocado (INV-9). Materializar aqui dentro, e não antes do laço, é de propósito:
+                // a pane de leitura vira erro DESTE item, junto com as outras, e não derruba a
+                // rodada; e o caminho nunca chega ao `baixarArquivo`, que apaga o destino (DT-8).
+                $caminho = $this->materializador->paraLeitura($chave)->caminho();
+                $alvo    = $this->resolverPastaAlvoNoDrive($doc->getSecao(), $caseFolder, $subpastasDoCaso, $client);
+                $fileId  = $client->enviarArquivo($alvo, $doc->getNomeOriginal(), $caminho, $doc->getMimeType());
                 // Marca como conhecido ANTES do flush: o arquivo JÁ está no Drive; se o flush do vínculo
                 // falhar, a Via B (mesma rodada) não pode reimportá-lo como novo (evita duplicar o doc).
                 $conhecidos[$fileId] = true;

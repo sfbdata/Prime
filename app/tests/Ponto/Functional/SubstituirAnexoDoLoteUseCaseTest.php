@@ -16,7 +16,9 @@ use App\Shared\Armazenamento\Exception\FalhaDeArmazenamento;
 use App\Shared\Armazenamento\RemocaoAposTransacao;
 use App\Shared\Doctrine\Transacao\DestinoDaTransacao;
 use App\Shared\Doctrine\Transacao\TransacaoComArquivoNovo;
-use App\Shared\Service\ArquivoStorageInterface;
+use App\Ponto\Armazenamento\ChavesDePonto;
+use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
+use App\Shared\Armazenamento\FonteDeConteudo;
 use App\Tests\Shared\Doubles\ArmazenamentoEspiao;
 use App\Tests\Shared\Doubles\ConsultaDeDestinoFixa;
 use App\Tests\Shared\Doubles\FalhaDeCommitArmavel;
@@ -430,6 +432,18 @@ final class SubstituirAnexoDoLoteUseCaseTest extends KernelTestCase
         return static::getContainer()->get(EntityManagerInterface::class);
     }
 
+    /**
+     * O anexo de justificativa mora num diretório PLANO (o escopo não aparece no caminho), então
+     * para semear basta um escritório qualquer — o que importa é o nome cunhado.
+     */
+    private function tenantQualquer(): Tenant
+    {
+        $tenant = new Tenant();
+        (new \ReflectionProperty(Tenant::class, 'id'))->setValue($tenant, 1);
+
+        return $tenant;
+    }
+
     private function diretorio(): string
     {
         return (string) static::getContainer()->getParameter('justificativas_uploads_dir');
@@ -445,11 +459,16 @@ final class SubstituirAnexoDoLoteUseCaseTest extends KernelTestCase
         return \count(glob($this->diretorio() . '/*') ?: []);
     }
 
-    private function gravarAnexo(string $conteudo): string
+    private function gravarAnexo(string $conteudo, ?Tenant $tenant = null): string
     {
-        $storage = static::getContainer()->get(ArquivoStorageInterface::class);
+        // E2.6C: por chave — o shim saiu do container com o último consumidor de produção.
+        $armazenamento = static::getContainer()->get(ArmazenamentoDeArquivos::class);
+        $tenant        = $tenant ?? $this->tenantQualquer();
 
-        return $storage->salvarConteudo('%PDF-1.4 ' . $conteudo, $this->diretorio(), 'pdf');
+        return $armazenamento->gravar(
+            ChavesDePonto::novoAnexoDeLote($tenant, 'pdf'),
+            FonteDeConteudo::deTexto('%PDF-1.4 ' . $conteudo),
+        )->chave->nome;
     }
 
     private function upload(): UploadedFile

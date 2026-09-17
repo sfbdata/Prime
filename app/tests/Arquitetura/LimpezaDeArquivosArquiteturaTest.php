@@ -32,23 +32,23 @@ use PHPUnit\Framework\TestCase;
 final class LimpezaDeArquivosArquiteturaTest extends TestCase
 {
     /**
-     * Único caso legítimo hoje: o backend de disco, que implementa `excluirPrefixo()` (D7). Ele
-     * varre o diretório do escritório e apaga tudo — mas só depois de PROVAR que o prefixo pertence
-     * exclusivamente àquele escritório (não é link, resolve para `<raiz real>/<id>`, não coincide
-     * com raiz nenhuma) e de inventariar a árvore inteira sem seguir link. A decisão de apagar
-     * o escritório inteiro é de quem chama (a purga), onde peças, imagens e linhas somem juntas.
+     * Os dois casos legítimos:
      *
-     * A purga saiu daqui na E2.5: ela não varre mais nada — pede o prefixo ao backend.
-     */
-    /**
-     * `ExecucaoDoGhostscript` (E2.6A) varre e apaga um diretório que ELE MESMO acabou de criar, por
-     * execução, dentro do temporário privado do processo — o `TMPDIR` do gs. Nunca vê o
-     * armazenamento: o caminho é montado aqui (`<privado>/<hex aleatório>`), nada externo entra, e
-     * o que some são os `gs_*` que o próprio Ghostscript escreveu ali dentro.
+     *  - `ArmazenamentoLocal` — o backend de disco, que implementa `excluirPrefixo()` (D7). Ele
+     *    varre o diretório do escritório e apaga tudo, mas só depois de PROVAR que o prefixo
+     *    pertence exclusivamente àquele escritório (não é link, resolve para `<raiz real>/<id>`,
+     *    não coincide com raiz nenhuma) e de inventariar a árvore inteira sem seguir link. A
+     *    decisão de apagar o escritório inteiro é de quem chama (a purga), onde peças, imagens e
+     *    linhas somem juntas. A purga saiu daqui na E2.5: ela não varre mais nada — pede o prefixo
+     *    ao backend;
+     *  - `AreaTemporariaPrivada` (E2.6A/E2.6C) — varre e apaga um diretório que ELA MESMA criou,
+     *    por execução, dentro do temporário privado do processo: o `TMPDIR` do Ghostscript e a área
+     *    onde o export materializa as imagens. Nunca vê o armazenamento — o caminho é montado lá
+     *    dentro (`<privado>/<hex aleatório>`), nada externo entra, e o que some é o que nasceu ali.
      */
     private const ALLOWLIST = [
+        'src/Shared/Armazenamento/AreaTemporariaPrivada.php',
         'src/Shared/Armazenamento/ArmazenamentoLocal.php',
-        'src/Shared/Service/ExecucaoDoGhostscript.php',
     ];
 
     /** Sem distinção de caixa: o PHP aceita `GLOB(` e `Unlink(`. */

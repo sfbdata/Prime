@@ -8,7 +8,9 @@ use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaSecao;
-use App\Shared\Service\ArquivoStorageInterface;
+use App\Pasta\Armazenamento\ChavesDePasta;
+use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
+use App\Shared\Armazenamento\FonteDeConteudo;
 use App\Sync\Command\ReconciliarCommand;
 use App\Sync\Service\GoogleDriveClientFactoryInterface;
 use App\Tests\Factory\Auth\UserFactory;
@@ -427,11 +429,10 @@ final class ReconciliarCommandTest extends KernelTestCase
         self::assertSame('sentenca.pdf', $row['nome_original']);
 
         // D8 (intacto): o arquivo baixado foi MOVIDO para o storage byte a byte, sem corromper o conteúdo.
-        $storage    = self::getContainer()->get(ArquivoStorageInterface::class);
-        $uploadsDir = (string) self::getContainer()->getParameter('uploads_dir');
-        $caminho    = $storage->caminho($uploadsDir, (string) $row['caminho_arquivo']);
-        self::assertFileExists($caminho);
-        self::assertSame('conteudo-fake-F-NOVO', file_get_contents($caminho));
+        $armazenamento = self::getContainer()->get(ArmazenamentoDeArquivos::class);
+        $chave         = ChavesDePasta::documentoPorNome((int) $pasta->getTenant()->getId(), (string) $row['caminho_arquivo']);
+        self::assertTrue($armazenamento->existe($chave));
+        self::assertSame('conteudo-fake-F-NOVO', $armazenamento->ler($chave));
     }
 
     #[TestDox('--skip-arquivos reconcilia só as pastas: cria a pasta nova mas NÃO baixa arquivo do Drive')]
@@ -749,9 +750,11 @@ final class ReconciliarCommandTest extends KernelTestCase
     {
         $em         = $this->em();
         $pasta      = $em->find(Pasta::class, $pastaId);
-        $storage    = self::getContainer()->get(ArquivoStorageInterface::class);
-        $uploadsDir = (string) self::getContainer()->getParameter('uploads_dir');
-        $nomeStorage = $storage->salvarConteudo('conteudo-' . $nomeOriginal, $uploadsDir, 'pdf');
+        $armazenamento = self::getContainer()->get(ArmazenamentoDeArquivos::class);
+        $nomeStorage   = $armazenamento->gravar(
+            ChavesDePasta::novoDocumento((new PastaDocumento())->setTenant($pasta->getTenant()), 'pdf'),
+            FonteDeConteudo::deTexto('conteudo-' . $nomeOriginal),
+        )->chave->nome;
 
         $doc = (new PastaDocumento())
             ->setTitulo($nomeOriginal)

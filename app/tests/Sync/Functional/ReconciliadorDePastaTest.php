@@ -6,7 +6,9 @@ namespace App\Tests\Sync\Functional;
 
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
-use App\Shared\Service\ArquivoStorageInterface;
+use App\Pasta\Armazenamento\ChavesDePasta;
+use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
+use App\Shared\Armazenamento\FonteDeConteudo;
 use App\Sync\Service\ReconciliadorDePasta;
 use App\Tests\Factory\Pasta\PastaFactory;
 use App\Tests\Factory\Tenant\TenantFactory;
@@ -32,13 +34,24 @@ final class ReconciliadorDePastaTest extends KernelTestCase
         return self::getContainer()->get(EntityManagerInterface::class);
     }
 
+    /** Grava o conteúdo pela CHAVE, como a produção grava, e devolve o nome cunhado. */
+    private function gravarDocumento(Pasta $pasta, string $conteudo): string
+    {
+        $armazenamento = self::getContainer()->get(ArmazenamentoDeArquivos::class);
+
+        return $armazenamento->gravar(
+            ChavesDePasta::novoDocumento((new PastaDocumento())->setTenant($pasta->getTenant()), 'pdf'),
+            FonteDeConteudo::deTexto($conteudo),
+        )->chave->nome;
+    }
+
     private function criarDocumento(int $pastaId, string $nomeOriginal): void
     {
         $em          = $this->em();
         $pasta       = $em->find(Pasta::class, $pastaId);
-        $storage     = self::getContainer()->get(ArquivoStorageInterface::class);
-        $uploadsDir  = (string) self::getContainer()->getParameter('uploads_dir');
-        $nomeStorage = $storage->salvarConteudo('conteudo-' . $nomeOriginal, $uploadsDir, 'pdf');
+        // E2.6C: o shim saiu do container junto com o último consumidor. A semeadura é por chave,
+        // como a produção grava.
+        $nomeStorage = $this->gravarDocumento($pasta, 'conteudo-' . $nomeOriginal);
 
         $doc = (new PastaDocumento())
             ->setTitulo($nomeOriginal)
@@ -90,6 +103,10 @@ final class ReconciliadorDePastaTest extends KernelTestCase
         self::assertSame(1, $resultado->arquivosEnviados);
         self::assertSame(0, $resultado->erros);
         self::assertFalse($resultado->fatal);
+
+        // E2.6C: o caminho que o cliente do Drive recebe vem do materializador, por chave. Contar
+        // "enviados" não bastava — um caminho errado (outro arquivo, ou vazio) passava verde.
+        self::assertSame(['conteudo-peca.pdf'], array_values($fake->conteudosEnviados));
 
         $em = $this->em();
         $em->clear();

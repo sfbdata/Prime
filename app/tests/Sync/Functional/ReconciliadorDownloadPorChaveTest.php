@@ -16,7 +16,6 @@ use App\Shared\Armazenamento\RemocaoAposTransacao;
 use App\Shared\Doctrine\Transacao\ConsultaDeDestinoDaTransacao;
 use App\Shared\Doctrine\Transacao\DestinoDaTransacao;
 use App\Shared\Doctrine\Transacao\TransacaoComArquivoNovo;
-use App\Shared\Service\ArquivoStorageInterface;
 use App\Sync\DTO\ResultadoReconciliacaoPasta;
 use App\Sync\Enum\ModoSincronizacao;
 use App\Sync\Service\ReconciliadorDePasta;
@@ -459,7 +458,9 @@ final class ReconciliadorDownloadPorChaveTest extends KernelTestCase
         $remocao       = new RemocaoAposTransacao($armazenamento, new NullLogger());
         $reconciliador = new ReconciliadorDePasta(
             $em,
-            $container->get(ArquivoStorageInterface::class),
+            // E2.6C: o shim saiu; a Via A materializa por chave. Nos testes com armazenamento em
+            // memória, o dublê é materializador também.
+            $armazenamento,
             $armazenamento,
             new TransacaoComArquivoNovo(
                 $em,
@@ -469,7 +470,6 @@ final class ReconciliadorDownloadPorChaveTest extends KernelTestCase
             ),
             $remocao,
             $container->get(PastaSecaoRepository::class),
-            (string) $container->getParameter('uploads_dir'),
         );
 
         $r = new ResultadoReconciliacaoPasta();

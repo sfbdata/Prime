@@ -74,13 +74,18 @@ final class EntregaDeArquivoArquiteturaTest extends TestCase
      *
      *  - `EntregaDeArquivo` (E2.3) — a resposta HTTP é montada sobre um caminho real;
      *  - `CompressaoDeArquivoArmazenado` (E2.6A, D31) — o compressor (Ghostscript, GD) só escreve em
-     *    caminho; é o ÚNICO ponto que pede cópia gravável, e os cinco uploads chamam só ele.
+     *    caminho; é o ÚNICO ponto que pede cópia gravável, e os cinco uploads chamam só ele;
+     *  - `ReconciliadorDePasta` (E2.6C, Via A) — o cliente do Drive envia lendo por path (§14); o
+     *    empréstimo é cópia zero, e é o que substituiu o `caminho()` do shim.
      *
-     * A E2.6C ainda acrescenta o export e o reconciliador do Drive.
+     * O export de peça (E2.6C) NÃO entra aqui de propósito: ele não pede caminho de arquivo
+     * persistido. Lê a imagem por chave e grava uma cópia na própria área temporária — é por isso
+     * que o `chroot` do Dompdf pode ser um diretório que só tem o que este export colocou lá.
      */
     private const QUEM_PODE_MATERIALIZAR = [
         'src/Shared/Http/EntregaDeArquivo.php',
         'src/Shared/Service/CompressaoDeArquivoArmazenado.php',
+        'src/Sync/Service/ReconciliadorDePasta.php',
     ];
 
     #[TestDox('fora do núcleo, só quem está na lista pede caminho materializado (D11)')]

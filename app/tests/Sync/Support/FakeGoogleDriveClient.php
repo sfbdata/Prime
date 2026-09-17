@@ -60,10 +60,20 @@ final class FakeGoogleDriveClient implements GoogleDriveClientInterface
         return $out;
     }
 
+    /**
+     * @var array<string, string> o CONTEÚDO que cada envio leu do caminho recebido
+     *
+     * Guardar só o tamanho deixava passar o defeito que a E2.6C podia introduzir: caminho
+     * materializado errado (outro arquivo, ou vazio) com a rodada contabilizando "enviado".
+     */
+    public array $conteudosEnviados = [];
+
     public function enviarArquivo(string $folderId, string $nome, string $caminhoLocal, string $mimeType): string
     {
         $id = 'file-' . (++$this->seq);
-        $this->arquivos[$id] = ['nome' => $nome, 'folder' => $folderId, 'tamanho' => (int) @filesize($caminhoLocal), 'mimeType' => $mimeType];
+        $conteudo = is_file($caminhoLocal) ? (string) file_get_contents($caminhoLocal) : '';
+        $this->conteudosEnviados[$id] = $conteudo;
+        $this->arquivos[$id] = ['nome' => $nome, 'folder' => $folderId, 'tamanho' => \strlen($conteudo), 'mimeType' => $mimeType];
 
         return $id;
     }

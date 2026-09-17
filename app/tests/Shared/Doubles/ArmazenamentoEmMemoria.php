@@ -245,8 +245,13 @@ final class ArmazenamentoEmMemoria implements ArmazenamentoDeArquivos, Armazenam
         return $recurso;
     }
 
+    /** @var list<string> as chaves lidas, na ordem — para provar o que NÃO foi lido (E2.6C) */
+    public array $lidas = [];
+
     public function ler(ChaveDeArquivo $chave): string
     {
+        $this->lidas[] = $chave->comoTexto();
+
         $indice = $this->indice($chave);
 
         if (!array_key_exists($indice, $this->arquivos)) {

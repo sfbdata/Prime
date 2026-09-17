@@ -11,7 +11,9 @@ use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaSecao;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Controller\PastaSecaoController;
-use App\Shared\Service\ArquivoStorageInterface;
+use App\Pasta\Armazenamento\ChavesDePasta;
+use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
+use App\Shared\Armazenamento\FonteDeConteudo;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Event\OnFlushEventArgs;
@@ -60,6 +62,15 @@ final class PastaSecaoControllerTest extends JusPrimeWebTestCase
         $em->flush();
 
         return $pasta;
+    }
+
+    /** Grava um documento da pasta pela CHAVE (o shim saiu do container na E2.6C). */
+    private function gravarDocumento(ArmazenamentoDeArquivos $armazenamento, $tenant, string $conteudo): string
+    {
+        return $armazenamento->gravar(
+            ChavesDePasta::novoDocumento((new PastaDocumento())->setTenant($tenant), 'pdf'),
+            FonteDeConteudo::deTexto($conteudo),
+        )->chave->nome;
     }
 
     private function criarSecao(Pasta $pasta, Tenant $tenant): PastaSecao
@@ -364,8 +375,8 @@ final class PastaSecaoControllerTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $user, $tenant);
 
         $em         = static::getContainer()->get(EntityManagerInterface::class);
-        $storage    = static::getContainer()->get(ArquivoStorageInterface::class);
-        $uploadsDir = (string) static::getContainer()->getParameter('uploads_dir');
+        $armazenamento = static::getContainer()->get(ArmazenamentoDeArquivos::class);
+        $uploadsDir    = (string) static::getContainer()->getParameter('uploads_dir');
 
         $mae = $this->criarSecao($pasta, $tenant);
 
@@ -390,7 +401,7 @@ final class PastaSecaoControllerTest extends JusPrimeWebTestCase
         // isso a coleção documentos() da seção fica vazia e o teste não prova nada.
         $caminhos = [];
         foreach ([$mae, $filha, $neta] as $secao) {
-            $nomeStorage = $storage->salvarConteudo('conteudo-' . $secao->getNome(), $uploadsDir, 'pdf');
+            $nomeStorage = $this->gravarDocumento($armazenamento, $tenant, 'conteudo-' . $secao->getNome());
 
             $doc = new PastaDocumento();
             $doc->setTitulo('doc-' . $secao->getNome());
@@ -405,12 +416,12 @@ final class PastaSecaoControllerTest extends JusPrimeWebTestCase
             $doc->setSecao($secao);
             $em->persist($doc);
 
-            $caminhos[] = $storage->caminho($uploadsDir, $nomeStorage);
+            $caminhos[] = ChavesDePasta::documentoPorNome((int) $tenant->getId(), $nomeStorage);
         }
         $em->flush();
 
         foreach ($caminhos as $caminho) {
-            self::assertTrue($storage->existe($caminho), 'pré-condição: o arquivo precisa existir antes da exclusão');
+            self::assertTrue($armazenamento->existe($caminho), 'pré-condição: o arquivo precisa existir antes da exclusão');
         }
 
         $maeId = $mae->getId();
@@ -430,9 +441,9 @@ final class PastaSecaoControllerTest extends JusPrimeWebTestCase
         self::assertSame(3, $json['arquivosRemovidos']);
 
         [$caminhoMae, $caminhoFilha, $caminhoNeta] = $caminhos;
-        self::assertFalse($storage->existe($caminhoMae), 'o arquivo da MÃE devia ter sido removido do disco');
-        self::assertFalse($storage->existe($caminhoFilha), 'o arquivo da FILHA devia ter sido removido do disco');
-        self::assertFalse($storage->existe($caminhoNeta), 'o arquivo da NETA devia ter sido removido do disco — é o que a recursão prova');
+        self::assertFalse($armazenamento->existe($caminhoMae), 'o arquivo da MÃE devia ter sido removido do disco');
+        self::assertFalse($armazenamento->existe($caminhoFilha), 'o arquivo da FILHA devia ter sido removido do disco');
+        self::assertFalse($armazenamento->existe($caminhoNeta), 'o arquivo da NETA devia ter sido removido do disco — é o que a recursão prova');
     }
 
     #[TestDox('disco ilegível DEPOIS do commit não vira 500: a seção já foi excluída e não há como repetir')]
@@ -445,11 +456,11 @@ final class PastaSecaoControllerTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $user, $tenant);
 
         $em         = static::getContainer()->get(EntityManagerInterface::class);
-        $storage    = static::getContainer()->get(ArquivoStorageInterface::class);
-        $uploadsDir = rtrim((string) static::getContainer()->getParameter('uploads_dir'), '/');
+        $armazenamento = static::getContainer()->get(ArmazenamentoDeArquivos::class);
+        $uploadsDir    = rtrim((string) static::getContainer()->getParameter('uploads_dir'), '/');
 
         $secao       = $this->criarSecao($pasta, $tenant);
-        $nomeStorage = $storage->salvarConteudo('conteudo', $uploadsDir, 'pdf');
+        $nomeStorage = $this->gravarDocumento($armazenamento, $tenant, 'conteudo');
 
         $doc = new PastaDocumento();
         $doc->setTitulo('doc');
@@ -492,10 +503,10 @@ final class PastaSecaoControllerTest extends JusPrimeWebTestCase
             'a seção foi excluída no banco antes do disco: o resultado da requisição tem de refletir isso',
         );
         self::assertTrue(
-            $storage->existe($uploadsDir . '/' . $nomeStorage),
+            $armazenamento->existe(ChavesDePasta::documentoPorNome((int) $tenant->getId(), $nomeStorage)),
             'o disco recusou: o arquivo fica, órfão recuperável e registrado',
         );
-        $storage->excluir($uploadsDir . '/' . $nomeStorage);
+        $armazenamento->excluir(ChavesDePasta::documentoPorNome((int) $tenant->getId(), $nomeStorage));
     }
 
     /**
@@ -514,11 +525,11 @@ final class PastaSecaoControllerTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $user, $tenant);
 
         $em         = static::getContainer()->get(EntityManagerInterface::class);
-        $storage    = static::getContainer()->get(ArquivoStorageInterface::class);
-        $uploadsDir = rtrim((string) static::getContainer()->getParameter('uploads_dir'), '/');
+        $armazenamento = static::getContainer()->get(ArmazenamentoDeArquivos::class);
+        $uploadsDir    = rtrim((string) static::getContainer()->getParameter('uploads_dir'), '/');
 
         $secao       = $this->criarSecao($pasta, $tenant);
-        $nomeStorage = $storage->salvarConteudo('conteudo', $uploadsDir, 'pdf');
+        $nomeStorage = $this->gravarDocumento($armazenamento, $tenant, 'conteudo');
 
         $doc = new PastaDocumento();
         $doc->setTitulo('doc');
@@ -563,7 +574,7 @@ final class PastaSecaoControllerTest extends JusPrimeWebTestCase
             self::assertSame(1, $recusa->recusas);
             self::assertResponseStatusCodeSame(500);
             self::assertSame(1, (int) $em->getConnection()->fetchOne('SELECT COUNT(*) FROM pasta_secao WHERE id = ?', [$secaoId]));
-            self::assertTrue($storage->existe($uploadsDir . '/' . $nomeStorage), 'a ordem: nenhum arquivo sai antes de o banco confirmar');
+            self::assertTrue($armazenamento->existe(ChavesDePasta::documentoPorNome((int) $tenant->getId(), $nomeStorage)), 'a ordem: nenhum arquivo sai antes de o banco confirmar');
         } finally {
             @unlink($uploadsDir . '/' . $nomeStorage);
         }

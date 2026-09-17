@@ -28,9 +28,14 @@ final class EscritaInternaPorChaveArquiteturaTest extends TestCase
     /**
      * Quem ainda escreve arquivo com `file_put_contents()`:
      *
-     *  - `ArquivoStorageService` — o `salvarConteudo()` do shim de D2, sem chamador; sai na E2.8.
+     *  - `ArquivoStorageService` — o `salvarConteudo()` do shim de D2, sem chamador; sai na E2.8;
+     *  - `AreaTemporariaPrivada` (E2.6C) — escreve SÓ dentro da própria área temporária, que ela
+     *    mesma criou com nome aleatório; nunca toca no armazenamento. É onde as imagens do export
+     *    são materializadas, e é por isso que o `chroot` do Dompdf pode ser um diretório só daquela
+     *    execução.
      */
     private const QUEM_ESCREVE_CRU = [
+        'src/Shared/Armazenamento/AreaTemporariaPrivada.php',
         'src/Shared/Service/ArquivoStorageService.php',
     ];
 
@@ -54,8 +59,8 @@ final class EscritaInternaPorChaveArquiteturaTest extends TestCase
      * Quem ainda depende de `ArquivoStorageInterface`/`ArquivoStorageService` (fora comentários), e
      * por quê. A lista só pode diminuir; cada entrada sai na fatia indicada.
      *
-     *  - E2.6C (`caminho()` para o envio ao Drive, Via A): `ReconciliadorDePasta`;
-     *  - E2.8: a própria interface e o serviço.
+     *  - E2.8: a própria interface e o serviço — desde a E2.6C não sobra consumidor nenhum de
+     *    produção (a Via A do Drive passou a materializar por chave).
      *
      * Na E2.6B saíram os quatro consumidores do compressor — `ClienteController`, `PastaController`,
      * `UploadPecaUseCase` e `EnviarDocumentoUseCase` —, que agora comprimem pela CHAVE, com o
@@ -73,7 +78,6 @@ final class EscritaInternaPorChaveArquiteturaTest extends TestCase
     private const QUEM_AINDA_USA_O_SHIM = [
         'src/Shared/Service/ArquivoStorageInterface.php',
         'src/Shared/Service/ArquivoStorageService.php',
-        'src/Sync/Service/ReconciliadorDePasta.php',
     ];
 
     #[TestDox('só os consumidores conhecidos ainda dependem do storage antigo — a lista só diminui')]

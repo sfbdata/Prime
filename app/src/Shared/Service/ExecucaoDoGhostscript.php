@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace App\Shared\Service;
 
-use App\Shared\Armazenamento\DiretorioTemporarioPrivado;
+use App\Shared\Armazenamento\AreaTemporariaPrivada;
 use App\Shared\Armazenamento\Exception\FalhaNoTemporario;
 use Symfony\Component\Process\Process;
 
 /**
  * Roda o Ghostscript com um `TMPDIR` só dele, privado, e apaga o que ele deixar lá (D28, DT-7).
+ *
+ * O diretório por execução é uma {@see AreaTemporariaPrivada} — a mesma peça que o export da E2.6C
+ * usa para materializar as imagens.
  *
  * O gs escreve temporários próprios (`gs_*`) enquanto processa — pedaços do documento. Sem isto
  * eles nascem no `/tmp` do container, com o modo do umask, e ficam para trás quando o processo é
@@ -34,13 +37,8 @@ final class ExecucaoDoGhostscript
      */
     public static function rodar(array $comando, float $timeoutSegundos): Process
     {
-        $privado = DiretorioTemporarioPrivado::doProcesso(self::FINALIDADE_DO_DIRETORIO_PRIVADO)->caminho();
-        $meu     = $privado . '/' . bin2hex(random_bytes(8));
-
-        if (!@mkdir($meu, 0o700)) {
-            throw new FalhaNoTemporario(sprintf('Não foi possível preparar o temporário do Ghostscript em %s.', $meu));
-        }
-        @chmod($meu, 0o700); // o umask não decide a privacidade
+        $area = AreaTemporariaPrivada::criar(self::FINALIDADE_DO_DIRETORIO_PRIVADO);
+        $meu  = $area->caminho();
 
         try {
             // TMPDIR é o que o gs lê no Unix; TMP e TEMP entram porque a ordem varia por build.
@@ -50,27 +48,7 @@ final class ExecucaoDoGhostscript
 
             return $processo;
         } finally {
-            self::apagar($meu);
+            $area->liberar();
         }
-    }
-
-    private static function apagar(string $diretorio): void
-    {
-        foreach (scandir($diretorio) ?: [] as $entrada) {
-            if ($entrada === '.' || $entrada === '..') {
-                continue;
-            }
-
-            $caminho = $diretorio . '/' . $entrada;
-            if (is_dir($caminho) && !is_link($caminho)) {
-                self::apagar($caminho);
-
-                continue;
-            }
-
-            @unlink($caminho);
-        }
-
-        @rmdir($diretorio);
     }
 }
