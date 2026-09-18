@@ -13,7 +13,14 @@ use App\Ponto\Exception\TrocaDeAnexoRecusadaException;
 use App\Ponto\Repository\JustificativaPontoRepository;
 use App\Ponto\UseCase\SubstituirAnexoDoLoteUseCase;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
+use App\Shared\Armazenamento\ArmazenamentoLocal;
 use App\Shared\Armazenamento\FonteDeConteudo;
+use App\Shared\Armazenamento\RemocaoAposTransacao;
+use App\Shared\Doctrine\Transacao\DestinoDaTransacao;
+use App\Shared\Doctrine\Transacao\TransacaoComArquivoNovo;
+use App\Tests\Shared\Doubles\ArmazenamentoEspiao;
+use App\Tests\Shared\Doubles\ConsultaDeDestinoFixa;
+use App\Tests\Shared\Doubles\LoggerEmMemoria;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -21,6 +28,7 @@ use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 /**
  * Risco ALTO (ponto eletrônico) — docs/specs/ponto-troca-de-atestado-analisado.md.
@@ -95,19 +103,25 @@ final class TrocaDeAnexoDeLoteAnalisadoTest extends KernelTestCase
         $lote            = $this->criarLote($tenant, $user, $antigo, $status);
         $antes           = $this->arquivosNoDiretorio();
 
+        [$useCase, $espiao] = $this->useCaseEspiado();
+
         $capturada = null;
         try {
-            $this->useCase()->executar($lote[$editadoPeloDia], $this->upload(), $tenant);
+            $useCase->executar($lote[$editadoPeloDia], $this->upload(), $tenant);
         } catch (TrocaDeAnexoRecusadaException $e) {
             $capturada = $e;
         }
 
         self::assertNotNull($capturada, 'a troca num lote com dia analisado tem de ser recusada');
-        self::assertStringContainsString('já foi analisada', $capturada->getMessage());
+        // R3. O diretório sozinho não prova isto: sob o DAMA a transação da troca é a de fora
+        // (nível 0 para o DBAL), e um arquivo gravado antes da recusa seria apagado na hora.
+        self::assertSame([], $espiao->gravadas, 'a recusa vem ANTES de gravar qualquer arquivo');
+        self::assertSame([], $espiao->excluidas, 'e nada é apagado');
+        self::assertStringContainsString('não pode ser trocado', $capturada->getMessage());
         self::assertSame(array_fill(0, \count($lote), $antigo), $this->anexosNoBanco($lote), 'nenhum dia pode mudar de anexo');
         self::assertSame($status, $this->statusNoBanco($lote), 'a recusa não mexe em status');
         self::assertFileExists($this->caminho($antigo), 'o atestado analisado NUNCA pode sair do disco');
-        self::assertSame($antes, $this->arquivosNoDiretorio(), 'a recusa vem antes de gravar: nenhum arquivo novo');
+        self::assertSame($antes, $this->arquivosNoDiretorio(), 'o diretório termina como começou');
     }
 
     #[TestDox('Justificativa avulsa (sem lote) abonada também é recusada')]
@@ -190,13 +204,17 @@ final class TrocaDeAnexoDeLoteAnalisadoTest extends KernelTestCase
     public function testOutroEscritorioComMesmoLoteNaoInterfere(): void
     {
         $this->iniciar();
-        [$tenantA, $userA] = $this->cenario();
-        [$tenantB, $userB] = $this->cenario();
+        [$tenantA, $user] = $this->cenario();
+        [$tenantB]        = $this->cenario();
+        // O MESMO colaborador nos dois escritórios: só o filtro de tenant separa os registros —
+        // um filtro por usuário veria o dia abonado de B e recusaria a troca em A.
+        $this->em()->persist(new UserTenant($user, $tenantB));
+        $this->em()->flush();
         $batch             = bin2hex(random_bytes(12));
         $antigoA           = $this->semear('A');
         $antigoB           = $this->semear('B');
-        $loteA             = $this->criarLote($tenantA, $userA, $antigoA, ['pendente', 'pendente'], batchId: $batch);
-        $loteB             = $this->criarLote($tenantB, $userB, $antigoB, ['abonado'], batchId: $batch);
+        $loteA             = $this->criarLote($tenantA, $user, $antigoA, ['pendente', 'pendente'], batchId: $batch);
+        $loteB             = $this->criarLote($tenantB, $user, $antigoB, ['abonado'], batchId: $batch);
 
         $this->useCase()->executar($loteA[0], $this->upload(), $tenantA);
 
@@ -216,6 +234,33 @@ final class TrocaDeAnexoDeLoteAnalisadoTest extends KernelTestCase
     private function useCase(): SubstituirAnexoDoLoteUseCase
     {
         return static::getContainer()->get(SubstituirAnexoDoLoteUseCase::class);
+    }
+
+    /**
+     * O UseCase de verdade, com o storage REAL embrulhado num espião.
+     *
+     * @return array{0: SubstituirAnexoDoLoteUseCase, 1: ArmazenamentoEspiao}
+     */
+    private function useCaseEspiado(): array
+    {
+        $container = static::getContainer();
+        $em        = $this->em();
+        $espiao    = new ArmazenamentoEspiao($container->get(ArmazenamentoLocal::class));
+        $logger    = new LoggerEmMemoria();
+        $remocao   = new RemocaoAposTransacao($espiao, $logger);
+
+        return [
+            new SubstituirAnexoDoLoteUseCase(
+                $em,
+                $container->get(JustificativaPontoRepository::class),
+                $espiao,
+                new TransacaoComArquivoNovo($em, new ConsultaDeDestinoFixa(DestinoDaTransacao::NaoConfirmada), $remocao, $logger),
+                $remocao,
+                $container->get(ValidatorInterface::class),
+                $logger,
+            ),
+            $espiao,
+        ];
     }
 
     private function em(): EntityManagerInterface

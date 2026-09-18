@@ -114,7 +114,17 @@ pendente.
 
 Provas por reintrodução (diário por mutação): sem a checagem; checagem só do registro `{id}`;
 checagem pelo getter; sem `FOR UPDATE`; checagem depois de gravar o arquivo; `rejeitado` aceito;
-controller sem capturar a exceção; campo da tela sem `disabled`.
+controller sem capturar a exceção; tela sempre oferecendo a troca; lote vazio seguindo adiante; sem
+filtro de tenant; filtro por usuário no lugar do tenant. Todas derrubam ao menos um teste.
+
+**O que o PHPUnit não prova — vai para o smoke do dono.** O JS do modal (`value = ''` e
+`disabled` a cada abertura) não roda no PHPUnit. Roteiro: abrir o modal num lote pendente, escolher
+um arquivo, fechar; abrir num lote analisado e salvar — o POST não pode levar `anexo`, e a tela tem
+de mostrar o aviso no lugar do campo.
+
+**Sob o DAMA, "o diretório terminou igual" não prova R3:** a transação da troca é a de fora (nível 0
+para o DBAL), e um arquivo gravado antes de uma recusa seria apagado na hora. A prova de R3 é o
+espião do storage (`gravadas === []`), no teste unitário e no funcional.
 
 ## 8. Fora do escopo (continua aberto, registrado para o dono)
 
@@ -131,3 +141,16 @@ controller sem capturar a exceção; campo da tela sem `disabled`.
   exibido — mudança na tela e na rota do admin.
 - **R5 enxerga só o mês exibido:** um lote que atravessa o mês pode ter a parte visível toda pendente
   e a outra não; a tela oferece o campo e o servidor recusa com o aviso.
+- **Destravar custa reverter o lote inteiro.** O "reverter" do admin é por dia; R1 exige todos os
+  dias pendentes. No lote misto 26+1 de produção, reverter só o dia rejeitado não destrava a troca —
+  seria preciso desfazer os 26 abonos, e a folha muda enquanto isso (e, em esquecimento de registro,
+  a batida criada no abono fica). A mensagem diz exatamente isso ("todos os dias precisam voltar a
+  pendente"). A alternativa operacional é o colaborador lançar uma justificativa nova. Um "substituir
+  atestado" do lado do admin, se o dono quiser, é frente própria.
+- **`falta_nao_justificada` nasce `abonado`** (`PontoController:337-338`): depois desta correção ela
+  não aceita mais atestado pela edição (antes aceitava, e a troca apagava o anterior, se houvesse).
+- **A trava de linha dura o `gravarEm`.** Com disco local é desprezível; quando o storage for remoto
+  (R2), uma aprovação do admin naquele lote espera o upload terminar. Há também um deadlock teórico
+  com o "aprovar todos" (UPDATEs na ordem do UnitOfWork × `FOR UPDATE` na ordem da varredura): o
+  PostgreSQL aborta um dos lados (500), sem destruir nada — a recusa ou a falha vêm antes de qualquer
+  exclusão física, e o arquivo novo de uma transação abortada sai pela `TransacaoComArquivoNovo`.
