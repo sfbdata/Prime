@@ -13,6 +13,8 @@ use App\Entity\Tenant\TenantRolePermission;
 use App\Ponto\Armazenamento\ChavesDePonto;
 use App\Ponto\Controller\PontoController;
 use App\Ponto\Entity\JustificativaPonto;
+use App\Ponto\Repository\JustificativaPontoRepository;
+use App\Ponto\UseCase\ConfirmarEdicaoDeJustificativaUseCase;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Armazenamento\FonteDeConteudo;
 use App\Tests\Functional\JusPrimeWebTestCase;
@@ -191,13 +193,21 @@ final class EdicaoDeJustificativaAnalisadaControllerTest extends JusPrimeWebTest
         self::assertSame($antesAbonado, $this->linha($abonado), 'nem editando o pendente o dia abonado muda');
     }
 
+    /** @return iterable<string, array{string}> */
+    public static function analisadas(): iterable
+    {
+        yield 'abonada' => ['abonado'];
+        yield 'rejeitada' => ['rejeitado'];
+    }
+
     /** A recusa acontece antes de qualquer gravação: nem o banco nem o diretório de atestados mudam. */
-    #[TestDox('Abonada com atestado novo no POST: recusa sem tocar banco nem storage')]
-    public function testRecusaNaoTocaBancoNemStorage(): void
+    #[TestDox('$_dataName com atestado novo no POST: recusa sem tocar banco nem storage')]
+    #[DataProvider('analisadas')]
+    public function testRecusaNaoTocaBancoNemStorage(string $status): void
     {
         [$client, $c] = $this->cenario();
         $anexo        = $this->semearAnexo($c['tenant']);
-        $j            = $this->justificativa($c, 'abonado', 'atestado_medico', anexo: $anexo);
+        $j            = $this->justificativa($c, $status, 'atestado_medico', anexo: $anexo);
         $antes        = $this->linha($j);
         $diretorio    = $this->diretorioDeJustificativas();
         $arquivos     = $this->arquivosEm($diretorio);
@@ -207,6 +217,40 @@ final class EdicaoDeJustificativaAnalisadaControllerTest extends JusPrimeWebTest
         self::assertSame($antes, $this->linha($j), 'nem o tipo nem o anexo mudam');
         self::assertSame($arquivos, $this->arquivosEm($diretorio), 'nenhum arquivo entra nem sai');
         self::assertFileExists($diretorio . '/' . $anexo);
+    }
+
+    /**
+     * A corrida pela porta HTTP: a justificativa chega pendente (passa a recusa rápida), e o admin
+     * analisa antes da gravação — a leitura travada do UseCase vê. Aqui a análise concorrente é
+     * simulada no repositório que o UseCase consulta; o que se prova é a rota transformar essa recusa
+     * num aviso, sem sucesso e sem gravar.
+     */
+    #[TestDox('Análise concorrente vista na gravação: a rota avisa, não diz sucesso e não grava')]
+    public function testAnaliseConcorrenteNaGravacaoViraAviso(): void
+    {
+        [$client, $c] = $this->cenario();
+        $j            = $this->justificativa($c, 'pendente', 'licenca');
+        $antes        = $this->linha($j);
+
+        $container   = static::getContainer();
+        $repositorio = new class ($container->get('doctrine')) extends JustificativaPontoRepository {
+            public function statusNoBancoTravadoPorId(int $id, Tenant $tenant): ?string
+            {
+                return 'abonado';
+            }
+        };
+        $container->set(
+            ConfirmarEdicaoDeJustificativaUseCase::class,
+            new ConfirmarEdicaoDeJustificativaUseCase($container->get(EntityManagerInterface::class), $repositorio),
+        );
+
+        $this->editar($client, $j, ['tipo' => 'atestado_medico']);
+
+        self::assertResponseRedirects('/ponto/');
+        $flashes = $this->flashes($client);
+        self::assertStringContainsString('já foi analisada', implode(' ', $flashes['warning'] ?? []));
+        self::assertArrayNotHasKey('success', $flashes);
+        self::assertSame($antes, $this->linha($j), 'nada do que a rota editou chega ao banco');
     }
 
     /** O fluxo legítimo do administrador não muda: ele continua analisando o que está pendente. */
