@@ -94,6 +94,8 @@
                                             data-tipo-reg-esquecido="{{ batch[0].tipoRegistroEsquecido ?? '' }}"
                                             data-hora-reg-esquecido="{{ batch[0].horaRegistroEsquecido ? batch[0].horaRegistroEsquecido|date('H:i') : '' }}"
                                             data-csrf="{{ csrf_token('editar_justificativa_' ~ batch[0].id) }}"
+                                            {# Só lote todo pendente troca de atestado; o servidor é a garantia (SubstituirAnexoDoLoteUseCase). #}
+                                            data-pode-trocar-anexo="{{ batch|filter(j => j.status != 'pendente')|length == 0 ? '1' : '0' }}"
                                             data-url="{{ path('ponto_justificativa_editar', {id: batch[0].id}) }}"
                                             onclick="abrirModalEditarJustificativa(this)">
                                         <i class="bi bi-pencil"></i>

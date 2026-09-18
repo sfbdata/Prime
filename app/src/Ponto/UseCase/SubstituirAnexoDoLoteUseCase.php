@@ -7,6 +7,7 @@ namespace App\Ponto\UseCase;
 use App\Entity\Tenant\Tenant;
 use App\Ponto\Armazenamento\ChavesDePonto;
 use App\Ponto\Entity\JustificativaPonto;
+use App\Ponto\Exception\TrocaDeAnexoRecusadaException;
 use App\Ponto\Repository\JustificativaPontoRepository;
 use App\Ponto\Validacao\RestricoesAnexoJustificativa;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
@@ -30,6 +31,13 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
  * e o modal sempre abre pelo primeiro do lote —, então trocar o atestado deixaria 1 dia com o
  * arquivo novo e 26 com o antigo. Medido em produção: isso ainda não aconteceu, nenhum `batchId`
  * tem dois `anexo_path`. O invariante que este UseCase preserva é **um batchId → um anexo**.
+ *
+ * ## Só lote todo pendente
+ *
+ * Trocar o atestado de um lote já analisado apagava o arquivo que o gestor viu, e o status seguia
+ * `abonado` apontando para um arquivo que ninguém analisou. Por isso a troca só acontece quando
+ * TODOS os dias do lote estão `pendente`; o caminho de volta de um lote analisado é o "reverter
+ * para pendente" do admin. Ver `docs/specs/ponto-troca-de-atestado-analisado.md`.
  *
  * ## Por que o arquivo antigo só some DEPOIS do commit
  *
@@ -72,6 +80,9 @@ final class SubstituirAnexoDoLoteUseCase
     private const CLASSE_TRAVA_LOTE    = 4201;
     private const CLASSE_TRAVA_ARQUIVO = 4202;
 
+    /** O único status em que o colaborador ainda pode mexer no atestado: nada foi analisado. */
+    private const STATUS_EDITAVEL = 'pendente';
+
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly JustificativaPontoRepository $repositorio,
@@ -84,7 +95,8 @@ final class SubstituirAnexoDoLoteUseCase
     }
 
     /**
-     * @throws \InvalidArgumentException quando o arquivo é recusado pela validação
+     * @throws \InvalidArgumentException     quando o arquivo é recusado pela validação
+     * @throws TrocaDeAnexoRecusadaException quando algum dia do lote já foi analisado
      *
      * @return int quantos registros passaram a apontar para o anexo novo
      */
@@ -118,6 +130,11 @@ final class SubstituirAnexoDoLoteUseCase
         $atingidos = $this->transacao->executar(
             function () use ($justificativa, $arquivo, $tenant, &$anexoAntigo, &$novaChave): int {
                 $this->travar(self::CLASSE_TRAVA_LOTE, $this->chaveDoLote($justificativa, $tenant));
+
+                // Só lote todo pendente troca de atestado — decidido pelo banco, com as linhas
+                // travadas, ANTES de gravar qualquer arquivo: a recusa não põe nada no disco nem
+                // tira nada dele (docs/specs/ponto-troca-de-atestado-analisado.md, R1–R3).
+                $this->exigirLoteTodoPendente($justificativa, $tenant);
 
                 // Reler DEPOIS de travar. Ler antes e gravar depois é como a corrida volta:
                 // duas edições simultâneas do mesmo lote poderiam ressuscitar um valor velho.
@@ -166,6 +183,41 @@ final class SubstituirAnexoDoLoteUseCase
         }
 
         return $atingidos;
+    }
+
+    /**
+     * A troca grava o `anexo_path` de TODOS os registros do lote (um `batchId` → um anexo), então
+     * todos eles têm de estar editáveis: um único dia abonado ou rejeitado recusa a troca inteira.
+     * Trocar só nos dias pendentes partiria o lote em dois anexos.
+     *
+     * O status vem de `statusDoLoteTravado()` e não do getter: a justificativa chegou carregada
+     * antes da trava, e a análise do admin pode ter comitado desde então. A trava de linha dessa
+     * leitura é o que serializa com o admin, que não pega a trava advisory do lote.
+     */
+    private function exigirLoteTodoPendente(JustificativaPonto $justificativa, Tenant $tenant): void
+    {
+        $status = $this->repositorio->statusDoLoteTravado(
+            $justificativa->getBatchId(),
+            (int) $justificativa->getId(),
+            $tenant,
+        );
+
+        // Vazio é premissa quebrada — a posse já foi conferida, então o próprio registro tinha de
+        // voltar —, nunca "nada a recusar": seguir adiante seria o caminho de erro virando o
+        // destrutivo.
+        if ($status === []) {
+            throw new \LogicException('Lote da justificativa não encontrado sob a trava; substituição recusada.');
+        }
+
+        foreach ($status as $statusDoDia) {
+            if ($statusDoDia !== self::STATUS_EDITAVEL) {
+                throw new TrocaDeAnexoRecusadaException(
+                    'O atestado não pode ser trocado porque esta justificativa já foi analisada pelo gestor '
+                    . '(abonada ou rejeitada) em pelo menos um dos dias. Peça ao administrador para '
+                    . 'revertê-la para pendente.',
+                );
+            }
+        }
     }
 
     private function validar(UploadedFile $arquivo): void

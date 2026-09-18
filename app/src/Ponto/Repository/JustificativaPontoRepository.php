@@ -7,6 +7,7 @@ use App\Entity\Tenant\Tenant;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Enum\TipoJustificativa;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\LockMode;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -74,6 +75,45 @@ class JustificativaPontoRepository extends ServiceEntityRepository
             ->getScalarResult();
 
         return $linhas[0]['anexoPath'] ?? null;
+    }
+
+    /**
+     * Os status do lote COMO ESTÃO NO BANCO, com as linhas travadas até o fim da transação.
+     *
+     * É a pergunta que decide se o atestado do lote pode ser trocado
+     * (docs/specs/ponto-troca-de-atestado-analisado.md, R1/R2). Duas propriedades importam:
+     *
+     *  - projeção escalar: não passa pelo identity map, então o status vem do banco e não da
+     *    entidade carregada pelo EntityValueResolver antes da trava — mesmo motivo de
+     *    `anexoNoBancoPorId()`;
+     *  - `FOR UPDATE`: a análise do admin (`TenantController`) não pega a trava advisory do lote.
+     *    Com a linha travada, um UPDATE de status do admin espera este COMMIT, e um que já comitou é
+     *    visto por esta leitura.
+     *
+     * Sem `batchId` (justificativa avulsa, ou dado anterior ao campo) o lote é o próprio registro.
+     * Sem transação aberta o Doctrine lança `TransactionRequiredException`: a trava cairia na hora.
+     *
+     * @return list<string>
+     */
+    public function statusDoLoteTravado(?string $batchId, int $id, Tenant $tenant): array
+    {
+        $qb = $this->createQueryBuilder('j')
+            ->select('j.status')
+            ->andWhere('j.tenant = :tenant')
+            ->setParameter('tenant', $tenant);
+
+        if ($batchId !== null && $batchId !== '') {
+            $qb->andWhere('j.batchId = :batch')->setParameter('batch', $batchId);
+        } else {
+            $qb->andWhere('j.id = :id')->setParameter('id', $id);
+        }
+
+        /** @var list<array{status: string|null}> $linhas */
+        $linhas = $qb->getQuery()
+            ->setLockMode(LockMode::PESSIMISTIC_WRITE)
+            ->getScalarResult();
+
+        return array_map(static fn (array $linha): string => (string) $linha['status'], $linhas);
     }
 
     /**

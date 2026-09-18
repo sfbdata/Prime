@@ -16,6 +16,7 @@ use App\Shared\Armazenamento\FonteDeConteudo;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
@@ -106,6 +107,93 @@ final class EditarJustificativaAnexoControllerTest extends JusPrimeWebTestCase
         );
     }
 
+    /** @return iterable<string, array{list<string>}> */
+    public static function lotesAnalisados(): iterable
+    {
+        yield 'abonado'                    => [['abonado', 'abonado']];
+        yield 'rejeitado'                  => [['rejeitado', 'rejeitado']];
+        yield 'misto (editado pelo pendente)' => [['pendente', 'abonado']];
+    }
+
+    /**
+     * docs/specs/ponto-troca-de-atestado-analisado.md, R1 e R4: a troca num lote analisado é
+     * recusada, com aviso e sem mensagem de sucesso, e a edição INTEIRA é descartada — o tipo
+     * enviado junto não pode ficar salvo enquanto a tela diz que nada mudou.
+     *
+     * @param list<string> $status
+     */
+    #[TestDox('Lote $_dataName: a rota recusa a troca, avisa, e não grava nada — nem o tipo')]
+    #[DataProvider('lotesAnalisados')]
+    public function testLoteAnalisadoRecusaATrocaPelaRota(array $status): void
+    {
+        [$client, $c] = $this->preparar(\count($status), $status);
+        $primeiro     = $c['lote'][0];
+
+        $client->request(
+            'POST',
+            '/ponto/justificativa/' . $primeiro->getId() . '/editar',
+            ['_token' => 'TOKEN_editar_justificativa_' . $primeiro->getId(), 'tipo' => 'atestado_medico'],
+            ['anexo' => $this->upload()],
+        );
+
+        self::assertResponseRedirects('/ponto/');
+
+        $flashes = $client->getRequest()->getSession()->getFlashBag()->peekAll();
+        self::assertStringContainsString('não pode ser trocado', implode(' ', $flashes['warning'] ?? []));
+        self::assertArrayNotHasKey('success', $flashes, 'recusa nunca vem com mensagem de sucesso');
+        self::assertArrayNotHasKey('info', $flashes, 'nem com o aviso de "anexo trocado nos N dias"');
+
+        // Pela conexão: a transação que recusou fechou o EntityManager.
+        $conexao = static::getContainer()->get(EntityManagerInterface::class)->getConnection();
+        foreach ($c['lote'] as $i => $registro) {
+            $linha = $conexao->fetchAssociative(
+                'SELECT anexo_path, tipo, status FROM justificativa_ponto WHERE id = ?',
+                [$registro->getId()],
+            );
+            self::assertSame($c['anexoAntigo'], $linha['anexo_path'], 'nenhum dia pode mudar de anexo');
+            self::assertSame('licenca', $linha['tipo'], 'a recusa descarta a edição inteira');
+            self::assertSame($status[$i], $linha['status']);
+        }
+
+        self::assertFileExists(
+            static::getContainer()->getParameter('justificativas_uploads_dir') . '/' . $c['anexoAntigo'],
+            'o atestado analisado nunca sai do disco',
+        );
+    }
+
+    /** @return iterable<string, array{list<string>, string}> */
+    public static function lotesNaTela(): iterable
+    {
+        yield 'todo pendente: oferece'   => [['pendente', 'pendente'], '1'];
+        yield 'um dia abonado: não'      => [['pendente', 'abonado'], '0'];
+        yield 'rejeitado: não'           => [['rejeitado'], '0'];
+    }
+
+    /**
+     * R5: cortesia da tela — o servidor é a garantia. O botão diz ao modal se o campo pode ser
+     * oferecido; o JS o desabilita (não só esconde) e mostra o aviso. O comportamento do JS fica
+     * para o smoke: o PHPUnit lê HTML, não executa script.
+     *
+     * @param list<string> $status
+     */
+    #[TestDox('A tela sinaliza a troca de atestado só para lote todo pendente ($_dataName)')]
+    #[DataProvider('lotesNaTela')]
+    public function testTelaSinalizaATrocaSoParaLotePendente(array $status, string $esperado): void
+    {
+        $mes          = (new \DateTimeImmutable('first day of this month'))->format('Y-m');
+        [$client, $c] = $this->preparar(\count($status), $status, $mes);
+
+        $crawler = $client->request('GET', '/ponto/');
+        self::assertResponseIsSuccessful();
+
+        $botoes = $crawler->filter('button[title="Editar justificativa"]');
+        self::assertCount(1, $botoes, 'um lote, um botão de editar');
+        self::assertSame($esperado, $botoes->attr('data-pode-trocar-anexo'));
+
+        self::assertCount(1, $crawler->filter('#modalEditarJustificativa input[type="file"]#editarAnexo[name="anexo"]'));
+        self::assertCount(1, $crawler->filter('#modalEditarJustificativa #editarAvisoAnexoAnalisado'));
+    }
+
     // ------------------------------------------------------------------ helpers
 
     private function upload(): UploadedFile
@@ -124,8 +212,13 @@ final class EditarJustificativaAnexoControllerTest extends JusPrimeWebTestCase
         return new UploadedFile($origem, 'nota.txt', 'text/plain', null, true);
     }
 
-    /** @return array{0: KernelBrowser, 1: array<string,mixed>} */
-    private function preparar(int $dias): array
+    /**
+     * @param list<string> $status um por dia; o que faltar nasce `pendente`
+     * @param string|null  $mes    'Y-m' dos dias do lote (a tela só lista a competência exibida)
+     *
+     * @return array{0: KernelBrowser, 1: array<string,mixed>}
+     */
+    private function preparar(int $dias, array $status = [], ?string $mes = null): array
     {
         $client = static::createClient();
         $client->disableReboot();
@@ -179,9 +272,9 @@ final class EditarJustificativaAnexoControllerTest extends JusPrimeWebTestCase
             $j = new JustificativaPonto();
             $j->setUser($user);
             $j->setTenant($tenant);
-            $j->setData(new \DateTime('2026-04-' . str_pad((string) ($i + 1), 2, '0', \STR_PAD_LEFT)));
+            $j->setData(new \DateTime(($mes ?? '2026-04') . '-' . str_pad((string) ($i + 1), 2, '0', \STR_PAD_LEFT)));
             $j->setAnexoPath($anexoAntigo);
-            $j->setStatus('pendente');
+            $j->setStatus($status[$i] ?? 'pendente');
             $j->setBatchId($batchId);
             $j->setTipo('licenca');
             $em->persist($j);

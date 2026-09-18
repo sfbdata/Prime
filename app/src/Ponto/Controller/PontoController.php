@@ -6,6 +6,7 @@ namespace App\Ponto\Controller;
 
 use App\Entity\Auth\User;
 use App\Ponto\Armazenamento\ChavesDePonto;
+use App\Ponto\Exception\TrocaDeAnexoRecusadaException;
 use App\Ponto\UseCase\SubstituirAnexoDoLoteUseCase;
 use App\Ponto\Entity\JornadaColaborador;
 use App\Ponto\Entity\JornadaTenant;
@@ -474,6 +475,12 @@ final class PontoController extends AbstractController
             try {
                 $atingidos = $this->substituirAnexoDoLote->executar($justificativa, $anexoFile, $tenant);
             } catch (\InvalidArgumentException $e) {
+                $this->addFlash('warning', $e->getMessage());
+
+                return $this->redirectToRoute('ponto_index');
+            } catch (TrocaDeAnexoRecusadaException $e) {
+                // Lote já analisado: a recusa descarta a edição inteira, como o anexo inválido
+                // acima. A transação que recusou já fechou o EntityManager — só resta avisar.
                 $this->addFlash('warning', $e->getMessage());
 
                 return $this->redirectToRoute('ponto_index');

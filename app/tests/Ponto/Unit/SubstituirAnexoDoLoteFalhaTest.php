@@ -7,6 +7,7 @@ namespace App\Tests\Ponto\Unit;
 use App\Entity\Tenant\Tenant;
 use App\Ponto\Armazenamento\ChavesDePonto;
 use App\Ponto\Entity\JustificativaPonto;
+use App\Ponto\Exception\TrocaDeAnexoRecusadaException;
 use App\Ponto\Repository\JustificativaPontoRepository;
 use App\Ponto\UseCase\SubstituirAnexoDoLoteUseCase;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
@@ -76,8 +77,7 @@ final class SubstituirAnexoDoLoteFalhaTest extends TestCase
         $tenant        = $this->tenant(7);
         $justificativa = $this->justificativa($tenant, 'antigo.pdf', 'lote-1');
 
-        $repositorio = $this->createMock(JustificativaPontoRepository::class);
-        $repositorio->method('findLotePorBatchId')->willReturn([$justificativa]);
+        $repositorio = $this->repositorioDoLote($justificativa);
 
         $armazenamento = new ArmazenamentoEspiao($this->armazenamentoNoDiretorioDoTeste());
         $logger        = new LoggerEmMemoria();
@@ -134,8 +134,7 @@ final class SubstituirAnexoDoLoteFalhaTest extends TestCase
         $tenant        = $this->tenant(7);
         $justificativa = $this->justificativa($tenant, 'antigo.pdf', 'lote-1');
 
-        $repositorio = $this->createMock(JustificativaPontoRepository::class);
-        $repositorio->method('findLotePorBatchId')->willReturn([$justificativa]);
+        $repositorio = $this->repositorioDoLote($justificativa);
 
         $useCase = $this->useCase(
             $this->emQueFalha(noFlush: new \RuntimeException('flush recusado')),
@@ -164,8 +163,7 @@ final class SubstituirAnexoDoLoteFalhaTest extends TestCase
         $em = $this->emQueFalha();
         $em->expects(self::never())->method('flush');
 
-        $repositorio = $this->createMock(JustificativaPontoRepository::class);
-        $repositorio->method('findLotePorBatchId')->willReturn([$justificativa]);
+        $repositorio = $this->repositorioDoLote($justificativa);
         $repositorio->method('anexoNoBancoPorId')->willReturn('antigo.pdf');
 
         $useCase = $this->useCase($em, $repositorio, $this->armazenamentoQueRecusa(), DestinoDaTransacao::Incerta);
@@ -206,7 +204,119 @@ final class SubstituirAnexoDoLoteFalhaTest extends TestCase
         }
     }
 
+    /**
+     * docs/specs/ponto-troca-de-atestado-analisado.md, R2/R3: o status é lido sob a trava ANTES de
+     * gravar o arquivo novo. Se a própria leitura falha (conexão caiu, lock timeout), nada foi ao
+     * disco — e nada pode sair dele.
+     */
+    #[TestDox('Falha do banco ao ler o status do lote: nada é gravado, nada é apagado, a exceção sobe')]
+    public function testFalhaDoBancoNaLeituraDoStatusNaoMexeEmNada(): void
+    {
+        $tenant        = $this->tenant(7);
+        $justificativa = $this->justificativa($tenant, 'antigo.pdf', 'lote-1');
+
+        $em = $this->emQueFalha();
+        $em->expects(self::never())->method('flush');
+
+        // Mock próprio: um segundo stub do mesmo método num mock já estubado perderia para o primeiro.
+        $repositorio = $this->createMock(JustificativaPontoRepository::class);
+        $repositorio->method('findLotePorBatchId')->willReturn([$justificativa]);
+        $repositorio->method('statusDoLoteTravado')->willThrowException(new \RuntimeException('lock timeout'));
+
+        $armazenamento = new ArmazenamentoEspiao($this->armazenamentoNoDiretorioDoTeste());
+        $useCase       = $this->useCase($em, $repositorio, $armazenamento, DestinoDaTransacao::NaoConfirmada);
+
+        $capturada = null;
+        try {
+            $useCase->executar($justificativa, $this->upload(), $tenant);
+        } catch (\RuntimeException $e) {
+            $capturada = $e;
+        }
+
+        self::assertSame('lock timeout', $capturada?->getMessage(), 'a exceção original sobe');
+        self::assertSame([], $armazenamento->gravadas, 'nenhum arquivo novo pode ter sido gravado');
+        self::assertSame([], $armazenamento->excluidas, 'nenhum arquivo pode ter sido apagado');
+        self::assertSame('antigo.pdf', $justificativa->getAnexoPath());
+        self::assertSame(['antigo.pdf'], $this->arquivosNoDiretorio());
+    }
+
+    #[TestDox('Lote com um dia já analisado: recusa ANTES de gravar, sem flush e sem tocar o storage')]
+    public function testLoteAnalisadoRecusaSemTocarOStorage(): void
+    {
+        $tenant        = $this->tenant(7);
+        $justificativa = $this->justificativa($tenant, 'antigo.pdf', 'lote-1');
+
+        $em = $this->emQueFalha();
+        $em->expects(self::never())->method('flush');
+
+        $armazenamento = new ArmazenamentoEspiao($this->armazenamentoNoDiretorioDoTeste());
+        $useCase       = $this->useCase(
+            $em,
+            $this->repositorioDoLote($justificativa, ['pendente', 'abonado']),
+            $armazenamento,
+            DestinoDaTransacao::NaoConfirmada,
+        );
+
+        $capturada = null;
+        try {
+            $useCase->executar($justificativa, $this->upload(), $tenant);
+        } catch (TrocaDeAnexoRecusadaException $e) {
+            $capturada = $e;
+        }
+
+        self::assertNotNull($capturada, 'a troca num lote analisado tem de ser recusada');
+        self::assertSame([], $armazenamento->gravadas);
+        self::assertSame([], $armazenamento->excluidas);
+        self::assertSame('antigo.pdf', $justificativa->getAnexoPath());
+        self::assertSame(['antigo.pdf'], $this->arquivosNoDiretorio());
+    }
+
+    /** Vazio sob a trava é premissa quebrada: nunca "nada a recusar, pode seguir". */
+    #[TestDox('Lote que some sob a trava: LogicException, sem gravar nada')]
+    public function testLoteVazioSobATravaEhPremissaQuebrada(): void
+    {
+        $tenant        = $this->tenant(7);
+        $justificativa = $this->justificativa($tenant, 'antigo.pdf', 'lote-1');
+
+        $armazenamento = new ArmazenamentoEspiao($this->armazenamentoNoDiretorioDoTeste());
+        $useCase       = $this->useCase(
+            $this->emQueFalha(),
+            $this->repositorioDoLote($justificativa, []),
+            $armazenamento,
+            DestinoDaTransacao::NaoConfirmada,
+        );
+
+        $capturada = null;
+        try {
+            $useCase->executar($justificativa, $this->upload(), $tenant);
+        } catch (\LogicException $e) {
+            $capturada = $e;
+        }
+
+        self::assertNotNull($capturada);
+        self::assertNotInstanceOf(TrocaDeAnexoRecusadaException::class, $capturada);
+        self::assertSame([], $armazenamento->gravadas);
+        self::assertSame(['antigo.pdf'], $this->arquivosNoDiretorio());
+    }
+
     // ------------------------------------------------------------------ helpers
+
+    /**
+     * Repositório de um lote de um registro só. O status padrão é o único em que a troca prossegue;
+     * os testes de falha da troca partem dele.
+     *
+     * @param list<string> $status
+     *
+     * @return JustificativaPontoRepository&\PHPUnit\Framework\MockObject\MockObject
+     */
+    private function repositorioDoLote(JustificativaPonto $justificativa, array $status = ['pendente']): JustificativaPontoRepository
+    {
+        $repositorio = $this->createMock(JustificativaPontoRepository::class);
+        $repositorio->method('findLotePorBatchId')->willReturn([$justificativa]);
+        $repositorio->method('statusDoLoteTravado')->willReturn($status);
+
+        return $repositorio;
+    }
 
     /** Todas as categorias no diretório do teste: aqui só importa a de justificativas. */
     private function armazenamentoNoDiretorioDoTeste(): ArmazenamentoLocal

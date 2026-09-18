@@ -262,10 +262,13 @@
                         </div>
                     </div>
 
-                    <div class="mb-3">
+                    <div class="mb-3" id="editarBlocoAnexo">
                         <label class="form-label">Substituir atestado <span class="text-muted small">(opcional)</span></label>
-                        <input type="file" name="anexo" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
+                        <input type="file" name="anexo" id="editarAnexo" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
                         <div class="form-text">PDF, JPEG ou PNG — máximo 10 MB</div>
+                    </div>
+                    <div class="alert alert-secondary small mb-0 d-none" id="editarAvisoAnexoAnalisado">
+                        <i class="bi bi-lock me-1"></i>O atestado não pode ser trocado: esta justificativa já foi analisada pelo gestor. Para trocá-lo, peça ao administrador para revertê-la para pendente.
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -887,6 +890,15 @@
         document.getElementById('editarBlocoHorario').classList.toggle('d-none', !abonoParcial);
         document.getElementById('editarHoraInicio').value = btn.dataset.horaInicio || '';
         document.getElementById('editarHoraFim').value = btn.dataset.horaFim || '';
+
+        // Lote já analisado não troca de atestado. `disabled`, e não só escondido: um arquivo
+        // escolhido numa abertura anterior do modal iria junto no POST.
+        const podeTrocarAnexo = btn.dataset.podeTrocarAnexo === '1';
+        const inputAnexo = document.getElementById('editarAnexo');
+        inputAnexo.value = '';
+        inputAnexo.disabled = !podeTrocarAnexo;
+        document.getElementById('editarBlocoAnexo').classList.toggle('d-none', !podeTrocarAnexo);
+        document.getElementById('editarAvisoAnexoAnalisado').classList.toggle('d-none', podeTrocarAnexo);
 
         new bootstrap.Modal(document.getElementById('modalEditarJustificativa')).show();
     };
