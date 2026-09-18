@@ -7,6 +7,7 @@ Quem abre uma frente acrescenta a linha. Quem integra tira.
 
 | Frente (branch) | Domínio | Migration? | Arquivos compartilhados que toca | Estágio | Base |
 |---|---|---|---|---|---|
+| `fix-troca-atestado-abonado` | Ponto (troca de atestado da justificativa) — risco ALTO | não | `docs/frentes-ativas.md` (esta linha); nada em `app/src/Shared/` nem `app/config/` | implementando — **segura o deploy de E1+DT-8+E2** (risco 12.1 do pré-deploy de 18/09); spec `docs/specs/ponto-troca-de-atestado-analisado.md` | `origin/master` @ `91d0aef3` |
 | `cobranca-acompanhamento-canonico` | Cobrança (modelo objeto/caso) | **sim — 4, fora de ordem** | `docs/gestao-cobrancas/` | 🧊 **CONGELADA** — referência histórica, não integrável direto (ver abaixo) | `origin/master` @ `0bb1f29` |
 | `expediente-ux` | Expediente + Pasta (telas) | não | `app/templates/expediente/`, `app/templates/pasta/` | implementando, **28 commits atrás do master** | `origin/codex/colaboracao-cobrancas` |
 | `cobranca-reconciliar-data-acordo` | Cobrança (comando) | não | `RelatorioLinhaRepository` (método novo), `ComandosComPiiPassamPelaGuardaTest` (1 linha) | ✅ pronta: 3901/3901, prova por reintrodução feita — **aguarda `/review` e integração** | `master` local @ `18555616` |
