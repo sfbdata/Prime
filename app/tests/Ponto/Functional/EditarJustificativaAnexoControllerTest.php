@@ -140,6 +140,7 @@ final class EditarJustificativaAnexoControllerTest extends JusPrimeWebTestCase
 
         $flashes = $client->getRequest()->getSession()->getFlashBag()->peekAll();
         self::assertStringContainsString('não pode ser trocado', implode(' ', $flashes['warning'] ?? []));
+        self::assertStringContainsString('todos os dias precisam voltar a pendente', implode(' ', $flashes['warning'] ?? []));
         self::assertArrayNotHasKey('success', $flashes, 'recusa nunca vem com mensagem de sucesso');
         self::assertArrayNotHasKey('info', $flashes, 'nem com o aviso de "anexo trocado nos N dias"');
 
@@ -191,7 +192,9 @@ final class EditarJustificativaAnexoControllerTest extends JusPrimeWebTestCase
         self::assertSame($esperado, $botoes->attr('data-pode-trocar-anexo'));
 
         self::assertCount(1, $crawler->filter('#modalEditarJustificativa input[type="file"]#editarAnexo[name="anexo"]'));
-        self::assertCount(1, $crawler->filter('#modalEditarJustificativa #editarAvisoAnexoAnalisado'));
+        $aviso = $crawler->filter('#modalEditarJustificativa #editarAvisoAnexoAnalisado');
+        self::assertCount(1, $aviso);
+        self::assertStringContainsString('todos os dias precisam voltar a pendente', $aviso->text());
     }
 
     // ------------------------------------------------------------------ helpers

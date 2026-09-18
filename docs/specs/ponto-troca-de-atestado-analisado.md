@@ -122,9 +122,9 @@ filtro de tenant; filtro por usuário no lugar do tenant. Todas derrubam ao meno
 um arquivo, fechar; abrir num lote analisado e salvar — o POST não pode levar `anexo`, e a tela tem
 de mostrar o aviso no lugar do campo.
 
-**Sob o DAMA, "o diretório terminou igual" não prova R3:** a transação da troca é a de fora (nível 0
-para o DBAL), e um arquivo gravado antes de uma recusa seria apagado na hora. A prova de R3 é o
-espião do storage (`gravadas === []`), no teste unitário e no funcional.
+**"O diretório terminou igual" não prova R3:** uma recusa depois de gravar faria a fase 1 falhar
+sem COMMIT, e a `TransacaoComArquivoNovo` apagaria o arquivo novo na hora — com ou sem DAMA. A prova
+de R3 é o espião do storage (`gravadas === []`), no teste unitário e no funcional.
 
 ## 8. Fora do escopo (continua aberto, registrado para o dono)
 

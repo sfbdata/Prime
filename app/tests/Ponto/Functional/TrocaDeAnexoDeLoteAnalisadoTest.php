@@ -113,11 +113,14 @@ final class TrocaDeAnexoDeLoteAnalisadoTest extends KernelTestCase
         }
 
         self::assertNotNull($capturada, 'a troca num lote com dia analisado tem de ser recusada');
-        // R3. O diretório sozinho não prova isto: sob o DAMA a transação da troca é a de fora
-        // (nível 0 para o DBAL), e um arquivo gravado antes da recusa seria apagado na hora.
+        // R3. O diretório sozinho não prova isto: uma recusa DEPOIS de gravar faria a fase 1
+        // falhar sem COMMIT, e a `TransacaoComArquivoNovo` apagaria o arquivo novo na hora — o
+        // diretório terminaria igual. Só o espião vê que houve gravação.
         self::assertSame([], $espiao->gravadas, 'a recusa vem ANTES de gravar qualquer arquivo');
         self::assertSame([], $espiao->excluidas, 'e nada é apagado');
         self::assertStringContainsString('não pode ser trocado', $capturada->getMessage());
+        // A mensagem diz o caminho de volta, e ele é o lote INTEIRO — reverter um dia não destrava.
+        self::assertStringContainsString('todos os dias precisam voltar a pendente', $capturada->getMessage());
         self::assertSame(array_fill(0, \count($lote), $antigo), $this->anexosNoBanco($lote), 'nenhum dia pode mudar de anexo');
         self::assertSame($status, $this->statusNoBanco($lote), 'a recusa não mexe em status');
         self::assertFileExists($this->caminho($antigo), 'o atestado analisado NUNCA pode sair do disco');

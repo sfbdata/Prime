@@ -212,9 +212,9 @@ final class SubstituirAnexoDoLoteUseCase
         foreach ($status as $statusDoDia) {
             if ($statusDoDia !== self::STATUS_EDITAVEL) {
                 throw new TrocaDeAnexoRecusadaException(
-                    'O atestado não pode ser trocado: este lançamento já foi analisado pelo gestor '
-                    . '(abonado ou rejeitado) em pelo menos um dos dias. Para trocá-lo, todos os dias '
-                    . 'precisam voltar a pendente — fale com o administrador.',
+                    'O atestado não pode ser trocado: este lançamento já está abonado ou rejeitado em '
+                    . 'pelo menos um dos dias. Para trocá-lo, todos os dias precisam voltar a pendente '
+                    . '— fale com o administrador.',
                 );
             }
         }
