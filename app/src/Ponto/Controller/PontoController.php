@@ -18,6 +18,8 @@ use App\Ponto\Service\JornadaResolver;
 use App\Ponto\Form\JustificativaPontoType;
 use App\Ponto\Repository\FeriadoRepository;
 use App\Ponto\Repository\JustificativaPontoRepository;
+use App\Ponto\Exception\JustificativaJaAnalisadaException;
+use App\Ponto\UseCase\ConfirmarEdicaoDeJustificativaUseCase;
 use App\Ponto\Service\CalculadoraJornada;
 use App\Ponto\Repository\RegistroPontoRepository;
 use App\Repository\SedeRepository;
@@ -65,6 +67,7 @@ final class PontoController extends AbstractController
         private readonly UserTenantRepository $userTenantRepository,
         private readonly InicioContagemResolver $inicioContagemResolver,
         private readonly SubstituirAnexoDoLoteUseCase $substituirAnexoDoLote,
+        private readonly ConfirmarEdicaoDeJustificativaUseCase $confirmarEdicao,
     ) {}
 
     #[Route('/', name: 'ponto_index')]
@@ -406,7 +409,6 @@ final class PontoController extends AbstractController
     public function editarJustificativa(
         JustificativaPonto $justificativa,
         Request $request,
-        EntityManagerInterface $entityManager,
     ): Response {
         /** @var User $user */
         $user   = $this->getUser();
@@ -418,6 +420,16 @@ final class PontoController extends AbstractController
 
         if (!$this->isCsrfTokenValid('editar_justificativa_' . $justificativa->getId(), $request->request->get('_token'))) {
             $this->addFlash('danger', 'Token de segurança inválido.');
+            return $this->redirectToRoute('ponto_index');
+        }
+
+        // C2-01 (docs/specs/ponto-edicao-justificativa-analisada.md): o colaborador só edita o que o
+        // gestor ainda não analisou — tipo e horário de uma abonada mudam horas já aprovadas. Esta é a
+        // recusa rápida, pelo estado carregado no começo da requisição; sem atestado, a que vale contra
+        // uma análise simultânea é a do ConfirmarEdicaoDeJustificativaUseCase, com a linha travada.
+        if ($justificativa->getStatus() !== 'pendente') {
+            $this->addFlash('warning', JustificativaJaAnalisadaException::MENSAGEM);
+
             return $this->redirectToRoute('ponto_index');
         }
 
@@ -486,7 +498,14 @@ final class PontoController extends AbstractController
                 ));
             }
         } else {
-            $entityManager->flush();
+            try {
+                $this->confirmarEdicao->executar($justificativa, $tenant);
+            } catch (JustificativaJaAnalisadaException $e) {
+                // Analisada entre o carregamento e a gravação: nada foi gravado.
+                $this->addFlash('warning', $e->getMessage());
+
+                return $this->redirectToRoute('ponto_index');
+            }
         }
 
         $this->addFlash('success', 'Justificativa atualizada com sucesso.');
