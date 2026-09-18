@@ -21,14 +21,16 @@ justificativa continua "analisada por X" com um conteúdo que X nunca viu. Numa 
 no cálculo, mas a decisão do gestor fica apontando para dados diferentes dos que ele recusou.
 
 **O roteiro da auditoria:** a `falta_nao_justificada` nasce `abonado` sem análise
-(`PontoController:337-338`); editar o tipo para um que abona leva o dia de **−480** para **0**, e com
+(`PontoController::novaJustificativa`); editar o tipo para um que abona leva o dia de **−480** para **0**, e com
 abono parcial 00:00–23:59 para **+959** (+1439 num domingo) — crédito no banco de horas sem nenhum
 gestor. Vale também para a falta lançada pelo admin.
 
-**Prova por execução (18/09):** `tests/Ponto/Functional/EdicaoDeJustificativaAnalisadaControllerTest`
-contra o código sem correção — 13 de 18 falham: abonada e rejeitada aceitam troca de tipo, tipo vazio,
-abono parcial 00:00–23:59 e hora de esquecimento; a requisição forjada passa; o dia abonado de um lote
-misto muda; a tela oferece editar o que já foi analisado.
+**Prova por execução (18/09):** os 20 casos de `tests/Ponto/Functional/EdicaoDeJustificativaAnalisadaControllerTest`
+contra o código de produção da base `91d0aef3` — 15 falham: abonada e rejeitada aceitam troca de tipo,
+tipo vazio, abono parcial 00:00–23:59 e hora de esquecimento; a requisição forjada passa; o dia abonado
+de um lote misto muda; atestado novo numa analisada é gravado; a tela oferece editar o que já foi
+analisado. Os 5 que passam são os que têm de continuar passando (pendente editável, status que a
+edição não grava, admin aprovando, outro escritório, tela da pendente).
 
 **Produção (18/09, só contagens):** 318 abonadas, 5 pendentes, 5 rejeitadas; 0 `falta_nao_justificada`;
 a rota foi usada 4 vezes desde que existe, 2 delas em abonada (só `tipo`, de nulo para um tipo que
@@ -111,17 +113,43 @@ Nenhum é CRÍTICO nem ALTO pela medição; nenhum foi corrigido aqui.
   "reverter" o caminho oficial de correção, então o cenário fica mais exercitado.
 - **MÉDIO — gestor aprova a própria justificativa.** Nenhuma rota do admin compara o analista com o
   dono. Decisão de negócio.
+- **MÉDIO — a aprovação não amarra o conteúdo que o gestor viu.** O "aprovar" lê sem trava e grava
+  só status e análise. Editar uma pendente é legítimo (R1), então, entre o gestor abrir a aba e clicar,
+  o colaborador pode mudá-la: fica "abonada por X com um conteúdo que X nunca viu". No esquecimento,
+  numa corrida de milissegundos, a batida sai com a hora antiga que o admin tinha em memória. Não é
+  regressão (sempre foi assim); fechar exige a aprovação conferir o que foi exibido (versão ou
+  instantâneo no POST do admin). **Decisão do dono.**
+- **Esta correção torna mais exercitado o item da batida duplicada:** a mensagem e o cadeado mandam
+  pedir "reverter", e num esquecimento abonado reverter + reaprovar duplica a batida. **Decidir antes
+  do deploy** se isso segue como está (o admin é avisado ao reverter) ou vira frente própria.
+- **BAIXO — lote misto na tela:** o botão edita o dia mais recente exibido (`batch[0]`); os outros
+  dias pendentes do lote não são alcançáveis pela tela (anterior a esta frente). A mensagem não diz
+  qual dia reverter.
 - **BAIXO** — `createFromFormat('H:i')` aceita "25:00"; `getMinutosAbonados()` ignora o sinal; a
   edição de tipo/horário de um lote de vários dias atinge só o primeiro dia exibido, mas a tela do
   admin mostra esse tipo como se fosse do lote; a criação pelo admin trata a data de hoje como futura.
 
-## 7. Integração com `fix-troca-atestado-abonado`
+## 7. Integração com `fix-troca-atestado-abonado` — esta frente NÃO vai para produção sozinha
 
 As duas frentes saem de `91d0aef3` e mexem na mesma rota. **Nesta frente sozinha, o caminho com
-atestado é protegido pela recusa rápida (R3), mas não contra a corrida com o admin** — quem fecha a
-corrida desse caminho é a outra frente (lote todo pendente, lido com `FOR UPDATE` dentro da transação
-do anexo; lote todo pendente implica o registro pendente). Por isso as duas vão juntas para produção,
-e a do atestado entra primeiro. O que muda no comportamento combinado: numa justificativa abonada ou
-rejeitada com atestado no POST, a recusa passa a vir da R3 desta frente (mensagem desta frente), antes
-de chegar à checagem do lote — os testes da outra frente que esperavam a mensagem dela nesses casos são
-ajustados na integração.
+atestado é protegido pela recusa rápida (R3), mas não contra a corrida com o admin** (janela curta:
+validação e gravação do arquivo) — quem fecha a corrida desse caminho é a outra frente (lote todo
+pendente, lido com `FOR UPDATE` dentro da transação do anexo, antes de gravar; lote todo pendente
+implica o registro pendente). Por isso as duas vão juntas para produção, a do atestado primeiro.
+
+**Medido em 18/09, sem mesclar nada** (`git merge-tree` + a árvore mesclada extraída por `git
+archive` para um diretório de ensaio fora do git, com banco próprio):
+
+- conflito textual: **nenhum** (o único trecho comum, `use Doctrine\DBAL\LockMode;` no repositório, é
+  idêntico nos dois lados e sai uma vez só);
+- conflito semântico: **4 testes da outra frente**, todos em `EditarJustificativaAnexoControllerTest`,
+  todos por comportamento mais estrito, nenhum por regressão —
+  `testLoteAnalisadoRecusaATrocaPelaRota` (casos "abonado" e "rejeitado": a recusa agora vem da R3,
+  com a mensagem desta frente) e `testTelaSinalizaATrocaSoParaLotePendente` (casos "um dia abonado" e
+  "rejeitado": o `batch[0]` analisado não tem mais botão);
+- **ajuste de integração (só dados de teste, validado no ensaio):** os casos da rota passam a usar
+  lotes cujo dia editado está pendente e outro dia não (`['pendente','abonado']`,
+  `['pendente','rejeitado']`, `['pendente','pendente','abonado']`) — o cenário que só a regra do
+  atestado recusa; os casos de tela passam a pôr o dia analisado ANTES do pendente
+  (`['abonado','pendente']`, `['rejeitado','pendente']`), para haver botão e o sinal do atestado ser
+  `0`. Com o ajuste: Ponto 427/427 na árvore mesclada.
