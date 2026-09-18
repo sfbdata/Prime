@@ -15,7 +15,10 @@ use App\Repository\UserRepository;
 use App\Service\NotificacaoService;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
-use App\Shared\Service\ArquivoStorageService;
+use App\ServiceDesk\Armazenamento\ChavesDeServiceDesk;
+use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
+use App\Shared\Http\EntregaDeArquivo;
+use App\Shared\Http\FonteDeUploadHttp;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
@@ -57,9 +60,9 @@ use Symfony\Component\Routing\Attribute\Route;
 class ServiceDeskController extends AbstractController
 {
     public function __construct(
-        private readonly string $chamadosUploadsDir,
         private readonly NotificacaoService $notificacaoService,
-        private readonly ArquivoStorageService $storage,
+        private readonly ArmazenamentoDeArquivos $armazenamento,
+        private readonly EntregaDeArquivo $entrega,
         private readonly TenantContext $tenantContext,
     ) {
     }
@@ -423,12 +426,13 @@ class ServiceDeskController extends AbstractController
             throw $this->createNotFoundException('Anexo não encontrado.');
         }
 
-        $caminho = $this->storage->caminho($this->chamadosUploadsDir, $anexo->getNomeArquivo());
-        if (!$this->storage->existe($caminho)) {
+        $chave = ChavesDeServiceDesk::anexoDeChamado($anexo);
+
+        if (!$this->armazenamento->existe($chave)) {
             throw $this->createNotFoundException('Arquivo não encontrado.');
         }
 
-        return $this->storage->servir($caminho, $anexo->getNomeOriginal(), inline: true);
+        return $this->entrega->resposta($chave, $anexo->getNomeOriginal(), inline: true);
     }
 
     /**
@@ -451,15 +455,22 @@ class ServiceDeskController extends AbstractController
                 continue;
             }
 
-            $nomeArquivo = $this->storage->salvar($arquivo, $this->chamadosUploadsDir);
+            // O escopo sai do CHAMADO (R1), que já nasce com o tenant da sessão.
+            $upload      = FonteDeUploadHttp::de($arquivo);
+            $armazenado  = $upload->gravarEm($this->armazenamento, ChavesDeServiceDesk::novoAnexoDeChamado($chamado, $upload->extensao));
+            $nomeArquivo = $armazenado->chave->nome;
 
             $anexo = new ChamadoAnexo();
             $anexo->setChamado($chamado);
             $anexo->setEnviadoPor($usuario);
+            // Nome e MIME do cliente são texto guardado no objeto: seguros depois do move.
             $anexo->setNomeOriginal($arquivo->getClientOriginalName());
             $anexo->setNomeArquivo($nomeArquivo);
             $anexo->setMimeType($arquivo->getClientMimeType() ?? 'application/octet-stream');
-            $anexo->setTamanho($arquivo->getSize() ?? 0);
+            // O tamanho vem do storage, medido depois da escrita. `$arquivo->getSize()` aqui
+            // estourava "stat failed" (o temporário já foi movido): todo chamado com anexo dava
+            // 500 e deixava o arquivo órfão.
+            $anexo->setTamanho($armazenado->tamanhoBytes);
 
             $chamado->addAnexo($anexo);
         }

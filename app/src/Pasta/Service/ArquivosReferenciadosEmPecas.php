@@ -5,8 +5,12 @@ declare(strict_types=1);
 namespace App\Pasta\Service;
 
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Armazenamento\ChavesDePasta;
 use App\Pasta\Repository\PastaDocumentoRepository;
-use App\Shared\Service\ArquivoStorageInterface;
+use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
+use App\Shared\Armazenamento\Exception\ArquivoNaoEncontrado;
+use App\Shared\Armazenamento\Exception\ChaveDeArquivoInvalida;
+use App\Shared\Armazenamento\Exception\FalhaDeArmazenamento;
 
 /**
  * Responde à única pergunta que uma rotina de limpeza precisa fazer antes de apagar qualquer
@@ -27,9 +31,8 @@ final class ArquivosReferenciadosEmPecas
 {
     public function __construct(
         private readonly PastaDocumentoRepository $documentos,
-        private readonly ArquivoStorageInterface $storage,
+        private readonly ArmazenamentoDeArquivos $armazenamento,
         private readonly ReferenciasDePecaHtml $referencias,
-        private readonly string $uploadsDir,
     ) {
     }
 
@@ -38,24 +41,43 @@ final class ArquivosReferenciadosEmPecas
      *
      * Peça cujo arquivo não existe mais em disco é ignorada em silêncio: ela não consegue
      * referenciar nada, e estourar aqui transformaria uma inconsistência velha num erro novo.
+     * Vale a mesma regra para um nome que o armazenamento se recusa a endereçar (medido em prod
+     * 15/09: zero em 22.750 chaves) — a peça também não referencia nada, e a rotina de limpeza
+     * não pode estourar por causa dela.
+     *
+     * **Pane do storage NÃO é ignorada** (E2.4B): uma peça que existe e não pôde ser lida
+     * pareceria "sem imagens", e a limpeza que confiasse nesta resposta apagaria imagem em uso.
+     * `FalhaDeArmazenamento` propaga e a rotina inteira para — é o lado seguro. Antes da E2.4B o
+     * `file_get_contents` cru devolvia `''` com um warning em produção: falha aberta.
      *
      * @return string[]
+     *
+     * @throws FalhaDeArmazenamento quando alguma peça não pôde ser lida
      */
     public function doTenant(Tenant $tenant): array
     {
         $referenciados = [];
+        $tenantId      = $tenant->getId() ?? throw new ChaveDeArquivoInvalida(
+            'Escritório sem id: não há como montar a chave de armazenamento das peças dele.',
+        );
 
-        foreach ($this->documentos->chavesDePecasHtmlDoTenant($tenant) as $chave) {
-            $caminho = $this->storage->caminho($this->uploadsDir, $chave);
-
-            if (!$this->storage->existe($caminho)) {
+        foreach ($this->documentos->chavesDePecasHtmlDoTenant($tenant) as $nomeDaPeca) {
+            try {
+                $chave = ChavesDePasta::documentoPorNome($tenantId, $nomeDaPeca);
+            } catch (ChaveDeArquivoInvalida) {
                 continue;
             }
 
-            $html = (string) file_get_contents($caminho);
+            // `ler()` só responde "não encontrado" depois de provar que dava para olhar; diretório
+            // ou arquivo ilegível é `FalhaDeArmazenamento` e não passa por este catch.
+            try {
+                $html = $this->armazenamento->ler($chave);
+            } catch (ArquivoNaoEncontrado) {
+                continue;
+            }
 
-            foreach ($this->referencias->extrair($html) as $nome) {
-                $referenciados[$nome] = true;
+            foreach ($this->referencias->extrair($html) as $nomeReferenciado) {
+                $referenciados[$nomeReferenciado] = true;
             }
         }
 

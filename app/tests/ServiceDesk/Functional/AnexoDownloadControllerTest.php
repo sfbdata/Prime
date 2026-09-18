@@ -55,10 +55,8 @@ final class AnexoDownloadControllerTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         $response = $client->getResponse();
         self::assertInstanceOf(BinaryFileResponse::class, $response);
-        self::assertStringContainsString(
-            'documento.txt',
-            (string) $response->headers->get('content-disposition')
-        );
+        // E2.3: disposição e nome exatos, não só "contém" — a entrega por chave não pode mudá-los.
+        self::assertSame('inline; filename=documento.txt', $response->headers->get('content-disposition'));
         // Serve o arquivo certo de verdade (não só o header).
         self::assertSame('conteudo de teste', $response->getFile()->getContent());
     }

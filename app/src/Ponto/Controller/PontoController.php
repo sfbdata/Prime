@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Ponto\Controller;
 
 use App\Entity\Auth\User;
+use App\Ponto\Armazenamento\ChavesDePonto;
 use App\Ponto\UseCase\SubstituirAnexoDoLoteUseCase;
 use App\Ponto\Entity\JornadaColaborador;
 use App\Ponto\Entity\JornadaTenant;
@@ -24,6 +25,8 @@ use App\Repository\UserRepository;
 use App\Entity\Tenant\Tenant;
 use App\Repository\UserTenantRepository;
 use App\Service\NotificacaoService;
+use App\Shared\Http\EntregaDeArquivo;
+use App\Shared\Http\FonteDeUploadHttp;
 use App\Tenant\UseCase\GerarCodigoFuncionario;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
@@ -33,7 +36,8 @@ use Doctrine\ORM\EntityManagerInterface;
 use Dompdf\Dompdf;
 use Dompdf\Options;
 use App\Ponto\Service\FolhaPontoXlsxExporter;
-use App\Shared\Service\ArquivoStorageService;
+use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
+use App\Shared\Doctrine\Transacao\TransacaoComArquivoNovo;
 use App\Shared\Trait\ValidaCsrfAjaxTrait;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -50,9 +54,10 @@ final class PontoController extends AbstractController
     use ValidaCsrfAjaxTrait;
 
     public function __construct(
-        private readonly string $justificativasUploadsDir,
         private readonly VerificadorAlertaPonto $verificadorAlerta,
-        private readonly ArquivoStorageService $storage,
+        private readonly ArmazenamentoDeArquivos $armazenamento,
+        private readonly TransacaoComArquivoNovo $transacao,
+        private readonly EntregaDeArquivo $entrega,
         private readonly JornadaResolver $jornadaResolver,
         private readonly GerarCodigoFuncionario $gerarCodigo,
         private readonly TenantContext $tenantContext,
@@ -314,10 +319,18 @@ final class PontoController extends AbstractController
             }
 
             // Upload do atestado
-            $anexoPath = null;
-            $anexoFile = $form->get('anexo')->getData();
+            $anexoPath  = null;
+            $chaveAnexo = null;
+            $anexoFile  = $form->get('anexo')->getData();
             if ($anexoFile !== null) {
-                $anexoPath = $this->storage->salvar($anexoFile, $this->justificativasUploadsDir);
+                // O arquivo nasce ANTES das justificativas do lote (ordem da E1); o escopo é o
+                // mesmo `$tenant` que cada uma recebe abaixo em setTenant().
+                $upload     = FonteDeUploadHttp::de($anexoFile);
+                $chaveAnexo = $upload->gravarEm(
+                    $this->armazenamento,
+                    ChavesDePonto::novoAnexoDeLote($tenant, $upload->extensao),
+                )->chave;
+                $anexoPath  = $chaveAnexo->nome;
             }
 
             $batchId = bin2hex(random_bytes(16));
@@ -348,21 +361,14 @@ final class PontoController extends AbstractController
                 $justificativasCriadas[] = $justificativa;
             }
 
-            try {
-                $entityManager->flush();
-            } catch (\Throwable $e) {
-                // Mesma prioridade da substituição (SubstituirAnexoDoLoteUseCase): o arquivo foi
-                // gravado antes do flush; se o banco recusar, ninguém chegou a referenciá-lo e ele
-                // não pode ficar no disco para sempre. Falhar aqui deixa órfão recuperável — o
-                // lado aceitável —, mas o silêncio total não é.
-                if ($anexoPath !== null) {
-                    $this->storage->excluir(
-                        $this->storage->caminho($this->justificativasUploadsDir, $anexoPath),
-                    );
-                }
-
-                throw $e;
-            }
+            // O arquivo foi gravado antes da transação. Se ela falhar, ele só sai quando estiver
+            // PROVADO que nada foi confirmado; num COMMIT de resultado incerto as justificativas
+            // podem existir e apontar para ele, e o arquivo fica (E2.5, INV-6). A exceção original
+            // continua subindo.
+            $this->transacao->confirmar(
+                static fn (): array => $chaveAnexo === null ? [] : [$chaveAnexo],
+                'PontoController::novaJustificativa: atestado do lote',
+            );
 
             if (!$isFaltaNaoJustificada) {
                 // Leva o gestor direto à aba de justificativas do colaborador (aprovar/recusar)
@@ -503,13 +509,13 @@ final class PontoController extends AbstractController
             throw $this->createNotFoundException('Esta justificativa não possui atestado.');
         }
 
-        $filePath = $this->storage->caminho($this->justificativasUploadsDir, $justificativa->getAnexoPath());
+        $chave = ChavesDePonto::anexoDeJustificativa($justificativa);
 
-        if (!$this->storage->existe($filePath)) {
+        if (!$this->armazenamento->existe($chave)) {
             throw $this->createNotFoundException('Arquivo não encontrado.');
         }
 
-        return $this->storage->servir($filePath, $justificativa->getAnexoPath(), inline: true);
+        return $this->entrega->resposta($chave, $justificativa->getAnexoPath(), inline: true);
     }
 
     #[Route('/alerta-horario', name: 'ponto_alerta_horario', methods: ['GET'])]

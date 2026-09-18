@@ -10,7 +10,9 @@ use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Ponto\Controller\PontoController;
 use App\Ponto\Entity\JustificativaPonto;
-use App\Shared\Service\ArquivoStorageInterface;
+use App\Ponto\Armazenamento\ChavesDePonto;
+use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
+use App\Shared\Armazenamento\FonteDeConteudo;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -162,11 +164,14 @@ final class EditarJustificativaAnexoControllerTest extends JusPrimeWebTestCase
         $vinculo->setTenantRole($role);
         $em->persist($vinculo);
 
-        $anexoAntigo = static::getContainer()->get(ArquivoStorageInterface::class)->salvarConteudo(
-            '%PDF-1.4 antigo',
-            (string) static::getContainer()->getParameter('justificativas_uploads_dir'),
-            'pdf',
-        );
+        // O escritório precisa ter id antes da chave: o anexo de lote é endereçado por ele.
+        $em->flush();
+
+        // E2.6C: o shim saiu do container; o anexo antigo é semeado por chave, como a rota grava.
+        $anexoAntigo = static::getContainer()->get(ArmazenamentoDeArquivos::class)->gravar(
+            ChavesDePonto::novoAnexoDeLote($tenant, 'pdf'),
+            FonteDeConteudo::deTexto('%PDF-1.4 antigo'),
+        )->chave->nome;
 
         $batchId = bin2hex(random_bytes(12));
         $lote    = [];

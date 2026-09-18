@@ -54,6 +54,20 @@ final class PecaImagemControllerTest extends JusPrimeWebTestCase
         self::assertStringContainsString('/login', (string) $client->getResponse()->headers->get('Location'));
     }
 
+    #[TestDox('Nome que o armazenamento se recusa a endereçar (".." embutido) responde 404, nunca 500')]
+    public function testNomeQueOArmazenamentoRecusaRetorna404(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioComTenant();
+        $this->logarComTenant($client, $user, $tenant);
+
+        // Passa pelo requirement da rota e pelo basename(): só a chave de armazenamento o recusa.
+        // Para quem pede, é o mesmo que não existir — e a recusa não pode virar erro 500.
+        $client->request('GET', '/uploads/pastas/a..b.jpg');
+
+        self::assertResponseStatusCodeSame(404);
+    }
+
     #[TestDox('Autenticado recebe a imagem da PRÓPRIA subpasta de tenant (200, inline)')]
     public function testAutenticadoServeImagemDaPropriaSubpasta(): void
     {
@@ -62,10 +76,18 @@ final class PecaImagemControllerTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $user, $tenant);
 
         $nome = $this->criarArquivoNaSubpasta((int) $tenant->getId(), '.png');
+        // PNG de verdade: o Content-Type sai do conteúdo do arquivo, e é ele que a asserção confere.
+        $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==', true);
+        file_put_contents($this->baseUploads() . '/' . $tenant->getId() . '/' . $nome, $png);
+
         $client->request('GET', '/uploads/pastas/' . $nome);
 
         self::assertResponseIsSuccessful();
-        self::assertStringContainsString('inline', (string) $client->getResponse()->headers->get('Content-Disposition'));
+        // E2.3: disposição, nome, tipo e ranges exatos — a entrega por chave não pode mudá-los.
+        self::assertResponseHeaderSame('Content-Disposition', 'inline; filename=' . $nome);
+        self::assertResponseHeaderSame('Content-Type', 'image/png');
+        self::assertResponseHeaderSame('Accept-Ranges', 'bytes');
+        self::assertSame($png, $client->getInternalResponse()->getContent());
     }
 
     #[TestDox('Cross-tenant: imagem na subpasta de B não é servida a um logado de A (404) — vetor M5')]

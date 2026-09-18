@@ -12,8 +12,9 @@ use PHPUnit\Framework\TestCase;
  * anexo de justificativa (ver `SubstituirAnexoDoLoteUseCase` e a spec da E1).
  *
  * O argumento é a **monotonicidade decrescente das referências**: como todo valor gravado em
- * `anexo_path` vem de `ArquivoStorageService::salvar()` — `bin2hex(random_bytes(16))`, nome novo a
- * cada chamada, nunca reaproveitado —, nenhum caminho consegue fazer um registro voltar a apontar
+ * `anexo_path` vem do nome que o storage cunha para um `NovoArquivo` (`NovoArquivo::cunharChave()`,
+ * desde a E2.4A; antes, `ArquivoStorageService::salvar()`) — `bin2hex(random_bytes(16))`, nome novo
+ * a cada chamada, nunca reaproveitado —, nenhum caminho consegue fazer um registro voltar a apontar
  * para um arquivo que já perdeu a última referência. Uma contagem que dá zero é definitiva.
  *
  * A premissa cai se alguém **copiar uma chave existente** para outro registro. Isso não tem como
@@ -24,7 +25,8 @@ use PHPUnit\Framework\TestCase;
 final class ProdutoresDeAnexoPathTest extends TestCase
 {
     /**
-     * Quem grava `anexo_path`. Todos gravam o retorno de `storage->salvar()`:
+     * Quem grava `anexo_path`. Todos gravam o nome que o storage cunha para um `NovoArquivo`
+     * (`FonteDeUploadHttp::gravarEm()`, desde a E2.4A; antes, o retorno de `storage->salvar()`):
      * PontoController (upload do colaborador), TenantController (upload do admin) e
      * SubstituirAnexoDoLoteUseCase (a troca da E1).
      */
@@ -42,9 +44,14 @@ final class ProdutoresDeAnexoPathTest extends TestCase
      * `SubstituirAnexoDoLoteUseCase` NÃO está aqui de propósito: ele lê o anexo por projeção
      * escalar (`anexoNoBancoPorId`), justamente para pegar o valor do banco sob a trava em vez do
      * que estiver no identity map.
+     *
+     * `ChavesDePonto` (E2.2) lê o getter para montar a `ChaveDeArquivo` da própria justificativa —
+     * o valor vai para o storage como endereço e nunca para `setAnexoPath()` de outro registro.
+     * Leitor legítimo; a monotonicidade das referências continua de pé.
      */
     private const LEITORES = [
         'src/Controller/TenantController.php',
+        'src/Ponto/Armazenamento/ChavesDePonto.php',
         'src/Ponto/Controller/PontoController.php',
     ];
 
@@ -141,7 +148,8 @@ final class ProdutoresDeAnexoPathTest extends TestCase
     private function recado(string $verbo): string
     {
         return "A lista de quem {$verbo} `anexo_path` mudou.\n\n"
-            . "Antes de atualizar a constante: confirme que o valor gravado vem de `storage->salvar()`\n"
+            . "Antes de atualizar a constante: confirme que o valor gravado é o nome cunhado pelo storage\n"
+            . "(`FonteDeUploadHttp::gravarEm()` → `NovoArquivo`)\n"
             . "e NÃO é uma chave copiada de outro registro. Se for cópia, a monotonicidade das\n"
             . "referências cai e a remoção física em SubstituirAnexoDoLoteUseCase passa a ter uma\n"
             . "corrida real — reveja o desenho antes de liberar.";

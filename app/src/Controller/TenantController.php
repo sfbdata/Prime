@@ -2,6 +2,7 @@
 
 namespace App\Controller;
 
+use App\Ponto\Armazenamento\ChavesDePonto;
 use App\Ponto\Validacao\RestricoesAnexoJustificativa;
 use App\Ponto\Entity\JornadaColaborador;
 use App\Ponto\Entity\JustificativaPonto;
@@ -38,6 +39,8 @@ use App\Repository\TenantRoleRepository;
 use App\Profile\DTO\DadosPessoaisInput;
 use App\Profile\Form\DadosPessoaisType;
 use App\Profile\UseCase\ObterOuCriarPerfilUseCase;
+use App\Shared\Http\EntregaDeArquivo;
+use App\Shared\Http\FonteDeUploadHttp;
 use App\Tenant\DTO\RemoverColaboradorInput;
 use App\Tenant\UseCase\RemoverColaboradorDoEscritorioUseCase;
 use App\Tenant\UseCase\ExcluirEscritorioUseCase;
@@ -55,7 +58,8 @@ use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Form\FormError;
-use App\Shared\Service\ArquivoStorageService;
+use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
+use App\Shared\Doctrine\Transacao\TransacaoComArquivoNovo;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
@@ -67,8 +71,9 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 final class TenantController extends AbstractController
 {
     public function __construct(
-        private readonly string $justificativasUploadsDir,
-        private readonly ArquivoStorageService $storage,
+        private readonly ArmazenamentoDeArquivos $armazenamento,
+        private readonly TransacaoComArquivoNovo $transacao,
+        private readonly EntregaDeArquivo $entrega,
         private readonly TenantContext $tenantContext,
         private readonly InicioContagemResolver $inicioContagemResolver,
     ) {}
@@ -1444,8 +1449,9 @@ final class TenantController extends AbstractController
             return $redirect();
         }
 
-        $anexoPath = null;
-        $anexoFile = $request->files->get('anexo');
+        $anexoPath  = null;
+        $chaveAnexo = null;
+        $anexoFile  = $request->files->get('anexo');
         if ($anexoFile !== null) {
             // Mesma regra da porta do colaborador (JustificativaPontoType) e da edição
             // (SubstituirAnexoDoLoteUseCase). Antes da E1 esta porta não validava nada: um admin
@@ -1459,7 +1465,14 @@ final class TenantController extends AbstractController
                 return $redirect();
             }
 
-            $anexoPath = $this->storage->salvar($anexoFile, $this->justificativasUploadsDir);
+            // O arquivo nasce ANTES das justificativas do lote (ordem da E1); o escopo é o mesmo
+            // `$tenant` da URL que cada uma recebe abaixo em setTenant().
+            $upload     = FonteDeUploadHttp::de($anexoFile);
+            $chaveAnexo = $upload->gravarEm(
+                $this->armazenamento,
+                ChavesDePonto::novoAnexoDeLote($tenant, $upload->extensao),
+            )->chave;
+            $anexoPath  = $chaveAnexo->nome;
         }
 
         $batchId    = bin2hex(random_bytes(16));
@@ -1501,20 +1514,13 @@ final class TenantController extends AbstractController
             }
         }
 
-        try {
-            $entityManager->flush();
-        } catch (\Throwable $e) {
-            // Mesma prioridade da substituição (SubstituirAnexoDoLoteUseCase): o arquivo foi
-            // gravado antes do flush; se o banco recusar, ninguém chegou a referenciá-lo e ele não
-            // pode ficar no disco para sempre.
-            if ($anexoPath !== null) {
-                $this->storage->excluir(
-                    $this->storage->caminho($this->justificativasUploadsDir, $anexoPath),
-                );
-            }
-
-            throw $e;
-        }
+        // O arquivo foi gravado antes da transação. Se ela falhar, ele só sai quando estiver
+        // PROVADO que nada foi confirmado; num COMMIT de resultado incerto as justificativas podem
+        // existir e apontar para ele, e o arquivo fica (E2.5, INV-6). A exceção original sobe.
+        $this->transacao->confirmar(
+            static fn (): array => $chaveAnexo === null ? [] : [$chaveAnexo],
+            'TenantController::novaJustificativaAdmin: atestado do lote',
+        );
 
         if ($isFaltaNaoJustificada) {
             $this->addFlash('success', sprintf('Falta registrada como não justificada para %d dia(s).', count($datasValidas)));
@@ -1576,13 +1582,13 @@ final class TenantController extends AbstractController
             throw $this->createNotFoundException('Esta justificativa não possui atestado.');
         }
 
-        $filePath = $this->storage->caminho($this->justificativasUploadsDir, $justificativa->getAnexoPath());
+        $chave = ChavesDePonto::anexoDeJustificativa($justificativa);
 
-        if (!$this->storage->existe($filePath)) {
+        if (!$this->armazenamento->existe($chave)) {
             throw $this->createNotFoundException('Arquivo não encontrado.');
         }
 
-        return $this->storage->servir($filePath, $justificativa->getAnexoPath(), inline: true);
+        return $this->entrega->resposta($chave, $justificativa->getAnexoPath(), inline: true);
     }
 
     private function calcularCargaDiaria(JornadaColaborador $jornada): int

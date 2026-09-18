@@ -77,6 +77,8 @@ final class TenantEscopoRemendoControllerTest extends JusPrimeWebTestCase
         // Controle positivo: pela URL correta (B) o remendo escopa em B → o atestado é servido.
         $client->request('GET', "/tenant/{$tenantB->getId()}/user/{$user->getId()}/justificativa/{$justB->getId()}/anexo");
         self::assertResponseIsSuccessful('pela URL correta (B) o atestado deve ser servido');
+        // O nome apresentado é o próprio nome guardado na justificativa — comportamento de sempre.
+        self::assertResponseHeaderSame('Content-Disposition', 'inline; filename=atestado_b.pdf');
     }
 
     #[TestDox('Remendo: super-admin não vê label de recurso de outro tenant na lista de colaboradores (trava desligada)')]

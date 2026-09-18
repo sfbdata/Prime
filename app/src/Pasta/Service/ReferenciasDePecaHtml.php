@@ -24,15 +24,11 @@ namespace App\Pasta\Service;
  */
 final class ReferenciasDePecaHtml
 {
-    /**
-     * Consome o prefixo inteiro (`./`, `../`, `/`) antes de `uploads/pastas/`. É o mesmo padrão
-     * que `ExportarPecaTextoUseCase` já usava para apontar as imagens ao disco no export — a E1
-     * apenas o trouxe para cá, sem alterar o comportamento.
-     */
-    private const PADRAO_PREFIXO = '#(?:\.{1,2}/)*/?uploads/pastas/#';
-
     /** Mesmo prefixo, capturando o `<tenantId>/` opcional e o nome do arquivo. */
     private const PADRAO_REFERENCIA = '#(?:\.{1,2}/)*/?uploads/pastas/(?:(\d+)/)?([A-Za-z0-9][A-Za-z0-9._-]*)#';
+
+    /** O mesmo, ANCORADO nas duas pontas: é allowlist, não "achar no meio da string". */
+    private const PADRAO_IMAGEM_DO_EDITOR = '#^(?:\.{1,2}/)*/?uploads/pastas/(?:(\d+)/)?([A-Za-z0-9][A-Za-z0-9._-]*)$#';
 
     /**
      * Nomes de arquivo referenciados pelo HTML, sem diretório e sem repetição.
@@ -61,17 +57,31 @@ final class ReferenciasDePecaHtml
     }
 
     /**
-     * Troca o prefixo das URLs pelo caminho em disco informado, preservando o nome do arquivo.
+     * O NOME do arquivo quando o `src` é uma referência legítima a uma imagem do editor DESTE
+     * escritório; `null` para todo o resto (E2.6C, D32).
      *
-     * `preg_replace_callback` com callback fixo (e não `preg_replace`) evita que `$` e `\` do
-     * caminho sejam interpretados como referência de grupo no valor de substituição.
+     * É a porta que o export usa, e ela é uma **allowlist**: só passa `src` que seja exatamente o
+     * formato que o editor produz — prefixo relativo ou absoluto, `uploads/pastas/`, subpasta do
+     * escritório opcional e um nome sem barra. Fica de fora, por construção, tudo o que a revisão
+     * provou ser perigoso: `http://` e `https://` (o PhpWord BUSCA a URL), `file://`, `data:`,
+     * caminho absoluto de disco, `../` e `%2e%2e` (o PhpWord decodifica DEPOIS de qualquer reescrita
+     * nossa, então a travessia só morre aqui), e a subpasta de OUTRO escritório.
+     *
+     * Trocar prefixo por regex não serve para isto: o que não casa o padrão continuava passando
+     * intacto para a biblioteca.
      */
-    public function reescreverPrefixo(string $html, string $prefixoDisco): string
+    public function nomeDeImagemDoEscritorio(string $src, ?int $tenantId): ?string
     {
-        return (string) preg_replace_callback(
-            self::PADRAO_PREFIXO,
-            static fn (): string => $prefixoDisco,
-            $html,
-        );
+        if (preg_match(self::PADRAO_IMAGEM_DO_EDITOR, trim($src), $partes) !== 1) {
+            return null;
+        }
+
+        $escritorioNaUrl = $partes[1] === '' ? null : (int) $partes[1];
+
+        if ($escritorioNaUrl !== null && $escritorioNaUrl !== $tenantId) {
+            return null; // a peça aponta para a subpasta de outro escritório
+        }
+
+        return $partes[2];
     }
 }

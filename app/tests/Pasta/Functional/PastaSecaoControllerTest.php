@@ -11,9 +11,13 @@ use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaSecao;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Controller\PastaSecaoController;
-use App\Shared\Service\ArquivoStorageInterface;
+use App\Pasta\Armazenamento\ChavesDePasta;
+use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
+use App\Shared\Armazenamento\FonteDeConteudo;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\Event\OnFlushEventArgs;
+use Doctrine\ORM\Events;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
@@ -58,6 +62,15 @@ final class PastaSecaoControllerTest extends JusPrimeWebTestCase
         $em->flush();
 
         return $pasta;
+    }
+
+    /** Grava um documento da pasta pela CHAVE (o shim saiu do container na E2.6C). */
+    private function gravarDocumento(ArmazenamentoDeArquivos $armazenamento, $tenant, string $conteudo): string
+    {
+        return $armazenamento->gravar(
+            ChavesDePasta::novoDocumento((new PastaDocumento())->setTenant($tenant), 'pdf'),
+            FonteDeConteudo::deTexto($conteudo),
+        )->chave->nome;
     }
 
     private function criarSecao(Pasta $pasta, Tenant $tenant): PastaSecao
@@ -362,8 +375,8 @@ final class PastaSecaoControllerTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $user, $tenant);
 
         $em         = static::getContainer()->get(EntityManagerInterface::class);
-        $storage    = static::getContainer()->get(ArquivoStorageInterface::class);
-        $uploadsDir = (string) static::getContainer()->getParameter('uploads_dir');
+        $armazenamento = static::getContainer()->get(ArmazenamentoDeArquivos::class);
+        $uploadsDir    = (string) static::getContainer()->getParameter('uploads_dir');
 
         $mae = $this->criarSecao($pasta, $tenant);
 
@@ -388,7 +401,7 @@ final class PastaSecaoControllerTest extends JusPrimeWebTestCase
         // isso a coleção documentos() da seção fica vazia e o teste não prova nada.
         $caminhos = [];
         foreach ([$mae, $filha, $neta] as $secao) {
-            $nomeStorage = $storage->salvarConteudo('conteudo-' . $secao->getNome(), $uploadsDir, 'pdf');
+            $nomeStorage = $this->gravarDocumento($armazenamento, $tenant, 'conteudo-' . $secao->getNome());
 
             $doc = new PastaDocumento();
             $doc->setTitulo('doc-' . $secao->getNome());
@@ -403,12 +416,12 @@ final class PastaSecaoControllerTest extends JusPrimeWebTestCase
             $doc->setSecao($secao);
             $em->persist($doc);
 
-            $caminhos[] = $storage->caminho($uploadsDir, $nomeStorage);
+            $caminhos[] = ChavesDePasta::documentoPorNome((int) $tenant->getId(), $nomeStorage);
         }
         $em->flush();
 
         foreach ($caminhos as $caminho) {
-            self::assertTrue($storage->existe($caminho), 'pré-condição: o arquivo precisa existir antes da exclusão');
+            self::assertTrue($armazenamento->existe($caminho), 'pré-condição: o arquivo precisa existir antes da exclusão');
         }
 
         $maeId = $mae->getId();
@@ -428,9 +441,143 @@ final class PastaSecaoControllerTest extends JusPrimeWebTestCase
         self::assertSame(3, $json['arquivosRemovidos']);
 
         [$caminhoMae, $caminhoFilha, $caminhoNeta] = $caminhos;
-        self::assertFalse($storage->existe($caminhoMae), 'o arquivo da MÃE devia ter sido removido do disco');
-        self::assertFalse($storage->existe($caminhoFilha), 'o arquivo da FILHA devia ter sido removido do disco');
-        self::assertFalse($storage->existe($caminhoNeta), 'o arquivo da NETA devia ter sido removido do disco — é o que a recursão prova');
+        self::assertFalse($armazenamento->existe($caminhoMae), 'o arquivo da MÃE devia ter sido removido do disco');
+        self::assertFalse($armazenamento->existe($caminhoFilha), 'o arquivo da FILHA devia ter sido removido do disco');
+        self::assertFalse($armazenamento->existe($caminhoNeta), 'o arquivo da NETA devia ter sido removido do disco — é o que a recursão prova');
+    }
+
+    #[TestDox('disco ilegível DEPOIS do commit não vira 500: a seção já foi excluída e não há como repetir')]
+    public function testFalhaDeDiscoDepoisDoCommitNaoDerrubaARequisicao(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $em         = static::getContainer()->get(EntityManagerInterface::class);
+        $armazenamento = static::getContainer()->get(ArmazenamentoDeArquivos::class);
+        $uploadsDir    = rtrim((string) static::getContainer()->getParameter('uploads_dir'), '/');
+
+        $secao       = $this->criarSecao($pasta, $tenant);
+        $nomeStorage = $this->gravarDocumento($armazenamento, $tenant, 'conteudo');
+
+        $doc = new PastaDocumento();
+        $doc->setTitulo('doc');
+        $doc->setCategoria(PastaDocumento::CATEGORIA_DEMAIS);
+        $doc->setCaminhoArquivo($nomeStorage);
+        $doc->setNomeOriginal('doc.pdf');
+        $doc->setMimeType('application/pdf');
+        $doc->setTamanhoBytes(10);
+        $doc->setOrdem(1);
+        $doc->setPasta($pasta);
+        $doc->setTenant($tenant);
+        $doc->setSecao($secao);
+        $em->persist($doc);
+        $em->flush();
+
+        $secaoId = (int) $secao->getId();
+        $em->clear();
+
+        // Diretório ilegível de verdade — não um dublê. É a diferença que a E2.2 introduziu: o
+        // `existe()` novo LANÇA quando não consegue determinar a presença, onde o antigo devolvia
+        // false. Como o laço roda DEPOIS do COMMIT, propagar viraria 500 com a seção já apagada.
+        $modoOriginal = fileperms($uploadsDir) & 0777;
+        self::assertTrue(chmod($uploadsDir, 0o000), 'pré-condição: o teste precisa conseguir tornar o diretório ilegível');
+
+        try {
+            self::assertFalse(is_readable($uploadsDir), 'pré-condição: o processo não pode estar rodando como root');
+
+            $client->request('POST', '/pasta/secao/' . $secaoId . '/excluir', [
+                '_token' => $this->csrf('pasta_secao_excluir_' . $secaoId),
+            ]);
+
+            self::assertResponseIsSuccessful('falha de disco pós-commit não pode virar erro para quem chamou');
+        } finally {
+            chmod($uploadsDir, $modoOriginal);
+        }
+
+        $em->clear();
+        self::assertNull(
+            $em->find(PastaSecao::class, $secaoId),
+            'a seção foi excluída no banco antes do disco: o resultado da requisição tem de refletir isso',
+        );
+        self::assertTrue(
+            $armazenamento->existe(ChavesDePasta::documentoPorNome((int) $tenant->getId(), $nomeStorage)),
+            'o disco recusou: o arquivo fica, órfão recuperável e registrado',
+        );
+        $armazenamento->excluir(ChavesDePasta::documentoPorNome((int) $tenant->getId(), $nomeStorage));
+    }
+
+    /**
+     * E2.5 (INV-6): a remoção física vem DEPOIS do UseCase que confirma a exclusão. Se o banco
+     * recusar, nenhum arquivo da árvore pode ter saído. A recusa é simulada no `onFlush`, antes de
+     * qualquer SQL — exatamente onde um `excluir()` adiantado já teria apagado.
+     */
+    #[TestDox('banco recusa a exclusão da seção: a seção fica e o arquivo continua no disco')]
+    public function testBancoQueRecusaNaoApagaArquivos(): void
+    {
+        $client          = static::createClient();
+        $client->disableReboot();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $em         = static::getContainer()->get(EntityManagerInterface::class);
+        $armazenamento = static::getContainer()->get(ArmazenamentoDeArquivos::class);
+        $uploadsDir    = rtrim((string) static::getContainer()->getParameter('uploads_dir'), '/');
+
+        $secao       = $this->criarSecao($pasta, $tenant);
+        $nomeStorage = $this->gravarDocumento($armazenamento, $tenant, 'conteudo');
+
+        $doc = new PastaDocumento();
+        $doc->setTitulo('doc');
+        $doc->setCategoria(PastaDocumento::CATEGORIA_DEMAIS);
+        $doc->setCaminhoArquivo($nomeStorage);
+        $doc->setNomeOriginal('doc.pdf');
+        $doc->setMimeType('application/pdf');
+        $doc->setTamanhoBytes(10);
+        $doc->setOrdem(1);
+        $doc->setPasta($pasta);
+        $doc->setTenant($tenant);
+        $doc->setSecao($secao);
+        $em->persist($doc);
+        $em->flush();
+
+        $secaoId = (int) $secao->getId();
+        $em->clear();
+
+        $recusa = new class {
+            public int $recusas = 0;
+
+            public function onFlush(OnFlushEventArgs $args): void
+            {
+                if ($args->getObjectManager()->getUnitOfWork()->getScheduledEntityDeletions() !== []) {
+                    ++$this->recusas;
+
+                    throw new \LogicException('banco recusou a exclusão da seção');
+                }
+            }
+        };
+        $em->getEventManager()->addEventListener([Events::onFlush], $recusa);
+
+        try {
+            $client->request('POST', '/pasta/secao/' . $secaoId . '/excluir', [
+                '_token' => $this->csrf('pasta_secao_excluir_' . $secaoId),
+            ]);
+        } finally {
+            $em->getEventManager()->removeEventListener([Events::onFlush], $recusa);
+        }
+
+        try {
+            self::assertSame(1, $recusa->recusas);
+            self::assertResponseStatusCodeSame(500);
+            self::assertSame(1, (int) $em->getConnection()->fetchOne('SELECT COUNT(*) FROM pasta_secao WHERE id = ?', [$secaoId]));
+            self::assertTrue($armazenamento->existe(ChavesDePasta::documentoPorNome((int) $tenant->getId(), $nomeStorage)), 'a ordem: nenhum arquivo sai antes de o banco confirmar');
+        } finally {
+            @unlink($uploadsDir . '/' . $nomeStorage);
+        }
     }
 
     #[TestDox('excluir com ciclo gravado por fora dos guards (ex.: desfazer da auditoria) não estoura a memória')]

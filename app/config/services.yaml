@@ -95,6 +95,11 @@ services:
     # this creates a service per class whose id is the fully-qualified class name
     App\:
         resource: '../src/'
+        exclude:
+            # E2.6A (D29) — valor, não serviço: construtor privado, criado por
+            # `DiretorioTemporarioPrivado::doProcesso()`. Registrado, o autowiring o injetaria no
+            # parâmetro opcional do `ArmazenamentoLocal` e o container quebraria na compilação.
+            - '../src/Shared/Armazenamento/DiretorioTemporarioPrivado.php'
 
     # Backend de verificação de OAB: dormente (manual-first) enquanto não houver chave do
     # web service oficial. Trocar aqui quando houver backend real.
@@ -167,3 +172,12 @@ when@test:
         fotos_perfil_dir: '%kernel.project_dir%/var/uploads-test/perfil'
         cobrancas_uploads_dir: '%kernel.project_dir%/var/uploads-test/cobrancas'
         kanban_uploads_dir: '%kernel.project_dir%/var/uploads-test/kanban'
+
+    services:
+        # E2.5 — faz o próximo COMMIT da aplicação falhar, sob demanda. Sob o DAMA nenhum COMMIT
+        # falha de verdade; sem isto o ramo "o COMMIT lançou" só seria testável com mock.
+        # Prioridade abaixo da do DAMA (100): fica por fora dele e recebe o commit() primeiro.
+        # Inerte até um teste armar; ver o docblock da classe.
+        App\Tests\Shared\Doubles\FalhaDeCommitArmavel:
+            tags:
+                - { name: doctrine.middleware, priority: -100 }

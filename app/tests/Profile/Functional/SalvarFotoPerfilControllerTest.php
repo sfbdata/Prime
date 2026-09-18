@@ -5,12 +5,10 @@ namespace App\Tests\Profile\Functional;
 use App\Entity\Auth\User;
 use App\Profile\Controller\ProfileController;
 use App\Profile\Repository\UserProfileRepository;
-use App\Shared\Service\ArquivoStorageInterface;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use App\Tests\Functional\JusPrimeWebTestCase;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
@@ -18,6 +16,22 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 #[CoversClass(ProfileController::class)]
 final class SalvarFotoPerfilControllerTest extends JusPrimeWebTestCase
 {
+    /** @var list<string> arquivos criados no disco (o DAMA reverte o banco, não o disco) */
+    private array $arquivosCriados = [];
+
+    protected function tearDown(): void
+    {
+        foreach ($this->arquivosCriados as $caminho) {
+            if (is_file($caminho)) {
+                @unlink($caminho);
+            }
+        }
+
+        $this->arquivosCriados = [];
+
+        parent::tearDown();
+    }
+
     private function criarUsuario(): User
     {
         $container = static::getContainer();
@@ -65,45 +79,6 @@ final class SalvarFotoPerfilControllerTest extends JusPrimeWebTestCase
     private function gerarCsrf(string $tokenId): string
     {
         return 'TOKEN_' . $tokenId;
-    }
-
-    private function storageFake(string $nomeArquivo = 'foto_teste.jpeg'): ArquivoStorageInterface
-    {
-        return new class($nomeArquivo) implements ArquivoStorageInterface {
-            public function __construct(private readonly string $nome) {}
-
-            public function salvar(UploadedFile $arquivo, string $diretorio): string
-            {
-                return $this->nome;
-            }
-
-            public function servir(string $caminhoCompleto, string $nomeOriginal, bool $inline = true): BinaryFileResponse
-            {
-                throw new \LogicException('não utilizado neste teste');
-            }
-
-            public function excluir(string $caminhoCompleto): void {}
-
-            public function existe(string $caminhoCompleto): bool
-            {
-                return false;
-            }
-
-            public function salvarConteudo(string $conteudo, string $diretorio, string $extensao): string
-            {
-                throw new \LogicException('não utilizado neste teste');
-            }
-
-            public function moverParaArmazenamento(string $caminhoOrigem, string $diretorio, string $extensao): string
-            {
-                throw new \LogicException('não utilizado neste teste');
-            }
-
-            public function caminho(string $diretorio, string $nomeArquivo): string
-            {
-                return $diretorio . '/' . $nomeArquivo;
-            }
-        };
     }
 
     private function criarJpegTemporario(): string
@@ -173,17 +148,18 @@ final class SalvarFotoPerfilControllerTest extends JusPrimeWebTestCase
         @unlink($tmpPath);
     }
 
-    #[TestDox('POST /perfil/foto com JPEG válido retorna 200, persiste fotoUrl e devolve url')]
+    #[TestDox('POST /perfil/foto com JPEG válido retorna 200, grava a foto no disco, persiste fotoUrl e devolve url')]
     public function testSalvarFotoComJpegValidoRetorna200EAtualizaFotoUrl(): void
     {
         $client = static::createClient();
         $user   = $this->criarUsuario();
         $this->instalarCsrfStorage();
-        static::getContainer()->set(ArquivoStorageInterface::class, $this->storageFake('foto_teste.jpeg'));
         $client->loginUser($user);
         $this->marcarTermosAceitos($client);
 
+        // Storage REAL do container: o nome é cunhado por ele, não fixado pelo teste.
         $tmpPath = $this->criarJpegTemporario();
+        $this->arquivosCriados[] = $tmpPath;
         $arquivo = new UploadedFile($tmpPath, 'perfil.jpg', 'image/jpeg', null, true);
 
         $client->request(
@@ -196,7 +172,6 @@ final class SalvarFotoPerfilControllerTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         $data = json_decode((string) $client->getResponse()->getContent(), true);
         self::assertTrue($data['ok']);
-        self::assertStringContainsString('foto_teste.jpeg', $data['url']);
 
         $em         = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
@@ -205,8 +180,13 @@ final class SalvarFotoPerfilControllerTest extends JusPrimeWebTestCase
         $perfil     = $repo->buscarPorUsuario($userFresh);
 
         self::assertNotNull($perfil, 'UserProfile deve existir após o upload');
-        self::assertSame('foto_teste.jpeg', $perfil->getFotoUrl());
+        $fotoUrl = (string) $perfil->getFotoUrl();
+        $caminho = static::getContainer()->getParameter('fotos_perfil_dir') . '/' . $fotoUrl;
+        $this->arquivosCriados[] = $caminho;
 
-        @unlink($tmpPath);
+        self::assertMatchesRegularExpression('/^[0-9a-f]{32}\.(jpg|jpeg)$/', $fotoUrl);
+        self::assertStringEndsWith('/' . $fotoUrl, $data['url']);
+        self::assertFileExists($caminho, 'a foto tem de estar em %fotos_perfil_dir%');
+        self::assertStringEqualsFile($caminho, "\xFF\xD8\xFF\xE0\x00\x10JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00\xFF\xD9");
     }
 }

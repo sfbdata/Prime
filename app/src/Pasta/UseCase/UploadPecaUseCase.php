@@ -8,8 +8,10 @@ use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaSecao;
 use App\Entity\Tenant\Tenant;
-use App\Shared\Service\ArquivoStorageInterface;
-use App\Shared\Service\CompressorArquivoInterface;
+use App\Pasta\Armazenamento\ChavesDePasta;
+use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
+use App\Shared\Http\FonteDeUploadHttp;
+use App\Shared\Service\CompressaoDeArquivoArmazenado;
 use App\Shared\Service\ResultadoCompressao;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
@@ -41,9 +43,8 @@ final class UploadPecaUseCase
 
     public function __construct(
         private readonly EntityManagerInterface $em,
-        private readonly ArquivoStorageInterface $storage,
-        private readonly CompressorArquivoInterface $compressor,
-        private readonly string $uploadsDir,
+        private readonly ArmazenamentoDeArquivos $armazenamento,
+        private readonly CompressaoDeArquivoArmazenado $compressao,
     ) {}
 
     public function executar(
@@ -81,17 +82,22 @@ final class UploadPecaUseCase
             ));
         }
 
-        $nomeUnico = $this->storage->salvar($file, $this->uploadsDir);
+        // O escopo sai do próprio documento (R1): o mesmo escritório que a leitura vai usar. O
+        // documento só é persistido depois da gravação.
+        $doc = new PastaDocumento();
+        $doc->setTenant($tenant);
 
-        $compressao = ResultadoCompressao::naoComprimido((int) $tamanho);
+        $upload     = FonteDeUploadHttp::de($file);
+        $armazenado = $upload->gravarEm($this->armazenamento, ChavesDePasta::novoDocumento($doc, $upload->extensao));
+        $nomeUnico  = $armazenado->chave->nome;
+
+        // D30: sem compressão, o tamanho gravado é o que o storage mediu ao gravar.
+        $compressao = ResultadoCompressao::naoComprimido($armazenado->tamanhoBytes);
         if ($reduzirTamanho) {
-            $caminho    = $this->storage->caminho($this->uploadsDir, $nomeUnico);
-            $compressao = $this->compressor->comprimir($caminho, $mimeType);
+            $compressao = $this->compressao->comprimir($armazenado->chave, $mimeType);
         }
 
-        $doc = new PastaDocumento();
         $doc->setPasta($pasta);
-        $doc->setTenant($tenant);
         $doc->setTitulo($file->getClientOriginalName());
         $doc->setCategoria($categoria);
         $doc->setDescricao(($descricao !== null && $descricao !== '') ? $descricao : null);

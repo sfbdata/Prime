@@ -8,13 +8,14 @@ use App\Controller\PastaController;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PastaDocumento;
 use App\Entity\Tenant\Tenant;
-use App\Shared\Service\ArquivoStorageInterface;
 use App\Tests\Functional\JusPrimeWebTestCase;
+use App\Tests\Shared\Doubles\ArmazenamentoEmMemoriaNoContainer;
+use App\Tests\Shared\Doubles\GhostscriptDeTeste;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
@@ -92,43 +93,6 @@ final class PastaFinanceiroControllerTest extends JusPrimeWebTestCase
     private function gerarCsrf(string $tokenId): string
     {
         return 'TOKEN_' . $tokenId;
-    }
-
-    private function storageFake(): ArquivoStorageInterface
-    {
-        return new class implements ArquivoStorageInterface {
-            public function salvar(UploadedFile $arquivo, string $diretorio): string
-            {
-                return 'fake_' . uniqid() . '.pdf';
-            }
-
-            public function servir(string $caminhoCompleto, string $nomeOriginal, bool $inline = true): BinaryFileResponse
-            {
-                throw new \LogicException('não utilizado neste teste');
-            }
-
-            public function excluir(string $caminhoCompleto): void {}
-
-            public function existe(string $caminhoCompleto): bool
-            {
-                return false;
-            }
-
-            public function salvarConteudo(string $conteudo, string $diretorio, string $extensao): string
-            {
-                return 'fake_' . uniqid() . '.' . $extensao;
-            }
-
-            public function moverParaArmazenamento(string $caminhoOrigem, string $diretorio, string $extensao): string
-            {
-                return 'fake_' . uniqid() . '.' . $extensao;
-            }
-
-            public function caminho(string $diretorio, string $nomeArquivo): string
-            {
-                return $diretorio . '/' . $nomeArquivo;
-            }
-        };
     }
 
     // ── Testes sem autenticação ──────────────────────────────────────────────
@@ -291,6 +255,93 @@ final class PastaFinanceiroControllerTest extends JusPrimeWebTestCase
         @unlink($tmpPath);
     }
 
+    #[TestDox('D30: a coluna guarda o tamanho que o STORAGE mediu, não o que o upload declarou')]
+    public function testTamanhoPersistidoVemDoStorage(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+
+        $this->instalarCsrfStorage();
+        $duble = ArmazenamentoEmMemoriaNoContainer::instalarEm(static::getContainer());
+        $duble->memoria->tamanhoRelatado = 4242;
+        $this->logarComTenant($client, $user, $tenant);
+
+        $tmpPath = sys_get_temp_dir() . '/test_medido_' . uniqid() . '.pdf';
+        file_put_contents($tmpPath, '%PDF-1.4 conteudo qualquer');
+
+        $client->request(
+            'POST',
+            "/pasta/{$pasta->getId()}/financeiro/upload",
+            ['_token' => $this->gerarCsrf('pasta_financeiro_upload_' . $pasta->getId())],
+            ['arquivo' => new UploadedFile($tmpPath, 'contrato.pdf', 'application/pdf', null, true)],
+        );
+
+        self::assertResponseStatusCodeSame(201);
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $doc = $em->find(PastaDocumento::class, $data['id']);
+
+        self::assertSame(4242, $doc->getTamanhoBytes());
+        @unlink($tmpPath);
+    }
+
+    /**
+     * E2.6B: a resposta JSON desta rota informa a compressão à tela. O que se prova aqui é que os
+     * números do JSON são os do ARQUIVO no volume — antes vinham do que o compressor relatava.
+     */
+    #[TestDox('reduzir_tamanho: o 201 traz a compressão e o arquivo do volume é o comprimido')]
+    public function testUploadComReducaoDeTamanho(): void
+    {
+        if (!GhostscriptDeTeste::disponivel()) {
+            self::markTestSkipped('Ghostscript indisponível neste ambiente.');
+        }
+
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $tmpPath = sys_get_temp_dir() . '/test_gordo_' . uniqid() . '.pdf';
+        $gordo   = GhostscriptDeTeste::pdfGordo($tmpPath);
+
+        $client->request(
+            'POST',
+            "/pasta/{$pasta->getId()}/financeiro/upload",
+            [
+                '_token'          => $this->gerarCsrf('pasta_financeiro_upload_' . $pasta->getId()),
+                'reduzir_tamanho' => '1',
+            ],
+            ['arquivo' => new UploadedFile($tmpPath, 'contrato.pdf', 'application/pdf', null, true)],
+        );
+
+        self::assertResponseStatusCodeSame(201);
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $doc     = $em->find(PastaDocumento::class, $data['id']);
+        $gravado = static::getContainer()->getParameter('uploads_dir') . '/' . $doc->getCaminhoArquivo();
+
+        try {
+            $conteudo = (string) file_get_contents($gravado);
+            self::assertTrue($data['compressao']['comprimido']);
+            self::assertSame(\strlen($gordo), $data['compressao']['tamanhoOriginal']);
+            self::assertSame(\strlen($conteudo), $data['compressao']['tamanhoFinal'], 'o JSON não informa o tamanho do arquivo real');
+            self::assertSame(\strlen($conteudo), $doc->getTamanhoBytes(), 'D30: a coluna não tem o tamanho do arquivo real');
+            self::assertStringStartsWith('%PDF-', $conteudo);
+            self::assertLessThan(\strlen($gordo), \strlen($conteudo));
+            self::assertSame([], glob(static::getContainer()->getParameter('uploads_dir') . '/.compress_*') ?: []);
+        } finally {
+            @unlink($gravado);
+            @unlink($tmpPath);
+        }
+    }
+
     #[TestDox('POST financeiro/upload com arquivo PDF válido retorna 201 com dados do documento')]
     public function testUploadComPdfValidoRetorna201(): void
     {
@@ -299,9 +350,10 @@ final class PastaFinanceiroControllerTest extends JusPrimeWebTestCase
         $pasta           = $this->criarPasta($tenant);
 
         $this->instalarCsrfStorage();
-        static::getContainer()->set(ArquivoStorageInterface::class, $this->storageFake());
         $this->logarComTenant($client, $user, $tenant);
 
+        // Desde a E2.4A o upload grava no storage REAL (`var/uploads-test/pastas`): o teste confere
+        // o arquivo e o apaga no fim — o DAMA reverte o banco, não o disco.
         $tmpPath = sys_get_temp_dir() . '/test_upload_' . uniqid() . '.pdf';
         file_put_contents($tmpPath, '%PDF-1.4 fake pdf content');
         $uploadedFile = new UploadedFile($tmpPath, 'contrato.pdf', 'application/pdf', null, true);
@@ -321,6 +373,19 @@ final class PastaFinanceiroControllerTest extends JusPrimeWebTestCase
         self::assertArrayHasKey('csrfRenomear', $data);
         self::assertArrayHasKey('csrfExcluir', $data);
 
-        @unlink($tmpPath);
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $doc = $em->find(PastaDocumento::class, $data['id']);
+        self::assertNotNull($doc);
+
+        $gravado = static::getContainer()->getParameter('uploads_dir') . '/' . $doc->getCaminhoArquivo();
+        try {
+            self::assertMatchesRegularExpression('/^[0-9a-f]{32}\.pdf$/', $doc->getCaminhoArquivo());
+            self::assertStringEqualsFile($gravado, '%PDF-1.4 fake pdf content');
+            self::assertSame('contrato.pdf', $doc->getNomeOriginal());
+        } finally {
+            @unlink($gravado);
+            @unlink($tmpPath);
+        }
     }
 }

@@ -5,10 +5,15 @@ declare(strict_types=1);
 namespace App\Ponto\UseCase;
 
 use App\Entity\Tenant\Tenant;
+use App\Ponto\Armazenamento\ChavesDePonto;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Repository\JustificativaPontoRepository;
 use App\Ponto\Validacao\RestricoesAnexoJustificativa;
-use App\Shared\Service\ArquivoStorageInterface;
+use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
+use App\Shared\Armazenamento\ChaveDeArquivo;
+use App\Shared\Armazenamento\RemocaoAposTransacao;
+use App\Shared\Doctrine\Transacao\TransacaoComArquivoNovo;
+use App\Shared\Http\FonteDeUploadHttp;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
@@ -38,8 +43,9 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
  * ## A janela entre COMMIT, contagem e DELETE
  *
  * Ela está fechada **por construção**, não por sincronização: existem exatamente três produtores de
- * `anexo_path` no repositório, e os três gravam o retorno de `ArquivoStorageService::salvar()`,
- * que é `bin2hex(random_bytes(16))` — nome novo a cada chamada, nunca reaproveitado. Nenhum caminho
+ * `anexo_path` no repositório, e os três gravam o nome que o storage cunha para um `NovoArquivo`
+ * (`NovoArquivo::cunharChave()`, desde a E2.4A), que é `bin2hex(random_bytes(16))` — nome novo a
+ * cada chamada, nunca reaproveitado. Nenhum caminho
  * copia um `anexo_path` existente para outro registro. Logo, depois que a transação que removeu a
  * última referência comita, o conjunto de referências àquele arquivo só pode DIMINUIR: uma
  * contagem que dá zero é definitiva. `ProdutoresDeAnexoPathTest` é o que mantém essa premissa
@@ -48,6 +54,17 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
  * Como defesa em profundidade, a fase 2 roda sob trava derivada do ARQUIVO (não do lote): o recurso
  * disputado é o arquivo, e travar pelo lote não bastaria se um dia um arquivo passasse a ser
  * referenciado por dois lotes.
+ *
+ * ## O arquivo NOVO, quando a fase 1 falha (E2.5)
+ *
+ * Ele é gravado dentro da transação, antes do COMMIT. Se a fase 1 falhar, ele só é apagado quando
+ * estiver PROVADO que nada foi confirmado (`TransacaoComArquivoNovo`): num COMMIT que chega ao
+ * servidor e perde a resposta, o lote inteiro passa a apontar para ele, e apagá-lo seria
+ * exatamente o registro válido apontando para o vazio. Antes da E2.5 o arquivo saía em qualquer
+ * falha.
+ *
+ * Todas as chaves saem de `ChavesDePonto` com o escopo da justificativa dona — nunca do `$tenant`
+ * recebido por parâmetro (R1).
  */
 final class SubstituirAnexoDoLoteUseCase
 {
@@ -58,10 +75,11 @@ final class SubstituirAnexoDoLoteUseCase
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly JustificativaPontoRepository $repositorio,
-        private readonly ArquivoStorageInterface $storage,
+        private readonly ArmazenamentoDeArquivos $armazenamento,
+        private readonly TransacaoComArquivoNovo $transacao,
+        private readonly RemocaoAposTransacao $remocao,
         private readonly ValidatorInterface $validator,
         private readonly LoggerInterface $logger,
-        private readonly string $justificativasUploadsDir,
     ) {
     }
 
@@ -89,56 +107,62 @@ final class SubstituirAnexoDoLoteUseCase
         $this->validar($arquivo);
 
         $anexoAntigo = null;
+        /** @var ChaveDeArquivo|null $novaChave */
+        $novaChave = null;
 
         // ---- Fase 1: tudo o que é banco, numa transação só -------------------------------
-        try {
-            $atingidos = $this->em->wrapInTransaction(
-                function () use ($justificativa, $arquivo, $tenant, &$anexoAntigo, &$novoAnexo): int {
-                    $this->travar(self::CLASSE_TRAVA_LOTE, $this->chaveDoLote($justificativa, $tenant));
+        // A transação é a de `TransacaoComArquivoNovo`: mesma semântica do `wrapInTransaction`
+        // (trabalho, flush, commit, EM fechado na falha, exceção original relançada), e ela decide
+        // o destino do arquivo novo — inclusive quando quem falha é o próprio COMMIT, que um catch
+        // dentro do closure nunca veria.
+        $atingidos = $this->transacao->executar(
+            function () use ($justificativa, $arquivo, $tenant, &$anexoAntigo, &$novaChave): int {
+                $this->travar(self::CLASSE_TRAVA_LOTE, $this->chaveDoLote($justificativa, $tenant));
 
-                    // Reler DEPOIS de travar. Ler antes e gravar depois é como a corrida volta:
-                    // duas edições simultâneas do mesmo lote poderiam ressuscitar um valor velho.
-                    $lote = $this->loteDe($justificativa, $tenant);
+                // Reler DEPOIS de travar. Ler antes e gravar depois é como a corrida volta:
+                // duas edições simultâneas do mesmo lote poderiam ressuscitar um valor velho.
+                $lote = $this->loteDe($justificativa, $tenant);
 
-                    // O anexo a remover sai do BANCO, sob a trava, por projeção escalar — não
-                    // pelo getter. `findLotePorBatchId()` não relê os campos de uma entidade que
-                    // já esteja no identity map (sem HINT_REFRESH o UnitOfWork devolve a
-                    // instância gerenciada como está em memória), e a justificativa chega aqui
-                    // carregada pelo EntityValueResolver, muito antes da trava. Pelo getter,
-                    // a fase 2 decidiria sobre um valor que outra transação já pode ter trocado,
-                    // e o arquivo realmente substituído nunca seria contado nem removido.
-                    $anexoAntigo = $this->repositorio->anexoNoBancoPorId(
-                        (int) $lote[0]->getId(),
-                        $tenant,
-                    );
+                // O anexo a remover sai do BANCO, sob a trava, por projeção escalar — não
+                // pelo getter. `findLotePorBatchId()` não relê os campos de uma entidade que
+                // já esteja no identity map (sem HINT_REFRESH o UnitOfWork devolve a
+                // instância gerenciada como está em memória), e a justificativa chega aqui
+                // carregada pelo EntityValueResolver, muito antes da trava. Pelo getter,
+                // a fase 2 decidiria sobre um valor que outra transação já pode ter trocado,
+                // e o arquivo realmente substituído nunca seria contado nem removido.
+                $anexoAntigo = $this->repositorio->anexoNoBancoPorId(
+                    (int) $lote[0]->getId(),
+                    $tenant,
+                );
 
-                    $novoAnexo = $this->storage->salvar($arquivo, $this->justificativasUploadsDir);
+                // O escopo sai da justificativa dona, já conferida contra `$tenant` na
+                // pré-condição (R1). Continua dentro da transação, como antes: a ordem é a da E1.
+                $upload    = FonteDeUploadHttp::de($arquivo);
+                $novaChave = $upload->gravarEm(
+                    $this->armazenamento,
+                    ChavesDePonto::novoAnexoDeJustificativa($justificativa, $upload->extensao),
+                )->chave;
 
-                    foreach ($lote as $registro) {
-                        $registro->setAnexoPath($novoAnexo);
-                    }
+                foreach ($lote as $registro) {
+                    $registro->setAnexoPath($novaChave->nome);
+                }
 
-                    $this->em->flush();
+                $this->em->flush();
 
-                    return \count($lote);
-                },
-            );
-        } catch (\Throwable $e) {
-            // O `try` envolve a CHAMADA, não o closure: `wrapInTransaction` executa o closure,
-            // depois faz flush e commit por fora dele. Um catch interno não veria falha de
-            // COMMIT — que é justamente a falha mais provável da fase 1 (queda de conexão,
-            // statement_timeout). O arquivo novo foi gravado antes do commit; se o banco
-            // recusou, ninguém chegou a referenciá-lo.
-            if (isset($novoAnexo) && \is_string($novoAnexo)) {
-                $this->removerBestEffort($novoAnexo, 'rollback da substituição');
-            }
+                return \count($lote);
+            },
+            // Por referência: o arquivo só existe se o trabalho chegou a gravá-lo.
+            function () use (&$novaChave): array {
+                return $novaChave instanceof ChaveDeArquivo ? [$novaChave] : [];
+            },
+            'SubstituirAnexoDoLoteUseCase: anexo novo do lote',
+        );
 
-            throw $e;
-        }
+        $novoAnexo = $novaChave instanceof ChaveDeArquivo ? $novaChave->nome : null;
 
         // ---- Fase 2: só agora o disco, e só se ninguém mais referenciar -------------------
         if ($anexoAntigo !== null && $anexoAntigo !== '' && $anexoAntigo !== $novoAnexo) {
-            $this->apagarAntigoSeOrfao($anexoAntigo, $tenant);
+            $this->apagarAntigoSeOrfao($anexoAntigo, $justificativa, $tenant);
         }
 
         return $atingidos;
@@ -183,21 +207,27 @@ final class SubstituirAnexoDoLoteUseCase
         return $lote;
     }
 
-    private function apagarAntigoSeOrfao(string $anexoAntigo, Tenant $tenant): void
+    /**
+     * `$dona` é a justificativa persistida que apontava para o anexo antigo: é dela que sai o
+     * escopo da chave. O nome vem de fora porque foi lido por projeção escalar sob a trava — o
+     * getter pode estar velho (ver fase 1).
+     */
+    private function apagarAntigoSeOrfao(string $anexoAntigo, JustificativaPonto $dona, Tenant $tenant): void
     {
         try {
-            $this->em->wrapInTransaction(function () use ($anexoAntigo, $tenant): void {
+            $this->em->wrapInTransaction(function () use ($anexoAntigo, $dona, $tenant): void {
                 $this->travar(self::CLASSE_TRAVA_ARQUIVO, $this->chaveDoArquivo($anexoAntigo));
 
                 if ($this->repositorio->contarReferenciasAoAnexo($anexoAntigo, $tenant) > 0) {
                     return;
                 }
 
-                $caminho = $this->storage->caminho($this->justificativasUploadsDir, $anexoAntigo);
-
-                if ($this->storage->existe($caminho)) {
-                    $this->storage->excluir($caminho);
-                }
+                // Ainda sob a trava do arquivo (defesa em profundidade): a fase 1 já comitou, e esta
+                // transação não grava nada. Falha física vira registro e órfão recuperável.
+                $this->remocao->remover(
+                    [ChavesDePonto::anexoDeJustificativaPorNome($dona, $anexoAntigo)],
+                    'SubstituirAnexoDoLoteUseCase: anexo antigo sem referências',
+                );
             });
         } catch (\Throwable $e) {
             // Falhar aqui deixa um arquivo órfão recuperável — o lado aceitável da troca. O que
@@ -253,22 +283,5 @@ final class SubstituirAnexoDoLoteUseCase
         $valor = crc32($chave);
 
         return $valor > 2147483647 ? $valor - 4294967296 : $valor;
-    }
-
-    private function removerBestEffort(string $nomeArquivo, string $motivo): void
-    {
-        try {
-            $caminho = $this->storage->caminho($this->justificativasUploadsDir, $nomeArquivo);
-
-            if ($this->storage->existe($caminho)) {
-                $this->storage->excluir($caminho);
-            }
-        } catch (\Throwable $e) {
-            $this->logger->warning('Não foi possível remover o anexo recém-gravado.', [
-                'anexo'  => $nomeArquivo,
-                'motivo' => $motivo,
-                'erro'   => $e->getMessage(),
-            ]);
-        }
     }
 }

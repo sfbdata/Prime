@@ -7,10 +7,124 @@ Quem abre uma frente acrescenta a linha. Quem integra tira.
 
 | Frente (branch) | Domínio | Migration? | Arquivos compartilhados que toca | Estágio | Base |
 |---|---|---|---|---|---|
-| `cobranca-acompanhamento-canonico` | Cobrança (modelo objeto/caso) | **sim — 4** | `docs/gestao-cobrancas/` | 🛑 **PARADA** (ver abaixo) | `origin/master` @ `0bb1f29` |
+| `cobranca-acompanhamento-canonico` | Cobrança (modelo objeto/caso) | **sim — 4, fora de ordem** | `docs/gestao-cobrancas/` | 🧊 **CONGELADA** — referência histórica, não integrável direto (ver abaixo) | `origin/master` @ `0bb1f29` |
 | `expediente-ux` | Expediente + Pasta (telas) | não | `app/templates/expediente/`, `app/templates/pasta/` | implementando, **28 commits atrás do master** | `origin/codex/colaboracao-cobrancas` |
 | `cobranca-reconciliar-data-acordo` | Cobrança (comando) | não | `RelatorioLinhaRepository` (método novo), `ComandosComPiiPassamPelaGuardaTest` (1 linha) | ✅ pronta: 3901/3901, prova por reintrodução feita — **aguarda `/review` e integração** | `master` local @ `18555616` |
-| `fix-dt8-download-drive` | Sync (cliente do Drive) | não | `app/tests/Sync/Support/FakeGoogleDriveClient.php` (a E2 acrescenta as mesmas linhas; sem conflito previsto) · esta tabela (conflito com a E2) | DT-8 (`docs/specs/dt8-download-drive.md`, §4 lista a integração com a E2); **integrar antes da E2**, que depois traz o master | `origin/master` @ `c365fe72` |
+| `import/acervo-pastas` | Pasta (importação de acervo) | não | **nenhum** — os 3 pendentes só tocam `IMPORTACAO-ACERVO.md` | 🗑️ **DESCARTE APROVADO**, aguardando execução humana (ver abaixo) | `c3bfe8ff` (25/05) |
+| `e2-abstracao-storage` | **transversal** — Shared + 9 domínios | **não** | `app/src/Shared/`, `app/config/services.yaml`, `app/src/Shared/CLAUDE.md`, + 35 arquivos de produção | **E2.6 autorizada em 17/09 (D25–D34), em três fatias (6A → 6B → 6C); master com o DT-8 trazido em `3ecc77fb`. E2.6A, E2.6B e E2.6C ENTREGUES em 17/09. A 6A**: validação da saída do compressor (D27), orçamento de tempo único, guarda de memória contra Fatal do GD, `TMPDIR` próprio do Ghostscript, `DiretorioTemporarioPrivado` e `copiaGravavel()` no núcleo (D29), `CompressaoDeArquivoArmazenado` (D26/D30/D31) e `metadados()` deixando de tratar pane como ausência (D10). 65 provas por reintrodução (63 derrubadas), revisão adversarial em 2 frentes. **A 6B**: as 5 chamadas de compressão passaram a ser pela chave, sem shim nem diretório, e o tamanho persistido virou o medido pelo storage (10/10 mutações). **A 6C**: SSRF (o PhpWord buscava `http://` do conteúdo da peça) e leitura entre escritórios (`../` e `%2e%2e`) PROVADOS com teste local e fechados — imagem do export só por chave + escritório, materializada em área temporária privada, com o `chroot` do Dompdf apontado para ela; `data:` recusado, depois de medir zero uso em 349 arquivos de peça no disco do DEV — que, atenção, NÃO têm linha em nenhum dos dois bancos (são resíduo, não o acervo vivo; a contagem que decide é a de produção, não consultada); a Via A do Drive materializa por chave e o shim ficou sem consumidor de produção (8 arquivos de teste migrados). Suíte 5338/19750; sem migration; merge fast-forward sobre o master (`git rev-list --count HEAD..master` = 0). 🔴 Uma decisão do dono em aberto: a compressão remove assinatura, formulário, cifra, PDF/A e EXIF/ICC (comportamento anterior à E2). Imagem de peça legada (diretório plano, pré-M5) segue sem entrar no export — não é regressão (antes dava 500 no DOCX), e trazê-la de volta exige migração de dados. Antes: **E2.5 entregue**: as 19 exclusões físicas depois do COMMIT, a purga por prefixo com prova de pertencimento e o arquivo novo de transação que falha só apagado com a ausência de COMMIT provada. 86 provas por reintrodução (8 sobreviventes por desenho), revisão com 4 revisores + re-revisão com 2. E2.0 `d15535fd`, congelamento `80ac07cb`, E2.1 `f37d5706`, E2.2 `fbf5b778`, E2.3 `84bded8d`, E2.4A `7d266a1c`, E2.4B `e7f13cbe`. D1–D34 ratificadas. **Próximas: E2.7 (anexo de Tarefa) e E2.8 (remover o shim), não autorizadas.** ⚠️ Colisão conhecida: `cobranca-acompanhamento-canonico` (23 commits pendentes) toca `EnviarDocumentoUseCase` e o teste dele, cujo construtor a E2.6B mudou — a ordem de integração das duas frentes é decisão do dono | `origin/master` @ `43cc8be0` (o master do DT-8, trazido em `3ecc77fb`) |
+
+### ✅ 17/09 — `fix-dt8-download-drive` INTEGRADA (DT-8)
+
+Correção do DT-8 (o download do Drive gravava resposta de erro HTTP como documento): commit
+`4cf8c2e0`, merge no master em **`43cc8be0`**; suíte do master depois do merge **4642 testes / 17206
+asserções**. Branch e worktree da frente removidas. Spec: `docs/specs/dt8-download-drive.md`. A
+`e2-abstracao-storage` trouxe esse master para dentro em 17/09 (único conflito: esta tabela).
+
+- **Não houve deploy:** a produção ainda roda o download antigo.
+- 🔴 **A D24 continua bloqueando operacionalmente a importação** (`app:sync:reconciliar
+  --modo=importar|ambos` e a Via B do acervo) até o deploy de um master com a correção **e** a decisão
+  explícita do dono.
+- 🔴 **Auditoria histórica pendente:** documentos que a Via B criou em produção entre 11/07 e 14/08
+  podem ter corpo de erro no lugar do arquivo; conferir exige ler o disco (spec do DT-8, §4). Nunca
+  limpar anulando o `drive_file_id` — a Via A subiria o lixo para o Drive como arquivo novo.
+
+### 🧊 `cobranca-acompanhamento-canonico` — CONGELADA em 15/09/2026
+
+**CONGELADA — frente histórica não integrável diretamente; 5/26 fatias; 579 commits atrás no
+momento da auditoria; usar como referência para futura re-derivação a partir do master; referência
+histórica `8ac4d1b6`.**
+
+A branch e a worktree **ficam preservadas**, com os 16 commits documentais dentro (SPEC canônica,
+PLAN, as 6 decisões bloqueantes, o diário e as 4 contradições resolvidas da A4). Não foi criada
+frente nenhuma para copiar esses documentos — eles vivem na branch congelada.
+
+O que a auditoria de 15/09 mediu, e que justifica o congelamento:
+
+- **23 commits pendentes** por conteúdo (16 docs + 7 de código); base `0bb1f29` de 24/07.
+- **103 arquivos em superfície de conflito** com o master, no núcleo de dinheiro:
+  `ObrigacaoRepository` (381 linhas mudadas no master), `ObjetoController` (379),
+  `CasoCobrancaRepository` (273), `ImportarRelatorioCarteiraUseCase` (207), `Obrigacao` (164),
+  `objeto/show.html.twig` (1.389).
+- **128 commits** tocaram `app/src/Cobranca` no master desde a base dela — vários **em produção**
+  (judicializar cria pasta, cancelar judicialização, o importe que enxerga caso judicializado).
+- **4 migrations `20260725*` fora de ordem**: o master ganhou 22, de `20260728` a `20260910`.
+- Ela **apaga `EncerrarCasoUseCase`**, que segue vivo no master com dois meses de trabalho em cima.
+- ✅ **Zero colisão com a E1** — não toca nenhum dos 34 arquivos do merge `c365fe72`.
+
+**Quando a Cobrança for retomada:** partir do master **daquele** momento, reler SPEC/PLAN/decisões
+da branch congelada, investigar de novo o modelo atual, re-derivar o que ainda valer — e **nunca
+transplantar automaticamente as migrations ou o código antigos**.
+
+### 🗑️ `import/acervo-pastas` — descarte aprovado em 15/09/2026, aguardando execução humana
+
+Auditoria read-only provou que **nada se perde**:
+
+- 11 commits, **8 já no master por conteúdo**; os **3 pendentes tocam só `IMPORTACAO-ACERVO.md`**;
+- desses 3, dois já estão no master por título (`64febed5` e `451711b1`, de 28/05) e o terceiro é
+  aviso obsoleto sobre a própria branch;
+- **nenhuma migration exclusiva** (as 74 que aparecem num diff contra o master são do **master**,
+  que a branch não tem — ela está 1168 atrás);
+- **nenhum arquivo exclusivo**: os 14 que "só existem na branch" já existiam no merge-base, ou
+  seja, foi o master que os moveu (`JustificativaPontoRepository` → `app/src/Ponto/Repository/`,
+  `nginx.prod.conf` → `nginx/conf.d/`);
+- local e remota (`origin/import/acervo-pastas`) apontam para o mesmo `ec8f2faa`;
+- não existe worktree.
+
+🪤 **A lição que valia a pena salvar dela** (e que fica aqui, em vez de num commit): *manter o
+documento da frente atualizado NO MESMO commit da mudança que ele descreve.* A branch virou "branch
+mista" — importação de acervo + quatro commits paralelos de pasta/peticionar — e precisou de um
+commit só para explicar a si mesma.
+
+### 🔴 `e2-abstracao-storage` é transversal — da fatia E2.1 em diante ela vai SOZINHA
+
+A E2 tira o código de negócio de cima do filesystem: 33 arquivos de produção em 9 domínios deixam
+de pedir caminho ao storage e passam a endereçar arquivo por chave. Spec:
+`docs/specs/e2-abstracao-de-storage.md`.
+
+**Estado: E2.5 entregue (16/09).** As 19 exclusões físicas acontecem depois do COMMIT, pela `RemocaoAposTransacao` (D17): falha de disco depois do COMMIT vira log e órfão recuperável, nunca 500 nem banco desfeito. Os quatro cleanups em caminho de erro (dois controllers de Ponto, lote de justificativas, download do Drive) passaram pela `TransacaoComArquivoNovo` (D18): o arquivo novo só sai se o COMMIT comprovadamente não aconteceu (falha anterior, ou `pg_xact_status = aborted`, validado no PG 15 antes de ser adotado); COMMIT incerto preserva. A purga apaga arquivos planos um a um, só os que nenhum registro de outro escritório referencia, inclui o Kanban (D19), deixou `documento_processo` (D20, com teste-guarda) e lista os anexos de Tarefa sem tocá-los; os dois diretórios por escritório saem por `excluirPrefixo` (D22), que prova o pertencimento, desce em ocultos e subpastas, não segue link e falha fechado. Corrigido junto o defeito da FK do `ClienteController` (D21). 🔴 **DT-8 virou bloqueio operacional (D24):** nenhuma importação/migração real de produção que dependa do download do Drive até uma frente própria validar a resposta HTTP. _(17/09: essa validação já está no código do master, `43cc8be0`, e foi trazida para a E2 — mas o bloqueio **continua** até o deploy de um master com a correção + a decisão do dono; ver a seção de 17/09 acima.)_ 86 provas por reintrodução; revisão com 4 revisores + re-revisão com 2, sem bloqueante. A sessão que implementou caiu no meio das provas com uma mutação aplicada; a seguinte a desfez por sha antes de continuar. Antes: **E2.4B entregue (16/09).** As 4 escritas internas (peça nova, peça editada, cópia do acervo, download do Drive) e as 2 leituras (export de peça, `ArquivosReferenciadosEmPecas`) passam pelo armazenamento por chave, sob D12–D16: pane do storage não vira 404; peça ausente no export é 404; editar peça sem arquivo falha em vez de recriar; o acervo copia sem tocar na origem do operador (primeiro teste do comando); o Drive grava o tamanho recebido e preserva o MIME válido. `ler()`/`abrir()` do backend passaram a provar a cadeia de diretórios. Achado anterior à E2, para o dono: o download do Drive grava corpo de erro HTTP como arquivo (DT-8). Revisão com 4 revisores + re-revisão, sem bloqueante. Antes: **E2.4A entregue (16/09).** A E2.4 foi dividida em E2.4A (14 uploads HTTP) e E2.4B (4 escritas internas + 2 leituras, ainda por fazer). Os 14 uploads passam pela ponte `App\Shared\Http\FonteDeUploadHttp` e gravam com `NovoArquivo` vindo das fábricas dos domínios; exclusão e compressor seguem na interface antiga (E2.5/E2.6). De carona: o anexo de chamado do ServiceDesk, que sempre dava 500, passou a funcionar (smoke pendente), e a publicação do backend local ficou atômica também quando a origem está em outro sistema de arquivos. Revisão com 4 revisores + re-revisão, sem bloqueante; `app/src/Shared/CLAUDE.md` atualizado com autorização do dono. Investigação antecipada da E2.4B e da E2.5 registrada na spec (§10), com as decisões que dependem do dono. Antes: **E2.3 entregue (16/09)** — entrega HTTP endereçada por chave (D10, D11) nas 15 rotas de download. Antes dela: **E2.2 entregue (15/09).** Contratos e fundações em `app/src/Shared/Armazenamento/` (E2.1) e,
+agora, **7 fábricas de chave por domínio** em `app/src/<Dominio>/Armazenamento/` e a presença de
+arquivo (`existe()`) perguntada ao armazenamento novo em **21 arquivos / 26 chamadas**. Estado misto
+de propósito (D2): `caminho()`, `servir()`, `excluir()` e `salvar()` continuam na interface antiga,
+que segue intacta. `PurgarEscritorioUseCase` não foi tocado — fica inteiro para a E2.5 (decisão do
+dono: nomes de sete tabelas, dois sem categoria/chave, laço pós-commit sem `try/catch`). Revisão
+adversarial feita, 6 achados de código corrigidos e reprovados por reintrodução; nenhum bloqueante.
+Detalhes e decisões da execução no bloco "E2.2 — entregue" da spec (§10).
+
+🔑 **Como medir colisão com a E2 — dois filtros, e errar qualquer um dá resposta errada:**
+
+1. **O predicado não é "toca `app/src/Shared/`"** — é "toca um dos **35** arquivos que a E2 vai
+   reescrever" (os 33 que chamam o storage + `TarefaController` + `CaminhoDeAnexoDeTarefa`).
+2. **`git diff master...<branch>` sozinho MENTE.** Ele mostra o que a branch adicionou desde que
+   divergiu, e acusa como conflito uma branch cujo trabalho **já está no master**. O filtro
+   autoritativo é `git cherry origin/master <branch>`: só linha `+` é commit pendente de verdade.
+
+Varredura das 24 branches locais com os dois filtros, em 15/09:
+
+- 🧊 **`cobranca-acompanhamento-canonico`** — 23 pendentes; altera `AcordoController`,
+  `DocumentoCobrancaController`, `EnviarDocumentoUseCase` e `PurgarEscritorioUseCase`. **Resolvida
+  por congelamento em 15/09**, não por integração. Dos 103 arquivos em conflito dela com o master,
+  **só 2 são alvo da E2** — ou seja, a E2 acrescenta 2 a um conflito de 103 que já existia sem ela.
+- ✅ **`import/acervo-pastas`** — **não colide.** Chegou a ser listada aqui em vermelho a partir de
+  um diff de três pontos; os 3 commits pendentes tocam só `IMPORTACAO-ACERVO.md`. Descarte
+  aprovado (bloco acima).
+- 🟢 8 branches com pendências que **não** tocam alvo da E2 (`expediente-ux`,
+  `cobranca-reconciliar-data-acordo`, os três `fix/*`, `integracao-sync-master`,
+  `polimento-objeto-show-cabecalho`, `worktree-agent-…`).
+- ✅ 13 branches com **zero** commits pendentes — já estão no master por conteúdo. São
+  worktrees-resto, candidatas a `git branch -d`.
+
+⚠️ **`pasta-push-processual` NÃO colide.** Os 5 commits dela estão todos no master por conteúdo
+(`git cherry` devolve `-` para os cinco, e os títulos aparecem no log do master). Ela chegou a ser
+listada aqui como colisão a partir de um diff de três pontos — era **alarme falso**, exatamente o
+que o CLAUDE.md manda conferir com `git cherry`/`--contains` antes de anunciar.
+
+⚠️ **A partir da E2.1 nenhuma outra frente pode ser integrada enquanto esta correr**, e as duas
+frentes em vermelho precisam ser integradas ou explicitamente congeladas antes. A E2 toca
+`app/src/Shared/`, `app/config/services.yaml` e arquivos de Pasta, Cobrança, Cliente, Kanban,
+Ponto, Profile, ServiceDesk, Sync, Tarefa e Tenant.
+
+✅ **Não tem migration** — não disputa a vaga da regra "uma frente com migration por vez", e o
+rollback de qualquer fatia é reverter o commit de código, sem dado a desfazer.
 
 ### ⚠️ `pasta-show-chip-responsavel` extrai 196 linhas do `_tabela.html.twig`
 

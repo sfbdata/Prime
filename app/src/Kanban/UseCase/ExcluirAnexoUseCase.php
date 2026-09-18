@@ -18,9 +18,11 @@ final class ExcluirAnexoUseCase
 
     public function executar(KanbanAnexo $anexo): void
     {
-        // `getCaminho()` guarda só o nome: o diretório é recomposto pelo serviço.
-        $this->arquivos->removerDoAnexo($anexo);
+        // A chave antes, o arquivo só depois do COMMIT (E2.5, INV-6).
+        $chaves = $this->arquivos->chavesDoAnexo($anexo);
 
         $this->anexoRepository->remover($anexo, flush: true);
+
+        $this->arquivos->remover($chaves, 'ExcluirAnexoUseCase');
     }
 }

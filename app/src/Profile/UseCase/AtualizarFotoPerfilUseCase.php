@@ -2,10 +2,13 @@
 declare(strict_types=1);
 namespace App\Profile\UseCase;
 
+use App\Profile\Armazenamento\ChavesDePerfil;
 use App\Profile\DTO\AtualizarFotoInput;
 use App\Profile\Entity\UserProfile;
 use App\Profile\Repository\UserProfileRepository;
-use App\Shared\Service\ArquivoStorageInterface;
+use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
+use App\Shared\Armazenamento\RemocaoAposTransacao;
+use App\Shared\Http\FonteDeUploadHttp;
 
 final class AtualizarFotoPerfilUseCase
 {
@@ -14,8 +17,8 @@ final class AtualizarFotoPerfilUseCase
 
     public function __construct(
         private readonly UserProfileRepository $repository,
-        private readonly ArquivoStorageInterface $storage,
-        private readonly string $fotosPerfilDir,
+        private readonly ArmazenamentoDeArquivos $armazenamento,
+        private readonly RemocaoAposTransacao $remocao,
     ) {
     }
 
@@ -29,14 +32,23 @@ final class AtualizarFotoPerfilUseCase
             throw new \InvalidArgumentException('A imagem deve ter no máximo 3 MB.');
         }
 
-        $novoNome = $this->storage->salvar($input->arquivo, $this->fotosPerfilDir);
+        // A foto é do User, não do escritório: escopo global (D1).
+        $upload     = FonteDeUploadHttp::de($input->arquivo);
+        $armazenado = $upload->gravarEm($this->armazenamento, ChavesDePerfil::novaFoto($upload->extensao));
+        $novoNome   = $armazenado->chave->nome;
 
         $fotoAnterior = $perfil->getFotoUrl();
         $perfil->setFotoUrl($novoNome);
         $this->repository->salvar($perfil, flush: true);
 
+        // A anterior só sai depois do COMMIT, e a chave é montada ali, pelo nome guardado: o perfil
+        // já aponta para a foto nova. Falha física (ou nome recusado) vira registro, não 500 com a
+        // foto nova já salva (E2.5).
         if ($fotoAnterior !== null) {
-            $this->storage->excluir($this->storage->caminho($this->fotosPerfilDir, $fotoAnterior));
+            $this->remocao->remover(
+                [static fn () => ChavesDePerfil::fotoPorNome($fotoAnterior)],
+                'AtualizarFotoPerfilUseCase: foto anterior',
+            );
         }
     }
 }

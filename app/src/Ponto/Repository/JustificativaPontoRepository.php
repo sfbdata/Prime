@@ -29,8 +29,8 @@ class JustificativaPontoRepository extends ServiceEntityRepository
      * Contar por tenant é, tecnicamente, o escopo estreito — e o diretório de justificativas é
      * plano, compartilhado por todos os escritórios. É seguro por uma razão específica: o nome do
      * arquivo é `bin2hex(random_bytes(16))`, único globalmente, então dois escritórios não têm
-     * como referenciar o mesmo arquivo físico. É a mesma unicidade de que
-     * `PurgarEscritorioUseCase` já depende para apagar por nome nos quatro diretórios planos.
+     * como referenciar o mesmo arquivo físico. A purga de escritório não confia só nisso: desde a
+     * E2.5 ela só apaga um arquivo plano que nenhum registro de outro escritório referencia.
      *
      * O filtro de tenant é EXPLÍCITO, e não delegado ao TenantFilter do Doctrine, porque esta
      * contagem autoriza um `unlink` e não pode depender de um filtro que só é ligado no

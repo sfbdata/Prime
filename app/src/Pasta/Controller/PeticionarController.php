@@ -9,6 +9,7 @@ use App\Entity\Auth\User;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaSecao;
+use App\Pasta\Exception\TituloDePecaLongoDemaisException;
 use App\Pasta\DTO\UploadImagemEditorInput;
 use App\Pasta\Repository\PastaSecaoRepository;
 use App\Pasta\UseCase\EditarPecaTextoUseCase;
@@ -18,7 +19,10 @@ use App\Pasta\UseCase\UploadImagemEditorUseCase;
 use App\Pasta\UseCase\UploadPecaUseCase;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
+use App\Shared\Armazenamento\Exception\ArquivoNaoEncontrado;
+use App\Shared\Armazenamento\Exception\ChaveDeArquivoInvalida;
 use App\Sync\Service\SincronizacaoPastaDispatcher;
+use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -38,7 +42,7 @@ final class PeticionarController extends AbstractController
         private readonly UploadImagemEditorUseCase $uploadImagemEditorUseCase,
         private readonly PastaSecaoRepository $pastaSecaoRepository,
         private readonly SincronizacaoPastaDispatcher $syncDispatcher,
-        private readonly string $uploadsDir,
+        private readonly LoggerInterface $logger,
     ) {}
 
     #[Route('/{id}/peticionar', name: 'pasta_peticionar', methods: ['GET'])]
@@ -278,6 +282,10 @@ final class PeticionarController extends AbstractController
 
         try {
             $doc = $this->salvarPecaTextoUseCase->executar($pasta, $secao, $conteudoHtml, $titulo, $categoria, $tenant);
+        } catch (ChaveDeArquivoInvalida $e) {
+            // Estende InvalidArgumentException, mas não é pedido inválido: é o escritório sem id
+            // para montar a chave. Erro do sistema, não 400 com mensagem interna.
+            throw $e;
         } catch (\InvalidArgumentException $e) {
             return new JsonResponse(['success' => false, 'error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
         }
@@ -321,11 +329,12 @@ final class PeticionarController extends AbstractController
         }
 
         try {
-            // Isolamento por tenant (M5): grava na subpasta do tenant dono. A URL retornada é o
-            // basename (sem o tenant), e o PecaImagemController re-injeta a subpasta do tenant da
-            // sessão ao servir — o HTML salvo da peça continua `/uploads/pastas/<hex>`.
+            // Isolamento por tenant (M5): a imagem é do escritório da sessão, e o storage a grava na
+            // subpasta dele. A URL retornada é só o nome (sem o tenant); o PecaImagemController
+            // monta a chave com o tenant da sessão ao servir — o HTML salvo da peça continua
+            // `/uploads/pastas/<hex>` (DT-3).
             $output = $this->uploadImagemEditorUseCase->executar(
-                new UploadImagemEditorInput($arquivo, $this->uploadsDir . '/' . $tenant->getId()),
+                new UploadImagemEditorInput($arquivo, $tenant),
             );
         } catch (\InvalidArgumentException $e) {
             return new JsonResponse(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
@@ -359,7 +368,21 @@ final class PeticionarController extends AbstractController
             return new JsonResponse(['success' => false, 'error' => 'Token inválido.'], Response::HTTP_FORBIDDEN);
         }
 
-        $this->editarPecaTextoUseCase->executar($doc, $conteudoHtml, $titulo);
+        // D14: peça cujo arquivo sumiu não é recriada. A ausência vira 404 com mensagem fixa (a da
+        // exceção expõe escritório e chave); pane do storage não é capturada e sai como erro (D12).
+        try {
+            $this->editarPecaTextoUseCase->executar($doc, $conteudoHtml, $titulo);
+        } catch (ArquivoNaoEncontrado $e) {
+            $this->registrarPecaSemArquivo($doc, 'edição', $e);
+
+            return new JsonResponse(
+                ['success' => false, 'error' => 'O arquivo desta peça não foi encontrado. Nada foi salvo.'],
+                Response::HTTP_NOT_FOUND,
+            );
+        } catch (TituloDePecaLongoDemaisException $e) {
+            // Só esta: um catch de InvalidArgumentException pegaria também erro do Doctrine no flush.
+            return new JsonResponse(['success' => false, 'error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
+        }
 
         return new JsonResponse(['success' => true]);
     }
@@ -385,8 +408,17 @@ final class PeticionarController extends AbstractController
             return new Response('Formato inválido.', Response::HTTP_BAD_REQUEST);
         }
 
+        // D13: autorização feita e chave válida — arquivo ausente é 404; pane do storage não é
+        // capturada aqui e sai como erro. A ordem dos catch importa: a chave recusada vinda do
+        // banco estende InvalidArgumentException e cairia no 400 (regra da E2.3: é 500).
         try {
             $output = $this->exportarPecaTextoUseCase->executar($doc, $formato);
+        } catch (ArquivoNaoEncontrado $e) {
+            $this->registrarPecaSemArquivo($doc, 'exportação', $e);
+
+            throw $this->createNotFoundException('Arquivo da peça não encontrado.', $e);
+        } catch (ChaveDeArquivoInvalida $e) {
+            throw $e;
         } catch (\InvalidArgumentException $e) {
             return new Response($e->getMessage(), Response::HTTP_BAD_REQUEST);
         }
@@ -399,5 +431,19 @@ final class PeticionarController extends AbstractController
         );
 
         return $response;
+    }
+
+    /**
+     * Linha no banco sem arquivo no armazenamento não é caso normal: é perda ou inconsistência do
+     * acervo (D14). Fica no log para quem opera, com o id do documento — a resposta ao usuário
+     * não carrega a chave.
+     */
+    private function registrarPecaSemArquivo(PastaDocumento $doc, string $operacao, ArquivoNaoEncontrado $e): void
+    {
+        $this->logger->error('Peça sem arquivo no armazenamento na {operacao}.', [
+            'operacao'     => $operacao,
+            'documento_id' => $doc->getId(),
+            'exception'    => $e,
+        ]);
     }
 }

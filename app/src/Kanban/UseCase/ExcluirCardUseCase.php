@@ -18,10 +18,13 @@ final class ExcluirCardUseCase
 
     public function executar(KanbanCard $card): void
     {
-        // `KanbanCard` cascateia `remove` + `orphanRemoval` sobre os anexos: as linhas somem
-        // sem passar pelo ExcluirAnexoUseCase. O disco tem de ser limpo ANTES.
-        $this->arquivos->removerDoCard($card);
+        // `KanbanCard` cascateia `remove` + `orphanRemoval` sobre os anexos: as linhas somem sem
+        // passar pelo ExcluirAnexoUseCase. As chaves são coletadas ANTES do remove; os arquivos
+        // saem só depois do COMMIT (E2.5, INV-6).
+        $chaves = $this->arquivos->chavesDoCard($card);
 
         $this->cardRepository->remover($card, flush: true);
+
+        $this->arquivos->remover($chaves, 'ExcluirCardUseCase');
     }
 }

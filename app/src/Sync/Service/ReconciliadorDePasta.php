@@ -5,15 +5,21 @@ declare(strict_types=1);
 namespace App\Sync\Service;
 
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Armazenamento\ChavesDePasta;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaSecao;
 use App\Pasta\Repository\PastaSecaoRepository;
-use App\Shared\Service\ArquivoStorageInterface;
+use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
+use App\Shared\Armazenamento\MaterializadorDeArquivo;
+use App\Shared\Armazenamento\Exception\ChaveDeArquivoInvalida;
+use App\Shared\Armazenamento\Exception\FalhaDeArmazenamento;
+use App\Shared\Armazenamento\FonteDeConteudo;
+use App\Shared\Armazenamento\RemocaoAposTransacao;
+use App\Shared\Doctrine\Transacao\TransacaoComArquivoNovo;
 use App\Sync\DTO\ResultadoReconciliacaoPasta;
 use App\Sync\Enum\ModoSincronizacao;
 use Doctrine\ORM\EntityManagerInterface;
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
  * Motor de reconciliação de UMA pasta (aditivo, nunca apaga), extraído do ReconciliarCommand
@@ -28,12 +34,26 @@ final class ReconciliadorDePasta
     /** Teto de pasta_documento.tamanho_bytes (coluna INT4 do Postgres). */
     private const TAMANHO_MAX_INT4 = 2147483647;
 
+    /** Largura de pasta_documento.mime_type (varchar). */
+    private const MIME_MAX = 100;
+
+    /** O que o sync sempre gravou quando o Drive não informa MIME. */
+    private const MIME_DESCONHECIDO = 'application/octet-stream';
+
+    /**
+     * Forma de um MIME (`tipo/subtipo`, RFC 6838), sem parâmetros. Sem distinção de caixa — o
+     * banco já tem `text/x-Algol68`, vindo do libmagic — e com `D`, para o `$` não aceitar um
+     * `\n` no fim.
+     */
+    private const MIME_VALIDO = '~^[a-z0-9][a-z0-9!#$&^_.+-]{0,126}/[a-z0-9][a-z0-9!#$&^_.+-]{0,126}$~iD';
+
     public function __construct(
         private readonly EntityManagerInterface $em,
-        private readonly ArquivoStorageInterface $storage,
+        private readonly MaterializadorDeArquivo $materializador,
+        private readonly ArmazenamentoDeArquivos $armazenamento,
+        private readonly TransacaoComArquivoNovo $transacao,
+        private readonly RemocaoAposTransacao $remocao,
         private readonly PastaSecaoRepository $secaoRepository,
-        #[Autowire('%uploads_dir%')]
-        private readonly string $uploadsDir,
     ) {
     }
 
@@ -201,15 +221,36 @@ final class ReconciliadorDePasta
 
         // --- Via A — sistema→Drive: cada doc sem drive_file_id sobe (seção vira subpasta-espelho, Fork 1). ---
         $docRows = $modo->envia() ? $conn->fetchAllAssociative(
-            'SELECT id, caminho_arquivo FROM pasta_documento WHERE pasta_id = :p AND drive_file_id IS NULL ORDER BY id ASC',
+            'SELECT id, caminho_arquivo, tenant_id FROM pasta_documento WHERE pasta_id = :p AND drive_file_id IS NULL ORDER BY id ASC',
             ['p' => $pastaId],
         ) : [];
         foreach ($docRows as $docRow) {
-            $caminho = $this->storage->caminho($this->uploadsDir, (string) $docRow['caminho_arquivo']);
-            // Checagem read-only, faz sentido no dry-run também (preview fiel ao lote real, §10.6/passo 4).
-            if (!$this->storage->existe($caminho)) {
+            $nomeArquivo = (string) $docRow['caminho_arquivo'];
+
+            // E2.2: a presença é perguntada por chave, e o escopo sai do tenant DO DOCUMENTO (R1),
+            // não do tenant da pasta — em dados são o mesmo, mas quem responde pela linha é ela.
+            //
+            // Os dois modos de falha viram erro DO ITEM, como o arquivo ausente já era: nome que o
+            // armazenamento se recusa a endereçar (medido em prod 15/09: zero em 22.750 chaves, mas
+            // aqui a extensão vem do nome do arquivo NO DRIVE, que é dado de fora), e
+            // impossibilidade de determinar a presença
+            // (diretório ilegível, onde o `existe()` novo lança e o antigo devolvia false). A
+            // rodada da pasta segue nos dois casos — uma rodada de cron não pode morrer inteira,
+            // sem contabilizar nada, por causa de um documento.
+            try {
+                $chave    = ChavesDePasta::documentoPorNome((int) $docRow['tenant_id'], $nomeArquivo);
+                $presente = $this->armazenamento->existe($chave);
+            } catch (ChaveDeArquivoInvalida | FalhaDeArmazenamento $e) {
                 $r->erros++;
-                $r->log(sprintf('[erro] doc_id=%d: arquivo físico ausente (%s)', (int) $docRow['id'], (string) $docRow['caminho_arquivo']));
+                $r->log(sprintf('[erro] doc_id=%d: não foi possível endereçar o arquivo (%s): %s', (int) $docRow['id'], $nomeArquivo, $e->getMessage()));
+
+                continue;
+            }
+
+            // Checagem read-only, faz sentido no dry-run também (preview fiel ao lote real, §10.6/passo 4).
+            if (!$presente) {
+                $r->erros++;
+                $r->log(sprintf('[erro] doc_id=%d: arquivo físico ausente (%s)', (int) $docRow['id'], $nomeArquivo));
 
                 continue;
             }
@@ -223,8 +264,15 @@ final class ReconciliadorDePasta
                 continue;
             }
             try {
-                $alvo   = $this->resolverPastaAlvoNoDrive($doc->getSecao(), $caseFolder, $subpastasDoCaso, $client);
-                $fileId = $client->enviarArquivo($alvo, $doc->getNomeOriginal(), $caminho, $doc->getMimeType());
+                // E2.6C: o caminho vem do materializador, por CHAVE — o cliente do Drive continua
+                // lendo por path (§14), mas quem o produz é o armazenamento. `paraLeitura()` é
+                // empréstimo, cópia zero: o Drive só LÊ, e o arquivo persistido não pode ser
+                // tocado (INV-9). Materializar aqui dentro, e não antes do laço, é de propósito:
+                // a pane de leitura vira erro DESTE item, junto com as outras, e não derruba a
+                // rodada; e o caminho nunca chega ao `baixarArquivo`, que apaga o destino (DT-8).
+                $caminho = $this->materializador->paraLeitura($chave)->caminho();
+                $alvo    = $this->resolverPastaAlvoNoDrive($doc->getSecao(), $caseFolder, $subpastasDoCaso, $client);
+                $fileId  = $client->enviarArquivo($alvo, $doc->getNomeOriginal(), $caminho, $doc->getMimeType());
                 // Marca como conhecido ANTES do flush: o arquivo JÁ está no Drive; se o flush do vínculo
                 // falhar, a Via B (mesma rodada) não pode reimportá-lo como novo (evita duplicar o doc).
                 $conhecidos[$fileId] = true;
@@ -432,44 +480,93 @@ final class ReconciliadorDePasta
 
             return true;
         }
-        $nomeStorage = null;
+        // Preenchida só enquanto o arquivo gravado depende DESTE catch para sair: da gravação até a
+        // transação começar. Dali em diante quem decide é `TransacaoComArquivoNovo` (E2.5).
+        $chaveGravada = null;
         try {
             // Fork 2 / D8: o client baixa em streaming direto para o $tmp (sem carregar o arquivo
-            // inteiro em memória) e aqui o $tmp é MOVIDO para o storage, também sem reler o conteúdo.
+            // inteiro em memória), e o storage MOVE o $tmp, também sem reler o conteúdo — o
+            // temporário é nosso, por isso `consumirOrigem: true`. O `finally` abaixo continua
+            // valendo para o download que falha e para a gravação que devolve a origem.
             $client->baixarArquivo($arq['id'], $tmp);
-            $extensao = pathinfo($arq['nome'], PATHINFO_EXTENSION);
-            if ($extensao === '') {
-                $extensao = 'bin';
-            }
-            $nomeStorage = $this->storage->moverParaArmazenamento($tmp, $this->uploadsDir, $extensao);
 
             $pasta = $this->em->find(Pasta::class, $pastaId);
             if ($pasta === null) {
                 throw new \RuntimeException('Pasta desapareceu durante o download.');
             }
+
+            // O escritório antes da gravação: é dele que sai o escopo da chave, pelo mesmo getter
+            // que a leitura vai usar (R1). A extensão vem do nome no Drive e é saneada pelo
+            // storage — o que não servir vira `bin` (D8).
+            $doc = (new PastaDocumento())->setTenant($this->em->getReference(Tenant::class, $tenantId));
+
+            $armazenado = $this->armazenamento->gravar(
+                ChavesDePasta::novoDocumento($doc, pathinfo($arq['nome'], PATHINFO_EXTENSION)),
+                FonteDeConteudo::deArquivoLocal($tmp, consumirOrigem: true),
+            );
+            $chaveGravada = $armazenado->chave;
+            $nomeStorage  = $armazenado->chave->nome;
+
+            // D16: o tamanho persistido é o do conteúdo GRAVADO. O `size` da listagem do Drive é
+            // só metadado (e vem 0 quando ausente); quando diverge, vale o recebido — e a
+            // divergência fica registrada, porque é sinal de download que não trouxe o arquivo.
+            if ($armazenado->tamanhoBytes > self::TAMANHO_MAX_INT4) {
+                throw new \RuntimeException(sprintf(
+                    'conteúdo recebido (%d bytes) acima do limite da coluna de tamanho',
+                    $armazenado->tamanhoBytes,
+                ));
+            }
+            if ($arq['tamanho'] !== $armazenado->tamanhoBytes) {
+                $r->log(sprintf(
+                    '[aviso] drive_file_id=%s: o Drive informou %d bytes e chegaram %d — gravado o tamanho recebido',
+                    $arq['id'],
+                    $arq['tamanho'],
+                    $armazenado->tamanhoBytes,
+                ));
+            }
+
             $secao = $secaoId !== null ? $this->em->getReference(PastaSecao::class, $secaoId) : null;
-            $doc = (new PastaDocumento())
-                ->setTitulo($arq['nome'])
+            $doc->setTitulo($arq['nome'])
                 ->setCategoria(PastaDocumento::CATEGORIA_DEMAIS)
                 ->setCaminhoArquivo($nomeStorage)
                 ->setNomeOriginal($arq['nome'])
-                ->setMimeType($arq['mimeType'] !== '' ? $arq['mimeType'] : 'application/octet-stream')
-                ->setTamanhoBytes($arq['tamanho'])
+                ->setMimeType(self::mimeParaPersistir($arq['mimeType']))
+                ->setTamanhoBytes($armazenado->tamanhoBytes)
                 ->setPasta($pasta)
                 ->setSecao($secao)
-                ->setTenant($this->em->getReference(Tenant::class, $tenantId))
                 ->setDriveFileId($arq['id']);
             $this->em->persist($doc);
-            $this->em->flush();
+
+            // Se a transação falhar, o arquivo só sai quando estiver PROVADO que o documento não
+            // foi confirmado; num COMMIT de resultado incerto ele pode existir e apontar para o
+            // arquivo (INV-6). Antes da E2.5 este catch apagava em qualquer falha do flush.
+            $chaveDoItem  = $chaveGravada;
+            $chaveGravada = null;
+            $this->transacao->confirmar(
+                static fn (): array => [$chaveDoItem],
+                sprintf('ReconciliadorDePasta: drive_file_id=%s', $arq['id']),
+            );
             $this->em->clear();
             $conhecidos[$arq['id']] = true;
             $r->arquivosBaixados++;
         } catch (\Throwable $e) {
             $r->erros++;
             $r->log(sprintf('[erro] drive_file_id=%s (Drive→sistema): %s', $arq['id'], $e->getMessage()));
-            // Remove o arquivo já gravado no storage cujo doc não persistiu (evita órfão em disco).
-            if ($nomeStorage !== null) {
-                $this->storage->excluir($this->storage->caminho($this->uploadsDir, $nomeStorage));
+            // Falha ANTES da transação (a guarda do tamanho, um setter): o documento nunca chegou ao
+            // banco, e o arquivo gravado não tem quem o referencie. Sem `try` próprio: a remoção
+            // nunca lança, e o que não sair fica registrado — a rodada segue.
+            if ($chaveGravada !== null) {
+                $remocao = $this->remocao->remover(
+                    [$chaveGravada],
+                    sprintf('ReconciliadorDePasta: drive_file_id=%s', $arq['id']),
+                );
+                if (!$remocao->completa()) {
+                    $r->log(sprintf(
+                        '[aviso] drive_file_id=%s: o arquivo gravado não pôde ser removido e ficou órfão: %s',
+                        $arq['id'],
+                        implode(', ', $remocao->naoRemovidas),
+                    ));
+                }
             }
             if (!$this->em->isOpen()) {
                 $r->fatal = true;
@@ -484,5 +581,26 @@ final class ReconciliadorDePasta
         }
 
         return true;
+    }
+
+    /**
+     * D16: o MIME que o Drive informa é informação semântica e é preservado quando é um MIME de
+     * verdade. Nada é inferido — nem pela extensão, nem pelo conteúdo.
+     *
+     * Sem MIME válido, vale o mesmo `application/octet-stream` que o sync já gravava para MIME
+     * vazio. A diferença é que um valor malformado ou maior que a coluna também cai aqui, em vez de
+     * ir cru para o banco — com mais de 100 caracteres o INSERT estourava, o EntityManager fechava e
+     * a rodada inteira virava fatal. Usar o MIME medido pelo storage seria política nova (um
+     * `text/html` medido transformaria o arquivo em peça editável); fica para decisão do dono.
+     * Os `application/vnd.google-apps.*` nem chegam aqui: não têm conteúdo e são pulados no início
+     * de {@see baixarArquivo()}.
+     */
+    private static function mimeParaPersistir(string $doDrive): string
+    {
+        if (strlen($doDrive) <= self::MIME_MAX && preg_match(self::MIME_VALIDO, $doDrive) === 1) {
+            return $doDrive;
+        }
+
+        return self::MIME_DESCONHECIDO;
     }
 }

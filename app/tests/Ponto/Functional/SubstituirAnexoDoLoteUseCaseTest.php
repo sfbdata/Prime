@@ -10,7 +10,19 @@ use App\Entity\Tenant\Tenant;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Repository\JustificativaPontoRepository;
 use App\Ponto\UseCase\SubstituirAnexoDoLoteUseCase;
-use App\Shared\Service\ArquivoStorageInterface;
+use App\Shared\Armazenamento\ArmazenamentoLocal;
+use App\Shared\Armazenamento\ChaveDeArquivo;
+use App\Shared\Armazenamento\Exception\FalhaDeArmazenamento;
+use App\Shared\Armazenamento\RemocaoAposTransacao;
+use App\Shared\Doctrine\Transacao\DestinoDaTransacao;
+use App\Shared\Doctrine\Transacao\TransacaoComArquivoNovo;
+use App\Ponto\Armazenamento\ChavesDePonto;
+use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
+use App\Shared\Armazenamento\FonteDeConteudo;
+use App\Tests\Shared\Doubles\ArmazenamentoEspiao;
+use App\Tests\Shared\Doubles\ConsultaDeDestinoFixa;
+use App\Tests\Shared\Doubles\FalhaDeCommitArmavel;
+use App\Tests\Shared\Doubles\LoggerEmMemoria;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -28,6 +40,113 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 #[CoversClass(SubstituirAnexoDoLoteUseCase::class)]
 final class SubstituirAnexoDoLoteUseCaseTest extends KernelTestCase
 {
+    /** @var list<string> arquivos que os testes da E2.5 criaram e apagam no fim */
+    private array $criados = [];
+
+    /** @var list<string>|null o diretório antes da troca: o que surgir depois também sai no fim */
+    private ?array $antesDaTroca = null;
+
+    protected function tearDown(): void
+    {
+        FalhaDeCommitArmavel::desarmar();
+
+        // Recolhido aqui, e não depois das asserções: se uma delas falhar, nada vaza.
+        if ($this->antesDaTroca !== null) {
+            $this->criados = array_merge($this->criados, $this->novosDesde($this->antesDaTroca));
+        }
+
+        foreach ($this->criados as $caminho) {
+            if (is_file($caminho)) {
+                @unlink($caminho);
+            }
+        }
+
+        parent::tearDown();
+    }
+
+    /**
+     * E2.5: o COMMIT chega ao banco e a resposta se perde. O lote inteiro passa a apontar para o
+     * arquivo novo — e sem prova do destino (sob o DAMA a consulta real diz "em andamento") ele
+     * tem de FICAR. Antes da E2.5 ele era apagado aqui, e o lote ficava apontando para o vazio.
+     */
+    #[TestDox('COMMIT com resposta perdida: o lote aponta para o novo, e NENHUM arquivo sai do disco')]
+    public function testCommitComRespostaPerdidaNaoApagaNada(): void
+    {
+        self::bootKernel();
+        [$tenant, $user] = $this->cenario();
+        $antigo          = $this->gravarAnexo('antigo');
+        $this->criados[] = $this->caminho($antigo);
+        $lote            = $this->criarLote($tenant, $user, $antigo, 3);
+        $this->antesDaTroca = $this->arquivosNoDiretorio();
+        FalhaDeCommitArmavel::perderRespostaDoProximoCommit();
+
+        $falhou = false;
+        try {
+            $this->useCase()->executar($lote[0], $this->upload(), $tenant);
+        } catch (\Doctrine\DBAL\Exception) {
+            $falhou = true;
+        }
+
+        self::assertTrue($falhou, 'a falha do COMMIT sobe para quem chamou');
+        self::assertSame(1, FalhaDeCommitArmavel::$disparos);
+
+        $anexos = $this->anexosNoBanco($lote);
+        self::assertCount(1, array_unique($anexos));
+        self::assertNotSame($antigo, $anexos[0], 'o banco confirmou a troca');
+        self::assertFileExists($this->caminho($anexos[0]), 'o lote aponta para ele: não pode ter saído (INV-6)');
+        self::assertFileExists($this->caminho($antigo), 'a fase 2 não roda quando a fase 1 falha');
+    }
+
+    #[TestDox('COMMIT recusado e o banco PROVA aborted: o lote fica no antigo e só o arquivo novo sai')]
+    public function testCommitRecusadoComProvaRemoveSoONovo(): void
+    {
+        self::bootKernel();
+        [$tenant, $user] = $this->cenario();
+        $antigo          = $this->gravarAnexo('antigo');
+        $this->criados[] = $this->caminho($antigo);
+        $lote            = $this->criarLote($tenant, $user, $antigo, 2);
+        $this->antesDaTroca = $this->arquivosNoDiretorio();
+        $this->bancoResponde(DestinoDaTransacao::NaoConfirmada);
+        FalhaDeCommitArmavel::recusarProximoCommit();
+
+        try {
+            $this->useCase()->executar($lote[0], $this->upload(), $tenant);
+            self::fail('a falha do COMMIT devia subir');
+        } catch (\Doctrine\DBAL\Exception) {
+        }
+
+        self::assertSame([$antigo, $antigo], $this->anexosNoBanco($lote));
+        self::assertSame([], $this->novosDesde($this->antesDaTroca), 'o arquivo novo sai quando o banco prova que nada foi confirmado');
+        self::assertFileExists($this->caminho($antigo));
+    }
+
+    #[TestDox('Disco falha ao apagar o antigo na fase 2: a troca vale, e o antigo fica registrado como órfão')]
+    public function testFalhaDeDiscoNaFase2NaoDesfazATroca(): void
+    {
+        self::bootKernel();
+        [$tenant, $user] = $this->cenario();
+        $antigo          = $this->gravarAnexo('antigo');
+        $this->criados[] = $this->caminho($antigo);
+        $lote            = $this->criarLote($tenant, $user, $antigo, 2);
+        $this->antesDaTroca = $this->arquivosNoDiretorio();
+
+        $container = static::getContainer();
+        $espiao    = new ArmazenamentoEspiao($container->get(ArmazenamentoLocal::class));
+        $espiao->falhaAoExcluir = static fn (ChaveDeArquivo $c): ?\Throwable => $c->nome === $antigo
+            ? new FalhaDeArmazenamento('disco ilegível')
+            : null;
+        $logger = new LoggerEmMemoria();
+        $this->montarUseCase($espiao, $logger, $container->get(\App\Shared\Doctrine\Transacao\ConsultaDeDestinoDaTransacao::class));
+
+        $atingidos = $this->useCase()->executar($lote[0], $this->upload(), $tenant);
+
+        self::assertSame(2, $atingidos);
+        $anexos = $this->anexosNoBanco($lote);
+        self::assertNotSame($antigo, $anexos[0]);
+        self::assertFileExists($this->caminho($antigo), 'a falha de disco deixou o antigo — órfão recuperável');
+        self::assertSame($antigo, basename((string) $logger->doNivel('error')[0]['contexto']['chave']));
+    }
+
     #[TestDox('Trocar o anexo de um lote de 3 dias atinge os TRÊS registros')]
     public function testTrocaAtingeOLoteInteiro(): void
     {
@@ -235,6 +354,74 @@ final class SubstituirAnexoDoLoteUseCaseTest extends KernelTestCase
 
     // ------------------------------------------------------------------ helpers
 
+    /** O banco "responde" o destino escolhido — a transação é trocada inteira no container. */
+    private function bancoResponde(DestinoDaTransacao $destino): void
+    {
+        $container = static::getContainer();
+        $this->montarUseCase(
+            $container->get(ArmazenamentoLocal::class),
+            new LoggerEmMemoria(),
+            new ConsultaDeDestinoFixa($destino),
+        );
+    }
+
+    private function montarUseCase(
+        \App\Shared\Armazenamento\ArmazenamentoDeArquivos $armazenamento,
+        LoggerEmMemoria $logger,
+        \App\Shared\Doctrine\Transacao\ConsultaDeDestinoDaTransacao $consulta,
+    ): void {
+        $container = static::getContainer();
+        $em        = $container->get(EntityManagerInterface::class);
+        $remocao   = new RemocaoAposTransacao($armazenamento, $logger);
+
+        $container->set(SubstituirAnexoDoLoteUseCase::class, new SubstituirAnexoDoLoteUseCase(
+            $em,
+            $container->get(JustificativaPontoRepository::class),
+            $armazenamento,
+            new TransacaoComArquivoNovo($em, $consulta, $remocao, $logger),
+            $remocao,
+            $container->get(\Symfony\Component\Validator\Validator\ValidatorInterface::class),
+            $logger,
+        ));
+    }
+
+    /**
+     * Pelo banco, e não pela entidade: depois de uma falha o EntityManager está fechado.
+     *
+     * @param JustificativaPonto[] $lote
+     *
+     * @return list<string|null>
+     */
+    private function anexosNoBanco(array $lote): array
+    {
+        return array_map(
+            fn (JustificativaPonto $j): ?string => $this->em()->getConnection()->fetchOne(
+                'SELECT anexo_path FROM justificativa_ponto WHERE id = ?',
+                [$j->getId()],
+            ) ?: null,
+            $lote,
+        );
+    }
+
+    /** @return list<string> */
+    private function arquivosNoDiretorio(): array
+    {
+        return array_values(array_diff(scandir($this->diretorio()) ?: [], ['.', '..']));
+    }
+
+    /**
+     * @param list<string> $antes
+     *
+     * @return list<string> caminhos completos
+     */
+    private function novosDesde(array $antes): array
+    {
+        return array_values(array_map(
+            fn (string $nome): string => $this->caminho($nome),
+            array_diff($this->arquivosNoDiretorio(), $antes),
+        ));
+    }
+
     private function useCase(): SubstituirAnexoDoLoteUseCase
     {
         return static::getContainer()->get(SubstituirAnexoDoLoteUseCase::class);
@@ -243,6 +430,18 @@ final class SubstituirAnexoDoLoteUseCaseTest extends KernelTestCase
     private function em(): EntityManagerInterface
     {
         return static::getContainer()->get(EntityManagerInterface::class);
+    }
+
+    /**
+     * O anexo de justificativa mora num diretório PLANO (o escopo não aparece no caminho), então
+     * para semear basta um escritório qualquer — o que importa é o nome cunhado.
+     */
+    private function tenantQualquer(): Tenant
+    {
+        $tenant = new Tenant();
+        (new \ReflectionProperty(Tenant::class, 'id'))->setValue($tenant, 1);
+
+        return $tenant;
     }
 
     private function diretorio(): string
@@ -260,11 +459,16 @@ final class SubstituirAnexoDoLoteUseCaseTest extends KernelTestCase
         return \count(glob($this->diretorio() . '/*') ?: []);
     }
 
-    private function gravarAnexo(string $conteudo): string
+    private function gravarAnexo(string $conteudo, ?Tenant $tenant = null): string
     {
-        $storage = static::getContainer()->get(ArquivoStorageInterface::class);
+        // E2.6C: por chave — o shim saiu do container com o último consumidor de produção.
+        $armazenamento = static::getContainer()->get(ArmazenamentoDeArquivos::class);
+        $tenant        = $tenant ?? $this->tenantQualquer();
 
-        return $storage->salvarConteudo('%PDF-1.4 ' . $conteudo, $this->diretorio(), 'pdf');
+        return $armazenamento->gravar(
+            ChavesDePonto::novoAnexoDeLote($tenant, 'pdf'),
+            FonteDeConteudo::deTexto('%PDF-1.4 ' . $conteudo),
+        )->chave->nome;
     }
 
     private function upload(): UploadedFile

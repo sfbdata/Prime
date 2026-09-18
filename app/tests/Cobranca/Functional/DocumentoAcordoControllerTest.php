@@ -79,6 +79,8 @@ final class DocumentoAcordoControllerTest extends CobrancaWebTestCase
         $client->request('GET', '/cobrancas/acordos/documentos/' . $doc->getId() . '/download');
 
         self::assertResponseIsSuccessful();
+        // E2.3: a entrega por chave preserva a disposição e o nome que o usuário enviou.
+        self::assertResponseHeaderSame('Content-Disposition', 'attachment; filename=comprovante.txt');
     }
 
     #[TestDox('Excluir documento do acordo: some da lista (PRG)')]

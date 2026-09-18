@@ -4,70 +4,115 @@ declare(strict_types=1);
 
 namespace App\Tests\Cobranca\Unit;
 
+use App\Cobranca\Armazenamento\ChavesDeCobranca;
 use App\Cobranca\Entity\CarteiraDocumento;
 use App\Cobranca\Repository\CarteiraDocumentoRepository;
 use App\Cobranca\UseCase\ExcluirDocumentoCarteiraUseCase;
 use App\Entity\Tenant\Tenant;
-use App\Shared\Service\ArquivoStorageInterface;
+use App\Shared\Armazenamento\CategoriaDeArquivo;
+use App\Shared\Armazenamento\ChaveDeArquivo;
+use App\Shared\Armazenamento\EscopoDeArquivo;
+use App\Shared\Armazenamento\Exception\FalhaDeArmazenamento;
+use App\Shared\Armazenamento\RemocaoAposTransacao;
+use App\Tests\Shared\Doubles\ArmazenamentoEmMemoria;
+use App\Tests\Shared\Doubles\LoggerEmMemoria;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
+/**
+ * A ordem da E2.5 (INV-6): a linha sai e é confirmada, e só então o arquivo. O dublê em memória
+ * materializa o escopo na chave — é ele que faz o tenant errado quebrar aqui, onde o disco plano de
+ * produção seria cego (R1).
+ */
 #[CoversClass(ExcluirDocumentoCarteiraUseCase::class)]
 final class ExcluirDocumentoCarteiraUseCaseTest extends TestCase
 {
-    private const UPLOADS_DIR = '/uploads/cobrancas';
-
     private CarteiraDocumentoRepository&MockObject $documentoRepository;
-    private ArquivoStorageInterface&MockObject $storage;
+    private ArmazenamentoEmMemoria $armazenamento;
+    private LoggerEmMemoria $logger;
     private ExcluirDocumentoCarteiraUseCase $sut;
     private Tenant $tenant;
 
     protected function setUp(): void
     {
         $this->documentoRepository = $this->createMock(CarteiraDocumentoRepository::class);
-        $this->storage = $this->createMock(ArquivoStorageInterface::class);
-        $this->sut = new ExcluirDocumentoCarteiraUseCase(
+        $this->armazenamento       = new ArmazenamentoEmMemoria();
+        $this->logger              = new LoggerEmMemoria();
+        $this->sut                 = new ExcluirDocumentoCarteiraUseCase(
             $this->documentoRepository,
-            $this->storage,
-            self::UPLOADS_DIR,
+            new RemocaoAposTransacao($this->armazenamento, $this->logger),
         );
         $this->tenant = $this->tenantComId(7);
     }
 
     #[Test]
-    public function excluiArquivoFisicoERegistroQuandoArquivoExiste(): void
+    public function removeORegistroEDepoisOArquivo(): void
     {
-        $documento = (new CarteiraDocumento())->setTenant($this->tenant)->setCaminhoArquivo('hash-abc');
-
-        // Caminho reconstruído com o MESMO diretório flat dos documentos de caso.
-        $this->storage
-            ->expects($this->once())
-            ->method('caminho')
-            ->with(self::UPLOADS_DIR . '/7', 'hash-abc')
-            ->willReturn('/fisico/hash-abc');
-        $this->storage->method('existe')->with('/fisico/hash-abc')->willReturn(true);
-        $this->storage->expects($this->once())->method('excluir')->with('/fisico/hash-abc');
+        $documento = $this->documento($this->tenant, 'hash-abc');
+        $chave     = ChavesDeCobranca::documentoDeCarteira($documento);
+        $this->armazenamento->semear($chave);
 
         $this->documentoRepository
             ->expects($this->once())
             ->method('remover')
-            ->with(self::identicalTo($documento), true);
+            ->with(self::identicalTo($documento), true)
+            ->willReturnCallback(function () use ($chave): void {
+                self::assertTrue(
+                    $this->armazenamento->existe($chave),
+                    'o arquivo não pode sair antes de a linha ser removida e confirmada',
+                );
+            });
 
         $this->sut->executar($documento, $this->tenant);
+
+        self::assertFalse($this->armazenamento->existe($chave));
     }
 
     #[Test]
-    public function removeRegistroMesmoQuandoArquivoNaoExisteNoDisco(): void
+    public function bancoQueRecusaNaoApagaOArquivo(): void
     {
-        $documento = (new CarteiraDocumento())->setTenant($this->tenant)->setCaminhoArquivo('hash-sumido');
+        $documento = $this->documento($this->tenant, 'hash-abc');
+        $chave     = ChavesDeCobranca::documentoDeCarteira($documento);
+        $this->armazenamento->semear($chave);
 
-        $this->storage->method('caminho')->willReturn('/fisico/hash-sumido');
-        $this->storage->method('existe')->willReturn(false);
-        // Best-effort: arquivo ausente não impede a remoção da linha, e nada é excluído do disco.
-        $this->storage->expects($this->never())->method('excluir');
+        $recusa = new \RuntimeException('flush recusado');
+        $this->documentoRepository->method('remover')->willThrowException($recusa);
+
+        try {
+            $this->sut->executar($documento, $this->tenant);
+            $capturada = null;
+        } catch (\RuntimeException $e) {
+            $capturada = $e;
+        }
+
+        self::assertSame($recusa, $capturada);
+        self::assertTrue($this->armazenamento->existe($chave), 'rollback sem perda física');
+        self::assertSame([], $this->armazenamento->excluidas);
+    }
+
+    #[Test]
+    public function discoQueFalhaDepoisDoCommitNaoDesfazNada(): void
+    {
+        $documento = $this->documento($this->tenant, 'hash-abc');
+        $chave     = ChavesDeCobranca::documentoDeCarteira($documento);
+        $this->armazenamento->semear($chave);
+        $this->armazenamento->falhaAoExcluir = static fn (): \Throwable => new FalhaDeArmazenamento('disco ilegível');
+
+        $this->documentoRepository->expects($this->once())->method('remover');
+
+        $this->sut->executar($documento, $this->tenant);
+
+        self::assertTrue($this->armazenamento->existe($chave), 'órfão recuperável');
+        self::assertSame($chave->comoTexto(), $this->logger->doNivel('error')[0]['contexto']['chave']);
+    }
+
+    #[Test]
+    public function removeRegistroMesmoQuandoArquivoNaoExiste(): void
+    {
+        $documento = $this->documento($this->tenant, 'hash-sumido');
 
         $this->documentoRepository
             ->expects($this->once())
@@ -75,27 +120,52 @@ final class ExcluirDocumentoCarteiraUseCaseTest extends TestCase
             ->with(self::identicalTo($documento), true);
 
         $this->sut->executar($documento, $this->tenant);
+
+        self::assertSame([], $this->armazenamento->excluidas);
+        self::assertSame([], $this->logger->registros);
+    }
+
+    #[Test]
+    public function naoApagaArquivoDeOutroEscritorioComOMesmoNome(): void
+    {
+        $documento = $this->documento($this->tenant, 'hash-abc');
+        $alheio    = new ChaveDeArquivo(EscopoDeArquivo::deTenant(99), CategoriaDeArquivo::COBRANCA_DOCUMENTO, 'hash-abc');
+        $this->armazenamento->semear($alheio);
+
+        $this->documentoRepository->expects($this->once())->method('remover');
+
+        $this->sut->executar($documento, $this->tenant);
+
+        self::assertTrue($this->armazenamento->existe($alheio));
     }
 
     #[Test]
     public function rejeitaDocumentoDeOutroTenant(): void
     {
-        $documento = (new CarteiraDocumento())->setTenant($this->tenantComId(99))->setCaminhoArquivo('hash-x');
+        $documento = $this->documento($this->tenantComId(99), 'hash-x');
+        $chave     = ChavesDeCobranca::documentoDeCarteira($documento);
+        $this->armazenamento->semear($chave);
 
-        // Guarda anterior: nada toca o disco nem o banco.
-        $this->storage->expects($this->never())->method('existe');
-        $this->storage->expects($this->never())->method('excluir');
         $this->documentoRepository->expects($this->never())->method('remover');
 
-        $this->expectException(AccessDeniedException::class);
+        try {
+            $this->sut->executar($documento, $this->tenant);
+            self::fail('devia ter recusado');
+        } catch (AccessDeniedException) {
+        }
 
-        $this->sut->executar($documento, $this->tenant);
+        self::assertTrue($this->armazenamento->existe($chave), 'nada toca o disco nem o banco');
+    }
+
+    private function documento(Tenant $tenant, string $nome): CarteiraDocumento
+    {
+        return (new CarteiraDocumento())->setTenant($tenant)->setCaminhoArquivo($nome);
     }
 
     private function tenantComId(int $id): Tenant
     {
         $tenant = new Tenant();
-        $ref = new \ReflectionProperty(Tenant::class, 'id');
+        $ref    = new \ReflectionProperty(Tenant::class, 'id');
         $ref->setValue($tenant, $id);
 
         return $tenant;

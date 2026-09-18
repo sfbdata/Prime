@@ -5,10 +5,21 @@ declare(strict_types=1);
 namespace App\Tenant\UseCase;
 
 use App\Entity\Tenant\Tenant;
-use App\Shared\Service\ArquivoStorageInterface;
+use App\Shared\Armazenamento\ArmazenamentoComPrefixo;
+use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
+use App\Shared\Armazenamento\CategoriaComIsolamentoFisico;
+use App\Shared\Armazenamento\CategoriaDeArquivo;
+use App\Shared\Armazenamento\ChaveDeArquivo;
+use App\Shared\Armazenamento\EscopoDeArquivo;
+use App\Shared\Armazenamento\Exception\ChaveDeArquivoInvalida;
+use App\Shared\Armazenamento\RemocaoAposTransacao;
+use App\Shared\Doctrine\Transacao\ConsultaDeDestinoDaTransacao;
+use App\Shared\Doctrine\Transacao\DestinoDaTransacao;
 use App\Tenant\DTO\PurgaEscritorioResultado;
+use App\Tenant\Exception\PurgaComDestinoIncerto;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\Log\LoggerInterface;
 
 /**
  * Purga definitiva (hard delete) de um escritório em quarentena — a etapa final do
@@ -30,6 +41,36 @@ use Doctrine\ORM\EntityManagerInterface;
  *  - PRESERVADOS: User (nunca apagado — decisão de produto), audit_log (retido; a própria
  *    purga é registrada como evento), permission (catálogo global), cadastro_pendente e
  *    jornada_colaborador (per-user, sem tenant_id).
+ *
+ * ## Arquivos (E2.5)
+ *
+ * O banco é autoritativo: a exclusão física acontece DEPOIS do COMMIT e nunca desfaz nada. O que
+ * não puder ser removido vira registro no log e item em `arquivosNaoRemovidos` — o comando reporta
+ * o escritório como purgado, com sobra no disco.
+ *
+ * **Se o próprio COMMIT falhar** (D18), o destino é perguntado ao banco: confirmado → o disco segue
+ * normalmente; desfeito → a exceção original sobe (nada foi apagado); sem prova →
+ * `PurgaComDestinoIncerto`, sem tocar em arquivo nenhum, com a lista do que seria removido no log.
+ *
+ * **Trava.** A linha do escritório (e os chamados dele) é travada antes da coleta: um INSERT
+ * concorrente de linha do escritório — o cron do Drive continua sincronizando escritório
+ * soft-deletado com conexão ativa — espera o COMMIT e então falha na FK. Sem isso, em READ
+ * COMMITTED, uma linha confirmada entre a coleta e o DELETE seria apagada sem que o arquivo dela
+ * tivesse sido coletado.
+ *
+ *  - **Categorias com isolamento físico** (imagens do editor e documentos de cobrança): o
+ *    diretório inteiro do escritório sai por `ArmazenamentoComPrefixo::excluirPrefixo()`, que
+ *    prova o pertencimento antes de apagar (D7);
+ *  - **categorias planas** (diretório compartilhado por todos os escritórios): os arquivos saem
+ *    **um a um**, pelos registros do escritório, e só os que nenhum registro de OUTRO escritório
+ *    referencia ({@see ARQUIVOS_POR_REGISTRO}). A classificação roda dentro da transação, antes
+ *    dos DELETEs. Isolamento lógico não se infere de diretório compartilhado;
+ *  - **Kanban** entrou na E2.5: antes os anexos ficavam órfãos (o diretório nem era consultado);
+ *  - **fora da purga, de propósito:** a foto de perfil (é do User, escopo global); os anexos de
+ *    Tarefa, cuja coluna guarda caminho público e não é endereçável por chave até a E2.7 (D5) —
+ *    eles são listados em `arquivosForaDoEscopo`, que é o único rastro depois do COMMIT; e
+ *    `documento_processo`, que não tem escritor em `src/` nem diretório
+ *    (`DocumentoProcessoSemEscritorTest` cobra a premissa).
  */
 final class PurgarEscritorioUseCase
 {
@@ -81,14 +122,14 @@ final class PurgarEscritorioUseCase
         // (NO ACTION). Apagado APÓS a obrigação e ANTES do caso.
         // Documentos do Acordo (Ajuste #4): FK onDelete CASCADE, mas deleção EXPLÍCITA (padrão do
         // módulo) ANTES do acordo. Arquivos físicos ficam no MESMO diretório flat de
-        // cobrancas/<tenantId>/ (decisão deliberada — sem subdiretório novo) e já são cobertos por
-        // removerDiretorioDeTenant.
+        // cobrancas/<tenantId>/ (decisão deliberada — sem subdiretório novo) e já são cobertos pelo
+        // prefixo físico do escritório (excluirPrefixo).
         ['cobranca_acordo_documento', 'tenant_id = :tenant'],
         ['cobranca_acordo', 'tenant_id = :tenant'],
         // Documentos/seções (Etapa 6): documento referencia seção e caso; seção referencia o caso
         // (ambos onDelete CASCADE). Apagados EXPLICITAMENTE (padrão do módulo) ANTES do caso —
         // documento antes de seção. Os arquivos físicos moram em cobrancas/<tenantId>/ e são
-        // removidos por removerDiretorioDeTenant (não dependem de coletarArquivos).
+        // removidos pelo prefixo físico do escritório (não dependem de coletarArquivos).
         ['cobranca_documento', 'tenant_id = :tenant'],
         ['cobranca_secao', 'tenant_id = :tenant'],
         ['cobranca_caso', 'tenant_id = :tenant'],
@@ -107,7 +148,7 @@ final class PurgarEscritorioUseCase
         ['cobranca_relatorio_importado', 'tenant_id = :tenant'],
         // Documentos da Carteira (Ajuste #5): FK onDelete CASCADE, mas deleção EXPLÍCITA (padrão do
         // módulo) ANTES da carteira. Mesmo diretório flat de cobrancas/<tenantId>/ (sem
-        // subdiretório novo) — já coberto por removerDiretorioDeTenant.
+        // subdiretório novo) — já coberto pelo prefixo físico do escritório.
         ['cobranca_carteira_documento', 'tenant_id = :tenant'],
         ['cobranca_carteira', 'tenant_id = :tenant'],
         ['cobranca_pessoa', 'tenant_id = :tenant'],
@@ -148,14 +189,93 @@ final class PurgarEscritorioUseCase
         ['sede', 'tenant_id = :tenant'],
     ];
 
+    /**
+     * Categorias PLANAS: de onde saem os nomes, com a prova de pertencimento (D7, E2.5).
+     *
+     * Cada consulta devolve, por nome, se ele é referenciado por algum registro de OUTRO escritório
+     * (`compartilhado`). Só os não compartilhados são removidos; os outros ficam e são reportados.
+     * A junção é por hash (`LEFT JOIN … GROUP BY`): uma subconsulta correlacionada por linha
+     * levou 32 s em 20.954 documentos no `saas_ux` — não há índice nas colunas de nome.
+     *
+     * A prova também exige que a CADEIA do registro seja toda do escritório — senão a linha pode
+     * cair por CASCADE de um pai deste escritório sendo de outro, e o arquivo é tratado como sem
+     * prova: fica e é reportado. No Kanban, anexo, card, mural do card e mural da coluna; na
+     * pasta, o documento e a seção dele.
+     *
+     * @var array<string, array{0: CategoriaDeArquivo, 1: string}>
+     */
+    private const ARQUIVOS_POR_REGISTRO = [
+        'cliente_documento' => [
+            CategoriaDeArquivo::CLIENTE_DOCUMENTO,
+            'SELECT d.caminho_arquivo AS nome, bool_or(o.id IS NOT NULL) AS compartilhado
+             FROM cliente_documento d
+             LEFT JOIN cliente_documento o ON o.caminho_arquivo = d.caminho_arquivo AND o.tenant_id IS DISTINCT FROM d.tenant_id
+             WHERE d.tenant_id = :tenant
+             GROUP BY d.caminho_arquivo',
+        ],
+        'pasta_documento' => [
+            CategoriaDeArquivo::PASTA_DOCUMENTO,
+            'SELECT d.caminho_arquivo AS nome,
+                    bool_or(d.tenant_id IS DISTINCT FROM :tenant
+                            OR (s.id IS NOT NULL AND s.tenant_id IS DISTINCT FROM :tenant))
+                        OR bool_or(o.id IS NOT NULL) AS compartilhado
+             FROM pasta_documento d
+             LEFT JOIN pasta_secao s ON s.id = d.secao_id
+             LEFT JOIN pasta_documento o ON o.caminho_arquivo = d.caminho_arquivo AND o.tenant_id IS DISTINCT FROM :tenant
+             WHERE d.tenant_id = :tenant OR s.tenant_id = :tenant
+             GROUP BY d.caminho_arquivo',
+        ],
+        'justificativa_ponto' => [
+            CategoriaDeArquivo::JUSTIFICATIVA_ANEXO,
+            'SELECT d.anexo_path AS nome, bool_or(o.id IS NOT NULL) AS compartilhado
+             FROM justificativa_ponto d
+             LEFT JOIN justificativa_ponto o ON o.anexo_path = d.anexo_path AND o.tenant_id IS DISTINCT FROM d.tenant_id
+             WHERE d.tenant_id = :tenant AND d.anexo_path IS NOT NULL
+             GROUP BY d.anexo_path',
+        ],
+        'chamado_anexo' => [
+            CategoriaDeArquivo::CHAMADO_ANEXO,
+            'SELECT d.nome_arquivo AS nome, bool_or(oc.id IS NOT NULL) AS compartilhado
+             FROM chamado_anexo d
+             JOIN chamado c ON c.id = d.chamado_id
+             LEFT JOIN chamado_anexo o ON o.nome_arquivo = d.nome_arquivo
+             LEFT JOIN chamado oc ON oc.id = o.chamado_id AND oc.tenant_id IS DISTINCT FROM c.tenant_id
+             WHERE c.tenant_id = :tenant
+             GROUP BY d.nome_arquivo',
+        ],
+        'kanban_anexo' => [
+            CategoriaDeArquivo::KANBAN_ANEXO,
+            'SELECT a.caminho AS nome,
+                    bool_or(a.tenant_id IS DISTINCT FROM :tenant
+                            OR c.tenant_id IS DISTINCT FROM :tenant
+                            OR b.tenant_id IS DISTINCT FROM :tenant
+                            OR (k.id IS NOT NULL AND kb.tenant_id IS DISTINCT FROM :tenant))
+                        OR bool_or(o.id IS NOT NULL) AS compartilhado
+             FROM kanban_anexo a
+             JOIN kanban_card c ON c.id = a.card_id
+             JOIN kanban_board b ON b.id = c.board_id
+             LEFT JOIN kanban_coluna k ON k.id = c.coluna_id
+             LEFT JOIN kanban_board kb ON kb.id = k.board_id
+             LEFT JOIN kanban_anexo o ON o.caminho = a.caminho AND o.tenant_id IS DISTINCT FROM :tenant
+             WHERE a.tenant_id = :tenant OR c.tenant_id = :tenant OR b.tenant_id = :tenant OR kb.tenant_id = :tenant
+             GROUP BY a.caminho',
+        ],
+    ];
+
+    /**
+     * Fora da abstração até a E2.7 (D5): a coluna guarda caminho público (`/uploads/tarefas/…`),
+     * que `ChaveDeArquivo` recusa. A purga não monta chave nem toca o disco — lista os valores.
+     */
+    private const ANEXOS_DE_TAREFA_FORA_DA_PURGA =
+        'SELECT DISTINCT arquivo_anexo FROM tarefa_mensagem WHERE tenant_id = :tenant AND arquivo_anexo IS NOT NULL';
+
     public function __construct(
         private readonly EntityManagerInterface $em,
-        private readonly ArquivoStorageInterface $storage,
-        private readonly string $uploadsDir,
-        private readonly string $clientesUploadsDir,
-        private readonly string $chamadosUploadsDir,
-        private readonly string $justificativasUploadsDir,
-        private readonly string $cobrancasUploadsDir,
+        private readonly ArmazenamentoDeArquivos $armazenamento,
+        private readonly RemocaoAposTransacao $remocao,
+        private readonly ArmazenamentoComPrefixo $prefixo,
+        private readonly ConsultaDeDestinoDaTransacao $consultaDeDestino,
+        private readonly LoggerInterface $logger,
         private readonly int $carenciaPurgaDias,
     ) {
     }
@@ -169,15 +289,25 @@ final class PurgarEscritorioUseCase
         $conn     = $this->em->getConnection();
 
         if ($dryRun === true) {
-            return new PurgaEscritorioResultado($tenantId, $nome, true, $this->contarPorTabela($conn, $tenantId), 0);
+            return $this->simular($conn, $tenantId, $nome);
         }
 
-        // Fase 0 — coletar caminhos dos arquivos em disco ANTES de apagar as linhas.
-        $arquivos = $this->coletarArquivos($conn, $tenantId);
-
-        $conn->beginTransaction();
+        $aninhada   = $conn->getTransactionNestingLevel() > 0;
+        $nivelAntes = $conn->getTransactionNestingLevel();
+        $xid        = '';
 
         try {
+            $conn->beginTransaction();
+
+            // Nenhuma linha nova do escritório entra daqui até o COMMIT (ver o docblock da classe).
+            $conn->executeQuery('SELECT id FROM tenant WHERE id = :tenant FOR UPDATE', ['tenant' => $tenantId]);
+            $conn->executeQuery('SELECT id FROM chamado WHERE tenant_id = :tenant FOR UPDATE', ['tenant' => $tenantId]);
+
+            // Fase 0 — os arquivos, ANTES de apagar as linhas e dentro da mesma transação: é aqui
+            // que se prova, pelos registros, que cada arquivo plano é só deste escritório.
+            ['chaves' => $chaves, 'semProva' => $semProva] = $this->coletarArquivos($conn, $tenantId);
+            $foraDoEscopo = $this->anexosDeTarefa($conn, $tenantId);
+
             $linhas = [];
 
             foreach (self::ORDEM_DELECAO as [$tabela, $where]) {
@@ -202,17 +332,156 @@ final class PurgarEscritorioUseCase
             // hard delete é via DBAL e não passa pelo AuditLogSubscriber do ORM).
             $this->registrarAuditoria($conn, $tenantId, $nome);
 
-            $conn->commit();
+            // A identidade da transação, lida ANTES do COMMIT: é por ela que se pergunta ao banco
+            // o que aconteceu se o COMMIT falhar.
+            $xid = (string) $conn->fetchOne('SELECT pg_current_xact_id()::text');
         } catch (\Throwable $e) {
-            $conn->rollBack();
+            $this->desfazer($conn, $nivelAntes);
 
             throw $e;
         }
 
-        // Fase 5 — disco: após o commit (unlink não é transacional), best-effort e não fatal.
-        $arquivosRemovidos = $this->limparDisco($arquivos, $tenantId);
+        try {
+            $conn->commit();
+        } catch (\Throwable $e) {
+            $destino = $this->destinoDoCommit($aninhada, $xid);
 
-        return new PurgaEscritorioResultado($tenantId, $nome, false, $linhas, $arquivosRemovidos);
+            if ($destino !== DestinoDaTransacao::Confirmada) {
+                $this->registrar('error', 'Purga: o COMMIT falhou e nenhum arquivo foi tocado.', [
+                    'tenant'         => $tenantId,
+                    'xid'            => $xid,
+                    'destino'        => $destino->value,
+                    'erro'           => $e->getMessage(),
+                    'seria_removido' => array_map(static fn (ChaveDeArquivo $c): string => $c->comoTexto(), $chaves),
+                    'prefixos'       => array_map(static fn (CategoriaComIsolamentoFisico $c): string => $c->value, CategoriaComIsolamentoFisico::cases()),
+                    'sem_prova'      => $semProva,
+                    'fora_da_purga'  => $foraDoEscopo,
+                ]);
+
+                if ($destino === DestinoDaTransacao::NaoConfirmada) {
+                    throw $e; // provado: nada foi apagado
+                }
+
+                throw PurgaComDestinoIncerto::para($tenantId, $xid, $e);
+            }
+
+            $this->registrar('warning', 'Purga: o COMMIT lançou, mas o banco confirmou; o disco segue.', [
+                'tenant' => $tenantId,
+                'xid'    => $xid,
+                'erro'   => $e->getMessage(),
+            ]);
+        }
+
+        // Fase 5 — disco, só depois do COMMIT. Nada aqui lança: o que não sair vira registro.
+        ['removidos' => $arquivosRemovidos, 'naoRemovidos' => $sobras] = $this->limparDisco($chaves, $tenantId);
+
+        foreach ($semProva as $item) {
+            $this->registrar('error', 'Purga: arquivo sem prova de pertencimento exclusivo ao escritório; ficou no disco.', [
+                'tenant' => $tenantId,
+                'item'   => $item,
+            ]);
+        }
+
+        if ($foraDoEscopo !== []) {
+            $this->registrar('warning', 'Purga: anexos de Tarefa ficaram no disco (fora da abstração até a E2.7).', [
+                'tenant'   => $tenantId,
+                'arquivos' => $foraDoEscopo,
+            ]);
+        }
+
+        return new PurgaEscritorioResultado(
+            $tenantId,
+            $nome,
+            false,
+            $linhas,
+            $arquivosRemovidos,
+            array_merge($semProva, $sobras),
+            $foraDoEscopo,
+        );
+    }
+
+    /**
+     * A simulação também olha os arquivos — só lendo: quantos a purga removeria, o que ficaria
+     * sem prova de pertencimento e o que fica fora dela. O dry-run é o que o dono roda antes de
+     * ligar o cron; um "0 arquivos" ali mentiria.
+     */
+    private function simular(Connection $conn, int $tenantId, string $nome): PurgaEscritorioResultado
+    {
+        ['chaves' => $chaves, 'semProva' => $semProva] = $this->coletarArquivos($conn, $tenantId);
+
+        $previstos = 0;
+        foreach ($chaves as $chave) {
+            try {
+                if ($this->armazenamento->existe($chave)) {
+                    ++$previstos;
+                }
+            } catch (\Throwable $e) {
+                $semProva[] = sprintf('%s: não foi possível verificar (%s)', $chave->comoTexto(), $e->getMessage());
+            }
+        }
+
+        foreach (CategoriaComIsolamentoFisico::cases() as $categoria) {
+            try {
+                $previstos += \count(iterator_to_array(
+                    $this->prefixo->listar(EscopoDeArquivo::deTenant($tenantId), $categoria),
+                    false,
+                ));
+            } catch (\Throwable $e) {
+                $semProva[] = sprintf('prefixo %s: %s', $categoria->value, $e->getMessage());
+            }
+        }
+
+        return new PurgaEscritorioResultado(
+            $tenantId,
+            $nome,
+            true,
+            $this->contarPorTabela($conn, $tenantId),
+            0,
+            $semProva,
+            $this->anexosDeTarefa($conn, $tenantId),
+            $previstos,
+        );
+    }
+
+    private function destinoDoCommit(bool $aninhada, string $xid): DestinoDaTransacao
+    {
+        if ($aninhada) {
+            return DestinoDaTransacao::Incerta;
+        }
+
+        try {
+            return $this->consultaDeDestino->destinoDe($xid);
+        } catch (\Throwable) {
+            return DestinoDaTransacao::Incerta;
+        }
+    }
+
+    /**
+     * Depois da decisão sobre o COMMIT, registrar não pode mudar o desfecho: um logger que lança
+     * transformaria "banco purgado, arquivo ficou" (ou "resultado incerto") na mensagem "nada foi
+     * apagado" do comando. O resultado devolvido continua sendo o rastro.
+     *
+     * @param array<string, mixed> $contexto
+     */
+    private function registrar(string $nivel, string $mensagem, array $contexto): void
+    {
+        try {
+            $this->logger->log($nivel, $mensagem, $contexto);
+        } catch (\Throwable) {
+            // Sem onde registrar; o desfecho segue o que o banco decidiu.
+        }
+    }
+
+    /** Desfaz só o nível que a purga abriu; uma falha aqui não troca a exceção original. */
+    private function desfazer(Connection $conn, int $nivelAntes): void
+    {
+        try {
+            if ($conn->getTransactionNestingLevel() > $nivelAntes) {
+                $conn->rollBack();
+            }
+        } catch (\Throwable) {
+            // A conexão caiu: o servidor aborta a transação sozinho.
+        }
     }
 
     /**
@@ -298,7 +567,8 @@ final class PurgarEscritorioUseCase
             if ($n > 0) {
                 throw new \RuntimeException(sprintf(
                     'Purga abortada: a tabela "%s" ainda tem %d linha(s) do escritório %d — '
-                    . 'provável tabela tenant-scoped nova fora da ordem de deleção. Nada foi apagado.',
+                    . 'provável tabela tenant-scoped nova fora da ordem de deleção, ou linha deste '
+                    . 'escritório pendurada em registro de outro (ex.: card em mural alheio). Nada foi apagado.',
                     $tabela,
                     $n,
                     $tenantId,
@@ -308,94 +578,108 @@ final class PurgarEscritorioUseCase
     }
 
     /**
-     * Coleta os nomes de arquivo (hash) dos anexos do tenant, antes da deleção das linhas.
+     * As chaves dos arquivos PLANOS provadamente deste escritório, e o que ficou de fora por não
+     * ter prova (nome também referenciado por outro escritório, cadeia do registro que passa por
+     * outro escritório, ou nome recusado pela chave).
      *
-     * @return list<string>
+     * Só lê, e não registra nada: roda dentro da transação da purga (que pode ser desfeita) e na
+     * simulação. Quem registra é quem sabe o desfecho.
+     *
+     * Nomes repetidos dentro do escritório (o anexo de um lote do Ponto é gravado em N
+     * justificativas) viram UMA chave: o `GROUP BY` já deduplica.
+     *
+     * @return array{chaves: list<ChaveDeArquivo>, semProva: list<string>}
      */
     private function coletarArquivos(Connection $conn, int $tenantId): array
     {
-        $consultas = [
-            'SELECT caminho_arquivo FROM cliente_documento WHERE tenant_id = :tenant',
-            'SELECT caminho_arquivo FROM documento_processo WHERE tenant_id = :tenant',
-            'SELECT caminho_arquivo FROM pasta_documento WHERE tenant_id = :tenant',
-            'SELECT anexo_path FROM justificativa_ponto WHERE tenant_id = :tenant AND anexo_path IS NOT NULL',
-            'SELECT arquivo_anexo FROM tarefa_mensagem WHERE tenant_id = :tenant AND arquivo_anexo IS NOT NULL',
-            'SELECT nome_arquivo FROM chamado_anexo WHERE chamado_id IN (SELECT id FROM chamado WHERE tenant_id = :tenant)',
-            'SELECT caminho FROM kanban_anexo WHERE card_id IN (SELECT id FROM kanban_card WHERE board_id IN (SELECT id FROM kanban_board WHERE tenant_id = :tenant))',
-        ];
+        $escopo   = EscopoDeArquivo::deTenant($tenantId);
+        $chaves   = [];
+        $semProva = [];
 
-        $nomes = [];
+        foreach (self::ARQUIVOS_POR_REGISTRO as $tabela => [$categoria, $sql]) {
+            foreach ($conn->fetchAllAssociative($sql, ['tenant' => $tenantId]) as $linha) {
+                $nomeArquivo = $linha['nome'];
 
-        foreach ($consultas as $sql) {
-            foreach ($conn->fetchFirstColumn($sql, ['tenant' => $tenantId]) as $nome) {
-                if (is_string($nome) && $nome !== '') {
-                    $nomes[] = $nome;
+                if (!\is_string($nomeArquivo) || $nomeArquivo === '') {
+                    continue;
+                }
+
+                // Na dúvida sobre o valor devolvido, é compartilhado: falha fechada, o arquivo fica.
+                if (!\in_array($linha['compartilhado'], [false, 'f', 0, '0'], true)) {
+                    $semProva[] = sprintf(
+                        '%s/%s (sem prova de que é só deste escritório: outro escritório referencia o nome, '
+                        . 'ou o registro está numa cadeia de outro escritório)',
+                        $tabela,
+                        $nomeArquivo,
+                    );
+                    continue;
+                }
+
+                try {
+                    $chaves[] = new ChaveDeArquivo($escopo, $categoria, $nomeArquivo);
+                } catch (ChaveDeArquivoInvalida $e) {
+                    $semProva[] = sprintf('%s: nome recusado pela chave (%s)', $tabela, $e->getMessage());
                 }
             }
         }
 
-        return $nomes;
+        return ['chaves' => $chaves, 'semProva' => $semProva];
     }
 
     /**
-     * Remove os arquivos em disco. Os nomes são hashes globalmente únicos (bin2hex de 16
-     * bytes), então tentar cada nome nos diretórios candidatos é seguro (não colide com
-     * arquivo de outro tenant). O diretório de peças é keyed por tenant e removido inteiro.
-     * O diretório de fotos de perfil NÃO entra (pertence ao User, que é preservado).
+     * Os anexos de Tarefa do escritório, como texto — sem chave e sem disco (D5, E2.7).
      *
-     * @param list<string> $nomes
+     * @return list<string>
      */
-    private function limparDisco(array $nomes, int $tenantId): int
+    private function anexosDeTarefa(Connection $conn, int $tenantId): array
     {
-        $removidos = 0;
-
-        $diretorios = [
-            $this->uploadsDir,
-            $this->clientesUploadsDir,
-            $this->chamadosUploadsDir,
-            $this->justificativasUploadsDir,
-        ];
-
-        foreach ($nomes as $nome) {
-            foreach ($diretorios as $dir) {
-                $caminho = $dir . '/' . $nome;
-
-                if ($this->storage->existe($caminho) === true) {
-                    $this->storage->excluir($caminho);
-                    ++$removidos;
-                }
-            }
-        }
-
-        $removidos += $this->removerDiretorioDeTenant($this->uploadsDir . '/' . $tenantId);
-        // Documentos do Caso de Cobrança (Etapa 6): isolados por tenant em cobrancas/<tenantId>/.
-        $removidos += $this->removerDiretorioDeTenant($this->cobrancasUploadsDir . '/' . $tenantId);
-
-        return $removidos;
+        return array_values(array_filter(
+            $conn->fetchFirstColumn(self::ANEXOS_DE_TAREFA_FORA_DA_PURGA, ['tenant' => $tenantId]),
+            static fn (mixed $valor): bool => \is_string($valor) && $valor !== '',
+        ));
     }
 
     /**
-     * Remove um diretório de peças keyed por tenant (public/uploads/pastas/<tenantId>/) e
-     * seu conteúdo. Best-effort: tolera diretório ausente.
+     * Remove os arquivos planos um a um e o prefixo físico do escritório nas duas categorias que
+     * o têm. Nunca lança: o banco já foi confirmado.
+     *
+     * @param list<ChaveDeArquivo> $chaves
+     *
+     * @return array{removidos: int, naoRemovidos: list<string>}
      */
-    private function removerDiretorioDeTenant(string $diretorio): int
+    private function limparDisco(array $chaves, int $tenantId): array
     {
-        if (is_dir($diretorio) === false) {
-            return 0;
-        }
+        $resultado    = $this->remocao->remover($chaves, sprintf('PurgarEscritorioUseCase: escritório %d', $tenantId));
+        $removidos    = $resultado->removidos;
+        $naoRemovidos = $resultado->naoRemovidas;
 
-        $removidos = 0;
+        foreach (CategoriaComIsolamentoFisico::cases() as $categoria) {
+            try {
+                $prefixo      = $this->prefixo->excluirPrefixo(EscopoDeArquivo::deTenant($tenantId), $categoria);
+                $removidos   += $prefixo->removidos;
+                $naoRemovidos = array_merge($naoRemovidos, $prefixo->naoRemovidas);
 
-        foreach (glob($diretorio . '/*') ?: [] as $arquivo) {
-            if (is_file($arquivo)) {
-                $this->storage->excluir($arquivo);
-                ++$removidos;
+                if (!$prefixo->completa()) {
+                    $this->registrar('error', 'Purga: o diretório do escritório saiu só em parte; o resto ficou no disco.', [
+                        'tenant'    => $tenantId,
+                        'categoria' => $categoria->value,
+                        'removidos' => $prefixo->removidos,
+                        'ficaram'   => $prefixo->naoRemovidas,
+                    ]);
+                }
+            } catch (\Throwable $e) {
+                // Pertencimento não provado: o prefixo ficou INTEIRO (nada foi removido dele).
+                $naoRemovidos[] = sprintf('prefixo %s inteiro: %s', $categoria->value, $e->getMessage());
+
+                $this->registrar('error', 'Purga: o diretório do escritório não foi removido; ficou no disco.', [
+                    'tenant'    => $tenantId,
+                    'categoria' => $categoria->value,
+                    'erro'      => $e->getMessage(),
+                ]);
             }
         }
 
-        @rmdir($diretorio);
-
-        return $removidos;
+        return ['removidos' => $removidos, 'naoRemovidos' => $naoRemovidos];
     }
 
     private function registrarAuditoria(Connection $conn, int $tenantId, string $nome): void

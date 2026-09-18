@@ -20,8 +20,9 @@ use Symfony\Component\Validator\Constraints as Assert;
  *
  * A mecânica de arquivo é 100% reusada de `EnviarDocumentoUseCase`/`ArquivoStorageInterface`: o
  * arquivo físico mora no MESMO diretório flat dos documentos de caso — `<cobrancasUploadsDir>/
- * <tenantId>/<hash>` (decisão deliberada: a purga (`PurgarEscritorioUseCase::removerDiretorioDeTenant`)
- * só varre esse diretório flat e não é recursiva; um diretório novo deixaria PII órfã em disco).
+ * <tenantId>/<hash>` (decisão deliberada: a purga apaga `cobrancas/<tenantId>` inteiro, por prefixo
+ * — `ArmazenamentoComPrefixo::excluirPrefixo`, desde a E2.5 —; um diretório fora dele deixaria PII
+ * órfã em disco).
  * `caminhoArquivo` guarda só o hash. ON DELETE CASCADE derruba o documento se a carteira for apagada.
  * Não-final: proxies do Doctrine.
  */

@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace App\Command;
 
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Armazenamento\ChavesDePasta;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaSecao;
 use App\Pasta\Repository\PastaSecaoRepository;
 use App\Repository\TenantRepository;
-use App\Shared\Service\ArquivoStorageInterface;
+use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
+use App\Shared\Armazenamento\FonteDeConteudo;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -18,7 +20,6 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
  * Fase 2 Etapa 3 do acervo — lê o filesystem local e importa arquivos para o sistema.
@@ -28,6 +29,25 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
  *     'cd app && php bin/console app:acervo:copiar-arquivos \
  *      --diretorio=/opt/jusprime-acervo-download/pastas \
  *      --tenant-id=1'
+ *
+ * ## O acervo do operador é EMPRESTADO (D15)
+ *
+ * Os arquivos em `--diretorio` pertencem a quem rodou o comando. A gravação no storage é uma
+ * CÓPIA em streaming (`consumirOrigem: false`): depois de cada arquivo, a origem continua no
+ * lugar, byte a byte, com o mesmo inode, modo e data. O atalho de mover (`consumirOrigem: true`)
+ * é para temporário possuído — aqui apagaria o acervo de quem confiou o diretório ao comando.
+ * `CopiarArquivosAcervoCommandTest` fotografa a origem antes e depois para travar isso.
+ *
+ * ## Banco × arquivo
+ *
+ * Por arquivo: o documento recebe o escritório, o storage grava e cunha o nome, e só então o
+ * documento é completado e registrado para persistir. Falha do storage cai no `catch` do item: é
+ * contada como erro, nenhuma linha nasce e o lote segue (se o storage chegou a publicar o arquivo
+ * antes de falhar, ele fica órfão — a mensagem do erro traz a chave). O `flush` é por pasta; se ele falhar,
+ * os arquivos já gravados daquela pasta podem ficar sem linha (órfãos recuperáveis, INV-6) — o
+ * comando lista os nomes deles antes de relançar. "Podem": uma falha no próprio COMMIT não diz se
+ * as linhas chegaram ao banco, então quem for limpar confere antes de apagar. A lista cobre só a
+ * recusa do `flush`; outras exceções que derrubam o comando no meio de uma pasta não a produzem.
  */
 #[AsCommand(
     name: 'app:acervo:copiar-arquivos',
@@ -44,9 +64,7 @@ final class CopiarArquivosAcervoCommand extends Command
         private readonly EntityManagerInterface  $em,
         private readonly TenantRepository        $tenantRepository,
         private readonly PastaSecaoRepository    $secaoRepository,
-        private readonly ArquivoStorageInterface $storage,
-        #[Autowire('%uploads_dir%')]
-        private readonly string                  $uploadsDir,
+        private readonly ArmazenamentoDeArquivos $armazenamento,
     ) {
         parent::__construct();
     }
@@ -248,6 +266,8 @@ final class CopiarArquivosAcervoCommand extends Command
 
         $contadores  = ['criados' => 0, 'pulados' => 0, 'erros' => 0, 'grandes' => 0];
         $secoesNovas = 0;
+        /** @var list<string> $gravadosNaPasta nomes cunhados nesta pasta, ainda sem flush */
+        $gravadosNaPasta = [];
 
         // Índice em memória: nome normalizado (UPPERCASE) → PastaSecao
         /** @var array<string, PastaSecao> $secoesExistentes */
@@ -300,14 +320,26 @@ final class CopiarArquivosAcervoCommand extends Command
                     if (!$arquivo->isFile()) {
                         continue;
                     }
-                    $this->processarArquivo($arquivo->getRealPath(), $pasta, $secao, $tenant, $io, $contadores);
+                    $this->processarArquivo($arquivo->getRealPath(), $pasta, $secao, $tenant, $io, $contadores, $gravadosNaPasta);
                 }
             } elseif (is_file($pathEntrada)) {
-                $this->processarArquivo($pathEntrada, $pasta, null, $tenant, $io, $contadores);
+                $this->processarArquivo($pathEntrada, $pasta, null, $tenant, $io, $contadores, $gravadosNaPasta);
             }
         }
 
-        $this->em->flush();
+        try {
+            $this->em->flush();
+        } catch (\Throwable $e) {
+            $io->error(sprintf(
+                'pasta_id=%d — o banco recusou os documentos; %d arquivo(s) gravados podem ter ficado sem linha'
+                . ' (confira no banco antes de apagar): %s',
+                $pastaId,
+                count($gravadosNaPasta),
+                implode(', ', $gravadosNaPasta),
+            ));
+
+            throw $e;
+        }
         $this->em->clear();
 
         $io->writeln(sprintf(
@@ -328,7 +360,10 @@ final class CopiarArquivosAcervoCommand extends Command
         $totais['secoesNovas'] += $secoesNovas;
     }
 
-    /** @param array<string, int> $contadores */
+    /**
+     * @param array<string, int> $contadores
+     * @param list<string>       $gravadosNaPasta
+     */
     private function processarArquivo(
         string       $path,
         Pasta        $pasta,
@@ -336,6 +371,7 @@ final class CopiarArquivosAcervoCommand extends Command
         Tenant       $tenant,
         SymfonyStyle $io,
         array        &$contadores,
+        array        &$gravadosNaPasta,
     ): void {
         $nomeOriginal = basename($path);
 
@@ -371,25 +407,26 @@ final class CopiarArquivosAcervoCommand extends Command
                 return;
             }
 
-            $conteudo = file_get_contents($path);
-            if ($conteudo === false) {
-                throw new \RuntimeException(sprintf('Não foi possível ler: %s', $path));
-            }
+            $doc = (new PastaDocumento())->setTenant($tenant);
 
-            $extensao    = pathinfo($path, PATHINFO_EXTENSION);
-            $mime        = mime_content_type($path) ?: 'application/octet-stream';
-            $nomeStorage = $this->storage->salvarConteudo($conteudo, $this->uploadsDir, $extensao);
+            // Cópia em streaming: a origem é do operador e fica onde está (D15). A extensão vem
+            // do nome original e é saneada pelo storage — sem extensão vira `bin`, não `hash.`.
+            $armazenado = $this->armazenamento->gravar(
+                ChavesDePasta::novoDocumento($doc, pathinfo($path, PATHINFO_EXTENSION)),
+                FonteDeConteudo::deArquivoLocal($path, consumirOrigem: false),
+            );
+            $gravadosNaPasta[] = $armazenado->chave->nome;
 
-            $doc = (new PastaDocumento())
-                ->setTitulo($nomeOriginal)
+            // Tamanho e MIME do que foi GRAVADO, medidos pelo storage — não da origem, que pode
+            // ter mudado entre o `filesize()` do limite acima e a cópia.
+            $doc->setTitulo($nomeOriginal)
                 ->setCategoria(PastaDocumento::CATEGORIA_DEMAIS)
-                ->setCaminhoArquivo($nomeStorage)
+                ->setCaminhoArquivo($armazenado->chave->nome)
                 ->setNomeOriginal($nomeOriginal)
-                ->setMimeType($mime)
-                ->setTamanhoBytes($tamanho)
+                ->setMimeType($armazenado->mimeType)
+                ->setTamanhoBytes($armazenado->tamanhoBytes)
                 ->setPasta($pasta)
-                ->setSecao($secao)
-                ->setTenant($tenant);
+                ->setSecao($secao);
 
             $this->em->persist($doc);
             $contadores['criados']++;

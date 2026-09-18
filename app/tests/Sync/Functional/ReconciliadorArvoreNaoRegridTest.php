@@ -7,7 +7,9 @@ namespace App\Tests\Sync\Functional;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaSecao;
-use App\Shared\Service\ArquivoStorageInterface;
+use App\Pasta\Armazenamento\ChavesDePasta;
+use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
+use App\Shared\Armazenamento\FonteDeConteudo;
 use App\Sync\DTO\ResultadoReconciliacaoPasta;
 use App\Sync\Enum\ModoSincronizacao;
 use App\Sync\Service\ReconciliadorDePasta;
@@ -57,9 +59,11 @@ final class ReconciliadorArvoreNaoRegridTest extends KernelTestCase
         }
 
         // documento na folha (C), sem drive_file_id → candidato a subir
-        $storage     = self::getContainer()->get(ArquivoStorageInterface::class);
-        $uploadsDir  = (string) self::getContainer()->getParameter('uploads_dir');
-        $nomeStorage = $storage->salvarConteudo('conteudo', $uploadsDir, 'pdf');
+        $armazenamento = self::getContainer()->get(ArmazenamentoDeArquivos::class);
+        $nomeStorage   = $armazenamento->gravar(
+            ChavesDePasta::novoDocumento((new PastaDocumento())->setTenant($pasta->getTenant()), 'pdf'),
+            FonteDeConteudo::deTexto('conteudo'),
+        )->chave->nome;
 
         $doc = (new PastaDocumento())
             ->setTitulo('PECA')

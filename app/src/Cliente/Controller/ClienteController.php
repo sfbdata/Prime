@@ -3,6 +3,7 @@
 namespace App\Cliente\Controller;
 
 use App\Controller\Trait\ResourceAccessTrait;
+use App\Cliente\Armazenamento\ChavesDeCliente;
 use App\Cliente\Entity\Cliente;
 use App\Cliente\Entity\ClienteDocumento;
 use App\Cliente\Entity\ClientePF;
@@ -15,8 +16,11 @@ use App\Pasta\Repository\PastaRepository;
 use App\Entity\Permission\AccessRequest;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
-use App\Shared\Service\ArquivoStorageService;
-use App\Shared\Service\CompressorArquivoInterface;
+use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
+use App\Shared\Armazenamento\RemocaoAposTransacao;
+use App\Shared\Http\EntregaDeArquivo;
+use App\Shared\Http\FonteDeUploadHttp;
+use App\Shared\Service\CompressaoDeArquivoArmazenado;
 use Doctrine\DBAL\Exception\ForeignKeyConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -90,9 +94,10 @@ class ClienteController extends AbstractController
         private readonly PastaRepository $pastaRepository,
         private readonly PermissionChecker $permissionChecker,
         private readonly TenantContext $tenantContext,
-        private readonly ArquivoStorageService $storage,
-        private readonly CompressorArquivoInterface $compressor,
-        private readonly string $clientesUploadsDir,
+        private readonly ArmazenamentoDeArquivos $armazenamento,
+        private readonly RemocaoAposTransacao $remocao,
+        private readonly EntregaDeArquivo $entrega,
+        private readonly CompressaoDeArquivoArmazenado $compressao,
     ) {}
 
     #[Route('/{id}', name: 'cliente_show', methods: ['GET'])]
@@ -181,16 +186,25 @@ class ClienteController extends AbstractController
         }
 
         if ($this->isCsrfTokenValid('delete' . $id, $request->request->get('_token'))) {
+            // As chaves saem antes; os arquivos, só depois de o banco aceitar a exclusão (E2.5).
+            // Antes, os arquivos eram apagados aqui e o flush vinha depois: quando uma FK recusava
+            // (cobranca_carteira → cliente é NO ACTION), o cliente ficava — sem os documentos.
+            $chaves = [];
+            foreach ($cliente->getDocumentos() as $doc) {
+                $chaves[] = ChavesDeCliente::documento($doc);
+            }
+
             try {
-                foreach ($cliente->getDocumentos() as $doc) {
-                    $this->storage->excluir($this->storage->caminho($this->clientesUploadsDir, $doc->getCaminhoArquivo()));
-                }
                 $this->em->remove($cliente);
                 $this->em->flush();
-                $this->addFlash('success', 'Cliente excluído com sucesso.');
             } catch (ForeignKeyConstraintViolationException) {
                 $this->addFlash('error', 'Não é possível excluir este cliente porque ele está vinculado a outros registros (ex.: pré-cadastro).');
+
+                return $this->redirectToRoute('homepage');
             }
+
+            $this->remocao->remover($chaves, 'ClienteController::delete');
+            $this->addFlash('success', 'Cliente excluído com sucesso.');
         }
 
         return $this->redirectToRoute('homepage');
@@ -261,12 +275,18 @@ class ClienteController extends AbstractController
             $descricao    = isset($descricoes[$i]) ? trim((string) $descricoes[$i]) : '';
             $numero       = isset($numeros[$i]) ? trim((string) $numeros[$i]) : '';
 
-            $nomeUnico = $this->storage->salvar($file, $this->clientesUploadsDir);
+            // O escopo sai do cliente dono (R1). A compressão é pela CHAVE (E2.6B): ela
+            // materializa uma cópia gravável fora do volume, comprime lá e regrava.
+            $upload     = FonteDeUploadHttp::de($file);
+            $armazenado = $upload->gravarEm($this->armazenamento, ChavesDeCliente::novoDocumento($cliente, $upload->extensao));
+            $nomeUnico  = $armazenado->chave->nome;
 
-            $tamanhoFinal = $tamanho;
+            // D30: quem responde o tamanho é o storage, não o arquivo de upload. Com o backend
+            // de disco os dois dão o mesmo `stat()`; a diferença aparece quando `getSize()` falha
+            // (devolve false) e num backend remoto, onde só o storage sabe o que ficou lá.
+            $tamanhoFinal = $armazenado->tamanhoBytes;
             if ($reduzirTamanho) {
-                $caminho    = $this->storage->caminho($this->clientesUploadsDir, $nomeUnico);
-                $compressao = $this->compressor->comprimir($caminho, $mimeType);
+                $compressao   = $this->compressao->comprimir($armazenado->chave, $mimeType);
                 $tamanhoFinal = $compressao->tamanhoFinal;
                 $bytesEconomizados += $compressao->tamanhoOriginal - $compressao->tamanhoFinal;
                 if ($compressao->comprimido && $compressao->eraAssinado) {
@@ -350,13 +370,13 @@ class ClienteController extends AbstractController
             throw $this->createAccessDeniedException('Você não tem permissão para acessar documentos deste cliente.');
         }
 
-        $caminho = $this->storage->caminho($this->clientesUploadsDir, $doc->getCaminhoArquivo());
+        $chave = ChavesDeCliente::documento($doc);
 
-        if (!$this->storage->existe($caminho)) {
+        if (!$this->armazenamento->existe($chave)) {
             throw $this->createNotFoundException('Arquivo não encontrado no servidor.');
         }
 
-        return $this->storage->servir($caminho, $doc->getNomeOriginal(), inline: true);
+        return $this->entrega->resposta($chave, $doc->getNomeOriginal(), inline: true);
     }
 
     #[Route('/documento/{id}/download', name: 'cliente_documento_download', methods: ['GET'])]
@@ -370,14 +390,14 @@ class ClienteController extends AbstractController
             throw $this->createAccessDeniedException('Você não tem permissão para acessar documentos deste cliente.');
         }
 
-        $caminho = $this->storage->caminho($this->clientesUploadsDir, $doc->getCaminhoArquivo());
+        $chave = ChavesDeCliente::documento($doc);
 
-        if (!$this->storage->existe($caminho)) {
+        if (!$this->armazenamento->existe($chave)) {
             $this->addFlash('error', 'Arquivo não encontrado no servidor.');
             return $this->redirectToRoute('cliente_show', ['id' => $doc->getCliente()?->getId()]);
         }
 
-        return $this->storage->servir($caminho, $doc->getNomeOriginal(), inline: false);
+        return $this->entrega->resposta($chave, $doc->getNomeOriginal(), inline: false);
     }
 
     #[Route('/documento/{id}/editar', name: 'cliente_documento_edit', methods: ['POST'])]
@@ -435,9 +455,12 @@ class ClienteController extends AbstractController
             throw $this->createAccessDeniedException('Token CSRF inválido.');
         }
 
-        $this->storage->excluir($this->storage->caminho($this->clientesUploadsDir, $doc->getCaminhoArquivo()));
+        $chave = ChavesDeCliente::documento($doc);
         $this->em->remove($doc);
         $this->em->flush();
+
+        // Só depois do COMMIT (E2.5, INV-6); falha física vira registro, não 500.
+        $this->remocao->remover([$chave], 'ClienteController::deleteDocumento');
 
         $this->addFlash('success', 'Documento removido com sucesso.');
 

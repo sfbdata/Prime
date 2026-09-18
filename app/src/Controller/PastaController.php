@@ -8,6 +8,7 @@ use App\Entity\Auth\User;
 use App\Cliente\Entity\Cliente;
 use App\Cliente\Entity\ClientePF;
 use App\Cliente\Entity\ClientePJ;
+use App\Pasta\Armazenamento\ChavesDePasta;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Processo\Entity\Processo;
@@ -26,6 +27,7 @@ use App\Entity\Permission\AccessRequest;
 use App\Repository\UserRepository;
 use App\Repository\UserTenantRepository;
 use App\Expediente\Repository\MarcadorRepository;
+use App\Shared\Http\EntregaDeArquivo;
 use App\Twig\ArquivoIconeExtension;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
@@ -87,8 +89,10 @@ use App\Pasta\Repository\PastaSecaoRepository;
 use App\Pasta\Entity\PastaSecao;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use App\Shared\Service\ArquivoStorageInterface;
-use App\Shared\Service\CompressorArquivoInterface;
+use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
+use App\Shared\Armazenamento\RemocaoAposTransacao;
+use App\Shared\Http\FonteDeUploadHttp;
+use App\Shared\Service\CompressaoDeArquivoArmazenado;
 use App\Shared\Service\SanitizadorTextoRico;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -127,9 +131,10 @@ class PastaController extends AbstractController
         private readonly ClientePJRepository $clientePJRepository,
         private readonly UserRepository $userRepository,
         private readonly ValidatorInterface $validator,
-        private readonly string $uploadsDir,
-        private readonly ArquivoStorageInterface $storage,
-        private readonly CompressorArquivoInterface $compressor,
+        private readonly ArmazenamentoDeArquivos $armazenamento,
+        private readonly RemocaoAposTransacao $remocao,
+        private readonly EntregaDeArquivo $entrega,
+        private readonly CompressaoDeArquivoArmazenado $compressao,
         private readonly PermissionChecker $permissionChecker,
         private readonly TenantContext $tenantContext,
         private readonly PastaTimelineAssembler $timelineAssembler,
@@ -1506,12 +1511,19 @@ class PastaController extends AbstractController
             $descricao    = isset($descricoes[$i]) ? trim((string) $descricoes[$i]) : '';
             $numero       = isset($numeros[$i]) ? trim((string) $numeros[$i]) : '';
 
-            $nomeUnico = $this->storage->salvar($file, $this->uploadsDir);
+            // O escopo sai do próprio documento (R1), só persistido depois da gravação. A
+            // compressão é pela CHAVE (E2.6B), sobre cópia gravável fora do volume.
+            $doc = new PastaDocumento();
+            $doc->setTenant($tenant);
 
-            $tamanhoFinal = $tamanho;
+            $upload     = FonteDeUploadHttp::de($file);
+            $armazenado = $upload->gravarEm($this->armazenamento, ChavesDePasta::novoDocumento($doc, $upload->extensao));
+            $nomeUnico  = $armazenado->chave->nome;
+
+            // D30: quem responde o tamanho é o storage (ver ClienteController).
+            $tamanhoFinal = $armazenado->tamanhoBytes;
             if ($reduzirTamanho) {
-                $caminho    = $this->storage->caminho($this->uploadsDir, $nomeUnico);
-                $compressao = $this->compressor->comprimir($caminho, $mimeType);
+                $compressao   = $this->compressao->comprimir($armazenado->chave, $mimeType);
                 $tamanhoFinal = $compressao->tamanhoFinal;
                 $bytesEconomizados += $compressao->tamanhoOriginal - $compressao->tamanhoFinal;
                 if ($compressao->comprimido && $compressao->eraAssinado) {
@@ -1519,9 +1531,7 @@ class PastaController extends AbstractController
                 }
             }
 
-            $doc = new PastaDocumento();
             $doc->setPasta($pasta);
-            $doc->setTenant($tenant);
             $doc->setTitulo($file->getClientOriginalName());
             $doc->setCategoria($categoria);
             $doc->setDescricao($descricao !== '' ? $descricao : null);
@@ -1604,13 +1614,13 @@ class PastaController extends AbstractController
             throw $this->createAccessDeniedException('Você não tem permissão para acessar documentos desta pasta.');
         }
 
-        $caminho = $this->storage->caminho($this->uploadsDir, $doc->getCaminhoArquivo());
+        $chave = ChavesDePasta::documento($doc);
 
-        if (!$this->storage->existe($caminho)) {
+        if (!$this->armazenamento->existe($chave)) {
             throw $this->createNotFoundException('Arquivo não encontrado no servidor.');
         }
 
-        return $this->storage->servir($caminho, $doc->getNomeOriginal(), inline: true);
+        return $this->entrega->resposta($chave, $doc->getNomeOriginal(), inline: true);
     }
 
     #[Route('/documento/{id}/download', name: 'pasta_documento_download', methods: ['GET'])]
@@ -1623,15 +1633,15 @@ class PastaController extends AbstractController
             throw $this->createAccessDeniedException('Você não tem permissão para acessar documentos desta pasta.');
         }
 
-        $caminho = $this->storage->caminho($this->uploadsDir, $doc->getCaminhoArquivo());
+        $chave = ChavesDePasta::documento($doc);
 
-        if (!$this->storage->existe($caminho)) {
+        if (!$this->armazenamento->existe($chave)) {
             $this->addFlash('error', 'Arquivo não encontrado no servidor.');
 
             return $this->redirectToRoute('pasta_show', ['id' => $doc->getPasta()?->getId()]);
         }
 
-        return $this->storage->servir($caminho, $doc->getNomeOriginal(), inline: false);
+        return $this->entrega->resposta($chave, $doc->getNomeOriginal(), inline: false);
     }
 
     #[Route('/documento/{id}/editar', name: 'pasta_documento_edit', methods: ['POST'])]
@@ -1688,10 +1698,14 @@ class PastaController extends AbstractController
             throw $this->createAccessDeniedException('Token CSRF inválido.');
         }
 
-        $this->storage->excluir($this->storage->caminho($this->uploadsDir, $doc->getCaminhoArquivo()));
+        $chave = ChavesDePasta::documento($doc);
 
         $this->em->remove($doc);
         $this->em->flush();
+
+        // O arquivo só sai depois do COMMIT (E2.5, INV-6): antes, um flush recusado deixava a
+        // linha apontando para o arquivo já apagado. Falha física aqui vira registro, não 500.
+        $this->remocao->remover([$chave], 'PastaController::deleteDocumento');
 
         $this->addFlash('success', 'Documento removido com sucesso.');
 
@@ -1837,19 +1851,22 @@ class PastaController extends AbstractController
 
         $reduzirTamanho = $request->request->getBoolean('reduzir_tamanho');
 
-        $nomeUnico = $this->storage->salvar($file, $this->uploadsDir);
+        // O escopo sai do próprio documento (R1), só persistido depois da gravação.
+        $doc = new PastaDocumento();
+        $doc->setTenant($tenant);
 
-        $tamanhoFinal = $tamanho;
+        $upload     = FonteDeUploadHttp::de($file);
+        $armazenado = $upload->gravarEm($this->armazenamento, ChavesDePasta::novoDocumento($doc, $upload->extensao));
+        $nomeUnico  = $armazenado->chave->nome;
+
+        $tamanhoFinal = $armazenado->tamanhoBytes; // D30: quem responde o tamanho é o storage
         $compressao   = null;
         if ($reduzirTamanho) {
-            $caminho      = $this->storage->caminho($this->uploadsDir, $nomeUnico);
-            $compressao   = $this->compressor->comprimir($caminho, $mimeType);
+            $compressao   = $this->compressao->comprimir($armazenado->chave, $mimeType);
             $tamanhoFinal = $compressao->tamanhoFinal;
         }
 
-        $doc = new PastaDocumento();
         $doc->setPasta($pasta);
-        $doc->setTenant($tenant);
         $doc->setTitulo($file->getClientOriginalName());
         $doc->setCategoria(PastaDocumento::CATEGORIA_CONTRATO);
         $doc->setCaminhoArquivo($nomeUnico);
@@ -1903,12 +1920,13 @@ class PastaController extends AbstractController
             throw $this->createNotFoundException('Documento não encontrado.');
         }
 
-        $caminho = $this->storage->caminho($this->uploadsDir, $doc->getCaminhoArquivo());
-        if (!$this->storage->existe($caminho)) {
+        $chave = ChavesDePasta::documento($doc);
+
+        if (!$this->armazenamento->existe($chave)) {
             throw $this->createNotFoundException('Arquivo não encontrado no servidor.');
         }
 
-        return $this->storage->servir($caminho, $doc->getNomeOriginal(), inline: true);
+        return $this->entrega->resposta($chave, $doc->getNomeOriginal(), inline: true);
     }
 
     // ── Financeiro: Download documento de contrato ────────────────────────────
@@ -1929,12 +1947,13 @@ class PastaController extends AbstractController
             throw $this->createNotFoundException('Documento não encontrado.');
         }
 
-        $caminho = $this->storage->caminho($this->uploadsDir, $doc->getCaminhoArquivo());
-        if (!$this->storage->existe($caminho)) {
+        $chave = ChavesDePasta::documento($doc);
+
+        if (!$this->armazenamento->existe($chave)) {
             throw $this->createNotFoundException('Arquivo não encontrado no servidor.');
         }
 
-        return $this->storage->servir($caminho, $doc->getNomeOriginal(), inline: false);
+        return $this->entrega->resposta($chave, $doc->getNomeOriginal(), inline: false);
     }
 
     // ── Financeiro: Renomear documento de contrato ───────────────────────────
@@ -1995,10 +2014,12 @@ class PastaController extends AbstractController
             return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_FORBIDDEN);
         }
 
-        $caminho = $this->storage->caminho($this->uploadsDir, $doc->getCaminhoArquivo());
+        $chave = ChavesDePasta::documento($doc);
         $this->em->remove($doc);
         $this->em->flush();
-        $this->storage->excluir($caminho);
+
+        // Depois do COMMIT, e sem 500 se o disco falhar: a exclusão já está confirmada (E2.5).
+        $this->remocao->remover([$chave], 'PastaController::financeiroExcluirDocumento');
 
         return $this->json(['sucesso' => true]);
     }

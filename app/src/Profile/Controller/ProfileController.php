@@ -7,6 +7,7 @@ use App\Auth\Form\AlterarSenhaType;
 use App\Auth\UseCase\AlterarSenhaUseCase;
 use App\Auth\UseCase\VerificarOabUseCase;
 use App\Entity\Auth\User;
+use App\Profile\Armazenamento\ChavesDePerfil;
 use App\Profile\DTO\AtualizarFotoInput;
 use App\Profile\DTO\AtualizarStatusInput;
 use App\Profile\DTO\DadosPessoaisInput;
@@ -21,7 +22,9 @@ use App\Profile\UseCase\AtualizarOabPerfilUseCase;
 use App\Profile\UseCase\AtualizarStatusUseCase;
 use App\Profile\UseCase\ObterOuCriarPerfilUseCase;
 use App\Service\Tenant\TenantContext;
-use App\Shared\Service\ArquivoStorageInterface;
+use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
+use App\Shared\Armazenamento\Exception\ChaveDeArquivoInvalida;
+use App\Shared\Http\EntregaDeArquivo;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -38,8 +41,8 @@ final class ProfileController extends AbstractController
         private readonly AtualizarStatusUseCase $atualizarStatus,
         private readonly AtualizarDadosPessoaisUseCase $atualizarDadosPessoais,
         private readonly AtualizarFotoPerfilUseCase $atualizarFoto,
-        private readonly ArquivoStorageInterface $storage,
-        private readonly string $fotosPerfilDir,
+        private readonly ArmazenamentoDeArquivos $armazenamento,
+        private readonly EntregaDeArquivo $entrega,
         private readonly TenantContext $tenantContext,
         private readonly UserProfileRepository $profileRepository,
         private readonly AtualizarOabPerfilUseCase $atualizarOab,
@@ -250,17 +253,24 @@ final class ProfileController extends AbstractController
         }
 
         $tenant = $this->tenantContext->getCurrentTenant();
+        $perfil = $tenant === null ? null : $this->profileRepository->buscarPorFotoUrlETenant($nome, $tenant);
 
-        if ($tenant === null || $this->profileRepository->buscarPorFotoUrlETenant($nome, $tenant) === null) {
+        if ($perfil === null) {
             throw $this->createNotFoundException('Foto não encontrada.');
         }
 
-        $caminho = $this->storage->caminho($this->fotosPerfilDir, $nome);
-
-        if (!$this->storage->existe($caminho)) {
+        // A chave sai do perfil persistido (escopo global: a foto é do User). Se o armazenamento
+        // se recusar a endereçar o nome, para quem pede é o mesmo que não existir — 404, nunca 500.
+        try {
+            $chave = ChavesDePerfil::foto($perfil);
+        } catch (ChaveDeArquivoInvalida) {
             throw $this->createNotFoundException('Arquivo não encontrado.');
         }
 
-        return $this->storage->servir($caminho, $nome, inline: true);
+        if (!$this->armazenamento->existe($chave)) {
+            throw $this->createNotFoundException('Arquivo não encontrado.');
+        }
+
+        return $this->entrega->resposta($chave, $nome, inline: true);
     }
 }

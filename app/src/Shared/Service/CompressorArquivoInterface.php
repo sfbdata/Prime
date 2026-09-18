@@ -16,6 +16,15 @@ interface CompressorArquivoInterface
     public function comprimir(string $caminhoCompleto, string $mimeType): ResultadoCompressao;
 
     /**
+     * Este MIME tem compressão implementada? (E2.6C)
+     *
+     * Existe para quem trabalha POR CHAVE: sem isto, o serviço copiava o arquivo inteiro para o
+     * temporário só para o compressor responder "não trato" — um DOCX de 10 MB ia e voltava do
+     * `/tmp` a cada upload com "reduzir tamanho" marcado.
+     */
+    public function trata(string $mimeType): bool;
+
+    /**
      * Indica se o PDF contém assinatura digital (marcadores /ByteRange e /Sig).
      */
     public function pdfEstaAssinado(string $caminhoCompleto): bool;

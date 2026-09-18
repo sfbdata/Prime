@@ -15,7 +15,10 @@ use App\Kanban\Service\ArquivosDeAnexoDoKanban;
 use App\Kanban\UseCase\AdicionarAnexoUseCase;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\Event\OnFlushEventArgs;
+use Doctrine\ORM\Events;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
@@ -62,6 +65,8 @@ final class KanbanAnexoCicloDeVidaTest extends JusPrimeWebTestCase
         $client->request('GET', "/kanban/anexo/{$anexoId}");
 
         self::assertResponseIsSuccessful('o anexo recém-enviado deveria ser servível');
+        self::assertResponseHeaderSame('Content-Disposition', 'inline; filename=documento.pdf');
+        self::assertSame('%PDF-1.4 conteudo de teste', $client->getInternalResponse()->getContent());
     }
 
     #[TestDox('Excluir o anexo remove o arquivo do disco')]
@@ -110,6 +115,114 @@ final class KanbanAnexoCicloDeVidaTest extends JusPrimeWebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertFileDoesNotExist($caminho, 'excluir o mural deveria apagar os arquivos dos anexos');
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function exclusoes(): iterable
+    {
+        yield 'anexo' => ['anexo'];
+        yield 'card'  => ['card'];
+        yield 'mural' => ['mural'];
+    }
+
+    /**
+     * E2.5 (INV-6): antes, os três UseCases apagavam o arquivo e só então davam `flush`. Um banco
+     * que recusasse deixava o anexo de pé apontando para o vazio. A recusa é simulada no `onFlush`,
+     * depois de o UseCase ter chamado o repositório e antes de qualquer SQL — exatamente onde o
+     * arquivo antigo já teria sumido.
+     */
+    #[TestDox('Banco recusa excluir o $alvo: o anexo continua no banco e o arquivo continua no disco')]
+    #[DataProvider('exclusoes')]
+    public function testBancoQueRecusaNaoApagaOArquivo(string $alvo): void
+    {
+        [$client, $c] = $this->preparar();
+        $anexoId = $this->subirAnexo($client, $c['cardId']);
+        $caminho = $this->caminhoDoAnexo($anexoId);
+        self::assertFileExists($caminho);
+
+        $em     = static::getContainer()->get(EntityManagerInterface::class);
+        $recusa = new class {
+            public int $recusas = 0;
+
+            public function onFlush(OnFlushEventArgs $args): void
+            {
+                if ($args->getObjectManager()->getUnitOfWork()->getScheduledEntityDeletions() !== []) {
+                    ++$this->recusas;
+
+                    throw new \LogicException('banco recusou a exclusão');
+                }
+            }
+        };
+        $em->getEventManager()->addEventListener([Events::onFlush], $recusa);
+
+        try {
+            match ($alvo) {
+                'anexo' => $client->request('POST', "/kanban/anexo/{$anexoId}/excluir", [
+                    '_token' => 'TOKEN_kanban_anexo_excluir_' . $anexoId,
+                ]),
+                'card' => $client->request('POST', "/kanban/card/{$c['cardId']}/excluir", [
+                    '_token' => 'TOKEN_kanban_card_excluir_' . $c['cardId'],
+                ]),
+                'mural' => $client->request('POST', "/kanban/{$c['boardId']}/excluir", [
+                    '_token' => 'TOKEN_kanban_board_excluir_' . $c['boardId'],
+                ]),
+            };
+        } finally {
+            $em->getEventManager()->removeEventListener([Events::onFlush], $recusa);
+        }
+
+        try {
+            self::assertSame(1, $recusa->recusas, 'a exclusão chegou ao banco e foi recusada');
+            self::assertFalse($client->getResponse()->isSuccessful());
+            self::assertSame(
+                1,
+                (int) $em->getConnection()->fetchOne('SELECT COUNT(*) FROM kanban_anexo WHERE id = ?', [$anexoId]),
+            );
+            self::assertFileExists($caminho, 'o arquivo não pode sair antes de o banco confirmar a exclusão');
+        } finally {
+            @unlink($caminho);
+        }
+    }
+
+    /** COMMIT confirmado seguido de falha física: a exclusão vale e não há erro para quem chamou. */
+    #[TestDox('Disco recusa depois de excluir o $alvo: a exclusão vale, o arquivo fica e não há erro')]
+    #[DataProvider('exclusoes')]
+    public function testDiscoQueFalhaDepoisDoCommitNaoDesfaz(string $alvo): void
+    {
+        if (\function_exists('posix_geteuid') && posix_geteuid() === 0) {
+            self::markTestSkipped('root ignora permissão de diretório');
+        }
+
+        [$client, $c] = $this->preparar();
+        $anexoId = $this->subirAnexo($client, $c['cardId']);
+        $caminho = $this->caminhoDoAnexo($anexoId);
+        $modo    = fileperms($this->diretorioConfigurado()) & 0o7777;
+        chmod($this->diretorioConfigurado(), 0o555);
+
+        try {
+            match ($alvo) {
+                'anexo' => $client->request('POST', "/kanban/anexo/{$anexoId}/excluir", [
+                    '_token' => 'TOKEN_kanban_anexo_excluir_' . $anexoId,
+                ]),
+                'card' => $client->request('POST', "/kanban/card/{$c['cardId']}/excluir", [
+                    '_token' => 'TOKEN_kanban_card_excluir_' . $c['cardId'],
+                ]),
+                'mural' => $client->request('POST', "/kanban/{$c['boardId']}/excluir", [
+                    '_token' => 'TOKEN_kanban_board_excluir_' . $c['boardId'],
+                ]),
+            };
+        } finally {
+            chmod($this->diretorioConfigurado(), $modo);
+        }
+
+        try {
+            self::assertResponseIsSuccessful();
+            $em = static::getContainer()->get(EntityManagerInterface::class);
+            self::assertSame(0, (int) $em->getConnection()->fetchOne('SELECT COUNT(*) FROM kanban_anexo WHERE id = ?', [$anexoId]));
+            self::assertFileExists($caminho, 'órfão recuperável');
+        } finally {
+            @unlink($caminho);
+        }
     }
 
     // ------------------------------------------------------------------ helpers

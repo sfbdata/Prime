@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Sync\Functional;
 
-use App\Shared\Service\ArquivoStorageInterface;
+use App\Pasta\Armazenamento\ChavesDePasta;
+use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Sync\Command\ReconciliarCommand;
 use App\Sync\DTO\ResultadoReconciliacaoPasta;
 use App\Sync\Enum\ModoSincronizacao;
@@ -72,18 +73,19 @@ final class ReconciliadorFalhaDeDownloadTest extends KernelTestCase
     /** @return array<string, string> drive_file_id => conteúdo gravado no storage */
     private function documentosDaPasta(int $pastaId): array
     {
-        $storage    = self::getContainer()->get(ArquivoStorageInterface::class);
-        $uploadsDir = (string) self::getContainer()->getParameter('uploads_dir');
-        $rows       = $this->em()->getConnection()->fetchAllAssociative(
-            'SELECT drive_file_id, caminho_arquivo FROM pasta_documento WHERE pasta_id = :p ORDER BY id',
+        $armazenamento = self::getContainer()->get(ArmazenamentoDeArquivos::class);
+        $uploadsDir    = (string) self::getContainer()->getParameter('uploads_dir');
+        $rows          = $this->em()->getConnection()->fetchAllAssociative(
+            'SELECT drive_file_id, caminho_arquivo, tenant_id FROM pasta_documento WHERE pasta_id = :p ORDER BY id',
             ['p' => $pastaId],
         );
 
         $documentos = [];
         foreach ($rows as $row) {
-            $caminho                  = $storage->caminho($uploadsDir, (string) $row['caminho_arquivo']);
-            $this->arquivosGravados[] = $caminho;
-            $documentos[(string) $row['drive_file_id']] = (string) file_get_contents($caminho);
+            // E2.6C: o conteúdo vem pela chave; o caminho só é montado para a limpeza do teste.
+            $chave                    = ChavesDePasta::documentoPorNome((int) $row['tenant_id'], (string) $row['caminho_arquivo']);
+            $this->arquivosGravados[] = $uploadsDir . '/' . (string) $row['caminho_arquivo'];
+            $documentos[(string) $row['drive_file_id']] = $armazenamento->ler($chave);
         }
 
         return $documentos;
