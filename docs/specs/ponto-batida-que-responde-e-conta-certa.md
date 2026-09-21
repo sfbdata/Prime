@@ -160,6 +160,16 @@ exatamente o que produz número errado com cara de certo.
    representa. ⚠️ **Pré-existente e não tocado por esta frente:** a regra antiga produzia os mesmos
    números nesses 8 dias. É a maior distorção que sobra no cálculo e merece frente própria.
 
+> 🔴 **SUBSTITUÍDO em 21/09/2026: a regra do "repouso cedo por engano" nunca chegou à folha.**
+>
+> - O par adjacente abaixo (o último repouso antes do retorno) só agia quando a calculadora era
+>   chamada direto, como nos testes. A folha real entregava à calculadora **uma** batida por tipo (o
+>   **primeiro** repouso).
+> - Por decisão do dono de 21/09 (`docs/specs/ponto-folha-uma-batida-por-tipo.md` §9.9), **dois
+>   repousos distintos não são reinterpretados**: o cálculo atual fica (o primeiro repouso) e o dia é
+>   marcado "a conferir". A correção é da batida, feita por um humano.
+> - Isso vale para o "repouso cedo" e para o 19/06 abaixo.
+
 ### 🔴 O que a regra final ABANDONOU em relação à primeira versão desta spec
 
 Registro obrigatório, porque é dinheiro e porque o dono já tinha conferido o caso oposto. A v1

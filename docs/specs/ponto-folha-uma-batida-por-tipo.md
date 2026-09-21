@@ -508,3 +508,79 @@ calculadora direto são reescritos contra a escolha. O de repouso precoce muda d
 4. **Card "suas batidas de hoje"** passando a usar a escolha única (recomendado junto).
 5. **Ordem já decidida:** esta frente antes da de duplicatas. Com a regra do §9.3, a D-2 continua
    preservando "a que a folha usa", com o mesmo sentido e a mesma lista.
+
+### 9.9 Decisão do dono sobre o §9.8 (21/09/2026)
+
+1. **Dois repousos distintos:** preservar o cálculo atual e marcar o dia "a conferir". A regra não
+   escolhe sozinha outro repouso. A spec de 14/09 foi atualizada: a regra que ela aprovou para o
+   "repouso cedo por engano" nunca chegou à folha e foi substituída por esta decisão.
+2. **Vigência como salvaguarda,** a partir do 1º dia da competência seguinte ao deploy.
+3. **A marca "a conferir" aparece só na tela do colaborador e na ficha do admin.** O PDF e o XLSX não
+   mudam por enquanto.
+4. **O quadro "suas batidas de hoje"** usa a mesma `EscolhaDasBatidasDoDia`.
+
+## 10. Plano de execução (testes primeiro, commits pequenos)
+
+### 10.1 Divergências do §9, achadas ao detalhar o plano antes de codificar
+
+- **A regra única coincide com a de hoje em todo dia em ordem de horário.** Com a decisão 1 do §9.9
+  e o requisito "dia ambíguo é marcado, não reinterpretado", a nova regra escolhe:
+  - o **primeiro** evento de entrada, de repouso e de retorno;
+  - o **último** de saída.
+
+  Com as batidas em ordem de horário, é exatamente o que a folha escolhe hoje. **O exemplo do §9.3
+  ("retorno errado cedo: 600 → 540") não vale mais:** esse dia é ambíguo, fica em 600 e é marcado.
+  O que a frente entrega:
+  - a decisão única (células, conta, intervalo e quadro de hoje leem a mesma escolha);
+  - a remoção do par adjacente, que era código morto na folha;
+  - as marcas "a conferir";
+  - o acesso do admin às batidas desconsideradas;
+  - a vigência.
+- **O efeito da vigência hoje:** a regra legada preserva a **ordem de entrada** das batidas, como o
+  código antigo; a nova ordena por horário e depois por id. Com a lista vinda do repositório (ordenada
+  por horário), as duas coincidem. O valor da vigência é **estrutural**: dá um ponto de início para
+  qualquer mudança futura da regra sem tocar o passado. Uma mudança futura exige **nova** vigência,
+  nunca editar esta.
+- **`minutosIntervalo` mantém a fórmula de hoje** (diferença entre o repouso e o retorno escolhidos)
+  nas duas regras. É o que alimenta o indicador "intrajornada conforme" do PDF e do XLSX, que por isso
+  não muda (decisão 3). Ele passa a sair das **mesmas** batidas das células e da conta.
+- **O desempate por id no repositório (§9.6) saiu do escopo.** A nova regra ordena sozinha, e a
+  legada precisa preservar a ordem de entrada. Sem mudança em repositório.
+- **O teste T10 (isolamento) saiu.** Nenhuma consulta nova é criada; a superfície de tenant não muda.
+  Os testes de isolamento que já existem continuam na suíte completa.
+- **A data da vigência é `2026-10-01`, supondo deploy em setembro.** Se o deploy for em outubro ou
+  depois, **a constante tem de mudar antes** (portão do deploy). Um teste garante que ela é sempre um
+  1º dia de mês.
+
+### 10.2 Sequência
+
+| # | Commit | Teste que vem primeiro (e falha) | Código |
+|---|---|---|---|
+| 1 | docs: §9.9, spec de 14/09, este §10 | — | — |
+| 2 | Congelar os 64 padrões reais | `FolhaPontoPadroesHistoricosTest`: os 64 padrões (só tipos e horários) pelo `buildRows` real, com os minutos de hoje. **Caracterização:** passa no código de hoje de propósito, para a refatoração não mudar nada. | — |
+| 3 | A escolha das batidas | `EscolhaDasBatidasDoDiaTest` (falha: a classe não existe). Cobre: grupo de 5 min (primeira, e a última na saída); borda de 300 × 301 s; eventos distintos de cada tipo marcados; retorno antes do repouso; dia vazio; batidas desconsideradas; vigência (véspera legada, dia nova, VIGENCIA sempre dia 1º); ordem de entrada na legada × ordenação na nova. | `BatidasEscolhidas` (objeto de valor) e `EscolhaDasBatidasDoDia` |
+| 4 | A calculadora conta a escolha | Em `CalculadoraJornadaTest`, o repouso precoce passa a esperar **360** e a marca `repousos_distintos` (falha: hoje dá 540). Novos testes de `calcularMinutosDaEscolha`/`calcularSaldoDiaDaEscolha`. | A `CalculadoraJornada` recebe a escolha; o par adjacente sai; os métodos com array delegam à escolha |
+| 5 | A folha lê a escolha | Em `FolhaPontoBuilderTest`: células, ids, `minutosIntervalo`, minutos e saldo saem da mesma batida escolhida; linha com `aConferir` e `batidasDesconsideradas` (falha: as chaves não existem). O T8 ganha os 64 padrões **depois** da vigência (mesmos minutos) e as marcas do 19/06 e do 28/08. | `FolhaPontoBuilder` sem escolha própria |
+| 6 | Marca na tela e na ficha do admin | Funcionais: `/ponto/` mostra o selo e não mostra links; a ficha do admin mostra o selo e os links de editar e excluir das desconsideradas (falha: não existem). | `_folha_table.html.twig` |
+| 7 | Quadro de hoje | Em `BatidasDeHojeNaTelaTest`, duas entradas → o quadro mostra a **primeira**, a da folha, e continua dizendo "2 registros" (falha: hoje mostra a última). | `PontoController::index` |
+| 8 | Exportação e saldos | Funcional do XLSX (lê a planilha: horas do dia, saldo e banco); `montarDadosFolha` por reflexão, como no `HorasPagasTotalAssinadoTest` (o que o PDF imprime); `calcularSaldoAteMes`/`Anual` atravessando a vigência (diário, mensal e anual). São guardas de regressão. | — |
+| 9 | docs: registro da execução, das mutações e das revisões | — | — |
+
+### 10.3 Provas por reintrodução (diário por mutação, reverter e conferir `git diff` vazio)
+
+| Mutação | Teste que precisa cair |
+|---|---|
+| M1: a vigência ignorada (sempre legada, ou sempre nova) | teste da vigência (commit 3) |
+| M2: o grupo de 5 min vale a **primeira** também na saída | T8 depois da vigência (padrões de 20/05 e 10/09) |
+| M3: dois repousos distintos → o **último** antes do retorno (almoço menor) | T8 (19/06 e 28/08) e o repouso precoce |
+| M4: a célula lê uma batida diferente da usada na conta | teste da folha (commit 5) |
+| M5: as marcas deixam de ser calculadas | teste da escolha e funcional do selo |
+| M6: o quadro de hoje volta a usar a última | teste do quadro (commit 7) |
+| M7: a janela de 5 min vira 10 min | teste da borda (commit 3) |
+
+### 10.4 Validação final
+
+- Suíte completa da frente (`scripts/frente-testar.sh`).
+- `lint:twig`, `lint:container` e `doctrine:schema:validate --skip-sync` (este sem migration).
+- Revisão por dois `feature-review-agent` independentes (regra e histórico; telas e testes). Depois,
+  correções e uma nova revisão, porque o risco é ALTO.
