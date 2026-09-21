@@ -131,13 +131,26 @@ final class EscolhaDasBatidasDoDiaTest extends TestCase
         self::assertSame([BatidasEscolhidas::MARCA_REPOUSOS_DISTINTOS], $escolha->aConferir);
     }
 
+    public function testBatidaRealSeguidaDeAprovacaoTambemNaoViraRepeticao(): void
+    {
+        // A ordem inversa: a batida real primeiro e a aprovação depois, dentro dos 5 min.
+        $real = $this->batida('repouso', '12:00:00', self::DIA_NOVO);
+        $aprovacao = $this->batida('repouso', '12:04:00', self::DIA_NOVO);
+        $aprovacao->setObservacao('Criado por aprovação de justificativa (Esquecimento de Registro)');
+
+        $escolha = $this->escolher([$real, $aprovacao], self::DIA_NOVO);
+
+        self::assertSame($real, $escolha->repouso);
+        self::assertSame([BatidasEscolhidas::MARCA_REPOUSOS_DISTINTOS], $escolha->aConferir);
+    }
+
     public function testLancamentoManualRepetidoTambemFicaMarcado(): void
     {
         // A C4 (o admin enviou o formulário duas vezes): fica para o admin conferir, não some sozinha.
         $primeiro = $this->batida('retorno', '14:36:00', self::DIA_NOVO);
-        $primeiro->setSedeNomeSnapshot('Lançamento manual');
+        $primeiro->setSedeNomeSnapshot(RegistroPonto::SNAPSHOT_LANCAMENTO_MANUAL);
         $segundo = $this->batida('retorno', '14:36:15', self::DIA_NOVO);
-        $segundo->setSedeNomeSnapshot('Lançamento manual');
+        $segundo->setSedeNomeSnapshot(RegistroPonto::SNAPSHOT_LANCAMENTO_MANUAL);
 
         $escolha = $this->escolher([$primeiro, $segundo], self::DIA_NOVO);
 

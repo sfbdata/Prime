@@ -23,6 +23,13 @@ class RegistroPonto implements Auditavel, TenantAware
         self::TIPO_SAIDA,
     ];
 
+    /**
+     * O `sedeNomeSnapshot` da batida lançada ou editada pelo admin (`TenantController::pontoAdd` e
+     * `pontoEdit`). `EscolhaDasBatidasDoDia` lê este mesmo valor para saber que a batida não é do
+     * colaborador — por isso é constante, e não texto repetido nos dois lados.
+     */
+    public const SNAPSHOT_LANCAMENTO_MANUAL = 'Lançamento manual';
+
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]

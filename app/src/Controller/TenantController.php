@@ -856,7 +856,7 @@ final class TenantController extends AbstractController
             $registro->setDataHora($dataHora);
             $registro->setTipo($form->get('tipo')->getData());
             $registro->setObservacao($form->get('observacao')->getData());
-            $registro->setSedeNomeSnapshot('Lançamento manual');
+            $registro->setSedeNomeSnapshot(RegistroPonto::SNAPSHOT_LANCAMENTO_MANUAL);
 
             $entityManager->persist($registro);
             $entityManager->flush();
@@ -952,7 +952,7 @@ final class TenantController extends AbstractController
             $registro->setDataHora($dataHora);
             $registro->setTipo($form->get('tipo')->getData());
             $registro->setObservacao($form->get('observacao')->getData());
-            $registro->setSedeNomeSnapshot('Lançamento manual');
+            $registro->setSedeNomeSnapshot(RegistroPonto::SNAPSHOT_LANCAMENTO_MANUAL);
 
             $entityManager->flush();
 

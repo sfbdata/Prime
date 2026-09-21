@@ -43,9 +43,6 @@ final class EscolhaDasBatidasDoDia
     /** A janela da D-1 da frente de duplicatas: repetição a até 5 min é o mesmo registro. */
     public const JANELA_REPETICAO_SEGUNDOS = 300;
 
-    /** O que `TenantController::pontoAdd`/`pontoEdit` gravam na batida lançada ou mexida pelo admin. */
-    private const SNAPSHOT_LANCAMENTO_MANUAL = 'Lançamento manual';
-
     private readonly \DateTimeImmutable $inicioDaVigencia;
 
     public function __construct(string $vigencia = self::VIGENCIA)
@@ -165,7 +162,7 @@ final class EscolhaDasBatidasDoDia
     private function ehDoColaborador(RegistroPonto $batida): bool
     {
         return $batida->getObservacao() === null
-            && $batida->getSedeNomeSnapshot() !== self::SNAPSHOT_LANCAMENTO_MANUAL;
+            && $batida->getSedeNomeSnapshot() !== RegistroPonto::SNAPSHOT_LANCAMENTO_MANUAL;
     }
 
     /**
