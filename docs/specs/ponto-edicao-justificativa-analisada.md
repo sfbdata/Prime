@@ -132,10 +132,22 @@ Nenhum é CRÍTICO nem ALTO pela medição; nenhum foi corrigido aqui.
 ## 7. Integração com `fix-troca-atestado-abonado` — esta frente NÃO vai para produção sozinha
 
 As duas frentes saem de `91d0aef3` e mexem na mesma rota. **Nesta frente sozinha, o caminho com
-atestado é protegido pela recusa rápida (R3), mas não contra a corrida com o admin** (janela curta:
-validação e gravação do arquivo) — quem fecha a corrida desse caminho é a outra frente (lote todo
-pendente, lido com `FOR UPDATE` dentro da transação do anexo, antes de gravar; lote todo pendente
-implica o registro pendente). Por isso as duas vão juntas para produção, a do atestado primeiro.
+atestado fica com dois furos, e só a outra frente fecha os dois:**
+
+- **Lote misto: determinístico, sem corrida nenhuma.** A recusa rápida (R3) olha só o registro da
+  rota; a troca de atestado atinge o lote inteiro (`SubstituirAnexoDoLoteUseCase` carrega por
+  `batchId`, sem filtrar status). Com o registro da rota pendente e outro dia do mesmo lote abonado
+  ou rejeitado, o POST com atestado passa pela R3, troca o atestado dos dias já analisados e apaga o
+  PDF antigo, toda vez. Como o token só é emitido para `batch[0]`, exige `batch[0]` pendente. Não é
+  regressão: é idêntico na base `91d0aef3`, e esta frente estreita a superfície. Produção, 21/09:
+  276 lotes, 8 de vários dias, 1 misto, e nele `batch[0]` é abonado, ou seja, esta frente fecha o
+  único caso existente; nenhum lote com `batch[0]` pendente e dia analisado.
+- **Corrida com o admin: janela curta** (validação e gravação do arquivo). O registro que estava
+  pendente na R3 pode ser analisado antes de o anexo gravar.
+
+A outra frente fecha os dois: exige o lote todo pendente, lido com `FOR UPDATE` dentro da transação
+do anexo e antes de gravar o arquivo (lote todo pendente implica o registro pendente). Por isso as
+duas vão juntas para produção, a do atestado primeiro.
 
 **Medido em 18/09, sem mesclar nada** (`git merge-tree` + a árvore mesclada extraída por `git
 archive` para um diretório de ensaio fora do git, com banco próprio):
