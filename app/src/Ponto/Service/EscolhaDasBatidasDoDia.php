@@ -73,9 +73,14 @@ final class EscolhaDasBatidasDoDia
         $ordenadas = $this->ordenar($batidasDoDia);
         $registros = $this->registros($ordenadas);
 
-        $escolhidas = $regra === BatidasEscolhidas::REGRA_LEGADA
-            ? $this->escolhaLegada($batidasDoDia)
-            : $this->escolhaUnica($registros);
+        // Só os quatro tipos: batida de tipo fora deles (dado gravado por fora do `setTipo`) fica entre
+        // as desconsideradas, e o dia continua "com batida" para o registro incompleto, como antes.
+        $escolhidas = array_intersect_key(
+            $regra === BatidasEscolhidas::REGRA_LEGADA
+                ? $this->escolhaLegada($batidasDoDia)
+                : $this->escolhaUnica($registros),
+            array_flip(RegistroPonto::TIPOS_VALIDOS),
+        );
 
         $desconsideradas = array_values(array_filter(
             $ordenadas,
@@ -102,11 +107,16 @@ final class EscolhaDasBatidasDoDia
      * Horário, e no mesmo segundo o id (o registro gravado primeiro). `usort` é estável, então
      * batidas sem id (ainda não gravadas) mantêm a ordem em que chegaram.
      *
-     * @param list<RegistroPonto> $batidas
+     * Público para quem recebe uma lista solta (os métodos de lista da `CalculadoraJornada`) poder
+     * entregá-la na ordem do repositório; a regra legada preserva a ordem em que as batidas chegam.
+     *
+     * @param RegistroPonto[] $batidas
      * @return list<RegistroPonto>
      */
-    private function ordenar(array $batidas): array
+    public function ordenar(array $batidas): array
     {
+        $batidas = array_values($batidas);
+
         usort($batidas, static function (RegistroPonto $a, RegistroPonto $b): int {
             $porHorario = $a->getDataHora()->getTimestamp() <=> $b->getDataHora()->getTimestamp();
             if ($porHorario !== 0) {

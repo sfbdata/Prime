@@ -651,7 +651,8 @@ class CalculadoraJornadaTest extends TestCase
             $this->batida(RegistroPonto::TIPO_SAIDA, '17:30'),
         ];
 
-        // Manhã 07:17→12:50 (333) + tarde 13:50→17:30 (220). Antes: a tarde virava 18 min (351).
+        // Manhã 07:17→12:50 (333) + tarde 13:50→17:30 (220). A calculadora antiga, chamada direto, dava 351;
+        // a folha, que já entregava uma batida por tipo, sempre mostrou 553.
         $this->assertSame(553, $this->calculadora->calcularMinutosTrabalhados($batidas));
     }
 
@@ -666,7 +667,8 @@ class CalculadoraJornadaTest extends TestCase
             $this->batida(RegistroPonto::TIPO_SAIDA, '18:35'),
         ];
 
-        // Manhã 09:01→12:43 (222) + tarde 13:53→18:35 (282). Antes: 576, com o almoço dentro.
+        // Manhã 09:01→12:43 (222) + tarde 13:53→18:35 (282). A calculadora antiga chamada direto dava 576;
+        // a folha sempre mostrou 504.
         $this->assertSame(504, $this->calculadora->calcularMinutosTrabalhados($batidas));
     }
 
@@ -681,8 +683,8 @@ class CalculadoraJornadaTest extends TestCase
             $this->batida(RegistroPonto::TIPO_SAIDA, '17:09'),
         ];
 
-        // Manhã 07:30→12:00 (270) + tarde 13:00→17:09 (249). Antes: a manhã virava o |12:00-14:51|
-        // do `diff` sem sinal, e o dia dava 420.
+        // Manhã 07:30→12:00 (270) + tarde 13:00→17:09 (249). A calculadora antiga chamada direto usava
+        // a última entrada (|12:00-14:51| do `diff` sem sinal) e dava 420; a folha sempre mostrou 519.
         $this->assertSame(519, $this->calculadora->calcularMinutosTrabalhados($batidas));
     }
 
@@ -697,7 +699,8 @@ class CalculadoraJornadaTest extends TestCase
             $this->batida(RegistroPonto::TIPO_SAIDA, '18:03'),
         ];
 
-        // Manhã 08:18→14:36 (378) + tarde 15:39→18:03 (144). Antes: a manhã virava 1 minuto (145).
+        // Manhã 08:18→14:36 (378) + tarde 15:39→18:03 (144). A calculadora antiga chamada direto dava
+        // 145; a folha sempre mostrou 522.
         $this->assertSame(522, $this->calculadora->calcularMinutosTrabalhados($batidas));
     }
 
@@ -830,11 +833,33 @@ class CalculadoraJornadaTest extends TestCase
         ];
         $escolha = $this->calculadora->escolherBatidas($batidas, $this->segunda());
 
-        $this->assertSame(
-            $this->calculadora->calcularSaldoDia($user, $this->segunda(), $batidas, $user->getJornadaColaborador(), []),
-            $this->calculadora->calcularSaldoDiaDaEscolha($user, $this->segunda(), $escolha, $user->getJornadaColaborador(), [])
-        );
+        // 09:00→12:00 (180) + 13:00→18:30 (330) = 510, contra a meta de 528 do bloco: −18.
+        $this->assertSame(-18, $this->calculadora->calcularSaldoDiaDaEscolha($user, $this->segunda(), $escolha, $user->getJornadaColaborador(), []));
+        $this->assertSame(-18, $this->calculadora->calcularSaldoDia($user, $this->segunda(), $batidas, $user->getJornadaColaborador(), []));
         $this->assertFalse($this->calculadora->registroIncompletoDaEscolha($escolha));
+    }
+
+    public function testListaForaDeOrdemDaOMesmoQueEmOrdem(): void
+    {
+        // Os métodos que recebem lista solta não dependem da ordem em que ela chega: a folha passa a
+        // lista do repositório (em ordem de horário), mas quem chama direto pode não passar.
+        $foraDeOrdem = [
+            $this->batida(RegistroPonto::TIPO_ENTRADA, '09:00'),
+            $this->batida(RegistroPonto::TIPO_ENTRADA, '08:00'),
+            $this->batida(RegistroPonto::TIPO_SAIDA, '17:00'),
+        ];
+
+        $this->assertSame(540, $this->calculadora->calcularMinutosTrabalhados($foraDeOrdem), '08:00→17:00');
+    }
+
+    public function testDiaSoComBatidaDeTipoDesconhecidoContinuaIncompleto(): void
+    {
+        // Como era antes: houve batida, mas nenhuma que permita apurar — o dia não vira falta inteira.
+        // O `setTipo` recusa tipo fora dos quatro; só um dado gravado por fora chegaria aqui.
+        $batida = $this->batida(RegistroPonto::TIPO_ENTRADA, '09:00');
+        (new \ReflectionProperty(RegistroPonto::class, 'tipo'))->setValue($batida, 'desconhecido');
+
+        $this->assertTrue($this->calculadora->registroIncompleto([$batida]));
     }
 
     public function testRegistroIncompletoDaEscolhaSegueAPresencaDosTipos(): void

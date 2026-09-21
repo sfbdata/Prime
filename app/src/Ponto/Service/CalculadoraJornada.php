@@ -42,7 +42,18 @@ class CalculadoraJornada
      */
     public function calcularSaldoDia(User $user, \DateTimeInterface $data, array $batidas, ?JornadaColaborador $jornada, array $feriados, ?JornadaTenant $jornadaTenant = null): int
     {
-        return $this->calcularSaldoDiaDaEscolha($user, $data, $this->escolherBatidas($batidas, $data), $jornada, $feriados, $jornadaTenant);
+        return $this->calcularSaldoDiaDaEscolha($user, $data, $this->escolherDaLista($batidas, $data), $jornada, $feriados, $jornadaTenant);
+    }
+
+    /**
+     * A escolha para os métodos que recebem lista solta: ela é posta em ordem de horário antes, porque
+     * quem chama direto pode não passar a lista do repositório. A folha usa {@see escolherBatidas()}.
+     *
+     * @param RegistroPonto[] $batidas
+     */
+    private function escolherDaLista(array $batidas, ?\DateTimeInterface $dia = null): BatidasEscolhidas
+    {
+        return $this->escolherBatidas($this->escolhaDasBatidas->ordenar($batidas), $dia);
     }
 
     /**
@@ -145,7 +156,7 @@ class CalculadoraJornada
      */
     public function registroIncompleto(array $batidas): bool
     {
-        return $this->registroIncompletoDaEscolha($this->escolherBatidas($batidas));
+        return $this->registroIncompletoDaEscolha($this->escolherDaLista($batidas));
     }
 
     /**
@@ -155,7 +166,9 @@ class CalculadoraJornada
     public function registroIncompletoDaEscolha(BatidasEscolhidas $escolha): bool
     {
         if ($escolha->escolhidas() === []) {
-            return false;
+            // Sem nenhuma batida é ausência, não incompleto. Com batida só de tipo desconhecido, é
+            // incompleto (sempre foi assim).
+            return $escolha->desconsideradas !== [];
         }
 
         if ($escolha->entrada === null || $escolha->saida === null) {
@@ -172,15 +185,17 @@ class CalculadoraJornada
      */
     public function calcularMinutosTrabalhados(array $batidas): int
     {
-        return $this->calcularMinutosDaEscolha($this->escolherBatidas($batidas));
+        return $this->calcularMinutosDaEscolha($this->escolherDaLista($batidas));
     }
 
     /**
      * Os minutos do dia a partir das batidas escolhidas: manhã (entrada→repouso) mais tarde
      * (retorno→saída) quando há intervalo mensurável; sem ele, o span entrada→saída.
      *
-     * Não escolhe batida nenhuma. Até 21/09/2026 escolhia (o "par adjacente": o último repouso antes
-     * do primeiro retorno), mas a folha só entregava uma batida por tipo e a regra nunca chegou à tela.
+     * Não escolhe batida nenhuma. Até 21/09/2026 escolhia (o "par adjacente": o primeiro retorno que
+     * tivesse algum repouso antes, e o último repouso antes dele), mas a folha só entregava uma batida
+     * por tipo e a regra nunca chegou à tela. ⚠️ Esta conta vale para os dois lados da vigência: mudar
+     * aqui muda o passado (o `FolhaPontoPadroesHistoricosTest` cai) e exige uma vigência própria.
      * Dia com dois repousos distintos é ambíguo e fica com o primeiro, marcado para conferência
      * (decisão do dono, `docs/specs/ponto-folha-uma-batida-por-tipo.md` §9.9).
      */
