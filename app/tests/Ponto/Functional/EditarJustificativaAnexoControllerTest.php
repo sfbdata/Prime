@@ -107,12 +107,18 @@ final class EditarJustificativaAnexoControllerTest extends JusPrimeWebTestCase
         );
     }
 
-    /** @return iterable<string, array{list<string>}> */
+    /**
+     * O dia editado (o primeiro) está pendente e outro dia do lote não: é o caso que só a regra do
+     * atestado recusa. Lote cujo dia editado já foi analisado é recusado antes, pela regra da edição
+     * (C2-01) — coberto em `EdicaoDeJustificativaAnalisadaControllerTest`.
+     *
+     * @return iterable<string, array{list<string>}>
+     */
     public static function lotesAnalisados(): iterable
     {
-        yield 'abonado'                    => [['abonado', 'abonado']];
-        yield 'rejeitado'                  => [['rejeitado', 'rejeitado']];
-        yield 'misto (editado pelo pendente)' => [['pendente', 'abonado']];
+        yield 'misto: outro dia abonado'   => [['pendente', 'abonado']];
+        yield 'misto: outro dia rejeitado' => [['pendente', 'rejeitado']];
+        yield 'misto: três dias, o último abonado' => [['pendente', 'pendente', 'abonado']];
     }
 
     /**
@@ -165,9 +171,11 @@ final class EditarJustificativaAnexoControllerTest extends JusPrimeWebTestCase
     /** @return iterable<string, array{list<string>, string}> */
     public static function lotesNaTela(): iterable
     {
-        yield 'todo pendente: oferece'   => [['pendente', 'pendente'], '1'];
-        yield 'um dia abonado: não'      => [['pendente', 'abonado'], '0'];
-        yield 'rejeitado: não'           => [['rejeitado'], '0'];
+        // O botão edita o dia mais recente exibido (`batch[0]`); ele precisa estar pendente para haver
+        // botão (C2-01). O sinal do atestado olha o lote inteiro.
+        yield 'todo pendente: oferece'           => [['pendente', 'pendente'], '1'];
+        yield 'um dia abonado: não'              => [['abonado', 'pendente'], '0'];
+        yield 'um dia rejeitado: não'            => [['rejeitado', 'pendente'], '0'];
     }
 
     /**
