@@ -168,7 +168,9 @@ final class EscolhaDasBatidasDoDia
     /**
      * O primeiro registro de cada tipo e, na saída, o de horário mais tarde. Dentro de um registro
      * repetido vale a primeira batida e, na saída, a mais tarde. No empate de segundo, a que veio antes
-     * na ordem (horário e id), exatamente como a regra legada sobre a lista do repositório.
+     * na ordem (horário e id) — o mesmo que a regra legada escolhe quando a lista chega nessa ordem. O
+     * repositório ordena só por horário: num empate de segundo, a legada segue a ordem que o banco
+     * devolver, e os minutos são os mesmos (a coluna não guarda fração de segundo).
      *
      * @param list<list<RegistroPonto>> $registros
      * @return array<string, RegistroPonto>

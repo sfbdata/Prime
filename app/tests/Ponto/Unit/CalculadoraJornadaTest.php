@@ -651,7 +651,8 @@ class CalculadoraJornadaTest extends TestCase
             $this->batida(RegistroPonto::TIPO_SAIDA, '17:30'),
         ];
 
-        // Manhã 07:17→12:50 (333) + tarde 13:50→17:30 (220). A calculadora antiga, chamada direto, dava 351;
+        // Manhã 07:17→12:50 (333) + tarde 13:50→17:30 (220). A calculadora de antes de 14/09 (a última batida de cada tipo),
+        // chamada direto, dava 351;
         // a folha, que já entregava uma batida por tipo, sempre mostrou 553.
         $this->assertSame(553, $this->calculadora->calcularMinutosTrabalhados($batidas));
     }
@@ -667,7 +668,8 @@ class CalculadoraJornadaTest extends TestCase
             $this->batida(RegistroPonto::TIPO_SAIDA, '18:35'),
         ];
 
-        // Manhã 09:01→12:43 (222) + tarde 13:53→18:35 (282). A calculadora antiga chamada direto dava 576;
+        // Manhã 09:01→12:43 (222) + tarde 13:53→18:35 (282). A calculadora de antes de 14/09 (a última de cada tipo)
+        // chamada direto dava 576;
         // a folha sempre mostrou 504.
         $this->assertSame(504, $this->calculadora->calcularMinutosTrabalhados($batidas));
     }
@@ -683,8 +685,8 @@ class CalculadoraJornadaTest extends TestCase
             $this->batida(RegistroPonto::TIPO_SAIDA, '17:09'),
         ];
 
-        // Manhã 07:30→12:00 (270) + tarde 13:00→17:09 (249). A calculadora antiga chamada direto usava
-        // a última entrada (|12:00-14:51| do `diff` sem sinal) e dava 420; a folha sempre mostrou 519.
+        // Manhã 07:30→12:00 (270) + tarde 13:00→17:09 (249). A calculadora de antes de 14/09, chamada
+        // direto, usava a última entrada (|12:00-14:51| do `diff` sem sinal) e dava 420; a folha sempre mostrou 519.
         $this->assertSame(519, $this->calculadora->calcularMinutosTrabalhados($batidas));
     }
 
@@ -699,8 +701,8 @@ class CalculadoraJornadaTest extends TestCase
             $this->batida(RegistroPonto::TIPO_SAIDA, '18:03'),
         ];
 
-        // Manhã 08:18→14:36 (378) + tarde 15:39→18:03 (144). A calculadora antiga chamada direto dava
-        // 145; a folha sempre mostrou 522.
+        // Manhã 08:18→14:36 (378) + tarde 15:39→18:03 (144). A calculadora de antes de 14/09 (a última de
+        // cada tipo), chamada direto, dava 145; a folha sempre mostrou 522.
         $this->assertSame(522, $this->calculadora->calcularMinutosTrabalhados($batidas));
     }
 
@@ -850,6 +852,10 @@ class CalculadoraJornadaTest extends TestCase
         ];
 
         $this->assertSame(540, $this->calculadora->calcularMinutosTrabalhados($foraDeOrdem), '08:00→17:00');
+
+        // E o saldo também: 540 contra a meta de 528 do bloco. Pela primeira da lista (09:00) seria −48.
+        $user = $this->novoUsuario($this->jornadaComIntervalo());
+        $this->assertSame(12, $this->calculadora->calcularSaldoDia($user, $this->segunda(), $foraDeOrdem, $user->getJornadaColaborador(), []));
     }
 
     public function testDiaSoComBatidaDeTipoDesconhecidoContinuaIncompleto(): void
