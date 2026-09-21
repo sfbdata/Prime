@@ -269,3 +269,242 @@ FROM d JOIN registro_ponto r ON r.tenant_id=d.tenant_id AND r.user_id=d.user_id 
 WHERE d.n > d.nt OR d.ret1 <= d.repN
 GROUP BY d.user_id, d.dia ORDER BY d.dia, d.user_id;
 ```
+
+## 9. Plano técnico da solução A (não implementado)
+
+### 9.1 O que já existe para preservar o histórico
+
+**Não existe no Ponto um conceito confiável de competência fechada.**
+
+Fontes:
+
+- levantamento de um investigador só de leitura, sobre o código de `563460a9`;
+- consultas somente leitura à produção;
+- conferência própria dos pontos marcados com ✓.
+
+| Candidato | O que é de fato | Serve para preservar o histórico? |
+|---|---|---|
+| Tabela ou coluna de fechamento, folha emitida ou folha assinada | **Não existe**: nem nas migrations nem no `information_schema` da produção | — |
+| `ponto_lancamento_horas_pagas` (ano/mês/minutos) | Ajuste manual do banco, editável e excluível à vontade (spec de horas pagas, "Editar e excluir livremente"). **0 linhas em produção** ✓ | Não: não guarda saldo e não trava nada |
+| "Bloco assinado" do PDF/XLSX (`folha_pdf.html.twig:330-351`) | Linhas para assinar **à caneta**. Nada é gravado ao exportar. `tenant.responsavel_assinatura` é só o nome impresso | Não. A folha assinada só existe no papel |
+| `InicioContagemResolver` | Data da 1ª batida, calculada a cada leitura; muda com batida ou abono retroativo | Não: é móvel |
+| Zeramento do banco em 1º/jan | Único corte fixo do cálculo | Não é fechamento de mês |
+| `/ponto` do colaborador mostrando só o mês atual e o anterior (`PontoController.php:94-99`) ✓ | Filtro de tela. Admin, PDF e XLSX alcançam qualquer mês | Não |
+| Recusa de alterar período passado | **Não existe.** Batida, justificativa, reversão e jornada: tudo edita qualquer data. A C2-01 trava a justificativa **por estado**, não por período | Não |
+| Vigência de regra de cálculo | **Não existe.** A única vigência do Ponto é `home_office_config.vigencia_inicio/fim`, que decide a batida do dia e não o saldo | — |
+| Mudanças anteriores de cálculo (05/08, 31/08, início da contagem, 14/09) | **Todas retroativas, sem corte** ✓ (`ponto-abono-nao-perdoa-jornada.md:120`, `ponto-registro-incompleto-entrada-saida.md:3`) | — |
+
+**Precedentes de desenho fora do Ponto:**
+
+- **Versão vigente por data como constante no código:** `TermoVigente::VERSAO = '2026-06-23'` ✓
+  (`app/src/Termo/TermoVigente.php:16`). A vigência do §9.4 segue esse modelo.
+- **Congelamento de resultado em estado fechado:** `Obrigacao.encargosCongeladosEm`/`liquidadaEm` na
+  Cobrança, que guardam um retrato e não recalculam. É o modelo para um **fechamento verdadeiro** no
+  futuro, se o dono quiser imutabilidade. Não é proposto aqui.
+
+**Consequência para o plano:** "competência fechada" não é estado do sistema, só calendário. Por isso
+a proteção **não pode depender** de saber se um mês está fechado. A vigência por data congela a regra
+para **todo** dia anterior a ela, fechado ou não, sem precisar definir fechamento.
+
+### 9.2 Os 7 dias (além do 19/06), por competência
+
+É o resultado da A "pura" (par adjacente sobre todas as batidas do dia), a mesma do §5.
+
+- Metas de hoje.
+- Nenhum feriado, nenhum abono de saldo, nenhum dia dentro da tolerância, nenhum dia incompleto.
+- Hoje é 21/09, então setembro/2026 é a competência corrente.
+
+| Dia | Usuário | Competência | Situação (só calendário: não há fechamento no sistema, §9.1) | Repousos | Classe (frente de duplicatas) | Folha hoje → A pura |
+|---|---|---|---|---|---|---|
+| 09/04 | 3 | 04/2026 | encerrada pelo calendário | 12:43:00 e 12:43:24 | C1 (+24 s) | 399 → 400 (+1) |
+| 04/05 | 9 | 05/2026 | encerrada pelo calendário | 4 entre 12:14:35 e 12:16:49 | C1 | 540 → 542 (+2) |
+| 07/08 | 5 | 08/2026 | encerrada pelo calendário | 12:03:04 e 12:03:34 | C1 (+30 s) | 542 → 543 (+1) |
+| 14/08 | 9 | 08/2026 | encerrada pelo calendário | 12:49:41 e 12:50:02 | C1 (+21 s) | 530 → 531 (+1) |
+| 28/08 | 12 | 08/2026 | encerrada pelo calendário | 12:00:00 (aprovação) e 12:05:04 (GPS) | **C3** (+304 s, origens diferentes) | 476 → 481 (+5) |
+| 02/09 | 5 | 09/2026 | **corrente (aberta)** | 12:04:43 e 12:05:02 | C1 (+19 s) | 537 → 538 (+1) |
+| 03/09 | 9 | 09/2026 | **corrente (aberta)** | 3 entre 13:18:31 e 13:19:03 | C1 | 587 → 588 (+1) |
+
+Mais o **19/06**, usuário 1, competência 06/2026, encerrada pelo calendário: repousos às 12:28 e às
+13:30, 500 → 562 (+62). É ambíguo.
+
+**Resumo:**
+
+- 5 dias em competências passadas (abril, maio e três em agosto);
+- 2 na competência corrente (setembro);
+- mais o 19/06;
+- "encerrada" aqui é só calendário: ver §9.1.
+
+### 9.3 A regra única: `EscolhaDasBatidasDoDia`
+
+**Uma única função decide quais batidas do dia valem.** Tudo usa essa escolha:
+
+- as células da folha e os ids dos links de editar e excluir;
+- `minutosIntervalo`;
+- `calcularMinutosTrabalhados`, `calcularSaldoDia` e `registroIncompleto`;
+- a tela, a ficha do admin, o PDF, o XLSX e os saldos do mês e do ano.
+
+A calculadora deixa de escolher por conta própria: recebe a escolha pronta.
+
+**Entrada:** todas as batidas do dia, em ordem de `dataHora` e depois de `id` (hoje falta o desempate
+por id).
+
+1. **Eventos.** Batidas do mesmo tipo, **consecutivas** e com até **5 min** entre si formam um só
+   evento. É a janela da D-1, já aprovada na frente de duplicatas; não é limiar novo.
+
+   O evento vale **a batida que a folha usa hoje**: a primeira do grupo, e a última quando o tipo é
+   saída. É a mesma que a D-2 manda preservar na limpeza. As outras são "repetições" e não entram na
+   conta.
+2. **Entrada** = o primeiro evento de entrada. **Saída** = o último evento de saída.
+3. **Intervalo.** O retorno usado é o primeiro evento de retorno que tenha algum repouso antes dele.
+   - Um só evento de repouso antes dele: esse é o repouso.
+   - **Dois ou mais eventos de repouso antes dele:** o dia é **ambíguo**. A regra **não** escolhe
+     sozinha o almoço menor. Mantém o **primeiro** repouso (a escolha atual) e marca o dia (§9.5).
+   - Nenhum par: não há intervalo, e o dia vale o span inteiro (regra de 31/08, como hoje).
+4. **Marcas "a conferir"**, que não mudam número nenhum:
+   - dois eventos distintos de entrada;
+   - dois de retorno;
+   - dois de saída;
+   - dois de repouso;
+   - retorno antes do repouso.
+
+   São batidas que o admin deveria corrigir. Nos dados de hoje, 33 dias seriam marcados.
+
+**Efeito medido sobre os 64 dias reais** (simulação em Python validada contra o PHP real nos 64 dias):
+
+- **nenhum dia muda**;
+- os outros 819 pessoa-dias são iguais pela construção (no máximo uma batida por tipo, em ordem).
+
+A regra só dá resultado diferente em **padrões que hoje não existem**. Exemplo: retorno batido por
+engano de manhã e depois o par real repouso 12:00 → retorno 13:00. A folha de hoje dá 600 min (span);
+a regra única dá 540.
+
+⚠️ **O que a regra desfaz do 14/09.** O caso "repouso cedo por engano" (09:00 e 12:00) continua valendo
+360 min, agora **marcado**. Os testes unitários da calculadora de 14/09
+(`testRepousoPrecoceDeTipoErradoNaoApagaAManha`, que espera 540) teriam de mudar. Isso é coerente com a
+decisão 2 (repousos distintos são ambíguos e dependem de decisão humana), mas **contradiz o que a
+spec de 14/09 aprovou para esse caso**. Aquela regra nunca chegou à folha: está no §9.8 como decisão.
+
+### 9.4 Como aplicar daqui para frente sem recalcular o passado
+
+A folha é recalculada a cada exibição a partir de quatro coisas:
+
+- as batidas;
+- a regra;
+- a jornada **atual** (blocos sem vigência, §9.1);
+- feriados e justificativas.
+
+**Uma mudança de regra só recalcula o passado se ela der número diferente para dados que já existem.**
+A proposta tem duas camadas.
+
+1. **Regra desenhada para coincidir com a de hoje em todo dado existente (§9.3). É a proteção
+   principal.** Medido: zero dias mudam. A prova fica **permanente** num teste de regressão com os 64
+   padrões reais (§9.6, T8), sem `user_id`: só tipos e horários. Se alguém mexer na regra e mudar o
+   passado, esse teste cai.
+2. **Vigência por competência, como salvaguarda.** Uma **constante datada no código**, no modelo do
+   `TermoVigente::VERSAO` (por exemplo, `EscolhaDasBatidasDoDia::VIGENCIA = '2026-10-01'`), injetável
+   nos testes. Vale a partir do **1º dia da competência seguinte ao deploy**, então uma competência nunca
+   é calculada com duas regras. É constante e não configuração para que mudá-la passe por commit e
+   revisão.
+   - Para dia < vigência, `EscolhaDasBatidasDoDia` delega à **escolha legada**. É o código de hoje
+     (`FolhaPontoBuilder.php:49-70` mais o par adjacente sobre a lista reduzida), **congelado** numa
+     classe própria.
+   - Garante que um padrão divergente criado **depois** num dia passado (por exemplo, o admin editando
+     uma batida antiga até formar o caso do retorno errado cedo) continue sendo calculado pela regra de
+     quando aquele dia aconteceu.
+   - **Regras da vigência:**
+     - ela só anda para a frente;
+     - mudá-la exige revisão e a medição do §5 refeita;
+     - **não é por usuário nem por dia.**
+
+**O que isso NÃO garante, e continua como hoje** (fora do escopo, registrado):
+
+- **Alterações humanas.** Batida editada, apagada ou lançada num mês passado muda o resultado desse
+  mês, como sempre mudou (com `audit_log`).
+- **Jornada e feriados.** Mudar a jornada de alguém recalcula o histórico dessa pessoa inteiro, porque
+  `bloco_jornada_colaborador` e `jornada_colaborador` não têm vigência. Um feriado cadastrado depois
+  também recalcula o histórico.
+- **Imutabilidade de mês fechado de verdade** exigiria um fechamento persistido (foto da folha
+  assinada). **Não existe hoje** (§9.1) e seria mecanismo novo, que não proponho nesta frente.
+
+**Saneamento histórico, separado do comportamento futuro:** sempre por **correção explícita de
+batidas**, feita por um humano, com lista fechada, e nunca por mudança de regra ou de vigência.
+
+- É o mecanismo que já existe. Com as batidas limpas (uma por tipo, em ordem), a regra legada e a
+  nova dão o mesmo número, então o saneamento de um dia não depende de qual regra está em vigor.
+- A limpeza C1 da frente de duplicatas (D-2) é um desses saneamentos, e com esta regra continua com Δ
+  zero.
+
+### 9.5 O 19/06 (e o que for igual a ele), sem exceção por data ou usuário
+
+O 19/06 fica fora da mudança automática por **três camadas gerais, nenhuma nomeando o dia**:
+
+1. **Pela própria regra:** dois repousos distintos antes do retorno (12:28 e 13:30, a 62 min um do
+   outro, fora da janela de 5 min) tornam o dia ambíguo. A regra mantém a escolha atual (500 min) e
+   marca `repousos_distintos`. O mesmo acontece com o 28/08 (aprovação 12:00 + GPS 12:05:04, a 304 s,
+   com origens diferentes), que também não muda.
+2. **Pela vigência:** o dia é anterior a ela e usa a escolha legada.
+3. **Pelo teste T8:** ele está entre os 64 padrões congelados.
+
+**A decisão humana específica sobre o 19/06 continua pelo caminho que já existe:**
+
+- se o repouso das 12:28 foi engano, o admin apaga ou edita a batida;
+- se não foi, nada muda.
+
+A marca "a conferir" é o que torna a pendência visível. Um registro de "conferido, manter" que apague
+a marca exigiria persistência nova. Fica como opção (§9.8), não no escopo mínimo.
+
+### 9.6 Mudanças por arquivo (escopo previsto, sem migration)
+
+| Arquivo | Mudança |
+|---|---|
+| `src/Ponto/Service/EscolhaDasBatidasDoDia.php` (novo) | A regra do §9.3. Devolve um objeto de valor com entrada, repouso, retorno, saída (as entidades escolhidas), as repetições e as marcas. Escolhe a legada ou a nova pela vigência. |
+| `src/Ponto/Service/EscolhaLegadaDasBatidas.php` (novo) | O código de hoje congelado (primeira de cada tipo, última saída, par adjacente sobre a lista reduzida). |
+| `src/Ponto/Service/CalculadoraJornada.php` | `calcularMinutosTrabalhados`, `calcularSaldoDia` e `registroIncompleto` passam a receber a escolha pronta. O par adjacente sai daqui e vai para a regra única. |
+| `src/Ponto/Service/FolhaPontoBuilder.php` | `:49-70` e `:141-167` usam a escolha para células, ids, intervalo, minutos, saldo e marcas. `calcularSaldoAteMes`/`Anual` herdam. |
+| `src/Ponto/Repository/RegistroPontoRepository.php` | `findByUserAndCompetencia`: desempate `ORDER BY dataHora, id`. |
+| `templates/ponto/_folha_table.html.twig` (usado pela tela e pela ficha do admin) | Selo "a conferir" com o motivo. Na ficha do admin, acesso às repetições (hoje invisíveis, sem link de editar nem de excluir). |
+| (constante em `EscolhaDasBatidasDoDia`) | `VIGENCIA` datada, no modelo do `TermoVigente`. Não entra em `services.yaml`. |
+| PDF e XLSX | Números iguais. Selo não entra no documento assinado (a decidir, §9.8). |
+| `PontoController::index` (card "suas batidas de hoje") | Hoje mostra a **última** de cada tipo. Passa a usar a escolha (opcional, §9.8). |
+
+### 9.7 Testes (obrigatórios, passando pelo caminho real)
+
+| # | Nível | O que prova |
+|---|---|---|
+| T1 | Unit, `EscolhaDasBatidasDoDia` | A matriz inteira: grupo de 5 min (primeira; última na saída), borda de 300 × 301 s, entrada e saída distintas, par adjacente com um repouso, dois repousos distintos (ambíguo, fica o primeiro), retorno antes do repouso, retorno errado cedo mais o par real, dia só com entrada e saída, cada marca. |
+| T2 | Unit, vigência | O mesmo padrão divergente na véspera da vigência (legada) e no dia dela (nova). Nenhuma competência mistura as duas. |
+| T3 | Unit, `FolhaPontoBuilder` | Células, ids, `minutosIntervalo`, minutos e saldo saem **da mesma escolha**: a batida da célula é a batida da conta. Também com justificativa abonada e com dia incompleto. |
+| T4 | Funcional, tela `/ponto/` do colaborador | No molde do §2.1: saldo do mês, células do dia, selo "a conferir". Um dia antes e um depois da vigência. |
+| T5 | Funcional, ficha do admin (`/tenant/{t}/user/{u}/edit-role`) | O mesmo número do T4 (o parcial é compartilhado) e os links de editar e excluir apontando para a batida escolhida e para as repetições. |
+| T6 | Funcional, XLSX (`ponto_exportar_xlsx`) | Lê a planilha gerada (PhpSpreadsheet) e confere horas trabalhadas, saldo e banco do dia e do mês. |
+| T7 | Funcional, PDF (`ponto_exportar_pdf`) | O Dompdf comprime o texto e codifica por glifo, então não dá para ler o PDF. O teste confere o **HTML** que alimenta o PDF, montado pelo mesmo caminho (exige extrair `montarDadosFolha` para um serviço), e confere que a rota devolve 200 com `application/pdf`. |
+| T8 | Regressão do histórico | Os **64 padrões reais** (só tipos e horários, sem `user_id`): minutos idênticos aos de hoje, tanto pela regra legada quanto pela nova. É a prova permanente da decisão 3. |
+| T9 | Saldo acumulado | `calcularSaldoAnual`/`AteMes` atravessando a vigência: o mês anterior pela legada, o seguinte pela nova, e o total igual à soma. Também o "saldo anterior" da exportação. |
+| T10 | Isolamento | Batidas iguais noutro escritório não entram na escolha (o `TenantFilter` do repositório), provado com o recurso irmão. |
+
+**Continuam verdes:** `FolhaPontoRegressaoFolhasReaisTest`, `FolhaPontoBuilderTest`, os funcionais de
+horas pagas e `BatidasDeHojeNaTelaTest`. Os testes de `CalculadoraJornadaTest` que chamam a
+calculadora direto são reescritos contra a escolha. O de repouso precoce muda de expectativa (§9.3).
+
+**Provas por reintrodução, com diário por mutação:**
+
+| Mutação | Teste que precisa cair |
+|---|---|
+| Tirar a checagem da vigência | T2 e T8 |
+| Grupo de 5 min valendo a primeira também na saída | T8 |
+| Escolher o menor almoço nos repousos distintos | T1 e T8 (19/06 e 28/08) |
+| A célula lendo uma batida diferente da usada na conta | T3 e T4 |
+| Tirar o desempate por id | T1 |
+
+### 9.8 Riscos e decisões antes de implementar
+
+1. **Repousos distintos: preservar e marcar** (recomendado, coerente com a decisão 2), ou aplicar o
+   almoço menor a partir da vigência (o que a spec de 14/09 aprovou). A primeira muda a expectativa do
+   teste de 14/09 do repouso precoce.
+2. **Vigência como salvaguarda:** adotar (recomendado, custo de ~20 linhas congeladas), ou confiar só no
+   T8. Data: 1º dia da competência seguinte ao deploy.
+3. **Marcas "a conferir":** só na tela e na ficha do admin (recomendado), ou também no PDF/XLSX
+   assinados. Também um registro de "conferido, manter", que exige persistência nova e fica fora.
+4. **Card "suas batidas de hoje"** passando a usar a escolha única (recomendado junto).
+5. **Ordem já decidida:** esta frente antes da de duplicatas. Com a regra do §9.3, a D-2 continua
+   preservando "a que a folha usa", com o mesmo sentido e a mesma lista.
