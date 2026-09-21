@@ -7,22 +7,28 @@ namespace App\Ponto\Service;
 use App\Ponto\Entity\RegistroPonto;
 
 /**
- * Decide quais batidas de um dia valem. É a decisão ÚNICA da folha: não existe outra escolha de
- * batida no cálculo, na tela ou no quadro de hoje (`docs/specs/ponto-folha-uma-batida-por-tipo.md`
- * §9.3, §9.9 e §10).
+ * Decide quais batidas de um dia valem. É a decisão ÚNICA: a folha (células, links, intervalo, minutos
+ * e saldo), o quadro "suas batidas de hoje" e o aviso de jornada leem esta escolha
+ * (`docs/specs/ponto-folha-uma-batida-por-tipo.md` §9.3, §9.9 e §10). Fora dela ficam só as validações
+ * da batida nova no servidor, que consultam o repositório: `findRepousoDoDia` (o primeiro repouso, o
+ * mesmo daqui) e `findUltimaSaida` (a interjornada, entre dias).
  *
- * **A regra.** Batidas do mesmo tipo, consecutivas e a até 5 min uma da outra, são o mesmo registro
- * repetido: vale a primeira, e a última quando o tipo é saída (é a mesma batida que a folha já usava,
- * e a que a limpeza de duplicatas manda preservar). Entre registros distintos, vale o primeiro de
- * cada tipo e o último de saída. Mais de um registro distinto do mesmo tipo, ou retorno antes do
+ * **A regra.** Batidas do mesmo tipo, consecutivas, a até 5 min uma da outra e as duas feitas pelo
+ * próprio colaborador são o mesmo registro repetido — é a D1 da frente de duplicatas. Aprovação de
+ * esquecimento e lançamento manual nunca se juntam: sobreposição deles é para o admin conferir. Do
+ * registro repetido vale a primeira batida, e na saída a de horário mais tarde (no empate de segundo, a
+ * gravada primeiro): é a mesma batida que a folha já usava, e a que a limpeza de duplicatas preserva.
+ * Entre registros distintos, vale o primeiro de cada tipo e o último de saída. Mais de um registro distinto do mesmo tipo, ou retorno antes do
  * repouso, torna o dia AMBÍGUO: ele é marcado e mantém essa mesma escolha. A regra nunca escolhe
  * sozinha um almoço menor (decisão do dono de 21/09/2026).
  *
  * **A vigência.** Dias anteriores a {@see self::VIGENCIA} usam a escolha legada, transcrita do
  * `FolhaPontoBuilder` de antes desta mudança e congelada: não recalcular o passado foi decisão do dono.
- * Com a lista do repositório, ordenada por horário, as duas escolhem as mesmas batidas (provado nos 64
- * padrões reais de `FolhaPontoPadroesHistoricosTest`). A legada só difere por preservar a ordem em que
- * as batidas chegam. 🔑 Mudar a regra no futuro exige uma vigência NOVA, nunca editar esta.
+ * Com a lista em ordem de horário e, no empate, de id, as duas escolhem os mesmos registros (os
+ * números estão provados nos 64 padrões reais de `FolhaPontoPadroesHistoricosTest`). A legada só difere
+ * por preservar a ordem em que as batidas chegam, e o repositório ordena só por horário. 🔑 Mudar a
+ * regra no futuro exige uma vigência NOVA, nunca editar esta — e o mesmo vale para a conta de minutos
+ * (`CalculadoraJornada::calcularMinutosDaEscolha`), que é uma só para as duas regras.
  *
  * As marcas saem do mesmo cálculo nos dois lados da vigência: não mudam número, só avisam.
  */
@@ -36,6 +42,9 @@ final class EscolhaDasBatidasDoDia
 
     /** A janela da D-1 da frente de duplicatas: repetição a até 5 min é o mesmo registro. */
     public const JANELA_REPETICAO_SEGUNDOS = 300;
+
+    /** O que `TenantController::pontoAdd`/`pontoEdit` gravam na batida lançada ou mexida pelo admin. */
+    private const SNAPSHOT_LANCAMENTO_MANUAL = 'Lançamento manual';
 
     private readonly \DateTimeImmutable $inicioDaVigencia;
 
@@ -124,7 +133,10 @@ final class EscolhaDasBatidasDoDia
             if ($ultimo !== null) {
                 $anterior = $registros[$ultimo][array_key_last($registros[$ultimo])];
                 $segundos = $batida->getDataHora()->getTimestamp() - $anterior->getDataHora()->getTimestamp();
-                if ($anterior->getTipo() === $batida->getTipo() && $segundos <= self::JANELA_REPETICAO_SEGUNDOS) {
+                if ($anterior->getTipo() === $batida->getTipo()
+                    && $segundos <= self::JANELA_REPETICAO_SEGUNDOS
+                    && $this->ehDoColaborador($anterior)
+                    && $this->ehDoColaborador($batida)) {
                     $registros[$ultimo][] = $batida;
                     continue;
                 }
@@ -136,8 +148,20 @@ final class EscolhaDasBatidasDoDia
     }
 
     /**
-     * O primeiro registro de cada tipo e o último de saída; de um registro repetido, a primeira batida
-     * (a última na saída).
+     * Batida feita pelo próprio colaborador: sem observação e sem a marca de lançamento manual. A
+     * aprovação de esquecimento grava observação fixa; o lançamento e a edição do admin gravam o
+     * snapshot `Lançamento manual`.
+     */
+    private function ehDoColaborador(RegistroPonto $batida): bool
+    {
+        return $batida->getObservacao() === null
+            && $batida->getSedeNomeSnapshot() !== self::SNAPSHOT_LANCAMENTO_MANUAL;
+    }
+
+    /**
+     * O primeiro registro de cada tipo e, na saída, o de horário mais tarde. Dentro de um registro
+     * repetido vale a primeira batida e, na saída, a mais tarde. No empate de segundo, a que veio antes
+     * na ordem (horário e id), exatamente como a regra legada sobre a lista do repositório.
      *
      * @param list<list<RegistroPonto>> $registros
      * @return array<string, RegistroPonto>
@@ -147,11 +171,15 @@ final class EscolhaDasBatidasDoDia
         $escolhidas = [];
         foreach ($registros as $grupo) {
             $tipo = $grupo[0]->getTipo();
-            if ($tipo === RegistroPonto::TIPO_SAIDA) {
-                $escolhidas[$tipo] = $grupo[array_key_last($grupo)];
+            if ($tipo !== RegistroPonto::TIPO_SAIDA) {
+                $escolhidas[$tipo] ??= $grupo[0];
                 continue;
             }
-            $escolhidas[$tipo] ??= $grupo[0];
+            foreach ($grupo as $saida) {
+                if (!isset($escolhidas[$tipo]) || $saida->getDataHora() > $escolhidas[$tipo]->getDataHora()) {
+                    $escolhidas[$tipo] = $saida;
+                }
+            }
         }
 
         return $escolhidas;

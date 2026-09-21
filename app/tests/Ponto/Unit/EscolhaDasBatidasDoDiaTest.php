@@ -118,6 +118,56 @@ final class EscolhaDasBatidasDoDiaTest extends TestCase
         self::assertContains(BatidasEscolhidas::MARCA_REPOUSOS_DISTINTOS, $escolha->aConferir);
     }
 
+    public function testBatidaDaAprovacaoNaoViraRepeticaoDaBatidaReal(): void
+    {
+        // A D1 exige as DUAS batidas do próprio colaborador: aprovação de esquecimento + GPS a 4 min é a
+        // C3 da frente de duplicatas (sobreposição a conferir), não um toque repetido.
+        $aprovacao = $this->batida('repouso', '12:00:00', self::DIA_NOVO);
+        $aprovacao->setObservacao('Criado por aprovação de justificativa (Esquecimento de Registro)');
+
+        $escolha = $this->escolher([$aprovacao, $this->batida('repouso', '12:04:00', self::DIA_NOVO)], self::DIA_NOVO);
+
+        self::assertSame($aprovacao, $escolha->repouso, 'a escolha continua a primeira');
+        self::assertSame([BatidasEscolhidas::MARCA_REPOUSOS_DISTINTOS], $escolha->aConferir);
+    }
+
+    public function testLancamentoManualRepetidoTambemFicaMarcado(): void
+    {
+        // A C4 (o admin enviou o formulário duas vezes): fica para o admin conferir, não some sozinha.
+        $primeiro = $this->batida('retorno', '14:36:00', self::DIA_NOVO);
+        $primeiro->setSedeNomeSnapshot('Lançamento manual');
+        $segundo = $this->batida('retorno', '14:36:15', self::DIA_NOVO);
+        $segundo->setSedeNomeSnapshot('Lançamento manual');
+
+        $escolha = $this->escolher([$primeiro, $segundo], self::DIA_NOVO);
+
+        self::assertSame($primeiro, $escolha->retorno);
+        self::assertSame([BatidasEscolhidas::MARCA_RETORNOS_DISTINTOS], $escolha->aConferir);
+    }
+
+    #[DataProvider('dias')]
+    public function testSaidaRepetidaNoMesmoSegundoFicaComAGravadaPrimeiro(string $dia): void
+    {
+        // O mesmo registro, não só o mesmo horário, nas duas regras: é o id do link de editar e excluir.
+        $gravadaPrimeiro = $this->batida('saida', '17:00:00', $dia, 11);
+        $escolha = $this->escolher([$gravadaPrimeiro, $this->batida('saida', '17:00:00', $dia, 12)], $dia);
+
+        self::assertSame($gravadaPrimeiro, $escolha->saida);
+    }
+
+    public function testRetornoNoMesmoSegundoDoRepousoNaoTemIntervaloEMarca(): void
+    {
+        $escolha = $this->escolher([
+            $this->batida('entrada', '08:00:00', self::DIA_NOVO),
+            $this->batida('retorno', '12:00:00', self::DIA_NOVO),
+            $this->batida('repouso', '12:00:00', self::DIA_NOVO),
+            $this->batida('saida', '17:00:00', self::DIA_NOVO),
+        ], self::DIA_NOVO);
+
+        self::assertFalse($escolha->temIntervalo());
+        self::assertSame([BatidasEscolhidas::MARCA_RETORNO_ANTES_DO_REPOUSO], $escolha->aConferir);
+    }
+
     // ──────────────────────────────────────────────────────────────────
     // Dia ambíguo: marcado, nunca reinterpretado
     // ──────────────────────────────────────────────────────────────────
