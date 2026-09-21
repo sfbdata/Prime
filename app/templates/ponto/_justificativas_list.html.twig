@@ -83,6 +83,8 @@
                                 {% endif %}
                             </td>
                             <td>
+                                {# C2-01: o colaborador só edita o que o gestor ainda não analisou; o servidor recusa o resto (PontoController::editarJustificativa). #}
+                                {% if batch[0].status == 'pendente' %}
                                 <button type="button"
                                             class="btn btn-sm btn-outline-primary"
                                             title="Editar justificativa"
@@ -100,6 +102,12 @@
                                             onclick="abrirModalEditarJustificativa(this)">
                                         <i class="bi bi-pencil"></i>
                                     </button>
+                                {% else %}
+                                    <span class="text-muted" data-justificativa-bloqueada
+                                          title="Não está mais pendente (analisada pelo gestor ou registrada como falta). Para corrigir, peça ao administrador para revertê-la para pendente.">
+                                        <i class="bi bi-lock"></i>
+                                    </span>
+                                {% endif %}
                             </td>
                         </tr>
                     {% endfor %}

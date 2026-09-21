@@ -300,4 +300,34 @@ class JustificativaPontoRepository extends ServiceEntityRepository
             ->getQuery()
             ->getOneOrNullResult();
     }
+
+    /**
+     * O status do registro COMO ESTÁ NO BANCO, com a linha travada até o fim da transação.
+     *
+     * É a pergunta que decide se o colaborador ainda pode editar a justificativa
+     * (docs/specs/ponto-edicao-justificativa-analisada.md, R2). Duas propriedades importam:
+     *
+     *  - projeção escalar: não passa pelo identity map, então o status vem do banco e não da
+     *    entidade carregada pelo EntityValueResolver no começo da requisição;
+     *  - `FOR UPDATE`: a análise do admin (`TenantController`) não pega trava nenhuma. Com a linha
+     *    travada, um UPDATE de status do admin espera este COMMIT, e um que já comitou é visto aqui.
+     *
+     * Devolve null quando o registro não existe NESTE escritório. Sem transação aberta o Doctrine
+     * lança `TransactionRequiredException`: a trava cairia na hora.
+     */
+    public function statusNoBancoTravadoPorId(int $id, Tenant $tenant): ?string
+    {
+        /** @var list<array{status: string|null}> $linhas */
+        $linhas = $this->createQueryBuilder('j')
+            ->select('j.status')
+            ->andWhere('j.id = :id')
+            ->andWhere('j.tenant = :tenant')
+            ->setParameter('id', $id)
+            ->setParameter('tenant', $tenant)
+            ->getQuery()
+            ->setLockMode(LockMode::PESSIMISTIC_WRITE)
+            ->getScalarResult();
+
+        return $linhas === [] ? null : (string) $linhas[0]['status'];
+    }
 }
