@@ -131,8 +131,9 @@ final class FolhaExportacaoMesmaEscolhaTest extends JusPrimeWebTestCase
         $em->persist($jornada);
         $colaborador->setJornadaColaborador($jornada);
 
-        $hoje = new \DateTimeImmutable('today');
-        $dia = (int) $hoje->format('d') === 1 ? $hoje->modify('+1 day') : $hoje->modify('-1 day');
+        // Sempre ONTEM, mesmo no dia 1º: a exportação é pedida pelo mês do próprio dia, e dia futuro
+        // não é apurado — "amanhã" deixaria as horas em branco e o teste cairia um dia por mês.
+        $dia = (new \DateTimeImmutable('today'))->modify('-1 day');
         foreach ([['entrada', '08:00:00'], ['repouso', '09:00:00'], ['repouso', '12:00:00'], ['retorno', '13:00:00'], ['saida', '18:00:00']] as [$tipo, $hora]) {
             $registro = new RegistroPonto();
             $registro->setUser($colaborador);
