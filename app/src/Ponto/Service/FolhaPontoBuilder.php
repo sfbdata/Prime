@@ -31,7 +31,7 @@ class FolhaPontoBuilder
      *                                            `null` significa colaborador sem nenhum registro de ponto: nenhum
      *                                            dia conta. Dias anteriores a ela ficam fora (sem saldo, sem somar
      *                                            no banco). Admissão e data de cadastro não entram nessa conta.
-     * @return array<int, array{diaMes: string, diaSemana: string, entrada: string, repouso: string, retorno: string, saida: string, fimSemana: bool, minutosTrabalhadosDia: int|null, saldoDia: int|null, saldoAcumulado: int|null, justificadoDia: bool, justificativa: JustificativaPonto|null, homeOffice: bool, antesDoPrimeiroRegistro: bool, registroIncompleto: bool}>
+     * @return array<int, array{diaMes: string, diaSemana: string, entrada: string, repouso: string, retorno: string, saida: string, fimSemana: bool, minutosTrabalhadosDia: int|null, saldoDia: int|null, saldoAcumulado: int|null, justificadoDia: bool, justificativa: JustificativaPonto|null, homeOffice: bool, antesDoPrimeiroRegistro: bool, registroIncompleto: bool, aConferir: list<string>, batidasDesconsideradas: list<array{id: ?int, tipo: string, hora: string}>}>
      */
     public function buildRows(
         \DateTimeImmutable $inicioMes,
@@ -46,27 +46,14 @@ class FolhaPontoBuilder
         \DateTimeInterface|null|false $inicioContagem = false
     ): array {
         $this->exigirInicioContagem($inicioContagem, __FUNCTION__);
-        $registrosPorDia = [];
+
+        // Todas as batidas de cada dia, na ordem em que chegaram. Quais delas valem é decidido pela
+        // escolha única (`CalculadoraJornada::escolherBatidas`), e células, links, intervalo, minutos e
+        // saldo leem essa mesma escolha. Até 21/09/2026 a folha escolhia aqui, sozinha, e a regra da
+        // calculadora nunca chegava à tela (`docs/specs/ponto-folha-uma-batida-por-tipo.md`).
+        $batidasPorDia = [];
         foreach ($batidas as $batida) {
-            $chaveDia = $batida->getDataHora()->format('Y-m-d');
-            $tipo = $batida->getTipo();
-
-            if (!isset($registrosPorDia[$chaveDia])) {
-                $registrosPorDia[$chaveDia] = [];
-            }
-
-            if (!isset($registrosPorDia[$chaveDia][$tipo])) {
-                $registrosPorDia[$chaveDia][$tipo] = $batida;
-                continue;
-            }
-
-            $registroAtual = $registrosPorDia[$chaveDia][$tipo];
-            if (
-                $tipo === RegistroPonto::TIPO_SAIDA
-                && $batida->getDataHora() > $registroAtual->getDataHora()
-            ) {
-                $registrosPorDia[$chaveDia][$tipo] = $batida;
-            }
+            $batidasPorDia[$batida->getDataHora()->format('Y-m-d')][] = $batida;
         }
 
         $diasSemana = [
@@ -94,18 +81,33 @@ class FolhaPontoBuilder
             // Sem primeiro registro, nenhum dia conta; com ele, os anteriores ficam de fora.
             $diaForaDaContagem = $inicioContagemNorm === null || $dia < $inicioContagemNorm;
 
+            $escolha = $this->calculadora->escolherBatidas($batidasPorDia[$chaveDia] ?? [], $dia);
+
             $row = [
                 'diaMes'    => $dia->format('d'),
                 'diaSemana' => $diasSemana[$indiceDiaSemana],
                 'chaveDia'  => $chaveDia,
-                'entrada'   => isset($registrosPorDia[$chaveDia][RegistroPonto::TIPO_ENTRADA]) ? $registrosPorDia[$chaveDia][RegistroPonto::TIPO_ENTRADA]->getDataHora()->format('H:i:s') : '',
-                'repouso'   => isset($registrosPorDia[$chaveDia][RegistroPonto::TIPO_REPOUSO]) ? $registrosPorDia[$chaveDia][RegistroPonto::TIPO_REPOUSO]->getDataHora()->format('H:i:s') : '',
-                'retorno'   => isset($registrosPorDia[$chaveDia][RegistroPonto::TIPO_RETORNO]) ? $registrosPorDia[$chaveDia][RegistroPonto::TIPO_RETORNO]->getDataHora()->format('H:i:s') : '',
-                'saida'     => isset($registrosPorDia[$chaveDia][RegistroPonto::TIPO_SAIDA])   ? $registrosPorDia[$chaveDia][RegistroPonto::TIPO_SAIDA]->getDataHora()->format('H:i:s')   : '',
-                'entradaId' => isset($registrosPorDia[$chaveDia][RegistroPonto::TIPO_ENTRADA]) ? $registrosPorDia[$chaveDia][RegistroPonto::TIPO_ENTRADA]->getId() : null,
-                'repousoId' => isset($registrosPorDia[$chaveDia][RegistroPonto::TIPO_REPOUSO]) ? $registrosPorDia[$chaveDia][RegistroPonto::TIPO_REPOUSO]->getId() : null,
-                'retornoId' => isset($registrosPorDia[$chaveDia][RegistroPonto::TIPO_RETORNO]) ? $registrosPorDia[$chaveDia][RegistroPonto::TIPO_RETORNO]->getId() : null,
-                'saidaId'   => isset($registrosPorDia[$chaveDia][RegistroPonto::TIPO_SAIDA])   ? $registrosPorDia[$chaveDia][RegistroPonto::TIPO_SAIDA]->getId()   : null,
+                'entrada'   => $escolha->entrada?->getDataHora()->format('H:i:s') ?? '',
+                'repouso'   => $escolha->repouso?->getDataHora()->format('H:i:s') ?? '',
+                'retorno'   => $escolha->retorno?->getDataHora()->format('H:i:s') ?? '',
+                'saida'     => $escolha->saida?->getDataHora()->format('H:i:s')   ?? '',
+                'entradaId' => $escolha->entrada?->getId(),
+                'repousoId' => $escolha->repouso?->getId(),
+                'retornoId' => $escolha->retorno?->getId(),
+                'saidaId'   => $escolha->saida?->getId(),
+                // Dia ambíguo (dois registros distintos do mesmo tipo, retorno antes do repouso): só
+                // avisa, na tela do colaborador e na ficha do admin. O PDF e o XLSX assinados não mudam.
+                'aConferir' => $escolha->aConferir,
+                // As batidas do dia que não entram na conta, para o admin alcançar e corrigir — antes
+                // desta mudança elas não apareciam em lugar nenhum da folha.
+                'batidasDesconsideradas' => array_map(
+                    static fn (RegistroPonto $batida): array => [
+                        'id'   => $batida->getId(),
+                        'tipo' => $batida->getTipo(),
+                        'hora' => $batida->getDataHora()->format('H:i:s'),
+                    ],
+                    $escolha->desconsideradas,
+                ),
                 'fimSemana'       => $indiceDiaSemana >= 6,
                 'domingo'         => $indiceDiaSemana === 7,
                 'antesDoPrimeiroRegistro' => $diaForaDaContagem,
@@ -121,7 +123,7 @@ class FolhaPontoBuilder
                 'saldoAcumulado' => null,
                 'justificadoDia' => false,
                 'justificativa'  => $justificativasDoMes[$chaveDia] ?? null,
-                'homeOffice'     => $this->diaTeveHomeOffice($registrosPorDia[$chaveDia] ?? []),
+                'homeOffice'     => $this->diaTeveHomeOffice($escolha->escolhidas()),
             ];
 
             if ($jornada !== null) {
@@ -138,33 +140,30 @@ class FolhaPontoBuilder
                         $row['diaSemana']   = 'FERIADO - ' . $row['diaSemana'];
                     }
 
-                    $batidasDoDia = isset($registrosPorDia[$chaveDia])
-                        ? array_values($registrosPorDia[$chaveDia])
-                        : [];
-
-                    $temSaida = isset($registrosPorDia[$chaveDia][RegistroPonto::TIPO_SAIDA]);
+                    $temSaida = $escolha->saida !== null;
                     $diaHoje  = $dia->format('Y-m-d') === $hoje->format('Y-m-d');
 
-                    // minutosIntervalo: diferença entre retorno e repouso do dia
-                    if (isset($registrosPorDia[$chaveDia][RegistroPonto::TIPO_REPOUSO])
-                        && isset($registrosPorDia[$chaveDia][RegistroPonto::TIPO_RETORNO])) {
+                    // minutosIntervalo: do repouso ao retorno ESCOLHIDOS (os das células). A fórmula é a
+                    // de sempre, mesmo com os dois fora de ordem: é ela que alimenta o indicador
+                    // "intrajornada conforme" do PDF e do XLSX, que esta mudança não altera.
+                    if ($escolha->repouso !== null && $escolha->retorno !== null) {
                         $row['minutosIntervalo'] = $this->calculadora->diffMinutos(
-                            $registrosPorDia[$chaveDia][RegistroPonto::TIPO_REPOUSO]->getDataHora(),
-                            $registrosPorDia[$chaveDia][RegistroPonto::TIPO_RETORNO]->getDataHora()
+                            $escolha->repouso->getDataHora(),
+                            $escolha->retorno->getDataHora()
                         );
                     }
 
                     // Dia atual sem saída: mostra horas trabalhadas mas não saldo nem banco
                     if ($diaHoje && !$temSaida) {
-                        $minutos = $this->calculadora->calcularMinutosTrabalhados($batidasDoDia);
+                        $minutos = $this->calculadora->calcularMinutosDaEscolha($escolha);
                         $row['minutosTrabalhadosDia'] = $minutos;
                         $row['saldoDia']              = null;
                         $row['saldoAcumulado']        = null;
                     } else {
-                        $minutos = $this->calculadora->calcularMinutosTrabalhados($batidasDoDia);
-                        $saldoDia = $this->calculadora->calcularSaldoDia($jornada->getUser(), $dia, $batidasDoDia, $jornada, $feriados, $jornadaTenant);
+                        $minutos = $this->calculadora->calcularMinutosDaEscolha($escolha);
+                        $saldoDia = $this->calculadora->calcularSaldoDiaDaEscolha($jornada->getUser(), $dia, $escolha, $jornada, $feriados, $jornadaTenant);
 
-                        $registroIncompleto = $this->calculadora->registroIncompleto($batidasDoDia);
+                        $registroIncompleto = $this->calculadora->registroIncompletoDaEscolha($escolha);
 
                         $justificativaDoDia = $justificativasDoMes[$chaveDia] ?? null;
                         $justificadoDia = false;
@@ -260,7 +259,7 @@ class FolhaPontoBuilder
     /**
      * Indica se o dia teve ao menos uma batida em home office (para o selo no espelho).
      *
-     * @param array<string, RegistroPonto> $batidasDoDia
+     * @param list<RegistroPonto> $batidasDoDia as escolhidas do dia, como sempre foi
      */
     private function diaTeveHomeOffice(array $batidasDoDia): bool
     {

@@ -10,7 +10,9 @@ use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\Repository\JustificativaPontoRepository;
 use App\Ponto\Repository\LancamentoHorasPagasRepository;
 use App\Ponto\Repository\RegistroPontoRepository;
+use App\Ponto\Service\BatidasEscolhidas;
 use App\Ponto\Service\CalculadoraJornada;
+use App\Ponto\Service\EscolhaDasBatidasDoDia;
 use App\Ponto\Service\FolhaPontoBuilder;
 use App\Ponto\Service\JornadaResolver;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -127,8 +129,60 @@ final class FolhaPontoPadroesHistoricosTest extends TestCase
         ?int $intervalo,
         bool $incompleto,
     ): void {
-        $linha = $this->linhaDaFolha($batidas, self::DIA);
+        $this->assertLinhaIgual($this->linhaDaFolha($batidas, self::DIA), $minutos, $entrada, $repouso, $retorno, $saida, $intervalo, $incompleto);
+    }
 
+    /**
+     * O mesmo padrão apurado pela regra ÚNICA (vigência injetada antes do dia) dá exatamente o mesmo
+     * resultado: a regra nova não reinterpreta nenhum dia que já existe.
+     *
+     * @param list<string> $batidas
+     */
+    #[DataProvider('padroes')]
+    public function testPadraoHistoricoDaOMesmoResultadoPelaRegraUnica(
+        array $batidas,
+        int $minutos,
+        string $entrada,
+        string $repouso,
+        string $retorno,
+        string $saida,
+        ?int $intervalo,
+        bool $incompleto,
+    ): void {
+        $this->assertLinhaIgual(
+            $this->linhaDaFolha($batidas, self::DIA, new EscolhaDasBatidasDoDia('2026-04-01')),
+            $minutos, $entrada, $repouso, $retorno, $saida, $intervalo, $incompleto
+        );
+    }
+
+    public function testOsDoisDiasAmbiguosDaProducaoSaoMarcadosNasDuasRegras(): void
+    {
+        $padroes = self::padroes();
+        foreach ([null, new EscolhaDasBatidasDoDia('2026-04-01')] as $escolha) {
+            foreach ([
+                'padrão 25 — dois repousos a 62 min um do outro (o caso ambíguo)',
+                'padrão 52 — repouso da aprovação 12:00 e repouso GPS 12:05:04 (304 s)',
+            ] as $nome) {
+                self::assertSame(
+                    [BatidasEscolhidas::MARCA_REPOUSOS_DISTINTOS],
+                    $this->linhaDaFolha($padroes[$nome][0], self::DIA, $escolha)['aConferir'],
+                    $nome
+                );
+            }
+            self::assertSame([], $this->linhaDaFolha($padroes['padrão 01'][0], self::DIA, $escolha)['aConferir'], 'repetição em 24 s não marca');
+        }
+    }
+
+    private function assertLinhaIgual(
+        array $linha,
+        int $minutos,
+        string $entrada,
+        string $repouso,
+        string $retorno,
+        string $saida,
+        ?int $intervalo,
+        bool $incompleto,
+    ): void {
         self::assertSame($minutos, $linha['minutosTrabalhadosDia'], 'minutos trabalhados do dia');
         self::assertSame(
             [$entrada, $repouso, $retorno, $saida],
@@ -143,7 +197,7 @@ final class FolhaPontoPadroesHistoricosTest extends TestCase
      * @param list<string> $batidas
      * @return array<string, mixed>
      */
-    private function linhaDaFolha(array $batidas, string $dia): array
+    private function linhaDaFolha(array $batidas, string $dia, ?EscolhaDasBatidasDoDia $escolha = null): array
     {
         $registros = [];
         foreach ($batidas as $marca) {
@@ -162,13 +216,13 @@ final class FolhaPontoPadroesHistoricosTest extends TestCase
 
         $data = new \DateTimeImmutable($dia);
 
-        return $this->builder()->buildRows($data, $data, $registros, true, false, $jornada, [], [], null, new \DateTimeImmutable('2020-01-01'))[0];
+        return $this->builder($escolha)->buildRows($data, $data, $registros, true, false, $jornada, [], [], null, new \DateTimeImmutable('2020-01-01'))[0];
     }
 
-    private function builder(): FolhaPontoBuilder
+    private function builder(?EscolhaDasBatidasDoDia $escolha): FolhaPontoBuilder
     {
         return new FolhaPontoBuilder(
-            new CalculadoraJornada(new JornadaResolver()),
+            new CalculadoraJornada(new JornadaResolver(), $escolha ?? new EscolhaDasBatidasDoDia()),
             $this->createStub(RegistroPontoRepository::class),
             $this->createStub(JustificativaPontoRepository::class),
             $this->createStub(LancamentoHorasPagasRepository::class),

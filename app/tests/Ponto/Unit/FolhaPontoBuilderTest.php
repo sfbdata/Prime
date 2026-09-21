@@ -12,6 +12,7 @@ use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\Repository\JustificativaPontoRepository;
 use App\Ponto\Repository\LancamentoHorasPagasRepository;
 use App\Ponto\Repository\RegistroPontoRepository;
+use App\Ponto\Service\BatidasEscolhidas;
 use App\Ponto\Service\CalculadoraJornada;
 use App\Ponto\Service\FolhaPontoBuilder;
 use App\Ponto\Service\JornadaResolver;
@@ -543,5 +544,78 @@ final class FolhaPontoBuilderTest extends TestCase
 
         self::assertSame(-480, $linha['saldoDia']);
         self::assertFalse($linha['registroIncompleto'], 'ausência não é registro incompleto');
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    // Uma escolha só: célula, link, intervalo, minutos e saldo leem as mesmas batidas
+    // Ver docs/specs/ponto-folha-uma-batida-por-tipo.md §9.3
+    // ──────────────────────────────────────────────────────────────────
+
+    public function testCelulasIdsIntervaloEContaSaemDasMesmasBatidas(): void
+    {
+        $repousoCedo = $this->batidaComId(RegistroPonto::TIPO_REPOUSO, '09:00', '2026-04-07', 11);
+        $repousoReal = $this->batidaComId(RegistroPonto::TIPO_REPOUSO, '12:00', '2026-04-07', 12);
+        $retorno     = $this->batidaComId(RegistroPonto::TIPO_RETORNO, '13:00', '2026-04-07', 13);
+
+        $linha = $this->linhaDoDia7([
+            $this->batidaComId(RegistroPonto::TIPO_ENTRADA, '08:00', '2026-04-07', 10),
+            $repousoCedo,
+            $repousoReal,
+            $retorno,
+            $this->batidaComId(RegistroPonto::TIPO_SAIDA, '18:00', '2026-04-07', 14),
+        ], []);
+
+        // A célula, o link de editar/excluir e o intervalo apontam para o MESMO repouso que a conta usa.
+        self::assertSame('09:00:00', $linha['repouso']);
+        self::assertSame(11, $linha['repousoId']);
+        self::assertSame(240, $linha['minutosIntervalo'], 'intervalo do repouso exibido (09:00) ao retorno (13:00)');
+        self::assertSame(360, $linha['minutosTrabalhadosDia'], '08:00→09:00 + 13:00→18:00');
+        self::assertSame(-120, $linha['saldoDia']);
+    }
+
+    public function testDiaAmbiguoTrazAMarcaEAsBatidasQueFicaramDeFora(): void
+    {
+        $linha = $this->linhaDoDia7([
+            $this->batidaComId(RegistroPonto::TIPO_ENTRADA, '08:00', '2026-04-07', 10),
+            $this->batidaComId(RegistroPonto::TIPO_REPOUSO, '09:00', '2026-04-07', 11),
+            $this->batidaComId(RegistroPonto::TIPO_REPOUSO, '12:00', '2026-04-07', 12),
+            $this->batidaComId(RegistroPonto::TIPO_RETORNO, '13:00', '2026-04-07', 13),
+            $this->batidaComId(RegistroPonto::TIPO_SAIDA, '18:00', '2026-04-07', 14),
+        ], []);
+
+        self::assertSame([BatidasEscolhidas::MARCA_REPOUSOS_DISTINTOS], $linha['aConferir']);
+        self::assertSame(
+            [['id' => 12, 'tipo' => RegistroPonto::TIPO_REPOUSO, 'hora' => '12:00:00']],
+            $linha['batidasDesconsideradas']
+        );
+    }
+
+    public function testRepeticaoDoMesmoRegistroFicaDeForaSemMarcarODia(): void
+    {
+        $linha = $this->linhaDoDia7([
+            $this->batidaComId(RegistroPonto::TIPO_ENTRADA, '09:00', '2026-04-07', 10),
+            $this->batidaComId(RegistroPonto::TIPO_ENTRADA, '09:00', '2026-04-07', 15),
+            $this->batidaComId(RegistroPonto::TIPO_SAIDA, '16:00', '2026-04-07', 14),
+        ], []);
+
+        self::assertSame(10, $linha['entradaId']);
+        self::assertSame([], $linha['aConferir'], 'repetir o mesmo toque não torna o dia ambíguo');
+        self::assertSame([['id' => 15, 'tipo' => RegistroPonto::TIPO_ENTRADA, 'hora' => '09:00:00']], $linha['batidasDesconsideradas']);
+    }
+
+    public function testDiaSemBatidaNaoTemMarcaNemBatidaDesconsiderada(): void
+    {
+        $linha = $this->linhaDoDia7([], []);
+
+        self::assertSame([], $linha['aConferir']);
+        self::assertSame([], $linha['batidasDesconsideradas']);
+    }
+
+    private function batidaComId(string $tipo, string $hora, string $data, int $id): RegistroPonto
+    {
+        $registro = $this->batida($tipo, $hora, $data);
+        (new \ReflectionProperty(RegistroPonto::class, 'id'))->setValue($registro, $id);
+
+        return $registro;
     }
 }
