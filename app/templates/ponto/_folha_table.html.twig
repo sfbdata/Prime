@@ -19,6 +19,15 @@
    passá-lo não faça a regra de "nada de dia futuro" sumir em silêncio. #}
 {% set dataHoje = dataHoje|default(null) %}
 {% set rotulosBatida = {entrada: 'Entrada', repouso: 'Repouso', retorno: 'Retorno', saida: 'Saída'} %}
+{# Motivos de um dia ambíguo (`BatidasEscolhidas::MARCA_*`). A marca não muda número: avisa que há
+   batida a corrigir. Ver docs/specs/ponto-folha-uma-batida-por-tipo.md §9.3 e §9.9. #}
+{% set motivosAConferir = {
+    entradas_distintas: 'mais de uma entrada',
+    repousos_distintos: 'mais de um repouso',
+    retornos_distintos: 'mais de um retorno',
+    saidas_distintas: 'mais de uma saída',
+    retorno_antes_do_repouso: 'retorno antes do repouso'
+} %}
 
 <div class="card card-outline card-info mb-3">
     <div class="card-header d-flex align-items-center gap-2 flex-wrap">
@@ -114,7 +123,7 @@
                 </thead>
                 <tbody>
                     {% for linha in folhaRows %}
-                        <tr class="{{ linha.isFeriado|default(false) ? 'table-warning' : (linha.fimSemana ? 'table-secondary' : '') }}">
+                        <tr data-chave-dia="{{ linha.chaveDia }}" class="{{ linha.isFeriado|default(false) ? 'table-warning' : (linha.fimSemana ? 'table-secondary' : '') }}">
                             <td>{{ linha.diaMes }}</td>
                             <td>
                                 {% if linha.isFeriado|default(false) %}
@@ -126,6 +135,44 @@
                                     <span class="badge text-bg-info text-dark ms-1" title="Batida em home office">
                                         <i class="bi bi-house-laptop"></i> Home Office
                                     </span>
+                                {% endif %}
+                                {# Dia ambíguo: a conta segue a escolha de sempre (a primeira de cada tipo, a
+                                   última saída) e NÃO é reinterpretada — quem resolve é um humano corrigindo
+                                   a batida. Só aqui, na tela do colaborador e na ficha do admin; o PDF e o
+                                   XLSX assinados não anunciam pendência. #}
+                                {% if linha.aConferir|default([]) is not empty %}
+                                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle fw-normal ms-1 a-conferir"
+                                          data-a-conferir="{{ linha.aConferir|join(' ') }}"
+                                          data-bs-toggle="tooltip"
+                                          title="Batidas a conferir: {{ linha.aConferir|map(m => motivosAConferir[m] ?? m)|join(', ') }}. A folha conta a primeira batida de cada tipo e a última saída; as outras ficam fora da conta. Corrija as batidas para resolver.">
+                                        <i class="bi bi-question-circle me-1"></i>A conferir
+                                    </span>
+                                {% endif %}
+                                {# As batidas que ficaram fora da conta. Antes desta mudança não apareciam em
+                                   lugar nenhum da folha, e o admin não tinha como corrigi-las por aqui. #}
+                                {% if editarBatidasHabilitado and linha.batidasDesconsideradas|default([]) is not empty %}
+                                    <div class="small text-muted mt-1 batidas-desconsideradas">
+                                        Fora da conta:
+                                        {% for desconsiderada in linha.batidasDesconsideradas %}
+                                            {% if desconsiderada.id %}
+                                                <span class="text-nowrap ms-1">
+                                                    <a href="{{ path(editarBatidasRotaEdit, editarBatidasParametros|merge({registroId: desconsiderada.id, competencia: competenciaSelecionada})) }}"
+                                                       class="text-body batida-desconsiderada" data-registro-id="{{ desconsiderada.id }}" title="Editar batida">
+                                                        {{ rotulosBatida[desconsiderada.tipo] ?? desconsiderada.tipo }} {{ desconsiderada.hora }}
+                                                    </a>
+                                                    <form method="post"
+                                                          action="{{ path(editarBatidasRotaDelete, editarBatidasParametros|merge({registroId: desconsiderada.id})) }}"
+                                                          class="d-inline"
+                                                          onsubmit="return confirm('Excluir esta batida?')">
+                                                        <input type="hidden" name="_token" value="{{ csrf_token('delete_ponto_' ~ desconsiderada.id) }}">
+                                                        <button type="submit" class="btn btn-link btn-sm p-0 text-danger" title="Excluir batida">
+                                                            <i class="bi bi-x-circle"></i>
+                                                        </button>
+                                                    </form>
+                                                </span>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </div>
                                 {% endif %}
                             </td>
 
