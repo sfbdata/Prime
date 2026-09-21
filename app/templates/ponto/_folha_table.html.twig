@@ -144,7 +144,7 @@
                                     <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle fw-normal ms-1 a-conferir"
                                           data-a-conferir="{{ linha.aConferir|join(' ') }}"
                                           data-bs-toggle="tooltip"
-                                          title="Batidas a conferir: {{ linha.aConferir|map(m => motivosAConferir[m] ?? m)|join(', ') }}. A folha conta a primeira batida de cada tipo e a última saída; as outras ficam fora da conta. Corrija as batidas para resolver.">
+                                          title="Batidas a conferir: {{ linha.aConferir|map(m => motivosAConferir[m] ?? m)|join(', ') }}. A folha conta a primeira batida de cada tipo e a última saída; as outras ficam fora da conta até serem corrigidas.">
                                         <i class="bi bi-question-circle me-1"></i>A conferir
                                     </span>
                                 {% endif %}
@@ -155,7 +155,7 @@
                                         Fora da conta:
                                         {% for desconsiderada in linha.batidasDesconsideradas %}
                                             {% if desconsiderada.id %}
-                                                <span class="text-nowrap ms-1">
+                                                <div class="d-inline-block text-nowrap ms-1">
                                                     <a href="{{ path(editarBatidasRotaEdit, editarBatidasParametros|merge({registroId: desconsiderada.id, competencia: competenciaSelecionada})) }}"
                                                        class="text-body batida-desconsiderada" data-registro-id="{{ desconsiderada.id }}" title="Editar batida">
                                                         {{ rotulosBatida[desconsiderada.tipo] ?? desconsiderada.tipo }} {{ desconsiderada.hora }}
@@ -169,7 +169,7 @@
                                                             <i class="bi bi-x-circle"></i>
                                                         </button>
                                                     </form>
-                                                </span>
+                                                </div>
                                             {% endif %}
                                         {% endfor %}
                                     </div>

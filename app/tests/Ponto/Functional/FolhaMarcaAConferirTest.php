@@ -49,6 +49,7 @@ final class FolhaMarcaAConferirTest extends JusPrimeWebTestCase
         self::assertCount(1, $linha->filter('.a-conferir'), 'o dia ambíguo tem de vir marcado na linha dele');
         self::assertSame('repousos_distintos', $linha->filter('.a-conferir')->attr('data-a-conferir'));
         self::assertStringContainsString('mais de um repouso', (string) $linha->filter('.a-conferir')->attr('title'));
+        self::assertStringNotContainsString('Corrija', (string) $linha->filter('.a-conferir')->attr('title'), 'o colaborador não corrige batida');
         self::assertStringContainsString('09:00:00', $linha->text(), 'a célula mostra o repouso que a conta usa');
         self::assertStringNotContainsString('12:00:00', $linha->text(), 'o colaborador não vê a batida desconsiderada');
         self::assertCount(0, $linha->filter('.batida-desconsiderada'), 'o colaborador não edita batidas');
@@ -80,6 +81,32 @@ final class FolhaMarcaAConferirTest extends JusPrimeWebTestCase
             $linha->filter(sprintf('form[action*="/ponto/%d/delete"]', $desconsiderada->getId())),
             'e excluí-la, com o mesmo formulário das batidas da célula'
         );
+    }
+
+    #[TestDox('o admin exclui de fato a batida desconsiderada pelo formulario da linha')]
+    public function testAdminExcluiABatidaDesconsideradaPeloFormularioDaLinha(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $admin = $this->criarAdmin($tenant);
+        $colaborador = $this->criarColaboradorComum($tenant);
+        $dia = $this->diaDoMesCorrente();
+        $desconsiderada = $this->criarDiaComDoisRepousos($colaborador, $tenant, $dia);
+        $id = $desconsiderada->getId();
+
+        $this->logarComTenant($client, $admin, $tenant);
+        $crawler = $client->request('GET', sprintf('/tenant/%d/user/%d/edit-role', $tenant->getId(), $colaborador->getId()));
+        $formulario = $this->linhaDoDia($crawler, $dia)->filter(sprintf('form[action*="/ponto/%d/delete"]', $id))->form();
+        $client->submit($formulario);
+
+        self::assertResponseRedirects();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        self::assertNull($em->getRepository(RegistroPonto::class)->find($id), 'o token e a rota do formulário novo têm de funcionar');
+
+        // Sem o segundo repouso, o dia deixa de ser ambíguo.
+        $crawler = $client->request('GET', sprintf('/tenant/%d/user/%d/edit-role', $tenant->getId(), $colaborador->getId()));
+        self::assertCount(0, $this->linhaDoDia($crawler, $dia)->filter('.a-conferir'));
     }
 
     #[TestDox('repetir o mesmo toque em segundos nao marca o dia, mas o admin ainda alcanca a repeticao')]

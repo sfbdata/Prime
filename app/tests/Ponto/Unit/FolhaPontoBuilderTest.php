@@ -611,6 +611,22 @@ final class FolhaPontoBuilderTest extends TestCase
         self::assertSame([], $linha['batidasDesconsideradas']);
     }
 
+    public function testSeloDeHomeOfficeSaiSoDasBatidasEscolhidas(): void
+    {
+        // Como sempre foi: o selo olha as batidas que a folha mostra, não as que ficaram fora da conta.
+        $entradaNaSede = $this->batidaComId(RegistroPonto::TIPO_ENTRADA, '09:00', '2026-04-07', 10);
+        $repeticaoEmCasa = $this->batidaComId(RegistroPonto::TIPO_ENTRADA, '09:01', '2026-04-07', 11);
+        $repeticaoEmCasa->setHomeOffice(true);
+
+        $linha = $this->linhaDoDia7([$entradaNaSede, $repeticaoEmCasa, $this->batidaComId(RegistroPonto::TIPO_SAIDA, '16:00', '2026-04-07', 12)], []);
+        self::assertFalse($linha['homeOffice'], 'a repetição fora da conta não acende o selo');
+
+        $saidaEmCasa = $this->batidaComId(RegistroPonto::TIPO_SAIDA, '16:00', '2026-04-07', 13);
+        $saidaEmCasa->setHomeOffice(true);
+        $linha = $this->linhaDoDia7([$entradaNaSede, $saidaEmCasa], []);
+        self::assertTrue($linha['homeOffice'], 'a batida escolhida em home office acende o selo');
+    }
+
     private function batidaComId(string $tipo, string $hora, string $data, int $id): RegistroPonto
     {
         $registro = $this->batida($tipo, $hora, $data);
