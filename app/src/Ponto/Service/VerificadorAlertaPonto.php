@@ -96,16 +96,19 @@ class VerificadorAlertaPonto
             $metaDiaMinutos = $this->jornadaResolver->resolverMetaDia($user, $agora, $jornadaTenant);
             if ($metaDiaMinutos > 0) {
                 $entrada = $porTipo[RegistroPonto::TIPO_ENTRADA];
-                $repouso = $porTipo[RegistroPonto::TIPO_REPOUSO];
-                $retorno = $porTipo[RegistroPonto::TIPO_RETORNO];
 
-                $minutosAnteRepouso  = (int) round(
-                    ($repouso->getDataHora()->getTimestamp() - $entrada->getDataHora()->getTimestamp()) / 60
-                );
-                $minutosAposRetorno  = (int) round(
-                    ($agora->getTimestamp() - $retorno->getDataHora()->getTimestamp()) / 60
-                );
-                $totalTrabalhado = $minutosAnteRepouso + $minutosAposRetorno;
+                if ($escolha->temIntervalo()) {
+                    $minutosAnteRepouso = (int) round(
+                        ($escolha->repouso->getDataHora()->getTimestamp() - $entrada->getDataHora()->getTimestamp()) / 60
+                    );
+                    $minutosAposRetorno = (int) round(
+                        ($agora->getTimestamp() - $escolha->retorno->getDataHora()->getTimestamp()) / 60
+                    );
+                    $totalTrabalhado = $minutosAnteRepouso + $minutosAposRetorno;
+                } else {
+                    // Sem intervalo mensurável (retorno antes do repouso) a folha conta o span inteiro.
+                    $totalTrabalhado = (int) round(($agora->getTimestamp() - $entrada->getDataHora()->getTimestamp()) / 60);
+                }
 
                 if ($totalTrabalhado >= $metaDiaMinutos) {
                     return [

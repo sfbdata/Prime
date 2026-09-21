@@ -194,6 +194,30 @@ final class VerificadorAlertaPontoTest extends TestCase
         self::assertFalse($resultado['alertar']);
     }
 
+    /**
+     * Sem intervalo mensurável (retorno antes do repouso) a folha conta o span entrada→saída; o aviso
+     * conta igual, em vez de somar manhã e tarde de um par que não existe.
+     */
+    public function testJornadaConcluidaSemIntervaloValidoContaOSpanComoAFolha(): void
+    {
+        $this->jornadaResolver->method('resolverAlertaHabilitado')->willReturn(true);
+        $this->registroRepository->method('findBatidasDoDia')->willReturn([
+            $this->criarBatida(RegistroPonto::TIPO_ENTRADA, '08:00:00'),
+            $this->criarBatida(RegistroPonto::TIPO_RETORNO, '11:00:00'),
+            $this->criarBatida(RegistroPonto::TIPO_REPOUSO, '12:00:00'),
+        ]);
+        $this->jornadaResolver->method('resolverMetaDia')->willReturn(480);
+
+        // 15:00 — span 08:00→15:00 = 420 < 480. Somando o par invertido seriam 240 + 240 = 480.
+        $as15 = $this->sut->verificar($this->user, new \DateTimeImmutable('2026-04-30 15:00:00'), null);
+        self::assertFalse($as15['alertar']);
+
+        // 16:00 — span 480: aí sim, como a folha.
+        $as16 = $this->sut->verificar($this->user, new \DateTimeImmutable('2026-04-30 16:00:00'), null);
+        self::assertTrue($as16['alertar']);
+        self::assertSame('saida', $as16['tipo']);
+    }
+
     /** O intervalo mínimo conta do primeiro repouso — o mesmo que a folha e a validação do servidor usam. */
     public function testIntervaloMinimoContaDoMesmoRepousoQueAFolha(): void
     {
