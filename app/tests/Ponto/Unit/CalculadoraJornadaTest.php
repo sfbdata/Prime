@@ -9,7 +9,9 @@ use App\Ponto\Entity\Feriado;
 use App\Ponto\Entity\JornadaColaborador;
 use App\Ponto\Entity\JornadaTenant;
 use App\Ponto\Entity\RegistroPonto;
+use App\Ponto\Service\BatidasEscolhidas;
 use App\Ponto\Service\CalculadoraJornada;
+use App\Ponto\Service\EscolhaDasBatidasDoDia;
 use App\Ponto\Service\JornadaResolver;
 use PHPUnit\Framework\TestCase;
 
@@ -629,11 +631,11 @@ class CalculadoraJornadaTest extends TestCase
     // ──────────────────────────────────────────────────────────────────
     // Pareamento cronológico — batida repetida ou de tipo errado não destrói o dia
     //
-    // Até 14/09/2026 `calcularMinutosTrabalhados` montava um mapa `tipo => hora` varrendo as
-    // batidas em ordem crescente, então a ÚLTIMA de cada tipo sobrescrevia as anteriores. Uma
-    // batida de tipo errado horas depois arruinava o dia inteiro. Medido em PROD: 30 dias errados
-    // em 7 pessoas desde 01/04/2026, 62h líquidas a devolver aos colaboradores.
-    // Ver docs/specs/ponto-batida-que-responde-e-conta-certa.md.
+    // A calculadora não escolhe batida: conta a escolha de `EscolhaDasBatidasDoDia`, a mesma da
+    // folha, das células e do quadro de hoje (docs/specs/ponto-folha-uma-batida-por-tipo.md §9.3).
+    // Até 21/09/2026 ela tinha regra própria (o par adjacente), que só valia quando chamada direto,
+    // como aqui: a folha entregava a ela uma batida por tipo. Os "62h/64h30 a devolver" registrados
+    // em 14/09 compararam essas duas regras e foram REFUTADOS — na folha, nada havia a devolver.
     //
     // Os cenários abaixo são dias REAIS de produção, com as horas como aconteceram.
     // ──────────────────────────────────────────────────────────────────
@@ -769,13 +771,14 @@ class CalculadoraJornadaTest extends TestCase
     }
 
     /**
-     * `repouso` batido cedo por engano não pode apagar a manhã.
+     * `repouso` batido cedo por engano: dois repousos distintos tornam o dia AMBÍGUO.
      *
-     * Contraparte do `retorno` de tipo errado no fim do dia: a proteção tem de ser simétrica, senão
-     * o mesmo engano derruba o dia pela outra ponta. O par escolhido é o ADJACENTE — o último
-     * repouso antes do retorno —, não o primeiro repouso do dia.
+     * A regra de 14/09 escolhia o par adjacente (o último repouso antes do retorno, 540 min), mas ela
+     * nunca chegou à folha. Decisão do dono de 21/09/2026: a regra não escolhe sozinha outro repouso.
+     * O cálculo fica com o primeiro (o que a folha sempre mostrou) e o dia é marcado para um humano
+     * corrigir a batida (docs/specs/ponto-folha-uma-batida-por-tipo.md §9.9).
      */
-    public function testRepousoPrecoceDeTipoErradoNaoApagaAManha(): void
+    public function testRepousoPrecoceDeTipoErradoMantemOPrimeiroEMarcaODia(): void
     {
         $batidas = [
             $this->batida(RegistroPonto::TIPO_ENTRADA, '08:00'),
@@ -785,8 +788,79 @@ class CalculadoraJornadaTest extends TestCase
             $this->batida(RegistroPonto::TIPO_SAIDA, '18:00'),
         ];
 
-        // Manhã 08:00→12:00 (240) + tarde 13:00→18:00 (300). Com o primeiro repouso: 360.
-        $this->assertSame(540, $this->calculadora->calcularMinutosTrabalhados($batidas));
+        // Manhã 08:00→09:00 (60) + tarde 13:00→18:00 (300). O par adjacente daria 540.
+        $this->assertSame(360, $this->calculadora->calcularMinutosTrabalhados($batidas));
+        $this->assertSame(
+            [BatidasEscolhidas::MARCA_REPOUSOS_DISTINTOS],
+            $this->calculadora->escolherBatidas($batidas)->aConferir
+        );
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    // A conta sai da escolha pronta — a mesma que a folha exibe
+    // ──────────────────────────────────────────────────────────────────
+
+    public function testContarAEscolhaDaOMesmoQueContarAsBatidas(): void
+    {
+        $batidas = [
+            $this->batida(RegistroPonto::TIPO_ENTRADA, '07:17'),
+            $this->batida(RegistroPonto::TIPO_REPOUSO, '12:50'),
+            $this->batida(RegistroPonto::TIPO_RETORNO, '13:50'),
+            $this->batida(RegistroPonto::TIPO_RETORNO, '17:12'),
+            $this->batida(RegistroPonto::TIPO_SAIDA, '17:30'),
+        ];
+        $escolha = $this->calculadora->escolherBatidas($batidas, $this->segunda());
+
+        $this->assertSame(553, $this->calculadora->calcularMinutosDaEscolha($escolha));
+        $this->assertSame(
+            $this->calculadora->calcularMinutosTrabalhados($batidas),
+            $this->calculadora->calcularMinutosDaEscolha($escolha)
+        );
+        $this->assertSame('13:50', $escolha->retorno?->getDataHora()->format('H:i'), 'a conta usa o retorno que a célula mostra');
+    }
+
+    public function testSaldoDoDiaSaiDaEscolhaPronta(): void
+    {
+        $user = $this->novoUsuario($this->jornadaComIntervalo());
+        $batidas = [
+            $this->batida(RegistroPonto::TIPO_ENTRADA, '09:00'),
+            $this->batida(RegistroPonto::TIPO_REPOUSO, '12:00'),
+            $this->batida(RegistroPonto::TIPO_RETORNO, '13:00'),
+            $this->batida(RegistroPonto::TIPO_SAIDA, '18:30'),
+        ];
+        $escolha = $this->calculadora->escolherBatidas($batidas, $this->segunda());
+
+        $this->assertSame(
+            $this->calculadora->calcularSaldoDia($user, $this->segunda(), $batidas, $user->getJornadaColaborador(), []),
+            $this->calculadora->calcularSaldoDiaDaEscolha($user, $this->segunda(), $escolha, $user->getJornadaColaborador(), [])
+        );
+        $this->assertFalse($this->calculadora->registroIncompletoDaEscolha($escolha));
+    }
+
+    public function testRegistroIncompletoDaEscolhaSegueAPresencaDosTipos(): void
+    {
+        $soRepouso = $this->calculadora->escolherBatidas([
+            $this->batida(RegistroPonto::TIPO_ENTRADA, '09:00'),
+            $this->batida(RegistroPonto::TIPO_REPOUSO, '12:00'),
+            $this->batida(RegistroPonto::TIPO_SAIDA, '18:00'),
+        ]);
+
+        $this->assertTrue($this->calculadora->registroIncompletoDaEscolha($soRepouso));
+        $this->assertFalse($this->calculadora->registroIncompletoDaEscolha($this->calculadora->escolherBatidas([])));
+    }
+
+    public function testCalculadoraUsaAEscolhaQueRecebeuNoConstrutor(): void
+    {
+        // Vigência injetada no passado: o mesmo dia passa a ser apurado pela regra única.
+        $calculadora = new CalculadoraJornada(new JornadaResolver(), new EscolhaDasBatidasDoDia('2026-04-01'));
+
+        $escolha = $calculadora->escolherBatidas([$this->batida(RegistroPonto::TIPO_ENTRADA, '09:00')]);
+
+        $this->assertSame(BatidasEscolhidas::REGRA_UNICA, $escolha->regra);
+        $this->assertSame(
+            BatidasEscolhidas::REGRA_LEGADA,
+            $this->calculadora->escolherBatidas([$this->batida(RegistroPonto::TIPO_ENTRADA, '09:00')])->regra
+        );
     }
 
     /**
