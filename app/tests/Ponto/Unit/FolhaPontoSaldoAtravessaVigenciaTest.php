@@ -76,6 +76,42 @@ final class FolhaPontoSaldoAtravessaVigenciaTest extends TestCase
         }
     }
 
+    /**
+     * A troca de regra ACONTECE na folha, no dia certo. Com a lista em ordem de horário as duas regras
+     * escolhem o mesmo; a única diferença é a lista fora de ordem (a legada fica com a primeira que
+     * chega, como o código antigo; a única ordena). Por isso o teste usa lista fora de ordem: se a folha
+     * passasse "hoje" em vez do dia, ou ignorasse a vigência, os dois dias sairiam iguais.
+     */
+    public function testAFolhaApuraCadaDiaPelaRegraDaSuaData(): void
+    {
+        $builder = $this->builder();
+        $foraDeOrdem = fn (string $dia): array => [
+            $this->batida('entrada', "{$dia} 08:00:00"),
+            $this->batida('repouso', "{$dia} 12:30:00"),
+            $this->batida('repouso', "{$dia} 12:00:00"),
+            $this->batida('retorno', "{$dia} 13:30:00"),
+            $this->batida('saida', "{$dia} 17:00:00"),
+        ];
+
+        $rows = $builder->buildRows(
+            new \DateTimeImmutable('2026-04-30'),
+            new \DateTimeImmutable('2026-05-01'),
+            [...$foraDeOrdem('2026-04-30'), ...$foraDeOrdem('2026-05-01')],
+            true,
+            false,
+            $this->jornadaNeutra(),
+            [],
+            [],
+            null,
+            new \DateTimeImmutable('2026-04-01'),
+        );
+
+        self::assertSame('12:30:00', $rows[0]['repouso'], 'véspera da vigência: a regra legada (a primeira que chegou)');
+        self::assertSame(270 + 210, $rows[0]['minutosTrabalhadosDia']);
+        self::assertSame('12:00:00', $rows[1]['repouso'], 'dia da vigência: a regra única (a mais cedo)');
+        self::assertSame(240 + 210, $rows[1]['minutosTrabalhadosDia']);
+    }
+
     public function testSaldoAteOMesESaldoAnualSomamAsDuasRegras(): void
     {
         $builder = $this->builder();
