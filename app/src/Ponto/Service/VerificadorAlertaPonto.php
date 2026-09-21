@@ -17,6 +17,7 @@ class VerificadorAlertaPonto
     public function __construct(
         private readonly JornadaResolver $jornadaResolver,
         private readonly RegistroPontoRepository $registroRepository,
+        private readonly EscolhaDasBatidasDoDia $escolhaDasBatidas = new EscolhaDasBatidasDoDia(),
     ) {}
 
     /**
@@ -30,8 +31,12 @@ class VerificadorAlertaPonto
 
         $batidasDoDia = $this->registroRepository->findBatidasDoDia($user, $agora);
 
+        // As MESMAS batidas que a folha e o quadro de hoje contam (a escolha única). Até 21/09/2026 o
+        // aviso ficava com a ÚLTIMA de cada tipo e podia mandar sair com a folha ainda devendo horas
+        // (`docs/specs/ponto-folha-uma-batida-por-tipo.md` §10.5).
+        $escolha = $this->escolhaDasBatidas->escolher($batidasDoDia, $agora);
         $porTipo = [];
-        foreach ($batidasDoDia as $batida) {
+        foreach ($escolha->escolhidas() as $batida) {
             $porTipo[$batida->getTipo()] = $batida;
         }
 

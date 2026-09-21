@@ -170,6 +170,50 @@ final class VerificadorAlertaPontoTest extends TestCase
         self::assertSame('saida', $resultado['tipo']);
     }
 
+    /**
+     * O aviso conta as MESMAS batidas que a folha (a escolha única, `EscolhaDasBatidasDoDia`). Com dois
+     * repousos distintos a folha conta o primeiro; o aviso usava o último e mandava sair com a folha
+     * ainda devendo três horas (docs/specs/ponto-folha-uma-batida-por-tipo.md §10.5).
+     */
+    public function testJornadaConcluidaContaOMesmoRepousoQueAFolha(): void
+    {
+        $this->jornadaResolver->method('resolverAlertaHabilitado')->willReturn(true);
+        $this->registroRepository->method('findBatidasDoDia')->willReturn([
+            $this->criarBatida(RegistroPonto::TIPO_ENTRADA, '08:00:00'),
+            $this->criarBatida(RegistroPonto::TIPO_REPOUSO, '09:00:00'),
+            $this->criarBatida(RegistroPonto::TIPO_REPOUSO, '12:00:00'),
+            $this->criarBatida(RegistroPonto::TIPO_RETORNO, '13:00:00'),
+        ]);
+        $this->jornadaResolver->method('resolverMetaDia')->willReturn(480);
+
+        // 17:00 — a folha conta 08:00→09:00 (60) + 13:00→17:00 (240) = 300 < 480. Pelo último
+        // repouso seriam 240 + 240 = 480 e o aviso mandaria sair.
+        $resultado = $this->sut->verificar($this->user, new \DateTimeImmutable('2026-04-30 17:00:00'), null);
+
+        self::assertNotSame('saida', $resultado['tipo']);
+        self::assertFalse($resultado['alertar']);
+    }
+
+    /** O intervalo mínimo conta do primeiro repouso — o mesmo que a folha e a validação do servidor usam. */
+    public function testIntervaloMinimoContaDoMesmoRepousoQueAFolha(): void
+    {
+        $jornadaTenant = $this->createMock(JornadaTenant::class);
+        $jornadaTenant->method('getMinimoMinutosRepouso')->willReturn(60);
+
+        $this->jornadaResolver->method('resolverAlertaHabilitado')->willReturn(true);
+        $this->registroRepository->method('findBatidasDoDia')->willReturn([
+            $this->criarBatida(RegistroPonto::TIPO_ENTRADA, '08:00:00'),
+            $this->criarBatida(RegistroPonto::TIPO_REPOUSO, '12:00:00'),
+            $this->criarBatida(RegistroPonto::TIPO_REPOUSO, '12:40:00'),
+        ]);
+
+        // 13:05 — 65 min desde o primeiro repouso (o da folha); só 25 desde o último.
+        $resultado = $this->sut->verificar($this->user, new \DateTimeImmutable('2026-04-30 13:05:00'), $jornadaTenant);
+
+        self::assertTrue($resultado['alertar']);
+        self::assertSame('retorno', $resultado['tipo']);
+    }
+
     public function testSemAlertaSaidaQuandoJornadaIncompleta(): void
     {
         $jornadaTenant = $this->createMock(JornadaTenant::class);
