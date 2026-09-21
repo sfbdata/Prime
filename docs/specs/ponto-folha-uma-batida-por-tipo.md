@@ -2,8 +2,8 @@
 
 **Risco:** ALTO (ponto eletrônico, saldo e banco de horas).
 **Frente:** `ponto-folha-uma-batida-por-tipo`, base `origin/master` @ `563460a9`.
-**Estado:** investigação concluída em 21/09/2026, **zero código**. As decisões de 21/09 estão no §7.1 e o
-plano técnico no §9. Para no portão humano antes de implementar.
+**Estado:** implementado e validado na frente em 21/09/2026 (§10.5). **Não integrado, não publicado,
+sem migration.** Para no portão humano (§10.6). Decisões: §7.1 e §9.9. Plano: §9 e §10.
 **Produção:** lida só com `SELECT` pelo MCP somente leitura. Usuários aparecem pelo `user_id`.
 **Origem:** o §10 de `docs/specs/ponto-batida-duplicada.md` (branch `ponto-batida-duplicada`).
 **Revê:** a medição "64h30 a devolver" de `docs/specs/ponto-batida-que-responde-e-conta-certa.md`
@@ -348,8 +348,11 @@ A calculadora deixa de escolher por conta própria: recebe a escolha pronta.
 **Entrada:** todas as batidas do dia, em ordem de `dataHora` e depois de `id` (hoje falta o desempate
 por id).
 
-1. **Eventos.** Batidas do mesmo tipo, **consecutivas** e com até **5 min** entre si formam um só
-   evento. É a janela da D-1, já aprovada na frente de duplicatas; não é limiar novo.
+1. **Eventos.** Batidas do mesmo tipo, **consecutivas**, com até **5 min** entre si e **as duas feitas
+   pelo próprio colaborador** formam um só evento. É a janela da D-1, já aprovada na frente de
+   duplicatas; não é limiar novo. Aprovação de esquecimento (observação fixa) e lançamento ou edição do
+   admin (snapshot `Lançamento manual`) nunca se juntam. A D1 também pede GPS presente; aqui a batida
+   de home office, que não tem GPS, conta como do colaborador (zero delas em produção, §10.5).
 
    O evento vale **a batida que a folha usa hoje**: a primeira do grupo, e a última quando o tipo é
    saída. É a mesma que a D-2 manda preservar na limpeza. As outras são "repetições" e não entram na
@@ -367,7 +370,8 @@ por id).
    - dois de repouso;
    - retorno antes do repouso.
 
-   São batidas que o admin deveria corrigir. Nos dados de hoje, 33 dias seriam marcados.
+   São batidas que o admin deveria corrigir. Nos dados de hoje, **38 dias** ficam marcados (medido na
+   execução, §10.5; o "33" que estava aqui contava só os repousos antes do retorno).
 
 **Efeito medido sobre os 64 dias reais** (simulação em Python validada contra o PHP real nos 64 dias):
 
@@ -572,7 +576,7 @@ calculadora direto são reescritos contra a escolha. O de repouso precoce muda d
 |---|---|
 | M1: a vigência ignorada (sempre legada, ou sempre nova) | teste da vigência (commit 3) |
 | M2: o grupo de 5 min vale a **primeira** também na saída | T8 depois da vigência (padrões de 20/05 e 10/09) |
-| M3: dois repousos distintos → o **último** antes do retorno (almoço menor) | T8 (19/06 e 28/08) e o repouso precoce |
+| M3: dois repousos distintos → o **último** antes do retorno (almoço menor) | na regra única: T1, T8 e o teste de saldo; na legada: o repouso precoce e as telas (§10.5) |
 | M4: a célula lê uma batida diferente da usada na conta | teste da folha (commit 5) |
 | M5: as marcas deixam de ser calculadas | teste da escolha e funcional do selo |
 | M6: o quadro de hoje volta a usar a última | teste do quadro (commit 7) |
@@ -584,3 +588,154 @@ calculadora direto são reescritos contra a escolha. O de repouso precoce muda d
 - `lint:twig`, `lint:container` e `doctrine:schema:validate --skip-sync` (este sem migration).
 - Revisão por dois `feature-review-agent` independentes (regra e histórico; telas e testes). Depois,
   correções e uma nova revisão, porque o risco é ALTO.
+
+### 10.5 Registro da execução (21/09/2026)
+
+**Commits desta frente** (sobre `563460a9`, sem migration, nada publicado):
+
+| Commit | O quê |
+|---|---|
+| `5a4f4eaa` | docs: decisões do §9.8 (§9.9), spec de 14/09 e este plano |
+| `8b3655f9` | teste de caracterização dos 64 padrões reais, verde no código ANTIGO |
+| `96cc2e76` | `BatidasEscolhidas` e `EscolhaDasBatidasDoDia` (regra única, marcas, vigência) |
+| `af2048c4` | a calculadora conta a escolha pronta; o par adjacente sai |
+| `5850d0a8` | a folha lê células, ids, intervalo, minutos, saldo e marcas da escolha |
+| `a4e44035` | selo "a conferir" (tela e ficha) e as batidas desconsideradas para o admin |
+| `1d4f7dd0` | o quadro "suas batidas de hoje" usa a escolha |
+| `7a41da3b` | guardas de saldo diário, mensal e anual, e de exportação |
+| `43647fd0` | o teste de exportação deixa de cair no dia 1º do mês |
+| `5c40d5e3` | o aviso de jornada (`VerificadorAlertaPonto`) usa a escolha — achado F1 da revisão |
+| `232a982c` | repetição só entre batidas do colaborador (a D1); empate de saída igual ao da legada |
+| `938ea858` | lista solta da calculadora posta em ordem; dia só com tipo desconhecido continua incompleto |
+| `73f1f286` | exclusão da desconsiderada provada pelo formulário; texto e HTML do selo corrigidos |
+| `c13ef78f` | testes de PDF, XLSX e da troca de regra na vigência fortalecidos |
+| `9295d87b` | o aviso de jornada conta o span quando não há intervalo válido — achado da re-revisão |
+| `ea7ce9d9` | `RegistroPonto::SNAPSHOT_LANCAMENTO_MANUAL` liga quem grava e quem lê; aprovação depois da real coberta |
+| `786ae0df` | comentários da calculadora antiga precisos; saldo da lista solta coberto |
+
+**Divergências achadas depois da revisão (somam-se ao §10.1):**
+
+- **O aviso de jornada entrou no escopo.** O `VerificadorAlertaPonto` ficava com a ÚLTIMA batida de
+  cada tipo para "6 h sem repouso", "intervalo concluído" e "jornada concluída". Depois do commit do
+  quadro de hoje, relógio e aviso discordavam na mesma tela. O requisito "uma única fonte de decisão"
+  é explícito, então o aviso passou a ler a escolha. Efeito: com dois repousos, o aviso de intervalo
+  conta do primeiro (o mesmo que `findRepousoDoDia`, a validação do servidor, já usava) e o de jornada
+  concluída conta como a folha. Ficam fora da escolha só as validações da batida nova no servidor
+  (`findRepousoDoDia`, que coincide, e `findUltimaSaida`, entre dias).
+- **A repetição de 5 min passou a exigir as duas batidas do colaborador**, como a D1 aprovada:
+  aprovação de esquecimento e lançamento manual nunca se juntam. Nenhum número muda. Mudam as marcas:
+  **38 dias** ficam "a conferir" nos dados de hoje (35 sem olhar a origem). Os 3 a mais são uma
+  aprovação sobreposta a uma batida real a 24 s (a C3) e dois lançamentos manuais repetidos a 13–15 s
+  (a C4). O "33" do §9.3 estava errado: contava só os repousos antes do retorno.
+- **Definição da marca de repouso:** mais de um registro distinto de repouso em QUALQUER posição (o
+  item 4 do §9.3), não só antes do retorno (o item 3). Dois dias reais têm um repouso batido 2–3 min
+  depois do retorno e ficam marcados. É o que o código faz; se o dono preferir o item 3, muda a marca e
+  nenhum número.
+- **A legada é um método privado, não uma classe**, e a conta de minutos é UMA para as duas regras.
+  Uma mudança futura na conta muda o passado; o T8 cai e o docblock de `calcularMinutosDaEscolha`
+  avisa que ela exige vigência própria.
+- **Empate no mesmo segundo:** a regra única escolhe o mesmo registro que a legada (o gravado
+  primeiro), inclusive na saída, e não só o mesmo horário.
+- **Métodos de lista solta da calculadora** (sem uso em produção) põem a lista em ordem antes de
+  escolher. Dia só com batida de tipo desconhecido continua incompleto, como antes (0 casos em produção:
+  só os quatro tipos existem).
+- **Escopo de teste reduzido:** não há funcional do "saldo do mês" na tela antes e depois da vigência (a
+  vigência real é futura; a folha não apura dia futuro). A troca de regra é provada na folha pelo teste
+  de lista fora de ordem, e os saldos diário, mensal e anual pelos unitários. O PDF é provado pelo HTML
+  que o Dompdf recebe, montado com os mesmos passos da rota; `montarDadosFolha` não foi extraído para
+  serviço.
+- **Efeito na tela, não testado (JavaScript):** o `pontoHoje` alimenta o relógio, o contador de repouso e
+  a previsão de saída. Com dois registros do mesmo tipo, eles passam a usar o primeiro (o da folha), não
+  o último.
+- **Selo no celular:** o motivo da marca está no `title` (passar o mouse). O `data-bs-toggle` não é
+  inicializado nessas telas, como já acontece no selo "Registro incompleto"; no celular aparece só
+  "A conferir".
+- **Fora do escopo, registrados:** batidas fora de ordem continuam sem marca e com o `abs()` de
+  `diffMinutos` creditando (pré-existente); a data da vigência é portão manual do deploy.
+
+**Provas por reintrodução — 24 mutações, 24 derrubadas.** Cada uma foi aplicada sozinha, rodou os testes
+do alvo e foi desfeita pela cópia do arquivo, com `git diff` vazio conferido antes da próxima (diário
+completo: `scratchpad/diario-mutacoes.md` da sessão; duas rodadas, a segunda depois das correções da
+revisão).
+
+| # | Mutação | Caiu |
+|---|---|---|
+| M1a / M1b | vigência ignorada (sempre a única / sempre a legada) | teste da escolha e da calculadora |
+| M2 | saída vale a primeira na regra única | escolha, T8 (regra única) e saldos |
+| M3a | dois repousos distintos → o último (almoço menor), regra única | escolha, T8 (19/06 e 28/08) e saldos |
+| M3b | o mesmo na regra legada | T8, calculadora, folha, selo e quadro de hoje |
+| M4 | a célula do repouso mostra outra batida que não a da conta | folha, T8, selo, PDF e XLSX |
+| M5 | as marcas deixam de ser calculadas | escolha, folha, T8 e selo |
+| M6 | o quadro de hoje volta à última de cada tipo | quadro de hoje |
+| M7 | janela de repetição de 10 min | escolha e T8 |
+| M8 | `minutosIntervalo` só com intervalo válido (mudaria o PDF/XLSX) | T8 |
+| M9 | registro incompleto deixa de olhar metade do intervalo | T8 e calculadora |
+| M10 | a marca some da tela do colaborador | selo |
+| M11 | o admin perde as batidas desconsideradas | selo |
+| M12 | a marca vaza para o XLSX | exportação |
+| M13 | a repetição ignora a origem (aprovação/manual se juntam) | escolha |
+| M14 | saída no mesmo segundo fica com a gravada depois | escolha |
+| M15 | o aviso de jornada volta à última de cada tipo | aviso |
+| M16 | a lista solta da calculadora deixa de ser posta em ordem | calculadora |
+| M17 | dia só com tipo desconhecido deixa de ser incompleto | calculadora |
+| M18 | a folha apura cada dia pela regra de HOJE | teste da troca de regra na folha |
+| M19 | o formulário de excluir a desconsiderada usa outro token | selo (exclusão de fato) |
+| M20 | o PDF imprime o repouso que ficou fora da conta | exportação (PDF) |
+| M13b | a origem só é conferida na batida anterior (sobrevivia na re-revisão) | escolha |
+| M21 | o aviso de jornada soma o par mesmo sem intervalo válido | aviso |
+
+🪤 **Achado do próprio roteiro:** a restauração copiava o arquivo preservando a data antiga, e o cache
+do Twig continuou servindo os templates compilados das mutações M19 e M20. Uma suíte completa deu 2
+falhas falsas por isso. Cache limpo, roteiro corrigido (a data do arquivo é atualizada ao restaurar) e
+as mutações de template refeitas: todas derrubadas de novo.
+
+**Revisões independentes** (dois `feature-review-agent`, só leitura, sobre `7a41da3b`):
+
+- **Regra, histórico e vigência:** nada bloqueante. A legada é transcrição fiel; nenhum número anterior
+  à vigência muda com dado válido (fuzz de 300 mil dias pelo revisor: 0 diferenças de número).
+  Achados tratados: F1 (aviso de jornada) → corrigido; F2 (33 × 35) → recontado, 38 com a origem; F3
+  (empate de saída) → corrigido; F4 (legada só escolhe, a conta é compartilhada) → documentado; F5
+  (lista solta) → corrigido; F6 (tipo desconhecido; 0 em produção) → corrigido; F7 (fora de ordem,
+  pré-existente) → registrado fora; F8 (origem na repetição) → corrigido, alinhado à D1; F9 (vigência
+  manual) → portão do deploy.
+- **Telas e testes:** código de produção coerente, sem XSS, CSRF e posse corretos, HTML balanceado.
+  Reprovou pelos testes: dia 1º do mês (já corrigido em `43647fd0`), asserção vazia no PDF ("09:00"
+  também é o horário contratual padrão), troca de regra não provada na folha, XLSX sem saldo e banco,
+  teste tautológico, exclusão nunca enviada, texto do selo mandando o colaborador corrigir e formulário
+  dentro de `<span>`. Todos corrigidos (`73f1f286`, `c13ef78f`, `938ea858`); as mutações M18–M20 provam
+  os testes novos.
+
+**Re-revisão (sobre `7a41da3b..c13ef78f`), sem bloqueante.** Todos os achados anteriores foram
+confirmados como resolvidos, alguns parcialmente, com estas pendências:
+
+- **Tratadas depois:** o aviso de jornada ignorava o intervalo inválido (`9295d87b`); metade da mutação
+  de origem sobrevivia (`ea7ce9d9`); o texto `Lançamento manual` estava acoplado por literal
+  (`ea7ce9d9`); dois comentários imprecisos (`786ae0df`); o saldo da lista solta estava sem teste
+  (`786ae0df`); a documentação não estava commitada (este commit).
+- **Ficam registradas:** as linhas do PDF são montadas por uma réplica fiel da rota, e o binário não é
+  lido; a batida de home office conta como do colaborador na repetição, embora a D1 peça GPS (zero em
+  produção); alguns commits reúnem mais de um ajuste.
+
+**Suíte completa:**
+
+- 1ª rodada, depois do commit 8: 5.553/5.553.
+- 2ª: 2 falhas **falsas**, do cache do Twig com as mutações.
+- 3ª: com o cache apagado de propósito, 15 falhas em Mcp, Shared (compressor) e Cobrança, domínios que
+  esta frente não toca. As quatro classes passam isoladas; é tempo e cache frio.
+- **4ª e final, sobre `786ae0df`: 5.567/5.567, 20.691 asserções.** `lint:twig`, `lint:container` e
+  `doctrine:schema:validate --skip-sync` limpos; sem migration.
+
+### 10.6 Portão humano
+
+1. **Data da vigência** (`EscolhaDasBatidasDoDia::VIGENCIA = '2026-10-01'`): vale se o deploy sair em
+   setembro. Deploy em outubro ou depois → avançar a constante antes.
+2. **O que muda na tela com o deploy, sem mudar número nenhum:**
+   - 38 dias do histórico ganham o selo "a conferir";
+   - a ficha do admin passa a mostrar e excluir as batidas fora da conta;
+   - o quadro de hoje e o aviso de jornada passam a usar a primeira batida de cada tipo (e a última
+     saída), como a folha.
+3. **Marca de repouso:** qualquer posição (hoje) ou só antes do retorno (tira a marca de 2 dias).
+4. **Smoke do dono:** o selo na tela do colaborador e na ficha (desktop e celular), os links "Fora da
+   conta" e a exclusão por eles, e o aviso de jornada num dia com dois repousos.
+5. **Integração:** esta frente vai antes de `ponto-batida-duplicada` (decisão 4 do §7.1). A lista da
+   limpeza D-2 continua valendo, porque o grupo de repetição preserva a mesma batida que a folha usava.
