@@ -160,9 +160,9 @@ final class BatidasDeHojeNaTelaTest extends JusPrimeWebTestCase
 
         self::assertResponseIsSuccessful();
 
-        // `pontoHoje` guarda uma só por tipo (a última vence). Sem a contagem, o card mostraria
-        // "Entrada 08:12:40" e esconderia a duplicata — no lugar que existe para revelá-la, e para
-        // o qual o aviso de "sem confirmação" manda a pessoa olhar antes de bater de novo.
+        // `pontoHoje` guarda uma só por tipo (a da escolha única, a mesma da folha). Sem a contagem, o
+        // card mostraria só "Entrada 08:12:03" e esconderia a duplicata — no lugar que existe para
+        // revelá-la, e para o qual o aviso de "sem confirmação" manda a pessoa olhar antes de bater de novo.
         self::assertCount(
             1,
             $crawler->filter('#batidas-de-hoje .batida-de-hoje[data-tipo="entrada"][data-quantas="2"]'),
@@ -173,6 +173,30 @@ final class BatidasDeHojeNaTelaTest extends JusPrimeWebTestCase
             $this->blocoDeHoje($client),
             'a duplicata tem que estar legível, não só num atributo'
         );
+    }
+
+    #[TestDox('com dois registros do mesmo tipo, o quadro mostra a batida que a folha conta, não a última')]
+    public function testQuadroDeHojeMostraABatidaQueAFolhaConta(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $user   = $this->criarUsuario($tenant);
+
+        // Dois repousos distintos: a folha conta o PRIMEIRO (decisão do dono de 21/09/2026, dia marcado
+        // "a conferir"). O quadro mostrava o último e dizia outra coisa que a folha logo abaixo.
+        $this->criarBatida($user, $tenant, 'entrada', '08:00:00');
+        $this->criarBatida($user, $tenant, 'repouso', '09:00:00');
+        $this->criarBatida($user, $tenant, 'repouso', '12:00:00');
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $client->request('GET', '/ponto/');
+
+        self::assertResponseIsSuccessful();
+        $repouso = $crawler->filter('#batidas-de-hoje .batida-de-hoje[data-tipo="repouso"]');
+        self::assertCount(1, $repouso);
+        self::assertStringContainsString('09:00:00', $repouso->text(), 'o quadro mostra o repouso que a folha conta');
+        self::assertStringNotContainsString('12:00:00', $repouso->text());
+        self::assertSame('2', $repouso->attr('data-quantas'), 'e continua avisando que há dois registros');
     }
 
     /** Um dia do mês corrente que não é hoje: 'ontem' no dia 1º cai fora da competência exibida. */

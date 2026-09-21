@@ -79,7 +79,8 @@ final class PontoController extends AbstractController
         JustificativaPontoRepository $justificativaRepository,
         FolhaPontoBuilder $folhaPontoBuilder,
         HomeOfficeResolver $homeOfficeResolver,
-        SedeRepository $sedeRepository
+        SedeRepository $sedeRepository,
+        CalculadoraJornada $calculadoraJornada,
     ): Response {
         /** @var User $user */
         $user = $this->getUser();
@@ -141,16 +142,22 @@ final class PontoController extends AbstractController
             fn($b) => $b->getDataHora()->format('Y-m-d') === $hojeStr
         );
 
+        // `$pontoHoje` guarda uma batida por tipo: a da escolha ÚNICA, a mesma que a folha logo abaixo
+        // conta (`docs/specs/ponto-folha-uma-batida-por-tipo.md` §9.9). Até 21/09/2026 era a última de
+        // cada tipo, e o quadro podia dizer uma hora e a folha outra.
+        //
+        // Quantas batidas de cada tipo existem HOJE, também. Sem a contagem, duas entradas no mesmo
+        // dia apareceriam como uma — justamente a duplicata que o aviso de envio sem confirmação pode
+        // provocar, escondida no lugar que existe para revelá-la.
+        $escolhaDeHoje = $calculadoraJornada->escolherBatidas(array_values($batidasHoje), $agora);
         $pontoHoje = ['entrada' => null, 'repouso' => null, 'retorno' => null, 'saida' => null];
-        // Quantas batidas de cada tipo existem HOJE. `$pontoHoje` guarda uma só por tipo (a última
-        // vence), e o card usa isso para a pessoa conferir se registrou. Sem a contagem, duas
-        // entradas no mesmo dia apareceriam como uma — justamente a duplicata que o aviso de envio
-        // sem confirmação pode provocar, escondida no lugar que existe para revelá-la.
         $quantasHoje = ['entrada' => 0, 'repouso' => 0, 'retorno' => 0, 'saida' => 0];
+        foreach (array_keys($pontoHoje) as $tipo) {
+            $pontoHoje[$tipo] = $escolhaDeHoje->doTipo($tipo)?->getDataHora()->format('H:i:s');
+        }
         foreach ($batidasHoje as $batida) {
             $tipo = $batida->getTipo();
-            if (array_key_exists($tipo, $pontoHoje)) {
-                $pontoHoje[$tipo] = $batida->getDataHora()->format('H:i:s');
+            if (array_key_exists($tipo, $quantasHoje)) {
                 $quantasHoje[$tipo]++;
             }
         }
