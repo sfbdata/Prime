@@ -11,6 +11,20 @@ Antecedentes: `ponto-batida-nao-se-perde-no-navegador.md` (a frente que subiu em
 
 **As duas queixas procedem e são defeitos diferentes.** O dono autorizou as quatro frentes abaixo.
 
+> 🔴 **CORREÇÃO DE 21/09/2026: a conclusão dos "64h30 a devolver" foi REFUTADA.**
+>
+> - **De onde veio o número.** Os +3.870 min (registrados aqui como +3.867) vieram da comparação
+>   direta entre a calculadora antiga e a nova, cada uma recebendo **todas** as batidas do dia.
+> - **Por que ele não vale para a folha.** A folha real nunca faz essa conta. Desde 04/04/2026
+>   (`3f17f87c`), `FolhaPontoBuilder::buildRows` reduz o dia a **uma batida por tipo** antes de chamar a
+>   calculadora: a primeira entrada, o primeiro repouso, o primeiro retorno e a última saída.
+>   **Não havia 64h30 refletidas na folha, e portanto nada a devolver.**
+> - **O que o deploy de 14/09 mudou de fato.** A folha exibida mudou em **um único dia**: usuário 1,
+>   21/08, **−538 min**.
+> - **O que continua valendo.** A Frente A, a Frente D e os itens 2 e 3 da Frente C. A queixa real de
+>   horas "sumindo" é o dia zerado por registro incompleto (24/08).
+> - **Prova e números:** `docs/specs/ponto-folha-uma-batida-por-tipo.md` (§2 a §5).
+
 ---
 
 ## Frente A — o botão precisa responder ao toque
@@ -92,6 +106,11 @@ O `retorno 17:12` é tipo errado (ele quis bater a saída). A conta usou o retor
 tarde virou **18 minutos**. Dia = 351 min contra meta de 528 → **−177 min**, quando deveria ser
 **+25**. Agosto dele fecha devendo 1h07 em vez de creditar 2h15.
 
+> 🔴 **REFUTADO em 21/09/2026.** O defeito existia **só na calculadora chamada direto**. A folha entrega
+> a ela o **primeiro** retorno (13:50), então o 11/08 sempre valeu **551 min** na folha, antes e depois
+> de 14/09. Os valores de −177 e de "agosto −67" nunca apareceram na tela, no PDF nem no XLSX. Ver
+> `docs/specs/ponto-folha-uma-batida-por-tipo.md` §4.
+
 ### A regra
 
 > `entrada` = a primeira · `saida` = a última · o intervalo é o **par adjacente**: o primeiro
@@ -170,6 +189,13 @@ como "número errado com cara de certo".
 
 ### 🔢 O número que o dono viu antes de decidir (PROD, desde 01/04/2026)
 
+> 🔴 **REFUTADO em 21/09/2026: esta tabela NÃO é o efeito na folha.**
+>
+> - Ela compara duas calculadoras, cada uma recebendo todas as batidas do dia. Reproduzido:
+>   +3.870 min, com os mesmos 4 dias negativos e os mesmos valores por pessoa.
+> - A folha nunca entrega essas batidas à calculadora, porque reduz antes a uma por tipo.
+> - **Na folha, a devolver = 0.** O deploy de 14/09 mudou só 1 dia (usuário 1, 21/08, −538 min).
+
 Medido com a regra FINAL (par adjacente). ⚠️ A primeira versão da regra dava 62h — **o número
 mudou junto com a regra**, e quem repetir a medição precisa refazê-la com a regra vigente, não
 reaproveitar o total.
@@ -194,6 +220,10 @@ todos, o que o sistema perde é crédito que ele não devia ter dado:
   o almoço inteiro entrando como trabalhado.
 - **YLKA 31/08 (−11):** tipos trocados; o dia passa a valer exatamente o span físico.
 
+> 🔴 **Corrigido em 21/09/2026:** o efeito retroativo real foi **1 dia** (usuário 1, 21/08, −538 min), e
+> não 30 dias. O "caminho único" abaixo está certo, mas esse caminho escolhe uma batida por tipo antes
+> da calculadora.
+
 ⚠️ **Efeito retroativo:** folha de mês já emitido sai diferente da assinada — mesma classe de
 impacto do deploy de 05/08 e da decisão de 31/08. Caminho único (`FolhaPontoBuilder::buildRows`
 alimenta PDF, XLSX, tela e ficha do admin), então não há segunda fonte para divergir.
@@ -213,6 +243,9 @@ Ação em produção, executada pelo dono. **Não muda código.**
 
 1. **11/08** — apagar o `retorno 17:12` (batida de tipo errado; a saída real já está lançada às
    17:30). Devolve **+202 min** ao dia. 🪤 Apagar **por id**, nunca por horário.
+   > 🔴 **REFUTADO em 21/09/2026: não executar por esta razão.** A folha já usa o retorno das 13:50, e
+   > apagar o das 17:12 não muda o dia (551 min antes e depois). Em 21/09 a batida continua em
+   > produção, sem ter sido apagada.
 2. **24/08** — dia sem `entrada`, zerado por registro incompleto, **sem justificativa até hoje**.
    Ele tem `repouso 12:48 · retorno 13:51 · saida 17:07`, então trabalhou. Precisa de esquecimento
    de registro aprovado, ou lançamento manual da entrada.

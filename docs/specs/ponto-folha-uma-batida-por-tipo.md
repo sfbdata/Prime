@@ -2,7 +2,8 @@
 
 **Risco:** ALTO (ponto eletrônico, saldo e banco de horas).
 **Frente:** `ponto-folha-uma-batida-por-tipo`, base `origin/master` @ `563460a9`.
-**Estado:** investigação concluída em 21/09/2026, **zero código**. Para no portão humano (§7).
+**Estado:** investigação concluída em 21/09/2026, **zero código**. As decisões de 21/09 estão no §7.1 e o
+plano técnico no §9. Para no portão humano antes de implementar.
 **Produção:** lida só com `SELECT` pelo MCP somente leitura. Usuários aparecem pelo `user_id`.
 **Origem:** o §10 de `docs/specs/ponto-batida-duplicada.md` (branch `ponto-batida-duplicada`).
 **Revê:** a medição "64h30 a devolver" de `docs/specs/ponto-batida-que-responde-e-conta-certa.md`
@@ -233,6 +234,27 @@ correção devolveria aos colaboradores.
 4. **Ordem:** esta frente antes ou depois de `ponto-batida-duplicada`. Ela muda qual repouso a limpeza
    preserva.
 5. **Comunicação:** corrigir o registro dos "64h30" junto a quem recebeu o número.
+
+### 7.1 Decisão do dono (21/09/2026)
+
+Aprovado para planejamento, **sem implementar ainda**.
+
+1. **Caminho A, conceitualmente.** Uma **única decisão** diz quais batidas do dia valem. A folha, as
+   células exibidas, o intervalo e o saldo usam **exatamente essas** batidas.
+2. **19/06 (+62 min) é ambíguo.** Não alterar automaticamente: preservar o resultado atual até uma
+   decisão humana específica sobre ele.
+3. **Meses fechados não mudam sozinhos.** A correção da lógica não pode recalcular em silêncio o
+   histórico fechado. O comportamento futuro e um eventual saneamento do histórico ficam separados.
+4. **Ordem planejada das frentes:**
+   1. `ponto-folha-uma-batida-por-tipo`;
+   2. `ponto-batida-duplicada`;
+   3. `ponto-batida-duplicada-reaprovacao`.
+5. **Documentação dos "64h30" corrigida** nesta branch (`docs/specs/ponto-batida-que-responde-e-conta-certa.md`),
+   com registro explícito de que a conclusão foi **refutada**:
+   - os 3.870 minutos vieram da comparação direta entre calculadoras, cada uma recebendo todas as
+     batidas;
+   - a folha real já reduzia o dia a uma batida por tipo;
+   - **não havia 64h30 refletidas na folha a devolver.**
 
 ## 8. Consulta de seleção dos 64 dias
 
