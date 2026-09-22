@@ -739,3 +739,48 @@ confirmados como resolvidos, alguns parcialmente, com estas pendências:
    conta" e a exclusão por eles, e o aviso de jornada num dia com dois repousos.
 5. **Integração:** esta frente vai antes de `ponto-batida-duplicada` (decisão 4 do §7.1). A lista da
    limpeza D-2 continua valendo, porque o grupo de repetição preserva a mesma batida que a folha usava.
+
+### 10.7 Decisões do portão (22/09/2026) e preparação do smoke
+
+**Aprovado pelo dono:**
+
+1. vigência em **01/10/2026**;
+2. a marca "A conferir" para dois repousos distintos **em qualquer posição**;
+3. home office conta como batida do colaborador na regra de repetição;
+4. esta frente integra **antes** de `ponto-batida-duplicada`.
+
+**Smoke manual preparado no dev, sem integração:**
+
+- **Dados fictícios e isolados** no banco da tela (`saas_ux`):
+  - um escritório próprio (`SMOKE Escolha Unica das Batidas (ficticio - apagar)`);
+  - dois usuários `@escolha-unica.invalid`;
+  - 29 batidas de 14 a 21/09/2026.
+- **Master × frente com os mesmos dados:**
+  - o master (nginx) em `http://localhost:8080`;
+  - a frente (servidor embutido + encaminhador) em `http://127.0.0.1:8091`.
+  - Os hosts precisam ser diferentes porque o cookie de sessão ignora a porta.
+- **Scripts fora do git**, em `app/var/smoke-escolha-unica/` desta worktree:
+  - `criar.php`;
+  - `hoje.php` (aviso de hoje; `--remover`);
+  - `conferir.php` (só leitura);
+  - `limpar.php` (prévia; `--executar`);
+  - `subir-servidor.sh` e `parar-servidor.sh`.
+- **O ciclo criar → limpar → criar foi rodado de verdade:** a limpeza deixou 0 escritórios, 0 usuários e
+  0 batidas do smoke.
+- **Números esperados, conferidos pelo `FolhaPontoBuilder` dos dois checkouts** (`conferir.php`):
+
+| Dia | Master e frente (iguais) | Só na frente |
+|---|---|---|
+| 14/09 | repouso 09:00, 360 min, −2h00m | A conferir (repouso); fora da conta: repouso 12:00:00 |
+| 15/09 | 480 min, 0 | fora da conta: entrada 08:00:20 (sem marca) |
+| 16/09 | 480 min, 0 | A conferir (entrada); fora da conta: entrada 11:59:00 |
+| 17/09 | saída 17:04, 484 min, +0h04m | fora da conta: saída 17:00:00 (sem marca) |
+| 18/09 | igual ao 14/09 (é o dia do teste de excluir) | igual ao 14/09 |
+| 21/09 | Registro incompleto (é o dia do teste de editar) | A conferir (repouso); fora da conta: repouso 13:00:00 |
+| Saldo do mês | −3h56m (−236) | — |
+
+🪤 **Encontrado na preparação:**
+
+- a porta 8081 do WSL está ocupada por outro processo, que não foi tocado; por isso a frente usa a 8091;
+- a checagem "o servidor já está rodando?" por linha de comando achava a própria busca;
+- o IP do container muda a cada reinício (hoje 172.20.0.2).
