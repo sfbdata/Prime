@@ -93,7 +93,9 @@ conferir_wrapper() {
     [ -f "$WRAPPER" ] || morrer "não achei $WRAPPER — rode da raiz do repositório"
 
     aqui=$(sha256sum "$WRAPPER" | cut -d' ' -f1)
-    la=$(remoto 'estado' 2>/dev/null | awk '/sha256:/ {print $2; exit}')
+    # O awk lê a saída INTEIRA: um `exit` no primeiro casamento fecha o pipe, o ssh morre de SIGPIPE
+    # (rc=255) e o `pipefail` derruba o script calado — aconteceu em 23/09, quando o registro cresceu.
+    la=$(remoto 'estado' 2>/dev/null | awk '/sha256:/ && !v {v=$2} END {print v}')
     [ -n "$la" ] || morrer 'não consegui ler o sha256 do wrapper na VPS'
     [ "$aqui" != "$la" ] || return 0
 
@@ -116,7 +118,7 @@ acao_estado() {
     # recusar a rodar esconderia a informação de quem foi olhar por quê.
     local aqui la
     aqui=$(sha256sum "$WRAPPER" 2>/dev/null | cut -d' ' -f1)
-    la=$(remoto 'estado' 2>/dev/null | awk '/sha256:/ {print $2; exit}')
+    la=$(remoto 'estado' 2>/dev/null | awk '/sha256:/ && !v {v=$2} END {print v}')
     if [ -n "$aqui" ] && [ -n "$la" ] && [ "$aqui" != "$la" ]; then
         printf '\n⚠️  o wrapper da VPS não é o deste repositório — falta reinstalar (veja `ajuda`).\n'
         printf '    aqui: %s\n    VPS:  %s\n' "$aqui" "$la"
