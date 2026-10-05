@@ -7,8 +7,6 @@ Quem abre uma frente acrescenta a linha. Quem integra tira.
 
 | Frente (branch) | Domínio | Migration? | Arquivos compartilhados que toca | Estágio | Base |
 |---|---|---|---|---|---|
-| `visual-pasta` | Pasta (tela `pasta_show`) — visual padrão PJe, Trilha A (A1–A6) | não | `app/public/css/pasta-show.css`, `app/templates/pasta/`, `docs/frentes-ativas.md` (esta linha), `docs/specs/trilha-a-visual-pje.md` | ✅ **pronta para integrar** (05/10) — 12 commits (`f225064e`…`2d53a4d1`), 3 revisões com os achados corrigidos + **auditoria de fidelidade × EXPEDIENTES 1.2.3 aplicada** (`2d53a4d1`: itens A/B; os C no §6 da spec), **suíte 5618/5618** na frente; ⏳ 2º smoke do dono + integração. **Integrar ANTES da `visual-dashboard`** (leva a spec e esta tabela). Spec `docs/specs/trilha-a-visual-pje.md`; pacote do desenho NÃO versionado | `origin/master` @ `a458e58e` |
-| `visual-dashboard` | Dashboard (tela `/dashboard`) — visual padrão PJe, Trilha A (A7–A10) | não | `app/public/css/filtro-tabela.css` (correção do ícone de data no Firefox + largura do campo — **afeta Demandas e Processos**), `app/templates/dashboard/`, `app/src/Dashboard/` (aditivo) | ✅ **pronta para integrar** (05/10) — 5 commits (`40554d2c`…`e249cf48`), revisão com os achados corrigidos, **suíte 5582/5582**; ⏳ smoke do dono (incluindo o filtro de data de Demandas/Processos) + integração; **zero arquivo em comum** com `visual-pasta` | `origin/master` @ `a458e58e` |
 | `fix-troca-atestado-abonado` | Ponto (troca de atestado da justificativa) — risco ALTO | não | `docs/frentes-ativas.md` (esta linha); nada em `app/src/Shared/` nem `app/config/` | implementando — **segura o deploy de E1+DT-8+E2** (risco 12.1 do pré-deploy de 18/09); spec `docs/specs/ponto-troca-de-atestado-analisado.md` | `origin/master` @ `91d0aef3` |
 | `cobranca-acompanhamento-canonico` | Cobrança (modelo objeto/caso) | **sim — 4, fora de ordem** | `docs/gestao-cobrancas/` | 🧊 **CONGELADA** — referência histórica, não integrável direto (ver abaixo) | `origin/master` @ `0bb1f29` |
 | `expediente-ux` | Expediente + Pasta (telas) | não | `app/templates/expediente/`, `app/templates/pasta/` | implementando, **28 commits atrás do master** | `origin/codex/colaboracao-cobrancas` |
@@ -16,6 +14,32 @@ Quem abre uma frente acrescenta a linha. Quem integra tira.
 | `import/acervo-pastas` | Pasta (importação de acervo) | não | **nenhum** — os 3 pendentes só tocam `IMPORTACAO-ACERVO.md` | 🗑️ **DESCARTE APROVADO**, aguardando execução humana (ver abaixo) | `c3bfe8ff` (25/05) |
 | `e2-abstracao-storage` | **transversal** — Shared + 9 domínios | **não** | `app/src/Shared/`, `app/config/services.yaml`, `app/src/Shared/CLAUDE.md`, + 35 arquivos de produção | **E2.6 autorizada em 17/09 (D25–D34), em três fatias (6A → 6B → 6C); master com o DT-8 trazido em `3ecc77fb`. E2.6A, E2.6B e E2.6C ENTREGUES em 17/09. A 6A**: validação da saída do compressor (D27), orçamento de tempo único, guarda de memória contra Fatal do GD, `TMPDIR` próprio do Ghostscript, `DiretorioTemporarioPrivado` e `copiaGravavel()` no núcleo (D29), `CompressaoDeArquivoArmazenado` (D26/D30/D31) e `metadados()` deixando de tratar pane como ausência (D10). 65 provas por reintrodução (63 derrubadas), revisão adversarial em 2 frentes. **A 6B**: as 5 chamadas de compressão passaram a ser pela chave, sem shim nem diretório, e o tamanho persistido virou o medido pelo storage (10/10 mutações). **A 6C**: SSRF (o PhpWord buscava `http://` do conteúdo da peça) e leitura entre escritórios (`../` e `%2e%2e`) PROVADOS com teste local e fechados — imagem do export só por chave + escritório, materializada em área temporária privada, com o `chroot` do Dompdf apontado para ela; `data:` recusado, depois de medir zero uso em 349 arquivos de peça no disco do DEV — que, atenção, NÃO têm linha em nenhum dos dois bancos (são resíduo, não o acervo vivo; a contagem que decide é a de produção, não consultada); a Via A do Drive materializa por chave e o shim ficou sem consumidor de produção (8 arquivos de teste migrados). Suíte 5338/19750; sem migration; merge fast-forward sobre o master (`git rev-list --count HEAD..master` = 0). 🔴 Uma decisão do dono em aberto: a compressão remove assinatura, formulário, cifra, PDF/A e EXIF/ICC (comportamento anterior à E2). Imagem de peça legada (diretório plano, pré-M5) segue sem entrar no export — não é regressão (antes dava 500 no DOCX), e trazê-la de volta exige migração de dados. Antes: **E2.5 entregue**: as 19 exclusões físicas depois do COMMIT, a purga por prefixo com prova de pertencimento e o arquivo novo de transação que falha só apagado com a ausência de COMMIT provada. 86 provas por reintrodução (8 sobreviventes por desenho), revisão com 4 revisores + re-revisão com 2. E2.0 `d15535fd`, congelamento `80ac07cb`, E2.1 `f37d5706`, E2.2 `fbf5b778`, E2.3 `84bded8d`, E2.4A `7d266a1c`, E2.4B `e7f13cbe`. D1–D34 ratificadas. **Próximas: E2.7 (anexo de Tarefa) e E2.8 (remover o shim), não autorizadas.** ⚠️ Colisão conhecida: `cobranca-acompanhamento-canonico` (23 commits pendentes) toca `EnviarDocumentoUseCase` e o teste dele, cujo construtor a E2.6B mudou — a ordem de integração das duas frentes é decisão do dono | `origin/master` @ `43cc8be0` (o master do DT-8, trazido em `3ecc77fb`) |
 | `fix-edicao-justificativa-analisada` | Ponto (edição de justificativa já analisada — C2-01) — risco ALTO | não | `docs/frentes-ativas.md` (esta linha); `PontoController::editarJustificativa` e `_justificativas_list.html.twig`, que `fix-troca-atestado-abonado` também toca | ✅ pronta, revisada, **não integrada** — **não vai sozinha**: entra junto com `fix-troca-atestado-abonado`, que entra primeiro, mais o ajuste de testes do §7; spec `docs/specs/ponto-edicao-justificativa-analisada.md` (§7: integração) | `origin/master` @ `91d0aef3` |
+
+### ✅ 05/10 (noite) — Trilha A INTEGRADA no master como entrega INTERMEDIÁRIA — o redesign segue em andamento
+
+`visual-pasta` (12 commits, `f225064e`…`f4e54477`) e `visual-dashboard` (5 commits, `40554d2c`…`e249cf48`)
+entraram no master a partir de `a458e58e` por `cherry-pick` individual, em **ordem topológica** (o `git log`
+padrão inverte `36eaa0d7`/`059a201d`; o primeiro pick fora de ordem conflitou em `pasta-show.css` e foi
+abortado, nada foi resolvido à mão). SHAs no master (frente → master): f225064e→4d1d054a ·
+590863fb→ec9d1436 · 8560501f→4196596a · c811b624→0fac9a4d · 36eaa0d7→e1155c30 · 059a201d→bceec03b ·
+9af28556→e4a7c457 · b1ffe6e3→77963042 · a95aaff6→a7acd6bc · bfa826f8→5a6e3506 · 2d53a4d1→29ecb0dd ·
+f4e54477→9ef42c24 · 40554d2c→7cb5a45a · 8d363f3d→000688db · b202871c→cf6ffa08 · 8911b193→2b582161 ·
+e249cf48→6de3b60d. `git cherry master <frente>` devolve só `-` (integradas por conteúdo) e a árvore do
+master é exatamente a soma das duas (diff vazio contra cada branch; só os 43 arquivos das frentes
+mudaram). Como os SHAs mudaram, `git branch -d` recusa: apagar as branches só depois de `git cherry` sem
+`+`, com `-D` consciente.
+
+- **Prova no master:** Pasta 919/919 · Dashboard 66/66 · **suíte completa 5633/5633 (21.045 asserções, 03:27)** · lint:twig 183 ·
+  lint:yaml 25 · lint:container OK · `schema:validate --skip-sync` OK. Zero migration, zero mudança de
+  infra/env/composer; prod roda `a458e58e` (hash do container = host), então o deploy leva só estes 17.
+- **Decisão de produto do dono (05/10): publicar o estado atual é "colocar o progresso em produção", NÃO
+  "redesign aprovado/concluído".** As divergências ainda visíveis frente ao Claude Design **não estão
+  aceitas**; os itens C do §6 e as decisões do §5 da spec continuam abertos; funções novas do desenho e os
+  recursos de IA serão implementados de verdade (sem mock) na próxima rodada, que parte deste master.
+- ⏳ **Dono:** push + deploy (`scripts/deploy-prod-tls.sh` na VPS) + smoke em prod (Dashboard, Pasta e o
+  filtro de data de Demandas/Processos, por causa do `filtro-tabela.css`).
+- A worktree descartável `smoke-trilha-a` (HEAD destacado em `bfa826f8` + diffs sem commit) e o proxy
+  `smoke-trilha-a-proxy` ainda existem: conferido que são só a soma das duas frentes, nada canônico.
 
 ### ✅ 05/10 — Trilha A (visual padrão PJe) PRONTA em duas frentes, sem integrar e sem deploy
 

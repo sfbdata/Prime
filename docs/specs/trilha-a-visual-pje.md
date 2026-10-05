@@ -2,6 +2,13 @@
 
 Data: 05/10/2026 · Risco: BAIXO (telas) · Frentes: `visual-pasta` (A1–A6) e `visual-dashboard` (A7–A10)
 
+> **Estado em 05/10 (noite): INTEGRADA no master (17 commits sobre `a458e58e`) como ENTREGA
+> INTERMEDIÁRIA.** O dono autorizou publicar o progresso atual, mas **não aprovou este visual como versão
+> final do redesign**: as divergências ainda visíveis frente ao Claude Design não estão aceitas, os itens C
+> do §6 e as decisões do §5 seguem abertos, e as funções novas do desenho (inclusive IA, sem mock) entram
+> na próxima rodada, que parte deste master. Deploy e smoke em produção: do dono. Suíte no master
+> integrado: 5633/5633 (21.045 asserções, 03:27).
+
 Fonte do desenho (pacote do Claude Design, **não versionado**, abrir sempre pela RAIZ do pacote):
 
 - Pasta → `docs/design/claude-design-2026-10-05 (1)/02 - EXPEDIENTES 1.2.3.dc.html`
