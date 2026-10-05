@@ -7,6 +7,8 @@ Quem abre uma frente acrescenta a linha. Quem integra tira.
 
 | Frente (branch) | Domínio | Migration? | Arquivos compartilhados que toca | Estágio | Base |
 |---|---|---|---|---|---|
+| `visual-pasta` | Pasta (tela `pasta_show`) — visual padrão PJe, Trilha A (A1–A6) | não | `app/public/css/pasta-show.css`, `app/templates/pasta/`, `docs/frentes-ativas.md` (esta linha), `docs/specs/trilha-a-visual-pje.md` | implementando (05/10) — spec `docs/specs/trilha-a-visual-pje.md`; pacote do desenho NÃO versionado | `origin/master` @ `a458e58e` |
+| `visual-dashboard` | Dashboard (tela `/dashboard`) — visual padrão PJe, Trilha A (A7–A10) | não | `app/public/css/filtro-tabela.css` (só a correção do ícone de data no Firefox), `app/templates/dashboard/`, `app/src/Dashboard/` (aditivo) | implementando (05/10), delegada a implementador; mesma spec | `origin/master` @ `a458e58e` |
 | `fix-troca-atestado-abonado` | Ponto (troca de atestado da justificativa) — risco ALTO | não | `docs/frentes-ativas.md` (esta linha); nada em `app/src/Shared/` nem `app/config/` | implementando — **segura o deploy de E1+DT-8+E2** (risco 12.1 do pré-deploy de 18/09); spec `docs/specs/ponto-troca-de-atestado-analisado.md` | `origin/master` @ `91d0aef3` |
 | `cobranca-acompanhamento-canonico` | Cobrança (modelo objeto/caso) | **sim — 4, fora de ordem** | `docs/gestao-cobrancas/` | 🧊 **CONGELADA** — referência histórica, não integrável direto (ver abaixo) | `origin/master` @ `0bb1f29` |
 | `expediente-ux` | Expediente + Pasta (telas) | não | `app/templates/expediente/`, `app/templates/pasta/` | implementando, **28 commits atrás do master** | `origin/codex/colaboracao-cobrancas` |
