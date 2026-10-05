@@ -314,46 +314,316 @@
     border-color: transparent;
 }
 
-/* ── Cards (estrutura herdada; o visual final chega na entrega A8) ────────── */
+/* ── Cards ──────────────────────────────────────────────────────────────────
+   Grade: 4 colunas a partir de 1100px, 2×2 entre 600 e 1100, 1 coluna abaixo
+   de 600 (nunca 3 + 1). Linhas com a mesma altura (grid-auto-rows:1fr).
+   Cada card entra por um wrapper (.db-card-wrap) — a animação de entrada não
+   pode ficar no card, senão trava o transform do hover. */
+.db-page .db-cards-row {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-auto-rows: 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+.db-page .db-card-wrap {
+    display: flex;
+    min-width: 0;
+    animation: dbCardEsq .75s var(--db-ease) .12s both;
+}
+.db-page .db-card-wrap--sobe1 { animation-name: dbCardSobe; animation-delay: .22s; }
+.db-page .db-card-wrap--sobe2 { animation-name: dbCardSobe; animation-delay: .32s; }
+.db-page .db-card-wrap--dir   { animation-name: dbCardDir; }
+@keyframes dbCardEsq  { from { opacity: 0; transform: translate3d(-36px,0,0); filter: blur(4px); } to { opacity: 1; transform: none; filter: blur(0); } }
+@keyframes dbCardDir  { from { opacity: 0; transform: translate3d(36px,0,0);  filter: blur(4px); } to { opacity: 1; transform: none; filter: blur(0); } }
+@keyframes dbCardSobe { from { opacity: 0; transform: translate3d(0,30px,0);  filter: blur(4px); } to { opacity: 1; transform: none; filter: blur(0); } }
+
+/* cor de cada card (rgb, para os tons translúcidos) */
+.db-page .db-stat-card--pastas   { --db-c-rgb: 15,111,196; }
+.db-page .db-stat-card--metas    { --db-c-rgb: 12,122,156; }
+.db-page .db-stat-card--urgentes { --db-c-rgb: 192,57,47; }
+.db-page .db-stat-card--global   { --db-c-rgb: 31,157,97; }
+
 .db-page .db-stat-card {
-    background: var(--db-card-bg);
+    flex: 1;
+    min-width: 0;
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+    display: flex;
+    flex-direction: column;
+    padding: 20px 20px 19px;
     border: 1px solid var(--db-border);
     border-radius: 4px;
-    padding: 20px 20px 19px;
+    background: var(--db-card-bg);
     box-shadow: var(--db-shadow-card);
-    transition: box-shadow .18s ease, transform .18s ease;
-    height: 100%;
+    transition: transform .38s var(--db-ease), box-shadow .38s var(--db-ease), border-color .38s ease;
 }
-.db-page .db-stat-icon {
-    width: 36px; height: 36px;
-    border-radius: 4px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 1rem;
-    margin-bottom: .95rem;
-    flex-shrink: 0;
+/* brilho que segue o cursor (--mx/--my vêm do dashboard.js) e grade de dados */
+.db-page .db-card-glow {
+    position: absolute; inset: 0; z-index: 0; pointer-events: none;
+    background: radial-gradient(360px circle at var(--mx, 88%) var(--my, 0%), rgba(var(--db-c-rgb), .11), transparent 62%);
+    opacity: 0;
+    transition: opacity .5s ease;
 }
-.db-page .db-icon-metas    { background: var(--db-accent-bg); color: var(--db-accent); }
-.db-page .db-icon-urgentes { background: var(--db-venc-bg); color: var(--db-urgente-icon); }
-.db-page .db-icon-global   { background: var(--db-accent-bg); color: var(--db-ok-text); }
-.db-page .db-stat-number {
-    font-size: 1.9rem;
+.db-page .db-card-grid {
+    position: absolute; inset: 0; z-index: 0; pointer-events: none;
+    background-image: linear-gradient(rgba(var(--db-c-rgb), .075) 1px, transparent 1px),
+                      linear-gradient(90deg, rgba(var(--db-c-rgb), .075) 1px, transparent 1px);
+    background-size: 22px 22px;
+    -webkit-mask-image: radial-gradient(240px circle at var(--mx, 88%) var(--my, 0%), #000 0%, transparent 72%);
+    mask-image: radial-gradient(240px circle at var(--mx, 88%) var(--my, 0%), #000 0%, transparent 72%);
+    opacity: 0;
+    transition: opacity .6s ease;
+}
+/* linha superior que cresce no hover */
+.db-page .db-card-linha {
+    position: absolute; top: 0; left: 18px; right: 18px; height: 2px; z-index: 1; pointer-events: none;
+    border-radius: 0 0 2px 2px;
+    background: linear-gradient(90deg, transparent, rgba(var(--db-c-rgb), .85), transparent);
+    transform: scaleX(.2);
+    opacity: 0;
+    transition: transform .7s var(--db-ease), opacity .45s ease;
+}
+/* borda inferior de destaque na cor do card (2.5px; 3px no hover) */
+.db-page .db-card-base {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 2.5px; z-index: 2; pointer-events: none;
+    background: linear-gradient(90deg, rgba(var(--db-c-rgb), .95) 0%, rgba(var(--db-c-rgb), .75) 55%, rgba(var(--db-c-rgb), .35) 100%);
+    opacity: .8;
+    box-shadow: 0 -2px 8px rgba(var(--db-c-rgb), .12);
+    transition: height .3s ease, opacity .3s ease, box-shadow .3s ease;
+}
+/* halo radial atrás do glifo (vaza para fora do card) com anel fino interno */
+.db-page .db-card-halo {
+    position: absolute; top: -58px; right: -58px; width: 200px; height: 200px; z-index: 0; pointer-events: none;
+    border-radius: 50%;
+    background: radial-gradient(circle at 50% 50%, rgba(12,122,156,.08) 0%, rgba(15,111,196,.035) 42%, transparent 68%);
+    transition: transform .45s var(--db-ease);
+}
+.db-page .db-card-anel {
+    position: absolute; inset: 34px;
+    border-radius: 50%;
+    border: 1px solid rgba(12,122,156,.08);
+    transition: border-color .45s ease;
+}
+
+/* glifo: 80×80 no canto superior direito; flutua de leve em repouso, cada um defasado */
+.db-page .db-glifo {
+    position: absolute; top: 14px; right: 14px; width: 80px; height: 80px; z-index: 1; pointer-events: none;
+    transition: transform .45s var(--db-ease);
+}
+.db-page .db-glifo svg { display: block; overflow: visible; }
+.db-page .db-glifo-flutua { width: 80px; height: 80px; animation: dbGlifoFlutua 6.5s ease-in-out infinite; }
+.db-page .db-glifo-flutua--4 { animation-delay: -3.3s; }
+.db-page .db-glifo-flutua--2 { animation-delay: -2.2s; }
+.db-page .db-glifo-flutua--3 { animation-delay: -4.4s; }
+@keyframes dbGlifoFlutua {
+    0%, 100% { transform: translate3d(0,0,0) rotate(0deg); }
+    25%      { transform: translate3d(0,-2.5px,0) rotate(-1.2deg); }
+    50%      { transform: translate3d(0,-1px,0) rotate(0deg); }
+    75%      { transform: translate3d(0,-3px,0) rotate(1.2deg); }
+}
+
+/* partes dos glifos (cores do desenho; os gradientes ficam nos <defs> do SVG) */
+.db-page .db-g-orbita, .db-page .db-g-outer, .db-page .db-g-ticks {
+    transform-box: view-box;
+    transition: transform .45s var(--db-ease);
+}
+.db-page .db-g-orbita--pastas { transform-origin: 44px 34px; }
+.db-page .db-g-orbita--metas  { transform-origin: 48px 30px; }
+.db-page .db-g-outer, .db-page .db-g-ticks { transform-origin: 46px 32px; }
+.db-page .db-g-orbita-traco { stroke: rgba(12,122,156,.16); stroke-width: 1; stroke-dasharray: 1.5 4; }
+.db-page .db-g-outer-traco  { stroke: rgba(12,122,156,.22); stroke-width: 1; stroke-dasharray: 1.5 3.5; }
+.db-page .db-g-ponto--acento { fill: #0c7a9c; opacity: .5; }
+.db-page .db-g-ponto--azul   { fill: #0f6fc4; opacity: .4; }
+.db-page .db-g-back2, .db-page .db-g-papel, .db-page .db-g-badge,
+.db-page .db-g-p3, .db-page .db-g-p2, .db-page .db-g-chk, .db-page .db-g-l2, .db-page .db-g-l3,
+.db-page .db-g-w1, .db-page .db-g-w2, .db-page .db-g-w3, .db-page .db-g-dia,
+.db-page .db-g-b1, .db-page .db-g-b2, .db-page .db-g-b3,
+.db-page .db-g-core, .db-page .db-g-halo {
+    transform-box: fill-box;
+    transform-origin: center;
+    transition: transform .45s var(--db-ease), opacity .45s ease, filter .45s ease;
+}
+.db-page .db-g-front { filter: drop-shadow(0 6px 10px rgba(12,90,130,.15)); transition: filter .45s ease; }
+.db-page .db-g-contorno { stroke: rgba(12,122,156,.32); stroke-width: 1; }
+/* pastas */
+.db-page .db-g-back2 { opacity: .28; }
+.db-page .db-g-papel { stroke: rgba(12,122,156,.25); stroke-width: 1; }
+.db-page .db-g-linha-forte { stroke: rgba(12,122,156,.22); stroke-width: 2.4; stroke-linecap: round; }
+.db-page .db-g-linha-fraca { stroke: rgba(12,122,156,.14); stroke-width: 2.4; stroke-linecap: round; }
+.db-page .db-g-badge { filter: drop-shadow(0 3px 6px rgba(15,111,196,.22)); }
+.db-page .db-g-mais { stroke: #fff; stroke-width: 2; stroke-linecap: round; }
+/* metas */
+.db-page .db-g-p3 { opacity: .2; }
+.db-page .db-g-p2 { opacity: .36; }
+.db-page .db-g-check { stroke: #fff; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.db-page .db-g-trilho { stroke: rgba(12,122,156,.14); stroke-width: 3; stroke-linecap: round; }
+.db-page .db-g-l1 { stroke: #0c7a9c; stroke-width: 3; stroke-linecap: round; }
+.db-page .db-g-l2 { stroke: #0c7a9c; stroke-width: 3; stroke-linecap: round; transform-origin: 0% 50%; transform: scaleX(.62); }
+.db-page .db-g-l3 { stroke: #0f6fc4; stroke-width: 3; stroke-linecap: round; opacity: .75; transform-origin: 0% 50%; transform: scaleX(.34); }
+.db-page .db-g-anel-meio  { stroke: rgba(12,122,156,.5); stroke-width: 1.4; }
+.db-page .db-g-anel-fraco { stroke: rgba(12,122,156,.3); stroke-width: 1.4; }
+/* urgentes */
+.db-page .db-g-w1 { stroke: rgba(192,57,47,.32); stroke-width: 1.3; }
+.db-page .db-g-w2 { stroke: rgba(192,57,47,.18); stroke-width: 1.2; }
+.db-page .db-g-w3 { stroke: rgba(12,122,156,.18); stroke-width: 1; stroke-dasharray: 1.5 4; }
+.db-page .db-g-dia { filter: drop-shadow(0 5px 9px rgba(181,47,39,.2)); }
+.db-page .db-g-exclama { stroke: #fff; stroke-width: 2.8; stroke-linecap: round; }
+.db-page .db-g-chao { stroke: rgba(16,42,58,.14); stroke-width: 1; stroke-linecap: round; }
+.db-page .db-g-b1, .db-page .db-g-b2, .db-page .db-g-b3 { transform-origin: 50% 100%; }
+/* meta global */
+.db-page .db-g-tick { stroke: rgba(12,122,156,.4); stroke-width: 1.3; stroke-linecap: round; }
+.db-page .db-g-trilho-arco { stroke: rgba(12,122,156,.12); stroke-width: 5; }
+.db-page .db-g-arc {
+    stroke-width: 5;
+    stroke-linecap: round;
+    filter: drop-shadow(0 0 2px rgba(31,157,97,.25));
+    transition: stroke-dasharray .7s var(--db-ease), filter .45s ease;
+}
+.db-page .db-g-miolo { stroke: rgba(12,122,156,.2); stroke-width: 1; }
+.db-page .db-g-anel-interno { stroke: rgba(12,122,156,.18); stroke-width: 1; }
+.db-page .db-g-marcador { transform-box: view-box; transform-origin: 46px 32px; transform: rotate(var(--db-ang, 0deg)); }
+.db-page .db-g-halo  { fill: #1f9d61; opacity: .1; }
+.db-page .db-g-marca { fill: #fff; stroke: #16945a; stroke-width: 1.8; }
+
+/* conteúdo do card */
+.db-page .db-card-corpo { position: relative; z-index: 1; }
+.db-page .db-card-rotulo-wrap { padding-right: 82px; min-height: 22px; white-space: nowrap; }
+.db-page .db-card-rotulo {
+    display: inline-block;
+    position: relative;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .075em;
+    text-transform: uppercase;
+    color: var(--db-label-card);
+    animation: dbRotuloIn .7s var(--db-ease) .55s both;
+}
+.db-page .db-card-rotulo::after {
+    content: "";
+    position: absolute; left: 0; bottom: -5px; width: 18px; height: 2px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, var(--db-accent), rgba(15,111,196,0));
+    transform-origin: left center;
+    animation: dbRotuloTraco .6s var(--db-ease) .8s both;
+}
+.db-page .db-card-rotulo--2 { animation-delay: .65s; } .db-page .db-card-rotulo--2::after { animation-delay: .9s; }
+.db-page .db-card-rotulo--3 { animation-delay: .75s; } .db-page .db-card-rotulo--3::after { animation-delay: 1s; }
+.db-page .db-card-rotulo--4 { animation-delay: .85s; } .db-page .db-card-rotulo--4::after { animation-delay: 1.1s; }
+@keyframes dbRotuloIn { from { opacity: 0; transform: translate3d(0,6px,0); letter-spacing: .2em; filter: blur(3px); } to { opacity: 1; transform: none; letter-spacing: .075em; filter: blur(0); } }
+@keyframes dbRotuloTraco { from { transform: scaleX(0); opacity: 0; } to { transform: scaleX(1); opacity: 1; } }
+
+.db-page .db-card-valor-linha { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.db-page .db-card-valor-linha--pct { gap: 3px; }
+.db-page .db-stat-num {
+    font-size: 50px;
     font-weight: 700;
     line-height: 1;
-    margin-bottom: .35rem;
+    letter-spacing: -0.035em;
+    font-variant-numeric: tabular-nums;
+    margin: 22px 0 10px;
+    display: inline-block;
+    transform-origin: left bottom;
     color: var(--db-text-strong);
+    text-shadow: 0 0 0 rgba(0,0,0,0);
+    transition: transform .35s cubic-bezier(.34,1.4,.64,1), text-shadow .35s ease;
 }
-.db-page .db-prog-track {
+.db-page .db-stat-num--urgente { color: var(--db-urgente); }
+.db-page .db-stat-pct { font-size: 22px; font-weight: 700; color: var(--db-text-2); }
+.db-page .db-card-legenda { font-size: 13.5px; color: var(--db-text-2); line-height: 1.4; }
+.db-page .db-card-legenda-num { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--db-label-card); }
+
+/* barra da meta global: 8px, trilho, marcas brancas em 25/50/75 %, preenchimento verde
+   que cresce de 0 à largura final ao carregar; a largura vem em --db-pct */
+.db-page .db-barra {
+    position: relative;
     height: 8px;
+    margin: 2px 0 10px;
+    border-radius: 999px;
     background: var(--db-barra-trilho);
+    box-shadow: inset 0 1px 1px rgba(16,42,58,.06);
+    overflow: hidden;
+}
+.db-page .db-barra-marca { position: absolute; top: 0; bottom: 0; width: 1px; background: rgba(255,255,255,.7); z-index: 2; }
+.db-page .db-barra-fill {
+    position: relative;
+    height: 100%;
+    width: var(--db-pct, 0%);
     border-radius: 999px;
     overflow: hidden;
-    margin-top: .85rem;
-}
-.db-page .db-prog-fill {
-    height: 100%;
-    border-radius: 999px;
     background: linear-gradient(90deg, #16945a, #2bb673);
-    transition: width .5s ease;
+    transition: width .7s var(--db-ease), box-shadow .4s ease;
+    animation: dbBarGrow .9s var(--db-ease);
+}
+.db-page .db-barra-brilho {
+    position: absolute; top: 0; bottom: 0; left: 0; width: 45%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,.55), transparent);
+    transform: translateX(-110%);
+    transition: transform 0s;
+}
+@keyframes dbBarGrow { from { width: 0; } }
+
+/* Hover dos cards: só com mouse (hover:hover + pointer:fine); em toque nada acontece.
+   O conteúdo não se move; só o card sobe como um todo. */
+@media (hover: hover) and (pointer: fine) {
+    .db-page .db-card-legenda--hover {
+        opacity: 0;
+        transform: translateY(4px);
+        transition: opacity .3s ease, transform .3s var(--db-ease);
+    }
+    .db-page .db-stat-card:hover {
+        transform: translate3d(0,-3px,0);
+        border-color: rgba(var(--db-c-rgb), .34);
+        box-shadow: var(--db-shadow-card-hover), 0 0 0 4px rgba(var(--db-c-rgb), .05);
+    }
+    .db-page .db-stat-card:hover .db-card-glow,
+    .db-page .db-stat-card:hover .db-card-grid { opacity: 1; }
+    .db-page .db-stat-card:hover .db-card-linha { transform: scaleX(1); opacity: 1; }
+    .db-page .db-stat-card:hover .db-card-base { height: 3px; opacity: 1; box-shadow: 0 -2px 8px rgba(var(--db-c-rgb), .3); }
+    .db-page .db-stat-card:hover .db-card-halo { transform: scale(1.05); background: radial-gradient(circle at 50% 50%, rgba(12,122,156,.13) 0%, rgba(15,111,196,.035) 42%, transparent 68%); }
+    .db-page .db-stat-card:hover .db-card-anel { border-color: rgba(12,122,156,.14); }
+    .db-page .db-stat-card:hover .db-glifo { transform: scale(1.06); }
+    .db-page .db-stat-card:hover .db-stat-num { transform: scale(1.07); text-shadow: 0 6px 18px rgba(var(--db-c-rgb), .18); }
+    .db-page .db-stat-card:hover .db-card-legenda--hover { opacity: 1; transform: none; }
+    /* pastas */
+    .db-page .db-stat-card--pastas:hover .db-g-orbita { transform: rotate(-40deg); }
+    .db-page .db-stat-card--pastas:hover .db-g-back2 { transform: translate(4px,-4px); }
+    .db-page .db-stat-card--pastas:hover .db-g-papel { transform: translateY(-5px); }
+    .db-page .db-stat-card--pastas:hover .db-g-front { filter: drop-shadow(0 6px 10px rgba(12,90,130,.26)); }
+    .db-page .db-stat-card--pastas:hover .db-g-badge { transform: scale(1.16) rotate(90deg); filter: drop-shadow(0 3px 6px rgba(15,111,196,.4)); }
+    /* metas */
+    .db-page .db-stat-card--metas:hover .db-g-orbita { transform: rotate(40deg); }
+    .db-page .db-stat-card--metas:hover .db-g-p3 { transform: translate(5px,-4px); }
+    .db-page .db-stat-card--metas:hover .db-g-p2 { transform: translate(2.5px,-2px); }
+    .db-page .db-stat-card--metas:hover .db-g-front { filter: drop-shadow(0 6px 10px rgba(12,90,130,.26)); }
+    .db-page .db-stat-card--metas:hover .db-g-chk { transform: scale(1.14); }
+    .db-page .db-stat-card--metas:hover .db-g-l2 { transform: scaleX(.92); }
+    .db-page .db-stat-card--metas:hover .db-g-l3 { transform: scaleX(.68); }
+    /* urgentes */
+    .db-page .db-stat-card--urgentes:hover .db-g-w1 { transform: scale(1.08); }
+    .db-page .db-stat-card--urgentes:hover .db-g-w2 { transform: scale(1.14); }
+    .db-page .db-stat-card--urgentes:hover .db-g-w3 { transform: scale(1.08) rotate(30deg); opacity: .7; }
+    .db-page .db-stat-card--urgentes:hover .db-g-dia { transform: scale(1.08); filter: drop-shadow(0 5px 9px rgba(181,47,39,.34)); }
+    .db-page .db-stat-card--urgentes:hover .db-g-b1 { transform: scaleY(1.18); }
+    .db-page .db-stat-card--urgentes:hover .db-g-b2 { transform: scaleY(1.2); transition-delay: .05s; }
+    .db-page .db-stat-card--urgentes:hover .db-g-b3 { transform: scaleY(1.12); transition-delay: .1s; }
+    /* meta global */
+    .db-page .db-stat-card--global:hover .db-g-outer { transform: rotate(45deg); }
+    .db-page .db-stat-card--global:hover .db-g-ticks { transform: scale(1.07); }
+    .db-page .db-stat-card--global:hover .db-g-core { transform: scale(1.3); }
+    .db-page .db-stat-card--global:hover .db-g-halo { transform: scale(1.6); opacity: .2; }
+    .db-page .db-stat-card--global:hover .db-g-arc { filter: drop-shadow(0 0 5px rgba(31,157,97,.45)); }
+    .db-page .db-stat-card--global:hover .db-barra-fill { box-shadow: 0 0 10px rgba(31,157,97,.35); }
+    /* a faixa de brilho atravessa a barra em 1,2s; ao sair, volta sem transição (não "rebobina") */
+    .db-page .db-stat-card--global:hover .db-barra-brilho { transform: translateX(260%); transition: transform 1.2s cubic-bezier(.4,0,.2,1); }
+}
+
+@media (max-width: 1099.98px) {
+    .db-page .db-cards-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 599.98px) {
+    .db-page .db-cards-row { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* ── Tabela (estrutura herdada; o visual final chega na entrega A9) ───────── */
@@ -421,6 +691,19 @@
     .db-page .filtro-select[name="cargo"] { flex: 1 1 100%; min-width: 0; }
 }
 
+/* Movimento reduzido: nada entra animado, nada flutua, nada cresce; os valores
+   finais já estão no HTML (o dashboard.js também não conta). */
 @media (prefers-reduced-motion: reduce) {
-    .db-page .db-titulo::after { animation: none; }
+    .db-page .db-titulo::after,
+    .db-page .db-card-wrap,
+    .db-page .db-glifo-flutua,
+    .db-page .db-card-rotulo,
+    .db-page .db-card-rotulo::after,
+    .db-page .db-barra-fill { animation: none; }
+    .db-page .db-stat-card,
+    .db-page .db-stat-card *,
+    .db-page .db-stat-card *::after { transition-duration: .01ms; }
+    .db-page .db-stat-card:hover { transform: none; }
+    .db-page .db-stat-card:hover .db-glifo,
+    .db-page .db-stat-card:hover .db-stat-num { transform: none; }
 }

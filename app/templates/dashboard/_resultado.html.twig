@@ -3,38 +3,204 @@
    Cards de KPI + tabela por advogado, recalculados a cada filtro pelo motor
    public/js/filtro-tabela.js.
 ─────────────────────────────────────────────────────────────────────────── #}
-{# ── Cards de métricas ─────────────────────────────────── #}
-<div class="row g-3 mb-4 db-cards-row">
-    <div class="col-sm-6 col-lg-3">
-        <div class="db-stat-card">
-            <div class="db-stat-icon db-icon-metas">
-                <i class="bi bi-check2-circle"></i>
+{# ── Cards de métricas ──────────────────────────────────────────────────────
+   Quatro cards na ordem do desenho: Pastas criadas · Metas ativas · Demandas
+   urgentes · Meta global batida. Cada card entra por um WRAPPER (a animação de
+   entrada não pode ficar no próprio card, senão trava o transform do hover).
+   Os glifos são os SVGs do desenho; as partes que reagem ao hover levam classe
+   `db-g-*` (o estilo mora em public/css/dashboard.css).
+   O número final já vem no HTML e em `data-alvo`: funciona sem JS; com JS,
+   dashboard.js conta de 0 até ele (desligado em prefers-reduced-motion).
+   Sem links "ver pastas"/"ver metas": os destinos (Acervo geral filtrado por
+   criador, /tarefas/equipe) são função nova — nada fake. #}
+{% set pct = dashboard.metaGlobalPercent %}
+{# arco do alvo: circunferência de r=22 (2π·22 = 138,23) × percentual #}
+{% set arco = (138.23 * pct / 100)|number_format(2, '.', '') %}
+<div class="db-cards-row">
+
+    <div class="db-card-wrap db-card-wrap--esq">
+        <div class="db-stat-card db-stat-card--pastas">
+            <div class="db-card-glow"></div>
+            <div class="db-card-grid"></div>
+            <div class="db-card-linha"></div>
+            <div class="db-card-base"></div>
+            <div class="db-card-halo"><div class="db-card-anel"></div></div>
+            <div class="db-glifo"><div class="db-glifo-flutua db-glifo-flutua--4">
+                <svg width="80" height="80" viewBox="0 0 80 80" aria-hidden="true" focusable="false">
+                    <defs>
+                        <linearGradient id="dbG4p" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1597bd"></stop><stop offset="1" stop-color="#0f6fc4"></stop></linearGradient>
+                        <linearGradient id="dbG4f" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"></stop><stop offset="1" stop-color="#e7f2f8"></stop></linearGradient>
+                    </defs>
+                    <g class="db-g-orbita db-g-orbita--pastas">
+                        <circle cx="44" cy="34" r="31" fill="none" class="db-g-orbita-traco"></circle>
+                        <circle cx="44" cy="3" r="2" class="db-g-ponto db-g-ponto--acento"></circle>
+                        <circle cx="13" cy="34" r="1.6" class="db-g-ponto db-g-ponto--azul"></circle>
+                    </g>
+                    <path d="M22 20 a5 5 0 0 1 5-5 h10 l5 5 h20 a5 5 0 0 1 5 5 v24 a5 5 0 0 1 -5 5 h-35 a5 5 0 0 1 -5 -5 z" fill="url(#dbG4p)" class="db-g-back2"></path>
+                    <rect x="22" y="23" width="34" height="22" rx="3" fill="#fff" class="db-g-papel"></rect>
+                    <g class="db-g-front">
+                        <path d="M14 30 a5 5 0 0 1 5-5 h11 l5 5 h22 a5 5 0 0 1 5 5 v23 a5 5 0 0 1 -5 5 h-38 a5 5 0 0 1 -5 -5 z" fill="url(#dbG4f)" class="db-g-contorno"></path>
+                        <line x1="21" y1="44" x2="40" y2="44" class="db-g-linha-forte"></line>
+                        <line x1="21" y1="51" x2="33" y2="51" class="db-g-linha-fraca"></line>
+                    </g>
+                    <g class="db-g-badge">
+                        <circle cx="60" cy="58" r="8.5" fill="url(#dbG4p)" stroke="#fff" stroke-width="2"></circle>
+                        <line x1="60" y1="54.2" x2="60" y2="61.8" class="db-g-mais"></line>
+                        <line x1="56.2" y1="58" x2="63.8" y2="58" class="db-g-mais"></line>
+                    </g>
+                </svg>
+            </div></div>
+            <div class="db-card-corpo">
+                <div class="db-card-rotulo-wrap"><span class="db-card-rotulo db-card-rotulo--1">Pastas criadas</span></div>
+                <div class="db-card-valor-linha">
+                    <div class="db-stat-num" data-card="pastas" data-alvo="{{ dashboard.totalPastasCriadas }}">{{ dashboard.totalPastasCriadas }}</div>
+                </div>
+                <div class="db-card-legenda">abertas no período selecionado</div>
             </div>
-            <div class="db-stat-number">{{ dashboard.totalMetasAtivas }}</div>
-            <div class="text-secondary">Metas Ativas</div>
         </div>
     </div>
-    <div class="col-sm-6 col-lg-3">
-        <div class="db-stat-card">
-            <div class="db-stat-icon db-icon-urgentes">
-                <i class="bi bi-exclamation-triangle"></i>
+
+    <div class="db-card-wrap db-card-wrap--sobe1">
+        <div class="db-stat-card db-stat-card--metas">
+            <div class="db-card-glow"></div>
+            <div class="db-card-grid"></div>
+            <div class="db-card-linha"></div>
+            <div class="db-card-base"></div>
+            <div class="db-card-halo"><div class="db-card-anel"></div></div>
+            <div class="db-glifo"><div class="db-glifo-flutua db-glifo-flutua--1">
+                <svg width="80" height="80" viewBox="0 0 80 80" aria-hidden="true" focusable="false">
+                    <defs>
+                        <linearGradient id="dbG1p" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1597bd"></stop><stop offset="1" stop-color="#0f6fc4"></stop></linearGradient>
+                        <linearGradient id="dbG1f" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"></stop><stop offset="1" stop-color="#edf5f9"></stop></linearGradient>
+                    </defs>
+                    <g class="db-g-orbita db-g-orbita--metas">
+                        <circle cx="48" cy="30" r="31" fill="none" class="db-g-orbita-traco"></circle>
+                        <circle cx="79" cy="30" r="2.2" class="db-g-ponto db-g-ponto--acento"></circle>
+                        <circle cx="48" cy="-1" r="1.6" class="db-g-ponto db-g-ponto--azul"></circle>
+                    </g>
+                    <rect x="30" y="10" width="38" height="42" rx="10" fill="url(#dbG1p)" class="db-g-p3"></rect>
+                    <rect x="23" y="17" width="38" height="42" rx="10" fill="url(#dbG1p)" class="db-g-p2"></rect>
+                    <g class="db-g-front">
+                        <rect x="15" y="24" width="41" height="45" rx="10" fill="url(#dbG1f)" class="db-g-contorno"></rect>
+                        <g class="db-g-chk">
+                            <circle cx="25" cy="36" r="5.2" fill="url(#dbG1p)"></circle>
+                            <path d="M22.6 36.1 l1.8 1.8 3.2-3.5" fill="none" class="db-g-check"></path>
+                        </g>
+                        <line x1="34" y1="36" x2="49" y2="36" class="db-g-trilho"></line>
+                        <line x1="34" y1="36" x2="49" y2="36" class="db-g-l1"></line>
+                        <circle cx="25" cy="47" r="4.2" fill="none" class="db-g-anel-meio"></circle>
+                        <line x1="34" y1="47" x2="49" y2="47" class="db-g-trilho"></line>
+                        <line x1="34" y1="47" x2="49" y2="47" class="db-g-l2"></line>
+                        <circle cx="25" cy="58" r="4.2" fill="none" class="db-g-anel-fraco"></circle>
+                        <line x1="34" y1="58" x2="49" y2="58" class="db-g-trilho"></line>
+                        <line x1="34" y1="58" x2="49" y2="58" class="db-g-l3"></line>
+                    </g>
+                </svg>
+            </div></div>
+            <div class="db-card-corpo">
+                <div class="db-card-rotulo-wrap"><span class="db-card-rotulo db-card-rotulo--2">Metas ativas</span></div>
+                <div class="db-card-valor-linha">
+                    <div class="db-stat-num" data-card="metas" data-alvo="{{ dashboard.totalMetasAtivas }}">{{ dashboard.totalMetasAtivas }}</div>
+                </div>
+                <div class="db-card-legenda db-card-legenda--hover">tarefas ainda não concluídas</div>
             </div>
-            <div class="db-stat-number">{{ dashboard.demandasUrgentes }}</div>
-            <div class="text-secondary">Demandas Urgentes</div>
         </div>
     </div>
-    <div class="col-sm-12 col-lg-4">
-        <div class="db-stat-card">
-            <div class="db-stat-icon db-icon-global">
-                <i class="bi bi-graph-up-arrow"></i>
-            </div>
-            <div class="db-stat-number">{{ dashboard.metaGlobalPercent }}%</div>
-            <div class="text-secondary">Meta Global</div>
-            <div class="db-prog-track">
-                <div class="db-prog-fill" style="width: {{ dashboard.metaGlobalPercent }}%"></div>
+
+    <div class="db-card-wrap db-card-wrap--sobe2">
+        <div class="db-stat-card db-stat-card--urgentes">
+            <div class="db-card-glow"></div>
+            <div class="db-card-grid"></div>
+            <div class="db-card-linha"></div>
+            <div class="db-card-base"></div>
+            <div class="db-card-halo"><div class="db-card-anel"></div></div>
+            <div class="db-glifo"><div class="db-glifo-flutua db-glifo-flutua--2">
+                <svg width="80" height="80" viewBox="0 0 80 80" aria-hidden="true" focusable="false">
+                    <defs>
+                        <linearGradient id="dbG2r" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ee6b5b"></stop><stop offset="1" stop-color="#b52f27"></stop></linearGradient>
+                        <linearGradient id="dbG2p" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1597bd"></stop><stop offset="1" stop-color="#0f6fc4"></stop></linearGradient>
+                    </defs>
+                    <circle cx="48" cy="30" r="15" fill="none" class="db-g-w1"></circle>
+                    <circle cx="48" cy="30" r="22.5" fill="none" class="db-g-w2"></circle>
+                    <circle cx="48" cy="30" r="30" fill="none" class="db-g-w3"></circle>
+                    <circle cx="78" cy="30" r="1.8" class="db-g-ponto db-g-ponto--acento"></circle>
+                    <circle cx="27" cy="9" r="1.5" class="db-g-ponto db-g-ponto--azul"></circle>
+                    <g class="db-g-dia">
+                        <rect x="36.5" y="18.5" width="23" height="23" rx="6.5" fill="url(#dbG2r)" transform="rotate(45 48 30)"></rect>
+                        <line x1="48" y1="23.5" x2="48" y2="31" class="db-g-exclama"></line>
+                        <circle cx="48" cy="35.8" r="1.6" fill="#fff"></circle>
+                    </g>
+                    <line x1="9" y1="69" x2="39" y2="69" class="db-g-chao"></line>
+                    <rect x="12" y="59" width="5.5" height="8" rx="1.8" fill="url(#dbG2p)" class="db-g-b1"></rect>
+                    <rect x="21" y="53" width="5.5" height="14" rx="1.8" fill="url(#dbG2p)" class="db-g-b2"></rect>
+                    <rect x="30" y="46" width="5.5" height="21" rx="1.8" fill="url(#dbG2r)" class="db-g-b3"></rect>
+                </svg>
+            </div></div>
+            <div class="db-card-corpo">
+                <div class="db-card-rotulo-wrap"><span class="db-card-rotulo db-card-rotulo--3">Demandas urgentes</span></div>
+                <div class="db-card-valor-linha">
+                    <div class="db-stat-num db-stat-num--urgente" data-card="urgentes" data-alvo="{{ dashboard.demandasUrgentes }}">{{ dashboard.demandasUrgentes }}</div>
+                </div>
+                <div class="db-card-legenda db-card-legenda--hover">pastas com prioridade Urgente</div>
             </div>
         </div>
     </div>
+
+    <div class="db-card-wrap db-card-wrap--dir">
+        <div class="db-stat-card db-stat-card--global">
+            <div class="db-card-glow"></div>
+            <div class="db-card-grid"></div>
+            <div class="db-card-linha"></div>
+            <div class="db-card-base"></div>
+            <div class="db-card-halo"><div class="db-card-anel"></div></div>
+            <div class="db-glifo"><div class="db-glifo-flutua db-glifo-flutua--3">
+                <svg width="80" height="80" viewBox="0 0 80 80" aria-hidden="true" focusable="false">
+                    <defs>
+                        <linearGradient id="dbG3g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2bb673"></stop><stop offset="1" stop-color="#138a52"></stop></linearGradient>
+                        <radialGradient id="dbG3c" cx="0.4" cy="0.35" r="0.7"><stop offset="0" stop-color="#ffffff"></stop><stop offset="1" stop-color="#e9f3f7"></stop></radialGradient>
+                    </defs>
+                    <g class="db-g-outer">
+                        <circle cx="46" cy="32" r="31" fill="none" class="db-g-outer-traco"></circle>
+                        <circle cx="77" cy="32" r="1.8" class="db-g-ponto db-g-ponto--acento"></circle>
+                    </g>
+                    <g class="db-g-ticks">
+                        <line x1="46" y1="-3" x2="46" y2="3" class="db-g-tick"></line>
+                        <line x1="46" y1="61" x2="46" y2="67" class="db-g-tick"></line>
+                        <line x1="11" y1="32" x2="17" y2="32" class="db-g-tick"></line>
+                    </g>
+                    <circle cx="46" cy="32" r="22" fill="none" class="db-g-trilho-arco"></circle>
+                    {# o arco começa no topo (rotate -90) e mede 2π·22 × percentual #}
+                    <circle cx="46" cy="32" r="22" fill="none" stroke="url(#dbG3g)" transform="rotate(-90 46 32)" class="db-g-arc" style="stroke-dasharray:{{ arco }} 200"></circle>
+                    <circle cx="46" cy="32" r="14" fill="url(#dbG3c)" class="db-g-miolo"></circle>
+                    <circle cx="46" cy="32" r="8.5" fill="none" class="db-g-anel-interno"></circle>
+                    <circle cx="46" cy="32" r="3.8" fill="url(#dbG3g)" class="db-g-core"></circle>
+                    {# marcador no fim do arco: nasce no topo e gira percentual × 360° em volta do centro #}
+                    <g class="db-g-marcador" style="--db-ang:{{ pct * 3.6 }}deg">
+                        <circle cx="46" cy="10" r="6" class="db-g-halo"></circle>
+                        <circle cx="46" cy="10" r="3.2" class="db-g-marca"></circle>
+                    </g>
+                </svg>
+            </div></div>
+            <div class="db-card-corpo">
+                <div class="db-card-rotulo-wrap"><span class="db-card-rotulo db-card-rotulo--4">Meta global batida</span></div>
+                <div class="db-card-valor-linha db-card-valor-linha--pct">
+                    <div class="db-stat-num" data-card="global" data-alvo="{{ pct }}">{{ pct }}</div>
+                    <div class="db-stat-pct">%</div>
+                </div>
+                <div class="db-barra" style="--db-pct:{{ pct }}%">
+                    <div class="db-barra-marca" style="left:25%"></div>
+                    <div class="db-barra-marca" style="left:50%"></div>
+                    <div class="db-barra-marca" style="left:75%"></div>
+                    <div class="db-barra-fill"><div class="db-barra-brilho"></div></div>
+                </div>
+                <div class="db-card-legenda">
+                    <span class="db-card-legenda-num">{{ dashboard.metasConcluidas }}</span> de
+                    <span class="db-card-legenda-num">{{ dashboard.metasTotal }}</span> metas concluídas
+                </div>
+            </div>
+        </div>
+    </div>
+
 </div>
 
 {# ── Tabela por advogado ────────────────────────────────── #}

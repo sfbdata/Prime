@@ -16,5 +16,11 @@ final class DashboardOutput
         public readonly int   $metaGlobalPercent,
         // TABELA
         public readonly array $porAdvogado,
+        // CARDS (acrescentados no fim, com default, para não quebrar quem constrói por posição)
+        /** Soma de `pastasCriadas` das linhas: respeita período, responsável e cargo. */
+        public readonly int   $totalPastasCriadas = 0,
+        /** Numerador e denominador do `metaGlobalPercent`, para a legenda "X de Y metas concluídas". */
+        public readonly int   $metasConcluidas = 0,
+        public readonly int   $metasTotal = 0,
     ) {}
 }

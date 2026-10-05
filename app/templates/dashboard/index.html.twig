@@ -54,4 +54,6 @@
 {% block javascripts %}
 {{ parent() }}
 <script src="{{ asset('js/filtro-tabela.js') }}"></script>
+{# Depois do motor de filtro: a contagem dos cards observa a região que ele recarrega. #}
+<script src="{{ asset('js/dashboard.js') }}"></script>
 {% endblock %}

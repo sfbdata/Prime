@@ -493,6 +493,63 @@ final class ObterDadosDashboardUseCaseTest extends TestCase
         self::assertSame(4, $porId[31]->totalDemandas);
     }
 
+    // ─── CARD — pastas criadas (soma das linhas) e legenda da meta global ──
+
+    #[TestDox('totalPastasCriadas é a soma de pastasCriadas das linhas da tabela')]
+    public function testTotalPastasCriadasSomaAsLinhas(): void
+    {
+        // 7 + 2 + 40, um por colaborador (ver cenarioTresColaboradores)
+        $this->cenarioTresColaboradores();
+
+        $output = $this->sut->executar($this->tenant, $this->referencia);
+
+        self::assertSame(49, $output->totalPastasCriadas);
+    }
+
+    #[TestDox('totalPastasCriadas respeita o filtro de responsável e o de cargo, como a coluna')]
+    public function testTotalPastasCriadasRespeitaFiltrosDeLinha(): void
+    {
+        $this->cenarioTresColaboradores();
+
+        // Só a Élida (id 3, 40 pastas)
+        self::assertSame(40, $this->sut->executar($this->tenant, $this->referencia, ['responsavel' => '3'])->totalPastasCriadas);
+        // Só a Advogada (Ana, id 2, 2 pastas)
+        self::assertSame(2, $this->sut->executar($this->tenant, $this->referencia, ['cargo' => 'Advogada'])->totalPastasCriadas);
+    }
+
+    #[TestDox('totalPastasCriadas é 0 quando não há colaboradores ativos (tabela vazia)')]
+    public function testTotalPastasCriadasZeroSemColaboradores(): void
+    {
+        $this->tarefaRepo->method('countMetasAtivas')->willReturn(0);
+        $this->pastaRepo->method('countUrgentes')->willReturn(0);
+        $this->tarefaRepo->method('countMetasGlobal')->willReturn(['concluidas' => 3, 'total' => 9]);
+        $this->configureMapasVazios();
+        $this->userRepo->method('findColaboradoresAtivosPorTenant')->willReturn([]);
+
+        $output = $this->sut->executar($this->tenant, $this->referencia);
+
+        self::assertSame(0, $output->totalPastasCriadas);
+        // A legenda da meta global não depende de haver linhas
+        self::assertSame(3, $output->metasConcluidas);
+        self::assertSame(9, $output->metasTotal);
+    }
+
+    #[TestDox('metasConcluidas e metasTotal expõem o numerador e o denominador do metaGlobalPercent')]
+    public function testMetasConcluidasETotalAlimentamALegenda(): void
+    {
+        $this->tarefaRepo->method('countMetasAtivas')->willReturn(0);
+        $this->pastaRepo->method('countUrgentes')->willReturn(0);
+        $this->tarefaRepo->method('countMetasGlobal')->willReturn(['concluidas' => 2, 'total' => 4]);
+        $this->configureMapasVazios();
+        $this->userRepo->method('findColaboradoresAtivosPorTenant')->willReturn([$this->mockUser(7, 'Fulano da Silva')]);
+
+        $output = $this->sut->executar($this->tenant, $this->referencia);
+
+        self::assertSame(2, $output->metasConcluidas);
+        self::assertSame(4, $output->metasTotal);
+        self::assertSame(50, $output->metaGlobalPercent);
+    }
+
     // ─── TABELA — ordenação por coluna ───────────────────────────────
 
     /** Três colaboradores com números distintos em cada coluna, para ordenar por qualquer uma. */

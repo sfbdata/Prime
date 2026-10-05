@@ -85,7 +85,15 @@ final class ObterDadosDashboardUseCase
         }
 
         if ($colaboradores === []) {
-            return new DashboardOutput($totalMetasAtivas, $demandasUrgentes, $metaGlobalPercent, []);
+            return new DashboardOutput(
+                $totalMetasAtivas,
+                $demandasUrgentes,
+                $metaGlobalPercent,
+                [],
+                totalPastasCriadas: 0,
+                metasConcluidas:    $global['concluidas'],
+                metasTotal:         $global['total'],
+            );
         }
 
         $mFoto = $this->userRepository->findFotoPorColaboradores($tenant);
@@ -109,11 +117,21 @@ final class ObterDadosDashboardUseCase
             );
         }
 
+        // O card "Pastas criadas" é a soma das linhas (e não um count sem agrupar): assim ele
+        // respeita responsável e cargo do mesmo jeito que a tabela, e bate com a coluna.
+        $totalPastasCriadas = array_sum(array_map(
+            static fn (LinhaAdvogadoDashboardOutput $l): int => $l->pastasCriadas,
+            $linhas,
+        ));
+
         return new DashboardOutput(
             $totalMetasAtivas,
             $demandasUrgentes,
             $metaGlobalPercent,
             $this->ordenar($linhas, $filtros),
+            totalPastasCriadas: $totalPastasCriadas,
+            metasConcluidas:    $global['concluidas'],
+            metasTotal:         $global['total'],
         );
     }
 
