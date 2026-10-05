@@ -299,3 +299,43 @@ Connect, foto do cliente, "N de M", Duplicar/Mover pasta.
 | Período padrão "Este mês" | Não muda hoje (decisão do dono) |
 | Demandas urgentes sem período (README) | Mantém o comportamento atual (aplica período) |
 | Primeiro clique de ordenação `desc` | Não entra hoje (`filtro-tabela.js` é compartilhado) |
+| Trilho "Próximos prazos" | Faixas do dc 1.2.3 (vermelho ≤ 3 dias, âmbar ≤ 7, cinza acima) e os textos "Falta(m) N dia(s)" · "Vence hoje" · "Vencido há N dia(s)" — o desenho escreve "Faltam 1 dia"; aqui a concordância é corrigida |
+| Etiquetas | Chip na cor do `Marcador.cor` (via `color-mix`); marcador sem cor fica cinza neutro |
+| Clientes do trilho | Avatar com iniciais e "abrir" como pasta (desenho); estrela (principal) e desvincular, que o desenho não tem, continuam no hover — tirá-las apagaria o único caminho de trocar o principal |
+| Aba Metas — trilho | "Andamento", "Precisa de atenção" e "Responsáveis nas metas" vêm de `PastaMetasResumoOutput` (só conta `pasta.tarefas`); sem o ícone de conversar (Chat I.A) |
+| Aba Detalhes | Grade do desenho: relatório em linha do tempo + "Registro da pasta" (criada/modificada/por, "Ver histórico do sistema" abre o drawer que já existe) + "Como usar esta aba"; "Pontos do relatório inicial" (IA) fora |
+| Financeiro — relatório | Observações em linha do tempo (Twig + JS espelhados); cartões Arquivos/Pagamentos com cabeçalho limpo (sem faixa), como o desenho |
+| Push | Linha do tempo por data; o título do cartão é o **órgão** (o DJEN não entrega o texto da movimentação em separado — o teor abre no cartão), a pílula é o tipo, "Novo" = não lida; a coluna direita (monitoramento, avisos, cliente) é função nova |
+| Barra global (topo + Expediente/Demandas/Processos) | **Não tocada** — é `base.html.twig`/`app.css`, de todas as telas. Divergências medidas: fundo `#0078AA` × `#0c7a9c`, altura 58 × 56, logo 32 × 27px, avatar 34 × 30px, nome 0.9rem/700 × 14px/600 maiúsculas, sub-nav 12px × 13px/.06em com ativo `#0078AA` × `#0c7a9c`. Mudar é decisão do dono (vale para o sistema inteiro) |
+| "3 de 7" entre as setas | Posição da pasta no acervo é consulta nova (COUNT ordenado) — registrado como C, custo baixo |
+
+## 6. Auditoria de fidelidade × `02 - EXPEDIENTES 1.2.3.dc.html` (05/10, pós-smoke)
+
+Conferência item a item da Pasta contra o `.dc.html` (template com estilos inline + estilos
+calculados no script), feita depois do primeiro smoke do dono. **A e B corrigidos em `2d53a4d1`**;
+as decisões novas estão na tabela do §5. O que ficou **C** (depende de função nova — nada é
+fingido na tela):
+
+- **Cabeçalho:** foto do cliente (botão), detalhes do cliente pelo botão direito, *BlueJus
+  Intelligence*, botão *Cadastro* (cadastro mestre por CPF), "3 de 7" entre as setas, chip de
+  apensados (tipo de apenso), selo carimbado de Suspenso/Cancelado/Arquivado e as duas situações
+  novas, cadeado (acesso por pessoa), menu ⋮: Timeline inteligente, Duplicar, Mover para outra
+  carteira, Link externo do Push, Imprimir resumo, Acompanhar alterações, Favoritos.
+- **Registro / observações:** responder, encaminhar via Chat I.A, destacar com cor, etiqueta
+  (Combinado/Ligação), presença do autor, "mostrar mais/menos" em textos longos, janela de edição
+  de 15 min (hoje 24 h no servidor), menu do botão direito.
+- **Trilho de Dados:** ⋮ por prazo (agenda .ics, alertar responsável), busca inline para vincular
+  cliente, selo "CPF duplicado", ícone de cadastro completo/incompleto por cliente.
+- **Metas:** filtros, numeração local/global, renomear na lista, sino de alerta, ⋮, drawer
+  "Relatório da meta", "Precisa de atenção" com conversar no chat.
+- **Processo:** dados do PJe (órgão, valor, distribuição, marcas, "Ver todas as informações",
+  editar/atualizar), "Administrativo sem processo", ⋮ e botão direito, nota técnica, "Ação" por
+  processo.
+- **Financeiro:** selo "Assinado" por arquivo, ⋮ dos arquivos, modal "Adicionar pagamento" com
+  cálculo de parcelas/juros, "Concluir edição" dos lançamentos.
+- **Push:** análise por IA, filtros, criar tarefa, encaminhar, marcar lida, documento do PJe, coluna
+  de monitoramento/avisos/avisar cliente.
+- **Documentos:** explorador no padrão Windows (oito modos, Organizar, colunas móveis, painel de
+  detalhes, seleção em lote/laço, duplicados, sugestões de limpeza, checklist por IA) — o
+  gerenciador atual (`fm`, compartilhado com a Cobrança) recebeu só tokens e raios.
+- **Barra global:** ver a linha do §5 — decisão do dono.
