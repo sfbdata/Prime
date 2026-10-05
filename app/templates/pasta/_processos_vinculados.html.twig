@@ -1,89 +1,114 @@
-{# Lista de processos vinculados da pasta. Renderizado tanto no show quanto via XHR
-   (vincular/desvincular/tornar principal) para atualizar a aba sem recarregar a página.
-   Contexto necessário: `pasta`. #}
-<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
-    <h6 class="mb-0">
-        <i class="bi bi-folder2-open me-1"></i> Processos vinculados
-        {% if pasta.pastaProcessos|length > 0 %}
-            <span class="badge bg-secondary">{{ pasta.pastaProcessos|length }}</span>
-        {% endif %}
-    </h6>
-    <div class="d-flex align-items-center gap-2">
-        <button type="button"
-                class="btn btn-sm btn-outline-primary"
-                data-bs-toggle="modal"
-                data-bs-target="#modalVincularProcesso">
-            <i class="bi bi-plus-lg me-1"></i> Vincular Processo
+{# ============================================================================
+   Aba Processo — os processos vinculados da pasta.
+   Desenho aprovado: docs/design/claude-design-2026-10-05 (1)/
+   ("02 - EXPEDIENTES 1.2.3.dc.html", padrão PJe). Spec: docs/specs/trilha-a-visual-pje.md (A5).
+
+   Renderizado tanto no show quanto via XHR (vincular / desvincular / tornar
+   principal) para atualizar a aba sem recarregar a página — por isso o CARTÃO
+   inteiro mora aqui, com o cabeçalho. Os formulários `.js-ajax-*`, o `data-copy`
+   e o Peticionar são contrato com o JS do show.html.twig.
+
+   O desenho mostra, por processo, uma linha do tempo ("Vinculado em dd/mm/aaaa"
+   é dado real: `PastaProcesso.vinculadoEm`) e um cartão com número, selo
+   Principal, dados e situação. O que é função nova NÃO aparece: dados do PJe,
+   campos em branco editáveis, "Ver todas as informações", pasta administrativa
+   sem processo, ⋮ e o menu do botão direito.
+
+   Contexto necessário: `pasta`.
+   ============================================================================ #}
+{% set vinculos = pasta.pastaProcessos %}
+<section class="ps-card ps-processos">
+    <div class="ps-card-cab ps-card-cab--painel">
+        <h2>Processos vinculados</h2>
+        {% if vinculos|length > 0 %}<span class="ps-contagem">{{ vinculos|length }}</span>{% endif %}
+        <span class="ps-cab-espaco"></span>
+        <button type="button" class="ps-btn ps-btn--suave"
+                data-bs-toggle="modal" data-bs-target="#modalVincularProcesso">
+            <i class="bi bi-link-45deg"></i><span>Vincular processo</span>
         </button>
         <a href="{{ path('pasta_peticionar', {id: pasta.id}) }}"
-           target="_blank"
-           rel="noopener"
-           class="btn btn-sm btn-primary"
-           title="Peticionar na Pasta">
-            <i class="bi bi-file-earmark-plus me-1"></i> Peticionar na Pasta
+           target="_blank" rel="noopener"
+           class="ps-btn ps-btn--primario ps-btn--caps" title="Peticionar na Pasta">
+            <i class="bi bi-file-earmark-plus"></i><span>Peticionar</span>
         </a>
     </div>
-</div>
 
-{% if pasta.pastaProcessos|length > 0 %}
-    {# Principal pela MESMA fonte de verdade dos resumos (getVinculoPrincipal,
-       com fallback), para não divergir caso a flag fique inconsistente. #}
-    {% set vinculoPrincipal = pasta.vinculoPrincipal %}
-    <div class="d-flex flex-column gap-2">
-        {% for vinculo in pasta.pastaProcessos %}
-            {% set proc = vinculo.processo %}
-            {% set ehPrincipal = vinculoPrincipal and proc.id == vinculoPrincipal.processo.id %}
-            <div class="card border">
-                <div class="card-body py-2 px-3">
-                    <div class="d-flex flex-wrap align-items-start justify-content-between gap-2">
-                        <div class="flex-grow-1">
-                            <div class="d-flex align-items-center flex-wrap gap-2 mb-1">
-                                {# Mesma máscara do cabeçalho: o handoff exige que header e aba
-                                   Processo NÃO divirjam, e o cabeçalho passou a formatar. #}
-                                <a href="{{ path('processo_show', {id: proc.id}) }}" class="fw-semibold text-decoration-none">{{ proc.numeroProcesso|numero_cnj }}</a>
-                                <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ proc.numeroProcesso }}" title="Copiar"></i>
-                                {% if ehPrincipal %}
-                                    <span class="badge text-bg-primary"><i class="bi bi-star-fill me-1"></i>Principal</span>
-                                {% endif %}
-                            </div>
-                            <div class="small text-muted">
-                                {% set detalhes = [proc.classeProcessual ?: proc.assuntoProcessual, proc.siglaTribunal, proc.situacaoProcesso]|filter(v => v) %}
-                                {{ detalhes|join(' · ') ?: '—' }}
-                            </div>
-                        </div>
-                        <div class="d-flex align-items-center gap-1">
+    {% if vinculos|length > 0 %}
+        {# Principal pela MESMA fonte de verdade dos resumos (getVinculoPrincipal,
+           com fallback), para não divergir caso a flag fique inconsistente. #}
+        {% set vinculoPrincipal = pasta.vinculoPrincipal %}
+        <div class="ps-registro ps-processos-lista">
+            {% for vinculo in vinculos %}
+                {% set proc = vinculo.processo %}
+                {% set ehPrincipal = vinculoPrincipal and proc.id == vinculoPrincipal.processo.id %}
+                <div class="ps-dia"><span class="ps-dia-pilula">Vinculado em {{ vinculo.vinculadoEm|date('d/m/Y') }}</span></div>
+                <article class="ps-anotacao ps-processo{{ ehPrincipal ? ' ps-processo--principal' : '' }}" data-processo-id="{{ proc.id }}">
+                    <span class="ps-processo-ponto" aria-hidden="true"></span>
+                    <span class="ps-anotacao-seta" aria-hidden="true"></span>
+                    <div class="ps-processo-topo">
+                        {# Mesma máscara do cabeçalho: header e aba Processo NÃO podem divergir. #}
+                        <a href="{{ path('processo_show', {id: proc.id}) }}" class="ps-processo-numero ps-num">{{ proc.numeroProcesso|numero_cnj }}</a>
+                        <i class="bi bi-copy copy-btn ps-copiar" role="button" data-copy="{{ proc.numeroProcesso }}" title="Copiar número do processo"></i>
+                        {% if ehPrincipal %}
+                            <span class="ps-processo-principal"><i class="bi bi-star-fill"></i>Principal</span>
+                        {% endif %}
+                        <span class="ps-cab-espaco"></span>
+                        <div class="ps-processo-acoes">
                             {% if not ehPrincipal %}
                                 <form method="post" action="{{ path('pasta_definir_processo_principal', {id: pasta.id}) }}" class="js-ajax-processo-principal m-0">
                                     <input type="hidden" name="_token" value="{{ csrf_token('pasta_definir_principal_processo_' ~ pasta.id) }}">
                                     <input type="hidden" name="processo_id" value="{{ proc.id }}">
-                                    <button type="submit" class="btn btn-sm btn-outline-secondary" title="Tornar processo principal">
+                                    <button type="submit" class="ps-btn ps-btn--icone ps-btn--mini" title="Tornar processo principal" aria-label="Tornar processo principal">
                                         <i class="bi bi-star"></i>
                                     </button>
                                 </form>
                             {% endif %}
-                            <a href="{{ path('processo_show', {id: proc.id}) }}" class="btn btn-sm btn-outline-primary" title="Ver processo completo">
+                            <a href="{{ path('processo_show', {id: proc.id}) }}" class="ps-btn ps-btn--icone ps-btn--mini" title="Ver processo completo" aria-label="Ver processo completo">
                                 <i class="bi bi-box-arrow-up-right"></i>
                             </a>
                             <form method="post" action="{{ path('pasta_desvincular_processo', {id: pasta.id}) }}" class="js-ajax-desvincular-processo m-0">
                                 <input type="hidden" name="_token" value="{{ csrf_token('pasta_desvincular_processo_' ~ pasta.id) }}">
                                 <input type="hidden" name="processo_id" value="{{ proc.id }}">
-                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Desvincular processo da pasta">
+                                <button type="submit" class="ps-btn ps-btn--icone ps-btn--mini ps-btn--perigo" title="Desvincular processo da pasta" aria-label="Desvincular processo da pasta">
                                     <i class="bi bi-trash"></i>
                                 </button>
                             </form>
                         </div>
                     </div>
-                </div>
+                    {# Só o que o cadastro tem (Datajud/manual). Campo vazio diz "Não informado",
+                       como no desenho — nunca um valor inventado. #}
+                    <div class="ps-processo-dados">
+                        <div class="ps-processo-dado">
+                            <div class="ps-rotulo">Classe</div>
+                            <div class="ps-processo-valor{{ proc.classeProcessual ? '' : ' ps-dado--vazio' }}">{{ proc.classeProcessual ?: 'Não informada' }}</div>
+                        </div>
+                        {% if proc.assuntoProcessual %}
+                            <div class="ps-processo-dado">
+                                <div class="ps-rotulo">Assunto</div>
+                                <div class="ps-processo-valor">{{ proc.assuntoProcessual }}</div>
+                            </div>
+                        {% endif %}
+                        <div class="ps-processo-dado">
+                            <div class="ps-rotulo">Tribunal</div>
+                            <div class="ps-processo-valor{{ proc.siglaTribunal ? '' : ' ps-dado--vazio' }}">{{ proc.siglaTribunal ?: 'Não informado' }}</div>
+                        </div>
+                        <div class="ps-processo-dado">
+                            <div class="ps-rotulo">Situação</div>
+                            <div class="ps-processo-valor ps-processo-situacao{{ proc.situacaoProcesso ? '' : ' ps-dado--vazio' }}">
+                                <span class="ps-processo-sit-ponto" aria-hidden="true"></span>{{ proc.situacaoProcesso ?: 'Não informada' }}
+                            </div>
+                        </div>
+                    </div>
+                </article>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="ps-vazio">
+            <i class="bi bi-bank"></i>
+            <div class="ps-vazio-titulo">Nenhum processo judicial vinculado</div>
+            <div class="ps-vazio-nota">
+                {% if pasta.nomeAcao %}Ação registrada: <strong>{{ pasta.nomeAcao }}</strong>. {% endif %}Vincule um processo pelo botão acima.
             </div>
-        {% endfor %}
-    </div>
-{% else %}
-    <p class="text-muted small mb-0">
-        <i class="bi bi-info-circle me-1"></i>
-        {% if pasta.nomeAcao %}
-            Ação registrada: <strong>{{ pasta.nomeAcao }}</strong>. Nenhum processo judicial vinculado.
-        {% else %}
-            Nenhum processo judicial vinculado a esta pasta.
-        {% endif %}
-    </p>
-{% endif %}
+        </div>
+    {% endif %}
+</section>

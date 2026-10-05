@@ -15,15 +15,15 @@
    Contexto: `pasta`, `push` (App\Pasta\DTO\PastaPushOutput).
    ============================================================================ #}
 <section class="ps-card ps-push" data-aba="push">
-    <div class="ps-card-cab">
-        <h2>Push Processual</h2>
+    <div class="ps-card-cab ps-card-cab--faixa">
+        <h2>Movimentações recebidas</h2>
         {% if push.total > 0 %}<span class="ps-contagem">{{ push.total }}</span>{% endif %}
         <span class="ps-cab-espaco"></span>
         {# O atalho para o módulo só para quem pode entrar nele: a aba NÃO exige
            `modules.djen.view` (o push é conteúdo da pasta), mas a tela do módulo exige. Sem esta
            guarda o link levaria metade dos usuários a um acesso negado. #}
         {% if push.numeroUnico and can_access_module('djen') %}
-            <a class="ps-card-cab-link"
+            <a class="ps-card-cab-link ps-card-cab-link--texto"
                href="{{ path('push_processual_index', {busca: push.numeroUnico}) }}">ver no módulo</a>
         {% endif %}
     </div>

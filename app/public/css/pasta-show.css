@@ -105,6 +105,13 @@
     --ps-arq-halo:      rgba(132,150,163,.18);
     --ps-mov-grad:      radial-gradient(circle at 35% 35%, #3fd08a, #1f9d61);
     --ps-inerte:        #c5d0d8;
+    /* Abas Processo e Metas (A5): selo Principal e tons das metas. */
+    --ps-principal-tx:  #2a5f8f;
+    --ps-principal-bg:  #eaf2fa;
+    --ps-principal-bd:  #cfe0f0;
+    --ps-meta-ok-bg:    #f3faf6;
+    --ps-meta-ok-tx:    #5f7f70;
+    --ps-meta-atraso-bg:#fdf2f1;
 
     --ps-shadow-card:   0 1px 2px rgba(16,42,58,.04);
     --ps-shadow-pop:    0 10px 30px rgba(16,42,58,.14);
@@ -191,6 +198,12 @@
     --ps-arq-halo:      rgba(255,255,255,.12);
     --ps-mov-grad:      radial-gradient(circle at 35% 35%, #3fd08a, #1f9d61);
     --ps-inerte:        var(--bs-border-color);
+    --ps-principal-tx:  var(--ps-accent);
+    --ps-principal-bg:  var(--ps-accent-bg);
+    --ps-principal-bd:  transparent;
+    --ps-meta-ok-bg:    rgba(31,157,97,.08);
+    --ps-meta-ok-tx:    var(--ps-ok-text);
+    --ps-meta-atraso-bg:rgba(192,57,47,.08);
 
     --ps-shadow-card:   0 1px 2px rgba(0,0,0,.35);
     --ps-shadow-pop:    0 10px 30px rgba(0,0,0,.5);
@@ -865,12 +878,11 @@ span.ps-situacao-pill { cursor: default; }
 }
 .ps-paineis { margin-top: 18px; }
 
-/* As cinco abas que ainda nao foram redesenhadas entram num cartao neutro, para
-   nao ficarem flutuando sobre o fundo da pagina. O conteudo delas nao foi
-   tocado: quem vira cartao e o PROPRIO painel, por seletor — encostar no HTML
-   de cinco abas para embrulhar cada uma custaria risco sem ganho nenhum.
-   A aba Dados fica de fora: ela ja e uma grade de cartoes. */
-.ps-paineis > .tab-pane:not(#dados) {
+/* Financeiro e Documentos (A6: so tokens e raios, sem reorganizar) entram num
+   cartao neutro, para nao ficarem flutuando sobre o fundo da pagina. As outras
+   abas ja sao cartoes proprios no padrao PJe (Dados, Processo, Metas, Detalhes,
+   Push) e ficam de fora — embrulha-las aqui seria moldura dupla. */
+.ps-paineis > .tab-pane:not(#dados):not(#processo):not(#tarefas):not(#detalhes):not(#push) {
     background: var(--ps-card);
     border: 1px solid var(--ps-border);
     border-radius: 4px;
@@ -1805,3 +1817,143 @@ span.ps-situacao-pill { cursor: default; }
 .ps-push-teor .djen-teor section { margin-bottom: 14px; }
 .ps-push-teor .djen-teor p { margin-bottom: 8px; }
 .ps-push-teor .djen-teor :is(h1, h2, h3, h4, h5, h6) { font-size: 13.5px; font-weight: 600; margin: 10px 0 5px; }
+
+/* =============================================================================
+   A5 — abas Processo, Metas, Detalhes e Push em cartao (desenho 1.2.3)
+   ============================================================================= */
+/* Botoes do padrao: suave (fundo azul claro), caps (primario em maiusculas),
+   mini (28px, so icone) e perigo (vermelho no hover). */
+.ps-btn--suave { border-color: transparent; background: var(--ps-accent-bg); color: var(--ps-chip-text); font-weight: 500; }
+.ps-btn--suave:hover,
+.ps-btn--suave:focus-visible { border-color: transparent; background: var(--ps-accent-bg); color: var(--ps-accent); }
+.ps-btn--caps { text-transform: uppercase; letter-spacing: .03em; box-shadow: 0 1px 2px rgba(10,122,173,.25); }
+.ps-btn--mini { width: 28px; height: 28px; font-size: 13px; border-color: transparent; background: transparent; color: var(--ps-faint); }
+.ps-btn--mini i { font-size: 13px; }
+.ps-btn--mini:hover,
+.ps-btn--mini:focus-visible { border-color: transparent; background: var(--ps-hover); color: var(--ps-accent); }
+.ps-btn--perigo:hover,
+.ps-btn--perigo:focus-visible { background: var(--ps-danger-hover); color: var(--ps-danger-text); }
+.ps-card-cab--painel .ps-btn { height: 32px; }
+.ps-card-cab--painel .ps-contagem { font-size: 11px; }
+
+/* Cabecalho na faixa do trilho, mas fora do trilho (Push). */
+.ps-card-cab--faixa { min-height: 46px; padding: 8px 17px; gap: 8px; background: var(--ps-trilho-cab-bg); border-bottom: 1px solid var(--ps-trilho-cab-bd); }
+.ps-card-cab--faixa h2 { font-size: 13.5px; font-weight: 700; letter-spacing: .01em; white-space: nowrap; }
+.ps-card-cab--faixa .ps-contagem { font-size: 11px; font-weight: 700; color: var(--ps-chip-text); background: var(--ps-accent-bg); padding: 1px 8px; border-radius: 999px; }
+/* Atalho em texto ("ver no modulo") no cabecalho: nao e o chevron. */
+.ps-card-cab-link--texto { width: auto; height: auto; margin: 0; padding: 0 4px; font-size: 12.5px; font-weight: 500; color: var(--ps-accent); }
+.ps-card-cab-link--texto:hover,
+.ps-card-cab-link--texto:focus-visible { background: transparent; color: var(--ps-accent-hover); text-decoration: underline; }
+
+/* ── Aba Processo: linha do tempo com um cartao por processo ── */
+.ps-processos { overflow: hidden; }
+.ps-processos-lista { padding-bottom: 12px; }
+.ps-processo { padding: 16px 18px; }
+.ps-processo-ponto {
+    position: absolute;
+    left: -24px;
+    top: 20px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--ps-accent);
+    box-shadow: 0 0 0 3px var(--ps-div-strong);
+}
+.ps-anotacao.ps-processo > .ps-anotacao-seta { top: 20px; }
+.ps-processo-topo { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ps-processo-numero { font-size: 17px; font-weight: 500; letter-spacing: -.01em; white-space: nowrap; }
+.ps-processo-principal {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    color: var(--ps-principal-tx);
+    background: var(--ps-principal-bg);
+    border: 1px solid var(--ps-principal-bd);
+    padding: 3px 9px;
+    border-radius: 999px;
+}
+.ps-processo-principal i { font-size: 9px; }
+.ps-processo-acoes { display: flex; align-items: center; gap: 4px; }
+.ps-processo-dados { display: flex; gap: 30px; flex-wrap: wrap; margin-top: 14px; }
+.ps-processo-dado { min-width: 0; }
+.ps-processo-dado .ps-rotulo { margin: 0 0 4px; }
+.ps-processo-valor { font-size: 14px; font-weight: 500; }
+.ps-processo-situacao { display: flex; align-items: center; gap: 7px; }
+.ps-processo-sit-ponto { width: 8px; height: 8px; border-radius: 50%; background: var(--ps-faint); flex-shrink: 0; }
+
+/* ── Aba Metas: lista sobre fundo cinza, borda colorida pelo estado ── */
+.ps-metas { overflow: hidden; }
+.ps-metas-lista { display: flow-root; background: var(--ps-bg); padding: 0 0 10px; }
+.ps-meta {
+    position: relative;
+    display: flex;
+    gap: 13px;
+    align-items: flex-start;
+    padding: 17px 22px;
+    margin-top: 16px;
+    background: var(--ps-card);
+    border-left: 3px solid var(--ps-warn-dot);
+    box-shadow: 0 1px 2px rgba(16,42,58,.06);
+    transition: background .2s ease, transform .25s var(--ps-ease), box-shadow .25s ease;
+}
+/* A linha e uma ancora: a regra de link da pagina nao pode pinta-la de azul. */
+.ps-page a.ps-meta,
+.ps-page a.ps-meta:hover { color: inherit; text-decoration: none; }
+.ps-meta:hover { transform: translateY(-2px) scale(1.012); box-shadow: 0 10px 24px rgba(16,42,58,.16), 0 2px 6px rgba(16,42,58,.08); z-index: 1; }
+.ps-meta--concluida { border-left-color: var(--ps-ok-dot); background: var(--ps-meta-ok-bg); }
+.ps-meta--atrasada  { border-left-color: var(--ps-danger-dot); background: var(--ps-meta-atraso-bg); }
+.ps-meta-corpo { flex: 1; min-width: 0; }
+.ps-meta-titulo { display: flex; align-items: flex-start; gap: 8px; font-size: 14.5px; font-weight: 600; line-height: 1.35; text-wrap: pretty; color: var(--ps-text); }
+.ps-meta-titulo i { font-size: 15px; line-height: 1.35; color: var(--ps-ok-dot); flex-shrink: 0; }
+.ps-meta--concluida .ps-meta-titulo { color: var(--ps-meta-ok-tx); text-decoration: line-through; text-decoration-color: var(--ps-ok-border); }
+.ps-meta-linha { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 5px; }
+.ps-meta-linha > span { display: flex; align-items: center; gap: 6px; white-space: nowrap; font-size: 12.5px; color: var(--ps-muted); }
+.ps-meta-linha i { font-size: 12px; opacity: .8; }
+.ps-meta-linha > .ps-meta-prazo--atraso { font-weight: 600; color: var(--ps-danger-dot); }
+.ps-meta-direita { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
+.ps-meta-status {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    padding: 3px 9px;
+    border-radius: 999px;
+    color: var(--ps-warn-text);
+    background: var(--ps-warn-bg);
+}
+.ps-meta--concluida .ps-meta-status { color: var(--ps-ok-text); background: var(--ps-ok-bg); }
+.ps-meta--atrasada  .ps-meta-status { color: var(--ps-danger-text); background: var(--ps-danger-bg); }
+.ps-meta-datas { font-size: 11px; color: var(--ps-faint); }
+@media (prefers-reduced-motion: reduce) {
+    .ps-meta:hover { transform: none; }
+}
+
+/* ── Aba Detalhes: fatos da pasta + relatorio inicial ── */
+.ps-fatos { margin-bottom: 18px; }
+.ps-fatos .ps-cab-dados { margin-bottom: 0; }
+.ps-detalhes-obs { overflow: hidden; }
+.ps-compositor-rodape--solto { margin-top: 8px; border-top: none; background: transparent; padding: 0; }
+.ps-detalhes-lista { padding: 10px 12px 12px; background: var(--ps-div-strong); }
+.ps-detalhes-rolagem { max-height: 400px; overflow-y: auto; padding: 2px; }
+.ps-detalhes-rolagem::-webkit-scrollbar { width: 5px; }
+.ps-detalhes-rolagem::-webkit-scrollbar-thumb { background: var(--ps-border); border-radius: 3px; }
+
+/* ── Aba Push: tipo da publicacao em pilula ── */
+.ps-push-titulo {
+    display: inline-flex;
+    align-items: center;
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 999px;
+    color: var(--ps-chip-text);
+    background: var(--ps-accent-bg);
+}

@@ -207,9 +207,22 @@ em `show.html.twig` ~l.3290, `_dados_trilho`, CSS)
   (dois registros em dias diferentes = duas pílulas; no mesmo dia = uma);
   o item criado por JS (sem recarregar) tem o mesmo markup do Twig.
 
-**A5 — Processo, Metas, Detalhes e Push em cartão** (só classes e CSS; o parcial do Processo continua
-autossuficiente para o XHR). Detalhes: título "Relatório inicial de Atendimento". Push: cabeçalho de
-cartão + lista no padrão (sem linha do tempo com IDs, que é função nova).
+**A5 — Processo, Metas, Detalhes e Push em cartão** (classes e CSS; o parcial do Processo continua
+autossuficiente para o XHR).
+- Processo: cartão com cabeçalho na faixa, "Vincular processo" (suave) e "Peticionar" (primário em
+  maiúsculas); linha do tempo com a pílula "Vinculado em dd/mm/aaaa" (`PastaProcesso.vinculadoEm`, dado
+  real) e um cartão por processo (número 17/500, selo Principal, Classe/Assunto/Tribunal/Situação com
+  "Não informado" onde o cadastro está vazio, ações tornar principal/abrir/desvincular). Fora: dados do
+  PJe, campos editáveis, "Ver todas as informações", pasta administrativa, ⋮, botão direito.
+- Metas: cartão "Metas da pasta" + "Nova meta" (`#modalCriarTarefa`); lista sobre fundo cinza, uma
+  linha por meta com borda e selo pelo estado REAL — concluída (verde, riscada), atrasada (vermelha =
+  aberta com prazo no passado), aberta (âmbar; "Pendente"/"Para Revisão"). Fora: filtros, "Precisa
+  de atenção", numeração, renomear, resolver na lista, sino, encaminhar.
+- Detalhes: faixa com Criado em · Modificado em · Criado por e o painel "Relatório inicial de
+  Atendimento" (compositor + lista de sempre; os itens mantêm o markup porque o JS da tela também os
+  monta). Push: cabeçalho na faixa, título "Movimentações recebidas", tipo da publicação em pílula
+  (sem linha do tempo com IDs, que é função nova).
+- Financeiro e Documentos continuam no cartão neutro (A6); as demais abas saem dele.
 
 **A6 — Financeiro e Documentos**: só tokens e raios (a A1 já cobre a maior parte); não reorganizar.
 
