@@ -299,12 +299,36 @@
         </div>
     </div>
 
-    {# ── Linha 3: abas ───────────────────────────────────────────────────── #}
+    {# ── Linha 3: abas (padrão PJe, desenho 1.2.3) ──────────────────────── #}
     {# Contagens SEMPRE do dado, nunca literais — foi bug corrigido duas vezes na
-       revisão do desenho. Só Metas e Documentos exibem badge (o desenho não dá
-       badge às outras quatro). Os `id` seguem os antigos porque o
-       pasta-arquivos.js chama bootstrap.Tab em `#documentos-tab` depois do
-       upload; renomear aqui quebraria aquele retorno em silêncio. #}
+       revisão do desenho. Metas e Documentos exibem o total; Push exibe só as NÃO
+       LIDAS (é o que o desenho mostra: lida a publicação, o selo cai). Os `id`
+       seguem os antigos porque o pasta-arquivos.js chama bootstrap.Tab em
+       `#documentos-tab` depois do upload; renomear aqui quebraria aquele retorno
+       em silêncio.
+
+       Pendência (a linha vermelha sob a aba) só existe com dado REAL por trás —
+       sinal decorativo seria mentira na tela. Metas = meta não concluída;
+       Processo = nenhum processo vinculado; Financeiro = contrato pendente e sem
+       pró-bono; Push = publicação não lida. Documentos e Detalhes ficam sem
+       pendência: as regras do desenho para elas (checklist cobrado, relatório
+       inicial de atendimento) ainda não existem no sistema. #}
+    {% set metasAbertas = pasta.tarefas|filter(t => t.status != 'concluida')|length %}
+    {% set pushNaoLidas = push.naoLidas|default(0) %}
+    {% set pendencias = {
+        tarefas:    metasAbertas > 0
+                        ? {n: metasAbertas, txt: metasAbertas == 1 ? '1 meta exige atenção' : metasAbertas ~ ' metas exigem atenção'}
+                        : null,
+        processo:   pasta.pastaProcessos|length == 0
+                        ? {n: 1, txt: 'nenhum processo vinculado'}
+                        : null,
+        financeiro: (pasta.situacaoContrato == 'PENDENTE' and not pasta.proBono)
+                        ? {n: 1, txt: 'contrato de honorários pendente de assinatura'}
+                        : null,
+        push:       pushNaoLidas > 0
+                        ? {n: pushNaoLidas, txt: pushNaoLidas == 1 ? '1 movimentação nova sem leitura' : pushNaoLidas ~ ' movimentações novas sem leitura'}
+                        : null,
+    } %}
     {% set abas = [
         {id: 'dados',      painel: 'dados',      rotulo: 'Dados da pasta', icone: 'bi-folder2-open',  contagem: null},
         {id: 'tarefas',    painel: 'tarefas',    rotulo: 'Metas',          icone: 'bi-check2-square', contagem: pasta.tarefas|length},
@@ -312,21 +336,26 @@
         {id: 'financeiro', painel: 'financeiro', rotulo: 'Financeiro',     icone: 'bi-cash-coin',     contagem: null},
         {id: 'detalhes',   painel: 'detalhes',   rotulo: 'Detalhes',       icone: 'bi-info-circle',   contagem: null},
         {id: 'documentos', painel: 'documentos', rotulo: 'Documentos',     icone: 'bi-paperclip',     contagem: pasta.documentos|length},
-        {id: 'push',       painel: 'push',       rotulo: 'Push Processual', icone: 'bi-broadcast',     contagem: push.total|default(0)},
+        {id: 'push',       painel: 'push',       rotulo: 'Push Processual', icone: 'bi-broadcast',     contagem: pushNaoLidas},
     ] %}
     <div class="ps-abas-faixa">
-        {# `ps-abas--sem-js` sai no boot do pasta-show.js. Sem JS a pílula nunca é
-           medida, e sem esta classe a aba ativa ficaria sem marca nenhuma. #}
+        {# `ps-abas--sem-js` sai no boot do pasta-show.js. Sem JS o sublinhado nunca
+           é medido, e sem esta classe a aba ativa ficaria sem marca nenhuma. #}
         <div class="ps-abas ps-abas--sem-js" id="pastaTabs" role="tablist">
             <div class="ps-abas-ind" aria-hidden="true"></div>
             {% for aba in abas %}
-                <button class="ps-aba{{ loop.first ? ' active' : '' }}"
+                {% set pend = pendencias[aba.id]|default(null) %}
+                <button class="ps-aba{{ loop.first ? ' active' : '' }}{{ pend ? ' ps-aba--pend' : '' }}"
                         id="{{ aba.id }}-tab"
                         data-bs-toggle="tab"
                         data-bs-target="#{{ aba.painel }}"
                         type="button" role="tab"
                         aria-controls="{{ aba.painel }}"
-                        aria-selected="{{ loop.first ? 'true' : 'false' }}">
+                        aria-selected="{{ loop.first ? 'true' : 'false' }}"
+                        title="{{ aba.rotulo }}{% if pend %} · {{ pend.txt }}{% endif %}">
+                    {# A barra some na aba ativa (CSS, pela classe `.active` que o
+                       Bootstrap alterna): quem está olhando a aba já vê a pendência. #}
+                    {% if pend %}<span class="ps-aba-pend" aria-hidden="true"></span>{% endif %}
                     <i class="bi {{ aba.icone }}"></i>
                     <span>{{ aba.rotulo }}</span>
                     {% if aba.contagem %}<span class="ps-aba-badge ps-num">{{ aba.contagem }}</span>{% endif %}
