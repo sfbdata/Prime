@@ -119,6 +119,26 @@ final class PastaRegistroExpedientesTelaTest extends JusPrimeWebTestCase
         );
     }
 
+    #[TestDox('a pílula de um dia cujo primeiro registro está entre os "anteriores" nasce escondida junto com ele')]
+    public function testPilulaEscondidaComOsAnteriores(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $this->registrar($pasta, $user, $tenant, 'De ontem', new \DateTimeImmutable('yesterday 09:00'));
+        foreach (range(1, 4) as $i) {
+            $this->registrar($pasta, $user, $tenant, 'Hoje ' . $i);
+        }
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $this->abrir($client, $pasta);
+
+        // 4 visíveis hoje; o 5º (de ontem) é "anterior" — e a pílula de ontem vai junto.
+        self::assertCount(1, $crawler->filter('#timelineList > .ps-dia.ps-anotacao--extra.d-none + article.ps-anotacao.ps-anotacao--extra.d-none'));
+        self::assertCount(1, $crawler->filter('#timelineList > .ps-dia:not(.d-none)'), 'só a pílula de hoje aparece de cara');
+        self::assertCount(1, $crawler->filter('#psAnotacoesMais'), 'o botão revela os dois juntos (mesma classe)');
+    }
+
     #[TestDox('o cartão do registro tem avatar, autor, só a HORA (o dia está na pílula) e o texto com o megafone')]
     public function testCartaoDoRegistro(): void
     {

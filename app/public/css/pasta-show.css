@@ -105,6 +105,13 @@
     --ps-arq-halo:      rgba(132,150,163,.18);
     --ps-mov-grad:      radial-gradient(circle at 35% 35%, #3fd08a, #1f9d61);
     --ps-inerte:        #c5d0d8;
+    --ps-hover-suave:   #f7fafc;
+    --ps-hover-doc:     #f1f7fb;
+    --ps-hover-mais:    #f4f9fd;
+    --ps-meta-risca:    #a8cdb8;
+    --ps-shadow-meta:   0 1px 2px rgba(16,42,58,.06);
+    --ps-shadow-meta-hv:0 10px 24px rgba(16,42,58,.16), 0 2px 6px rgba(16,42,58,.08);
+    --ps-shadow-caps:   0 1px 2px rgba(10,122,173,.25);
     /* Abas Processo e Metas (A5): selo Principal e tons das metas. */
     --ps-principal-tx:  #2a5f8f;
     --ps-principal-bg:  #eaf2fa;
@@ -198,6 +205,13 @@
     --ps-arq-halo:      rgba(255,255,255,.12);
     --ps-mov-grad:      radial-gradient(circle at 35% 35%, #3fd08a, #1f9d61);
     --ps-inerte:        var(--bs-border-color);
+    --ps-hover-suave:   rgba(255,255,255,.04);
+    --ps-hover-doc:     rgba(255,255,255,.05);
+    --ps-hover-mais:    rgba(255,255,255,.05);
+    --ps-meta-risca:    var(--ps-ok-border);
+    --ps-shadow-meta:   0 1px 2px rgba(0,0,0,.35);
+    --ps-shadow-meta-hv:0 10px 24px rgba(0,0,0,.5), 0 2px 6px rgba(0,0,0,.35);
+    --ps-shadow-caps:   0 1px 2px rgba(0,0,0,.4);
     --ps-principal-tx:  var(--ps-accent);
     --ps-principal-bg:  var(--ps-accent-bg);
     --ps-principal-bd:  transparent;
@@ -912,7 +926,7 @@ span.ps-situacao-pill { cursor: default; }
 }
 .ps-card-cab h2 { margin: 0; font-size: 13.5px; font-weight: 600; }
 /* Cabecalho do PAINEL principal (desenho): faixa cinza clara, titulo 14/600. */
-.ps-card-cab--painel { background: var(--ps-cab-bg); border-bottom: 1px solid var(--ps-cab-border); padding: 15px 20px; }
+.ps-card-cab--painel { background: var(--ps-cab-bg); border-bottom: 1px solid var(--ps-cab-border); padding: 15px 20px; gap: 10px; }
 .ps-card-cab--painel h2 { font-size: 14px; }
 /* Cabecalho dos cartoes do TRILHO (desenho): faixa mais escura, titulo 13.5/700,
    contagem em pilula azul e o chevron que leva a aba. */
@@ -1027,18 +1041,25 @@ span.ps-situacao-pill { cursor: default; }
     white-space: nowrap;
 }
 
-.ps-anotacao {
+/* As regras ABAIXO valem so dentro da linha do tempo (.ps-registro). As
+   observacoes do Financeiro usam as mesmas classes com a estrutura ANTIGA
+   (avatar + corpo com topo e texto), em Twig e em JS — para elas continuam
+   valendo as regras antigas, mais adiante neste arquivo. */
+.ps-registro .ps-anotacao {
     position: relative;
+    display: block;
+    gap: 0;
     margin: 0 0 10px;
     padding: 12px 16px;
     background: var(--ps-card);
+    border-bottom: none;
     border-radius: 4px;
     box-shadow: var(--ps-shadow-reg);
     transition: box-shadow .2s;
 }
-.ps-anotacao:hover { box-shadow: var(--ps-shadow-reg-hv); }
+.ps-registro .ps-anotacao:hover { box-shadow: var(--ps-shadow-reg-hv); }
 /* A seta do cartao aponta para a linha do tempo. */
-.ps-anotacao-seta {
+.ps-registro .ps-anotacao-seta {
     position: absolute;
     left: -7px;
     top: 16px;
@@ -1048,13 +1069,14 @@ span.ps-situacao-pill { cursor: default; }
     border-bottom: 7px solid transparent;
     border-right: 7px solid var(--ps-card);
 }
-.ps-anotacao-topo { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; margin-bottom: 6px; }
-.ps-anotacao-autor { font-size: 13px; font-weight: 700; color: var(--ps-text); white-space: nowrap; }
-.ps-anotacao-editado { font-size: 12px; color: var(--ps-label); font-style: italic; }
-.ps-anotacao-data { font-size: 12px; color: var(--ps-text-3); font-variant-numeric: tabular-nums; }
+.ps-registro .ps-anotacao-topo { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; margin-bottom: 6px; }
+.ps-registro .ps-anotacao-autor { font-size: 13px; font-weight: 700; color: var(--ps-text); white-space: nowrap; }
+.ps-registro .ps-anotacao-editado { font-size: 12px; color: var(--ps-label); font-style: italic; }
+.ps-registro .ps-anotacao-data { font-size: 12px; color: var(--ps-text-3); font-variant-numeric: tabular-nums; }
 /* As acoes (editar, excluir) ficam sempre visiveis, como o lapis do desenho. */
-.ps-anotacao-acoes { display: inline-flex; align-items: center; gap: 2px; }
-.ps-anotacao-acao {
+.ps-registro .ps-anotacao-acoes { display: inline-flex; align-items: center; gap: 2px; margin-left: 0; opacity: 1; }
+.ps-registro .ps-anotacao-acao {
+    padding: 0;
     width: 28px;
     height: 26px;
     display: inline-flex;
@@ -1068,14 +1090,44 @@ span.ps-situacao-pill { cursor: default; }
     cursor: pointer;
     transition: background .18s, color .18s;
 }
-.ps-anotacao-acao:hover,
-.ps-anotacao-acao:focus-visible { background: var(--ps-acao-hover); color: var(--ps-accent); }
-.ps-anotacao-acao--perigo:hover,
-.ps-anotacao-acao--perigo:focus-visible { background: var(--ps-danger-hover); color: var(--ps-danger-text); }
-.ps-anotacao-corpo { display: flex; gap: 9px; align-items: flex-start; }
-.ps-anotacao-icone { font-size: 13px; color: var(--ps-dia-text); margin-top: 4px; transform: scaleX(-1); flex-shrink: 0; }
-.ps-anotacao-texto { flex: 1; min-width: 0; font-size: 14.5px; line-height: 1.6; color: var(--ps-registro-txt); text-wrap: pretty; }
+.ps-registro .ps-anotacao-acao:hover,
+.ps-registro .ps-anotacao-acao:focus-visible { background: var(--ps-acao-hover); color: var(--ps-accent); }
+.ps-registro .ps-anotacao-acao--perigo:hover,
+.ps-registro .ps-anotacao-acao--perigo:focus-visible { background: var(--ps-danger-hover); color: var(--ps-danger-text); }
+.ps-registro .ps-anotacao-corpo { display: flex; gap: 9px; align-items: flex-start; flex: initial; }
+.ps-registro .ps-anotacao-icone { font-size: 13px; color: var(--ps-dia-text); margin-top: 4px; transform: scaleX(-1); flex-shrink: 0; }
+.ps-registro .ps-anotacao-texto { flex: 1; min-width: 0; font-size: 14.5px; line-height: 1.6; color: var(--ps-registro-txt); text-wrap: pretty; }
 .ps-anotacao-texto .ql-editor { padding: 0; font-size: inherit; line-height: inherit; }
+
+/* Estrutura ANTIGA da anotacao (observacoes do Financeiro, Twig + JS): avatar a
+   esquerda, corpo com topo (autor, data, acoes no hover) e texto. Fica como era
+   antes da A4 — a aba Financeiro nao se reorganiza nesta trilha (A6). */
+.ps-anotacao {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--ps-div-weak);
+    display: flex;
+    gap: 13px;
+}
+.ps-anotacao:last-of-type { border-bottom: none; }
+.ps-anotacao-corpo { min-width: 0; flex: 1; }
+.ps-anotacao-topo { display: flex; align-items: baseline; gap: 9px; margin-bottom: 4px; flex-wrap: wrap; }
+.ps-anotacao-autor { font-size: 13.5px; font-weight: 600; }
+.ps-anotacao-data  { font-size: 12px; color: var(--ps-label); }
+.ps-anotacao-texto { font-size: 14.5px; line-height: 1.6; color: var(--ps-body); text-wrap: pretty; }
+.ps-anotacao-acoes { display: inline-flex; align-items: center; gap: 2px; margin-left: auto; opacity: 0; transition: opacity .15s; }
+.ps-anotacao:hover .ps-anotacao-acoes,
+.ps-anotacao:focus-within .ps-anotacao-acoes { opacity: 1; }
+.ps-anotacao-acao {
+    border: none;
+    background: transparent;
+    color: var(--ps-faint);
+    font-size: 12px;
+    padding: 2px 5px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+.ps-anotacao-acao:hover { background: var(--ps-hover); color: var(--ps-text-2); }
+.ps-anotacao-acao--perigo:hover { background: var(--ps-danger-hover); color: var(--ps-danger-text); }
 
 .ps-anotacoes-mais {
     border: none;
@@ -1089,7 +1141,7 @@ span.ps-situacao-pill { cursor: default; }
     width: 100%;
     border-radius: 0 0 4px 4px;
 }
-.ps-anotacoes-mais:hover { background: var(--ps-hover); }
+.ps-anotacoes-mais:hover { background: var(--ps-hover-mais); }
 
 .ps-vazio { padding: 40px 24px; text-align: center; }
 .ps-vazio i { font-size: 30px; color: #c3d2dd; }
@@ -1108,7 +1160,7 @@ span.ps-situacao-pill { cursor: default; }
     align-items: flex-start;
 }
 .ps-linha:last-child { border-bottom: none; }
-.ps-trilho .ps-linha:hover { background: var(--ps-hover); }
+.ps-trilho .ps-linha:hover { background: var(--ps-hover-suave); }
 .ps-linha-corpo { min-width: 0; flex: 1; }
 .ps-linha-titulo { font-size: 13.5px; font-weight: 500; line-height: 1.35; text-wrap: pretty; }
 .ps-linha-meta { font-size: 12px; color: var(--ps-label); margin-top: 2px; }
@@ -1195,7 +1247,7 @@ span.ps-situacao-pill { cursor: default; }
 }
 .ps-doc:last-child { border-bottom: none; }
 .ps-doc:hover,
-.ps-doc:focus-visible { background: var(--ps-hover); color: var(--ps-text); text-decoration: none; }
+.ps-doc:focus-visible { background: var(--ps-hover-doc); color: var(--ps-text); text-decoration: none; }
 .ps-doc:hover .ps-doc-nome { color: var(--ps-accent); }
 .ps-doc .ps-linha-corpo { display: block; }
 .ps-doc .ps-doc-nome,
@@ -1754,7 +1806,6 @@ span.ps-situacao-pill { cursor: default; }
     font-variant-numeric: tabular-nums;
 }
 .ps-push-corpo { flex: 1 1 auto; min-width: 0; }
-.ps-push-titulo { display: block; font-size: 13.5px; color: var(--ps-text); }
 .ps-push-meta {
     display: block;
     font-size: 12px;
@@ -1764,7 +1815,6 @@ span.ps-situacao-pill { cursor: default; }
     text-overflow: ellipsis;
     white-space: nowrap;
 }
-.ps-push-item--nova .ps-push-titulo { font-weight: 600; }
 .ps-push-pip {
     flex: 0 0 auto;
     width: 7px;
@@ -1826,7 +1876,7 @@ span.ps-situacao-pill { cursor: default; }
 .ps-btn--suave { border-color: transparent; background: var(--ps-accent-bg); color: var(--ps-chip-text); font-weight: 500; }
 .ps-btn--suave:hover,
 .ps-btn--suave:focus-visible { border-color: transparent; background: var(--ps-accent-bg); color: var(--ps-accent); }
-.ps-btn--caps { text-transform: uppercase; letter-spacing: .03em; box-shadow: 0 1px 2px rgba(10,122,173,.25); }
+.ps-btn--caps { text-transform: uppercase; letter-spacing: .03em; box-shadow: var(--ps-shadow-caps); }
 .ps-btn--mini { width: 28px; height: 28px; font-size: 13px; border-color: transparent; background: transparent; color: var(--ps-faint); }
 .ps-btn--mini i { font-size: 13px; }
 .ps-btn--mini:hover,
@@ -1834,6 +1884,7 @@ span.ps-situacao-pill { cursor: default; }
 .ps-btn--perigo:hover,
 .ps-btn--perigo:focus-visible { background: var(--ps-danger-hover); color: var(--ps-danger-text); }
 .ps-card-cab--painel .ps-btn { height: 32px; }
+.ps-card-cab--painel .ps-btn.ps-btn--alto { height: 36px; font-weight: 700; }
 .ps-card-cab--painel .ps-contagem { font-size: 11px; }
 
 /* Cabecalho na faixa do trilho, mas fora do trilho (Push). */
@@ -1885,6 +1936,9 @@ span.ps-situacao-pill { cursor: default; }
 .ps-processo-valor { font-size: 14px; font-weight: 500; }
 .ps-processo-situacao { display: flex; align-items: center; gap: 7px; }
 .ps-processo-sit-ponto { width: 8px; height: 8px; border-radius: 50%; background: var(--ps-faint); flex-shrink: 0; }
+/* Em andamento: verde, como no desenho; o resto (baixado, arquivado, sem dado) fica cinza. */
+.ps-processo-situacao--ativa { font-weight: 600; color: var(--ps-ok-text); }
+.ps-processo-situacao--ativa .ps-processo-sit-ponto { background: var(--ps-ok-dot); box-shadow: 0 0 0 3px var(--ps-ok-halo); }
 
 /* ── Aba Metas: lista sobre fundo cinza, borda colorida pelo estado ── */
 .ps-metas { overflow: hidden; }
@@ -1898,19 +1952,19 @@ span.ps-situacao-pill { cursor: default; }
     margin-top: 16px;
     background: var(--ps-card);
     border-left: 3px solid var(--ps-warn-dot);
-    box-shadow: 0 1px 2px rgba(16,42,58,.06);
+    box-shadow: var(--ps-shadow-meta);
     transition: background .2s ease, transform .25s var(--ps-ease), box-shadow .25s ease;
 }
 /* A linha e uma ancora: a regra de link da pagina nao pode pinta-la de azul. */
 .ps-page a.ps-meta,
 .ps-page a.ps-meta:hover { color: inherit; text-decoration: none; }
-.ps-meta:hover { transform: translateY(-2px) scale(1.012); box-shadow: 0 10px 24px rgba(16,42,58,.16), 0 2px 6px rgba(16,42,58,.08); z-index: 1; }
+.ps-meta:hover { background: var(--ps-card); transform: translateY(-2px) scale(1.012); box-shadow: var(--ps-shadow-meta-hv); z-index: 1; }
 .ps-meta--concluida { border-left-color: var(--ps-ok-dot); background: var(--ps-meta-ok-bg); }
 .ps-meta--atrasada  { border-left-color: var(--ps-danger-dot); background: var(--ps-meta-atraso-bg); }
 .ps-meta-corpo { flex: 1; min-width: 0; }
 .ps-meta-titulo { display: flex; align-items: flex-start; gap: 8px; font-size: 14.5px; font-weight: 600; line-height: 1.35; text-wrap: pretty; color: var(--ps-text); }
 .ps-meta-titulo i { font-size: 15px; line-height: 1.35; color: var(--ps-ok-dot); flex-shrink: 0; }
-.ps-meta--concluida .ps-meta-titulo { color: var(--ps-meta-ok-tx); text-decoration: line-through; text-decoration-color: var(--ps-ok-border); }
+.ps-meta--concluida .ps-meta-titulo { color: var(--ps-meta-ok-tx); text-decoration: line-through; text-decoration-color: var(--ps-meta-risca); }
 .ps-meta-linha { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 5px; }
 .ps-meta-linha > span { display: flex; align-items: center; gap: 6px; white-space: nowrap; font-size: 12.5px; color: var(--ps-muted); }
 .ps-meta-linha i { font-size: 12px; opacity: .8; }
@@ -1973,7 +2027,8 @@ span.ps-situacao-pill { cursor: default; }
 /* Os cartoes Bootstrap que o gerenciador ainda usa ganham o canto do padrao. */
 .ps-page #documentos .card { border-radius: 4px; }
 .ps-page #documentos .card > .card-header { border-radius: 4px 4px 0 0; }
-.ps-page #documentos .btn { border-radius: 4px; }
-.ps-page #documentos .form-control,
-.ps-page #documentos .form-select,
-.ps-page #documentos .input-group-text { border-radius: 4px; }
+/* Fora do .input-group: la o Bootstrap zera os cantos internos (input colado ao
+   botao), e a especificidade do #documentos venceria essa regra. */
+.ps-page #documentos .btn:not(.input-group > *) { border-radius: 4px; }
+.ps-page #documentos .form-control:not(.input-group > *),
+.ps-page #documentos .form-select:not(.input-group > *) { border-radius: 4px; }

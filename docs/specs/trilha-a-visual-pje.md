@@ -193,8 +193,10 @@ em `show.html.twig` ~l.3290, `_dados_trilho`, CSS)
 - Título "Registro dos expedientes"; cabeçalho do painel `--ps-cab-bg`/`--ps-cab-border`, padding 15/20,
   h2 14/600, contagem 11/700.
 - Lista agrupada por dia: pílula de dia 13/700 `#3c4a54` em `#dde3e8` centralizada; fundo da área
-  `#eef2f5`; linha vertical 2px `#d3dbe1` à esquerda; cartão branco raio 4 com seta; autor 13.5/700,
-  hora à direita 11.5 `#6b8291`; foto do colaborador (`fotosResponsaveis[item.usuarioId]`) ou iniciais.
+  `#eef2f5`; linha vertical 2px `#d3dbe1` à esquerda; cartão branco raio 4 com seta; autor 13/700,
+  hora à direita 12 `#5f7684`; foto do colaborador (`fotosResponsaveis[item.usuarioId]`) ou iniciais.
+  **Tudo escopado em `.ps-registro`**: as observações do Financeiro usam as mesmas classes com a
+  estrutura antiga (Twig + JS) e não mudam nesta trilha (revisão B1 de A4–A6).
 - O compositor (Quill) continua igual; só a moldura ganha os tokens.
 - Trilho: cabeçalhos dos cartões `--ps-trilho-cab-bg`, h2 13.5/700, contagem em `#e5f1f7`/`#0b5f86`;
   ícone do tipo de arquivo via `arquivo_icone()` no cartão Documentos.
@@ -286,6 +288,10 @@ Connect, foto do cliente, "N de M", Duplicar/Mover pasta.
 | Selo da aba Push | Passa a ser **não lidas** (desenho); o painel segue mostrando o total |
 | Rótulo das setas ‹ › | O desenho diz "Cliente anterior: NOME (pasta N)"; aqui é "Pasta anterior: NOME (pasta N)", porque o `nomeCliente` é o **identificador** da pasta (decisão do dono, 01/09), não necessariamente um cliente |
 | Pendência de Financeiro | Contrato pendente sem pró-bono, **somando pagamentos vencidos** (como o desenho) |
+| "Vinculado em dd/mm/aaaa" (aba Processo) | Só quando o vínculo tem `vinculadoPor` (feito pela tela); o legado recebeu `NOW()` da migration e os vínculos do DJEN não têm autor — ficam com o rótulo neutro do desenho, "Processo vinculado" |
+| Prazo das metas | "vence dd/mm" · "N dias em atraso" · concluída: "prazo dd/mm/aaaa" (o desenho diz "concluída no prazo", que o sistema não sabe afirmar) |
+| Cartão do processo sem "Ação" | A ação é da pasta (já está no cabeçalho); o cartão mostra só o que o cadastro do processo tem |
+| Detalhes | A lista de observações mantém o markup antigo (o JS a monta); só a moldura e o título mudam — virar linha do tempo é da Trilha B |
 | "Apensados" | O sistema não tem tipo de apenso → chip "N vinculado(s)" |
 | Contrato "assinado" | Valores reais `PENDENTE`/`REGULAR`; a linha vermelha usa `PENDENTE` |
 | "Cabeçalho azul" | Tarjas azuis nos menus; a barra global não é tocada |

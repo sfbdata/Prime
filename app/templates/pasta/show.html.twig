@@ -261,7 +261,7 @@
                                         <h2>Metas da pasta</h2>
                                         {% if pasta.tarefas|length > 0 %}<span class="ps-contagem">{{ pasta.tarefas|length }}</span>{% endif %}
                                         <span class="ps-cab-espaco"></span>
-                                        <button type="button" class="ps-btn ps-btn--primario"
+                                        <button type="button" class="ps-btn ps-btn--primario ps-btn--alto" title="Nova meta" aria-label="Nova meta"
                                                 data-bs-toggle="modal" data-bs-target="#modalCriarTarefa">
                                             <i class="bi bi-plus-lg"></i><span>Nova meta</span>
                                         </button>
@@ -289,9 +289,15 @@
                                                             {% if concluida and tarefa.prazo %}
                                                                 <span class="ps-meta-prazo" title="Prazo"><i class="bi bi-calendar-event"></i>prazo {{ tarefa.prazo|date('d/m/Y') }}</span>
                                                             {% elseif prazoInfo.texto != '-' %}
-                                                                <span class="ps-meta-prazo{{ atrasada ? ' ps-meta-prazo--atraso' : '' }}" title="Prazo">
+                                                                <span class="ps-meta-prazo{{ atrasada ? ' ps-meta-prazo--atraso' : '' }}" title="Prazo: {{ tarefa.prazo|date('d/m/Y') }}">
                                                                     <i class="bi bi-calendar-event"></i>
-                                                                    {%- if atrasada or prazoInfo.texto == 'Vence hoje' %}{{ prazoInfo.texto }}{% else %}vence em {{ prazoInfo.texto }}{% endif -%}
+                                                                    {%- if atrasada -%}
+                                                                        {{ (-prazoInfo.dias) }} dia{{ -prazoInfo.dias == 1 ? '' : 's' }} em atraso
+                                                                    {%- elseif prazoInfo.dias == 0 -%}
+                                                                        vence hoje
+                                                                    {%- else -%}
+                                                                        vence {{ tarefa.prazo|date('d/m') }}
+                                                                    {%- endif -%}
                                                                 </span>
                                                             {% endif %}
                                                         </div>
@@ -3153,7 +3159,20 @@ document.addEventListener('DOMContentLoaded', function () {
                         headers: { 'X-Requested-With': 'XMLHttpRequest' },
                     });
                     if (resp.ok) {
-                        document.getElementById('pasta-msg-' + msgId)?.remove();
+                        const alvo = document.getElementById('pasta-msg-' + msgId);
+                        if (alvo) {
+                            /* A pílula do dia existe para o PRIMEIRO registro do dia: se ele era o
+                               único, a pílula sai junto; sem registro nenhum, a lista volta ao
+                               estado vazio (sem linha do tempo). */
+                            const pilula  = alvo.previousElementSibling;
+                            const seguinte = alvo.nextElementSibling;
+                            alvo.remove();
+                            if (pilula && pilula.classList.contains('ps-dia') && (!seguinte || seguinte.classList.contains('ps-dia'))) {
+                                pilula.remove();
+                            }
+                            const lista = document.getElementById('timelineList');
+                            if (lista && !lista.querySelector('.ps-anotacao')) { lista.classList.add('ps-registro--vazio'); }
+                        }
                         if (countBadge) {
                             countBadge.textContent = Math.max(0, parseInt(countBadge.textContent || '0', 10) - 1);
                         }

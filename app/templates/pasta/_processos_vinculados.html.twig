@@ -22,14 +22,14 @@
         <h2>Processos vinculados</h2>
         {% if vinculos|length > 0 %}<span class="ps-contagem">{{ vinculos|length }}</span>{% endif %}
         <span class="ps-cab-espaco"></span>
-        <button type="button" class="ps-btn ps-btn--suave"
+        <button type="button" class="ps-btn ps-btn--suave" title="Vincular processo" aria-label="Vincular processo"
                 data-bs-toggle="modal" data-bs-target="#modalVincularProcesso">
             <i class="bi bi-link-45deg"></i><span>Vincular processo</span>
         </button>
         <a href="{{ path('pasta_peticionar', {id: pasta.id}) }}"
            target="_blank" rel="noopener"
-           class="ps-btn ps-btn--primario ps-btn--caps" title="Peticionar na Pasta">
-            <i class="bi bi-file-earmark-plus"></i><span>Peticionar</span>
+           class="ps-btn ps-btn--primario ps-btn--caps" title="Peticionar na pasta" aria-label="Peticionar na pasta">
+            <i class="bi bi-file-earmark-text"></i><span>Peticionar na pasta</span>
         </a>
     </div>
 
@@ -41,7 +41,13 @@
             {% for vinculo in vinculos %}
                 {% set proc = vinculo.processo %}
                 {% set ehPrincipal = vinculoPrincipal and proc.id == vinculoPrincipal.processo.id %}
-                <div class="ps-dia"><span class="ps-dia-pilula">Vinculado em {{ vinculo.vinculadoEm|date('d/m/Y') }}</span></div>
+                {# "Vinculado em" só quando a data é de verdade: a migration que criou a coluna
+                   preencheu o legado com NOW() (52% dos vínculos no dev são desse minuto), e só
+                   os vínculos feitos pela tela têm `vinculadoPor`. Sem ele, o rótulo neutro do
+                   próprio desenho — também para os vínculos automáticos do DJEN. #}
+                <div class="ps-dia"><span class="ps-dia-pilula">
+                    {%- if vinculo.vinculadoPor %}Vinculado em {{ vinculo.vinculadoEm|date('d/m/Y') }}{% else %}Processo vinculado{% endif -%}
+                </span></div>
                 <article class="ps-anotacao ps-processo{{ ehPrincipal ? ' ps-processo--principal' : '' }}" data-processo-id="{{ proc.id }}">
                     <span class="ps-processo-ponto" aria-hidden="true"></span>
                     <span class="ps-anotacao-seta" aria-hidden="true"></span>
@@ -94,7 +100,9 @@
                         </div>
                         <div class="ps-processo-dado">
                             <div class="ps-rotulo">Situação</div>
-                            <div class="ps-processo-valor ps-processo-situacao{{ proc.situacaoProcesso ? '' : ' ps-dado--vazio' }}">
+                            {# O cadastro (Datajud) usa EM_ANDAMENTO / ENCERRADO: só "em andamento" fica verde. #}
+                            {% set sitAtiva = 'ANDAMENTO' in proc.situacaoProcesso|upper %}
+                            <div class="ps-processo-valor ps-processo-situacao{{ sitAtiva ? ' ps-processo-situacao--ativa' : '' }}{{ proc.situacaoProcesso ? '' : ' ps-dado--vazio' }}">
                                 <span class="ps-processo-sit-ponto" aria-hidden="true"></span>{{ proc.situacaoProcesso ?: 'Não informada' }}
                             </div>
                         </div>

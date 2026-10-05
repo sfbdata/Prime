@@ -74,8 +74,9 @@ final class PastaAbasEmCartaoTelaTest extends JusPrimeWebTestCase
         $client          = static::createClient();
         [$user, $tenant] = $this->criarAdmin();
         $pasta           = $this->criarPasta($tenant);
-        $this->vincular($pasta, $this->criarProcesso($tenant, self::NUMERO_A));
-        $this->vincular($pasta, $this->criarProcesso($tenant, self::NUMERO_B));
+        $pasta->vincularProcesso($this->criarProcesso($tenant, self::NUMERO_A), $user); // pela tela: tem autor
+        $this->em()->flush();
+        $this->vincular($pasta, $this->criarProcesso($tenant, self::NUMERO_B));          // sem autor: legado/DJEN
 
         $this->logarComTenant($client, $user, $tenant);
         $crawler = $this->abrir($client, $pasta);
@@ -88,7 +89,9 @@ final class PastaAbasEmCartaoTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $cartao->filter('.ps-card-cab--painel > button[data-bs-target="#modalVincularProcesso"]'));
 
         self::assertCount(2, $cartao->filter('.ps-processos > .ps-registro > .ps-dia + article.ps-processo'), 'cada processo vem logo depois da sua pílula');
-        self::assertStringContainsString('Vinculado em', $cartao->filter('.ps-registro > .ps-dia > .ps-dia-pilula')->first()->text());
+        $pilulas = $cartao->filter('.ps-registro > .ps-dia > .ps-dia-pilula')->each(static fn ($n) => trim($n->text()));
+        sort($pilulas);
+        self::assertSame(['Processo vinculado', 'Vinculado em ' . date('d/m/Y')], $pilulas, 'com autor a data é real; sem autor, o rótulo neutro do desenho');
 
         self::assertCount(1, $cartao->filter('article.ps-processo--principal .ps-processo-principal'), 'um só principal');
         self::assertCount(1, $cartao->filter('article.ps-processo:not(.ps-processo--principal) form.js-ajax-processo-principal'), 'só o outro oferece "tornar principal"');
@@ -123,7 +126,8 @@ final class PastaAbasEmCartaoTelaTest extends JusPrimeWebTestCase
         $pasta           = $this->criarPasta($tenant);
         $aberta    = $this->criarMeta($pasta, $user, Tarefa::STATUS_PENDENTE, '+5 days');
         $concluida = $this->criarMeta($pasta, $user, Tarefa::STATUS_CONCLUIDA, '+1 day');
-        $atrasada  = $this->criarMeta($pasta, $user, Tarefa::STATUS_PENDENTE, '-3 days');
+        // "midnight": a entidade conta dias INTEIROS a partir de hoje 00:00 ('-3 days' com hora daria 2).
+        $atrasada  = $this->criarMeta($pasta, $user, Tarefa::STATUS_PENDENTE, '-3 days midnight');
 
         $this->logarComTenant($client, $user, $tenant);
         $crawler = $this->abrir($client, $pasta);
@@ -141,7 +145,7 @@ final class PastaAbasEmCartaoTelaTest extends JusPrimeWebTestCase
         $abertaEl = $crawler->filter('a.ps-meta[href$="/' . $aberta->getId() . '"]');
         self::assertStringContainsString('ps-meta--aberta', (string) $abertaEl->attr('class'));
         self::assertSame('Pendente', trim($abertaEl->filter('.ps-meta-direita > .ps-meta-status')->text()));
-        self::assertStringContainsString('vence em', $abertaEl->filter('.ps-meta-linha > .ps-meta-prazo')->text());
+        self::assertStringContainsString('vence ' . $aberta->getPrazo()->format('d/m'), $abertaEl->filter('.ps-meta-linha > .ps-meta-prazo')->text(), 'o desenho mostra a DATA do prazo');
 
         $concluidaEl = $crawler->filter('a.ps-meta[href$="/' . $concluida->getId() . '"]');
         self::assertStringContainsString('ps-meta--concluida', (string) $concluidaEl->attr('class'));
@@ -152,7 +156,62 @@ final class PastaAbasEmCartaoTelaTest extends JusPrimeWebTestCase
         self::assertStringContainsString('ps-meta--atrasada', (string) $atrasadaEl->attr('class'));
         self::assertSame('Atrasada', trim($atrasadaEl->filter('.ps-meta-direita > .ps-meta-status')->text()));
         self::assertCount(1, $atrasadaEl->filter('.ps-meta-linha > .ps-meta-prazo--atraso'));
-        self::assertStringContainsString('atrasado', $atrasadaEl->filter('.ps-meta-prazo--atraso')->text());
+        self::assertSame('3 dias em atraso', trim($atrasadaEl->filter('.ps-meta-prazo--atraso')->text()));
+    }
+
+    #[TestDox('Metas: "Para Revisão" é meta aberta (tom âmbar), com o rótulo real do status')]
+    public function testMetaEmRevisaoEhAberta(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $meta            = $this->criarMeta($pasta, $user, Tarefa::STATUS_EM_REVISAO, null);
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $this->abrir($client, $pasta);
+
+        $el = $crawler->filter('a.ps-meta[href$="/' . $meta->getId() . '"]');
+        self::assertStringContainsString('ps-meta--aberta', (string) $el->attr('class'));
+        self::assertSame('Para Revisão', trim($el->filter('.ps-meta-direita > .ps-meta-status')->text()));
+        self::assertCount(0, $el->filter('.ps-meta-prazo'), 'sem prazo não há rótulo de prazo');
+    }
+
+    #[TestDox('Processo: cadastro sem classe mostra "Não informada" — nunca um valor inventado; vínculo sem autor fica com o rótulo neutro')]
+    public function testProcessoSemClasseESemAutorDoVinculo(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $processo        = $this->criarProcesso($tenant, self::NUMERO_A);
+        $processo->setClasseProcessual('');
+        // `vincular()` do trait não passa o usuário: é o caso do legado/DJEN.
+        $this->vincular($pasta, $processo);
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $this->abrir($client, $pasta);
+
+        $cartao = $crawler->filter('#processoTabContent article.ps-processo');
+        self::assertCount(1, $cartao);
+        $classe = $cartao->filter('.ps-processo-dados > .ps-processo-dado')->first()->filter('.ps-processo-valor');
+        self::assertSame('Não informada', trim($classe->text()));
+        self::assertStringContainsString('ps-dado--vazio', (string) $classe->attr('class'));
+        self::assertSame('Processo vinculado', trim($crawler->filter('#processoTabContent .ps-dia > .ps-dia-pilula')->text()), 'sem vinculadoPor a data pode ser a do backfill da migration');
+    }
+
+    #[TestDox('Push: o tipo da publicação é a pílula dentro do corpo da linha')]
+    public function testPushTipoEmPilula(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $processo        = $this->criarProcesso($tenant, self::NUMERO_A);
+        $this->vincular($pasta, $processo);
+        $this->criarPublicacao($tenant, '40000001', self::NUMERO_A, '2026-08-20', $processo);
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $this->abrir($client, $pasta);
+
+        self::assertSame('Intimação', trim($crawler->filter('.ps-push-lista > .ps-push-item > .ps-push-cab > .ps-push-corpo > .ps-push-titulo')->text()));
     }
 
     #[TestDox('Metas: sem meta, estado vazio dentro do cartão')]
