@@ -1,0 +1,426 @@
+/* =============================================================================
+   dashboard.css — visual aprovado do Dashboard (padrão PJe)
+   Desenho: docs/design/claude-design-2026-10-05 (1)/01 - Dashboard 1.2.2.dc.html
+            + design_handoff_dashboard/README.md (tokens, tipografia, cards, tabela).
+
+   Tudo aqui vive sob `.db-page` / `.db-body`. Nenhum seletor global: só o
+   Dashboard muda, e vazamento para as outras telas seria defeito.
+
+   Tokens: os hex do desenho ficam no tema CLARO; o ESCURO redefine cada um
+   em cima de var(--bs-*) ou de um tom legível no fundo escuro. Hex cravado
+   direto na regra viraria texto de um tema no fundo do outro.
+
+   Cantos: 4px em cards, painéis, controles e botões (padrão aprovado — vale o
+   dc 1.2.2, não o 16/10/8 do README); círculos e pílulas continuam redondos.
+
+   A fonte não é tocada: a tela herda --jp-font-sans (Arial) do app.css.
+   ============================================================================= */
+
+.db-body,
+.db-page {
+    /* texto */
+    --db-text-strong:   #0e2533;
+    --db-text:          #1d3441;
+    --db-text-2:        #5f7684;
+    --db-label:         #4f6878;
+    --db-label-card:    #34505f;
+    --db-muted:         #6b8494;
+    --db-faint:         #7b93a2;
+    --db-placeholder:   #95a6b2;
+    --db-icon-muted:    #8aa0ad;
+    --db-zero:          #aebdc7;
+    --db-sem-cargo:     #a3b3be;
+
+    /* superfícies e bordas */
+    --db-page-bg:       linear-gradient(180deg, #eaf1f6 0, #f3f6f9 360px);
+    --db-card:          #fff;
+    --db-card-bg:       linear-gradient(180deg, #fff 0%, #fbfcfd 100%);
+    --db-filtro-bg:     rgba(255,255,255,.9);
+    --db-ctl-bg:        #fff;
+    --db-border:        #dde5eb;
+    --db-border-ctl:    #d3dde4;
+    --db-border-ctl-hover: #aebfcb;
+    --db-div:           #eef3f6;
+    --db-div-head:      #e3eaef;
+    --db-div-strong:    #d3dde4;
+    --db-head-bg:       #f6f9fb;
+    --db-row-hover:     #f4f9fc;
+    --db-total-bg:      linear-gradient(180deg, #f6f9fb, #f1f6f9);
+    --db-nota-bg:       linear-gradient(180deg, #fafcfd, #f6f9fb);
+    --db-seg-bg:        #edf2f6;
+    --db-seg-border:    #dfe7ed;
+    --db-seg-ativo-bg:  #fff;
+    --db-barra-trilho:  #e9eff3;
+
+    /* acentos */
+    --db-accent:        #0c7a9c;
+    --db-accent-text:   #0b6a88;
+    --db-accent-bg:     #e6f2f7;
+    --db-accent-soft:   #eef6fa;
+    --db-azul:          #0f6fc4;
+    --db-azul-hover:    #0b5596;
+    --db-urgente:       #a3232b;
+    --db-urgente-icon:  #c0392f;
+    --db-ok:            #1f9d61;
+    --db-ok-text:       #1a8a55;
+
+    /* pílulas da tabela */
+    --db-venc-text:     #a3232b;
+    --db-venc-bg:       linear-gradient(180deg, #fff4f3, #fdeae8);
+    --db-venc-sombra:   0 2px 6px -2px rgba(192,57,47,.28), 0 1px 1px rgba(192,57,47,.06);
+    --db-praz-text:     #84540c;
+    --db-praz-bg:       linear-gradient(180deg, #fff8eb, #fdefd6);
+    --db-praz-sombra:   0 2px 6px -2px rgba(214,146,30,.32), 0 1px 1px rgba(214,146,30,.08);
+
+    /* sombras, foco, curvas */
+    --db-shadow-card:   0 1px 2px rgba(16,42,58,.04), 0 4px 10px -6px rgba(12,60,90,.08), 0 14px 32px -18px rgba(12,60,90,.22);
+    --db-shadow-card-hover: 0 16px 32px -20px rgba(12,60,90,.4), 0 2px 6px -3px rgba(12,60,90,.1);
+    --db-shadow-caixa:  0 1px 2px rgba(16,42,58,.04), 0 10px 30px -24px rgba(12,60,90,.35);
+    --db-shadow-filtro: 0 1px 2px rgba(16,42,58,.04), 0 8px 24px -20px rgba(12,60,90,.3);
+    --db-shadow-ctl-hover: 0 4px 12px -8px rgba(12,90,130,.45);
+    --db-focus:         0 0 0 3px rgba(12,122,156,.16);
+    --db-ease:          cubic-bezier(.22,.8,.3,1);
+}
+
+/* O escuro não inverte os hex do claro: cada token volta a apontar para o
+   sistema de cor do Bootstrap, que já sabe o que fazer nos dois temas. Os
+   acentos ganham um tom mais claro para ter contraste no fundo escuro. */
+[data-bs-theme="dark"] .db-body,
+[data-bs-theme="dark"] .db-page {
+    --db-text-strong:   var(--bs-body-color);
+    --db-text:          var(--bs-body-color);
+    --db-text-2:        var(--bs-secondary-color);
+    --db-label:         var(--bs-secondary-color);
+    --db-label-card:    var(--bs-secondary-color);
+    --db-muted:         var(--bs-secondary-color);
+    --db-faint:         var(--bs-secondary-color);
+    --db-placeholder:   var(--bs-secondary-color);
+    --db-icon-muted:    var(--bs-secondary-color);
+    --db-zero:          rgba(255,255,255,.28);
+    --db-sem-cargo:     var(--bs-secondary-color);
+
+    --db-page-bg:       var(--bs-body-bg);
+    --db-card:          var(--bs-tertiary-bg);
+    --db-card-bg:       var(--bs-tertiary-bg);
+    --db-filtro-bg:     var(--bs-tertiary-bg);
+    --db-ctl-bg:        var(--bs-body-bg);
+    --db-border:        var(--bs-border-color);
+    --db-border-ctl:    var(--bs-border-color);
+    --db-border-ctl-hover: var(--bs-secondary-color);
+    --db-div:           var(--bs-border-color-translucent);
+    --db-div-head:      var(--bs-border-color);
+    --db-div-strong:    var(--bs-border-color);
+    --db-head-bg:       var(--bs-secondary-bg);
+    --db-row-hover:     rgba(255,255,255,.05);
+    --db-total-bg:      var(--bs-secondary-bg);
+    --db-nota-bg:       var(--bs-secondary-bg);
+    --db-seg-bg:        var(--bs-body-bg);
+    --db-seg-border:    var(--bs-border-color);
+    --db-seg-ativo-bg:  var(--bs-tertiary-bg);
+    --db-barra-trilho:  var(--bs-secondary-bg);
+
+    --db-accent:        #4fb3d4;
+    --db-accent-text:   #7ccbe4;
+    --db-accent-bg:     rgba(79,179,212,.14);
+    --db-accent-soft:   rgba(79,179,212,.10);
+    --db-azul:          #4da3ea;
+    --db-azul-hover:    #7cbcf2;
+    --db-urgente:       #f08a84;
+    --db-urgente-icon:  #e0564a;
+    --db-ok:            #1f9d61;
+    --db-ok-text:       #6ddaa2;
+
+    --db-venc-text:     #f08a84;
+    --db-venc-bg:       rgba(192,57,47,.18);
+    --db-venc-sombra:   none;
+    --db-praz-text:     #e9be6c;
+    --db-praz-bg:       rgba(200,149,42,.18);
+    --db-praz-sombra:   none;
+
+    --db-shadow-card:   0 1px 2px rgba(0,0,0,.35);
+    --db-shadow-card-hover: 0 12px 28px rgba(0,0,0,.5);
+    --db-shadow-caixa:  0 1px 2px rgba(0,0,0,.35);
+    --db-shadow-filtro: 0 1px 2px rgba(0,0,0,.35);
+    --db-shadow-ctl-hover: none;
+    --db-focus:         0 0 0 3px rgba(79,179,212,.25);
+}
+
+/* ── Fundo da página ─────────────────────────────────────────────────────────
+   O desenho pinta um degradê do topo (#eaf1f6) até 360px (#f3f6f9). Vai no
+   <main>, que cobre a faixa inteira entre a barra e o rodapé; o cabeçalho e o
+   conteúdo ficam transparentes para o degradê não recomeçar em cada um. */
+.db-body .app-main { background: var(--db-page-bg); }
+.db-body .app-content,
+.db-body .app-content-header { background: transparent; }
+
+/* ── Casca ───────────────────────────────────────────────────────────────────
+   Ordem do desenho: título → filtros → cards → tabela. O título e a barra de
+   filtro são persistentes; cards e tabela vivem na região que recarrega
+   ([data-filtro-resultado]). Com display:contents nela, os filhos participam
+   do flex do root e o `order` os intercala com o que é persistente.
+
+   O root quebra linha (flex-wrap): o título e o "Atualizado às" (que mora no
+   fragmento, para renovar a cada XHR) dividem a primeira linha; os três blocos
+   seguintes ocupam a largura inteira, um por linha. */
+.db-page { color: var(--db-text); }
+.db-page [data-filtro-root] {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 0 16px;
+}
+.db-page [data-filtro-root] > [data-filtro-resultado] { display: contents; }
+.db-page .db-titulo      { order: 0; flex: 0 0 auto; }
+.db-page .db-atualizado  { order: 0; flex: 0 1 auto; }
+.db-page .db-filtro-wrap { order: 1; flex: 0 0 100%; min-width: 0; }
+.db-page .db-cards-row   { order: 2; flex: 0 0 100%; min-width: 0; }
+.db-page .db-table-card  { order: 3; flex: 0 0 100%; min-width: 0; }
+
+/* o fade de "carregando" vive no wrapper display:contents (sem box próprio),
+   então aplicamos nos filhos reais durante a recarga */
+.db-page [data-filtro-resultado].filtro-carregando > * {
+    opacity: .55;
+    pointer-events: none;
+    transition: opacity .12s ease;
+}
+
+/* ── Título ─────────────────────────────────────────────────────────────────
+   30/700, -0.02em, com o traço de 28×3px em degradê petróleo→azul que cresce
+   sob o texto ao carregar (tituloTraco do desenho). */
+.db-page .db-titulo {
+    position: relative;
+    margin: 0 0 18px;
+    padding-bottom: 6px;
+    font-size: 30px;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+    color: var(--db-text-strong);
+}
+.db-page .db-titulo::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 28px;
+    height: 3px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, var(--db-accent), var(--db-azul));
+    transform-origin: left center;
+    animation: dbTituloTraco .6s var(--db-ease) .2s both;
+}
+@keyframes dbTituloTraco {
+    from { transform: scaleX(0); opacity: 0; }
+    to   { transform: scaleX(1); opacity: 1; }
+}
+
+/* ── Barra de filtros ───────────────────────────────────────────────────────
+   O parcial global (_partials/_filtro_barra.html.twig) não é tocado: o
+   <form> vira display:contents para a linha de facetas e os chips entrarem
+   no flex da caixa branca junto com o segmentado de período (irmão do form). */
+.db-page .db-filtro-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    padding: 14px 16px;
+    background: var(--db-filtro-bg);
+    border: 1px solid var(--db-border);
+    border-radius: 4px;
+    box-shadow: var(--db-shadow-filtro);
+}
+.db-page .filtro-barra { display: contents; }
+.db-page .filtro-linha {
+    flex: 1 1 auto;
+    min-width: 0;
+    gap: 12px;
+}
+.db-page .filtro-chips {
+    flex: 0 0 100%;
+    margin-top: 0;
+}
+
+/* Controles: 36px de altura, texto 13.5px, sem linha de borda (transparente,
+   para manter o tamanho), hover em azul claro e o mesmo anel de foco. */
+.db-page .filtro-data-campo {
+    position: relative;
+    height: 36px;
+    min-height: 36px;
+    gap: 8px;
+    padding: 0 12px 0 11px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    background: var(--db-ctl-bg);
+    transition: border-color .2s, box-shadow .2s, background .2s;
+}
+.db-page .filtro-data-campo:hover {
+    background: var(--db-accent-soft);
+    box-shadow: var(--db-shadow-ctl-hover);
+}
+.db-page .filtro-data-campo:focus-within {
+    border-color: var(--db-accent);
+    box-shadow: var(--db-focus);
+}
+/* o calendário vem ANTES da data, como no desenho */
+.db-page .filtro-data-btn {
+    order: -1;
+    font-size: 13px;
+    color: var(--db-accent);
+}
+.db-page .filtro-data-campo input[type="date"] {
+    font-size: 13.5px;
+    color: var(--db-text);
+}
+/* "até" entre as duas datas */
+.db-page .filtro-data-campo + .filtro-data-campo { margin-left: 24px; }
+.db-page .filtro-data-campo + .filtro-data-campo::before {
+    content: "até";
+    position: absolute;
+    right: calc(100% + 10px);
+    font-size: 13px;
+    color: var(--db-muted);
+    pointer-events: none;
+}
+
+.db-page .filtro-select {
+    height: 36px;
+    min-width: 160px;
+    max-width: none;
+    padding: 0 32px 0 11px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    background-color: var(--db-ctl-bg);
+    font-size: 13.5px;
+    color: var(--db-text);
+    box-shadow: none;
+    transition: border-color .2s, box-shadow .2s, background-color .2s;
+}
+.db-page .filtro-select[name="responsavel"] { flex: 1.15 1 200px; min-width: 190px; }
+.db-page .filtro-select[name="cargo"]       { flex: 1 1 170px; }
+.db-page .filtro-select:hover {
+    background-color: var(--db-accent-soft);
+    box-shadow: var(--db-shadow-ctl-hover);
+}
+.db-page .filtro-select:focus {
+    border-color: var(--db-accent);
+    box-shadow: var(--db-focus);
+}
+
+.db-page .filtro-chip {
+    border-radius: 999px;
+    background: var(--db-accent-bg);
+    color: var(--db-accent-text);
+    border-color: transparent;
+}
+
+/* ── Cards (estrutura herdada; o visual final chega na entrega A8) ────────── */
+.db-page .db-stat-card {
+    background: var(--db-card-bg);
+    border: 1px solid var(--db-border);
+    border-radius: 4px;
+    padding: 20px 20px 19px;
+    box-shadow: var(--db-shadow-card);
+    transition: box-shadow .18s ease, transform .18s ease;
+    height: 100%;
+}
+.db-page .db-stat-icon {
+    width: 36px; height: 36px;
+    border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1rem;
+    margin-bottom: .95rem;
+    flex-shrink: 0;
+}
+.db-page .db-icon-metas    { background: var(--db-accent-bg); color: var(--db-accent); }
+.db-page .db-icon-urgentes { background: var(--db-venc-bg); color: var(--db-urgente-icon); }
+.db-page .db-icon-global   { background: var(--db-accent-bg); color: var(--db-ok-text); }
+.db-page .db-stat-number {
+    font-size: 1.9rem;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: .35rem;
+    color: var(--db-text-strong);
+}
+.db-page .db-prog-track {
+    height: 8px;
+    background: var(--db-barra-trilho);
+    border-radius: 999px;
+    overflow: hidden;
+    margin-top: .85rem;
+}
+.db-page .db-prog-fill {
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #16945a, #2bb673);
+    transition: width .5s ease;
+}
+
+/* ── Tabela (estrutura herdada; o visual final chega na entrega A9) ───────── */
+.db-page .db-table-card {
+    background: var(--db-card);
+    border: 1px solid var(--db-border);
+    border-radius: 4px;
+    box-shadow: var(--db-shadow-caixa);
+    overflow: hidden;
+}
+.db-page .db-table-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--db-div-head);
+    display: flex;
+    align-items: center;
+    gap: 10px 12px;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--db-text-strong);
+}
+.db-page .db-table thead th {
+    padding: 11px 20px;
+    border-bottom: 1px solid var(--db-div-head);
+    border-top: none;
+    white-space: nowrap;
+    background: var(--db-head-bg);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    color: var(--db-text-2);
+}
+/* Cabeçalho ordenável: o <th> vive no fragmento trocável; o estilo mora
+   aqui, na casca, para sobreviver a cada recarga por filtro. */
+.db-page .db-table thead th.sortable { cursor: pointer; user-select: none; }
+.db-page .db-table thead th.sortable:hover { color: var(--db-accent); }
+.db-page .sort-icon { font-size: 11px; opacity: .35; flex-shrink: 0; vertical-align: middle; margin-left: 2px; }
+.db-page .db-table thead th.sortable.asc,
+.db-page .db-table thead th.sortable.desc { color: var(--db-accent); }
+.db-page .db-table thead th.sortable.asc .sort-icon,
+.db-page .db-table thead th.sortable.desc .sort-icon { opacity: 1; }
+.db-page .db-table thead th.sortable.asc .sort-icon::before  { content: "\F148"; }  /* seta para cima  */
+.db-page .db-table thead th.sortable.desc .sort-icon::before { content: "\F128"; }  /* seta para baixo */
+
+.db-page .db-table tbody td {
+    padding: 9px 20px;
+    border-bottom: 1px solid var(--db-div);
+    vertical-align: middle;
+    color: var(--db-text);
+}
+.db-page .db-table tbody tr:last-child td { border-bottom: none; }
+.db-page .db-table tbody tr:hover td { background: var(--db-row-hover); }
+.db-page .db-empty {
+    padding: 48px 20px;
+    text-align: center;
+    color: var(--db-text-2);
+}
+.db-page .db-empty i { font-size: 30px; display: block; margin-bottom: 10px; color: var(--db-zero); }
+
+/* ── Responsividade ───────────────────────────────────────────────────────── */
+@media (max-width: 575.98px) {
+    .db-page .filtro-data-campo + .filtro-data-campo { margin-left: 0; }
+    .db-page .filtro-data-campo + .filtro-data-campo::before { content: none; }
+    .db-page .filtro-select[name="responsavel"],
+    .db-page .filtro-select[name="cargo"] { flex: 1 1 100%; min-width: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .db-page .db-titulo::after { animation: none; }
+}

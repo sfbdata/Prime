@@ -83,11 +83,13 @@
 .filtro-data-campo input[type="date"] {
     border: none;
     background: transparent;
-    width: 96px;
+    width: 6.9rem;              /* cabe "dd/mm/aaaa" no Chrome/Edge/Safari sem cortar */
+    min-width: 0;
     padding: 0;
     box-shadow: none;
     height: auto;
     font-size: .8125rem;
+    font-variant-numeric: tabular-nums;
     color: var(--bs-body-color);
 }
 
@@ -96,11 +98,37 @@
     outline: none;
 }
 
-/* Usa nosso botão de calendário no lugar do ícone nativo (evita ícone duplicado) */
+/* Em cada navegador fica UM ícone de calendário só.
+   Chrome / Edge / Safari: esconde o nativo e usa o nosso botão (.filtro-data-btn).
+   O Firefox não tem ::-webkit-calendar-picker-indicator nem outro jeito de
+   esconder o próprio botão, então mostrava os dois; lá escondemos o NOSSO e
+   deixamos o nativo, que já abre o calendário (ver @supports abaixo). */
 .filtro-data-campo input[type="date"]::-webkit-calendar-picker-indicator {
     display: none;
     -webkit-appearance: none;
     appearance: none;
+}
+.filtro-data-campo input[type="date"]::-webkit-inner-spin-button,
+.filtro-data-campo input[type="date"]::-webkit-clear-button {
+    display: none;
+}
+/* Safari: o texto vazio vem em cinza muito claro e alinhado ao centro */
+.filtro-data-campo input[type="date"]::-webkit-date-and-time-value {
+    text-align: left;
+}
+
+/* Firefox (só ele entende -moz-appearance): um ícone só (o nativo) e largura
+   para "dd / mm / aaaa", que ele escreve com espaços. */
+@supports (-moz-appearance: none) {
+    .filtro-data-campo .filtro-data-btn {
+        display: none;
+    }
+    .filtro-data-campo {
+        padding-right: 10px;
+    }
+    .filtro-data-campo input[type="date"] {
+        width: 8.9rem;
+    }
 }
 
 .filtro-chips {

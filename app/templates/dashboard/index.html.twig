@@ -2,156 +2,50 @@
 
 {% block title %}Dashboard{% endblock %}
 
+{# `db-body` no <body>: pinta o fundo da página do desenho (degradê do topo)
+   sem sangria de margem negativa — mesmo gancho que a tela da pasta usa. #}
+{% block body_class %}db-body{% endblock %}
+
+{% block stylesheets %}
+{{ parent() }}
+<link rel="stylesheet" href="{{ asset('css/filtro-tabela.css') }}">
+{# Visual aprovado do Dashboard — desenho em docs/design/ (01 - Dashboard 1.2.2.dc.html).
+   Tudo escopado em .db-page/.db-body; o estilo não vem mais inline daqui. #}
+<link rel="stylesheet" href="{{ asset('css/dashboard.css') }}">
+{% endblock %}
+
 {% block body %}
-<style>
-/* ── Dashboard — estrutura (sem overrides de tipografia) ─────────── */
-.db-stat-card {
-    background: var(--bs-body-bg);
-    border: 1px solid var(--bs-border-color);
-    border-radius: 12px;
-    padding: 1.4rem 1.5rem 1.3rem;
-    box-shadow: 0 1px 3px rgba(15,20,40,.04), 0 4px 14px rgba(15,20,40,.06);
-    transition: box-shadow .18s ease, transform .18s ease;
-    height: 100%;
-}
-.db-stat-card:hover {
-    box-shadow: 0 2px 6px rgba(15,20,40,.06), 0 8px 24px rgba(15,20,40,.10);
-    transform: translateY(-2px);
-}
-.db-stat-icon {
-    width: 38px; height: 38px;
-    border-radius: 9px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 1rem;
-    margin-bottom: .95rem;
-    flex-shrink: 0;
-}
-.db-icon-metas    { background: #ecfdf5; color: #16a34a; }
-.db-icon-urgentes { background: #fef2f2; color: #dc2626; }
-.db-icon-global   { background: #eff6ff; color: #2563eb; }
-.db-stat-number {
-    font-size: 1.9rem;
-    font-weight: 700;
-    line-height: 1;
-    margin-bottom: .35rem;
-}
+<section class="db-page">
+    {% set respOpcoes = [] %}
+    {% for u in responsaveis %}
+        {% set respOpcoes = respOpcoes|merge([{ valor: u.id, label: u.nome }]) %}
+    {% endfor %}
+    {% set cargoOpcoes = [] %}
+    {% for c in cargos %}
+        {% set cargoOpcoes = cargoOpcoes|merge([{ valor: c, label: c }]) %}
+    {% endfor %}
 
-/* ── Progress bar interno (card Meta Global) ───────────────────── */
-.db-prog-track {
-    height: 5px;
-    background: var(--bs-tertiary-bg);
-    border-radius: 99px;
-    overflow: hidden;
-    margin-top: .85rem;
-}
-.db-prog-fill {
-    height: 100%;
-    border-radius: 99px;
-    background: linear-gradient(90deg, #60a5fa, #2563eb);
-    transition: width .5s ease;
-}
+    {# Ordem do desenho: título → filtros → cards → tabela. O título fica DENTRO do
+       root para dividir a primeira linha do flex com o "Atualizado às", que mora no
+       fragmento (renova a cada XHR); a posição de cada bloco é dada por `order` no CSS. #}
+    <div data-filtro-root data-filtro-endpoint="{{ path('dashboard_index') }}">
+        <h1 class="db-titulo">Dashboard</h1>
 
-/* ── Seção da tabela ───────────────────────────────────────────── */
-.db-table-card {
-    background: var(--bs-body-bg);
-    border: 1px solid var(--bs-border-color);
-    border-radius: 12px;
-    box-shadow: 0 1px 3px rgba(15,20,40,.04), 0 4px 14px rgba(15,20,40,.06);
-    overflow: hidden;
-}
-.db-table-header {
-    padding: .85rem 1.25rem;
-    border-bottom: 1px solid var(--bs-border-color);
-    display: flex;
-    align-items: center;
-    gap: .45rem;
-}
-.db-table thead th {
-    padding: .75rem 1rem;
-    border-bottom: 1px solid var(--bs-border-color);
-    border-top: none;
-    white-space: nowrap;
-    background: var(--bs-tertiary-bg);
-}
-/* ── Cabeçalho ordenável (mesmo visual do Expediente) ───────────
-   O <th> vive no fragmento trocável; o estilo mora aqui, na casca, para
-   sobreviver a cada recarga por filtro. */
-.db-table thead th.sortable { cursor: pointer; user-select: none; }
-.db-table thead th.sortable:hover { background: var(--bs-secondary-bg); }
-.sort-icon { font-size: 0.68em; opacity: 0.35; flex-shrink: 0; vertical-align: middle; margin-left: 2px; }
-.db-table thead th.sortable.asc .sort-icon,
-.db-table thead th.sortable.desc .sort-icon { opacity: 1; color: #0d6efd; }
-.db-table thead th.sortable.asc .sort-icon::before  { content: "\F148"; }  /* seta para cima  */
-.db-table thead th.sortable.desc .sort-icon::before { content: "\F128"; }  /* seta para baixo */
+        <div class="db-filtro-wrap">
+        {{ include('_partials/_filtro_barra.html.twig', {
+            mostrar_busca: false,
+            filtros: filtros,
+            facetas: [
+                { name: 'data_de', rotulo: 'De', tipo: 'date' },
+                { name: 'data_ate', rotulo: 'Até', tipo: 'date' },
+                { name: 'responsavel', rotulo: 'Responsável', tipo: 'select', opcoes: respOpcoes },
+                { name: 'cargo', rotulo: 'Cargo', tipo: 'select', opcoes: cargoOpcoes }
+            ]
+        }) }}
+        </div>
 
-.db-table tbody td {
-    padding: .75rem 1rem;
-    border-bottom: 1px solid var(--bs-border-color);
-    vertical-align: middle;
-}
-.db-table tbody tr:last-child td { border-bottom: none; }
-.db-table tbody tr:hover td { background: var(--bs-secondary-bg); }
-.db-empty {
-    padding: 2.5rem 1rem;
-    text-align: center;
-}
-.db-empty i { font-size: 1.8rem; display: block; margin-bottom: .5rem; }
-
-/* ── Filtro abaixo dos cards ─────────────────────────────────────
-   Cards (1) → filtro (2) → tabela (3). Cards e tabela seguem dentro da
-   região que recarrega ([data-filtro-resultado]); com display:contents,
-   seus filhos participam do flex do root e o "order" os intercala com o
-   filtro (que permanece persistente/fora da recarga). */
-[data-filtro-root] { display: flex; flex-direction: column; }
-[data-filtro-root] > [data-filtro-resultado] { display: contents; }
-.db-cards-row  { order: 1; }
-.db-filtro-wrap { order: 2; }
-.db-table-card { order: 3; }
-/* o fade de "carregando" vive no wrapper display:contents (sem box próprio),
-   então aplicamos nos filhos reais durante a recarga */
-[data-filtro-resultado].filtro-carregando > * {
-    opacity: .55;
-    pointer-events: none;
-    transition: opacity .12s ease;
-}
-</style>
-
-<section class="content-header">
-    <div class="container-fluid">
-        <h1 class="m-0">
-            <i class="bi bi-speedometer2 me-2 text-primary"></i>Dashboard
-        </h1>
-    </div>
-</section>
-
-<section class="content">
-    <div class="container-fluid">
-        {% set respOpcoes = [] %}
-        {% for u in responsaveis %}
-            {% set respOpcoes = respOpcoes|merge([{ valor: u.id, label: u.nome }]) %}
-        {% endfor %}
-        {% set cargoOpcoes = [] %}
-        {% for c in cargos %}
-            {% set cargoOpcoes = cargoOpcoes|merge([{ valor: c, label: c }]) %}
-        {% endfor %}
-
-        <div data-filtro-root data-filtro-endpoint="{{ path('dashboard_index') }}">
-            <div class="db-filtro-wrap">
-            {{ include('_partials/_filtro_barra.html.twig', {
-                mostrar_busca: false,
-                filtros: filtros,
-                facetas: [
-                    { name: 'data_de', rotulo: 'De', tipo: 'date' },
-                    { name: 'data_ate', rotulo: 'Até', tipo: 'date' },
-                    { name: 'responsavel', rotulo: 'Responsável', tipo: 'select', opcoes: respOpcoes },
-                    { name: 'cargo', rotulo: 'Cargo', tipo: 'select', opcoes: cargoOpcoes }
-                ]
-            }) }}
-            </div>
-
-            <div data-filtro-resultado>
-                {{ include('dashboard/_resultado.html.twig') }}
-            </div>
+        <div data-filtro-resultado>
+            {{ include('dashboard/_resultado.html.twig') }}
         </div>
     </div>
 </section>
@@ -159,6 +53,5 @@
 
 {% block javascripts %}
 {{ parent() }}
-<link rel="stylesheet" href="{{ asset('css/filtro-tabela.css') }}">
 <script src="{{ asset('js/filtro-tabela.js') }}"></script>
 {% endblock %}
