@@ -134,10 +134,21 @@ Testes que travam: `PastaDadosArranjoTelaTest`, `PastaNavegacaoSetasTelaTest`,
   Metas → há tarefa com `status != 'concluida'`; Processo → nenhum processo vinculado;
   Financeiro → `situacaoContrato == 'PENDENTE'` e não pró-bono; Push → `push.naoLidas > 0`.
   O `title` da aba ganha " · N pendente(s)" vindo do dado.
-- Selo da aba Push passa a mostrar **não lidas** (o desenho) — `PastaPushProcessualTest:54` é
-  atualizado de propósito.
+- Selo da aba Push passa a mostrar **não lidas** (o desenho). O teste existente
+  `PastaPushProcessualTest:54` continua verde porque o fixture nasce não lido; só o TestDox dele é
+  ajustado para dizer o que agora prova. A `.ps-contagem` do painel continua sendo o **total** —
+  dois números para a mesma aba, de propósito: o selo responde "o que ainda não vi".
+- Aba ativa com pendência: o sublinhado fica vermelho de 3px (`:has()`, aprimoramento progressivo),
+  espelhando o `indStyle` do desenho.
+- **Modo compacto** (revisão I1): o JS mede o trilho sem a classe e, se os sete rótulos não cabem,
+  liga `.ps-abas--compactas` — aba inativa só com ícone e selo, como `tabsCompactas` no desenho. As
+  abas nunca encolhem abaixo do próprio rótulo (`min-width: max-content`): sem compacto, o trilho rola.
+- **As regras de pendência vivem no servidor** (`PastaPendenciasOutput`, com teste unitário), não no
+  Twig (revisão M2). Financeiro conta também os **pagamentos vencidos** quando o contrato está pendente
+  (revisão I2 — o desenho manda e o dado existe): "contrato de honorários pendente de assinatura e N
+  pagamento(s) vencido(s)".
 - Aceite: testes existentes de `#pastaTabs` verdes; teste novo `#pastaTabs > #tarefas-tab.ps-aba--pend`
-  com e sem meta aberta; equivalente para Push com `naoLidas`.
+  com e sem meta aberta (e o caso misto, 1 aberta entre 3); equivalente para Push com `naoLidas`.
 
 **A3 — cabeçalho** (`_cabecalho.html.twig`, CSS, script em `show.html.twig` ~l.3845,
 `PastaVizinhasOutput`, `PastaRepository::vizinha()`)
@@ -253,7 +264,9 @@ Connect, foto do cliente, "N de M", Duplicar/Mover pasta.
 |---|---|
 | Título com CPF do cliente | Título = identificador (`nomeCliente`/cliente principal); CPF só com cliente vinculado |
 | "Última movimentação" | É `modificadoEm`, como hoje; só muda de lugar e de formato |
-| Selo da aba Push | Passa a ser **não lidas** (desenho) |
+| Selo da aba Push | Passa a ser **não lidas** (desenho); o painel segue mostrando o total |
+| Rótulo das setas ‹ › | O desenho diz "Cliente anterior: NOME (pasta N)"; aqui é "Pasta anterior: NOME (pasta N)", porque o `nomeCliente` é o **identificador** da pasta (decisão do dono, 01/09), não necessariamente um cliente |
+| Pendência de Financeiro | Contrato pendente sem pró-bono, **somando pagamentos vencidos** (como o desenho) |
 | "Apensados" | O sistema não tem tipo de apenso → chip "N vinculado(s)" |
 | Contrato "assinado" | Valores reais `PENDENTE`/`REGULAR`; a linha vermelha usa `PENDENTE` |
 | "Cabeçalho azul" | Tarjas azuis nos menus; a barra global não é tocada |

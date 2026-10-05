@@ -48,6 +48,7 @@ use App\Pasta\DTO\EditarPastaDTO;
 use App\Pasta\DTO\PastaFinanceiroOutput;
 use App\Pasta\DTO\PastaVizinhasOutput;
 use App\Pasta\DTO\PastaPagamentosOutput;
+use App\Pasta\DTO\PastaPendenciasOutput;
 use App\Pasta\DTO\PastaPushOutput;
 use App\Djen\Repository\PublicacaoDjenRepository;
 use App\Pasta\DTO\PastaPrazoOutput;
@@ -414,6 +415,8 @@ class PastaController extends AbstractController
             'secoes'                      => $secoes,
             'contagemSecoes'              => $contagemSecoes,
             'push'                        => $push,
+            // Linha vermelha sob as abas (desenho 1.2.3): calculada aqui, a tela só mostra.
+            'pendencias'                  => PastaPendenciasOutput::montar($pasta, $push->naoLidas, $pagamentosDaPasta),
             // Atalho para a UNIDADE cobrada — só existe em pasta que veio de uma
             // judicialização (6 das 1.099 em produção). `null` nas demais, e o cabeçalho
             // simplesmente não desenha o campo.

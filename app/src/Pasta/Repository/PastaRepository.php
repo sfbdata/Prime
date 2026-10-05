@@ -794,7 +794,7 @@ class PastaRepository extends ServiceEntityRepository
      * menor chave MAIOR (a anterior, linha de cima) — a comparação e a ordenação viram juntas,
      * senão a consulta devolveria a ponta do acervo em vez do vizinho.
      *
-     * @return ?array{id: int, nup: ?string}
+     * @return ?array{id: int, nup: ?string, nomeCliente: ?string}
      */
     private function vizinha(Tenant $tenant, string $nup, int $id, string $direcao): ?array
     {
@@ -815,7 +815,7 @@ class PastaRepository extends ServiceEntityRepository
         $nupCru  = "CASE WHEN p.nup IS NULL THEN '' ELSE p.nup END";
 
         $linha = $qb
-            ->select('p.id', 'p.nup')
+            ->select('p.id', 'p.nup', 'p.nomeCliente')
             ->andWhere('p.tenant = :tenant')
             // `orX`/`andX` (e não uma string com OR solto) para o parêntese existir de fato: sem ele
             // o OR escaparia do filtro de tenant e a seta atravessaria escritórios.
@@ -846,7 +846,7 @@ class PastaRepository extends ServiceEntityRepository
             return null;
         }
 
-        return ['id' => (int) $linha['id'], 'nup' => $linha['nup']];
+        return ['id' => (int) $linha['id'], 'nup' => $linha['nup'], 'nomeCliente' => $linha['nomeCliente']];
     }
 
     /**

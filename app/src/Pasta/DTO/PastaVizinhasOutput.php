@@ -5,14 +5,8 @@ declare(strict_types=1);
 namespace App\Pasta\DTO;
 
 /**
- * O que as setas ‹ › do cabeçalho precisam mostrar, já pronto para impressão: para onde
- * cada uma leva e o que dizer quando não há para onde ir.
- *
- * A ordem é a da lista padrão do Expediente (número da pasta decrescente), então
- * "anterior" é a linha de cima e "próxima" a de baixo — ver
- * `PastaRepository::vizinhasNoAcervo()`. O número de destino entra no rótulo de propósito:
- * seta que não diz para onde leva obriga a clicar para descobrir, e "anterior" num acervo
- * ordenado do maior para o menor é ambíguo sem o número ao lado.
+ * As duas setas ‹ › do cabeçalho da pasta: para onde cada uma leva e o que diz o
+ * rótulo (title/aria-label). Montado a partir de `PastaRepository::vizinhasNoAcervo()`.
  */
 final readonly class PastaVizinhasOutput
 {
@@ -24,8 +18,10 @@ final readonly class PastaVizinhasOutput
     ) {}
 
     /**
-     * @param array{anterior: ?array{id: int, nup: ?string}, proxima: ?array{id: int, nup: ?string}} $vizinhas
-     *        exatamente o que `PastaRepository::vizinhasNoAcervo()` devolve
+     * @param array{
+     *     anterior: ?array{id: int, nup: ?string, nomeCliente?: ?string},
+     *     proxima:  ?array{id: int, nup: ?string, nomeCliente?: ?string},
+     * } $vizinhas
      */
     public static function montar(array $vizinhas): self
     {
@@ -36,19 +32,35 @@ final readonly class PastaVizinhasOutput
             anteriorId: $anterior['id'] ?? null,
             rotuloAnterior: $anterior === null
                 ? 'Esta é a primeira pasta do acervo'
-                : 'Pasta anterior na lista: ' . self::identificar($anterior),
+                : self::rotulo('Pasta anterior', $anterior),
             proximaId: $proxima['id'] ?? null,
             rotuloProxima: $proxima === null
                 ? 'Esta é a última pasta do acervo'
-                : 'Próxima pasta na lista: ' . self::identificar($proxima),
+                : self::rotulo('Próxima pasta', $proxima),
         );
     }
 
     /**
-     * Como a pasta de destino se chama na tela. Sem número (pasta importada antes da
-     * numeração automática) sobra o id, que é a mesma convenção do resto do módulo
-     * (`PastaController`, `PastaRepository::opcoesDoTenant`) — nunca um rótulo vazio.
+     * "Pasta anterior: MARIA DAS GRACAS (pasta 2003)" quando a vizinha tem identificador —
+     * o `nomeCliente`, que o dono definiu como IDENTIFICADOR da pasta (01/09/2026). Sem ele,
+     * "Pasta anterior na lista: 2003": o número continua sendo o que desambigua "anterior"
+     * num acervo ordenado do maior para o menor.
      *
+     * @param array{id: int, nup: ?string, nomeCliente?: ?string} $vizinha
+     */
+    private static function rotulo(string $prefixo, array $vizinha): string
+    {
+        $numero = self::identificar($vizinha);
+        $nome   = trim((string) ($vizinha['nomeCliente'] ?? ''));
+
+        if ($nome === '') {
+            return $prefixo . ' na lista: ' . $numero;
+        }
+
+        return $prefixo . ': ' . $nome . ' (pasta ' . $numero . ')';
+    }
+
+    /**
      * @param array{id: int, nup: ?string} $vizinha
      */
     private static function identificar(array $vizinha): string

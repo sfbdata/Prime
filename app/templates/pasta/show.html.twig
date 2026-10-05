@@ -3845,56 +3845,66 @@ document.addEventListener('DOMContentLoaded', function () {
     var btn = document.getElementById('btn-alternar-status');
     if (!btn) return;
 
-    // A situação deixou de ser um badge solto no topo: virou o último item da
-    // faixa de dados do cabeçalho (bolinha + rótulo).
-    var situacaoEl = document.querySelector('[data-campo="situacao"] .ps-situacao');
+    // A situação é a pílula à direita das abas (desenho 1.2.3): ela abre um menu
+    // com Ativo/Arquivado, e escolher a OUTRA opção dispara a troca. O item
+    // "Arquivar/Desarquivar pasta" do menu ⋮ é a mesma troca por outro caminho.
+    // Tudo passa pela pílula, que guarda url, csrf e a situação atual.
+    var rotulo      = btn.querySelector('.ps-situacao-label');
+    var emAndamento = false;
 
-    btn.addEventListener('click', function () {
-        var url  = btn.dataset.url;
-        var csrf = btn.dataset.csrf;
+    function aplicar(novaSituacao) {
+        var eAtivo = novaSituacao === 'ativo';
+        btn.dataset.situacaoAtual = novaSituacao;
+        btn.classList.toggle('ps-situacao-pill--ativo', eAtivo);
+        btn.classList.toggle('ps-situacao-pill--arquivado', !eAtivo);
+        if (rotulo) { rotulo.textContent = eAtivo ? 'Ativo' : 'Arquivado'; }
 
-        btn.disabled = true;
+        /* O ✓ do menu acompanha a escolha; sem isso o menu continuaria apontando
+           a situação antiga na próxima abertura. */
+        document.querySelectorAll('.js-situacao-opt[role="menuitemradio"]').forEach(function (opt) {
+            var marcada = opt.dataset.situacao === novaSituacao;
+            opt.setAttribute('aria-checked', marcada ? 'true' : 'false');
+            var check = opt.querySelector('.ps-pop-check');
+            if (check) { check.classList.toggle('d-none', !marcada); }
+        });
 
-        fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest' },
-            body: '_token=' + encodeURIComponent(csrf),
-        })
-        .then(function (r) { return r.json(); })
-        .then(function (data) {
-            if (!data.sucesso) {
-                alert(data.erro || 'Erro ao alterar situação.');
+        /* O item do menu ⋮ passa a oferecer o caminho inverso. */
+        var alternar = document.querySelector('.js-situacao-alternar');
+        if (alternar) {
+            alternar.dataset.situacao = eAtivo ? 'arquivado' : 'ativo';
+            var icone = alternar.querySelector('i');
+            if (icone) { icone.className = 'bi ' + (eAtivo ? 'bi-archive' : 'bi-box-arrow-up'); }
+            var texto = alternar.querySelector('.js-situacao-alternar-rotulo');
+            if (texto) { texto.textContent = (eAtivo ? 'Arquivar' : 'Desarquivar') + ' pasta'; }
+        }
+    }
+
+    document.querySelectorAll('.js-situacao-opt').forEach(function (opt) {
+        opt.addEventListener('click', function () {
+            if (emAndamento || opt.dataset.situacao === btn.dataset.situacaoAtual) { return; }
+            emAndamento  = true;
+            btn.disabled = true;
+
+            fetch(btn.dataset.url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest' },
+                body: '_token=' + encodeURIComponent(btn.dataset.csrf),
+            })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (!data.sucesso) {
+                    alert(data.erro || 'Erro ao alterar situação.');
+                    return;
+                }
+                aplicar(data.novaSituacao);
+            })
+            .catch(function () {
+                alert('Erro de comunicação com o servidor.');
+            })
+            .finally(function () {
+                emAndamento  = false;
                 btn.disabled = false;
-                return;
-            }
-
-            var novaSituacao = data.novaSituacao;
-            btn.dataset.situacaoAtual = novaSituacao;
-
-            var eAtivo = novaSituacao === 'ativo';
-
-            /* ícone */
-            var icone = btn.querySelector('i');
-            icone.className = 'bi ' + (eAtivo ? 'bi-archive' : 'bi-archive-fill');
-
-            /* label */
-            var label = btn.querySelector('.ps-arquivar-label');
-            label.textContent = eAtivo ? 'Arquivar' : 'Ativar';
-
-            /* title */
-            btn.title = eAtivo ? 'Arquivar pasta' : 'Reativar pasta';
-
-            /* faixa de dados do cabeçalho */
-            if (situacaoEl) {
-                situacaoEl.className = 'ps-situacao ps-situacao--' + (eAtivo ? 'ativo' : 'arquivado');
-                situacaoEl.innerHTML = '<span class="ps-ponto"></span>' + (eAtivo ? 'Ativo' : 'Arquivado');
-            }
-
-            btn.disabled = false;
-        })
-        .catch(function () {
-            alert('Erro de comunicação com o servidor.');
-            btn.disabled = false;
+            });
         });
     });
 

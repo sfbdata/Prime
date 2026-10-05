@@ -16,11 +16,14 @@ use PHPUnit\Framework\Attributes\TestDox;
  * PJe) só pode existir com pendência REAL por trás: meta aberta, pasta sem
  * processo, contrato pendente sem pró-bono, publicação do Push não lida. Sinal
  * decorativo seria mentira na tela — e é exatamente o que a regra "nada fake" da
- * Trilha A proíbe.
+ * Trilha A proíbe. A regra em si vive em `PastaPendenciasOutput` (teste unitário
+ * próprio); aqui se prova que a TELA a mostra no lugar certo.
  *
  * Cada regra é provada nos DOIS sentidos: o caso que acende a barra e o caso em
  * que o filtro remove tudo (meta concluída, publicação lida, pró-bono). Teste de
- * filtro que só prova o caso cheio já reabriu defeito neste projeto.
+ * filtro que só prova o caso cheio já reabriu defeito neste projeto. E o caso
+ * MISTO (uma meta aberta entre duas) prova que a pendência e o selo são contas
+ * diferentes.
  *
  * O selo da aba Push passa a contar só as NÃO LIDAS, como no desenho: o total
  * continua na própria aba, e o selo responde "o que ainda não vi".
@@ -57,6 +60,26 @@ final class PastaAbasPendenciaTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $aba->filter('#tarefas-tab > .ps-aba-pend'), 'a barra vermelha é filha direta da aba');
         self::assertStringContainsString('1 meta exige atenção', (string) $aba->attr('title'));
         self::assertSame('1', trim($aba->filter('.ps-aba-badge')->text()), 'o selo continua sendo o TOTAL de metas');
+    }
+
+    #[TestDox('uma meta aberta entre duas: a pendência conta 1 (plural não), o selo conta 2 — são contas diferentes')]
+    public function testMetaAbertaEntreDuasContaSoAAberta(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $this->criarMeta($pasta, $user, Tarefa::STATUS_CONCLUIDA);
+        $this->criarMeta($pasta, $user, Tarefa::STATUS_EM_REVISAO);
+        $this->criarMeta($pasta, $user, Tarefa::STATUS_PENDENTE);
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
+        self::assertResponseIsSuccessful();
+
+        $aba = $crawler->filter('#pastaTabs > #tarefas-tab.ps-aba--pend');
+        self::assertCount(1, $aba);
+        self::assertStringContainsString('2 metas exigem atenção', (string) $aba->attr('title'), 'em revisão ainda não é concluída; plural');
+        self::assertSame('3', trim($aba->filter('.ps-aba-badge')->text()));
     }
 
     #[TestDox('meta concluída não acende nada — o filtro remove tudo e o selo continua contando o total')]
@@ -102,13 +125,14 @@ final class PastaAbasPendenciaTelaTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         self::assertCount(0, $crawler->filter('#pastaTabs > #processo-tab.ps-aba--pend'));
         self::assertCount(0, $crawler->filter('#processo-tab > .ps-aba-pend'));
+        self::assertStringNotContainsString('nenhum processo', (string) $crawler->filter('#processo-tab')->attr('title'));
     }
 
     // =========================================================================
     // Financeiro
     // =========================================================================
 
-    #[TestDox('contrato pendente acende a aba Financeiro; pró-bono ou contrato regular apagam')]
+    #[TestDox('contrato pendente acende a aba Financeiro; pró-bono ou contrato regular apagam — barra, classe e title')]
     public function testContratoPendenteMarcaFinanceiro(): void
     {
         $client          = static::createClient();
@@ -122,6 +146,7 @@ final class PastaAbasPendenciaTelaTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         $aba = $crawler->filter('#pastaTabs > #financeiro-tab.ps-aba--pend');
         self::assertCount(1, $aba);
+        self::assertCount(1, $aba->filter('#financeiro-tab > .ps-aba-pend'));
         self::assertStringContainsString('contrato de honorários pendente', (string) $aba->attr('title'));
 
         // Pró-bono regulariza mesmo com o contrato pendente (regra primária do desenho).
@@ -129,6 +154,8 @@ final class PastaAbasPendenciaTelaTest extends JusPrimeWebTestCase
         $this->em()->flush();
         $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
         self::assertCount(0, $crawler->filter('#pastaTabs > #financeiro-tab.ps-aba--pend'), 'pró-bono: sem pendência');
+        self::assertCount(0, $crawler->filter('#financeiro-tab > .ps-aba-pend'));
+        self::assertStringNotContainsString('pendente', (string) $crawler->filter('#financeiro-tab')->attr('title'));
 
         // Contrato regular, sem pró-bono: também sem pendência.
         $pasta->setProBono(false);
@@ -136,6 +163,8 @@ final class PastaAbasPendenciaTelaTest extends JusPrimeWebTestCase
         $this->em()->flush();
         $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
         self::assertCount(0, $crawler->filter('#pastaTabs > #financeiro-tab.ps-aba--pend'), 'contrato regular: sem pendência');
+        self::assertCount(0, $crawler->filter('#financeiro-tab > .ps-aba-pend'));
+        self::assertStringNotContainsString('pendente', (string) $crawler->filter('#financeiro-tab')->attr('title'));
     }
 
     // =========================================================================
@@ -150,7 +179,7 @@ final class PastaAbasPendenciaTelaTest extends JusPrimeWebTestCase
         $pasta           = $this->criarPasta($tenant);
         $processo        = $this->criarProcesso($tenant, self::NUMERO);
         $this->vincular($pasta, $processo);
-        $lida    = $this->criarPublicacao($tenant, '30000001', self::NUMERO, '2026-08-20', $processo);
+        $lida = $this->criarPublicacao($tenant, '30000001', self::NUMERO, '2026-08-20', $processo);
         $this->criarPublicacao($tenant, '30000002', self::NUMERO, '2026-08-28', $processo);
         $lida->setLida(true);
         $this->em()->flush();
@@ -165,6 +194,25 @@ final class PastaAbasPendenciaTelaTest extends JusPrimeWebTestCase
         $aba = $crawler->filter('#pastaTabs > #push-tab.ps-aba--pend');
         self::assertCount(1, $aba);
         self::assertStringContainsString('1 movimentação nova sem leitura', (string) $aba->attr('title'));
+    }
+
+    #[TestDox('duas não lidas: selo 2 e title no plural')]
+    public function testPushDuasNaoLidasNoPlural(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $processo        = $this->criarProcesso($tenant, self::NUMERO);
+        $this->vincular($pasta, $processo);
+        $this->criarPublicacao($tenant, '30000005', self::NUMERO, '2026-08-20', $processo);
+        $this->criarPublicacao($tenant, '30000006', self::NUMERO, '2026-08-28', $processo);
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
+        self::assertResponseIsSuccessful();
+
+        self::assertSame('2', trim($crawler->filter('#push-tab .ps-aba-badge')->text()));
+        self::assertStringContainsString('2 movimentações novas sem leitura', (string) $crawler->filter('#pastaTabs > #push-tab.ps-aba--pend')->attr('title'));
     }
 
     #[TestDox('com todas as publicações lidas o selo some e a aba Push fica sem pendência')]
@@ -189,7 +237,7 @@ final class PastaAbasPendenciaTelaTest extends JusPrimeWebTestCase
     }
 
     // =========================================================================
-    // Dados e Detalhes
+    // Dados, Detalhes e Documentos
     // =========================================================================
 
     #[TestDox('Dados, Detalhes e Documentos nunca carregam a marca: não há regra real por trás delas')]

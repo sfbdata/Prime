@@ -34,7 +34,7 @@ final class PastaPushProcessualTest extends JusPrimeWebTestCase
     private const NUMERO_DA_PASTA = '07011345720258070007';
     private const NUMERO_ALHEIO   = '07099999999999999999';
 
-    #[TestDox('A aba lista a publicação do processo vinculado à pasta, com a contagem no badge')]
+    #[TestDox('A aba lista a publicação do processo vinculado à pasta; o selo conta as NÃO LIDAS (as duas, aqui)')]
     public function testListaPublicacaoDoProcessoDaPasta(): void
     {
         $client          = static::createClient();

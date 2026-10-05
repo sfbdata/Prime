@@ -102,7 +102,7 @@ final class PastaDadosArranjoTelaTest extends JusPrimeWebTestCase
         );
     }
 
-    #[TestDox('as quatro ações do topo estão na ordem aprovada: Arquivar · Editar · Histórico · ⋮')]
+    #[TestDox('o topo tem só o ⋮; Editar, Histórico e as demais ações vivem no menu, na ordem do desenho')]
     public function testOrdemDasAcoesDoTopo(): void
     {
         $client                       = static::createClient();
@@ -112,16 +112,25 @@ final class PastaDadosArranjoTelaTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $user, $tenant);
         $crawler = $this->abrir($client, $pasta);
 
-        $botoes = $crawler->filter('.ps-cab-linha1 > .ps-cab-acoes > .ps-btn, .ps-cab-linha1 > .ps-cab-acoes > .ps-pop-wrap > .ps-btn');
-        self::assertCount(4, $botoes, 'são quatro ações, todas filhas diretas da barra de ações');
+        /* Desenho 1.2.3 (padrão PJe): as ações saíram da linha do topo para o
+           menu ⋮. No topo fica só o ⋮, sem moldura. */
+        self::assertCount(
+            1,
+            $crawler->filter('.ps-cab-linha1 > .ps-cab-acoes > .ps-pop-wrap > .ps-btn.ps-cab-mais'),
+            'o ⋮ é a única ação visível no topo'
+        );
+        self::assertCount(0, $crawler->filter('.ps-cab-linha1 > .ps-cab-acoes > .ps-btn'), 'Arquivar, Editar e Histórico saíram do topo');
 
-        self::assertSame('Arquivar', trim($botoes->eq(0)->text()));
-        self::assertSame('Editar', trim($botoes->eq(1)->text()));
-        self::assertSame('Histórico', trim($botoes->eq(2)->text()));
+        $itens = $crawler->filter('#psMenuAcoes .ps-pop-item')->each(fn ($n) => trim($n->filter('span')->first()->text()));
+        self::assertSame(
+            ['Editar dados', 'Histórico', 'Vincular processo', 'Trocar responsável', 'Copiar link da pasta', 'Arquivar pasta', 'Excluir pasta'],
+            $itens,
+            'a ordem do menu é a do desenho'
+        );
         self::assertSame(
             'psHistorico',
-            $botoes->eq(2)->attr('aria-controls'),
-            'o botão Histórico abre o drawer, não uma seção da página'
+            $crawler->filter('#psMenuAcoes #psHistoricoAbrir')->attr('aria-controls'),
+            'o item Histórico abre o drawer, não uma seção da página'
         );
     }
 
@@ -137,7 +146,7 @@ final class PastaDadosArranjoTelaTest extends JusPrimeWebTestCase
 
         $menu = $crawler->filter('#psMenuAcoes');
         self::assertCount(1, $menu);
-        self::assertCount(3, $menu->filter('.ps-pop-item'), 'três itens: vincular, trocar responsável, excluir');
+        self::assertCount(7, $menu->filter('.ps-pop-item'), 'sete itens, todos com back-end: editar, histórico, vincular, trocar responsável, copiar link, arquivar, excluir');
 
         self::assertStringNotContainsString(
             'Duplicar',
@@ -154,7 +163,7 @@ final class PastaDadosArranjoTelaTest extends JusPrimeWebTestCase
         self::assertCount(0, $crawler->filter('.card-footer'), 'o rodapé da tela deixou de existir');
     }
 
-    #[TestDox('a faixa de dados fecha com Situação, na ordem aprovada')]
+    #[TestDox('a faixa de dados é Processo vinculado · Ação · Responsável, na ordem do desenho')]
     public function testOrdemDaFaixaDeDados(): void
     {
         $client                       = static::createClient();
@@ -165,37 +174,44 @@ final class PastaDadosArranjoTelaTest extends JusPrimeWebTestCase
         $crawler = $this->abrir($client, $pasta);
 
         $campos = $crawler->filter('.ps-cabecalho > .ps-cab-dados > [data-campo]');
+        /* Desenho 1.2.3: o cliente virou o TÍTULO, a movimentação foi para o lado
+           do nome e a situação, para a linha das abas. Sobram três células. */
         self::assertSame(
-            ['cliente-principal', 'responsavel', 'processo', 'movimentacao', 'situacao'],
+            ['processo', 'acao', 'responsavel'],
             $campos->each(fn ($n) => $n->attr('data-campo')),
-            'ordem aprovada: Cliente principal · Responsável · Processo vinculado · Última movimentação · Situação'
+            'ordem do desenho: Processo vinculado · Ação · Responsável'
         );
     }
 
-    #[TestDox('o título grande é a AÇÃO; o número da pasta virou o rótulo pequeno acima')]
-    public function testTituloEhAAcaoENaoONumero(): void
+    #[TestDox('o título grande é o IDENTIFICADOR da pasta; a ação vai para a faixa de dados; o número fica na linha de cima')]
+    public function testTituloEhOIdentificadorEAAcaoVaiParaAFaixa(): void
     {
         $client                       = static::createClient();
         [$em, $user, $tenant, $pasta] = $this->criarBase();
+        $pasta->setNomeCliente('CONDOMINIO SOL NASCENTE');
         $em->flush();
 
         $this->logarComTenant($client, $user, $tenant);
         $crawler = $this->abrir($client, $pasta);
 
-        $titulo = $crawler->filter('.ps-cabecalho > h1.ps-cab-titulo');
-        self::assertCount(1, $titulo);
+        /* Desenho 1.2.3: o cliente (o `nomeCliente`, que o dono definiu como o
+           IDENTIFICADOR da pasta em 01/09/2026) é o título; a ação virou célula
+           da faixa. O título sai em maiúsculas pelo CSS porque o desenho manda
+           (`text-transform:uppercase`) — e o dado também já é gravado assim. */
+        $titulo = $crawler->filter('.ps-cabecalho > .ps-cab-cliente > .ps-cab-cliente-corpo > .ps-cab-cliente-linha > h1.ps-cab-titulo');
+        self::assertCount(1, $titulo, 'o título vive no bloco do cliente, ao lado do ícone de pessoa');
+        self::assertSame('CONDOMINIO SOL NASCENTE', trim($titulo->text()));
 
-        /* MAIÚSCULAS de propósito. O desenho mostra o título em caixa mista,
-           mas `Pasta::setNomeAcao()` grava `mb_strtoupper` — é regra do domínio,
-           a mesma de `ClientePF::setNomeCompleto`. A tela reflete o dado; um
-           `text-transform` no CSS deixaria bonito mentindo sobre o que está
-           gravado, e erraria as preposições ("de", "da") na volta. */
-        self::assertSame('EXECUÇÃO DE TÍTULO EXTRAJUDICIAL', trim($titulo->text()));
+        self::assertSame(
+            'EXECUÇÃO DE TÍTULO EXTRAJUDICIAL',
+            trim($crawler->filter('.ps-cab-dados > [data-campo="acao"] .ps-dado')->text()),
+            'a ação é a segunda célula da faixa de dados'
+        );
 
         self::assertSame(
             'PASTA ' . $pasta->getNup(),
             trim($crawler->filter('.ps-cab-identidade > .ps-cab-nup')->text()),
-            'o NUP fica no rótulo pequeno da linha de identidade'
+            'o NUP fica na linha de cima, ao lado do Voltar'
         );
     }
 
@@ -648,10 +664,14 @@ final class PastaDadosArranjoTelaTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $user, $tenant);
         $crawler = $this->abrir($client, $pasta);
 
-        // No cabeçalho, como "Cliente principal".
-        $cab = $crawler->filter('.ps-cab-dados [data-campo="cliente-principal"]');
-        self::assertStringContainsString('MARIA DAS GRACAS', $cab->text());
-        self::assertStringContainsString('não vinculado', $cab->text(), 'e dizendo que não é cadastro');
+        // No cabeçalho, como TÍTULO (é o identificador da pasta), com o aviso de que não é cadastro.
+        self::assertSame('MARIA DAS GRACAS', trim($crawler->filter('.ps-cab-cliente h1.ps-cab-titulo')->text()));
+        self::assertStringContainsString(
+            'não vinculado',
+            $crawler->filter('.ps-cab-cliente .ps-cab-doc--aviso')->text(),
+            'e dizendo que não é cadastro'
+        );
+        self::assertCount(0, $crawler->filter('.ps-cab-cliente .ps-cab-doc.ps-num'), 'sem cadastro não há documento para mostrar');
 
         // E no cartão do trilho, sem inventar documento.
         self::assertCount(

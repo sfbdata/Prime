@@ -39,7 +39,19 @@
         // solido que o CSS usa como degradacao graciosa.
         trilho.classList.remove('ps-abas--sem-js');
 
+        /* Modo compacto (desenho 1.2.3): se os sete rotulos nao cabem no trilho,
+           as abas inativas ficam so com o icone e o selo — o `title` continua
+           dizendo o nome. Mede-se SEM a classe, senao o trilho ja compacto "cabe"
+           e nunca sairia do compacto ao alargar a janela. */
+        function ajustarCompacto() {
+            trilho.classList.remove('ps-abas--compactas');
+            if (trilho.scrollWidth > trilho.clientWidth + 1) {
+                trilho.classList.add('ps-abas--compactas');
+            }
+        }
+
         function posicionar(animar) {
+            ajustarCompacto();
             var ativa = trilho.querySelector('.ps-aba.active');
             if (!ativa) { return; }
 
@@ -140,9 +152,14 @@
 
         document.addEventListener('click', function (e) {
             var dentro = e.target.closest('.ps-pop');
-            if (dentro) { return; }
+            // Clique num ITEM do menu fecha o menu — a acao do item segue o seu
+            // curso (modal, drawer, POST). Clique no corpo do painel, nao. O
+            // "Copiar link" e a excecao: fica aberto o tempo de mostrar "Link
+            // copiado" e fecha sozinho (ver acoesDoMenu).
+            if (dentro && (!e.target.closest('.ps-pop-item') || e.target.closest('.js-copiar-link'))) { return; }
             fecharTodos(null);
         });
+        document.addEventListener('ps:fechar-popovers', function () { fecharTodos(null); });
 
         document.addEventListener('keydown', function (e) {
             if (e.key === 'Escape') { fecharTodos(null); }
@@ -185,6 +202,60 @@
                 if (chip) { chip.click(); }
             });
         }
+
+        // "Copiar link": real — a URL da pasta vai para a area de transferencia.
+        // O rotulo do item vira "Link copiado" por um instante e o menu fecha.
+        var copiar = document.querySelector('.js-copiar-link');
+        if (copiar) {
+            copiar.addEventListener('click', function () {
+                var rotulo   = copiar.querySelector('.js-copiar-link-rotulo');
+                var original = rotulo ? rotulo.textContent : '';
+                var link     = copiar.getAttribute('data-link') || window.location.href;
+
+                function avisar(texto) {
+                    if (rotulo) { rotulo.textContent = texto; }
+                    setTimeout(function () {
+                        if (rotulo) { rotulo.textContent = original; }
+                        document.dispatchEvent(new CustomEvent('ps:fechar-popovers'));
+                    }, 1600);
+                }
+
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(link).then(
+                        function () { avisar('Link copiado'); },
+                        function () { avisar('Não foi possível copiar'); }
+                    );
+                } else {
+                    avisar('Não foi possível copiar');
+                }
+            });
+        }
+
+        // Atalhos do menu ⋮ (desenho): com o menu ABERTO, E edita e H abre o historico.
+        var menu = document.getElementById('psMenuAcoes');
+        if (menu) {
+            document.addEventListener('keydown', function (e) {
+                if (!menu.classList.contains('is-aberto')) { return; }
+                if (e.ctrlKey || e.metaKey || e.altKey) { return; }
+                var alvo = e.target;
+                if (alvo && (/INPUT|TEXTAREA|SELECT/.test(alvo.tagName) || alvo.isContentEditable)) { return; }
+                var tecla = (e.key || '').toLowerCase();
+                if (tecla !== 'e' && tecla !== 'h') { return; }
+                var item = menu.querySelector('[data-ps-atalho="' + tecla + '"]');
+                if (item) { e.preventDefault(); item.click(); }
+            });
+        }
+
+        // Chip "N vinculado(s)" do cabecalho: mostra/esconde os outros processos.
+        document.querySelectorAll('[data-ps-toggle]').forEach(function (botao) {
+            var alvo = document.getElementById(botao.getAttribute('data-ps-toggle'));
+            if (!alvo) { return; }
+            botao.addEventListener('click', function () {
+                var abrir = alvo.hidden;
+                alvo.hidden = !abrir;
+                botao.setAttribute('aria-expanded', abrir ? 'true' : 'false');
+            });
+        });
     }
     /* ── 7. Acordeao da aba Push Processual ───────────────────────────────
        O teor vem do servidor no primeiro clique — ele nao viaja no HTML da
