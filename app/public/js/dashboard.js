@@ -184,8 +184,12 @@
         // O filtro-tabela.js troca o fragmento por innerHTML sem avisar: observar
         // os filhos diretos da região é o jeito de saber que chegou resultado novo.
         if (window.MutationObserver) {
-            new MutationObserver(function () { contarCards(resultado, false); })
-                .observe(resultado, { childList: true });
+            new MutationObserver(function () {
+                // Primeiro resultado novo: as animacoes de ENTRADA ja rodaram uma
+                // vez; a partir daqui so os numeros contam (ver CSS .db-pronto).
+                root.classList.add('db-pronto');
+                contarCards(resultado, false);
+            }).observe(resultado, { childList: true });
         }
 
         contarCards(resultado, true);

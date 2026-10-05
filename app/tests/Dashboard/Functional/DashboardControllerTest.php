@@ -288,6 +288,7 @@ final class DashboardControllerTest extends JusPrimeWebTestCase
         $body = (string) $client->getResponse()->getContent();
         // Título da seção é só "Desempenho": o desenho aprovado manda (trilha A, A9).
         self::assertStringContainsString('Desempenho', $body);
+        self::assertStringNotContainsString('Desempenho por Advogado', $body, 'o rótulo antigo saiu (desenho 1.2.2)');
         self::assertStringNotContainsString('<!DOCTYPE', $body);
         self::assertStringNotContainsString('data-filtro-root', $body);
     }

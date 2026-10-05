@@ -259,8 +259,8 @@
                 {# ícone do cargo: mapa visual do desenho; o nome do cargo é livre no sistema #}
                 {% set cargoLower = (linha.cargoNome ?? '')|lower %}
                 {% set cargoIcone = linha.cargoNome is null ? 'bi-dash-circle'
-                    : ('sóci' in cargoLower or 'soci' in cargoLower) ? 'bi-award'
                     : ('advog' in cargoLower) ? 'bi-briefcase'
+                    : ('sóci' in cargoLower or 'soci' in cargoLower) ? 'bi-award'
                     : ('estagi' in cargoLower) ? 'bi-mortarboard'
                     : ('paraleg' in cargoLower) ? 'bi-journal-text'
                     : ('financ' in cargoLower) ? 'bi-cash-coin'

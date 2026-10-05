@@ -137,6 +137,11 @@ final class DashboardArranjoTelaTest extends DashboardWebTestCase
         self::assertCount(1, $total, 'A linha de Total é filha direta do <tfoot>');
         self::assertStringContainsString('Total', $total->text());
         self::assertSame('5', trim($total->filter('td')->last()->text()), 'Pastas criadas somadas das linhas visíveis');
+        self::assertSame(
+            ['0', '0', '0', '0', '0', '0', '5'],
+            $total->filter('.db-total-num')->each(fn ($n) => trim($n->text())),
+            'as sete somas do Total: só Pastas criadas tem dado neste cenário; as outras são zero, não vazio'
+        );
         self::assertSame(2, $crawler->filter('.db-table-card table > tbody > tr')->count(), 'Só os dois colaboradores no corpo');
         self::assertCount(0, $crawler->filter('.db-table-card table > tbody > tr .db-total-rotulo'), 'Total nunca no <tbody>: é onde os testes contam gente');
     }
