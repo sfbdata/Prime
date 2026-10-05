@@ -3,6 +3,14 @@
    Cards de KPI + tabela por advogado, recalculados a cada filtro pelo motor
    public/js/filtro-tabela.js.
 ─────────────────────────────────────────────────────────────────────────── #}
+{# ── "Atualizado às" ────────────────────────────────────────────────────────
+   Mora no fragmento de propósito: cada XHR renova a hora. No flex do root ele
+   fica na primeira linha, ao lado do título (order 0 no CSS da casca). #}
+<div class="db-atualizado">
+    <span class="db-atualizado-ponto"><span class="db-atualizado-anel"></span><span class="db-atualizado-nucleo"></span></span>
+    <span>Atualizado às {{ 'now'|date('H:i') }}</span>
+</div>
+
 {# ── Cards de métricas ──────────────────────────────────────────────────────
    Quatro cards na ordem do desenho: Pastas criadas · Metas ativas · Demandas
    urgentes · Meta global batida. Cada card entra por um WRAPPER (a animação de

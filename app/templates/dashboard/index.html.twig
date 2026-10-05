@@ -32,6 +32,29 @@
         <h1 class="db-titulo">Dashboard</h1>
 
         <div class="db-filtro-wrap">
+        {# Segmentado de período (Este mês · 60 dias · 90 dias · Este ano). Preenche os
+           campos data_de/data_ate do parcial (.js-filtro-campo) com datas reais e dispara
+           `change`; o filtro-tabela.js recarrega como se o usuário tivesse digitado.
+           As quatro faixas são calculadas AQUI (servidor) e vão em data-de/data-ate: o
+           dashboard.js só lê os atributos. Ativo = as duas datas batem com os campos.
+           O período padrão NÃO muda (decisão do dono pendente): sem datas, nenhum botão
+           fica ativo. `data_ate` é sempre hoje; só o começo varia. #}
+        {% set hoje = 'now'|date('Y-m-d') %}
+        {% set periodos = [
+            { chave: 'mes', rotulo: 'Este mês', de: 'now'|date('Y-m-01') },
+            { chave: 'd60', rotulo: '60 dias',  de: '-60 days'|date('Y-m-d') },
+            { chave: 'd90', rotulo: '90 dias',  de: '-90 days'|date('Y-m-d') },
+            { chave: 'ano', rotulo: 'Este ano', de: 'now'|date('Y-01-01') },
+        ] %}
+        <div class="db-seg db-seg--sem-js" role="group" aria-label="Período">
+            <span class="db-seg-ind" aria-hidden="true"></span>
+            {% for p in periodos %}
+                {% set ativo = filtros.data_de|default('') == p.de and filtros.data_ate|default('') == hoje %}
+                <button type="button" class="db-seg-btn{{ ativo ? ' is-ativo' : '' }}"
+                        data-periodo="{{ p.chave }}" data-de="{{ p.de }}" data-ate="{{ hoje }}"
+                        aria-pressed="{{ ativo ? 'true' : 'false' }}">{{ p.rotulo }}</button>
+            {% endfor %}
+        </div>
         {{ include('_partials/_filtro_barra.html.twig', {
             mostrar_busca: false,
             filtros: filtros,
