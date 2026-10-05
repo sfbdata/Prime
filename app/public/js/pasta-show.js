@@ -246,6 +246,15 @@
             });
         }
 
+        // Etiquetas do cabecalho: clicar numa abre o mesmo modal do "+" (desenho).
+        // O "+" e quem carrega os data-* que o modal le; as etiquetas so o acionam.
+        document.querySelectorAll('.js-etiqueta-abrir').forEach(function (etiqueta) {
+            etiqueta.addEventListener('click', function () {
+                var mais = document.querySelector('.ps-cab-identidade .ps-etiqueta-add');
+                if (mais) { mais.click(); }
+            });
+        });
+
         // Chip "N vinculado(s)" do cabecalho: mostra/esconde os outros processos.
         document.querySelectorAll('[data-ps-toggle]').forEach(function (botao) {
             var alvo = document.getElementById(botao.getAttribute('data-ps-toggle'));

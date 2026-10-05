@@ -35,7 +35,7 @@
                 <i class="bi bi-arrow-left"></i><span>Voltar</span>
             </a>
 
-            <span class="ps-cab-nup ps-num">PASTA {{ pasta.nup }}</span>
+            <span class="ps-cab-nup">PASTA <span class="ps-num">{{ pasta.nup }}</span></span>
 
             <div class="ps-cab-sep"></div>
 
@@ -66,7 +66,9 @@
             <div class="ps-cab-sep"></div>
 
             {% for marcador in pasta.marcadores %}
-                <span class="ps-etiqueta"><i class="bi bi-tag-fill"></i>{{ marcador.nome }}</span>
+                <button type="button" class="ps-etiqueta js-etiqueta-abrir" title="Editar marcadores da pasta">
+                    <i class="bi bi-tag-fill"></i>{{ marcador.nome }}
+                </button>
             {% endfor %}
 
             {# O "+" das etiquetas: só ícone, quadrado tracejado (desenho). O contrato
@@ -311,8 +313,11 @@
                 <p class="ps-dado ps-dado--forte">{{ pasta.nomeAcao }}</p>
             {%- elseif proc and (proc.classeProcessual or proc.assuntoProcessual) -%}
                 <p class="ps-dado ps-dado--medio" title="Extraído do processo vinculado">{{ proc.classeProcessual ?: proc.assuntoProcessual }}</p>
+            {%- elseif proc -%}
+                <p class="ps-dado ps-dado--vazio">Não informada</p>
             {%- else -%}
-                <p class="ps-dado ps-dado--vazio">Ação não informada</p>
+                {# Sem processo a ação não tem de onde vir — o desenho convida a vincular. #}
+                <p class="ps-dado ps-dado--vazio ps-cab-acao-vazia">Vincule um processo para definir</p>
             {%- endif -%}
         </div>
 
@@ -404,7 +409,7 @@
                 <button type="button"
                         id="btn-alternar-status"
                         class="ps-situacao-pill ps-situacao-pill--{{ eAtiva ? 'ativo' : 'arquivado' }}"
-                        title="Situação da pasta"
+                        title="Situação da pasta: {{ eAtiva ? 'Ativo' : 'Arquivado' }}"
                         data-ps-pop="psSituacao"
                         aria-haspopup="menu" aria-expanded="false"
                         data-pasta-id="{{ pasta.id }}"

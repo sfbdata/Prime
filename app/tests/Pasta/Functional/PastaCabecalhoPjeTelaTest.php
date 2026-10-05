@@ -313,4 +313,54 @@ final class PastaCabecalhoPjeTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $identidade->filter('.ps-cab-identidade > button.ps-etiqueta-add.js-mover-para'), 'o "+" das etiquetas mantém o contrato do JS');
         self::assertCount(0, $crawler->filter('.ps-cabecalho .ps-breadcrumb'), 'o desenho não tem trilha de migalhas');
     }
+
+    #[TestDox('pasta sem identificador e sem cliente: o título diz que o cliente não foi informado, sem inventar nome')]
+    public function testSemIdentificadorNenhum(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPastaNumerada($tenant, '3011', null);
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $this->abrir($client, $pasta);
+
+        self::assertSame('Cliente não informado', trim($crawler->filter('.ps-cab-cliente h1.ps-cab-titulo')->text()));
+        self::assertCount(0, $crawler->filter('.ps-cab-cliente .ps-cab-doc'), 'nem documento, nem aviso de "não vinculado": não há nome nenhum');
+    }
+
+    #[TestDox('sem processo, a célula Ação convida a vincular um processo (o fallback do desenho)')]
+    public function testAcaoSemProcessoConvidaAVincular(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPastaNumerada($tenant, '3012', 'MARIA');
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $this->abrir($client, $pasta);
+
+        self::assertSame(
+            'Vincule um processo para definir',
+            trim($crawler->filter('.ps-cab-dados > [data-campo="acao"] .ps-dado')->text())
+        );
+    }
+
+    #[TestDox('pasta excluída: a situação vira só um selo — sem menu, sem #btn-alternar-status e sem ⋮')]
+    public function testPastaExcluidaTemSeloInerte(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPastaNumerada($tenant, '3013', 'MARIA');
+        $pasta->marcarExcluida($user, new \DateTimeImmutable());
+        $this->em()->flush();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $this->abrir($client, $pasta);
+
+        self::assertCount(1, $crawler->filter('.ps-abas-faixa > .ps-situacao-wrap > span.ps-situacao-pill'), 'o selo é um <span>, não um botão');
+        self::assertCount(0, $crawler->filter('#btn-alternar-status'));
+        self::assertCount(0, $crawler->filter('#psSituacao'));
+        self::assertCount(0, $crawler->filter('[data-ps-pop="psSituacao"]'));
+        self::assertCount(0, $crawler->filter('#psMenuAcoes'), 'pasta riscada não tem o menu ⋮');
+        self::assertCount(1, $crawler->filter('.ps-cab-linha1 > .ps-cab-acoes > #psHistoricoAbrir'), 'o Histórico continua, como botão visível');
+    }
 }

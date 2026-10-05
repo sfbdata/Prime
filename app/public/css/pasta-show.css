@@ -101,6 +101,10 @@
     --ps-trilho-cab-bd: #e0e7ec;
     --ps-shadow-reg:    0 1px 2px rgba(16,42,58,.08);
     --ps-shadow-reg-hv: 0 8px 20px -14px rgba(12,80,120,.45), 0 1px 2px rgba(16,42,58,.08);
+    --ps-ok-halo:       rgba(31,157,97,.16);
+    --ps-arq-halo:      rgba(132,150,163,.18);
+    --ps-mov-grad:      radial-gradient(circle at 35% 35%, #3fd08a, #1f9d61);
+    --ps-inerte:        #c5d0d8;
 
     --ps-shadow-card:   0 1px 2px rgba(16,42,58,.04);
     --ps-shadow-pop:    0 10px 30px rgba(16,42,58,.14);
@@ -183,6 +187,10 @@
     --ps-trilho-cab-bd: var(--bs-border-color);
     --ps-shadow-reg:    0 1px 2px rgba(0,0,0,.4);
     --ps-shadow-reg-hv: 0 8px 20px -14px rgba(0,0,0,.7), 0 1px 2px rgba(0,0,0,.4);
+    --ps-ok-halo:       rgba(31,157,97,.22);
+    --ps-arq-halo:      rgba(255,255,255,.12);
+    --ps-mov-grad:      radial-gradient(circle at 35% 35%, #3fd08a, #1f9d61);
+    --ps-inerte:        var(--bs-border-color);
 
     --ps-shadow-card:   0 1px 2px rgba(0,0,0,.35);
     --ps-shadow-pop:    0 10px 30px rgba(0,0,0,.5);
@@ -310,15 +318,15 @@
 .ps-cab-nav + .ps-cab-acoes { margin-left: 0; }
 
 /* Setas sem moldura (desenho): 28px, so o hover pinta. */
-.ps-btn--seta { width: 28px; height: 28px; padding: 0; justify-content: center; border-color: transparent; background: transparent; color: var(--ps-text-2); }
+.ps-btn--seta { width: 32px; height: 32px; padding: 0; justify-content: center; border-color: transparent; background: transparent; color: var(--ps-text-2); }
 .ps-btn--seta:hover,
 .ps-btn--seta:focus-visible { border-color: transparent; background: var(--ps-accent-bg); color: var(--ps-accent); }
 .ps-btn--seta i { font-size: 14px; }
 
 /* Ponta do acervo: a seta continua no lugar, apagada e sem alvo de clique — sumir
    faria o par de botões mudar de largura de pasta para pasta. */
-.ps-btn--inerte { opacity: .4; cursor: default; }
-.ps-btn--inerte:hover { border-color: transparent; background: transparent; color: var(--ps-text-2); }
+.ps-btn--inerte { color: var(--ps-inerte); cursor: default; }
+.ps-btn--inerte:hover { border-color: transparent; background: transparent; color: var(--ps-inerte); }
 
 /* ── Menu ⋮ e popover de prioridade ── */
 .ps-pop-wrap { position: relative; }
@@ -388,7 +396,9 @@
 }
 .ps-pop-item:hover { background: var(--ps-hover); color: var(--ps-body); text-decoration: none; }
 .ps-pop-item i { font-size: 14px; width: 16px; text-align: center; color: var(--ps-pop-icone); flex-shrink: 0; }
-.ps-pop-item > span:first-of-type { flex: 1; min-width: 0; }
+/* So no menu ⋮: la o primeiro <span> e o rotulo. No menu de situacao o primeiro
+   <span> e o PONTO colorido, e esta regra o esticaria numa barra. */
+.ps-pop--menu .ps-pop-item > span:first-of-type { flex: 1; min-width: 0; }
 .ps-pop-item--perigo { color: var(--ps-danger-text); }
 .ps-pop-item--perigo i { color: inherit; }
 .ps-pop-item--perigo:hover { background: var(--ps-danger-hover); color: var(--ps-danger-text); }
@@ -421,6 +431,7 @@
     color: var(--ps-text);
     white-space: nowrap;
 }
+.ps-cab-nup .ps-num { letter-spacing: 0; }
 .ps-cab-sep { width: 1px; height: 16px; background: var(--ps-border); }
 
 .ps-prio {
@@ -459,6 +470,9 @@
     border-radius: 3px;
 }
 .ps-etiqueta i { font-size: 9px; opacity: .75; }
+button.ps-etiqueta { cursor: pointer; font-family: inherit; transition: background .18s, color .18s; }
+button.ps-etiqueta:hover,
+button.ps-etiqueta:focus-visible { background: var(--ps-accent-bg); color: var(--ps-accent); border-color: var(--ps-accent-bg); }
 /* O "+" das etiquetas e um quadrado tracejado de 24px, so icone (desenho). */
 .ps-etiqueta-add {
     width: 24px;
@@ -537,8 +551,8 @@
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background: radial-gradient(circle at 35% 35%, #3fd08a, #1f9d61);
-    box-shadow: 0 0 6px rgba(31,157,97,.55);
+    background: var(--ps-mov-grad);
+    box-shadow: 0 0 6px var(--ps-ok-halo);
     animation: psMovBrilho 2.4s ease-in-out infinite;
     flex-shrink: 0;
 }
@@ -547,7 +561,7 @@
     position: absolute;
     inset: 0;
     border-radius: 50%;
-    background: #1f9d61;
+    background: var(--ps-ok-dot);
     animation: psMovPulso 2.4s cubic-bezier(.22,.8,.3,1) infinite;
 }
 @media (prefers-reduced-motion: reduce) {
@@ -568,6 +582,7 @@
 .ps-cab-dados .ps-rotulo i { font-size: 12px; color: var(--ps-icone); }
 .ps-cab-dados .ps-dado--forte { font-weight: 700; }
 .ps-cab-dados .ps-dado--vazio { font-size: 14.5px; }
+.ps-cab-dados .ps-cab-acao-vazia { font-size: 13.5px; font-weight: 500; }
 /* "trocar" e "vincular": botao que se comporta como link, sem href morto. */
 .ps-link-btn {
     display: inline-flex;
@@ -670,9 +685,9 @@
 span.ps-situacao-pill { cursor: default; }
 .ps-situacao-ponto { position: relative; width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .ps-situacao-pill--ativo .ps-situacao-ponto,
-.ps-situacao-ponto--ativo     { background: var(--ps-ok-dot); box-shadow: 0 0 0 3px rgba(31,157,97,.16); }
+.ps-situacao-ponto--ativo     { background: var(--ps-ok-dot); box-shadow: 0 0 0 3px var(--ps-ok-halo); }
 .ps-situacao-pill--arquivado .ps-situacao-ponto,
-.ps-situacao-ponto--arquivado { background: var(--ps-faint);  box-shadow: 0 0 0 3px rgba(132,150,163,.18); }
+.ps-situacao-ponto--arquivado { background: var(--ps-faint);  box-shadow: 0 0 0 3px var(--ps-arq-halo); }
 /* Ondas do ponto verde da pilula ativa (desenho). */
 @keyframes psSitOnda { 0% { transform: scale(1); opacity: .55; } 100% { transform: scale(3.2); opacity: 0; } }
 .ps-situacao-pill--ativo .ps-situacao-ponto::before,
@@ -783,7 +798,7 @@ span.ps-situacao-pill { cursor: default; }
 /* Modo compacto (desenho 1.2.3; a classe e posta pelo pasta-show.js quando os
    sete rotulos nao cabem no trilho): aba inativa so com icone e selo. O `title`
    da aba continua dizendo o nome. */
-.ps-abas--compactas .ps-aba:not(.active) > span:not(.ps-aba-badge) { display: none; }
+.ps-abas--compactas .ps-aba:not(.active) > span:not(.ps-aba-badge):not(.ps-aba-pend) { display: none; }
 .ps-abas--compactas .ps-aba:not(.active) { padding-left: 12px; padding-right: 12px; }
 
 /* ── Linha vermelha de pendencia ──
@@ -1351,7 +1366,7 @@ span.ps-situacao-pill { cursor: default; }
 }
 .ps-cab-dados .pasta-resp-chip .resp-avatar { width: 28px !important; height: 28px !important; }
 .ps-cab-dados .pasta-resp-chip .resp-avatar-ini { font-size: 11px; }
-.ps-cab-dados .pasta-resp-caret { font-size: .55rem; }
+.ps-cab-dados .pasta-resp-caret { font-size: 11px; color: var(--ps-muted); }
 
 /* ── Lista de clientes no trilho ──
    `overflow: hidden` no cartão: ele tem raio de 14px, e sem isto qualquer linha
