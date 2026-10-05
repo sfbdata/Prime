@@ -181,7 +181,7 @@ final class DashboardControllerTest extends JusPrimeWebTestCase
         self::assertSelectorExists('table tbody tr');
     }
 
-    #[TestDox('GET /dashboard mostra a coluna Pastas Criadas com o total de pastas abertas pelo colaborador')]
+    #[TestDox('GET /dashboard mostra a coluna Pastas criadas com o total de pastas abertas pelo colaborador')]
     public function testColunaPastasCriadasMostraQuemAbriuAPasta(): void
     {
         $client = static::createClient();
@@ -197,7 +197,8 @@ final class DashboardControllerTest extends JusPrimeWebTestCase
         $crawler = $client->request('GET', '/dashboard');
 
         self::assertResponseIsSuccessful();
-        self::assertSelectorTextContains('table thead', 'Pastas Criadas');
+        // Rótulo em sentence case ("Pastas criadas"): o desenho aprovado manda (trilha A, A9).
+        self::assertSelectorTextContains('table thead', 'Pastas criadas');
 
         $linha = $crawler->filter('table tbody tr')->reduce(
             static fn ($tr): bool => str_contains($tr->text(), 'Com Permissão BI'),
@@ -285,7 +286,8 @@ final class DashboardControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseIsSuccessful();
         $body = (string) $client->getResponse()->getContent();
-        self::assertStringContainsString('Desempenho por Advogado', $body);
+        // Título da seção é só "Desempenho": o desenho aprovado manda (trilha A, A9).
+        self::assertStringContainsString('Desempenho', $body);
         self::assertStringNotContainsString('<!DOCTYPE', $body);
         self::assertStringNotContainsString('data-filtro-root', $body);
     }

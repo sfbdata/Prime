@@ -203,84 +203,132 @@
 
 </div>
 
-{# ── Tabela por advogado ────────────────────────────────── #}
+{# ── Tabela "Desempenho" ──────────────────────────────────────────────────────
+   Continua uma TABLE: a ordenação (th[data-ordenar] + filtro-tabela.js) e os
+   testes dependem dela. A linha de Total vive no TFOOT — nunca no TBODY,
+   que é onde os testes contam colaboradores. As somas são feitas aqui com
+   |reduce sobre as linhas já filtradas (período, responsável, cargo). #}
+{% set linhas = dashboard.porAdvogado %}
+{% set qtd = linhas|length %}
 <div class="db-table-card">
     <div class="db-table-header">
-        <i class="bi bi-people"></i>
-        <span>Desempenho por Advogado</span>
+        <span class="db-table-titulo">Desempenho</span>
+        <span class="db-contador" title="{{ qtd == 1 ? '1 colaborador' : qtd ~ ' colaboradores' }}" aria-label="{{ qtd == 1 ? '1 colaborador' : qtd ~ ' colaboradores' }}"><i class="bi bi-people-fill"></i><span class="db-contador-num">{{ qtd }}</span></span>
     </div>
-    <div class="table-responsive">
-        {% if dashboard.porAdvogado is empty %}
-        <div class="db-empty text-secondary">
+    <div class="table-responsive db-table-scroll">
+        {% if linhas is empty %}
+        <div class="db-empty">
             <i class="bi bi-people"></i>
-            Nenhum advogado com dados no período.
+            Nenhum colaborador com esses filtros.
         </div>
         {% else %}
         <table class="table db-table mb-0">
             <thead>
                 {# Ordenação por clique no cabeçalho (padrão Expediente): o th leva `data-ordenar`,
                    o motor filtro-tabela.js grava nos hidden ordenar/direcao do form e recarrega o
-                   fragmento. A classe asc/desc troca o glifo da setinha (ver CSS na casca). #}
+                   fragmento. A classe asc/desc pinta a coluna ordenada e vira o chevron (CSS na casca). #}
                 {% set ordCol = filtros.ordenar|default('') %}
                 {% set ordDir = filtros.direcao|default('') == 'asc' ? 'asc' : 'desc' %}
                 <tr>
-                    <th class="sortable{{ ordCol == 'advogado' ? ' ' ~ ordDir : '' }}" data-ordenar="advogado">Advogado <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                    <th class="sortable{{ ordCol == 'cargo' ? ' ' ~ ordDir : '' }}" data-ordenar="cargo">Cargo <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                    <th class="sortable text-center{{ ordCol == 'metas' ? ' ' ~ ordDir : '' }}" data-ordenar="metas">Total Metas <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                    <th class="sortable text-center{{ ordCol == 'metas_ativas' ? ' ' ~ ordDir : '' }}" data-ordenar="metas_ativas">Metas Ativas <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                    <th class="sortable text-center{{ ordCol == 'metas_vencidas' ? ' ' ~ ordDir : '' }}" data-ordenar="metas_vencidas">Metas Vencidas <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                    <th class="sortable text-center{{ ordCol == 'prazos' ? ' ' ~ ordDir : '' }}" data-ordenar="prazos">Prazos Próximos <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                    <th class="sortable text-center{{ ordCol == 'demandas' ? ' ' ~ ordDir : '' }}" data-ordenar="demandas">Total Demandas <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                    <th class="sortable text-center{{ ordCol == 'demandas_ativas' ? ' ' ~ ordDir : '' }}" data-ordenar="demandas_ativas">Demandas Ativas <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                    <th class="sortable db-th-colab{{ ordCol == 'advogado' ? ' ' ~ ordDir : '' }}" data-ordenar="advogado">Colaborador <i class="bi bi-chevron-expand sort-icon"></i></th>
+                    <th class="sortable db-th-cargo{{ ordCol == 'cargo' ? ' ' ~ ordDir : '' }}" data-ordenar="cargo">Cargo <i class="bi bi-chevron-expand sort-icon"></i></th>
+                    <th class="sortable text-center db-th-num{{ ordCol == 'metas' ? ' ' ~ ordDir : '' }}" data-ordenar="metas"><i class="bi bi-chevron-expand sort-icon"></i> Total metas</th>
+                    <th class="sortable text-center db-th-num{{ ordCol == 'metas_ativas' ? ' ' ~ ordDir : '' }}" data-ordenar="metas_ativas"><i class="bi bi-chevron-expand sort-icon"></i> Metas ativas</th>
+                    <th class="sortable text-center db-th-num{{ ordCol == 'metas_vencidas' ? ' ' ~ ordDir : '' }}" data-ordenar="metas_vencidas"><i class="bi bi-chevron-expand sort-icon"></i> Metas vencidas</th>
+                    <th class="sortable text-center db-th-num{{ ordCol == 'prazos' ? ' ' ~ ordDir : '' }}" data-ordenar="prazos"><i class="bi bi-chevron-expand sort-icon"></i> Prazos próximos</th>
+                    <th class="sortable text-center db-th-num{{ ordCol == 'demandas' ? ' ' ~ ordDir : '' }}" data-ordenar="demandas"><i class="bi bi-chevron-expand sort-icon"></i> Total demandas</th>
+                    <th class="sortable text-center db-th-num{{ ordCol == 'demandas_ativas' ? ' ' ~ ordDir : '' }}" data-ordenar="demandas_ativas"><i class="bi bi-chevron-expand sort-icon"></i> Demandas ativas</th>
                     {# Por quem ABRIU a pasta (criadoPor) — as duas colunas acima são por responsável. #}
-                    <th class="sortable text-center{{ ordCol == 'pastas_criadas' ? ' ' ~ ordDir : '' }}" data-ordenar="pastas_criadas">Pastas Criadas <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                    <th class="sortable text-center db-th-num{{ ordCol == 'pastas_criadas' ? ' ' ~ ordDir : '' }}" data-ordenar="pastas_criadas"><i class="bi bi-chevron-expand sort-icon"></i> Pastas criadas</th>
                 </tr>
             </thead>
             <tbody>
-                {% for linha in dashboard.porAdvogado %}
+                {% for linha in linhas %}
+                {# avatar: uma das 9 cores do desenho, escolhida pelo id (estável entre recargas) #}
+                {% set av = linha.userId % 9 %}
+                {% set partes = linha.nomeAdvogado|split(' ')|filter(p => p != '') %}
+                {% set iniciais = partes|slice(0, 2)|map(p => p|slice(0, 1))|join|upper %}
+                {# ícone do cargo: mapa visual do desenho; o nome do cargo é livre no sistema #}
+                {% set cargoLower = (linha.cargoNome ?? '')|lower %}
+                {% set cargoIcone = linha.cargoNome is null ? 'bi-dash-circle'
+                    : ('sóci' in cargoLower or 'soci' in cargoLower) ? 'bi-award'
+                    : ('advog' in cargoLower) ? 'bi-briefcase'
+                    : ('estagi' in cargoLower) ? 'bi-mortarboard'
+                    : ('paraleg' in cargoLower) ? 'bi-journal-text'
+                    : ('financ' in cargoLower) ? 'bi-cash-coin'
+                    : 'bi-person-badge' %}
                 <tr>
-                    <td class="fw-medium d-flex align-items-center gap-2">
-                        {% if linha.fotoUrl %}
-                            <img src="{{ path('app_profile_foto_serve', {nome: linha.fotoUrl}) }}"
-                                 alt="{{ linha.nomeAdvogado }}"
-                                 style="width:28px;height:28px;object-fit:cover;border-radius:50%;flex-shrink:0;"
-                                 onerror="this.style.display='none';this.nextElementSibling.style.display='inline-flex';">
-                            <span class="collab-avatar-inicial"
-                                  style="display:none;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:var(--bs-secondary-bg);font-size:0.75rem;font-weight:600;flex-shrink:0;">
-                                {{ linha.nomeAdvogado|slice(0,1)|upper }}
-                            </span>
-                        {% else %}
-                            <span class="collab-avatar-inicial"
-                                  style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:var(--bs-secondary-bg);font-size:0.75rem;font-weight:600;flex-shrink:0;">
-                                {{ linha.nomeAdvogado|slice(0,1)|upper }}
-                            </span>
-                        {% endif %}
-                        {{ linha.nomeAdvogado }}
+                    <td class="db-td-colab">
+                        <div class="db-colab">
+                            {% if linha.fotoUrl %}
+                                <img src="{{ path('app_profile_foto_serve', {nome: linha.fotoUrl}) }}"
+                                     alt="{{ linha.nomeAdvogado }}"
+                                     class="db-avatar db-avatar-img"
+                                     onerror="this.style.display='none';this.nextElementSibling.style.display='inline-flex';">
+                                <span class="collab-avatar-inicial db-avatar db-avatar--{{ av }}" style="display:none">{{ iniciais }}</span>
+                            {% else %}
+                                <span class="collab-avatar-inicial db-avatar db-avatar--{{ av }}">{{ iniciais }}</span>
+                            {% endif %}
+                            <span class="db-colab-nome" title="{{ linha.nomeAdvogado }}">{{ linha.nomeAdvogado }}</span>
+                        </div>
                     </td>
-                    <td class="text-muted">{{ linha.cargoNome ?? '—' }}</td>
-                    <td class="text-center">{{ linha.totalMetas }}</td>
-                    <td class="text-center">{{ linha.metasAtivas }}</td>
-                    <td class="text-center">
+                    <td class="db-td-cargo">
+                        <span class="db-cargo{{ linha.cargoNome is null ? ' db-cargo--vazio' : '' }}"><i class="bi {{ cargoIcone }}"></i><span>{{ linha.cargoNome ?? 'Sem cargo' }}</span></span>
+                    </td>
+                    <td class="text-center db-td-num"><span class="db-num{{ linha.totalMetas == 0 ? ' db-num--zero' : '' }}">{{ linha.totalMetas }}</span></td>
+                    <td class="text-center db-td-num"><span class="db-num{{ linha.metasAtivas == 0 ? ' db-num--zero' : '' }}">{{ linha.metasAtivas }}</span></td>
+                    <td class="text-center db-td-num">
                         {% if linha.metasVencidas > 0 %}
-                            <span class="badge text-bg-danger">{{ linha.metasVencidas }}</span>
+                            <span class="db-pill db-pill--venc"><span class="db-pill-dot"></span>{{ linha.metasVencidas }}</span>
                         {% else %}
-                            <span class="text-muted">—</span>
+                            <span class="db-num db-num--zero">0</span>
                         {% endif %}
                     </td>
-                    <td class="text-center">
+                    <td class="text-center db-td-num">
                         {% if linha.prazosProximos > 0 %}
-                            <span class="badge text-bg-warning">{{ linha.prazosProximos }}</span>
+                            <span class="db-pill db-pill--praz"><span class="db-pill-dot"></span>{{ linha.prazosProximos }}</span>
                         {% else %}
-                            <span class="text-muted">—</span>
+                            <span class="db-num db-num--zero">0</span>
                         {% endif %}
                     </td>
-                    <td class="text-center">{{ linha.totalDemandas }}</td>
-                    <td class="text-center">{{ linha.demandasAtivas }}</td>
-                    <td class="text-center">{{ linha.pastasCriadas }}</td>
+                    <td class="text-center db-td-num"><span class="db-num{{ linha.totalDemandas == 0 ? ' db-num--zero' : '' }}">{{ linha.totalDemandas }}</span></td>
+                    <td class="text-center db-td-num"><span class="db-num{{ linha.demandasAtivas == 0 ? ' db-num--zero' : '' }}">{{ linha.demandasAtivas }}</span></td>
+                    <td class="text-center db-td-num"><span class="db-num{{ linha.pastasCriadas == 0 ? ' db-num--zero' : '' }}">{{ linha.pastasCriadas }}</span></td>
                 </tr>
                 {% endfor %}
             </tbody>
+            {# Linha de Total: soma de cada coluna das linhas visíveis. Como diz a nota de rodapé,
+               pode passar do total do card (meta com vários responsáveis conta para cada um). #}
+            {% set tMetas   = linhas|reduce((c, l) => c + l.totalMetas, 0) %}
+            {% set tAtivas  = linhas|reduce((c, l) => c + l.metasAtivas, 0) %}
+            {% set tVenc    = linhas|reduce((c, l) => c + l.metasVencidas, 0) %}
+            {% set tPraz    = linhas|reduce((c, l) => c + l.prazosProximos, 0) %}
+            {% set tDem     = linhas|reduce((c, l) => c + l.totalDemandas, 0) %}
+            {% set tDemA    = linhas|reduce((c, l) => c + l.demandasAtivas, 0) %}
+            {% set tCriadas = linhas|reduce((c, l) => c + l.pastasCriadas, 0) %}
+            <tfoot>
+                <tr class="db-total-row">
+                    <th scope="row" class="db-td-colab">
+                        <div class="db-colab">
+                            <span class="db-total-icone"><i class="bi bi-calculator"></i></span>
+                            <span class="db-total-rotulo">Total</span>
+                        </div>
+                    </th>
+                    <td class="db-td-cargo"></td>
+                    <td class="text-center db-td-num"><span class="db-total-num">{{ tMetas }}</span></td>
+                    <td class="text-center db-td-num"><span class="db-total-num">{{ tAtivas }}</span></td>
+                    <td class="text-center db-td-num"><span class="db-total-num db-total-num--venc">{{ tVenc }}</span></td>
+                    <td class="text-center db-td-num"><span class="db-total-num db-total-num--praz">{{ tPraz }}</span></td>
+                    <td class="text-center db-td-num"><span class="db-total-num">{{ tDem }}</span></td>
+                    <td class="text-center db-td-num"><span class="db-total-num">{{ tDemA }}</span></td>
+                    <td class="text-center db-td-num"><span class="db-total-num">{{ tCriadas }}</span></td>
+                </tr>
+            </tfoot>
         </table>
         {% endif %}
+    </div>
+    <div class="db-nota">
+        <i class="bi bi-info-circle"></i>
+        <span>Uma meta com vários responsáveis conta para cada um deles, por isso a soma das linhas pode passar do total do card. Vencidas e prazos próximos são sempre relativos a hoje, não ao período filtrado.</span>
     </div>
 </div>

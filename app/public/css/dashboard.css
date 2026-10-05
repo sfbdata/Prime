@@ -44,6 +44,7 @@
     --db-div-head:      #e3eaef;
     --db-div-strong:    #d3dde4;
     --db-head-bg:       #f6f9fb;
+    --db-head-card-bg:  linear-gradient(180deg, #f7fafc 0%, #fff 100%);
     --db-row-hover:     #f4f9fc;
     --db-total-bg:      linear-gradient(180deg, #f6f9fb, #f1f6f9);
     --db-nota-bg:       linear-gradient(180deg, #fafcfd, #f6f9fb);
@@ -111,6 +112,7 @@
     --db-div-head:      var(--bs-border-color);
     --db-div-strong:    var(--bs-border-color);
     --db-head-bg:       var(--bs-secondary-bg);
+    --db-head-card-bg:  var(--bs-tertiary-bg);
     --db-row-hover:     rgba(255,255,255,.05);
     --db-total-bg:      var(--bs-secondary-bg);
     --db-nota-bg:       var(--bs-secondary-bg);
@@ -626,7 +628,7 @@
     .db-page .db-cards-row { grid-template-columns: minmax(0, 1fr); }
 }
 
-/* ── Tabela (estrutura herdada; o visual final chega na entrega A9) ───────── */
+/* ── Tabela "Desempenho" ──────────────────────────────────────────────────── */
 .db-page .db-table-card {
     background: var(--db-card);
     border: 1px solid var(--db-border);
@@ -634,54 +636,251 @@
     box-shadow: var(--db-shadow-caixa);
     overflow: hidden;
 }
+/* cabeçalho da caixa: véu azul da esquerda sobre um degradê vertical suave,
+   sombra fina separando da tabela (não é .card-header: o clearfix do AdminLTE
+   viraria um terceiro item do flex) */
 .db-page .db-table-header {
-    padding: 16px 20px;
-    border-bottom: 1px solid var(--db-div-head);
+    position: relative;
+    z-index: 1;
     display: flex;
     align-items: center;
     gap: 10px 12px;
+    flex-wrap: wrap;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--db-div-head);
+    background: linear-gradient(90deg, rgba(15,111,196,.055) 0%, rgba(12,122,156,.025) 38%, rgba(255,255,255,0) 72%), var(--db-head-card-bg);
+    box-shadow: 0 8px 14px -12px rgba(12,60,90,.18);
+}
+.db-page .db-table-titulo {
     font-size: 18px;
     font-weight: 700;
+    letter-spacing: -0.01em;
     color: var(--db-text-strong);
+    text-shadow: 0 1px 0 rgba(255,255,255,.9), 0 2px 8px rgba(15,111,196,.10);
 }
-.db-page .db-table thead th {
-    padding: 11px 20px;
-    border-bottom: 1px solid var(--db-div-head);
-    border-top: none;
+.db-page .db-contador {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 13.5px;
+    font-weight: 700;
+    color: var(--db-text-2);
     white-space: nowrap;
+}
+.db-page .db-contador i { font-size: 14px; color: var(--db-icon-muted); }
+.db-page .db-contador-num { font-variant-numeric: tabular-nums; }
+
+.db-page .db-table-scroll { overflow-x: auto; }
+.db-page .db-table {
+    --bs-table-bg: transparent;
+    --bs-table-color: var(--db-text);
+    margin: 0;
+    width: 100%;
+}
+.db-page .db-table > :not(caption) > * > * { box-shadow: none; }
+
+/* cabeçalho: 11/700 maiúsculas, fundo claro; a coluna ordenada fica no acento.
+   O <th> vive no fragmento trocável; o estilo mora aqui para sobreviver a cada
+   recarga por filtro. */
+.db-page .db-table thead th {
+    padding: 11px 12px;
+    border-top: none;
+    border-bottom: 1px solid var(--db-div-head);
     background: var(--db-head-bg);
     font-size: 11px;
     font-weight: 700;
     letter-spacing: .09em;
     text-transform: uppercase;
+    line-height: 1.3;
     color: var(--db-text-2);
+    vertical-align: middle;
+    white-space: normal;
+    text-wrap: balance;
+    transition: color .2s;
 }
-/* Cabeçalho ordenável: o <th> vive no fragmento trocável; o estilo mora
-   aqui, na casca, para sobreviver a cada recarga por filtro. */
 .db-page .db-table thead th.sortable { cursor: pointer; user-select: none; }
-.db-page .db-table thead th.sortable:hover { color: var(--db-accent); }
-.db-page .sort-icon { font-size: 11px; opacity: .35; flex-shrink: 0; vertical-align: middle; margin-left: 2px; }
+.db-page .db-table thead th.sortable:hover,
 .db-page .db-table thead th.sortable.asc,
 .db-page .db-table thead th.sortable.desc { color: var(--db-accent); }
+.db-page .sort-icon {
+    display: inline-block;
+    font-size: 11px;
+    opacity: .35;
+    vertical-align: middle;
+    transition: opacity .2s, transform .25s;
+}
 .db-page .db-table thead th.sortable.asc .sort-icon,
 .db-page .db-table thead th.sortable.desc .sort-icon { opacity: 1; }
-.db-page .db-table thead th.sortable.asc .sort-icon::before  { content: "\F148"; }  /* seta para cima  */
-.db-page .db-table thead th.sortable.desc .sort-icon::before { content: "\F128"; }  /* seta para baixo */
+.db-page .db-table thead th.sortable.asc .sort-icon { transform: scaleY(-1); }
+.db-page .db-th-num { min-width: 62px; }
+.db-page .db-th-cargo { min-width: 108px; }
+.db-page .db-th-colab { min-width: 170px; padding-left: 20px; }
 
+/* linhas */
 .db-page .db-table tbody td {
-    padding: 9px 20px;
+    padding: 9px 12px;
     border-bottom: 1px solid var(--db-div);
     vertical-align: middle;
+    background: var(--db-card);
+    color: var(--db-text);
+    transition: background .2s ease, box-shadow .25s ease;
+}
+.db-page .db-table tbody tr:last-child td { border-bottom: 1px solid var(--db-div); }
+.db-page .db-table tbody tr:hover td { background: var(--db-row-hover); }
+.db-page .db-table tbody tr:hover > td:first-child { box-shadow: inset 3px 0 0 var(--db-accent); }
+.db-page .db-td-colab { padding-left: 20px; }
+
+/* primeira coluna fixa para a rolagem horizontal (celular) */
+.db-page .db-table th:first-child,
+.db-page .db-table td:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+}
+
+/* colaborador: avatar 34px com gradiente da cor e anel branco; nome 14.5/600
+   em uma linha, cortado com reticências (o nome completo vai no title) */
+.db-page .db-colab { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.db-page .db-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    font-size: 12px;
+    font-weight: 700;
+    color: #fff;
+    object-fit: cover;
+    box-shadow: 0 0 0 2px var(--db-card), 0 0 0 3px rgba(16,42,58,.08);
+}
+.db-page .db-avatar-img { display: inline-block; }
+.db-page .db-avatar--0 { background: linear-gradient(145deg, #0f6fc4, #0c5799); }
+.db-page .db-avatar--1 { background: linear-gradient(145deg, #1f7a4d, #185f3c); }
+.db-page .db-avatar--2 { background: linear-gradient(145deg, #6b4b8a, #533b6c); }
+.db-page .db-avatar--3 { background: linear-gradient(145deg, #a3232b, #7f1b22); }
+.db-page .db-avatar--4 { background: linear-gradient(145deg, #2a5f8f, #214a70); }
+.db-page .db-avatar--5 { background: linear-gradient(145deg, #8a5a12, #6c460e); }
+.db-page .db-avatar--6 { background: linear-gradient(145deg, #0c7a9c, #095f7a); }
+.db-page .db-avatar--7 { background: linear-gradient(145deg, #4a6274, #3a4c5a); }
+.db-page .db-avatar--8 { background: linear-gradient(145deg, #1f9d61, #187a4c); }
+.db-page .db-colab-nome {
+    min-width: 0;
+    max-width: 260px;
+    font-size: 14.5px;
+    font-weight: 600;
+    line-height: 1.25;
+    color: var(--db-text-strong);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* cargo: texto discreto com ícone, sem borda e sem fundo; sem cargo em itálico */
+.db-page .db-cargo {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    max-width: 100%;
+    min-height: 24px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--db-label);
+    line-height: 1.25;
+}
+.db-page .db-cargo i { font-size: 12.5px; flex-shrink: 0; color: var(--db-icon-muted); }
+.db-page .db-cargo--vazio { color: var(--db-sem-cargo); font-style: italic; }
+
+/* números: 15/600 tabulares; zero em cinza, sem pílula */
+.db-page .db-num {
+    font-size: 15px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
     color: var(--db-text);
 }
-.db-page .db-table tbody tr:last-child td { border-bottom: none; }
-.db-page .db-table tbody tr:hover td { background: var(--db-row-hover); }
+.db-page .db-num--zero { font-weight: 500; color: var(--db-zero); }
+
+/* vencidas / prazos próximos: pílula sem borda, com ponto que pulsa */
+.db-page .db-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-width: 42px;
+    padding: 3px 10px 3px 9px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+.db-page .db-pill--venc { color: var(--db-venc-text); background: var(--db-venc-bg); box-shadow: var(--db-venc-sombra); }
+.db-page .db-pill--praz { color: var(--db-praz-text); background: var(--db-praz-bg); box-shadow: var(--db-praz-sombra); }
+.db-page .db-pill-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.db-page .db-pill--venc .db-pill-dot { background: radial-gradient(circle at 35% 35%, #ef6a5c, #c23a2e); animation: dbPulsoVenc 2.6s ease-out infinite; }
+.db-page .db-pill--praz .db-pill-dot { background: radial-gradient(circle at 35% 35%, #f2b34a, #c98414); animation: dbPulsoPraz 2.6s ease-out infinite; }
+@keyframes dbPulsoVenc { 0% { box-shadow: 0 0 0 0 rgba(208,68,55,.45); } 70%, 100% { box-shadow: 0 0 0 5px rgba(208,68,55,0); } }
+@keyframes dbPulsoPraz { 0% { box-shadow: 0 0 0 0 rgba(214,146,30,.5); } 70%, 100% { box-shadow: 0 0 0 5px rgba(214,146,30,0); } }
+
+/* linha de Total (tfoot): fundo degradê, borda superior forte, números 700 */
+.db-page .db-table tfoot th,
+.db-page .db-table tfoot td {
+    padding: 9px 12px;
+    border-top: 1px solid var(--db-div-strong);
+    border-bottom: none;
+    background: var(--db-total-bg);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.6);
+    vertical-align: middle;
+    color: var(--db-text-strong);
+}
+.db-page .db-total-icone {
+    width: 34px; height: 34px; flex-shrink: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 4px;
+    background: linear-gradient(160deg, #e3f1f7, #d3e8f0);
+    color: var(--db-accent);
+    box-shadow: inset 0 0 0 1px rgba(12,122,156,.16);
+}
+.db-page .db-total-icone i { font-size: 15px; }
+.db-page .db-total-rotulo {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    color: var(--db-text-strong);
+}
+.db-page .db-total-num { font-size: 14.5px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--db-text-strong); }
+.db-page .db-total-num--venc { color: var(--db-venc-text); }
+.db-page .db-total-num--praz { color: var(--db-praz-text); }
+
+/* nota de rodapé */
+.db-page .db-nota {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    padding: 13px 20px;
+    border-top: 1px solid var(--db-div);
+    background: var(--db-nota-bg);
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--db-text-2);
+    text-wrap: pretty;
+}
+.db-page .db-nota i { font-size: 13.5px; color: var(--db-muted); margin-top: 2px; }
+
 .db-page .db-empty {
     padding: 48px 20px;
     text-align: center;
+    font-size: 14px;
     color: var(--db-text-2);
 }
 .db-page .db-empty i { font-size: 30px; display: block; margin-bottom: 10px; color: var(--db-zero); }
+
+[data-bs-theme="dark"] .db-page .db-table-header { background: var(--db-head-card-bg); }
+[data-bs-theme="dark"] .db-page .db-table-titulo { text-shadow: none; }
+[data-bs-theme="dark"] .db-page .db-table tfoot th,
+[data-bs-theme="dark"] .db-page .db-table tfoot td { box-shadow: none; }
+[data-bs-theme="dark"] .db-page .db-total-icone { background: var(--db-accent-bg); box-shadow: inset 0 0 0 1px rgba(79,179,212,.3); }
 
 /* ── Responsividade ───────────────────────────────────────────────────────── */
 @media (max-width: 575.98px) {
@@ -699,7 +898,8 @@
     .db-page .db-glifo-flutua,
     .db-page .db-card-rotulo,
     .db-page .db-card-rotulo::after,
-    .db-page .db-barra-fill { animation: none; }
+    .db-page .db-barra-fill,
+    .db-page .db-pill-dot { animation: none; }
     .db-page .db-stat-card,
     .db-page .db-stat-card *,
     .db-page .db-stat-card *::after { transition-duration: .01ms; }

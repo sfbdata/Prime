@@ -118,6 +118,56 @@ final class DashboardArranjoTelaTest extends DashboardWebTestCase
         );
     }
 
+    #[TestDox('A linha de Total vive no <tfoot> com a soma das linhas, e o <tbody> só tem colaboradores')]
+    public function testLinhaDeTotalNoTfootComASoma(): void
+    {
+        $client = static::createClient();
+        [$gestora, $tenant] = $this->criarGestorLogado($client);
+        $outro = $this->criarColaborador($tenant, 'Bruno Melo');
+
+        // 2 + 3 pastas abertas: a última coluna da linha de Total tem de somar 5.
+        PastaFactory::createMany(2, ['tenant' => $tenant, 'criadoPor' => $gestora]);
+        PastaFactory::createMany(3, ['tenant' => $tenant, 'criadoPor' => $outro]);
+
+        $crawler = $client->request('GET', '/dashboard');
+
+        self::assertResponseIsSuccessful();
+
+        $total = $crawler->filter('.db-table-card table > tfoot > tr');
+        self::assertCount(1, $total, 'A linha de Total é filha direta do <tfoot>');
+        self::assertStringContainsString('Total', $total->text());
+        self::assertSame('5', trim($total->filter('td')->last()->text()), 'Pastas criadas somadas das linhas visíveis');
+        self::assertSame(2, $crawler->filter('.db-table-card table > tbody > tr')->count(), 'Só os dois colaboradores no corpo');
+        self::assertCount(0, $crawler->filter('.db-table-card table > tbody > tr .db-total-rotulo'), 'Total nunca no <tbody>: é onde os testes contam gente');
+    }
+
+    #[TestDox('Rótulos da tabela são os do desenho e o zero aparece como número cinza, sem travessão')]
+    public function testRotulosDoDesenhoEZeroDiscreto(): void
+    {
+        $client = static::createClient();
+        $this->criarGestorLogado($client);
+
+        $crawler = $client->request('GET', '/dashboard');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('Desempenho', trim($crawler->filter('.db-table-header .db-table-titulo')->text()));
+        self::assertSame('1', trim($crawler->filter('.db-table-header .db-contador-num')->text()), 'Contador = porAdvogado|length');
+
+        $ths = $crawler->filter('.db-table-card table > thead > tr > th')->each(static fn ($th): string => preg_replace('/\s+/', ' ', trim($th->text())));
+        self::assertSame(
+            ['Colaborador', 'Cargo', 'Total metas', 'Metas ativas', 'Metas vencidas', 'Prazos próximos', 'Total demandas', 'Demandas ativas', 'Pastas criadas'],
+            $ths,
+        );
+
+        $linha = $crawler->filter('.db-table-card table > tbody > tr')->first();
+        self::assertStringNotContainsString('—', $linha->text(), 'Nada de travessão: zero é número cinza');
+        self::assertCount(7, $linha->filter('.db-num--zero'), 'As sete colunas numéricas zeradas em cinza');
+        self::assertSame('Sem cargo', trim($linha->filter('.db-cargo--vazio')->text()));
+        self::assertSame(2, mb_strlen(trim($linha->filter('.collab-avatar-inicial')->text())), 'Avatar com duas iniciais');
+        self::assertSame('Gestora da Tela', $linha->filter('.db-colab-nome')->attr('title'), 'Nome completo no title (reticências no CSS)');
+        self::assertStringContainsString('conta para cada um deles', $crawler->filter('.db-table-card .db-nota')->text());
+    }
+
     #[TestDox('O título vive na casca, antes da barra de filtro, e não traz mais o ícone de velocímetro')]
     public function testTituloNaCascaAntesDoFiltro(): void
     {
