@@ -1,6 +1,8 @@
 /* =============================================================================
    pasta-show.css — redesenho da tela de detalhe da pasta
-   Desenho aprovado: docs/design/pasta-show/ ("Pasta 1A.dc.html").
+   Desenho aprovado: docs/design/claude-design-2026-10-05 (1)/
+   ("02 - EXPEDIENTES 1.2.3.dc.html", padrão PJe — substitui a "Pasta 1A").
+   Spec da entrega: docs/specs/trilha-a-visual-pje.md
 
    Tudo aqui vive sob `.ps-page` / `.ps-body`. Nenhum seletor global: a tela da
    pasta e a unica que muda, e vazamento para as outras telas seria defeito.
@@ -9,9 +11,12 @@
    deles em cima de var(--bs-*). Hex cravado direto na regra viraria texto de um
    tema no fundo do outro — armadilha ja registrada no projeto.
 
-   A fonte NAO e tocada. O desenho esta em Source Sans 3, mas o dono manteve o
-   Arial (decisao de 19/08/2026, reconfirmada nesta rodada): a tela herda
-   --jp-font-sans do app.css.
+   A fonte NAO e tocada: o desenho 1.2.3 ja e Arial, igual ao sistema (decisao
+   de 19/08/2026); a tela herda --jp-font-sans do app.css.
+
+   Cantos (padrão PJe, aprovado em 05/10/2026): ate 4px em cartoes, paineis,
+   menus, botoes, campos e abas; 3px onde era 5px. Circulos (avatar, pontos) e
+   pilulas (selos 999px) continuam redondos — o proprio desenho os mantem.
    ============================================================================= */
 
 /* Os tokens vivem no <body>, e nao so em `.ps-page`: o drawer do historico e os
@@ -24,14 +29,14 @@
    token nao pinta nada sozinho, so quem escreve `var(--ps-*)` e que pinta. */
 .ps-body,
 .ps-page {
-    --ps-bg:            #f4f7f9;
+    --ps-bg:            #eaeef1;
     --ps-card:          #fff;
     --ps-soft:          #fafcfd;
     --ps-border:        #dde5eb;
     --ps-border-ctl:    #cdd7de;
     --ps-div-strong:    #eef2f5;
     --ps-div-weak:      #f4f7f9;
-    --ps-hover:         #f2f7fa;
+    --ps-hover:         #eef5fa;
 
     --ps-text:          #12242f;
     --ps-body:          #243845;
@@ -41,9 +46,9 @@
     --ps-faint:         #8496a3;
     --ps-placeholder:   #95a6b2;
 
-    --ps-accent:        #0f6fc4;
-    --ps-accent-hover:  #0b5596;
-    --ps-accent-bg:     #e8f2fa;
+    --ps-accent:        #0a7aad;
+    --ps-accent-hover:  #086a96;
+    --ps-accent-bg:     #e5f1f7;
 
     --ps-ok-text:       #186c47;
     --ps-ok-dot:        #1f9d61;
@@ -63,6 +68,15 @@
 
     /* Terceiro tom dos prazos: cinza, nao verde. */
     --ps-cinza-text:    #4a6274;
+
+    /* Padrao PJe (desenho 1.2.3): cabecalho do painel principal, cabecalho dos
+       cartoes do trilho, tarja azul dos menus e a linha vermelha de pendencia. */
+    --ps-cab-bg:        #f5f6f7;
+    --ps-cab-border:    #dfe4e8;
+    --ps-trilho-cab-bg: #eef2f5;
+    --ps-menu-tarja:    linear-gradient(135deg,#0d80a3,#0b6688);
+    --ps-shadow-menu:   0 1px 3px rgba(0,0,0,.16);
+    --ps-pend:          #c0392f;
 
     --ps-shadow-card:   0 1px 2px rgba(16,42,58,.04);
     --ps-shadow-pop:    0 10px 30px rgba(16,42,58,.14);
@@ -96,9 +110,9 @@
     --ps-faint:         var(--bs-secondary-color);
     --ps-placeholder:   var(--bs-secondary-color);
 
-    --ps-accent:        #4da3ea;
-    --ps-accent-hover:  #7cbcf2;
-    --ps-accent-bg:     rgba(77,163,234,.14);
+    --ps-accent:        #45b0d6;
+    --ps-accent-hover:  #74c6e3;
+    --ps-accent-bg:     rgba(69,176,214,.16);
 
     --ps-ok-text:       #6ddaa2;
     --ps-ok-dot:        #1f9d61;
@@ -118,18 +132,25 @@
 
     --ps-cinza-text:    var(--bs-secondary-color);
 
+    --ps-cab-bg:        var(--bs-secondary-bg);
+    --ps-cab-border:    var(--bs-border-color);
+    --ps-trilho-cab-bg: var(--bs-secondary-bg);
+    --ps-menu-tarja:    linear-gradient(135deg,#0d80a3,#0b6688);
+    --ps-shadow-menu:   0 1px 3px rgba(0,0,0,.5);
+    --ps-pend:          #e0675c;
+
     --ps-shadow-card:   0 1px 2px rgba(0,0,0,.35);
     --ps-shadow-pop:    0 10px 30px rgba(0,0,0,.5);
     --ps-shadow-drawer: -14px 0 40px rgba(0,0,0,.55);
     --ps-shadow-hover:  0 6px 18px rgba(0,0,0,.4);
 }
 
-/* O fundo da pagina e do desenho (#f4f7f9), nao o bg-body-tertiary do resto do
+/* O fundo da pagina e do desenho (#eaeef1), nao o bg-body-tertiary do resto do
    sistema. Vai na classe do <body> para cobrir a faixa inteira sem sangria de
    margem negativa (que produziria barra horizontal). */
 .ps-body,
 .ps-body .app-content,
-.ps-body .app-content-header { background: #f4f7f9; }
+.ps-body .app-content-header { background: var(--ps-bg); }
 [data-bs-theme="dark"] .ps-body,
 [data-bs-theme="dark"] .ps-body .app-content,
 [data-bs-theme="dark"] .ps-body .app-content-header { background: var(--bs-body-bg); }
@@ -169,7 +190,7 @@
 .ps-card {
     background: var(--ps-card);
     border: 1px solid var(--ps-border);
-    border-radius: 14px;
+    border-radius: 4px;
     box-shadow: var(--ps-shadow-card);
 }
 
@@ -190,7 +211,7 @@
     font-family: inherit;
     font-size: 13px;
     font-weight: 500;
-    border-radius: 8px;
+    border-radius: 4px;
     cursor: pointer;
     white-space: nowrap;
     text-decoration: none;
@@ -267,7 +288,7 @@
     z-index: 30;
     background: var(--ps-card);
     border: 1px solid var(--ps-border);
-    border-radius: 10px;
+    border-radius: 4px;
     box-shadow: var(--ps-shadow-pop);
     padding: 5px;
     display: none;
@@ -287,7 +308,7 @@
     font-family: inherit;
     font-size: 13.5px;
     color: var(--ps-body);
-    border-radius: 7px;
+    border-radius: 4px;
     cursor: pointer;
     text-align: left;
     width: 100%;
@@ -309,7 +330,7 @@
     margin: 0 0 14px;
     padding: 10px 14px;
     border: 1px solid var(--ps-danger-border);
-    border-radius: 8px;
+    border-radius: 4px;
     background: var(--ps-danger-bg);
     color: var(--ps-danger-text);
     font-size: .875rem;
@@ -447,7 +468,7 @@
     gap: 3px;
     background: var(--ps-div-strong);
     border: 1px solid #e0e7ec;
-    border-radius: 11px;
+    border-radius: 4px;
     padding: 4px;
     max-width: 100%;
     overflow-x: auto;
@@ -464,7 +485,7 @@
     width: 0;
     height: 0;
     opacity: 0;
-    border-radius: 9px;
+    border-radius: 4px;
     background: rgba(255,255,255,.96);
     border: 1px solid #d3dde5;
     box-shadow: 0 1px 3px rgba(16,42,58,.12), 0 6px 14px rgba(16,42,58,.06), inset 0 1px 0 rgba(255,255,255,.9);
@@ -481,7 +502,7 @@
 }
 /* Sem JS (e antes de ele medir) a pilula nao aparece; a aba ativa entao precisa
    se distinguir sozinha, senao a tela fica sem indicacao nenhuma. */
-.ps-abas--sem-js .ps-aba.active { background: var(--ps-card); border-radius: 9px; }
+.ps-abas--sem-js .ps-aba.active { background: var(--ps-card); border-radius: 4px; }
 
 .ps-aba {
     position: relative;
@@ -496,7 +517,7 @@
     font-size: 13.5px;
     font-weight: 500;
     color: #5f7684;
-    border-radius: 9px;
+    border-radius: 4px;
     cursor: pointer;
     white-space: nowrap;
     transition: color .34s;
@@ -512,7 +533,7 @@
     color: var(--ps-muted);
     background: #e2e8ed;
     padding: 1px 6px;
-    border-radius: 5px;
+    border-radius: 3px;
 }
 [data-bs-theme="dark"] .ps-aba-badge { background: rgba(255,255,255,.10); }
 .ps-aba.active .ps-aba-badge { color: var(--ps-accent); background: var(--ps-accent-bg); }
@@ -546,7 +567,7 @@
 .ps-paineis > .tab-pane:not(#dados) {
     background: var(--ps-card);
     border: 1px solid var(--ps-border);
-    border-radius: 14px;
+    border-radius: 4px;
     box-shadow: var(--ps-shadow-card);
     padding: 18px 20px;
 }
@@ -593,7 +614,7 @@
 .ps-compositor { padding: 16px 20px; background: var(--ps-soft); border-bottom: 1px solid var(--ps-div-strong); }
 .ps-compositor-caixa {
     border: 1px solid #d3dde5;
-    border-radius: 9px;
+    border-radius: 4px;
     background: var(--ps-card);
     overflow: hidden;
 }
@@ -645,7 +666,7 @@
     color: var(--ps-faint);
     font-size: 12px;
     padding: 2px 5px;
-    border-radius: 6px;
+    border-radius: 4px;
     cursor: pointer;
 }
 .ps-anotacao-acao:hover { background: var(--ps-hover); color: var(--ps-text-2); }
@@ -661,7 +682,7 @@
     padding: 13px;
     cursor: pointer;
     width: 100%;
-    border-radius: 0 0 14px 14px;
+    border-radius: 0 0 4px 4px;
 }
 .ps-anotacoes-mais:hover { background: var(--ps-accent-bg); }
 
@@ -714,7 +735,7 @@
     font-size: 12.5px;
     font-weight: 600;
     padding: 4px 11px;
-    border-radius: 7px;
+    border-radius: 4px;
     cursor: pointer;
     white-space: nowrap;
 }
@@ -865,7 +886,7 @@
     font-size: 16px;
     line-height: 1;
     padding: 6px 8px;
-    border-radius: 7px;
+    border-radius: 4px;
     cursor: pointer;
 }
 .ps-drawer-fechar:hover { background: var(--ps-hover); color: var(--ps-accent); }
@@ -1056,7 +1077,7 @@
     min-width: 0;
     background: var(--ps-card);
     border: 1px solid var(--ps-border);
-    border-radius: 14px;
+    border-radius: 4px;
     box-shadow: var(--ps-shadow-card);
     padding: 13px 16px;
     display: flex;
@@ -1141,7 +1162,7 @@
     background: transparent;
     color: var(--ps-faint);
     font-size: 12px;
-    border-radius: 6px;
+    border-radius: 4px;
     cursor: pointer;
 }
 .ps-fin-lapis:hover { border-color: var(--ps-border-ctl); color: var(--ps-text-2); }
