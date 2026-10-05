@@ -1957,3 +1957,23 @@ span.ps-situacao-pill { cursor: default; }
     color: var(--ps-chip-text);
     background: var(--ps-accent-bg);
 }
+
+/* =============================================================================
+   A6 — Financeiro e Documentos: so tokens e raios, sem reorganizar.
+   O Financeiro (fatia 2) ja e todo `.ps-*` e os raios dele mudaram na A1. O
+   gerenciador de arquivos (aba Documentos) usa o pasta-arquivos.css, que e
+   COMPARTILHADO com a tela do Objeto (cobranca) — por isso os raios dele so
+   mudam aqui, sob `.ps-page`: fora da pasta ele continua com 14px/9px.
+   ============================================================================= */
+.ps-page .fm { --fm-radius: 4px; --fm-radius-sm: 3px; }
+.ps-page .fm-checklist { border-radius: 4px; }
+.ps-page .fm-checklist-acao,
+.ps-page .fm-modelo-aplicar,
+.ps-page .fm-modelo-icone { border-radius: 4px; }
+/* Os cartoes Bootstrap que o gerenciador ainda usa ganham o canto do padrao. */
+.ps-page #documentos .card { border-radius: 4px; }
+.ps-page #documentos .card > .card-header { border-radius: 4px 4px 0 0; }
+.ps-page #documentos .btn { border-radius: 4px; }
+.ps-page #documentos .form-control,
+.ps-page #documentos .form-select,
+.ps-page #documentos .input-group-text { border-radius: 4px; }
