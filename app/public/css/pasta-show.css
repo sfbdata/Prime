@@ -112,6 +112,28 @@
     --ps-shadow-meta:   0 1px 2px rgba(16,42,58,.06);
     --ps-shadow-meta-hv:0 10px 24px rgba(16,42,58,.16), 0 2px 6px rgba(16,42,58,.08);
     --ps-shadow-caps:   0 1px 2px rgba(10,122,173,.25);
+    /* Auditoria de fidelidade (05/10): "+" das etiquetas, barra do editor,
+       halo do ponto do registro, clientes do trilho, avatar do responsavel,
+       linha do tempo do Push e trilho das Metas. */
+    --ps-etq-add-hv:    #9fc3e3;
+    --ps-editor-bar:    #f6f9fb;
+    --ps-editor-bar-bd: #e6edf2;
+    --ps-ponto-halo:    rgba(10,122,173,.2);
+    --ps-foco-anel:     rgba(10,122,173,.14);
+    --ps-cli-avatar-bg: #e7eef4;
+    --ps-cli-avatar-tx: #2a4353;
+    --ps-cli-principal: #fbfdfe;
+    --ps-cli-abrir:     #7fa6c2;
+    --ps-resp-grad:     linear-gradient(135deg,#1597bd,#0c7a9c);
+    --ps-resp-sombra:   0 4px 10px -5px rgba(12,122,156,.7);
+    --ps-push-bg:       #e9eef1;
+    --ps-push-linha:    #d0d8dd;
+    --ps-push-dia-bg:   #d9e0e4;
+    --ps-push-dia-tx:   #3f4f59;
+    --ps-push-txt:      #2c3a42;
+    --ps-push-hora:     #4f5b62;
+    --ps-atencao-meta:  #7c4a48;
+    --ps-forte-2:       #34505f;
     /* Abas Processo e Metas (A5): selo Principal e tons das metas. */
     --ps-principal-tx:  #2a5f8f;
     --ps-principal-bg:  #eaf2fa;
@@ -212,6 +234,25 @@
     --ps-shadow-meta:   0 1px 2px rgba(0,0,0,.35);
     --ps-shadow-meta-hv:0 10px 24px rgba(0,0,0,.5), 0 2px 6px rgba(0,0,0,.35);
     --ps-shadow-caps:   0 1px 2px rgba(0,0,0,.4);
+    --ps-etq-add-hv:    var(--ps-accent);
+    --ps-editor-bar:    var(--bs-secondary-bg);
+    --ps-editor-bar-bd: var(--bs-border-color);
+    --ps-ponto-halo:    rgba(69,176,214,.3);
+    --ps-foco-anel:     rgba(69,176,214,.25);
+    --ps-cli-avatar-bg: rgba(255,255,255,.10);
+    --ps-cli-avatar-tx: var(--bs-body-color);
+    --ps-cli-principal: rgba(69,176,214,.08);
+    --ps-cli-abrir:     var(--ps-accent);
+    --ps-resp-grad:     linear-gradient(135deg,#1597bd,#0c7a9c);
+    --ps-resp-sombra:   0 4px 10px -5px rgba(0,0,0,.6);
+    --ps-push-bg:       var(--bs-body-bg);
+    --ps-push-linha:    var(--bs-border-color);
+    --ps-push-dia-bg:   var(--bs-secondary-bg);
+    --ps-push-dia-tx:   var(--bs-body-color);
+    --ps-push-txt:      var(--bs-body-color);
+    --ps-push-hora:     var(--bs-secondary-color);
+    --ps-atencao-meta:  var(--ps-danger-text);
+    --ps-forte-2:       var(--bs-body-color);
     --ps-principal-tx:  var(--ps-accent);
     --ps-principal-bg:  var(--ps-accent-bg);
     --ps-principal-bd:  transparent;
@@ -404,6 +445,14 @@
 /* Atalho de teclado do item (E, H): so informa; quem escuta e o pasta-show.js. */
 .ps-pop-atalho { margin-left: auto; font-family: var(--jp-font-sans); font-size: 11px; color: var(--ps-faint); background: transparent; border: none; }
 .ps-pop--prio { top: 26px; left: 0; width: 176px; }
+/* Itens do menu de prioridade (desenho): bandeira pequena na cor do tom, sem
+   coluna fixa; so a opcao atual fica em negrito (o JS move o ✓ ao trocar). */
+.ps-pop--prio .ps-pop-item { gap: 9px; border-radius: 3px; font-weight: 400; }
+.ps-pop--prio .ps-pop-item:has(> .ps-pop-check:not(.d-none)) { font-weight: 600; }
+.ps-pop--prio .ps-pop-item i.bi-flag-fill { font-size: 11px; width: auto; }
+.ps-pop--prio .ps-pop-item[data-valor="normal"] i.bi-flag-fill     { color: var(--ps-cinza-text); }
+.ps-pop--prio .ps-pop-item[data-valor="prioridade"] i.bi-flag-fill { color: var(--ps-warn-text); }
+.ps-pop--prio .ps-pop-item[data-valor="urgente"] i.bi-flag-fill    { color: var(--ps-danger-text); }
 
 .ps-pop-item {
     display: flex;
@@ -429,7 +478,7 @@
 .ps-pop-item--perigo { color: var(--ps-danger-text); }
 .ps-pop-item--perigo i { color: inherit; }
 .ps-pop-item--perigo:hover { background: var(--ps-danger-hover); color: var(--ps-danger-text); }
-.ps-pop-sep { height: 1px; background: var(--ps-div-strong); margin: 4px 6px; }
+.ps-pop-sep { height: 1px; background: var(--ps-div-strong); margin: 4px 8px; }
 .ps-pop-check { margin-left: auto; color: var(--ps-accent); font-size: 12px; }
 
 /* ── Faixa da pasta excluída (lápide) ──
@@ -449,7 +498,9 @@
 .ps-cab-excluida i { font-size: 1rem; line-height: 1.35; flex-shrink: 0; }
 
 /* ── Linha 2: identidade ── */
-.ps-cab-identidade { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-width: 0; }
+.ps-cab-identidade { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; min-width: 0; }
+/* Divisoria · prioridade · divisoria · etiquetas · "+": o grupo do desenho, com 10px entre si. */
+.ps-cab-etiquetas { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-width: 0; }
 .ps-cab-nup {
     font-variant-numeric: tabular-nums;
     font-size: 15px;
@@ -477,7 +528,7 @@
 }
 .ps-prio i.bi-flag-fill { font-size: 10px; }
 .ps-prio i.bi-chevron-down { font-size: 8px; opacity: .7; }
-.ps-prio--normal     { color: var(--ps-text-2);     background: var(--ps-div-strong); border: 1px solid var(--ps-border); }
+.ps-prio--normal     { color: var(--ps-cinza-text); background: var(--ps-div-strong); border: 1px solid var(--ps-border); }
 .ps-prio--prioridade { color: var(--ps-warn-text);   background: var(--ps-warn-bg);   border: 1px solid var(--ps-warn-border); }
 .ps-prio--urgente    { color: var(--ps-danger-text); background: var(--ps-danger-bg); border: 1px solid var(--ps-danger-border); }
 
@@ -497,6 +548,17 @@
     border-radius: 3px;
 }
 .ps-etiqueta i { font-size: 9px; opacity: .75; }
+/* Marcador com cor cadastrada (`Marcador.cor`): o chip toma o tom dele, como o
+   desenho faz com cada etiqueta. Sem cor, fica o cinza neutro acima. */
+.ps-etiqueta--cor {
+    color: color-mix(in srgb, var(--etq) 72%, var(--ps-text));
+    background: color-mix(in srgb, var(--etq) 14%, var(--ps-card));
+    border-color: color-mix(in srgb, var(--etq) 42%, transparent);
+}
+[data-bs-theme="dark"] .ps-etiqueta--cor {
+    color: color-mix(in srgb, var(--etq) 70%, #fff);
+    background: color-mix(in srgb, var(--etq) 22%, transparent);
+}
 button.ps-etiqueta { cursor: pointer; font-family: inherit; transition: background .18s, color .18s; }
 button.ps-etiqueta:hover,
 button.ps-etiqueta:focus-visible { background: var(--ps-accent-bg); color: var(--ps-accent); border-color: var(--ps-accent-bg); }
@@ -518,7 +580,7 @@ button.ps-etiqueta:focus-visible { background: var(--ps-accent-bg); color: var(-
     transition: background .18s, color .18s, border-color .18s, transform .18s;
 }
 .ps-etiqueta-add:hover,
-.ps-etiqueta-add:focus-visible { background: var(--ps-accent-bg); color: var(--ps-accent); border-color: var(--ps-accent); transform: scale(1.08); }
+.ps-etiqueta-add:focus-visible { background: var(--ps-accent-bg); color: var(--ps-accent); border-color: var(--ps-etq-add-hv); transform: scale(1.08); }
 .ps-etiqueta-add i { font-size: 15px; line-height: 1; }
 
 /* ── Linha 2: o CLIENTE e o titulo (desenho 1.2.3) ──
@@ -610,6 +672,8 @@ button.ps-etiqueta:focus-visible { background: var(--ps-accent-bg); color: var(-
 .ps-cab-dados .ps-dado--forte { font-weight: 700; }
 .ps-cab-dados .ps-dado--vazio { font-size: 14.5px; }
 .ps-cab-dados .ps-cab-acao-vazia { font-size: 13.5px; font-weight: 500; }
+.ps-cab-dados .ps-dado-sub { margin-top: 3px; }
+.ps-cab-dados .ps-link-btn--vincular { font-size: 13px; }
 /* "trocar" e "vincular": botao que se comporta como link, sem href morto. */
 .ps-link-btn {
     display: inline-flex;
@@ -896,7 +960,7 @@ span.ps-situacao-pill { cursor: default; }
    cartao neutro, para nao ficarem flutuando sobre o fundo da pagina. As outras
    abas ja sao cartoes proprios no padrao PJe (Dados, Processo, Metas, Detalhes,
    Push) e ficam de fora — embrulha-las aqui seria moldura dupla. */
-.ps-paineis > .tab-pane:not(#dados):not(#processo):not(#tarefas):not(#detalhes):not(#push) {
+.ps-paineis > .tab-pane:not(#dados):not(#processo):not(#tarefas):not(#detalhes):not(#push):not(#financeiro) {
     background: var(--ps-card);
     border: 1px solid var(--ps-border);
     border-radius: 4px;
@@ -912,7 +976,7 @@ span.ps-situacao-pill { cursor: default; }
     align-items: start;
 }
 .ps-trilho { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
-@media (max-width: 1199.98px) {
+@media (max-width: 980px) {
     .ps-grade { grid-template-columns: minmax(0,1fr); }
 }
 
@@ -971,6 +1035,23 @@ span.ps-situacao-pill { cursor: default; }
 .ps-card-cab-link:hover,
 .ps-card-cab-link:focus-visible { background: var(--ps-accent-bg); color: var(--ps-accent); }
 .ps-card-cab-link i { font-size: 15px; line-height: 1; }
+/* O "+" do cartao Clientes (desenho): so icone, 32px, azul. */
+.ps-card-cab-add {
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    color: var(--ps-accent);
+    font-size: 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background .18s;
+}
+.ps-card-cab-add:hover,
+.ps-card-cab-add:focus-visible { background: var(--ps-accent-bg); }
 .ps-contagem { font-variant-numeric: tabular-nums; font-size: 11px; color: var(--ps-label); }
 
 /* =============================================================================
@@ -1010,6 +1091,16 @@ span.ps-situacao-pill { cursor: default; }
 .ps-compositor-caixa .ql-container.ql-snow { border: none; font-family: inherit; }
 .ps-compositor-caixa .ql-editor { min-height: 70px; padding: 13px 15px; font-size: 14.5px; line-height: 1.5; }
 .ps-compositor-caixa .ql-editor.ql-blank::before { color: var(--ps-placeholder); font-style: normal; left: 15px; }
+/* O editor-rico.css (carregado DEPOIS desta folha, dentro do parcial) traz a
+   propria moldura, raio de 6px e 96px de altura: dentro da caixa do compositor
+   isso virava moldura dupla e campo mais alto que o desenho. A caixa e quem
+   emoldura — e e ela que acende no foco. */
+.ps-compositor-caixa .editor-rico { border: none; border-radius: 0; box-shadow: none; background: transparent; }
+.ps-compositor-caixa .editor-rico:focus-within { border-color: transparent; box-shadow: none; }
+.ps-compositor-caixa:focus-within { border-color: var(--ps-accent); box-shadow: 0 0 0 3px var(--ps-foco-anel); }
+.ps-compositor-caixa .editor-rico .ql-toolbar.ql-snow { background: var(--ps-editor-bar); border-bottom: 1px solid var(--ps-editor-bar-bd); padding: 6px 9px; }
+.ps-compositor-caixa .editor-rico .ql-container.ql-snow { font-size: 14.5px; }
+.ps-compositor-caixa .editor-rico .ql-editor { min-height: 70px; max-height: 320px; padding: 13px 15px; font-size: 14.5px; line-height: 1.5; }
 
 /* ── Linha do tempo do registro (desenho 1.2.3) ──
    Area cinza com uma linha vertical a esquerda; cada dia abre com uma pilula
@@ -1058,6 +1149,19 @@ span.ps-situacao-pill { cursor: default; }
     transition: box-shadow .2s;
 }
 .ps-registro .ps-anotacao:hover { box-shadow: var(--ps-shadow-reg-hv); }
+/* O ponto do registro sobre a linha vertical (desenho): 13px, borda branca. */
+.ps-registro .ps-anotacao-ponto {
+    position: absolute;
+    left: -29px;
+    top: 14px;
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    box-sizing: border-box;
+    border: 2px solid var(--ps-card);
+    box-shadow: 0 0 0 1px var(--ps-ponto-halo);
+    background: var(--ps-accent);
+}
 /* A seta do cartao aponta para a linha do tempo. */
 .ps-registro .ps-anotacao-seta {
     position: absolute;
@@ -1098,6 +1202,10 @@ span.ps-situacao-pill { cursor: default; }
 .ps-registro .ps-anotacao-icone { font-size: 13px; color: var(--ps-dia-text); margin-top: 4px; transform: scaleX(-1); flex-shrink: 0; }
 .ps-registro .ps-anotacao-texto { flex: 1; min-width: 0; font-size: 14.5px; line-height: 1.6; color: var(--ps-registro-txt); text-wrap: pretty; }
 .ps-anotacao-texto .ql-editor { padding: 0; font-size: inherit; line-height: inherit; }
+/* Editar no lugar (Financeiro e Detalhes): a caixa toma o lugar do texto, ao lado
+   do megafone; os botoes ficam abaixo dela. */
+.ps-registro .ps-anotacao-edicao { flex: 1; min-width: 0; }
+.ps-registro .ps-anotacao-edicao .ps-btn { height: 30px; }
 
 /* Estrutura ANTIGA da anotacao (observacoes do Financeiro, Twig + JS): avatar a
    esquerda, corpo com topo (autor, data, acoes no hover) e texto. Fica como era
@@ -1163,6 +1271,10 @@ span.ps-situacao-pill { cursor: default; }
 .ps-trilho .ps-linha:hover { background: var(--ps-hover-suave); }
 .ps-linha-corpo { min-width: 0; flex: 1; }
 .ps-linha-titulo { font-size: 13.5px; font-weight: 500; line-height: 1.35; text-wrap: pretty; }
+/* O titulo do prazo e texto no desenho; aqui continua link (abre a meta), mas
+   com a cor do texto — so o hover revela o azul. */
+.ps-page .ps-linha-titulo a:not(.btn):not(.ps-btn) { color: inherit; }
+.ps-page .ps-linha-titulo a:not(.btn):not(.ps-btn):hover { color: var(--ps-accent); text-decoration: none; }
 .ps-linha-meta { font-size: 12px; color: var(--ps-label); margin-top: 2px; }
 
 .ps-pip { width: 7px; height: 7px; border-radius: 50%; margin-top: 6px; flex-shrink: 0; }
@@ -1176,33 +1288,41 @@ span.ps-situacao-pill { cursor: default; }
 .ps-selo {
     font-size: 11px;
     font-weight: 600;
-    padding: 2px 8px;
+    padding: 3px 9px;
     border-radius: 999px;
     white-space: nowrap;
     flex-shrink: 0;
 }
-.ps-selo--urgente   { color: var(--ps-danger-text); background: var(--ps-danger-bg); border: 1px solid var(--ps-danger-border); }
-.ps-selo--proximo   { color: var(--ps-warn-text);   background: var(--ps-warn-bg);   border: 1px solid var(--ps-warn-border); }
-.ps-selo--tranquilo { color: var(--ps-cinza-text);  background: var(--ps-div-strong); border: 1px solid var(--ps-border); }
+/* Sem borda: no desenho o selo e so texto sobre a tinta. */
+.ps-selo--urgente   { color: var(--ps-danger-text); background: var(--ps-danger-bg); }
+.ps-selo--proximo   { color: var(--ps-warn-text);   background: var(--ps-warn-bg); }
+.ps-selo--tranquilo { color: var(--ps-cinza-text);  background: var(--ps-div-strong); }
 
+/* Botao pequeno do desenho (28px, fundo azul claro, 12.5/500). */
 .ps-btn-mini {
-    border: 1px solid var(--ps-border-ctl);
-    background: var(--ps-card);
-    color: var(--ps-accent);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 28px;
+    padding: 0 11px;
+    border: none;
+    background: var(--ps-accent-bg);
+    color: var(--ps-chip-text);
     font-family: inherit;
     font-size: 12.5px;
-    font-weight: 600;
-    padding: 4px 11px;
+    font-weight: 500;
     border-radius: 4px;
     cursor: pointer;
     white-space: nowrap;
+    transition: background .18s, color .18s;
 }
-.ps-btn-mini:hover { background: var(--ps-accent-bg); border-color: var(--ps-accent); }
+.ps-btn-mini i { font-size: 11px; }
+.ps-btn-mini:hover { color: var(--ps-accent); }
 
 /* ── Clientes ── */
 .ps-cliente { padding: 11px 17px; border-bottom: 1px solid var(--ps-div-weak); display: flex; gap: 10px; align-items: center; }
 .ps-cliente:last-child { border-bottom: none; }
-.ps-cliente--principal { background: var(--ps-accent-bg); }
+.ps-cliente--principal { background: var(--ps-cli-principal); }
 .ps-cliente-nome {
     font-size: 13.5px;
     font-weight: 500;
@@ -1429,7 +1549,8 @@ span.ps-situacao-pill { cursor: default; }
     background: var(--ps-hover);
 }
 .ps-cab-dados .pasta-resp-chip .resp-avatar { width: 28px !important; height: 28px !important; }
-.ps-cab-dados .pasta-resp-chip .resp-avatar-ini { font-size: 11px; }
+/* Avatar do responsavel no desenho: degrade azul com sombra, iniciais 11/700. */
+.ps-cab-dados .pasta-resp-chip .resp-avatar-ini { font-size: 11px; background: var(--ps-resp-grad); box-shadow: var(--ps-resp-sombra); }
 .ps-cab-dados .pasta-resp-caret { font-size: 11px; color: var(--ps-muted); }
 
 /* ── Lista de clientes no trilho ──
@@ -1475,7 +1596,7 @@ span.ps-situacao-pill { cursor: default; }
 }
 .ps-clientes .cliente-doc-rotulo { font-weight: 600; margin-right: 3px; }
 .ps-clientes .cliente-principal {
-    background: var(--ps-accent-bg);
+    background: var(--ps-cli-principal);
     border-radius: 0;
     padding: 0;
 }
@@ -1504,6 +1625,40 @@ span.ps-situacao-pill { cursor: default; }
     opacity: 1;
     pointer-events: auto;
 }
+/* Avatar com as iniciais (desenho): 28px; o principal usa o azul do sistema. */
+.ps-clientes .cliente-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    font-size: 10px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    background: var(--ps-cli-avatar-bg);
+    color: var(--ps-cli-avatar-tx);
+}
+.ps-clientes .cliente-principal .cliente-avatar { background: var(--ps-accent); color: #fff; }
+/* "Abrir cliente" e a pasta azul-clara sempre visivel (desenho); estrela e
+   desvincular continuam no hover. */
+.ps-clientes .js-cliente-acoes > .cliente-abrir {
+    opacity: 1;
+    pointer-events: auto;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    color: var(--ps-cli-abrir);
+    font-size: 17px;
+    line-height: 1;
+    text-decoration: none;
+    transition: background .25s, color .25s;
+}
+.ps-page .ps-clientes .js-cliente-acoes > a.cliente-abrir:not(.btn):not(.ps-btn) { color: var(--ps-cli-abrir); }
+.ps-page .ps-clientes .js-cliente-acoes > a.cliente-abrir:not(.btn):not(.ps-btn):hover { background: var(--ps-accent-bg); color: var(--ps-accent); text-decoration: none; }
 .ps-clientes .clientes-outros-toggle {
     font-size: 12.5px;
     font-weight: 600;
@@ -1600,7 +1755,7 @@ span.ps-situacao-pill { cursor: default; }
     gap: 6px;
     height: 30px;
     padding: 0 12px;
-    border-radius: 999px;
+    border-radius: 4px;
     font-family: inherit;
     font-size: 12px;
     font-weight: 600;
@@ -1638,7 +1793,7 @@ span.ps-situacao-pill { cursor: default; }
 .ps-coluna { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 
 /* ── Relatório financeiro ── */
-.ps-fin-obs-rolagem { max-height: 390px; overflow-y: auto; overscroll-behavior: contain; }
+.ps-fin-obs-rolagem { max-height: 520px; overflow-y: auto; overscroll-behavior: contain; border-radius: 0 0 4px 4px; }
 .ps-fin-obs-rolagem::-webkit-scrollbar { width: 5px; }
 .ps-fin-obs-rolagem::-webkit-scrollbar-thumb { background: var(--ps-border); border-radius: 3px; }
 
@@ -1679,6 +1834,14 @@ span.ps-situacao-pill { cursor: default; }
 .ps-fin-link:hover { color: var(--ps-accent); }
 .ps-fin-rodape { padding: 12px 17px 15px; border-top: 1px solid var(--ps-div-strong); }
 .ps-fin-btn-largo { width: 100%; justify-content: center; }
+/* No Financeiro os cartoes do trilho tem cabecalho LIMPO (desenho): titulo
+   14/600 e contagem cinza, sem faixa; a lista de arquivos fica emoldurada. */
+#financeiro .ps-trilho .ps-card-cab { min-height: auto; padding: 15px 17px 0; gap: 9px; background: transparent; border-bottom: none; }
+#financeiro .ps-trilho .ps-card-cab h2 { font-size: 14px; font-weight: 600; letter-spacing: 0; }
+#financeiro .ps-trilho .ps-contagem { font-size: 11px; font-weight: 400; color: var(--ps-label); background: transparent; padding: 0; }
+#financeiro .ps-trilho .ps-card-cab-link { margin-right: 0; }
+#financeiro-docs-lista { margin: 12px 17px 0; border: 1px solid var(--ps-div-strong); border-radius: 4px; overflow: hidden; }
+#financeiro-docs-lista .ps-fin-doc:last-child { border-bottom: none; }
 
 /* Switch "reduzir tamanho ao enviar". A nota de apoio abaixo muda com o estado —
    o aviso sobre assinatura digital deixou de ser texto cinza permanente. */
@@ -1773,66 +1936,89 @@ span.ps-situacao-pill { cursor: default; }
 
 /* O selo verde faltava na paleta: os três tons de `.ps-selo` cobriam prazo
    (urgente/próximo/tranquilo), e pagamento tem um quarto estado — pago. */
-.ps-selo--ok { color: var(--ps-ok-text); background: var(--ps-ok-bg); border: 1px solid var(--ps-ok-border); }
+.ps-selo--ok { color: var(--ps-ok-text); background: var(--ps-ok-bg); }
 
-/* ── Aba Push Processual ─────────────────────────────────────────────────────
-   Lista de publicações do caso, cada uma abrindo o teor no lugar. A data ocupa
-   uma faixa de largura FIXA: com `auto` cada linha mede a sua e as datas saem
-   desalinhadas entre si — foi o mesmo defeito da grade de colunas da Cobrança.
-   Nenhum seletor de elemento solto (`a`, `button`): regra genérica de folha nova
-   já pintou botão-âncora de azul duas vezes neste projeto. */
-.ps-push-lista { list-style: none; margin: 0; padding: 0; }
-.ps-push-item + .ps-push-item { border-top: 1px solid var(--ps-div-weak); }
-
-.ps-push-cab {
-    width: 100%;
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-    padding: 12px 16px;
-    background: none;
-    border: 0;
-    text-align: left;
-    font: inherit;
-    color: var(--ps-body);
-    cursor: pointer;
-}
-.ps-push-cab:hover { background: var(--ps-hover); }
-.ps-push-data {
-    flex: 0 0 76px;
+/* ── Aba Push Processual (desenho 1.2.3) ─────────────────────────────────────
+   Linha do tempo: a lista e a area cinza, cada publicacao e um cartao branco
+   pendurado na linha, com a pilula do dia quando a data muda. O `.ps-push-cab`
+   continua sendo o BOTAO que abre o teor (pasta-show.js: `aria-controls` +
+   `data-push-url`) — so a roupa mudou. Nenhum seletor de elemento solto (`a`,
+   `button`): regra generica de folha nova ja pintou botao-ancora de azul duas
+   vezes neste projeto. */
+.ps-push-lista { list-style: none; margin: 0; padding: 2px 0 14px; background: var(--ps-push-bg); }
+.ps-push-item { position: relative; padding: 0 14px 0 44px; }
+.ps-push-item::before { content: ''; position: absolute; left: 21px; top: 0; bottom: 0; width: 2px; background: var(--ps-push-linha); }
+.ps-push-dia { position: relative; display: flex; justify-content: center; padding: 14px 0 2px; }
+.ps-push-dia-pilula {
     font-size: 12.5px;
-    color: var(--ps-label);
-    padding-top: 1px;
+    font-weight: 700;
+    color: var(--ps-push-dia-tx);
+    background: var(--ps-push-dia-bg);
+    padding: 5px 15px;
+    border-radius: 999px;
     font-variant-numeric: tabular-nums;
 }
-.ps-push-corpo { flex: 1 1 auto; min-width: 0; }
-.ps-push-meta {
-    display: block;
-    font-size: 12px;
-    color: var(--ps-muted);
-    margin-top: 2px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-.ps-push-pip {
-    flex: 0 0 auto;
-    width: 7px;
-    height: 7px;
-    margin-top: 6px;
+.ps-push-ponto {
+    position: absolute;
+    left: 16px;
+    top: 25px;
+    width: 12px;
+    height: 12px;
     border-radius: 50%;
     background: var(--ps-accent);
+    box-shadow: 0 0 0 3px var(--ps-push-bg);
+    z-index: 1;
 }
-.ps-push-seta {
-    flex: 0 0 auto;
-    color: var(--ps-faint);
-    font-size: 12px;
-    margin-top: 2px;
-    transition: transform .18s var(--ps-ease);
+.ps-push-item--nova .ps-push-ponto { background: var(--ps-ok-dot); }
+.ps-push-cab {
+    position: relative;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 10px;
+    padding: 12px 14px;
+    background: var(--ps-card);
+    border: 0;
+    border-radius: 4px;
+    box-shadow: var(--ps-shadow-reg);
+    text-align: left;
+    font: inherit;
+    color: var(--ps-push-txt);
+    cursor: pointer;
+    transition: box-shadow .2s;
 }
+.ps-push-cab::before {
+    content: '';
+    position: absolute;
+    left: -8px;
+    top: 15px;
+    border-style: solid;
+    border-width: 8px 8px 8px 0;
+    border-color: transparent var(--ps-card) transparent transparent;
+}
+.ps-push-cab:hover { box-shadow: var(--ps-shadow-reg-hv); }
+.ps-push-assunto { display: flex; align-items: flex-start; gap: 9px; }
+.ps-push-assunto > i { font-size: 14px; color: var(--ps-push-txt); margin-top: 2px; flex-shrink: 0; transform: scaleX(-1); }
+.ps-push-assunto-txt { flex: 1; min-width: 0; font-size: 13.5px; line-height: 1.55; text-transform: uppercase; overflow-wrap: anywhere; }
+.ps-push-novo {
+    flex-shrink: 0;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--ps-accent);
+    background: var(--ps-accent-bg);
+    padding: 2px 7px;
+    border-radius: 999px;
+}
+.ps-push-corpo { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
+.ps-push-meta { font-size: 11px; color: var(--ps-label); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ps-push-hora { margin-left: auto; font-size: 11.5px; color: var(--ps-push-hora); font-variant-numeric: tabular-nums; }
+.ps-push-seta { flex: 0 0 auto; color: var(--ps-faint); font-size: 12px; transition: transform .18s var(--ps-ease); }
 .ps-push-cab[aria-expanded="true"] .ps-push-seta { transform: rotate(180deg); }
 
-.ps-push-teor { padding: 0 16px 14px 104px; }
+.ps-push-teor { margin: 6px 0 0; padding: 12px 14px; background: var(--ps-card); border-radius: 4px; box-shadow: var(--ps-shadow-reg); }
 .ps-push-teor-corpo { font-size: 13px; color: var(--ps-body); }
 .ps-push-sem-teor { color: var(--ps-muted); margin: 0; }
 .ps-push-teor-pe {
@@ -1884,7 +2070,7 @@ span.ps-situacao-pill { cursor: default; }
 .ps-btn--perigo:hover,
 .ps-btn--perigo:focus-visible { background: var(--ps-danger-hover); color: var(--ps-danger-text); }
 .ps-card-cab--painel .ps-btn { height: 32px; }
-.ps-card-cab--painel .ps-btn.ps-btn--alto { height: 36px; font-weight: 700; }
+.ps-card-cab--painel .ps-btn.ps-btn--alto { height: 36px; padding: 0 16px; font-weight: 700; }
 .ps-card-cab--painel .ps-contagem { font-size: 11px; }
 
 /* Cabecalho na faixa do trilho, mas fora do trilho (Push). */
@@ -1898,7 +2084,7 @@ span.ps-situacao-pill { cursor: default; }
 
 /* ── Aba Processo: linha do tempo com um cartao por processo ── */
 .ps-processos { overflow: hidden; }
-.ps-processos-lista { padding-bottom: 12px; }
+.ps-processos-lista { padding-bottom: 12px; border-bottom: 1px solid var(--ps-cab-border); }
 .ps-processo { padding: 16px 18px; }
 .ps-processo-ponto {
     position: absolute;
@@ -1938,7 +2124,28 @@ span.ps-situacao-pill { cursor: default; }
 .ps-processo-sit-ponto { width: 8px; height: 8px; border-radius: 50%; background: var(--ps-faint); flex-shrink: 0; }
 /* Em andamento: verde, como no desenho; o resto (baixado, arquivado, sem dado) fica cinza. */
 .ps-processo-situacao--ativa { font-weight: 600; color: var(--ps-ok-text); }
-.ps-processo-situacao--ativa .ps-processo-sit-ponto { background: var(--ps-ok-dot); box-shadow: 0 0 0 3px var(--ps-ok-halo); }
+.ps-processo-situacao--ativa .ps-processo-sit-ponto { position: relative; background: var(--ps-ok-dot); box-shadow: 0 0 0 3px var(--ps-ok-halo); }
+/* As mesmas ondas da pilula de situacao (desenho). */
+.ps-processo-situacao--ativa .ps-processo-sit-ponto::before,
+.ps-processo-situacao--ativa .ps-processo-sit-ponto::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: var(--ps-ok-dot);
+    animation: psSitOnda 2.4s cubic-bezier(.2,.6,.35,1) infinite;
+}
+.ps-processo-situacao--ativa .ps-processo-sit-ponto::after { animation-delay: 1.2s; }
+@media (prefers-reduced-motion: reduce) {
+    .ps-processo-situacao--ativa .ps-processo-sit-ponto::before,
+    .ps-processo-situacao--ativa .ps-processo-sit-ponto::after { animation: none; display: none; }
+}
+/* Copiar numero: cinza no repouso, azul no hover (desenho). */
+.ps-processos .ps-copiar { color: var(--ps-faint); transition: color .18s; }
+.ps-processos .ps-copiar:hover { color: var(--ps-accent); }
+/* Nota de rodape do desenho: o que e o processo principal. */
+.ps-processos-nota { padding: 14px 20px; display: flex; align-items: center; gap: 9px; font-size: 12.5px; color: var(--ps-muted); }
+.ps-processos-nota i { font-size: 13px; opacity: .75; flex-shrink: 0; }
 
 /* ── Aba Metas: lista sobre fundo cinza, borda colorida pelo estado ── */
 .ps-metas { overflow: hidden; }
@@ -1984,17 +2191,60 @@ span.ps-situacao-pill { cursor: default; }
 .ps-meta--concluida .ps-meta-status { color: var(--ps-ok-text); background: var(--ps-ok-bg); }
 .ps-meta--atrasada  .ps-meta-status { color: var(--ps-danger-text); background: var(--ps-danger-bg); }
 .ps-meta-datas { font-size: 11px; color: var(--ps-faint); }
+
+/* Trilho da aba Metas (desenho): andamento, o que precisa de atencao e quem
+   responde pelas metas. Tudo vem de `PastaMetasResumoOutput`. */
+.ps-metas-andamento, .ps-metas-pessoas, .ps-como-usar { padding: 16px 17px; }
+.ps-metas-andamento h2, .ps-metas-pessoas h2, .ps-como-usar h2, .ps-registro-pasta h2 { margin: 0; font-size: 13.5px; font-weight: 600; }
+.ps-metas-andamento h2 { margin-bottom: 13px; }
+.ps-metas-progresso { display: flex; align-items: baseline; gap: 8px; }
+.ps-metas-progresso-num { font-size: 26px; font-weight: 500; letter-spacing: -.01em; }
+.ps-metas-progresso-rot { font-size: 13px; color: var(--ps-muted); }
+.ps-metas-barra { height: 7px; border-radius: 999px; background: var(--ps-div-strong); margin-top: 12px; overflow: hidden; }
+.ps-metas-barra-cheia { height: 100%; border-radius: 999px; background: var(--ps-ok-dot); transition: width .6s var(--ps-ease); }
+.ps-metas-legenda { display: flex; gap: 16px; margin-top: 14px; flex-wrap: wrap; }
+.ps-metas-legenda > span { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--ps-text-2); }
+.ps-metas-ponto { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+.ps-metas-ponto--ok     { background: var(--ps-ok-dot); }
+.ps-metas-ponto--pend   { background: var(--ps-warn-dot); }
+.ps-metas-ponto--atraso { background: var(--ps-danger-dot); }
+.ps-metas-atencao .ps-card-cab--painel { padding: 14px 17px; }
+.ps-metas-atencao .ps-card-cab--painel h2 { font-size: 13.5px; }
+.ps-metas-atencao-item { padding: 13px 17px; border-bottom: 1px solid var(--ps-div-weak); display: flex; gap: 11px; align-items: flex-start; }
+.ps-metas-atencao-item > i { font-size: 13px; color: var(--ps-danger-dot); margin-top: 2px; flex-shrink: 0; }
+.ps-metas-atencao-titulo { font-size: 13.5px; font-weight: 500; line-height: 1.35; text-wrap: pretty; }
+.ps-page .ps-metas-atencao-titulo a:not(.btn):not(.ps-btn) { color: inherit; }
+.ps-page .ps-metas-atencao-titulo a:not(.btn):not(.ps-btn):hover { color: var(--ps-accent); text-decoration: none; }
+.ps-metas-atencao-meta { font-size: 12px; color: var(--ps-atencao-meta); margin-top: 2px; }
+.ps-metas-atencao-nota { padding: 12px 17px; font-size: 12.5px; color: var(--ps-muted); }
+.ps-metas-pessoas h2 { margin-bottom: 11px; }
+.ps-metas-pessoas-lista { display: flex; flex-direction: column; gap: 10px; }
+.ps-metas-pessoa { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.ps-avatar--27 { width: 27px; height: 27px; font-size: 10px; }
+.ps-avatar--neutro { background: var(--ps-cli-avatar-bg); color: var(--ps-cli-avatar-tx); font-weight: 600; }
+.ps-metas-pessoa-nome { font-size: 13.5px; font-weight: 500; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ps-metas-pessoa-n { font-size: 11.5px; color: var(--ps-muted); }
+.ps-metas-pessoas-vazio { font-size: 12.5px; color: var(--ps-muted); }
 @media (prefers-reduced-motion: reduce) {
     .ps-meta:hover { transform: none; }
 }
 
 /* ── Aba Detalhes: fatos da pasta + relatorio inicial ── */
-.ps-fatos { margin-bottom: 18px; }
-.ps-fatos .ps-cab-dados { margin-bottom: 0; }
 .ps-detalhes-obs { overflow: hidden; }
 .ps-compositor-rodape--solto { margin-top: 8px; border-top: none; background: transparent; padding: 0; }
-.ps-detalhes-lista { padding: 10px 12px 12px; background: var(--ps-div-strong); }
-.ps-detalhes-rolagem { max-height: 400px; overflow-y: auto; padding: 2px; }
+.ps-detalhes-rolagem { max-height: 520px; overflow-y: auto; overscroll-behavior: contain; border-radius: 0 0 4px 4px; }
+/* Trilho da aba Detalhes (desenho): "Registro da pasta" e "Como usar esta aba". */
+.ps-registro-pasta { padding: 17px; }
+.ps-registro-pasta h2 { margin-bottom: 14px; }
+.ps-registro-pasta-campos { display: flex; flex-direction: column; gap: 14px; }
+.ps-registro-pasta-valor { font-size: 14.5px; font-weight: 500; }
+.ps-registro-pasta-pessoa { display: flex; align-items: center; gap: 8px; }
+.ps-registro-pasta-div { height: 1px; background: var(--ps-div-strong); margin: 16px 0 14px; }
+.ps-registro-pasta .ps-btn { height: 32px; gap: 8px; }
+.ps-btn--largo { width: 100%; justify-content: center; }
+.ps-como-usar h2 { margin-bottom: 11px; }
+.ps-como-usar p { margin: 0; font-size: 13px; line-height: 1.6; color: var(--ps-text-3); text-wrap: pretty; }
+.ps-como-usar strong { color: var(--ps-forte-2); font-weight: 600; }
 .ps-detalhes-rolagem::-webkit-scrollbar { width: 5px; }
 .ps-detalhes-rolagem::-webkit-scrollbar-thumb { background: var(--ps-border); border-radius: 3px; }
 

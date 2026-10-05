@@ -37,8 +37,6 @@
     <div class="ps-card-cab ps-card-cab--painel">
         <h2>Registro dos expedientes</h2>
         <span class="ps-contagem" id="timeline-count" title="Registros">{{ anotacoes|length }}</span>
-        <span class="ps-cab-espaco"></span>
-        <span class="ps-anotacoes-dica">Ctrl + Enter envia</span>
     </div>
 
     {# ── Compositor ── #}
@@ -56,7 +54,7 @@
                 <div class="ps-compositor-rodape">
                     <span class="ps-compositor-nota">Visível para a equipe</span>
                     <span class="ps-cab-espaco"></span>
-                    <button type="submit" class="ps-btn ps-btn--primario" id="btnEnviarMensagem">Enviar</button>
+                    <button type="submit" class="ps-btn ps-btn--primario" id="btnEnviarMensagem" title="Enviar (Ctrl+Enter)">Enviar</button>
                 </div>
             </div>
         </form>
@@ -98,6 +96,7 @@
 
                 <article class="ps-anotacao{{ extra ? ' ps-anotacao--extra d-none' : '' }}"
                          {% if item.mensagemId %}id="pasta-msg-{{ item.mensagemId }}"{% endif %}>
+                    <span class="ps-anotacao-ponto" aria-hidden="true"></span>
                     <span class="ps-anotacao-seta" aria-hidden="true"></span>
                     <div class="ps-anotacao-topo">
                         <span class="ps-avatar ps-avatar--24">{% if foto %}<img src="{{ foto }}" alt="">{% else %}{{ iniciais }}{% endif %}</span>

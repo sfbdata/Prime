@@ -637,16 +637,16 @@ final class PastaDadosArranjoTelaTest extends JusPrimeWebTestCase
 
         // Ordem: a mais próxima primeiro.
         self::assertStringContainsString('Protocolar contestação', $linhas->eq(0)->text());
-        self::assertSame('1 dia', trim($linhas->eq(0)->filter('.ps-selo')->text()));
+        self::assertSame('Falta 1 dia', trim($linhas->eq(0)->filter('.ps-selo')->text()));
         self::assertStringContainsString(
             'ps-selo--urgente',
             (string) $linhas->eq(0)->filter('.ps-selo')->attr('class'),
-            'até 2 dias é vermelho'
+            'até 3 dias é vermelho'
         );
         self::assertStringContainsString(
             'ps-selo--tranquilo',
             (string) $linhas->eq(1)->filter('.ps-selo')->attr('class'),
-            'acima de 8 dias é cinza — prazo distante não é "bom", só não é urgente'
+            'acima de 7 dias é cinza — prazo distante não é "bom", só não é urgente'
         );
 
         // Com metas, a aba Metas passa a exibir a contagem.

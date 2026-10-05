@@ -42,7 +42,7 @@ final class PastaPrazoOutputTest extends TestCase
         return $tarefa;
     }
 
-    #[TestDox('as faixas do desenho: vermelho até 2 dias, âmbar até 8, cinza acima')]
+    #[TestDox('as faixas do desenho: vermelho até 3 dias, âmbar até 7, cinza acima')]
     #[DataProvider('faixasDeTom')]
     public function testTomSegueAsFaixasDoDesenho(string $prazo, string $tomEsperado): void
     {
@@ -56,10 +56,10 @@ final class PastaPrazoOutputTest extends TestCase
     {
         yield 'atrasada'          => ['-3 days', PastaPrazoOutput::TOM_URGENTE];
         yield 'vence hoje'        => ['today',   PastaPrazoOutput::TOM_URGENTE];
-        yield 'limite do urgente' => ['+2 days', PastaPrazoOutput::TOM_URGENTE];
-        yield 'primeiro âmbar'    => ['+3 days', PastaPrazoOutput::TOM_PROXIMO];
-        yield 'limite do âmbar'   => ['+8 days', PastaPrazoOutput::TOM_PROXIMO];
-        yield 'primeiro cinza'    => ['+9 days', PastaPrazoOutput::TOM_TRANQUILO];
+        yield 'limite do urgente' => ['+3 days', PastaPrazoOutput::TOM_URGENTE];
+        yield 'primeiro âmbar'    => ['+4 days', PastaPrazoOutput::TOM_PROXIMO];
+        yield 'limite do âmbar'   => ['+7 days', PastaPrazoOutput::TOM_PROXIMO];
+        yield 'primeiro cinza'    => ['+8 days', PastaPrazoOutput::TOM_TRANQUILO];
     }
 
     #[TestDox('o selo diz em português quantos dias faltam — ou quantos já passaram')]
@@ -72,11 +72,11 @@ final class PastaPrazoOutputTest extends TestCase
     /** @return iterable<string, array{0: string, 1: string}> */
     public static function textosDoSelo(): iterable
     {
-        yield 'hoje'            => ['today',    'hoje'];
-        yield 'singular'        => ['+1 day',   '1 dia'];
-        yield 'plural'          => ['+5 days',  '5 dias'];
-        yield 'atraso singular' => ['-1 day',   '1 dia em atraso'];
-        yield 'atraso plural'   => ['-4 days',  '4 dias em atraso'];
+        yield 'hoje'            => ['today',    'Vence hoje'];
+        yield 'singular'        => ['+1 day',   'Falta 1 dia'];
+        yield 'plural'          => ['+5 days',  'Faltam 5 dias'];
+        yield 'atraso singular' => ['-1 day',   'Vencido há 1 dia'];
+        yield 'atraso plural'   => ['-4 days',  'Vencido há 4 dias'];
     }
 
     #[TestDox('vencer HOJE não conta como atraso, mesmo com o prazo gravado à meia-noite')]
@@ -87,7 +87,7 @@ final class PastaPrazoOutputTest extends TestCase
            defeito que só aparece depois do primeiro minuto do dia. */
         $saida = PastaPrazoOutput::deTarefa($this->tarefa('Meta', 'today 00:00'));
 
-        self::assertSame('hoje', $saida->selo);
+        self::assertSame('Vence hoje', $saida->selo);
         self::assertSame(PastaPrazoOutput::TOM_URGENTE, $saida->tom);
     }
 

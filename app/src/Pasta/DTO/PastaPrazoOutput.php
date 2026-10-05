@@ -26,7 +26,7 @@ final readonly class PastaPrazoOutput
         public string $titulo,
         /** "Jéssica Martins · 28/08" — responsável e dia, como no desenho. */
         public string $meta,
-        /** "2 dias", "hoje", "3 dias em atraso". */
+        /** "Faltam 2 dias", "Vence hoje", "Vencido há 3 dias" (textos do desenho 1.2.3). */
         public string $selo,
         /** urgente | proximo | tranquilo — decide a cor do pip e do selo. */
         public string $tom,
@@ -112,27 +112,27 @@ final readonly class PastaPrazoOutput
         if ($dias < 0) {
             $atraso = abs($dias);
 
-            return $atraso === 1 ? '1 dia em atraso' : $atraso . ' dias em atraso';
+            return $atraso === 1 ? 'Vencido há 1 dia' : 'Vencido há ' . $atraso . ' dias';
         }
 
         if ($dias === 0) {
-            return 'hoje';
+            return 'Vence hoje';
         }
 
-        return $dias === 1 ? '1 dia' : $dias . ' dias';
+        return $dias === 1 ? 'Falta 1 dia' : 'Faltam ' . $dias . ' dias';
     }
 
     /**
-     * Faixas do desenho: vermelho até 2 dias, âmbar até 8, cinza acima.
+     * Faixas do desenho 1.2.3: vermelho até 3 dias, âmbar até 7, cinza acima.
      * Atrasado cai no vermelho por ser o caso mais grave dos três.
      */
     private static function tomDosDias(int $dias): string
     {
-        if ($dias <= 2) {
+        if ($dias <= 3) {
             return self::TOM_URGENTE;
         }
 
-        if ($dias <= 8) {
+        if ($dias <= 7) {
             return self::TOM_PROXIMO;
         }
 

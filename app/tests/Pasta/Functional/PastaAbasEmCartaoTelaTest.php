@@ -132,7 +132,7 @@ final class PastaAbasEmCartaoTelaTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $user, $tenant);
         $crawler = $this->abrir($client, $pasta);
 
-        $cartao = $crawler->filter('#tarefas > .ps-metas');
+        $cartao = $crawler->filter('#tarefas > .ps-grade > .ps-metas');
         self::assertCount(1, $cartao);
         self::assertSame('Metas da pasta', trim($cartao->filter('.ps-metas > .ps-card-cab--painel > h2')->text()));
         self::assertSame('3', trim($cartao->filter('.ps-card-cab--painel > .ps-contagem')->text()));
@@ -224,7 +224,7 @@ final class PastaAbasEmCartaoTelaTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $user, $tenant);
         $crawler = $this->abrir($client, $pasta);
 
-        self::assertCount(1, $crawler->filter('#tarefas > .ps-metas > .ps-vazio'));
+        self::assertCount(1, $crawler->filter('#tarefas > .ps-grade > .ps-metas > .ps-vazio'));
         self::assertCount(0, $crawler->filter('#tarefas .ps-metas-lista'));
     }
 
@@ -242,12 +242,18 @@ final class PastaAbasEmCartaoTelaTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $user, $tenant);
         $crawler = $this->abrir($client, $pasta);
 
-        self::assertCount(3, $crawler->filter('#detalhes > .ps-fatos > .ps-cab-dados > .ps-cab-dado'), 'Criado em · Modificado em · Criado por');
-        $painel = $crawler->filter('#detalhes > .ps-detalhes-obs');
-        self::assertCount(1, $painel);
+        $painel = $crawler->filter('#detalhes > .ps-grade > .ps-detalhes-obs');
+        self::assertCount(1, $painel, 'o relatório ocupa a coluna central da grade do desenho');
         self::assertSame('Relatório inicial de Atendimento', trim($painel->filter('.ps-detalhes-obs > .ps-card-cab--painel > h2')->text()));
         self::assertCount(1, $painel->filter('.ps-detalhes-obs > .ps-compositor > #formDetalhesObservacao'));
-        self::assertCount(1, $painel->filter('#detalhesObsLista'));
+        self::assertCount(1, $painel->filter('.ps-detalhes-obs > #detalhesObsLista.ps-registro'), 'as observações viram linha do tempo');
+
+        $trilho = $crawler->filter('#detalhes > .ps-grade > .ps-trilho');
+        $registro = $trilho->filter('.ps-trilho > .ps-registro-pasta');
+        self::assertSame('Registro da pasta', trim($registro->filter('h2')->text()));
+        self::assertSame(['Criada em', 'Modificada em', 'Criada por'], $registro->filter('.ps-registro-pasta-campos .ps-rotulo')->each(static fn ($n) => trim($n->text())));
+        self::assertCount(1, $registro->filter('button[data-ps-historico]'), '"Ver histórico do sistema" abre o drawer que já existe');
+        self::assertCount(1, $trilho->filter('.ps-trilho > .ps-como-usar'));
         self::assertCount(0, $crawler->filter('#detalhes .card-header'), 'nenhum .card-header novo (clearfix do AdminLTE)');
     }
 

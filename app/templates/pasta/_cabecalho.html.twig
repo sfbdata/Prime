@@ -37,6 +37,8 @@
 
             <span class="ps-cab-nup">PASTA <span class="ps-num">{{ pasta.nup }}</span></span>
 
+            {# Divisoria · prioridade · divisoria · etiquetas · "+": o grupo do desenho. #}
+            <div class="ps-cab-etiquetas">
             <div class="ps-cab-sep"></div>
 
             <div class="ps-pop-wrap">
@@ -66,7 +68,9 @@
             <div class="ps-cab-sep"></div>
 
             {% for marcador in pasta.marcadores %}
-                <button type="button" class="ps-etiqueta js-etiqueta-abrir" title="Editar marcadores da pasta">
+                {# A cor cadastrada do marcador tinge o chip (desenho); sem cor, cinza neutro. #}
+                <button type="button" class="ps-etiqueta js-etiqueta-abrir{{ marcador.cor ? ' ps-etiqueta--cor' : '' }}"
+                        title="Editar marcadores da pasta"{% if marcador.cor %} style="--etq: {{ marcador.cor|e('html_attr') }}"{% endif %}>
                     <i class="bi bi-tag-fill"></i>{{ marcador.nome }}
                 </button>
             {% endfor %}
@@ -81,6 +85,7 @@
                     data-csrf-token="{{ csrf_token('pasta_marcadores_' ~ pasta.id) }}">
                 <i class="bi bi-plus"></i>
             </button>
+            </div>
         </div>
 
         {# ── Navegar entre pastas ─────────────────────────────────────────────
@@ -302,7 +307,7 @@
                 {% endif %}
             {% else %}
                 <p class="ps-dado ps-dado--vazio">Nenhum processo.
-                    <button type="button" class="ps-link-btn" data-bs-toggle="modal" data-bs-target="#modalVincularProcesso">vincular</button>
+                    <button type="button" class="ps-link-btn ps-link-btn--vincular" data-bs-toggle="modal" data-bs-target="#modalVincularProcesso">vincular</button>
                 </p>
             {% endif %}
         </div>
@@ -312,7 +317,7 @@
             {%- if pasta.nomeAcao -%}
                 <p class="ps-dado ps-dado--forte">{{ pasta.nomeAcao }}</p>
             {%- elseif proc and (proc.classeProcessual or proc.assuntoProcessual) -%}
-                <p class="ps-dado ps-dado--medio" title="Extraído do processo vinculado">{{ proc.classeProcessual ?: proc.assuntoProcessual }}</p>
+                <p class="ps-dado ps-dado--forte" title="Extraído do processo vinculado">{{ proc.classeProcessual ?: proc.assuntoProcessual }}</p>
             {%- elseif proc -%}
                 <p class="ps-dado ps-dado--vazio">Não informada</p>
             {%- else -%}

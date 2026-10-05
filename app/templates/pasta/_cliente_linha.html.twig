@@ -6,13 +6,16 @@
 
    Parametros: pasta, cliente, ehPrincipal (bool). #}
 {% set doc = cliente.cpf is defined ? cliente.cpf : (cliente.cnpj is defined ? cliente.cnpj : null) %}
+{# Iniciais das DUAS primeiras palavras, como o desenho (e como o JS do show). #}
+{% set partesNome = cliente.nomeExibicao|trim|split(' ')|filter(p => p is not empty) %}
+{% set iniciais = partesNome|slice(0, 2)|map(p => p|slice(0, 1))|join('')|upper %}
 <div class="cliente-linha d-flex align-items-center gap-2 py-2"
      data-cliente-id="{{ cliente.id }}"
      {# O token vai na LINHA, nao so no form: quando a estrela cheia (que nao tem
         form) precisa voltar a ser botao, o JS nao teria de onde tira-lo. #}
      data-token-principal="{{ csrf_token('pasta_cliente_principal_' ~ pasta.id ~ '_' ~ cliente.id) }}">
 
-    <i class="bi bi-person-circle text-muted flex-shrink-0"></i>
+    <span class="cliente-avatar" aria-hidden="true">{{ iniciais ?: '?' }}</span>
 
     <div class="cliente-identidade flex-grow-1">
         {# O nome vai num <span> proprio, e nao solto: e ELE que trunca com
@@ -49,9 +52,9 @@
         {% endif %}
 
         <a href="{{ path('cliente_show', {id: cliente.id}) }}"
-           class="btn btn-xs btn-outline-secondary"
-           title="Abrir ficha do cliente (documentos e anexos ficam lá)">
-            <i class="bi bi-box-arrow-up-right"></i>
+           class="cliente-abrir"
+           title="Abrir ficha do cliente (documentos e anexos ficam lá)" aria-label="Abrir cliente {{ cliente.nomeExibicao|e('html_attr') }}">
+            <i class="bi bi-folder-fill"></i>
         </a>
 
         <form method="post" action="{{ path('pasta_cliente_desvincular', {id: pasta.id, cliente: cliente.id}) }}" class="js-ajax-desvincular-cliente m-0">

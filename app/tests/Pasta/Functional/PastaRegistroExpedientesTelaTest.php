@@ -71,7 +71,8 @@ final class PastaRegistroExpedientesTelaTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $user, $tenant);
         $crawler = $this->abrir($client, $pasta);
 
-        $painel = $crawler->filter('.ps-grade > .ps-anotacoes');
+        // `#dados`: o Financeiro e os Detalhes também têm um painel `.ps-anotacoes` na própria grade.
+        $painel = $crawler->filter('#dados > .ps-grade > .ps-anotacoes');
         self::assertCount(1, $painel, 'o painel é filho direto da grade da aba Dados');
         self::assertSame('Registro dos expedientes', trim($painel->filter('.ps-anotacoes > .ps-card-cab--painel > h2')->text()));
         self::assertSame('0', trim($painel->filter('#timeline-count')->text()));

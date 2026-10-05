@@ -76,9 +76,7 @@
 
                 const vazioMsg = document.getElementById('financeiroObsVazio');
                 if (vazioMsg) { vazioMsg.remove(); }
-                // Mais recente PRIMEIRO (mesma ordem do servidor).
-                obsLista.prepend(criarItemObs(data));
-                obsLista.scrollTop = 0;
+                inserirItemObs(data);
                 atualizarContagem();
                 // Limpa o editor (fonte da textarea); sem isso o texto enviado ficaria na tela.
                 if (window.EditorRico) { EditorRico.limpar(obsConteudo); } else { obsConteudo.value = ''; }
@@ -91,24 +89,35 @@
         });
     }
 
-    function criarItemObs(data) {
-        const art = document.createElement('article');
-        art.className = 'ps-anotacao';
-        art.id = 'financeiro-obs-' + data.id;
-
+    /* Mais recente PRIMEIRO (mesma ordem do servidor). A pílula do dia só entra se a
+       primeira do topo não for a de hoje — a chave do dia é a do servidor (`data-hoje`).
+       MESMA estrutura que o _financeiro.html.twig gera: se divergirem, o registro
+       recém-enviado aparece com outra cara. */
+    const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+    function inserirItemObs(data) {
         const urlEditar  = '{{ path("pasta_financeiro_observacao_editar", {id: pasta.id, obsId: 0})|replace({"/0/": "/__ID__/"}) }}'.replace('__ID__', data.id);
         const urlExcluir = '{{ path("pasta_financeiro_observacao_excluir", {id: pasta.id, obsId: 0})|replace({"/0/": "/__ID__/"}) }}'.replace('__ID__', data.id);
+        const hoje       = obsLista.dataset.hoje || '';
+        const agora      = new Date();
+        const topoDia    = obsLista.querySelector('.ps-dia');
+        const pilula     = (!topoDia || topoDia.dataset.dia !== hoje)
+            ? `<div class="ps-dia" data-dia="${esc(hoje)}"><span class="ps-dia-pilula">${agora.getDate()} ${MESES[agora.getMonth()]} ${agora.getFullYear()}</span></div>`
+            : '';
+        const criadaEm = String(data.criadaEm ?? '');
+        const hora     = criadaEm.split(' ').pop();
 
-        art.innerHTML = `
-            <span class="ps-avatar ps-avatar--30">${esc(iniciaisDe(data.autorNome))}</span>
-            <div class="ps-anotacao-corpo">
+        const html = pilula + `
+            <article class="ps-anotacao" id="financeiro-obs-${data.id}">
+                <span class="ps-anotacao-ponto" aria-hidden="true"></span>
+                <span class="ps-anotacao-seta" aria-hidden="true"></span>
                 <div class="ps-anotacao-topo">
+                    <span class="ps-avatar ps-avatar--24">${esc(iniciaisDe(data.autorNome))}</span>
                     <span class="ps-anotacao-autor">${esc(data.autorNome)}</span>
-                    <span class="ps-anotacao-data">${esc(data.criadaEm)}</span>
+                    <span class="ps-cab-espaco"></span>
                     <span class="ps-anotacao-acoes">
                         <button type="button"
                                 class="ps-anotacao-acao btn-editar-obs"
-                                title="Editar registro"
+                                title="Editar registro" aria-label="Editar registro"
                                 data-obs-id="${data.id}"
                                 data-conteudo="${esc(data.conteudo)}"
                                 data-conteudo-html="${esc(data.conteudoHtml ?? '')}"
@@ -118,24 +127,28 @@
                         </button>
                         <button type="button"
                                 class="ps-anotacao-acao ps-anotacao-acao--perigo btn-excluir-obs"
-                                title="Excluir registro"
+                                title="Excluir registro" aria-label="Excluir registro"
                                 data-obs-id="${data.id}"
                                 data-csrf="${esc(data.csrfExcluir)}"
                                 data-url="${esc(urlExcluir)}">
                             <i class="bi bi-trash3"></i>
                         </button>
                     </span>
+                    <span class="ps-anotacao-data ps-num" title="${esc(criadaEm)}">${esc(hora)}</span>
                 </div>
-                <div class="ps-anotacao-texto obs-conteudo">
-                    <span class="editor-rico-conteudo"><span class="ql-editor"></span></span>
+                <div class="ps-anotacao-corpo">
+                    <i class="bi bi-megaphone-fill ps-anotacao-icone" aria-hidden="true"></i>
+                    <div class="ps-anotacao-texto obs-conteudo"><span class="editor-rico-conteudo"><span class="ql-editor"></span></span></div>
                 </div>
-            </div>`;
+            </article>`;
 
+        obsLista.classList.remove('ps-registro--vazio');
+        obsLista.insertAdjacentHTML('afterbegin', html);
         // `conteudoHtml` vem SANITIZADO do servidor, então entra como HTML (é o que mostra a
         // formatação). Os demais campos continuam escapados via esc() no template acima.
-        art.querySelector('.ql-editor').innerHTML = data.conteudoHtml ?? '';
-
-        return art;
+        const novo = document.getElementById('financeiro-obs-' + data.id);
+        if (novo) { novo.querySelector('.ql-editor').innerHTML = data.conteudoHtml ?? ''; }
+        obsLista.scrollTop = 0;
     }
 
     // ── Editar / Excluir ─────────────────────────────────────────────────────
@@ -167,7 +180,7 @@
                     interno.innerHTML = html ?? '';   // sempre sanitizado no servidor
                     externo.appendChild(interno);
                     div.appendChild(externo);
-                    textarea.replaceWith(div);
+                    caixa.replaceWith(div);
                 }
 
                 const btnConfirmar = document.createElement('button');
@@ -185,8 +198,12 @@
                 acoesBtns.appendChild(btnConfirmar);
                 acoesBtns.appendChild(btnCancelar);
 
-                conteudoDiv.replaceWith(textarea);
-                textarea.after(acoesBtns);
+                // A edição ocupa o lugar do texto, dentro do cartão (ao lado do megafone).
+                const caixa = document.createElement('div');
+                caixa.className = 'ps-anotacao-texto ps-anotacao-edicao';
+                caixa.appendChild(textarea);
+                caixa.appendChild(acoesBtns);
+                conteudoDiv.replaceWith(caixa);
 
                 // Transforma a textarea recém-criada em editor (o auto-init só pega o DOM inicial).
                 if (window.EditorRico) {
@@ -196,10 +213,7 @@
                     textarea.focus();
                 }
 
-                btnCancelar.addEventListener('click', function () {
-                    acoesBtns.remove();
-                    restaurarExibicao(htmlAtual);
-                });
+                btnCancelar.addEventListener('click', function () { restaurarExibicao(htmlAtual); });
 
                 btnConfirmar.addEventListener('click', async function () {
                     // O editor esvazia a textarea quando não há texto real (`<p><br></p>` não conta).
@@ -219,7 +233,6 @@
                             headers: { 'X-Requested-With': 'XMLHttpRequest' },
                         });
                         const data = await resp.json();
-                        acoesBtns.remove();
 
                         if (resp.ok) {
                             restaurarExibicao(data.conteudoHtml);
@@ -252,9 +265,21 @@
                         headers: { 'X-Requested-With': 'XMLHttpRequest' },
                     });
                     if (resp.ok) {
-                        document.getElementById('financeiro-obs-' + obsId)?.remove();
+                        const alvo = document.getElementById('financeiro-obs-' + obsId);
+                        if (alvo) {
+                            /* A pílula do dia existe para o PRIMEIRO registro do dia: se ele era o
+                               único, a pílula sai junto; sem registro nenhum, a lista volta ao
+                               estado vazio (sem linha do tempo). */
+                            const pilula   = alvo.previousElementSibling;
+                            const seguinte = alvo.nextElementSibling;
+                            alvo.remove();
+                            if (pilula && pilula.classList.contains('ps-dia') && (!seguinte || seguinte.classList.contains('ps-dia'))) {
+                                pilula.remove();
+                            }
+                        }
                         atualizarContagem();
-                        if (obsLista.children.length === 0) {
+                        if (!obsLista.querySelector('.ps-anotacao')) {
+                            obsLista.classList.add('ps-registro--vazio');
                             const div = document.createElement('div');
                             div.className = 'ps-vazio';
                             div.id = 'financeiroObsVazio';

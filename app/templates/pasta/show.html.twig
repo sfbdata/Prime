@@ -256,6 +256,7 @@
                                     'em_revisao': 'Para Revisão',
                                     'concluida':  'Concluída',
                                 } %}
+                                <div class="ps-grade">
                                 <section class="ps-card ps-metas">
                                     <div class="ps-card-cab ps-card-cab--painel">
                                         <h2>Metas da pasta</h2>
@@ -304,8 +305,8 @@
                                                     </div>
                                                     <div class="ps-meta-direita">
                                                         <span class="ps-meta-status">{{ concluida ? 'Concluída' : (atrasada ? 'Atrasada' : (statusLabelTarefa[tarefa.status] ?? tarefa.status)) }}</span>
-                                                        <span class="ps-meta-datas ps-num" title="Criada em{{ tarefa.dataAlteracao ? ' · última alteração' : '' }}">
-                                                            {{- tarefa.dataCriacao|date('d/m/Y') -}}
+                                                        <span class="ps-meta-datas ps-num" title="{{ tarefa.prazo ? 'Prazo' : 'Criada em' }}{{ tarefa.dataAlteracao ? ' · última alteração' : '' }}">
+                                                            {{- (tarefa.prazo ?: tarefa.dataCriacao)|date('d/m/Y') -}}
                                                             {%- if tarefa.dataAlteracao %} · mod. {{ tarefa.dataAlteracao|date('d/m/Y') }}{% endif -%}
                                                         </span>
                                                     </div>
@@ -320,32 +321,113 @@
                                         </div>
                                     {% endif %}
                                 </section>
+                                {# Trilho do desenho: andamento, atencao e responsaveis — numeros de
+                                   `PastaMetasResumoOutput`, nunca contados no template. #}
+                                <div class="ps-trilho">
+                                    <section class="ps-card ps-metas-andamento" data-trilho="andamento">
+                                        <h2>Andamento das metas</h2>
+                                        <div class="ps-metas-progresso">
+                                            <span class="ps-metas-progresso-num ps-num">{{ metasResumo.concluidas }}/{{ metasResumo.total }}</span>
+                                            <span class="ps-metas-progresso-rot">concluídas</span>
+                                        </div>
+                                        <div class="ps-metas-barra" role="progressbar" aria-valuenow="{{ metasResumo.percentual }}" aria-valuemin="0" aria-valuemax="100">
+                                            <div class="ps-metas-barra-cheia" style="width: {{ metasResumo.percentual }}%"></div>
+                                        </div>
+                                        <div class="ps-metas-legenda">
+                                            <span><i class="ps-metas-ponto ps-metas-ponto--ok" aria-hidden="true"></i>{{ metasResumo.concluidas }} concluída{{ metasResumo.concluidas == 1 ? '' : 's' }}</span>
+                                            <span><i class="ps-metas-ponto ps-metas-ponto--pend" aria-hidden="true"></i>{{ metasResumo.pendentes }} pendente{{ metasResumo.pendentes == 1 ? '' : 's' }}</span>
+                                            <span><i class="ps-metas-ponto ps-metas-ponto--atraso" aria-hidden="true"></i>{{ metasResumo.atrasadas }} atrasada{{ metasResumo.atrasadas == 1 ? '' : 's' }}</span>
+                                        </div>
+                                    </section>
+
+                                    <section class="ps-card ps-metas-atencao" data-trilho="atencao">
+                                        <div class="ps-card-cab ps-card-cab--painel"><h2>Precisa de atenção</h2></div>
+                                        {% for a in metasResumo.atencao %}
+                                            <div class="ps-metas-atencao-item">
+                                                <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
+                                                <div class="ps-linha-corpo">
+                                                    <div class="ps-metas-atencao-titulo"><a href="{{ path('tarefa_show', {id: a.id}) }}">{{ a.titulo }}</a></div>
+                                                    <div class="ps-metas-atencao-meta">prazo {{ a.prazo }} · {{ a.atraso }} dia{{ a.atraso == 1 ? '' : 's' }} em atraso{% if a.responsaveis %} · {{ a.responsaveis }}{% endif %}</div>
+                                                </div>
+                                            </div>
+                                        {% endfor %}
+                                        <div class="ps-metas-atencao-nota">
+                                            {%- if metasResumo.atencao is empty -%}
+                                                Nenhuma meta atrasada nesta pasta.
+                                            {%- else -%}
+                                                Metas atrasadas continuam contando dias até serem concluídas.
+                                            {%- endif -%}
+                                        </div>
+                                    </section>
+
+                                    <section class="ps-card ps-metas-pessoas" data-trilho="pessoas">
+                                        <h2>Responsáveis nas metas</h2>
+                                        <div class="ps-metas-pessoas-lista">
+                                            {% for p in metasResumo.pessoas %}
+                                                <div class="ps-metas-pessoa">
+                                                    <span class="ps-avatar ps-avatar--27 ps-avatar--neutro" aria-hidden="true">{{ p.iniciais }}</span>
+                                                    <span class="ps-metas-pessoa-nome" title="{{ p.nome }}">{{ p.nome }}</span>
+                                                    <span class="ps-metas-pessoa-n ps-num">{{ p.contagem }}</span>
+                                                </div>
+                                            {% else %}
+                                                <div class="ps-metas-pessoas-vazio">Nenhuma meta com responsável.</div>
+                                            {% endfor %}
+                                        </div>
+                                    </section>
+                                </div>
+                                </div>
                             </div>
 
-                            {# Tab: Detalhes #}
+                            {# Tab: Detalhes — desenho 1.2.3: o relatorio inicial em linha do tempo
+                               ao centro e, no trilho, "Registro da pasta" (criada/modificada/por) com o
+                               atalho para o historico do sistema e "Como usar esta aba". #}
                             <div class="tab-pane fade" id="detalhes" role="tabpanel" aria-labelledby="detalhes-tab">
-                                {# Fatos da pasta na faixa de dados do desenho. #}
-                                <div class="ps-card ps-fatos">
-                                    <div class="ps-cab-dados">
-                                        <div class="ps-cab-dado">
-                                            <p class="ps-rotulo"><i class="bi bi-calendar-plus"></i>Criado em</p>
-                                            <p class="ps-dado ps-dado--medio ps-num">{{ pasta.criadoEm|date('d/m/Y H:i') }}</p>
-                                        </div>
-                                        <div class="ps-cab-dado">
-                                            <p class="ps-rotulo"><i class="bi bi-calendar-check"></i>Modificado em</p>
-                                            <p class="ps-dado ps-dado--medio ps-num">{% if pasta.modificadoEm %}{{ pasta.modificadoEm|date('d/m/Y H:i') }}{% else %}<span class="ps-dado--vazio">—</span>{% endif %}</p>
-                                        </div>
-                                        <div class="ps-cab-dado">
-                                            <p class="ps-rotulo"><i class="bi bi-person-check"></i>Criado por</p>
-                                            <p class="ps-dado ps-dado--medio">{% if pasta.criadoPor %}{{ pasta.criadoPor.fullName }}{% else %}<span class="ps-dado--vazio">—</span>{% endif %}</p>
-                                        </div>
-                                    </div>
-                                </div>
-
+                                <div class="ps-grade">
                                 {% include 'pasta/_detalhes_obs.html.twig' with {
                                     pasta: pasta,
                                     observacoesDetalhes: observacoesDetalhes,
+                                    fotosResponsaveis: fotosResponsaveis|default({}),
                                 } only %}
+
+                                <div class="ps-trilho">
+                                    <section class="ps-card ps-registro-pasta" data-trilho="registro-pasta">
+                                        <h2>Registro da pasta</h2>
+                                        <div class="ps-registro-pasta-campos">
+                                            <div>
+                                                <div class="ps-rotulo">Criada em</div>
+                                                <div class="ps-registro-pasta-valor ps-num">{{ pasta.criadoEm|date('d/m/Y H:i') }}</div>
+                                            </div>
+                                            <div>
+                                                <div class="ps-rotulo">Modificada em</div>
+                                                <div class="ps-registro-pasta-valor ps-num">{% if pasta.modificadoEm %}{{ pasta.modificadoEm|date('d/m/Y H:i') }}{% else %}<span class="ps-dado--vazio">—</span>{% endif %}</div>
+                                            </div>
+                                            <div>
+                                                <div class="ps-rotulo">Criada por</div>
+                                                {% if pasta.criadoPor %}
+                                                    {% set partesCriador = (pasta.criadoPor.fullName ?? '')|trim|split(' ')|filter(p => p is not empty) %}
+                                                    <div class="ps-registro-pasta-pessoa">
+                                                        <span class="ps-avatar ps-avatar--24 ps-avatar--neutro" aria-hidden="true">{{ partesCriador|slice(0, 2)|map(p => p|slice(0, 1))|join('')|upper }}</span>
+                                                        <span class="ps-registro-pasta-valor">{{ pasta.criadoPor.fullName }}</span>
+                                                    </div>
+                                                {% else %}
+                                                    <div class="ps-registro-pasta-valor ps-dado--vazio">—</div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                        <div class="ps-registro-pasta-div"></div>
+                                        {# Abre o MESMO drawer do historico do menu ⋮ (pasta-show.js escuta `data-ps-historico`). #}
+                                        <button type="button" class="ps-btn ps-btn--suave ps-btn--largo" data-ps-historico
+                                                title="Histórico do sistema">
+                                            <i class="bi bi-clock-history"></i><span>Ver histórico do sistema</span>
+                                        </button>
+                                    </section>
+
+                                    <section class="ps-card ps-como-usar" data-trilho="como-usar">
+                                        <h2>Como usar esta aba</h2>
+                                        <p>Aqui fica o <strong>relatório inicial de atendimento</strong>: o relato do cliente, o resumo da demanda, a tese e os resultados esperados. Os combinados de honorários ficam em <strong>Financeiro</strong>.</p>
+                                    </section>
+                                </div>
+                                </div>
                             </div>
 
                             {# ==================== ABA: DOCUMENTOS (gerenciador de arquivos) ==================== #}
@@ -1496,8 +1578,11 @@
         row.className = 'cliente-linha d-flex align-items-center gap-2 py-2';
         row.dataset.clienteId = cliente.id;
 
-        const icone = document.createElement('i');
-        icone.className = 'bi bi-person-circle text-muted flex-shrink-0';
+        // Avatar com as iniciais das DUAS primeiras palavras (mesma regra do Twig).
+        const icone = document.createElement('span');
+        icone.className = 'cliente-avatar';
+        icone.setAttribute('aria-hidden', 'true');
+        icone.textContent = String(cliente.nome || '').trim().split(/\s+/).filter(Boolean).slice(0, 2).map(p => p[0]).join('').toUpperCase() || '?';
 
         const identidade = document.createElement('div');
         identidade.className = 'cliente-identidade flex-grow-1';
@@ -1534,9 +1619,10 @@
 
         const ficha = document.createElement('a');
         ficha.href = `/clientes/${cliente.id}`;
-        ficha.className = 'btn btn-xs btn-outline-secondary';
+        ficha.className = 'cliente-abrir';
         ficha.title = 'Abrir ficha do cliente (documentos e anexos ficam lá)';
-        ficha.innerHTML = '<i class="bi bi-box-arrow-up-right"></i>';
+        ficha.setAttribute('aria-label', 'Abrir cliente ' + String(cliente.nome || ''));
+        ficha.innerHTML = '<i class="bi bi-folder-fill"></i>';
 
         const formDesv = document.createElement('form');
         formDesv.method = 'post';
@@ -3276,6 +3362,7 @@ document.addEventListener('DOMContentLoaded', function () {
            cara — defeito que só se vê depois de enviar, nunca ao abrir a tela. */
         const html = pilula + `
         <article class="ps-anotacao" id="pasta-msg-${data.id}">
+            <span class="ps-anotacao-ponto" aria-hidden="true"></span>
             <span class="ps-anotacao-seta" aria-hidden="true"></span>
             <div class="ps-anotacao-topo">
                 <span class="ps-avatar ps-avatar--24">${esc(iniciaisDe(data.autorNome))}</span>

@@ -113,6 +113,10 @@
         abrir.addEventListener('click', function () {
             if (drawer.classList.contains('is-aberto')) { fecharDrawer(); } else { abrirDrawer(); }
         });
+        // Outros gatilhos (o "Ver histórico do sistema" da aba Detalhes): mesmo drawer.
+        document.querySelectorAll('[data-ps-historico]').forEach(function (gatilho) {
+            gatilho.addEventListener('click', abrirDrawer);
+        });
         overlay.addEventListener('click', fecharDrawer);
         if (fechar) { fechar.addEventListener('click', fecharDrawer); }
 

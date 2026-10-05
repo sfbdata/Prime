@@ -309,8 +309,11 @@ final class PastaCabecalhoPjeTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $identidade);
         self::assertCount(1, $identidade->filter('.ps-cab-identidade > a.ps-cab-voltar'));
         self::assertSame('PASTA 3010', trim($identidade->filter('.ps-cab-identidade > .ps-cab-nup')->text()));
-        self::assertCount(1, $identidade->filter('.ps-cab-identidade > .ps-pop-wrap > .pasta-prioridade-btn'));
-        self::assertCount(1, $identidade->filter('.ps-cab-identidade > button.ps-etiqueta-add.js-mover-para'), 'o "+" das etiquetas mantém o contrato do JS');
+        // Divisória · prioridade · divisória · etiquetas · "+" formam o grupo do desenho.
+        $etiquetas = $identidade->filter('.ps-cab-identidade > .ps-cab-etiquetas');
+        self::assertCount(1, $etiquetas);
+        self::assertCount(1, $etiquetas->filter('.ps-cab-etiquetas > .ps-pop-wrap > .pasta-prioridade-btn'));
+        self::assertCount(1, $etiquetas->filter('.ps-cab-etiquetas > button.ps-etiqueta-add.js-mover-para'), 'o "+" das etiquetas mantém o contrato do JS');
         self::assertCount(0, $crawler->filter('.ps-cabecalho .ps-breadcrumb'), 'o desenho não tem trilha de migalhas');
     }
 

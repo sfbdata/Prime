@@ -48,25 +48,40 @@
             </div>
         </div>
     {% else %}
+        {# Linha do tempo do desenho 1.2.3: pílula do dia quando a data muda, ponto na
+           linha e um cartão por publicação. O cartão É o botão de sempre (`.ps-push-cab`,
+           `aria-controls` + `data-push-url`): o pasta-show.js abre o teor no lugar.
+           O que é função nova NÃO aparece: análise por IA, filtros, criar tarefa,
+           encaminhar, marcar lida, documento do PJe, monitoramento e avisos. #}
         <ul class="ps-push-lista">
+            {% set diaAnteriorPush = null %}
             {% for item in push.itens %}
+                {% set diaPush = item.dataDisponibilizacao ?? '' %}
                 <li class="ps-push-item{{ item.lida ? '' : ' ps-push-item--nova' }}"
                     data-push-id="{{ item.id }}">
+                    {% if diaPush != diaAnteriorPush %}
+                        <div class="ps-push-dia"><span class="ps-push-dia-pilula">{{ diaPush ?: 'Sem data' }}</span></div>
+                        {% set diaAnteriorPush = diaPush %}
+                    {% endif %}
+                    <span class="ps-push-ponto" aria-hidden="true"></span>
                     <button type="button" class="ps-push-cab"
                             aria-expanded="false"
                             aria-controls="push-teor-{{ item.id }}"
                             data-push-url="{{ path('pasta_push_teor', {id: pasta.id, publicacaoId: item.id}) }}">
-                        <span class="ps-push-data">{{ item.dataDisponibilizacao ?? '—' }}</span>
+                        <span class="ps-push-assunto">
+                            <i class="bi bi-megaphone-fill" aria-hidden="true"></i>
+                            <span class="ps-push-assunto-txt">{{ item.nomeOrgao ?: (item.tipoComunicacao ?? 'Publicação') }}</span>
+                            {% if not item.lida %}<span class="ps-push-novo" title="Não lida">Novo</span>{% endif %}
+                        </span>
                         <span class="ps-push-corpo">
                             <span class="ps-push-titulo">{{ item.tipoComunicacao ?? 'Publicação' }}</span>
                             <span class="ps-push-meta">
-                                {{ item.siglaTribunal }}
-                                {%- if item.nomeOrgao %} · {{ item.nomeOrgao }}{% endif -%}
-                                {%- if push.numeroUnico is null and item.numeroProcessoExibicao %} · {{ item.numeroProcessoExibicao }}{% endif -%}
+                                {{- item.siglaTribunal -}}
+                                {%- if push.numeroUnico is null and item.numeroProcessoExibicao %} · {{ item.numeroProcessoExibicao }}{% endif %} · DJEN
                             </span>
+                            <span class="ps-push-hora ps-num">{{ item.dataDisponibilizacao ?? '—' }}</span>
+                            <i class="bi bi-chevron-down ps-push-seta" aria-hidden="true"></i>
                         </span>
-                        {% if not item.lida %}<span class="ps-push-pip" title="Não lida"></span>{% endif %}
-                        <i class="bi bi-chevron-down ps-push-seta" aria-hidden="true"></i>
                     </button>
                     <div class="ps-push-teor" id="push-teor-{{ item.id }}" hidden></div>
                 </li>

@@ -137,11 +137,9 @@
        três compositores da tela. #}
     <div class="ps-coluna">
         <section class="ps-card ps-anotacoes" id="financeiroRelatorio">
-            <div class="ps-card-cab">
+            <div class="ps-card-cab ps-card-cab--painel">
                 <h2>Relatório financeiro</h2>
                 <span class="ps-contagem" id="financeiro-obs-count">{{ observacoesFinanceiras|length }}</span>
-                <span class="ps-cab-espaco"></span>
-                <span class="ps-anotacoes-dica">Ctrl + Enter envia</span>
             </div>
 
             <div class="ps-compositor">
@@ -158,14 +156,14 @@
                         <div class="ps-compositor-rodape">
                             <span class="ps-compositor-nota">Visível para a equipe</span>
                             <span class="ps-cab-espaco"></span>
-                            <button type="submit" class="ps-btn ps-btn--primario" id="btnEnviarObsFinanceiro">Enviar</button>
+                            <button type="submit" class="ps-btn ps-btn--primario" id="btnEnviarObsFinanceiro" title="Enviar (Ctrl+Enter)">Enviar</button>
                         </div>
                     </div>
                 </form>
             </div>
             <div id="financeiroObsErro" class="ps-compositor-erro d-none"></div>
 
-            <div id="financeiroObsLista" class="ps-fin-obs-rolagem">
+            <div id="financeiroObsLista" class="ps-registro ps-fin-obs-rolagem{{ observacoesFinanceiras is empty ? ' ps-registro--vazio' : '' }}" data-hoje="{{ 'now'|date('Y-m-d') }}">
                 {% if observacoesFinanceiras is empty %}
                     <div class="ps-vazio" id="financeiroObsVazio">
                         <i class="bi bi-cash-coin"></i>
@@ -173,6 +171,8 @@
                         <div class="ps-vazio-nota">Anote acima o que foi combinado de honorário, custas ou reembolso.</div>
                     </div>
                 {% else %}
+                    {% set mesesFin = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'] %}
+                    {% set diaAnteriorFin = null %}
                     {% for obs in observacoesFinanceiras %}
                         {% set autor = obs.autor.fullName ?? obs.autor.email ?? '' %}
                         {% set partes = autor|trim|split(' ')|filter(p => p is not empty) %}
@@ -181,39 +181,53 @@
                             : '?' %}
                         {# Autor, dentro de 24h: as mesmas condições do endpoint. #}
                         {% set podeGerenciar = obs.autor and app.user and obs.autor.id == app.user.id and date(obs.criadaEm) > date('-24 hours') %}
+                        {% set diaFin = obs.criadaEm|date('Y-m-d') %}
+
+                        {# Linha do tempo do desenho 1.2.3: pílula do dia, cartão com ponto e seta.
+                           A MESMA estrutura é montada em JS (`inserirItemObs`, no script ao lado). #}
+                        {% if diaFin != diaAnteriorFin %}
+                            <div class="ps-dia" data-dia="{{ diaFin }}">
+                                <span class="ps-dia-pilula">{{ obs.criadaEm|date('j') }} {{ mesesFin[obs.criadaEm|date('n') - 1] }} {{ obs.criadaEm|date('Y') }}</span>
+                            </div>
+                            {% set diaAnteriorFin = diaFin %}
+                        {% endif %}
 
                         <article class="ps-anotacao" id="financeiro-obs-{{ obs.id }}">
-                            <span class="ps-avatar ps-avatar--30">{{ iniciais }}</span>
+                            <span class="ps-anotacao-ponto" aria-hidden="true"></span>
+                            <span class="ps-anotacao-seta" aria-hidden="true"></span>
+                            <div class="ps-anotacao-topo">
+                                <span class="ps-avatar ps-avatar--24">{{ iniciais }}</span>
+                                <span class="ps-anotacao-autor">{{ autor ?: 'Autor desconhecido' }}</span>
+                                {% if obs.editadaEm %}
+                                    <span class="ps-anotacao-editado" title="Editado em {{ obs.editadaEm|date('d/m/Y H:i') }}">editado</span>
+                                {% endif %}
+                                <span class="ps-cab-espaco"></span>
+                                {% if podeGerenciar %}
+                                    <span class="ps-anotacao-acoes">
+                                        <button type="button"
+                                                class="ps-anotacao-acao btn-editar-obs"
+                                                title="Editar registro" aria-label="Editar registro"
+                                                data-obs-id="{{ obs.id }}"
+                                                data-conteudo="{{ obs.conteudo|e('html_attr') }}"
+                                                data-conteudo-html="{{ obs.conteudo|texto_rico|e('html_attr') }}"
+                                                data-csrf="{{ csrf_token('pasta_financeiro_obs_editar_' ~ obs.id) }}"
+                                                data-url="{{ path('pasta_financeiro_observacao_editar', {id: pasta.id, obsId: obs.id}) }}">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                        <button type="button"
+                                                class="ps-anotacao-acao ps-anotacao-acao--perigo btn-excluir-obs"
+                                                title="Excluir registro" aria-label="Excluir registro"
+                                                data-obs-id="{{ obs.id }}"
+                                                data-csrf="{{ csrf_token('pasta_financeiro_obs_excluir_' ~ obs.id) }}"
+                                                data-url="{{ path('pasta_financeiro_observacao_excluir', {id: pasta.id, obsId: obs.id}) }}">
+                                            <i class="bi bi-trash3"></i>
+                                        </button>
+                                    </span>
+                                {% endif %}
+                                <span class="ps-anotacao-data ps-num" title="{{ obs.criadaEm|date('d/m/Y H:i') }}">{{ obs.criadaEm|date('H:i') }}</span>
+                            </div>
                             <div class="ps-anotacao-corpo">
-                                <div class="ps-anotacao-topo">
-                                    <span class="ps-anotacao-autor">{{ autor ?: 'Autor desconhecido' }}</span>
-                                    <span class="ps-anotacao-data">{{ obs.criadaEm|date('d/m/Y, H:i') }}</span>
-                                    {% if obs.editadaEm %}
-                                        <small class="ps-anotacao-data fst-italic">(editado)</small>
-                                    {% endif %}
-                                    {% if podeGerenciar %}
-                                        <span class="ps-anotacao-acoes">
-                                            <button type="button"
-                                                    class="ps-anotacao-acao btn-editar-obs"
-                                                    title="Editar registro"
-                                                    data-obs-id="{{ obs.id }}"
-                                                    data-conteudo="{{ obs.conteudo|e('html_attr') }}"
-                                                    data-conteudo-html="{{ obs.conteudo|texto_rico|e('html_attr') }}"
-                                                    data-csrf="{{ csrf_token('pasta_financeiro_obs_editar_' ~ obs.id) }}"
-                                                    data-url="{{ path('pasta_financeiro_observacao_editar', {id: pasta.id, obsId: obs.id}) }}">
-                                                <i class="bi bi-pencil"></i>
-                                            </button>
-                                            <button type="button"
-                                                    class="ps-anotacao-acao ps-anotacao-acao--perigo btn-excluir-obs"
-                                                    title="Excluir registro"
-                                                    data-obs-id="{{ obs.id }}"
-                                                    data-csrf="{{ csrf_token('pasta_financeiro_obs_excluir_' ~ obs.id) }}"
-                                                    data-url="{{ path('pasta_financeiro_observacao_excluir', {id: pasta.id, obsId: obs.id}) }}">
-                                                <i class="bi bi-trash3"></i>
-                                            </button>
-                                        </span>
-                                    {% endif %}
-                                </div>
+                                <i class="bi bi-megaphone-fill ps-anotacao-icone" aria-hidden="true"></i>
                                 <div class="ps-anotacao-texto obs-conteudo">
                                     {# `texto_rico` sanitiza e já é `is_safe: html`. #}
                                     <span class="editor-rico-conteudo"><span class="ql-editor">{{ obs.conteudo|texto_rico }}</span></span>
