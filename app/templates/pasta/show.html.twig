@@ -3214,15 +3214,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function marcarEditado(item) {
         if (item.querySelector('.pasta-msg-editado')) { return; }
-        /* Antes da caixa de ações, não DENTRO dela: as ações só aparecem no
-           hover, e o "(editado)" precisa ficar visível o tempo todo. */
-        const acoes = item.querySelector('.ps-anotacao-acoes');
+        /* Logo depois do autor, como no desenho — e como o Twig monta ao abrir a tela. */
+        const autor = item.querySelector('.ps-anotacao-autor');
         const topo  = item.querySelector('.ps-anotacao-topo');
         if (!topo) { return; }
-        const marca = document.createElement('small');
-        marca.className = 'ps-anotacao-data fst-italic pasta-msg-editado';
-        marca.textContent = '(editado)';
-        topo.insertBefore(marca, acoes);
+        const marca = document.createElement('span');
+        marca.className = 'ps-anotacao-editado pasta-msg-editado';
+        marca.textContent = 'editado';
+        if (autor && autor.nextSibling) { topo.insertBefore(marca, autor.nextSibling); } else { topo.appendChild(marca); }
     }
 
     if (!form) { return; }
@@ -3278,7 +3277,8 @@ document.addEventListener('DOMContentLoaded', function () {
     function inserirMensagem(data) {
         const dt       = new Date(data.criadaEmTs);
         const dataHora = dt.toLocaleDateString('pt-BR')
-            + ', ' + dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+            + ' ' + dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        const hora     = dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
         // `conteudoHtml` vem SANITIZADO do servidor: entra como HTML (e o que mostra a formatacao).
         const corpo = '<span class="editor-rico-conteudo"><span class="ql-editor">'
             + (data.conteudoHtml ?? '') + '</span></span>';
@@ -3286,38 +3286,53 @@ document.addEventListener('DOMContentLoaded', function () {
         const urlEditar  = urlEditarTpl.replace('__ID__', data.id);
         const urlExcluir = urlExcluirTpl.replace('__ID__', data.id);
 
+        /* A pílula do dia (desenho: "5 out 2026") só entra se a primeira do topo
+           não for a de hoje — o registro novo é sempre o mais recente. A chave do
+           dia é a do servidor (`data-hoje`), a mesma que o Twig usa. */
+        const MESES   = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+        const hoje    = list.dataset.hoje || '';
+        const topoDia = list.querySelector('.ps-dia');
+        const pilula  = (!topoDia || topoDia.dataset.dia !== hoje)
+            ? `<div class="ps-dia" data-dia="${esc(hoje)}"><span class="ps-dia-pilula">${dt.getDate()} ${MESES[dt.getMonth()]} ${dt.getFullYear()}</span></div>`
+            : '';
+
         /* Tem de sair a MESMA estrutura que o _dados_anotacoes.html.twig gera no
-           servidor: se divergirem, a anotação recém-enviada aparece com outra
+           servidor: se divergirem, o registro recém-enviado aparece com outra
            cara — defeito que só se vê depois de enviar, nunca ao abrir a tela. */
-        const html = `
+        const html = pilula + `
         <article class="ps-anotacao" id="pasta-msg-${data.id}">
-            <span class="ps-avatar ps-avatar--30">${esc(iniciaisDe(data.autorNome))}</span>
+            <span class="ps-anotacao-seta" aria-hidden="true"></span>
+            <div class="ps-anotacao-topo">
+                <span class="ps-avatar ps-avatar--24">${esc(iniciaisDe(data.autorNome))}</span>
+                <span class="ps-anotacao-autor">${esc(data.autorNome ?? 'Autor desconhecido')}</span>
+                <span class="ps-cab-espaco"></span>
+                <span class="ps-anotacao-acoes">
+                    <button type="button" class="ps-anotacao-acao btn-editar-msg-pasta"
+                            title="Editar registro" aria-label="Editar registro"
+                            data-msg-id="${data.id}"
+                            data-conteudo="${esc(data.conteudo)}"
+                            data-csrf="${esc(data.csrfEditar ?? '')}"
+                            data-url="${esc(urlEditar)}">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button type="button" class="ps-anotacao-acao ps-anotacao-acao--perigo btn-excluir-msg-pasta"
+                            title="Excluir registro" aria-label="Excluir registro"
+                            data-msg-id="${data.id}"
+                            data-csrf="${esc(data.csrfExcluir ?? '')}"
+                            data-url="${esc(urlExcluir)}">
+                        <i class="bi bi-trash3"></i>
+                    </button>
+                </span>
+                <span class="ps-anotacao-data ps-num" title="${dataHora}">${hora}</span>
+            </div>
             <div class="ps-anotacao-corpo">
-                <div class="ps-anotacao-topo">
-                    <span class="ps-anotacao-autor">${esc(data.autorNome ?? 'Autor desconhecido')}</span>
-                    <span class="ps-anotacao-data">${dataHora}</span>
-                    <span class="ps-anotacao-acoes">
-                        <button type="button" class="ps-anotacao-acao btn-editar-msg-pasta"
-                                title="Editar anotação"
-                                data-msg-id="${data.id}"
-                                data-conteudo="${esc(data.conteudo)}"
-                                data-csrf="${esc(data.csrfEditar ?? '')}"
-                                data-url="${esc(urlEditar)}">
-                            <i class="bi bi-pencil"></i>
-                        </button>
-                        <button type="button" class="ps-anotacao-acao ps-anotacao-acao--perigo btn-excluir-msg-pasta"
-                                title="Excluir anotação"
-                                data-msg-id="${data.id}"
-                                data-csrf="${esc(data.csrfExcluir ?? '')}"
-                                data-url="${esc(urlExcluir)}">
-                            <i class="bi bi-trash3"></i>
-                        </button>
-                    </span>
-                </div>
+                <i class="bi bi-megaphone-fill ps-anotacao-icone" aria-hidden="true"></i>
                 <div class="ps-anotacao-texto pasta-msg-conteudo">${corpo}</div>
             </div>
         </article>`;
 
+        // O primeiro registro tira a lista do estado vazio: a linha do tempo aparece.
+        list.classList.remove('ps-registro--vazio');
         list.insertAdjacentHTML('afterbegin', html);
         list.scrollTop = 0;
     }

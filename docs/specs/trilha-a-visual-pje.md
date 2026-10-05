@@ -198,7 +198,13 @@ em `show.html.twig` ~l.3290, `_dados_trilho`, CSS)
 - O compositor (Quill) continua igual; só a moldura ganha os tokens.
 - Trilho: cabeçalhos dos cartões `--ps-trilho-cab-bg`, h2 13.5/700, contagem em `#e5f1f7`/`#0b5f86`;
   ícone do tipo de arquivo via `arquivo_icone()` no cartão Documentos.
-- Aceite: testes `:340`, `:283`, `:665` verdes; novo `#timelineList > .ps-dia > .ps-anotacao`;
+- A pílula do dia é "5 out 2026" (o desenho monta `dia + mês abreviado + ano`), não "Hoje"; o
+  mesmo mês abreviado em português no Twig e no JS. A pílula precede o primeiro registro do dia e
+  é IRMÃ do cartão (`.ps-dia + .ps-anotacao`), escondida junto com ele quando ele está entre os
+  "anteriores". O marcador "editado" fica ao lado do autor (o JS de edição passa a inseri-lo ali).
+  Os atalhos "metas"/"todos" dos cartões do trilho viram o chevron › do desenho (botão).
+- Aceite: testes `:340`, `:283`, `:665` verdes; novo `#timelineList > .ps-dia + .ps-anotacao`
+  (dois registros em dias diferentes = duas pílulas; no mesmo dia = uma);
   o item criado por JS (sem recarregar) tem o mesmo markup do Twig.
 
 **A5 — Processo, Metas, Detalhes e Push em cartão** (só classes e CSS; o parcial do Processo continua

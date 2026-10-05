@@ -1,16 +1,25 @@
 {# ============================================================================
-   Aba Dados — coluna central: "Anotações do caso" (a zona quente).
-   Desenho aprovado: docs/design/pasta-show/ ("Pasta 1A.dc.html"), Aba 1.
+   Aba Dados — coluna central: "Registro dos expedientes" (a zona quente).
+   Desenho aprovado: docs/design/claude-design-2026-10-05 (1)/
+   ("02 - EXPEDIENTES 1.2.3.dc.html", padrão PJe). Spec: docs/specs/trilha-a-visual-pje.md (A4).
 
-   Só o que uma PESSOA escreveu. O que o sistema registrou sozinho foi para o
-   drawer do Histórico (`_historico_drawer.html.twig`).
+   Só o que uma PESSOA escreveu, em linha do tempo: pílula com o dia, linha
+   vertical, um cartão por registro (avatar, autor, hora, texto). O que o
+   sistema registrou sozinho vive no drawer do Histórico (`_historico_drawer`).
 
    Os `id` desta tela (#formTimelineMensagem, #timelineList, #timeline-count,
-   #timelineVazio, #pasta-msg-N, .pasta-msg-conteudo, .btn-editar-msg-pasta,
-   .btn-excluir-msg-pasta) são contrato com o JS de enviar/editar/excluir que
-   vive no show.html.twig. Renomear qualquer um quebra o envio em silêncio.
+   #timelineVazio, #pasta-msg-N, .pasta-msg-conteudo, .pasta-msg-editado,
+   .btn-editar-msg-pasta, .btn-excluir-msg-pasta) são contrato com o JS de
+   enviar/editar/excluir que vive no show.html.twig. O cartão de um registro
+   novo é montado LÁ, em JS (`inserirMensagem`), com a MESMA estrutura daqui:
+   mudou aqui, muda lá — senão o registro recém-enviado aparece com outra cara.
 
-   Contexto: `pasta`, `anotacoes` (TimelineItemDTO do tipo MENSAGEM).
+   O que o desenho mostra e é função nova NÃO aparece: responder, encaminhar
+   via Chat I.A, destacar, etiqueta do registro, presença do autor, janela de
+   edição de 15 minutos (hoje são 24h, no servidor).
+
+   Contexto: `pasta`, `anotacoes` (TimelineItemDTO do tipo MENSAGEM),
+   `fotosResponsaveis` (mapa userId => url, herdado do show).
    ============================================================================ #}
 {# Editor rico (Quill auto-hospedado, sem CDN externo). #}
 <link rel="stylesheet" href="{{ asset('js/quill/quill.snow.css') }}">
@@ -19,11 +28,15 @@
 <script src="{{ asset('js/editor-rico.js') }}" defer></script>
 
 {% set visiveis = 4 %}
+{# A pílula do dia é "5 out 2026" (desenho); o mês abreviado em português, que o
+   `|date` do Twig não dá. O JS que monta o registro novo usa a mesma lista. #}
+{% set meses = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'] %}
+{% set fotos = fotosResponsaveis|default({}) %}
 
 <section class="ps-card ps-anotacoes">
-    <div class="ps-card-cab">
-        <h2>Anotações do caso</h2>
-        <span class="ps-contagem" id="timeline-count">{{ anotacoes|length }}</span>
+    <div class="ps-card-cab ps-card-cab--painel">
+        <h2>Registro dos expedientes</h2>
+        <span class="ps-contagem" id="timeline-count" title="Registros">{{ anotacoes|length }}</span>
         <span class="ps-cab-espaco"></span>
         <span class="ps-anotacoes-dica">Ctrl + Enter envia</span>
     </div>
@@ -39,7 +52,7 @@
                           class="form-control"
                           rows="2"
                           maxlength="5000"
-                          placeholder="Adicionar observação, combinado ou andamento do caso…"></textarea>
+                          placeholder="Adicionar…"></textarea>
                 <div class="ps-compositor-rodape">
                     <span class="ps-compositor-nota">Visível para a equipe</span>
                     <span class="ps-cab-espaco"></span>
@@ -50,56 +63,75 @@
     </div>
     <div id="timelineMensagemErro" class="ps-compositor-erro d-none"></div>
 
-    {# ── Lista ── #}
-    <div id="timelineList">
+    {# ── Linha do tempo ──
+       `data-hoje` é a chave do dia de HOJE no fuso do servidor: o JS compara com a
+       primeira pílula para decidir se o registro novo abre um dia novo. #}
+    <div id="timelineList" class="ps-registro{{ anotacoes|length == 0 ? ' ps-registro--vazio' : '' }}" data-hoje="{{ 'now'|date('Y-m-d') }}">
         {% if anotacoes|length == 0 %}
             <div class="ps-vazio" id="timelineVazio">
                 <i class="bi bi-chat-left-text"></i>
-                <div class="ps-vazio-titulo">Nenhuma anotação ainda</div>
+                <div class="ps-vazio-titulo">Nenhum registro ainda</div>
                 <div class="ps-vazio-nota">Registre acima o que foi combinado, ligado ou andado no caso.</div>
             </div>
         {% else %}
+            {% set diaAnterior = null %}
             {% for item in anotacoes %}
                 {% set autor = item.autorNome ?? item.autorEmail ?? '' %}
                 {% set partes = autor|trim|split(' ')|filter(p => p is not empty) %}
                 {% set iniciais = partes|length > 0
                     ? (partes|first|slice(0, 1) ~ (partes|length > 1 ? partes|last|slice(0, 1) : ''))|upper
                     : '?' %}
+                {% set foto = item.usuarioId ? fotos[item.usuarioId]|default(null) : null %}
                 {# Autor, dentro de 24h: as mesmas condições do endpoint. #}
                 {% set podeGerenciar = item.mensagemId and app.user and item.usuarioId == app.user.id and date(item.dataHora) > date('-24 hours') %}
+                {% set extra = loop.index0 >= visiveis %}
+                {% set dia = item.dataHora|date('Y-m-d') %}
 
-                <article class="ps-anotacao{{ loop.index0 >= visiveis ? ' ps-anotacao--extra d-none' : '' }}"
+                {# A pílula do dia precede o primeiro registro daquele dia e some junto
+                   com ele quando ele está entre os "anteriores" (mesma classe `--extra`). #}
+                {% if dia != diaAnterior %}
+                    <div class="ps-dia{{ extra ? ' ps-anotacao--extra d-none' : '' }}" data-dia="{{ dia }}">
+                        <span class="ps-dia-pilula">{{ item.dataHora|date('j') }} {{ meses[item.dataHora|date('n') - 1] }} {{ item.dataHora|date('Y') }}</span>
+                    </div>
+                    {% set diaAnterior = dia %}
+                {% endif %}
+
+                <article class="ps-anotacao{{ extra ? ' ps-anotacao--extra d-none' : '' }}"
                          {% if item.mensagemId %}id="pasta-msg-{{ item.mensagemId }}"{% endif %}>
-                    <span class="ps-avatar ps-avatar--30">{{ iniciais }}</span>
+                    <span class="ps-anotacao-seta" aria-hidden="true"></span>
+                    <div class="ps-anotacao-topo">
+                        <span class="ps-avatar ps-avatar--24">{% if foto %}<img src="{{ foto }}" alt="">{% else %}{{ iniciais }}{% endif %}</span>
+                        <span class="ps-anotacao-autor">{{ autor ?: 'Autor desconhecido' }}</span>
+                        {% if item.editadoEm %}
+                            <span class="ps-anotacao-editado pasta-msg-editado" title="Editado em {{ item.editadoEm|date('d/m/Y H:i') }}">editado</span>
+                        {% endif %}
+                        <span class="ps-cab-espaco"></span>
+                        {% if podeGerenciar %}
+                            <span class="ps-anotacao-acoes">
+                                <button type="button"
+                                        class="ps-anotacao-acao btn-editar-msg-pasta"
+                                        title="Editar registro" aria-label="Editar registro"
+                                        data-msg-id="{{ item.mensagemId }}"
+                                        data-conteudo="{{ item.detalhe|e('html_attr') }}"
+                                        data-csrf="{{ csrf_token('pasta_mensagem_editar_' ~ item.mensagemId) }}"
+                                        data-url="{{ path('pasta_editar_mensagem', {id: pasta.id, msgId: item.mensagemId}) }}">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <button type="button"
+                                        class="ps-anotacao-acao ps-anotacao-acao--perigo btn-excluir-msg-pasta"
+                                        title="Excluir registro" aria-label="Excluir registro"
+                                        data-msg-id="{{ item.mensagemId }}"
+                                        data-csrf="{{ csrf_token('pasta_mensagem_excluir_' ~ item.mensagemId) }}"
+                                        data-url="{{ path('pasta_excluir_mensagem', {id: pasta.id, msgId: item.mensagemId}) }}">
+                                    <i class="bi bi-trash3"></i>
+                                </button>
+                            </span>
+                        {% endif %}
+                        {# Só a hora: o dia está na pílula acima. O title traz a data inteira. #}
+                        <span class="ps-anotacao-data ps-num" title="{{ item.dataHora|date('d/m/Y H:i') }}">{{ item.dataHora|date('H:i') }}</span>
+                    </div>
                     <div class="ps-anotacao-corpo">
-                        <div class="ps-anotacao-topo">
-                            <span class="ps-anotacao-autor">{{ autor ?: 'Autor desconhecido' }}</span>
-                            <span class="ps-anotacao-data">{{ item.dataHora|date('d/m/Y, H:i') }}</span>
-                            {% if item.editadoEm %}
-                                <small class="ps-anotacao-data fst-italic pasta-msg-editado">(editado)</small>
-                            {% endif %}
-                            {% if podeGerenciar %}
-                                <span class="ps-anotacao-acoes">
-                                    <button type="button"
-                                            class="ps-anotacao-acao btn-editar-msg-pasta"
-                                            title="Editar anotação"
-                                            data-msg-id="{{ item.mensagemId }}"
-                                            data-conteudo="{{ item.detalhe|e('html_attr') }}"
-                                            data-csrf="{{ csrf_token('pasta_mensagem_editar_' ~ item.mensagemId) }}"
-                                            data-url="{{ path('pasta_editar_mensagem', {id: pasta.id, msgId: item.mensagemId}) }}">
-                                        <i class="bi bi-pencil"></i>
-                                    </button>
-                                    <button type="button"
-                                            class="ps-anotacao-acao ps-anotacao-acao--perigo btn-excluir-msg-pasta"
-                                            title="Excluir anotação"
-                                            data-msg-id="{{ item.mensagemId }}"
-                                            data-csrf="{{ csrf_token('pasta_mensagem_excluir_' ~ item.mensagemId) }}"
-                                            data-url="{{ path('pasta_excluir_mensagem', {id: pasta.id, msgId: item.mensagemId}) }}">
-                                        <i class="bi bi-trash3"></i>
-                                    </button>
-                                </span>
-                            {% endif %}
-                        </div>
+                        <i class="bi bi-megaphone-fill ps-anotacao-icone" aria-hidden="true"></i>
                         <div class="ps-anotacao-texto pasta-msg-conteudo">
                             {# Escrito por uma pessoa no editor rico: HTML já sanitizado no servidor. #}
                             <span class="editor-rico-conteudo"><span class="ql-editor">{{ item.detalhe|texto_rico }}</span></span>
