@@ -2285,7 +2285,7 @@
         });
     }
     // A tela não tem como montar um item a partir da lixeira (faltam URLs e tokens): recarrega
-    // a página na aba Documentos — a pasta aberta volta pelo sessionStorage.
+    // a página na aba Documentos — a pasta aberta volta pelo armazenamento da sessão.
     function recarregarDocumentos(texto) {
         toast(texto);
         try { if (window.location.hash !== '#documentos') window.history.replaceState(null, '', '#documentos'); } catch (e) { /* segue */ }

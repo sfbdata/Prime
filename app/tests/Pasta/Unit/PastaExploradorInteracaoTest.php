@@ -336,8 +336,12 @@ final class PastaExploradorInteracaoTest extends TestCase
         // Um render só, ao concluir o lote — não um por arquivo (derrubaria um campo inline aberto).
         self::assertSame(1, substr_count($this->funcao('enviarArquivos'), 'renderizar();'));
         self::assertStringNotContainsString('cancelarRenomear', $this->funcao('enviarArquivos'));
-        self::assertSame(1, substr_count($js, 'window.location.reload()'), 'um único reload, o fallback');
-        self::assertLessThan(strpos($js, 'window.location.reload()'), strpos($js, 'if (precisaReload) {'));
+        // No upload, um único reload: o fallback. (O outro reload do arquivo é o `recarregarNaAba` da
+        // lixeira, L7-UI — Desfazer que não bate com a memória e restaurar pelo modal.)
+        $upload = $this->funcao('enviarArquivos');
+        self::assertSame(1, substr_count($upload, 'window.location.reload()'), 'um único reload no upload, o fallback');
+        self::assertLessThan(strpos($upload, 'window.location.reload()'), strpos($upload, 'if (precisaReload) {'));
+        self::assertSame(2, substr_count($js, 'window.location.reload()'), 'só o fallback do upload e o recarregarNaAba da lixeira');
         self::assertStringContainsString("definirSelecao(novos, { ancora: novos[0], foco: novos[novos.length - 1] });", $js, 'os novos ficam selecionados');
         // O helper continua o mesmo (Peticionar e #uploadDuplicadosAviso intocados).
         self::assertStringContainsString('window.enviarArquivoComProgresso(file, {', $js);

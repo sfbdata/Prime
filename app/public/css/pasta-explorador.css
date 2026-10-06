@@ -404,6 +404,7 @@
     --pex-toast-txt:      #fff;
     --pex-toast-sombra:   0 14px 30px -12px rgba(0,0,0,.8);
     --pex-toast-erro:     #ffb4a8;
+    --pex-toast-desfazer: #7cc4ff;
     --pex-laco-bg:        rgba(69,176,214,.14);
     --pex-laco-bd:        rgba(69,176,214,.7);
     --pex-ren-bg:         var(--bs-body-bg);
