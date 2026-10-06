@@ -96,7 +96,9 @@
     --ps-dia-bg:        #dde3e8;
     --ps-dia-text:      #3c4a54;
     --ps-text-3:        #5f7684;
-    --ps-registro-txt:  #2b3a44;
+    /* `bj-rich` (bj-editor.js): o texto do registro e #243845; o #2b3a44 do
+       desenho e do invólucro, que o bj-rich sobrescreve (auditoria 2, T6). */
+    --ps-registro-txt:  #243845;
     --ps-avatar-grad:   linear-gradient(135deg,#1597bd,#0c7a9c);
     --ps-acao-hover:    #e1eef6;
     --ps-trilho-cab-bd: #e0e7ec;
@@ -112,13 +114,15 @@
     --ps-meta-risca:    #a8cdb8;
     --ps-shadow-meta:   0 1px 2px rgba(16,42,58,.06);
     --ps-shadow-meta-hv:0 10px 24px rgba(16,42,58,.16), 0 2px 6px rgba(16,42,58,.08);
-    --ps-shadow-caps:   0 1px 2px rgba(10,122,173,.25);
+    --ps-shadow-caps:   0 1px 2px rgba(0,0,0,.25);
     /* Auditoria de fidelidade (05/10): "+" das etiquetas, barra do editor,
        halo do ponto do registro, clientes do trilho, avatar do responsavel,
        linha do tempo do Push e trilho das Metas. */
     --ps-etq-add-hv:    #9fc3e3;
-    --ps-editor-bar:    #f6f9fb;
-    --ps-editor-bar-bd: #e6edf2;
+    /* Barra do editor = `.bjed-tb` do bj-editor.js (auditoria 2, X1). Os antigos
+       #f6f9fb/#e6edf2 eram da barra de busca/docbar, nao da barra do editor. */
+    --ps-editor-bar:    #eef2f5;
+    --ps-editor-bar-bd: #e0e7ec;
     --ps-ponto-halo:    rgba(10,122,173,.2);
     --ps-foco-anel:     rgba(10,122,173,.14);
     --ps-cli-avatar-bg: #e7eef4;
@@ -142,6 +146,50 @@
     --ps-meta-ok-bg:    #f3faf6;
     --ps-meta-ok-tx:    #5f7f70;
     --ps-meta-atraso-bg:#fdf2f1;
+    /* Auditoria 2 (05/10, lote L0): valores conferidos no "02 - EXPEDIENTES
+       1.2.3.dc.html" e no bj-editor.js. Cada um tem par no bloco escuro. */
+    --ps-editor-foco-bd:  #8fbde6;               /* .bjed:focus-within (X2) */
+    --ps-editor-foco-anel:rgba(15,111,196,.12);
+    --ps-env:             #0f6fc4;               /* .bjed-env: Enviar/Salvar do editor (X3, T2) */
+    --ps-env-hv:          #0b5596;               /* hover do Enviar e do Peticionar (X3, P7) */
+    --ps-cab-nav-div:     #e6edf2;               /* divisoria das setas (C6) */
+    --ps-dado-vazio:      #8a9aa6;               /* valor vazio da faixa (C8) */
+    --ps-vazio-italico:   #9aabb6;               /* valor vazio do cartao de processo (P13) */
+    --ps-vinc-aviso:      #a8661a;               /* icone do "nao encontrado" da busca (D9) */
+    --ps-drawer-bd:       #e4eaef;               /* borda do cabecalho do drawer (D5) */
+    --ps-abrir-filtro:    drop-shadow(0 3px 4px rgba(15,111,196,.28)); /* "Abrir cliente" (D8) */
+    --ps-meta-num:        #0b6a96;               /* numero da meta (M3) */
+    --ps-prazo-atraso:    #c0392f;               /* prazo em atraso da meta (M12) */
+    --ps-nova-meta-hv:    #0b5f86;               /* hover do "Nova meta" (M9) */
+    --ps-shadow-gm:       0 10px 30px rgba(16,42,58,.2); /* menu generico `gm` (M7, P12) */
+    --ps-proc-mais-hv:    #d6eaf4;               /* hover do "Ver todas as informacoes" (P10) */
+    --ps-proc-det-bg:     #f5f8fa;               /* painel de detalhes do processo (P11) */
+    --ps-div-fin:         #e7edf2;               /* moldura dos arquivos e trilho da barra (F10, F13) */
+    --ps-div-fin-fraca:   #f1f4f7;               /* separador entre arquivos (F10) */
+    --ps-accent-bg-hv:    #d8eaf3;               /* hover do "Adicionar pagamento" (F4) */
+    --ps-hover-linha:     #f6f9fb;               /* hover da linha de pagamento (F12) */
+    --ps-pag-venc-tx:     #b03a2e;               /* selo "Vencida" (F6, F11) */
+    --ps-pag-venc-bg:     #fbeceb;
+    --ps-pag-venc-bd:     #f1c9c4;
+    --ps-switch-off:      #cfd9e0;               /* trilho do interruptor de Favoritos (C7) */
+    --ps-resp-opcao-tx:   #1d3441;               /* opcao do menu do responsavel (C1) */
+    --ps-resp-ativa-bg:   #e3f0f8;
+    --ps-resp-vazio-bg:   #eef3f6;               /* avatar "Sem responsavel" (C1, C3) */
+    --ps-resp-vazio-bd:   #d8e2e8;
+    --ps-modal-cab-grad:  linear-gradient(180deg,#0d80a3,#0b6f8f); /* moldura do Editar dados (C2) */
+    --ps-modal-sub:       #d7eef6;
+    --ps-shadow-modal:    0 24px 60px -20px rgba(10,40,60,.45);
+    --ps-modal-campo-bd:  #d3dde4;
+    --ps-modal-fechar-hv: #e3e9ee;
+    --ps-shadow-push:     0 1px 2px rgba(16,42,58,.12); /* cartao do Push (U6) */
+    --ps-push-int-tx:     #b42318;               /* tipo do Push: Intimacao (U3) */
+    --ps-push-int-bg:     #fdecea;
+    --ps-push-dec-tx:     #0b5f86;               /* Decisao / Despacho / Sentenca */
+    --ps-push-dec-bg:     #e3f0f8;
+    --ps-push-cit-tx:     #1e7b45;               /* Citacao */
+    --ps-push-cit-bg:     #e6f4ec;
+    --ps-push-out-tx:     #4f6878;               /* demais tipos */
+    --ps-push-out-bg:     #eef2f5;
 
     --ps-shadow-card:   0 1px 2px rgba(16,42,58,.04);
     --ps-shadow-pop:    0 10px 30px rgba(16,42,58,.14);
@@ -261,6 +309,48 @@
     --ps-meta-ok-bg:    rgba(31,157,97,.08);
     --ps-meta-ok-tx:    var(--ps-ok-text);
     --ps-meta-atraso-bg:rgba(192,57,47,.08);
+    --ps-editor-foco-bd:  rgba(69,176,214,.55);
+    --ps-editor-foco-anel:rgba(69,176,214,.22);
+    --ps-env:             var(--ps-accent);
+    --ps-env-hv:          var(--ps-accent-hover);
+    --ps-cab-nav-div:     var(--bs-border-color-translucent);
+    --ps-dado-vazio:      var(--bs-secondary-color);
+    --ps-vazio-italico:   var(--bs-secondary-color);
+    --ps-vinc-aviso:      #e9be6c;
+    --ps-drawer-bd:       var(--bs-border-color);
+    --ps-abrir-filtro:    drop-shadow(0 3px 4px rgba(0,0,0,.45));
+    --ps-meta-num:        var(--ps-accent);
+    --ps-prazo-atraso:    #f08a84;
+    --ps-nova-meta-hv:    var(--ps-accent-hover);
+    --ps-shadow-gm:       0 10px 30px rgba(0,0,0,.55);
+    --ps-proc-mais-hv:    rgba(69,176,214,.24);
+    --ps-proc-det-bg:     rgba(255,255,255,.04);
+    --ps-div-fin:         var(--bs-border-color);
+    --ps-div-fin-fraca:   var(--bs-border-color-translucent);
+    --ps-accent-bg-hv:    rgba(69,176,214,.24);
+    --ps-hover-linha:     rgba(255,255,255,.04);
+    --ps-pag-venc-tx:     #f08a84;
+    --ps-pag-venc-bg:     rgba(192,57,47,.16);
+    --ps-pag-venc-bd:     rgba(192,57,47,.38);
+    --ps-switch-off:      rgba(255,255,255,.22);
+    --ps-resp-opcao-tx:   var(--bs-body-color);
+    --ps-resp-ativa-bg:   rgba(69,176,214,.18);
+    --ps-resp-vazio-bg:   rgba(255,255,255,.08);
+    --ps-resp-vazio-bd:   var(--bs-border-color);
+    --ps-modal-cab-grad:  linear-gradient(180deg,#0d80a3,#0b6f8f);
+    --ps-modal-sub:       #d7eef6;
+    --ps-shadow-modal:    0 24px 60px -20px rgba(0,0,0,.7);
+    --ps-modal-campo-bd:  var(--bs-border-color);
+    --ps-modal-fechar-hv: rgba(255,255,255,.10);
+    --ps-shadow-push:     0 1px 2px rgba(0,0,0,.45);
+    --ps-push-int-tx:     #f08a84;
+    --ps-push-int-bg:     rgba(192,57,47,.18);
+    --ps-push-dec-tx:     var(--ps-accent);
+    --ps-push-dec-bg:     rgba(69,176,214,.16);
+    --ps-push-cit-tx:     #6ddaa2;
+    --ps-push-cit-bg:     rgba(31,157,97,.16);
+    --ps-push-out-tx:     var(--bs-secondary-color);
+    --ps-push-out-bg:     var(--bs-border-color-translucent);
 
     --ps-shadow-card:   0 1px 2px rgba(0,0,0,.35);
     --ps-shadow-pop:    0 10px 30px rgba(0,0,0,.5);
@@ -384,7 +474,7 @@
    das ações: navegar não pode se confundir com Arquivar/Editar/Excluir.
    Quem carrega o `margin-left: auto` passa a ser a nav; sem esta troca os dois
    `auto` dividiriam a sobra entre si e as setas parariam no meio da linha. */
-.ps-cab-nav { display: flex; align-items: center; gap: 2px; flex-shrink: 0; margin-left: auto; padding-right: 8px; margin-right: 2px; border-right: 1px solid var(--ps-div-strong); }
+.ps-cab-nav { display: flex; align-items: center; gap: 2px; flex-shrink: 0; margin-left: auto; padding-right: 8px; margin-right: 2px; border-right: 1px solid var(--ps-cab-nav-div); }
 .ps-cab-nav + .ps-cab-acoes { margin-left: 0; }
 
 /* Setas sem moldura (desenho): 28px, so o hover pinta. */
@@ -514,6 +604,11 @@
     letter-spacing: .06em;
     color: var(--ps-text);
     white-space: nowrap;
+    /* dc 1052 (auditoria 2 C5): inline-flex na linha de base, 6px entre "PASTA" e o
+       numero — o espaco do texto deixa de contar dentro do flex. */
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
 }
 .ps-cab-nup .ps-num { letter-spacing: 0; }
 .ps-cab-sep { width: 1px; height: 16px; background: var(--ps-border); }
@@ -782,7 +877,7 @@ button.ps-etiqueta:focus-visible { background: var(--ps-accent-bg); color: var(-
 .ps-cab-dados .ps-rotulo { display: flex; align-items: center; gap: 6px; margin: 0 0 6px; }
 .ps-cab-dados .ps-rotulo i { font-size: 12px; color: var(--ps-icone); }
 .ps-cab-dados .ps-dado--forte { font-weight: 700; }
-.ps-cab-dados .ps-dado--vazio { font-size: 14.5px; }
+.ps-cab-dados .ps-dado--vazio { font-size: 14.5px; color: var(--ps-dado-vazio); }
 .ps-cab-dados .ps-cab-acao-vazia { font-size: 13.5px; font-weight: 500; }
 .ps-cab-dados .ps-dado-sub { margin-top: 3px; }
 .ps-cab-dados .ps-link-btn--vincular { font-size: 13px; }
@@ -1189,7 +1284,7 @@ span.ps-situacao-pill { cursor: default; }
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 9px 13px;
+    padding: 8px 13px;
     background: var(--ps-soft);
     border-top: 1px solid var(--ps-div-strong);
 }
@@ -1201,10 +1296,10 @@ span.ps-situacao-pill { cursor: default; }
 .ps-compositor-caixa .ql-toolbar.ql-snow {
     border: none;
     border-bottom: 1px solid var(--ps-div-strong);
-    padding: 6px 9px;
+    padding: 6px 8px;
 }
 .ps-compositor-caixa .ql-container.ql-snow { border: none; font-family: inherit; }
-.ps-compositor-caixa .ql-editor { min-height: 70px; padding: 13px 15px; font-size: 14.5px; line-height: 1.5; }
+.ps-compositor-caixa .ql-editor { min-height: 70px; padding: 13px 15px; font-size: 14.5px; line-height: 1.55; color: var(--ps-text); }
 .ps-compositor-caixa .ql-editor.ql-blank::before { color: var(--ps-placeholder); font-style: normal; left: 15px; }
 /* O editor-rico.css (carregado DEPOIS desta folha, dentro do parcial) traz a
    propria moldura, raio de 6px e 96px de altura: dentro da caixa do compositor
@@ -1212,10 +1307,10 @@ span.ps-situacao-pill { cursor: default; }
    emoldura — e e ela que acende no foco. */
 .ps-compositor-caixa .editor-rico { border: none; border-radius: 0; box-shadow: none; background: transparent; }
 .ps-compositor-caixa .editor-rico:focus-within { border-color: transparent; box-shadow: none; }
-.ps-compositor-caixa:focus-within { border-color: var(--ps-accent); box-shadow: 0 0 0 3px var(--ps-foco-anel); }
-.ps-compositor-caixa .editor-rico .ql-toolbar.ql-snow { background: var(--ps-editor-bar); border-bottom: 1px solid var(--ps-editor-bar-bd); padding: 6px 9px; }
+.ps-compositor-caixa:focus-within { border-color: var(--ps-editor-foco-bd); box-shadow: 0 0 0 3px var(--ps-editor-foco-anel); }
+.ps-compositor-caixa .editor-rico .ql-toolbar.ql-snow { background: var(--ps-editor-bar); border-bottom: 1px solid var(--ps-editor-bar-bd); padding: 6px 8px; }
 .ps-compositor-caixa .editor-rico .ql-container.ql-snow { font-size: 14.5px; }
-.ps-compositor-caixa .editor-rico .ql-editor { min-height: 70px; max-height: 320px; padding: 13px 15px; font-size: 14.5px; line-height: 1.5; }
+.ps-compositor-caixa .editor-rico .ql-editor { min-height: 70px; max-height: 420px; padding: 13px 15px; font-size: 14.5px; line-height: 1.55; color: var(--ps-text); }
 
 /* ── Linha do tempo do registro (desenho 1.2.3) ──
    Area cinza com uma linha vertical a esquerda; cada dia abre com uma pilula
@@ -1373,6 +1468,16 @@ span.ps-situacao-pill { cursor: default; }
     background: transparent;
 }
 .ps-registro .ps-anotacao-acao--responder { color: var(--ps-resp-botao); font-size: 15px; }
+/* Responder so aparece com o cartao sob o mouse ou com foco dentro dele (dc 19 +
+   1311, `data-acao`; auditoria 2 D1). Em tela de toque nao ha hover: fica sempre
+   visivel. O lapis e a lixeira nao entram nisso. As respostas sao irmas do
+   cartao raiz (nao filhas), entao o hover de uma nao acende o botao da outra. */
+.ps-registro .ps-anotacao .ps-anotacao-acao--responder { opacity: 0; transition: opacity .15s ease, background .18s, color .18s; }
+.ps-registro .ps-anotacao:hover .ps-anotacao-acao--responder,
+.ps-registro .ps-anotacao:focus-within .ps-anotacao-acao--responder { opacity: 1; }
+@media (hover: none) {
+    .ps-registro .ps-anotacao .ps-anotacao-acao--responder { opacity: 1; }
+}
 .ps-registro .ps-anotacao-acao--responder:hover,
 .ps-registro .ps-anotacao-acao--responder:focus-visible { background: var(--ps-resp-botao-hv); color: #fff; }
 
@@ -1664,7 +1769,7 @@ span.ps-situacao-pill { cursor: default; }
     font-size: 12.5px;
     color: var(--ps-aba-text);
 }
-.ps-vinc-vazio > i { color: #a8661a; }
+.ps-vinc-vazio > i { color: var(--ps-vinc-aviso); }
 .ps-vinc-vazio-texto { flex: 1; min-width: 140px; }
 .ps-vinc-cadastrar {
     height: 30px;
@@ -1726,7 +1831,8 @@ span.ps-situacao-pill { cursor: default; }
 }
 [data-bs-theme="dark"] .ps-doc-ext { border-color: var(--bs-border-color); }
 /* Icone do TIPO do arquivo (PDF, Word, planilha…): a cor vem do `arquivo_icone`. */
-.ps-doc-icone { width: 25px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 22px; line-height: 1; }
+/* 30x30, icone de 30px (desenho: `fi(ext, 30)`, auditoria 2 D3). */
+.ps-doc-icone { width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 30px; line-height: 1; }
 .ps-doc-nome {
     font-size: 13px;
     font-weight: 500;
@@ -1789,11 +1895,36 @@ span.ps-situacao-pill { cursor: default; }
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 16px 20px;
-    border-bottom: 1px solid var(--ps-div-strong);
+    padding: 20px 22px;
+    border-bottom: 1px solid var(--ps-drawer-bd);
     flex-shrink: 0;
 }
-.ps-drawer-cab h2 { margin: 0; font-size: 14px; font-weight: 600; }
+.ps-drawer-cab h2 { margin: 0; font-size: 15px; font-weight: 600; }
+/* Cabecalho do desenho (dc 2757-2762, auditoria 2 D5): titulo + subtitulo num
+   bloco que cresce, fechar com moldura no topo. O arranjo vale quando o template
+   ja traz o botao novo (`.ps-hist-fechar`); antes disso nada muda de lugar. */
+.ps-drawer-cab:has(> .ps-hist-fechar) { align-items: flex-start; gap: 12px; }
+.ps-drawer-cab:has(> .ps-hist-fechar) h2 { margin: 0 0 3px; }
+.ps-hist-sub { font-size: 12.5px; color: var(--ps-muted); }
+.ps-drawer-fechar.ps-hist-fechar,
+.ps-hist-fechar {
+    margin-left: auto;
+    flex-shrink: 0;
+    border: 1px solid var(--ps-border);
+    background: var(--ps-card);
+    color: var(--ps-cli-avatar-tx);
+    font-family: inherit;
+    font-size: 15px;
+    line-height: 1;
+    padding: 6px 11px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: border-color .15s, color .15s;
+}
+.ps-drawer-fechar.ps-hist-fechar:hover,
+.ps-drawer-fechar.ps-hist-fechar:focus-visible,
+.ps-hist-fechar:hover,
+.ps-hist-fechar:focus-visible { border-color: var(--ps-accent); background: var(--ps-card); color: var(--ps-accent); }
 .ps-drawer-fechar {
     margin-left: auto;
     border: none;
@@ -1806,27 +1937,33 @@ span.ps-situacao-pill { cursor: default; }
     cursor: pointer;
 }
 .ps-drawer-fechar:hover { background: var(--ps-hover); color: var(--ps-accent); }
-.ps-drawer-corpo { overflow-y: auto; overscroll-behavior: contain; padding: 6px 0 24px; flex: 1; }
+/* Corpo, dia e item: dc 2764-2775 (auditoria 2 D6). O recuo lateral e do corpo,
+   nao do item, para a divisoria entre itens nao encostar na borda do painel. */
+.ps-drawer-corpo { overflow-y: auto; overscroll-behavior: contain; padding: 4px 22px 28px; flex: 1; }
 
 .ps-hist-dia {
     position: sticky;
     top: 0;
     background: var(--ps-card);
-    padding: 12px 20px 6px;
-    font-size: 10.5px;
-    font-weight: 700;
-    letter-spacing: .1em;
+    padding: 16px 0 7px;
+    font-variant-numeric: tabular-nums;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: .11em;
     text-transform: uppercase;
     color: var(--ps-label);
     z-index: 1;
 }
-.ps-hist-item { display: flex; gap: 11px; padding: 8px 20px; align-items: flex-start; }
+.ps-hist-item { display: flex; gap: 11px; padding: 9px 0; align-items: flex-start; border-bottom: 1px solid var(--ps-div-weak); }
 .ps-hist-pip { width: 7px; height: 7px; border-radius: 50%; background: #c3d2dd; margin-top: 6px; flex-shrink: 0; }
 [data-bs-theme="dark"] .ps-hist-pip { background: var(--bs-secondary-color); }
-.ps-hist-corpo { min-width: 0; flex: 1; font-size: 13px; line-height: 1.45; color: var(--ps-body); }
+.ps-hist-corpo { min-width: 0; flex: 1; font-size: 13.5px; line-height: 1.45; color: var(--ps-body); text-wrap: pretty; }
 .ps-hist-autor { font-weight: 600; }
 .ps-hist-detalhe { font-size: 12.5px; color: var(--ps-muted); margin-top: 2px; }
 .ps-hist-hora { font-variant-numeric: tabular-nums; font-size: 11.5px; color: var(--ps-label); flex-shrink: 0; }
+/* Hora EMBAIXO do texto (dc 2775, auditoria 2 D4): vale quando o template a move
+   para dentro de `.ps-hist-corpo`. */
+.ps-hist-corpo > .ps-hist-hora { display: block; color: var(--ps-faint); margin-top: 2px; line-height: 1.3; }
 
 /* =============================================================================
    Responsivo
@@ -1849,6 +1986,13 @@ span.ps-situacao-pill { cursor: default; }
     .ps-btn span { display: none; }
     .ps-btn { padding: 0 10px; }
     .ps-btn--voltar span { display: inline; }
+    /* O rotulo destes nunca some (auditoria 2 T3): "Ver historico do sistema",
+       "Adicionar nota tecnica" e "Adicionar pagamento" so com icone nao dizem nada. */
+    .ps-btn--largo span,
+    .ps-btn--nota span,
+    .ps-fin-btn-largo span,
+    .ps-fin-btn-add span { display: inline; }
+    .ps-btn--largo { padding: 0 12px; }
     .ps-drawer { width: 100%; }
     /* Em tela estreita o trilho rola na horizontal; as abas param de dividir o
        espaco (senao encolheriam ate o rotulo quebrar) e ficam do tamanho do texto. */
@@ -2063,6 +2207,10 @@ span.ps-situacao-pill { cursor: default; }
     text-overflow: ellipsis;
 }
 .ps-fin-corpo { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; }
+/* Contrato e Pro-bono (dc 1738/1745, auditoria 2 F1): o selo fica numa LINHA,
+   centrado na altura e na largura natural. Em coluna ele virava item de flex e
+   esticava na largura do cartao. */
+.ps-fin-corpo--selo { flex-direction: row; align-items: center; justify-content: flex-start; flex-wrap: wrap; gap: 9px; }
 .ps-fin-bloco--media { background: #fdf8ef; border-color: #ecdfc7; }
 .ps-fin-bloco--media .ps-fin-rotulo { color: #a08444; }
 .ps-fin-bloco--media .ps-fin-sub { color: #8a6f3d; }
@@ -2106,7 +2254,7 @@ span.ps-situacao-pill { cursor: default; }
 [data-bs-theme="dark"] .ps-fin-selo:hover { filter: brightness(1.15); }
 .ps-fin-selo--ok     { color: var(--ps-ok-text);     background: var(--ps-ok-bg);     border: 1px solid var(--ps-ok-border); }
 .ps-fin-selo--perigo { color: var(--ps-danger-text); background: var(--ps-danger-bg); border: 1px solid var(--ps-danger-border); }
-.ps-fin-selo--neutro { color: var(--ps-cinza-text);  background: var(--ps-div-strong); border: 1px solid var(--ps-border); }
+.ps-fin-selo--neutro { color: var(--ps-text-3);      background: var(--ps-bg);         border: 1px solid var(--ps-border); }
 
 .ps-fin-lapis {
     width: 22px;
@@ -2150,7 +2298,7 @@ span.ps-situacao-pill { cursor: default; }
    Dados (25×31). Um pixel, mas veio do documento — não é opinião. */
 .ps-fin-doc .ps-doc-ext { width: 24px; height: 29px; }
 .ps-fin-doc-renomear { display: flex; align-items: center; gap: 6px; min-width: 0; }
-.ps-fin-doc-vazio { padding: 16px 17px; font-size: 12.5px; color: var(--ps-faint); text-align: center; }
+.ps-fin-doc-vazio { padding: 14px 12px; font-size: 12.5px; color: var(--ps-faint); text-align: center; }
 /* As ações do arquivo moram no menu ⋮ (desenho 1.2.3). O botão fica SEMPRE à
    vista, discreto, como no desenho — o hover só o destaca. */
 .ps-fin-doc-acoes { display: flex; flex-shrink: 0; }
@@ -2166,8 +2314,32 @@ span.ps-situacao-pill { cursor: default; }
     cursor: pointer;
 }
 .ps-fin-link:hover { color: var(--ps-accent); }
-.ps-fin-rodape { padding: 12px 17px 15px; border-top: 1px solid var(--ps-div-strong); }
+/* Sem divisoria (dc 1855/1923, auditoria 2 F3). */
+.ps-fin-rodape { padding: 12px 17px 15px; }
 .ps-fin-btn-largo { width: 100%; justify-content: center; }
+/* "Adicionar pagamento" (dc 1924, auditoria 2 F4): azul claro, sem moldura, 32px.
+   Funciona sozinho ou junto de `.ps-btn` (vem depois dele e vence o hover). */
+.ps-fin-btn-add {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    height: 32px;
+    padding: 0 13px;
+    border: none;
+    border-radius: 4px;
+    background: var(--ps-accent-bg);
+    color: var(--ps-chip-text);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background .18s, color .18s;
+}
+.ps-fin-btn-add:hover,
+.ps-fin-btn-add:focus-visible { border: none; background: var(--ps-accent-bg-hv); color: var(--ps-accent); }
+.ps-fin-btn-add i { font-size: 12px; }
 /* No Financeiro os cartoes do trilho tem cabecalho LIMPO (desenho): titulo
    14/600 e contagem cinza, sem faixa; a lista de arquivos fica emoldurada. */
 #financeiro .ps-trilho .ps-card-cab { min-height: auto; padding: 15px 17px 0; gap: 9px; background: transparent; border-bottom: none; }
@@ -2176,7 +2348,9 @@ span.ps-situacao-pill { cursor: default; }
 #financeiro .ps-trilho .ps-card-cab-link { margin-right: 0; }
 /* Sem `overflow: hidden`: as linhas não têm fundo próprio para vazar do raio, e o
    corte prenderia o menu ⋮ (que de todo modo é `position: fixed`). */
-#financeiro-docs-lista { margin: 12px 17px 0; border: 1px solid var(--ps-div-strong); border-radius: 4px; }
+#financeiro-docs-lista { margin: 12px 17px 0; border: 1px solid var(--ps-div-fin); border-radius: 4px; }
+/* Linha da lista emoldurada: 9px 11px e separador mais claro (dc 1836/6329, auditoria 2 F10). */
+#financeiro-docs-lista .ps-fin-doc { padding: 9px 11px; border-bottom-color: var(--ps-div-fin-fraca); }
 #financeiro-docs-lista .ps-fin-doc:last-child { border-bottom: none; }
 
 /* Switch "reduzir tamanho ao enviar". A nota de apoio abaixo muda com o estado —
@@ -2198,10 +2372,10 @@ span.ps-situacao-pill { cursor: default; }
     width: 38px;
     height: 22px;
     border-radius: 999px;
-    background: var(--ps-border);
+    background: var(--ps-border-ctl);
     padding: 2px;
     flex-shrink: 0;
-    transition: background .2s;
+    transition: background .26s var(--ps-ease);
 }
 .ps-fin-switch-knob {
     display: block;
@@ -2223,7 +2397,7 @@ span.ps-situacao-pill { cursor: default; }
 .ps-pag-barra {
     height: 6px;
     border-radius: 999px;
-    background: var(--ps-div-strong);
+    background: var(--ps-div-fin);
     overflow: hidden;
     margin-top: 9px;
 }
@@ -2239,10 +2413,17 @@ span.ps-situacao-pill { cursor: default; }
 .ps-pag-linha {
     padding: 10px 17px;
     display: flex;
-    gap: 10px;
+    gap: 12px;
     align-items: center;
     border-top: 1px solid var(--ps-div-weak);
+    transition: background .15s;
 }
+.ps-pag-linha:hover { background: var(--ps-hover-linha); }
+/* Divisoria so ENTRE linhas (dc 3464, auditoria 2 F12). As pagas ficam no HTML e
+   escondidas, entao "a primeira" e a primeira VISIVEL — sem `:nth-child(of)` a
+   linha so mantem a borda, nada quebra. */
+#psPagamentos:not(.is-mostrando-todos) .ps-pag-linha:nth-child(1 of .ps-pag-linha:not(.ps-pag-linha--pago)),
+#psPagamentos.is-mostrando-todos .ps-pag-linha:nth-child(1 of .ps-pag-linha) { border-top: none; }
 .ps-pag-corpo { min-width: 0; flex: 1; }
 .ps-pag-descricao {
     font-size: 13.5px;
@@ -2261,7 +2442,14 @@ span.ps-situacao-pill { cursor: default; }
     text-transform: uppercase;
     font-size: 10.5px;
     cursor: pointer;
+    /* Borda do tom e 2px 8px (dc 3434-3441, auditoria 2 F11). */
+    padding: 2px 8px;
+    border: 1px solid transparent;
 }
+.ps-pag-selo.ps-selo--ok      { border-color: var(--ps-ok-border); }
+.ps-pag-selo.ps-selo--proximo { border-color: var(--ps-warn-border); }
+/* "Vencida" (F6): o tom e do desenho, mais quente que o do prazo urgente. */
+.ps-pag-selo.ps-selo--urgente { color: var(--ps-pag-venc-tx); background: var(--ps-pag-venc-bg); border-color: var(--ps-pag-venc-bd); }
 .ps-pag-excluir { flex-shrink: 0; opacity: 0; transition: opacity .15s; }
 .ps-pag-linha:hover .ps-pag-excluir,
 .ps-pag-linha:focus-within .ps-pag-excluir { opacity: 1; }
@@ -2421,30 +2609,36 @@ span.ps-situacao-pill { cursor: default; }
     border-radius: 999px;
     font-variant-numeric: tabular-nums;
 }
+/* Ponto de 16px centrado na linha (dc 5373, auditoria 2 U5). O verde de "nova"
+   saiu: no desenho o verde e "polo ativo"; a nova se marca no cartao (U2). */
 .ps-push-ponto {
     position: absolute;
-    left: 16px;
+    left: 13px;
     top: 25px;
-    width: 12px;
-    height: 12px;
+    width: 16px;
+    height: 16px;
     border-radius: 50%;
     background: var(--ps-accent);
     box-shadow: 0 0 0 3px var(--ps-push-bg);
     z-index: 1;
 }
-.ps-push-item--nova .ps-push-ponto { background: var(--ps-ok-dot); }
+/* Wrapper do ponto + cartao (dc 2511-2512, auditoria 2 U1): o ponto passa a se
+   medir pelo CARTAO, nao pelo <li> — que inclui a pilula do dia. */
+.ps-push-cartao { position: relative; margin-top: 10px; }
+.ps-push-cartao > .ps-push-ponto { left: -31px; top: 13px; }
+.ps-push-cartao > .ps-push-cab { margin-top: 0; }
 .ps-push-cab {
     position: relative;
     width: 100%;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 7px;
     margin-top: 10px;
-    padding: 12px 14px;
+    padding: 12px 14px 9px;
     background: var(--ps-card);
     border: 0;
-    border-radius: 4px;
-    box-shadow: var(--ps-shadow-reg);
+    border-radius: 3px;
+    box-shadow: var(--ps-shadow-push);
     text-align: left;
     font: inherit;
     color: var(--ps-push-txt);
@@ -2461,6 +2655,9 @@ span.ps-situacao-pill { cursor: default; }
     border-color: transparent var(--ps-card) transparent transparent;
 }
 .ps-push-cab:hover { box-shadow: var(--ps-shadow-reg-hv); }
+/* Publicacao nao lida: filete azul de 3px na esquerda do cartao (dc 5374, U2). */
+.ps-push-item--nova .ps-push-cab { box-shadow: var(--ps-shadow-push), inset 3px 0 0 var(--ps-accent); }
+.ps-push-item--nova .ps-push-cab:hover { box-shadow: var(--ps-shadow-reg-hv), inset 3px 0 0 var(--ps-accent); }
 .ps-push-assunto { display: flex; align-items: flex-start; gap: 9px; }
 .ps-push-assunto > i { font-size: 14px; color: var(--ps-push-txt); margin-top: 2px; flex-shrink: 0; transform: scaleX(-1); }
 .ps-push-assunto-txt { flex: 1; min-width: 0; font-size: 13.5px; line-height: 1.55; text-transform: uppercase; overflow-wrap: anywhere; }
@@ -2475,7 +2672,7 @@ span.ps-situacao-pill { cursor: default; }
     padding: 2px 7px;
     border-radius: 999px;
 }
-.ps-push-corpo { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
+.ps-push-corpo { display: flex; align-items: flex-end; gap: 8px; flex-wrap: wrap; min-width: 0; }
 .ps-push-meta { font-size: 11px; color: var(--ps-label); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ps-push-hora { margin-left: auto; font-size: 11.5px; color: var(--ps-push-hora); font-variant-numeric: tabular-nums; }
 .ps-push-seta { flex: 0 0 auto; color: var(--ps-faint); font-size: 12px; transition: transform .18s var(--ps-ease); }
@@ -2668,7 +2865,8 @@ a.ps-push-doc-link:hover { color: var(--ps-push-doc); text-decoration: underline
 .ps-processo-sit-ponto { width: 8px; height: 8px; border-radius: 50%; background: var(--ps-faint); flex-shrink: 0; }
 /* Em andamento: verde, como no desenho; o resto (baixado, arquivado, sem dado) fica cinza. */
 .ps-processo-situacao--ativa { font-weight: 600; color: var(--ps-ok-text); }
-.ps-processo-situacao--ativa .ps-processo-sit-ponto { position: relative; background: var(--ps-ok-dot); box-shadow: 0 0 0 3px var(--ps-ok-halo); }
+/* Sem anel: so as ondas (dc 1617, auditoria 2 P9). */
+.ps-processo-situacao--ativa .ps-processo-sit-ponto { position: relative; background: var(--ps-ok-dot); box-shadow: none; }
 /* As mesmas ondas da pilula de situacao (desenho). */
 .ps-processo-situacao--ativa .ps-processo-sit-ponto::before,
 .ps-processo-situacao--ativa .ps-processo-sit-ponto::after {
@@ -2684,9 +2882,22 @@ a.ps-push-doc-link:hover { color: var(--ps-push-doc); text-decoration: underline
     .ps-processo-situacao--ativa .ps-processo-sit-ponto::before,
     .ps-processo-situacao--ativa .ps-processo-sit-ponto::after { animation: none; display: none; }
 }
-/* Copiar numero: cinza no repouso, azul no hover (desenho). */
-.ps-processos .ps-copiar { color: var(--ps-faint); transition: color .18s; }
-.ps-processos .ps-copiar:hover { color: var(--ps-accent); }
+/* Copiar numero: alvo de 28x28, cinza no repouso, fundo azul claro no hover
+   (dc 1596, auditoria 2 P8). E o proprio <i>: o glifo vem do ::before. */
+.ps-processos .ps-copiar {
+    width: 28px;
+    height: 28px;
+    margin-left: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    vertical-align: middle;
+    border-radius: 4px;
+    font-size: 13px;
+    color: var(--ps-faint);
+    transition: background .18s, color .18s;
+}
+.ps-processos .ps-copiar:hover { background: var(--ps-accent-bg); color: var(--ps-accent); }
 /* Nota de rodape do desenho: o que e o processo principal. */
 .ps-processos-nota { padding: 14px 20px; display: flex; align-items: center; gap: 9px; font-size: 12.5px; color: var(--ps-muted); }
 .ps-processos-nota i { font-size: 13px; opacity: .75; flex-shrink: 0; }
@@ -2717,7 +2928,7 @@ a.ps-push-doc-link:hover { color: var(--ps-push-doc); text-decoration: underline
     transition: background .18s;
 }
 .ps-processo-mais:hover,
-.ps-processo-mais:focus-visible { background: var(--ps-acao-hover); outline: none; }
+.ps-processo-mais:focus-visible { background: var(--ps-proc-mais-hv); outline: none; }
 .ps-processo-mais:focus-visible { box-shadow: 0 0 0 3px var(--ps-foco-anel); }
 .ps-processo-mais i { font-size: 12px; }
 
@@ -2729,7 +2940,7 @@ a.ps-push-doc-link:hover { color: var(--ps-push-doc); text-decoration: underline
 .ps-processo-detalhes {
     margin-top: 12px;
     padding: 14px 16px;
-    background: var(--ps-hover-suave);
+    background: var(--ps-proc-det-bg);
     border-radius: 4px;
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr));
@@ -2787,7 +2998,7 @@ a.ps-push-doc-link:hover { color: var(--ps-push-doc); text-decoration: underline
 .ps-processos .ps-processo-menu {
     position: fixed;
     z-index: 141;
-    width: 250px;
+    width: 230px;
     max-width: calc(100vw - 24px);
     max-height: calc(100vh - 24px);
     overflow-y: auto;
@@ -2796,7 +3007,7 @@ a.ps-push-doc-link:hover { color: var(--ps-push-doc); text-decoration: underline
     flex-direction: column;
     background: var(--ps-card);
     border-radius: 4px;
-    box-shadow: var(--ps-shadow-pop);
+    box-shadow: var(--ps-shadow-gm);
     animation: psProcEntra .14s var(--ps-ease) backwards;
 }
 .ps-processos .ps-processo-menu[hidden],
@@ -2869,7 +3080,7 @@ a.ps-push-doc-link:hover { color: var(--ps-push-doc); text-decoration: underline
 /* Numero local da meta (desenho: "1." 14.5/700 azul, algarismos tabulares). O
    numero global do desenho (tarefa.id) nao entra: e a sequencia de TODOS os
    escritorios. */
-.ps-meta-num { flex-shrink: 0; min-width: 20px; font-size: 14.5px; font-weight: 700; line-height: 1.35; color: var(--ps-chip-text); }
+.ps-meta-num { flex-shrink: 0; min-width: 20px; font-size: 14.5px; font-weight: 700; line-height: 1.35; color: var(--ps-meta-num); font-variant-numeric: tabular-nums; }
 .ps-meta-titulo-tx { flex: 1; min-width: 0; }
 /* So o TEXTO e riscado (desenho): o numero continua legivel. */
 .ps-meta--concluida .ps-meta-titulo { color: var(--ps-meta-ok-tx); }
@@ -2877,7 +3088,9 @@ a.ps-push-doc-link:hover { color: var(--ps-push-doc); text-decoration: underline
 .ps-meta-linha { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 5px; }
 .ps-meta-linha > span { display: flex; align-items: center; gap: 6px; white-space: nowrap; font-size: 12.5px; color: var(--ps-muted); }
 .ps-meta-linha i { font-size: 12px; opacity: .8; }
-.ps-meta-linha > .ps-meta-prazo--atraso { font-weight: 600; color: var(--ps-danger-dot); }
+/* O calendario do prazo e menor e sem transparencia (dc 1443, auditoria 2 M4). */
+.ps-meta-linha i.bi-calendar-event { font-size: 11px; opacity: 1; }
+.ps-meta-linha > .ps-meta-prazo--atraso { font-weight: 600; color: var(--ps-prazo-atraso); }
 .ps-meta-direita { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
 .ps-meta-status {
     font-size: 11px;
@@ -2937,9 +3150,11 @@ a.ps-push-doc-link:hover { color: var(--ps-push-doc); text-decoration: underline
 }
 .ps-meta-menu-btn:hover,
 .ps-meta-menu-btn[aria-expanded="true"] { background: var(--ps-accent-bg); color: var(--ps-accent); }
-.ps-pop--meta { top: 34px; right: 0; width: 220px; padding: 6px; border: none; box-shadow: var(--ps-shadow-menu); }
+.ps-pop--meta { top: 34px; right: 0; width: 220px; padding: 5px; border: none; box-shadow: var(--ps-shadow-menu); }
 .ps-pop--meta form { margin: 0; }
 .ps-pop--meta .ps-pop-item { font-size: 13px; padding: 7px 10px; }
+/* O icone herda a cor do item (dc 1460/3554, auditoria 2 M6). */
+.ps-pop--meta .ps-pop-item i { color: inherit; }
 /* O menu aberto fica por cima das linhas seguintes (cada linha e posicionada). */
 .ps-meta:has(.ps-pop.is-aberto) { z-index: 5; }
 
@@ -2964,8 +3179,8 @@ a.ps-push-doc-link:hover { color: var(--ps-push-doc); text-decoration: underline
 }
 .ps-meta-sino:hover,
 .ps-meta-sino[aria-expanded="true"] { background: var(--ps-sino-hover-bg); color: var(--ps-sino-hover); }
-.ps-pop--sino { width: 230px; padding: 5px; }
-.ps-pop--sino .ps-pop-secao { padding: 6px 10px 4px; }
+.ps-pop--sino { width: 230px; padding: 5px; box-shadow: var(--ps-shadow-gm); }
+.ps-pop--sino .ps-pop-secao { padding: 6px 10px 5px; letter-spacing: .06em; color: var(--ps-label); }
 
 /* "Editar nome": o formulario e filho da linha e o pasta-metas.js o poe sobre o
    titulo (que fica invisivel reservando a altura do campo). Desenho: campo 32px
@@ -3081,6 +3296,11 @@ a.ps-push-doc-link:hover { color: var(--ps-push-doc); text-decoration: underline
 .ps-metas-ponto--atraso { background: var(--ps-danger-dot); }
 .ps-metas-atencao .ps-card-cab--painel { padding: 14px 17px; }
 .ps-metas-atencao .ps-card-cab--painel h2 { font-size: 13.5px; }
+/* "Precisa de atencao" e cabecalho de PAINEL (dc 1540-1541, auditoria 2 M2): a
+   regra dos cartoes do trilho (`.ps-trilho .ps-card-cab`) vencia por especificidade
+   e pintava a faixa escura de 46px com titulo 700. */
+.ps-trilho .ps-metas-atencao .ps-card-cab--painel { min-height: 0; padding: 14px 17px; background: var(--ps-cab-bg); border-bottom: 1px solid var(--ps-cab-border); }
+.ps-trilho .ps-metas-atencao .ps-card-cab--painel h2 { font-weight: 600; letter-spacing: 0; }
 .ps-metas-atencao-item { padding: 13px 17px; border-bottom: 1px solid var(--ps-div-weak); display: flex; gap: 11px; align-items: flex-start; }
 .ps-metas-atencao-item > i { font-size: 13px; color: var(--ps-danger-dot); margin-top: 2px; flex-shrink: 0; }
 .ps-metas-atencao-titulo { font-size: 13.5px; font-weight: 500; line-height: 1.35; text-wrap: pretty; }
@@ -3093,6 +3313,9 @@ a.ps-push-doc-link:hover { color: var(--ps-push-doc); text-decoration: underline
 .ps-metas-pessoa { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .ps-avatar--27 { width: 27px; height: 27px; font-size: 10px; }
 .ps-avatar--neutro { background: var(--ps-cli-avatar-bg); color: var(--ps-cli-avatar-tx); font-weight: 600; }
+/* No escuro, `[data-bs-theme=dark] .ps-avatar--24` (azul) vencia o neutro e "Criada por"
+   saia azul (auditoria 2 T5). Mesmo peso, declarado depois. */
+[data-bs-theme="dark"] .ps-avatar--neutro { background: var(--ps-cli-avatar-bg); color: var(--ps-cli-avatar-tx); }
 .ps-metas-pessoa-nome { font-size: 13.5px; font-weight: 500; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ps-metas-pessoa-n { font-size: 11.5px; color: var(--ps-muted); }
 .ps-metas-pessoas-vazio { font-size: 12.5px; color: var(--ps-muted); }
@@ -3104,7 +3327,8 @@ a.ps-push-doc-link:hover { color: var(--ps-push-doc); text-decoration: underline
 /* ── Aba Detalhes: fatos da pasta + relatorio inicial ── */
 .ps-detalhes-obs { overflow: hidden; }
 .ps-compositor-rodape--solto { margin-top: 8px; border-top: none; background: transparent; padding: 0; }
-.ps-detalhes-rolagem { max-height: 520px; overflow-y: auto; overscroll-behavior: contain; border-radius: 0 0 4px 4px; }
+/* Sem teto nem rolagem interna: a lista cresce com a pagina (dc 2316, auditoria 2 T1). */
+.ps-detalhes-rolagem { border-radius: 0 0 4px 4px; }
 /* Trilho da aba Detalhes (desenho): "Registro da pasta" e "Como usar esta aba". */
 .ps-registro-pasta { padding: 17px; }
 .ps-registro-pasta h2 { margin-bottom: 14px; }
@@ -3113,26 +3337,32 @@ a.ps-push-doc-link:hover { color: var(--ps-push-doc); text-decoration: underline
 .ps-registro-pasta-pessoa { display: flex; align-items: center; gap: 8px; }
 .ps-registro-pasta-div { height: 1px; background: var(--ps-div-strong); margin: 16px 0 14px; }
 .ps-registro-pasta .ps-btn { height: 32px; gap: 8px; }
-.ps-btn--largo { width: 100%; justify-content: center; }
+/* Alinhado a esquerda, 0 12px (dc 2386, auditoria 2 T4). */
+.ps-btn--largo { width: 100%; justify-content: flex-start; padding: 0 12px; }
 .ps-como-usar h2 { margin-bottom: 11px; }
 .ps-como-usar p { margin: 0; font-size: 13px; line-height: 1.6; color: var(--ps-text-3); text-wrap: pretty; }
-.ps-como-usar strong { color: var(--ps-forte-2); font-weight: 600; }
-.ps-detalhes-rolagem::-webkit-scrollbar { width: 5px; }
-.ps-detalhes-rolagem::-webkit-scrollbar-thumb { background: var(--ps-border); border-radius: 3px; }
+.ps-como-usar { padding: 17px; } /* dc 2399 (auditoria 2 T7) */
+.ps-como-usar strong { color: var(--ps-forte-2); font-weight: 700; }
 
 /* ── Aba Push: tipo da publicacao em pilula ── */
 .ps-push-titulo {
     display: inline-flex;
     align-items: center;
-    font-size: 10.5px;
+    font-size: 10px;
     font-weight: 800;
     letter-spacing: .05em;
     text-transform: uppercase;
-    padding: 2px 8px;
+    padding: 2px 7px;
     border-radius: 999px;
     color: var(--ps-chip-text);
     background: var(--ps-accent-bg);
 }
+/* Cor pelo tipo da comunicacao (dc 5364/5380, auditoria 2 U3). O modificador vem
+   do Twig a partir de `tipoComunicacao`; sem modificador fica o azul de antes. */
+.ps-push-titulo--intimacao { color: var(--ps-push-int-tx); background: var(--ps-push-int-bg); }
+.ps-push-titulo--decisao   { color: var(--ps-push-dec-tx); background: var(--ps-push-dec-bg); }
+.ps-push-titulo--citacao   { color: var(--ps-push-cit-tx); background: var(--ps-push-cit-bg); }
+.ps-push-titulo--outro     { color: var(--ps-push-out-tx); background: var(--ps-push-out-bg); }
 
 /* =============================================================================
    A6 — Financeiro e Documentos: so tokens e raios, sem reorganizar.
@@ -3421,3 +3651,330 @@ a.ps-push-doc-link:hover { color: var(--ps-push-doc); text-decoration: underline
     transition: opacity .18s, transform .18s;
 }
 .ps-l7-aviso.is-visivel { opacity: 1; transform: translate(-50%, 0); }
+
+/* =============================================================================
+   Auditoria 2 de fidelidade (05/10) — lote L0
+   docs/specs/trilha-b-inventario/auditoria-pasta-2.md. Os itens que eram ajuste
+   de valor foram feitos na propria regra; aqui ficam as regras NOVAS e as classes
+   que os lotes de template (L1–L7) vao usar. Valores do "02 - EXPEDIENTES
+   1.2.3.dc.html" e do bj-editor.js; toda cor e token com par no bloco escuro.
+   ============================================================================= */
+
+/* ── Enviar do compositor e Salvar da edicao (`.bjed-env`; X3, T2) ──
+   Escopado ao rodape do editor: o `.ps-btn--primario` dos cabecalhos e das outras
+   telas nao muda. */
+.ps-compositor-rodape .ps-btn.ps-btn--primario,
+.ps-anotacao-edicao-rodape .ps-btn.ps-btn--primario {
+    height: auto;
+    padding: 8px 18px;
+    border: none;
+    background: var(--ps-env);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: normal;
+    transition: background .15s;
+}
+.ps-compositor-rodape .ps-btn.ps-btn--primario:hover,
+.ps-compositor-rodape .ps-btn.ps-btn--primario:focus-visible,
+.ps-anotacao-edicao-rodape .ps-btn.ps-btn--primario:hover,
+.ps-anotacao-edicao-rodape .ps-btn.ps-btn--primario:focus-visible { border: none; background: var(--ps-env-hv); color: #fff; }
+
+/* ── Rodape da edicao no lugar (Detalhes; auditoria 2 T2) ──
+   Modo edicao do bj-editor: "Visivel para a equipe" · espaco · Cancelar · Salvar,
+   DENTRO da caixa do editor. Uso esperado no template:
+     <div class="ps-compositor-caixa">
+       <textarea data-editor-rico …>
+       <div class="ps-anotacao-edicao-rodape">
+         <span class="ps-compositor-nota">Visível para a equipe</span>
+         <span class="ps-cab-espaco"></span>
+         <button class="ps-anotacao-edicao-cancelar">Cancelar</button>
+         <button class="ps-btn ps-btn--primario">Salvar</button>
+   Cancelar e transparente e nao muda no hover (no desenho o estilo em linha
+   vence o :hover do `.bjed-env`). */
+.ps-anotacao-edicao-rodape {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 8px 13px;
+    background: var(--ps-soft);
+    border-top: 1px solid var(--ps-div-strong);
+}
+.ps-compositor-caixa > .ps-anotacao-edicao-rodape { border-radius: 0 0 3px 3px; }
+.ps-anotacao-edicao-cancelar {
+    margin-right: 6px;
+    padding: 8px 18px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--ps-aba-text);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.ps-anotacao-edicao-cancelar:focus-visible { outline: 2px solid var(--ps-accent); outline-offset: 2px; }
+/* A regra antiga dos botoes da edicao (30px) nao vale dentro do rodape novo. */
+.ps-registro .ps-anotacao-edicao .ps-anotacao-edicao-rodape .ps-btn { height: auto; }
+
+/* ── Metas (M9, M11) ── */
+.ps-metas .ps-card-cab--painel .ps-btn--primario.ps-btn--alto { gap: 8px; }
+.ps-metas .ps-card-cab--painel .ps-btn--primario.ps-btn--alto i { font-size: 13px; }
+.ps-metas .ps-card-cab--painel .ps-btn--primario.ps-btn--alto:hover,
+.ps-metas .ps-card-cab--painel .ps-btn--primario.ps-btn--alto:focus-visible { border-color: var(--ps-nova-meta-hv); background: var(--ps-nova-meta-hv); }
+.ps-metas .ps-vazio { padding: 52px 24px; }
+
+/* ── Processo (P6, P7, P13) ── */
+.ps-processos > .ps-card-cab--painel { gap: 12px; }
+.ps-processos .ps-btn--primario.ps-btn--caps i { font-size: 13px; }
+.ps-processos .ps-btn--primario.ps-btn--caps:hover,
+.ps-processos .ps-btn--primario.ps-btn--caps:focus-visible { border-color: var(--ps-env-hv); background: var(--ps-env-hv); }
+/* Valor vazio do cartao: 13.5/500, italico, mais apagado (dc 2871). So no cartao
+   de processo — a faixa do cabecalho tem o tom proprio (C8). */
+.ps-processos .ps-processo-valor.ps-dado--vazio { font-size: 13.5px; font-weight: 500; font-style: italic; color: var(--ps-vazio-italico); }
+
+/* ── Financeiro: vazio de Pagamentos em linha (auditoria 2 F5) ──
+   "Nenhum lançamento. Use Adicionar pagamento." (dc 1920), abaixo do total zerado. */
+.ps-pag-vazio-linha { padding: 14px 17px; text-align: center; font-size: 12.5px; color: var(--ps-faint); }
+
+/* ── Push (U4, U7, U8, U11) ── */
+/* Vazio em linha simples (dc 2424). */
+.ps-push-vazio-linha { padding: 28px 20px; text-align: center; font-size: 13px; color: var(--ps-muted); }
+/* Cantos (U7). O desenho usa `overflow:hidden` no cartao, mas aqui o menu ⋮ das
+   analises de IA e `position:absolute` dentro dele e seria cortado com lista curta;
+   os raios vao para o cabecalho e para a lista, que sao quem vazava. */
+.ps-push > .ps-card-cab:first-child { border-radius: 3px 3px 0 0; }
+.ps-push > .ps-push-lista { border-radius: 0 0 3px 3px; }
+.ps-push > .ps-push-lista:has(~ .ps-push-teto) { border-radius: 0; }
+/* Titulo sem espacamento de letra (dc 2413, U8). */
+.ps-push > .ps-card-cab--faixa h2 { letter-spacing: 0; }
+/* 16px acima do painel no Push, 18px nas outras abas (dc 6595, U11). */
+.ps-paineis:has(> #push.active) { margin-top: 16px; }
+
+/* ── Menu do responsavel #pastaRespMenu (auditoria 2 C1) ──
+   O menu e compartilhado com o Expediente (`_resp_estilo`, `<style>` em linha que
+   vem DEPOIS desta folha): aqui so `.ps-body .pasta-resp-*` (0,2,0), que vence o
+   (0,1,0) de la sem tocar na lista de pastas. Tarja em degrade com a busca branca
+   dentro, opcoes 13/500 em maiusculas, ativa 700 sobre azul claro. O ✓ da ativa
+   e o placeholder "Filtrar responsável" sao do template (L1). */
+.ps-body .pasta-resp-menu {
+    width: 310px;
+    min-width: 0;
+    max-width: calc(100vw - 40px);
+    padding: 0;
+    border: none;
+    border-radius: 4px;
+    background: var(--ps-card);
+    box-shadow: var(--ps-shadow-menu);
+    overflow: hidden;
+}
+.ps-body .pasta-resp-busca-wrap { padding: 10px 12px; background: var(--ps-menu-tarja); }
+.ps-body .pasta-resp-busca-icone { left: 23px; transform: translateY(-50%); font-size: 13px; opacity: 1; color: var(--ps-muted); }
+.ps-body .pasta-resp-busca {
+    height: 36px;
+    padding: 0 11px 0 32px;
+    border: none;
+    border-radius: 4px;
+    background: var(--ps-card);
+    color: var(--ps-text);
+    font-family: inherit;
+    font-size: 13.5px;
+}
+.ps-body .pasta-resp-busca:focus { border: none; box-shadow: none; }
+.ps-body .pasta-resp-busca::placeholder { color: var(--ps-placeholder); opacity: 1; }
+.ps-body .pasta-resp-lista { max-height: 300px; padding: 6px; display: flex; flex-direction: column; gap: 1px; }
+.ps-body .pasta-resp-opcao {
+    gap: 10px;
+    padding: 7px 9px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ps-resp-opcao-tx);
+    transition: background .15s;
+}
+.ps-body .pasta-resp-opcao .pasta-resp-nome { min-width: 0; text-transform: uppercase; }
+/* "Sem responsável" nao e nome: fica como escrito. */
+.ps-body .pasta-resp-opcao[data-user-id=""] .pasta-resp-nome { text-transform: none; }
+.ps-body .pasta-resp-opcao:hover,
+.ps-body .pasta-resp-opcao.marcada { background: var(--ps-hover); }
+.ps-body .pasta-resp-opcao.ativa { background: var(--ps-resp-ativa-bg); font-weight: 700; }
+/* Avatar de 28px na lista (o template manda 24 em linha). */
+.ps-body .pasta-resp-menu .resp-avatar { width: 28px !important; height: 28px !important; }
+.ps-body .pasta-resp-menu .resp-avatar-ini { font-size: 11px !important; }
+.ps-body .pasta-resp-vazio { padding: 14px 10px; font-size: 13px; color: var(--ps-muted); }
+
+/* ── Avatar "Sem responsavel" (C1 no menu, C3 no chip do cabecalho) ── */
+.ps-body .pasta-resp-menu .resp-avatar-vazio,
+.ps-cab-dados .pasta-resp-chip .resp-avatar-vazio {
+    background: var(--ps-resp-vazio-bg);
+    color: var(--ps-muted);
+    box-shadow: inset 0 0 0 1px var(--ps-resp-vazio-bd);
+}
+.ps-body .pasta-resp-menu .resp-avatar-vazio i,
+.ps-cab-dados .pasta-resp-chip .resp-avatar-vazio i { font-size: 13px; }
+/* Nome apagado do chip vazio (C3: 14.5/700 #6b8494). Vale quando o template tirar
+   o `.text-muted` (que e !important no Bootstrap). */
+.ps-cab-dados .pasta-resp-chip[data-resp-id=""] .pasta-resp-nome { color: var(--ps-muted); }
+
+/* ── Interruptor de Favoritos no menu ⋮ (C7) ──
+   O `<style>` do _cabecalho crava #cfd9e0/#0a7aad, sem par escuro. Aqui o trilho
+   vira token; (0,2,0)/(0,3,0) vencem as regras (0,1,0)/(0,2,0) de la. */
+.ps-body .ps-pop-sw { background: var(--ps-switch-off); }
+.ps-body .ps-pop-sw.is-ligado { background: var(--ps-accent); }
+
+/* ── "Abrir cliente" no hover (D8) ──
+   A pasta sobe, cresce e gira (dc 6127-6130). Para trocar o icone fechado pelo
+   aberto o template poe os dois: `.ps-cli-abrir-fechada` (bi-folder-fill) e
+   `.ps-cli-abrir-aberta` (bi-folder2-open); sem eles, so o movimento acontece. */
+@keyframes psPastaAbre {
+    0%   { transform: scale(.85) rotate(0); }
+    55%  { transform: translateY(-2px) scale(1.22) rotate(-9deg); }
+    100% { transform: translateY(-1px) scale(1.15) rotate(-6deg); }
+}
+.ps-clientes .js-cliente-acoes > .cliente-abrir i {
+    display: block;
+    line-height: 1;
+    transform-origin: 50% 85%;
+    transition: transform .35s cubic-bezier(.34,1.56,.64,1), color .25s, filter .25s;
+}
+.ps-clientes .js-cliente-acoes > .cliente-abrir:hover i,
+.ps-clientes .js-cliente-acoes > .cliente-abrir:focus-visible i {
+    transform: translateY(-1px) scale(1.15) rotate(-6deg);
+    filter: var(--ps-abrir-filtro);
+    animation: psPastaAbre .38s cubic-bezier(.34,1.56,.64,1);
+}
+/* Mais especificas que a regra do `i` acima (que poe `display: block`). */
+.ps-clientes .js-cliente-acoes > .cliente-abrir i.ps-cli-abrir-aberta { display: none; }
+.ps-clientes .js-cliente-acoes > .cliente-abrir:hover i.ps-cli-abrir-fechada,
+.ps-clientes .js-cliente-acoes > .cliente-abrir:focus-visible i.ps-cli-abrir-fechada { display: none; }
+.ps-clientes .js-cliente-acoes > .cliente-abrir:hover i.ps-cli-abrir-aberta,
+.ps-clientes .js-cliente-acoes > .cliente-abrir:focus-visible i.ps-cli-abrir-aberta { display: block; }
+@media (prefers-reduced-motion: reduce) {
+    .ps-clientes .js-cliente-acoes > .cliente-abrir i { transition: none; }
+    .ps-clientes .js-cliente-acoes > .cliente-abrir:hover i,
+    .ps-clientes .js-cliente-acoes > .cliente-abrir:focus-visible i { animation: none; transform: none; }
+}
+
+/* ── Moldura do modal "Editar dados" (#modalEditarPasta; auditoria 2 C2) ──
+   dc 560-592. So a MOLDURA: os campos (Acao so leitura, Tipo de documento) sao
+   D-META. Uso esperado: `.ps-modal-pasta` no `.modal-dialog`; dentro do
+   `.modal-content`, `.ps-modal-pasta-cab` (com `-cab-icone`, `-cab-corpo`,
+   `-titulo`, `-sub`, `-fechar`), `.ps-modal-pasta-corpo`, `.ps-modal-pasta-rotulo`
+   em cada rotulo e `.ps-modal-pasta-rodape` com `.ps-modal-pasta-btn` +
+   `--fechar` / `--salvar`. O modal vive no <body> (fora de `.ps-page`); os
+   tokens vem de `.ps-body`. */
+.ps-modal-pasta.modal-dialog { max-width: 720px; }
+.ps-modal-pasta .modal-content {
+    border: none;
+    border-radius: 4px;
+    background: var(--ps-card);
+    color: var(--ps-text);
+    box-shadow: var(--ps-shadow-modal);
+    overflow: hidden;
+    font-family: var(--jp-font-sans);
+}
+.ps-modal-pasta-cab {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: var(--ps-modal-cab-grad);
+    color: #fff;
+}
+.ps-modal-pasta-cab-icone {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255,255,255,.16);
+}
+.ps-modal-pasta-cab-icone i { font-size: 18px; line-height: 1; }
+.ps-modal-pasta-cab-corpo { flex: 1; min-width: 0; }
+.ps-modal-pasta-titulo {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: #fff;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.ps-modal-pasta-sub { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12px; color: var(--ps-modal-sub); font-variant-numeric: tabular-nums; }
+.ps-modal-pasta-fechar {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: #fff;
+    font-size: 15px;
+    cursor: pointer;
+}
+.ps-modal-pasta-fechar:hover,
+.ps-modal-pasta-fechar:focus-visible { background: rgba(255,255,255,.14); }
+.ps-modal-pasta-corpo { padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
+.ps-modal-pasta-rotulo {
+    display: block;
+    margin: 0 0 5px;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--ps-muted);
+}
+/* Campo do desenho: 34px, borda #d3dde4, anel azul no foco. */
+.ps-modal-pasta .form-control,
+.ps-modal-pasta .form-select {
+    min-height: 34px;
+    border: 1px solid var(--ps-modal-campo-bd);
+    border-radius: 4px;
+    background-color: var(--ps-card);
+    color: var(--ps-text);
+    font-family: inherit;
+    font-size: 13.5px;
+    transition: border-color .15s, box-shadow .15s;
+}
+.ps-modal-pasta .form-control:focus,
+.ps-modal-pasta .form-select:focus { border-color: var(--ps-accent); box-shadow: 0 0 0 3px var(--ps-foco-anel); }
+.ps-modal-pasta-rodape {
+    display: flex;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 12px 16px;
+    border-top: 1px solid var(--ps-div-strong);
+}
+.ps-modal-pasta-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    height: 34px;
+    padding: 0 14px;
+    border: none;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background .15s;
+}
+.ps-modal-pasta-btn--fechar { background: var(--ps-trilho-cab-bg); color: var(--ps-forte-2); }
+.ps-modal-pasta-btn--fechar:hover,
+.ps-modal-pasta-btn--fechar:focus-visible { background: var(--ps-modal-fechar-hv); }
+.ps-modal-pasta-btn--salvar { background: var(--ps-accent); color: #fff; }
+.ps-modal-pasta-btn--salvar:hover,
+.ps-modal-pasta-btn--salvar:focus-visible { background: var(--ps-accent-hover); color: #fff; }
+.ps-modal-pasta-btn--salvar:disabled { opacity: .55; cursor: default; }
