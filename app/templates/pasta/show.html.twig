@@ -1507,7 +1507,9 @@
         ficha.className = 'cliente-abrir';
         ficha.title = 'Abrir ficha do cliente (documentos e anexos ficam lá)';
         ficha.setAttribute('aria-label', 'Abrir cliente ' + String(cliente.nome || ''));
-        ficha.innerHTML = '<i class="bi bi-folder-fill"></i>';
+        // Os dois icones do Twig (D8): fechada no repouso, aberta no hover.
+        ficha.innerHTML = '<i class="bi bi-folder-fill ps-cli-abrir-fechada" aria-hidden="true"></i>'
+                        + '<i class="bi bi-folder2-open ps-cli-abrir-aberta" aria-hidden="true"></i>';
 
         const formDesv = document.createElement('form');
         formDesv.method = 'post';
@@ -1535,46 +1537,23 @@
      * @param {object} cliente
      * @param {object|undefined} principal estado devolvido pelo servidor após o vínculo
      */
-    /* O bloco tem DOIS destinos agora: o principal fica fora do colapso e os
-       demais dentro dele. Jogar tudo no #clientesList, como antes, colocaria o
-       cliente novo ao lado do principal, para fora da area que rola. */
+    /* O bloco tem DOIS destinos: o principal fica fora da area que rola e os
+       demais dentro dela, listados direto (auditoria 2 D2: sem "mostrar
+       outros N"). Jogar tudo no #clientesList colocaria o cliente novo ao lado
+       do principal, para fora da area que rola. */
     function blocoDosOutros() {
         let bloco = clientesContainer.querySelector('.clientes-outros');
         if (bloco) return bloco;
 
-        const botao = document.createElement('button');
-        botao.type = 'button';
-        botao.className = 'btn btn-link btn-sm p-0 clientes-outros-toggle';
-        botao.setAttribute('data-bs-toggle', 'collapse');
-        botao.setAttribute('data-bs-target', '#clientesOutros');
-        botao.setAttribute('aria-expanded', 'false');
-        botao.setAttribute('aria-controls', 'clientesOutros');
-        botao.innerHTML = '<i class="bi bi-chevron-right clientes-outros-caret me-1"></i>' +
-                          '<span class="clientes-outros-label"></span>';
-
-        const colapso = document.createElement('div');
-        colapso.className = 'collapse';
-        colapso.id = 'clientesOutros';
-
         bloco = document.createElement('div');
         // `ps-clientes-rolagem` junto: é dela que vem a altura máxima do trilho.
         // Sem a classe, o bloco criado pelo JS cresceria diferente do bloco que
-        // o servidor renderiza.
+        // o servidor renderiza. O id é o mesmo do Twig.
         bloco.className = 'clientes-outros ps-clientes-rolagem';
-        colapso.appendChild(bloco);
+        bloco.id = 'clientesOutros';
 
-        clientesContainer.appendChild(botao);
-        clientesContainer.appendChild(colapso);
+        clientesContainer.appendChild(bloco);
         return bloco;
-    }
-
-    function atualizarRotuloOutros() {
-        const bloco = clientesContainer.querySelector('.clientes-outros');
-        const label = clientesContainer.querySelector('.clientes-outros-label');
-        if (!bloco || !label) return;
-        const n = bloco.querySelectorAll('.cliente-linha').length;
-        const aberto = clientesContainer.querySelector('#clientesOutros')?.classList.contains('show');
-        label.textContent = `${aberto ? 'ocultar' : 'mostrar'} outros ${n}`;
     }
 
     function appendClienteRow(cliente, principal) {
@@ -1597,7 +1576,6 @@
             clientesContainer.prepend(blocoPrincipal);
         } else {
             blocoDosOutros().appendChild(linha);
-            atualizarRotuloOutros();
         }
 
         // Vincular pode MOVER o principal automático: se o cliente novo for o de cadastro mais
@@ -5366,30 +5344,6 @@ document.addEventListener('DOMContentLoaded', function () {
         return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;');
     }
 
-}());
-</script>
-
-<script>
-/* Rotulo do botao "mostrar/ocultar outros N" clientes.
-
-   Em escopo PROPRIO de proposito: a IIFE do modal de adicionar cliente faz
-   `if (!modal) return`, e pendurar isto la deixaria o rotulo refem de um modal
-   que nada tem a ver com ele. Ouve os eventos do proprio Bootstrap em vez de
-   adivinhar a classe .show no momento do clique. */
-(function () {
-    const colapso = document.getElementById('clientesOutros');
-    if (!colapso) return;
-
-    const label = document.querySelector('.clientes-outros-label');
-    if (!label) return;
-
-    function atualizar() {
-        const n = colapso.querySelectorAll('.cliente-linha').length;
-        label.textContent = `${colapso.classList.contains('show') ? 'ocultar' : 'mostrar'} outros ${n}`;
-    }
-
-    colapso.addEventListener('shown.bs.collapse', atualizar);
-    colapso.addEventListener('hidden.bs.collapse', atualizar);
 }());
 </script>
 

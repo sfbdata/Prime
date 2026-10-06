@@ -90,7 +90,7 @@
 </section>
 
 {# ── Clientes ─────────────────────────────────────────────────────────────
-   O miolo (#clientesList, .cliente-linha, o colapso dos "outros") é o mesmo
+   O miolo (#clientesList, .cliente-linha, o bloco #clientesOutros dos "outros") é o mesmo
    entregue em 26/08 e é contrato com o JS de vincular/desvincular/principal do
    show.html.twig. Aqui ele só mudou de lugar e de estilo.
 
@@ -149,7 +149,11 @@
         {% if pasta.clientes|length > 0 %}
             {% set outros = pasta.clientes|filter(c => not clientePrincipal or c.id != clientePrincipal.id) %}
 
-            {# O principal fica FORA do colapso, para nunca sumir. #}
+            {# Todos listados direto, principal primeiro (desenho 1.2.3, dc L.1376-1389;
+               auditoria 2 D2) — nao ha mais "mostrar outros N". O principal fica FORA
+               da area que rola, para nunca sumir; os demais rolam em 232px.
+               `#clientesOutros` segue como id do bloco dos demais: e contrato do JS
+               de vincular e dos testes. #}
             {% if clientePrincipal %}
                 <div class="cliente-principal">
                     {{ include('pasta/_cliente_linha.html.twig', {
@@ -159,24 +163,12 @@
             {% endif %}
 
             {% if outros|length > 0 %}
-                <button type="button"
-                        class="btn btn-link btn-sm p-0 clientes-outros-toggle"
-                        data-bs-toggle="collapse"
-                        data-bs-target="#clientesOutros"
-                        aria-expanded="false"
-                        aria-controls="clientesOutros">
-                    <i class="bi bi-chevron-right clientes-outros-caret me-1"></i>
-                    <span class="clientes-outros-label">mostrar outros {{ outros|length }}</span>
-                </button>
-
-                <div class="collapse" id="clientesOutros">
-                    <div class="clientes-outros ps-clientes-rolagem">
-                        {% for cliente in outros %}
-                            {{ include('pasta/_cliente_linha.html.twig', {
-                                pasta: pasta, cliente: cliente, ehPrincipal: false,
-                            }) }}
-                        {% endfor %}
-                    </div>
+                <div class="clientes-outros ps-clientes-rolagem" id="clientesOutros">
+                    {% for cliente in outros %}
+                        {{ include('pasta/_cliente_linha.html.twig', {
+                            pasta: pasta, cliente: cliente, ehPrincipal: false,
+                        }) }}
+                    {% endfor %}
                 </div>
             {% endif %}
         {% elseif pasta.nomeCliente %}

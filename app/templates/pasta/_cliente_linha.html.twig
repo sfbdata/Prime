@@ -73,7 +73,10 @@
         <a href="{{ path('cliente_show', {id: cliente.id}) }}"
            class="cliente-abrir"
            title="Abrir ficha do cliente (documentos e anexos ficam lá)" aria-label="Abrir cliente {{ cliente.nomeExibicao|e('html_attr') }}">
-            <i class="bi bi-folder-fill"></i>
+            {# Dois icones (auditoria 2 D8, dc L.6127): fechada no repouso, aberta no
+               hover/foco. Quem troca e o CSS (.ps-cli-abrir-*), sem JS. #}
+            <i class="bi bi-folder-fill ps-cli-abrir-fechada" aria-hidden="true"></i>
+            <i class="bi bi-folder2-open ps-cli-abrir-aberta" aria-hidden="true"></i>
         </a>
 
         <form method="post" action="{{ path('pasta_cliente_desvincular', {id: pasta.id, cliente: cliente.id}) }}" class="js-ajax-desvincular-cliente m-0">

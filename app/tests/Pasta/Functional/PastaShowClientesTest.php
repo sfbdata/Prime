@@ -94,8 +94,8 @@ final class PastaShowClientesTest extends JusPrimeWebTestCase
         return $c;
     }
 
-    #[TestDox('com vários clientes, o principal fica FORA da área colapsável e os outros dentro dela')]
-    public function testPrincipalForaDoColapsoEOsOutrosDentro(): void
+    #[TestDox('com vários clientes, todos aparecem direto: o principal primeiro, fora da área que rola')]
+    public function testPrincipalForaDaRolagemEOsOutrosDentro(): void
     {
         $client                       = static::createClient();
         [$em, $user, $tenant, $pasta] = $this->criarBase();
@@ -115,29 +115,46 @@ final class PastaShowClientesTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
 
         // Filho DIRETO da lista: "existe na página" seria verdade mesmo com o
-        // principal caído dentro do colapso, que é justamente o defeito.
+        // principal caído dentro da área que rola, que é justamente o defeito.
         $princ = $crawler->filter('#clientesList > .cliente-principal');
-        self::assertCount(1, $princ, 'o principal é filho direto da lista, não do bloco que colapsa');
-        // MAIUSCULAS de proposito: ClientePF::setNomeCompleto normaliza com
+        self::assertCount(1, $princ, 'o principal é filho direto da lista, não do bloco que rola');
+        // Comparado com o getter: ClientePF::setNomeCompleto normaliza com
         // mb_strtoupper. E regra do dominio, nao do template.
-        self::assertStringContainsString('ANA PRINCIPAL', $princ->text());
+        self::assertStringContainsString($principal->getNomeExibicao(), $princ->text());
 
         self::assertCount(
             0,
             $crawler->filter('.clientes-outros .cliente-principal'),
-            'o principal NÃO pode estar dentro do colapso — ele tem de aparecer sempre'
+            'o principal NÃO pode estar dentro da área que rola — ele tem de aparecer sempre'
         );
 
+        // Desenho 1.2.3 (dc L.1376-1389; auditoria 2 D2): todos os clientes
+        // listados direto, sem "mostrar outros N". O bloco dos demais é filho
+        // direto da lista, e nenhuma linha mora dentro de um `.collapse`.
+        self::assertCount(1, $crawler->filter('#clientesList > #clientesOutros.clientes-outros'));
+        self::assertCount(
+            0,
+            $crawler->filter('#clientesList .collapse'),
+            'nenhum cliente pode nascer escondido num colapso'
+        );
+        self::assertCount(3, $crawler->filter('#clientesList .cliente-linha'));
+
         $outros = $crawler->filter('.clientes-outros .cliente-linha');
-        self::assertCount(2, $outros, 'os não-principais moram na área que colapsa e rola');
+        self::assertCount(2, $outros, 'os não-principais moram na área que rola');
         // each(): o ->text() de uma lista do crawler devolve só o PRIMEIRO nó,
         // então afirmar sobre ele daria falso negativo no segundo cliente.
-        $nomes = $outros->each(static fn ($linha) => trim($linha->filter('.cliente-nome')->text()));
-        self::assertSame(['BRUNO SEGUNDO', 'CARLA TERCEIRA'], $nomes);
+        $nomes = $outros->each(static fn ($linha) => trim($linha->filter('.cliente-nome-texto')->text()));
+        self::assertSame([$outro1->getNomeExibicao(), $outro2->getNomeExibicao()], $nomes);
+
+        // A ORDEM: o principal vem antes dos demais no documento.
+        $ids = $crawler->filter('#clientesList .cliente-linha')->each(
+            static fn ($linha) => (string) $linha->attr('data-cliente-id')
+        );
+        self::assertSame((string) $principal->getId(), $ids[0], 'o principal é a primeira linha');
     }
 
-    #[TestDox('o botão de mostrar/ocultar aparece com vários e anuncia quantos estão escondidos')]
-    public function testToggleAnunciaQuantosOutrosExistem(): void
+    #[TestDox('com vários clientes não existe botão de mostrar/ocultar: todos ficam à vista')]
+    public function testSemToggleComVariosClientes(): void
     {
         $client                       = static::createClient();
         [$em, $user, $tenant, $pasta] = $this->criarBase();
@@ -155,9 +172,28 @@ final class PastaShowClientesTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $user, $tenant);
         $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
 
-        $toggle = $crawler->filter('.clientes-outros-toggle');
-        self::assertCount(1, $toggle);
-        self::assertStringContainsString('2', $toggle->text(), 'o botão diz quantos estão escondidos');
+        self::assertCount(0, $crawler->filter('.clientes-outros-toggle'), 'o desenho lista todos direto (D2)');
+        self::assertStringNotContainsString('mostrar outros', $crawler->filter('#clientesList')->text());
+    }
+
+    #[TestDox('o "abrir cliente" traz a pasta fechada e a aberta, que o CSS troca no hover')]
+    public function testAbrirClienteTrazOsDoisIcones(): void
+    {
+        $client                       = static::createClient();
+        [$em, $user, $tenant, $pasta] = $this->criarBase();
+
+        $c = $this->novoPf($tenant, 'Ana Principal', '111.111.111-11');
+        $em->persist($c);
+        $pasta->addCliente($c);
+        $em->flush();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
+
+        // Auditoria 2 D8 (dc L.6127): bi-folder-fill no repouso, bi-folder2-open no hover.
+        $abrir = '#clientesList .js-cliente-acoes > a.cliente-abrir';
+        self::assertCount(1, $crawler->filter($abrir . ' > i.bi-folder-fill.ps-cli-abrir-fechada'));
+        self::assertCount(1, $crawler->filter($abrir . ' > i.bi-folder2-open.ps-cli-abrir-aberta'));
     }
 
     #[TestDox('com um único cliente não existe botão de expandir: não há nada a esconder')]

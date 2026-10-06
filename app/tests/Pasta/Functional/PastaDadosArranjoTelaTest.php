@@ -493,7 +493,7 @@ final class PastaDadosArranjoTelaTest extends JusPrimeWebTestCase
         self::assertCount(
             1,
             $crawler->filter('#clientesOutros form.js-ajax-cliente-principal'),
-            'os clientes ocultos trazem o form de tornar principal, que é o que aparece no hover'
+            'os demais clientes (bloco #clientesOutros) trazem o form de tornar principal, que é o que aparece no hover'
         );
     }
 

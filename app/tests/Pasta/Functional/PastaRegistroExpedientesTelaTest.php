@@ -76,6 +76,8 @@ final class PastaRegistroExpedientesTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $painel, 'o painel é filho direto da grade da aba Dados');
         self::assertSame('Registro dos expedientes', trim($painel->filter('.ps-anotacoes > .ps-card-cab--painel > h2')->text()));
         self::assertSame('0', trim($painel->filter('#timeline-count')->text()));
+        // Auditoria 2 D7 (dc L.1289): o title diz o que a contagem conta.
+        self::assertSame('Registros principais (respostas não contam)', $painel->filter('#timeline-count')->attr('title'));
 
         $lista = $painel->filter('#timelineList.ps-registro.ps-registro--vazio');
         self::assertCount(1, $lista, 'sem registro a lista se declara vazia: o CSS não desenha a linha do tempo');
