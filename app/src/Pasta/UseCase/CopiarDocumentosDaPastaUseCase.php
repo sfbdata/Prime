@@ -10,12 +10,14 @@ use App\Pasta\Armazenamento\ChavesDePasta;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaSecao;
+use App\Pasta\Exception\OriginalNaoEncontradoException;
 use App\Pasta\Exception\SelecaoAcimaDoTetoException;
 use App\Pasta\Repository\PastaDocumentoRepository;
 use App\Pasta\Service\NomesDeEntradaDoZip;
 use App\Pasta\Service\SelecaoDeItensDaPasta;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Armazenamento\ChaveDeArquivo;
+use App\Shared\Armazenamento\Exception\ArquivoNaoEncontrado;
 use App\Shared\Armazenamento\FonteDeConteudo;
 use App\Shared\Doctrine\Transacao\TransacaoComArquivoNovo;
 use Doctrine\ORM\EntityManagerInterface;
@@ -48,6 +50,11 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
  * Tetos: {@see TETO_DE_DOCUMENTOS} (o mesmo do lote) e {@see TETO_DE_BYTES} (o do .zip), pela
  * soma de `tamanho_bytes`, antes de abrir qualquer arquivo. Auditoria: `PastaDocumento` é
  * `Auditavel` — cada cópia vira `create` pelo `AuditLogSubscriber`, nada a fazer aqui.
+ *
+ * Original sem arquivo no armazenamento ({@see OriginalNaoEncontradoException}, 422 na rota):
+ * conferido por `existe()` ANTES de gravar — nada entra, nada sai, o EntityManager fica aberto. Se
+ * o arquivo sumir entre a conferência e a leitura, a mesma recusa sobe de dentro da transação, e
+ * as cópias já gravadas saem com ela: "nada foi copiado" vale nos dois caminhos.
  */
 final class CopiarDocumentosDaPastaUseCase
 {
@@ -99,6 +106,14 @@ final class CopiarDocumentosDaPastaUseCase
             throw SelecaoAcimaDoTetoException::porBytes($bytes, self::TETO_DE_BYTES);
         }
 
+        // Original sem arquivo no armazenamento: recusa ANTES de gravar qualquer cópia — com o
+        // nome, e sem fechar o EntityManager. Pane do storage (`FalhaDeArmazenamento`) sobe (D10).
+        foreach ($selecao->documentos as $origem) {
+            if (!$this->armazenamento->existe(ChavesDePasta::documento($origem))) {
+                throw OriginalNaoEncontradoException::para($origem->getNomeOriginal());
+            }
+        }
+
         $nomes = $this->nomesParaAsCopias($pasta, $tenant, $destino, $selecao->documentos);
 
         /** @var list<ChaveDeArquivo> $chavesNovas preenchida pelo trabalho; lida por referência na falha */
@@ -131,7 +146,13 @@ final class CopiarDocumentosDaPastaUseCase
         $copia = new PastaDocumento();
         $copia->setTenant($tenant);
 
-        $recurso = $this->armazenamento->abrir(ChavesDePasta::documento($origem));
+        try {
+            $recurso = $this->armazenamento->abrir(ChavesDePasta::documento($origem));
+        } catch (ArquivoNaoEncontrado) {
+            // Sumiu entre a conferência e a leitura: a transação desfaz o que já entrou
+            // (`NaoConfirmada` → as cópias gravadas saem) e esta recusa sobe com o nome.
+            throw OriginalNaoEncontradoException::para($origem->getNomeOriginal());
+        }
         try {
             $armazenado = $this->armazenamento->gravar(
                 ChavesDePasta::novoDocumento($copia, self::extensaoDe($origem)),

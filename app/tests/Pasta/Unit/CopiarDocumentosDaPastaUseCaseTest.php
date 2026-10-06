@@ -10,12 +10,14 @@ use App\Pasta\Armazenamento\ChavesDePasta;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaSecao;
+use App\Pasta\Exception\OriginalNaoEncontradoException;
 use App\Pasta\Exception\SelecaoAcimaDoTetoException;
 use App\Pasta\Repository\PastaDocumentoRepository;
 use App\Pasta\UseCase\CopiarDocumentosDaPastaUseCase;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Armazenamento\ArquivoArmazenado;
 use App\Shared\Armazenamento\ChaveDeArquivo;
+use App\Shared\Armazenamento\Exception\ArquivoNaoEncontrado;
 use App\Shared\Armazenamento\Exception\FalhaDeArmazenamento;
 use App\Shared\Armazenamento\FonteDeConteudo;
 use App\Shared\Armazenamento\MetadadosDeArquivo;
@@ -299,6 +301,53 @@ final class CopiarDocumentosDaPastaUseCaseTest extends TestCase
         self::assertFalse($this->memoria->existe($this->memoria->gravadas[0]));
     }
 
+    #[TestDox('original sem arquivo no armazenamento: recusa ANTES de gravar qualquer cópia, com o nome — sem transação, sem flush')]
+    public function testOriginalAusenteRecusaAntesDeGravar(): void
+    {
+        $ok     = $this->documento('ok.pdf', null, 'ok', 'ok.pdf');
+        $sumido = $this->documento('sumido.pdf', null, null, 'sumido.pdf'); // linha sem arquivo
+        $this->noDestino([]);
+
+        $em = $this->emQueFalha();
+        $em->expects($this->never())->method('getConnection');
+        $em->expects($this->never())->method('flush');
+
+        try {
+            $this->useCase($em)->executar($this->pasta, [$ok, $sumido], null, $this->autor, $this->tenant);
+            self::fail('devia recusar');
+        } catch (OriginalNaoEncontradoException $e) {
+            self::assertSame('O arquivo original de «sumido.pdf» não foi encontrado; nada foi copiado.', $e->getMessage());
+        }
+
+        self::assertSame([], $this->memoria->gravadas, 'nada entrou');
+        self::assertSame([], $this->persistidos);
+    }
+
+    #[TestDox('original que some ENTRE a conferência e a leitura: a cópia já gravada SAI, a recusa sobe com o nome — "nada foi copiado" continua verdade')]
+    public function testOriginalQueSomeNoMeio(): void
+    {
+        $um   = $this->documento('um.pdf', null, 'um', 'um.pdf');
+        $dois = $this->documento('dois.pdf', null, 'dois', 'dois.pdf');
+        $this->noDestino([]);
+
+        $em = $this->emQueFalha();
+        $em->expects($this->never())->method('flush');
+        $useCase = $this->useCase($em, $this->armazenamentoQueFalhaNa('abrir', 2, ArquivoNaoEncontrado::para(ChavesDePasta::documento($dois))));
+
+        try {
+            $useCase->executar($this->pasta, [$um, $dois], null, $this->autor, $this->tenant);
+            self::fail('devia recusar');
+        } catch (OriginalNaoEncontradoException $e) {
+            self::assertStringContainsString('«dois.pdf»', $e->getMessage());
+            self::assertStringContainsString('nada foi copiado', $e->getMessage());
+        }
+
+        self::assertCount(1, $this->memoria->gravadas, 'a cópia de "um" chegou a entrar…');
+        self::assertCount(1, $this->memoria->excluidas, '…e saiu');
+        self::assertFalse($this->memoria->existe($this->memoria->gravadas[0]));
+        self::assertTrue($this->memoria->existe(ChavesDePasta::documento($um)), 'o original não é tocado');
+    }
+
     #[TestDox('COMMIT que falha com destino incerto PRESERVA os arquivos novos (as linhas podem ter sido confirmadas)')]
     public function testCommitIncertoPreserva(): void
     {
@@ -379,24 +428,42 @@ final class CopiarDocumentosDaPastaUseCaseTest extends TestCase
     /** Delega ao armazenamento em memória; a SEGUNDA gravação falha antes de tocar nada. */
     private function armazenamentoQueFalhaNaSegundaGravacao(): ArmazenamentoDeArquivos
     {
-        return new class ($this->memoria) implements ArmazenamentoDeArquivos {
-            private int $gravacoes = 0;
+        return $this->armazenamentoQueFalhaNa('gravar', 2, new FalhaDeArmazenamento('disco cheio'));
+    }
 
-            public function __construct(private readonly ArmazenamentoEmMemoria $memoria)
+    /** Delega ao armazenamento em memória; a N-ésima chamada de `$verbo` (gravar|abrir) lança `$falha`. */
+    private function armazenamentoQueFalhaNa(string $verbo, int $chamada, \Throwable $falha): ArmazenamentoDeArquivos
+    {
+        return new class ($this->memoria, $verbo, $chamada, $falha) implements ArmazenamentoDeArquivos {
+            /** @var array<string, int> */
+            private array $chamadas = ['gravar' => 0, 'abrir' => 0];
+
+            public function __construct(
+                private readonly ArmazenamentoEmMemoria $memoria,
+                private readonly string $verbo,
+                private readonly int $chamada,
+                private readonly \Throwable $falha,
+            ) {
+            }
+
+            private function contar(string $verbo): void
             {
+                if (++$this->chamadas[$verbo] === $this->chamada && $verbo === $this->verbo) {
+                    throw $this->falha;
+                }
             }
 
             public function gravar(ChaveDeArquivo|NovoArquivo $destino, FonteDeConteudo $fonte): ArquivoArmazenado
             {
-                if (++$this->gravacoes === 2) {
-                    throw new FalhaDeArmazenamento('disco cheio');
-                }
+                $this->contar('gravar');
 
                 return $this->memoria->gravar($destino, $fonte);
             }
 
             public function abrir(ChaveDeArquivo $chave): mixed
             {
+                $this->contar('abrir');
+
                 return $this->memoria->abrir($chave);
             }
 

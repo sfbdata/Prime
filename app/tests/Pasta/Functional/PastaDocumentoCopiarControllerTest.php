@@ -222,6 +222,34 @@ final class PastaDocumentoCopiarControllerTest extends JusPrimeWebTestCase
         self::assertSame(1, $this->documentosDaPasta((int) $pasta->getId()));
     }
 
+    #[TestDox('copiar com original sem arquivo no armazenamento: 422 com o nome e "nada foi copiado" — nenhuma linha, nenhum arquivo')]
+    public function testOriginalAusenteNoStorage(): void
+    {
+        $client          = $this->cliente();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $ok              = $this->criarDocumento($pasta, $tenant, null, 'ok.pdf', 'ok-' . bin2hex(random_bytes(4)) . '.pdf');
+        $sumido          = $this->criarDocumento($pasta, $tenant, null, 'sumido.pdf', 'sumido-' . bin2hex(random_bytes(4)) . '.pdf');
+        $this->logarComTenant($client, $user, $tenant);
+        $this->limpar();
+
+        // Só o "ok" existe no armazenamento (dublê em memória): o "sumido" tem linha e não tem arquivo.
+        $duble = ArmazenamentoEmMemoriaNoContainer::instalarEm(static::getContainer());
+        $duble->memoria->semear(ChavesDePasta::documentoPorNome((int) $tenant->getId(), $ok->getCaminhoArquivo()), 'bytes');
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/documentos/copiar", [
+            '_token'     => $this->csrf('pex_lote_' . $pasta->getId()),
+            'documentos' => [(string) $ok->getId(), (string) $sumido->getId()],
+        ]);
+
+        self::assertResponseStatusCodeSame(422);
+        $erro = (string) $this->json($client)['erro'];
+        self::assertStringContainsString('«sumido.pdf»', $erro);
+        self::assertStringContainsString('nada foi copiado', $erro);
+        self::assertSame(2, $this->documentosDaPasta((int) $pasta->getId()), 'nenhuma linha nova — nem a do "ok"');
+        self::assertSame([], $duble->memoria->gravadas, 'nenhum arquivo foi gravado');
+    }
+
     #[TestDox('copiar com o banco recusando a linha nova: 500, nenhuma linha fica e o arquivo novo que chegou a ser gravado SAI (nada de órfão)')]
     public function testBancoQueRecusaNaoDeixaArquivoOrfao(): void
     {

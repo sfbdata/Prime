@@ -15,6 +15,7 @@ use App\Pasta\Exception\SelecaoAcimaDoTetoException;
 use App\Pasta\Repository\PastaDocumentoRepository;
 use App\Pasta\Repository\PastaSecaoRepository;
 use App\Pasta\UseCase\MontarZipDeDocumentosUseCase;
+use App\Shared\Armazenamento\ArquivoGeradoParaEntrega;
 use App\Shared\Armazenamento\DiretorioTemporarioPrivado;
 use App\Tests\Shared\Doubles\ArmazenamentoEmMemoria;
 use App\Tests\Shared\Doubles\LoggerEmMemoria;
@@ -344,6 +345,7 @@ final class MontarZipDeDocumentosUseCaseTest extends TestCase
         $doc = $this->documento('a.pdf', null, 'a');
         $this->arvore([], [$doc]);
         $this->em->method('flush')->willThrowException(new \RuntimeException('banco recusou o audit_log'));
+        ArquivoGeradoParaEntrega::limparSobras('zip'); // a montagem limpa sobras velhas: a foto de "antes" tem de ser tirada já limpa
         $antes = $this->zipsNoDiretorioDoProcesso();
 
         try {
@@ -354,6 +356,52 @@ final class MontarZipDeDocumentosUseCaseTest extends TestCase
         }
 
         self::assertSame($antes, $this->zipsNoDiretorioDoProcesso(), 'nenhum .zip pode ficar esperando ninguém');
+    }
+
+    #[TestDox('entradas já comprimidas (pdf, jpg…) entram sem deflate (CM_STORE); texto entra com deflate')]
+    public function testCompressaoPorTipoDeEntrada(): void
+    {
+        $docs = [
+            $this->documento('laudo.PDF', null, str_repeat('pdf ', 1024)),
+            $this->documento('foto.jpg', null, str_repeat('jpg ', 1024)),
+            $this->documento('notas.txt', null, str_repeat('texto repetido ', 2048)),
+        ];
+        $this->arvore([], $docs);
+
+        $saida = $this->useCase->executar($this->pasta, $docs, [], $this->autor, $this->tenant);
+        $this->gerados[] = $saida->arquivo->caminho();
+
+        $metodos = $this->metodosDeCompressao($saida->arquivo->caminho());
+        self::assertSame(\ZipArchive::CM_STORE, $metodos['laudo.PDF'], 'PDF já é comprimido por dentro');
+        self::assertSame(\ZipArchive::CM_STORE, $metodos['foto.jpg']);
+        self::assertSame(\ZipArchive::CM_DEFLATE, $metodos['notas.txt'], 'texto comprime, e muito');
+    }
+
+    #[TestDox('a montagem remove sobras velhas do diretório privado (área morta e zip não entregue com mais de 1 h) e deixa as recentes')]
+    public function testMontagemLimpaSobrasAntigas(): void
+    {
+        $dir   = DiretorioTemporarioPrivado::doProcesso('zip')->caminho();
+        $velho = time() - 2 * ArquivoGeradoParaEntrega::IDADE_DE_SOBRA_SEGUNDOS;
+        $areaVelha = $dir . '/' . bin2hex(random_bytes(8));
+        self::assertTrue(mkdir($areaVelha, 0o700));
+        self::assertTrue(touch($areaVelha, $velho));
+        $zipVelho = $dir . '/' . bin2hex(random_bytes(8)) . '.zip';
+        self::assertNotFalse(file_put_contents($zipVelho, 'x'));
+        self::assertTrue(touch($zipVelho, $velho));
+        $zipRecente = $dir . '/' . bin2hex(random_bytes(8)) . '.zip';
+        self::assertNotFalse(file_put_contents($zipRecente, 'x'));
+        $this->gerados[] = $zipRecente;
+        $doc = $this->documento('a.pdf', null, 'a');
+        $this->arvore([], [$doc]);
+
+        $saida = $this->useCase->executar($this->pasta, [$doc], [], $this->autor, $this->tenant);
+        $this->gerados[] = $saida->arquivo->caminho();
+
+        self::assertDirectoryDoesNotExist($areaVelha);
+        self::assertFileDoesNotExist($zipVelho);
+        self::assertFileExists($zipRecente);
+        self::assertFileExists($saida->arquivo->caminho());
+        self::assertCount(1, $this->logger->doNivel('info'));
     }
 
     #[TestDox('documento de outro escritório na seleção: AccessDenied, nada gerado')]
@@ -429,6 +477,23 @@ final class MontarZipDeDocumentosUseCaseTest extends TestCase
         ksort($entradas);
 
         return $entradas;
+    }
+
+    /** @return array<string, int> nome da entrada => método de compressão (ZipArchive::CM_*) */
+    private function metodosDeCompressao(string $caminho): array
+    {
+        $zip = new \ZipArchive();
+        self::assertTrue($zip->open($caminho));
+
+        $metodos = [];
+        for ($i = 0; $i < $zip->numFiles; ++$i) {
+            $stat = $zip->statIndex($i);
+            self::assertIsArray($stat);
+            $metodos[(string) $stat['name']] = (int) $stat['comp_method'];
+        }
+        $zip->close();
+
+        return $metodos;
     }
 
     /** @return list<string> */

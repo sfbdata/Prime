@@ -44,11 +44,18 @@ final class LimpezaDeArquivosArquiteturaTest extends TestCase
      *  - `AreaTemporariaPrivada` (E2.6A/E2.6C) — varre e apaga um diretório que ELA MESMA criou,
      *    por execução, dentro do temporário privado do processo: o `TMPDIR` do Ghostscript e a área
      *    onde o export materializa as imagens. Nunca vê o armazenamento — o caminho é montado lá
-     *    dentro (`<privado>/<hex aleatório>`), nada externo entra, e o que some é o que nasceu ali.
+     *    dentro (`<privado>/<hex aleatório>`), nada externo entra, e o que some é o que nasceu ali;
+     *  - `ArquivoGeradoParaEntrega` (aba Documentos, D5 do .zip) — `limparSobras()` varre SÓ o
+     *    diretório privado do processo do mecanismo (`jusprime-zip-<uid>`, fora do volume de
+     *    uploads) e só apaga o que o próprio mecanismo cria lá: áreas `<16 hex>` de montagem cujo
+     *    processo morreu e arquivos `<16 hex>.<ext>` de entrega que não aconteceu, com mais de 1 h.
+     *    Nunca segue link, nunca vê o armazenamento, e não há linha no banco apontando para nada
+     *    disso: é lixo de execução, não arquivo de cliente sem registro.
      */
     private const ALLOWLIST = [
         'src/Shared/Armazenamento/AreaTemporariaPrivada.php',
         'src/Shared/Armazenamento/ArmazenamentoLocal.php',
+        'src/Shared/Armazenamento/ArquivoGeradoParaEntrega.php',
     ];
 
     /** Sem distinção de caixa: o PHP aceita `GLOB(` e `Unlink(`. */

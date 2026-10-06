@@ -89,4 +89,72 @@ final class ArquivoGeradoParaEntrega
             @unlink($this->caminho);
         }
     }
+
+    /** Sobra com mais de 1 h é de processo que morreu no meio ou de entrega que não aconteceu. */
+    public const IDADE_DE_SOBRA_SEGUNDOS = 3600;
+
+    /**
+     * Limpeza OPORTUNISTA do diretório privado `jusprime-<finalidade>-<uid>`: remove o que ESTE
+     * mecanismo criou e ficou para trás — áreas (`<16 hex>`, de uma montagem cujo processo morreu
+     * antes do `finally`) e arquivos retirados (`<16 hex>.<ext>`, de uma entrega que não
+     * aconteceu) — com mais de `$idadeMinima` segundos. Nada além desses dois nomes é tocado; link
+     * simbólico nunca é seguido (no nível de cima nem é removido; dentro de uma área velha sai como
+     * link, o alvo fica); erro de I/O numa entrada é pulado — limpar é cortesia, montar o próximo
+     * .zip é o trabalho. Chamada por quem monta, antes de montar.
+     *
+     * @return int quantas entradas saíram
+     *
+     * @throws Exception\FalhaNoTemporario se o diretório do processo não puder ser preparado/provado privado
+     */
+    public static function limparSobras(string $finalidade, int $idadeMinima = self::IDADE_DE_SOBRA_SEGUNDOS): int
+    {
+        $diretorio = DiretorioTemporarioPrivado::doProcesso($finalidade)->caminho();
+        $limite    = time() - $idadeMinima;
+        $removidas = 0;
+
+        foreach (scandir($diretorio) ?: [] as $entrada) {
+            $caminho = $diretorio . '/' . $entrada;
+            if (is_link($caminho)) {
+                continue;
+            }
+
+            $ehArea     = preg_match('/^[0-9a-f]{16}$/', $entrada) === 1 && is_dir($caminho);
+            $ehRetirado = preg_match('/^[0-9a-f]{16}\.[a-z0-9]{1,16}$/', $entrada) === 1 && is_file($caminho);
+            if (!$ehArea && !$ehRetirado) {
+                continue;
+            }
+
+            $modificado = @filemtime($caminho);
+            if ($modificado === false || $modificado > $limite) {
+                continue;
+            }
+
+            if ($ehArea ? self::apagarDiretorio($caminho) : @unlink($caminho)) {
+                ++$removidas;
+            }
+        }
+
+        return $removidas;
+    }
+
+    /** Apaga uma área velha inteira — e só ela: link lá dentro é removido como link, nunca seguido. */
+    private static function apagarDiretorio(string $diretorio): bool
+    {
+        foreach (scandir($diretorio) ?: [] as $entrada) {
+            if ($entrada === '.' || $entrada === '..') {
+                continue;
+            }
+
+            $caminho = $diretorio . '/' . $entrada;
+            if (is_dir($caminho) && !is_link($caminho)) {
+                self::apagarDiretorio($caminho);
+
+                continue;
+            }
+
+            @unlink($caminho);
+        }
+
+        return @rmdir($diretorio);
+    }
 }

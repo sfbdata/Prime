@@ -50,6 +50,11 @@ use Psr\Log\LoggerInterface;
  *  - documento cuja linha existe mas o arquivo não está no armazenamento NÃO aborta: fica fora do
  *    .zip e entra no `LEIA-ME.txt` como "não encontrado". Pane do storage
  *    (`FalhaDeArmazenamento`) sobe — não é ausência (D10);
+ *  - entrada já comprimida por dentro (pdf, imagem, Office, zip, áudio/vídeo) vai em `CM_STORE`:
+ *    deflate nela só gasta CPU no `close()`;
+ *  - antes de montar, as sobras do diretório privado com mais de 1 h (processo que morreu,
+ *    entrega que não aconteceu) são removidas por `ArquivoGeradoParaEntrega::limparSobras()` —
+ *    cortesia que nunca derruba a montagem;
  *  - o download é registrado no `audit_log` à mão (ação {@see ACAO_AUDITORIA}, `Pasta` + id, ids
  *    da seleção, contagem e bytes): não há entidade mudando, então o `AuditLogSubscriber` não o
  *    veria. `zip` — e não `download_zip` — porque `audit_log.action` é `VARCHAR(10)`.
@@ -69,6 +74,18 @@ final class MontarZipDeDocumentosUseCase
 
     /** O diretório do processo onde o .zip nasce e espera a entrega: `jusprime-zip-<uid>`. */
     private const FINALIDADE_DA_AREA = 'zip';
+
+    /**
+     * Entradas que a libzip NÃO tenta comprimir (`CM_STORE`): formatos já comprimidos por dentro —
+     * deflate neles custa CPU no `close()` e devolve bytes a mais. Decidido pela extensão do nome
+     * da entrada (minúsculas); o resto segue o padrão (deflate).
+     */
+    private const EXTENSOES_JA_COMPRIMIDAS = [
+        'pdf', 'jpg', 'jpeg', 'png', 'gif', 'webp', 'heic',
+        'docx', 'xlsx', 'pptx', 'odt', 'ods', 'odp',
+        'zip', '7z', 'rar', 'gz',
+        'mp3', 'm4a', 'ogg', 'opus', 'mp4', 'mov', 'webm',
+    ];
 
     public function __construct(
         private readonly PastaDocumentoRepository $documentoRepository,
@@ -101,6 +118,8 @@ final class MontarZipDeDocumentosUseCase
         if ($plano['bytes'] > self::TETO_DE_BYTES) {
             throw SelecaoAcimaDoTetoException::porBytes($plano['bytes'], self::TETO_DE_BYTES);
         }
+
+        $this->limparSobras();
 
         $incluidos      = [];
         $naoEncontrados = [];
@@ -136,6 +155,9 @@ final class MontarZipDeDocumentosUseCase
 
                 if (!$zip->addFile($emprestado->caminho(), $entrada)) {
                     throw new FalhaNoTemporario(sprintf('Não foi possível acrescentar "%s" ao .zip.', $entrada));
+                }
+                if (self::jaComprimida($entrada)) {
+                    $zip->setCompressionName($entrada, \ZipArchive::CM_STORE);
                 }
                 $emprestados[] = $emprestado;
                 $incluidos[]   = ['entrada' => $entrada, 'bytes' => $documento->getTamanhoBytes()];
@@ -306,6 +328,33 @@ final class MontarZipDeDocumentosUseCase
 
         $this->em->persist($log);
         $this->em->flush();
+    }
+
+    /**
+     * Cortesia antes de montar: sobras de montagens cujo processo morreu, ou de entregas que não
+     * aconteceram, com mais de 1 h no diretório privado do processo. Nunca derruba a montagem.
+     */
+    private function limparSobras(): void
+    {
+        try {
+            $removidas = ArquivoGeradoParaEntrega::limparSobras(self::FINALIDADE_DA_AREA);
+        } catch (\Throwable $e) {
+            $this->logger->warning('Limpeza das sobras de .zip falhou; a montagem segue.', ['erro' => $e->getMessage()]);
+
+            return;
+        }
+
+        if ($removidas > 0) {
+            $this->logger->info('Sobras antigas de .zip removidas.', ['removidas' => $removidas]);
+        }
+    }
+
+    /** A extensão do nome da ENTRADA (não do nome no banco) decide; `.2/nome` de um diretório não conta. */
+    private static function jaComprimida(string $entrada): bool
+    {
+        [, $extensao] = NomesDeEntradaDoZip::separarExtensao($entrada);
+
+        return $extensao !== '' && in_array(strtolower(substr($extensao, 1)), self::EXTENSOES_JA_COMPRIMIDAS, true);
     }
 
     /** `documentos-<NUP só com [A-Za-z0-9._-]>.zip`; sem NUP utilizável, o id da pasta. */

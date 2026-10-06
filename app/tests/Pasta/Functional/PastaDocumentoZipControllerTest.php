@@ -16,6 +16,7 @@ use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaSecao;
 use App\Pasta\UseCase\MontarZipDeDocumentosUseCase;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
+use App\Shared\Armazenamento\ArquivoGeradoParaEntrega;
 use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Shared\Armazenamento\DiretorioTemporarioPrivado;
 use App\Shared\Armazenamento\FonteDeConteudo;
@@ -77,6 +78,7 @@ final class PastaDocumentoZipControllerTest extends JusPrimeWebTestCase
         $this->marcarNaLixeira($naLixeira, $user);
         $this->logarComTenant($client, $user, $tenant);
         $this->limpar();
+        ArquivoGeradoParaEntrega::limparSobras('zip'); // a montagem limpa sobras velhas: a foto de "antes" tem de ser tirada já limpa
         $temporariosAntes = $this->temporariosDoZip();
 
         $client->request('POST', "/pasta/{$pasta->getId()}/documentos/zip", [
