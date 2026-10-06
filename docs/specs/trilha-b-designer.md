@@ -127,6 +127,10 @@ _(preenchido após as investigações)_
 | D-DOC-SUB | Documentos: "Nº · descrição" visível sob o nome no modo Detalhes | mantido (função §16.2) | o dc esconde o sub em Detalhes | seguir o desenho e mostrar só no painel/Conteúdo? | — | — | — |
 | D-DOC-ORD | Documentos: ordem padrão | "Manual" = `ordem` e depois nome (igual ao fm antigo, A–Z quando ordem=0) | o dc não ordena (ordem de inserção) | ok? | — | manter | — |
 | D-DOC-RO | Documentos: ações de escrita para quem só lê e em pasta excluída (lápide) | pré-existente: nem o fm antigo nem o novo escondem; as rotas de seção/documento não checam `estaExcluida` | regra de somente leitura da lápide | a lápide bloqueia escrita nos documentos? | — | bloquear (frente própria, com teste) | — |
+| D-DOC-PRAZO | Exigido pelo juízo: prazo narrado e "em N dias" | determinação só com verbo (ou destinatário + ato); só "prazo de N dias" vira prazo; sem prazo legal presumido (dc L174-175) | o dc conta qualquer frase com "prazo" | aceitar a divergência ("nada fake")? | — | manter | — |
+| D-DOC-BARRA | Barra de seleção sem "Mover para…" | segue o dc; mover fica no menu de contexto (Recortar/Colar + "Mover para…") | acréscimo ao dc | quer o botão na barra? | — | — | — |
+| D-DOC-EDITAR | Menu de contexto com "Editar…" (categoria/descrição/número) | acrescentado: é o único acesso à categoria jurídica | o dc é omisso sobre categoria | ok? | — | manter | — |
+| D-AUDIT-UNDO | Desfazer da auditoria em campo enum | pré-existente: dá TypeError (antes com array, agora com string); campos sem setter (checklist) viram no-op com "sucesso" | `DesfazerAlteracaoAuditLogUseCase` precisa de `Enum::from` pela metadata e de recusar campo sem setter | corrigir numa frente própria? | — | sim | desfazer falha em enum |
 
 ## 5. Handoff — próxima ação exata
 
