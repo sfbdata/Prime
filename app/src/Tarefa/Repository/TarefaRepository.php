@@ -13,6 +13,7 @@ use App\Tarefa\DTO\PessoaNoTrilhoOutput;
 use App\Tarefa\Enum\AbaMetas;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\ORM\QueryBuilder;
+use Doctrine\ORM\Tools\Pagination\Paginator;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -569,6 +570,85 @@ class TarefaRepository extends ServiceEntityRepository
         }
 
         return $counts;
+    }
+
+    /**
+     * Lista "Metas da equipe" (/tarefas/equipe): as metas que cada número da tabela Desempenho
+     * do Dashboard conta. Os critérios de status são OS MESMOS dos count*PorResponsavel acima —
+     * se um mudar, o outro muda junto, senão o número clicado deixa de bater com a lista
+     * (DashboardEquipeContagemTest prova a paridade):
+     *
+     *  - todas         → todos os status, período por t.dataCriacao (countPorResponsavel);
+     *  - ativas        → status != concluida, período (countAtivasPorResponsavel);
+     *  - vencidas      → ativas com prazo < $referencia, SEM período (countVencidasPorResponsavel);
+     *  - prazo_proximo → ativas com prazo em [$referencia, $referencia+7d], SEM período
+     *                    (countPrazosProximosPorResponsavel).
+     *
+     * $responsavelIds é o universo de colaboradores elegíveis (ativos no escritório, já
+     * estreitados por responsável/cargo pelo UseCase). A meta entra se QUALQUER responsável dela
+     * estiver no universo — cada meta aparece uma vez, mesmo com vários responsáveis.
+     * Universo vazio devolve lista vazia (nunca "sem filtro").
+     *
+     * @param list<int>            $responsavelIds
+     * @param array<string, mixed> $filtros         data_de, data_ate (Y-m-d)
+     *
+     * @return Paginator<Tarefa>
+     */
+    public function findMetasDaEquipePaginado(
+        Tenant $tenant,
+        array $responsavelIds,
+        string $status,
+        array $filtros,
+        \DateTimeImmutable $referencia,
+        int $pagina,
+        int $porPagina,
+    ): Paginator {
+        // Id 0 não existe: universo vazio vira "nenhuma meta", e não um IN () inválido.
+        $ids = $responsavelIds === [] ? [0] : array_values($responsavelIds);
+
+        $qb = $this->createQueryBuilder('t')
+            ->addSelect('p', 'r')
+            ->join('t.pasta', 'p')
+            ->leftJoin('t.responsaveis', 'r')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('t.id IN (SELECT t_eq.id FROM ' . Tarefa::class . ' t_eq JOIN t_eq.responsaveis u_eq WHERE u_eq.id IN (:fEquipeIds))')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('fEquipeIds', $ids)
+            ->orderBy('t.prazo', 'ASC')
+            ->addOrderBy('t.id', 'DESC')
+            ->setFirstResult((max(1, $pagina) - 1) * $porPagina)
+            ->setMaxResults($porPagina);
+
+        switch ($status) {
+            case 'ativas':
+                $qb->andWhere('t.status != :concluida')
+                   ->setParameter('concluida', Tarefa::STATUS_CONCLUIDA);
+                $this->aplicarFiltrosDashboard($qb, $filtros, false);
+                break;
+
+            case 'vencidas':
+                $qb->andWhere('t.status != :concluida')
+                   ->andWhere('t.prazo IS NOT NULL')
+                   ->andWhere('t.prazo < :referencia')
+                   ->setParameter('concluida', Tarefa::STATUS_CONCLUIDA)
+                   ->setParameter('referencia', $referencia);
+                break;
+
+            case 'prazo_proximo':
+                $qb->andWhere('t.status != :concluida')
+                   ->andWhere('t.prazo IS NOT NULL')
+                   ->andWhere('t.prazo >= :referencia')
+                   ->andWhere('t.prazo <= :limite')
+                   ->setParameter('concluida', Tarefa::STATUS_CONCLUIDA)
+                   ->setParameter('referencia', $referencia)
+                   ->setParameter('limite', $referencia->modify('+7 days'));
+                break;
+
+            default: // 'todas'
+                $this->aplicarFiltrosDashboard($qb, $filtros, false);
+        }
+
+        return new Paginator($qb, true);
     }
 
     /**
