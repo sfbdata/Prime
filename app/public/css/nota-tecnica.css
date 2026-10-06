@@ -1,0 +1,220 @@
+/* =============================================================================
+   nota-tecnica.css — notas técnicas do processo na tela da pasta (aba Processo
+   e teor do Push Processual). Desenho 1.2.3 (Claude Designer): caixa azul-clara
+   com borda escura, selo "NOTA TÉCNICA" branco sobre azul, avatar redondo,
+   conector em "L" ligando as notas ao cartão de cima; raio de 3px em tudo.
+
+   Escopado em .ps-page e escrito sobre os tokens da pasta-show.css (mesma
+   convenção: no escuro cada token volta a apontar para o Bootstrap ou vira
+   tint translúcido). Fica em arquivo próprio para não disputar a pasta-show.css
+   com outras frentes em andamento; o partial que o usa carrega os dois.
+   ============================================================================= */
+.ps-page {
+    --ps-nota-bg:        #f2f8fc;
+    --ps-nota-border:    #0a5f86;
+    --ps-nota-selo-bg:   #0a5f86;
+    --ps-nota-selo-tx:   #fff;
+    --ps-nota-rotulo:    #0a5f86;
+    --ps-nota-avatar:    linear-gradient(135deg,#0d80a3,#0a5f86);
+    --ps-nota-conector:  #9fc3d8;
+    --ps-nota-campo-bd:  #c9d8e2;
+    --ps-nota-campo-bg:  #fff;
+}
+[data-bs-theme="dark"] .ps-page {
+    --ps-nota-bg:        rgba(69,176,214,.10);
+    --ps-nota-border:    rgba(69,176,214,.55);
+    --ps-nota-selo-bg:   #0a5f86;
+    --ps-nota-selo-tx:   #fff;
+    --ps-nota-rotulo:    #45b0d6;
+    --ps-nota-avatar:    linear-gradient(135deg,#0d80a3,#0a5f86);
+    --ps-nota-conector:  rgba(69,176,214,.45);
+    --ps-nota-campo-bd:  var(--bs-border-color);
+    --ps-nota-campo-bg:  var(--bs-body-bg);
+}
+
+/* ── O bloco sob o cartão ─────────────────────────────────────────────────── */
+.ps-page .ps-notas {
+    position: relative;
+    margin: 6px 0 14px 30px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+/* Conector em "L" do desenho: sai de baixo do cartão e entra na primeira linha. */
+.ps-page .ps-notas::before {
+    content: '';
+    position: absolute;
+    left: -17px;
+    top: -2px;
+    width: 12px;
+    height: 20px;
+    border-left: 2px solid var(--ps-nota-conector);
+    border-bottom: 2px solid var(--ps-nota-conector);
+    border-bottom-left-radius: 4px;
+}
+/* Dentro do teor do Push o bloco já está "dentro" do cartão: sem recuo nem conector. */
+.ps-page .ps-push-teor .ps-notas { margin: 12px 0 0; }
+.ps-page .ps-push-teor .ps-notas::before { display: none; }
+
+.ps-page .ps-notas-cab {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    min-height: 28px;
+}
+.ps-page .ps-notas-titulo {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    color: var(--ps-nota-rotulo);
+}
+.ps-page .ps-notas-titulo i { font-size: 11px; }
+.ps-page .ps-notas-aviso { font-size: 11.5px; color: var(--ps-muted); }
+.ps-page .ps-btn--nota { height: 28px; padding: 0 10px; font-size: 12px; border-radius: 3px; }
+.ps-page .ps-btn--nota i { font-size: 13px; }
+
+.ps-page .ps-notas-lista { display: flex; flex-direction: column; gap: 6px; }
+.ps-page .ps-notas-lista:empty { display: none; }
+
+/* ── Um cartão de nota ────────────────────────────────────────────────────── */
+.ps-page .ps-nota {
+    padding: 9px 12px 10px;
+    background: var(--ps-nota-bg);
+    border: 1px solid var(--ps-nota-border);
+    border-radius: 3px;
+}
+.ps-page .ps-nota-topo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.ps-page .ps-nota-selo {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    color: var(--ps-nota-selo-tx);
+    background: var(--ps-nota-selo-bg);
+    padding: 2px 7px;
+    border-radius: 3px;
+    white-space: nowrap;
+}
+.ps-page .ps-nota-selo i { font-size: 10px; }
+.ps-page .ps-nota-avatar {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--ps-nota-avatar);
+    color: #fff;
+    font-size: 9px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.ps-page .ps-nota-autor { font-size: 12.5px; font-weight: 700; color: var(--ps-text); }
+.ps-page .ps-nota-quando { font-size: 11.5px; color: var(--ps-muted); }
+.ps-page .ps-nota-editada { font-style: italic; }
+.ps-page .ps-nota-mov {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11.5px;
+    color: var(--ps-muted);
+}
+.ps-page .ps-nota-mov i { font-size: 11px; transform: scaleX(-1); }
+/* Ações (lápis, lixeira, "· N min") sempre visíveis à direita, como o "⋯" do desenho —
+   a regra geral da pasta-show esconde até o hover; aqui não. */
+.ps-page .ps-nota .ps-anotacao-acoes { margin-left: auto; opacity: 1; }
+.ps-page .ps-nota .ps-anotacao-janela { color: var(--ps-label); }
+
+.ps-page .ps-nota-texto {
+    margin-top: 5px;
+    font-size: 13.5px;
+    line-height: 1.55;
+    color: var(--ps-body);
+    overflow-wrap: anywhere;
+    text-wrap: pretty;
+}
+.ps-page .ps-nota-texto .ql-editor { padding: 0; font-size: inherit; line-height: inherit; }
+
+/* ── Compositor (nova) e caixa de edição (no lugar do texto) ──────────────── */
+.ps-page .ps-nota-editor {
+    padding: 10px 12px;
+    background: var(--ps-nota-bg);
+    border: 1px solid var(--ps-nota-border);
+    border-radius: 3px;
+}
+.ps-page .ps-nota-edicao { margin-top: 5px; }
+.ps-page .ps-nota-editor-rotulo {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    color: var(--ps-nota-rotulo);
+}
+.ps-page .ps-nota-editor-rotulo i { font-size: 11px; }
+/* A textarea crua (sem o editor-rico) e o editor montado têm a mesma moldura do desenho. */
+.ps-page .ps-nota-textarea,
+.ps-page .ps-nota-editor .editor-rico,
+.ps-page .ps-nota-edicao .editor-rico {
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid var(--ps-nota-campo-bd);
+    border-radius: 3px;
+    background: var(--ps-nota-campo-bg);
+    box-shadow: none;
+}
+.ps-page .ps-nota-textarea {
+    padding: 8px 10px;
+    font-family: inherit;
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: var(--ps-text);
+    resize: vertical;
+    outline: none;
+}
+.ps-page .ps-nota-textarea:focus,
+.ps-page .ps-nota-editor .editor-rico:focus-within,
+.ps-page .ps-nota-edicao .editor-rico:focus-within {
+    border-color: var(--ps-accent);
+    box-shadow: 0 0 0 3px var(--ps-foco-anel);
+}
+.ps-page .ps-nota-editor .editor-rico .ql-toolbar.ql-snow,
+.ps-page .ps-nota-edicao .editor-rico .ql-toolbar.ql-snow {
+    background: var(--ps-editor-bar);
+    border-bottom: 1px solid var(--ps-editor-bar-bd);
+    border-radius: 3px 3px 0 0;
+    padding: 5px 8px;
+}
+.ps-page .ps-nota-editor .editor-rico .ql-editor,
+.ps-page .ps-nota-edicao .editor-rico .ql-editor {
+    min-height: 64px;
+    max-height: 320px;
+    padding: 8px 10px;
+    font-size: 13.5px;
+    line-height: 1.5;
+}
+.ps-page .ps-nota-editor-acoes {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 8px;
+}
+.ps-page .ps-nota-editor-acoes .ps-btn { height: 30px; border-radius: 3px; font-size: 12.5px; font-weight: 700; }
+.ps-page .ps-nota-erro { font-size: 12.5px; color: var(--ps-danger-text); margin-top: 6px; }

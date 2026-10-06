@@ -5,10 +5,15 @@ declare(strict_types=1);
 namespace App\Pasta\Controller;
 
 use App\Djen\DTO\PublicacaoDjenOutput;
+use App\Djen\Entity\PublicacaoDjen;
 use App\Djen\Repository\PublicacaoDjenRepository;
 use App\Djen\Service\FormatadorTeorDjen;
 use App\Entity\Auth\User;
 use App\Pasta\Entity\Pasta;
+use App\Processo\DTO\NotaTecnicaOutput;
+use App\Processo\Entity\NotaTecnica;
+use App\Processo\Entity\Processo;
+use App\Processo\Repository\NotaTecnicaRepository;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -40,6 +45,7 @@ final class PastaPushProcessualController extends AbstractController
         private readonly PermissionChecker $permissionChecker,
         private readonly TenantContext $tenantContext,
         private readonly PublicacaoDjenRepository $publicacaoRepository,
+        private readonly NotaTecnicaRepository $notaTecnicaRepository,
     ) {
     }
 
@@ -80,13 +86,43 @@ final class PastaPushProcessualController extends AbstractController
             $this->publicacaoRepository->salvar($publicacao, true);
         }
 
+        // Notas técnicas penduradas NESTA movimentação. A nota é do processo, então o teor precisa
+        // saber QUAL processo da pasta é o da publicação para o compositor criar a nota nele.
+        $processoDaPublicacao = $this->processoDaPublicacao($pasta, $publicacao);
+
         // Teor externo (CNJ): sanitizado pelo mesmo formatador da tela do módulo antes de exibir.
         return $this->render('pasta/_push_teor.html.twig', [
             'publicacao' => PublicacaoDjenOutput::fromEntity($publicacao, $formatadorTeor->formatar($publicacao->getTexto())),
             // Quem sair daqui para o módulo volta para ESTA pasta, já na aba certa. O fragmento
             // precisa ir explícito: o navegador não manda `#push` no Referer.
             'voltarPara' => $this->generateUrl('pasta_show', ['id' => $pasta->getId()]) . '#push',
+            'pastaId'        => (int) $pasta->getId(),
+            'notaProcessoId' => $processoDaPublicacao?->getId(),
+            'notasTecnicas'  => array_map(
+                static fn (NotaTecnica $nota): NotaTecnicaOutput => NotaTecnicaOutput::fromEntity($nota),
+                $this->notaTecnicaRepository->listarPorPublicacao($publicacao, $tenant),
+            ),
         ]);
+    }
+
+    /**
+     * O processo DESTA pasta a que a publicação pertence: pela FK quando a sincronização a gravou
+     * e ele está na pasta; senão pelo número CNJ — o mesmo casamento que trouxe a publicação para cá.
+     */
+    private function processoDaPublicacao(Pasta $pasta, PublicacaoDjen $publicacao): ?Processo
+    {
+        $vinculado = $publicacao->getProcesso();
+        if ($vinculado !== null && $pasta->temProcesso($vinculado)) {
+            return $vinculado;
+        }
+
+        foreach ($pasta->getPastaProcessos() as $vinculo) {
+            if ($vinculo->getProcesso()->getNumeroProcesso() === $publicacao->getNumeroProcesso()) {
+                return $vinculo->getProcesso();
+            }
+        }
+
+        return null;
     }
 
     /** @return string[] números CNJ dos processos vinculados à pasta */

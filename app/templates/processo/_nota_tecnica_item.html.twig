@@ -1,0 +1,71 @@
+{# ============================================================================
+   UM cartão de nota técnica — desenho 1.2.3 (Claude Designer): caixa azul-clara
+   com borda, selo "NOTA TÉCNICA", avatar, autor, quando, e o texto.
+
+   Renderizado pelo Twig na carga da página E devolvido pronto (`html`) pelo
+   `processo_nota_tecnica_criar`: um partial só, para o cartão recém-criado ser
+   idêntico ao da carga — a divergência Twig×JS das observações não se repete aqui.
+
+   Contrato com o nota-tecnica.js (ids e classes não mudam):
+   #nota-tecnica-<id> · .ps-nota · .ps-nota-texto · .ps-nota-quando ·
+   .js-nota-editar / .js-nota-excluir (+ data-nota-id, data-conteudo,
+   data-conteudo-html, data-csrf, data-url).
+
+   A posse (autor == usuário logado) decide aqui; o PRAZO vem do mesmo serviço dos
+   UseCases (`comentario_editavel` / `comentario_minutos_restantes`).
+
+   Contexto: `nota` (App\Processo\DTO\NotaTecnicaOutput),
+             `mostrarMovimentacao` (bool — na aba Processo diz de qual movimentação
+             do Push a nota é; dentro do teor da própria publicação é redundante).
+   ============================================================================ #}
+{% set partes = nota.autorNome|trim|split(' ')|filter(p => p is not empty) %}
+{% set iniciais = partes|length > 0
+    ? (partes|first|slice(0, 1) ~ (partes|length > 1 ? partes|last|slice(0, 1) : ''))|upper
+    : '?' %}
+{% set ehHoje = nota.criadaEm|date('Y-m-d') == 'now'|date('Y-m-d') %}
+{% set podeGerenciar = nota.autorId and app.user and nota.autorId == app.user.id and comentario_editavel(nota.criadaEm) %}
+<article class="ps-nota" id="nota-tecnica-{{ nota.id }}" data-nota-id="{{ nota.id }}">
+    <div class="ps-nota-topo">
+        <span class="ps-nota-selo"><i class="bi bi-journal-text" aria-hidden="true"></i>Nota técnica</span>
+        <span class="ps-nota-avatar" aria-hidden="true">{{ iniciais }}</span>
+        <span class="ps-nota-autor">{{ nota.autorNome }}</span>
+        <span class="ps-nota-quando ps-num" title="{{ nota.criadaEm|date('d/m/Y H:i') }}">
+            {{- ehHoje ? 'hoje, ' ~ nota.criadaEm|date('H:i') : nota.criadaEm|date('d/m/Y, H:i') -}}
+            {%- if nota.editadaEm %} · <span class="ps-nota-editada" title="Editada em {{ nota.editadaEm|date('d/m/Y H:i') }}">editada</span>{% endif -%}
+        </span>
+        {% if mostrarMovimentacao and nota.movimentacaoRotulo %}
+            <span class="ps-nota-mov" title="Nota sobre uma movimentação do Push Processual">
+                <i class="bi bi-megaphone-fill" aria-hidden="true"></i>{{ nota.movimentacaoRotulo }}
+            </span>
+        {% endif %}
+        {% if podeGerenciar %}
+            <span class="ps-anotacao-acoes">
+                <button type="button"
+                        class="ps-anotacao-acao js-nota-editar"
+                        title="Editar nota técnica" aria-label="Editar nota técnica"
+                        data-nota-id="{{ nota.id }}"
+                        {# `conteudo` volta para dentro do editor; `conteudo-html` restaura a exibição ao cancelar. #}
+                        data-conteudo="{{ nota.conteudo|e('html_attr') }}"
+                        data-conteudo-html="{{ nota.conteudo|texto_rico|e('html_attr') }}"
+                        data-csrf="{{ csrf_token('processo_nota_tecnica_editar_' ~ nota.id) }}"
+                        data-url="{{ path('processo_nota_tecnica_editar', {id: nota.processoId, notaId: nota.id}) }}">
+                    <i class="bi bi-pencil"></i>
+                </button>
+                <button type="button"
+                        class="ps-anotacao-acao ps-anotacao-acao--perigo js-nota-excluir"
+                        title="Excluir nota técnica" aria-label="Excluir nota técnica"
+                        data-nota-id="{{ nota.id }}"
+                        data-csrf="{{ csrf_token('processo_nota_tecnica_excluir_' ~ nota.id) }}"
+                        data-url="{{ path('processo_nota_tecnica_excluir', {id: nota.processoId, notaId: nota.id}) }}">
+                    <i class="bi bi-trash3"></i>
+                </button>
+                {% set minRest = comentario_minutos_restantes(nota.criadaEm) %}
+                <span class="ps-anotacao-janela small" title="Edição e exclusão liberadas por mais {{ minRest }} min">· {{ minRest }} min</span>
+            </span>
+        {% endif %}
+    </div>
+    {# `texto_rico` sanitiza de novo na saída e já é `is_safe: html`. #}
+    <div class="ps-nota-texto">
+        <span class="editor-rico-conteudo"><span class="ql-editor">{{ nota.conteudo|texto_rico }}</span></span>
+    </div>
+</article>

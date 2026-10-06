@@ -1,0 +1,61 @@
+{# ============================================================================
+   Bloco "Notas técnicas" de um processo — sob o cartão do processo (aba Processo
+   da pasta) ou sob o teor de uma movimentação (aba Push Processual).
+
+   Desenho 1.2.3: as notas ficam recuadas sob o cartão, ligadas a ele por um
+   conector em "L", cada uma numa caixa azul-clara com o selo "NOTA TÉCNICA"; o
+   compositor é a mesma caixa, com o rótulo "NOVA NOTA TÉCNICA". No desenho a
+   entrada é pelo menu de contexto, que o sistema não tem: aqui é o botão do
+   cabeçalho do bloco. O campo é o editor rico da casa (decisão do orquestrador,
+   não a textarea simples do desenho).
+
+   A nota é DO PROCESSO — não da pasta. O aviso do cabeçalho diz isso na tela,
+   porque a mesma nota aparece em toda pasta que vincula o processo.
+
+   Contrato com o nota-tecnica.js (não mudar): .ps-notas (+ data-url-criar,
+   data-csrf-criar, data-pasta-id, data-processo-id, data-publicacao-id) ·
+   .ps-notas-contagem · .ps-notas-lista · .ps-nota-editor (+ textarea) ·
+   .ps-nota-erro · .js-nota-nova / .js-nota-cancelar / .js-nota-salvar.
+
+   Contexto: `notas` (NotaTecnicaOutput[]), `processoId` (int),
+             `publicacaoId` (int|null), `pastaId` (int),
+             `mostrarMovimentacao` (bool, repassado ao item).
+   ============================================================================ #}
+{% set blocoId = publicacaoId ? 'notas-publicacao-' ~ publicacaoId : 'notas-processo-' ~ processoId %}
+<div class="ps-notas{{ publicacaoId ? ' ps-notas--publicacao' : '' }}" id="{{ blocoId }}"
+     data-url-criar="{{ path('processo_nota_tecnica_criar', {id: processoId}) }}"
+     data-csrf-criar="{{ csrf_token('processo_nota_tecnica_' ~ processoId) }}"
+     data-pasta-id="{{ pastaId }}"
+     data-processo-id="{{ processoId }}"
+     data-publicacao-id="{{ publicacaoId ?? '' }}">
+    <div class="ps-notas-cab">
+        <span class="ps-notas-titulo"><i class="bi bi-journal-text" aria-hidden="true"></i>Notas técnicas</span>
+        <span class="ps-contagem ps-notas-contagem" title="Notas técnicas">{{ notas|length }}</span>
+        <span class="ps-notas-aviso">
+            {%- if publicacaoId %}Sobre esta movimentação. {% endif -%}
+            A nota é do processo: aparece em toda pasta que o vincula.
+        </span>
+        <span class="ps-cab-espaco"></span>
+        <button type="button" class="ps-btn ps-btn--suave ps-btn--nota js-nota-nova" title="Adicionar nota técnica" aria-label="Adicionar nota técnica">
+            <i class="bi bi-journal-plus"></i><span>Adicionar nota técnica</span>
+        </button>
+    </div>
+
+    <div class="ps-nota-editor" hidden>
+        <div class="ps-nota-editor-rotulo"><i class="bi bi-journal-plus" aria-hidden="true"></i>Nova nota técnica</div>
+        <textarea class="ps-nota-textarea" rows="3" maxlength="5000"
+                  aria-label="Texto da nota técnica"
+                  placeholder="Explique o processo ou o despacho: o que significa, o que precisa ser feito, prazo…"></textarea>
+        <div class="ps-nota-erro" hidden></div>
+        <div class="ps-nota-editor-acoes">
+            <button type="button" class="ps-btn js-nota-cancelar">Cancelar</button>
+            <button type="button" class="ps-btn ps-btn--primario js-nota-salvar" title="Salvar (Ctrl+Enter)">Salvar nota</button>
+        </div>
+    </div>
+
+    <div class="ps-notas-lista">
+        {% for nota in notas %}
+            {{ include('processo/_nota_tecnica_item.html.twig', {nota: nota, mostrarMovimentacao: mostrarMovimentacao}) }}
+        {% endfor %}
+    </div>
+</div>

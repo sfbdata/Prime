@@ -5,7 +5,14 @@
    não JSON montado em JS, para que o escape do link e a marcação fiquem no Twig
    — que é onde o resto da tela já os tem.
 
-   Contexto: `publicacao` (App\Djen\DTO\PublicacaoDjenOutput).
+   Sob o teor, as notas técnicas penduradas NESTA movimentação (desenho 1.2.3).
+   A nota é do processo: `notaProcessoId` é o processo da pasta a que a
+   publicação pertence; sem ele (não deveria acontecer — a publicação foi achada
+   pelos números da pasta) o bloco não aparece, em vez de criar nota sem dono.
+
+   Contexto: `publicacao` (App\Djen\DTO\PublicacaoDjenOutput), `voltarPara`,
+             `pastaId` (int), `notaProcessoId` (int|null),
+             `notasTecnicas` (App\Processo\DTO\NotaTecnicaOutput[]).
    ============================================================================ #}
 <div class="ps-push-teor-corpo">
     {% if publicacao.textoHtml %}
@@ -25,4 +32,14 @@
             <a href="{{ path('push_processual_show', {id: publicacao.id, voltar: voltarPara}) }}">Abrir no módulo</a>
         {% endif %}
     </div>
+
+    {% if notaProcessoId is not null %}
+        {{ include('processo/_notas_tecnicas.html.twig', {
+            notas: notasTecnicas,
+            processoId: notaProcessoId,
+            publicacaoId: publicacao.id,
+            pastaId: pastaId,
+            mostrarMovimentacao: false,
+        }) }}
+    {% endif %}
 </div>

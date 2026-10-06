@@ -14,8 +14,18 @@
    campos em branco editáveis, "Ver todas as informações", pasta administrativa
    sem processo, ⋮ e o menu do botão direito.
 
+   Sob cada cartão, o bloco "Notas técnicas" do processo (desenho 1.2.3; decisão
+   do dono de 2026-10-05). As notas vêm da função Twig `notas_tecnicas_do_processo`
+   e não do controller: este partial é renderizado em quatro lugares só com `pasta`.
+
    Contexto necessário: `pasta`.
    ============================================================================ #}
+{# Comportamento das notas técnicas (aba Processo e teor do Push). `defer`: roda
+   depois do editor-rico.js, que as abas Dados/Detalhes/Financeiro já carregam.
+   Quando este partial volta por XHR, a tag é inerte (innerHTML não executa
+   script) — e não precisa: o JS delega tudo no `document`. #}
+<link rel="stylesheet" href="{{ asset('css/nota-tecnica.css') }}">
+<script src="{{ asset('js/nota-tecnica.js') }}" defer></script>
 {% set vinculos = pasta.pastaProcessos %}
 <section class="ps-card ps-processos">
     <div class="ps-card-cab ps-card-cab--painel">
@@ -108,6 +118,13 @@
                         </div>
                     </div>
                 </article>
+                {{ include('processo/_notas_tecnicas.html.twig', {
+                    notas: notas_tecnicas_do_processo(proc),
+                    processoId: proc.id,
+                    publicacaoId: null,
+                    pastaId: pasta.id,
+                    mostrarMovimentacao: true,
+                }) }}
             {% endfor %}
         </div>
     {% else %}
