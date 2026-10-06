@@ -799,6 +799,11 @@ class PastaController extends AbstractController
      * Documento), `completo` (bool, PendenciasDoCadastro), `jaVinculado` (bool) e `selo`
      * (`completo` | `incompleto` | `ja_vinculado`).
      *
+     * Casamento: o NOME casa por trecho; o DOCUMENTO só casa quando os dígitos do termo são o
+     * documento inteiro (11 para CPF, 14 para CNPJ) e iguais a ele. Trecho de dígitos não casa com
+     * documento: se casasse, buscas por pedaços ("456", "4567", …) confirmariam dígito a dígito o
+     * que a máscara esconde.
+     *
      * PII: `documento` sai MASCARADO (`***.456.789-**`) e só vem inteiro quando o termo digitado
      * é o próprio documento inteiro — quem já sabe o CPF não aprende nada; quem digita um nome
      * não coleta o CPF de todo mundo que se chama "Maria".
@@ -824,6 +829,7 @@ class PastaController extends AbstractController
         $clientesVinculados = array_values($pasta->getClientes()->map(fn($c) => $c->getId())->toArray());
         $termoMinusculo     = mb_strtolower($termo);
         $termoDigitos       = (string) preg_replace('/\D/', '', $termo);
+        $documentoInteiroDigitado = in_array(strlen($termoDigitos), [11, 14], true);
 
         $achados = [];
         foreach ($this->clienteRepository->findAll() as $cliente) {
@@ -847,11 +853,11 @@ class PastaController extends AbstractController
                 : ($cliente instanceof ClientePJ ? ($cliente->getCnpj() ?? '') : '');
             $documentoDigitos = (string) preg_replace('/\D/', '', $documento);
 
-            // Pontuação do desenho: documento idêntico 3, trecho do documento 2, nome 1.
+            // Documento só casa INTEIRO (11 dígitos de CPF, 14 de CNPJ, iguais ao gravado): trecho
+            // de dígitos não casa, senão buscas sucessivas por pedaços revelariam o documento
+            // apesar da máscara. O nome continua casando por trecho. Documento 2, nome 1.
             $pontos = 0;
-            if ($documentoDigitos !== '' && strlen($termoDigitos) >= 3 && str_contains($documentoDigitos, $termoDigitos)) {
-                $pontos = $documentoDigitos === $termoDigitos ? 3 : 2;
-            } elseif ($documento !== '' && str_contains($documento, $termo)) {
+            if ($documentoInteiroDigitado && $documentoDigitos === $termoDigitos) {
                 $pontos = 2;
             } elseif (str_contains(mb_strtolower($nome), $termoMinusculo)) {
                 $pontos = 1;
@@ -867,7 +873,7 @@ class PastaController extends AbstractController
 
         $resultado = [];
         foreach (array_slice($achados, 0, 10) as [, $cliente, $nome, $documento, $documentoDigitos, $jaVinculado]) {
-            $documentoInteiro = $documentoDigitos !== '' && $documentoDigitos === $termoDigitos;
+            $documentoInteiro = $documentoInteiroDigitado && $documentoDigitos === $termoDigitos;
             $completo         = $pendencias->estaCompleto($cliente);
 
             $resultado[] = [

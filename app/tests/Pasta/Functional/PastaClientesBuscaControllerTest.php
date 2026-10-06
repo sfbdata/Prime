@@ -165,8 +165,8 @@ final class PastaClientesBuscaControllerTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString('12345678901', (string) $client->getResponse()->getContent(), 'o CPF inteiro não sai em lugar nenhum da resposta');
     }
 
-    #[TestDox('busca por trecho do CPF também mascara: só o CPF inteiro revela o documento')]
-    public function testBuscaPorTrechoDoCpfMascara(): void
+    #[TestDox('trecho de dígitos do CPF NÃO casa com o documento: a máscara não é derrotável por pedaços')]
+    public function testBuscaPorTrechoDoCpfNaoAchaOCliente(): void
     {
         $client                       = static::createClient();
         [$em, $user, $tenant, $pasta] = $this->criarBase();
@@ -175,10 +175,17 @@ final class PastaClientesBuscaControllerTest extends JusPrimeWebTestCase
         $em->flush();
 
         $this->logarComTenant($client, $user, $tenant);
-        $item = self::itemDe($this->buscar($client, $pasta, substr($cpf, 0, 9)), (int) $cliente->getId());
 
-        self::assertNotNull($item, 'trecho do CPF acha o cliente');
-        self::assertSame('***.' . substr($cpf, 3, 3) . '.' . substr($cpf, 6, 3) . '-**', $item['documento']);
+        // O miolo que a máscara mostra (d4–d9), o começo que ela esconde e o CPF sem o último dígito.
+        foreach ([substr($cpf, 3, 6), substr($cpf, 0, 3), substr($cpf, 0, 9), substr($cpf, 0, 10)] as $trecho) {
+            self::assertNull(
+                self::itemDe($this->buscar($client, $pasta, $trecho), (int) $cliente->getId()),
+                'trecho "' . $trecho . '" não pode casar com o documento',
+            );
+        }
+
+        // Recurso irmão: o CPF inteiro acha — a busca funciona, só o trecho é recusado.
+        self::assertNotNull(self::itemDe($this->buscar($client, $pasta, $cpf), (int) $cliente->getId()));
     }
 
     #[TestDox('busca pelo CPF inteiro (com ou sem pontuação) devolve o documento completo')]
