@@ -9,6 +9,7 @@ use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaMensagem;
 use App\Pasta\Exception\MensagemPastaNaoEditavelException;
+use App\Pasta\Service\JanelaDeEdicaoDeComentario;
 use App\Tests\Shared\CriaSanitizadorTextoRico;
 use App\Pasta\UseCase\EditarMensagemPastaUseCase;
 use Doctrine\ORM\EntityManagerInterface;
@@ -29,7 +30,7 @@ final class EditarMensagemPastaUseCaseTest extends TestCase
     protected function setUp(): void
     {
         $this->em      = $this->createMock(EntityManagerInterface::class);
-        $this->useCase = new EditarMensagemPastaUseCase($this->em, $this->criarSanitizadorTextoRico());
+        $this->useCase = new EditarMensagemPastaUseCase($this->em, $this->criarSanitizadorTextoRico(), new JanelaDeEdicaoDeComentario());
         $this->tenant  = new Tenant();
         $this->autor   = (new User())->setEmail('autor@test.com');
     }
@@ -102,7 +103,7 @@ final class EditarMensagemPastaUseCaseTest extends TestCase
     public function testPodeEditarRetornaFalseForaDaJanela(): void
     {
         $mensagem = $this->novaMensagem();
-        $expirado = $mensagem->getCriadaEm()->add(new \DateInterval('PT25H'));
+        $expirado = $mensagem->getCriadaEm()->add(new \DateInterval('PT15M1S'));
 
         self::assertFalse($this->useCase->podeEditar($mensagem, $this->autor, $this->tenant, $expirado));
     }
@@ -110,7 +111,7 @@ final class EditarMensagemPastaUseCaseTest extends TestCase
     public function testPodeEditarRetornaTrueDentroDaJanela(): void
     {
         $mensagem = $this->novaMensagem();
-        $dentro   = $mensagem->getCriadaEm()->add(new \DateInterval('PT23H'));
+        $dentro   = $mensagem->getCriadaEm()->add(new \DateInterval('PT15M'));
 
         self::assertTrue($this->useCase->podeEditar($mensagem, $this->autor, $this->tenant, $dentro));
     }

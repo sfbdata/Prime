@@ -8,21 +8,20 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\PastaMensagem;
 use App\Pasta\Exception\MensagemPastaNaoExcluivelException;
+use App\Pasta\Service\JanelaDeEdicaoDeComentario;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
  * Exclusão controlada de uma mensagem do chat da pasta.
  *
  * Salvaguardas: só o autor da mensagem pode excluí-la, e apenas dentro de uma
- * janela curta após a criação — o suficiente para desfazer um engano.
+ * janela curta após a criação (`JanelaDeEdicaoDeComentario`, 15 minutos) — o suficiente para desfazer um engano.
  */
 final class ExcluirMensagemPastaUseCase
 {
-    /** Janela em que a mensagem ainda pode ser excluída, contada da criação. */
-    private const JANELA = 'PT24H';
-
     public function __construct(
         private readonly EntityManagerInterface $em,
+        private readonly JanelaDeEdicaoDeComentario $janela,
     ) {}
 
     public function podeExcluir(PastaMensagem $mensagem, User $usuario, Tenant $tenant, ?\DateTimeImmutable $agora = null): bool
@@ -37,9 +36,7 @@ final class ExcluirMensagemPastaUseCase
             return false;
         }
 
-        $limite = $mensagem->getCriadaEm()->add(new \DateInterval(self::JANELA));
-
-        return $agora <= $limite;
+        return $this->janela->estaAberta($mensagem->getCriadaEm(), $agora);
     }
 
     public function executar(PastaMensagem $mensagem, User $usuario, Tenant $tenant): void

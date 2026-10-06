@@ -196,7 +196,7 @@ final class PastaMensagemControllerTest extends JusPrimeWebTestCase
             $pasta,
             $autor,
             $tenant,
-            new \DateTimeImmutable('-25 hours'),
+            new \DateTimeImmutable('-20 minutes'),
         );
 
         $this->instalarCsrfStorage();

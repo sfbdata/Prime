@@ -9,6 +9,7 @@ use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaObservacaoFinanceira;
 use App\Pasta\Exception\ObservacaoFinanceiraNaoEditavelException;
+use App\Pasta\Service\JanelaDeEdicaoDeComentario;
 use App\Tests\Shared\CriaSanitizadorTextoRico;
 use App\Pasta\UseCase\EditarObservacaoFinanceiraUseCase;
 use Doctrine\ORM\EntityManagerInterface;
@@ -29,7 +30,7 @@ final class EditarObservacaoFinanceiraUseCaseTest extends TestCase
     protected function setUp(): void
     {
         $this->em      = $this->createMock(EntityManagerInterface::class);
-        $this->useCase = new EditarObservacaoFinanceiraUseCase($this->em, $this->criarSanitizadorTextoRico());
+        $this->useCase = new EditarObservacaoFinanceiraUseCase($this->em, $this->criarSanitizadorTextoRico(), new JanelaDeEdicaoDeComentario());
         $this->tenant  = new Tenant();
         $this->autor   = (new User())->setEmail('autor@test.com');
     }
@@ -102,7 +103,7 @@ final class EditarObservacaoFinanceiraUseCaseTest extends TestCase
     public function testPodeEditarRetornaFalseForaDaJanela(): void
     {
         $obs      = $this->novaObservacao();
-        $expirado = $obs->getCriadaEm()->add(new \DateInterval('PT25H'));
+        $expirado = $obs->getCriadaEm()->add(new \DateInterval('PT15M1S'));
 
         self::assertFalse($this->useCase->podeEditar($obs, $this->autor, $this->tenant, $expirado));
     }
@@ -110,7 +111,7 @@ final class EditarObservacaoFinanceiraUseCaseTest extends TestCase
     public function testPodeEditarRetornaTrueDentroDaJanela(): void
     {
         $obs    = $this->novaObservacao();
-        $dentro = $obs->getCriadaEm()->add(new \DateInterval('PT23H'));
+        $dentro = $obs->getCriadaEm()->add(new \DateInterval('PT15M'));
 
         self::assertTrue($this->useCase->podeEditar($obs, $this->autor, $this->tenant, $dentro));
     }

@@ -9,6 +9,7 @@ use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaObservacaoDetalhes;
 use App\Pasta\Exception\ObservacaoDetalhesNaoExcluivelException;
+use App\Pasta\Service\JanelaDeEdicaoDeComentario;
 use App\Pasta\UseCase\ExcluirObservacaoDetalhesUseCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -26,7 +27,7 @@ final class ExcluirObservacaoDetalhesUseCaseTest extends TestCase
     protected function setUp(): void
     {
         $this->em      = $this->createMock(EntityManagerInterface::class);
-        $this->useCase = new ExcluirObservacaoDetalhesUseCase($this->em);
+        $this->useCase = new ExcluirObservacaoDetalhesUseCase($this->em, new JanelaDeEdicaoDeComentario());
         $this->tenant  = new Tenant();
         $this->autor   = (new User())->setEmail('autor@test.com');
     }
@@ -77,7 +78,7 @@ final class ExcluirObservacaoDetalhesUseCaseTest extends TestCase
     public function testPodeExcluirRetornaFalseForaDaJanela(): void
     {
         $obs      = $this->novaObservacao();
-        $expirado = $obs->getCriadaEm()->add(new \DateInterval('PT25H'));
+        $expirado = $obs->getCriadaEm()->add(new \DateInterval('PT15M1S'));
 
         self::assertFalse($this->useCase->podeExcluir($obs, $this->autor, $this->tenant, $expirado));
     }
@@ -85,7 +86,7 @@ final class ExcluirObservacaoDetalhesUseCaseTest extends TestCase
     public function testPodeExcluirRetornaTrueDentroDaJanela(): void
     {
         $obs    = $this->novaObservacao();
-        $dentro = $obs->getCriadaEm()->add(new \DateInterval('PT23H'));
+        $dentro = $obs->getCriadaEm()->add(new \DateInterval('PT15M'));
 
         self::assertTrue($this->useCase->podeExcluir($obs, $this->autor, $this->tenant, $dentro));
     }

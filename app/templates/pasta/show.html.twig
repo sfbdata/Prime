@@ -3135,7 +3135,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const urlEditarTpl  = '{{ path("pasta_editar_mensagem", {id: pasta.id, msgId: 0})|replace({"/0/": "/__ID__/"}) }}';
     const urlExcluirTpl = '{{ path("pasta_excluir_mensagem", {id: pasta.id, msgId: 0})|replace({"/0/": "/__ID__/"}) }}';
 
-    {# Editar/excluir mensagem (autor, dentro de 24h) — delegado na lista #}
+    {# Editar/excluir mensagem (autor, dentro da janela de 15 min — `JanelaDeEdicaoDeComentario`) — delegado na lista #}
     if (list) {
         list.addEventListener('click', async function (e) {
             const btnEditar = e.target.closest('.btn-editar-msg-pasta');
@@ -3384,6 +3384,7 @@ document.addEventListener('DOMContentLoaded', function () {
                             data-url="${esc(urlExcluir)}">
                         <i class="bi bi-trash3"></i>
                     </button>
+                    <span class="ps-anotacao-janela small" style="color: var(--ps-label);" title="Edição e exclusão liberadas por mais {{ comentario_janela_minutos() }} min">· {{ comentario_janela_minutos() }} min</span>
                 </span>
                 <span class="ps-anotacao-data ps-num" title="${dataHora}">${hora}</span>
             </div>

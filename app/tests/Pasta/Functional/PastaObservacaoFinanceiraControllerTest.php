@@ -182,7 +182,7 @@ final class PastaObservacaoFinanceiraControllerTest extends JusPrimeWebTestCase
         $tenant = $this->criarTenant();
         $autor  = $this->criarUsuario($tenant, 'autor');
         $pasta  = $this->criarPasta($tenant);
-        $obs    = $this->criarObservacao($pasta, $autor, $tenant, new \DateTimeImmutable('-25 hours'));
+        $obs    = $this->criarObservacao($pasta, $autor, $tenant, new \DateTimeImmutable('-20 minutes'));
 
         $this->instalarCsrfStorage();
         $this->logarComTenant($client, $autor, $tenant);
@@ -312,7 +312,7 @@ final class PastaObservacaoFinanceiraControllerTest extends JusPrimeWebTestCase
         $tenant = $this->criarTenant();
         $autor  = $this->criarUsuario($tenant, 'autor');
         $pasta  = $this->criarPasta($tenant);
-        $obs    = $this->criarObservacao($pasta, $autor, $tenant, new \DateTimeImmutable('-25 hours'));
+        $obs    = $this->criarObservacao($pasta, $autor, $tenant, new \DateTimeImmutable('-20 minutes'));
 
         $this->instalarCsrfStorage();
         $this->logarComTenant($client, $autor, $tenant);

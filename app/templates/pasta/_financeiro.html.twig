@@ -179,8 +179,9 @@
                         {% set iniciais = partes|length > 0
                             ? (partes|first|slice(0, 1) ~ (partes|length > 1 ? partes|last|slice(0, 1) : ''))|upper
                             : '?' %}
-                        {# Autor, dentro de 24h: as mesmas condições do endpoint. #}
-                        {% set podeGerenciar = obs.autor and app.user and obs.autor.id == app.user.id and date(obs.criadaEm) > date('-24 hours') %}
+                        {# Autor, dentro da janela de 15 min: as mesmas condições do endpoint (o prazo
+                           vem do MESMO serviço que o UseCase usa — `JanelaDeEdicaoDeComentario`). #}
+                        {% set podeGerenciar = obs.autor and app.user and obs.autor.id == app.user.id and comentario_editavel(obs.criadaEm) %}
                         {% set diaFin = obs.criadaEm|date('Y-m-d') %}
 
                         {# Linha do tempo do desenho 1.2.3: pílula do dia, cartão com ponto e seta.
@@ -222,6 +223,8 @@
                                                 data-url="{{ path('pasta_financeiro_observacao_excluir', {id: pasta.id, obsId: obs.id}) }}">
                                             <i class="bi bi-trash3"></i>
                                         </button>
+                                        {% set minRest = comentario_minutos_restantes(obs.criadaEm) %}
+                                        <span class="ps-anotacao-janela small" style="color: var(--ps-label);" title="Edição e exclusão liberadas por mais {{ minRest }} min">· {{ minRest }} min</span>
                                     </span>
                                 {% endif %}
                                 <span class="ps-anotacao-data ps-num" title="{{ obs.criadaEm|date('d/m/Y H:i') }}">{{ obs.criadaEm|date('H:i') }}</span>

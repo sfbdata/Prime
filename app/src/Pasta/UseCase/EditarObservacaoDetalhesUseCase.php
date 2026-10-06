@@ -8,6 +8,7 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\PastaObservacaoDetalhes;
 use App\Pasta\Exception\ObservacaoDetalhesNaoEditavelException;
+use App\Pasta\Service\JanelaDeEdicaoDeComentario;
 use App\Shared\Service\SanitizadorTextoRico;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -15,16 +16,14 @@ use Doctrine\ORM\EntityManagerInterface;
  * Edição controlada de uma observação da aba Detalhes.
  *
  * Salvaguardas: só o autor da observação pode editá-la, e apenas dentro de uma
- * janela curta após a criação — o suficiente para corrigir erros de escrita.
+ * janela curta após a criação (`JanelaDeEdicaoDeComentario`, 15 minutos) — o suficiente para corrigir erros de escrita.
  */
 final class EditarObservacaoDetalhesUseCase
 {
-    /** Janela em que a observação ainda pode ser editada, contada da criação. */
-    private const JANELA = 'PT24H';
-
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly SanitizadorTextoRico $sanitizador,
+        private readonly JanelaDeEdicaoDeComentario $janela,
     ) {}
 
     public function podeEditar(PastaObservacaoDetalhes $observacao, User $usuario, Tenant $tenant, ?\DateTimeImmutable $agora = null): bool
@@ -39,9 +38,7 @@ final class EditarObservacaoDetalhesUseCase
             return false;
         }
 
-        $limite = $observacao->getCriadaEm()->add(new \DateInterval(self::JANELA));
-
-        return $agora <= $limite;
+        return $this->janela->estaAberta($observacao->getCriadaEm(), $agora);
     }
 
     public function executar(PastaObservacaoDetalhes $observacao, User $usuario, Tenant $tenant, string $conteudo): void

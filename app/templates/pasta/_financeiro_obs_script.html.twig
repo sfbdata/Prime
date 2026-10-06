@@ -133,6 +133,7 @@
                                 data-url="${esc(urlExcluir)}">
                             <i class="bi bi-trash3"></i>
                         </button>
+                        <span class="ps-anotacao-janela small" style="color: var(--ps-label);" title="Edição e exclusão liberadas por mais {{ comentario_janela_minutos() }} min">· {{ comentario_janela_minutos() }} min</span>
                     </span>
                     <span class="ps-anotacao-data ps-num" title="${esc(criadaEm)}">${esc(hora)}</span>
                 </div>

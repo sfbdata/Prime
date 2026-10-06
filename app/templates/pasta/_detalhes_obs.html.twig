@@ -63,7 +63,8 @@
                     ? (partes|first|slice(0, 1) ~ (partes|length > 1 ? partes|last|slice(0, 1) : ''))|upper
                     : '?' %}
                 {% set foto = obs.autor and obs.autor.id ? fotos[obs.autor.id]|default(null) : null %}
-                {% set podeGerenciar = obs.autor and app.user and obs.autor.id == app.user.id and date(obs.criadaEm) > date('-24 hours') %}
+                {# Autor, dentro da janela de 15 min: o prazo vem do MESMO serviço do UseCase. #}
+                {% set podeGerenciar = obs.autor and app.user and obs.autor.id == app.user.id and comentario_editavel(obs.criadaEm) %}
                 {% set dia = obs.criadaEm|date('Y-m-d') %}
 
                 {% if dia != diaAnterior %}
@@ -104,6 +105,8 @@
                                         data-url="{{ path('pasta_detalhes_observacao_excluir', {id: pasta.id, obsId: obs.id}) }}">
                                     <i class="bi bi-trash3"></i>
                                 </button>
+                                {% set minRest = comentario_minutos_restantes(obs.criadaEm) %}
+                                <span class="ps-anotacao-janela small" style="color: var(--ps-label);" title="Edição e exclusão liberadas por mais {{ minRest }} min">· {{ minRest }} min</span>
                             </span>
                         {% endif %}
                         <span class="ps-anotacao-data ps-num" title="{{ obs.criadaEm|date('d/m/Y H:i') }}">{{ obs.criadaEm|date('H:i') }}</span>
@@ -243,6 +246,7 @@
                                 data-url="${esc(urlExcluir)}">
                             <i class="bi bi-trash3"></i>
                         </button>
+                        <span class="ps-anotacao-janela small" style="color: var(--ps-label);" title="Edição e exclusão liberadas por mais {{ comentario_janela_minutos() }} min">· {{ comentario_janela_minutos() }} min</span>
                     </span>
                     <span class="ps-anotacao-data ps-num" title="${esc(criadaEm)}">${esc(hora)}</span>
                 </div>

@@ -16,7 +16,7 @@
 
    O que o desenho mostra e é função nova NÃO aparece: responder, encaminhar
    via Chat I.A, destacar, etiqueta do registro, presença do autor, janela de
-   edição de 15 minutos (hoje são 24h, no servidor).
+   edição de 15 minutos — essa agora existe: `comentario_editavel` / "· N min".
 
    Contexto: `pasta`, `anotacoes` (TimelineItemDTO do tipo MENSAGEM),
    `fotosResponsaveis` (mapa userId => url, herdado do show).
@@ -80,8 +80,9 @@
                     ? (partes|first|slice(0, 1) ~ (partes|length > 1 ? partes|last|slice(0, 1) : ''))|upper
                     : '?' %}
                 {% set foto = item.usuarioId ? fotos[item.usuarioId]|default(null) : null %}
-                {# Autor, dentro de 24h: as mesmas condições do endpoint. #}
-                {% set podeGerenciar = item.mensagemId and app.user and item.usuarioId == app.user.id and date(item.dataHora) > date('-24 hours') %}
+                {# Autor, dentro da janela de 15 min: as mesmas condições do endpoint (o prazo vem
+                   do MESMO serviço que o UseCase usa — `JanelaDeEdicaoDeComentario`). #}
+                {% set podeGerenciar = item.mensagemId and app.user and item.usuarioId == app.user.id and comentario_editavel(item.dataHora) %}
                 {% set extra = loop.index0 >= visiveis %}
                 {% set dia = item.dataHora|date('Y-m-d') %}
 
@@ -124,6 +125,8 @@
                                         data-url="{{ path('pasta_excluir_mensagem', {id: pasta.id, msgId: item.mensagemId}) }}">
                                     <i class="bi bi-trash3"></i>
                                 </button>
+                                {% set minRest = comentario_minutos_restantes(item.dataHora) %}
+                                <span class="ps-anotacao-janela small" style="color: var(--ps-label);" title="Edição e exclusão liberadas por mais {{ minRest }} min">· {{ minRest }} min</span>
                             </span>
                         {% endif %}
                         {# Só a hora: o dia está na pílula acima. O title traz a data inteira. #}
