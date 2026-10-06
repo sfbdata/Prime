@@ -24,7 +24,12 @@
    menu de contexto (dc L2266-2270, montado pelo JS a partir de `<template id="pexMenuItem">`),
    toast (dc L2272) e criar/renomear inline (dc L2234). O markup estático fica aqui para ser
    testável por arranjo; o conteúdo variável é do JS. Os itens de menu que dependem de lotes
-   futuros (favoritos L6, lixeira/Desfazer L7, zip/copiar L8) NÃO são renderizados.
+   futuros (lixeira/Desfazer L7, zip/copiar L8) NÃO são renderizados.
+
+   Lote L6 (spec §5, D2): favoritos. A estrela de cada linha/cartão e o item "Marcar como
+   favorito"/"Tirar dos favoritos" do menu nascem no JS, a partir de `favorito` de cada item e
+   de `urlFavorito`/`csrfFavorito` do `#pexDados` — nada de markup novo aqui; o aviso usa o
+   mesmo toast `#pexToast`.
 #}
 <div class="pex" id="pexExplorador"
      data-pasta-id="{{ pasta.id }}"

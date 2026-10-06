@@ -19,12 +19,18 @@
    - laço (retângulo) a partir do espaço vazio da lista; Ctrl soma à seleção;
    - teclado: setas/Home/End, Shift+setas, Ctrl+A, Esc, F2, Del, Ctrl+X/Ctrl+V;
    - menu de contexto (botão direito, ⋮ no toque) por item, por vários e no fundo,
-     na ordem do desenho — SEM os itens que dependem de lotes futuros (favoritos L6,
-     Desfazer L7, zip/Copiar L8) nem dos itens E (Chat I.A);
+     na ordem do desenho — SEM os itens que dependem de lotes futuros (Desfazer L7,
+     zip/Copiar L8) nem dos itens E (Chat I.A);
    - barra de seleção, toast, criar/renomear inline, arraste nativo da SELEÇÃO
      para pasta (pasta→pasta inclusive), ações em lote por mover-lote/excluir-lote
      (um token por pasta: `csrfLote`), upload inserindo a linha sem recarregar.
    A seleção troca classes nas linhas já renderizadas: nunca refaz a lista.
+
+   L6: favoritos (dc `expFavs`/`expFavAlt`/`favLinha`, L4440-4442, L4715, L4743, L4820) —
+   estrela por linha/cartão em todos os modos, item no menu de contexto (um e vários),
+   favoritos no topo do SEU grupo (pastas continuam antes dos arquivos), toast do desenho.
+   A estrela é do usuário logado (`favorito` do #pexDados) e vai ao servidor por
+   `urlFavorito`/`csrfFavorito`; a tela muda antes da resposta e volta atrás no erro.
 
    Depende de: Bootstrap 5 (Modal), SortableJS (opcional, só no modo Manual),
    `window.enviarArquivoComProgresso` (helper do template, também do Peticionar)
@@ -68,6 +74,9 @@
         urlMoverLote:        dados.urlMoverLote || '',
         urlExcluirLote:      dados.urlExcluirLote || '',
         csrfLote:            dados.csrfLote || '',
+        // Favoritos (L6, D2): um token por pasta, tipo e id do alvo no corpo; basta VER a pasta.
+        urlFavorito:         dados.urlFavorito || '',
+        csrfFavorito:        dados.csrfFavorito || '',
     };
 
     const el = {
@@ -164,6 +173,8 @@
     const TOQUE_LONGO_MS = 500;     // toque longo abre o menu (convenção; o desenho é omisso)
     const TOAST_MS       = 4200;    // dc L4772
     const LACO_MARGEM_PX = 40;      // rola sozinho a 40px da borda (dc L4891)
+    // Favoritar vários: no máximo 4 pedidos ao mesmo tempo (a rota é de um alvo por pedido).
+    const FAVORITO_PARALELO = 4;
 
     let caminho = [];          // [] = raiz; senão a cadeia de ids (números) até a pasta aberta
     let busca   = '';
@@ -494,6 +505,10 @@
         const cmp = comparador();
         ps = ps.map(function (p) { return { tipo: 'pasta', id: p.id, nome: p.nome, ordem: p.ordem, dado: p }; }).sort(cmp);
         as = as.map(function (a) { return { tipo: 'arquivo', id: a.id, nome: a.nome, ordem: a.ordem, tamanho: a.tamanho, carregadoEm: a.carregadoEm, categoriaRotulo: a.categoriaRotulo, dado: a }; }).sort(cmp);
+        // Favoritos sobem ao topo (dc L4715), depois da classificação e em qualquer uma delas —
+        // mas dentro do grupo: pastas favoritas, pastas, arquivos favoritos, arquivos.
+        ps = favoritosNoTopo(ps);
+        as = favoritosNoTopo(as);
 
         // Filtro por tipo (dc L3141-3142): a contagem de cada grupo é do conjunto que está na
         // tela ANTES do filtro — o nível aberto, ou os resultados da busca.
@@ -505,6 +520,14 @@
             as = as.filter(doTipo);
         }
         return ps.concat(as);
+    }
+
+    function ehFavorito(it) { return !!(it && it.dado && it.dado.favorito); }
+    // Partição estável: entre os favoritos (e entre os demais) vale a classificação escolhida.
+    // O desenho ordena os favoritos pela hora em que foram marcados; o #pexDados não traz essa
+    // hora, então entre eles manda a mesma ordem do resto.
+    function favoritosNoTopo(lista) {
+        return lista.filter(ehFavorito).concat(lista.filter(function (it) { return !ehFavorito(it); }));
     }
 
     // ------------------------------------------------------------ render ----
@@ -766,12 +789,15 @@
        - grade (xg/g/m), Pequenos e Lista: só ícone e nome.
        A célula do ⋮ nasce em toda linha, mas o CSS só a mostra em `(hover: none)` (S-1): no mouse
        as ações são o botão direito, o teclado e a barra de seleção. */
-    function montarItem(attrs, ehPasta, nomeEl, sub, extras, celulasDetalhe, lado, buscando, localId) {
+    function montarItem(attrs, ehPasta, nomeEl, sub, extras, celulasDetalhe, lado, buscando, localId, favorito) {
         const txt = [nomeEl];
         if (sub) txt.push(h('span', { class: 'pex-sub', text: sub, title: sub }));
         (extras || []).forEach(function (x) { if (x) txt.push(h('span', { class: 'pex-sub pex-sub--nd', text: x, title: x })); });
         if (buscando) txt.push(celulaLocal(localId));
+        // A estrela vem antes do ícone, na célula do nome (dc L2246); na grade, no canto do cartão.
+        // `favorito === null`: linha provisória (nova pasta) — ainda não há o que favoritar.
         const nome = h('span', { class: 'pex-cel pex-cel-nome' }, [
+            favorito === null ? null : botaoFavorito(favorito),
             h('span', { class: 'pex-ico' }, [ehPasta ? icone(TIPO_PASTA[0] + ' pex-ico-pasta') : null]),
             h('span', { class: 'pex-txt' }, txt),
         ]);
@@ -789,7 +815,21 @@
         attrs.id = idDaLinha(chave);
         attrs.role = 'option';
         attrs['aria-selected'] = on ? 'true' : 'false';
-        return { linha: h('div', attrs, celulas), ico: nome.firstChild };
+        return { linha: h('div', attrs, celulas), ico: nome.querySelector('.pex-ico') };
+    }
+
+    /* Estrela (dc `favLinha`/`favSt`, L4743): 20×20, ícone de 13px; o título muda com o estado
+       como no desenho ("Marcar como favorito" / "Tirar dos favoritos"). É um <button> de
+       alternância (aria-pressed) e o rótulo acessível fica fixo — quem muda é o estado. */
+    function botaoFavorito(on) {
+        return h('button', {
+            type: 'button',
+            class: 'pex-fav' + (on ? ' pex-fav--on' : ''),
+            'aria-pressed': on ? 'true' : 'false',
+            'aria-label': 'Favorito',
+            title: on ? 'Tirar dos favoritos' : 'Marcar como favorito',
+            draggable: 'false',
+        }, [icone(on ? 'bi-star-fill' : 'bi-star')]);
     }
 
     // ⋮ (S-1): só aparece no toque, pelo CSS; abre o MESMO menu de contexto do botão direito.
@@ -815,7 +855,7 @@
             cat:  h('span', { class: 'pex-cel pex-cel-cat' }),
             tam:  h('span', { class: 'pex-cel pex-cel-tam' }),
             data: h('span', { class: 'pex-cel pex-cel-data' }),
-        }, null, buscando, p.paiId);
+        }, null, buscando, p.paiId, p.id ? !!p.favorito : null);
         return r.linha;
     }
 
@@ -853,7 +893,7 @@
             cat:  h('span', { class: 'pex-cel pex-cel-cat', text: a.categoriaRotulo || '', title: a.categoriaRotulo || '' }),
             tam:  h('span', { class: 'pex-cel pex-cel-tam', text: formatarBytes(a.tamanho) }),
             data: h('span', { class: 'pex-cel pex-cel-data', text: formatarData(a.carregadoEm) }),
-        }, lado, buscando, a.secaoId);
+        }, lado, buscando, a.secaoId, !!a.favorito);
         r.ico.appendChild(iconeArquivo(a.nome, ICONE_PX[modo]));
         return r.linha;
     }
@@ -1061,6 +1101,16 @@
         const item = e.target.closest('.pex-item');
         if (item && item.dataset.pexTemp !== undefined) return;
         if (e.target.closest('.pex-ren')) return;
+        // Estrela: alterna o favorito SEM mexer na seleção (dc `favAlt`: preventDefault +
+        // stopPropagation). `detail === 0` é o clique do teclado (Enter/Espaço no botão).
+        const btnFav = e.target.closest('.pex-fav');
+        if (btnFav && item) {
+            e.preventDefault();
+            e.stopPropagation();
+            const it = itemPorChave(chaveDoElemento(item));
+            if (it) alternarFavoritos([it], !ehFavorito(it), { focar: chaveDe(it), rolar: e.detail === 0 });
+            return;
+        }
         const btnMenu = e.target.closest('.pex-menu');
         if (btnMenu && item) {
             e.preventDefault();
@@ -1085,7 +1135,7 @@
     });
     // Duplo clique abre (dc `abrir`, L4758): pasta entra, arquivo pré-visualiza.
     el.lista.addEventListener('dblclick', function (e) {
-        if (e.target.closest('.pex-ren, .pex-menu')) return;
+        if (e.target.closest('.pex-ren, .pex-menu, .pex-fav')) return;
         const item = e.target.closest('.pex-item');
         if (!item || item.dataset.pexTemp !== undefined) return;
         e.preventDefault();
@@ -1176,6 +1226,8 @@
         const ctrl = e.ctrlKey || e.metaKey;
         const k = e.key;
         const baixa = String(k || '').toLowerCase();
+        // Enter/Espaço na estrela são do botão (viram o clique dele) — não abrem o item.
+        if ((k === 'Enter' || k === ' ') && e.target.closest && e.target.closest('.pex-fav')) return;
         if ((k === 'Backspace' || (e.altKey && (k === 'ArrowLeft' || k === 'ArrowUp'))) && caminho.length) {
             e.preventDefault();
             subir();
@@ -1370,7 +1422,7 @@
         alvo.addEventListener('pointerdown', function (e) {
             if (e.pointerType !== 'touch' && e.pointerType !== 'pen') return;
             const linha = e.target.closest('.pex-item');
-            if ((linha && linha.dataset.pexTemp !== undefined) || e.target.closest('.pex-ren, .pex-menu')) return;
+            if ((linha && linha.dataset.pexTemp !== undefined) || e.target.closest('.pex-ren, .pex-menu, .pex-fav')) return;
             cancelarToqueLongo();
             toqueInicio = { x: e.clientX, y: e.clientY, linha: linha };
             toqueTimer = setTimeout(function () {
@@ -1405,8 +1457,10 @@
 
     // --------------------------------------------------- menu de contexto ---
     /* dc `ctxItens` (L4797-4834), na ordem do desenho, só com o que tem ação hoje:
-       - de lotes futuros, NÃO renderizados: "Baixar como .zip" e Copiar (L8), favoritos (L6),
-         Desfazer (L7); "Encaminhar via Chat I.A" é item E;
+       - de lotes futuros, NÃO renderizados: "Baixar como .zip" e Copiar (L8), Desfazer (L7);
+         "Encaminhar via Chat I.A" é item E;
+       - favorito (L6, dc L4820) logo depois de "Copiar caminho". No menu de VÁRIOS o desenho não
+         tem o item; entra por função do sistema (marcar/tirar a seleção de uma vez);
        - "Compartilhar link" vira "Copiar link" INTERNO (S-12): a URL de visualização, absoluta;
        - "Editar…" (categoria, descrição, número) é função do sistema: o desenho é omisso. */
     const SEP = {};
@@ -1438,6 +1492,7 @@
                 op('Recortar', 'bi-scissors', function () { recortar(sel); }, { atalho: 'Ctrl+X' }),
                 op('Mover para…', 'bi-folder-symlink', function () { escolherDestino(sel); }),
                 op('Copiar caminhos', 'bi-signpost', function () { copiarCaminhos(sel); }),
+                opFavorito(sel),
                 SEP,
                 op('Excluir ' + sel.length + ' itens', 'bi-trash3', function () { excluirItens(sel); }, { atalho: 'Del', perigo: true }),
                 SEP,
@@ -1461,6 +1516,7 @@
                 // "Mover para…" (modal de destino) é função do sistema (§16.7); o desenho é omisso.
                 op('Mover para…', 'bi-folder-symlink', function () { escolherDestino([alvo]); }),
                 op('Copiar caminho', 'bi-signpost', function () { copiarCaminhos([alvo]); }),
+                opFavorito([alvo]),
                 SEP,
                 op('Renomear', 'bi-input-cursor-text', function () { iniciarRenomear(alvo); }, { atalho: 'F2' }),
             ])
@@ -1470,6 +1526,13 @@
                 SEP,
                 op('Propriedades', 'bi-info-square', mostrarPainel),
             ]);
+    }
+    // Rótulos e ícones do desenho (dc L4820): desmarcado mostra a estrela cheia, marcado a vazia.
+    // Com vários, "Tirar" só quando TODOS já são favoritos; senão marca os que faltam.
+    function opFavorito(itens) {
+        const todos = itens.length > 0 && itens.every(ehFavorito);
+        const rotulo = todos ? 'Tirar dos favoritos' : (itens.length > 1 ? 'Marcar como favoritos' : 'Marcar como favorito');
+        return op(rotulo, todos ? 'bi-star' : 'bi-star-fill', function () { alternarFavoritos(itens, !todos); });
     }
     function abrirMenu(x, y, alvo) {
         if (!el.menu || !el.menuItemTpl) return;
@@ -1691,6 +1754,83 @@
             toast((n === 1 ? '"' + (nomes[0] || '1 item') + '" movido' : n + ' itens movidos') + ' para ' + nomeDoLocal(destinoId));
             return true;
         }).catch(function (err) { toastErro(err.message || 'Erro de comunicação.'); return false; });
+    }
+
+    /* Favoritos (L6, D2, dc `expFavAlt` L4442). Otimista: a estrela e a posição mudam na hora,
+       o toast do desenho aparece, e o pedido vai depois — um por alvo, no máximo
+       FAVORITO_PARALELO ao mesmo tempo. O que o servidor recusar volta ao estado anterior, com
+       toast de erro. Um alvo com pedido em voo não aceita outro clique até a resposta (dois
+       pedidos cruzados poderiam chegar fora de ordem e gravar o contrário do que a tela mostra).
+       Só o `dado` (pastas/arquivos em memória) muda: os itens da tela são refeitos a cada render. */
+    const favoritosEmVoo = new Set();
+    function alternarFavoritos(itens, marcar, opts) {
+        opts = opts || {};
+        const alvos = itens.filter(function (it) {
+            return it && it.dado && it.dado.id && !favoritosEmVoo.has(chaveDe(it)) && ehFavorito(it) !== marcar;
+        });
+        if (!alvos.length) return Promise.resolve(false);
+        if (acimaDoTeto(alvos.length)) return Promise.resolve(false);
+        if (!cfg.urlFavorito || !cfg.csrfFavorito) { toastErro('Favoritos indisponíveis nesta pasta.'); return Promise.resolve(false); }
+        alvos.forEach(function (it) { favoritosEmVoo.add(chaveDe(it)); it.dado.favorito = marcar; });
+        renderizarFavoritos(opts);
+        // Textos do desenho (dc L4442); com vários, a mesma frase no plural.
+        const nome = alvos.length === 1 ? '"' + alvos[0].nome + '"' : alvos.length + ' itens';
+        toast(marcar
+            ? '★ ' + nome + (alvos.length === 1 ? ' foi para o topo da lista' : ' foram para o topo da lista')
+            : nome + (alvos.length === 1 ? ' saiu dos favoritos' : ' saíram dos favoritos'));
+
+        const fila = alvos.slice();
+        const falhas = [];
+        let ultimoErro = '';
+        let divergiu = false;
+        function proximo() {
+            const it = fila.shift();
+            if (!it) return Promise.resolve();
+            return pedirFavorito(it, marcar).then(function (marcadoNoServidor) {
+                // O servidor diz o estado final: é ele que fica (idempotente; normalmente igual).
+                if (marcadoNoServidor !== marcar) { it.dado.favorito = marcadoNoServidor; divergiu = true; }
+            }, function (err) {
+                falhas.push(it);
+                ultimoErro = err && err.message ? err.message : '';
+            }).then(function () {
+                favoritosEmVoo.delete(chaveDe(it));
+                return proximo();
+            });
+        }
+        const trabalhadores = [];
+        for (let i = 0; i < Math.min(FAVORITO_PARALELO, alvos.length); i++) trabalhadores.push(proximo());
+        return Promise.all(trabalhadores).then(function () {
+            // Rollback: só quem falhou volta ao estado de antes.
+            falhas.forEach(function (it) { it.dado.favorito = !marcar; });
+            if (falhas.length || divergiu) renderizarFavoritos(opts);
+            if (falhas.length) {
+                toastErro(falhas.length === 1 && alvos.length === 1
+                    ? (ultimoErro || 'Não foi possível atualizar o favorito.') + ' "' + falhas[0].nome + '" voltou como estava.'
+                    : 'Não foi possível atualizar ' + pluralizar(falhas.length, 'favorito', 'favoritos') + ' de ' + alvos.length + (falhas.length === 1 ? '; esse voltou como estava.' : '; esses voltaram como estavam.'));
+            }
+            return falhas.length === 0;
+        });
+    }
+    function pedirFavorito(it, marcar) {
+        return postJson(cfg.urlFavorito, {
+            _token: cfg.csrfFavorito,
+            tipo: it.tipo === 'pasta' ? 'pasta' : 'documento',
+            alvoId: it.dado.id,
+            marcado: marcar,
+        }).then(function (res) {
+            if (!res.ok || !res.j || !res.j.ok) throw new Error((res.j && res.j.erro) || 'Falha ao atualizar o favorito.');
+            return res.j.marcado === true;
+        }, function () { throw new Error('Erro de comunicação.'); });
+    }
+    // Refaz a lista (o item muda de lugar) e devolve o foco à estrela de quem foi clicado: o
+    // botão antigo saiu do DOM. Pelo teclado, a linha também volta para a vista.
+    function renderizarFavoritos(opts) {
+        renderizar();
+        const linha = opts.focar ? linhaDe(opts.focar) : null;
+        const estrela = linha ? linha.querySelector('.pex-fav') : null;
+        if (!estrela) return;
+        estrela.focus({ preventScroll: true });
+        if (opts.rolar && linha.scrollIntoView) linha.scrollIntoView({ block: 'nearest' });
     }
 
     // Aviso montado com a contagem da árvore (D3): o número tem de existir ANTES do clique.
@@ -2487,10 +2627,11 @@
                 }
                 if (!arrastado) return;
 
-                // Reordenar: a ordem nova é a ordem do DOM, por tipo. Persiste só o tipo arrastado.
+                // Reordenar: a ordem nova é a ordem do DOM, por tipo. Persiste só o tipo arrastado —
+                // sem o efeito "favorito no topo" (ver ordemManualSemOTopo).
                 const tipo = arrastado.dataset.pexTipo;
-                const ids = Array.prototype.slice.call(el.lista.querySelectorAll('.pex-item[data-pex-tipo="' + tipo + '"]'))
-                    .map(function (n) { return Number(n.dataset.pexId); });
+                const ids = ordemManualSemOTopo(tipo, Array.prototype.slice.call(el.lista.querySelectorAll('.pex-item[data-pex-tipo="' + tipo + '"]'))
+                    .map(function (n) { return Number(n.dataset.pexId); }));
                 ids.forEach(function (id, i) {
                     const it = tipo === 'pasta' ? pastaPorId(id) : arquivoPorId(id);
                     if (it) it.ordem = i + 1;
@@ -2500,6 +2641,22 @@
                 renderizar();
             },
         });
+    }
+
+    /* Guarda do Manual (L6): na tela, os favoritos estão no topo do grupo; a ordem do DOM depois
+       do arraste NÃO é a ordem manual. Gravá-la como está faria o "topo" virar ordem de verdade —
+       desmarcar a estrela deixaria o item lá em cima para todo mundo. Então cada um volta para a
+       sua faixa: as POSIÇÕES que eram de favoritos na ordem manual de antes (ordem, nome)
+       recebem os favoritos na sequência nova, e as demais recebem os não favoritos na sequência
+       nova. Sem favorito nenhum, o resultado é exatamente a ordem do DOM. */
+    function ordemManualSemOTopo(tipo, idsNaTela) {
+        const dadoDe = function (id) { return (tipo === 'pasta' ? pastaPorId(id) : arquivoPorId(id)) || { id: id, nome: '', ordem: 0 }; };
+        const fav = function (id) { return !!dadoDe(id).favorito; };
+        const cmp = comparador();
+        const antes = idsNaTela.slice().sort(function (a, b) { return cmp(dadoDe(a), dadoDe(b)); });
+        const favoritos = idsNaTela.filter(fav);
+        const demais = idsNaTela.filter(function (id) { return !fav(id); });
+        return antes.map(function (id) { return fav(id) ? favoritos.shift() : demais.shift(); });
     }
 
     // Arraste nativo da SELEÇÃO (fora do modo Manual), dc `dIni`/`dOver`/`dDrop` (L4760-4765):

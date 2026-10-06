@@ -91,7 +91,7 @@ final class PastaExploradorInteracaoTest extends TestCase
         self::assertStringContainsString("if (k === 'Delete') { if (sel.length) {", $js);
     }
 
-    #[TestDox('menu de contexto: na ordem do desenho, SEM os itens dos lotes futuros (zip/Copiar L8, favoritos L6, Desfazer L7) nem o Chat I.A (E)')]
+    #[TestDox('menu de contexto: na ordem do desenho (favorito do L6 depois de Copiar caminho), SEM os itens dos lotes futuros (zip/Copiar L8, Desfazer L7) nem o Chat I.A (E)')]
     public function testItensDoMenuDeContexto(): void
     {
         $js    = $this->js();
@@ -101,9 +101,9 @@ final class PastaExploradorInteracaoTest extends TestCase
         $fundo = ["op('Nova pasta', 'bi-folder-plus', novaPastaInline)", "op('Colar', 'bi-clipboard', colarAqui, { atalho: 'Ctrl+V', desabilitado: !areaDeTransferencia })", "op('Selecionar tudo', 'bi-check2-all', selecionarTudo, { atalho: 'Ctrl+A' })", "['nome', 'Classificar por nome'], ['data', 'Classificar por data'], ['tamanho', 'Classificar por tamanho'], ['tipo', 'Classificar por tipo']", "op(painel ? 'Ocultar painel de detalhes' : 'Mostrar painel de detalhes'"];
         // Vários itens (dc L4797-4808), sem zip/Copiar.
         // "Mover para…" (modal de destino) é função do sistema (§16.7) e mora aqui, não na barra.
-        $multi = ["op('Copiar links'", "op('Recortar', 'bi-scissors', function () { recortar(sel); }, { atalho: 'Ctrl+X' })", "op('Mover para…', 'bi-folder-symlink', function () { escolherDestino(sel); })", "op('Copiar caminhos'", "op('Excluir ' + sel.length + ' itens', 'bi-trash3', function () { excluirItens(sel); }, { atalho: 'Del', perigo: true })", "op('Propriedades', 'bi-info-square', mostrarPainel)"];
-        // Um item (dc L4809-4826), sem zip/Copiar/Chat/favorito.
-        $item = ["op('Abrir', ehPasta ? 'bi-folder2-open' : 'bi-box-arrow-up-right'", "op('Visualizar', 'bi-eye', function () { abrirPreviewDe(a); }, { atalho: 'Espaço' })", "op('Baixar', 'bi-download'", "op('Copiar link', 'bi-link-45deg'", "op('Recortar', 'bi-scissors', function () { recortar([alvo]); }, { atalho: 'Ctrl+X' })", "op('Colar', 'bi-clipboard', function () { colarEm(alvo.id); }, { atalho: 'Ctrl+V', desabilitado: !areaDeTransferencia })", "op('Mover para…', 'bi-folder-symlink', function () { escolherDestino([alvo]); })", "op('Copiar caminho', 'bi-signpost'", "op('Renomear', 'bi-input-cursor-text', function () { iniciarRenomear(alvo); }, { atalho: 'F2' })", "op('Editar…', 'bi-pencil'", "op('Excluir', 'bi-trash3', function () { excluirItens([alvo]); }, { atalho: 'Del', perigo: true })"];
+        $multi = ["op('Copiar links'", "op('Recortar', 'bi-scissors', function () { recortar(sel); }, { atalho: 'Ctrl+X' })", "op('Mover para…', 'bi-folder-symlink', function () { escolherDestino(sel); })", "op('Copiar caminhos'", 'opFavorito(sel),', "op('Excluir ' + sel.length + ' itens', 'bi-trash3', function () { excluirItens(sel); }, { atalho: 'Del', perigo: true })", "op('Propriedades', 'bi-info-square', mostrarPainel)"];
+        // Um item (dc L4809-4826), sem zip/Copiar/Chat; o favorito (L6, dc L4820) logo depois de Copiar caminho.
+        $item = ["op('Abrir', ehPasta ? 'bi-folder2-open' : 'bi-box-arrow-up-right'", "op('Visualizar', 'bi-eye', function () { abrirPreviewDe(a); }, { atalho: 'Espaço' })", "op('Baixar', 'bi-download'", "op('Copiar link', 'bi-link-45deg'", "op('Recortar', 'bi-scissors', function () { recortar([alvo]); }, { atalho: 'Ctrl+X' })", "op('Colar', 'bi-clipboard', function () { colarEm(alvo.id); }, { atalho: 'Ctrl+V', desabilitado: !areaDeTransferencia })", "op('Mover para…', 'bi-folder-symlink', function () { escolherDestino([alvo]); })", "op('Copiar caminho', 'bi-signpost'", 'opFavorito([alvo]),', "op('Renomear', 'bi-input-cursor-text', function () { iniciarRenomear(alvo); }, { atalho: 'F2' })", "op('Editar…', 'bi-pencil'", "op('Excluir', 'bi-trash3', function () { excluirItens([alvo]); }, { atalho: 'Del', perigo: true })"];
         $pos = -1;
         foreach (array_merge($fundo, $multi, $item) as $trecho) {
             $p = strpos($corpo, $trecho, $pos + 1);
@@ -112,7 +112,7 @@ final class PastaExploradorInteracaoTest extends TestCase
         }
 
         // Não renderizados até o lote deles / item E.
-        foreach (["op('Baixar como .zip", "op('Copiar',", "op('Marcar como favorito", "op('Tirar dos favoritos", "op('Encaminhar via Chat", "'Desfazer'", "op('Compartilhar"] as $proibido) {
+        foreach (["op('Baixar como .zip", "op('Copiar',", "op('Encaminhar via Chat", "'Desfazer'", "op('Compartilhar"] as $proibido) {
             self::assertStringNotContainsString($proibido, $js, "{$proibido} é de outro lote");
         }
         // Botão direito num item fora da seleção: ele vira a seleção (dc L4759); dentro dela, o menu é o de vários.

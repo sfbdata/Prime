@@ -168,6 +168,12 @@
     --pex-ren-anel:       #0a7aad;
     --pex-ren-txt:        #12242f;
 
+    /* L6 — estrela de favorito (dc `favSt`, L4743): desligada #b4c2cc a .55, ligada #f0b400,
+       hover #e0a400 */
+    --pex-fav-off:        #b4c2cc;
+    --pex-fav-on:         #f0b400;
+    --pex-fav-hover:      #e0a400;
+
     /* ícones por tipo (dc L4675-4680) */
     --pex-c-pdf:          #d93a2b;
     --pex-c-word:         #1f5fbf;
@@ -371,6 +377,11 @@
     --pex-ren-bg:         var(--bs-body-bg);
     --pex-ren-anel:       #45b0d6;
     --pex-ren-txt:        var(--bs-body-color);
+
+    /* A estrela desligada acompanha o texto secundário; o âmbar do desenho já contrasta no escuro. */
+    --pex-fav-off:        var(--bs-secondary-color);
+    --pex-fav-on:         #f0b400;
+    --pex-fav-hover:      #ffc61a;
 
     --pex-c-pdf:          #f0675a;
     --pex-c-word:         #6ea0ef;
@@ -1017,6 +1028,40 @@ a.pex-nome:hover { text-decoration: underline; color: var(--pex-nome); }
 }
 .pex-menu:hover,
 .pex-menu[aria-expanded="true"] { background: var(--pex-menu-linha-bg); color: var(--pex-nome); }
+
+/* Estrela de favorito (L6, dc `favSt` L4743): 20×20, ícone de 13px, antes do ícone do item;
+   desligada fica discreta (opacidade .55), ligada em âmbar. Na grade, no canto superior esquerdo
+   do cartão (o ⋮ do toque fica no direito). */
+.pex-fav {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border: none;
+    border-radius: 3px;
+    background: transparent;
+    cursor: pointer;
+    font-size: 13px;
+    line-height: 1;
+    color: var(--pex-fav-off);
+    opacity: .55;
+    transition: color .15s, opacity .15s;
+}
+.pex-fav > .bi { font-size: 13px; line-height: 1; }
+.pex-fav:hover { color: var(--pex-fav-hover); opacity: 1; }
+.pex-fav:focus-visible { outline: none; opacity: 1; box-shadow: 0 0 0 2px var(--pex-busca-anel); }
+.pex-fav.pex-fav--on { color: var(--pex-fav-on); opacity: 1; }
+.pex-fav.pex-fav--on:hover { color: var(--pex-fav-hover); }
+.pex--grade .pex-fav { position: absolute; top: 4px; left: 4px; z-index: 2; }
+/* No toque o alvo cresce para 28px (o desenho é omisso; 20px é pouco para o dedo). */
+@media (hover: none) {
+    .pex-fav { width: 28px; height: 28px; margin: -4px; }
+    .pex--grade .pex-fav { top: 2px; left: 2px; margin: 0; }
+}
+@media (prefers-reduced-motion: reduce) { .pex-fav { transition: none; } }
 
 /* Selecionada (dc L4733): fundo + anel interno de 1px. */
 .pex-item.pex-item--sel { background: var(--pex-sel-bg); box-shadow: inset 0 0 0 1px var(--pex-sel-anel); }
