@@ -19,16 +19,17 @@ final readonly class LeituraDoRitmo
      */
     public function __construct(
         public ?TempoDoPeriodo $tempo,
-        // Somas das linhas visíveis da tabela Desempenho (a linha de Total)
+        // Somas das linhas visíveis da tabela Desempenho (a linha de Total). `novas`,
+        // `concluidas` e `ativas` são as metas CRIADAS no período; `vencidas` e `prazos` são
+        // relativos a hoje (sem período) — universos diferentes, nunca numa mesma razão.
         public int $concluidas,
         public int $ativas,
         public int $vencidas,
         public int $prazos,
         public int $novas,
-        // Por dia — null sem período (não há dia a contar)
+        // Por dia, das metas criadas no período — null sem período (não há dia a contar)
         public ?float $ritmoAtual,
         public ?float $novasPorDia,
-        public ?float $entradaVsSaida,
         public EquipeDoRitmo $equipe,
         public ?Leitura $oQue,
         public array $porQue,

@@ -23,11 +23,18 @@ use App\Dashboard\DTO\LinhaAdvogadoDashboardOutput;
  *    "Produtividade" do cockpit (L209): dependem do ritmo necessário e do estado, que exigem
  *    o período anterior com conclusões (ver MotorDeRitmo);
  *  - causa do alerta de vencidas (L42): compara ritmo atual × necessário;
+ *  - percentual de vencidas sobre a fila ativa (L35-38, L41, L46, L208): vencidas são
+ *    relativas a HOJE (sem período) e a fila ativa é das metas CRIADAS no período — bases
+ *    diferentes, a razão não significa nada (dava "1500%"). O nível do alerta e o cockpit
+ *    usam só a contagem (≥ 10 é crítico, L38);
+ *  - alerta 4 "entrada acima da conclusão" (L89-105): nas metas criadas no período,
+ *    novas − concluídas é o que segue aberto — não mede tendência da fila nem permite
+ *    projeção (ver MotorDeRitmo);
  *  - alerta 7 "meta de pastas" (L151-164): não existe meta mensal de pastas;
  *  - evidência por pessoa do alerta de urgentes (L140): a tabela não traz urgentes por
  *    colaborador — o gatilho usa o card Demandas urgentes;
- *  - pergunta "Se nada mudar…" (L223) sem o alerta de entrada: a resposta alternativa
- *    depende do estado do ritmo;
+ *  - pergunta "Se nada mudar…" (L223): a resposta vinha do alerta de entrada ou do estado
+ *    do ritmo — nenhum dos dois existe;
  *  - "Como está a equipe?", "Quem precisa de atenção" e "Ritmo para o objetivo" da visão
  *    estratégica (dc L2689, L2692, L2694): estado, condição por pessoa e ritmo necessário.
  *  - Toda a "Inteligência de Desempenho" (`bluejus-equipe.js`): condição por pessoa com
@@ -38,15 +45,13 @@ final class MotorAvancado
     public const ID_VENCIDAS     = 'vencidas';
     public const ID_CONCENTRACAO = 'concentracao';
     public const ID_PRAZOS       = 'prazos';
-    public const ID_ENTRADA      = 'entrada';
     public const ID_URGENTES     = 'urgentes';
     public const ID_CAPACIDADE   = 'capacidade';
     public const ID_SEM_VENCIDAS = 'sem-vencidas';
 
-    // Alerta 1 — vencidas sobre a fila ativa (L38)
-    public const VENCIDAS_CRITICO_PCT = 20;
+    // Alerta 1 — vencidas: só a contagem (L38, `venc >= 10`); o percentual sobre a fila
+    // ativa misturava universos (vencidas de hoje × metas criadas no período) e saiu
     public const VENCIDAS_CRITICO_QTD = 10;
-    public const VENCIDAS_ATENCAO_PCT = 10;
 
     // Alerta 2 — concentração de carga: ≥ 1,5× a média dispara; ≥ 2× é atenção (L53, L56)
     public const CONCENTRACAO_FATOR         = 1.5;
@@ -57,10 +62,6 @@ final class MotorAvancado
 
     /** Janela de "prazo próximo" do sistema (TarefaRepository::countPrazosProximosPorResponsavel). */
     public const PRAZO_PROXIMO_DIAS = 7;
-
-    // Alerta 4 — entrada maior que conclusão: > 1,2× dispara; > 2× é atenção (L89, L92)
-    public const ENTRADA_FATOR         = 1.2;
-    public const ENTRADA_ATENCAO_FATOR = 2.0;
 
     // Alerta 6 — pastas urgentes (L137)
     public const URGENTES_ATENCAO = 8;
@@ -78,9 +79,7 @@ final class MotorAvancado
     public const QUALIDADE_AJUSTE        = 4;
     public const QUALIDADE_MIN           = 40;
 
-    // Cockpit — fila vencida (L208) e uso da capacidade (L210)
-    public const FILA_CRITICO_PCT          = 20;
-    public const FILA_ATENCAO_PCT          = 10;
+    // Cockpit — uso da capacidade (L210); o indicador de fila vencida usa a contagem (L38)
     public const CAPACIDADE_USO_CRITICO    = 120;
     public const CAPACIDADE_USO_ATENCAO    = 95;
     public const CAPACIDADE_USO_MONITORAR  = 80;
@@ -116,9 +115,9 @@ final class MotorAvancado
 
         $alertas = [];
 
-        // 1. Vencidas sobre a fila ativa (L34-50)
+        // 1. Vencidas (L34-50) — só a contagem: o "% das ativas" (L35, L41) dividia vencidas
+        //    de HOJE por metas criadas no PERÍODO, bases diferentes
         if ($venc > 0) {
-            $p   = $this->pct($venc, $ativas);
             $top = array_slice(array_values(array_filter(
                 $porVenc,
                 static fn (LinhaAdvogadoDashboardOutput $l): bool => $l->metasVencidas > 0,
@@ -127,25 +126,17 @@ final class MotorAvancado
 
             $alertas[] = new Alerta(
                 id:        self::ID_VENCIDAS,
-                nivel:     $p >= self::VENCIDAS_CRITICO_PCT || $venc >= self::VENCIDAS_CRITICO_QTD
-                    ? NivelDeAlerta::Critico
-                    : ($p >= self::VENCIDAS_ATENCAO_PCT ? NivelDeAlerta::Atencao : NivelDeAlerta::Monitorar),
+                nivel:     $venc >= self::VENCIDAS_CRITICO_QTD ? NivelDeAlerta::Critico : NivelDeAlerta::Monitorar,
                 titulo:    sprintf('%d %s', $venc, $this->plural($venc, 'meta vencida', 'metas vencidas')),
                 problema:  $venc === 1
                     ? '1 meta passou do prazo e continua aberta.'
                     : sprintf('%d metas passaram do prazo e continuam abertas.', $venc),
-                evidencia: sprintf(
-                    '%s %d%% das %d metas ativas. %s.',
-                    $venc === 1 ? 'Representa' : 'Representam',
-                    $p,
-                    $ativas,
-                    implode(' e ', array_map(
-                        fn (LinhaAdvogadoDashboardOutput $l): string => sprintf('%s tem %d', $this->primeiro($l->nomeAdvogado), $l->metasVencidas),
-                        $top,
-                    )),
-                ),
+                evidencia: implode(' e ', array_map(
+                    fn (LinhaAdvogadoDashboardOutput $l): string => sprintf('%s tem %d', $this->primeiro($l->nomeAdvogado), $l->metasVencidas),
+                    $top,
+                )) . '.',
                 // causa (L42) de fora: compara o ritmo atual com o necessário, que não existe
-                impacto:   'Vencidas puxam a taxa de conclusão para baixo e aumentam o risco de prazo processual perdido.',
+                impacto:   'Metas vencidas aumentam o risco de prazo processual perdido.',
                 acao:      sprintf(
                     'Priorizar %s antes de novas tarefas, começando por %s.',
                     $venc === 1 ? 'a vencida' : sprintf('as %d vencidas', $venc),
@@ -154,8 +145,8 @@ final class MotorAvancado
                 responsavel:    'Coordenação operacional',
                 prazo:          'Hoje',
                 acompanhamento: 'Conferir diariamente até zerar as vencidas.',
-                fatores:   ['Prazo: já vencido', 'Volume: ' . $venc, 'Proporção: ' . $p . '% da fila'],
-                dados:     [...$base, 'metas ativas e vencidas por colaborador'],
+                fatores:   ['Prazo: já vencido', 'Volume: ' . $venc],
+                dados:     [...$base, 'metas vencidas por colaborador (contadas em relação a hoje, não ao período)'],
             );
         }
 
@@ -178,7 +169,12 @@ final class MotorAvancado
                     $maior->totalMetas - $maior->metasAtivas,
                 ),
                 causa:     'Distribuição desigual de novas metas entre os responsáveis.',
-                impacto:   'Se a entrada continuar igual, a fila desse responsável cresce mais rápido que a dos demais.',
+                // L61 dizia "a fila cresce mais rápido": tendência que ninguém mediu — fica o fato
+                impacto:   sprintf(
+                    'A fila desse responsável é a maior da equipe: %d ativas contra a média de %s.',
+                    $maior->metasAtivas,
+                    $this->f1($media),
+                ),
                 acao:      sprintf(
                     'Avaliar redistribuir cerca de %d metas para %s (%d ativas), respeitando processos estratégicos.',
                     (int) ceil($excesso / 2),
@@ -225,34 +221,9 @@ final class MotorAvancado
             );
         }
 
-        // 4. Entrada maior que conclusão (L89-105) — só com período (precisa de dias)
-        $novasDia = $ritmo->novasPorDia;
-        $atual    = $ritmo->ritmoAtual;
-        if ($tempo !== null && $novasDia !== null && $atual !== null && $novasDia > $atual * self::ENTRADA_FATOR) {
-            $proj = (int) round($ativas + ($novasDia - $atual) * $restam);
-
-            $alertas[] = new Alerta(
-                id:        self::ID_ENTRADA,
-                nivel:     $novasDia > $atual * self::ENTRADA_ATENCAO_FATOR ? NivelDeAlerta::Atencao : NivelDeAlerta::Monitorar,
-                titulo:    'Entrada acima da conclusão',
-                problema:  sprintf('Entram %s metas por dia e são concluídas %s.', $this->f1($novasDia), $this->f1($atual)),
-                evidencia: sprintf('Diferença de %s por dia no período atual.', $this->f1($novasDia - $atual)),
-                causa:     'O volume de novas metas está maior que a capacidade de conclusão observada.',
-                impacto:   $restam > 0
-                    ? sprintf('Mantido o ritmo, a fila pode chegar a cerca de %d metas ativas no fim do período (estimativa linear, confiança moderada).', $proj)
-                    : 'A fila terminou o período maior do que começou.',
-                // JS: max(necessário, entrada) — sem ritmo necessário, fica a entrada
-                acao:      sprintf(
-                    'Aumentar a conclusão para %s por dia (o ritmo de entrada) ou rever a entrada de metas de menor impacto.',
-                    $this->f1($novasDia),
-                ),
-                responsavel:    'Gestão',
-                prazo:          'Esta semana',
-                acompanhamento: 'Acompanhar entrada x conclusão diariamente.',
-                fatores:   ['Tendência: fila crescendo', 'Projeção linear com ' . $restam . ' dias restantes'],
-                dados:     [...$base, 'metas criadas e concluídas por dia'],
-            );
-        }
+        // 4. "Entrada acima da conclusão" (L89-105) NÃO entra: novas − concluídas das metas
+        //    criadas no período é o que segue aberto, não uma tendência (ver docblock).
+        $atual = $ritmo->ritmoAtual;
 
         // 6. Urgentes (L134-148) — gatilho pelo card; sem evidência por pessoa (a tabela não traz)
         if ($urg > 0) {
@@ -343,7 +314,7 @@ final class MotorAvancado
             qualidadeNota:    $qualidade['nota'],
             qualidadeNotas:   $qualidade['notas'],
             distribuicao:     $this->distribuicao($porAtivas),
-            mediaPct:         (int) round($media / $this->maiorFila($linhas) * 100),
+            mediaPct:         (int) round($media / $this->escalaDasBarras($linhas) * 100),
             mediaValor:       $media,
             perguntas:        $this->perguntas($porId, $media),
             visaoEstrategica: $this->visaoEstrategica($ritmo, $porAtivas),
@@ -404,7 +375,7 @@ final class MotorAvancado
     {
         $criticos = $contagem[NivelDeAlerta::Critico->value] ?? 0;
         $atencao  = $contagem[NivelDeAlerta::Atencao->value] ?? 0;
-        $pctVenc  = $this->pct($venc, $ativas);
+        // mesmo universo (metas criadas no período): fila ativa ÷ (concluídas/dia × dias restantes)
         $capUso   = $atual !== null && $atual > 0 && $restam > 0
             ? (int) round($ativas / ($atual * $restam) * 100)
             : null;
@@ -420,10 +391,12 @@ final class MotorAvancado
                 $prazos . ' ' . $this->plural($prazos, 'próximo', 'próximos'),
                 $prazos >= self::PRAZOS_ATENCAO ? NivelDeAlerta::Atencao : ($prazos > 0 ? NivelDeAlerta::Monitorar : NivelDeAlerta::Normal),
             ),
+            // L208 mostrava "% vencida" da fila ativa: bases diferentes (hoje × período) — fica a contagem
             new IndicadorDoCockpit(
-                'Fila (backlog)',
-                $pctVenc . '% vencida',
-                $pctVenc >= self::FILA_CRITICO_PCT ? NivelDeAlerta::Critico : ($pctVenc >= self::FILA_ATENCAO_PCT ? NivelDeAlerta::Atencao : NivelDeAlerta::Normal),
+                'Vencidas',
+                (string) $venc,
+                $venc >= self::VENCIDAS_CRITICO_QTD ? NivelDeAlerta::Critico : ($venc > 0 ? NivelDeAlerta::Monitorar : NivelDeAlerta::Normal),
+                'Metas com prazo anterior a hoje ainda abertas (não depende do período)',
             ),
             new IndicadorDoCockpit(
                 'Capacidade',
@@ -454,7 +427,7 @@ final class MotorAvancado
      */
     private function distribuicao(array $porAtivas): array
     {
-        $maxA = $this->maiorFila($porAtivas);
+        $maxA = $this->escalaDasBarras($porAtivas);
 
         return array_map(fn (LinhaAdvogadoDashboardOutput $l): DistribuicaoDaPessoa => new DistribuicaoDaPessoa(
             nome:        $this->primeiro($l->nomeAdvogado),
@@ -477,7 +450,7 @@ final class MotorAvancado
         $achar = static fn (string $id): ?Alerta => $porId[$id] ?? null;
         $p     = [];
 
-        $gargalo = $achar(self::ID_CONCENTRACAO) ?? $achar(self::ID_VENCIDAS) ?? $achar(self::ID_ENTRADA);
+        $gargalo = $achar(self::ID_CONCENTRACAO) ?? $achar(self::ID_VENCIDAS);
         $p[] = new PerguntaGuiada('Onde está nosso maior gargalo?', $gargalo?->problema ?? 'Nenhum gargalo relevante nos dados atuais.');
 
         $conc = $achar(self::ID_CONCENTRACAO);
@@ -488,11 +461,7 @@ final class MotorAvancado
                 : sprintf('A carga está distribuída perto da média (%s por pessoa).', $this->f1($media)),
         );
 
-        // L223: sem o alerta de entrada, a resposta dependeria do estado do ritmo (não classificado)
-        $entrada = $achar(self::ID_ENTRADA);
-        if ($entrada !== null && $entrada->impacto !== null) {
-            $p[] = new PerguntaGuiada('Se nada mudar, o que pode acontecer?', $entrada->impacto);
-        }
+        // L223 "Se nada mudar…" não entra: dependia do alerta de entrada ou do estado do ritmo
 
         $prioridades = array_filter([
             $achar(self::ID_VENCIDAS)?->acao,
@@ -568,13 +537,19 @@ final class MotorAvancado
     }
 
     /**
-     * Maior fila ativa da tabela, no mínimo 1 (denominador das barras — `maxA`, L215).
+     * Escala das barras da distribuição, no mínimo 1. O JS usa só a maior fila ativa (`maxA`,
+     * L215), mas as vencidas são de hoje e podem passar da maior fila do período — a barra
+     * vazaria. A escala é o maior número entre ativas e vencidas: as duas barras cabem e
+     * continuam na mesma régua (contagens), sem razão entre as duas bases.
      *
      * @param LinhaAdvogadoDashboardOutput[] $linhas
      */
-    private function maiorFila(array $linhas): int
+    private function escalaDasBarras(array $linhas): int
     {
-        return max([1, ...array_map(static fn (LinhaAdvogadoDashboardOutput $l): int => $l->metasAtivas, $linhas)]);
+        return max([1, ...array_map(
+            static fn (LinhaAdvogadoDashboardOutput $l): int => max($l->metasAtivas, $l->metasVencidas),
+            $linhas,
+        )]);
     }
 
     /** `pct` do JS (L15): percentual inteiro, 0 quando o denominador é zero. */

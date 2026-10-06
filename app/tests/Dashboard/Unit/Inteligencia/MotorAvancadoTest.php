@@ -20,8 +20,10 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * Alertas, cockpit, qualidade, distribuição e perguntas do Modo avançado com os números e
- * limiares de bluejus-avancado.js — bordas incluídas (20%/10 vencidas, 1,5×/2× a média,
- * 15 prazos, 1,2×/2× de entrada, 8 urgentes, 0,6× a média, 120/95/80% de capacidade).
+ * limiares de bluejus-avancado.js — bordas incluídas (10 vencidas, 1,5×/2× a média, 15
+ * prazos, 8 urgentes, 0,6× a média, 120/95/80% de capacidade) — e os números que antes
+ * misturavam bases (vencidas de hoje ÷ fila do período = "1500%") ou afirmavam tendência
+ * ("entrada acima da conclusão"), agora só contagens.
  */
 #[CoversClass(MotorAvancado::class)]
 #[Group('dashboard')]
@@ -87,15 +89,17 @@ final class MotorAvancadoTest extends TestCase
         return array_map(static fn (Alerta $a): string => $a->id, $l->alertas);
     }
 
-    // ── 1. vencidas (L34-50) ─────────────────────────────────────────────
+    // ── 1. vencidas (L34-50) — só contagem ───────────────────────────────
 
     /** @return iterable<string, array{int, int, NivelDeAlerta}> */
     public static function niveisDeVencidas(): iterable
     {
-        yield '2 de 10 ativas = 20% → crítico'   => [2, 10, NivelDeAlerta::Critico];
-        yield '1 de 10 ativas = 10% → atenção'   => [1, 10, NivelDeAlerta::Atencao];
-        yield '1 de 20 ativas = 5% → monitorar'  => [1, 20, NivelDeAlerta::Monitorar];
-        yield '10 de 200 ativas = 5%, mas ≥ 10 → crítico' => [10, 200, NivelDeAlerta::Critico];
+        // o nível vem SÓ da contagem (≥ 10 é crítico, L38); o "% das ativas" saiu: bases diferentes
+        yield '2 vencidas, 10 ativas (antes "20%" → crítico) → monitorar' => [2, 10, NivelDeAlerta::Monitorar];
+        yield '1 vencida, 10 ativas → monitorar'                            => [1, 10, NivelDeAlerta::Monitorar];
+        yield '9 vencidas, 1 ativa (antes "900%" → crítico) → monitorar'   => [9, 1, NivelDeAlerta::Monitorar];
+        yield '10 vencidas, 200 ativas → crítico pela contagem'             => [10, 200, NivelDeAlerta::Critico];
+        yield '15 vencidas, 1 ativa (antes "1500%") → crítico pela contagem' => [15, 1, NivelDeAlerta::Critico];
     }
 
     #[DataProvider('niveisDeVencidas')]
@@ -107,7 +111,28 @@ final class MotorAvancadoTest extends TestCase
         self::assertSame($esperado, $this->alerta($l, MotorAvancado::ID_VENCIDAS)?->nivel);
     }
 
-    #[TestDox('Vencidas: evidência com os 2 que mais têm, ação começando por eles, sem "causa" (dependia do ritmo necessário)')]
+    #[TestDox('15 vencidas com 1 ativa no período: nenhuma frase com "%" — nem evidência, nem fatores, nem cockpit')]
+    public function testVencidasNaoViramPorcentagemDeOutraBase(): void
+    {
+        $l = $this->analisar([$this->linha(1, 'Ana Lima', 1, 1, 15)]);
+
+        $a = $this->alerta($l, MotorAvancado::ID_VENCIDAS);
+        self::assertNotNull($a);
+        self::assertSame(NivelDeAlerta::Critico, $a->nivel);
+        self::assertSame('15 metas vencidas', $a->titulo);
+        self::assertSame('Ana tem 15.', $a->evidencia);
+        self::assertSame(['Prazo: já vencido', 'Volume: 15'], $a->fatores);
+        self::assertStringNotContainsString('%', $a->evidencia . implode(' ', $a->fatores) . $a->problema . $a->impacto);
+        self::assertContains('metas vencidas por colaborador (contadas em relação a hoje, não ao período)', $a->dados);
+
+        $vencidas = $l->cockpit[2];
+        self::assertSame('Vencidas', $vencidas->rotulo);
+        self::assertSame('15', $vencidas->valor);
+        self::assertSame(NivelDeAlerta::Critico, $vencidas->nivel);
+        self::assertStringNotContainsString('%', $vencidas->valor);
+    }
+
+    #[TestDox('Vencidas: evidência nomeia os 2 que mais têm, ação começa por eles, sem "causa" (dependia do ritmo necessário)')]
     public function testAlertaDeVencidas(): void
     {
         $l = $this->analisar([
@@ -118,14 +143,14 @@ final class MotorAvancadoTest extends TestCase
 
         $a = $this->alerta($l, MotorAvancado::ID_VENCIDAS);
         self::assertNotNull($a);
+        self::assertSame(NivelDeAlerta::Monitorar, $a->nivel, '6 < 10');
         self::assertSame('6 metas vencidas', $a->titulo);
         self::assertSame('6 metas passaram do prazo e continuam abertas.', $a->problema);
-        // 6 de 20 ativas = 30%
-        self::assertSame('Representam 30% das 20 metas ativas. Bruno tem 3 e Caio tem 2.', $a->evidencia);
+        self::assertSame('Bruno tem 3 e Caio tem 2.', $a->evidencia);
         self::assertNull($a->causa);
         self::assertSame('Priorizar as 6 vencidas antes de novas tarefas, começando por Bruno e Caio.', $a->acao);
-        self::assertSame(['Prazo: já vencido', 'Volume: 6', 'Proporção: 30% da fila'], $a->fatores);
-        self::assertSame(['3 colaboradores', '30 metas no período', 'metas ativas e vencidas por colaborador'], $a->dados);
+        self::assertSame(['Prazo: já vencido', 'Volume: 6'], $a->fatores);
+        self::assertSame(['3 colaboradores', '30 metas no período', 'metas vencidas por colaborador (contadas em relação a hoje, não ao período)'], $a->dados);
         self::assertArrayNotHasKey('Causa provável', $a->linhas());
     }
 
@@ -154,6 +179,8 @@ final class MotorAvancadoTest extends TestCase
         self::assertSame('Carga concentrada em Ana', $a->titulo);
         self::assertSame('Ana tem 9 metas ativas.', $a->problema);
         self::assertSame('São 5 acima da média da equipe (4). Volume não é sinônimo de baixa produtividade: Ana concluiu 3 no período.', $a->evidencia);
+        // L61 dizia "cresce mais rápido que a dos demais": tendência não medida — fica o fato
+        self::assertSame('A fila desse responsável é a maior da equipe: 9 ativas contra a média de 4.', $a->impacto);
         self::assertSame('Avaliar redistribuir cerca de 3 metas para Caio (0 ativas), respeitando processos estratégicos.', $a->acao);
         self::assertSame(['Carga: 225% da média', 'Menor fila: Caio, 0 ativas'], $a->fatores);
     }
@@ -178,7 +205,7 @@ final class MotorAvancadoTest extends TestCase
 
     // ── 3. prazos (L71-86) ──────────────────────────────────────────────
 
-    #[TestDox('15 prazos próximos é atenção; 14 é monitorar; a evidência aponta quem concentra e o percentual')]
+    #[TestDox('15 prazos próximos é atenção; 14 é monitorar; a evidência aponta quem concentra e o percentual (mesma base)')]
     public function testPrazosProximos(): void
     {
         $atencao = $this->analisar([
@@ -202,49 +229,21 @@ final class MotorAvancadoTest extends TestCase
         self::assertSame('1 meta vence nos próximos dias.', $this->alerta($um, MotorAvancado::ID_PRAZOS)?->problema);
     }
 
-    // ── 4. entrada maior que conclusão (L89-105) ─────────────────────────
+    // ── 4. "entrada acima da conclusão" (L89-105) NÃO existe ─────────────
 
-    #[TestDox('Dia 10, 15 novas e 10 concluídas: 1,5 > 1,2 → monitorar; projeção 5 + 0,5 × 21 = 16 ativas')]
-    public function testEntradaAcimaDaConclusao(): void
+    #[TestDox('Dia 10, 15 novas e 5 ativas (antes "entrada acima da conclusão"): nenhum alerta de entrada, nenhuma projeção, nenhuma pergunta "se nada mudar"')]
+    public function testEntradaAcimaDaConclusaoNaoEAlerta(): void
     {
-        $l = $this->analisar([$this->linha(1, 'Ana Lima', 15, 5)], $this->dia10());
+        foreach ([[15, 5], [25, 15], [62, 31]] as [$novas, $ativas]) {
+            $l = $this->analisar([$this->linha(1, 'Ana Lima', $novas, $ativas)], $this->dia10());
 
-        $a = $this->alerta($l, MotorAvancado::ID_ENTRADA);
-        self::assertNotNull($a);
-        self::assertSame(NivelDeAlerta::Monitorar, $a->nivel);
-        self::assertSame('Entram 1,5 metas por dia e são concluídas 1.', $a->problema);
-        self::assertSame('Diferença de 0,5 por dia no período atual.', $a->evidencia);
-        self::assertSame('Mantido o ritmo, a fila pode chegar a cerca de 16 metas ativas no fim do período (estimativa linear, confiança moderada).', $a->impacto);
-        self::assertSame('Aumentar a conclusão para 1,5 por dia (o ritmo de entrada) ou rever a entrada de metas de menor impacto.', $a->acao);
-        self::assertSame(['Tendência: fila crescendo', 'Projeção linear com 21 dias restantes'], $a->fatores);
-    }
-
-    #[TestDox('Entrada > 2× a conclusão é atenção (25 novas, 10 concluídas); 12 novas (1,2×, não maior) não dispara')]
-    public function testEntradaNoLimiar(): void
-    {
-        $atencao = $this->analisar([$this->linha(1, 'Ana Lima', 25, 15)], $this->dia10());
-        self::assertSame(NivelDeAlerta::Atencao, $this->alerta($atencao, MotorAvancado::ID_ENTRADA)?->nivel);
-
-        $nada = $this->analisar([$this->linha(1, 'Ana Lima', 12, 2)], $this->dia10());
-        self::assertNull($this->alerta($nada, MotorAvancado::ID_ENTRADA));
-    }
-
-    #[TestDox('Sem período o alerta de entrada não existe (não há dia para dividir)')]
-    public function testEntradaSemPeriodo(): void
-    {
-        $l = $this->analisar([$this->linha(1, 'Ana Lima', 25, 15)]);
-
-        self::assertNull($this->alerta($l, MotorAvancado::ID_ENTRADA));
-    }
-
-    #[TestDox('Período encerrado: o impacto diz que a fila terminou maior, sem projeção')]
-    public function testEntradaComPeriodoEncerrado(): void
-    {
-        $t = TempoDoPeriodo::de('2024-03-01', '2024-03-31', new \DateTimeImmutable('2024-04-10'));
-        self::assertNotNull($t);
-        $l = $this->analisar([$this->linha(1, 'Ana Lima', 62, 31)], $t); // 2/dia novas, 1/dia concluídas
-
-        self::assertSame('A fila terminou o período maior do que começou.', $this->alerta($l, MotorAvancado::ID_ENTRADA)?->impacto);
+            self::assertNotContains('entrada', $this->ids($l));
+            self::assertSame([MotorAvancado::ID_SEM_VENCIDAS], $this->ids($l));
+            self::assertNotContains('Se nada mudar, o que pode acontecer?', array_map(static fn ($q) => $q->pergunta, $l->perguntas));
+            foreach ($l->alertas as $a) {
+                self::assertStringNotContainsString('fila', (string) $a->impacto);
+            }
+        }
     }
 
     // ── 6. urgentes (L134-148) — pelo card, sem evidência por pessoa ───────
@@ -327,7 +326,7 @@ final class MotorAvancadoTest extends TestCase
     #[TestDox('Alertas por nível (crítico → oportunidade), contagem por nível e o pior no topo')]
     public function testOrdemEContagem(): void
     {
-        // vencidas 4 de 12 = 33% → crítico; concentração 10 ≥ 2×4 → atenção; capacidade → oportunidade; sem vencidas → normal
+        // vencidas 4 (< 10) → monitorar; concentração 10 ≥ 2×4 → atenção; capacidade → oportunidade; sem vencidas → normal
         $l = $this->analisar([
             $this->linha(1, 'Ana Lima', 14, 10, 4, 2),
             $this->linha(2, 'Bia Souza', 5, 2),
@@ -335,17 +334,17 @@ final class MotorAvancadoTest extends TestCase
         ], null, 1);
 
         self::assertSame([
-            MotorAvancado::ID_VENCIDAS,
             MotorAvancado::ID_CONCENTRACAO,
+            MotorAvancado::ID_VENCIDAS,
             MotorAvancado::ID_PRAZOS,
             MotorAvancado::ID_URGENTES,
             MotorAvancado::ID_SEM_VENCIDAS,
             MotorAvancado::ID_CAPACIDADE,
         ], $this->ids($l));
-        self::assertSame(NivelDeAlerta::Critico, $l->pior);
-        self::assertSame(1, $l->contagemDe(NivelDeAlerta::Critico));
+        self::assertSame(NivelDeAlerta::Atencao, $l->pior);
+        self::assertSame(0, $l->contagemDe(NivelDeAlerta::Critico));
         self::assertSame(1, $l->contagemDe(NivelDeAlerta::Atencao));
-        self::assertSame(2, $l->contagemDe(NivelDeAlerta::Monitorar));
+        self::assertSame(3, $l->contagemDe(NivelDeAlerta::Monitorar));
         self::assertSame(1, $l->contagemDe(NivelDeAlerta::Normal));
         self::assertSame(1, $l->contagemDe(NivelDeAlerta::Oportunidade));
         self::assertSame(
@@ -412,7 +411,7 @@ final class MotorAvancadoTest extends TestCase
     /** @return iterable<string, array{int, string, NivelDeAlerta}> */
     public static function capacidades(): iterable
     {
-        // dia 10 de 31 (restam 21), 10 concluídas → 1/dia; uso = ativas ÷ (1 × 21)
+        // dia 10 de 31 (restam 21), 10 concluídas → 1/dia; uso = ativas ÷ (1 × 21) — tudo do período
         yield '30 ativas → 143% → crítico'   => [30, '143%', NivelDeAlerta::Critico];
         yield '21 ativas → 100% → atenção'   => [21, '100%', NivelDeAlerta::Atencao];
         yield '20 ativas → 95% → monitorar'  => [20, '95%', NivelDeAlerta::Monitorar];
@@ -433,27 +432,41 @@ final class MotorAvancadoTest extends TestCase
         self::assertSame('Fila ativa ÷ (conclusão diária × dias restantes)', $cap->dica);
     }
 
-    #[TestDox('Cockpit sem período: Capacidade "Sem base" (monitorar); demais indicadores com os números')]
+    #[TestDox('Cockpit sem período: Capacidade "Sem base" (monitorar); 12 vencidas é crítico pela contagem, sem percentual')]
     public function testCockpitSemPeriodo(): void
     {
-        // vencidas 2 de 10 = 20% → fila crítica e alerta crítico → saúde "Em risco", 1 crítico
-        $l = $this->analisar([$this->linha(1, 'Ana Lima', 15, 10, 2, 3)]);
+        // 12 vencidas (≥ 10) → alerta crítico → saúde "Em risco", 1 crítico; 12 vencidas com 10 ativas: nada de "120%"
+        $l = $this->analisar([$this->linha(1, 'Ana Lima', 15, 10, 12, 3)]);
 
         self::assertCount(5, $l->cockpit, 'sem "Produtividade": o estado do ritmo não é classificado');
-        self::assertSame(['Saúde operacional', 'Prazos', 'Fila (backlog)', 'Capacidade', 'Riscos'], array_map(static fn ($k) => $k->rotulo, $l->cockpit));
+        self::assertSame(['Saúde operacional', 'Prazos', 'Vencidas', 'Capacidade', 'Riscos'], array_map(static fn ($k) => $k->rotulo, $l->cockpit));
         self::assertSame('Em risco', $l->cockpit[0]->valor);
         self::assertSame(NivelDeAlerta::Critico, $l->cockpit[0]->nivel);
         self::assertSame('3 próximos', $l->cockpit[1]->valor);
         self::assertSame(NivelDeAlerta::Monitorar, $l->cockpit[1]->nivel);
-        self::assertSame('20% vencida', $l->cockpit[2]->valor);
+        self::assertSame('12', $l->cockpit[2]->valor);
         self::assertSame(NivelDeAlerta::Critico, $l->cockpit[2]->nivel);
+        self::assertSame('Metas com prazo anterior a hoje ainda abertas (não depende do período)', $l->cockpit[2]->dica);
         self::assertSame('Sem base', $l->cockpit[3]->valor);
         self::assertSame(NivelDeAlerta::Monitorar, $l->cockpit[3]->nivel);
         self::assertSame('1 crítico', $l->cockpit[4]->valor);
         self::assertSame(NivelDeAlerta::Critico, $l->cockpit[4]->nivel);
     }
 
-    #[TestDox('Cockpit estável: sem alertas de atenção, 0 prazos, 0% vencida, 0 críticos')]
+    #[TestDox('Cockpit · Vencidas: 2 (< 10) é monitorar, 0 é normal')]
+    public function testCockpitVencidasPorContagem(): void
+    {
+        $duas = $this->analisar([$this->linha(1, 'Ana Lima', 15, 10, 2)]);
+        self::assertSame('2', $duas->cockpit[2]->valor);
+        self::assertSame(NivelDeAlerta::Monitorar, $duas->cockpit[2]->nivel);
+        self::assertSame('Estável', $duas->cockpit[0]->valor, '2 vencidas não é crítico nem atenção');
+
+        $zero = $this->analisar([$this->linha(1, 'Ana Lima', 15, 10)]);
+        self::assertSame('0', $zero->cockpit[2]->valor);
+        self::assertSame(NivelDeAlerta::Normal, $zero->cockpit[2]->nivel);
+    }
+
+    #[TestDox('Cockpit estável: sem alertas de atenção, 0 prazos, 0 vencidas, 0 críticos')]
     public function testCockpitEstavel(): void
     {
         $l = $this->analisar([$this->linha(1, 'Ana Lima', 10, 4), $this->linha(2, 'Bia Souza', 10, 4)]);
@@ -462,14 +475,14 @@ final class MotorAvancadoTest extends TestCase
         self::assertSame(NivelDeAlerta::Normal, $l->cockpit[0]->nivel);
         self::assertSame('0 próximos', $l->cockpit[1]->valor);
         self::assertSame(NivelDeAlerta::Normal, $l->cockpit[1]->nivel);
-        self::assertSame('0% vencida', $l->cockpit[2]->valor);
+        self::assertSame('0', $l->cockpit[2]->valor);
         self::assertSame('0 críticos', $l->cockpit[4]->valor);
         self::assertSame(NivelDeAlerta::Normal, $l->cockpit[4]->nivel);
     }
 
     // ── distribuição (L215-216) ─────────────────────────────────────────
 
-    #[TestDox('Barras em % da maior fila (8): 100/50/0 ativas, 25/0/0 vencidas; traço da média (4) em 50%')]
+    #[TestDox('Barras em % da maior contagem (8): 100/50/0 ativas, 25/0/0 vencidas; traço da média (4) em 50%')]
     public function testDistribuicao(): void
     {
         $l = $this->analisar([
@@ -485,6 +498,16 @@ final class MotorAvancadoTest extends TestCase
         self::assertEqualsWithDelta(4.0, $l->mediaValor, 1e-9);
     }
 
+    #[TestDox('Vencidas (15) acima da maior fila do período (1): a escala é a maior contagem, nenhuma barra passa de 100%')]
+    public function testDistribuicaoComVencidasAcimaDaFila(): void
+    {
+        $l = $this->analisar([$this->linha(1, 'Ana Lima', 1, 1, 15)]);
+
+        self::assertSame(100, $l->distribuicao[0]->pctVencidas, 'antes: 1500%, a barra vazava');
+        self::assertSame(7, $l->distribuicao[0]->pctAtivas);
+        self::assertSame(7, $l->mediaPct);
+    }
+
     #[TestDox('Sem linhas não há divisão por zero: distribuição vazia, média 0, cockpit "Estável"')]
     public function testSemLinhas(): void
     {
@@ -497,12 +520,12 @@ final class MotorAvancadoTest extends TestCase
         self::assertSame('Nenhum gargalo relevante nos dados atuais.', $l->perguntas[0]->resposta);
     }
 
-    // ── perguntas guiadas (L220-226) ────────────────────────────────────
+    // ── perguntas guiadas (L220-226, sem a L223) ────────────────────────
 
-    #[TestDox('Perguntas respondidas pelos achados: gargalo, sobrecarga, "se nada mudar" só com entrada, prioridades e riscos')]
+    #[TestDox('Perguntas respondidas pelos achados: gargalo, sobrecarga, prioridades e riscos — "se nada mudar" não existe')]
     public function testPerguntasGuiadasComAchados(): void
     {
-        // dia 10: 20 novas/10 concluídas → 2 > 1,2 (não > 2) → entrada monitorar; vencidas 3/10 = 30% crítico; prazos 2
+        // vencidas 3 (< 10) → monitorar; concentração 9 ≥ 1,5×5 mas < 2×5 → monitorar; prazos 2; urgentes 1
         $l = $this->analisar([
             $this->linha(1, 'Ana Lima', 14, 9, 3, 2),
             $this->linha(2, 'Bia Souza', 6, 1),
@@ -513,28 +536,28 @@ final class MotorAvancadoTest extends TestCase
             array_map(static fn ($q) => $q->resposta, $l->perguntas),
         );
 
+        self::assertCount(4, $p);
+        self::assertArrayNotHasKey('Se nada mudar, o que pode acontecer?', $p);
         self::assertSame('Ana tem 9 metas ativas.', $p['Onde está nosso maior gargalo?'], 'concentração vem antes de vencidas');
         self::assertStringStartsWith('Ana tem 9 metas ativas. São 4 acima da média', $p['Qual equipe ou pessoa está sobrecarregada?']);
-        self::assertStringStartsWith('Mantido o ritmo, a fila pode chegar', $p['Se nada mudar, o que pode acontecer?']);
         self::assertSame(
             'Priorizar as 3 vencidas antes de novas tarefas, começando por Ana. '
             . 'Concluir primeiro as metas com prazo nos próximos 7 dias e checar a agenda de Ana. '
             . 'Confirmar responsável e próximo passo de cada pasta urgente.',
             $p['Quais tarefas deveriam ser priorizadas?'],
         );
-        // só crítico/atenção entram: a concentração (9 < 2 × 5) e a entrada (2 ≤ 2 × 1) ficaram em monitorar
-        self::assertSame(NivelDeAlerta::Monitorar, $this->alerta($l, MotorAvancado::ID_CONCENTRACAO)?->nivel);
-        self::assertSame(NivelDeAlerta::Monitorar, $this->alerta($l, MotorAvancado::ID_ENTRADA)?->nivel);
-        self::assertSame('3 metas vencidas', $p['Mostre os principais riscos operacionais.']);
+        // só crítico/atenção entram: tudo ficou em monitorar
+        self::assertSame('Sem riscos críticos ou de atenção.', $p['Mostre os principais riscos operacionais.']);
+
+        $critico = $this->analisar([$this->linha(1, 'Ana Lima', 14, 9, 12)]);
+        self::assertSame('12 metas vencidas', $critico->perguntas[3]->resposta);
     }
 
-    #[TestDox('Sem achados: respostas de "nada relevante"; "Se nada mudar" não aparece (dependeria do estado do ritmo)')]
+    #[TestDox('Sem achados: respostas de "nada relevante", quatro perguntas')]
     public function testPerguntasGuiadasSemAchados(): void
     {
         $l = $this->analisar([$this->linha(1, 'Ana Lima', 10, 4), $this->linha(2, 'Bia Souza', 10, 4)]);
 
-        $perguntas = array_map(static fn ($q) => $q->pergunta, $l->perguntas);
-        self::assertNotContains('Se nada mudar, o que pode acontecer?', $perguntas);
         self::assertCount(4, $l->perguntas);
         self::assertSame('Nenhum gargalo relevante nos dados atuais.', $l->perguntas[0]->resposta);
         self::assertSame('A carga está distribuída perto da média (4 por pessoa).', $l->perguntas[1]->resposta);

@@ -20,6 +20,11 @@ use App\Dashboard\DTO\LinhaAdvogadoDashboardOutput;
  * `prazos`. É a linha de Total da tabela — e, como ela, conta a meta com dois responsáveis
  * para cada um (nota de rodapé do painel).
  *
+ * Dois universos que NUNCA se misturam numa razão: `novas`/`concluidas`/`ativas` são as
+ * metas CRIADAS no período (filtro por dataCriacao); `vencidas` e `prazos` são relativos a
+ * HOJE, sem período (TarefaRepository::countVencidasPorResponsavel / countPrazosProximos…).
+ * Vencidas e prazos entram só como contagem.
+ *
  * O que NÃO foi portado, porque o dado não existe no sistema (e o painel declara em
  * `limites` em vez de fingir):
  *  - objetivo/alvo (L26-27: exige concluídas do período anterior e média dos 3 últimos),
@@ -28,22 +33,24 @@ use App\Dashboard\DTO\LinhaAdvogadoDashboardOutput;
  *    sempre em "atenção", o que seria um rótulo sem lastro;
  *  - projeção e "confiável" (L32-33, L109-115), comparação com o mesmo ponto do período
  *    anterior (L34, L80), "quanto mudar o ritmo" (L142), ações/riscos que dependem disso
- *    (L92, L94, L105) e o plano de crescimento (L152-181).
+ *    (L92, L94, L105) e o plano de crescimento (L152-181);
+ *  - entrada × saída / "a fila cresce" (L39, L81, L93, L104): nas metas criadas no período,
+ *    novas − concluídas é, por definição, o que segue aberto — não mede tendência nenhuma
+ *    (as conclusões de metas mais antigas não entram). Fica a afirmação que os números
+ *    sustentam: "N das M metas criadas no período seguem abertas";
+ *  - "vencidas seguram a taxa de conclusão" (L82): vencidas são de hoje, a taxa é do
+ *    período — ficou só a contagem.
  */
 final class MotorDeRitmo
 {
-    public const TIPO_FASE             = 'fase';
-    public const TIPO_ENTRADA_VS_SAIDA = 'entrada_vs_saida';
-    public const TIPO_VENCIDAS         = 'vencidas';
-    public const TIPO_EQUILIBRIO       = 'equilibrio';
-    public const TIPO_PRAZOS           = 'prazos';
-    public const TIPO_REDISTRIBUIR     = 'redistribuir';
-    public const TIPO_SOBRECARGA       = 'sobrecarga';
-    public const TIPO_SEGURAR_ENTRADA  = 'segurar_entrada';
-    public const TIPO_REAVALIAR        = 'reavaliar';
-
-    /** Diferença entre novas/dia e concluídas/dia acima da qual "a fila cresce" (L81, L93, L104). */
-    public const ENTRADA_VS_SAIDA_LIMIAR = 0.3;
+    public const TIPO_FASE               = 'fase';
+    public const TIPO_ABERTAS_NO_PERIODO = 'abertas_no_periodo';
+    public const TIPO_SEM_METAS          = 'sem_metas';
+    public const TIPO_VENCIDAS           = 'vencidas';
+    public const TIPO_PRAZOS             = 'prazos';
+    public const TIPO_REDISTRIBUIR       = 'redistribuir';
+    public const TIPO_SOBRECARGA         = 'sobrecarga';
+    public const TIPO_REAVALIAR          = 'reavaliar';
 
     /** `top / média − 1` acima do qual quem tem mais metas ativas está em sobrecarga (L124). */
     public const SOBRECARGA_RAZAO = 0.45;
@@ -52,17 +59,15 @@ final class MotorDeRitmo
     public const REDISTRIBUIR_DIVISOR = 3;
 
     // Pesos das ações (L89-95): a maior vira "o que fazer agora".
-    public const PESO_VENCIDAS        = 100;
-    public const PESO_PRAZOS          = 90;
-    public const PESO_REDISTRIBUIR    = 70;
-    public const PESO_SEGURAR_ENTRADA = 50;
-    public const PESO_REAVALIAR       = 0;
+    public const PESO_VENCIDAS     = 100;
+    public const PESO_PRAZOS       = 90;
+    public const PESO_REDISTRIBUIR = 70;
+    public const PESO_REAVALIAR    = 0;
 
-    // Níveis dos riscos (L101-104).
+    // Níveis dos riscos (L101-103).
     public const NIVEL_VENCIDAS   = 3;
     public const NIVEL_PRAZOS     = 2;
     public const NIVEL_SOBRECARGA = 2;
-    public const NIVEL_ENTRADA    = 2;
 
     public const GRUPO_ATENCAO_IMEDIATA = 'Atenção imediata';
     public const GRUPO_ACAO_RECOMENDADA = 'Ação recomendada';
@@ -77,15 +82,12 @@ final class MotorDeRitmo
         $vencidas   = $this->somar($linhas, 'metasVencidas');
         $prazos     = $this->somar($linhas, 'prazosProximos');
 
-        $ritmoAtual     = null;
-        $novasPorDia    = null;
-        $entradaVsSaida = null;
+        $ritmoAtual  = null;
+        $novasPorDia = null;
         if ($tempo !== null) {
-            // L29: ritmoAtual = passados ? concluidas / passados : 0
-            $ritmoAtual = $tempo->passados > 0 ? $concluidas / $tempo->passados : 0.0;
-            // L39: entradaVsSaida = passados ? novas / passados − ritmoAtual : 0
-            $novasPorDia    = $tempo->passados > 0 ? $novas / $tempo->passados : 0.0;
-            $entradaVsSaida = $novasPorDia - $ritmoAtual;
+            // L29: ritmoAtual = passados ? concluidas / passados : 0 (das metas criadas no período)
+            $ritmoAtual  = $tempo->passados > 0 ? $concluidas / $tempo->passados : 0.0;
+            $novasPorDia = $tempo->passados > 0 ? $novas / $tempo->passados : 0.0;
         }
 
         $equipe = $this->equipe($linhas);
@@ -97,26 +99,24 @@ final class MotorDeRitmo
             'vencidas'   => $vencidas,
             'prazos'     => $prazos,
         ];
-        $filaCresce = $entradaVsSaida !== null && $entradaVsSaida > self::ENTRADA_VS_SAIDA_LIMIAR;
 
         return new LeituraDoRitmo(
-            tempo:          $tempo,
-            concluidas:     $concluidas,
-            ativas:         $ativas,
-            vencidas:       $vencidas,
-            prazos:         $prazos,
-            novas:          $novas,
-            ritmoAtual:     $ritmoAtual,
-            novasPorDia:    $novasPorDia,
-            entradaVsSaida: $entradaVsSaida,
-            equipe:         $equipe,
-            oQue:           $this->oQue($tempo, $numeros),
-            porQue:         $this->porQue($tempo, $numeros, $ritmoAtual, $novasPorDia, $filaCresce),
-            acoes:          $this->acoes($numeros, $equipe, $filaCresce),
-            riscos:         $this->riscos($numeros, $equipe, $filaCresce),
+            tempo:       $tempo,
+            concluidas:  $concluidas,
+            ativas:      $ativas,
+            vencidas:    $vencidas,
+            prazos:      $prazos,
+            novas:       $novas,
+            ritmoAtual:  $ritmoAtual,
+            novasPorDia: $novasPorDia,
+            equipe:      $equipe,
+            oQue:        $this->oQue($tempo, $numeros),
+            porQue:      $this->porQue($tempo, $numeros),
+            acoes:       $this->acoes($numeros, $equipe),
+            riscos:      $this->riscos($numeros, $equipe),
             // L146 sem a parte do estado (não classificado): vencidas ou sobrecarga
-            alerta:         $vencidas > 0 || $equipe->sobrecarga !== null,
-            limites:        $this->limites($tempo),
+            alerta:      $vencidas > 0 || $equipe->sobrecarga !== null,
+            limites:     $this->limites($tempo),
         );
     }
 
@@ -197,40 +197,44 @@ final class MotorDeRitmo
     }
 
     /**
-     * "Por que" (L80-83), sem a comparação com o mesmo ponto do período anterior (L80).
+     * "Por que" (L80-83) reduzido ao que os números sustentam: quantas das metas criadas no
+     * período seguem abertas (ou que não houve meta no período) e quantas vencidas — de
+     * hoje — continuam abertas. Sem "a fila cresce" (não é medida) nem "equilibradas".
      *
      * @param array<string, int> $n
      *
      * @return Leitura[]
      */
-    private function porQue(?TempoDoPeriodo $tempo, array $n, ?float $ritmoAtual, ?float $novasPorDia, bool $filaCresce): array
+    private function porQue(?TempoDoPeriodo $tempo, array $n): array
     {
         $p = [];
 
-        if ($filaCresce) {
-            // L81 (o JS mostra novas / max(1, passados) e o ritmo atual)
-            $p[] = new Leitura(self::TIPO_ENTRADA_VS_SAIDA, 2, sprintf(
-                'Entram mais metas por dia (%s) do que são concluídas (%s), o que faz a fila crescer.',
-                $this->fmt((float) $novasPorDia),
-                $this->fmt((float) $ritmoAtual),
-            ), ['novas_por_dia' => round((float) $novasPorDia, 1), 'concluidas_por_dia' => round((float) $ritmoAtual, 1)]);
+        if ($tempo !== null) {
+            if ($n['novas'] === 0) {
+                $p[] = new Leitura(self::TIPO_SEM_METAS, 0, 'Nenhuma meta foi criada no período.', ['novas' => 0]);
+            } else {
+                $pct = (int) round($n['ativas'] / $n['novas'] * 100);
+                $p[] = new Leitura(self::TIPO_ABERTAS_NO_PERIODO, $n['ativas'] > 0 ? 1 : 0, sprintf(
+                    '%d das %d %s no período %s %s (%d%%).',
+                    $n['ativas'],
+                    $n['novas'],
+                    $this->plural($n['novas'], 'meta criada', 'metas criadas'),
+                    $this->plural($n['ativas'], 'segue', 'seguem'),
+                    $this->plural($n['ativas'], 'aberta', 'abertas'),
+                    $pct,
+                ), ['ativas' => $n['ativas'], 'novas' => $n['novas'], 'abertas_pct' => $pct]);
+            }
         }
 
         if ($n['vencidas'] > 0) {
-            // L82
+            // L82 sem "seguram a taxa de conclusão": vencidas são de hoje, a taxa é do período
             $p[] = new Leitura(self::TIPO_VENCIDAS, 3, sprintf(
-                '%d %s a taxa de conclusão.',
+                '%d %s com prazo já vencido %s %s.',
                 $n['vencidas'],
-                $this->plural($n['vencidas'], 'meta vencida segura', 'metas vencidas seguram'),
+                $this->plural($n['vencidas'], 'meta', 'metas'),
+                $this->plural($n['vencidas'], 'continua', 'continuam'),
+                $this->plural($n['vencidas'], 'aberta', 'abertas'),
             ), ['vencidas' => $n['vencidas']]);
-        }
-
-        // L83 — só com período: sem dia contado não dá para afirmar equilíbrio entre entrada e saída
-        if ($p === [] && $tempo !== null) {
-            $p[] = new Leitura(self::TIPO_EQUILIBRIO, 0, 'Entrada e saída de metas estão equilibradas no período.', [
-                'novas_por_dia'      => round((float) $novasPorDia, 1),
-                'concluidas_por_dia' => round((float) $ritmoAtual, 1),
-            ]);
         }
 
         return $p;
@@ -238,13 +242,14 @@ final class MotorDeRitmo
 
     /**
      * Ações (L87-97), ordenadas por peso; a primeira é "o que fazer agora" (L141). Ficaram de
-     * fora as que dependem do ritmo necessário/estado (L92, L94).
+     * fora as que dependem do ritmo necessário/estado (L92, L94) e "segurar a entrada" (L93,
+     * que pressupunha a fila crescendo).
      *
      * @param array<string, int> $n
      *
      * @return Leitura[]
      */
-    private function acoes(array $n, EquipeDoRitmo $equipe, bool $filaCresce): array
+    private function acoes(array $n, EquipeDoRitmo $equipe): array
     {
         $a = [];
 
@@ -281,17 +286,6 @@ final class MotorDeRitmo
             ], self::GRUPO_ACAO_RECOMENDADA);
         }
 
-        if ($filaCresce) {
-            // L93
-            $a[] = new Leitura(
-                self::TIPO_SEGURAR_ENTRADA,
-                self::PESO_SEGURAR_ENTRADA,
-                'Segurar a abertura de novas metas de baixo impacto até a fila voltar a cair.',
-                ['novas' => $n['novas'], 'concluidas' => $n['concluidas']],
-                self::GRUPO_ACAO_RECOMENDADA,
-            );
-        }
-
         // L95: sempre a última
         $a[] = new Leitura(self::TIPO_REAVALIAR, self::PESO_REAVALIAR, 'Reavaliar o resultado em 24 horas.', [], self::GRUPO_ACOMPANHAMENTO);
 
@@ -301,13 +295,14 @@ final class MotorDeRitmo
     }
 
     /**
-     * Riscos (L99-107), por nível; sem o risco de projeção abaixo do objetivo (L105).
+     * Riscos (L99-107), por nível; sem a "fila crescendo" (L104) e sem a projeção abaixo do
+     * objetivo (L105).
      *
      * @param array<string, int> $n
      *
      * @return Leitura[]
      */
-    private function riscos(array $n, EquipeDoRitmo $equipe, bool $filaCresce): array
+    private function riscos(array $n, EquipeDoRitmo $equipe): array
     {
         $r = [];
 
@@ -344,14 +339,6 @@ final class MotorDeRitmo
             ]);
         }
 
-        if ($filaCresce) {
-            // L104
-            $r[] = new Leitura(self::TIPO_ENTRADA_VS_SAIDA, self::NIVEL_ENTRADA, 'Fila de metas crescendo mais rápido do que a equipe conclui', [
-                'novas'      => $n['novas'],
-                'concluidas' => $n['concluidas'],
-            ]);
-        }
-
         usort($r, static fn (Leitura $x, Leitura $y): int => $y->severidade <=> $x->severidade);
 
         return $r;
@@ -367,10 +354,13 @@ final class MotorDeRitmo
         $l = [
             'Sem o histórico de conclusões do período anterior (e a média dos três últimos), o painel não define objetivo, '
             . 'não classifica o ritmo como adequado, de atenção, abaixo ou crítico, e não projeta o fechamento do período.',
+            'O painel não mede tendência da fila (entrada × saída): das metas criadas no período ele só sabe quais seguem '
+            . 'abertas, e não vê conclusões de metas mais antigas. Vencidas e prazos próximos são contados em relação a hoje, '
+            . 'não ao período, por isso aparecem só como contagem.',
         ];
 
         if ($tempo === null) {
-            $l[] = 'Sem período (De e Até) não há dia a contar: ritmo por dia, fase do período e entrada × saída ficam de fora.';
+            $l[] = 'Sem período (De e Até) não há dia a contar: ritmo por dia e fase do período ficam de fora.';
         }
 
         return $l;
@@ -383,12 +373,6 @@ final class MotorDeRitmo
             static fn (LinhaAdvogadoDashboardOutput $l): int => (int) $l->$campo,
             $linhas,
         ));
-    }
-
-    /** `fmt` do JS (L12-13): uma casa decimal, vírgula, sem zero à direita ("1", "1,5"). */
-    private function fmt(float $v): string
-    {
-        return str_replace('.', ',', (string) round($v, 1));
     }
 
     private function plural(int $n, string $singular, string $plural): string

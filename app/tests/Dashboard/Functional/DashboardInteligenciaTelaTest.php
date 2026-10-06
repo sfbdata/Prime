@@ -213,11 +213,25 @@ final class DashboardInteligenciaTelaTest extends DashboardWebTestCase
         self::assertSame('2 metas vencidas', $this->textoLimpo($riscos->first()));
         self::assertSame('vencidas', $riscos->first()->attr('data-tipo'));
 
-        // Central: o alerta de vencidas é crítico (2 de 2 ativas = 100%) e nomeia quem as tem
+        // "Por que": só o que os números sustentam — das criadas no período, quantas seguem
+        // abertas; e a contagem de vencidas (relativas a hoje), sem razão entre as duas bases
+        self::assertSame(
+            '2 das 2 metas criadas no período seguem abertas (100%).',
+            $this->textoLimpo($painel->filter('.db-ia-leitura [data-tipo="abertas_no_periodo"]')),
+        );
+        self::assertSame(
+            '2 metas com prazo já vencido continuam abertas.',
+            $this->textoLimpo($painel->filter('.db-ia-leitura [data-tipo="vencidas"]')),
+        );
+
+        // Central: 2 vencidas (< 10) é "monitorar" pela contagem, nomeia quem as tem e não
+        // calcula percentual sobre a fila do período (bases diferentes)
         $alerta = $painel->filter('.db-ia-alertas > details.db-ia-alerta[data-alerta="vencidas"]');
         self::assertCount(1, $alerta);
-        self::assertStringContainsString('db-ia-nivel--critico', (string) $alerta->attr('class'));
-        self::assertStringContainsString('Representam 100% das 2 metas ativas. Bruno tem 2.', $alerta->text());
+        self::assertStringContainsString('db-ia-nivel--monitorar', (string) $alerta->attr('class'));
+        self::assertStringContainsString('Bruno tem 2.', $alerta->text());
+        self::assertStringNotContainsString('%', $alerta->text());
+        self::assertCount(0, $painel->filter('.db-ia-alertas > details.db-ia-alerta[data-alerta="entrada"]'), 'alerta de entrada × saída não existe');
 
         // botão com o ponto de alerta e a contagem de riscos na dica
         $botao = $crawler->filter('[data-filtro-resultado] > .db-ia > button.db-ia-abrir');
@@ -265,9 +279,10 @@ final class DashboardInteligenciaTelaTest extends DashboardWebTestCase
         self::assertCount(0, $painel->filter('.db-ia-ritmo-grade'));
         self::assertCount(0, $painel->filter('.db-ia-q-texto[data-tipo="fase"]'));
         $limites = $painel->filter('.db-ia-limites > ul > li');
-        self::assertCount(2, $limites);
-        self::assertStringContainsString('não define objetivo', $limites->first()->text());
-        self::assertStringContainsString('não há dia a contar', $limites->last()->text());
+        self::assertCount(3, $limites);
+        self::assertStringContainsString('não define objetivo', $limites->eq(0)->text());
+        self::assertStringContainsString('não mede tendência da fila', $limites->eq(1)->text());
+        self::assertStringContainsString('não há dia a contar', $limites->eq(2)->text());
     }
 
     #[TestDox('Isolamento: as metas vencidas de outro escritório não entram na leitura deste')]
