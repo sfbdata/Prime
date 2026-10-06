@@ -14,7 +14,9 @@
         <ini name="display_errors" value="1" />
         <ini name="error_reporting" value="-1" />
         <!-- CLI/FPM padrão é 128M e a suíte pica ~113M (folga curta) — sobe p/ não OOM. -->
-        <ini name="memory_limit" value="512M" />
+        <!-- 768M: em 06/10/2026 a suíte (6262 testes) chegou a 432 MB de pico, e o PNG 4000x4000 do
+             CompressorArquivoModosDeFalhaTest soma ~64 MB por cima: 512M estourava por pouco. -->
+        <ini name="memory_limit" value="768M" />
         <env name="APP_ENV" value="test" force="true" />
         <server name="APP_ENV" value="test" force="true" />
         <server name="SHELL_VERBOSITY" value="-1" />

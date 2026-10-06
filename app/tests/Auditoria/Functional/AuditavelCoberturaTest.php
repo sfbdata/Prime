@@ -47,6 +47,10 @@ final class AuditavelCoberturaTest extends KernelTestCase
     // Entidades deliberadamente fora do escopo de Auditavel.
     // Toda entidade ausente desta lista E que não implemente Auditavel quebra o teste.
     private const NAO_AUDITAVEIS = [
+        // Favorito de pasta: preferência pessoal de ordenação (estrela), sem efeito sobre o dado da
+        // pasta. Auditar cada clique encheria o audit_log de ruído sem valor de prova.
+        \App\Pasta\Entity\PastaFavorita::class,
+
         // Excluída por design: seria recursão infinita auditar o próprio log
         AuditLog::class,
 

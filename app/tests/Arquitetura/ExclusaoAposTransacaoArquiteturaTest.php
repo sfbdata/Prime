@@ -33,10 +33,13 @@ final class ExclusaoAposTransacaoArquiteturaTest extends TestCase
      * Quem pode escrever `->excluir(`:
      *
      *  - `RemocaoAposTransacao` — é o caminho da remoção física;
-     *  - `NotificacaoController` — `NotificacaoService::excluir()` apaga notificações, não arquivos.
+     *  - `NotificacaoController` — `NotificacaoService::excluir()` apaga notificações, não arquivos;
+     *  - `ExcluirAnaliseUseCase` — `AnaliseDeInteligencia::excluir()` é soft delete da análise da IA
+     *    (marca excluída_em/por), não toca em arquivo.
      */
     private const QUEM_CHAMA_EXCLUIR = [
         'src/Controller/NotificacaoController.php',
+        'src/Inteligencia/UseCase/ExcluirAnaliseUseCase.php',
         'src/Shared/Armazenamento/RemocaoAposTransacao.php',
     ];
 
