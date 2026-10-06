@@ -41,8 +41,8 @@ final class QualificacaoDoClienteTest extends TestCase
 
         self::assertSame(
             'MARIA DAS DORES, casado(a), professora, nascido(a) em 09/03/1980, portador(a) do RG nº 1234567, '
-            . 'inscrito(a) no CPF nº 123.456.789-01, residente e domiciliado(a) na SQS 110 Bloco A, Apto 101, '
-            . 'Brasília/DF, CEP 70000-000, telefone (61) 99999-0000, telefone (61) 3333-0000, e-mail maria@exemplo.com.',
+            . 'inscrito(a) no CPF nº 123.456.789-01, residente e domiciliado(a) na SQS 110 BLOCO A, APTO 101, '
+            . 'BRASÍLIA/DF, CEP 70000-000, telefone (61) 99999-0000, telefone (61) 3333-0000, e-mail maria@exemplo.com.',
             (new QualificacaoDoCliente())->de($cliente)
         );
     }
@@ -87,7 +87,7 @@ final class QualificacaoDoClienteTest extends TestCase
         $texto = (new QualificacaoDoCliente())->de($cliente);
 
         self::assertSame(
-            'CONDOMÍNIO SOL NASCENTE, inscrita no CNPJ nº 12.345.678/0001-90, com sede na Rua A, 1, Brasília/DF, '
+            'CONDOMÍNIO SOL NASCENTE, inscrita no CNPJ nº 12.345.678/0001-90, com sede na RUA A, 1, BRASÍLIA/DF, '
             . 'CEP 70000-000, e-mail adm@sol.com.br, neste ato representada por JOÃO SÍNDICO, síndico, '
             . 'inscrito(a) no CPF nº 111.222.333-44.',
             $texto

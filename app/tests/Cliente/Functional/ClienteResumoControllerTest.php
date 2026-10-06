@@ -77,7 +77,8 @@ final class ClienteResumoControllerTest extends JusPrimeWebTestCase
         self::assertSame('a', $pastas->eq(1)->nodeName());
         self::assertSame('/pasta/' . $ids[2], $pastas->eq(1)->attr('href'));
         self::assertSame('Arquivada', trim($pastas->eq(1)->filter('.ps-cli-tag')->text()));
-        self::assertSame('Revisional de aluguel', trim($pastas->eq(1)->filter('.ps-cli-pasta-acao')->text()));
+        // O sistema grava o nome da ação em maiúsculas.
+        self::assertSame('REVISIONAL DE ALUGUEL', trim($pastas->eq(1)->filter('.ps-cli-pasta-acao')->text()));
 
         // KPIs: 2 pastas, 1 ativa, 0 com processo.
         self::assertSame(
