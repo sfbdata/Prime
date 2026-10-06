@@ -44,11 +44,16 @@
         xlsx:    { src: BASE_VENDOR + 'xlsx/xlsx.full.min.js',          global: 'XLSX' },
     };
 
-    /* Limites — protegem o navegador de arquivos enormes. */
+    /* Limites. O de bytes é o que de fato segura o navegador: mammoth e
+       XLSX.read rodam na thread principal, e o SheetJS só aplica o corte de
+       linhas (sheetRows) DEPOIS de descompactar o arquivo inteiro — por isso a
+       planilha tem teto de bytes menor. Os de linha/coluna só limitam o HTML
+       desenhado, não o custo de ler. */
     const LIMITE_LINHAS_PLANILHA  = 2000;
     const LIMITE_COLUNAS_PLANILHA = 200;
     const LIMITE_BYTES_TEXTO      = 1024 * 1024;        // 1 MB exibidos
-    const LIMITE_BYTES_DOCUMENTO  = 15 * 1024 * 1024;   // 15 MB para DOCX/planilha
+    const LIMITE_BYTES_DOCX       = 15 * 1024 * 1024;   // 15 MB
+    const LIMITE_BYTES_PLANILHA   = 5 * 1024 * 1024;    // 5 MB
 
     const CSP_SRCDOC = "default-src 'none'; img-src data:; style-src 'unsafe-inline'";
 
@@ -117,7 +122,11 @@
             s.src = b.src;
             s.async = true;
             s.onload = function () {
-                if (window[b.global]) { ok(window[b.global]); } else { falha(new Error('biblioteca')); }
+                if (window[b.global]) { ok(window[b.global]); return; }
+                /* Carregou mas não definiu o global: libera nova tentativa. */
+                delete carregando[chave];
+                s.remove();
+                falha(new Error('biblioteca'));
             };
             s.onerror = function () {
                 delete carregando[chave];
@@ -166,8 +175,8 @@
      * acesso). `parcial`: texto aceita ficar só com o começo; DOCX/planilha não
      * — se passar do limite, nem baixa o resto.
      */
-    async function baixar(url, limite, parcial) {
-        const resp = await fetch(url, { credentials: 'same-origin' });
+    async function baixar(url, limite, parcial, sinal) {
+        const resp = await fetch(url, { credentials: 'same-origin', signal: sinal });
         if (!resp.ok) { throw new Error('http'); }
         const tamanho = parseInt(resp.headers.get('Content-Length') || '', 10);
         if (!parcial && !isNaN(tamanho) && tamanho > limite) {
@@ -319,7 +328,7 @@
     }
 
     async function renderDocx(alvo, o, vivo) {
-        const [mammoth, arq] = await Promise.all([carregarBiblioteca('mammoth'), baixar(o.url, LIMITE_BYTES_DOCUMENTO, false)]);
+        const [mammoth, arq] = await Promise.all([carregarBiblioteca('mammoth'), baixar(o.url, LIMITE_BYTES_DOCX, false, o.sinal)]);
         if (!vivo()) { return; }
         if (!arq.bytes || arq.truncado) {
             trocar(alvo, blocoNaoDisponivel(o.urlDownload, 'Arquivo grande demais para pré-visualizar. Baixe para abrir.'));
@@ -337,7 +346,7 @@
     async function renderPlanilha(alvo, o, vivo) {
         const ext = extensao(o.nome);
         const ehCsv = ext === 'csv' || /csv/.test(String(o.mime || '').toLowerCase());
-        const [XLSX, arq] = await Promise.all([carregarBiblioteca('xlsx'), baixar(o.url, LIMITE_BYTES_DOCUMENTO, false)]);
+        const [XLSX, arq] = await Promise.all([carregarBiblioteca('xlsx'), baixar(o.url, LIMITE_BYTES_PLANILHA, false, o.sinal)]);
         if (!vivo()) { return; }
         if (!arq.bytes || arq.truncado) {
             trocar(alvo, blocoNaoDisponivel(o.urlDownload, 'Arquivo grande demais para pré-visualizar. Baixe para abrir.'));
@@ -431,7 +440,7 @@
     }
 
     async function renderTexto(alvo, o, vivo) {
-        const arq = await baixar(o.url, LIMITE_BYTES_TEXTO, true);
+        const arq = await baixar(o.url, LIMITE_BYTES_TEXTO, true, o.sinal);
         if (!vivo()) { return; }
         let texto = decodificar(arq.bytes, arq.truncado);
         const ehJson = extensao(o.nome) === 'json' || /json/.test(String(o.mime || '').toLowerCase());
@@ -454,10 +463,19 @@
 
     /* --------------------------------------------------------- API ------ */
 
+    /** Esvazia a área e ABORTA o download em andamento (AbortController). */
     function limpar(conteudo) {
         if (!conteudo) { return; }
         conteudo.__vdToken = (conteudo.__vdToken || 0) + 1;
+        if (conteudo.__vdAbort) {
+            conteudo.__vdAbort.abort();
+            conteudo.__vdAbort = null;
+        }
         conteudo.replaceChildren();
+    }
+
+    function ehAbort(erro) {
+        return !!erro && erro.name === 'AbortError';
     }
 
     function abrir(opcoes) {
@@ -469,7 +487,7 @@
         o.mime = String(o.mime || '');
         o.urlDownload = o.urlDownload || urlDownloadPadrao(o.url);
 
-        limpar(alvo);
+        limpar(alvo); // abrir outro arquivo aborta o download do anterior
         const token = alvo.__vdToken;
         const vivo = function () { return alvo.__vdToken === token; };
 
@@ -485,9 +503,13 @@
             return;
         }
 
+        const controle = new AbortController();
+        alvo.__vdAbort = controle;
+        o.sinal = controle.signal;
+
         alvo.appendChild(blocoCarregando(o.nome));
-        render(alvo, o, vivo).catch(function () {
-            if (!vivo()) { return; }
+        render(alvo, o, vivo).catch(function (erro) {
+            if (ehAbort(erro) || !vivo()) { return; }
             trocar(alvo, blocoNaoDisponivel(o.urlDownload, 'Não foi possível abrir a pré-visualização deste arquivo.'));
         });
     }
@@ -527,7 +549,7 @@
         });
 
         modal.addEventListener('hide.bs.modal', function () {
-            limpar(conteudo);
+            limpar(conteudo); // aborta o fetch em andamento (AbortController)
         });
     }
 

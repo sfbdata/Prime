@@ -81,11 +81,59 @@ final class VisualizadorDocumentoArquiteturaTest extends TestCase
         self::assertDoesNotMatchRegularExpression('#https?://#', preg_replace('#/\*.*?\*/|//[^\n]*#s', '', $js) ?? '');
     }
 
+    #[TestDox('DOCX e planilha desenham pelo criarIframe (sandbox), nunca direto na página')]
+    public function testDocxEPlanilhaPassamPeloIframe(): void
+    {
+        $js = self::modulo();
+
+        foreach (['renderDocx', 'renderPlanilha'] as $funcao) {
+            self::assertMatchesRegularExpression(
+                '/async function ' . $funcao . '\(.*?criarIframe\(montarSrcdoc\(/s',
+                self::corpoDaFuncao($js, $funcao),
+                $funcao . ' tem de passar o HTML gerado pelo criarIframe'
+            );
+        }
+    }
+
+    #[TestDox('fechar o modal aborta o download: hide.bs.modal chama limpar(), que dispara o AbortController')]
+    public function testFecharModalAbortaODownload(): void
+    {
+        $js = self::modulo();
+
+        self::assertStringContainsString('new AbortController()', $js);
+        self::assertStringContainsString('signal: sinal', $js, 'o fetch recebe o sinal do AbortController');
+        self::assertMatchesRegularExpression(
+            "/addEventListener\('hide\.bs\.modal',\s*function\s*\(\)\s*\{\s*limpar\(conteudo\)/",
+            $js
+        );
+        self::assertMatchesRegularExpression('/\.__vdAbort\.abort\(\)/', self::corpoDaFuncao($js, 'limpar'));
+        self::assertStringContainsString("erro.name === 'AbortError'", $js, 'abort não vira mensagem de erro');
+    }
+
+    #[TestDox('o teto de bytes da planilha é 5 MB (XLSX.read descompacta tudo na thread principal)')]
+    public function testTetoDaPlanilhaEhCincoMega(): void
+    {
+        $js = self::modulo();
+
+        self::assertStringContainsString('LIMITE_BYTES_PLANILHA   = 5 * 1024 * 1024', $js);
+        self::assertStringContainsString('baixar(o.url, LIMITE_BYTES_PLANILHA,', self::corpoDaFuncao($js, 'renderPlanilha'));
+    }
+
+    /** Do `function <nome>(` até a próxima declaração de função no mesmo nível (4 espaços). */
+    private static function corpoDaFuncao(string $js, string $nome): string
+    {
+        $ok = preg_match('/^    (?:async )?function ' . $nome . '\(.*?(?=^    (?:async )?function |\z)/ms', $js, $m);
+        self::assertSame(1, $ok, "função {$nome} não encontrada");
+
+        return $m[0];
+    }
+
     /** @return iterable<string, array{string}> */
     public static function arquivosVendor(): iterable
     {
         yield 'mammoth (js)'      => ['public/js/vendor/mammoth/mammoth.browser.min.js'];
         yield 'mammoth (licença)' => ['public/js/vendor/mammoth/LICENSE'];
+        yield 'mammoth (versão)'  => ['public/js/vendor/mammoth/VERSION'];
         yield 'SheetJS (js)'      => ['public/js/vendor/xlsx/xlsx.full.min.js'];
         yield 'SheetJS (licença)' => ['public/js/vendor/xlsx/LICENSE'];
     }
