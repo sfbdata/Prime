@@ -32,6 +32,8 @@ framework:
         routing:
             # A sincronização de uma pasta no Drive roda em segundo plano (worker), não trava a request.
             App\Sync\Message\SincronizarPastaNoDrive: async
+            # BlueJus IA: a chamada ao provedor de linguagem leva segundos — vai para o worker.
+            App\Inteligencia\Message\ProcessarAnaliseDeInteligencia: async
 
 # Nos testes: transport em memória — nada toca o banco de fila nem o Drive; o dispatch é inspecionável.
 when@test:

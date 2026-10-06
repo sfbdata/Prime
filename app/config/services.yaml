@@ -62,6 +62,12 @@ parameters:
     # Chave (base64 de 32 bytes) p/ cifrar segredos do sync em repouso (refresh_token por tenant).
     # Fora do banco; vazia em dev/test sem conexão. Gerar em prod: base64 de random_bytes(32).
     sync_crypto_key: '%env(string:default::SYNC_CRYPTO_KEY)%'
+    # BlueJus IA — flag da PLATAFORMA (nível 1 da disponibilidade; o nível 2 é por escritório, na
+    # tabela inteligencia_configuracao). Nasce DESLIGADA e o default mora AQUI, não no .env, porque o
+    # build de produção faz `rm .env`. Ligar em prod = IA_HABILITADA=1 no .env.prod + provedor real
+    # no alias abaixo + Anexo I da Política de Privacidade (decisões D1/D3 da spec).
+    ia_habilitada: '%env(default:default_ia_habilitada:bool:IA_HABILITADA)%'
+    default_ia_habilitada: false
 
 services:
     # default configuration for services in *this* file
@@ -90,6 +96,7 @@ services:
             string $googleDriveOauthClientSecret: '%google_drive_oauth_client_secret%'
             string $googleDriveOauthRefreshToken: '%google_drive_oauth_refresh_token%'
             string $syncCryptoKey: '%sync_crypto_key%'
+            bool $iaHabilitada: '%ia_habilitada%'
 
     # makes classes in src/ available to be used as services
     # this creates a service per class whose id is the fully-qualified class name
@@ -104,6 +111,14 @@ services:
     # Backend de verificação de OAB: dormente (manual-first) enquanto não houver chave do
     # web service oficial. Trocar aqui quando houver backend real.
     App\Auth\Service\OabWebServiceClientInterface: '@App\Auth\Service\ClienteOabIndisponivel'
+
+    # BlueJus IA: provedor de linguagem DORMENTE (mesmo padrão do OAB) enquanto o dono não escolhe o
+    # fornecedor (D1). Nunca devolve texto que não veio do modelo: sem provedor é exceção → status
+    # `indisponivel`. Quando houver provedor real, trocar este alias. Em `when@test` vira o
+    # ProvedorFalso (abaixo).
+    App\Inteligencia\Service\ProvedorDeLinguagem: '@App\Inteligencia\Service\ProvedorNaoConfigurado'
+    # Leitura das movimentações para o contexto da IA (publicações + Datajud), tenant explícito.
+    App\Inteligencia\Contexto\FonteDeMovimentacoesDoPush: '@App\Inteligencia\Contexto\FonteDeMovimentacoesDoPushDoctrine'
 
     # Cliente das séries do Banco Central (índices da calculadora de atualização monetária).
     App\AtualizacaoMonetaria\Service\ClienteSgsBcbInterface: '@App\AtualizacaoMonetaria\Service\ClienteSgsBcb'
@@ -172,8 +187,17 @@ when@test:
         fotos_perfil_dir: '%kernel.project_dir%/var/uploads-test/perfil'
         cobrancas_uploads_dir: '%kernel.project_dir%/var/uploads-test/cobrancas'
         kanban_uploads_dir: '%kernel.project_dir%/var/uploads-test/kanban'
+        # A suíte prova a cadeia inteira da BlueJus IA com o ProvedorFalso: a flag da plataforma fica
+        # ligada aqui; o teste que precisa do estado "não configurada" desliga o próprio falso.
+        ia_habilitada: true
 
     services:
+        # BlueJus IA — o ÚNICO provedor com resposta programada, e ele mora em tests/. `public` para
+        # o teste alcançá-lo pelo container e programar a resposta/falha antes da requisição.
+        App\Tests\Inteligencia\Support\ProvedorFalso:
+            public: true
+        App\Inteligencia\Service\ProvedorDeLinguagem: '@App\Tests\Inteligencia\Support\ProvedorFalso'
+
         # E2.5 — faz o próximo COMMIT da aplicação falhar, sob demanda. Sob o DAMA nenhum COMMIT
         # falha de verdade; sem isto o ramo "o COMMIT lançou" só seria testável com mock.
         # Prioridade abaixo da do DAMA (100): fica por fora dele e recebe o commit() primeiro.

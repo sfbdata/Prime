@@ -3,6 +3,9 @@ monolog:
         - deprecation # Deprecations are logged in the dedicated "deprecation" channel when it exists
         - audit
         - mcp
+        # BlueJus IA: ids, tenant, provedor, tokens, duração, classe do erro — NUNCA o prompt.
+        # Sem handler próprio: cai no `main` de cada ambiente, como os demais canais de aplicação.
+        - inteligencia
 
 when@dev:
     monolog:

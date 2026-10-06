@@ -27,6 +27,7 @@ class PermissionFixture extends Fixture
         ['code' => 'modules.financeiro.view',    'description' => 'Acesso ao módulo Financeiro (futuro)',        'group' => 'modules'],
         ['code' => 'modules.bi.view',            'description' => 'Acesso ao módulo BI (futuro)',                'group' => 'modules'],
         ['code' => 'modules.cobrancas.view',     'description' => 'Acesso ao módulo Gestão de Cobranças',        'group' => 'modules'],
+        ['code' => 'modules.inteligencia.view',  'description' => 'Usar a BlueJus IA',                          'group' => 'modules'],
 
         // --- recursos ---
         ['code' => 'resources.pasta.view',       'description' => 'Visualizar pasta específica',                 'group' => 'resources'],
@@ -53,6 +54,7 @@ class PermissionFixture extends Fixture
         ['code' => 'admin.servicedesk.manage',         'description' => 'Gestão de chamados Service Desk (TI)',              'group' => 'admin'],
         ['code' => 'admin.ponto.manage',               'description' => 'Gestão de Ponto (sedes, escalas, aprovações)',      'group' => 'admin'],
         ['code' => 'admin.audit.view',                 'description' => 'Acessar trilha de auditoria',                      'group' => 'admin'],
+        ['code' => 'admin.inteligencia.manage',        'description' => 'Configurar a BlueJus IA do escritório',            'group' => 'admin'],
     ];
 
     public function load(ObjectManager $manager): void

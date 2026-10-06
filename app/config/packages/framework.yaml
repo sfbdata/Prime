@@ -63,6 +63,13 @@ framework:
             policy: sliding_window
             limit: 5
             interval: '1 hour'
+        # BlueJus IA — "Resumir com IA": chave = id do USUÁRIO, não IP (ver os blocos acima sobre
+        # SYMFONY_TRUSTED_PROXIES). A cota de verdade é a do escritório (inteligencia_configuracao);
+        # este limite só segura clique repetido/laço. 10 por minuto é mais do que um humano faz.
+        inteligencia_solicitar:
+            policy: sliding_window
+            limit: 10
+            interval: '1 minute'
 
     # Note that the session will be started ONLY if you read or write from it.
     session: true
