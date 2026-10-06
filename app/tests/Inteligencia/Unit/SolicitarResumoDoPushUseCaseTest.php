@@ -16,6 +16,7 @@ use App\Inteligencia\Enum\StatusDaAnalise;
 use App\Inteligencia\Enum\TipoDeAnalise;
 use App\Inteligencia\Exception\ContextoBloqueadoException;
 use App\Inteligencia\Exception\ContextoVazioException;
+use App\Inteligencia\Exception\FilaIndisponivelException;
 use App\Inteligencia\Exception\InteligenciaIndisponivelException;
 use App\Inteligencia\Exception\PastaNaoEncontradaException;
 use App\Inteligencia\Message\ProcessarAnaliseDeInteligencia;
@@ -279,12 +280,13 @@ final class SolicitarResumoDoPushUseCaseTest extends TestCase
         self::assertSame(42, $mensagem->tenantId);
     }
 
-    #[TestDox('dispatch que lança → a linha vira falhou e o chamador NÃO recebe exceção')]
+    #[TestDox('dispatch que lança com o EM aberto → a linha vira falhou e o chamador NÃO recebe exceção')]
     public function testDispatchQueFalha(): void
     {
         $this->bus->falha = new \RuntimeException('fila fora do ar');
         $this->analises->method('findPendenteDoAlvo')->willReturn(null);
         $this->analises->method('findUltimaConcluidaDoAlvo')->willReturn(null);
+        $this->analises->method('emAberto')->willReturn(true);
 
         $gravacoes = [];
         $this->analises->expects($this->exactly(2))->method('salvar')
@@ -297,6 +299,52 @@ final class SolicitarResumoDoPushUseCaseTest extends TestCase
         self::assertSame([StatusDaAnalise::Pendente, StatusDaAnalise::Falhou], $gravacoes);
         self::assertSame('falhou', $saida->status);
         self::assertSame([], $this->bus->despachadas);
+    }
+
+    #[TestDox('dispatch que lança com o EM FECHADO → nada mais é persistido e sobe FilaIndisponivelException (503), não um 500')]
+    public function testDispatchQueFalhaComEmFechado(): void
+    {
+        $this->bus->falha = new \RuntimeException('conexão perdida ao gravar na fila');
+        $this->analises->method('findPendenteDoAlvo')->willReturn(null);
+        $this->analises->method('findUltimaConcluidaDoAlvo')->willReturn(null);
+        $this->analises->method('emAberto')->willReturn(false);
+
+        // Só a gravação da pendente, ANTES do dispatch; depois do erro, nenhum flush em EM fechado.
+        $this->analises->expects($this->once())->method('salvar')
+            ->willReturnCallback(static function (AnaliseDeInteligencia $a): void {
+                self::assertSame(StatusDaAnalise::Pendente, $a->getStatus());
+                DefineId::em($a, 77);
+            });
+
+        try {
+            $this->sut()->executar($this->input(), $this->user, $this->tenant);
+            self::fail('deveria ter lançado FilaIndisponivelException');
+        } catch (FilaIndisponivelException $e) {
+            self::assertSame(77, $e->analiseId);
+            self::assertSame('fila_indisponivel', $e->motivo());
+            self::assertInstanceOf(\RuntimeException::class, $e->getPrevious());
+        }
+    }
+
+    #[TestDox('dispatch que lança e a gravação da falha também lança → FilaIndisponivelException, sem 500')]
+    public function testDispatchQueFalhaERegistroDaFalhaTambemFalha(): void
+    {
+        $this->bus->falha = new \RuntimeException('fila fora do ar');
+        $this->analises->method('findPendenteDoAlvo')->willReturn(null);
+        $this->analises->method('findUltimaConcluidaDoAlvo')->willReturn(null);
+        $this->analises->method('emAberto')->willReturn(true);
+
+        $chamadas = 0;
+        $this->analises->expects($this->exactly(2))->method('salvar')
+            ->willReturnCallback(static function (AnaliseDeInteligencia $a) use (&$chamadas): void {
+                if (++$chamadas === 2) {
+                    throw new \RuntimeException('banco recusou o UPDATE');
+                }
+            });
+
+        $this->expectException(FilaIndisponivelException::class);
+
+        $this->sut()->executar($this->input(), $this->user, $this->tenant);
     }
 
     #[TestDox('pasta sem movimentação → ContextoVazioException, nada persistido')]

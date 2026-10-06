@@ -120,6 +120,34 @@ final class AnaliseDeInteligenciaTest extends TestCase
         self::assertNull($a->getErroMotivo());
     }
 
+    #[TestDox('devolverParaFila: falha transitória com retentativa à frente volta a pendente, em andamento, com o motivo e sem concluir')]
+    public function testDevolverParaFila(): void
+    {
+        $a = $this->nova();
+        $a->iniciarProcessamento();
+
+        $a->devolverParaFila('falha transitória: timeout');
+
+        self::assertSame(StatusDaAnalise::Pendente, $a->getStatus());
+        self::assertTrue($a->estaEmAndamento(), 'enquanto a fila retenta, continua em andamento — sem segunda análise');
+        self::assertSame('falha transitória: timeout', $a->getErroMotivo());
+        self::assertNull($a->getConcluidaEm());
+        self::assertSame(1, $a->getTentativas());
+
+        $a->iniciarProcessamento();
+        self::assertSame(2, $a->getTentativas(), 'a retentativa conta de novo');
+        self::assertNull($a->getErroMotivo());
+    }
+
+    #[TestDox('devolverParaFila só vale a partir de processando')]
+    public function testDevolverParaFilaExigeProcessando(): void
+    {
+        $a = $this->nova();
+
+        $this->expectException(\DomainException::class);
+        $a->devolverParaFila('x');
+    }
+
     #[TestDox('falhar guarda o texto bruto quando houve resposta (JSON inválido)')]
     public function testFalharComTextoBruto(): void
     {

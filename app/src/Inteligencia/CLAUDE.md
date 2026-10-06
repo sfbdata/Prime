@@ -16,8 +16,11 @@ Namespace `App\Inteligencia` · módulo de permissão `inteligencia` (`modules.i
    duração e classe do erro. O texto do pedido carrega conteúdo processual.
 4. **`nivelSigilo > 0` nunca sai.** `MontadorDeContextoDoPush` lança `ContextoBloqueadoException` antes de
    qualquer leitura; o UseCase recusa (409) e o handler marca `falhou` sem chamar o provedor.
-5. **Conteúdo externo é dado, não instrução.** As movimentações entram entre `<movimentacoes>` e
-   `</movimentacoes>` com a instrução explícita; o texto não pode fechar a tag. A resposta é renderizada
+5. **Conteúdo externo é dado, não instrução.** TODO valor que não nasceu no código (NUP, classe, assunto,
+   órgão, tribunal, nomes, tipo/fonte/texto das movimentações, resposta anterior do modelo) entra no prompt
+   dentro de um bloco delimitado — `<processo>`, `<equipe>`, `<movimentacoes>`, `<analise_anterior>` — e
+   passa pelo `NeutralizadorDeConteudo` (tag delimitadora vira texto inerte; controle/zero-width/bidi
+   saem). Campo novo no prompt = campo neutralizado e dentro de um bloco. A resposta é renderizada
    **escapada** (sem `|raw`).
 6. **O que foi enviado não é persistido** (D5): `contexto_hash` + `contexto_resumo` (ids, chaves,
    contagens). A resposta integral fica em `texto_bruto`.

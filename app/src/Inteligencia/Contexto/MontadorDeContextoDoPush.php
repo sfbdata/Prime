@@ -10,6 +10,7 @@ use App\Inteligencia\DTO\MovimentacaoDeContexto;
 use App\Inteligencia\Exception\ContextoBloqueadoException;
 use App\Inteligencia\Repository\ConfiguracaoDeInteligenciaRepository;
 use App\Inteligencia\Service\MascaradorDeDadosPessoais;
+use App\Inteligencia\Service\NeutralizadorDeConteudo;
 use App\Pasta\Entity\Pasta;
 use App\Processo\Entity\Processo;
 
@@ -32,6 +33,9 @@ final class MontadorDeContextoDoPush
     /** Caracteres por item e orçamento total do contexto (o modelo não precisa do processo inteiro). */
     public const TAMANHO_MAXIMO_DO_ITEM = 3000;
     public const ORCAMENTO_TOTAL = 60000;
+
+    /** Campos curtos (classe, órgão, nomes…): acima disto é lixo ou ataque, não cabeçalho. */
+    public const TAMANHO_MAXIMO_DO_ROTULO = 200;
 
     public function __construct(
         private readonly FonteDeMovimentacoesDoPush $fonte,
@@ -62,16 +66,17 @@ final class MontadorDeContextoDoPush
             if ($texto === '') {
                 continue;
             }
-            $fonte = 'DJEN · ' . $publicacao->getSiglaTribunal();
+            // Tribunal/órgão/tipo também vêm de fora (DJEN): passam pelo mesmo neutralizador do texto.
+            $fonte = 'DJEN · ' . $this->rotulo($publicacao->getSiglaTribunal(), 'tribunal');
             if ($publicacao->getNomeOrgao() !== null && $publicacao->getNomeOrgao() !== '') {
-                $fonte .= ' · ' . $publicacao->getNomeOrgao();
+                $fonte .= ' · ' . $this->rotulo($publicacao->getNomeOrgao(), 'órgão');
             }
             $candidatos[] = [
                 'ordem' => $publicacao->getDataDisponibilizacao()?->getTimestamp() ?? -1,
                 'item' => new MovimentacaoDeContexto(
                     'pub:' . (int) $publicacao->getId(),
                     $publicacao->getDataDisponibilizacao()?->format('d/m/Y'),
-                    $publicacao->getTipoComunicacao() ?: 'Publicação',
+                    $this->rotulo($publicacao->getTipoComunicacao(), 'Publicação'),
                     $fonte,
                     $texto,
                 ),
@@ -90,7 +95,7 @@ final class MontadorDeContextoDoPush
             }
             $fonte = 'Datajud';
             if ($movimentacao->getOrgao() !== null && $movimentacao->getOrgao() !== '') {
-                $fonte .= ' · ' . $movimentacao->getOrgao();
+                $fonte .= ' · ' . $this->rotulo($movimentacao->getOrgao(), 'órgão');
             }
             $data = $movimentacao->getDataMovimentacao();
             $candidatos[] = [
@@ -98,7 +103,7 @@ final class MontadorDeContextoDoPush
                 'item' => new MovimentacaoDeContexto(
                     'mov:' . (int) $movimentacao->getId(),
                     $data?->format('d/m/Y'),
-                    $movimentacao->getTipo() ?: 'Movimentação',
+                    $this->rotulo($movimentacao->getTipo(), 'Movimentação'),
                     $fonte,
                     $texto,
                 ),
@@ -190,20 +195,38 @@ final class MontadorDeContextoDoPush
             $principal = $processos[0] ?? null;
         }
 
-        $equipe = $processos === [] ? [] : $this->fonte->nomesDaEquipe($tenant);
+        $equipe = $processos === [] ? [] : array_map(
+            fn (string $nome): string => $this->rotulo($nome, 'colaborador'),
+            $this->fonte->nomesDaEquipe($tenant),
+        );
 
+        // Nada aqui nasceu no código: NUP, classe, assunto, órgão e tribunal vêm do Datajud/cadastro,
+        // nomes vêm do perfil. Tudo neutralizado — o prompt delimita, mas o dado não pode fechar a tag.
         return [
-            'pasta' => (string) $pasta->getNup(),
+            'pasta' => $this->rotulo($pasta->getNup(), 'sem número'),
             'processo' => $processos === []
                 ? 'sem processo vinculado'
-                : implode(', ', array_map(static fn (Processo $p): string => $p->getNumeroProcesso(), $processos)),
-            'classe' => $principal?->getClasseProcessual() ?: 'não informada',
-            'assunto' => $principal?->getAssuntoProcessual() ?: 'não informado',
-            'tribunal' => $principal?->getSiglaTribunal() ?: 'não informado',
-            'orgao' => $principal?->getOrgaoJulgador() ?: 'não informado',
-            'responsavel' => $pasta->getResponsavel()?->getFullName() ?: 'não definido',
+                : implode(', ', array_map(fn (Processo $p): string => $this->rotulo($p->getNumeroProcesso(), 'sem número'), $processos)),
+            'classe' => $this->rotulo($principal?->getClasseProcessual(), 'não informada'),
+            'assunto' => $this->rotulo($principal?->getAssuntoProcessual(), 'não informado'),
+            'tribunal' => $this->rotulo($principal?->getSiglaTribunal(), 'não informado'),
+            'orgao' => $this->rotulo($principal?->getOrgaoJulgador(), 'não informado'),
+            'responsavel' => $this->rotulo($pasta->getResponsavel()?->getFullName(), 'não definido'),
             'equipe' => $equipe === [] ? 'não informada' : implode(', ', $equipe),
         ];
+    }
+
+    /** Campo curto de origem externa: neutralizado e com teto; vazio vira o rótulo padrão. */
+    private function rotulo(?string $valor, string $padrao): string
+    {
+        $valor = NeutralizadorDeConteudo::neutralizar((string) $valor);
+        if ($valor === '') {
+            return $padrao;
+        }
+
+        return mb_strlen($valor) > self::TAMANHO_MAXIMO_DO_ROTULO
+            ? mb_substr($valor, 0, self::TAMANHO_MAXIMO_DO_ROTULO) . '…'
+            : $valor;
     }
 
     /** HTML do DJEN → texto plano (quebras preservadas como espaço, entidades decodificadas). */
@@ -221,13 +244,12 @@ final class MontadorDeContextoDoPush
 
     private function preparar(string $texto, bool $mascarar): string
     {
-        $texto = trim((string) preg_replace('/\s+/u', ' ', $texto));
+        // A tag é a fronteira do que é dado no prompt: o texto não pode fechá-la por conta própria
+        // (nem esconder instrução em caractere de controle). Mesmo neutralizador dos rótulos.
+        $texto = NeutralizadorDeConteudo::neutralizar($texto);
         if ($texto === '') {
             return '';
         }
-
-        // A tag é a fronteira do que é dado no prompt: o texto não pode fechá-la por conta própria.
-        $texto = str_ireplace(['</movimentacoes', '<movimentacoes'], ['[/movimentacoes', '[movimentacoes'], $texto);
 
         if (mb_strlen($texto) > self::TAMANHO_MAXIMO_DO_ITEM) {
             $texto = mb_substr($texto, 0, self::TAMANHO_MAXIMO_DO_ITEM) . '…';

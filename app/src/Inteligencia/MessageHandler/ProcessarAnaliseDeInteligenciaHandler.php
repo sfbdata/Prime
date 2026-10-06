@@ -34,9 +34,14 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  *
  * Destinos:
  *   · sem provedor → `indisponivel` + Unrecoverable (sem retry; repetir não muda nada);
- *   · falha transitória do provedor → `falhou` + re-lança (Messenger tenta 3×, depois `failed`);
+ *   · falha transitória do provedor com retentativa à frente → volta a `pendente` + re-lança (o
+ *     Messenger retenta; a linha segue "em andamento" e um novo clique devolve a mesma, sem gasto
+ *     duplo); na ÚLTIMA tentativa → `falhou` + re-lança (vai para `failed`);
  *   · falha definitiva (400/401/403) → `falhou` + Unrecoverable;
  *   · contexto bloqueado/vazio, resposta inválida → `falhou`, sem re-lançar.
+ *
+ * "Última tentativa" sai do contador da própria linha (`tentativas`, incrementado a cada entrega)
+ * contra {@see TENTATIVAS_MAXIMAS}, que espelha `max_retries` do transport `async`.
  *
  * Log só com ids, tenant, provedor, tokens, duração e classe do erro — NUNCA o prompt.
  */
@@ -44,6 +49,13 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 final class ProcessarAnaliseDeInteligenciaHandler
 {
     public const TIPO_NOTIFICACAO = 'ia_analise_concluida';
+
+    /**
+     * 1 entrega + 3 retentativas = `retry_strategy.max_retries: 3` do transport `async` em
+     * `config/packages/messenger.yaml`. Mudou lá, muda aqui — senão a linha fica `pendente` sem
+     * ninguém para retentar (valor maior) ou vira `falhou` com retentativa ainda a caminho (menor).
+     */
+    public const TENTATIVAS_MAXIMAS = 4;
 
     public function __construct(
         private readonly EntityManagerInterface $em,
@@ -125,14 +137,27 @@ final class ProcessarAnaliseDeInteligenciaHandler
 
             throw new UnrecoverableMessageHandlingException($e->getMessage(), 0, $e);
         } catch (FalhaDoProvedorException $e) {
-            $this->falhar($analise, sprintf('%s: %s', $e->transitoria ? 'falha transitória' : 'falha definitiva', $e->getMessage()));
+            $motivo = sprintf('%s: %s', $e->transitoria ? 'falha transitória' : 'falha definitiva', $e->getMessage());
+
+            if ($e->transitoria && $analise->getTentativas() < self::TENTATIVAS_MAXIMAS) {
+                // Ainda há retentativa à frente: a linha volta à fila e continua "em andamento".
+                $analise->devolverParaFila($motivo);
+                $this->em->flush();
+                $this->logger->warning('Análise {analise}: falha transitória no provedor, de volta à fila (tentativa {tentativas} de {max}).', $this->contexto($analise) + [
+                    'max' => self::TENTATIVAS_MAXIMAS,
+                ]);
+
+                throw $e; // Messenger faz o retry
+            }
+
+            $this->falhar($analise, $motivo);
             $this->logger->warning('Análise {analise} falhou no provedor ({classe}, transitória: {transitoria}).', $this->contexto($analise) + [
                 'classe' => $e::class,
                 'transitoria' => $e->transitoria ? 'sim' : 'não',
             ]);
 
             if ($e->transitoria) {
-                throw $e; // Messenger faz o retry
+                throw $e; // última tentativa: o Messenger leva para `failed`
             }
 
             throw new UnrecoverableMessageHandlingException($e->getMessage(), 0, $e);

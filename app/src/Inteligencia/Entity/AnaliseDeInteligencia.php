@@ -205,6 +205,19 @@ class AnaliseDeInteligencia implements TenantAware, Auditavel
         $this->concluidaEm = new \DateTimeImmutable();
     }
 
+    /**
+     * processando → pendente: falha TRANSITÓRIA que o Messenger ainda vai retentar. Fica "em
+     * andamento" de propósito — enquanto a fila retenta, um novo clique não pode abrir uma segunda
+     * análise (gasto duplo). O motivo fica registrado; `concluidaEm` continua nulo.
+     */
+    public function devolverParaFila(string $motivo): void
+    {
+        $this->exigirStatus([StatusDaAnalise::Processando], 'devolver à fila');
+
+        $this->status = StatusDaAnalise::Pendente;
+        $this->erroMotivo = $motivo;
+    }
+
     /** pendente | processando → falhou. Guarda a resposta bruta quando houve (JSON inválido). */
     public function falhar(string $motivo, ?string $textoBruto = null): void
     {

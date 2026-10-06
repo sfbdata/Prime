@@ -11,18 +11,28 @@ namespace App\Inteligencia\Service;
  * O número CNJ (NNNNNNN-DD.AAAA.J.TR.OOOO) é PROTEGIDO antes de qualquer máscara e restaurado
  * depois — tem 20 dígitos e, sem a proteção, um pedaço dele casaria com telefone ou CPF e o
  * modelo perderia a referência do processo.
+ *
+ * Telefone só no formato brasileiro plausível, com borda de não-dígito dos dois lados:
+ *   · `(DD) NNNNN-NNNN` / `(DD) NNNN-NNNN` (hífen opcional);
+ *   · `DD 9NNNN-NNNN` (DDD sem parênteses só para celular, que começa com 9);
+ *   · sem DDD, só com hífen e primeiro dígito 9 (celular) ou 3-5 (fixo).
+ * Fica de fora o que se confunde com ano, intervalo e número de lei ("2023-2024", "13105-2015",
+ * "1999-2000"): fixo sem DDD começando em 2 não é mascarado — é o preço de não apagar datas.
  */
 final class MascaradorDeDadosPessoais
 {
     private const CNJ = '/\b\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}\b/u';
 
     /** Só os formatos com pontuação (como o Designer): dígito solto não é PII identificável. */
-    private const CNPJ = '/\b\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}\b/u';
-    private const CPF = '/\b\d{3}\.\d{3}\.\d{3}-\d{2}\b/u';
+    private const CNPJ = '/(?<!\d)\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}(?!\d)/u';
+    private const CPF = '/(?<!\d)\d{3}\.\d{3}\.\d{3}-\d{2}(?!\d)/u';
     private const EMAIL = '/\b[\w.+-]+@[\w-]+(?:\.[\w-]+)+\b/u';
 
-    /** (DD) 9XXXX-XXXX · DD 9XXXX XXXX · XXXX-XXXX — exige separador entre os blocos, como o Designer. */
-    private const TELEFONE = '/(?:\(?\b\d{2}\)?[\s.-]?)?9?\d{4}[-\s]\d{4}\b/u';
+    private const TELEFONE = '/(?<![\d-])(?:'
+        . '\(\d{2}\)\s?(?:9\d{4}|\d{4})-?\d{4}'   // (61) 99999-1234 · (61) 3333-4444 · (61)33334444
+        . '|\d{2}\s9\d{4}-?\d{4}'                  // 61 99999-1234
+        . '|(?:9\d{4}|[3-5]\d{3})-\d{4}'           // 99999-1234 · 3333-4444 (sem DDD exige hífen)
+        . ')(?![\d-])/u';
 
     private const MARCADOR_CNJ = "\u{E000}CNJ%d\u{E001}";
 

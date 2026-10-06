@@ -171,7 +171,7 @@ final class ProcessarAnaliseDeInteligenciaHandlerTest extends KernelTestCase
         self::assertStringContainsString('#push', (string) $notificacoes[0]->getUrl());
     }
 
-    #[TestDox('falha transitória do provedor → falhou + re-lança a própria exceção (o Messenger faz o retry)')]
+    #[TestDox('falha transitória com retentativa à frente → volta a PENDENTE (segue em andamento, sem 2ª análise) + re-lança para o Messenger retentar')]
     public function testFalhaTransitoria(): void
     {
         self::bootKernel();
@@ -190,9 +190,48 @@ final class ProcessarAnaliseDeInteligenciaHandlerTest extends KernelTestCase
         }
 
         $relida = $this->reler($analise);
-        self::assertSame(StatusDaAnalise::Falhou, $relida->getStatus());
+        self::assertSame(StatusDaAnalise::Pendente, $relida->getStatus());
+        self::assertTrue($relida->estaEmAndamento());
         self::assertStringContainsString('transitória', (string) $relida->getErroMotivo());
+        self::assertNull($relida->getConcluidaEm());
         self::assertSame(1, $relida->getTentativas());
+
+        // É isto que fecha o gasto duplo: um novo clique encontra a mesma análise em andamento.
+        $pendente = static::getContainer()->get(AnaliseDeInteligenciaRepository::class)
+            ->findPendenteDoAlvo($tenant, AnaliseDeInteligencia::ALVO_PASTA, (int) $pasta->getId());
+        self::assertSame($relida->getId(), $pendente?->getId());
+    }
+
+    #[TestDox('na ÚLTIMA tentativa (max_retries do async), a falha transitória vira falhou e re-lança (vai para failed)')]
+    public function testUltimaTentativaTransitoriaViraFalhou(): void
+    {
+        self::bootKernel();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $this->ligarIaNoTenant($tenant, $user);
+        $analise = $this->criarAnalisePendente($tenant, $user, $pasta);
+        $falso = new ProvedorFalso();
+        $max = ProcessarAnaliseDeInteligenciaHandler::TENTATIVAS_MAXIMAS;
+
+        for ($tentativa = 1; $tentativa <= $max; ++$tentativa) {
+            $falso->falharTransitoriamente('timeout ' . $tentativa);
+            try {
+                $this->handler($falso)($this->mensagem($analise));
+                self::fail('deveria re-lançar');
+            } catch (FalhaDoProvedorException) {
+            }
+
+            $relida = $this->reler($analise);
+            self::assertSame($tentativa, $relida->getTentativas());
+            self::assertSame(
+                $tentativa < $max ? StatusDaAnalise::Pendente : StatusDaAnalise::Falhou,
+                $relida->getStatus(),
+                "tentativa {$tentativa} de {$max}",
+            );
+        }
+
+        self::assertNotNull($relida->getConcluidaEm(), 'a última marca o fim');
+        self::assertFalse($relida->estaEmAndamento(), 'só agora um novo clique pode abrir outra análise');
     }
 
     #[TestDox('falha definitiva do provedor (401) → falhou + Unrecoverable (sem retry)')]
@@ -341,7 +380,7 @@ final class ProcessarAnaliseDeInteligenciaHandlerTest extends KernelTestCase
         $this->handler($falso)($this->mensagem($analise));
 
         $texto = (string) $falso->ultimoPedido()?->textoDoUsuario();
-        self::assertStringContainsString('ANÁLISE ANTERIOR (não repetir): A contestação foi recebida.', $texto);
+        self::assertStringContainsString("<analise_anterior>\nA contestação foi recebida.\n</analise_anterior>", $texto);
         self::assertStringContainsString('[NOVA] 03/10/2026', $texto);
         self::assertStringNotContainsString('[NOVA] 01/10/2026', $texto);
 

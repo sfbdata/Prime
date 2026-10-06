@@ -11,6 +11,7 @@ use App\Inteligencia\Enum\Disponibilidade;
 use App\Inteligencia\Exception\AnaliseNaoEncontradaException;
 use App\Inteligencia\Exception\ContextoBloqueadoException;
 use App\Inteligencia\Exception\ContextoVazioException;
+use App\Inteligencia\Exception\FilaIndisponivelException;
 use App\Inteligencia\Exception\InteligenciaIndisponivelException;
 use App\Inteligencia\Exception\PastaNaoEncontradaException;
 use App\Inteligencia\Service\DisponibilidadeDeInteligencia;
@@ -38,7 +39,7 @@ use Symfony\Component\Routing\Attribute\Route;
  *
  * Contrato para a tela (1B):
  *   POST /pasta/{id}/ia/push/analises           → 202 {id, status, …} | 200 se devolveu a última ("nada novo")
- *                                                 409 {motivo, mensagem} indisponível/bloqueado/vazio · 429 cota/ritmo
+ *                                                 409 {motivo, mensagem} indisponível/bloqueado/vazio · 429 cota/ritmo · 503 fila indisponível
  *   GET  /pasta/{id}/ia/push/analises           → fragmento `inteligencia/_analises_push.html.twig`
  *   GET  /pasta/{id}/ia/analises/{analiseId}    → {id, status, statusRotulo, emAndamento, terminal, mensagem, motivoTecnico}
  *   POST …/{analiseId}/lida | /excluir | /interna → XHR: JSON · form comum: redirect para a pasta #push
@@ -90,6 +91,8 @@ final class AnalisePushController extends AbstractController
             return $this->recusa($e->motivo(), $e->getMessage(), Response::HTTP_CONFLICT);
         } catch (ContextoVazioException $e) {
             return $this->recusa($e->motivo(), $e->getMessage(), Response::HTTP_CONFLICT);
+        } catch (FilaIndisponivelException $e) {
+            return $this->recusa($e->motivo(), $e->getMessage(), Response::HTTP_SERVICE_UNAVAILABLE);
         }
 
         $codigo = $saida->emAndamento ? Response::HTTP_ACCEPTED : Response::HTTP_OK;

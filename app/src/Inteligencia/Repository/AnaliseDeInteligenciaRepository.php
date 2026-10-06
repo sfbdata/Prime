@@ -35,6 +35,16 @@ class AnaliseDeInteligenciaRepository extends ServiceEntityRepository
     }
 
     /**
+     * O EntityManager ainda aceita escrita? Depois de uma exceção do banco (o transport `doctrine`
+     * divide a conexão com a aplicação) ele fecha, e um flush em EM fechado lança de novo — quem
+     * trata o erro precisa perguntar antes de tentar registrar a falha.
+     */
+    public function emAberto(): bool
+    {
+        return $this->getEntityManager()->isOpen();
+    }
+
+    /**
      * Análises de um alvo (pasta), mais recente primeiro, sem as excluídas.
      *
      * @return AnaliseDeInteligencia[]

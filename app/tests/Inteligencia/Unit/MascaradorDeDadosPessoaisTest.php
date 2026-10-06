@@ -26,6 +26,9 @@ final class MascaradorDeDadosPessoaisTest extends TestCase
         yield 'CPF' => ['Autor: João, CPF 123.456.789-09, residente', 'Autor: João, CPF [CPF], residente'];
         yield 'CNPJ' => ['Ré: ACME LTDA, CNPJ 12.345.678/0001-90', 'Ré: ACME LTDA, CNPJ [CNPJ]'];
         yield 'telefone com DDD' => ['Contato (61) 99999-1234 ou 3333-4444', 'Contato [TEL] ou [TEL]'];
+        yield 'fixo com DDD entre parênteses' => ['Tel. (11) 3333-4444 e (11)33334444', 'Tel. [TEL] e [TEL]'];
+        yield 'celular com DDD sem parênteses' => ['WhatsApp 61 99999-1234', 'WhatsApp [TEL]'];
+        yield 'celular sem DDD' => ['ligar para 99999-1234', 'ligar para [TEL]'];
         yield 'e-mail' => ['Intimado por fulano.silva+adv@exemplo.com.br hoje', 'Intimado por [EMAIL] hoje'];
         yield 'vários de uma vez' => [
             'CPF 123.456.789-09 tel (61) 98888-7777 email a@b.com',
@@ -58,6 +61,33 @@ final class MascaradorDeDadosPessoaisTest extends TestCase
         $entrada = 'Intime-se a parte autora para réplica no prazo de 15 (quinze) dias. Art. 351 do CPC.';
 
         self::assertSame($entrada, $this->mascarador->mascarar($entrada));
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function numerosQueNaoSaoTelefone(): iterable
+    {
+        yield 'intervalo de anos' => ['exercícios 2023-2024'];
+        yield 'intervalo de anos antigo' => ['período 1999-2000'];
+        yield 'número de lei com hífen' => ['Lei 13105-2015'];
+        yield 'número de lei com ponto e barra' => ['Lei 13.105/2015, art. 1.010'];
+        yield 'dois números seguidos' => ['art. 10 2023-2024'];
+        yield 'número de processo antigo' => ['autos 2009.01.1.123456-7'];
+        yield 'valor e data' => ['R$ 12.345,67 em 01/10/2026 às 14:30'];
+        yield 'oito dígitos colados' => ['protocolo 20231234'];
+    }
+
+    #[DataProvider('numerosQueNaoSaoTelefone')]
+    #[TestDox('não mascara o que só parece telefone: $_dataName')]
+    public function testNaoMascaraNumeroQueNaoEhTelefone(string $entrada): void
+    {
+        self::assertSame($entrada, $this->mascarador->mascarar($entrada));
+    }
+
+    #[TestDox('telefone colado a outro número não é mascarado pela metade')]
+    public function testTelefoneExigeBorda(): void
+    {
+        self::assertSame('ref 113105-2015', $this->mascarador->mascarar('ref 113105-2015'));
+        self::assertSame('código 99999-12345', $this->mascarador->mascarar('código 99999-12345'));
     }
 
     #[TestDox('texto que é SÓ dado pessoal vira só a máscara — o filtro precisa funcionar quando remove tudo')]
