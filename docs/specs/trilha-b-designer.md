@@ -234,3 +234,37 @@ Contexto para a próxima rodada:
 
 As demais telas foram conferidas rapidamente pelo dono e estão "evoluindo corretamente". Isso também não
 encerra as auditorias: os 7 itens do dono (D-PASTA6) e o resto do §4 continuam abertos.
+
+### Rollback analisado antes da publicação (06/10/2026)
+
+**Veredito: voltar a IMAGEM para o código anterior (`beff02fd`) sem rodar `down()` é seguro.** As 9
+migrations só acrescentam:
+- `pasta.administrativa` e `pasta_mensagem.eh_resposta` são `NOT NULL DEFAULT false`;
+- `resposta_a_id` e `sha256` aceitam NULL;
+- o resto são tabelas novas e 2 linhas em `permission`.
+
+O ORM antigo só lista colunas mapeadas, e não há `SELECT *` nas tabelas alteradas.
+
+**Prova executável (Fable):**
+- **Suíte de `beff02fd` sobre um banco já migrado:** 5633 testes, 1 falha. A falha é
+  `PurgaCoberturaSchemaTest` (guarda de schema que lista as 6 tabelas novas); não é erro em tempo de
+  execução. A mesma pasta de testes num banco sem as migrations passa (137 OK).
+- **Entrypoint antigo** (`migrate --no-interaction || true`) com as 9 migrations registradas e
+  "indisponíveis": WARNING e exit 0.
+
+**FKs novas para `tenant` são NO ACTION.** A purga de escritório antiga aborta com segurança, antes do
+DELETE, se o escritório tiver linhas nas tabelas novas (`garantirTenantVazio`, provado).
+
+**Ressalvas no rollback** (nenhuma exige `down()`):
+1. Mensagens `ProcessarAnaliseDeInteligencia` na fila seriam descartadas pelo worker antigo. Com a IA
+   desligada, não existem.
+2. O cron da foto (se já estiver configurado) falharia, porque o comando não existe na imagem antiga.
+3. A purga de escritório que usou funções novas fica bloqueada até o código novo voltar.
+4. Uploads feitos durante o rollback ficam com `sha256` NULL; o `app:documentos:calcular-hash`
+   preenche depois.
+5. Degradação visual sem erro: respostas viram mensagens planas, e favoritos, notas, preferências e IA
+   somem da tela (os dados ficam).
+6. Ao republicar o HEAD, o `migrate` não executa nada.
+
+**Proibido como estratégia de rollback:** rodar `down()` em produção. Restaurar o dump só se houver
+corrupção de dado, e só por decisão do dono.
