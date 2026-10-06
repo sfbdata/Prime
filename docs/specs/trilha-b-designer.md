@@ -29,6 +29,7 @@ Relatórios das investigações desta rodada: resumidos no §2; o detalhe ficou 
 | Quando | HEAD | Suíte | Observação |
 |---|---|---|---|
 | início | `beff02fd` | 5633/5633 (Trilha A) | árvore limpa; só o pacote do Designer untracked |
+| checkpoint 3 | `dda8a012` | **6413/6413** (24.814 asserções, 03:49) | `memory_limit` da suíte em 768M (`4b840a77`) |
 | checkpoint 1 | `b9236379` | 5817/5818 → a falha era real (purga sem `nota_tecnica`), corrigida | suíte 04:43 |
 
 ## 2. Inventário Designer × BlueJus (classificação A/B/C/D/E)
@@ -74,6 +75,7 @@ _(preenchido após as investigações)_
 | B30 | Metas parte 2: renomear na lista, reabrir, sino "Alertar para verificar" (notificação real, 1/h por meta e destinatário) | dc 1.2.3 aba Metas | — | `MetaNaListaController` (`tarefa_renomear`/`reabrir`/`alertar`) | C | src/Tarefa, _metas, pasta-metas.js | Tarefa 233, Pasta OK | `11bf7d27`, `f11110a9` | "Alertado às HH:MM" no sino; quem pode renomear/reabrir = guarda do concluir |
 | B31 | Duplicados de arquivo: `pasta_documento.sha256` (migration `Version20261006134500`), hash do binário FINAL armazenado em todos os caminhos de gravação, aviso `duplicadoDe` no upload (mesmo tenant + permissão por pasta), comando `app:documentos:calcular-hash` | `bj-visualizar.js`, dc 1.2.3 Documentos | sem hash | real; o comando de preenchimento é do dono (≈23 mil arquivos, 26 GB, ~5–15 min) | D | PastaDocumento, UploadPecaUseCase, PastaController, Reconciliador, CopiarArquivosAcervo, comando | 132 + 62 | `845ec3ad`, `bc437d5e`, (fixture), (legados) | rodar `app:documentos:calcular-hash --dry-run --limite=500` em prod (dono) |
 | B32 | Dashboard — 2ª auditoria (13 itens): Total alinhado, boneco pastel, destaque da ordenação padrão, ícone de sócio, "· Busca" no PDF, vazio com cabeçalho, balão do Intelligence | `auditoria-dashboard-2.md` | — | aplicado | A/B | dashboard/* | 217 | `7881b231`, `8fcbc5e3` | links "ver pastas/metas" dos cards ficam fora (o número não bate com a lista) |
+| B33 | Pasta — 2ª auditoria (86 itens; 22 A / 64 B): L0 CSS + L2 Dados (clientes todos visíveis), L3 Metas, L4 notas técnicas, L5 Financeiro (selo Vencida, ícone do tipo, 3 próximos), L6 edição em Detalhes, L7 Push (cartão, cor da pílula por tipo) | `auditoria-pasta-2.md` | — | aplicado; L1 (cabeçalho/modal Editar dados/drawer) pendente | A/B | pasta-show.css + parciais | Pasta 1188 | `3d8ba25a`, `1b86203a`, `835f70f4`, `f73e05b7`, `67f643ce`, `3cadacff`, `dda8a012` | L1 depois da IA fatia 2 (mesmo `_cabecalho`); 6 itens do dono (D-PASTA6) |
 
 ## 4. DECISÕES/BLOQUEIOS DO SAMUEL
 
