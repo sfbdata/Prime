@@ -3,7 +3,7 @@
 
    O acordeão (abrir o teor por XHR) continua no pasta-show.js e não é tocado
    aqui. Este arquivo cuida de:
-     1. filtro Todas · Novas (no navegador: a lista inteira já está na página);
+     1. filtro Todas · Novas · Geram prazo (no navegador: a lista inteira já está na página);
      2. selo e linha de pendência da aba, que acompanham as linhas "novas";
      3. copiar o ID do documento (numeroComunicacao);
      4. marcar como lida / não lida (POST `pasta_push_lida`);
@@ -35,7 +35,11 @@
             var visiveis = 0;
 
             Array.prototype.forEach.call(itens, function (item) {
-                var mostra = filtroAtual !== 'novas' || item.classList.contains(CLASSE_NOVA);
+                // "prazo" lê a marca que o servidor pôs pela regra do desenho
+                // (PastaPushOutput::tipoGeraPrazo): o JS não reclassifica o tipo.
+                var mostra = filtroAtual === 'novas'
+                    ? item.classList.contains(CLASSE_NOVA)
+                    : (filtroAtual === 'prazo' ? item.getAttribute('data-push-gera-prazo') === '1' : true);
                 item.hidden = !mostra;
                 if (!mostra) { return; }
 

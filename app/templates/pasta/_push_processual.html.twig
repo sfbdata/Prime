@@ -72,14 +72,16 @@
                 </button>
             {% endif %}
         {% endif %}
-        {# Filtros do desenho (dc L.2420, `pushFiltro`): Todas · Novas. "Novas" = não lidas, que é
-           o mesmo dado do selo da aba. "Geram prazo" fica de fora: o dado não diz o que gera
-           prazo (seria classificação nova). O filtro roda no navegador (pasta-push.js) — a lista
-           inteira já está na página. #}
+        {# Filtros do desenho (dc L.2420, `pushFiltro`): Todas · Novas · Geram prazo. "Novas" = não
+           lidas, que é o mesmo dado do selo da aba. "Geram prazo" é a regra FIXA do desenho sobre o
+           tipo da comunicação (dc L.5414, `/Intima|Decis/`; PastaPushOutput::tipoGeraPrazo) — não
+           calcula prazo nenhum (D-PRAZOS segue fora). O filtro roda no navegador (pasta-push.js) —
+           a lista inteira já está na página. #}
         {% if push.total > 0 %}
             <div class="ps-push-filtros" role="group" aria-label="Filtrar movimentações">
                 <button type="button" class="ps-push-filtro is-ativo" data-push-filtro="todas" aria-pressed="true">Todas</button>
                 <button type="button" class="ps-push-filtro" data-push-filtro="novas" aria-pressed="false">Novas</button>
+                <button type="button" class="ps-push-filtro" data-push-filtro="prazo" aria-pressed="false">Geram prazo</button>
             </div>
         {% endif %}
     </div>
@@ -111,8 +113,12 @@
            `aria-controls` + `data-push-url`): o pasta-show.js abre o teor no lugar.
            Documento do PJe, copiar ID, criar tarefa e marcar (não) lida moram no
            teor (`_push_teor`). A análise por IA mora acima da lista (BlueJus IA).
-           Ficam de fora: "Geram prazo",
-           encaminhar, monitoramento e avisos.
+           Ficam de fora: encaminhar, monitoramento e avisos.
+
+           A pílula do dia é "5 out 2026" (dc L.5372, `dataTxt`, N1), montada aqui a partir do
+           "dd/mm/aaaa" que o DTO entrega; `data-push-dia` segue em dd/mm/aaaa porque é só a chave
+           que o JS compara. O canto direito do cartão no desenho é a HORA (dc L.2531); o DJEN não
+           dá hora e repetir a data da pílula era duplicata (N2), então o canto fica vazio.
 
            Toda linha leva a pílula do dia; a repetida (mesmo dia da anterior) sai
            escondida por `ps-push-dia--repetido`. Assim o filtro "Novas" pode
@@ -129,11 +135,19 @@
            ("cita" solto pegaria "solicitação"). #}
         <ul class="ps-push-lista">
             {% set diaAnteriorPush = null %}
+            {% set mesesPush = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'] %}
             {% for item in push.itens %}
                 {% set diaPush = item.dataDisponibilizacao ?? '' %}
+                {% set partesDiaPush = diaPush|split('/') %}
+                {% if partesDiaPush|length == 3 and partesDiaPush[1] matches '/^(0[1-9]|1[0-2])$/' %}
+                    {% set diaPushTxt = (partesDiaPush[0] + 0) ~ ' ' ~ mesesPush[partesDiaPush[1] - 1] ~ ' ' ~ partesDiaPush[2] %}
+                {% else %}
+                    {% set diaPushTxt = diaPush ?: 'Sem data' %}
+                {% endif %}
                 <li class="ps-push-item{{ item.lida ? '' : ' ps-push-item--nova' }}"
-                    data-push-id="{{ item.id }}" data-push-dia="{{ diaPush }}">
-                    <div class="ps-push-dia{{ loop.first or diaPush != diaAnteriorPush ? '' : ' ps-push-dia--repetido' }}"><span class="ps-push-dia-pilula">{{ diaPush ?: 'Sem data' }}</span></div>
+                    data-push-id="{{ item.id }}" data-push-dia="{{ diaPush }}"
+                    data-push-gera-prazo="{{ push.geraPrazo(item) ? '1' : '0' }}">
+                    <div class="ps-push-dia{{ loop.first or diaPush != diaAnteriorPush ? '' : ' ps-push-dia--repetido' }}"><span class="ps-push-dia-pilula">{{ diaPushTxt }}</span></div>
                     {% set diaAnteriorPush = diaPush %}
                     {% set tipoPush = (item.tipoComunicacao ?? '')|lower|replace({'ç': 'c', 'ã': 'a', 'á': 'a', 'â': 'a', 'é': 'e', 'ê': 'e', 'í': 'i', 'ó': 'o', 'õ': 'o', 'ú': 'u'})|trim %}
                     {% if tipoPush starts with 'intima' %}
@@ -162,7 +176,6 @@
                                     {{- item.siglaTribunal -}}
                                     {%- if push.numeroUnico is null and item.numeroProcessoExibicao %} · {{ item.numeroProcessoExibicao }}{% endif %} · DJEN
                                 </span>
-                                <span class="ps-push-hora ps-num">{{ item.dataDisponibilizacao ?? '—' }}</span>
                                 <i class="bi bi-chevron-down ps-push-seta" aria-hidden="true"></i>
                             </span>
                         </button>

@@ -7,6 +7,7 @@ namespace App\Tests\Pasta\Unit;
 use App\Djen\DTO\PublicacaoDjenListaItem;
 use App\Pasta\DTO\PastaPushOutput;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
@@ -76,12 +77,59 @@ final class PastaPushOutputTest extends TestCase
         self::assertFalse(PastaPushOutput::montar($tresItens, ['07011111111111111111'], 4)->limiteAtingido);
     }
 
-    private function item(int $id, bool $lida = false): PublicacaoDjenListaItem
+    /** @return iterable<string, array{?string, bool}> */
+    public static function tiposDaComunicacao(): iterable
+    {
+        // Os três tipos medidos em prod (06/10): 363 Intimação, 20 Edital, 4 Lista de distribuição.
+        yield 'Intimação conta' => ['Intimação', true];
+        yield 'INTIMAÇÃO em caixa-alta conta' => ['INTIMAÇÃO', true];
+        yield 'Decisão conta' => ['Decisão', true];
+        yield 'Decisão interlocutória conta' => ['Decisão interlocutória', true];
+        yield 'Edital não conta' => ['Edital', false];
+        yield 'Lista de distribuição não conta' => ['Lista de distribuição', false];
+        yield 'Citação não conta (fora da regra do desenho)' => ['Citação', false];
+        yield 'Despacho não conta (fora da regra do desenho)' => ['Despacho', false];
+        yield 'Sentença não conta (fora da regra do desenho)' => ['Sentença', false];
+        yield 'tipo ausente não conta' => [null, false];
+        yield 'tipo vazio não conta' => ['', false];
+    }
+
+    #[TestDox('Geram prazo: regra do desenho /Intima|Decis/ sobre o tipo — $tipo')]
+    #[DataProvider('tiposDaComunicacao')]
+    public function testTipoGeraPrazo(?string $tipo, bool $esperado): void
+    {
+        self::assertSame($esperado, PastaPushOutput::tipoGeraPrazo($tipo));
+    }
+
+    #[TestDox('Geram prazo por item: lê o tipo da publicação da lista')]
+    public function testGeraPrazoPorItem(): void
+    {
+        $push = PastaPushOutput::montar(
+            [$this->item(1, tipo: 'Intimação'), $this->item(2, tipo: 'Edital'), $this->item(3, tipo: null)],
+            ['07011111111111111111'],
+            100,
+        );
+
+        self::assertSame(
+            [true, false, false],
+            array_map($push->geraPrazo(...), $push->itens),
+        );
+    }
+
+    #[TestDox('Geram prazo com lista vazia: nada a marcar e nada quebra')]
+    public function testGeraPrazoComListaVazia(): void
+    {
+        $push = PastaPushOutput::montar([], ['07011111111111111111'], 100);
+
+        self::assertSame([], array_filter($push->itens, $push->geraPrazo(...)));
+    }
+
+    private function item(int $id, bool $lida = false, ?string $tipo = 'Intimação'): PublicacaoDjenListaItem
     {
         return PublicacaoDjenListaItem::fromRow([
             'id' => $id,
             'siglaTribunal' => 'TJDFT',
-            'tipoComunicacao' => 'Intimação',
+            'tipoComunicacao' => $tipo,
             'numeroProcessoComMascara' => '0701111-11.1111.1.11.1111',
             'numeroProcesso' => '07011111111111111111',
             'dataDisponibilizacao' => new \DateTimeImmutable('2026-08-20'),

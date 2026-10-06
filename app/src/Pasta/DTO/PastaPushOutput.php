@@ -51,4 +51,24 @@ final readonly class PastaPushOutput
             numeroUnico: count($numeros) === 1 ? $numeros[0] : null,
         );
     }
+
+    /**
+     * Filtro "Geram prazo" da aba (desenho 1.2.3, dc L.5414: `/Intima|Decis/.test(m.tipo)`): a regra
+     * é a do desenho, sobre o TIPO da comunicação — não calcula prazo nenhum nem promete que haja
+     * um (o motor de prazos é o D-PRAZOS, fora). Intimação e Decisão contam; Edital, Lista de
+     * distribuição, Citação, Despacho e o tipo ausente não.
+     *
+     * Única diferença do literal: a comparação ignora caixa, como a cor da pílula do tipo já faz
+     * ("INTIMAÇÃO" é a mesma comunicação). O trecho comparado não tem acento, então o "ç"/"ã" do
+     * resto da palavra não interfere.
+     */
+    public static function tipoGeraPrazo(?string $tipoComunicacao): bool
+    {
+        return $tipoComunicacao !== null && preg_match('/intima|decis/iu', $tipoComunicacao) === 1;
+    }
+
+    public function geraPrazo(PublicacaoDjenListaItem $item): bool
+    {
+        return self::tipoGeraPrazo($item->tipoComunicacao);
+    }
 }
