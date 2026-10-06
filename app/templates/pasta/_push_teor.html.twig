@@ -5,16 +5,77 @@
    não JSON montado em JS, para que o escape do link e a marcação fiquem no Twig
    — que é onde o resto da tela já os tem.
 
+   Acima do teor, as duas linhas do cartão do desenho 1.2.3 (dc L.2515-2531), que
+   lá ficam DENTRO do cartão: aqui o cartão é o botão do acordeão e não pode
+   conter outro botão, então elas abrem junto com o teor.
+     · documento: "ID - tipo" abre o documento no PJe (o `link` real da
+       publicação), o clipboard copia o ID (`numeroComunicacao`) e a seta abre o
+       PJe. No desenho "Abrir documento" e "Abrir no PJe" são dois destinos; aqui
+       o único documento que existe É o do PJe, então os dois levam ao `link`.
+     · ações: "Criar tarefa" abre o modal de nova meta da pasta pré-preenchido
+       (pasta-push.js) e "Marcar como (não) lida" grava por `pasta_push_lida`.
+       "Encaminhar" (Chat I.A) não existe no sistema e não aparece.
+   O link só vira `href` se for http(s): é URL de fonte externa.
+
    Sob o teor, as notas técnicas penduradas NESTA movimentação (desenho 1.2.3).
    A nota é do processo: `notaProcessoId` é o processo da pasta a que a
    publicação pertence; sem ele (não deveria acontecer — a publicação foi achada
    pelos números da pasta) o bloco não aparece, em vez de criar nota sem dono.
 
    Contexto: `publicacao` (App\Djen\DTO\PublicacaoDjenOutput), `voltarPara`,
+             `numeroComunicacao` (string|null),
              `pastaId` (int), `notaProcessoId` (int|null),
              `notasTecnicas` (App\Processo\DTO\NotaTecnicaOutput[]).
    ============================================================================ #}
+{% set linkDoc = (publicacao.link and (publicacao.link starts with 'https://' or publicacao.link starts with 'http://')) ? publicacao.link : null %}
+{% set tipoDoc = publicacao.tipoComunicacao ?: 'Publicação' %}
 <div class="ps-push-teor-corpo">
+    {% if numeroComunicacao or linkDoc %}
+        {% set rotuloDoc = (numeroComunicacao ?: 'Documento') ~ ' - ' ~ tipoDoc %}
+        <div class="ps-push-doc">
+            <i class="bi bi-file-earmark-text" aria-hidden="true"></i>
+            {% if linkDoc %}
+                <a class="ps-push-doc-link" href="{{ linkDoc|e('html_attr') }}" target="_blank" rel="noopener noreferrer"
+                   title="Abrir documento no PJe">{{ rotuloDoc }}</a>
+            {% else %}
+                <span class="ps-push-doc-link">{{ rotuloDoc }}</span>
+            {% endif %}
+            {% if numeroComunicacao %}
+                <button type="button" class="ps-push-doc-btn js-push-copiar-id"
+                        data-copiar-id="{{ numeroComunicacao }}"
+                        title="Copiar ID do documento" aria-label="Copiar ID">
+                    <i class="bi bi-clipboard" aria-hidden="true"></i>
+                </button>
+            {% endif %}
+            {% if linkDoc %}
+                <a class="ps-push-doc-btn" href="{{ linkDoc|e('html_attr') }}" target="_blank" rel="noopener noreferrer"
+                   title="Abrir no PJe" aria-label="Abrir no PJe">
+                    <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i>
+                </a>
+            {% endif %}
+        </div>
+    {% endif %}
+
+    <div class="ps-push-acoes">
+        <button type="button" class="ps-push-acao ps-push-acao--forte js-push-criar-meta"
+                data-meta-tipo="{{ tipoDoc }}"
+                data-meta-data="{{ publicacao.dataDisponibilizacao ?? '' }}"
+                data-meta-orgao="{{ publicacao.nomeOrgao ?? '' }}"
+                data-meta-processo="{{ publicacao.numeroProcessoExibicao ?? '' }}"
+                data-meta-documento="{{ numeroComunicacao ?? '' }}"
+                data-meta-link="{{ linkDoc ?? '' }}">
+            <i class="bi bi-check2-square" aria-hidden="true"></i><span>Criar tarefa</span>
+        </button>
+        <button type="button" class="ps-push-acao js-push-lida"
+                data-url="{{ path('pasta_push_lida', {id: pastaId, publicacaoId: publicacao.id}) }}"
+                data-token="{{ csrf_token('pasta_push_lida_' ~ pastaId) }}"
+                data-lida="{{ publicacao.lida ? '1' : '0' }}">
+            <i class="bi {{ publicacao.lida ? 'bi-envelope' : 'bi-envelope-open' }}" aria-hidden="true"></i>
+            <span class="js-push-lida-rotulo">{{ publicacao.lida ? 'Marcar como não lida' : 'Marcar como lida' }}</span>
+        </button>
+        <span class="ps-push-acao-erro" role="alert" hidden></span>
+    </div>
+
     {% if publicacao.textoHtml %}
         {# Sanitizado no controller pelo HtmlSanitizer 'djen' — o mesmo caminho da tela do módulo. #}
         <div class="djen-teor">{{ publicacao.textoHtml|raw }}</div>
@@ -22,16 +83,13 @@
         <p class="ps-push-sem-teor">Esta publicação não trouxe teor textual.</p>
     {% endif %}
 
-    <div class="ps-push-teor-pe">
-        {% if publicacao.link %}
-            <a href="{{ publicacao.link|e('html_attr') }}" target="_blank" rel="noopener noreferrer">
-                <i class="bi bi-box-arrow-up-right"></i> Inteiro teor na origem
-            </a>
-        {% endif %}
-        {% if can_access_module('djen') %}
+    {# O "Inteiro teor na origem" que morava aqui virou a linha do documento, acima:
+       era o mesmo `link`, e três atalhos para um destino só confundiriam. #}
+    {% if can_access_module('djen') %}
+        <div class="ps-push-teor-pe">
             <a href="{{ path('push_processual_show', {id: publicacao.id, voltar: voltarPara}) }}">Abrir no módulo</a>
-        {% endif %}
-    </div>
+        </div>
+    {% endif %}
 
     {% if notaProcessoId is not null %}
         {{ include('processo/_notas_tecnicas.html.twig', {

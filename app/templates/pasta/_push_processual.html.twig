@@ -26,6 +26,18 @@
             <a class="ps-card-cab-link ps-card-cab-link--texto"
                href="{{ path('push_processual_index', {busca: push.numeroUnico}) }}">ver no módulo</a>
         {% endif %}
+        {# Lugar reservado: o botão de resumo por IA (etapa futura) entra AQUI, entre o atalho do
+           módulo e os filtros — é onde o desenho o põe (dc L.2416). Nada de botão inerte no lugar. #}
+        {# Filtros do desenho (dc L.2420, `pushFiltro`): Todas · Novas. "Novas" = não lidas, que é
+           o mesmo dado do selo da aba. "Geram prazo" fica de fora: o dado não diz o que gera
+           prazo (seria classificação nova). O filtro roda no navegador (pasta-push.js) — a lista
+           inteira já está na página. #}
+        {% if push.total > 0 %}
+            <div class="ps-push-filtros" role="group" aria-label="Filtrar movimentações">
+                <button type="button" class="ps-push-filtro is-ativo" data-push-filtro="todas" aria-pressed="true">Todas</button>
+                <button type="button" class="ps-push-filtro" data-push-filtro="novas" aria-pressed="false">Novas</button>
+            </div>
+        {% endif %}
     </div>
 
     {% if not push.temProcesso %}
@@ -51,18 +63,22 @@
         {# Linha do tempo do desenho 1.2.3: pílula do dia quando a data muda, ponto na
            linha e um cartão por publicação. O cartão É o botão de sempre (`.ps-push-cab`,
            `aria-controls` + `data-push-url`): o pasta-show.js abre o teor no lugar.
-           O que é função nova NÃO aparece: análise por IA, filtros, criar tarefa,
-           encaminhar, marcar lida, documento do PJe, monitoramento e avisos. #}
+           Documento do PJe, copiar ID, criar tarefa e marcar (não) lida moram no
+           teor (`_push_teor`). Ficam de fora: análise por IA, "Geram prazo",
+           encaminhar, monitoramento e avisos.
+
+           Toda linha leva a pílula do dia; a repetida (mesmo dia da anterior) sai
+           escondida por `ps-push-dia--repetido`. Assim o filtro "Novas" pode
+           esconder a primeira do dia sem levar a data junto: o pasta-push.js
+           recalcula qual é a primeira VISÍVEL. #}
         <ul class="ps-push-lista">
             {% set diaAnteriorPush = null %}
             {% for item in push.itens %}
                 {% set diaPush = item.dataDisponibilizacao ?? '' %}
                 <li class="ps-push-item{{ item.lida ? '' : ' ps-push-item--nova' }}"
-                    data-push-id="{{ item.id }}">
-                    {% if diaPush != diaAnteriorPush %}
-                        <div class="ps-push-dia"><span class="ps-push-dia-pilula">{{ diaPush ?: 'Sem data' }}</span></div>
-                        {% set diaAnteriorPush = diaPush %}
-                    {% endif %}
+                    data-push-id="{{ item.id }}" data-push-dia="{{ diaPush }}">
+                    <div class="ps-push-dia{{ loop.first or diaPush != diaAnteriorPush ? '' : ' ps-push-dia--repetido' }}"><span class="ps-push-dia-pilula">{{ diaPush ?: 'Sem data' }}</span></div>
+                    {% set diaAnteriorPush = diaPush %}
                     <span class="ps-push-ponto" aria-hidden="true"></span>
                     <button type="button" class="ps-push-cab"
                             aria-expanded="false"
@@ -87,6 +103,10 @@
                 </li>
             {% endfor %}
         </ul>
+        {# Texto do desenho para o filtro que não sobra nada (`vazioTxt`, dc L.5426). #}
+        <div class="ps-vazio ps-push-vazio-filtro" id="push-vazio-filtro" hidden>
+            <div class="ps-vazio-nota">Nenhuma movimentação neste filtro.</div>
+        </div>
         {% if push.limiteAtingido %}
             <p class="ps-push-teto">
                 Exibindo as {{ push.total }} publicações mais recentes deste caso.
@@ -97,3 +117,5 @@
         {% endif %}
     {% endif %}
 </section>
+{# Filtro, selo da aba, copiar ID, marcar (não) lida e criar tarefa a partir da publicação. #}
+<script src="{{ asset('js/pasta-push.js') }}" defer></script>

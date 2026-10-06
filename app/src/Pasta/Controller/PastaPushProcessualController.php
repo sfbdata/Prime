@@ -17,6 +17,8 @@ use App\Processo\Repository\NotaTecnicaRepository;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
@@ -93,6 +95,9 @@ final class PastaPushProcessualController extends AbstractController
         // Teor externo (CNJ): sanitizado pelo mesmo formatador da tela do módulo antes de exibir.
         return $this->render('pasta/_push_teor.html.twig', [
             'publicacao' => PublicacaoDjenOutput::fromEntity($publicacao, $formatadorTeor->formatar($publicacao->getTexto())),
+            // O "ID do documento" que o desenho manda copiar. Vai à parte para não alargar o DTO,
+            // que é compartilhado com a tela do módulo.
+            'numeroComunicacao' => $publicacao->getNumeroComunicacao(),
             // Quem sair daqui para o módulo volta para ESTA pasta, já na aba certa. O fragmento
             // precisa ir explícito: o navegador não manda `#push` no Referer.
             'voltarPara' => $this->generateUrl('pasta_show', ['id' => $pasta->getId()]) . '#push',
@@ -103,6 +108,65 @@ final class PastaPushProcessualController extends AbstractController
                 $this->notaTecnicaRepository->listarPorPublicacao($publicacao, $tenant),
             ),
         ]);
+    }
+
+    /**
+     * Marca a publicação como lida ou NÃO lida, pela pasta (desenho 1.2.3: "Marcar como lida").
+     *
+     * Abrir o teor já marca como lida (GET acima); esta rota existe sobretudo para DESFAZER isso —
+     * quem abriu e quer deixar o aviso para depois. `lida` é do escritório, não do usuário: é o
+     * mesmo campo que o módulo e o selo da aba leem.
+     *
+     * Guarda idêntica à do teor (tenant da pasta, permissão de VER a pasta, publicação casada com
+     * um processo DESTA pasta na própria consulta). Ver basta porque ver já marca como lida no GET:
+     * exigir edição aqui faria quem só lê poder "ler" e não poder "desler". CSRF porque é escrita.
+     * Pasta excluída (lápide) recebe a recusa do PastaSomenteLeituraListener, como todo POST nela.
+     */
+    #[Route(
+        '/{id}/push/{publicacaoId}/lida',
+        name: 'pasta_push_lida',
+        requirements: ['id' => '\d+', 'publicacaoId' => '\d+'],
+        methods: ['POST'],
+    )]
+    public function marcarLida(Pasta $pasta, int $publicacaoId, Request $request): JsonResponse
+    {
+        /** @var User $currentUser */
+        $currentUser = $this->getUser();
+        $tenant      = $this->tenantContext->getCurrentTenant();
+
+        if ($tenant === null || $pasta->getTenant() !== $tenant) {
+            return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
+        }
+
+        if (!$this->permissionChecker->canAccessResource($currentUser, $tenant, 'pasta', (int) $pasta->getId(), 'view')) {
+            return $this->json(['erro' => 'Sem permissão para ver esta pasta.'], Response::HTTP_FORBIDDEN);
+        }
+
+        if (!$this->isCsrfTokenValid('pasta_push_lida_' . $pasta->getId(), (string) $request->request->get('_token'))) {
+            return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_FORBIDDEN);
+        }
+
+        if (!$request->request->has('lida')) {
+            return $this->json(['erro' => 'Informe se a publicação fica lida ou não lida.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $publicacao = $this->publicacaoRepository->findOneByIdENumerosDoTenant(
+            $publicacaoId,
+            $tenant,
+            $this->numerosDosProcessos($pasta),
+        );
+
+        if ($publicacao === null) {
+            return $this->json(['erro' => 'Publicação não encontrada nesta pasta.'], Response::HTTP_NOT_FOUND);
+        }
+
+        $lida = $request->request->getBoolean('lida');
+        if ($publicacao->isLida() !== $lida) {
+            $publicacao->setLida($lida);
+            $this->publicacaoRepository->salvar($publicacao, true);
+        }
+
+        return $this->json(['sucesso' => true, 'lida' => $publicacao->isLida()]);
     }
 
     /**

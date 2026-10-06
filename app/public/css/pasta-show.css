@@ -2322,6 +2322,87 @@ span.ps-situacao-pill { cursor: default; }
 .ps-push-teor .djen-teor p { margin-bottom: 8px; }
 .ps-push-teor .djen-teor :is(h1, h2, h3, h4, h5, h6) { font-size: 13.5px; font-weight: 600; margin: 10px 0 5px; }
 
+/* ── Push: filtros, documento e ações da movimentação (desenho 1.2.3, L3) ──
+   Valores do desenho (dc L.2420, L.2515-2531, L.5427). As três cores que o
+   resto da folha não tem ficam presas à seção; no escuro caem nos tokens. */
+.ps-push {
+    --ps-push-doc:      #1f6fb2;
+    --ps-push-acao-bg:  #f1f6f9;
+    --ps-push-acao-hv:  #e3f0f8;
+}
+[data-bs-theme="dark"] .ps-push {
+    --ps-push-doc:      var(--ps-accent);
+    --ps-push-acao-bg:  var(--ps-div-strong);
+    --ps-push-acao-hv:  var(--ps-accent-bg);
+}
+.ps-push-dia--repetido { display: none; }
+
+.ps-push-filtros { display: flex; gap: 4px; }
+.ps-push-filtro {
+    height: 28px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: 4px;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ps-text-3);
+    background: transparent;
+    cursor: pointer;
+}
+.ps-push-filtro.is-ativo { background: var(--ps-card); color: var(--ps-accent); box-shadow: 0 1px 3px rgba(16, 42, 58, .1); }
+.ps-push-vazio-filtro { padding: 28px 20px; }
+
+.ps-push-doc { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; padding-left: 1px; }
+.ps-push-doc > i { font-size: 14px; color: var(--ps-push-hora); }
+.ps-push-doc-link {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 13.5px;
+    font-weight: 700;
+    color: var(--ps-push-doc);
+    text-decoration: none;
+}
+a.ps-push-doc-link:hover { color: var(--ps-push-doc); text-decoration: underline; }
+.ps-push-doc-btn {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    border-radius: 3px;
+    background: transparent;
+    color: var(--ps-push-dia-tx);
+    text-decoration: none;
+    cursor: pointer;
+}
+.ps-push-doc-btn:hover { background: var(--ps-div-strong); color: var(--ps-push-dia-tx); }
+.ps-push-doc-btn > i { font-size: 13px; }
+
+.ps-push-acoes { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.ps-push-acao {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 26px;
+    padding: 0 9px;
+    border: 0;
+    border-radius: 4px;
+    font: inherit;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--ps-text-3);
+    background: transparent;
+    cursor: pointer;
+}
+.ps-push-acao:hover { background: var(--ps-push-acao-bg); }
+.ps-push-acao > i { font-size: 12px; }
+.ps-push-acao--forte { font-weight: 700; color: var(--ps-chip-text); background: var(--ps-push-acao-bg); }
+.ps-push-acao--forte:hover { background: var(--ps-push-acao-hv); }
+.ps-push-acao:disabled { opacity: .6; cursor: progress; }
+.ps-push-acao-erro { font-size: 11.5px; color: var(--ps-danger-text); }
+
 /* =============================================================================
    A5 — abas Processo, Metas, Detalhes e Push em cartao (desenho 1.2.3)
    ============================================================================= */
