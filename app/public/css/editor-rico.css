@@ -505,6 +505,161 @@
 .editor-rico .ql-snow .ql-color .ql-picker-item:not([data-value])::after      { content: "Automática"; }
 .editor-rico .ql-snow .ql-background .ql-picker-item:not([data-value])::after { content: "Sem realce"; }
 
+/* ── Janelinhas da barra: símbolos e revisão (`.bjed-pop`) ───────────────────────────────── */
+
+/* Ícone do botão de símbolos: o próprio "§", como no desenho. */
+.editor-rico-icone-simbolo { font-family: Arial, Helvetica, sans-serif; font-size: 15px; font-weight: 700; line-height: 1; }
+
+.editor-rico-janela {
+    position: absolute;
+    z-index: 60;
+    min-width: 180px;
+    padding: 6px;
+    border-radius: 4px;
+    background: var(--er-pop-bg);
+    box-shadow: var(--er-pop-sombra);
+    animation: editor-rico-entrar .14s cubic-bezier(.22, .8, .3, 1) both;
+}
+
+@keyframes editor-rico-entrar { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+
+/* `.bjed-h` */
+.editor-rico-janela-titulo {
+    padding: 5px 8px 4px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    color: var(--er-rotulo);
+}
+
+/* `.bjed-sym`: grade de 6 colunas de 32px. */
+.editor-rico-simbolos {
+    display: grid;
+    grid-template-columns: repeat(6, 32px);
+    gap: 4px;
+    padding: 4px;
+}
+
+.editor-rico-simbolos button {
+    height: 32px;
+    padding: 0;
+    border: 0;
+    border-radius: 4px;
+    background: var(--er-simbolo-bg, #f3f7fa);
+    color: var(--er-simbolo-tx, #1d3441);
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 15px;
+    cursor: pointer;
+}
+.editor-rico-simbolos button:hover { background: var(--er-simbolo-hover, #dcebf6); color: var(--er-mini-tx); }
+
+[data-bs-theme="dark"] .editor-rico {
+    --er-simbolo-bg:    var(--bs-tertiary-bg);
+    --er-simbolo-tx:    var(--bs-body-color);
+    --er-simbolo-hover: rgba(69, 176, 214, .2);
+    --er-revisao-tipo:  #f08a84;
+    --er-revisao-ok:    #6ddaa2;
+    --er-revisao-para:  #6ddaa2;
+}
+
+/* `.bjed-rev` */
+.editor-rico-revisao {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 260px;
+    max-height: 260px;
+    overflow: auto;
+}
+
+/* `.bjed-it` */
+.editor-rico-revisao-item {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    width: 100%;
+    padding: 7px 10px;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--er-item-tx);
+    font: inherit;
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+}
+.editor-rico-revisao-item:hover { background: var(--er-item-hover); }
+
+.editor-rico-revisao-corpo { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.editor-rico-revisao-tipo {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    color: var(--er-revisao-tipo, #a3232b);
+}
+.editor-rico-revisao-de { color: #8496a3; }
+.editor-rico-revisao-seta { font-size: 11px; color: #8496a3; }
+.editor-rico-revisao-para { color: var(--er-revisao-para, #186c47); }
+
+/* `.bjed-k` */
+.editor-rico-revisao-acao {
+    margin-left: auto;
+    padding-left: 12px;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 11px;
+    color: #8496a3;
+}
+
+.editor-rico-revisao-todos { margin: 6px 6px 2px; }
+
+/* `.bjed-ok` */
+.editor-rico-revisao-ok {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px;
+    font-size: 13px;
+    color: var(--er-revisao-ok, #186c47);
+}
+
+/* ── Aviso da autocorreção (`.bjed-chip`): escuro nos dois temas, como no desenho ──────────── */
+
+.editor-rico-chip {
+    position: absolute;
+    z-index: 61;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 6px 5px 10px;
+    border-radius: 4px;
+    background: #12242f;
+    color: #fff;
+    font-family: inherit;
+    font-size: 12px;
+    white-space: nowrap;
+    box-shadow: 0 10px 24px -10px rgba(0, 0, 0, .55);
+    animation: editor-rico-entrar .16s both;
+}
+.editor-rico-chip b { color: #9fd8ff; font-weight: 700; }
+.editor-rico-chip-icone { font-size: 12px; color: #9fd8ff; margin-right: 8px; }
+.editor-rico-chip .bi-spellcheck { color: #ffd27a; }
+.editor-rico-chip button {
+    padding: 3px 8px;
+    border: 0;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, .12);
+    color: #fff;
+    font: inherit;
+    font-size: 11.5px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.editor-rico-chip button:hover { background: rgba(255, 255, 255, .22); }
+
+[data-bs-theme="dark"] .editor-rico-chip { box-shadow: 0 0 0 1px var(--bs-border-color), 0 10px 24px -10px rgba(0, 0, 0, .7); }
+
 /* ── Localizar e substituir (`.bjed-find`) ───────────────────────────────────────────────── */
 
 .editor-rico-busca {
