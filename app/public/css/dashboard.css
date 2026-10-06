@@ -57,6 +57,7 @@
     --db-seg-border:    #dfe7ed;
     --db-seg-ativo-bg:  #fff;
     --db-barra-trilho:  #e9eff3;
+    --db-barra-marca:   rgba(255,255,255,.7);
     --db-btn-hover-bg:  #f4fafc;
 
     /* acentos */
@@ -166,6 +167,8 @@
     --db-seg-border:    var(--bs-border-color);
     --db-seg-ativo-bg:  var(--bs-tertiary-bg);
     --db-barra-trilho:  var(--bs-secondary-bg);
+    /* no trilho escuro o branco a 70% vira três riscos fortes: marca sutil */
+    --db-barra-marca:   rgba(255,255,255,.12);
     --db-btn-hover-bg:  var(--db-accent-soft);
 
     --db-accent:        #4fb3d4;
@@ -592,6 +595,18 @@
     --db-fp-tom-cargo-fg:  #34505f;
     --db-fp-tom-sem:       linear-gradient(160deg, #f3f5f7, #dbe1e5);
     --db-fp-tom-sem-fg:    #6b8494;
+    /* anel inset de todo avatar do select: a cor do tom a 18% (dc: fg + "2e") */
+    --db-fp-tom-todos-anel: rgba(12,122,156,.18);
+    --db-fp-tom-cargo-anel: rgba(52,80,95,.18);
+    --db-fp-tom-sem-anel:   rgba(107,132,148,.18);
+    /* pessoa sem foto: os 6 AV_TONS pastel do dc 1.2.2. Fundo = degradê 160deg do
+       tom até a mistura 82% tom / 18% cor; boneco e anel na cor do tom. */
+    --db-fp-p0: linear-gradient(160deg, #e3f1f7, #bcdce7); --db-fp-p0-fg: #0c7a9c; --db-fp-p0-anel: rgba(12,122,156,.18);
+    --db-fp-p1: linear-gradient(160deg, #e6effa, #bfd8f0); --db-fp-p1-fg: #0f6fc4; --db-fp-p1-anel: rgba(15,111,196,.18);
+    --db-fp-p2: linear-gradient(160deg, #e7f4ee, #c3ded1); --db-fp-p2-fg: #1f7a4d; --db-fp-p2-anel: rgba(31,122,77,.18);
+    --db-fp-p3: linear-gradient(160deg, #efeaf6, #d7cde3); --db-fp-p3-fg: #6b4b8a; --db-fp-p3-anel: rgba(107,75,138,.18);
+    --db-fp-p4: linear-gradient(160deg, #fbece9, #ebc8c7); --db-fp-p4-fg: #a3232b; --db-fp-p4-anel: rgba(163,35,43,.18);
+    --db-fp-p5: linear-gradient(160deg, #f6efe2, #e3d4bd); --db-fp-p5-fg: #8a5a12; --db-fp-p5-anel: rgba(138,90,18,.18);
     --db-fp-anel:          rgba(16,42,58,.08);
     --db-cal-hover-bg:     #cfe5ee;
     --db-cal-hover-num:    #084f66;
@@ -618,6 +633,16 @@
     --db-fp-tom-cargo-fg:  var(--bs-body-color);
     --db-fp-tom-sem:       rgba(255,255,255,.05);
     --db-fp-tom-sem-fg:    var(--bs-secondary-color);
+    --db-fp-tom-todos-anel: rgba(124,203,228,.22);
+    --db-fp-tom-cargo-anel: rgba(255,255,255,.12);
+    --db-fp-tom-sem-anel:   rgba(255,255,255,.08);
+    /* tons pastel no escuro: véu translúcido da cor + boneco clareado */
+    --db-fp-p0: rgba(79,179,212,.18);  --db-fp-p0-fg: #7ccbe4; --db-fp-p0-anel: rgba(124,203,228,.22);
+    --db-fp-p1: rgba(90,160,230,.18);  --db-fp-p1-fg: #8cc0f0; --db-fp-p1-anel: rgba(140,192,240,.22);
+    --db-fp-p2: rgba(80,190,130,.18);  --db-fp-p2-fg: #85d3a8; --db-fp-p2-anel: rgba(133,211,168,.22);
+    --db-fp-p3: rgba(170,140,210,.18); --db-fp-p3-fg: #c3aee0; --db-fp-p3-anel: rgba(195,174,224,.22);
+    --db-fp-p4: rgba(230,110,115,.18); --db-fp-p4-fg: #f0a0a4; --db-fp-p4-anel: rgba(240,160,164,.22);
+    --db-fp-p5: rgba(220,170,90,.18);  --db-fp-p5-fg: #e6c48a; --db-fp-p5-anel: rgba(230,196,138,.22);
     --db-fp-anel:          rgba(255,255,255,.12);
     --db-cal-hover-bg:     rgba(79,179,212,.24);
     --db-cal-hover-num:    #bfeaf6;
@@ -715,8 +740,8 @@
 }
 .db-page .db-dd.is-aberto .db-dd-chev { transform: rotate(180deg); }
 
-/* avatar: 22px no botão, 30px nas opções. Pessoa = círculo (foto ou iniciais
-   na cor da tabela, .db-avatar--N); "Todos" e cargos = quadrado arredondado. */
+/* avatar: 22px no botão, 30px nas opções. Pessoa = círculo (foto ou boneco
+   num dos 6 tons pastel, .db-dd-tom--pN); "Todos" e cargos = quadrado arredondado. */
 .db-page .db-dd-av {
     --av: 30px;
     width: var(--av);
@@ -747,16 +772,24 @@
     border-radius: 50%;
     box-shadow: inset 0 0 0 1px var(--db-fp-anel);
 }
+/* boneco a 62% do avatar (14px no botão de 22, 19px na lista de 30), descido 10%
+   para o ombro encostar na base do círculo (dc: avatar() do dropdown) */
 .db-page .db-dd-av-ini {
-    font-size: calc(var(--av) * .38);
-    font-weight: 700;
+    font-size: calc(var(--av) * .62);
+    line-height: 1;
     color: var(--db-fp-sobre-cor);
-    letter-spacing: .01em;
 }
+.db-page .db-dd-av-ini > i { line-height: 1; transform: translateY(calc(var(--av) * .1)); }
 .db-page .db-dd-av-foto { object-fit: cover; display: inline-block; }
-.db-page .db-dd-tom--todos { background: var(--db-fp-tom-todos); color: var(--db-fp-tom-todos-fg); }
-.db-page .db-dd-tom--cargo { background: var(--db-fp-tom-cargo); color: var(--db-fp-tom-cargo-fg); }
-.db-page .db-dd-tom--sem   { background: var(--db-fp-tom-sem);   color: var(--db-fp-tom-sem-fg); }
+.db-page .db-dd-tom--todos { background: var(--db-fp-tom-todos); color: var(--db-fp-tom-todos-fg); box-shadow: inset 0 0 0 1px var(--db-fp-tom-todos-anel); }
+.db-page .db-dd-tom--cargo { background: var(--db-fp-tom-cargo); color: var(--db-fp-tom-cargo-fg); box-shadow: inset 0 0 0 1px var(--db-fp-tom-cargo-anel); }
+.db-page .db-dd-tom--sem   { background: var(--db-fp-tom-sem);   color: var(--db-fp-tom-sem-fg);   box-shadow: inset 0 0 0 1px var(--db-fp-tom-sem-anel); }
+.db-page .db-dd-tom--p0 { background: var(--db-fp-p0); color: var(--db-fp-p0-fg); box-shadow: inset 0 0 0 1px var(--db-fp-p0-anel); }
+.db-page .db-dd-tom--p1 { background: var(--db-fp-p1); color: var(--db-fp-p1-fg); box-shadow: inset 0 0 0 1px var(--db-fp-p1-anel); }
+.db-page .db-dd-tom--p2 { background: var(--db-fp-p2); color: var(--db-fp-p2-fg); box-shadow: inset 0 0 0 1px var(--db-fp-p2-anel); }
+.db-page .db-dd-tom--p3 { background: var(--db-fp-p3); color: var(--db-fp-p3-fg); box-shadow: inset 0 0 0 1px var(--db-fp-p3-anel); }
+.db-page .db-dd-tom--p4 { background: var(--db-fp-p4); color: var(--db-fp-p4-fg); box-shadow: inset 0 0 0 1px var(--db-fp-p4-anel); }
+.db-page .db-dd-tom--p5 { background: var(--db-fp-p5); color: var(--db-fp-p5-fg); box-shadow: inset 0 0 0 1px var(--db-fp-p5-anel); }
 
 /* painel: 300px (100% no celular), sombra suave, entrada de 180ms */
 .db-page .db-dd-painel,
@@ -1236,7 +1269,7 @@
     box-shadow: inset 0 1px 1px rgba(16,42,58,.06);
     overflow: hidden;
 }
-.db-page .db-barra-marca { position: absolute; top: 0; bottom: 0; width: 1px; background: rgba(255,255,255,.7); z-index: 2; }
+.db-page .db-barra-marca { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--db-barra-marca); z-index: 2; }
 .db-page .db-barra-fill {
     position: relative;
     height: 100%;
@@ -1747,6 +1780,8 @@
 .db-page .db-cel { display: inline-flex; align-items: center; justify-content: center; gap: 2px; min-width: 0; }
 .db-page .db-cel--seta { padding-left: 18px; }
 .db-page .db-total-cel { display: inline-flex; flex-direction: column; align-items: center; gap: 3px; }
+/* lugar da pílula nas colunas sem tendência: mesma altura, invisível */
+.db-page .db-total-espaco { display: block; height: 18px; visibility: hidden; }
 
 .db-page .db-tend {
     display: inline-flex;
@@ -1855,6 +1890,9 @@
 @media screen and (max-width: 767.98px) {
     .db-page .db-cel-lista { display: block; }
     .db-page .db-table-scroll > .db-table { display: none; }
+    /* vazio no celular (dc, ehCel): só o texto, 40px 16px, sem o ícone */
+    .db-page .db-empty { padding: 40px 16px; }
+    .db-page .db-empty i { display: none; }
 }
 
 /* barra "Ordenar": rótulo 11.5/700, select 34px com chevron próprio, botão de inverter */
@@ -2139,6 +2177,7 @@
     .db-page .db-table-header { padding-top: 10px; padding-bottom: 10px; box-shadow: none; }
     .db-page .db-table-scroll { overflow: visible !important; }
     .db-page .db-table tr { break-inside: avoid; box-shadow: none !important; }
+    .db-page .db-table thead th,
     .db-page .db-table tbody td,
     .db-page .db-table tfoot th,
     .db-page .db-table tfoot td { padding-top: 5px; padding-bottom: 5px; }

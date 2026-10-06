@@ -248,19 +248,20 @@
     {# Celular (< 768px): lista de cards com as mesmas linhas; a tabela abaixo segue no DOM. #}
     {{ include('dashboard/_desempenho_cards.html.twig') }}
     <div class="table-responsive db-table-scroll">
-        {% if linhas is empty %}
-        <div class="db-empty">
-            <i class="bi bi-people"></i>
-            Nenhum colaborador com esses filtros.
-        </div>
-        {% else %}
+        {# Sem linhas a tabela continua com a linha de cabeçalhos (desenho); o aviso de
+           vazio fica DEPOIS dela, fora do <tbody>, porque os testes contam
+           `table > tbody > tr` como gente. #}
         <table class="table db-table mb-0">
             <thead>
                 {# Ordenação por clique no cabeçalho (padrão Expediente): o th leva `data-ordenar`,
                    o motor filtro-tabela.js grava nos hidden ordenar/direcao do form e recarrega o
                    fragmento. A classe asc/desc pinta a coluna ordenada e vira o chevron (CSS na casca). #}
-                {% set ordCol = filtros.ordenar|default('') %}
-                {% set ordDir = filtros.direcao|default('') == 'asc' ? 'asc' : 'desc' %}
+                {# Mesmo critério do UseCase (e do _desempenho_cards): coluna vazia ou
+                   desconhecida = Total metas decrescente, já pintada desde a abertura. #}
+                {% set ordPedido = filtros.ordenar|default('') %}
+                {% set ordValida = ordPedido in ['advogado', 'cargo', 'metas', 'metas_ativas', 'metas_vencidas', 'prazos', 'demandas', 'demandas_ativas', 'pastas_criadas'] %}
+                {% set ordCol = ordValida ? ordPedido : 'metas' %}
+                {% set ordDir = ordValida and filtros.direcao|default('') == 'asc' ? 'asc' : 'desc' %}
                 <tr>
                     <th class="sortable db-th-colab{{ ordCol == 'advogado' ? ' ' ~ ordDir : '' }}" data-ordenar="advogado">Colaborador <i class="bi bi-chevron-expand sort-icon"></i></th>
                     <th class="sortable db-th-cargo{{ ordCol == 'cargo' ? ' ' ~ ordDir : '' }}" data-ordenar="cargo">Cargo <i class="bi bi-chevron-expand sort-icon"></i></th>
@@ -274,6 +275,7 @@
                     <th class="sortable text-center db-th-num{{ ordCol == 'pastas_criadas' ? ' ' ~ ordDir : '' }}" data-ordenar="pastas_criadas"><i class="bi bi-chevron-expand sort-icon"></i> Pastas criadas</th>
                 </tr>
             </thead>
+            {% if linhas is not empty %}
             <tbody>
                 {% for linha in linhas %}
                 {# avatar: uma das 9 cores do desenho, escolhida pelo id (estável entre recargas) #}
@@ -286,8 +288,8 @@
                 {# ícone do cargo: mapa visual do desenho; o nome do cargo é livre no sistema #}
                 {% set cargoLower = (linha.cargoNome ?? '')|lower %}
                 {% set cargoIcone = linha.cargoNome is null ? 'bi-dash-circle'
-                    : ('advog' in cargoLower) ? 'bi-briefcase'
                     : ('sóci' in cargoLower or 'soci' in cargoLower) ? 'bi-award'
+                    : ('advog' in cargoLower) ? 'bi-briefcase'
                     : ('estagi' in cargoLower) ? 'bi-mortarboard'
                     : ('paraleg' in cargoLower) ? 'bi-journal-text'
                     : ('financ' in cargoLower) ? 'bi-cash-coin'
@@ -386,6 +388,9 @@
                números do Total não são link: a soma conta duas vezes a meta com dois
                responsáveis, e a lista de destino não. #}
             {% set tAnt = dashboard.totaisAnteriores %}
+            {# Toda célula do Total empilha número + pílula (desenho). Nas 4 colunas sem
+               tendência, com período ativo, um espaçador invisível do tamanho da pílula
+               deixa os 7 números na mesma altura. Sem período não há pílula nenhuma. #}
             <tfoot>
                 <tr class="db-total-row">
                     <th scope="row" class="db-td-colab">
@@ -396,15 +401,21 @@
                     </th>
                     <td class="db-td-cargo"></td>
                     <td class="text-center db-td-num"><span class="db-total-cel"><span class="db-total-num">{{ tMetas }}</span>{{ tend.tendencia(tMetas, tAnt is null ? null : tAnt.metas, 'pilula') }}</span></td>
-                    <td class="text-center db-td-num"><span class="db-total-num">{{ tAtivas }}</span></td>
-                    <td class="text-center db-td-num"><span class="db-total-num db-total-num--venc">{{ tVenc }}</span></td>
-                    <td class="text-center db-td-num"><span class="db-total-num db-total-num--praz">{{ tPraz }}</span></td>
+                    <td class="text-center db-td-num"><span class="db-total-cel"><span class="db-total-num">{{ tAtivas }}</span>{% if tAnt is not null %}<span class="db-total-espaco" aria-hidden="true"></span>{% endif %}</span></td>
+                    <td class="text-center db-td-num"><span class="db-total-cel"><span class="db-total-num db-total-num--venc">{{ tVenc }}</span>{% if tAnt is not null %}<span class="db-total-espaco" aria-hidden="true"></span>{% endif %}</span></td>
+                    <td class="text-center db-td-num"><span class="db-total-cel"><span class="db-total-num db-total-num--praz">{{ tPraz }}</span>{% if tAnt is not null %}<span class="db-total-espaco" aria-hidden="true"></span>{% endif %}</span></td>
                     <td class="text-center db-td-num"><span class="db-total-cel"><span class="db-total-num">{{ tDem }}</span>{{ tend.tendencia(tDem, tAnt is null ? null : tAnt.demandas, 'pilula') }}</span></td>
-                    <td class="text-center db-td-num"><span class="db-total-num">{{ tDemA }}</span></td>
+                    <td class="text-center db-td-num"><span class="db-total-cel"><span class="db-total-num">{{ tDemA }}</span>{% if tAnt is not null %}<span class="db-total-espaco" aria-hidden="true"></span>{% endif %}</span></td>
                     <td class="text-center db-td-num"><span class="db-total-cel"><span class="db-total-num">{{ tCriadas }}</span>{{ tend.tendencia(tCriadas, tAnt is null ? null : tAnt.pastas_criadas, 'pilula') }}</span></td>
                 </tr>
             </tfoot>
+            {% endif %}
         </table>
+        {% if linhas is empty %}
+        <div class="db-empty">
+            <i class="bi bi-people"></i>
+            Nenhum colaborador com esses filtros.
+        </div>
         {% endif %}
     </div>
     <div class="db-nota">

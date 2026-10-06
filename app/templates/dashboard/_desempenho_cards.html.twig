@@ -66,8 +66,8 @@
     {% set iniciais = partes|slice(0, 2)|map(p => p|slice(0, 1))|join|upper %}
     {% set cargoLower = (linha.cargoNome ?? '')|lower %}
     {% set cargoIcone = linha.cargoNome is null ? 'bi-dash-circle'
-        : ('advog' in cargoLower) ? 'bi-briefcase'
         : ('sóci' in cargoLower or 'soci' in cargoLower) ? 'bi-award'
+        : ('advog' in cargoLower) ? 'bi-briefcase'
         : ('estagi' in cargoLower) ? 'bi-mortarboard'
         : ('paraleg' in cargoLower) ? 'bi-journal-text'
         : ('financ' in cargoLower) ? 'bi-cash-coin'

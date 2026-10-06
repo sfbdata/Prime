@@ -362,6 +362,12 @@
         if (facetas) {
             facetas.textContent = textoDoSelect(form, 'responsavel', 'Todos os responsáveis')
                 + ' · ' + textoDoSelect(form, 'cargo', 'Todos os cargos');
+            // desenho (printFiltros): "· Busca: <texto>" só quando há busca
+            var busca = form ? form.querySelector('.js-filtro-busca') : null;
+            var termo = busca ? busca.value.trim() : '';
+            if (termo !== '') {
+                facetas.textContent += ' · Busca: ' + termo;
+            }
         }
         if (quando) {
             var d = new Date();

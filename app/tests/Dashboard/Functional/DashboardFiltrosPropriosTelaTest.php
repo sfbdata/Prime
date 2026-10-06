@@ -249,7 +249,7 @@ final class DashboardFiltrosPropriosTelaTest extends DashboardWebTestCase
         // Bruno: sem foto → boneco.
         $bruno = $this->opcaoPropria($crawler, 'responsavel', (string) $c['bruno']->getId());
         self::assertCount(0, $bruno->filter('img'));
-        // Desenho (dc 1.2.2): sem foto, o boneco `bi-person-fill` na cor da tabela.
+        // Desenho (dc 1.2.2): sem foto, o boneco `bi-person-fill` num tom pastel (DashboardFidelidadeV1TelaTest).
         self::assertCount(1, $bruno->filter('.db-dd-av > .db-dd-av-ini > i.bi-person-fill'));
         self::assertSame($c['advogado']->getNome(), trim($bruno->filter('.db-dd-op-sub')->text()));
 

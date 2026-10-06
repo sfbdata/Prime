@@ -53,7 +53,7 @@
             <div class="db-print-cabecalho-esq">
                 <div class="db-print-marca">BlueJus · Dashboard</div>
                 <div class="db-print-titulo">Relatório de desempenho</div>
-                <div class="db-print-filtros">Período <span class="db-print-periodo">{{ fmtDe != '' ? fmtDe|split('-')|reverse|join('/') : 'início' }} a {{ fmtAte != '' ? fmtAte|split('-')|reverse|join('/') : 'hoje' }}</span> · <span class="db-print-facetas">{{ respNome }} · {{ cargoNome }}</span></div>
+                <div class="db-print-filtros">Período <span class="db-print-periodo">{{ fmtDe != '' ? fmtDe|split('-')|reverse|join('/') : 'início' }} a {{ fmtAte != '' ? fmtAte|split('-')|reverse|join('/') : 'hoje' }}</span> · <span class="db-print-facetas">{{ respNome }} · {{ cargoNome }}{{ filtros.busca|default('')|trim != '' ? ' · Busca: ' ~ filtros.busca|trim : '' }}</span></div>
             </div>
             <div class="db-print-gerado">Gerado em <span class="db-print-quando">{{ 'now'|date('d/m/Y') }} às {{ 'now'|date('H:i') }}</span><br>por {{ app.user.fullName }}</div>
         </div>
@@ -136,7 +136,8 @@
             <span class="db-fp-div" aria-hidden="true"></span>
 
             {# Responsável — "Todos" + cada colaborador ativo do escritório (as mesmas opções
-               do <select> nativo). Avatar: foto quando existe, senão o boneco (bi-person-fill) na cor da tabela, como o dc 1.2.2. #}
+               do <select> nativo). Avatar: foto quando existe, senão o boneco (bi-person-fill) num
+               dos 6 tons pastel do dc 1.2.2 (AV_TONS, índice (id - 1) % 6), não o degradê da tabela. #}
             {% set respAtual = { nome: 'Todos os responsáveis', foto: null, iniciais: '', av: null } %}
             {% set respItens = [] %}
             {% for u in responsaveis %}
@@ -147,7 +148,7 @@
                     sub: u.cargo is not empty ? u.cargo : 'Sem cargo',
                     foto: u.foto,
                     iniciais: partes|slice(0, 2)|map(p => p|slice(0, 1))|join|upper,
-                    av: u.id % 9,
+                    av: (u.id - 1) % 6,
                 } %}
                 {% set respItens = respItens|merge([item]) %}
                 {% if item.valor == respSel %}{% set respAtual = item %}{% endif %}
@@ -161,9 +162,9 @@
                         {% elseif respAtual.foto %}
                             <img class="db-dd-av-foto" src="{{ path('app_profile_foto_serve', {nome: respAtual.foto}) }}" alt=""
                                  onerror="this.style.display='none';this.nextElementSibling.style.display='inline-flex';">
-                            <span class="db-dd-av-ini db-avatar--{{ respAtual.av }}" style="display:none"><i class="bi bi-person-fill" aria-hidden="true"></i></span>
+                            <span class="db-dd-av-ini db-dd-tom--p{{ respAtual.av }}" style="display:none"><i class="bi bi-person-fill" aria-hidden="true"></i></span>
                         {% else %}
-                            <span class="db-dd-av-ini db-avatar--{{ respAtual.av }}"><i class="bi bi-person-fill" aria-hidden="true"></i></span>
+                            <span class="db-dd-av-ini db-dd-tom--p{{ respAtual.av }}"><i class="bi bi-person-fill" aria-hidden="true"></i></span>
                         {% endif %}
                     </span>
                     <span class="db-dd-btn-nome">{{ respAtual.nome }}</span>
@@ -193,9 +194,9 @@
                                     {% if it.foto %}
                                         <img class="db-dd-av-foto" src="{{ path('app_profile_foto_serve', {nome: it.foto}) }}" alt="" loading="lazy"
                                              onerror="this.style.display='none';this.nextElementSibling.style.display='inline-flex';">
-                                        <span class="db-dd-av-ini db-avatar--{{ it.av }}" style="display:none"><i class="bi bi-person-fill" aria-hidden="true"></i></span>
+                                        <span class="db-dd-av-ini db-dd-tom--p{{ it.av }}" style="display:none"><i class="bi bi-person-fill" aria-hidden="true"></i></span>
                                     {% else %}
-                                        <span class="db-dd-av-ini db-avatar--{{ it.av }}"><i class="bi bi-person-fill" aria-hidden="true"></i></span>
+                                        <span class="db-dd-av-ini db-dd-tom--p{{ it.av }}"><i class="bi bi-person-fill" aria-hidden="true"></i></span>
                                     {% endif %}
                                 </span>
                                 <span class="db-dd-op-txt">
