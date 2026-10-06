@@ -119,6 +119,14 @@ _(preenchido após as investigações)_
 | D-CRON | Foto diária do Dashboard (B39) | comando pronto | agendar o cron na VPS | quando | — | `55 2 * * * docker exec -w /var/www/app jusprime_php_prod php bin/console app:dashboard:fotografar` (UTC; sem `-w` não roda) | sem foto, as tendências de Vencidas/Prazos não aparecem |
 | D-HASH | Rodar `app:documentos:calcular-hash` em produção | comando pronto, idempotente, `--dry-run` | execução em prod é do dono | quando | — | `--dry-run --limite=500` primeiro, depois fatias com `nice/ionice` fora de hora | duplicados antigos não são detectados |
 | D-LIBRE | DOC/PPT/MSG no visualizador | DOCX/XLSX/texto feitos | exige LibreOffice no container | instalar? | — | sim, na imagem de prod (custo ~300 MB) | — |
+| D-DOC-S3 | Documentos: excluir sem `confirm()`, só com Desfazer (DOC-57) | `confirm()` mantido; Desfazer chega com a lixeira (L7) | trocar o padrão de confirmação do sistema | aceitar? | — | manter `confirm()` até a frente dos 63 `confirm()` | — |
+| D-DOC-S4 | Documentos: rótulo ✦/"BlueJus IA" em sugestões feitas por regra (DOC-78) | rótulo neutro "Sugerir documentos" (`bi-list-check`) | marca de IA sobre regra fixa | aceitar o rótulo do desenho? | — | rótulo honesto | — |
+| D-DOC-S6 | Documentos: desativar checklist com motivo, cobrança automática, 30 dias (DOC-73/75) | só o estado do checklist (L11) | política de notificação e cobrança | quem é cobrado, quando, por qual canal | — | — | sem cobrança automática |
+| D-DOC-S7 | Documentos: soltar arquivo no visor vira upload (DOC-51) | não renderizado | semântica do arraste no visor | aceitar? | — | — | — |
+| D-DOC-S9 | Cobrança: grid de 2 colunas sem checklist no `fm` (defeito em prod desde 90c7f773, achado ao ler o código) | patch de 1 linha + 2 testes descritos (spec Documentos §3) | a tela do Objeto está fora do escopo da rodada (§0.6) | corrigir agora? | — | sim, commit isolado | faixa vazia de 356px na aba Documentos do Objeto (≥1200px) |
+| D-DOC-SUB | Documentos: "Nº · descrição" visível sob o nome no modo Detalhes | mantido (função §16.2) | o dc esconde o sub em Detalhes | seguir o desenho e mostrar só no painel/Conteúdo? | — | — | — |
+| D-DOC-ORD | Documentos: ordem padrão | "Manual" = `ordem` e depois nome (igual ao fm antigo, A–Z quando ordem=0) | o dc não ordena (ordem de inserção) | ok? | — | manter | — |
+| D-DOC-RO | Documentos: ações de escrita para quem só lê e em pasta excluída (lápide) | pré-existente: nem o fm antigo nem o novo escondem; as rotas de seção/documento não checam `estaExcluida` | regra de somente leitura da lápide | a lápide bloqueia escrita nos documentos? | — | bloquear (frente própria, com teste) | — |
 
 ## 5. Handoff — próxima ação exata
 

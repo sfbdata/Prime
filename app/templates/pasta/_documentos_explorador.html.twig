@@ -1,0 +1,159 @@
+{#
+   Explorador de documentos da Pasta — aba Documentos.
+   Desenho: 02 - EXPEDIENTES 1.2.3, dc L2020-2297 (template) e L4670-4960 (lógica).
+   Decisão de arquitetura: docs/specs/trilha-b-documentos-arquitetura.md §1 — explorador PRÓPRIO
+   da Pasta; o `.fm` (pasta-arquivos.js/.css) fica congelado para a Cobrança e NÃO é carregado aqui.
+
+   O servidor entrega o markup estático (faixa, menus, checklist, cabeçalho das colunas, rodapé)
+   e os DADOS num `<script type="application/json" id="pexDados">` montado por
+   `ExploradorDeDocumentosOutput`; `public/js/pasta-explorador.js` renderiza só o nível aberto.
+   Por isso a lista `#pexLista` nasce vazia: com 1.128 documentos em produção, 1.128 linhas e
+   1.128 modais no HTML era o que deixava a aba lenta.
+
+   Contratos que permanecem (inventário §7): `#documentosSugeridos` imediatamente ANTES e fora
+   daqui; `#uploadDuplicadosAviso` com os mesmos ids (preenchido pelo helper de upload da página);
+   `#previewDocModal` aberto pelo gatilho `.pex-arq-preview[data-url][data-nome][data-mime]`;
+   `window.enviarArquivoComProgresso` com a assinatura atual; ids do checklist intactos.
+
+   Lote L1 (spec §5): só o modo Detalhes é renderizado; os outros sete modos, o painel de
+   detalhes e o filtro por tipo chegam no L2 — menu sem ação real não entra na tela.
+#}
+<div class="pex" id="pexExplorador"
+     data-pasta-id="{{ pasta.id }}"
+     data-total-arquivos="{{ explorador.totalArquivos }}"
+     data-url-upload="{{ path('pasta_peticionar_upload', {id: pasta.id}) }}"
+     data-csrf-upload="{{ csrf_token('peticionar_upload_' ~ pasta.id) }}"
+     data-url-criar-secao="{{ path('pasta_secao_criar', {id: pasta.id}) }}"
+     data-csrf-criar-secao="{{ csrf_token('pasta_secao_criar_' ~ pasta.id) }}"
+     data-url-reordenar-secoes="{{ path('pasta_secoes_reordenar', {id: pasta.id}) }}"
+     data-csrf-reordenar-secoes="{{ csrf_token('reordenar_secoes_pasta_' ~ pasta.id) }}"
+     data-url-reordenar-docs="{{ path('pasta_documentos_reordenar', {id: pasta.id}) }}"
+     data-csrf-reordenar-docs="{{ csrf_token('reordenar_docs_pasta_' ~ pasta.id) }}"
+     data-url-renomear-tpl="{{ path('pasta_secao_renomear', {secaoId: '__ID__'}) }}"
+     data-url-excluir-tpl="{{ path('pasta_secao_excluir', {secaoId: '__ID__'}) }}"
+     data-url-mover-tpl="{{ path('pasta_secao_mover', {secaoId: '__ID__'}) }}"
+     data-url-editar-doc-tpl="{{ path('pasta_documento_edit', {id: '__ID__'}) }}"
+     data-url-excluir-doc-tpl="{{ path('pasta_documento_delete', {id: '__ID__'}) }}">
+
+    {# ── Faixa de cabeçalho (dc L2024-2076) ─────────────────────────────── #}
+    <div class="pex-cab">
+        <div class="pex-titulo">
+            <i class="bi bi-folder2-open" aria-hidden="true"></i>
+            <span class="pex-titulo-txt">Documentos</span>
+            <span class="pex-contagem" id="pexContagem">{{ explorador.totalArquivos }}</span>
+        </div>
+        <div class="pex-espaco"></div>
+        <label class="pex-busca" for="pexBusca">
+            <i class="bi bi-search" aria-hidden="true"></i>
+            <input type="search" id="pexBusca" placeholder="Buscar arquivos e pastas…" aria-label="Buscar arquivos e pastas" autocomplete="off">
+            <button type="button" class="pex-busca-limpar" id="pexBuscaLimpar" aria-label="Limpar busca" hidden><i class="bi bi-x"></i></button>
+        </label>
+        <button type="button" class="pex-btn-nova" id="pexNovaPasta"><i class="bi bi-folder-plus" aria-hidden="true"></i><span>Nova pasta</span></button>
+        <button type="button" class="pex-btn-anexar" id="pexAnexar"><i class="bi bi-paperclip" aria-hidden="true"></i><span>Anexar</span></button>
+        <input type="file" id="pexFileInput" multiple hidden accept=".png,.jpg,.jpeg,.pdf,.kml,.xml,.xls,.xlsx,.doc,.docx,.txt,.zip,.mp3,.ogg,.opus,.m4a,.mp4,.mov">
+
+        <div class="pex-menu-wrap">
+            <button type="button" class="pex-btn-menu" id="pexOrganizar" aria-haspopup="menu" aria-expanded="false" aria-controls="pexOrganizarMenu" title="Classificar e escolher colunas">
+                <i class="bi bi-sliders" aria-hidden="true"></i>Organizar<i class="bi bi-chevron-down pex-chev" aria-hidden="true"></i>
+            </button>
+            <div class="pex-popover pex-popover--organizar" id="pexOrganizarMenu" role="menu" aria-label="Organizar" hidden>
+                <div class="pex-pop-rotulo">Classificar por</div>
+                {# "Manual" é a 1ª pílula (S-5): é a ordem que o arraste grava em
+                   pasta_documentos_reordenar / pasta_secoes_reordenar. #}
+                <div class="pex-pilulas" id="pexClassificar">
+                    <button type="button" role="menuitemradio" aria-checked="true"  data-pex-classificar="manual"><span>Manual</span></button>
+                    <button type="button" role="menuitemradio" aria-checked="false" data-pex-classificar="nome"><span>Nome</span><i class="bi pex-seta" aria-hidden="true"></i></button>
+                    <button type="button" role="menuitemradio" aria-checked="false" data-pex-classificar="tipo"><span>Tipo</span><i class="bi pex-seta" aria-hidden="true"></i></button>
+                    <button type="button" role="menuitemradio" aria-checked="false" data-pex-classificar="tamanho"><span>Tamanho</span><i class="bi pex-seta" aria-hidden="true"></i></button>
+                    <button type="button" role="menuitemradio" aria-checked="false" data-pex-classificar="data"><span>Modificado</span><i class="bi pex-seta" aria-hidden="true"></i></button>
+                    {# Só aparece com a coluna Categoria ligada (S-2). #}
+                    <button type="button" role="menuitemradio" aria-checked="false" data-pex-classificar="categoria" hidden><span>Categoria</span><i class="bi pex-seta" aria-hidden="true"></i></button>
+                </div>
+                <div class="pex-pop-sep"></div>
+                <div class="pex-pop-rotulo">Colunas</div>
+                <button type="button" class="pex-pop-item" role="menuitemcheckbox" aria-checked="false" data-pex-coluna="categoria" title="Mostra a categoria jurídica do documento (Procuração, Identificação…) como 5ª coluna">
+                    <span class="pex-ponto" aria-hidden="true"></span><i class="bi bi-tag" aria-hidden="true"></i><span>Categoria</span>
+                </button>
+                <div class="pex-pop-sep"></div>
+                <button type="button" class="pex-pop-item" id="pexRestaurar"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i><span>Restaurar padrão</span></button>
+            </div>
+        </div>
+
+        <div class="pex-menu-wrap">
+            <button type="button" class="pex-btn-menu" id="pexVisualizar" aria-haspopup="menu" aria-expanded="false" aria-controls="pexVisualizarMenu">
+                <i class="bi bi-list-columns-reverse" aria-hidden="true"></i>Visualizar<i class="bi bi-chevron-down pex-chev" aria-hidden="true"></i>
+            </button>
+            <div class="pex-popover pex-popover--visualizar" id="pexVisualizarMenu" role="menu" aria-label="Modo de exibição" hidden>
+                <button type="button" class="pex-pop-item" role="menuitemradio" aria-checked="true" data-pex-modo="det">
+                    <span class="pex-ponto" aria-hidden="true"></span><i class="bi bi-list-columns-reverse" aria-hidden="true"></i><span>Detalhes</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    {# ── Checklist: faixa no topo, visível em qualquer nível (S-8, dc L2079) ── #}
+    {{ include('pasta/_documentos_checklist.html.twig') }}
+
+    {# ── Barra de progresso do upload (função só do sistema, DOC-43) ─────── #}
+    <div class="pex-upload-bar" id="pexUploadBar" hidden>
+        <i class="bi bi-cloud-arrow-up" aria-hidden="true"></i>
+        <span class="pex-upload-nome" id="pexUploadNome"></span>
+        <div class="progress" role="progressbar" aria-label="Progresso do upload"><div class="progress-bar" id="pexUploadProgresso" style="width:0%"></div></div>
+        <span class="pex-upload-contador" id="pexUploadContador"></span>
+    </div>
+
+    {# Aviso de arquivo duplicado (duplicadoDe[] do upload). Preenchido pelo helper de upload
+       da página, sobrevive ao reload que o explorador faz ao terminar o lote. Ids = contrato. #}
+    <div id="uploadDuplicadosAviso" class="alert alert-warning alert-dismissible small py-2 mb-3 d-none" role="status"
+         data-url-pasta-tpl="{{ path('pasta_show', {id: '__ID__'}) }}">
+        <i class="bi bi-files me-1"></i><strong>Arquivo idêntico já existe no escritório.</strong>
+        <ul class="mb-0 mt-1 ps-3" id="uploadDuplicadosLista"></ul>
+        <button type="button" class="btn-close" aria-label="Fechar" id="uploadDuplicadosFechar"></button>
+    </div>
+
+    {# ── Corpo: resultado da busca, trilha, cabeçalho das colunas e lista ── #}
+    <div class="pex-corpo" id="pexCorpo">
+        <div class="pex-busca-info" id="pexBuscaInfo" hidden></div>
+
+        <div class="pex-trilha" id="pexTrilha" hidden>
+            <button type="button" class="pex-subir" id="pexSubir" title="Voltar à pasta anterior (Backspace)" aria-label="Voltar à pasta anterior"><i class="bi bi-arrow-up" aria-hidden="true"></i></button>
+            <i class="bi bi-folder2-open pex-trilha-ico" aria-hidden="true"></i>
+            <span class="pex-trilha-niveis" id="pexTrilhaNiveis"></span>
+        </div>
+
+        {# Cabeçalho estático do modo Detalhes (dc L2213). Clicar classifica; o `aria-sort`
+           nasce em "none": nenhuma coluna manda até alguém pedir. A coluna Categoria entra por
+           JS quando ligada no Organizar. #}
+        <div class="pex-cabecalho" id="pexCabecalho">
+            <div class="pex-col pex-col-nome" aria-sort="none"><button type="button" data-pex-classificar="nome" title="Classificar por nome"><span>Nome</span><i class="bi pex-seta" aria-hidden="true"></i></button></div>
+            <div class="pex-col pex-col-tipo" aria-sort="none"><button type="button" data-pex-classificar="tipo" title="Classificar por tipo"><span>Tipo</span><i class="bi pex-seta" aria-hidden="true"></i></button></div>
+            <div class="pex-col pex-col-tam" aria-sort="none"><button type="button" data-pex-classificar="tamanho" title="Classificar por tamanho"><span>Tamanho</span><i class="bi pex-seta" aria-hidden="true"></i></button></div>
+            <div class="pex-col pex-col-data" aria-sort="none"><button type="button" data-pex-classificar="data" title="Classificar por data de modificação"><span>Modificado</span><i class="bi pex-seta" aria-hidden="true"></i></button></div>
+            <div class="pex-col pex-col-acoes" aria-hidden="true"></div>
+        </div>
+
+        <div class="pex-lista" id="pexLista" tabindex="0" aria-label="Arquivos e pastas"></div>
+
+        <div class="pex-vazio" id="pexVazio" hidden>
+            <i class="bi" id="pexVazioIcone" aria-hidden="true"></i>
+            <span id="pexVazioTexto"></span>
+        </div>
+
+        {# Sem JS a lista ainda leva a cada arquivo (§16.10): degradação, não beco sem saída. #}
+        <noscript>
+            <ul class="pex-noscript">
+                {% for arquivo in explorador.arquivos %}
+                    <li><a href="{{ arquivo.viewUrl }}" target="_blank" rel="noopener noreferrer">{{ arquivo.nome }}</a></li>
+                {% else %}
+                    <li>Nenhum arquivo nesta pasta.</li>
+                {% endfor %}
+            </ul>
+        </noscript>
+
+        {# Os dados do explorador. JSON com HEX_TAG/AMP/APOS/QUOT (ExploradorDeDocumentosOutput::json):
+           `<` vira <, então um nome de arquivo com `</script>` não fecha esta tag. #}
+        <script type="application/json" id="pexDados">{{ explorador.json|raw }}</script>
+    </div>
+
+    <div class="pex-rodape" id="pexRodape"></div>
+</div>

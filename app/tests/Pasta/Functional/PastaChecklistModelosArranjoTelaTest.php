@@ -81,13 +81,13 @@ final class PastaChecklistModelosArranjoTelaTest extends JusPrimeWebTestCase
 
         self::assertSame(
             1,
-            $crawler->filter('.fm-checklist-progresso > #btnChecklistModelos')->count(),
+            $crawler->filter('#pexChecklist .pex-ck-cab > #btnChecklistModelos')->count(),
             'o botão de modelos saiu da barra de ações do checklist',
         );
 
         self::assertSame(
             3,
-            $crawler->filter('.fm-checklist-progresso > .fm-checklist-acao')->count(),
+            $crawler->filter('#pexChecklist .pex-ck-cab > .pex-ck-acao')->count(),
             'a barra tem três ações: editar, adicionar e modelos',
         );
     }
@@ -103,7 +103,7 @@ final class PastaChecklistModelosArranjoTelaTest extends JusPrimeWebTestCase
         $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
         self::assertResponseIsSuccessful();
 
-        $painel = $crawler->filter('#fmChecklist .fm-checklist-corpo > #checklistModelosPainel');
+        $painel = $crawler->filter('#pexChecklist .pex-ck-corpo > #checklistModelosPainel');
         self::assertSame(1, $painel->count(), 'o painel de modelos saiu de dentro do cartão do checklist');
 
         self::assertStringContainsString(
@@ -112,7 +112,7 @@ final class PastaChecklistModelosArranjoTelaTest extends JusPrimeWebTestCase
             'o painel nasce fechado: quem abre é o botão',
         );
 
-        // O painel NÃO pode virar modal do Bootstrap: o gerenciador de arquivos é animado, e
+        // O painel NÃO pode virar modal do Bootstrap: o painel da aba é animado, e
         // ancestral com `transform` vira bloco de contenção — o modal ficaria abaixo do backdrop.
         self::assertStringNotContainsString('modal', (string) $painel->attr('class'));
         self::assertNull($painel->attr('data-bs-toggle'));

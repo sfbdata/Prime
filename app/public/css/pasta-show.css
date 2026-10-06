@@ -3371,17 +3371,12 @@ a.ps-push-doc-link:hover { color: var(--ps-push-doc); text-decoration: underline
 
 /* =============================================================================
    A6 — Financeiro e Documentos: so tokens e raios, sem reorganizar.
-   O Financeiro (fatia 2) ja e todo `.ps-*` e os raios dele mudaram na A1. O
-   gerenciador de arquivos (aba Documentos) usa o pasta-arquivos.css, que e
-   COMPARTILHADO com a tela do Objeto (cobranca) — por isso os raios dele so
-   mudam aqui, sob `.ps-page`: fora da pasta ele continua com 14px/9px.
+   O Financeiro (fatia 2) ja e todo `.ps-*` e os raios dele mudaram na A1. A aba
+   Documentos tem explorador PROPRIO (pasta-explorador.css, ja em 4px/3px); o
+   pasta-arquivos.css ficou so com a tela do Objeto (cobranca) e nao e mais
+   carregado aqui — nenhuma regra `.fm` nesta folha.
    ============================================================================= */
-.ps-page .fm { --fm-radius: 4px; --fm-radius-sm: 3px; }
-.ps-page .fm-checklist { border-radius: 4px; }
-.ps-page .fm-checklist-acao,
-.ps-page .fm-modelo-aplicar,
-.ps-page .fm-modelo-icone { border-radius: 4px; }
-/* Os cartoes Bootstrap que o gerenciador ainda usa ganham o canto do padrao. */
+/* Os cartoes Bootstrap que a aba ainda usa ganham o canto do padrao. */
 .ps-page #documentos .card { border-radius: 4px; }
 .ps-page #documentos .card > .card-header { border-radius: 4px 4px 0 0; }
 /* Fora do .input-group: la o Bootstrap zera os cantos internos (input colado ao

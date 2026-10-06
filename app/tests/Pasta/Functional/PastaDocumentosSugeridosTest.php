@@ -303,8 +303,8 @@ final class PastaDocumentosSugeridosTest extends JusPrimeWebTestCase
 
         $crawler = $this->abrir($client, (int) $pasta->getId());
 
-        self::assertSame(1, $crawler->filter('#documentos > #documentosSugeridos + #fileManager')->count(), 'o painel vem imediatamente antes do gerenciador, na aba Documentos');
-        self::assertSame(0, $crawler->filter('#fileManager #documentosSugeridos')->count(), 'o gerenciador é compartilhado com a Cobrança: o painel não entra nele');
+        self::assertSame(1, $crawler->filter('#documentos > #documentosSugeridos + #pexExplorador')->count(), 'o painel vem imediatamente antes do explorador, na aba Documentos');
+        self::assertSame(0, $crawler->filter('#pexExplorador #documentosSugeridos')->count(), 'até o L3 o painel fica FORA do explorador (depois entra no cartão do checklist)');
     }
 
     #[TestDox('cabeçalho com o botão; corpo nasce fechado; rodapé com o botão de faltantes; itens dentro dos grupos')]

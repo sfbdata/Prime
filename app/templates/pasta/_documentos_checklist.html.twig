@@ -1,0 +1,113 @@
+{#
+   Checklist de documentação — faixa de largura total no topo do explorador da aba Documentos
+   (desenho 02 - EXPEDIENTES 1.2.3, dc L2079-2179; `pasta-dentro2.jpg`: visível também dentro
+   das subpastas e durante a busca).
+
+   Markup MOVIDO do antigo gerenciador compartilhado (`.fm`), não reescrito: os `id` são contrato
+   com o JS inline da pasta/show (marcar, editar, reordenar, modelos) e com os testes. Mudaram de
+   lugar e de classe de estilo (`pex-ck-*`), não de nome. A fidelidade fina dos itens (grade de
+   caixas de 19px, selos "sem anexo") é do lote L3.
+
+   Incluído por `pasta/_documentos_explorador.html.twig`; usa `pasta`, `checklistItens`,
+   `totalChecklist` e `concluidosChecklist` do contexto.
+#}
+{% set pctChecklist = totalChecklist > 0 ? (concluidosChecklist / totalChecklist * 100)|round : 0 %}
+{% set checklistCompleto = totalChecklist > 0 and concluidosChecklist == totalChecklist %}
+<div class="pex-ck" id="pexChecklist">
+    <div class="pex-ck-cab">
+        <i class="bi bi-check2-square pex-ck-ico" aria-hidden="true"></i>
+        <h6 class="pex-ck-titulo">Checklist de documentação</h6>
+        <span id="checklistBadge" class="pex-ck-selo {{ checklistCompleto ? 'completo' : 'incompleto' }}">{{ concluidosChecklist }}/{{ totalChecklist }} itens</span>
+        {# A barra diz de relance o que a contagem só diz depois de lida. #}
+        <div class="pex-ck-barra" role="progressbar"
+             aria-label="Itens concluídos do checklist"
+             aria-valuenow="{{ concluidosChecklist }}" aria-valuemin="0" aria-valuemax="{{ totalChecklist }}">
+            <div id="checklistBarra" class="pex-ck-barra-fill {{ checklistCompleto ? 'completo' : 'incompleto' }}" style="width: {{ pctChecklist }}%"></div>
+        </div>
+        <span class="pex-ck-espaco"></span>
+        <button type="button" id="btnChecklistModelos" class="pex-ck-acao" title="Modelos de checklist"
+                aria-expanded="false" aria-controls="checklistModelosPainel">
+            <i class="bi bi-bookmarks"></i>
+        </button>
+        <button type="button" id="btnChecklistEditar" class="pex-ck-acao" title="Editar checklist">
+            <i class="bi bi-pencil"></i>
+        </button>
+        <button type="button" id="btnChecklistAdicionar" class="pex-ck-acao" title="Adicionar item">
+            <i class="bi bi-plus-lg"></i>
+        </button>
+    </div>
+    <div class="pex-ck-corpo">
+        <ul id="checklistLista" class="pex-ck-lista list-unstyled mb-0">
+            {% for item in checklistItens %}
+            <li class="checklist-item d-flex align-items-center gap-2 py-1 border-bottom"
+                data-item-id="{{ item.id }}"
+                data-csrf-item="{{ csrf_token('checklist_item_' ~ item.id) }}">
+                <button type="button" class="btn btn-link p-0 border-0 js-checklist-toggle" title="{{ item.concluido ? 'Marcar como pendente' : 'Marcar como concluído' }}">
+                    <i class="bi {{ item.concluido ? 'bi-check-circle-fill text-success' : 'bi-x-circle-fill text-danger' }} fs-5"></i>
+                </button>
+                <span class="checklist-drag-handle d-none text-muted" style="cursor:grab" title="Arrastar para reordenar">
+                    <i class="bi bi-grip-vertical"></i>
+                </span>
+                <span class="checklist-item-titulo flex-grow-1 {{ item.concluido ? 'text-decoration-line-through text-muted' : '' }}">
+                    {{ item.titulo|e }}
+                </span>
+                <input type="text" class="checklist-item-input form-control form-control-sm flex-grow-1 d-none"
+                       value="{{ item.titulo|e('html_attr') }}" maxlength="255">
+                <button type="button" class="btn btn-sm btn-outline-danger js-checklist-excluir d-none" title="Excluir item">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </li>
+            {% else %}
+            <li id="checklistVazio" class="text-muted small py-2">
+                Nenhum item. Clique em <i class="bi bi-plus-lg"></i> para adicionar.
+            </li>
+            {% endfor %}
+        </ul>
+        <div id="checklistFormAdicionar" class="pex-ck-adicionar d-none">
+            <div class="input-group input-group-sm">
+                <input type="text" id="checklistNovoTitulo" class="form-control" placeholder="Nome do documento, ex.: Certidão de casamento" maxlength="255">
+                <button type="button" id="btnChecklistSalvarNovo" class="btn btn-primary"><i class="bi bi-check-lg"></i></button>
+                <button type="button" id="btnChecklistCancelarNovo" class="btn btn-outline-secondary"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div id="checklistErroNovo" class="text-danger small mt-1 d-none"></div>
+        </div>
+
+        {# ── Modelos de checklist ──────────────────────────
+           Painel INLINE, não modal: o painel da aba é animado, e ancestral com
+           `transform` prende modal abaixo do backdrop (foi o defeito de 28/08
+           nesta mesma tela). Inline também deixa a lista da pasta visível
+           enquanto se escolhe o modelo. A lista é carregada por AJAX na
+           primeira abertura. #}
+        <div id="checklistModelosPainel" class="pex-ck-modelos d-none"
+             data-url-listar="{{ path('pasta_checklist_modelo_listar', {id: pasta.id}) }}"
+             data-url-salvar="{{ path('pasta_checklist_modelo_salvar', {id: pasta.id}) }}"
+             data-csrf-pasta="{{ csrf_token('checklist_modelo_pasta_' ~ pasta.id) }}">
+            <div class="pex-ck-modelos-cab">
+                <i class="bi bi-bookmarks"></i>
+                <span>Modelos do escritório</span>
+                <button type="button" id="btnChecklistModelosFechar" class="pex-ck-modelos-fechar" title="Fechar">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+
+            <div id="checklistModelosCarregando" class="pex-ck-modelos-nota d-none">Carregando…</div>
+            <div id="checklistModelosVazio" class="pex-ck-modelos-nota d-none">
+                Nenhum modelo salvo ainda. Monte o checklist desta pasta e salve abaixo para reaproveitá-lo nas próximas.
+            </div>
+            <ul id="checklistModelosLista" class="list-unstyled mb-0"></ul>
+
+            <div class="pex-ck-modelos-salvar">
+                <label class="pex-ck-modelos-rotulo" for="checklistModeloNome">Salvar o checklist desta pasta como modelo</label>
+                <div class="input-group input-group-sm">
+                    <input type="text" id="checklistModeloNome" class="form-control" placeholder="Nome do modelo..." maxlength="120">
+                    <button type="button" id="btnChecklistModeloSalvar" class="btn btn-primary" title="Salvar como modelo">
+                        <i class="bi bi-bookmark-plus"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div id="checklistModelosErro" class="text-danger small mt-2 d-none"></div>
+            <div id="checklistModelosAviso" class="text-success small mt-2 d-none"></div>
+        </div>
+    </div>
+</div>

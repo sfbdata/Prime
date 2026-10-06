@@ -6,7 +6,8 @@
 
 {% block stylesheets %}
 {{ parent() }}
-<link rel="stylesheet" href="/css/pasta-arquivos.css">
+{# Explorador de documentos da aba Documentos (próprio da Pasta; o pasta-arquivos.css fica com a Cobrança). #}
+<link rel="stylesheet" href="/css/pasta-explorador.css">
 {# Redesenho da tela de pasta — desenho aprovado em docs/design/pasta-show/. #}
 <link rel="stylesheet" href="/css/pasta-show.css">
 
@@ -191,7 +192,7 @@
             </style>
     {# Os painéis das abas. O <ul class="nav-tabs"> saiu daqui: virou o controle
        segmentado da linha 3 do cabeçalho. Os `id` dos painéis não mudaram —
-       são o alvo dos `data-bs-target` e do bootstrap.Tab do pasta-arquivos.js. #}
+       são o alvo dos `data-bs-target` e do `abaDoFragmento` do pasta-show.js. #}
     <div class="tab-content ps-paineis" id="pastaTabsContent">
         {# ── Aba 1: Dados da Pasta ──────────────────────────────────────────
            Duas colunas: as anotações do caso no centro (a zona quente) e o
@@ -306,327 +307,10 @@
                                 </div>
                             </div>
 
-                            {# ==================== ABA: DOCUMENTOS (gerenciador de arquivos) ==================== #}
+                            {# ==================== ABA: DOCUMENTOS (explorador próprio da Pasta) ==================== #}
                             <div class="tab-pane fade" id="documentos" role="tabpanel" aria-labelledby="documentos-tab" tabindex="0">
-                                {# Todos os documentos da pasta (gerais + de seções), taggeados por seção; JS filtra por pasta atual. #}
-                                {% set arquivosFm = [] %}
-                                {% for doc in pasta.documentos %}{% set arquivosFm = arquivosFm|merge([{'doc': doc, 'secao': doc.secao ? doc.secao.id : 'geral'}]) %}{% endfor %}
-
                                 {{ include('pasta/_documentos_sugeridos.html.twig') }}
-                                <div class="fm" id="fileManager"
-                                     data-pasta-id="{{ pasta.id }}"
-                                     data-url-upload="{{ path('pasta_peticionar_upload', {id: pasta.id}) }}"
-                                     data-csrf-upload="{{ csrf_token('peticionar_upload_' ~ pasta.id) }}"
-                                     data-url-criar-secao="{{ path('pasta_secao_criar', {id: pasta.id}) }}"
-                                     data-csrf-criar-secao="{{ csrf_token('pasta_secao_criar_' ~ pasta.id) }}"
-                                     data-url-reordenar-secoes="{{ path('pasta_secoes_reordenar', {id: pasta.id}) }}"
-                                     data-csrf-reordenar-secoes="{{ csrf_token('reordenar_secoes_pasta_' ~ pasta.id) }}"
-                                     data-url-reordenar-docs="{{ path('pasta_documentos_reordenar', {id: pasta.id}) }}"
-                                     data-csrf-reordenar-docs="{{ csrf_token('reordenar_docs_pasta_' ~ pasta.id) }}"
-                                     data-url-renomear-tpl="{{ path('pasta_secao_renomear', {secaoId: '__ID__'}) }}"
-                                     data-url-excluir-tpl="{{ path('pasta_secao_excluir', {secaoId: '__ID__'}) }}"
-                                     data-url-mover-tpl="{{ path('pasta_secao_mover', {secaoId: '__ID__'}) }}"
-                                     data-arvore="1">
-
-                                    {# Toolbar #}
-                                    <div class="fm-toolbar">
-                                        <nav class="fm-breadcrumb" aria-label="Navegação de pastas">
-                                            <button type="button" class="fm-crumb" data-nav="root"><i class="bi bi-folder2-open"></i> Documentos</button>
-                                            <span class="fm-crumb-sep fm-oculto" id="fmCrumbSep"><i class="bi bi-chevron-right"></i></span>
-                                            <span class="fm-crumb-atual fm-oculto" id="fmCrumbAtual"></span>
-                                        </nav>
-                                        <div class="fm-busca">
-                                            <i class="bi bi-search"></i>
-                                            <input type="search" id="fmBusca" placeholder="Buscar arquivos..." autocomplete="off" aria-label="Buscar arquivos">
-                                        </div>
-                                        <div class="fm-acoes">
-                                            <button type="button" class="btn btn-sm btn-primary" id="fmNovaPasta"><i class="bi bi-folder-plus me-1"></i> Nova pasta</button>
-                                            <button type="button" class="btn btn-sm btn-outline-primary" id="fmUpload"><i class="bi bi-upload me-1"></i> Enviar</button>
-                                            <input type="file" id="fmFileInput" multiple class="d-none" accept=".png,.jpg,.jpeg,.pdf,.kml,.xml,.xls,.xlsx,.doc,.docx,.txt,.zip,.mp3,.ogg,.opus,.m4a,.mp4,.mov">
-                                            <div class="fm-view-toggle" role="group" aria-label="Modo de exibição">
-                                                <button type="button" class="fm-view-btn ativo" data-view="lista" title="Lista" aria-label="Lista"><i class="bi bi-list-ul"></i></button>
-                                                <button type="button" class="fm-view-btn" data-view="grade" title="Grade" aria-label="Grade"><i class="bi bi-grid-3x3-gap-fill"></i></button>
-                                            </div>
-                                            <select class="fm-select" id="fmOrdenar" aria-label="Ordenar arquivos por">
-                                                <option value="manual">Manual (arrastar)</option>
-                                                <option value="nome">Nome (A–Z)</option>
-                                                <option value="nome_desc">Nome (Z–A)</option>
-                                                <option value="data_desc">Mais recentes</option>
-                                                <option value="data">Mais antigos</option>
-                                                <option value="tamanho_desc">Maiores</option>
-                                                <option value="tamanho">Menores</option>
-                                                <option value="categoria">Categoria (A–Z)</option>
-                                                <option value="categoria_desc">Categoria (Z–A)</option>
-                                            </select>
-                                        </div>
-                                    </div>
-
-                                    {# Barra de progresso de upload #}
-                                    <div class="fm-upload-bar" id="fmUploadBar">
-                                        <i class="bi bi-cloud-arrow-up"></i>
-                                        <span class="fm-upload-nome" id="fmUploadNome"></span>
-                                        <div class="progress" role="progressbar" aria-label="Progresso do upload"><div class="progress-bar" id="fmUploadProgresso" style="width:0%"></div></div>
-                                        <span class="text-muted small text-nowrap" id="fmUploadContador"></span>
-                                    </div>
-
-                                    {# Aviso de arquivo duplicado (duplicadoDe[] do upload). Fora do fm: preenchido pelo
-                                       helper de upload do template, sobrevive ao reload que o gerenciador faz ao terminar. #}
-                                    <div id="uploadDuplicadosAviso" class="alert alert-warning alert-dismissible small py-2 mb-3 d-none" role="status"
-                                         data-url-pasta-tpl="{{ path('pasta_show', {id: '__ID__'}) }}">
-                                        <i class="bi bi-files me-1"></i><strong>Arquivo idêntico já existe no escritório.</strong>
-                                        <ul class="mb-0 mt-1 ps-3" id="uploadDuplicadosLista"></ul>
-                                        <button type="button" class="btn-close" aria-label="Fechar" id="uploadDuplicadosFechar"></button>
-                                    </div>
-
-                                    <div class="fm-body" id="fmBody">
-
-                                        {# Coluna principal: pastas e arquivos. O checklist é a
-                                           coluna da direita, logo abaixo. #}
-                                        <div class="fm-col-principal">
-                                        {# Pastas (só na raiz) #}
-                                        <div class="fm-grupo" id="fmGrupoPastas">
-                                            <div class="fm-grupo-titulo"><i class="bi bi-folder2"></i> Pastas</div>
-                                            <div class="fm-pastas" id="fmPastas">
-                                                {% for secao in secoes %}
-                                                    <div class="fm-pasta" data-secao-id="{{ secao.id }}" data-nome="{{ secao.nome|e('html_attr') }}"
-                                                         data-url-renomear="{{ path('pasta_secao_renomear', {secaoId: secao.id}) }}"
-                                                         data-csrf-renomear="{{ csrf_token('pasta_secao_renomear_' ~ secao.id) }}"
-                                                         data-url-excluir="{{ path('pasta_secao_excluir', {secaoId: secao.id}) }}"
-                                                         data-csrf-excluir="{{ csrf_token('pasta_secao_excluir_' ~ secao.id) }}"
-                                                         data-pai-id="{{ secao.pai ? secao.pai.id : '' }}"
-                                                         data-url-mover="{{ path('pasta_secao_mover', {secaoId: secao.id}) }}"
-                                                         data-csrf-mover="{{ csrf_token('pasta_secao_mover_' ~ secao.id) }}"
-                                                         data-subpastas="{{ contagemSecoes[secao.id].subpastas|default(0) }}"
-                                                         data-arquivos="{{ contagemSecoes[secao.id].arquivos|default(0) }}"
-                                                         tabindex="0" role="button" aria-label="Abrir pasta {{ secao.nome|e('html_attr') }}">
-                                                        <span class="fm-pasta-grip" title="Arrastar para reordenar"><i class="bi bi-grip-vertical"></i></span>
-                                                        <span class="fm-pasta-icone"><i class="bi bi-folder-fill"></i></span>
-                                                        <span class="fm-pasta-info">
-                                                            <span class="fm-pasta-nome" title="{{ secao.nome|e('html_attr') }}">{{ secao.nome }}</span>
-                                                            <span class="fm-pasta-contagem" data-secao-contagem="{{ secao.id }}">{{ secao.documentos|length }} {{ secao.documentos|length == 1 ? 'arquivo' : 'arquivos' }}</span>
-                                                        </span>
-                                                        <div class="dropdown">
-                                                            <button class="fm-pasta-menu" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Ações da pasta" onclick="event.stopPropagation()"><i class="bi bi-three-dots-vertical"></i></button>
-                                                            <ul class="dropdown-menu dropdown-menu-end">
-                                                                <li><button class="dropdown-item fm-pasta-abrir" type="button"><i class="bi bi-folder2-open me-2"></i>Abrir</button></li>
-                                                                <li><button class="dropdown-item fm-pasta-renomear" type="button"><i class="bi bi-pencil me-2"></i>Renomear</button></li>
-                                                                <li><button class="dropdown-item fm-pasta-mover" type="button"><i class="bi bi-folder-symlink me-2"></i>Mover para...</button></li>
-                                                                <li><hr class="dropdown-divider"></li>
-                                                                <li><button class="dropdown-item text-danger fm-pasta-excluir" type="button"><i class="bi bi-trash me-2"></i>Excluir</button></li>
-                                                            </ul>
-                                                        </div>
-                                                    </div>
-                                                {% endfor %}
-                                            </div>
-                                        </div>
-
-                                        {# Arquivos #}
-                                        <div class="fm-grupo" id="fmGrupoArquivos">
-                                            <div class="fm-grupo-titulo"><i class="bi bi-files"></i> <span id="fmArquivosTitulo">Arquivos</span></div>
-                                            <div class="fm-arquivos fm-lista" id="fmArquivos">
-                                                {# Clicar no titulo da coluna ordena por ela; clicar de novo inverte.
-                                                   E o mesmo estado do seletor "Ordenar" ao lado — os dois sao duas caras
-                                                   do mesmo `fmOrdem`, e mudar num atualiza o outro. Sem isso a tela
-                                                   mostraria duas ordens diferentes ao mesmo tempo. #}
-                                                <div class="fm-lista-head">
-                                                    <span class="fmh-grip"></span>
-                                                    <span class="fmh-nome" aria-sort="none">
-                                                        <button type="button" class="fmh-btn" data-ordenar="nome" title="Ordenar por nome">Nome<i class="bi fmh-caret" aria-hidden="true"></i></button>
-                                                    </span>
-                                                    <span class="fmh-tipo" aria-sort="none">
-                                                        <button type="button" class="fmh-btn" data-ordenar="categoria" title="Ordenar por categoria">Categoria<i class="bi fmh-caret" aria-hidden="true"></i></button>
-                                                    </span>
-                                                    <span class="fmh-tam" aria-sort="none">
-                                                        <button type="button" class="fmh-btn" data-ordenar="tamanho" title="Ordenar por tamanho">Tamanho<i class="bi fmh-caret" aria-hidden="true"></i></button>
-                                                    </span>
-                                                    <span class="fmh-data" aria-sort="none">
-                                                        <button type="button" class="fmh-btn" data-ordenar="data" title="Ordenar por modificado">Modificado<i class="bi fmh-caret" aria-hidden="true"></i></button>
-                                                    </span>
-                                                    <span class="fmh-acoes"></span>
-                                                </div>
-                                                {% for item in arquivosFm %}
-                                                    {% set doc = item.doc %}
-                                                    {% set secaoKey = item.secao %}
-                                                    {% set ic = arquivo_icone(doc.nomeOriginal, doc.mimeType) %}
-                                                    <div class="fm-arquivo" data-secao="{{ secaoKey }}" data-doc-id="{{ doc.id }}" data-ordem="{{ doc.ordem }}"
-                                                         data-nome="{{ doc.nomeOriginal|e('html_attr') }}" data-tamanho="{{ doc.tamanhoBytes }}"
-                                                         data-data="{{ doc.carregadoEm|date('Y-m-d H:i:s') }}" data-tipo="{{ ic.rotulo|e('html_attr') }}"
-                                                         data-mime="{{ doc.mimeType|e('html_attr') }}"
-                                                         {# Ordena pelo RÓTULO que a coluna mostra. Ordenar pela chave do
-                                                            enum agruparia certo e listaria numa ordem que a tela não
-                                                            exibe — o usuário veria o alfabeto errado. #}
-                                                         data-categoria="{{ (documentTypeOptions[doc.categoria] ?? doc.categoria)|e('html_attr') }}"
-                                                         data-url-mover="{{ path('pasta_documento_mover_secao', {docId: doc.id}) }}"
-                                                         data-csrf-mover="{{ csrf_token('pasta_doc_mover_' ~ doc.id) }}">
-                                                        <span class="fm-arq-grip" title="Arrastar para reordenar"><i class="bi bi-grip-vertical"></i></span>
-                                                        <div class="fm-arq-principal">
-                                                            <span class="fm-arq-icone"><i class="bi {{ ic.icone }}" style="color: {{ ic.cor }}"></i></span>
-                                                            <span class="text-truncate">
-                                                                {# Clicar no nome ABRE O PRE-VISUALIZADOR (que ja tem o botao Baixar no
-                                                                   rodape), nao baixa. Baixar sem olhar obriga a abrir o arquivo fora do
-                                                                   sistema so para saber se era o certo.
-
-                                                                   Continua sendo <a> de verdade, apontando para a URL de visualizacao:
-                                                                   ctrl/cmd+clique e o botao do meio seguem abrindo em outra aba, e sem
-                                                                   JS o link ainda leva ao arquivo. Quem intercepta o clique simples e
-                                                                   o pasta-arquivos.js, pela classe .fm-arq-preview. #}
-                                                                <a href="{{ path('pasta_documento_view', {id: doc.id}) }}" target="_blank" rel="noopener noreferrer"
-                                                                   class="fm-arq-nome fm-arq-preview"
-                                                                   data-url="{{ path('pasta_documento_view', {id: doc.id}) }}"
-                                                                   data-nome="{{ doc.nomeOriginal|e('html_attr') }}"
-                                                                   data-mime="{{ doc.mimeType|e('html_attr') }}"
-                                                                   title="{{ doc.nomeOriginal|e('html_attr') }}">{{ doc.nomeOriginal }}</a>
-                                                                <span class="fm-arq-sub">{% if doc.numero %}Nº {{ doc.numero }}{% if doc.descricao %} · {% endif %}{% endif %}{{ doc.descricao ?? '' }}</span>
-                                                                <span class="fm-arq-local fm-oculto text-muted small"></span>
-                                                            </span>
-                                                        </div>
-                                                        <div class="fm-arq-tipo"><span class="fm-badge-cat">{{ documentTypeOptions[doc.categoria] ?? doc.categoria }}</span></div>
-                                                        <div class="fm-arq-tam">{{ doc.tamanhoBytes|formatar_bytes }}</div>
-                                                        <div class="fm-arq-data">{{ doc.carregadoEm|date('d/m/Y') }}</div>
-                                                        <div class="fm-arq-acoes">
-                                                            <div class="dropdown">
-                                                                <button class="fm-arq-menu" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Ações do arquivo"><i class="bi bi-three-dots-vertical"></i></button>
-                                                                <ul class="dropdown-menu dropdown-menu-end">
-                                                                    <li><a class="dropdown-item" href="{{ path('pasta_documento_download', {id: doc.id}) }}" target="_blank" rel="noopener"><i class="bi bi-download me-2"></i>Baixar</a></li>
-                                                                    <li><button type="button" class="dropdown-item fm-arq-preview" data-url="{{ path('pasta_documento_view', {id: doc.id}) }}" data-nome="{{ doc.nomeOriginal|e('html_attr') }}" data-mime="{{ doc.mimeType|e('html_attr') }}"><i class="bi bi-eye me-2"></i>Visualizar</button></li>
-                                                                    <li><button type="button" class="dropdown-item fm-arq-editar" data-target="#editDocModal{{ doc.id }}"><i class="bi bi-pencil me-2"></i>Editar</button></li>
-                                                                    <li><button type="button" class="dropdown-item fm-arq-mover"><i class="bi bi-folder-symlink me-2"></i>Mover para…</button></li>
-                                                                    <li><hr class="dropdown-divider"></li>
-                                                                    <li>
-                                                                        <form method="post" action="{{ path('pasta_documento_delete', {id: doc.id}) }}" onsubmit="return confirm('Excluir este arquivo? Esta ação não pode ser desfeita.');">
-                                                                            <input type="hidden" name="_token" value="{{ csrf_token('delete_documento_' ~ doc.id) }}">
-                                                                            <button type="submit" class="dropdown-item text-danger"><i class="bi bi-trash me-2"></i>Excluir</button>
-                                                                        </form>
-                                                                    </li>
-                                                                </ul>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                {% endfor %}
-                                            </div>
-                                            <div class="fm-vazio fm-oculto" id="fmArquivosVazio">
-                                                <div class="fm-vazio-icone"><i class="bi bi-cloud-arrow-up"></i></div>
-                                                <div class="fm-vazio-titulo">Nenhum arquivo aqui</div>
-                                                <div class="fm-vazio-dica">Arraste arquivos do computador para esta área ou clique em <strong>Enviar</strong>.</div>
-                                            </div>
-                                        </div>
-                                        </div>{# /fm-col-principal #}
-
-                                        {# ── Checklist de documentação — coluna da DIREITA ──
-                                           Estava numa faixa de largura total no topo do gerenciador,
-                                           empurrando pastas e arquivos para baixo. Aqui ele acompanha
-                                           a conferência de lado, sem disputar a vertical com o que a
-                                           aba existe para mostrar.
-
-                                           Os `id` são contrato com o JS de marcar/editar/reordenar
-                                           mais abaixo nesta página: mudaram de LUGAR, não de nome. #}
-                                        {% set pctChecklist = totalChecklist > 0 ? (concluidosChecklist / totalChecklist * 100)|round : 0 %}
-                                        {% set checklistCompleto = totalChecklist > 0 and concluidosChecklist == totalChecklist %}
-                                        <div class="fm-grupo" id="fmChecklist">
-                                            <div class="fm-checklist">
-                                                <div class="fm-checklist-corpo">
-                                                    <div class="fm-checklist-cab">
-                                                        <i class="bi bi-check2-square"></i>
-                                                        <h6>Checklist de documentação</h6>
-                                                        <span id="checklistBadge" class="fm-checklist-selo {{ checklistCompleto ? 'completo' : 'incompleto' }}">{{ concluidosChecklist }}/{{ totalChecklist }} itens</span>
-                                                    </div>
-                                                    {# A barra diz de relance o que a contagem só diz depois de lida. #}
-                                                    <div class="fm-checklist-progresso">
-                                                        <div class="fm-checklist-barra" role="progressbar"
-                                                             aria-label="Itens concluídos do checklist"
-                                                             aria-valuenow="{{ concluidosChecklist }}" aria-valuemin="0" aria-valuemax="{{ totalChecklist }}">
-                                                            <div id="checklistBarra" class="fm-checklist-barra-fill {{ checklistCompleto ? 'completo' : 'incompleto' }}" style="width: {{ pctChecklist }}%"></div>
-                                                        </div>
-                                                        <button type="button" id="btnChecklistModelos" class="fm-checklist-acao" title="Modelos de checklist"
-                                                                aria-expanded="false" aria-controls="checklistModelosPainel">
-                                                            <i class="bi bi-bookmarks"></i>
-                                                        </button>
-                                                        <button type="button" id="btnChecklistEditar" class="fm-checklist-acao" title="Editar checklist">
-                                                            <i class="bi bi-pencil"></i>
-                                                        </button>
-                                                        <button type="button" id="btnChecklistAdicionar" class="fm-checklist-acao" title="Adicionar item">
-                                                            <i class="bi bi-plus-lg"></i>
-                                                        </button>
-                                                    </div>
-                                                    <ul id="checklistLista" class="list-unstyled mb-2">
-                                                        {% for item in checklistItens %}
-                                                        <li class="checklist-item d-flex align-items-center gap-2 py-1 border-bottom"
-                                                            data-item-id="{{ item.id }}"
-                                                            data-csrf-item="{{ csrf_token('checklist_item_' ~ item.id) }}">
-                                                            <button type="button" class="btn btn-link p-0 border-0 js-checklist-toggle" title="{{ item.concluido ? 'Marcar como pendente' : 'Marcar como concluído' }}">
-                                                                <i class="bi {{ item.concluido ? 'bi-check-circle-fill text-success' : 'bi-x-circle-fill text-danger' }} fs-5"></i>
-                                                            </button>
-                                                            <span class="checklist-drag-handle d-none text-muted" style="cursor:grab" title="Arrastar para reordenar">
-                                                                <i class="bi bi-grip-vertical"></i>
-                                                            </span>
-                                                            <span class="checklist-item-titulo flex-grow-1 {{ item.concluido ? 'text-decoration-line-through text-muted' : '' }}">
-                                                                {{ item.titulo|e }}
-                                                            </span>
-                                                            <input type="text" class="checklist-item-input form-control form-control-sm flex-grow-1 d-none"
-                                                                   value="{{ item.titulo|e('html_attr') }}" maxlength="255">
-                                                            <button type="button" class="btn btn-sm btn-outline-danger js-checklist-excluir d-none" title="Excluir item">
-                                                                <i class="bi bi-trash"></i>
-                                                            </button>
-                                                        </li>
-                                                        {% else %}
-                                                        <li id="checklistVazio" class="text-muted small py-2">
-                                                            Nenhum item. Clique em <i class="bi bi-plus-lg"></i> para adicionar.
-                                                        </li>
-                                                        {% endfor %}
-                                                    </ul>
-                                                    <div id="checklistFormAdicionar" class="d-none mb-1">
-                                                        <div class="input-group input-group-sm">
-                                                            <input type="text" id="checklistNovoTitulo" class="form-control" placeholder="Descrição do item..." maxlength="255">
-                                                            <button type="button" id="btnChecklistSalvarNovo" class="btn btn-primary"><i class="bi bi-check-lg"></i></button>
-                                                            <button type="button" id="btnChecklistCancelarNovo" class="btn btn-outline-secondary"><i class="bi bi-x-lg"></i></button>
-                                                        </div>
-                                                        <div id="checklistErroNovo" class="text-danger small mt-1 d-none"></div>
-                                                    </div>
-
-                                                    {# ── Modelos de checklist ──────────────────────────
-                                                       Painel INLINE, não modal: o gerenciador de arquivos
-                                                       é animado, e ancestral com `transform` prende modal
-                                                       abaixo do backdrop (foi o defeito de 28/08 nesta
-                                                       mesma tela). Inline também deixa a lista da pasta
-                                                       visível enquanto se escolhe o modelo.
-                                                       A lista é carregada por AJAX na primeira abertura. #}
-                                                    <div id="checklistModelosPainel" class="fm-checklist-modelos d-none"
-                                                         data-url-listar="{{ path('pasta_checklist_modelo_listar', {id: pasta.id}) }}"
-                                                         data-url-salvar="{{ path('pasta_checklist_modelo_salvar', {id: pasta.id}) }}"
-                                                         data-csrf-pasta="{{ csrf_token('checklist_modelo_pasta_' ~ pasta.id) }}">
-                                                        <div class="fm-checklist-modelos-cab">
-                                                            <i class="bi bi-bookmarks"></i>
-                                                            <span>Modelos do escritório</span>
-                                                            <button type="button" id="btnChecklistModelosFechar" class="fm-checklist-modelos-fechar" title="Fechar">
-                                                                <i class="bi bi-x-lg"></i>
-                                                            </button>
-                                                        </div>
-
-                                                        <div id="checklistModelosCarregando" class="fm-checklist-modelos-nota d-none">Carregando…</div>
-                                                        <div id="checklistModelosVazio" class="fm-checklist-modelos-nota d-none">
-                                                            Nenhum modelo salvo ainda. Monte o checklist desta pasta e salve abaixo para reaproveitá-lo nas próximas.
-                                                        </div>
-                                                        <ul id="checklistModelosLista" class="list-unstyled mb-0"></ul>
-
-                                                        <div class="fm-checklist-modelos-salvar">
-                                                            <label class="fm-checklist-modelos-rotulo" for="checklistModeloNome">Salvar o checklist desta pasta como modelo</label>
-                                                            <div class="input-group input-group-sm">
-                                                                <input type="text" id="checklistModeloNome" class="form-control" placeholder="Nome do modelo..." maxlength="120">
-                                                                <button type="button" id="btnChecklistModeloSalvar" class="btn btn-primary" title="Salvar como modelo">
-                                                                    <i class="bi bi-bookmark-plus"></i>
-                                                                </button>
-                                                            </div>
-                                                        </div>
-
-                                                        <div id="checklistModelosErro" class="text-danger small mt-2 d-none"></div>
-                                                        <div id="checklistModelosAviso" class="text-success small mt-2 d-none"></div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                    </div>{# /fm-body #}
-                                </div>{# /fm #}
+                                {{ include('pasta/_documentos_explorador.html.twig') }}
 
                             </div>{# /tab-pane #documentos #}
 
@@ -1008,49 +692,89 @@
     eventosHistorico: eventosHistorico,
 }) }}
 
-{# ── Modais do gerenciador de arquivos ──────────────────────────────────────
-   Vivem AQUI, fora de .ps-page, e não dentro do painel da aba Documentos, que é
-   onde estavam. Modal é `position: fixed`, e um ancestral com `transform` (mesmo
-   vindo de uma animação) vira o bloco de contenção dele: o modal deixa de se
-   posicionar pela janela e cai ABAIXO do backdrop, que o Bootstrap prega no
-   <body>. O sintoma é o modal aparecer e não aceitar clique nem digitação.
+{# ── Modais do explorador de documentos ─────────────────────────────────────
+   Vivem AQUI, fora de .ps-page, e não dentro do painel da aba Documentos. Modal é
+   `position: fixed`, e um ancestral com `transform` (mesmo vindo de uma animação)
+   vira o bloco de contenção dele: o modal deixa de se posicionar pela janela e cai
+   ABAIXO do backdrop, que o Bootstrap prega no <body>. O sintoma é o modal aparecer
+   e não aceitar clique nem digitação. `PastaExploradorArranjoTelaTest` trava esse
+   invariante para não voltar.
 
-   Eram os três ÚNICOS modais desta tela dentro de um painel animado — os outros
-   sete sempre estiveram aqui fora e nunca tiveram o problema. `PastaShowDocumentos
-   ControllerTest` trava esse invariante para não voltar. #}
-{# Modal reutilizável de texto (nova pasta / renomear) #}
-<div class="modal fade" id="fmInputModal" tabindex="-1" aria-hidden="true">
+   São TRÊS modais para a pasta inteira — não um por documento. O modal de edição é
+   ÚNICO e o explorador o preenche com os dados da linha (DOC-90): com 1.128
+   documentos em produção, 1.128 formulários no HTML era o que deixava a aba lenta. #}
+{# Modal reutilizável de texto (nova pasta / renomear pasta) #}
+<div class="modal fade pex-modal" id="pexInputModal" tabindex="-1" aria-labelledby="pexInputTitulo" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-sm">
         <div class="modal-content">
-            <div class="modal-header"><h5 class="modal-title" id="fmInputTitulo">Nova pasta</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button></div>
+            <div class="modal-header"><h5 class="modal-title" id="pexInputTitulo">Nova pasta</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button></div>
             <div class="modal-body">
-                <input type="text" class="form-control" id="fmInputCampo" maxlength="255" placeholder="Nome da pasta...">
-                <div class="text-danger small mt-1 d-none" id="fmInputErro"></div>
+                <input type="text" class="form-control" id="pexInputCampo" maxlength="255" placeholder="Nome da pasta..." aria-label="Nome da pasta">
+                <div class="text-danger small mt-1 d-none" id="pexInputErro"></div>
             </div>
-            <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button><button type="button" class="btn btn-primary" id="fmInputConfirmar">Salvar</button></div>
+            <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button><button type="button" class="btn btn-primary" id="pexInputConfirmar">Salvar</button></div>
         </div>
     </div>
 </div>
 
-{# Modal mover arquivo para pasta #}
-<div class="modal fade" id="fmMoverModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+{# Modal "Mover para…" (arquivo OU pasta): a árvore de pastas, com a origem e os
+   descendentes da pasta movida desabilitados — ciclo barrado na tela e no servidor. #}
+<div class="modal fade pex-modal" id="pexDestinoModal" tabindex="-1" aria-labelledby="pexDestinoTitulo" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
-            <div class="modal-header"><h5 class="modal-title"><i class="bi bi-folder-symlink me-1"></i> Mover para…</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button></div>
-            <div class="modal-body"><div class="list-group" id="fmMoverLista"></div></div>
+            <div class="modal-header"><h5 class="modal-title" id="pexDestinoTitulo"><i class="bi bi-folder-symlink me-1"></i> Mover para…</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button></div>
+            <div class="modal-body">
+                <div class="pex-dest-arvore" id="pexDestinoArvore" role="listbox" aria-label="Pasta de destino"></div>
+            </div>
+            <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button><button type="button" class="btn btn-primary" id="pexDestinoConfirmar" disabled>Mover</button></div>
         </div>
     </div>
 </div>
 
-{# Modal escolher pasta de destino (mover pasta pelo menu "Mover para...") #}
-<div class="modal fade" id="fmDestinoModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-sm">
+{# Modal ÚNICO de edição do documento (nome-base, categoria, descrição, número).
+   O explorador preenche `action`, `_token` e os campos a partir do JSON da linha;
+   o POST é o mesmo de sempre (`pasta_documento_edit`, token `edit_documento_<id>`),
+   e a extensão continua preservada pelo servidor. #}
+<div class="modal fade pex-modal" id="pexEditarModal" tabindex="-1" aria-labelledby="pexEditarTitulo" aria-hidden="true">
+    <div class="modal-dialog">
         <div class="modal-content">
-            <div class="modal-header"><h5 class="modal-title" id="fmDestinoTitulo">Mover para</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button></div>
-            <div class="modal-body">
-                <select class="form-select" id="fmDestinoCampo" aria-label="Pasta de destino"></select>
-            </div>
-            <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button><button type="button" class="btn btn-primary" id="fmDestinoConfirmar">Mover</button></div>
+            <form method="post" action="" id="pexEditarForm">
+                <input type="hidden" name="_token" value="" id="pexEditarToken">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="pexEditarTitulo"><i class="bi bi-pencil me-1"></i> Editar documento</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label" for="pexEditarNomeBase">Nome do arquivo</label>
+                        <div class="input-group">
+                            <input type="text" name="nomeBase" id="pexEditarNomeBase" class="form-control" value="" maxlength="250" required>
+                            <span class="input-group-text text-muted" id="pexEditarExt"></span>
+                        </div>
+                        <div class="form-text">A extensão <strong id="pexEditarExtTexto"></strong> é preservada automaticamente.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="pexEditarCategoria">Tipo de documento</label>
+                        <select name="categoria" id="pexEditarCategoria" class="form-select" required>
+                            {% for valor, texto in documentTypeOptions %}
+                                <option value="{{ valor }}">{{ texto }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="pexEditarDescricao">Descrição</label>
+                        <input type="text" name="descricao" id="pexEditarDescricao" class="form-control" value="" maxlength="500" placeholder="Descrição (opcional)">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="pexEditarNumero">Número (opcional)</label>
+                        <input type="text" name="numero" id="pexEditarNumero" class="form-control" value="" maxlength="255" placeholder="Número">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i> Salvar</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -2347,63 +2071,6 @@
 </div>
 
 
-{# Modais: Editar Documento (todos os documentos da pasta — gerais e de seções) #}
-{% for doc in pasta.documentos %}
-        <div class="modal fade" id="editDocModal{{ doc.id }}" tabindex="-1" aria-labelledby="editDocModalLabel{{ doc.id }}" aria-hidden="true">
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <form method="post" action="{{ path('pasta_documento_edit', {id: doc.id}) }}">
-                        <input type="hidden" name="_token" value="{{ csrf_token('edit_documento_' ~ doc.id) }}">
-                        <div class="modal-header">
-                            <h5 class="modal-title" id="editDocModalLabel{{ doc.id }}">
-                                <i class="bi bi-pencil me-1"></i> Editar documento
-                            </h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-                        </div>
-                        <div class="modal-body">
-                            {% set ext = doc.nomeOriginal|split('.')|last %}
-                            {% set nomeBase = doc.nomeOriginal ends with ('.' ~ ext) and doc.nomeOriginal != ext
-                                ? doc.nomeOriginal|slice(0, doc.nomeOriginal|length - ext|length - 1)
-                                : doc.nomeOriginal %}
-                            <div class="mb-3">
-                                <label class="form-label">Nome do arquivo</label>
-                                <div class="input-group">
-                                    <input type="text" name="nomeBase" class="form-control"
-                                           value="{{ nomeBase }}" maxlength="250" required>
-                                    <span class="input-group-text text-muted">.{{ ext }}</span>
-                                </div>
-                                <div class="form-text">A extensão <strong>.{{ ext }}</strong> é preservada automaticamente.</div>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Tipo de documento</label>
-                                <select name="categoria" class="form-select" required>
-                                    {% for valor, texto in documentTypeOptions %}
-                                        <option value="{{ valor }}" {{ doc.categoria == valor ? 'selected' : '' }}>{{ texto }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Descrição</label>
-                                <input type="text" name="descricao" class="form-control"
-                                       value="{{ doc.descricao ?? '' }}" maxlength="500" placeholder="Descrição (opcional)">
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Número (opcional)</label>
-                                <input type="text" name="numero" class="form-control"
-                                       value="{{ doc.numero ?? '' }}" maxlength="255" placeholder="Número">
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                            <button type="submit" class="btn btn-primary">
-                                <i class="bi bi-check-lg me-1"></i> Salvar
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-{% endfor %}
 
 
 
@@ -4231,12 +3898,12 @@ document.addEventListener('DOMContentLoaded', function () {
         var completo = total > 0 && concluidos === total;
 
         badge.textContent = concluidos + '/' + total + ' itens';
-        badge.className   = 'fm-checklist-selo ' + (completo ? 'completo' : 'incompleto');
+        badge.className   = 'pex-ck-selo ' + (completo ? 'completo' : 'incompleto');
 
         // A barra vive no mesmo lugar que a contagem; atualizar uma e esquecer a
         // outra deixaria as duas dizendo coisas diferentes na mesma linha.
         if (barra) {
-            barra.className   = 'fm-checklist-barra-fill ' + (completo ? 'completo' : 'incompleto');
+            barra.className   = 'pex-ck-barra-fill ' + (completo ? 'completo' : 'incompleto');
             barra.style.width = (total > 0 ? Math.round(concluidos / total * 100) : 0) + '%';
             var trilho = barra.parentElement;
             if (trilho) {
@@ -4579,22 +4246,22 @@ document.addEventListener('DOMContentLoaded', function () {
 
             modelos.forEach(function (modelo) {
                 var li = document.createElement('li');
-                li.className = 'fm-modelo';
+                li.className = 'pex-modelo';
                 li.dataset.modeloId = modelo.id;
                 li.dataset.csrf     = modelo.csrf;
 
                 var plural = modelo.totalItens === 1 ? 'item' : 'itens';
 
                 li.innerHTML =
-                    '<div class="fm-modelo-info">' +
-                        '<span class="fm-modelo-nome" title="' + escapeAttr(modelo.itens.join(' · ')) + '">' + escapeHtml(modelo.nome) + '</span>' +
-                        '<span class="fm-modelo-qtd">' + modelo.totalItens + ' ' + plural + '</span>' +
-                        '<input type="text" class="fm-modelo-input form-control form-control-sm d-none" value="' + escapeAttr(modelo.nome) + '" maxlength="120">' +
+                    '<div class="pex-modelo-info">' +
+                        '<span class="pex-modelo-nome" title="' + escapeAttr(modelo.itens.join(' · ')) + '">' + escapeHtml(modelo.nome) + '</span>' +
+                        '<span class="pex-modelo-qtd">' + modelo.totalItens + ' ' + plural + '</span>' +
+                        '<input type="text" class="pex-modelo-input form-control form-control-sm d-none" value="' + escapeAttr(modelo.nome) + '" maxlength="120">' +
                     '</div>' +
-                    '<div class="fm-modelo-acoes">' +
-                        '<button type="button" class="fm-modelo-aplicar js-modelo-aplicar">Aplicar</button>' +
-                        '<button type="button" class="fm-modelo-icone js-modelo-renomear" title="Renomear modelo"><i class="bi bi-pencil"></i></button>' +
-                        '<button type="button" class="fm-modelo-icone perigo js-modelo-excluir" title="Excluir modelo"><i class="bi bi-trash"></i></button>' +
+                    '<div class="pex-modelo-acoes">' +
+                        '<button type="button" class="pex-modelo-aplicar js-modelo-aplicar">Aplicar</button>' +
+                        '<button type="button" class="pex-modelo-icone js-modelo-renomear" title="Renomear modelo"><i class="bi bi-pencil"></i></button>' +
+                        '<button type="button" class="pex-modelo-icone perigo js-modelo-excluir" title="Excluir modelo"><i class="bi bi-trash"></i></button>' +
                     '</div>';
 
                 listaModelos.appendChild(li);
@@ -4687,7 +4354,7 @@ document.addEventListener('DOMContentLoaded', function () {
         // ── Aplicar / renomear / excluir ───────────────────────────────────────
 
         listaModelos.addEventListener('click', function (e) {
-            var li = e.target.closest('.fm-modelo');
+            var li = e.target.closest('.pex-modelo');
             if (!li) { return; }
 
             if (e.target.closest('.js-modelo-aplicar'))  { aplicarModelo(li); return; }
@@ -4739,31 +4406,31 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         function abrirRenomear(li) {
-            var input = li.querySelector('.fm-modelo-input');
-            li.querySelector('.fm-modelo-nome').classList.add('d-none');
-            li.querySelector('.fm-modelo-qtd').classList.add('d-none');
+            var input = li.querySelector('.pex-modelo-input');
+            li.querySelector('.pex-modelo-nome').classList.add('d-none');
+            li.querySelector('.pex-modelo-qtd').classList.add('d-none');
             input.classList.remove('d-none');
             input.focus();
             input.select();
         }
 
         function fecharRenomear(li) {
-            li.querySelector('.fm-modelo-input').classList.add('d-none');
-            li.querySelector('.fm-modelo-nome').classList.remove('d-none');
-            li.querySelector('.fm-modelo-qtd').classList.remove('d-none');
+            li.querySelector('.pex-modelo-input').classList.add('d-none');
+            li.querySelector('.pex-modelo-nome').classList.remove('d-none');
+            li.querySelector('.pex-modelo-qtd').classList.remove('d-none');
         }
 
         listaModelos.addEventListener('keydown', function (e) {
-            var input = e.target.closest('.fm-modelo-input');
+            var input = e.target.closest('.pex-modelo-input');
             if (!input) { return; }
 
-            var li = input.closest('.fm-modelo');
-            if (e.key === 'Escape') { input.value = li.querySelector('.fm-modelo-nome').textContent.trim(); fecharRenomear(li); }
+            var li = input.closest('.pex-modelo');
+            if (e.key === 'Escape') { input.value = li.querySelector('.pex-modelo-nome').textContent.trim(); fecharRenomear(li); }
             if (e.key === 'Enter')  { e.preventDefault(); salvarRenomear(li); }
         });
 
         function salvarRenomear(li) {
-            var input = li.querySelector('.fm-modelo-input');
+            var input = li.querySelector('.pex-modelo-input');
             var nome  = input.value.trim();
 
             if (nome === '') { fecharRenomear(li); return; }
@@ -4781,7 +4448,7 @@ document.addEventListener('DOMContentLoaded', function () {
             })
             .then(lerResposta)
             .then(function (data) {
-                li.querySelector('.fm-modelo-nome').textContent = data.nome;
+                li.querySelector('.pex-modelo-nome').textContent = data.nome;
                 input.value = data.nome;
                 fecharRenomear(li);
             })
@@ -4792,7 +4459,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         function excluirModelo(li) {
-            var nome = li.querySelector('.fm-modelo-nome').textContent.trim();
+            var nome = li.querySelector('.pex-modelo-nome').textContent.trim();
 
             if (!confirm('Excluir o modelo "' + nome + '"? Os checklists já aplicados nas pastas não mudam.')) { return; }
 
@@ -4822,7 +4489,7 @@ document.addEventListener('DOMContentLoaded', function () {
 (function () {
     'use strict';
 
-    // Markup de seções migrado para a aba "Documentos" (public/js/pasta-arquivos.js).
+    // Markup de seções migrado para a aba "Documentos" (public/js/pasta-explorador.js).
     // Este bloco legado só opera se o markup antigo existir; senão, no-op silencioso.
     if (!document.getElementById('btnMostrarNovaSecao')) return;
 
@@ -5386,7 +5053,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
 {% block javascripts %}
 {{ parent() }}
-<script src="/js/pasta-arquivos.js"></script>
+{# Explorador de documentos (aba Documentos): lê #pexDados e renderiza só o nível aberto. #}
+<script src="/js/pasta-explorador.js"></script>
 {# Indicador das abas, drawer do histórico e popovers do cabeçalho redesenhado. #}
 <script src="/js/pasta-show.js"></script>
 <script>

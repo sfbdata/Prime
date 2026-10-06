@@ -118,6 +118,34 @@ class PastaDocumentoRepository extends ServiceEntityRepository
         return (int) $qb->getQuery()->getSingleScalarResult();
     }
 
+    /**
+     * Todos os documentos de uma pasta, com a seção JÁ carregada, na ordem manual — a consulta
+     * única por trás do explorador da aba Documentos (`ExploradorDeDocumentosOutput`).
+     *
+     * Uma query só: a pasta de produção com 1.128 documentos não pode acordar 1.128 proxies de
+     * seção na renderização. Filtro de tenant EXPLÍCITO além do TenantFilter: o JSON que sai
+     * daqui vira linha na tela, e uma linha de outro escritório seria vazamento, não erro.
+     *
+     * @return list<PastaDocumento>
+     */
+    public function findByPastaComSecao(Pasta $pasta, Tenant $tenant): array
+    {
+        /** @var list<PastaDocumento> $documentos */
+        $documentos = $this->createQueryBuilder('d')
+            ->addSelect('s')
+            ->leftJoin('d.secao', 's')
+            ->andWhere('d.pasta = :pasta')
+            ->andWhere('d.tenant = :tenant')
+            ->setParameter('pasta', $pasta)
+            ->setParameter('tenant', $tenant)
+            ->orderBy('d.ordem', 'ASC')
+            ->addOrderBy('d.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+
+        return $documentos;
+    }
+
     public function findByPastaECategoria(Pasta $pasta, string $categoria): array
     {
         return $this->createQueryBuilder('d')

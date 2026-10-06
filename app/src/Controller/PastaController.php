@@ -54,6 +54,7 @@ use App\Pasta\DTO\PastaPagamentosOutput;
 use App\Pasta\DTO\PastaMetasResumoOutput;
 use App\Pasta\DTO\PastaPendenciasOutput;
 use App\Pasta\DTO\PastaPushOutput;
+use App\Pasta\DTO\ExploradorDeDocumentosOutput;
 use App\Djen\Repository\PublicacaoDjenRepository;
 use App\Inteligencia\DTO\AnalisesDaPastaOutput;
 use App\Inteligencia\Service\DisponibilidadeDeInteligencia;
@@ -367,13 +368,16 @@ class PastaController extends AbstractController
 
         $secoes = $tenant !== null ? $this->secaoRepository->findByPasta($pasta, $tenant) : [];
 
-        // Alimenta o aviso de exclusão (D3): "esta pasta contém 3 subpastas e 127 arquivos".
-        // Precisa estar disponível no HTML no momento do clique — a contagem chegar só na
-        // RESPOSTA da exclusão é tarde demais para um aviso que acontece ANTES dela.
-        $contagemSecoes = [];
-        foreach ($secoes as $secao) {
-            $contagemSecoes[$secao->getId()] = $this->secaoRepository->contarConteudoRecursivo($secao);
-        }
+        // Explorador da aba Documentos: pastas, arquivos, rótulos e tokens num JSON só, de UMA
+        // consulta (seção joinada). As contagens recursivas de cada pasta — o aviso de exclusão
+        // "contém 3 subpastas e 127 arquivos" precisa delas ANTES do clique — saem em memória.
+        $explorador = ExploradorDeDocumentosOutput::montar(
+            $secoes,
+            $tenant !== null ? $this->pastaDocumentoRepository->findByPastaComSecao($pasta, $tenant) : [],
+            self::DOCUMENT_TYPES,
+            fn (string $rota, array $params): string => $this->generateUrl($rota, $params),
+            fn (string $idDoToken): string => $this->csrfTokenManager->getToken($idDoToken)->getValue(),
+        );
 
         // Faixa do topo da aba Financeiro. A média por CPF é do cliente PRINCIPAL da pasta —
         // o marcado explicitamente, ou o de cadastro mais antigo enquanto ninguém marcou nada.
@@ -443,7 +447,7 @@ class PastaController extends AbstractController
             'totalChecklist'              => $totalChecklist,
             'concluidosChecklist'         => $concluidosChecklist,
             'secoes'                      => $secoes,
-            'contagemSecoes'              => $contagemSecoes,
+            'explorador'                  => $explorador,
             'push'                        => $push,
             'analisesIa'                  => $analisesIa,
             // Linha vermelha sob as abas (desenho 1.2.3): calculada aqui, a tela só mostra.
@@ -1813,7 +1817,9 @@ class PastaController extends AbstractController
 
         $this->addFlash('success', 'Documento atualizado com sucesso.');
 
-        return $this->redirectToRoute('pasta_show', ['id' => $doc->getPasta()?->getId()]);
+        // `#documentos`: o `pasta-show.js` abre a aba do fragmento — é o que devolve o usuário
+        // à lista de onde ele editou, sem depender de flag em sessionStorage.
+        return $this->redirectToRoute('pasta_show', ['id' => $doc->getPasta()?->getId(), '_fragment' => 'documentos']);
     }
 
     #[Route('/documento/{id}/deletar', name: 'pasta_documento_delete', methods: ['POST'])]
@@ -1843,7 +1849,7 @@ class PastaController extends AbstractController
 
         $this->addFlash('success', 'Documento removido com sucesso.');
 
-        return $this->redirectToRoute('pasta_show', ['id' => $pastaId]);
+        return $this->redirectToRoute('pasta_show', ['id' => $pastaId, '_fragment' => 'documentos']);
     }
 
     // ── Financeiro: Situação do Contrato ─────────────────────────────────────
