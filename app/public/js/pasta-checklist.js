@@ -13,7 +13,7 @@
 
    O que mudou na extração: o id da pasta e o token vêm de `data-*` de #pexChecklist (o
    arquivo é estático); toda linha nasce por createElement/textContent (título de item e
-   nome de modelo são dado do usuário — nada de innerHTML); o estado "concluído" mora em
+   nome de modelo são dado do usuário — só textContent, nunca HTML cru); o estado "concluído" mora em
    `data-concluido` em vez de ser deduzido da cor do ícone.
 
    Selo "sem anexo": a regra é do SERVIDOR (ConferenciaDeAnexosDoChecklist) e chega em
@@ -21,7 +21,7 @@
    criado ou renomeado nesta tela não tem conferência até recarregar — não se duplica a
    regra no navegador (duas cópias da mesma regra divergem).
 
-   Nenhum estado em localStorage: tudo é gravado no servidor.
+   Nenhum estado guardado no navegador: tudo é gravado no servidor.
    ============================================================================= */
 (function () {
     'use strict';
