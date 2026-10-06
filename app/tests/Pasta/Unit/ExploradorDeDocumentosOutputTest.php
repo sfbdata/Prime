@@ -259,36 +259,52 @@ final class ExploradorDeDocumentosOutputTest extends TestCase
         self::assertSame(2, $this->pasta($out, 2)['arquivos']);
     }
 
-    #[TestDox('L9: identicoA pelo sha256 na pasta INTEIRA (seções diferentes), nomeParecidoCom e o topo limpeza [{regra, ids, bytes, rotulo}] no JSON')]
+    #[TestDox('L9: identicoA pelo sha256 no MESMO nível (outra seção não conta), nomeParecidoCom, regraLimpeza, doDrive e o topo limpeza só da raiz no JSON')]
     public function testDuplicadosELimpeza(): void
     {
         $secao = $this->secao(7, 'Procurações');
         $sha   = str_repeat('a', 64);
+        $em    = new \ReflectionProperty(PastaDocumento::class, 'carregadoEm');
 
         $antigo = $this->documento(1, 'Procuração Gleisson.pdf', null);
         $antigo->setSha256($sha);
         $antigo->setTamanhoBytes(3000);
-        (new \ReflectionProperty(PastaDocumento::class, 'carregadoEm'))->setValue($antigo, new \DateTimeImmutable('2026-01-01 10:00:00'));
+        $em->setValue($antigo, new \DateTimeImmutable('2026-01-01 10:00:00'));
 
-        $copia = $this->documento(2, 'procuracao_gleisson_assinada.pdf', $secao);
+        $copia = $this->documento(2, 'procuracao_gleisson_assinada.pdf', null);
         $copia->setSha256($sha);
         $copia->setTamanhoBytes(3000);
-        (new \ReflectionProperty(PastaDocumento::class, 'carregadoEm'))->setValue($copia, new \DateTimeImmutable('2026-02-01 10:00:00'));
+        $em->setValue($copia, new \DateTimeImmutable('2026-02-01 10:00:00'));
+
+        $naSecao = $this->documento(5, 'outra procuracao gleisson.pdf', $secao);   // mesmo sha, outro nível
+        $naSecao->setSha256($sha);
+        $naSecao->setTamanhoBytes(3000);
 
         $vazio = $this->documento(3, 'sem titulo.pdf', null);
         $vazio->setTamanhoBytes(0);
 
+        $doDrive = $this->documento(6, 'ata.pdf', null);       // 0 byte do Drive: rastro do DT-8
+        $doDrive->setTamanhoBytes(0);
+        $doDrive->setDriveFileId('drive-abc');
+
         $semHash = $this->documento(4, 'contestacao.pdf', null);   // sha NULL: nunca "idêntico"
 
-        $out = $this->montar([$secao], [$antigo, $copia, $vazio, $semHash]);
+        $out = $this->montar([$secao], [$antigo, $copia, $naSecao, $vazio, $doDrive, $semHash]);
 
         $porId = array_column($out->arquivos, null, 'id');
         self::assertSame(2, $porId[1]['identicoA'], 'o mais antigo aponta a cópia');
         self::assertSame(1, $porId[2]['identicoA'], 'a cópia aponta o que fica');
+        self::assertNull($porId[5]['identicoA'], 'mesmo sha em outra seção: não é par');
         self::assertNull($porId[3]['identicoA']);
         self::assertNull($porId[4]['identicoA']);
         self::assertSame(['id' => 2, 'percentual' => 100], $porId[1]['nomeParecidoCom']);
-        self::assertNull($porId[4]['nomeParecidoCom']);
+        self::assertNull($porId[5]['nomeParecidoCom'], 'nome parecido também só no mesmo nível');
+        self::assertSame('identico', $porId[2]['regraLimpeza']);
+        self::assertSame('vazio', $porId[3]['regraLimpeza']);
+        self::assertNull($porId[6]['regraLimpeza'], 'do Drive, 0 byte não é sugerido');
+        self::assertTrue($porId[6]['doDrive']);
+        self::assertFalse($porId[3]['doDrive']);
+        self::assertNull($porId[1]['regraLimpeza'], 'o que fica não é sugerido');
 
         self::assertSame([
             ['regra' => 'identico', 'ids' => [2], 'bytes' => 3000, 'rotulo' => '1 cópia idêntica'],
@@ -307,6 +323,9 @@ final class ExploradorDeDocumentosOutputTest extends TestCase
         self::assertSame([], json_decode($out->json(), true, 512, JSON_THROW_ON_ERROR)['limpeza']);
 
         $avulso = ExploradorDeDocumentosOutput::arquivo($doc, self::ROTULOS, self::url(...), self::csrf(...));
+        self::assertArrayHasKey('regraLimpeza', $avulso);
+        self::assertNull($avulso['regraLimpeza']);
+        self::assertFalse($avulso['doDrive']);
         self::assertArrayHasKey('identicoA', $avulso);
         self::assertNull($avulso['identicoA']);
         self::assertArrayHasKey('nomeParecidoCom', $avulso);

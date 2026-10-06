@@ -22,10 +22,10 @@ final class SugestoesDeLimpezaTest extends TestCase
     private const SHA_A = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
     private const SHA_B = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
 
-    /** @return array{id: int, nome: string, tamanho: int, sha256: ?string, paginas: ?int, carregadoEm: string} */
-    private static function arq(int $id, string $nome, int $tamanho = 1000, ?string $sha = null, ?int $paginas = null, string $em = '2026-01-01 10:00:00'): array
+    /** @return array{id: int, secaoId: ?int, nome: string, tamanho: int, sha256: ?string, paginas: ?int, carregadoEm: string, doDrive: bool} */
+    private static function arq(int $id, string $nome, int $tamanho = 1000, ?string $sha = null, ?int $paginas = null, string $em = '2026-01-01 10:00:00', ?int $secaoId = null, bool $doDrive = false): array
     {
-        return ['id' => $id, 'nome' => $nome, 'tamanho' => $tamanho, 'sha256' => $sha, 'paginas' => $paginas, 'carregadoEm' => $em];
+        return ['id' => $id, 'secaoId' => $secaoId, 'nome' => $nome, 'tamanho' => $tamanho, 'sha256' => $sha, 'paginas' => $paginas, 'carregadoEm' => $em, 'doDrive' => $doDrive];
     }
 
     /** @return array<string, list<int>> regra => ids */
@@ -186,6 +186,55 @@ final class SugestoesDeLimpezaTest extends TestCase
 
         self::assertSame([1 => ['id' => 2, 'percentual' => 100], 2 => ['id' => 1, 'percentual' => 100]], $out->nomeParecidoCom);
         self::assertSame([], $out->grupos, 'nome parecido nunca é sugestão de excluir');
+    }
+
+    #[TestDox('por nível (dc expLimpeza(itens)): mesmo sha256 em seções DIFERENTES não é idêntico; na mesma subpasta é')]
+    public function testIdenticoSoNoMesmoNivel(): void
+    {
+        $out = SugestoesDeLimpeza::avaliar([
+            self::arq(1, 'procuracao.pdf', 3000, self::SHA_A, null, '2026-01-01 00:00:00', null),
+            self::arq(2, 'procuracao (1).pdf', 3000, self::SHA_A, null, '2026-02-01 00:00:00', 7),   // outra seção
+            self::arq(3, 'contrato.pdf', 3000, self::SHA_B, null, '2026-01-01 00:00:00', 7),
+            self::arq(4, 'contrato copia.pdf', 3000, self::SHA_B, null, '2026-02-01 00:00:00', 7),   // mesma seção 7
+        ]);
+
+        self::assertArrayNotHasKey(1, $out->identicoA);
+        self::assertArrayNotHasKey(2, $out->identicoA, 'par entre níveis diferentes não existe');
+        self::assertSame([3 => 4, 4 => 3], $out->identicoA);
+        self::assertSame([4 => 'identico'], $out->regraDe, 'o selo da linha vale na subpasta');
+        self::assertSame([], $out->grupos, 'a faixa é só da raiz: a cópia da subpasta não entra');
+        self::assertArrayNotHasKey(1, $out->nomeParecidoCom, 'nome parecido também só no mesmo nível');
+    }
+
+    #[TestDox('faixa só com ids da RAIZ: o que está em subpasta tem regraDe, mas não entra em grupos nem nos bytes')]
+    public function testGruposSoDaRaiz(): void
+    {
+        $out = SugestoesDeLimpeza::avaliar([
+            self::arq(1, 'vazio.pdf', 0, null, null, '2026-01-01 00:00:00', null),
+            self::arq(2, 'vazio sub.pdf', 0, null, null, '2026-01-01 00:00:00', 9),
+            self::arq(3, 'gravacao.mp4', 200 * self::MB, null, null, '2026-01-01 00:00:00', 9),
+        ]);
+
+        self::assertSame(['vazio' => [1]], self::idsPorRegra($out));
+        self::assertSame([1 => 'vazio', 2 => 'vazio', 3 => 'muito_grande'], $out->regraDe);
+    }
+
+    #[TestDox('0 byte vindo do Drive (rastro do DT-8, o arquivo real está no Drive) NÃO é "vazio": nenhuma sugestão de excluir')]
+    public function testZeroByteDoDriveNaoESugerido(): void
+    {
+        $out = SugestoesDeLimpeza::avaliar([
+            self::arq(1, 'PETICAO.pdf', 0, null, null, '2026-01-01 00:00:00', null, true),
+            self::arq(2, 'ATA.pdf', 0, null, null, '2026-01-01 00:00:00', null, true),
+            self::arq(3, 'local_vazio.pdf', 0, null, null, '2026-01-01 00:00:00', null, false),
+        ]);
+
+        self::assertSame(['vazio' => [3]], self::idsPorRegra($out));
+        self::assertSame([3 => 'vazio'], $out->regraDe);
+        self::assertSame([], $out->identicoA);
+
+        $soDoDrive = SugestoesDeLimpeza::avaliar([self::arq(1, 'PETICAO.pdf', 0, null, null, '2026-01-01 00:00:00', null, true)]);
+        self::assertSame([], $soDoDrive->grupos, 'o filtro remove tudo: a faixa não aparece');
+        self::assertSame([], $soDoDrive->regraDe);
     }
 
     #[TestDox('rótulo no singular e no plural de cada regra; regra desconhecida é erro')]

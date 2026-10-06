@@ -168,6 +168,27 @@ final class PastaExploradorLimpezaTest extends TestCase
         self::assertStringContainsString("'% parecido; confira se é o mesmo documento)'", $this->funcao('nomeParecidoTexto'));
     }
 
+    #[TestDox('renomear/editar preservam identicoA, nomeParecidoCom e regraLimpeza: a resposta de arquivo() traz NULL e não pode apagar o par')]
+    public function testMesclarPreservaOsCamposDoL9(): void
+    {
+        $js = $this->js();
+        self::assertStringNotContainsString('Object.assign(a, res.j.documento)', $js, 'merge cru apagaria o par de idênticos');
+        self::assertSame(2, substr_count($js, 'mesclarDocumento(a, res.j.documento);'), 'renomear inline e o modal de edição');
+
+        $mesclar = $this->funcao('mesclarDocumento');
+        self::assertStringContainsString('const calculados = { identicoA: a.identicoA, nomeParecidoCom: a.nomeParecidoCom, regraLimpeza: a.regraLimpeza };', $mesclar);
+        self::assertStringContainsString('Object.assign(a, novo, calculados);', $mesclar, 'os calculados vêm POR ÚLTIMO e vencem o NULL da resposta');
+    }
+
+    #[TestDox('por nível (dc expLimpeza(itens)): o par de idênticos é só entre arquivos da mesma seção; a faixa só com ids do servidor que continuam na raiz')]
+    public function testCalculoPorNivel(): void
+    {
+        self::assertStringContainsString("function nivelDe(a) { return a.secaoId == null ? null : Number(a.secaoId); }", $this->js());
+        self::assertStringContainsString('x.sha256 === a.sha256 && nivelDe(x) === nivel', $this->funcao('copiasIdenticas'));
+        self::assertStringContainsString('if (regraDaFaixa[a.id] !== regra || nivelDe(a) !== null) return;', $this->funcao('sugestoesDeLimpeza'), 'o Revisar nunca lista item fora da vista');
+        self::assertStringContainsString('const regra = regraDe(a);', $this->funcao('seloSugestao'), 'o selo da linha vem de regraLimpeza do próprio arquivo, em qualquer nível');
+    }
+
     #[TestDox('arranjo: a faixa mora no corpo, depois do cabeçalho das colunas e antes da lista (dc L2217); Revisar controla a lista')]
     public function testArranjoDaFaixa(): void
     {

@@ -1027,9 +1027,11 @@
     }
 
     // ------------------------------------------- duplicados e limpeza (L9) ---
-    /* O servidor decide (SugestoesDeLimpeza, em memória no montar do #pexDados): `identicoA` de
-       cada arquivo, `nomeParecidoCom` e os grupos de `limpeza` por regra. Aqui só se mostra — e
-       se confere contra o que AINDA existe: depois de excluir, a cópia que sobrou sozinha perde o
+    /* O servidor decide (SugestoesDeLimpeza, em memória no montar do #pexDados), POR NÍVEL como o
+       desenho (`expLimpeza(itens)` do nível aberto, dc L4712): `identicoA`/`nomeParecidoCom` só
+       entre arquivos da mesma seção, `regraLimpeza` de cada arquivo e os grupos de `limpeza` da
+       RAIZ (a faixa só aparece lá, dc L4945). Aqui só se mostra — e se confere contra o que AINDA
+       existe e onde está: depois de excluir ou mover, a cópia que ficou sozinha no nível perde o
        selo, e o que fica num grupo de idênticos volta a ser o mais antigo dos que restaram.
        Nada vem de HTML montado em texto: nome de arquivo é dado do usuário. */
     const LIMPEZA = Array.isArray(dados.limpeza) ? dados.limpeza : [];
@@ -1037,18 +1039,30 @@
     // dc L4747 (`sugRot`): o selo da linha para cada regra que não é a do idêntico.
     const SELO_SUGESTAO = { vazio: 'Vazio', copia_processo: 'Ver no PJe', muito_grande: 'Muito grande' };
     const PAGINAS_DA_COPIA = 100;     // SugestoesDeLimpeza::PAGINAS_DA_COPIA
-    const regraDoArquivo = {};
+    // Os ids da faixa (só da raiz) e a regra de cada um, como o servidor mandou.
+    const regraDaFaixa = {};
     LIMPEZA.forEach(function (g) {
         if (REGRAS_LIMPEZA.indexOf(g.regra) === -1 || !Array.isArray(g.ids)) return;
-        g.ids.forEach(function (id) { regraDoArquivo[Number(id)] = g.regra; });
+        g.ids.forEach(function (id) { regraDaFaixa[Number(id)] = g.regra; });
     });
+    function regraDe(a) { return REGRAS_LIMPEZA.indexOf(a.regraLimpeza) !== -1 ? a.regraLimpeza : null; }
+    function nivelDe(a) { return a.secaoId == null ? null : Number(a.secaoId); }
     let limpezaDispensada = lerLimpezaDispensada();
     let limpezaAberta = false;
     let limpezaDesmarcados = new Set();   // ids que o usuário tirou da lista do Revisar
 
+    /* O upload, o renomear e o editar respondem com `arquivo()` sozinho, que não conhece os outros
+       arquivos e traz os campos do L9 NULL: mesclar sem preservá-los apagaria o par de idênticos
+       e o nome parecido até a próxima carga. O que é do próprio documento (nome, doDrive…) vem. */
+    function mesclarDocumento(a, novo) {
+        const calculados = { identicoA: a.identicoA, nomeParecidoCom: a.nomeParecidoCom, regraLimpeza: a.regraLimpeza };
+        Object.assign(a, novo, calculados);
+    }
     function copiasIdenticas(a) {
         if (a.identicoA == null || !a.sha256) return [];
-        return arquivos.filter(function (x) { return x.id !== a.id && x.identicoA != null && x.sha256 === a.sha256; });
+        // Só no MESMO nível (dc: o par é entre os itens da pasta aberta).
+        const nivel = nivelDe(a);
+        return arquivos.filter(function (x) { return x.id !== a.id && x.identicoA != null && x.sha256 === a.sha256 && nivelDe(x) === nivel; });
     }
     function maisAntigo(grupo) {
         return grupo.slice().sort(function (x, y) {
@@ -1065,7 +1079,7 @@
         return h('span', { class: 'pex-selo pex-selo--identico', title: titulo }, [icone('bi-files'), 'Idêntico']);
     }
     function seloSugestao(a) {
-        const regra = regraDoArquivo[a.id];
+        const regra = regraDe(a);
         if (!SELO_SUGESTAO[regra]) return null;
         return h('span', { class: 'pex-selo pex-selo--sugestao', title: 'Sugestão para ganhar espaço: ' + motivoDaLimpeza(a, regra) }, [icone('bi-trash3'), SELO_SUGESTAO[regra]]);
     }
@@ -1091,12 +1105,13 @@
         const outro = p ? arquivoPorId(p.id) : null;
         return outro ? outro.nome + ' (' + p.percentual + '% parecido; confira se é o mesmo documento)' : '';
     }
-    // As sugestões que ainda valem, na ordem das regras do desenho.
+    /* As sugestões da faixa que ainda valem, na ordem das regras do desenho: só ids que o servidor
+       pôs na faixa E que continuam na raiz — o Revisar nunca lista nem exclui item fora da vista. */
     function sugestoesDeLimpeza() {
         const lista = [];
         REGRAS_LIMPEZA.forEach(function (regra) {
             arquivos.forEach(function (a) {
-                if (regraDoArquivo[a.id] !== regra) return;
+                if (regraDaFaixa[a.id] !== regra || nivelDe(a) !== null) return;
                 if (regra === 'identico') {
                     const outros = copiasIdenticas(a);
                     if (!outros.length || maisAntigo(outros.concat([a])) === a) return;
@@ -2236,7 +2251,7 @@
                 _token: a.csrfEditar, nomeBase: v, categoria: a.categoria || '', descricao: a.descricao || '', numero: a.numero || '',
             }).then(function (res) {
                 if (!res.ok || !res.j.ok || !res.j.documento) throw new Error((res.j && res.j.erro) || 'Falha ao renomear.');
-                Object.assign(a, res.j.documento);
+                mesclarDocumento(a, res.j.documento);
             });
         }
         pedido.then(function () {
@@ -2618,7 +2633,7 @@
             if (botao) botao.disabled = true;
             postFormData(editarForm.action, new FormData(editarForm)).then(function (res) {
                 if (!res.ok || !res.j.ok || !res.j.documento) throw new Error((res.j && res.j.erro) || 'Falha ao salvar.');
-                Object.assign(a, res.j.documento);
+                mesclarDocumento(a, res.j.documento);
                 bootstrap.Modal.getOrCreateInstance(editarModalEl).hide();
                 renderizar();
                 toast('Documento atualizado: ' + a.nome);

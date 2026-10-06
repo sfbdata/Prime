@@ -12,8 +12,12 @@ namespace App\Pasta\DTO;
  *    tem cópia idêntica não aparece.
  *  - `nomeParecidoCom`: id => o arquivo de nome mais parecido (≥ 85%), com o percentual. Só
  *    INFORMA ("confira se é o mesmo documento"); nunca entra em `grupos`.
- *  - `grupos`: as sugestões de limpeza por regra, na ordem do desenho, só as que têm arquivo.
- *    `ids` são os arquivos sugeridos para excluir; `bytes`, quanto eles somam.
+ *  - `grupos`: as sugestões de limpeza por regra, na ordem do desenho, só as que têm arquivo,
+ *    SÓ com os arquivos da raiz (a faixa só aparece lá, como no desenho). `ids` são os arquivos
+ *    sugeridos para excluir; `bytes`, quanto eles somam.
+ *  - `regraDe`: id => regra, em qualquer nível — o selo de sugestão da linha.
+ *
+ * "Idêntico" e "nome parecido" comparam só arquivos do MESMO nível (seção).
  */
 final readonly class SugestoesDeLimpezaOutput
 {
@@ -26,16 +30,18 @@ final readonly class SugestoesDeLimpezaOutput
      * @param array<int, int>                                                       $identicoA
      * @param array<int, array{id: int, percentual: int}>                           $nomeParecidoCom
      * @param list<array{regra: string, ids: list<int>, bytes: int, rotulo: string}> $grupos
+     * @param array<int, string>                                                    $regraDe
      */
     public function __construct(
         public array $identicoA,
         public array $nomeParecidoCom,
         public array $grupos,
+        public array $regraDe = [],
     ) {
     }
 
     public static function nada(): self
     {
-        return new self([], [], []);
+        return new self([], [], [], []);
     }
 }

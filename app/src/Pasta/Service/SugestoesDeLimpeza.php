@@ -11,15 +11,23 @@ use App\Pasta\DTO\SugestoesDeLimpezaOutput;
  * desenho (02 - EXPEDIENTES 1.2.3, dc L4686-4697), avaliadas sobre os arquivos de UMA pasta.
  *
  * NÃO É IA: são quatro regras fixas sobre dados que o servidor já guarda (sha256, tamanho,
- * páginas, nome). Serviço puro: recebe arrays simples, não consulta nada.
+ * páginas, nome, origem). Serviço puro: recebe arrays simples, não consulta nada.
+ *
+ * POR NÍVEL, como o desenho (`expLimpeza(itens)` recebe os itens do nível aberto, dc L4712):
+ * "idêntico" e "nome parecido" só comparam arquivos da MESMA seção (`secaoId`; NULL = raiz).
+ * Dois arquivos iguais em seções diferentes não são marcados. A faixa só aparece na raiz
+ * (dc `cam.length ? { sug: [] } : LP`, L4945), então `grupos` traz só os arquivos da raiz; o
+ * selo de cada linha usa `regraDe`, que vale em qualquer nível.
  *
  * Cada arquivo cai em no máximo UMA regra, nesta precedência (a do desenho):
  *
- *  1. Idêntico: mesmo sha256 dentro da pasta, em qualquer seção. Fica o mais antigo
- *     (`carregadoEm`; empate pelo menor id); os demais são sugeridos. sha256 NULL (acervo ainda
- *     sem o hash) NÃO conta — selo sem lastro é nada. Arquivo de 0 byte não entra no grupo (todo
- *     vazio tem o mesmo hash): é a regra 2.
- *  2. Vazio: 0 byte.
+ *  1. Idêntico: mesmo sha256 no mesmo nível. Fica o mais antigo (`carregadoEm`; empate pelo
+ *     menor id); os demais são sugeridos. sha256 NULL (acervo ainda sem o hash) NÃO conta —
+ *     selo sem lastro é nada. Arquivo de 0 byte não entra no grupo (todo vazio tem o mesmo hash).
+ *  2. Vazio: 0 byte — MENOS quando o arquivo veio do Drive (`doDrive`). Em produção há 114
+ *     documentos de 0 byte, todos com `drive_file_id` e mime `application/x-empty`: são o rastro
+ *     do defeito de download do Drive (DT-8) — o conteúdo real está no Drive, e sugerir excluir
+ *     apagaria a única referência a ele no sistema. Esses não recebem sugestão nenhuma.
  *  3. Cópia do processo: o nome casa `processo|autos|integra|completo|NNNNNNN-NN` (sem acento,
  *     então "íntegra" também) E tem MAIS de 100 páginas ou MAIS de 50 MB. Páginas NULL (não é
  *     PDF ou não foi contado) vale só o critério dos MB.
@@ -37,8 +45,15 @@ final class SugestoesDeLimpeza
     /** dc L4693: `processo|autos|integra|íntegra|completo|\d{7}-\d{2}`, sobre o nome normalizado. */
     private const NOME_DE_PROCESSO = '/processo|autos|integra|completo|\d{7}-\d{2}/';
 
+    private const REGRAS = [
+        SugestoesDeLimpezaOutput::IDENTICO,
+        SugestoesDeLimpezaOutput::VAZIO,
+        SugestoesDeLimpezaOutput::COPIA_PROCESSO,
+        SugestoesDeLimpezaOutput::MUITO_GRANDE,
+    ];
+
     /**
-     * @param list<array{id: int, nome: string, tamanho: int, sha256: ?string, paginas: ?int, carregadoEm: string}> $arquivos
+     * @param list<array{id: int, secaoId: ?int, nome: string, tamanho: int, sha256: ?string, paginas: ?int, carregadoEm: string, doDrive: bool}> $arquivos
      */
     public static function avaliar(array $arquivos): SugestoesDeLimpezaOutput
     {
@@ -52,7 +67,7 @@ final class SugestoesDeLimpeza
         $porHash = [];
         foreach ($arquivos as $a) {
             if ($a['sha256'] !== null && $a['sha256'] !== '' && $a['tamanho'] > 0) {
-                $porHash[$a['sha256']][] = $a;
+                $porHash[($a['secaoId'] ?? 0) . '|' . $a['sha256']][] = $a;
             }
         }
         foreach ($porHash as $grupo) {
@@ -79,11 +94,11 @@ final class SugestoesDeLimpeza
         }
 
         $grupos = [];
-        foreach ([SugestoesDeLimpezaOutput::IDENTICO, SugestoesDeLimpezaOutput::VAZIO, SugestoesDeLimpezaOutput::COPIA_PROCESSO, SugestoesDeLimpezaOutput::MUITO_GRANDE] as $regra) {
+        foreach (self::REGRAS as $regra) {
             $ids   = [];
             $bytes = 0;
             foreach ($arquivos as $a) {
-                if (($regraDe[$a['id']] ?? null) === $regra) {
+                if ($a['secaoId'] === null && ($regraDe[$a['id']] ?? null) === $regra) {
                     $ids[]  = $a['id'];
                     $bytes += $a['tamanho'];
                 }
@@ -93,7 +108,9 @@ final class SugestoesDeLimpeza
             }
         }
 
-        return new SugestoesDeLimpezaOutput($identicoA, self::nomesParecidos($arquivos), $grupos);
+        ksort($regraDe);
+
+        return new SugestoesDeLimpezaOutput($identicoA, self::nomesParecidos($arquivos), $grupos, $regraDe);
     }
 
     /**
@@ -111,11 +128,12 @@ final class SugestoesDeLimpeza
         };
     }
 
-    /** @param array{id: int, nome: string, tamanho: int, sha256: ?string, paginas: ?int, carregadoEm: string} $a */
+    /** @param array{id: int, secaoId: ?int, nome: string, tamanho: int, sha256: ?string, paginas: ?int, carregadoEm: string, doDrive: bool} $a */
     private static function regraSemHash(array $a): ?string
     {
         if ($a['tamanho'] === 0) {
-            return SugestoesDeLimpezaOutput::VAZIO;
+            // Vindo do Drive, 0 byte é o rastro do DT-8, não um arquivo vazio: nada a sugerir.
+            return $a['doDrive'] ? null : SugestoesDeLimpezaOutput::VAZIO;
         }
 
         if (preg_match(self::NOME_DE_PROCESSO, SimilaridadeDeNomes::normalizar($a['nome'])) === 1
@@ -132,25 +150,28 @@ final class SugestoesDeLimpeza
     }
 
     /**
-     * Para cada arquivo, o de nome mais parecido (maior similaridade; empate pelo menor id).
+     * Para cada arquivo, o de nome mais parecido NO MESMO NÍVEL (maior similaridade; empate pelo
+     * menor id).
      *
-     * @param list<array{id: int, nome: string, tamanho: int, sha256: ?string, paginas: ?int, carregadoEm: string}> $arquivos
+     * @param list<array{id: int, secaoId: ?int, nome: string, tamanho: int, sha256: ?string, paginas: ?int, carregadoEm: string, doDrive: bool}> $arquivos
      *
      * @return array<int, array{id: int, percentual: int}>
      */
     private static function nomesParecidos(array $arquivos): array
     {
-        $nomes = [];
+        $nomesPorNivel = [];
         foreach ($arquivos as $a) {
-            $nomes[$a['id']] = $a['nome'];
+            $nomesPorNivel[$a['secaoId'] ?? 0][$a['id']] = $a['nome'];
         }
 
         $melhor = [];
-        foreach (SimilaridadeDeNomes::paresParecidos($nomes, self::SIMILARIDADE_MINIMA) as $par) {
-            foreach ([[$par['a'], $par['b']], [$par['b'], $par['a']]] as [$de, $para]) {
-                $atual = $melhor[$de] ?? null;
-                if ($atual === null || $par['similaridade'] > $atual['s'] || ($par['similaridade'] === $atual['s'] && $para < $atual['id'])) {
-                    $melhor[$de] = ['id' => $para, 's' => $par['similaridade']];
+        foreach ($nomesPorNivel as $nomes) {
+            foreach (SimilaridadeDeNomes::paresParecidos($nomes, self::SIMILARIDADE_MINIMA) as $par) {
+                foreach ([[$par['a'], $par['b']], [$par['b'], $par['a']]] as [$de, $para]) {
+                    $atual = $melhor[$de] ?? null;
+                    if ($atual === null || $par['similaridade'] > $atual['s'] || ($par['similaridade'] === $atual['s'] && $para < $atual['id'])) {
+                        $melhor[$de] = ['id' => $para, 's' => $par['similaridade']];
+                    }
                 }
             }
         }
