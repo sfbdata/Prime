@@ -1,0 +1,323 @@
+/* =============================================================================
+   BlueJus IA na aba Push da pasta (spec inteligencia-resumo-do-push §3.6).
+
+   Valores do desenho 02 - EXPEDIENTES 1.2.3 (dc L.2417 botão, L.2427-2497
+   cartão, L.5123 cores dos chips). Tudo preso a `.ps-push` — nada global — e
+   toda cor entra como token, redefinido no tema escuro logo abaixo. Cantos até
+   4px; selo e chips são pílulas (999px), como no próprio desenho.
+
+   Carregado pelo `pasta/_push_processual.html.twig` só quando o usuário tem a
+   BlueJus IA (`modules.inteligencia.view`).
+   ============================================================================= */
+.ps-push {
+    --ps-ia-roxo:        #5b3fb0;
+    --ps-ia-roxo-2:      #6a4bc4;
+    --ps-ia-roxo-icone:  #6a5a96;
+    --ps-ia-roxo-apag:   #a99bd0;
+    --ps-ia-roxo-dia:    #8a76c6;
+    --ps-ia-aviso:       #7a6aa8;
+    --ps-ia-base:        #8a7fb0;
+    --ps-ia-hover:       #f1ecfc;
+    --ps-ia-hover-2:     #ece5fb;
+    --ps-ia-hover-menu:  #f3effc;
+    --ps-ia-selo-bg:     #ece5fb;
+    --ps-ia-cartao-bg:   linear-gradient(180deg, #f8f5ff, #f4f8fd);
+    --ps-ia-cartao-bd:   #e6def8;
+    --ps-ia-cartao-anel: rgba(205, 191, 241, .55);
+    --ps-ia-marca-bg:    #fff;
+    --ps-ia-marca-anel:  0 0 0 1px #e2d8f8, 0 2px 6px rgba(91, 63, 176, .12);
+    --ps-ia-ponto-bg:    rgba(255, 255, 255, .75);
+    --ps-ia-ponto-anel:  rgba(226, 216, 248, .7);
+    --ps-ia-texto:       #1d3441;
+    --ps-ia-texto-2:     #243845;
+    --ps-ia-texto-3:     #4f6878;
+    --ps-ia-texto-4:     #33495a;
+    --ps-ia-acao:        #5f7684;
+    --ps-ia-perigo:      #c0392b;
+    --ps-ia-perigo-bg:   #fdecea;
+    --ps-ia-menu-bg:     #fff;
+    --ps-ia-menu-sombra: 0 8px 24px rgba(16, 42, 58, .18);
+    --ps-ia-off:         #8a97a0;
+    --ps-ia-msg-bg:      #f8f5ff;
+    /* Chips por tipo de ponto (desenho, `PT`): texto · fundo. */
+    --ps-ia-prazo-tx:    #b42318;  --ps-ia-prazo-bg:   #fdecea;
+    --ps-ia-atencao-tx:  #b4460a;  --ps-ia-atencao-bg: #fff1e6;
+    --ps-ia-provid-tx:   #8a6400;  --ps-ia-provid-bg:  #fdf5d8;
+    --ps-ia-info-tx:     #0b5f86;  --ps-ia-info-bg:    #e3f0f8;
+    --ps-ia-ok-tx:       #1e7b45;  --ps-ia-ok-bg:      #e6f4ec;
+}
+[data-bs-theme="dark"] .ps-push {
+    --ps-ia-roxo:        #b9a6f2;
+    --ps-ia-roxo-2:      #b9a6f2;
+    --ps-ia-roxo-icone:  #a99bd0;
+    --ps-ia-roxo-apag:   #75689c;
+    --ps-ia-roxo-dia:    #a99bd0;
+    --ps-ia-aviso:       #a99bd0;
+    --ps-ia-base:        #9d93c0;
+    --ps-ia-hover:       rgba(185, 166, 242, .12);
+    --ps-ia-hover-2:     rgba(185, 166, 242, .16);
+    --ps-ia-hover-menu:  rgba(185, 166, 242, .12);
+    --ps-ia-selo-bg:     rgba(185, 166, 242, .16);
+    --ps-ia-cartao-bg:   linear-gradient(180deg, rgba(122, 92, 214, .12), rgba(69, 176, 214, .06));
+    --ps-ia-cartao-bd:   rgba(185, 166, 242, .22);
+    --ps-ia-cartao-anel: rgba(185, 166, 242, .18);
+    --ps-ia-marca-bg:    var(--bs-body-bg);
+    --ps-ia-marca-anel:  0 0 0 1px rgba(185, 166, 242, .3), 0 2px 6px rgba(0, 0, 0, .35);
+    --ps-ia-ponto-bg:    rgba(255, 255, 255, .04);
+    --ps-ia-ponto-anel:  rgba(185, 166, 242, .2);
+    --ps-ia-texto:       var(--bs-body-color);
+    --ps-ia-texto-2:     var(--bs-body-color);
+    --ps-ia-texto-3:     var(--bs-secondary-color);
+    --ps-ia-texto-4:     var(--bs-body-color);
+    --ps-ia-acao:        var(--bs-secondary-color);
+    --ps-ia-perigo:      #f08a7e;
+    --ps-ia-perigo-bg:   rgba(240, 138, 126, .14);
+    --ps-ia-menu-bg:     var(--bs-secondary-bg);
+    --ps-ia-menu-sombra: 0 8px 24px rgba(0, 0, 0, .5);
+    --ps-ia-off:         var(--bs-secondary-color);
+    --ps-ia-msg-bg:      rgba(122, 92, 214, .12);
+    --ps-ia-prazo-tx:    #f4a29a;  --ps-ia-prazo-bg:   rgba(180, 35, 24, .25);
+    --ps-ia-atencao-tx:  #f6b98a;  --ps-ia-atencao-bg: rgba(180, 70, 10, .25);
+    --ps-ia-provid-tx:   #e8c96a;  --ps-ia-provid-bg:  rgba(138, 100, 0, .3);
+    --ps-ia-info-tx:     #8fcbe8;  --ps-ia-info-bg:    rgba(11, 95, 134, .3);
+    --ps-ia-ok-tx:       #8fd6ac;  --ps-ia-ok-bg:      rgba(30, 123, 69, .3);
+}
+
+@keyframes psIaEntra { 0% { opacity: 0; transform: translate3d(0, -8px, 0); } 60% { opacity: 1; transform: none; } }
+@keyframes psIaCarrega { 0%, 100% { opacity: .4; transform: scale(.85); } 50% { opacity: 1; transform: scale(1.1); } }
+
+/* ── Botão do cabeçalho (dc L.2417) ── */
+.ps-push .ps-ia-gerar {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 28px;
+    padding: 0 11px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--ps-ia-roxo);
+    font-family: inherit;
+    font-size: 11.5px;
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background .15s;
+}
+.ps-push .ps-ia-gerar:hover:not(:disabled),
+.ps-push .ps-ia-gerar:focus-visible { background: var(--ps-ia-hover); }
+.ps-push .ps-ia-gerar-ico { font-size: 13px; line-height: 1; display: inline-block; }
+.ps-push .ps-ia-gerar.is-carregando { cursor: progress; }
+.ps-push .ps-ia-gerar.is-carregando .ps-ia-gerar-ico { animation: psIaCarrega 1.1s ease-in-out infinite; }
+/* Fora do "disponível" o desenho é omisso: o motivo é uma frase, não um rótulo — sai em
+   caixa normal, apagado, sem cara de clicável. */
+.ps-push .ps-ia-gerar--indisponivel {
+    color: var(--ps-ia-off);
+    font-weight: 600;
+    letter-spacing: 0;
+    text-transform: none;
+    white-space: normal;
+    text-align: left;
+    cursor: not-allowed;
+}
+
+/* ── Faixa de retorno do pedido ── */
+.ps-push .ps-ia-msg {
+    margin: 0;
+    padding: 9px 17px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--ps-ia-roxo);
+    background: var(--ps-ia-msg-bg);
+    border-bottom: 1px solid var(--ps-ia-cartao-bd);
+}
+.ps-push .ps-ia-msg.is-erro { color: var(--ps-ia-perigo); }
+
+/* ── Cartão da análise (dc L.2428, `st` em L.5141) ── */
+.ps-push .ps-ia-cartao {
+    display: flex;
+    gap: 12px;
+    padding: 14px 17px;
+    border-bottom: 1px solid var(--ps-ia-cartao-bd);
+    background: var(--ps-ia-cartao-bg);
+    box-shadow: inset 0 0 0 1px var(--ps-ia-cartao-anel);
+}
+.ps-push .ps-ia-cartao.is-nova { animation: psIaEntra .6s cubic-bezier(.22, .8, .3, 1) both; }
+.ps-push .ps-ia-cartao--lida { opacity: .82; }
+
+.ps-push .ps-ia-marca { display: flex; flex-direction: column; align-items: center; gap: 3px; width: 46px; flex-shrink: 0; padding-top: 1px; }
+.ps-push .ps-ia-marca-ico {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--ps-ia-marca-bg);
+    box-shadow: var(--ps-ia-marca-anel);
+    color: var(--ps-ia-roxo-2);
+    font-size: 16px;
+    line-height: 1;
+}
+.ps-push .ps-ia-marca-dia { font-size: 10px; font-weight: 700; letter-spacing: .06em; color: var(--ps-ia-roxo-dia); text-transform: uppercase; }
+
+.ps-push .ps-ia-corpo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 7px; }
+.ps-push .ps-ia-corpo p { margin: 0; }
+
+.ps-push .ps-ia-cab { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.ps-push .ps-ia-cab-espaco { flex: 1; }
+.ps-push .ps-ia-selo {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--ps-ia-roxo);
+    background: var(--ps-ia-selo-bg);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.ps-push .ps-ia-aviso { font-size: 11.5px; color: var(--ps-ia-aviso); }
+.ps-push .ps-ia-quando { font-variant-numeric: tabular-nums; }
+.ps-push .ps-ia-lido { display: inline-flex; align-items: center; gap: 3px; font-size: 10.5px; font-weight: 700; color: var(--ps-ia-texto-3); }
+.ps-push .ps-ia-cadeado { color: var(--ps-ia-roxo); font-size: 13px; }
+.ps-push .ps-ia-acao { margin: 0; display: inline-flex; }
+
+/* Cadeado e ⋮ (28px, só ícone). */
+.ps-push .ps-ia-icone {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--ps-ia-roxo-icone);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background .15s, color .15s;
+}
+.ps-push .ps-ia-icone > i { font-size: 13px; }
+.ps-push .ps-ia-icone:hover,
+.ps-push .ps-ia-icone:focus-visible { background: var(--ps-ia-hover-2); }
+.ps-push .ps-ia-acao[data-ia-acao="interna"] .ps-ia-icone { color: var(--ps-ia-roxo-apag); }
+.ps-push .ps-ia-acao[data-ia-acao="interna"] .ps-ia-icone.is-interna { color: var(--ps-ia-roxo); }
+
+/* Menu ⋮ (dc L.2445). */
+.ps-push .ps-ia-menu-wrap { position: relative; }
+.ps-push .ps-ia-menu {
+    position: absolute;
+    right: 0;
+    top: 32px;
+    z-index: 20;
+    width: 210px;
+    padding: 5px;
+    display: flex;
+    flex-direction: column;
+    background: var(--ps-ia-menu-bg);
+    border-radius: 4px;
+    box-shadow: var(--ps-ia-menu-sombra);
+}
+.ps-push .ps-ia-menu[hidden] { display: none; }
+.ps-push .ps-ia-menu .ps-ia-acao { display: flex; }
+.ps-push .ps-ia-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    width: 100%;
+    height: 32px;
+    padding: 0 10px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--ps-ia-texto-2);
+    text-align: left;
+    cursor: pointer;
+}
+.ps-push .ps-ia-menu-item > i { color: var(--ps-ia-roxo-icone); }
+.ps-push .ps-ia-menu-item:hover,
+.ps-push .ps-ia-menu-item:focus-visible { background: var(--ps-ia-hover-menu); }
+.ps-push .ps-ia-menu-item--perigo,
+.ps-push .ps-ia-menu-item--perigo > i { color: var(--ps-ia-perigo); }
+.ps-push .ps-ia-menu-item--perigo:hover,
+.ps-push .ps-ia-menu-item--perigo:focus-visible { background: var(--ps-ia-perigo-bg); }
+
+/* Conteúdo. */
+.ps-push .ps-ia-resumo { font-size: 13.5px; line-height: 1.5; color: var(--ps-ia-texto); text-wrap: pretty; overflow-wrap: anywhere; }
+.ps-push .ps-ia-pontos { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+.ps-push .ps-ia-ponto {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 7px 10px;
+    border-radius: 3px;
+    background: var(--ps-ia-ponto-bg);
+    box-shadow: 0 0 0 1px var(--ps-ia-ponto-anel);
+}
+.ps-push .ps-ia-chip {
+    flex-shrink: 0;
+    min-width: 92px;
+    text-align: center;
+    padding: 3px 7px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    color: var(--ps-ia-info-tx);
+    background: var(--ps-ia-info-bg);
+}
+.ps-push .ps-ia-chip--prazo       { color: var(--ps-ia-prazo-tx);   background: var(--ps-ia-prazo-bg); }
+.ps-push .ps-ia-chip--atencao     { color: var(--ps-ia-atencao-tx); background: var(--ps-ia-atencao-bg); }
+.ps-push .ps-ia-chip--providencia { color: var(--ps-ia-provid-tx);  background: var(--ps-ia-provid-bg); }
+.ps-push .ps-ia-chip--ok          { color: var(--ps-ia-ok-tx);      background: var(--ps-ia-ok-bg); }
+.ps-push .ps-ia-ponto-txt { flex: 1; min-width: 0; font-size: 13px; line-height: 1.45; color: var(--ps-ia-texto-2); text-wrap: pretty; overflow-wrap: anywhere; }
+.ps-push .ps-ia-quem { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 12.5px; color: var(--ps-ia-texto-3); }
+.ps-push .ps-ia-quem > i { color: var(--ps-ia-roxo-2); }
+.ps-push .ps-ia-quem > strong { color: var(--ps-ia-texto-4); }
+.ps-push .ps-ia-base { font-size: 11px; color: var(--ps-ia-base); }
+.ps-push .ps-ia-andamento { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--ps-ia-roxo); }
+.ps-push .ps-ia-andamento-ico { font-size: 16px; color: var(--ps-ia-roxo-2); animation: psIaCarrega 1.1s ease-in-out infinite; }
+.ps-push .ps-ia-erro { font-size: 13px; color: var(--ps-ia-texto-3); }
+.ps-push .ps-ia-erro-tecnico { font-size: 11.5px; color: var(--ps-ia-base); overflow-wrap: anywhere; }
+
+/* Ações em linha (dc L.2484). */
+.ps-push .ps-ia-acoes { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 1px; }
+.ps-push .ps-ia-botao {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 28px;
+    padding: 0 10px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--ps-ia-acao);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.ps-push .ps-ia-botao > i { font-size: 12px; }
+.ps-push .ps-ia-botao:hover,
+.ps-push .ps-ia-botao:focus-visible { background: var(--ps-ia-hover-menu); }
+.ps-push .ps-ia-botao--perigo:hover,
+.ps-push .ps-ia-botao--perigo:focus-visible { background: var(--ps-ia-perigo-bg); color: var(--ps-ia-perigo); }
+.ps-push .ps-ia-botao:disabled,
+.ps-push .ps-ia-menu-item:disabled,
+.ps-push .ps-ia-icone:disabled { opacity: .6; cursor: progress; }
+
+@media (prefers-reduced-motion: reduce) {
+    .ps-push .ps-ia-cartao.is-nova,
+    .ps-push .ps-ia-gerar.is-carregando .ps-ia-gerar-ico,
+    .ps-push .ps-ia-andamento-ico { animation: none; }
+}

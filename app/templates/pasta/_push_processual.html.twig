@@ -12,7 +12,8 @@
    pasta nunca receberá nada (e o caminho é a aba Processo); com processo e sem
    publicação, o que falta é o processo estar sob uma OAB monitorada.
 
-   Contexto: `pasta`, `push` (App\Pasta\DTO\PastaPushOutput).
+   Contexto: `pasta`, `push` (App\Pasta\DTO\PastaPushOutput), `analisesIa`
+   (App\Inteligencia\DTO\AnalisesDaPastaOutput, ou null sem `modules.inteligencia.view`).
    ============================================================================ #}
 <section class="ps-card ps-push" data-aba="push">
     <div class="ps-card-cab ps-card-cab--faixa">
@@ -26,8 +27,48 @@
             <a class="ps-card-cab-link ps-card-cab-link--texto"
                href="{{ path('push_processual_index', {busca: push.numeroUnico}) }}">ver no módulo</a>
         {% endif %}
-        {# Lugar reservado: o botão de resumo por IA (etapa futura) entra AQUI, entre o atalho do
-           módulo e os filtros — é onde o desenho o põe (dc L.2416). Nada de botão inerte no lugar. #}
+        {# BlueJus IA (spec inteligencia-resumo-do-push §3.6): entre o atalho do módulo e os filtros,
+           onde o desenho o põe (dc L.2416). Como no desenho (`podeIA`), só existe quando há o que
+           ler. Fora do estado "disponível" o botão não finge funcionar: sai desabilitado com o
+           motivo REAL (`ia_disponibilidade().mensagem`). Sem `modules.inteligencia.view` o
+           controller passa `analisesIa = null` e nada de IA aparece na aba. #}
+        {% if analisesIa is not null and (analisesIa.totalMovimentacoes > 0 or analisesIa.temAnalise) %}
+            {% set ia = ia_disponibilidade() %}
+            {% if analisesIa.temEmAndamento %}
+                {% set iaRotulo = 'Analisando…' %}
+            {% elseif analisesIa.ultimaConcluida is not null %}
+                {% set iaRotulo = 'Gerar nova análise' %}
+            {% else %}
+                {% set iaRotulo = 'Resumir com IA' %}
+            {% endif %}
+            {% if analisesIa.ultimaConcluida is null %}
+                {% set iaTitulo = 'A IA lê as movimentações e indica prazos e providências' %}
+            {% elseif analisesIa.naoAnalisadas > 0 %}
+                {% set iaTitulo = analisesIa.naoAnalisadas ~ ' movimentação(ões) ainda não analisada(s)' %}
+            {% else %}
+                {% set iaTitulo = 'Nova análise considerando o histórico' %}
+            {% endif %}
+            {% if ia.estaDisponivel %}
+                <button type="button" class="ps-ia-gerar{{ analisesIa.temEmAndamento ? ' is-carregando' : '' }}"
+                        title="{{ iaTitulo }}"
+                        data-ia-gerar
+                        data-ia-disponivel="1"
+                        data-ia-solicitar-url="{{ path('inteligencia_push_solicitar', {id: pasta.id}) }}"
+                        data-ia-token="{{ csrf_token('inteligencia_push_' ~ pasta.id) }}"
+                        {{ analisesIa.temEmAndamento ? 'disabled' : '' }}>
+                    <span class="ps-ia-gerar-ico" aria-hidden="true">✦</span><span class="ps-ia-gerar-rotulo">{{ iaRotulo }}</span>
+                </button>
+            {% else %}
+                <button type="button" class="ps-ia-gerar ps-ia-gerar--indisponivel"
+                        title="{{ ia.mensagem }}"
+                        data-ia-gerar
+                        data-ia-disponivel="0"
+                        data-ia-motivo="{{ ia.value }}"
+                        disabled aria-disabled="true">
+                    <span class="ps-ia-gerar-ico" aria-hidden="true">✦</span><span class="ps-ia-gerar-rotulo">{{ ia.mensagem }}</span>
+                </button>
+            {% endif %}
+        {% endif %}
         {# Filtros do desenho (dc L.2420, `pushFiltro`): Todas · Novas. "Novas" = não lidas, que é
            o mesmo dado do selo da aba. "Geram prazo" fica de fora: o dado não diz o que gera
            prazo (seria classificação nova). O filtro roda no navegador (pasta-push.js) — a lista
@@ -39,6 +80,14 @@
             </div>
         {% endif %}
     </div>
+
+    {# Análises da BlueJus IA logo abaixo do cabeçalho, acima da linha do tempo (dc L.2427). O
+       fragmento é o mesmo que o `inteligencia_push_listar` devolve: o pasta-ia-push.js o troca
+       inteiro depois do polling, sem F5. A faixa de aviso recebe o retorno do pedido. #}
+    {% if analisesIa is not null %}
+        <p class="ps-ia-msg" data-ia-msg role="status" hidden></p>
+        {% include 'inteligencia/_analises_push.html.twig' with {analisesIa: analisesIa, pastaId: pasta.id} only %}
+    {% endif %}
 
     {% if not push.temProcesso %}
         <div class="ps-vazio" id="push-vazio-sem-processo">
@@ -64,7 +113,8 @@
            linha e um cartão por publicação. O cartão É o botão de sempre (`.ps-push-cab`,
            `aria-controls` + `data-push-url`): o pasta-show.js abre o teor no lugar.
            Documento do PJe, copiar ID, criar tarefa e marcar (não) lida moram no
-           teor (`_push_teor`). Ficam de fora: análise por IA, "Geram prazo",
+           teor (`_push_teor`). A análise por IA mora acima da lista (BlueJus IA).
+           Ficam de fora: "Geram prazo",
            encaminhar, monitoramento e avisos.
 
            Toda linha leva a pílula do dia; a repetida (mesmo dia da anterior) sai
@@ -119,3 +169,8 @@
 </section>
 {# Filtro, selo da aba, copiar ID, marcar (não) lida e criar tarefa a partir da publicação. #}
 <script src="{{ asset('js/pasta-push.js') }}" defer></script>
+{% if analisesIa is not null %}
+    {# BlueJus IA: pedir, acompanhar (polling 2 s), recarregar a lista e as ações de cada análise. #}
+    <link rel="stylesheet" href="{{ asset('css/pasta-ia.css') }}">
+    <script src="{{ asset('js/pasta-ia-push.js') }}" defer></script>
+{% endif %}

@@ -52,6 +52,8 @@ use App\Pasta\DTO\PastaMetasResumoOutput;
 use App\Pasta\DTO\PastaPendenciasOutput;
 use App\Pasta\DTO\PastaPushOutput;
 use App\Djen\Repository\PublicacaoDjenRepository;
+use App\Inteligencia\Service\DisponibilidadeDeInteligencia;
+use App\Inteligencia\UseCase\ListarAnalisesDaPastaUseCase;
 use App\Pasta\DTO\PastaPrazoOutput;
 use App\Pasta\DTO\TimelineItemDTO;
 use App\Pasta\DTO\TimelineItemType;
@@ -287,7 +289,7 @@ class PastaController extends AbstractController
     }
 
     #[Route('/{id}', name: 'pasta_show', methods: ['GET'])]
-    public function show(Pasta $pasta): Response
+    public function show(Pasta $pasta, ListarAnalisesDaPastaUseCase $listarAnalisesIa): Response
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
@@ -389,6 +391,13 @@ class PastaController extends AbstractController
             self::PUSH_LIMITE,
         );
 
+        // BlueJus IA na aba Push (spec inteligencia-resumo-do-push §3.6): sem `modules.inteligencia.view`
+        // a aba não mostra nada de IA, então nem se consulta — `null` é o sinal para o template.
+        $analisesIa = $tenant !== null
+            && $this->permissionChecker->canAccessModule($currentUser, $tenant, DisponibilidadeDeInteligencia::MODULO)
+            ? $listarAnalisesIa->executar($pasta, $tenant)
+            : null;
+
         // Setas ‹ › do cabeçalho: a pasta de cima e a de baixo na ordem da lista do Expediente.
         // Não dependem de filtro nem de sessão — quem chega por link direto navega igual.
         // O "N de M" entre elas sai do mesmo conjunto e da mesma ordem.
@@ -420,6 +429,7 @@ class PastaController extends AbstractController
             'secoes'                      => $secoes,
             'contagemSecoes'              => $contagemSecoes,
             'push'                        => $push,
+            'analisesIa'                  => $analisesIa,
             // Linha vermelha sob as abas (desenho 1.2.3): calculada aqui, a tela só mostra.
             'pendencias'                  => PastaPendenciasOutput::montar($pasta, $push->naoLidas, $pagamentosDaPasta),
             'metasResumo'                 => PastaMetasResumoOutput::montar($pasta),
