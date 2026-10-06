@@ -150,6 +150,16 @@ class Pasta implements Auditavel, TenantAware
     private bool $proBono = false;
 
     /**
+     * "Administrativo sem processo" (desenho 1.2.3, interruptor no cabeçalho da aba Processo):
+     * a pasta é de atuação administrativa — consultoria, extrajudicial, contrato — e não terá
+     * processo judicial. É uma DECLARAÇÃO de quem edita a pasta, não um estado derivado: não
+     * impede vincular processo depois, e vincular não a desmarca (o desenho trata "marcada e com
+     * processo" como inconsistência a rever, não como algo que o sistema corrige sozinho).
+     */
+    #[ORM\Column(name: 'administrativa', options: ['default' => false])]
+    private bool $administrativa = false;
+
+    /**
      * Valor da causa, em reais. Nulo significa "ninguém preencheu" — que é
      * diferente de R$ 0,00 (causa sem valor econômico). A tela e a média por CPF
      * dependem dessa distinção: nulo fica de fora da média, zero entra nela.
@@ -714,6 +724,18 @@ $this->documentos = new ArrayCollection();
     public function setProBono(bool $proBono): self
     {
         $this->proBono = $proBono;
+
+        return $this;
+    }
+
+    public function isAdministrativa(): bool
+    {
+        return $this->administrativa;
+    }
+
+    public function setAdministrativa(bool $administrativa): self
+    {
+        $this->administrativa = $administrativa;
 
         return $this;
     }

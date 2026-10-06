@@ -16,9 +16,9 @@
    campos reais do cadastro. Campo vazio não aparece — nada de "Não informado"
    nos campos novos. O ⋮ só tem o que já funciona hoje (pasta-processo.js).
    O que é função nova NÃO aparece: integração com o PJe (abrir/atualizar/
-   editar), marcas (gratuita, tutela, prioridade, 100% digital), pasta
-   administrativa sem processo, encaminhar via Chat, imprimir resumo e o menu
-   do botão direito.
+   editar), marcas (gratuita, tutela, prioridade, 100% digital), encaminhar via
+   Chat, imprimir resumo e o menu do botão direito. "Administrativo sem processo"
+   (`Pasta.administrativa`) é o interruptor do cabeçalho — ver abaixo.
 
    Partes: `proc.partes` é coleção LAZY — uma consulta por processo vinculado
    (pastas têm poucos), filtrada pelo TenantFilter (`ParteProcesso` é
@@ -40,12 +40,47 @@
 {# "Ver todas as informações" e o ⋮ do cartão: delegação no `document`, então o
    cartão que volta por XHR já nasce funcionando. #}
 <script src="{{ asset('js/pasta-processo.js') }}" defer></script>
+{# "Administrativo sem processo" (desenho 1.2.3, `admSPtoggle`, dc L.1580): interruptor no
+   cabeçalho, entre o espaço e "Vincular processo". É um form comum (POST + CSRF →
+   PastaAdministrativaController), que volta para a aba Processo — o parcial é trocado por XHR
+   em outras ações e o form segue funcionando sem JS. Manda o ESTADO FINAL (o contrário do atual).
+   Marcar com processo vinculado pede confirmação (texto do desenho); não impede. Vincular continua
+   disponível com a pasta marcada. Medidas do desenho: rótulo 11px/700 caixa-alta, cinza
+   (#7b93a2) desligado e laranja (#b4460a) ligado; trilho 34×18 (#c5d0d8 / #e8873a), bola 14px. #}
+{% set administrativa = pasta.administrativa %}
+<style>
+.ps-adm-form { margin: 0; }
+.ps-adm-sw { display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 6px; border: none; background: transparent; font-family: inherit; cursor: pointer; border-radius: 4px; }
+.ps-adm-sw:hover, .ps-adm-sw:focus-visible { background: var(--ps-accent-bg, #e5f1f7); }
+.ps-adm-sw-rotulo { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--ps-label, #7b93a2); }
+.ps-adm-sw-trilho { position: relative; width: 34px; height: 18px; border-radius: 9px; background: #c5d0d8; transition: background .2s; flex-shrink: 0; }
+.ps-adm-sw-bola { position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.3); transition: left .2s; }
+.ps-adm-sw.is-ligado .ps-adm-sw-rotulo { color: #b4460a; }
+.ps-adm-sw.is-ligado .ps-adm-sw-trilho { background: #e8873a; }
+.ps-adm-sw.is-ligado .ps-adm-sw-bola { left: 18px; }
+</style>
 {% set vinculos = pasta.pastaProcessos %}
 <section class="ps-card ps-processos">
     <div class="ps-card-cab ps-card-cab--painel">
         <h2>Processos vinculados</h2>
         {% if vinculos|length > 0 %}<span class="ps-contagem">{{ vinculos|length }}</span>{% endif %}
         <span class="ps-cab-espaco"></span>
+        {% set principalAdm = vinculos|length > 0 ? pasta.vinculoPrincipal : null %}
+        {% set confirmaAdm = null %}
+        {% if not administrativa and principalAdm %}
+            {% set confirmaAdm = 'A Pasta ' ~ pasta.nup ~ ' tem o processo ' ~ principalAdm.processo.numeroProcesso|numero_cnj ~ ' vinculado. Marcar mesmo assim como "Administrativo sem processo"?' %}
+        {% endif %}
+        <form method="post" action="{{ path('pasta_administrativa_definir', {id: pasta.id}) }}" class="ps-adm-form js-pasta-administrativa"
+              {%- if confirmaAdm %} onsubmit="return confirm('{{ confirmaAdm|e('js') }}');"{% endif %}>
+            <input type="hidden" name="_token" value="{{ csrf_token('pasta_administrativa_' ~ pasta.id) }}">
+            <input type="hidden" name="administrativa" value="{{ administrativa ? '0' : '1' }}">
+            <button type="submit" role="switch" aria-checked="{{ administrativa ? 'true' : 'false' }}"
+                    class="ps-adm-sw{{ administrativa ? ' is-ligado' : '' }}"
+                    title="Marque quando a pasta é administrativa (consultoria, extrajudicial, contrato) e não terá processo judicial">
+                <span class="ps-adm-sw-rotulo">Administrativo sem processo</span>
+                <span class="ps-adm-sw-trilho" aria-hidden="true"><span class="ps-adm-sw-bola"></span></span>
+            </button>
+        </form>
         <button type="button" class="ps-btn ps-btn--suave" title="Vincular processo" aria-label="Vincular processo"
                 data-bs-toggle="modal" data-bs-target="#modalVincularProcesso">
             <i class="bi bi-link-45deg"></i><span>Vincular processo</span>
@@ -346,6 +381,16 @@
                     mostrarMovimentacao: true,
                 }) }}
             {% endfor %}
+        </div>
+    {% elseif administrativa %}
+        {# Pasta marcada como administrativa: não é "falta vincular". O desenho é omisso sobre este
+           vazio; o texto vem do title do próprio interruptor. Vincular continua no botão acima. #}
+        <div class="ps-vazio ps-vazio--administrativa">
+            <i class="bi bi-briefcase"></i>
+            <div class="ps-vazio-titulo">Administrativo sem processo</div>
+            <div class="ps-vazio-nota">
+                {% if pasta.nomeAcao %}Ação registrada: <strong>{{ pasta.nomeAcao }}</strong>. {% endif %}Pasta administrativa (consultoria, extrajudicial, contrato): não terá processo judicial.
+            </div>
         </div>
     {% else %}
         <div class="ps-vazio">
