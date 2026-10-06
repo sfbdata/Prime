@@ -43,6 +43,9 @@ use App\Pasta\Service\SugestoesDeLimpeza;
  * {@see SugestoesDeLimpeza}). Tudo calculado em memória sobre as listas que já estão aqui:
  * nenhuma consulta a mais. O upload e a edição (`arquivo()` sozinho) não sabem dos outros
  * arquivos e devolvem os três campos calculados NULL — a tela preserva os que já tinha.
+ *
+ * Lixeira (L7, D7): o topo traz `urlRestaurar` (POST, o MESMO token do lote, `csrfLote`) — o
+ * "Desfazer" do toast e o Restaurar do modal — e `urlLixeira` (GET, JSON) — a lista da lixeira.
  */
 final readonly class ExploradorDeDocumentosOutput
 {
@@ -85,6 +88,8 @@ final readonly class ExploradorDeDocumentosOutput
         public string $urlFavorito,
         public string $csrfFavorito,
         public array $limpeza = [],
+        public string $urlRestaurar = '',
+        public string $urlLixeira = '',
     ) {
     }
 
@@ -172,6 +177,8 @@ final readonly class ExploradorDeDocumentosOutput
             urlFavorito: $url('pasta_documentos_favorito', ['id' => $pastaId]),
             csrfFavorito: $csrf(self::idDoTokenDeFavorito($pastaId)),
             limpeza: $limpeza->grupos,
+            urlRestaurar: $url('pasta_documentos_restaurar', ['id' => $pastaId]),
+            urlLixeira: $url('pasta_documentos_lixeira', ['id' => $pastaId]),
         );
     }
 
@@ -260,6 +267,8 @@ final readonly class ExploradorDeDocumentosOutput
             'urlFavorito'    => $this->urlFavorito,
             'csrfFavorito'   => $this->csrfFavorito,
             'limpeza'        => $this->limpeza,
+            'urlRestaurar'   => $this->urlRestaurar,
+            'urlLixeira'     => $this->urlLixeira,
         ], self::FLAGS_JSON);
     }
 

@@ -19,8 +19,8 @@
    - laço (retângulo) a partir do espaço vazio da lista; Ctrl soma à seleção;
    - teclado: setas/Home/End, Shift+setas, Ctrl+A, Esc, F2, Del, Ctrl+X/Ctrl+V;
    - menu de contexto (botão direito, ⋮ no toque) por item, por vários e no fundo,
-     na ordem do desenho — SEM os itens que dependem de lotes futuros (Desfazer L7,
-     zip/Copiar L8) nem dos itens E (Chat I.A);
+     na ordem do desenho — SEM os itens que dependem de lotes futuros (zip/Copiar L8)
+     nem dos itens E (Chat I.A);
    - barra de seleção, toast, criar/renomear inline, arraste nativo da SELEÇÃO
      para pasta (pasta→pasta inclusive), ações em lote por mover-lote/excluir-lote
      (um token por pasta: `csrfLote`), upload inserindo a linha sem recarregar.
@@ -38,6 +38,15 @@
    limpeza na raiz, com rótulo honesto: são REGRAS do servidor (`limpeza` do #pexDados,
    SugestoesDeLimpeza), não IA. Revisar abre a lista com caixas de marcar; excluir vai pelo
    excluir-lote, com o mesmo confirm() do Excluir. Dispensar vale para a sessão, por pasta.
+
+   L7 (UI): lixeira (D7, DOC-57/58). Excluir continua com o confirm() (S-3), mas agora manda
+   para a lixeira: o toast do desenho (dc L2277, `exp.desfazer` L4935) ganha "Desfazer", que
+   chama `urlRestaurar` com o csrfLote e os `ids` DEVOLVIDOS pelo excluir-lote. Os itens saem da
+   memória guardados (`exclusaoDesfazivel`) e voltam a partir dela quando o servidor confirma
+   as mesmas contagens; se não bater, a página é recarregada (o servidor é a verdade). A
+   lixeira em si (o desenho é omisso: no protótipo é só memória) é um modal montado aqui —
+   item "Lixeira (N)" no menu do fundo e no Organizar —, lido de `urlLixeira`, com Restaurar
+   por item e dos selecionados. Pasta excluída (lápide da Pasta inteira): sem botão de escrita.
 
    Depende de: Bootstrap 5 (Modal), SortableJS (opcional, só no modo Manual),
    `window.enviarArquivoComProgresso` (helper do template, também do Peticionar)
@@ -85,6 +94,11 @@
         // Favoritos (L6, D2): um token por pasta, tipo e id do alvo no corpo; basta VER a pasta.
         urlFavorito:         dados.urlFavorito || '',
         csrfFavorito:        dados.csrfFavorito || '',
+        // Lixeira (L7, D7): restaurar usa o MESMO token do lote; a lista é um GET em JSON.
+        urlRestaurar:        dados.urlRestaurar || '',
+        urlLixeira:          dados.urlLixeira || '',
+        // Lápide da Pasta inteira: a lixeira dela só se olha — nada de Desfazer nem Restaurar.
+        pastaExcluida:       raiz.dataset.pastaExcluida === '1',
     };
 
     const el = {
@@ -136,6 +150,10 @@
         toast:          document.getElementById('pexToast'),
         toastTexto:     document.getElementById('pexToastTexto'),
         toastIcone:     document.getElementById('pexToastIcone'),
+        toastDesfazer:  document.getElementById('pexToastDesfazer'),
+        // L7
+        btnLixeira:     document.getElementById('pexLixeiraAbrir'),
+        lixeiraN:       document.getElementById('pexLixeiraN'),
         // L9
         limpeza:          document.getElementById('pexLimpeza'),
         limpezaTexto:     document.getElementById('pexLimpezaTexto'),
@@ -189,6 +207,9 @@
     const TETO_LOTE      = 2000;
     const TOQUE_LONGO_MS = 500;     // toque longo abre o menu (convenção; o desenho é omisso)
     const TOAST_MS       = 4200;    // dc L4772
+    // Com "Desfazer" o toast fica mais (pedido do orquestrador no L7; o dc usa os mesmos 4,2 s).
+    const TOAST_DESFAZER_MS = 8000;
+    const DIAS_NA_LIXEIRA   = 30;   // S-10; o cron roda `app:documentos:purgar-lixeira --dias=30`
     const LACO_MARGEM_PX = 40;      // rola sozinho a 40px da borda (dc L4891)
     // Favoritar vários: no máximo 4 pedidos ao mesmo tempo (a rota é de um alvo por pedido).
     const FAVORITO_PARALELO = 4;
@@ -1743,7 +1764,11 @@
             }), [
                 SEP,
                 op(painel ? 'Ocultar painel de detalhes' : 'Mostrar painel de detalhes', 'bi-layout-sidebar-reverse', alternarPainel),
-            ]);
+            ], cfg.urlLixeira ? [
+                // L7: a lixeira da pasta (o desenho é omisso — ver "lixeira" abaixo).
+                SEP,
+                op(rotuloLixeira(), 'bi-trash3', abrirLixeira),
+            ] : []);
         }
         if (multi) {
             const arqs = sel.filter(ehArquivo);
@@ -1886,9 +1911,12 @@
     }
 
     // -------------------------------------------------------------- toast ---
-    // dc `aviso` (L4772): 4,2 s. Sem "Desfazer" até a lixeira (L7). Erro fica mais (6 s) e com ícone.
+    // dc `aviso` (L4772): 4,2 s. Erro fica mais (6 s) e com ícone. Com `desfazer` (L7, dc L2277:
+    // botão "Desfazer" #7cc4ff/700 depois do texto) fica TOAST_DESFAZER_MS. Um toast novo
+    // substitui o anterior e leva o Desfazer dele junto — os itens continuam na lixeira.
     let toastTimer = null;
-    function toast(texto, erro) {
+    let toastDesfazerAcao = null;
+    function toast(texto, erro, desfazer) {
         if (!el.toast) { if (erro) alert(texto); return; }
         clearTimeout(toastTimer);
         el.toastTexto.textContent = texto;
@@ -1897,10 +1925,31 @@
             el.toastIcone.className = 'bi pex-toast-ico' + (erro ? ' bi-exclamation-triangle-fill' : '');
             el.toastIcone.hidden = !erro;
         }
+        toastDesfazerAcao = !erro && typeof desfazer === 'function' && el.toastDesfazer ? desfazer : null;
+        if (el.toastDesfazer) {
+            el.toastDesfazer.hidden = !toastDesfazerAcao;
+            el.toastDesfazer.disabled = false;
+        }
         el.toast.hidden = false;
-        toastTimer = setTimeout(function () { el.toast.hidden = true; }, erro ? 6000 : TOAST_MS);
+        toastTimer = setTimeout(esconderToast, erro ? 6000 : (toastDesfazerAcao ? TOAST_DESFAZER_MS : TOAST_MS));
+    }
+    function esconderToast() {
+        el.toast.hidden = true;
+        toastDesfazerAcao = null;
+        if (el.toastDesfazer) el.toastDesfazer.hidden = true;
     }
     function toastErro(texto) { toast(texto || 'Algo deu errado.', true); }
+    if (el.toastDesfazer) {
+        // Um clique só: o botão trava até a resposta (o toast seguinte o destrava ou esconde).
+        el.toastDesfazer.addEventListener('click', function () {
+            const acao = toastDesfazerAcao;
+            if (!acao || el.toastDesfazer.disabled) return;
+            toastDesfazerAcao = null;
+            el.toastDesfazer.disabled = true;
+            clearTimeout(toastTimer);
+            acao();
+        });
+    }
 
     // ------------------------------------------------------- ações do L5 ----
     function rotuloDe(itens) { return itens.length === 1 ? itens[0].nome : itens.length + ' itens'; }
@@ -2133,19 +2182,21 @@
     }
 
     // Aviso montado com a contagem da árvore (D3): o número tem de existir ANTES do clique.
+    // Desde o L7 a exclusão vai para a LIXEIRA, e o aviso diz isso (e o prazo).
+    const AVISO_LIXEIRA = ' Os itens ficam ' + DIAS_NA_LIXEIRA + ' dias na lixeira e podem ser restaurados.';
     function avisoExclusao(p) {
         const c = contarArvore(p.id);
         if (c.subpastas === 0 && c.arquivos === 0) {
-            return 'A pasta "' + p.nome + '" está vazia. Excluir mesmo assim? Esta ação não pode ser desfeita.';
+            return 'A pasta "' + p.nome + '" está vazia. Excluir mesmo assim?' + AVISO_LIXEIRA;
         }
         const partes = [];
         if (c.subpastas > 0) partes.push(pluralizar(c.subpastas, 'subpasta', 'subpastas'));
         if (c.arquivos > 0) partes.push(pluralizar(c.arquivos, 'arquivo', 'arquivos'));
-        return 'Excluir a pasta "' + p.nome + '" e todo o conteúdo dela? Ao todo: ' + partes.join(' e ') + '. Esta ação não pode ser desfeita.';
+        return 'Excluir a pasta "' + p.nome + '" e todo o conteúdo dela? Ao todo: ' + partes.join(' e ') + '.' + AVISO_LIXEIRA;
     }
     function avisoExclusaoDoLote(itens) {
         if (itens.length === 1) {
-            return itens[0].tipo === 'pasta' ? avisoExclusao(itens[0].dado) : 'Excluir "' + itens[0].nome + '"? Esta ação não pode ser desfeita.';
+            return itens[0].tipo === 'pasta' ? avisoExclusao(itens[0].dado) : 'Excluir "' + itens[0].nome + '"?' + AVISO_LIXEIRA;
         }
         let subpastas = 0, arquivosN = 0;
         itens.forEach(function (it) {
@@ -2157,10 +2208,12 @@
         const partes = [];
         if (subpastas > 0) partes.push(pluralizar(subpastas, 'pasta', 'pastas'));
         if (arquivosN > 0) partes.push(pluralizar(arquivosN, 'arquivo', 'arquivos'));
-        return 'Excluir ' + itens.length + ' itens? Ao todo: ' + partes.join(' e ') + '. Esta ação não pode ser desfeita.';
+        return 'Excluir ' + itens.length + ' itens? Ao todo: ' + partes.join(' e ') + '.' + AVISO_LIXEIRA;
     }
     /* Excluir (DOC-57): um, vários ou pasta — sempre pelo excluir-lote. O `confirm()` fica até o
-       Samuel decidir (S-3); o Desfazer chega com a lixeira (L7). */
+       Samuel decidir (S-3). Desde o L7 o servidor manda para a LIXEIRA e devolve `lixeira: true`
+       e os `ids` — é o que o "Desfazer" do toast manda de volta a `urlRestaurar`. O que sai da
+       memória é guardado (objetos inteiros, com tokens e URLs) para voltar sem recarregar. */
     function excluirItens(itens, aoExcluir) {
         if (!itens.length) return;
         const lote = separarChaves(itens.map(chaveDe));
@@ -2168,23 +2221,295 @@
         if (!confirm(avisoExclusaoDoLote(itens))) return;
         postJson(cfg.urlExcluirLote, { _token: cfg.csrfLote, documentos: lote.documentos, secoes: lote.secoes }).then(function (res) {
             if (!res.ok || !res.j.ok) throw new Error((res.j && res.j.erro) || 'Falha ao excluir.');
-            // O back apaga a ÁRVORE de cada pasta (cascade): tira as filhas e os arquivos delas.
+            // O back leva a ÁRVORE de cada pasta (mesmo carimbo): tira as filhas e os arquivos delas.
             let subarvore = [];
             lote.secoes.forEach(function (id) { subarvore = subarvore.concat([id], descendentes(id)); });
+            const saiu = { arquivos: [], pastas: [] };
             for (let i = arquivos.length - 1; i >= 0; i--) {
                 const a = arquivos[i];
-                if (lote.documentos.indexOf(a.id) !== -1 || (a.secaoId != null && subarvore.indexOf(Number(a.secaoId)) !== -1)) { arquivos.splice(i, 1); totalArquivos--; }
+                if (lote.documentos.indexOf(a.id) !== -1 || (a.secaoId != null && subarvore.indexOf(Number(a.secaoId)) !== -1)) { saiu.arquivos.unshift(arquivos.splice(i, 1)[0]); totalArquivos--; }
             }
             for (let i = pastas.length - 1; i >= 0; i--) {
-                if (subarvore.indexOf(pastas[i].id) !== -1) pastas.splice(i, 1);
+                if (subarvore.indexOf(pastas[i].id) !== -1) saiu.pastas.unshift(pastas.splice(i, 1)[0]);
             }
             limparRecorteDoQueNaoExiste();
             limparSelecao(true);
             if (aoExcluir) aoExcluir();
             if (caminho.some(function (id) { return subarvore.indexOf(id) !== -1; })) voltarRaiz(); else renderizar();
-            toast(itens.length === 1 ? 'Excluído: ' + itens[0].nome : itens.length + ' itens excluídos');
+            invalidarContagemDaLixeira();
+            const texto = itens.length === 1 ? 'Excluído: ' + itens[0].nome : itens.length + ' itens excluídos';
+            const desfazer = desfazerDe(res.j, saiu);
+            toast(texto, false, desfazer);
         }).catch(function (err) { toastErro(err.message || 'Erro de comunicação.'); });
     }
+
+    /* O "Desfazer" de UMA exclusão: os ids que o SERVIDOR devolveu (não os que a tela mandou) e
+       o que saiu da memória. Sem `lixeira: true`/`ids` na resposta, sem rota ou com a Pasta
+       inteira na lixeira, não há Desfazer — o toast fica só com o texto. */
+    function desfazerDe(resposta, saiu) {
+        if (cfg.pastaExcluida || !cfg.urlRestaurar || !resposta || resposta.lixeira !== true || !resposta.ids) return null;
+        const ids = {
+            documentos: Array.isArray(resposta.ids.documentos) ? resposta.ids.documentos.map(Number) : [],
+            secoes:     Array.isArray(resposta.ids.secoes) ? resposta.ids.secoes.map(Number) : [],
+        };
+        if (!ids.documentos.length && !ids.secoes.length) return null;
+        return function () { desfazerExclusao(ids, saiu); };
+    }
+    function desfazerExclusao(ids, saiu) {
+        postJson(cfg.urlRestaurar, { _token: cfg.csrfLote, documentos: ids.documentos, secoes: ids.secoes }).then(function (res) {
+            if (!res.ok || !res.j.ok) throw new Error((res.j && res.j.erro) || 'Não foi possível desfazer.');
+            invalidarContagemDaLixeira();
+            const r = res.j.restaurados || {};
+            const n = saiu.arquivos.length + saiu.pastas.length;
+            // Confere com a resposta: o servidor diz quantos arquivos e pastas voltaram e quantos
+            // foram para a raiz (pai sumiu nesse meio-tempo). Bateu com o que saiu daqui → volta
+            // da memória; não bateu → o que está na tela já não é o que está no banco: recarrega.
+            const bate = Number(r.documentos) === saiu.arquivos.length
+                && Number(r.secoes) === saiu.pastas.length
+                && Number(res.j.paraARaiz || 0) === 0
+                && saiu.pastas.every(function (p) { return !pastaPorId(p.id); })
+                && saiu.arquivos.every(function (a) { return !arquivoPorId(a.id); });
+            if (!bate) { recarregarDocumentos('Itens restaurados. Atualizando a lista…'); return; }
+            saiu.pastas.forEach(function (p) { pastas.push(p); });
+            saiu.arquivos.forEach(function (a) { arquivos.push(a); totalArquivos++; });
+            renderizar();
+            toast(n > 1 ? n + ' itens restaurados' : 'Restaurado');
+        }).catch(function (err) { toastErro(err.message || 'Erro de comunicação.'); });
+    }
+    // A tela não tem como montar um item a partir da lixeira (faltam URLs e tokens): recarrega
+    // a página na aba Documentos — a pasta aberta volta pelo sessionStorage.
+    function recarregarDocumentos(texto) {
+        toast(texto);
+        try { if (window.location.hash !== '#documentos') window.history.replaceState(null, '', '#documentos'); } catch (e) { /* segue */ }
+        window.location.reload();
+    }
+
+    // ------------------------------------------------------------ lixeira ---
+    /* A lixeira da pasta (L7, D7). O desenho é omisso (no protótipo a exclusão é só memória):
+       "Lixeira (N)" no menu do fundo e no Organizar abre um modal Bootstrap montado AQUI e
+       pendurado no <body> — fora do painel animado da aba, pelo mesmo motivo dos outros modais
+       do explorador (show.html.twig). Tudo por createElement/textContent: nome é dado do usuário.
+       Os itens vêm de `urlLixeira` (GET) e o que foi excluído DENTRO de uma pasta que também está
+       na lixeira (`paiNaLixeira`/`secaoNaLixeira`) aparece agrupado embaixo dela. Restaurar (um ou
+       os selecionados) vai a `urlRestaurar` com o csrfLote; como a lixeira não traz URL nem token
+       dos itens, a lista de documentos é recarregada ao fechar o modal. */
+    let lixeiraContagem = null;      // N do rótulo "Lixeira (N)"; null = ainda não sabemos
+    let lixeiraContando = null;      // o GET em voo (um por vez)
+    let lixeiraModal = null;         // { raiz, bs, lista, vazio, aviso, restaurarSel }
+    let lixeiraItens = [];
+    const lixeiraMarcados = new Set();
+    let lixeiraRestaurou = false;    // algo voltou: recarrega a lista ao fechar
+    let lixeiraOcupada = false;
+
+    function podeEscreverNaLixeira() { return !cfg.pastaExcluida && !!cfg.urlRestaurar && !!cfg.csrfLote; }
+    function rotuloLixeira() { return lixeiraContagem == null ? 'Lixeira' : 'Lixeira (' + formatarInteiro(lixeiraContagem) + ')'; }
+    function chaveDaLixeira(it) { return (it.tipo === 'pasta' ? 'pasta' : 'arquivo') + ':' + Number(it.id); }
+    function invalidarContagemDaLixeira() {
+        lixeiraContagem = null;
+        renderizarContagemDaLixeira();
+    }
+    function renderizarContagemDaLixeira() {
+        if (!el.lixeiraN) return;
+        el.lixeiraN.textContent = lixeiraContagem == null ? '' : '(' + formatarInteiro(lixeiraContagem) + ')';
+    }
+    function lerLixeira() {
+        return fetch(cfg.urlLixeira, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } }).then(lerResposta).then(function (res) {
+            if (!res.ok || !res.j.ok || !Array.isArray(res.j.itens)) throw new Error((res.j && res.j.erro) || 'Não foi possível abrir a lixeira.');
+            lixeiraContagem = res.j.itens.length;
+            renderizarContagemDaLixeira();
+            return res.j.itens;
+        });
+    }
+    // Só a contagem, para o rótulo: em silêncio (sem permissão de editar o GET responde 403).
+    function atualizarContagemDaLixeira() {
+        if (!cfg.urlLixeira || lixeiraContagem != null || lixeiraContando) return;
+        lixeiraContando = lerLixeira().catch(function () { /* o rótulo fica sem número */ }).then(function () { lixeiraContando = null; });
+    }
+
+    function montarModalDaLixeira() {
+        if (lixeiraModal) return lixeiraModal;
+        const lista        = h('ul', { class: 'pex-lix-lista', 'aria-label': 'Itens na lixeira' });
+        const vazio        = h('div', { class: 'pex-lix-vazio', hidden: true }, [icone('bi-trash3'), h('span', { text: 'A lixeira está vazia.' })]);
+        const aviso        = h('p', { class: 'pex-lix-aviso', role: 'status', 'aria-live': 'polite', hidden: true });
+        const nota         = h('p', { class: 'pex-lix-nota' }, [icone('bi-clock-history'), h('span', { text: 'Itens ficam ' + DIAS_NA_LIXEIRA + ' dias na lixeira. Depois disso são apagados de vez.' })]);
+        const somenteVer   = h('p', { class: 'pex-lix-nota pex-lix-nota--lapide', hidden: !cfg.pastaExcluida }, [icone('bi-lock'), h('span', { text: 'Esta pasta está excluída: restaure a pasta para restaurar os documentos dela.' })]);
+        const restaurarSel = h('button', { type: 'button', class: 'btn btn-primary', id: 'pexLixeiraRestaurarSel', disabled: true, hidden: !podeEscreverNaLixeira() }, [icone('bi-arrow-counterclockwise'), h('span', { text: ' Restaurar selecionados' })]);
+        const fechar       = h('button', { type: 'button', class: 'btn btn-outline-secondary', 'data-bs-dismiss': 'modal', text: 'Fechar' });
+        const raizModal = h('div', { class: 'modal fade pex-modal pex-lix', id: 'pexLixeiraModal', tabindex: '-1', 'aria-labelledby': 'pexLixeiraTitulo', 'aria-hidden': 'true' }, [
+            h('div', { class: 'modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg' }, [
+                h('div', { class: 'modal-content' }, [
+                    h('div', { class: 'modal-header' }, [
+                        h('h5', { class: 'modal-title', id: 'pexLixeiraTitulo' }, [icone('bi-trash3 me-1'), h('span', { text: ' Lixeira' })]),
+                        h('button', { type: 'button', class: 'btn-close', 'data-bs-dismiss': 'modal', 'aria-label': 'Fechar' }),
+                    ]),
+                    h('div', { class: 'modal-body' }, [nota, somenteVer, aviso, vazio, lista]),
+                    h('div', { class: 'modal-footer' }, [fechar, restaurarSel]),
+                ]),
+            ]),
+        ]);
+        document.body.appendChild(raizModal);
+        lixeiraModal = { raiz: raizModal, bs: window.bootstrap ? bootstrap.Modal.getOrCreateInstance(raizModal) : null, lista: lista, vazio: vazio, aviso: aviso, restaurarSel: restaurarSel };
+
+        lista.addEventListener('change', function (e) {
+            const cx = e.target.closest('input[data-pex-lix]');
+            if (!cx) return;
+            if (cx.checked) lixeiraMarcados.add(cx.dataset.pexLix); else lixeiraMarcados.delete(cx.dataset.pexLix);
+            atualizarBotaoRestaurarSelecionados();
+        });
+        lista.addEventListener('click', function (e) {
+            const b = e.target.closest('button[data-pex-lix-restaurar]');
+            if (!b || b.disabled) return;
+            restaurarDaLixeira([b.dataset.pexLixRestaurar]);
+        });
+        restaurarSel.addEventListener('click', function () {
+            if (restaurarSel.disabled) return;
+            restaurarDaLixeira(Array.from(lixeiraMarcados));
+        });
+        raizModal.addEventListener('hidden.bs.modal', function () {
+            if (lixeiraRestaurou) { lixeiraRestaurou = false; recarregarDocumentos('Atualizando a lista de documentos…'); }
+        });
+        return lixeiraModal;
+    }
+
+    function abrirLixeira() {
+        if (!cfg.urlLixeira || !window.bootstrap) return;
+        fecharPopovers();
+        fecharMenu();
+        const m = montarModalDaLixeira();
+        lixeiraItens = [];
+        lixeiraMarcados.clear();
+        m.lista.textContent = '';
+        m.vazio.hidden = true;
+        avisarNaLixeira('Carregando…');
+        atualizarBotaoRestaurarSelecionados();
+        if (m.bs) m.bs.show();
+        recarregarLixeira();
+    }
+    function recarregarLixeira() {
+        lerLixeira().then(function (itens) {
+            lixeiraItens = itens;
+            avisarNaLixeira('');
+            renderizarLixeira();
+        }).catch(function (err) { avisarNaLixeira(err.message || 'Erro de comunicação.', true); });
+    }
+    function avisarNaLixeira(texto, erro) {
+        if (!lixeiraModal) return;
+        lixeiraModal.aviso.hidden = !texto;
+        lixeiraModal.aviso.textContent = texto || '';
+        lixeiraModal.aviso.classList.toggle('pex-lix-aviso--erro', !!erro);
+    }
+    function atualizarBotaoRestaurarSelecionados() {
+        if (!lixeiraModal) return;
+        const n = lixeiraMarcados.size;
+        const b = lixeiraModal.restaurarSel;
+        b.disabled = lixeiraOcupada || n === 0 || !podeEscreverNaLixeira();
+        b.lastChild.textContent = n ? ' Restaurar selecionados (' + n + ')' : ' Restaurar selecionados';
+    }
+
+    /* Agrupamento: o item excluído dentro de uma pasta que TAMBÉM está na lixeira fica embaixo
+       dela (pai/seção presente na lista). O resto é raiz da lista, na ordem do servidor (do mais
+       recente ao mais antigo). Ciclo gravado no banco não trava: cada id entra uma vez. */
+    function arvoreDaLixeira(itens) {
+        const pastasNaLista = {};
+        itens.forEach(function (it) { if (it.tipo === 'pasta') pastasNaLista[Number(it.id)] = it; });
+        const filhos = {};
+        const raizes = [];
+        itens.forEach(function (it) {
+            const pai = it.tipo === 'pasta'
+                ? (it.paiNaLixeira && it.paiId != null ? Number(it.paiId) : null)
+                : (it.secaoNaLixeira && it.secaoId != null ? Number(it.secaoId) : null);
+            if (pai != null && pastasNaLista[pai] && !(it.tipo === 'pasta' && pai === Number(it.id))) (filhos[pai] = filhos[pai] || []).push(it);
+            else raizes.push(it);
+        });
+        return { raizes: raizes, filhos: filhos };
+    }
+    function renderizarLixeira() {
+        if (!lixeiraModal) return;
+        const m = lixeiraModal;
+        const arvore = arvoreDaLixeira(lixeiraItens);
+        const frag = document.createDocumentFragment();
+        const vistos = {};
+        const escrever = podeEscreverNaLixeira();
+        const montar = function (it, nivel, pai) {
+            const chave = chaveDaLixeira(it);
+            if (vistos[chave] || nivel > 50) return;
+            vistos[chave] = true;
+            frag.appendChild(linhaDaLixeira(it, nivel, pai, escrever));
+            if (it.tipo === 'pasta') (arvore.filhos[Number(it.id)] || []).forEach(function (f) { montar(f, nivel + 1, it); });
+        };
+        arvore.raizes.forEach(function (it) { montar(it, 0, null); });
+        // O que sobrou de um ciclo (nenhuma raiz o alcança) entra no nível de cima.
+        lixeiraItens.forEach(function (it) { if (!vistos[chaveDaLixeira(it)]) montar(it, 0, null); });
+        m.lista.textContent = '';
+        m.lista.appendChild(frag);
+        m.vazio.hidden = lixeiraItens.length > 0;
+        atualizarBotaoRestaurarSelecionados();
+    }
+    function linhaDaLixeira(it, nivel, pai, escrever) {
+        const chave = chaveDaLixeira(it);
+        const ehPasta = it.tipo === 'pasta';
+        const junto = !!pai && pai.excluidoEm != null && pai.excluidoEm === it.excluidoEm;
+        const partes = [ehPasta ? TIPO_PASTA[2] : tipoDe(it.nome)[2]];
+        if (!ehPasta && it.tamanho != null) partes.push(formatarBytes(it.tamanho));
+        const quando = 'Excluído em ' + (formatarDataHora(it.excluidoEm) || '—') + (it.excluidoPor && it.excluidoPor.nome ? ' por ' + it.excluidoPor.nome : '');
+        const origem = junto
+            ? 'Excluído junto com a pasta "' + pai.nome + '"'
+            : (pai ? 'Estava em "' + pai.nome + '", que também está na lixeira' : 'Local original: ' + (it.caminho || 'Raiz'));
+        const nomeId = 'pex-lix-' + chave.replace(':', '-');
+        return h('li', { class: 'pex-lix-item' + (nivel ? ' pex-lix-item--dentro' : ''), style: '--pex-lix-nivel:' + Math.min(nivel, 6), 'data-pex-lix-item': chave }, [
+            escrever ? h('input', { type: 'checkbox', class: 'form-check-input pex-lix-marcar', 'data-pex-lix': chave, 'aria-labelledby': nomeId, checked: lixeiraMarcados.has(chave) }) : null,
+            ehPasta ? icone(TIPO_PASTA[0] + ' pex-lix-ico pex-ico-pasta') : h('span', { class: 'pex-lix-ico' }, [iconeArquivo(it.nome, 16)]),
+            h('div', { class: 'pex-lix-txt' }, [
+                h('span', { class: 'pex-lix-nome', id: nomeId, text: it.nome, title: it.nome }),
+                h('span', { class: 'pex-lix-sub', text: partes.join(' · ') + ' — ' + quando }),
+                h('span', { class: 'pex-lix-sub', text: origem }),
+            ]),
+            escrever ? h('button', {
+                type: 'button',
+                class: 'btn btn-sm btn-outline-primary pex-lix-restaurar',
+                'data-pex-lix-restaurar': chave,
+                title: pai ? 'Sozinho, volta para a raiz da pasta: a pasta de origem está na lixeira' : 'Volta para: ' + (it.caminho || 'Raiz'),
+                disabled: lixeiraOcupada,
+            }, [icone('bi-arrow-counterclockwise'), h('span', { text: ' Restaurar' })]) : null,
+        ]);
+    }
+    function restaurarDaLixeira(chaves) {
+        if (!chaves.length || lixeiraOcupada || !podeEscreverNaLixeira()) return;
+        const lote = separarChaves(chaves);
+        if (acimaDoTeto(lote.documentos.length + lote.secoes.length)) return;
+        lixeiraOcupada = true;
+        lixeiraModal.lista.querySelectorAll('button[data-pex-lix-restaurar]').forEach(function (b) { b.disabled = true; });
+        atualizarBotaoRestaurarSelecionados();
+        avisarNaLixeira('Restaurando…');
+        postJson(cfg.urlRestaurar, { _token: cfg.csrfLote, documentos: lote.documentos, secoes: lote.secoes }).then(function (res) {
+            if (!res.ok || !res.j.ok) throw new Error((res.j && res.j.erro) || 'Não foi possível restaurar.');
+            lixeiraRestaurou = true;
+            const r = res.j.restaurados || {};
+            const n = (Number(r.documentos) || 0) + (Number(r.secoes) || 0);
+            const naRaiz = Number(res.j.paraARaiz) || 0;
+            chaves.forEach(function (k) { lixeiraMarcados.delete(k); });
+            avisarNaLixeira((n === 1 ? '1 item restaurado' : formatarInteiro(n) + ' itens restaurados')
+                + (naRaiz ? ' (' + formatarInteiro(naRaiz) + ' na raiz da pasta: a pasta de origem continua na lixeira)' : '')
+                + '. A lista de documentos é atualizada ao fechar.');
+            invalidarContagemDaLixeira();
+            return lerLixeira().then(function (itens) { lixeiraItens = itens; });
+        }).catch(function (err) {
+            avisarNaLixeira(err.message || 'Erro de comunicação.', true);
+        }).then(function () {
+            lixeiraOcupada = false;
+            Array.from(lixeiraMarcados).forEach(function (k) {
+                if (!lixeiraItens.some(function (it) { return chaveDaLixeira(it) === k; })) lixeiraMarcados.delete(k);
+            });
+            renderizarLixeira();
+        });
+    }
+    if (el.btnLixeira) {
+        el.btnLixeira.hidden = !cfg.urlLixeira;
+        el.btnLixeira.addEventListener('click', abrirLixeira);
+    }
+    if (el.btnOrganizar) el.btnOrganizar.addEventListener('click', atualizarContagemDaLixeira);
+    // O menu do fundo mostra o N que já se sabe; abrir dispara a contagem para a próxima vez.
+    if (el.lista) el.lista.addEventListener('contextmenu', atualizarContagemDaLixeira);
 
     // "Mover para…" (modal de destino) para a seleção — pastas selecionadas e descendentes
     // ficam desabilitadas; o nível atual só é marcado quando todos estão no mesmo lugar.

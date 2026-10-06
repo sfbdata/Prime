@@ -197,16 +197,17 @@ final class PastaExploradorInteracaoTest extends TestCase
         self::assertLessThan(strpos($mover, 'postJson('), strpos($mover, 'acimaDoTeto('), 'o teto vem antes do pedido');
     }
 
-    #[TestDox('excluir mantém o confirm() (S-3) com a contagem da árvore; o toast não tem Desfazer até a lixeira (L7)')]
-    public function testExcluirComConfirmSemDesfazer(): void
+    #[TestDox('excluir mantém o confirm() (S-3) com a contagem da árvore — e, desde o L7, o aviso diz lixeira, não "não pode ser desfeita"; o toast ganha Desfazer')]
+    public function testExcluirComConfirmEDesfazer(): void
     {
         $js = $this->js();
 
         self::assertStringContainsString('if (!confirm(avisoExclusaoDoLote(itens))) return;', $js);
-        self::assertStringContainsString("return 'Excluir ' + itens.length + ' itens? Ao todo: ' + partes.join(' e ') + '. Esta ação não pode ser desfeita.';", $js);
-        self::assertStringContainsString("toast(itens.length === 1 ? 'Excluído: ' + itens[0].nome : itens.length + ' itens excluídos');", $js);
-        self::assertStringNotContainsString("'Desfazer'", $js);
-        self::assertStringNotContainsString('Desfazer', $this->funcao('toast'));
+        self::assertStringContainsString("return 'Excluir ' + itens.length + ' itens? Ao todo: ' + partes.join(' e ') + '.' + AVISO_LIXEIRA;", $js);
+        self::assertStringContainsString("const AVISO_LIXEIRA = ' Os itens ficam ' + DIAS_NA_LIXEIRA + ' dias na lixeira e podem ser restaurados.';", $js);
+        self::assertStringNotContainsString('não pode ser desfeita', $js, 'com a lixeira (L7) a frase deixou de ser verdade');
+        self::assertStringContainsString("const texto = itens.length === 1 ? 'Excluído: ' + itens[0].nome : itens.length + ' itens excluídos';", $js);
+        self::assertStringContainsString('toast(texto, false, desfazer);', $this->funcao('excluirItens'));
         // Toast do desenho: 4,2 s (dc L4772).
         self::assertStringContainsString('const TOAST_MS       = 4200;', $js);
         // Nenhum alert() no caminho normal: só como último recurso se o toast não existir.
@@ -352,7 +353,7 @@ final class PastaExploradorInteracaoTest extends TestCase
         self::assertStringNotContainsString('outerHTML', $js);
         // A área de transferência (Recortar) vive em memória; nada vai para o storage.
         self::assertStringNotContainsString('areaDeTransferencia', implode("\n", preg_grep('/Storage\./', explode("\n", $js))));
-        foreach (['pexSelecao', 'pexMenu', 'pexMenuFundo', 'pexMenuItem', 'pexToast', 'pexLaco'] as $id) {
+        foreach (['pexSelecao', 'pexMenu', 'pexMenuFundo', 'pexMenuItem', 'pexToast', 'pexToastDesfazer', 'pexLixeiraAbrir', 'pexLaco'] as $id) {
             self::assertStringContainsString("document.getElementById('{$id}')", $js, "#{$id} é estático no template");
         }
     }

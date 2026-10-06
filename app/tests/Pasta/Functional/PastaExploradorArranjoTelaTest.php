@@ -494,9 +494,13 @@ final class PastaExploradorArranjoTelaTest extends JusPrimeWebTestCase
             self::assertStringContainsString($classe, $tpl, "o JS preenche .{$classe}");
         }
 
-        // Toast (dc L2272) e laço (dc L2264): existem uma vez, ocultos; sem "Desfazer" até o L7.
-        self::assertCount(1, $crawler->filter('.pex-corpo > #pexToast[role="status"][hidden] > #pexToastIcone[hidden] + #pexToastTexto'));
-        self::assertStringNotContainsString('Desfazer', (string) $crawler->filter('#pexExplorador')->html());
+        // Toast (dc L2272/L2277) e laço (dc L2264): existem uma vez, ocultos; o "Desfazer" do L7
+        // vem logo depois do texto, oculto até uma exclusão.
+        self::assertCount(1, $crawler->filter('.pex-corpo > #pexToast[role="status"][hidden] > #pexToastIcone[hidden] + #pexToastTexto + button#pexToastDesfazer[type="button"][hidden]'));
+        self::assertSame('Desfazer', trim($crawler->filter('#pexToastDesfazer')->text()));
+        // Lixeira (L7): no Organizar, depois do Restaurar padrão; a pasta viva não é lápide.
+        self::assertCount(1, $crawler->filter('#pexOrganizarMenu > #pexRestaurar + .pex-pop-sep + button#pexLixeiraAbrir #pexLixeiraN'));
+        self::assertSame('0', $crawler->filter('#pexExplorador')->attr('data-pasta-excluida'));
         self::assertCount(1, $crawler->filter('.pex-corpo > #pexLaco[hidden]'));
 
         // Lista: alvo do teclado e do laço, listbox com seleção múltipla.

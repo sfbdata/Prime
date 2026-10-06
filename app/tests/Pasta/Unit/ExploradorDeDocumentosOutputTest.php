@@ -95,6 +95,20 @@ final class ExploradorDeDocumentosOutputTest extends TestCase
         self::assertSame('/pasta_documentos_excluir_lote/9', $json['urlExcluirLote']);
     }
 
+    #[TestDox('D7 (L7): o JSON leva urlRestaurar (POST, token do lote) e urlLixeira (GET) da pasta')]
+    public function testLixeira(): void
+    {
+        $out = $this->montar([], []);
+
+        self::assertSame('/pasta_documentos_restaurar/9', $out->urlRestaurar);
+        self::assertSame('/pasta_documentos_lixeira/9', $out->urlLixeira);
+
+        $json = json_decode($out->json(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame('/pasta_documentos_restaurar/9', $json['urlRestaurar']);
+        self::assertSame('/pasta_documentos_lixeira/9', $json['urlLixeira']);
+        self::assertSame('tok_pex_lote_9', $json['csrfLote'], 'restaurar não tem token próprio: é o do lote');
+    }
+
     #[TestDox('D2: cada arquivo e cada pasta trazem favorito e favoritoEm (a hora em que marcou, do mapa recebido); o topo traz urlFavorito e o token pex_favorito_<pastaId>')]
     public function testFavoritos(): void
     {

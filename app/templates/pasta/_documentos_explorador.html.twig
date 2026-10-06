@@ -34,10 +34,16 @@
    Lote L9 (spec §5): duplicados e limpeza. Os selos "Idêntico"/"Vazio"/"Ver no PJe"/"Muito
    grande" e o "Nome parecido" do painel nascem no JS (`identicoA`/`nomeParecidoCom`/`limpeza`
    do #pexDados); aqui só a faixa `#pexLimpeza`, oculta.
+
+   Lote L7-UI (spec §5, D7): o toast ganha o botão "Desfazer" do desenho (dc L2277), oculto até
+   uma exclusão; o Organizar ganha "Lixeira (N)" (o desenho é omisso), que abre o modal da
+   lixeira montado pelo JS no <body>. `data-pasta-excluida`: lápide da Pasta inteira → a lixeira
+   só se olha (sem Desfazer nem Restaurar).
 #}
 <div class="pex" id="pexExplorador"
      data-pasta-id="{{ pasta.id }}"
      data-pasta-rotulo="{{ pasta.nup ?? pasta.id }}"
+     data-pasta-excluida="{{ pasta.estaExcluida ? '1' : '0' }}"
      data-total-arquivos="{{ explorador.totalArquivos }}"
      data-url-upload="{{ path('pasta_peticionar_upload', {id: pasta.id}) }}"
      data-csrf-upload="{{ csrf_token('peticionar_upload_' ~ pasta.id) }}"
@@ -120,6 +126,9 @@
                 </div>
                 <div class="pex-pop-sep"></div>
                 <button type="button" class="pex-pop-item" id="pexRestaurar"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i><span>Restaurar padrão</span></button>
+                {# L7: a lixeira da pasta. O N é contado pelo JS ao abrir o Organizar. #}
+                <div class="pex-pop-sep"></div>
+                <button type="button" class="pex-pop-item" id="pexLixeiraAbrir"><i class="bi bi-trash3" aria-hidden="true"></i><span>Lixeira <span class="pex-lix-n" id="pexLixeiraN"></span></span></button>
             </div>
         </div>
 
@@ -271,10 +280,12 @@
             <button type="button" class="pex-ctx-item" role="menuitem"><i class="bi pex-ctx-ico" aria-hidden="true"></i><span class="pex-ctx-rotulo"></span><span class="pex-ctx-atalho" aria-hidden="true"></span></button>
         </template>
 
-        {# Toast (dc L2272): resultado das ações. "Desfazer" só entra com a lixeira (L7). #}
+        {# Toast (dc L2272/L2277): resultado das ações. "Desfazer" (L7) aparece só depois de uma
+           exclusão, e chama o restaurar com os ids que o servidor devolveu. #}
         <div class="pex-toast" id="pexToast" role="status" aria-live="polite" hidden>
             <i class="bi pex-toast-ico" id="pexToastIcone" aria-hidden="true" hidden></i>
             <span id="pexToastTexto"></span>
+            <button type="button" class="pex-toast-desfazer" id="pexToastDesfazer" hidden>Desfazer</button>
         </div>
 
         {# ── Visor em tela cheia (L10, DOC-47..50; dc L299-329) ─────────────────────────────

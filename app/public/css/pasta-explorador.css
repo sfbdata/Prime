@@ -9,6 +9,7 @@
    nas linhas, cabeçalho 11px/700 maiúsculas, Arial nos números.
    ========================================================================== */
 
+.pex-lix,
 .pex {
     /* cartão e faixa */
     --pex-card-bg:        #fff;
@@ -162,6 +163,7 @@
     --pex-toast-txt:      #fff;
     --pex-toast-sombra:   0 14px 30px -12px rgba(0,0,0,.5);
     --pex-toast-erro:     #ffb4a8;
+    --pex-toast-desfazer: #7cc4ff;
     --pex-laco-bg:        rgba(15,111,196,.12);
     --pex-laco-bd:        rgba(15,111,196,.6);
     --pex-ren-bg:         #fff;
@@ -1284,6 +1286,22 @@ a.pex-nome:hover { text-decoration: underline; color: var(--pex-nome); }
 .pex-toast-ico { font-size: 15px; flex-shrink: 0; }
 .pex-toast-ico[hidden] { display: none; }
 .pex-toast--erro > .pex-toast-ico { color: var(--pex-toast-erro); }
+/* "Desfazer" (dc L2277): sem borda nem fundo, #7cc4ff, 13px/700 — o mesmo no escuro (o fundo
+   do toast escuro é #2b3d49, onde o azul claro continua legível). */
+.pex-toast-desfazer {
+    flex-shrink: 0;
+    border: none;
+    background: transparent;
+    color: var(--pex-toast-desfazer);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    padding: 0;
+}
+.pex-toast-desfazer[hidden] { display: none; }
+.pex-toast-desfazer:disabled { opacity: .55; cursor: default; }
+.pex-toast-desfazer:focus-visible { outline: 2px solid var(--pex-toast-desfazer); outline-offset: 2px; border-radius: 2px; }
 @keyframes pexToastIn { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translateX(-50%); } }
 @media (prefers-reduced-motion: reduce) { .pex-toast, .pex-ctx, .pex-selecao { animation: none; } }
 
@@ -1466,6 +1484,43 @@ a.pex-nome:hover { text-decoration: underline; color: var(--pex-nome); }
 .pex-dest-item > .bi-house-door { font-size: 14px; }
 .pex-dest-item > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pex-dest-item > small { margin-left: auto; font-size: 11px; color: var(--bs-secondary-color); white-space: nowrap; }
+
+/* ----------------------------------------------------- lixeira (L7) --- */
+/* Modal montado pelo JS no <body>. Cores pelo Bootstrap (seguem o tema escuro sozinhas); os
+   ícones de tipo usam os tokens do explorador, que `.pex-lix` também recebe. */
+.pex-lix-nota { display: flex; align-items: flex-start; gap: 8px; margin: 0 0 10px; font-size: 12.5px; color: var(--bs-secondary-color); }
+.pex-lix-nota[hidden] { display: none; }
+.pex-lix-nota--lapide { color: var(--bs-warning-text-emphasis); }
+.pex-lix-aviso { margin: 0 0 10px; padding: 8px 10px; border-radius: 4px; background: var(--bs-tertiary-bg); font-size: 13px; }
+.pex-lix-aviso[hidden] { display: none; }
+.pex-lix-aviso--erro { background: var(--bs-danger-bg-subtle); color: var(--bs-danger-text-emphasis); }
+.pex-lix-vazio { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 28px 10px; color: var(--bs-secondary-color); font-size: 13px; }
+.pex-lix-vazio[hidden] { display: none; }
+.pex-lix-vazio > .bi { font-size: 24px; }
+.pex-lix-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.pex-lix-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 6px 8px calc(6px + var(--pex-lix-nivel, 0) * 22px);
+    border-bottom: 1px solid var(--bs-border-color-translucent);
+    min-width: 0;
+}
+.pex-lix-item--dentro { background: var(--bs-tertiary-bg); }
+.pex-lix-marcar { flex-shrink: 0; margin: 0; }
+.pex-lix-ico { flex-shrink: 0; font-size: 17px; width: 18px; text-align: center; }
+.pex-lix-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.pex-lix-nome { font-size: 13px; font-weight: 600; color: var(--bs-body-color); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pex-lix-sub { font-size: 11.5px; color: var(--bs-secondary-color); overflow-wrap: anywhere; }
+.pex-lix-restaurar { flex-shrink: 0; white-space: nowrap; }
+.pex-lix-n { color: var(--bs-secondary-color); font-variant-numeric: tabular-nums; }
+/* 375px: o botão desce para baixo do texto, alinhado com ele; o recuo do grupo encolhe. */
+@media (max-width: 575.98px) {
+    .pex-lix-item { flex-wrap: wrap; padding-left: calc(6px + var(--pex-lix-nivel, 0) * 12px); }
+    .pex-lix-txt { flex-basis: calc(100% - 56px); }
+    .pex-lix-restaurar { margin-left: 46px; }
+    .pex-lix .modal-footer { flex-wrap: wrap; }
+}
 
 /* --------------------------------------------------------- responsivo --- */
 @media (max-width: 767.98px) {
