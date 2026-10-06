@@ -367,8 +367,8 @@ final class AnalisePushControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseIsSuccessful();
         $html = (string) $client->getResponse()->getContent();
-        self::assertStringContainsString('Gerada por inteligência artificial', $html);
-        self::assertStringContainsString('não é ato oficial do processo', $html);
+        self::assertStringContainsString('Gerado por IA', $html);
+        self::assertStringContainsString('não é movimentação oficial', $html);
         self::assertStringContainsString('Sentença &lt;b&gt;publicada&lt;/b&gt;.', $html, 'a resposta do modelo tem de sair escapada');
         self::assertStringNotContainsString('<b>publicada</b>', $html);
         self::assertSame(1, $crawler->filter('.ps-ia-lista > .ps-ia-cartao')->count());

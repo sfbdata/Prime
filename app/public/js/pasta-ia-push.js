@@ -11,7 +11,7 @@
      5. "Criar tarefa da providência": abre o `#modalCriarTarefa` da pasta
         pré-preenchido, no mesmo contrato do "Criar tarefa" da publicação
         (pasta-push.js): marca `data-origem-push` e o pasta-push.js limpa os
-        campos ao fechar. O prazo fica em branco — quem decide é a pessoa.
+        campos ao fechar. O prazo nasce em +7 dias, como o desenho (editável).
 
    A lista é trocada inteira a cada recarga, então todo clique é por delegação
    na seção `.ps-push`. Sem JS, os formulários do fragmento seguem por POST comum.
@@ -298,7 +298,7 @@
 
             var d = item.dataset;
             var linhas = ['Providência indicada pela análise da BlueJus IA de ' + (d.metaQuando || '') + '.'];
-            linhas.push('Gerada por inteligência artificial · não é ato oficial do processo. Confira o documento original antes de agir.');
+            linhas.push('Gerado por IA · não é movimentação oficial. Confira o documento original antes de agir.');
             if (d.metaPonto) { linhas.push(''); linhas.push((d.metaRotulo ? d.metaRotulo + ': ' : '') + d.metaPonto); }
             if (d.metaQuem) { linhas.push('Quem deve agir: ' + d.metaQuem); }
             if (d.metaResumo) { linhas.push(''); linhas.push('Resumo: ' + d.metaResumo); }
@@ -308,7 +308,11 @@
             var prazo = document.getElementById('tarefaPrazo');
             if (titulo) { titulo.value = (d.metaTitulo || 'Providência indicada pela análise IA').slice(0, 255); }
             if (descricao) { descricao.value = linhas.join('\n').slice(0, 5000); }
-            if (prazo) { prazo.value = ''; }
+            if (prazo) {
+                // Desenho: a tarefa da providência nasce com prazo de 7 dias; a pessoa ajusta.
+                var p = new Date(); p.setDate(p.getDate() + 7);
+                prazo.value = p.getFullYear() + '-' + String(p.getMonth() + 1).padStart(2, '0') + '-' + String(p.getDate()).padStart(2, '0');
+            }
 
             // Mesmo sinal do "Criar tarefa" da publicação: o pasta-push.js limpa ao fechar.
             modal.dataset.origemPush = '1';

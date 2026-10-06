@@ -44,7 +44,7 @@
             <div class="ps-ia-corpo">
                 <header class="ps-ia-cab">
                     <span class="ps-ia-selo">✦ Análise IA</span>
-                    <span class="ps-ia-aviso">Gerada por inteligência artificial · não é ato oficial do processo · <time class="ps-ia-quando ps-num" datetime="{{ a.criadaEm|date('c') }}">{{ ehHoje ? 'hoje' : a.criadaEm|date('d/m/Y') }}, {{ a.criadaEm|date('H:i') }}</time></span>
+                    <span class="ps-ia-aviso">Gerado por IA · não é movimentação oficial · <time class="ps-ia-quando ps-num" datetime="{{ a.criadaEm|date('c') }}">{{ ehHoje ? 'hoje' : a.criadaEm|date('d/m/Y') }}, {{ a.criadaEm|date('H:i') }}</time></span>
                     {% if a.lida %}
                         <span class="ps-ia-lido"><i class="bi bi-check2-all" aria-hidden="true"></i>lido</span>
                     {% endif %}

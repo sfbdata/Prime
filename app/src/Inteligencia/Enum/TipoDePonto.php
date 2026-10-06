@@ -32,7 +32,7 @@ enum TipoDePonto: string
             self::Atencao => 'Atenção',
             self::Providencia => 'Providência',
             self::Info => 'Informação',
-            self::Ok => 'Em ordem',
+            self::Ok => 'Sem providência',
         };
     }
 }

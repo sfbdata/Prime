@@ -124,7 +124,7 @@ final class PastaPushAbaIaTelaTest extends JusPrimeWebTestCase
         self::assertSame(1, $cartao->count());
         self::assertSame('✦ Análise IA', trim($cartao->filter('.ps-ia-corpo > .ps-ia-cab > .ps-ia-selo')->text()));
         self::assertStringContainsString(
-            'Gerada por inteligência artificial · não é ato oficial do processo',
+            'Gerado por IA · não é movimentação oficial',
             $cartao->filter('.ps-ia-corpo > .ps-ia-cab > .ps-ia-aviso')->text(),
         );
         // A entidade pode normalizar o texto: compara com o que ela devolve.
