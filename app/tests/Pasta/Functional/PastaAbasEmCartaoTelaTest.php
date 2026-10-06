@@ -135,8 +135,12 @@ final class PastaAbasEmCartaoTelaTest extends JusPrimeWebTestCase
         $cartao = $crawler->filter('#tarefas > .ps-grade > .ps-metas');
         self::assertCount(1, $cartao);
         self::assertSame('Metas da pasta', trim($cartao->filter('.ps-metas > .ps-card-cab--painel > h2')->text()));
-        self::assertSame('3', trim($cartao->filter('.ps-card-cab--painel > .ps-contagem')->text()));
-        self::assertCount(1, $cartao->filter('.ps-card-cab--painel > button[data-bs-target="#modalCriarTarefa"]'), '"Nova meta" abre a mesma modal de sempre');
+        // Desenho (dc:1417-1425): sem contagem ao lado do título; o total já está em "Todas N".
+        self::assertCount(0, $cartao->filter('.ps-card-cab--painel > .ps-contagem'), 'o cabeçalho de Metas não repete a contagem');
+        self::assertSame('3', trim($cartao->filter('.ps-metas-filtro[data-ps-metas-filtro="todas"] > .ps-metas-filtro-n')->text()));
+        $novaMeta = $cartao->filter('.ps-card-cab--painel > button[data-bs-target="#modalCriarTarefa"]');
+        self::assertCount(1, $novaMeta, '"Nova meta" abre a mesma modal de sempre');
+        self::assertSame('Nova meta para esta pasta', $novaMeta->attr('title'));
 
         $linhas = $cartao->filter('.ps-metas > .ps-metas-lista > article.ps-meta');
         self::assertCount(3, $linhas);

@@ -23,7 +23,6 @@
 <section class="ps-card ps-metas" data-ps-metas>
     <div class="ps-card-cab ps-card-cab--painel">
         <h2>Metas da pasta</h2>
-        {% if pasta.tarefas|length > 0 %}<span class="ps-contagem">{{ pasta.tarefas|length }}</span>{% endif %}
         <div class="ps-metas-filtros" role="group" aria-label="Filtrar metas">
             {% for f in [
                 {id: 'abertas',    rotulo: 'Abertas',    n: metasResumo.abertas},
@@ -38,7 +37,7 @@
             {% endfor %}
         </div>
         <span class="ps-cab-espaco"></span>
-        <button type="button" class="ps-btn ps-btn--primario ps-btn--alto" title="Nova meta" aria-label="Nova meta"
+        <button type="button" class="ps-btn ps-btn--primario ps-btn--alto" title="Nova meta para esta pasta" aria-label="Nova meta"
                 data-bs-toggle="modal" data-bs-target="#modalCriarTarefa">
             <i class="bi bi-plus-lg"></i><span>Nova meta</span>
         </button>
