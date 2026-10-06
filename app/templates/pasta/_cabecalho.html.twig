@@ -304,6 +304,27 @@
                 <span class="ps-cab-doc ps-cab-doc--aviso">não vinculado ao cadastro de clientes</span>
             {% endif %}
         </div>
+
+        {# ── BlueJus Intelligence (desenho 1.2.3, dc L.1139): à direita da linha do cliente ──
+           Abre o drawer dos agentes da BlueJus IA (spec inteligencia-agentes-da-pasta). Só para
+           quem tem `modules.inteligencia.view`; o botão sempre abre o drawer — é lá que cada
+           agente mostra "Gerar análise" ou o motivo REAL de a IA não estar disponível. O title
+           do desenho ("Ler documentos…") não é usado: o sistema não lê documentos. #}
+        {% if can_access_module('inteligencia') %}
+            {% set iaDisp = ia_disponibilidade() %}
+            <button type="button" class="ps-cab-ia" id="psIaAbrir"
+                    title="{{ iaDisp.estaDisponivel ? 'BlueJus IA: análises desta pasta por agente' : iaDisp.mensagem }}"
+                    aria-controls="psIaDrawer" aria-expanded="false"
+                    data-ia-abrir
+                    data-ia-disponivel="{{ iaDisp.estaDisponivel ? '1' : '0' }}"
+                    data-ia-motivo="{{ iaDisp.value }}">
+                <span class="ps-cab-ia-estrela" aria-hidden="true">
+                    <svg width="22" height="22" viewBox="0 0 24 24" style="overflow:visible"><defs><linearGradient id="bjIaG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1fa6cc"></stop><stop offset="1" stop-color="#0b5f86"></stop></linearGradient></defs><path class="ps-cab-ia-estrela-g" d="M11 2.5c.5 3.9 2.6 6 6.5 6.5-3.9.5-6 2.6-6.5 6.5-.5-3.9-2.6-6-6.5-6.5 3.9-.5 6-2.6 6.5-6.5z" fill="url(#bjIaG)"></path><path class="ps-cab-ia-estrela-p" d="M18.5 13.5c.25 1.9 1.1 2.75 3 3-1.9.25-2.75 1.1-3 3-.25-1.9-1.1-2.75-3-3 1.9-.25 2.75-1.1 3-3z" fill="#1fa6cc"></path><circle class="ps-cab-ia-estrela-c" cx="5" cy="18.5" r="1.3" fill="#0b5f86"></circle></svg>
+                </span>
+                <span class="ps-cab-ia-rotulo"><span class="ps-cab-ia-marca">BLUEJUS</span><span class="ps-cab-ia-nome">Intelligence</span></span>
+            </button>
+            {{ include('inteligencia/_agentes_drawer.html.twig', {pasta: pasta, ia: iaDisp}) }}
+        {% endif %}
     </div>
 
     {# ── Faixa de dados: Processo vinculado · Ação · Responsável [· Cobrança] ── #}

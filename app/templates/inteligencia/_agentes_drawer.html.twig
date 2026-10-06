@@ -1,0 +1,56 @@
+{# ============================================================================
+   Drawer "BlueJus IA" da pasta (spec inteligencia-agentes-da-pasta §5).
+
+   Desenho 02 - EXPEDIENTES 1.2.3 (dc L.843-860): painel fixo à direita, 460px,
+   cabeçalho em degradê com a estrela, "BLUEJUS IA / Assistente jurídica do
+   escritório", X, chips do contexto carregado desta tela. As abas do desenho
+   (Análise · Documentos · Relatórios · Perguntar) NÃO são renderizadas: só a
+   lista de agentes existe no sistema, e aba que não funciona é mentira na tela.
+
+   Incluído pelo `pasta/_cabecalho.html.twig` logo depois do botão, só para quem
+   tem `modules.inteligencia.view`. Nasce `hidden`; o `pasta-ia-agentes.js` abre,
+   fecha e carrega o painel (`inteligencia_agentes_painel`) na primeira abertura —
+   a lista de agentes já vem no HTML (sem análises) para a tela não depender do JS
+   para dizer o que existe.
+
+   Contexto: `pasta` (entidade, a mesma do cabeçalho), `ia` (enum Disponibilidade).
+   ============================================================================ #}
+{% set nProcessos = pasta.processos|length %}
+{% set nMetas = pasta.tarefas|length %}
+{% set nDocumentos = pasta.documentos|length %}
+<div class="ia-drawer-fundo" data-ia-fundo hidden></div>
+<aside class="ia-drawer" id="psIaDrawer" role="dialog" aria-modal="true" aria-label="BlueJus IA" hidden
+       data-ia-drawer
+       data-ia-painel-url="{{ path('inteligencia_agentes_painel', {id: pasta.id}) }}"
+       data-ia-token="{{ csrf_token('inteligencia_agentes_' ~ pasta.id) }}">
+    <header class="ia-drawer-cab">
+        <div class="ia-drawer-titulo">
+            <span class="ia-drawer-ico" aria-hidden="true"><i class="bi bi-stars"></i></span>
+            <span class="ia-drawer-marca">
+                <span class="ia-drawer-marca-sup">BLUEJUS IA</span>
+                <span class="ia-drawer-marca-sub">Assistente jurídica do escritório</span>
+            </span>
+            <button type="button" class="ia-drawer-fechar" data-ia-fechar aria-label="Fechar" title="Fechar">
+                <i class="bi bi-x-lg" aria-hidden="true"></i>
+            </button>
+        </div>
+        <div class="ia-drawer-chips" title="Contexto carregado automaticamente desta tela">
+            <span class="ia-chip"><i class="bi bi-folder2-open" aria-hidden="true"></i>Pasta {{ pasta.nup }}</span>
+            <span class="ia-chip"><i class="bi bi-bank" aria-hidden="true"></i>{{ nProcessos == 0 ? 'sem processo' : (nProcessos ~ ' processo' ~ (nProcessos > 1 ? 's' : '')) }}</span>
+            <span class="ia-chip"><i class="bi bi-check2-square" aria-hidden="true"></i>{{ nMetas }} meta{{ nMetas == 1 ? '' : 's' }}</span>
+            <span class="ia-chip"><i class="bi bi-paperclip" aria-hidden="true"></i>{{ nDocumentos }} documento{{ nDocumentos == 1 ? '' : 's' }}</span>
+        </div>
+        {% if not ia.estaDisponivel %}
+            {# O motivo REAL, uma vez, no topo — cada agente repete no lugar do botão. #}
+            <p class="ia-drawer-motivo" role="status" data-ia-motivo-geral="{{ ia.value }}">
+                <i class="bi bi-info-circle" aria-hidden="true"></i>{{ ia.mensagem }}
+            </p>
+        {% endif %}
+    </header>
+    <div class="ia-drawer-corpo">
+        <p class="ia-msg" data-ia-msg role="status" hidden></p>
+        {{ include('inteligencia/_agentes_painel.html.twig', {painel: null, pastaId: pasta.id}) }}
+    </div>
+</aside>
+<link rel="stylesheet" href="/css/pasta-ia-agentes.css">
+<script src="/js/pasta-ia-agentes.js" defer></script>

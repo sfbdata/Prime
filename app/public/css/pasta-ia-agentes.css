@@ -1,0 +1,534 @@
+/* =============================================================================
+   BlueJus IA — agentes da pasta (spec inteligencia-agentes-da-pasta §5).
+
+   Valores do desenho 02 - EXPEDIENTES 1.2.3: botão do cabeçalho (dc L.1139-1146),
+   drawer (dc L.843-860: 460px, fundo #f7fafc, cabeçalho em degradê #0d80a3→#0b6688,
+   ícone 36px, "BLUEJUS IA" 10px/800 .18em, subtítulo 14.5px/700, X 30px, chips
+   999px), CTA (`cta`, dc L.5690: 42px, degradê #1597bd→#0b6688, 13px/700,
+   secundário branco com anel #9fc3d3, desabilitado opacity .5), cartões brancos
+   com anel #e6edf2 (dc L.862). O cartão da análise repete o do Push
+   (`pasta-ia.css`), com os tokens roxos do selo e dos chips.
+
+   Tudo preso a `.ps-cab-ia`, `.ia-drawer` e `.ia-drawer-fundo` — nada global —
+   e toda cor entra como token, redefinido no tema escuro. Cantos até 4px; selo e
+   chips são pílulas (999px), como no próprio desenho.
+
+   Carregado pelo `inteligencia/_agentes_drawer.html.twig`, só para quem tem
+   `modules.inteligencia.view`.
+   ============================================================================= */
+.ps-cab-ia,
+.ia-drawer,
+.ia-drawer-fundo {
+    --ia-azul:          #0b6688;
+    --ia-azul-2:        #0d80a3;
+    --ia-azul-claro:    #1597bd;
+    --ia-azul-txt:      #0c7a9c;
+    --ia-azul-link:     #0a7aad;
+    --ia-fundo:         #f7fafc;
+    --ia-cartao:        #fff;
+    --ia-anel:          #e6edf2;
+    --ia-anel-cta:      #9fc3d3;
+    --ia-hover-cab:     #e5f1f7;
+    --ia-texto:         #12242f;
+    --ia-texto-2:       #243845;
+    --ia-texto-3:       #4f6878;
+    --ia-texto-4:       #5f7684;
+    --ia-texto-5:       #7b93a2;
+    --ia-sombra:        -24px 0 60px -30px rgba(10, 50, 80, .5);
+    --ia-fundo-escuro:  rgba(10, 36, 56, .28);
+    --ia-msg-bg:        #eaf5fa;
+    --ia-perigo:        #c0392b;
+    --ia-perigo-bg:     #fdecea;
+    --ia-menu-bg:       #fff;
+    --ia-menu-sombra:   0 8px 24px rgba(16, 42, 58, .18);
+    --ia-off:           #8a97a0;
+    /* Selo, marca e chips do cartão: os mesmos roxos do Push. */
+    --ia-roxo:          #5b3fb0;
+    --ia-roxo-2:        #6a4bc4;
+    --ia-roxo-icone:    #6a5a96;
+    --ia-roxo-apag:     #a99bd0;
+    --ia-roxo-dia:      #8a76c6;
+    --ia-selo-bg:       #ece5fb;
+    --ia-hover-roxo:    #f1ecfc;
+    --ia-cartao-ia-bg:  linear-gradient(180deg, #f8f5ff, #f4f8fd);
+    --ia-cartao-ia-bd:  #e6def8;
+    --ia-ponto-bg:      rgba(255, 255, 255, .75);
+    --ia-ponto-anel:    rgba(226, 216, 248, .7);
+    --ia-prazo-tx:      #b42318;  --ia-prazo-bg:   #fdecea;
+    --ia-atencao-tx:    #b4460a;  --ia-atencao-bg: #fff1e6;
+    --ia-provid-tx:     #8a6400;  --ia-provid-bg:  #fdf5d8;
+    --ia-info-tx:       #0b5f86;  --ia-info-bg:    #e3f0f8;
+    --ia-ok-tx:         #1e7b45;  --ia-ok-bg:      #e6f4ec;
+}
+[data-bs-theme="dark"] .ps-cab-ia,
+[data-bs-theme="dark"] .ia-drawer,
+[data-bs-theme="dark"] .ia-drawer-fundo {
+    --ia-azul-txt:      #6fc3e0;
+    --ia-azul-link:     #6fc3e0;
+    --ia-fundo:         var(--bs-body-bg);
+    --ia-cartao:        var(--bs-secondary-bg);
+    --ia-anel:          var(--bs-border-color);
+    --ia-anel-cta:      rgba(111, 195, 224, .55);
+    --ia-hover-cab:     rgba(111, 195, 224, .14);
+    --ia-texto:         var(--bs-body-color);
+    --ia-texto-2:       var(--bs-body-color);
+    --ia-texto-3:       var(--bs-secondary-color);
+    --ia-texto-4:       var(--bs-secondary-color);
+    --ia-texto-5:       var(--bs-secondary-color);
+    --ia-sombra:        -24px 0 60px -30px rgba(0, 0, 0, .8);
+    --ia-fundo-escuro:  rgba(0, 0, 0, .55);
+    --ia-msg-bg:        rgba(111, 195, 224, .12);
+    --ia-perigo:        #f08a7e;
+    --ia-perigo-bg:     rgba(240, 138, 126, .14);
+    --ia-menu-bg:       var(--bs-secondary-bg);
+    --ia-menu-sombra:   0 8px 24px rgba(0, 0, 0, .5);
+    --ia-off:           var(--bs-secondary-color);
+    --ia-roxo:          #b9a6f2;
+    --ia-roxo-2:        #b9a6f2;
+    --ia-roxo-icone:    #a99bd0;
+    --ia-roxo-apag:     #75689c;
+    --ia-roxo-dia:      #a99bd0;
+    --ia-selo-bg:       rgba(185, 166, 242, .16);
+    --ia-hover-roxo:    rgba(185, 166, 242, .12);
+    --ia-cartao-ia-bg:  linear-gradient(180deg, rgba(122, 92, 214, .12), rgba(69, 176, 214, .06));
+    --ia-cartao-ia-bd:  rgba(185, 166, 242, .22);
+    --ia-ponto-bg:      rgba(255, 255, 255, .04);
+    --ia-ponto-anel:    rgba(185, 166, 242, .2);
+    --ia-prazo-tx:      #f4a29a;  --ia-prazo-bg:   rgba(180, 35, 24, .25);
+    --ia-atencao-tx:    #f6b98a;  --ia-atencao-bg: rgba(180, 70, 10, .25);
+    --ia-provid-tx:     #e8c96a;  --ia-provid-bg:  rgba(138, 100, 0, .3);
+    --ia-info-tx:       #8fcbe8;  --ia-info-bg:    rgba(11, 95, 134, .3);
+    --ia-ok-tx:         #8fd6ac;  --ia-ok-bg:      rgba(30, 123, 69, .3);
+}
+
+@keyframes iaDrawerEntra { from { transform: translate3d(24px, 0, 0); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes iaPulsa { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.12); opacity: .85; } }
+@keyframes iaEstrela { 0%, 100% { transform: rotate(0) scale(1); } 50% { transform: rotate(12deg) scale(1.08); } }
+@keyframes iaBrilho { 0%, 100% { opacity: .55; transform: scale(.85); } 50% { opacity: 1; transform: scale(1.15); } }
+@keyframes iaCartaoEntra { 0% { opacity: 0; transform: translate3d(0, -8px, 0); } 60% { opacity: 1; transform: none; } }
+
+/* ── Botão do cabeçalho (dc L.1139) ── */
+.ps-cab-cliente > .ps-cab-ia {
+    margin-left: auto;
+    flex-shrink: 0;
+    align-self: center;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 32px;
+    padding: 0 11px 0 8px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+    background: transparent;
+    transition: background .18s;
+}
+.ps-cab-ia:hover,
+.ps-cab-ia:focus-visible { background: var(--ia-hover-cab); }
+.ps-cab-ia-estrela { position: relative; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; }
+.ps-cab-ia-estrela-g { transform-box: fill-box; transform-origin: center; animation: iaEstrela 3.2s ease-in-out infinite; }
+.ps-cab-ia-estrela-p { transform-box: fill-box; transform-origin: center; animation: iaBrilho 3.2s ease-in-out .8s infinite; }
+.ps-cab-ia-estrela-c { transform-box: fill-box; transform-origin: center; animation: iaBrilho 3.2s ease-in-out 1.6s infinite; }
+.ps-cab-ia-rotulo { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.05; }
+.ps-cab-ia-marca { font-size: 9px; font-weight: 800; letter-spacing: .16em; color: var(--ia-azul-txt); }
+.ps-cab-ia-nome { font-size: 13px; font-weight: 700; color: var(--ia-texto); }
+
+/* ── Drawer (dc L.843) ── */
+.ia-drawer-fundo {
+    position: fixed;
+    inset: 0;
+    z-index: 95;
+    background: var(--ia-fundo-escuro);
+}
+.ia-drawer-fundo[hidden] { display: none; }
+.ia-drawer {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 96;
+    width: 460px;
+    max-width: 100vw;
+    display: flex;
+    flex-direction: column;
+    background: var(--ia-fundo);
+    color: var(--ia-texto);
+    box-shadow: var(--ia-sombra);
+    animation: iaDrawerEntra .38s cubic-bezier(.22, .8, .3, 1) both;
+}
+.ia-drawer[hidden] { display: none; }
+
+.ia-drawer-cab {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px 16px 12px;
+    background: linear-gradient(135deg, var(--ia-azul-2), var(--ia-azul));
+    color: #fff;
+}
+.ia-drawer-titulo { display: flex; align-items: center; gap: 11px; }
+.ia-drawer-ico {
+    width: 36px;
+    height: 36px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, .16);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.ia-drawer-ico > i { font-size: 18px; animation: iaPulsa 2.4s ease-in-out infinite; }
+.ia-drawer-marca { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.ia-drawer-marca-sup { font-size: 10px; font-weight: 800; letter-spacing: .18em; opacity: .85; }
+.ia-drawer-marca-sub { font-size: 14.5px; font-weight: 700; }
+.ia-drawer-fechar {
+    width: 30px;
+    height: 30px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: #fff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: background .18s;
+}
+.ia-drawer-fechar:hover,
+.ia-drawer-fechar:focus-visible { background: rgba(255, 255, 255, .16); }
+.ia-drawer-fechar > i { font-size: 14px; }
+.ia-drawer-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.ia-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    max-width: 100%;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .14);
+    font-size: 11.5px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.ia-chip > i { font-size: 11px; opacity: .85; }
+/* Fora do "disponível" o desenho é omisso: o motivo é uma frase, apagada, sem cara de clicável. */
+.ia-drawer-motivo {
+    margin: 0;
+    display: flex;
+    align-items: flex-start;
+    gap: 7px;
+    padding: 8px 10px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, .14);
+    font-size: 12.5px;
+    font-weight: 600;
+    line-height: 1.4;
+}
+.ia-drawer-motivo > i { flex-shrink: 0; margin-top: 2px; }
+
+.ia-drawer-corpo {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 14px 16px 18px;
+    display: grid;
+    grid-auto-rows: max-content;
+    align-content: start;
+    gap: 12px;
+}
+.ia-msg {
+    margin: 0;
+    padding: 9px 12px;
+    border-radius: 4px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--ia-azul);
+    background: var(--ia-msg-bg);
+    box-shadow: inset 0 0 0 1px var(--ia-anel);
+}
+.ia-msg.is-erro { color: var(--ia-perigo); background: var(--ia-perigo-bg); }
+.ia-msg[hidden] { display: none; }
+
+/* ── Cartão do agente (dc L.862) ── */
+.ia-agentes { display: grid; gap: 12px; }
+.ia-agente {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px 13px;
+    border-radius: 4px;
+    background: var(--ia-cartao);
+    box-shadow: inset 0 0 0 1px var(--ia-anel);
+}
+.ia-agente-cab { display: flex; align-items: flex-start; gap: 10px; }
+.ia-agente-ico {
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    background: var(--ia-azul-link);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.ia-agente-ico > i { font-size: 14px; }
+.ia-agente-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.ia-agente-nome { margin: 0; font-size: 13px; font-weight: 700; color: var(--ia-texto); line-height: 1.3; }
+.ia-agente-papel { margin: 0; font-size: 12.5px; color: var(--ia-texto-3); line-height: 1.45; }
+.ia-agente-le { margin: 0; display: flex; align-items: flex-start; gap: 5px; font-size: 11px; color: var(--ia-texto-5); line-height: 1.4; }
+.ia-agente-le > i { flex-shrink: 0; margin-top: 2px; font-size: 10.5px; }
+
+/* CTA do desenho (`cta`, dc L.5690). */
+.ia-cta {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 42px;
+    padding: 0 12px;
+    border: none;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    color: #fff;
+    background: linear-gradient(135deg, var(--ia-azul-claro), var(--ia-azul));
+    box-shadow: 0 10px 22px -12px rgba(11, 102, 136, .8);
+    cursor: pointer;
+    transition: opacity .2s;
+}
+.ia-cta:hover:not(:disabled),
+.ia-cta:focus-visible { opacity: .92; }
+.ia-cta:disabled { opacity: .5; cursor: default; }
+.ia-cta.is-carregando { cursor: progress; }
+.ia-cta.is-carregando > i { animation: iaPulsa 1.1s ease-in-out infinite; }
+.ia-cta--indisponivel {
+    background: var(--ia-cartao);
+    color: var(--ia-off);
+    box-shadow: inset 0 0 0 1.5px var(--ia-anel);
+    font-weight: 600;
+    text-align: left;
+    white-space: normal;
+    cursor: not-allowed;
+}
+.ia-cta--indisponivel:disabled { opacity: 1; }
+
+/* ── Lista e cartão da análise (mesmo cartão do Push, `pasta-ia.css`) ── */
+.ia-ag-lista { display: flex; flex-direction: column; gap: 8px; }
+.ia-ag-vazio { margin: 0; font-size: 12px; color: var(--ia-texto-5); }
+.ia-cartao {
+    display: flex;
+    gap: 10px;
+    padding: 12px;
+    border-radius: 4px;
+    background: var(--ia-cartao-ia-bg);
+    box-shadow: inset 0 0 0 1px var(--ia-cartao-ia-bd);
+}
+.ia-cartao.is-nova { animation: iaCartaoEntra .6s cubic-bezier(.22, .8, .3, 1) both; }
+.ia-cartao--lida { opacity: .82; }
+.ia-marca { display: flex; flex-direction: column; align-items: center; gap: 3px; width: 40px; flex-shrink: 0; padding-top: 1px; }
+.ia-marca-ico {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--ia-cartao);
+    box-shadow: 0 0 0 1px var(--ia-cartao-ia-bd), 0 2px 6px rgba(91, 63, 176, .12);
+    color: var(--ia-roxo-2);
+    font-size: 15px;
+    line-height: 1;
+}
+.ia-marca-dia { font-size: 10px; font-weight: 700; letter-spacing: .06em; color: var(--ia-roxo-dia); text-transform: uppercase; }
+.ia-corpo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 7px; }
+.ia-corpo p { margin: 0; }
+.ia-cab { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.ia-cab-espaco { flex: 1; }
+.ia-selo {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--ia-roxo);
+    background: var(--ia-selo-bg);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.ia-aviso { font-size: 11.5px; color: var(--ia-roxo-icone); }
+.ia-quando { font-variant-numeric: tabular-nums; }
+.ia-lido { display: inline-flex; align-items: center; gap: 3px; font-size: 10.5px; font-weight: 700; color: var(--ia-texto-3); }
+.ia-cadeado { color: var(--ia-roxo); font-size: 13px; }
+.ia-acao { margin: 0; display: inline-flex; }
+.ia-icone {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--ia-roxo-icone);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background .15s, color .15s;
+}
+.ia-icone > i { font-size: 13px; }
+.ia-icone:hover,
+.ia-icone:focus-visible { background: var(--ia-hover-roxo); }
+.ia-acao[data-ia-acao="interna"] .ia-icone { color: var(--ia-roxo-apag); }
+.ia-acao[data-ia-acao="interna"] .ia-icone.is-interna { color: var(--ia-roxo); }
+.ia-menu-wrap { position: relative; }
+.ia-menu {
+    position: absolute;
+    right: 0;
+    top: 32px;
+    z-index: 20;
+    width: 210px;
+    padding: 5px;
+    display: flex;
+    flex-direction: column;
+    background: var(--ia-menu-bg);
+    border-radius: 4px;
+    box-shadow: var(--ia-menu-sombra);
+}
+.ia-menu[hidden] { display: none; }
+.ia-menu .ia-acao { display: flex; }
+.ia-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    width: 100%;
+    height: 32px;
+    padding: 0 10px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--ia-texto-2);
+    text-align: left;
+    cursor: pointer;
+}
+.ia-menu-item > i { color: var(--ia-roxo-icone); }
+.ia-menu-item:hover,
+.ia-menu-item:focus-visible { background: var(--ia-hover-roxo); }
+.ia-menu-item--perigo,
+.ia-menu-item--perigo > i { color: var(--ia-perigo); }
+.ia-menu-item--perigo:hover,
+.ia-menu-item--perigo:focus-visible { background: var(--ia-perigo-bg); }
+
+.ia-resumo { font-size: 13px; line-height: 1.5; color: var(--ia-texto); text-wrap: pretty; overflow-wrap: anywhere; }
+.ia-pontos { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+.ia-ponto {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 7px 9px;
+    border-radius: 3px;
+    background: var(--ia-ponto-bg);
+    box-shadow: 0 0 0 1px var(--ia-ponto-anel);
+}
+.ia-chip-ponto {
+    flex-shrink: 0;
+    min-width: 84px;
+    text-align: center;
+    padding: 3px 7px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    color: var(--ia-info-tx);
+    background: var(--ia-info-bg);
+}
+.ia-chip-ponto--prazo       { color: var(--ia-prazo-tx);   background: var(--ia-prazo-bg); }
+.ia-chip-ponto--atencao     { color: var(--ia-atencao-tx); background: var(--ia-atencao-bg); }
+.ia-chip-ponto--providencia { color: var(--ia-provid-tx);  background: var(--ia-provid-bg); }
+.ia-chip-ponto--ok          { color: var(--ia-ok-tx);      background: var(--ia-ok-bg); }
+.ia-ponto-txt { flex: 1; min-width: 0; font-size: 12.5px; line-height: 1.45; color: var(--ia-texto-2); text-wrap: pretty; overflow-wrap: anywhere; }
+.ia-quem { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 12.5px; color: var(--ia-texto-3); }
+.ia-quem > i { color: var(--ia-roxo-2); }
+.ia-quem > strong { color: var(--ia-texto-2); }
+.ia-completa { border-radius: 4px; background: var(--ia-ponto-bg); box-shadow: 0 0 0 1px var(--ia-ponto-anel); }
+.ia-completa > summary {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 9px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--ia-azul-link);
+    cursor: pointer;
+    list-style: none;
+}
+.ia-completa > summary::-webkit-details-marker { display: none; }
+.ia-completa > summary::after { content: '▾'; margin-left: auto; font-size: 11px; transition: transform .15s; }
+.ia-completa[open] > summary::after { transform: rotate(180deg); }
+.ia-texto {
+    margin: 0;
+    padding: 0 10px 10px;
+    font-family: inherit;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--ia-texto-2);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+.ia-base { font-size: 11px; color: var(--ia-roxo-dia); }
+.ia-andamento { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--ia-roxo); }
+.ia-andamento-ico { font-size: 16px; color: var(--ia-roxo-2); animation: iaPulsa 1.1s ease-in-out infinite; }
+.ia-erro { font-size: 13px; color: var(--ia-texto-3); }
+.ia-erro-tecnico { font-size: 11.5px; color: var(--ia-texto-5); overflow-wrap: anywhere; }
+.ia-acoes { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 1px; }
+.ia-botao {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 28px;
+    padding: 0 10px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--ia-texto-4);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.ia-botao > i { font-size: 12px; }
+.ia-botao:hover,
+.ia-botao:focus-visible { background: var(--ia-hover-roxo); }
+.ia-botao--perigo:hover,
+.ia-botao--perigo:focus-visible { background: var(--ia-perigo-bg); color: var(--ia-perigo); }
+.ia-botao:disabled,
+.ia-menu-item:disabled,
+.ia-icone:disabled { opacity: .6; cursor: progress; }
+
+@media (max-width: 520px) {
+    .ia-drawer { width: 100vw; }
+    .ps-cab-ia-rotulo { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .ia-drawer,
+    .ia-cartao.is-nova,
+    .ia-drawer-ico > i,
+    .ia-cta.is-carregando > i,
+    .ia-andamento-ico,
+    .ps-cab-ia-estrela-g,
+    .ps-cab-ia-estrela-p,
+    .ps-cab-ia-estrela-c { animation: none; }
+}
