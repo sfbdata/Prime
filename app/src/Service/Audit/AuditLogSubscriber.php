@@ -459,6 +459,12 @@ class AuditLogSubscriber
             return $result;
         }
 
+        // Enum vai pelo VALOR ('encerrada', 'urgente'): no ramo de objeto abaixo virava
+        // {class, id: null, label: null}, que não diz qual caso foi gravado.
+        if ($value instanceof \BackedEnum) {
+            return $value->value;
+        }
+
         if (is_object($value)) {
             return [
                 'class' => $value::class,

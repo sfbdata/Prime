@@ -768,7 +768,8 @@
         }).then(function (r) {
             return r.json().catch(function () { return {}; }).then(function (dados) {
                 if (!r.ok || !dados.sucesso) {
-                    throw new Error(dados.erro || 'Não foi possível alterar o checklist.');
+                    // O listener de somente-leitura (lápide) responde `mensagem`, não `erro`.
+                    throw new Error(dados.erro || dados.mensagem || 'Não foi possível alterar o checklist.');
                 }
                 recarregarNaAbaDocumentos();
             });

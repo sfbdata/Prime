@@ -27,9 +27,10 @@ use Twig\TwigFunction;
  * de outro escritório também são descartados, ainda que cheguem pela coleção.
  *
  * "Exigido pelo juízo" (DOC-79): `DeterminacoesDoJuizo::daPasta` lê por regras o teor das
- * publicações do Push dos processos DESTA pasta, do escritório da sessão — uma consulta, só quando
- * o painel é desenhado. Com o checklist desativado (DOC-73) nada disso é calculado: o painel nem
- * aparece.
+ * publicações do Push dos processos DESTA pasta, do escritório da sessão. Roda em TODO `pasta_show`
+ * de pasta com checklist ativo — o painel é desenhado escondido e só abre no clique —, numa
+ * consulta com teto de 100 publicações (`DeterminacoesDoJuizo::LIMITE_DE_PUBLICACOES`, o mesmo da
+ * aba Push). Com o checklist desativado (DOC-73) nada disso é calculado: o painel nem aparece.
  */
 final class DocumentosSugeridosExtension extends AbstractExtension
 {

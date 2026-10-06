@@ -60,7 +60,12 @@ final class PastaChecklistEstadoController extends AbstractController
             return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_FORBIDDEN);
         }
 
-        $ativo = filter_var($request->request->get('ativo'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+        // Ausente tem de ser recusado explicitamente: `filter_var(null, …BOOLEAN…)` devolve FALSE, e
+        // um POST sem o campo viraria "desativar".
+        $valorAtivo = $request->request->get('ativo');
+        $ativo      = $valorAtivo === null || trim((string) $valorAtivo) === ''
+            ? null
+            : filter_var($valorAtivo, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
         if ($ativo === null) {
             return $this->json(['erro' => 'Informe se o checklist fica ativo ou desativado.'], Response::HTTP_UNPROCESSABLE_ENTITY);
         }

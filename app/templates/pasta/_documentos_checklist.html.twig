@@ -35,6 +35,9 @@
 {% set conferencia = conferenciaChecklist|default(null) %}
 {% set checklistAtivo = pasta.checklistAtivo %}
 {% set pendentesChecklist = totalChecklist - concluidosChecklist %}
+{# Pasta excluída (lápide) é somente-leitura: o POST seria recusado pelo PastaSomenteLeituraListener,
+   então o interruptor, a confirmação e o Reativar nem aparecem — o estado só é mostrado. #}
+{% set podeAlterarEstado = not pasta.estaExcluida %}
 <div class="pex-ck{{ checklistAtivo ? '' : ' pex-ck--desativado' }}" id="pexChecklist"
      data-pasta-id="{{ pasta.id }}"
      data-csrf-pasta="{{ csrf_token('checklist_pasta_' ~ pasta.id) }}"
@@ -75,6 +78,7 @@
         {% endif %}
         {# Interruptor do desenho (L2093): "Ativo" verde / "Desativado" cinza. Ligado, abre a
            confirmação com o motivo; desligado, reativa direto (ckReativar, L4084). #}
+        {% if podeAlterarEstado %}
         <button type="button" id="btnChecklistEstado" class="pex-ck-interruptor"
                 role="switch" aria-checked="{{ checklistAtivo ? 'true' : 'false' }}"
                 {% if checklistAtivo %}aria-expanded="false" aria-controls="checklistDesativarPainel"{% endif %}
@@ -82,8 +86,10 @@
             <span class="pex-ck-interruptor-txt">{{ checklistAtivo ? 'Ativo' : 'Desativado' }}</span>
             <span class="pex-ck-interruptor-trilho" aria-hidden="true"><span class="pex-ck-interruptor-bola"></span></span>
         </button>
+        {% endif %}
     </div>
     {% if checklistAtivo %}
+    {% if podeAlterarEstado %}
     {# Confirmação de desativar (L2095-2110). O motivo é obrigatório: "Desativar" só habilita
        depois de escolher um dos quatro. O texto do desenho é da "BlueJus IA" e promete cobrança
        pausada; aqui diz só o que de fato para (S-4, S-6). #}
@@ -113,6 +119,7 @@
         </div>
         <div id="checklistEstadoErro" class="pex-ck-desativar-erro" role="alert" hidden></div>
     </div>
+    {% endif %}
     <div class="pex-ck-corpo">
         {# Painel de sugestões DENTRO do cartão do checklist, logo abaixo do cabeçalho (dc L2112). #}
         {{ include('pasta/_documentos_sugeridos.html.twig') }}
@@ -216,10 +223,12 @@
             {%- if pasta.checklistDesativadoEm %} em {{ pasta.checklistDesativadoEm|date('d/m/Y') }}{% endif %}
             <div class="pex-ck-desativado-nota">Conferência de anexos e alerta da aba Documentos pausados.</div>
         </div>
+        {% if podeAlterarEstado %}
         <button type="button" id="btnChecklistReativar" class="pex-ck-reativar">
             <i class="bi bi-play-circle" aria-hidden="true"></i>Reativar
         </button>
         <div id="checklistEstadoErro" class="pex-ck-desativar-erro" role="alert" hidden></div>
+        {% endif %}
     </div>
     {% endif %}
     <link rel="stylesheet" href="{{ asset('css/pasta-checklist.css') }}">

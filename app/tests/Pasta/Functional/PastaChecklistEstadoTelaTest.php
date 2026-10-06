@@ -162,6 +162,31 @@ final class PastaChecklistEstadoTelaTest extends JusPrimeWebTestCase
         self::assertSame(0, $desativada->filter('.pex-ck-sem-anexo')->count());
     }
 
+    #[TestDox('pasta excluída (lápide): o estado aparece, mas sem interruptor, sem confirmação e sem Reativar')]
+    public function testLapideSemInterruptor(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $ativa           = $this->criarPasta($tenant);
+        $desativada      = $this->criarPasta($tenant);
+        $desativada->desativarChecklist(MotivoDesativacaoChecklist::Encerrada, $user, new \DateTimeImmutable('2026-10-01'));
+        foreach ([$ativa, $desativada] as $pasta) {
+            $pasta->marcarExcluida($user, new \DateTimeImmutable());
+        }
+        $this->em()->flush();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $crawler = $this->abrir($client, (int) $ativa->getId());
+        self::assertSame(1, $crawler->filter('#pexChecklist')->count());
+        self::assertSame(0, $crawler->filter('#btnChecklistEstado')->count());
+        self::assertSame(0, $crawler->filter('#checklistDesativarPainel')->count());
+
+        $crawler = $this->abrir($client, (int) $desativada->getId());
+        self::assertSame(1, $crawler->filter('#pexChecklist > #checklistDesativado')->count(), 'o estado continua visível');
+        self::assertSame(0, $crawler->filter('#btnChecklistEstado')->count());
+        self::assertSame(0, $crawler->filter('#btnChecklistReativar')->count());
+    }
+
     #[TestDox('motivo nulo (usuário removido) não quebra a faixa: diz "usuário removido"')]
     public function testDesativadoPorUsuarioRemovido(): void
     {

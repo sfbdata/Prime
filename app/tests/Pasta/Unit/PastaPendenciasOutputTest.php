@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Tests\Pasta\Unit;
 
 use App\Entity\Tarefa\Tarefa;
+use App\Entity\Auth\User;
 use App\Pasta\DTO\PastaPendenciasOutput;
+use App\Pasta\Entity\MotivoDesativacaoChecklist;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaPagamento;
 use App\Processo\Entity\Processo;
@@ -173,6 +175,15 @@ final class PastaPendenciasOutputTest extends TestCase
             PastaPendenciasOutput::montar($this->pastaRegular(), 0, [], $hoje, 3)->porAba['documentos'],
         );
         self::assertSame(['documentos'], array_keys(PastaPendenciasOutput::montar($this->pastaRegular(), 0, [], $hoje, 2)->porAba));
+    }
+
+    #[TestDox('Documentos: checklist DESATIVADO (DOC-73) não acende a pendência "sem anexo", mesmo com itens marcados sem arquivo')]
+    public function testDocumentosComChecklistDesativado(): void
+    {
+        $pasta = $this->pastaRegular();
+        $pasta->desativarChecklist(MotivoDesativacaoChecklist::Encerrada, new User(), new \DateTimeImmutable(self::HOJE));
+
+        self::assertArrayNotHasKey('documentos', PastaPendenciasOutput::montar($pasta, 0, [], new \DateTimeImmutable(self::HOJE), 3)->porAba);
     }
 
     #[TestDox('só as abas pendentes entram no mapa; Dados e Detalhes nunca, Documentos só com item marcado sem anexo')]

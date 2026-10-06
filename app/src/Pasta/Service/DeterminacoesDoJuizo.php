@@ -28,7 +28,9 @@ use App\Pasta\Entity\Pasta;
  *     (`determinacoes`, L162).
  *  2. O teor é quebrado em frases (fim em `.`, `;` ou `:` seguido de maiúscula ou dígito) de 9 a
  *     899 caracteres (L163).
- *  3. Frase sem verbo de determinação (`VERBOS`, L140) e sem a palavra "prazo" é ignorada (L165).
+ *  3. Frase sem verbo de determinação (`VERBOS`, L140) só entra se tiver destinatário E ato
+ *     reconhecido — prazo apenas narrado ("intimada no prazo de 15 dias, quedou-se inerte") não
+ *     conta. DIVERGÊNCIA CONSCIENTE do desenho (L165, que abre a frase só pela palavra "prazo").
  *  4. A frase vira determinação quando é "conclusos", designação de audiência, nomeação de perito,
  *     fala de um prazo em dias/horas (o `prazoDe` do desenho, L150-155, usado só como gatilho), ou
  *     tem destinatário (autor, réu, partes, perito, cartório) E um ato reconhecido (`ATOS`, L160)
@@ -196,8 +198,9 @@ final class DeterminacoesDoJuizo
         $vistos = [];
 
         foreach ($frases as $i => $frase) {
-            $x = SugestorDeDocumentos::normalizar($frase);
-            if (preg_match(self::VERBOS, $x) !== 1 && !str_contains($x, 'prazo')) {
+            $x        = SugestorDeDocumentos::normalizar($frase);
+            $temVerbo = preg_match(self::VERBOS, $x) === 1;
+            if (!$temVerbo && !str_contains($x, 'prazo')) {
                 continue;
             }
 
@@ -221,6 +224,15 @@ final class DeterminacoesDoJuizo
                 preg_match('/nomeio .{0,30}perit/u', $x) === 1                                               => 'Perícia',
                 default                                                                                      => null,
             };
+
+            // DIVERGÊNCIA CONSCIENTE do desenho (L165): lá a palavra "prazo" sozinha já abre a frase,
+            // e "Intimada para emendar no prazo de 15 dias, a parte autora quedou-se inerte" viraria
+            // prazo em curso — é NARRAÇÃO, não ordem. Aqui a frase só vira determinação com verbo de
+            // determinação (`VERBOS`) ou com destinatário E ato reconhecido. "Nada fake" vence a
+            // transcrição (decisão do orquestrador na revisão do L11).
+            if (!$temVerbo && ($dest === null || $ato === null)) {
+                continue;
+            }
 
             $falaDePrazo = $prazo !== null || preg_match(self::FALA_DE_PRAZO, $x) === 1;
             if ($especial === null && !$falaDePrazo && ($dest === null || $ato === null)) {

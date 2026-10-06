@@ -6,6 +6,7 @@ namespace App\Tests\Pasta\Functional;
 
 use App\Entity\Tarefa\Tarefa;
 use App\Pasta\Controller\PastaResumoController;
+use App\Pasta\Entity\MotivoDesativacaoChecklist;
 use App\Pasta\Entity\PastaChecklistItem;
 use App\Pasta\Entity\PastaDocumento;
 use App\Tests\Functional\JusPrimeWebTestCase;
@@ -192,5 +193,28 @@ final class PastaResumoImpressaoControllerTest extends JusPrimeWebTestCase
         $crawler = $client->request('GET', $this->url($idCom));
         self::assertResponseIsSuccessful();
         self::assertStringNotContainsString('marcado sem anexo', (string) $client->getResponse()->getContent(), 'o filtro removeu tudo: sem pendência de Documentos');
+    }
+
+    #[TestDox('Pendências da folha: com o checklist DESATIVADO o item marcado sem anexo não vira pendência (mesma regra da pasta_show)')]
+    public function testChecklistDesativadoNaoGeraPendencia(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $this->em()->persist((new PastaChecklistItem())
+            ->setPasta($pasta)
+            ->setTenant($tenant)
+            ->setTitulo('Contrato de honorários')
+            ->setConcluido(true));
+        $pasta->desativarChecklist(MotivoDesativacaoChecklist::Encerrada, $user, new \DateTimeImmutable());
+        $this->em()->flush();
+        $id = (int) $pasta->getId();
+        $this->em()->clear();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $client->request('GET', $this->url($id));
+
+        self::assertResponseIsSuccessful();
+        self::assertStringNotContainsString('marcado sem anexo', (string) $client->getResponse()->getContent());
     }
 }

@@ -88,7 +88,9 @@ final readonly class PastaPendenciasOutput
             $porAba['financeiro'] = ['n' => 1 + $vencidos, 'txt' => $txt];
         }
 
-        if ($itensMarcadosSemAnexo > 0) {
+        // Checklist desativado (DOC-73): a conferência "sem anexo" está pausada e não é pendência.
+        // O gate mora AQUI, e não em quem chama, para a tela e o resumo impresso obedecerem juntos.
+        if ($itensMarcadosSemAnexo > 0 && $pasta->isChecklistAtivo()) {
             $porAba['documentos'] = [
                 'n'   => $itensMarcadosSemAnexo,
                 'txt' => self::plural(

@@ -203,6 +203,27 @@ final class PastaChecklistEstadoControllerTest extends JusPrimeWebTestCase
         self::assertSame('pasta_checklist_estado', $linha['route']);
         self::assertStringContainsString('checklistDesativadoEm', (string) $linha['changes']);
         self::assertStringContainsString('checklistMotivo', (string) $linha['changes']);
+
+        // O enum entra pelo VALOR, não como {class, id, label} vazio.
+        $changes = json_decode((string) $linha['changes'], true, 512, JSON_THROW_ON_ERROR);
+        $diff    = $changes['diff'] ?? $changes;
+        self::assertSame(['from' => null, 'to' => 'encerrada'], $diff['checklistMotivo']);
+    }
+
+    #[TestDox('"ativo" ausente dá 422 e não grava nada (nem com motivo válido)')]
+    public function testAtivoAusenteDa422(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenant);
+        $this->enviar($client, $pasta, ['motivo' => 'encerrada']);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertArrayHasKey('erro', $this->json($client));
+        self::assertSame(['desativado_em' => null, 'por' => null, 'motivo' => null], $this->estadoNoBanco($pasta));
     }
 
     #[TestDox('Motivo fora dos quatro (ou ausente) dá 422 e não grava nada')]

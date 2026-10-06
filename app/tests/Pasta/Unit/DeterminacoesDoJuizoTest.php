@@ -8,6 +8,7 @@ use App\Djen\Repository\PublicacaoDjenRepository;
 use App\Pasta\DTO\DeterminacaoDoJuizoOutput;
 use App\Pasta\DTO\TeorDePublicacaoInput;
 use App\Pasta\Service\DeterminacoesDoJuizo;
+use App\Pasta\Service\SugestorDeDocumentos;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
@@ -127,6 +128,18 @@ final class DeterminacoesDoJuizoTest extends TestCase
         self::assertSame(['procuracao'], $achadas[0]->documentos);
         self::assertNull($achadas[0]->prazoQuantidade);
         self::assertNull($achadas[0]->prazoTexto());
+    }
+
+    #[TestDox('prazo só NARRADO não é determinação: "intimada para emendar no prazo de 15 dias, quedou-se inerte" não vira prazo em curso')]
+    public function testPrazoNarradoNaoConta(): void
+    {
+        $teor = $this->teor('Intimada para emendar no prazo de 15 dias, a parte autora quedou-se inerte.', data: 'yesterday');
+
+        self::assertSame([], $this->servico()->determinacoesDoTeor($teor));
+
+        $leitura  = $this->servico()->ler([$teor]);
+        $sugestao = (new SugestorDeDocumentos())->sugerir('Indenização', null, null, [], [], $leitura, new \DateTimeImmutable());
+        self::assertSame([], $sugestao->prazosEmCurso);
     }
 
     #[TestDox('teor em HTML: a marcação sai antes da leitura, e "prazo de 10 (dez) dias úteis" é lido')]
