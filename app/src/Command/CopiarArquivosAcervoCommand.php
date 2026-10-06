@@ -13,6 +13,7 @@ use App\Pasta\Repository\PastaSecaoRepository;
 use App\Repository\TenantRepository;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Armazenamento\FonteDeConteudo;
+use App\Shared\Armazenamento\Sha256DeArquivo;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -409,6 +410,10 @@ final class CopiarArquivosAcervoCommand extends Command
 
             $doc = (new PastaDocumento())->setTenant($tenant);
 
+            // Hash da origem, em streaming, antes da cópia: só leitura — a origem continua
+            // emprestada (D15). Sem compressão aqui, o que o storage grava são estes bytes.
+            $sha256 = Sha256DeArquivo::deArquivoLocal($path);
+
             // Cópia em streaming: a origem é do operador e fica onde está (D15). A extensão vem
             // do nome original e é saneada pelo storage — sem extensão vira `bin`, não `hash.`.
             $armazenado = $this->armazenamento->gravar(
@@ -425,6 +430,7 @@ final class CopiarArquivosAcervoCommand extends Command
                 ->setNomeOriginal($nomeOriginal)
                 ->setMimeType($armazenado->mimeType)
                 ->setTamanhoBytes($armazenado->tamanhoBytes)
+                ->setSha256($sha256)
                 ->setPasta($pasta)
                 ->setSecao($secao);
 

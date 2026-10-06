@@ -171,6 +171,38 @@ final class CopiarArquivosAcervoCommandTest extends KernelTestCase
         self::assertSame('application/x-medido-pelo-storage', $linha['mime_type']);
     }
 
+    #[TestDox('sha256: cada documento importado nasce com o hash do conteúdo que o storage gravou')]
+    public function testSha256EhDoConteudoGravado(): void
+    {
+        self::bootKernel();
+        [$tenantId, $pastaId] = $this->pastaDeUmEscritorio();
+        $origens = [
+            'a.pdf' => $this->arquivoNoAcervo($pastaId, 'a.pdf', self::PDF . 'a'),
+            'b.pdf' => $this->arquivoNoAcervo($pastaId, 'b.pdf', self::PDF . 'b'),
+        ];
+        $antes = array_map($this->foto(...), $origens);
+
+        $memoria = new ArmazenamentoEmMemoria();
+        $this->tester($memoria)->execute(['--diretorio' => $this->acervo, '--tenant-id' => (string) $tenantId]);
+
+        $linhas = $this->linhasDaPasta($pastaId);
+        self::assertSame(['a.pdf', 'b.pdf'], array_keys($linhas));
+        foreach (['a.pdf' => self::PDF . 'a', 'b.pdf' => self::PDF . 'b'] as $nome => $conteudo) {
+            self::assertSame(hash('sha256', $conteudo), $linhas[$nome]['sha256'], $nome);
+            self::assertSame(
+                hash('sha256', $memoria->ler(ChavesDePasta::documentoPorNome($tenantId, (string) $linhas[$nome]['caminho_arquivo']))),
+                $linhas[$nome]['sha256'],
+                $nome . ': o hash tem de descrever o que está no storage',
+            );
+        }
+
+        // D15 continua valendo: calcular o hash é só leitura — a origem não muda.
+        clearstatcache();
+        foreach ($origens as $nome => $origem) {
+            self::assertSame($antes[$nome], $this->foto($origem), $nome . ': a origem emprestada mudou');
+        }
+    }
+
     #[TestDox('falha do storage: nenhuma linha, erro contado, origem intacta e o comando segue')]
     public function testFalhaDoStorageNaoCriaLinha(): void
     {
@@ -390,7 +422,7 @@ final class CopiarArquivosAcervoCommandTest extends KernelTestCase
     private function linhasDaPasta(int $pastaId): array
     {
         $linhas = static::getContainer()->get(EntityManagerInterface::class)->getConnection()->fetchAllAssociative(
-            'SELECT nome_original, caminho_arquivo, tamanho_bytes, mime_type, secao_id, tenant_id
+            'SELECT nome_original, caminho_arquivo, tamanho_bytes, mime_type, secao_id, tenant_id, sha256
                FROM pasta_documento WHERE pasta_id = :p',
             ['p' => $pastaId],
         );

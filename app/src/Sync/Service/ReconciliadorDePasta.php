@@ -16,6 +16,7 @@ use App\Shared\Armazenamento\Exception\ChaveDeArquivoInvalida;
 use App\Shared\Armazenamento\Exception\FalhaDeArmazenamento;
 use App\Shared\Armazenamento\FonteDeConteudo;
 use App\Shared\Armazenamento\RemocaoAposTransacao;
+use App\Shared\Armazenamento\Sha256DeArquivo;
 use App\Shared\Doctrine\Transacao\TransacaoComArquivoNovo;
 use App\Sync\DTO\ResultadoReconciliacaoPasta;
 use App\Sync\Enum\ModoSincronizacao;
@@ -490,6 +491,10 @@ final class ReconciliadorDePasta
             // valendo para o download que falha e para a gravação que devolve a origem.
             $client->baixarArquivo($arq['id'], $tmp);
 
+            // Hash do conteúdo recebido, ANTES de o storage consumir o temporário (ele é movido).
+            // Não há compressão nesta via: os bytes gravados são exatamente estes (INV-7).
+            $sha256 = Sha256DeArquivo::deArquivoLocal($tmp);
+
             $pasta = $this->em->find(Pasta::class, $pastaId);
             if ($pasta === null) {
                 throw new \RuntimeException('Pasta desapareceu durante o download.');
@@ -532,6 +537,7 @@ final class ReconciliadorDePasta
                 ->setNomeOriginal($arq['nome'])
                 ->setMimeType(self::mimeParaPersistir($arq['mimeType']))
                 ->setTamanhoBytes($armazenado->tamanhoBytes)
+                ->setSha256($sha256)
                 ->setPasta($pasta)
                 ->setSecao($secao)
                 ->setDriveFileId($arq['id']);

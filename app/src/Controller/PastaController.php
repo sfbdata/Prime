@@ -29,6 +29,7 @@ use App\Repository\UserRepository;
 use App\Repository\UserTenantRepository;
 use App\Expediente\Repository\MarcadorRepository;
 use App\Shared\Http\EntregaDeArquivo;
+use App\Shared\Armazenamento\Sha256DeArquivo;
 use App\Twig\ArquivoIconeExtension;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
@@ -1618,7 +1619,12 @@ class PastaController extends AbstractController
             $doc = new PastaDocumento();
             $doc->setTenant($tenant);
 
-            $upload     = FonteDeUploadHttp::de($file);
+            $upload = FonteDeUploadHttp::de($file);
+
+            // Hash do upload ANTES de mover (depois do gravarEm o caminho não existe mais). Sem
+            // compressão, são estes os bytes que o storage guarda (INV-7).
+            $sha256 = Sha256DeArquivo::deArquivoLocal($file->getPathname());
+
             $armazenado = $upload->gravarEm($this->armazenamento, ChavesDePasta::novoDocumento($doc, $upload->extensao));
             $nomeUnico  = $armazenado->chave->nome;
 
@@ -1631,6 +1637,10 @@ class PastaController extends AbstractController
                 if ($compressao->comprimido && $compressao->eraAssinado) {
                     ++$assinadosComprimidos;
                 }
+                if ($compressao->comprimido) {
+                    // A chave foi regravada com outro binário: o hash é do que FICOU no storage.
+                    $sha256 = Sha256DeArquivo::deChave($this->armazenamento, $armazenado->chave);
+                }
             }
 
             $doc->setPasta($pasta);
@@ -1642,6 +1652,7 @@ class PastaController extends AbstractController
             $doc->setNomeOriginal($file->getClientOriginalName());
             $doc->setMimeType($mimeType);
             $doc->setTamanhoBytes($tamanhoFinal);
+            $doc->setSha256($sha256);
 
             if ($secaoId !== null) {
                 $doc->setSecao($secaoId);
@@ -1957,7 +1968,11 @@ class PastaController extends AbstractController
         $doc = new PastaDocumento();
         $doc->setTenant($tenant);
 
-        $upload     = FonteDeUploadHttp::de($file);
+        $upload = FonteDeUploadHttp::de($file);
+
+        // Hash do upload ANTES de mover; recalculado pela chave só se a compressão trocar o binário.
+        $sha256 = Sha256DeArquivo::deArquivoLocal($file->getPathname());
+
         $armazenado = $upload->gravarEm($this->armazenamento, ChavesDePasta::novoDocumento($doc, $upload->extensao));
         $nomeUnico  = $armazenado->chave->nome;
 
@@ -1966,6 +1981,9 @@ class PastaController extends AbstractController
         if ($reduzirTamanho) {
             $compressao   = $this->compressao->comprimir($armazenado->chave, $mimeType);
             $tamanhoFinal = $compressao->tamanhoFinal;
+            if ($compressao->comprimido) {
+                $sha256 = Sha256DeArquivo::deChave($this->armazenamento, $armazenado->chave);
+            }
         }
 
         $doc->setPasta($pasta);
@@ -1975,6 +1993,7 @@ class PastaController extends AbstractController
         $doc->setNomeOriginal($file->getClientOriginalName());
         $doc->setMimeType($mimeType);
         $doc->setTamanhoBytes($tamanhoFinal);
+        $doc->setSha256($sha256);
 
         $this->em->persist($doc);
         $this->em->flush();

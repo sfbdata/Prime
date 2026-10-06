@@ -134,6 +134,27 @@ final class ReconciliadorDownloadPorChaveTest extends KernelTestCase
         self::assertSame(4242, $this->documentoDoDrive('F-REL')->getTamanhoBytes());
     }
 
+    #[TestDox('sha256: o documento importado do Drive nasce com o hash do conteúdo gravado')]
+    public function testSha256EhDoConteudoRecebido(): void
+    {
+        self::bootKernel();
+        [, $pastaId] = $this->pastaVinculada();
+        $fake = new FakeGoogleDriveClient();
+        $fake->seedArquivo('F-SHA', 'laudo.pdf', self::PASTA_NO_DRIVE);
+
+        $memoria = new ArmazenamentoEmMemoria();
+        $r       = $this->importar($memoria, $pastaId, $fake);
+
+        self::assertSame(1, $r->arquivosBaixados, implode("\n", $r->mensagens));
+        $doc = $this->documentoDoDrive('F-SHA');
+        self::assertSame(hash('sha256', 'conteudo-fake-F-SHA'), $doc->getSha256());
+        self::assertSame(
+            hash('sha256', $memoria->ler(ChavesDePasta::documento($doc))),
+            $doc->getSha256(),
+            'o hash tem de descrever o que está no storage',
+        );
+    }
+
     #[TestDox('D16: tamanho igual ao do Drive não gera aviso')]
     public function testTamanhoIgualNaoGeraAviso(): void
     {

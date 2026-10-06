@@ -136,6 +136,7 @@ final class PastaDocumentoUploadControllerTest extends JusPrimeWebTestCase
 
             self::assertStringStartsWith('%PDF-', $gravado);
             self::assertSame(\strlen($gravado), $doc->getTamanhoBytes(), 'D30: a coluna não tem o tamanho do arquivo real');
+            self::assertSame(hash('sha256', $gravado), $doc->getSha256(), 'o sha256 tem de ser do arquivo que FICOU no disco, comprimido ou não');
 
             if ($doc->getNomeOriginal() === 'peticao.pdf') {
                 self::assertLessThan(\strlen($gordo), \strlen($gravado), 'o arquivo gordo não foi comprimido');
@@ -266,6 +267,49 @@ final class PastaDocumentoUploadControllerTest extends JusPrimeWebTestCase
             self::assertSame(CategoriaDeArquivo::PASTA_DOCUMENTO, $gravada->categoria);
             self::assertSame($tenant->getId(), $gravada->escopo->tenantIdOuNull());
             self::assertTrue($duble->memoria->existe(ChavesDePasta::documento($doc)));
+        }
+    }
+
+    #[TestDox('sha256: nas duas rotas, o documento nasce com o hash do conteúdo que o storage guardou')]
+    public function testSha256GravadoNasDuasRotas(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $this->instalarCsrfStorage();
+        $duble  = ArmazenamentoEmMemoriaNoContainer::instalarEm(static::getContainer());
+        $tenant = $this->criarTenant();
+        $gestor = $this->criarGestor($tenant);
+        $pasta  = $this->criarPasta($tenant);
+        $id     = (int) $pasta->getId();
+        static::getContainer()->get(EntityManagerInterface::class)->clear();
+
+        $this->logarComTenant($client, $gestor, $tenant);
+
+        $this->enviar($client, $id, [['conteudo' => self::PDF, 'nome' => 'procuracao.pdf']]);
+        self::assertResponseRedirects();
+
+        $client->request(
+            'POST',
+            "/pasta/{$id}/financeiro/upload",
+            ['_token' => 'TOKEN_pasta_financeiro_upload_' . $id],
+            ['arquivo' => $this->uploadDe(self::PDF . '% contrato', 'contrato.pdf')],
+        );
+        self::assertResponseStatusCodeSame(201);
+
+        $porNome = [];
+        foreach ($this->documentosDaPasta($id) as $doc) {
+            $porNome[$doc->getNomeOriginal()] = $doc;
+        }
+
+        foreach (['procuracao.pdf' => self::PDF, 'contrato.pdf' => self::PDF . '% contrato'] as $nome => $conteudo) {
+            $doc = $porNome[$nome] ?? self::fail('documento não registrado: ' . $nome);
+
+            self::assertSame(hash('sha256', $conteudo), $doc->getSha256(), $nome);
+            self::assertSame(
+                hash('sha256', $duble->memoria->ler(ChavesDePasta::documento($doc))),
+                $doc->getSha256(),
+                $nome . ': o hash tem de descrever o que está no storage',
+            );
         }
     }
 
