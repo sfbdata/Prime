@@ -215,7 +215,7 @@ final class PastaAbasEmCartaoTelaTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $user, $tenant);
         $crawler = $this->abrir($client, $pasta);
 
-        self::assertSame('Intimação', trim($crawler->filter('.ps-push-lista > .ps-push-item > .ps-push-cab > .ps-push-corpo > .ps-push-titulo')->text()));
+        self::assertSame('Intimação', trim($crawler->filter('.ps-push-lista > .ps-push-item > .ps-push-cartao > .ps-push-cab > .ps-push-corpo > .ps-push-titulo')->text()));
     }
 
     #[TestDox('Metas: sem meta, estado vazio dentro do cartão')]

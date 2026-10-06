@@ -10,7 +10,9 @@
 
    Os dois vazios têm textos diferentes de propósito: sem processo vinculado a
    pasta nunca receberá nada (e o caminho é a aba Processo); com processo e sem
-   publicação, o que falta é o processo estar sob uma OAB monitorada.
+   publicação, o que falta é o processo estar sob uma OAB monitorada. A FORMA é a
+   do desenho (linha simples, dc L.2424, auditoria 2 U4); o texto continua o daqui
+   até o dono decidir trocá-lo pelo `vazioTxt` do desenho.
 
    Contexto: `pasta`, `push` (App\Pasta\DTO\PastaPushOutput), `analisesIa`
    (App\Inteligencia\DTO\AnalisesDaPastaOutput, ou null sem `modules.inteligencia.view`).
@@ -18,7 +20,8 @@
 <section class="ps-card ps-push" data-aba="push">
     <div class="ps-card-cab ps-card-cab--faixa">
         <h2>Movimentações recebidas</h2>
-        {% if push.total > 0 %}<span class="ps-contagem">{{ push.total }}</span>{% endif %}
+        {# Contagem sempre, inclusive o 0 (dc L.2414 `{{ push.total }}`, auditoria 2 U8). #}
+        <span class="ps-contagem">{{ push.total }}</span>
         <span class="ps-cab-espaco"></span>
         {# O atalho para o módulo só para quem pode entrar nele: a aba NÃO exige
            `modules.djen.view` (o push é conteúdo da pasta), mas a tela do módulo exige. Sem esta
@@ -90,23 +93,17 @@
     {% endif %}
 
     {% if not push.temProcesso %}
-        <div class="ps-vazio" id="push-vazio-sem-processo">
-            <i class="bi bi-broadcast"></i>
-            <div class="ps-vazio-titulo">Esta pasta não tem processo vinculado</div>
-            <div class="ps-vazio-nota">
-                O Push Processual acompanha as publicações pelo número do processo.
-                <button type="button" class="ps-push-link" data-ps-ir-aba="processo-tab">Vincule um processo</button>
-                para que as publicações dele apareçam aqui.
-            </div>
+        <div class="ps-push-vazio-linha" id="push-vazio-sem-processo">
+            Esta pasta não tem processo vinculado.
+            O Push Processual acompanha as publicações pelo número do processo.
+            <button type="button" class="ps-push-link" data-ps-ir-aba="processo-tab">Vincule um processo</button>
+            para que as publicações dele apareçam aqui.
         </div>
     {% elseif push.total == 0 %}
-        <div class="ps-vazio" id="push-vazio-sem-publicacao">
-            <i class="bi bi-broadcast"></i>
-            <div class="ps-vazio-titulo">Nenhuma publicação captada para este caso</div>
-            <div class="ps-vazio-nota">
-                O sistema capta o que sai no DJEN para as OABs monitoradas do escritório.
-                Se o processo não estiver sob uma OAB monitorada, nada chega aqui.
-            </div>
+        <div class="ps-push-vazio-linha" id="push-vazio-sem-publicacao">
+            Nenhuma publicação captada para este caso.
+            O sistema capta o que sai no DJEN para as OABs monitoradas do escritório.
+            Se o processo não estiver sob uma OAB monitorada, nada chega aqui.
         </div>
     {% else %}
         {# Linha do tempo do desenho 1.2.3: pílula do dia quando a data muda, ponto na
@@ -120,7 +117,16 @@
            Toda linha leva a pílula do dia; a repetida (mesmo dia da anterior) sai
            escondida por `ps-push-dia--repetido`. Assim o filtro "Novas" pode
            esconder a primeira do dia sem levar a data junto: o pasta-push.js
-           recalcula qual é a primeira VISÍVEL. #}
+           recalcula qual é a primeira VISÍVEL.
+
+           O ponto e o cartão moram juntos em `.ps-push-cartao` (dc L.2511-2512,
+           auditoria 2 U1): o ponto se mede pelo cartão, não pelo <li> que inclui a
+           pílula do dia. O teor fica fora, irmão do wrapper, como sempre.
+
+           A cor da pílula do tipo vem de `tipoComunicacao` (dc L.5365 `TT`, U3):
+           Intimação vermelho, Decisão/Despacho/Sentença azul, Citação verde, o
+           resto cinza. Comparação sem acento e sem caixa, pelo começo da palavra
+           ("cita" solto pegaria "solicitação"). #}
         <ul class="ps-push-lista">
             {% set diaAnteriorPush = null %}
             {% for item in push.itens %}
@@ -129,34 +135,44 @@
                     data-push-id="{{ item.id }}" data-push-dia="{{ diaPush }}">
                     <div class="ps-push-dia{{ loop.first or diaPush != diaAnteriorPush ? '' : ' ps-push-dia--repetido' }}"><span class="ps-push-dia-pilula">{{ diaPush ?: 'Sem data' }}</span></div>
                     {% set diaAnteriorPush = diaPush %}
-                    <span class="ps-push-ponto" aria-hidden="true"></span>
-                    <button type="button" class="ps-push-cab"
-                            aria-expanded="false"
-                            aria-controls="push-teor-{{ item.id }}"
-                            data-push-url="{{ path('pasta_push_teor', {id: pasta.id, publicacaoId: item.id}) }}">
-                        <span class="ps-push-assunto">
-                            <i class="bi bi-megaphone-fill" aria-hidden="true"></i>
-                            <span class="ps-push-assunto-txt">{{ item.nomeOrgao ?: (item.tipoComunicacao ?? 'Publicação') }}</span>
-                            {% if not item.lida %}<span class="ps-push-novo" title="Não lida">Novo</span>{% endif %}
-                        </span>
-                        <span class="ps-push-corpo">
-                            <span class="ps-push-titulo">{{ item.tipoComunicacao ?? 'Publicação' }}</span>
-                            <span class="ps-push-meta">
-                                {{- item.siglaTribunal -}}
-                                {%- if push.numeroUnico is null and item.numeroProcessoExibicao %} · {{ item.numeroProcessoExibicao }}{% endif %} · DJEN
+                    {% set tipoPush = (item.tipoComunicacao ?? '')|lower|replace({'ç': 'c', 'ã': 'a', 'á': 'a', 'â': 'a', 'é': 'e', 'ê': 'e', 'í': 'i', 'ó': 'o', 'õ': 'o', 'ú': 'u'})|trim %}
+                    {% if tipoPush starts with 'intima' %}
+                        {% set tipoPushMod = 'intimacao' %}
+                    {% elseif tipoPush starts with 'decis' or tipoPush starts with 'despacho' or tipoPush starts with 'senten' %}
+                        {% set tipoPushMod = 'decisao' %}
+                    {% elseif tipoPush starts with 'citac' %}
+                        {% set tipoPushMod = 'citacao' %}
+                    {% else %}
+                        {% set tipoPushMod = 'outro' %}
+                    {% endif %}
+                    <div class="ps-push-cartao">
+                        <span class="ps-push-ponto" aria-hidden="true"></span>
+                        <button type="button" class="ps-push-cab"
+                                aria-expanded="false"
+                                aria-controls="push-teor-{{ item.id }}"
+                                data-push-url="{{ path('pasta_push_teor', {id: pasta.id, publicacaoId: item.id}) }}">
+                            <span class="ps-push-assunto">
+                                <i class="bi bi-megaphone-fill" aria-hidden="true"></i>
+                                <span class="ps-push-assunto-txt">{{ item.nomeOrgao ?: (item.tipoComunicacao ?? 'Publicação') }}</span>
+                                {% if not item.lida %}<span class="ps-push-novo" title="Não lida">Novo</span>{% endif %}
                             </span>
-                            <span class="ps-push-hora ps-num">{{ item.dataDisponibilizacao ?? '—' }}</span>
-                            <i class="bi bi-chevron-down ps-push-seta" aria-hidden="true"></i>
-                        </span>
-                    </button>
+                            <span class="ps-push-corpo">
+                                <span class="ps-push-titulo ps-push-titulo--{{ tipoPushMod }}">{{ item.tipoComunicacao ?? 'Publicação' }}</span>
+                                <span class="ps-push-meta">
+                                    {{- item.siglaTribunal -}}
+                                    {%- if push.numeroUnico is null and item.numeroProcessoExibicao %} · {{ item.numeroProcessoExibicao }}{% endif %} · DJEN
+                                </span>
+                                <span class="ps-push-hora ps-num">{{ item.dataDisponibilizacao ?? '—' }}</span>
+                                <i class="bi bi-chevron-down ps-push-seta" aria-hidden="true"></i>
+                            </span>
+                        </button>
+                    </div>
                     <div class="ps-push-teor" id="push-teor-{{ item.id }}" hidden></div>
                 </li>
             {% endfor %}
         </ul>
         {# Texto do desenho para o filtro que não sobra nada (`vazioTxt`, dc L.5426). #}
-        <div class="ps-vazio ps-push-vazio-filtro" id="push-vazio-filtro" hidden>
-            <div class="ps-vazio-nota">Nenhuma movimentação neste filtro.</div>
-        </div>
+        <div class="ps-push-vazio-linha ps-push-vazio-filtro" id="push-vazio-filtro" hidden>Nenhuma movimentação neste filtro.</div>
         {% if push.limiteAtingido %}
             <p class="ps-push-teto">
                 Exibindo as {{ push.total }} publicações mais recentes deste caso.
