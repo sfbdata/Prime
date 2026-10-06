@@ -211,3 +211,26 @@ Corrigido, cada item com teste provado por reintrodução:
 **Smoke no navegador** (Playwright headless, só leitura, banco `saas_ux`, pastas 223 e 1025): 52/52, sem
 nenhum 500 e sem erro de JavaScript. Os 404 restantes são de `/perfil/foto/*`, porque o dev não tem os
 arquivos de foto, e de `/clientes`, que não tem rota de listagem nem no `origin/master`.
+
+## 8. Homologação do Samuel (06/10/2026) — publicação INTERMEDIÁRIA
+
+**Decisão do dono:** a homologação visual geral está aprovada para uma **publicação intermediária**.
+**Não é aprovação final da Trilha B.** O redesign continua em andamento, e publicar não transforma em
+decisão aprovada nenhuma divergência que não tenha sido percebida.
+
+### 🔴 PENDÊNCIA EXPLÍCITA: aba Documentos NÃO está igual ao Claude Designer
+
+O dono conferiu e a aba **Documentos** da Pasta continua divergente do desenho
+(`02 - EXPEDIENTES 1.2.3.dc.html`), no visual e na função. **Não tratar Documentos como concluído.**
+
+Contexto para a próxima rodada:
+- O desenho propõe um explorador no padrão Windows (§6 da Trilha A): oito modos de exibição, Organizar,
+  colunas móveis, painel de detalhes, seleção em lote/laço, duplicados, sugestões de limpeza e checklist.
+- Hoje a aba usa o gerenciador `fm`, **compartilhado com a Cobrança**. Ele recebeu só tokens e raios na
+  Trilha A, mais o visualizador (B7/B29), o aviso de duplicado no upload (B31) e o painel "Documentos
+  sugeridos" (B37), este último fora do `fm`.
+- **Primeiro passo da continuação:** auditoria item a item da aba Documentos contra o desenho e
+  decisão de arquitetura: um componente próprio da Pasta ou evoluir o `fm` sem quebrar a Cobrança.
+
+As demais telas foram conferidas rapidamente pelo dono e estão "evoluindo corretamente". Isso também não
+encerra as auditorias: os 7 itens do dono (D-PASTA6) e o resto do §4 continuam abertos.
