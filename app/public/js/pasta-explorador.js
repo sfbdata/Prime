@@ -195,6 +195,7 @@
     let suprimirCliqueAte = 0;            // o clique que segue um laço ou um toque longo não conta
     let lacoVazio = false;                // mousedown no espaço vazio: é laço, não arraste
     let renomeando = null;                // campo inline aberto (renomear ou nova pasta)
+    let menuPorTeclaAte = 0;              // o contextmenu nativo logo depois da tecla Menu é ignorado
 
     // Toda leitura de storage passa por aqui: navegador em modo privado / storage bloqueado
     // lança na leitura, e preferência perdida não pode derrubar a aba.
@@ -522,11 +523,17 @@
     }
 
     function ehFavorito(it) { return !!(it && it.dado && it.dado.favorito); }
-    // Partição estável: entre os favoritos (e entre os demais) vale a classificação escolhida.
-    // O desenho ordena os favoritos pela hora em que foram marcados; o #pexDados não traz essa
-    // hora, então entre eles manda a mesma ordem do resto.
+    /* Favoritos no topo, na ORDEM EM QUE FORAM MARCADOS (dc L4440/L4715: `F[a] - F[b]`, o mais
+       antigo primeiro), pela hora `favoritoEm` (ISO, compara como texto). Sem hora (dado antigo),
+       vai depois dos que têm, na classificação escolhida — o sort é estável. Os demais seguem a
+       classificação. */
+    function horaDoFavorito(it) { return (it && it.dado && it.dado.favoritoEm) || '\uffff'; }
     function favoritosNoTopo(lista) {
-        return lista.filter(ehFavorito).concat(lista.filter(function (it) { return !ehFavorito(it); }));
+        const favoritos = lista.filter(ehFavorito).sort(function (a, b) {
+            const x = horaDoFavorito(a), y = horaDoFavorito(b);
+            return x < y ? -1 : (x > y ? 1 : 0);
+        });
+        return favoritos.concat(lista.filter(function (it) { return !ehFavorito(it); }));
     }
 
     // ------------------------------------------------------------ render ----
@@ -548,6 +555,7 @@
     function aplicarGrade() { raiz.style.setProperty('--pex-gtc', gradeDasColunas()); }
 
     function renderizar() {
+        renderFavoritosAdiado = null;      // este render já mostra o estado novo dos favoritos
         const buscando = normalizar(busca) !== '';
         const itens = itensVisiveis();
         itensRenderizados = itens;
@@ -795,8 +803,9 @@
         if (buscando) txt.push(celulaLocal(localId));
         // A estrela vem antes do ícone, na célula do nome (dc L2246); na grade, no canto do cartão.
         // `favorito === null`: linha provisória (nova pasta) — ainda não há o que favoritar.
+        const chaveDaLinha = attrs['data-pex-tipo'] + ':' + attrs['data-pex-id'];
         const nome = h('span', { class: 'pex-cel pex-cel-nome' }, [
-            favorito === null ? null : botaoFavorito(favorito),
+            favorito === null ? null : botaoFavorito(favorito, favoritosEmVoo.has(chaveDaLinha)),
             h('span', { class: 'pex-ico' }, [ehPasta ? icone(TIPO_PASTA[0] + ' pex-ico-pasta') : null]),
             h('span', { class: 'pex-txt' }, txt),
         ]);
@@ -819,16 +828,29 @@
 
     /* Estrela (dc `favLinha`/`favSt`, L4743): 20×20, ícone de 13px; o título muda com o estado
        como no desenho ("Marcar como favorito" / "Tirar dos favoritos"). É um <button> de
-       alternância (aria-pressed) e o rótulo acessível fica fixo — quem muda é o estado. */
-    function botaoFavorito(on) {
-        return h('button', {
-            type: 'button',
-            class: 'pex-fav' + (on ? ' pex-fav--on' : ''),
-            'aria-pressed': on ? 'true' : 'false',
-            'aria-label': 'Favorito',
-            title: on ? 'Tirar dos favoritos' : 'Marcar como favorito',
-            draggable: 'false',
-        }, [icone(on ? 'bi-star-fill' : 'bi-star')]);
+       alternância (aria-pressed) e o rótulo acessível fica fixo — quem muda é o estado.
+       `tabindex="-1"`: sem uma parada de Tab por linha dentro do listbox (role=option); pelo
+       teclado o favorito é o item do menu de contexto (Shift+F10 / tecla Menu na seleção).
+       Com pedido em voo: `aria-busy` e a classe `pex-fav--voo` (opacidade), sem aceitar clique. */
+    function botaoFavorito(on, emVoo) {
+        const b = h('button', { type: 'button', class: 'pex-fav', 'aria-label': 'Favorito', tabindex: '-1', draggable: 'false' }, [icone('bi-star')]);
+        pintarEstrela(b, on, emVoo);
+        return b;
+    }
+    function pintarEstrela(b, on, emVoo) {
+        b.classList.toggle('pex-fav--on', !!on);
+        b.classList.toggle('pex-fav--voo', !!emVoo);
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+        if (emVoo) b.setAttribute('aria-busy', 'true'); else b.removeAttribute('aria-busy');
+        b.title = on ? 'Tirar dos favoritos' : 'Marcar como favorito';
+        b.firstChild.className = 'bi ' + (on ? 'bi-star-fill' : 'bi-star');
+    }
+    // Repinta a estrela que já está na tela (sem refazer a lista): o "em voo" liga e desliga
+    // assim, e o estado aparece mesmo quando o render da lista está adiado.
+    function repintarEstrela(it) {
+        const linha = linhaDe(chaveDe(it));
+        const b = linha ? linha.querySelector('.pex-fav') : null;
+        if (b) pintarEstrela(b, ehFavorito(it), favoritosEmVoo.has(chaveDe(it)));
     }
 
     // ⋮ (S-1): só aparece no toque, pelo CSS; abre o MESMO menu de contexto do botão direito.
@@ -1101,13 +1123,13 @@
         if (item && item.dataset.pexTemp !== undefined) return;
         if (e.target.closest('.pex-ren')) return;
         // Estrela: alterna o favorito SEM mexer na seleção (dc `favAlt`: preventDefault +
-        // stopPropagation). `detail === 0` é o clique do teclado (Enter/Espaço no botão).
+        // stopPropagation). Em voo, o clique é ignorado em alternarFavoritos.
         const btnFav = e.target.closest('.pex-fav');
         if (btnFav && item) {
             e.preventDefault();
             e.stopPropagation();
             const it = itemPorChave(chaveDoElemento(item));
-            if (it) alternarFavoritos([it], !ehFavorito(it), { focar: chaveDe(it), rolar: e.detail === 0 });
+            if (it) alternarFavoritos([it], !ehFavorito(it), { focar: chaveDe(it) });
             return;
         }
         const btnMenu = e.target.closest('.pex-menu');
@@ -1242,6 +1264,19 @@
         if (!noAlvo) return;
         const sel = itensSelecionados();
         const linhaFocada = e.target.closest ? e.target.closest('.pex-item') : null;
+        // Shift+F10 / tecla Menu: o menu de contexto do item em foco/selecionado, junto da linha —
+        // é o caminho do teclado para o favorito, já que a estrela não recebe Tab.
+        if (k === 'ContextMenu' || (e.shiftKey && k === 'F10')) {
+            const alvo = foco && selecao.has(foco) ? itemPorChave(foco) : (sel.length ? sel[sel.length - 1] : null);
+            const linhaAlvo = alvo ? linhaDe(chaveDe(alvo)) : null;
+            if (linhaAlvo) {
+                e.preventDefault();
+                menuPorTeclaAte = Date.now() + 600;
+                const r = linhaAlvo.getBoundingClientRect();
+                abrirMenu(r.left + 24, r.bottom, alvo);
+            }
+            return;
+        }
         if (ctrl && baixa === 'a') { e.preventDefault(); selecionarTudo(); return; }
         if (k === 'Delete') { if (sel.length) { e.preventDefault(); excluirItens(sel); } return; }
         if (k === 'F2') { if (sel.length === 1) { e.preventDefault(); iniciarRenomear(sel[0]); } return; }
@@ -1613,6 +1648,8 @@
         const porBotaoDireito = function (e) {
             if (e.target.closest('.pex-ren')) return;    // no campo inline, o menu nativo (colar texto)
             e.preventDefault();
+            // O `contextmenu` que o navegador dispara depois da tecla Menu não troca o menu do item.
+            if (Date.now() < menuPorTeclaAte) return;
             cancelarToqueLongo();
             const linha = e.target.closest('.pex-item');
             if (linha && linha.dataset.pexTemp !== undefined) return;
@@ -1770,7 +1807,16 @@
         if (!alvos.length) return Promise.resolve(false);
         if (acimaDoTeto(alvos.length)) return Promise.resolve(false);
         if (!cfg.urlFavorito || !cfg.csrfFavorito) { toastErro('Favoritos indisponíveis nesta pasta.'); return Promise.resolve(false); }
-        alvos.forEach(function (it) { favoritosEmVoo.add(chaveDe(it)); it.dado.favorito = marcar; });
+        // A hora de antes volta no rollback; a de agora é provisória até o servidor responder.
+        const horaAntes = new Map();
+        const agora = horaLocalIso();
+        alvos.forEach(function (it) {
+            horaAntes.set(it, it.dado.favoritoEm || null);
+            favoritosEmVoo.add(chaveDe(it));
+            it.dado.favorito = marcar;
+            it.dado.favoritoEm = marcar ? agora : null;
+        });
+        alvos.forEach(repintarEstrela);
         renderizarFavoritos(opts);
         // Textos do desenho (dc L4442); com vários, a mesma frase no plural.
         const nome = alvos.length === 1 ? '"' + alvos[0].nome + '"' : alvos.length + ' itens';
@@ -1785,14 +1831,20 @@
         function proximo() {
             const it = fila.shift();
             if (!it) return Promise.resolve();
-            return pedirFavorito(it, marcar).then(function (marcadoNoServidor) {
-                // O servidor diz o estado final: é ele que fica (idempotente; normalmente igual).
-                if (marcadoNoServidor !== marcar) { it.dado.favorito = marcadoNoServidor; divergiu = true; }
+            return pedirFavorito(it, marcar).then(function (r) {
+                // O servidor diz o estado final e a hora: é ele que fica (idempotente). A hora
+                // dele pode diferir da provisória (relógio) e mudar o lugar no topo.
+                if (r.marcado !== marcar) divergiu = true;
+                const hora = r.marcado ? r.favoritoEm : null;
+                if (hora !== it.dado.favoritoEm) divergiu = true;
+                it.dado.favorito = r.marcado;
+                it.dado.favoritoEm = hora;
             }, function (err) {
                 falhas.push(it);
                 ultimoErro = err && err.message ? err.message : '';
             }).then(function () {
                 favoritosEmVoo.delete(chaveDe(it));
+                repintarEstrela(it);
                 return proximo();
             });
         }
@@ -1800,7 +1852,7 @@
         for (let i = 0; i < Math.min(FAVORITO_PARALELO, alvos.length); i++) trabalhadores.push(proximo());
         return Promise.all(trabalhadores).then(function () {
             // Rollback: só quem falhou volta ao estado de antes.
-            falhas.forEach(function (it) { it.dado.favorito = !marcar; });
+            falhas.forEach(function (it) { it.dado.favorito = !marcar; it.dado.favoritoEm = horaAntes.get(it); repintarEstrela(it); });
             if (falhas.length || divergiu) renderizarFavoritos(opts);
             if (falhas.length) {
                 toastErro(falhas.length === 1 && alvos.length === 1
@@ -1818,18 +1870,40 @@
             marcado: marcar,
         }).then(function (res) {
             if (!res.ok || !res.j || !res.j.ok) throw new Error((res.j && res.j.erro) || 'Falha ao atualizar o favorito.');
-            return res.j.marcado === true;
+            return { marcado: res.j.marcado === true, favoritoEm: typeof res.j.favoritoEm === 'string' ? res.j.favoritoEm : null };
         }, function () { throw new Error('Erro de comunicação.'); });
     }
-    // Refaz a lista (o item muda de lugar) e devolve o foco à estrela de quem foi clicado: o
-    // botão antigo saiu do DOM. Pelo teclado, a linha também volta para a vista.
+    // Hora local no MESMO formato do servidor (`Y-m-d\TH:i:s`): provisória, só até a resposta.
+    function horaLocalIso() {
+        const d = new Date();
+        const p = function (n) { return (n < 10 ? '0' : '') + n; };
+        return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + 'T' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+    }
+    /* Refaz a lista (o item muda de lugar). O foco que estava no explorador e saiu do DOM com a
+       linha antiga volta para a lista; `rolar` traz a linha de volta à vista.
+       ADIADO enquanto há campo inline aberto (renomear/nova pasta) ou arraste em curso: refazer a
+       lista agora fecharia o campo sem salvar ou tiraria a linha de baixo do cursor. A estrela já
+       foi repintada no lugar; a lista é refeita quando o campo fecha ou o arraste termina
+       (qualquer render no meio do caminho também serve). */
+    let renderFavoritosAdiado = null;
+    function ocupadoParaRenderizar() { return !!renomeando || !!itemArrastado || !!arrasteChaves; }
+    function liberarRenderAdiado() {
+        setTimeout(function () {
+            if (!renderFavoritosAdiado || ocupadoParaRenderizar()) return;
+            const o = renderFavoritosAdiado;
+            renderFavoritosAdiado = null;
+            renderizarFavoritos(o);
+        }, 0);
+    }
     function renderizarFavoritos(opts) {
+        if (ocupadoParaRenderizar()) { renderFavoritosAdiado = opts; return; }
+        renderFavoritosAdiado = null;
+        const tinhaFoco = raiz.contains(document.activeElement);
         renderizar();
+        // A estrela não é parada de Tab: o foco do teclado é a lista (aria-activedescendant).
+        if (tinhaFoco && !raiz.contains(document.activeElement)) el.lista.focus({ preventScroll: true });
         const linha = opts.focar ? linhaDe(opts.focar) : null;
-        const estrela = linha ? linha.querySelector('.pex-fav') : null;
-        if (!estrela) return;
-        estrela.focus({ preventScroll: true });
-        if (opts.rolar && linha.scrollIntoView) linha.scrollIntoView({ block: 'nearest' });
+        if (linha && opts.rolar && linha.scrollIntoView) linha.scrollIntoView({ block: 'nearest' });
     }
 
     // Aviso montado com a contagem da árvore (D3): o número tem de existir ANTES do clique.
@@ -1940,6 +2014,7 @@
         if (!renomeando) return;
         const r = renomeando;
         renomeando = null;
+        liberarRenderAdiado();
         if (semRender) return;         // quem chamou vai refazer a lista
         if (r.criar) { r.linha.remove(); renderizar(); return; }
         r.wrap.remove();
@@ -1974,6 +2049,7 @@
         pedido.then(function () {
             if (renomeando === r) renomeando = null;
             renderizar();
+            liberarRenderAdiado();
         }).catch(function (err) {
             toastErro(err.message || 'Erro de comunicação.');
             if (renomeando === r) { r.salvando = false; r.input.disabled = false; cancelarRenomear(); }
@@ -2602,6 +2678,12 @@
                 return !pontoNoConteudo(alvo, evt.clientX);
             },
             preventOnFilter: false,
+            // A faixa dos favoritos e a dos demais não se misturam (L6): o topo é por estrela, e
+            // arrastar um item de uma faixa para a outra mostraria um lugar que ele não vai ter.
+            // Reordenar DENTRO de cada faixa continua.
+            onMove: function (evt) {
+                return !evt.related || favoritoNaTela(evt.dragged) === favoritoNaTela(evt.related);
+            },
             onStart: function (evt) {
                 cancelarRenomear();
                 itemArrastado = evt.item;
@@ -2617,6 +2699,7 @@
                 itemArrastado = null;
                 arrasteSortable = null;
                 realcarAlvo(null);
+                liberarRenderAdiado();
                 const ponto = ultimoPonto || (evt.originalEvent ? { x: evt.originalEvent.clientX, y: evt.originalEvent.clientY } : null);
                 const destino = ponto && arrastado ? pastaSobPonto(ponto.x, ponto.y, arrastado) : null;
                 if (arrastado && destino) {
@@ -2629,8 +2712,9 @@
                 // Reordenar: a ordem nova é a ordem do DOM, por tipo. Persiste só o tipo arrastado —
                 // sem o efeito "favorito no topo" (ver ordemManualSemOTopo).
                 const tipo = arrastado.dataset.pexTipo;
-                const ids = ordemManualSemOTopo(tipo, Array.prototype.slice.call(el.lista.querySelectorAll('.pex-item[data-pex-tipo="' + tipo + '"]'))
-                    .map(function (n) { return Number(n.dataset.pexId); }));
+                const linhas = Array.prototype.slice.call(el.lista.querySelectorAll('.pex-item[data-pex-tipo="' + tipo + '"]'));
+                const ids = ordemManualSemOTopo(tipo, linhas.map(function (n) { return Number(n.dataset.pexId); }),
+                    linhas.filter(favoritoNaTela).map(function (n) { return Number(n.dataset.pexId); }));
                 ids.forEach(function (id, i) {
                     const it = tipo === 'pasta' ? pastaPorId(id) : arquivoPorId(id);
                     if (it) it.ordem = i + 1;
@@ -2648,10 +2732,15 @@
        desmarcar a estrela deixaria o item lá em cima para todo mundo. Então cada um volta para a
        sua faixa: as POSIÇÕES que eram de favoritos na ordem manual de antes (ordem, nome)
        recebem os favoritos na sequência nova, e as demais recebem os não favoritos na sequência
-       nova. Sem favorito nenhum, o resultado é exatamente a ordem do DOM. */
-    function ordemManualSemOTopo(tipo, idsNaTela) {
+       nova. Sem favorito nenhum, o resultado é exatamente a ordem do DOM. Quem é favorito vem da
+       TELA (a estrela da linha), não da memória: uma resposta de favorito que chegue durante o
+       arraste não pode trocar a faixa de um item no meio da conta. */
+    function favoritoNaTela(linha) {
+        return !!(linha && linha.querySelector && linha.querySelector('.pex-fav[aria-pressed="true"]'));
+    }
+    function ordemManualSemOTopo(tipo, idsNaTela, idsFavoritosNaTela) {
         const dadoDe = function (id) { return (tipo === 'pasta' ? pastaPorId(id) : arquivoPorId(id)) || { id: id, nome: '', ordem: 0 }; };
-        const fav = function (id) { return !!dadoDe(id).favorito; };
+        const fav = function (id) { return idsFavoritosNaTela.indexOf(id) !== -1; };
         const cmp = comparador();
         const antes = idsNaTela.slice().sort(function (a, b) { return cmp(dadoDe(a), dadoDe(b)); });
         const favoritos = idsNaTela.filter(fav);
@@ -2696,6 +2785,7 @@
     el.lista.addEventListener('dragend', terminarArrasteNativo);
     function terminarArrasteNativo() {
         arrasteChaves = null;
+        liberarRenderAdiado();
         el.lista.querySelectorAll('.pex-arrastando').forEach(function (n) { n.classList.remove('pex-arrastando'); });
         realcarAlvo(null);
     }

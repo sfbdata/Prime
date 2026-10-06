@@ -1055,6 +1055,9 @@ a.pex-nome:hover { text-decoration: underline; color: var(--pex-nome); }
 .pex-fav:focus-visible { outline: none; opacity: 1; box-shadow: 0 0 0 2px var(--pex-busca-anel); }
 .pex-fav.pex-fav--on { color: var(--pex-fav-on); opacity: 1; }
 .pex-fav.pex-fav--on:hover { color: var(--pex-fav-hover); }
+/* Pedido em voo (L6): mais apagada e sem hover, até a resposta (aria-busy no botão). */
+.pex-fav.pex-fav--voo,
+.pex-fav.pex-fav--voo:hover { opacity: .35; cursor: progress; }
 .pex--grade .pex-fav { position: absolute; top: 4px; left: 4px; z-index: 2; }
 /* No toque o alvo cresce para 28px (o desenho é omisso; 20px é pouco para o dedo). */
 @media (hover: none) {

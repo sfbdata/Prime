@@ -95,7 +95,7 @@ final class ExploradorDeDocumentosOutputTest extends TestCase
         self::assertSame('/pasta_documentos_excluir_lote/9', $json['urlExcluirLote']);
     }
 
-    #[TestDox('D2: cada arquivo e cada pasta trazem favorito (do conjunto recebido); o topo traz urlFavorito e o token pex_favorito_<pastaId>')]
+    #[TestDox('D2: cada arquivo e cada pasta trazem favorito e favoritoEm (a hora em que marcou, do mapa recebido); o topo traz urlFavorito e o token pex_favorito_<pastaId>')]
     public function testFavoritos(): void
     {
         $marcada    = $this->secao(1, 'Marcada');
@@ -110,10 +110,14 @@ final class ExploradorDeDocumentosOutputTest extends TestCase
             self::url(...),
             self::csrf(...),
             self::PASTA_ID,
-            ['documentos' => [10 => true], 'secoes' => [1 => true]],
+            ['documentos' => [10 => '2026-10-06T10:15:00'], 'secoes' => [1 => '2026-10-05T09:00:00']],
         );
 
         self::assertTrue($out->pastas[0]['favorito']);
+        self::assertSame('2026-10-05T09:00:00', $out->pastas[0]['favoritoEm']);
+        self::assertNull($out->pastas[1]['favoritoEm']);
+        self::assertSame('2026-10-06T10:15:00', $out->arquivos[0]['favoritoEm']);
+        self::assertNull($out->arquivos[1]['favoritoEm']);
         self::assertFalse($out->pastas[1]['favorito']);
         self::assertTrue($out->arquivos[0]['favorito']);
         self::assertFalse($out->arquivos[1]['favorito']);
@@ -126,6 +130,22 @@ final class ExploradorDeDocumentosOutputTest extends TestCase
         self::assertSame('tok_pex_favorito_9', $json['csrfFavorito']);
         self::assertTrue($json['arquivos'][0]['favorito']);
         self::assertTrue($json['pastas'][0]['favorito']);
+        self::assertSame('2026-10-06T10:15:00', $json['arquivos'][0]['favoritoEm']);
+        self::assertSame('2026-10-05T09:00:00', $json['pastas'][0]['favoritoEm']);
+    }
+
+    #[TestDox('D2: favorito sem hora conhecida (`true` no mapa) continua favorito, com favoritoEm NULL')]
+    public function testFavoritoSemHora(): void
+    {
+        $secao = $this->secao(1, 'S');
+        $doc   = $this->documento(10, 'a.pdf', null);
+
+        $out = ExploradorDeDocumentosOutput::montar([$secao], [$doc], self::ROTULOS, self::url(...), self::csrf(...), self::PASTA_ID, ['documentos' => [10 => true], 'secoes' => [1 => true]]);
+
+        self::assertTrue($out->arquivos[0]['favorito']);
+        self::assertNull($out->arquivos[0]['favoritoEm']);
+        self::assertTrue($out->pastas[0]['favorito']);
+        self::assertNull($out->pastas[0]['favoritoEm']);
     }
 
     #[TestDox('D2: sem o conjunto de favoritos (ou com ele vazio) nada vem marcado — e arquivo() avulso nasce false')]
@@ -140,6 +160,11 @@ final class ExploradorDeDocumentosOutputTest extends TestCase
         self::assertFalse($out->arquivos[0]['favorito']);
         self::assertFalse(ExploradorDeDocumentosOutput::arquivo($doc, self::ROTULOS, self::url(...), self::csrf(...))['favorito']);
         self::assertTrue(ExploradorDeDocumentosOutput::arquivo($doc, self::ROTULOS, self::url(...), self::csrf(...), true)['favorito']);
+        self::assertNull($out->pastas[0]['favoritoEm']);
+        self::assertNull($out->arquivos[0]['favoritoEm']);
+        self::assertNull(ExploradorDeDocumentosOutput::arquivo($doc, self::ROTULOS, self::url(...), self::csrf(...))['favoritoEm']);
+        self::assertSame('2026-10-06T10:15:00', ExploradorDeDocumentosOutput::arquivo($doc, self::ROTULOS, self::url(...), self::csrf(...), true, '2026-10-06T10:15:00')['favoritoEm']);
+        self::assertNull(ExploradorDeDocumentosOutput::arquivo($doc, self::ROTULOS, self::url(...), self::csrf(...), false, '2026-10-06T10:15:00')['favoritoEm'], 'sem favorito não há hora');
     }
 
     #[TestDox('D1: o arquivo leva quem enviou (nome), quando foi modificado e as páginas — NULL quando não há')]

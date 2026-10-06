@@ -57,11 +57,14 @@ final class PastaDocumentoFavoritoControllerTest extends JusPrimeWebTestCase
 
         $this->favoritar($client, $pasta, 'documento', (int) $doc->getId(), '1');
         self::assertResponseIsSuccessful();
-        self::assertSame(['ok' => true, 'marcado' => true], $this->json($client));
+        $primeira = $this->json($client);
+        $this->assertMarcadoComHora($primeira);
 
         $this->favoritar($client, $pasta, 'documento', (int) $doc->getId(), '1');
         self::assertResponseIsSuccessful();
-        self::assertSame(['ok' => true, 'marcado' => true], $this->json($client));
+        $segunda = $this->json($client);
+        $this->assertMarcadoComHora($segunda);
+        self::assertSame($primeira['favoritoEm'], $segunda['favoritoEm'], 'marcar de novo não muda a hora (o lugar no topo)');
         self::assertSame(1, $this->favoritosDoDocumento($doc), 'marcar duas vezes = uma linha');
 
         $linha = $this->em()->getConnection()->fetchAssociative(
@@ -73,12 +76,12 @@ final class PastaDocumentoFavoritoControllerTest extends JusPrimeWebTestCase
 
         $this->favoritar($client, $pasta, 'documento', (int) $doc->getId(), '0');
         self::assertResponseIsSuccessful();
-        self::assertSame(['ok' => true, 'marcado' => false], $this->json($client));
+        self::assertSame(['ok' => true, 'marcado' => false, 'favoritoEm' => null], $this->json($client));
         self::assertSame(0, $this->favoritosDoDocumento($doc));
 
         $this->favoritar($client, $pasta, 'documento', (int) $doc->getId(), '0');
         self::assertResponseIsSuccessful();
-        self::assertSame(['ok' => true, 'marcado' => false], $this->json($client));
+        self::assertSame(['ok' => true, 'marcado' => false, 'favoritoEm' => null], $this->json($client));
     }
 
     #[TestDox('subpasta (tipo pasta), em corpo JSON: marcar duas vezes = uma linha; desmarcar apaga')]
@@ -93,13 +96,13 @@ final class PastaDocumentoFavoritoControllerTest extends JusPrimeWebTestCase
         foreach ([true, true] as $marcado) {
             $this->favoritarJson($client, $pasta, ['tipo' => 'pasta', 'alvoId' => $secao->getId(), 'marcado' => $marcado]);
             self::assertResponseIsSuccessful();
-            self::assertSame(['ok' => true, 'marcado' => true], $this->json($client));
+            $this->assertMarcadoComHora($this->json($client));
         }
         self::assertSame(1, $this->favoritosDaSecao($secao));
 
         $this->favoritarJson($client, $pasta, ['tipo' => 'pasta', 'alvoId' => $secao->getId(), 'marcado' => 0]);
         self::assertResponseIsSuccessful();
-        self::assertSame(['ok' => true, 'marcado' => false], $this->json($client));
+        self::assertSame(['ok' => true, 'marcado' => false, 'favoritoEm' => null], $this->json($client));
         self::assertSame(0, $this->favoritosDaSecao($secao));
     }
 
@@ -288,8 +291,14 @@ final class PastaDocumentoFavoritoControllerTest extends JusPrimeWebTestCase
             'meu.pdf'    => $arquivos['meu.pdf'],
             'colega.pdf' => $arquivos['colega.pdf'],
         ]);
+        $horas = array_column($dados['arquivos'], 'favoritoEm', 'nome');
+        self::assertMatchesRegularExpression('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/', (string) $horas['meu.pdf'], 'a hora em que EU marquei');
+        self::assertNull($horas['colega.pdf'], 'a hora do colega não aparece');
         $pastas = array_column($dados['pastas'], 'favorito', 'nome');
         self::assertTrue($pastas['MINHA']);
+        $horasPastas = array_column($dados['pastas'], 'favoritoEm', 'nome');
+        self::assertIsString($horasPastas['MINHA']);
+        self::assertNull($horasPastas['DO COLEGA']);
         self::assertFalse($pastas['DO COLEGA'], 'a estrela do colega não acende a minha');
 
         self::assertStringEndsWith('/pasta/' . $pasta->getId() . '/documentos/favorito', $dados['urlFavorito']);
@@ -334,7 +343,9 @@ final class PastaDocumentoFavoritoControllerTest extends JusPrimeWebTestCase
         ], [], self::XHR);
 
         self::assertResponseIsSuccessful();
-        self::assertTrue($this->json($client)['documento']['favorito']);
+        $documento = $this->json($client)['documento'];
+        self::assertTrue($documento['favorito']);
+        self::assertMatchesRegularExpression('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/', (string) $documento['favoritoEm'], 'a hora vai junto: é ela que põe a linha no lugar do topo');
     }
 
     #[TestDox('excluir o documento ou a subpasta apaga a estrela (FK CASCADE)')]
@@ -392,6 +403,15 @@ final class PastaDocumentoFavoritoControllerTest extends JusPrimeWebTestCase
     }
 
     // ── helpers ────────────────────────────────────────────────────────────────
+
+    /** @param array<string, mixed> $resposta */
+    private function assertMarcadoComHora(array $resposta): void
+    {
+        self::assertSame(['ok', 'marcado', 'favoritoEm'], array_keys($resposta));
+        self::assertTrue($resposta['ok']);
+        self::assertTrue($resposta['marcado']);
+        self::assertMatchesRegularExpression('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/', (string) $resposta['favoritoEm'], 'a hora em que ficou marcado (ISO, sem fuso)');
+    }
 
     private function cliente(): KernelBrowser
     {

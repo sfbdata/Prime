@@ -83,7 +83,7 @@ final readonly class ExploradorDeDocumentosOutput
      * @param callable(string $rota, array<string, mixed> $params): string $url
      * @param callable(string $idDoToken): string                       $csrf
      * @param int                                                       $pastaId          para as URLs e o token das ações em lote
-     * @param array{documentos?: array<int, true>, secoes?: array<int, true>} $favoritos  os do usuário logado (`PastaDocumentoFavoritoRepository::idsFavoritosDaPasta`)
+     * @param array{documentos?: array<int, string|true>, secoes?: array<int, string|true>} $favoritos  os do usuário logado, id => hora em que marcou (`PastaDocumentoFavoritoRepository::idsFavoritosDaPasta`); `true` = favorito sem hora conhecida
      */
     public static function montar(array $secoes, array $documentos, array $rotulosCategoria, callable $url, callable $csrf, int $pastaId, array $favoritos = []): self
     {
@@ -122,12 +122,14 @@ final readonly class ExploradorDeDocumentosOutput
                 'urlMover'     => $url('pasta_secao_mover', ['secaoId' => $id]),
                 'csrfMover'    => $csrf('pasta_secao_mover_' . $id),
                 'favorito'     => isset($secoesFavoritas[$id]),
+                'favoritoEm'   => is_string($secoesFavoritas[$id] ?? null) ? $secoesFavoritas[$id] : null,
             ];
         }
 
         $arquivos = [];
         foreach ($documentos as $documento) {
-            $arquivos[] = self::arquivo($documento, $rotulosCategoria, $url, $csrf, isset($documentosFavoritos[(int) $documento->getId()]));
+            $favoritoEm = $documentosFavoritos[(int) $documento->getId()] ?? null;
+            $arquivos[] = self::arquivo($documento, $rotulosCategoria, $url, $csrf, $favoritoEm !== null, is_string($favoritoEm) ? $favoritoEm : null);
         }
 
         return new self(
@@ -162,6 +164,7 @@ final readonly class ExploradorDeDocumentosOutput
      * upload; `enviadoPor` é o nome (nunca o e-mail) ou NULL no acervo anterior à coluna;
      * `paginas` NULL = não é PDF ou não foi contado. `favorito` é a estrela do usuário logado: quem
      * não sabe (o upload — documento recém-criado nunca é favorito) deixa o padrão `false`.
+     * `favoritoEm` é a hora em que ele marcou (ordena o topo, dc L4440); NULL sem favorito.
      *
      * @param array<string, string>                                     $rotulosCategoria chave => rótulo exibido
      * @param callable(string $rota, array<string, mixed> $params): string $url
@@ -169,7 +172,7 @@ final readonly class ExploradorDeDocumentosOutput
      *
      * @return array<string, mixed>
      */
-    public static function arquivo(PastaDocumento $documento, array $rotulosCategoria, callable $url, callable $csrf, bool $favorito = false): array
+    public static function arquivo(PastaDocumento $documento, array $rotulosCategoria, callable $url, callable $csrf, bool $favorito = false, ?string $favoritoEm = null): array
     {
         $id        = (int) $documento->getId();
         $categoria = $documento->getCategoria();
@@ -199,6 +202,7 @@ final readonly class ExploradorDeDocumentosOutput
             'csrfEditar'      => $csrf('edit_documento_' . $id),
             'csrfExcluir'     => $csrf('delete_documento_' . $id),
             'favorito'        => $favorito,
+            'favoritoEm'      => $favorito ? $favoritoEm : null,
         ];
     }
 

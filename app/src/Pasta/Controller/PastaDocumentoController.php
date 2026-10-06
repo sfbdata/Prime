@@ -113,11 +113,11 @@ final class PastaDocumentoController extends AbstractController
 
         if ($xhr) {
             // A estrela vai com o estado real: a tela substitui a linha pelo que vier aqui, e um
-            // `favorito: false` fixo apagaria a estrela de quem tinha marcado.
-            return $this->json(['ok' => true, 'documento' => $this->arquivoParaATela(
-                $documento,
-                $this->favoritos->documentoEhFavorito($documento, $currentUser, $tenant),
-            )]);
+            // `favorito: false` fixo apagaria a estrela de quem tinha marcado (e a hora, a
+            // posição dela no topo).
+            $favoritoEm = $this->favoritos->marcadoEm($documento, $currentUser, $tenant);
+
+            return $this->json(['ok' => true, 'documento' => $this->arquivoParaATela($documento, $favoritoEm !== null, $favoritoEm)]);
         }
 
         $this->addFlash('success', 'Documento atualizado com sucesso.');
@@ -208,7 +208,9 @@ final class PastaDocumentoController extends AbstractController
     /**
      * Liga/desliga a estrela de um arquivo (`tipo: documento`) ou de uma subpasta (`tipo: pasta`)
      * para o usuário logado. Corpo (form ou JSON): `{_token, tipo, alvoId, marcado: 1|0}`.
-     * Idempotente: o pedido diz o estado desejado. Resposta: `{ok: true, marcado: bool}`.
+     * Idempotente: o pedido diz o estado desejado. Resposta: `{ok: true, marcado: bool,
+     * favoritoEm: string|null}` — a hora em que ficou marcado (a de antes, se já estava), NULL
+     * quando desmarcado; a tela ordena o topo por ela.
      *
      * Guardas, nesta ordem: pasta deste escritório (404 — o resolver busca por PK e o TenantFilter
      * não se aplica a `find()`); permissão de VER (403); CSRF `pex_favorito_<id>` (400, o mesmo das
@@ -262,7 +264,11 @@ final class PastaDocumentoController extends AbstractController
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_FORBIDDEN);
         }
 
-        return $this->json(['ok' => true, 'marcado' => $marcadoAgora]);
+        return $this->json([
+            'ok'         => true,
+            'marcado'    => $marcadoAgora,
+            'favoritoEm' => $marcadoAgora ? $this->favoritos->marcadoEm($alvo, $currentUser, $tenant) : null,
+        ]);
     }
 
     /** `marcado` do corpo: 1/0 (int ou string, como o form manda) ou booleano do JSON. O resto é NULL. */
@@ -424,7 +430,7 @@ final class PastaDocumentoController extends AbstractController
     }
 
     /** @return array<string, mixed> */
-    private function arquivoParaATela(PastaDocumento $documento, bool $favorito): array
+    private function arquivoParaATela(PastaDocumento $documento, bool $favorito, ?string $favoritoEm = null): array
     {
         return ExploradorDeDocumentosOutput::arquivo(
             $documento,
@@ -432,6 +438,7 @@ final class PastaDocumentoController extends AbstractController
             fn (string $rota, array $params): string => $this->generateUrl($rota, $params),
             fn (string $idDoToken): string => $this->csrfTokenManager->getToken($idDoToken)->getValue(),
             $favorito,
+            $favoritoEm,
         );
     }
 }

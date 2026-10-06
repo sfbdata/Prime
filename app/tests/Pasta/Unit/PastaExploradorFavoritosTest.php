@@ -58,28 +58,28 @@ final class PastaExploradorFavoritosTest extends TestCase
         self::assertStringContainsString('alvoId: it.dado.id,', $pedir);
         self::assertStringContainsString('marcado: marcar,', $pedir, 'o pedido diz o estado desejado (idempotente)');
         self::assertStringContainsString('if (!res.ok || !res.j || !res.j.ok) throw new Error(', $pedir);
-        self::assertStringContainsString('return res.j.marcado === true;', $pedir, 'o estado final é o que o servidor devolve');
+        self::assertStringContainsString("return { marcado: res.j.marcado === true, favoritoEm: typeof res.j.favoritoEm === 'string' ? res.j.favoritoEm : null };", $pedir, 'o estado final e a hora são os que o servidor devolve');
         self::assertStringNotContainsString('cfg.csrfLote', $pedir);
 
         // Sem rota/token na página, nada de pedido às cegas.
         self::assertStringContainsString("if (!cfg.urlFavorito || !cfg.csrfFavorito) { toastErro(", $this->funcao('alternarFavoritos'));
     }
 
-    #[TestDox('estrela: <button> de alternância com aria-pressed e rótulo fixo; título e ícone do desenho; em toda linha/cartão (menos a linha provisória)')]
+    #[TestDox('estrela: <button> de alternância com aria-pressed e rótulo fixo, fora da ordem de Tab (tabindex -1); título e ícone do desenho; em toda linha/cartão (menos a linha provisória)')]
     public function testEstrelaAcessivel(): void
     {
         $js     = $this->js();
         $botao  = $this->funcao('botaoFavorito');
+        $pintar = $this->funcao('pintarEstrela');
 
-        self::assertStringContainsString("type: 'button',", $botao);
-        self::assertStringContainsString("'aria-pressed': on ? 'true' : 'false',", $botao);
-        self::assertStringContainsString("'aria-label': 'Favorito',", $botao, 'com aria-pressed o rótulo não muda — muda o estado');
-        self::assertStringContainsString("title: on ? 'Tirar dos favoritos' : 'Marcar como favorito',", $botao, 'títulos do desenho (dc L4743)');
-        self::assertStringContainsString("icone(on ? 'bi-star-fill' : 'bi-star')", $botao);
+        self::assertStringContainsString("h('button', { type: 'button', class: 'pex-fav', 'aria-label': 'Favorito', tabindex: '-1', draggable: 'false' }", $botao, 'rótulo fixo; sem uma parada de Tab por linha dentro do role=option');
+        self::assertStringContainsString("b.setAttribute('aria-pressed', on ? 'true' : 'false');", $pintar);
+        self::assertStringContainsString("b.title = on ? 'Tirar dos favoritos' : 'Marcar como favorito';", $pintar, 'títulos do desenho (dc L4743)');
+        self::assertStringContainsString("b.firstChild.className = 'bi ' + (on ? 'bi-star-fill' : 'bi-star');", $pintar);
 
         // Na célula do nome, ANTES do ícone (dc L2246) — o montarItem é o mesmo para os oito modos.
         $montar = $this->funcao('montarItem');
-        $estrela = strpos($montar, 'favorito === null ? null : botaoFavorito(favorito),');
+        $estrela = strpos($montar, 'favorito === null ? null : botaoFavorito(favorito, favoritosEmVoo.has(chaveDaLinha)),');
         $ico     = strpos($montar, "h('span', { class: 'pex-ico' }");
         self::assertNotFalse($estrela);
         self::assertNotFalse($ico);
@@ -102,19 +102,19 @@ final class PastaExploradorFavoritosTest extends TestCase
         self::assertNotFalse($fav);
         self::assertNotFalse($selecao);
         self::assertLessThan($selecao, $fav, 'a estrela é tratada antes de qualquer seleção');
-        self::assertStringContainsString("alternarFavoritos([it], !ehFavorito(it), { focar: chaveDe(it), rolar: e.detail === 0 });", $js);
+        self::assertStringContainsString("alternarFavoritos([it], !ehFavorito(it), { focar: chaveDe(it) });", $js);
 
         self::assertStringContainsString("if (e.target.closest('.pex-ren, .pex-menu, .pex-fav')) return;", $js, 'duplo clique na estrela não abre');
         self::assertStringContainsString("if ((k === 'Enter' || k === ' ') && e.target.closest && e.target.closest('.pex-fav')) return;", $js, 'Enter/Espaço são do botão');
         self::assertStringContainsString("e.target.closest('.pex-ren, .pex-menu, .pex-fav')) return;\n            cancelarToqueLongo();", $js, 'toque longo na estrela não abre o menu');
     }
 
-    #[TestDox('otimista com rollback: a tela muda antes do pedido; quem falhou volta ao estado anterior com toast de erro; alvo em voo não aceita outro clique')]
+    #[TestDox('otimista com rollback: a tela muda antes do pedido (estrela e hora provisória); quem falhou volta ao estado e à hora de antes, com toast de erro; alvo em voo não aceita outro clique e mostra aria-busy')]
     public function testOtimistaComRollback(): void
     {
         $corpo = $this->funcao('alternarFavoritos');
 
-        $otimista = strpos($corpo, 'alvos.forEach(function (it) { favoritosEmVoo.add(chaveDe(it)); it.dado.favorito = marcar; });');
+        $otimista = strpos($corpo, "it.dado.favoritoEm = marcar ? agora : null;");
         $render   = strpos($corpo, 'renderizarFavoritos(opts);');
         $pedido   = strpos($corpo, 'pedirFavorito(it, marcar)');
         self::assertNotFalse($otimista);
@@ -123,7 +123,16 @@ final class PastaExploradorFavoritosTest extends TestCase
         self::assertLessThan($pedido, $otimista, 'a estrela muda antes da resposta');
         self::assertLessThan($pedido, $render);
 
-        self::assertStringContainsString('falhas.forEach(function (it) { it.dado.favorito = !marcar; });', $corpo, 'rollback só de quem falhou');
+        self::assertStringContainsString('falhas.forEach(function (it) { it.dado.favorito = !marcar; it.dado.favoritoEm = horaAntes.get(it); repintarEstrela(it); });', $corpo, 'rollback só de quem falhou — estrela e hora');
+        self::assertStringContainsString('horaAntes.set(it, it.dado.favoritoEm || null);', $corpo);
+        self::assertStringContainsString('it.dado.favoritoEm = hora;', $corpo, 'a hora do servidor substitui a provisória');
+        // Em voo: aria-busy + classe com opacidade, ligados e desligados no lugar.
+        $pintar = $this->funcao('pintarEstrela');
+        self::assertStringContainsString("b.classList.toggle('pex-fav--voo', !!emVoo);", $pintar);
+        self::assertStringContainsString("if (emVoo) b.setAttribute('aria-busy', 'true'); else b.removeAttribute('aria-busy');", $pintar);
+        self::assertStringContainsString('alvos.forEach(repintarEstrela);', $corpo);
+        self::assertStringContainsString("favoritosEmVoo.delete(chaveDe(it));\n                repintarEstrela(it);", $corpo);
+        self::assertMatchesRegularExpression('/\.pex-fav\.pex-fav--voo,\s*\.pex-fav\.pex-fav--voo:hover \{ opacity: \.35; cursor: progress; \}/', $this->css());
         self::assertStringContainsString('if (falhas.length || divergiu) renderizarFavoritos(opts);', $corpo);
         self::assertStringContainsString('toastErro(', $corpo);
         self::assertStringContainsString('!favoritosEmVoo.has(chaveDe(it))', $corpo, 'dois pedidos cruzados do mesmo alvo poderiam gravar o contrário do que a tela mostra');
@@ -161,7 +170,7 @@ final class PastaExploradorFavoritosTest extends TestCase
         self::assertSame(1, substr_count($menu, 'opFavorito([alvo]),'), 'menu de um item');
     }
 
-    #[TestDox('ordem: favoritos sobem ao topo MISTURANDO pastas e arquivos (dc L4715), depois da classificação, por partição estável')]
+    #[TestDox('ordem: favoritos sobem ao topo MISTURANDO pastas e arquivos, na ordem em que foram marcados (favoritoEm, o mais antigo primeiro — dc L4440/L4715); sem hora, depois, na classificação')]
     public function testFavoritosNoTopoDoGrupo(): void
     {
         $js = $this->js();
@@ -175,10 +184,11 @@ final class PastaExploradorFavoritosTest extends TestCase
         self::assertLessThan($topo, $sortArq, 'o topo vem DEPOIS da classificação (dc L4715)');
         self::assertLessThan($topo, $filtro);
         self::assertStringNotContainsString('ps = favoritosNoTopo(ps);', $js, 'o topo não é por grupo: o desenho mistura pastas e arquivos');
-        self::assertStringContainsString(
-            'return lista.filter(ehFavorito).concat(lista.filter(function (it) { return !ehFavorito(it); }));',
-            $this->funcao('favoritosNoTopo')
-        );
+        $topoFn = $this->funcao('favoritosNoTopo');
+        self::assertStringContainsString('const favoritos = lista.filter(ehFavorito).sort(function (a, b) {', $topoFn);
+        self::assertStringContainsString('return x < y ? -1 : (x > y ? 1 : 0);', $topoFn, 'crescente: o dc ordena `F[a] - F[b]` (o mais antigo primeiro)');
+        self::assertStringContainsString('return favoritos.concat(lista.filter(function (it) { return !ehFavorito(it); }));', $topoFn);
+        self::assertStringContainsString("function horaDoFavorito(it) { return (it && it.dado && it.dado.favoritoEm) || '\\uffff'; }", $js, 'sem hora vai para o fim do bloco');
     }
 
     #[TestDox('guarda do Manual: o /reordenar recebe a ordem SEM o efeito "favorito no topo" (que mistura pastas e arquivos na tela) — por tipo, cada um volta para a sua faixa da ordem manual de antes')]
@@ -187,16 +197,58 @@ final class PastaExploradorFavoritosTest extends TestCase
         $js = $this->js();
 
         self::assertStringContainsString(
-            "const ids = ordemManualSemOTopo(tipo, Array.prototype.slice.call(el.lista.querySelectorAll('.pex-item[data-pex-tipo=\"' + tipo + '\"]'))",
+            'const ids = ordemManualSemOTopo(tipo, linhas.map(function (n) { return Number(n.dataset.pexId); }),',
             $js,
             'o onEnd do Sortable não grava a ordem do DOM crua'
         );
+        self::assertStringContainsString('linhas.filter(favoritoNaTela).map(function (n) { return Number(n.dataset.pexId); }));', $js, 'quem é favorito vem da TELA');
         $guarda = $this->funcao('ordemManualSemOTopo');
+        self::assertStringContainsString('const fav = function (id) { return idsFavoritosNaTela.indexOf(id) !== -1; };', $guarda);
         self::assertStringContainsString('const cmp = comparador();', $guarda, 'a ordem de antes é a do Manual (ordem, nome)');
         self::assertStringContainsString('const antes = idsNaTela.slice().sort(function (a, b) { return cmp(dadoDe(a), dadoDe(b)); });', $guarda);
         self::assertStringContainsString('return antes.map(function (id) { return fav(id) ? favoritos.shift() : demais.shift(); });', $guarda);
         // E o Sortable continua só com o nível inteiro na tela (L2): a guarda não troca essa.
         self::assertStringContainsString("return !!window.Sortable && classificar.chave === 'manual' && normalizar(busca) === '' && filtroTipo === 'todos';", $js);
+    }
+
+    #[TestDox('guarda do Manual: o Sortable não deixa atravessar a fronteira entre a faixa dos favoritos e a dos demais (onMove → false); dentro de cada faixa, livre')]
+    public function testFronteiraDasFaixasNoSortable(): void
+    {
+        $js = $this->js();
+
+        self::assertStringContainsString(
+            "onMove: function (evt) {\n                return !evt.related || favoritoNaTela(evt.dragged) === favoritoNaTela(evt.related);\n            },",
+            $js
+        );
+        self::assertStringContainsString("return !!(linha && linha.querySelector && linha.querySelector('.pex-fav[aria-pressed=\"true\"]'));", $this->funcao('favoritoNaTela'));
+    }
+
+    #[TestDox('render adiado: a resposta do favorito não refaz a lista com renomear/nova pasta inline aberto nem durante arraste; refaz quando o campo fecha ou o arraste termina')]
+    public function testRenderAdiado(): void
+    {
+        $js = $this->js();
+
+        self::assertStringContainsString('function ocupadoParaRenderizar() { return !!renomeando || !!itemArrastado || !!arrasteChaves; }', $js);
+        $render = $this->funcao('renderizarFavoritos');
+        self::assertStringContainsString('if (ocupadoParaRenderizar()) { renderFavoritosAdiado = opts; return; }', $render);
+        $liberar = $this->funcao('liberarRenderAdiado');
+        self::assertStringContainsString('if (!renderFavoritosAdiado || ocupadoParaRenderizar()) return;', $liberar);
+        // Quem fecha o campo ou termina o arraste libera o render adiado.
+        self::assertStringContainsString("renomeando = null;\n        liberarRenderAdiado();", $this->funcao('cancelarRenomear'));
+        self::assertStringContainsString("arrasteChaves = null;\n        liberarRenderAdiado();", $this->funcao('terminarArrasteNativo'));
+        self::assertStringContainsString("arrasteSortable = null;\n                realcarAlvo(null);\n                liberarRenderAdiado();", $js, 'fim do arraste do Sortable');
+        self::assertStringContainsString("renderizar();\n            liberarRenderAdiado();", $js, 'renomear salvo');
+        self::assertStringContainsString('renderFavoritosAdiado = null;      // este render já mostra o estado novo dos favoritos', $this->funcao('renderizar'));
+    }
+
+    #[TestDox('teclado: com a estrela fora do Tab, Shift+F10 / tecla Menu abrem o menu de contexto do item selecionado (onde está o favorito)')]
+    public function testMenuPeloTeclado(): void
+    {
+        $js = $this->js();
+
+        self::assertStringContainsString("if (k === 'ContextMenu' || (e.shiftKey && k === 'F10')) {", $js);
+        self::assertStringContainsString('abrirMenu(r.left + 24, r.bottom, alvo);', $js);
+        self::assertStringContainsString('if (Date.now() < menuPorTeclaAte) return;', $js, 'o contextmenu nativo que segue a tecla Menu não troca o menu');
     }
 
     #[TestDox('CSS: 20×20, ícone 13px, desligada #b4c2cc a .55, ligada #f0b400, hover #e0a400 (dc L4743); par no tema escuro; canto do cartão na grade; alvo maior no toque')]
