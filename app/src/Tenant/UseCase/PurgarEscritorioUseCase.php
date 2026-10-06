@@ -91,6 +91,10 @@ final class PurgarEscritorioUseCase
         ['bloco_jornada', 'jornada_tenant_id IN (SELECT id FROM jornada_tenant WHERE tenant_id = :tenant)'],
         ['tenant_role_permission', 'tenant_role_id IN (SELECT id FROM tenant_role WHERE tenant_id = :tenant)'],
         ['cliente_documento', 'tenant_id = :tenant'],
+        // Favoritos de arquivo/subpasta da aba Documentos (por usuário): cairiam pela CASCADE de
+        // `pasta_documento`/`pasta_secao`, mas a FK de tenant é NO ACTION — deleção explícita
+        // ANTES do documento, para a cobertura ficar visível aqui.
+        ['pasta_documento_favorito', 'tenant_id = :tenant'],
         ['pasta_documento', 'tenant_id = :tenant'],
         ['movimentacao_processo', 'tenant_id = :tenant'],
         ['parte_processo', 'tenant_id = :tenant'],

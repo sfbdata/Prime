@@ -29,6 +29,10 @@ use App\Pasta\Entity\PastaSecao;
  *
  * As ações em lote (D4) usam UM token por pasta (`pex_lote_<pastaId>`) com os ids no corpo, e a
  * posse é provada no servidor — em vez de três tokens por documento.
+ *
+ * Favoritos (D2, DOC-23): cada arquivo e cada pasta traz `favorito` — a estrela DO USUÁRIO
+ * LOGADO, nunca a de um colega —, e o topo traz `urlFavorito`/`csrfFavorito` (um token por pasta,
+ * `pex_favorito_<pastaId>`, com tipo e id do alvo no corpo).
  */
 final readonly class ExploradorDeDocumentosOutput
 {
@@ -67,6 +71,8 @@ final readonly class ExploradorDeDocumentosOutput
         public string $urlMoverLote,
         public string $urlExcluirLote,
         public string $csrfLote,
+        public string $urlFavorito,
+        public string $csrfFavorito,
     ) {
     }
 
@@ -77,9 +83,13 @@ final readonly class ExploradorDeDocumentosOutput
      * @param callable(string $rota, array<string, mixed> $params): string $url
      * @param callable(string $idDoToken): string                       $csrf
      * @param int                                                       $pastaId          para as URLs e o token das ações em lote
+     * @param array{documentos?: array<int, true>, secoes?: array<int, true>} $favoritos  os do usuário logado (`PastaDocumentoFavoritoRepository::idsFavoritosDaPasta`)
      */
-    public static function montar(array $secoes, array $documentos, array $rotulosCategoria, callable $url, callable $csrf, int $pastaId): self
+    public static function montar(array $secoes, array $documentos, array $rotulosCategoria, callable $url, callable $csrf, int $pastaId, array $favoritos = []): self
     {
+        $documentosFavoritos = $favoritos['documentos'] ?? [];
+        $secoesFavoritas     = $favoritos['secoes'] ?? [];
+
         $filhasPor = [];
         foreach ($secoes as $secao) {
             $filhasPor[$secao->getPai()?->getId() ?? 0][] = (int) $secao->getId();
@@ -111,12 +121,13 @@ final readonly class ExploradorDeDocumentosOutput
                 'csrfExcluir'  => $csrf('pasta_secao_excluir_' . $id),
                 'urlMover'     => $url('pasta_secao_mover', ['secaoId' => $id]),
                 'csrfMover'    => $csrf('pasta_secao_mover_' . $id),
+                'favorito'     => isset($secoesFavoritas[$id]),
             ];
         }
 
         $arquivos = [];
         foreach ($documentos as $documento) {
-            $arquivos[] = self::arquivo($documento, $rotulosCategoria, $url, $csrf);
+            $arquivos[] = self::arquivo($documento, $rotulosCategoria, $url, $csrf, isset($documentosFavoritos[(int) $documento->getId()]));
         }
 
         return new self(
@@ -128,6 +139,8 @@ final readonly class ExploradorDeDocumentosOutput
             urlMoverLote: $url('pasta_documentos_mover_lote', ['id' => $pastaId]),
             urlExcluirLote: $url('pasta_documentos_excluir_lote', ['id' => $pastaId]),
             csrfLote: $csrf(self::idDoTokenDeLote($pastaId)),
+            urlFavorito: $url('pasta_documentos_favorito', ['id' => $pastaId]),
+            csrfFavorito: $csrf(self::idDoTokenDeFavorito($pastaId)),
         );
     }
 
@@ -137,11 +150,18 @@ final readonly class ExploradorDeDocumentosOutput
         return 'pex_lote_' . $pastaId;
     }
 
+    /** O id do token CSRF da estrela (favorito) de arquivo/subpasta de uma pasta. */
+    public static function idDoTokenDeFavorito(int $pastaId): string
+    {
+        return 'pex_favorito_' . $pastaId;
+    }
+
     /**
      * UM arquivo na forma que a tela consome — a mesma na listagem (`#pexDados`), no upload e na
      * edição. Datas em `Y-m-d H:i:s` (a tela formata); `modificadoEm` NULL = nunca editado desde o
      * upload; `enviadoPor` é o nome (nunca o e-mail) ou NULL no acervo anterior à coluna;
-     * `paginas` NULL = não é PDF ou não foi contado.
+     * `paginas` NULL = não é PDF ou não foi contado. `favorito` é a estrela do usuário logado: quem
+     * não sabe (o upload — documento recém-criado nunca é favorito) deixa o padrão `false`.
      *
      * @param array<string, string>                                     $rotulosCategoria chave => rótulo exibido
      * @param callable(string $rota, array<string, mixed> $params): string $url
@@ -149,7 +169,7 @@ final readonly class ExploradorDeDocumentosOutput
      *
      * @return array<string, mixed>
      */
-    public static function arquivo(PastaDocumento $documento, array $rotulosCategoria, callable $url, callable $csrf): array
+    public static function arquivo(PastaDocumento $documento, array $rotulosCategoria, callable $url, callable $csrf, bool $favorito = false): array
     {
         $id        = (int) $documento->getId();
         $categoria = $documento->getCategoria();
@@ -178,6 +198,7 @@ final readonly class ExploradorDeDocumentosOutput
             'csrfMover'       => $csrf('pasta_doc_mover_' . $id),
             'csrfEditar'      => $csrf('edit_documento_' . $id),
             'csrfExcluir'     => $csrf('delete_documento_' . $id),
+            'favorito'        => $favorito,
         ];
     }
 
@@ -197,6 +218,8 @@ final readonly class ExploradorDeDocumentosOutput
             'urlMoverLote'   => $this->urlMoverLote,
             'urlExcluirLote' => $this->urlExcluirLote,
             'csrfLote'       => $this->csrfLote,
+            'urlFavorito'    => $this->urlFavorito,
+            'csrfFavorito'   => $this->csrfFavorito,
         ], self::FLAGS_JSON);
     }
 

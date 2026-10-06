@@ -5,14 +5,19 @@ declare(strict_types=1);
 namespace App\Pasta\Controller;
 
 use App\Entity\Auth\User;
+use App\Entity\Permission\AccessRequest;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\DTO\EditarDocumentoDaPastaInput;
 use App\Pasta\DTO\ExploradorDeDocumentosOutput;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaSecao;
+use App\Pasta\Exception\PastaDeOutroEscritorioException;
+use App\Pasta\Exception\SemPermissaoParaVerPastaException;
+use App\Pasta\Repository\PastaDocumentoFavoritoRepository;
 use App\Pasta\Repository\PastaDocumentoRepository;
 use App\Pasta\Repository\PastaSecaoRepository;
+use App\Pasta\UseCase\AlternarFavoritoDeDocumentoUseCase;
 use App\Pasta\UseCase\EditarDocumentoDaPastaUseCase;
 use App\Pasta\UseCase\ExcluirItensDaPastaUseCase;
 use App\Pasta\UseCase\MoverItensDaPastaUseCase;
@@ -39,6 +44,10 @@ use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
  * explorador consome; sem, redireciona para a aba (`#documentos`) como fazia.
  *
  * O lote usa UM token por pasta (`pex_lote_<pastaId>`), e os ids vão no corpo — form ou JSON.
+ *
+ * A estrela (D2, `pasta_documentos_favorito`) é a exceção à permissão de EDITAR: favorito é
+ * preferência pessoal, basta VER a pasta (como `PastaFavoritoController`). Token por pasta
+ * (`pex_favorito_<pastaId>`); tipo e id do alvo no corpo; posse provada por consulta escopada.
  */
 #[Route('/pasta')]
 final class PastaDocumentoController extends AbstractController
@@ -56,6 +65,8 @@ final class PastaDocumentoController extends AbstractController
         private readonly EditarDocumentoDaPastaUseCase $editarUseCase,
         private readonly MoverItensDaPastaUseCase $moverItensUseCase,
         private readonly ExcluirItensDaPastaUseCase $excluirItensUseCase,
+        private readonly AlternarFavoritoDeDocumentoUseCase $favoritoUseCase,
+        private readonly PastaDocumentoFavoritoRepository $favoritos,
     ) {
     }
 
@@ -101,7 +112,12 @@ final class PastaDocumentoController extends AbstractController
         }
 
         if ($xhr) {
-            return $this->json(['ok' => true, 'documento' => $this->arquivoParaATela($documento)]);
+            // A estrela vai com o estado real: a tela substitui a linha pelo que vier aqui, e um
+            // `favorito: false` fixo apagaria a estrela de quem tinha marcado.
+            return $this->json(['ok' => true, 'documento' => $this->arquivoParaATela(
+                $documento,
+                $this->favoritos->documentoEhFavorito($documento, $currentUser, $tenant),
+            )]);
         }
 
         $this->addFlash('success', 'Documento atualizado com sucesso.');
@@ -187,6 +203,76 @@ final class PastaDocumentoController extends AbstractController
             'subpastasRemovidas'  => $resultado->subpastasRemovidas,
             'arquivosRemovidos'   => $resultado->arquivosRemovidos,
         ]);
+    }
+
+    /**
+     * Liga/desliga a estrela de um arquivo (`tipo: documento`) ou de uma subpasta (`tipo: pasta`)
+     * para o usuário logado. Corpo (form ou JSON): `{_token, tipo, alvoId, marcado: 1|0}`.
+     * Idempotente: o pedido diz o estado desejado. Resposta: `{ok: true, marcado: bool}`.
+     *
+     * Guardas, nesta ordem: pasta deste escritório (404 — o resolver busca por PK e o TenantFilter
+     * não se aplica a `find()`); permissão de VER (403); CSRF `pex_favorito_<id>` (400, o mesmo das
+     * outras rotas JSON da aba); corpo válido (422); alvo DESTA pasta e deste escritório (404 —
+     * id de pasta irmã ou de outro escritório não é encontrado, sem dizer se existe).
+     */
+    #[Route('/{id}/documentos/favorito', name: 'pasta_documentos_favorito', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function favorito(Pasta $pasta, Request $request): JsonResponse
+    {
+        /** @var User $currentUser */
+        $currentUser = $this->getUser();
+        $tenant      = $this->tenantContext->getCurrentTenant();
+        $pastaId     = (int) $pasta->getId();
+
+        if ($tenant === null || $pasta->getTenant() !== $tenant) {
+            return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
+        }
+
+        if (!$this->permissionChecker->canAccessResource($currentUser, $tenant, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_VIEW)) {
+            return $this->json(['erro' => 'Sem permissão para ver esta pasta.'], Response::HTTP_FORBIDDEN);
+        }
+
+        $carga = $this->cargaDoLote($request);
+        $token = $carga['_token'] ?? '';
+        if (!$this->isCsrfTokenValid(ExploradorDeDocumentosOutput::idDoTokenDeFavorito($pastaId), is_string($token) ? $token : '')) {
+            return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $tipo    = $carga['tipo'] ?? null;
+        $marcado = self::booleanoDoCorpo($carga['marcado'] ?? null);
+        if (($tipo !== 'documento' && $tipo !== 'pasta') || $marcado === null) {
+            return $this->json(['erro' => 'Pedido inválido.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $alvoId = self::idOuNull($carga['alvoId'] ?? null);
+        $alvo   = null;
+        if ($alvoId !== null) {
+            $alvo = $tipo === 'documento'
+                ? ($this->documentos->findTodosDaPasta([$alvoId], $pasta, $tenant)[0] ?? null)
+                : $this->secoes->findByIdAndPastaAndTenant($alvoId, $pasta, $tenant);
+        }
+        if ($alvo === null) {
+            return $this->json(['erro' => $tipo === 'documento' ? 'Documento não encontrado.' : 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
+        }
+
+        try {
+            $marcadoAgora = $this->favoritoUseCase->executar($pasta, $alvo, $marcado, $currentUser, $tenant);
+        } catch (PastaDeOutroEscritorioException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_NOT_FOUND);
+        } catch (SemPermissaoParaVerPastaException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_FORBIDDEN);
+        }
+
+        return $this->json(['ok' => true, 'marcado' => $marcadoAgora]);
+    }
+
+    /** `marcado` do corpo: 1/0 (int ou string, como o form manda) ou booleano do JSON. O resto é NULL. */
+    private static function booleanoDoCorpo(mixed $valor): ?bool
+    {
+        return match ($valor) {
+            1, '1', true   => true,
+            0, '0', false  => false,
+            default        => null,
+        };
     }
 
     /**
@@ -338,13 +424,14 @@ final class PastaDocumentoController extends AbstractController
     }
 
     /** @return array<string, mixed> */
-    private function arquivoParaATela(PastaDocumento $documento): array
+    private function arquivoParaATela(PastaDocumento $documento, bool $favorito): array
     {
         return ExploradorDeDocumentosOutput::arquivo(
             $documento,
             ExploradorDeDocumentosOutput::CATEGORIAS,
             fn (string $rota, array $params): string => $this->generateUrl($rota, $params),
             fn (string $idDoToken): string => $this->csrfTokenManager->getToken($idDoToken)->getValue(),
+            $favorito,
         );
     }
 }

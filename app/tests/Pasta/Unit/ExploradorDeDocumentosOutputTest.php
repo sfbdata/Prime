@@ -95,6 +95,53 @@ final class ExploradorDeDocumentosOutputTest extends TestCase
         self::assertSame('/pasta_documentos_excluir_lote/9', $json['urlExcluirLote']);
     }
 
+    #[TestDox('D2: cada arquivo e cada pasta trazem favorito (do conjunto recebido); o topo traz urlFavorito e o token pex_favorito_<pastaId>')]
+    public function testFavoritos(): void
+    {
+        $marcada    = $this->secao(1, 'Marcada');
+        $desmarcada = $this->secao(2, 'Desmarcada');
+        $docMarcado = $this->documento(10, 'marcado.pdf', null);
+        $docLivre   = $this->documento(11, 'livre.pdf', $marcada);
+
+        $out = ExploradorDeDocumentosOutput::montar(
+            [$marcada, $desmarcada],
+            [$docMarcado, $docLivre],
+            self::ROTULOS,
+            self::url(...),
+            self::csrf(...),
+            self::PASTA_ID,
+            ['documentos' => [10 => true], 'secoes' => [1 => true]],
+        );
+
+        self::assertTrue($out->pastas[0]['favorito']);
+        self::assertFalse($out->pastas[1]['favorito']);
+        self::assertTrue($out->arquivos[0]['favorito']);
+        self::assertFalse($out->arquivos[1]['favorito']);
+        self::assertSame('/pasta_documentos_favorito/9', $out->urlFavorito);
+        self::assertSame('tok_pex_favorito_9', $out->csrfFavorito);
+        self::assertSame('pex_favorito_9', ExploradorDeDocumentosOutput::idDoTokenDeFavorito(9));
+
+        $json = json_decode($out->json(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame('/pasta_documentos_favorito/9', $json['urlFavorito']);
+        self::assertSame('tok_pex_favorito_9', $json['csrfFavorito']);
+        self::assertTrue($json['arquivos'][0]['favorito']);
+        self::assertTrue($json['pastas'][0]['favorito']);
+    }
+
+    #[TestDox('D2: sem o conjunto de favoritos (ou com ele vazio) nada vem marcado — e arquivo() avulso nasce false')]
+    public function testSemFavoritosNadaVemMarcado(): void
+    {
+        $secao = $this->secao(1, 'S');
+        $doc   = $this->documento(10, 'a.pdf', null);
+
+        $out = $this->montar([$secao], [$doc]);
+
+        self::assertFalse($out->pastas[0]['favorito']);
+        self::assertFalse($out->arquivos[0]['favorito']);
+        self::assertFalse(ExploradorDeDocumentosOutput::arquivo($doc, self::ROTULOS, self::url(...), self::csrf(...))['favorito']);
+        self::assertTrue(ExploradorDeDocumentosOutput::arquivo($doc, self::ROTULOS, self::url(...), self::csrf(...), true)['favorito']);
+    }
+
     #[TestDox('D1: o arquivo leva quem enviou (nome), quando foi modificado e as páginas — NULL quando não há')]
     public function testMetadadosDaD1(): void
     {

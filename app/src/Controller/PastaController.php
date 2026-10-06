@@ -20,6 +20,7 @@ use App\Cliente\Repository\ClientePJRepository;
 use App\Cliente\Service\PendenciasDoCadastro;
 use App\Repository\ClienteDocumentoRepository;
 use App\Pasta\Repository\PastaDocumentoRepository;
+use App\Pasta\Repository\PastaDocumentoFavoritoRepository;
 use App\Pasta\Repository\PastaRepository;
 use App\Processo\Repository\ProcessoRepository;
 use App\Processo\Exception\TribunalNaoIdentificadoException;
@@ -302,6 +303,7 @@ class PastaController extends AbstractController
         Pasta $pasta,
         ListarAnalisesDaPastaUseCase $listarAnalisesIa,
         DisponibilidadeDeInteligencia $disponibilidadeIa,
+        PastaDocumentoFavoritoRepository $favoritosDeDocumento,
     ): Response
     {
         /** @var \App\Entity\Auth\User $currentUser */
@@ -382,6 +384,7 @@ class PastaController extends AbstractController
             fn (string $rota, array $params): string => $this->generateUrl($rota, $params),
             fn (string $idDoToken): string => $this->csrfTokenManager->getToken($idDoToken)->getValue(),
             $pastaId,
+            $tenant !== null ? $favoritosDeDocumento->idsFavoritosDaPasta($currentUser, $pasta, $tenant) : [], // estrelas DO usuário logado (D2)
         );
 
         // Faixa do topo da aba Financeiro. A média por CPF é do cliente PRINCIPAL da pasta —
