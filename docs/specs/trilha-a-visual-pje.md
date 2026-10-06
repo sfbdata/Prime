@@ -296,7 +296,7 @@ Connect, foto do cliente, "N de M", Duplicar/Mover pasta.
 | Rótulo das setas ‹ › | O desenho diz "Cliente anterior: NOME (pasta N)"; aqui é "Pasta anterior: NOME (pasta N)", porque o `nomeCliente` é o **identificador** da pasta (decisão do dono, 01/09), não necessariamente um cliente |
 | Pendência de Financeiro | Contrato pendente sem pró-bono, **somando pagamentos vencidos** (como o desenho) |
 | "Vinculado em dd/mm/aaaa" (aba Processo) | Só quando o vínculo tem `vinculadoPor` (feito pela tela); o legado recebeu `NOW()` da migration e os vínculos do DJEN não têm autor — ficam com o rótulo neutro do desenho, "Processo vinculado" |
-| Prazo das metas | "vence dd/mm" · "N dias em atraso" · concluída: "prazo dd/mm/aaaa" (o desenho diz "concluída no prazo", que o sistema não sabe afirmar) |
+| Prazo das metas | "vence dd/mm" · "N dias em atraso" · concluída: **revisto na Trilha B (L5)** — `data_conclusao` existe (296/296 em prod), então: concluída até o dia do prazo → "concluída no prazo dd/mm/aaaa" (desenho); depois → "concluída com N dia(s) de atraso" (desenho omisso, convenção); sem `data_conclusao` → "prazo dd/mm/aaaa"; sem prazo → sem rótulo. Compara DATAS, sem hora (`PastaMetasResumoOutput::rotuloPrazoConcluida`) |
 | Cartão do processo sem "Ação" | A ação é da pasta (já está no cabeçalho); o cartão mostra só o que o cadastro do processo tem |
 | Detalhes | A lista de observações mantém o markup antigo (o JS a monta); só a moldura e o título mudam — virar linha do tempo é da Trilha B |
 | "Apensados" | O sistema não tem tipo de apenso → chip "N vinculado(s)" |

@@ -245,137 +245,12 @@
                                 } only %}
                             </div>
 
-                            {# Tab: Metas — desenho 1.2.3 (padrão PJe): cartão com cabeçalho, lista
-                               sobre fundo cinza, uma linha por meta com a borda colorida pelo estado
-                               REAL (concluída · atrasada = aberta com prazo no passado · aberta).
-                               O que é função nova NÃO aparece: filtros, "Precisa de atenção",
-                               numeração, renomear, resolver na lista, sino, encaminhar. #}
+                            {# Tab: Metas — o markup mora em pasta/_metas.html.twig (desenho 1.2.3). #}
                             <div class="tab-pane fade" id="tarefas" role="tabpanel" aria-labelledby="tarefas-tab">
-                                {% set statusLabelTarefa = {
-                                    'pendente':   'Pendente',
-                                    'em_revisao': 'Para Revisão',
-                                    'concluida':  'Concluída',
-                                } %}
-                                <div class="ps-grade">
-                                <section class="ps-card ps-metas">
-                                    <div class="ps-card-cab ps-card-cab--painel">
-                                        <h2>Metas da pasta</h2>
-                                        {% if pasta.tarefas|length > 0 %}<span class="ps-contagem">{{ pasta.tarefas|length }}</span>{% endif %}
-                                        <span class="ps-cab-espaco"></span>
-                                        <button type="button" class="ps-btn ps-btn--primario ps-btn--alto" title="Nova meta" aria-label="Nova meta"
-                                                data-bs-toggle="modal" data-bs-target="#modalCriarTarefa">
-                                            <i class="bi bi-plus-lg"></i><span>Nova meta</span>
-                                        </button>
-                                    </div>
-
-                                    {% if pasta.tarefas|length > 0 %}
-                                        <div class="ps-metas-lista">
-                                            {% for tarefa in pasta.tarefas %}
-                                                {% set prazoInfo = tarefa.prazoInfo %}
-                                                {% set concluida = tarefa.status == 'concluida' %}
-                                                {% set atrasada = not concluida and prazoInfo.dias is not null and prazoInfo.dias < 0 %}
-                                                {% set tom = concluida ? 'concluida' : (atrasada ? 'atrasada' : 'aberta') %}
-                                                <a href="{{ path('tarefa_show', {id: tarefa.id}) }}" class="ps-meta ps-meta--{{ tom }}" title="Abrir a meta">
-                                                    <div class="ps-meta-corpo">
-                                                        <div class="ps-meta-titulo">
-                                                            {%- if concluida %}<i class="bi bi-check-circle-fill" title="Meta concluída"></i>{% endif -%}
-                                                            {{ tarefa.titulo }}
-                                                        </div>
-                                                        <div class="ps-meta-linha">
-                                                            <span title="Autor"><i class="bi bi-person"></i>{{ tarefa.criadoPor ? tarefa.criadoPor.fullName : '—' }}</span>
-                                                            <span title="{% if tarefa.responsaveis|length > 0 %}Responsáveis: {{ tarefa.responsaveis|map(r => r.fullName)|join(', ') }}{% else %}Responsável{% endif %}">
-                                                                <i class="bi bi-people"></i>
-                                                                {%- if tarefa.responsaveis|length > 0 %}{{ (tarefa.responsaveis|first).fullName }}{% if tarefa.responsaveis|length > 1 %} +{{ tarefa.responsaveis|length - 1 }}{% endif %}{% else %}—{% endif -%}
-                                                            </span>
-                                                            {% if concluida and tarefa.prazo %}
-                                                                <span class="ps-meta-prazo" title="Prazo"><i class="bi bi-calendar-event"></i>prazo {{ tarefa.prazo|date('d/m/Y') }}</span>
-                                                            {% elseif prazoInfo.texto != '-' %}
-                                                                <span class="ps-meta-prazo{{ atrasada ? ' ps-meta-prazo--atraso' : '' }}" title="Prazo: {{ tarefa.prazo|date('d/m/Y') }}">
-                                                                    <i class="bi bi-calendar-event"></i>
-                                                                    {%- if atrasada -%}
-                                                                        {{ (-prazoInfo.dias) }} dia{{ -prazoInfo.dias == 1 ? '' : 's' }} em atraso
-                                                                    {%- elseif prazoInfo.dias == 0 -%}
-                                                                        vence hoje
-                                                                    {%- else -%}
-                                                                        vence {{ tarefa.prazo|date('d/m') }}
-                                                                    {%- endif -%}
-                                                                </span>
-                                                            {% endif %}
-                                                        </div>
-                                                    </div>
-                                                    <div class="ps-meta-direita">
-                                                        <span class="ps-meta-status">{{ concluida ? 'Concluída' : (atrasada ? 'Atrasada' : (statusLabelTarefa[tarefa.status] ?? tarefa.status)) }}</span>
-                                                        <span class="ps-meta-datas ps-num" title="{{ tarefa.prazo ? 'Prazo' : 'Criada em' }}{{ tarefa.dataAlteracao ? ' · última alteração' : '' }}">
-                                                            {{- (tarefa.prazo ?: tarefa.dataCriacao)|date('d/m/Y') -}}
-                                                            {%- if tarefa.dataAlteracao %} · mod. {{ tarefa.dataAlteracao|date('d/m/Y') }}{% endif -%}
-                                                        </span>
-                                                    </div>
-                                                </a>
-                                            {% endfor %}
-                                        </div>
-                                    {% else %}
-                                        <div class="ps-vazio">
-                                            <i class="bi bi-check2-square"></i>
-                                            <div class="ps-vazio-titulo">Nenhuma meta criada para esta pasta</div>
-                                            <div class="ps-vazio-nota">Crie a primeira pelo botão acima.</div>
-                                        </div>
-                                    {% endif %}
-                                </section>
-                                {# Trilho do desenho: andamento, atencao e responsaveis — numeros de
-                                   `PastaMetasResumoOutput`, nunca contados no template. #}
-                                <div class="ps-trilho">
-                                    <section class="ps-card ps-metas-andamento" data-trilho="andamento">
-                                        <h2>Andamento das metas</h2>
-                                        <div class="ps-metas-progresso">
-                                            <span class="ps-metas-progresso-num ps-num">{{ metasResumo.concluidas }}/{{ metasResumo.total }}</span>
-                                            <span class="ps-metas-progresso-rot">concluídas</span>
-                                        </div>
-                                        <div class="ps-metas-barra" role="progressbar" aria-valuenow="{{ metasResumo.percentual }}" aria-valuemin="0" aria-valuemax="100">
-                                            <div class="ps-metas-barra-cheia" style="width: {{ metasResumo.percentual }}%"></div>
-                                        </div>
-                                        <div class="ps-metas-legenda">
-                                            <span><i class="ps-metas-ponto ps-metas-ponto--ok" aria-hidden="true"></i>{{ metasResumo.concluidas }} concluída{{ metasResumo.concluidas == 1 ? '' : 's' }}</span>
-                                            <span><i class="ps-metas-ponto ps-metas-ponto--pend" aria-hidden="true"></i>{{ metasResumo.pendentes }} pendente{{ metasResumo.pendentes == 1 ? '' : 's' }}</span>
-                                            <span><i class="ps-metas-ponto ps-metas-ponto--atraso" aria-hidden="true"></i>{{ metasResumo.atrasadas }} atrasada{{ metasResumo.atrasadas == 1 ? '' : 's' }}</span>
-                                        </div>
-                                    </section>
-
-                                    <section class="ps-card ps-metas-atencao" data-trilho="atencao">
-                                        <div class="ps-card-cab ps-card-cab--painel"><h2>Precisa de atenção</h2></div>
-                                        {% for a in metasResumo.atencao %}
-                                            <div class="ps-metas-atencao-item">
-                                                <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
-                                                <div class="ps-linha-corpo">
-                                                    <div class="ps-metas-atencao-titulo"><a href="{{ path('tarefa_show', {id: a.id}) }}">{{ a.titulo }}</a></div>
-                                                    <div class="ps-metas-atencao-meta">prazo {{ a.prazo }} · {{ a.atraso }} dia{{ a.atraso == 1 ? '' : 's' }} em atraso{% if a.responsaveis %} · {{ a.responsaveis }}{% endif %}</div>
-                                                </div>
-                                            </div>
-                                        {% endfor %}
-                                        <div class="ps-metas-atencao-nota">
-                                            {%- if metasResumo.atencao is empty -%}
-                                                Nenhuma meta atrasada nesta pasta.
-                                            {%- else -%}
-                                                Metas atrasadas continuam contando dias até serem concluídas.
-                                            {%- endif -%}
-                                        </div>
-                                    </section>
-
-                                    <section class="ps-card ps-metas-pessoas" data-trilho="pessoas">
-                                        <h2>Responsáveis nas metas</h2>
-                                        <div class="ps-metas-pessoas-lista">
-                                            {% for p in metasResumo.pessoas %}
-                                                <div class="ps-metas-pessoa">
-                                                    <span class="ps-avatar ps-avatar--27 ps-avatar--neutro" aria-hidden="true">{{ p.iniciais }}</span>
-                                                    <span class="ps-metas-pessoa-nome" title="{{ p.nome }}">{{ p.nome }}</span>
-                                                    <span class="ps-metas-pessoa-n ps-num">{{ p.contagem }}</span>
-                                                </div>
-                                            {% else %}
-                                                <div class="ps-metas-pessoas-vazio">Nenhuma meta com responsável.</div>
-                                            {% endfor %}
-                                        </div>
-                                    </section>
-                                </div>
-                                </div>
+                                {% include 'pasta/_metas.html.twig' with {
+                                    pasta: pasta,
+                                    metasResumo: metasResumo,
+                                } only %}
                             </div>
 
                             {# Tab: Detalhes — desenho 1.2.3: o relatorio inicial em linha do tempo
@@ -4020,9 +3895,26 @@ document.addEventListener('DOMContentLoaded', function () {
                                   placeholder="Descreva o que precisa ser feito…"></textarea>
                     </div>
 
-                    <div class="mb-3">
+                    {# Atalhos de prazo e o texto do dia (desenho 1.2.3): só PREENCHEM o
+                       campo — o prazo continua opcional (tornar obrigatório é decisão
+                       pendente com o dono). O aviso de título repetido compara com as
+                       metas abertas da própria pasta, já renderizadas na aba; não
+                       bloqueia o envio. Comportamento em /js/pasta-metas.js. #}
+                    <div class="mb-3 ps-nm-prazo">
                         <label for="tarefaPrazo" class="form-label form-label-sm fw-semibold">Prazo</label>
-                        <input type="date" id="tarefaPrazo" name="prazo" class="form-control form-control-sm">
+                        <div class="ps-nm-prazo-linha">
+                            <input type="date" id="tarefaPrazo" name="prazo" class="form-control form-control-sm">
+                            <button type="button" class="ps-nm-atalho" data-ps-prazo-atalho="hoje">Hoje</button>
+                            <button type="button" class="ps-nm-atalho" data-ps-prazo-atalho="amanha">Amanhã</button>
+                            <button type="button" class="ps-nm-atalho" data-ps-prazo-atalho="uteis5">+5 úteis</button>
+                            <button type="button" class="ps-nm-atalho" data-ps-prazo-atalho="uteis15">+15 úteis</button>
+                        </div>
+                        <div id="tarefaPrazoInfo" class="ps-nm-prazo-info" aria-live="polite">Escolha a data limite.</div>
+                        <div id="tarefaTituloRepetido" class="ps-nm-dup" role="status" hidden>
+                            <i class="bi bi-files" aria-hidden="true"></i>
+                            <span class="ps-nm-dup-tx"></span>
+                            <button type="button" class="ps-nm-dup-abrir">Abrir meta existente</button>
+                        </div>
                     </div>
 
                     <div>
@@ -4089,6 +3981,9 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 }());
 </script>
+{# Filtros da aba Metas + atalhos de prazo e aviso de título repetido
+   do modal acima. Depois do modal e da aba: o script lê os dois no carregamento. #}
+<script src="/js/pasta-metas.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js" crossorigin="anonymous"></script>
 <script>
 (function () {

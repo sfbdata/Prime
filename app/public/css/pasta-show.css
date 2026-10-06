@@ -2310,8 +2310,10 @@ span.ps-situacao-pill { cursor: default; }
 .ps-processos-nota i { font-size: 13px; opacity: .75; flex-shrink: 0; }
 
 /* ── Aba Metas: lista sobre fundo cinza, borda colorida pelo estado ── */
-.ps-metas { overflow: hidden; }
-.ps-metas-lista { display: flow-root; background: var(--ps-bg); padding: 0 0 10px; }
+/* Sem `overflow: hidden`: o menu ⋮ da ultima meta abre para baixo e seria cortado.
+   Os raios que o corte fazia vao para o cabecalho e para a lista. */
+.ps-metas > .ps-card-cab { border-radius: 3px 3px 0 0; flex-wrap: wrap; gap: 12px; }
+.ps-metas-lista { display: flow-root; background: var(--ps-bg); padding: 0 0 10px; border-radius: 0 0 3px 3px; }
 .ps-meta {
     position: relative;
     display: flex;
@@ -2324,16 +2326,27 @@ span.ps-situacao-pill { cursor: default; }
     box-shadow: var(--ps-shadow-meta);
     transition: background .2s ease, transform .25s var(--ps-ease), box-shadow .25s ease;
 }
-/* A linha e uma ancora: a regra de link da pagina nao pode pinta-la de azul. */
-.ps-page a.ps-meta,
-.ps-page a.ps-meta:hover { color: inherit; text-decoration: none; }
+/* A linha e um <article>: a ancora (abrir a meta) ocupa o corpo e a coluna da
+   direita; o ⋮ fica FORA dela (botao dentro de link nao e HTML valido). A regra
+   de link da pagina nao pode pintar a ancora de azul. */
+.ps-meta[hidden] { display: none; }
+.ps-meta-abrir { display: flex; gap: 13px; align-items: flex-start; flex: 1; min-width: 0; }
+.ps-page a.ps-meta-abrir,
+.ps-page a.ps-meta-abrir:hover { color: inherit; text-decoration: none; }
 .ps-meta:hover { background: var(--ps-card); transform: translateY(-2px) scale(1.012); box-shadow: var(--ps-shadow-meta-hv); z-index: 1; }
 .ps-meta--concluida { border-left-color: var(--ps-ok-dot); background: var(--ps-meta-ok-bg); }
 .ps-meta--atrasada  { border-left-color: var(--ps-danger-dot); background: var(--ps-meta-atraso-bg); }
 .ps-meta-corpo { flex: 1; min-width: 0; }
 .ps-meta-titulo { display: flex; align-items: flex-start; gap: 8px; font-size: 14.5px; font-weight: 600; line-height: 1.35; text-wrap: pretty; color: var(--ps-text); }
 .ps-meta-titulo i { font-size: 15px; line-height: 1.35; color: var(--ps-ok-dot); flex-shrink: 0; }
-.ps-meta--concluida .ps-meta-titulo { color: var(--ps-meta-ok-tx); text-decoration: line-through; text-decoration-color: var(--ps-meta-risca); }
+/* Numero local da meta (desenho: "1." 14.5/700 azul, algarismos tabulares). O
+   numero global do desenho (tarefa.id) nao entra: e a sequencia de TODOS os
+   escritorios. */
+.ps-meta-num { flex-shrink: 0; min-width: 20px; font-size: 14.5px; font-weight: 700; line-height: 1.35; color: var(--ps-chip-text); }
+.ps-meta-titulo-tx { flex: 1; min-width: 0; }
+/* So o TEXTO e riscado (desenho): o numero continua legivel. */
+.ps-meta--concluida .ps-meta-titulo { color: var(--ps-meta-ok-tx); }
+.ps-meta--concluida .ps-meta-titulo-tx { text-decoration: line-through; text-decoration-color: var(--ps-meta-risca); }
 .ps-meta-linha { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 5px; }
 .ps-meta-linha > span { display: flex; align-items: center; gap: 6px; white-space: nowrap; font-size: 12.5px; color: var(--ps-muted); }
 .ps-meta-linha i { font-size: 12px; opacity: .8; }
@@ -2353,6 +2366,114 @@ span.ps-situacao-pill { cursor: default; }
 .ps-meta--concluida .ps-meta-status { color: var(--ps-ok-text); background: var(--ps-ok-bg); }
 .ps-meta--atrasada  .ps-meta-status { color: var(--ps-danger-text); background: var(--ps-danger-bg); }
 .ps-meta-datas { font-size: 11px; color: var(--ps-faint); }
+
+/* Filtros Abertas · Atrasadas · Concluidas · Todas (desenho 1.2.3): pilulas com a
+   contagem num selo; a ativa em azul claro. */
+.ps-body { --ps-metas-filtro-n-on: #d6e9f8; }
+[data-bs-theme="dark"] .ps-body { --ps-metas-filtro-n-on: rgba(69,176,214,.24); }
+.ps-metas-filtros { display: flex; gap: 6px; flex-wrap: wrap; }
+.ps-metas-filtro {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 500;
+    padding: 5px 11px;
+    border-radius: 999px;
+    cursor: pointer;
+    border: 1px solid var(--ps-border);
+    background: var(--ps-card);
+    color: var(--ps-text-2);
+    transition: background .2s ease, border-color .2s ease, color .2s ease;
+}
+.ps-metas-filtro-n { font-size: 10.5px; font-weight: 600; padding: 0 5px; border-radius: 4px; color: var(--ps-muted); background: var(--ps-div-strong); }
+.ps-metas-filtro.is-ativo { font-weight: 600; border-color: var(--ps-accent); background: var(--ps-accent-bg); color: var(--ps-accent); }
+.ps-metas-filtro.is-ativo .ps-metas-filtro-n { color: var(--ps-accent); background: var(--ps-metas-filtro-n-on); }
+.ps-metas-filtro-vazio[hidden] { display: none; }
+
+/* Menu ⋮ da meta (desenho: 30x30, sem moldura, so o hover pinta; menu de 220px). */
+.ps-meta-acoes { flex-shrink: 0; }
+.ps-meta-menu-btn {
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    color: var(--ps-faint);
+    font-size: 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background .15s;
+}
+.ps-meta-menu-btn:hover,
+.ps-meta-menu-btn[aria-expanded="true"] { background: var(--ps-accent-bg); color: var(--ps-accent); }
+.ps-pop--meta { top: 34px; right: 0; width: 220px; padding: 6px; border: none; box-shadow: var(--ps-shadow-menu); }
+.ps-pop--meta form { margin: 0; }
+.ps-pop--meta .ps-pop-item { font-size: 13px; padding: 7px 10px; }
+/* O menu aberto fica por cima das linhas seguintes (cada linha e posicionada). */
+.ps-meta:has(.ps-pop.is-aberto) { z-index: 5; }
+
+/* "Abrir meta existente" (aviso do modal): a linha e destacada por 4s. */
+@keyframes psMetaDestaque {
+    0%, 30% { box-shadow: 0 0 0 3px var(--ps-accent), var(--ps-shadow-meta-hv); }
+    100%    { box-shadow: var(--ps-shadow-meta); }
+}
+.ps-meta--destaque { animation: psMetaDestaque 4s ease-out; }
+
+/* Modal "Nova meta": atalhos de prazo, texto do dia e aviso de titulo repetido
+   (desenho 1.2.3). O modal vive fora de `.ps-page` (position: fixed); os tokens
+   vem do <body class="ps-body">. */
+.ps-body { --ps-nm-dup-bg: #fff6e5; --ps-nm-dup-tx: #7a4b00; --ps-nm-dup-btn: #fde7bd; --ps-nm-dup-btn-hv: #fbd98f; }
+[data-bs-theme="dark"] .ps-body { --ps-nm-dup-bg: var(--ps-warn-bg); --ps-nm-dup-tx: var(--ps-warn-text); --ps-nm-dup-btn: rgba(200,149,42,.24); --ps-nm-dup-btn-hv: rgba(200,149,42,.34); }
+#modalCriarTarefa .ps-nm-prazo-linha { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+#modalCriarTarefa .ps-nm-prazo-linha > input[type="date"] { width: auto; flex: 0 0 auto; }
+#modalCriarTarefa .ps-nm-atalho {
+    height: 30px;
+    padding: 0 8px;
+    border: none;
+    border-radius: 2px;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+    cursor: pointer;
+    background: var(--ps-div-strong);
+    color: var(--ps-aba-text);
+}
+#modalCriarTarefa .ps-nm-atalho.is-ativo { background: var(--ps-accent); color: #fff; }
+#modalCriarTarefa .ps-nm-prazo-info { margin-top: 6px; font-size: 12px; color: var(--ps-label); }
+#modalCriarTarefa .ps-nm-dup {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+    padding: 8px 11px;
+    border-radius: 2px;
+    background: var(--ps-nm-dup-bg);
+    color: var(--ps-nm-dup-tx);
+    font-size: 12.5px;
+    line-height: 1.4;
+}
+#modalCriarTarefa .ps-nm-dup[hidden] { display: none; }
+#modalCriarTarefa .ps-nm-dup > i { font-size: 14px; }
+#modalCriarTarefa .ps-nm-dup-tx { flex: 1; min-width: 180px; }
+#modalCriarTarefa .ps-nm-dup-abrir {
+    height: 26px;
+    padding: 0 10px;
+    border: none;
+    border-radius: 2px;
+    background: var(--ps-nm-dup-btn);
+    color: var(--ps-nm-dup-tx);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+}
+#modalCriarTarefa .ps-nm-dup-abrir:hover { background: var(--ps-nm-dup-btn-hv); }
 
 /* Trilho da aba Metas (desenho): andamento, o que precisa de atencao e quem
    responde pelas metas. Tudo vem de `PastaMetasResumoOutput`. */
@@ -2389,6 +2510,7 @@ span.ps-situacao-pill { cursor: default; }
 .ps-metas-pessoas-vazio { font-size: 12.5px; color: var(--ps-muted); }
 @media (prefers-reduced-motion: reduce) {
     .ps-meta:hover { transform: none; }
+    .ps-meta--destaque { animation: none; }
 }
 
 /* ── Aba Detalhes: fatos da pasta + relatorio inicial ── */

@@ -1,0 +1,182 @@
+{# Aba Metas da pasta — desenho 1.2.3 (padrão PJe): cartão com cabeçalho e os
+   filtros Abertas · Atrasadas · Concluídas · Todas, lista sobre fundo cinza, uma
+   linha por meta com a borda colorida pelo estado REAL (concluída · atrasada =
+   aberta com prazo no passado · aberta), numeração local e o menu ⋮ com
+   "Marcar como concluída" (POST ao `tarefa_concluir` de sempre, mesmo CSRF).
+
+   Ordem, número, estado, dias até o prazo e rótulo do prazo concluído vêm de `metasResumo.linhas`
+   (`PastaMetasResumoOutput`) — nada é contado nem decidido aqui. O filtro roda
+   no navegador sobre a lista inteira (pasta-metas.js): a lista não é paginada.
+
+   O que é função nova NÃO aparece: número global, renomear, reabrir, sino,
+   encaminhar, drawer do relatório (onda 2). #}
+{% set statusLabelTarefa = {
+    'pendente':   'Pendente',
+    'em_revisao': 'Para Revisão',
+    'concluida':  'Concluída',
+} %}
+{% set podeConcluir = can_access_module('tarefas') %}
+<div class="ps-grade">
+<section class="ps-card ps-metas" data-ps-metas>
+    <div class="ps-card-cab ps-card-cab--painel">
+        <h2>Metas da pasta</h2>
+        {% if pasta.tarefas|length > 0 %}<span class="ps-contagem">{{ pasta.tarefas|length }}</span>{% endif %}
+        <div class="ps-metas-filtros" role="group" aria-label="Filtrar metas">
+            {% for f in [
+                {id: 'abertas',    rotulo: 'Abertas',    n: metasResumo.abertas},
+                {id: 'atrasadas',  rotulo: 'Atrasadas',  n: metasResumo.atrasadas},
+                {id: 'concluidas', rotulo: 'Concluídas', n: metasResumo.concluidas},
+                {id: 'todas',      rotulo: 'Todas',      n: metasResumo.total},
+            ] %}
+                <button type="button" class="ps-metas-filtro{{ f.id == 'abertas' ? ' is-ativo' : '' }}"
+                        data-ps-metas-filtro="{{ f.id }}" aria-pressed="{{ f.id == 'abertas' ? 'true' : 'false' }}">
+                    <span>{{ f.rotulo }}</span><span class="ps-metas-filtro-n ps-num">{{ f.n }}</span>
+                </button>
+            {% endfor %}
+        </div>
+        <span class="ps-cab-espaco"></span>
+        <button type="button" class="ps-btn ps-btn--primario ps-btn--alto" title="Nova meta" aria-label="Nova meta"
+                data-bs-toggle="modal" data-bs-target="#modalCriarTarefa">
+            <i class="bi bi-plus-lg"></i><span>Nova meta</span>
+        </button>
+    </div>
+
+    {% if metasResumo.linhas|length > 0 %}
+        <div class="ps-metas-lista">
+            {% for linha in metasResumo.linhas %}
+                {% set tarefa = linha.tarefa %}
+                {% set dias = linha.dias %}
+                {% set concluida = linha.estado == 'concluida' %}
+                {% set atrasada = linha.estado == 'atrasada' %}
+                {% set tom = linha.estado %}
+                <article class="ps-meta ps-meta--{{ tom }}"
+                         data-meta-id="{{ tarefa.id }}"
+                         data-meta-estado="{{ tom }}"
+                         data-meta-titulo="{{ tarefa.titulo }}"
+                         data-meta-prazo="{{ tarefa.prazo ? tarefa.prazo|date('d/m/Y') : '' }}">
+                    <a href="{{ path('tarefa_show', {id: tarefa.id}) }}" class="ps-meta-abrir" title="Abrir a meta">
+                        <div class="ps-meta-corpo">
+                            <div class="ps-meta-titulo">
+                                {%- if concluida %}<i class="bi bi-check-circle-fill" title="Meta concluída"></i>{% endif -%}
+                                <span class="ps-meta-num ps-num" title="Meta {{ linha.numero }} desta pasta">{{ linha.numero }}.</span>
+                                <span class="ps-meta-titulo-tx">{{ tarefa.titulo }}</span>
+                            </div>
+                            <div class="ps-meta-linha">
+                                <span title="Autor"><i class="bi bi-person"></i>{{ tarefa.criadoPor ? tarefa.criadoPor.fullName : '—' }}</span>
+                                <span title="{% if tarefa.responsaveis|length > 0 %}Responsáveis: {{ tarefa.responsaveis|map(r => r.fullName)|join(', ') }}{% else %}Responsável{% endif %}">
+                                    <i class="bi bi-people"></i>
+                                    {%- if tarefa.responsaveis|length > 0 %}{{ (tarefa.responsaveis|first).fullName }}{% if tarefa.responsaveis|length > 1 %} +{{ tarefa.responsaveis|length - 1 }}{% endif %}{% else %}—{% endif -%}
+                                </span>
+                                {% if concluida and linha.prazoConcluida %}
+                                    <span class="ps-meta-prazo" title="Prazo: {{ tarefa.prazo|date('d/m/Y') }}{{ tarefa.dataConclusao ? ' · concluída em ' ~ tarefa.dataConclusao|date('d/m/Y') : '' }}"><i class="bi bi-calendar-event"></i>{{ linha.prazoConcluida }}</span>
+                                {% elseif not concluida and dias is not null %}
+                                    <span class="ps-meta-prazo{{ atrasada ? ' ps-meta-prazo--atraso' : '' }}" title="Prazo: {{ tarefa.prazo|date('d/m/Y') }}">
+                                        <i class="bi bi-calendar-event"></i>
+                                        {%- if atrasada -%}
+                                            {{ (-dias) }} dia{{ -dias == 1 ? '' : 's' }} em atraso
+                                        {%- elseif dias == 0 -%}
+                                            vence hoje
+                                        {%- else -%}
+                                            vence {{ tarefa.prazo|date('d/m') }}
+                                        {%- endif -%}
+                                    </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="ps-meta-direita">
+                            <span class="ps-meta-status">{{ concluida ? 'Concluída' : (atrasada ? 'Atrasada' : (statusLabelTarefa[tarefa.status] ?? tarefa.status)) }}</span>
+                            <span class="ps-meta-datas ps-num" title="{{ tarefa.prazo ? 'Prazo' : 'Criada em' }}{{ tarefa.dataAlteracao ? ' · última alteração' : '' }}">
+                                {{- (tarefa.prazo ?: tarefa.dataCriacao)|date('d/m/Y') -}}
+                                {%- if tarefa.dataAlteracao %} · mod. {{ tarefa.dataAlteracao|date('d/m/Y') }}{% endif -%}
+                            </span>
+                        </div>
+                    </a>
+                    {# Só meta aberta tem ação no menu nesta onda (reabrir é da onda 2):
+                       sem item real, o ⋮ não é desenhado. #}
+                    {% if not concluida and podeConcluir %}
+                        <div class="ps-pop-wrap ps-meta-acoes">
+                            <button type="button" class="ps-meta-menu-btn" title="Mais ações da meta" aria-label="Mais ações da meta"
+                                    data-ps-pop="psMetaMenu{{ tarefa.id }}" aria-haspopup="menu" aria-expanded="false">
+                                <i class="bi bi-three-dots-vertical"></i>
+                            </button>
+                            <div class="ps-pop ps-pop--meta" aria-label="Ações da meta {{ linha.numero }}" id="psMetaMenu{{ tarefa.id }}" role="menu">
+                                <form method="post" action="{{ path('tarefa_concluir', {id: tarefa.id}) }}" class="ps-meta-concluir">
+                                    <input type="hidden" name="_token" value="{{ csrf_token('concluir_tarefa_' ~ tarefa.id) }}">
+                                    <button type="submit" class="ps-pop-item" role="menuitem">
+                                        <i class="bi bi-check2-circle"></i><span>Marcar como concluída</span>
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    {% endif %}
+                </article>
+            {% endfor %}
+        </div>
+        <div class="ps-vazio ps-metas-filtro-vazio" hidden>
+            <i class="bi bi-check2-square"></i>
+            <div class="ps-vazio-titulo">Nenhuma meta neste filtro</div>
+            <div class="ps-vazio-nota">Troque o filtro acima ou crie uma nova meta.</div>
+        </div>
+    {% else %}
+        <div class="ps-vazio">
+            <i class="bi bi-check2-square"></i>
+            <div class="ps-vazio-titulo">Nenhuma meta criada para esta pasta</div>
+            <div class="ps-vazio-nota">Crie a primeira pelo botão acima.</div>
+        </div>
+    {% endif %}
+</section>
+{# Trilho do desenho: andamento, atencao e responsaveis — numeros de
+   `PastaMetasResumoOutput`, nunca contados no template. #}
+<div class="ps-trilho">
+    <section class="ps-card ps-metas-andamento" data-trilho="andamento">
+        <h2>Andamento das metas</h2>
+        <div class="ps-metas-progresso">
+            <span class="ps-metas-progresso-num ps-num">{{ metasResumo.concluidas }}/{{ metasResumo.total }}</span>
+            <span class="ps-metas-progresso-rot">concluídas</span>
+        </div>
+        <div class="ps-metas-barra" role="progressbar" aria-valuenow="{{ metasResumo.percentual }}" aria-valuemin="0" aria-valuemax="100">
+            <div class="ps-metas-barra-cheia" style="width: {{ metasResumo.percentual }}%"></div>
+        </div>
+        <div class="ps-metas-legenda">
+            <span><i class="ps-metas-ponto ps-metas-ponto--ok" aria-hidden="true"></i>{{ metasResumo.concluidas }} concluída{{ metasResumo.concluidas == 1 ? '' : 's' }}</span>
+            <span><i class="ps-metas-ponto ps-metas-ponto--pend" aria-hidden="true"></i>{{ metasResumo.pendentes }} pendente{{ metasResumo.pendentes == 1 ? '' : 's' }}</span>
+            <span><i class="ps-metas-ponto ps-metas-ponto--atraso" aria-hidden="true"></i>{{ metasResumo.atrasadas }} atrasada{{ metasResumo.atrasadas == 1 ? '' : 's' }}</span>
+        </div>
+    </section>
+
+    <section class="ps-card ps-metas-atencao" data-trilho="atencao">
+        <div class="ps-card-cab ps-card-cab--painel"><h2>Precisa de atenção</h2></div>
+        {% for a in metasResumo.atencao %}
+            <div class="ps-metas-atencao-item">
+                <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
+                <div class="ps-linha-corpo">
+                    <div class="ps-metas-atencao-titulo"><a href="{{ path('tarefa_show', {id: a.id}) }}">{{ a.titulo }}</a></div>
+                    <div class="ps-metas-atencao-meta">prazo {{ a.prazo }} · {{ a.atraso }} dia{{ a.atraso == 1 ? '' : 's' }} em atraso{% if a.responsaveis %} · {{ a.responsaveis }}{% endif %}</div>
+                </div>
+            </div>
+        {% endfor %}
+        <div class="ps-metas-atencao-nota">
+            {%- if metasResumo.atencao is empty -%}
+                Nenhuma meta atrasada nesta pasta.
+            {%- else -%}
+                Metas atrasadas continuam contando dias até serem concluídas.
+            {%- endif -%}
+        </div>
+    </section>
+
+    <section class="ps-card ps-metas-pessoas" data-trilho="pessoas">
+        <h2>Responsáveis nas metas</h2>
+        <div class="ps-metas-pessoas-lista">
+            {% for p in metasResumo.pessoas %}
+                <div class="ps-metas-pessoa">
+                    <span class="ps-avatar ps-avatar--27 ps-avatar--neutro" aria-hidden="true">{{ p.iniciais }}</span>
+                    <span class="ps-metas-pessoa-nome" title="{{ p.nome }}">{{ p.nome }}</span>
+                    <span class="ps-metas-pessoa-n ps-num">{{ p.contagem }}</span>
+                </div>
+            {% else %}
+                <div class="ps-metas-pessoas-vazio">Nenhuma meta com responsável.</div>
+            {% endfor %}
+        </div>
+    </section>
+</div>
+</div>

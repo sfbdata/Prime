@@ -138,21 +138,21 @@ final class PastaAbasEmCartaoTelaTest extends JusPrimeWebTestCase
         self::assertSame('3', trim($cartao->filter('.ps-card-cab--painel > .ps-contagem')->text()));
         self::assertCount(1, $cartao->filter('.ps-card-cab--painel > button[data-bs-target="#modalCriarTarefa"]'), '"Nova meta" abre a mesma modal de sempre');
 
-        $linhas = $cartao->filter('.ps-metas > .ps-metas-lista > a.ps-meta');
+        $linhas = $cartao->filter('.ps-metas > .ps-metas-lista > article.ps-meta');
         self::assertCount(3, $linhas);
         self::assertCount(0, $crawler->filter('#tarefas .tarefa-card'), 'o cartão antigo saiu');
 
-        $abertaEl = $crawler->filter('a.ps-meta[href$="/' . $aberta->getId() . '"]');
+        $abertaEl = $crawler->filter('.ps-meta > a.ps-meta-abrir[href$="/' . $aberta->getId() . '"]')->closest('.ps-meta');
         self::assertStringContainsString('ps-meta--aberta', (string) $abertaEl->attr('class'));
         self::assertSame('Pendente', trim($abertaEl->filter('.ps-meta-direita > .ps-meta-status')->text()));
         self::assertStringContainsString('vence ' . $aberta->getPrazo()->format('d/m'), $abertaEl->filter('.ps-meta-linha > .ps-meta-prazo')->text(), 'o desenho mostra a DATA do prazo');
 
-        $concluidaEl = $crawler->filter('a.ps-meta[href$="/' . $concluida->getId() . '"]');
+        $concluidaEl = $crawler->filter('.ps-meta > a.ps-meta-abrir[href$="/' . $concluida->getId() . '"]')->closest('.ps-meta');
         self::assertStringContainsString('ps-meta--concluida', (string) $concluidaEl->attr('class'));
         self::assertSame('Concluída', trim($concluidaEl->filter('.ps-meta-direita > .ps-meta-status')->text()));
         self::assertCount(1, $concluidaEl->filter('.ps-meta-titulo > i.bi-check-circle-fill'));
 
-        $atrasadaEl = $crawler->filter('a.ps-meta[href$="/' . $atrasada->getId() . '"]');
+        $atrasadaEl = $crawler->filter('.ps-meta > a.ps-meta-abrir[href$="/' . $atrasada->getId() . '"]')->closest('.ps-meta');
         self::assertStringContainsString('ps-meta--atrasada', (string) $atrasadaEl->attr('class'));
         self::assertSame('Atrasada', trim($atrasadaEl->filter('.ps-meta-direita > .ps-meta-status')->text()));
         self::assertCount(1, $atrasadaEl->filter('.ps-meta-linha > .ps-meta-prazo--atraso'));
@@ -170,7 +170,7 @@ final class PastaAbasEmCartaoTelaTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $user, $tenant);
         $crawler = $this->abrir($client, $pasta);
 
-        $el = $crawler->filter('a.ps-meta[href$="/' . $meta->getId() . '"]');
+        $el = $crawler->filter('.ps-meta > a.ps-meta-abrir[href$="/' . $meta->getId() . '"]')->closest('.ps-meta');
         self::assertStringContainsString('ps-meta--aberta', (string) $el->attr('class'));
         self::assertSame('Para Revisão', trim($el->filter('.ps-meta-direita > .ps-meta-status')->text()));
         self::assertCount(0, $el->filter('.ps-meta-prazo'), 'sem prazo não há rótulo de prazo');
