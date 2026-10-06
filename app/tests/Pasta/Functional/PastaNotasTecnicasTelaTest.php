@@ -86,6 +86,8 @@ final class PastaNotasTecnicasTelaTest extends JusPrimeWebTestCase
 
         // O compositor existe, fechado; a nota está na lista, com o selo e o texto.
         self::assertCount(1, $bloco->filter('.ps-notas > .ps-nota-editor[hidden] textarea'));
+        // Desenho dc:1693–1710 (auditoria 2 P3): a lista vem antes do compositor.
+        self::assertCount(1, $bloco->filter('.ps-notas > .ps-notas-lista + .ps-nota-editor[hidden]'));
         $item = $bloco->filter(".ps-notas > .ps-notas-lista > #nota-tecnica-{$nota->getId()}");
         self::assertCount(1, $item);
         self::assertSame('Nota técnica', trim($item->filter('.ps-nota > .ps-nota-topo > .ps-nota-selo')->text()));

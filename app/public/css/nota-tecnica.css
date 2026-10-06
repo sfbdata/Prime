@@ -19,6 +19,10 @@
     --ps-nota-conector:  #9fc3d8;
     --ps-nota-campo-bd:  #c9d8e2;
     --ps-nota-campo-bg:  #fff;
+    --ps-nota-texto:     #1d2f3a;   /* texto da nota (dc:1705; auditoria 2 P5) */
+    --ps-nota-canc-bg:   #e6edf2;   /* Cancelar sem moldura (dc:1715; P4) */
+    --ps-nota-canc-hv:   #dbe4ea;
+    --ps-nota-canc-tx:   #243845;
 }
 [data-bs-theme="dark"] .ps-page {
     --ps-nota-bg:        rgba(69,176,214,.10);
@@ -30,12 +34,16 @@
     --ps-nota-conector:  rgba(69,176,214,.45);
     --ps-nota-campo-bd:  var(--bs-border-color);
     --ps-nota-campo-bg:  var(--bs-body-bg);
+    --ps-nota-texto:     var(--bs-body-color);
+    --ps-nota-canc-bg:   rgba(255,255,255,.08);
+    --ps-nota-canc-hv:   rgba(255,255,255,.14);
+    --ps-nota-canc-tx:   var(--bs-body-color);
 }
 
 /* ── O bloco sob o cartão ─────────────────────────────────────────────────── */
 .ps-page .ps-notas {
     position: relative;
-    margin: 6px 0 14px 30px;
+    margin: -4px 0 10px 30px;   /* dc:1694 (P2) */
     display: flex;
     flex-direction: column;
     gap: 6px;
@@ -45,12 +53,12 @@
     content: '';
     position: absolute;
     left: -17px;
-    top: -2px;
+    top: -6px;
     width: 12px;
-    height: 20px;
+    height: 22px;
     border-left: 2px solid var(--ps-nota-conector);
     border-bottom: 2px solid var(--ps-nota-conector);
-    border-bottom-left-radius: 4px;
+    border-bottom-left-radius: 6px;   /* dc:1695 (P2) */
 }
 /* Dentro do teor do Push o bloco já está "dentro" do cartão: sem recuo nem conector. */
 .ps-page .ps-push-teor .ps-notas { margin: 12px 0 0; }
@@ -142,7 +150,7 @@
     margin-top: 5px;
     font-size: 13.5px;
     line-height: 1.55;
-    color: var(--ps-body);
+    color: var(--ps-nota-texto);
     overflow-wrap: anywhere;
     text-wrap: pretty;
 }
@@ -217,4 +225,23 @@
     margin-top: 8px;
 }
 .ps-page .ps-nota-editor-acoes .ps-btn { height: 30px; border-radius: 3px; font-size: 12.5px; font-weight: 700; }
+/* Desenho dc:1715 (auditoria 2 P4/U10): Cancelar sem moldura sobre cinza-azulado,
+   Salvar no azul da pasta com hover #0b5596. Vale para o compositor (nova nota) e
+   para a caixa de edição no lugar, na aba Processo e no teor do Push. */
+.ps-page .ps-nota-editor-acoes .ps-btn:not(.ps-btn--primario) {
+    padding: 0 12px;
+    border: none;
+    background: var(--ps-nota-canc-bg);
+    color: var(--ps-nota-canc-tx);
+    transition: background .15s;
+}
+.ps-page .ps-nota-editor-acoes .ps-btn:not(.ps-btn--primario):hover,
+.ps-page .ps-nota-editor-acoes .ps-btn:not(.ps-btn--primario):focus-visible {
+    border: none;
+    background: var(--ps-nota-canc-hv);
+    color: var(--ps-nota-canc-tx);
+}
+.ps-page .ps-nota-editor-acoes .ps-btn--primario { padding: 0 14px; border: none; transition: background .15s; }
+.ps-page .ps-nota-editor-acoes .ps-btn--primario:hover,
+.ps-page .ps-nota-editor-acoes .ps-btn--primario:focus-visible { border: none; background: var(--ps-env-hv); color: #fff; }
 .ps-page .ps-nota-erro { font-size: 12.5px; color: var(--ps-danger-text); margin-top: 6px; }

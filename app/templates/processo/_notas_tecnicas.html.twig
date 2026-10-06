@@ -41,6 +41,13 @@
         </button>
     </div>
 
+    <div class="ps-notas-lista">
+        {% for nota in notas %}
+            {{ include('processo/_nota_tecnica_item.html.twig', {nota: nota, mostrarMovimentacao: mostrarMovimentacao}) }}
+        {% endfor %}
+    </div>
+
+    {# Desenho dc:1693–1710 (auditoria 2 P3): as notas primeiro, o compositor depois. #}
     <div class="ps-nota-editor" hidden>
         <div class="ps-nota-editor-rotulo"><i class="bi bi-journal-plus" aria-hidden="true"></i>Nova nota técnica</div>
         <textarea class="ps-nota-textarea" rows="3" maxlength="5000"
@@ -51,11 +58,5 @@
             <button type="button" class="ps-btn js-nota-cancelar">Cancelar</button>
             <button type="button" class="ps-btn ps-btn--primario js-nota-salvar" title="Salvar (Ctrl+Enter)">Salvar nota</button>
         </div>
-    </div>
-
-    <div class="ps-notas-lista">
-        {% for nota in notas %}
-            {{ include('processo/_nota_tecnica_item.html.twig', {nota: nota, mostrarMovimentacao: mostrarMovimentacao}) }}
-        {% endfor %}
     </div>
 </div>
