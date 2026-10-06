@@ -43,8 +43,17 @@ final class ExpedienteController extends AbstractController
     ) {
     }
 
+    /**
+     * Parâmetros que o deep-link `?painel=acervo-geral` repassa ao XHR do painel. Allowlist de
+     * propósito: `busca` fica de fora — é texto livre (pode trazer nome de cliente, PII) e não
+     * deve viajar pela barra de endereço (ver a persistência do painel no index.html.twig).
+     */
+    private const PARAMS_DEEP_LINK_ACERVO = [
+        'status', 'responsavel', 'prioridade', 'data_de', 'data_ate', 'criado_por', 'ordenar', 'direcao', 'page',
+    ];
+
     #[Route('/expediente', name: 'expediente_index')]
-    public function index(): Response
+    public function index(Request $request): Response
     {
         /** @var User $user */
         $user   = $this->getUser();
@@ -58,7 +67,32 @@ final class ExpedienteController extends AbstractController
             'pastas'          => $marcadores,
             'todosMarcadores' => $todosMarcadores,
             'contagemPastas'  => $contagemPastas,
+            'painelInicial'   => $this->painelInicialDoDeepLink($request),
         ]);
+    }
+
+    /**
+     * URL do painel que a tela abre de cara quando chega por link (ex.: número clicável do
+     * Dashboard): `?painel=acervo-geral&criado_por=5&data_de=...`. Devolve null sem o deep-link,
+     * e a tela segue o comportamento de sempre (restaura o estado salvo ou abre o acervo limpo).
+     * Os filtros só são repassados; quem os valida e aplica é o próprio endpoint do painel.
+     */
+    private function painelInicialDoDeepLink(Request $request): ?string
+    {
+        if ($request->query->get('painel') !== 'acervo-geral') {
+            return null;
+        }
+
+        $query  = $request->query->all();
+        $params = [];
+        foreach (self::PARAMS_DEEP_LINK_ACERVO as $chave) {
+            $valor = $query[$chave] ?? null;
+            if (is_string($valor) && trim($valor) !== '') {
+                $params[$chave] = trim($valor);
+            }
+        }
+
+        return $this->generateUrl('expediente_acervo_geral', $params);
     }
 
     #[Route('/expediente/marcador', name: 'expediente_marcador_criar', methods: ['POST'])]
@@ -295,6 +329,7 @@ final class ExpedienteController extends AbstractController
             'prioridade'  => $request->query->get('prioridade', ''),
             'data_de'     => $request->query->get('data_de', ''),
             'data_ate'    => $request->query->get('data_ate', ''),
+            'criado_por'  => $request->query->get('criado_por', ''),
         ];
     }
 

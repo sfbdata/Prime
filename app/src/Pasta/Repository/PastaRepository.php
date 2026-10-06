@@ -657,6 +657,18 @@ class PastaRepository extends ServiceEntityRepository
                ->setParameter('responsavel', (int) $filters['responsavel']);
         }
 
+        // "Pastas criadas por X" — destino do número clicável do Dashboard. Usa EXATAMENTE o
+        // critério de countCriadasPorCriador: JOIN interno com o criador (pasta sem criador
+        // fica de fora) e SEM a lápide (`excluidaEm IS NULL`). A exclusão da lápide só vale
+        // quando este filtro vem: sem ele, o acervo segue listando a lápide riscada, como
+        // sempre (decisão do dono, 31/08). Sem isso o número clicado não bateria com a lista.
+        if (!empty($filters['criado_por'])) {
+            $qb->join('p.criadoPor', 'criador_f')
+               ->andWhere('criador_f.id = :criadoPor')
+               ->andWhere('p.excluidaEm IS NULL')
+               ->setParameter('criadoPor', (int) $filters['criado_por']);
+        }
+
         $precisaJoinCliente  = !empty($filters['cliente']) || !empty($filters['busca']);
         $precisaJoinProcesso = !empty($filters['acao']) || !empty($filters['busca']);
 

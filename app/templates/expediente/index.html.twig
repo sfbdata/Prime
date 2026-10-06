@@ -191,7 +191,10 @@
 
             {# ── Área de conteúdo principal ── #}
             <div class="col expediente-content">
-                <div id="expediente-painel">
+                {# data-painel-inicial: deep-link `?painel=acervo-geral&...` (ex.: número clicável do
+                   Dashboard). O controller já filtrou a query por allowlist; o JS abre este painel
+                   com precedência sobre o estado salvo no sessionStorage. #}
+                <div id="expediente-painel"{% if painelInicial ?? null %} data-painel-inicial="{{ painelInicial }}"{% endif %}>
                     <div class="expediente-content-placeholder">
                         <i class="bi bi-inbox text-muted" style="font-size: 3rem; opacity: 0.3;"></i>
                         <p class="text-muted mt-3">Selecione um grupo para visualizar os expedientes</p>
@@ -1081,6 +1084,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     prioridade:  fd.get('prioridade')  || '',
                     data_de:     fd.get('data_de')     || '',
                     data_ate:    fd.get('data_ate')    || '',
+                    criado_por:  fd.get('criado_por')  || '', // só existe quando veio por deep-link
                     ordenar:     fd.get('ordenar')     || '',
                     direcao:     fd.get('direcao')     || ''
                 },
@@ -1147,7 +1151,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         var params = new URLSearchParams();
         var f = estado.filtros || {};
-        ['busca', 'status', 'responsavel', 'prioridade', 'data_de', 'data_ate', 'ordenar', 'direcao'].forEach(function (k) {
+        ['busca', 'status', 'responsavel', 'prioridade', 'data_de', 'data_ate', 'criado_por', 'ordenar', 'direcao'].forEach(function (k) {
             if (f[k]) params.set(k, f[k]);
         });
         if (estado.page && estado.page > 1) params.set('page', estado.page);
@@ -1163,11 +1167,50 @@ document.addEventListener('DOMContentLoaded', function () {
         return true;
     }
 
+    // Deep-link `?painel=acervo-geral&...`: o servidor já montou a URL do painel (com os
+    // filtros da allowlist) em data-painel-inicial. Vence o estado salvo de propósito — quem
+    // clicou num número do Dashboard quer ver a lista daquele número, não a última que viu.
+    function tentarAbrirPainelDoDeepLink() {
+        var url = painel.dataset.painelInicial;
+        if (!url) return false;
+
+        var linkAcervo = document.querySelector('.expediente-menu-link[data-painel]');
+        carregarPainel(url, 'Todas as pastas');
+        if (linkAcervo) reacenderSidebarPainel(linkAcervo.dataset.painel);
+
+        return true;
+    }
+
+    // "Criado por" não tem campo na barra de filtro (só chega por deep-link). Para a
+    // paginação, a ordenação e os demais filtros — que remontam a URL a partir do form —
+    // não o perderem, ele entra no form como hidden. Recebe a URL que acabou de ser
+    // carregada; se ela não traz criado_por, não há o que preservar.
+    function garantirCampoCriadoPor(urlCarregada) {
+        var form = document.getElementById('formFiltrosPasta');
+        if (!form || form.querySelector('[name="criado_por"]')) return;
+
+        var valor = '';
+        try { valor = new URL(urlCarregada, window.location.origin).searchParams.get('criado_por') || ''; }
+        catch (e) { return; }
+        if (valor === '') return;
+
+        var campo = document.createElement('input');
+        campo.type  = 'hidden';
+        campo.name  = 'criado_por';
+        campo.value = valor;
+        // js-pasta-filtro: o "Limpar tudo" zera junto com os outros filtros.
+        campo.className = 'js-pasta-filtro';
+        campo.dataset.rotulo = 'Criado por';
+        form.appendChild(campo);
+    }
+
     // ── Bootstrap do painel ──────────────────────────────────────────
-    // Se o usuário voltou de uma pasta (pasta_show) e há estado salvo, restaura
-    // o painel como estava (filtros + página). Caso contrário, comportamento
-    // padrão: "Todas as pastas" (Acervo Geral), página 1, sem filtros.
+    // Deep-link (?painel=acervo-geral) primeiro; depois, se o usuário voltou de uma
+    // pasta (pasta_show) e há estado salvo, restaura o painel como estava (filtros +
+    // página). Caso contrário, comportamento padrão: "Todas as pastas" (Acervo Geral),
+    // página 1, sem filtros.
     (function () {
+        if (tentarAbrirPainelDoDeepLink()) return;
         if (tentarRestaurarEstadoPainel()) return;
 
         var linkTodasPastas = document.querySelector('.expediente-menu-link[data-painel]');
@@ -1570,6 +1613,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 injetarHtmlComScripts(painel, html);
                 // Pós-processamento não-crítico: se algo aqui falhar, a tabela já foi
                 // injetada e continua visível — não escondemos tudo atrás do erro.
+                try { garantirCampoCriadoPor(url); } catch (e) { /* ignora */ }
                 try { salvarEstadoPainel(); } catch (e) { /* ignora */ }
                 try { construirChipsPastas(); } catch (e) { /* ignora */ }
             })
@@ -1622,6 +1666,19 @@ document.addEventListener('DOMContentLoaded', function () {
                 });
             }
         });
+
+        // "Criado por" (hidden, só via deep-link): o nome vem do próprio select de
+        // responsável, que lista os mesmos colaboradores ativos do Dashboard.
+        var criadoPor = form.querySelector('input[type="hidden"][name="criado_por"]');
+        if (criadoPor && criadoPor.value !== '') {
+            var selResp = form.querySelector('select[name="responsavel"]');
+            var optResp = selResp ? selResp.querySelector('option[value="' + CSS.escape(criadoPor.value) + '"]') : null;
+            chips.push({
+                campo: 'criado_por',
+                rotulo: criadoPor.dataset.rotulo || 'Criado por',
+                valor: optResp ? optResp.textContent.trim() : ('colaborador #' + criadoPor.value)
+            });
+        }
 
         ['data_de', 'data_ate'].forEach(function (campo) {
             var input = form.querySelector('[name="' + campo + '"]');
