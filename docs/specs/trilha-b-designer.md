@@ -171,3 +171,43 @@ de 768M (`phpunit.dist.xml`).
   números clicáveis → `/tarefas/equipe` e Acervo, painel BlueJus Intelligence (texto "por regras fixas"),
   selects e calendário próprios, menu ⋮ (densidade/colunas), celular (cards), tema escuro.
 - **Demandas/Processos:** filtro de data (Firefox) por causa do `filtro-tabela.css`/`.js` (opção opt-in).
+
+## 7. Homologação local (06/10/2026)
+
+**Limpeza:** 43 worktrees `agent-*` desta rodada removidas depois da prova de conteúdo: cada commit delas
+está no master, por patch-id (`git cherry`) ou, nos 7 que tiveram conflito resolvido na integração, por
+assunto idêntico. Também foram removidos a worktree `smoke-trilha-a`, o container `smoke-trilha-a-proxy`
+(resíduos da Trilha A, já publicada) e o banco `saas_testinteligencia-agentes`. Ficaram as branches
+`worktree-agent-*` (apagar branch é do humano) e a worktree `agent-a40e8d8ebf3d119ca`, anterior à rodada e
+com um commit de cobrança que não está no master.
+
+**Auditoria:** os 72 hashes do §3 são ancestrais do HEAD. As 9 migrations só criam/acrescentam no `up()`.
+Não há segredo no diff nem mudança de env, Docker, scripts ou composer. Em prod o provedor resolve para
+`ProvedorNaoConfigurado` e `ia_habilitada` é false sem `.env`.
+
+**Revisões:** três revisões independentes, read-only (Fable para ações destrutivas e migrations, Fable
+para autorização/tenant/IDOR/CSRF, Opus para regressão e IA desligada). Nenhuma achou bloqueante.
+Corrigido, cada item com teste provado por reintrodução:
+
+| Commit | Correção |
+|---|---|
+| `a587c62f` | foto do autor no Registro/Detalhes com o nome cru no `src` (avatar quebrado + 500 em `/pasta/<hash>.jpg`) — **defeito da Trilha A, já em produção**; achado no smoke |
+| `218a1482` | Pasta não consulta as tabelas da IA quando a plataforma não tem IA (deploy parcial não derruba a tela) |
+| `a153af13` | falha ao reler o hash depois da compressão não derruba mais o upload (sha256 fica null) |
+| `b8a907b1` | busca de cliente: o documento só casa quando digitado inteiro (a máscara era derrotável por trechos) |
+| `2f1cb03e` | renomear/reabrir/alertar meta exigem editar a pasta (IDOR irmão) |
+| `a2e658a2` | nota técnica recusa pasta excluída (lápide) |
+| `64251001` | deep-link do Expediente sai da URL depois de consumido (não atropela o estado salvo) |
+| `dbb0dc3b` | cron da foto com `-w /var/www/app` |
+
+**Ficam como decisão ou registro, sem código:**
+- abrir o teor do Push (GET) marca a publicação como lida — contrato herdado do módulo;
+- "Duplicar" não copia `administrativa`, porque o desenho não lista;
+- as rotas de leitura da IA checam o módulo, não a disponibilidade da plataforma; só expõem análises já
+  gravadas do próprio escritório.
+
+**Testes:** suíte completa 6682/6682 (26.523 asserções).
+
+**Smoke no navegador** (Playwright headless, só leitura, banco `saas_ux`, pastas 223 e 1025): 52/52, sem
+nenhum 500 e sem erro de JavaScript. Os 404 restantes são de `/perfil/foto/*`, porque o dev não tem os
+arquivos de foto, e de `/clientes`, que não tem rota de listagem nem no `origin/master`.
