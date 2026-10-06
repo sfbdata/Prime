@@ -62,6 +62,31 @@ class PastaFavoritaRepository extends ServiceEntityRepository
         return array_fill_keys(array_map('intval', $ids), true);
     }
 
+    /**
+     * Fixa a pasta nos favoritos do usuário de forma IDEMPOTENTE: se a linha já existe (clique
+     * duplo, duas abas), não faz nada e não dá erro.
+     *
+     * É SQL direto com `ON CONFLICT DO NOTHING` (PostgreSQL), e não `persist()` + `flush()`, de
+     * propósito: no caminho do ORM a corrida estoura `UniqueConstraintViolationException`, e
+     * depois dela o EntityManager FECHA — qualquer uso posterior na mesma requisição (o Twig, um
+     * listener, o log de auditoria) quebraria. Aqui o banco decide a corrida e nada lança.
+     * O UNIQUE (user_id, pasta_id) é o árbitro.
+     */
+    public function inserirSeAusente(Tenant $tenant, User $usuario, Pasta $pasta): void
+    {
+        $this->getEntityManager()->getConnection()->executeStatement(
+            'INSERT INTO pasta_favorita (criado_em, tenant_id, user_id, pasta_id)
+             VALUES (:criado_em, :tenant, :usuario, :pasta)
+             ON CONFLICT (user_id, pasta_id) DO NOTHING',
+            [
+                'criado_em' => (new \DateTimeImmutable())->format('Y-m-d H:i:s'),
+                'tenant'    => $tenant->getId(),
+                'usuario'   => $usuario->getId(),
+                'pasta'     => $pasta->getId(),
+            ],
+        );
+    }
+
     public function salvar(PastaFavorita $favorita, bool $flush = false): void
     {
         $this->getEntityManager()->persist($favorita);

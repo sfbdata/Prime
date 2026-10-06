@@ -52,16 +52,28 @@ final class AlternarFavoritoDaPastaUseCaseTest extends TestCase
             ->with($this->pasta, $this->usuario, $this->tenant)
             ->willReturn(null);
         $this->repository->expects(self::never())->method('remover');
+        $this->repository->expects(self::never())->method('salvar');
         $this->repository
             ->expects(self::once())
-            ->method('salvar')
-            ->with(
-                self::callback(fn (PastaFavorita $f): bool => $f->getPasta() === $this->pasta
-                    && $f->getUsuario() === $this->usuario
-                    && $f->getTenant() === $this->tenant),
-                true,
-            );
+            ->method('inserirSeAusente')
+            ->with($this->tenant, $this->usuario, $this->pasta);
 
+        self::assertTrue($this->useCase->executar($this->pasta, $this->usuario, $this->tenant));
+    }
+
+    #[TestDox('Clique duplo: a outra requisição gravou primeiro — a inserção idempotente não lança e o resultado é favorita=true')]
+    public function testCorridaDoCliqueDuploEhIdempotente(): void
+    {
+        // As duas requisições leram "não é favorita"; a segunda chega com a linha já gravada.
+        // O dublê não lança nada, como o ON CONFLICT DO NOTHING — e nenhum caminho de ORM
+        // (persist/flush) é tocado, que é o que poderia fechar o EntityManager.
+        $this->permissionChecker->method('canAccessResource')->willReturn(true);
+        $this->repository->expects(self::exactly(2))->method('buscarDoUsuario')->willReturn(null);
+        $this->repository->expects(self::exactly(2))->method('inserirSeAusente');
+        $this->repository->expects(self::never())->method('salvar');
+        $this->repository->expects(self::never())->method('remover');
+
+        self::assertTrue($this->useCase->executar($this->pasta, $this->usuario, $this->tenant));
         self::assertTrue($this->useCase->executar($this->pasta, $this->usuario, $this->tenant));
     }
 

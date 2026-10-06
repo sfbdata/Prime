@@ -251,6 +251,23 @@ final class PastaRepositoryFavoritosTest extends KernelTestCase
         self::assertSame(['10', '30'], $nups);
     }
 
+    #[TestDox('inserirSeAusente é idempotente no banco: a 2ª inserção (clique duplo) não lança, fica 1 linha e o EntityManager segue aberto')]
+    public function testInserirSeAusenteEhIdempotente(): void
+    {
+        [$tenant, $eu, $pastas] = $this->acervo();
+
+        $this->favoritas->inserirSeAusente($tenant, $eu, $pastas['10']);
+        $this->favoritas->inserirSeAusente($tenant, $eu, $pastas['10']);
+
+        $linhas = (int) $this->em->getConnection()->fetchOne(
+            'SELECT COUNT(*) FROM pasta_favorita WHERE pasta_id = :pasta AND user_id = :usuario',
+            ['pasta' => $pastas['10']->getId(), 'usuario' => $eu->getId()],
+        );
+        self::assertSame(1, $linhas);
+        self::assertTrue($this->em->isOpen(), 'nenhuma exceção do Doctrine passou pelo EntityManager');
+        self::assertTrue($this->favoritas->ehFavorita($pastas['10'], $eu, $tenant));
+    }
+
     #[TestDox('idsDasPastasFavoritas devolve só as MINHAS, só deste escritório')]
     public function testIdsDasPastasFavoritas(): void
     {

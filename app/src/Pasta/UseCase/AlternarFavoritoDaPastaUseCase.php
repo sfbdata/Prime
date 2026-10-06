@@ -8,7 +8,6 @@ use App\Entity\Auth\User;
 use App\Entity\Permission\AccessRequest;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
-use App\Pasta\Entity\PastaFavorita;
 use App\Pasta\Exception\PastaDeOutroEscritorioException;
 use App\Pasta\Exception\SemPermissaoParaVerPastaException;
 use App\Pasta\Repository\PastaFavoritaRepository;
@@ -54,7 +53,10 @@ final class AlternarFavoritoDaPastaUseCase
             return false;
         }
 
-        $this->repository->salvar(new PastaFavorita($tenant, $usuario, $pasta), flush: true);
+        // Idempotente: se outra requisição (clique duplo) inseriu entre a consulta acima e aqui,
+        // o banco ignora a segunda linha e o resultado continua sendo "favorita" — sem 500 e sem
+        // EntityManager fechado (ver PastaFavoritaRepository::inserirSeAusente).
+        $this->repository->inserirSeAusente($tenant, $usuario, $pasta);
 
         return true;
     }
