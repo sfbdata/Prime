@@ -1,0 +1,507 @@
+/* =============================================================================
+   dashboard-inteligencia.css — painel BlueJus Intelligence do Dashboard
+   Desenho: docs/design/claude-design-2026-10-05 (1)/01 - Dashboard 1.2.2.dc.html
+            (botão no cabeçalho L197-207; painel fixo à direita L853-1430;
+            Modo avançado L961-1278). Markup em templates/dashboard/_inteligencia.html.twig.
+
+   Tudo sob `.db-page`, como o dashboard.css — nenhum seletor global. Reaproveita
+   os tokens `--db-*` que o dashboard.css já define em `.db-page` (acento, texto,
+   bordas, foco) e acrescenta os `--db-ia-*` deste painel, com o tema escuro
+   redefinido em `[data-bs-theme="dark"]` (hex cravado só no claro).
+
+   Sem JS: o painel é um [popover] nativo (abre pelo botão `popovertarget`, fecha
+   por X / Esc / clique fora) e o Modo avançado é um <details>. Quem não suporta
+   popover recebe o painel aberto em bloco abaixo do título (@supports no fim).
+   ============================================================================= */
+
+.db-page {
+    /* superfícies do painel */
+    --db-ia-painel-bg:      linear-gradient(180deg, #f7fbfd 0%, #ffffff 220px);
+    --db-ia-painel-sombra:  -24px 0 60px -30px rgba(12,60,90,.5);
+    --db-ia-veu:            rgba(14,37,51,.18);
+    --db-ia-bloco-bg:       #fff;
+    --db-ia-bloco-borda:    #e6edf2;
+    --db-ia-bloco-sombra:   0 6px 18px -16px rgba(12,60,90,.35);
+    --db-ia-mini-bg:        #f4f8fa;
+    --db-ia-suave-bg:       #f6f9fb;
+    --db-ia-como-bg:        #f4f8fb;
+    --db-ia-rodape-bg:      #fafcfd;
+    --db-ia-divisor:        #e3eaef;
+    --db-ia-divisor-fraco:  #eef3f6;
+    --db-ia-trilho:         #e9eff3;
+    --db-ia-chip-bg:        #eef3f6;
+    --db-ia-chip-texto:     #34505f;
+    --db-ia-icone-bg:       linear-gradient(160deg, #e3f3f8, #cfe8f1);
+    --db-ia-icone-anel:     rgba(12,122,156,.18);
+    --db-ia-icone-brilho:   rgba(21,151,189,.25);
+    --db-ia-halo:           radial-gradient(circle, rgba(21,151,189,.16), transparent 65%);
+    /* botão do cabeçalho (iaBtnStyle, dc L2652) */
+    --db-ia-btn-bg:         linear-gradient(180deg, #ffffff, #f4f9fb);
+    --db-ia-btn-bg-hover:   linear-gradient(180deg, #ffffff, #eef7fb);
+    --db-ia-btn-anel:       rgba(12,122,156,.18);
+    --db-ia-btn-anel-hover: rgba(12,122,156,.35);
+    --db-ia-btn-sombra:     0 4px 12px -8px rgba(12,90,130,.35);
+    --db-ia-btn-sombra-hover: 0 8px 20px -10px rgba(21,151,189,.6);
+    --db-ia-alerta-ponto:   #d6921e;
+    /* interruptor do Modo avançado (dc L2575) */
+    --db-ia-switch-off:     #cfd9e0;
+    --db-ia-switch-on:      linear-gradient(90deg, #1597bd, #0c7a9c);
+    --db-ia-switch-pill-bg: rgba(12,122,156,.08);
+    --db-ia-switch-pill-bg-hover: rgba(12,122,156,.15);
+    --db-ia-switch-pill-texto: #0b5a78;
+    /* ícones das três perguntas (dc L2725-2727) */
+    --db-ia-q-oque-bg:      #e9f5f9;  --db-ia-q-oque:   #0c7a9c;
+    --db-ia-q-porque-bg:    #eef1fb;  --db-ia-q-porque: #3d5bb5;
+    --db-ia-q-fazer-bg:     #fdf3e1;  --db-ia-q-fazer:  #a8670c;
+    /* níveis dos alertas (NIVEIS, bluejus-avancado.js L6-12) */
+    --db-ia-critico:        #b0302a;  --db-ia-critico-bg:      #fdeceb;
+    --db-ia-atencao:        #b4560f;  --db-ia-atencao-bg:      #fdf0e4;
+    --db-ia-monitorar:      #8a6a06;  --db-ia-monitorar-bg:    #fbf5dc;
+    --db-ia-normal:         #14784a;  --db-ia-normal-bg:       #e6f6ee;
+    --db-ia-oportunidade:   #0f6fc4;  --db-ia-oportunidade-bg: #e8f1fb;
+    /* riscos por nível (dc L2742) e grupos de ação (dc L2745-2746) */
+    --db-ia-risco-3:        #b0302a;
+    --db-ia-risco-2:        #c98414;
+    --db-ia-risco-1:        #7b93a2;
+    --db-ia-acao-imediata:  #b0302a;
+    --db-ia-acao-acomp:     #7b93a2;
+    --db-ia-acao-recom:     #0c7a9c;
+    /* barras */
+    --db-ia-barra-fill:     linear-gradient(90deg, #1597bd, #0c7a9c);
+    --db-ia-dist-ativas:    linear-gradient(90deg, rgba(12,122,156,.55), #0c7a9c);
+    --db-ia-dist-vencidas:  #c0392f;
+    --db-ia-dist-media:     #34505f;
+    --db-ia-qual-alta:      linear-gradient(90deg, #1f9d61, #14784a);
+    --db-ia-qual-media:     linear-gradient(90deg, #d9a21b, #b4800c);
+    --db-ia-qual-baixa:     linear-gradient(90deg, #d0573c, #b0302a);
+    --db-ia-pergunta-bg:    #fff;
+    --db-ia-pergunta-anel:  #cfe2ea;
+    --db-ia-pergunta-texto: #0b5a78;
+    --db-ia-resposta-anel:  #e1eaf0;
+    --db-ia-ease:           cubic-bezier(.22,.8,.3,1);
+}
+
+[data-bs-theme="dark"] .db-page {
+    --db-ia-painel-bg:      var(--bs-body-bg);
+    --db-ia-painel-sombra:  -24px 0 60px -30px rgba(0,0,0,.8);
+    --db-ia-veu:            rgba(0,0,0,.45);
+    --db-ia-bloco-bg:       var(--bs-tertiary-bg);
+    --db-ia-bloco-borda:    var(--bs-border-color);
+    --db-ia-bloco-sombra:   0 1px 2px rgba(0,0,0,.35);
+    --db-ia-mini-bg:        var(--bs-secondary-bg);
+    --db-ia-suave-bg:       var(--bs-secondary-bg);
+    --db-ia-como-bg:        var(--bs-secondary-bg);
+    --db-ia-rodape-bg:      var(--bs-tertiary-bg);
+    --db-ia-divisor:        var(--bs-border-color);
+    --db-ia-divisor-fraco:  var(--bs-border-color-translucent);
+    --db-ia-trilho:         var(--bs-secondary-bg);
+    --db-ia-chip-bg:        rgba(255,255,255,.08);
+    --db-ia-chip-texto:     var(--bs-body-color);
+    --db-ia-icone-bg:       rgba(79,179,212,.14);
+    --db-ia-icone-anel:     rgba(79,179,212,.35);
+    --db-ia-icone-brilho:   rgba(79,179,212,.2);
+    --db-ia-halo:           radial-gradient(circle, rgba(79,179,212,.12), transparent 65%);
+    --db-ia-btn-bg:         var(--bs-tertiary-bg);
+    --db-ia-btn-bg-hover:   var(--bs-secondary-bg);
+    --db-ia-btn-anel:       var(--bs-border-color);
+    --db-ia-btn-anel-hover: var(--db-accent);
+    --db-ia-btn-sombra:     none;
+    --db-ia-btn-sombra-hover: none;
+    --db-ia-switch-off:     rgba(255,255,255,.22);
+    --db-ia-switch-pill-bg: rgba(79,179,212,.14);
+    --db-ia-switch-pill-bg-hover: rgba(79,179,212,.22);
+    --db-ia-switch-pill-texto: var(--db-accent-text);
+    --db-ia-q-oque-bg:      rgba(79,179,212,.14);  --db-ia-q-oque:   var(--db-accent);
+    --db-ia-q-porque-bg:    rgba(99,130,220,.18);  --db-ia-q-porque: #9fb2f0;
+    --db-ia-q-fazer-bg:     rgba(214,146,30,.18);  --db-ia-q-fazer:  #e9be6c;
+    --db-ia-critico:        #f08a84;  --db-ia-critico-bg:      rgba(192,57,47,.2);
+    --db-ia-atencao:        #f0a86a;  --db-ia-atencao-bg:      rgba(180,86,15,.2);
+    --db-ia-monitorar:      #e9c95c;  --db-ia-monitorar-bg:    rgba(138,106,6,.22);
+    --db-ia-normal:         #6ddaa2;  --db-ia-normal-bg:       rgba(31,157,97,.2);
+    --db-ia-oportunidade:   #7cbcf2;  --db-ia-oportunidade-bg: rgba(15,111,196,.22);
+    --db-ia-risco-3:        #f08a84;
+    --db-ia-risco-2:        #e9be6c;
+    --db-ia-risco-1:        var(--bs-secondary-color);
+    --db-ia-acao-imediata:  #c0392f;
+    --db-ia-acao-acomp:     #5f7684;
+    --db-ia-acao-recom:     #0c7a9c;
+    --db-ia-dist-media:     var(--bs-body-color);
+    --db-ia-pergunta-bg:    var(--bs-tertiary-bg);
+    --db-ia-pergunta-anel:  var(--bs-border-color);
+    --db-ia-pergunta-texto: var(--db-accent-text);
+    --db-ia-resposta-anel:  var(--bs-border-color);
+}
+
+/* ── Botão no cabeçalho ──────────────────────────────────────────────────────
+   Filho direto de [data-filtro-resultado] (display:contents): participa do flex
+   do root com order 0 e vai para a ponta direita da primeira linha, ao lado do
+   título e do "Atualizado às" (dc L197: à direita do título). */
+.db-page .db-ia {
+    order: 0;
+    flex: 0 0 auto;
+    margin: 0 0 18px auto;
+    padding-bottom: 6px;
+    position: relative;
+}
+.db-page .db-ia-abrir {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 38px;
+    padding: 0 13px 0 9px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+    background: var(--db-ia-btn-bg);
+    box-shadow: inset 0 0 0 1px var(--db-ia-btn-anel), var(--db-ia-btn-sombra);
+    transition: box-shadow .3s ease, background .3s ease, transform .3s cubic-bezier(.34,1.56,.64,1);
+}
+.db-page .db-ia-abrir:hover,
+.db-page .db-ia-abrir:focus-visible {
+    background: var(--db-ia-btn-bg-hover);
+    box-shadow: inset 0 0 0 1px var(--db-ia-btn-anel-hover), var(--db-ia-btn-sombra-hover);
+    transform: translateY(-1px);
+    outline: none;
+}
+.db-page .db-ia-abrir:focus-visible { box-shadow: inset 0 0 0 1px var(--db-ia-btn-anel-hover), var(--db-focus); }
+.db-page .db-ia-abrir-texto { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.1; }
+.db-page .db-ia-abrir-marca { font-size: 10px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--db-accent); }
+.db-page .db-ia-abrir-nome  { font-size: 12.5px; font-weight: 700; letter-spacing: .01em; color: var(--db-text-strong); }
+/* ponto âmbar: há alerta com pelo menos um risco (dc L2708) */
+.db-page .db-ia-abrir-ponto {
+    position: absolute;
+    top: -3px;
+    right: -3px;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--db-ia-alerta-ponto);
+    box-shadow: 0 0 0 2px var(--db-card);
+}
+
+/* estrela (SVG do desenho): órbita, pulso e pontos que piscam */
+.db-page .db-ia-estrela { display: flex; filter: drop-shadow(0 0 2px rgba(21,151,189,.3)); transition: transform .35s cubic-bezier(.34,1.56,.64,1), filter .35s ease; }
+.db-page .db-ia-abrir:hover .db-ia-estrela { transform: scale(1.18) rotate(18deg); filter: drop-shadow(0 0 6px rgba(21,151,189,.75)); }
+.db-page .db-ia-estrela-svg { overflow: visible; display: block; }
+.db-page .db-ia-estrela-orbita { transform-box: view-box; transform-origin: 12px 12px; animation: dbIaOrbita 14s linear infinite; }
+.db-page .db-ia-estrela-anel { stroke: rgba(21,151,189,.38); stroke-width: 1; stroke-dasharray: 1.4 3.2; }
+.db-page .db-ia-estrela-satelite { fill: #5fc3dd; }
+.db-page .db-ia-estrela-corpo { fill: var(--db-accent); transform-box: view-box; transform-origin: 12px 12px; animation: dbIaPulsa 3.2s ease-in-out infinite; }
+.db-page .db-ia-estrela-ponto--1 { fill: #1597bd; animation: dbIaPisca 2.6s ease-in-out infinite; }
+.db-page .db-ia-estrela-ponto--2 { fill: #5fc3dd; animation: dbIaPisca 2.6s ease-in-out -1.3s infinite; }
+.db-page .db-ia-estrela-traco { stroke: rgba(21,151,189,.45); stroke-width: .8; }
+@keyframes dbIaOrbita { to { transform: rotate(360deg); } }
+@keyframes dbIaPulsa  { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+@keyframes dbIaPisca  { 0%, 100% { opacity: .45; } 50% { opacity: 1; } }
+
+/* ── Painel (popover) ────────────────────────────────────────────────────────
+   Zera o estilo de agente do [popover] (inset/margin/border/padding) e vira o
+   painel fixo do desenho: 460px (600 com o Modo avançado aberto), altura total,
+   coluna com cabeçalho, corpo rolável e rodapé. */
+.db-page .db-ia-painel {
+    position: fixed;
+    inset: 0 0 0 auto;
+    margin: 0;
+    width: min(460px, 100vw);
+    max-width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    max-height: none;
+    border: none;
+    padding: 0;
+    overflow: hidden;
+    display: none;
+    flex-direction: column;
+    color: var(--db-text);
+    background: var(--db-ia-painel-bg);
+    box-shadow: var(--db-ia-painel-sombra);
+    transition: width .35s var(--db-ia-ease);
+}
+.db-page .db-ia-painel:popover-open { display: flex; animation: dbIaEntra .42s var(--db-ia-ease) both; }
+.db-page .db-ia-painel::backdrop { background: var(--db-ia-veu); }
+.db-page .db-ia-painel:has(.db-ia-av[open]) { width: min(600px, 100vw); }
+@keyframes dbIaEntra { from { transform: translate3d(36px,0,0); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* cabeçalho */
+.db-page .db-ia-cab {
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 18px 18px 12px;
+}
+.db-page .db-ia-cab::before {
+    content: "";
+    position: absolute;
+    top: -70px;
+    right: -70px;
+    width: 220px;
+    height: 220px;
+    border-radius: 50%;
+    background: var(--db-ia-halo);
+    pointer-events: none;
+}
+.db-page .db-ia-cab-icone {
+    position: relative;
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--db-ia-icone-bg);
+    box-shadow: inset 0 0 0 1px var(--db-ia-icone-anel), 0 0 18px var(--db-ia-icone-brilho);
+}
+.db-page .db-ia-cab-texto { position: relative; flex: 1; min-width: 0; }
+.db-page .db-ia-cab-marca { font-size: 11px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; color: var(--db-accent); }
+.db-page .db-ia-cab-legenda { margin-top: 2px; font-size: 12.5px; font-weight: 600; color: var(--db-label); }
+.db-page .db-ia-cab-quando { margin-top: 1px; font-size: 11.5px; color: var(--db-text-2); }
+.db-page .db-ia-fechar {
+    position: relative;
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--db-text-2);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+}
+.db-page .db-ia-fechar:hover,
+.db-page .db-ia-fechar:focus-visible { background: var(--db-ia-chip-bg); color: var(--db-text-strong); outline: none; }
+.db-page .db-ia-sub {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 18px 14px;
+    border-bottom: 1px solid var(--db-ia-divisor);
+}
+.db-page .db-ia-titulo { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; font-weight: 700; color: var(--db-text-strong); }
+.db-page .db-ia-dia { font-size: 11.5px; color: var(--db-faint); white-space: nowrap; }
+
+/* corpo rolável */
+.db-page .db-ia-corpo {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 14px 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.db-page .db-ia-bloco {
+    padding: 14px;
+    border-radius: 4px;
+    background: var(--db-ia-bloco-bg);
+    box-shadow: inset 0 0 0 1px var(--db-ia-bloco-borda), var(--db-ia-bloco-sombra);
+    animation: dbIaBloco .45s var(--db-ia-ease) both;
+}
+.db-page .db-ia-corpo > .db-ia-bloco:nth-child(2) { animation-delay: .12s; }
+.db-page .db-ia-corpo > .db-ia-bloco:nth-child(3) { animation-delay: .20s; }
+.db-page .db-ia-corpo > .db-ia-bloco:nth-child(4) { animation-delay: .28s; }
+.db-page .db-ia-corpo > .db-ia-bloco:nth-child(5) { animation-delay: .36s; }
+@keyframes dbIaBloco { from { opacity: 0; transform: translate3d(0,10px,0); } to { opacity: 1; transform: none; } }
+
+.db-page .db-ia-secao-cab { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font-size: 11.5px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--db-label-card); }
+.db-page .db-ia-secao-cab i { font-size: 14px; color: var(--db-accent); }
+.db-page .db-ia-secao-espaco { flex: 1; }
+.db-page .db-ia-secao-cab-min { margin-bottom: 8px; font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--db-label); }
+.db-page .db-ia-secao-cab-min i { color: var(--db-accent); }
+.db-page .db-ia-vazio { font-size: 13px; color: var(--db-text-2); }
+.db-page .db-ia-nota { margin-top: 8px; font-size: 11.5px; line-height: 1.45; color: var(--db-faint); }
+.db-page .db-ia-chevron { font-size: 11px; color: var(--db-faint); transition: transform .2s; }
+.db-page details[open] > summary .db-ia-chevron { transform: rotate(180deg); }
+.db-page .db-ia summary { list-style: none; cursor: pointer; }
+.db-page .db-ia summary::-webkit-details-marker { display: none; }
+.db-page .db-ia summary:focus-visible { outline: none; box-shadow: var(--db-focus); border-radius: 4px; }
+
+/* ── Leitura básica ──────────────────────────────────────────────────────── */
+.db-page .db-ia-ritmo-grade { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+.db-page .db-ia-mini { padding: 9px 10px; border-radius: 4px; background: var(--db-ia-mini-bg); }
+.db-page .db-ia-mini-rotulo { font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--db-muted); }
+.db-page .db-ia-mini-valor { margin-top: 2px; font-size: 19px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--db-text-strong); }
+.db-page .db-ia-mini-un { font-size: 12px; font-weight: 600; color: var(--db-muted); }
+.db-page .db-ia-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.db-page .db-ia-kpi-min { padding: 8px 9px; border-radius: 4px; background: var(--db-ia-mini-bg); min-width: 0; }
+.db-page .db-ia-kpi-min-rotulo { font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--db-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.db-page .db-ia-kpi-min-valor { margin-top: 2px; font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--db-text-strong); }
+.db-page .db-ia-kpi-min-valor.is-ruim { color: var(--db-ia-critico); }
+.db-page .db-ia-barra { position: relative; height: 10px; border-radius: 999px; background: var(--db-ia-trilho); margin: 12px 0 6px; overflow: hidden; }
+.db-page .db-ia-barra-fill { position: absolute; inset: 0 auto 0 0; border-radius: 999px; background: var(--db-ia-barra-fill); animation: dbIaCresce .8s var(--db-ia-ease); }
+@keyframes dbIaCresce { from { width: 0; } }
+.db-page .db-ia-barra-legenda { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; color: var(--db-faint); }
+
+.db-page .db-ia-q { display: flex; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--db-ia-divisor-fraco); }
+.db-page .db-ia-q:first-child { padding-top: 0; }
+.db-page .db-ia-q:last-child { border-bottom: none; padding-bottom: 0; }
+.db-page .db-ia-q-icone { width: 28px; height: 28px; border-radius: 4px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 13px; }
+.db-page .db-ia-q-icone--oque   { background: var(--db-ia-q-oque-bg);   color: var(--db-ia-q-oque); }
+.db-page .db-ia-q-icone--porque { background: var(--db-ia-q-porque-bg); color: var(--db-ia-q-porque); }
+.db-page .db-ia-q-icone--fazer  { background: var(--db-ia-q-fazer-bg);  color: var(--db-ia-q-fazer); }
+.db-page .db-ia-q-titulo { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--db-label); }
+.db-page .db-ia-q-texto { margin-top: 2px; font-size: 13.5px; line-height: 1.45; color: var(--db-text); text-wrap: pretty; }
+
+.db-page .db-ia-acao { display: flex; gap: 10px; padding: 7px 0; }
+.db-page .db-ia-acao-n { width: 22px; height: 22px; border-radius: 4px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #fff; background: var(--db-ia-acao-recom); }
+.db-page .db-ia-acao--imediata .db-ia-acao-n { background: var(--db-ia-acao-imediata); }
+.db-page .db-ia-acao--acompanhamento .db-ia-acao-n { background: var(--db-ia-acao-acomp); }
+.db-page .db-ia-acao-grupo { font-size: 10.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--db-muted); }
+.db-page .db-ia-acao--imediata .db-ia-acao-grupo { color: var(--db-ia-acao-imediata); }
+.db-page .db-ia-acao-texto { font-size: 13.5px; line-height: 1.4; color: var(--db-text-strong); }
+
+.db-page .db-ia-risco { display: flex; align-items: flex-start; gap: 8px; padding: 5px 0; font-size: 13px; line-height: 1.4; color: var(--db-text); }
+.db-page .db-ia-risco .db-ia-ponto { margin-top: 5px; background: var(--db-ia-risco-1); }
+.db-page .db-ia-risco--2 .db-ia-ponto { background: var(--db-ia-risco-2); }
+.db-page .db-ia-risco--3 .db-ia-ponto { background: var(--db-ia-risco-3); }
+.db-page .db-ia-ponto { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; display: inline-block; }
+
+.db-page .db-ia-limites ul { margin: 0 0 4px; padding-left: 18px; font-size: 12.5px; line-height: 1.5; color: var(--db-label); }
+.db-page .db-ia-limites li + li { margin-top: 4px; }
+
+/* ── Modo avançado ───────────────────────────────────────────────────────── */
+.db-page .db-ia-av-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 34px;
+    padding: 4px 6px 4px 12px;
+    border-radius: 999px;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--db-ia-switch-pill-texto);
+    background: var(--db-ia-switch-pill-bg);
+    transition: background .2s;
+}
+.db-page .db-ia-av-toggle:hover { background: var(--db-ia-switch-pill-bg-hover); }
+.db-page .db-ia-av-toggle i { font-size: 14px; }
+.db-page .db-ia-av-toggle-sub { flex: 1; min-width: 0; font-size: 11.5px; font-weight: 500; color: var(--db-text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.db-page .db-ia-switch { position: relative; width: 32px; height: 18px; border-radius: 999px; flex-shrink: 0; background: var(--db-ia-switch-off); transition: background .2s; }
+.db-page .db-ia-switch-bola { position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(16,42,58,.3); transition: transform .22s var(--db-ia-ease); }
+.db-page .db-ia-av[open] > summary .db-ia-switch { background: var(--db-ia-switch-on); }
+.db-page .db-ia-av[open] > summary .db-ia-switch-bola { transform: translateX(14px); }
+.db-page .db-ia-av-corpo { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; animation: dbIaBloco .4s var(--db-ia-ease) both; }
+.db-page .db-ia-av-cab { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.db-page .db-ia-h { font-size: 15px; font-weight: 700; color: var(--db-text-strong); }
+.db-page .db-ia-h-sub { margin-top: 2px; font-size: 12px; color: var(--db-muted); }
+.db-page .db-ia-carimbo { font-size: 11.5px; color: var(--db-faint); white-space: nowrap; }
+
+/* cores por nível: cada bloco com `.db-ia-nivel--*` ganha --db-ia-cor/-fundo */
+.db-page .db-ia-nivel--critico      { --db-ia-cor: var(--db-ia-critico);      --db-ia-fundo: var(--db-ia-critico-bg); }
+.db-page .db-ia-nivel--atencao      { --db-ia-cor: var(--db-ia-atencao);      --db-ia-fundo: var(--db-ia-atencao-bg); }
+.db-page .db-ia-nivel--monitorar    { --db-ia-cor: var(--db-ia-monitorar);    --db-ia-fundo: var(--db-ia-monitorar-bg); }
+.db-page .db-ia-nivel--normal       { --db-ia-cor: var(--db-ia-normal);       --db-ia-fundo: var(--db-ia-normal-bg); }
+.db-page .db-ia-nivel--oportunidade { --db-ia-cor: var(--db-ia-oportunidade); --db-ia-fundo: var(--db-ia-oportunidade-bg); }
+
+/* cockpit */
+.db-page .db-ia-cockpit { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.db-page .db-ia-kpi { padding: 10px 11px; border-radius: 4px; background: var(--db-ia-bloco-bg); box-shadow: inset 0 0 0 1px var(--db-ia-bloco-borda); }
+.db-page .db-ia-kpi-rotulo { font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--db-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.db-page .db-ia-kpi-valor { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 13.5px; font-weight: 700; line-height: 1.25; color: var(--db-ia-cor); }
+.db-page .db-ia-kpi.db-ia-nivel--normal .db-ia-kpi-valor { color: var(--db-text-strong); }
+.db-page .db-ia-kpi .db-ia-ponto { background: var(--db-ia-cor); box-shadow: 0 0 0 3px var(--db-ia-fundo); }
+
+/* qualidade */
+.db-page .db-ia-qual { padding: 11px 12px; border-radius: 4px; background: var(--db-ia-suave-bg); box-shadow: inset 0 0 0 1px var(--db-ia-bloco-borda); }
+.db-page .db-ia-qual-toggle { display: flex; align-items: center; gap: 10px; width: 100%; }
+.db-page .db-ia-qual-toggle > i:first-child { font-size: 14px; color: var(--db-accent); }
+.db-page .db-ia-qual-rotulo { font-size: 12.5px; font-weight: 700; color: var(--db-text); white-space: nowrap; }
+.db-page .db-ia-qual-trilho { flex: 1; height: 6px; border-radius: 999px; background: var(--db-ia-divisor); overflow: hidden; }
+.db-page .db-ia-qual-barra { display: block; height: 100%; border-radius: 999px; }
+.db-page .db-ia-qual-barra--alta  { background: var(--db-ia-qual-alta); }
+.db-page .db-ia-qual-barra--media { background: var(--db-ia-qual-media); }
+.db-page .db-ia-qual-barra--baixa { background: var(--db-ia-qual-baixa); }
+.db-page .db-ia-qual-nota { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--db-text-strong); }
+.db-page .db-ia-qual-notas { margin: 9px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 5px; font-size: 12px; line-height: 1.45; color: var(--db-label); }
+
+/* central de inteligência */
+.db-page .db-ia-contagem { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.db-page .db-ia-chip { display: inline-flex; align-items: center; gap: 3px; height: 24px; padding: 0 9px; border-radius: 999px; font-size: 12px; font-weight: 600; color: var(--db-ia-cor); background: var(--db-ia-fundo); }
+.db-page .db-ia-chip.is-vazio { opacity: .5; }
+.db-page .db-ia-chip b { font-variant-numeric: tabular-nums; }
+.db-page .db-ia-alertas { display: flex; flex-direction: column; gap: 8px; }
+.db-page .db-ia-alerta { border-radius: 4px; background: var(--db-ia-bloco-bg); box-shadow: inset 3px 0 0 var(--db-ia-cor), inset 0 0 0 1px var(--db-ia-bloco-borda); }
+.db-page .db-ia-alerta-cab { display: flex; align-items: flex-start; gap: 10px; width: 100%; padding: 11px 12px; text-align: left; }
+.db-page .db-ia-alerta-cab .db-ia-ponto { width: 9px; height: 9px; margin-top: 5px; background: var(--db-ia-cor); box-shadow: 0 0 0 3px var(--db-ia-fundo); }
+.db-page .db-ia-alerta-cab .db-ia-chevron { margin-top: 4px; }
+.db-page .db-ia-alerta-texto { flex: 1; min-width: 0; }
+.db-page .db-ia-alerta-linha { display: flex; align-items: center; gap: 4px 7px; flex-wrap: wrap; }
+.db-page .db-ia-alerta-titulo { font-size: 13.5px; font-weight: 700; color: var(--db-text-strong); }
+.db-page .db-ia-nivel-chip { font-size: 10.5px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; border-radius: 999px; padding: 1px 7px; color: var(--db-ia-cor); background: var(--db-ia-fundo); }
+.db-page .db-ia-alerta-problema { display: block; margin-top: 3px; font-size: 12.5px; line-height: 1.45; color: var(--db-label); }
+.db-page .db-ia-alerta-corpo { padding: 0 12px 12px 30px; display: flex; flex-direction: column; gap: 7px; animation: dbIaBloco .2s ease both; }
+.db-page .db-ia-kv { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 8px; font-size: 12.5px; line-height: 1.45; }
+.db-page .db-ia-kv-k { font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--db-faint); padding-top: 2px; }
+.db-page .db-ia-kv-v { color: var(--db-text); }
+.db-page .db-ia-fatores { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 2px; }
+.db-page .db-ia-fator { font-size: 11px; font-weight: 600; color: var(--db-ia-chip-texto); background: var(--db-ia-chip-bg); border-radius: 4px; padding: 2px 7px; }
+.db-page .db-ia-como > summary { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; color: var(--db-azul); }
+.db-page .db-ia-como > summary:hover { color: var(--db-azul-hover); }
+.db-page .db-ia-como-corpo { margin-top: 6px; padding: 9px 10px; border-radius: 4px; background: var(--db-ia-como-bg); font-size: 12px; line-height: 1.5; color: var(--db-label); }
+.db-page .db-ia-como-h { font-weight: 700; color: var(--db-label-card); margin-bottom: 3px; }
+.db-page .db-ia-como-h + div ~ .db-ia-como-h { margin-top: 6px; }
+
+/* distribuição */
+.db-page .db-ia-legenda-cor { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--db-muted); }
+.db-page .db-ia-cor { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+.db-page .db-ia-cor--ativas { background: var(--db-accent); }
+.db-page .db-ia-cor--vencidas { background: var(--db-ia-dist-vencidas); }
+.db-page .db-ia-dist-linha { display: grid; grid-template-columns: 70px minmax(0, 1fr) 26px; align-items: center; gap: 8px; padding: 3px 0; }
+.db-page .db-ia-dist-nome { font-size: 12px; color: var(--db-label-card); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.db-page .db-ia-dist-trilho { position: relative; height: 9px; border-radius: 999px; background: var(--db-ia-divisor-fraco); display: block; }
+.db-page .db-ia-dist-ativas, .db-page .db-ia-dist-vencidas { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px; }
+.db-page .db-ia-dist-ativas { background: var(--db-ia-dist-ativas); animation: dbIaCresce .7s var(--db-ia-ease); }
+.db-page .db-ia-dist-vencidas { background: var(--db-ia-dist-vencidas); opacity: .85; }
+.db-page .db-ia-dist-media { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; border-radius: 2px; background: var(--db-ia-dist-media); opacity: .45; }
+.db-page .db-ia-dist-num { font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--db-text-strong); text-align: right; }
+
+/* visão estratégica da equipe */
+.db-page .db-ia-gestor-linha { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 10px; padding: 6px 0; border-bottom: 1px dashed var(--db-ia-divisor); }
+.db-page .db-ia-gestor-linha:last-child { border-bottom: none; }
+.db-page .db-ia-gestor-p { font-size: 12px; color: var(--db-muted); }
+.db-page .db-ia-gestor-r { font-size: 12.5px; font-weight: 600; line-height: 1.4; color: var(--db-text-strong); }
+
+/* perguntas guiadas */
+.db-page .db-ia-perguntas { background: linear-gradient(180deg, var(--db-ia-suave-bg), var(--db-ia-bloco-bg)); }
+.db-page .db-ia-pergunta + .db-ia-pergunta { margin-top: 6px; }
+.db-page .db-ia-pergunta > summary { display: inline-flex; align-items: center; min-height: 30px; padding: 4px 11px; border-radius: 999px; font-size: 12px; font-weight: 600; color: var(--db-ia-pergunta-texto); background: var(--db-ia-pergunta-bg); box-shadow: inset 0 0 0 1px var(--db-ia-pergunta-anel); transition: background .2s, color .2s; }
+.db-page .db-ia-pergunta[open] > summary { background: var(--db-accent); color: #fff; box-shadow: none; }
+.db-page .db-ia-resposta { display: flex; gap: 9px; margin-top: 8px; padding: 10px 11px; border-radius: 4px; background: var(--db-ia-bloco-bg); box-shadow: inset 0 0 0 1px var(--db-ia-resposta-anel); font-size: 12.5px; line-height: 1.5; color: var(--db-text); animation: dbIaBloco .2s ease both; }
+.db-page .db-ia-resposta i { font-size: 14px; color: var(--db-accent); margin-top: 1px; }
+
+/* rodapé */
+.db-page .db-ia-rodape { display: flex; align-items: center; gap: 7px; padding: 10px 16px 12px; border-top: 1px solid var(--db-ia-divisor); background: var(--db-ia-rodape-bg); font-size: 12px; color: var(--db-text-2); }
+.db-page .db-ia-rodape i { font-size: 12px; color: var(--db-accent); }
+
+/* ── Responsividade ──────────────────────────────────────────────────────── */
+@media (max-width: 719.98px) {
+    .db-page .db-ia { flex: 0 0 100%; margin: -6px 0 14px; padding-bottom: 0; }
+    .db-page .db-ia-abrir { width: 100%; justify-content: center; }
+    .db-page .db-ia-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .db-page .db-ia-gestor-linha { grid-template-columns: 1fr; gap: 2px; }
+    .db-page .db-ia-kv { grid-template-columns: 1fr; gap: 1px; }
+    .db-page .db-ia-alerta-corpo { padding-left: 12px; }
+}
+
+/* ── Sem Popover API: painel aberto em bloco, logo abaixo do título ──────── */
+@supports not selector(:popover-open) {
+    .db-page .db-ia { flex: 0 0 100%; margin-left: 0; }
+    .db-page .db-ia-abrir, .db-page .db-ia-fechar { display: none; }
+    .db-page .db-ia-painel { display: flex; position: static; width: 100%; max-width: none; height: auto; border: 1px solid var(--db-border); border-radius: 4px; box-shadow: var(--db-shadow-caixa); }
+    .db-page .db-ia-corpo { overflow: visible; }
+}
+
+/* ── Movimento reduzido e impressão ──────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+    .db-page .db-ia *, .db-page .db-ia *::before, .db-page .db-ia *::after { animation: none !important; transition: none !important; }
+}
+@media print {
+    .db-page .db-ia { display: none !important; }
+}

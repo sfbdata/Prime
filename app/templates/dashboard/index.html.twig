@@ -12,6 +12,8 @@
 {# Visual aprovado do Dashboard — desenho em docs/design/ (01 - Dashboard 1.2.2.dc.html).
    Tudo escopado em .db-page/.db-body; o estilo não vem mais inline daqui. #}
 <link rel="stylesheet" href="{{ asset('css/dashboard.css') }}">
+{# Painel BlueJus Intelligence (botão no cabeçalho + painel lateral), escopado em .db-page. #}
+<link rel="stylesheet" href="{{ asset('css/dashboard-inteligencia.css') }}">
 {% endblock %}
 
 {% block body %}
@@ -103,6 +105,9 @@
 
         <div data-filtro-resultado>
             {{ include('dashboard/_resultado.html.twig') }}
+            {# BlueJus Intelligence: dentro da região que recarrega, para a leitura seguir o
+               filtro (o XHR do controller devolve os dois parciais nesta mesma ordem). #}
+            {{ include('dashboard/_inteligencia.html.twig') }}
         </div>
 
         {# Exportar PDF: impressão do navegador (A4 paisagem, @media print no CSS),

@@ -1,0 +1,267 @@
+{# ───────────────────────────────────────────────────────────────────────────
+   BlueJus Intelligence — painel lateral do Dashboard.
+   Desenho: 01 - Dashboard 1.2.2.dc.html, botão no cabeçalho (L197-207) e painel
+   fixo à direita (L853-1430). Mora no fragmento trocável DE PROPÓSITO: a leitura
+   segue os filtros, como no protótipo, que recalcula sobre as linhas filtradas.
+
+   O conteúdo vem PRONTO do servidor (App\Dashboard\Inteligencia): regras fixas
+   sobre os números do período. Não há modelo de linguagem — e o texto da tela
+   não diz que há. Sem JS: o painel abre pelo Popover API nativo (`popovertarget`),
+   fecha pelo X, por Esc ou clicando fora; o Modo avançado é um <details> sem
+   persistência (preferência por usuário não existe no sistema; nada de
+   localStorage). O que no desenho depende de função ou dado inexistente não é
+   renderizado: plano "Aumentar o nível", Criar tarefa, Resolvido/Ignorar,
+   feedback, simular dia, Inteligência de Desempenho (condição por pessoa).
+   Estilo em public/css/dashboard-inteligencia.css (escopo .db-page).
+─────────────────────────────────────────────────────────────────────────── #}
+{% import _self as ui %}
+{% macro estrela(tamanho) %}
+<svg width="{{ tamanho }}" height="{{ tamanho }}" viewBox="0 0 24 24" aria-hidden="true" focusable="false" class="db-ia-estrela-svg">
+    <g class="db-ia-estrela-orbita"><circle cx="12" cy="12" r="10.5" fill="none" class="db-ia-estrela-anel"></circle><circle cx="22.5" cy="12" r="1.3" class="db-ia-estrela-satelite"></circle></g>
+    <path d="M12 3.2 L13.7 10.3 L20.8 12 L13.7 13.7 L12 20.8 L10.3 13.7 L3.2 12 L10.3 10.3 Z" class="db-ia-estrela-corpo"></path>
+    <circle cx="18.6" cy="5.4" r="1.7" class="db-ia-estrela-ponto db-ia-estrela-ponto--1"></circle>
+    <circle cx="5.6" cy="17.8" r="1.1" class="db-ia-estrela-ponto db-ia-estrela-ponto--2"></circle>
+    <line x1="13.7" y1="10.3" x2="18.6" y2="5.4" class="db-ia-estrela-traco"></line>
+</svg>
+{% endmacro %}
+{% macro fmt(v) %}{{ (v|round(1) ~ '')|replace({'.': ','}) }}{% endmacro %}
+
+{% set ritmo = inteligencia.ritmo %}
+{% set av = inteligencia.avancado %}
+{% set pontos = inteligencia.pontosDeAtencao %}
+{# Dica do botão (dc L2706): a contagem de riscos, sem atribuir a leitura a ninguém. #}
+{% set dica = inteligencia.temAlerta ? pontos ~ (pontos == 1 ? ' ponto de atenção' : ' pontos de atenção') : 'Leitura do período' %}
+{% set hora = inteligencia.geradaEm|date('H:i') %}
+
+<div class="db-ia">
+    <button type="button" class="db-ia-abrir{{ inteligencia.temAlerta ? ' is-alerta' : '' }}" popovertarget="dbIaPainel" title="{{ dica }}" aria-label="Abrir BlueJus Intelligence: {{ dica }}">
+        <span class="db-ia-estrela" aria-hidden="true">{{ ui.estrela(20) }}</span>
+        <span class="db-ia-abrir-texto"><span class="db-ia-abrir-marca">BlueJus</span><span class="db-ia-abrir-nome">Intelligence</span></span>
+        {% if inteligencia.temAlerta %}<span class="db-ia-abrir-ponto" aria-hidden="true"></span>{% endif %}
+    </button>
+
+    <aside id="dbIaPainel" class="db-ia-painel" popover role="dialog" aria-labelledby="dbIaMarca" aria-describedby="dbIaLegenda">
+        <div class="db-ia-cab">
+            <span class="db-ia-cab-icone" aria-hidden="true">{{ ui.estrela(26) }}</span>
+            <div class="db-ia-cab-texto">
+                <div class="db-ia-cab-marca" id="dbIaMarca">BlueJus Intelligence</div>
+                {# Legenda honesta: o que o painel é, sem vender o que não é. #}
+                <div class="db-ia-cab-legenda" id="dbIaLegenda">Leitura automática dos números do período, por regras fixas</div>
+                <div class="db-ia-cab-quando">Atualizada hoje às {{ hora }} · {{ inteligencia.periodoTexto }}</div>
+            </div>
+            <button type="button" class="db-ia-fechar" popovertarget="dbIaPainel" popovertargetaction="hide" aria-label="Fechar"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+        </div>
+        <div class="db-ia-sub">
+            <span class="db-ia-titulo">Visão da equipe</span>
+            {% if ritmo.tempo %}<span class="db-ia-dia">dia {{ ritmo.tempo.passados }} de {{ ritmo.tempo.total }}</span>{% endif %}
+        </div>
+
+        <div class="db-ia-corpo">
+
+            {# ── Modo avançado (dc L872 interruptor; L961-1278 conteúdo da aba Escritório).
+               Expansível, sem lembrar a escolha: o protótipo guardava em localStorage por
+               usuário e pedia confirmação num modal — nada disso existe aqui. #}
+            <details class="db-ia-av">
+                <summary class="db-ia-av-toggle" title="Análises ampliadas do escritório">
+                    <i class="bi bi-cpu" aria-hidden="true"></i>
+                    <span class="db-ia-av-toggle-texto">Modo avançado</span>
+                    <span class="db-ia-av-toggle-sub">visão estratégica, cockpit e alertas</span>
+                    <span class="db-ia-switch" aria-hidden="true"><span class="db-ia-switch-bola"></span></span>
+                </summary>
+                <div class="db-ia-av-corpo">
+                    <div class="db-ia-av-cab">
+                        <div>
+                            <div class="db-ia-h">Visão estratégica do escritório</div>
+                            <div class="db-ia-h-sub">Entenda. Antecipe. Aja. Evolua.</div>
+                        </div>
+                        <span class="db-ia-carimbo">Hoje, {{ hora }}</span>
+                    </div>
+
+                    {# cockpit (bluejus-avancado.js L203-212, sem "Produtividade": depende do estado do ritmo) #}
+                    <div class="db-ia-cockpit">
+                        {% for k in av.cockpit %}
+                            <div class="db-ia-kpi db-ia-nivel--{{ k.nivel.value }}"{% if k.dica %} title="{{ k.dica }}"{% endif %}>
+                                <div class="db-ia-kpi-rotulo">{{ k.rotulo }}</div>
+                                <div class="db-ia-kpi-valor"><span class="db-ia-ponto" aria-hidden="true"></span><span>{{ k.valor }}</span></div>
+                            </div>
+                        {% endfor %}
+                    </div>
+
+                    {# qualidade dos dados (L192-200): nota por penalidades declaradas #}
+                    {% set faixa = av.qualidadeNota >= 80 ? 'alta' : (av.qualidadeNota >= 60 ? 'media' : 'baixa') %}
+                    <details class="db-ia-qual">
+                        <summary class="db-ia-qual-toggle" title="Nota por regras: −6 por colaborador sem cargo, −15 no início do período (ou −6 em andamento), −20 com menos de 3 colaboradores, −4 fixo; mínimo 40">
+                            <i class="bi bi-shield-check" aria-hidden="true"></i>
+                            <span class="db-ia-qual-rotulo">Qualidade da análise</span>
+                            <span class="db-ia-qual-trilho" aria-hidden="true"><span class="db-ia-qual-barra db-ia-qual-barra--{{ faixa }}" style="width:{{ av.qualidadeNota }}%"></span></span>
+                            <span class="db-ia-qual-nota">{{ av.qualidadeNota }}%</span>
+                            <i class="bi bi-chevron-down db-ia-chevron" aria-hidden="true"></i>
+                        </summary>
+                        <ul class="db-ia-qual-notas">
+                            {% for q in av.qualidadeNotas %}<li>{{ q }}</li>{% endfor %}
+                        </ul>
+                    </details>
+
+                    {# Central de Inteligência (L33-189): alertas problema → evidência → causa → impacto → ação #}
+                    <section class="db-ia-central">
+                        <div class="db-ia-secao-cab"><i class="bi bi-broadcast" aria-hidden="true"></i><span>Central de Inteligência</span></div>
+                        <div class="db-ia-contagem">
+                            {% for c in av.contagemPorNivel %}
+                                <span class="db-ia-chip db-ia-nivel--{{ c.nivel.value }}{{ c.total == 0 ? ' is-vazio' : '' }}"><b>{{ c.total }}</b> {{ c.nivel.rotulo|lower }}</span>
+                            {% endfor %}
+                        </div>
+                        <div class="db-ia-alertas">
+                            {% for a in av.alertas %}
+                                <details class="db-ia-alerta db-ia-nivel--{{ a.nivel.value }}" data-alerta="{{ a.id }}">
+                                    <summary class="db-ia-alerta-cab">
+                                        <span class="db-ia-ponto" aria-hidden="true"></span>
+                                        <span class="db-ia-alerta-texto">
+                                            <span class="db-ia-alerta-linha"><span class="db-ia-alerta-titulo">{{ a.titulo }}</span><span class="db-ia-nivel-chip">{{ a.nivel.rotulo }}</span></span>
+                                            <span class="db-ia-alerta-problema">{{ a.problema }}</span>
+                                        </span>
+                                        <i class="bi bi-chevron-down db-ia-chevron" aria-hidden="true"></i>
+                                    </summary>
+                                    <div class="db-ia-alerta-corpo">
+                                        {% for k, v in a.linhas %}
+                                            <div class="db-ia-kv"><span class="db-ia-kv-k">{{ k }}</span><span class="db-ia-kv-v">{{ v }}</span></div>
+                                        {% endfor %}
+                                        {% if a.fatores %}
+                                            <div class="db-ia-fatores">{% for f in a.fatores %}<span class="db-ia-fator">{{ f }}</span>{% endfor %}</div>
+                                        {% endif %}
+                                        <details class="db-ia-como">
+                                            <summary><i class="bi bi-diagram-3" aria-hidden="true"></i>Como esta leitura foi montada</summary>
+                                            <div class="db-ia-como-corpo">
+                                                <div class="db-ia-como-h">Dados analisados</div>
+                                                {% for d in a.dados %}<div>→ {{ d }}</div>{% endfor %}
+                                                <div class="db-ia-como-h">Fatores da classificação</div>
+                                                {% for f in a.fatores %}<div>→ {{ f }}</div>{% endfor %}
+                                            </div>
+                                        </details>
+                                    </div>
+                                </details>
+                            {% else %}
+                                <div class="db-ia-vazio">Nenhum alerta com os números atuais.</div>
+                            {% endfor %}
+                        </div>
+                    </section>
+
+                    {# distribuição da equipe (L214-216) #}
+                    <section class="db-ia-bloco db-ia-dist">
+                        <div class="db-ia-secao-cab">
+                            <i class="bi bi-bar-chart-line" aria-hidden="true"></i><span>Distribuição da equipe</span>
+                            <span class="db-ia-secao-espaco"></span>
+                            <span class="db-ia-legenda-cor"><span class="db-ia-cor db-ia-cor--ativas" aria-hidden="true"></span>ativas</span>
+                            <span class="db-ia-legenda-cor"><span class="db-ia-cor db-ia-cor--vencidas" aria-hidden="true"></span>vencidas</span>
+                        </div>
+                        {% for d in av.distribuicao %}
+                            <div class="db-ia-dist-linha">
+                                <span class="db-ia-dist-nome" title="{{ d.ativas }} ativas, {{ d.vencidas }} vencidas">{{ d.nome }}</span>
+                                <span class="db-ia-dist-trilho" aria-hidden="true"><span class="db-ia-dist-ativas" style="width:{{ d.pctAtivas }}%"></span><span class="db-ia-dist-vencidas" style="width:{{ d.pctVencidas }}%"></span><span class="db-ia-dist-media" style="left:{{ av.mediaPct }}%"></span></span>
+                                <span class="db-ia-dist-num">{{ d.ativas }}</span>
+                            </div>
+                        {% else %}
+                            <div class="db-ia-vazio">Nenhum colaborador com esses filtros.</div>
+                        {% endfor %}
+                        <div class="db-ia-nota">Traço: média da equipe ({{ ui.fmt(av.mediaValor) }} ativas por pessoa)</div>
+                    </section>
+
+                    {# visão estratégica da equipe (dc L1324-1333; só as linhas com lastro) #}
+                    <section class="db-ia-bloco db-ia-gestor">
+                        <div class="db-ia-secao-cab-min">Visão estratégica da equipe</div>
+                        {% for g in av.visaoEstrategica %}
+                            <div class="db-ia-gestor-linha"><span class="db-ia-gestor-p">{{ g.pergunta }}</span><span class="db-ia-gestor-r">{{ g.resposta }}</span></div>
+                        {% endfor %}
+                    </section>
+
+                    {# principais riscos (dc L1340-1348; bluejus-intelligence.js L99-107) #}
+                    <section class="db-ia-bloco db-ia-riscos">
+                        <div class="db-ia-secao-cab-min">Principais riscos</div>
+                        {% for r in ritmo.riscos %}
+                            <div class="db-ia-risco db-ia-risco--{{ r.severidade }}" data-tipo="{{ r.tipo }}" data-numeros="{{ r.numeros|json_encode|e('html_attr') }}"><span class="db-ia-ponto" aria-hidden="true"></span><span>{{ r.texto }}</span></div>
+                        {% else %}
+                            <div class="db-ia-vazio">Nenhum risco relevante identificado.</div>
+                        {% endfor %}
+                    </section>
+
+                    {# perguntas guiadas (L218-226): respostas montadas só a partir dos achados #}
+                    <section class="db-ia-bloco db-ia-perguntas">
+                        <div class="db-ia-secao-cab"><i class="bi bi-chat-square-text" aria-hidden="true"></i><span>Perguntas guiadas</span></div>
+                        {% for p in av.perguntas %}
+                            <details class="db-ia-pergunta">
+                                <summary>{{ p.pergunta }}</summary>
+                                <div class="db-ia-resposta"><i class="bi bi-stars" aria-hidden="true"></i><span>{{ p.resposta }}</span></div>
+                            </details>
+                        {% endfor %}
+                    </section>
+                </div>
+            </details>
+
+            {# ── Leitura básica ─────────────────────────────────────────────────
+               s1 do desenho (dc L1281-1299) sem o selo de estado nem o "ritmo
+               necessário" (não classificado): entrada e conclusão por dia, só com
+               período; números do período e a taxa de conclusão. #}
+            <section class="db-ia-bloco db-ia-ritmo">
+                {% if ritmo.tempo %}
+                    <div class="db-ia-ritmo-grade">
+                        <div class="db-ia-mini"><div class="db-ia-mini-rotulo">Entram por dia</div><div class="db-ia-mini-valor">{{ ui.fmt(ritmo.novasPorDia) }}<span class="db-ia-mini-un"> /dia</span></div></div>
+                        <div class="db-ia-mini"><div class="db-ia-mini-rotulo">Concluídas por dia</div><div class="db-ia-mini-valor">{{ ui.fmt(ritmo.ritmoAtual) }}<span class="db-ia-mini-un"> /dia</span></div></div>
+                    </div>
+                {% endif %}
+                <div class="db-ia-kpis">
+                    <div class="db-ia-kpi-min"><div class="db-ia-kpi-min-rotulo">{{ ritmo.tempo ? 'Abertas no período' : 'Metas' }}</div><div class="db-ia-kpi-min-valor">{{ ritmo.novas }}</div></div>
+                    <div class="db-ia-kpi-min"><div class="db-ia-kpi-min-rotulo">Concluídas</div><div class="db-ia-kpi-min-valor">{{ ritmo.concluidas }}</div></div>
+                    <div class="db-ia-kpi-min"><div class="db-ia-kpi-min-rotulo">Ativas</div><div class="db-ia-kpi-min-valor">{{ ritmo.ativas }}</div></div>
+                    <div class="db-ia-kpi-min"><div class="db-ia-kpi-min-rotulo">Vencidas</div><div class="db-ia-kpi-min-valor{{ ritmo.vencidas > 0 ? ' is-ruim' : '' }}">{{ ritmo.vencidas }}</div></div>
+                </div>
+                {% set taxa = ritmo.novas > 0 ? (ritmo.concluidas * 100 / ritmo.novas)|round : 0 %}
+                <div class="db-ia-barra" role="img" aria-label="{{ taxa }}% das metas concluídas"><div class="db-ia-barra-fill" style="width:{{ taxa }}%"></div></div>
+                <div class="db-ia-barra-legenda"><span>{{ ritmo.concluidas }} {{ ritmo.concluidas == 1 ? 'concluída' : 'concluídas' }}</span><span>{{ taxa }}% das {{ ritmo.novas }} {{ ritmo.tempo ? 'abertas no período' : 'metas' }}</span></div>
+            </section>
+
+            {# s2: o que está acontecendo / por que / o que fazer agora (dc L1301-1312) #}
+            <section class="db-ia-bloco db-ia-leitura">
+                {% if ritmo.oQue %}
+                    <div class="db-ia-q">
+                        <span class="db-ia-q-icone db-ia-q-icone--oque" aria-hidden="true"><i class="bi bi-activity"></i></span>
+                        <div><div class="db-ia-q-titulo">O que está acontecendo</div><div class="db-ia-q-texto" data-tipo="{{ ritmo.oQue.tipo }}" data-numeros="{{ ritmo.oQue.numeros|json_encode|e('html_attr') }}">{{ ritmo.oQue.texto }}</div></div>
+                    </div>
+                {% endif %}
+                {% if ritmo.porQue %}
+                    <div class="db-ia-q">
+                        <span class="db-ia-q-icone db-ia-q-icone--porque" aria-hidden="true"><i class="bi bi-diagram-3"></i></span>
+                        <div><div class="db-ia-q-titulo">Por que</div><div class="db-ia-q-texto">{% for l in ritmo.porQue %}<span data-tipo="{{ l.tipo }}" data-numeros="{{ l.numeros|json_encode|e('html_attr') }}">{{ l.texto }}</span>{{ not loop.last ? ' ' }}{% endfor %}</div></div>
+                    </div>
+                {% endif %}
+                {% if ritmo.oQueFazer %}
+                    <div class="db-ia-q">
+                        <span class="db-ia-q-icone db-ia-q-icone--fazer" aria-hidden="true"><i class="bi bi-lightning-charge"></i></span>
+                        <div><div class="db-ia-q-titulo">O que fazer agora</div><div class="db-ia-q-texto" data-tipo="{{ ritmo.oQueFazer.tipo }}" data-numeros="{{ ritmo.oQueFazer.numeros|json_encode|e('html_attr') }}">{{ ritmo.oQueFazer.texto }}</div></div>
+                    </div>
+                {% endif %}
+            </section>
+
+            {# s6: próximas ações (dc L1351-1361; bluejus-intelligence.js L87-97) #}
+            <section class="db-ia-bloco db-ia-acoes">
+                <div class="db-ia-secao-cab-min">Próximas ações</div>
+                {% for a in ritmo.acoes %}
+                    {% set grupo = a.grupo == 'Atenção imediata' ? 'imediata' : (a.grupo == 'Acompanhamento' ? 'acompanhamento' : 'recomendada') %}
+                    <div class="db-ia-acao db-ia-acao--{{ grupo }}" data-tipo="{{ a.tipo }}" data-numeros="{{ a.numeros|json_encode|e('html_attr') }}">
+                        <span class="db-ia-acao-n" aria-hidden="true">{{ loop.index }}</span>
+                        <div><div class="db-ia-acao-grupo">{{ a.grupo }}</div><div class="db-ia-acao-texto">{{ a.texto }}</div></div>
+                    </div>
+                {% endfor %}
+            </section>
+
+            {# limites: o que o painel NÃO faz com os dados do sistema — declarado, não simulado #}
+            <section class="db-ia-bloco db-ia-limites">
+                <div class="db-ia-secao-cab-min"><i class="bi bi-info-circle" aria-hidden="true"></i> O que este painel não faz</div>
+                <ul>
+                    {% for l in ritmo.limites %}<li>{{ l }}</li>{% endfor %}
+                </ul>
+                <div class="db-ia-nota">Números: somas das linhas visíveis da tabela Desempenho (uma meta com vários responsáveis conta para cada um); vencidas e prazos próximos são relativos a hoje; urgentes vêm do card Demandas urgentes.</div>
+            </section>
+        </div>
+
+        <div class="db-ia-rodape"><i class="bi bi-arrow-repeat" aria-hidden="true"></i>Acompanhar novamente em 24 horas</div>
+    </aside>
+</div>

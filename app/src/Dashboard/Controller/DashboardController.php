@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Dashboard\Controller;
 
+use App\Dashboard\Inteligencia\MontarLeituraDoDashboard;
 use App\Dashboard\UseCase\ObterDadosDashboardUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
@@ -23,6 +24,7 @@ final class DashboardController extends AbstractController
         private readonly PermissionChecker $permissionChecker,
         private readonly ObterDadosDashboardUseCase $obterDadosUseCase,
         private readonly UserRepository $userRepository,
+        private readonly MontarLeituraDoDashboard $montarLeitura,
     ) {}
 
     #[Route('', name: 'dashboard_index', methods: ['GET'])]
@@ -46,15 +48,28 @@ final class DashboardController extends AbstractController
             'direcao'     => (string) $request->query->get('direcao', ''),
         ];
 
-        $output = $this->obterDadosUseCase->executar($tenant, new \DateTimeImmutable(), $filtros);
+        $agora  = new \DateTimeImmutable();
+        $output = $this->obterDadosUseCase->executar($tenant, $agora, $filtros);
+
+        // BlueJus Intelligence: leitura por regras sobre o DashboardOutput já calculado (os
+        // mesmos filtros). O UseCase não sabe que o painel existe.
+        $leitura = $this->montarLeitura->montar($output, $filtros, $agora);
 
         if ($request->isXmlHttpRequest()) {
             // `filtros` vai junto para o fragmento marcar a coluna ordenada — sem ele a seta
             // sumiria do cabeçalho a cada recarga por filtro.
-            return $this->render('dashboard/_resultado.html.twig', [
-                'dashboard' => $output,
-                'filtros'   => $filtros,
-            ]);
+            $vars = [
+                'dashboard'    => $output,
+                'filtros'      => $filtros,
+                'inteligencia' => $leitura,
+            ];
+
+            // O XHR devolve o conteúdo de [data-filtro-resultado]: cards + tabela e, na mesma
+            // ordem da casca, o painel Intelligence — que segue o filtro como no desenho.
+            return new Response(
+                $this->renderView('dashboard/_resultado.html.twig', $vars)
+                . $this->renderView('dashboard/_inteligencia.html.twig', $vars),
+            );
         }
 
         // Opções das facetas — só no render completo (a barra vive na casca). Passa arrays
@@ -72,6 +87,7 @@ final class DashboardController extends AbstractController
         return $this->render('dashboard/index.html.twig', [
             'dashboard'      => $output,
             'filtros'        => $filtros,
+            'inteligencia'   => $leitura,
             'responsaveis'   => $responsaveis,
             'cargos'         => $cargos,
             'existeSemCargo' => $existeSemCargo,
