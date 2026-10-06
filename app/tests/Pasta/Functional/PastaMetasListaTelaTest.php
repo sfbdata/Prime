@@ -126,8 +126,15 @@ final class PastaMetasListaTelaTest extends JusPrimeWebTestCase
 
     private function statusNoBanco(int $id): array
     {
+        // Leitura de CONFERÊNCIA: depois de uma requisição como outro escritório o TenantFilter
+        // fica no tenant dele e o find() devolveria null — o que se quer ver é o banco.
+        $filtros = $this->em()->getFilters();
+        if ($filtros->isEnabled('tenant')) {
+            $filtros->disable('tenant');
+        }
         $this->em()->clear();
         $meta = $this->em()->find(Tarefa::class, $id);
+        self::assertNotNull($meta, 'a meta sumiu do banco');
 
         return [$meta->getStatus(), $meta->getDataConclusao()];
     }
