@@ -117,8 +117,10 @@ final class PastaExploradorModosTest extends TestCase
 
         self::assertStringContainsString("const COLUNAS_PAD = { ord: ['nome', 'tipo', 'cat', 'tam', 'data'], w: { tipo: 150, cat: 140, tam: 90, data: 110 } };", $js);
         self::assertStringContainsString('const COLUNAS_LIM = { tipo: [80, 360], cat: [80, 300], tam: [60, 200], data: [80, 240] };', $js);
-        // Nome flexível com mínimo de 140px; ⋮ de 32px no fim.
-        self::assertStringContainsString("return k === 'nome' ? 'minmax(140px, 1fr)' : colunas.w[k] + 'px'; }).join(' ') + ' 32px';", $js);
+        // Nome flexível com mínimo de 140px. Sem coluna de ⋮ na grade do JS (DOC-20/S-1): ela é
+        // do CSS e só existe em `(hover: none)` — ver PastaExploradorInteracaoTest.
+        self::assertStringContainsString("return k === 'nome' ? 'minmax(140px, 1fr)' : colunas.w[k] + 'px'; }).join(' ');", $js);
+        self::assertStringNotContainsString("+ ' 32px'", $js);
         self::assertStringContainsString("raiz.style.setProperty('--pex-gtc', gradeDasColunas());", $js);
         // Preferência corrompida não entra: ordem só se tiver exatamente as colunas conhecidas.
         self::assertStringContainsString('if (Array.isArray(v.ord) && v.ord.length === c.ord.length && c.ord.every(function (k) { return v.ord.indexOf(k) !== -1; })) c.ord = v.ord.slice();', $js);
@@ -127,7 +129,7 @@ final class PastaExploradorModosTest extends TestCase
         self::assertStringContainsString('if (!ativo && Math.abs(ev.clientX - x0) < 6) return;', $js);
 
         $css = $this->css();
-        self::assertStringContainsString('grid-template-columns: var(--pex-gtc, minmax(140px, 1fr) 150px 90px 110px 32px);', $css);
+        self::assertStringContainsString('grid-template-columns: var(--pex-gtc, minmax(140px, 1fr) 150px 90px 110px); gap: 12px;', $css, 'a grade do desenho: Nome 1fr · Tipo 150 · Tamanho 90 · Modificado 110 — sem ⋮');
         self::assertMatchesRegularExpression('/\.pex-alca \{[^}]*right: -9px;[^}]*width: 7px;[^}]*cursor: col-resize;/', $css, 'alça de 7px (dc L2214)');
         self::assertStringContainsString('.pex-col.pex-col--ins-esq { box-shadow: -7px 0 0 -5px var(--pex-col-ins); }', $css);
         self::assertStringContainsString('.pex-col.pex-col--ins-dir { box-shadow: 7px 0 0 -5px var(--pex-col-ins); }', $css);
@@ -175,17 +177,23 @@ final class PastaExploradorModosTest extends TestCase
         self::assertSame(1, substr_count($js, 'sortable = new Sortable('), 'um único ponto cria o Sortable');
     }
 
-    #[TestDox('toque (< 768px ou hover:none): tocar em pasta entra nela mesmo com o painel ligado')]
-    public function testToqueEntraNaPastaComPainel(): void
+    #[TestDox('toque (< 768px ou hover:none): tocar em pasta ENTRA e tocar no nome do arquivo ABRE; no mouse o clique simples só seleciona (L5)')]
+    public function testToqueEntraNaPastaEOCliqueSeleciona(): void
     {
         $js = $this->js();
 
         self::assertStringContainsString("window.matchMedia('(max-width: 767.98px), (hover: none)').matches", $js);
-        $toque = strpos($js, "if (painel && item.dataset.pexTipo === 'pasta' && ehToque()) { entrar(Number(item.dataset.pexId)); return; }");
-        $sel   = strpos($js, "if (painel) { selecionar(item.dataset.pexTipo + ':' + Number(item.dataset.pexId)); return; }");
-        self::assertNotFalse($toque);
+        $toquePasta = strpos($js, "if (ehToque() && item.dataset.pexTipo === 'pasta') { entrar(Number(item.dataset.pexId)); return; }");
+        $toqueNome  = strpos($js, "if (ehToque() && !e.shiftKey && item) { selecionar(chaveDoElemento(item)); abrirPreview(prev); return; }");
+        $sel        = strpos($js, "else selecionar(chave);");
+        self::assertNotFalse($toquePasta);
+        self::assertNotFalse($toqueNome);
         self::assertNotFalse($sel);
-        self::assertLessThan($sel, $toque, 'o toque tem de ser decidido ANTES do selecionar');
+        self::assertLessThan($sel, $toquePasta, 'o toque tem de ser decidido ANTES do selecionar');
+        self::assertLessThan($toquePasta, $toqueNome, 'o nome do arquivo no toque é decidido antes da pasta (está dentro do ramo do link)');
+        // Fora do toque, pasta NÃO entra no clique simples: entra no duplo clique / Enter.
+        self::assertStringNotContainsString("if (item.dataset.pexTipo === 'pasta') entrar(Number(item.dataset.pexId));", $js);
+        self::assertStringContainsString("el.lista.addEventListener('dblclick', function (e) {", $js);
     }
 
     #[TestDox('classificação salva por Categoria com a coluna desligada cai no padrão (Manual)')]
@@ -235,8 +243,13 @@ final class PastaExploradorModosTest extends TestCase
         self::assertStringContainsString('.pex--m-lista .pex-lista { grid-auto-flow: row; grid-template-rows: none; grid-template-columns: minmax(0, 1fr); overflow-x: visible; }', $media);
         self::assertStringContainsString('.pex--painel .pex-corpo { display: block; }', $media);
         self::assertStringContainsString('.pex-painel { position: static; width: auto;', $media);
-        self::assertStringContainsString('.pex--m-det .pex-item { grid-template-columns: minmax(0, 1fr) 32px; }', $media, 'Detalhes no celular: Nome + ⋮');
+        self::assertStringContainsString('.pex--m-det .pex-item { grid-template-columns: minmax(0, 1fr); }', $media, 'Detalhes no celular: só o Nome');
         self::assertStringContainsString('.pex-alca { display: none; }', $media);
+        // Celular COM toque: Nome + ⋮ (32px). Vem DEPOIS do bloco estreito para vencê-lo (mesma especificidade).
+        $toque = strpos($css, '@media (hover: none) and (max-width: 767.98px) {');
+        self::assertNotFalse($toque);
+        self::assertGreaterThan($ini, $toque);
+        self::assertStringContainsString('.pex--m-det .pex-item { grid-template-columns: minmax(0, 1fr) 32px; }', substr($css, $toque, strpos($css, "\n}", $toque) - $toque));
     }
 
     #[TestDox('tema escuro: toda variável --pex-* do claro tem o par em [data-bs-theme="dark"] (menos a fonte dos números)')]

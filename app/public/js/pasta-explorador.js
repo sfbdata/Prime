@@ -1,7 +1,7 @@
 /* ==========================================================================
    Explorador de documentos da Pasta (aba "Documentos") — comportamento
    Desenho: 02 - EXPEDIENTES 1.2.3 (dc L2020-2297 e L4670-4960).
-   Decisão: docs/specs/trilha-b-documentos-arquitetura.md (lotes L1 e L2).
+   Decisão: docs/specs/trilha-b-documentos-arquitetura.md (lotes L1, L2 e L5).
 
    Lê os dados de `#pexDados` (JSON montado por ExploradorDeDocumentosOutput)
    e renderiza SÓ o nível aberto (ou os resultados da busca) em DocumentFragment:
@@ -10,18 +10,32 @@
    L2: oito modos de exibição (dc `EXP_MODOS`, L3051; tamanhos em `expVals`,
    L4701-4723), colunas móveis e redimensionáveis (dc L3079-3139), filtro por
    tipo de documento (dc `TIPOS_DOC`/`expGrupo`, L3082-3087) e painel de
-   detalhes do item selecionado (dc L2271-2289, L4952-4953). Seleção aqui é só
-   a SIMPLES, por clique, para o painel — múltipla/laço/teclado são do L5.
+   detalhes do item selecionado (dc L2271-2289, L4952-4953).
 
-   Depende de: Bootstrap 5 (Modal/Dropdown), SortableJS (opcional, só no modo
-   Manual), `window.enviarArquivoComProgresso` (helper do template, também do
-   Peticionar) e do `#previewDocModal` já ligado pelo visualizador-documento.js.
+   L5: a interação completa (dc `mk`/`sel`/`ctx`/`lassoIni`/`tecla`, L4730-4950):
+   - clique seleciona; Ctrl/Cmd alterna; Shift estende da âncora; duplo clique ou
+     Enter abre (pasta entra, arquivo pré-visualiza). No toque (celular ou ponteiro
+     sem hover) tocar entra/abre, como antes, e o toque longo abre o menu;
+   - laço (retângulo) a partir do espaço vazio da lista; Ctrl soma à seleção;
+   - teclado: setas/Home/End, Shift+setas, Ctrl+A, Esc, F2, Del, Ctrl+X/Ctrl+V;
+   - menu de contexto (botão direito, ⋮ no toque) por item, por vários e no fundo,
+     na ordem do desenho — SEM os itens que dependem de lotes futuros (favoritos L6,
+     Desfazer L7, zip/Copiar L8, visor L10) nem dos itens E (Chat I.A);
+   - barra de seleção, toast, criar/renomear inline, arraste nativo da SELEÇÃO
+     para pasta (pasta→pasta inclusive), ações em lote por mover-lote/excluir-lote
+     (um token por pasta: `csrfLote`), upload inserindo a linha sem recarregar.
+   A seleção troca classes nas linhas já renderizadas: nunca refaz a lista.
+
+   Depende de: Bootstrap 5 (Modal), SortableJS (opcional, só no modo Manual),
+   `window.enviarArquivoComProgresso` (helper do template, também do Peticionar)
+   e do `#previewDocModal` já ligado pelo visualizador-documento.js.
 
    Storage — SÓ preferência de visualização em localStorage (`pex:classificar`,
    `pex:colunas`, `pex:modo`, `pex:painel`), sempre dentro de try/catch. O filtro
    por tipo NÃO é persistido (o dc não persiste `expTipoF`): vale só para esta
    visita. A pasta aberta fica em sessionStorage (`pex:pasta:<id>:caminho`). Nada
    de flag de aba: o retorno é pelo fragmento `#documentos`, que o pasta-show.js abre.
+   A área de transferência do Recortar vive só em memória.
    ========================================================================== */
 (function () {
     'use strict';
@@ -36,6 +50,7 @@
 
     const pastaId = raiz.dataset.pastaId;
     const cfg = {
+        pastaRotulo:         raiz.dataset.pastaRotulo || pastaId,
         urlUpload:           raiz.dataset.urlUpload,
         csrfUpload:          raiz.dataset.csrfUpload,
         urlCriarSecao:       raiz.dataset.urlCriarSecao,
@@ -48,7 +63,10 @@
         urlExcluirTpl:       raiz.dataset.urlExcluirTpl,
         urlMoverTpl:         raiz.dataset.urlMoverTpl,
         urlEditarDocTpl:     raiz.dataset.urlEditarDocTpl,
-        urlExcluirDocTpl:    raiz.dataset.urlExcluirDocTpl,
+        // Ações em lote (L4, D4): um token por pasta, ids no corpo, posse provada no servidor.
+        urlMoverLote:        dados.urlMoverLote || '',
+        urlExcluirLote:      dados.urlExcluirLote || '',
+        csrfLote:            dados.csrfLote || '',
     };
 
     const el = {
@@ -89,6 +107,17 @@
         painelVazio:    document.getElementById('pexPainelVazio'),
         painelSel:      document.getElementById('pexPainelSel'),
         painelAlternar: document.getElementById('pexPainelAlternar'),
+        // L5
+        selecao:        document.getElementById('pexSelecao'),
+        selecaoTexto:   document.getElementById('pexSelecaoTexto'),
+        selecaoLimpar:  document.getElementById('pexSelecaoLimpar'),
+        laco:           document.getElementById('pexLaco'),
+        menu:           document.getElementById('pexMenu'),
+        menuFundo:      document.getElementById('pexMenuFundo'),
+        menuItemTpl:    document.getElementById('pexMenuItem'),
+        toast:          document.getElementById('pexToast'),
+        toastTexto:     document.getElementById('pexToastTexto'),
+        toastIcone:     document.getElementById('pexToastIcone'),
     };
     if (!el.lista) return;
 
@@ -128,6 +157,13 @@
     /* ---- Tipo de documento (dc `TIPOS_DOC` + `expGrupo`, L3082-3087). ---- */
     const FILTROS = ['todos', 'pastas', 'pdf', 'word', 'excel', 'img', 'zip', 'outros'];
 
+    /* ---- L5: limites e tempos. O teto do lote é o do servidor (PastaDocumentoController,
+       2.000 ids por ação): acima disso a tela avisa sem pedir. ---- */
+    const TETO_LOTE      = 2000;
+    const TOQUE_LONGO_MS = 500;     // toque longo abre o menu (convenção; o desenho é omisso)
+    const TOAST_MS       = 4200;    // dc L4772
+    const LACO_MARGEM_PX = 40;      // rola sozinho a 40px da borda (dc L4891)
+
     let caminho = [];          // [] = raiz; senão a cadeia de ids (números) até a pasta aberta
     let busca   = '';
     let buscaTimer = null;     // debounce da digitação na busca
@@ -136,8 +172,17 @@
     let modo        = lerModo();          // um dos ICONE_PX
     let painel      = lerPainel();        // bool — o desenho começa desligado (dc L2793)
     let filtroTipo  = 'todos';            // um dos FILTROS — só em memória (o dc não persiste)
-    let selecionado = null;               // 'pasta:<id>' | 'arquivo:<id>' (seleção simples, só para o painel)
     let contagemTipos = {};               // { grupo: n } do conjunto na tela, antes do filtro
+
+    // Seleção (dc `expSelK`/`expAnc`/`expFoco`): chaves 'pasta:<id>' | 'arquivo:<id>' dos itens
+    // RENDERIZADOS. Âncora = de onde o Shift estende; foco = último alcançado pelas setas.
+    const selecao = new Set();
+    let ancora = null;
+    let foco   = null;
+    let areaDeTransferencia = null;       // { op: 'recortar', chaves: [...] } — Copiar é do L8
+    let suprimirCliqueAte = 0;            // o clique que segue um laço ou um toque longo não conta
+    let lacoVazio = false;                // mousedown no espaço vazio: é laço, não arraste
+    let renomeando = null;                // campo inline aberto (renomear ou nova pasta)
 
     // Toda leitura de storage passa por aqui: navegador em modo privado / storage bloqueado
     // lança na leitura, e preferência perdida não pode derrubar a aba.
@@ -240,6 +285,29 @@
     function nomeSemExtensao(nome) {
         const ext = extensaoDe(nome);
         return ext ? String(nome).slice(0, -(ext.length + 1)) : String(nome || '');
+    }
+    function ehToque() {
+        try { return window.matchMedia('(max-width: 767.98px), (hover: none)').matches; } catch (e) { return false; }
+    }
+    function ehEstreito() {
+        try { return window.matchMedia('(max-width: 767.98px)').matches; } catch (e) { return false; }
+    }
+    // Clipboard API com fallback (execCommand) para contexto sem permissão ou sem HTTPS.
+    function copiarPorExec(t) {
+        const ta = h('textarea', { 'aria-hidden': 'true', readonly: true, style: 'position:fixed;top:0;left:0;opacity:0;pointer-events:none' });
+        ta.value = t;
+        document.body.appendChild(ta);
+        ta.select();
+        let ok = false;
+        try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+        ta.remove();
+        return ok;
+    }
+    function copiarTexto(t) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            return navigator.clipboard.writeText(t).then(function () { return true; }, function () { return copiarPorExec(t); });
+        }
+        return Promise.resolve(copiarPorExec(t));
     }
 
     /* ---- Tipo pela extensão (dc `expTipo`, L4675-4680): rótulo, ícone e cor. ---- */
@@ -354,9 +422,15 @@
         for (let i = 0; i < pastas.length; i++) if (pastas[i].id === id) return pastas[i];
         return null;
     }
+    function arquivoPorId(id) {
+        id = Number(id);
+        for (let i = 0; i < arquivos.length; i++) if (arquivos[i].id === id) return arquivos[i];
+        return null;
+    }
     function paiDe(id) { const p = pastaPorId(id); return p && p.paiId != null ? Number(p.paiId) : null; }
     function pastaAtualId() { return caminho.length ? caminho[caminho.length - 1] : null; }
     function nomePasta(id) { const p = pastaPorId(id); return p ? p.nome : ''; }
+    function nomeDoLocal(id) { return id == null ? 'Documentos' : nomePasta(id); }
 
     function cadeiaAte(id) {
         const cadeia = [];
@@ -434,16 +508,19 @@
 
     // ------------------------------------------------------------ render ----
     let itensRenderizados = [];
+    let linhasPorChave = new Map();     // chave → elemento .pex-item do render atual
 
     function chaveDe(it) { return it.tipo + ':' + it.id; }
+    function chaveDoElemento(n) { return n.dataset.pexTipo + ':' + Number(n.dataset.pexId); }
+    function idDaLinha(chave) { return 'pex-item-' + chave.replace(':', '-'); }
     function colunasVisiveis() {
         return colunas.ord.filter(function (k) { return k !== 'cat' || colunas.categoria; });
     }
-    // Grade do Detalhes (dc `expGtc`, L3093): Nome flexível, as demais com a largura do usuário,
-    // e o ⋮ de 32px no fim (fica até o L5, S-1). Vai numa variável CSS da raiz: arrastar a alça
-    // reescreve UMA propriedade, sem refazer nenhuma linha.
+    // Grade do Detalhes (dc `expGtc`, L3093): Nome flexível, as demais com a largura do usuário.
+    // Vai numa variável CSS da raiz: arrastar a alça reescreve UMA propriedade, sem refazer
+    // nenhuma linha. A coluna do ⋮ (32px) é do CSS, só em `(hover: none)` (S-1).
     function gradeDasColunas() {
-        return colunasVisiveis().map(function (k) { return k === 'nome' ? 'minmax(140px, 1fr)' : colunas.w[k] + 'px'; }).join(' ') + ' 32px';
+        return colunasVisiveis().map(function (k) { return k === 'nome' ? 'minmax(140px, 1fr)' : colunas.w[k] + 'px'; }).join(' ');
     }
     function aplicarGrade() { raiz.style.setProperty('--pex-gtc', gradeDasColunas()); }
 
@@ -451,7 +528,14 @@
         const buscando = normalizar(busca) !== '';
         const itens = itensVisiveis();
         itensRenderizados = itens;
-        if (selecionado && !itens.some(function (it) { return chaveDe(it) === selecionado; })) selecionado = null;
+        // A lista vai ser refeita: um campo inline aberto não sobrevive a isso.
+        if (renomeando) cancelarRenomear(true);
+        // Seleção só de quem continua na tela.
+        const vivas = {};
+        itens.forEach(function (it) { vivas[chaveDe(it)] = true; });
+        Array.from(selecao).forEach(function (k) { if (!vivas[k]) selecao.delete(k); });
+        if (ancora && !vivas[ancora]) ancora = null;
+        if (foco && !vivas[foco]) foco = null;
 
         Object.keys(ICONE_PX).forEach(function (m) { raiz.classList.toggle('pex--m-' + m, m === modo); });
         raiz.classList.toggle('pex--grade', MODOS_GRADE.indexOf(modo) !== -1);
@@ -463,7 +547,12 @@
         renderizarMenus();
 
         const frag = document.createDocumentFragment();
-        itens.forEach(function (it) { frag.appendChild(it.tipo === 'pasta' ? linhaPasta(it.dado, buscando) : linhaArquivo(it.dado, buscando)); });
+        linhasPorChave = new Map();
+        itens.forEach(function (it) {
+            const linha = it.tipo === 'pasta' ? linhaPasta(it.dado, buscando) : linhaArquivo(it.dado, buscando);
+            linhasPorChave.set(chaveDe(it), linha);
+            frag.appendChild(linha);
+        });
         el.lista.textContent = '';
         el.lista.appendChild(frag);
         el.lista.hidden = itens.length === 0;
@@ -492,6 +581,8 @@
             el.vazio.hidden = true;
         }
 
+        atualizarAtivo();
+        renderizarBarra();
         renderizarPainel();
         renderizarRodape();
         if (el.contagem) el.contagem.textContent = String(totalArquivos);
@@ -672,8 +763,9 @@
        - Conteúdo: sub "Tipo · Categoria" + "Nº · descrição" (DOC-22) e, à direita, data e tamanho;
        - Blocos: sub "Tipo · tamanho"; pastas mostram o conteúdo em Blocos e Conteúdo;
        - grade (xg/g/m), Pequenos e Lista: só ícone e nome.
-       O ⋮ continua em todos os modos até o menu de contexto do L5 (sem ele não há ação). */
-    function montarItem(attrs, ehPasta, nomeEl, sub, extras, celulasDetalhe, lado, menu, buscando, localId) {
+       A célula do ⋮ nasce em toda linha, mas o CSS só a mostra em `(hover: none)` (S-1): no mouse
+       as ações são o botão direito, o teclado e a barra de seleção. */
+    function montarItem(attrs, ehPasta, nomeEl, sub, extras, celulasDetalhe, lado, buscando, localId) {
         const txt = [nomeEl];
         if (sub) txt.push(h('span', { class: 'pex-sub', text: sub, title: sub }));
         (extras || []).forEach(function (x) { if (x) txt.push(h('span', { class: 'pex-sub pex-sub--nd', text: x, title: x })); });
@@ -689,9 +781,19 @@
             celulas.push(nome);
             if (lado) celulas.push(lado);
         }
-        celulas.push(h('span', { class: 'pex-cel pex-cel-acoes' }, [menu]));
-        if (attrs['data-pex-tipo'] && selecionado === attrs['data-pex-tipo'] + ':' + attrs['data-pex-id']) attrs.class += ' pex-item--sel';
+        celulas.push(h('span', { class: 'pex-cel pex-cel-acoes' }, [botaoMenu(ehPasta ? 'Ações da pasta' : 'Ações do arquivo')]));
+        const chave = attrs['data-pex-tipo'] + ':' + attrs['data-pex-id'];
+        const on = selecao.has(chave);
+        if (on) attrs.class += ' pex-item--sel';
+        attrs.id = idDaLinha(chave);
+        attrs.role = 'option';
+        attrs['aria-selected'] = on ? 'true' : 'false';
         return { linha: h('div', attrs, celulas), ico: nome.firstChild };
+    }
+
+    // ⋮ (S-1): só aparece no toque, pelo CSS; abre o MESMO menu de contexto do botão direito.
+    function botaoMenu(rotulo) {
+        return h('button', { type: 'button', class: 'pex-menu', 'aria-haspopup': 'menu', 'aria-label': rotulo, title: 'Mais ações' }, [icone('bi-three-dots-vertical')]);
     }
 
     function linhaPasta(p, buscando) {
@@ -703,42 +805,29 @@
             'data-pex-id': String(p.id),
             'data-pex-subpastas': String(contagem.subpastas),
             'data-pex-arquivos': String(contagem.arquivos),
-            role: 'button',
             tabindex: '0',
             title: p.nome + ' · ' + pluralizar(contagem.arquivos, 'arquivo', 'arquivos'),
-            'aria-label': 'Abrir pasta ' + p.nome,
+            'aria-label': 'Pasta ' + p.nome,
             draggable: usaSortable() ? null : 'true',
         }, true, h('span', { class: 'pex-nome' }, nomeComRealce(p.nome, buscando)), sub, null, {
             tipo: h('span', { class: 'pex-cel pex-cel-tipo', text: TIPO_PASTA[2] }),
             cat:  h('span', { class: 'pex-cel pex-cel-cat' }),
             tam:  h('span', { class: 'pex-cel pex-cel-tam' }),
             data: h('span', { class: 'pex-cel pex-cel-data' }),
-        }, null, menuPasta(), buscando, p.paiId);
+        }, null, buscando, p.paiId);
         return r.linha;
-    }
-
-    function menuPasta() {
-        return h('div', { class: 'dropdown' }, [
-            h('button', { type: 'button', class: 'pex-menu', 'data-bs-toggle': 'dropdown', 'aria-expanded': 'false', 'aria-label': 'Ações da pasta' }, [icone('bi-three-dots-vertical')]),
-            h('ul', { class: 'dropdown-menu dropdown-menu-end' }, [
-                h('li', null, [h('button', { type: 'button', class: 'dropdown-item', 'data-pex-acao': 'abrir' }, [icone('bi-folder2-open me-2'), 'Abrir'])]),
-                h('li', null, [h('button', { type: 'button', class: 'dropdown-item', 'data-pex-acao': 'renomear' }, [icone('bi-pencil me-2'), 'Renomear'])]),
-                h('li', null, [h('button', { type: 'button', class: 'dropdown-item', 'data-pex-acao': 'mover' }, [icone('bi-folder-symlink me-2'), 'Mover para…'])]),
-                h('li', null, [h('hr', { class: 'dropdown-divider' })]),
-                h('li', null, [h('button', { type: 'button', class: 'dropdown-item text-danger', 'data-pex-acao': 'excluir' }, [icone('bi-trash me-2'), 'Excluir'])]),
-            ]),
-        ]);
     }
 
     function nomeArquivo(a, buscando) {
         /* O nome continua um <a> de verdade para a URL de visualização: Ctrl/Cmd/meio-clique
-           abrem em outra aba, e sem JS o link ainda leva ao arquivo. O clique simples vira o
-           pré-visualizador, interceptado pela classe .pex-arq-preview. */
+           abrem em outra aba, e sem JS o link ainda leva ao arquivo. O clique simples SELECIONA
+           (DOC-14/21); o duplo clique, Enter ou o menu abrem o pré-visualizador. */
         return h('a', {
             href: a.viewUrl, target: '_blank', rel: 'noopener noreferrer',
             class: 'pex-nome pex-arq-preview',
             'data-url': a.viewUrl, 'data-nome': a.nome, 'data-mime': a.mime || '',
             title: a.nome,
+            draggable: 'false',
         }, nomeComRealce(a.nome, buscando));
     }
 
@@ -763,34 +852,27 @@
             cat:  h('span', { class: 'pex-cel pex-cel-cat', text: a.categoriaRotulo || '', title: a.categoriaRotulo || '' }),
             tam:  h('span', { class: 'pex-cel pex-cel-tam', text: formatarBytes(a.tamanho) }),
             data: h('span', { class: 'pex-cel pex-cel-data', text: formatarData(a.carregadoEm) }),
-        }, lado, menuArquivo(a), buscando, a.secaoId);
+        }, lado, buscando, a.secaoId);
         r.ico.appendChild(iconeArquivo(a.nome, ICONE_PX[modo]));
         return r.linha;
-    }
-
-    function menuArquivo(a) {
-        return h('div', { class: 'dropdown' }, [
-            h('button', { type: 'button', class: 'pex-menu', 'data-bs-toggle': 'dropdown', 'aria-expanded': 'false', 'aria-label': 'Ações do arquivo' }, [icone('bi-three-dots-vertical')]),
-            h('ul', { class: 'dropdown-menu dropdown-menu-end' }, [
-                h('li', null, [h('a', { class: 'dropdown-item', href: a.downloadUrl, target: '_blank', rel: 'noopener' }, [icone('bi-download me-2'), 'Baixar'])]),
-                h('li', null, [h('button', { type: 'button', class: 'dropdown-item pex-arq-preview', 'data-url': a.viewUrl, 'data-nome': a.nome, 'data-mime': a.mime || '' }, [icone('bi-eye me-2'), 'Visualizar'])]),
-                h('li', null, [h('button', { type: 'button', class: 'dropdown-item', 'data-pex-acao': 'editar' }, [icone('bi-pencil me-2'), 'Editar'])]),
-                h('li', null, [h('button', { type: 'button', class: 'dropdown-item', 'data-pex-acao': 'mover' }, [icone('bi-folder-symlink me-2'), 'Mover para…'])]),
-                h('li', null, [h('hr', { class: 'dropdown-divider' })]),
-                h('li', null, [h('button', { type: 'button', class: 'dropdown-item text-danger', 'data-pex-acao': 'excluir' }, [icone('bi-trash me-2'), 'Excluir'])]),
-            ]),
-        ]);
     }
 
     // ------------------------------------------------- painel de detalhes ---
     /* dc L2271-2289 / `pProps` L4953. Só o que o #pexDados TEM: o desenho pede "Modificado",
        mas o dado é a data em que o arquivo foi ADICIONADO (`carregadoEm`) — rotular de
-       "Modificado" seria afirmar o que o sistema não sabe. Enviado por, modificado em e páginas
-       entram quando o L4 os trouxer. */
-    function itemSelecionado() {
-        if (!selecionado) return null;
-        for (let i = 0; i < itensRenderizados.length; i++) if (chaveDe(itensRenderizados[i]) === selecionado) return itensRenderizados[i];
+       "Modificado" seria afirmar o que o sistema não sabe. Com vários itens selecionados, o
+       resumo do desenho (dc L2278): pilha, "N itens selecionados", pastas/arquivos/tamanho. */
+    function itensSelecionados() {
+        return itensRenderizados.filter(function (it) { return selecao.has(chaveDe(it)); });
+    }
+    function itemPorChave(chave) {
+        for (let i = 0; i < itensRenderizados.length; i++) if (chaveDe(itensRenderizados[i]) === chave) return itensRenderizados[i];
         return null;
+    }
+    function ehArquivo(it) { return it.tipo === 'arquivo'; }
+    function ehPastaItem(it) { return it.tipo === 'pasta'; }
+    function somaDosArquivos(itens) {
+        return itens.filter(ehArquivo).reduce(function (t, it) { return t + (Number(it.dado.tamanho) || 0); }, 0);
     }
     function propriedadesDe(it) {
         const d = it.dado;
@@ -815,41 +897,142 @@
             ['Local', caminhoLegivel(d.secaoId == null ? null : Number(d.secaoId))],
         ].filter(function (p) { return p[1] !== ''; });
     }
+    function propriedadesDaSelecao(sel) {
+        return [
+            ['Pastas', String(sel.filter(ehPastaItem).length)],
+            ['Arquivos', String(sel.filter(ehArquivo).length)],
+            ['Tamanho dos arquivos', formatarBytes(somaDosArquivos(sel))],
+        ];
+    }
     function renderizarPainel() {
         if (!el.painel) return;
         el.painel.hidden = !painel;
         if (!painel) return;
-        const it = itemSelecionado();
-        el.painelVazio.hidden = !!it;
-        el.painelSel.hidden = !it;
+        const sel = itensSelecionados();
+        const it = sel.length === 1 ? sel[0] : null;
+        const multi = sel.length > 1;
+        el.painelVazio.hidden = !!it || multi;
+        el.painelSel.hidden = !it && !multi;
         el.painelSel.textContent = '';
-        if (!it) return;
-        const ehPasta = it.tipo === 'pasta';
+        if (!it && !multi) return;
         const frag = document.createDocumentFragment();
-        frag.appendChild(h('span', { class: 'pex-painel-ico' }, [ehPasta ? icone(TIPO_PASTA[0] + ' pex-ico-pasta') : iconeArquivo(it.dado.nome, ICONE_PAINEL_PX)]));
-        frag.appendChild(h('span', { class: 'pex-painel-nome', text: it.dado.nome }));
-        frag.appendChild(h('dl', { class: 'pex-painel-props' }, propriedadesDe(it).map(function (p) {
-            return h('div', { class: 'pex-painel-prop' }, [h('dt', { text: p[0] }), h('dd', { text: p[1] })]);
-        })));
+        if (multi) {
+            frag.appendChild(h('span', { class: 'pex-painel-ico' }, [icone('bi-stack')]));
+            frag.appendChild(h('span', { class: 'pex-painel-nome', text: sel.length + ' itens selecionados' }));
+            frag.appendChild(h('dl', { class: 'pex-painel-props' }, propriedadesDaSelecao(sel).map(function (p) {
+                return h('div', { class: 'pex-painel-prop' }, [h('dt', { text: p[0] }), h('dd', { text: p[1] })]);
+            })));
+        } else {
+            const ehPasta = it.tipo === 'pasta';
+            frag.appendChild(h('span', { class: 'pex-painel-ico' }, [ehPasta ? icone(TIPO_PASTA[0] + ' pex-ico-pasta') : iconeArquivo(it.dado.nome, ICONE_PAINEL_PX)]));
+            frag.appendChild(h('span', { class: 'pex-painel-nome', text: it.dado.nome }));
+            frag.appendChild(h('dl', { class: 'pex-painel-props' }, propriedadesDe(it).map(function (p) {
+                return h('div', { class: 'pex-painel-prop' }, [h('dt', { text: p[0] }), h('dd', { text: p[1] })]);
+            })));
+        }
         el.painelSel.appendChild(frag);
     }
-    // Seleção simples (o necessário para o painel): troca a classe da linha e refaz SÓ o painel.
-    function selecionar(chave) {
-        selecionado = chave;
-        el.lista.querySelectorAll('.pex-item--sel').forEach(function (n) { n.classList.remove('pex-item--sel'); });
-        if (chave) {
-            const partes = chave.split(':');
-            const linha = el.lista.querySelector('.pex-item[data-pex-tipo="' + partes[0] + '"][data-pex-id="' + Number(partes[1]) + '"]');
-            if (linha) linha.classList.add('pex-item--sel');
-        }
+
+    // ----------------------------------------------------------- seleção ----
+    /* A seleção NUNCA refaz a lista: troca a classe nas linhas que já estão no DOM e refaz só a
+       barra e o painel. Na pasta de 1.128 documentos, Ctrl+A tem de ser instantâneo. */
+    function aplicarSelecao() {
+        linhasPorChave.forEach(function (n, chave) {
+            const on = selecao.has(chave);
+            if (n.classList.contains('pex-item--sel') === on) return;
+            n.classList.toggle('pex-item--sel', on);
+            n.setAttribute('aria-selected', on ? 'true' : 'false');
+        });
+        atualizarAtivo();
+    }
+    function atualizarAtivo() {
+        const k = foco || (selecao.size ? Array.from(selecao)[selecao.size - 1] : null);
+        if (k) el.lista.setAttribute('aria-activedescendant', idDaLinha(k));
+        else el.lista.removeAttribute('aria-activedescendant');
+    }
+    function depoisDaSelecao() {
+        aplicarSelecao();
+        renderizarBarra();
         renderizarPainel();
+    }
+    // Seleção simples por chave (ou nenhuma, com null): o que o painel e o clique usam.
+    function selecionar(chave) {
+        selecao.clear();
+        if (chave) selecao.add(chave);
+        ancora = chave;
+        foco = chave;
+        aplicarSelecao();
+        renderizarBarra();
+        renderizarPainel();
+    }
+    function definirSelecao(chaves, opts) {
+        selecao.clear();
+        chaves.forEach(function (k) { selecao.add(k); });
+        if (opts && 'ancora' in opts) ancora = opts.ancora;
+        if (opts && 'foco' in opts) foco = opts.foco;
+        depoisDaSelecao();
+    }
+    function alternarSelecao(chave) {
+        if (selecao.has(chave)) selecao.delete(chave); else selecao.add(chave);
+        ancora = chave;
+        foco = chave;
+        depoisDaSelecao();
+    }
+    // Shift: intervalo da âncora até a chave, na ordem da tela (dc `sel`, L4750).
+    function selecionarIntervalo(chave) {
+        const chaves = itensRenderizados.map(chaveDe);
+        const a = chaves.indexOf(ancora);
+        const b = chaves.indexOf(chave);
+        if (a === -1 || b === -1) { selecionar(chave); return; }
+        definirSelecao(chaves.slice(Math.min(a, b), Math.max(a, b) + 1), { foco: chave });
+    }
+    function selecionarTudo() {
+        definirSelecao(itensRenderizados.map(chaveDe), { foco: foco });
+    }
+    function limparSelecao(silencioso) {
+        const havia = selecao.size > 0;
+        selecao.clear();
+        ancora = null;
+        foco = null;
+        if (!silencioso && havia) depoisDaSelecao();
+    }
+    function linhaDe(chave) { return linhasPorChave.get(chave) || null; }
+
+    // Barra de seleção (dc L2194-2199, `barra` L4844): contagem + tamanho e as ações com rota.
+    function renderizarBarra() {
+        if (!el.selecao) return;
+        const sel = itensSelecionados();
+        el.selecao.hidden = sel.length === 0;
+        if (!sel.length) return;
+        const soma = somaDosArquivos(sel);
+        el.selecaoTexto.textContent = (sel.length === 1 ? '1 selecionado' : sel.length + ' selecionados') + (soma ? ' · ' + formatarBytes(soma) : '');
+        const baixar = el.selecao.querySelector('[data-pex-sel="baixar"]');
+        const renomear = el.selecao.querySelector('[data-pex-sel="renomear"]');
+        if (baixar) baixar.hidden = !(sel.length === 1 && sel[0].tipo === 'arquivo');
+        if (renomear) renomear.hidden = sel.length !== 1;
+    }
+    if (el.selecao) {
+        el.selecaoLimpar.addEventListener('click', function () { limparSelecao(); el.lista.focus({ preventScroll: true }); });
+        el.selecao.addEventListener('click', function (e) {
+            const b = e.target.closest('[data-pex-sel]');
+            if (!b) return;
+            const sel = itensSelecionados();
+            switch (b.dataset.pexSel) {
+                case 'baixar':   if (sel.length === 1 && sel[0].tipo === 'arquivo') baixar(sel[0].dado); break;
+                case 'recortar': recortar(sel); break;
+                case 'mover':    escolherDestino(sel); break;
+                case 'renomear': if (sel.length === 1) iniciarRenomear(sel[0]); break;
+                case 'tudo':     selecionarTudo(); break;
+                case 'excluir':  excluirItens(sel); break;
+            }
+        });
     }
 
     // --------------------------------------------------------- navegação ----
     // Trocar de nível limpa a seleção, como o desenho (`expSelK: []` em toda navegação).
     function entrar(id) {
         caminho = cadeiaAte(id);
-        selecionado = null;
+        limparSelecao(true);
         clearTimeout(buscaTimer);
         busca = '';
         if (el.busca) el.busca.value = '';
@@ -860,7 +1043,7 @@
     }
     function irParaNivel(nivel) {
         caminho = nivel < 0 ? [] : caminho.slice(0, nivel + 1);
-        selecionado = null;
+        limparSelecao(true);
         gravarCaminho();
         renderizar();
     }
@@ -869,53 +1052,44 @@
 
     // ============================================================ EVENTOS ====
 
-    /* Clique na lista: pré-visualizar, menu ⋮, abrir pasta, selecionar.
-       Com o painel DESLIGADO o clique na pasta entra nela (comportamento do L1). Com o painel
-       LIGADO o clique seleciona — é o único jeito de ver os detalhes de uma pasta — e o duplo
-       clique (ou Enter) entra, como o desenho (dc L4758). A semântica única "clique seleciona"
-       em todos os casos é do L5 (DOC-14). */
-    function ehToque() {
-        try { return window.matchMedia('(max-width: 767.98px), (hover: none)').matches; } catch (e) { return false; }
-    }
+    /* Clique na lista (dc `sel`, L4748-4753): seleciona; Ctrl/Cmd alterna; Shift estende.
+       O ⋮ (toque) abre o menu. No toque (abaixo de 768px ou ponteiro sem hover) a pasta ENTRA
+       e o nome do arquivo ABRE, como antes — duplo toque não é gesto confiável; o resto da linha
+       seleciona. Convenção do sistema; o desenho é omisso sobre toque. */
     el.lista.addEventListener('click', function (e) {
+        if (Date.now() < suprimirCliqueAte) { e.preventDefault(); return; }
+        const item = e.target.closest('.pex-item');
+        if (item && item.dataset.pexTemp !== undefined) return;
+        if (e.target.closest('.pex-ren')) return;
+        const btnMenu = e.target.closest('.pex-menu');
+        if (btnMenu && item) {
+            e.preventDefault();
+            e.stopPropagation();
+            abrirMenuNoBotao(btnMenu, item);
+            return;
+        }
         const prev = e.target.closest('.pex-arq-preview');
         if (prev) {
-            // O nome é um <a> de verdade: com modificador, deixa o navegador abrir em outra aba.
-            if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+            // O nome é um <a> de verdade: com Ctrl/Cmd/Alt, deixa o navegador abrir em outra aba.
+            if (e.ctrlKey || e.metaKey || e.altKey) return;
             e.preventDefault();
-            // Com o painel aberto, o arquivo que se pré-visualiza é também o que ele descreve.
-            const doItem = prev.closest('.pex-item');
-            if (painel && doItem) selecionar(doItem.dataset.pexTipo + ':' + Number(doItem.dataset.pexId));
-            abrirPreview(prev);
-            return;
+            if (ehToque() && !e.shiftKey && item) { selecionar(chaveDoElemento(item)); abrirPreview(prev); return; }
         }
-        const acao = e.target.closest('[data-pex-acao]');
-        const item = e.target.closest('.pex-item');
-        if (acao && item) {
-            e.preventDefault();
-            executarAcao(acao.dataset.pexAcao, item);
-            return;
-        }
-        if (e.target.closest('.dropdown')) return;
-        if (!item) { if (painel && selecionado) selecionar(null); return; }
-        /* Toque (abaixo de 768px ou ponteiro sem hover): pasta ENTRA mesmo com o painel ligado —
-           duplo toque não é gesto confiável e o painel desce para baixo da lista no celular.
-           Convenção do sistema; o desenho é omisso. */
-        if (painel && item.dataset.pexTipo === 'pasta' && ehToque()) { entrar(Number(item.dataset.pexId)); return; }
-        if (painel) { selecionar(item.dataset.pexTipo + ':' + Number(item.dataset.pexId)); return; }
-        if (item.dataset.pexTipo === 'pasta') entrar(Number(item.dataset.pexId));
+        if (!item) { limparSelecao(); return; }
+        const chave = chaveDoElemento(item);
+        if (ehToque() && item.dataset.pexTipo === 'pasta') { entrar(Number(item.dataset.pexId)); return; }
+        if (e.ctrlKey || e.metaKey) alternarSelecao(chave);
+        else if (e.shiftKey) selecionarIntervalo(chave);
+        else selecionar(chave);
+        el.lista.focus({ preventScroll: true });
     });
+    // Duplo clique abre (dc `abrir`, L4758): pasta entra, arquivo pré-visualiza.
     el.lista.addEventListener('dblclick', function (e) {
-        const pasta = e.target.closest('.pex-item--pasta');
-        if (pasta && painel && !e.target.closest('.dropdown')) { entrar(Number(pasta.dataset.pexId)); return; }
-        const item = e.target.closest('.pex-item--arquivo');
-        if (!item || e.target.closest('.dropdown') || e.target.closest('a')) return;
-        const gatilho = item.querySelector('.pex-arq-preview');
-        if (gatilho) abrirPreview(gatilho);
-    });
-    el.lista.addEventListener('keydown', function (e) {
-        const item = e.target.closest('.pex-item--pasta');
-        if (item && e.target === item && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); entrar(Number(item.dataset.pexId)); }
+        if (e.target.closest('.pex-ren, .pex-menu')) return;
+        const item = e.target.closest('.pex-item');
+        if (!item || item.dataset.pexTemp !== undefined) return;
+        e.preventDefault();
+        abrirItem(itemPorChave(chaveDoElemento(item)));
     });
 
     function abrirPreview(gatilho) {
@@ -923,28 +1097,24 @@
         if (!modal || !window.bootstrap) { window.open(gatilho.dataset.url, '_blank', 'noopener'); return; }
         bootstrap.Modal.getOrCreateInstance(modal).show(gatilho);
     }
-
-    function executarAcao(acao, item) {
-        const id = Number(item.dataset.pexId);
-        if (item.dataset.pexTipo === 'pasta') {
-            const p = pastaPorId(id);
-            if (!p) return;
-            if (acao === 'abrir') entrar(id);
-            else if (acao === 'renomear') renomearPasta(p);
-            else if (acao === 'mover') escolherDestinoPasta(p);
-            else if (acao === 'excluir') excluirPasta(p);
-            return;
-        }
-        const a = arquivoPorId(id);
-        if (!a) return;
-        if (acao === 'editar') abrirEditar(a);
-        else if (acao === 'mover') escolherDestinoArquivo(a);
-        else if (acao === 'excluir') excluirArquivo(a);
+    // O visualizador lê `relatedTarget.dataset.url|nome|mime`: o gatilho é o link da linha, ou um
+    // nó avulso com os mesmos três dados quando a linha não está na tela.
+    function gatilhoDe(a) {
+        const linha = linhaDe('arquivo:' + a.id);
+        const g = linha ? linha.querySelector('.pex-arq-preview') : null;
+        return g || h('span', { 'data-url': a.viewUrl, 'data-nome': a.nome, 'data-mime': a.mime || '' });
     }
-    function arquivoPorId(id) {
-        id = Number(id);
-        for (let i = 0; i < arquivos.length; i++) if (arquivos[i].id === id) return arquivos[i];
-        return null;
+    function abrirPreviewDe(a) { abrirPreview(gatilhoDe(a)); }
+    function abrirItem(it) {
+        if (!it) return;
+        if (it.tipo === 'pasta') entrar(it.id); else abrirPreviewDe(it.dado);
+    }
+    // Baixar: o mesmo link de download de sempre, em outra aba.
+    function baixar(a) {
+        const l = h('a', { href: a.downloadUrl, target: '_blank', rel: 'noopener', hidden: true });
+        document.body.appendChild(l);
+        l.click();
+        l.remove();
     }
 
     // Trilha
@@ -954,17 +1124,680 @@
     });
     if (el.subir) el.subir.addEventListener('click', subir);
 
-    // Teclado: Backspace / Alt+← / Alt+↑ sobem um nível (dc L4910); fora de campos de texto.
+    // ------------------------------------------------------------ teclado ---
+    /* dc `tecla` (L4902-4931). Fora de campos de texto e do checklist (que tem campos e botões
+       próprios). Backspace / Alt+← / Alt+↑ sobem um nível; Ctrl+A tudo; Del exclui; F2 renomeia;
+       Enter abre; Espaço visualiza; Esc limpa; Ctrl+X/V recorta/cola; setas, Home e End movem a
+       seleção (Shift estende). Ctrl+C é do L8 (Copiar) e não faz nada aqui. */
     raiz.addEventListener('keydown', function (e) {
         const tag = e.target && e.target.tagName;
         if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (e.target && e.target.isContentEditable)) return;
         // O checklist tem campos e botões próprios: Backspace lá é do checklist, não da navegação.
         if (e.target && e.target.closest && e.target.closest('#pexChecklist')) return;
-        if ((e.key === 'Backspace' || (e.altKey && (e.key === 'ArrowLeft' || e.key === 'ArrowUp'))) && caminho.length) {
+        if (el.menu && !el.menu.hidden && e.target.closest('#pexMenu')) { teclaNoMenu(e); return; }
+        const ctrl = e.ctrlKey || e.metaKey;
+        const k = e.key;
+        const baixa = String(k || '').toLowerCase();
+        const sel = itensSelecionados();
+        const linhaFocada = e.target.closest ? e.target.closest('.pex-item') : null;
+        if ((k === 'Backspace' || (e.altKey && (k === 'ArrowLeft' || k === 'ArrowUp'))) && caminho.length) {
             e.preventDefault();
             subir();
+            return;
+        }
+        if (ctrl && baixa === 'a') { e.preventDefault(); selecionarTudo(); return; }
+        if (k === 'Delete') { if (sel.length) { e.preventDefault(); excluirItens(sel); } return; }
+        if (k === 'F2') { if (sel.length === 1) { e.preventDefault(); iniciarRenomear(sel[0]); } return; }
+        if (k === 'Enter') {
+            const alvo = sel.length === 1 ? sel[0] : (linhaFocada ? itemPorChave(chaveDoElemento(linhaFocada)) : null);
+            if (alvo) { e.preventDefault(); abrirItem(alvo); }
+            return;
+        }
+        if (k === ' ') {
+            const alvo = sel.length === 1 ? sel[0] : (linhaFocada ? itemPorChave(chaveDoElemento(linhaFocada)) : null);
+            if (alvo) { e.preventDefault(); if (alvo.tipo === 'arquivo') abrirPreviewDe(alvo.dado); else entrar(alvo.id); }
+            return;
+        }
+        if (k === 'Escape') { if (selecao.size) { e.preventDefault(); limparSelecao(); } return; }
+        if (ctrl && baixa === 'x') { if (sel.length) { e.preventDefault(); recortar(sel); } return; }
+        if (ctrl && baixa === 'v') { if (areaDeTransferencia) { e.preventDefault(); colarAqui(); } return; }
+        if (ctrl) return;
+        if (/^Arrow(Up|Down|Left|Right)$/.test(k) || k === 'Home' || k === 'End') {
+            e.preventDefault();
+            navegarTeclado(k, e.shiftKey);
         }
     });
+
+    // Setas (dc L4917-4930): passo 1 em lista; nos modos de grade o passo vertical é o número de
+    // colunas MEDIDO na primeira linha; no modo Lista (fluxo em colunas) ←/→ pulam ⌈n/3⌉.
+    function navegarTeclado(k, estender) {
+        const chaves = itensRenderizados.map(chaveDe);
+        if (!chaves.length) return;
+        let fluxo = 'lista';
+        if (modo === 'lista' && !ehEstreito()) fluxo = 'coluna';
+        else if (MODOS_GRADE.indexOf(modo) !== -1 || modo === 'p' || modo === 'blocos') fluxo = 'grade';
+        let cols = 1;
+        if (fluxo === 'grade') {
+            const els = Array.prototype.slice.call(el.lista.children);
+            const t0 = els[0] ? els[0].getBoundingClientRect().top : 0;
+            cols = els.filter(function (x) { return Math.abs(x.getBoundingClientRect().top - t0) < 2; }).length || 1;
+        }
+        const linhas = Math.ceil(chaves.length / 3);
+        const passos = {
+            ArrowDown:  fluxo === 'grade' ? cols : 1,
+            ArrowUp:    fluxo === 'grade' ? -cols : -1,
+            ArrowRight: fluxo === 'grade' ? 1 : (fluxo === 'coluna' ? linhas : 0),
+            ArrowLeft:  fluxo === 'grade' ? -1 : (fluxo === 'coluna' ? -linhas : 0),
+        };
+        const ultima = selecao.size ? Array.from(selecao)[selecao.size - 1] : null;
+        const atual = chaves.indexOf(foco && chaves.indexOf(foco) !== -1 ? foco : ultima);
+        let n;
+        if (k === 'Home') n = 0;
+        else if (k === 'End') n = chaves.length - 1;
+        else {
+            const passo = passos[k];
+            if (!passo) return;
+            n = atual < 0 ? 0 : Math.max(0, Math.min(chaves.length - 1, atual + passo));
+        }
+        const nk = chaves[n];
+        if (estender) {
+            const a = chaves.indexOf(ancora && chaves.indexOf(ancora) !== -1 ? ancora : nk);
+            definirSelecao(chaves.slice(Math.min(a, n), Math.max(a, n) + 1), { ancora: chaves[a], foco: nk });
+        } else {
+            selecionar(nk);
+        }
+        const linha = linhaDe(nk);
+        if (linha && linha.scrollIntoView) linha.scrollIntoView({ block: 'nearest' });
+    }
+
+    // --------------------------------------------------------------- laço ---
+    /* dc `lassoIni` (L4874-4900). Como no Windows: arrastar a partir do ícone/nome move o item;
+       a partir do espaço vazio (da lista ou da própria linha) abre a seleção em retângulo. Só com
+       mouse (mousedown/mousemove): no toque não existe laço. Ctrl soma à seleção que já havia.
+       Os retângulos das linhas são medidos UMA vez, em coordenadas da página, no início. */
+    function alcanceDoConteudo(linha) {
+        const cel = linha.querySelector('.pex-cel-nome');
+        if (!cel) return Infinity;
+        let dir = 0;
+        const tw = document.createTreeWalker(cel, NodeFilter.SHOW_TEXT);
+        let tn;
+        while ((tn = tw.nextNode())) {
+            if (!tn.nodeValue.trim()) continue;
+            const rg = document.createRange();
+            rg.selectNodeContents(tn);
+            Array.prototype.forEach.call(rg.getClientRects(), function (r) { dir = Math.max(dir, r.right); });
+        }
+        cel.querySelectorAll('i, svg, img, .pex-fi').forEach(function (n) { dir = Math.max(dir, n.getBoundingClientRect().right); });
+        return dir + 6;
+    }
+    function pontoNoConteudo(linha, x) { return x == null || x <= alcanceDoConteudo(linha); }
+    function medirLinhas() {
+        const sy = window.scrollY, sx = window.scrollX;
+        return Array.prototype.map.call(el.lista.children, function (n) {
+            const r = n.getBoundingClientRect();
+            return { chave: chaveDoElemento(n), top: r.top + sy, bottom: r.bottom + sy, left: r.left + sx, right: r.right + sx };
+        });
+    }
+    function posicionarLaco(r) {
+        el.laco.style.left = r.l + 'px';
+        el.laco.style.top = r.t + 'px';
+        el.laco.style.width = (r.r - r.l) + 'px';
+        el.laco.style.height = (r.b - r.t) + 'px';
+    }
+    el.lista.addEventListener('mousedown', function (e) {
+        lacoVazio = false;
+        if (e.button !== 0 || !el.laco) return;
+        if (e.target.closest('input, button, a, .pex-ren, .pex-menu')) return;
+        const linha = e.target.closest('.pex-item');
+        if (linha && (linha.dataset.pexTemp !== undefined || pontoNoConteudo(linha, e.clientX))) return;
+        lacoVazio = true;
+        iniciarLaco(e);
+    });
+    function iniciarLaco(e) {
+        const base = (e.ctrlKey || e.metaKey) ? Array.from(selecao) : [];
+        const x0 = e.clientX;
+        const yPagina = e.clientY + window.scrollY;
+        let ativo = false;
+        let rects = null;
+        let ultimo = null;
+        let raf = null;
+        let assinatura = '';
+        const aplicar = function (ev) {
+            const y0 = yPagina - window.scrollY;
+            if (!ativo && Math.hypot(ev.clientX - x0, ev.clientY - y0) < 5) return;
+            if (!ativo) { ativo = true; rects = medirLinhas(); el.laco.hidden = false; }
+            if (ev.cancelable) ev.preventDefault();
+            const r = { l: Math.min(x0, ev.clientX), t: Math.min(y0, ev.clientY), r: Math.max(x0, ev.clientX), b: Math.max(y0, ev.clientY) };
+            posicionarLaco(r);
+            const sy = window.scrollY, sx = window.scrollX;
+            const dentro = rects.filter(function (q) { return q.right > r.l + sx && q.left < r.r + sx && q.bottom > r.t + sy && q.top < r.b + sy; }).map(function (q) { return q.chave; });
+            const chaves = base.concat(dentro.filter(function (k) { return base.indexOf(k) === -1; }));
+            const nova = chaves.join('|');
+            if (nova !== assinatura) { assinatura = nova; definirSelecao(chaves, { foco: chaves.length ? chaves[chaves.length - 1] : null }); }
+        };
+        const mover = function (ev) {
+            aplicar(ev);
+            ultimo = ev;
+            if (!raf) {
+                const passo = function () {
+                    const u = ultimo;
+                    if (!u || !ativo) { raf = null; return; }
+                    const m = LACO_MARGEM_PX;
+                    const v = u.clientY < m ? -(m - u.clientY) : (u.clientY > window.innerHeight - m ? u.clientY - (window.innerHeight - m) : 0);
+                    if (v) { window.scrollBy(0, v / 2); aplicar(u); }
+                    raf = requestAnimationFrame(passo);
+                };
+                raf = requestAnimationFrame(passo);
+            }
+        };
+        const soltar = function () {
+            window.removeEventListener('mousemove', mover);
+            window.removeEventListener('mouseup', soltar);
+            if (raf) cancelAnimationFrame(raf);
+            raf = null;
+            ultimo = null;
+            lacoVazio = false;
+            el.laco.hidden = true;
+            // O clique que o navegador dispara depois de um laço não conta como clique.
+            if (ativo) suprimirCliqueAte = Date.now() + 80;
+        };
+        window.addEventListener('mousemove', mover);
+        window.addEventListener('mouseup', soltar);
+        el.lista.focus({ preventScroll: true });
+    }
+
+    // -------------------------------------------------------- toque longo ---
+    /* No toque não há botão direito: segurar ~500 ms sobre uma linha abre o menu de contexto
+       dela (DOC-85; convenção). Mover o dedo (rolagem) cancela. O clique que vem depois é
+       engolido. O `contextmenu` nativo do Android faz o mesmo caminho, sem duplicar. */
+    let toqueTimer = null;
+    let toqueInicio = null;
+    function cancelarToqueLongo() {
+        clearTimeout(toqueTimer);
+        toqueTimer = null;
+        toqueInicio = null;
+    }
+    el.lista.addEventListener('pointerdown', function (e) {
+        if (e.pointerType !== 'touch' && e.pointerType !== 'pen') return;
+        const linha = e.target.closest('.pex-item');
+        if (!linha || linha.dataset.pexTemp !== undefined || e.target.closest('.pex-ren, .pex-menu')) return;
+        cancelarToqueLongo();
+        toqueInicio = { x: e.clientX, y: e.clientY, linha: linha };
+        toqueTimer = setTimeout(function () {
+            const t = toqueInicio;
+            cancelarToqueLongo();
+            if (!t) return;
+            suprimirCliqueAte = Date.now() + 700;
+            abrirMenu(t.x, t.y, itemPorChave(chaveDoElemento(t.linha)));
+        }, TOQUE_LONGO_MS);
+    });
+    el.lista.addEventListener('pointermove', function (e) {
+        if (toqueInicio && Math.hypot(e.clientX - toqueInicio.x, e.clientY - toqueInicio.y) > 10) cancelarToqueLongo();
+    });
+    ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (ev) { el.lista.addEventListener(ev, cancelarToqueLongo); });
+
+    // --------------------------------------------------- menu de contexto ---
+    /* dc `ctxItens` (L4797-4834), na ordem do desenho, só com o que tem ação hoje:
+       - de lotes futuros, NÃO renderizados: "Baixar como .zip" e Copiar (L8), favoritos (L6),
+         Desfazer (L7), visor (L10); "Encaminhar via Chat I.A" é item E;
+       - "Compartilhar link" vira "Copiar link" INTERNO (S-12): a URL de visualização, absoluta;
+       - "Editar…" (categoria, descrição, número) é função do sistema: o desenho é omisso. */
+    const SEP = {};
+    let menuAcoes = [];
+    function op(rotulo, ico, acao, extra) {
+        extra = extra || {};
+        return { rotulo: rotulo, icone: ico, acao: acao, atalho: extra.atalho || '', perigo: !!extra.perigo, desabilitado: !!extra.desabilitado };
+    }
+    function opcoesDoMenu(alvo) {
+        const sel = itensSelecionados();
+        const multi = !!alvo && sel.length > 1 && selecao.has(chaveDe(alvo));
+        if (!alvo) {
+            return [
+                op('Nova pasta', 'bi-folder-plus', novaPastaInline),
+                op('Colar', 'bi-clipboard', colarAqui, { atalho: 'Ctrl+V', desabilitado: !areaDeTransferencia }),
+                op('Selecionar tudo', 'bi-check2-all', selecionarTudo, { atalho: 'Ctrl+A' }),
+                SEP,
+            ].concat([['nome', 'Classificar por nome'], ['data', 'Classificar por data'], ['tamanho', 'Classificar por tamanho'], ['tipo', 'Classificar por tipo']].map(function (par) {
+                return op(par[1], classificar.chave === par[0] ? 'bi-check2' : 'bi-sort-down', function () { if (classificar.chave !== par[0]) classificarPor(par[0]); });
+            }), [
+                SEP,
+                op(painel ? 'Ocultar painel de detalhes' : 'Mostrar painel de detalhes', 'bi-layout-sidebar-reverse', alternarPainel),
+            ]);
+        }
+        if (multi) {
+            const arqs = sel.filter(ehArquivo);
+            return (arqs.length ? [op('Copiar links' + (arqs.length < sel.length ? ' (' + arqs.length + ')' : ''), 'bi-link-45deg', function () { copiarLinks(arqs); })] : []).concat([
+                SEP,
+                op('Recortar', 'bi-scissors', function () { recortar(sel); }, { atalho: 'Ctrl+X' }),
+                op('Copiar caminhos', 'bi-signpost', function () { copiarCaminhos(sel); }),
+                SEP,
+                op('Excluir ' + sel.length + ' itens', 'bi-trash3', function () { excluirItens(sel); }, { atalho: 'Del', perigo: true }),
+                SEP,
+                op('Propriedades', 'bi-info-square', mostrarPainel),
+            ]);
+        }
+        const ehPasta = alvo.tipo === 'pasta';
+        const a = alvo.dado;
+        return [op('Abrir', ehPasta ? 'bi-folder2-open' : 'bi-box-arrow-up-right', function () { abrirItem(alvo); }, { atalho: 'Enter' })]
+            .concat(ehPasta ? [] : [
+                op('Visualizar', 'bi-eye', function () { abrirPreviewDe(a); }, { atalho: 'Espaço' }),
+                op('Baixar', 'bi-download', function () { baixar(a); }),
+                op('Copiar link', 'bi-link-45deg', function () { copiarLinks([alvo]); }),
+            ])
+            .concat([
+                SEP,
+                op('Recortar', 'bi-scissors', function () { recortar([alvo]); }, { atalho: 'Ctrl+X' }),
+            ])
+            .concat(ehPasta ? [op('Colar', 'bi-clipboard', function () { colarEm(alvo.id); }, { atalho: 'Ctrl+V', desabilitado: !areaDeTransferencia })] : [])
+            .concat([
+                op('Copiar caminho', 'bi-signpost', function () { copiarCaminhos([alvo]); }),
+                SEP,
+                op('Renomear', 'bi-input-cursor-text', function () { iniciarRenomear(alvo); }, { atalho: 'F2' }),
+            ])
+            .concat(ehPasta ? [] : [op('Editar…', 'bi-pencil', function () { abrirEditar(a); })])
+            .concat([
+                op('Excluir', 'bi-trash3', function () { excluirItens([alvo]); }, { atalho: 'Del', perigo: true }),
+                SEP,
+                op('Propriedades', 'bi-info-square', mostrarPainel),
+            ]);
+    }
+    function abrirMenu(x, y, alvo) {
+        if (!el.menu || !el.menuItemTpl) return;
+        cancelarRenomear();
+        // Botão direito num item fora da seleção: ele passa a ser a seleção (dc `ctx`, L4759).
+        if (alvo && !selecao.has(chaveDe(alvo))) selecionar(chaveDe(alvo));
+        const frag = document.createDocumentFragment();
+        menuAcoes = [];
+        let ultimoSep = true;
+        opcoesDoMenu(alvo).forEach(function (o) {
+            if (o === SEP) {
+                if (!ultimoSep) { frag.appendChild(h('div', { class: 'pex-ctx-sep', role: 'separator' })); ultimoSep = true; }
+                return;
+            }
+            const n = el.menuItemTpl.content.firstElementChild.cloneNode(true);
+            n.querySelector('.pex-ctx-ico').className = 'bi pex-ctx-ico ' + o.icone;
+            n.querySelector('.pex-ctx-rotulo').textContent = o.rotulo;
+            n.querySelector('.pex-ctx-atalho').textContent = o.atalho;
+            if (o.perigo) n.classList.add('pex-ctx-item--perigo');
+            if (o.desabilitado) n.disabled = true;
+            n.dataset.pexMenuI = String(menuAcoes.length);
+            menuAcoes.push(o.acao);
+            frag.appendChild(n);
+            ultimoSep = false;
+        });
+        if (frag.lastChild && frag.lastChild.classList && frag.lastChild.classList.contains('pex-ctx-sep')) frag.removeChild(frag.lastChild);
+        el.menu.textContent = '';
+        el.menu.appendChild(frag);
+        el.menuFundo.hidden = false;
+        el.menu.hidden = false;
+        // Limitado à janela (DOC-34): 240px e nunca para fora da borda direita/inferior.
+        const W = el.menu.offsetWidth, H = el.menu.offsetHeight;
+        el.menu.style.left = Math.max(8, Math.min(x, window.innerWidth - W - 8)) + 'px';
+        el.menu.style.top = Math.max(8, Math.min(y, window.innerHeight - H - 8)) + 'px';
+        const primeiro = el.menu.querySelector('.pex-ctx-item:not(:disabled)');
+        if (primeiro) primeiro.focus({ preventScroll: true });
+    }
+    function abrirMenuNoBotao(btn, linha) {
+        const r = btn.getBoundingClientRect();
+        abrirMenu(r.left, r.bottom + 2, itemPorChave(chaveDoElemento(linha)));
+    }
+    function menuAberto() { return !!el.menu && !el.menu.hidden; }
+    function fecharMenu() {
+        if (!menuAberto()) return;
+        el.menu.hidden = true;
+        el.menuFundo.hidden = true;
+        el.menu.textContent = '';
+        menuAcoes = [];
+        el.lista.focus({ preventScroll: true });
+    }
+    function teclaNoMenu(e) {
+        const itens = Array.prototype.slice.call(el.menu.querySelectorAll('.pex-ctx-item:not(:disabled)'));
+        const i = itens.indexOf(document.activeElement);
+        if (e.key === 'Escape') { e.preventDefault(); fecharMenu(); return; }
+        if (e.key === 'ArrowDown') { e.preventDefault(); (itens[i + 1] || itens[0]).focus(); return; }
+        if (e.key === 'ArrowUp') { e.preventDefault(); (itens[i - 1] || itens[itens.length - 1]).focus(); return; }
+        if (e.key === 'Home') { e.preventDefault(); if (itens[0]) itens[0].focus(); return; }
+        if (e.key === 'End') { e.preventDefault(); if (itens.length) itens[itens.length - 1].focus(); }
+    }
+    if (el.menu) {
+        el.menu.addEventListener('click', function (e) {
+            const b = e.target.closest('[data-pex-menu-i]');
+            if (!b || b.disabled) return;
+            const f = menuAcoes[Number(b.dataset.pexMenuI)];
+            fecharMenu();
+            if (typeof f === 'function') f();
+        });
+        el.menu.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+        el.menuFundo.addEventListener('click', fecharMenu);
+        el.menuFundo.addEventListener('contextmenu', function (e) { e.preventDefault(); fecharMenu(); });
+        window.addEventListener('scroll', fecharMenu, { passive: true });
+        window.addEventListener('resize', fecharMenu);
+        // Botão direito na lista (item ou fundo) e no vazio da pasta ("Nova pasta", "Colar").
+        const porBotaoDireito = function (e) {
+            if (e.target.closest('.pex-ren')) return;    // no campo inline, o menu nativo (colar texto)
+            e.preventDefault();
+            cancelarToqueLongo();
+            const linha = e.target.closest('.pex-item');
+            if (linha && linha.dataset.pexTemp !== undefined) return;
+            abrirMenu(e.clientX, e.clientY, linha ? itemPorChave(chaveDoElemento(linha)) : null);
+        };
+        el.lista.addEventListener('contextmenu', porBotaoDireito);
+        if (el.vazio) el.vazio.addEventListener('contextmenu', porBotaoDireito);
+    }
+
+    // -------------------------------------------------------------- toast ---
+    // dc `aviso` (L4772): 4,2 s. Sem "Desfazer" até a lixeira (L7). Erro fica mais (6 s) e com ícone.
+    let toastTimer = null;
+    function toast(texto, erro) {
+        if (!el.toast) { if (erro) alert(texto); return; }
+        clearTimeout(toastTimer);
+        el.toastTexto.textContent = texto;
+        el.toast.classList.toggle('pex-toast--erro', !!erro);
+        if (el.toastIcone) {
+            el.toastIcone.className = 'bi pex-toast-ico' + (erro ? ' bi-exclamation-triangle-fill' : '');
+            el.toastIcone.hidden = !erro;
+        }
+        el.toast.hidden = false;
+        toastTimer = setTimeout(function () { el.toast.hidden = true; }, erro ? 6000 : TOAST_MS);
+    }
+    function toastErro(texto) { toast(texto || 'Algo deu errado.', true); }
+
+    // ------------------------------------------------------- ações do L5 ----
+    function rotuloDe(itens) { return itens.length === 1 ? itens[0].nome : itens.length + ' itens'; }
+    function localDe(it) {
+        const v = it.tipo === 'pasta' ? it.dado.paiId : it.dado.secaoId;
+        return v == null ? null : Number(v);
+    }
+    function linkAbsoluto(a) { return new URL(a.viewUrl, window.location.href).href; }
+    // "Copiar link" (S-12): o link interno de visualização, que exige login e permissão na pasta.
+    function copiarLinks(itens) {
+        const arqs = itens.filter(ehArquivo);
+        if (!arqs.length) return;
+        copiarTexto(arqs.map(function (it) { return linkAbsoluto(it.dado); }).join('\n')).then(function (ok) {
+            if (ok) toast(arqs.length === 1 ? 'Link copiado' : 'Links copiados'); else toastErro('Não foi possível copiar.');
+        });
+    }
+    // "Copiar caminho" (DOC-38): "BlueJus › Pasta <n> › Documentos › … › nome".
+    function caminhoDe(it) {
+        return 'BlueJus › Pasta ' + cfg.pastaRotulo + ' › ' + caminhoLegivel(localDe(it)) + ' › ' + it.nome;
+    }
+    function copiarCaminhos(itens) {
+        if (!itens.length) return;
+        copiarTexto(itens.map(caminhoDe).join('\n')).then(function (ok) {
+            if (ok) toast(itens.length === 1 ? 'Caminho copiado' : 'Caminhos copiados'); else toastErro('Não foi possível copiar.');
+        });
+    }
+    // Recortar (Ctrl+X): só memória; Colar move pelo mover-lote. Copiar/duplicar é do L8.
+    function recortar(itens) {
+        if (!itens.length) return;
+        areaDeTransferencia = { op: 'recortar', chaves: itens.map(chaveDe) };
+        toast('Recortado: ' + rotuloDe(itens));
+    }
+    function colarEm(destinoId) {
+        if (!areaDeTransferencia) return;
+        const chaves = areaDeTransferencia.chaves.filter(function (k) { return k !== 'pasta:' + destinoId; });
+        areaDeTransferencia = null;
+        moverLote(chaves, destinoId);
+    }
+    function colarAqui() { colarEm(pastaAtualId()); }
+    function mostrarPainel() {
+        if (painel) { renderizarPainel(); return; }
+        alternarPainel();
+    }
+    function alternarPainel() {
+        painel = !painel;
+        gravarPainel();
+        fecharPopovers();
+        renderizar();
+    }
+
+    // Divide chaves em ids de documentos e de pastas, como o corpo do lote espera.
+    function separarChaves(chaves) {
+        const docs = [], secs = [];
+        chaves.forEach(function (k) {
+            const partes = k.split(':');
+            const id = Number(partes[1]);
+            if (!id) return;
+            if (partes[0] === 'pasta') secs.push(id); else docs.push(id);
+        });
+        return { documentos: docs, secoes: secs };
+    }
+    function acimaDoTeto(n) {
+        if (n <= TETO_LOTE) return false;
+        toastErro('Seleção acima do limite de ' + TETO_LOTE.toLocaleString('pt-BR') + ' itens por ação. Selecione menos itens.');
+        return true;
+    }
+
+    /* Mover em lote (D4): UM pedido para a seleção toda — arquivos e pastas, inclusive pasta
+       dentro de pasta (DOC-55). Ciclo e "já está aqui" são barrados na tela antes do pedido; o
+       servidor confere de novo. Depois do sucesso a memória é atualizada e a lista refeita. */
+    function moverLote(chaves, destinoId) {
+        destinoId = destinoId == null ? null : Number(destinoId);
+        const lote = separarChaves(chaves);
+        const n = lote.documentos.length + lote.secoes.length;
+        if (!n) return Promise.resolve();
+        if (acimaDoTeto(n)) return Promise.resolve();
+        const jaLa = chaves.every(function (k) {
+            const partes = k.split(':');
+            const d = partes[0] === 'pasta' ? pastaPorId(partes[1]) : arquivoPorId(partes[1]);
+            const local = d ? (partes[0] === 'pasta' ? d.paiId : d.secaoId) : undefined;
+            return (local == null ? null : Number(local)) === destinoId;
+        });
+        if (jaLa) { toast('Os itens já estão nesta pasta'); return Promise.resolve(); }
+        if (destinoId != null && lote.secoes.some(function (id) { return id === destinoId || descendentes(id).indexOf(destinoId) !== -1; })) {
+            toastErro('Uma pasta não pode ir para dentro dela mesma.');
+            return Promise.resolve();
+        }
+        // Pelos dados em memória, não pela tela: depois de Recortar, o usuário pode ter navegado.
+        const nomes = chaves.map(function (k) {
+            const partes = k.split(':');
+            const d = partes[0] === 'pasta' ? pastaPorId(partes[1]) : arquivoPorId(partes[1]);
+            return d ? d.nome : '';
+        }).filter(Boolean);
+        return postJson(cfg.urlMoverLote, { _token: cfg.csrfLote, documentos: lote.documentos, secoes: lote.secoes, destinoId: destinoId }).then(function (res) {
+            if (!res.ok || !res.j.ok) throw new Error((res.j && res.j.erro) || 'Falha ao mover.');
+            lote.documentos.forEach(function (id) { const a = arquivoPorId(id); if (a) a.secaoId = destinoId; });
+            lote.secoes.forEach(function (id) { const p = pastaPorId(id); if (p) p.paiId = destinoId; });
+            limparSelecao(true);
+            renderizar();
+            toast((n === 1 ? '"' + (nomes[0] || '1 item') + '" movido' : n + ' itens movidos') + ' para ' + nomeDoLocal(destinoId));
+        }).catch(function (err) { toastErro(err.message || 'Erro de comunicação.'); });
+    }
+
+    // Aviso montado com a contagem da árvore (D3): o número tem de existir ANTES do clique.
+    function avisoExclusao(p) {
+        const c = contarArvore(p.id);
+        if (c.subpastas === 0 && c.arquivos === 0) {
+            return 'A pasta "' + p.nome + '" está vazia. Excluir mesmo assim? Esta ação não pode ser desfeita.';
+        }
+        const partes = [];
+        if (c.subpastas > 0) partes.push(pluralizar(c.subpastas, 'subpasta', 'subpastas'));
+        if (c.arquivos > 0) partes.push(pluralizar(c.arquivos, 'arquivo', 'arquivos'));
+        return 'Excluir a pasta "' + p.nome + '" e todo o conteúdo dela? Ao todo: ' + partes.join(' e ') + '. Esta ação não pode ser desfeita.';
+    }
+    function avisoExclusaoDoLote(itens) {
+        if (itens.length === 1) {
+            return itens[0].tipo === 'pasta' ? avisoExclusao(itens[0].dado) : 'Excluir "' + itens[0].nome + '"? Esta ação não pode ser desfeita.';
+        }
+        let subpastas = 0, arquivosN = 0;
+        itens.forEach(function (it) {
+            if (it.tipo === 'arquivo') { arquivosN++; return; }
+            const c = contarArvore(it.id);
+            subpastas += 1 + c.subpastas;
+            arquivosN += c.arquivos;
+        });
+        const partes = [];
+        if (subpastas > 0) partes.push(pluralizar(subpastas, 'pasta', 'pastas'));
+        if (arquivosN > 0) partes.push(pluralizar(arquivosN, 'arquivo', 'arquivos'));
+        return 'Excluir ' + itens.length + ' itens? Ao todo: ' + partes.join(' e ') + '. Esta ação não pode ser desfeita.';
+    }
+    /* Excluir (DOC-57): um, vários ou pasta — sempre pelo excluir-lote. O `confirm()` fica até o
+       Samuel decidir (S-3); o Desfazer chega com a lixeira (L7). */
+    function excluirItens(itens) {
+        if (!itens.length) return;
+        const lote = separarChaves(itens.map(chaveDe));
+        if (acimaDoTeto(lote.documentos.length + lote.secoes.length)) return;
+        if (!confirm(avisoExclusaoDoLote(itens))) return;
+        postJson(cfg.urlExcluirLote, { _token: cfg.csrfLote, documentos: lote.documentos, secoes: lote.secoes }).then(function (res) {
+            if (!res.ok || !res.j.ok) throw new Error((res.j && res.j.erro) || 'Falha ao excluir.');
+            // O back apaga a ÁRVORE de cada pasta (cascade): tira as filhas e os arquivos delas.
+            let subarvore = [];
+            lote.secoes.forEach(function (id) { subarvore = subarvore.concat([id], descendentes(id)); });
+            for (let i = arquivos.length - 1; i >= 0; i--) {
+                const a = arquivos[i];
+                if (lote.documentos.indexOf(a.id) !== -1 || (a.secaoId != null && subarvore.indexOf(Number(a.secaoId)) !== -1)) { arquivos.splice(i, 1); totalArquivos--; }
+            }
+            for (let i = pastas.length - 1; i >= 0; i--) {
+                if (subarvore.indexOf(pastas[i].id) !== -1) pastas.splice(i, 1);
+            }
+            limparSelecao(true);
+            if (caminho.some(function (id) { return subarvore.indexOf(id) !== -1; })) voltarRaiz(); else renderizar();
+            toast(itens.length === 1 ? 'Excluído: ' + itens[0].nome : itens.length + ' itens excluídos');
+        }).catch(function (err) { toastErro(err.message || 'Erro de comunicação.'); });
+    }
+
+    // "Mover para…" (modal de destino) para a seleção — pastas selecionadas e descendentes
+    // ficam desabilitadas; o nível atual só é marcado quando todos estão no mesmo lugar.
+    function escolherDestino(itens) {
+        if (!itens.length) return;
+        let proibidos = [];
+        itens.filter(ehPastaItem).forEach(function (it) { proibidos = proibidos.concat([it.id], descendentes(it.id)); });
+        const locais = [];
+        itens.forEach(function (it) { const l = localDe(it); if (locais.indexOf(l) === -1) locais.push(l); });
+        pedirDestino(itens.length === 1 ? 'Mover "' + itens[0].nome + '" para' : 'Mover ' + itens.length + ' itens para', {
+            proibidos: proibidos,
+            atual: locais.length === 1 ? locais[0] : null,
+            semAtual: locais.length !== 1,
+        }).then(function (destino) {
+            if (destino === undefined) return;      // cancelou
+            moverLote(itens.map(chaveDe), destino); // null = raiz
+        });
+    }
+
+    // ------------------------------------------- renomear / criar inline ----
+    /* dc L2234 e `renTecla`/`renSalvar` (L4941-4944): campo no lugar do nome; Enter salva, Esc
+       cancela, perder o foco salva. Para arquivo só o nome-base — a extensão é preservada pelo
+       servidor (`nomeBase` do editar em XHR, D3). Nova pasta: linha provisória no topo já em
+       edição (DOC-53); o nome só vai ao servidor quando confirmado. */
+    function iniciarRenomear(it, opts) {
+        opts = opts || {};
+        cancelarRenomear();
+        const linha = opts.linha || linhaDe(chaveDe(it));
+        if (!linha) return;
+        const nomeEl = linha.querySelector('.pex-nome');
+        if (!nomeEl) return;
+        const arquivo = it.tipo === 'arquivo';
+        const ext = arquivo ? extensaoDe(it.nome) : '';
+        const valor = arquivo ? nomeSemExtensao(it.nome) : it.nome;
+        const input = h('input', { type: 'text', class: 'pex-ren', 'aria-label': arquivo ? 'Novo nome do arquivo' : 'Nome da pasta', maxlength: '250', autocomplete: 'off', spellcheck: 'false' });
+        input.value = valor;
+        const wrap = h('span', { class: 'pex-ren-wrap' }, [input, ext ? h('span', { class: 'pex-ren-ext', text: '.' + ext }) : null]);
+        nomeEl.hidden = true;
+        nomeEl.parentNode.insertBefore(wrap, nomeEl.nextSibling);
+        // Enquanto edita, a linha não arrasta: o mouse dentro do campo é para selecionar texto.
+        linha.setAttribute('draggable', 'false');
+        renomeando = { it: it, linha: linha, nomeEl: nomeEl, wrap: wrap, input: input, criar: !!opts.criar, original: valor, salvando: false };
+        input.addEventListener('keydown', function (e) {
+            e.stopPropagation();
+            if (e.key === 'Enter') { e.preventDefault(); salvarRenomear(); }
+            else if (e.key === 'Escape') { e.preventDefault(); cancelarRenomear(); }
+        });
+        ['click', 'dblclick', 'mousedown', 'contextmenu', 'pointerdown'].forEach(function (ev) { input.addEventListener(ev, function (e) { e.stopPropagation(); }); });
+        input.addEventListener('blur', function () { salvarRenomear(); });
+        input.focus();
+        input.select();
+    }
+    function cancelarRenomear(semRender) {
+        if (!renomeando) return;
+        const r = renomeando;
+        renomeando = null;
+        if (semRender) return;         // quem chamou vai refazer a lista
+        if (r.criar) { r.linha.remove(); renderizar(); return; }
+        r.wrap.remove();
+        r.nomeEl.hidden = false;
+        if (usaSortable()) r.linha.removeAttribute('draggable'); else r.linha.setAttribute('draggable', 'true');
+    }
+    function salvarRenomear() {
+        if (!renomeando || renomeando.salvando) return;
+        const r = renomeando;
+        const v = (r.input.value || '').trim();
+        if (v === '' || (!r.criar && v === r.original)) { cancelarRenomear(); return; }
+        r.salvando = true;
+        r.input.disabled = true;
+        let pedido;
+        if (r.criar) {
+            pedido = criarPasta(v);
+        } else if (r.it.tipo === 'pasta') {
+            const p = r.it.dado;
+            pedido = postForm(p.urlRenomear, { _token: p.csrfRenomear, nome: v }).then(function (res) {
+                if (!res.ok || !res.j.ok) throw new Error((res.j && res.j.erro) || 'Falha ao renomear.');
+                p.nome = res.j.nome;
+            });
+        } else {
+            const a = r.it.dado;
+            pedido = postForm(cfg.urlEditarDocTpl.replace('__ID__', a.id), {
+                _token: a.csrfEditar, nomeBase: v, categoria: a.categoria || '', descricao: a.descricao || '', numero: a.numero || '',
+            }).then(function (res) {
+                if (!res.ok || !res.j.ok || !res.j.documento) throw new Error((res.j && res.j.erro) || 'Falha ao renomear.');
+                Object.assign(a, res.j.documento);
+            });
+        }
+        pedido.then(function () {
+            if (renomeando === r) renomeando = null;
+            renderizar();
+        }).catch(function (err) {
+            toastErro(err.message || 'Erro de comunicação.');
+            if (renomeando === r) { r.salvando = false; r.input.disabled = false; cancelarRenomear(); }
+        });
+    }
+    // "Nova pasta" / "Nova pasta (2)"… — o primeiro nome livre neste nível (dc L4827).
+    function nomeLivre(base) {
+        const atual = pastaAtualId();
+        const nomes = pastas.filter(function (p) { return (p.paiId == null ? null : Number(p.paiId)) === atual; }).map(function (p) { return normalizar(p.nome); });
+        let nome = base, n = 1;
+        while (nomes.indexOf(normalizar(nome)) !== -1) { n++; nome = base + ' (' + n + ')'; }
+        return nome;
+    }
+    function novaPastaInline() {
+        if (normalizar(busca) !== '') aplicarBusca('');      // a linha nova vai no nível aberto
+        if (filtroTipo !== 'todos' && filtroTipo !== 'pastas') definirFiltro('todos');
+        cancelarRenomear();
+        const nome = nomeLivre('Nova pasta');
+        const temp = { id: 0, nome: nome, paiId: pastaAtualId(), ordem: 0, subpastas: 0, arquivos: 0 };
+        const linha = linhaPasta(temp, false);
+        linha.dataset.pexTemp = '';
+        linha.removeAttribute('draggable');
+        linha.removeAttribute('tabindex');
+        el.lista.hidden = false;
+        el.vazio.hidden = true;
+        el.lista.insertBefore(linha, el.lista.firstChild);
+        iniciarRenomear({ tipo: 'pasta', id: 0, nome: nome, dado: temp }, { linha: linha, criar: true });
+    }
+    function criarPasta(nome) {
+        const campos = { _token: cfg.csrfCriarSecao, nome: nome };
+        if (caminho.length) campos.paiId = String(pastaAtualId());
+        return postForm(cfg.urlCriarSecao, campos).then(function (res) {
+            if (!res.ok || !res.j.id) throw new Error((res.j && res.j.erro) || 'Falha ao criar a pasta.');
+            pastas.push({
+                id: Number(res.j.id),
+                nome: res.j.nome,
+                paiId: res.j.paiId != null ? Number(res.j.paiId) : null,
+                ordem: pastas.length + 1,
+                subpastas: 0,
+                arquivos: 0,
+                urlRenomear: cfg.urlRenomearTpl.replace('__ID__', res.j.id),
+                csrfRenomear: res.j.csrfRenomear || '',
+                urlExcluir: cfg.urlExcluirTpl.replace('__ID__', res.j.id),
+                csrfExcluir: res.j.csrfExcluir || '',
+                urlMover: cfg.urlMoverTpl.replace('__ID__', res.j.id),
+                csrfMover: res.j.csrfMover || '',
+            });
+            selecao.clear();
+            selecao.add('pasta:' + Number(res.j.id));
+            ancora = foco = 'pasta:' + Number(res.j.id);
+        });
+    }
+    if (el.btnNovaPasta) el.btnNovaPasta.addEventListener('click', novaPastaInline);
 
     // Busca
     function atualizarBotaoLimpar() { if (el.buscaLimpar) el.buscaLimpar.hidden = busca.trim() === ''; }
@@ -975,6 +1808,7 @@
         busca = valor;
         if (el.busca) el.busca.value = valor;
         atualizarBotaoLimpar();
+        limparSelecao(true);
         renderizar();
     }
     if (el.busca) {
@@ -1137,7 +1971,7 @@
     function definirFiltro(id) {
         if (FILTROS.indexOf(id) === -1) return;
         filtroTipo = id;
-        selecionado = null;
+        limparSelecao(true);
         renderizar();
     }
     el.menuOrganizar.addEventListener('click', function (e) {
@@ -1209,7 +2043,7 @@
         p.menu.addEventListener('click', function (e) { e.stopPropagation(); });
     });
     document.addEventListener('click', function () { fecharPopovers(); });
-    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') fecharPopovers(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { fecharPopovers(); fecharMenu(); } });
 
     // ------------------------------------------------------- Visualizar -----
     // Escolher um modo ou ligar o painel fecha o menu (dc `ir`/`alternarPainel`).
@@ -1224,23 +2058,29 @@
                 renderizar();
                 return;
             }
-            if (e.target.closest('#pexPainelAlternar')) {
-                painel = !painel;
-                // Sem painel não há para que selecionar (seleção do L2 é só para ele).
-                if (!painel) selecionado = null;
-                gravarPainel();
-                fecharPopovers();
-                renderizar();
-            }
+            if (e.target.closest('#pexPainelAlternar')) alternarPainel();
         });
     }
 
-    // ------------------------------------------------- HTTP (form-data) -----
+    // ---------------------------------------------------- HTTP (XHR/JSON) ---
+    function lerResposta(r) {
+        return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; });
+    }
+    function postFormData(url, fd) {
+        return fetch(url, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' } }).then(lerResposta);
+    }
     function postForm(url, campos) {
         const fd = new FormData();
         Object.keys(campos).forEach(function (k) { if (campos[k] !== undefined && campos[k] !== null) fd.append(k, campos[k]); });
-        return fetch(url, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-            .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; }); });
+        return postFormData(url, fd);
+    }
+    // Lote (mover-lote / excluir-lote): corpo JSON com `_token` = csrfLote (um por pasta).
+    function postJson(url, corpo) {
+        return fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            body: JSON.stringify(corpo),
+        }).then(lerResposta);
     }
     function persistirOrdem(url, csrf, ids) {
         fetch(url, {
@@ -1250,119 +2090,16 @@
         }).catch(function () { /* silencioso; um reload corrige a ordem */ });
     }
 
-    // ------------------------------------------------------ CRUD de pastas --
-    if (el.btnNovaPasta) {
-        el.btnNovaPasta.addEventListener('click', function () {
-            pedirTexto('Nova pasta', '', 'Nome da pasta…').then(function (nome) {
-                if (nome == null) return;
-                const campos = { _token: cfg.csrfCriarSecao, nome: nome };
-                if (caminho.length) campos.paiId = String(pastaAtualId());
-                postForm(cfg.urlCriarSecao, campos).then(function (res) {
-                    if (!res.ok) throw new Error(res.j.erro || 'Falha ao criar a pasta.');
-                    pastas.push({
-                        id: Number(res.j.id),
-                        nome: res.j.nome,
-                        paiId: res.j.paiId != null ? Number(res.j.paiId) : null,
-                        ordem: pastas.length + 1,
-                        subpastas: 0,
-                        arquivos: 0,
-                        urlRenomear: cfg.urlRenomearTpl.replace('__ID__', res.j.id),
-                        csrfRenomear: res.j.csrfRenomear || '',
-                        urlExcluir: cfg.urlExcluirTpl.replace('__ID__', res.j.id),
-                        csrfExcluir: res.j.csrfExcluir || '',
-                        urlMover: cfg.urlMoverTpl.replace('__ID__', res.j.id),
-                        csrfMover: res.j.csrfMover || '',
-                    });
-                    renderizar();
-                }).catch(function (err) { alert(err.message); });
-            });
-        });
-    }
-
-    function renomearPasta(p) {
-        pedirTexto('Renomear pasta', p.nome, 'Nome da pasta…').then(function (nome) {
-            if (nome == null) return;
-            postForm(p.urlRenomear, { _token: p.csrfRenomear, nome: nome }).then(function (res) {
-                if (!res.ok || !res.j.ok) throw new Error((res.j && res.j.erro) || 'Falha ao renomear.');
-                p.nome = res.j.nome;
-                renderizar();
-            }).catch(function (err) { alert(err.message); });
-        });
-    }
-
-    // Aviso montado com a contagem da árvore (D3): o número tem de existir ANTES do clique.
-    function avisoExclusao(p) {
-        const c = contarArvore(p.id);
-        if (c.subpastas === 0 && c.arquivos === 0) {
-            return 'A pasta "' + p.nome + '" está vazia. Excluir mesmo assim? Esta ação não pode ser desfeita.';
-        }
-        const partes = [];
-        if (c.subpastas > 0) partes.push(pluralizar(c.subpastas, 'subpasta', 'subpastas'));
-        if (c.arquivos > 0) partes.push(pluralizar(c.arquivos, 'arquivo', 'arquivos'));
-        return 'Excluir a pasta "' + p.nome + '" e todo o conteúdo dela? Ao todo: ' + partes.join(' e ') + '. Esta ação não pode ser desfeita.';
-    }
-
-    function excluirPasta(p) {
-        if (!confirm(avisoExclusao(p))) return;
-        postForm(p.urlExcluir, { _token: p.csrfExcluir }).then(function (res) {
-            if (!res.ok || !res.j.ok) throw new Error((res.j && res.j.erro) || 'Falha ao excluir.');
-            // O back apaga a ÁRVORE inteira (cascade): tira as filhas e os arquivos delas da memória.
-            const subarvore = [p.id].concat(descendentes(p.id));
-            for (let i = arquivos.length - 1; i >= 0; i--) {
-                if (arquivos[i].secaoId != null && subarvore.indexOf(Number(arquivos[i].secaoId)) !== -1) { arquivos.splice(i, 1); totalArquivos--; }
-            }
-            for (let i = pastas.length - 1; i >= 0; i--) {
-                if (subarvore.indexOf(pastas[i].id) !== -1) pastas.splice(i, 1);
-            }
-            if (caminho.some(function (id) { return subarvore.indexOf(id) !== -1; })) voltarRaiz(); else renderizar();
-        }).catch(function (err) { alert(err.message); });
-    }
-
-    function moverPasta(p, destinoId) {
-        return postForm(p.urlMover, { _token: p.csrfMover, destinoId: destinoId == null ? '' : String(destinoId) }).then(function (res) {
-            if (!res.ok || !res.j.ok) throw new Error((res.j && res.j.erro) || 'Falha ao mover.');
-            p.paiId = res.j.paiId != null ? Number(res.j.paiId) : null;
-            renderizar();
-        }).catch(function (err) { alert(err.message); });
-    }
-
-    function escolherDestinoPasta(p) {
-        const proibidos = [p.id].concat(descendentes(p.id));
-        pedirDestino('Mover "' + p.nome + '" para', {
-            proibidos: proibidos,
-            atual: p.paiId == null ? null : Number(p.paiId),
-        }).then(function (destino) {
-            if (destino === undefined) return;      // cancelou
-            moverPasta(p, destino);                 // null = raiz
-        });
-    }
-
-    // ---------------------------------------------------- mover arquivo -----
-    function moverArquivo(a, destinoId) {
-        const campos = { _token: a.csrfMover };
-        if (destinoId != null) campos.secao_id = String(destinoId);
-        return postForm(a.urlMover, campos).then(function (res) {
-            if (!res.ok || !res.j.ok) throw new Error((res.j && res.j.erro) || 'Falha ao mover.');
-            a.secaoId = destinoId == null ? null : Number(destinoId);
-            renderizar();
-        }).catch(function (err) { alert(err.message); });
-    }
-    function escolherDestinoArquivo(a) {
-        pedirDestino('Mover "' + a.nome + '" para', {
-            proibidos: [],
-            atual: a.secaoId == null ? null : Number(a.secaoId),
-        }).then(function (destino) {
-            if (destino === undefined) return;
-            moverArquivo(a, destino);
-        });
-    }
-
     // --------------------------------------------------- editar arquivo -----
+    // O modal único (DOC-90) continua para categoria/descrição/número; o POST vai em XHR (D3) e a
+    // linha é atualizada a partir do `documento` da resposta, sem recarregar.
+    const editarModalEl = document.getElementById('pexEditarModal');
+    const editarForm    = document.getElementById('pexEditarForm');
     function abrirEditar(a) {
-        const modalEl = document.getElementById('pexEditarModal');
-        if (!modalEl || !window.bootstrap) return;
+        if (!editarModalEl || !editarForm || !window.bootstrap) return;
         const ext = extensaoDe(a.nome);
-        document.getElementById('pexEditarForm').action = cfg.urlEditarDocTpl.replace('__ID__', a.id);
+        editarForm.action = cfg.urlEditarDocTpl.replace('__ID__', a.id);
+        editarForm.dataset.pexId = String(a.id);
         document.getElementById('pexEditarToken').value = a.csrfEditar || '';
         document.getElementById('pexEditarNomeBase').value = nomeSemExtensao(a.nome);
         document.getElementById('pexEditarExt').textContent = ext ? '.' + ext : '';
@@ -1371,55 +2108,22 @@
         if (sel) sel.value = a.categoria || '';
         document.getElementById('pexEditarDescricao').value = a.descricao || '';
         document.getElementById('pexEditarNumero').value = a.numero || '';
-        gravarCaminho();      // o POST recarrega a página; volta na mesma pasta
-        bootstrap.Modal.getOrCreateInstance(modalEl).show();
+        bootstrap.Modal.getOrCreateInstance(editarModalEl).show();
     }
-
-    // -------------------------------------------------- excluir arquivo -----
-    function excluirArquivo(a) {
-        if (!confirm('Excluir este arquivo? Esta ação não pode ser desfeita.')) return;
-        gravarCaminho();
-        // O mesmo POST de formulário de sempre (pasta_documento_delete + delete_documento_<id>);
-        // o servidor redireciona para #documentos.
-        const form = h('form', { method: 'post', action: cfg.urlExcluirDocTpl.replace('__ID__', a.id), hidden: true }, [
-            h('input', { type: 'hidden', name: '_token', value: a.csrfExcluir || '' }),
-        ]);
-        document.body.appendChild(form);
-        form.submit();
-    }
-
-    // --------------------------------------------------- modal de texto -----
-    let promptResolve = null;
-    const inputModalEl = document.getElementById('pexInputModal');
-    const inputModal   = inputModalEl && window.bootstrap ? bootstrap.Modal.getOrCreateInstance(inputModalEl) : null;
-    const inputCampo   = document.getElementById('pexInputCampo');
-    const inputTitulo  = document.getElementById('pexInputTitulo');
-    const inputErro    = document.getElementById('pexInputErro');
-
-    function pedirTexto(titulo, valor, placeholder) {
-        return new Promise(function (resolve) {
-            if (!inputModal) { const v = prompt(titulo, valor || ''); resolve(v == null ? null : v.trim()); return; }
-            promptResolve = resolve;
-            inputTitulo.textContent = titulo;
-            inputCampo.value = valor || '';
-            inputCampo.placeholder = placeholder || '';
-            inputErro.classList.add('d-none');
-            inputModal.show();
-            setTimeout(function () { inputCampo.focus(); inputCampo.select(); }, 250);
-        });
-    }
-    if (inputModal) {
-        const confirmar = function () {
-            const v = (inputCampo.value || '').trim();
-            if (v === '') { inputErro.textContent = 'Informe um nome.'; inputErro.classList.remove('d-none'); return; }
-            const r = promptResolve; promptResolve = null;
-            inputModal.hide();
-            if (r) r(v);
-        };
-        document.getElementById('pexInputConfirmar').addEventListener('click', confirmar);
-        inputCampo.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); confirmar(); } });
-        inputModalEl.addEventListener('hidden.bs.modal', function () {
-            if (promptResolve) { const r = promptResolve; promptResolve = null; r(null); }
+    if (editarForm) {
+        editarForm.addEventListener('submit', function (e) {
+            const a = arquivoPorId(editarForm.dataset.pexId);
+            if (!a || !window.fetch) return;        // sem XHR, o POST normal de sempre
+            e.preventDefault();
+            const botao = editarForm.querySelector('[type="submit"]');
+            if (botao) botao.disabled = true;
+            postFormData(editarForm.action, new FormData(editarForm)).then(function (res) {
+                if (!res.ok || !res.j.ok || !res.j.documento) throw new Error((res.j && res.j.erro) || 'Falha ao salvar.');
+                Object.assign(a, res.j.documento);
+                bootstrap.Modal.getOrCreateInstance(editarModalEl).hide();
+                renderizar();
+                toast('Documento atualizado: ' + a.nome);
+            }).catch(function (err) { toastErro(err.message || 'Erro de comunicação.'); }).then(function () { if (botao) botao.disabled = false; });
         });
     }
 
@@ -1445,7 +2149,7 @@
 
             const proibidos = opts.proibidos || [];
             const itemDestino = function (id, nome, profundidade, ico) {
-                const ehAtual = (id == null && opts.atual == null) || (id != null && opts.atual != null && Number(id) === Number(opts.atual));
+                const ehAtual = !opts.semAtual && ((id == null && opts.atual == null) || (id != null && opts.atual != null && Number(id) === Number(opts.atual)));
                 const proibido = id != null && proibidos.indexOf(Number(id)) !== -1;
                 return h('button', {
                     type: 'button',
@@ -1525,17 +2229,30 @@
         });
     }
 
+    /* Upload (DOC-43): a resposta traz `documento` na MESMA forma do #pexDados (urls e tokens),
+       então a linha entra sem recarregar a página; o aviso de duplicado é do helper e aparece na
+       hora. Só se a resposta vier sem essa forma (servidor antigo) é que se recarrega. */
+    let uploadTimer = null;
+    function inserirArquivoEnviado(data) {
+        const d = data && data.documento;
+        if (!d || !d.id || !d.viewUrl || !d.nome) return false;
+        if (arquivoPorId(d.id)) return true;
+        d.secaoId = d.secaoId == null ? null : Number(d.secaoId);
+        arquivos.push(d);
+        totalArquivos++;
+        return true;
+    }
     function enviarArquivos(lista) {
-        if (typeof window.enviarArquivoComProgresso !== 'function') { alert('Upload indisponível.'); return; }
+        if (typeof window.enviarArquivoComProgresso !== 'function') { toastErro('Upload indisponível.'); return; }
         const destino = pastaAtualId();
-        let i = 0, houveErro = false;
+        let i = 0, houveErro = false, precisaReload = false;
+        const novos = [];
+        clearTimeout(uploadTimer);
         el.uploadBar.hidden = false;
 
-        function proximo() {
-            if (i >= lista.length) {
-                el.uploadCont.textContent = houveErro ? 'Concluído com erros' : 'Concluído';
-                // Recarrega para renderizar as linhas novas com os tokens do servidor; volta à
-                // mesma pasta (sessionStorage) e à mesma aba (fragmento #documentos).
+        function concluir() {
+            el.uploadCont.textContent = houveErro ? 'Concluído com erros' : 'Concluído';
+            if (precisaReload) {
                 gravarCaminho();
                 setTimeout(function () {
                     window.location.hash = 'documentos';
@@ -1543,6 +2260,16 @@
                 }, 700);
                 return;
             }
+            if (novos.length) {
+                limparSelecao(true);
+                renderizar();
+                definirSelecao(novos, { ancora: novos[0], foco: novos[novos.length - 1] });
+                toast(novos.length === 1 ? 'Anexado: ' + (arquivoPorId(novos[0].split(':')[1]) || {}).nome : novos.length + ' arquivos anexados');
+            }
+            uploadTimer = setTimeout(function () { el.uploadBar.hidden = true; }, houveErro ? 6000 : 1200);
+        }
+        function proximo() {
+            if (i >= lista.length) { concluir(); return; }
             const file = lista[i];
             el.uploadNome.textContent = file.name;
             el.uploadCont.textContent = (i + 1) + '/' + lista.length;
@@ -1559,10 +2286,14 @@
                 reduzir: false,
                 onProgress: function (pct) { el.uploadProg.style.width = pct + '%'; },
                 onComprimindo: function () { el.uploadProg.style.width = '100%'; },
-            }).catch(function (err) {
+            }).then(function (data) {
+                if (inserirArquivoEnviado(data)) { novos.push('arquivo:' + Number(data.documento.id)); renderizar(); }
+                else precisaReload = true;
+            }, function (err) {
                 houveErro = true;
                 el.uploadProg.classList.add('bg-danger');
                 el.uploadNome.textContent = '✗ ' + file.name + ' — ' + err.message;
+                toastErro('Falha ao anexar "' + file.name + '": ' + err.message);
             }).then(function () { i++; proximo(); });
         }
         proximo();
@@ -1573,8 +2304,9 @@
        - modo Manual: SortableJS reordena (persistindo em /reordenar); soltar sobre uma linha de
          pasta MOVE em vez de reordenar — decidido pela COORDENADA do soltar contra o retângulo
          das linhas de pasta, porque o Sortable reposiciona o item arrastado sob o cursor e
-         `e.target` seria sempre o próprio item (lição de 21/08 no fm);
-       - demais ordens: arraste nativo HTML5 da linha (arquivo OU pasta) para uma linha de pasta. */
+         `e.target` seria sempre o próprio item (lição de 21/08 no fm). O Sortable arrasta UMA
+         linha (sem o plugin de multiarraste); o espaço vazio da linha fica para o laço;
+       - demais ordens: arraste nativo HTML5 da SELEÇÃO (arquivos e pastas) para uma linha de pasta. */
     let sortable = null;
     let itemArrastado = null;    // elemento .pex-item em arraste (Sortable)
     let ultimoPonto = null;
@@ -1603,18 +2335,8 @@
         realcarAlvo(pastaSobPonto(e.clientX, e.clientY, itemArrastado));
     }, true);
 
-    function soltarEm(item, destinoLinha) {
-        const destinoId = Number(destinoLinha.dataset.pexId);
-        if (item.dataset.pexTipo === 'arquivo') {
-            const a = arquivoPorId(item.dataset.pexId);
-            if (a && (a.secaoId == null || Number(a.secaoId) !== destinoId)) moverArquivo(a, destinoId);
-            return;
-        }
-        const p = pastaPorId(item.dataset.pexId);
-        if (!p || p.id === destinoId) return;
-        if (descendentes(p.id).indexOf(destinoId) !== -1) { alert('Uma pasta não pode ir para dentro dela mesma.'); return; }
-        if (p.paiId != null && Number(p.paiId) === destinoId) return;
-        moverPasta(p, destinoId);
+    function soltarEm(chaves, destinoLinha) {
+        moverLote(chaves, Number(destinoLinha.dataset.pexId));
     }
 
     /* O Sortable só reordena quando a lista na tela é o nível INTEIRO: com busca ou com filtro por
@@ -1631,17 +2353,24 @@
             draggable: '.pex-item',
             animation: 150,
             ghostClass: 'pex-arrastando',
-            // Links, botões e menus continuam clicáveis: não iniciam arraste.
-            filter: 'a, button, .dropdown-menu',
+            // Links, botões, o campo inline e a linha provisória não iniciam arraste; e, com o
+            // mouse, só o ícone/nome arrasta — o espaço vazio da linha é do laço (dc L4876).
+            filter: function (evt, alvo) {
+                const t = evt.target;
+                if (!t || !t.closest) return false;
+                if (t.closest('a, button, input, .pex-ren') || alvo.dataset.pexTemp !== undefined) return true;
+                if (evt.pointerType === 'touch' || /^touch/.test(evt.type || '')) return false;
+                return !pontoNoConteudo(alvo, evt.clientX);
+            },
             preventOnFilter: false,
-            onStart: function (evt) { itemArrastado = evt.item; ultimoPonto = null; },
+            onStart: function (evt) { cancelarRenomear(); itemArrastado = evt.item; ultimoPonto = null; },
             onEnd: function (evt) {
                 const arrastado = itemArrastado;
                 itemArrastado = null;
                 realcarAlvo(null);
                 const ponto = ultimoPonto || (evt.originalEvent ? { x: evt.originalEvent.clientX, y: evt.originalEvent.clientY } : null);
                 const destino = ponto && arrastado ? pastaSobPonto(ponto.x, ponto.y, arrastado) : null;
-                if (arrastado && destino) { soltarEm(arrastado, destino); return; }
+                if (arrastado && destino) { soltarEm([chaveDoElemento(arrastado)], destino); return; }
                 if (!arrastado) return;
 
                 // Reordenar: a ordem nova é a ordem do DOM, por tipo. Persiste só o tipo arrastado.
@@ -1659,42 +2388,46 @@
         });
     }
 
-    // Arraste nativo (fora do modo Manual)
-    let nativoArrastado = null;
+    // Arraste nativo da SELEÇÃO (fora do modo Manual), dc `dIni`/`dOver`/`dDrop` (L4760-4765):
+    // arrastar um item fora da seleção seleciona só ele; soltar numa pasta move todos.
+    let arrasteChaves = null;
     el.lista.addEventListener('dragstart', function (e) {
+        if (lacoVazio) { e.preventDefault(); return; }
         if (sortable) return;
         const item = e.target.closest && e.target.closest('.pex-item');
-        if (!item) return;
-        nativoArrastado = item;
-        item.classList.add('pex-arrastando');
-        try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', item.dataset.pexTipo + ':' + item.dataset.pexId); } catch (err) { /* IE */ }
+        if (!item || item.dataset.pexTemp !== undefined || e.target.closest('.pex-ren')) { if (e.cancelable) e.preventDefault(); return; }
+        cancelarRenomear();
+        const chave = chaveDoElemento(item);
+        if (!selecao.has(chave)) selecionar(chave);
+        arrasteChaves = Array.from(selecao);
+        arrasteChaves.forEach(function (k) { const l = linhaDe(k); if (l) l.classList.add('pex-arrastando'); });
+        try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', arrasteChaves.join(',')); } catch (err) { /* IE */ }
     });
     el.lista.addEventListener('dragover', function (e) {
-        if (!nativoArrastado) return;
+        if (!arrasteChaves) return;
         const alvo = e.target.closest && e.target.closest('.pex-item--pasta');
-        if (alvo && alvo !== nativoArrastado) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; realcarAlvo(alvo); }
+        if (alvo && arrasteChaves.indexOf(chaveDoElemento(alvo)) === -1) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; realcarAlvo(alvo); }
         else realcarAlvo(null);
     });
     el.lista.addEventListener('dragleave', function (e) {
-        if (!nativoArrastado) return;
+        if (!arrasteChaves) return;
         if (!el.lista.contains(e.relatedTarget)) realcarAlvo(null);
     });
     el.lista.addEventListener('drop', function (e) {
-        if (!nativoArrastado) return;
+        if (!arrasteChaves) return;
         const alvo = e.target.closest && e.target.closest('.pex-item--pasta');
         e.preventDefault();
         e.stopPropagation();
-        const item = nativoArrastado;
-        nativoArrastado = null;
-        realcarAlvo(null);
-        item.classList.remove('pex-arrastando');
-        if (alvo && alvo !== item) soltarEm(item, alvo);
+        const chaves = arrasteChaves;
+        terminarArrasteNativo();
+        if (alvo && chaves.indexOf(chaveDoElemento(alvo)) === -1) soltarEm(chaves, alvo);
     });
-    el.lista.addEventListener('dragend', function () {
-        if (nativoArrastado) nativoArrastado.classList.remove('pex-arrastando');
-        nativoArrastado = null;
+    el.lista.addEventListener('dragend', terminarArrasteNativo);
+    function terminarArrasteNativo() {
+        arrasteChaves = null;
+        el.lista.querySelectorAll('.pex-arrastando').forEach(function (n) { n.classList.remove('pex-arrastando'); });
         realcarAlvo(null);
-    });
+    }
 
     // ---------------------------------------------------- estado inicial ----
     (function inicializar() {

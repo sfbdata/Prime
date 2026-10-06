@@ -142,6 +142,31 @@
     --pex-painel-v:       #1d3441;
     --pex-painel-vz-ico:  #b8c6cf;
     --pex-painel-vz-txt:  #6b8494;
+    --pex-painel-multi:   #0a7aad;
+
+    /* L5 — barra de seleção (dc L2194-2199), menu de contexto (dc L2266-2270 e tokens do
+       DOC-34), toast (dc L2272), laço (dc L4874) e campo inline (dc L2234) */
+    --pex-selbar-bg:      #eaf3fb;
+    --pex-selbar-txt:     #0b4f86;
+    --pex-selbar-acao:    #1d4f78;
+    --pex-selbar-hover:   #fff;
+    --pex-perigo:         #a3232b;
+    --pex-ctx-bg:         #fff;
+    --pex-ctx-sombra:     0 1px 3px rgba(0,0,0,.16);
+    --pex-ctx-txt:        #243845;
+    --pex-ctx-hover:      #eef5fa;
+    --pex-ctx-atalho:     #8496a3;
+    --pex-ctx-off:        #b3c0c9;
+    --pex-ctx-sep:        #eef2f5;
+    --pex-toast-bg:       #12242f;
+    --pex-toast-txt:      #fff;
+    --pex-toast-sombra:   0 14px 30px -12px rgba(0,0,0,.5);
+    --pex-toast-erro:     #ffb4a8;
+    --pex-laco-bg:        rgba(15,111,196,.12);
+    --pex-laco-bd:        rgba(15,111,196,.6);
+    --pex-ren-bg:         #fff;
+    --pex-ren-anel:       #0a7aad;
+    --pex-ren-txt:        #12242f;
 
     /* ícones por tipo (dc L4675-4680) */
     --pex-c-pdf:          #d93a2b;
@@ -322,6 +347,30 @@
     --pex-painel-v:       var(--bs-body-color);
     --pex-painel-vz-ico:  var(--bs-border-color);
     --pex-painel-vz-txt:  var(--bs-secondary-color);
+    --pex-painel-multi:   #45b0d6;
+
+    --pex-selbar-bg:      rgba(69,176,214,.14);
+    --pex-selbar-txt:     #9ad7ec;
+    --pex-selbar-acao:    #c5dcea;
+    --pex-selbar-hover:   rgba(255,255,255,.08);
+    --pex-perigo:         #f0675a;
+    --pex-ctx-bg:         var(--bs-tertiary-bg);
+    --pex-ctx-sombra:     0 2px 8px rgba(0,0,0,.5);
+    --pex-ctx-txt:        var(--bs-body-color);
+    --pex-ctx-hover:      rgba(255,255,255,.06);
+    --pex-ctx-atalho:     var(--bs-secondary-color);
+    --pex-ctx-off:        rgba(255,255,255,.3);
+    --pex-ctx-sep:        var(--bs-border-color-translucent);
+    /* O toast escuro do desenho sumiria no fundo escuro: sobe um tom, sem inverter. */
+    --pex-toast-bg:       #2b3d49;
+    --pex-toast-txt:      #fff;
+    --pex-toast-sombra:   0 14px 30px -12px rgba(0,0,0,.8);
+    --pex-toast-erro:     #ffb4a8;
+    --pex-laco-bg:        rgba(69,176,214,.14);
+    --pex-laco-bd:        rgba(69,176,214,.7);
+    --pex-ren-bg:         var(--bs-body-bg);
+    --pex-ren-anel:       #45b0d6;
+    --pex-ren-txt:        var(--bs-body-color);
 
     --pex-c-pdf:          #f0675a;
     --pex-c-word:         #6ea0ef;
@@ -812,11 +861,13 @@
 .pex-trilha-sep { font-size: 10px; color: var(--pex-sep); }
 
 /* Grade do modo Detalhes (dc L3080): Nome 1fr · Tipo 150 · Tamanho 90 ·
-   Modificado 110 · ⋮ 32 (o ⋮ fica até o L5, S-1). A ordem e as larguras são
-   do usuário (Organizar / alça): o JS escreve `--pex-gtc` na raiz e as
-   células já nascem na ordem das colunas. O valor abaixo é só o padrão. */
+   Modificado 110. A ordem e as larguras são do usuário (Organizar / alça): o
+   JS escreve `--pex-gtc` na raiz e as células já nascem na ordem das colunas.
+   O valor abaixo é só o padrão. O ⋮ não existe no desenho (DOC-20, S-1): a
+   célula de ações e a coluna de 32px dela só entram em `(hover: none)`, mais
+   abaixo — no mouse as ações são o botão direito, o teclado e a barra. */
 .pex-cabecalho,
-.pex--m-det .pex-item { display: grid; grid-template-columns: var(--pex-gtc, minmax(140px, 1fr) 150px 90px 110px 32px); gap: 12px; align-items: center; }
+.pex--m-det .pex-item { display: grid; grid-template-columns: var(--pex-gtc, minmax(140px, 1fr) 150px 90px 110px); gap: 12px; align-items: center; }
 .pex-cabecalho[hidden] { display: none; }
 
 .pex-cabecalho {
@@ -888,6 +939,11 @@
     color: var(--pex-cel);
     font-size: 12.5px;
     position: relative;
+    /* Clique seleciona (DOC-14): a linha não é texto para arrastar o cursor por cima, e o toque
+       longo abre o nosso menu, não o balão de link do iOS. */
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
 }
 .pex-item:hover { background: var(--pex-hover); }
 .pex-item:focus-visible { outline: none; box-shadow: inset 0 0 0 1.5px var(--pex-cab-on); }
@@ -916,6 +972,8 @@
 a.pex-nome { text-decoration: none; }
 a.pex-nome:hover { text-decoration: underline; color: var(--pex-nome); }
 .pex-nome > mark { background: var(--pex-mark); color: inherit; border-radius: 2px; padding: 0; }
+/* Durante o renomear inline o nome dá lugar ao campo: vence o display dos modos de grade. */
+.pex-nome[hidden] { display: none; }
 .pex-sub { font-size: 11.5px; color: var(--pex-sub); line-height: 1.35; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pex-local {
     align-self: flex-start;
@@ -932,7 +990,17 @@ a.pex-nome:hover { text-decoration: underline; color: var(--pex-nome); }
 }
 .pex-cel-tam { text-align: right; font-family: var(--pex-fonte-num); }
 .pex-cel-data { font-family: var(--pex-fonte-num); }
-.pex-cel-acoes { overflow: visible; display: flex; justify-content: flex-end; }
+/* ⋮ por linha (DOC-20, S-1): não existe no desenho; fica SÓ onde não há hover (toque), porque
+   sem mouse não há botão direito nem laço. A coluna de 32px dele entra junto. */
+.pex-cel-acoes,
+.pex-col-acoes { display: none; }
+.pex-cel-acoes { overflow: visible; justify-content: flex-end; }
+@media (hover: none) {
+    .pex-cel-acoes { display: flex; }
+    .pex-col-acoes { display: block; }
+    .pex-cabecalho,
+    .pex--m-det .pex-item { grid-template-columns: var(--pex-gtc, minmax(140px, 1fr) 150px 90px 110px) 32px; }
+}
 .pex-menu {
     width: 28px;
     height: 28px;
@@ -949,13 +1017,168 @@ a.pex-nome:hover { text-decoration: underline; color: var(--pex-nome); }
 }
 .pex-menu:hover,
 .pex-menu[aria-expanded="true"] { background: var(--pex-menu-linha-bg); color: var(--pex-nome); }
-.pex-item .dropdown-menu { font-size: 13px; border-radius: 4px; }
-.pex-item .dropdown-item { padding: 6px 12px; }
-.pex-item .dropdown-item > .bi { width: 16px; text-align: center; }
-.pex-item form { margin: 0; }
 
 /* Selecionada (dc L4733): fundo + anel interno de 1px. */
 .pex-item.pex-item--sel { background: var(--pex-sel-bg); box-shadow: inset 0 0 0 1px var(--pex-sel-anel); }
+
+/* Renomear / nova pasta inline (dc L2234): campo de 24px com anel interno de 1,5px, 12,5px. A
+   extensão do arquivo fica fora do campo — o servidor a preserva (`nomeBase`). */
+.pex-ren-wrap { display: flex; align-items: center; gap: 4px; min-width: 0; width: 100%; }
+.pex-ren {
+    flex: 1;
+    width: 100%;
+    min-width: 0;
+    height: 24px;
+    padding: 0 6px;
+    border: none;
+    border-radius: 3px;
+    background: var(--pex-ren-bg);
+    box-shadow: inset 0 0 0 1.5px var(--pex-ren-anel);
+    font-family: inherit;
+    font-size: 12.5px;
+    color: var(--pex-ren-txt);
+    outline: none;
+    user-select: text;
+    -webkit-user-select: text;
+}
+.pex-ren-ext { font-size: 12.5px; color: var(--pex-sub); white-space: nowrap; }
+.pex--grade .pex-ren-wrap { flex-direction: column; gap: 2px; }
+
+/* Barra de seleção (dc L2194-2199, L4844-4853): #eaf3fb, raio 4, 5px 8px; ✕ de 28px;
+   "N selecionados · X KB" 13px/700; ações de 28px, 12,5px/600, Excluir em vermelho. */
+.pex-selecao {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 5px 8px;
+    margin-bottom: 6px;
+    border-radius: 4px;
+    background: var(--pex-selbar-bg);
+    animation: pexMenuIn .16s cubic-bezier(.22,.8,.3,1) both;
+}
+.pex-selecao[hidden] { display: none; }
+.pex-selecao-limpar {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--pex-selbar-acao);
+    cursor: pointer;
+    padding: 0;
+    transition: background .18s, color .18s;
+}
+.pex-selecao-limpar > .bi { font-size: 12px; }
+.pex-selecao-limpar:hover { background: var(--pex-selbar-hover); }
+.pex-selecao-txt { font-size: 13px; font-weight: 700; color: var(--pex-selbar-txt); margin-right: 8px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pex-selecao-acao {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 28px;
+    padding: 0 10px;
+    border: none;
+    border-radius: 3px;
+    background: transparent;
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    color: var(--pex-selbar-acao);
+}
+.pex-selecao-acao > .bi { font-size: 13px; }
+.pex-selecao-acao:hover { background: var(--pex-selbar-hover); }
+.pex-selecao-acao[hidden] { display: none; }
+.pex-selecao-acao--perigo { color: var(--pex-perigo); }
+
+/* Laço (dc L4874): retângulo fixo, sem ponteiro. */
+.pex-laco {
+    position: fixed;
+    z-index: 1043;
+    pointer-events: none;
+    border-radius: 2px;
+    background: var(--pex-laco-bg);
+    border: 1px solid var(--pex-laco-bd);
+}
+.pex-laco[hidden] { display: none; }
+
+/* Menu de contexto (tokens do DOC-34): 240px, fixo e limitado à janela, raio 4, sombra
+   `0 1px 3px rgba(0,0,0,.16)`, padding 5; itens 7px 10px, 13px, ícone 14px, atalho em Arial 11px,
+   desabilitado #b3c0c9; separador de 1px com margem 4px 8px. O fundo fecha ao clicar. */
+.pex-ctx-fundo { position: fixed; inset: 0; z-index: 1044; }
+.pex-ctx-fundo[hidden] { display: none; }
+.pex-ctx {
+    position: fixed;
+    z-index: 1045;
+    width: 240px;
+    max-width: calc(100vw - 16px);
+    max-height: calc(100vh - 16px);
+    overflow: auto;
+    background: var(--pex-ctx-bg);
+    border-radius: 4px;
+    box-shadow: var(--pex-ctx-sombra);
+    padding: 5px;
+    animation: pexMenuIn .14s cubic-bezier(.22,.8,.3,1) both;
+}
+.pex-ctx[hidden] { display: none; }
+.pex-ctx-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 7px 10px;
+    border: none;
+    background: transparent;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+    color: var(--pex-ctx-txt);
+}
+.pex-ctx-item:hover,
+.pex-ctx-item:focus-visible { background: var(--pex-ctx-hover); outline: none; }
+.pex-ctx-item:disabled { color: var(--pex-ctx-off); cursor: default; }
+.pex-ctx-item:disabled:hover { background: transparent; }
+.pex-ctx-item--perigo { color: var(--pex-perigo); }
+.pex-ctx-ico { font-size: 14px; width: 16px; text-align: center; flex-shrink: 0; }
+.pex-ctx-rotulo { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pex-ctx-atalho { font-family: var(--pex-fonte-num); font-size: 11px; color: var(--pex-ctx-atalho); white-space: nowrap; }
+.pex-ctx-sep { height: 1px; background: var(--pex-ctx-sep); margin: 4px 8px; }
+
+/* Toast (dc L2272): fixo, centrado, 24px do rodapé, #12242f, branco 13px, raio 4; some em 4,2s.
+   Sem "Desfazer" até a lixeira (L7). O de erro ganha um ícone — o desenho é omisso. */
+.pex-toast {
+    position: fixed;
+    left: 50%;
+    bottom: 24px;
+    transform: translateX(-50%);
+    z-index: 1046;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    border-radius: 4px;
+    background: var(--pex-toast-bg);
+    color: var(--pex-toast-txt);
+    font-size: 13px;
+    line-height: 1.4;
+    max-width: calc(100vw - 32px);
+    box-shadow: var(--pex-toast-sombra);
+    animation: pexToastIn .25s both;
+}
+.pex-toast[hidden] { display: none; }
+.pex-toast > span { min-width: 0; overflow-wrap: anywhere; }
+.pex-toast-ico { font-size: 15px; flex-shrink: 0; }
+.pex-toast-ico[hidden] { display: none; }
+.pex-toast--erro > .pex-toast-ico { color: var(--pex-toast-erro); }
+@keyframes pexToastIn { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translateX(-50%); } }
+@media (prefers-reduced-motion: reduce) { .pex-toast, .pex-ctx, .pex-selecao { animation: none; } }
 
 /* ------------------------------------------------------------- modos --- */
 /* Tamanho do ícone por modo (dc `expVals`, L4708): a mesma variável dimensiona o ícone
@@ -1010,7 +1233,7 @@ a.pex-nome:hover { text-decoration: underline; color: var(--pex-nome); }
     overflow-wrap: anywhere;
 }
 .pex--grade .pex-local { align-self: center; }
-/* O ⋮ fica no canto do cartão: sem ele não há ação nos modos de ícone até o menu do L5. */
+/* No toque, o ⋮ fica no canto do cartão (fora dele a célula nem existe: `display: none`). */
 .pex--grade .pex-cel-acoes { position: absolute; top: 2px; right: 2px; }
 .pex--grade .pex-menu { width: 24px; height: 24px; font-size: 13px; }
 
@@ -1080,6 +1303,8 @@ a.pex-nome:hover { text-decoration: underline; color: var(--pex-nome); }
 .pex-painel-vazio > span { font-size: 12.5px; color: var(--pex-painel-vz-txt); line-height: 1.45; }
 .pex-painel-ico { display: flex; align-items: center; justify-content: center; height: 76px; }
 .pex-painel-ico > .bi { font-size: 64px; line-height: 1; }
+/* Vários itens selecionados (dc L2278): pilha de 56px no azul. */
+.pex-painel-ico > .bi-stack { font-size: 56px; color: var(--pex-painel-multi); }
 .pex-painel-nome { font-size: 13.5px; font-weight: 700; color: var(--pex-painel-nome); line-height: 1.35; overflow-wrap: anywhere; }
 .pex-painel-props { width: 100%; display: flex; flex-direction: column; gap: 6px; margin: 4px 0 0; text-align: left; }
 .pex-painel-prop { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; }
@@ -1147,10 +1372,12 @@ a.pex-nome:hover { text-decoration: underline; color: var(--pex-nome); }
     .pex-upload-bar, .pex > #uploadDuplicadosAviso { margin-left: 14px; margin-right: 14px; }
     .pex-corpo { padding: 6px 12px 0; }
     .pex-cabecalho,
-    .pex--m-det .pex-item { grid-template-columns: minmax(0, 1fr) 32px; }
+    .pex--m-det .pex-item { grid-template-columns: minmax(0, 1fr); }
     .pex-col-tipo, .pex-col-cat, .pex-col-tam, .pex-col-data,
     .pex-cel-tipo, .pex-cel-cat, .pex-cel-tam, .pex-cel-data { display: none; }
     .pex-alca { display: none; }
+    .pex-selecao-txt { margin-right: 4px; }
+    .pex-selecao-acao { padding: 0 8px; }
     /* Lista: o fluxo em colunas de 220px rolaria para o lado em 375px — vira uma coluna só. */
     .pex--m-lista .pex-lista { grid-auto-flow: row; grid-template-rows: none; grid-template-columns: minmax(0, 1fr); overflow-x: visible; }
     /* Extra grandes cabe em 2 por linha; os demais modos de grade já fluem pelo auto-fill. */
@@ -1162,6 +1389,11 @@ a.pex-nome:hover { text-decoration: underline; color: var(--pex-nome); }
     .pex-nivel { max-width: 160px; }
     .pex-rodape { padding: 12px 14px 16px; }
     .pex-popover { max-width: calc(100vw - 28px); }
+}
+/* No celular COM toque (375px): Nome + ⋮. Vem depois do bloco acima para vencê-lo. */
+@media (hover: none) and (max-width: 767.98px) {
+    .pex-cabecalho,
+    .pex--m-det .pex-item { grid-template-columns: minmax(0, 1fr) 32px; }
 }
 /* O JS liga esta classe quando o popover ancorado à direita sairia da janela
    (botão no começo de uma linha da faixa, em telas estreitas). */

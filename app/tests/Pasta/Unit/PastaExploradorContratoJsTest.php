@@ -37,23 +37,30 @@ final class PastaExploradorContratoJsTest extends TestCase
             $js,
             'o link do nome perdeu o gatilho ou um dos três data-* que o modal lê'
         );
-        // O item "Visualizar" do menu ⋮ carrega os mesmos três.
+        // "Visualizar"/"Abrir" do menu de contexto, Enter e Espaço passam pelo gatilho da linha —
+        // ou por um nó avulso com os MESMOS três dados quando a linha não está na tela.
         self::assertMatchesRegularExpression(
-            "/class: 'dropdown-item pex-arq-preview', 'data-url': a\.viewUrl, 'data-nome': a\.nome, 'data-mime': a\.mime/",
+            "/return g \|\| h\('span', \{ 'data-url': a\.viewUrl, 'data-nome': a\.nome, 'data-mime': a\.mime \|\| '' \}\);/",
             $js
         );
-        // E o clique simples abre o modal passando o GATILHO (vira `relatedTarget`).
+        // E a abertura passa o GATILHO ao modal (vira `relatedTarget`).
         self::assertStringContainsString("bootstrap.Modal.getOrCreateInstance(modal).show(gatilho);", $js);
         self::assertMatchesRegularExpression("/e\.target\.closest\('\.pex-arq-preview'\)/", $js, 'é a classe que o clique intercepta');
+        // Clique simples no nome SELECIONA (DOC-14/21): com Ctrl/Cmd/Alt o navegador segue o <a>.
+        self::assertStringContainsString("if (e.ctrlKey || e.metaKey || e.altKey) return;", $js);
     }
 
-    #[TestDox('baixar continua a um clique, pelo menu da linha, com a URL de download do JSON')]
-    public function testLinkDeDownloadNoMenuDaLinha(): void
+    #[TestDox('baixar continua a um clique (menu de contexto e barra de seleção), com a URL de download do JSON em outra aba')]
+    public function testLinkDeDownload(): void
     {
+        $js = $this->js();
+
         self::assertMatchesRegularExpression(
-            "/h\('a', \{ class: 'dropdown-item', href: a\.downloadUrl, target: '_blank', rel: 'noopener' \}/",
-            $this->js()
+            "/h\('a', \{ href: a\.downloadUrl, target: '_blank', rel: 'noopener', hidden: true \}\);/",
+            $js
         );
+        self::assertStringContainsString("op('Baixar', 'bi-download', function () { baixar(a); })", $js, 'item do menu de contexto');
+        self::assertStringContainsString("case 'baixar':   if (sel.length === 1 && sel[0].tipo === 'arquivo') baixar(sel[0].dado); break;", $js, 'barra: só com UM arquivo (o .zip é do L8)');
     }
 
     #[TestDox('nada de innerHTML: toda linha nasce por createElement/textContent (nome de arquivo é dado do usuário)')]

@@ -419,10 +419,12 @@ final class PastaExploradorArranjoTelaTest extends JusPrimeWebTestCase
         $dentro = $crawler->filter('.ps-paineis .modal')->each(fn (Crawler $n) => $n->attr('id') ?? '(sem id)');
         self::assertSame([], $dentro, 'estes modais estão dentro de um painel animado e vão ficar inertes: ' . implode(', ', $dentro));
 
-        foreach (['pexInputModal', 'pexDestinoModal', 'pexEditarModal'] as $id) {
+        foreach (['pexDestinoModal', 'pexEditarModal'] as $id) {
             self::assertCount(1, $crawler->filter('#' . $id), "#{$id} tem de existir UMA vez na página");
             self::assertCount(0, $crawler->filter('.ps-page #' . $id), "#{$id} não pode voltar para dentro de .ps-page");
         }
+        // Nova pasta e renomear são INLINE desde o L5 (DOC-53/54): o JS não usa mais o modal de texto.
+        self::assertStringNotContainsString('pexInputModal', (string) file_get_contents(__DIR__ . '/../../../public/js/pasta-explorador.js'));
 
         // UM modal de edição para a pasta inteira (DOC-90): com 2 documentos, nenhum `editDocModal<id>`.
         self::assertCount(0, $crawler->filter('[id^="editDocModal"]'), 'um formulário por documento é o que a pasta de 1.128 docs não aguenta');
@@ -455,11 +457,52 @@ final class PastaExploradorArranjoTelaTest extends JusPrimeWebTestCase
         // Mover para…: a árvore é preenchida pelo JS; o Mover nasce desabilitado até escolher.
         self::assertCount(1, $crawler->filter('#pexDestinoModal #pexDestinoArvore[role="listbox"]'));
         self::assertNotNull($crawler->filter('#pexDestinoModal #pexDestinoConfirmar')->attr('disabled'));
-        // Nova pasta / renomear: os quatro ids que `pedirTexto()` procura.
-        self::assertCount(1, $crawler->filter('#pexInputModal #pexInputTitulo'));
-        self::assertCount(1, $crawler->filter('#pexInputModal #pexInputCampo'));
-        self::assertCount(1, $crawler->filter('#pexInputModal #pexInputErro'));
-        self::assertCount(1, $crawler->filter('#pexInputModal #pexInputConfirmar'));
+    }
+
+    #[TestDox('L5: barra de seleção entre a contagem da busca e a trilha; menu de contexto por <template>; toast e laço nascem ocultos; a lista é um listbox múltiplo')]
+    public function testEstaticosDaInteracao(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $this->criarDocumento($pasta, $tenant, 'a.pdf');
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $this->abrir($client, $pasta);
+
+        // Barra de seleção (dc L2194): logo abaixo da contagem da busca e acima da trilha, oculta.
+        self::assertCount(1, $crawler->filter('.pex-corpo > #pexBuscaInfo + #pexSelecao[hidden] + #pexTrilha'));
+        self::assertCount(1, $crawler->filter('#pexSelecao > #pexSelecaoLimpar[aria-label="Limpar seleção"] + #pexSelecaoTexto'));
+        self::assertSame(
+            ['baixar', 'recortar', 'mover', 'renomear', 'tudo', 'excluir'],
+            $crawler->filter('#pexSelecao > .pex-selecao-acao[data-pex-sel]')->each(fn (Crawler $n) => $n->attr('data-pex-sel')),
+            'as ações com rota hoje; Copiar (duplicar) e .zip são do L8'
+        );
+        self::assertNotNull($crawler->filter('#pexSelecao > [data-pex-sel="baixar"]')->attr('hidden'), 'Baixar só com um arquivo — o JS decide');
+        self::assertNotNull($crawler->filter('#pexSelecao > [data-pex-sel="renomear"]')->attr('hidden'), 'Renomear só com um item');
+        self::assertCount(1, $crawler->filter('#pexSelecao > [data-pex-sel="excluir"].pex-selecao-acao--perigo'));
+        self::assertCount(0, $crawler->filter('#pexSelecao [data-pex-sel="copiar"]'));
+
+        // Menu de contexto (dc L2266): fundo + menu vazios e ocultos; o item vem do <template>.
+        self::assertCount(1, $crawler->filter('.pex-corpo > #pexMenuFundo[hidden] + #pexMenu[role="menu"][hidden]'));
+        self::assertSame('', trim($crawler->filter('#pexMenu')->html()), 'os itens são montados pelo JS a cada abertura');
+        self::assertCount(1, $crawler->filter('.pex-corpo > template#pexMenuItem'));
+        $tpl = (string) $crawler->filter('template#pexMenuItem')->html();
+        self::assertStringContainsString('class="pex-ctx-item" role="menuitem"', $tpl);
+        foreach (['pex-ctx-ico', 'pex-ctx-rotulo', 'pex-ctx-atalho'] as $classe) {
+            self::assertStringContainsString($classe, $tpl, "o JS preenche .{$classe}");
+        }
+
+        // Toast (dc L2272) e laço (dc L2264): existem uma vez, ocultos; sem "Desfazer" até o L7.
+        self::assertCount(1, $crawler->filter('.pex-corpo > #pexToast[role="status"][hidden] > #pexToastIcone[hidden] + #pexToastTexto'));
+        self::assertStringNotContainsString('Desfazer', (string) $crawler->filter('#pexExplorador')->html());
+        self::assertCount(1, $crawler->filter('.pex-corpo > #pexLaco[hidden]'));
+
+        // Lista: alvo do teclado e do laço, listbox com seleção múltipla.
+        self::assertCount(1, $crawler->filter('#pexLista[tabindex="0"][role="listbox"][aria-multiselectable="true"]'));
+        self::assertSame($pasta->getNup(), $crawler->filter('#pexExplorador')->attr('data-pasta-rotulo'), '"Copiar caminho" usa o NUP da pasta');
+
+        // Nenhum dropdown do Bootstrap por linha: o ⋮ (só no toque) abre o menu de contexto.
+        self::assertCount(0, $crawler->filter('#pexExplorador .dropdown-menu'));
     }
 
     #[TestDox('o pré-visualizador continua na página com o Baixar no rodapé, e o aviso de duplicado com seus ids')]

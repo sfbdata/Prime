@@ -19,9 +19,16 @@
    250px AO LADO da lista (`.pex-corpo > #pexLista + #pexPainel`, dc L2271), e o Organizar
    completo — ordem das colunas, Classificar por, Tipo de documento (dc L2038-2063). Todo item
    de menu aqui tem ação real no pasta-explorador.js; menu sem ação não entra na tela.
+
+   Lote L5 (spec §5): a interação completa — barra de seleção (dc L2194-2199), laço (dc L2264),
+   menu de contexto (dc L2266-2270, montado pelo JS a partir de `<template id="pexMenuItem">`),
+   toast (dc L2272) e criar/renomear inline (dc L2234). O markup estático fica aqui para ser
+   testável por arranjo; o conteúdo variável é do JS. Os itens de menu que dependem de lotes
+   futuros (favoritos L6, lixeira/Desfazer L7, zip/copiar L8, visor L10) NÃO são renderizados.
 #}
 <div class="pex" id="pexExplorador"
      data-pasta-id="{{ pasta.id }}"
+     data-pasta-rotulo="{{ pasta.nup ?? pasta.id }}"
      data-total-arquivos="{{ explorador.totalArquivos }}"
      data-url-upload="{{ path('pasta_peticionar_upload', {id: pasta.id}) }}"
      data-csrf-upload="{{ csrf_token('peticionar_upload_' ~ pasta.id) }}"
@@ -163,6 +170,21 @@
         </div>
         <div class="pex-busca-info" id="pexBuscaInfo" hidden></div>
 
+        {# Barra de seleção (dc L2194-2199): ✕ Limpar, "N selecionados · X KB" e as ações que têm
+           rota hoje. Baixar só aparece com UM arquivo selecionado (o .zip é do L8); Renomear só
+           com um item; "Mover para…" é a ação do sistema (modal de destino) ao lado do Recortar
+           do desenho; Copiar (duplicar) é do L8 e não entra. O JS mostra/esconde por contagem. #}
+        <div class="pex-selecao" id="pexSelecao" role="toolbar" aria-label="Ações da seleção" hidden>
+            <button type="button" class="pex-selecao-limpar" id="pexSelecaoLimpar" title="Limpar seleção (Esc)" aria-label="Limpar seleção"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+            <span class="pex-selecao-txt" id="pexSelecaoTexto"></span>
+            <button type="button" class="pex-selecao-acao" data-pex-sel="baixar" title="Baixar o arquivo" hidden><i class="bi bi-download" aria-hidden="true"></i><span>Baixar</span></button>
+            <button type="button" class="pex-selecao-acao" data-pex-sel="recortar" title="Recortar (Ctrl+X)"><i class="bi bi-scissors" aria-hidden="true"></i><span>Recortar</span></button>
+            <button type="button" class="pex-selecao-acao" data-pex-sel="mover" title="Mover para outra pasta"><i class="bi bi-folder-symlink" aria-hidden="true"></i><span>Mover para…</span></button>
+            <button type="button" class="pex-selecao-acao" data-pex-sel="renomear" title="Renomear (F2)" hidden><i class="bi bi-input-cursor-text" aria-hidden="true"></i><span>Renomear</span></button>
+            <button type="button" class="pex-selecao-acao" data-pex-sel="tudo" title="Selecionar tudo (Ctrl+A)"><i class="bi bi-check2-all" aria-hidden="true"></i><span>Selecionar tudo</span></button>
+            <button type="button" class="pex-selecao-acao pex-selecao-acao--perigo" data-pex-sel="excluir" title="Excluir (Del)"><i class="bi bi-trash3" aria-hidden="true"></i><span>Excluir</span></button>
+        </div>
+
         <div class="pex-trilha" id="pexTrilha" hidden>
             <button type="button" class="pex-subir" id="pexSubir" title="Voltar à pasta anterior (Backspace)" aria-label="Voltar à pasta anterior"><i class="bi bi-arrow-up" aria-hidden="true"></i></button>
             <i class="bi bi-folder2-open pex-trilha-ico" aria-hidden="true"></i>
@@ -180,7 +202,9 @@
             <div class="pex-col pex-col-acoes" aria-hidden="true"></div>
         </div>
 
-        <div class="pex-lista" id="pexLista" tabindex="0" aria-label="Arquivos e pastas"></div>
+        {# A lista é o alvo do teclado (setas, Ctrl+A, Del, F2…) e do laço; as linhas são `option`
+           e a selecionada/focada vai em `aria-activedescendant`, posto pelo JS. #}
+        <div class="pex-lista" id="pexLista" tabindex="0" role="listbox" aria-multiselectable="true" aria-label="Arquivos e pastas"></div>
 
         {# Painel de detalhes (dc L2271-2289): IMEDIATAMENTE depois da lista e ao lado dela pela
            grade do .pex-corpo. Nasce oculto (o desenho começa com `expPainel: false`); o JS liga
@@ -197,6 +221,27 @@
         <div class="pex-vazio" id="pexVazio" hidden>
             <i class="bi" id="pexVazioIcone" aria-hidden="true"></i>
             <span id="pexVazioTexto"></span>
+        </div>
+
+        {# ── Flutuantes do L5: todos `position: fixed`, ligados/desligados pelo JS ──────────
+           Ficam dentro do explorador (testáveis por arranjo). A animação de entrada do painel da
+           aba usa `backwards` (pasta-show.css), então o `transform` dela não prende estes
+           elementos depois que termina — o mesmo motivo pelo qual os modais saíram do painel. #}
+        {# Laço de seleção (dc L2264): retângulo translúcido, sem receber ponteiro. #}
+        <div class="pex-laco" id="pexLaco" aria-hidden="true" hidden></div>
+
+        {# Menu de contexto (dc L2266-2270): fundo que fecha ao clicar e o menu de 240px. Os itens
+           são clonados de `#pexMenuItem` pelo JS, na ordem do desenho, só os que têm ação hoje. #}
+        <div class="pex-ctx-fundo" id="pexMenuFundo" hidden></div>
+        <div class="pex-ctx" id="pexMenu" role="menu" aria-label="Ações" hidden></div>
+        <template id="pexMenuItem">
+            <button type="button" class="pex-ctx-item" role="menuitem"><i class="bi pex-ctx-ico" aria-hidden="true"></i><span class="pex-ctx-rotulo"></span><span class="pex-ctx-atalho" aria-hidden="true"></span></button>
+        </template>
+
+        {# Toast (dc L2272): resultado das ações. "Desfazer" só entra com a lixeira (L7). #}
+        <div class="pex-toast" id="pexToast" role="status" aria-live="polite" hidden>
+            <i class="bi pex-toast-ico" id="pexToastIcone" aria-hidden="true" hidden></i>
+            <span id="pexToastTexto"></span>
         </div>
 
         {# Sem JS a lista ainda leva a cada arquivo (§16.10): degradação, não beco sem saída. #}
