@@ -131,6 +131,8 @@ _(preenchido após as investigações)_
 | D-DOC-BARRA | Barra de seleção sem "Mover para…" | segue o dc; mover fica no menu de contexto (Recortar/Colar + "Mover para…") | acréscimo ao dc | quer o botão na barra? | — | — | — |
 | D-DOC-EDITAR | Menu de contexto com "Editar…" (categoria/descrição/número) | acrescentado: é o único acesso à categoria jurídica | o dc é omisso sobre categoria | ok? | — | manter | — |
 | D-AUDIT-UNDO | Desfazer da auditoria em campo enum | pré-existente: dá TypeError (antes com array, agora com string); campos sem setter (checklist) viram no-op com "sucesso" | `DesfazerAlteracaoAuditLogUseCase` precisa de `Enum::from` pela metadata e de recusar campo sem setter | corrigir numa frente própria? | — | sim | desfazer falha em enum |
+| D-DOC-DRIVE | Lixeira × Drive: depois da purga (30 dias) o Drive pode reimportar o arquivo | a lixeira não toca o Drive; o item na lixeira continua "conhecido" (não reimporta) até a purga | a purga apaga a linha e o `drive_file_id` deixa de ser conhecido (pré-existente na exclusão física antiga) | a purga deve mover o arquivo para a lixeira do Drive? | mover no Drive × manter um registro de "excluído" × aceitar | registro mínimo de `drive_file_id` purgado (sem Drive enquanto ele estiver em 403) | o arquivo volta 30 dias depois de excluído |
+| D-DOC-RET | Lixeira: retenção e purga | 30 dias, comando `app:documentos:purgar-lixeira` global (política da instalação), com `--tenant` opcional; sem cron | agendar o cron na VPS e confirmar o prazo | quando e quantos dias | — | 30 dias, cron diário fora de hora | sem cron a lixeira só cresce (o arquivo continua ocupando disco) |
 
 ## 5. Handoff — próxima ação exata
 
