@@ -29,7 +29,8 @@ final class DashboardTerceiraPassadaTelaTest extends DashboardWebTestCase
 
     private function css(string $arquivo): string
     {
-        return (string) file_get_contents(static::getContainer()->getParameter('kernel.project_dir') . '/public/css/' . $arquivo);
+        // Sem o container: subir o kernel aqui impediria o createClient() do mesmo teste.
+        return (string) file_get_contents(__DIR__ . '/../../../public/css/' . $arquivo);
     }
 
     /** Corpo de TODAS as regras cujo seletor termina exatamente em `$seletor` (agrupadas ou não). */
