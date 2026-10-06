@@ -1069,12 +1069,15 @@ span.ps-situacao-pill { cursor: default; }
 .ps-anotacoes-dica { font-size: 12.5px; color: var(--ps-muted); }
 
 .ps-compositor { padding: 16px 20px; background: var(--ps-soft); border-bottom: 1px solid var(--ps-div-strong); }
+/* Sem `overflow: hidden`: as paletas de cor/realce do editor abrem para baixo da barra e
+   seriam cortadas pela caixa. O raio passa para a barra (topo) e o rodape (base). */
 .ps-compositor-caixa {
     border: 1px solid #d3dde5;
     border-radius: 4px;
     background: var(--ps-card);
-    overflow: hidden;
 }
+.ps-compositor-caixa .editor-rico .ql-toolbar.ql-snow { border-radius: 3px 3px 0 0; }
+.ps-compositor-caixa > .ps-compositor-rodape { border-radius: 0 0 3px 3px; }
 [data-bs-theme="dark"] .ps-compositor-caixa { border-color: var(--bs-border-color); }
 .ps-compositor-rodape {
     display: flex;
