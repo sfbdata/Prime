@@ -28,7 +28,7 @@
 
    L6: favoritos (dc `expFavs`/`expFavAlt`/`favLinha`, L4440-4442, L4715, L4743, L4820) —
    estrela por linha/cartão em todos os modos, item no menu de contexto (um e vários),
-   favoritos no topo do SEU grupo (pastas continuam antes dos arquivos), toast do desenho.
+   favoritos no topo MISTURANDO pastas e arquivos (como o dc), toast do desenho.
    A estrela é do usuário logado (`favorito` do #pexDados) e vai ao servidor por
    `urlFavorito`/`csrfFavorito`; a tela muda antes da resposta e volta atrás no erro.
 
@@ -505,10 +505,6 @@
         const cmp = comparador();
         ps = ps.map(function (p) { return { tipo: 'pasta', id: p.id, nome: p.nome, ordem: p.ordem, dado: p }; }).sort(cmp);
         as = as.map(function (a) { return { tipo: 'arquivo', id: a.id, nome: a.nome, ordem: a.ordem, tamanho: a.tamanho, carregadoEm: a.carregadoEm, categoriaRotulo: a.categoriaRotulo, dado: a }; }).sort(cmp);
-        // Favoritos sobem ao topo (dc L4715), depois da classificação e em qualquer uma delas —
-        // mas dentro do grupo: pastas favoritas, pastas, arquivos favoritos, arquivos.
-        ps = favoritosNoTopo(ps);
-        as = favoritosNoTopo(as);
 
         // Filtro por tipo (dc L3141-3142): a contagem de cada grupo é do conjunto que está na
         // tela ANTES do filtro — o nível aberto, ou os resultados da busca.
@@ -519,7 +515,10 @@
             ps = ps.filter(doTipo);
             as = as.filter(doTipo);
         }
-        return ps.concat(as);
+        // Favoritos sobem ao topo (dc L4715), depois da classificação e do filtro, em qualquer
+        // classificação — pastas e arquivos favoritos juntos, antes de tudo; fora deles, pastas
+        // antes dos arquivos como sempre.
+        return favoritosNoTopo(ps.concat(as));
     }
 
     function ehFavorito(it) { return !!(it && it.dado && it.dado.favorito); }
@@ -2643,7 +2642,8 @@
         });
     }
 
-    /* Guarda do Manual (L6): na tela, os favoritos estão no topo do grupo; a ordem do DOM depois
+    /* Guarda do Manual (L6): na tela, os favoritos (pastas e arquivos misturados) estão no topo;
+       filtrada por tipo, a sequência do DOM continua "favoritos antes"; a ordem do DOM depois
        do arraste NÃO é a ordem manual. Gravá-la como está faria o "topo" virar ordem de verdade —
        desmarcar a estrela deixaria o item lá em cima para todo mundo. Então cada um volta para a
        sua faixa: as POSIÇÕES que eram de favoritos na ordem manual de antes (ordem, nome)

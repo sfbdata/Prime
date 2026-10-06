@@ -87,7 +87,7 @@ final class PastaExploradorContratoJsTest extends TestCase
             $js,
             'collator pt-BR, sem distinguir acento/caixa, com números naturais (2 antes de 10)'
         );
-        self::assertStringContainsString('return ps.concat(as);', $js, 'pastas sempre antes, em qualquer classificação');
+        self::assertStringContainsString('return favoritosNoTopo(ps.concat(as));', $js, 'pastas sempre antes dos arquivos, em qualquer classificação (os favoritos, de qualquer tipo, sobem antes de tudo — L6)');
     }
 
     #[TestDox('setas: pílulas do Organizar com bi-arrow-* (dc L3152), cabeçalho das colunas com bi-chevron-* (dc L4862)')]

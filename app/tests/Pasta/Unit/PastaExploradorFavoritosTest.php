@@ -161,27 +161,27 @@ final class PastaExploradorFavoritosTest extends TestCase
         self::assertSame(1, substr_count($menu, 'opFavorito([alvo]),'), 'menu de um item');
     }
 
-    #[TestDox('ordem: favoritos sobem ao topo DO GRUPO (pastas antes de arquivos) em qualquer classificação, por partição estável')]
+    #[TestDox('ordem: favoritos sobem ao topo MISTURANDO pastas e arquivos (dc L4715), depois da classificação, por partição estável')]
     public function testFavoritosNoTopoDoGrupo(): void
     {
         $js = $this->js();
 
         $sortArq = strpos($js, 'categoriaRotulo: a.categoriaRotulo, dado: a }; }).sort(cmp);');
-        $topoPs  = strpos($js, 'ps = favoritosNoTopo(ps);');
-        $topoAs  = strpos($js, 'as = favoritosNoTopo(as);');
-        $junta   = strpos($js, 'return ps.concat(as);');
-        foreach ([$sortArq, $topoPs, $topoAs, $junta] as $pos) {
+        $filtro  = strpos($js, 'as = as.filter(doTipo);');
+        $topo    = strpos($js, 'return favoritosNoTopo(ps.concat(as));');
+        foreach ([$sortArq, $filtro, $topo] as $pos) {
             self::assertNotFalse($pos);
         }
-        self::assertLessThan($topoPs, $sortArq, 'o topo vem DEPOIS da classificação (dc L4715)');
-        self::assertLessThan($junta, $topoAs, 'cada grupo separado: pastas continuam antes dos arquivos');
+        self::assertLessThan($topo, $sortArq, 'o topo vem DEPOIS da classificação (dc L4715)');
+        self::assertLessThan($topo, $filtro);
+        self::assertStringNotContainsString('ps = favoritosNoTopo(ps);', $js, 'o topo não é por grupo: o desenho mistura pastas e arquivos');
         self::assertStringContainsString(
             'return lista.filter(ehFavorito).concat(lista.filter(function (it) { return !ehFavorito(it); }));',
             $this->funcao('favoritosNoTopo')
         );
     }
 
-    #[TestDox('guarda do Manual: o /reordenar recebe a ordem SEM o efeito "favorito no topo" — cada um volta para a sua faixa da ordem manual de antes')]
+    #[TestDox('guarda do Manual: o /reordenar recebe a ordem SEM o efeito "favorito no topo" (que mistura pastas e arquivos na tela) — por tipo, cada um volta para a sua faixa da ordem manual de antes')]
     public function testGuardaDoManual(): void
     {
         $js = $this->js();
