@@ -36,7 +36,10 @@ final class DashboardController extends AbstractController
             'data_de'     => (string) $request->query->get('data_de', ''),
             'data_ate'    => (string) $request->query->get('data_ate', ''),
             'responsavel' => (string) $request->query->get('responsavel', ''),
+            // Nome do cargo, ou ObterDadosDashboardUseCase::CARGO_SEM ('__sem__') para quem não tem cargo.
             'cargo'       => (string) $request->query->get('cargo', ''),
+            // Trecho do nome do colaborador: esconde linhas da tabela, não mexe nos cards.
+            'busca'       => trim((string) $request->query->get('busca', '')),
             // Coluna clicada no cabeçalho da tabela. A validação é do UseCase: chave que não
             // existe cai no padrão do painel em vez de quebrar a tela.
             'ordenar'     => (string) $request->query->get('ordenar', ''),
@@ -60,14 +63,19 @@ final class DashboardController extends AbstractController
             static fn (User $u): array => ['id' => $u->getId(), 'nome' => $u->getFullName()],
             $this->userRepository->findColaboradoresAtivosPorTenant($tenant),
         );
-        $cargos = array_values(array_unique(array_filter($this->userRepository->findCargoPorColaboradores($tenant))));
+        $mapaCargo = $this->userRepository->findCargoPorColaboradores($tenant);
+        $cargos    = array_values(array_unique(array_filter($mapaCargo)));
         sort($cargos);
+        // Há colaborador ativo sem cargo? A opção "Sem cargo" (valor CARGO_SEM) só faz sentido aí.
+        $existeSemCargo = array_filter($mapaCargo, static fn (?string $c): bool => trim((string) $c) === '') !== [];
 
         return $this->render('dashboard/index.html.twig', [
-            'dashboard'    => $output,
-            'filtros'      => $filtros,
-            'responsaveis' => $responsaveis,
-            'cargos'       => $cargos,
+            'dashboard'      => $output,
+            'filtros'        => $filtros,
+            'responsaveis'   => $responsaveis,
+            'cargos'         => $cargos,
+            'existeSemCargo' => $existeSemCargo,
+            'cargoSemValor'  => ObterDadosDashboardUseCase::CARGO_SEM,
         ]);
     }
 

@@ -11,6 +11,7 @@ use App\Pasta\Repository\PastaRepository;
 use App\Repository\UserRepository;
 use App\Tarefa\Repository\TarefaRepository;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
@@ -635,5 +636,291 @@ final class ObterDadosDashboardUseCaseTest extends TestCase
         $this->cenarioTresColaboradores();
 
         self::assertSame([3, 1, 2], $this->idsNaOrdem(['ordenar' => 'pastas_criadas', 'direcao' => 'xyz']));
+    }
+
+    // ─── FILTRO "SEM CARGO" ──────────────────────────────────────────
+
+    /** Alice tem cargo; Bruno tem cargo nulo; Carla tem cargo em branco. */
+    private function cenarioComESemCargo(): void
+    {
+        $this->tarefaRepo->method('countMetasAtivas')->willReturn(0);
+        $this->pastaRepo->method('countUrgentes')->willReturn(0);
+        $this->tarefaRepo->method('countMetasGlobal')->willReturn(['concluidas' => 0, 'total' => 0]);
+        $this->tarefaRepo->method('countPorResponsavel')->willReturn([]);
+        $this->tarefaRepo->method('countAtivasPorResponsavel')->willReturn([]);
+        $this->tarefaRepo->method('countVencidasPorResponsavel')->willReturn([]);
+        $this->tarefaRepo->method('countPrazosProximosPorResponsavel')->willReturn([]);
+        $this->pastaRepo->method('countPorResponsavel')->willReturn([]);
+        $this->pastaRepo->method('countAtivasPorResponsavel')->willReturn([]);
+        $this->pastaRepo->method('countCriadasPorCriador')->willReturn([1 => 4, 2 => 6, 3 => 1]);
+        $this->userRepo->method('findFotoPorColaboradores')->willReturn([]);
+        $this->userRepo->method('findColaboradoresAtivosPorTenant')->willReturn([
+            $this->mockUser(1, 'Alice'),
+            $this->mockUser(2, 'Bruno'),
+            $this->mockUser(3, 'Carla'),
+        ]);
+        $this->userRepo->method('findCargoPorColaboradores')->willReturn([1 => 'Advogado(a)', 2 => null, 3 => '  ']);
+    }
+
+    #[TestDox('cargo=__sem__ reduz a tabela a quem não tem cargo (nulo ou em branco)')]
+    public function testFiltroSemCargoReduzAQuemNaoTemCargo(): void
+    {
+        $this->cenarioComESemCargo();
+
+        $output = $this->sut->executar($this->tenant, $this->referencia, ['cargo' => ObterDadosDashboardUseCase::CARGO_SEM]);
+
+        $ids = array_map(static fn ($l): int => $l->userId, $output->porAdvogado);
+        sort($ids);
+        self::assertSame([2, 3], $ids);
+        // O card acompanha o filtro de linha, como com qualquer cargo.
+        self::assertSame(7, $output->totalPastasCriadas);
+    }
+
+    #[TestDox('o valor reservado do Sem cargo é __sem__ e cargo por nome continua funcionando')]
+    public function testValorReservadoSemCargoERetrocompatibilidade(): void
+    {
+        $this->cenarioComESemCargo();
+
+        self::assertSame('__sem__', ObterDadosDashboardUseCase::CARGO_SEM);
+        $output = $this->sut->executar($this->tenant, $this->referencia, ['cargo' => 'Advogado(a)']);
+        self::assertSame([1], array_map(static fn ($l): int => $l->userId, $output->porAdvogado));
+    }
+
+    // ─── BUSCA POR NOME ──────────────────────────────────────────────
+
+    #[TestDox('busca filtra as linhas pelo nome sem diferenciar maiúscula nem acento')]
+    public function testBuscaFiltraLinhasPorNome(): void
+    {
+        $this->cenarioTresColaboradores();
+
+        $output = $this->sut->executar($this->tenant, $this->referencia, ['busca' => 'ELIDA']);
+
+        self::assertSame([3], array_map(static fn ($l): int => $l->userId, $output->porAdvogado));
+    }
+
+    #[TestDox('busca não altera os cards: totalPastasCriadas é calculado antes dela')]
+    public function testBuscaNaoAlteraOsCards(): void
+    {
+        $this->cenarioTresColaboradores();
+
+        $semBusca = $this->sut->executar($this->tenant, $this->referencia);
+        $comBusca = $this->sut->executar($this->tenant, $this->referencia, ['busca' => 'ana']);
+
+        self::assertCount(1, $comBusca->porAdvogado);
+        self::assertSame(49, $semBusca->totalPastasCriadas);
+        self::assertSame(49, $comBusca->totalPastasCriadas);
+        self::assertSame($semBusca->totalMetasAtivas, $comBusca->totalMetasAtivas);
+        self::assertSame($semBusca->demandasUrgentes, $comBusca->demandasUrgentes);
+        self::assertSame($semBusca->metaGlobalPercent, $comBusca->metaGlobalPercent);
+    }
+
+    #[TestDox('busca que não acha ninguém esvazia a tabela e mantém o card')]
+    public function testBuscaSemResultadoEsvaziaTabelaEMantemCard(): void
+    {
+        $this->cenarioTresColaboradores();
+
+        $output = $this->sut->executar($this->tenant, $this->referencia, ['busca' => 'ninguem-com-esse-nome']);
+
+        self::assertSame([], $output->porAdvogado);
+        self::assertSame(49, $output->totalPastasCriadas);
+    }
+
+    #[TestDox('busca vazia ou só com espaços não filtra')]
+    public function testBuscaVaziaNaoFiltra(): void
+    {
+        $this->cenarioTresColaboradores();
+
+        self::assertCount(3, $this->sut->executar($this->tenant, $this->referencia, ['busca' => '   '])->porAdvogado);
+    }
+
+    // ─── TENDÊNCIA (período anterior) ────────────────────────────────
+
+    /**
+     * Mapas que respondem conforme a janela: período atual (data_de = $deAtual) devolve um
+     * conjunto de números; qualquer outra janela devolve outro. Guarda os filtros recebidos.
+     *
+     * @param array<int, array<string, mixed>> $chamadas
+     */
+    private function cenarioComPeriodo(string $deAtual, array &$chamadas): void
+    {
+        $this->tarefaRepo->method('countMetasAtivas')->willReturn(0);
+        $this->pastaRepo->method('countUrgentes')->willReturn(0);
+        $this->tarefaRepo->method('countMetasGlobal')->willReturn(['concluidas' => 0, 'total' => 0]);
+        $this->tarefaRepo->method('countAtivasPorResponsavel')->willReturn([]);
+        $this->tarefaRepo->method('countVencidasPorResponsavel')->willReturn([]);
+        $this->tarefaRepo->method('countPrazosProximosPorResponsavel')->willReturn([]);
+        $this->pastaRepo->method('countAtivasPorResponsavel')->willReturn([]);
+
+        $porJanela = static function (array $atual, array $anterior) use ($deAtual, &$chamadas): \Closure {
+            return static function (Tenant $t, array $f) use ($atual, $anterior, $deAtual, &$chamadas): array {
+                $chamadas[] = $f;
+
+                return ($f['data_de'] ?? '') === $deAtual ? $atual : $anterior;
+            };
+        };
+
+        $this->tarefaRepo->method('countPorResponsavel')->willReturnCallback($porJanela([1 => 10, 2 => 5], [1 => 8, 2 => 1]));
+        $this->pastaRepo->method('countPorResponsavel')->willReturnCallback($porJanela([1 => 3, 2 => 2], [1 => 4]));
+        $this->pastaRepo->method('countCriadasPorCriador')->willReturnCallback($porJanela([1 => 6, 2 => 4], [2 => 9]));
+
+        $this->userRepo->method('findColaboradoresAtivosPorTenant')->willReturn([
+            $this->mockUser(1, 'Alice'),
+            $this->mockUser(2, 'Bruno'),
+        ]);
+        $this->userRepo->method('findCargoPorColaboradores')->willReturn([]);
+        $this->userRepo->method('findFotoPorColaboradores')->willReturn([]);
+    }
+
+    /** @return array<int, \App\Dashboard\DTO\LinhaAdvogadoDashboardOutput> */
+    private function porId(\App\Dashboard\DTO\DashboardOutput $output): array
+    {
+        $porId = [];
+        foreach ($output->porAdvogado as $linha) {
+            $porId[$linha->userId] = $linha;
+        }
+
+        return $porId;
+    }
+
+    #[TestDox('com período, expõe o anterior de mesma duração por linha e nos totais')]
+    public function testPeriodoAnteriorPreencheLinhasETotais(): void
+    {
+        $chamadas = [];
+        $this->cenarioComPeriodo('2024-01-11', $chamadas);
+
+        $output = $this->sut->executar($this->tenant, $this->referencia, [
+            'data_de'  => '2024-01-11',
+            'data_ate' => '2024-01-20',
+        ]);
+
+        // 10 dias (11 a 20) → os 10 dias anteriores: 01 a 10.
+        self::assertSame(['data_de' => '2024-01-01', 'data_ate' => '2024-01-10'], $output->periodoAnterior);
+
+        $porId = $this->porId($output);
+        self::assertSame(8, $porId[1]->totalMetasAnterior);
+        self::assertSame(4, $porId[1]->totalDemandasAnterior);
+        self::assertSame(0, $porId[1]->pastasCriadasAnterior);
+        self::assertSame(1, $porId[2]->totalMetasAnterior);
+        self::assertSame(0, $porId[2]->totalDemandasAnterior);
+        self::assertSame(9, $porId[2]->pastasCriadasAnterior);
+        // O período atual segue intacto.
+        self::assertSame(10, $porId[1]->totalMetas);
+        self::assertSame(6, $porId[1]->pastasCriadas);
+
+        self::assertSame(['metas' => 9, 'demandas' => 4, 'pastas_criadas' => 9], $output->totaisAnteriores);
+        self::assertSame(10, $output->totalPastasCriadas);
+        self::assertSame(9, $output->totalPastasCriadasAnterior);
+    }
+
+    #[TestDox('as contagens do período anterior são as mesmas queries, só com as datas trocadas')]
+    public function testPeriodoAnteriorReusaOsMesmosFiltrosComOutrasDatas(): void
+    {
+        $chamadas = [];
+        $this->cenarioComPeriodo('2024-01-11', $chamadas);
+
+        $filtros = ['data_de' => '2024-01-11', 'data_ate' => '2024-01-20', 'responsavel' => '', 'cargo' => '', 'busca' => ''];
+        $this->sut->executar($this->tenant, $this->referencia, $filtros);
+
+        $anteriores = array_values(array_filter($chamadas, static fn (array $f): bool => $f['data_de'] !== '2024-01-11'));
+        self::assertCount(3, $anteriores);
+        foreach ($anteriores as $f) {
+            self::assertSame(array_merge($filtros, ['data_de' => '2024-01-01', 'data_ate' => '2024-01-10']), $f);
+        }
+    }
+
+    #[TestDox('borda de mês: março inteiro (31 dias) compara com 30/01 a 29/02 em ano bissexto')]
+    public function testPeriodoAnteriorNaBordaDeMes(): void
+    {
+        $chamadas = [];
+        $this->cenarioComPeriodo('2024-03-01', $chamadas);
+
+        $output = $this->sut->executar($this->tenant, $this->referencia, [
+            'data_de'  => '2024-03-01',
+            'data_ate' => '2024-03-31',
+        ]);
+
+        self::assertSame(['data_de' => '2024-01-30', 'data_ate' => '2024-02-29'], $output->periodoAnterior);
+    }
+
+    #[TestDox('borda de ano: período de 1 dia em 01/01 compara com 31/12 do ano anterior')]
+    public function testPeriodoAnteriorDeUmDiaNaViradaDoAno(): void
+    {
+        $chamadas = [];
+        $this->cenarioComPeriodo('2025-01-01', $chamadas);
+
+        $output = $this->sut->executar($this->tenant, $this->referencia, [
+            'data_de'  => '2025-01-01',
+            'data_ate' => '2025-01-01',
+        ]);
+
+        self::assertSame(['data_de' => '2024-12-31', 'data_ate' => '2024-12-31'], $output->periodoAnterior);
+    }
+
+    /** @return iterable<string, array{0: array<string, string>}> */
+    public static function filtrosSemPeriodoCompleto(): iterable
+    {
+        yield 'sem datas'            => [[]];
+        yield 'só data_de'           => [['data_de' => '2024-01-01']];
+        yield 'só data_ate'          => [['data_ate' => '2024-01-31']];
+        yield 'data inválida'        => [['data_de' => '2024-02-30', 'data_ate' => '2024-03-10']];
+        yield 'formato errado'       => [['data_de' => '01/01/2024', 'data_ate' => '2024-01-31']];
+        yield 'data_ate antes de de' => [['data_de' => '2024-02-01', 'data_ate' => '2024-01-01']];
+    }
+
+    #[DataProvider('filtrosSemPeriodoCompleto')]
+    #[TestDox('sem período completo, a tendência é null (nunca inventada) e não roda query extra')]
+    public function testSemPeriodoTendenciaENull(array $filtros): void
+    {
+        $chamadas = [];
+        $this->cenarioComPeriodo('__nunca__', $chamadas);
+
+        $output = $this->sut->executar($this->tenant, $this->referencia, $filtros);
+
+        self::assertNull($output->periodoAnterior);
+        self::assertNull($output->totaisAnteriores);
+        self::assertNull($output->totalPastasCriadasAnterior);
+        foreach ($output->porAdvogado as $linha) {
+            self::assertNull($linha->totalMetasAnterior);
+            self::assertNull($linha->totalDemandasAnterior);
+            self::assertNull($linha->pastasCriadasAnterior);
+        }
+        // Só as 3 chamadas do período atual (uma por mapa), nenhuma do anterior.
+        self::assertCount(3, $chamadas);
+    }
+
+    #[TestDox('tendência: totaisAnteriores somam só as linhas visíveis; o anterior do card ignora a busca')]
+    public function testBuscaRestringeTotaisAnterioresMasNaoOCard(): void
+    {
+        $chamadas = [];
+        $this->cenarioComPeriodo('2024-01-11', $chamadas);
+
+        $output = $this->sut->executar($this->tenant, $this->referencia, [
+            'data_de'  => '2024-01-11',
+            'data_ate' => '2024-01-20',
+            'busca'    => 'bru',
+        ]);
+
+        self::assertSame([2], array_map(static fn ($l): int => $l->userId, $output->porAdvogado));
+        self::assertSame(['metas' => 1, 'demandas' => 0, 'pastas_criadas' => 9], $output->totaisAnteriores);
+        // Cards: antes da busca (Alice + Bruno).
+        self::assertSame(10, $output->totalPastasCriadas);
+        self::assertSame(9, $output->totalPastasCriadasAnterior);
+    }
+
+    #[TestDox('com período mas sem colaborador visível, totais anteriores são zero (não null)')]
+    public function testPeriodoSemColaboradorTotaisAnterioresZerados(): void
+    {
+        $chamadas = [];
+        $this->cenarioComPeriodo('2024-01-11', $chamadas);
+
+        $output = $this->sut->executar($this->tenant, $this->referencia, [
+            'data_de'     => '2024-01-11',
+            'data_ate'    => '2024-01-20',
+            'responsavel' => '999',
+        ]);
+
+        self::assertSame([], $output->porAdvogado);
+        self::assertSame(['metas' => 0, 'demandas' => 0, 'pastas_criadas' => 0], $output->totaisAnteriores);
+        self::assertSame(0, $output->totalPastasCriadasAnterior);
     }
 }

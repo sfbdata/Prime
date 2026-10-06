@@ -21,5 +21,10 @@ final class LinhaAdvogadoDashboardOutput
         public readonly int    $demandasAtivas,
         /** Pastas abertas POR este colaborador (criadoPor), não as que ele responde. */
         public readonly int    $pastasCriadas,
+        // TENDÊNCIA — mesmas três métricas no período anterior de mesma duração; null quando
+        // não há período completo (sem período não há com o que comparar).
+        public readonly ?int   $totalMetasAnterior = null,
+        public readonly ?int   $totalDemandasAnterior = null,
+        public readonly ?int   $pastasCriadasAnterior = null,
     ) {}
 }
