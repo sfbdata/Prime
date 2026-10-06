@@ -564,6 +564,65 @@ final class NotaTecnicaControllerTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(403);
     }
 
+    // ── Pasta excluída (lápide) ──────────────────────────────────────────────
+
+    #[TestDox('pasta excluída (lápide) como contexto: criar, editar e excluir nota → 403; a pasta viva irmã cria')]
+    public function testPastaExcluidaRecusaCriarEditarExcluir(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $lapide          = $this->criarPasta($tenant);
+        $viva            = $this->criarPasta($tenant);
+        $processo        = $this->criarProcesso($tenant, self::NUMERO);
+        $this->vincular($lapide, $processo);
+        $this->vincular($viva, $processo);
+        $nota   = $this->criarNota($processo, $user, $tenant);
+        $notaId = (int) $nota->getId();
+        $lapide->marcarExcluida($user, new \DateTimeImmutable());
+        $this->em()->flush();
+        $pid = (int) $processo->getId();
+
+        $client->disableReboot();
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $client->request('POST', "/processos/{$pid}/nota-tecnica", [
+            '_token'   => $this->csrf('processo_nota_tecnica_' . $pid),
+            'pasta_id' => $lapide->getId(),
+            'conteudo' => '<p>Na lápide</p>',
+        ]);
+        self::assertResponseStatusCodeSame(403);
+        self::assertStringContainsString('somente para leitura', (string) $this->json($client)['erro']);
+
+        $client->request('POST', "/processos/{$pid}/nota-tecnica/{$notaId}/editar", [
+            '_token'   => $this->csrf('processo_nota_tecnica_editar_' . $notaId),
+            'pasta_id' => $lapide->getId(),
+            'conteudo' => '<p>Editada na lápide</p>',
+        ]);
+        self::assertResponseStatusCodeSame(403);
+
+        $client->request('POST', "/processos/{$pid}/nota-tecnica/{$notaId}/excluir", [
+            '_token'   => $this->csrf('processo_nota_tecnica_excluir_' . $notaId),
+            'pasta_id' => $lapide->getId(),
+        ]);
+        self::assertResponseStatusCodeSame(403);
+
+        $this->desligarFiltroDeTenant();
+        $this->em()->clear();
+        $noBanco = $this->em()->find(NotaTecnica::class, $notaId);
+        self::assertNotNull($noBanco, 'a nota não foi excluída');
+        self::assertSame('<p>Nota original</p>', $noBanco->getConteudo(), 'nem editada');
+        self::assertSame(1, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM nota_tecnica WHERE processo_id = :p', ['p' => $pid]), 'nem criada');
+
+        // Irmão: a pasta viva do MESMO processo, mesmo usuário e token — cria.
+        $client->request('POST', "/processos/{$pid}/nota-tecnica", [
+            '_token'   => $this->csrf('processo_nota_tecnica_' . $pid),
+            'pasta_id' => $viva->getId(),
+            'conteudo' => '<p>Na pasta viva</p>',
+        ]);
+        self::assertResponseStatusCodeSame(201);
+    }
+
     /**
      * O TenantFilter continua ligado com o escritório da sessão depois da request; sem desligá-lo,
      * uma consulta devolveria vazio por FILTRO e o teste "não gravou / não apagou" provaria outra coisa.

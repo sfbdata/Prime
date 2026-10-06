@@ -39,7 +39,8 @@ use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
  *      `find()` por PK, que o TenantFilter não cobre. Processo alheio responde 404, não 403.
  *   2. o usuário pode agir: a nota chega pela PASTA (`pasta_id`) ou direto pelo processo. Pela
  *      pasta, ela tem de ser do escritório e vincular este processo (senão 404), e vale
- *      `canAccessResource('pasta', edit)` — a mesma permissão das observações. Sem pasta, vale
+ *      `canAccessResource('pasta', edit)` — a mesma permissão das observações — e a pasta não pode
+ *      ser lápide (excluída: somente-leitura, 403). Sem pasta, vale
  *      `canAccessResource('processo', edit)`.
  *   3. CSRF por ação, com id no token (`processo_nota_tecnica_<id>`), como as observações.
  *
@@ -49,6 +50,8 @@ use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 #[Route('/processos/{id}/nota-tecnica', requirements: ['id' => '\d+'])]
 final class NotaTecnicaController extends AbstractController
 {
+    private const PASTA_SOMENTE_LEITURA = 'Esta pasta foi excluída e está somente para leitura. Restaure a pasta para voltar a editá-la.';
+
     public function __construct(
         private readonly TenantContext $tenantContext,
         private readonly PermissionChecker $permissionChecker,
@@ -217,6 +220,13 @@ final class NotaTecnicaController extends AbstractController
 
             if (!$this->permissionChecker->canAccessResource($user, $tenant, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_EDIT)) {
                 return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
+            }
+
+            // Pasta excluída (lápide) é somente-leitura — o MESMO critério (`estaExcluida()`) e a
+            // mesma mensagem do `PastaSomenteLeituraListener`, que não alcança esta rota: ela
+            // recebe o processo, e a pasta chega só pelo `pasta_id` do corpo.
+            if ($pasta->estaExcluida()) {
+                return $this->json(['erro' => self::PASTA_SOMENTE_LEITURA], Response::HTTP_FORBIDDEN);
             }
 
             return null;
