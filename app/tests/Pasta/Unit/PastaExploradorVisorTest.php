@@ -143,7 +143,51 @@ final class PastaExploradorVisorTest extends TestCase
         self::assertStringContainsString('fr.src = a.viewUrl;', $imprimir, 'PDF: o próprio arquivo, impresso pelo leitor do navegador');
         self::assertStringContainsString('w.print();', $imprimir);
         self::assertStringNotContainsString('window.print()', $js, 'nunca a página inteira');
-        self::assertMatchesRegularExpression('/\.pex-visor-impressao \{[^}]*visibility: hidden;/', $this->ler(self::CSS));
+        // Fora da tela com tamanho REAL: num 0×0/visibility:hidden o leitor de PDF do Chrome pode não montar.
+        self::assertMatchesRegularExpression('/\.pex-visor-impressao \{[^}]*left: -10000px;[^}]*width: 800px; height: 600px;/', $this->ler(self::CSS));
+        self::assertDoesNotMatchRegularExpression('/\.pex-visor-impressao \{[^}]*(visibility: hidden|width: 0)/', $this->ler(self::CSS));
+        // Um de cada vez, mas a trava não prende: solta em até 3 s sem afterprint, e o clique no meio avisa.
+        self::assertStringContainsString("const MSG_PREPARANDO = 'Preparando impressão…';", $js);
+        self::assertStringContainsString('if (imprimindo) { mostrarAviso(MSG_PREPARANDO); return; }', $imprimir);
+        self::assertStringContainsString('trava = setTimeout(function () { imprimindo = false; }, 3000);', $imprimir);
+        self::assertMatchesRegularExpression('/liberarEm3s\(\);\s*w\.print\(\);/', $imprimir, 'o prazo recomeça quando o print() é chamado');
+    }
+
+    #[TestDox('as peças .vd-* moram SÓ no visualizador-documento.css, com o escopo ampliado ao visor e alturas por variável cujo padrão é o valor de sempre do modal')]
+    public function testCssDoVisualizadorCompartilhado(): void
+    {
+        $vd = $this->ler(__DIR__ . '/../../../public/css/visualizador-documento.css');
+
+        self::assertStringContainsString(':is(#previewDocModal, .pex-visor) .vd-quadro {', $vd);
+        self::assertDoesNotMatchRegularExpression('/^#previewDocModal /m', $vd, 'toda regra passa pelo :is() ampliado');
+        // O modal antigo fica idêntico: o fallback do var() é o número de antes.
+        foreach ([
+            'height: var(--vd-altura, 75vh);',
+            'height: calc(var(--vd-altura, 75vh) - 40px);',
+            'max-height: var(--vd-max, 75vh);',
+            'max-height: var(--vd-max-email, 65vh);',
+            'height: var(--vd-altura-email, 65vh);',
+            'max-height: var(--vd-max-zip, 70vh);',
+        ] as $altura) {
+            self::assertStringContainsString($altura, $vd);
+        }
+        self::assertDoesNotMatchRegularExpression('/:\s*(calc\()?\d+vh/', $vd, 'nenhuma altura fixa sobrou fora das variáveis');
+
+        $css = $this->ler(self::CSS);
+        self::assertDoesNotMatchRegularExpression('/\.vd-[a-z-]+[^{};]*\{/', $css, 'pasta-explorador.css não redefine nenhuma regra .vd-*');
+        self::assertMatchesRegularExpression('/\.pex-visor-alvo \{\s*--vd-altura:\s+var\(--pex-visor-quadro-h\);/', $css, 'o visor só troca as variáveis');
+    }
+
+    #[TestDox('navegador sem a propriedade CSS zoom: o grupo de zoom some e a largura proporcional não é aplicada')]
+    public function testZoomSemSuporte(): void
+    {
+        $css = $this->ler(self::CSS);
+        self::assertMatchesRegularExpression('/@supports not \(zoom: 1\) \{\s*\.pex-visor-zoom \{ display: none !important; \}\s*\.pex-visor-alvo \{ width: 100%; \}/', $css);
+
+        $js = $this->ler(self::VISOR);
+        self::assertStringContainsString("window.CSS.supports('zoom', '1')", $js);
+        self::assertStringContainsString('el.zoom.hidden = !ZOOM_SUPORTADO || TIPOS_COM_ZOOM.indexOf(tipo) === -1;', $js);
+        self::assertStringContainsString('if (el.zoom.hidden) return;', $this->funcao($js, 'mudarZoom'), '+/− pelo teclado também respeitam');
     }
 
     #[TestDox('teclado do dc: Esc fecha, ← → percorrem, + e − dão zoom; Ctrl/Cmd/Alt ficam com o navegador')]

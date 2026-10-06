@@ -1,32 +1,38 @@
 /* ==========================================================================
    Visualizador de documentos (#previewDocModal) — DOCX, planilhas, texto,
    ODT, RTF, PPTX, EML e ZIP
-   Escopado ao modal. Tema-aware: só variáveis do Bootstrap 5.3 (--bs-*), que
+   Escopado ao modal e ao visor em tela cheia da aba Documentos (.pex-visor,
+   L10): `:is()` mantém a especificidade de id que o modal sempre teve.
+   Alturas por variável — o padrão (fallback do var()) é o valor de sempre do
+   modal; o visor sobrescreve no pasta-explorador.css:
+     --vd-altura (75vh) quadros · --vd-altura-email (65vh) quadro do e-mail ·
+     --vd-max (75vh) texto/folha/slides · --vd-max-email (65vh) · --vd-max-zip (70vh).
+   Tema-aware: só variáveis do Bootstrap 5.3 (--bs-*), que
    viram no tema escuro. Raio ≤ 4px. O conteúdo de DOCX/planilha fica dentro
    de um iframe sandbox (folha clara, como o PDF) — este CSS cuida da moldura.
    ========================================================================== */
 
-#previewDocModal .vd-documento,
-#previewDocModal .vd-planilha,
-#previewDocModal .vd-texto-area {
+:is(#previewDocModal, .pex-visor) .vd-documento,
+:is(#previewDocModal, .pex-visor) .vd-planilha,
+:is(#previewDocModal, .pex-visor) .vd-texto-area {
     display: flex;
     flex-direction: column;
     min-width: 0;
 }
 
-#previewDocModal .vd-quadro {
+:is(#previewDocModal, .pex-visor) .vd-quadro {
     display: block;
-    height: 75vh;
+    height: var(--vd-altura, 75vh);
     background: #fff;
 }
 
-#previewDocModal .vd-planilha .vd-quadro {
-    height: calc(75vh - 40px);
+:is(#previewDocModal, .pex-visor) .vd-planilha .vd-quadro {
+    height: calc(var(--vd-altura, 75vh) - 40px);
     border-top: 1px solid var(--bs-border-color) !important;
 }
 
 /* ---------------------------------------------------------------- abas -- */
-#previewDocModal .vd-abas {
+:is(#previewDocModal, .pex-visor) .vd-abas {
     display: flex;
     flex-wrap: wrap;
     gap: 2px;
@@ -34,7 +40,7 @@
     background: var(--bs-tertiary-bg);
 }
 
-#previewDocModal .vd-aba {
+:is(#previewDocModal, .pex-visor) .vd-aba {
     height: 30px;
     max-width: 240px;
     padding: 0 12px;
@@ -51,22 +57,22 @@
     cursor: pointer;
 }
 
-#previewDocModal .vd-aba:hover {
+:is(#previewDocModal, .pex-visor) .vd-aba:hover {
     color: var(--bs-emphasis-color);
 }
 
-#previewDocModal .vd-aba.ativa {
+:is(#previewDocModal, .pex-visor) .vd-aba.ativa {
     background: var(--bs-body-bg);
     color: var(--bs-emphasis-color);
 }
 
-#previewDocModal .vd-aba:focus-visible {
+:is(#previewDocModal, .pex-visor) .vd-aba:focus-visible {
     outline: 2px solid var(--bs-primary);
     outline-offset: -2px;
 }
 
 /* --------------------------------------------------------------- aviso -- */
-#previewDocModal .vd-aviso {
+:is(#previewDocModal, .pex-visor) .vd-aviso {
     padding: 6px 12px;
     font-size: .8125rem;
     color: var(--bs-secondary-color);
@@ -75,9 +81,9 @@
 }
 
 /* --------------------------------------------------------------- texto -- */
-#previewDocModal .vd-texto {
+:is(#previewDocModal, .pex-visor) .vd-texto {
     margin: 0;
-    max-height: 75vh;
+    max-height: var(--vd-max, 75vh);
     overflow: auto;
     padding: 16px 20px;
     background: var(--bs-tertiary-bg);
@@ -94,29 +100,29 @@
    ODT, RTF, PPTX, EML e ZIP — montados com nós do DOM (textContent), sem
    iframe. A "folha" segue clara nos dois temas, como o DOCX e o PDF.
    ====================================================================== */
-#previewDocModal .vd-slides-area,
-#previewDocModal .vd-email,
-#previewDocModal .vd-zip {
+:is(#previewDocModal, .pex-visor) .vd-slides-area,
+:is(#previewDocModal, .pex-visor) .vd-email,
+:is(#previewDocModal, .pex-visor) .vd-zip {
     display: flex;
     flex-direction: column;
     min-width: 0;
 }
 
-#previewDocModal .vd-vazio {
+:is(#previewDocModal, .pex-visor) .vd-vazio {
     margin: 0;
     color: var(--bs-secondary-color);
     font-style: italic;
 }
 
 /* --------------------------------------------------------- folha (ODT/RTF) */
-#previewDocModal .vd-folha-fundo {
-    max-height: 75vh;
+:is(#previewDocModal, .pex-visor) .vd-folha-fundo {
+    max-height: var(--vd-max, 75vh);
     overflow: auto;
     padding: 24px 12px;
     background: #eef1f3;
 }
 
-#previewDocModal .vd-folha {
+:is(#previewDocModal, .pex-visor) .vd-folha {
     max-width: 820px;
     margin: 0 auto;
     padding: 48px 56px;
@@ -131,57 +137,57 @@
     overflow-wrap: anywhere;
 }
 
-#previewDocModal .vd-folha p {
+:is(#previewDocModal, .pex-visor) .vd-folha p {
     margin: 0 0 .6em;
     min-height: 1em;
     white-space: pre-wrap;
 }
 
-#previewDocModal .vd-folha :is(h2, h3, h4, h5, h6) {
+:is(#previewDocModal, .pex-visor) .vd-folha :is(h2, h3, h4, h5, h6) {
     margin: 1em 0 .5em;
     color: #1d1d1d;
     font-weight: 700;
     white-space: pre-wrap;
 }
 
-#previewDocModal .vd-folha h2 { font-size: 1.375rem; }
-#previewDocModal .vd-folha h3 { font-size: 1.125rem; }
-#previewDocModal .vd-folha :is(h4, h5, h6) { font-size: 1rem; }
+:is(#previewDocModal, .pex-visor) .vd-folha h2 { font-size: 1.375rem; }
+:is(#previewDocModal, .pex-visor) .vd-folha h3 { font-size: 1.125rem; }
+:is(#previewDocModal, .pex-visor) .vd-folha :is(h4, h5, h6) { font-size: 1rem; }
 
-#previewDocModal .vd-folha .vd-nota {
+:is(#previewDocModal, .pex-visor) .vd-folha .vd-nota {
     font-size: 12px;
     color: #5f6b73;
     padding-left: 12px;
     border-left: 2px solid #dfe3e6;
 }
 
-#previewDocModal .vd-folha .vd-vazio {
+:is(#previewDocModal, .pex-visor) .vd-folha .vd-vazio {
     color: #5f6b73;
 }
 
-#previewDocModal .vd-folha-pre {
+:is(#previewDocModal, .pex-visor) .vd-folha-pre {
     white-space: pre-wrap;
 }
 
 @media (max-width: 575.98px) {
-    #previewDocModal .vd-folha {
+    :is(#previewDocModal, .pex-visor) .vd-folha {
         padding: 24px 20px;
     }
 }
 
 /* -------------------------------------------------------------- PPTX ---- */
-#previewDocModal .vd-slides {
+:is(#previewDocModal, .pex-visor) .vd-slides {
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 14px;
-    max-height: 75vh;
+    max-height: var(--vd-max, 75vh);
     overflow: auto;
     padding: 16px 12px;
     background: var(--bs-tertiary-bg);
 }
 
-#previewDocModal .vd-slide {
+:is(#previewDocModal, .pex-visor) .vd-slide {
     width: min(860px, 100%);
     min-height: 200px;
     padding: 28px 36px;
@@ -195,13 +201,13 @@
     overflow-wrap: anywhere;
 }
 
-#previewDocModal .vd-slide-numero {
+:is(#previewDocModal, .pex-visor) .vd-slide-numero {
     margin-bottom: 10px;
     font-size: 11px;
     color: #5f6b73;
 }
 
-#previewDocModal .vd-slide-titulo {
+:is(#previewDocModal, .pex-visor) .vd-slide-titulo {
     margin: 0 0 12px;
     font-size: 1.375rem;
     font-weight: 700;
@@ -209,25 +215,25 @@
     white-space: pre-wrap;
 }
 
-#previewDocModal .vd-slide p {
+:is(#previewDocModal, .pex-visor) .vd-slide p {
     margin: 0 0 8px;
     font-size: .9375rem;
     white-space: pre-wrap;
 }
 
-#previewDocModal .vd-slide .vd-vazio {
+:is(#previewDocModal, .pex-visor) .vd-slide .vd-vazio {
     color: #5f6b73;
 }
 
 /* --------------------------------------------------------------- EML ---- */
-#previewDocModal .vd-email-cabecalho {
+:is(#previewDocModal, .pex-visor) .vd-email-cabecalho {
     padding: 14px 20px;
     border-bottom: 1px solid var(--bs-border-color);
     background: var(--bs-body-bg);
     text-align: left;
 }
 
-#previewDocModal .vd-email-assunto {
+:is(#previewDocModal, .pex-visor) .vd-email-assunto {
     margin-bottom: 8px;
     font-size: 1rem;
     font-weight: 700;
@@ -235,7 +241,7 @@
     overflow-wrap: anywhere;
 }
 
-#previewDocModal .vd-email-campos {
+:is(#previewDocModal, .pex-visor) .vd-email-campos {
     display: grid;
     grid-template-columns: max-content 1fr;
     gap: 2px 12px;
@@ -243,20 +249,20 @@
     font-size: .8125rem;
 }
 
-#previewDocModal .vd-email-campos dt {
+:is(#previewDocModal, .pex-visor) .vd-email-campos dt {
     font-weight: 600;
     color: var(--bs-secondary-color);
 }
 
-#previewDocModal .vd-email-campos dd {
+:is(#previewDocModal, .pex-visor) .vd-email-campos dd {
     margin: 0;
     color: var(--bs-body-color);
     overflow-wrap: anywhere;
 }
 
-#previewDocModal .vd-email-corpo {
+:is(#previewDocModal, .pex-visor) .vd-email-corpo {
     margin: 0;
-    max-height: 65vh;
+    max-height: var(--vd-max-email, 65vh);
     overflow: auto;
     padding: 16px 20px;
     background: var(--bs-tertiary-bg);
@@ -269,24 +275,24 @@
     text-align: left;
 }
 
-#previewDocModal .vd-email .vd-quadro {
-    height: 65vh;
+:is(#previewDocModal, .pex-visor) .vd-email .vd-quadro {
+    height: var(--vd-altura-email, 65vh);
 }
 
 /* --------------------------------------------------------------- ZIP ---- */
-#previewDocModal .vd-zip-area {
-    max-height: 70vh;
+:is(#previewDocModal, .pex-visor) .vd-zip-area {
+    max-height: var(--vd-max-zip, 70vh);
     overflow: auto;
 }
 
-#previewDocModal .vd-zip-tabela {
+:is(#previewDocModal, .pex-visor) .vd-zip-tabela {
     width: 100%;
     border-collapse: collapse;
     font-size: .8125rem;
     text-align: left;
 }
 
-#previewDocModal .vd-zip-tabela th {
+:is(#previewDocModal, .pex-visor) .vd-zip-tabela th {
     position: sticky;
     top: 0;
     padding: 6px 12px;
@@ -296,28 +302,28 @@
     border-bottom: 1px solid var(--bs-border-color);
 }
 
-#previewDocModal .vd-zip-tabela td {
+:is(#previewDocModal, .pex-visor) .vd-zip-tabela td {
     padding: 5px 12px;
     border-bottom: 1px solid var(--bs-border-color-translucent);
     color: var(--bs-body-color);
     vertical-align: top;
 }
 
-#previewDocModal .vd-zip-nome {
+:is(#previewDocModal, .pex-visor) .vd-zip-nome {
     overflow-wrap: anywhere;
 }
 
-#previewDocModal .vd-zip-tamanho,
-#previewDocModal .vd-zip-data {
+:is(#previewDocModal, .pex-visor) .vd-zip-tamanho,
+:is(#previewDocModal, .pex-visor) .vd-zip-data {
     white-space: nowrap;
     color: var(--bs-secondary-color);
 }
 
-#previewDocModal .vd-zip-tamanho {
+:is(#previewDocModal, .pex-visor) .vd-zip-tamanho {
     text-align: right;
 }
 
-#previewDocModal .vd-zip-senha {
+:is(#previewDocModal, .pex-visor) .vd-zip-senha {
     color: var(--bs-secondary-color);
     font-style: italic;
 }

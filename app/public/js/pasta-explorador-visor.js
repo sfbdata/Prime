@@ -37,8 +37,10 @@
     if (!visor) return;
 
     /* Fora do explorador: nenhum ancestral com transform prende o `fixed`, e as
-       teclas/cliques do visor não sobem para os atalhos da lista (Backspace,
-       setas, Del) do pasta-explorador.js. */
+       teclas do visor não sobem para o keydown da RAIZ do explorador (Backspace,
+       setas, Del da lista). Não é isolamento total: os ouvintes do `document`
+       do pasta-explorador.js (Esc fecha popover/menu, clique fecha popover)
+       continuam vendo os eventos — inofensivos com o visor aberto. */
     document.body.appendChild(visor);
 
     const el = {
@@ -69,6 +71,9 @@
     // dc `temZoom`: sem zoom para áudio, vídeo, ZIP (lista) e o que não tem visualização.
     const TIPOS_COM_ZOOM = ['pdf', 'imagem', 'docx', 'planilha', 'texto', 'odt', 'pptx', 'rtf', 'eml'];
     const TIPOS_IMPRIMIVEIS = ['pdf', 'imagem'];
+    // Sem a propriedade CSS `zoom`, o grupo some (o CSS tem o @supports correspondente).
+    const ZOOM_SUPORTADO = !window.CSS || typeof window.CSS.supports !== 'function' || window.CSS.supports('zoom', '1');
+    const MSG_PREPARANDO = 'Preparando impressão…';
     const MOTIVO_SEM_IMPRESSAO = 'Imprimir direto daqui só funciona com PDF e imagem. Baixe o arquivo para imprimir.';
 
     let lista = [];
@@ -146,7 +151,7 @@
         el.anterior.disabled = indice === 0;
         el.proximo.disabled = indice === lista.length - 1;
 
-        el.zoom.hidden = TIPOS_COM_ZOOM.indexOf(tipo) === -1;
+        el.zoom.hidden = !ZOOM_SUPORTADO || TIPOS_COM_ZOOM.indexOf(tipo) === -1;
         aplicarZoom();
 
         const imprimivel = TIPOS_IMPRIMIVEIS.indexOf(tipo) !== -1;
@@ -213,15 +218,25 @@
     /* Impressão por iframe OCULTO (dc `BJImprimir`): funciona onde pop-up é
        bloqueado. PDF: o próprio arquivo carregado no iframe e impresso pelo
        leitor do navegador. Imagem: um documento mínimo montado por DOM, com a
-       linha de identificação do dc. O iframe sai depois do afterprint (ou em 60 s). */
+       linha de identificação do dc. O iframe fica FORA da tela com tamanho real
+       (o leitor de PDF do Chrome pode não montar num 0×0) e sai depois do
+       afterprint (ou em 60 s). A trava `imprimindo` se solta em até 3 s mesmo sem
+       afterprint; clique durante a preparação só avisa. */
     function imprimir() {
         const a = atual();
         if (!a) return;
         const tipo = tipoDe(a);
         if (TIPOS_IMPRIMIVEIS.indexOf(tipo) === -1) { mostrarAviso(MOTIVO_SEM_IMPRESSAO); return; }
-        if (imprimindo) return; // um de cada vez: o 2º clique não empilha iframes
+        if (imprimindo) { mostrarAviso(MSG_PREPARANDO); return; } // um de cada vez: não empilha iframes
 
         imprimindo = true;
+        let trava = null;
+        const liberarEm3s = function () {
+            clearTimeout(trava);
+            trava = setTimeout(function () { imprimindo = false; }, 3000);
+        };
+        liberarEm3s();
+        mostrarAviso(MSG_PREPARANDO);
         const fr = document.createElement('iframe');
         fr.className = 'pex-visor-impressao';
         fr.setAttribute('aria-hidden', 'true');
@@ -232,6 +247,7 @@
         const remover = function () {
             if (removido) return;
             removido = true;
+            clearTimeout(trava);
             imprimindo = false;
             fr.remove();
         };
@@ -241,6 +257,7 @@
                     const w = fr.contentWindow;
                     w.addEventListener('afterprint', function () { setTimeout(remover, 100); });
                     w.focus();
+                    liberarEm3s();
                     w.print();
                 } catch (e) {
                     mostrarAviso('Não foi possível imprimir neste navegador. Baixe o arquivo para imprimir.');

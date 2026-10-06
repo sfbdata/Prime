@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Pasta\Functional;
 
+use App\Cliente\Entity\ClientePF;
 use App\Controller\PastaController;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
@@ -51,11 +52,13 @@ final class PastaExploradorVisorArranjoTelaTest extends JusPrimeWebTestCase
         return [$user, $tenant];
     }
 
-    private function criarPasta(Tenant $tenant, string $nup): Pasta
+    private function criarPasta(Tenant $tenant, ?string $nup): Pasta
     {
         $em    = static::getContainer()->get(EntityManagerInterface::class);
         $pasta = new Pasta();
-        $pasta->setNup($nup);
+        if ($nup !== null) {
+            $pasta->setNup($nup);
+        }
         $pasta->setTenant($tenant);
         $em->persist($pasta);
         $em->flush();
@@ -89,12 +92,36 @@ final class PastaExploradorVisorArranjoTelaTest extends JusPrimeWebTestCase
         return $crawler;
     }
 
+    private function novoClientePf(Tenant $tenant, string $nome): ClientePF
+    {
+        $c = new ClientePF();
+        $c->setEmail('pex.visor.' . uniqid() . '@test.com');
+        $c->setCep('80000-000');
+        $c->setEndereco('Rua Um, 1');
+        $c->setCidade('Curitiba');
+        $c->setEstado('PR');
+        $c->setTenant($tenant);
+        $c->setNomeCompleto($nome);
+        $c->setCpf('111.111.111-11');
+        $c->setRg('12.345.678-9');
+        $c->setRgOrgaoExpedidor('SSP');
+
+        return $c;
+    }
+
     /** @return array{Crawler, Pasta} */
-    private function telaComUmArquivo(): array
+    private function telaComUmArquivo(?string $nup = 'NUP-PEX-VIS', ?string $cliente = null): array
     {
         $client          = static::createClient();
         [$user, $tenant] = $this->criarUsuarioAdmin();
-        $pasta           = $this->criarPasta($tenant, 'NUP-PEX-VIS-' . uniqid());
+        $pasta           = $this->criarPasta($tenant, $nup === null ? null : $nup . '-' . uniqid());
+        if ($cliente !== null) {
+            $em = static::getContainer()->get(EntityManagerInterface::class);
+            $c  = $this->novoClientePf($tenant, $cliente);
+            $em->persist($c);
+            $pasta->addCliente($c); // o primeiro vinculado vira o principal
+            $em->flush();
+        }
         $this->criarDocumento($pasta, $tenant, 'a.pdf');
         $this->logarComTenant($client, $user, $tenant);
 
@@ -180,5 +207,26 @@ final class PastaExploradorVisorArranjoTelaTest extends JusPrimeWebTestCase
         // O setter grava em maiúsculas: compara com o getter, não com o literal digitado.
         self::assertSame($pasta->getNup(), $visor->attr('data-pasta-rotulo'));
         self::assertSame('', $visor->attr('data-pasta-cliente'), 'sem cliente principal: só "Pasta N"');
+    }
+
+    #[TestDox('com cliente principal vinculado, a meta leva o nome de exibição DELE (do cadastro)')]
+    public function testClientePrincipalNaMeta(): void
+    {
+        [$crawler, $pasta] = $this->telaComUmArquivo('NUP-PEX-VIS', 'Ana Visor Principal');
+
+        $principal = $pasta->getClientePrincipal();
+        self::assertNotNull($principal);
+        // O setter grava em maiúsculas: compara com o getter, não com o literal digitado.
+        self::assertSame($principal->getNomeExibicao(), $crawler->filter('#pexVisor')->attr('data-pasta-cliente'));
+        self::assertNotSame('', $crawler->filter('#pexVisor')->attr('data-pasta-cliente'));
+    }
+
+    #[TestDox('pasta sem NUP: o rótulo cai no id (`pasta.nup ?? pasta.id`), nunca vazio')]
+    public function testRotuloSemNupCaiNoId(): void
+    {
+        [$crawler, $pasta] = $this->telaComUmArquivo(null);
+
+        self::assertNull($pasta->getNup());
+        self::assertSame((string) $pasta->getId(), $crawler->filter('#pexVisor')->attr('data-pasta-rotulo'));
     }
 }
