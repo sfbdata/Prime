@@ -48,7 +48,9 @@ final class AlertarResponsavelDaMetaUseCaseTest extends TestCase
             $this->notificacaoService,
             $this->notificacaoRepository,
             $this->userTenantRepository,
-            new MockClock(self::AGORA),
+            // MockClock com string assume UTC; o resto do teste (e o NativeClock de produção) usa o
+            // fuso padrão do PHP — sem isto o relógio fica 3h à frente e o teste depende da hora.
+            new MockClock(new \DateTimeImmutable(self::AGORA)),
         );
 
         $this->tenant      = new Tenant();
