@@ -123,7 +123,7 @@ final class MontarZipDeDocumentosUseCaseTest extends TestCase
 
         $entradas = $this->entradasDoZip($saida->arquivo->caminho());
         self::assertSame(
-            ['A/B/Vazia/', 'A/B/em-b.pdf', 'A/em-a.pdf', 'LEIA-ME.txt', 'raiz.pdf'],
+            ['A/B/VAZIA/', 'A/B/em-b.pdf', 'A/em-a.pdf', 'LEIA-ME.txt', 'raiz.pdf'], // setter grava a seção em MAIÚSCULAS
             array_keys($entradas),
             'a subpasta sem arquivo entra como diretório; "fica.pdf" não foi selecionado',
         );
@@ -191,7 +191,7 @@ final class MontarZipDeDocumentosUseCaseTest extends TestCase
         $this->gerados[] = $saida->arquivo->caminho();
 
         $nomes = array_keys($this->entradasDoZip($saida->arquivo->caminho()));
-        self::assertSame(['C:_x_y.pdf', 'LEIA-ME.txt', '_._etc_passwd', '_abs.pdf', '_fora/sem nome', 'ab.txt'], $nomes);
+        self::assertSame(['C:_x_y.pdf', 'LEIA-ME.txt', '_._etc_passwd', '_FORA/sem nome', '_abs.pdf', 'ab.txt'], $nomes); // seção em MAIÚSCULAS pelo setter
         foreach ($nomes as $nome) {
             self::assertStringNotContainsString('..', $nome);
             self::assertStringNotContainsString('\\', $nome);

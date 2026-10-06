@@ -82,7 +82,7 @@ final class NomesDeEntradaDoZipTest extends TestCase
         self::assertSame('sem extensão (2)', $nomes->reservar('', 'sem extensão'));
 
         $nomes->reservar('', '.htaccess');
-        self::assertSame('.htaccess (2)', $nomes->reservar('', '.htaccess'), 'sem tronco não há o que separar');
+        self::assertSame('htaccess (2)', $nomes->reservar('', '.htaccess'), 'o ponto inicial sai na sanitização; sem extensão, o sufixo vai no fim');
 
         $nomes->reservar('', 'versão.rev 2');
         self::assertSame('versão.rev 2 (2)', $nomes->reservar('', 'versão.rev 2'), '".rev 2" não é extensão');

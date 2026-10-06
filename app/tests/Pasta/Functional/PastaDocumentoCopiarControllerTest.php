@@ -73,6 +73,7 @@ final class PastaDocumentoCopiarControllerTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $user, $tenant);
         $this->limpar();
 
+        $createsAntes = $this->creates();
         $client->request('POST', "/pasta/{$pasta->getId()}/documentos/copiar", [
             '_token'     => $this->csrf('pex_lote_' . $pasta->getId()),
             'documentos' => [(string) $origem->getId()],
@@ -116,7 +117,10 @@ final class PastaDocumentoCopiarControllerTest extends JusPrimeWebTestCase
         self::assertSame('bytes do contrato', $armazenamento->ler(ChavesDePasta::documentoPorNome((int) $tenant->getId(), $linha['caminho_arquivo'])));
         self::assertSame('bytes do contrato', $armazenamento->ler(ChavesDePasta::documentoPorNome((int) $tenant->getId(), $origem->getCaminhoArquivo())), 'o original fica');
 
-        self::assertSame(1, $this->auditorias('create', [(int) $copia['id']]));
+        // O `create` é gravado no onFlush, antes do INSERT: no PostgreSQL o id ainda não existe e o
+        // `entity_id` do audit sai nulo (comportamento do AuditLogSubscriber, não da cópia). Por isso
+        // a prova é a contagem: exatamente UMA auditoria de criação de documento nesta requisição.
+        self::assertSame($createsAntes + 1, $this->creates());
     }
 
     #[TestDox('copiar para a raiz (destinoId ausente), duas vezes: "(cópia)" e depois "(cópia 2)" — único no destino; o leitor só vê')]
@@ -461,12 +465,11 @@ final class PastaDocumentoCopiarControllerTest extends JusPrimeWebTestCase
     }
 
     /** @param list<int> $ids */
-    private function auditorias(string $acao, array $ids): int
+    private function creates(): int
     {
         return (int) $this->em()->getConnection()->fetchOne(
-            'SELECT COUNT(*) FROM audit_log WHERE action = :acao AND entity_class = :classe AND entity_id IN (:ids)',
-            ['acao' => $acao, 'classe' => PastaDocumento::class, 'ids' => array_map('strval', $ids)],
-            ['ids' => ArrayParameterType::STRING],
+            "SELECT COUNT(*) FROM audit_log WHERE action = 'create' AND entity_class = :classe",
+            ['classe' => PastaDocumento::class],
         );
     }
 

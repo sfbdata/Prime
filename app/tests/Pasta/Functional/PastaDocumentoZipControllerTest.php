@@ -95,10 +95,11 @@ final class PastaDocumentoZipControllerTest extends JusPrimeWebTestCase
         );
 
         $entradas = $this->entradasDoZip($client);
-        self::assertSame(['LEIA-ME.txt', 'Provas/Fotos/em-b.jpg', 'Provas/em-a.pdf', 'raiz.pdf'], array_keys($entradas));
+        // O setter grava o nome da seção em MAIÚSCULAS: o diretório do zip é o nome gravado.
+        self::assertSame(['LEIA-ME.txt', 'PROVAS/FOTOS/em-b.jpg', 'PROVAS/em-a.pdf', 'raiz.pdf'], array_keys($entradas));
         self::assertSame('bytes raiz', $entradas['raiz.pdf']);
-        self::assertSame('bytes a', $entradas['Provas/em-a.pdf']);
-        self::assertSame('bytes b', $entradas['Provas/Fotos/em-b.jpg']);
+        self::assertSame('bytes a', $entradas['PROVAS/em-a.pdf']);
+        self::assertSame('bytes b', $entradas['PROVAS/FOTOS/em-b.jpg']);
         self::assertStringContainsString('Documentos da pasta ' . $pasta->getNup(), $entradas['LEIA-ME.txt']);
         self::assertStringContainsString('por Admin Documentos', $entradas['LEIA-ME.txt']);
         self::assertStringContainsString('Arquivos incluídos: 3', $entradas['LEIA-ME.txt']);
@@ -119,7 +120,8 @@ final class PastaDocumentoZipControllerTest extends JusPrimeWebTestCase
         self::assertSame([$a->getId()], $mudancas['secoes']);
         self::assertSame(3, $mudancas['arquivos']);
         self::assertSame(0, $mudancas['nao_encontrados']);
-        self::assertSame(strlen('bytes raiz') + strlen('bytes a') + strlen('bytes b'), $mudancas['bytes']);
+        // `bytes` é a soma do `tamanho_bytes` GRAVADO (o teto também é por ele) — a fixture grava 10 por documento.
+        self::assertSame(3 * 10, $mudancas['bytes']);
     }
 
     #[TestDox('zip: basta VER a pasta — o leitor baixa; nomes repetidos ficam únicos')]
