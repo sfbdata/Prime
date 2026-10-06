@@ -6,6 +6,7 @@ namespace App\Dashboard\Controller;
 
 use App\Dashboard\Inteligencia\MontarLeituraDoDashboard;
 use App\Dashboard\UseCase\ObterDadosDashboardUseCase;
+use App\Dashboard\UseCase\ObterPreferenciasDoDashboardUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Repository\UserRepository;
@@ -25,6 +26,7 @@ final class DashboardController extends AbstractController
         private readonly ObterDadosDashboardUseCase $obterDadosUseCase,
         private readonly UserRepository $userRepository,
         private readonly MontarLeituraDoDashboard $montarLeitura,
+        private readonly ObterPreferenciasDoDashboardUseCase $obterPreferencias,
     ) {}
 
     #[Route('', name: 'dashboard_index', methods: ['GET'])]
@@ -106,8 +108,14 @@ final class DashboardController extends AbstractController
             }
         }
 
+        // Estilo pessoal do menu ⋮ (densidade, animações, setas, colunas ocultas) do usuário
+        // LOGADO neste escritório: vira classe no `.db-page` já no HTML, sem esperar o JS. Só no
+        // render completo — o XHR troca o fragmento DENTRO do `.db-page`, que mantém as classes.
+        $preferencias = $this->obterPreferencias->executar($tenant, $currentUser);
+
         return $this->render('dashboard/index.html.twig', [
             'dashboard'      => $output,
+            'preferencias'   => $preferencias,
             'filtros'        => $filtros,
             'inteligencia'   => $leitura,
             'responsaveis'   => $responsaveis,

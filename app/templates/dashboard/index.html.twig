@@ -17,7 +17,13 @@
 {% endblock %}
 
 {% block body %}
-<section class="db-page">
+{# Estilo pessoal do menu ⋮ (PreferenciasDoDashboardOutput, do usuário LOGADO neste escritório):
+   as classes saem do servidor já no HTML, para a página abrir no estilo da pessoa sem piscar. O
+   `.db-page` fica FORA da região que o XHR troca, então as classes sobrevivem a cada filtro. O
+   dashboard-preferencias.js lê o estado de `data-preferencias` e grava pelo endpoint. #}
+<section class="db-page{{ preferencias.classesCss() != '' ? ' ' ~ preferencias.classesCss() : '' }}"
+         data-preferencias="{{ preferencias.paraArray()|json_encode|e('html_attr') }}"
+         data-preferencias-endpoint="{{ path('dashboard_preferencias_salvar') }}">
     {% set respOpcoes = [] %}
     {% for u in responsaveis %}
         {% set respOpcoes = respOpcoes|merge([{ valor: u.id, label: u.nome }]) %}
@@ -292,6 +298,96 @@
 
         <div class="db-print-rodape">Documento gerado pelo BlueJus para uso interno do escritório.</div>
     </div>
+
+    {# ── Menu ⋮ "Opções da tabela" (desenho 1.2.2, "Opções da tabela" e "Personalização por
+       usuário") ─────────────────────────────────────────────────────────────────────────
+       O lugar dele é o cabeçalho da tabela, ao lado da lupa — mas o cabeçalho vive no fragmento
+       que o XHR troca. Por isso o menu nasce AQUI, fora do fragmento e escondido (`hidden`), e o
+       dashboard-preferencias.js o move para dentro do `.db-table-header` e o recoloca a cada
+       recarga (o mesmo nó: o estado aberto/fechado e os ouvintes sobrevivem). Sem JS ele fica
+       escondido: o estilo gravado continua valendo pelas classes do `.db-page`.
+       Só o que o sistema suporta de verdade: densidade, animações, setas e colunas visíveis.
+       Fora (decisão do dono ou sem back-end): sons, "Adicionar coluna", zerar relatório. #}
+    {% set prefColunas = [
+        { chave: 'cargo',           rotulo: 'Cargo' },
+        { chave: 'metas',           rotulo: 'Total metas' },
+        { chave: 'metas_ativas',    rotulo: 'Metas ativas' },
+        { chave: 'metas_vencidas',  rotulo: 'Metas vencidas' },
+        { chave: 'prazos',          rotulo: 'Prazos próximos' },
+        { chave: 'demandas',        rotulo: 'Total demandas' },
+        { chave: 'demandas_ativas', rotulo: 'Demandas ativas' },
+        { chave: 'pastas_criadas',  rotulo: 'Pastas criadas' },
+    ] %}
+    {% set prefOcultas = preferencias.colunasOcultas %}
+    {% set prefNumVisiveis = prefColunas|filter(c => c.chave != 'cargo' and c.chave not in prefOcultas)|length %}
+    {% set animLigadas = preferencias.animacoes == 'ligadas' %}
+    {% set setasLigadas = preferencias.setas == 'ligadas' %}
+    <div class="db-pref" data-db-pref hidden>
+        <button type="button" class="db-pref-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="db-pref-menu"
+                title="Opções da tabela" aria-label="Opções da tabela"><i class="bi bi-three-dots-vertical" aria-hidden="true"></i></button>
+        <div class="db-pref-menu" id="db-pref-menu" role="menu" aria-label="Opções da tabela" hidden>
+            <div class="db-pref-faixa">
+                <i class="bi bi-person-check" aria-hidden="true"></i>
+                <span class="db-pref-faixa-txt">Ajustes salvos só para <b>{{ app.user.fullName }}</b></span>
+            </div>
+
+            <div class="db-pref-secao">Meu estilo</div>
+            <div class="db-pref-linha">
+                <i class="bi bi-distribute-vertical db-pref-ico" aria-hidden="true"></i>
+                <span class="db-pref-rotulo">Densidade</span>
+                <div class="db-pref-seg" role="group" aria-label="Densidade">
+                    {% for op in [{ valor: 'confortavel', rotulo: 'Normal' }, { valor: 'compacta', rotulo: 'Compacta' }] %}
+                        <button type="button" class="db-pref-seg-btn" role="menuitemradio"
+                                aria-checked="{{ preferencias.densidade == op.valor ? 'true' : 'false' }}"
+                                data-pref-chave="dashboard.densidade" data-pref-valor="{{ op.valor }}">{{ op.rotulo }}</button>
+                    {% endfor %}
+                </div>
+            </div>
+            <button type="button" class="db-pref-item" role="menuitemcheckbox" aria-checked="{{ animLigadas ? 'true' : 'false' }}"
+                    data-pref-chave="dashboard.animacoes" data-pref-liga="ligadas" data-pref-desliga="reduzidas">
+                <i class="bi bi-stars db-pref-ico" aria-hidden="true"></i>
+                <span class="db-pref-rotulo">Animações</span>
+                <span class="db-pref-sw" aria-hidden="true"><span class="db-pref-sw-bola"></span></span>
+            </button>
+
+            <div class="db-pref-div" aria-hidden="true"></div>
+            <div class="db-pref-secao">Exibição</div>
+            <button type="button" class="db-pref-item" role="menuitemcheckbox" aria-checked="{{ setasLigadas ? 'true' : 'false' }}"
+                    data-pref-chave="dashboard.setas" data-pref-liga="ligadas" data-pref-desliga="desligadas">
+                <i class="bi bi-arrow-up-right db-pref-ico db-pref-ico--sm" aria-hidden="true"></i>
+                <span class="db-pref-rotulo">Setas de tendência</span>
+                <span class="db-pref-sw" aria-hidden="true"><span class="db-pref-sw-bola"></span></span>
+            </button>
+
+            <div class="db-pref-div" aria-hidden="true"></div>
+            <div class="db-pref-secao db-pref-secao--cols">
+                <span>Colunas</span>
+                <button type="button" class="db-pref-mostrar" data-pref-mostrar-todas{% if prefOcultas is empty %} hidden{% endif %}>Mostrar todas</button>
+            </div>
+            <div class="db-pref-fixa">
+                <i class="bi bi-lock" aria-hidden="true"></i>
+                <span class="db-pref-fixa-nome">Colaborador</span>
+                <span class="db-pref-fixa-tag">fixa</span>
+            </div>
+            {% for c in prefColunas %}
+                {% set visivel = c.chave not in prefOcultas %}
+                {# A última numérica visível não pode sair (o desenho trava a caixa). #}
+                {% set ultima = visivel and c.chave != 'cargo' and prefNumVisiveis == 1 %}
+                <button type="button" class="db-pref-item db-pref-col" role="menuitemcheckbox"
+                        aria-checked="{{ visivel ? 'true' : 'false' }}"{% if ultima %} aria-disabled="true"{% endif %}
+                        data-pref-coluna="{{ c.chave }}">
+                    <span class="db-pref-caixa" aria-hidden="true"><i class="bi bi-check-lg"></i></span>
+                    <span class="db-pref-rotulo">{{ c.rotulo }}</span>
+                </button>
+            {% endfor %}
+
+            <div class="db-pref-div" aria-hidden="true"></div>
+            <button type="button" class="db-pref-item db-pref-restaurar" role="menuitem" data-pref-restaurar>
+                <i class="bi bi-arrow-counterclockwise db-pref-ico db-pref-ico--sm" aria-hidden="true"></i>
+                <span>Restaurar padrão</span>
+            </button>
+        </div>
+    </div>
 </section>
 {% endblock %}
 
@@ -302,4 +398,6 @@
 <script src="{{ asset('js/dashboard.js') }}"></script>
 {# Selects e calendário próprios da barra de filtros: escrevem nos nativos do parcial. #}
 <script src="{{ asset('js/dashboard-filtros.js') }}"></script>
+{# Menu ⋮ da tabela Desempenho: move o .db-pref para o cabeçalho da tabela e grava o estilo. #}
+<script src="{{ asset('js/dashboard-preferencias.js') }}"></script>
 {% endblock %}

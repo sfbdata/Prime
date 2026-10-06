@@ -2195,3 +2195,281 @@
     .db-page .db-nome-completo { display: inline !important; }
     .db-page .db-nome-curto { display: none !important; }
 }
+
+/* ── Menu ⋮ "Opções da tabela" e estilo pessoal ───────────────────────────────
+   Desenho 1.2.2, "Opções da tabela" + "Personalização por usuário". O menu nasce
+   fora do fragmento (index.html.twig) e o dashboard-preferencias.js o move para o
+   .db-table-header, ao lado da lupa. As classes de estilo moram no .db-page — que
+   o XHR não troca — e vêm do servidor (PreferenciasDoDashboardOutput::classesCss). */
+.db-page .db-pref {
+    --db-pref-hover:     #f3f7fa;
+    --db-pref-seg-bg:    #edf2f6;
+    --db-pref-seg-borda: #dfe7ed;
+    --db-pref-caixa-off: #b9c8d2;
+    --db-pref-sw-off:    #cfd9e0;
+    position: relative;
+    flex-shrink: 0;
+}
+.db-page .db-pref[hidden] { display: none; }
+[data-bs-theme="dark"] .db-page .db-pref {
+    --db-pref-hover:     var(--bs-secondary-bg);
+    --db-pref-seg-bg:    var(--bs-secondary-bg);
+    --db-pref-seg-borda: var(--bs-border-color);
+    --db-pref-caixa-off: var(--bs-border-color);
+    --db-pref-sw-off:    var(--bs-border-color);
+}
+/* só os três pontinhos, sem círculo nem borda (28×36) */
+.db-page .db-pref-btn {
+    width: 28px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--db-label-card);
+    font-size: 15px;
+    cursor: pointer;
+    transition: background .2s, color .2s;
+}
+.db-page .db-pref-btn:hover,
+.db-page .db-pref.is-aberto .db-pref-btn { background: var(--db-accent-soft); color: var(--db-accent); }
+.db-page .db-pref-btn:focus-visible { outline: none; box-shadow: var(--db-focus); }
+
+.db-page .db-pref-menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    z-index: 45;
+    box-sizing: border-box;
+    width: 300px;
+    min-width: 260px;
+    max-width: calc(100vw - 16px);
+    max-height: min(70vh, 560px);
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    padding: 8px;
+    background: var(--db-card);
+    border: 1px solid var(--db-border);
+    border-radius: 4px;
+    box-shadow: 0 22px 44px -20px rgba(12,60,90,.38), 0 4px 12px -6px rgba(12,60,90,.12);
+    transform-origin: top right;
+    animation: dbFpIn .18s var(--db-ease);
+    text-align: left;
+}
+.db-page .db-pref-menu[hidden] { display: none; }
+
+/* faixa "Ajustes salvos só para {nome}" */
+.db-page .db-pref-faixa {
+    position: sticky;
+    top: -8px;
+    z-index: 2;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: -8px -8px 8px;
+    padding: 11px 14px;
+    border-radius: 4px 4px 0 0;
+    background: linear-gradient(120deg, #0f6fc4 0%, #0c7a9c 100%);
+}
+.db-page .db-pref-faixa::before {
+    content: "";
+    position: absolute;
+    right: -24px;
+    top: -34px;
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,255,255,.16), rgba(255,255,255,0) 70%);
+    pointer-events: none;
+}
+.db-page .db-pref-faixa i { position: relative; font-size: 14px; color: #fff; }
+.db-page .db-pref-faixa-txt { position: relative; flex: 1; min-width: 0; font-size: 12px; line-height: 1.35; color: rgba(255,255,255,.86); }
+.db-page .db-pref-faixa-txt b { color: #fff; }
+
+.db-page .db-pref-secao {
+    padding: 2px 6px 8px;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--db-faint);
+}
+.db-page .db-pref-div + .db-pref-secao { padding-top: 4px; }
+.db-page .db-pref-secao--cols { display: flex; align-items: center; padding-top: 2px; padding-bottom: 6px; }
+.db-page .db-pref-secao--cols > span { flex: 1; }
+.db-page .db-pref-mostrar {
+    padding: 0;
+    border: none;
+    background: transparent;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: normal;
+    text-transform: none;
+    color: var(--db-azul);
+    cursor: pointer;
+}
+.db-page .db-pref-mostrar[hidden] { display: none; }
+.db-page .db-pref-mostrar:hover { text-decoration: underline; }
+.db-page .db-pref-div { height: 1px; margin: 8px 4px; background: var(--db-div); }
+
+.db-page .db-pref-ico { width: 16px; font-size: 14px; text-align: center; color: var(--db-accent); }
+.db-page .db-pref-ico--sm { font-size: 13px; }
+.db-page .db-pref-rotulo { flex: 1; min-width: 0; font-size: 13.5px; font-weight: 600; color: var(--db-text-strong); }
+
+/* linha "Densidade": rótulo + segmentado Normal / Compacta */
+.db-page .db-pref-linha { display: flex; align-items: center; gap: 10px; padding: 4px 8px 8px; }
+.db-page .db-pref-linha .db-pref-ico { font-size: 13px; }
+.db-page .db-pref-seg {
+    display: flex;
+    gap: 2px;
+    padding: 2px;
+    background: var(--db-pref-seg-bg);
+    border: 1px solid var(--db-pref-seg-borda);
+    border-radius: 4px;
+}
+.db-page .db-pref-seg-btn {
+    height: 24px;
+    padding: 0 9px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--db-text-2);
+    cursor: pointer;
+}
+.db-page .db-pref-seg-btn[aria-checked="true"] {
+    font-weight: 700;
+    color: var(--db-accent-text);
+    background: var(--db-card);
+    box-shadow: 0 1px 2px rgba(16,42,58,.1);
+}
+.db-page .db-pref-seg-btn:focus-visible { outline: none; box-shadow: var(--db-focus); }
+
+/* itens do menu (interruptores, colunas, restaurar) */
+.db-page .db-pref-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 8px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+.db-page .db-pref-item:hover,
+.db-page .db-pref-item:focus-visible { outline: none; background: var(--db-pref-hover); }
+
+/* interruptor 34×20 */
+.db-page .db-pref-sw {
+    position: relative;
+    flex-shrink: 0;
+    width: 34px;
+    height: 20px;
+    border-radius: 999px;
+    background: var(--db-pref-sw-off);
+    transition: background .2s;
+}
+.db-page .db-pref-sw-bola {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(16,42,58,.3);
+    transition: transform .22s var(--db-ease);
+}
+.db-page .db-pref-item[aria-checked="true"] .db-pref-sw { background: linear-gradient(90deg, #1597bd, #0c7a9c); }
+.db-page .db-pref-item[aria-checked="true"] .db-pref-sw-bola { transform: translateX(14px); }
+
+/* colunas: "Colaborador" fixa + caixas de seleção */
+.db-page .db-pref-fixa { display: flex; align-items: center; gap: 10px; padding: 7px 8px; opacity: .55; }
+.db-page .db-pref-fixa i { width: 16px; font-size: 12px; text-align: center; color: var(--db-faint); }
+.db-page .db-pref-fixa-nome { flex: 1; font-size: 13.5px; color: var(--db-label-card); }
+.db-page .db-pref-fixa-tag { font-size: 11px; color: var(--db-faint); }
+.db-page .db-pref-col { padding: 7px 8px; }
+.db-page .db-pref-caixa {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 3px;
+    background: var(--db-card);
+    box-shadow: inset 0 0 0 1.5px var(--db-pref-caixa-off);
+    transition: background .18s, box-shadow .18s;
+}
+.db-page .db-pref-caixa i { font-size: 13px; color: #fff; opacity: 0; transition: opacity .15s; }
+.db-page .db-pref-col .db-pref-rotulo { font-weight: 500; color: var(--db-faint); }
+.db-page .db-pref-col[aria-checked="true"] .db-pref-caixa { background: linear-gradient(160deg, #1597bd, #0c7a9c); box-shadow: none; }
+.db-page .db-pref-col[aria-checked="true"] .db-pref-caixa i { opacity: 1; }
+.db-page .db-pref-col[aria-checked="true"] .db-pref-rotulo { font-weight: 600; color: var(--db-text-strong); }
+/* a última numérica visível não sai (desenho: caixa a 50%) */
+.db-page .db-pref-col[aria-disabled="true"] { cursor: default; }
+.db-page .db-pref-col[aria-disabled="true"] .db-pref-caixa { opacity: .5; }
+
+.db-page .db-pref-restaurar { color: var(--db-text-2); }
+.db-page .db-pref-restaurar span { font-size: 13px; font-weight: 600; }
+.db-page .db-pref-restaurar .db-pref-ico { color: inherit; }
+.db-page .db-pref-restaurar:hover { color: var(--db-text-strong); }
+
+/* Densidade Normal: linhas de 9px (a Compacta, 7px, é o padrão da tabela). */
+@media screen {
+    .db-page.db-page--confortavel .db-table tbody td { padding-top: 9px; padding-bottom: 9px; }
+}
+
+/* Setas de tendência desligadas: somem as setas das células e as pílulas de
+   percentual da linha de Total (e os espaçadores que alinhavam as pílulas). */
+.db-page.db-page--sem-setas .db-seta,
+.db-page.db-page--sem-setas .db-tend,
+.db-page.db-page--sem-setas .db-total-espaco { display: none !important; }
+.db-page.db-page--sem-setas .db-cel--seta { padding-left: 0; }
+
+/* Colunas ocultas: escondidas por classe, nunca removidas do HTML — o fragmento do
+   XHR e a ordenação continuam os mesmos. Vale para cabeçalho, linhas, Total e os
+   blocos dos cards do celular (e para o PDF, que imprime o que está na tela). */
+.db-page.db-oculta--cargo [data-coluna="cargo"],
+.db-page.db-oculta--cargo .db-cel-cargo,
+.db-page.db-oculta--metas [data-coluna="metas"],
+.db-page.db-oculta--metas_ativas [data-coluna="metas_ativas"],
+.db-page.db-oculta--metas_vencidas [data-coluna="metas_vencidas"],
+.db-page.db-oculta--prazos [data-coluna="prazos"],
+.db-page.db-oculta--demandas [data-coluna="demandas"],
+.db-page.db-oculta--demandas_ativas [data-coluna="demandas_ativas"],
+.db-page.db-oculta--pastas_criadas [data-coluna="pastas_criadas"] { display: none !important; }
+
+/* Animações reduzidas: tudo instantâneo, igual a prefers-reduced-motion (o
+   desenho usa a mesma regra universal). Os laços infinitos param no 1º ciclo. */
+.db-page.db-page--sem-anim *,
+.db-page.db-page--sem-anim *::before,
+.db-page.db-page--sem-anim *::after {
+    animation-duration: .01ms !important;
+    animation-delay: 0s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    transition-delay: 0s !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .db-page .db-pref-menu { animation: none; }
+    .db-page .db-pref-sw,
+    .db-page .db-pref-sw-bola,
+    .db-page .db-pref-caixa,
+    .db-page .db-pref-caixa i { transition: none; }
+}
+@media print {
+    .db-page .db-pref { display: none !important; }
+}

@@ -92,7 +92,7 @@
         </div>
         {# 1ª linha: os 4 de metas (span 3); 2ª: os 3 de demandas/pastas (span 4). #}
         <div class="db-cel-grade">
-            <div class="db-cel-bloco db-cel-bloco--meta">
+            <div class="db-cel-bloco db-cel-bloco--meta" data-coluna="metas">
                 <span class="db-cel-rotulo">Total metas</span>
                 <span class="db-cel-valor">
                     {%- if linha.totalMetas > 0 -%}
@@ -103,7 +103,7 @@
                     {{- tend.tendencia(linha.totalMetas, linha.totalMetasAnterior, 'seta') -}}
                 </span>
             </div>
-            <div class="db-cel-bloco db-cel-bloco--meta">
+            <div class="db-cel-bloco db-cel-bloco--meta" data-coluna="metas_ativas">
                 <span class="db-cel-rotulo">Metas ativas</span>
                 <span class="db-cel-valor">
                     {%- if linha.metasAtivas > 0 -%}
@@ -113,7 +113,7 @@
                     {%- endif -%}
                 </span>
             </div>
-            <div class="db-cel-bloco db-cel-bloco--meta">
+            <div class="db-cel-bloco db-cel-bloco--meta" data-coluna="metas_vencidas">
                 <span class="db-cel-rotulo">Vencidas</span>
                 <span class="db-cel-valor">
                     {%- if linha.metasVencidas > 0 -%}
@@ -123,7 +123,7 @@
                     {%- endif -%}
                 </span>
             </div>
-            <div class="db-cel-bloco db-cel-bloco--meta">
+            <div class="db-cel-bloco db-cel-bloco--meta" data-coluna="prazos">
                 <span class="db-cel-rotulo">Prazos próximos</span>
                 <span class="db-cel-valor">
                     {%- if linha.prazosProximos > 0 -%}
@@ -133,7 +133,7 @@
                     {%- endif -%}
                 </span>
             </div>
-            <div class="db-cel-bloco db-cel-bloco--pasta">
+            <div class="db-cel-bloco db-cel-bloco--pasta" data-coluna="demandas">
                 <span class="db-cel-rotulo">Total demandas</span>
                 <span class="db-cel-valor">
                     {%- if linha.totalDemandas > 0 -%}
@@ -144,7 +144,7 @@
                     {{- tend.tendencia(linha.totalDemandas, linha.totalDemandasAnterior, 'seta') -}}
                 </span>
             </div>
-            <div class="db-cel-bloco db-cel-bloco--pasta">
+            <div class="db-cel-bloco db-cel-bloco--pasta" data-coluna="demandas_ativas">
                 <span class="db-cel-rotulo">Demandas ativas</span>
                 <span class="db-cel-valor">
                     {%- if linha.demandasAtivas > 0 -%}
@@ -155,7 +155,7 @@
                 </span>
             </div>
             {# Por quem ABRIU a pasta: o link filtra por criado_por, sem responsável. #}
-            <div class="db-cel-bloco db-cel-bloco--pasta">
+            <div class="db-cel-bloco db-cel-bloco--pasta" data-coluna="pastas_criadas">
                 <span class="db-cel-rotulo">Pastas criadas</span>
                 <span class="db-cel-valor">
                     {%- if linha.pastasCriadas > 0 -%}
@@ -186,31 +186,31 @@
             <span class="db-total-rotulo">Total</span>
         </div>
         <div class="db-cel-grade">
-            <div class="db-cel-bloco db-cel-bloco--meta">
+            <div class="db-cel-bloco db-cel-bloco--meta" data-coluna="metas">
                 <span class="db-cel-rotulo">Total metas</span>
                 <span class="db-cel-valor db-cel-valor--total"><span class="db-total-num">{{ tMetas }}</span>{{ tend.tendencia(tMetas, tAnt is null ? null : tAnt.metas, 'pilula') }}</span>
             </div>
-            <div class="db-cel-bloco db-cel-bloco--meta">
+            <div class="db-cel-bloco db-cel-bloco--meta" data-coluna="metas_ativas">
                 <span class="db-cel-rotulo">Metas ativas</span>
                 <span class="db-cel-valor db-cel-valor--total"><span class="db-total-num">{{ tAtivas }}</span></span>
             </div>
-            <div class="db-cel-bloco db-cel-bloco--meta">
+            <div class="db-cel-bloco db-cel-bloco--meta" data-coluna="metas_vencidas">
                 <span class="db-cel-rotulo">Vencidas</span>
                 <span class="db-cel-valor db-cel-valor--total"><span class="db-total-num db-total-num--venc">{{ tVenc }}</span></span>
             </div>
-            <div class="db-cel-bloco db-cel-bloco--meta">
+            <div class="db-cel-bloco db-cel-bloco--meta" data-coluna="prazos">
                 <span class="db-cel-rotulo">Prazos próximos</span>
                 <span class="db-cel-valor db-cel-valor--total"><span class="db-total-num db-total-num--praz">{{ tPraz }}</span></span>
             </div>
-            <div class="db-cel-bloco db-cel-bloco--pasta">
+            <div class="db-cel-bloco db-cel-bloco--pasta" data-coluna="demandas">
                 <span class="db-cel-rotulo">Total demandas</span>
                 <span class="db-cel-valor db-cel-valor--total"><span class="db-total-num">{{ tDem }}</span>{{ tend.tendencia(tDem, tAnt is null ? null : tAnt.demandas, 'pilula') }}</span>
             </div>
-            <div class="db-cel-bloco db-cel-bloco--pasta">
+            <div class="db-cel-bloco db-cel-bloco--pasta" data-coluna="demandas_ativas">
                 <span class="db-cel-rotulo">Demandas ativas</span>
                 <span class="db-cel-valor db-cel-valor--total"><span class="db-total-num">{{ tDemA }}</span></span>
             </div>
-            <div class="db-cel-bloco db-cel-bloco--pasta">
+            <div class="db-cel-bloco db-cel-bloco--pasta" data-coluna="pastas_criadas">
                 <span class="db-cel-rotulo">Pastas criadas</span>
                 <span class="db-cel-valor db-cel-valor--total"><span class="db-total-num">{{ tCriadas }}</span>{{ tend.tendencia(tCriadas, tAnt is null ? null : tAnt.pastas_criadas, 'pilula') }}</span>
             </div>

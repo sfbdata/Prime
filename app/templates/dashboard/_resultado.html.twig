@@ -264,15 +264,15 @@
                 {% set ordDir = ordValida and filtros.direcao|default('') == 'asc' ? 'asc' : 'desc' %}
                 <tr>
                     <th class="sortable db-th-colab{{ ordCol == 'advogado' ? ' ' ~ ordDir : '' }}" data-ordenar="advogado">Colaborador <i class="bi bi-chevron-expand sort-icon"></i></th>
-                    <th class="sortable db-th-cargo{{ ordCol == 'cargo' ? ' ' ~ ordDir : '' }}" data-ordenar="cargo">Cargo <i class="bi bi-chevron-expand sort-icon"></i></th>
-                    <th class="sortable text-center db-th-num{{ ordCol == 'metas' ? ' ' ~ ordDir : '' }}" data-ordenar="metas"><i class="bi bi-chevron-expand sort-icon"></i> Total metas</th>
-                    <th class="sortable text-center db-th-num{{ ordCol == 'metas_ativas' ? ' ' ~ ordDir : '' }}" data-ordenar="metas_ativas"><i class="bi bi-chevron-expand sort-icon"></i> Metas ativas</th>
-                    <th class="sortable text-center db-th-num{{ ordCol == 'metas_vencidas' ? ' ' ~ ordDir : '' }}" data-ordenar="metas_vencidas"><i class="bi bi-chevron-expand sort-icon"></i> Metas vencidas</th>
-                    <th class="sortable text-center db-th-num{{ ordCol == 'prazos' ? ' ' ~ ordDir : '' }}" data-ordenar="prazos"><i class="bi bi-chevron-expand sort-icon"></i> Prazos próximos</th>
-                    <th class="sortable text-center db-th-num{{ ordCol == 'demandas' ? ' ' ~ ordDir : '' }}" data-ordenar="demandas"><i class="bi bi-chevron-expand sort-icon"></i> Total demandas</th>
-                    <th class="sortable text-center db-th-num{{ ordCol == 'demandas_ativas' ? ' ' ~ ordDir : '' }}" data-ordenar="demandas_ativas"><i class="bi bi-chevron-expand sort-icon"></i> Demandas ativas</th>
+                    <th class="sortable db-th-cargo{{ ordCol == 'cargo' ? ' ' ~ ordDir : '' }}" data-ordenar="cargo" data-coluna="cargo">Cargo <i class="bi bi-chevron-expand sort-icon"></i></th>
+                    <th class="sortable text-center db-th-num{{ ordCol == 'metas' ? ' ' ~ ordDir : '' }}" data-ordenar="metas" data-coluna="metas"><i class="bi bi-chevron-expand sort-icon"></i> Total metas</th>
+                    <th class="sortable text-center db-th-num{{ ordCol == 'metas_ativas' ? ' ' ~ ordDir : '' }}" data-ordenar="metas_ativas" data-coluna="metas_ativas"><i class="bi bi-chevron-expand sort-icon"></i> Metas ativas</th>
+                    <th class="sortable text-center db-th-num{{ ordCol == 'metas_vencidas' ? ' ' ~ ordDir : '' }}" data-ordenar="metas_vencidas" data-coluna="metas_vencidas"><i class="bi bi-chevron-expand sort-icon"></i> Metas vencidas</th>
+                    <th class="sortable text-center db-th-num{{ ordCol == 'prazos' ? ' ' ~ ordDir : '' }}" data-ordenar="prazos" data-coluna="prazos"><i class="bi bi-chevron-expand sort-icon"></i> Prazos próximos</th>
+                    <th class="sortable text-center db-th-num{{ ordCol == 'demandas' ? ' ' ~ ordDir : '' }}" data-ordenar="demandas" data-coluna="demandas"><i class="bi bi-chevron-expand sort-icon"></i> Total demandas</th>
+                    <th class="sortable text-center db-th-num{{ ordCol == 'demandas_ativas' ? ' ' ~ ordDir : '' }}" data-ordenar="demandas_ativas" data-coluna="demandas_ativas"><i class="bi bi-chevron-expand sort-icon"></i> Demandas ativas</th>
                     {# Por quem ABRIU a pasta (criadoPor) — as duas colunas acima são por responsável. #}
-                    <th class="sortable text-center db-th-num{{ ordCol == 'pastas_criadas' ? ' ' ~ ordDir : '' }}" data-ordenar="pastas_criadas"><i class="bi bi-chevron-expand sort-icon"></i> Pastas criadas</th>
+                    <th class="sortable text-center db-th-num{{ ordCol == 'pastas_criadas' ? ' ' ~ ordDir : '' }}" data-ordenar="pastas_criadas" data-coluna="pastas_criadas"><i class="bi bi-chevron-expand sort-icon"></i> Pastas criadas</th>
                 </tr>
             </thead>
             {% if linhas is not empty %}
@@ -309,7 +309,7 @@
                             <span class="db-colab-nome" title="{{ linha.nomeAdvogado }}"><span class="db-nome-completo">{{ linha.nomeAdvogado }}</span><span class="db-nome-curto">{{ nomeCurto }}</span></span>
                         </div>
                     </td>
-                    <td class="db-td-cargo">
+                    <td class="db-td-cargo" data-coluna="cargo">
                         <span class="db-cargo{{ linha.cargoNome is null ? ' db-cargo--vazio' : '' }}"><i class="bi {{ cargoIcone }}"></i><span>{{ linha.cargoNome ?? 'Sem cargo' }}</span></span>
                     </td>
                     {# Números de METAS e de PASTAS > 0 são links para a lista que eles contam,
@@ -319,7 +319,7 @@
                     {% set quem = linha.nomeAdvogado %}
                     {% set qPessoa = { responsavel: linha.userId } %}
                     {% set comSeta = linha.totalMetasAnterior is not null %}
-                    <td class="text-center db-td-num"><span class="db-cel{{ comSeta ? ' db-cel--seta' : '' }}">
+                    <td class="text-center db-td-num" data-coluna="metas"><span class="db-cel{{ comSeta ? ' db-cel--seta' : '' }}">
                         {%- if linha.totalMetas > 0 -%}
                             <a class="db-num db-num-link" href="{{ path('tarefa_equipe', { status: 'todas' }|merge(qPessoa)|merge(periodoLink)) }}" title="Abrir: Metas de {{ quem }}" aria-label="Abrir: Metas de {{ quem }}">{{ linha.totalMetas }}</a>
                         {%- else -%}
@@ -327,28 +327,28 @@
                         {%- endif -%}
                         {{- tend.tendencia(linha.totalMetas, linha.totalMetasAnterior, 'seta') -}}
                     </span></td>
-                    <td class="text-center db-td-num">
+                    <td class="text-center db-td-num" data-coluna="metas_ativas">
                         {%- if linha.metasAtivas > 0 -%}
                             <a class="db-num db-num-link" href="{{ path('tarefa_equipe', { status: 'ativas' }|merge(qPessoa)|merge(periodoLink)) }}" title="Abrir: Metas ativas de {{ quem }}" aria-label="Abrir: Metas ativas de {{ quem }}">{{ linha.metasAtivas }}</a>
                         {%- else -%}
                             <span class="db-num db-num--zero">0</span>
                         {%- endif -%}
                     </td>
-                    <td class="text-center db-td-num">
+                    <td class="text-center db-td-num" data-coluna="metas_vencidas">
                         {%- if linha.metasVencidas > 0 -%}
                             <a class="db-pill db-pill--venc db-num-link" href="{{ path('tarefa_equipe', { status: 'vencidas' }|merge(qPessoa)) }}" title="Abrir: Metas vencidas de {{ quem }}" aria-label="Abrir: Metas vencidas de {{ quem }}"><span class="db-pill-dot"></span>{{ linha.metasVencidas }}</a>
                         {%- else -%}
                             <span class="db-num db-num--zero">0</span>
                         {%- endif -%}
                     </td>
-                    <td class="text-center db-td-num">
+                    <td class="text-center db-td-num" data-coluna="prazos">
                         {%- if linha.prazosProximos > 0 -%}
                             <a class="db-pill db-pill--praz db-num-link" href="{{ path('tarefa_equipe', { status: 'prazo_proximo' }|merge(qPessoa)) }}" title="Abrir: Metas com prazo próximo de {{ quem }}" aria-label="Abrir: Metas com prazo próximo de {{ quem }}"><span class="db-pill-dot"></span>{{ linha.prazosProximos }}</a>
                         {%- else -%}
                             <span class="db-num db-num--zero">0</span>
                         {%- endif -%}
                     </td>
-                    <td class="text-center db-td-num"><span class="db-cel{{ comSeta ? ' db-cel--seta' : '' }}">
+                    <td class="text-center db-td-num" data-coluna="demandas"><span class="db-cel{{ comSeta ? ' db-cel--seta' : '' }}">
                         {%- if linha.totalDemandas > 0 -%}
                             <a class="db-num db-num-link" href="{{ path('expediente_index', { painel: 'acervo-geral' }|merge(qPessoa)|merge(periodoLink)) }}" title="Abrir: Expediente · pastas de {{ quem }}" aria-label="Abrir: Expediente · pastas de {{ quem }}">{{ linha.totalDemandas }}</a>
                         {%- else -%}
@@ -356,7 +356,7 @@
                         {%- endif -%}
                         {{- tend.tendencia(linha.totalDemandas, linha.totalDemandasAnterior, 'seta') -}}
                     </span></td>
-                    <td class="text-center db-td-num">
+                    <td class="text-center db-td-num" data-coluna="demandas_ativas">
                         {%- if linha.demandasAtivas > 0 -%}
                             <a class="db-num db-num-link" href="{{ path('expediente_index', { painel: 'acervo-geral' }|merge(qPessoa)|merge({ status: 'ativo' })|merge(periodoLink)) }}" title="Abrir: Expediente · pastas ativas de {{ quem }}" aria-label="Abrir: Expediente · pastas ativas de {{ quem }}">{{ linha.demandasAtivas }}</a>
                         {%- else -%}
@@ -364,7 +364,7 @@
                         {%- endif -%}
                     </td>
                     {# Por quem ABRIU a pasta: o link filtra por criado_por, sem responsável. #}
-                    <td class="text-center db-td-num"><span class="db-cel{{ comSeta ? ' db-cel--seta' : '' }}">
+                    <td class="text-center db-td-num" data-coluna="pastas_criadas"><span class="db-cel{{ comSeta ? ' db-cel--seta' : '' }}">
                         {%- if linha.pastasCriadas > 0 -%}
                             <a class="db-num db-num-link" href="{{ path('expediente_index', { painel: 'acervo-geral', criado_por: linha.userId }|merge(periodoLink)) }}" title="Abrir: Expediente · pastas criadas por {{ quem }}" aria-label="Abrir: Expediente · pastas criadas por {{ quem }}">{{ linha.pastasCriadas }}</a>
                         {%- else -%}
@@ -399,14 +399,14 @@
                             <span class="db-total-rotulo">Total</span>
                         </div>
                     </th>
-                    <td class="db-td-cargo"></td>
-                    <td class="text-center db-td-num"><span class="db-total-cel"><span class="db-total-num">{{ tMetas }}</span>{{ tend.tendencia(tMetas, tAnt is null ? null : tAnt.metas, 'pilula') }}</span></td>
-                    <td class="text-center db-td-num"><span class="db-total-cel"><span class="db-total-num">{{ tAtivas }}</span>{% if tAnt is not null %}<span class="db-total-espaco" aria-hidden="true"></span>{% endif %}</span></td>
-                    <td class="text-center db-td-num"><span class="db-total-cel"><span class="db-total-num db-total-num--venc">{{ tVenc }}</span>{% if tAnt is not null %}<span class="db-total-espaco" aria-hidden="true"></span>{% endif %}</span></td>
-                    <td class="text-center db-td-num"><span class="db-total-cel"><span class="db-total-num db-total-num--praz">{{ tPraz }}</span>{% if tAnt is not null %}<span class="db-total-espaco" aria-hidden="true"></span>{% endif %}</span></td>
-                    <td class="text-center db-td-num"><span class="db-total-cel"><span class="db-total-num">{{ tDem }}</span>{{ tend.tendencia(tDem, tAnt is null ? null : tAnt.demandas, 'pilula') }}</span></td>
-                    <td class="text-center db-td-num"><span class="db-total-cel"><span class="db-total-num">{{ tDemA }}</span>{% if tAnt is not null %}<span class="db-total-espaco" aria-hidden="true"></span>{% endif %}</span></td>
-                    <td class="text-center db-td-num"><span class="db-total-cel"><span class="db-total-num">{{ tCriadas }}</span>{{ tend.tendencia(tCriadas, tAnt is null ? null : tAnt.pastas_criadas, 'pilula') }}</span></td>
+                    <td class="db-td-cargo" data-coluna="cargo"></td>
+                    <td class="text-center db-td-num" data-coluna="metas"><span class="db-total-cel"><span class="db-total-num">{{ tMetas }}</span>{{ tend.tendencia(tMetas, tAnt is null ? null : tAnt.metas, 'pilula') }}</span></td>
+                    <td class="text-center db-td-num" data-coluna="metas_ativas"><span class="db-total-cel"><span class="db-total-num">{{ tAtivas }}</span>{% if tAnt is not null %}<span class="db-total-espaco" aria-hidden="true"></span>{% endif %}</span></td>
+                    <td class="text-center db-td-num" data-coluna="metas_vencidas"><span class="db-total-cel"><span class="db-total-num db-total-num--venc">{{ tVenc }}</span>{% if tAnt is not null %}<span class="db-total-espaco" aria-hidden="true"></span>{% endif %}</span></td>
+                    <td class="text-center db-td-num" data-coluna="prazos"><span class="db-total-cel"><span class="db-total-num db-total-num--praz">{{ tPraz }}</span>{% if tAnt is not null %}<span class="db-total-espaco" aria-hidden="true"></span>{% endif %}</span></td>
+                    <td class="text-center db-td-num" data-coluna="demandas"><span class="db-total-cel"><span class="db-total-num">{{ tDem }}</span>{{ tend.tendencia(tDem, tAnt is null ? null : tAnt.demandas, 'pilula') }}</span></td>
+                    <td class="text-center db-td-num" data-coluna="demandas_ativas"><span class="db-total-cel"><span class="db-total-num">{{ tDemA }}</span>{% if tAnt is not null %}<span class="db-total-espaco" aria-hidden="true"></span>{% endif %}</span></td>
+                    <td class="text-center db-td-num" data-coluna="pastas_criadas"><span class="db-total-cel"><span class="db-total-num">{{ tCriadas }}</span>{{ tend.tendencia(tCriadas, tAnt is null ? null : tAnt.pastas_criadas, 'pilula') }}</span></td>
                 </tr>
             </tfoot>
             {% endif %}
