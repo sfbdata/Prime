@@ -11,14 +11,27 @@
    (`PastaMetasResumoOutput`) — nada é contado nem decidido aqui. O filtro e a
    edição do nome rodam no navegador (pasta-metas.js): a lista não é paginada.
 
-   O que não tem lastro NÃO aparece: número global, duplicar, encaminhar,
-   copiar link, drawer do relatório e o estado "Alertado às HH:MM" do sino. #}
+   Sino "Alertado: Nome às HH:MM" (lote L1 das pendências pós-Documentos): o
+   último alerta de cada meta vem da `notificacao` gravada pelo próprio sino
+   (`metas_ultimos_alertas()`, UMA consulta por pasta) — não da memória do
+   navegador, como no desenho.
+
+   Drawer "Relatório da meta" (dc L.1464-1508, dados dc L.3557-3600): abre ao
+   clicar na linha e pelo ⋮ "Abrir relatório". O conteúdo de cada meta é
+   renderizado aqui (`linha.relatorio`, `PastaMetaRelatorioOutput`); o
+   pasta-metas.js só mostra um por vez, navega (▲▼, "N de M") e monta "Outras
+   metas desta pasta" a partir das próprias linhas. Sem JS, a linha continua
+   sendo o link para a meta.
+
+   O que não tem lastro NÃO aparece: número global, duplicar, encaminhar e
+   copiar link. #}
 {% set statusLabelTarefa = {
     'pendente':   'Pendente',
     'em_revisao': 'Para Revisão',
     'concluida':  'Concluída',
 } %}
 {% set podeConcluir = can_access_module('tarefas') %}
+{% set ultimosAlertas = podeConcluir and metasResumo.linhas|length > 0 ? metas_ultimos_alertas(pasta) : {} %}
 <div class="ps-grade">
 <section class="ps-card ps-metas" data-ps-metas>
     <div class="ps-card-cab ps-card-cab--painel">
@@ -56,7 +69,8 @@
                          data-meta-estado="{{ tom }}"
                          data-meta-titulo="{{ tarefa.titulo }}"
                          data-meta-prazo="{{ tarefa.prazo ? tarefa.prazo|date('d/m/Y') : '' }}">
-                    <a href="{{ path('tarefa_show', {id: tarefa.id}) }}" class="ps-meta-abrir" title="Abrir a meta">
+                    <a href="{{ path('tarefa_show', {id: tarefa.id}) }}" class="ps-meta-abrir" title="Abrir o relatório da meta"
+                       aria-haspopup="dialog" aria-controls="psMetaRelatorio">
                         <div class="ps-meta-corpo">
                             <div class="ps-meta-titulo">
                                 {%- if concluida %}<i class="bi bi-check-circle-fill" title="Meta concluída"></i>{% endif -%}
@@ -79,7 +93,7 @@
                                         {%- elseif dias == 0 -%}
                                             vence hoje
                                         {%- else -%}
-                                            vence {{ tarefa.prazo|date('d/m') }}
+                                            vence {{ tarefa.prazo|date('d/m/Y') }}
                                         {%- endif -%}
                                     </span>
                                 {% endif %}
@@ -99,10 +113,16 @@
                            alertar, o sino não é desenhado. #}
                         {% set alertaveis = tarefa.responsaveis.toArray|filter(r => app.user is null or r.id != app.user.id) %}
                         {% if not concluida and alertaveis|length > 0 %}
+                            {# Já alertada: sino cheio e laranja, título "Alertado: Nome às
+                               HH:MM. Clique para alertar de novo"; logo depois do envio
+                               (volta do POST) ele balança. #}
+                            {% set alerta = ultimosAlertas[tarefa.id] ?? null %}
+                            {% set tituloSino = alerta ? alerta.titulo : 'Alertar para verificar' %}
                             <div class="ps-pop-wrap ps-meta-sino-wrap">
-                                <button type="button" class="ps-meta-sino" title="Alertar para verificar" aria-label="Alertar para verificar"
+                                <button type="button" class="ps-meta-sino{{ alerta ? ' is-alertado' : '' }}{{ alerta and alerta.recente ? ' is-recente' : '' }}"
+                                        title="{{ tituloSino }}" aria-label="{{ tituloSino }}"
                                         data-ps-pop="psMetaSino{{ tarefa.id }}" aria-haspopup="menu" aria-expanded="false">
-                                    <i class="bi bi-bell"></i>
+                                    <i class="bi {{ alerta ? 'bi-bell-fill' : 'bi-bell' }}"></i>
                                 </button>
                                 <div class="ps-pop ps-pop--meta ps-pop--sino" aria-label="Alertar para verificar a meta {{ linha.numero }}" id="psMetaSino{{ tarefa.id }}" role="menu">
                                     <div class="ps-pop-secao">Alertar para verificar</div>
@@ -124,6 +144,9 @@
                                 <i class="bi bi-three-dots-vertical"></i>
                             </button>
                             <div class="ps-pop ps-pop--meta" aria-label="Ações da meta {{ linha.numero }}" id="psMetaMenu{{ tarefa.id }}" role="menu">
+                                <button type="button" class="ps-pop-item" role="menuitem" data-ps-meta-relatorio="{{ tarefa.id }}">
+                                    <i class="bi bi-file-earmark-text"></i><span>Abrir relatório</span>
+                                </button>
                                 {% if concluida %}
                                     <form method="post" action="{{ path('tarefa_reabrir', {id: tarefa.id}) }}" class="ps-meta-reabrir">
                                         <input type="hidden" name="_token" value="{{ csrf_token('reabrir_tarefa_' ~ tarefa.id) }}">
@@ -227,3 +250,80 @@
     </section>
 </div>
 </div>
+{# Drawer "Relatório da meta" (dc L.1464-1508). Nasce aqui, escondido, e o
+   pasta-metas.js o leva para o <body> — `position: fixed` dentro do painel da aba
+   (que anima com transform) ficaria preso ao painel. Os tokens `--ps-*` vivem no
+   <body class="ps-body">, então o drawer continua com as cores da tela.
+   Uma `.ps-mrel-meta` por meta, na ordem da lista; só uma fica visível. #}
+{% if metasResumo.linhas|length > 0 %}
+    <div class="ps-mrel-fundo" id="psMetaRelatorioFundo" hidden></div>
+    <aside class="ps-mrel" id="psMetaRelatorio" role="dialog" aria-modal="true" aria-label="Relatório da meta" hidden>
+        <div class="ps-mrel-cab">
+            <i class="bi bi-clipboard2-check" aria-hidden="true"></i>
+            <span class="ps-mrel-cab-titulo">Relatório da meta</span>
+            <span class="ps-mrel-pos ps-num" data-ps-mrel-pos></span>
+            <button type="button" class="ps-mrel-nav" data-ps-mrel-anterior title="Meta anterior" aria-label="Meta anterior"><i class="bi bi-chevron-up"></i></button>
+            <button type="button" class="ps-mrel-nav" data-ps-mrel-proxima title="Próxima meta" aria-label="Próxima meta"><i class="bi bi-chevron-down"></i></button>
+            <button type="button" class="ps-mrel-fechar" data-ps-mrel-fechar title="Fechar (Esc)" aria-label="Fechar"><i class="bi bi-x-lg"></i></button>
+        </div>
+        {% for linha in metasResumo.linhas %}
+            {% set tarefa = linha.tarefa %}
+            {% set rel = linha.relatorio %}
+            <div class="ps-mrel-meta ps-mrel-meta--{{ rel.tom }}" data-meta-rel="{{ tarefa.id }}" hidden>
+                <div class="ps-mrel-corpo">
+                    <div class="ps-mrel-topo">
+                        <span class="ps-mrel-situacao">{{ rel.situacao }}</span>
+                        <h3 class="ps-mrel-titulo">{{ tarefa.titulo }}</h3>
+                        {% if rel.prazoTexto %}
+                            <span class="ps-mrel-prazo{{ rel.prazoEmAtraso ? ' ps-mrel-prazo--atraso' : '' }}"><i class="bi bi-calendar-event"></i>{{ rel.prazoTexto }}</span>
+                        {% endif %}
+                    </div>
+                    <div class="ps-mrel-campos">
+                        {% for campo in rel.campos %}
+                            <div class="ps-mrel-campo">
+                                <div class="ps-mrel-campo-k">{{ campo.rotulo }}</div>
+                                <div class="ps-mrel-campo-v">{{ campo.valor }}</div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                    <div class="ps-mrel-secao">
+                        <div class="ps-mrel-secao-titulo">Histórico</div>
+                        <div class="ps-mrel-hist">
+                            {% for evento in rel.historico %}
+                                <div class="ps-mrel-hist-item ps-mrel-hist-item--{{ evento.tom }}">
+                                    <span class="ps-mrel-ponto" aria-hidden="true"></span>
+                                    <div class="ps-mrel-hist-corpo">
+                                        <div class="ps-mrel-hist-texto">{{ evento.texto }}</div>
+                                        <div class="ps-mrel-hist-data">{{ evento.data }}</div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {# Preenchido pelo pasta-metas.js com as OUTRAS linhas da lista. #}
+                    <div class="ps-mrel-secao" data-ps-mrel-outras-secao hidden>
+                        <div class="ps-mrel-secao-titulo">Outras metas desta pasta</div>
+                        <div class="ps-mrel-outras" data-ps-mrel-outras></div>
+                    </div>
+                </div>
+                <div class="ps-mrel-rodape">
+                    {# Mesmas rotas, tokens e guarda do ⋮ da linha. #}
+                    {% if podeConcluir %}
+                        {% if rel.tom == 'concluida' %}
+                            <form method="post" action="{{ path('tarefa_reabrir', {id: tarefa.id}) }}" class="ps-mrel-alternar-form">
+                                <input type="hidden" name="_token" value="{{ csrf_token('reabrir_tarefa_' ~ tarefa.id) }}">
+                                <button type="submit" class="ps-mrel-alternar ps-mrel-alternar--reabrir"><i class="bi bi-arrow-counterclockwise"></i>Reabrir meta</button>
+                            </form>
+                        {% else %}
+                            <form method="post" action="{{ path('tarefa_concluir', {id: tarefa.id}) }}" class="ps-mrel-alternar-form">
+                                <input type="hidden" name="_token" value="{{ csrf_token('concluir_tarefa_' ~ tarefa.id) }}">
+                                <button type="submit" class="ps-mrel-alternar ps-mrel-alternar--concluir"><i class="bi bi-check2-circle"></i>Marcar como concluída</button>
+                            </form>
+                        {% endif %}
+                    {% endif %}
+                    <a href="{{ path('tarefa_show', {id: tarefa.id}) }}" class="ps-mrel-modulo"><i class="bi bi-box-arrow-up-right"></i>Abrir em Metas</a>
+                </div>
+            </div>
+        {% endfor %}
+    </aside>
+{% endif %}

@@ -9,7 +9,11 @@
         texto do dia escolhido — só PREENCHEM o campo; nada fica obrigatório;
      3. aviso de meta aberta com título parecido — alerta, não bloqueia;
      4. "Editar nome" no ⋮: mostra o formulário de renomear sobre o título da
-        linha (Enter salva, Esc ou "Cancelar" desiste).
+        linha (Enter salva, Esc ou "Cancelar" desiste);
+     5. drawer "Relatório da meta": abre pelo clique na linha ou pelo ⋮ "Abrir
+        relatório"; ▲▼ navegam, Esc / × / fundo fecham. O conteúdo de cada meta
+        veio do servidor; aqui só se escolhe qual mostrar e se monta "Outras
+        metas desta pasta" a partir das linhas da lista.
 
    Concluir, reabrir, renomear e o sino são <form> comuns (POST + CSRF); os menus
    que os contêm são abertos pelo pasta-show.js (`data-ps-pop`).
@@ -22,6 +26,7 @@
         atalhosDePrazo();
         avisoDeTituloRepetido();
         renomearNaLista();
+        relatorioDaMeta();
     }
 
     if (document.readyState === 'loading') {
@@ -325,6 +330,158 @@
         // Trocar de filtro esconde linhas: o editor de uma linha escondida é largado.
         cartao.addEventListener('click', function (e) {
             if (e.target.closest('[data-ps-metas-filtro]') && aberta && aberta.hidden) { fechar(); }
+        });
+    }
+
+    /* ── 5. Drawer "Relatório da meta" ────────────────────────────────────── */
+    /* Desenho (dc L.1464-1508, `metaVals`): "N de M" e ▲▼ seguem a ordem da
+       lista inteira (não o filtro); "Outras metas desta pasta" lista as demais,
+       cada uma leva ao relatório dela. */
+    function relatorioDaMeta() {
+        var drawer = document.getElementById('psMetaRelatorio');
+        var fundo = document.getElementById('psMetaRelatorioFundo');
+        var cartao = document.querySelector('[data-ps-metas]');
+        if (!drawer || !fundo || !cartao) { return; }
+
+        // Fora do painel da aba: ancestral com transform prenderia o `fixed`.
+        document.body.appendChild(fundo);
+        document.body.appendChild(drawer);
+
+        var secoes = Array.prototype.slice.call(drawer.querySelectorAll('.ps-mrel-meta[data-meta-rel]'));
+        var ordem = secoes.map(function (s) { return s.getAttribute('data-meta-rel'); });
+        var pos = drawer.querySelector('[data-ps-mrel-pos]');
+        var anterior = drawer.querySelector('[data-ps-mrel-anterior]');
+        var proxima = drawer.querySelector('[data-ps-mrel-proxima]');
+        var botaoFechar = drawer.querySelector('.ps-mrel-fechar');
+        var atual = null;
+        var origem = null;
+
+        function linhaDa(id) {
+            return cartao.querySelector('.ps-metas-lista > .ps-meta[data-meta-id="' + id + '"]');
+        }
+
+        function montarOutras(secao, id) {
+            var bloco = secao.querySelector('[data-ps-mrel-outras-secao]');
+            var lista = secao.querySelector('[data-ps-mrel-outras]');
+            if (!bloco || !lista) { return; }
+            lista.textContent = '';
+            ordem.forEach(function (outro) {
+                if (outro === id) { return; }
+                var linha = linhaDa(outro);
+                if (!linha) { return; }
+                var status = linha.querySelector('.ps-meta-status');
+
+                var botao = document.createElement('button');
+                botao.type = 'button';
+                botao.className = 'ps-mrel-outra ps-mrel-outra--' + (linha.getAttribute('data-meta-estado') || 'aberta');
+                botao.setAttribute('data-ps-mrel-ir', outro);
+
+                var barra = document.createElement('span');
+                barra.className = 'ps-mrel-outra-barra';
+                barra.setAttribute('aria-hidden', 'true');
+                var titulo = document.createElement('span');
+                titulo.className = 'ps-mrel-outra-titulo';
+                titulo.textContent = linha.getAttribute('data-meta-titulo') || '';
+                var selo = document.createElement('span');
+                selo.className = 'ps-mrel-outra-status';
+                selo.textContent = status ? status.textContent.trim() : '';
+
+                botao.appendChild(barra);
+                botao.appendChild(titulo);
+                botao.appendChild(selo);
+                lista.appendChild(botao);
+            });
+            bloco.hidden = lista.children.length === 0;
+        }
+
+        function mostrar(id) {
+            var i = ordem.indexOf(id);
+            if (i === -1) { return; }
+            atual = id;
+            secoes.forEach(function (s, k) {
+                s.hidden = k !== i;
+                if (k === i) {
+                    montarOutras(s, id);
+                    var corpo = s.querySelector('.ps-mrel-corpo');
+                    if (corpo) { corpo.scrollTop = 0; }
+                }
+            });
+            pos.textContent = (i + 1) + ' de ' + ordem.length;
+            anterior.disabled = i <= 0;
+            proxima.disabled = i >= ordem.length - 1;
+        }
+
+        function abrir(id, gatilho) {
+            if (ordem.indexOf(id) === -1) { return; }
+            origem = gatilho || document.activeElement;
+            mostrar(id);
+            fundo.hidden = false;
+            drawer.hidden = false;
+            botaoFechar.focus();
+        }
+
+        function fechar() {
+            if (drawer.hidden) { return; }
+            drawer.hidden = true;
+            fundo.hidden = true;
+            atual = null;
+            if (origem && document.contains(origem) && typeof origem.focus === 'function') { origem.focus(); }
+            origem = null;
+        }
+
+        cartao.addEventListener('click', function (e) {
+            var item = e.target.closest('[data-ps-meta-relatorio]');
+            if (item) {
+                var linhaDoItem = item.closest('.ps-meta');
+                abrir(item.getAttribute('data-ps-meta-relatorio'), linhaDoItem ? linhaDoItem.querySelector('.ps-pop-wrap.ps-meta-acoes > .ps-meta-menu-btn') : null);
+                return;
+            }
+
+            // Clique comum na linha abre o relatório (desenho). Ctrl/⌘/Shift/meio
+            // continuam abrindo a página da meta, como qualquer link.
+            var link = e.target.closest('a.ps-meta-abrir');
+            if (!link || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) { return; }
+            var linha = link.closest('.ps-meta');
+            if (!linha || linha.classList.contains('is-renomeando')) { return; }
+            e.preventDefault();
+            abrir(linha.getAttribute('data-meta-id'), link);
+        });
+
+        drawer.addEventListener('click', function (e) {
+            if (e.target.closest('[data-ps-mrel-fechar]')) { fechar(); return; }
+            if (e.target.closest('[data-ps-mrel-anterior]')) { mostrar(ordem[ordem.indexOf(atual) - 1]); return; }
+            if (e.target.closest('[data-ps-mrel-proxima]')) { mostrar(ordem[ordem.indexOf(atual) + 1]); return; }
+            var ir = e.target.closest('[data-ps-mrel-ir]');
+            if (ir) { mostrar(ir.getAttribute('data-ps-mrel-ir')); }
+        });
+        fundo.addEventListener('click', fechar);
+
+        document.addEventListener('keydown', function (e) {
+            if (drawer.hidden) { return; }
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                fechar();
+                return;
+            }
+            // O foco não sai do drawer enquanto ele está aberto (aria-modal).
+            if (e.key !== 'Tab') { return; }
+            var focaveis = Array.prototype.filter.call(
+                drawer.querySelectorAll('button, a[href], input, [tabindex]:not([tabindex="-1"])'),
+                function (el) { return !el.disabled && el.offsetParent !== null; }
+            );
+            if (focaveis.length === 0) { return; }
+            var primeiro = focaveis[0];
+            var ultimo = focaveis[focaveis.length - 1];
+            if (e.shiftKey && document.activeElement === primeiro) {
+                e.preventDefault();
+                ultimo.focus();
+            } else if (!e.shiftKey && document.activeElement === ultimo) {
+                e.preventDefault();
+                primeiro.focus();
+            } else if (!drawer.contains(document.activeElement)) {
+                e.preventDefault();
+                primeiro.focus();
+            }
         });
     }
 }());

@@ -127,7 +127,7 @@ final class MetaNaListaTelaTest extends JusPrimeWebTestCase
     // ⋮ da meta
     // =========================================================================
 
-    #[TestDox('⋮ da meta aberta: "Marcar como concluída" e "Editar nome"; da concluída: "Reabrir meta" (POST tarefa_reabrir) e "Editar nome"')]
+    #[TestDox('⋮ da meta aberta: "Abrir relatório", "Marcar como concluída" e "Editar nome"; da concluída: "Abrir relatório", "Reabrir meta" (POST tarefa_reabrir) e "Editar nome"')]
     public function testItensDoMenu(): void
     {
         $client          = static::createClient();
@@ -141,7 +141,7 @@ final class MetaNaListaTelaTest extends JusPrimeWebTestCase
 
         $menuAberta = $this->linha($crawler, $aberta)->filter('article > .ps-meta-acoes > #psMetaMenu' . $aberta->getId() . '.ps-pop');
         self::assertSame(
-            ['Marcar como concluída', 'Editar nome'],
+            ['Abrir relatório', 'Marcar como concluída', 'Editar nome'],
             $menuAberta->filter('.ps-pop > form > button.ps-pop-item, .ps-pop > button.ps-pop-item')->each(static fn (Crawler $b) => trim($b->text())),
         );
         self::assertSame((string) $aberta->getId(), $menuAberta->filter('.ps-pop > button[type="button"][data-ps-meta-renomear]')->attr('data-ps-meta-renomear'));
@@ -149,7 +149,7 @@ final class MetaNaListaTelaTest extends JusPrimeWebTestCase
 
         $menuConcluida = $this->linha($crawler, $concluida)->filter('article > .ps-meta-acoes > #psMetaMenu' . $concluida->getId() . '.ps-pop');
         self::assertSame(
-            ['Reabrir meta', 'Editar nome'],
+            ['Abrir relatório', 'Reabrir meta', 'Editar nome'],
             $menuConcluida->filter('.ps-pop > form > button.ps-pop-item, .ps-pop > button.ps-pop-item')->each(static fn (Crawler $b) => trim($b->text())),
         );
         $reabrir = $menuConcluida->filter('.ps-pop > form.ps-meta-reabrir');

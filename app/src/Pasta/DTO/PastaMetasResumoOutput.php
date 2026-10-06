@@ -21,13 +21,16 @@ use App\Pasta\Entity\Pasta;
  * lê, os dias até o prazo (negativo = atraso; a MESMA conta do trilho, entre
  * datas, para a linha, o filtro e o "Precisa de atenção" nunca divergirem) e o
  * rótulo do prazo de meta concluída, que compara `dataConclusao` com o prazo.
+ *
+ * Cada linha leva ainda o conteúdo do drawer "Relatório da meta"
+ * (`PastaMetaRelatorioOutput`), montado com o MESMO estado e os MESMOS dias.
  */
 final readonly class PastaMetasResumoOutput
 {
     /**
      * @param list<array{id: int, titulo: string, prazo: string, atraso: int, responsaveis: string}> $atencao
      * @param list<array{nome: string, iniciais: string, contagem: string}>                          $pessoas
-     * @param list<array{tarefa: Tarefa, numero: int, estado: string, dias: ?int, prazoConcluida: ?string}> $linhas
+     * @param list<array{tarefa: Tarefa, numero: int, estado: string, dias: ?int, prazoConcluida: ?string, relatorio: PastaMetaRelatorioOutput}> $linhas
      */
     private function __construct(
         public int $total,
@@ -63,12 +66,16 @@ final readonly class PastaMetasResumoOutput
             $prazo = $tarefa->getPrazo();
             $dias  = $prazo !== null ? (int) $hoje->diff($prazo->setTime(0, 0))->format('%r%a') : null;
             $atrasada = !$concluida && $dias !== null && $dias < 0;
+            $estado         = $concluida ? 'concluida' : ($atrasada ? 'atrasada' : 'aberta');
+            $diasDaLinha    = $concluida ? null : $dias;
+            $prazoConcluida = $concluida ? self::rotuloPrazoConcluida($tarefa) : null;
             $linhas[] = [
                 'tarefa'         => $tarefa,
                 'numero'         => $i + 1,
-                'estado'         => $concluida ? 'concluida' : ($atrasada ? 'atrasada' : 'aberta'),
-                'dias'           => $concluida ? null : $dias,
-                'prazoConcluida' => $concluida ? self::rotuloPrazoConcluida($tarefa) : null,
+                'estado'         => $estado,
+                'dias'           => $diasDaLinha,
+                'prazoConcluida' => $prazoConcluida,
+                'relatorio'      => PastaMetaRelatorioOutput::de($tarefa, $estado, $diasDaLinha, $prazoConcluida, $pasta->getNup(), $hoje),
             ];
             if ($atrasada) {
                 ++$atrasadas;

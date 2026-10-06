@@ -3187,6 +3187,21 @@ a.ps-push-doc-link:hover { color: var(--ps-push-doc); text-decoration: underline
 .ps-meta-sino[aria-expanded="true"] { background: var(--ps-sino-hover-bg); color: var(--ps-sino-hover); }
 .ps-pop--sino { width: 230px; padding: 5px; box-shadow: var(--ps-shadow-gm); }
 .ps-pop--sino .ps-pop-secao { padding: 6px 10px 5px; letter-spacing: .06em; color: var(--ps-label); }
+/* Ja alertada (desenho: `bi-bell-fill` #e8590c). Logo depois do envio o sino
+   balanca duas vezes (`sinoBalanca 1s ease-in-out 2`). */
+.ps-meta-sino.is-alertado { color: var(--ps-sino-hover); }
+@keyframes psSinoBalanca {
+    0%, 100% { transform: rotate(0); }
+    15% { transform: rotate(16deg); }
+    30% { transform: rotate(-14deg); }
+    45% { transform: rotate(10deg); }
+    60% { transform: rotate(-6deg); }
+    75% { transform: rotate(3deg); }
+}
+.ps-meta-sino.is-recente { animation: psSinoBalanca 1s ease-in-out 2; }
+@media (prefers-reduced-motion: reduce) {
+    .ps-meta-sino.is-recente { animation: none; }
+}
 
 /* "Editar nome": o formulario e filho da linha e o pasta-metas.js o poe sobre o
    titulo (que fica invisivel reservando a altura do campo). Desenho: campo 32px
@@ -3231,6 +3246,164 @@ a.ps-push-doc-link:hover { color: var(--ps-push-doc); text-decoration: underline
     100%    { box-shadow: var(--ps-shadow-meta); }
 }
 .ps-meta--destaque { animation: psMetaDestaque 4s ease-out; }
+
+/* Drawer "Relatorio da meta" (dc L.1464-1508). Vive no <body> (o pasta-metas.js o
+   leva para la): por isso so usa tokens declarados em `.ps-body`, cada um com
+   par no tema escuro. Medidas do desenho: 460px, cabecalho em gradiente, setas
+   28x28, grade de 6 campos, historico com pontos de 10px, rodape com
+   "Marcar como concluida" / "Reabrir meta" e "Abrir em Metas". */
+.ps-body {
+    --ps-mrel-fundo:      rgba(10,30,45,.28);
+    --ps-mrel-sombra:     -20px 0 50px -20px rgba(10,40,60,.45);
+    --ps-mrel-cab:        linear-gradient(135deg,#0d80a3,#0b5f86);
+    --ps-mrel-cab-tx:     #fff;
+    --ps-mrel-nav-bg:     rgba(255,255,255,.14);
+    --ps-mrel-valor:      #1d3441;
+    --ps-mrel-reabrir:    #5f7684;
+    --ps-mrel-modulo-bg:  #eef4f8;
+    --ps-mrel-modulo-tx:  #0b5f86;
+}
+[data-bs-theme="dark"] .ps-body {
+    --ps-mrel-fundo:      rgba(0,0,0,.5);
+    --ps-mrel-sombra:     -20px 0 50px -20px rgba(0,0,0,.7);
+    --ps-mrel-cab:        linear-gradient(135deg,#0b6a8a,#084a6c);
+    --ps-mrel-cab-tx:     #fff;
+    --ps-mrel-nav-bg:     rgba(255,255,255,.14);
+    --ps-mrel-valor:      var(--bs-body-color);
+    --ps-mrel-reabrir:    #4f6878;
+    --ps-mrel-modulo-bg:  rgba(69,176,214,.16);
+    --ps-mrel-modulo-tx:  #45b0d6;
+}
+@keyframes psMrelEntra { from { transform: translateX(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes psMrelFundo { from { opacity: 0; } to { opacity: 1; } }
+.ps-mrel-fundo { position: fixed; inset: 0; z-index: 1055; background: var(--ps-mrel-fundo); animation: psMrelFundo .2s both; }
+.ps-mrel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1056;
+    width: min(460px, 100vw);
+    display: flex;
+    flex-direction: column;
+    background: var(--ps-card);
+    color: var(--ps-text);
+    box-shadow: var(--ps-mrel-sombra);
+    animation: psMrelEntra .32s cubic-bezier(.22,.8,.3,1) both;
+}
+.ps-mrel-fundo[hidden],
+.ps-mrel[hidden],
+.ps-mrel-meta[hidden],
+.ps-mrel-secao[hidden] { display: none; }
+@media (prefers-reduced-motion: reduce) {
+    .ps-mrel, .ps-mrel-fundo { animation: none; }
+}
+.ps-mrel-cab { display: flex; align-items: center; gap: 8px; padding: 12px 14px; background: var(--ps-mrel-cab); color: var(--ps-mrel-cab-tx); flex-shrink: 0; }
+.ps-mrel-cab > .bi-clipboard2-check { font-size: 16px; }
+.ps-mrel-cab-titulo { flex: 1; font-size: 13.5px; font-weight: 700; }
+.ps-mrel-pos { font-size: 12px; opacity: .85; }
+.ps-mrel-nav,
+.ps-mrel-fechar {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 3px;
+    background: var(--ps-mrel-nav-bg);
+    color: var(--ps-mrel-cab-tx);
+    cursor: pointer;
+    transition: background .18s, color .18s;
+}
+.ps-mrel-fechar { border-radius: 4px; }
+.ps-mrel-fechar > i { font-size: 12px; }
+.ps-mrel-nav:disabled { opacity: .4; cursor: default; }
+.ps-mrel-meta { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.ps-mrel-corpo { flex: 1; overflow: auto; overscroll-behavior: contain; padding: 18px 20px; display: flex; flex-direction: column; gap: 16px; }
+.ps-mrel-topo { display: flex; flex-direction: column; gap: 8px; }
+.ps-mrel-situacao {
+    align-self: flex-start;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    padding: 3px 9px;
+    border-radius: 999px;
+    white-space: nowrap;
+    color: var(--ps-warn-text);
+    background: var(--ps-warn-bg);
+}
+.ps-mrel-meta--concluida .ps-mrel-situacao { color: var(--ps-ok-text); background: var(--ps-ok-bg); }
+.ps-mrel-meta--atrasada  .ps-mrel-situacao { color: var(--ps-danger-text); background: var(--ps-danger-bg); }
+.ps-mrel-titulo { margin: 0; font-size: 18px; font-weight: 700; line-height: 1.3; color: var(--ps-text); text-wrap: pretty; overflow-wrap: anywhere; }
+.ps-mrel-prazo { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--ps-text-3); }
+.ps-mrel-prazo > i { font-size: 12px; }
+.ps-mrel-prazo--atraso { color: var(--ps-prazo-atraso); }
+.ps-mrel-campos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.ps-mrel-campo { min-width: 0; padding: 9px 11px; border-radius: 4px; background: var(--ps-hover-linha); }
+.ps-mrel-campo-k { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ps-label); }
+.ps-mrel-campo-v { margin-top: 3px; font-size: 13px; font-weight: 600; color: var(--ps-mrel-valor); overflow-wrap: anywhere; }
+.ps-mrel-secao-titulo { margin-bottom: 8px; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--ps-label); }
+.ps-mrel-hist { display: flex; flex-direction: column; }
+.ps-mrel-hist-item { position: relative; display: flex; gap: 10px; padding: 0 0 12px; }
+.ps-mrel-ponto { --mrel-ponto: var(--ps-accent); width: 10px; height: 10px; flex-shrink: 0; margin-top: 4px; border-radius: 50%; background: var(--mrel-ponto); box-shadow: 0 0 0 3px color-mix(in srgb, var(--mrel-ponto) 13%, transparent); }
+.ps-mrel-hist-item--prazo      .ps-mrel-ponto { --mrel-ponto: var(--ps-faint); }
+.ps-mrel-hist-item--concluida  .ps-mrel-ponto { --mrel-ponto: var(--ps-ok-dot); }
+.ps-mrel-hist-item--atualizada .ps-mrel-ponto { --mrel-ponto: var(--ps-warn-dot); }
+.ps-mrel-hist-item--atraso     .ps-mrel-ponto { --mrel-ponto: var(--ps-danger-dot); }
+.ps-mrel-hist-corpo { min-width: 0; }
+.ps-mrel-hist-texto { font-size: 13px; line-height: 1.4; color: var(--ps-mrel-valor); }
+.ps-mrel-hist-data { margin-top: 1px; font-size: 11.5px; color: var(--ps-label); }
+.ps-mrel-outras { display: flex; flex-direction: column; gap: 4px; }
+.ps-mrel-outra {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border: none;
+    border-radius: 4px;
+    background: var(--ps-hover-linha);
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+.ps-mrel-outra:hover { background: var(--ps-accent-bg); }
+.ps-mrel-outra-barra { width: 3px; height: 22px; flex-shrink: 0; border-radius: 2px; background: var(--ps-warn-dot); }
+.ps-mrel-outra-titulo { flex: 1; min-width: 0; font-size: 13px; font-weight: 600; color: var(--ps-mrel-valor); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ps-mrel-outra-status {
+    flex-shrink: 0;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 999px;
+    color: var(--ps-warn-text);
+    background: var(--ps-warn-bg);
+}
+.ps-mrel-outra--concluida .ps-mrel-outra-barra  { background: var(--ps-ok-dot); }
+.ps-mrel-outra--concluida .ps-mrel-outra-status { color: var(--ps-ok-text); background: var(--ps-ok-bg); }
+.ps-mrel-outra--atrasada  .ps-mrel-outra-barra  { background: var(--ps-danger-dot); }
+.ps-mrel-outra--atrasada  .ps-mrel-outra-status { color: var(--ps-danger-text); background: var(--ps-danger-bg); }
+.ps-mrel-rodape { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--ps-div-strong); flex-shrink: 0; }
+.ps-mrel-alternar-form { margin: 0; }
+.ps-mrel-alternar,
+.ps-mrel-modulo {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    height: 34px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+}
+.ps-mrel-alternar { padding: 0 14px; border: none; cursor: pointer; color: var(--ps-mrel-cab-tx); background: var(--ps-ok-dot); }
+.ps-mrel-alternar--reabrir { background: var(--ps-mrel-reabrir); }
+/* `.ps-drawer a` (cor de link) nao alcanca este drawer; a cor e a do desenho. */
+.ps-body a.ps-mrel-modulo,
+.ps-body a.ps-mrel-modulo:hover { padding: 0 13px; background: var(--ps-mrel-modulo-bg); color: var(--ps-mrel-modulo-tx); text-decoration: none; }
 
 /* Modal "Nova meta": atalhos de prazo, texto do dia e aviso de titulo repetido
    (desenho 1.2.3). O modal vive fora de `.ps-page` (position: fixed); os tokens
