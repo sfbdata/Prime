@@ -1321,7 +1321,8 @@
        engolido. O `contextmenu` nativo do Android faz o mesmo caminho, sem duplicar. */
     let toqueTimer = null;
     let toqueInicio = null;
-    let suprimirProximoClique = false;   // zerado pelo próprio clique engolido ou pelo toque seguinte
+    let suprimirProximoClique = false;   // zerado pelo clique engolido, por qualquer pointerdown novo ou em 1 s
+    let suprimirProximoCliqueAte = 0;
     function cancelarToqueLongo() {
         clearTimeout(toqueTimer);
         toqueTimer = null;
@@ -1332,7 +1333,6 @@
     function ligarToqueLongo(alvo) {
         alvo.addEventListener('pointerdown', function (e) {
             if (e.pointerType !== 'touch' && e.pointerType !== 'pen') return;
-            suprimirProximoClique = false;      // gesto novo: o clique engolido era o do anterior
             const linha = e.target.closest('.pex-item');
             if ((linha && linha.dataset.pexTemp !== undefined) || e.target.closest('.pex-ren, .pex-menu')) return;
             cancelarToqueLongo();
@@ -1342,6 +1342,7 @@
                 cancelarToqueLongo();
                 if (!t) return;
                 suprimirProximoClique = true;
+                suprimirProximoCliqueAte = Date.now() + 1000;
                 abrirMenu(t.x, t.y, t.linha ? itemPorChave(chaveDoElemento(t.linha)) : null);
             }, TOQUE_LONGO_MS);
         });
@@ -1354,9 +1355,14 @@
     if (el.vazio) ligarToqueLongo(el.vazio);
     // O clique que o navegador sintetiza ao soltar o dedo depois do toque longo cairia no menu
     // recém-aberto (o 1º item fica sob o dedo) ou no fundo (fecharia): engolido onde quer que caia.
+    // Esse clique NÃO tem pointerdown próprio; qualquer pointerdown novo (dedo, caneta ou mouse,
+    // em qualquer lugar da página) é outro gesto e zera a flag — e ela expira sozinha em 1 s,
+    // para o caso de o navegador não sintetizar clique nenhum.
+    document.addEventListener('pointerdown', function () { suprimirProximoClique = false; }, true);
     document.addEventListener('click', function (e) {
         if (!suprimirProximoClique) return;
         suprimirProximoClique = false;
+        if (Date.now() > suprimirProximoCliqueAte) return;
         e.preventDefault();
         e.stopPropagation();
     }, true);
@@ -1581,7 +1587,7 @@
     function colarEm(destinoId) {
         if (!areaDeTransferencia) return;
         const chaves = areaDeTransferencia.chaves.filter(function (k) { return k !== 'pasta:' + destinoId && chaveExiste(k); });
-        if (!chaves.length) { areaDeTransferencia = null; return; }
+        if (!chaves.length) { areaDeTransferencia = null; toast('Nada para colar'); return; }
         moverLote(chaves, destinoId).then(function (ok) { if (ok) areaDeTransferencia = null; });
     }
     function colarAqui() { colarEm(pastaAtualId()); }
@@ -2405,6 +2411,9 @@
             draggable: '.pex-item',
             animation: 150,
             ghostClass: 'pex-arrastando',
+            // No toque, arrastar o dedo ROLA a lista; só segurar 250 ms começa a reordenar.
+            delay: 250,
+            delayOnTouchOnly: true,
             // Links, botões, o campo inline e a linha provisória não iniciam arraste; e, com o
             // mouse, só o ícone/nome arrasta — o espaço vazio da linha é do laço (dc L4876).
             filter: function (evt, alvo) {

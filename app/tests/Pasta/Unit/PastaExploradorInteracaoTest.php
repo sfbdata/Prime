@@ -233,12 +233,20 @@ final class PastaExploradorInteracaoTest extends TestCase
         self::assertStringContainsString('const TOQUE_LONGO_MS = 500;', $js);
         self::assertStringContainsString("if (e.pointerType !== 'touch' && e.pointerType !== 'pen') return;", $js, 'toque longo só com dedo/caneta');
         self::assertStringContainsString("if (toqueInicio && Math.hypot(e.clientX - toqueInicio.x, e.clientY - toqueInicio.y) > 10) cancelarToqueLongo();", $js, 'rolar cancela');
-        // O clique sintetizado depois do toque longo é engolido por FLAG, zerada por ele mesmo ou
-        // pelo toque seguinte — onde quer que caia (menu, fundo ou lista), por captura no document.
-        self::assertStringContainsString('suprimirProximoClique = true;', $js);
-        self::assertStringContainsString("document.addEventListener('click', function (e) {\n        if (!suprimirProximoClique) return;\n        suprimirProximoClique = false;\n        e.preventDefault();\n        e.stopPropagation();\n    }, true);", $js);
-        self::assertStringContainsString("suprimirProximoClique = false;      // gesto novo", $js);
+        // O clique sintetizado depois do toque longo é engolido por FLAG — onde quer que caia (menu,
+        // fundo ou lista), por captura no document. A flag é zerada por ele mesmo, por QUALQUER
+        // pointerdown novo na página (dedo, caneta ou mouse: o menu fica fora da lista, e num
+        // híbrido o próximo clique de mouse não pode sumir) e expira em 1 s.
+        self::assertStringContainsString("suprimirProximoClique = true;\n                suprimirProximoCliqueAte = Date.now() + 1000;", $js);
+        self::assertStringContainsString("document.addEventListener('pointerdown', function () { suprimirProximoClique = false; }, true);", $js);
+        self::assertStringContainsString("document.addEventListener('click', function (e) {\n        if (!suprimirProximoClique) return;\n        suprimirProximoClique = false;\n        if (Date.now() > suprimirProximoCliqueAte) return;\n        e.preventDefault();\n        e.stopPropagation();\n    }, true);", $js);
+        self::assertSame(3, substr_count($js, 'suprimirProximoClique = false;'), 'declaração + pointerdown de captura + clique engolido: nenhum outro ponto zera (o de el.lista, só touch/pen, saiu)');
+        self::assertSame(1, substr_count($js, "function () { suprimirProximoClique = false; }"), 'pointerdown de captura, sem filtro de pointerType');
         self::assertStringNotContainsString('suprimirCliqueAte = Date.now() + 700', $js);
+        // Sortable no toque: arrastar o dedo rola; só segurar 250 ms reordena.
+        self::assertStringContainsString("delay: 250,\n            delayOnTouchOnly: true,", $js);
+        // Colar sem nada que ainda exista: avisa em vez de silêncio.
+        self::assertStringContainsString("if (!chaves.length) { areaDeTransferencia = null; toast('Nada para colar'); return; }", $js);
         // Toque longo no FUNDO da lista (e no vazio) abre o menu de fundo: o iOS não dispara contextmenu.
         self::assertStringContainsString("abrirMenu(t.x, t.y, t.linha ? itemPorChave(chaveDoElemento(t.linha)) : null);", $js);
         self::assertStringContainsString("ligarToqueLongo(el.lista);\n    if (el.vazio) ligarToqueLongo(el.vazio);", $js);
