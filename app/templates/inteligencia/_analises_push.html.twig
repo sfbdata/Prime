@@ -1,0 +1,92 @@
+{# ============================================================================
+   Lista de análises da BlueJus IA de UMA pasta (aba Push Processual).
+
+   Renderizado em dois lugares: dentro da aba, pelo `PastaController::show` (1B),
+   e sozinho por `GET /pasta/{id}/ia/push/analises` (recarga sem F5 depois do
+   polling). Por isso NÃO tem o botão "Resumir com IA" nem o cabeçalho do card —
+   isso é do `_push_processual.html.twig`; aqui só a lista.
+
+   Tudo escapado: a resposta do modelo nunca é HTML (`|raw` proibido aqui).
+   O motivo técnico de uma falha só aparece para quem administra a IA.
+
+   Contexto: `analisesIa` (App\Inteligencia\DTO\AnalisesDaPastaOutput), `pastaId` (int).
+   ============================================================================ #}
+{% set podeVerMotivoTecnico = can_administer('admin.inteligencia.manage') %}
+<div class="ps-ia-lista" id="ia-analises"
+     data-ia-lista
+     data-pasta-id="{{ pastaId }}"
+     data-ia-url="{{ path('inteligencia_push_listar', {id: pastaId}) }}"
+     data-ia-em-andamento="{{ analisesIa.temEmAndamento ? '1' : '0' }}"
+     data-ia-total-movimentacoes="{{ analisesIa.totalMovimentacoes }}"
+     data-ia-nao-analisadas="{{ analisesIa.naoAnalisadas }}">
+    {% for a in analisesIa.analises %}
+        {% set csrfAnalise = csrf_token('inteligencia_analise_' ~ a.id) %}
+        <article class="ps-ia-cartao ps-ia-cartao--{{ a.status }}{{ a.lida ? ' ps-ia-cartao--lida' : '' }}"
+                 data-ia-analise="{{ a.id }}"
+                 data-ia-status="{{ a.status }}"
+                 data-ia-status-url="{{ path('inteligencia_analise_status', {id: pastaId, analiseId: a.id}) }}">
+            <header class="ps-ia-cab">
+                <span class="ps-ia-selo">✦ Análise IA</span>
+                <span class="ps-ia-aviso">Gerada por inteligência artificial · não é ato oficial do processo</span>
+                <time class="ps-ia-quando ps-num" datetime="{{ a.criadaEm|date('c') }}">{{ a.criadaEm|date('d/m H:i') }}</time>
+                {% if a.internaDoEscritorio %}
+                    <span class="ps-ia-cadeado" title="Interna do escritório: não vai a links compartilhados"><i class="bi bi-lock-fill" aria-hidden="true"></i></span>
+                {% endif %}
+            </header>
+
+            {% if a.emAndamento %}
+                <p class="ps-ia-andamento" role="status">
+                    Analisando… (lendo {{ a.totalMovimentacoes }} {{ a.totalMovimentacoes == 1 ? 'movimentação' : 'movimentações' }})
+                </p>
+            {% elseif a.status == 'concluida' %}
+                <p class="ps-ia-resumo">{{ a.resumo }}</p>
+                {% if a.pontos is not empty %}
+                    <ul class="ps-ia-pontos">
+                        {% for p in a.pontos %}
+                            <li class="ps-ia-ponto ps-ia-ponto--{{ p.tipo }}">
+                                <span class="ps-ia-chip ps-ia-chip--{{ p.tipo }}">{{ p.rotulo }}</span>
+                                <span class="ps-ia-ponto-txt">{{ p.texto }}</span>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+                {% if a.quemAge %}
+                    <p class="ps-ia-quem"><strong>Quem age:</strong> {{ a.quemAge }}</p>
+                {% endif %}
+                <p class="ps-ia-base">Base: {{ a.totalMovimentacoes }} {{ a.totalMovimentacoes == 1 ? 'movimentação' : 'movimentações' }}. Confira o documento original antes de agir.</p>
+            {% elseif a.status == 'falhou' %}
+                <p class="ps-ia-erro">Não foi possível gerar a análise agora. Tente novamente.</p>
+                {% if podeVerMotivoTecnico and a.erroMotivo %}
+                    <p class="ps-ia-erro-tecnico"><small>Motivo técnico: {{ a.erroMotivo }}</small></p>
+                {% endif %}
+            {% else %}
+                <p class="ps-ia-erro">IA não configurada nesta instalação.</p>
+            {% endif %}
+
+            <footer class="ps-ia-acoes">
+                {% if a.terminal and not a.lida %}
+                    <form method="post" action="{{ path('inteligencia_analise_lida', {id: pastaId, analiseId: a.id}) }}" class="ps-ia-acao" data-ia-acao="lida">
+                        <input type="hidden" name="_token" value="{{ csrfAnalise }}">
+                        <button type="submit" class="ps-ia-botao"><i class="bi bi-check2-all" aria-hidden="true"></i> Marcar como lida</button>
+                    </form>
+                {% endif %}
+                {% if a.terminal %}
+                    <form method="post" action="{{ path('inteligencia_analise_interna', {id: pastaId, analiseId: a.id}) }}" class="ps-ia-acao" data-ia-acao="interna">
+                        <input type="hidden" name="_token" value="{{ csrfAnalise }}">
+                        <button type="submit" class="ps-ia-botao">
+                            <i class="bi {{ a.internaDoEscritorio ? 'bi-unlock' : 'bi-lock' }}" aria-hidden="true"></i>
+                            {{ a.internaDoEscritorio ? 'Liberar para compartilhamento' : 'Tornar interna do escritório' }}
+                        </button>
+                    </form>
+                {% endif %}
+                <form method="post" action="{{ path('inteligencia_analise_excluir', {id: pastaId, analiseId: a.id}) }}" class="ps-ia-acao" data-ia-acao="excluir"
+                      data-ia-confirmar="Excluir esta análise da IA? As movimentações oficiais não são alteradas.">
+                    <input type="hidden" name="_token" value="{{ csrfAnalise }}">
+                    <button type="submit" class="ps-ia-botao ps-ia-botao--perigo"><i class="bi bi-trash" aria-hidden="true"></i> Excluir esta análise</button>
+                </form>
+            </footer>
+        </article>
+    {% else %}
+        <p class="ps-ia-vazio" data-ia-vazio>Nenhuma análise por IA ainda para esta pasta.</p>
+    {% endfor %}
+</div>

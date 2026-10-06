@@ -1,0 +1,131 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}BlueJus IA{% endblock %}
+
+{% block body %}
+<section class="content-header">
+    <div class="container-fluid d-flex justify-content-between align-items-center">
+        <h1 class="m-0"><i class="bi bi-stars me-2"></i>BlueJus IA</h1>
+    </div>
+</section>
+
+<section class="content">
+    <div class="container-fluid">
+
+        {% for label, messages in app.flashes %}
+            {% for message in messages %}
+                <div class="alert alert-{{ label == 'success' ? 'success' : (label == 'error' ? 'danger' : (label == 'info' ? 'info' : 'warning')) }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endfor %}
+
+        {# ---- Estado da plataforma: o que este escritório NÃO controla ---- #}
+        <div class="card mb-3" id="ia-estado">
+            <div class="card-header"><strong>Estado da plataforma</strong></div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">Provedor de IA</dt>
+                    <dd class="col-sm-8">
+                        <code>{{ configuracao.provedorNome }}</code>
+                        {% if configuracao.provedorConfigurado %}
+                            <span class="badge text-bg-success ms-1">configurado</span>
+                        {% else %}
+                            <span class="badge text-bg-secondary ms-1">não configurado</span>
+                        {% endif %}
+                    </dd>
+                    <dt class="col-sm-4">Flag da plataforma (IA_HABILITADA)</dt>
+                    <dd class="col-sm-8">
+                        {% if configuracao.plataformaHabilitada %}
+                            <span class="badge text-bg-success">ligada</span>
+                        {% else %}
+                            <span class="badge text-bg-secondary">desligada</span>
+                        {% endif %}
+                    </dd>
+                    <dt class="col-sm-4">Uso deste escritório</dt>
+                    <dd class="col-sm-8">
+                        <span class="ps-num">{{ configuracao.usoHoje }}</span> hoje ·
+                        <span class="ps-num">{{ configuracao.usoMes }}</span> no mês
+                    </dd>
+                </dl>
+                {% if not configuracao.plataformaHabilitada or not configuracao.provedorConfigurado %}
+                    <p class="text-muted small mb-0 mt-2" id="ia-aviso-plataforma">
+                        IA não configurada nesta instalação. Ligar aqui não ativa nada até a plataforma ter um provedor configurado.
+                    </p>
+                {% elseif configuracao.operacional %}
+                    <p class="text-success small mb-0 mt-2" id="ia-aviso-operacional">BlueJus IA operacional neste escritório.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        {# ---- Configuração do escritório ---- #}
+        <div class="card" id="ia-configuracao">
+            {{ form_start(form, {attr: {novalidate: 'novalidate', id: 'form-ia-configuracao'}}) }}
+            <div class="card-header"><strong>Configuração do escritório</strong></div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <div class="form-check form-switch">
+                                {{ form_widget(form.habilitada, {attr: {class: 'form-check-input', role: 'switch'}}) }}
+                                {{ form_label(form.habilitada, null, {label_attr: {class: 'form-check-label fw-semibold'}}) }}
+                            </div>
+                            <div class="form-text text-muted">
+                                Ao ligar, o escritório aceita o envio de conteúdo processual (publicações e movimentações,
+                                com dados pessoais mascarados por padrão) a um provedor externo de IA, nos termos do Anexo I da
+                                Política de Privacidade. Processos em segredo de justiça nunca são enviados.
+                            </div>
+                            {% if configuracao.consentimentoEnvioExternoEm %}
+                                <div class="form-text" id="ia-consentimento">
+                                    Aceite registrado em {{ configuracao.consentimentoEnvioExternoEm|date('d/m/Y H:i') }}
+                                    {%- if configuracao.consentimentoPorNome %} por {{ configuracao.consentimentoPorNome }}{% endif %}.
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form_label(form.limiteDiario, null, {label_attr: {class: 'form-label fw-semibold'}}) }}
+                            {{ form_widget(form.limiteDiario, {attr: {class: 'form-control' ~ (form.limiteDiario.vars.errors|length ? ' is-invalid' : '')}}) }}
+                            {% if form.limiteDiario.vars.errors|length %}
+                                <div class="invalid-feedback">
+                                    {% for error in form.limiteDiario.vars.errors %}{{ error.message }}{% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form_label(form.limiteMensal, null, {label_attr: {class: 'form-label fw-semibold'}}) }}
+                            {{ form_widget(form.limiteMensal, {attr: {class: 'form-control' ~ (form.limiteMensal.vars.errors|length ? ' is-invalid' : '')}}) }}
+                            {% if form.limiteMensal.vars.errors|length %}
+                                <div class="invalid-feedback">
+                                    {% for error in form.limiteMensal.vars.errors %}{{ error.message }}{% endfor %}
+                                </div>
+                            {% endif %}
+                            <div class="form-text text-muted">
+                                As cotas contam todo pedido feito no escritório, inclusive os que falharam.
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <div class="form-check">
+                                {{ form_widget(form.mascararDadosPessoais, {attr: {class: 'form-check-input'}}) }}
+                                {{ form_label(form.mascararDadosPessoais, null, {label_attr: {class: 'form-check-label'}}) }}
+                            </div>
+                            <div class="form-text text-muted">
+                                Recomendado. O número do processo nunca é mascarado.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer d-flex justify-content-end gap-2">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-check-lg me-1"></i> Salvar
+                </button>
+            </div>
+            {{ form_end(form) }}
+        </div>
+    </div>
+</section>
+{% endblock %}
