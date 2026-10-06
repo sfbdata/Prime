@@ -138,6 +138,10 @@ final class PastaExploradorArranjoTelaTest extends JusPrimeWebTestCase
 
         // Dentro do corpo: a lista é filha direta (é nela que o JS despeja o DocumentFragment).
         self::assertCount(1, $crawler->filter('#pexExplorador > .pex-corpo > #pexLista'));
+        // O painel de detalhes é o irmão IMEDIATO da lista, no mesmo corpo (dc L2190/2271): é o
+        // que deixa a grade do corpo pô-lo AO LADO dela — em outro lugar viraria um bloco solto.
+        self::assertCount(1, $crawler->filter('#pexExplorador > .pex-corpo > #pexLista + aside#pexPainel'));
+        self::assertCount(0, $crawler->filter('#pexLista #pexPainel'), 'o painel não pode cair dentro da lista que o JS esvazia a cada render');
         self::assertCount(1, $crawler->filter('.pex-corpo > #pexTrilha'), 'trilha própria do explorador, no corpo');
         self::assertCount(1, $crawler->filter('.pex-corpo > #pexCabecalho'));
     }
@@ -168,13 +172,122 @@ final class PastaExploradorArranjoTelaTest extends JusPrimeWebTestCase
         self::assertNotNull($crawler->filter('#pexClassificar > [data-pex-classificar="categoria"]')->attr('hidden'), 'a pílula Categoria só aparece com a coluna ligada');
         self::assertSame('false', $crawler->filter('#pexOrganizarMenu [data-pex-coluna="categoria"]')->attr('aria-checked'), 'coluna Categoria nasce desligada');
         self::assertCount(1, $crawler->filter('#pexOrganizarMenu > #pexRestaurar'));
+    }
 
-        // Visualizar: SÓ Detalhes até o L2 — os outros sete modos não são renderizados.
-        $modos = $crawler->filter('#pexVisualizarMenu [role="menuitemradio"]');
-        self::assertCount(1, $modos, 'menu sem ação real não entra na tela');
-        self::assertSame('det', $modos->attr('data-pex-modo'));
-        self::assertSame('true', $modos->attr('aria-checked'));
-        self::assertCount(0, $crawler->filter('#pexVisualizarMenu [role="menuitemcheckbox"]'), 'o painel de detalhes é do L2');
+    #[TestDox('Visualizar (dc EXP_MODOS): os oito modos na ordem do desenho, Detalhes marcado, e o "Painel de detalhes" desligado')]
+    public function testMenuVisualizarComOsOitoModos(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $this->abrir($client, $pasta);
+
+        $modos = $crawler->filter('#pexVisualizarMenu > [role="menuitemradio"][data-pex-modo]');
+        self::assertSame(
+            ['xg', 'g', 'm', 'p', 'lista', 'det', 'blocos', 'cont'],
+            $modos->each(fn (Crawler $n) => $n->attr('data-pex-modo')),
+            'os oito modos do desenho, na ordem dele'
+        );
+        self::assertSame(
+            ['Ícones extra grandes', 'Ícones grandes', 'Ícones médios', 'Ícones pequenos', 'Lista', 'Detalhes', 'Blocos', 'Conteúdo'],
+            $modos->each(fn (Crawler $n) => trim($n->text()))
+        );
+        self::assertSame(
+            ['bi-display', 'bi-laptop', 'bi-tablet-landscape', 'bi-grid', 'bi-list', 'bi-list-columns-reverse', 'bi-view-list', 'bi-card-list'],
+            $modos->each(fn (Crawler $n) => trim(str_replace('bi ', '', (string) $n->filter('i.bi')->attr('class')))),
+            'ícones do EXP_MODOS'
+        );
+        self::assertSame(
+            ['false', 'false', 'false', 'false', 'false', 'true', 'false', 'false'],
+            $modos->each(fn (Crawler $n) => $n->attr('aria-checked')),
+            'Detalhes é o padrão (dc expModo: "det")'
+        );
+        // Cada rádio tem o ponto de 6px que marca o ativo.
+        self::assertCount(8, $crawler->filter('#pexVisualizarMenu > [role="menuitemradio"] > .pex-ponto:first-child'));
+
+        // Separador e depois o checkbox do painel, que nasce desligado (dc expPainel: false).
+        $painel = $crawler->filter('#pexVisualizarMenu > .pex-pop-sep + #pexPainelAlternar[role="menuitemcheckbox"]');
+        self::assertCount(1, $painel);
+        self::assertSame('false', $painel->attr('aria-checked'));
+        self::assertCount(1, $painel->filter('.bi-layout-sidebar-reverse'));
+        self::assertSame('Painel de detalhes', trim($painel->text()));
+        self::assertCount(1, $crawler->filter('#pexVisualizarMenu [role="menuitemcheckbox"]'));
+    }
+
+    #[TestDox('Organizar (dc L2038-2063): Ordem das colunas, Classificar por, Colunas, Tipo de documento com os 8 grupos e Restaurar — nessa ordem')]
+    public function testMenuOrganizarCompleto(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $this->abrir($client, $pasta);
+
+        $menu = '#pexOrganizarMenu';
+        self::assertSame(
+            ['Ordem das colunas', 'Classificar por', 'Colunas', 'Tipo de documento'],
+            $crawler->filter($menu . ' > .pex-pop-rotulo')->each(fn (Crawler $n) => trim($n->text())),
+            'as seções do Organizar na ordem do desenho (Colunas/Categoria é a 5ª coluna opcional, S-2)'
+        );
+        // Ordem das colunas: o contêiner que o JS preenche vem logo depois do rótulo, e a nota do
+        // arraste pelo título logo depois dele.
+        self::assertCount(1, $crawler->filter($menu . ' > .pex-pop-rotulo + #pexOrdemColunas + .pex-pop-nota'));
+        self::assertSame('', trim($crawler->filter('#pexOrdemColunas')->html()), 'a ordem é preferência do usuário: quem monta é o JS');
+
+        // Tipo de documento: os 8 grupos do TIPOS_DOC, "Todos" marcado, cada um com a contagem.
+        $tipos = $crawler->filter($menu . ' > #pexFiltroTipo > [role="menuitemradio"][data-pex-filtro]');
+        self::assertSame(
+            ['todos', 'pastas', 'pdf', 'word', 'excel', 'img', 'zip', 'outros'],
+            $tipos->each(fn (Crawler $n) => $n->attr('data-pex-filtro'))
+        );
+        self::assertSame(
+            ['Todos os itens', 'Pastas', 'PDF', 'Word', 'Excel', 'Imagens', 'Compactados', 'Outros'],
+            $tipos->each(fn (Crawler $n) => trim($n->filter('.pex-filtro-rotulo')->text()))
+        );
+        self::assertSame(
+            ['true', 'false', 'false', 'false', 'false', 'false', 'false', 'false'],
+            $tipos->each(fn (Crawler $n) => $n->attr('aria-checked')),
+            'nasce em "Todos os itens" (dc expTipoF: "todos")'
+        );
+        self::assertCount(8, $crawler->filter('#pexFiltroTipo > [data-pex-filtro] > .pex-filtro-n'));
+
+        // Restaurar fecha o menu, depois do filtro.
+        self::assertCount(1, $crawler->filter($menu . ' > #pexFiltroTipo + .pex-pop-sep + #pexRestaurar'));
+
+        // Botão: selo "1" do filtro nasce oculto; chip "Mostrando somente" também, no topo do corpo.
+        self::assertNotNull($crawler->filter('#pexOrganizar > #pexFiltroSelo')->attr('hidden'));
+        self::assertCount(1, $crawler->filter('.pex-corpo > #pexFiltroInfo[hidden] + #pexBuscaInfo'), 'o chip do filtro vem antes da contagem da busca (dc L2184)');
+        self::assertCount(1, $crawler->filter('#pexFiltroInfo .pex-filtro-chip > #pexFiltroLimpar[aria-label="Remover filtro"]'));
+    }
+
+    #[TestDox('painel de detalhes: nasce oculto, com o vazio do desenho, e sem propriedade que o sistema ainda não tem')]
+    public function testPainelDeDetalhesEstatico(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $this->criarDocumento($pasta, $tenant, 'a.pdf');
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $this->abrir($client, $pasta);
+
+        $painel = $crawler->filter('.pex-corpo > aside#pexPainel');
+        self::assertCount(1, $painel);
+        self::assertNotNull($painel->attr('hidden'), 'o desenho começa com o painel desligado; quem liga é a preferência pex:painel');
+        self::assertCount(1, $painel->filter('#pexPainel > #pexPainelVazio > .bi-layout-sidebar-reverse'));
+        self::assertSame('Selecione uma pasta ou arquivo para ver os detalhes.', trim($painel->filter('#pexPainelVazio > span')->text()));
+        self::assertCount(1, $painel->filter('#pexPainel > #pexPainelVazio + #pexPainelSel[hidden]'));
+        self::assertSame('', trim($painel->filter('#pexPainelSel')->html()), 'as propriedades do item selecionado são do JS, a partir de #pexDados');
+
+        // "Enviado por", "Modificado em" e "Páginas" só entram quando o modelo os tiver (L4):
+        // nem no markup, nem como rótulo/campo no JS que monta o painel.
+        $js = (string) file_get_contents(__DIR__ . '/../../../public/js/pasta-explorador.js');
+        foreach (["'Enviado por'", "'Modificado em'", "'Páginas'", '.enviadoPor', '.modificadoEm', '.paginas'] as $semLastro) {
+            self::assertStringNotContainsString($semLastro, $js, "{$semLastro} não tem lastro em #pexDados até o L4");
+        }
+        foreach (['Enviado por', 'Modificado em', 'Páginas'] as $rotulo) {
+            self::assertStringNotContainsString($rotulo, $painel->html());
+        }
     }
 
     #[TestDox('cabeçalho estático de Detalhes: Nome, Tipo, Tamanho, Modificado — botões com a chave de classificar e aria-sort=none')]

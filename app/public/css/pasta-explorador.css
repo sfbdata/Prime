@@ -83,6 +83,65 @@
     --pex-local-txt:      #5f7684;
     --pex-menu-linha:     #8496a3;
     --pex-menu-linha-bg:  #e3eef7;
+    --pex-sel-bg:         #dcebf6;
+    --pex-sel-anel:       #9fc3e3;
+    --pex-cont-bd:        #f1f4f7;
+    --pex-lado:           #6b8494;
+
+    /* colunas: alça de largura e arraste do título (dc L2214, L4862) */
+    --pex-alca-linha:     #dfe7ed;
+    --pex-alca-hover:     rgba(15,111,196,.08);
+    --pex-col-mov-bg:     #e5f1f7;
+    --pex-col-ins:        #0a7aad;
+
+    /* Organizar: ordem das colunas, filtro por tipo, selo e chip (dc L2041-2054, L2184) */
+    --pex-ordem-bg:       #f6f9fb;
+    --pex-ordem-n:        #8aa0ad;
+    --pex-ordem-rotulo:   #243845;
+    --pex-ordem-seta:     #0a7aad;
+    --pex-ordem-seta-off: #c3d0d8;
+    --pex-ordem-seta-hov: #e3eef7;
+    --pex-pop-nota:       #7b93a2;
+    --pex-filtro-n:       #8aa0ad;
+    --pex-filtro-off:     #aab8c1;
+    --pex-filtro-off-ico: #c3d0d8;
+    --pex-filtro-on-bg:   #eef5fa;
+    --pex-f-todos:        #5f7684;
+    --pex-f-pdf:          #d93a2b;
+    --pex-f-word:         #1f5fbf;
+    --pex-f-excel:        #1d7a46;
+    --pex-f-img:          #8a4fbf;
+    --pex-f-zip:          #b7791f;
+    --pex-f-outros:       #6b8494;
+    --pex-selo-bg:        #0a7aad;
+    --pex-selo-txt:       #fff;
+    --pex-chip-bg:        #e5f1f7;
+    --pex-chip-txt:       #0b4f86;
+    --pex-chip-x-hover:   #cfe3f3;
+
+    /* ícone "estilo Office" (dc `FI`/`fi()`, L3055-3070) */
+    --pex-fi-folha:       #fff;
+    --pex-fi-contorno:    #b9c6cf;
+    --pex-fi-sombra:      drop-shadow(0 1px 1px rgba(16,42,58,.28));
+    --pex-fi-selo-txt:    #fff;
+    --pex-fi-pdf:         #d93025;
+    --pex-fi-word:        #185abd;
+    --pex-fi-excel:       #107c41;
+    --pex-fi-ppt:         #c43e1c;
+    --pex-fi-zip:         #c99a06;
+    --pex-fi-rar:         #7d3c98;
+    --pex-fi-img:         #0f7b8c;
+    --pex-fi-txt:         #5f7684;
+    --pex-fi-mp4:         #6b3fa0;
+    --pex-fi-outro:       #6b8494;
+
+    /* painel de detalhes (dc L2271-2289) */
+    --pex-painel-bg:      #f7fafc;
+    --pex-painel-nome:    #12242f;
+    --pex-painel-k:       #7b93a2;
+    --pex-painel-v:       #1d3441;
+    --pex-painel-vz-ico:  #b8c6cf;
+    --pex-painel-vz-txt:  #6b8494;
 
     /* ícones por tipo (dc L4675-4680) */
     --pex-c-pdf:          #d93a2b;
@@ -207,6 +266,62 @@
     --pex-local-txt:      var(--bs-secondary-color);
     --pex-menu-linha:     var(--bs-secondary-color);
     --pex-menu-linha-bg:  rgba(255,255,255,.08);
+    --pex-sel-bg:         rgba(69,176,214,.18);
+    --pex-sel-anel:       rgba(69,176,214,.5);
+    --pex-cont-bd:        var(--bs-border-color-translucent);
+    --pex-lado:           var(--bs-secondary-color);
+
+    --pex-alca-linha:     var(--bs-border-color);
+    --pex-alca-hover:     rgba(69,176,214,.12);
+    --pex-col-mov-bg:     rgba(69,176,214,.16);
+    --pex-col-ins:        #45b0d6;
+
+    --pex-ordem-bg:       rgba(255,255,255,.05);
+    --pex-ordem-n:        var(--bs-secondary-color);
+    --pex-ordem-rotulo:   var(--bs-body-color);
+    --pex-ordem-seta:     #74c6e3;
+    --pex-ordem-seta-off: rgba(255,255,255,.22);
+    --pex-ordem-seta-hov: rgba(69,176,214,.16);
+    --pex-pop-nota:       var(--bs-secondary-color);
+    --pex-filtro-n:       var(--bs-secondary-color);
+    --pex-filtro-off:     rgba(255,255,255,.3);
+    --pex-filtro-off-ico: rgba(255,255,255,.22);
+    --pex-filtro-on-bg:   rgba(255,255,255,.06);
+    --pex-f-todos:        var(--bs-secondary-color);
+    --pex-f-pdf:          #f0675a;
+    --pex-f-word:         #6ea0ef;
+    --pex-f-excel:        #4fbf7f;
+    --pex-f-img:          #b48ae6;
+    --pex-f-zip:          #e0a443;
+    --pex-f-outros:       #9fb0ba;
+    --pex-selo-bg:        #1b86b8;
+    --pex-selo-txt:       #fff;
+    --pex-chip-bg:        rgba(69,176,214,.16);
+    --pex-chip-txt:       #9ad7ec;
+    --pex-chip-x-hover:   rgba(69,176,214,.3);
+
+    /* A folha branca do ícone grande vira um cinza claro: branco puro no fundo escuro estoura. */
+    --pex-fi-folha:       #dfe6eb;
+    --pex-fi-contorno:    #8597a3;
+    --pex-fi-sombra:      drop-shadow(0 1px 1px rgba(0,0,0,.5));
+    --pex-fi-selo-txt:    #fff;
+    --pex-fi-pdf:         #e0453b;
+    --pex-fi-word:        #3274d1;
+    --pex-fi-excel:       #1a9655;
+    --pex-fi-ppt:         #d8572f;
+    --pex-fi-zip:         #c49a14;
+    --pex-fi-rar:         #9555b3;
+    --pex-fi-img:         #1597a8;
+    --pex-fi-txt:         #6f8796;
+    --pex-fi-mp4:         #8559bf;
+    --pex-fi-outro:       #7a8f9c;
+
+    --pex-painel-bg:      rgba(255,255,255,.04);
+    --pex-painel-nome:    var(--bs-body-color);
+    --pex-painel-k:       var(--bs-secondary-color);
+    --pex-painel-v:       var(--bs-body-color);
+    --pex-painel-vz-ico:  var(--bs-border-color);
+    --pex-painel-vz-txt:  var(--bs-secondary-color);
 
     --pex-c-pdf:          #f0675a;
     --pex-c-word:         #6ea0ef;
@@ -408,6 +523,66 @@
 .pex-pilulas > button[hidden] { display: none; }
 .pex-pilulas .pex-seta { font-size: 10px; }
 .pex-pilulas .pex-seta:not(.bi-arrow-up):not(.bi-arrow-down) { display: none; }
+.pex-popover--visualizar > .pex-pop-sep--modos { margin: 4px 8px; }
+
+/* Organizar com filtro ativo (dc `btnSt`, L3147): destacado e com o selo "1". */
+.pex-btn-menu.pex-btn-menu--on { background: var(--pex-menu-on-bg); color: var(--pex-menu-on-txt); }
+.pex-selo-filtro {
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: var(--pex-selo-bg);
+    color: var(--pex-selo-txt);
+    font-size: 11px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--pex-fonte-num);
+}
+.pex-selo-filtro[hidden] { display: none; }
+
+/* Ordem das colunas (dc L2043-2046). */
+.pex-ordem-colunas { display: flex; flex-direction: column; gap: 2px; }
+.pex-ordem-linha { display: flex; align-items: center; gap: 8px; padding: 4px 6px 4px 10px; border-radius: 4px; background: var(--pex-ordem-bg); }
+.pex-ordem-n { font-family: var(--pex-fonte-num); font-size: 11.5px; font-weight: 700; color: var(--pex-ordem-n); width: 12px; }
+.pex-ordem-rotulo { flex: 1; font-size: 13px; font-weight: 600; color: var(--pex-ordem-rotulo); }
+.pex-ordem-seta {
+    width: 26px;
+    height: 26px;
+    border: none;
+    border-radius: 3px;
+    background: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    padding: 0;
+    cursor: pointer;
+    color: var(--pex-ordem-seta);
+}
+.pex-ordem-seta:hover:not(:disabled) { background: var(--pex-ordem-seta-hov); }
+.pex-ordem-seta:disabled { color: var(--pex-ordem-seta-off); cursor: default; }
+.pex-pop-nota { font-size: 11.5px; color: var(--pex-pop-nota); padding: 4px 8px 2px; line-height: 1.4; }
+
+/* Tipo de documento (dc L2050-2052): ponto, ícone na cor do tipo, rótulo e contagem. */
+.pex-filtro-tipos { display: flex; flex-direction: column; gap: 2px; }
+.pex-pop-item.pex-filtro-item { padding: 6px 10px; }
+.pex-pop-item.pex-filtro-item > .pex-filtro-rotulo { flex: 1; }
+.pex-pop-item.pex-filtro-item > .pex-filtro-n { flex: none; font-family: var(--pex-fonte-num); font-size: 12px; color: var(--pex-filtro-n); }
+.pex-pop-item.pex-filtro-item[aria-checked="true"] { background: var(--pex-filtro-on-bg); }
+.pex-pop-item.pex-filtro-item:disabled { color: var(--pex-filtro-off); cursor: default; }
+.pex-pop-item.pex-filtro-item:disabled:hover { background: transparent; }
+.pex-filtro--todos > .bi  { color: var(--pex-f-todos); }
+.pex-filtro--pastas > .bi { color: var(--pex-pasta); }
+.pex-filtro--pdf > .bi    { color: var(--pex-f-pdf); }
+.pex-filtro--word > .bi   { color: var(--pex-f-word); }
+.pex-filtro--excel > .bi  { color: var(--pex-f-excel); }
+.pex-filtro--img > .bi    { color: var(--pex-f-img); }
+.pex-filtro--zip > .bi    { color: var(--pex-f-zip); }
+.pex-filtro--outros > .bi { color: var(--pex-f-outros); }
+.pex-pop-item.pex-filtro-item:disabled > .bi { color: var(--pex-filtro-off-ico); }
 
 /* ---------------------------------------------------------- checklist --- */
 .pex-ck {
@@ -544,6 +719,51 @@
 .pex-busca-info { font-size: 12.5px; color: var(--pex-info); padding: 2px 4px 8px; }
 .pex-busca-info[hidden] { display: none; }
 
+/* "Mostrando somente [X ×]" (dc L2184). */
+.pex-filtro-info { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 2px 4px 8px; font-size: 12.5px; color: var(--pex-info); }
+.pex-filtro-info[hidden] { display: none; }
+.pex-filtro-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 24px;
+    padding: 0 4px 0 10px;
+    border-radius: 999px;
+    background: var(--pex-chip-bg);
+    color: var(--pex-chip-txt);
+    font-weight: 700;
+}
+.pex-filtro-chip > button {
+    width: 18px;
+    height: 18px;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--pex-chip-txt);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+.pex-filtro-chip > button:hover { background: var(--pex-chip-x-hover); }
+.pex-filtro-chip > button > .bi { font-size: 14px; }
+
+/* Painel de detalhes AO LADO da lista (dc L2190: corpo em flex com `gap:14px`, aside de 250px).
+   O contrato de arranjo é `.pex-corpo > #pexLista + #pexPainel`, então o lado a lado vem da
+   grade do próprio corpo: tudo na coluna 1, o painel na coluna 2 ocupando todas as linhas.
+   A última linha é `1fr` de propósito: o painel atravessa uma trilha flexível, e a altura que
+   ele pede vai SÓ para ela — as linhas da trilha, do cabeçalho e da lista não esticam. */
+.pex--painel .pex-corpo {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 250px;
+    grid-template-rows: repeat(7, auto) 1fr;
+    column-gap: 14px;
+    align-items: start;
+}
+.pex--painel .pex-corpo > * { grid-column: 1; min-width: 0; }
+.pex--painel .pex-corpo > .pex-painel { grid-column: 2; grid-row: 1 / -1; }
+
 .pex-trilha {
     display: flex;
     align-items: center;
@@ -592,12 +812,12 @@
 .pex-trilha-sep { font-size: 10px; color: var(--pex-sep); }
 
 /* Grade do modo Detalhes (dc L3080): Nome 1fr · Tipo 150 · Tamanho 90 ·
-   Modificado 110 · ⋮ 32 (o ⋮ fica até o L5, S-1). Com a coluna Categoria
-   ligada entra 140px entre Tipo e Tamanho. */
+   Modificado 110 · ⋮ 32 (o ⋮ fica até o L5, S-1). A ordem e as larguras são
+   do usuário (Organizar / alça): o JS escreve `--pex-gtc` na raiz e as
+   células já nascem na ordem das colunas. O valor abaixo é só o padrão. */
 .pex-cabecalho,
-.pex-item { display: grid; grid-template-columns: minmax(140px, 1fr) 150px 90px 110px 32px; gap: 12px; align-items: center; }
-.pex--cat .pex-cabecalho,
-.pex--cat .pex-item { grid-template-columns: minmax(140px, 1fr) 150px 140px 90px 110px 32px; }
+.pex--m-det .pex-item { display: grid; grid-template-columns: var(--pex-gtc, minmax(140px, 1fr) 150px 90px 110px 32px); gap: 12px; align-items: center; }
+.pex-cabecalho[hidden] { display: none; }
 
 .pex-cabecalho {
     padding: 8px 10px;
@@ -632,6 +852,29 @@
 .pex-col-tam > button { justify-content: flex-end; }
 .pex-col .pex-seta { font-size: 10px; }
 .pex-col .pex-seta:not(.bi-chevron-up):not(.bi-chevron-down) { display: none; }
+/* Arrastar o título move a coluna (dc L2214): `touch-action:none` para o ponteiro não virar
+   rolagem; a coluna arrastada fica translúcida e a sombra de ±7px marca onde ela entra. */
+.pex-col { position: relative; border-radius: 3px; transition: opacity .15s, background .15s; }
+.pex-col > button { touch-action: none; }
+.pex-col.pex-col--arrastando { opacity: .5; background: var(--pex-col-mov-bg); }
+.pex-col.pex-col--ins-esq { box-shadow: -7px 0 0 -5px var(--pex-col-ins); }
+.pex-col.pex-col--ins-dir { box-shadow: 7px 0 0 -5px var(--pex-col-ins); }
+/* Alça de largura: 7px, linha de 1px (dc L2214). */
+.pex-alca {
+    position: absolute;
+    top: -8px;
+    bottom: -8px;
+    right: -9px;
+    width: 7px;
+    z-index: 2;
+    cursor: col-resize;
+    display: flex;
+    justify-content: center;
+    touch-action: none;
+}
+.pex-alca[hidden] { display: none; }
+.pex-alca:hover { background: var(--pex-alca-hover); }
+.pex-alca-linha { width: 1px; height: 100%; background: var(--pex-alca-linha); }
 
 .pex-lista { display: flex; flex-direction: column; padding: 2px 0 10px; min-height: 60px; outline: none; }
 .pex-lista[hidden] { display: none; }
@@ -711,6 +954,138 @@ a.pex-nome:hover { text-decoration: underline; color: var(--pex-nome); }
 .pex-item .dropdown-item > .bi { width: 16px; text-align: center; }
 .pex-item form { margin: 0; }
 
+/* Selecionada (dc L4733): fundo + anel interno de 1px. */
+.pex-item.pex-item--sel { background: var(--pex-sel-bg); box-shadow: inset 0 0 0 1px var(--pex-sel-anel); }
+
+/* ------------------------------------------------------------- modos --- */
+/* Tamanho do ícone por modo (dc `expVals`, L4708): a mesma variável dimensiona o ícone
+   pequeno do Bootstrap e o "estilo Office". */
+.pex--m-xg     { --pex-ico: 72px; }
+.pex--m-g      { --pex-ico: 52px; }
+.pex--m-m      { --pex-ico: 38px; }
+.pex--m-p      { --pex-ico: 18px; }
+.pex--m-lista  { --pex-ico: 16px; }
+.pex--m-det    { --pex-ico: 17px; }
+.pex--m-blocos { --pex-ico: 40px; }
+.pex--m-cont   { --pex-ico: 32px; }
+.pex-ico { width: var(--pex-ico, 17px); }
+.pex-ico > .bi { font-size: var(--pex-ico, 17px); }
+
+/* Contêiner da lista por modo (dc `wrapSt`, L4722-4726). */
+.pex--grade .pex-lista    { display: grid; gap: 6px; padding: 4px 0 10px; }
+.pex--m-xg .pex-lista     { grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); }
+.pex--m-g .pex-lista      { grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); }
+.pex--m-m .pex-lista      { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); }
+.pex--m-p .pex-lista      { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(210px, 100%), 1fr)); gap: 2px 8px; padding: 4px 0 10px; }
+.pex--m-lista .pex-lista  { display: grid; grid-auto-flow: column; grid-template-rows: repeat(var(--pex-linhas, 1), auto); grid-auto-columns: minmax(220px, 1fr); gap: 1px 12px; overflow-x: auto; padding: 4px 0 10px; }
+.pex--m-blocos .pex-lista { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(270px, 100%), 1fr)); gap: 6px; padding: 4px 0 10px; }
+.pex-lista[hidden] { display: none; }
+
+/* Linha fora do Detalhes: ícone + texto + ⋮ em linha (dc `st`, L4740-4743). */
+.pex:not(.pex--m-det) .pex-item { display: flex; align-items: center; min-width: 0; }
+.pex--m-p .pex-item,
+.pex--m-lista .pex-item  { padding: 4px 8px; border-radius: 4px; min-height: 0; gap: 8px; }
+.pex--m-blocos .pex-item { padding: 8px 10px; border-radius: 4px; gap: 12px; }
+.pex--m-cont .pex-item   { padding: 10px 12px; border-radius: 0; gap: 14px; border-bottom: 1px solid var(--pex-cont-bd); }
+.pex:not(.pex--m-det) .pex-item > .pex-cel-nome { flex: 1; min-width: 0; }
+.pex--m-blocos .pex-cel-nome { gap: 12px; }
+.pex--m-cont .pex-cel-nome   { gap: 14px; }
+.pex:not(.pex--m-det) .pex-item > .pex-cel-acoes { flex-shrink: 0; }
+/* Conteúdo: data e tamanho à direita, Arial (dc L2250). */
+.pex-lado { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; flex-shrink: 0; font-size: 11.5px; color: var(--pex-lado); font-family: var(--pex-fonte-num); white-space: nowrap; }
+
+/* Grade (xg/g/m): cartão em coluna, centralizado; nome em até 2 linhas (dc L4738, L4747). */
+.pex--grade .pex-item { flex-direction: column; align-items: center; gap: 6px; padding: 10px 6px; border-radius: 4px; min-height: 0; }
+.pex--grade .pex-cel-nome { flex-direction: column; align-items: center; gap: 6px; width: 100%; white-space: normal; overflow: visible; }
+.pex--grade .pex-ico { width: auto; height: calc(var(--pex-ico) + 8px); }
+.pex--grade .pex-txt { width: 100%; align-items: center; text-align: center; gap: 2px; }
+.pex--grade .pex-nome {
+    font-size: 12.5px;
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+}
+.pex--grade .pex-local { align-self: center; }
+/* O ⋮ fica no canto do cartão: sem ele não há ação nos modos de ícone até o menu do L5. */
+.pex--grade .pex-cel-acoes { position: absolute; top: 2px; right: 2px; }
+.pex--grade .pex-menu { width: 24px; height: 24px; font-size: 13px; }
+
+/* Ícone "estilo Office" (dc `fi()`, L3062-3069): folha branca com dobra, contorno e selo com a
+   sigla. As proporções do desenho em função do tamanho `--s` (0,78 de folha; selo 0,74×0,36
+   com sigla de 0,22 — ou 0,5×0,5 com 0,34 quando a sigla é uma letra só). */
+.pex-fi { --s: var(--pex-ico, 52px); position: relative; flex-shrink: 0; display: inline-block; width: var(--s); height: var(--s); }
+.pex-fi > .bi { position: absolute; left: calc(var(--s) * .21); top: 0; font-size: var(--s); line-height: 1; }
+.pex-fi > .pex-fi-folha { color: var(--pex-fi-folha); filter: var(--pex-fi-sombra); }
+.pex-fi > .pex-fi-contorno { color: var(--pex-fi-contorno); }
+.pex-fi-selo {
+    position: absolute;
+    left: 0;
+    bottom: calc(var(--s) * .1);
+    min-width: calc(var(--s) * .74);
+    height: calc(var(--s) * .36);
+    padding: 0 max(1px, calc(var(--s) * .05));
+    box-sizing: border-box;
+    border-radius: max(2px, calc(var(--s) * .08));
+    background: var(--pex-fi-cor, var(--pex-fi-outro));
+    color: var(--pex-fi-selo-txt);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--pex-fonte-num);
+    font-weight: 800;
+    letter-spacing: .02em;
+    font-size: max(6px, calc(var(--s) * .22));
+    line-height: 1;
+    box-shadow: 0 1px 2px rgba(0,0,0,.18);
+}
+.pex-fi--1 .pex-fi-selo { min-width: calc(var(--s) * .5); height: calc(var(--s) * .5); font-size: calc(var(--s) * .34); letter-spacing: 0; }
+.pex-fi--pdf   { --pex-fi-cor: var(--pex-fi-pdf); }
+.pex-fi--word  { --pex-fi-cor: var(--pex-fi-word); }
+.pex-fi--excel { --pex-fi-cor: var(--pex-fi-excel); }
+.pex-fi--ppt   { --pex-fi-cor: var(--pex-fi-ppt); }
+.pex-fi--zip   { --pex-fi-cor: var(--pex-fi-zip); }
+.pex-fi--rar   { --pex-fi-cor: var(--pex-fi-rar); }
+.pex-fi--img   { --pex-fi-cor: var(--pex-fi-img); }
+.pex-fi--txt   { --pex-fi-cor: var(--pex-fi-txt); }
+.pex-fi--mp4   { --pex-fi-cor: var(--pex-fi-mp4); }
+.pex-fi--outro { --pex-fi-cor: var(--pex-fi-outro); }
+
+/* ------------------------------------------------- painel de detalhes --- */
+.pex-painel {
+    --pex-ico: 64px;
+    position: sticky;
+    top: 12px;
+    width: 250px;
+    box-sizing: border-box;
+    background: var(--pex-painel-bg);
+    border-radius: 4px;
+    padding: 18px 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    text-align: center;
+    margin-bottom: 10px;
+}
+.pex-painel[hidden] { display: none; }
+.pex-painel-vazio,
+.pex-painel-sel { display: flex; flex-direction: column; align-items: center; gap: 10px; width: 100%; }
+.pex-painel-vazio[hidden],
+.pex-painel-sel[hidden] { display: none; }
+.pex-painel-vazio > .bi { font-size: 26px; color: var(--pex-painel-vz-ico); }
+.pex-painel-vazio > span { font-size: 12.5px; color: var(--pex-painel-vz-txt); line-height: 1.45; }
+.pex-painel-ico { display: flex; align-items: center; justify-content: center; height: 76px; }
+.pex-painel-ico > .bi { font-size: 64px; line-height: 1; }
+.pex-painel-nome { font-size: 13.5px; font-weight: 700; color: var(--pex-painel-nome); line-height: 1.35; overflow-wrap: anywhere; }
+.pex-painel-props { width: 100%; display: flex; flex-direction: column; gap: 6px; margin: 4px 0 0; text-align: left; }
+.pex-painel-prop { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; }
+.pex-painel-prop > dt { font-weight: 400; color: var(--pex-painel-k); flex-shrink: 0; }
+.pex-painel-prop > dd { margin: 0; color: var(--pex-painel-v); font-weight: 600; text-align: right; overflow-wrap: anywhere; min-width: 0; }
+
 .pex-vazio {
     display: flex;
     flex-direction: column;
@@ -772,11 +1147,18 @@ a.pex-nome:hover { text-decoration: underline; color: var(--pex-nome); }
     .pex-upload-bar, .pex > #uploadDuplicadosAviso { margin-left: 14px; margin-right: 14px; }
     .pex-corpo { padding: 6px 12px 0; }
     .pex-cabecalho,
-    .pex-item,
-    .pex--cat .pex-cabecalho,
-    .pex--cat .pex-item { grid-template-columns: minmax(0, 1fr) 32px; }
+    .pex--m-det .pex-item { grid-template-columns: minmax(0, 1fr) 32px; }
     .pex-col-tipo, .pex-col-cat, .pex-col-tam, .pex-col-data,
     .pex-cel-tipo, .pex-cel-cat, .pex-cel-tam, .pex-cel-data { display: none; }
+    .pex-alca { display: none; }
+    /* Lista: o fluxo em colunas de 220px rolaria para o lado em 375px — vira uma coluna só. */
+    .pex--m-lista .pex-lista { grid-auto-flow: row; grid-template-rows: none; grid-template-columns: minmax(0, 1fr); overflow-x: visible; }
+    /* Extra grandes cabe em 2 por linha; os demais modos de grade já fluem pelo auto-fill. */
+    .pex--m-xg .pex-lista { grid-template-columns: repeat(auto-fill, minmax(min(150px, 100%), 1fr)); }
+    /* O painel de 250px não cabe ao lado da lista: desce para baixo dela, largura total, sem
+       sticky. O desenho é omisso aqui. */
+    .pex--painel .pex-corpo { display: block; }
+    .pex-painel { position: static; width: auto; margin: 8px 0 10px; }
     .pex-nivel { max-width: 160px; }
     .pex-rodape { padding: 12px 14px 16px; }
     .pex-popover { max-width: calc(100vw - 28px); }

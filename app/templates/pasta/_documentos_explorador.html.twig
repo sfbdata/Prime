@@ -15,8 +15,10 @@
    `#previewDocModal` aberto pelo gatilho `.pex-arq-preview[data-url][data-nome][data-mime]`;
    `window.enviarArquivoComProgresso` com a assinatura atual; ids do checklist intactos.
 
-   Lote L1 (spec §5): só o modo Detalhes é renderizado; os outros sete modos, o painel de
-   detalhes e o filtro por tipo chegam no L2 — menu sem ação real não entra na tela.
+   Lote L2 (spec §5): os oito modos do Visualizar (dc `EXP_MODOS`), o painel de detalhes de
+   250px AO LADO da lista (`.pex-corpo > #pexLista + #pexPainel`, dc L2271), e o Organizar
+   completo — ordem das colunas, Classificar por, Tipo de documento (dc L2038-2063). Todo item
+   de menu aqui tem ação real no pasta-explorador.js; menu sem ação não entra na tela.
 #}
 <div class="pex" id="pexExplorador"
      data-pasta-id="{{ pasta.id }}"
@@ -53,10 +55,16 @@
         <input type="file" id="pexFileInput" multiple hidden accept=".png,.jpg,.jpeg,.pdf,.kml,.xml,.xls,.xlsx,.doc,.docx,.txt,.zip,.mp3,.ogg,.opus,.m4a,.mp4,.mov">
 
         <div class="pex-menu-wrap">
-            <button type="button" class="pex-btn-menu" id="pexOrganizar" aria-haspopup="menu" aria-expanded="false" aria-controls="pexOrganizarMenu" title="Classificar e escolher colunas">
-                <i class="bi bi-sliders" aria-hidden="true"></i>Organizar<i class="bi bi-chevron-down pex-chev" aria-hidden="true"></i>
+            <button type="button" class="pex-btn-menu" id="pexOrganizar" aria-haspopup="menu" aria-expanded="false" aria-controls="pexOrganizarMenu" title="Organizar colunas e filtrar por tipo">
+                <i class="bi bi-sliders" aria-hidden="true"></i>Organizar<span class="pex-selo-filtro" id="pexFiltroSelo" title="1 filtro ativo" hidden>1</span><i class="bi bi-chevron-down pex-chev" aria-hidden="true"></i>
             </button>
             <div class="pex-popover pex-popover--organizar" id="pexOrganizarMenu" role="menu" aria-label="Organizar" hidden>
+                {# Ordem das colunas (dc L2043-2046): as linhas com as setas são montadas pelo JS a
+                   partir da preferência `pex:colunas` — a ordem é do usuário, não do servidor. #}
+                <div class="pex-pop-rotulo">Ordem das colunas</div>
+                <div class="pex-ordem-colunas" id="pexOrdemColunas"></div>
+                <div class="pex-pop-nota">Também é possível arrastar o título da coluna para os lados.</div>
+                <div class="pex-pop-sep"></div>
                 <div class="pex-pop-rotulo">Classificar por</div>
                 {# "Manual" é a 1ª pílula (S-5): é a ordem que o arraste grava em
                    pasta_documentos_reordenar / pasta_secoes_reordenar. #}
@@ -75,6 +83,26 @@
                     <span class="pex-ponto" aria-hidden="true"></span><i class="bi bi-tag" aria-hidden="true"></i><span>Categoria</span>
                 </button>
                 <div class="pex-pop-sep"></div>
+                {# Tipo de documento (dc L2048-2054, `TIPOS_DOC`): a contagem e o "desabilitado quando
+                   zero" valem para o que está na tela (nível aberto ou busca) e vêm do JS. #}
+                <div class="pex-pop-rotulo">Tipo de documento</div>
+                <div class="pex-filtro-tipos" id="pexFiltroTipo">
+                    {% for tipo in [
+                        ['todos', 'Todos os itens', 'bi-grid'],
+                        ['pastas', 'Pastas', 'bi-folder-fill'],
+                        ['pdf', 'PDF', 'bi-file-earmark-pdf-fill'],
+                        ['word', 'Word', 'bi-file-earmark-word-fill'],
+                        ['excel', 'Excel', 'bi-file-earmark-excel-fill'],
+                        ['img', 'Imagens', 'bi-file-earmark-image-fill'],
+                        ['zip', 'Compactados', 'bi-file-earmark-zip-fill'],
+                        ['outros', 'Outros', 'bi-file-earmark-fill'],
+                    ] %}
+                        <button type="button" class="pex-pop-item pex-filtro-item pex-filtro--{{ tipo[0] }}" role="menuitemradio" aria-checked="{{ tipo[0] == 'todos' ? 'true' : 'false' }}" data-pex-filtro="{{ tipo[0] }}">
+                            <span class="pex-ponto" aria-hidden="true"></span><i class="bi {{ tipo[2] }}" aria-hidden="true"></i><span class="pex-filtro-rotulo">{{ tipo[1] }}</span><span class="pex-filtro-n"></span>
+                        </button>
+                    {% endfor %}
+                </div>
+                <div class="pex-pop-sep"></div>
                 <button type="button" class="pex-pop-item" id="pexRestaurar"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i><span>Restaurar padrão</span></button>
             </div>
         </div>
@@ -83,9 +111,25 @@
             <button type="button" class="pex-btn-menu" id="pexVisualizar" aria-haspopup="menu" aria-expanded="false" aria-controls="pexVisualizarMenu">
                 <i class="bi bi-list-columns-reverse" aria-hidden="true"></i>Visualizar<i class="bi bi-chevron-down pex-chev" aria-hidden="true"></i>
             </button>
+            {# Os oito modos do desenho (dc `EXP_MODOS`, L3051), na ordem dele; Detalhes é o padrão. #}
             <div class="pex-popover pex-popover--visualizar" id="pexVisualizarMenu" role="menu" aria-label="Modo de exibição" hidden>
-                <button type="button" class="pex-pop-item" role="menuitemradio" aria-checked="true" data-pex-modo="det">
-                    <span class="pex-ponto" aria-hidden="true"></span><i class="bi bi-list-columns-reverse" aria-hidden="true"></i><span>Detalhes</span>
+                {% for modo in [
+                    ['xg', 'Ícones extra grandes', 'bi-display'],
+                    ['g', 'Ícones grandes', 'bi-laptop'],
+                    ['m', 'Ícones médios', 'bi-tablet-landscape'],
+                    ['p', 'Ícones pequenos', 'bi-grid'],
+                    ['lista', 'Lista', 'bi-list'],
+                    ['det', 'Detalhes', 'bi-list-columns-reverse'],
+                    ['blocos', 'Blocos', 'bi-view-list'],
+                    ['cont', 'Conteúdo', 'bi-card-list'],
+                ] %}
+                    <button type="button" class="pex-pop-item" role="menuitemradio" aria-checked="{{ modo[0] == 'det' ? 'true' : 'false' }}" data-pex-modo="{{ modo[0] }}">
+                        <span class="pex-ponto" aria-hidden="true"></span><i class="bi {{ modo[2] }}" aria-hidden="true"></i><span>{{ modo[1] }}</span>
+                    </button>
+                {% endfor %}
+                <div class="pex-pop-sep pex-pop-sep--modos"></div>
+                <button type="button" class="pex-pop-item" role="menuitemcheckbox" aria-checked="false" id="pexPainelAlternar">
+                    <span class="pex-ponto" aria-hidden="true"></span><i class="bi bi-layout-sidebar-reverse" aria-hidden="true"></i><span>Painel de detalhes</span>
                 </button>
             </div>
         </div>
@@ -113,6 +157,10 @@
 
     {# ── Corpo: resultado da busca, trilha, cabeçalho das colunas e lista ── #}
     <div class="pex-corpo" id="pexCorpo">
+        {# Filtro por tipo ativo (dc L2184): "Mostrando somente [PDF ×]". #}
+        <div class="pex-filtro-info" id="pexFiltroInfo" hidden>
+            Mostrando somente<span class="pex-filtro-chip"><span id="pexFiltroNome"></span><button type="button" id="pexFiltroLimpar" title="Mostrar todos" aria-label="Remover filtro"><i class="bi bi-x" aria-hidden="true"></i></button></span>
+        </div>
         <div class="pex-busca-info" id="pexBuscaInfo" hidden></div>
 
         <div class="pex-trilha" id="pexTrilha" hidden>
@@ -133,6 +181,18 @@
         </div>
 
         <div class="pex-lista" id="pexLista" tabindex="0" aria-label="Arquivos e pastas"></div>
+
+        {# Painel de detalhes (dc L2271-2289): IMEDIATAMENTE depois da lista e ao lado dela pela
+           grade do .pex-corpo. Nasce oculto (o desenho começa com `expPainel: false`); o JS liga
+           pela preferência `pex:painel` e preenche com o item selecionado. Só propriedades que o
+           #pexDados tem — enviado por, modificado em e páginas chegam com o L4. #}
+        <aside class="pex-painel" id="pexPainel" aria-label="Detalhes do item selecionado" hidden>
+            <div class="pex-painel-vazio" id="pexPainelVazio">
+                <i class="bi bi-layout-sidebar-reverse" aria-hidden="true"></i>
+                <span>Selecione uma pasta ou arquivo para ver os detalhes.</span>
+            </div>
+            <div class="pex-painel-sel" id="pexPainelSel" hidden></div>
+        </aside>
 
         <div class="pex-vazio" id="pexVazio" hidden>
             <i class="bi" id="pexVazioIcone" aria-hidden="true"></i>

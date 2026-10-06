@@ -1,20 +1,26 @@
 /* ==========================================================================
    Explorador de documentos da Pasta (aba "Documentos") — comportamento
    Desenho: 02 - EXPEDIENTES 1.2.3 (dc L2020-2297 e L4670-4960).
-   Decisão: docs/specs/trilha-b-documentos-arquitetura.md (lote L1).
+   Decisão: docs/specs/trilha-b-documentos-arquitetura.md (lotes L1 e L2).
 
    Lê os dados de `#pexDados` (JSON montado por ExploradorDeDocumentosOutput)
    e renderiza SÓ o nível aberto (ou os resultados da busca) em DocumentFragment:
    a pasta de produção com 1.128 documentos não pode ter 1.128 linhas no HTML.
+
+   L2: oito modos de exibição (dc `EXP_MODOS`, L3051; tamanhos em `expVals`,
+   L4701-4723), colunas móveis e redimensionáveis (dc L3079-3139), filtro por
+   tipo de documento (dc `TIPOS_DOC`/`expGrupo`, L3082-3087) e painel de
+   detalhes do item selecionado (dc L2271-2289, L4952-4953). Seleção aqui é só
+   a SIMPLES, por clique, para o painel — múltipla/laço/teclado são do L5.
 
    Depende de: Bootstrap 5 (Modal/Dropdown), SortableJS (opcional, só no modo
    Manual), `window.enviarArquivoComProgresso` (helper do template, também do
    Peticionar) e do `#previewDocModal` já ligado pelo visualizador-documento.js.
 
    Storage — SÓ preferência de visualização em localStorage (`pex:classificar`,
-   `pex:colunas`, `pex:modo`); a pasta aberta em sessionStorage
-   (`pex:pasta:<id>:caminho`). Nada de flag de aba: o retorno é pelo fragmento
-   `#documentos`, que o pasta-show.js abre.
+   `pex:colunas`, `pex:modo`, `pex:painel`, `pex:filtroTipo`), sempre dentro de
+   try/catch; a pasta aberta em sessionStorage (`pex:pasta:<id>:caminho`). Nada
+   de flag de aba: o retorno é pelo fragmento `#documentos`, que o pasta-show.js abre.
    ========================================================================== */
 (function () {
     'use strict';
@@ -72,6 +78,16 @@
         uploadNome:     document.getElementById('pexUploadNome'),
         uploadProg:     document.getElementById('pexUploadProgresso'),
         uploadCont:     document.getElementById('pexUploadContador'),
+        ordemColunas:   document.getElementById('pexOrdemColunas'),
+        filtroTipo:     document.getElementById('pexFiltroTipo'),
+        filtroSelo:     document.getElementById('pexFiltroSelo'),
+        filtroInfo:     document.getElementById('pexFiltroInfo'),
+        filtroNome:     document.getElementById('pexFiltroNome'),
+        filtroLimpar:   document.getElementById('pexFiltroLimpar'),
+        painel:         document.getElementById('pexPainel'),
+        painelVazio:    document.getElementById('pexPainelVazio'),
+        painelSel:      document.getElementById('pexPainelSel'),
+        painelAlternar: document.getElementById('pexPainelAlternar'),
     };
     if (!el.lista) return;
 
@@ -83,20 +99,55 @@
     const CHAVE_CAMINHO     = 'pex:pasta:' + pastaId + ':caminho';
     const CHAVE_CLASSIFICAR = 'pex:classificar';
     const CHAVE_COLUNAS     = 'pex:colunas';
+    const CHAVE_MODO        = 'pex:modo';
+    const CHAVE_PAINEL      = 'pex:painel';
+    const CHAVE_FILTRO      = 'pex:filtroTipo';
     const CLASSIFICACOES    = ['manual', 'nome', 'tipo', 'tamanho', 'data', 'categoria'];
     // Primeiro clique de cada coluna: data e tamanho começam DECRESCENTES (mais recente / maior
     // primeiro), nome, tipo e categoria em A–Z — regra do desenho (dc L4862) e do fm antigo.
     const SENTIDO_INICIAL   = { nome: false, tipo: false, categoria: false, tamanho: true, data: true };
 
+    /* ---- Modos (dc `EXP_MODOS` L3051): tamanho do ícone em px por modo (dc `expVals`
+       L4708: grade xg 72 · g 52 · m 38; p 18 · lista 16 · det 17 · blocos 40 · cont 32).
+       Rótulos e ícones do menu moram no template; aqui só o que o render precisa. ---- */
+    const ICONE_PX     = { xg: 72, g: 52, m: 38, p: 18, lista: 16, det: 17, blocos: 40, cont: 32 };
+    const MODOS_GRADE  = ['xg', 'g', 'm'];
+    const MODO_PADRAO  = 'det';
+    // Ícone ≥ 52px é o "estilo Office" (folha branca + selo com a sigla, dc `fi()` L3056-3070);
+    // abaixo disso, o ícone cheio do Bootstrap pelo tipo (o mesmo do Detalhes).
+    const OFFICE_MIN_PX = 52;
+    const ICONE_PAINEL_PX = 64;
+
+    /* ---- Colunas (dc `COLS_PAD`/`COL_LIM`, L3080-3101). `cat` (Categoria jurídica, S-2) não
+       existe no desenho: entra entre Tipo e Tamanho, desligada, com limites próprios. ---- */
+    const COLUNAS_PAD = { ord: ['nome', 'tipo', 'cat', 'tam', 'data'], w: { tipo: 150, cat: 140, tam: 90, data: 110 } };
+    const COLUNAS_LIM = { tipo: [80, 360], cat: [80, 300], tam: [60, 200], data: [80, 240] };
+    const COLUNAS_ROTULO = { nome: 'Nome', tipo: 'Tipo', cat: 'Categoria', tam: 'Tamanho', data: 'Modificado' };
+    const COLUNA_CLASSIFICAR = { nome: 'nome', tipo: 'tipo', cat: 'categoria', tam: 'tamanho', data: 'data' };
+
+    /* ---- Tipo de documento (dc `TIPOS_DOC` + `expGrupo`, L3082-3087). ---- */
+    const FILTROS = ['todos', 'pastas', 'pdf', 'word', 'excel', 'img', 'zip', 'outros'];
+
     let caminho = [];          // [] = raiz; senão a cadeia de ids (números) até a pasta aberta
     let busca   = '';
     let buscaTimer = null;     // debounce da digitação na busca
     let classificar = lerClassificar();   // { chave, desc }
-    let colunas     = lerColunas();       // { categoria: bool }
+    let colunas     = lerColunas();       // { categoria: bool, ord: [...], w: {...} }
+    let modo        = lerModo();          // um dos ICONE_PX
+    let painel      = lerPainel();        // bool — o desenho começa desligado (dc L2793)
+    let filtroTipo  = lerFiltro();        // um dos FILTROS
+    let selecionado = null;               // 'pasta:<id>' | 'arquivo:<id>' (seleção simples, só para o painel)
+    let contagemTipos = {};               // { grupo: n } do conjunto na tela, antes do filtro
 
-    function lerClassificar() {
+    // Toda leitura de storage passa por aqui: navegador em modo privado / storage bloqueado
+    // lança na leitura, e preferência perdida não pode derrubar a aba.
+    function lerStorage(chave) {
         let v = null;
-        try { v = localStorage.getItem(CHAVE_CLASSIFICAR); } catch (e) { /* storage bloqueado */ }
+        try { v = localStorage.getItem(chave); } catch (e) { v = null; }
+        return v;
+    }
+    function lerClassificar() {
+        const v = lerStorage(CHAVE_CLASSIFICAR);
         if (!v) return { chave: 'manual', desc: false };
         const desc  = /_desc$/.test(v);
         const chave = v.replace(/_desc$/, '');
@@ -105,15 +156,47 @@
     function gravarClassificar() {
         try { localStorage.setItem(CHAVE_CLASSIFICAR, classificar.chave + (classificar.desc ? '_desc' : '')); } catch (e) { /* silencioso */ }
     }
+    function colunasPadrao() {
+        return { categoria: false, ord: COLUNAS_PAD.ord.slice(), w: Object.assign({}, COLUNAS_PAD.w) };
+    }
+    function limitarLargura(k, v) { return Math.max(COLUNAS_LIM[k][0], Math.min(COLUNAS_LIM[k][1], Math.round(v))); }
+    // Aceita o formato do L1 (`{categoria}`) e o do L2 (`{categoria, ord, w}`); o que não
+    // fechar com as colunas conhecidas volta ao padrão — preferência corrompida não quebra a grade.
     function lerColunas() {
-        try {
-            const v = JSON.parse(localStorage.getItem(CHAVE_COLUNAS) || 'null');
-            if (v && typeof v === 'object') return { categoria: v.categoria === true };
-        } catch (e) { /* formato inválido */ }
-        return { categoria: false };
+        const c = colunasPadrao();
+        let v = null;
+        try { v = JSON.parse(lerStorage(CHAVE_COLUNAS) || 'null'); } catch (e) { v = null; }
+        if (!v || typeof v !== 'object') return c;
+        c.categoria = v.categoria === true;
+        if (Array.isArray(v.ord) && v.ord.length === c.ord.length && c.ord.every(function (k) { return v.ord.indexOf(k) !== -1; })) c.ord = v.ord.slice();
+        if (v.w && typeof v.w === 'object') {
+            Object.keys(COLUNAS_LIM).forEach(function (k) {
+                const n = Number(v.w[k]);
+                if (isFinite(n) && n > 0) c.w[k] = limitarLargura(k, n);
+            });
+        }
+        return c;
     }
     function gravarColunas() {
         try { localStorage.setItem(CHAVE_COLUNAS, JSON.stringify(colunas)); } catch (e) { /* silencioso */ }
+    }
+    function lerModo() {
+        const v = lerStorage(CHAVE_MODO);
+        return v && Object.prototype.hasOwnProperty.call(ICONE_PX, v) ? v : MODO_PADRAO;
+    }
+    function gravarModo() {
+        try { localStorage.setItem(CHAVE_MODO, modo); } catch (e) { /* silencioso */ }
+    }
+    function lerPainel() { return lerStorage(CHAVE_PAINEL) === '1'; }
+    function gravarPainel() {
+        try { localStorage.setItem(CHAVE_PAINEL, painel ? '1' : '0'); } catch (e) { /* silencioso */ }
+    }
+    function lerFiltro() {
+        const v = lerStorage(CHAVE_FILTRO);
+        return v && FILTROS.indexOf(v) !== -1 ? v : 'todos';
+    }
+    function gravarFiltro() {
+        try { localStorage.setItem(CHAVE_FILTRO, filtroTipo); } catch (e) { /* silencioso */ }
     }
     function gravarCaminho() {
         try { sessionStorage.setItem(CHAVE_CAMINHO, JSON.stringify(caminho)); } catch (e) { /* silencioso */ }
@@ -150,6 +233,10 @@
     function formatarData(s) {
         const m = String(s || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
         return m ? m[3] + '/' + m[2] + '/' + m[1] : '';
+    }
+    function formatarDataHora(s) {
+        const m = String(s || '').match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
+        return m ? m[3] + '/' + m[2] + '/' + m[1] + ' ' + m[4] + ':' + m[5] : formatarData(s);
     }
     function extensaoDe(nome) {
         const m = String(nome || '').match(/\.([^.\/\\]+)$/);
@@ -208,6 +295,41 @@
         return ['bi-file-earmark-fill', 'outro', ext ? 'Arquivo ' + ext : 'Arquivo'];
     }
     const TIPO_PASTA = ['bi-folder-fill', 'pasta', 'Pasta de arquivos'];
+
+    /* ---- Ícone "estilo Office" (dc `FI` + `fi()`, L3055-3070): [classe de cor, sigla do selo].
+       Extensão fora do mapa: cinza com as 3 primeiras letras, como o desenho. ---- */
+    const FI = {
+        PDF: ['pdf', 'PDF'], DOCX: ['word', 'W'], DOC: ['word', 'W'], XLSX: ['excel', 'X'], XLS: ['excel', 'X'], CSV: ['excel', 'X'],
+        PPTX: ['ppt', 'P'], ZIP: ['zip', 'ZIP'], RAR: ['rar', 'RAR'], PNG: ['img', 'PNG'], JPG: ['img', 'JPG'], JPEG: ['img', 'JPG'],
+        TXT: ['txt', 'TXT'], MP4: ['mp4', 'MP4'],
+    };
+    function iconeArquivo(nome, px) {
+        const t = tipoDe(nome);
+        if (px < OFFICE_MIN_PX) return icone(t[0] + ' pex-ico-' + t[1]);
+        const ext = extensaoDe(nome).toUpperCase();
+        const f = FI[ext] || ['outro', ext.slice(0, 3) || '?'];
+        return h('span', { class: 'pex-fi pex-fi--' + f[0] + (f[1].length === 1 ? ' pex-fi--1' : ''), 'aria-hidden': 'true' }, [
+            h('i', { class: 'bi bi-file-earmark-fill pex-fi-folha' }),
+            h('i', { class: 'bi bi-file-earmark pex-fi-contorno' }),
+            h('span', { class: 'pex-fi-selo', text: f[1] }),
+        ]);
+    }
+
+    // Grupo do filtro "Tipo de documento" pela extensão (dc `expGrupo`, L3083-3087).
+    function grupoDe(it) {
+        if (it.tipo === 'pasta') return 'pastas';
+        const e = extensaoDe(it.nome).toUpperCase();
+        if (e === 'PDF') return 'pdf';
+        if (/^DOCX?$|^RTF$|^ODT$/.test(e)) return 'word';
+        if (/^XLSX?$|^CSV$|^ODS$/.test(e)) return 'excel';
+        if (/^(JPE?G|PNG|GIF|WEBP|HEIC|BMP)$/.test(e)) return 'img';
+        if (/^(ZIP|RAR|7Z)$/.test(e)) return 'zip';
+        return 'outros';
+    }
+    function rotuloFiltro(id) {
+        const r = el.filtroTipo ? el.filtroTipo.querySelector('[data-pex-filtro="' + id + '"] .pex-filtro-rotulo') : null;
+        return r ? r.textContent.trim() : id;
+    }
 
     /* ---- Busca (dc L4719-4721, L3071-3077): dobra acentos; `_ - .` contam como espaço. ---- */
     function normalizar(t) {
@@ -302,18 +424,45 @@
         const cmp = comparador();
         ps = ps.map(function (p) { return { tipo: 'pasta', id: p.id, nome: p.nome, ordem: p.ordem, dado: p }; }).sort(cmp);
         as = as.map(function (a) { return { tipo: 'arquivo', id: a.id, nome: a.nome, ordem: a.ordem, tamanho: a.tamanho, carregadoEm: a.carregadoEm, categoriaRotulo: a.categoriaRotulo, dado: a }; }).sort(cmp);
+
+        // Filtro por tipo (dc L3141-3142): a contagem de cada grupo é do conjunto que está na
+        // tela ANTES do filtro — o nível aberto, ou os resultados da busca.
+        contagemTipos = {};
+        ps.concat(as).forEach(function (it) { const g = grupoDe(it); contagemTipos[g] = (contagemTipos[g] || 0) + 1; });
+        if (filtroTipo !== 'todos') {
+            const doTipo = function (it) { return grupoDe(it) === filtroTipo; };
+            ps = ps.filter(doTipo);
+            as = as.filter(doTipo);
+        }
         return ps.concat(as);
     }
 
     // ------------------------------------------------------------ render ----
     let itensRenderizados = [];
 
+    function chaveDe(it) { return it.tipo + ':' + it.id; }
+    function colunasVisiveis() {
+        return colunas.ord.filter(function (k) { return k !== 'cat' || colunas.categoria; });
+    }
+    // Grade do Detalhes (dc `expGtc`, L3093): Nome flexível, as demais com a largura do usuário,
+    // e o ⋮ de 32px no fim (fica até o L5, S-1). Vai numa variável CSS da raiz: arrastar a alça
+    // reescreve UMA propriedade, sem refazer nenhuma linha.
+    function gradeDasColunas() {
+        return colunasVisiveis().map(function (k) { return k === 'nome' ? 'minmax(140px, 1fr)' : colunas.w[k] + 'px'; }).join(' ') + ' 32px';
+    }
+    function aplicarGrade() { raiz.style.setProperty('--pex-gtc', gradeDasColunas()); }
+
     function renderizar() {
         const buscando = normalizar(busca) !== '';
         const itens = itensVisiveis();
         itensRenderizados = itens;
+        if (selecionado && !itens.some(function (it) { return chaveDe(it) === selecionado; })) selecionado = null;
 
-        raiz.classList.toggle('pex--cat', colunas.categoria);
+        Object.keys(ICONE_PX).forEach(function (m) { raiz.classList.toggle('pex--m-' + m, m === modo); });
+        raiz.classList.toggle('pex--grade', MODOS_GRADE.indexOf(modo) !== -1);
+        raiz.classList.toggle('pex--painel', painel);
+        aplicarGrade();
+        el.cabecalho.hidden = modo !== 'det';
         renderizarCabecalho();
         renderizarTrilha(buscando);
         renderizarMenus();
@@ -323,6 +472,8 @@
         el.lista.textContent = '';
         el.lista.appendChild(frag);
         el.lista.hidden = itens.length === 0;
+        // Modo Lista (dc L4724): fluxo em colunas, ⌈n/3⌉ linhas.
+        el.lista.style.setProperty('--pex-linhas', String(Math.max(1, Math.ceil(itens.length / 3))));
 
         // Busca: contagem (dc L4838) e vazio próprio (dc L2185).
         if (buscando) {
@@ -336,12 +487,17 @@
             el.vazio.classList.toggle('pex-vazio--busca', buscando);
             el.vazioTexto.textContent = buscando
                 ? 'Nenhum arquivo ou pasta com esse nome.'
-                : (caminho.length ? 'Pasta vazia. Arraste arquivos para cá ou clique em Anexar.' : 'Nenhum arquivo ainda. Arraste arquivos para cá ou clique em Anexar.');
+                : (filtroTipo !== 'todos'
+                    // O desenho é omisso: com o filtro persistido, uma pasta sem nada do tipo
+                    // não pode parecer vazia — o chip "Mostrando somente" fica logo acima.
+                    ? 'Nenhum item do tipo ' + rotuloFiltro(filtroTipo) + (caminho.length ? ' nesta pasta.' : ' aqui.')
+                    : (caminho.length ? 'Pasta vazia. Arraste arquivos para cá ou clique em Anexar.' : 'Nenhum arquivo ainda. Arraste arquivos para cá ou clique em Anexar.'));
             el.vazio.hidden = false;
         } else {
             el.vazio.hidden = true;
         }
 
+        renderizarPainel();
         renderizarRodape();
         if (el.contagem) el.contagem.textContent = String(totalArquivos);
         ligarSortable();
@@ -352,12 +508,30 @@
         let colCat = el.cabecalho.querySelector('.pex-col-cat');
         if (colunas.categoria && !colCat) {
             colCat = h('div', { class: 'pex-col pex-col-cat', 'aria-sort': 'none' }, [
-                h('button', { type: 'button', 'data-pex-classificar': 'categoria', title: 'Classificar por categoria' }, [h('span', { text: 'Categoria' }), h('i', { class: 'bi pex-seta', 'aria-hidden': 'true' })]),
+                h('button', { type: 'button', 'data-pex-classificar': 'categoria' }, [h('span', { text: 'Categoria' }), h('i', { class: 'bi pex-seta', 'aria-hidden': 'true' })]),
             ]);
-            el.cabecalho.insertBefore(colCat, el.cabecalho.querySelector('.pex-col-tam'));
+            el.cabecalho.insertBefore(colCat, el.cabecalho.querySelector('.pex-col-acoes'));
         } else if (!colunas.categoria && colCat) {
             colCat.remove();
         }
+        // Ordem do usuário: as células do cabeçalho são MOVIDAS (appendChild move, não copia) e
+        // cada uma ganha a alça de largura (dc L2214) — menos a última, como o desenho.
+        const vis = colunasVisiveis();
+        const acoes = el.cabecalho.querySelector('.pex-col-acoes');
+        vis.forEach(function (k, i) {
+            const col = el.cabecalho.querySelector('.pex-col-' + k);
+            if (!col) return;
+            col.dataset.pexCol = k;
+            const btn = col.querySelector('[data-pex-classificar]');
+            if (btn) btn.title = 'Clique para classificar · arraste para mover a coluna';
+            let alca = col.querySelector('.pex-alca');
+            if (!alca) {
+                alca = h('span', { class: 'pex-alca', title: 'Arraste para ajustar a largura · clique duplo para voltar ao padrão', 'aria-hidden': 'true' }, [h('span', { class: 'pex-alca-linha' })]);
+                col.appendChild(alca);
+            }
+            alca.hidden = i === vis.length - 1;
+            el.cabecalho.insertBefore(col, acoes);
+        });
         el.cabecalho.querySelectorAll('.pex-col').forEach(function (col) {
             const btn = col.querySelector('[data-pex-classificar]');
             if (!btn) return;
@@ -404,6 +578,15 @@
     }
 
     function renderizarMenus() {
+        // Classificar por: Manual primeiro (S-5), depois as colunas NA ORDEM das colunas
+        // (dc `expOrgVals.classes`, L3151 — `c.ord.map`).
+        // A pílula Categoria, oculta com a coluna desligada, vai para o fim.
+        const ordemPilulas = ['manual'].concat(colunasVisiveis().map(function (k) { return COLUNA_CLASSIFICAR[k]; }));
+        if (ordemPilulas.indexOf('categoria') === -1) ordemPilulas.push('categoria');
+        ordemPilulas.forEach(function (chave) {
+            const b = el.classificar.querySelector('[data-pex-classificar="' + chave + '"]');
+            if (b) el.classificar.appendChild(b);
+        });
         el.classificar.querySelectorAll('[data-pex-classificar]').forEach(function (b) {
             const chave = b.dataset.pexClassificar;
             const on = chave === classificar.chave;
@@ -415,6 +598,59 @@
         });
         const chk = el.menuOrganizar.querySelector('[data-pex-coluna="categoria"]');
         if (chk) chk.setAttribute('aria-checked', colunas.categoria ? 'true' : 'false');
+
+        renderizarOrdemColunas();
+        renderizarFiltroTipos();
+
+        // Visualizar: o rádio do modo atual, o ícone do botão (dc `modoIc`) e o painel.
+        let icModo = null;
+        el.menuVisualizar.querySelectorAll('[data-pex-modo]').forEach(function (b) {
+            const on = b.dataset.pexModo === modo;
+            b.setAttribute('aria-checked', on ? 'true' : 'false');
+            if (on) icModo = b.querySelector('.bi');
+        });
+        const icBotao = el.btnVisualizar.querySelector('.bi:not(.pex-chev)');
+        if (icBotao && icModo) icBotao.className = icModo.className;
+        if (el.painelAlternar) el.painelAlternar.setAttribute('aria-checked', painel ? 'true' : 'false');
+    }
+
+    // Ordem das colunas (dc L2043-2046): uma linha por coluna visível, número, rótulo e setas.
+    function renderizarOrdemColunas() {
+        if (!el.ordemColunas) return;
+        const vis = colunasVisiveis();
+        const frag = document.createDocumentFragment();
+        vis.forEach(function (k, i) {
+            frag.appendChild(h('div', { class: 'pex-ordem-linha' }, [
+                h('span', { class: 'pex-ordem-n', text: String(i + 1) }),
+                h('span', { class: 'pex-ordem-rotulo', text: COLUNAS_ROTULO[k] }),
+                h('button', { type: 'button', class: 'pex-ordem-seta', 'data-pex-mover-de': String(i), 'data-pex-mover-para': String(i - 1), disabled: i === 0, title: 'Mover para a esquerda', 'aria-label': 'Mover ' + COLUNAS_ROTULO[k] + ' para a esquerda' }, [icone('bi-arrow-left')]),
+                h('button', { type: 'button', class: 'pex-ordem-seta', 'data-pex-mover-de': String(i), 'data-pex-mover-para': String(i + 1), disabled: i === vis.length - 1, title: 'Mover para a direita', 'aria-label': 'Mover ' + COLUNAS_ROTULO[k] + ' para a direita' }, [icone('bi-arrow-right')]),
+            ]));
+        });
+        el.ordemColunas.textContent = '';
+        el.ordemColunas.appendChild(frag);
+    }
+
+    // Tipo de documento (dc L2048-2054): contagem por grupo, desabilitado quando zero (menos
+    // "Todos"), ponto no ativo; botão Organizar destacado com o selo "1" e o chip acima da lista.
+    function renderizarFiltroTipos() {
+        if (!el.filtroTipo) return;
+        let total = 0;
+        Object.keys(contagemTipos).forEach(function (g) { total += contagemTipos[g]; });
+        el.filtroTipo.querySelectorAll('[data-pex-filtro]').forEach(function (b) {
+            const id = b.dataset.pexFiltro;
+            const n = id === 'todos' ? total : (contagemTipos[id] || 0);
+            const on = id === filtroTipo;
+            b.setAttribute('aria-checked', on ? 'true' : 'false');
+            b.disabled = n === 0 && id !== 'todos' && !on;
+            const cont = b.querySelector('.pex-filtro-n');
+            if (cont) cont.textContent = String(n);
+        });
+        const ativo = filtroTipo !== 'todos';
+        el.btnOrganizar.classList.toggle('pex-btn-menu--on', ativo);
+        if (el.filtroSelo) el.filtroSelo.hidden = !ativo;
+        if (el.filtroInfo) el.filtroInfo.hidden = !ativo;
+        if (el.filtroNome) el.filtroNome.textContent = ativo ? rotuloFiltro(filtroTipo) : '';
     }
 
     function nomeComRealce(nome, buscando) {
@@ -426,12 +662,47 @@
     function celulaLocal(secaoOuPaiId) {
         return h('span', { class: 'pex-local', text: caminhoLegivel(secaoOuPaiId == null ? null : Number(secaoOuPaiId)) });
     }
+    // Conteúdo de pasta como o desenho mostra no sub (dc L4706): "22 arquivos" / "Vazia".
+    function conteudoPasta(c) {
+        if (c.arquivos > 0) return pluralizar(c.arquivos, 'arquivo', 'arquivos');
+        if (c.subpastas > 0) return pluralizar(c.subpastas, 'subpasta', 'subpastas');
+        return 'Vazia';
+    }
+    function numeroDescricao(a) {
+        return (a.numero ? 'Nº ' + a.numero : '') + (a.numero && a.descricao ? ' · ' : '') + (a.descricao || '');
+    }
+
+    /* Monta a linha/cartão de um item conforme o modo (dc `mk`, L4730-4760):
+       - Detalhes: células na ORDEM das colunas do usuário;
+       - Conteúdo: sub "Tipo · Categoria" + "Nº · descrição" (DOC-22) e, à direita, data e tamanho;
+       - Blocos: sub "Tipo · tamanho"; pastas mostram o conteúdo em Blocos e Conteúdo;
+       - grade (xg/g/m), Pequenos e Lista: só ícone e nome.
+       O ⋮ continua em todos os modos até o menu de contexto do L5 (sem ele não há ação). */
+    function montarItem(attrs, ehPasta, nomeEl, sub, extras, celulasDetalhe, lado, menu, buscando, localId) {
+        const txt = [nomeEl];
+        if (sub) txt.push(h('span', { class: 'pex-sub', text: sub, title: sub }));
+        (extras || []).forEach(function (x) { if (x) txt.push(h('span', { class: 'pex-sub pex-sub--nd', text: x, title: x })); });
+        if (buscando) txt.push(celulaLocal(localId));
+        const nome = h('span', { class: 'pex-cel pex-cel-nome' }, [
+            h('span', { class: 'pex-ico' }, [ehPasta ? icone(TIPO_PASTA[0] + ' pex-ico-pasta') : null]),
+            h('span', { class: 'pex-txt' }, txt),
+        ]);
+        const celulas = [];
+        if (modo === 'det') {
+            colunasVisiveis().forEach(function (k) { celulas.push(k === 'nome' ? nome : celulasDetalhe[k]); });
+        } else {
+            celulas.push(nome);
+            if (lado) celulas.push(lado);
+        }
+        celulas.push(h('span', { class: 'pex-cel pex-cel-acoes' }, [menu]));
+        if (attrs['data-pex-tipo'] && selecionado === attrs['data-pex-tipo'] + ':' + attrs['data-pex-id']) attrs.class += ' pex-item--sel';
+        return { linha: h('div', attrs, celulas), ico: nome.firstChild };
+    }
 
     function linhaPasta(p, buscando) {
         const contagem = contarArvore(p.id);
-        const txt = [h('span', { class: 'pex-nome' }, nomeComRealce(p.nome, buscando))];
-        if (buscando) txt.push(celulaLocal(p.paiId));
-        const linha = h('div', {
+        const sub = modo === 'blocos' || modo === 'cont' ? conteudoPasta(contagem) : '';
+        const r = montarItem({
             class: 'pex-item pex-item--pasta',
             'data-pex-tipo': 'pasta',
             'data-pex-id': String(p.id),
@@ -442,18 +713,13 @@
             title: p.nome + ' · ' + pluralizar(contagem.arquivos, 'arquivo', 'arquivos'),
             'aria-label': 'Abrir pasta ' + p.nome,
             draggable: classificar.chave === 'manual' ? null : 'true',
-        }, [
-            h('span', { class: 'pex-cel pex-cel-nome' }, [
-                h('span', { class: 'pex-ico' }, [icone(TIPO_PASTA[0] + ' pex-ico-pasta')]),
-                h('span', { class: 'pex-txt' }, txt),
-            ]),
-            h('span', { class: 'pex-cel pex-cel-tipo', text: TIPO_PASTA[2] }),
-            colunas.categoria ? h('span', { class: 'pex-cel pex-cel-cat' }) : null,
-            h('span', { class: 'pex-cel pex-cel-tam' }),
-            h('span', { class: 'pex-cel pex-cel-data' }),
-            h('span', { class: 'pex-cel pex-cel-acoes' }, [menuPasta()]),
-        ]);
-        return linha;
+        }, true, h('span', { class: 'pex-nome' }, nomeComRealce(p.nome, buscando)), sub, null, {
+            tipo: h('span', { class: 'pex-cel pex-cel-tipo', text: TIPO_PASTA[2] }),
+            cat:  h('span', { class: 'pex-cel pex-cel-cat' }),
+            tam:  h('span', { class: 'pex-cel pex-cel-tam' }),
+            data: h('span', { class: 'pex-cel pex-cel-data' }),
+        }, null, menuPasta(), buscando, p.paiId);
+        return r.linha;
     }
 
     function menuPasta() {
@@ -469,41 +735,42 @@
         ]);
     }
 
+    function nomeArquivo(a, buscando) {
+        /* O nome continua um <a> de verdade para a URL de visualização: Ctrl/Cmd/meio-clique
+           abrem em outra aba, e sem JS o link ainda leva ao arquivo. O clique simples vira o
+           pré-visualizador, interceptado pela classe .pex-arq-preview. */
+        return h('a', {
+            href: a.viewUrl, target: '_blank', rel: 'noopener noreferrer',
+            class: 'pex-nome pex-arq-preview',
+            'data-url': a.viewUrl, 'data-nome': a.nome, 'data-mime': a.mime || '',
+            title: a.nome,
+        }, nomeComRealce(a.nome, buscando));
+    }
+
     function linhaArquivo(a, buscando) {
         const t = tipoDe(a.nome);
-        const txt = [
-            /* O nome continua um <a> de verdade para a URL de visualização: Ctrl/Cmd/meio-clique
-               abrem em outra aba, e sem JS o link ainda leva ao arquivo. O clique simples vira o
-               pré-visualizador, interceptado pela classe .pex-arq-preview. */
-            h('a', {
-                href: a.viewUrl, target: '_blank', rel: 'noopener noreferrer',
-                class: 'pex-nome pex-arq-preview',
-                'data-url': a.viewUrl, 'data-nome': a.nome, 'data-mime': a.mime || '',
-                title: a.nome,
-            }, nomeComRealce(a.nome, buscando)),
-        ];
-        // "Nº · descrição" (§16.2): função só do sistema; no L2 vai para o modo Conteúdo e o painel.
-        const sub = (a.numero ? 'Nº ' + a.numero : '') + (a.numero && a.descricao ? ' · ' : '') + (a.descricao || '');
-        if (sub) txt.push(h('span', { class: 'pex-sub', text: sub, title: sub }));
-        if (buscando) txt.push(celulaLocal(a.secaoId));
-
-        return h('div', {
+        let sub = '';
+        if (modo === 'blocos') sub = t[2] + ' · ' + formatarBytes(a.tamanho);
+        else if (modo === 'cont') sub = t[2] + (a.categoriaRotulo ? ' · ' + a.categoriaRotulo : '');
+        // "Nº · descrição" (§16.2, DOC-22): função só do sistema, mora no Conteúdo e no painel.
+        const extras = modo === 'cont' ? [numeroDescricao(a)] : null;
+        const lado = modo === 'cont'
+            ? h('span', { class: 'pex-lado' }, [h('span', { text: formatarData(a.carregadoEm) }), h('span', { text: formatarBytes(a.tamanho) })])
+            : null;
+        const r = montarItem({
             class: 'pex-item pex-item--arquivo',
             'data-pex-tipo': 'arquivo',
             'data-pex-id': String(a.id),
             title: a.nome,
             draggable: classificar.chave === 'manual' ? null : 'true',
-        }, [
-            h('span', { class: 'pex-cel pex-cel-nome' }, [
-                h('span', { class: 'pex-ico' }, [icone(t[0] + ' pex-ico-' + t[1])]),
-                h('span', { class: 'pex-txt' }, txt),
-            ]),
-            h('span', { class: 'pex-cel pex-cel-tipo', text: t[2], title: t[2] }),
-            colunas.categoria ? h('span', { class: 'pex-cel pex-cel-cat', text: a.categoriaRotulo || '', title: a.categoriaRotulo || '' }) : null,
-            h('span', { class: 'pex-cel pex-cel-tam', text: formatarBytes(a.tamanho) }),
-            h('span', { class: 'pex-cel pex-cel-data', text: formatarData(a.carregadoEm) }),
-            h('span', { class: 'pex-cel pex-cel-acoes' }, [menuArquivo(a)]),
-        ]);
+        }, false, nomeArquivo(a, buscando), sub, extras, {
+            tipo: h('span', { class: 'pex-cel pex-cel-tipo', text: t[2], title: t[2] }),
+            cat:  h('span', { class: 'pex-cel pex-cel-cat', text: a.categoriaRotulo || '', title: a.categoriaRotulo || '' }),
+            tam:  h('span', { class: 'pex-cel pex-cel-tam', text: formatarBytes(a.tamanho) }),
+            data: h('span', { class: 'pex-cel pex-cel-data', text: formatarData(a.carregadoEm) }),
+        }, lado, menuArquivo(a), buscando, a.secaoId);
+        r.ico.appendChild(iconeArquivo(a.nome, ICONE_PX[modo]));
+        return r.linha;
     }
 
     function menuArquivo(a) {
@@ -520,9 +787,74 @@
         ]);
     }
 
+    // ------------------------------------------------- painel de detalhes ---
+    /* dc L2271-2289 / `pProps` L4953. Só o que o #pexDados TEM: o desenho pede "Modificado",
+       mas o dado é a data em que o arquivo foi ADICIONADO (`carregadoEm`) — rotular de
+       "Modificado" seria afirmar o que o sistema não sabe. Enviado por, modificado em e páginas
+       entram quando o L4 os trouxer. */
+    function itemSelecionado() {
+        if (!selecionado) return null;
+        for (let i = 0; i < itensRenderizados.length; i++) if (chaveDe(itensRenderizados[i]) === selecionado) return itensRenderizados[i];
+        return null;
+    }
+    function propriedadesDe(it) {
+        const d = it.dado;
+        if (it.tipo === 'pasta') {
+            const c = contarArvore(d.id);
+            const partes = [];
+            if (c.arquivos > 0) partes.push(pluralizar(c.arquivos, 'arquivo', 'arquivos'));
+            if (c.subpastas > 0) partes.push(pluralizar(c.subpastas, 'subpasta', 'subpastas'));
+            return [
+                ['Tipo', TIPO_PASTA[2]],
+                ['Conteúdo', partes.length ? partes.join(' · ') : 'Vazia'],
+                ['Local', caminhoLegivel(d.paiId == null ? null : Number(d.paiId))],
+            ];
+        }
+        return [
+            ['Tipo', tipoDe(d.nome)[2]],
+            ['Categoria', d.categoriaRotulo || ''],
+            ['Tamanho', formatarBytes(d.tamanho)],
+            ['Adicionado em', formatarDataHora(d.carregadoEm)],
+            ['Número', d.numero || ''],
+            ['Descrição', d.descricao || ''],
+            ['Local', caminhoLegivel(d.secaoId == null ? null : Number(d.secaoId))],
+        ].filter(function (p) { return p[1] !== ''; });
+    }
+    function renderizarPainel() {
+        if (!el.painel) return;
+        el.painel.hidden = !painel;
+        if (!painel) return;
+        const it = itemSelecionado();
+        el.painelVazio.hidden = !!it;
+        el.painelSel.hidden = !it;
+        el.painelSel.textContent = '';
+        if (!it) return;
+        const ehPasta = it.tipo === 'pasta';
+        const frag = document.createDocumentFragment();
+        frag.appendChild(h('span', { class: 'pex-painel-ico' }, [ehPasta ? icone(TIPO_PASTA[0] + ' pex-ico-pasta') : iconeArquivo(it.dado.nome, ICONE_PAINEL_PX)]));
+        frag.appendChild(h('span', { class: 'pex-painel-nome', text: it.dado.nome }));
+        frag.appendChild(h('dl', { class: 'pex-painel-props' }, propriedadesDe(it).map(function (p) {
+            return h('div', { class: 'pex-painel-prop' }, [h('dt', { text: p[0] }), h('dd', { text: p[1] })]);
+        })));
+        el.painelSel.appendChild(frag);
+    }
+    // Seleção simples (o necessário para o painel): troca a classe da linha e refaz SÓ o painel.
+    function selecionar(chave) {
+        selecionado = chave;
+        el.lista.querySelectorAll('.pex-item--sel').forEach(function (n) { n.classList.remove('pex-item--sel'); });
+        if (chave) {
+            const partes = chave.split(':');
+            const linha = el.lista.querySelector('.pex-item[data-pex-tipo="' + partes[0] + '"][data-pex-id="' + Number(partes[1]) + '"]');
+            if (linha) linha.classList.add('pex-item--sel');
+        }
+        renderizarPainel();
+    }
+
     // --------------------------------------------------------- navegação ----
+    // Trocar de nível limpa a seleção, como o desenho (`expSelK: []` em toda navegação).
     function entrar(id) {
         caminho = cadeiaAte(id);
+        selecionado = null;
         clearTimeout(buscaTimer);
         busca = '';
         if (el.busca) el.busca.value = '';
@@ -533,6 +865,7 @@
     }
     function irParaNivel(nivel) {
         caminho = nivel < 0 ? [] : caminho.slice(0, nivel + 1);
+        selecionado = null;
         gravarCaminho();
         renderizar();
     }
@@ -541,13 +874,20 @@
 
     // ============================================================ EVENTOS ====
 
-    // Clique na lista: abrir pasta, pré-visualizar, menu ⋮
+    /* Clique na lista: pré-visualizar, menu ⋮, abrir pasta, selecionar.
+       Com o painel DESLIGADO o clique na pasta entra nela (comportamento do L1). Com o painel
+       LIGADO o clique seleciona — é o único jeito de ver os detalhes de uma pasta — e o duplo
+       clique (ou Enter) entra, como o desenho (dc L4758). A semântica única "clique seleciona"
+       em todos os casos é do L5 (DOC-14). */
     el.lista.addEventListener('click', function (e) {
         const prev = e.target.closest('.pex-arq-preview');
         if (prev) {
             // O nome é um <a> de verdade: com modificador, deixa o navegador abrir em outra aba.
             if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
             e.preventDefault();
+            // Com o painel aberto, o arquivo que se pré-visualiza é também o que ele descreve.
+            const doItem = prev.closest('.pex-item');
+            if (painel && doItem) selecionar(doItem.dataset.pexTipo + ':' + Number(doItem.dataset.pexId));
             abrirPreview(prev);
             return;
         }
@@ -558,10 +898,14 @@
             executarAcao(acao.dataset.pexAcao, item);
             return;
         }
-        if (!item || e.target.closest('.dropdown')) return;
+        if (e.target.closest('.dropdown')) return;
+        if (!item) { if (painel && selecionado) selecionar(null); return; }
+        if (painel) { selecionar(item.dataset.pexTipo + ':' + Number(item.dataset.pexId)); return; }
         if (item.dataset.pexTipo === 'pasta') entrar(Number(item.dataset.pexId));
     });
     el.lista.addEventListener('dblclick', function (e) {
+        const pasta = e.target.closest('.pex-item--pasta');
+        if (pasta && painel && !e.target.closest('.dropdown')) { entrar(Number(pasta.dataset.pexId)); return; }
         const item = e.target.closest('.pex-item--arquivo');
         if (!item || e.target.closest('.dropdown') || e.target.closest('a')) return;
         const gatilho = item.querySelector('.pex-arq-preview');
@@ -653,7 +997,9 @@
         gravarClassificar();
         renderizar();
     }
+    let semCliqueAte = 0;      // depois de arrastar um título, o "click" que segue não classifica
     el.cabecalho.addEventListener('click', function (e) {
+        if (Date.now() < semCliqueAte) return;
         const b = e.target.closest('[data-pex-classificar]');
         if (b) classificarPor(b.dataset.pexClassificar);
     });
@@ -661,7 +1007,152 @@
         const b = e.target.closest('[data-pex-classificar]');
         if (b) classificarPor(b.dataset.pexClassificar);
     });
+
+    // ------------------------------------------- colunas: ordem e largura ---
+    // Move a coluna `de` para `para` (índices entre as VISÍVEIS). Com a Categoria desligada ela
+    // continua guardada na ordem completa, na mesma posição relativa.
+    function moverColuna(de, para) {
+        const vis = colunasVisiveis();
+        if (para < 0 || para >= vis.length || para === de) return;
+        const k = vis.splice(de, 1)[0];
+        vis.splice(para, 0, k);
+        if (vis.length < colunas.ord.length) vis.splice(Math.min(colunas.ord.indexOf('cat'), vis.length), 0, 'cat');
+        colunas.ord = vis;
+        gravarColunas();
+        renderizar();
+    }
+    // Alça entre a coluna i e a i+1 (dc `expColDrag`, L3105-3117): ao lado do Nome só a outra
+    // coluna muda (o Nome é flexível); entre duas fixas, o que uma ganha a outra perde, dentro
+    // dos limites das duas. Durante o arraste só a variável da grade muda; grava ao soltar.
+    function iniciarRedimensionar(e, i) {
+        const vis = colunasVisiveis();
+        const L = vis[i], R = vis[i + 1];
+        if (!R) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const x0 = e.clientX;
+        const w0 = Object.assign({}, colunas.w);
+        document.body.style.cursor = 'col-resize';
+        const mover = function (ev) {
+            let d = Math.round(ev.clientX - x0);
+            const w = Object.assign({}, w0);
+            if (L === 'nome') w[R] = limitarLargura(R, w0[R] - d);
+            else if (R === 'nome') w[L] = limitarLargura(L, w0[L] + d);
+            else {
+                d = Math.max(COLUNAS_LIM[L][0] - w0[L], Math.min(COLUNAS_LIM[L][1] - w0[L], d));
+                d = Math.max(w0[R] - COLUNAS_LIM[R][1], Math.min(w0[R] - COLUNAS_LIM[R][0], d));
+                w[L] = w0[L] + d;
+                w[R] = w0[R] - d;
+            }
+            colunas.w = w;
+            aplicarGrade();
+        };
+        const soltar = function () {
+            window.removeEventListener('pointermove', mover);
+            window.removeEventListener('pointerup', soltar);
+            window.removeEventListener('pointercancel', soltar);
+            document.body.style.cursor = '';
+            semCliqueAte = Date.now() + 50;
+            gravarColunas();
+        };
+        window.addEventListener('pointermove', mover);
+        window.addEventListener('pointerup', soltar);
+        window.addEventListener('pointercancel', soltar);
+    }
+    // Duplo clique na alça devolve as duas colunas vizinhas à largura padrão (dc `expColReset`).
+    function restaurarLargura(i) {
+        const vis = colunasVisiveis();
+        [vis[i], vis[i + 1]].forEach(function (k) { if (k && k !== 'nome') colunas.w[k] = COLUNAS_PAD.w[k]; });
+        gravarColunas();
+        aplicarGrade();
+    }
+    // Arrastar o título para os lados (dc `expColArrastar`, L3123-3139): só vira arraste depois
+    // de 6px; o indicador de inserção é a sombra de ±7px na borda da coluna-alvo.
+    function iniciarMoverColuna(e, i) {
+        if (e.button !== undefined && e.button !== 0) return;
+        const x0 = e.clientX;
+        const vis = colunasVisiveis();
+        const cels = vis.map(function (k) { return el.cabecalho.querySelector('.pex-col-' + k); }).filter(Boolean);
+        let ativo = false;
+        const alvo = function (x) {
+            for (let k = 0; k < cels.length; k++) {
+                const r = cels[k].getBoundingClientRect();
+                if (x < r.left + r.width / 2) return k;
+            }
+            return cels.length;
+        };
+        const limpar = function () {
+            cels.forEach(function (c) { c.classList.remove('pex-col--arrastando', 'pex-col--ins-esq', 'pex-col--ins-dir'); });
+        };
+        const mover = function (ev) {
+            if (!ativo && Math.abs(ev.clientX - x0) < 6) return;
+            if (!ativo) {
+                ativo = true;
+                document.body.style.cursor = 'grabbing';
+                document.body.style.userSelect = 'none';
+            }
+            const t = alvo(ev.clientX);
+            limpar();
+            if (cels[i]) cels[i].classList.add('pex-col--arrastando');
+            if (t !== i && t !== i + 1) {
+                if (t < cels.length) cels[t].classList.add('pex-col--ins-esq');
+                else cels[cels.length - 1].classList.add('pex-col--ins-dir');
+            }
+        };
+        const soltar = function (ev) {
+            window.removeEventListener('pointermove', mover);
+            window.removeEventListener('pointerup', soltar);
+            window.removeEventListener('pointercancel', soltar);
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+            limpar();
+            if (!ativo || ev.type === 'pointercancel') return;
+            semCliqueAte = Date.now() + 50;
+            let t = alvo(ev.clientX);
+            if (t > i) t -= 1;
+            moverColuna(i, t);
+        };
+        window.addEventListener('pointermove', mover);
+        window.addEventListener('pointerup', soltar);
+        window.addEventListener('pointercancel', soltar);
+    }
+    function indiceDaColuna(col) { return col && col.dataset.pexCol ? colunasVisiveis().indexOf(col.dataset.pexCol) : -1; }
+    el.cabecalho.addEventListener('pointerdown', function (e) {
+        const col = e.target.closest('.pex-col');
+        const i = indiceDaColuna(col);
+        if (i < 0) return;
+        if (e.target.closest('.pex-alca')) { iniciarRedimensionar(e, i); return; }
+        if (e.target.closest('[data-pex-classificar]')) iniciarMoverColuna(e, i);
+    });
+    el.cabecalho.addEventListener('dblclick', function (e) {
+        if (!e.target.closest('.pex-alca')) return;
+        e.stopPropagation();
+        const i = indiceDaColuna(e.target.closest('.pex-col'));
+        if (i >= 0) restaurarLargura(i);
+    });
+
+    // ------------------------------------------------------- Organizar ------
+    function definirFiltro(id) {
+        if (FILTROS.indexOf(id) === -1) return;
+        filtroTipo = id;
+        selecionado = null;
+        gravarFiltro();
+        renderizar();
+    }
     el.menuOrganizar.addEventListener('click', function (e) {
+        const seta = e.target.closest('[data-pex-mover-de]');
+        if (seta) {
+            if (!seta.disabled) moverColuna(Number(seta.dataset.pexMoverDe), Number(seta.dataset.pexMoverPara));
+            return;
+        }
+        const filtro = e.target.closest('[data-pex-filtro]');
+        if (filtro) {
+            if (filtro.disabled) return;
+            // Escolher um tipo fecha o menu, como o desenho (`expOrgOn: false`).
+            fecharPopovers();
+            definirFiltro(filtro.dataset.pexFiltro);
+            return;
+        }
         const col = e.target.closest('[data-pex-coluna]');
         if (!col) return;
         if (col.dataset.pexColuna === 'categoria') {
@@ -673,12 +1164,17 @@
             renderizar();
         }
     });
+    if (el.filtroLimpar) el.filtroLimpar.addEventListener('click', function () { definirFiltro('todos'); });
+    // Restaurar padrão (dc `restaurar`, L3155): colunas (ordem e largura), filtro e classificação.
+    // Modo e painel são do Visualizar e ficam como estão.
     if (el.btnRestaurar) {
         el.btnRestaurar.addEventListener('click', function () {
             classificar = { chave: 'manual', desc: false };
-            colunas = { categoria: false };
+            colunas = colunasPadrao();
+            filtroTipo = 'todos';
             gravarClassificar();
             gravarColunas();
+            gravarFiltro();
             fecharPopovers();
             renderizar();
         });
@@ -714,14 +1210,28 @@
     });
     document.addEventListener('click', function () { fecharPopovers(); });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') fecharPopovers(); });
+
+    // ------------------------------------------------------- Visualizar -----
+    // Escolher um modo ou ligar o painel fecha o menu (dc `ir`/`alternarPainel`).
     if (el.menuVisualizar) {
         el.menuVisualizar.addEventListener('click', function (e) {
-            // Só "Detalhes" existe até o L2; marcar o rádio e fechar é a ação real que ele tem.
             const b = e.target.closest('[data-pex-modo]');
-            if (!b) return;
-            el.menuVisualizar.querySelectorAll('[data-pex-modo]').forEach(function (x) { x.setAttribute('aria-checked', x === b ? 'true' : 'false'); });
-            try { localStorage.setItem('pex:modo', b.dataset.pexModo); } catch (err) { /* silencioso */ }
-            fecharPopovers();
+            if (b) {
+                if (!Object.prototype.hasOwnProperty.call(ICONE_PX, b.dataset.pexModo)) return;
+                modo = b.dataset.pexModo;
+                gravarModo();
+                fecharPopovers();
+                renderizar();
+                return;
+            }
+            if (e.target.closest('#pexPainelAlternar')) {
+                painel = !painel;
+                // Sem painel não há para que selecionar (seleção do L2 é só para ele).
+                if (!painel) selecionado = null;
+                gravarPainel();
+                fecharPopovers();
+                renderizar();
+            }
         });
     }
 
