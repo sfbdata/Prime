@@ -117,7 +117,7 @@ final class PastaSecaoLixeiraTest extends TestCase
         $marcados = $a->marcarArvoreExcluida($this->autor, $em);
         self::assertTrue($a->estaNaLixeira());
         self::assertTrue($b->estaNaLixeira());
-        self::assertSame(PastaSecao::LIMITE_SEGURANCA - 1, $marcados['subpastas'], 'cada nível do laço conta uma vez até a trava');
+        self::assertSame(1, $marcados['subpastas'], 'o laço para ao reencontrar `a` já marcada nesta ação: só `b` conta');
 
         // No restaurar o laço se fecha sozinho: `a`, já restaurada, não tem mais carimbo e não
         // casa de novo — `b` entra uma vez e a volta para em `a`.

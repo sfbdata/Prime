@@ -320,6 +320,12 @@ class PastaSecao implements Auditavel, TenantAware, Descartavel
         }
 
         foreach ($this->filhas as $filha) {
+            // Ciclo gravado no banco (a.pai = b, b.pai = a): numa árvore cada seção é visitada uma
+            // vez, então reencontrar uma já marcada NESTA ação (mesmo carimbo) só acontece no laço —
+            // pular evita contar os mesmos nós até a trava de LIMITE_SEGURANCA.
+            if ($filha->getExcluidoEm() == $em) {
+                continue;
+            }
             $abaixo     = $filha->marcarArvoreExcluida($por, $em, $profundidade + 1);
             $subpastas += 1 + $abaixo['subpastas'];
             $arquivos  += $abaixo['arquivos'];

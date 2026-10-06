@@ -697,8 +697,9 @@ final class PastaDocumentoControllerTest extends JusPrimeWebTestCase
         ]);
         self::assertResponseIsSuccessful((string) $client->getResponse()->getContent());
         self::assertSame(1, $this->json($client)['documentosRemovidos']);
-        self::assertFalse($this->existeDocumento((int) $outro->getId()));
-        self::assertTrue($this->existeDocumento((int) $meu->getId()));
+        // Desde o L7, excluir é lápide: a linha fica, com carimbo; a repetida conta uma vez.
+        self::assertNotNull($this->naLixeira('pasta_documento', (int) $outro->getId()));
+        self::assertNull($this->naLixeira('pasta_documento', (int) $meu->getId()));
     }
 
     /** @return iterable<string, array{mixed}> */
