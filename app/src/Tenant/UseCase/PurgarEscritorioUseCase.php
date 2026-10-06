@@ -166,6 +166,9 @@ final class PurgarEscritorioUseCase
         // Favoritos de pasta (por usuário): cairiam pela CASCADE de `pasta`, mas a FK de tenant é
         // NO ACTION e a deleção explícita deixa a cobertura visível aqui.
         ['pasta_favorita', 'tenant_id = :tenant'],
+        // Preferências pessoais de tela (menu ⋮ do Dashboard): a FK de usuário é CASCADE, mas o
+        // usuário não é apagado na purga e a de tenant é NO ACTION — sai aqui, explicitamente.
+        ['preferencia_usuario', 'tenant_id = :tenant'],
 
         // Fase 2 — raízes de subsistema (a CASCADE do banco derruba os filhos estruturais).
         ['tarefa', 'tenant_id = :tenant'],

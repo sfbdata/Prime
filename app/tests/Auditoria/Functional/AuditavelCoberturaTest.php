@@ -51,6 +51,11 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // pasta. Auditar cada clique encheria o audit_log de ruído sem valor de prova.
         \App\Pasta\Entity\PastaFavorita::class,
 
+        // Preferência pessoal de tela (densidade, animações, setas, colunas ocultas do Dashboard):
+        // estilo de quem olha, sem efeito sobre dado nenhum do escritório. Auditar cada clique no
+        // menu ⋮ encheria o audit_log de ruído sem valor de prova.
+        \App\Dashboard\Entity\PreferenciaDoUsuario::class,
+
         // Excluída por design: seria recursão infinita auditar o próprio log
         AuditLog::class,
 
