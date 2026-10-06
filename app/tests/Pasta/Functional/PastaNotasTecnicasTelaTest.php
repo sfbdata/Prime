@@ -227,4 +227,23 @@ final class PastaNotasTecnicasTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $bloco);
         self::assertSame((string) $processo->getId(), $bloco->attr('data-processo-id'));
     }
+
+    #[TestDox('processo cadastrado com máscara CNJ casa com a publicação, que grava só dígitos')]
+    public function testTeorResolveProcessoComNumeroMascarado(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $processo        = $this->criarProcesso($tenant, '0701134-57.2025.8.07.0007');
+        $this->vincular($pasta, $processo);
+        $semFk = $this->criarPublicacao($tenant, '60000021', self::NUMERO, '2026-08-20');
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}/push/{$semFk->getId()}");
+        self::assertResponseIsSuccessful();
+
+        $bloco = $crawler->filter(".ps-push-teor-corpo > .ps-notas#notas-publicacao-{$semFk->getId()}");
+        self::assertCount(1, $bloco, 'o processo mascarado ficou sem o bloco de notas no teor');
+        self::assertSame((string) $processo->getId(), $bloco->attr('data-processo-id'));
+    }
 }

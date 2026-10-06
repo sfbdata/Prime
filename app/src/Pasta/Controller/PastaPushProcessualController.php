@@ -116,8 +116,11 @@ final class PastaPushProcessualController extends AbstractController
             return $vinculado;
         }
 
+        // Só dígitos dos dois lados: a publicação grava o CNJ sem máscara e `Processo` não normaliza
+        // — comparar cru deixaria o processo mascarado sem notas, enquanto o UseCase o aceita.
+        $numero = preg_replace('/\D+/', '', (string) $publicacao->getNumeroProcesso()) ?? '';
         foreach ($pasta->getPastaProcessos() as $vinculo) {
-            if ($vinculo->getProcesso()->getNumeroProcesso() === $publicacao->getNumeroProcesso()) {
+            if ($numero !== '' && (preg_replace('/\D+/', '', (string) $vinculo->getProcesso()->getNumeroProcesso()) ?? '') === $numero) {
                 return $vinculo->getProcesso();
             }
         }

@@ -58,7 +58,12 @@ class NotaTecnicaRepository extends ServiceEntityRepository
      */
     public function listarPorProcesso(Processo $processo, Tenant $tenant, int $limite = 100): array
     {
+        // Fetch-join do autor e da publicação: o Output lê os dois, e sem isso cada nota da tela
+        // disparava duas consultas preguiçosas.
         return $this->createQueryBuilder('n')
+            ->addSelect('a', 'pub')
+            ->leftJoin('n.autor', 'a')
+            ->leftJoin('n.publicacaoDjen', 'pub')
             ->andWhere('n.processo = :processo')
             ->andWhere('n.tenant = :tenant')
             ->setParameter('processo', $processo)
@@ -77,7 +82,12 @@ class NotaTecnicaRepository extends ServiceEntityRepository
      */
     public function listarPorPublicacao(PublicacaoDjen $publicacao, Tenant $tenant, int $limite = 100): array
     {
+        // Fetch-join do autor e da publicação: o Output lê os dois, e sem isso cada nota da tela
+        // disparava duas consultas preguiçosas.
         return $this->createQueryBuilder('n')
+            ->addSelect('a', 'pub')
+            ->leftJoin('n.autor', 'a')
+            ->leftJoin('n.publicacaoDjen', 'pub')
             ->andWhere('n.publicacaoDjen = :publicacao')
             ->andWhere('n.tenant = :tenant')
             ->setParameter('publicacao', $publicacao)
