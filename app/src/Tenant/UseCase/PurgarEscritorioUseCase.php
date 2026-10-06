@@ -106,6 +106,10 @@ final class PurgarEscritorioUseCase
         // Sync — conexão de Drive do escritório (guarda o refresh_token CIFRADO). FK tenant NO ACTION
         // (bloqueia apagar o tenant) + tenant_id direto → deleção explícita. Apaga o segredo junto.
         ['sync_drive_conexao', 'tenant_id = :tenant'],
+        // BlueJus IA — análises e configuração do escritório (tenant_id direto; FK tenant NO ACTION,
+        // FKs a "user" SET NULL; nada as referencia). Deleção explícita antes de apagar o tenant.
+        ['inteligencia_analise', 'tenant_id = :tenant'],
+        ['inteligencia_configuracao', 'tenant_id = :tenant'],
         // Cobranças — movimentos financeiros (Etapa 3). Filhos antes do pai: a alocação referencia
         // pagamento E obrigação; pagamento/liquidação referenciam o caso (NO ACTION). Por isso vem
         // ANTES do bloco Etapa 2 (que apaga obrigação e caso).

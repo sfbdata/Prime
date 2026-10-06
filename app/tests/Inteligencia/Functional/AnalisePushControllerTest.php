@@ -8,6 +8,7 @@ use App\Entity\Audit\AuditLog;
 use App\Inteligencia\Controller\AnalisePushController;
 use App\Inteligencia\Entity\AnaliseDeInteligencia;
 use App\Inteligencia\Message\ProcessarAnaliseDeInteligencia;
+use App\Tests\Auth\Doubles\RateLimiterFactoryEspiao;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use App\Tests\Inteligencia\Support\CriaFixturesInteligenciaTrait;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -287,34 +288,65 @@ final class AnalisePushControllerTest extends JusPrimeWebTestCase
 
         $this->solicitar($client, (int) $pasta->getId());
         $primeira = $this->json($client)['id'];
+        self::assertCount(1, $this->transporteAsync()->getSent(), 'o primeiro pedido enfileira');
+
+        // O services_resetter zera o transport em memória no boot da request seguinte: o que
+        // `getSent()` mostra depois da 2ª request é SÓ o que a 2ª request enfileirou.
         $this->solicitar($client, (int) $pasta->getId());
 
         self::assertResponseStatusCodeSame(202);
         $json = $this->json($client);
         self::assertSame($primeira, $json['id']);
         self::assertNotNull($json['aviso']);
-        self::assertCount(1, $this->transporteAsync()->getSent());
+        self::assertCount(0, $this->transporteAsync()->getSent(), 'o segundo pedido NÃO enfileira mensagem nova');
         self::assertSame(1, $this->linhasDaPasta((int) $pasta->getId()));
     }
 
-    #[TestDox('11º pedido no mesmo minuto → 429 muitas_solicitacoes (limitador por usuário)')]
-    public function testLimitadorPorUsuario(): void
+    #[TestDox('cota do limitador estourada → 429 muitas_solicitacoes antes do UseCase: nada persistido nem enfileirado')]
+    public function testLimitadorEstourado(): void
     {
         $client = $this->cliente();
         [$user, $tenant] = $this->criarAdmin();
         [$pasta] = $this->criarPastaComPublicacao($tenant);
         $this->ligarIaNoTenant($tenant, $user);
+        // O 429 real não é observável por HTTP em teste: `cache.rate_limiter` é ArrayAdapter e o
+        // services_resetter o zera a cada request. O dublê (padrão do repo) simula a cota gasta.
+        static::getContainer()->set('limiter.inteligencia_solicitar', new RateLimiterFactoryEspiao(aceita: false));
         $this->logarComTenant($client, $user, $tenant);
-
-        for ($i = 1; $i <= 10; ++$i) {
-            $this->solicitar($client, (int) $pasta->getId());
-            self::assertResponseStatusCodeSame(202, "pedido {$i} deveria passar");
-        }
 
         $this->solicitar($client, (int) $pasta->getId());
 
         self::assertResponseStatusCodeSame(429);
         self::assertSame('muitas_solicitacoes', $this->json($client)['motivo']);
+        self::assertSame(0, $this->linhasDaPasta((int) $pasta->getId()));
+        self::assertCount(0, $this->transporteAsync()->getSent());
+    }
+
+    #[TestDox('o limitador é por USUÁRIO e conta toda tentativa autorizada (inclusive a idempotente), mas não a que cai no CSRF')]
+    public function testLimitadorContaPorUsuario(): void
+    {
+        $client = $this->cliente();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $this->ligarIaNoTenant($tenant, $user);
+        $espiao = new RateLimiterFactoryEspiao(aceita: true);
+        static::getContainer()->set('limiter.inteligencia_solicitar', $espiao);
+        $this->logarComTenant($client, $user, $tenant);
+
+        $this->solicitar($client, (int) $pasta->getId(), comToken: false);
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame([], $espiao->chavesConsumidas, 'pedido sem CSRF não gasta a cota de ninguém');
+
+        $this->solicitar($client, (int) $pasta->getId());
+        self::assertResponseStatusCodeSame(202);
+        $this->solicitar($client, (int) $pasta->getId());
+        self::assertResponseStatusCodeSame(202, 'a segunda devolve a pendente (idempotente)…');
+
+        self::assertSame(
+            [(string) $user->getId(), (string) $user->getId()],
+            $espiao->chavesConsumidas,
+            '…mas conta como tentativa: a chave é o id do usuário, não o IP, e cada POST autorizado consome',
+        );
     }
 
     // =========================================================================

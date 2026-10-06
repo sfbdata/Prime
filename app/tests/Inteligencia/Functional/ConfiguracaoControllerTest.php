@@ -80,14 +80,20 @@ final class ConfiguracaoControllerTest extends JusPrimeWebTestCase
         self::assertNotNull($configuracao->getConsentimentoEnvioExternoEm());
         self::assertSame($admin->getId(), $configuracao->getConsentimentoPor()?->getId());
 
+        // No `create` o id ainda não existe no onFlush (IDENTITY), então o rastro é reconhecido
+        // pelo escritório e pelo conteúdo gravado — não pelo entity_id.
         $criacoes = array_filter(
-            $this->em()->getRepository(AuditLog::class)->findBy(['entityClass' => ConfiguracaoDeInteligencia::class, 'action' => 'create']),
-            static fn (AuditLog $log): bool => $log->getEntityId() === (string) $configuracao->getId(),
+            $this->em()->getRepository(AuditLog::class)->findBy([
+                'entityClass' => ConfiguracaoDeInteligencia::class,
+                'action' => 'create',
+                'tenantId' => $tenant->getId(),
+            ]),
+            static fn (AuditLog $log): bool => (($log->getChanges()['diff']['after']['limiteDiario'] ?? null) === 7),
         );
-        self::assertCount(1, $criacoes);
+        self::assertCount(1, $criacoes, 'ligar a IA tem de deixar exatamente um create no audit_log deste escritório');
         $log = array_values($criacoes)[0];
-        self::assertSame($tenant->getId(), $log->getTenantId());
         self::assertSame($admin->getId(), $log->getActorUserId());
+        self::assertTrue($log->getChanges()['diff']['after']['habilitada'] ?? false);
     }
 
     #[TestDox('desligar depois de ligada: a linha é atualizada (audit update com habilitada) e o consentimento fica como histórico')]
@@ -110,7 +116,12 @@ final class ConfiguracaoControllerTest extends JusPrimeWebTestCase
         $relida = $this->em()->find(ConfiguracaoDeInteligencia::class, $configuracao->getId());
         self::assertNotNull($relida);
         self::assertFalse($relida->isHabilitada());
-        self::assertEquals($aceiteEm, $relida->getConsentimentoEnvioExternoEm(), 'desligar não apaga o registro do aceite');
+        // A coluna é TIMESTAMP(0): a comparação é no segundo, não no microssegundo.
+        self::assertSame(
+            $aceiteEm?->format('Y-m-d H:i:s'),
+            $relida->getConsentimentoEnvioExternoEm()?->format('Y-m-d H:i:s'),
+            'desligar não apaga o registro do aceite',
+        );
 
         $atualizacoes = array_filter(
             $this->em()->getRepository(AuditLog::class)->findBy(['entityClass' => ConfiguracaoDeInteligencia::class, 'action' => 'update']),
@@ -132,7 +143,8 @@ final class ConfiguracaoControllerTest extends JusPrimeWebTestCase
         $form[self::FORM . '[limiteDiario]'] = '-1';
         $client->submit($form);
 
-        self::assertResponseStatusCodeSame(200, 'volta ao formulário com erro, sem redirecionar');
+        // Padrão do Symfony 7 (e do repo): `render()` com form submetido e inválido responde 422.
+        self::assertResponseStatusCodeSame(422, 'volta ao formulário com erro, sem redirecionar');
         self::assertStringContainsString('is-invalid', (string) $client->getResponse()->getContent());
         self::assertSame(0, $this->contarNoBanco('SELECT count(*) FROM inteligencia_configuracao WHERE tenant_id = :t', ['t' => $tenant->getId()]));
     }
