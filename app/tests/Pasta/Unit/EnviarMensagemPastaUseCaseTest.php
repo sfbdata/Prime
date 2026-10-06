@@ -5,9 +5,15 @@ declare(strict_types=1);
 namespace App\Tests\Pasta\Unit;
 
 use App\Entity\Auth\User;
+use App\Entity\Notificacao;
+use App\Entity\Permission\AccessRequest;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaMensagem;
 use App\Entity\Tenant\Tenant;
+use App\Repository\NotificacaoRepository;
+use App\Repository\UserTenantRepository;
+use App\Service\NotificacaoService;
+use App\Service\PermissionChecker;
 use App\Tests\Shared\CriaSanitizadorTextoRico;
 use App\Pasta\UseCase\EnviarMensagemPastaUseCase;
 use Doctrine\ORM\EntityManagerInterface;
@@ -15,6 +21,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 #[CoversClass(EnviarMensagemPastaUseCase::class)]
 final class EnviarMensagemPastaUseCaseTest extends TestCase
@@ -22,6 +29,10 @@ final class EnviarMensagemPastaUseCaseTest extends TestCase
     use CriaSanitizadorTextoRico;
 
     private EntityManagerInterface&MockObject $em;
+    private NotificacaoService&MockObject $notificacaoService;
+    private NotificacaoRepository&MockObject $notificacaoRepository;
+    private UserTenantRepository&MockObject $userTenantRepository;
+    private PermissionChecker&MockObject $permissionChecker;
     private EnviarMensagemPastaUseCase $useCase;
     private Pasta $pasta;
     private User $autor;
@@ -29,8 +40,26 @@ final class EnviarMensagemPastaUseCaseTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->em     = $this->createMock(EntityManagerInterface::class);
-        $this->useCase = new EnviarMensagemPastaUseCase($this->em, $this->criarSanitizadorTextoRico());
+        $this->em                    = $this->createMock(EntityManagerInterface::class);
+        $this->notificacaoService    = $this->createMock(NotificacaoService::class);
+        $this->notificacaoRepository = $this->createMock(NotificacaoRepository::class);
+        $this->userTenantRepository  = $this->createMock(UserTenantRepository::class);
+        $this->permissionChecker     = $this->createMock(PermissionChecker::class);
+
+        $urlGenerator = $this->createStub(UrlGeneratorInterface::class);
+        $urlGenerator->method('generate')->willReturnCallback(
+            static fn (string $rota, array $params = []): string => '/pasta/' . $params['id'],
+        );
+
+        $this->useCase = new EnviarMensagemPastaUseCase(
+            $this->em,
+            $this->criarSanitizadorTextoRico(),
+            $this->notificacaoService,
+            $this->notificacaoRepository,
+            $this->userTenantRepository,
+            $this->permissionChecker,
+            $urlGenerator,
+        );
 
         $this->tenant = new Tenant();
         $this->autor  = (new User())->setEmail('autor@test.com');
@@ -176,6 +205,207 @@ final class EnviarMensagemPastaUseCaseTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
 
         $this->useCase->executar($this->pasta, $this->autor, 'Resposta', $this->tenant, $original);
+    }
+
+    // ── Notificar o autor do comentário respondido ───────────────────────────
+
+    /** Cenário com ids: pasta 41 (NUP 1232) no escritório 7; a raiz (id 900) é do $dono. */
+    private function cenarioDeResposta(User $dono, string $conteudoRaiz = 'Ligar para o cliente amanhã'): PastaMensagem
+    {
+        $this->definirId($this->pasta, 41);
+        $this->definirId($this->tenant, 7);
+        $this->pasta->setNup('1232');
+        $this->definirId($this->autor, 1);
+        $this->autor->setFullName('Ana Paula Souza');
+
+        $raiz = (new PastaMensagem())
+            ->setPasta($this->pasta)
+            ->setAutor($dono)
+            ->setTenant($this->tenant)
+            ->setConteudo($conteudoRaiz);
+
+        return $this->definirId($raiz, 900);
+    }
+
+    private function dono(): User
+    {
+        return $this->definirId((new User())->setEmail('dono@test.com')->setFullName('Bruno Lima'), 2);
+    }
+
+    private function donoComAcesso(User $dono, bool $vinculo = true, bool $acesso = true): void
+    {
+        $this->userTenantRepository->method('existeVinculoAtivo')
+            ->with($this->identicalTo($dono), $this->identicalTo($this->tenant))
+            ->willReturn($vinculo);
+        $this->permissionChecker->method('canAccessResource')
+            ->with($this->identicalTo($dono), $this->identicalTo($this->tenant), AccessRequest::RESOURCE_PASTA, 41, AccessRequest::ACTION_VIEW)
+            ->willReturn($acesso);
+    }
+
+    #[TestDox('Responder o comentário de outra pessoa notifica o autor dele, no escritório da pasta, com link para o comentário')]
+    public function testRespostaNotificaOAutorDoComentario(): void
+    {
+        $dono = $this->dono();
+        $raiz = $this->cenarioDeResposta($dono, '<p>Ligar para o <strong>cliente</strong> amanhã</p>');
+        $this->donoComAcesso($dono);
+        $this->notificacaoRepository->method('findOneBy')->willReturn(null);
+
+        $notificacao = new Notificacao();
+        $this->notificacaoService->expects($this->once())
+            ->method('criar')
+            ->with(
+                $this->identicalTo($dono),
+                $this->identicalTo($this->tenant),
+                Notificacao::TIPO_PASTA_RESPOSTA_REGISTRO,
+                'Ana respondeu seu comentário',
+                $this->callback(static function (?string $texto): bool {
+                    self::assertNotNull($texto);
+                    self::assertStringStartsWith('"Já liguei, ele confirmou" · em Dados da Pasta 1232 · ', $texto);
+                    self::assertMatchesRegularExpression('#· \d{2}/\d{2}/\d{4} \d{2}:\d{2}\. #u', $texto);
+                    self::assertStringEndsWith('Seu comentário: "Ligar para o cliente amanhã"', $texto);
+
+                    return true;
+                }),
+            )
+            ->willReturn($notificacao);
+        // Resposta e notificação na MESMA transação.
+        $this->em->expects($this->once())->method('flush');
+
+        $this->useCase->executar($this->pasta, $this->autor, '<p>Já liguei, <em>ele</em> confirmou</p>', $this->tenant, $raiz);
+
+        self::assertSame('/pasta/41#pasta-msg-900', $notificacao->getUrl());
+    }
+
+    #[TestDox('Responder uma RESPOSTA notifica o autor da raiz (é a ela que a conversa fica pendurada)')]
+    public function testRespostaDeRespostaNotificaOAutorDaRaiz(): void
+    {
+        $dono     = $this->dono();
+        $raiz     = $this->cenarioDeResposta($dono);
+        $terceiro = $this->definirId((new User())->setEmail('c@test.com')->setFullName('Carla'), 3);
+        $resposta = $this->definirId(
+            (new PastaMensagem())->setPasta($this->pasta)->setAutor($terceiro)->setTenant($this->tenant)->setConteudo('x')->setRespostaA($raiz),
+            901,
+        );
+        $this->donoComAcesso($dono);
+
+        $this->notificacaoService->expects($this->once())
+            ->method('criar')
+            ->with($this->identicalTo($dono))
+            ->willReturn(new Notificacao());
+
+        $this->useCase->executar($this->pasta, $this->autor, 'Tréplica', $this->tenant, $resposta);
+    }
+
+    #[TestDox('Responder o PRÓPRIO comentário não notifica ninguém (nem por proxy com o mesmo id)')]
+    public function testResponderASiMesmoNaoNotifica(): void
+    {
+        $euDeNovo = $this->definirId((new User())->setEmail('autor@test.com'), 1);
+        $raiz     = $this->cenarioDeResposta($euDeNovo);
+
+        $this->notificacaoService->expects($this->never())->method('criar');
+        $this->em->expects($this->once())->method('flush');
+
+        $resposta = $this->useCase->executar($this->pasta, $this->autor, 'Anotando de novo', $this->tenant, $raiz);
+
+        self::assertSame($raiz, $resposta->getRespostaA(), 'a resposta continua gravada');
+    }
+
+    #[TestDox('Autor do comentário sem acesso à pasta (ResourceAccess/permissão) não é notificado; a resposta é gravada')]
+    public function testAutorSemAcessoAPastaNaoENotificado(): void
+    {
+        $dono = $this->dono();
+        $raiz = $this->cenarioDeResposta($dono);
+        $this->donoComAcesso($dono, vinculo: true, acesso: false);
+
+        $this->notificacaoService->expects($this->never())->method('criar');
+        $this->em->expects($this->once())->method('persist')->with($this->isInstanceOf(PastaMensagem::class));
+        $this->em->expects($this->once())->method('flush');
+
+        $this->useCase->executar($this->pasta, $this->autor, 'Resposta', $this->tenant, $raiz);
+    }
+
+    #[TestDox('Ex-colaborador (sem vínculo ativo no escritório) não é notificado, mesmo que o checker deixasse')]
+    public function testExColaboradorNaoENotificado(): void
+    {
+        $dono = $this->dono();
+        $raiz = $this->cenarioDeResposta($dono);
+        // Super-admin passa no canAccessResource sem vínculo: o vínculo ativo é a trava própria.
+        $this->donoComAcesso($dono, vinculo: false, acesso: true);
+
+        $this->notificacaoService->expects($this->never())->method('criar');
+
+        $this->useCase->executar($this->pasta, $this->autor, 'Resposta', $this->tenant, $raiz);
+    }
+
+    #[TestDox('Já existe notificação idêntica NÃO LIDA (mesma pessoa respondendo o mesmo comentário): não duplica')]
+    public function testNotificacaoIdenticaNaoLidaNaoDuplica(): void
+    {
+        $dono = $this->dono();
+        $raiz = $this->cenarioDeResposta($dono);
+        $this->donoComAcesso($dono);
+
+        $this->notificacaoRepository->expects($this->once())
+            ->method('findOneBy')
+            ->with([
+                'usuario' => $dono,
+                'tenant'  => $this->tenant,
+                'tipo'    => Notificacao::TIPO_PASTA_RESPOSTA_REGISTRO,
+                'titulo'  => 'Ana respondeu seu comentário',
+                'url'     => '/pasta/41#pasta-msg-900',
+                'lida'    => false,
+            ])
+            ->willReturn(new Notificacao());
+        $this->notificacaoService->expects($this->never())->method('criar');
+        $this->em->expects($this->once())->method('flush');
+
+        $this->useCase->executar($this->pasta, $this->autor, 'Mais uma', $this->tenant, $raiz);
+    }
+
+    #[TestDox('Registro comum (sem resposta) não consulta nem cria notificação')]
+    public function testRegistroComumNaoNotifica(): void
+    {
+        $this->notificacaoService->expects($this->never())->method('criar');
+        $this->permissionChecker->expects($this->never())->method('canAccessResource');
+
+        $this->useCase->executar($this->pasta, $this->autor, 'Comum', $this->tenant);
+    }
+
+    #[TestDox('Resposta recusada por ser de outro escritório não notifica ninguém')]
+    public function testRespostaCrossTenantNaoNotifica(): void
+    {
+        $dono       = $this->dono();
+        $deOutroEsc = (new PastaMensagem())->setPasta($this->pasta)->setAutor($dono)->setTenant(new Tenant())->setConteudo('x');
+
+        $this->notificacaoService->expects($this->never())->method('criar');
+        $this->expectException(\InvalidArgumentException::class);
+
+        $this->useCase->executar($this->pasta, $this->autor, 'Invasão', $this->tenant, $deOutroEsc);
+    }
+
+    #[TestDox('A resposta vai cortada em 140 caracteres de texto (sem HTML) e o original em 80')]
+    public function testTextoCortadoNosLimitesDoDesenho(): void
+    {
+        $dono = $this->dono();
+        $raiz = $this->cenarioDeResposta($dono, str_repeat('o', 200));
+        $this->donoComAcesso($dono);
+
+        $this->notificacaoService->expects($this->once())
+            ->method('criar')
+            ->with(
+                $this->anything(),
+                $this->anything(),
+                $this->anything(),
+                $this->anything(),
+                $this->callback(static function (?string $texto): bool {
+                    self::assertStringStartsWith('"' . str_repeat('r', 140) . '" · ', (string) $texto);
+                    self::assertStringEndsWith('"' . str_repeat('o', 80) . '"', (string) $texto);
+
+                    return true;
+                }),
+            )
+            ->willReturn(new Notificacao());
+
+        $this->useCase->executar($this->pasta, $this->autor, '<p>' . str_repeat('r', 300) . '</p>', $this->tenant, $raiz);
     }
 
     /**

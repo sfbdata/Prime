@@ -27,6 +27,8 @@ class Notificacao implements Auditavel, TenantAware
     public const TIPO_SERVICEDESK_NOVO = 'servicedesk_novo';
     public const TIPO_SERVICEDESK_ATRIBUICAO = 'servicedesk_atribuicao';
     public const TIPO_DJEN_PUBLICACAO = 'djen_publicacao';
+    /** Alguém respondeu, no Registro da pasta, um comentário do destinatário. */
+    public const TIPO_PASTA_RESPOSTA_REGISTRO = 'pasta_resposta_registro';
 
     /** Categorias de notificação (derivadas do tipo). */
     public const CATEGORIA_PESSOAL = 'pessoal';
@@ -203,6 +205,8 @@ class Notificacao implements Auditavel, TenantAware
             self::TIPO_SERVICEDESK_NOVO => 'bi-ticket-detailed text-primary',
             self::TIPO_SERVICEDESK_ATRIBUICAO => 'bi-person-check text-info',
             self::TIPO_DJEN_PUBLICACAO => 'bi-newspaper text-primary',
+            // Desenho (bluejus-central.js, tipo "direcionada"): `bi-person-check` em âmbar.
+            self::TIPO_PASTA_RESPOSTA_REGISTRO => 'bi-person-check text-warning',
             default => 'bi-bell text-secondary',
         };
     }
