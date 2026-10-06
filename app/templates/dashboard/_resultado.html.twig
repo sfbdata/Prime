@@ -388,14 +388,13 @@
                números do Total não são link: a soma conta duas vezes a meta com dois
                responsáveis, e a lista de destino não. #}
             {% set tAnt = dashboard.totaisAnteriores %}
-            {# Toda célula do Total empilha número + pílula (desenho). As 4 colunas de estoque
-               (ativas, vencidas, prazos) só ganham pílula quando existe a foto de data_de − 1
-               (valor anterior não nulo); sem ela, com período ativo, um espaçador invisível do
-               tamanho da pílula deixa os 7 números na mesma altura. Sem período não há pílula. #}
-            {% set antAtivas  = tAnt is null ? null : tAnt.metas_ativas %}
+            {# Toda célula do Total empilha número + pílula (desenho). Vencidas e Prazos só
+               ganham pílula quando existe a foto de data_de − 1 (valor anterior não nulo);
+               Metas/Demandas ativas não têm tendência (bases diferentes da foto). Sem pílula,
+               com período ativo, um espaçador invisível do tamanho dela deixa os 7 números na
+               mesma altura. Sem período não há pílula. #}
             {% set antVenc    = tAnt is null ? null : tAnt.metas_vencidas %}
             {% set antPraz    = tAnt is null ? null : tAnt.prazos %}
-            {% set antDemA    = tAnt is null ? null : tAnt.demandas_ativas %}
             <tfoot>
                 <tr class="db-total-row">
                     <th scope="row" class="db-td-colab">

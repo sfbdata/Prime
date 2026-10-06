@@ -26,12 +26,12 @@ final class LinhaAdvogadoDashboardOutput
         public readonly ?int   $totalMetasAnterior = null,
         public readonly ?int   $totalDemandasAnterior = null,
         public readonly ?int   $pastasCriadasAnterior = null,
-        // TENDÊNCIA DO ESTOQUE — as quatro métricas que não se reconstroem do passado, lidas da
-        // foto diária (`dashboard_foto`) do dia `data_de − 1`. Null quando não há período OU
-        // quando esta pessoa não foi fotografada naquele dia: sem foto, nada é inventado.
-        public readonly ?int   $metasAtivasAnterior = null,
+        // TENDÊNCIA DO ESTOQUE — vencidas e prazos próximos, que não se reconstroem do passado,
+        // lidos da foto diária (`dashboard_foto`) do dia `data_de − 1`. Null quando não há
+        // período OU quando esta pessoa não foi fotografada naquele dia: nada é inventado.
+        // (Metas/Demandas ativas ficam de fora: o painel as filtra por criação no período e a
+        // foto guarda o estoque inteiro — bases diferentes, comparação sem lastro.)
         public readonly ?int   $metasVencidasAnterior = null,
         public readonly ?int   $prazosProximosAnterior = null,
-        public readonly ?int   $demandasAtivasAnterior = null,
     ) {}
 }

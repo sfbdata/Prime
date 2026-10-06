@@ -14,10 +14,10 @@ use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Component\DomCrawler\Crawler;
 
 /**
- * Tendência das quatro colunas de ESTOQUE na linha de Total (Metas ativas, Vencidas, Prazos
- * próximos, Demandas ativas): a pílula só aparece quando existe a foto diária de
- * `data_de − 1` para as pessoas da tela, e a cor segue o significado do README — Vencidas e
- * Prazos caindo é verde, as filas (ativas) são sempre cinza.
+ * Tendência de Vencidas e Prazos próximos na linha de Total: a pílula só aparece quando existe
+ * a foto diária de `data_de − 1` para as pessoas da tela, e a cor segue o significado do
+ * README — cair é verde. Metas/Demandas ativas NÃO têm pílula nem com foto: o painel as filtra
+ * por criação no período e a foto guarda o estoque inteiro (bases diferentes).
  *
  * Período fixo de setembro/2026 → a foto procurada é a de 31/08/2026. Nada nestes cenários
  * tem meta ou pasta: o estoque de agora é zero em tudo, e o que muda é só a foto.
@@ -53,7 +53,7 @@ final class DashboardFotoTendenciaTelaTest extends DashboardWebTestCase
         return $crawler->filter('table > tfoot > tr.db-total-row > td');
     }
 
-    #[TestDox('com foto de data_de − 1 de todos, as 4 colunas de estoque ganham pílula com a cor do significado')]
+    #[TestDox('com foto de data_de − 1 de todos, Vencidas e Prazos ganham pílula; as ativas, não')]
     public function testComFotoMostraPilulas(): void
     {
         $client         = static::createClient();
@@ -66,24 +66,24 @@ final class DashboardFotoTendenciaTelaTest extends DashboardWebTestCase
 
         $tds = $this->celulasDoTotal($crawler);
         self::assertCount(8, $tds);
-        foreach ([self::ATIVAS, self::VENCIDAS, self::PRAZOS, self::DEMANDAS_ATIVAS] as $i) {
+        foreach ([self::VENCIDAS, self::PRAZOS] as $i) {
             self::assertCount(1, $tds->eq($i)->filter('td > .db-total-cel > .db-total-num + .db-tend'), 'pílula na coluna ' . $i);
             self::assertCount(0, $tds->eq($i)->filter('.db-total-espaco'), 'sem espaçador quando há pílula (coluna ' . $i . ')');
         }
+        foreach ([self::ATIVAS, self::DEMANDAS_ATIVAS] as $i) {
+            self::assertCount(0, $tds->eq($i)->filter('.db-tend'), 'ativas sem tendência, mesmo com foto (coluna ' . $i . ')');
+            self::assertCount(1, $tds->eq($i)->filter('.db-total-espaco'));
+        }
 
-        // Ativas: 20 → 0 é queda, mas fila é sempre cinza.
-        self::assertSame('desce', $tds->eq(self::ATIVAS)->filter('.db-tend')->attr('data-tendencia'));
-        self::assertStringContainsString('db-tend--igual', (string) $tds->eq(self::ATIVAS)->filter('.db-tend')->attr('class'));
-        self::assertStringContainsString('db-tend--igual', (string) $tds->eq(self::DEMANDAS_ATIVAS)->filter('.db-tend')->attr('class'));
         // Vencidas: 10 → 0 caiu, e cair é bom.
         self::assertStringContainsString('db-tend--bom', (string) $tds->eq(self::VENCIDAS)->filter('.db-tend')->attr('class'));
         self::assertStringContainsString('(10 → 0)', (string) $tds->eq(self::VENCIDAS)->filter('.db-tend')->attr('title'));
 
-        // Celular: o card de Total leva as 7 pílulas.
-        self::assertCount(7, $crawler->filter('.db-cel-card--total .db-tend'));
+        // Celular: o card de Total leva 5 pílulas (3 reconstruíveis + Vencidas + Prazos).
+        self::assertCount(5, $crawler->filter('.db-cel-card--total .db-tend'));
     }
 
-    #[TestDox('sem foto naquele dia, as 4 colunas de estoque ficam sem pílula (só o espaçador)')]
+    #[TestDox('sem foto naquele dia, Vencidas e Prazos ficam sem pílula (só o espaçador)')]
     public function testSemFotoSemPilula(): void
     {
         $client             = static::createClient();

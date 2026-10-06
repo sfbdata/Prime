@@ -32,12 +32,13 @@ final class DashboardOutput
          *
          * - `metas`, `demandas`, `pastas_criadas`: reconstruídas por data de criação no período
          *   anterior de mesma duração — sempre int quando há período.
-         * - `metas_ativas`, `metas_vencidas`, `prazos`, `demandas_ativas`: estoque lido da foto
-         *   diária do dia `data_de − 1`. Int só quando TODA linha visível tem foto naquele dia;
-         *   null se faltar a de alguém (ou não houver linha) — somar parcial compararia grupos
-         *   diferentes.
+         * - `metas_vencidas`, `prazos`: estoque lido da foto diária do dia `data_de − 1` (o
+         *   painel as conta sem período, mesma base da foto). Int só quando TODA linha visível
+         *   tem foto naquele dia; null se faltar a de alguém (ou não houver linha) — somar
+         *   parcial compararia grupos diferentes. Metas/Demandas ativas não têm tendência: o
+         *   painel as filtra por criação no período e a foto é o estoque inteiro.
          *
-         * @var array{metas: int, demandas: int, pastas_criadas: int, metas_ativas: int|null, metas_vencidas: int|null, prazos: int|null, demandas_ativas: int|null}|null
+         * @var array{metas: int, demandas: int, pastas_criadas: int, metas_vencidas: int|null, prazos: int|null}|null
          */
         public readonly ?array $totaisAnteriores = null,
         /** `totalPastasCriadas` do período anterior, com o mesmo critério do card (antes da busca). */

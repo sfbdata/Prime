@@ -8,10 +8,12 @@
    Cor pelo SIGNIFICADO, não pela direção (README), escolhida por `sentido`:
      'alta' (padrão) → subir é bom: Total metas, Total demandas, Pastas criadas;
      'baixa'         → cair é bom: Vencidas, Prazos próximos;
-     'fila'          → sempre cinza: Metas ativas, Demandas ativas (fila aberta:
-                       subir ou cair não é bom nem ruim sozinho).
-   Estável (variação abaixo de 2%) é cinza em qualquer sentido. As quatro de
-   estoque comparam com a foto diária de data_de − 1 (dashboard_foto).
+     'fila'          → sempre cinza: métrica de fila aberta (subir ou cair não é
+                       bom nem ruim sozinho). Hoje sem uso: Metas/Demandas ativas
+                       não têm tendência (o painel as filtra por período e a foto
+                       é o estoque inteiro).
+   Estável (variação abaixo de 2%) é cinza em qualquer sentido. Vencidas e Prazos
+   comparam com a foto diária de data_de − 1 (dashboard_foto).
 
    modo 'pilula' → linha de Total: seta + "+8%" / "−6%" / "0%" / "novo", title
                    "Subiu 8% em relação ao período anterior (141 → 152)".

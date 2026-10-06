@@ -105,9 +105,10 @@ final class ObterDadosDashboardUseCase
             $mAntCriadas       = $this->pastaRepository->countCriadasPorCriador($tenant, $filtrosAnteriores);
         }
 
-        // Estoque anterior (metas/demandas ativas, vencidas, prazos próximos): não se reconstrói
-        // do passado, então vem da foto diária do dia `data_de − 1` — que é exatamente o fim do
-        // período anterior. Quem não foi fotografado naquele dia fica sem tendência (null).
+        // Estoque anterior (vencidas, prazos próximos): não se reconstrói do passado, então vem
+        // da foto diária do dia `data_de − 1` — exatamente o fim do período anterior. Quem não
+        // foi fotografado naquele dia fica sem tendência (null). Metas/Demandas ativas não
+        // entram: o painel as filtra por criação no período, a foto é o estoque inteiro.
         $mEstoqueAnterior = [];
         if ($comAnterior && $colaboradores !== []) {
             $mEstoqueAnterior = $this->dashboardFotoRepository->buscarPorReferencia(
@@ -139,10 +140,8 @@ final class ObterDadosDashboardUseCase
                 totalMetasAnterior:    $comAnterior ? ($mAntTarefa[$id]  ?? 0) : null,
                 totalDemandasAnterior: $comAnterior ? ($mAntPasta[$id]   ?? 0) : null,
                 pastasCriadasAnterior: $comAnterior ? ($mAntCriadas[$id] ?? 0) : null,
-                metasAtivasAnterior:    $estoque['metas_ativas']    ?? null,
                 metasVencidasAnterior:  $estoque['metas_vencidas']  ?? null,
                 prazosProximosAnterior: $estoque['prazos_proximos'] ?? null,
-                demandasAtivasAnterior: $estoque['demandas_ativas'] ?? null,
             );
         }
 
@@ -162,10 +161,8 @@ final class ObterDadosDashboardUseCase
                 'demandas'       => $this->somar($linhas, 'totalDemandasAnterior'),
                 'pastas_criadas' => $this->somar($linhas, 'pastasCriadasAnterior'),
                 // Estoque: só com foto de TODAS as linhas visíveis (ver DashboardOutput).
-                'metas_ativas'    => $this->somarSeTodos($linhas, 'metasAtivasAnterior'),
                 'metas_vencidas'  => $this->somarSeTodos($linhas, 'metasVencidasAnterior'),
                 'prazos'          => $this->somarSeTodos($linhas, 'prazosProximosAnterior'),
-                'demandas_ativas' => $this->somarSeTodos($linhas, 'demandasAtivasAnterior'),
             ]
             : null;
 

@@ -811,7 +811,7 @@ final class ObterDadosDashboardUseCaseTest extends TestCase
         self::assertSame(10, $porId[1]->totalMetas);
         self::assertSame(6, $porId[1]->pastasCriadas);
 
-        self::assertSame(['metas' => 9, 'demandas' => 4, 'pastas_criadas' => 9, 'metas_ativas' => null, 'metas_vencidas' => null, 'prazos' => null, 'demandas_ativas' => null], $output->totaisAnteriores);
+        self::assertSame(['metas' => 9, 'demandas' => 4, 'pastas_criadas' => 9, 'metas_vencidas' => null, 'prazos' => null], $output->totaisAnteriores);
         self::assertSame(10, $output->totalPastasCriadas);
         self::assertSame(9, $output->totalPastasCriadasAnterior);
     }
@@ -905,7 +905,7 @@ final class ObterDadosDashboardUseCaseTest extends TestCase
         ]);
 
         self::assertSame([2], array_map(static fn ($l): int => $l->userId, $output->porAdvogado));
-        self::assertSame(['metas' => 1, 'demandas' => 0, 'pastas_criadas' => 9, 'metas_ativas' => null, 'metas_vencidas' => null, 'prazos' => null, 'demandas_ativas' => null], $output->totaisAnteriores);
+        self::assertSame(['metas' => 1, 'demandas' => 0, 'pastas_criadas' => 9, 'metas_vencidas' => null, 'prazos' => null], $output->totaisAnteriores);
         // Cards: antes da busca (Alice + Bruno).
         self::assertSame(10, $output->totalPastasCriadas);
         self::assertSame(9, $output->totalPastasCriadasAnterior);
@@ -924,7 +924,7 @@ final class ObterDadosDashboardUseCaseTest extends TestCase
         ]);
 
         self::assertSame([], $output->porAdvogado);
-        self::assertSame(['metas' => 0, 'demandas' => 0, 'pastas_criadas' => 0, 'metas_ativas' => null, 'metas_vencidas' => null, 'prazos' => null, 'demandas_ativas' => null], $output->totaisAnteriores);
+        self::assertSame(['metas' => 0, 'demandas' => 0, 'pastas_criadas' => 0, 'metas_vencidas' => null, 'prazos' => null], $output->totaisAnteriores);
         self::assertSame(0, $output->totalPastasCriadasAnterior);
     }
 
@@ -982,8 +982,6 @@ final class ObterDadosDashboardUseCaseTest extends TestCase
         self::assertSame([['dia' => '2024-01-10', 'ids' => [1, 2]]], $consultas, 'uma consulta, na véspera de data_de, com as pessoas visíveis');
 
         $porId = $this->porId($output);
-        self::assertSame(4, $porId[1]->metasAtivasAnterior);
-        self::assertSame(6, $porId[1]->demandasAtivasAnterior);
         self::assertSame(3, $porId[1]->metasVencidasAnterior);
         self::assertSame(2, $porId[1]->prazosProximosAnterior);
         self::assertSame(1, $porId[2]->metasVencidasAnterior);
@@ -991,10 +989,11 @@ final class ObterDadosDashboardUseCaseTest extends TestCase
         self::assertSame(5, $porId[1]->metasAtivas);
         self::assertSame(2, $porId[1]->metasVencidas);
 
-        self::assertSame(7, $output->totaisAnteriores['metas_ativas']);
         self::assertSame(4, $output->totaisAnteriores['metas_vencidas']);
         self::assertSame(2, $output->totaisAnteriores['prazos']);
-        self::assertSame(7, $output->totaisAnteriores['demandas_ativas']);
+        // Metas/Demandas ativas não têm tendência, mesmo com foto: bases diferentes.
+        self::assertArrayNotHasKey('metas_ativas', $output->totaisAnteriores);
+        self::assertArrayNotHasKey('demandas_ativas', $output->totaisAnteriores);
         // As três chaves de antes continuam lá, com o mesmo significado.
         self::assertSame(0, $output->totaisAnteriores['metas']);
         self::assertSame(0, $output->totaisAnteriores['demandas']);
@@ -1010,15 +1009,11 @@ final class ObterDadosDashboardUseCaseTest extends TestCase
         $output = $this->sut->executar($this->tenant, $this->referencia, ['data_de' => '2024-01-11', 'data_ate' => '2024-01-20']);
 
         foreach ($output->porAdvogado as $linha) {
-            self::assertNull($linha->metasAtivasAnterior);
-            self::assertNull($linha->demandasAtivasAnterior);
             self::assertNull($linha->metasVencidasAnterior);
             self::assertNull($linha->prazosProximosAnterior);
         }
-        self::assertNull($output->totaisAnteriores['metas_ativas']);
         self::assertNull($output->totaisAnteriores['metas_vencidas']);
         self::assertNull($output->totaisAnteriores['prazos']);
-        self::assertNull($output->totaisAnteriores['demandas_ativas']);
         self::assertSame(0, $output->totaisAnteriores['metas'], 'as métricas reconstruíveis não dependem da foto');
     }
 
@@ -1031,9 +1026,9 @@ final class ObterDadosDashboardUseCaseTest extends TestCase
         $output = $this->sut->executar($this->tenant, $this->referencia, ['data_de' => '2024-01-11', 'data_ate' => '2024-01-20']);
 
         $porId = $this->porId($output);
-        self::assertSame(4, $porId[1]->metasAtivasAnterior);
-        self::assertNull($porId[2]->metasAtivasAnterior);
-        self::assertNull($output->totaisAnteriores['metas_ativas']);
+        self::assertSame(3, $porId[1]->metasVencidasAnterior);
+        self::assertNull($porId[2]->metasVencidasAnterior);
+        self::assertNull($output->totaisAnteriores['metas_vencidas']);
         self::assertNull($output->totaisAnteriores['prazos']);
     }
 
@@ -1045,10 +1040,8 @@ final class ObterDadosDashboardUseCaseTest extends TestCase
 
         $output = $this->sut->executar($this->tenant, $this->referencia, ['data_de' => '2024-01-11', 'data_ate' => '2024-01-20', 'busca' => 'ali']);
 
-        self::assertSame(4, $output->totaisAnteriores['metas_ativas']);
         self::assertSame(3, $output->totaisAnteriores['metas_vencidas']);
         self::assertSame(2, $output->totaisAnteriores['prazos']);
-        self::assertSame(6, $output->totaisAnteriores['demandas_ativas']);
     }
 
     /** @return iterable<string, array{0: string, 1: string, 2: string}> */
@@ -1081,6 +1074,6 @@ final class ObterDadosDashboardUseCaseTest extends TestCase
 
         self::assertSame([], $consultas);
         self::assertNull($output->totaisAnteriores);
-        self::assertNull($this->porId($output)[1]->metasAtivasAnterior);
+        self::assertNull($this->porId($output)[1]->metasVencidasAnterior);
     }
 }
