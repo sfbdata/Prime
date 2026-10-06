@@ -106,7 +106,7 @@ final class PastaExploradorZipCopiarTest extends TestCase
         self::assertStringNotContainsString('innerHTML', $this->js());
     }
 
-    #[TestDox('barra (dc `barra` L4845): ordem Baixar, Copiar, Recortar, Renomear, Selecionar tudo, Excluir; Baixar troca o rótulo (arquivo direto, pasta ou vários em .zip); Copiar só com arquivo')]
+    #[TestDox('barra (dc `barra` L4845): ordem Baixar, Copiar, Recortar, Renomear, Selecionar tudo, Excluir; Baixar troca o rótulo (arquivo direto, pasta ou vários em .zip); Copiar desabilitado só com pastas')]
     public function testBarra(): void
     {
         $tpl = (string) file_get_contents(self::TPL);
@@ -120,7 +120,11 @@ final class PastaExploradorZipCopiarTest extends TestCase
         $js = $this->funcao('renderizarBarra');
         self::assertStringContainsString("if (rotulo) rotulo.textContent = sel.length > 1 ? 'Baixar ' + sel.length + ' itens (.zip)' : (direto ? 'Baixar' : 'Baixar (.zip)');", $js);
         self::assertStringContainsString("baixar.title = direto ? 'Baixar o arquivo' : 'Baixar tudo que está selecionado em um arquivo .zip';", $js);
-        self::assertStringContainsString('if (copiar) copiar.hidden = !sel.some(ehArquivo);', $js);
+        self::assertStringContainsString('const soPastas = !sel.some(ehArquivo);', $js);
+        self::assertStringContainsString('copiar.hidden = false;', $js, 'o Copiar não some: fica no lugar do desenho');
+        self::assertStringContainsString('copiar.disabled = soPastas;', $js);
+        self::assertStringContainsString("copiar.setAttribute('aria-disabled', soPastas ? 'true' : 'false');", $js);
+        self::assertStringContainsString("copiar.title = soPastas ? COPIAR_SO_PASTAS : 'Copiar (Ctrl+C)';", $js);
         self::assertStringContainsString("case 'copiar':   copiar(sel); break;", $this->js());
         // Um arquivo baixa direto (o link de sempre); o resto vira .zip.
         self::assertStringContainsString("if (sel.length === 1 && ehArquivo(sel[0])) { baixar(sel[0].dado); return; }\n        baixarZip(sel);", $this->funcao('baixarSelecao'));
@@ -179,7 +183,7 @@ final class PastaExploradorZipCopiarTest extends TestCase
         self::assertStringContainsString("if (novos.length < res.j.copiados.length) { recarregarDocumentos('Itens copiados. Atualizando a lista…'); return true; }", $lote);
     }
 
-    #[TestDox('menus (dc `ctxItens`): vários abrem com "Baixar como .zip (N)"; pasta tem "Baixar como .zip" no lugar do Baixar e não tem Copiar; arquivo tem Copiar logo depois de Recortar')]
+    #[TestDox('menus (dc `ctxItens`): vários abrem com "Baixar como .zip (N)"; pasta tem "Baixar como .zip" no lugar do Baixar; Copiar logo depois de Recortar em todos, DESABILITADO (aria-disabled + title) sem arquivo')]
     public function testMenus(): void
     {
         $menu = $this->funcao('opcoesDoMenu');
@@ -189,8 +193,14 @@ final class PastaExploradorZipCopiarTest extends TestCase
         $zipN = strpos($menu, "return [op('Baixar como .zip (' + sel.length + ')', 'bi-file-earmark-zip', function () { baixarZip(sel); })]", $multi);
         self::assertNotFalse($zipN, 'primeiro item do menu de vários');
         self::assertLessThan(strpos($menu, "op('Copiar links'", $multi), $zipN);
-        self::assertStringContainsString("arqs.length ? [op('Copiar', 'bi-copy', function () { copiar(sel); }, { atalho: 'Ctrl+C' })] : []", $menu, 'vários sem arquivo: sem Copiar');
+        self::assertStringContainsString("op('Recortar', 'bi-scissors', function () { recortar(sel); }, { atalho: 'Ctrl+X' }),\n                opCopiar(sel),", $menu);
+        self::assertStringNotContainsString('arqs.length ? [op(\'Copiar\'', $menu, 'o Copiar não some sem arquivo');
         self::assertStringContainsString(".concat(ehPasta ? [\n                op('Baixar como .zip', 'bi-download', function () { baixarZip([alvo]); }),\n            ] : [", $menu);
-        self::assertStringContainsString(".concat(ehPasta ? [] : [op('Copiar', 'bi-copy', function () { copiar([alvo]); }, { atalho: 'Ctrl+C' })])", $menu);
+        self::assertStringContainsString(".concat([opCopiar([alvo])])", $menu, 'pasta e arquivo: o Copiar está sempre lá');
+        $opCopiar = $this->funcao('opCopiar');
+        self::assertStringContainsString('const soPastas = !itens.some(ehArquivo);', $opCopiar);
+        self::assertStringContainsString("return op('Copiar', 'bi-copy', function () { copiar(itens); }, { atalho: 'Ctrl+C', desabilitado: soPastas, titulo: soPastas ? COPIAR_SO_PASTAS : '' });", $opCopiar);
+        self::assertStringContainsString("const COPIAR_SO_PASTAS = 'Pastas não são copiadas';", $this->js());
+        self::assertStringContainsString("if (o.desabilitado) { n.disabled = true; n.setAttribute('aria-disabled', 'true'); }\n            if (o.titulo) n.title = o.titulo;", $this->js());
     }
 }

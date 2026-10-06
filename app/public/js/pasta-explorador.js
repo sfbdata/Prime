@@ -1336,8 +1336,14 @@
             if (rotulo) rotulo.textContent = sel.length > 1 ? 'Baixar ' + sel.length + ' itens (.zip)' : (direto ? 'Baixar' : 'Baixar (.zip)');
             baixar.title = direto ? 'Baixar o arquivo' : 'Baixar tudo que está selecionado em um arquivo .zip';
         }
-        // Copiar só com algum arquivo: pastas não são copiadas (D6).
-        if (copiar) copiar.hidden = !sel.some(ehArquivo);
+        // Copiar fica no lugar do desenho; só pastas → desabilitado (o servidor não copia pastas, D6).
+        if (copiar) {
+            const soPastas = !sel.some(ehArquivo);
+            copiar.hidden = false;
+            copiar.disabled = soPastas;
+            copiar.setAttribute('aria-disabled', soPastas ? 'true' : 'false');
+            copiar.title = soPastas ? COPIAR_SO_PASTAS : 'Copiar (Ctrl+C)';
+        }
         if (renomear) renomear.hidden = sel.length !== 1;
     }
     if (el.selecao) {
@@ -1762,8 +1768,8 @@
     /* dc `ctxItens` (L4797-4834), na ordem do desenho, só com o que tem ação hoje:
        - "Encaminhar via Chat I.A" é item E e não é renderizado;
        - "Baixar como .zip (N)" (vários) e "Baixar como .zip" (uma pasta) são do L8 (D5);
-       - Copiar (L8, D6) só entra com algum ARQUIVO no alvo: o servidor não copia pastas, então
-         no menu de UMA pasta o item do desenho fica de fora (seria um clique que não faz nada);
+       - Copiar (L8, D6) fica sempre no lugar do desenho; sem ARQUIVO no alvo (uma pasta, ou
+         vários só de pastas) ele vem DESABILITADO com o porquê no title — o servidor não copia pastas;
        - favorito (L6, dc L4820) logo depois de "Copiar caminho". No menu de VÁRIOS o desenho não
          tem o item; entra por função do sistema (marcar/tirar a seleção de uma vez);
        - "Compartilhar link" vira "Copiar link" INTERNO (S-12): a URL de visualização, absoluta;
@@ -1772,7 +1778,7 @@
     let menuAcoes = [];
     function op(rotulo, ico, acao, extra) {
         extra = extra || {};
-        return { rotulo: rotulo, icone: ico, acao: acao, atalho: extra.atalho || '', perigo: !!extra.perigo, desabilitado: !!extra.desabilitado };
+        return { rotulo: rotulo, icone: ico, acao: acao, atalho: extra.atalho || '', perigo: !!extra.perigo, desabilitado: !!extra.desabilitado, titulo: extra.titulo || '' };
     }
     function opcoesDoMenu(alvo) {
         const sel = itensSelecionados();
@@ -1799,7 +1805,8 @@
             return [op('Baixar como .zip (' + sel.length + ')', 'bi-file-earmark-zip', function () { baixarZip(sel); })].concat(arqs.length ? [op('Copiar links' + (arqs.length < sel.length ? ' (' + arqs.length + ')' : ''), 'bi-link-45deg', function () { copiarLinks(arqs); })] : [], [
                 SEP,
                 op('Recortar', 'bi-scissors', function () { recortar(sel); }, { atalho: 'Ctrl+X' }),
-            ], arqs.length ? [op('Copiar', 'bi-copy', function () { copiar(sel); }, { atalho: 'Ctrl+C' })] : [], [
+                opCopiar(sel),
+            ], [
                 op('Mover para…', 'bi-folder-symlink', function () { escolherDestino(sel); }),
                 op('Copiar caminhos', 'bi-signpost', function () { copiarCaminhos(sel); }),
                 opFavorito(sel),
@@ -1823,7 +1830,7 @@
                 SEP,
                 op('Recortar', 'bi-scissors', function () { recortar([alvo]); }, { atalho: 'Ctrl+X' }),
             ])
-            .concat(ehPasta ? [] : [op('Copiar', 'bi-copy', function () { copiar([alvo]); }, { atalho: 'Ctrl+C' })])
+            .concat([opCopiar([alvo])])
             .concat(ehPasta ? [op('Colar', 'bi-clipboard', function () { colarEm(alvo.id); }, { atalho: 'Ctrl+V', desabilitado: !areaDeTransferencia })] : [])
             .concat([
                 // "Mover para…" (modal de destino) é função do sistema (§16.7); o desenho é omisso.
@@ -1839,6 +1846,12 @@
                 SEP,
                 op('Propriedades', 'bi-info-square', mostrarPainel),
             ]);
+    }
+    // Copiar (dc L4803/L4817): sem arquivo no alvo, o item continua no lugar, desabilitado.
+    const COPIAR_SO_PASTAS = 'Pastas não são copiadas';
+    function opCopiar(itens) {
+        const soPastas = !itens.some(ehArquivo);
+        return op('Copiar', 'bi-copy', function () { copiar(itens); }, { atalho: 'Ctrl+C', desabilitado: soPastas, titulo: soPastas ? COPIAR_SO_PASTAS : '' });
     }
     // Rótulos e ícones do desenho (dc L4820): desmarcado mostra a estrela cheia, marcado a vazia.
     // Com vários, "Tirar" só quando TODOS já são favoritos; senão marca os que faltam.
@@ -1865,7 +1878,8 @@
             n.querySelector('.pex-ctx-rotulo').textContent = o.rotulo;
             n.querySelector('.pex-ctx-atalho').textContent = o.atalho;
             if (o.perigo) n.classList.add('pex-ctx-item--perigo');
-            if (o.desabilitado) n.disabled = true;
+            if (o.desabilitado) { n.disabled = true; n.setAttribute('aria-disabled', 'true'); }
+            if (o.titulo) n.title = o.titulo;
             n.dataset.pexMenuI = String(menuAcoes.length);
             menuAcoes.push(o.acao);
             frag.appendChild(n);
