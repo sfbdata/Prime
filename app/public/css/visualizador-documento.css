@@ -1,0 +1,90 @@
+/* ==========================================================================
+   Visualizador de documentos (#previewDocModal) — DOCX, planilhas e texto
+   Escopado ao modal. Tema-aware: só variáveis do Bootstrap 5.3 (--bs-*), que
+   viram no tema escuro. Raio ≤ 4px. O conteúdo de DOCX/planilha fica dentro
+   de um iframe sandbox (folha clara, como o PDF) — este CSS cuida da moldura.
+   ========================================================================== */
+
+#previewDocModal .vd-documento,
+#previewDocModal .vd-planilha,
+#previewDocModal .vd-texto-area {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+#previewDocModal .vd-quadro {
+    display: block;
+    height: 75vh;
+    background: #fff;
+}
+
+#previewDocModal .vd-planilha .vd-quadro {
+    height: calc(75vh - 40px);
+    border-top: 1px solid var(--bs-border-color) !important;
+}
+
+/* ---------------------------------------------------------------- abas -- */
+#previewDocModal .vd-abas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+    padding: 8px 8px 0;
+    background: var(--bs-tertiary-bg);
+}
+
+#previewDocModal .vd-aba {
+    height: 30px;
+    max-width: 240px;
+    padding: 0 12px;
+    border: 1px solid var(--bs-border-color);
+    border-bottom: 0;
+    border-radius: 4px 4px 0 0;
+    background: var(--bs-secondary-bg);
+    color: var(--bs-secondary-color);
+    font-size: .8125rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+}
+
+#previewDocModal .vd-aba:hover {
+    color: var(--bs-emphasis-color);
+}
+
+#previewDocModal .vd-aba.ativa {
+    background: var(--bs-body-bg);
+    color: var(--bs-emphasis-color);
+}
+
+#previewDocModal .vd-aba:focus-visible {
+    outline: 2px solid var(--bs-primary);
+    outline-offset: -2px;
+}
+
+/* --------------------------------------------------------------- aviso -- */
+#previewDocModal .vd-aviso {
+    padding: 6px 12px;
+    font-size: .8125rem;
+    color: var(--bs-secondary-color);
+    background: var(--bs-body-bg);
+    border-bottom: 1px solid var(--bs-border-color);
+}
+
+/* --------------------------------------------------------------- texto -- */
+#previewDocModal .vd-texto {
+    margin: 0;
+    max-height: 75vh;
+    overflow: auto;
+    padding: 16px 20px;
+    background: var(--bs-tertiary-bg);
+    color: var(--bs-body-color);
+    font-family: var(--bs-font-monospace);
+    font-size: .8125rem;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    text-align: left;
+}
