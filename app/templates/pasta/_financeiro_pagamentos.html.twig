@@ -70,4 +70,20 @@
             </button>
         </div>
     {% endfor %}
+
+    {# Folha do "Imprimir extrato" (menu ⋮ do card). Vive AQUI, no bloco que o
+       servidor re-renderiza, para que o extrato conte sempre a mesma história que
+       o card: mesmo DTO, mesmos totais. Fica escondida; o JS a copia para a folha
+       de impressão (`@media print`, seção Financeiro do pasta-show.css). Lista
+       TODOS os lançamentos, pagos inclusive, como o desenho. #}
+    <div class="ps-fin-extrato" id="psExtratoFolha" hidden>
+        <p class="ps-fin-extrato-total">
+            <strong>{{ pagamentos.recebidoFormatado }}</strong> recebidos de <strong>{{ pagamentos.previstoFormatado }}</strong>
+        </p>
+        <ul class="ps-fin-extrato-lista">
+            {% for linha in pagamentos.todos %}
+                <li data-pago="{{ linha.pago ? '1' : '0' }}">{{ linha.descricao }}: {{ linha.valorFormatado }} · {{ linha.quando }}</li>
+            {% endfor %}
+        </ul>
+    </div>
 {% endif %}

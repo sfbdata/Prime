@@ -286,35 +286,74 @@
                                 <div class="ps-doc-nome" title="{{ doc.titulo }}">{{ doc.titulo }}</div>
                                 <div class="ps-doc-meta">{{ doc.tamanhoBytes|formatar_bytes }} · {{ doc.carregadoEm|date('d/m/Y') }}</div>
                             </div>
+                            {# Menu ⋮ do arquivo (desenho 1.2.3, "Mais ações do arquivo"). Só entram
+                               as ações que têm função de verdade: abrir no visualizador, baixar,
+                               copiar o nome, renomear, ver no gerenciador e excluir. "Encaminhar
+                               via Chat I.A" e "Enviar por e-mail ao cliente" do desenho dependem de
+                               função nova e ficam fora (§1.3 da spec).
+                               As classes `btn-renomear-doc`/`btn-excluir-doc` e os `data-*` são os
+                               mesmos de antes: o JS deste arquivo escuta por delegação na lista.
+                               A MESMA estrutura é montada em JS (`criarItemDoc`, abaixo). #}
                             <div class="ps-fin-doc-acoes">
                                 <button type="button"
-                                        class="ps-anotacao-acao"
-                                        title="Visualizar"
-                                        data-bs-toggle="modal"
-                                        data-bs-target="#previewDocModal"
-                                        data-url="{{ path('pasta_financeiro_documento_view', {id: pasta.id, docId: doc.id}) }}"
-                                        data-download="{{ path('pasta_financeiro_documento_download', {id: pasta.id, docId: doc.id}) }}"
-                                        data-nome="{{ doc.titulo }}"
-                                        data-mime="{{ doc.mimeType }}">
-                                    <i class="bi bi-eye"></i>
+                                        class="ps-fin-menu-gatilho"
+                                        title="Mais ações do arquivo"
+                                        aria-label="Mais ações do arquivo"
+                                        aria-haspopup="menu"
+                                        aria-expanded="false"
+                                        aria-controls="financeiro-doc-menu-{{ doc.id }}">
+                                    <i class="bi bi-three-dots-vertical"></i>
                                 </button>
-                                <button type="button"
-                                        class="ps-anotacao-acao btn-renomear-doc"
-                                        title="Renomear"
-                                        data-doc-id="{{ doc.id }}"
-                                        data-titulo="{{ doc.titulo }}"
-                                        data-csrf="{{ csrf_token('pasta_financeiro_renomear_' ~ doc.id) }}"
-                                        data-url="{{ path('pasta_financeiro_documento_renomear', {id: pasta.id, docId: doc.id}) }}">
-                                    <i class="bi bi-pencil"></i>
-                                </button>
-                                <button type="button"
-                                        class="ps-anotacao-acao ps-anotacao-acao--perigo btn-excluir-doc"
-                                        title="Excluir"
-                                        data-doc-id="{{ doc.id }}"
-                                        data-csrf="{{ csrf_token('pasta_financeiro_excluir_' ~ doc.id) }}"
-                                        data-url="{{ path('pasta_financeiro_documento_excluir', {id: pasta.id, docId: doc.id}) }}">
-                                    <i class="bi bi-trash3"></i>
-                                </button>
+                                <div class="ps-fin-menu" id="financeiro-doc-menu-{{ doc.id }}" role="menu" hidden>
+                                    <div class="ps-fin-menu-titulo" title="{{ doc.titulo }}">{{ doc.titulo }}</div>
+                                    <button type="button"
+                                            class="ps-fin-menu-item"
+                                            role="menuitem"
+                                            title="Visualizar"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#previewDocModal"
+                                            data-url="{{ path('pasta_financeiro_documento_view', {id: pasta.id, docId: doc.id}) }}"
+                                            data-download="{{ path('pasta_financeiro_documento_download', {id: pasta.id, docId: doc.id}) }}"
+                                            data-nome="{{ doc.titulo }}"
+                                            data-mime="{{ doc.mimeType }}">
+                                        <i class="bi bi-box-arrow-up-right"></i><span>Abrir</span>
+                                    </button>
+                                    <a class="ps-fin-menu-item"
+                                       role="menuitem"
+                                       href="{{ path('pasta_financeiro_documento_download', {id: pasta.id, docId: doc.id}) }}">
+                                        <i class="bi bi-download"></i><span>Baixar</span>
+                                    </a>
+                                    <button type="button"
+                                            class="ps-fin-menu-item js-fin-doc-copiar-nome"
+                                            role="menuitem">
+                                        <i class="bi bi-clipboard"></i><span>Copiar nome do arquivo</span>
+                                    </button>
+                                    <button type="button"
+                                            class="ps-fin-menu-item btn-renomear-doc"
+                                            role="menuitem"
+                                            title="Renomear"
+                                            data-doc-id="{{ doc.id }}"
+                                            data-titulo="{{ doc.titulo }}"
+                                            data-csrf="{{ csrf_token('pasta_financeiro_renomear_' ~ doc.id) }}"
+                                            data-url="{{ path('pasta_financeiro_documento_renomear', {id: pasta.id, docId: doc.id}) }}">
+                                        <i class="bi bi-pencil"></i><span>Renomear</span>
+                                    </button>
+                                    <button type="button"
+                                            class="ps-fin-menu-item js-fin-doc-ver-documentos"
+                                            role="menuitem">
+                                        <i class="bi bi-folder2-open"></i><span>Ver em Documentos</span>
+                                    </button>
+                                    <div class="ps-fin-menu-sep" role="separator"></div>
+                                    <button type="button"
+                                            class="ps-fin-menu-item ps-fin-menu-item--perigo btn-excluir-doc"
+                                            role="menuitem"
+                                            title="Excluir"
+                                            data-doc-id="{{ doc.id }}"
+                                            data-csrf="{{ csrf_token('pasta_financeiro_excluir_' ~ doc.id) }}"
+                                            data-url="{{ path('pasta_financeiro_documento_excluir', {id: pasta.id, docId: doc.id}) }}">
+                                        <i class="bi bi-trash3"></i><span>Excluir</span>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     {% endfor %}
@@ -364,6 +403,49 @@
                     <button type="button" class="ps-fin-link" id="psPagamentosVerTodos"
                             title="Mostrar também os já pagos">ver todos</button>
                 {% endif %}
+                {# ⋮ do card (desenho 1.2.3): só o que tem função hoje. "Editar ou corrigir
+                   valores" depende de histórico de correção que não existe (fila de D) e
+                   fica fora. Os itens de extrato somem quando não há lançamento: o JS
+                   confere, na abertura, se a folha `#psExtratoFolha` existe no corpo. #}
+                <button type="button"
+                        class="ps-fin-menu-gatilho ps-fin-menu-gatilho--cab"
+                        id="psPagamentosMenuBtn"
+                        title="Mais opções"
+                        aria-label="Mais opções de pagamentos"
+                        aria-haspopup="menu"
+                        aria-expanded="false"
+                        aria-controls="psPagamentosMenu">
+                    <i class="bi bi-three-dots-vertical"></i>
+                </button>
+                <div class="ps-fin-menu" id="psPagamentosMenu" role="menu" hidden>
+                    <div class="ps-fin-menu-titulo">Pagamentos</div>
+                    <button type="button" class="ps-fin-menu-item" role="menuitem"
+                            data-bs-toggle="modal" data-bs-target="#modalNovoPagamento">
+                        <i class="bi bi-plus-lg"></i><span>Adicionar pagamento</span>
+                    </button>
+                    <button type="button" class="ps-fin-menu-item js-pag-ver-todos" role="menuitem">
+                        <i class="bi bi-list-ul"></i><span>Ver todos os lançamentos</span>
+                    </button>
+                    <div class="ps-fin-menu-sep js-pag-so-com-extrato" role="separator"></div>
+                    <button type="button" class="ps-fin-menu-item js-pag-copiar-resumo js-pag-so-com-extrato" role="menuitem">
+                        <i class="bi bi-clipboard"></i><span>Copiar resumo</span>
+                    </button>
+                    <button type="button" class="ps-fin-menu-item js-pag-imprimir-extrato js-pag-so-com-extrato" role="menuitem">
+                        <i class="bi bi-printer"></i><span>Imprimir extrato</span>
+                    </button>
+                </div>
+            </div>
+
+            {# Cabeçalho da folha do extrato. Fica FORA de `#psPagamentosCorpo` porque
+               não muda com os lançamentos; a lista vem do corpo, que o servidor
+               re-renderiza a cada mudança — por isso o extrato impresso é sempre o
+               que está na tela. O JS junta os dois numa folha só na hora de imprimir. #}
+            <div class="ps-fin-extrato-cab" id="psExtratoCabecalho" hidden>
+                <div class="ps-fin-extrato-titulo">Extrato de pagamentos</div>
+                <div class="ps-fin-extrato-pasta">
+                    Pasta {{ pasta.nup ?? ('#' ~ pasta.id) }}{% if pasta.nomeCliente %} · {{ pasta.nomeCliente }}{% endif %}
+                </div>
+                <div class="ps-fin-extrato-emissao">Emitido em <span class="js-extrato-emitido-em"></span></div>
             </div>
 
             <div id="psPagamentosCorpo">
@@ -637,33 +719,58 @@
             </div>
             <div class="ps-fin-doc-acoes">
                 <button type="button"
-                        class="ps-anotacao-acao"
-                        title="Visualizar"
-                        data-bs-toggle="modal"
-                        data-bs-target="#previewDocModal"
-                        data-url="${esc(urlVisualizar)}"
-                        data-download="${esc(urlDownload)}"
-                        data-nome="${esc(titulo)}"
-                        data-mime="${esc(mimeType)}">
-                    <i class="bi bi-eye"></i>
+                        class="ps-fin-menu-gatilho"
+                        title="Mais ações do arquivo"
+                        aria-label="Mais ações do arquivo"
+                        aria-haspopup="menu"
+                        aria-expanded="false"
+                        aria-controls="financeiro-doc-menu-${esc(id)}">
+                    <i class="bi bi-three-dots-vertical"></i>
                 </button>
-                <button type="button"
-                        class="ps-anotacao-acao btn-renomear-doc"
-                        title="Renomear"
-                        data-doc-id="${id}"
-                        data-titulo="${esc(titulo)}"
-                        data-csrf="${esc(csrfRenomear)}"
-                        data-url="${esc(urlRenomear)}">
-                    <i class="bi bi-pencil"></i>
-                </button>
-                <button type="button"
-                        class="ps-anotacao-acao ps-anotacao-acao--perigo btn-excluir-doc"
-                        title="Excluir"
-                        data-doc-id="${id}"
-                        data-csrf="${esc(csrfExcluir)}"
-                        data-url="${esc(urlExcluir)}">
-                    <i class="bi bi-trash3"></i>
-                </button>
+                <div class="ps-fin-menu" id="financeiro-doc-menu-${esc(id)}" role="menu" hidden>
+                    <div class="ps-fin-menu-titulo" title="${esc(titulo)}">${esc(titulo)}</div>
+                    <button type="button"
+                            class="ps-fin-menu-item"
+                            role="menuitem"
+                            title="Visualizar"
+                            data-bs-toggle="modal"
+                            data-bs-target="#previewDocModal"
+                            data-url="${esc(urlVisualizar)}"
+                            data-download="${esc(urlDownload)}"
+                            data-nome="${esc(titulo)}"
+                            data-mime="${esc(mimeType)}">
+                        <i class="bi bi-box-arrow-up-right"></i><span>Abrir</span>
+                    </button>
+                    <a class="ps-fin-menu-item" role="menuitem" href="${esc(urlDownload)}">
+                        <i class="bi bi-download"></i><span>Baixar</span>
+                    </a>
+                    <button type="button" class="ps-fin-menu-item js-fin-doc-copiar-nome" role="menuitem">
+                        <i class="bi bi-clipboard"></i><span>Copiar nome do arquivo</span>
+                    </button>
+                    <button type="button"
+                            class="ps-fin-menu-item btn-renomear-doc"
+                            role="menuitem"
+                            title="Renomear"
+                            data-doc-id="${esc(id)}"
+                            data-titulo="${esc(titulo)}"
+                            data-csrf="${esc(csrfRenomear)}"
+                            data-url="${esc(urlRenomear)}">
+                        <i class="bi bi-pencil"></i><span>Renomear</span>
+                    </button>
+                    <button type="button" class="ps-fin-menu-item js-fin-doc-ver-documentos" role="menuitem">
+                        <i class="bi bi-folder2-open"></i><span>Ver em Documentos</span>
+                    </button>
+                    <div class="ps-fin-menu-sep" role="separator"></div>
+                    <button type="button"
+                            class="ps-fin-menu-item ps-fin-menu-item--perigo btn-excluir-doc"
+                            role="menuitem"
+                            title="Excluir"
+                            data-doc-id="${esc(id)}"
+                            data-csrf="${esc(csrfExcluir)}"
+                            data-url="${esc(urlExcluir)}">
+                        <i class="bi bi-trash3"></i><span>Excluir</span>
+                    </button>
+                </div>
             </div>`;
         return div;
     }
@@ -805,6 +912,8 @@
                         if (btnPrevItem) { btnPrevItem.dataset.nome = titulo; }
                         const selo = item.querySelector('.ps-doc-ext');
                         if (selo) { selo.textContent = extDoTitulo(titulo); }
+                        const tituloMenu = item.querySelector('.ps-fin-menu-titulo');
+                        if (tituloMenu) { tituloMenu.textContent = titulo; tituloMenu.title = titulo; }
                     } catch (_) {
                         alert('Erro de rede.');
                         restaurarSpan(tituloAtual);
@@ -854,6 +963,221 @@
             }
         });
     }
+})();
+</script>
+
+<script>
+/* ── Menus ⋮ do Financeiro (arquivos e Pagamentos) e "Imprimir extrato" ──────
+   Por DELEGAÇÃO no documento: os itens de arquivo também nascem em JS (upload)
+   e o corpo de Pagamentos é trocado inteiro pelo servidor. Quem abre um menu é
+   `.ps-fin-menu-gatilho[aria-controls]`; o menu é `position: fixed` e ganha a
+   posição na abertura (canto direito do botão, ou o ponto do clique direito),
+   como o menu de contexto do desenho 1.2.3.
+   Renomear e Excluir NÃO são tratados aqui: os botões guardam as classes
+   `btn-renomear-doc`/`btn-excluir-doc` e o handler da lista (acima) os atende. */
+(function () {
+    'use strict';
+
+    let aberto = null; // { menu, gatilho }
+
+    function fechar(devolverFoco) {
+        if (!aberto) { return; }
+        const { menu, gatilho } = aberto;
+        menu.hidden = true;
+        if (gatilho) {
+            gatilho.setAttribute('aria-expanded', 'false');
+            if (devolverFoco) { gatilho.focus(); }
+        }
+        aberto = null;
+    }
+
+    /** x = borda DIREITA desejada do menu; y = topo. Sempre dentro da janela. */
+    function posicionar(menu, x, y) {
+        menu.style.left = '0px';
+        menu.style.top  = '0px';
+        const largura = menu.offsetWidth;
+        const altura  = menu.offsetHeight;
+        menu.style.left = Math.max(8, Math.min(x - largura, window.innerWidth - largura - 8)) + 'px';
+        menu.style.top  = Math.max(8, Math.min(y, window.innerHeight - altura - 8)) + 'px';
+    }
+
+    function prepararMenuPagamentos(menu) {
+        const temExtrato = !!document.getElementById('psExtratoFolha');
+        menu.querySelectorAll('.js-pag-so-com-extrato').forEach(function (el) { el.hidden = !temExtrato; });
+
+        // "Ver todos" é o MESMO link do cabeçalho: sem ele (pasta sem lançamento
+        // na carga) o item não aparece.
+        const verTodos = document.getElementById('psPagamentosVerTodos');
+        const item     = menu.querySelector('.js-pag-ver-todos');
+        if (item) {
+            const disponivel = !!verTodos && !verTodos.classList.contains('d-none');
+            item.hidden = !disponivel;
+            const cartao    = document.getElementById('psPagamentos');
+            const mostrando = !!cartao && cartao.classList.contains('is-mostrando-todos');
+            item.querySelector('span').textContent = mostrando ? 'Mostrar só os próximos' : 'Ver todos os lançamentos';
+            item.querySelector('i').className = 'bi ' + (mostrando ? 'bi-chevron-up' : 'bi-list-ul');
+        }
+    }
+
+    function abrir(menu, gatilho, x, y) {
+        fechar(false);
+        // Fecha os popovers do cabeçalho (pasta-show.js): um menu por vez.
+        document.dispatchEvent(new CustomEvent('ps:fechar-popovers'));
+        if (menu.id === 'psPagamentosMenu') { prepararMenuPagamentos(menu); }
+        menu.hidden = false;
+        posicionar(menu, x, y);
+        gatilho.setAttribute('aria-expanded', 'true');
+        aberto = { menu: menu, gatilho: gatilho };
+    }
+
+    function menuDoGatilho(gatilho) {
+        return document.getElementById(gatilho.getAttribute('aria-controls') || '');
+    }
+
+    function copiar(texto, rotulo, aviso) {
+        const original = rotulo ? rotulo.textContent : '';
+        const menuDaVez = aberto ? aberto.menu : null;
+        // O menu fica aberto o tempo de mostrar o aviso, como o "Copiar link" do
+        // cabeçalho; só fecha se ainda for o MESMO menu aberto.
+        function avisar(msg) {
+            if (rotulo) { rotulo.textContent = msg; }
+            setTimeout(function () {
+                if (rotulo) { rotulo.textContent = original; }
+                if (aberto && aberto.menu === menuDaVez) { fechar(false); }
+            }, 1200);
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(texto).then(
+                function () { avisar(aviso); },
+                function () { avisar('Não foi possível copiar'); }
+            );
+        } else {
+            avisar('Não foi possível copiar');
+        }
+    }
+
+    function textoLimpo(el) {
+        return el ? el.textContent.replace(/\s+/g, ' ').trim() : '';
+    }
+
+    function resumoDosPagamentos() {
+        const folha = document.getElementById('psExtratoFolha');
+        if (!folha) { return ''; }
+        const linhas = Array.prototype.map.call(folha.querySelectorAll('.ps-fin-extrato-lista li'), textoLimpo);
+        return 'Pagamentos · ' + textoLimpo(folha.querySelector('.ps-fin-extrato-total')) + '\n' + linhas.join('\n');
+    }
+
+    function imprimirExtrato() {
+        const cab   = document.getElementById('psExtratoCabecalho');
+        const folha = document.getElementById('psExtratoFolha');
+        if (!cab || !folha) { return; }
+
+        document.querySelectorAll('body > .ps-fin-impressao').forEach(function (el) { el.remove(); });
+
+        const impressao = document.createElement('div');
+        impressao.className = 'ps-fin-impressao';
+        [cab, folha].forEach(function (origem) {
+            const copia = origem.cloneNode(true);
+            copia.hidden = false;
+            copia.removeAttribute('id');
+            impressao.appendChild(copia);
+        });
+        const emitido = impressao.querySelector('.js-extrato-emitido-em');
+        if (emitido) {
+            emitido.textContent = new Date().toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+        }
+
+        document.body.appendChild(impressao);
+        document.body.classList.add('ps-fin-imprimindo');
+
+        function limpar() {
+            window.removeEventListener('afterprint', limpar);
+            document.body.classList.remove('ps-fin-imprimindo');
+            impressao.remove();
+        }
+        window.addEventListener('afterprint', limpar);
+        window.print();
+    }
+
+    function irParaDocumentos() {
+        const gatilho = document.getElementById('documentos-tab');
+        if (gatilho && window.bootstrap) { bootstrap.Tab.getOrCreateInstance(gatilho).show(); }
+    }
+
+    // Clique FORA fecha, em captura: os gatilhos do cabeçalho (pasta-show.js)
+    // param a propagação, e o menu ficaria aberto por baixo do outro.
+    document.addEventListener('click', function (e) {
+        if (!aberto) { return; }
+        if (aberto.menu.contains(e.target) || aberto.gatilho.contains(e.target)) { return; }
+        fechar(false);
+    }, true);
+
+    document.addEventListener('click', function (e) {
+        const gatilho = e.target.closest('.ps-fin-menu-gatilho');
+        if (gatilho) {
+            const menu = menuDoGatilho(gatilho);
+            if (!menu) { return; }
+            if (aberto && aberto.menu === menu) { fechar(false); return; }
+            const r = gatilho.getBoundingClientRect();
+            abrir(menu, gatilho, r.right, r.bottom + 4);
+            return;
+        }
+
+        if (!aberto) { return; }
+        const item = e.target.closest('.ps-fin-menu-item');
+        if (!item || !aberto.menu.contains(item)) { return; }
+
+        if (item.classList.contains('js-fin-doc-copiar-nome')) {
+            const ren = aberto.menu.querySelector('.btn-renomear-doc');
+            copiar(ren ? ren.dataset.titulo : '', item.querySelector('span'), 'Nome copiado');
+            return;
+        }
+        if (item.classList.contains('js-pag-copiar-resumo')) {
+            copiar(resumoDosPagamentos(), item.querySelector('span'), 'Resumo copiado');
+            return;
+        }
+
+        fechar(false);
+
+        if (item.classList.contains('js-fin-doc-ver-documentos')) { irParaDocumentos(); return; }
+        if (item.classList.contains('js-pag-ver-todos')) {
+            document.getElementById('psPagamentosVerTodos')?.click();
+            return;
+        }
+        if (item.classList.contains('js-pag-imprimir-extrato')) { imprimirExtrato(); }
+        // Abrir (modal), Baixar (link), Adicionar pagamento (modal), Renomear e
+        // Excluir seguem o próprio caminho: Bootstrap e o handler da lista.
+    });
+
+    // Clique direito: na linha do arquivo abre o menu DELA no ponto do clique;
+    // no ⋮ de Pagamentos, o menu dele. Durante a renomeação o campo é do usuário.
+    document.addEventListener('contextmenu', function (e) {
+        if (e.target.closest('input, textarea, .ps-fin-menu')) { return; }
+        const linha   = e.target.closest('#financeiro-docs-lista .ps-fin-doc');
+        const gatilho = linha ? linha.querySelector('.ps-fin-menu-gatilho') : e.target.closest('#financeiro .ps-fin-menu-gatilho');
+        if (!gatilho) { return; }
+        const menu = menuDoGatilho(gatilho);
+        if (!menu) { return; }
+        e.preventDefault();
+        abrir(menu, gatilho, e.clientX, e.clientY);
+    });
+
+    // Duplo clique na linha abre o arquivo no visualizador (desenho: `onDblClick`).
+    document.addEventListener('dblclick', function (e) {
+        if (e.target.closest('input, textarea, .ps-fin-menu, .ps-fin-menu-gatilho')) { return; }
+        const linha = e.target.closest('#financeiro-docs-lista .ps-fin-doc');
+        const abrirItem = linha ? linha.querySelector('[data-bs-target="#previewDocModal"]') : null;
+        if (abrirItem) { abrirItem.click(); }
+    });
+
+    document.addEventListener('keydown', function (e) {
+        if (aberto && e.key === 'Escape') { fechar(true); }
+    });
+    // Menu fixo não acompanha a rolagem: rolou a página, fecha.
+    window.addEventListener('scroll', function (e) {
+        if (aberto && !(e.target instanceof Node && aberto.menu.contains(e.target))) { fechar(false); }
+    }, true);
+    window.addEventListener('resize', function () { fechar(false); });
 })();
 </script>
 

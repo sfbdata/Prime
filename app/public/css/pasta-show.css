@@ -1850,11 +1850,9 @@ span.ps-situacao-pill { cursor: default; }
 .ps-fin-doc .ps-doc-ext { width: 24px; height: 29px; }
 .ps-fin-doc-renomear { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .ps-fin-doc-vazio { padding: 16px 17px; font-size: 12.5px; color: var(--ps-faint); text-align: center; }
-/* As ações só aparecem no hover da linha — a lista em repouso é para LER.
-   Continuam alcançáveis pelo teclado: `:focus-within` traz as três de volta. */
-.ps-fin-doc-acoes { display: flex; gap: 2px; flex-shrink: 0; opacity: 0; transition: opacity .15s; }
-.ps-fin-doc:hover .ps-fin-doc-acoes,
-.ps-fin-doc:focus-within .ps-fin-doc-acoes { opacity: 1; }
+/* As ações do arquivo moram no menu ⋮ (desenho 1.2.3). O botão fica SEMPRE à
+   vista, discreto, como no desenho — o hover só o destaca. */
+.ps-fin-doc-acoes { display: flex; flex-shrink: 0; }
 .ps-fin-doc-excedente { padding: 0 17px 4px; }
 .ps-fin-link {
     font-family: inherit;
@@ -1875,7 +1873,9 @@ span.ps-situacao-pill { cursor: default; }
 #financeiro .ps-trilho .ps-card-cab h2 { font-size: 14px; font-weight: 600; letter-spacing: 0; }
 #financeiro .ps-trilho .ps-contagem { font-size: 11px; font-weight: 400; color: var(--ps-label); background: transparent; padding: 0; }
 #financeiro .ps-trilho .ps-card-cab-link { margin-right: 0; }
-#financeiro-docs-lista { margin: 12px 17px 0; border: 1px solid var(--ps-div-strong); border-radius: 4px; overflow: hidden; }
+/* Sem `overflow: hidden`: as linhas não têm fundo próprio para vazar do raio, e o
+   corte prenderia o menu ⋮ (que de todo modo é `position: fixed`). */
+#financeiro-docs-lista { margin: 12px 17px 0; border: 1px solid var(--ps-div-strong); border-radius: 4px; }
 #financeiro-docs-lista .ps-fin-doc:last-child { border-bottom: none; }
 
 /* Switch "reduzir tamanho ao enviar". A nota de apoio abaixo muda com o estado —
@@ -1972,6 +1972,133 @@ span.ps-situacao-pill { cursor: default; }
 /* O selo verde faltava na paleta: os três tons de `.ps-selo` cobriam prazo
    (urgente/próximo/tranquilo), e pagamento tem um quarto estado — pago. */
 .ps-selo--ok { color: var(--ps-ok-text); background: var(--ps-ok-bg); }
+
+/* ── Menus ⋮ do Financeiro (arquivos e Pagamentos) ──
+   Medidas do menu de contexto do desenho 1.2.3 (`gmVals`): 230px, padding 5px,
+   itens 13px com 7px 10px, título 10.5/700 em caixa alta, separador de 1px.
+   `position: fixed` e posição calculada pelo JS na abertura (canto direito do
+   botão, ou o ponto do clique direito), como no desenho: assim o menu não fica
+   preso no recorte da lista nem do cartão. Escopo `#financeiro` porque
+   `.ps-page a:not(.btn)` (0,3,1) pintaria de azul o item "Baixar", que é âncora. */
+#financeiro .ps-fin-menu-gatilho {
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    color: var(--ps-faint);
+    font-size: 13px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: background .18s, color .18s;
+}
+#financeiro .ps-fin-menu-gatilho:hover,
+#financeiro .ps-fin-menu-gatilho:focus-visible,
+#financeiro .ps-fin-menu-gatilho[aria-expanded="true"] { background: var(--ps-accent-bg); color: var(--ps-accent); }
+/* O ⋮ do cabeçalho de Pagamentos é maior (30px, ícone 16px) e encosta na borda. */
+#financeiro .ps-fin-menu-gatilho--cab { width: 30px; height: 30px; margin-right: -7px; border-radius: 4px; color: var(--ps-text-3); font-size: 16px; }
+
+@keyframes psFinMenuEntra {
+    from { opacity: 0; transform: translate3d(0,-4px,0); }
+    to   { opacity: 1; transform: none; }
+}
+#financeiro .ps-fin-menu {
+    position: fixed;
+    z-index: 141;
+    width: 230px;
+    max-width: calc(100vw - 24px);
+    max-height: calc(100vh - 24px);
+    overflow-y: auto;
+    padding: 5px;
+    display: flex;
+    flex-direction: column;
+    background: var(--ps-card);
+    border-radius: 4px;
+    box-shadow: var(--ps-shadow-pop);
+    animation: psFinMenuEntra .14s var(--ps-ease) backwards;
+}
+/* `display: flex` acima venceria o atributo `hidden`; estas duas linhas o devolvem. */
+#financeiro .ps-fin-menu[hidden],
+#financeiro .ps-fin-menu [hidden] { display: none; }
+@media (prefers-reduced-motion: reduce) {
+    #financeiro .ps-fin-menu { animation: none; }
+}
+#financeiro .ps-fin-menu-titulo {
+    padding: 6px 10px 5px;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--ps-label);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+#financeiro .ps-fin-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 7px 10px;
+    border: none;
+    background: transparent;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 13px;
+    text-align: left;
+    color: var(--ps-body);
+    text-decoration: none;
+    cursor: pointer;
+}
+#financeiro .ps-fin-menu-item:hover,
+#financeiro .ps-fin-menu-item:focus-visible { background: var(--ps-hover); color: var(--ps-body); text-decoration: none; outline: none; }
+#financeiro .ps-fin-menu-item i { font-size: 14px; width: 16px; text-align: center; flex-shrink: 0; }
+#financeiro .ps-fin-menu-item > span { flex: 1; min-width: 0; }
+#financeiro .ps-fin-menu-item--perigo,
+#financeiro .ps-fin-menu-item--perigo:hover,
+#financeiro .ps-fin-menu-item--perigo:focus-visible { color: var(--ps-danger-text); }
+#financeiro .ps-fin-menu-item--perigo:hover,
+#financeiro .ps-fin-menu-item--perigo:focus-visible { background: var(--ps-danger-hover); }
+#financeiro .ps-fin-menu-sep { height: 1px; flex-shrink: 0; background: var(--ps-div-strong); margin: 4px 8px; }
+
+/* ── Folha do "Imprimir extrato" ──
+   O JS copia o cabeçalho (`#psExtratoCabecalho`) e a lista (`#psExtratoFolha`,
+   do corpo re-renderizado pelo servidor) para `.ps-fin-impressao`, filho direto
+   do <body>, liga `.ps-fin-imprimindo` e chama `window.print()`. Na impressão só
+   a folha sai; na tela ela nunca aparece. "Salvar como PDF" é o do navegador.
+   Papel é sempre branco: as cores da folha são de PAPEL e de propósito NÃO
+   seguem o tema escuro (com a cor de texto do escuro a folha sairia cinza-claro
+   sobre branco). Por isso os tokens abaixo não são redefinidos em
+   `[data-bs-theme="dark"]`. */
+.ps-body > .ps-fin-impressao { display: none; }
+@media print {
+    .ps-body.ps-fin-imprimindo > *:not(.ps-fin-impressao) { display: none !important; }
+    .ps-body.ps-fin-imprimindo { background: #fff !important; }
+    .ps-body.ps-fin-imprimindo > .ps-fin-impressao {
+        --ps-fin-papel:       #fff;
+        --ps-fin-papel-texto: #12242f;
+        --ps-fin-papel-suave: #6b8494;
+        --ps-fin-papel-linha: #dde5eb;
+        display: block;
+        background: var(--ps-fin-papel);
+        color: var(--ps-fin-papel-texto);
+        font-family: var(--jp-font-sans, Arial, Helvetica, sans-serif);
+        font-size: 12px;
+        line-height: 1.55;
+        overflow-wrap: anywhere;
+    }
+    .ps-body > .ps-fin-impressao .ps-fin-extrato-cab { padding-bottom: 10px; margin-bottom: 14px; border-bottom: 1px solid var(--ps-fin-papel-linha); }
+    .ps-body > .ps-fin-impressao .ps-fin-extrato-titulo { font-size: 17px; font-weight: 700; }
+    .ps-body > .ps-fin-impressao .ps-fin-extrato-pasta { margin-top: 2px; font-size: 12.5px; }
+    .ps-body > .ps-fin-impressao .ps-fin-extrato-emissao { margin-top: 2px; font-size: 11px; color: var(--ps-fin-papel-suave); }
+    .ps-body > .ps-fin-impressao .ps-fin-extrato-total { margin: 0 0 10px; font-size: 13px; }
+    .ps-body > .ps-fin-impressao .ps-fin-extrato-lista { margin: 0; padding-left: 20px; }
+    .ps-body > .ps-fin-impressao .ps-fin-extrato-lista li { padding: 2px 0; break-inside: avoid; }
+}
 
 /* ── Aba Push Processual (desenho 1.2.3) ─────────────────────────────────────
    Linha do tempo: a lista e a area cinza, cada publicacao e um cartao branco
