@@ -468,3 +468,45 @@ D-BARRA, D-CONNECT, D-PASTA6 (inclui o selo "0"), D-PERM-META, D-LIBRE. São pul
 atual × desenho e classificação A–E. Em paralelo, um subagente Opus levanta quais testes e telas da
 Cobrança dependem do `pasta-arquivos.js`. Com os dois resultados, o Fable decide a arquitetura do
 explorador.
+
+## 10. Sessão 2 (06–07/10/2026) — Documentos e pendências pós-Documentos — HANDOFF VIVO
+
+> Atualizado pelo orquestrador a cada lote. Fonte de verdade dos lotes de Documentos:
+> `docs/specs/trilha-b-documentos-arquitetura.md` §7. Plano das pendências fora de Documentos:
+> `docs/specs/trilha-b-inventario/pendencias-pos-documentos.md` (lotes P1–P19).
+
+### 10.1 Estado
+- **Nada publicado.** origin/master segue em `3f199dfd` (produção). Tudo desta sessão é commit LOCAL no master.
+- **Documentos:** explorador próprio da Pasta (`pex`), fm congelado para a Cobrança. Integrados L1, L2, L2b, L3,
+  L4, L5, L6 (backend+UI), L7 (backend+UI, lixeira), L8-backend (zip/copiar), L9, L10, L11. Falta L8-UI.
+  L0 (Cobrança) aguarda o Samuel (D-DOC-S9).
+- **Migrations novas desta sessão (4, aplicadas em saas_ux e saas_test, NENHUMA em produção):**
+  `Version20261006230000` (enviado_por/modificado_em/paginas), `Version20261007000000` (estado do checklist),
+  `Version20261007010000` (favoritos de documento), `Version20261007020000` (lixeira). No deploy, conferir com
+  `doctrine:migrations:migrate --dry-run` antes.
+- **Comando novo para cron (dono):** `app:documentos:purgar-lixeira --dias=30` (D-DOC-RET). Sem cron a lixeira só cresce.
+- **Opção nova:** `app:documentos:calcular-hash --paginas` (backfill do nº de páginas; mesmo cuidado do D-HASH).
+- **Última suíte completa verde:** 7160 testes / 29905 asserções (após L8-backend).
+
+### 10.2 Em andamento (worktrees de agentes; o orquestrador integra um commit por vez)
+L8-UI · P1 Metas · P6 CASE do PastaRepository · P8 Dashboard (fidelidade + som do calendário) · P9 desfazer da auditoria.
+
+### 10.3 Próximos (pela ordem do plano pós-Documentos)
+Onda 1 restante: P2 cabeçalho/modal (Cadastro + atalhos), P3 Processo (Administrativo sem recarregar + N4),
+P4 Push ("Geram prazo" + N1/N2), P5 notificar autor da resposta, P7 estrela no cartão do Expediente.
+Onda 2: P10 Financeiro (e-mail = `mailto:` do dc; corrigir valor) — Fable, P11 vincular cliente, P12 contatos
+inline, P13 resto da fidelidade da Pasta. Onda 3: P14 D-DOC-RO (5 rotas com `int` escapam do
+`PastaSomenteLeituraListener`; o POST do zip é barrado em pasta excluída embora seja leitura) — Fable, P15 ODP/ZIP64.
+Onda 4: P16a/b parcelamento (b com migration), P17 Adicionar coluna, P18 timeline, P19 @menção — todos Fable.
+
+### 10.4 Armadilhas medidas nesta sessão
+- Implementador em worktree não roda testes (o container monta o checkout principal): a integração SEMPRE
+  pega falha de teste literal — rodar `tests/Pasta` (e `tests/Shared tests/Arquitetura` quando tocar Shared)
+  depois de cada integração.
+- O hook de git só aceita a integração de UM commit sozinho no comando (nada encadeado antes), e lê a palavra
+  da operação até dentro de heredoc — escrever textos longos por arquivo.
+- `CsrfTokenManager` real mascara o valor do token: teste compara com `isTokenValid`, não com literal.
+- Auditoria de `create` grava `entity_id` NULO (onFlush antes do INSERT no PostgreSQL): contar, não filtrar por id.
+- Setters gravam MAIÚSCULAS também em `PastaSecao::setNome` (nomes de diretório do zip).
+- Queda de rede derruba agentes e pode parar os containers de dev
+  (`docker start jusprime_db_dev jusprime_php_dev jusprime_nginx_dev`).
