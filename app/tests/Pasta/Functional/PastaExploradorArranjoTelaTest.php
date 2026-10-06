@@ -473,10 +473,11 @@ final class PastaExploradorArranjoTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $crawler->filter('.pex-corpo > #pexBuscaInfo + #pexSelecao[hidden] + #pexTrilha'));
         self::assertCount(1, $crawler->filter('#pexSelecao > #pexSelecaoLimpar[aria-label="Limpar seleção"] + #pexSelecaoTexto'));
         self::assertSame(
-            ['baixar', 'recortar', 'mover', 'renomear', 'tudo', 'excluir'],
+            ['baixar', 'recortar', 'renomear', 'tudo', 'excluir'],
             $crawler->filter('#pexSelecao > .pex-selecao-acao[data-pex-sel]')->each(fn (Crawler $n) => $n->attr('data-pex-sel')),
-            'as ações com rota hoje; Copiar (duplicar) e .zip são do L8'
+            'a barra é a do desenho, fechada: Copiar (duplicar) e .zip são do L8; "Mover para…" mora no menu de contexto'
         );
+        self::assertCount(0, $crawler->filter('#pexSelecao [data-pex-sel="mover"]'));
         self::assertNotNull($crawler->filter('#pexSelecao > [data-pex-sel="baixar"]')->attr('hidden'), 'Baixar só com um arquivo — o JS decide');
         self::assertNotNull($crawler->filter('#pexSelecao > [data-pex-sel="renomear"]')->attr('hidden'), 'Renomear só com um item');
         self::assertCount(1, $crawler->filter('#pexSelecao > [data-pex-sel="excluir"].pex-selecao-acao--perigo'));

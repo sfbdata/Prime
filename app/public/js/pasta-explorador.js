@@ -793,7 +793,7 @@
 
     // ⋮ (S-1): só aparece no toque, pelo CSS; abre o MESMO menu de contexto do botão direito.
     function botaoMenu(rotulo) {
-        return h('button', { type: 'button', class: 'pex-menu', 'aria-haspopup': 'menu', 'aria-label': rotulo, title: 'Mais ações' }, [icone('bi-three-dots-vertical')]);
+        return h('button', { type: 'button', class: 'pex-menu', 'aria-haspopup': 'menu', 'aria-expanded': 'false', 'aria-label': rotulo, title: 'Mais ações' }, [icone('bi-three-dots-vertical')]);
     }
 
     function linhaPasta(p, buscando) {
@@ -1020,7 +1020,6 @@
             switch (b.dataset.pexSel) {
                 case 'baixar':   if (sel.length === 1 && sel[0].tipo === 'arquivo') baixar(sel[0].dado); break;
                 case 'recortar': recortar(sel); break;
-                case 'mover':    escolherDestino(sel); break;
                 case 'renomear': if (sel.length === 1) iniciarRenomear(sel[0]); break;
                 case 'tudo':     selecionarTudo(); break;
                 case 'excluir':  excluirItens(sel); break;
@@ -1126,9 +1125,12 @@
 
     // ------------------------------------------------------------ teclado ---
     /* dc `tecla` (L4902-4931). Fora de campos de texto e do checklist (que tem campos e botões
-       próprios). Backspace / Alt+← / Alt+↑ sobem um nível; Ctrl+A tudo; Del exclui; F2 renomeia;
-       Enter abre; Espaço visualiza; Esc limpa; Ctrl+X/V recorta/cola; setas, Home e End movem a
-       seleção (Shift estende). Ctrl+C é do L8 (Copiar) e não faz nada aqui. */
+       próprios). Backspace / Alt+← / Alt+↑ sobem um nível de qualquer ponto do explorador (como
+       no L2); os demais atalhos só com o foco NA LISTA ou numa linha — com o foco num botão da
+       faixa, do Organizar, da barra ou de um popover, Enter/Espaço/setas são do navegador.
+       Ctrl+A tudo; Del exclui; F2 renomeia; Enter abre; Espaço visualiza; Esc limpa (ou, com um
+       popover aberto, só o fecha); Ctrl+X/V recorta/cola; setas, Home e End movem a seleção
+       (Shift estende). Ctrl+C é do L8 (Copiar) e não faz nada aqui. */
     raiz.addEventListener('keydown', function (e) {
         const tag = e.target && e.target.tagName;
         if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (e.target && e.target.isContentEditable)) return;
@@ -1138,13 +1140,21 @@
         const ctrl = e.ctrlKey || e.metaKey;
         const k = e.key;
         const baixa = String(k || '').toLowerCase();
-        const sel = itensSelecionados();
-        const linhaFocada = e.target.closest ? e.target.closest('.pex-item') : null;
         if ((k === 'Backspace' || (e.altKey && (k === 'ArrowLeft' || k === 'ArrowUp'))) && caminho.length) {
             e.preventDefault();
             subir();
             return;
         }
+        const noAlvo = e.target === el.lista || !!(e.target.closest && e.target.closest('.pex-item'));
+        if (k === 'Escape') {
+            // Com um popover aberto, Esc fecha só o popover (document) e a seleção fica.
+            if (popoverAberto()) return;
+            if (selecao.size && (noAlvo || e.target.closest('#pexSelecao'))) { e.preventDefault(); limparSelecao(); }
+            return;
+        }
+        if (!noAlvo) return;
+        const sel = itensSelecionados();
+        const linhaFocada = e.target.closest ? e.target.closest('.pex-item') : null;
         if (ctrl && baixa === 'a') { e.preventDefault(); selecionarTudo(); return; }
         if (k === 'Delete') { if (sel.length) { e.preventDefault(); excluirItens(sel); } return; }
         if (k === 'F2') { if (sel.length === 1) { e.preventDefault(); iniciarRenomear(sel[0]); } return; }
@@ -1158,7 +1168,6 @@
             if (alvo) { e.preventDefault(); if (alvo.tipo === 'arquivo') abrirPreviewDe(alvo.dado); else entrar(alvo.id); }
             return;
         }
-        if (k === 'Escape') { if (selecao.size) { e.preventDefault(); limparSelecao(); } return; }
         if (ctrl && baixa === 'x') { if (sel.length) { e.preventDefault(); recortar(sel); } return; }
         if (ctrl && baixa === 'v') { if (areaDeTransferencia) { e.preventDefault(); colarAqui(); } return; }
         if (ctrl) return;
@@ -1312,29 +1321,45 @@
        engolido. O `contextmenu` nativo do Android faz o mesmo caminho, sem duplicar. */
     let toqueTimer = null;
     let toqueInicio = null;
+    let suprimirProximoClique = false;   // zerado pelo próprio clique engolido ou pelo toque seguinte
     function cancelarToqueLongo() {
         clearTimeout(toqueTimer);
         toqueTimer = null;
         toqueInicio = null;
     }
-    el.lista.addEventListener('pointerdown', function (e) {
-        if (e.pointerType !== 'touch' && e.pointerType !== 'pen') return;
-        const linha = e.target.closest('.pex-item');
-        if (!linha || linha.dataset.pexTemp !== undefined || e.target.closest('.pex-ren, .pex-menu')) return;
-        cancelarToqueLongo();
-        toqueInicio = { x: e.clientX, y: e.clientY, linha: linha };
-        toqueTimer = setTimeout(function () {
-            const t = toqueInicio;
+    // No fundo da lista (ou no vazio da pasta) o toque longo abre o menu de fundo — o iOS não
+    // dispara `contextmenu`, então sem isto "Nova pasta"/"Colar" não existiriam no celular.
+    function ligarToqueLongo(alvo) {
+        alvo.addEventListener('pointerdown', function (e) {
+            if (e.pointerType !== 'touch' && e.pointerType !== 'pen') return;
+            suprimirProximoClique = false;      // gesto novo: o clique engolido era o do anterior
+            const linha = e.target.closest('.pex-item');
+            if ((linha && linha.dataset.pexTemp !== undefined) || e.target.closest('.pex-ren, .pex-menu')) return;
             cancelarToqueLongo();
-            if (!t) return;
-            suprimirCliqueAte = Date.now() + 700;
-            abrirMenu(t.x, t.y, itemPorChave(chaveDoElemento(t.linha)));
-        }, TOQUE_LONGO_MS);
-    });
-    el.lista.addEventListener('pointermove', function (e) {
-        if (toqueInicio && Math.hypot(e.clientX - toqueInicio.x, e.clientY - toqueInicio.y) > 10) cancelarToqueLongo();
-    });
-    ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (ev) { el.lista.addEventListener(ev, cancelarToqueLongo); });
+            toqueInicio = { x: e.clientX, y: e.clientY, linha: linha };
+            toqueTimer = setTimeout(function () {
+                const t = toqueInicio;
+                cancelarToqueLongo();
+                if (!t) return;
+                suprimirProximoClique = true;
+                abrirMenu(t.x, t.y, t.linha ? itemPorChave(chaveDoElemento(t.linha)) : null);
+            }, TOQUE_LONGO_MS);
+        });
+        alvo.addEventListener('pointermove', function (e) {
+            if (toqueInicio && Math.hypot(e.clientX - toqueInicio.x, e.clientY - toqueInicio.y) > 10) cancelarToqueLongo();
+        });
+        ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (ev) { alvo.addEventListener(ev, cancelarToqueLongo); });
+    }
+    ligarToqueLongo(el.lista);
+    if (el.vazio) ligarToqueLongo(el.vazio);
+    // O clique que o navegador sintetiza ao soltar o dedo depois do toque longo cairia no menu
+    // recém-aberto (o 1º item fica sob o dedo) ou no fundo (fecharia): engolido onde quer que caia.
+    document.addEventListener('click', function (e) {
+        if (!suprimirProximoClique) return;
+        suprimirProximoClique = false;
+        e.preventDefault();
+        e.stopPropagation();
+    }, true);
 
     // --------------------------------------------------- menu de contexto ---
     /* dc `ctxItens` (L4797-4834), na ordem do desenho, só com o que tem ação hoje:
@@ -1369,6 +1394,7 @@
             return (arqs.length ? [op('Copiar links' + (arqs.length < sel.length ? ' (' + arqs.length + ')' : ''), 'bi-link-45deg', function () { copiarLinks(arqs); })] : []).concat([
                 SEP,
                 op('Recortar', 'bi-scissors', function () { recortar(sel); }, { atalho: 'Ctrl+X' }),
+                op('Mover para…', 'bi-folder-symlink', function () { escolherDestino(sel); }),
                 op('Copiar caminhos', 'bi-signpost', function () { copiarCaminhos(sel); }),
                 SEP,
                 op('Excluir ' + sel.length + ' itens', 'bi-trash3', function () { excluirItens(sel); }, { atalho: 'Del', perigo: true }),
@@ -1390,6 +1416,8 @@
             ])
             .concat(ehPasta ? [op('Colar', 'bi-clipboard', function () { colarEm(alvo.id); }, { atalho: 'Ctrl+V', desabilitado: !areaDeTransferencia })] : [])
             .concat([
+                // "Mover para…" (modal de destino) é função do sistema (§16.7); o desenho é omisso.
+                op('Mover para…', 'bi-folder-symlink', function () { escolherDestino([alvo]); }),
                 op('Copiar caminho', 'bi-signpost', function () { copiarCaminhos([alvo]); }),
                 SEP,
                 op('Renomear', 'bi-input-cursor-text', function () { iniciarRenomear(alvo); }, { atalho: 'F2' }),
@@ -1437,9 +1465,11 @@
         const primeiro = el.menu.querySelector('.pex-ctx-item:not(:disabled)');
         if (primeiro) primeiro.focus({ preventScroll: true });
     }
+    let menuBotao = null;                // o ⋮ que abriu o menu (toque): aria-expanded e foco de volta
     function abrirMenuNoBotao(btn, linha) {
         const r = btn.getBoundingClientRect();
         abrirMenu(r.left, r.bottom + 2, itemPorChave(chaveDoElemento(linha)));
+        if (menuAberto()) { menuBotao = btn; btn.setAttribute('aria-expanded', 'true'); }
     }
     function menuAberto() { return !!el.menu && !el.menu.hidden; }
     function fecharMenu() {
@@ -1448,12 +1478,15 @@
         el.menuFundo.hidden = true;
         el.menu.textContent = '';
         menuAcoes = [];
-        el.lista.focus({ preventScroll: true });
+        const b = menuBotao;
+        menuBotao = null;
+        if (b && b.isConnected) { b.setAttribute('aria-expanded', 'false'); b.focus({ preventScroll: true }); }
+        else el.lista.focus({ preventScroll: true });
     }
     function teclaNoMenu(e) {
         const itens = Array.prototype.slice.call(el.menu.querySelectorAll('.pex-ctx-item:not(:disabled)'));
         const i = itens.indexOf(document.activeElement);
-        if (e.key === 'Escape') { e.preventDefault(); fecharMenu(); return; }
+        if (e.key === 'Escape' || e.key === 'Tab') { e.preventDefault(); fecharMenu(); return; }
         if (e.key === 'ArrowDown') { e.preventDefault(); (itens[i + 1] || itens[0]).focus(); return; }
         if (e.key === 'ArrowUp') { e.preventDefault(); (itens[i - 1] || itens[itens.length - 1]).focus(); return; }
         if (e.key === 'Home') { e.preventDefault(); if (itens[0]) itens[0].focus(); return; }
@@ -1533,11 +1566,23 @@
         areaDeTransferencia = { op: 'recortar', chaves: itens.map(chaveDe) };
         toast('Recortado: ' + rotuloDe(itens));
     }
+    function chaveExiste(k) {
+        const partes = k.split(':');
+        return !!(partes[0] === 'pasta' ? pastaPorId(partes[1]) : arquivoPorId(partes[1]));
+    }
+    // Itens excluídos (ou que sumiram) saem do recorte; sem sobrar nada, o recorte acaba.
+    function limparRecorteDoQueNaoExiste() {
+        if (!areaDeTransferencia) return;
+        areaDeTransferencia.chaves = areaDeTransferencia.chaves.filter(chaveExiste);
+        if (!areaDeTransferencia.chaves.length) areaDeTransferencia = null;
+    }
+    // O recorte só é consumido quando o mover-lote dá certo: erro do servidor deixa o Ctrl+V
+    // para repetir; "já estão aqui" e ciclo também o preservam.
     function colarEm(destinoId) {
         if (!areaDeTransferencia) return;
-        const chaves = areaDeTransferencia.chaves.filter(function (k) { return k !== 'pasta:' + destinoId; });
-        areaDeTransferencia = null;
-        moverLote(chaves, destinoId);
+        const chaves = areaDeTransferencia.chaves.filter(function (k) { return k !== 'pasta:' + destinoId && chaveExiste(k); });
+        if (!chaves.length) { areaDeTransferencia = null; return; }
+        moverLote(chaves, destinoId).then(function (ok) { if (ok) areaDeTransferencia = null; });
     }
     function colarAqui() { colarEm(pastaAtualId()); }
     function mostrarPainel() {
@@ -1575,18 +1620,19 @@
         destinoId = destinoId == null ? null : Number(destinoId);
         const lote = separarChaves(chaves);
         const n = lote.documentos.length + lote.secoes.length;
-        if (!n) return Promise.resolve();
-        if (acimaDoTeto(n)) return Promise.resolve();
+        // Resolve com true SÓ quando o servidor confirmou (é o que consome o recorte).
+        if (!n) return Promise.resolve(false);
+        if (acimaDoTeto(n)) return Promise.resolve(false);
         const jaLa = chaves.every(function (k) {
             const partes = k.split(':');
             const d = partes[0] === 'pasta' ? pastaPorId(partes[1]) : arquivoPorId(partes[1]);
             const local = d ? (partes[0] === 'pasta' ? d.paiId : d.secaoId) : undefined;
             return (local == null ? null : Number(local)) === destinoId;
         });
-        if (jaLa) { toast('Os itens já estão nesta pasta'); return Promise.resolve(); }
+        if (jaLa) { toast('Os itens já estão nesta pasta'); return Promise.resolve(false); }
         if (destinoId != null && lote.secoes.some(function (id) { return id === destinoId || descendentes(id).indexOf(destinoId) !== -1; })) {
             toastErro('Uma pasta não pode ir para dentro dela mesma.');
-            return Promise.resolve();
+            return Promise.resolve(false);
         }
         // Pelos dados em memória, não pela tela: depois de Recortar, o usuário pode ter navegado.
         const nomes = chaves.map(function (k) {
@@ -1601,7 +1647,8 @@
             limparSelecao(true);
             renderizar();
             toast((n === 1 ? '"' + (nomes[0] || '1 item') + '" movido' : n + ' itens movidos') + ' para ' + nomeDoLocal(destinoId));
-        }).catch(function (err) { toastErro(err.message || 'Erro de comunicação.'); });
+            return true;
+        }).catch(function (err) { toastErro(err.message || 'Erro de comunicação.'); return false; });
     }
 
     // Aviso montado com a contagem da árvore (D3): o número tem de existir ANTES do clique.
@@ -1650,6 +1697,7 @@
             for (let i = pastas.length - 1; i >= 0; i--) {
                 if (subarvore.indexOf(pastas[i].id) !== -1) pastas.splice(i, 1);
             }
+            limparRecorteDoQueNaoExiste();
             limparSelecao(true);
             if (caminho.some(function (id) { return subarvore.indexOf(id) !== -1; })) voltarRaiz(); else renderizar();
             toast(itens.length === 1 ? 'Excluído: ' + itens[0].nome : itens.length + ' itens excluídos');
@@ -2020,6 +2068,7 @@
         { btn: el.btnVisualizar, menu: el.menuVisualizar },
     ].filter(function (p) { return p.btn && p.menu; });
 
+    function popoverAberto() { return popovers.some(function (p) { return !p.menu.hidden; }); }
     function fecharPopovers(exceto) {
         popovers.forEach(function (p) {
             if (p.menu === exceto) return;
@@ -2287,7 +2336,9 @@
                 onProgress: function (pct) { el.uploadProg.style.width = pct + '%'; },
                 onComprimindo: function () { el.uploadProg.style.width = '100%'; },
             }).then(function (data) {
-                if (inserirArquivoEnviado(data)) { novos.push('arquivo:' + Number(data.documento.id)); renderizar(); }
+                // Só memória por arquivo: a lista é refeita UMA vez ao concluir o lote (um campo
+                // inline aberto não é derrubado a cada arquivo que chega).
+                if (inserirArquivoEnviado(data)) novos.push('arquivo:' + Number(data.documento.id));
                 else precisaReload = true;
             }, function (err) {
                 houveErro = true;
@@ -2309,6 +2360,7 @@
        - demais ordens: arraste nativo HTML5 da SELEÇÃO (arquivos e pastas) para uma linha de pasta. */
     let sortable = null;
     let itemArrastado = null;    // elemento .pex-item em arraste (Sortable)
+    let arrasteSortable = null;  // chaves que o arraste do Sortable leva (a seleção, se a linha está nela)
     let ultimoPonto = null;
     let alvoRealcado = null;
 
@@ -2358,19 +2410,36 @@
             filter: function (evt, alvo) {
                 const t = evt.target;
                 if (!t || !t.closest) return false;
-                if (t.closest('a, button, input, .pex-ren') || alvo.dataset.pexTemp !== undefined) return true;
+                // O nome (<a>) INICIA o arraste: o Sortable desliga o `draggable` próprio dos
+                // links (`ignore: 'a, img'`, padrão) e não cancela o mousedown, então o clique,
+                // o Ctrl+clique e o clique do meio continuam chegando ao link.
+                if (t.closest('button, input, .pex-ren') || alvo.dataset.pexTemp !== undefined) return true;
                 if (evt.pointerType === 'touch' || /^touch/.test(evt.type || '')) return false;
                 return !pontoNoConteudo(alvo, evt.clientX);
             },
             preventOnFilter: false,
-            onStart: function (evt) { cancelarRenomear(); itemArrastado = evt.item; ultimoPonto = null; },
+            onStart: function (evt) {
+                cancelarRenomear();
+                itemArrastado = evt.item;
+                ultimoPonto = null;
+                // Como no arraste nativo: linha dentro da seleção leva a seleção inteira ao soltar
+                // numa pasta (o reordenar continua sendo só da linha arrastada).
+                const chave = chaveDoElemento(evt.item);
+                arrasteSortable = selecao.has(chave) ? Array.from(selecao) : [chave];
+            },
             onEnd: function (evt) {
                 const arrastado = itemArrastado;
+                const chaves = arrasteSortable || [];
                 itemArrastado = null;
+                arrasteSortable = null;
                 realcarAlvo(null);
                 const ponto = ultimoPonto || (evt.originalEvent ? { x: evt.originalEvent.clientX, y: evt.originalEvent.clientY } : null);
                 const destino = ponto && arrastado ? pastaSobPonto(ponto.x, ponto.y, arrastado) : null;
-                if (arrastado && destino) { soltarEm([chaveDoElemento(arrastado)], destino); return; }
+                if (arrastado && destino) {
+                    const alvoChave = chaveDoElemento(destino);
+                    soltarEm(chaves.filter(function (k) { return k !== alvoChave; }), destino);
+                    return;
+                }
                 if (!arrastado) return;
 
                 // Reordenar: a ordem nova é a ordem do DOM, por tipo. Persiste só o tipo arrastado.

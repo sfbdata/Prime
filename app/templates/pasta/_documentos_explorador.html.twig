@@ -170,16 +170,15 @@
         </div>
         <div class="pex-busca-info" id="pexBuscaInfo" hidden></div>
 
-        {# Barra de seleção (dc L2194-2199): ✕ Limpar, "N selecionados · X KB" e as ações que têm
-           rota hoje. Baixar só aparece com UM arquivo selecionado (o .zip é do L8); Renomear só
-           com um item; "Mover para…" é a ação do sistema (modal de destino) ao lado do Recortar
-           do desenho; Copiar (duplicar) é do L8 e não entra. O JS mostra/esconde por contagem. #}
+        {# Barra de seleção (dc L2194-2199), fechada como o desenho: ✕ Limpar, "N selecionados ·
+           X KB" e as ações dele que têm rota hoje. Baixar só aparece com UM arquivo selecionado
+           (o .zip é do L8); Renomear só com um item; Copiar (duplicar) é do L8 e não entra.
+           "Mover para…" (modal de destino) mora no menu de contexto. O JS mostra/esconde por contagem. #}
         <div class="pex-selecao" id="pexSelecao" role="toolbar" aria-label="Ações da seleção" hidden>
             <button type="button" class="pex-selecao-limpar" id="pexSelecaoLimpar" title="Limpar seleção (Esc)" aria-label="Limpar seleção"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
             <span class="pex-selecao-txt" id="pexSelecaoTexto"></span>
             <button type="button" class="pex-selecao-acao" data-pex-sel="baixar" title="Baixar o arquivo" hidden><i class="bi bi-download" aria-hidden="true"></i><span>Baixar</span></button>
             <button type="button" class="pex-selecao-acao" data-pex-sel="recortar" title="Recortar (Ctrl+X)"><i class="bi bi-scissors" aria-hidden="true"></i><span>Recortar</span></button>
-            <button type="button" class="pex-selecao-acao" data-pex-sel="mover" title="Mover para outra pasta"><i class="bi bi-folder-symlink" aria-hidden="true"></i><span>Mover para…</span></button>
             <button type="button" class="pex-selecao-acao" data-pex-sel="renomear" title="Renomear (F2)" hidden><i class="bi bi-input-cursor-text" aria-hidden="true"></i><span>Renomear</span></button>
             <button type="button" class="pex-selecao-acao" data-pex-sel="tudo" title="Selecionar tudo (Ctrl+A)"><i class="bi bi-check2-all" aria-hidden="true"></i><span>Selecionar tudo</span></button>
             <button type="button" class="pex-selecao-acao pex-selecao-acao--perigo" data-pex-sel="excluir" title="Excluir (Del)"><i class="bi bi-trash3" aria-hidden="true"></i><span>Excluir</span></button>

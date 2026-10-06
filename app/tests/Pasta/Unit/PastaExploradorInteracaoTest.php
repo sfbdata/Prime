@@ -44,7 +44,7 @@ final class PastaExploradorInteracaoTest extends TestCase
         return substr($js, $ini, $fim - $ini);
     }
 
-    #[TestDox('teclado: nenhum atalho dispara com foco em campo de texto, select, contenteditable, dentro do checklist, nem com o menu aberto')]
+    #[TestDox('teclado: nenhum atalho dispara com foco em campo de texto, select, contenteditable, dentro do checklist, nem com o menu aberto; Enter/Espaço/Del/F2/setas/Ctrl+A só com o foco na lista ou numa linha')]
     public function testGuardasDoTeclado(): void
     {
         $js = $this->js();
@@ -54,21 +54,32 @@ final class PastaExploradorInteracaoTest extends TestCase
         $guardaCampo     = strpos($js, "if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (e.target && e.target.isContentEditable)) return;", $handler);
         $guardaChecklist = strpos($js, "if (e.target && e.target.closest && e.target.closest('#pexChecklist')) return;", $handler);
         $guardaMenu      = strpos($js, "if (el.menu && !el.menu.hidden && e.target.closest('#pexMenu')) { teclaNoMenu(e); return; }", $handler);
+        $backspace       = strpos($js, "if ((k === 'Backspace' || (e.altKey && (k === 'ArrowLeft' || k === 'ArrowUp'))) && caminho.length) {", $handler);
+        $noAlvo          = strpos($js, "const noAlvo = e.target === el.lista || !!(e.target.closest && e.target.closest('.pex-item'));", $handler);
+        $escPopover      = strpos($js, 'if (popoverAberto()) return;', $handler);
+        $soNaLista       = strpos($js, 'if (!noAlvo) return;', $handler);
         $primeiraAcao    = strpos($js, "if (ctrl && baixa === 'a')", $handler);
-        self::assertNotFalse($guardaCampo);
-        self::assertNotFalse($guardaChecklist);
-        self::assertNotFalse($guardaMenu);
-        self::assertNotFalse($primeiraAcao);
+        foreach ([$guardaCampo, $guardaChecklist, $guardaMenu, $backspace, $noAlvo, $escPopover, $soNaLista, $primeiraAcao] as $pos) {
+            self::assertNotFalse($pos);
+        }
         self::assertLessThan($primeiraAcao, $guardaCampo, 'a guarda de campo vem antes de qualquer atalho');
         self::assertLessThan($primeiraAcao, $guardaChecklist, 'Del/F2/Ctrl+A no checklist são do checklist');
         self::assertLessThan($primeiraAcao, $guardaMenu);
+        // Backspace/Alt+← sobem de qualquer ponto do explorador (como no L2) — ANTES da trava da lista.
+        self::assertLessThan($noAlvo, $backspace);
+        // Esc: com popover aberto, só o popover fecha (document); senão limpa — também da barra.
+        self::assertLessThan($soNaLista, $escPopover);
+        self::assertStringContainsString("if (selecao.size && (noAlvo || e.target.closest('#pexSelecao'))) { e.preventDefault(); limparSelecao(); }", $js);
+        // Tudo o mais só com o foco na lista/linha: num botão da faixa, do Organizar, da barra ou
+        // de um popover, Enter/Espaço/setas são do navegador.
+        self::assertLessThan($primeiraAcao, $soNaLista);
+        self::assertStringContainsString('function popoverAberto() { return popovers.some(function (p) { return !p.menu.hidden; }); }', $js);
 
         // Os atalhos do desenho (DOC-32), menos Ctrl+C (Copiar é do L8).
         foreach ([
             "if (ctrl && baixa === 'a') { e.preventDefault(); selecionarTudo(); return; }",
             "if (k === 'Delete') { if (sel.length) { e.preventDefault(); excluirItens(sel); } return; }",
             "if (k === 'F2') { if (sel.length === 1) { e.preventDefault(); iniciarRenomear(sel[0]); } return; }",
-            "if (k === 'Escape') { if (selecao.size) { e.preventDefault(); limparSelecao(); } return; }",
             "if (ctrl && baixa === 'x') { if (sel.length) { e.preventDefault(); recortar(sel); } return; }",
             "if (ctrl && baixa === 'v') { if (areaDeTransferencia) { e.preventDefault(); colarAqui(); } return; }",
             "if (/^Arrow(Up|Down|Left|Right)$/.test(k) || k === 'Home' || k === 'End') {",
@@ -89,9 +100,10 @@ final class PastaExploradorInteracaoTest extends TestCase
         // Fundo (dc L4826-4834).
         $fundo = ["op('Nova pasta', 'bi-folder-plus', novaPastaInline)", "op('Colar', 'bi-clipboard', colarAqui, { atalho: 'Ctrl+V', desabilitado: !areaDeTransferencia })", "op('Selecionar tudo', 'bi-check2-all', selecionarTudo, { atalho: 'Ctrl+A' })", "['nome', 'Classificar por nome'], ['data', 'Classificar por data'], ['tamanho', 'Classificar por tamanho'], ['tipo', 'Classificar por tipo']", "op(painel ? 'Ocultar painel de detalhes' : 'Mostrar painel de detalhes'"];
         // Vários itens (dc L4797-4808), sem zip/Copiar.
-        $multi = ["op('Copiar links'", "op('Recortar', 'bi-scissors', function () { recortar(sel); }, { atalho: 'Ctrl+X' })", "op('Copiar caminhos'", "op('Excluir ' + sel.length + ' itens', 'bi-trash3', function () { excluirItens(sel); }, { atalho: 'Del', perigo: true })", "op('Propriedades', 'bi-info-square', mostrarPainel)"];
+        // "Mover para…" (modal de destino) é função do sistema (§16.7) e mora aqui, não na barra.
+        $multi = ["op('Copiar links'", "op('Recortar', 'bi-scissors', function () { recortar(sel); }, { atalho: 'Ctrl+X' })", "op('Mover para…', 'bi-folder-symlink', function () { escolherDestino(sel); })", "op('Copiar caminhos'", "op('Excluir ' + sel.length + ' itens', 'bi-trash3', function () { excluirItens(sel); }, { atalho: 'Del', perigo: true })", "op('Propriedades', 'bi-info-square', mostrarPainel)"];
         // Um item (dc L4809-4826), sem zip/Copiar/Chat/favorito.
-        $item = ["op('Abrir', ehPasta ? 'bi-folder2-open' : 'bi-box-arrow-up-right'", "op('Visualizar', 'bi-eye', function () { abrirPreviewDe(a); }, { atalho: 'Espaço' })", "op('Baixar', 'bi-download'", "op('Copiar link', 'bi-link-45deg'", "op('Recortar', 'bi-scissors', function () { recortar([alvo]); }, { atalho: 'Ctrl+X' })", "op('Colar', 'bi-clipboard', function () { colarEm(alvo.id); }, { atalho: 'Ctrl+V', desabilitado: !areaDeTransferencia })", "op('Copiar caminho', 'bi-signpost'", "op('Renomear', 'bi-input-cursor-text', function () { iniciarRenomear(alvo); }, { atalho: 'F2' })", "op('Editar…', 'bi-pencil'", "op('Excluir', 'bi-trash3', function () { excluirItens([alvo]); }, { atalho: 'Del', perigo: true })"];
+        $item = ["op('Abrir', ehPasta ? 'bi-folder2-open' : 'bi-box-arrow-up-right'", "op('Visualizar', 'bi-eye', function () { abrirPreviewDe(a); }, { atalho: 'Espaço' })", "op('Baixar', 'bi-download'", "op('Copiar link', 'bi-link-45deg'", "op('Recortar', 'bi-scissors', function () { recortar([alvo]); }, { atalho: 'Ctrl+X' })", "op('Colar', 'bi-clipboard', function () { colarEm(alvo.id); }, { atalho: 'Ctrl+V', desabilitado: !areaDeTransferencia })", "op('Mover para…', 'bi-folder-symlink', function () { escolherDestino([alvo]); })", "op('Copiar caminho', 'bi-signpost'", "op('Renomear', 'bi-input-cursor-text', function () { iniciarRenomear(alvo); }, { atalho: 'F2' })", "op('Editar…', 'bi-pencil'", "op('Excluir', 'bi-trash3', function () { excluirItens([alvo]); }, { atalho: 'Del', perigo: true })"];
         $pos = -1;
         foreach (array_merge($fundo, $multi, $item) as $trecho) {
             $p = strpos($corpo, $trecho, $pos + 1);
@@ -110,8 +122,12 @@ final class PastaExploradorInteracaoTest extends TestCase
         self::assertStringContainsString("el.menuItemTpl.content.firstElementChild.cloneNode(true)", $js);
         self::assertStringContainsString("el.menu.style.left = Math.max(8, Math.min(x, window.innerWidth - W - 8)) + 'px';", $js);
         self::assertStringContainsString("el.menu.style.top = Math.max(8, Math.min(y, window.innerHeight - H - 8)) + 'px';", $js);
-        // O ⋮ abre o MESMO menu, no lugar do botão.
+        // O ⋮ abre o MESMO menu, no lugar do botão, com aria-expanded; Tab (ou Esc) fecha o menu.
         self::assertStringContainsString("abrirMenu(r.left, r.bottom + 2, itemPorChave(chaveDoElemento(linha)));", $js);
+        self::assertStringContainsString("if (menuAberto()) { menuBotao = btn; btn.setAttribute('aria-expanded', 'true'); }", $js);
+        self::assertStringContainsString("if (b && b.isConnected) { b.setAttribute('aria-expanded', 'false'); b.focus({ preventScroll: true }); }", $js);
+        self::assertStringContainsString("'aria-haspopup': 'menu', 'aria-expanded': 'false'", $js);
+        self::assertStringContainsString("if (e.key === 'Escape' || e.key === 'Tab') { e.preventDefault(); fecharMenu(); return; }", $js);
     }
 
     #[TestDox('"Copiar link" (S-12): a URL interna de visualização, absoluta, pela Clipboard API com fallback')]
@@ -139,10 +155,20 @@ final class PastaExploradorInteracaoTest extends TestCase
         self::assertStringContainsString("postJson(cfg.urlMoverLote, { _token: cfg.csrfLote, documentos: lote.documentos, secoes: lote.secoes, destinoId: destinoId })", $js);
         self::assertStringContainsString("postJson(cfg.urlExcluirLote, { _token: cfg.csrfLote, documentos: lote.documentos, secoes: lote.secoes })", $js);
         self::assertMatchesRegularExpression("/headers: \{ 'Content-Type': 'application\/json', 'X-Requested-With': 'XMLHttpRequest' \},\s*body: JSON\.stringify\(corpo\)/", $js);
-        // Arraste da seleção (nativo) e o soltar do Sortable caem no mesmo lote.
+        // Arraste da seleção (nativo) e o soltar do Sortable caem no mesmo lote — e os dois levam
+        // a SELEÇÃO inteira quando a linha arrastada está nela.
         self::assertStringContainsString("function soltarEm(chaves, destinoLinha) {\n        moverLote(chaves, Number(destinoLinha.dataset.pexId));", $js);
         self::assertStringContainsString("if (alvo && chaves.indexOf(chaveDoElemento(alvo)) === -1) soltarEm(chaves, alvo);", $js);
-        self::assertStringContainsString("arrasteChaves = Array.from(selecao);", $js, 'o arraste leva a SELEÇÃO, não só a linha');
+        self::assertStringContainsString("arrasteChaves = Array.from(selecao);", $js, 'o arraste nativo leva a SELEÇÃO, não só a linha');
+        self::assertStringContainsString("arrasteSortable = selecao.has(chave) ? Array.from(selecao) : [chave];", $js, 'o Sortable (Manual) também');
+        self::assertStringContainsString("soltarEm(chaves.filter(function (k) { return k !== alvoChave; }), destino);", $js);
+        // No Manual o nome (<a>) inicia o arraste; só botões, campos e a linha provisória ficam de fora.
+        self::assertStringContainsString("if (t.closest('button, input, .pex-ren') || alvo.dataset.pexTemp !== undefined) return true;", $js);
+        // Recorte: consumido SÓ no sucesso do mover-lote; chaves que sumiram caem fora; excluir limpa.
+        self::assertStringContainsString("moverLote(chaves, destinoId).then(function (ok) { if (ok) areaDeTransferencia = null; });", $js);
+        self::assertStringContainsString("const chaves = areaDeTransferencia.chaves.filter(function (k) { return k !== 'pasta:' + destinoId && chaveExiste(k); });", $js);
+        self::assertStringContainsString("limparRecorteDoQueNaoExiste();", $this->funcao('excluirItens'));
+        self::assertStringContainsString("return true;\n        }).catch(function (err) { toastErro(err.message || 'Erro de comunicação.'); return false; });", $this->funcao('moverLote'));
         // Pasta→pasta (DOC-55): a tela barra o ciclo antes do pedido; o servidor confere de novo.
         self::assertStringContainsString("if (destinoId != null && lote.secoes.some(function (id) { return id === destinoId || descendentes(id).indexOf(destinoId) !== -1; })) {", $js);
         // O caminho antigo (formulário POST + reload por documento) saiu.
@@ -207,8 +233,15 @@ final class PastaExploradorInteracaoTest extends TestCase
         self::assertStringContainsString('const TOQUE_LONGO_MS = 500;', $js);
         self::assertStringContainsString("if (e.pointerType !== 'touch' && e.pointerType !== 'pen') return;", $js, 'toque longo só com dedo/caneta');
         self::assertStringContainsString("if (toqueInicio && Math.hypot(e.clientX - toqueInicio.x, e.clientY - toqueInicio.y) > 10) cancelarToqueLongo();", $js, 'rolar cancela');
-        self::assertStringContainsString('suprimirCliqueAte = Date.now() + 700;', $js, 'o clique que segue o toque longo é engolido');
-        self::assertStringContainsString("if (Date.now() < suprimirCliqueAte) { e.preventDefault(); return; }", $js);
+        // O clique sintetizado depois do toque longo é engolido por FLAG, zerada por ele mesmo ou
+        // pelo toque seguinte — onde quer que caia (menu, fundo ou lista), por captura no document.
+        self::assertStringContainsString('suprimirProximoClique = true;', $js);
+        self::assertStringContainsString("document.addEventListener('click', function (e) {\n        if (!suprimirProximoClique) return;\n        suprimirProximoClique = false;\n        e.preventDefault();\n        e.stopPropagation();\n    }, true);", $js);
+        self::assertStringContainsString("suprimirProximoClique = false;      // gesto novo", $js);
+        self::assertStringNotContainsString('suprimirCliqueAte = Date.now() + 700', $js);
+        // Toque longo no FUNDO da lista (e no vazio) abre o menu de fundo: o iOS não dispara contextmenu.
+        self::assertStringContainsString("abrirMenu(t.x, t.y, t.linha ? itemPorChave(chaveDoElemento(t.linha)) : null);", $js);
+        self::assertStringContainsString("ligarToqueLongo(el.lista);\n    if (el.vazio) ligarToqueLongo(el.vazio);", $js);
         // O ⋮ deixou de ser dropdown do Bootstrap.
         self::assertStringNotContainsString('data-bs-toggle', $js);
         self::assertStringNotContainsString('dropdown-item', $js);
@@ -290,7 +323,10 @@ final class PastaExploradorInteracaoTest extends TestCase
         $js = $this->js();
 
         self::assertStringContainsString("if (!d || !d.id || !d.viewUrl || !d.nome) return false;", $js);
-        self::assertStringContainsString("if (inserirArquivoEnviado(data)) { novos.push('arquivo:' + Number(data.documento.id)); renderizar(); }", $js);
+        self::assertStringContainsString("if (inserirArquivoEnviado(data)) novos.push('arquivo:' + Number(data.documento.id));", $js);
+        // Um render só, ao concluir o lote — não um por arquivo (derrubaria um campo inline aberto).
+        self::assertSame(1, substr_count($this->funcao('enviarArquivos'), 'renderizar();'));
+        self::assertStringNotContainsString('cancelarRenomear', $this->funcao('enviarArquivos'));
         self::assertSame(1, substr_count($js, 'window.location.reload()'), 'um único reload, o fallback');
         self::assertLessThan(strpos($js, 'window.location.reload()'), strpos($js, 'if (precisaReload) {'));
         self::assertStringContainsString("definirSelecao(novos, { ancora: novos[0], foco: novos[novos.length - 1] });", $js, 'os novos ficam selecionados');
