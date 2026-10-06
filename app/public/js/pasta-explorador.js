@@ -2678,11 +2678,12 @@
                 return !pontoNoConteudo(alvo, evt.clientX);
             },
             preventOnFilter: false,
-            // A faixa dos favoritos e a dos demais não se misturam (L6): o topo é por estrela, e
-            // arrastar um item de uma faixa para a outra mostraria um lugar que ele não vai ter.
-            // Reordenar DENTRO de cada faixa continua.
+            // Favorito não se reordena (L6): no topo a ordem é pela hora em que foi marcado, e
+            // arrastar não teria efeito visível — o caminho é a estrela/menu. Ele ainda pode ser
+            // SOLTO numa pasta (mover, decidido pela coordenada no onEnd). Os demais reordenam
+            // entre si, sem entrar na faixa dos favoritos.
             onMove: function (evt) {
-                return !evt.related || favoritoNaTela(evt.dragged) === favoritoNaTela(evt.related);
+                return !favoritoNaTela(evt.dragged) && (!evt.related || !favoritoNaTela(evt.related));
             },
             onStart: function (evt) {
                 cancelarRenomear();
@@ -2708,6 +2709,8 @@
                     return;
                 }
                 if (!arrastado) return;
+                // Favorito solto fora de uma pasta: nada a reordenar nem a gravar.
+                if (favoritoNaTela(arrastado)) { renderizar(); return; }
 
                 // Reordenar: a ordem nova é a ordem do DOM, por tipo. Persiste só o tipo arrastado —
                 // sem o efeito "favorito no topo" (ver ordemManualSemOTopo).

@@ -211,15 +211,23 @@ final class PastaExploradorFavoritosTest extends TestCase
         self::assertStringContainsString("return !!window.Sortable && classificar.chave === 'manual' && normalizar(busca) === '' && filtroTipo === 'todos';", $js);
     }
 
-    #[TestDox('guarda do Manual: o Sortable não deixa atravessar a fronteira entre a faixa dos favoritos e a dos demais (onMove → false); dentro de cada faixa, livre')]
+    #[TestDox('guarda do Manual: favorito não se reordena (a ordem é pela hora) e nenhum item entra na faixa dos favoritos (onMove → false); os demais reordenam entre si; favorito solto fora de pasta não grava ordem')]
     public function testFronteiraDasFaixasNoSortable(): void
     {
         $js = $this->js();
 
         self::assertStringContainsString(
-            "onMove: function (evt) {\n                return !evt.related || favoritoNaTela(evt.dragged) === favoritoNaTela(evt.related);\n            },",
+            "onMove: function (evt) {\n                return !favoritoNaTela(evt.dragged) && (!evt.related || !favoritoNaTela(evt.related));\n            },",
             $js
         );
+        $soltar  = strpos($js, 'soltarEm(chaves.filter(function (k) { return k !== alvoChave; }), destino);');
+        $semOrdem = strpos($js, 'if (favoritoNaTela(arrastado)) { renderizar(); return; }');
+        $persiste = strpos($js, 'persistirOrdem(cfg.urlReordenarDocs, cfg.csrfReordenarDocs, ids);');
+        self::assertNotFalse($soltar);
+        self::assertNotFalse($semOrdem);
+        self::assertNotFalse($persiste);
+        self::assertLessThan($semOrdem, $soltar, 'favorito ainda pode ser solto numa pasta (mover)');
+        self::assertLessThan($persiste, $semOrdem, 'favorito solto fora de pasta não chama o /reordenar');
         self::assertStringContainsString("return !!(linha && linha.querySelector && linha.querySelector('.pex-fav[aria-pressed=\"true\"]'));", $this->funcao('favoritoNaTela'));
     }
 

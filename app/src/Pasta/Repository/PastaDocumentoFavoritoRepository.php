@@ -102,20 +102,6 @@ class PastaDocumentoFavoritoRepository extends ServiceEntityRepository
         return (new \DateTimeImmutable((string) $valor))->format(self::FORMATO_FAVORITO_EM);
     }
 
-    public function documentoEhFavorito(PastaDocumento $documento, User $usuario, Tenant $tenant): bool
-    {
-        return (int) $this->createQueryBuilder('f')
-            ->select('COUNT(f.id)')
-            ->andWhere('f.tenant = :tenant')
-            ->andWhere('f.usuario = :usuario')
-            ->andWhere('f.documento = :documento')
-            ->setParameter('tenant', $tenant)
-            ->setParameter('usuario', $usuario)
-            ->setParameter('documento', $documento)
-            ->getQuery()
-            ->getSingleScalarResult() > 0;
-    }
-
     /**
      * Marca o alvo de forma IDEMPOTENTE: se a linha já existe (clique duplo, duas abas), não faz
      * nada e não dá erro.
