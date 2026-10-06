@@ -24,6 +24,11 @@
  *  - busca de colaborador recolhida no cabeçalho da tabela (`.db-busca`): espelha
  *    o `.js-filtro-busca` escondido no form (debounce e XHR são do motor) e é o
  *    único nó reaproveitado entre recargas, para não perder foco nem cursor;
+ *  - ordenação no celular (lista de cards < 768px): o select "Ordenar" é um
+ *    `.js-filtro-ordenar` e o filtro-tabela.js já o trata (grava nos hidden
+ *    `ordenar`/`direcao` e recarrega). O botão de inverter
+ *    (`.js-db-ordem-inverter`) só troca o valor da opção escolhida pela direção
+ *    oposta (vem pronta em `data-ordem`) e dispara o MESMO `change` no select;
  *  - Exportar PDF (`.js-db-exportar-pdf`): window.print() com o document.title
  *    trocado pelo nome do arquivo do desenho. No `beforeprint` (botão ou Ctrl+P)
  *    o cabeçalho só-impressão é reescrito com o período/filtros do momento e o
@@ -365,6 +370,25 @@
         }
     }
 
+    // ── ordenação no celular ──────────────────────────────────────────────
+
+    function ligarOrdemCelular(root) {
+        root.addEventListener('click', function (e) {
+            var btn = e.target.closest('.js-db-ordem-inverter');
+            if (!btn) {
+                return;
+            }
+            var barra = btn.closest('.db-cel-ordem');
+            var sel   = barra ? barra.querySelector('select.js-filtro-ordenar') : null;
+            var valor = btn.getAttribute('data-ordem');
+            if (!sel || !valor || sel.selectedIndex < 0) {
+                return;
+            }
+            sel.options[sel.selectedIndex].value = valor;
+            sel.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+    }
+
     function ligarExportarPdf(root) {
         var html = document.documentElement;
         var temaAntes = null;
@@ -402,6 +426,7 @@
         ligarLegendasEmToque(root);
         ligarExportarPdf(root);
         ligarBusca(root);
+        ligarOrdemCelular(root);
 
         var resultado = root.querySelector('[data-filtro-resultado]');
         if (!resultado) {

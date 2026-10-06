@@ -245,6 +245,8 @@
             <input type="text" class="db-busca-input js-db-busca" placeholder="Buscar colaborador" aria-label="Buscar colaborador" autocomplete="off" value="{{ buscaAtual }}" tabindex="{{ buscaAtual != '' ? '0' : '-1' }}">
         </div>
     </div>
+    {# Celular (< 768px): lista de cards com as mesmas linhas; a tabela abaixo segue no DOM. #}
+    {{ include('dashboard/_desempenho_cards.html.twig') }}
     <div class="table-responsive db-table-scroll">
         {% if linhas is empty %}
         <div class="db-empty">

@@ -1,0 +1,220 @@
+{# ───────────────────────────────────────────────────────────────────────────
+   Desempenho no celular (< 768px): a tabela vira lista de cards por pessoa
+   (desenho 01 - Dashboard 1.2.2, README "Responsividade (revisão final)").
+
+   É uma SEGUNDA renderização das mesmas linhas, dentro do fragmento trocável:
+   a <table> continua no DOM (ordenação por th[data-ordenar], testes que contam
+   `table > tbody > tr`, impressão). O CSS mostra uma ou outra pela largura da
+   tela; no PDF a tabela sempre aparece (a lista é só de tela, @media screen).
+
+   Por isso esta lista NÃO é <table>, e os números levam os MESMOS links da
+   tabela (mesmo destino, mesma query): número > 0 de metas abre /tarefas/equipe,
+   de pastas abre o Acervo geral do Expediente; zero não é link. O Total não é
+   link, como na tabela (a soma conta duas vezes a meta com dois responsáveis).
+
+   Ordenação: select "Ordenar" (as 9 colunas da tabela) + botão de inverter. O
+   select é `.js-filtro-ordenar`: o filtro-tabela.js lê o valor "coluna|direção",
+   grava nos hidden `ordenar`/`direcao` do form e recarrega o fragmento (o mesmo
+   XHR do clique no cabeçalho). O select não tem `name` e fica fora do form: não
+   entra na query. Inverter (dashboard.js) troca o valor da opção escolhida pela
+   direção oposta e dispara o mesmo `change`.
+
+   Contexto: incluído por _resultado.html.twig (linhas, filtros, periodoLink,
+   dashboard). Macros não atravessam o include: o import é refeito aqui.
+─────────────────────────────────────────────────────────────────────────── #}
+{% import 'dashboard/_tendencia.html.twig' as tend %}
+{# Colunas na ordem da tabela; `d` é a direção inicial ao escolher (texto sobe,
+   número desce — como o desenho). #}
+{% set colunasOrdem = [
+    { k: 'advogado',        r: 'Colaborador',     d: 'asc' },
+    { k: 'cargo',           r: 'Cargo',           d: 'asc' },
+    { k: 'metas',           r: 'Total metas',     d: 'desc' },
+    { k: 'metas_ativas',    r: 'Metas ativas',    d: 'desc' },
+    { k: 'metas_vencidas',  r: 'Vencidas',        d: 'desc' },
+    { k: 'prazos',          r: 'Prazos próximos', d: 'desc' },
+    { k: 'demandas',        r: 'Total demandas',  d: 'desc' },
+    { k: 'demandas_ativas', r: 'Demandas ativas', d: 'desc' },
+    { k: 'pastas_criadas',  r: 'Pastas criadas',  d: 'desc' }
+] %}
+{# Mesmo critério do UseCase: coluna desconhecida ou vazia = Total metas decrescente;
+   a direção só é crescente com `direcao=asc`. #}
+{% set ordPedido = filtros.ordenar|default('') %}
+{% set ordValida = ordPedido in colunasOrdem|map(o => o.k) %}
+{% set ordCel = ordValida ? ordPedido : 'metas' %}
+{% set ordCelDir = ordValida and filtros.direcao|default('') == 'asc' ? 'asc' : 'desc' %}
+{% set ordCelInversa = ordCelDir == 'asc' ? 'desc' : 'asc' %}
+{% set ordCelRotulo = ordCelDir == 'asc' ? 'Ordem crescente' : 'Ordem decrescente' %}
+<div class="db-cel-lista">
+    <div class="db-cel-ordem">
+        <label class="db-cel-ordem-rotulo" for="db-cel-ordem-select">Ordenar</label>
+        <div class="db-cel-ordem-campo">
+            <select id="db-cel-ordem-select" class="db-cel-ordem-select js-filtro-ordenar">
+                {% for o in colunasOrdem %}
+                <option value="{{ o.k }}|{{ o.k == ordCel ? ordCelDir : o.d }}"{{ o.k == ordCel ? ' selected' : '' }}>{{ o.r }}</option>
+                {% endfor %}
+            </select>
+            <i class="bi bi-chevron-down" aria-hidden="true"></i>
+        </div>
+        <button type="button" class="db-cel-ordem-inverter js-db-ordem-inverter" data-ordem="{{ ordCel }}|{{ ordCelInversa }}" title="{{ ordCelRotulo }}" aria-label="{{ ordCelRotulo }}"><i class="bi {{ ordCelDir == 'asc' ? 'bi-sort-up' : 'bi-sort-down' }}" aria-hidden="true"></i></button>
+    </div>
+
+    {% if linhas is not empty %}
+    {% for linha in linhas %}
+    {# avatar, iniciais e ícone do cargo: mesmas regras da linha da tabela #}
+    {% set av = linha.userId % 9 %}
+    {% set partes = linha.nomeAdvogado|split(' ')|filter(p => p != '') %}
+    {% set iniciais = partes|slice(0, 2)|map(p => p|slice(0, 1))|join|upper %}
+    {% set cargoLower = (linha.cargoNome ?? '')|lower %}
+    {% set cargoIcone = linha.cargoNome is null ? 'bi-dash-circle'
+        : ('advog' in cargoLower) ? 'bi-briefcase'
+        : ('sóci' in cargoLower or 'soci' in cargoLower) ? 'bi-award'
+        : ('estagi' in cargoLower) ? 'bi-mortarboard'
+        : ('paraleg' in cargoLower) ? 'bi-journal-text'
+        : ('financ' in cargoLower) ? 'bi-cash-coin'
+        : 'bi-person-badge' %}
+    {% set quem = linha.nomeAdvogado %}
+    {% set qPessoa = { responsavel: linha.userId } %}
+    <div class="db-cel-card">
+        <div class="db-cel-cab">
+            {% if linha.fotoUrl %}
+                <img src="{{ path('app_profile_foto_serve', {nome: linha.fotoUrl}) }}"
+                     alt="{{ linha.nomeAdvogado }}"
+                     class="db-avatar db-avatar-img"
+                     onerror="this.style.display='none';this.nextElementSibling.style.display='inline-flex';">
+                <span class="collab-avatar-inicial db-avatar db-avatar--{{ av }}" style="display:none">{{ iniciais }}</span>
+            {% else %}
+                <span class="collab-avatar-inicial db-avatar db-avatar--{{ av }}">{{ iniciais }}</span>
+            {% endif %}
+            <div class="db-cel-ident">
+                <span class="db-cel-nome">{{ linha.nomeAdvogado }}</span>
+                <span class="db-cel-cargo{{ linha.cargoNome is null ? ' db-cargo--vazio' : '' }}"><i class="bi {{ cargoIcone }}" aria-hidden="true"></i><span>{{ linha.cargoNome ?? 'Sem cargo' }}</span></span>
+            </div>
+        </div>
+        {# 1ª linha: os 4 de metas (span 3); 2ª: os 3 de demandas/pastas (span 4). #}
+        <div class="db-cel-grade">
+            <div class="db-cel-bloco db-cel-bloco--meta">
+                <span class="db-cel-rotulo">Total metas</span>
+                <span class="db-cel-valor">
+                    {%- if linha.totalMetas > 0 -%}
+                        <a class="db-num db-num-link" href="{{ path('tarefa_equipe', { status: 'todas' }|merge(qPessoa)|merge(periodoLink)) }}" title="Abrir: Metas de {{ quem }}" aria-label="Abrir: Metas de {{ quem }}">{{ linha.totalMetas }}</a>
+                    {%- else -%}
+                        <span class="db-num db-num--zero">0</span>
+                    {%- endif -%}
+                    {{- tend.tendencia(linha.totalMetas, linha.totalMetasAnterior, 'seta') -}}
+                </span>
+            </div>
+            <div class="db-cel-bloco db-cel-bloco--meta">
+                <span class="db-cel-rotulo">Metas ativas</span>
+                <span class="db-cel-valor">
+                    {%- if linha.metasAtivas > 0 -%}
+                        <a class="db-num db-num-link" href="{{ path('tarefa_equipe', { status: 'ativas' }|merge(qPessoa)|merge(periodoLink)) }}" title="Abrir: Metas ativas de {{ quem }}" aria-label="Abrir: Metas ativas de {{ quem }}">{{ linha.metasAtivas }}</a>
+                    {%- else -%}
+                        <span class="db-num db-num--zero">0</span>
+                    {%- endif -%}
+                </span>
+            </div>
+            <div class="db-cel-bloco db-cel-bloco--meta">
+                <span class="db-cel-rotulo">Vencidas</span>
+                <span class="db-cel-valor">
+                    {%- if linha.metasVencidas > 0 -%}
+                        <a class="db-pill db-pill--venc db-num-link" href="{{ path('tarefa_equipe', { status: 'vencidas' }|merge(qPessoa)) }}" title="Abrir: Metas vencidas de {{ quem }}" aria-label="Abrir: Metas vencidas de {{ quem }}"><span class="db-pill-dot"></span>{{ linha.metasVencidas }}</a>
+                    {%- else -%}
+                        <span class="db-num db-num--zero">0</span>
+                    {%- endif -%}
+                </span>
+            </div>
+            <div class="db-cel-bloco db-cel-bloco--meta">
+                <span class="db-cel-rotulo">Prazos próximos</span>
+                <span class="db-cel-valor">
+                    {%- if linha.prazosProximos > 0 -%}
+                        <a class="db-pill db-pill--praz db-num-link" href="{{ path('tarefa_equipe', { status: 'prazo_proximo' }|merge(qPessoa)) }}" title="Abrir: Metas com prazo próximo de {{ quem }}" aria-label="Abrir: Metas com prazo próximo de {{ quem }}"><span class="db-pill-dot"></span>{{ linha.prazosProximos }}</a>
+                    {%- else -%}
+                        <span class="db-num db-num--zero">0</span>
+                    {%- endif -%}
+                </span>
+            </div>
+            <div class="db-cel-bloco db-cel-bloco--pasta">
+                <span class="db-cel-rotulo">Total demandas</span>
+                <span class="db-cel-valor">
+                    {%- if linha.totalDemandas > 0 -%}
+                        <a class="db-num db-num-link" href="{{ path('expediente_index', { painel: 'acervo-geral' }|merge(qPessoa)|merge(periodoLink)) }}" title="Abrir: Expediente · pastas de {{ quem }}" aria-label="Abrir: Expediente · pastas de {{ quem }}">{{ linha.totalDemandas }}</a>
+                    {%- else -%}
+                        <span class="db-num db-num--zero">0</span>
+                    {%- endif -%}
+                    {{- tend.tendencia(linha.totalDemandas, linha.totalDemandasAnterior, 'seta') -}}
+                </span>
+            </div>
+            <div class="db-cel-bloco db-cel-bloco--pasta">
+                <span class="db-cel-rotulo">Demandas ativas</span>
+                <span class="db-cel-valor">
+                    {%- if linha.demandasAtivas > 0 -%}
+                        <a class="db-num db-num-link" href="{{ path('expediente_index', { painel: 'acervo-geral' }|merge(qPessoa)|merge({ status: 'ativo' })|merge(periodoLink)) }}" title="Abrir: Expediente · pastas ativas de {{ quem }}" aria-label="Abrir: Expediente · pastas ativas de {{ quem }}">{{ linha.demandasAtivas }}</a>
+                    {%- else -%}
+                        <span class="db-num db-num--zero">0</span>
+                    {%- endif -%}
+                </span>
+            </div>
+            {# Por quem ABRIU a pasta: o link filtra por criado_por, sem responsável. #}
+            <div class="db-cel-bloco db-cel-bloco--pasta">
+                <span class="db-cel-rotulo">Pastas criadas</span>
+                <span class="db-cel-valor">
+                    {%- if linha.pastasCriadas > 0 -%}
+                        <a class="db-num db-num-link" href="{{ path('expediente_index', { painel: 'acervo-geral', criado_por: linha.userId }|merge(periodoLink)) }}" title="Abrir: Expediente · pastas criadas por {{ quem }}" aria-label="Abrir: Expediente · pastas criadas por {{ quem }}">{{ linha.pastasCriadas }}</a>
+                    {%- else -%}
+                        <span class="db-num db-num--zero">0</span>
+                    {%- endif -%}
+                    {{- tend.tendencia(linha.pastasCriadas, linha.pastasCriadasAnterior, 'seta') -}}
+                </span>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+    {# Card de Total: as mesmas somas da linha de Total da tabela, com a pílula de
+       tendência ao lado do número (README: "No celular aparece ao lado do número"). #}
+    {% set tMetas   = linhas|reduce((c, l) => c + l.totalMetas, 0) %}
+    {% set tAtivas  = linhas|reduce((c, l) => c + l.metasAtivas, 0) %}
+    {% set tVenc    = linhas|reduce((c, l) => c + l.metasVencidas, 0) %}
+    {% set tPraz    = linhas|reduce((c, l) => c + l.prazosProximos, 0) %}
+    {% set tDem     = linhas|reduce((c, l) => c + l.totalDemandas, 0) %}
+    {% set tDemA    = linhas|reduce((c, l) => c + l.demandasAtivas, 0) %}
+    {% set tCriadas = linhas|reduce((c, l) => c + l.pastasCriadas, 0) %}
+    {% set tAnt = dashboard.totaisAnteriores %}
+    <div class="db-cel-card db-cel-card--total">
+        <div class="db-cel-total-cab">
+            <span class="db-total-icone db-cel-total-icone"><i class="bi bi-calculator" aria-hidden="true"></i></span>
+            <span class="db-total-rotulo">Total</span>
+        </div>
+        <div class="db-cel-grade">
+            <div class="db-cel-bloco db-cel-bloco--meta">
+                <span class="db-cel-rotulo">Total metas</span>
+                <span class="db-cel-valor db-cel-valor--total"><span class="db-total-num">{{ tMetas }}</span>{{ tend.tendencia(tMetas, tAnt is null ? null : tAnt.metas, 'pilula') }}</span>
+            </div>
+            <div class="db-cel-bloco db-cel-bloco--meta">
+                <span class="db-cel-rotulo">Metas ativas</span>
+                <span class="db-cel-valor db-cel-valor--total"><span class="db-total-num">{{ tAtivas }}</span></span>
+            </div>
+            <div class="db-cel-bloco db-cel-bloco--meta">
+                <span class="db-cel-rotulo">Vencidas</span>
+                <span class="db-cel-valor db-cel-valor--total"><span class="db-total-num db-total-num--venc">{{ tVenc }}</span></span>
+            </div>
+            <div class="db-cel-bloco db-cel-bloco--meta">
+                <span class="db-cel-rotulo">Prazos próximos</span>
+                <span class="db-cel-valor db-cel-valor--total"><span class="db-total-num db-total-num--praz">{{ tPraz }}</span></span>
+            </div>
+            <div class="db-cel-bloco db-cel-bloco--pasta">
+                <span class="db-cel-rotulo">Total demandas</span>
+                <span class="db-cel-valor db-cel-valor--total"><span class="db-total-num">{{ tDem }}</span>{{ tend.tendencia(tDem, tAnt is null ? null : tAnt.demandas, 'pilula') }}</span>
+            </div>
+            <div class="db-cel-bloco db-cel-bloco--pasta">
+                <span class="db-cel-rotulo">Demandas ativas</span>
+                <span class="db-cel-valor db-cel-valor--total"><span class="db-total-num">{{ tDemA }}</span></span>
+            </div>
+            <div class="db-cel-bloco db-cel-bloco--pasta">
+                <span class="db-cel-rotulo">Pastas criadas</span>
+                <span class="db-cel-valor db-cel-valor--total"><span class="db-total-num">{{ tCriadas }}</span>{{ tend.tendencia(tCriadas, tAnt is null ? null : tAnt.pastas_criadas, 'pilula') }}</span>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>

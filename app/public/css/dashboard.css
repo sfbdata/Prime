@@ -120,6 +120,9 @@
     /* link dos números da tabela */
     --db-link-sombra:      0 4px 10px -6px rgba(12,90,130,.45);
     --db-link-pill-sombra: 0 5px 12px -5px rgba(16,42,58,.35);
+    /* lista de cards do celular (< 768px) */
+    --db-cel-ordem-borda:  #e9eff3;
+    --db-cel-bloco-bg:     #f6f9fb;
 }
 
 /* O escuro não inverte os hex do claro: cada token volta a apontar para o
@@ -218,6 +221,8 @@
     --db-dica-sombra:      0 10px 22px -12px rgba(0,0,0,.6);
     --db-link-sombra:      none;
     --db-link-pill-sombra: none;
+    --db-cel-ordem-borda:  var(--bs-border-color-translucent);
+    --db-cel-bloco-bg:     var(--bs-secondary-bg);
 }
 
 /* ── Fundo da página ─────────────────────────────────────────────────────────
@@ -1417,6 +1422,165 @@
 .db-page .db-seta--ruim .db-dica-pct { color: var(--db-dica-ruim-forte); }
 .db-page .db-seta--ruim .db-dica-de  { color: var(--db-dica-ruim-fraco); }
 
+/* ── Desempenho no celular: lista de cards (< 768px) ──────────────────────────
+   Segunda renderização das linhas (dashboard/_desempenho_cards.html.twig). Fora
+   do celular ela não existe na tela; no celular some a TABELA (o aviso de
+   "nenhum colaborador" fica). Só em @media screen: no PDF a tabela sempre
+   aparece e a lista nunca. Medidas do desenho (01 - Dashboard 1.2.2, l.722-772). */
+.db-page .db-cel-lista { display: none; }
+@media screen and (max-width: 767.98px) {
+    .db-page .db-cel-lista { display: block; }
+    .db-page .db-table-scroll > .db-table { display: none; }
+}
+
+/* barra "Ordenar": rótulo 11.5/700, select 34px com chevron próprio, botão de inverter */
+.db-page .db-cel-ordem {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--db-cel-ordem-borda);
+    background: var(--db-head-bg);
+}
+.db-page .db-cel-ordem-rotulo {
+    margin: 0;
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--db-text-2);
+    white-space: nowrap;
+}
+.db-page .db-cel-ordem-campo {
+    position: relative;
+    display: flex;
+    align-items: center;
+    flex: 1;
+    min-width: 0;
+}
+.db-page .db-cel-ordem-select {
+    width: 100%;
+    height: 34px;
+    padding: 0 30px 0 10px;
+    border: 1px solid var(--db-border-ctl);
+    border-radius: 4px;
+    background: var(--db-ctl-bg);
+    color: var(--db-text);
+    font-size: 13.5px;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+}
+.db-page .db-cel-ordem-select:focus { outline: none; border-color: var(--db-accent); box-shadow: var(--db-focus); }
+.db-page .db-cel-ordem-campo > .bi-chevron-down {
+    position: absolute;
+    right: 10px;
+    font-size: 11px;
+    color: var(--db-faint);
+    pointer-events: none;
+}
+.db-page .db-cel-ordem-inverter {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    flex-shrink: 0;
+    padding: 0;
+    border: 1px solid var(--db-border-ctl);
+    border-radius: 4px;
+    background: var(--db-ctl-bg);
+    color: var(--db-accent);
+    cursor: pointer;
+}
+.db-page .db-cel-ordem-inverter i { font-size: 15px; }
+.db-page .db-cel-ordem-inverter:focus-visible { outline: none; border-color: var(--db-accent); box-shadow: var(--db-focus); }
+
+/* card por pessoa: avatar + nome 14.5/700 + cargo; grade de 12 colunas */
+.db-page .db-cel-card {
+    padding: 14px 14px 13px;
+    border-bottom: 1px solid var(--db-div);
+}
+.db-page .db-cel-cab {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    margin-bottom: 11px;
+}
+.db-page .db-cel-ident { min-width: 0; flex: 1; }
+.db-page .db-cel-nome {
+    display: block;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 14.5px;
+    font-weight: 700;
+    line-height: 1.3;
+    color: var(--db-text-strong);
+    overflow-wrap: anywhere;
+}
+.db-page .db-cel-cargo {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 2px;
+    font-size: 12.5px;
+    color: var(--db-muted);
+}
+.db-page .db-cel-cargo i { font-size: 12px; color: var(--db-icon-muted); }
+.db-page .db-cel-cargo.db-cargo--vazio { color: var(--db-sem-cargo); font-style: italic; }
+
+.db-page .db-cel-grade {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 6px;
+}
+.db-page .db-cel-bloco {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 4px;
+    min-width: 0;
+    padding: 7px 8px 8px;
+    border-radius: 4px;
+    background: var(--db-cel-bloco-bg);
+}
+.db-page .db-cel-bloco--meta  { grid-column: span 3; }
+.db-page .db-cel-bloco--pasta { grid-column: span 4; }
+.db-page .db-cel-rotulo {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    line-height: 1.25;
+    color: var(--db-muted);
+    hyphens: auto;
+}
+.db-page .db-cel-valor { display: flex; align-items: center; gap: 3px; min-width: 0; }
+/* o número-link encosta à esquerda (o recuo do hover não desalinha com o rótulo) */
+.db-page .db-cel-valor > .db-num.db-num-link { justify-content: flex-start; margin-left: -7px; }
+.db-page .db-cel-valor--total { gap: 6px; flex-wrap: wrap; }
+
+/* card de Total no fim: fundo do Total da tabela, blocos brancos */
+.db-page .db-cel-card--total {
+    padding: 13px 14px 14px;
+    border-top: 1px solid var(--db-div-strong);
+    border-bottom: none;
+    background: var(--db-total-bg);
+}
+.db-page .db-cel-total-cab {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin-bottom: 10px;
+}
+.db-page .db-cel-total-icone { width: 30px; height: 30px; }
+.db-page .db-cel-total-icone i { font-size: 14px; }
+.db-page .db-cel-card--total .db-cel-bloco { background: var(--db-card); }
+
+/* abaixo de 380px os 4 de metas ficam 2×2 */
+@media (max-width: 379.98px) {
+    .db-page .db-cel-bloco--meta { grid-column: span 6; }
+}
+
 /* ── Responsividade ───────────────────────────────────────────────────────── */
 /* Abaixo de 1100px (dc): 8px entre colunas (4px de cada lado da célula), 14px
    nas bordas, mínimos 140/92/56 e o nome abreviado ("Samuel F."). */
@@ -1561,6 +1725,9 @@
     .db-page .db-busca,
     .db-page .db-card-ver,
     .db-page .db-dica { display: none !important; }
+    /* a lista de cards é só de tela: no papel a tabela sempre aparece */
+    .db-page .db-cel-lista { display: none !important; }
+    .db-page .db-table-scroll > .db-table { display: table !important; }
     /* a folha tem menos de 1100px, mas a 78% o nome completo cabe */
     .db-page .db-nome-completo { display: inline !important; }
     .db-page .db-nome-curto { display: none !important; }
