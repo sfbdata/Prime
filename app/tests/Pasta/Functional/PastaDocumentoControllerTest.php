@@ -27,6 +27,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use Symfony\Component\Security\Csrf\CsrfToken;
 use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 
 /**
@@ -128,7 +129,7 @@ final class PastaDocumentoControllerTest extends JusPrimeWebTestCase
         self::assertSame('Procuração', $json['documento']['categoriaRotulo']);
         self::assertNotNull($json['documento']['modificadoEm']);
         self::assertNull($json['documento']['descricao'], 'chave ausente no form = em branco = NULL, como sempre foi');
-        self::assertSame($this->csrf('edit_documento_' . $id), $json['documento']['csrfEditar']);
+        self::assertTokenValido('edit_documento_' . $id, $json['documento']['csrfEditar']);
         self::assertSame("/pasta/documento/{$id}/visualizar", $json['documento']['viewUrl']);
         self::assertSame('Procuração.pdf', $this->documento($id)['nome_original']);
     }
@@ -966,5 +967,16 @@ final class PastaDocumentoControllerTest extends JusPrimeWebTestCase
         };
 
         static::getContainer()->set('security.csrf.token_storage', $storage);
+    }
+
+    /** O gerenciador real mascara o valor (BREACH); a prova é ele aceitar o token para aquele id. */
+    private static function assertTokenValido(string $idDoToken, mixed $valor): void
+    {
+        self::assertIsString($valor);
+        self::assertNotSame('', $valor);
+        self::assertTrue(
+            static::getContainer()->get('security.csrf.token_manager')->isTokenValid(new CsrfToken($idDoToken, $valor)),
+            "token devolvido não vale para '{$idDoToken}'",
+        );
     }
 }

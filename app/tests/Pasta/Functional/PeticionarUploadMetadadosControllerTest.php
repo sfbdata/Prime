@@ -20,6 +20,7 @@ use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use Symfony\Component\Security\Csrf\CsrfToken;
 use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 
 /**
@@ -113,9 +114,9 @@ final class PeticionarUploadMetadadosControllerTest extends JusPrimeWebTestCase
         self::assertSame("/pasta/documento/{$id}/visualizar", $doc['viewUrl']);
         self::assertSame("/pasta/documento/{$id}/download", $doc['downloadUrl']);
         self::assertSame("/pasta/documento/{$id}/mover-secao", $doc['urlMover']);
-        self::assertSame('TOKEN_pasta_doc_mover_' . $id, $doc['csrfMover']);
-        self::assertSame('TOKEN_edit_documento_' . $id, $doc['csrfEditar']);
-        self::assertSame('TOKEN_delete_documento_' . $id, $doc['csrfExcluir']);
+        self::assertTokenValido('pasta_doc_mover_' . $id, $doc['csrfMover']);
+        self::assertTokenValido('edit_documento_' . $id, $doc['csrfEditar']);
+        self::assertTokenValido('delete_documento_' . $id, $doc['csrfExcluir']);
         self::assertSame(hash('sha256', self::PDF_MINIMO), $doc['sha256']);
         self::assertArrayHasKey('carregadoEm', $doc);
         self::assertArrayHasKey('modificadoEm', $doc);
@@ -229,5 +230,16 @@ final class PeticionarUploadMetadadosControllerTest extends JusPrimeWebTestCase
         };
 
         static::getContainer()->set('security.csrf.token_storage', $storage);
+    }
+
+    /** O gerenciador real mascara o valor (BREACH); a prova é ele aceitar o token para aquele id. */
+    private static function assertTokenValido(string $idDoToken, mixed $valor): void
+    {
+        self::assertIsString($valor);
+        self::assertNotSame('', $valor);
+        self::assertTrue(
+            static::getContainer()->get('security.csrf.token_manager')->isTokenValid(new CsrfToken($idDoToken, $valor)),
+            "token devolvido não vale para '{$idDoToken}'",
+        );
     }
 }
