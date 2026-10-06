@@ -3,6 +3,10 @@
 Início: 05/10/2026 (madrugada) · Base: `master` @ `beff02fd` (= produção, Trilha A publicada como entrega
 intermediária) · Risco: BAIXO nas telas; MÉDIO quando tocar permissão; ALTO não entra sem spec própria.
 
+> **ESTADO ATUAL (06/10/2026, fim da sessão 1): `3f199dfd` PUBLICADO EM PRODUÇÃO** — publicação
+> INTERMEDIÁRIA (não é aprovação final do redesign). **Continuidade: §9 (PRÓXIMA SESSÃO).** Prioridade nº 1:
+> aba **Documentos** (não aprovada pelo dono).
+
 > **Este arquivo é o LEDGER da rodada.** Uma sessão nova continua daqui sem depender da conversa.
 > Atualizado durante a execução. A Trilha A (`docs/specs/trilha-a-visual-pje.md`) continua valendo para as
 > regras absolutas (§1), o inventário de preservação (§2) e as decisões já tomadas (§5).
@@ -29,6 +33,8 @@ Relatórios das investigações desta rodada: resumidos no §2; o detalhe ficou 
 | Quando | HEAD | Suíte | Observação |
 |---|---|---|---|
 | início | `beff02fd` | 5633/5633 (Trilha A) | árvore limpa; só o pacote do Designer untracked |
+| **PRODUÇÃO** | **`3f199dfd`** | deploy + smoke OK (dono, 06/10); 9 migrations aplicadas; IA desligada | publicação intermediária |
+| homologação | `4a919751` | 6682/6682 · smoke Playwright 52/52 | 8 correções da homologação (§7) |
 | checkpoint 4 (final da rodada) | `e5b7aae5` | **6674/6674** (26.450 asserções, 03:43) · lint:twig 198 · lint:yaml 25 · lint:container OK · schema:validate OK | 85 commits sobre `beff02fd`, 9 migrations novas |
 | checkpoint 3 | `dda8a012` | **6413/6413** (24.814 asserções, 03:49) | `memory_limit` da suíte em 768M (`4b840a77`) |
 | checkpoint 1 | `b9236379` | 5817/5818 → a falha era real (purga sem `nota_tecnica`), corrigida | suíte 04:43 |
@@ -268,3 +274,178 @@ DELETE, se o escritório tiver linhas nas tabelas novas (`garantirTenantVazio`, 
 
 **Proibido como estratégia de rollback:** rodar `down()` em produção. Restaurar o dump só se houver
 corrupção de dado, e só por decisão do dono.
+
+
+## 9. Estado de produção e PRÓXIMA SESSÃO — INSTRUÇÕES DE CONTINUIDADE
+
+### 9.1 Produção (06/10/2026)
+- **Publicado:** `3f199dfd` em https://bluejus.com.br (VPS 72.60.146.89, `/opt/jusprime`). Deploy e smoke
+  pós-deploy concluídos com sucesso pelo dono.
+- **Natureza:** publicação **INTERMEDIÁRIA**. Não é aprovação final do redesign, e nenhuma divergência
+  não percebida vira decisão aprovada.
+- **Migrations:** as 9 da Trilha B foram aplicadas (`Version20261006002519`, `010231`, `120000`,
+  `121500`, `134500`, `150000`, `160000`, `161500`, `171500`).
+  - Duas migrations antigas aparecem como "New", `Version20260401000000` e `Version20260408180237` (Ponto).
+    São **conhecidas e pré-existentes**, ficam em skip e não são da Trilha B. Não as execute.
+- **IA:** desligada e não configurada (`ProvedorNaoConfigurado`; `IA_HABILITADA`/`IA_API_KEY` ausentes do
+  `.env.prod`). A tela mostra "IA não configurada nesta instalação" e nada é simulado.
+- **Âncora de rollback:** imagens salvas em `/opt/backups/imagens/jusprime-imagens-pre-trilha-b-<TS>.tar.gz`
+  e dump em `/opt/backups/jusprime-pre-trilha-b/`. Rollback = imagem antiga **sem `down()`** (§8, provado).
+
+### 9.2 Git (no fim da sessão)
+- **Branch e HEAD:** branch `master`; HEAD local = `origin/master` = `3f199dfd` (0 à frente, 0 atrás).
+  A árvore está limpa.
+- **Untracked:** só o pacote do Designer `docs/design/claude-design-2026-10-05 (1)/`, que **não é
+  versionado de propósito** (pode ter dado real). Não apagar.
+- **Branches auxiliares:** 44 `worktree-agent-*` sem worktree. 43 são desta rodada e já estão integradas
+  por conteúdo (prova no §7); apagar é do dono (`git branch -D`, comando no §7). A `worktree-agent-a40e8d8ebf3d119ca`
+  é anterior, tem uma worktree e um commit de cobrança fora do master: **não tocar**.
+- **Outras frentes:** 28 branches e 21 worktrees de frentes antigas (ver `docs/frentes-ativas.md`). Ficam
+  fora do escopo; não limpar.
+- **Commits não publicados:** nenhum.
+
+### 9.3 PRIORIDADE Nº 1 — aba Documentos (NÃO aprovada pelo Samuel)
+Na homologação, o dono verificou que a aba **Documentos não está igual ao Claude Designer**
+(`docs/design/claude-design-2026-10-05 (1)/02 - EXPEDIENTES 1.2.3.dc.html`). Ela não foi coberta pela 2ª
+auditoria (`auditoria-pasta-2.md` cobriu cabeçalho, Dados, Metas, Processo, Financeiro, Detalhes e Push,
+mas **não Documentos**).
+
+**Ponto de partida (o que já se sabe):**
+- **Tela:** `app/templates/pasta/show.html.twig`, `#documentos` (~l.310):
+  - inclui `pasta/_documentos_sugeridos.html.twig` e depois o gerenciador `div.fm#fileManager`;
+  - o `#fileManager` carrega os contratos `data-url-upload` (`pasta_peticionar_upload`), `data-url-criar-secao`,
+    `data-url-reordenar-secoes`, `data-url-reordenar-docs`, os moldes `data-url-renomear-tpl`/`excluir`/`mover`
+    com `__ID__`, os CSRFs e `data-arvore="1"`;
+  - o aviso `#uploadDuplicadosAviso` fica ao lado da barra de upload, e o modal `#previewDocModal` ~l.2327.
+- **JS e CSS:** `app/public/js/pasta-arquivos.js` (871 linhas) e `app/public/css/pasta-arquivos.css`
+  (736 linhas). **🔴 O gerenciador é COMPARTILHADO com a Cobrança:**
+  `app/templates/cobranca/caso/_documentos.html.twig` reusa o `pasta-arquivos.js` sem editá-lo.
+  Qualquer mudança no `fm` pode quebrar a Cobrança.
+- **Backend (rotas existentes):** `pasta_documento_upload/view/download/edit/delete`,
+  `pasta_documento_mover_secao`, `pasta_documentos_reordenar`, `pasta_secao_criar/renomear/excluir/mover`,
+  `pasta_peticionar` (+ `_upload`, `_texto`, `_upload_imagem`), `pasta_documento_editar_texto`,
+  `pasta_documento_exportar_texto/{formato}`, `pasta_checklist_*` (adicionar, toggle, editar, excluir,
+  reordenar, modelos).
+- **Visualizador:** `app/public/js/visualizador-documento.js` (B7/B29) cobre PDF, imagem, áudio, vídeo,
+  DOCX, planilha, texto, ODT, RTF, PPTX, EML e ZIP, sempre em iframe sandbox. API:
+  `VisualizadorDocumento.ligarModal/abrir`. O `pasta-arquivos.js` abre pelo `.fm-arq-preview`.
+- **Editor:** `editor-rico.js` (Quill, B8/B28) nas peças de texto (`pasta_peticionar_texto`). A relação com
+  o editor de peças do desenho está a **INVESTIGAR**.
+- **Upload, hash e duplicado (B31):**
+  - `pasta_documento.sha256` calculado em todos os caminhos; falha de leitura deixa NULL.
+  - O retorno do upload traz `duplicadoDe` (mesmo tenant e permissão por pasta).
+  - Comando `app:documentos:calcular-hash`.
+  - Ainda não há "nome parecido %" nem duplicados listados no explorador.
+- **Documentos sugeridos (B37):** `Pasta/Service/SugestorDeDocumentos` + `CatalogoDeDocumentos`, mais o
+  parcial e os arquivos `pasta-documentos-sugeridos.js/.css`. Fica fora do `fm` porque o checklist mora dentro dele.
+- **Testes existentes:** em `app/tests/Pasta/Functional/`:
+  - `PastaShowDocumentosControllerTest`, `PastaDocumentoUploadControllerTest`, `ExcluirDocumentoDaPastaTest`;
+  - `PastaSecaoControllerTest`, `PastaSecaoRepositoryTest`;
+  - `PecaImagemControllerTest`, `PecaTextoArmazenamentoTest`, `ArquivosReferenciadosEmPecasTest`;
+  - `PeticionarUploadDuplicadoControllerTest`, `PastaDocumentosSugeridosTest`, `CalcularHashDosDocumentosCommandTest`;
+  - os testes da Cobrança que usam o `fm`: **INVESTIGAR** quais são.
+- **Diferenças conhecidas contra o desenho** (Trilha A §6 e inventário `pasta.md`, seção Documentos):
+  explorador no padrão Windows (oito modos de exibição, Organizar, colunas móveis, painel de detalhes,
+  seleção em lote e por laço, duplicados, sugestões de limpeza, checklist por regras), ✦, "exigido pelo
+  juízo" e organização sugerida. **A auditoria item a item está por fazer: INVESTIGAR primeiro.**
+- **Contratos que não podem quebrar:** todos os `data-*`/ids do `#fileManager` e do `#previewDocModal`, o
+  `.fm-arq-preview`, as rotas acima, o uso pela Cobrança, o `#uploadDuplicadosAviso` e as seções e sua
+  reordenação (árvore).
+- **Riscos:**
+  - quebrar a Cobrança (o `fm` é compartilhado);
+  - perder a reordenação por arrastar;
+  - selos e ações sem lastro (nada fake);
+  - desempenho com muitos arquivos (pastas com 50+ documentos; prod tem 22.565).
+- **Primeiro passo:** subagente (Opus) faz a auditoria item a item da aba Documentos × dc 1.2.3 (linhas,
+  valores e comportamento) e classifica cada item em A/B/C/D/E. Depois, um subagente Fable decide a
+  arquitetura: um explorador próprio da Pasta (componente novo, deixando o `fm` da Cobrança intacto) ou
+  evoluir o `fm` com opções opt-in.
+
+### 9.4 Inventário de pendências (atualizado)
+
+**A) Implementável autonomamente agora**
+- **Documentos:** todo o §9.3, auditoria primeiro.
+- **3ª passada de fidelidade** nas outras abas da Pasta e no Dashboard, pegando o que as auditorias 1 e 2
+  não viram.
+- **Metas:**
+  - estado "Alertado às HH:MM" no sino;
+  - drawer "Relatório da meta" (INVESTIGAR o desenho).
+- **Pasta:**
+  - botão "Cadastro" com o selo de pendências no cabeçalho (usa o `PendenciasDoCadastro`);
+  - abas do modal Editar dados como atalhos (Cliente/Processo/Histórico) sem perder campo;
+  - troca do interruptor "Administrativo" sem recarregar;
+  - vincular cliente sem recarregar (a linha nova sem ícone);
+  - estrela de favorito no modo cartão/celular do Expediente;
+  - extrair a expressão CASE duplicada de `vizinha()`/`posicaoNoAcervo`.
+- **Push:** "Geram prazo" (INVESTIGAR o lastro).
+- **Financeiro:**
+  - "Enviar por e-mail" (o mailer existe; INVESTIGAR o escopo);
+  - modal "Adicionar pagamento" com parcelas/juros (INVESTIGAR a regra no desenho).
+- **Por regras (sem LLM):** checklist por regras/cobrança do checklist, timeline inteligente e pontuação da
+  inteligência cadastral (`trilha-b-inventario/inteligencia.md` §1.9, §1.11 e §1.14). Sempre com rótulo honesto.
+- **Dashboard:** sons (F11), já que a infra de preferências existe; "Adicionar coluna" do menu ⋮.
+- **Visualizador:** ODP e ZIP64.
+- **Notificação ao autor** da resposta no Registro (@menção = INVESTIGAR).
+
+**B) Parcialmente implementado — concluir**
+- **Documentos sugeridos:** faltam o ✦, "exigido pelo juízo", duplicados e organização sugerida.
+- **Duplicados:** falta "nome parecido %" e a lista de duplicados no explorador.
+- **Financeiro ⋮:** falta "Editar/corrigir valores".
+- **Clientes:** edição inline de contatos na janela de detalhes.
+- **IA:** "Perguntar à IA" e a próxima fatia de agentes. Infra e UI podem ser feitas; o resultado
+  depende do provedor (D).
+
+**C) Depende genuinamente do Samuel** (§4 do ledger, detalhado): D-IA/D-IA2, D-MASTER, D-15MIN, D-SITUACAO,
+D-DESTAQUE, D-LINK, D-EDITOR, D-DASH, D-EQUIPE, D-PRAZOS, D-FIN, D-PJ, D-RELINI, D-META, D-ACOMP, D-CARTEIRA,
+D-BARRA, D-CONNECT, D-PASTA6 (inclui o selo "0"), D-PERM-META, D-LIBRE. São pulados temporariamente, e
+**não são bloqueio geral**.
+
+**D) Depende de serviço, credencial ou configuração externa**
+- Chave e provedor de LLM.
+- PJe/MNI e OCR no servidor ("Ler PDF", dados do PJe).
+- LibreOffice na imagem (DOC/PPT/MSG).
+- Servidor de chamadas (Chat/Connect).
+- Drive com 403 (frente própria).
+
+### 9.5 Pós-produção — operacional, executado pelo dono, NÃO fazer sem pedido
+- **Cron da foto diária:** `55 2 * * * docker exec -w /var/www/app jusprime_php_prod php bin/console
+  app:dashboard:fotografar` (UTC).
+- **Hashes antigos:** `app:documentos:calcular-hash --dry-run --limite=500` e depois em fatias com
+  `nice`/`ionice` (≈23 mil arquivos, 26 GB).
+- **Limpeza de branches/worktrees** da rodada, quando o dono quiser (comando no §7).
+- **Arquivos untracked antigos na VPS:** organizar (INVESTIGAR com o dono quais).
+- **Disco e cache Docker:** o cache de build está acima do teto desejado; acompanhar o espaço livre da VPS.
+
+### 9.6 PRÓXIMA SESSÃO — INSTRUÇÕES DE CONTINUIDADE
+1. Reconstrua o estado por este ledger (§0, §3, §4, §7–§9) e pelo repositório (`git log`, `git status`).
+   Não dependa da conversa anterior.
+2. A sessão principal é **orquestradora**: planeja, delega, integra e valida. Investigação, auditoria,
+   implementação delimitada e revisão vão para subagentes, para preservar contexto.
+3. Use **Fable** para o complexo e de alto risco (arquitetura de Documentos, segurança, migrations) e
+   **Opus** para o resto, quando disponíveis. Se um não estiver disponível, use o melhor que houver e siga.
+4. **Prioridade nº 1: Documentos** (§9.3). Compare sistematicamente com o Claude Designer, item a item.
+5. Ciclo de cada entrega: investigar → implementar (worktree por lote; o orquestrador integra com
+   cherry-pick individual) → testar no container → revisão independente → corrigir → commit → ledger.
+6. Depois de Documentos, continue **automaticamente** por TODAS as pendências A e B do §9.4. Não pare
+   depois de uma entrega.
+7. Não peça autorização para decisões técnicas seguras: escolha, registre e siga.
+8. Deixe por último só os itens C e D; registre-os e siga em outra frente.
+9. **Nada de push nem deploy** sem autorização explícita do dono.
+10. Proteja o contexto da sessão principal. Antes do limite, atualize este ledger e escreva um novo
+    handoff (§9).
+11. **Armadilhas:**
+    - setters gravam texto em MAIÚSCULAS;
+    - `MockClock` com string assume UTC;
+    - o hook lê `grep -n`/`sed -n` como `-n` se houver `git commit` no mesmo comando;
+    - rename de migration de outra worktree pode apagar a do master;
+    - `cache:clear` e `lint:twig` do dev precisam de `-d memory_limit=512M`;
+    - não rode duas suítes juntas no mesmo container;
+    - a homologação no navegador usa o banco `saas_ux`, as pastas 223 e 1025 e o login de dev
+      (`farlei.rocha@gmail.com`, escritório 1). O script de smoke ficou no scratchpad da sessão 1, que
+      não é versionado: refazer a partir do §7.
+
+**Primeira ação exata da próxima sessão:** ler este §9 e disparar um subagente Opus, read-only, para a
+**auditoria item a item da aba Documentos × `02 - EXPEDIENTES 1.2.3.dc.html`**, com arquivo:linha, valor
+atual × desenho e classificação A–E. Em paralelo, um subagente Opus levanta quais testes e telas da
+Cobrança dependem do `pasta-arquivos.js`. Com os dois resultados, o Fable decide a arquitetura do
+explorador.
