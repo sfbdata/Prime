@@ -14,6 +14,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ORM\Entity(repositoryClass: PastaDocumentoRepository::class)]
 #[ORM\Table(name: 'pasta_documento')]
 #[ORM\Index(name: 'idx_pasta_documento_tenant', columns: ['tenant_id'])]
+#[ORM\Index(name: 'idx_pasta_documento_tenant_sha256', columns: ['tenant_id', 'sha256'])]
 #[ORM\UniqueConstraint(name: 'uniq_pasta_documento_drive_file_id', columns: ['drive_file_id'])]
 class PastaDocumento implements Auditavel, TenantAware
 {
@@ -62,6 +63,15 @@ class PastaDocumento implements Auditavel, TenantAware
 
     #[ORM\Column(name: 'drive_file_id', length: 255, nullable: true)]
     private ?string $driveFileId = null;
+
+    /**
+     * SHA-256 (hex minúsculo, 64 chars) dos bytes que ESTÃO no armazenamento — depois da
+     * compressão, quando houve. É a base dos "arquivos duplicados": dois documentos com o mesmo
+     * hash no mesmo escritório têm conteúdo idêntico. NULL = ainda não calculado (acervo anterior
+     * à coluna, preenchido por `app:documentos:calcular-hash`), nunca "sem integridade".
+     */
+    #[ORM\Column(name: 'sha256', length: 64, nullable: true, options: ['fixed' => true])]
+    private ?string $sha256 = null;
 
     #[ORM\ManyToOne(targetEntity: Pasta::class, inversedBy: 'documentos')]
     #[ORM\JoinColumn(nullable: false)]
@@ -231,6 +241,27 @@ class PastaDocumento implements Auditavel, TenantAware
     public function setDriveFileId(?string $driveFileId): self
     {
         $this->driveFileId = $driveFileId;
+
+        return $this;
+    }
+
+    public function getSha256(): ?string
+    {
+        return $this->sha256;
+    }
+
+    /**
+     * Aceita só o formato que `hash('sha256', …)` produz. Um hash fora do formato (maiúsculo,
+     * truncado, com espaço) nunca casaria com outro e viraria "sem duplicado" silencioso — por
+     * isso é recusado, não normalizado.
+     */
+    public function setSha256(?string $sha256): self
+    {
+        if ($sha256 !== null && preg_match('/^[0-9a-f]{64}$/', $sha256) !== 1) {
+            throw new \InvalidArgumentException('sha256 inválido: esperado hex minúsculo de 64 caracteres.');
+        }
+
+        $this->sha256 = $sha256;
 
         return $this;
     }

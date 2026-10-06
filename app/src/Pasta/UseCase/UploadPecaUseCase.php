@@ -10,6 +10,7 @@ use App\Pasta\Entity\PastaSecao;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Armazenamento\ChavesDePasta;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
+use App\Shared\Armazenamento\Sha256DeArquivo;
 use App\Shared\Http\FonteDeUploadHttp;
 use App\Shared\Service\CompressaoDeArquivoArmazenado;
 use App\Shared\Service\ResultadoCompressao;
@@ -17,6 +18,19 @@ use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
+/**
+ * Upload de um documento na pasta (aba Documentos e tela de peticionar).
+ *
+ * ## O hash é do arquivo que FICOU no storage
+ *
+ * `sha256` é calculado em streaming sobre o upload ANTES de ele ir para o armazenamento (o
+ * caminho temporário do PHP, que a ponte HTTP ainda não moveu). Sem compressão, esses são os
+ * bytes que o storage guarda — a gravação é byte a byte (INV-7) — e o hash vale. Com
+ * `reduzir_tamanho`, a compressão regrava a MESMA chave com outro binário; aí o hash do upload
+ * não descreve mais o que está lá e é recalculado pela chave (`Sha256DeArquivo::deChave`), uma
+ * leitura a mais só quando o conteúdo mudou. É `comprimido` quem decide, e ele já cobre o caso
+ * "publicou a versão comprimida mas falhou ao medir" (`CompressaoDeArquivoArmazenado`).
+ */
 final class UploadPecaUseCase
 {
     private const MIME_LIMITS = [
@@ -87,7 +101,11 @@ final class UploadPecaUseCase
         $doc = new PastaDocumento();
         $doc->setTenant($tenant);
 
-        $upload     = FonteDeUploadHttp::de($file);
+        $upload = FonteDeUploadHttp::de($file);
+
+        // Antes de mover: depois do `gravarEm()` o caminho do upload não existe mais.
+        $sha256 = Sha256DeArquivo::deArquivoLocal($file->getPathname());
+
         $armazenado = $upload->gravarEm($this->armazenamento, ChavesDePasta::novoDocumento($doc, $upload->extensao));
         $nomeUnico  = $armazenado->chave->nome;
 
@@ -95,6 +113,11 @@ final class UploadPecaUseCase
         $compressao = ResultadoCompressao::naoComprimido($armazenado->tamanhoBytes);
         if ($reduzirTamanho) {
             $compressao = $this->compressao->comprimir($armazenado->chave, $mimeType);
+        }
+
+        if ($compressao->comprimido) {
+            // A chave foi regravada com outro binário: o hash é do que está lá, não do upload.
+            $sha256 = Sha256DeArquivo::deChave($this->armazenamento, $armazenado->chave);
         }
 
         $doc->setPasta($pasta);
@@ -106,6 +129,7 @@ final class UploadPecaUseCase
         $doc->setNomeOriginal($file->getClientOriginalName());
         $doc->setMimeType($mimeType);
         $doc->setTamanhoBytes($compressao->tamanhoFinal);
+        $doc->setSha256($sha256);
         $doc->setSecao($secao);
 
         $this->em->persist($doc);

@@ -67,6 +67,21 @@ final class SalvarPecaTextoUseCaseTest extends TestCase
         self::assertSame('<p>Conteúdo</p>', $this->armazenamento->ler($gravada));
     }
 
+    #[TestDox('sha256: a peça nova nasce com o hash do HTML gravado')]
+    public function testPecaNovaNasceComOHashDoHtml(): void
+    {
+        $html = '<p>Conteúdo da peça</p>';
+
+        $resultado = $this->useCase->executar($this->pasta, null, $html, 'Título', 'PECA', $this->tenant);
+
+        self::assertSame(hash('sha256', $html), $resultado->getSha256());
+        self::assertSame(
+            hash('sha256', $this->armazenamento->ler($this->armazenamento->ultimaGravada())),
+            $resultado->getSha256(),
+            'o hash tem de descrever o que está no storage',
+        );
+    }
+
     #[TestDox('R1: a chave gravada é a mesma que a leitura monta a partir do documento persistido')]
     public function testChaveGravadaEhADaLeitura(): void
     {

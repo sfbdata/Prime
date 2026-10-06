@@ -10,10 +10,14 @@ use App\Pasta\Exception\TituloDePecaLongoDemaisException;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Armazenamento\Exception\ArquivoNaoEncontrado;
 use App\Shared\Armazenamento\FonteDeConteudo;
+use App\Shared\Armazenamento\Sha256DeArquivo;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
- * Regrava o HTML de uma peça existente, na MESMA chave, e atualiza tamanho e título.
+ * Regrava o HTML de uma peça existente, na MESMA chave, e atualiza tamanho, título e `sha256`.
+ *
+ * O hash acompanha o conteúdo: é a substituição do arquivo, e um `sha256` antigo numa peça
+ * editada diria "duplicado" de um conteúdo que não existe mais.
  *
  * ## Arquivo sumido: falha, não recria (D14)
  *
@@ -73,6 +77,7 @@ final class EditarPecaTextoUseCase
 
         $armazenado = $this->armazenamento->gravar($chave, FonteDeConteudo::deTexto($conteudoHtml));
         $doc->setTamanhoBytes($armazenado->tamanhoBytes);
+        $doc->setSha256(Sha256DeArquivo::deTexto($conteudoHtml));
 
         if ($novoTitulo !== null) {
             $doc->setTitulo($novoTitulo);

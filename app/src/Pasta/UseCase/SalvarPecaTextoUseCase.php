@@ -12,11 +12,15 @@ use App\Pasta\Exception\TituloDePecaLongoDemaisException;
 use App\Entity\Tenant\Tenant;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Armazenamento\FonteDeConteudo;
+use App\Shared\Armazenamento\Sha256DeArquivo;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
 /**
  * Cria uma peça escrita no editor: o HTML vira um arquivo novo e um `PastaDocumento`.
+ *
+ * O `sha256` é do HTML gravado — o storage guarda o texto byte a byte, então o hash do texto é o
+ * hash do arquivo. Peça não passa por compressão.
  *
  * Ordem (E2.4B): o documento recebe o escritório, o storage grava e cunha o nome, e só então o
  * documento é completado e persistido. Falha do storage (`FalhaDeArmazenamento`) propaga antes do
@@ -81,6 +85,7 @@ final class SalvarPecaTextoUseCase
         $doc->setCaminhoArquivo($armazenado->chave->nome);
         $doc->setMimeType(self::MIME_DA_PECA);
         $doc->setTamanhoBytes($armazenado->tamanhoBytes);
+        $doc->setSha256(Sha256DeArquivo::deTexto($conteudoHtml));
         $doc->setSecao($secao);
 
         $this->em->persist($doc);

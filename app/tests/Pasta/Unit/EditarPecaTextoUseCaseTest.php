@@ -66,6 +66,24 @@ final class EditarPecaTextoUseCaseTest extends TestCase
         self::assertSame(strlen($novoConteudo), $this->doc->getTamanhoBytes());
     }
 
+    #[TestDox('sha256 acompanha a substituição: a peça editada fica com o hash do conteúdo novo')]
+    public function testEditarAtualizaOSha256(): void
+    {
+        $this->doc->setSha256(hash('sha256', self::ORIGINAL));
+        $novoConteudo = '<p>Novo conteúdo editado</p>';
+
+        $this->em->method('flush');
+
+        $this->useCase->executar($this->doc, $novoConteudo);
+
+        self::assertSame(hash('sha256', $novoConteudo), $this->doc->getSha256());
+        self::assertSame(
+            hash('sha256', $this->armazenamento->ler(ChavesDePasta::documento($this->doc))),
+            $this->doc->getSha256(),
+            'o hash tem de descrever o que está no storage',
+        );
+    }
+
     /**
      * D14. Antes da E2.4B o `file_put_contents` recriava o arquivo em silêncio e respondia sucesso.
      */

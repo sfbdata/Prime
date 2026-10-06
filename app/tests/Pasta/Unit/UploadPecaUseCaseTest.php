@@ -308,6 +308,56 @@ final class UploadPecaUseCaseTest extends TestCase
         self::assertTrue($resultado->compressao->eraAssinado);
     }
 
+    #[TestDox('sha256: sem compressão, o hash persistido é o do arquivo enviado — calculado antes de mover')]
+    public function testSha256EhDoArquivoEnviado(): void
+    {
+        $this->em->method('persist');
+        $this->em->method('flush');
+
+        $resultado = $this->useCase->executar($this->pasta, null, $this->upload('application/pdf', 1024, 'peticao.pdf'), 'PECA', null, null, $this->tenant);
+
+        self::assertSame(hash('sha256', self::PDF), $resultado->documento->getSha256());
+        self::assertSame(
+            hash('sha256', $this->armazenamento->ler($this->armazenamento->ultimaGravada())),
+            $resultado->documento->getSha256(),
+            'o hash tem de descrever o que está no storage',
+        );
+    }
+
+    #[TestDox('sha256: com compressão, o hash é do arquivo que FICOU no storage, não do upload')]
+    public function testSha256DepoisDaCompressaoEhDoArquivoQueFicou(): void
+    {
+        $menor = 'pdf menor';
+        $this->compressor->method('comprimir')
+            ->willReturnCallback(static function (string $caminho) use ($menor): ResultadoCompressao {
+                file_put_contents($caminho, $menor);
+
+                return new ResultadoCompressao(5000, 1500, true, false);
+            });
+        $this->em->method('persist');
+        $this->em->method('flush');
+
+        $resultado = $this->useCase->executar($this->pasta, null, $this->upload('application/pdf', 5000, 'grande.pdf'), 'PECA', null, null, $this->tenant, true);
+
+        self::assertSame($menor, $this->armazenamento->ler($this->armazenamento->ultimaGravada()));
+        self::assertSame(hash('sha256', $menor), $resultado->documento->getSha256());
+        self::assertNotSame(hash('sha256', self::PDF), $resultado->documento->getSha256(), 'o hash do upload não descreve mais o arquivo');
+    }
+
+    #[TestDox('sha256: reduzir pedido mas nada comprimido — o original ficou, e o hash é o dele')]
+    public function testSha256QuandoACompressaoNaoAlterouOArquivo(): void
+    {
+        $this->compressor->method('comprimir')
+            ->willReturn(new ResultadoCompressao(5000, 5000, false, false));
+        $this->em->method('persist');
+        $this->em->method('flush');
+
+        $resultado = $this->useCase->executar($this->pasta, null, $this->upload('application/pdf', 5000, 'grande.pdf'), 'PECA', null, null, $this->tenant, true);
+
+        self::assertSame(self::PDF, $this->armazenamento->ler($this->armazenamento->ultimaGravada()));
+        self::assertSame(hash('sha256', self::PDF), $resultado->documento->getSha256());
+    }
+
     #[TestDox('D30: sem reduzir, o tamanho gravado é o medido pelo storage — não o declarado no upload')]
     public function testTamanhoVemDoStorageMesmoSemComprimir(): void
     {
