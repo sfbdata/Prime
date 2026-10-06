@@ -425,6 +425,7 @@ final class PastaExploradorArranjoTelaTest extends JusPrimeWebTestCase
         }
         // Nova pasta e renomear são INLINE desde o L5 (DOC-53/54): o JS não usa mais o modal de texto.
         self::assertStringNotContainsString('pexInputModal', (string) file_get_contents(__DIR__ . '/../../../public/js/pasta-explorador.js'));
+        self::assertCount(0, $crawler->filter('#pexInputModal'), 'o modal de texto ficou órfão no L5 e saiu da página');
 
         // UM modal de edição para a pasta inteira (DOC-90): com 2 documentos, nenhum `editDocModal<id>`.
         self::assertCount(0, $crawler->filter('[id^="editDocModal"]'), 'um formulário por documento é o que a pasta de 1.128 docs não aguenta');

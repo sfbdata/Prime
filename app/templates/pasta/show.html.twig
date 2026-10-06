@@ -699,23 +699,9 @@
    e não aceitar clique nem digitação. `PastaExploradorArranjoTelaTest` trava esse
    invariante para não voltar.
 
-   São TRÊS modais para a pasta inteira — não um por documento. O modal de edição é
+   São DOIS modais para a pasta inteira (nova pasta e renomear são inline desde o L5) — não um por documento. O modal de edição é
    ÚNICO e o explorador o preenche com os dados da linha (DOC-90): com 1.128
    documentos em produção, 1.128 formulários no HTML era o que deixava a aba lenta. #}
-{# Modal reutilizável de texto (nova pasta / renomear pasta) #}
-<div class="modal fade pex-modal" id="pexInputModal" tabindex="-1" aria-labelledby="pexInputTitulo" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-sm">
-        <div class="modal-content">
-            <div class="modal-header"><h5 class="modal-title" id="pexInputTitulo">Nova pasta</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button></div>
-            <div class="modal-body">
-                <input type="text" class="form-control" id="pexInputCampo" maxlength="255" placeholder="Nome da pasta..." aria-label="Nome da pasta">
-                <div class="text-danger small mt-1 d-none" id="pexInputErro"></div>
-            </div>
-            <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button><button type="button" class="btn btn-primary" id="pexInputConfirmar">Salvar</button></div>
-        </div>
-    </div>
-</div>
-
 {# Modal "Mover para…" (arquivo OU pasta): a árvore de pastas, com a origem e os
    descendentes da pasta movida desabilitados — ciclo barrado na tela e no servidor. #}
 <div class="modal fade pex-modal" id="pexDestinoModal" tabindex="-1" aria-labelledby="pexDestinoTitulo" aria-hidden="true">
