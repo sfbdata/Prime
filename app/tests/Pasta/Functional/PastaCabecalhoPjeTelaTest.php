@@ -251,10 +251,9 @@ final class PastaCabecalhoPjeTelaTest extends JusPrimeWebTestCase
 
         $itens = $menu->filter('.ps-pop-item')->each(fn ($n) => trim($n->filter('span')->first()->text()));
         self::assertSame(
-            ['Editar dados', 'Histórico', 'Vincular processo', 'Trocar responsável', 'Copiar link da pasta', 'Imprimir resumo', 'Arquivar pasta', 'Excluir pasta'],
+            ['Editar dados', 'Histórico', 'Duplicar pasta', 'Vincular processo', 'Trocar responsável', 'Copiar link da pasta', 'Imprimir resumo', 'Arquivar pasta', 'Excluir pasta'],
             $itens
         );
-        self::assertStringNotContainsString('Duplicar', $menu->text(), 'não existe rota de duplicação');
         self::assertStringNotContainsString('Timeline', $menu->text(), 'Timeline inteligente é função nova');
 
         self::assertSame('e', $menu->filter('.ps-pop-item[data-bs-target="#modalEditarPasta"]')->attr('data-ps-atalho'));

@@ -10,10 +10,10 @@
         e a faixa de dados (Processo vinculado · Ação · Responsável [· Cobrança]);
      3. abas no padrão PJe, com a Situação (Ativo / Arquivado) à direita.
 
-   As ações (Editar dados, Histórico, Vincular processo, Trocar responsável,
-   Copiar link, Imprimir resumo, Arquivar/Desarquivar, Excluir) vivem no menu ⋮,
-   com a tarja azul do desenho. O que o desenho mostra e o sistema ainda não tem
-   (Duplicar, Mover carteira, Timeline inteligente, Link do Push, Acompanhar,
+   As ações (Editar dados, Histórico, Duplicar, Vincular processo, Trocar
+   responsável, Copiar link, Imprimir resumo, Arquivar/Desarquivar, Excluir) vivem
+   no menu ⋮, com a tarja azul do desenho. O que o desenho mostra e o sistema ainda
+   não tem (Mover carteira, Timeline inteligente, Link do Push, Acompanhar,
    Favoritos, Cadeado, Cadastro, Intelligence, foto do cliente) NÃO é renderizado:
    item inerte ensina o usuário a desconfiar do menu inteiro.
 
@@ -172,6 +172,20 @@
                             aria-controls="psHistorico" aria-expanded="false">
                         <i class="bi bi-clock-history"></i><span>Histórico</span><kbd class="ps-pop-atalho">H</kbd>
                     </button>
+                    {# Duplicar (desenho, `menuPasta('duplicar')`): abre uma pasta nova pelo mesmo
+                       caminho da criação normal, com número novo — o "aguardando número" do
+                       protótipo não existe aqui. Só aparece para quem pode criar pasta (a mesma
+                       permissão do `pasta_new`); o servidor confere de novo. #}
+                    {% if can_access_module('pastas') %}
+                    <form method="post" action="{{ path('pasta_duplicar', {id: pasta.id}) }}"
+                          class="js-duplicar-pasta" data-nup="{{ pasta.nup }}"
+                          onsubmit="return window.confirm('Duplicar a pasta ' + this.dataset.nup + '? A cópia leva cliente, ação, responsável e checklist; documentos, metas e financeiro não são copiados.');">
+                        <input type="hidden" name="_token" value="{{ csrf_token('pasta_duplicar_' ~ pasta.id) }}">
+                        <button type="submit" class="ps-pop-item" role="menuitem">
+                            <i class="bi bi-files"></i><span>Duplicar pasta</span>
+                        </button>
+                    </form>
+                    {% endif %}
                     <button type="button" class="ps-pop-item" role="menuitem"
                             data-bs-toggle="modal" data-bs-target="#modalVincularProcesso">
                         <i class="bi bi-link-45deg"></i><span>Vincular processo</span>

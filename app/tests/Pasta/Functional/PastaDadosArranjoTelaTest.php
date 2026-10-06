@@ -123,7 +123,7 @@ final class PastaDadosArranjoTelaTest extends JusPrimeWebTestCase
 
         $itens = $crawler->filter('#psMenuAcoes .ps-pop-item')->each(fn ($n) => trim($n->filter('span')->first()->text()));
         self::assertSame(
-            ['Editar dados', 'Histórico', 'Vincular processo', 'Trocar responsável', 'Copiar link da pasta', 'Imprimir resumo', 'Arquivar pasta', 'Excluir pasta'],
+            ['Editar dados', 'Histórico', 'Duplicar pasta', 'Vincular processo', 'Trocar responsável', 'Copiar link da pasta', 'Imprimir resumo', 'Arquivar pasta', 'Excluir pasta'],
             $itens,
             'a ordem do menu é a do desenho'
         );
@@ -134,7 +134,7 @@ final class PastaDadosArranjoTelaTest extends JusPrimeWebTestCase
         );
     }
 
-    #[TestDox('o menu ⋮ tem só ações com back-end: Duplicar pasta ficou de fora por não existir')]
+    #[TestDox('o menu ⋮ tem só ações com back-end, Duplicar pasta incluída')]
     public function testMenuDeAcoesSemItemInerte(): void
     {
         $client                       = static::createClient();
@@ -146,12 +146,12 @@ final class PastaDadosArranjoTelaTest extends JusPrimeWebTestCase
 
         $menu = $crawler->filter('#psMenuAcoes');
         self::assertCount(1, $menu);
-        self::assertCount(8, $menu->filter('.ps-pop-item'), 'oito itens, todos com back-end: editar, histórico, vincular, trocar responsável, copiar link, imprimir resumo, arquivar, excluir');
+        self::assertCount(9, $menu->filter('.ps-pop-item'), 'nove itens, todos com back-end: editar, histórico, duplicar, vincular, trocar responsável, copiar link, imprimir resumo, arquivar, excluir');
 
-        self::assertStringNotContainsString(
-            'Duplicar',
-            $menu->text(),
-            'não existe rota de duplicação; item inerte ensina o usuário a desconfiar do menu'
+        self::assertCount(
+            1,
+            $menu->filter('form[action$="/duplicar"] > button.ps-pop-item'),
+            'Duplicar pasta tem back-end: é um POST para pasta_duplicar'
         );
 
         // O "Excluir Pasta" vermelho do rodapé mudou de lugar — o rodapé sumiu.
