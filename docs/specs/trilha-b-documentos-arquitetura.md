@@ -107,4 +107,6 @@ E (não implementar): DOC-39 (Chat I.A), DOC-52 (D-LIBRE), DOC-78 (rótulo ✦/"
 | L1 | ✅ integrado | (este) | revisão Fable: aprovado com correções (9 aplicadas); suíte 6699/26660; decisões novas no ledger §4 (D-DOC-*) |
 | L2 | ✅ integrado | b1c49582 + 7e07535a | revisão Opus: 1 bloqueante (Sortable com filtro gravava ordem parcial) corrigido e re-revisado; toque entra na pasta; filtro por tipo não persistido (dc não persiste) |
 | L3 | ✅ integrado | 791d5f11 + cde71d02 + e98d8b42 | revisão Opus sem bloqueante; resumo impresso com a mesma pendência; CNJ colado a `_` (correção do `\b` do protótipo); conflito CNJ contra QUALQUER processo vinculado (dc: só o principal — desenho omisso para N processos) |
-| L4 | 🔎 em revisão Fable | 1fe0e2fb (worktree) | migration `Version20261006230000` |
+| L4 | ✅ integrado | 77c5a7ef + 822af97f + (teste CSRF) | revisão Fable: sem bloqueante; destinoId estrito, teto de 2.000 itens; migration `Version20261006230000` aplicada em saas_ux e saas_test; suíte 6859/27572. Pendências registradas: `modificado_em` só na edição de metadados (não no mover nem na peça de texto); o upload legado `pasta_documento_upload` não grava `enviado_por`; linha legada com caminho inválido dá 500 antes de remover (igual ao PastaSecaoController) |
+| L5 | ⏳ em andamento | — | |
+| L11 | ⏳ em andamento | — | migration M4 |
