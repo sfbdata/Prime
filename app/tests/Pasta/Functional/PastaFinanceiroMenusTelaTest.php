@@ -152,7 +152,8 @@ final class PastaFinanceiroMenusTelaTest extends JusPrimeWebTestCase
         $menu = $crawler->filter("{$acoes} > #financeiro-doc-menu-{$docId}.ps-fin-menu[role=\"menu\"]");
         self::assertCount(1, $menu, 'o menu tem de morar na linha do arquivo, ao lado do ⋮');
         self::assertNotNull($menu->attr('hidden'), 'o menu nasce fechado');
-        self::assertSame('Contrato de honorários.pdf', trim($menu->filter('.ps-fin-menu-titulo')->text()));
+        // O título é o PERSISTIDO (o sistema normaliza para maiúsculas ao gravar).
+        self::assertSame($doc->getTitulo(), trim($menu->filter('.ps-fin-menu-titulo')->text()));
     }
 
     #[TestDox('o menu do arquivo só tem ações com função real, na ordem do desenho')]
@@ -210,7 +211,7 @@ final class PastaFinanceiroMenusTelaTest extends JusPrimeWebTestCase
         $renomear = $menu->filter('.btn-renomear-doc');
         self::assertCount(1, $renomear, 'o handler de renomear escuta .btn-renomear-doc');
         self::assertSame((string) $docId, $renomear->attr('data-doc-id'));
-        self::assertSame('Contrato de honorários.pdf', $renomear->attr('data-titulo'));
+        self::assertSame($doc->getTitulo(), $renomear->attr('data-titulo'));
         self::assertSame("/pasta/{$pastaId}/financeiro/documento/{$docId}/renomear", $renomear->attr('data-url'));
         self::assertNotEmpty($renomear->attr('data-csrf'));
 
@@ -307,7 +308,7 @@ final class PastaFinanceiroMenusTelaTest extends JusPrimeWebTestCase
         $cabecalho = $crawler->filter('#financeiro [data-trilho="pagamentos"] > #psExtratoCabecalho');
         self::assertCount(1, $cabecalho);
         self::assertStringContainsString('Extrato de pagamentos', $cabecalho->text());
-        self::assertStringContainsString('Pasta ' . $pasta->getNup() . ' · Maria Extrato', preg_replace('/\s+/', ' ', $cabecalho->text()) ?? '');
+        self::assertStringContainsString('Pasta ' . $pasta->getNup() . ' · ' . $pasta->getNomeCliente(), preg_replace('/\s+/', ' ', $cabecalho->text()) ?? '');
     }
 
     #[TestDox('sem lançamento não há folha de extrato: o menu esconde Imprimir e Copiar')]
