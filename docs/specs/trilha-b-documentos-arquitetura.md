@@ -105,3 +105,6 @@ E (não implementar): DOC-39 (Chat I.A), DOC-52 (D-LIBRE), DOC-78 (rótulo ✦/"
 |---|---|---|---|
 | L0 | ⏸️ aguarda Samuel (S-9) | — | patch de 1 linha + 2 testes descritos no §3 |
 | L1 | ✅ integrado | (este) | revisão Fable: aprovado com correções (9 aplicadas); suíte 6699/26660; decisões novas no ledger §4 (D-DOC-*) |
+| L2 | ✅ integrado | b1c49582 + 7e07535a | revisão Opus: 1 bloqueante (Sortable com filtro gravava ordem parcial) corrigido e re-revisado; toque entra na pasta; filtro por tipo não persistido (dc não persiste) |
+| L3 | ✅ integrado | 791d5f11 + cde71d02 + e98d8b42 | revisão Opus sem bloqueante; resumo impresso com a mesma pendência; CNJ colado a `_` (correção do `\b` do protótipo); conflito CNJ contra QUALQUER processo vinculado (dc: só o principal — desenho omisso para N processos) |
+| L4 | 🔎 em revisão Fable | 1fe0e2fb (worktree) | migration `Version20261006230000` |
