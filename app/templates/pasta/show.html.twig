@@ -368,6 +368,15 @@
                                         <span class="text-muted small text-nowrap" id="fmUploadContador"></span>
                                     </div>
 
+                                    {# Aviso de arquivo duplicado (duplicadoDe[] do upload). Fora do fm: preenchido pelo
+                                       helper de upload do template, sobrevive ao reload que o gerenciador faz ao terminar. #}
+                                    <div id="uploadDuplicadosAviso" class="alert alert-warning alert-dismissible small py-2 mb-3 d-none" role="status"
+                                         data-url-pasta-tpl="{{ path('pasta_show', {id: '__ID__'}) }}">
+                                        <i class="bi bi-files me-1"></i><strong>Arquivo idêntico já existe no escritório.</strong>
+                                        <ul class="mb-0 mt-1 ps-3" id="uploadDuplicadosLista"></ul>
+                                        <button type="button" class="btn-close" aria-label="Fechar" id="uploadDuplicadosFechar"></button>
+                                    </div>
+
                                     <div class="fm-body" id="fmBody">
 
                                         {# Coluna principal: pastas e arquivos. O checklist é a
@@ -2623,12 +2632,80 @@
 <script>
     const URL_UPLOAD_PECA  = {{ path('pasta_peticionar_upload', {id: pasta.id})|json_encode|raw }};
     const CSRF_UPLOAD_PECA = {{ csrf_token('peticionar_upload_' ~ pasta.id)|json_encode|raw }};
+    const PASTA_ID_UPLOAD  = {{ pasta.id|json_encode|raw }};
 
     function formatBytesPeca(b) {
         if (!b || b <= 0) return '0 B';
         if (b < 1024 * 1024) return (b / 1024).toFixed(1) + ' KB';
         return (b / 1024 / 1024).toFixed(2) + ' MB';
     }
+
+    /* ── Aviso de arquivo duplicado (duplicadoDe[] no JSON do upload) ──
+       Informativo, nunca bloqueia. O gerenciador recarrega a página ao terminar o lote, então
+       o aviso é guardado em sessionStorage e renderizado de novo depois do reload (e apagado
+       ao fechar ou ao ser mostrado uma segunda vez). */
+    const CHAVE_DUPLICADOS = 'uploadDuplicados_' + PASTA_ID_UPLOAD;
+
+    function lerDuplicadosPendentes() {
+        try { return JSON.parse(sessionStorage.getItem(CHAVE_DUPLICADOS) || '[]') || []; } catch (_) { return []; }
+    }
+
+    function textoDoDuplicado(nomeEnviado, d, pastaAtualId) {
+        const onde = String(d.pastaId) === String(pastaAtualId) ? 'nesta pasta' : 'na pasta ' + d.pastaNup;
+        return '«' + nomeEnviado + '» tem o mesmo conteúdo de «' + d.titulo + '» ' + onde + '.';
+    }
+
+    function renderizarAvisoDeDuplicados() {
+        const caixa = document.getElementById('uploadDuplicadosAviso');
+        const lista = document.getElementById('uploadDuplicadosLista');
+        if (!caixa || !lista) return;
+
+        const itens = lerDuplicadosPendentes();
+        if (itens.length === 0) { caixa.classList.add('d-none'); return; }
+
+        const pastaAtual = PASTA_ID_UPLOAD;
+        const urlTpl     = caixa.dataset.urlPastaTpl || '';
+        lista.textContent = '';
+        itens.forEach(function (it) {
+            const li = document.createElement('li');
+            li.textContent = textoDoDuplicado(it.nome, it, pastaAtual);
+            if (String(it.pastaId) !== String(pastaAtual) && urlTpl) {
+                const a = document.createElement('a');
+                a.href = urlTpl.replace('__ID__', encodeURIComponent(it.pastaId));
+                a.className = 'ms-1';
+                a.textContent = 'Abrir pasta ' + it.pastaNup;
+                li.appendChild(a);
+            }
+            lista.appendChild(li);
+        });
+        caixa.classList.remove('d-none');
+    }
+
+    function registrarDuplicados(nomeEnviado, duplicadoDe) {
+        if (!Array.isArray(duplicadoDe) || duplicadoDe.length === 0) return;
+        const itens = lerDuplicadosPendentes();
+        duplicadoDe.forEach(function (d) {
+            itens.push({ nome: nomeEnviado, pastaId: d.pastaId, pastaNup: d.pastaNup, titulo: d.titulo });
+        });
+        try { sessionStorage.setItem(CHAVE_DUPLICADOS, JSON.stringify(itens.slice(-30))); } catch (_) {}
+        renderizarAvisoDeDuplicados();
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        renderizarAvisoDeDuplicados();
+        // Mostrado uma vez depois do reload: o que ficou guardado já cumpriu o papel.
+        const fechar = document.getElementById('uploadDuplicadosFechar');
+        if (fechar) {
+            fechar.addEventListener('click', function () {
+                try { sessionStorage.removeItem(CHAVE_DUPLICADOS); } catch (_) {}
+                const caixa = document.getElementById('uploadDuplicadosAviso');
+                if (caixa) caixa.classList.add('d-none');
+            });
+        }
+        if (lerDuplicadosPendentes().length > 0) {
+            try { sessionStorage.removeItem(CHAVE_DUPLICADOS); } catch (_) {}
+        }
+    });
 
     // Envia 1 arquivo via XHR, reportando progresso de upload e fase de compressão.
     window.enviarArquivoComProgresso = function (file, opts) {
@@ -2656,6 +2733,7 @@
                 let data = null;
                 try { data = JSON.parse(xhr.responseText); } catch (_) {}
                 if (xhr.status >= 200 && xhr.status < 300 && data && data.success) {
+                    registrarDuplicados(file.name, data.duplicadoDe);
                     resolve(data);
                 } else {
                     reject(new Error((data && data.error) ? data.error : 'Erro ao enviar o arquivo.'));
@@ -2718,6 +2796,14 @@
                 bar.classList.add('bg-success');
                 status.className = 'anexo-status text-success d-block mt-1';
                 status.textContent = 'Enviado.';
+            }
+            if (Array.isArray(data.duplicadoDe) && data.duplicadoDe.length > 0) {
+                const dup = document.createElement('small');
+                dup.className = 'd-block mt-1 text-warning-emphasis';
+                dup.textContent = 'Já existe arquivo idêntico: ' + data.duplicadoDe.map(function (d) {
+                    return '«' + d.titulo + '» (' + (String(d.pastaId) === String(PASTA_ID_UPLOAD) ? 'nesta pasta' : 'pasta ' + d.pastaNup) + ')';
+                }).join('; ') + '.';
+                status.insertAdjacentElement('afterend', dup);
             }
             item.dataset.enviado = '1';
             return true;

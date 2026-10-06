@@ -12,8 +12,10 @@ use App\Pasta\Entity\PastaSecao;
 use App\Pasta\Exception\TituloDePecaLongoDemaisException;
 use App\Pasta\DTO\UploadImagemEditorInput;
 use App\Pasta\Repository\PastaSecaoRepository;
+use App\Pasta\DTO\DocumentoDuplicadoOutput;
 use App\Pasta\UseCase\EditarPecaTextoUseCase;
 use App\Pasta\UseCase\ExportarPecaTextoUseCase;
+use App\Pasta\UseCase\ListarDuplicadosDoDocumentoUseCase;
 use App\Pasta\UseCase\SalvarPecaTextoUseCase;
 use App\Pasta\UseCase\UploadImagemEditorUseCase;
 use App\Pasta\UseCase\UploadPecaUseCase;
@@ -40,6 +42,7 @@ final class PeticionarController extends AbstractController
         private readonly EditarPecaTextoUseCase $editarPecaTextoUseCase,
         private readonly ExportarPecaTextoUseCase $exportarPecaTextoUseCase,
         private readonly UploadImagemEditorUseCase $uploadImagemEditorUseCase,
+        private readonly ListarDuplicadosDoDocumentoUseCase $listarDuplicadosDoDocumentoUseCase,
         private readonly PastaSecaoRepository $pastaSecaoRepository,
         private readonly SincronizacaoPastaDispatcher $syncDispatcher,
         private readonly LoggerInterface $logger,
@@ -209,6 +212,12 @@ final class PeticionarController extends AbstractController
         $doc        = $resultado->documento;
         $compressao = $resultado->compressao;
 
+        // Aviso, não bloqueio: o documento já está gravado. Só pastas do MESMO escritório que o
+        // usuário pode ver entram na lista (ListarDuplicadosDoDocumentoUseCase).
+        $duplicados = $tenant !== null
+            ? $this->listarDuplicadosDoDocumentoUseCase->executar($doc, $currentUser, $tenant)
+            : [];
+
         if ($tenant !== null) {
             $this->syncDispatcher->despachar($pasta, $currentUser, $tenant);
         }
@@ -232,6 +241,12 @@ final class PeticionarController extends AbstractController
                 'tamanhoFinal'    => $compressao->tamanhoFinal,
                 'eraAssinado'     => $compressao->eraAssinado,
             ] : null,
+            // Sempre presente (lista vazia = sem duplicado): o JS não precisa distinguir
+            // "chave ausente" de "nenhum".
+            'duplicadoDe' => array_map(
+                static fn (DocumentoDuplicadoOutput $d): array => $d->paraJson(),
+                $duplicados,
+            ),
         ]);
     }
 
