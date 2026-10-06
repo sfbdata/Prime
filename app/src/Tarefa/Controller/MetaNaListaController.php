@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tarefa\Controller;
 
 use App\Entity\Auth\User;
+use App\Entity\Permission\AccessRequest;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Tenant;
 use App\Repository\UserTenantRepository;
@@ -27,7 +28,8 @@ use Symfony\Component\Routing\Attribute\Route;
  * Os três são POST de formulário comum com CSRF e voltam para `pasta_show#tarefas`,
  * como o `tarefa_concluir` de sempre. A guarda é a MESMA do concluir
  * (`TarefaController::assertAccess` + `verificarAcessoTarefa`, reproduzidas aqui sem
- * mudança): módulo `tarefas` + pasta da meta pertencente ao escritório. Meta de outro
+ * mudança): módulo `tarefas` + pasta da meta pertencente ao escritório — e, além delas,
+ * `canAccessResource('pasta', edit)` sobre a pasta da meta. Meta de outro
  * escritório nem chega aqui — o TenantFilter a esconde e o resolvedor responde 404.
  */
 #[Route('/tarefas')]
@@ -47,6 +49,7 @@ final class MetaNaListaController extends AbstractController
         $usuario = $this->getUser();
         $tenant  = $this->assertAccess($usuario);
         $this->verificarAcessoTarefa($tarefa, $tenant);
+        $this->verificarAcessoPasta($tarefa, $usuario, $tenant);
 
         if (!$this->isCsrfTokenValid('renomear_tarefa_' . $tarefa->getId(), (string) $request->request->get('_token'))) {
             throw $this->createAccessDeniedException('Token CSRF inválido.');
@@ -70,6 +73,7 @@ final class MetaNaListaController extends AbstractController
         $usuario = $this->getUser();
         $tenant  = $this->assertAccess($usuario);
         $this->verificarAcessoTarefa($tarefa, $tenant);
+        $this->verificarAcessoPasta($tarefa, $usuario, $tenant);
 
         if (!$this->isCsrfTokenValid('reabrir_tarefa_' . $tarefa->getId(), (string) $request->request->get('_token'))) {
             throw $this->createAccessDeniedException('Token CSRF inválido.');
@@ -89,6 +93,7 @@ final class MetaNaListaController extends AbstractController
         $usuario = $this->getUser();
         $tenant  = $this->assertAccess($usuario);
         $this->verificarAcessoTarefa($tarefa, $tenant);
+        $this->verificarAcessoPasta($tarefa, $usuario, $tenant);
 
         if (!$this->isCsrfTokenValid('alertar_tarefa_' . $tarefa->getId(), (string) $request->request->get('_token'))) {
             throw $this->createAccessDeniedException('Token CSRF inválido.');
@@ -121,6 +126,20 @@ final class MetaNaListaController extends AbstractController
         }
 
         return $tenant;
+    }
+
+    /**
+     * A meta é conteúdo da pasta: mexer nela (nome, status, alerta) exige poder EDITAR a pasta,
+     * o mesmo `canAccessResource('pasta', edit)` das outras ações da pasta. Sem isto, quem tem
+     * só o módulo Tarefas agiria sobre metas de pastas a que não tem acesso. Toda meta tem pasta
+     * (`Tarefa::getPasta()` não é anulável), então não há caso "meta sem pasta" a tratar.
+     */
+    private function verificarAcessoPasta(Tarefa $tarefa, User $usuario, Tenant $tenant): void
+    {
+        $pastaId = (int) $tarefa->getPasta()->getId();
+        if (!$this->permissionChecker->canAccessResource($usuario, $tenant, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_EDIT)) {
+            throw $this->createAccessDeniedException('Sem acesso à pasta desta meta.');
+        }
     }
 
     /** Igual a `TarefaController::verificarAcessoTarefa`. */

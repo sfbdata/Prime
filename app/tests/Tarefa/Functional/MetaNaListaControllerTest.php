@@ -7,9 +7,11 @@ namespace App\Tests\Tarefa\Functional;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Notificacao;
+use App\Entity\Permission\Permission;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
+use App\Entity\Tenant\TenantRolePermission;
 use App\Pasta\Entity\Pasta;
 use App\Tarefa\Controller\MetaNaListaController;
 use App\Tarefa\UseCase\AlertarResponsavelDaMetaUseCase;
@@ -73,6 +75,55 @@ final class MetaNaListaControllerTest extends JusPrimeWebTestCase
         $role->setName('Papel L9 ' . uniqid());
         $role->setIsSystem($papelDeSistema);
         $em->persist($role);
+
+        $ut = new UserTenant($user, $tenant);
+        $ut->setTenantRole($role);
+        $em->persist($ut);
+        $em->flush();
+
+        return $user;
+    }
+
+    /**
+     * Usuário de papel comum (sem bypass) com exatamente estas permissões.
+     *
+     * @param list<string> $codigos
+     */
+    private function criarUsuarioComPermissoes(Tenant $tenant, string $nome, array $codigos): User
+    {
+        $em     = $this->em();
+        $hasher = static::getContainer()->get(UserPasswordHasherInterface::class);
+
+        $role = new TenantRole();
+        $role->setTenant($tenant);
+        $role->setName('Papel L9 restrito ' . uniqid());
+        $role->setIsSystem(false);
+        $em->persist($role);
+
+        foreach ($codigos as $codigo) {
+            $perm = $em->getRepository(Permission::class)->findOneBy(['code' => $codigo]);
+            if ($perm === null) {
+                $perm = new Permission();
+                $perm->setCode($codigo);
+                $perm->setDescription($codigo);
+                $perm->setGroup(explode('.', $codigo)[0]);
+                $em->persist($perm);
+            }
+
+            $vinculo = new TenantRolePermission();
+            $vinculo->setTenantRole($role);
+            $vinculo->setPermission($perm);
+            $em->persist($vinculo);
+            $role->getTenantRolePermissions()->add($vinculo);
+        }
+
+        $user = new User();
+        $user->setEmail('metas_l9_perm_' . uniqid() . '@test.com');
+        $user->setFullName($nome);
+        $user->setRoles(['ROLE_USER']);
+        $user->setIsActive(true);
+        $user->setPassword($hasher->hashPassword($user, 'senha123'));
+        $em->persist($user);
 
         $ut = new UserTenant($user, $tenant);
         $ut->setTenantRole($role);
@@ -436,5 +487,53 @@ final class MetaNaListaControllerTest extends JusPrimeWebTestCase
 
         self::assertSame(0, $this->contarAlertas($idA, (int) $resp->getId()));
         self::assertSame(1, $this->contarAlertas($idB, (int) $respB->getId()));
+    }
+
+    // =========================================================================
+    // Acesso à PASTA da meta (canAccessResource pasta/edit)
+    // =========================================================================
+
+    #[TestDox('com o módulo Tarefas mas SEM acesso à pasta da meta: renomear, reabrir e alertar → 403, nada muda')]
+    public function testSemAcessoAPastaRecusaAsTresAcoes(): void
+    {
+        [$client, $tenant, $autor, $resp, $pasta] = $this->cenario();
+        $aberta    = (int) $this->criarMeta($pasta, $autor, [$resp])->getId();
+        $concluida = (int) $this->criarMeta($pasta, $autor, [$resp], Tarefa::STATUS_CONCLUIDA)->getId();
+        $soModulo  = $this->criarUsuarioComPermissoes($tenant, 'Só Módulo', ['modules.tarefas.view']);
+
+        $this->logarComTenant($client, $soModulo, $tenant);
+
+        $client->request('POST', '/tarefas/' . $aberta . '/renomear', ['_token' => 'TOKEN_renomear_tarefa_' . $aberta, 'titulo' => 'Invadida']);
+        self::assertResponseStatusCodeSame(403);
+        $client->request('POST', '/tarefas/' . $concluida . '/reabrir', ['_token' => 'TOKEN_reabrir_tarefa_' . $concluida]);
+        self::assertResponseStatusCodeSame(403);
+        $client->request('POST', '/tarefas/' . $aberta . '/alertar', ['_token' => 'TOKEN_alertar_tarefa_' . $aberta, 'usuario' => (string) $resp->getId()]);
+        self::assertResponseStatusCodeSame(403);
+
+        self::assertSame('Protocolar recurso', $this->metaNoBanco($aberta)->getTitulo());
+        self::assertSame(Tarefa::STATUS_CONCLUIDA, $this->metaNoBanco($concluida)->getStatus());
+        self::assertSame(0, $this->contarAlertas($aberta, (int) $resp->getId()));
+    }
+
+    #[TestDox('irmão: o mesmo perfil COM resources.pasta.edit renomeia, reabre e alerta')]
+    public function testComAcessoAPastaAsTresAcoesFuncionam(): void
+    {
+        [$client, $tenant, $autor, $resp, $pasta] = $this->cenario();
+        $aberta    = (int) $this->criarMeta($pasta, $autor, [$resp])->getId();
+        $concluida = (int) $this->criarMeta($pasta, $autor, [$resp], Tarefa::STATUS_CONCLUIDA)->getId();
+        $comPasta  = $this->criarUsuarioComPermissoes($tenant, 'Com Pasta', ['modules.tarefas.view', 'resources.pasta.edit']);
+
+        $this->logarComTenant($client, $comPasta, $tenant);
+
+        $client->request('POST', '/tarefas/' . $aberta . '/renomear', ['_token' => 'TOKEN_renomear_tarefa_' . $aberta, 'titulo' => 'Renomeada']);
+        self::assertResponseRedirects('/pasta/' . $pasta->getId() . '#tarefas');
+        $client->request('POST', '/tarefas/' . $concluida . '/reabrir', ['_token' => 'TOKEN_reabrir_tarefa_' . $concluida]);
+        self::assertResponseRedirects('/pasta/' . $pasta->getId() . '#tarefas');
+        $client->request('POST', '/tarefas/' . $aberta . '/alertar', ['_token' => 'TOKEN_alertar_tarefa_' . $aberta, 'usuario' => (string) $resp->getId()]);
+        self::assertResponseRedirects('/pasta/' . $pasta->getId() . '#tarefas');
+
+        self::assertSame($this->metaNoBanco($aberta)->getTitulo(), 'Renomeada');
+        self::assertSame(Tarefa::STATUS_PENDENTE, $this->metaNoBanco($concluida)->getStatus());
+        self::assertSame(1, $this->contarAlertas($aberta, (int) $resp->getId()));
     }
 }
