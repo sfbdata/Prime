@@ -22,6 +22,16 @@ final readonly class AnalisesDaPastaOutput
     ) {
     }
 
+    /**
+     * A instalação sem IA (plataforma não configurada): nenhuma consulta às tabelas da IA, nenhuma
+     * análise. `$movimentacoes` (o que a aba já tem para ler) só decide se o botão — desabilitado,
+     * com o motivo real — aparece.
+     */
+    public static function semInteligenciaNaPlataforma(int $movimentacoes): self
+    {
+        return new self(analises: [], ultimaConcluida: null, totalMovimentacoes: $movimentacoes, naoAnalisadas: $movimentacoes);
+    }
+
     public function temAnalise(): bool
     {
         return $this->analises !== [];

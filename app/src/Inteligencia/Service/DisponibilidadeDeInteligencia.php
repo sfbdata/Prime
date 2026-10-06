@@ -33,9 +33,19 @@ final class DisponibilidadeDeInteligencia
     ) {
     }
 
+    /**
+     * Só o 1º nível (plataforma), sem tocar o banco. Quem renderiza tela fora do módulo (a pasta)
+     * pergunta isto ANTES de consultar as tabelas da IA: numa instalação sem IA elas podem nem
+     * existir (deploy parcial — o entrypoint de prod faz `migrate … || true`).
+     */
+    public function plataformaConfigurada(): bool
+    {
+        return $this->iaHabilitada && $this->provedor->estaConfigurado();
+    }
+
     public function para(User $user, Tenant $tenant): Disponibilidade
     {
-        if (!$this->iaHabilitada || !$this->provedor->estaConfigurado()) {
+        if (!$this->plataformaConfigurada()) {
             return Disponibilidade::NaoConfiguradaNaPlataforma;
         }
 

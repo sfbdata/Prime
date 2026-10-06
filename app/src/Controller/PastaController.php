@@ -54,6 +54,7 @@ use App\Pasta\DTO\PastaMetasResumoOutput;
 use App\Pasta\DTO\PastaPendenciasOutput;
 use App\Pasta\DTO\PastaPushOutput;
 use App\Djen\Repository\PublicacaoDjenRepository;
+use App\Inteligencia\DTO\AnalisesDaPastaOutput;
 use App\Inteligencia\Service\DisponibilidadeDeInteligencia;
 use App\Inteligencia\UseCase\ListarAnalisesDaPastaUseCase;
 use App\Pasta\DTO\PastaPrazoOutput;
@@ -291,7 +292,11 @@ class PastaController extends AbstractController
     }
 
     #[Route('/{id}', name: 'pasta_show', methods: ['GET'])]
-    public function show(Pasta $pasta, ListarAnalisesDaPastaUseCase $listarAnalisesIa): Response
+    public function show(
+        Pasta $pasta,
+        ListarAnalisesDaPastaUseCase $listarAnalisesIa,
+        DisponibilidadeDeInteligencia $disponibilidadeIa,
+    ): Response
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
@@ -395,10 +400,17 @@ class PastaController extends AbstractController
 
         // BlueJus IA na aba Push (spec inteligencia-resumo-do-push §3.6): sem `modules.inteligencia.view`
         // a aba não mostra nada de IA, então nem se consulta — `null` é o sinal para o template.
-        $analisesIa = $tenant !== null
+        // Com a plataforma SEM IA também não se consulta nada da IA (as tabelas podem nem existir
+        // num deploy parcial): o template recebe um estado vazio e mostra o botão desabilitado com
+        // o motivo real ("IA não configurada nesta instalação").
+        $analisesIa = null;
+        if ($tenant !== null
             && $this->permissionChecker->canAccessModule($currentUser, $tenant, DisponibilidadeDeInteligencia::MODULO)
-            ? $listarAnalisesIa->executar($pasta, $tenant)
-            : null;
+        ) {
+            $analisesIa = $disponibilidadeIa->plataformaConfigurada()
+                ? $listarAnalisesIa->executar($pasta, $tenant)
+                : AnalisesDaPastaOutput::semInteligenciaNaPlataforma($push->total);
+        }
 
         // Setas ‹ › do cabeçalho: a pasta de cima e a de baixo na ordem da lista do Expediente.
         // Não dependem de filtro nem de sessão — quem chega por link direto navega igual.

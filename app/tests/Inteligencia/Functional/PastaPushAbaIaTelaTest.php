@@ -70,6 +70,32 @@ final class PastaPushAbaIaTelaTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString('Resumir com IA', $botao->text());
     }
 
+    #[TestDox('Plataforma sem IA e tabelas da IA AUSENTES (deploy parcial): a pasta abre e mostra o motivo')]
+    public function testSemProvedorNaoConsultaAsTabelasDaIa(): void
+    {
+        $client = $this->cliente();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $this->provedorFalso()->desconfigurar();
+        $this->logarComTenant($client, $user, $tenant);
+
+        // A migration da IA "falhou": as tabelas não existem. DDL é transacional no PostgreSQL —
+        // o rollback do DAMA as devolve no fim do teste. Qualquer consulta à IA vira 500.
+        $conexao = static::getContainer()->get('doctrine')->getConnection();
+        $conexao->executeStatement('ALTER TABLE inteligencia_analise RENAME TO inteligencia_analise_ausente');
+        $conexao->executeStatement('ALTER TABLE inteligencia_configuracao RENAME TO inteligencia_configuracao_ausente');
+
+        $crawler = $this->abrirPasta($client, (int) $pasta->getId());
+
+        $botao = $crawler->filter(self::BOTAO);
+        self::assertSame(1, $botao->count(), 'há movimentação: o botão aparece, desabilitado');
+        self::assertNotNull($botao->attr('disabled'));
+        self::assertSame('nao_configurada_na_plataforma', $botao->attr('data-ia-motivo'));
+        self::assertStringContainsString('IA não configurada nesta instalação', $botao->text());
+        self::assertSame(0, $crawler->filter('.ps-ia-cartao')->count());
+        self::assertSame('nao_configurada_na_plataforma', $crawler->filter('#psIaAbrir')->attr('data-ia-motivo'));
+    }
+
     #[TestDox('Com provedor e o escritório ligado: "Resumir com IA" habilitado, entre o atalho e os filtros')]
     public function testDisponivelBotaoHabilitado(): void
     {
