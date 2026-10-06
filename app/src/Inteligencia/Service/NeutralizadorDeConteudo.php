@@ -18,8 +18,15 @@ namespace App\Inteligencia\Service;
  */
 final class NeutralizadorDeConteudo
 {
-    /** Nomes das tags que o prompt usa como fronteira de dado. */
-    public const DELIMITADORES = ['movimentacoes', 'processo', 'equipe', 'analise_anterior'];
+    /**
+     * Nomes das tags que os prompts usam como fronteira de dado: os do Push (fatia 1) e os dos
+     * agentes da pasta (fatia 2). Bloco novo no prompt = nome novo AQUI, senão o dado pode fechá-lo.
+     */
+    public const DELIMITADORES = [
+        'movimentacoes', 'processo', 'equipe', 'analise_anterior',
+        'pasta', 'processos_vinculados', 'clientes', 'metas', 'anotacoes', 'observacoes',
+        'documentos', 'checklist', 'financeiro',
+    ];
 
     /** Controle C0/C1 (menos \t \n \r, que viram espaço depois), zero-width, bidi e BOM. */
     private const CONTROLE = '/[\x{0000}-\x{0008}\x{000B}\x{000C}\x{000E}-\x{001F}\x{007F}-\x{009F}'

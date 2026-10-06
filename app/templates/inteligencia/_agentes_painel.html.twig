@@ -1,0 +1,65 @@
+{# ============================================================================
+   Painel dos agentes da BlueJus IA (corpo do drawer): um cartão por agente —
+   ícone, nome, papel e o que ele lê; "Gerar análise" habilitado só quando a IA
+   está disponível (senão o motivo REAL, desabilitado); a lista de análises do
+   agente (`_analises_agente.html.twig`).
+
+   Renderizado em dois lugares: dentro do drawer, no HTML da pasta, com
+   `painel = null` (agentes sem análises, lista "carregando"); e sozinho por
+   `GET /pasta/{id}/ia/agentes` (`inteligencia_agentes_painel`), que o
+   `pasta-ia-agentes.js` busca ao abrir o drawer e troca inteiro.
+
+   Contexto: `painel` (App\Inteligencia\DTO\PainelDeAgentesOutput ou null),
+   `pastaId` (int).
+   ============================================================================ #}
+{% set ia = ia_disponibilidade() %}
+<div class="ia-agentes" data-ia-painel
+     data-ia-carregado="{{ painel is null ? '0' : '1' }}"
+     data-ia-em-andamento="{{ painel is not null and painel.temEmAndamento ? '1' : '0' }}">
+    {% for agente in ia_agentes() %}
+        {% set saida = painel is not null ? painel.de(agente) : null %}
+        {% set emAndamento = saida is not null and saida.temEmAndamento %}
+        {% set temConcluida = saida is not null and saida.ultimaConcluida is not null %}
+        {% set le = agente.secoes|map(s => s.rotuloCurto)|join(', ') %}
+        <section class="ia-agente" data-ia-agente="{{ agente.value }}" aria-labelledby="ia-agente-{{ agente.value }}">
+            <header class="ia-agente-cab">
+                <span class="ia-agente-ico" aria-hidden="true"><i class="bi {{ agente.icone }}"></i></span>
+                <div class="ia-agente-txt">
+                    <h3 class="ia-agente-nome" id="ia-agente-{{ agente.value }}">{{ agente.nome }}</h3>
+                    <p class="ia-agente-papel">{{ agente.papel }}</p>
+                    {# Transparência: é isto que sai do escritório quando se clica. #}
+                    <p class="ia-agente-le"><i class="bi bi-eye" aria-hidden="true"></i>Lê: dados da pasta, processos, {{ le }}.</p>
+                </div>
+            </header>
+            {% if ia.estaDisponivel %}
+                <button type="button"
+                        class="ia-cta{{ emAndamento ? ' is-carregando' : '' }}"
+                        data-ia-gerar
+                        data-ia-disponivel="1"
+                        data-ia-url="{{ path('inteligencia_agente_solicitar', {id: pastaId, agente: agente.value}) }}"
+                        title="{{ emAndamento ? 'Análise em andamento' : (temConcluida ? 'Nova análise deste agente considerando o histórico' : 'O ' ~ agente.nome ~ ' lê os dados desta pasta e responde') }}"
+                        {{ emAndamento ? 'disabled' : '' }}>
+                    <i class="bi bi-stars" aria-hidden="true"></i>
+                    <span class="ia-cta-rotulo">{{ emAndamento ? 'Analisando…' : (temConcluida ? 'Gerar nova análise' : 'Gerar análise') }}</span>
+                </button>
+            {% else %}
+                {# Nunca um botão que finge funcionar: o motivo REAL da Disponibilidade. #}
+                <button type="button" class="ia-cta ia-cta--indisponivel"
+                        data-ia-gerar data-ia-disponivel="0" data-ia-motivo="{{ ia.value }}"
+                        title="{{ ia.mensagem }}" disabled aria-disabled="true">
+                    <i class="bi bi-stars" aria-hidden="true"></i>
+                    <span class="ia-cta-rotulo">{{ ia.mensagem }}</span>
+                </button>
+            {% endif %}
+            {% if saida is not null %}
+                {{ include('inteligencia/_analises_agente.html.twig', {saida: saida, pastaId: pastaId}) }}
+            {% else %}
+                <div class="ia-ag-lista" data-ia-lista="{{ agente.value }}"
+                     data-ia-url="{{ path('inteligencia_agente_listar', {id: pastaId, agente: agente.value}) }}"
+                     data-ia-em-andamento="0" data-ia-tem-concluida="0">
+                    <p class="ia-ag-vazio" data-ia-carregando>Carregando as análises…</p>
+                </div>
+            {% endif %}
+        </section>
+    {% endfor %}
+</div>

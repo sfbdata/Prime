@@ -6,6 +6,7 @@ namespace App\Inteligencia\Entity;
 
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Inteligencia\Enum\Agente;
 use App\Inteligencia\Enum\StatusDaAnalise;
 use App\Inteligencia\Enum\TipoDeAnalise;
 use App\Inteligencia\Repository\AnaliseDeInteligenciaRepository;
@@ -83,6 +84,14 @@ class AnaliseDeInteligencia implements TenantAware, Auditavel
     #[ORM\Column(length: 120, nullable: true)]
     private ?string $quemAge = null;
 
+    /**
+     * Análise integral de um agente da pasta, no formato do Designer (CONCLUSÃO, EVIDÊNCIAS, CONTEXTO,
+     * PONTOS DE ATENÇÃO, PRÓXIMA PROVIDÊNCIA). Só `analise_pasta`; o Push não a usa. `resumo` e
+     * `pontos` continuam alimentando o cartão.
+     */
+    #[ORM\Column(type: 'text', nullable: true)]
+    private ?string $textoDaAnalise = null;
+
     /** Resposta integral do modelo, para auditoria/reparse. */
     #[ORM\Column(type: 'text', nullable: true)]
     private ?string $textoBruto = null;
@@ -136,6 +145,9 @@ class AnaliseDeInteligencia implements TenantAware, Auditavel
         private string $contextoHash,
         #[ORM\Column(type: 'json', options: ['jsonb' => true])]
         private array $contextoResumo,
+        /** Qual agente da pasta gerou a análise (`analise_pasta`); nulo no Push e nos demais tipos. */
+        #[ORM\Column(length: 20, nullable: true, enumType: Agente::class)]
+        private ?Agente $agente = null,
     ) {
         $this->criadaEm = new \DateTimeImmutable();
     }
@@ -188,6 +200,7 @@ class AnaliseDeInteligencia implements TenantAware, Auditavel
         ?int $tokensEntrada,
         ?int $tokensSaida,
         ?int $duracaoMs,
+        ?string $textoDaAnalise = null,
     ): void {
         $this->exigirStatus([StatusDaAnalise::Processando], 'concluir');
 
@@ -195,6 +208,7 @@ class AnaliseDeInteligencia implements TenantAware, Auditavel
         $this->resumo = $resumo;
         $this->pontos = $pontos;
         $this->quemAge = $quemAge;
+        $this->textoDaAnalise = $textoDaAnalise;
         $this->textoBruto = $textoBruto;
         $this->provedor = $provedor;
         $this->modelo = $modelo;
@@ -309,6 +323,16 @@ class AnaliseDeInteligencia implements TenantAware, Auditavel
     public function getTipo(): TipoDeAnalise
     {
         return $this->tipo;
+    }
+
+    public function getAgente(): ?Agente
+    {
+        return $this->agente;
+    }
+
+    public function getTextoDaAnalise(): ?string
+    {
+        return $this->textoDaAnalise;
     }
 
     public function getAlvoTipo(): string

@@ -23,6 +23,7 @@ use App\Inteligencia\Message\ProcessarAnaliseDeInteligencia;
 use App\Inteligencia\Repository\AnaliseDeInteligenciaRepository;
 use App\Inteligencia\Repository\ConfiguracaoDeInteligenciaRepository;
 use App\Inteligencia\Service\DisponibilidadeDeInteligencia;
+use App\Inteligencia\Service\EnfileiradorDeAnalise;
 use App\Inteligencia\Service\MascaradorDeDadosPessoais;
 use App\Inteligencia\Service\ProvedorDeLinguagem;
 use App\Inteligencia\Service\ProvedorNaoConfigurado;
@@ -153,8 +154,9 @@ final class SolicitarResumoDoPushUseCaseTest extends TestCase
             $disponibilidade,
             $this->montador(),
             $this->analises,
-            $this->bus,
-            new NullLogger(),
+            // O enfileiramento (dispatch + registro honesto da falha) saiu para um serviço
+            // compartilhado com os agentes da pasta; o dublê do bus continua sendo o mesmo.
+            new EnfileiradorDeAnalise($this->analises, $this->bus, new NullLogger()),
         );
     }
 

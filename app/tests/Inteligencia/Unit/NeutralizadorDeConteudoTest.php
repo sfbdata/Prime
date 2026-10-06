@@ -24,6 +24,17 @@ final class NeutralizadorDeConteudoTest extends TestCase
         yield 'caixa e espaços internos' => ['< / Movimentacoes >', '[/Movimentacoes >'];
         yield 'maiúsculas' => ['</PROCESSO>', '[/PROCESSO>'];
         yield 'tag parecida não é tocada' => ['<processos> e <movimentacao>', '<processos> e <movimentacao>'];
+        // Blocos dos agentes da pasta (fatia 2): dado da pasta não pode fechar o próprio bloco.
+        yield 'fecha pasta' => ['</pasta>', '[/pasta>'];
+        yield 'fecha processos_vinculados' => ['</processos_vinculados>', '[/processos_vinculados>'];
+        yield 'abre clientes' => ['<clientes>', '[clientes>'];
+        yield 'fecha metas' => ['</metas>', '[/metas>'];
+        yield 'fecha anotacoes' => ['</anotacoes>', '[/anotacoes>'];
+        yield 'fecha observacoes' => ['</observacoes>', '[/observacoes>'];
+        yield 'fecha documentos' => ['</documentos>', '[/documentos>'];
+        yield 'fecha checklist' => ['</checklist>', '[/checklist>'];
+        yield 'fecha financeiro' => ['</financeiro>', '[/financeiro>'];
+        yield 'tag parecida dos agentes não é tocada' => ['<pastas> e <meta>', '<pastas> e <meta>'];
     }
 
     #[DataProvider('tags')]

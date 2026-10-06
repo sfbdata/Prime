@@ -6,9 +6,9 @@ namespace App\Inteligencia\UseCase;
 
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
-use App\Inteligencia\Contexto\MontadorDeContextoDoPush;
+use App\Inteligencia\Contexto\MontadorDeContextoDaPasta;
 use App\Inteligencia\DTO\AnaliseOutput;
-use App\Inteligencia\DTO\SolicitarResumoDoPushInput;
+use App\Inteligencia\DTO\SolicitarAnaliseDaPastaInput;
 use App\Inteligencia\Entity\AnaliseDeInteligencia;
 use App\Inteligencia\Enum\TipoDeAnalise;
 use App\Inteligencia\Exception\ContextoBloqueadoException;
@@ -16,26 +16,26 @@ use App\Inteligencia\Exception\ContextoVazioException;
 use App\Inteligencia\Exception\FilaIndisponivelException;
 use App\Inteligencia\Exception\InteligenciaIndisponivelException;
 use App\Inteligencia\Exception\PastaNaoEncontradaException;
-use App\Inteligencia\Prompt\PromptResumoDoPush;
+use App\Inteligencia\Prompt\PromptDoAgente;
 use App\Inteligencia\Repository\AnaliseDeInteligenciaRepository;
 use App\Inteligencia\Service\DisponibilidadeDeInteligencia;
 use App\Inteligencia\Service\EnfileiradorDeAnalise;
+use App\Inteligencia\Service\VisibilidadeDoFinanceiroDaPasta;
 use App\Pasta\Repository\PastaRepository;
 use App\Service\PermissionChecker;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
 /**
- * "Resumir com IA" na aba Push da pasta.
+ * "Gerar análise" de UM agente da BlueJus IA na pasta (drawer do cabeçalho).
  *
  * Quem: usuário que vê a pasta E tem `modules.inteligencia.view`, num escritório com a IA ligada.
- * O quê: pede ao worker um resumo das movimentações. Pré-condições, na ordem: pasta do escritório
- * (404), permissão sobre a pasta (403), disponibilidade (409/429), contexto não sigiloso e não vazio.
- * Idempotência: pedido em andamento → devolve o mesmo; contexto igual ao da última concluída →
- * devolve a última com aviso (não gasta cota). Pós-condição: linha `pendente` + 1 mensagem no
- * `async` (pelo {@see EnfileiradorDeAnalise}, que registra a falha honestamente se a fila cair).
- *
- * Só análises do tipo `resumo_push` entram na idempotência: as dos agentes da pasta são outra
- * trilha (fatia 2), no mesmo alvo.
+ * O quê: pede ao worker a análise do agente sobre os dados REAIS desta pasta. Pré-condições, na
+ * ordem: pasta do escritório (404), permissão sobre a pasta (403), disponibilidade (409/429),
+ * contexto não sigiloso e com ao menos uma linha nas seções do agente (409 `sem_dados`).
+ * Idempotência POR AGENTE: pedido em andamento do mesmo agente → devolve o mesmo; contexto igual
+ * ao da última concluída do agente → devolve a última com aviso (não gasta cota).
+ * Pós-condição: linha `pendente` com `agente` e `contexto_resumo.financeiro` (a decisão sobre o
+ * financeiro é tomada AQUI, com sessão — o worker só obedece) + 1 mensagem no `async`.
  *
  * @throws PastaNaoEncontradaException
  * @throws AccessDeniedException
@@ -44,19 +44,20 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
  * @throws ContextoVazioException
  * @throws FilaIndisponivelException
  */
-final class SolicitarResumoDoPushUseCase
+final class SolicitarAnaliseDaPastaUseCase
 {
     public function __construct(
         private readonly PastaRepository $pastas,
         private readonly PermissionChecker $permissionChecker,
         private readonly DisponibilidadeDeInteligencia $disponibilidade,
-        private readonly MontadorDeContextoDoPush $montador,
+        private readonly VisibilidadeDoFinanceiroDaPasta $financeiro,
+        private readonly MontadorDeContextoDaPasta $montador,
         private readonly AnaliseDeInteligenciaRepository $analises,
         private readonly EnfileiradorDeAnalise $enfileirador,
     ) {
     }
 
-    public function executar(SolicitarResumoDoPushInput $input, User $user, Tenant $tenant): AnaliseOutput
+    public function executar(SolicitarAnaliseDaPastaInput $input, User $user, Tenant $tenant): AnaliseOutput
     {
         $pasta = $this->pastas->findOneBy(['id' => $input->pastaId, 'tenant' => $tenant]);
         if ($pasta === null) {
@@ -72,31 +73,34 @@ final class SolicitarResumoDoPushUseCase
             throw new InteligenciaIndisponivelException($disponibilidade);
         }
 
+        $agente = $input->agente;
         $alvoId = (int) $pasta->getId();
-        $emAndamento = $this->analises->findPendenteDoAlvo($tenant, AnaliseDeInteligencia::ALVO_PASTA, $alvoId, TipoDeAnalise::ResumoPush);
+        $emAndamento = $this->analises->findPendenteDoAlvo($tenant, AnaliseDeInteligencia::ALVO_PASTA, $alvoId, TipoDeAnalise::AnalisePasta, $agente);
         if ($emAndamento !== null) {
-            return AnaliseOutput::fromEntity($emAndamento, 'Já existe uma análise em andamento para esta pasta.');
+            return AnaliseOutput::fromEntity($emAndamento, sprintf('Já existe uma análise do %s em andamento.', $agente->nome()));
         }
 
-        $contexto = $this->montador->para($tenant, $pasta);
+        $incluirFinanceiro = $agente->leFinanceiro() && $this->financeiro->podeVer($user, $tenant, $pasta);
+        $contexto = $this->montador->para($tenant, $pasta, $agente, $incluirFinanceiro);
         if ($contexto->vazio()) {
-            throw new ContextoVazioException();
+            throw ContextoVazioException::semDadosParaOAgente();
         }
 
-        $ultima = $this->analises->findUltimaConcluidaDoAlvo($tenant, AnaliseDeInteligencia::ALVO_PASTA, $alvoId, TipoDeAnalise::ResumoPush);
+        $ultima = $this->analises->findUltimaConcluidaDoAlvo($tenant, AnaliseDeInteligencia::ALVO_PASTA, $alvoId, TipoDeAnalise::AnalisePasta, $agente);
         if ($ultima !== null && $ultima->getContextoHash() === $contexto->hash) {
-            return AnaliseOutput::fromEntity($ultima, 'Nada novo desde a última análise.');
+            return AnaliseOutput::fromEntity($ultima, 'Nada novo desde a última análise deste agente.');
         }
 
         $analise = new AnaliseDeInteligencia(
             tenant: $tenant,
             solicitante: $user,
-            tipo: TipoDeAnalise::ResumoPush,
+            tipo: TipoDeAnalise::AnalisePasta,
             alvoTipo: AnaliseDeInteligencia::ALVO_PASTA,
             alvoId: $alvoId,
-            versaoDoPrompt: PromptResumoDoPush::VERSAO,
+            versaoDoPrompt: PromptDoAgente::VERSAO,
             contextoHash: $contexto->hash,
-            contextoResumo: $contexto->resumo($ultima?->getChavesAnalisadas() ?? []),
+            contextoResumo: $contexto->resumo(),
+            agente: $agente,
         );
         $this->analises->salvar($analise, true);
 

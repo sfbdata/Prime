@@ -1,0 +1,148 @@
+{# ============================================================================
+   Lista de análises de UM agente da BlueJus IA numa pasta (drawer do cabeçalho).
+   Fragmento irmão do `_analises_push.html.twig`: mesmo cartão (coluna da marca,
+   selo, aviso, cadeado, menu ⋮, resumo, pontos, quem age, base, ações), com o
+   que muda no agente — o selo leva o NOME do agente, o aviso diz "não é ato
+   oficial do processo", a base conta itens da pasta e há a "Análise completa"
+   (texto integral no formato do Designer) recolhida num <details>.
+
+   Renderizado dentro do painel e sozinho por
+   `GET /pasta/{id}/ia/agentes/{agente}/analises` (`inteligencia_agente_listar`),
+   que o JS troca depois do polling.
+
+   Tudo escapado: a resposta do modelo nunca é HTML (`|raw` proibido aqui). O
+   motivo técnico de uma falha só aparece para quem administra a IA. As ações
+   (lida · excluir · interna) são as rotas por id da fatia 1; sem JS os
+   formulários seguem por POST comum.
+
+   Contexto: `saida` (App\Inteligencia\DTO\AnalisesDoAgenteOutput), `pastaId` (int).
+   ============================================================================ #}
+{% set podeVerMotivoTecnico = can_administer('admin.inteligencia.manage') %}
+{% set hojeIa = 'now'|date('Y-m-d') %}
+<div class="ia-ag-lista" data-ia-lista="{{ saida.agente.value }}"
+     data-ia-url="{{ path('inteligencia_agente_listar', {id: pastaId, agente: saida.agente.value}) }}"
+     data-ia-em-andamento="{{ saida.temEmAndamento ? '1' : '0' }}"
+     data-ia-tem-concluida="{{ saida.ultimaConcluida is not null ? '1' : '0' }}">
+    {% for a in saida.analises %}
+        {% set csrfAnalise = csrf_token('inteligencia_analise_' ~ a.id) %}
+        {% set ehHoje = a.criadaEm|date('Y-m-d') == hojeIa %}
+        {% set pontoDeAcao = a.pontos|filter(p => p.tipo in ['prazo', 'providencia'])|first %}
+        <article class="ia-cartao ia-cartao--{{ a.status }}{{ a.lida ? ' ia-cartao--lida' : '' }}"
+                 aria-label="Análise gerada por IA"
+                 data-ia-analise="{{ a.id }}"
+                 data-ia-status="{{ a.status }}"
+                 data-ia-status-url="{{ path('inteligencia_analise_status', {id: pastaId, analiseId: a.id}) }}">
+            <div class="ia-marca" aria-hidden="true">
+                <span class="ia-marca-ico">✦</span>
+                <span class="ia-marca-dia">{{ ehHoje ? 'hoje' : a.criadaEm|date('d/m') }}</span>
+            </div>
+            <div class="ia-corpo">
+                <header class="ia-cab">
+                    <span class="ia-selo">✦ {{ a.agenteNome ?? 'Análise IA' }}</span>
+                    <span class="ia-aviso">Gerado por IA · não é ato oficial do processo · <time class="ia-quando ps-num" datetime="{{ a.criadaEm|date('c') }}">{{ ehHoje ? 'hoje' : a.criadaEm|date('d/m/Y') }}, {{ a.criadaEm|date('H:i') }}</time></span>
+                    {% if a.lida %}
+                        <span class="ia-lido"><i class="bi bi-check2-all" aria-hidden="true"></i>lido</span>
+                    {% endif %}
+                    <span class="ia-cab-espaco"></span>
+                    {% if a.terminal %}
+                        {% set dicaInterna = a.internaDoEscritorio
+                            ? 'Análise interna: não aparece no link compartilhado com o cliente. Clique para liberar.'
+                            : 'Visível no link compartilhado. Clique para tornar interna do escritório.' %}
+                        <form method="post" action="{{ path('inteligencia_analise_interna', {id: pastaId, analiseId: a.id}) }}" class="ia-acao" data-ia-acao="interna">
+                            <input type="hidden" name="_token" value="{{ csrfAnalise }}">
+                            <button type="submit" class="ia-icone{{ a.internaDoEscritorio ? ' is-interna' : '' }}" title="{{ dicaInterna }}" aria-label="{{ dicaInterna }}">
+                                <i class="bi {{ a.internaDoEscritorio ? 'bi-lock-fill' : 'bi-unlock' }}" aria-hidden="true"></i>
+                            </button>
+                        </form>
+                    {% elseif a.internaDoEscritorio %}
+                        <span class="ia-cadeado" title="Interna do escritório: não vai a links compartilhados"><i class="bi bi-lock-fill" aria-hidden="true"></i></span>
+                    {% endif %}
+                    <div class="ia-menu-wrap">
+                        <button type="button" class="ia-icone" data-ia-menu aria-haspopup="menu" aria-expanded="false" aria-label="Mais opções da análise" title="Mais opções da análise">
+                            <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
+                        </button>
+                        <div class="ia-menu" role="menu" hidden>
+                            {% if a.terminal and not a.lida %}
+                                <form method="post" action="{{ path('inteligencia_analise_lida', {id: pastaId, analiseId: a.id}) }}" class="ia-acao" data-ia-acao="lida">
+                                    <input type="hidden" name="_token" value="{{ csrfAnalise }}">
+                                    <button type="submit" class="ia-menu-item" role="menuitem"><i class="bi bi-check2-all" aria-hidden="true"></i>Marcar como lida</button>
+                                </form>
+                            {% endif %}
+                            {% if a.status == 'concluida' %}
+                                <button type="button" class="ia-menu-item" role="menuitem"
+                                        data-ia-criar-meta
+                                        data-meta-titulo="{{ pontoDeAcao ? pontoDeAcao.texto|slice(0, 90) : 'Providência indicada pelo ' ~ (a.agenteNome ?? 'agente da IA') }}"
+                                        data-meta-rotulo="{{ pontoDeAcao ? pontoDeAcao.rotulo : '' }}"
+                                        data-meta-ponto="{{ pontoDeAcao ? pontoDeAcao.texto : '' }}"
+                                        data-meta-resumo="{{ a.resumo }}"
+                                        data-meta-quem="{{ a.quemAge }}"
+                                        data-meta-agente="{{ a.agenteNome }}"
+                                        data-meta-quando="{{ a.criadaEm|date('d/m/Y H:i') }}">
+                                    <i class="bi bi-check2-square" aria-hidden="true"></i>Criar tarefa da providência
+                                </button>
+                            {% endif %}
+                            <form method="post" action="{{ path('inteligencia_analise_excluir', {id: pastaId, analiseId: a.id}) }}" class="ia-acao" data-ia-acao="excluir"
+                                  data-ia-confirmar="Excluir esta análise da IA? Os dados da pasta não são alterados.">
+                                <input type="hidden" name="_token" value="{{ csrfAnalise }}">
+                                <button type="submit" class="ia-menu-item ia-menu-item--perigo" role="menuitem"><i class="bi bi-trash3" aria-hidden="true"></i>Excluir análise</button>
+                            </form>
+                        </div>
+                    </div>
+                </header>
+
+                {% if a.emAndamento %}
+                    <p class="ia-andamento" role="status">
+                        <span class="ia-andamento-ico" aria-hidden="true">✦</span>
+                        Analisando… (lendo {{ a.totalMovimentacoes }} {{ a.totalMovimentacoes == 1 ? 'item' : 'itens' }} da pasta)
+                    </p>
+                {% elseif a.status == 'concluida' %}
+                    <p class="ia-resumo">{{ a.resumo }}</p>
+                    {% if a.pontos is not empty %}
+                        <ul class="ia-pontos">
+                            {% for p in a.pontos %}
+                                <li class="ia-ponto ia-ponto--{{ p.tipo }}">
+                                    <span class="ia-chip-ponto ia-chip-ponto--{{ p.tipo }}">{{ p.rotulo }}</span>
+                                    <span class="ia-ponto-txt">{{ p.texto }}</span>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
+                    {% if a.quemAge %}
+                        <p class="ia-quem"><i class="bi bi-person-check" aria-hidden="true"></i><strong>Quem deve agir:</strong> {{ a.quemAge }}</p>
+                    {% endif %}
+                    {% if a.textoDaAnalise %}
+                        {# Texto integral do modelo, ESCAPADO, com as quebras preservadas (pre-wrap no CSS). #}
+                        <details class="ia-completa">
+                            <summary><i class="bi bi-journal-text" aria-hidden="true"></i>Análise completa</summary>
+                            <pre class="ia-texto">{{ a.textoDaAnalise }}</pre>
+                        </details>
+                    {% endif %}
+                    <p class="ia-base">Base: {{ a.totalMovimentacoes }} {{ a.totalMovimentacoes == 1 ? 'item' : 'itens' }} desta pasta. Confira os documentos originais antes de agir.</p>
+                {% elseif a.status == 'falhou' %}
+                    <p class="ia-erro">Não foi possível gerar a análise agora. Tente novamente.</p>
+                    {% if podeVerMotivoTecnico and a.erroMotivo %}
+                        <p class="ia-erro-tecnico"><small>Motivo técnico: {{ a.erroMotivo }}</small></p>
+                    {% endif %}
+                {% else %}
+                    <p class="ia-erro">IA não configurada nesta instalação.</p>
+                {% endif %}
+
+                <footer class="ia-acoes">
+                    <form method="post" action="{{ path('inteligencia_analise_excluir', {id: pastaId, analiseId: a.id}) }}" class="ia-acao" data-ia-acao="excluir"
+                          data-ia-confirmar="Excluir esta análise da IA? Os dados da pasta não são alterados.">
+                        <input type="hidden" name="_token" value="{{ csrfAnalise }}">
+                        <button type="submit" class="ia-botao ia-botao--perigo"><i class="bi bi-trash3" aria-hidden="true"></i> Excluir</button>
+                    </form>
+                    {% if a.terminal and not a.lida %}
+                        <form method="post" action="{{ path('inteligencia_analise_lida', {id: pastaId, analiseId: a.id}) }}" class="ia-acao" data-ia-acao="lida">
+                            <input type="hidden" name="_token" value="{{ csrfAnalise }}">
+                            <button type="submit" class="ia-botao"><i class="bi bi-check2-all" aria-hidden="true"></i> Marcar como lida</button>
+                        </form>
+                    {% endif %}
+                </footer>
+            </div>
+        </article>
+    {% else %}
+        <p class="ia-ag-vazio" data-ia-vazio>Nenhuma análise deste agente ainda.</p>
+    {% endfor %}
+</div>

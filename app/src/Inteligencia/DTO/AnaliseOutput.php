@@ -43,6 +43,11 @@ final readonly class AnaliseOutput
         public int $movimentacoesNovas,
         public ?string $solicitanteNome,
         public ?string $aviso = null,
+        /** Agente da pasta (`analise_pasta`); nulo no Push. */
+        public ?string $agente = null,
+        public ?string $agenteNome = null,
+        /** Análise integral do agente (formato do Designer); nulo no Push. */
+        public ?string $textoDaAnalise = null,
     ) {
     }
 
@@ -86,6 +91,9 @@ final readonly class AnaliseOutput
             movimentacoesNovas: (int) ($resumoDoContexto['novas'] ?? 0),
             solicitanteNome: $analise->getSolicitante()?->getFullName(),
             aviso: $aviso,
+            agente: $analise->getAgente()?->value,
+            agenteNome: $analise->getAgente()?->nome(),
+            textoDaAnalise: $analise->getTextoDaAnalise(),
         );
     }
 
@@ -100,6 +108,7 @@ final readonly class AnaliseOutput
             'terminal' => $this->terminal,
             'totalMovimentacoes' => $this->totalMovimentacoes,
             'aviso' => $this->aviso,
+            'agente' => $this->agente,
         ];
     }
 }

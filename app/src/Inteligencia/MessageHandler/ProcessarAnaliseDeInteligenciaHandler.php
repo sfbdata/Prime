@@ -4,17 +4,17 @@ declare(strict_types=1);
 
 namespace App\Inteligencia\MessageHandler;
 
-use App\Inteligencia\Contexto\MontadorDeContextoDoPush;
 use App\Inteligencia\Entity\AnaliseDeInteligencia;
 use App\Inteligencia\Enum\StatusDaAnalise;
 use App\Inteligencia\Exception\ContextoBloqueadoException;
 use App\Inteligencia\Exception\FalhaDoProvedorException;
 use App\Inteligencia\Exception\ProvedorIndisponivelException;
 use App\Inteligencia\Exception\RespostaInvalidaException;
+use App\Inteligencia\Fluxo\FluxoDaAnaliseDaPasta;
+use App\Inteligencia\Fluxo\FluxoDeAnalise;
+use App\Inteligencia\Fluxo\FluxoDoResumoDoPush;
 use App\Inteligencia\Message\ProcessarAnaliseDeInteligencia;
-use App\Inteligencia\Prompt\PromptResumoDoPush;
 use App\Inteligencia\Repository\AnaliseDeInteligenciaRepository;
-use App\Inteligencia\Service\InterpretadorDeRespostaDePush;
 use App\Inteligencia\Service\ProvedorDeLinguagem;
 use App\Pasta\Entity\Pasta;
 use App\Service\NotificacaoService;
@@ -26,7 +26,8 @@ use Symfony\Component\Messenger\Exception\UnrecoverableMessageHandlingException;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 /**
- * Roda no worker: monta o contexto da pasta, chama o provedor, interpreta e grava o resultado.
+ * Roda no worker: escolhe o {@see FluxoDeAnalise} pelo tipo da linha, deixa o fluxo montar o
+ * contexto e o pedido, chama o provedor, deixa o fluxo interpretar e grava o resultado.
  *
  * Fronteira de confiança (como o `SincronizarPastaNoDriveHandler`): o tenant da mensagem é
  * conferido contra a linha ANTES de qualquer coisa; divergência é log + no-op. Tenant explícito em
@@ -38,12 +39,12 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  *     Messenger retenta; a linha segue "em andamento" e um novo clique devolve a mesma, sem gasto
  *     duplo); na ÚLTIMA tentativa → `falhou` + re-lança (vai para `failed`);
  *   · falha definitiva (400/401/403) → `falhou` + Unrecoverable;
- *   · contexto bloqueado/vazio, resposta inválida → `falhou`, sem re-lançar.
+ *   · contexto bloqueado/vazio, resposta inválida, tipo sem fluxo → `falhou`, sem re-lançar.
  *
  * "Última tentativa" sai do contador da própria linha (`tentativas`, incrementado a cada entrega)
  * contra {@see TENTATIVAS_MAXIMAS}, que espelha `max_retries` do transport `async`.
  *
- * Log só com ids, tenant, provedor, tokens, duração e classe do erro — NUNCA o prompt.
+ * Log só com ids, tenant, tipo, agente, provedor, tokens, duração e classe do erro — NUNCA o prompt.
  */
 #[AsMessageHandler]
 final class ProcessarAnaliseDeInteligenciaHandler
@@ -57,18 +58,24 @@ final class ProcessarAnaliseDeInteligenciaHandler
      */
     public const TENTATIVAS_MAXIMAS = 4;
 
+    /** @var array<string, FluxoDeAnalise> chave = `TipoDeAnalise->value` */
+    private array $fluxos;
+
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly AnaliseDeInteligenciaRepository $analises,
-        private readonly MontadorDeContextoDoPush $montador,
-        private readonly PromptResumoDoPush $prompt,
+        FluxoDoResumoDoPush $fluxoDoPush,
+        FluxoDaAnaliseDaPasta $fluxoDaPasta,
         private readonly ProvedorDeLinguagem $provedor,
-        private readonly InterpretadorDeRespostaDePush $interpretador,
         private readonly NotificacaoService $notificacoes,
         private readonly UrlGeneratorInterface $urls,
         #[Autowire(service: 'monolog.logger.inteligencia')]
         private readonly LoggerInterface $logger,
     ) {
+        $this->fluxos = [
+            $fluxoDoPush->tipo()->value => $fluxoDoPush,
+            $fluxoDaPasta->tipo()->value => $fluxoDaPasta,
+        ];
     }
 
     public function __invoke(ProcessarAnaliseDeInteligencia $mensagem): void
@@ -100,6 +107,13 @@ final class ProcessarAnaliseDeInteligenciaHandler
         $analise->iniciarProcessamento();
         $this->em->flush();
 
+        $fluxo = $this->fluxos[$analise->getTipo()->value] ?? null;
+        if ($fluxo === null) {
+            $this->falhar($analise, 'tipo de análise sem fluxo: ' . $analise->getTipo()->value);
+
+            return;
+        }
+
         $pasta = $this->em->find(Pasta::class, $analise->getAlvoId());
         if ($pasta === null || $pasta->getTenant()?->getId() !== $tenant->getId()) {
             $this->falhar($analise, 'pasta não encontrada neste escritório');
@@ -108,25 +122,24 @@ final class ProcessarAnaliseDeInteligenciaHandler
         }
 
         try {
-            $contexto = $this->montador->para($tenant, $pasta);
+            $pedido = $fluxo->preparar($analise, $tenant, $pasta);
         } catch (ContextoBloqueadoException $e) {
             $this->falhar($analise, 'contexto bloqueado: ' . $e->getMessage());
 
             return;
-        }
-
-        if ($contexto->vazio()) {
-            $this->falhar($analise, 'sem movimentações');
+        } catch (\LogicException $e) {
+            $this->falhar($analise, 'análise inconsistente: ' . $e->getMessage());
 
             return;
         }
 
-        $anterior = $this->analises->findUltimaConcluidaDoAlvo($tenant, $analise->getAlvoTipo(), $analise->getAlvoId());
-        $chavesAnteriores = $anterior?->getChavesAnalisadas() ?? [];
-        $analise->registrarContexto($contexto->hash, $contexto->resumo($chavesAnteriores));
-        $analise->registrarProvedor($this->provedor->nome());
+        if ($pedido === null) {
+            $this->falhar($analise, $fluxo->motivoDeContextoVazio());
 
-        $pedido = $this->prompt->montar($contexto, $anterior?->getResumo(), $chavesAnteriores);
+            return;
+        }
+
+        $analise->registrarProvedor($this->provedor->nome());
 
         try {
             $resposta = $this->provedor->completar($pedido);
@@ -164,7 +177,7 @@ final class ProcessarAnaliseDeInteligenciaHandler
         }
 
         try {
-            $interpretada = $this->interpretador->interpretar($resposta->texto);
+            $resultado = $fluxo->interpretar($resposta->texto);
         } catch (RespostaInvalidaException $e) {
             $this->falhar($analise, $e->getMessage(), $e->textoBruto);
             $this->logger->warning('Análise {analise}: resposta inválida do provedor.', $this->contexto($analise));
@@ -173,15 +186,16 @@ final class ProcessarAnaliseDeInteligenciaHandler
         }
 
         $analise->concluir(
-            resumo: $interpretada->resumo,
-            pontos: $interpretada->pontos,
-            quemAge: $interpretada->quemAge,
+            resumo: $resultado->resumo,
+            pontos: $resultado->pontos,
+            quemAge: $resultado->quemAge,
             textoBruto: $resposta->texto,
             provedor: $this->provedor->nome(),
             modelo: $resposta->modelo,
             tokensEntrada: $resposta->tokensEntrada,
             tokensSaida: $resposta->tokensSaida,
             duracaoMs: $resposta->duracaoMs,
+            textoDaAnalise: $resultado->textoDaAnalise,
         );
         $this->em->flush();
 
@@ -190,10 +204,10 @@ final class ProcessarAnaliseDeInteligenciaHandler
             'tokens_entrada' => $resposta->tokensEntrada,
             'tokens_saida' => $resposta->tokensSaida,
             'duracao_ms' => $resposta->duracaoMs,
-            'movimentacoes' => count($contexto->itens),
+            'itens' => (int) ($analise->getContextoResumo()['total'] ?? 0),
         ]);
 
-        $this->notificar($analise, $pasta);
+        $this->notificar($analise, $pasta, $fluxo);
     }
 
     private function falhar(AnaliseDeInteligencia $analise, string $motivo, ?string $textoBruto = null): void
@@ -204,7 +218,7 @@ final class ProcessarAnaliseDeInteligenciaHandler
     }
 
     /** Aviso no sino de quem pediu. Falha aqui não desfaz a análise já gravada: só loga. */
-    private function notificar(AnaliseDeInteligencia $analise, Pasta $pasta): void
+    private function notificar(AnaliseDeInteligencia $analise, Pasta $pasta, FluxoDeAnalise $fluxo): void
     {
         $solicitante = $analise->getSolicitante();
         $tenant = $analise->getTenant();
@@ -217,8 +231,8 @@ final class ProcessarAnaliseDeInteligenciaHandler
                 $solicitante,
                 $tenant,
                 self::TIPO_NOTIFICACAO,
-                sprintf('A análise por IA da pasta %s ficou pronta.', (string) $pasta->getNup()),
-                $this->urls->generate('pasta_show', ['id' => $pasta->getId()]) . '#push',
+                $fluxo->textoDaNotificacao($analise, $pasta),
+                $this->urls->generate('pasta_show', ['id' => $pasta->getId()]) . $fluxo->ancoraDaPasta(),
             );
         } catch (\Throwable $e) {
             $this->logger->warning('Análise {analise}: não foi possível notificar ({classe}).', $this->contexto($analise) + ['classe' => $e::class]);
@@ -232,6 +246,7 @@ final class ProcessarAnaliseDeInteligenciaHandler
             'analise' => $analise->getId(),
             'tenant' => $analise->getTenant()?->getId(),
             'tipo' => $analise->getTipo()->value,
+            'agente' => $analise->getAgente()?->value,
             'provedor' => $this->provedor->nome(),
             'tentativas' => $analise->getTentativas(),
         ];

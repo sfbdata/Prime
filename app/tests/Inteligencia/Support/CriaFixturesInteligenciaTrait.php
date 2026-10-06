@@ -4,18 +4,25 @@ declare(strict_types=1);
 
 namespace App\Tests\Inteligencia\Support;
 
+use App\Cliente\Entity\ClientePF;
 use App\Djen\Entity\PublicacaoDjen;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Permission\Permission;
+use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Entity\Tenant\TenantRolePermission;
 use App\Inteligencia\Entity\AnaliseDeInteligencia;
 use App\Inteligencia\Entity\ConfiguracaoDeInteligencia;
+use App\Inteligencia\Enum\Agente;
 use App\Inteligencia\Enum\TipoDeAnalise;
+use App\Inteligencia\Prompt\PromptDoAgente;
 use App\Inteligencia\Prompt\PromptResumoDoPush;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PastaDocumento;
+use App\Pasta\Entity\PastaMensagem;
+use App\Pasta\Entity\PastaPagamento;
 use App\Processo\Entity\Processo;
 use App\Tests\Pasta\Functional\CriaFixturesPushDaPastaTrait;
 use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
@@ -138,24 +145,135 @@ trait CriaFixturesInteligenciaTrait
         return $analise;
     }
 
+    /**
+     * Análise pendente de UM agente da pasta (fatia 2), com a decisão sobre o financeiro já gravada
+     * em `contexto_resumo.financeiro`, como o UseCase faz.
+     */
+    private function criarAnaliseDoAgentePendente(
+        Tenant $tenant,
+        ?User $solicitante,
+        Pasta $pasta,
+        Agente $agente = Agente::Gestor,
+        bool $financeiro = true,
+    ): AnaliseDeInteligencia {
+        $analise = new AnaliseDeInteligencia(
+            tenant: $tenant,
+            solicitante: $solicitante,
+            tipo: TipoDeAnalise::AnalisePasta,
+            alvoTipo: AnaliseDeInteligencia::ALVO_PASTA,
+            alvoId: (int) $pasta->getId(),
+            versaoDoPrompt: PromptDoAgente::VERSAO,
+            contextoHash: hash('sha256', $agente->value . uniqid()),
+            contextoResumo: ['agente' => $agente->value, 'secoes' => [], 'omitidas' => [], 'total' => 0, 'processos' => [], 'financeiro' => $financeiro],
+            agente: $agente,
+        );
+        $this->em()->persist($analise);
+        $this->em()->flush();
+
+        return $analise;
+    }
+
+    private function criarMeta(Tenant $tenant, Pasta $pasta, User $responsavel, string $titulo, string $prazo = '+3 days', string $descricao = ''): Tarefa
+    {
+        $tarefa = new Tarefa();
+        $tarefa->setTenant($tenant);
+        $tarefa->setPasta($pasta);
+        $tarefa->setTitulo($titulo);
+        $tarefa->setDescricao($descricao);
+        $tarefa->setPrazo(new \DateTimeImmutable($prazo));
+        $tarefa->addResponsavel($responsavel);
+        $this->em()->persist($tarefa);
+        $this->em()->flush();
+
+        return $tarefa;
+    }
+
+    private function criarAnotacao(Tenant $tenant, Pasta $pasta, User $autor, string $conteudo): PastaMensagem
+    {
+        $mensagem = new PastaMensagem();
+        $mensagem->setTenant($tenant);
+        $mensagem->setPasta($pasta);
+        $mensagem->setAutor($autor);
+        $mensagem->setConteudo($conteudo);
+        $this->em()->persist($mensagem);
+        $this->em()->flush();
+
+        return $mensagem;
+    }
+
+    private function criarDocumento(Tenant $tenant, Pasta $pasta, string $titulo, string $categoria = PastaDocumento::CATEGORIA_DEMAIS): PastaDocumento
+    {
+        $documento = new PastaDocumento();
+        $documento->setTenant($tenant);
+        $documento->setPasta($pasta);
+        $documento->setTitulo($titulo);
+        $documento->setCategoria($categoria);
+        $documento->setCaminhoArquivo('teste/' . uniqid() . '.pdf');
+        $documento->setNomeOriginal(strtolower(str_replace(' ', '-', $titulo)) . '.pdf');
+        $documento->setMimeType('application/pdf');
+        $documento->setTamanhoBytes(1234);
+        $this->em()->persist($documento);
+        $this->em()->flush();
+
+        return $documento;
+    }
+
+    private function criarPagamento(Tenant $tenant, Pasta $pasta, string $descricao, string $valor = '1500.00'): PastaPagamento
+    {
+        $pagamento = new PastaPagamento();
+        $pagamento->setTenant($tenant);
+        $pagamento->setPasta($pasta);
+        $pagamento->setDescricao($descricao);
+        $pagamento->setValor($valor);
+        $pagamento->setVencimento(new \DateTimeImmutable('+10 days'));
+        $this->em()->persist($pagamento);
+        $this->em()->flush();
+
+        return $pagamento;
+    }
+
+    /** Cliente PF vinculado à pasta — com CPF, e-mail e telefone, que NUNCA podem sair no prompt. */
+    private function criarClientePF(Tenant $tenant, Pasta $pasta, string $nome, string $cpf = '123.456.789-09'): ClientePF
+    {
+        $cliente = new ClientePF();
+        $cliente->setTenant($tenant);
+        $cliente->setNomeCompleto($nome);
+        $cliente->setCpf($cpf);
+        $cliente->setRg('12.345.678-9');
+        $cliente->setRgOrgaoExpedidor('SSP');
+        $cliente->setEmail('cliente_' . uniqid() . '@test.com');
+        $cliente->setTelefoneCelular('(61) 99999-1234');
+        $cliente->setCep('70000-000');
+        $cliente->setEndereco('Rua A, 1');
+        $cliente->setCidade('Brasília');
+        $cliente->setEstado('DF');
+        $this->em()->persist($cliente);
+        $pasta->addCliente($cliente);
+        $this->em()->flush();
+
+        return $cliente;
+    }
+
     /** @param list<array{tipo: string, texto: string}> $pontos */
     private function concluirAnalise(
         AnaliseDeInteligencia $analise,
         string $resumo = 'Resumo de teste.',
         array $pontos = [],
         ?string $quem = null,
+        ?string $textoDaAnalise = null,
     ): void {
         $analise->iniciarProcessamento();
         $analise->concluir(
             resumo: $resumo,
             pontos: $pontos,
             quemAge: $quem,
-            textoBruto: (string) json_encode(['resumo' => $resumo, 'pontos' => $pontos, 'quem' => $quem]),
+            textoBruto: (string) json_encode(['resumo' => $resumo, 'pontos' => $pontos, 'quem' => $quem, 'texto' => $textoDaAnalise]),
             provedor: ProvedorFalso::NOME,
             modelo: ProvedorFalso::MODELO,
             tokensEntrada: 100,
             tokensSaida: 30,
             duracaoMs: 12,
+            textoDaAnalise: $textoDaAnalise,
         );
         $this->em()->flush();
     }

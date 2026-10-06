@@ -6,7 +6,9 @@ namespace App\Inteligencia\Repository;
 
 use App\Entity\Tenant\Tenant;
 use App\Inteligencia\Entity\AnaliseDeInteligencia;
+use App\Inteligencia\Enum\Agente;
 use App\Inteligencia\Enum\StatusDaAnalise;
+use App\Inteligencia\Enum\TipoDeAnalise;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
@@ -14,6 +16,11 @@ use Doctrine\Persistence\ManagerRegistry;
 /**
  * Toda consulta recebe o Tenant EXPLICITAMENTE: o worker e o console rodam sem sessão, o
  * TenantFilter fica inerte lá, e quem segura o isolamento é este repositório sozinho.
+ *
+ * As consultas "por alvo" são também por TIPO (e por agente, quando houver): a mesma pasta tem
+ * análises do Push (`resumo_push`) e dos agentes (`analise_pasta`, uma trilha por agente), e uma
+ * pendente de um agente não pode travar o pedido do Push nem virar "análise anterior" dele. O
+ * padrão `ResumoPush` mantém os chamadores da fatia 1 como estavam.
  *
  * @extends ServiceEntityRepository<AnaliseDeInteligencia>
  */
@@ -45,22 +52,34 @@ class AnaliseDeInteligenciaRepository extends ServiceEntityRepository
     }
 
     /**
-     * Análises de um alvo (pasta), mais recente primeiro, sem as excluídas.
+     * Análises de um alvo (pasta) e tipo, mais recente primeiro, sem as excluídas. Com `agente`
+     * nulo e tipo `AnalisePasta`, devolve as de TODOS os agentes (painel do drawer).
      *
      * @return AnaliseDeInteligencia[]
      */
-    public function listarPorAlvo(Tenant $tenant, string $alvoTipo, int $alvoId, int $limite = 20): array
-    {
-        return $this->qbDoAlvo($tenant, $alvoTipo, $alvoId)
+    public function listarPorAlvo(
+        Tenant $tenant,
+        string $alvoTipo,
+        int $alvoId,
+        int $limite = 20,
+        TipoDeAnalise $tipo = TipoDeAnalise::ResumoPush,
+        ?Agente $agente = null,
+    ): array {
+        return $this->qbDoAlvo($tenant, $alvoTipo, $alvoId, $tipo, $agente)
             ->setMaxResults($limite)
             ->getQuery()
             ->getResult();
     }
 
-    /** A análise em andamento (pendente ou processando) do alvo, se houver — idempotência do pedido. */
-    public function findPendenteDoAlvo(Tenant $tenant, string $alvoTipo, int $alvoId): ?AnaliseDeInteligencia
-    {
-        return $this->qbDoAlvo($tenant, $alvoTipo, $alvoId)
+    /** A análise em andamento (pendente ou processando) do alvo/tipo/agente, se houver — idempotência do pedido. */
+    public function findPendenteDoAlvo(
+        Tenant $tenant,
+        string $alvoTipo,
+        int $alvoId,
+        TipoDeAnalise $tipo = TipoDeAnalise::ResumoPush,
+        ?Agente $agente = null,
+    ): ?AnaliseDeInteligencia {
+        return $this->qbDoAlvo($tenant, $alvoTipo, $alvoId, $tipo, $agente)
             ->andWhere('a.status IN (:emAndamento)')
             ->setParameter('emAndamento', [StatusDaAnalise::Pendente, StatusDaAnalise::Processando])
             ->setMaxResults(1)
@@ -68,10 +87,15 @@ class AnaliseDeInteligenciaRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
     }
 
-    /** A última concluída do alvo — base do "nada novo desde a última" e do [NOVA] do prompt. */
-    public function findUltimaConcluidaDoAlvo(Tenant $tenant, string $alvoTipo, int $alvoId): ?AnaliseDeInteligencia
-    {
-        return $this->qbDoAlvo($tenant, $alvoTipo, $alvoId)
+    /** A última concluída do alvo/tipo/agente — base do "nada novo desde a última" e do [NOVA] do prompt. */
+    public function findUltimaConcluidaDoAlvo(
+        Tenant $tenant,
+        string $alvoTipo,
+        int $alvoId,
+        TipoDeAnalise $tipo = TipoDeAnalise::ResumoPush,
+        ?Agente $agente = null,
+    ): ?AnaliseDeInteligencia {
+        return $this->qbDoAlvo($tenant, $alvoTipo, $alvoId, $tipo, $agente)
             ->andWhere('a.status = :concluida')
             ->setParameter('concluida', StatusDaAnalise::Concluida)
             ->setMaxResults(1)
@@ -138,17 +162,25 @@ class AnaliseDeInteligenciaRepository extends ServiceEntityRepository
         }, $linhas);
     }
 
-    private function qbDoAlvo(Tenant $tenant, string $alvoTipo, int $alvoId): QueryBuilder
+    private function qbDoAlvo(Tenant $tenant, string $alvoTipo, int $alvoId, TipoDeAnalise $tipo, ?Agente $agente): QueryBuilder
     {
-        return $this->createQueryBuilder('a')
+        $qb = $this->createQueryBuilder('a')
             ->andWhere('a.tenant = :tenant')
             ->andWhere('a.alvoTipo = :alvoTipo')
             ->andWhere('a.alvoId = :alvoId')
+            ->andWhere('a.tipo = :tipo')
             ->andWhere('a.excluidaEm IS NULL')
             ->setParameter('tenant', $tenant)
             ->setParameter('alvoTipo', $alvoTipo)
             ->setParameter('alvoId', $alvoId)
+            ->setParameter('tipo', $tipo)
             ->orderBy('a.criadaEm', 'DESC')
             ->addOrderBy('a.id', 'DESC');
+
+        if ($agente !== null) {
+            $qb->andWhere('a.agente = :agente')->setParameter('agente', $agente);
+        }
+
+        return $qb;
     }
 }
