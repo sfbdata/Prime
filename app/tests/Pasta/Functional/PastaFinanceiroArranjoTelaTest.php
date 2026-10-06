@@ -475,4 +475,43 @@ final class PastaFinanceiroArranjoTelaTest extends JusPrimeWebTestCase
             (string) $bloco->attr('data-url')
         );
     }
+
+    /**
+     * Auditoria 2 da Pasta, lote L5 (desenho 1.2.3):
+     * - F1: os selos de Contrato e Pró-bono ficam numa LINHA (`.ps-fin-corpo--selo`),
+     *   na largura natural — em coluna o selo esticava na largura do cartão;
+     * - F15: a contagem de Arquivos aparece sempre, inclusive 0 (dc 1831);
+     * - F4: "Adicionar pagamento" é o botão azul claro do desenho (`.ps-fin-btn-add`),
+     *   com o rótulo num `<span>` (a regra de tela estreita só mostra o span dele);
+     * - F9: a nota do "Reduzir" usa a vírgula do desenho, não o travessão.
+     */
+    #[TestDox('Selos em linha, contagem de Arquivos com zero, botão de pagamento e nota do Reduzir do desenho')]
+    public function testAjustesDaAuditoria2(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $this->logarComTenant($client, $user, $tenant);
+
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
+
+        self::assertCount(1, $crawler->filter('.ps-fin-faixa > .ps-fin-bloco > .ps-fin-corpo.ps-fin-corpo--selo > #financeiro-situacao-btn'));
+        self::assertCount(1, $crawler->filter('.ps-fin-faixa > .ps-fin-bloco > .ps-fin-corpo.ps-fin-corpo--selo > #financeiro-probono-btn'));
+        self::assertCount(2, $crawler->filter('.ps-fin-faixa .ps-fin-corpo--selo'), 'só os dois selos mudam de arranjo');
+
+        $contagem = $crawler->filter('[data-trilho="arquivos"] > .ps-card-cab > #financeiro-docs-contagem');
+        self::assertCount(1, $contagem, 'a contagem não some com zero arquivo');
+        self::assertSame('0', trim($contagem->text()));
+
+        $botao = $crawler->filter('[data-trilho="pagamentos"] > .ps-fin-rodape > button.ps-fin-btn-add');
+        self::assertCount(1, $botao);
+        self::assertSame('#modalNovoPagamento', $botao->attr('data-bs-target'));
+        self::assertSame('Adicionar pagamento', trim($botao->filter('span')->text()));
+        self::assertCount(1, $botao->filter('i.bi-plus-lg'));
+
+        self::assertSame(
+            'Envios mantêm o arquivo original, recomendado para contratos assinados.',
+            trim($crawler->filter('#financeiro-reduzir-nota')->text())
+        );
+    }
 }

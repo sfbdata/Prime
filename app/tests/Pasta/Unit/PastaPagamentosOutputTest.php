@@ -91,11 +91,12 @@ final class PastaPagamentosOutputTest extends TestCase
     }
 
     /**
-     * DOIS selos, como o desenho aprovado mostra: Pendente (âmbar, tom
-     * `proximo`) e Pago (verde, tom `ok`). O atrasado NÃO ganha um terceiro
-     * selo — ele continua sendo Pendente, e o atraso aparece na linha de apoio.
+     * TRÊS selos, como o desenho 1.2.3 mostra (dc 3438-3441): Pago (verde, tom
+     * `ok`), Pendente (âmbar, tom `proximo`) e Vencida (vermelho, tom
+     * `urgente`). Vencida continua DERIVADA — nada é gravado: é o vencimento
+     * passado de um pagamento sem data de quitação.
      */
-    #[TestDox('o estado é derivado da data de pagamento, não gravado: só Pago e Pendente')]
+    #[TestDox('o estado é derivado das datas, não gravado: Pago, Vencida e Pendente')]
     public function testEstadosDerivados(): void
     {
         $saida = PastaPagamentosOutput::montar([
@@ -107,16 +108,35 @@ final class PastaPagamentosOutputTest extends TestCase
         self::assertSame(
             [
                 PastaPagamentoLinhaOutput::ESTADO_PAGO,
-                PastaPagamentoLinhaOutput::ESTADO_PENDENTE,
+                PastaPagamentoLinhaOutput::ESTADO_VENCIDA,
                 PastaPagamentoLinhaOutput::ESTADO_PENDENTE,
             ],
             array_map(fn (PastaPagamentoLinhaOutput $l) => $l->estado, $saida->todos)
         );
 
-        self::assertSame(['ok', 'proximo', 'proximo'], array_map(fn ($l) => $l->tom, $saida->todos));
+        self::assertSame(['ok', 'urgente', 'proximo'], array_map(fn ($l) => $l->tom, $saida->todos));
 
-        // O atraso não some: muda a linha de apoio, não o selo.
-        self::assertStringContainsString('atrasado', $saida->todos[1]->quando);
+        // Vencido continua sendo "próximo" para o card: ainda não entrou.
+        self::assertCount(2, $saida->proximos);
+    }
+
+    /**
+     * A fronteira do Vencida: vencer HOJE ainda não é vencido (o dia não acabou),
+     * vencer ONTEM já é. Sem este caso, um `<=` no lugar do `<` pintaria de
+     * vermelho a parcela do dia para quem abre a tela de manhã.
+     */
+    #[TestDox('vence hoje é Pendente; venceu ontem é Vencida')]
+    public function testFronteiraDoVencida(): void
+    {
+        $saida = PastaPagamentosOutput::montar([
+            $this->pagamento('100.00', '2026-08-27'),
+            $this->pagamento('100.00', '2026-08-28'),
+        ], $this->hoje());
+
+        self::assertSame(PastaPagamentoLinhaOutput::ESTADO_VENCIDA, $saida->todos[0]->estado);
+        self::assertSame('urgente', $saida->todos[0]->tom);
+        self::assertSame(PastaPagamentoLinhaOutput::ESTADO_PENDENTE, $saida->todos[1]->estado);
+        self::assertSame('proximo', $saida->todos[1]->tom);
     }
 
     /**
@@ -135,7 +155,7 @@ final class PastaPagamentosOutputTest extends TestCase
         self::assertSame('pago em 15/08/2026', $saida->todos[0]->quando, 'quitado fala de quando entrou');
     }
 
-    #[TestDox('a linha de apoio mede a distância até o vencimento, em português')]
+    #[TestDox('a linha de apoio mede a distância até o vencimento, nos termos do desenho')]
     public function testTextoDoVencimento(): void
     {
         // Entram na ordem em que o repositório entrega (vencimento ASC): ordenar
@@ -143,20 +163,27 @@ final class PastaPagamentosOutputTest extends TestCase
         // seria provar comportamento que não existe.
         $saida = PastaPagamentosOutput::montar([
             $this->pagamento('100.00', '2026-08-26'),
+            $this->pagamento('100.00', '2026-08-27'),
             $this->pagamento('100.00', '2026-08-28'),
             $this->pagamento('100.00', '2026-08-29'),
             $this->pagamento('100.00', '2026-08-30'),
+            $this->pagamento('100.00', '2026-09-04'),
+            $this->pagamento('100.00', '2026-09-05'),
             $this->pagamento('100.00', '2026-12-25'),
         ], $this->hoje());
 
         $quando = array_map(fn (PastaPagamentoLinhaOutput $l) => $l->quando, $saida->todos);
 
         self::assertSame([
-            'vence 26/08/2026 · atrasado 2 dias',
+            'venceu 26/08/2026 · há 2 dias',
+            'venceu 27/08/2026 · há 1 dia',
             'vence 28/08/2026 · hoje',
-            'vence 29/08/2026 · amanhã',
+            // Sem "amanhã" (dc 3441): é "em 1 dia", no singular.
+            'vence 29/08/2026 · em 1 dia',
             'vence 30/08/2026 · em 2 dias',
-            // Acima de 30 dias a contagem não ajuda mais: fica só a data.
+            'vence 04/09/2026 · em 7 dias',
+            // Acima de 7 dias a contagem não ajuda mais: fica só a data.
+            'vence 05/09/2026',
             'vence 25/12/2026',
         ], $quando);
     }

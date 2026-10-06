@@ -14,6 +14,7 @@ final readonly class PastaPagamentoLinhaOutput
 {
     public const ESTADO_PAGO     = 'Pago';
     public const ESTADO_PENDENTE = 'Pendente';
+    public const ESTADO_VENCIDA  = 'Vencida';
 
     public function __construct(
         public int $id,
@@ -21,35 +22,44 @@ final readonly class PastaPagamentoLinhaOutput
         public string $valorFormatado,
         public string $quando,
         public string $estado,
-        /** `ok` (verde) ou `proximo` (âmbar) — os tons de selo que a tela já tem. */
+        /** `ok` (verde), `proximo` (âmbar) ou `urgente` (vermelho) — os tons de selo que a tela já tem. */
         public string $tom,
         public bool $pago,
     ) {}
 
     /**
-     * Dois selos, como o desenho aprovado mostra: Pendente (âmbar) e Pago
-     * (verde). O ATRASO não vira um terceiro selo — ele aparece na linha de
-     * apoio ("atrasado 2 dias"), que é onde o desenho já põe o tempo. Pintar o
-     * vencido de vermelho é uma proposta em aberto, não uma entrega.
+     * Três selos, como o desenho 1.2.3 mostra (dc 3438-3441): Pago (verde),
+     * Pendente (âmbar) e Vencida (vermelho). Vencida é só APRESENTAÇÃO: o estado
+     * continua derivado da data de pagamento e do vencimento (`estaVencido`),
+     * nada é gravado. O selo segue sendo o botão de quitar nos três casos.
      */
     public static function montar(PastaPagamento $pagamento, \DateTimeImmutable $hoje): self
     {
-        $pago = $pagamento->estaPago();
+        $pago    = $pagamento->estaPago();
+        $vencido = $pagamento->estaVencido($hoje);
+
+        [$estado, $tom] = match (true) {
+            $pago    => [self::ESTADO_PAGO, 'ok'],
+            $vencido => [self::ESTADO_VENCIDA, 'urgente'],
+            default  => [self::ESTADO_PENDENTE, 'proximo'],
+        };
 
         return new self(
             id: (int) $pagamento->getId(),
             descricao: $pagamento->getDescricao(),
             valorFormatado: PastaFinanceiroOutput::formatarReais($pagamento->getValor()),
             quando: self::quando($pagamento, $hoje),
-            estado: $pago ? self::ESTADO_PAGO : self::ESTADO_PENDENTE,
-            tom: $pago ? 'ok' : 'proximo',
+            estado: $estado,
+            tom: $tom,
             pago: $pago,
         );
     }
 
     /**
      * A linha de apoio diz a data e, quando ela ainda importa, a distância até
-     * lá. Pagamento quitado não fala mais de vencimento: fala de quando entrou.
+     * lá — nos termos do desenho (dc 3440-3441): "venceu … · há N dias" para o
+     * vencido; "· hoje" e "· em N dia(s)" até 7 dias; além disso, só a data.
+     * Pagamento quitado não fala mais de vencimento: fala de quando entrou.
      */
     private static function quando(PastaPagamento $pagamento, \DateTimeImmutable $hoje): string
     {
@@ -59,15 +69,18 @@ final readonly class PastaPagamentoLinhaOutput
 
         $vencimento = $pagamento->getVencimento();
         $dias       = (int) $hoje->diff($vencimento)->format('%r%a');
+        $data       = $vencimento->format('d/m/Y');
 
-        $texto = 'vence ' . $vencimento->format('d/m/Y');
+        if ($pagamento->estaVencido($hoje)) {
+            $atraso = abs($dias);
 
-        return match (true) {
-            $pagamento->estaVencido($hoje) => $texto . ' · atrasado ' . abs($dias) . (abs($dias) === 1 ? ' dia' : ' dias'),
-            $dias === 0 => $texto . ' · hoje',
-            $dias === 1 => $texto . ' · amanhã',
-            $dias <= 30 => $texto . ' · em ' . $dias . ' dias',
-            default     => $texto,
+            return 'venceu ' . $data . ' · há ' . $atraso . ($atraso === 1 ? ' dia' : ' dias');
+        }
+
+        return 'vence ' . $data . match (true) {
+            $dias === 0 => ' · hoje',
+            $dias <= 7  => ' · em ' . $dias . ($dias === 1 ? ' dia' : ' dias'),
+            default     => '',
         };
     }
 }

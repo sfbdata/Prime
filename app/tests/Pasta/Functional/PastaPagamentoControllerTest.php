@@ -435,7 +435,13 @@ final class PastaPagamentoControllerTest extends JusPrimeWebTestCase
     // Tela
     // =========================================================================
 
-    #[TestDox('pasta sem pagamento mostra o estado vazio, não R$ 0,00 numa barra')]
+    /**
+     * Desenho 1.2.3 (dc 1873-1920, auditoria 2 F5/F14): sem lançamento o card
+     * NÃO troca de cara. O total zerado e a barra vazia continuam, "nenhum pago"
+     * aparece no lugar da contagem de pagos e a lista vira uma linha simples.
+     * Antes era um `.ps-vazio` com ícone que escondia total e "Próximos".
+     */
+    #[TestDox('pasta sem pagamento mostra o total zerado, "nenhum pago" e a linha de vazio do desenho')]
     public function testEstadoVazio(): void
     {
         $client          = static::createClient();
@@ -447,11 +453,136 @@ final class PastaPagamentoControllerTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $user, $tenant);
 
         $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
-        $card    = $crawler->filter('[data-trilho="pagamentos"]');
+        $corpo   = $crawler->filter('[data-trilho="pagamentos"] > #psPagamentosCorpo');
+        self::assertCount(1, $corpo);
 
-        self::assertCount(1, $card->filter('.ps-vazio'));
-        self::assertStringContainsString('Nenhum pagamento lançado', $card->text());
-        self::assertCount(0, $card->filter('.ps-pag-barra'), 'sem lançamento não há barra para mostrar');
+        self::assertCount(0, $corpo->filter('.ps-vazio'), 'o vazio com ícone saiu: o desenho mantém o card');
+        self::assertSame(
+            'R$ 0,00 recebidos de R$ 0,00',
+            trim(preg_replace('/\s+/', ' ', $crawler->filter('#psPagamentosCorpo > .ps-pag-total > .ps-pag-total-linha')->text()) ?? '')
+        );
+        $barra = $crawler->filter('#psPagamentosCorpo > .ps-pag-total > .ps-pag-barra');
+        self::assertCount(1, $barra, 'a barra continua, vazia');
+        self::assertSame('0', $barra->attr('aria-valuenow'), '0 de 0 não é barra cheia');
+        self::assertSame('nenhum pago', trim($crawler->filter('#psPagamentosCorpo > .ps-pag-secao > .ps-pag-nota')->text()));
+        self::assertSame(
+            'Nenhum lançamento. Use Adicionar pagamento.',
+            trim($crawler->filter('#psPagamentosCorpo > .ps-pag-vazio-linha')->text())
+        );
+        self::assertCount(0, $corpo->filter('.ps-pag-linha'));
+        self::assertCount(0, $corpo->filter('#psExtratoFolha'), 'sem lançamento não há extrato');
+    }
+
+    private function criarPagamentoEm(
+        Pasta $pasta,
+        Tenant $tenant,
+        string $descricao,
+        \DateTimeImmutable $vencimento,
+        ?\DateTimeImmutable $pagoEm = null,
+    ): PastaPagamento {
+        $em        = static::getContainer()->get(EntityManagerInterface::class);
+        $pagamento = new PastaPagamento();
+        $pagamento->setPasta($pasta);
+        $pagamento->setTenant($tenant);
+        $pagamento->setDescricao($descricao);
+        $pagamento->setValor('100.00');
+        $pagamento->setVencimento($vencimento);
+
+        if ($pagoEm !== null) {
+            $pagamento->alternarQuitacao($pagoEm);
+        }
+
+        $em->persist($pagamento);
+        $em->flush();
+
+        return $pagamento;
+    }
+
+    /**
+     * Desenho 1.2.3 (dc 3512, auditoria 2 F17): à vista ficam só os TRÊS
+     * próximos não pagos; o resto (pendentes além do 3º e os pagos) fica no HTML
+     * e aparece pelo "Ver todos os lançamentos" do ⋮. Ordem do desenho: não
+     * pagos por vencimento, pagos no fim. As datas são relativas a hoje — data
+     * fixa vira vencida sozinha e muda o selo.
+     */
+    #[TestDox('o card mostra os três próximos não pagos; os demais e os pagos ficam para o "ver todos"')]
+    public function testSoTresProximosAVista(): void
+    {
+        $client          = static::createClient();
+        $client->disableReboot();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+
+        $hoje = new \DateTimeImmutable('today');
+        $pago = $this->criarPagamentoEm($pasta, $tenant, 'Entrada', $hoje->modify('-30 days'), $hoje->modify('-30 days'));
+        $p1   = $this->criarPagamentoEm($pasta, $tenant, '1ª parcela', $hoje->modify('+10 days'));
+        $p2   = $this->criarPagamentoEm($pasta, $tenant, '2ª parcela', $hoje->modify('+40 days'));
+        $p3   = $this->criarPagamentoEm($pasta, $tenant, '3ª parcela', $hoje->modify('+70 days'));
+        $p4   = $this->criarPagamentoEm($pasta, $tenant, '4ª parcela', $hoje->modify('+100 days'));
+        $this->logarComTenant($client, $user, $tenant);
+
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
+        $linhas  = $crawler->filter('#psPagamentosCorpo > .ps-pag-linha');
+
+        self::assertSame(
+            [(string) $p1->getId(), (string) $p2->getId(), (string) $p3->getId(), (string) $p4->getId(), (string) $pago->getId()],
+            $linhas->each(static fn ($l) => (string) $l->attr('data-pagamento-id')),
+            'não pagos por vencimento primeiro, pagos no fim'
+        );
+
+        $classes = $linhas->each(static fn ($l) => (string) $l->attr('class'));
+        foreach ([0, 1, 2] as $i) {
+            self::assertStringNotContainsString('ps-pag-linha--alem', $classes[$i], "a linha {$i} é um dos três próximos");
+            self::assertStringNotContainsString('ps-pag-linha--pago', $classes[$i]);
+        }
+        self::assertStringContainsString('ps-pag-linha--alem', $classes[3], 'o 4º pendente fica para o "ver todos"');
+        self::assertStringContainsString('ps-pag-linha--pago', $classes[4]);
+        self::assertStringNotContainsString('ps-pag-linha--alem', $classes[4], 'pago já se esconde pela própria classe');
+
+        self::assertSame('1 já pago', trim($crawler->filter('#psPagamentosCorpo > .ps-pag-secao > .ps-pag-nota')->text()));
+
+        // O "ver todos" saiu do cabeçalho: só o ⋮ fica lá (dc 1865-1871).
+        $cab = '#financeiro .ps-trilho > [data-trilho="pagamentos"] > .ps-card-cab';
+        self::assertCount(0, $crawler->filter('#psPagamentosVerTodos'));
+        self::assertCount(0, $crawler->filter("{$cab} > .ps-fin-link"));
+        self::assertCount(1, $crawler->filter('#psPagamentosMenu .js-pag-ver-todos'));
+    }
+
+    /**
+     * Desenho 1.2.3 (dc 3440, auditoria 2 F6/F18): pagamento vencido e não pago
+     * ganha o selo "Vencida" (tom urgente) e a linha "venceu … · há N dias".
+     * Vence hoje continua Pendente.
+     */
+    #[TestDox('pagamento vencido mostra o selo Vencida e "venceu … · há N dias"; vence hoje é Pendente')]
+    public function testVencidoMostraSeloVencida(): void
+    {
+        $client          = static::createClient();
+        $client->disableReboot();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+
+        $hoje    = new \DateTimeImmutable('today');
+        $vencido = $this->criarPagamentoEm($pasta, $tenant, 'Parcela vencida', $hoje->modify('-3 days'));
+        $deHoje  = $this->criarPagamentoEm($pasta, $tenant, 'Parcela de hoje', $hoje);
+        $this->logarComTenant($client, $user, $tenant);
+
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
+
+        $linhaVencida = $crawler->filter('#psPagamentosCorpo > .ps-pag-linha[data-pagamento-id="' . $vencido->getId() . '"]');
+        $selo         = $linhaVencida->filter('.ps-pag-direita > button.ps-pag-selo');
+        self::assertSame('Vencida', trim($selo->text()));
+        self::assertStringContainsString('ps-selo--urgente', (string) $selo->attr('class'));
+        self::assertSame('quitacao', $selo->attr('data-acao'), 'o selo segue sendo o botão de quitar');
+        self::assertSame(
+            'venceu ' . $hoje->modify('-3 days')->format('d/m/Y') . ' · há 3 dias',
+            trim($linhaVencida->filter('.ps-pag-quando')->text())
+        );
+
+        $linhaHoje = $crawler->filter('#psPagamentosCorpo > .ps-pag-linha[data-pagamento-id="' . $deHoje->getId() . '"]');
+        $seloHoje  = $linhaHoje->filter('.ps-pag-direita > button.ps-pag-selo');
+        self::assertSame('Pendente', trim($seloHoje->text()));
+        self::assertStringContainsString('ps-selo--proximo', (string) $seloHoje->attr('class'));
+        self::assertSame('vence ' . $hoje->format('d/m/Y') . ' · hoje', trim($linhaHoje->filter('.ps-pag-quando')->text()));
     }
 
     /**

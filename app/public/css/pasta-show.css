@@ -2230,6 +2230,8 @@ span.ps-situacao-pill { cursor: default; }
 .ps-fin-sub { font-size: 11.5px; color: var(--ps-label); margin-top: 3px; line-height: 1.45; }
 .ps-fin-sub--erro { color: var(--ps-danger-text); }
 .ps-fin-sub--aviso { color: var(--ps-warn-text); }
+/* Nota do "Reduzir tamanho ao enviar": 5px abaixo do interruptor (dc 1860, auditoria 2 F9). */
+#financeiro-reduzir-nota { margin-top: 5px; }
 
 /* Selo que é botão: Contrato e Pró-bono. O mesmo gesto nos dois, porque são a
    mesma pergunta ("qual é o estado?") com a mesma resposta ("clique para virar"). */
@@ -2457,6 +2459,9 @@ span.ps-situacao-pill { cursor: default; }
    classe no cartão, sem ida ao servidor. */
 .ps-pag-linha--pago { display: none; }
 #psPagamentos.is-mostrando-todos .ps-pag-linha--pago { display: flex; }
+/* Só os TRÊS próximos não pagos à vista (dc 3512, auditoria 2 F17): os pendentes
+   além do terceiro ficam no HTML e aparecem com "Ver todos os lançamentos". */
+#psPagamentos:not(.is-mostrando-todos) .ps-pag-linha--alem { display: none; }
 
 /* O selo verde faltava na paleta: os três tons de `.ps-selo` cobriam prazo
    (urgente/próximo/tranquilo), e pagamento tem um quarto estado — pago. */

@@ -7,44 +7,54 @@
    dois números da mesma tela começam a discordar: aqui os totais vêm sempre do
    servidor, do mesmo DTO que desenhou a primeira carga.
 
-   As linhas JÁ PAGAS são renderizadas e escondidas por CSS, não omitidas: o
-   "ver todos" do cabeçalho é só uma classe no cartão, sem ida ao servidor.
+   O card mostra os TRÊS próximos não pagos (desenho 1.2.3, dc 3512). As demais
+   linhas — pendentes além da terceira e as já pagas — são renderizadas e
+   escondidas por CSS, não omitidas: o "Ver todos os lançamentos" do menu ⋮ é
+   só uma classe no cartão, sem ida ao servidor. Ordem como no desenho: os não
+   pagos primeiro, por vencimento; os pagos depois.
+
+   Sem lançamento nenhum o card NÃO troca de cara (dc 1873-1920): o total fica
+   "R$ 0,00 recebidos de R$ 0,00" com a barra vazia, "nenhum pago" e uma linha
+   simples no lugar da lista.
 
    Contexto: `pagamentos` (PastaPagamentosOutput).
    ============================================================================ #}
+{% set proximosVisiveis = 3 %}
+<div class="ps-pag-total">
+    <div class="ps-pag-total-linha">
+        <span class="ps-pag-recebido ps-num">{{ pagamentos.recebidoFormatado }}</span>
+        <span class="ps-pag-previsto">recebidos de {{ pagamentos.previstoFormatado }}</span>
+    </div>
+    <div class="ps-pag-barra" role="progressbar"
+         aria-valuenow="{{ pagamentos.percentual }}" aria-valuemin="0" aria-valuemax="100"
+         aria-label="Percentual recebido">
+        <div class="ps-pag-barra-cheia" style="width: {{ pagamentos.percentual }}%"></div>
+    </div>
+</div>
+
+<div class="ps-pag-secao">
+    <span class="ps-fin-rotulo">Próximos vencimentos</span>
+    <span class="ps-cab-espaco"></span>
+    <span class="ps-pag-nota">
+        {%- if pagamentos.quantidadePagos > 0 -%}
+            {{ pagamentos.quantidadePagos }} já pago{{ pagamentos.quantidadePagos == 1 ? '' : 's' }}
+        {%- else -%}
+            nenhum pago
+        {%- endif -%}
+    </span>
+</div>
+
 {% if pagamentos.total == 0 %}
-    <div class="ps-vazio">
-        <i class="bi bi-wallet2"></i>
-        <div class="ps-vazio-titulo">Nenhum pagamento lançado</div>
-        <div class="ps-vazio-nota">Registre o que o cliente combinou pagar por este caso.</div>
-    </div>
+    <div class="ps-pag-vazio-linha">Nenhum lançamento. Use Adicionar pagamento.</div>
 {% else %}
-    <div class="ps-pag-total">
-        <div class="ps-pag-total-linha">
-            <span class="ps-pag-recebido ps-num">{{ pagamentos.recebidoFormatado }}</span>
-            <span class="ps-pag-previsto">recebidos de {{ pagamentos.previstoFormatado }}</span>
-        </div>
-        <div class="ps-pag-barra" role="progressbar"
-             aria-valuenow="{{ pagamentos.percentual }}" aria-valuemin="0" aria-valuemax="100"
-             aria-label="Percentual recebido">
-            <div class="ps-pag-barra-cheia" style="width: {{ pagamentos.percentual }}%"></div>
-        </div>
-    </div>
-
-    <div class="ps-pag-secao">
-        <span class="ps-fin-rotulo">Próximos vencimentos</span>
-        <span class="ps-cab-espaco"></span>
-        {% if pagamentos.quantidadePagos > 0 %}
-            <span class="ps-pag-nota">{{ pagamentos.quantidadePagos }} já pago{{ pagamentos.quantidadePagos == 1 ? '' : 's' }}</span>
-        {% endif %}
-    </div>
-
     {% if pagamentos.proximos is empty %}
         <div class="ps-pag-quitado">Tudo pago. Nada a vencer.</div>
     {% endif %}
 
-    {% for linha in pagamentos.todos %}
-        <div class="ps-pag-linha{{ linha.pago ? ' ps-pag-linha--pago' : '' }}" data-pagamento-id="{{ linha.id }}">
+    {% set linhasEmOrdem = pagamentos.proximos|merge(pagamentos.todos|filter(l => l.pago)) %}
+    {% for linha in linhasEmOrdem %}
+        {% set alem = not linha.pago and loop.index > proximosVisiveis %}
+        <div class="ps-pag-linha{{ linha.pago ? ' ps-pag-linha--pago' : '' }}{{ alem ? ' ps-pag-linha--alem' : '' }}" data-pagamento-id="{{ linha.id }}">
             <div class="ps-pag-corpo">
                 <div class="ps-pag-descricao" title="{{ linha.descricao }}">{{ linha.descricao }}</div>
                 <div class="ps-pag-quando ps-num">{{ linha.quando }}</div>

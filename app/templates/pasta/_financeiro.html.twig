@@ -38,7 +38,7 @@
         <div class="ps-fin-rotulo-linha">
             <span class="ps-fin-rotulo">Contrato</span>
         </div>
-        <div class="ps-fin-corpo">
+        <div class="ps-fin-corpo ps-fin-corpo--selo">
             <button type="button"
                     id="financeiro-situacao-btn"
                     class="ps-fin-selo ps-fin-selo--{{ contratoAssinado ? 'ok' : 'perigo' }}"
@@ -60,7 +60,7 @@
         <div class="ps-fin-rotulo-linha">
             <span class="ps-fin-rotulo">Pró-bono</span>
         </div>
-        <div class="ps-fin-corpo">
+        <div class="ps-fin-corpo ps-fin-corpo--selo">
             <button type="button"
                     id="financeiro-probono-btn"
                     class="ps-fin-selo ps-fin-selo--{{ pasta.proBono ? 'ok' : 'neutro' }}"
@@ -254,9 +254,8 @@
         <section class="ps-card" data-trilho="arquivos">
             <div class="ps-card-cab">
                 <h2>Arquivos</h2>
-                {% if documentosContrato|length > 0 %}
-                    <span class="ps-contagem" id="financeiro-docs-contagem">{{ documentosContrato|length }}</span>
-                {% endif %}
+                {# Contagem SEMPRE à vista, inclusive 0 (dc 1831). #}
+                <span class="ps-contagem" id="financeiro-docs-contagem">{{ documentosContrato|length }}</span>
                 <span class="ps-cab-espaco"></span>
                 <label class="ps-btn-mini ps-fin-adicionar"
                        title="Adicionar arquivo (PDF, DOCX, JPEG, PNG — máx. 10 MB)">
@@ -280,8 +279,12 @@
                     <div class="ps-fin-doc-vazio" id="financeiro-docs-vazio">Nenhum arquivo financeiro anexado.</div>
                 {% else %}
                     {% for doc in documentosContrato|slice(0, arquivosVisiveis) %}
+                        {# Ícone do TIPO do arquivo, 30px, como o trilho de Dados (dc ~6549 `fi(ext,30)`).
+                           Pelo título, que é o que a linha mostra e cuja extensão o renomear
+                           protege; o MIME é o desempate. `iconeDoArquivo` (JS, abaixo) espelha. #}
+                        {% set icone = arquivo_icone(doc.titulo, doc.mimeType ?? '') %}
                         <div class="ps-fin-doc" id="financeiro-doc-{{ doc.id }}">
-                            <span class="ps-doc-ext">{{ doc.titulo|split('.')|last|slice(0, 4)|upper }}</span>
+                            <span class="ps-doc-icone" style="color: {{ icone.cor|e('html_attr') }}" title="{{ icone.rotulo }}"><i class="bi {{ icone.icone }}"></i></span>
                             <div class="ps-fin-doc-corpo">
                                 <div class="ps-doc-nome" title="{{ doc.titulo }}">{{ doc.titulo }}</div>
                                 <div class="ps-doc-meta">{{ doc.tamanhoBytes|formatar_bytes }} · {{ doc.carregadoEm|date('d/m/Y') }}</div>
@@ -378,7 +381,7 @@
                     <span class="ps-fin-switch-trilho"><span class="ps-fin-switch-knob"></span></span>
                     <span>Reduzir tamanho ao enviar</span>
                 </button>
-                <div class="ps-fin-sub" id="financeiro-reduzir-nota">Envios mantêm o arquivo original — recomendado para contratos assinados.</div>
+                <div class="ps-fin-sub" id="financeiro-reduzir-nota">Envios mantêm o arquivo original, recomendado para contratos assinados.</div>
                 <div id="financeiro-upload-erro" class="ps-fin-sub ps-fin-sub--erro d-none"></div>
                 <div id="financeiro-upload-spinner" class="ps-fin-sub d-none">
                     <span class="spinner-border spinner-border-sm me-1"></span>Enviando…
@@ -399,11 +402,9 @@
                 <h2>Pagamentos</h2>
                 <span class="ps-contagem" id="psPagamentosTotal">{{ pagamentos.total }}</span>
                 <span class="ps-cab-espaco"></span>
-                {% if pagamentos.total > 0 %}
-                    <button type="button" class="ps-fin-link" id="psPagamentosVerTodos"
-                            title="Mostrar também os já pagos">ver todos</button>
-                {% endif %}
-                {# ⋮ do card (desenho 1.2.3): só o que tem função hoje. "Editar ou corrigir
+                {# Só o ⋮ no cabeçalho (dc 1865-1871): o "ver todos" mora no menu, no item
+                   "Ver todos os lançamentos", que alterna a classe `is-mostrando-todos`.
+                   ⋮ do card (desenho 1.2.3): só o que tem função hoje. "Editar ou corrigir
                    valores" depende de histórico de correção que não existe (fila de D) e
                    fica fora. Os itens de extrato somem quando não há lançamento: o JS
                    confere, na abertura, se a folha `#psExtratoFolha` existe no corpo. #}
@@ -453,9 +454,9 @@
             </div>
 
             <div class="ps-fin-rodape">
-                <button type="button" class="ps-btn ps-fin-btn-largo"
+                <button type="button" class="ps-fin-btn-add"
                         data-bs-toggle="modal" data-bs-target="#modalNovoPagamento">
-                    <i class="bi bi-plus-lg"></i> Adicionar pagamento
+                    <i class="bi bi-plus-lg"></i><span>Adicionar pagamento</span>
                 </button>
             </div>
         </section>
@@ -654,7 +655,7 @@
             if (reduzirNota) {
                 reduzirNota.textContent = ligado
                     ? 'Atenção: um PDF assinado digitalmente pode perder a assinatura ao ser reduzido.'
-                    : 'Envios mantêm o arquivo original — recomendado para contratos assinados.';
+                    : 'Envios mantêm o arquivo original, recomendado para contratos assinados.';
                 reduzirNota.classList.toggle('ps-fin-sub--aviso', ligado);
             }
         });
@@ -702,9 +703,36 @@
         docLista.after(bloco);
     }
 
-    function extDoTitulo(titulo) {
-        const ponto = String(titulo).lastIndexOf('.');
-        return ponto > 0 ? String(titulo).slice(ponto + 1, ponto + 5).toUpperCase() : '?';
+    /**
+     * Espelho de `arquivo_icone()` (App\Twig\ArquivoIconeExtension) para os tipos
+     * que este upload aceita (PDF, DOC/DOCX, JPEG, PNG), com o mesmo desempate
+     * pelo MIME e o mesmo genérico. Mudou lá, muda aqui.
+     */
+    function iconeDoArquivo(titulo, mime) {
+        const t     = String(titulo);
+        const ponto = t.lastIndexOf('.');
+        const ext   = ponto > 0 ? t.slice(ponto + 1).toLowerCase() : '';
+        const mapa  = {
+            pdf:  ['bi-filetype-pdf',  '#e2564d', 'PDF'],
+            doc:  ['bi-filetype-doc',  '#2b7cd3', 'Word'],
+            docx: ['bi-filetype-docx', '#2b7cd3', 'Word'],
+            png:  ['bi-filetype-png',  '#7b5ea7', 'Imagem'],
+            jpg:  ['bi-filetype-jpg',  '#7b5ea7', 'Imagem'],
+            jpeg: ['bi-filetype-jpg',  '#7b5ea7', 'Imagem'],
+        };
+        const m = String(mime ?? '');
+        const [icone, cor, rotulo] = mapa[ext]
+            ?? (m.startsWith('image/') ? ['bi-file-image', '#7b5ea7', 'Imagem']
+            : m.includes('pdf') ? ['bi-filetype-pdf', '#e2564d', 'PDF']
+            : (m.includes('word') || m.includes('document')) ? ['bi-filetype-doc', '#2b7cd3', 'Word']
+            : ['bi-file-earmark', '#6c757d', 'Arquivo']);
+        return { icone: icone, cor: cor, rotulo: rotulo };
+    }
+
+    function htmlIconeDoArquivo(titulo, mime) {
+        const ic = iconeDoArquivo(titulo, mime);
+        return '<span class="ps-doc-icone" style="color: ' + esc(ic.cor) + '" title="' + esc(ic.rotulo) + '">'
+            + '<i class="bi ' + esc(ic.icone) + '"></i></span>';
     }
 
     function criarItemDoc(id, titulo, mimeType, urlVisualizar, urlDownload, urlRenomear, csrfRenomear, urlExcluir, csrfExcluir, meta) {
@@ -712,7 +740,7 @@
         div.className = 'ps-fin-doc';
         div.id = 'financeiro-doc-' + id;
         div.innerHTML = `
-            <span class="ps-doc-ext">${esc(extDoTitulo(titulo))}</span>
+            ${htmlIconeDoArquivo(titulo, mimeType)}
             <div class="ps-fin-doc-corpo">
                 <div class="ps-doc-nome" title="${esc(titulo)}">${esc(titulo)}</div>
                 <div class="ps-doc-meta">${esc(meta ?? '')}</div>
@@ -907,11 +935,11 @@
                         if (!resp.ok) { alert(data.erro ?? 'Erro ao renomear.'); }
                         restaurarSpan(titulo);
                         btnRen.dataset.titulo = titulo;
-                        // Mantém o pré-visualizador e o selo de extensão coerentes.
+                        // Mantém o pré-visualizador e o ícone do tipo coerentes.
                         const btnPrevItem = item.querySelector('[data-bs-target="#previewDocModal"]');
                         if (btnPrevItem) { btnPrevItem.dataset.nome = titulo; }
-                        const selo = item.querySelector('.ps-doc-ext');
-                        if (selo) { selo.textContent = extDoTitulo(titulo); }
+                        const icone = item.querySelector('.ps-doc-icone');
+                        if (icone) { icone.outerHTML = htmlIconeDoArquivo(titulo, btnPrevItem ? btnPrevItem.dataset.mime : ''); }
                         const tituloMenu = item.querySelector('.ps-fin-menu-titulo');
                         if (tituloMenu) { tituloMenu.textContent = titulo; tituloMenu.title = titulo; }
                     } catch (_) {
@@ -1005,13 +1033,11 @@
         const temExtrato = !!document.getElementById('psExtratoFolha');
         menu.querySelectorAll('.js-pag-so-com-extrato').forEach(function (el) { el.hidden = !temExtrato; });
 
-        // "Ver todos" é o MESMO link do cabeçalho: sem ele (pasta sem lançamento
-        // na carga) o item não aparece.
-        const verTodos = document.getElementById('psPagamentosVerTodos');
-        const item     = menu.querySelector('.js-pag-ver-todos');
+        // "Ver todos" só aparece quando há lançamento para listar. Decide na
+        // abertura, pelo corpo que o servidor acabou de re-renderizar.
+        const item = menu.querySelector('.js-pag-ver-todos');
         if (item) {
-            const disponivel = !!verTodos && !verTodos.classList.contains('d-none');
-            item.hidden = !disponivel;
+            item.hidden = !document.querySelector('#psPagamentosCorpo .ps-pag-linha');
             const cartao    = document.getElementById('psPagamentos');
             const mostrando = !!cartao && cartao.classList.contains('is-mostrando-todos');
             item.querySelector('span').textContent = mostrando ? 'Mostrar só os próximos' : 'Ver todos os lançamentos';
@@ -1141,7 +1167,8 @@
 
         if (item.classList.contains('js-fin-doc-ver-documentos')) { irParaDocumentos(); return; }
         if (item.classList.contains('js-pag-ver-todos')) {
-            document.getElementById('psPagamentosVerTodos')?.click();
+            // Só uma classe no cartão: as linhas escondidas já estão no HTML.
+            document.getElementById('psPagamentos')?.classList.toggle('is-mostrando-todos');
             return;
         }
         if (item.classList.contains('js-pag-imprimir-extrato')) { imprimirExtrato(); }

@@ -1,6 +1,7 @@
 {# ============================================================================
-   Aba Financeiro — card Pagamentos: quitar, excluir, "ver todos" e o modal de
-   novo lançamento.
+   Aba Financeiro — card Pagamentos: quitar, excluir e o modal de novo
+   lançamento. O "Ver todos os lançamentos" mora no menu ⋮ do card (script dos
+   menus, em `_financeiro.html.twig`).
 
    O corpo do card NÃO é remendado no navegador: toda mudança devolve o bloco
    inteiro já renderizado pelo servidor (`_financeiro_pagamentos.html.twig`), e o
@@ -21,18 +22,12 @@
 
     const corpo    = document.getElementById('psPagamentosCorpo');
     const contagem = document.getElementById('psPagamentosTotal');
-    const verTodos = document.getElementById('psPagamentosVerTodos');
 
     /** Troca o card inteiro pelo HTML que o servidor acabou de renderizar. */
     function aplicarResumo(resumo) {
         if (!resumo) { return; }
         corpo.innerHTML = resumo.html;
         if (contagem) { contagem.textContent = String(resumo.total); }
-
-        // Sem pagamento nenhum não há o que "ver todos" mostrar.
-        if (verTodos) {
-            verTodos.classList.toggle('d-none', resumo.total === 0);
-        }
     }
 
     async function postar(url, csrf, extras) {
@@ -47,16 +42,6 @@
         });
 
         return { ok: resp.ok, data: await resp.json() };
-    }
-
-    // ── "ver todos": só uma classe, sem ida ao servidor ──────────────────────
-    // As linhas pagas já estão no HTML, escondidas por CSS.
-    if (verTodos) {
-        verTodos.addEventListener('click', function () {
-            const mostrando = cartao.classList.toggle('is-mostrando-todos');
-            this.textContent = mostrando ? 'ver só os próximos' : 'ver todos';
-            this.title = mostrando ? 'Esconder os já pagos' : 'Mostrar também os já pagos';
-        });
     }
 
     // ── Quitar / desfazer e excluir ──────────────────────────────────────────

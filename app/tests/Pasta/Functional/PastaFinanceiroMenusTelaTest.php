@@ -156,6 +156,32 @@ final class PastaFinanceiroMenusTelaTest extends JusPrimeWebTestCase
         self::assertSame($doc->getTitulo(), trim($menu->filter('.ps-fin-menu-titulo')->text()));
     }
 
+    /**
+     * Auditoria 2, F2 (dc ~6549 `fi(ext,30)`): a linha do arquivo mostra o ícone
+     * do TIPO, como o trilho de Dados, e não mais a caixinha com a sigla. O título
+     * persistido vem em maiúsculas (".PDF"): o ícone tem de reconhecer assim mesmo.
+     */
+    #[TestDox('a linha do arquivo mostra o ícone do tipo, não a caixinha com a sigla')]
+    public function testArquivoMostraIconeDoTipo(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $pdf             = $this->criarDocumentoFinanceiro($pasta, $tenant, 'Contrato de honorários.pdf');
+        $docx            = $this->criarDocumentoFinanceiro($pasta, $tenant, 'Procuração.docx');
+        $this->logarComTenant($client, $user, $tenant);
+
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
+
+        $iconePdf = $crawler->filter("#financeiro-docs-lista > #financeiro-doc-{$pdf->getId()} > span.ps-doc-icone > i.bi.bi-filetype-pdf");
+        self::assertCount(1, $iconePdf, 'PDF ganha o ícone de PDF (título gravado: ' . $pdf->getTitulo() . ')');
+        self::assertSame('PDF', $crawler->filter("#financeiro-doc-{$pdf->getId()} > .ps-doc-icone")->attr('title'));
+
+        self::assertCount(1, $crawler->filter("#financeiro-docs-lista > #financeiro-doc-{$docx->getId()} > span.ps-doc-icone > i.bi.bi-filetype-docx"));
+
+        self::assertCount(0, $crawler->filter('#financeiro-docs-lista .ps-doc-ext'), 'a caixinha com a sigla saiu');
+    }
+
     #[TestDox('o menu do arquivo só tem ações com função real, na ordem do desenho')]
     public function testMenuDoArquivoSoTemAcoesReais(): void
     {
@@ -303,7 +329,8 @@ final class PastaFinanceiroMenusTelaTest extends JusPrimeWebTestCase
         self::assertCount(2, $linhas, 'o extrato lista os pagos também, não só os próximos');
         $texto = $folha->text();
         self::assertStringContainsString('Entrada de honorários: R$ 1.000,00 · pago em 01/09/2026', $texto);
-        self::assertStringContainsString('2ª parcela: R$ 300,50 · vence 10/09/2026', $texto);
+        // 10/09/2026 já passou: o extrato diz "venceu", como o selo Vencida (auditoria 2 F6/F18).
+        self::assertStringContainsString('2ª parcela: R$ 300,50 · venceu 10/09/2026', $texto);
 
         $cabecalho = $crawler->filter('#financeiro [data-trilho="pagamentos"] > #psExtratoCabecalho');
         self::assertCount(1, $cabecalho);
