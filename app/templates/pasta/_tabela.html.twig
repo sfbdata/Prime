@@ -332,6 +332,23 @@
 .pasta-card-topo { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .pasta-card-ident { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
 .pasta-favorita-estrela { color: #f0b400; font-size: .8rem; }
+/* Estrela de favorito do cartão: convenção da estrela de linha do explorador (dc L.4743) —
+   ligada #f0b400, desligada apagada, hover #e0a400. Área de toque de 32px no celular. */
+.pasta-card-fav {
+    display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+    width: 24px; height: 24px; margin: -4px -6px -4px -4px; padding: 0; align-self: center;
+    border: 0; border-radius: 4px; background: transparent; cursor: pointer;
+    font-size: 13px; line-height: 1; color: #b4c2cc; opacity: .55;
+    transition: color .15s, opacity .15s;
+}
+.pasta-card-fav:hover, .pasta-card-fav:focus-visible { color: #e0a400; opacity: 1; }
+.pasta-card-fav:focus-visible { outline: 2px solid var(--bs-primary); outline-offset: 1px; }
+.pasta-card-fav.is-favorita { color: #f0b400; opacity: 1; }
+.pasta-card-fav[aria-busy="true"] { cursor: progress; opacity: .4; }
+[data-bs-theme="dark"] .pasta-card-fav:not(.is-favorita) { color: #7d8f9b; }
+@media (max-width: 767.98px) {
+    .pasta-card-fav { width: 32px; height: 32px; margin: -8px -8px -8px -8px; font-size: 15px; }
+}
 .pasta-card-nup { font-weight: 600; font-size: .78rem; color: var(--bs-secondary-color); white-space: nowrap; }
 .pasta-card-cliente {
     font-size: .95rem; font-weight: 600; color: var(--bs-body-color); text-transform: uppercase;
@@ -546,6 +563,52 @@
     var salvo = null;
     try { salvo = localStorage.getItem(STORAGE_KEY); } catch (e) { /* indisponível */ }
     aplicarView(salvo === 'lista' ? 'lista' : 'tabela');
+
+    /* Estrela de favorito do cartão: mesmo endpoint e mesmo contrato do menu ⋮ da pasta
+       (`pasta_favorito_alternar` → `{favorita: bool}`). O estado mostrado espelha a RESPOSTA,
+       não o clique — se o POST falhar, fica o gravado. Delegado no document uma vez só. */
+    if (!document.__pastaCardFavoritoBound) {
+        document.__pastaCardFavoritoBound = true;
+        document.addEventListener('click', function (e) {
+            var btn = e.target.closest('.js-pasta-card-favorito');
+            if (!btn) return;
+            e.preventDefault();
+            e.stopPropagation();
+            if (btn.getAttribute('aria-busy') === 'true') return;
+            btn.setAttribute('aria-busy', 'true');
+
+            var corpo = new FormData();
+            corpo.append('_token', btn.dataset.csrf);
+
+            fetch(btn.dataset.url, {
+                method: 'POST',
+                body: corpo,
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                credentials: 'same-origin'
+            })
+                .then(function (r) {
+                    return r.json().then(function (d) { return { ok: r.ok, dados: d }; });
+                })
+                .then(function (r) {
+                    if (!r.ok || typeof r.dados.favorita !== 'boolean') {
+                        window.alert((r.dados && (r.dados.erro || r.dados.mensagem)) || 'Não foi possível alterar os favoritos.');
+                        return;
+                    }
+                    var on = r.dados.favorita;
+                    var rotulo = on ? 'Tirar dos favoritos' : 'Marcar como favorito';
+                    document.querySelectorAll('.js-pasta-card-favorito[data-pasta-id="' + btn.dataset.pastaId + '"]').forEach(function (b) {
+                        b.classList.toggle('is-favorita', on);
+                        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+                        b.setAttribute('aria-label', rotulo);
+                        b.title = rotulo;
+                        var ic = b.querySelector('i');
+                        if (ic) { ic.className = 'bi ' + (on ? 'bi-star-fill' : 'bi-star'); }
+                    });
+                })
+                .catch(function () { window.alert('Erro de comunicação. Tente novamente.'); })
+                .then(function () { btn.removeAttribute('aria-busy'); });
+        });
+    }
 
     /* Handler do toggle ligado uma única vez no document (guarda evita empilhar,
        já que este script re-executa a cada troca de resultados). */

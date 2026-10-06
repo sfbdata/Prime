@@ -15,6 +15,28 @@
     {# Linha 1: NUP + cliente | prioridade + situação #}
     <div class="pasta-card-topo">
         <div class="pasta-card-ident">
+            {# Estrela de favorito (item 7 das pendências pós-Documentos). O desenho é omisso para
+               o cartão: segue a convenção da estrela de linha do explorador (dc L.4743 — ligada
+               #f0b400, desligada apagada) e grava pelo MESMO endpoint do menu ⋮ da pasta
+               (`pasta_favorito_alternar`). `favoritasIds` vem do contexto de `_tabela.html.twig`
+               (consulta única, só do usuário logado); o `??` cobre inclusão sem esse contexto.
+               Lápide não aceita POST (PastaSomenteLeituraListener): mostra só o indicador. #}
+            {% set idsFavoritas = favoritasIds ?? pastas_favoritas_ids() %}
+            {% set eFavorita = idsFavoritas[pasta.id] is defined %}
+            {% if pasta.estaExcluida %}
+                {% if eFavorita %}<i class="bi bi-star-fill pasta-favorita-estrela" title="Fixada nos favoritos" aria-label="Fixada nos favoritos"></i>{% endif %}
+            {% else %}
+            <button type="button"
+                    class="pasta-card-fav js-pasta-card-favorito{{ eFavorita ? ' is-favorita' : '' }}"
+                    aria-pressed="{{ eFavorita ? 'true' : 'false' }}"
+                    aria-label="{{ eFavorita ? 'Tirar dos favoritos' : 'Marcar como favorito' }}"
+                    title="{{ eFavorita ? 'Tirar dos favoritos' : 'Marcar como favorito' }}"
+                    data-pasta-id="{{ pasta.id }}"
+                    data-url="{{ path('pasta_favorito_alternar', {id: pasta.id}) }}"
+                    data-csrf="{{ csrf_token('pasta_favorito_' ~ pasta.id) }}">
+                <i class="bi {{ eFavorita ? 'bi-star-fill' : 'bi-star' }}" aria-hidden="true"></i>
+            </button>
+            {% endif %}
             <span class="pasta-card-nup"><i class="bi bi-folder2 me-1"></i>{{ pasta.nup }}</span>
             <span class="pasta-card-cliente">
                 {# Mesma precedência da tabela (`_tabela.html.twig`): o nome da PASTA vem primeiro, o
