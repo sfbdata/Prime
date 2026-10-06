@@ -8,9 +8,11 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Armazenamento\ChavesDePasta;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Repository\PastaDocumentoRepository;
 use App\Pasta\Service\NumeracaoDePastaInterface;
 use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Shared\Armazenamento\RemocaoAposTransacao;
+use App\Shared\Doctrine\Filter\AcessoALixeira;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
@@ -33,11 +35,16 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
  * próxima pasta faria esta virar do meio — e ela teria sido apagada de verdade como se fosse a
  * última, criando exatamente o buraco que a lápide existe para impedir.
  *
+ * **A lixeira da aba Documentos vai junto (D7).** Apagar de verdade roda dentro de
+ * `AcessoALixeira::comLixeiraVisivel()`: os documentos e subpastas que o usuário tinha mandado
+ * para a lixeira são lidos (o `LixeiraFilter` os esconderia), removidos explicitamente — a FK
+ * `pasta_documento.pasta_id` não tem ON DELETE CASCADE, e um documento na lixeira que o cascade
+ * do ORM não enxergasse quebraria o DELETE da pasta — e os arquivos deles entram na lista que sai
+ * depois do COMMIT. Na lápide nada disso acontece: a lixeira fica como está.
+ *
  * **Arquivos só saem depois do COMMIT (E2.5, INV-6).** As chaves são montadas dentro da
- * transação, antes do `remove` (depois dele a coleção pertence a uma entidade removida); os
- * arquivos são removidos quando o `wrapInTransaction` já retornou. Antes da E2.5 eles saíam dentro
- * da transação: um `flush` ou COMMIT recusado deixava a pasta de pé apontando para arquivos
- * apagados. Falha física depois do COMMIT vira registro no log e órfão recuperável.
+ * transação, antes do `remove`; os arquivos são removidos quando o `wrapInTransaction` já
+ * retornou. Falha física depois do COMMIT vira registro no log e órfão recuperável.
  */
 final class ExcluirPastaUseCase
 {
@@ -45,6 +52,8 @@ final class ExcluirPastaUseCase
         private readonly EntityManagerInterface $em,
         private readonly RemocaoAposTransacao $remocao,
         private readonly NumeracaoDePastaInterface $numeracao,
+        private readonly PastaDocumentoRepository $documentos,
+        private readonly AcessoALixeira $lixeira,
     ) {}
 
     public function executar(Pasta $pasta, User $autor, Tenant $tenant): ResultadoExclusaoPasta
@@ -72,14 +81,20 @@ final class ExcluirPastaUseCase
                 return ResultadoExclusaoPasta::Lapide;
             }
 
-            foreach ($pasta->getDocumentos() as $doc) {
-                $chaves[] = ChavesDePasta::documento($doc);
-            }
+            // Remoção real: lixeira visível para a leitura, os removes E o flush — um proxy de
+            // seção excluída iniciado com o filtro ligado falharia, e o cascade do ORM só leva o
+            // que as coleções enxergam.
+            return $this->lixeira->comLixeiraVisivel(function () use ($pasta, $tenant, &$chaves): ResultadoExclusaoPasta {
+                foreach ($this->documentos->listarParaRemocaoDaPasta($pasta, $tenant) as $doc) {
+                    $chaves[] = ChavesDePasta::documento($doc);
+                    $this->em->remove($doc);
+                }
 
-            $this->em->remove($pasta);
-            $this->em->flush();
+                $this->em->remove($pasta);
+                $this->em->flush();
 
-            return ResultadoExclusaoPasta::Removida;
+                return ResultadoExclusaoPasta::Removida;
+            });
         });
 
         // Fora do closure: o COMMIT do wrapInTransaction acontece depois que ele retorna.

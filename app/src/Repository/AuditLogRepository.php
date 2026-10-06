@@ -175,6 +175,13 @@ class AuditLogRepository extends ServiceEntityRepository
             UNION ALL
             SELECT id, action, entity_class, entity_id, changes, actor_user_id, actor_email, created_at
             FROM audit_log
+            WHERE entity_class = 'App\\Pasta\\Entity\\PastaSecao'
+              AND tenant_id = :tenantId
+              AND entity_id IN (SELECT id::text FROM pasta_secao WHERE pasta_id = :pastaId)
+              AND jsonb_exists((changes->'diff'->'changes')::jsonb, 'excluidoEm')
+            UNION ALL
+            SELECT id, action, entity_class, entity_id, changes, actor_user_id, actor_email, created_at
+            FROM audit_log
             WHERE entity_class = 'App\\Entity\\Tarefa\\Tarefa'
               AND tenant_id = :tenantId
               AND (

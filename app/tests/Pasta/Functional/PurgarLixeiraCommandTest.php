@@ -266,6 +266,67 @@ final class PurgarLixeiraCommandTest extends KernelTestCase
         self::assertCount(3, $this->memoria->excluidas, 'nada é apagado duas vezes');
     }
 
+    #[TestDox('--tenant recorta a fila a um escritório; sem a opção a purga é da instalação inteira')]
+    public function testTenantRecortaAFila(): void
+    {
+        $meu = $this->documento('meu.pdf', naLixeiraHa: 60);
+        [$outroTenant, $outraPasta] = $this->outroEscritorio();
+        $alheio = $this->documento('alheio.pdf', naLixeiraHa: 60, pasta: $outraPasta, tenant: $outroTenant);
+        $chaveAlheia = ChavesDePasta::documentoPorNome((int) $outroTenant->getId(), $alheio->getCaminhoArquivo());
+        $this->em->clear();
+
+        $tester = $this->tester();
+        $tester->execute(['--tenant' => (string) $this->tenant->getId()]);
+
+        self::assertSame(Command::SUCCESS, $tester->getStatusCode(), $tester->getDisplay());
+        self::assertStringContainsString(sprintf('tenant=%d', (int) $this->tenant->getId()), $this->saida($tester));
+        self::assertStringContainsString('candidatos_secoes=0 candidatos_documentos=1 secoes_removidas=0 documentos_removidos=1', $this->saida($tester));
+        self::assertFalse($this->existeLinha('pasta_documento', (int) $meu->getId()));
+        self::assertTrue($this->existeLinha('pasta_documento', (int) $alheio->getId()), 'o outro escritório não foi tocado');
+        self::assertTrue($this->memoria->existe($chaveAlheia));
+
+        $tester->execute([]);
+        self::assertStringContainsString('tenant=todos', $this->saida($tester));
+        self::assertFalse($this->existeLinha('pasta_documento', (int) $alheio->getId()), 'sem --tenant, a instalação inteira');
+        self::assertFalse($this->memoria->existe($chaveAlheia));
+
+        $tester->execute(['--tenant' => 'x']);
+        self::assertSame(Command::FAILURE, $tester->getStatusCode());
+        self::assertStringContainsString('--tenant precisa ser um inteiro positivo', $this->saida($tester));
+    }
+
+    #[TestDox('filha com id MENOR que a mãe, as duas vencidas: a simulação e a purga contam a árvore uma vez só, e tudo sai')]
+    public function testFilhaComIdMenorQueAMae(): void
+    {
+        // A fila vem por carimbo e depois por id: a filha entra ANTES da mãe. Sem a guarda de
+        // ancestral ela seria contada por conta própria e de novo dentro da árvore da mãe.
+        $filha = $this->secao('FILHA', naLixeiraHa: 40);
+        $mae   = $this->secao('MAE', naLixeiraHa: 40);
+        $filha->setPai($mae);
+        $this->em->flush();
+        self::assertLessThan((int) $mae->getId(), (int) $filha->getId(), 'pré-condição: a filha tem id menor');
+        $naFilha = $this->documento('na-filha.pdf', secao: $filha, naLixeiraHa: 40);
+        $naMae   = $this->documento('na-mae.pdf', secao: $mae, naLixeiraHa: 40);
+        $this->em->clear();
+
+        $tester = $this->tester();
+        $tester->execute(['--dry-run' => true]);
+        self::assertSame(Command::SUCCESS, $tester->getStatusCode(), $tester->getDisplay());
+        self::assertStringContainsString('candidatos_secoes=2 candidatos_documentos=2 secoes_removidas=2 documentos_removidos=2 arquivos_removidos=0', $this->saida($tester));
+
+        $tester->execute([]);
+        self::assertSame(Command::SUCCESS, $tester->getStatusCode(), $tester->getDisplay());
+        self::assertStringContainsString('candidatos_secoes=2 candidatos_documentos=2 secoes_removidas=2 documentos_removidos=2 arquivos_removidos=2 arquivos_nao_removidos=0', $this->saida($tester));
+        foreach ([$filha, $mae] as $secao) {
+            self::assertFalse($this->existeLinha('pasta_secao', (int) $secao->getId()));
+        }
+        foreach ([$naFilha, $naMae] as $doc) {
+            self::assertFalse($this->existeLinha('pasta_documento', (int) $doc->getId()));
+            self::assertFalse($this->memoria->existe($this->chaveDe($doc)));
+        }
+        self::assertCount(2, $this->memoria->excluidas, 'nenhum arquivo é apagado duas vezes');
+    }
+
     #[TestDox('opção inválida é recusada antes de tocar em qualquer coisa')]
     public function testOpcaoInvalida(): void
     {
@@ -301,9 +362,9 @@ final class PurgarLixeiraCommandTest extends KernelTestCase
     }
 
     /** O arquivo vai para o dublê em memória, pela chave que a leitura usa (`ChavesDePasta::documento`). */
-    private function documento(string $nome, ?PastaSecao $secao = null, ?int $naLixeiraHa = null): PastaDocumento
+    private function documento(string $nome, ?PastaSecao $secao = null, ?int $naLixeiraHa = null, ?Pasta $pasta = null, ?Tenant $tenant = null): PastaDocumento
     {
-        $doc = (new PastaDocumento())->setTenant($this->tenant);
+        $doc = (new PastaDocumento())->setTenant($tenant ?? $this->tenant);
         $chave = $this->memoria->gravar(
             ChavesDePasta::novoDocumento($doc, 'pdf'),
             FonteDeConteudo::deTexto('conteudo-' . $nome),
@@ -315,7 +376,7 @@ final class PurgarLixeiraCommandTest extends KernelTestCase
             ->setNomeOriginal($nome)
             ->setMimeType('application/pdf')
             ->setTamanhoBytes(10)
-            ->setPasta($this->pasta)
+            ->setPasta($pasta ?? $this->pasta)
             ->setSecao($secao);
         if ($naLixeiraHa !== null) {
             $doc->marcarExcluido($this->autor, $this->haDias($naLixeiraHa));
@@ -346,6 +407,22 @@ final class PurgarLixeiraCommandTest extends KernelTestCase
     private function haDias(int $dias): \DateTimeImmutable
     {
         return (new \DateTimeImmutable(self::AGORA))->modify(sprintf('-%d days', $dias));
+    }
+
+    /** @return array{Tenant, Pasta} um segundo escritório com a própria pasta */
+    private function outroEscritorio(): array
+    {
+        $tenant = new Tenant();
+        $tenant->setName('Outro Tenant Purga ' . uniqid());
+        $this->em->persist($tenant);
+
+        $pasta = new Pasta();
+        $pasta->setNup('PURGA-OUTRO-' . uniqid());
+        $pasta->setTenant($tenant);
+        $this->em->persist($pasta);
+        $this->em->flush();
+
+        return [$tenant, $pasta];
     }
 
     private function chaveDe(PastaDocumento $doc): ChaveDeArquivo

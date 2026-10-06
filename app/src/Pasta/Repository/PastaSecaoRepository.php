@@ -204,10 +204,11 @@ class PastaSecaoRepository extends ServiceEntityRepository
 
     /**
      * A fila da purga: ids das seções excluídas ANTES de $corte, da mais antiga à mais nova.
+     * `$tenantId` recorta a um escritório (`--tenant`); sem ele a fila é da instalação inteira.
      *
      * @return list<int>
      */
-    public function idsNaLixeiraVencida(\DateTimeImmutable $corte, ?int $limite = null): array
+    public function idsNaLixeiraVencida(\DateTimeImmutable $corte, ?int $limite = null, ?int $tenantId = null): array
     {
         $qb = $this->createQueryBuilder('s')
             ->select('s.id')
@@ -217,6 +218,10 @@ class PastaSecaoRepository extends ServiceEntityRepository
             ->orderBy('s.excluidoEm', 'ASC')
             ->addOrderBy('s.id', 'ASC');
 
+        if ($tenantId !== null) {
+            $qb->andWhere('s.tenant = :tenantId')->setParameter('tenantId', $tenantId);
+        }
+
         if ($limite !== null) {
             $qb->setMaxResults($limite);
         }
@@ -224,15 +229,19 @@ class PastaSecaoRepository extends ServiceEntityRepository
         return array_map('intval', $qb->getQuery()->getSingleColumnResult());
     }
 
-    public function contarNaLixeiraVencida(\DateTimeImmutable $corte): int
+    public function contarNaLixeiraVencida(\DateTimeImmutable $corte, ?int $tenantId = null): int
     {
-        return (int) $this->createQueryBuilder('s')
+        $qb = $this->createQueryBuilder('s')
             ->select('COUNT(s.id)')
             ->andWhere('s.excluidoEm IS NOT NULL')
             ->andWhere('s.excluidoEm < :corte')
-            ->setParameter('corte', $corte)
-            ->getQuery()
-            ->getSingleScalarResult();
+            ->setParameter('corte', $corte);
+
+        if ($tenantId !== null) {
+            $qb->andWhere('s.tenant = :tenantId')->setParameter('tenantId', $tenantId);
+        }
+
+        return (int) $qb->getQuery()->getSingleScalarResult();
     }
 
     public function salvar(PastaSecao $secao, bool $flush = false): void

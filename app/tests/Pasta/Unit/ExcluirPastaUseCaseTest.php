@@ -9,6 +9,7 @@ use App\Entity\Tenant\Tenant;
 use App\Pasta\Armazenamento\ChavesDePasta;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
+use App\Pasta\Repository\PastaDocumentoRepository;
 use App\Pasta\Service\NumeracaoDePastaInterface;
 use App\Pasta\UseCase\ExcluirPastaUseCase;
 use App\Pasta\UseCase\ResultadoExclusaoPasta;
@@ -17,6 +18,7 @@ use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Shared\Armazenamento\EscopoDeArquivo;
 use App\Shared\Armazenamento\FonteDeConteudo;
 use App\Shared\Armazenamento\RemocaoAposTransacao;
+use App\Shared\Doctrine\Filter\AcessoALixeira;
 use App\Tests\Shared\Doubles\ArmazenamentoEmMemoria;
 use App\Tests\Shared\Doubles\LoggerEmMemoria;
 use Doctrine\Common\Collections\ArrayCollection;
@@ -54,9 +56,13 @@ final class ExcluirPastaUseCaseTest extends TestCase
     private int $removidosAntesDoCommit = 0;
     private ?\Throwable $falhaNoCommit = null;
     private NumeracaoDePastaInterface&MockObject $numeracao;
+    private PastaDocumentoRepository&MockObject $documentos;
     private ExcluirPastaUseCase $useCase;
     private Tenant $tenant;
     private User $autor;
+
+    /** @var list<object> o que passou pelo `remove()`, na ordem */
+    private array $removidos = [];
 
     protected function setUp(): void
     {
@@ -64,6 +70,11 @@ final class ExcluirPastaUseCaseTest extends TestCase
         $this->armazenamento = new ArmazenamentoEmMemoria();
         $this->logger        = new LoggerEmMemoria();
         $this->numeracao     = $this->createMock(NumeracaoDePastaInterface::class);
+        $this->documentos    = $this->createMock(PastaDocumentoRepository::class);
+
+        $this->em->method('remove')->willReturnCallback(function (object $entidade): void {
+            $this->removidos[] = $entidade;
+        });
 
         // Como o `wrapInTransaction` real: o COMMIT acontece DEPOIS que o callback retorna.
         $this->em->method('wrapInTransaction')->willReturnCallback(
@@ -83,10 +94,14 @@ final class ExcluirPastaUseCaseTest extends TestCase
             }
         };
 
+        // `AcessoALixeira` com o EM dublado: `getFilters()` devolve um FilterCollection dublado em
+        // que nada está ligado, então o escopo só executa o trabalho — é o que se quer aqui.
         $this->useCase = new ExcluirPastaUseCase(
             $this->em,
             new RemocaoAposTransacao($this->armazenamento, $this->logger),
             $this->numeracao,
+            $this->documentos,
+            new AcessoALixeira($this->em),
         );
 
         $this->tenant = new Tenant();
@@ -119,13 +134,13 @@ final class ExcluirPastaUseCaseTest extends TestCase
         $pasta = $this->criarPasta($this->tenant, []);
 
         $pasta->expects($this->never())->method('marcarExcluida');
-        $this->em->expects($this->once())->method('remove')->with($pasta);
         $this->em->expects($this->once())->method('flush');
 
         self::assertSame(
             ResultadoExclusaoPasta::Removida,
             $this->useCase->executar($pasta, $this->autor, $this->tenant),
         );
+        self::assertSame([$pasta], $this->removidos);
     }
 
     #[TestDox('É a última e tem documentos: apaga os arquivos do disco junto')]
@@ -138,12 +153,11 @@ final class ExcluirPastaUseCaseTest extends TestCase
         $this->armazenamento->gravar(ChavesDePasta::documento($doc1), FonteDeConteudo::deTexto('1'));
         $this->armazenamento->gravar(ChavesDePasta::documento($doc2), FonteDeConteudo::deTexto('2'));
 
-        $this->em->expects($this->once())->method('remove')->with($pasta);
-
         self::assertSame(
             ResultadoExclusaoPasta::Removida,
             $this->useCase->executar($pasta, $this->autor, $this->tenant),
         );
+        self::assertSame([$doc1, $doc2, $pasta], $this->removidos, 'documentos removidos explicitamente, a pasta por último');
         self::assertCount(2, $this->armazenamento->excluidas);
         self::assertSame(0, $this->removidosAntesDoCommit, 'arquivo removido antes do COMMIT (INV-6)');
         self::assertFalse($this->armazenamento->existe(ChavesDePasta::documento($doc1)));
@@ -219,10 +233,9 @@ final class ExcluirPastaUseCaseTest extends TestCase
         $this->ehAUltima(true);
         $pasta = $this->criarPasta($this->tenant, [$this->criarDocumento('ausente.pdf')]);
 
-        $this->em->expects($this->once())->method('remove')->with($pasta);
-
         $this->useCase->executar($pasta, $this->autor, $this->tenant);
 
+        self::assertContains($pasta, $this->removidos);
         self::assertSame([], $this->armazenamento->excluidas);
     }
 
@@ -234,10 +247,9 @@ final class ExcluirPastaUseCaseTest extends TestCase
         $alheio = new ChaveDeArquivo(EscopoDeArquivo::deTenant(99), CategoriaDeArquivo::PASTA_DOCUMENTO, 'mesmo-nome.pdf');
         $this->armazenamento->gravar($alheio, FonteDeConteudo::deTexto('do escritório 99'));
 
-        $this->em->expects($this->once())->method('remove')->with($pasta);
-
         $this->useCase->executar($pasta, $this->autor, $this->tenant);
 
+        self::assertContains($pasta, $this->removidos);
         self::assertTrue($this->armazenamento->existe($alheio));
     }
 
@@ -305,22 +317,58 @@ final class ExcluirPastaUseCaseTest extends TestCase
         $this->useCase->executar($pasta, $this->autor, $this->tenant);
     }
 
-    /** @param list<PastaDocumento> $documentos */
+    #[TestDox('É a última e tem documento NA LIXEIRA (solto e dentro de seção excluída): a linha e o arquivo dele saem também — nada fica órfão')]
+    public function testUltimaComDocumentoNaLixeiraApagaTudo(): void
+    {
+        $this->ehAUltima(true);
+        $vivo      = $this->criarDocumento('vivo.pdf');
+        $naLixeira = $this->criarDocumento('na-lixeira.pdf', naLixeira: true);
+        $emSecao   = $this->criarDocumento('em-secao-excluida.pdf', naLixeira: true);
+        // O repositório, lido com a lixeira visível, devolve os três — é o contrato que o UseCase
+        // consome; `getDocumentos()` (filtrado) só traria o vivo, e é por isso que ele não é usado.
+        $pasta = $this->criarPasta($this->tenant, [$vivo, $naLixeira, $emSecao]);
+        foreach ([$vivo, $naLixeira, $emSecao] as $doc) {
+            $this->armazenamento->gravar(ChavesDePasta::documento($doc), FonteDeConteudo::deTexto('x'));
+        }
+
+        self::assertSame(
+            ResultadoExclusaoPasta::Removida,
+            $this->useCase->executar($pasta, $this->autor, $this->tenant),
+        );
+
+        self::assertSame([$vivo, $naLixeira, $emSecao, $pasta], $this->removidos, 'cada documento é removido EXPLICITAMENTE (a FK pasta_id não tem cascade), antes da pasta');
+        self::assertCount(3, $this->armazenamento->excluidas);
+        self::assertSame(0, $this->removidosAntesDoCommit, 'arquivo removido antes do COMMIT (INV-6)');
+        self::assertFalse($this->armazenamento->existe(ChavesDePasta::documento($naLixeira)));
+        self::assertFalse($this->armazenamento->existe(ChavesDePasta::documento($emSecao)));
+    }
+
+    /**
+     * O repositório devolve exatamente $documentos para esta pasta (vivos e na lixeira: é o que
+     * `listarParaRemocaoDaPasta` entrega dentro do escopo da `AcessoALixeira`).
+     *
+     * @param list<PastaDocumento> $documentos
+     */
     private function criarPasta(Tenant $tenant, array $documentos): Pasta&MockObject
     {
         $pasta = $this->createMock(Pasta::class);
         $pasta->method('getTenant')->willReturn($tenant);
         $pasta->method('getNup')->willReturn('1238');
-        $pasta->method('getDocumentos')->willReturn(new ArrayCollection($documentos));
+        $pasta->method('getDocumentos')->willReturn(new ArrayCollection(array_values(array_filter(
+            $documentos,
+            static fn (PastaDocumento $d): bool => !$d->estaNaLixeira(),
+        ))));
+        $this->documentos->method('listarParaRemocaoDaPasta')->with($pasta, $tenant)->willReturn($documentos);
 
         return $pasta;
     }
 
-    private function criarDocumento(string $caminhoArquivo): PastaDocumento
+    private function criarDocumento(string $caminhoArquivo, bool $naLixeira = false): PastaDocumento
     {
         $doc = $this->createMock(PastaDocumento::class);
         $doc->method('getCaminhoArquivo')->willReturn($caminhoArquivo);
         $doc->method('getTenant')->willReturn($this->tenant);
+        $doc->method('estaNaLixeira')->willReturn($naLixeira);
 
         return $doc;
     }

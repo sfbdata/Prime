@@ -12,9 +12,11 @@ use App\Entity\Tenant\TenantRole;
 use App\Pasta\Armazenamento\ChavesDePasta;
 use App\Pasta\Controller\PastaDocumentoController;
 use App\Pasta\DTO\LixeiraDaPastaOutput;
+use App\Pasta\DTO\TimelineItemDTO;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaSecao;
+use App\Pasta\Service\PastaTimelineAssembler;
 use App\Pasta\UseCase\ListarLixeiraDaPastaUseCase;
 use App\Pasta\UseCase\RestaurarItensDaPastaUseCase;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
@@ -348,6 +350,41 @@ final class PastaDocumentoLixeiraControllerTest extends JusPrimeWebTestCase
         $this->limpar();
         $client->request('GET', "/pasta/{$pasta->getId()}/documentos/lixeira");
         self::assertResponseStatusCodeSame(403);
+    }
+
+    #[TestDox('o histórico da pasta mostra a ida e a volta do documento E da subpasta, com nome próprio e ator')]
+    public function testHistoricoMostraIdaEVolta(): void
+    {
+        $client          = $this->cliente();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $a               = $this->criarSecao($pasta, $tenant, 'A');
+        $solto           = $this->criarDocumento($pasta, $tenant, null, 'solto.pdf');
+        $this->logarComTenant($client, $user, $tenant);
+        $this->mandarParaALixeira($client, $pasta, [(int) $solto->getId()], [(int) $a->getId()]);
+
+        $this->limpar();
+        $client->request('POST', "/pasta/{$pasta->getId()}/documentos/restaurar", [
+            '_token'     => $this->csrf('pex_lote_' . $pasta->getId()),
+            'documentos' => [(string) $solto->getId()],
+            'secoes'     => [(string) $a->getId()],
+        ]);
+        self::assertResponseIsSuccessful((string) $client->getResponse()->getContent());
+
+        $this->limpar();
+        $pastaLida = $this->em()->find(Pasta::class, (int) $pasta->getId());
+        self::assertNotNull($pastaLida);
+        $itens = static::getContainer()->get(PastaTimelineAssembler::class)->montar($pastaLida, $pastaLida->getTenant(), (int) $tenant->getId(), null);
+
+        $titulos = array_map(static fn (TimelineItemDTO $i): string => $i->titulo, $itens);
+        foreach (['Documento movido para a lixeira', 'Documento restaurado', 'Pasta movida para a lixeira', 'Pasta restaurada'] as $esperado) {
+            self::assertContains($esperado, $titulos, implode(' | ', $titulos));
+        }
+        foreach ($itens as $item) {
+            if (str_contains($item->titulo, 'lixeira') || str_contains($item->titulo, 'restaurad')) {
+                self::assertSame('Admin Documentos', $item->autorNome, 'o ator da linha do audit_log');
+            }
+        }
     }
 
     #[TestDox('depois de listar a lixeira, o filtro continua ligado no mesmo request: o explorador da mesma pasta não vê os itens')]

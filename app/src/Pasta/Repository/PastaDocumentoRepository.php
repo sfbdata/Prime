@@ -314,11 +314,12 @@ class PastaDocumentoRepository extends ServiceEntityRepository
 
     /**
      * A fila da purga: ids dos documentos excluídos ANTES de $corte, do mais antigo ao mais novo.
-     * Só ids (escalar) para o comando percorrer em lotes.
+     * Só ids (escalar) para o comando percorrer em lotes. `$tenantId` recorta a um escritório
+     * (`--tenant`); sem ele a fila é da instalação inteira.
      *
      * @return list<int>
      */
-    public function idsNaLixeiraVencida(\DateTimeImmutable $corte, ?int $limite = null): array
+    public function idsNaLixeiraVencida(\DateTimeImmutable $corte, ?int $limite = null, ?int $tenantId = null): array
     {
         $qb = $this->createQueryBuilder('d')
             ->select('d.id')
@@ -328,6 +329,10 @@ class PastaDocumentoRepository extends ServiceEntityRepository
             ->orderBy('d.excluidoEm', 'ASC')
             ->addOrderBy('d.id', 'ASC');
 
+        if ($tenantId !== null) {
+            $qb->andWhere('d.tenant = :tenantId')->setParameter('tenantId', $tenantId);
+        }
+
         if ($limite !== null) {
             $qb->setMaxResults($limite);
         }
@@ -335,14 +340,42 @@ class PastaDocumentoRepository extends ServiceEntityRepository
         return array_map('intval', $qb->getQuery()->getSingleColumnResult());
     }
 
-    public function contarNaLixeiraVencida(\DateTimeImmutable $corte): int
+    public function contarNaLixeiraVencida(\DateTimeImmutable $corte, ?int $tenantId = null): int
     {
-        return (int) $this->createQueryBuilder('d')
+        $qb = $this->createQueryBuilder('d')
             ->select('COUNT(d.id)')
             ->andWhere('d.excluidoEm IS NOT NULL')
             ->andWhere('d.excluidoEm < :corte')
-            ->setParameter('corte', $corte)
+            ->setParameter('corte', $corte);
+
+        if ($tenantId !== null) {
+            $qb->andWhere('d.tenant = :tenantId')->setParameter('tenantId', $tenantId);
+        }
+
+        return (int) $qb->getQuery()->getSingleScalarResult();
+    }
+
+    /**
+     * TODOS os documentos de uma pasta que vai ser apagada DE VERDADE — vivos e, quando chamado
+     * dentro de `AcessoALixeira::comLixeiraVisivel()`, os da lixeira também (soltos ou dentro de
+     * seções, vivas ou excluídas). É a lista que `ExcluirPastaUseCase` usa para remover as linhas
+     * (a FK `pasta_documento.pasta_id` não tem ON DELETE CASCADE) e coletar as chaves dos arquivos
+     * antes do COMMIT. Filtro de tenant explícito: alimenta decisão de apagar arquivo.
+     *
+     * @return list<PastaDocumento>
+     */
+    public function listarParaRemocaoDaPasta(Pasta $pasta, Tenant $tenant): array
+    {
+        /** @var list<PastaDocumento> $documentos */
+        $documentos = $this->createQueryBuilder('d')
+            ->andWhere('d.pasta = :pasta')
+            ->andWhere('d.tenant = :tenant')
+            ->setParameter('pasta', $pasta)
+            ->setParameter('tenant', $tenant)
+            ->orderBy('d.id', 'ASC')
             ->getQuery()
-            ->getSingleScalarResult();
+            ->getResult();
+
+        return $documentos;
     }
 }

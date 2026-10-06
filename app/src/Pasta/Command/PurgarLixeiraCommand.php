@@ -41,7 +41,8 @@ final class PurgarLixeiraCommand extends Command
         $this
             ->addOption('dias', null, InputOption::VALUE_REQUIRED, 'Retenção: só sai o que foi excluído há MAIS de N dias', (string) self::DIAS_PADRAO)
             ->addOption('dry-run', null, InputOption::VALUE_NONE, 'Conta e lista o que sairia, sem apagar nada')
-            ->addOption('limite', null, InputOption::VALUE_REQUIRED, 'Processar no máximo N entradas da fila nesta execução');
+            ->addOption('limite', null, InputOption::VALUE_REQUIRED, 'Processar no máximo N entradas da fila nesta execução')
+            ->addOption('tenant', null, InputOption::VALUE_REQUIRED, 'Só a lixeira deste escritório (id do tenant). Sem a opção, a instalação inteira: a retenção é política da instalação, não do escritório');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -50,9 +51,10 @@ final class PurgarLixeiraCommand extends Command
         $dryRun = (bool) $input->getOption('dry-run');
 
         // `--dias` tem padrão (30), então nunca vem null; a checagem fica pelo tipo do helper.
-        $dias   = $this->inteiroPositivoOuNull($input->getOption('dias'), 'dias', $io);
-        $limite = $this->inteiroPositivoOuNull($input->getOption('limite'), 'limite', $io);
-        if ($dias === false || $dias === null || $limite === false) {
+        $dias     = $this->inteiroPositivoOuNull($input->getOption('dias'), 'dias', $io);
+        $limite   = $this->inteiroPositivoOuNull($input->getOption('limite'), 'limite', $io);
+        $tenantId = $this->inteiroPositivoOuNull($input->getOption('tenant'), 'tenant', $io);
+        if ($dias === false || $dias === null || $limite === false || $tenantId === false) {
             return Command::FAILURE;
         }
 
@@ -60,9 +62,12 @@ final class PurgarLixeiraCommand extends Command
         if ($dryRun) {
             $io->note('Modo simulação: nada é apagado do banco nem do disco.');
         }
+        if ($tenantId !== null) {
+            $io->note(sprintf('Só o escritório %d.', $tenantId));
+        }
 
         try {
-            $resultado = $this->purga->executar($dias, $dryRun, $limite);
+            $resultado = $this->purga->executar($dias, $dryRun, $limite, $tenantId);
         } catch (\Throwable $e) {
             // Um lote recusado pelo banco: os anteriores já estão consistentes (linhas e arquivos
             // saíram juntos); este ficou inteiro — nenhum arquivo sai antes do COMMIT.
@@ -74,9 +79,10 @@ final class PurgarLixeiraCommand extends Command
         $io->section($dryRun ? 'Resumo (simulado — nada apagado)' : 'Resumo');
         // Uma linha legível por máquina (log), antes da tabela para humanos.
         $io->text(sprintf(
-            'resumo: modo=%s dias=%d corte=%s candidatos_secoes=%d candidatos_documentos=%d secoes_removidas=%d documentos_removidos=%d arquivos_removidos=%d arquivos_nao_removidos=%d',
+            'resumo: modo=%s dias=%d tenant=%s corte=%s candidatos_secoes=%d candidatos_documentos=%d secoes_removidas=%d documentos_removidos=%d arquivos_removidos=%d arquivos_nao_removidos=%d',
             $dryRun ? 'simulacao' : 'purga',
             $dias,
+            $tenantId === null ? 'todos' : (string) $tenantId,
             $resultado->corte->format('Y-m-d H:i:s'),
             $resultado->secoesCandidatas,
             $resultado->documentosCandidatos,

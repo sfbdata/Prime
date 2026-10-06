@@ -225,6 +225,18 @@ class PastaTimelineAssembler
                 'text-bg-danger',
                 $this->extractDocumentoNome($changes),
             ],
+            // Lixeira (D7): a ida e a volta são `update` de excluidoEm — ANTES do braço genérico,
+            // senão o histórico anunciaria "Documento atualizado" para a exclusão.
+            str_ends_with($entityClass, 'PastaDocumento') && $action === 'update' && $this->mexeuNaLixeira($changes) => $this->resolverLixeira(
+                $changes,
+                'Documento movido para a lixeira',
+                'Documento restaurado',
+            ),
+            str_ends_with($entityClass, 'PastaSecao') && $action === 'update' && $this->mexeuNaLixeira($changes) => $this->resolverLixeira(
+                $changes,
+                'Pasta movida para a lixeira',
+                'Pasta restaurada',
+            ),
             str_ends_with($entityClass, 'PastaDocumento') && $action === 'update' => [
                 'Documento atualizado',
                 'bi-file-earmark-check',
@@ -298,6 +310,30 @@ class PastaTimelineAssembler
         return $changes['diff']['after']['nomeOriginal']
             ?? $changes['diff']['before']['nomeOriginal']
             ?? null;
+    }
+
+    /** O diff do `update` tocou em `excluidoEm` — ida para a lixeira ou volta dela (D7). */
+    private function mexeuNaLixeira(?array $changes): bool
+    {
+        $diff = $changes['diff']['changes'] ?? null;
+
+        return is_array($diff) && array_key_exists('excluidoEm', $diff);
+    }
+
+    /**
+     * Ida (`excluidoEm` passou a ter valor) ou volta (voltou a NULL). O ator vem da linha do
+     * audit_log, como em todo evento. O nome do item NÃO está na linha (o `update` guarda só o
+     * changeset, sem o estado), então o detalhe é fixo, como na lápide da Pasta — nada inventado.
+     *
+     * @return array{string, string, string, string|null}
+     */
+    private function resolverLixeira(?array $changes, string $tituloIda, string $tituloVolta): array
+    {
+        $foiParaALixeira = ($changes['diff']['changes']['excluidoEm']['to'] ?? null) !== null;
+
+        return $foiParaALixeira
+            ? [$tituloIda, 'bi-trash3', 'text-bg-danger', 'O item fica na lixeira da pasta até ser restaurado ou purgado.']
+            : [$tituloVolta, 'bi-arrow-counterclockwise', 'text-bg-success', null];
     }
 
     private function resolverNomeMarcador(mixed $entry): ?string

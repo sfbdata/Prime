@@ -65,8 +65,10 @@ final class PurgarLixeiraUseCase
      * @param int      $dias      retenção: só sai o que foi excluído há MAIS de $dias
      * @param bool     $simulacao `--dry-run`: conta e lista, não apaga nada
      * @param int|null $limite    máximo de entradas da fila nesta execução; null = todas
+     * @param int|null $tenantId  só a lixeira deste escritório; null = a instalação inteira (a
+     *                            retenção é política da instalação, não do escritório)
      */
-    public function executar(int $dias, bool $simulacao, ?int $limite = null): ResultadoPurgaDaLixeira
+    public function executar(int $dias, bool $simulacao, ?int $limite = null, ?int $tenantId = null): ResultadoPurgaDaLixeira
     {
         if ($dias < 1) {
             throw new \InvalidArgumentException('A retenção precisa ser de pelo menos 1 dia.');
@@ -74,20 +76,29 @@ final class PurgarLixeiraUseCase
         if ($limite !== null && $limite < 1) {
             throw new \InvalidArgumentException('O limite precisa ser um inteiro positivo.');
         }
+        if ($tenantId !== null && $tenantId < 1) {
+            throw new \InvalidArgumentException('O id do escritório precisa ser um inteiro positivo.');
+        }
 
         $corte = $this->clock->now()->modify(sprintf('-%d days', $dias));
 
-        return $this->lixeira->comLixeiraVisivel(fn (): ResultadoPurgaDaLixeira => $this->purgar($corte, $simulacao, $limite));
+        return $this->lixeira->comLixeiraVisivel(fn (): ResultadoPurgaDaLixeira => $this->purgar($corte, $simulacao, $limite, $tenantId));
     }
 
-    private function purgar(\DateTimeImmutable $corte, bool $simulacao, ?int $limite): ResultadoPurgaDaLixeira
+    private function purgar(\DateTimeImmutable $corte, bool $simulacao, ?int $limite, ?int $tenantId): ResultadoPurgaDaLixeira
     {
-        $candidatosSecoes     = $this->secoes->contarNaLixeiraVencida($corte);
-        $candidatosDocumentos = $this->documentos->contarNaLixeiraVencida($corte);
+        $candidatosSecoes     = $this->secoes->contarNaLixeiraVencida($corte, $tenantId);
+        $candidatosDocumentos = $this->documentos->contarNaLixeiraVencida($corte, $tenantId);
 
-        $idsSecoes     = $this->secoes->idsNaLixeiraVencida($corte, $limite);
+        $idsSecoes     = $this->secoes->idsNaLixeiraVencida($corte, $limite, $tenantId);
         $sobra         = $limite === null ? null : max(0, $limite - count($idsSecoes));
-        $idsDocumentos = $sobra === 0 ? [] : $this->documentos->idsNaLixeiraVencida($corte, $sobra);
+        $idsDocumentos = $sobra === 0 ? [] : $this->documentos->idsNaLixeiraVencida($corte, $sobra, $tenantId);
+
+        // Quem está na fila desta execução: uma seção cujo ancestral também está na fila é
+        // coberta pela árvore dele (antes ou depois dela na ordem), e não entra por conta própria
+        // — senão uma filha de id menor que a mãe seria contada duas vezes na simulação.
+        /** @var array<int, true> $naFila */
+        $naFila = array_fill_keys($idsSecoes, true);
 
         $secoesRemovidas     = 0;
         $documentosRemovidos = 0;
@@ -112,6 +123,9 @@ final class PurgarLixeiraUseCase
                 }
                 $secao = $this->em->find(PastaSecao::class, $id);
                 if ($secao === null || !self::vencida($secao->getExcluidoEm(), $corte)) {
+                    continue;
+                }
+                if ($this->temAncestralNaFila($secao, $naFila)) {
                     continue;
                 }
 
@@ -236,5 +250,26 @@ final class PurgarLixeiraUseCase
     private static function vencida(?\DateTimeImmutable $excluidoEm, \DateTimeImmutable $corte): bool
     {
         return $excluidoEm !== null && $excluidoEm < $corte;
+    }
+
+    /**
+     * Algum ancestral de $secao está na fila desta execução? Sobe por `getPai()` com o filtro
+     * desligado (os pais na lixeira carregam normalmente), com a trava anti-ciclo da entidade.
+     *
+     * @param array<int, true> $naFila
+     */
+    private function temAncestralNaFila(PastaSecao $secao, array $naFila): bool
+    {
+        $passos = 0;
+        $atual  = $secao->getPai();
+        while ($atual !== null && $passos < PastaSecao::LIMITE_SEGURANCA) {
+            if (isset($naFila[(int) $atual->getId()])) {
+                return true;
+            }
+            $atual = $atual->getPai();
+            ++$passos;
+        }
+
+        return false;
     }
 }

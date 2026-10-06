@@ -104,7 +104,6 @@ use App\Pasta\Entity\PastaSecao;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
-use App\Shared\Armazenamento\RemocaoAposTransacao;
 use App\Shared\Http\FonteDeUploadHttp;
 use App\Shared\Service\CompressaoDeArquivoArmazenado;
 use App\Shared\Service\SanitizadorTextoRico;
@@ -146,7 +145,6 @@ class PastaController extends AbstractController
         private readonly UserRepository $userRepository,
         private readonly ValidatorInterface $validator,
         private readonly ArmazenamentoDeArquivos $armazenamento,
-        private readonly RemocaoAposTransacao $remocao,
         private readonly EntregaDeArquivo $entrega,
         private readonly CompressaoDeArquivoArmazenado $compressao,
         private readonly PermissionChecker $permissionChecker,
@@ -2124,13 +2122,20 @@ class PastaController extends AbstractController
     // ── Financeiro: Excluir documento de contrato ────────────────────────────
 
     #[Route('/{id}/financeiro/documento/{docId}/excluir', name: 'pasta_financeiro_documento_excluir', methods: ['POST'])]
-    public function financeiroExcluirDocumento(Pasta $pasta, int $docId, Request $request): JsonResponse
+    /**
+     * Desde o L7 (D7) o contrato excluído pela aba Financeiro também vai para a LIXEIRA (lápide
+     * pelo `ExcluirItensDaPastaUseCase`, como a aba Documentos): linha e arquivo ficam até a purga.
+     * Mesma rota, token e resposta (`sucesso: true`, mais `lixeira: true`). Documento já na lixeira
+     * não é achado pelo `find()` (LixeiraFilter) → 404, como qualquer id inexistente.
+     */
+    public function financeiroExcluirDocumento(Pasta $pasta, int $docId, Request $request, ExcluirItensDaPastaUseCase $excluirItens): JsonResponse
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
-        $pastaId = (int) $pasta->getId();
+        $tenant      = $this->tenantContext->getCurrentTenant();
+        $pastaId     = (int) $pasta->getId();
 
-        if (!$this->permissionChecker->canAccessResource($currentUser, $this->tenantContext->getCurrentTenant(), 'pasta', $pastaId, 'edit')) {
+        if ($tenant === null || !$this->permissionChecker->canAccessResource($currentUser, $tenant, 'pasta', $pastaId, 'edit')) {
             return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
         }
 
@@ -2143,14 +2148,9 @@ class PastaController extends AbstractController
             return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_FORBIDDEN);
         }
 
-        $chave = ChavesDePasta::documento($doc);
-        $this->em->remove($doc);
-        $this->em->flush();
+        $excluirItens->executar($pasta, [$doc], [], $currentUser, $tenant);
 
-        // Depois do COMMIT, e sem 500 se o disco falhar: a exclusão já está confirmada (E2.5).
-        $this->remocao->remover([$chave], 'PastaController::financeiroExcluirDocumento');
-
-        return $this->json(['sucesso' => true]);
+        return $this->json(['sucesso' => true, 'lixeira' => true]);
     }
 
     // ── Financeiro: Enviar observação ─────────────────────────────────────────
