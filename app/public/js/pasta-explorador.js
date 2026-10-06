@@ -207,8 +207,6 @@
     const TETO_LOTE      = 2000;
     const TOQUE_LONGO_MS = 500;     // toque longo abre o menu (convenção; o desenho é omisso)
     const TOAST_MS       = 4200;    // dc L4772
-    // Com "Desfazer" o toast fica mais (pedido do orquestrador no L7; o dc usa os mesmos 4,2 s).
-    const TOAST_DESFAZER_MS = 8000;
     const DIAS_NA_LIXEIRA   = 30;   // S-10; o cron roda `app:documentos:purgar-lixeira --dias=30`
     const LACO_MARGEM_PX = 40;      // rola sozinho a 40px da borda (dc L4891)
     // Favoritar vários: no máximo 4 pedidos ao mesmo tempo (a rota é de um alvo por pedido).
@@ -1912,7 +1910,7 @@
 
     // -------------------------------------------------------------- toast ---
     // dc `aviso` (L4772): 4,2 s. Erro fica mais (6 s) e com ícone. Com `desfazer` (L7, dc L2277:
-    // botão "Desfazer" #7cc4ff/700 depois do texto) fica TOAST_DESFAZER_MS. Um toast novo
+    // botão "Desfazer" #7cc4ff/700 depois do texto) usa os mesmos 4,2 s (dc L4772). Um toast novo
     // substitui o anterior e leva o Desfazer dele junto — os itens continuam na lixeira.
     let toastTimer = null;
     let toastDesfazerAcao = null;
@@ -1931,7 +1929,7 @@
             el.toastDesfazer.disabled = false;
         }
         el.toast.hidden = false;
-        toastTimer = setTimeout(esconderToast, erro ? 6000 : (toastDesfazerAcao ? TOAST_DESFAZER_MS : TOAST_MS));
+        toastTimer = setTimeout(esconderToast, erro ? 6000 : TOAST_MS);
     }
     function esconderToast() {
         el.toast.hidden = true;

@@ -77,17 +77,17 @@ final class PastaExploradorLixeiraTest extends TestCase
         self::assertStringContainsString("toast(n > 1 ? n + ' itens restaurados' : 'Restaurado');", $desfazer, 'textos do desenho (dc L4935)');
     }
 
-    #[TestDox('toast: Desfazer só com ação, some com o toast, um clique só; fica 8 s (o resto continua 4,2 s do dc)')]
+    #[TestDox('toast: Desfazer só com ação, some com o toast, um clique só; os mesmos 4,2 s do dc (L4772)')]
     public function testToastComDesfazer(): void
     {
         $js    = $this->js();
         $toast = $this->funcao('toast');
 
-        self::assertStringContainsString('const TOAST_DESFAZER_MS = 8000;', $js);
+        self::assertStringNotContainsString('TOAST_DESFAZER_MS', $js, 'o desenho manda: Desfazer não alonga o toast');
         self::assertStringContainsString('const TOAST_MS       = 4200;', $js);
         self::assertStringContainsString("toastDesfazerAcao = !erro && typeof desfazer === 'function' && el.toastDesfazer ? desfazer : null;", $toast);
         self::assertStringContainsString('el.toastDesfazer.hidden = !toastDesfazerAcao;', $toast);
-        self::assertStringContainsString('(toastDesfazerAcao ? TOAST_DESFAZER_MS : TOAST_MS)', $toast);
+        self::assertStringContainsString('toastTimer = setTimeout(esconderToast, erro ? 6000 : TOAST_MS);', $toast);
         self::assertStringContainsString("if (!acao || el.toastDesfazer.disabled) return;", $js);
         self::assertStringContainsString('el.toastDesfazer.disabled = true;', $js);
         // Estilo do desenho (dc L2277): #7cc4ff, 13px/700, sem fundo nem borda.
