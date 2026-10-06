@@ -32,6 +32,13 @@
    A estrela é do usuário logado (`favorito` do #pexDados) e vai ao servidor por
    `urlFavorito`/`csrfFavorito`; a tela muda antes da resposta e volta atrás no erro.
 
+   L9: duplicados e limpeza (dc `expLimpeza`/`dup`/`sugExc`/`limp*`, L4686-4697, L4746-4747,
+   L2217-2235, L4945-4952) — selo "Idêntico" (mesmo sha256 na pasta), selo de sugestão
+   (Vazio / Ver no PJe / Muito grande), "Nome parecido" no painel (só informa) e a faixa de
+   limpeza na raiz, com rótulo honesto: são REGRAS do servidor (`limpeza` do #pexDados,
+   SugestoesDeLimpeza), não IA. Revisar abre a lista com caixas de marcar; excluir vai pelo
+   excluir-lote, com o mesmo confirm() do Excluir. Dispensar vale para a sessão, por pasta.
+
    Depende de: Bootstrap 5 (Modal), SortableJS (opcional, só no modo Manual),
    `window.enviarArquivoComProgresso` (helper do template, também do Peticionar)
    e do `#previewDocModal` já ligado pelo visualizador-documento.js — que, desde o L10,
@@ -40,7 +47,8 @@
    Storage — SÓ preferência de visualização em localStorage (`pex:classificar`,
    `pex:colunas`, `pex:modo`, `pex:painel`), sempre dentro de try/catch. O filtro
    por tipo NÃO é persistido (o dc não persiste `expTipoF`): vale só para esta
-   visita. A pasta aberta fica em sessionStorage (`pex:pasta:<id>:caminho`). Nada
+   visita. A pasta aberta fica em sessionStorage (`pex:pasta:<id>:caminho`), e a faixa
+   de limpeza dispensada também (`pex:limpeza:<id>`, L9). Nada
    de flag de aba: o retorno é pelo fragmento `#documentos`, que o pasta-show.js abre.
    A área de transferência do Recortar vive só em memória.
    ========================================================================== */
@@ -128,6 +136,14 @@
         toast:          document.getElementById('pexToast'),
         toastTexto:     document.getElementById('pexToastTexto'),
         toastIcone:     document.getElementById('pexToastIcone'),
+        // L9
+        limpeza:          document.getElementById('pexLimpeza'),
+        limpezaTexto:     document.getElementById('pexLimpezaTexto'),
+        limpezaRevisar:   document.getElementById('pexLimpezaRevisar'),
+        limpezaDispensar: document.getElementById('pexLimpezaDispensar'),
+        limpezaLista:     document.getElementById('pexLimpezaLista'),
+        limpezaItens:     document.getElementById('pexLimpezaItens'),
+        limpezaExcluir:   document.getElementById('pexLimpezaExcluir'),
     };
     if (!el.lista) return;
 
@@ -141,6 +157,7 @@
     const CHAVE_COLUNAS     = 'pex:colunas';
     const CHAVE_MODO        = 'pex:modo';
     const CHAVE_PAINEL      = 'pex:painel';
+    const CHAVE_LIMPEZA     = 'pex:limpeza:' + pastaId;
     const CLASSIFICACOES    = ['manual', 'nome', 'tipo', 'tamanho', 'data', 'categoria'];
     // Primeiro clique de cada coluna: data e tamanho começam DECRESCENTES (mais recente / maior
     // primeiro), nome, tipo e categoria em A–Z — regra do desenho (dc L4862) e do fm antigo.
@@ -250,6 +267,12 @@
     function lerPainel() { return lerStorage(CHAVE_PAINEL) === '1'; }
     function gravarPainel() {
         try { localStorage.setItem(CHAVE_PAINEL, painel ? '1' : '0'); } catch (e) { /* silencioso */ }
+    }
+    function lerLimpezaDispensada() {
+        try { return sessionStorage.getItem(CHAVE_LIMPEZA) === '1'; } catch (e) { return false; }
+    }
+    function gravarLimpezaDispensada() {
+        try { sessionStorage.setItem(CHAVE_LIMPEZA, '1'); } catch (e) { /* silencioso */ }
     }
     function gravarCaminho() {
         try { sessionStorage.setItem(CHAVE_CAMINHO, JSON.stringify(caminho)); } catch (e) { /* silencioso */ }
@@ -615,6 +638,7 @@
         atualizarAtivo();
         renderizarBarra();
         renderizarPainel();
+        renderizarLimpeza(buscando);
         renderizarRodape();
         if (el.contagem) el.contagem.textContent = String(totalArquivos);
         ligarSortable();
@@ -916,6 +940,12 @@
             data: h('span', { class: 'pex-cel pex-cel-data', text: formatarData(a.carregadoEm) }),
         }, lado, buscando, a.secaoId, !!a.favorito);
         r.ico.appendChild(iconeArquivo(a.nome, ICONE_PX[modo]));
+        // L9 (dc L2251): os selos vêm depois do texto, na célula do nome; "Idêntico" vence o de
+        // sugestão (dc `sugExc: !!G && !D`), e a linha duplicada ganha o fundo e a barra (DOC-19).
+        const identico = seloIdentico(a);
+        const selo = identico || seloSugestao(a);
+        if (selo) r.linha.querySelector('.pex-cel-nome').appendChild(selo);
+        if (identico) r.linha.classList.add('pex-item--identico');
         return r.linha;
     }
 
@@ -956,6 +986,7 @@
             ['Adicionado em', formatarDataHora(d.carregadoEm)],
             ['Número', d.numero || ''],
             ['Descrição', d.descricao || ''],
+            ['Nome parecido', nomeParecidoTexto(d)],
             ['Local', caminhoLegivel(d.secaoId == null ? null : Number(d.secaoId))],
         ].filter(function (p) { return p[1] !== ''; });
     }
@@ -993,6 +1024,167 @@
             })));
         }
         el.painelSel.appendChild(frag);
+    }
+
+    // ------------------------------------------- duplicados e limpeza (L9) ---
+    /* O servidor decide (SugestoesDeLimpeza, em memória no montar do #pexDados): `identicoA` de
+       cada arquivo, `nomeParecidoCom` e os grupos de `limpeza` por regra. Aqui só se mostra — e
+       se confere contra o que AINDA existe: depois de excluir, a cópia que sobrou sozinha perde o
+       selo, e o que fica num grupo de idênticos volta a ser o mais antigo dos que restaram.
+       Nada vem de HTML montado em texto: nome de arquivo é dado do usuário. */
+    const LIMPEZA = Array.isArray(dados.limpeza) ? dados.limpeza : [];
+    const REGRAS_LIMPEZA = ['identico', 'vazio', 'copia_processo', 'muito_grande'];
+    // dc L4747 (`sugRot`): o selo da linha para cada regra que não é a do idêntico.
+    const SELO_SUGESTAO = { vazio: 'Vazio', copia_processo: 'Ver no PJe', muito_grande: 'Muito grande' };
+    const PAGINAS_DA_COPIA = 100;     // SugestoesDeLimpeza::PAGINAS_DA_COPIA
+    const regraDoArquivo = {};
+    LIMPEZA.forEach(function (g) {
+        if (REGRAS_LIMPEZA.indexOf(g.regra) === -1 || !Array.isArray(g.ids)) return;
+        g.ids.forEach(function (id) { regraDoArquivo[Number(id)] = g.regra; });
+    });
+    let limpezaDispensada = lerLimpezaDispensada();
+    let limpezaAberta = false;
+    let limpezaDesmarcados = new Set();   // ids que o usuário tirou da lista do Revisar
+
+    function copiasIdenticas(a) {
+        if (a.identicoA == null || !a.sha256) return [];
+        return arquivos.filter(function (x) { return x.id !== a.id && x.identicoA != null && x.sha256 === a.sha256; });
+    }
+    function maisAntigo(grupo) {
+        return grupo.slice().sort(function (x, y) {
+            return String(x.carregadoEm || '').localeCompare(String(y.carregadoEm || '')) || (x.id - y.id);
+        })[0];
+    }
+    // dc `dupTit` (L4747): quem são as cópias e qual fica.
+    function seloIdentico(a) {
+        const outros = copiasIdenticas(a);
+        if (!outros.length) return null;
+        const fica = maisAntigo(outros.concat([a]));
+        const titulo = 'Conteúdo idêntico a: ' + outros.map(function (x) { return x.nome; }).join(', ')
+            + (fica === a ? '. Este é o mais antigo (sugerido manter).' : '. Sugestão: manter "' + fica.nome + '".');
+        return h('span', { class: 'pex-selo pex-selo--identico', title: titulo }, [icone('bi-files'), 'Idêntico']);
+    }
+    function seloSugestao(a) {
+        const regra = regraDoArquivo[a.id];
+        if (!SELO_SUGESTAO[regra]) return null;
+        return h('span', { class: 'pex-selo pex-selo--sugestao', title: 'Sugestão para ganhar espaço: ' + motivoDaLimpeza(a, regra) }, [icone('bi-trash3'), SELO_SUGESTAO[regra]]);
+    }
+    // dc `motivo` (L4692-4696), com o que o sistema sabe de verdade.
+    function motivoDaLimpeza(a, regra) {
+        switch (regra) {
+            case 'identico': {
+                const fica = maisAntigo(copiasIdenticas(a).concat([a]));
+                return 'Conteúdo idêntico a "' + fica.nome + '"' + (fica.nome !== a.nome ? ' (nome diferente)' : '') + '. Fica o mais antigo.';
+            }
+            case 'vazio': return 'Arquivo vazio (0 KB): não tem conteúdo.';
+            case 'copia_processo':
+                return a.paginas != null && a.paginas > PAGINAS_DA_COPIA
+                    ? 'Cópia do processo com ' + a.paginas + ' páginas: os autos ficam disponíveis no PJe, sem ocupar espaço aqui. Guarde só as peças importantes.'
+                    : 'Cópia do processo muito grande (' + formatarBytes(a.tamanho) + '): os autos ficam disponíveis no PJe.';
+            case 'muito_grande': return 'Arquivo muito grande (' + formatarBytes(a.tamanho) + '). Confira se precisa ficar na pasta.';
+        }
+        return '';
+    }
+    // DOC-63 (bj-docsug.js L107-109): só informa — nunca entra na limpeza.
+    function nomeParecidoTexto(a) {
+        const p = a.nomeParecidoCom;
+        const outro = p ? arquivoPorId(p.id) : null;
+        return outro ? outro.nome + ' (' + p.percentual + '% parecido; confira se é o mesmo documento)' : '';
+    }
+    // As sugestões que ainda valem, na ordem das regras do desenho.
+    function sugestoesDeLimpeza() {
+        const lista = [];
+        REGRAS_LIMPEZA.forEach(function (regra) {
+            arquivos.forEach(function (a) {
+                if (regraDoArquivo[a.id] !== regra) return;
+                if (regra === 'identico') {
+                    const outros = copiasIdenticas(a);
+                    if (!outros.length || maisAntigo(outros.concat([a])) === a) return;
+                }
+                lista.push({ a: a, regra: regra });
+            });
+        });
+        return lista;
+    }
+    // dc L4946 ("2 cópias idênticas, 1 vazio…") — o mesmo de SugestoesDeLimpeza::rotulo().
+    function rotuloDaRegra(regra, n) {
+        switch (regra) {
+            case 'identico':       return n + (n === 1 ? ' cópia idêntica' : ' cópias idênticas');
+            case 'vazio':          return n + (n === 1 ? ' vazio' : ' vazios');
+            case 'copia_processo': return n + (n === 1 ? ' cópia do processo' : ' cópias do processo');
+            case 'muito_grande':   return n + (n === 1 ? ' muito grande' : ' muito grandes');
+        }
+        return '';
+    }
+    function somaDaLimpeza(lista) {
+        return lista.reduce(function (t, x) { return t + (Number(x.a.tamanho) || 0); }, 0);
+    }
+    /* Faixa (dc L2217-2235): só na raiz (dc `cam.length ? { sug: [] } : LP`) e fora da busca;
+       some quando dispensada ou quando não sobra sugestão — inclusive quando as regras não acham
+       nada, que é o caso comum. */
+    function renderizarLimpeza(buscando) {
+        if (!el.limpeza) return;
+        const sug = sugestoesDeLimpeza();
+        const mostrar = !limpezaDispensada && !caminho.length && !buscando && sug.length > 0;
+        el.limpeza.hidden = !mostrar;
+        if (!mostrar) { limpezaAberta = false; return; }
+        const partes = [];
+        REGRAS_LIMPEZA.forEach(function (regra) {
+            const n = sug.filter(function (x) { return x.regra === regra; }).length;
+            if (n) partes.push(rotuloDaRegra(regra, n));
+        });
+        el.limpezaTexto.textContent = 'Ganhe espaço: ' + partes.join(', ') + ' · libera cerca de ' + formatarBytes(somaDaLimpeza(sug));
+        el.limpezaRevisar.textContent = limpezaAberta ? 'Fechar' : 'Revisar';
+        el.limpezaRevisar.setAttribute('aria-expanded', limpezaAberta ? 'true' : 'false');
+        el.limpezaLista.hidden = !limpezaAberta;
+        if (!limpezaAberta) return;
+        const frag = document.createDocumentFragment();
+        sug.forEach(function (x) {
+            const on = !limpezaDesmarcados.has(x.a.id);
+            frag.appendChild(h('button', {
+                type: 'button', class: 'pex-limpeza-item', role: 'checkbox', 'aria-checked': on ? 'true' : 'false',
+                'data-pex-limpeza-id': String(x.a.id),
+            }, [
+                icone((on ? 'bi-check-square-fill' : 'bi-square') + ' pex-limpeza-caixa'),
+                h('span', { class: 'pex-limpeza-item-txt' }, [
+                    h('span', { class: 'pex-limpeza-item-nome', text: x.a.nome, title: x.a.nome }),
+                    h('span', { class: 'pex-limpeza-item-motivo', text: motivoDaLimpeza(x.a, x.regra) }),
+                ]),
+                h('span', { class: 'pex-limpeza-item-tam', text: formatarBytes(x.a.tamanho) }),
+            ]));
+        });
+        el.limpezaItens.textContent = '';
+        el.limpezaItens.appendChild(frag);
+        const marcados = sug.filter(function (x) { return !limpezaDesmarcados.has(x.a.id); });
+        el.limpezaExcluir.textContent = 'Excluir ' + marcados.length + ' selecionado(s) · ' + formatarBytes(somaDaLimpeza(marcados));
+        el.limpezaExcluir.disabled = marcados.length === 0;
+    }
+    if (el.limpeza) {
+        el.limpezaRevisar.addEventListener('click', function () {
+            limpezaAberta = !limpezaAberta;
+            limpezaDesmarcados = new Set();
+            renderizarLimpeza(false);
+        });
+        el.limpezaDispensar.addEventListener('click', function () {
+            limpezaDispensada = true;
+            gravarLimpezaDispensada();
+            renderizarLimpeza(false);
+        });
+        el.limpezaItens.addEventListener('click', function (e) {
+            const b = e.target.closest('[data-pex-limpeza-id]');
+            if (!b) return;
+            const id = Number(b.dataset.pexLimpezaId);
+            if (limpezaDesmarcados.has(id)) limpezaDesmarcados.delete(id); else limpezaDesmarcados.add(id);
+            renderizarLimpeza(false);
+        });
+        /* Excluir (dc `limpExcluir`): vai pelo excluir-lote, com a MESMA confirmação do Excluir da
+           barra — nada é excluído sem o usuário confirmar. Fecha a lista depois do sucesso. */
+        el.limpezaExcluir.addEventListener('click', function () {
+            const itens = sugestoesDeLimpeza().filter(function (x) { return !limpezaDesmarcados.has(x.a.id); }).map(function (x) {
+                return { tipo: 'arquivo', id: x.a.id, nome: x.a.nome, dado: x.a };
+            });
+            excluirItens(itens, function () { limpezaAberta = false; limpezaDesmarcados = new Set(); });
+        });
     }
 
     // ----------------------------------------------------------- seleção ----
@@ -1935,7 +2127,7 @@
     }
     /* Excluir (DOC-57): um, vários ou pasta — sempre pelo excluir-lote. O `confirm()` fica até o
        Samuel decidir (S-3); o Desfazer chega com a lixeira (L7). */
-    function excluirItens(itens) {
+    function excluirItens(itens, aoExcluir) {
         if (!itens.length) return;
         const lote = separarChaves(itens.map(chaveDe));
         if (acimaDoTeto(lote.documentos.length + lote.secoes.length)) return;
@@ -1954,6 +2146,7 @@
             }
             limparRecorteDoQueNaoExiste();
             limparSelecao(true);
+            if (aoExcluir) aoExcluir();
             if (caminho.some(function (id) { return subarvore.indexOf(id) !== -1; })) voltarRaiz(); else renderizar();
             toast(itens.length === 1 ? 'Excluído: ' + itens[0].nome : itens.length + ' itens excluídos');
         }).catch(function (err) { toastErro(err.message || 'Erro de comunicação.'); });

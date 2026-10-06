@@ -118,7 +118,7 @@ final class PastaExploradorContratoJsTest extends TestCase
         self::assertMatchesRegularExpression("/el\.buscaLimpar\.addEventListener\('click', function \(\) \{ aplicarBusca\(''\);/", $js);
     }
 
-    #[TestDox('storage: só as preferências listadas na spec (pex:classificar, pex:colunas, pex:modo, pex:painel) e a pasta aberta por sessão; o filtro por tipo não persiste')]
+    #[TestDox('storage: só as preferências listadas na spec (pex:classificar, pex:colunas, pex:modo, pex:painel), a pasta aberta e a faixa de limpeza dispensada por sessão (pex:limpeza:<id>, L9); o filtro por tipo não persiste')]
     public function testChavesDeStorage(): void
     {
         $js = $this->js();
@@ -134,12 +134,14 @@ final class PastaExploradorContratoJsTest extends TestCase
         self::assertStringContainsString("const CHAVE_MODO        = 'pex:modo';", $js);
         self::assertStringContainsString("const CHAVE_PAINEL      = 'pex:painel';", $js);
         self::assertStringContainsString("const CHAVE_CAMINHO     = 'pex:pasta:' + pastaId + ':caminho';", $js);
+        // L9: a faixa de limpeza dispensada, por pasta e só nesta sessão (sessionStorage).
+        self::assertStringContainsString("const CHAVE_LIMPEZA     = 'pex:limpeza:' + pastaId;", $js);
 
-        // Nenhuma chave literal 'pex:…' além das cinco constantes acima — e nada de filtro
+        // Nenhuma chave literal 'pex:…' além das seis constantes acima — e nada de filtro
         // salvo: o desenho não persiste `expTipoF`, o filtro vale só para a visita.
         preg_match_all("/'(pex:[^']*)'/", $js, $literais);
         self::assertSame(
-            ['pex:pasta:', 'pex:classificar', 'pex:colunas', 'pex:modo', 'pex:painel'],
+            ['pex:pasta:', 'pex:classificar', 'pex:colunas', 'pex:modo', 'pex:painel', 'pex:limpeza:'],
             array_values(array_unique($literais[1]))
         );
         self::assertStringNotContainsString('pex:filtroTipo', $js, 'o filtro por tipo não vai para o storage');

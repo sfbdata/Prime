@@ -259,6 +259,60 @@ final class ExploradorDeDocumentosOutputTest extends TestCase
         self::assertSame(2, $this->pasta($out, 2)['arquivos']);
     }
 
+    #[TestDox('L9: identicoA pelo sha256 na pasta INTEIRA (seções diferentes), nomeParecidoCom e o topo limpeza [{regra, ids, bytes, rotulo}] no JSON')]
+    public function testDuplicadosELimpeza(): void
+    {
+        $secao = $this->secao(7, 'Procurações');
+        $sha   = str_repeat('a', 64);
+
+        $antigo = $this->documento(1, 'Procuração Gleisson.pdf', null);
+        $antigo->setSha256($sha);
+        $antigo->setTamanhoBytes(3000);
+        (new \ReflectionProperty(PastaDocumento::class, 'carregadoEm'))->setValue($antigo, new \DateTimeImmutable('2026-01-01 10:00:00'));
+
+        $copia = $this->documento(2, 'procuracao_gleisson_assinada.pdf', $secao);
+        $copia->setSha256($sha);
+        $copia->setTamanhoBytes(3000);
+        (new \ReflectionProperty(PastaDocumento::class, 'carregadoEm'))->setValue($copia, new \DateTimeImmutable('2026-02-01 10:00:00'));
+
+        $vazio = $this->documento(3, 'sem titulo.pdf', null);
+        $vazio->setTamanhoBytes(0);
+
+        $semHash = $this->documento(4, 'contestacao.pdf', null);   // sha NULL: nunca "idêntico"
+
+        $out = $this->montar([$secao], [$antigo, $copia, $vazio, $semHash]);
+
+        $porId = array_column($out->arquivos, null, 'id');
+        self::assertSame(2, $porId[1]['identicoA'], 'o mais antigo aponta a cópia');
+        self::assertSame(1, $porId[2]['identicoA'], 'a cópia aponta o que fica');
+        self::assertNull($porId[3]['identicoA']);
+        self::assertNull($porId[4]['identicoA']);
+        self::assertSame(['id' => 2, 'percentual' => 100], $porId[1]['nomeParecidoCom']);
+        self::assertNull($porId[4]['nomeParecidoCom']);
+
+        self::assertSame([
+            ['regra' => 'identico', 'ids' => [2], 'bytes' => 3000, 'rotulo' => '1 cópia idêntica'],
+            ['regra' => 'vazio', 'ids' => [3], 'bytes' => 0, 'rotulo' => '1 vazio'],
+        ], $out->limpeza);
+        self::assertSame($out->limpeza, json_decode($out->json(), true, 512, JSON_THROW_ON_ERROR)['limpeza']);
+    }
+
+    #[TestDox('L9: sem nada a sugerir, limpeza é [] no JSON — e arquivo() sozinho (upload/edição) traz identicoA/nomeParecidoCom NULL')]
+    public function testSemLimpeza(): void
+    {
+        $doc = $this->documento(1, 'peticao.pdf', null);
+        $out = $this->montar([], [$doc, $this->documento(2, 'procuracao.pdf', null)]);
+
+        self::assertSame([], $out->limpeza);
+        self::assertSame([], json_decode($out->json(), true, 512, JSON_THROW_ON_ERROR)['limpeza']);
+
+        $avulso = ExploradorDeDocumentosOutput::arquivo($doc, self::ROTULOS, self::url(...), self::csrf(...));
+        self::assertArrayHasKey('identicoA', $avulso);
+        self::assertNull($avulso['identicoA']);
+        self::assertArrayHasKey('nomeParecidoCom', $avulso);
+        self::assertNull($avulso['nomeParecidoCom']);
+    }
+
     #[TestDox('arquivo: seção, rótulo da categoria, URLs e tokens pelos geradores; JSON sem < > & crus')]
     public function testArquivoEJson(): void
     {

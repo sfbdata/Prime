@@ -30,6 +30,10 @@
    favorito"/"Tirar dos favoritos" do menu nascem no JS, a partir de `favorito` de cada item e
    de `urlFavorito`/`csrfFavorito` do `#pexDados` — nada de markup novo aqui; o aviso usa o
    mesmo toast `#pexToast`.
+
+   Lote L9 (spec §5): duplicados e limpeza. Os selos "Idêntico"/"Vazio"/"Ver no PJe"/"Muito
+   grande" e o "Nome parecido" do painel nascem no JS (`identicoA`/`nomeParecidoCom`/`limpeza`
+   do #pexDados); aqui só a faixa `#pexLimpeza`, oculta.
 #}
 <div class="pex" id="pexExplorador"
      data-pasta-id="{{ pasta.id }}"
@@ -204,6 +208,31 @@
             <div class="pex-col pex-col-tam" aria-sort="none"><button type="button" data-pex-classificar="tamanho" title="Classificar por tamanho"><span>Tamanho</span><i class="bi pex-seta" aria-hidden="true"></i></button></div>
             <div class="pex-col pex-col-data" aria-sort="none"><button type="button" data-pex-classificar="data" title="Classificar por data de modificação"><span>Modificado</span><i class="bi pex-seta" aria-hidden="true"></i></button></div>
             <div class="pex-col pex-col-acoes" aria-hidden="true"></div>
+        </div>
+
+        {# Sugestões de limpeza (L9, DOC-64; dc L2217-2235): depois do cabeçalho e antes da lista,
+           como o desenho. São REGRAS do servidor (SugestoesDeLimpeza: cópia idêntica pelo sha256,
+           0 byte, cópia do processo com mais de 100 páginas ou 50 MB, mais de 100 MB) — não é IA,
+           e o rótulo diz isso (S-4: nada de bi-stars). Nasce oculta; o JS liga só na raiz, quando
+           há sugestão e a faixa não foi dispensada nesta sessão (`pex:limpeza:<pastaId>`). O texto
+           e os itens são do JS (textContent). Excluir vai pelo excluir-lote, com confirm(). #}
+        <div class="pex-limpeza" id="pexLimpeza" role="region" aria-label="Sugestões de limpeza por regras" hidden>
+            <div class="pex-limpeza-faixa">
+                <i class="bi bi-hdd pex-limpeza-ico" aria-hidden="true"></i>
+                <span class="pex-limpeza-txt">
+                    <span class="pex-limpeza-titulo" title="Regras fixas: cópia de conteúdo idêntico, arquivo vazio, cópia do processo com mais de 100 páginas ou 50 MB e arquivo com mais de 100 MB. Não é inteligência artificial.">Sugestões de limpeza — por regras</span>
+                    <span id="pexLimpezaTexto"></span>
+                </span>
+                <button type="button" class="pex-limpeza-revisar" id="pexLimpezaRevisar" aria-expanded="false" aria-controls="pexLimpezaLista">Revisar</button>
+                <button type="button" class="pex-limpeza-dispensar" id="pexLimpezaDispensar" title="Agora não" aria-label="Dispensar sugestão"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+            </div>
+            <div class="pex-limpeza-lista" id="pexLimpezaLista" hidden>
+                <div class="pex-limpeza-itens" id="pexLimpezaItens"></div>
+                <div class="pex-limpeza-rodape">
+                    <span class="pex-limpeza-nota">Nada é excluído sem você confirmar.</span>
+                    <button type="button" class="pex-limpeza-excluir" id="pexLimpezaExcluir">Excluir</button>
+                </div>
+            </div>
         </div>
 
         {# A lista é o alvo do teclado (setas, Ctrl+A, Del, F2…) e do laço; as linhas são `option`

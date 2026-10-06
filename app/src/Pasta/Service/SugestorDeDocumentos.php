@@ -210,32 +210,19 @@ final class SugestorDeDocumentos
         return array_keys($linhas);
     }
 
-    /** Minúsculas e sem acento — `norm` de bj-docsug.js L9. */
+    /** Minúsculas e sem acento — `norm` de bj-docsug.js L9 (a regra mora em {@see SimilaridadeDeNomes}). */
     public static function normalizar(string $texto): string
     {
-        $decomposto = \Normalizer::normalize($texto, \Normalizer::FORM_D);
-        if ($decomposto === false) {
-            $decomposto = $texto;
-        }
-
-        return mb_strtolower((string) preg_replace('/[\x{0300}-\x{036f}]/u', '', $decomposto));
+        return SimilaridadeDeNomes::normalizar($texto);
     }
 
     /**
-     * Palavras em comum ÷ tamanho do menor conjunto — `similar` de bj-docsug.js L62.
+     * Palavras em comum ÷ tamanho do menor conjunto — `similar` de bj-docsug.js L62 (a regra mora
+     * em {@see SimilaridadeDeNomes}).
      */
     public static function similaridade(string $a, string $b): float
     {
-        $palavrasA = self::palavras($a);
-        $palavrasB = self::palavras($b);
-
-        if ($palavrasA === [] || $palavrasB === []) {
-            return 0.0;
-        }
-
-        $comuns = \count(array_intersect_key($palavrasA, $palavrasB));
-
-        return $comuns / min(\count($palavrasA), \count($palavrasB));
+        return SimilaridadeDeNomes::similaridade($a, $b);
     }
 
     /**
@@ -283,21 +270,6 @@ final class SugestorDeDocumentos
         }
 
         return null;
-    }
-
-    /** @return array<string, true> */
-    private static function palavras(string $texto): array
-    {
-        $semExtensao = (string) preg_replace('/\.\w+$/u', '', self::normalizar($texto));
-        $palavras    = [];
-
-        foreach (preg_split('/[^a-z0-9]+/', $semExtensao) ?: [] as $palavra) {
-            if (\strlen($palavra) > 2 && preg_match('/^(\d+|assinad[oa]|final|copia|versao|v\d)$/', $palavra) !== 1) {
-                $palavras[$palavra] = true;
-            }
-        }
-
-        return $palavras;
     }
 
     private static function vazioParaNulo(?string $texto): ?string

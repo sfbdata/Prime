@@ -6,6 +6,7 @@ namespace App\Pasta\DTO;
 
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaSecao;
+use App\Pasta\Service\SugestoesDeLimpeza;
 
 /**
  * O que o explorador da aba Documentos recebe do servidor, já resolvido — pastas, arquivos, rótulos
@@ -33,6 +34,13 @@ use App\Pasta\Entity\PastaSecao;
  * Favoritos (D2, DOC-23): cada arquivo e cada pasta traz `favorito` — a estrela DO USUÁRIO
  * LOGADO, nunca a de um colega —, e o topo traz `urlFavorito`/`csrfFavorito` (um token por pasta,
  * `pex_favorito_<pastaId>`, com tipo e id do alvo no corpo).
+ *
+ * Duplicados e limpeza (L9, DOC-62..66): cada arquivo traz `identicoA` (id de um arquivo com o
+ * MESMO sha256 na pasta, ou NULL) e `nomeParecidoCom` (`{id, percentual}` do nome ≥ 85% parecido,
+ * ou NULL — só informa); o topo traz `limpeza`, as sugestões por regra (`[{regra, ids, bytes,
+ * rotulo}]`, ver {@see SugestoesDeLimpeza}). Tudo calculado em memória sobre as listas que já
+ * estão aqui: nenhuma consulta a mais. O upload e a edição (`arquivo()` sozinho) não sabem dos
+ * outros arquivos e devolvem os dois campos NULL — a tela recalcula na próxima carga.
  */
 final readonly class ExploradorDeDocumentosOutput
 {
@@ -61,6 +69,7 @@ final readonly class ExploradorDeDocumentosOutput
      * @param list<array<string, mixed>> $pastas
      * @param list<array<string, mixed>> $arquivos
      * @param array<string, string>      $categorias chave da categoria => rótulo exibido
+     * @param list<array{regra: string, ids: list<int>, bytes: int, rotulo: string}> $limpeza
      */
     private function __construct(
         public array $pastas,
@@ -73,6 +82,7 @@ final readonly class ExploradorDeDocumentosOutput
         public string $csrfLote,
         public string $urlFavorito,
         public string $csrfFavorito,
+        public array $limpeza = [],
     ) {
     }
 
@@ -126,10 +136,23 @@ final readonly class ExploradorDeDocumentosOutput
             ];
         }
 
+        $limpeza = SugestoesDeLimpeza::avaliar(array_map(static fn (PastaDocumento $d): array => [
+            'id'          => (int) $d->getId(),
+            'nome'        => $d->getNomeOriginal(),
+            'tamanho'     => $d->getTamanhoBytes(),
+            'sha256'      => $d->getSha256(),
+            'paginas'     => $d->getPaginas(),
+            'carregadoEm' => $d->getCarregadoEm()->format('Y-m-d H:i:s'),
+        ], array_values($documentos)));
+
         $arquivos = [];
         foreach ($documentos as $documento) {
-            $favoritoEm = $documentosFavoritos[(int) $documento->getId()] ?? null;
-            $arquivos[] = self::arquivo($documento, $rotulosCategoria, $url, $csrf, $favoritoEm !== null, is_string($favoritoEm) ? $favoritoEm : null);
+            $id         = (int) $documento->getId();
+            $favoritoEm = $documentosFavoritos[$id] ?? null;
+            $arquivo    = self::arquivo($documento, $rotulosCategoria, $url, $csrf, $favoritoEm !== null, is_string($favoritoEm) ? $favoritoEm : null);
+            $arquivo['identicoA']       = $limpeza->identicoA[$id] ?? null;
+            $arquivo['nomeParecidoCom'] = $limpeza->nomeParecidoCom[$id] ?? null;
+            $arquivos[] = $arquivo;
         }
 
         return new self(
@@ -143,6 +166,7 @@ final readonly class ExploradorDeDocumentosOutput
             csrfLote: $csrf(self::idDoTokenDeLote($pastaId)),
             urlFavorito: $url('pasta_documentos_favorito', ['id' => $pastaId]),
             csrfFavorito: $csrf(self::idDoTokenDeFavorito($pastaId)),
+            limpeza: $limpeza->grupos,
         );
     }
 
@@ -165,6 +189,8 @@ final readonly class ExploradorDeDocumentosOutput
      * `paginas` NULL = não é PDF ou não foi contado. `favorito` é a estrela do usuário logado: quem
      * não sabe (o upload — documento recém-criado nunca é favorito) deixa o padrão `false`.
      * `favoritoEm` é a hora em que ele marcou (ordena o topo, dc L4440); NULL sem favorito.
+     * `identicoA`/`nomeParecidoCom` dependem dos OUTROS arquivos da pasta: aqui nascem NULL e só
+     * o `montar()` os preenche (L9).
      *
      * @param array<string, string>                                     $rotulosCategoria chave => rótulo exibido
      * @param callable(string $rota, array<string, mixed> $params): string $url
@@ -203,6 +229,8 @@ final readonly class ExploradorDeDocumentosOutput
             'csrfExcluir'     => $csrf('delete_documento_' . $id),
             'favorito'        => $favorito,
             'favoritoEm'      => $favorito ? $favoritoEm : null,
+            'identicoA'       => null,
+            'nomeParecidoCom' => null,
         ];
     }
 
@@ -224,6 +252,7 @@ final readonly class ExploradorDeDocumentosOutput
             'csrfLote'       => $this->csrfLote,
             'urlFavorito'    => $this->urlFavorito,
             'csrfFavorito'   => $this->csrfFavorito,
+            'limpeza'        => $this->limpeza,
         ], self::FLAGS_JSON);
     }
 
