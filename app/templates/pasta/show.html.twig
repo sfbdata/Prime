@@ -3836,85 +3836,112 @@ document.addEventListener('DOMContentLoaded', function () {
 }());
 </script>
 
-{# ── Modal: editar pasta ── #}
+{# ── Modal: editar pasta ──
+   Moldura do desenho 1.2.3 (dc 560-592; auditoria 2 C2): cabeçalho em gradiente com
+   o círculo da pasta, título "Pasta nnnn" e o cliente como subtítulo; rótulos em
+   caixa alta; rodapé Fechar · Salvar. SÓ a moldura: os campos e o POST para
+   `pasta_edit` são os de sempre (ids, names, CSRF). O que o desenho põe e aqui
+   não entra, por ser decisão do dono ou função nova (D-META): "Ação" só leitura,
+   Tipo de documento/CPF, Responsável com "Trocar", as abas de atalho
+   (Cliente/Processo/Histórico), a pílula "Alterações não salvas", o botão
+   "Cadastro do cliente" e o Salvar travado sem alteração. #}
+{% set editCliente = pasta.clientePrincipal %}
+{% set editDocumento = editCliente ? (editCliente.cpf is defined ? editCliente.cpf : (editCliente.cnpj is defined ? editCliente.cnpj : null)) : null %}
+{% set editNomeSub = editCliente ? editCliente.nomeExibicao : pasta.nomeCliente %}
 <div class="modal fade" id="modalEditarPasta" tabindex="-1" aria-labelledby="modalEditarPastaLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered" style="max-width:480px;">
+    <div class="modal-dialog ps-modal-pasta">
         <div class="modal-content">
-            <div class="modal-header py-2">
-                <h6 class="modal-title" id="modalEditarPastaLabel">
-                    <i class="bi bi-pencil me-1"></i> Editar Pasta
-                </h6>
-                <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+            <div class="ps-modal-pasta-cab">
+                <span class="ps-modal-pasta-cab-icone" aria-hidden="true"><i class="bi bi-folder2-open"></i></span>
+                <div class="ps-modal-pasta-cab-corpo">
+                    <h2 class="ps-modal-pasta-titulo" id="modalEditarPastaLabel"><span class="visually-hidden">Editar dados da </span>Pasta {{ pasta.nup }}</h2>
+                    {% if editNomeSub or editDocumento %}
+                        <div class="ps-modal-pasta-sub">
+                            <span>
+                                {{- editNomeSub -}}
+                                {%- if editNomeSub and editDocumento %} · {% endif -%}
+                                {%- if editDocumento -%}{{ editDocumento|documento_br_rotulo }} {{ editDocumento|documento_br }}{%- endif -%}
+                            </span>
+                        </div>
+                    {% endif %}
+                </div>
+                <button type="button" class="ps-modal-pasta-fechar" data-bs-dismiss="modal" title="Fechar" aria-label="Fechar"><i class="bi bi-x-lg"></i></button>
             </div>
             <form method="post" action="{{ path('pasta_edit', {id: pasta.id}) }}">
                 <input type="hidden" name="_token" value="{{ csrf_token('edit_pasta_' ~ pasta.id) }}">
-                <div class="modal-body py-3">
+                <div class="ps-modal-pasta-corpo">
 
-                    <div class="mb-3">
-                        <label for="edit_nup" class="form-label form-label-sm">Número da Pasta (NUP)</label>
-                        <input type="text" id="edit_nup" name="nup"
-                               class="form-control form-control-sm"
-                               value="{{ pasta.nup }}" required autocomplete="off">
+                    <div class="ps-modal-pasta-linha">
+                        <div class="ps-modal-pasta-campo">
+                            <label for="edit_nup" class="ps-modal-pasta-rotulo">Número da pasta<span class="ps-modal-pasta-obrig" aria-hidden="true"> *</span></label>
+                            <input type="text" id="edit_nup" name="nup"
+                                   class="form-control"
+                                   value="{{ pasta.nup }}" required autocomplete="off">
+                        </div>
+
+                        {# O campo é renderizado SEMPRE, mesmo com cliente cadastrado. Ele já foi
+                           escondido nesse caso, e o resultado era o pior possível: o navegador não
+                           mandava a chave, o controller lia vazio e APAGAVA o nome ao salvar — sem
+                           ninguém tocar no campo. São coisas diferentes e ambas precisam existir aqui:
+                           o TÍTULO da pasta (texto livre, hoje no padrão `CREDOR - DEVEDOR`) e os
+                           CLIENTES cadastrados, que viram contexto logo abaixo. #}
+                        {% set identificadorDerivado = identificador_pasta(pasta) %}
+                        {% set derivadoDaCobranca = identificadorDerivado is not null and identificadorDerivado != pasta.nomeCliente %}
+                        <div class="ps-modal-pasta-campo ps-modal-pasta-campo--2">
+                            <label {% if not derivadoDaCobranca %}for="edit_nome_cliente" {% endif %}class="ps-modal-pasta-rotulo">Nome do cliente</label>
+                            {% if derivadoDaCobranca %}
+                                {# Pasta judicializada pela cobrança: o identificador é MONTADO do credor da
+                                   carteira + a pessoa cobrada, e por isso não se edita aqui. Campo que
+                                   some sem explicação vira chamado de suporte — o texto abaixo diz onde
+                                   mudar. O `nome_cliente` não é enviado, e o controller trata chave
+                                   AUSENTE como "não mexe", então nada é apagado. #}
+                                <p class="form-control bg-body-secondary mb-1" style="height:auto;">{{ identificadorDerivado }}</p>
+                                <div class="form-text text-muted">
+                                    Montado a partir do credor da carteira e do responsável cobrado.
+                                    Para mudar, altere o <strong>cadastro do cliente</strong> ou o responsável do caso.
+                                </div>
+                            {% else %}
+                            <input type="text" id="edit_nome_cliente" name="nome_cliente"
+                                   class="form-control"
+                                   value="{{ pasta.nomeCliente }}" autocomplete="off">
+                            {% endif %}
+                            {% if pasta.clientes|length > 0 %}
+                                <div class="d-flex flex-wrap gap-1 mt-1">
+                                    {% for cliente in pasta.clientes %}
+                                        <span class="badge text-bg-secondary fw-normal">
+                                            <i class="bi bi-person me-1"></i>{{ cliente.cpf is defined and cliente.cpf ? cliente.nomeCompleto : cliente.razaoSocial }}
+                                        </span>
+                                    {% endfor %}
+                                </div>
+                                <div class="form-text text-muted">Clientes cadastrados da pasta. Para alterá-los, use a seção de Clientes na aba Dados.</div>
+                            {% endif %}
+                        </div>
                     </div>
 
-                    {# O campo é renderizado SEMPRE, mesmo com cliente cadastrado. Ele já foi
-                       escondido nesse caso, e o resultado era o pior possível: o navegador não
-                       mandava a chave, o controller lia vazio e APAGAVA o nome ao salvar — sem
-                       ninguém tocar no campo. São coisas diferentes e ambas precisam existir aqui:
-                       o TÍTULO da pasta (texto livre, hoje no padrão `CREDOR - DEVEDOR`) e os
-                       CLIENTES cadastrados, que viram contexto logo abaixo. #}
-                    {% set identificadorDerivado = identificador_pasta(pasta) %}
-                    {% set derivadoDaCobranca = identificadorDerivado is not null and identificadorDerivado != pasta.nomeCliente %}
-                    <div class="mb-3">
-                        <label {% if not derivadoDaCobranca %}for="edit_nome_cliente" {% endif %}class="form-label form-label-sm">Nome do cliente</label>
-                        {% if derivadoDaCobranca %}
-                            {# Pasta judicializada pela cobrança: o identificador é MONTADO do credor da
-                               carteira + a pessoa cobrada, e por isso não se edita aqui. Campo que
-                               some sem explicação vira chamado de suporte — o texto abaixo diz onde
-                               mudar. O `nome_cliente` não é enviado, e o controller trata chave
-                               AUSENTE como "não mexe", então nada é apagado. #}
-                            <p class="form-control form-control-sm bg-body-secondary mb-1" style="height:auto;">{{ identificadorDerivado }}</p>
-                            <div class="form-text text-muted">
-                                Montado a partir do credor da carteira e do responsável cobrado.
-                                Para mudar, altere o <strong>cadastro do cliente</strong> ou o responsável do caso.
-                            </div>
-                        {% else %}
-                        <input type="text" id="edit_nome_cliente" name="nome_cliente"
-                               class="form-control form-control-sm"
-                               value="{{ pasta.nomeCliente }}" autocomplete="off">
-                        {% endif %}
-                        {% if pasta.clientes|length > 0 %}
-                            <div class="d-flex flex-wrap gap-1 mt-1">
-                                {% for cliente in pasta.clientes %}
-                                    <span class="badge text-bg-secondary fw-normal">
-                                        <i class="bi bi-person me-1"></i>{{ cliente.cpf is defined and cliente.cpf ? cliente.nomeCompleto : cliente.razaoSocial }}
-                                    </span>
-                                {% endfor %}
-                            </div>
-                            <div class="form-text text-muted">Clientes cadastrados da pasta. Para alterá-los, use a seção de Clientes na aba Dados.</div>
-                        {% endif %}
-                    </div>
+                    {# "Ação" continua EDITÁVEL: o desenho a põe só leitura ("vem do menu
+                       Processo"), mas isso é decisão do dono (D-META). #}
+                    <div class="ps-modal-pasta-linha ps-modal-pasta-linha--larga">
+                        <div class="ps-modal-pasta-campo">
+                            <label for="edit_nome_acao" class="ps-modal-pasta-rotulo">Ação</label>
+                            <input type="text" id="edit_nome_acao" name="nome_acao"
+                                   class="form-control"
+                                   value="{{ pasta.nomeAcao }}" autocomplete="off">
+                        </div>
 
-                    <div class="mb-3">
-                        <label for="edit_nome_acao" class="form-label form-label-sm">Nome da Ação</label>
-                        <input type="text" id="edit_nome_acao" name="nome_acao"
-                               class="form-control form-control-sm"
-                               value="{{ pasta.nomeAcao }}" autocomplete="off">
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="edit_situacao" class="form-label form-label-sm">Situação</label>
-                        <select id="edit_situacao" name="situacao" class="form-select form-select-sm">
-                            <option value="ativo" {{ pasta.situacao == 'ativo' ? 'selected' : '' }}>Ativo</option>
-                            <option value="arquivado" {{ pasta.situacao == 'arquivado' ? 'selected' : '' }}>Arquivado</option>
-                        </select>
+                        <div class="ps-modal-pasta-campo">
+                            <label for="edit_situacao" class="ps-modal-pasta-rotulo">Situação</label>
+                            <select id="edit_situacao" name="situacao" class="form-select">
+                                <option value="ativo" {{ pasta.situacao == 'ativo' ? 'selected' : '' }}>Ativo</option>
+                                <option value="arquivado" {{ pasta.situacao == 'arquivado' ? 'selected' : '' }}>Arquivado</option>
+                            </select>
+                        </div>
                     </div>
 
                 </div>
-                <div class="modal-footer py-2">
-                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary btn-sm">
-                        <i class="bi bi-check-lg me-1"></i> Salvar
+                <div class="ps-modal-pasta-rodape">
+                    <button type="button" class="ps-modal-pasta-btn ps-modal-pasta-btn--fechar" data-bs-dismiss="modal">Fechar</button>
+                    <button type="submit" class="ps-modal-pasta-btn ps-modal-pasta-btn--salvar">
+                        <i class="bi bi-check2"></i>Salvar
                     </button>
                 </div>
             </form>

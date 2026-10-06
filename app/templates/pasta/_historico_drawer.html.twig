@@ -13,13 +13,24 @@
 
 <aside class="ps-drawer" id="psHistorico" role="dialog" aria-modal="true"
        aria-labelledby="psHistoricoTitulo" aria-hidden="true">
+    {# Cabeçalho do desenho (dc 2757-2762, auditoria 2 D5): título + subtítulo com
+       a contagem, sem ícone; fechar com moldura e "×". `.ps-drawer-fechar` fica
+       porque é o gancho do pasta-show.js. #}
+    {% set totalEventos = eventosHistorico|length %}
     <div class="ps-drawer-cab">
-        <i class="bi bi-clock-history"></i>
-        <h2 id="psHistoricoTitulo">Histórico do sistema</h2>
-        <span class="ps-contagem">{{ eventosHistorico|length }}</span>
-        <button type="button" class="ps-drawer-fechar" aria-label="Fechar histórico">
-            <i class="bi bi-x-lg"></i>
-        </button>
+        <div class="flex-grow-1">
+            <h2 id="psHistoricoTitulo">Histórico do sistema</h2>
+            <div class="ps-hist-sub">
+                {%- if totalEventos == 0 -%}
+                    Nenhuma alteração registrada
+                {%- elseif totalEventos == 1 -%}
+                    1 alteração registrada automaticamente
+                {%- else -%}
+                    {{ totalEventos }} alterações registradas automaticamente
+                {%- endif -%}
+            </div>
+        </div>
+        <button type="button" class="ps-drawer-fechar ps-hist-fechar" aria-label="Fechar histórico" title="Fechar">×</button>
     </div>
 
     <div class="ps-drawer-corpo">
@@ -66,8 +77,9 @@
                             {# Texto gerado pelo sistema: escapado, sem editor rico. #}
                             <div class="ps-hist-detalhe">{{ evento.detalhe|nl2br }}</div>
                         {% endif %}
+                        {# Hora EMBAIXO do texto (dc 2775, auditoria 2 D4). #}
+                        <div class="ps-hist-hora">{{ evento.dataHora|date('H:i') }}</div>
                     </div>
-                    <span class="ps-hist-hora">{{ evento.dataHora|date('H:i') }}</span>
                 </div>
             {% endfor %}
         {% endif %}

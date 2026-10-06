@@ -3983,3 +3983,12 @@ a.ps-push-doc-link:hover { color: var(--ps-push-doc); text-decoration: underline
 .ps-modal-pasta-btn--salvar:hover,
 .ps-modal-pasta-btn--salvar:focus-visible { background: var(--ps-accent-hover); color: #fff; }
 .ps-modal-pasta-btn--salvar:disabled { opacity: .55; cursor: default; }
+/* Arranjo dos campos do Editar dados (dc 573-583; lote L1): linhas em grade
+   auto-fit (150px; a segunda, 220px) com 10px 12px; "Nome do cliente" ocupa duas
+   colunas. Abaixo de 420px a grade cai para uma coluna e o span sairia da caixa. */
+.ps-modal-pasta-linha { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px 12px; }
+.ps-modal-pasta-linha--larga { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.ps-modal-pasta-campo { min-width: 0; }
+.ps-modal-pasta-campo--2 { grid-column: span 2; }
+@media (max-width: 420px) { .ps-modal-pasta-campo--2 { grid-column: auto; } }
+.ps-modal-pasta-obrig { color: var(--ps-prazo-atraso); }

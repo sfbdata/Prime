@@ -40,7 +40,9 @@
                 <i class="bi bi-arrow-left"></i><span>Voltar</span>
             </a>
 
-            <span class="ps-cab-nup">PASTA <span class="ps-num">{{ pasta.nup }}</span></span>
+            {# dc 1052 (auditoria 2 C5): "PASTA" e o número são itens do inline-flex
+               (6px no CSS); o espaço entre eles só existe para o texto copiado. #}
+            <span class="ps-cab-nup"><span>PASTA</span> <span class="ps-num">{{ pasta.nup }}</span></span>
 
             {# Divisoria · prioridade · divisoria · etiquetas · "+": o grupo do desenho. #}
             <div class="ps-cab-etiquetas">
@@ -443,8 +445,9 @@
 
     {# ── Linha 3: abas (padrão PJe, desenho 1.2.3) ──────────────────────── #}
     {# Contagens SEMPRE do dado, nunca literais — foi bug corrigido duas vezes na
-       revisão do desenho. Metas e Documentos exibem o total; Push exibe só as NÃO
-       LIDAS (é o que o desenho mostra: lida a publicação, o selo cai). Os `id`
+       revisão do desenho. Metas e Documentos exibem o total, INCLUSIVE o 0 (dc
+       6074-6079, `String(length)`; auditoria 2 C4); Push exibe só as NÃO LIDAS e
+       some com zero (é o que o desenho mostra: lida a publicação, o selo cai). Os `id`
        seguem os antigos porque o pasta-arquivos.js chama bootstrap.Tab em
        `#documentos-tab` depois do upload; renomear aqui quebraria aquele retorno
        em silêncio.
@@ -457,11 +460,11 @@
     {% set pushNaoLidas = push.naoLidas|default(0) %}
     {% set abas = [
         {id: 'dados',      painel: 'dados',      rotulo: 'Dados da pasta', icone: 'bi-folder2-open',  contagem: null},
-        {id: 'tarefas',    painel: 'tarefas',    rotulo: 'Metas',          icone: 'bi-check2-square', contagem: pasta.tarefas|length},
+        {id: 'tarefas',    painel: 'tarefas',    rotulo: 'Metas',          icone: 'bi-check2-square', contagem: pasta.tarefas|length, mostraZero: true},
         {id: 'processo',   painel: 'processo',   rotulo: 'Processo',       icone: 'bi-bank',          contagem: null},
         {id: 'financeiro', painel: 'financeiro', rotulo: 'Financeiro',     icone: 'bi-cash-coin',     contagem: null},
         {id: 'detalhes',   painel: 'detalhes',   rotulo: 'Detalhes',       icone: 'bi-info-circle',   contagem: null},
-        {id: 'documentos', painel: 'documentos', rotulo: 'Documentos',     icone: 'bi-paperclip',     contagem: pasta.documentos|length},
+        {id: 'documentos', painel: 'documentos', rotulo: 'Documentos',     icone: 'bi-paperclip',     contagem: pasta.documentos|length, mostraZero: true},
         {id: 'push',       painel: 'push',       rotulo: 'Push Processual', icone: 'bi-broadcast',     contagem: pushNaoLidas},
     ] %}
     <div class="ps-abas-faixa">
@@ -484,7 +487,7 @@
                     {% if pend %}<span class="ps-aba-pend" aria-hidden="true"></span>{% endif %}
                     <i class="bi {{ aba.icone }}"></i>
                     <span>{{ aba.rotulo }}</span>
-                    {% if aba.contagem %}<span class="ps-aba-badge ps-num">{{ aba.contagem }}</span>{% endif %}
+                    {% if aba.contagem or (aba.contagem is not null and aba.mostraZero|default(false)) %}<span class="ps-aba-badge ps-num">{{ aba.contagem }}</span>{% endif %}
                 </button>
             {% endfor %}
         </div>
@@ -542,9 +545,11 @@
 </header>
 
 <style>
-/* Interruptor do item "Fixar nos favoritos" — medidas do desenho (`swS`/`swB`). */
-.ps-pop-sw { position: relative; width: 30px; height: 17px; border-radius: 999px; flex-shrink: 0; margin-left: auto; background: #cfd9e0; transition: background .2s; }
-.ps-pop-sw.is-ligado { background: #0a7aad; }
+/* Interruptor do item "Fixar nos favoritos" — medidas do desenho (`swS`/`swB`).
+   O trilho é token com par escuro (auditoria 2 C7: `--ps-switch-off`); o valor
+   literal é só o recuo para quando o token não existir. */
+.ps-pop-sw { position: relative; width: 30px; height: 17px; border-radius: 999px; flex-shrink: 0; margin-left: auto; background: var(--ps-switch-off, #cfd9e0); transition: background .2s; }
+.ps-pop-sw.is-ligado { background: var(--ps-accent, #0a7aad); }
 .ps-pop-sw-bola { position: absolute; top: 2px; left: 2px; width: 13px; height: 13px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(10,40,60,.3); transition: left .2s cubic-bezier(.22,.8,.3,1); }
 .ps-pop-sw.is-ligado .ps-pop-sw-bola { left: 15px; }
 </style>
