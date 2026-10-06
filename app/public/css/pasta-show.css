@@ -2898,3 +2898,270 @@ a.ps-push-doc-link:hover { color: var(--ps-push-doc); text-decoration: underline
 .ps-page #documentos .btn:not(.input-group > *) { border-radius: 4px; }
 .ps-page #documentos .form-control:not(.input-group > *),
 .ps-page #documentos .form-select:not(.input-group > *) { border-radius: 4px; }
+
+/* =============================================================================
+   L7 — Clientes do trilho: ícone de cadastro, janela "Detalhes do cliente",
+   ⋮ do prazo e aviso curto. Desenho 1.2.3: janela dc L.779-836, linha do
+   cliente L.1381 (cores L.6125-6126), ⋮ do prazo L.1348, menu genérico L.290.
+   Seção própria: os tokens --ps-l7-* nascem aqui e o escuro os redefine aqui.
+   A janela e o aviso são `position: fixed` e vivem no <body> (fora de
+   `.ps-page`), por isso os tokens vão em `.ps-body` também.
+   ============================================================================= */
+.ps-body,
+.ps-page {
+    --ps-l7-cad-ok:       #1f9d61;
+    --ps-l7-cad-pend:     #d39222;
+    --ps-l7-campo-bg:     #f4f8fa;
+    --ps-l7-numero-bd:    #e8eff3;
+    --ps-l7-atual-bg:     #f1f7fb;
+    --ps-l7-copiado-bg:   #e6f4ec;
+    --ps-l7-copiado-tx:   #1e7b45;
+    --ps-l7-acao-bg:      #f1f6f9;
+    --ps-l7-acao-hv:      #e3f0f8;
+    --ps-l7-tag-ativa-tx: #1e7b45;
+    --ps-l7-tag-ativa-bg: #e6f4ec;
+    --ps-l7-aviso-bg:     #12242f;
+    --ps-l7-aviso-tx:     #fff;
+}
+[data-bs-theme="dark"] .ps-body,
+[data-bs-theme="dark"] .ps-page {
+    --ps-l7-campo-bg:     var(--bs-tertiary-bg);
+    --ps-l7-numero-bd:    var(--bs-border-color);
+    --ps-l7-atual-bg:     rgba(69,176,214,.10);
+    --ps-l7-copiado-bg:   rgba(31,157,97,.18);
+    --ps-l7-copiado-tx:   #5fd39a;
+    --ps-l7-acao-bg:      var(--bs-secondary-bg);
+    --ps-l7-acao-hv:      var(--bs-tertiary-bg);
+    --ps-l7-tag-ativa-tx: #5fd39a;
+    --ps-l7-tag-ativa-bg: rgba(31,157,97,.18);
+    --ps-l7-aviso-bg:     var(--bs-emphasis-color);
+    --ps-l7-aviso-tx:     var(--bs-body-bg);
+}
+
+/* ── Ícone de cadastro ao lado do nome (verde completo · âmbar incompleto) ── */
+.ps-clientes .cliente-cad {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+    padding: 0;
+    border: none;
+    background: transparent;
+    font-size: 13px;
+    line-height: 1;
+    cursor: pointer;
+}
+.ps-clientes .cliente-cad--completo { color: var(--ps-l7-cad-ok); }
+.ps-clientes .cliente-cad--pendente { color: var(--ps-l7-cad-pend); }
+.ps-clientes .cliente-cad:focus-visible { outline: 2px solid var(--ps-accent); outline-offset: 2px; border-radius: 2px; }
+
+/* ── ⋮ do prazo e o menu dele ── */
+.ps-prazo-mais-wrap { flex-shrink: 0; }
+.ps-prazo-mais {
+    width: 22px;
+    height: 22px;
+    margin: -1px -8px 0 -4px;
+    border: none;
+    border-radius: 3px;
+    background: transparent;
+    color: var(--ps-faint);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+.ps-prazo-mais i { font-size: 13px; }
+.ps-prazo-mais:hover,
+.ps-prazo-mais[aria-expanded="true"] { background: var(--ps-accent-bg); color: var(--ps-accent); }
+.ps-pop--menu.ps-pop--prazo { top: 26px; right: -8px; width: 240px; padding: 4px 6px 6px; }
+.ps-prazo-menu-titulo {
+    padding: 6px 10px 5px;
+    letter-spacing: .06em;
+    color: var(--ps-label);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ── Janela "Detalhes do cliente" ── */
+.ps-cli-overlay { position: fixed; inset: 0; z-index: 1060; }
+.ps-cli-janela {
+    position: fixed;
+    z-index: 1061;
+    width: 320px;
+    max-width: calc(100vw - 24px);
+    max-height: calc(100vh - 24px);
+    overflow-y: auto;
+    background: var(--ps-card);
+    color: var(--ps-text);
+    border-radius: 4px;
+    box-shadow: var(--ps-shadow-menu);
+    animation: psL7Entra .2s cubic-bezier(.22,.8,.3,1) both;
+}
+@keyframes psL7Entra { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .ps-cli-janela { animation: none; } }
+.ps-cli-cab {
+    padding: 12px 14px;
+    background: var(--ps-menu-tarja);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    touch-action: none;
+    user-select: none;
+    cursor: grab;
+}
+.ps-cli-janela.is-arrastando .ps-cli-cab { cursor: grabbing; }
+.ps-cli-cab-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: rgba(255,255,255,.18);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 17px;
+}
+.ps-cli-cab-corpo { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.ps-cli-cab-rotulo { font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; opacity: .85; }
+.ps-cli-cab-nome { font-size: 14px; font-weight: 700; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ps-cli-fechar {
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+.ps-cli-fechar i { font-size: 13px; }
+.ps-cli-fechar:hover,
+.ps-cli-fechar:focus-visible { background: rgba(255,255,255,.16); }
+
+.ps-cli-corpo { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 6px; }
+.ps-cli-campo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 6px 5px 10px;
+    background: var(--ps-l7-campo-bg);
+    border-radius: 4px;
+}
+.ps-cli-campo-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.ps-cli-campo-rotulo,
+.ps-cli-secao { font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--ps-label); }
+.ps-cli-campo-valor { font-size: 13.5px; font-weight: 600; color: var(--ps-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ps-cli-copiar {
+    width: 30px;
+    height: 30px;
+    flex-shrink: 0;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--ps-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background .15s, color .15s;
+}
+.ps-cli-copiar i { font-size: 13px; }
+.ps-cli-copiar--mini { width: 26px; height: 26px; }
+.ps-cli-copiar--mini i { font-size: 12.5px; }
+.ps-cli-copiar:hover { background: var(--ps-accent-bg); color: var(--ps-accent); }
+.ps-cli-copiar.is-copiado { background: var(--ps-l7-copiado-bg); color: var(--ps-l7-copiado-tx); }
+
+.ps-cli-numeros { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 6px; margin-top: 2px; }
+.ps-cli-numero {
+    padding: 5px 4px;
+    border-radius: 4px;
+    background: var(--ps-card);
+    box-shadow: inset 0 0 0 1px var(--ps-l7-numero-bd);
+    text-align: center;
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 5px;
+}
+.ps-cli-numero-v { font-size: 16px; font-weight: 700; color: var(--ps-icone); }
+.ps-cli-numero-l { font-size: 11px; color: var(--ps-text-3); line-height: 1.25; white-space: nowrap; }
+
+.ps-cli-pastas { display: flex; flex-direction: column; gap: 2px; margin-top: 2px; }
+.ps-cli-secao { padding: 4px 2px 2px; }
+.ps-cli-pasta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 6px 8px;
+    border-radius: 4px;
+    text-align: left;
+    text-decoration: none;
+    transition: background .15s;
+}
+.ps-body a.ps-cli-pasta,
+.ps-body a.ps-cli-pasta:hover { color: inherit; text-decoration: none; }
+.ps-body a.ps-cli-pasta:hover { background: var(--ps-hover); }
+.ps-cli-pasta--atual { background: var(--ps-l7-atual-bg); cursor: default; }
+.ps-cli-pasta > i { font-size: 14px; color: var(--ps-icone); }
+.ps-cli-pasta-num { font-weight: 700; font-size: 13px; color: var(--ps-text); }
+.ps-cli-pasta-acao { flex: 1; min-width: 0; font-size: 12.5px; color: var(--ps-text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ps-cli-tag { font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 999px; flex-shrink: 0; }
+.ps-cli-tag--atual     { color: var(--ps-accent); background: var(--ps-accent-bg); }
+.ps-cli-tag--ativa     { color: var(--ps-l7-tag-ativa-tx); background: var(--ps-l7-tag-ativa-bg); }
+.ps-cli-tag--arquivada { color: var(--ps-text-3); background: var(--ps-div-strong); }
+.ps-cli-vazio { padding: 4px 2px; font-size: 12.5px; color: var(--ps-text-3); }
+
+.ps-cli-div { height: 1px; background: var(--ps-div-strong); margin: 2px 0; }
+.ps-cli-desde { display: flex; align-items: center; gap: 8px; padding: 2px; font-size: 12.5px; color: var(--ps-text-3); }
+.ps-cli-desde i { font-size: 13px; width: 16px; text-align: center; }
+.ps-cli-contato { display: flex; align-items: center; gap: 6px; min-height: 30px; padding: 0 2px; }
+.ps-cli-contato > i { font-size: 13px; color: var(--ps-muted); width: 16px; text-align: center; flex-shrink: 0; }
+.ps-cli-contato-valor { flex: 1; min-width: 0; font-size: 13px; color: var(--ps-body); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ps-cli-contato--vazio .ps-cli-contato-valor { color: var(--ps-text-3); }
+
+.ps-cli-acoes { display: flex; gap: 6px; flex-wrap: wrap; padding-top: 2px; }
+.ps-cli-acao {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 28px;
+    padding: 0 10px;
+    border: none;
+    border-radius: 4px;
+    background: var(--ps-l7-acao-bg);
+    color: var(--ps-accent);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background .15s;
+}
+.ps-cli-acao i { font-size: 11px; }
+.ps-cli-acao:hover { background: var(--ps-l7-acao-hv); }
+.ps-body a.ps-cli-acao,
+.ps-body a.ps-cli-acao:hover { color: var(--ps-accent); text-decoration: none; }
+
+/* ── Aviso curto ("Prazo copiado", "Qualificação copiada") ── */
+.ps-l7-aviso {
+    position: fixed;
+    left: 50%;
+    bottom: 24px;
+    z-index: 1070;
+    transform: translate(-50%, 8px);
+    padding: 9px 16px;
+    border-radius: 4px;
+    background: var(--ps-l7-aviso-bg);
+    color: var(--ps-l7-aviso-tx);
+    font-size: 13px;
+    box-shadow: var(--ps-shadow-menu);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .18s, transform .18s;
+}
+.ps-l7-aviso.is-visivel { opacity: 1; transform: translate(-50%, 0); }

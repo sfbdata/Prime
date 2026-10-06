@@ -36,8 +36,19 @@
             <div class="ps-vazio-nota">Metas com prazo aparecem aqui, da mais próxima para a mais distante.</div>
         </div>
     {% else %}
+        {# ⋮ por prazo (L7, desenho dc L.1348 e L.6150-6151): "Ver nas metas",
+           "Adicionar à agenda (.ics)" e "Copiar"; o botão direito na linha abre o
+           mesmo menu. "Encaminhar via Chat I.A" e "Alertar <responsável>" do
+           desenho NÃO entraram: não há back-end para nenhum dos dois, e item
+           inerte ensina o usuário a desconfiar do menu.
+           A data do .ics vem da META (dia inteiro, Y-m-d com ano) — o
+           `PastaPrazoOutput.meta` só tem "dd/mm", e o desenho chutava o ano
+           corrente, o que erra todo prazo de dezembro visto em janeiro. #}
         {% for prazo in proximosPrazos %}
-            <div class="ps-linha">
+            {% set tarefaDoPrazo = pasta.tarefas|filter(t => t.id == prazo.tarefaId)|first %}
+            {% set prazoDia = tarefaDoPrazo and tarefaDoPrazo.prazo ? tarefaDoPrazo.prazo.format('Ymd') : '' %}
+            {% set prazoResp = tarefaDoPrazo and tarefaDoPrazo.responsavel ? tarefaDoPrazo.responsavel.fullName : '' %}
+            <div class="ps-linha ps-prazo" data-prazo-id="{{ prazo.tarefaId }}">
                 <span class="ps-pip ps-pip--{{ prazo.tom }}"></span>
                 <div class="ps-linha-corpo">
                     <div class="ps-linha-titulo">
@@ -46,6 +57,33 @@
                     <div class="ps-linha-meta">{{ prazo.meta }}</div>
                 </div>
                 <span class="ps-selo ps-selo--{{ prazo.tom }}">{{ prazo.selo }}</span>
+                <div class="ps-pop-wrap ps-prazo-mais-wrap">
+                    <button type="button" class="ps-prazo-mais" data-ps-pop="psPrazoMenu{{ prazo.tarefaId }}"
+                            aria-haspopup="menu" aria-expanded="false" aria-controls="psPrazoMenu{{ prazo.tarefaId }}"
+                            title="Mais opções" aria-label="Mais opções do prazo"><i class="bi bi-three-dots-vertical"></i></button>
+                    <div class="ps-pop ps-pop--menu ps-pop--prazo" id="psPrazoMenu{{ prazo.tarefaId }}" role="menu">
+                        <div class="ps-pop-secao ps-prazo-menu-titulo" title="{{ prazo.titulo }}">{{ prazo.titulo }}</div>
+                        <button type="button" class="ps-pop-item" role="menuitem" data-ps-ir-aba="tarefas-tab">
+                            <i class="bi bi-check2-square"></i><span>Ver nas metas</span>
+                        </button>
+                        <div class="ps-pop-sep"></div>
+                        {% if prazoDia %}
+                            <button type="button" class="ps-pop-item js-prazo-ics" role="menuitem"
+                                    data-ics-uid="meta-{{ prazo.tarefaId }}"
+                                    data-ics-dia="{{ prazoDia }}"
+                                    data-ics-titulo="{{ prazo.titulo|e('html_attr') }}"
+                                    data-ics-responsavel="{{ prazoResp|e('html_attr') }}"
+                                    data-ics-pasta="{{ pasta.nup|e('html_attr') }}">
+                                <i class="bi bi-calendar-plus"></i><span>Adicionar à agenda (.ics)</span>
+                            </button>
+                        {% endif %}
+                        <button type="button" class="ps-pop-item js-ps-copiar" role="menuitem"
+                                data-ps-copiar="{{ (prazo.titulo ~ ' · ' ~ prazo.selo ~ ' · ' ~ prazo.meta ~ ' · Pasta ' ~ pasta.nup)|e('html_attr') }}"
+                                data-ps-copiado="Prazo copiado">
+                            <i class="bi bi-clipboard"></i><span>Copiar</span>
+                        </button>
+                    </div>
+                </div>
             </div>
         {% endfor %}
     {% endif %}
@@ -59,8 +97,16 @@
    As três ações da linha (tornar principal, abrir ficha, desvincular) NÃO estão
    no desenho, que mostra apenas "abrir". Ficaram: tirá-las apagaria o único
    caminho de desvincular cliente e de trocar o principal — e é o principal que
-   define a Média por CPF. Divergência deliberada, reportada. #}
-<section class="ps-card ps-clientes" data-trilho="clientes">
+   define a Média por CPF. Divergência deliberada, reportada.
+
+   L7: o ícone de cadastro (completo/incompleto) e a janela "Detalhes do
+   cliente" — clique no ícone ou botão direito na linha. A janela é um fragmento
+   (`cliente_resumo`); a URL vai aqui com id 0 e o pasta-clientes.js troca pelo
+   data-cliente-id da linha, para valer também na linha que o JS do show cria
+   ao vincular sem recarregar. #}
+<section class="ps-card ps-clientes" data-trilho="clientes"
+         data-resumo-url="{{ path('cliente_resumo', {id: 0}) }}"
+         data-pasta-id="{{ pasta.id }}">
     <div class="ps-card-cab">
         <h2>Clientes</h2>
         {% if pasta.clientes|length > 0 %}
@@ -169,3 +215,9 @@
         {% endfor %}
     {% endif %}
 </section>
+
+{# Comportamento do L7 (janela do cliente, copiar, .ics). Fica no parcial do
+   trilho, e não no show, porque é só o trilho que precisa dele; `defer` o faz
+   rodar depois do HTML inteiro. Tudo nele é delegação de evento no document:
+   não depende da ordem em relação ao pasta-show.js (que liga os popovers ⋮). #}
+<script src="{{ asset('js/pasta-clientes.js') }}" defer></script>

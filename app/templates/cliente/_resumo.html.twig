@@ -1,0 +1,106 @@
+{# ============================================================================
+   Janela "Detalhes do cliente" — fragmento servido por `cliente_resumo`
+   (ClienteResumoController) e posto na tela da pasta pelo pasta-clientes.js.
+   Desenho aprovado: "02 - EXPEDIENTES 1.2.3.dc.html", L.779-836.
+
+   SOMENTE LEITURA. No desenho telefone e e-mail se editam aqui mesmo (lápis,
+   "+ Telefone", "+ E-mail"); essa edição continua na ficha, pelo link "Editar
+   cadastro". No rodapé, onde o desenho tem os dois "+", ficam "Copiar
+   qualificação" (que no desenho mora no modal de cadastro, que não existe aqui)
+   e "Editar cadastro".
+
+   Contexto: `resumo` (ClienteResumoOutput). As pastas já vêm filtradas pela
+   permissão POR PASTA — o template não filtra nada.
+   ============================================================================ #}
+{% set tagRotulo = {atual: 'Atual', ativa: 'Ativa', arquivada: 'Arquivada'} %}
+<div class="ps-cli-janela" role="dialog" aria-label="Detalhes do cliente" data-cliente-id="{{ resumo.clienteId }}">
+    <div class="ps-cli-cab" data-ps-cli-arrastar title="Arraste para mover">
+        <span class="ps-cli-cab-avatar" aria-hidden="true"><i class="bi bi-person-fill"></i></span>
+        <span class="ps-cli-cab-corpo">
+            <span class="ps-cli-cab-rotulo">Detalhes do cliente</span>
+            <span class="ps-cli-cab-nome">{{ resumo.nome }}</span>
+        </span>
+        <button type="button" class="ps-cli-fechar js-ps-cli-fechar" aria-label="Fechar"><i class="bi bi-x-lg"></i></button>
+    </div>
+
+    <div class="ps-cli-corpo">
+        <div class="ps-cli-campo" data-campo="nome">
+            <span class="ps-cli-campo-txt">
+                <span class="ps-cli-campo-rotulo">Nome</span>
+                <span class="ps-cli-campo-valor">{{ resumo.nome }}</span>
+            </span>
+            <button type="button" class="ps-cli-copiar js-ps-copiar" data-ps-copiar="{{ resumo.nome|e('html_attr') }}"
+                    title="Copiar" aria-label="Copiar nome"><i class="bi bi-copy"></i></button>
+        </div>
+
+        {% if resumo.documento is not empty %}
+            <div class="ps-cli-campo" data-campo="documento">
+                <span class="ps-cli-campo-txt">
+                    <span class="ps-cli-campo-rotulo">{{ resumo.documentoRotulo }}</span>
+                    <span class="ps-cli-campo-valor ps-num">{{ resumo.documento }}</span>
+                </span>
+                <button type="button" class="ps-cli-copiar js-ps-copiar" data-ps-copiar="{{ resumo.documento|e('html_attr') }}"
+                        title="Copiar" aria-label="Copiar {{ resumo.documentoRotulo }}"><i class="bi bi-copy"></i></button>
+            </div>
+        {% endif %}
+
+        <div class="ps-cli-numeros">
+            <div class="ps-cli-numero"><span class="ps-cli-numero-v ps-num">{{ resumo.totalPastas }}</span><span class="ps-cli-numero-l">{{ resumo.totalPastas == 1 ? 'pasta' : 'pastas' }}</span></div>
+            <div class="ps-cli-numero"><span class="ps-cli-numero-v ps-num">{{ resumo.pastasAtivas }}</span><span class="ps-cli-numero-l">{{ resumo.pastasAtivas == 1 ? 'ativa' : 'ativas' }}</span></div>
+            <div class="ps-cli-numero"><span class="ps-cli-numero-v ps-num">{{ resumo.pastasComProcesso }}</span><span class="ps-cli-numero-l">com processo</span></div>
+        </div>
+
+        <div class="ps-cli-pastas">
+            <span class="ps-cli-secao">Pastas com o mesmo {{ resumo.documentoRotulo in ['CPF', 'CNPJ'] ? resumo.documentoRotulo : 'cliente' }}</span>
+            {% for p in resumo.pastas %}
+                {% if p.tag == 'atual' %}
+                    <span class="ps-cli-pasta ps-cli-pasta--atual" data-pasta-id="{{ p.id }}">
+                        <i class="bi bi-folder2"></i>
+                        <span class="ps-cli-pasta-num ps-num">{{ p.nup }}</span>
+                        <span class="ps-cli-pasta-acao">{{ p.acao }}</span>
+                        <span class="ps-cli-tag ps-cli-tag--atual">{{ tagRotulo[p.tag] }}</span>
+                    </span>
+                {% else %}
+                    <a class="ps-cli-pasta" href="{{ path('pasta_show', {id: p.id}) }}" data-pasta-id="{{ p.id }}">
+                        <i class="bi bi-folder2"></i>
+                        <span class="ps-cli-pasta-num ps-num">{{ p.nup }}</span>
+                        <span class="ps-cli-pasta-acao">{{ p.acao }}</span>
+                        <span class="ps-cli-tag ps-cli-tag--{{ p.tag }}">{{ tagRotulo[p.tag] }}</span>
+                    </a>
+                {% endif %}
+            {% else %}
+                <span class="ps-cli-vazio">Nenhuma pasta que você possa abrir.</span>
+            {% endfor %}
+        </div>
+
+        <div class="ps-cli-div"></div>
+
+        <div class="ps-cli-desde"><i class="bi bi-calendar3"></i>{{ resumo.clienteDesde ? 'Cliente desde ' ~ resumo.clienteDesde|date('d/m/Y') : 'Cliente cadastrado' }}</div>
+
+        {% for c in resumo.contatos %}
+            <div class="ps-cli-contato" data-contato="{{ c.rotulo|e('html_attr') }}">
+                <i class="bi {{ c.icone }}" title="{{ c.rotulo }}"></i>
+                <span class="ps-cli-contato-valor">{{ c.valor }}</span>
+                <button type="button" class="ps-cli-copiar ps-cli-copiar--mini js-ps-copiar" data-ps-copiar="{{ c.valor|e('html_attr') }}"
+                        title="Copiar" aria-label="Copiar {{ c.rotulo|lower }}"><i class="bi bi-copy"></i></button>
+            </div>
+        {% else %}
+            <div class="ps-cli-contato ps-cli-contato--vazio"><i class="bi bi-telephone-x"></i><span class="ps-cli-contato-valor">Nenhum contato informado</span></div>
+        {% endfor %}
+
+        <div class="ps-cli-acoes">
+            {% if resumo.qualificacao is not empty %}
+                {% set dicaQual = resumo.pendencias is empty
+                    ? 'Copiar a qualificação jurídica completa'
+                    : 'Copiar a qualificação — o cadastro ainda tem ' ~ resumo.pendencias|length ~ (resumo.pendencias|length == 1 ? ' pendência' : ' pendências') ~ ': ' ~ resumo.pendencias|join('; ') %}
+                <button type="button" class="ps-cli-acao js-ps-copiar js-ps-copiar-qualificacao"
+                        data-ps-copiar="{{ resumo.qualificacao|e('html_attr') }}"
+                        data-ps-copiado="Qualificação copiada"
+                        title="{{ dicaQual }}"><i class="bi bi-clipboard-check"></i><span>Copiar qualificação</span></button>
+            {% endif %}
+            {% if resumo.podeEditar %}
+                <a class="ps-cli-acao ps-cli-acao--link" href="{{ path('cliente_edit', {id: resumo.clienteId}) }}"><i class="bi bi-pencil"></i><span>Editar cadastro</span></a>
+            {% endif %}
+        </div>
+    </div>
+</div>

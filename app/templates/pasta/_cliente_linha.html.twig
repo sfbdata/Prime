@@ -4,8 +4,23 @@
    inerte no principal, vazia e clicavel nos demais) e a classe do bloco de fora.
    Dois templates quase iguais divergiriam na primeira alteracao.
 
+   Icone de cadastro (L7, desenho 1.2.3 dc L.1381 e L.6125-6126): verde quando o
+   cadastro esta completo, ambar quando falta algo. A regra e a do servico
+   `PendenciasDoCadastro` (funcao Twig `cliente_pendencias`), e o title lista O
+   QUE falta. Clicar nele — ou o botao direito em qualquer ponto da linha — abre a
+   janela "Detalhes do cliente" (pasta-clientes.js).
+   O espelho JS desta linha em show.html.twig NAO tem o icone: cliente vinculado
+   sem recarregar fica sem ele ate o proximo carregamento. O botao direito
+   funciona nessa linha mesmo assim, porque so precisa do data-cliente-id.
+
    Parametros: pasta, cliente, ehPrincipal (bool). #}
 {% set doc = cliente.cpf is defined ? cliente.cpf : (cliente.cnpj is defined ? cliente.cnpj : null) %}
+{% set pendencias = cliente_pendencias(cliente) %}
+{% set cadCompleto = pendencias is empty %}
+{% set cadDica = cadCompleto
+    ? 'Cadastro completo · abrir detalhes do cliente'
+    : 'Cadastro incompleto: ' ~ pendencias|length ~ (pendencias|length == 1 ? ' pendência' : ' pendências')
+      ~ ' · abrir detalhes do cliente' ~ "\n" ~ pendencias|map(p => '• ' ~ p)|join("\n") %}
 {# Iniciais das DUAS primeiras palavras, como o desenho (e como o JS do show). #}
 {% set partesNome = cliente.nomeExibicao|trim|split(' ')|filter(p => p is not empty) %}
 {% set iniciais = partesNome|slice(0, 2)|map(p => p|slice(0, 1))|join('')|upper %}
@@ -23,6 +38,10 @@
            e a linha inteira vazava para fora do cartao. #}
         <div class="cliente-nome">
             <span class="cliente-nome-texto">{{ cliente.nomeExibicao }}</span>
+            <button type="button"
+                    class="cliente-cad js-ps-cli-detalhes cliente-cad--{{ cadCompleto ? 'completo' : 'pendente' }}"
+                    data-pendencias="{{ pendencias|length }}"
+                    title="{{ cadDica }}" aria-label="{{ cadDica }}"><i class="bi bi-person-vcard" aria-hidden="true"></i></button>
             {%- if ehPrincipal %}<span class="ps-selo-principal">Principal</span>{% endif -%}
         </div>
         {% if doc %}
