@@ -17,6 +17,7 @@ use App\Processo\Entity\MovimentacaoProcesso;
 use App\Cliente\Repository\ClienteRepository;
 use App\Cliente\Repository\ClientePFRepository;
 use App\Cliente\Repository\ClientePJRepository;
+use App\Cliente\Service\PendenciasDoCadastro;
 use App\Repository\ClienteDocumentoRepository;
 use App\Pasta\Repository\PastaDocumentoRepository;
 use App\Pasta\Repository\PastaRepository;
@@ -775,14 +776,27 @@ class PastaController extends AbstractController
         return $this->redirectToRoute('pasta_show', ['id' => $pastaId, '_fragment' => 'dados']);
     }
 
+    /**
+     * Busca de cliente para vincular à pasta — usada pelo modal "Adicionar Cliente" e pela busca
+     * inline do cartão Clientes do trilho (desenho 1.2.3, L.1357-1372 e L.3304).
+     *
+     * JSON de cada item: `id`, `nome`, `tipo` (PF|PJ), `documento`, `documentoRotulo` (CPF|CNPJ|
+     * Documento), `completo` (bool, PendenciasDoCadastro), `jaVinculado` (bool) e `selo`
+     * (`completo` | `incompleto` | `ja_vinculado`).
+     *
+     * PII: `documento` sai MASCARADO (`***.456.789-**`) e só vem inteiro quando o termo digitado
+     * é o próprio documento inteiro — quem já sabe o CPF não aprende nada; quem digita um nome
+     * não coleta o CPF de todo mundo que se chama "Maria".
+     *
+     * Vinculados: o modal antigo nunca os recebe (contrato dele). A busca do trilho pede
+     * `incluirVinculados=1` para mostrar o selo "Já vinculado", como o desenho.
+     */
     #[Route('/{id}/clientes/buscar', name: 'pasta_clientes_buscar', methods: ['GET'])]
-    public function buscarClientes(Pasta $pasta, Request $request): JsonResponse
+    public function buscarClientes(Pasta $pasta, Request $request, PendenciasDoCadastro $pendencias): JsonResponse
     {
-        /** @var \App\Entity\Auth\User $currentUser */
-        $currentUser = $this->getUser();
-
         $pastaId = (int) $pasta->getId();
-        if ($this->denyResourceAccessUnlessGranted($this->permissionChecker, $this->tenantContext->getCurrentTenant(), AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_VIEW, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
+        $tenant  = $this->tenantContext->getCurrentTenant();
+        if ($this->denyResourceAccessUnlessGranted($this->permissionChecker, $tenant, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_VIEW, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
             return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
         }
 
@@ -791,40 +805,84 @@ class PastaController extends AbstractController
             return $this->json([]);
         }
 
-        $clientesVinculados = $pasta->getClientes()->map(fn($c) => $c->getId())->toArray();
+        $incluirVinculados  = $request->query->getBoolean('incluirVinculados');
+        $clientesVinculados = array_values($pasta->getClientes()->map(fn($c) => $c->getId())->toArray());
+        $termoMinusculo     = mb_strtolower($termo);
+        $termoDigitos       = (string) preg_replace('/\D/', '', $termo);
 
-        $todos = $this->clienteRepository->findAll();
-        $resultado = [];
+        $achados = [];
+        foreach ($this->clienteRepository->findAll() as $cliente) {
+            // Defesa em profundidade: o TenantFilter já restringe o findAll, mas um cliente de
+            // outro escritório aqui vazaria nome e documento — conferir de novo custa nada.
+            if ($tenant !== null && $cliente->getTenant()?->getId() !== $tenant->getId()) {
+                continue;
+            }
 
-        foreach ($todos as $cliente) {
-            if (in_array($cliente->getId(), $clientesVinculados, true)) {
+            $jaVinculado = in_array($cliente->getId(), $clientesVinculados, true);
+            if ($jaVinculado && !$incluirVinculados) {
                 continue;
             }
 
             $nome = $cliente instanceof ClientePF
                 ? $cliente->getNomeCompleto()
-                : $cliente->getRazaoSocial();
+                : ($cliente instanceof ClientePJ ? $cliente->getRazaoSocial() : '');
 
             $documento = $cliente instanceof ClientePF
                 ? ($cliente->getCpf() ?? '')
-                : ($cliente->getCnpj() ?? '');
+                : ($cliente instanceof ClientePJ ? ($cliente->getCnpj() ?? '') : '');
+            $documentoDigitos = (string) preg_replace('/\D/', '', $documento);
 
-            if (str_contains(mb_strtolower($nome), mb_strtolower($termo))
-                || str_contains($documento, $termo)) {
-                $resultado[] = [
-                    'id'        => $cliente->getId(),
-                    'nome'      => $nome,
-                    'documento' => $documento,
-                    'tipo'      => $cliente instanceof ClientePF ? 'PF' : 'PJ',
-                ];
+            // Pontuação do desenho: documento idêntico 3, trecho do documento 2, nome 1.
+            $pontos = 0;
+            if ($documentoDigitos !== '' && strlen($termoDigitos) >= 3 && str_contains($documentoDigitos, $termoDigitos)) {
+                $pontos = $documentoDigitos === $termoDigitos ? 3 : 2;
+            } elseif ($documento !== '' && str_contains($documento, $termo)) {
+                $pontos = 2;
+            } elseif (str_contains(mb_strtolower($nome), $termoMinusculo)) {
+                $pontos = 1;
             }
 
-            if (count($resultado) >= 10) {
-                break;
+            if ($pontos > 0) {
+                $achados[] = [$pontos, $cliente, $nome, $documento, $documentoDigitos, $jaVinculado];
             }
         }
 
+        // Ordenação estável: empate mantém a ordem do repositório.
+        usort($achados, static fn(array $a, array $b) => $b[0] <=> $a[0]);
+
+        $resultado = [];
+        foreach (array_slice($achados, 0, 10) as [, $cliente, $nome, $documento, $documentoDigitos, $jaVinculado]) {
+            $documentoInteiro = $documentoDigitos !== '' && $documentoDigitos === $termoDigitos;
+            $completo         = $pendencias->estaCompleto($cliente);
+
+            $resultado[] = [
+                'id'              => $cliente->getId(),
+                'nome'            => $nome,
+                'documento'       => $documentoInteiro ? $documento : self::mascararDocumento($documentoDigitos),
+                'documentoRotulo' => match (strlen($documentoDigitos)) { 11 => 'CPF', 14 => 'CNPJ', default => 'Documento' },
+                'tipo'            => $cliente instanceof ClientePF ? 'PF' : 'PJ',
+                'completo'        => $completo,
+                'jaVinculado'     => $jaVinculado,
+                'selo'            => $jaVinculado ? 'ja_vinculado' : ($completo ? 'completo' : 'incompleto'),
+            ];
+        }
+
         return $this->json($resultado);
+    }
+
+    /**
+     * Máscara do desenho (L.3304): CPF `***.456.789-**`. CNPJ no mesmo espírito — some o começo
+     * e o fim, fica o miolo: `**.345.678/****-**`. Documento fora do formato não tem miolo
+     * confiável e sai todo coberto.
+     */
+    private static function mascararDocumento(string $digitos): string
+    {
+        return match (strlen($digitos)) {
+            0       => '',
+            11      => '***.' . substr($digitos, 3, 3) . '.' . substr($digitos, 6, 3) . '-**',
+            14      => '**.' . substr($digitos, 2, 3) . '.' . substr($digitos, 5, 3) . '/****-**',
+            default => str_repeat('*', strlen($digitos)),
+        };
     }
 
     #[Route('/{id}/cliente/vincular', name: 'pasta_cliente_vincular', methods: ['POST'])]

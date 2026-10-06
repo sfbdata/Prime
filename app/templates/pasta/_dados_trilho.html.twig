@@ -104,6 +104,14 @@
    (`cliente_resumo`); a URL vai aqui com id 0 e o pasta-clientes.js troca pelo
    data-cliente-id da linha, para valer também na linha que o JS do show cria
    ao vincular sem recarregar. #}
+{# Busca inline (desenho L.1357-1372, regra em L.3304): o + abre o campo "Nome ou
+   CPF do cliente" no PRÓPRIO cartão, como no desenho — antes abria o modal.
+   O modal #modalAdicionarCliente segue no show (é contrato) e é para onde leva
+   "Cadastrar cliente": é ele que cadastra E vincula numa tacada só.
+   A busca é a mesma `pasta_clientes_buscar` (com `incluirVinculados=1`, para o
+   selo "Já vinculado") e o vínculo é o mesmo `pasta_cliente_vincular`, com o
+   MESMO id de token CSRF do modal. O documento chega MASCARADO do servidor; só
+   vem inteiro quando o que se digitou é o documento inteiro. #}
 <section class="ps-card ps-clientes" data-trilho="clientes"
          data-resumo-url="{{ path('cliente_resumo', {id: 0}) }}"
          data-pasta-id="{{ pasta.id }}">
@@ -113,8 +121,27 @@
             <span class="ps-contagem">{{ pasta.clientes|length }}</span>
         {% endif %}
         <span class="ps-cab-espaco"></span>
-        <button type="button" class="ps-card-cab-add" title="Vincular cliente" aria-label="Vincular cliente"
-                data-bs-toggle="modal" data-bs-target="#modalAdicionarCliente"><i class="bi bi-plus-lg"></i></button>
+        <button type="button" class="ps-card-cab-add js-ps-vinc-abrir" title="Vincular cliente" aria-label="Vincular cliente"
+                aria-expanded="false" aria-controls="psVincCliente"><i class="bi bi-plus-lg"></i></button>
+    </div>
+
+    <div class="ps-vinc" id="psVincCliente" hidden
+         data-busca-url="{{ path('pasta_clientes_buscar', {id: pasta.id}) }}"
+         data-vincular-url="{{ path('pasta_cliente_vincular', {id: pasta.id}) }}"
+         data-vincular-token="{{ csrf_token('pasta_cliente_vincular_' ~ pasta.id) }}">
+        <div class="ps-vinc-campo">
+            <i class="bi bi-search" aria-hidden="true"></i>
+            <input type="search" class="ps-vinc-input" autocomplete="off"
+                   placeholder="Nome ou CPF do cliente" aria-label="Buscar cliente por nome ou CPF">
+        </div>
+        <div class="ps-vinc-resultados" role="listbox" aria-label="Clientes encontrados"></div>
+        <div class="ps-vinc-vazio" hidden>
+            <i class="bi bi-person-x" aria-hidden="true"></i>
+            <span class="ps-vinc-vazio-texto">Cliente ainda não cadastrado.</span>
+            <button type="button" class="ps-vinc-cadastrar js-ps-vinc-cadastrar"
+                    data-bs-toggle="modal" data-bs-target="#modalAdicionarCliente"><i class="bi bi-person-plus"></i>Cadastrar cliente</button>
+        </div>
+        <div class="ps-vinc-erro" role="alert" hidden></div>
     </div>
 
     <div id="clientesList">
@@ -221,3 +248,4 @@
    rodar depois do HTML inteiro. Tudo nele é delegação de evento no document:
    não depende da ordem em relação ao pasta-show.js (que liga os popovers ⋮). #}
 <script src="{{ asset('js/pasta-clientes.js') }}" defer></script>
+<script src="{{ asset('js/pasta-clientes-busca.js') }}" defer></script>

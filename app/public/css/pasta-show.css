@@ -1572,6 +1572,120 @@ span.ps-situacao-pill { cursor: default; }
 .ps-clientes-rolagem::-webkit-scrollbar { width: 5px; }
 .ps-clientes-rolagem::-webkit-scrollbar-thumb { background: var(--ps-border); border-radius: 3px; }
 
+/* ── Busca inline para vincular (desenho 1.2.3, L.1357-1372) ──
+   Faixa sob o cabeçalho: 10/14/12 de respiro, fundo #f8fbfc, campo de 34px com
+   a lupa dentro, resultados como botões brancos de borda interna e o selo em
+   pílula 10.5/700. `[hidden]` reafirmado porque o display:flex venceria o
+   atributo e o painel nunca fecharia. */
+.ps-vinc {
+    padding: 10px 14px 12px;
+    border-bottom: 1px solid var(--ps-div-strong);
+    background: #f8fbfc;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.ps-vinc[hidden],
+.ps-vinc-vazio[hidden],
+.ps-vinc-erro[hidden] { display: none; }
+[data-bs-theme="dark"] .ps-vinc { background: var(--bs-tertiary-bg); }
+.ps-vinc-campo { position: relative; }
+.ps-vinc-campo > i {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 13px;
+    color: var(--ps-faint);
+    pointer-events: none;
+}
+.ps-vinc-input {
+    width: 100%;
+    box-sizing: border-box;
+    height: 34px;
+    padding: 0 10px 0 30px;
+    border: 1px solid #d3dde4;
+    border-radius: 4px;
+    background: var(--ps-card);
+    font-family: inherit;
+    font-size: 13.5px;
+    color: var(--ps-text);
+    outline: none;
+    transition: border-color .15s, box-shadow .15s;
+}
+.ps-vinc-input::placeholder { color: var(--ps-placeholder); }
+.ps-vinc-input:focus { border-color: var(--ps-accent); box-shadow: 0 0 0 3px var(--ps-foco-anel); }
+[data-bs-theme="dark"] .ps-vinc-input { border-color: var(--bs-border-color); }
+.ps-vinc-resultados { display: flex; flex-direction: column; gap: 8px; }
+.ps-vinc-resultados:empty { display: none; }
+.ps-vinc-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 7px 9px;
+    border: none;
+    border-radius: 4px;
+    background: var(--ps-card);
+    box-shadow: inset 0 0 0 1px #e3eaef;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background .15s;
+}
+.ps-vinc-item:hover,
+.ps-vinc-item:focus-visible { background: var(--ps-chip-bg); }
+[data-bs-theme="dark"] .ps-vinc-item { box-shadow: inset 0 0 0 1px var(--bs-border-color); }
+.ps-vinc-item-corpo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; text-align: left; }
+.ps-vinc-item-nome {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ps-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.ps-vinc-item-doc { font-size: 11.5px; color: var(--ps-muted); font-variant-numeric: tabular-nums; }
+.ps-vinc-selo {
+    font-size: 10.5px;
+    font-weight: 700;
+    white-space: nowrap;
+    padding: 2px 8px;
+    border-radius: 999px;
+    flex-shrink: 0;
+}
+.ps-vinc-selo--completo   { color: var(--ps-ok-text);   background: var(--ps-ok-bg); }
+.ps-vinc-selo--incompleto { color: var(--ps-warn-text); background: var(--ps-warn-bg); }
+.ps-vinc-selo--vinculado  { color: var(--ps-aba-text);  background: var(--ps-div-strong); }
+.ps-vinc-vazio {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    font-size: 12.5px;
+    color: var(--ps-aba-text);
+}
+.ps-vinc-vazio > i { color: #a8661a; }
+.ps-vinc-vazio-texto { flex: 1; min-width: 140px; }
+.ps-vinc-cadastrar {
+    height: 30px;
+    padding: 0 11px;
+    border: none;
+    border-radius: 4px;
+    background: var(--ps-accent);
+    color: #fff;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    white-space: nowrap;
+}
+.ps-vinc-cadastrar:hover,
+.ps-vinc-cadastrar:focus-visible { background: var(--ps-accent-hover); }
+.ps-vinc-erro { font-size: 12.5px; color: var(--ps-danger-text); }
+
 /* ── Documentos do trilho ──
    A linha inteira é o alvo: clicar abre o pré-visualizador. Cor de texto normal
    (e não a de link) porque quem convida ao clique é a linha, não uma palavra

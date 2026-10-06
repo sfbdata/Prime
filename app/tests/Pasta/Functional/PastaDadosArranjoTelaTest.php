@@ -404,16 +404,48 @@ final class PastaDadosArranjoTelaTest extends JusPrimeWebTestCase
             'a lista de clientes é do cartão Clientes do trilho'
         );
         self::assertCount(1, $crawler->filter('#clientesList'), 'existe UMA lista, não duas');
+        // Desenho 1.2.3 (L.1357): o "+" abre a busca inline do cartão, não mais o modal.
         self::assertCount(
             1,
-            $crawler->filter('[data-trilho="clientes"] .ps-card-cab [data-bs-target="#modalAdicionarCliente"]'),
-            'o botão "+ Vincular" fica no cabeçalho do cartão'
+            $crawler->filter('[data-trilho="clientes"] > .ps-card-cab > button.js-ps-vinc-abrir[aria-controls="psVincCliente"]'),
+            'o botão "+ Vincular" fica no cabeçalho do cartão e abre a busca inline'
         );
         self::assertCount(
             1,
             $crawler->filter('#clientesList .cliente-principal .ps-selo-principal'),
             'o cliente principal ganha o selo âmbar do desenho'
         );
+    }
+
+    #[TestDox('a busca "Nome ou CPF" mora no PRÓPRIO cartão Clientes, logo abaixo do cabeçalho, e o modal segue de pé')]
+    public function testBuscaInlineNoCartaoDeClientes(): void
+    {
+        $client                       = static::createClient();
+        [$em, $user, $tenant, $pasta] = $this->criarBase();
+        $em->flush();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $this->abrir($client, $pasta);
+
+        $painel = $crawler->filter('.ps-trilho > [data-trilho="clientes"] > .ps-card-cab + #psVincCliente.ps-vinc');
+        self::assertCount(1, $painel, 'o painel de busca é filho direto do cartão, logo depois do cabeçalho');
+        self::assertNotNull($painel->attr('hidden'), 'nasce fechado: quem abre é o "+"');
+
+        $campo = $painel->filter('.ps-vinc > .ps-vinc-campo > input.ps-vinc-input');
+        self::assertCount(1, $campo, 'o campo é filho direto do painel');
+        self::assertSame('Nome ou CPF do cliente', $campo->attr('placeholder'), 'texto do desenho');
+
+        self::assertSame('/pasta/' . $pasta->getId() . '/clientes/buscar', $painel->attr('data-busca-url'), 'reusa a busca do modal');
+        self::assertSame('/pasta/' . $pasta->getId() . '/cliente/vincular', $painel->attr('data-vincular-url'), 'reusa o vínculo do modal');
+        self::assertNotSame('', (string) $painel->attr('data-vincular-token'), 'leva o token CSRF do vínculo');
+
+        $cadastrar = $painel->filter('.ps-vinc > .ps-vinc-vazio > button.js-ps-vinc-cadastrar[data-bs-target="#modalAdicionarCliente"]');
+        self::assertCount(1, $cadastrar, '"Cadastrar cliente" leva ao cadastro do modal existente');
+        self::assertStringContainsString('Cadastrar cliente', $cadastrar->text());
+        self::assertStringContainsString('Cliente ainda não cadastrado.', $painel->filter('.ps-vinc-vazio')->text());
+
+        self::assertCount(1, $crawler->filter('#modalAdicionarCliente #buscaClienteExistente'), 'o modal antigo continua na página (contrato)');
+        self::assertCount(1, $crawler->filter('script[src*="js/pasta-clientes-busca.js"]'), 'o JS da busca inline é carregado');
     }
 
     #[TestDox('quem é o principal se vê SEM passar o mouse: a estrela cheia e o selo são estruturais')]
