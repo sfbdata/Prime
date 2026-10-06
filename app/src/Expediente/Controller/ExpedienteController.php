@@ -219,8 +219,8 @@ final class ExpedienteController extends AbstractController
         $page       = min($page, $totalPages);
 
         $pastas = $hasFilters
-            ? $this->pastaRepository->findByFiltrosEMarcador($filters, $marcador, $tenant, $page, self::PER_PAGE, $ordenar, $direcao)
-            : $this->pastaRepository->findPorMarcador($marcador, $tenant, $page, self::PER_PAGE, $ordenar, $direcao);
+            ? $this->pastaRepository->findByFiltrosEMarcador($filters, $marcador, $tenant, $page, self::PER_PAGE, $ordenar, $direcao, $user)
+            : $this->pastaRepository->findPorMarcador($marcador, $tenant, $page, self::PER_PAGE, $ordenar, $direcao, $user);
 
         $urlPainel = $this->generateUrl('expediente_marcador_pastas', ['id' => $id]);
 
@@ -299,7 +299,7 @@ final class ExpedienteController extends AbstractController
         $page       = min($page, $totalPages);
 
         return $this->render('expediente/_acervo_geral.html.twig', [
-            'pastas'       => $this->pastaRepository->findByFilters($filters, $tenant, $page, self::PER_PAGE, $ordenar, $direcao),
+            'pastas'       => $this->pastaRepository->findByFilters($filters, $tenant, $page, self::PER_PAGE, $ordenar, $direcao, $user),
             'filters'      => $filters,
             'ordenar'      => $ordenar,
             'direcao'      => $direcao,

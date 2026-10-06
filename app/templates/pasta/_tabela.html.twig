@@ -7,6 +7,9 @@
 {% set fotosResponsaveis = fotosResponsaveis ?? {} %}
 {% set ordCol = ordenar ?? '' %}
 {% set ordDir = (direcao ?? '') == 'asc' ? 'asc' : 'desc' %}
+{# Favoritas do usuário logado (menu ⋮ da pasta → "Fixar nos favoritos"): uma consulta só,
+   e a linha ganha a estrela. Quem as põe no topo é a ordenação do repositório. #}
+{% set favoritasIds = pastas_favoritas_ids() %}
 
 <style>
 @keyframes urgente-pulso {
@@ -86,7 +89,7 @@
                 {% for pasta in pastas %}
                 {% set dias = date().diff(pasta.dataAbertura).days %}
                 <tr class="pasta-row-link{% if pasta.prioridade.value == 'urgente' %} pasta-row-urgente{% endif %}{% if pasta.estaExcluida %} pasta-excluida{% endif %}" style="cursor:pointer;" data-href="{{ path('pasta_show', {id: pasta.id}) }}">
-                    <td class="fw-semibold ps-3 align-middle">{{ pasta.nup }}</td>
+                    <td class="fw-semibold ps-3 align-middle">{% if favoritasIds[pasta.id] is defined %}<i class="bi bi-star-fill pasta-favorita-estrela me-1" title="Fixada nos favoritos" aria-label="Fixada nos favoritos"></i>{% endif %}{{ pasta.nup }}</td>
                     <td class="align-middle">
                         {# O NOME DA PASTA vem primeiro; o cliente cadastrado é o fallback. A ordem
                            era a inversa e escondia o padrão do escritório (`CREDOR - DEVEDOR`)
@@ -328,6 +331,7 @@
 
 .pasta-card-topo { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .pasta-card-ident { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.pasta-favorita-estrela { color: #f0b400; font-size: .8rem; }
 .pasta-card-nup { font-weight: 600; font-size: .78rem; color: var(--bs-secondary-color); white-space: nowrap; }
 .pasta-card-cliente {
     font-size: .95rem; font-weight: 600; color: var(--bs-body-color); text-transform: uppercase;

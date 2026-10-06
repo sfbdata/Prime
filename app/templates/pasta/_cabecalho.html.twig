@@ -11,11 +11,13 @@
      3. abas no padrão PJe, com a Situação (Ativo / Arquivado) à direita.
 
    As ações (Editar dados, Histórico, Duplicar, Vincular processo, Trocar
-   responsável, Copiar link, Imprimir resumo, Arquivar/Desarquivar, Excluir) vivem
-   no menu ⋮, com a tarja azul do desenho. O que o desenho mostra e o sistema ainda
-   não tem (Mover carteira, Timeline inteligente, Link do Push, Acompanhar,
-   Favoritos, Cadeado, Cadastro, Intelligence, foto do cliente) NÃO é renderizado:
-   item inerte ensina o usuário a desconfiar do menu inteiro.
+   responsável, Copiar link, Imprimir resumo, Fixar nos favoritos,
+   Arquivar/Desarquivar, Excluir) vivem no menu ⋮, com a tarja azul do desenho.
+   O que o desenho mostra e o sistema ainda não tem (Mover carteira, Timeline
+   inteligente, Link do Push, Acompanhar, Cadeado, Cadastro, Intelligence, foto do
+   cliente) NÃO é renderizado: item inerte ensina o usuário a desconfiar do menu
+   inteiro. "Fixar nos favoritos" (seção Preferências) é real: POST
+   `pasta_favorito_alternar`.
 
    Pasta arquivada ganha o selo carimbado ARQUIVADO sobre a faixa de dados
    (desenho, `seloEl`). Suspenso e Cancelado não existem no sistema e não têm selo.
@@ -207,6 +209,20 @@
                        href="{{ path('pasta_resumo_imprimir', {id: pasta.id}) }}">
                         <i class="bi bi-printer"></i><span>Imprimir resumo</span>
                     </a>
+
+                    <div class="ps-pop-sep"></div>
+                    <div class="ps-pop-secao">Preferências</div>
+                    {# Desenho: `prefPasta('fav')` — estrela fixa, rótulo fixo e o interruptor
+                       mostrando o estado. É do USUÁRIO: a pasta sobe para o topo da listagem do
+                       Expediente só para quem fixou. O script no fim deste parcial faz o POST. #}
+                    {% set eFavorita = pasta_favorita(pasta) %}
+                    <button type="button" class="ps-pop-item js-pasta-favorito" role="menuitemcheckbox"
+                            aria-checked="{{ eFavorita ? 'true' : 'false' }}"
+                            data-url="{{ path('pasta_favorito_alternar', {id: pasta.id}) }}"
+                            data-csrf="{{ csrf_token('pasta_favorito_' ~ pasta.id) }}">
+                        <i class="bi bi-star"></i><span>Fixar nos favoritos</span>
+                        <span class="ps-pop-sw{{ eFavorita ? ' is-ligado' : '' }}" aria-hidden="true"><span class="ps-pop-sw-bola"></span></span>
+                    </button>
 
                     <div class="ps-pop-sep"></div>
                     {# Mesma troca de situação da pílula ao lado das abas, por outro caminho. #}
@@ -504,7 +520,50 @@
     </div>
 </header>
 
+<style>
+/* Interruptor do item "Fixar nos favoritos" — medidas do desenho (`swS`/`swB`). */
+.ps-pop-sw { position: relative; width: 30px; height: 17px; border-radius: 999px; flex-shrink: 0; margin-left: auto; background: #cfd9e0; transition: background .2s; }
+.ps-pop-sw.is-ligado { background: #0a7aad; }
+.ps-pop-sw-bola { position: absolute; top: 2px; left: 2px; width: 13px; height: 13px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(10,40,60,.3); transition: left .2s cubic-bezier(.22,.8,.3,1); }
+.ps-pop-sw.is-ligado .ps-pop-sw-bola { left: 15px; }
+</style>
 <script>
+(function () {
+    /* "Fixar nos favoritos": alterna no servidor e o interruptor espelha a RESPOSTA, não o
+       clique — se o POST falhar, o estado mostrado continua o gravado. */
+    var item = document.querySelector('.js-pasta-favorito');
+    if (!item) { return; }
+
+    item.addEventListener('click', function () {
+        if (item.dataset.enviando === '1') { return; }
+        item.dataset.enviando = '1';
+
+        var corpo = new FormData();
+        corpo.append('_token', item.dataset.csrf);
+
+        fetch(item.dataset.url, {
+            method: 'POST',
+            body: corpo,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            credentials: 'same-origin'
+        })
+            .then(function (resposta) {
+                return resposta.json().then(function (dados) { return { ok: resposta.ok, dados: dados }; });
+            })
+            .then(function (r) {
+                if (!r.ok || typeof r.dados.favorita !== 'boolean') {
+                    window.alert((r.dados && (r.dados.erro || r.dados.mensagem)) || 'Não foi possível alterar os favoritos.');
+                    return;
+                }
+                item.setAttribute('aria-checked', r.dados.favorita ? 'true' : 'false');
+                var sw = item.querySelector('.ps-pop-sw');
+                if (sw) { sw.classList.toggle('is-ligado', r.dados.favorita); }
+            })
+            .catch(function () { window.alert('Erro de comunicação. Tente novamente.'); })
+            .then(function () { item.dataset.enviando = ''; });
+    });
+})();
+
 (function () {
     /* O selo ARQUIVADO acompanha a pílula de situação. Quem faz a troca é o script da
        tela (show.html.twig), que só alterna as classes da pílula; observar a classe evita

@@ -123,7 +123,7 @@ final class PastaDadosArranjoTelaTest extends JusPrimeWebTestCase
 
         $itens = $crawler->filter('#psMenuAcoes .ps-pop-item')->each(fn ($n) => trim($n->filter('span')->first()->text()));
         self::assertSame(
-            ['Editar dados', 'Histórico', 'Duplicar pasta', 'Vincular processo', 'Trocar responsável', 'Copiar link da pasta', 'Imprimir resumo', 'Arquivar pasta', 'Excluir pasta'],
+            ['Editar dados', 'Histórico', 'Duplicar pasta', 'Vincular processo', 'Trocar responsável', 'Copiar link da pasta', 'Imprimir resumo', 'Fixar nos favoritos', 'Arquivar pasta', 'Excluir pasta'],
             $itens,
             'a ordem do menu é a do desenho'
         );
@@ -146,7 +146,7 @@ final class PastaDadosArranjoTelaTest extends JusPrimeWebTestCase
 
         $menu = $crawler->filter('#psMenuAcoes');
         self::assertCount(1, $menu);
-        self::assertCount(9, $menu->filter('.ps-pop-item'), 'nove itens, todos com back-end: editar, histórico, duplicar, vincular, trocar responsável, copiar link, imprimir resumo, arquivar, excluir');
+        self::assertCount(10, $menu->filter('.ps-pop-item'), 'dez itens, todos com back-end: editar, histórico, duplicar, vincular, trocar responsável, copiar link, imprimir resumo, fixar nos favoritos, arquivar, excluir');
 
         self::assertCount(
             1,

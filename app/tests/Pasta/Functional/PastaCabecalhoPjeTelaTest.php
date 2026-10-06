@@ -251,7 +251,7 @@ final class PastaCabecalhoPjeTelaTest extends JusPrimeWebTestCase
 
         $itens = $menu->filter('.ps-pop-item')->each(fn ($n) => trim($n->filter('span')->first()->text()));
         self::assertSame(
-            ['Editar dados', 'Histórico', 'Duplicar pasta', 'Vincular processo', 'Trocar responsável', 'Copiar link da pasta', 'Imprimir resumo', 'Arquivar pasta', 'Excluir pasta'],
+            ['Editar dados', 'Histórico', 'Duplicar pasta', 'Vincular processo', 'Trocar responsável', 'Copiar link da pasta', 'Imprimir resumo', 'Fixar nos favoritos', 'Arquivar pasta', 'Excluir pasta'],
             $itens
         );
         self::assertStringNotContainsString('Timeline', $menu->text(), 'Timeline inteligente é função nova');

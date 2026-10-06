@@ -9,6 +9,7 @@ use App\Cobranca\Entity\CasoCobranca;
 use App\Entity\Auth\User;
 use App\Pasta\DTO\PastaVinculadaOutput;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PastaFavorita;
 use App\Pasta\Entity\PrioridadePasta;
 use App\Entity\Tenant\Tenant;
 use App\Expediente\Entity\Marcador;
@@ -65,10 +66,11 @@ class PastaRepository extends ServiceEntityRepository
         int $page = 1,
         int $perPage = 25,
         string $ordenar = '',
-        string $direcao = 'desc'
+        string $direcao = 'desc',
+        ?User $favoritosDe = null,
     ): array {
         $qb = $this->buildQbByFilters($filters, $tenant)->groupBy('p.id');
-        $this->aplicarOrdenacao($qb, $ordenar, $direcao);
+        $this->aplicarOrdenacao($qb, $ordenar, $direcao, $favoritosDe);
 
         return $qb
             ->setFirstResult(($page - 1) * $perPage)
@@ -335,10 +337,11 @@ class PastaRepository extends ServiceEntityRepository
         int $page = 1,
         int $perPage = 25,
         string $ordenar = '',
-        string $direcao = 'desc'
+        string $direcao = 'desc',
+        ?User $favoritosDe = null,
     ): array {
         $qb = $this->buildQbPorMarcador([], $marcador, $tenant)->groupBy('p.id');
-        $this->aplicarOrdenacao($qb, $ordenar, $direcao);
+        $this->aplicarOrdenacao($qb, $ordenar, $direcao, $favoritosDe);
 
         return $qb
             ->setFirstResult(($page - 1) * $perPage)
@@ -366,10 +369,11 @@ class PastaRepository extends ServiceEntityRepository
         int $page = 1,
         int $perPage = 25,
         string $ordenar = '',
-        string $direcao = 'desc'
+        string $direcao = 'desc',
+        ?User $favoritosDe = null,
     ): array {
         $qb = $this->buildQbPorMarcador($filters, $marcador, $tenant)->groupBy('p.id');
-        $this->aplicarOrdenacao($qb, $ordenar, $direcao);
+        $this->aplicarOrdenacao($qb, $ordenar, $direcao, $favoritosDe);
 
         return $qb
             ->setFirstResult(($page - 1) * $perPage)
@@ -981,8 +985,13 @@ class PastaRepository extends ServiceEntityRepository
      * marcador) e de relação (responsável, ação/processo) são ordenadas por um valor
      * representativo agregado (MIN) — cada pasta continua sendo uma única linha.
      * Coluna/direção desconhecidas caem no padrão (NUP numérico decrescente).
+     *
+     * Com `$favoritosDe`, as pastas que ESSE usuário fixou nos favoritos sobem para o topo
+     * (desenho 1.2.3, `prefPasta('fav')`) e, dentro de cada grupo, vale a ordem escolhida. Sem
+     * favorito nenhum a ordem é idêntica à de sem o parâmetro: o critério novo empata em todas as
+     * linhas. O favorito de outro usuário não entra no JOIN.
      */
-    private function aplicarOrdenacao(QueryBuilder $qb, string $ordenar, string $direcao): void
+    private function aplicarOrdenacao(QueryBuilder $qb, string $ordenar, string $direcao, ?User $favoritosDe = null): void
     {
         $dir = strtoupper($direcao) === 'ASC' ? 'ASC' : 'DESC';
 
@@ -1050,5 +1059,27 @@ class PastaRepository extends ServiceEntityRepository
         }
 
         $qb->addOrderBy('p.id', 'DESC');
+
+        if ($favoritosDe === null) {
+            return;
+        }
+
+        // O UNIQUE (user_id, pasta_id) garante no máximo uma linha de favorito por pasta, mas
+        // os JOINs de coleção dos ramos acima (clientes, marcadores) multiplicam as linhas antes
+        // do GROUP BY — por isso MAX de um 0/1, e não COUNT. O critério entra NA FRENTE dos que
+        // o ramo escolheu, que seguem intactos como desempate.
+        $criteriosDoRamo = $qb->getDQLPart('orderBy');
+        $qb->leftJoin(
+            PastaFavorita::class,
+            'fav_ord',
+            'WITH',
+            'fav_ord.pasta = p AND fav_ord.usuario = :fav_ord_usuario AND fav_ord.tenant = p.tenant',
+        )
+            ->setParameter('fav_ord_usuario', $favoritosDe)
+            ->orderBy('MAX(CASE WHEN fav_ord.id IS NULL THEN 0 ELSE 1 END)', 'DESC');
+
+        foreach ($criteriosDoRamo as $criterio) {
+            $qb->addOrderBy($criterio);
+        }
     }
 }

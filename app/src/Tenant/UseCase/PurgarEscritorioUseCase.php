@@ -163,6 +163,9 @@ final class PurgarEscritorioUseCase
         // pela cascata de `pasta` logo abaixo e precisam de deleção própria. As linhas
         // (`pasta_checklist_modelo_item`) caem por CASCADE do modelo.
         ['pasta_checklist_modelo', 'tenant_id = :tenant'],
+        // Favoritos de pasta (por usuário): cairiam pela CASCADE de `pasta`, mas a FK de tenant é
+        // NO ACTION e a deleção explícita deixa a cobertura visível aqui.
+        ['pasta_favorita', 'tenant_id = :tenant'],
 
         // Fase 2 — raízes de subsistema (a CASCADE do banco derruba os filhos estruturais).
         ['tarefa', 'tenant_id = :tenant'],
