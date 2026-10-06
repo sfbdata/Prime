@@ -11,11 +11,14 @@
      3. abas no padrão PJe, com a Situação (Ativo / Arquivado) à direita.
 
    As ações (Editar dados, Histórico, Vincular processo, Trocar responsável,
-   Copiar link, Arquivar/Desarquivar, Excluir) vivem no menu ⋮, com a tarja azul
-   do desenho. O que o desenho mostra e o sistema ainda não tem (Duplicar, Mover
-   carteira, Timeline inteligente, Link do Push, Imprimir, Acompanhar, Favoritos,
-   Cadeado, Cadastro, Intelligence, foto do cliente) NÃO é renderizado:
+   Copiar link, Imprimir resumo, Arquivar/Desarquivar, Excluir) vivem no menu ⋮,
+   com a tarja azul do desenho. O que o desenho mostra e o sistema ainda não tem
+   (Duplicar, Mover carteira, Timeline inteligente, Link do Push, Acompanhar,
+   Favoritos, Cadeado, Cadastro, Intelligence, foto do cliente) NÃO é renderizado:
    item inerte ensina o usuário a desconfiar do menu inteiro.
+
+   Pasta arquivada ganha o selo carimbado ARQUIVADO sobre a faixa de dados
+   (desenho, `seloEl`). Suspenso e Cancelado não existem no sistema e não têm selo.
 
    Contexto: `pasta`, `fotosResponsaveis`, `vizinhas`, `push`, `unidadeCobrada`.
    ============================================================================ #}
@@ -184,6 +187,12 @@
                             data-link="{{ url('pasta_show', {id: pasta.id}) }}">
                         <i class="bi bi-link"></i><span class="js-copiar-link-rotulo">Copiar link da pasta</span>
                     </button>
+                    {# Folha A4 em aba nova, com o diálogo de impressão já aberto (desenho:
+                       `imprimirResumo`). "Baixar PDF" é o "Salvar como PDF" do navegador. #}
+                    <a class="ps-pop-item" role="menuitem" target="_blank" rel="noopener"
+                       href="{{ path('pasta_resumo_imprimir', {id: pasta.id}) }}">
+                        <i class="bi bi-printer"></i><span>Imprimir resumo</span>
+                    </a>
 
                     <div class="ps-pop-sep"></div>
                     {# Mesma troca de situação da pílula ao lado das abas, por outro caminho. #}
@@ -192,11 +201,16 @@
                         <i class="bi {{ eAtiva ? 'bi-archive' : 'bi-box-arrow-up' }}"></i>
                         <span class="js-situacao-alternar-rotulo">{{ eAtiva ? 'Arquivar' : 'Desarquivar' }} pasta</span>
                     </button>
-                    {# O confirm() nativo fica: trocá-lo por modal é frente própria
-                       (63 deles no projeto), registrada no README do redesenho. #}
+                    {# Excluir pede o NÚMERO da pasta digitado (desenho, `menuPasta('excluir')`).
+                       O prompt é só o primeiro filtro: o servidor confere `confirmar_nup` com o
+                       número gravado e recusa se não bater. O texto não promete "lixeira por
+                       30 dias" como o desenho: aqui a pasta vira lápide (ou some, se for a
+                       última da sequência). Trocar o prompt() nativo por modal é frente própria. #}
                     <form method="post" action="{{ path('pasta_delete', {id: pasta.id}) }}"
-                          onsubmit="return confirm('Tem certeza que deseja excluir a pasta {{ pasta.nup|e('js') }}?');">
+                          class="js-excluir-pasta" data-nup="{{ pasta.nup }}"
+                          onsubmit="var n = this.dataset.nup, txt = window.prompt('Excluir a pasta ' + n + '?\nA exclusão fica registrada no histórico.\n\nPara confirmar, digite o número da pasta:'); if (txt === null) { return false; } if (String(txt).trim().toUpperCase() !== n) { window.alert('Número não confere. A pasta não foi excluída.'); return false; } this.elements.confirmar_nup.value = String(txt).trim(); return true;">
                         <input type="hidden" name="_token" value="{{ csrf_token('delete_pasta_' ~ pasta.id) }}">
+                        <input type="hidden" name="confirmar_nup" value="">
                         <button type="submit" class="ps-pop-item ps-pop-item--perigo" role="menuitem">
                             <i class="bi bi-trash3"></i><span>Excluir pasta</span>
                         </button>
@@ -263,7 +277,22 @@
     </div>
 
     {# ── Faixa de dados: Processo vinculado · Ação · Responsável [· Cobrança] ── #}
-    <div class="ps-cab-dados">
+    {# Selo carimbado (desenho, `seloEl`): só para a situação REAL `arquivado` — inclusive a
+       lápide, que o sistema arquiva ao excluir. Fica por cima da faixa sem roubar clique.
+       Quem troca a situação pela pílula vê o selo entrar e sair sem recarregar: o script no
+       fim deste parcial acompanha a classe da pílula. A marcação existe UMA vez, aqui; o
+       script usa a cópia de `data-ps-selo-modelo` em vez de repeti-la em JS. #}
+    {% set seloArquivado %}
+        <div class="ps-cab-selo ps-cab-selo--arquivado" role="img" aria-label="Pasta arquivada" title="Situação da pasta: Arquivado">
+            <span class="ps-cab-selo-onda" aria-hidden="true"></span>
+            <span class="ps-cab-selo-onda" aria-hidden="true"></span>
+            <span class="ps-cab-selo-onda" aria-hidden="true"></span>
+            <span class="ps-cab-selo-aro" aria-hidden="true"></span>
+            <span class="ps-cab-selo-faixa"><i class="bi bi-archive-fill" aria-hidden="true"></i>ARQUIVADO</span>
+        </div>
+    {% endset %}
+    <div class="ps-cab-dados" data-ps-selo-modelo="{{ seloArquivado|e('html_attr') }}">
+        {% if pasta.situacao == 'arquivado' %}{{ seloArquivado }}{% endif %}
         <div class="ps-cab-dado" data-campo="processo">
             <p class="ps-rotulo"><i class="bi bi-diagram-3"></i>Processo vinculado</p>
             {% if proc %}
@@ -460,3 +489,26 @@
         {% endif %}
     </div>
 </header>
+
+<script>
+(function () {
+    /* O selo ARQUIVADO acompanha a pílula de situação. Quem faz a troca é o script da
+       tela (show.html.twig), que só alterna as classes da pílula; observar a classe evita
+       um segundo caminho de troca e mantém o selo fiel ao que o servidor respondeu. */
+    var pilula = document.getElementById('btn-alternar-status');
+    var faixa  = document.querySelector('.ps-cabecalho .ps-cab-dados');
+    if (!pilula || !faixa || !faixa.dataset.psSeloModelo || !window.MutationObserver) { return; }
+
+    function sincronizarSelo() {
+        var arquivada = pilula.classList.contains('ps-situacao-pill--arquivado');
+        var selo      = faixa.querySelector(':scope > .ps-cab-selo');
+        if (arquivada && !selo) {
+            faixa.insertAdjacentHTML('afterbegin', faixa.dataset.psSeloModelo);
+        } else if (!arquivada && selo) {
+            selo.remove();
+        }
+    }
+
+    new MutationObserver(sincronizarSelo).observe(pilula, { attributes: true, attributeFilter: ['class'] });
+})();
+</script>

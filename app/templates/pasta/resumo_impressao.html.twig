@@ -1,0 +1,247 @@
+{# ============================================================================
+   Folha "Resumo da pasta" — menu ⋮ → Imprimir resumo.
+   Desenho aprovado: docs/design/claude-design-2026-10-05 (1)/
+   "02 - EXPEDIENTES 1.2.3.dc.html" — `imprimirResumo()` (conteúdo) e
+   `impMontar()` (faixa azul, cabeçalho BLUEJUS, faixa Pasta/Cliente/Processo,
+   rodapé "Documento interno do escritório · BlueJus").
+
+   Página própria, sem o layout do app: abre em aba nova e chama window.print().
+   A barra de cima (Imprimir · Voltar · Incluir financeiro) é só de tela e some
+   na impressão. Tudo vem pronto de `PastaResumoImpressaoOutput`; o Financeiro
+   só existe na folha quando o controller o incluiu.
+
+   Contexto: `resumo`, `pastaId`, `impressoEm`, `impressoPor`.
+   ============================================================================ #}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="robots" content="noindex">
+    <title>Resumo da pasta {{ resumo.numero }}</title>
+    <style>
+        @page { size: A4; margin: 0; }
+        * { box-sizing: border-box; }
+        html, body { margin: 0; background: #eaeef1; color: #243845; font-family: Arial, Helvetica, sans-serif; }
+        .rp-barra {
+            position: sticky; top: 0; z-index: 2;
+            display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+            padding: 10px 20px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.16);
+            font-size: 13px;
+        }
+        .rp-barra button, .rp-barra a {
+            height: 32px; padding: 0 14px; border-radius: 4px; border: 1px solid #c9d5dd;
+            background: #fff; color: #243845; font: inherit; font-weight: 600;
+            display: inline-flex; align-items: center; text-decoration: none; cursor: pointer;
+        }
+        .rp-barra .rp-primario { background: #0a7aad; border-color: #0a7aad; color: #fff; }
+        .rp-barra label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+        .rp-barra .rp-espaco { flex: 1; }
+
+        .rp-folha {
+            width: 210mm; min-height: 297mm; margin: 20px auto; padding: 44px 48px;
+            background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.18);
+            font-size: 11.5pt;
+        }
+        .rp-faixa { height: 30px; background: #0b7398; margin: -44px -48px 30px; }
+        .rp-cab { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #0a7aad; padding-bottom: 6px; margin-bottom: 12px; }
+        .rp-marca { display: flex; align-items: center; gap: 8px; }
+        .rp-marca img { width: 30px; height: 30px; object-fit: contain; }
+        .rp-marca span { font-size: 15pt; font-weight: 700; color: #0a7aad; letter-spacing: .02em; }
+        .rp-impresso { font-size: 8.5pt; color: #6b8494; text-align: right; }
+        .rp-identidade { width: 100%; font-size: 9.5pt; margin-bottom: 12px; background: #f4f8fb; border-collapse: collapse; }
+        .rp-identidade td { padding: 6px 8px; }
+        .rp-titulo { font-size: 12.5pt; font-weight: 700; margin-bottom: 4px; }
+        .rp-secao { margin: 14px 0 6px; font-size: 10pt; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #0a7aad; border-bottom: 1px solid #dfe4e8; padding-bottom: 3px; }
+        .rp-tabela { width: 100%; border-collapse: collapse; }
+        .rp-tabela th { text-align: left; padding: 5px 8px; background: #eef3f7; font-size: 9pt; color: #34505f; border-bottom: 1px solid #d3dde4; }
+        .rp-tabela td { padding: 5px 8px; font-size: 9.5pt; border-bottom: 1px solid #eef2f5; vertical-align: top; }
+        .rp-tabela td.rp-chave { width: 150px; color: #5f7684; }
+        .rp-tabela .rp-num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+        .rp-atraso { color: #a3232b; font-weight: 700; }
+        .rp-vazio { font-size: 9.5pt; color: #6b8494; }
+        .rp-lista { margin: 0; padding-left: 18px; font-size: 9.5pt; }
+        .rp-marca-principal { font-size: 8.5pt; color: #6b8494; }
+        .rp-rodape { margin-top: 18px; border-top: 1px solid #dfe4e8; padding-top: 4px; font-size: 8pt; color: #8aa0ad; }
+        .rp-sem-financeiro .rp-financeiro { display: none; }
+
+        @media print {
+            html, body { background: #fff; }
+            .rp-barra { display: none; }
+            .rp-folha { width: auto; min-height: 0; margin: 0; box-shadow: none; }
+            .rp-faixa, .rp-identidade, .rp-tabela th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .rp-tabela tr { break-inside: avoid; }
+            .rp-secao { break-after: avoid; }
+        }
+    </style>
+</head>
+<body>
+    <div class="rp-barra" role="toolbar" aria-label="Impressão do resumo">
+        <strong>Resumo da pasta {{ resumo.numero }}</strong>
+        <span class="rp-espaco"></span>
+        {% if resumo.financeiro is not null %}
+            <label><input type="checkbox" id="rpIncluirFinanceiro" checked> Incluir financeiro</label>
+        {% endif %}
+        <a href="{{ path('pasta_show', {id: pastaId}) }}">Voltar à pasta</a>
+        <button type="button" class="rp-primario" id="rpImprimir">Imprimir</button>
+    </div>
+
+    <main class="rp-folha">
+        <div class="rp-faixa"></div>
+        <div class="rp-cab">
+            <div class="rp-marca">
+                <img src="{{ asset('images/logo/bluejus_simbolo.svg') }}" alt="">
+                <span>BLUEJUS</span>
+            </div>
+            <div class="rp-impresso">
+                Gestão jurídica<br>
+                Impresso em {{ impressoEm|date('d/m/Y H:i') }}{% if impressoPor %} por {{ impressoPor }}{% endif %}
+            </div>
+        </div>
+
+        {% set principal = resumo.processos|filter(p => p.principal)|first %}
+        <table class="rp-identidade">
+            <tr>
+                <td><b>Pasta</b> {{ resumo.numero }}</td>
+                <td><b>Cliente</b> {{ resumo.titulo }}</td>
+                {% if principal %}<td><b>Processo</b> {{ principal.numero|numero_cnj }}</td>{% endif %}
+            </tr>
+        </table>
+
+        <h1 class="rp-titulo">Resumo da pasta {{ resumo.numero }}</h1>
+
+        <section data-secao="dados">
+            <div class="rp-secao">Dados da pasta</div>
+            <table class="rp-tabela">
+                <tr><td class="rp-chave">Cliente</td><td>{{ resumo.titulo }}</td></tr>
+                {% if resumo.documento %}
+                    <tr><td class="rp-chave">{{ resumo.documento|documento_br_rotulo }}</td><td class="rp-num">{{ resumo.documento|documento_br }}</td></tr>
+                {% endif %}
+                {% if resumo.responsavel %}<tr><td class="rp-chave">Responsável</td><td>{{ resumo.responsavel }}</td></tr>{% endif %}
+                <tr><td class="rp-chave">Situação</td><td>{{ resumo.situacao }}</td></tr>
+                <tr><td class="rp-chave">Prioridade</td><td>{{ resumo.prioridade }}</td></tr>
+                <tr><td class="rp-chave">Abertura</td><td class="rp-num">{{ resumo.abertura }}</td></tr>
+                {% if principal %}
+                    <tr><td class="rp-chave">Processo</td><td class="rp-num">{{ principal.numero|numero_cnj }}</td></tr>
+                {% endif %}
+                {% if resumo.acao %}<tr><td class="rp-chave">Ação</td><td>{{ resumo.acao }}</td></tr>{% endif %}
+                {% if principal and (principal.orgao or principal.tribunal) %}
+                    <tr><td class="rp-chave">Órgão</td><td>{{ principal.orgao ?: principal.tribunal }}</td></tr>
+                {% endif %}
+            </table>
+        </section>
+
+        {% if resumo.clientes|length > 0 %}
+            <section data-secao="clientes">
+                <div class="rp-secao">Clientes ({{ resumo.clientes|length }})</div>
+                <table class="rp-tabela">
+                    <tr><th>Nome</th><th>Documento</th></tr>
+                    {% for c in resumo.clientes %}
+                        <tr>
+                            <td>{{ c.nome }}{% if c.principal and resumo.clientes|length > 1 %} <span class="rp-marca-principal">· principal</span>{% endif %}</td>
+                            <td class="rp-num">{{ c.documento ? c.documento|documento_br : '—' }}</td>
+                        </tr>
+                    {% endfor %}
+                </table>
+            </section>
+        {% endif %}
+
+        {% if resumo.processos|length > 0 %}
+            <section data-secao="processos">
+                <div class="rp-secao">Processos ({{ resumo.processos|length }})</div>
+                <table class="rp-tabela">
+                    <tr><th>Número</th><th>Classe</th><th>Órgão</th></tr>
+                    {% for p in resumo.processos %}
+                        <tr>
+                            <td class="rp-num">{{ p.numero|numero_cnj }}{% if p.principal and resumo.processos|length > 1 %} <span class="rp-marca-principal">· principal</span>{% endif %}</td>
+                            <td>{{ p.classe ?: '—' }}</td>
+                            <td>{{ p.orgao ?: (p.tribunal ?: '—') }}</td>
+                        </tr>
+                    {% endfor %}
+                </table>
+            </section>
+        {% endif %}
+
+        {% if resumo.pendencias|length > 0 %}
+            <section data-secao="pendencias">
+                <div class="rp-secao">Pendências</div>
+                <ul class="rp-lista">
+                    {% for p in resumo.pendencias %}<li>{{ p }}</li>{% endfor %}
+                </ul>
+            </section>
+        {% endif %}
+
+        <section data-secao="metas">
+            <div class="rp-secao">Metas abertas ({{ resumo.totalMetasAbertas }})</div>
+            {% if resumo.metasAbertas|length > 0 %}
+                <table class="rp-tabela">
+                    <tr><th>Meta</th><th>Responsável</th><th>Prazo</th></tr>
+                    {% for m in resumo.metasAbertas %}
+                        <tr>
+                            <td>{{ m.titulo }}</td>
+                            <td>{{ m.responsaveis }}</td>
+                            <td class="rp-num{{ m.atrasoDias > 0 ? ' rp-atraso' : '' }}">
+                                {{- m.prazo ?: 'Sem prazo' -}}
+                                {%- if m.atrasoDias > 0 %} ({{ m.atrasoDias }}d atraso){% endif -%}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </table>
+                {% if resumo.totalMetasAbertas > resumo.metasAbertas|length %}
+                    <div class="rp-vazio">e mais {{ resumo.totalMetasAbertas - resumo.metasAbertas|length }} — a lista completa está na aba Metas.</div>
+                {% endif %}
+            {% else %}
+                <div class="rp-vazio">Nenhuma meta aberta.</div>
+            {% endif %}
+        </section>
+
+        {% if resumo.movimentacoes|length > 0 %}
+            <section data-secao="movimentacoes">
+                <div class="rp-secao">Últimas movimentações</div>
+                <table class="rp-tabela">
+                    {% for mv in resumo.movimentacoes %}
+                        <tr>
+                            <td class="rp-num" style="width:86px;font-weight:700">{{ mv.data ?: '—' }}</td>
+                            <td style="width:110px"><b>{{ mv.tipo ?: 'Publicação' }}</b></td>
+                            <td>{{ mv.orgao }}{% if mv.processo %}{{ mv.orgao ? ' · ' : '' }}<span class="rp-num">{{ mv.processo }}</span>{% endif %}</td>
+                        </tr>
+                    {% endfor %}
+                </table>
+            </section>
+        {% endif %}
+
+        {% if resumo.financeiro is not null %}
+            <section class="rp-financeiro" data-secao="financeiro">
+                <div class="rp-secao">Financeiro</div>
+                <table class="rp-tabela">
+                    <tr><td class="rp-chave">Valor da causa</td><td class="rp-num">{{ resumo.financeiro.valorCausa }}</td></tr>
+                    <tr><td class="rp-chave">Contrato</td><td>{{ resumo.financeiro.contrato }}</td></tr>
+                    {% if resumo.financeiro.lancamentos > 0 %}
+                        <tr><td class="rp-chave">Recebido</td><td class="rp-num">{{ resumo.financeiro.recebido }} de {{ resumo.financeiro.previsto }}</td></tr>
+                    {% endif %}
+                    <tr><td class="rp-chave">Lançamentos</td><td class="rp-num">{{ resumo.financeiro.lancamentos }}</td></tr>
+                </table>
+            </section>
+        {% endif %}
+
+        <div class="rp-rodape">Documento interno do escritório · BlueJus</div>
+    </main>
+
+    <script>
+    (function () {
+        var imprimir = document.getElementById('rpImprimir');
+        if (imprimir) { imprimir.addEventListener('click', function () { window.print(); }); }
+
+        /* "Incluir financeiro" (opção do modal de impressão do desenho): só esconde a seção. */
+        var fin = document.getElementById('rpIncluirFinanceiro');
+        if (fin) {
+            fin.addEventListener('change', function () {
+                document.body.classList.toggle('rp-sem-financeiro', !fin.checked);
+            });
+        }
+
+        /* A folha abre já pedindo a impressão — é para isso que o item do menu existe. */
+        window.addEventListener('load', function () { window.print(); });
+    })();
+    </script>
+</body>
+</html>

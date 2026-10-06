@@ -673,6 +673,112 @@ button.ps-etiqueta:focus-visible { background: var(--ps-accent-bg); color: var(-
     border-radius: 4px;
 }
 .ps-cab-dado { position: relative; min-width: 0; padding: 12px 16px; border-radius: 4px; }
+/* A faixa ancora o selo carimbado (desenho: o grid e `position:relative`). */
+.ps-cab-dados { position: relative; }
+
+/* ── Selo carimbado ARQUIVADO (desenho 1.2.3, `seloEl`) ──
+   Carimbo girado -14°, cor #5d7383, entra "batendo" (seloBate) e solta ondas.
+   O desenho usa `zoom:.8`; aqui as medidas ja vem multiplicadas por 0,8 (150x104 →
+   120x83, aro 98 → 78, faixa 34 → 27, fonte 15 → 12), porque `zoom` muda o layout de
+   um jeito diferente de `transform` e o transform ja e do giro. O granulado de tinta
+   e a mesma mascara de dois radial-gradient do desenho, tambem na escala 0,8.
+   Sem clique (`pointer-events:none`): o selo fica por cima dos dados sem tapa-los
+   para o mouse. Suspenso e Cancelado nao existem no sistema — so ha o tom arquivado. */
+.ps-cab-selo {
+    --selo-cor: #5d7383;
+    --selo-papel: #fff;
+    --selo-grao: radial-gradient(circle at 20% 30%, transparent 0 .96px, #000 1.28px),
+                 radial-gradient(circle at 70% 60%, transparent 0 .8px, #000 1.12px);
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    z-index: 2;
+    width: 120px;
+    height: 83px;
+    pointer-events: none;
+    transform: translateY(-50%) rotate(-14deg);
+    animation: psSeloBate .55s cubic-bezier(.2,.9,.3,1.2) both;
+    mix-blend-mode: multiply;
+    opacity: .9;
+}
+.ps-cab-selo-onda {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 83px;
+    height: 83px;
+    border-radius: 50%;
+    border: 1.2px solid var(--selo-cor);
+    opacity: 0;
+    animation: psSeloOnda 3.6s cubic-bezier(.25,.6,.35,1) .35s infinite;
+}
+.ps-cab-selo-onda:nth-child(2) { animation-delay: 1.55s; }
+.ps-cab-selo-onda:nth-child(3) { animation-delay: 2.75s; }
+.ps-cab-selo-aro {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 78px;
+    height: 78px;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    border: 4px solid var(--selo-cor);
+    box-shadow: inset 0 0 0 1.6px var(--selo-papel), inset 0 0 0 2.8px var(--selo-cor);
+    -webkit-mask-image: var(--selo-grao);
+    mask-image: var(--selo-grao);
+    -webkit-mask-size: 7.2px 7.2px, 10.4px 10.4px;
+    mask-size: 7.2px 7.2px, 10.4px 10.4px;
+}
+.ps-cab-selo-faixa {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    height: 27px;
+    border-radius: 3px;
+    background: var(--selo-cor);
+    color: #fff;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: .08em;
+    box-shadow: 0 0 0 1.6px var(--selo-papel), 0 0 0 2.8px var(--selo-cor);
+    -webkit-mask-image: var(--selo-grao);
+    mask-image: var(--selo-grao);
+    -webkit-mask-size: 8.8px 8.8px, 5.6px 5.6px;
+    mask-size: 8.8px 8.8px, 5.6px 5.6px;
+}
+.ps-cab-selo-faixa i { font-size: 10.4px; }
+@keyframes psSeloBate {
+    0%   { opacity: 0; transform: translateY(-50%) rotate(-30deg) scale(2.4); }
+    55%  { opacity: .9; transform: translateY(-50%) rotate(-12deg) scale(.92); }
+    75%  { transform: translateY(-50%) rotate(-14deg) scale(1.04); }
+    100% { opacity: .9; transform: translateY(-50%) rotate(-14deg) scale(1); }
+}
+@keyframes psSeloOnda {
+    0%   { opacity: 0; transform: translate(-50%, -50%) scale(.9); }
+    15%  { opacity: .24; }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(1.6); border-width: .5px; }
+}
+/* No escuro, `multiply` sobre o cartao escuro apagaria o carimbo: tinta normal, e o
+   "papel" entre os aneis passa a ser o proprio cartao. */
+[data-bs-theme="dark"] .ps-cab-selo { mix-blend-mode: normal; --selo-papel: var(--ps-card); }
+@media (prefers-reduced-motion: reduce) {
+    .ps-cab-selo, .ps-cab-selo-onda { animation: none; }
+}
+@media print {
+    .ps-cab-selo-onda { display: none; }
+}
+
+/* "Imprimir resumo" e ancora (abre a folha em aba nova): a regra geral de link da
+   pagina (`.ps-page a:not(.btn):not(.ps-btn)`, 0,3,1) a pintaria de azul de link. */
+.ps-page .ps-pop a.ps-pop-item:not(.btn):not(.ps-btn),
+.ps-page .ps-pop a.ps-pop-item:not(.btn):not(.ps-btn):hover { color: var(--ps-body); text-decoration: none; }
 .ps-cab-dados .ps-rotulo { display: flex; align-items: center; gap: 6px; margin: 0 0 6px; }
 .ps-cab-dados .ps-rotulo i { font-size: 12px; color: var(--ps-icone); }
 .ps-cab-dados .ps-dado--forte { font-weight: 700; }

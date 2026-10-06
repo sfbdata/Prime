@@ -1333,6 +1333,17 @@ class PastaController extends AbstractController
             throw $this->createAccessDeniedException('Token CSRF inválido.');
         }
 
+        // Confirmação digitada (desenho 1.2.3): a pessoa escreve o número da pasta. Conferida AQUI
+        // também, e não só no prompt do navegador — senão a confirmação seria cosmética e qualquer
+        // POST com o token passaria. A comparação segue a normalização do próprio número
+        // (`Pasta::setNup` grava aparado e em maiúsculas), para "1240a" valer como "1240A".
+        $numeroDigitado = mb_strtoupper(trim((string) $request->request->get('confirmar_nup', '')));
+        if ($numeroDigitado === '' || $numeroDigitado !== (string) $pasta->getNup()) {
+            $this->addFlash('danger', 'Número não confere. A pasta não foi excluída.');
+
+            return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId()]);
+        }
+
         $resultado = $this->excluirPastaUseCase->executar($pasta, $currentUser, $this->tenantContext->getCurrentTenant());
 
         // Os dois desfechos precisam de mensagens diferentes: a lápide continua existindo e pode

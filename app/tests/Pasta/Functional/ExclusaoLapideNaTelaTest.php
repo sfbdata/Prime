@@ -100,7 +100,7 @@ final class ExclusaoLapideNaTelaTest extends JusPrimeWebTestCase
         $this->instalarCsrfStorage();
         $this->logarComTenant($client, $user, $tenant);
 
-        $this->postComCsrf($client, "/pasta/{$doMeio->getId()}/deletar", 'delete_pasta_' . $doMeio->getId());
+        $this->postComCsrf($client, "/pasta/{$doMeio->getId()}/deletar", 'delete_pasta_' . $doMeio->getId(), ['confirmar_nup' => '1238']);
 
         // Exclusão de pasta com posterior manda para a própria pasta, não para a lista: ela
         // ainda existe e a pessoa precisa ver o que aconteceu com ela.
@@ -153,7 +153,7 @@ final class ExclusaoLapideNaTelaTest extends JusPrimeWebTestCase
         $this->instalarCsrfStorage();
         $this->logarComTenant($client, $user, $tenant);
 
-        $this->postComCsrf($client, "/pasta/{$doMeio->getId()}/deletar", 'delete_pasta_' . $doMeio->getId());
+        $this->postComCsrf($client, "/pasta/{$doMeio->getId()}/deletar", 'delete_pasta_' . $doMeio->getId(), ['confirmar_nup' => '1238']);
 
         $linha = static::getContainer()->get(EntityManagerInterface::class)->getConnection()->fetchAssociative(
             "SELECT action, actor_email, route, changes::text AS changes
@@ -183,7 +183,7 @@ final class ExclusaoLapideNaTelaTest extends JusPrimeWebTestCase
         $this->instalarCsrfStorage();
         $this->logarComTenant($client, $user, $tenant);
 
-        $this->postComCsrf($client, "/pasta/{$doMeio->getId()}/deletar", 'delete_pasta_' . $doMeio->getId());
+        $this->postComCsrf($client, "/pasta/{$doMeio->getId()}/deletar", 'delete_pasta_' . $doMeio->getId(), ['confirmar_nup' => '1238']);
         $this->postComCsrf($client, "/pasta/{$doMeio->getId()}/restaurar", 'restaurar_pasta_' . $doMeio->getId());
 
         $crawler = $client->request('GET', "/pasta/{$doMeio->getId()}");
