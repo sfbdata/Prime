@@ -1,8 +1,12 @@
 /* =============================================================================
    Painel "Documentos sugeridos" da aba Documentos da pasta
-   (templates/pasta/_documentos_sugeridos.html.twig).
+   (templates/pasta/_documentos_sugeridos.html.twig), dentro do cartão do checklist.
 
-   - "Sugerir documentos" abre e fecha o painel (nasce fechado, como no desenho).
+   - "Sugerir documentos" (no cabeçalho do checklist) abre e fecha o painel; o X fecha.
+     Nasce fechado, como no desenho.
+   - "Atualizar" recarrega a página na aba Documentos: as regras rodam no servidor a cada
+     abertura, então recarregar É recalcular. Nada de cache no navegador.
+   - "Organização sugerida para esta fase" abre e fecha a lista de pastas (só mostra).
    - "+ Checklist" e "Adicionar N faltante(s)" gravam pelo endpoint que o checklist
      já usa (POST /pasta/{id}/checklist, campos `titulo` e `_token`), UM item por
      requisição, em série. Ao fim, recarrega a página na aba Documentos: o checklist
@@ -16,17 +20,50 @@
     var painel = document.getElementById('documentosSugeridos');
     if (!painel) { return; }
 
-    var botao = document.getElementById('btnDocumentosSugeridos');
-    var corpo = document.getElementById('documentosSugeridosCorpo');
-    var erro  = document.getElementById('documentosSugeridosErro');
-    var url   = painel.getAttribute('data-url-adicionar');
-    var token = painel.getAttribute('data-csrf');
+    var botao     = document.getElementById('btnDocumentosSugeridos');
+    var fechar    = document.getElementById('btnDocumentosSugeridosFechar');
+    var atualizar = document.getElementById('btnDocumentosSugeridosAtualizar');
+    var orgBotao  = document.getElementById('btnDocumentosSugeridosOrganizacao');
+    var orgLista  = document.getElementById('documentosSugeridosPastas');
+    var erro      = document.getElementById('documentosSugeridosErro');
+    var url       = painel.getAttribute('data-url-adicionar');
+    var token     = painel.getAttribute('data-csrf');
 
-    if (botao && corpo) {
+    function abrirPainel(abrir) {
+        painel.classList.toggle('d-none', !abrir);
+        if (botao) {
+            botao.setAttribute('aria-expanded', abrir ? 'true' : 'false');
+            botao.classList.toggle('active', abrir);
+        }
+    }
+
+    if (botao) {
         botao.addEventListener('click', function () {
-            var aberto = !corpo.classList.contains('d-none');
-            corpo.classList.toggle('d-none', aberto);
-            botao.setAttribute('aria-expanded', aberto ? 'false' : 'true');
+            abrirPainel(painel.classList.contains('d-none'));
+        });
+    }
+
+    if (fechar) {
+        fechar.addEventListener('click', function () {
+            abrirPainel(false);
+            if (botao) { botao.focus(); }
+        });
+    }
+
+    if (atualizar) {
+        atualizar.addEventListener('click', function () {
+            atualizar.disabled = true;
+            recarregarNaAbaDocumentos();
+        });
+    }
+
+    if (orgBotao && orgLista) {
+        orgBotao.addEventListener('click', function () {
+            var abrir = orgLista.hidden;
+            orgLista.hidden = !abrir;
+            orgBotao.setAttribute('aria-expanded', abrir ? 'true' : 'false');
+            var seta = orgBotao.querySelector('.bi');
+            if (seta) { seta.className = 'bi ' + (abrir ? 'bi-chevron-down' : 'bi-chevron-right'); }
         });
     }
 

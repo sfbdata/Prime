@@ -23,8 +23,8 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 use Zenstruck\Foundry\Test\Factories;
 
 /**
- * Painel "Documentos sugeridos" da aba Documentos da pasta: aparece onde o desenho manda (fora do
- * gerenciador de arquivos compartilhado com a Cobrança), com rótulo honesto, e o "Adicionar
+ * Painel "Documentos sugeridos" da aba Documentos da pasta: aparece onde o desenho manda (dentro
+ * do cartão do checklist, aberto pelo botão do cabeçalho dele), com rótulo honesto, e o "Adicionar
  * faltantes" grava DE VERDADE pelo endpoint do checklist, com o token que o próprio painel entrega.
  *
  * Os textos gravados passam pelos setters das entidades, que gravam em MAIÚSCULAS: as asserções
@@ -293,8 +293,8 @@ final class PastaDocumentosSugeridosTest extends JusPrimeWebTestCase
 
     // ── Arranjo (combinador de filho direto) ────────────────────────────────────
 
-    #[TestDox('o painel é filho direto da aba Documentos, logo ACIMA do gerenciador — nunca dentro dele')]
-    public function testPainelForaEAcimaDoGerenciador(): void
+    #[TestDox('o painel mora DENTRO do cartão do checklist, 1º filho do corpo (dc L2112) — e não existe outro fora dele')]
+    public function testPainelDentroDoCartaoDoChecklist(): void
     {
         $client          = static::createClient();
         [$user, $tenant] = $this->criarUsuarioAdmin();
@@ -303,11 +303,14 @@ final class PastaDocumentosSugeridosTest extends JusPrimeWebTestCase
 
         $crawler = $this->abrir($client, (int) $pasta->getId());
 
-        self::assertSame(1, $crawler->filter('#documentos > #documentosSugeridos + #pexExplorador')->count(), 'o painel vem imediatamente antes do explorador, na aba Documentos');
-        self::assertSame(0, $crawler->filter('#pexExplorador #documentosSugeridos')->count(), 'até o L3 o painel fica FORA do explorador (depois entra no cartão do checklist)');
+        self::assertSame(1, $crawler->filter('#pexChecklist > .pex-ck-corpo > #documentosSugeridos')->count(), 'o painel abre dentro do cartão do checklist, como no desenho');
+        self::assertSame(1, $crawler->filter('#pexChecklist > .pex-ck-corpo > #documentosSugeridos:first-child')->count(), 'logo abaixo do cabeçalho, antes da faixa de adicionar e dos itens');
+        self::assertSame(1, $crawler->filter('#documentosSugeridos')->count(), 'um painel só na página: 0 fora do checklist');
+        self::assertSame(0, $crawler->filter('#documentos > #documentosSugeridos')->count(), 'o cartão próprio acima do explorador acabou');
+        self::assertSame(1, $crawler->filter('#pexChecklist > .pex-ck-corpo > #documentosSugeridos ~ #checklistLista')->count(), 'os itens vêm depois do painel');
     }
 
-    #[TestDox('cabeçalho com o botão; corpo nasce fechado; rodapé com o botão de faltantes; itens dentro dos grupos')]
+    #[TestDox('"Sugerir documentos" fica no cabeçalho do checklist, com rótulo neutro; o painel nasce fechado, com Atualizar e fechar no cabeçalho dele')]
     public function testArranjoInternoDoPainel(): void
     {
         $client          = static::createClient();
@@ -317,14 +320,21 @@ final class PastaDocumentosSugeridosTest extends JusPrimeWebTestCase
 
         $crawler = $this->abrir($client, (int) $pasta->getId());
 
-        self::assertSame(1, $crawler->filter('#documentosSugeridos > .ds-sug-cab > #btnDocumentosSugeridos')->count());
-        self::assertSame('documentosSugeridosCorpo', $crawler->filter('#btnDocumentosSugeridos')->attr('aria-controls'));
-        self::assertSame('false', $crawler->filter('#btnDocumentosSugeridos')->attr('aria-expanded'));
+        $botao = $crawler->filter('#pexChecklist > .pex-ck-cab > #btnDocumentosSugeridos');
+        self::assertSame(1, $botao->count(), 'o botão é do cabeçalho do checklist (dc L2089)');
+        self::assertSame('Sugerir documentos', trim($botao->text()));
+        self::assertSame(1, $botao->filter('i.bi-list-check')->count(), 'ícone neutro (S-4), não o ✦');
+        self::assertSame('documentosSugeridos', $botao->attr('aria-controls'));
+        self::assertSame('false', $botao->attr('aria-expanded'));
+        self::assertSame(0, $crawler->filter('#pexChecklist .pex-ck-cab .pex-ck-acao#btnDocumentosSugeridos')->count(), 'não é uma das três ações de ícone (modelos, editar, adicionar)');
+
+        $painel = $crawler->filter('#documentosSugeridos');
+        self::assertStringContainsString('d-none', (string) $painel->attr('class'), 'nasce fechado: quem abre é "Sugerir documentos"');
+        self::assertSame(1, $crawler->filter('#documentosSugeridos > .ds-sug-cab > #btnDocumentosSugeridosAtualizar')->count(), '"Atualizar" do desenho (L2127)');
+        self::assertSame(1, $crawler->filter('#documentosSugeridos > .ds-sug-cab > #btnDocumentosSugeridosFechar')->count());
 
         $corpo = $crawler->filter('#documentosSugeridos > #documentosSugeridosCorpo');
         self::assertSame(1, $corpo->count());
-        self::assertStringContainsString('d-none', (string) $corpo->attr('class'), 'nasce fechado: quem abre é "Sugerir documentos"');
-
         self::assertSame(1, $crawler->filter('#documentosSugeridosCorpo > .ds-sug-rodape > #btnDocumentosSugeridosFaltantes')->count());
         self::assertGreaterThan(0, $crawler->filter('#documentosSugeridosCorpo > .ds-sug-grupo > .ds-sug-item')->count());
         self::assertSame(
@@ -333,5 +343,93 @@ final class PastaDocumentosSugeridosTest extends JusPrimeWebTestCase
             'todo item mora num grupo de status',
         );
         self::assertSame(1, $crawler->filter('#documentosSugeridosCorpo > .ds-sug-grupo[data-status="req"] > .ds-sug-item[data-chave="procuracao"] > .ds-sug-add-um')->count());
+    }
+
+    #[TestDox('nenhum "IA", "BlueJus IA", ✦ nem "Análise documental" no cartão do checklist: o que roda é regra')]
+    public function testCartaoSemRotuloDeInteligencia(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant, 'Indenização');
+        $this->anexar($pasta, $tenant, 'Procuração');
+        $this->logarComTenant($client, $user, $tenant);
+
+        $cartao = $this->abrir($client, (int) $pasta->getId())->filter('#pexChecklist');
+        self::assertSame(1, $cartao->count());
+
+        $texto = $cartao->text();
+        self::assertDoesNotMatchRegularExpression('/\bIA\b/u', $texto, 'regra de catálogo não é inteligência artificial');
+        self::assertStringNotContainsString('✦', $cartao->html());
+        self::assertStringNotContainsString('Análise documental', $texto);
+        self::assertStringContainsString('por regras', $texto, 'o rótulo diz o que é');
+        self::assertSame(0, $cartao->filter('.bi-stars')->count());
+    }
+
+    #[TestDox('organização sugerida: lista da fase, por regras, nasce fechada; muda com a fase do processo')]
+    public function testOrganizacaoSugeridaPorFase(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $inicial         = $this->criarPasta($tenant, 'Indenização');
+        $cumprimento     = $this->criarPasta($tenant, null);
+        $this->vincularProcesso($cumprimento, $tenant, 'Cumprimento de sentença');
+        $idInicial       = (int) $inicial->getId();
+        $idCumprimento   = (int) $cumprimento->getId();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $crawler = $this->abrir($client, $idInicial);
+        $botao   = $crawler->filter('#documentosSugeridosCorpo > .ds-sug-org > #btnDocumentosSugeridosOrganizacao');
+        self::assertSame(1, $botao->count());
+        self::assertStringContainsString('Organização sugerida para esta fase', $botao->text());
+        self::assertStringContainsString('por regras', $botao->text());
+        self::assertSame('false', $botao->attr('aria-expanded'));
+
+        $pastas = $crawler->filter('#documentosSugeridosCorpo > .ds-sug-org > #documentosSugeridosPastas');
+        self::assertNotNull($pastas->attr('hidden'), 'nasce fechada');
+        self::assertSame(
+            ['01 Processo', '02 Petições', '03 Decisões', '04 Documentos das partes', '05 Provas', '06 Prazos', 'Encerramento'],
+            $pastas->filter('.ds-sug-org-pasta')->each(static fn (Crawler $c): string => trim($c->text())),
+        );
+
+        $doCumprimento = $this->abrir($client, $idCumprimento)->filter('#documentosSugeridosPastas .ds-sug-org-pasta')
+            ->each(static fn (Crawler $c): string => trim($c->text()));
+        self::assertContains('07 Cálculos', $doCumprimento);
+        self::assertContains('09 Pagamentos', $doCumprimento);
+    }
+
+    #[TestDox('pasta sem catálogo não mostra organização sugerida')]
+    public function testSemCatalogoSemOrganizacao(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant, null);
+        $this->logarComTenant($client, $user, $tenant);
+
+        $crawler = $this->abrir($client, (int) $pasta->getId());
+
+        self::assertSame(0, $crawler->filter('#documentosSugeridos .ds-sug-org')->count());
+    }
+
+    #[TestDox('arquivo com outro número CNJ acende o aviso âmbar dentro do painel; só com o número do cadastro, não')]
+    public function testConflitoDeNumeroDeProcesso(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $comConflito     = $this->criarPasta($tenant, 'Indenização');
+        $semConflito     = $this->criarPasta($tenant, 'Indenização');
+        $this->vincularProcesso($comConflito, $tenant, 'Procedimento comum');
+        $this->vincularProcesso($semConflito, $tenant, 'Procedimento comum');
+        $this->anexar($comConflito, $tenant, 'Sentença 0009999-11.2024.8.26.0100');
+        $this->anexar($semConflito, $tenant, 'Procuração');
+        $idCom = (int) $comConflito->getId();
+        $idSem = (int) $semConflito->getId();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $aviso = $this->abrir($client, $idCom)->filter('#documentosSugeridosCorpo > .ds-sug-conflito');
+        self::assertSame(1, $aviso->count());
+        self::assertStringContainsString('0009999-11.2024.8.26.0100', $aviso->text());
+        self::assertStringContainsString('confirme qual é o processo desta pasta', $aviso->text());
+
+        self::assertSame(0, $this->abrir($client, $idSem)->filter('#documentosSugeridos .ds-sug-conflito')->count());
     }
 }

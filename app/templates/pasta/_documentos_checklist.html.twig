@@ -3,17 +3,31 @@
    (desenho 02 - EXPEDIENTES 1.2.3, dc L2079-2179; `pasta-dentro2.jpg`: visível também dentro
    das subpastas e durante a busca).
 
-   Markup MOVIDO do antigo gerenciador compartilhado (`.fm`), não reescrito: os `id` são contrato
-   com o JS inline da pasta/show (marcar, editar, reordenar, modelos) e com os testes. Mudaram de
-   lugar e de classe de estilo (`pex-ck-*`), não de nome. A fidelidade fina dos itens (grade de
-   caixas de 19px, selos "sem anexo") é do lote L3.
+   Cartão, de cima para baixo, como no desenho:
+     cabeçalho (ícone, título, selo "N/M itens", barra, Sugerir documentos, Modelos, ✎, +)
+     corpo: painel de documentos sugeridos (L2112) → modelos → faixa de adicionar (L2166) →
+            itens em grade (L2172: caixa de 19px, texto riscado quando concluído, selo
+            "sem anexo").
+
+   Os `id` são contrato com `public/js/pasta-checklist.js` (marcar, editar, excluir, reordenar,
+   modelos, selo, barra), com `pasta-documentos-sugeridos.js` e com os testes. Classes `pex-ck-*`
+   são de estilo (`public/css/pasta-checklist.css`).
+
+   O que o desenho tem e NÃO está aqui, de propósito:
+     - o ✦ e o rótulo "BlueJus IA": as sugestões são regras sobre um catálogo fixo (S-4);
+     - o interruptor "Ativo"/desativar com motivo (DOC-73): é do lote L11 (estado na `pasta`);
+     - o selo "cobrado Nx" (DOC-75): não existe cobrança automática (S-6).
 
    Incluído por `pasta/_documentos_explorador.html.twig`; usa `pasta`, `checklistItens`,
-   `totalChecklist` e `concluidosChecklist` do contexto.
+   `totalChecklist`, `concluidosChecklist` e `conferenciaChecklist` do contexto.
 #}
 {% set pctChecklist = totalChecklist > 0 ? (concluidosChecklist / totalChecklist * 100)|round : 0 %}
 {% set checklistCompleto = totalChecklist > 0 and concluidosChecklist == totalChecklist %}
-<div class="pex-ck" id="pexChecklist">
+{% set sugestao = documentos_sugeridos(pasta, checklistItens|default([])) %}
+{% set conferencia = conferenciaChecklist|default(null) %}
+<div class="pex-ck" id="pexChecklist"
+     data-pasta-id="{{ pasta.id }}"
+     data-csrf-pasta="{{ csrf_token('checklist_pasta_' ~ pasta.id) }}">
     <div class="pex-ck-cab">
         <i class="bi bi-check2-square pex-ck-ico" aria-hidden="true"></i>
         <h6 class="pex-ck-titulo">Checklist de documentação</h6>
@@ -25,52 +39,30 @@
             <div id="checklistBarra" class="pex-ck-barra-fill {{ checklistCompleto ? 'completo' : 'incompleto' }}" style="width: {{ pctChecklist }}%"></div>
         </div>
         <span class="pex-ck-espaco"></span>
+        {% if sugestao is not null %}
+            {# Rótulo neutro (S-4): o desenho tem ✦ aqui, mas o que roda é catálogo + regras. #}
+            <button type="button" id="btnDocumentosSugeridos" class="pex-ck-sugerir"
+                    aria-expanded="false" aria-controls="documentosSugeridos"
+                    title="Compara o catálogo de documentos da fase e do tipo de ação com o que a pasta já tem">
+                <i class="bi bi-list-check" aria-hidden="true"></i>Sugerir documentos
+            </button>
+        {% endif %}
         <button type="button" id="btnChecklistModelos" class="pex-ck-acao" title="Modelos de checklist"
                 aria-expanded="false" aria-controls="checklistModelosPainel">
             <i class="bi bi-bookmarks"></i>
         </button>
-        <button type="button" id="btnChecklistEditar" class="pex-ck-acao" title="Editar checklist">
+        <button type="button" id="btnChecklistEditar" class="pex-ck-acao" title="Editar checklist (remover, renomear e reordenar itens)"
+                aria-pressed="false">
             <i class="bi bi-pencil"></i>
         </button>
-        <button type="button" id="btnChecklistAdicionar" class="pex-ck-acao" title="Adicionar item">
+        <button type="button" id="btnChecklistAdicionar" class="pex-ck-acao" title="Adicionar item"
+                aria-expanded="false" aria-controls="checklistFormAdicionar">
             <i class="bi bi-plus-lg"></i>
         </button>
     </div>
     <div class="pex-ck-corpo">
-        <ul id="checklistLista" class="pex-ck-lista list-unstyled mb-0">
-            {% for item in checklistItens %}
-            <li class="checklist-item d-flex align-items-center gap-2 py-1 border-bottom"
-                data-item-id="{{ item.id }}"
-                data-csrf-item="{{ csrf_token('checklist_item_' ~ item.id) }}">
-                <button type="button" class="btn btn-link p-0 border-0 js-checklist-toggle" title="{{ item.concluido ? 'Marcar como pendente' : 'Marcar como concluído' }}">
-                    <i class="bi {{ item.concluido ? 'bi-check-circle-fill text-success' : 'bi-x-circle-fill text-danger' }} fs-5"></i>
-                </button>
-                <span class="checklist-drag-handle d-none text-muted" style="cursor:grab" title="Arrastar para reordenar">
-                    <i class="bi bi-grip-vertical"></i>
-                </span>
-                <span class="checklist-item-titulo flex-grow-1 {{ item.concluido ? 'text-decoration-line-through text-muted' : '' }}">
-                    {{ item.titulo|e }}
-                </span>
-                <input type="text" class="checklist-item-input form-control form-control-sm flex-grow-1 d-none"
-                       value="{{ item.titulo|e('html_attr') }}" maxlength="255">
-                <button type="button" class="btn btn-sm btn-outline-danger js-checklist-excluir d-none" title="Excluir item">
-                    <i class="bi bi-trash"></i>
-                </button>
-            </li>
-            {% else %}
-            <li id="checklistVazio" class="text-muted small py-2">
-                Nenhum item. Clique em <i class="bi bi-plus-lg"></i> para adicionar.
-            </li>
-            {% endfor %}
-        </ul>
-        <div id="checklistFormAdicionar" class="pex-ck-adicionar d-none">
-            <div class="input-group input-group-sm">
-                <input type="text" id="checklistNovoTitulo" class="form-control" placeholder="Nome do documento, ex.: Certidão de casamento" maxlength="255">
-                <button type="button" id="btnChecklistSalvarNovo" class="btn btn-primary"><i class="bi bi-check-lg"></i></button>
-                <button type="button" id="btnChecklistCancelarNovo" class="btn btn-outline-secondary"><i class="bi bi-x-lg"></i></button>
-            </div>
-            <div id="checklistErroNovo" class="text-danger small mt-1 d-none"></div>
-        </div>
+        {# Painel de sugestões DENTRO do cartão do checklist, logo abaixo do cabeçalho (dc L2112). #}
+        {{ include('pasta/_documentos_sugeridos.html.twig') }}
 
         {# ── Modelos de checklist ──────────────────────────
            Painel INLINE, não modal: o painel da aba é animado, e ancestral com
@@ -109,5 +101,55 @@
             <div id="checklistModelosErro" class="text-danger small mt-2 d-none"></div>
             <div id="checklistModelosAviso" class="text-success small mt-2 d-none"></div>
         </div>
+
+        {# Faixa de adicionar (dc L2166-2170): Enter confirma, Esc cancela. #}
+        <div id="checklistFormAdicionar" class="pex-ck-adicionar d-none">
+            <div class="pex-ck-adicionar-linha">
+                <input type="text" id="checklistNovoTitulo" class="pex-ck-adicionar-campo"
+                       placeholder="Nome do documento, ex.: Certidão de casamento"
+                       aria-label="Novo item do checklist" maxlength="255">
+                <button type="button" id="btnChecklistSalvarNovo" class="pex-ck-adicionar-btn">Adicionar</button>
+            </div>
+            <div id="checklistErroNovo" class="pex-ck-adicionar-erro d-none" role="alert"></div>
+        </div>
+
+        <ul id="checklistLista" class="pex-ck-lista list-unstyled mb-0">
+            {% for item in checklistItens %}
+                {% set temAnexo = conferencia is null or conferencia.temAnexo(item.id) %}
+                <li class="checklist-item pex-ck-item{{ item.concluido ? ' concluido' : '' }}"
+                    data-item-id="{{ item.id }}"
+                    data-csrf-item="{{ csrf_token('checklist_item_' ~ item.id) }}"
+                    data-concluido="{{ item.concluido ? '1' : '0' }}"
+                    data-tem-anexo="{{ temAnexo ? '1' : '0' }}">
+                    <span class="checklist-drag-handle pex-ck-alca d-none" title="Arrastar para reordenar" aria-hidden="true">
+                        <i class="bi bi-grip-vertical"></i>
+                    </span>
+                    <button type="button" class="pex-ck-linha js-checklist-toggle"
+                            aria-pressed="{{ item.concluido ? 'true' : 'false' }}"
+                            title="{{ item.concluido ? 'Marcar como pendente' : 'Marcar como concluído' }}">
+                        <span class="pex-ck-caixa" aria-hidden="true"><i class="bi bi-check2"></i></span>
+                        <span class="checklist-item-titulo pex-ck-texto">{{ item.titulo }}</span>
+                        {% if not temAnexo %}
+                            {# Selo do desenho (L2175, 6337): só aparece com o item MARCADO. A
+                               regra é de nome (ConferenciaDeAnexosDoChecklist) — o title diz. #}
+                            <span class="pex-ck-sem-anexo"{{ item.concluido ? '' : ' hidden' }}
+                                  title="Marcado como entregue, mas nenhum arquivo da pasta tem nome correspondente a este item (conferência por regras: nome do arquivo × título do item).">
+                                <i class="bi bi-megaphone-fill" aria-hidden="true"></i>sem anexo
+                            </span>
+                        {% endif %}
+                    </button>
+                    <input type="text" class="checklist-item-input pex-ck-renomear d-none"
+                           value="{{ item.titulo }}" maxlength="255" aria-label="Renomear item do checklist">
+                    <button type="button" class="pex-ck-remover js-checklist-excluir d-none" title="Remover item" aria-label="Remover item">
+                        <i class="bi bi-trash3"></i>
+                    </button>
+                </li>
+            {% else %}
+                <li id="checklistVazio" class="pex-ck-vazio">
+                    Nenhum item. Clique em <i class="bi bi-plus-lg"></i> para adicionar.
+                </li>
+            {% endfor %}
+        </ul>
     </div>
+    <link rel="stylesheet" href="{{ asset('css/pasta-checklist.css') }}">
 </div>

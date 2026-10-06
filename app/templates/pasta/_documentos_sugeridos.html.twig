@@ -1,41 +1,65 @@
 {#
-   Painel "Documentos sugeridos" da aba Documentos (desenho 02 - EXPEDIENTES 1.2.3, dc L2089 e
-   L2112-2167; regra em bj-docsug.js).
+   Painel "Documentos sugeridos" da aba Documentos (desenho 02 - EXPEDIENTES 1.2.3, dc L2112-2167;
+   regra em bj-docsug.js).
 
-   O desenho chama isto de inteligência. Não é: é o catálogo fixo de documentos por fase e por tipo
-   de ação (`App\Pasta\Service\CatalogoDeDocumentos`) casado com o que a pasta já tem. O rótulo da
-   tela diz exatamente isso — nada de "IA analisou".
+   Mora DENTRO do cartão do checklist, logo abaixo do cabeçalho, como no desenho (DOC-77): o botão
+   que o abre ("Sugerir documentos", `#btnDocumentosSugeridos`) fica no cabeçalho do checklist e o
+   painel nasce fechado.
 
-   No desenho o painel abre DENTRO do cartão do checklist. Aqui o checklist mora dentro do
-   gerenciador de arquivos (`.fm`), que é compartilhado com a Cobrança; o painel fica FORA dele,
-   logo acima, como cartão próprio.
+   O desenho chama isto de "Análise documental" com ✦ e "BlueJus IA". Não é: é o catálogo fixo de
+   documentos por fase e por tipo de ação (`App\Pasta\Service\CatalogoDeDocumentos`) casado com o
+   que a pasta já tem, mais duas regras (organização por fase, número de processo divergente). O
+   rótulo da tela diz exatamente isso — nada de "IA analisou" (decisão S-4).
 
    "Adicionar ao checklist" usa o endpoint que já existe (`pasta_checklist_adicionar`, mesmo token
    `checklist_pasta_<id>`, mesma guarda de edição) — um POST por item, e a página recarrega na aba
-   Documentos para o checklist e as sugestões saírem do servidor de novo.
+   Documentos para o checklist e as sugestões saírem do servidor de novo. "Atualizar" é o mesmo
+   recarregamento: as regras rodam no servidor a cada abertura da tela.
 
-   Incluído pelo `pasta/show.html.twig`; usa `pasta` e `checklistItens` do contexto.
+   Incluído por `pasta/_documentos_checklist.html.twig`; usa `pasta`, `checklistItens`, `sugestao`
+   (se o checklist já calculou), `conflitoCnj` e `organizacaoSugerida` do contexto.
 #}
-{% set sugestao = documentos_sugeridos(pasta, checklistItens|default([])) %}
+{% set sugestao = sugestao ?? documentos_sugeridos(pasta, checklistItens|default([])) %}
 {% if sugestao is not null %}
-<section class="ds-sug" id="documentosSugeridos"
+{% set conflito = conflitoCnj|default(null) %}
+{% set pastasDaFase = sugestao.temCatalogo ? (organizacaoSugerida|default({}))[sugestao.faseChave]|default([]) : [] %}
+<section class="ds-sug d-none" id="documentosSugeridos"
          aria-labelledby="documentosSugeridosTitulo"
          data-url-adicionar="{{ path('pasta_checklist_adicionar', {id: pasta.id}) }}"
          data-csrf="{{ csrf_token('checklist_pasta_' ~ pasta.id) }}">
     <div class="ds-sug-cab">
-        <i class="bi bi-journal-check ds-sug-icone" aria-hidden="true"></i>
+        <i class="bi bi-list-check ds-sug-icone" aria-hidden="true"></i>
         <div class="ds-sug-titulos">
             <h6 id="documentosSugeridosTitulo">Documentos sugeridos</h6>
-            <span class="ds-sug-sub">Sugestões pelo catálogo de documentos da fase e do tipo de ação</span>
+            <span class="ds-sug-sub">Sugestões pelo catálogo de documentos da fase e do tipo de ação · por regras</span>
+            {% if sugestao.temCatalogo %}
+                <span class="ds-sug-ident">
+                    {% if sugestao.numeroProcesso %}
+                        Processo {{ sugestao.numeroProcesso }} · vinculado à pasta
+                    {% else %}
+                        Processo não identificado: vincule um processo à pasta
+                    {% endif %}
+                </span>
+            {% endif %}
         </div>
-        <button type="button" class="ds-sug-alternar" id="btnDocumentosSugeridos"
-                aria-expanded="false" aria-controls="documentosSugeridosCorpo"
-                title="Compara o catálogo de documentos da fase e do tipo de ação com o que a pasta já tem">
-            <i class="bi bi-list-check" aria-hidden="true"></i>Sugerir documentos
+        <button type="button" class="ds-sug-atualizar" id="btnDocumentosSugeridosAtualizar"
+                title="Recalcula as sugestões com os documentos e o checklist de agora (recarrega a aba)">
+            <i class="bi bi-arrow-repeat" aria-hidden="true"></i>Atualizar
+        </button>
+        <button type="button" class="ds-sug-fechar" id="btnDocumentosSugeridosFechar" aria-label="Fechar sugestões" title="Fechar">
+            <i class="bi bi-x-lg" aria-hidden="true"></i>
         </button>
     </div>
 
-    <div class="ds-sug-corpo d-none" id="documentosSugeridosCorpo">
+    <div class="ds-sug-corpo" id="documentosSugeridosCorpo">
+        {% if conflito is not null and conflito.temConflito %}
+            {# DOC-81 (dc L2130): aviso âmbar, não assume nenhum dos números. #}
+            <div class="ds-sug-conflito" role="note">
+                <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+                <span>{{ conflito.texto }}</span>
+            </div>
+        {% endif %}
+
         {% if not sugestao.temCatalogo %}
             <p class="ds-sug-sem-catalogo">
                 <i class="bi bi-info-circle" aria-hidden="true"></i>
@@ -43,14 +67,6 @@
                 com classe processual. Cadastre a ação ou vincule o processo para ver as sugestões.
             </p>
         {% else %}
-            <span class="ds-sug-ident">
-                {% if sugestao.numeroProcesso %}
-                    Processo {{ sugestao.numeroProcesso }} · vinculado à pasta
-                {% else %}
-                    Processo não identificado: vincule um processo à pasta
-                {% endif %}
-            </span>
-
             <div class="ds-sug-contexto">
                 <div class="ds-sug-contexto-linha">
                     <span class="ds-sug-rotulo">Contexto da pasta</span>
@@ -115,6 +131,23 @@
                 {% endif %}
             {% endfor %}
 
+            {% if pastasDaFase is not empty %}
+                {# DOC-80 (dc L2160-2161): lista fixa por fase. Só mostra — o desenho não tem
+                   "criar estas pastas", e não se inventa aqui. #}
+                <div class="ds-sug-org" id="documentosSugeridosOrganizacao">
+                    <button type="button" class="ds-sug-org-alternar" id="btnDocumentosSugeridosOrganizacao"
+                            aria-expanded="false" aria-controls="documentosSugeridosPastas">
+                        <i class="bi bi-chevron-right" aria-hidden="true"></i>Organização sugerida para esta fase
+                        <span class="ds-sug-org-regra">· por regras</span>
+                    </button>
+                    <div class="ds-sug-org-pastas" id="documentosSugeridosPastas" hidden>
+                        {% for nomePasta in pastasDaFase %}
+                            <span class="ds-sug-org-pasta"><i class="bi bi-folder2" aria-hidden="true"></i>{{ nomePasta }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endif %}
+
             {% set faltantes = sugestao.nomesDosFaltantes %}
             <div class="ds-sug-rodape">
                 {% if faltantes is not empty %}
@@ -128,7 +161,6 @@
             <div class="ds-sug-erro d-none" id="documentosSugeridosErro" role="alert"></div>
         {% endif %}
     </div>
-    {# Folha e script DENTRO do cartão: o painel tem de ser o irmão imediatamente anterior ao `.fm`. #}
     <link rel="stylesheet" href="{{ asset('css/pasta-documentos-sugeridos.css') }}">
     <script src="{{ asset('js/pasta-documentos-sugeridos.js') }}" defer></script>
 </section>

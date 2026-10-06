@@ -96,7 +96,7 @@ final class PastaExploradorArranjoTelaTest extends JusPrimeWebTestCase
         return $crawler;
     }
 
-    #[TestDox('a aba Documentos é: sugeridos, depois o explorador — e nada do gerenciador antigo')]
+    #[TestDox('a aba Documentos é o explorador, com os sugeridos dentro do cartão do checklist — e nada do gerenciador antigo')]
     public function testAbaTemSugeridosEDepoisOExplorador(): void
     {
         $client          = static::createClient();
@@ -105,8 +105,9 @@ final class PastaExploradorArranjoTelaTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $user, $tenant);
         $crawler = $this->abrir($client, $pasta);
 
-        self::assertCount(1, $crawler->filter('#documentos > #documentosSugeridos + #pexExplorador'), 'sugeridos imediatamente antes e FORA do explorador (contrato até o L3)');
-        self::assertCount(0, $crawler->filter('#pexExplorador #documentosSugeridos'));
+        self::assertCount(1, $crawler->filter('#documentos > #pexExplorador'));
+        self::assertCount(0, $crawler->filter('#documentos > #documentosSugeridos'), 'desde o L3 o painel não é mais cartão próprio acima do explorador');
+        self::assertCount(1, $crawler->filter('#pexExplorador > #pexChecklist > .pex-ck-corpo > #documentosSugeridos'), 'mora no cartão do checklist (dc L2112)');
 
         // O fm compartilhado com a Cobrança não existe mais nesta tela — nem markup, nem assets.
         self::assertCount(0, $crawler->filter('#fileManager'), 'dois gerenciadores brigariam pelos mesmos ids globais');

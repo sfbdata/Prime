@@ -34,6 +34,9 @@ use Psr\Log\LoggerInterface;
 use App\Twig\ArquivoIconeExtension;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
+use App\Pasta\Service\ConferenciaDeAnexosDoChecklist;
+use App\Pasta\Service\ConflitoDeNumeroCnj;
+use App\Pasta\Service\OrganizacaoSugeridaPorFase;
 use App\Pasta\Service\PastaTimelineAssembler;
 use App\Pasta\Entity\PastaMensagem;
 use App\Pasta\Entity\PastaObservacaoDetalhes;
@@ -366,6 +369,7 @@ class PastaController extends AbstractController
         $totalChecklist      = count($checklistItens);
         $concluidosChecklist = count(array_filter($checklistItens, fn($i) => $i->isConcluido()));
 
+        $conferenciaChecklist = ConferenciaDeAnexosDoChecklist::daPasta($checklistItens, $pasta->getDocumentos(), $tenant); // selo "sem anexo" + pendência da aba (DOC-74/76)
         $secoes = $tenant !== null ? $this->secaoRepository->findByPasta($pasta, $tenant) : [];
 
         // Explorador da aba Documentos: pastas, arquivos, rótulos e tokens num JSON só, de UMA
@@ -446,12 +450,15 @@ class PastaController extends AbstractController
             'checklistItens'              => $checklistItens,
             'totalChecklist'              => $totalChecklist,
             'concluidosChecklist'         => $concluidosChecklist,
+            'conferenciaChecklist'        => $conferenciaChecklist,
+            'conflitoCnj'                 => ConflitoDeNumeroCnj::daPasta($pasta, $numerosDosProcessos, $tenant),
+            'organizacaoSugerida'         => OrganizacaoSugeridaPorFase::porFase(),
             'secoes'                      => $secoes,
             'explorador'                  => $explorador,
             'push'                        => $push,
             'analisesIa'                  => $analisesIa,
             // Linha vermelha sob as abas (desenho 1.2.3): calculada aqui, a tela só mostra.
-            'pendencias'                  => PastaPendenciasOutput::montar($pasta, $push->naoLidas, $pagamentosDaPasta),
+            'pendencias'                  => PastaPendenciasOutput::montar($pasta, $push->naoLidas, $pagamentosDaPasta, itensMarcadosSemAnexo: $conferenciaChecklist->totalMarcadosSemAnexo()),
             'metasResumo'                 => PastaMetasResumoOutput::montar($pasta),
             // Atalho para a UNIDADE cobrada — só existe em pasta que veio de uma
             // judicialização (6 das 1.099 em produção). `null` nas demais, e o cabeçalho

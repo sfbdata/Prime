@@ -1,0 +1,323 @@
+/* =============================================================================
+   Checklist de documentação da aba Documentos (templates/pasta/_documentos_checklist.html.twig).
+
+   Valores do desenho 02 - EXPEDIENTES 1.2.3, dc L2079-2179 e 6331-6346 (itens em grade
+   fluida, caixa de 19px, texto riscado, selo "sem anexo", faixa de adicionar, lixeira do
+   modo de edição) e L6531-6534 (selo "N/M itens" e barra).
+
+   Tudo escopado em `#pexChecklist`: o cartão e o cabeçalho (`.pex-ck`, `.pex-ck-cab`,
+   `.pex-ck-acao`) vêm de pasta-explorador.css e NÃO são tocados lá; aqui só o que é do
+   checklist por dentro. O id dá a especificidade para vencer as regras genéricas de
+   `.pex-ck-*` sem `!important`. Cada hex do desenho tem par no tema escuro logo abaixo.
+   ============================================================================= */
+#pexChecklist {
+    --ck-linha-bg:        #fff;
+    --ck-linha-ok-bg:     #fcfdfe;
+    --ck-linha-bd:        #f1f4f7;
+    --ck-texto:           #243845;
+    --ck-texto-ok:        #6b8494;
+    --ck-risco:           #c3d2dd;
+    --ck-caixa-bd:        #c3d2dd;
+    --ck-caixa-bg:        #fff;
+    --ck-verde:           #1f9d61;
+    --ck-sem-anexo:       #c0392b;
+    --ck-nota:            #6b8494;
+    --ck-alca:            #8496a3;
+    --ck-remover-bg:      #fff;
+    --ck-remover:         #b03a2e;
+    --ck-remover-anel:    #f1c9c4;
+    --ck-remover-hover:   #fbeceb;
+    --ck-add-bg:          #f6f9fb;
+    --ck-add-bd:          #eef2f5;
+    --ck-campo-bg:        #fff;
+    --ck-campo-anel:      #d3dde5;
+    --ck-azul:            #0a7aad;
+    --ck-azul-hover:      #0b5f86;
+    --ck-erro:            #b03a2e;
+    --ck-selo-inc:        #8a5a12;
+    --ck-selo-inc-bg:     #fdf1dc;
+    --ck-selo-inc-bd:     #f0dcb4;
+    --ck-selo-ok:         #186c47;
+    --ck-selo-ok-bg:      #e2f4ea;
+    --ck-selo-ok-bd:      #bde3cd;
+    --ck-barra-inc:       #c8952a;
+    --ck-barra-ok:        #1f9d61;
+    --ck-sugerir-bg:      #f1ecfc;
+    --ck-sugerir:         #5b3fb0;
+    --ck-sugerir-hover:   #e6defa;
+    --ck-modelos-bd:      #eef2f5;
+}
+
+[data-bs-theme="dark"] #pexChecklist {
+    --ck-linha-bg:        transparent;
+    --ck-linha-ok-bg:     rgba(255, 255, 255, .02);
+    --ck-linha-bd:        var(--bs-border-color-translucent);
+    --ck-texto:           var(--bs-body-color);
+    --ck-texto-ok:        var(--bs-secondary-color);
+    --ck-risco:           rgba(255, 255, 255, .28);
+    --ck-caixa-bd:        rgba(255, 255, 255, .32);
+    --ck-caixa-bg:        transparent;
+    --ck-verde:           #2fb877;
+    --ck-sem-anexo:       #f08a80;
+    --ck-nota:            var(--bs-secondary-color);
+    --ck-alca:            var(--bs-secondary-color);
+    --ck-remover-bg:      var(--bs-body-bg);
+    --ck-remover:         #f08a80;
+    --ck-remover-anel:    rgba(240, 138, 128, .4);
+    --ck-remover-hover:   rgba(240, 138, 128, .14);
+    --ck-add-bg:          rgba(255, 255, 255, .03);
+    --ck-add-bd:          var(--bs-border-color-translucent);
+    --ck-campo-bg:        var(--bs-body-bg);
+    --ck-campo-anel:      rgba(255, 255, 255, .18);
+    --ck-azul:            #1b86b8;
+    --ck-azul-hover:      #2a9bd0;
+    --ck-erro:            #f08a80;
+    --ck-selo-inc:        #f2c46b;
+    --ck-selo-inc-bg:     rgba(242, 196, 107, .12);
+    --ck-selo-inc-bd:     rgba(242, 196, 107, .3);
+    --ck-selo-ok:         #6fd3a0;
+    --ck-selo-ok-bg:      rgba(111, 211, 160, .12);
+    --ck-selo-ok-bd:      rgba(111, 211, 160, .3);
+    --ck-barra-inc:       #d9a640;
+    --ck-barra-ok:        #2fb877;
+    --ck-sugerir-bg:      rgba(155, 128, 230, .16);
+    --ck-sugerir:         #b9a6f2;
+    --ck-sugerir-hover:   rgba(155, 128, 230, .28);
+    --ck-modelos-bd:      var(--bs-border-color-translucent);
+}
+
+/* ── Cabeçalho: selo "N/M itens" e barra com as cores do desenho (L6531-6534) ── */
+#pexChecklist .pex-ck-selo { font-weight: 600; }
+#pexChecklist .pex-ck-selo.incompleto { color: var(--ck-selo-inc); background: var(--ck-selo-inc-bg); border: 1px solid var(--ck-selo-inc-bd); }
+#pexChecklist .pex-ck-selo.completo   { color: var(--ck-selo-ok);  background: var(--ck-selo-ok-bg);  border: 1px solid var(--ck-selo-ok-bd); }
+#pexChecklist .pex-ck-barra-fill.incompleto { background: var(--ck-barra-inc); }
+#pexChecklist .pex-ck-barra-fill.completo   { background: var(--ck-barra-ok); }
+
+/* "Sugerir documentos" (L2089) — sem o ✦: o que roda é catálogo + regras (S-4). */
+#pexChecklist .pex-ck-sugerir {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 28px;
+    padding: 0 10px;
+    border: none;
+    border-radius: 4px;
+    background: var(--ck-sugerir-bg);
+    color: var(--ck-sugerir);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: background .18s;
+}
+#pexChecklist .pex-ck-sugerir:hover,
+#pexChecklist .pex-ck-sugerir.active { background: var(--ck-sugerir-hover); }
+#pexChecklist .pex-ck-sugerir > .bi { font-size: 12px; }
+
+/* ── Corpo: os blocos vão de borda a borda, como no desenho ─────────────── */
+#pexChecklist .pex-ck-corpo { padding: 0; }
+
+/* Modelos (só o sistema tem): mesma régua de faixa das outras. */
+#pexChecklist .pex-ck-modelos {
+    margin: 0;
+    padding: 12px 16px;
+    border-top: 0;
+    border-bottom: 1px solid var(--ck-modelos-bd);
+}
+
+/* Faixa de adicionar (L2166-2170). */
+#pexChecklist .pex-ck-adicionar {
+    max-width: none;
+    padding: 10px 16px;
+    background: var(--ck-add-bg);
+    border-bottom: 1px solid var(--ck-add-bd);
+}
+#pexChecklist .pex-ck-adicionar.d-none { display: none !important; }
+#pexChecklist .pex-ck-adicionar-linha { display: flex; gap: 8px; }
+#pexChecklist .pex-ck-adicionar-campo {
+    flex: 1;
+    min-width: 0;
+    height: 32px;
+    padding: 0 10px;
+    border: none;
+    border-radius: 4px;
+    background: var(--ck-campo-bg);
+    color: var(--ck-texto);
+    box-shadow: inset 0 0 0 1px var(--ck-campo-anel);
+    font-family: inherit;
+    font-size: 13px;
+    outline: none;
+}
+#pexChecklist .pex-ck-adicionar-campo:focus-visible { box-shadow: inset 0 0 0 1px var(--ck-azul), 0 0 0 2px rgba(10, 122, 173, .18); }
+#pexChecklist .pex-ck-adicionar-btn {
+    height: 32px;
+    padding: 0 12px;
+    border: none;
+    border-radius: 4px;
+    background: var(--ck-azul);
+    color: #fff;
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 700;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+#pexChecklist .pex-ck-adicionar-btn:hover { background: var(--ck-azul-hover); }
+#pexChecklist .pex-ck-adicionar-btn:disabled { opacity: .6; cursor: progress; }
+#pexChecklist .pex-ck-adicionar-erro { margin-top: 6px; font-size: 12px; color: var(--ck-erro); }
+
+/* ── Itens em grade fluida (L2172: flex 1 1 260px) ────────────────────── */
+#pexChecklist .pex-ck-lista {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0;
+}
+#pexChecklist .pex-ck-lista > .pex-ck-item {
+    position: relative;
+    display: flex;
+    flex: 1 1 260px;
+    min-width: 0;
+    font-size: 13.5px;
+}
+
+/* A linha inteira é o botão de marcar (L6339). */
+#pexChecklist .pex-ck-linha {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1 1 auto;
+    width: 100%;
+    min-width: 0;
+    padding: 11px 16px;
+    border: none;
+    border-right: 1px solid var(--ck-linha-bd);
+    border-bottom: 1px solid var(--ck-linha-bd);
+    background: var(--ck-linha-bg);
+    color: var(--ck-texto);
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: background .15s ease;
+}
+#pexChecklist .pex-ck-linha.d-none { display: none !important; }
+#pexChecklist .pex-ck-linha:focus-visible { outline: 2px solid var(--ck-azul); outline-offset: -2px; }
+#pexChecklist .pex-ck-linha:disabled { cursor: progress; }
+#pexChecklist .pex-ck-item.concluido > .pex-ck-linha { background: var(--ck-linha-ok-bg); }
+
+/* Caixa de 19px (L6341). */
+#pexChecklist .pex-ck-caixa {
+    width: 19px;
+    height: 19px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 3px;
+    border: 1.5px solid var(--ck-caixa-bd);
+    background: var(--ck-caixa-bg);
+    transition: background .2s ease, border-color .2s ease;
+}
+#pexChecklist .pex-ck-caixa > .bi { font-size: 11px; color: #fff; opacity: 0; }
+#pexChecklist .pex-ck-item.concluido .pex-ck-caixa { border-color: var(--ck-verde); background: var(--ck-verde); }
+#pexChecklist .pex-ck-item.concluido .pex-ck-caixa > .bi { opacity: 1; }
+
+/* Texto 13.5px com ellipsis; concluído riscado (L6345). */
+#pexChecklist .pex-ck-texto {
+    font-size: 13.5px;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--ck-texto);
+}
+#pexChecklist .pex-ck-item.concluido .pex-ck-texto {
+    color: var(--ck-texto-ok);
+    text-decoration: line-through;
+    text-decoration-color: var(--ck-risco);
+}
+
+/* Selo "sem anexo" (L2175, 6337-6338): à direita, vermelho, 10.5px/700. */
+#pexChecklist .pex-ck-sem-anexo {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: auto;
+    padding-left: 8px;
+    flex-shrink: 0;
+    font-size: 10.5px;
+    font-weight: 700;
+    white-space: nowrap;
+    color: var(--ck-sem-anexo);
+}
+#pexChecklist .pex-ck-sem-anexo[hidden] { display: none; }
+#pexChecklist .pex-ck-sem-anexo > .bi { font-size: 9px; }
+
+/* ── Modo de edição: lixeira do desenho (L2177) + alça e renomear (só o sistema) ── */
+#pexChecklist .pex-ck-lista.editando .pex-ck-linha { cursor: default; padding-left: 30px; padding-right: 40px; }
+#pexChecklist .pex-ck-alca {
+    position: absolute;
+    left: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 1;
+    color: var(--ck-alca);
+    cursor: grab;
+}
+#pexChecklist .pex-ck-alca.d-none,
+#pexChecklist .pex-ck-remover.d-none,
+#pexChecklist .pex-ck-renomear.d-none { display: none !important; }
+#pexChecklist .pex-ck-remover {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 1;
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 4px;
+    background: var(--ck-remover-bg);
+    color: var(--ck-remover);
+    box-shadow: 0 0 0 1px var(--ck-remover-anel);
+    cursor: pointer;
+}
+#pexChecklist .pex-ck-remover:hover { background: var(--ck-remover-hover); }
+#pexChecklist .pex-ck-remover > .bi { font-size: 12px; }
+#pexChecklist .pex-ck-renomear {
+    flex: 1;
+    min-width: 0;
+    height: 30px;
+    margin: 6px 40px 6px 30px;
+    padding: 0 8px;
+    border: none;
+    border-radius: 4px;
+    background: var(--ck-campo-bg);
+    color: var(--ck-texto);
+    box-shadow: inset 0 0 0 1px var(--ck-campo-anel);
+    font-family: inherit;
+    font-size: 13px;
+    outline: none;
+}
+#pexChecklist .pex-ck-renomear:focus-visible { box-shadow: inset 0 0 0 1px var(--ck-azul); }
+
+/* Lista vazia. */
+#pexChecklist .pex-ck-lista > .pex-ck-vazio {
+    flex: 1 1 100%;
+    padding: 12px 16px;
+    font-size: 13px;
+    color: var(--ck-nota);
+}
+
+/* Sortable: o item fantasma não pode parecer marcado nem desmarcado. */
+#pexChecklist .pex-ck-item.sortable-ghost { opacity: .45; }
+
+/* 375px: o cabeçalho quebra em linhas e a barra encolhe para não empurrar os botões. */
+@media (max-width: 480px) {
+    #pexChecklist .pex-ck-barra { width: 96px; }
+    #pexChecklist .pex-ck-lista > .pex-ck-item { flex-basis: 100%; }
+}

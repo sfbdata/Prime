@@ -1,10 +1,11 @@
 /* =============================================================================
    Painel "Documentos sugeridos" da aba Documentos da pasta.
 
-   Valores do desenho 02 - EXPEDIENTES 1.2.3 (dc L2080-2167: cartão do checklist,
-   botão "Sugerir documentos", painel de sugestões; cores dos grupos em dsVals,
-   L4028). Tudo preso a `.ds-sug` — nada global, nada do `.fm` (compartilhado com
-   a Cobrança). Cores como token, redefinidas no tema escuro logo abaixo.
+   Valores do desenho 02 - EXPEDIENTES 1.2.3 (dc L2112-2167: painel de sugestões
+   DENTRO do cartão do checklist, logo abaixo do cabeçalho; cores dos grupos em
+   dsVals, L4028). Tudo preso a `.ds-sug` — nada global. Cores como token,
+   redefinidas no tema escuro logo abaixo. O botão que abre o painel ("Sugerir
+   documentos") mora no cabeçalho do checklist e é estilizado em pasta-checklist.css.
    ============================================================================= */
 .ds-sug {
     --ds-roxo:        #5b3fb0;
@@ -38,12 +39,22 @@
     --ds-erro:        #b03a2e;
     --ds-erro-bg:     #fbeceb;
 
-    margin: 0 0 16px;
-    border-radius: 4px;
-    overflow: hidden;
-    background: var(--ds-cartao-bg);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, .16);
+    --ds-ambar:       #7a4b00;
+    --ds-ambar-bg:    #fff7e6;
+    --ds-pasta:       #d39222;
+
+    /* dc L2112: faixa roxa clara no corpo do cartão, separada dos itens por uma linha. */
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 14px 16px;
+    background: var(--ds-corpo-bg);
+    border-bottom: 1px solid var(--ds-roxo-anel);
     color: var(--ds-texto);
+}
+
+.ds-sug.d-none {
+    display: none !important;
 }
 
 [data-bs-theme="dark"] .ds-sug {
@@ -77,28 +88,28 @@
     --ds-na-bg:       rgba(255, 255, 255, .06);
     --ds-erro:        #f08a80;
     --ds-erro-bg:     rgba(240, 138, 128, .14);
+    --ds-ambar:       #f2c46b;
+    --ds-ambar-bg:    rgba(242, 196, 107, .12);
+    --ds-pasta:       #e6b04a;
 }
 
-/* Cabeçalho do cartão — mesma régua do cabeçalho do checklist no desenho (L2081). */
+/* Cabeçalho do painel (L2114-2128): ícone, título + identificação, Atualizar, fechar. */
 .ds-sug-cab {
     display: flex;
-    align-items: center;
-    gap: 11px;
-    flex-wrap: wrap;
-    padding: 13px 16px;
-    background: var(--ds-cab-bg);
-    border-bottom: 1px solid var(--ds-cab-bd);
+    align-items: flex-start;
+    gap: 10px;
 }
 
 .ds-sug-icone {
-    font-size: 14px;
-    color: #8496a3;
+    font-size: 16px;
+    line-height: 1.2;
+    color: var(--ds-roxo-icone);
 }
 
 .ds-sug-titulos {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 3px;
     flex: 1;
     min-width: 0;
 }
@@ -106,8 +117,8 @@
 .ds-sug-titulos h6 {
     margin: 0;
     font-size: 13.5px;
-    font-weight: 600;
-    white-space: nowrap;
+    font-weight: 700;
+    color: var(--ds-roxo-texto);
 }
 
 .ds-sug-sub {
@@ -115,43 +126,127 @@
     color: var(--ds-roxo-texto2);
 }
 
-/* Botão "Sugerir documentos" (L2089). */
-.ds-sug-alternar {
+/* "Atualizar" (L2127). */
+.ds-sug-atualizar {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 5px;
     height: 28px;
     padding: 0 10px;
     border: none;
     border-radius: 4px;
-    background: var(--ds-roxo-bg);
+    background: var(--ds-roxo-bg-2);
     color: var(--ds-roxo);
     font-family: inherit;
     font-size: 12px;
     font-weight: 700;
     cursor: pointer;
     white-space: nowrap;
+    flex-shrink: 0;
 }
 
-.ds-sug-alternar:hover {
-    background: #e6defa;
-}
-
-[data-bs-theme="dark"] .ds-sug-alternar:hover {
+.ds-sug-atualizar:hover {
     background: var(--ds-roxo-hover);
 }
 
-/* Corpo do painel (L2113). */
+.ds-sug-atualizar:disabled {
+    opacity: .6;
+    cursor: progress;
+}
+
+/* Fechar (L2128). */
+.ds-sug-fechar {
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--ds-roxo-texto3);
+    cursor: pointer;
+}
+
+.ds-sug-fechar:hover {
+    background: var(--ds-roxo-bg-2);
+}
+
+/* Corpo do painel: o espaçamento é o do próprio painel (gap 12px, L2113). */
 .ds-sug-corpo {
     display: flex;
     flex-direction: column;
     gap: 12px;
-    padding: 14px 16px;
-    background: var(--ds-corpo-bg);
 }
 
-.ds-sug-corpo.d-none {
-    display: none !important;
+/* Outro número de processo (L2130). */
+.ds-sug-conflito {
+    display: flex;
+    gap: 8px;
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--ds-ambar);
+    background: var(--ds-ambar-bg);
+    border-radius: 4px;
+    padding: 8px 10px;
+    overflow-wrap: anywhere;
+}
+
+.ds-sug-conflito > .bi {
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+/* "Organização sugerida para esta fase" (L2160-2161). */
+.ds-sug-org {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.ds-sug-org-alternar {
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--ds-roxo);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    text-align: left;
+}
+
+.ds-sug-org-regra {
+    font-weight: 600;
+    color: var(--ds-roxo-texto3);
+}
+
+.ds-sug-org-pastas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.ds-sug-org-pastas[hidden] {
+    display: none;
+}
+
+.ds-sug-org-pasta {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    color: var(--ds-roxo-texto);
+    background: var(--ds-cartao-bg);
+    padding: 4px 9px;
+    border-radius: 4px;
+    box-shadow: inset 0 0 0 1px var(--ds-roxo-anel);
+}
+
+.ds-sug-org-pasta > .bi {
+    color: var(--ds-pasta);
 }
 
 .ds-sug-sem-catalogo {

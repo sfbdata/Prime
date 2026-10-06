@@ -19,16 +19,20 @@ use App\Pasta\Entity\PastaPagamento;
  *  · Financeiro → contrato pendente e sem pró-bono (regra primária do desenho:
  *                 contrato assinado OU pró-bono = pasta regularizada), somando os
  *                 pagamentos vencidos quando houver;
+ *  · Documentos → item do checklist MARCADO como entregue sem nenhum arquivo
+ *                 correspondente na pasta (`ConferenciaDeAnexosDoChecklist`, DOC-74/76);
  *  · Push       → publicação não lida.
  *
- * Documentos e Detalhes ficam sem pendência: as regras do desenho para elas
- * (checklist cobrado, relatório inicial de atendimento) ainda não existem no sistema.
+ * Da regra de Documentos do desenho só entra a metade "marcado sem anexo": a outra
+ * metade ("documento cobrado e ainda não anexado") depende da cobrança automática do
+ * checklist, que não existe no sistema (DOC-75, decisão S-6 do dono). Detalhes fica sem
+ * pendência: o relatório inicial de atendimento ainda não existe como dado.
  */
 final readonly class PastaPendenciasOutput
 {
     /**
      * @param array<string, array{n: int, txt: string}> $porAba id da aba (`tarefas`, `processo`,
-     *                                                           `financeiro`, `push`) => pendência;
+     *                                                           `financeiro`, `documentos`, `push`) => pendência;
      *                                                           só as abas que têm pendência
      */
     public function __construct(
@@ -38,12 +42,15 @@ final readonly class PastaPendenciasOutput
     /**
      * @param PastaPagamento[] $pagamentos os pagamentos da pasta (os mesmos do cartão Pagamentos)
      *                                    `$pushNaoLidas` é `PastaPushOutput::naoLidas`.
+     *                                    `$itensMarcadosSemAnexo` é
+     *                                    `ConferenciaDeAnexosDoChecklist::totalMarcadosSemAnexo()`.
      */
     public static function montar(
         Pasta $pasta,
         int $pushNaoLidas,
         array $pagamentos,
         ?\DateTimeImmutable $hoje = null,
+        int $itensMarcadosSemAnexo = 0,
     ): self {
         $porAba = [];
 
@@ -79,6 +86,17 @@ final readonly class PastaPendenciasOutput
                 $txt .= ' e ' . self::plural($vencidos, 'pagamento vencido', 'pagamentos vencidos');
             }
             $porAba['financeiro'] = ['n' => 1 + $vencidos, 'txt' => $txt];
+        }
+
+        if ($itensMarcadosSemAnexo > 0) {
+            $porAba['documentos'] = [
+                'n'   => $itensMarcadosSemAnexo,
+                'txt' => self::plural(
+                    $itensMarcadosSemAnexo,
+                    'item do checklist marcado sem anexo',
+                    'itens do checklist marcados sem anexo',
+                ),
+            ];
         }
 
         if ($pushNaoLidas > 0) {

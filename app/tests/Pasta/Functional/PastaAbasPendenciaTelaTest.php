@@ -240,7 +240,7 @@ final class PastaAbasPendenciaTelaTest extends JusPrimeWebTestCase
     // Dados, Detalhes e Documentos
     // =========================================================================
 
-    #[TestDox('Dados, Detalhes e Documentos nunca carregam a marca: não há regra real por trás delas')]
+    #[TestDox('Dados e Detalhes nunca carregam a marca; Documentos, sem checklist marcado sem anexo, também não (a regra dela está em PastaChecklistTelaTest)')]
     public function testAbasSemRegraNaoMarcam(): void
     {
         $client          = static::createClient();
