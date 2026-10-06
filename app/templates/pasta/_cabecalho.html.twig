@@ -460,7 +460,7 @@
     {% set pushNaoLidas = push.naoLidas|default(0) %}
     {% set abas = [
         {id: 'dados',      painel: 'dados',      rotulo: 'Dados da pasta', icone: 'bi-folder2-open',  contagem: null},
-        {id: 'tarefas',    painel: 'tarefas',    rotulo: 'Metas',          icone: 'bi-check2-square', contagem: pasta.tarefas|length, mostraZero: true},
+        {id: 'tarefas',    painel: 'tarefas',    rotulo: 'Metas',          icone: 'bi-check2-square', contagem: pasta.tarefas|length},
         {id: 'processo',   painel: 'processo',   rotulo: 'Processo',       icone: 'bi-bank',          contagem: null},
         {id: 'financeiro', painel: 'financeiro', rotulo: 'Financeiro',     icone: 'bi-cash-coin',     contagem: null},
         {id: 'detalhes',   painel: 'detalhes',   rotulo: 'Detalhes',       icone: 'bi-info-circle',   contagem: null},
@@ -487,7 +487,8 @@
                     {% if pend %}<span class="ps-aba-pend" aria-hidden="true"></span>{% endif %}
                     <i class="bi {{ aba.icone }}"></i>
                     <span>{{ aba.rotulo }}</span>
-                    {% if aba.contagem or (aba.contagem is not null and aba.mostraZero|default(false)) %}<span class="ps-aba-badge ps-num">{{ aba.contagem }}</span>{% endif %}
+                    {# Selo só com contagem > 0: o "0" já foi bug corrigido duas vezes na revisão do desenho (PastaDadosArranjoTelaTest). #}
+                    {% if aba.contagem %}<span class="ps-aba-badge ps-num">{{ aba.contagem }}</span>{% endif %}
                 </button>
             {% endfor %}
         </div>

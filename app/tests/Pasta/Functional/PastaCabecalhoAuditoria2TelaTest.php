@@ -15,7 +15,7 @@ use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
 
 /**
- * Lote L1 da auditoria 2 da Pasta (desenho 1.2.3): cabeçalho (C4 selo da aba com 0,
+ * Lote L1 da auditoria 2 da Pasta (desenho 1.2.3): cabeçalho (C4 — selo com 0 — NÃO aplicado: o zero já foi bug corrigido na revisão anterior, ver D-PASTA6;
  * C5 "PASTA" e número como itens), moldura do modal "Editar dados" (C2) e drawer do
  * histórico (D4 hora embaixo do texto, D5 título + subtítulo + fechar com moldura).
  *
@@ -40,25 +40,6 @@ final class PastaCabecalhoAuditoria2TelaTest extends JusPrimeWebTestCase
         $this->em()->flush();
 
         return $pasta;
-    }
-
-    #[TestDox('C4: Metas e Documentos mostram o selo com 0; Push sem não lidas continua sem selo')]
-    public function testSeloDaAbaMostraZeroEmMetasEDocumentos(): void
-    {
-        $client          = static::createClient();
-        [$user, $tenant] = $this->criarAdmin();
-        $pasta           = $this->criarPastaNumerada($tenant, '3101', 'SELO ZERO');
-
-        $this->logarComTenant($client, $user, $tenant);
-        $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
-        self::assertResponseIsSuccessful();
-
-        self::assertSame('0', trim($crawler->filter('#pastaTabs > #tarefas-tab > .ps-aba-badge')->text()), 'Metas: String(length) do desenho');
-        self::assertSame('0', trim($crawler->filter('#pastaTabs > #documentos-tab > .ps-aba-badge')->text()), 'Documentos também mostra o 0');
-        self::assertCount(0, $crawler->filter('#pastaTabs > #push-tab > .ps-aba-badge'), 'Push só com não lida');
-        foreach (['dados', 'processo', 'financeiro', 'detalhes'] as $aba) {
-            self::assertCount(0, $crawler->filter("#pastaTabs > #{$aba}-tab > .ps-aba-badge"), "a aba {$aba} não tem contagem");
-        }
     }
 
     #[TestDox('C5: "PASTA" e o número são itens do selo do número; o texto copiado continua "PASTA nnnn"')]
