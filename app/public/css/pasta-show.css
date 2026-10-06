@@ -2496,6 +2496,151 @@ a.ps-push-doc-link:hover { color: var(--ps-push-doc); text-decoration: underline
 .ps-processos-nota { padding: 14px 20px; display: flex; align-items: center; gap: 9px; font-size: 12.5px; color: var(--ps-muted); }
 .ps-processos-nota i { font-size: 13px; opacity: .75; flex-shrink: 0; }
 
+/* Resumo do desenho (Orgao julgador · Valor da causa · Distribuicao + Instancia):
+   mesma faixa de dados de cima, rotulo sem quebrar. */
+.ps-processo-resumo { display: flex; gap: 30px; flex-wrap: wrap; margin-top: 14px; }
+.ps-processo-resumo .ps-rotulo { line-height: 1.3; white-space: nowrap; }
+.ps-processo-resumo .ps-processo-valor { color: var(--ps-text); line-height: 1.35; }
+
+/* "Ver todas as informacoes" / "Mostrar menos" (desenho: 30px, fundo azul claro). */
+.ps-processo-mais-linha { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+.ps-processo-mais {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 30px;
+    padding: 0 11px;
+    white-space: nowrap;
+    border: none;
+    border-radius: 4px;
+    background: var(--ps-accent-bg);
+    color: var(--ps-chip-text);
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background .18s;
+}
+.ps-processo-mais:hover,
+.ps-processo-mais:focus-visible { background: var(--ps-acao-hover); outline: none; }
+.ps-processo-mais:focus-visible { box-shadow: 0 0 0 3px var(--ps-foco-anel); }
+.ps-processo-mais i { font-size: 12px; }
+
+@keyframes psProcEntra {
+    from { opacity: 0; transform: translate3d(0,-4px,0); }
+    to   { opacity: 1; transform: none; }
+}
+/* Painel com todos os campos reais: grade auto-fill de 210px (desenho). */
+.ps-processo-detalhes {
+    margin-top: 12px;
+    padding: 14px 16px;
+    background: var(--ps-hover-suave);
+    border-radius: 4px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr));
+    gap: 14px 22px;
+    animation: psProcEntra .18s var(--ps-ease) backwards;
+}
+/* `display: grid` acima venceria o atributo `hidden`. */
+.ps-processo-detalhes[hidden] { display: none; }
+@media (prefers-reduced-motion: reduce) {
+    .ps-processo-detalhes { animation: none; }
+}
+.ps-processo-campo { min-width: 0; }
+.ps-processo-campo--largo { grid-column: 1 / -1; }
+.ps-processo-campo .ps-rotulo { margin: 0 0 4px; letter-spacing: .08em; line-height: 1.3; }
+.ps-processo-campo-valor { font-size: 13.5px; font-weight: 600; color: var(--ps-text); line-height: 1.4; overflow-wrap: anywhere; }
+/* Selo do nivel de sigilo, no formato das marcas SIM/NAO do desenho. */
+.ps-processo-selo {
+    display: inline-flex;
+    align-items: center;
+    height: 22px;
+    padding: 0 9px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 800;
+    letter-spacing: .04em;
+    color: var(--ps-text-3);
+    background: var(--ps-div-strong);
+}
+.ps-processo-selo--sim { color: var(--ps-ok-text); background: var(--ps-ok-bg); }
+.ps-processo-partes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+.ps-processo-partes li { position: relative; padding-left: 12px; font-size: 13.5px; font-weight: 600; color: var(--ps-text); line-height: 1.4; }
+.ps-processo-partes li::before { content: '•'; position: absolute; left: 0; top: 0; color: var(--ps-accent); }
+.ps-processo-parte-papel { font-weight: 500; color: var(--ps-muted); }
+
+/* ⋮ do cartao (desenho: 32px, icone 16px) e o menu fixo que ele abre. */
+.ps-processo-menu-gatilho {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    color: var(--ps-text-3);
+    font-size: 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background .18s, color .18s;
+}
+.ps-processo-menu-gatilho:hover,
+.ps-processo-menu-gatilho:focus-visible,
+.ps-processo-menu-gatilho[aria-expanded="true"] { background: var(--ps-accent-bg); color: var(--ps-accent); outline: none; }
+.ps-processos .ps-processo-menu {
+    position: fixed;
+    z-index: 141;
+    width: 250px;
+    max-width: calc(100vw - 24px);
+    max-height: calc(100vh - 24px);
+    overflow-y: auto;
+    padding: 5px;
+    display: flex;
+    flex-direction: column;
+    background: var(--ps-card);
+    border-radius: 4px;
+    box-shadow: var(--ps-shadow-pop);
+    animation: psProcEntra .14s var(--ps-ease) backwards;
+}
+.ps-processos .ps-processo-menu[hidden],
+.ps-processos .ps-processo-menu [hidden] { display: none; }
+@media (prefers-reduced-motion: reduce) {
+    .ps-processos .ps-processo-menu { animation: none; }
+}
+.ps-processo-menu-titulo {
+    padding: 6px 10px 5px;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--ps-label);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.ps-processo-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 7px 10px;
+    border: none;
+    background: transparent;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 13px;
+    text-align: left;
+    color: var(--ps-body);
+    cursor: pointer;
+}
+.ps-processo-menu-item:hover,
+.ps-processo-menu-item:focus-visible { background: var(--ps-hover); color: var(--ps-body); outline: none; }
+.ps-processo-menu-item i { font-size: 14px; width: 16px; text-align: center; flex-shrink: 0; }
+.ps-processo-menu-item > span { flex: 1; min-width: 0; }
+.ps-processo-menu-sep { height: 1px; flex-shrink: 0; background: var(--ps-div-strong); margin: 4px 8px; }
+
 /* ── Aba Metas: lista sobre fundo cinza, borda colorida pelo estado ── */
 /* Sem `overflow: hidden`: o menu ⋮ da ultima meta abre para baixo e seria cortado.
    Os raios que o corte fazia vao para o cabecalho e para a lista. */

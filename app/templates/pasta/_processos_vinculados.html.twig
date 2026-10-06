@@ -10,9 +10,20 @@
 
    O desenho mostra, por processo, uma linha do tempo ("Vinculado em dd/mm/aaaa"
    é dado real: `PastaProcesso.vinculadoEm`) e um cartão com número, selo
-   Principal, dados e situação. O que é função nova NÃO aparece: dados do PJe,
-   campos em branco editáveis, "Ver todas as informações", pasta administrativa
-   sem processo, ⋮ e o menu do botão direito.
+   Principal, dados e situação. Abaixo, o resumo do desenho (Órgão julgador ·
+   Valor da causa · Distribuição, + Instância) com o que o DataJud já trouxe e o
+   `Pasta.valorCausa`; "Ver todas as informações" abre o painel com TODOS os
+   campos reais do cadastro. Campo vazio não aparece — nada de "Não informado"
+   nos campos novos. O ⋮ só tem o que já funciona hoje (pasta-processo.js).
+   O que é função nova NÃO aparece: integração com o PJe (abrir/atualizar/
+   editar), marcas (gratuita, tutela, prioridade, 100% digital), pasta
+   administrativa sem processo, encaminhar via Chat, imprimir resumo e o menu
+   do botão direito.
+
+   Partes: `proc.partes` é coleção LAZY — uma consulta por processo vinculado
+   (pastas têm poucos), filtrada pelo TenantFilter (`ParteProcesso` é
+   TenantAware). As movimentações (até centenas por processo) NÃO são lidas
+   aqui: o ⋮ leva à aba Push.
 
    Sob cada cartão, o bloco "Notas técnicas" do processo (desenho 1.2.3; decisão
    do dono de 2026-10-05). As notas vêm da função Twig `notas_tecnicas_do_processo`
@@ -26,6 +37,9 @@
    script) — e não precisa: o JS delega tudo no `document`. #}
 <link rel="stylesheet" href="{{ asset('css/nota-tecnica.css') }}">
 <script src="{{ asset('js/nota-tecnica.js') }}" defer></script>
+{# "Ver todas as informações" e o ⋮ do cartão: delegação no `document`, então o
+   cartão que volta por XHR já nasce funcionando. #}
+<script src="{{ asset('js/pasta-processo.js') }}" defer></script>
 {% set vinculos = pasta.pastaProcessos %}
 <section class="ps-card ps-processos">
     <div class="ps-card-cab ps-card-cab--painel">
@@ -51,6 +65,30 @@
             {% for vinculo in vinculos %}
                 {% set proc = vinculo.processo %}
                 {% set ehPrincipal = vinculoPrincipal and proc.id == vinculoPrincipal.processo.id %}
+                {% set menuId      = 'psProcMenu' ~ proc.id %}
+                {% set botaoMaisId = 'psProcMais' ~ proc.id %}
+                {% set detalhesId  = 'psProcDetalhes' ~ proc.id %}
+                {# Valor da causa é da PASTA (`Pasta.valorCausa`, decimal em string). Zero é dado
+                   (entra na média por CPF); só o nulo some. #}
+                {% set valorCausa = pasta.valorCausa is not null ? 'R$ ' ~ pasta.valorCausa|number_format(2, ',', '.') : null %}
+                {% set distribuicao = proc.dataDistribuicao ? proc.dataDistribuicao|date('d/m/Y') : null %}
+                {% set partes = proc.partes %}
+                {# "Ver todas as informações" só existe quando há o que mostrar. #}
+                {% set temDetalhe = proc.classeProcessual or proc.assuntoProcessual or proc.orgaoJulgador
+                    or distribuicao or valorCausa or proc.instancia or proc.siglaTribunal or proc.situacaoProcesso
+                    or proc.dataBaixa or proc.nivelSigiloLabel or proc.sistema or proc.formato or proc.processoPai
+                    or partes|length > 0 or proc.dataAtualizacao %}
+                {# Texto do "Copiar resumo" (desenho: procMenu), montado só com dado real: linha
+                   sem valor não entra. O JS junta as linhas com quebra. #}
+                {% set resumo = ['Processo ' ~ proc.numeroProcesso|numero_cnj] %}
+                {% if pasta.nomeAcao %}{% set resumo = resumo|merge(['Ação: ' ~ pasta.nomeAcao]) %}{% endif %}
+                {% if proc.classeProcessual %}{% set resumo = resumo|merge(['Classe: ' ~ proc.classeProcessual]) %}{% endif %}
+                {% if proc.siglaTribunal %}{% set resumo = resumo|merge(['Tribunal: ' ~ proc.siglaTribunal]) %}{% endif %}
+                {% if proc.situacaoProcesso %}{% set resumo = resumo|merge(['Situação: ' ~ proc.situacaoProcesso]) %}{% endif %}
+                {% if proc.orgaoJulgador %}{% set resumo = resumo|merge(['Órgão julgador: ' ~ proc.orgaoJulgador]) %}{% endif %}
+                {% if distribuicao %}{% set resumo = resumo|merge(['Distribuição: ' ~ distribuicao]) %}{% endif %}
+                {% if valorCausa %}{% set resumo = resumo|merge(['Valor da causa: ' ~ valorCausa]) %}{% endif %}
+                {% set resumo = resumo|merge(['Pasta ' ~ (pasta.nup ?? ('#' ~ pasta.id)) ~ (pasta.nomeCliente ? ' · ' ~ pasta.nomeCliente : '')]) %}
                 {# "Vinculado em" só quando a data é de verdade: a migration que criou a coluna
                    preencheu o legado com NOW() (52% dos vínculos no dev são desse minuto), e só
                    os vínculos feitos pela tela têm `vinculadoPor`. Sem ele, o rótulo neutro do
@@ -89,7 +127,50 @@
                                     <i class="bi bi-trash"></i>
                                 </button>
                             </form>
+                            <button type="button" class="ps-processo-menu-gatilho js-proc-menu-gatilho"
+                                    title="Mais opções" aria-label="Mais opções do processo"
+                                    aria-haspopup="menu" aria-expanded="false" aria-controls="{{ menuId }}">
+                                <i class="bi bi-three-dots-vertical"></i>
+                            </button>
                         </div>
+                    </div>
+                    {# ⋮ do desenho (procMenu), só com o que tem função hoje. Fora: Abrir no PJe,
+                       Editar/Atualizar dados do PJe, Encaminhar via Chat I.A, Relatório geral,
+                       Imprimir resumo. Desvincular continua no botão da lixeira (form com CSRF). #}
+                    <div class="ps-processo-menu" id="{{ menuId }}" role="menu" hidden>
+                        <div class="ps-processo-menu-titulo">Processo {{ proc.numeroProcesso|numero_cnj }}</div>
+                        {# Mesmo gatilho do botão do bloco de notas (nota-tecnica.js aceita `data-notas`). #}
+                        <button type="button" class="ps-processo-menu-item js-nota-nova" role="menuitem"
+                                data-notas="#notas-processo-{{ proc.id }}">
+                            <i class="bi bi-journal-plus"></i><span>Adicionar nota técnica</span>
+                        </button>
+                        <div class="ps-processo-menu-sep" role="separator"></div>
+                        {% if temDetalhe %}
+                            <button type="button" class="ps-processo-menu-item js-proc-alternar-menu" role="menuitem"
+                                    data-botao="#{{ botaoMaisId }}">
+                                <i class="bi bi-card-list"></i><span>Ver todas as informações</span>
+                            </button>
+                        {% endif %}
+                        <button type="button" class="ps-processo-menu-item js-proc-ver-movimentacoes" role="menuitem"
+                                data-aba="push-tab">
+                            <i class="bi bi-broadcast"></i><span>Ver movimentações (Push)</span>
+                        </button>
+                        <div class="ps-processo-menu-sep" role="separator"></div>
+                        <button type="button" class="ps-processo-menu-item js-proc-copiar" role="menuitem"
+                                data-copiar="{{ proc.numeroProcesso }}" data-aviso="Número copiado">
+                            <i class="bi bi-copy"></i><span>Copiar número</span>
+                        </button>
+                        <button type="button" class="ps-processo-menu-item js-proc-copiar" role="menuitem"
+                                data-resumo="{{ resumo|json_encode|e('html_attr') }}" data-aviso="Resumo copiado">
+                            <i class="bi bi-clipboard"></i><span>Copiar resumo do processo</span>
+                        </button>
+                        {# Compartilhar é o do próprio navegador (Web Share): o item nasce escondido
+                           e o JS só o mostra onde `navigator.share` existe — sem ele, não há função. #}
+                        <button type="button" class="ps-processo-menu-item js-proc-compartilhar" role="menuitem"
+                                data-titulo="Processo {{ proc.numeroProcesso|numero_cnj }}"
+                                data-resumo="{{ resumo|json_encode|e('html_attr') }}" hidden>
+                            <i class="bi bi-share"></i><span>Compartilhar</span>
+                        </button>
                     </div>
                     {# Só o que o cadastro tem (Datajud/manual). Campo vazio diz "Não informado",
                        como no desenho — nunca um valor inventado. #}
@@ -117,6 +198,145 @@
                             </div>
                         </div>
                     </div>
+                    {# Resumo do desenho (Órgão julgador · Valor da causa · Distribuição) + Instância.
+                       Aqui campo vazio SOME (o desenho escreve "Não informado"; esta entrega não
+                       exibe o que o cadastro não tem). #}
+                    {% if proc.orgaoJulgador or valorCausa or distribuicao or proc.instancia %}
+                        <div class="ps-processo-resumo">
+                            {% if proc.orgaoJulgador %}
+                                <div class="ps-processo-dado" data-proc-campo="orgao">
+                                    <div class="ps-rotulo">Órgão julgador</div>
+                                    <div class="ps-processo-valor">{{ proc.orgaoJulgador }}</div>
+                                </div>
+                            {% endif %}
+                            {% if valorCausa %}
+                                <div class="ps-processo-dado" data-proc-campo="valor">
+                                    <div class="ps-rotulo">Valor da causa</div>
+                                    <div class="ps-processo-valor ps-num">{{ valorCausa }}</div>
+                                </div>
+                            {% endif %}
+                            {% if distribuicao %}
+                                <div class="ps-processo-dado" data-proc-campo="distribuicao">
+                                    <div class="ps-rotulo">Distribuição</div>
+                                    <div class="ps-processo-valor ps-num">{{ distribuicao }}</div>
+                                </div>
+                            {% endif %}
+                            {% if proc.instancia %}
+                                <div class="ps-processo-dado" data-proc-campo="instancia">
+                                    <div class="ps-rotulo">Instância</div>
+                                    <div class="ps-processo-valor">{{ proc.instancia }}</div>
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                    {% if temDetalhe %}
+                        <div class="ps-processo-mais-linha">
+                            <button type="button" class="ps-processo-mais js-proc-alternar" id="{{ botaoMaisId }}"
+                                    aria-expanded="false" aria-controls="{{ detalhesId }}">
+                                <i class="bi bi-chevron-down" aria-hidden="true"></i><span>Ver todas as informações</span>
+                            </button>
+                        </div>
+                        {# Painel "todas as informações" (desenho: verDetalhes): os campos reais do
+                           cadastro do processo, um por célula; os vazios não entram. #}
+                        <div class="ps-processo-detalhes" id="{{ detalhesId }}" hidden>
+                            {% if proc.classeProcessual %}
+                                <div class="ps-processo-campo" data-proc-campo="classe">
+                                    <div class="ps-rotulo">Classe judicial</div>
+                                    <div class="ps-processo-campo-valor">{{ proc.classeProcessual }}{% if proc.classeCodigo is not null %} ({{ proc.classeCodigo }}){% endif %}</div>
+                                </div>
+                            {% endif %}
+                            {% if proc.assuntoProcessual %}
+                                <div class="ps-processo-campo" data-proc-campo="assunto">
+                                    <div class="ps-rotulo">Assunto</div>
+                                    <div class="ps-processo-campo-valor">{{ proc.assuntoProcessual }}</div>
+                                </div>
+                            {% endif %}
+                            {% if proc.orgaoJulgador %}
+                                <div class="ps-processo-campo" data-proc-campo="orgao">
+                                    <div class="ps-rotulo">Órgão julgador</div>
+                                    <div class="ps-processo-campo-valor">{{ proc.orgaoJulgador }}</div>
+                                </div>
+                            {% endif %}
+                            {% if distribuicao %}
+                                <div class="ps-processo-campo" data-proc-campo="distribuicao">
+                                    <div class="ps-rotulo">Distribuição</div>
+                                    <div class="ps-processo-campo-valor ps-num">{{ distribuicao }}</div>
+                                </div>
+                            {% endif %}
+                            {% if valorCausa %}
+                                <div class="ps-processo-campo" data-proc-campo="valor">
+                                    <div class="ps-rotulo">Valor da causa</div>
+                                    <div class="ps-processo-campo-valor ps-num">{{ valorCausa }}</div>
+                                </div>
+                            {% endif %}
+                            {% if proc.instancia %}
+                                <div class="ps-processo-campo" data-proc-campo="instancia">
+                                    <div class="ps-rotulo">Instância</div>
+                                    <div class="ps-processo-campo-valor">{{ proc.instancia }}</div>
+                                </div>
+                            {% endif %}
+                            {% if proc.siglaTribunal %}
+                                <div class="ps-processo-campo" data-proc-campo="tribunal">
+                                    <div class="ps-rotulo">Tribunal</div>
+                                    <div class="ps-processo-campo-valor">{{ proc.siglaTribunal }}</div>
+                                </div>
+                            {% endif %}
+                            {% if proc.situacaoProcesso %}
+                                <div class="ps-processo-campo" data-proc-campo="situacao">
+                                    <div class="ps-rotulo">Situação</div>
+                                    <div class="ps-processo-campo-valor">{{ proc.situacaoProcesso }}</div>
+                                </div>
+                            {% endif %}
+                            {% if proc.dataBaixa %}
+                                <div class="ps-processo-campo" data-proc-campo="baixa">
+                                    <div class="ps-rotulo">Data da baixa</div>
+                                    <div class="ps-processo-campo-valor ps-num">{{ proc.dataBaixa|date('d/m/Y') }}</div>
+                                </div>
+                            {% endif %}
+                            {% if proc.nivelSigiloLabel %}
+                                {# Rótulo da entidade (0 = Público; maior = Segredo de justiça), em selo como
+                                   as marcas SIM/NÃO do desenho. #}
+                                <div class="ps-processo-campo" data-proc-campo="sigilo">
+                                    <div class="ps-rotulo">Nível de sigilo</div>
+                                    <span class="ps-processo-selo{{ proc.nivelSigilo > 0 ? ' ps-processo-selo--sim' : '' }}">{{ proc.nivelSigiloLabel }}</span>
+                                </div>
+                            {% endif %}
+                            {% if proc.sistema %}
+                                <div class="ps-processo-campo" data-proc-campo="sistema">
+                                    <div class="ps-rotulo">Sistema</div>
+                                    <div class="ps-processo-campo-valor">{{ proc.sistema }}</div>
+                                </div>
+                            {% endif %}
+                            {% if proc.formato %}
+                                <div class="ps-processo-campo" data-proc-campo="formato">
+                                    <div class="ps-rotulo">Formato</div>
+                                    <div class="ps-processo-campo-valor">{{ proc.formato }}</div>
+                                </div>
+                            {% endif %}
+                            {% if proc.processoPai %}
+                                <div class="ps-processo-campo" data-proc-campo="origem">
+                                    <div class="ps-rotulo">Processo de origem</div>
+                                    <div class="ps-processo-campo-valor ps-num">{{ proc.processoPai|numero_cnj }}</div>
+                                </div>
+                            {% endif %}
+                            {% if partes|length > 0 %}
+                                <div class="ps-processo-campo ps-processo-campo--largo" data-proc-campo="partes">
+                                    <div class="ps-rotulo">Partes</div>
+                                    <ul class="ps-processo-partes">
+                                        {% for parte in partes %}
+                                            <li>{{ parte.nome }}{% if parte.papel %} <span class="ps-processo-parte-papel">· {{ parte.papel }}</span>{% endif %}</li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                            {% endif %}
+                            {% if proc.dataAtualizacao %}
+                                <div class="ps-processo-campo" data-proc-campo="atualizacao">
+                                    <div class="ps-rotulo">Última atualização no tribunal</div>
+                                    <div class="ps-processo-campo-valor ps-num">{{ proc.dataAtualizacao|date('d/m/Y H:i') }}</div>
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endif %}
                 </article>
                 {{ include('processo/_notas_tecnicas.html.twig', {
                     notas: notas_tecnicas_do_processo(proc),
