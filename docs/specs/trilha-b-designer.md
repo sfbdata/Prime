@@ -122,6 +122,9 @@ _(preenchido após as investigações)_
 
 ## 5. Handoff — próxima ação exata
 
+> ⚠️ **SUPERADO pelo §9** (06/10): a publicação já foi feita (`3f199dfd` em produção). Este §5 fica como
+> registro histórico do estado pré-publicação.
+
 **Estado (06/10/2026, fim da rodada):** master local em `e5b7aae5`, 85 commits à frente de `origin/master`
 (`beff02fd`, que é o que está em produção). **Nada publicado, nenhum deploy.** Árvore limpa (só o pacote do
 Designer, não versionado). Suíte 6674/6674.
