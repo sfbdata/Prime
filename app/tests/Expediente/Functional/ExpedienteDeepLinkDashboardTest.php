@@ -246,6 +246,35 @@ final class ExpedienteDeepLinkDashboardTest extends JusPrimeWebTestCase
         ], $query, 'repassa só a allowlist; busca (PII) e parâmetro desconhecido ficam de fora');
     }
 
+    /**
+     * O JS não roda aqui: o teste só prova que o bootstrap do deep-link CHAMA a limpeza da URL e
+     * que ela usa replaceState sobre `painel` e os filtros da allowlist. O efeito no navegador
+     * (voltar à página restaura o estado salvo) fica para o smoke.
+     */
+    #[TestDox('deep-link: depois de abrir o painel, o script tira painel e filtros da URL com history.replaceState')]
+    public function testDeepLinkLimpaOsParametrosDaUrlDepoisDeConsumir(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $admin  = $this->criarUsuario($tenant, 'Admin Replace', admin: true);
+
+        $this->logarComTenant($client, $admin, $tenant);
+        $client->request('GET', '/expediente?painel=acervo-geral&criado_por=42');
+        self::assertResponseIsSuccessful();
+        $html = (string) $client->getResponse()->getContent();
+
+        self::assertMatchesRegularExpression(
+            '/function tentarAbrirPainelDoDeepLink\(\) \{[^}]*carregarPainel\(url, [^}]*consumirParametrosDoDeepLink\(\);\s*return true;/s',
+            $html,
+            'o deep-link consumido tem de limpar a URL',
+        );
+        self::assertSame(1, preg_match('/function consumirParametrosDoDeepLink\(\) \{(.*?)\n    \}/s', $html, $m));
+        self::assertStringContainsString('window.history.replaceState(', $m[1]);
+        foreach (['painel', 'status', 'responsavel', 'prioridade', 'data_de', 'data_ate', 'criado_por', 'ordenar', 'direcao', 'page'] as $chave) {
+            self::assertStringContainsString("'" . $chave . "'", $m[1], $chave . ' precisa sair da URL');
+        }
+    }
+
     #[TestDox('sem ?painel=acervo-geral a tela não força painel (segue estado salvo / acervo limpo)')]
     public function testSemDeepLinkNaoMarcaPainelInicial(): void
     {

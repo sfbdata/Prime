@@ -1177,8 +1177,22 @@ document.addEventListener('DOMContentLoaded', function () {
         var linkAcervo = document.querySelector('.expediente-menu-link[data-painel]');
         carregarPainel(url, 'Todas as pastas');
         if (linkAcervo) reacenderSidebarPainel(linkAcervo.dataset.painel);
+        consumirParametrosDoDeepLink();
 
         return true;
+    }
+
+    // Deep-link consumido: tira `painel` e os filtros que ele repassou da barra de endereço
+    // (mesma lista de ExpedienteController::PARAMS_DEEP_LINK_ACERVO). Sem isso, voltar a esta
+    // página (pasta_show → Voltar) reaplicaria o deep-link e atropelaria o estado salvo no
+    // sessionStorage. replaceState: não cria entrada nova no histórico.
+    function consumirParametrosDoDeepLink() {
+        if (!window.history || typeof window.history.replaceState !== 'function') return;
+        var atual;
+        try { atual = new URL(window.location.href); } catch (e) { return; }
+        ['painel', 'status', 'responsavel', 'prioridade', 'data_de', 'data_ate', 'criado_por', 'ordenar', 'direcao', 'page']
+            .forEach(function (chave) { atual.searchParams.delete(chave); });
+        window.history.replaceState(window.history.state, '', atual.pathname + atual.search + atual.hash);
     }
 
     // "Criado por" não tem campo na barra de filtro (só chega por deep-link). Para a
