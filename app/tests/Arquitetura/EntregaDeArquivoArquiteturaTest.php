@@ -25,11 +25,16 @@ final class EntregaDeArquivoArquiteturaTest extends TestCase
      *  - `EntregaDeArquivo` — é quem deve;
      *  - `ArquivoStorageService` — o shim de D2, com o `servir()` que ninguém mais chama; sai na E2.8;
      *  - `TarefaController` — o anexo de tarefa guarda caminho com `/`, que `ChaveDeArquivo` recusa
-     *    (D5); a decisão é da E2.7.
+     *    (D5); a decisão é da E2.7;
+     *  - `EntregaDeArquivoGerado` (aba Documentos, D5 do .zip) — entrega arquivo GERADO pela
+     *    aplicação, nunca persistido: o tipo do parâmetro (`ArquivoGeradoParaEntrega`) só nasce de
+     *    uma `AreaTemporariaPrivada`, e é o único lugar que liga `deleteFileAfterSend` — o .zip
+     *    tem de sumir depois de enviado, e um documento nunca passa por aqui.
      */
     private const QUEM_MONTA_RESPOSTA_DE_ARQUIVO = [
         'src/Controller/TarefaController.php',
         'src/Shared/Http/EntregaDeArquivo.php',
+        'src/Shared/Http/EntregaDeArquivoGerado.php',
         'src/Shared/Service/ArquivoStorageService.php',
     ];
 
@@ -86,6 +91,10 @@ final class EntregaDeArquivoArquiteturaTest extends TestCase
         // `--paginas` (D1 da aba Documentos): o Ghostscript só conta por caminho local; o arquivo
         // é EMPRESTADO (`paraLeitura`, cópia zero, sem posse) — nada é apagado nem reescrito.
         'src/Pasta/Command/CalcularHashDosDocumentosCommand.php',
+        // O .zip (D5 da aba Documentos): `ZipArchive::addFile` só lê por caminho local; cada
+        // documento entra EMPRESTADO (`paraLeitura`, cópia zero) e o empréstimo vive até o
+        // `close()`. Nada é apagado nem reescrito; o .zip nasce numa área temporária própria.
+        'src/Pasta/UseCase/MontarZipDeDocumentosUseCase.php',
         'src/Shared/Http/EntregaDeArquivo.php',
         'src/Shared/Service/CompressaoDeArquivoArmazenado.php',
         'src/Sync/Service/ReconciliadorDePasta.php',

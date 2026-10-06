@@ -18,14 +18,17 @@ use App\Pasta\Repository\PastaDocumentoFavoritoRepository;
 use App\Pasta\Repository\PastaDocumentoRepository;
 use App\Pasta\Repository\PastaSecaoRepository;
 use App\Pasta\UseCase\AlternarFavoritoDeDocumentoUseCase;
+use App\Pasta\UseCase\CopiarDocumentosDaPastaUseCase;
 use App\Pasta\UseCase\EditarDocumentoDaPastaUseCase;
 use App\Pasta\UseCase\ExcluirItensDaPastaUseCase;
 use App\Pasta\UseCase\ListarLixeiraDaPastaUseCase;
+use App\Pasta\UseCase\MontarZipDeDocumentosUseCase;
 use App\Pasta\UseCase\MoverItensDaPastaUseCase;
 use App\Pasta\UseCase\RestaurarItensDaPastaUseCase;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use App\Shared\Doctrine\Filter\AcessoALixeira;
+use App\Shared\Http\EntregaDeArquivoGerado;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -58,6 +61,12 @@ use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
  * A estrela (D2, `pasta_documentos_favorito`) é a exceção à permissão de EDITAR: favorito é
  * preferência pessoal, basta VER a pasta (como `PastaFavoritoController`). Token por pasta
  * (`pex_favorito_<pastaId>`); tipo e id do alvo no corpo; posse provada por consulta escopada.
+ *
+ * `zip` (D5) é a outra exceção: quem pode VER a pasta pode baixar o que vê. Mesmo corpo e token
+ * do lote (`{_token, documentos[], secoes[]}`), por `<form target=_blank>` — a resposta é o
+ * próprio .zip (download em stream, apagado depois de enviado), ou JSON de erro como nas demais
+ * rotas. `copiar` (D6) exige EDITAR: `{_token, documentos[], destinoId|null}`, só arquivos, e
+ * responde `{ok, copiados: [<arquivo na forma do explorador>]}`.
  */
 #[Route('/pasta')]
 final class PastaDocumentoController extends AbstractController
@@ -79,6 +88,9 @@ final class PastaDocumentoController extends AbstractController
         private readonly AcessoALixeira $lixeira,
         private readonly AlternarFavoritoDeDocumentoUseCase $favoritoUseCase,
         private readonly PastaDocumentoFavoritoRepository $favoritos,
+        private readonly MontarZipDeDocumentosUseCase $montarZipUseCase,
+        private readonly CopiarDocumentosDaPastaUseCase $copiarUseCase,
+        private readonly EntregaDeArquivoGerado $entregaGerada,
     ) {
     }
 
@@ -152,21 +164,9 @@ final class PastaDocumentoController extends AbstractController
         }
         [$documentos, $secoes, $carga, $tenant] = $lote;
 
-        // `destinoId` ausente, null ou '' = raiz. Qualquer outro valor só vale se for um id
-        // (a mesma regra de `idsInteiros`): "0", negativo, texto ou array → 404, sem efeito —
-        // um `(int)` cego transformaria "abc" em raiz e moveria tudo para lá em silêncio.
-        $destino   = null;
-        $destinoId = self::idDeDestino($carga['destinoId'] ?? null);
-        if ($destinoId === false) {
+        $destino = $this->destinoDoLote($carga, $pasta, $tenant);
+        if ($destino === false) {
             return $this->json(['erro' => 'Pasta de destino não encontrada.'], Response::HTTP_NOT_FOUND);
-        }
-        if ($destinoId !== null) {
-            // Escopada por pasta + tenant: um id de subpasta de outra pasta (irmã ou de outro
-            // escritório) não é encontrado — 404, sem dizer se existe.
-            $destino = $this->secoes->findByIdAndPastaAndTenant($destinoId, $pasta, $tenant);
-            if ($destino === null) {
-                return $this->json(['erro' => 'Pasta de destino não encontrada.'], Response::HTTP_NOT_FOUND);
-            }
         }
 
         try {
@@ -354,6 +354,80 @@ final class PastaDocumentoController extends AbstractController
         ]);
     }
 
+    /**
+     * O .zip de uma seleção (D5): corpo e token do lote, permissão de VER. Os tetos (500 arquivos /
+     * 1 GB pela soma de `tamanho_bytes`) são conferidos no UseCase ANTES de abrir arquivo → 422 com
+     * a mensagem. Subpasta selecionada leva a subárvore viva; o que está na lixeira nunca entra. A
+     * resposta é o arquivo em stream, apagado depois de enviado (`EntregaDeArquivoGerado`); o
+     * registro no `audit_log` é do UseCase.
+     */
+    #[Route('/{id}/documentos/zip', name: 'pasta_documentos_zip', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function zip(Pasta $pasta, Request $request): Response
+    {
+        /** @var User $currentUser */
+        $currentUser = $this->getUser();
+        $tenant      = $this->tenantContext->getCurrentTenant();
+
+        $lote = $this->loteAutorizado($pasta, $currentUser, $tenant, $request, acao: AccessRequest::ACTION_VIEW);
+        if ($lote instanceof JsonResponse) {
+            return $lote;
+        }
+        [$documentos, $secoes, , $tenant] = $lote;
+
+        try {
+            $saida = $this->montarZipUseCase->executar($pasta, $documentos, $secoes, $currentUser, $tenant);
+        } catch (\InvalidArgumentException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+        } catch (AccessDeniedException) {
+            return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
+        }
+
+        return $this->entregaGerada->resposta($saida->arquivo, $saida->nomeDoZip, 'application/zip');
+    }
+
+    /**
+     * Copia documentos para uma subpasta desta pasta ou para a raiz (D6): `{_token, documentos[],
+     * destinoId|null}`, permissão de EDITAR. Só arquivos — `secoes[]` no corpo é 422. O destino
+     * segue a regra do mover-lote (ausente/null/'' = raiz; id de pasta irmã, de outro escritório
+     * ou na lixeira → 404). Resposta: `{ok, copiados: [<arquivo na forma do explorador>]}` — a tela
+     * insere as linhas sem recarregar.
+     */
+    #[Route('/{id}/documentos/copiar', name: 'pasta_documentos_copiar', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function copiar(Pasta $pasta, Request $request): JsonResponse
+    {
+        /** @var User $currentUser */
+        $currentUser = $this->getUser();
+        $tenant      = $this->tenantContext->getCurrentTenant();
+
+        $lote = $this->loteAutorizado($pasta, $currentUser, $tenant, $request);
+        if ($lote instanceof JsonResponse) {
+            return $lote;
+        }
+        [$documentos, $secoes, $carga, $tenant] = $lote;
+
+        if ($secoes !== []) {
+            return $this->json(['erro' => 'Só arquivos podem ser copiados.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $destino = $this->destinoDoLote($carga, $pasta, $tenant);
+        if ($destino === false) {
+            return $this->json(['erro' => 'Pasta de destino não encontrada.'], Response::HTTP_NOT_FOUND);
+        }
+
+        try {
+            $resultado = $this->copiarUseCase->executar($pasta, $documentos, $destino, $currentUser, $tenant);
+        } catch (\InvalidArgumentException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+        } catch (AccessDeniedException) {
+            return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
+        }
+
+        return $this->json([
+            'ok'       => true,
+            'copiados' => array_map(fn (PastaDocumento $copia): array => $this->arquivoParaATela($copia, false), $resultado->copias),
+        ]);
+    }
+
     /** `marcado` do corpo: 1/0 (int ou string, como o form manda) ou booleano do JSON. O resto é NULL. */
     private static function booleanoDoCorpo(mixed $valor): ?bool
     {
@@ -365,9 +439,11 @@ final class PastaDocumentoController extends AbstractController
     }
 
     /**
-     * O prólogo comum das ações em lote: permissão de edição da pasta, CSRF `pex_lote_<id>`, ids
-     * do corpo e posse de TODOS eles provada numa consulta por tipo. Qualquer id que não seja
-     * desta pasta e deste escritório → 404 antes de qualquer efeito.
+     * O prólogo comum das ações em lote: pasta deste escritório (404 — o resolver busca por PK e
+     * o TenantFilter não se aplica a `find()`), permissão sobre a pasta (`$acao`: EDITAR por
+     * padrão; VER no .zip), CSRF `pex_lote_<id>`, ids do corpo e posse de TODOS eles provada numa
+     * consulta por tipo. Qualquer id que não seja desta pasta e deste escritório → 404 antes de
+     * qualquer efeito.
      *
      * Com `$naLixeira`, a posse é provada entre os itens NA LIXEIRA da pasta (restaurar): um id
      * de item vivo responde o mesmo 404 — não há o que restaurar nele, e a tela não precisa
@@ -375,12 +451,19 @@ final class PastaDocumentoController extends AbstractController
      *
      * @return JsonResponse|array{list<PastaDocumento>, list<PastaSecao>, array<string, mixed>, Tenant}
      */
-    private function loteAutorizado(Pasta $pasta, User $currentUser, ?Tenant $tenant, Request $request, bool $naLixeira = false): JsonResponse|array
+    private function loteAutorizado(Pasta $pasta, User $currentUser, ?Tenant $tenant, Request $request, bool $naLixeira = false, string $acao = AccessRequest::ACTION_EDIT): JsonResponse|array
     {
         $pastaId = (int) $pasta->getId();
 
-        if ($tenant === null || !$this->permissionChecker->canAccessResource($currentUser, $tenant, 'pasta', $pastaId, 'edit')) {
-            return $this->json(['erro' => 'Sem permissão para editar esta pasta.'], Response::HTTP_FORBIDDEN);
+        if ($tenant === null || $pasta->getTenant() !== $tenant) {
+            return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
+        }
+
+        if (!$this->permissionChecker->canAccessResource($currentUser, $tenant, AccessRequest::RESOURCE_PASTA, $pastaId, $acao)) {
+            return $this->json(
+                ['erro' => $acao === AccessRequest::ACTION_VIEW ? 'Sem permissão para ver esta pasta.' : 'Sem permissão para editar esta pasta.'],
+                Response::HTTP_FORBIDDEN,
+            );
         }
 
         $carga = $this->cargaDoLote($request);
@@ -492,6 +575,27 @@ final class PastaDocumentoController extends AbstractController
         }
 
         return self::idOuNull($valor) ?? false;
+    }
+
+    /**
+     * O `destinoId` do corpo resolvido numa subpasta DESTA pasta e deste escritório (mover-lote e
+     * copiar): NULL = raiz; FALSE = não encontrado — valor que não é id (um `(int)` cego
+     * transformaria "abc" em raiz e moveria tudo para lá em silêncio), id de subpasta de outra
+     * pasta (irmã ou de outro escritório) ou na lixeira. 404 sem dizer se existe.
+     *
+     * @param array<string, mixed> $carga
+     */
+    private function destinoDoLote(array $carga, Pasta $pasta, Tenant $tenant): PastaSecao|null|false
+    {
+        $destinoId = self::idDeDestino($carga['destinoId'] ?? null);
+        if ($destinoId === false) {
+            return false;
+        }
+        if ($destinoId === null) {
+            return null;
+        }
+
+        return $this->secoes->findByIdAndPastaAndTenant($destinoId, $pasta, $tenant) ?? false;
     }
 
     /** Quantos valores vieram no corpo, antes de interpretá-los; o que não é lista conta zero. */

@@ -29,7 +29,8 @@ use App\Pasta\Service\SugestoesDeLimpeza;
  * sem recarregar (L5) — um só lugar decide o que é "um arquivo" para a tela.
  *
  * As ações em lote (D4) usam UM token por pasta (`pex_lote_<pastaId>`) com os ids no corpo, e a
- * posse é provada no servidor — em vez de três tokens por documento.
+ * posse é provada no servidor — em vez de três tokens por documento. O .zip (D5, `urlZip`) e o
+ * copiar (D6, `urlCopiar`) usam o MESMO token (`csrfLote`) e o mesmo corpo.
  *
  * Favoritos (D2, DOC-23): cada arquivo e cada pasta traz `favorito` — a estrela DO USUÁRIO
  * LOGADO, nunca a de um colega —, e o topo traz `urlFavorito`/`csrfFavorito` (um token por pasta,
@@ -87,6 +88,8 @@ final readonly class ExploradorDeDocumentosOutput
         public string $csrfLote,
         public string $urlFavorito,
         public string $csrfFavorito,
+        public string $urlZip,
+        public string $urlCopiar,
         public array $limpeza = [],
         public string $urlRestaurar = '',
         public string $urlLixeira = '',
@@ -176,6 +179,8 @@ final readonly class ExploradorDeDocumentosOutput
             csrfLote: $csrf(self::idDoTokenDeLote($pastaId)),
             urlFavorito: $url('pasta_documentos_favorito', ['id' => $pastaId]),
             csrfFavorito: $csrf(self::idDoTokenDeFavorito($pastaId)),
+            urlZip: $url('pasta_documentos_zip', ['id' => $pastaId]),
+            urlCopiar: $url('pasta_documentos_copiar', ['id' => $pastaId]),
             limpeza: $limpeza->grupos,
             urlRestaurar: $url('pasta_documentos_restaurar', ['id' => $pastaId]),
             urlLixeira: $url('pasta_documentos_lixeira', ['id' => $pastaId]),
@@ -266,6 +271,8 @@ final readonly class ExploradorDeDocumentosOutput
             'csrfLote'       => $this->csrfLote,
             'urlFavorito'    => $this->urlFavorito,
             'csrfFavorito'   => $this->csrfFavorito,
+            'urlZip'         => $this->urlZip,
+            'urlCopiar'      => $this->urlCopiar,
             'limpeza'        => $this->limpeza,
             'urlRestaurar'   => $this->urlRestaurar,
             'urlLixeira'     => $this->urlLixeira,

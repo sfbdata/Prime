@@ -14,6 +14,7 @@ use App\Pasta\DTO\TimelineItemDTO;
 use App\Pasta\DTO\TimelineItemType;
 use App\Repository\AuditLogRepository;
 use App\Pasta\Repository\PastaMensagemRepository;
+use App\Pasta\UseCase\MontarZipDeDocumentosUseCase;
 use App\Repository\UserRepository;
 use App\Tarefa\Repository\TarefaRepository;
 
@@ -262,6 +263,15 @@ class PastaTimelineAssembler
                 'text-bg-danger',
                 'A pasta foi apagada nesta data; o registro atual é uma recuperação.',
             ],
+            // Download em .zip (D5): registro MANUAL do `MontarZipDeDocumentosUseCase` (nenhuma
+            // entidade muda, então o subscriber não o veria), com o resumo em `changes` plano —
+            // sem este braço cairia no `default` como "Evento registrado".
+            str_ends_with($entityClass, '\Pasta') && $action === MontarZipDeDocumentosUseCase::ACAO_AUDITORIA => [
+                'Documentos baixados em .zip',
+                'bi-file-earmark-zip',
+                'text-bg-secondary',
+                $this->extractResumoDoZip($changes),
+            ],
             str_ends_with($entityClass, 'Processo') && $action === 'create' => [
                 'Processo vinculado',
                 'bi-briefcase',
@@ -303,6 +313,26 @@ class PastaTimelineAssembler
                 null,
             ],
         };
+    }
+
+    /**
+     * O resumo do .zip (D5): `changes` plano, gravado à mão pelo UseCase — `arquivos` incluídos e
+     * `nao_encontrados`. Sem os campos (linha de outra origem), nada é inventado.
+     */
+    private function extractResumoDoZip(?array $changes): ?string
+    {
+        $arquivos = $changes['arquivos'] ?? null;
+        if (!is_int($arquivos)) {
+            return null;
+        }
+
+        $detalhe        = sprintf('%d arquivo(s)', $arquivos);
+        $naoEncontrados = $changes['nao_encontrados'] ?? 0;
+        if (is_int($naoEncontrados) && $naoEncontrados > 0) {
+            $detalhe .= sprintf(' — %d não encontrado(s) no armazenamento', $naoEncontrados);
+        }
+
+        return $detalhe;
     }
 
     private function extractDocumentoNome(?array $changes): ?string

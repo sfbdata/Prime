@@ -318,6 +318,8 @@ final class PastaExploradorDadosTest extends JusPrimeWebTestCase
         self::assertSame("/pasta/{$pasta->getId()}/documentos/mover-lote", $dados['urlMoverLote']);
         self::assertSame("/pasta/{$pasta->getId()}/documentos/excluir-lote", $dados['urlExcluirLote']);
         self::assertNotEmpty($dados['csrfLote'], 'um token por pasta para as ações em lote; os ids vão no corpo');
+        self::assertSame("/pasta/{$pasta->getId()}/documentos/zip", $dados['urlZip'], 'D5: o .zip usa o mesmo token do lote');
+        self::assertSame("/pasta/{$pasta->getId()}/documentos/copiar", $dados['urlCopiar'], 'D6: copiar idem');
     }
 
     #[TestDox('D1: o arquivo traz quem enviou (nome), modificadoEm e paginas — NULL no acervo que não tem')]

@@ -109,6 +109,21 @@ final class ExploradorDeDocumentosOutputTest extends TestCase
         self::assertSame('tok_pex_lote_9', $json['csrfLote'], 'restaurar não tem token próprio: é o do lote');
     }
 
+    #[TestDox('D5/D6: o JSON leva urlZip e urlCopiar — ambos com o MESMO token do lote (csrfLote)')]
+    public function testZipECopiar(): void
+    {
+        $out = $this->montar([], []);
+
+        self::assertSame('/pasta_documentos_zip/9', $out->urlZip);
+        self::assertSame('/pasta_documentos_copiar/9', $out->urlCopiar);
+
+        $json = json_decode($out->json(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame('/pasta_documentos_zip/9', $json['urlZip']);
+        self::assertSame('/pasta_documentos_copiar/9', $json['urlCopiar']);
+        self::assertArrayNotHasKey('csrfZip', $json, 'não há token próprio: o do lote serve');
+        self::assertArrayNotHasKey('csrfCopiar', $json);
+    }
+
     #[TestDox('D2: cada arquivo e cada pasta trazem favorito e favoritoEm (a hora em que marcou, do mapa recebido); o topo traz urlFavorito e o token pex_favorito_<pastaId>')]
     public function testFavoritos(): void
     {
