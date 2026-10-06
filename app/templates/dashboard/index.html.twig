@@ -136,7 +136,7 @@
             <span class="db-fp-div" aria-hidden="true"></span>
 
             {# Responsável — "Todos" + cada colaborador ativo do escritório (as mesmas opções
-               do <select> nativo). Avatar: foto quando existe, senão iniciais na cor da tabela. #}
+               do <select> nativo). Avatar: foto quando existe, senão o boneco (bi-person-fill) na cor da tabela, como o dc 1.2.2. #}
             {% set respAtual = { nome: 'Todos os responsáveis', foto: null, iniciais: '', av: null } %}
             {% set respItens = [] %}
             {% for u in responsaveis %}
@@ -161,9 +161,9 @@
                         {% elseif respAtual.foto %}
                             <img class="db-dd-av-foto" src="{{ path('app_profile_foto_serve', {nome: respAtual.foto}) }}" alt=""
                                  onerror="this.style.display='none';this.nextElementSibling.style.display='inline-flex';">
-                            <span class="db-dd-av-ini db-avatar--{{ respAtual.av }}" style="display:none">{{ respAtual.iniciais }}</span>
+                            <span class="db-dd-av-ini db-avatar--{{ respAtual.av }}" style="display:none"><i class="bi bi-person-fill" aria-hidden="true"></i></span>
                         {% else %}
-                            <span class="db-dd-av-ini db-avatar--{{ respAtual.av }}">{{ respAtual.iniciais }}</span>
+                            <span class="db-dd-av-ini db-avatar--{{ respAtual.av }}"><i class="bi bi-person-fill" aria-hidden="true"></i></span>
                         {% endif %}
                     </span>
                     <span class="db-dd-btn-nome">{{ respAtual.nome }}</span>
@@ -193,9 +193,9 @@
                                     {% if it.foto %}
                                         <img class="db-dd-av-foto" src="{{ path('app_profile_foto_serve', {nome: it.foto}) }}" alt="" loading="lazy"
                                              onerror="this.style.display='none';this.nextElementSibling.style.display='inline-flex';">
-                                        <span class="db-dd-av-ini db-avatar--{{ it.av }}" style="display:none">{{ it.iniciais }}</span>
+                                        <span class="db-dd-av-ini db-avatar--{{ it.av }}" style="display:none"><i class="bi bi-person-fill" aria-hidden="true"></i></span>
                                     {% else %}
-                                        <span class="db-dd-av-ini db-avatar--{{ it.av }}">{{ it.iniciais }}</span>
+                                        <span class="db-dd-av-ini db-avatar--{{ it.av }}"><i class="bi bi-person-fill" aria-hidden="true"></i></span>
                                     {% endif %}
                                 </span>
                                 <span class="db-dd-op-txt">

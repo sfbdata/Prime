@@ -246,10 +246,11 @@ final class DashboardFiltrosPropriosTelaTest extends DashboardWebTestCase
         self::assertStringContainsString('foto_ana_lote7.jpg', (string) $img->attr('src'));
         self::assertCount(1, $ana->filter('.db-dd-av > .db-dd-av-ini'), 'iniciais de reserva se a foto falhar');
 
-        // Bruno: sem foto → iniciais.
+        // Bruno: sem foto → boneco.
         $bruno = $this->opcaoPropria($crawler, 'responsavel', (string) $c['bruno']->getId());
         self::assertCount(0, $bruno->filter('img'));
-        self::assertSame(self::iniciais($c['bruno']->getFullName()), trim($bruno->filter('.db-dd-av > .db-dd-av-ini')->text()));
+        // Desenho (dc 1.2.2): sem foto, o boneco `bi-person-fill` na cor da tabela.
+        self::assertCount(1, $bruno->filter('.db-dd-av > .db-dd-av-ini > i.bi-person-fill'));
         self::assertSame($c['advogado']->getNome(), trim($bruno->filter('.db-dd-op-sub')->text()));
 
         // Gestora: sem cargo → "Sem cargo".
