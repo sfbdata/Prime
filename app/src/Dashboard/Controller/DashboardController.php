@@ -74,15 +74,37 @@ final class DashboardController extends AbstractController
 
         // Opções das facetas — só no render completo (a barra vive na casca). Passa arrays
         // simples ao template (convenção: nunca entidade Doctrine crua na view).
+        // Os mapas de cargo e foto são do escritório atual (filtro por tenant no repositório):
+        // nada de outro escritório entra nas opções.
+        $mapaCargo = $this->userRepository->findCargoPorColaboradores($tenant);
+        $mapaFoto  = $this->userRepository->findFotoPorColaboradores($tenant);
+        // `foto` e `cargo` alimentam só o select próprio do desenho (avatar + cargo abaixo do
+        // nome); o <select> nativo do parcial continua lendo `id`/`nome`.
         $responsaveis = array_map(
-            static fn (User $u): array => ['id' => $u->getId(), 'nome' => $u->getFullName()],
+            static fn (User $u): array => [
+                'id'    => $u->getId(),
+                'nome'  => $u->getFullName(),
+                'foto'  => $mapaFoto[(int) $u->getId()] ?? null,
+                'cargo' => $mapaCargo[(int) $u->getId()] ?? null,
+            ],
             $this->userRepository->findColaboradoresAtivosPorTenant($tenant),
         );
-        $mapaCargo = $this->userRepository->findCargoPorColaboradores($tenant);
         $cargos    = array_values(array_unique(array_filter($mapaCargo)));
         sort($cargos);
         // Há colaborador ativo sem cargo? A opção "Sem cargo" (valor CARGO_SEM) só faz sentido aí.
         $existeSemCargo = array_filter($mapaCargo, static fn (?string $c): bool => trim((string) $c) === '') !== [];
+        // "N pessoas" de cada cargo no select próprio: contagem dos colaboradores ATIVOS, a
+        // mesma base das opções (o mapa já vem só com vínculos ativos do escritório).
+        $contagemCargo    = [];
+        $contagemSemCargo = 0;
+        foreach ($mapaCargo as $cargoNome) {
+            if (trim((string) $cargoNome) === '') {
+                ++$contagemSemCargo;
+            }
+            if ($cargoNome !== null && $cargoNome !== '') {
+                $contagemCargo[$cargoNome] = ($contagemCargo[$cargoNome] ?? 0) + 1;
+            }
+        }
 
         return $this->render('dashboard/index.html.twig', [
             'dashboard'      => $output,
@@ -91,6 +113,8 @@ final class DashboardController extends AbstractController
             'responsaveis'   => $responsaveis,
             'cargos'         => $cargos,
             'existeSemCargo' => $existeSemCargo,
+            'contagemCargo'    => $contagemCargo,
+            'contagemSemCargo' => $contagemSemCargo,
             'cargoSemValor'  => ObterDadosDashboardUseCase::CARGO_SEM,
         ]);
     }

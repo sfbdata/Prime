@@ -568,6 +568,430 @@
 }
 .db-page .filtro-limpar:focus-visible { outline: none; box-shadow: var(--db-focus); }
 
+/* ── Selects e calendário próprios (Lote 7 · F13/F14) ─────────────────────────
+   Desenho: "Filtros em cascata com avatar" e "Calendário das datas" (README) e
+   o markup do dc 1.2.2 (l.219-357, script l.2125-2235).
+
+   Papéis (dashboard-filtros.js): sem JS o bloco .db-fp some e os nativos do
+   parcial aparecem como antes. Com JS a caixa ganha .db-fp-ativo: a linha de
+   nativos sai da vista (continua no form para o filtro-tabela.js) e o .db-fp
+   entra no lugar. A ordem visual vem de `order`: segmentado → datas → divisor
+   → Responsável → Cargo → "Limpar filtros" (chips do motor).
+
+   Cantos em 4px (padrão aprovado), não os 12/13 do README. Sem som (F12/F18). */
+.db-body,
+.db-page {
+    --db-fp-painel-borda:  #dde5eb;
+    --db-fp-painel-sombra: 0 18px 40px -18px rgba(12,60,90,.35), 0 3px 10px -4px rgba(12,60,90,.12);
+    --db-fp-op-foco:       #f3f7fa;
+    --db-fp-op-sel:        #e8f3f8;
+    --db-fp-busca-borda:   #d3dde4;
+    --db-fp-tom-todos:     linear-gradient(160deg, #e3f1f7, #bcdce7);
+    --db-fp-tom-todos-fg:  #0c7a9c;
+    --db-fp-tom-cargo:     linear-gradient(160deg, #eef3f6, #ccd6db);
+    --db-fp-tom-cargo-fg:  #34505f;
+    --db-fp-tom-sem:       linear-gradient(160deg, #f3f5f7, #dbe1e5);
+    --db-fp-tom-sem-fg:    #6b8494;
+    --db-fp-anel:          rgba(16,42,58,.08);
+    --db-cal-hover-bg:     #cfe5ee;
+    --db-cal-hover-num:    #084f66;
+    --db-cal-hover-sombra: 0 6px 14px -7px rgba(12,60,90,.45), 0 1px 4px -1px rgba(12,60,90,.14);
+    --db-cal-sel-bg:       linear-gradient(160deg, #1597bd, #0c7a9c);
+    --db-cal-sel-sombra:   0 4px 10px -5px rgba(12,122,156,.6);
+    --db-cal-entre-bg:     #fff;
+    --db-cal-nav-hover:    #fff;
+    --db-cal-nav-sombra:   0 4px 12px -6px rgba(12,60,90,.4);
+    /* texto sobre avatar colorido e sobre o dia selecionado (igual nos dois temas) */
+    --db-fp-sobre-cor:     #fff;
+    --db-cal-rodape-hover: #f3f7fa;
+}
+[data-bs-theme="dark"] .db-body,
+[data-bs-theme="dark"] .db-page {
+    --db-fp-painel-borda:  var(--bs-border-color);
+    --db-fp-painel-sombra: 0 18px 40px -18px rgba(0,0,0,.7), 0 3px 10px -4px rgba(0,0,0,.4);
+    --db-fp-op-foco:       rgba(255,255,255,.06);
+    --db-fp-op-sel:        rgba(79,179,212,.16);
+    --db-fp-busca-borda:   var(--bs-border-color);
+    --db-fp-tom-todos:     rgba(79,179,212,.18);
+    --db-fp-tom-todos-fg:  #7ccbe4;
+    --db-fp-tom-cargo:     rgba(255,255,255,.08);
+    --db-fp-tom-cargo-fg:  var(--bs-body-color);
+    --db-fp-tom-sem:       rgba(255,255,255,.05);
+    --db-fp-tom-sem-fg:    var(--bs-secondary-color);
+    --db-fp-anel:          rgba(255,255,255,.12);
+    --db-cal-hover-bg:     rgba(79,179,212,.24);
+    --db-cal-hover-num:    #bfeaf6;
+    --db-cal-hover-sombra: none;
+    --db-cal-sel-bg:       linear-gradient(160deg, #1597bd, #0c7a9c);
+    --db-cal-sel-sombra:   none;
+    --db-cal-entre-bg:     rgba(255,255,255,.04);
+    --db-cal-nav-hover:    rgba(255,255,255,.08);
+    --db-cal-nav-sombra:   none;
+    --db-cal-rodape-hover: rgba(255,255,255,.06);
+}
+
+/* troca de papéis */
+.db-page .db-fp--sem-js { display: none !important; }
+.db-page .db-fp { display: contents; }
+.db-page .db-filtro-wrap.db-fp-ativo .filtro-linha {
+    position: absolute !important;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+}
+.db-page .db-filtro-wrap.db-fp-ativo .filtro-chips { order: 2; }
+.db-page .db-fp-datas,
+.db-page .db-fp-div,
+.db-page .db-dd { order: 1; }
+
+/* datas: grupo De "até" Até, gap 6px */
+.db-page .db-fp-datas { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.db-page .db-fp-ate { font-size: 13px; color: var(--db-muted); }
+.db-page .db-fp-div { width: 1px; height: 28px; flex-shrink: 0; background: var(--db-div-head); }
+
+/* botões (data e select): 36px, sem linha de borda, hover azul claro, anel de foco */
+.db-page .db-cal,
+.db-page .db-dd { position: relative; }
+.db-page .db-cal.is-aberto,
+.db-page .db-dd.is-aberto { z-index: 40; }
+.db-page .db-cal-btn,
+.db-page .db-dd-btn {
+    height: 36px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    background: var(--db-ctl-bg);
+    font-size: 13.5px;
+    color: var(--db-text);
+    cursor: pointer;
+    transition: border-color .2s, box-shadow .2s, background .2s;
+}
+.db-page .db-cal-btn { padding: 0 12px 0 11px; }
+.db-page .db-cal-btn > .bi { font-size: 13px; color: var(--db-accent); }
+.db-page .db-cal-rotulo {
+    font-family: Arial, Helvetica, sans-serif;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+.db-page .db-cal-btn.is-vazio { color: var(--db-placeholder); }
+.db-page .db-cal-btn:hover,
+.db-page .db-dd-btn:hover {
+    background: var(--db-accent-soft);
+    box-shadow: var(--db-shadow-ctl-hover);
+}
+.db-page .db-cal-btn:focus-visible,
+.db-page .db-dd-btn:focus-visible {
+    outline: none;
+    border-color: var(--db-accent);
+    box-shadow: var(--db-focus);
+}
+.db-page .db-cal.is-aberto > .db-cal-btn,
+.db-page .db-dd.is-aberto > .db-dd-btn { box-shadow: var(--db-focus); }
+
+.db-page .db-dd--resp  { display: flex; align-items: center; flex: 1.15 1 200px; min-width: 190px; }
+.db-page .db-dd--cargo { display: flex; align-items: center; flex: 1 1 170px; min-width: 160px; }
+.db-page .db-dd-btn { width: 100%; padding: 0 11px 0 7px; }
+.db-page .db-dd-btn-nome {
+    flex: 1;
+    min-width: 0;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.db-page .db-dd-chev {
+    font-size: 11px;
+    color: var(--db-faint);
+    flex-shrink: 0;
+    transition: transform .25s var(--db-ease);
+}
+.db-page .db-dd.is-aberto .db-dd-chev { transform: rotate(180deg); }
+
+/* avatar: 22px no botão, 30px nas opções. Pessoa = círculo (foto ou iniciais
+   na cor da tabela, .db-avatar--N); "Todos" e cargos = quadrado arredondado. */
+.db-page .db-dd-av {
+    --av: 30px;
+    width: var(--av);
+    height: var(--av);
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.db-page .db-dd-av--btn { --av: 22px; }
+.db-page .db-dd-av-ico,
+.db-page .db-dd-av-ini,
+.db-page .db-dd-av-foto {
+    width: 100%;
+    height: 100%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+.db-page .db-dd-av-ico {
+    border-radius: calc(var(--av) * .3);
+    font-size: calc(var(--av) * .5);
+    line-height: 1;
+}
+.db-page .db-dd-av-ini,
+.db-page .db-dd-av-foto {
+    border-radius: 50%;
+    box-shadow: inset 0 0 0 1px var(--db-fp-anel);
+}
+.db-page .db-dd-av-ini {
+    font-size: calc(var(--av) * .38);
+    font-weight: 700;
+    color: var(--db-fp-sobre-cor);
+    letter-spacing: .01em;
+}
+.db-page .db-dd-av-foto { object-fit: cover; display: inline-block; }
+.db-page .db-dd-tom--todos { background: var(--db-fp-tom-todos); color: var(--db-fp-tom-todos-fg); }
+.db-page .db-dd-tom--cargo { background: var(--db-fp-tom-cargo); color: var(--db-fp-tom-cargo-fg); }
+.db-page .db-dd-tom--sem   { background: var(--db-fp-tom-sem);   color: var(--db-fp-tom-sem-fg); }
+
+/* painel: 300px (100% no celular), sombra suave, entrada de 180ms */
+.db-page .db-dd-painel,
+.db-page .db-cal-painel {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    max-width: calc(100vw - 28px);
+    background: var(--db-ctl-bg);
+    border: 1px solid var(--db-fp-painel-borda);
+    border-radius: 4px;
+    box-shadow: var(--db-fp-painel-sombra);
+    transform-origin: top left;
+    animation: dbFpIn .18s var(--db-ease);
+}
+.db-page .db-dd-painel[hidden],
+.db-page .db-cal-painel[hidden] { display: none; }
+.db-page .db-dd-painel { width: 300px; padding: 6px; }
+@keyframes dbFpIn { from { opacity: 0; transform: translate3d(0,-4px,0) scale(.98); } to { opacity: 1; transform: none; } }
+
+.db-page .db-dd-busca { position: relative; display: flex; align-items: center; padding: 4px 4px 6px; }
+.db-page .db-dd-busca > .bi {
+    position: absolute;
+    left: 15px;
+    font-size: 12px;
+    color: var(--db-faint);
+    pointer-events: none;
+}
+.db-page .db-dd-busca-input {
+    width: 100%;
+    height: 32px;
+    border: 1px solid var(--db-fp-busca-borda);
+    border-radius: 4px;
+    padding: 0 10px 0 29px;
+    font-size: 13px;
+    color: var(--db-text);
+    background: var(--db-busca-bg);
+}
+.db-page .db-dd-busca-input:focus {
+    outline: none;
+    border-color: var(--db-accent);
+    background: var(--db-ctl-bg);
+    box-shadow: var(--db-focus);
+}
+.db-page .db-dd-lista {
+    max-height: 300px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    border-radius: 4px;
+}
+.db-page .db-dd-lista:focus { outline: none; }
+.db-page .db-dd-op {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    border-radius: 4px;
+    padding: 6px 9px 6px 6px;
+    cursor: pointer;
+    transition: background .12s;
+}
+.db-page .db-dd-op[hidden] { display: none; }
+.db-page .db-dd-op.is-foco { background: var(--db-fp-op-foco); }
+/* foco de teclado visível na opção ativa (o foco real fica na busca/lista) */
+.db-page .db-dd-painel:focus-within .db-dd-op.is-foco { box-shadow: inset 0 0 0 1px var(--db-accent); }
+.db-page .db-dd-op[aria-selected="true"] { background: var(--db-fp-op-sel); }
+.db-page .db-dd-op-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; text-align: left; }
+.db-page .db-dd-op-nome {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--db-text-strong);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.db-page .db-dd-op[aria-selected="true"] .db-dd-op-nome { font-weight: 700; color: var(--db-accent-text); }
+.db-page .db-dd-op-sub {
+    font-size: 12px;
+    color: var(--db-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.db-page .db-dd-check { font-size: 15px; color: var(--db-accent); flex-shrink: 0; opacity: 0; }
+.db-page .db-dd-op[aria-selected="true"] .db-dd-check { opacity: 1; }
+.db-page .db-dd-vazio { padding: 16px 10px; text-align: center; font-size: 13px; color: var(--db-muted); }
+.db-page .db-dd-vazio[hidden] { display: none; }
+
+/* calendário: 252px, células de 31px, número 12.5px */
+.db-page .db-cal-painel { z-index: 45; width: 252px; padding: 8px 8px 6px; }
+.db-page .db-cal-topo { display: flex; align-items: center; gap: 2px; padding: 2px 2px 6px; }
+.db-page .db-cal-titulo {
+    flex: 1;
+    padding-left: 6px;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: -0.005em;
+    color: var(--db-text-strong);
+}
+.db-page .db-cal-nav {
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--db-label);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    transition: background .2s, color .2s, box-shadow .2s;
+}
+.db-page .db-cal-nav:hover {
+    background: var(--db-cal-nav-hover);
+    color: var(--db-accent);
+    box-shadow: var(--db-cal-nav-sombra);
+}
+.db-page .db-cal-semana,
+.db-page .db-cal-linha { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.db-page .db-cal-semana { margin-bottom: 4px; }
+.db-page .db-cal-semana > span {
+    text-align: center;
+    padding: 3px 0;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    color: var(--db-text-2);
+}
+.db-page .db-cal-semana > span.is-fds { color: var(--db-placeholder); }
+.db-page .db-cal-dias { display: flex; flex-direction: column; row-gap: 2px; }
+.db-page .db-cal-linha > span { display: block; }
+.db-page .db-cal-dia {
+    position: relative;
+    width: 100%;
+    height: 31px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+    font-family: Arial, Helvetica, sans-serif;
+    transition: background .18s ease, box-shadow .22s var(--db-ease);
+}
+.db-page .db-cal-num {
+    display: block;
+    font-size: 12.5px;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+    color: var(--db-text);
+    transition: transform .22s var(--db-ease), color .18s ease;
+}
+.db-page .db-cal-dia.is-fds .db-cal-num  { color: var(--db-muted); }
+.db-page .db-cal-dia.is-fora .db-cal-num { color: var(--db-zero); }
+.db-page .db-cal-dia.is-entre { background: var(--db-cal-entre-bg); }
+.db-page .db-cal-dia.is-ponta { background: var(--db-accent-bg); }
+.db-page .db-cal-dia.is-ponta .db-cal-num { color: var(--db-accent-text); }
+.db-page .db-cal-dia:hover,
+.db-page .db-cal-dia:focus-visible {
+    z-index: 2;
+    outline: none;
+    background: var(--db-cal-hover-bg);
+    box-shadow: var(--db-cal-hover-sombra);
+}
+.db-page .db-cal-dia:hover .db-cal-num,
+.db-page .db-cal-dia:focus-visible .db-cal-num {
+    font-weight: 700;
+    color: var(--db-cal-hover-num);
+    transform: scale(1.14);
+}
+.db-page .db-cal-dia:focus-visible { box-shadow: var(--db-focus); }
+.db-page .db-cal-dia.is-sel { background: var(--db-cal-sel-bg); box-shadow: var(--db-cal-sel-sombra); }
+.db-page .db-cal-dia.is-sel .db-cal-num { font-weight: 700; color: var(--db-fp-sobre-cor); }
+.db-page .db-cal-dia.is-sel:focus-visible { box-shadow: var(--db-focus); }
+.db-page .db-cal-ponto { display: none; }
+.db-page .db-cal-dia.is-hoje .db-cal-ponto {
+    display: block;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--db-accent);
+}
+.db-page .db-cal-dia.is-hoje.is-sel .db-cal-ponto { background: var(--db-fp-sobre-cor); }
+.db-page .db-cal-rodape {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid var(--db-div);
+}
+.db-page .db-cal-limpar,
+.db-page .db-cal-hoje {
+    border: none;
+    background: transparent;
+    border-radius: 4px;
+    padding: 6px 10px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background .2s, color .2s;
+}
+.db-page .db-cal-limpar { font-weight: 600; color: var(--db-text-2); }
+.db-page .db-cal-limpar:hover { background: var(--db-cal-rodape-hover); color: var(--db-text-strong); }
+.db-page .db-cal-hoje { font-weight: 700; color: var(--db-accent); }
+.db-page .db-cal-hoje:hover { background: var(--db-accent-soft); }
+.db-page .db-cal-nav:focus-visible,
+.db-page .db-cal-limpar:focus-visible,
+.db-page .db-cal-hoje:focus-visible { outline: none; box-shadow: var(--db-focus); }
+
+/* < 1024px some o divisor; < 720px os selects ocupam a linha e o painel 100% */
+@media (max-width: 1023.98px) {
+    .db-page .db-fp-div { display: none; }
+}
+@media (max-width: 719.98px) {
+    .db-page .db-dd--resp,
+    .db-page .db-dd--cargo { flex: 1 1 100%; min-width: 0; }
+    .db-page .db-dd-painel { width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .db-page .db-dd-painel,
+    .db-page .db-cal-painel { animation: none; }
+    .db-page .db-dd-chev,
+    .db-page .db-cal-dia,
+    .db-page .db-cal-num { transition: none; }
+    .db-page .db-cal-dia:hover .db-cal-num,
+    .db-page .db-cal-dia:focus-visible .db-cal-num { transform: none; }
+}
+
 /* ── Cards ──────────────────────────────────────────────────────────────────
    Grade: 4 colunas a partir de 1100px, 2×2 entre 600 e 1100, 1 coluna abaixo
    de 600 (nunca 3 + 1). Linhas com a mesma altura (grid-auto-rows:1fr).

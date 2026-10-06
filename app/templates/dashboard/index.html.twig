@@ -101,6 +101,179 @@
                 { name: 'cargo', rotulo: 'Cargo', tipo: 'select', opcoes: cargoOpcoes }
             ]
         }) }}
+
+        {# Controles próprios do desenho (F13/F14): calendário De/Até e selects de Responsável
+           (foto ou iniciais + cargo) e Cargo (ícone + "N pessoas"). Eles NÃO são campos do
+           form: cada escolha é escrita no controle nativo do parcial acima (mesmo `name`) e
+           dispara `change` — o filtro-tabela.js segue lendo só o form. Sem JS, este bloco
+           fica escondido (`db-fp--sem-js`) e os nativos continuam visíveis e utilizáveis;
+           com JS, o dashboard-filtros.js troca os papéis (os nativos saem da vista e do Tab). #}
+        {% set respSel = filtros.responsavel|default('') %}
+        {% set cargoSel = filtros.cargo|default('') %}
+        {% set nPessoas = responsaveis|length %}
+        <div class="db-fp db-fp--sem-js" data-db-filtros>
+            <div class="db-fp-datas">
+                {% for cal in [
+                    { name: 'data_de', rotulo: 'De', aria: 'Data inicial' },
+                    { name: 'data_ate', rotulo: 'Até', aria: 'Data final' },
+                ] %}
+                    {% set valor = filtros[cal.name]|default('') %}
+                    {% if not loop.first %}<span class="db-fp-ate" aria-hidden="true">até</span>{% endif %}
+                    <div class="db-cal" data-db-cal="{{ cal.name }}">
+                        <button type="button" class="db-cal-btn{{ valor == '' ? ' is-vazio' : '' }}"
+                                aria-haspopup="dialog" aria-expanded="false"
+                                aria-controls="db-cal-{{ cal.name }}-painel"
+                                aria-label="{{ cal.aria }}: {{ valor != '' ? valor|split('-')|reverse|join('/') : 'sem data' }}">
+                            <i class="bi bi-calendar3" aria-hidden="true"></i>
+                            <span class="db-cal-rotulo">{{ valor != '' ? valor|split('-')|reverse|join('/') : 'dd/mm/aaaa' }}</span>
+                        </button>
+                        <div class="db-cal-painel" id="db-cal-{{ cal.name }}-painel" role="dialog"
+                             aria-modal="false" aria-label="Escolher {{ cal.aria|lower }}" hidden></div>
+                    </div>
+                {% endfor %}
+            </div>
+
+            <span class="db-fp-div" aria-hidden="true"></span>
+
+            {# Responsável — "Todos" + cada colaborador ativo do escritório (as mesmas opções
+               do <select> nativo). Avatar: foto quando existe, senão iniciais na cor da tabela. #}
+            {% set respAtual = { nome: 'Todos os responsáveis', foto: null, iniciais: '', av: null } %}
+            {% set respItens = [] %}
+            {% for u in responsaveis %}
+                {% set partes = u.nome|split(' ')|filter(p => p != '') %}
+                {% set item = {
+                    valor: u.id ~ '',
+                    nome: u.nome,
+                    sub: u.cargo is not empty ? u.cargo : 'Sem cargo',
+                    foto: u.foto,
+                    iniciais: partes|slice(0, 2)|map(p => p|slice(0, 1))|join|upper,
+                    av: u.id % 9,
+                } %}
+                {% set respItens = respItens|merge([item]) %}
+                {% if item.valor == respSel %}{% set respAtual = item %}{% endif %}
+            {% endfor %}
+            <div class="db-dd db-dd--resp" data-db-dd="responsavel" data-db-dd-busca>
+                <button type="button" class="db-dd-btn" aria-haspopup="listbox" aria-expanded="false"
+                        aria-controls="db-dd-responsavel-lista" aria-label="Responsável: {{ respAtual.nome }}">
+                    <span class="db-dd-av db-dd-av--btn">
+                        {% if respAtual.av is null %}
+                            <span class="db-dd-av-ico db-dd-tom--todos"><i class="bi bi-people-fill" aria-hidden="true"></i></span>
+                        {% elseif respAtual.foto %}
+                            <img class="db-dd-av-foto" src="{{ path('app_profile_foto_serve', {nome: respAtual.foto}) }}" alt=""
+                                 onerror="this.style.display='none';this.nextElementSibling.style.display='inline-flex';">
+                            <span class="db-dd-av-ini db-avatar--{{ respAtual.av }}" style="display:none">{{ respAtual.iniciais }}</span>
+                        {% else %}
+                            <span class="db-dd-av-ini db-avatar--{{ respAtual.av }}">{{ respAtual.iniciais }}</span>
+                        {% endif %}
+                    </span>
+                    <span class="db-dd-btn-nome">{{ respAtual.nome }}</span>
+                    <i class="bi bi-chevron-down db-dd-chev" aria-hidden="true"></i>
+                </button>
+                <div class="db-dd-painel" hidden>
+                    <div class="db-dd-busca">
+                        <i class="bi bi-search" aria-hidden="true"></i>
+                        <input type="text" class="db-dd-busca-input" placeholder="Buscar pessoa" aria-label="Buscar pessoa"
+                               autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="true"
+                               aria-controls="db-dd-responsavel-lista">
+                    </div>
+                    <div class="db-dd-lista" id="db-dd-responsavel-lista" role="listbox" aria-label="Responsável" tabindex="-1">
+                        <div class="db-dd-op" role="option" id="db-dd-responsavel-op-todos" data-valor=""
+                             data-nome="Todos os responsáveis" aria-selected="{{ respSel == '' ? 'true' : 'false' }}">
+                            <span class="db-dd-av"><span class="db-dd-av-ico db-dd-tom--todos"><i class="bi bi-people-fill" aria-hidden="true"></i></span></span>
+                            <span class="db-dd-op-txt">
+                                <span class="db-dd-op-nome">Todos os responsáveis</span>
+                                <span class="db-dd-op-sub">{{ nPessoas }} {{ nPessoas == 1 ? 'pessoa' : 'pessoas' }}</span>
+                            </span>
+                            <i class="bi bi-check2 db-dd-check" aria-hidden="true"></i>
+                        </div>
+                        {% for it in respItens %}
+                            <div class="db-dd-op" role="option" id="db-dd-responsavel-op-{{ it.valor }}" data-valor="{{ it.valor }}"
+                                 data-nome="{{ it.nome }}" aria-selected="{{ it.valor == respSel ? 'true' : 'false' }}">
+                                <span class="db-dd-av db-dd-av--pessoa">
+                                    {% if it.foto %}
+                                        <img class="db-dd-av-foto" src="{{ path('app_profile_foto_serve', {nome: it.foto}) }}" alt="" loading="lazy"
+                                             onerror="this.style.display='none';this.nextElementSibling.style.display='inline-flex';">
+                                        <span class="db-dd-av-ini db-avatar--{{ it.av }}" style="display:none">{{ it.iniciais }}</span>
+                                    {% else %}
+                                        <span class="db-dd-av-ini db-avatar--{{ it.av }}">{{ it.iniciais }}</span>
+                                    {% endif %}
+                                </span>
+                                <span class="db-dd-op-txt">
+                                    <span class="db-dd-op-nome">{{ it.nome }}</span>
+                                    <span class="db-dd-op-sub{{ it.sub == 'Sem cargo' ? ' is-sem-cargo' : '' }}">{{ it.sub }}</span>
+                                </span>
+                                <i class="bi bi-check2 db-dd-check" aria-hidden="true"></i>
+                            </div>
+                        {% endfor %}
+                    </div>
+                    <div class="db-dd-vazio" hidden>Nenhum resultado.</div>
+                </div>
+            </div>
+
+            {# Cargo — "Todos" + cada cargo com a quantidade de colaboradores ativos (contagem
+               do controller) e "Sem cargo" por último, só quando existe (mesma regra do nativo).
+               Ícone pelo nome do cargo (mapa visual do desenho; o nome é livre no sistema). #}
+            {% set cargoItens = [] %}
+            {% for c in cargos %}
+                {% set cl = c|lower %}
+                {% set n = contagemCargo[c]|default(0) %}
+                {% set cargoItens = cargoItens|merge([{
+                    valor: c,
+                    nome: c,
+                    sub: n ~ ' ' ~ (n == 1 ? 'pessoa' : 'pessoas'),
+                    icone: ('sóci' in cl or 'soci' in cl) ? 'bi-award'
+                        : ('advog' in cl) ? 'bi-briefcase'
+                        : ('estagi' in cl) ? 'bi-mortarboard'
+                        : ('paraleg' in cl) ? 'bi-journal-text'
+                        : ('financ' in cl) ? 'bi-cash-coin'
+                        : 'bi-person-badge',
+                    tom: 'cargo',
+                }]) %}
+            {% endfor %}
+            {% if existeSemCargo|default(false) %}
+                {% set n = contagemSemCargo|default(0) %}
+                {% set cargoItens = cargoItens|merge([{
+                    valor: cargoSemValor, nome: 'Sem cargo',
+                    sub: n ~ ' ' ~ (n == 1 ? 'pessoa' : 'pessoas'),
+                    icone: 'bi-dash-circle', tom: 'sem',
+                }]) %}
+            {% endif %}
+            {% set cargoAtual = { nome: 'Todos os cargos', icone: 'bi-grid-fill', tom: 'todos' } %}
+            {% for it in cargoItens %}
+                {% if it.valor == cargoSel %}{% set cargoAtual = it %}{% endif %}
+            {% endfor %}
+            <div class="db-dd db-dd--cargo" data-db-dd="cargo">
+                <button type="button" class="db-dd-btn" aria-haspopup="listbox" aria-expanded="false"
+                        aria-controls="db-dd-cargo-lista" aria-label="Cargo: {{ cargoAtual.nome }}">
+                    <span class="db-dd-av db-dd-av--btn">
+                        <span class="db-dd-av-ico db-dd-tom--{{ cargoAtual.tom }}"><i class="bi {{ cargoAtual.icone }}" aria-hidden="true"></i></span>
+                    </span>
+                    <span class="db-dd-btn-nome">{{ cargoAtual.nome }}</span>
+                    <i class="bi bi-chevron-down db-dd-chev" aria-hidden="true"></i>
+                </button>
+                <div class="db-dd-painel" hidden>
+                    <div class="db-dd-lista" id="db-dd-cargo-lista" role="listbox" aria-label="Cargo" tabindex="-1">
+                        <div class="db-dd-op" role="option" id="db-dd-cargo-op-todos" data-valor=""
+                             data-nome="Todos os cargos" aria-selected="{{ cargoSel == '' ? 'true' : 'false' }}">
+                            <span class="db-dd-av"><span class="db-dd-av-ico db-dd-tom--todos"><i class="bi bi-grid-fill" aria-hidden="true"></i></span></span>
+                            <span class="db-dd-op-txt"><span class="db-dd-op-nome">Todos os cargos</span></span>
+                            <i class="bi bi-check2 db-dd-check" aria-hidden="true"></i>
+                        </div>
+                        {% for it in cargoItens %}
+                            <div class="db-dd-op" role="option" id="db-dd-cargo-op-{{ loop.index }}" data-valor="{{ it.valor }}"
+                                 data-nome="{{ it.nome }}" aria-selected="{{ it.valor == cargoSel ? 'true' : 'false' }}">
+                                <span class="db-dd-av"><span class="db-dd-av-ico db-dd-tom--{{ it.tom }}"><i class="bi {{ it.icone }}" aria-hidden="true"></i></span></span>
+                                <span class="db-dd-op-txt">
+                                    <span class="db-dd-op-nome">{{ it.nome }}</span>
+                                    <span class="db-dd-op-sub">{{ it.sub }}</span>
+                                </span>
+                                <i class="bi bi-check2 db-dd-check" aria-hidden="true"></i>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
         </div>
 
         <div data-filtro-resultado>
@@ -126,4 +299,6 @@
 <script src="{{ asset('js/filtro-tabela.js') }}"></script>
 {# Depois do motor de filtro: a contagem dos cards observa a região que ele recarrega. #}
 <script src="{{ asset('js/dashboard.js') }}"></script>
+{# Selects e calendário próprios da barra de filtros: escrevem nos nativos do parcial. #}
+<script src="{{ asset('js/dashboard-filtros.js') }}"></script>
 {% endblock %}
