@@ -18,6 +18,11 @@ Se um código só é usado por um domínio, ele vai no próprio domínio — nã
 - `Doctrine/Transacao/` — `TransacaoComArquivoNovo`: confirma no banco uma operação que acabou de
   gravar arquivo e decide, se ela falhar, se o arquivo pode sair (só com a ausência de COMMIT
   PROVADA — ver "Arquivo novo + transação que pode falhar" abaixo).
+- `Doctrine/Filter/` — os SQLFilters globais: `TenantFilter` (`tenant_id = :tenant`, ligado por
+  request em entidade `TenantAware`) e `LixeiraFilter` (`excluido_em IS NULL`, ligado por padrão em
+  entidade `Descartavel` — a lixeira da aba Documentos). Quem precisa enxergar a lixeira (restaurar,
+  listar, purgar) usa `AcessoALixeira::comLixeiraVisivel()`, nunca `getFilters()` solto. SQL cru
+  (DBAL) não passa por filtro nenhum: escreva o `excluido_em IS NULL` à mão.
 - `Trait/` — traits utilitários (ex.: `TimestampableTrait`, `TenantAwareTrait`)
 - `DTO/` — DTOs genéricos reutilizáveis entre domínios
 - `Exception/` — exceções base do sistema

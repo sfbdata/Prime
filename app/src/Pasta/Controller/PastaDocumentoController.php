@@ -20,10 +20,12 @@ use App\Pasta\Repository\PastaSecaoRepository;
 use App\Pasta\UseCase\AlternarFavoritoDeDocumentoUseCase;
 use App\Pasta\UseCase\EditarDocumentoDaPastaUseCase;
 use App\Pasta\UseCase\ExcluirItensDaPastaUseCase;
+use App\Pasta\UseCase\ListarLixeiraDaPastaUseCase;
 use App\Pasta\UseCase\MoverItensDaPastaUseCase;
+use App\Pasta\UseCase\RestaurarItensDaPastaUseCase;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
-use App\Shared\Armazenamento\RemocaoAposTransacao;
+use App\Shared\Doctrine\Filter\AcessoALixeira;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -33,7 +35,8 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 
 /**
- * O documento da pasta na aba Documentos: editar (D3) e as ações em lote mover/excluir (D4).
+ * O documento da pasta na aba Documentos: editar (D3), as ações em lote mover/excluir (D4) e a
+ * lixeira — restaurar e listar (D7).
  *
  * Padrão das rotas: permissão de EDITAR a pasta (`canAccessResource`), CSRF, posse provada por
  * consulta escopada em pasta + tenant (404 — nunca 403 — para o que não é desta pasta: não se
@@ -44,6 +47,13 @@ use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
  * explorador consome; sem, redireciona para a aba (`#documentos`) como fazia.
  *
  * O lote usa UM token por pasta (`pex_lote_<pastaId>`), e os ids vão no corpo — form ou JSON.
+ *
+ * Lixeira (D7): `excluir-lote` não apaga mais nada — marca a lápide (`excluido_em`/`por`), e a
+ * resposta ganha `lixeira: true` e os ids afetados para o "Desfazer". `restaurar` recebe os mesmos
+ * ids e token, e prova a posse procurando os itens NA LIXEIRA da pasta — a consulta e o UseCase
+ * rodam dentro de `AcessoALixeira::comLixeiraVisivel()`, o único jeito de enxergá-la. `lixeira`
+ * (GET, JSON) lista o que está lá para a UI. As três exigem a permissão de EDITAR: restaura quem
+ * pode excluir (S-10).
  *
  * A estrela (D2, `pasta_documentos_favorito`) é a exceção à permissão de EDITAR: favorito é
  * preferência pessoal, basta VER a pasta (como `PastaFavoritoController`). Token por pasta
@@ -59,12 +69,14 @@ final class PastaDocumentoController extends AbstractController
         private readonly PermissionChecker $permissionChecker,
         private readonly TenantContext $tenantContext,
         private readonly CsrfTokenManagerInterface $csrfTokenManager,
-        private readonly RemocaoAposTransacao $remocao,
         private readonly PastaDocumentoRepository $documentos,
         private readonly PastaSecaoRepository $secoes,
         private readonly EditarDocumentoDaPastaUseCase $editarUseCase,
         private readonly MoverItensDaPastaUseCase $moverItensUseCase,
         private readonly ExcluirItensDaPastaUseCase $excluirItensUseCase,
+        private readonly RestaurarItensDaPastaUseCase $restaurarItensUseCase,
+        private readonly ListarLixeiraDaPastaUseCase $listarLixeiraUseCase,
+        private readonly AcessoALixeira $lixeira,
         private readonly AlternarFavoritoDeDocumentoUseCase $favoritoUseCase,
         private readonly PastaDocumentoFavoritoRepository $favoritos,
     ) {
@@ -172,6 +184,12 @@ final class PastaDocumentoController extends AbstractController
         ]);
     }
 
+    /**
+     * Manda a seleção para a LIXEIRA (D7). A resposta mantém as chaves de antes (`ok`,
+     * `documentosRemovidos`, `subpastasRemovidas`, `arquivosRemovidos`) e ganha `lixeira: true` e
+     * `ids` — o que o "Desfazer" manda de volta a `restaurar`. Nada sai do disco aqui: a linha e
+     * o arquivo ficam até a purga.
+     */
     #[Route('/{id}/documentos/excluir-lote', name: 'pasta_documentos_excluir_lote', methods: ['POST'])]
     public function excluirLote(Pasta $pasta, Request $request): JsonResponse
     {
@@ -193,16 +211,81 @@ final class PastaDocumentoController extends AbstractController
             return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
         }
 
-        // Só DEPOIS do COMMIT (INV-6): as linhas já saíram; uma falha de disco aqui vira registro
-        // no log, não 500 — o mesmo mecanismo de `pasta_documento_delete` e `pasta_secao_excluir`.
-        $this->remocao->remover($resultado->chaves, 'PastaDocumentoController::excluirLote');
-
         return $this->json([
             'ok'                  => true,
+            'lixeira'             => true,
             'documentosRemovidos' => $resultado->documentosRemovidos,
             'subpastasRemovidas'  => $resultado->subpastasRemovidas,
             'arquivosRemovidos'   => $resultado->arquivosRemovidos,
+            'ids'                 => ['documentos' => $resultado->idsDocumentos, 'secoes' => $resultado->idsSecoes],
         ]);
+    }
+
+    /**
+     * Tira da lixeira (D7): mesmo corpo e token do lote (`{_token, documentos[], secoes[]}`), mesma
+     * permissão de quem exclui (S-10). A posse é provada procurando os ids NA LIXEIRA desta pasta
+     * e deste escritório — item vivo, de pasta irmã ou de outro escritório → 404 sem efeito.
+     * Consulta, UseCase e `flush` rodam dentro do escopo da `AcessoALixeira`; o filtro volta
+     * antes da resposta. Resposta: `{ok, restaurados: {documentos, secoes}, paraARaiz}`.
+     */
+    #[Route('/{id}/documentos/restaurar', name: 'pasta_documentos_restaurar', methods: ['POST'])]
+    public function restaurar(Pasta $pasta, Request $request): JsonResponse
+    {
+        /** @var User $currentUser */
+        $currentUser = $this->getUser();
+        $tenant      = $this->tenantContext->getCurrentTenant();
+
+        return $this->lixeira->comLixeiraVisivel(function () use ($pasta, $currentUser, $tenant, $request): JsonResponse {
+            $lote = $this->loteAutorizado($pasta, $currentUser, $tenant, $request, naLixeira: true);
+            if ($lote instanceof JsonResponse) {
+                return $lote;
+            }
+            [$documentos, $secoes, , $tenant] = $lote;
+
+            try {
+                $resultado = $this->restaurarItensUseCase->executar($pasta, $documentos, $secoes, $currentUser, $tenant);
+            } catch (\InvalidArgumentException $e) {
+                return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+            } catch (AccessDeniedException) {
+                return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
+            }
+
+            return $this->json([
+                'ok'          => true,
+                'restaurados' => ['documentos' => $resultado->documentos, 'secoes' => $resultado->secoes],
+                'paraARaiz'   => $resultado->paraARaiz,
+            ]);
+        });
+    }
+
+    /**
+     * A lixeira desta pasta, em JSON, para a UI (D7): itens com nome, tipo, excluído em/por e o
+     * caminho original. Permissão de EDITAR (quem pode excluir e restaurar). Pasta de outro
+     * escritório → 404 (o resolver busca por PK; o tenant é conferido aqui).
+     */
+    #[Route('/{id}/documentos/lixeira', name: 'pasta_documentos_lixeira', requirements: ['id' => '\d+'], methods: ['GET'])]
+    public function lixeira(Pasta $pasta): JsonResponse
+    {
+        /** @var User $currentUser */
+        $currentUser = $this->getUser();
+        $tenant      = $this->tenantContext->getCurrentTenant();
+        $pastaId     = (int) $pasta->getId();
+
+        if ($tenant === null || $pasta->getTenant() !== $tenant) {
+            return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
+        }
+
+        if (!$this->permissionChecker->canAccessResource($currentUser, $tenant, 'pasta', $pastaId, 'edit')) {
+            return $this->json(['erro' => 'Sem permissão para editar esta pasta.'], Response::HTTP_FORBIDDEN);
+        }
+
+        try {
+            $lixeira = $this->listarLixeiraUseCase->executar($pasta, $tenant);
+        } catch (AccessDeniedException) {
+            return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
+        }
+
+        return $this->json(['ok' => true] + $lixeira->paraJson());
     }
 
     /**
@@ -282,13 +365,17 @@ final class PastaDocumentoController extends AbstractController
     }
 
     /**
-     * O prólogo comum das duas ações em lote: permissão de edição da pasta, CSRF `pex_lote_<id>`,
-     * ids do corpo e posse de TODOS eles provada numa consulta por tipo. Qualquer id que não seja
+     * O prólogo comum das ações em lote: permissão de edição da pasta, CSRF `pex_lote_<id>`, ids
+     * do corpo e posse de TODOS eles provada numa consulta por tipo. Qualquer id que não seja
      * desta pasta e deste escritório → 404 antes de qualquer efeito.
+     *
+     * Com `$naLixeira`, a posse é provada entre os itens NA LIXEIRA da pasta (restaurar): um id
+     * de item vivo responde o mesmo 404 — não há o que restaurar nele, e a tela não precisa
+     * distinguir. Quem chama assim precisa estar dentro de `AcessoALixeira::comLixeiraVisivel()`.
      *
      * @return JsonResponse|array{list<PastaDocumento>, list<PastaSecao>, array<string, mixed>, Tenant}
      */
-    private function loteAutorizado(Pasta $pasta, User $currentUser, ?Tenant $tenant, Request $request): JsonResponse|array
+    private function loteAutorizado(Pasta $pasta, User $currentUser, ?Tenant $tenant, Request $request, bool $naLixeira = false): JsonResponse|array
     {
         $pastaId = (int) $pasta->getId();
 
@@ -322,12 +409,16 @@ final class PastaDocumentoController extends AbstractController
             return $this->json(['erro' => 'Nenhum item selecionado.'], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        $documentos = $this->documentos->findTodosDaPasta($idsDocumentos, $pasta, $tenant);
+        $documentos = $naLixeira
+            ? $this->documentos->findNaLixeiraDaPasta($idsDocumentos, $pasta, $tenant)
+            : $this->documentos->findTodosDaPasta($idsDocumentos, $pasta, $tenant);
         if (count($documentos) !== count($idsDocumentos)) {
             return $this->json(['erro' => 'Documento não encontrado.'], Response::HTTP_NOT_FOUND);
         }
 
-        $secoes = $this->secoes->findTodasDaPasta($idsSecoes, $pasta, $tenant);
+        $secoes = $naLixeira
+            ? $this->secoes->findNaLixeiraDaPasta($idsSecoes, $pasta, $tenant)
+            : $this->secoes->findTodasDaPasta($idsSecoes, $pasta, $tenant);
         if (count($secoes) !== count($idsSecoes)) {
             return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
         }

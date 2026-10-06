@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Pasta\Entity;
 
+use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Repository\PastaSecaoRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use App\Shared\Contract\Auditavel;
+use App\Shared\Contract\Descartavel;
 use App\Shared\Contract\TenantAware;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Validator\Constraints as Assert;
@@ -18,12 +20,16 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ORM\Index(name: 'idx_pasta_secao_pasta', columns: ['pasta_id'])]
 #[ORM\Index(name: 'idx_pasta_secao_tenant', columns: ['tenant_id'])]
 #[ORM\Index(name: 'idx_pasta_secao_pai', columns: ['secao_pai_id'])]
-class PastaSecao implements Auditavel, TenantAware
+// Parcial, como em `pasta_documento`: só a lixeira entra, e o `where` vai entre parênteses como o
+// PostgreSQL o devolve ao `schema:validate`.
+#[ORM\Index(name: 'idx_pasta_secao_lixeira', columns: ['excluido_em'], options: ['where' => '(excluido_em IS NOT NULL)'])]
+class PastaSecao implements Auditavel, TenantAware, Descartavel
 {
     /**
      * Trava anti-laço na travessia da árvore (não é o teto de produto, que é 10). Pública porque
      * outras recursões que descem a árvore fora desta classe (PastaSecaoRepository::contarConteudoRecursivo,
-     * PastaSecaoController::coletarCaminhosDaArvore) usam o MESMO limite, em vez de duplicar o número.
+     * PurgarLixeiraUseCase::coletarArvore, LixeiraDaPastaOutput::caminho) usam o MESMO limite, em
+     * vez de duplicar o número.
      */
     public const LIMITE_SEGURANCA = 100;
 
@@ -61,6 +67,18 @@ class PastaSecao implements Auditavel, TenantAware
     /** @var Collection<int, PastaSecao> */
     #[ORM\OneToMany(mappedBy: 'pai', targetEntity: self::class, cascade: ['remove'])]
     private Collection $filhas;
+
+    /**
+     * Lixeira (D7, L7): preenchido = a seção foi "excluída" pela tela, com toda a subárvore
+     * carimbada com o MESMO instante (é por ele que o restaurar devolve o bloco). A linha fica até
+     * a purga. Sem setter de propósito — ver o mesmo campo em `PastaDocumento`.
+     */
+    #[ORM\Column(name: 'excluido_em', type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $excluidoEm = null;
+
+    #[ORM\ManyToOne(targetEntity: User::class)]
+    #[ORM\JoinColumn(name: 'excluido_por_id', nullable: true, onDelete: 'SET NULL')]
+    private ?User $excluidoPor = null;
 
     public function __construct()
     {
@@ -218,5 +236,144 @@ class PastaSecao implements Auditavel, TenantAware
         }
 
         return false;
+    }
+
+    // ── Lixeira (D7) ────────────────────────────────────────────────────────────
+
+    public function estaNaLixeira(): bool
+    {
+        return $this->excluidoEm !== null;
+    }
+
+    public function getExcluidoEm(): ?\DateTimeImmutable
+    {
+        return $this->excluidoEm;
+    }
+
+    public function getExcluidoPor(): ?User
+    {
+        return $this->excluidoPor;
+    }
+
+    /**
+     * Só esta seção. Para o que a tela chama de "excluir a pasta" use {@see marcarArvoreExcluida()}:
+     * uma seção na lixeira com filhas e documentos vivos deixaria itens vivos pendurados num pai
+     * invisível (o proxy do pai falharia ao carregar).
+     */
+    public function marcarExcluido(User $por, \DateTimeImmutable $em): self
+    {
+        if ($this->estaNaLixeira()) {
+            throw new \LogicException('Esta pasta já está na lixeira.');
+        }
+
+        $this->excluidoEm  = $em;
+        $this->excluidoPor = $por;
+
+        return $this;
+    }
+
+    public function restaurar(): self
+    {
+        if (!$this->estaNaLixeira()) {
+            throw new \LogicException('Esta pasta não está na lixeira.');
+        }
+
+        $this->excluidoEm  = null;
+        $this->excluidoPor = null;
+
+        return $this;
+    }
+
+    /**
+     * Manda esta seção e TODA a descendência (filhas, netas… e os documentos de cada uma) para a
+     * lixeira, com o mesmo carimbo — é o bloco que {@see restaurarArvore()} devolve inteiro.
+     *
+     * O que já estava na lixeira (excluído antes, com carimbo próprio) é pulado: com o
+     * `LixeiraFilter` ligado ele nem aparece nas coleções; se aparecer (filtro desligado), mantém
+     * o carimbo original — restaurar a seção não ressuscita o que o usuário tinha apagado antes.
+     *
+     * Devolve o que foi marcado, nos mesmos escopos de `PastaSecaoRepository::contarConteudoRecursivo`:
+     * `subpastas` só as DESCENDENTES (esta não se conta), `arquivos` os desta mais os de toda a
+     * descendência. O corte em LIMITE_SEGURANCA é a trava anti-ciclo (ver `getAltura()`).
+     *
+     * @return array{subpastas: int, arquivos: int}
+     */
+    public function marcarArvoreExcluida(User $por, \DateTimeImmutable $em, int $profundidade = 0): array
+    {
+        if ($profundidade >= self::LIMITE_SEGURANCA) {
+            return ['subpastas' => 0, 'arquivos' => 0];
+        }
+
+        $subpastas = 0;
+        $arquivos  = 0;
+
+        if (!$this->estaNaLixeira()) {
+            $this->marcarExcluido($por, $em);
+        }
+
+        foreach ($this->documentos as $documento) {
+            if ($documento->estaNaLixeira()) {
+                continue;
+            }
+            $documento->marcarExcluido($por, $em);
+            ++$arquivos;
+        }
+
+        foreach ($this->filhas as $filha) {
+            $abaixo     = $filha->marcarArvoreExcluida($por, $em, $profundidade + 1);
+            $subpastas += 1 + $abaixo['subpastas'];
+            $arquivos  += $abaixo['arquivos'];
+        }
+
+        return ['subpastas' => $subpastas, 'arquivos' => $arquivos];
+    }
+
+    /**
+     * Tira da lixeira esta seção e, abaixo dela, só o que foi excluído JUNTO (mesmo carimbo). O que
+     * estava na lixeira com outro carimbo fica lá — foi excluído em outra ação, e volta por outra.
+     *
+     * PRÉ-CONDIÇÃO: chamado com o `LixeiraFilter` desligado (`AcessoALixeira`), e com a árvore
+     * carregada nesse estado — senão as coleções vêm sem os itens da lixeira e a travessia não
+     * acha nada para restaurar (resultado vazio com cara de certo).
+     *
+     * @return array{subpastas: int, arquivos: int} contagens nos mesmos escopos de `marcarArvoreExcluida()`
+     */
+    public function restaurarArvore(\DateTimeImmutable $carimbo, int $profundidade = 0): array
+    {
+        if ($profundidade >= self::LIMITE_SEGURANCA) {
+            return ['subpastas' => 0, 'arquivos' => 0];
+        }
+
+        $subpastas = 0;
+        $arquivos  = 0;
+
+        if ($this->estaNaLixeira()) {
+            $this->restaurar();
+        }
+
+        foreach ($this->documentos as $documento) {
+            if (!self::mesmoCarimbo($documento->getExcluidoEm(), $carimbo)) {
+                continue;
+            }
+            $documento->restaurar();
+            ++$arquivos;
+        }
+
+        foreach ($this->filhas as $filha) {
+            if (!self::mesmoCarimbo($filha->getExcluidoEm(), $carimbo)) {
+                continue;
+            }
+            $abaixo     = $filha->restaurarArvore($carimbo, $profundidade + 1);
+            $subpastas += 1 + $abaixo['subpastas'];
+            $arquivos  += $abaixo['arquivos'];
+        }
+
+        return ['subpastas' => $subpastas, 'arquivos' => $arquivos];
+    }
+
+    /** Por valor, não por identidade: o carimbo lido do banco é outro objeto que o gravado. */
+    private static function mesmoCarimbo(?\DateTimeImmutable $a, \DateTimeImmutable $b): bool
+    {
+        return $a !== null && $a->format('Y-m-d H:i:s') === $b->format('Y-m-d H:i:s');
     }
 }

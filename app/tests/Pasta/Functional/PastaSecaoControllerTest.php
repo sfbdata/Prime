@@ -294,9 +294,15 @@ final class PastaSecaoControllerTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(404);
     }
 
-    // ── Excluir ────────────────────────────────────────────────────────────────
+    // ── Excluir → LIXEIRA (D7) ─────────────────────────────────────────────────
+    //
+    // Desde o L7 a rota não remove nada: a seção e a subárvore recebem a lápide (mesmo carimbo), a
+    // linha e os arquivos ficam até a purga, e o `LixeiraFilter` esconde tudo das leituras comuns.
+    // O que antes provava a remoção física (arquivo some; disco que falha depois do COMMIT) mora
+    // agora em `PurgarLixeiraCommandTest`. Cada caso lê o banco DEPOIS de `clear()`: o filtro é
+    // SQL e não esconde o que já está no identity map.
 
-    #[TestDox('POST excluir seção com sucesso retorna 200')]
+    #[TestDox('POST excluir seção com sucesso: 200, a seção some do find() mas a linha fica, com a lápide')]
     public function testExcluirComSucessoRetorna200(): void
     {
         $client          = static::createClient();
@@ -314,9 +320,18 @@ final class PastaSecaoControllerTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         $data = json_decode((string) $client->getResponse()->getContent(), true);
         self::assertTrue($data['ok']);
+        self::assertTrue($data['lixeira'], 'a resposta diz que foi para a lixeira');
+        self::assertSame(0, $data['subpastasRemovidas']);
+        self::assertSame(0, $data['arquivosRemovidos']);
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        self::assertNull($em->find(PastaSecao::class, $secaoId));
+        $em->clear();
+        self::assertNull($em->find(PastaSecao::class, $secaoId), 'na lixeira: invisível para o find()');
+
+        $linha = $em->getConnection()->fetchAssociative('SELECT excluido_em, excluido_por_id FROM pasta_secao WHERE id = ?', [$secaoId]);
+        self::assertIsArray($linha, 'lixeira é lápide: a linha fica');
+        self::assertNotNull($linha['excluido_em']);
+        self::assertSame($user->getId(), (int) $linha['excluido_por_id']);
     }
 
     #[TestDox('POST excluir seção com CSRF inválido retorna 400')]
@@ -336,7 +351,7 @@ final class PastaSecaoControllerTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(400);
     }
 
-    #[TestDox('excluir informa quanto conteúdo foi apagado junto')]
+    #[TestDox('excluir informa quanto conteúdo foi para a lixeira junto (só a descendência; a própria seção não se conta)')]
     public function testExcluirDevolveAContagem(): void
     {
         $client          = static::createClient();
@@ -355,6 +370,7 @@ final class PastaSecaoControllerTest extends JusPrimeWebTestCase
         $filha->setPai($pai);
         $em->persist($filha);
         $em->flush();
+        $em->clear();
 
         $client->request('POST', '/pasta/secao/' . $pai->getId() . '/excluir', [
             '_token' => $this->csrf('pasta_secao_excluir_' . $pai->getId()),
@@ -365,8 +381,8 @@ final class PastaSecaoControllerTest extends JusPrimeWebTestCase
         self::assertSame(1, $json['subpastasRemovidas']);
     }
 
-    #[TestDox('excluir remove do disco os arquivos de TODA a árvore — mãe, filha e neta')]
-    public function testExcluirRemoveArquivosDaArvoreInteira(): void
+    #[TestDox('excluir marca TODA a árvore — mãe, filha e neta e os documentos de cada uma — com o MESMO carimbo, e nenhum arquivo sai do disco')]
+    public function testExcluirMarcaAArvoreInteiraComOMesmoCarimbo(): void
     {
         $client          = static::createClient();
         [$user, $tenant] = $this->criarUsuarioAdmin();
@@ -374,9 +390,8 @@ final class PastaSecaoControllerTest extends JusPrimeWebTestCase
         $this->instalarCsrfStorage();
         $this->logarComTenant($client, $user, $tenant);
 
-        $em         = static::getContainer()->get(EntityManagerInterface::class);
+        $em            = static::getContainer()->get(EntityManagerInterface::class);
         $armazenamento = static::getContainer()->get(ArmazenamentoDeArquivos::class);
-        $uploadsDir    = (string) static::getContainer()->getParameter('uploads_dir');
 
         $mae = $this->criarSecao($pasta, $tenant);
 
@@ -400,6 +415,7 @@ final class PastaSecaoControllerTest extends JusPrimeWebTestCase
         // Um arquivo DE VERDADE em cada nível, associado à respectiva seção via setSecao() — sem
         // isso a coleção documentos() da seção fica vazia e o teste não prova nada.
         $caminhos = [];
+        $docIds   = [];
         foreach ([$mae, $filha, $neta] as $secao) {
             $nomeStorage = $this->gravarDocumento($armazenamento, $tenant, 'conteudo-' . $secao->getNome());
 
@@ -415,16 +431,18 @@ final class PastaSecaoControllerTest extends JusPrimeWebTestCase
             $doc->setTenant($tenant);
             $doc->setSecao($secao);
             $em->persist($doc);
+            $em->flush();
 
             $caminhos[] = ChavesDePasta::documentoPorNome((int) $tenant->getId(), $nomeStorage);
+            $docIds[]   = (int) $doc->getId();
         }
-        $em->flush();
 
         foreach ($caminhos as $caminho) {
             self::assertTrue($armazenamento->existe($caminho), 'pré-condição: o arquivo precisa existir antes da exclusão');
         }
 
-        $maeId = $mae->getId();
+        $maeId    = (int) $mae->getId();
+        $secaoIds = [$maeId, (int) $filha->getId(), (int) $neta->getId()];
 
         // setSecao() só grava a FK no lado dono, sem sincronizar PastaSecao::$documentos (ver o
         // docblock de contarConteudoRecursivo()). Sem o clear(), a coleção em memória continua
@@ -439,83 +457,36 @@ final class PastaSecaoControllerTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         $json = json_decode((string) $client->getResponse()->getContent(), true);
         self::assertSame(3, $json['arquivosRemovidos']);
+        self::assertSame(2, $json['subpastasRemovidas']);
 
-        [$caminhoMae, $caminhoFilha, $caminhoNeta] = $caminhos;
-        self::assertFalse($armazenamento->existe($caminhoMae), 'o arquivo da MÃE devia ter sido removido do disco');
-        self::assertFalse($armazenamento->existe($caminhoFilha), 'o arquivo da FILHA devia ter sido removido do disco');
-        self::assertFalse($armazenamento->existe($caminhoNeta), 'o arquivo da NETA devia ter sido removido do disco — é o que a recursão prova');
-    }
-
-    #[TestDox('disco ilegível DEPOIS do commit não vira 500: a seção já foi excluída e não há como repetir')]
-    public function testFalhaDeDiscoDepoisDoCommitNaoDerrubaARequisicao(): void
-    {
-        $client          = static::createClient();
-        [$user, $tenant] = $this->criarUsuarioAdmin();
-        $pasta           = $this->criarPasta($tenant);
-        $this->instalarCsrfStorage();
-        $this->logarComTenant($client, $user, $tenant);
-
-        $em         = static::getContainer()->get(EntityManagerInterface::class);
-        $armazenamento = static::getContainer()->get(ArmazenamentoDeArquivos::class);
-        $uploadsDir    = rtrim((string) static::getContainer()->getParameter('uploads_dir'), '/');
-
-        $secao       = $this->criarSecao($pasta, $tenant);
-        $nomeStorage = $this->gravarDocumento($armazenamento, $tenant, 'conteudo');
-
-        $doc = new PastaDocumento();
-        $doc->setTitulo('doc');
-        $doc->setCategoria(PastaDocumento::CATEGORIA_DEMAIS);
-        $doc->setCaminhoArquivo($nomeStorage);
-        $doc->setNomeOriginal('doc.pdf');
-        $doc->setMimeType('application/pdf');
-        $doc->setTamanhoBytes(10);
-        $doc->setOrdem(1);
-        $doc->setPasta($pasta);
-        $doc->setTenant($tenant);
-        $doc->setSecao($secao);
-        $em->persist($doc);
-        $em->flush();
-
-        $secaoId = (int) $secao->getId();
-        $em->clear();
-
-        // Diretório ilegível de verdade — não um dublê. É a diferença que a E2.2 introduziu: o
-        // `existe()` novo LANÇA quando não consegue determinar a presença, onde o antigo devolvia
-        // false. Como o laço roda DEPOIS do COMMIT, propagar viraria 500 com a seção já apagada.
-        $modoOriginal = fileperms($uploadsDir) & 0777;
-        self::assertTrue(chmod($uploadsDir, 0o000), 'pré-condição: o teste precisa conseguir tornar o diretório ilegível');
-
-        try {
-            self::assertFalse(is_readable($uploadsDir), 'pré-condição: o processo não pode estar rodando como root');
-
-            $client->request('POST', '/pasta/secao/' . $secaoId . '/excluir', [
-                '_token' => $this->csrf('pasta_secao_excluir_' . $secaoId),
-            ]);
-
-            self::assertResponseIsSuccessful('falha de disco pós-commit não pode virar erro para quem chamou');
-        } finally {
-            chmod($uploadsDir, $modoOriginal);
+        foreach ($caminhos as $i => $caminho) {
+            self::assertTrue($armazenamento->existe($caminho), "o arquivo #{$i} FICA no disco: lixeira não apaga nada");
         }
 
+        $conn      = $em->getConnection();
+        $carimbos  = $conn->fetchFirstColumn('SELECT excluido_em FROM pasta_secao WHERE id IN (?, ?, ?)', $secaoIds);
+        $carimbos2 = $conn->fetchFirstColumn('SELECT excluido_em FROM pasta_documento WHERE id IN (?, ?, ?)', $docIds);
+        $todos     = array_merge($carimbos, $carimbos2);
+        self::assertCount(6, $todos);
+        self::assertNotContains(null, $todos, 'mãe, filha, neta e os três documentos estão na lixeira');
+        self::assertCount(1, array_unique($todos), 'TODA a árvore tem o MESMO carimbo — é o que o restaurar devolve em bloco');
+        self::assertSame(
+            [$user->getId(), $user->getId(), $user->getId()],
+            array_map('intval', $conn->fetchFirstColumn('SELECT excluido_por_id FROM pasta_secao WHERE id IN (?, ?, ?)', $secaoIds)),
+        );
+
         $em->clear();
-        self::assertNull(
-            $em->find(PastaSecao::class, $secaoId),
-            'a seção foi excluída no banco antes do disco: o resultado da requisição tem de refletir isso',
-        );
-        self::assertTrue(
-            $armazenamento->existe(ChavesDePasta::documentoPorNome((int) $tenant->getId(), $nomeStorage)),
-            'o disco recusou: o arquivo fica, órfão recuperável e registrado',
-        );
-        $armazenamento->excluir(ChavesDePasta::documentoPorNome((int) $tenant->getId(), $nomeStorage));
+        self::assertNull($em->find(PastaSecao::class, $maeId));
+        self::assertNull($em->find(PastaDocumento::class, $docIds[2]), 'o documento da neta sumiu das leituras');
     }
 
     /**
-     * E2.5 (INV-6): a remoção física vem DEPOIS do UseCase que confirma a exclusão. Se o banco
-     * recusar, nenhum arquivo da árvore pode ter saído. A recusa é simulada no `onFlush`, antes de
-     * qualquer SQL — exatamente onde um `excluir()` adiantado já teria apagado.
+     * O que antes era "o banco recusa a exclusão → nenhum arquivo sai": com a lixeira, nada sai do
+     * disco de qualquer jeito; o que se prova é que a lápide não fica meio gravada — a recusa é
+     * no `onFlush`, antes de qualquer SQL, e a árvore inteira continua viva.
      */
-    #[TestDox('banco recusa a exclusão da seção: a seção fica e o arquivo continua no disco')]
-    public function testBancoQueRecusaNaoApagaArquivos(): void
+    #[TestDox('banco recusa a lápide: a seção e o documento continuam vivos e o arquivo continua no disco')]
+    public function testBancoQueRecusaNaoMarcaNada(): void
     {
         $client          = static::createClient();
         $client->disableReboot();
@@ -524,7 +495,7 @@ final class PastaSecaoControllerTest extends JusPrimeWebTestCase
         $this->instalarCsrfStorage();
         $this->logarComTenant($client, $user, $tenant);
 
-        $em         = static::getContainer()->get(EntityManagerInterface::class);
+        $em            = static::getContainer()->get(EntityManagerInterface::class);
         $armazenamento = static::getContainer()->get(ArmazenamentoDeArquivos::class);
         $uploadsDir    = rtrim((string) static::getContainer()->getParameter('uploads_dir'), '/');
 
@@ -546,6 +517,7 @@ final class PastaSecaoControllerTest extends JusPrimeWebTestCase
         $em->flush();
 
         $secaoId = (int) $secao->getId();
+        $docId   = (int) $doc->getId();
         $em->clear();
 
         $recusa = new class {
@@ -553,10 +525,12 @@ final class PastaSecaoControllerTest extends JusPrimeWebTestCase
 
             public function onFlush(OnFlushEventArgs $args): void
             {
-                if ($args->getObjectManager()->getUnitOfWork()->getScheduledEntityDeletions() !== []) {
-                    ++$this->recusas;
+                foreach ($args->getObjectManager()->getUnitOfWork()->getScheduledEntityUpdates() as $entidade) {
+                    if ($entidade instanceof PastaSecao) {
+                        ++$this->recusas;
 
-                    throw new \LogicException('banco recusou a exclusão da seção');
+                        throw new \LogicException('banco recusou a lápide da seção');
+                    }
                 }
             }
         };
@@ -573,8 +547,10 @@ final class PastaSecaoControllerTest extends JusPrimeWebTestCase
         try {
             self::assertSame(1, $recusa->recusas);
             self::assertResponseStatusCodeSame(500);
-            self::assertSame(1, (int) $em->getConnection()->fetchOne('SELECT COUNT(*) FROM pasta_secao WHERE id = ?', [$secaoId]));
-            self::assertTrue($armazenamento->existe(ChavesDePasta::documentoPorNome((int) $tenant->getId(), $nomeStorage)), 'a ordem: nenhum arquivo sai antes de o banco confirmar');
+            $conn = $em->getConnection();
+            self::assertNull($conn->fetchOne('SELECT excluido_em FROM pasta_secao WHERE id = ?', [$secaoId]), 'a seção continua viva');
+            self::assertNull($conn->fetchOne('SELECT excluido_em FROM pasta_documento WHERE id = ?', [$docId]), 'o documento continua vivo');
+            self::assertTrue($armazenamento->existe(ChavesDePasta::documentoPorNome((int) $tenant->getId(), $nomeStorage)));
         } finally {
             @unlink($uploadsDir . '/' . $nomeStorage);
         }
@@ -622,8 +598,8 @@ final class PastaSecaoControllerTest extends JusPrimeWebTestCase
             '_token' => $this->csrf('pasta_secao_excluir_' . $aId),
         ]);
 
-        // O ponto do teste é NÃO estourar a memória (contarConteudoRecursivo() e
-        // coletarCaminhosDaArvore() têm de RETORNAR, não a resposta em si).
+        // O ponto do teste é NÃO estourar a memória (`marcarArvoreExcluida()` tem de RETORNAR,
+        // não a resposta em si).
         self::assertResponseIsSuccessful();
     }
 

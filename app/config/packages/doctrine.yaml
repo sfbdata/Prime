@@ -21,6 +21,11 @@ doctrine:
             tenant:
                 class: App\Shared\Doctrine\Filter\TenantFilter
                 enabled: false
+            # Lixeira da aba Documentos (L7): `excluido_em IS NULL` em PastaDocumento/PastaSecao.
+            # Ligado por padrão (web, console e testes); só `AcessoALixeira` o desliga, por escopo.
+            lixeira:
+                class: App\Shared\Doctrine\Filter\LixeiraFilter
+                enabled: true
         mappings:
             App:
                 type: attribute

@@ -249,4 +249,100 @@ class PastaDocumentoRepository extends ServiceEntityRepository
             ->getQuery()
             ->getResult();
     }
+
+    // ── Lixeira (D7) — só fazem sentido com o LixeiraFilter desligado (`AcessoALixeira`) ─────────
+
+    /**
+     * Os documentos de $ids que estão NA LIXEIRA desta pasta e deste escritório — a prova de posse
+     * do restaurar, com a mesma regra do `findTodosDaPasta`: contagem diferente da pedida → 404
+     * sem efeito. A condição `excluidoEm IS NOT NULL` é explícita: com o filtro ligado a consulta
+     * não acharia nada, e com ele desligado não pode devolver item vivo como se restaurável.
+     *
+     * @param list<int> $ids
+     *
+     * @return list<PastaDocumento> com a seção (viva ou na lixeira) já carregada
+     */
+    public function findNaLixeiraDaPasta(array $ids, Pasta $pasta, Tenant $tenant): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+
+        /** @var list<PastaDocumento> $documentos */
+        $documentos = $this->createQueryBuilder('d')
+            ->addSelect('s')
+            ->leftJoin('d.secao', 's')
+            ->andWhere('d.id IN (:ids)')
+            ->andWhere('d.pasta = :pasta')
+            ->andWhere('d.tenant = :tenant')
+            ->andWhere('d.excluidoEm IS NOT NULL')
+            ->setParameter('ids', $ids)
+            ->setParameter('pasta', $pasta)
+            ->setParameter('tenant', $tenant)
+            ->orderBy('d.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+
+        return $documentos;
+    }
+
+    /**
+     * Tudo que está na lixeira de uma pasta, do excluído mais recente ao mais antigo, com a seção
+     * e quem excluiu já carregados (uma query — é a listagem da UI da lixeira).
+     *
+     * @return list<PastaDocumento>
+     */
+    public function listarLixeiraDaPasta(Pasta $pasta, Tenant $tenant): array
+    {
+        /** @var list<PastaDocumento> $documentos */
+        $documentos = $this->createQueryBuilder('d')
+            ->addSelect('s', 'u')
+            ->leftJoin('d.secao', 's')
+            ->leftJoin('d.excluidoPor', 'u')
+            ->andWhere('d.pasta = :pasta')
+            ->andWhere('d.tenant = :tenant')
+            ->andWhere('d.excluidoEm IS NOT NULL')
+            ->setParameter('pasta', $pasta)
+            ->setParameter('tenant', $tenant)
+            ->orderBy('d.excluidoEm', 'DESC')
+            ->addOrderBy('d.id', 'DESC')
+            ->getQuery()
+            ->getResult();
+
+        return $documentos;
+    }
+
+    /**
+     * A fila da purga: ids dos documentos excluídos ANTES de $corte, do mais antigo ao mais novo.
+     * Só ids (escalar) para o comando percorrer em lotes.
+     *
+     * @return list<int>
+     */
+    public function idsNaLixeiraVencida(\DateTimeImmutable $corte, ?int $limite = null): array
+    {
+        $qb = $this->createQueryBuilder('d')
+            ->select('d.id')
+            ->andWhere('d.excluidoEm IS NOT NULL')
+            ->andWhere('d.excluidoEm < :corte')
+            ->setParameter('corte', $corte)
+            ->orderBy('d.excluidoEm', 'ASC')
+            ->addOrderBy('d.id', 'ASC');
+
+        if ($limite !== null) {
+            $qb->setMaxResults($limite);
+        }
+
+        return array_map('intval', $qb->getQuery()->getSingleColumnResult());
+    }
+
+    public function contarNaLixeiraVencida(\DateTimeImmutable $corte): int
+    {
+        return (int) $this->createQueryBuilder('d')
+            ->select('COUNT(d.id)')
+            ->andWhere('d.excluidoEm IS NOT NULL')
+            ->andWhere('d.excluidoEm < :corte')
+            ->setParameter('corte', $corte)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
 }

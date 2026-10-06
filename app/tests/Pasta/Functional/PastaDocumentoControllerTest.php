@@ -411,10 +411,15 @@ final class PastaDocumentoControllerTest extends JusPrimeWebTestCase
         self::assertSame($a->getId(), $this->paiDaSecao((int) $filha->getId()));
     }
 
-    // ── excluir-lote (D4) ──────────────────────────────────────────────────────
+    // ── excluir-lote (D4) → LIXEIRA (D7) ───────────────────────────────────────
+    //
+    // Desde o L7 nada sai do banco nem do disco aqui: cada item recebe a lápide, a subárvore de
+    // cada subpasta inteira com o mesmo carimbo, e a resposta mantém as chaves de antes mais
+    // `lixeira: true` e os ids (o "Desfazer"). Restaurar e a purga têm testes próprios
+    // (`PastaDocumentoLixeiraControllerTest`, `PurgarLixeiraCommandTest`).
 
-    #[TestDox('excluir-lote: as linhas saem, os arquivos (inclusive os de dentro da subpasta) saem DEPOIS, e a auditoria registra')]
-    public function testExcluirLoteApagaLinhasEArquivos(): void
+    #[TestDox('excluir-lote: as linhas FICAM com a lápide (inclusive as de dentro da subpasta, mesmo carimbo), os arquivos FICAM, a auditoria registra a marcação')]
+    public function testExcluirLoteMandaParaALixeira(): void
     {
         $client          = $this->cliente();
         [$user, $tenant] = $this->criarUsuarioAdmin();
@@ -437,25 +442,47 @@ final class PastaDocumentoControllerTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful((string) $client->getResponse()->getContent());
         $json = $this->json($client);
         self::assertTrue($json['ok']);
+        self::assertTrue($json['lixeira']);
         self::assertSame(1, $json['documentosRemovidos']);
         self::assertSame(1, $json['subpastasRemovidas']);
         self::assertSame(2, $json['arquivosRemovidos']);
+        self::assertSame(['documentos' => [(int) $naRaiz->getId()], 'secoes' => [(int) $a->getId()]], $json['ids'], 'os ids voltam para o Desfazer');
 
-        self::assertFalse($this->existeDocumento((int) $naRaiz->getId()));
-        self::assertFalse($this->existeDocumento((int) $emA->getId()), 'o de dentro da subpasta sai pelo cascade');
-        self::assertFalse($this->existeSecao((int) $a->getId()));
-        self::assertTrue($this->existeDocumento((int) $fica->getId()));
+        self::assertTrue($this->existeDocumento((int) $naRaiz->getId()), 'lixeira é lápide: a linha fica');
+        self::assertTrue($this->existeDocumento((int) $emA->getId()));
+        self::assertTrue($this->existeSecao((int) $a->getId()));
+
+        $carimboRaiz = $this->naLixeira('pasta_documento', (int) $naRaiz->getId());
+        $carimboEmA  = $this->naLixeira('pasta_documento', (int) $emA->getId());
+        $carimboA    = $this->naLixeira('pasta_secao', (int) $a->getId());
+        self::assertNotNull($carimboRaiz);
+        self::assertNotNull($carimboEmA, 'o de dentro da subpasta vai junto');
+        self::assertNotNull($carimboA);
+        self::assertSame($carimboA, $carimboEmA, 'subpasta e conteúdo: o MESMO carimbo');
+        self::assertSame($carimboA, $carimboRaiz, 'a ação inteira tem um carimbo só');
+        self::assertNull($this->naLixeira('pasta_documento', (int) $fica->getId()));
 
         [$chaveRaiz, $chaveEmA, $chaveFica] = $chaves;
-        self::assertFalse($armazenamento->existe($chaveRaiz));
-        self::assertFalse($armazenamento->existe($chaveEmA), 'a varredura da árvore pegou o arquivo de dentro');
+        self::assertTrue($armazenamento->existe($chaveRaiz), 'nada sai do disco: só a purga apaga');
+        self::assertTrue($armazenamento->existe($chaveEmA));
         self::assertTrue($armazenamento->existe($chaveFica));
 
-        self::assertSame(2, $this->auditorias('delete', PastaDocumento::class, [(int) $naRaiz->getId(), (int) $emA->getId()]));
-        self::assertSame(1, $this->auditorias('delete', PastaSecao::class, [(int) $a->getId()]));
+        self::assertSame(2, $this->auditorias('update', PastaDocumento::class, [(int) $naRaiz->getId(), (int) $emA->getId()]));
+        self::assertSame(1, $this->auditorias('update', PastaSecao::class, [(int) $a->getId()]));
+        self::assertSame(0, $this->auditorias('delete', PastaDocumento::class, [(int) $naRaiz->getId(), (int) $emA->getId()]));
+
+        // O que foi para a lixeira some da prova de posse: um segundo excluir-lote com os mesmos
+        // ids não os acha (404) — e não recarimba.
+        $this->limpar();
+        $client->request('POST', "/pasta/{$pasta->getId()}/documentos/excluir-lote", [
+            '_token'     => $this->csrf('pex_lote_' . $pasta->getId()),
+            'documentos' => [(string) $naRaiz->getId()],
+        ]);
+        self::assertResponseStatusCodeSame(404);
+        self::assertSame($carimboRaiz, $this->naLixeira('pasta_documento', (int) $naRaiz->getId()));
     }
 
-    #[TestDox('excluir-lote com documento de PASTA IRMÃ na seleção: 404, nenhuma linha nem arquivo sai')]
+    #[TestDox('excluir-lote com documento de PASTA IRMÃ na seleção: 404, nada vai para a lixeira')]
     public function testExcluirLoteDocumentoDePastaIrma(): void
     {
         $client          = $this->cliente();
@@ -474,13 +501,13 @@ final class PastaDocumentoControllerTest extends JusPrimeWebTestCase
         ]);
 
         self::assertResponseStatusCodeSame(404);
-        self::assertTrue($this->existeDocumento((int) $meu->getId()), 'sem efeito parcial');
-        self::assertTrue($this->existeDocumento((int) $daIrma->getId()));
+        self::assertNull($this->naLixeira('pasta_documento', (int) $meu->getId()), 'sem efeito parcial');
+        self::assertNull($this->naLixeira('pasta_documento', (int) $daIrma->getId()));
         self::assertTrue($armazenamento->existe(ChavesDePasta::documentoPorNome((int) $tenant->getId(), $meu->getCaminhoArquivo())));
         self::assertTrue($armazenamento->existe(ChavesDePasta::documentoPorNome((int) $tenant->getId(), $daIrma->getCaminhoArquivo())));
     }
 
-    #[TestDox('excluir-lote: outro escritório 404; CSRF inválido 400; sem permissão 403 — nada sai')]
+    #[TestDox('excluir-lote: outro escritório 404; CSRF inválido 400; sem permissão 403 — nada vai para a lixeira')]
     public function testExcluirLoteRecusas(): void
     {
         $client          = $this->cliente();
@@ -519,12 +546,12 @@ final class PastaDocumentoControllerTest extends JusPrimeWebTestCase
         ]);
         self::assertResponseStatusCodeSame(403);
 
-        self::assertTrue($this->existeDocumento((int) $meu->getId()));
-        self::assertTrue($this->existeDocumento((int) $docAlheio->getId()));
+        self::assertNull($this->naLixeira('pasta_documento', (int) $meu->getId()));
+        self::assertNull($this->naLixeira('pasta_documento', (int) $docAlheio->getId()));
     }
 
-    #[TestDox('excluir-lote com o banco recusando: nenhuma linha sai e nenhum arquivo é apagado (INV-6)')]
-    public function testExcluirLoteBancoQueRecusaNaoApagaArquivos(): void
+    #[TestDox('excluir-lote com o banco recusando: nenhuma lápide fica meio gravada e nenhum arquivo é tocado')]
+    public function testExcluirLoteBancoQueRecusaNaoMarcaNada(): void
     {
         $client          = $this->cliente();
         [$user, $tenant] = $this->criarUsuarioAdmin();
@@ -542,11 +569,11 @@ final class PastaDocumentoControllerTest extends JusPrimeWebTestCase
 
             public function onFlush(OnFlushEventArgs $args): void
             {
-                foreach ($args->getObjectManager()->getUnitOfWork()->getScheduledEntityDeletions() as $entidade) {
+                foreach ($args->getObjectManager()->getUnitOfWork()->getScheduledEntityUpdates() as $entidade) {
                     if ($entidade instanceof PastaDocumento) {
                         ++$this->recusas;
 
-                        throw new \LogicException('banco recusou a exclusão');
+                        throw new \LogicException('banco recusou a lápide');
                     }
                 }
             }
@@ -565,9 +592,9 @@ final class PastaDocumentoControllerTest extends JusPrimeWebTestCase
 
         self::assertSame(1, $recusa->recusas);
         self::assertResponseStatusCodeSame(500);
-        self::assertTrue($this->existeDocumento((int) $naRaiz->getId()));
-        self::assertTrue($this->existeDocumento((int) $emA->getId()));
-        self::assertTrue($this->existeSecao((int) $a->getId()));
+        self::assertNull($this->naLixeira('pasta_documento', (int) $naRaiz->getId()));
+        self::assertNull($this->naLixeira('pasta_documento', (int) $emA->getId()));
+        self::assertNull($this->naLixeira('pasta_secao', (int) $a->getId()));
         self::assertTrue($armazenamento->existe(ChavesDePasta::documentoPorNome((int) $tenant->getId(), $naRaiz->getCaminhoArquivo())));
         self::assertTrue($armazenamento->existe(ChavesDePasta::documentoPorNome((int) $tenant->getId(), $emA->getCaminhoArquivo())));
     }
@@ -934,6 +961,15 @@ final class PastaDocumentoControllerTest extends JusPrimeWebTestCase
     private function existeDocumento(int $id): bool
     {
         return (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM pasta_documento WHERE id = :id', ['id' => $id]) === 1;
+    }
+
+    /** O carimbo da lixeira (`excluido_em`) da linha, ou null se ela está viva. Falha se a linha não existe. */
+    private function naLixeira(string $tabela, int $id): ?string
+    {
+        $linha = $this->em()->getConnection()->fetchAssociative("SELECT excluido_em FROM {$tabela} WHERE id = :id", ['id' => $id]);
+        self::assertIsArray($linha, "{$tabela} #{$id} não está no banco");
+
+        return $linha['excluido_em'];
     }
 
     private function existeSecao(int $id): bool

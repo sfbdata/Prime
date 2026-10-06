@@ -89,6 +89,7 @@ use App\Pasta\UseCase\ExcluirObservacaoDetalhesUseCase;
 use App\Pasta\UseCase\EnviarObservacaoFinanceiraUseCase;
 use App\Pasta\UseCase\ExcluirObservacaoFinanceiraUseCase;
 use App\Pasta\UseCase\ExcluirChecklistItemUseCase;
+use App\Pasta\UseCase\ExcluirItensDaPastaUseCase;
 use App\Pasta\UseCase\ExcluirPastaUseCase;
 use App\Pasta\UseCase\ResultadoExclusaoPasta;
 use App\Pasta\UseCase\RestaurarPastaUseCase;
@@ -1796,30 +1797,35 @@ class PastaController extends AbstractController
     // `pasta_documento_edit` (POST /pasta/documento/{id}/editar) mora em
     // App\Pasta\Controller\PastaDocumentoController::editar desde a aba Documentos (D3).
 
+    /**
+     * Desde o L7 (D7) "excluir" é LIXEIRA: o documento recebe a lápide (`excluido_em`/`por`) e
+     * some da pasta, mas a linha e o arquivo físico ficam até `app:documentos:purgar-lixeira`.
+     * Nada sai do disco aqui. Mesma rota, token, flash e redirect de sempre; a marcação é a mesma
+     * do excluir-lote (`ExcluirItensDaPastaUseCase`), uma regra num lugar só. Documento já na
+     * lixeira não chega aqui: o `LixeiraFilter` o esconde do resolver (404).
+     */
     #[Route('/documento/{id}/deletar', name: 'pasta_documento_delete', methods: ['POST'])]
-    public function deleteDocumento(PastaDocumento $doc, Request $request): Response
+    public function deleteDocumento(PastaDocumento $doc, Request $request, ExcluirItensDaPastaUseCase $excluirItens): Response
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
-        $pastaForCheck = $doc->getPasta();
-        if ($pastaForCheck !== null && !$this->permissionChecker->canAccessResource($currentUser, $this->tenantContext->getCurrentTenant(), 'pasta', (int) $pastaForCheck->getId(), 'edit')) {
+        $tenant      = $this->tenantContext->getCurrentTenant();
+        $pasta       = $doc->getPasta();
+        if ($pasta !== null && !$this->permissionChecker->canAccessResource($currentUser, $tenant, 'pasta', (int) $pasta->getId(), 'edit')) {
             throw $this->createAccessDeniedException('Você não tem permissão para remover documentos desta pasta.');
         }
 
-        $pastaId = $doc->getPasta()?->getId();
+        $pastaId = $pasta?->getId();
 
         if (!$this->isCsrfTokenValid('delete_documento_'.$doc->getId(), (string) $request->request->get('_token'))) {
             throw $this->createAccessDeniedException('Token CSRF inválido.');
         }
 
-        $chave = ChavesDePasta::documento($doc);
+        if ($pasta === null || $tenant === null) {
+            throw $this->createNotFoundException('Documento não encontrado.');
+        }
 
-        $this->em->remove($doc);
-        $this->em->flush();
-
-        // O arquivo só sai depois do COMMIT (E2.5, INV-6): antes, um flush recusado deixava a
-        // linha apontando para o arquivo já apagado. Falha física aqui vira registro, não 500.
-        $this->remocao->remover([$chave], 'PastaController::deleteDocumento');
+        $excluirItens->executar($pasta, [$doc], [], $currentUser, $tenant);
 
         $this->addFlash('success', 'Documento removido com sucesso.');
 

@@ -8,6 +8,7 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Repository\PastaDocumentoRepository;
 use App\Shared\Contract\Auditavel;
+use App\Shared\Contract\Descartavel;
 use App\Shared\Contract\TenantAware;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Validator\Constraints as Assert;
@@ -16,8 +17,11 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ORM\Table(name: 'pasta_documento')]
 #[ORM\Index(name: 'idx_pasta_documento_tenant', columns: ['tenant_id'])]
 #[ORM\Index(name: 'idx_pasta_documento_tenant_sha256', columns: ['tenant_id', 'sha256'])]
+// Parcial: só as linhas na lixeira entram — é a fila da purga, pequena por natureza. O `where` vai
+// entre parênteses porque é assim que o PostgreSQL devolve a expressão ao `schema:validate`.
+#[ORM\Index(name: 'idx_pasta_documento_lixeira', columns: ['excluido_em'], options: ['where' => '(excluido_em IS NOT NULL)'])]
 #[ORM\UniqueConstraint(name: 'uniq_pasta_documento_drive_file_id', columns: ['drive_file_id'])]
-class PastaDocumento implements Auditavel, TenantAware
+class PastaDocumento implements Auditavel, TenantAware, Descartavel
 {
     public const CATEGORIA_PECA = 'PECA';
     public const CATEGORIA_PROCURACAO = 'PROCURACAO';
@@ -97,6 +101,21 @@ class PastaDocumento implements Auditavel, TenantAware
      */
     #[ORM\Column(type: 'integer', nullable: true)]
     private ?int $paginas = null;
+
+    /**
+     * Lixeira (D7, L7): preenchido = o documento foi "excluído" pela tela e está na lixeira — a
+     * linha e o arquivo físico FICAM até a purga (`app:documentos:purgar-lixeira`). NULL = vivo.
+     * O `LixeiraFilter` esconde as linhas preenchidas de toda leitura comum. Sem setter de
+     * propósito: entra pela `marcarExcluido()` e sai pela `restaurar()` — o desfazer da auditoria
+     * (que grava por `set<Campo>`) não ressuscita nem apaga por fora da lixeira.
+     */
+    #[ORM\Column(name: 'excluido_em', type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $excluidoEm = null;
+
+    /** Quem mandou para a lixeira. `SET NULL`: o usuário sair não apaga a lápide. */
+    #[ORM\ManyToOne(targetEntity: User::class)]
+    #[ORM\JoinColumn(name: 'excluido_por_id', nullable: true, onDelete: 'SET NULL')]
+    private ?User $excluidoPor = null;
 
     #[ORM\ManyToOne(targetEntity: Pasta::class, inversedBy: 'documentos')]
     #[ORM\JoinColumn(nullable: false)]
@@ -344,6 +363,55 @@ class PastaDocumento implements Auditavel, TenantAware
     public function setTenant(?Tenant $tenant): self
     {
         $this->tenant = $tenant;
+
+        return $this;
+    }
+
+    // ── Lixeira (D7) ────────────────────────────────────────────────────────────
+
+    public function estaNaLixeira(): bool
+    {
+        return $this->excluidoEm !== null;
+    }
+
+    public function getExcluidoEm(): ?\DateTimeImmutable
+    {
+        return $this->excluidoEm;
+    }
+
+    public function getExcluidoPor(): ?User
+    {
+        return $this->excluidoPor;
+    }
+
+    /**
+     * Manda para a lixeira: guarda quem e quando. O instante vem de fora porque uma seção excluída
+     * carimba toda a subárvore com o MESMO valor — é por ele que o restaurar devolve o bloco inteiro.
+     *
+     * Recusa a segunda marcação: sobrescrever apagaria o autor e a data da exclusão de verdade
+     * (e reiniciaria a contagem dos 30 dias da purga).
+     */
+    public function marcarExcluido(User $por, \DateTimeImmutable $em): self
+    {
+        if ($this->estaNaLixeira()) {
+            throw new \LogicException('Este documento já está na lixeira.');
+        }
+
+        $this->excluidoEm  = $em;
+        $this->excluidoPor = $por;
+
+        return $this;
+    }
+
+    /** Tira da lixeira. Quem chama decide se a seção de origem ainda existe (senão, vai para a raiz). */
+    public function restaurar(): self
+    {
+        if (!$this->estaNaLixeira()) {
+            throw new \LogicException('Este documento não está na lixeira.');
+        }
+
+        $this->excluidoEm  = null;
+        $this->excluidoPor = null;
 
         return $this;
     }

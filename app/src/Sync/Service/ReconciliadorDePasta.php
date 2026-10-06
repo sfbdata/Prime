@@ -221,8 +221,11 @@ final class ReconciliadorDePasta
         }
 
         // --- Via A — sistema→Drive: cada doc sem drive_file_id sobe (seção vira subpasta-espelho, Fork 1). ---
+        // SQL cru não passa pelo LixeiraFilter: o `excluido_em IS NULL` é explícito, senão o cron
+        // subiria ao Drive um arquivo que o usuário mandou para a lixeira (D7). Os ids da lixeira
+        // continuam em $conhecidos (acima, sem esse filtro): o Drive não reimporta o que já existe.
         $docRows = $modo->envia() ? $conn->fetchAllAssociative(
-            'SELECT id, caminho_arquivo, tenant_id FROM pasta_documento WHERE pasta_id = :p AND drive_file_id IS NULL ORDER BY id ASC',
+            'SELECT id, caminho_arquivo, tenant_id FROM pasta_documento WHERE pasta_id = :p AND drive_file_id IS NULL AND excluido_em IS NULL ORDER BY id ASC',
             ['p' => $pastaId],
         ) : [];
         foreach ($docRows as $docRow) {
@@ -372,8 +375,10 @@ final class ReconciliadorDePasta
         if (isset($secaoIds[$nomeUP])) {
             return $secaoIds[$nomeUP];
         }
-        $conn      = $this->em->getConnection();
-        $existente = $conn->fetchOne('SELECT id FROM pasta_secao WHERE pasta_id = :p AND nome = :n', ['p' => $pastaId, 'n' => $nomeUP]);
+        $conn = $this->em->getConnection();
+        // SQL cru: `excluido_em IS NULL` explícito (D7). Reaproveitar uma seção que está na lixeira
+        // penduraria o arquivo importado num pai invisível; cria-se outra com o mesmo nome.
+        $existente = $conn->fetchOne('SELECT id FROM pasta_secao WHERE pasta_id = :p AND nome = :n AND excluido_em IS NULL', ['p' => $pastaId, 'n' => $nomeUP]);
         if ($existente !== false) {
             $secaoIds[$nomeUP] = (int) $existente;
 

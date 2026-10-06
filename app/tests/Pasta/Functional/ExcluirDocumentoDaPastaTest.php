@@ -22,11 +22,18 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 
 /**
- * As duas rotas do `PastaController` que excluem documento (E2.5), contra o banco e o disco reais.
+ * As duas rotas do `PastaController` que excluem documento, contra o banco e o disco reais.
  *
- * `deleteDocumento` não tinha teste nenhum e apagava o arquivo ANTES do `flush`: um banco que
- * recusasse deixava o documento de pé apontando para o vazio. `financeiroExcluirDocumento` já
- * apagava depois, mas sem proteção: uma falha de disco virava 500 com a exclusão já confirmada.
+ * Desde o L7 (D7) elas têm semânticas DIFERENTES, de propósito:
+ *
+ *  - `pasta_documento_delete` (aba Documentos) é LIXEIRA: a linha fica com a lápide
+ *    (`excluido_em`/`excluido_por`), o arquivo físico fica, o documento some da pasta (explorador,
+ *    `view`/`download` → 404). Nada sai do disco — quem remove é `app:documentos:purgar-lixeira`,
+ *    e os três casos INV-6 que esta classe provava para a exclusão física vivem agora em
+ *    `PurgarLixeiraCommandTest`;
+ *  - `pasta_financeiro_excluir_documento` (aba Financeiro, contrato) continua removendo de verdade,
+ *    com os três casos INV-6 de sempre: o arquivo sai DEPOIS do COMMIT; banco que recusa → nada
+ *    sai; disco que recusa → o banco é autoritativo e o arquivo fica como órfão registrado.
  */
 #[CoversClass(PastaController::class)]
 final class ExcluirDocumentoDaPastaTest extends JusPrimeWebTestCase
@@ -51,15 +58,91 @@ final class ExcluirDocumentoDaPastaTest extends JusPrimeWebTestCase
         parent::tearDown();
     }
 
-    /** @return iterable<string, array{string}> */
-    public static function rotas(): iterable
+    // ── pasta_documento_delete → LIXEIRA (D7) ───────────────────────────────────
+
+    #[TestDox('excluir (documento): vira lápide — a linha fica, o arquivo fica, e o documento some da pasta (view/download 404, fora do explorador)')]
+    public function testExcluirDocumentoViraLapide(): void
     {
-        yield 'documento'          => ['documento'];
+        [$client, $pasta, $doc, $arquivo, $user] = $this->cenario('documento');
+        $id = (int) $doc->getId();
+
+        $this->excluir($client, 'documento', $pasta, $doc);
+
+        self::assertResponseRedirects(sprintf('/pasta/%d#documentos', (int) $pasta->getId()));
+        self::assertSame(1, $this->linhas($doc), 'lixeira é lápide: a linha fica');
+        self::assertFileExists($arquivo, 'o arquivo físico fica até a purga');
+
+        $lapide = $this->lapide($doc);
+        self::assertNotNull($lapide['excluido_em']);
+        self::assertSame($user->getId(), (int) $lapide['excluido_por_id']);
+
+        // Com `disableReboot()` o EntityManager sobrevive entre requests, e o filtro é SQL: o que
+        // já está no identity map não é relido. Em produção cada request nasce com o EM vazio —
+        // o `limpar()` reproduz isso antes de cada leitura.
+        $this->limpar();
+        $client->request('GET', "/pasta/documento/{$id}/visualizar");
+        self::assertResponseStatusCodeSame(404, 'documento na lixeira não se vê');
+        $this->limpar();
+        $client->request('GET', "/pasta/documento/{$id}/download");
+        self::assertResponseStatusCodeSame(404, 'nem se baixa');
+
+        $this->limpar();
+        $client->request('GET', '/pasta/' . (int) $pasta->getId());
+        self::assertResponseIsSuccessful();
+        self::assertNotContains($id, $this->idsDosArquivosDoExplorador((string) $client->getResponse()->getContent()), 'o explorador não lista a lixeira');
+
+        // Excluir de novo o que já está na lixeira: o resolver não o acha (404), sem recarimbar.
+        $this->limpar();
+        $this->excluir($client, 'documento', $pasta, $doc);
+        self::assertResponseStatusCodeSame(404);
+        self::assertSame($lapide, $this->lapide($doc));
+    }
+
+    #[TestDox('excluir (documento) com o banco recusando: nada é marcado e o arquivo fica')]
+    public function testBancoQueRecusaNaoMarcaALapide(): void
+    {
+        [$client, $pasta, $doc, $arquivo] = $this->cenario('documento');
+
+        $em     = static::getContainer()->get(EntityManagerInterface::class);
+        $recusa = new class {
+            public int $recusas = 0;
+
+            public function onFlush(OnFlushEventArgs $args): void
+            {
+                foreach ($args->getObjectManager()->getUnitOfWork()->getScheduledEntityUpdates() as $entidade) {
+                    if ($entidade instanceof PastaDocumento) {
+                        ++$this->recusas;
+
+                        throw new \LogicException('banco recusou a lápide');
+                    }
+                }
+            }
+        };
+        $em->getEventManager()->addEventListener([Events::onFlush], $recusa);
+
+        try {
+            $this->excluir($client, 'documento', $pasta, $doc);
+        } finally {
+            $em->getEventManager()->removeEventListener([Events::onFlush], $recusa);
+        }
+
+        self::assertSame(1, $recusa->recusas);
+        self::assertResponseStatusCodeSame(500);
+        self::assertSame(1, $this->linhas($doc));
+        self::assertNull($this->lapide($doc)['excluido_em'], 'a lápide não foi gravada');
+        self::assertFileExists($arquivo);
+    }
+
+    // ── pasta_financeiro_excluir_documento → remoção FÍSICA (INV-6, como sempre) ───
+
+    /** @return iterable<string, array{string}> */
+    public static function rotasFisicas(): iterable
+    {
         yield 'contrato financeiro' => ['financeiro'];
     }
 
     #[TestDox('excluir ($rota): a linha sai e, depois dela, o arquivo')]
-    #[DataProvider('rotas')]
+    #[DataProvider('rotasFisicas')]
     public function testExcluirApagaDepoisDoCommit(string $rota): void
     {
         [$client, $pasta, $doc, $arquivo] = $this->cenario($rota);
@@ -72,7 +155,7 @@ final class ExcluirDocumentoDaPastaTest extends JusPrimeWebTestCase
     }
 
     #[TestDox('excluir ($rota) com o banco recusando: a linha fica e o arquivo fica')]
-    #[DataProvider('rotas')]
+    #[DataProvider('rotasFisicas')]
     public function testBancoQueRecusaNaoApagaOArquivo(string $rota): void
     {
         [$client, $pasta, $doc, $arquivo] = $this->cenario($rota);
@@ -108,7 +191,7 @@ final class ExcluirDocumentoDaPastaTest extends JusPrimeWebTestCase
 
     /** COMMIT confirmado seguido de falha na exclusão física. */
     #[TestDox('excluir ($rota) com o disco recusando: a exclusão vale, o arquivo fica, e não há 500')]
-    #[DataProvider('rotas')]
+    #[DataProvider('rotasFisicas')]
     public function testDiscoQueFalhaDepoisDoCommit(string $rota): void
     {
         if (\function_exists('posix_geteuid') && posix_geteuid() === 0) {
@@ -149,7 +232,7 @@ final class ExcluirDocumentoDaPastaTest extends JusPrimeWebTestCase
         );
     }
 
-    /** @return array{KernelBrowser, Pasta, PastaDocumento, string} */
+    /** @return array{KernelBrowser, Pasta, PastaDocumento, string, User} */
     private function cenario(string $rota): array
     {
         $client = static::createClient();
@@ -199,7 +282,10 @@ final class ExcluirDocumentoDaPastaTest extends JusPrimeWebTestCase
 
         $this->logarComTenant($client, $user, $tenant);
 
-        return [$client, $pasta, $doc, $arquivo];
+        // O request lê o banco, não a memória do teste (o resolver passa pelo LixeiraFilter).
+        $em->clear();
+
+        return [$client, $pasta, $doc, $arquivo, $user];
     }
 
     private function linhas(PastaDocumento $doc): int
@@ -208,6 +294,33 @@ final class ExcluirDocumentoDaPastaTest extends JusPrimeWebTestCase
             'SELECT COUNT(*) FROM pasta_documento WHERE id = ?',
             [$doc->getId()],
         );
+    }
+
+    /** @return array{excluido_em: ?string, excluido_por_id: ?string} */
+    private function lapide(PastaDocumento $doc): array
+    {
+        $linha = static::getContainer()->get(EntityManagerInterface::class)->getConnection()->fetchAssociative(
+            'SELECT excluido_em, excluido_por_id FROM pasta_documento WHERE id = ?',
+            [$doc->getId()],
+        );
+        self::assertIsArray($linha);
+
+        return $linha;
+    }
+
+    /** @return list<int> */
+    private function idsDosArquivosDoExplorador(string $html): array
+    {
+        self::assertSame(1, preg_match('~<script type="application/json" id="pexDados">(.*?)</script>~s', $html, $m), 'o explorador emite #pexDados');
+        $dados = json_decode($m[1], true, 512, JSON_THROW_ON_ERROR);
+
+        return array_map(static fn (array $a): int => (int) $a['id'], $dados['arquivos']);
+    }
+
+    /** O request lê o banco, não a memória do teste (ver `testExcluirDocumentoViraLapide`). */
+    private function limpar(): void
+    {
+        static::getContainer()->get(EntityManagerInterface::class)->clear();
     }
 
     private function diretorio(): string

@@ -6,38 +6,43 @@ namespace App\Pasta\UseCase;
 
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
-use App\Pasta\Armazenamento\ChavesDePasta;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaSecao;
 use App\Pasta\Service\SelecaoDeItensDaPasta;
-use App\Shared\Armazenamento\ChaveDeArquivo;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\Clock\ClockInterface;
 
 /**
- * Exclui uma seleção de documentos e subpastas da pasta — o Del e o "Excluir (N)" da barra de
- * seleção do explorador (D4, DOC-35/57).
+ * Manda para a LIXEIRA uma seleção de documentos e subpastas da pasta — o Del, o "Excluir (N)" da
+ * barra de seleção, o ⋮ de um item e a rota de excluir UM documento (D4/D7, DOC-35/57/58).
  *
- * A semântica é a MESMA da exclusão de um item só (`pasta_documento_delete` e
- * `pasta_secao_excluir`): a linha sai do banco agora, o arquivo sai do disco DEPOIS do COMMIT,
- * pela `RemocaoAposTransacao` (INV-6) — e é por isso que este UseCase não apaga arquivo nenhum:
- * ele devolve as chaves, e a rota as entrega à remoção com o banco já confirmado. A lixeira
- * (lápide + restaurar) é o L7, e é aqui que a troca físico→lápide vai acontecer.
+ * Quem dispara é um usuário com permissão de EDITAR a pasta (a rota checa; aqui só tenant e pasta
+ * são reconferidos). O que ele quer: tirar o item da lista — e poder voltar atrás.
  *
- * As chaves são coletadas ANTES do `remove()`, percorrendo a árvore inteira de cada subpasta: o
- * cascade do banco apaga as linhas das filhas e netas, e sem a varredura os arquivos delas ficam
- * órfãos no disco. Item dentro de subpasta selecionada não é removido "de novo" — o cascade o
- * cobre — e entra uma vez só na contagem e nas chaves.
+ * Desde o L7 "excluir" é lápide: cada item recebe `excluido_em`/`excluido_por` e some de toda
+ * leitura (pelo `LixeiraFilter`), mas a LINHA FICA e o ARQUIVO FÍSICO FICA, até
+ * `app:documentos:purgar-lixeira` (30 dias). O Drive não é tocado. Por isso este UseCase não
+ * devolve chave nenhuma — não há o que remover depois do COMMIT; quem remove é a purga.
  *
- * Auditoria: `PastaDocumento` e `PastaSecao` são `Auditavel`; o `AuditLogSubscriber` registra
- * cada linha removida no `onFlush`, inclusive as do cascade — nada a fazer aqui.
+ * Uma subpasta leva a subárvore inteira (filhas, netas e os documentos de cada nível), TODA com o
+ * MESMO carimbo de tempo — é esse carimbo que `RestaurarItensDaPastaUseCase` usa para devolver o
+ * bloco de uma vez. O que já estava na lixeira dentro dela (excluído antes, em outra ação) mantém
+ * o carimbo original e não volta junto. Item dentro de subpasta selecionada não é marcado "de
+ * novo" (a travessia da subpasta o cobre) e entra uma vez só na contagem.
  *
- * @see MoverItensDaPastaUseCase o par deste, com a mesma seleção
+ * Auditoria: `PastaDocumento` e `PastaSecao` são `Auditavel`; o `AuditLogSubscriber` registra a
+ * marcação como `update` (diff de `excluidoEm`/`excluidoPor`), inclusive nos descendentes — nada
+ * a fazer aqui.
+ *
+ * @see MoverItensDaPastaUseCase     o par deste, com a mesma seleção
+ * @see RestaurarItensDaPastaUseCase o inverso
  */
 final class ExcluirItensDaPastaUseCase
 {
     public function __construct(
         private readonly EntityManagerInterface $em,
+        private readonly ClockInterface $clock,
     ) {
     }
 
@@ -48,92 +53,35 @@ final class ExcluirItensDaPastaUseCase
     public function executar(Pasta $pasta, array $documentos, array $secoes, User $autor, Tenant $tenant): ResultadoExcluirItensDaPasta
     {
         $selecao = SelecaoDeItensDaPasta::de($documentos, $secoes, $pasta, $tenant);
+        $agora   = $this->clock->now();
 
-        // Só COLETA (leitura) — a árvore ainda está viva; depois do flush não há o que percorrer.
-        $chaves    = [];
         $subpastas = 0;
         $arquivos  = 0;
 
         foreach ($selecao->documentos as $documento) {
-            $chaves[] = ChavesDePasta::documento($documento);
+            // Já na lixeira só chega aqui com o filtro desligado por fora; não re-carimba.
+            if ($documento->estaNaLixeira()) {
+                continue;
+            }
+            $documento->marcarExcluido($autor, $agora);
             ++$arquivos;
         }
 
         foreach ($selecao->secoes as $secao) {
-            $daArvore   = $this->coletarArvore($secao);
+            $daArvore   = $secao->marcarArvoreExcluida($autor, $agora);
             $subpastas += 1 + $daArvore['subpastas'];
-            $arquivos  += count($daArvore['chaves']);
-            array_push($chaves, ...$daArvore['chaves']);
-        }
-
-        foreach ($selecao->documentos as $documento) {
-            $this->em->remove($documento);
-        }
-
-        foreach ($selecao->secoes as $secao) {
-            $this->em->remove($secao);
+            $arquivos  += $daArvore['arquivos'];
         }
 
         $this->em->flush();
 
         return new ResultadoExcluirItensDaPasta(
-            chaves: self::semRepetidas($chaves),
             documentosRemovidos: count($selecao->documentos),
             subpastasRemovidas: $subpastas,
             arquivosRemovidos: $arquivos,
+            idsDocumentos: array_values(array_map(static fn (PastaDocumento $d): int => (int) $d->getId(), $documentos)),
+            idsSecoes: array_values(array_map(static fn (PastaSecao $s): int => (int) $s->getId(), $secoes)),
+            excluidoEm: $agora,
         );
-    }
-
-    /**
-     * As chaves de todos os arquivos de $secao e da descendência, e quantas subpastas
-     * DESCENDENTES ela tem (a própria não conta — como `contarConteudoRecursivo()`).
-     *
-     * O corte em `LIMITE_SEGURANCA` não é o teto de produto: é a proteção contra ciclo gravado no
-     * banco, que viraria recursão infinita (o desfazer da auditoria grava `pai` pelo setter).
-     *
-     * @return array{chaves: list<ChaveDeArquivo>, subpastas: int}
-     */
-    private function coletarArvore(PastaSecao $secao, int $profundidade = 0): array
-    {
-        if ($profundidade >= PastaSecao::LIMITE_SEGURANCA) {
-            return ['chaves' => [], 'subpastas' => 0];
-        }
-
-        $chaves    = [];
-        $subpastas = 0;
-
-        foreach ($secao->getDocumentos() as $documento) {
-            $chaves[] = ChavesDePasta::documento($documento);
-        }
-
-        foreach ($secao->getFilhas() as $filha) {
-            $daFilha    = $this->coletarArvore($filha, $profundidade + 1);
-            $subpastas += 1 + $daFilha['subpastas'];
-            array_push($chaves, ...$daFilha['chaves']);
-        }
-
-        return ['chaves' => $chaves, 'subpastas' => $subpastas];
-    }
-
-    /**
-     * @param list<ChaveDeArquivo> $chaves
-     *
-     * @return list<ChaveDeArquivo>
-     */
-    private static function semRepetidas(array $chaves): array
-    {
-        $vistas = [];
-        $unicas = [];
-
-        foreach ($chaves as $chave) {
-            $texto = $chave->comoTexto();
-            if (isset($vistas[$texto])) {
-                continue;
-            }
-            $vistas[$texto] = true;
-            $unicas[]       = $chave;
-        }
-
-        return $unicas;
     }
 }

@@ -143,6 +143,98 @@ class PastaSecaoRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
     }
 
+    // ── Lixeira (D7) — só fazem sentido com o LixeiraFilter desligado (`AcessoALixeira`) ─────────
+
+    /**
+     * As seções de $ids que estão NA LIXEIRA desta pasta e deste escritório — a prova de posse do
+     * restaurar (mesma regra do `findTodasDaPasta`: contagem diferente → 404 sem efeito). A
+     * condição `excluidoEm IS NOT NULL` é explícita: item vivo não é "restaurável".
+     *
+     * @param list<int> $ids
+     *
+     * @return list<PastaSecao>
+     */
+    public function findNaLixeiraDaPasta(array $ids, Pasta $pasta, Tenant $tenant): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+
+        /** @var list<PastaSecao> $secoes */
+        $secoes = $this->createQueryBuilder('s')
+            ->andWhere('s.id IN (:ids)')
+            ->andWhere('s.pasta = :pasta')
+            ->andWhere('s.tenant = :tenant')
+            ->andWhere('s.excluidoEm IS NOT NULL')
+            ->setParameter('ids', $ids)
+            ->setParameter('pasta', $pasta)
+            ->setParameter('tenant', $tenant)
+            ->orderBy('s.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+
+        return $secoes;
+    }
+
+    /**
+     * As seções na lixeira de uma pasta, da excluída mais recente à mais antiga, com o pai e quem
+     * excluiu já carregados (a listagem da UI da lixeira).
+     *
+     * @return list<PastaSecao>
+     */
+    public function listarLixeiraDaPasta(Pasta $pasta, Tenant $tenant): array
+    {
+        /** @var list<PastaSecao> $secoes */
+        $secoes = $this->createQueryBuilder('s')
+            ->addSelect('p', 'u')
+            ->leftJoin('s.pai', 'p')
+            ->leftJoin('s.excluidoPor', 'u')
+            ->andWhere('s.pasta = :pasta')
+            ->andWhere('s.tenant = :tenant')
+            ->andWhere('s.excluidoEm IS NOT NULL')
+            ->setParameter('pasta', $pasta)
+            ->setParameter('tenant', $tenant)
+            ->orderBy('s.excluidoEm', 'DESC')
+            ->addOrderBy('s.id', 'DESC')
+            ->getQuery()
+            ->getResult();
+
+        return $secoes;
+    }
+
+    /**
+     * A fila da purga: ids das seções excluídas ANTES de $corte, da mais antiga à mais nova.
+     *
+     * @return list<int>
+     */
+    public function idsNaLixeiraVencida(\DateTimeImmutable $corte, ?int $limite = null): array
+    {
+        $qb = $this->createQueryBuilder('s')
+            ->select('s.id')
+            ->andWhere('s.excluidoEm IS NOT NULL')
+            ->andWhere('s.excluidoEm < :corte')
+            ->setParameter('corte', $corte)
+            ->orderBy('s.excluidoEm', 'ASC')
+            ->addOrderBy('s.id', 'ASC');
+
+        if ($limite !== null) {
+            $qb->setMaxResults($limite);
+        }
+
+        return array_map('intval', $qb->getQuery()->getSingleColumnResult());
+    }
+
+    public function contarNaLixeiraVencida(\DateTimeImmutable $corte): int
+    {
+        return (int) $this->createQueryBuilder('s')
+            ->select('COUNT(s.id)')
+            ->andWhere('s.excluidoEm IS NOT NULL')
+            ->andWhere('s.excluidoEm < :corte')
+            ->setParameter('corte', $corte)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
     public function salvar(PastaSecao $secao, bool $flush = false): void
     {
         $this->getEntityManager()->persist($secao);
