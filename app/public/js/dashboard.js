@@ -78,7 +78,10 @@
             var de = primeiraCarga ? 0 : (exibidos[chave] !== undefined ? exibidos[chave] : 0);
             exibidos[chave] = alvo;
 
-            if (reduz || de === alvo) {
+            // Preferência pessoal "animações reduzidas" (classe no .db-page, muda sem recarregar)
+            // vale como o prefers-reduced-motion do sistema.
+            var semAnim = !!document.querySelector('.db-page.db-page--sem-anim');
+            if (reduz || semAnim || de === alvo) {
                 el.textContent = String(alvo);
 
                 return;
