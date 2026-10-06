@@ -24,7 +24,7 @@
    contrato com o JS do show.html.twig.
 
    Contexto: `pasta`, `anotacoes` (TimelineItemDTO do tipo MENSAGEM),
-   `fotosResponsaveis` (mapa userId => url, herdado do show).
+   `fotosResponsaveis` (mapa userId => NOME do arquivo da foto, herdado do show; a URL sai de app_profile_foto_serve).
    ============================================================================ #}
 {# Editor rico (Quill auto-hospedado, sem CDN externo). #}
 <link rel="stylesheet" href="{{ asset('js/quill/quill.snow.css') }}">
@@ -160,7 +160,7 @@
         <span class="ps-anotacao-ponto" aria-hidden="true"></span>
         <span class="ps-anotacao-seta" aria-hidden="true"></span>
         <div class="ps-anotacao-topo">
-            <span class="ps-avatar ps-avatar--24">{% if foto %}<img src="{{ foto }}" alt="">{% else %}{{ iniciais }}{% endif %}</span>
+            <span class="ps-avatar ps-avatar--24">{% if foto %}<img src="{{ path('app_profile_foto_serve', {nome: foto}) }}" alt="">{% else %}{{ iniciais }}{% endif %}</span>
             <span class="ps-anotacao-autor">{{ autor ?: 'Autor desconhecido' }}</span>
             {% if item.editadoEm %}
                 <span class="ps-anotacao-editado pasta-msg-editado" title="Editado em {{ item.editadoEm|date('d/m/Y H:i') }}">editado</span>

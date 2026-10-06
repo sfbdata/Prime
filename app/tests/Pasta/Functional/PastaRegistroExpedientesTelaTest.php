@@ -193,4 +193,27 @@ final class PastaRegistroExpedientesTelaTest extends JusPrimeWebTestCase
             $crawler->filter('#dados > .ps-grade > .ps-trilho > [data-trilho]')->each(fn ($n) => $n->attr('data-trilho'))
         );
     }
+
+    #[TestDox('autor com foto: o avatar aponta para a rota da foto, não para o nome cru do arquivo')]
+    public function testAvatarDoAutorUsaARotaDaFoto(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $msg             = $this->registrar($pasta, $user, $tenant, 'Com foto');
+
+        $em      = static::getContainer()->get(\Doctrine\ORM\EntityManagerInterface::class);
+        $profile = new \App\Profile\Entity\UserProfile($user);
+        $profile->setFotoUrl('foto-autor.jpg');
+        $em->persist($profile);
+        $em->flush();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $this->abrir($client, $pasta);
+
+        $img = $crawler->filter('#timelineList > article#pasta-msg-' . $msg->getId() . ' .ps-avatar > img');
+        self::assertCount(1, $img);
+        // Nome cru no src vira URL relativa (/pasta/foto-autor.jpg) e cai na rota da pasta.
+        self::assertStringStartsWith('/perfil/foto/', (string) $img->attr('src'));
+    }
 }

@@ -84,7 +84,7 @@
                     <span class="ps-anotacao-ponto" aria-hidden="true"></span>
                     <span class="ps-anotacao-seta" aria-hidden="true"></span>
                     <div class="ps-anotacao-topo">
-                        <span class="ps-avatar ps-avatar--24">{% if foto %}<img src="{{ foto }}" alt="">{% else %}{{ iniciais }}{% endif %}</span>
+                        <span class="ps-avatar ps-avatar--24">{% if foto %}<img src="{{ path('app_profile_foto_serve', {nome: foto}) }}" alt="">{% else %}{{ iniciais }}{% endif %}</span>
                         <span class="ps-anotacao-autor">{{ autor ?: 'Autor desconhecido' }}</span>
                         {% if obs.editadaEm %}
                             <span class="ps-anotacao-editado" title="Editado em {{ obs.editadaEm|date('d/m/Y H:i') }}">editado</span>
