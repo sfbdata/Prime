@@ -282,31 +282,48 @@
                 const htmlAtual     = btnEditar.dataset.conteudoHtml ?? '';
 
                 const textarea = document.createElement('textarea');
-                textarea.className = 'form-control form-control-sm detalhes-obs-textarea w-100 mb-2';
+                textarea.className = 'form-control form-control-sm detalhes-obs-textarea';
                 textarea.rows = 3;
                 textarea.maxLength = 5000;
                 textarea.value = conteudoAtual;
 
-                const btnConfirmar = document.createElement('button');
-                btnConfirmar.type = 'button';
-                btnConfirmar.className = 'ps-btn ps-btn--primario me-1';
-                btnConfirmar.textContent = 'Salvar';
+                /* Modo edição do bj-editor (desenho 1.2.3; auditoria 2, T2): os botões moram
+                   no rodapé DO editor — "Visível para a equipe" · espaço · Cancelar
+                   (transparente) · Salvar (primário) à direita. */
+                const nota = document.createElement('span');
+                nota.className = 'ps-compositor-nota';
+                nota.textContent = 'Visível para a equipe';
+
+                const espaco = document.createElement('span');
+                espaco.className = 'ps-cab-espaco';
 
                 const btnCancelar = document.createElement('button');
                 btnCancelar.type = 'button';
-                btnCancelar.className = 'ps-btn';
+                btnCancelar.className = 'ps-anotacao-edicao-cancelar';
                 btnCancelar.textContent = 'Cancelar';
 
-                const acoesBtns = document.createElement('div');
-                acoesBtns.className = 'mb-1';
-                acoesBtns.appendChild(btnConfirmar);
-                acoesBtns.appendChild(btnCancelar);
+                const btnConfirmar = document.createElement('button');
+                btnConfirmar.type = 'button';
+                btnConfirmar.className = 'ps-btn ps-btn--primario';
+                btnConfirmar.textContent = 'Salvar';
+
+                const rodape = document.createElement('div');
+                rodape.className = 'ps-anotacao-edicao-rodape';
+                rodape.appendChild(nota);
+                rodape.appendChild(espaco);
+                rodape.appendChild(btnCancelar);
+                rodape.appendChild(btnConfirmar);
+
+                // A moldura é a mesma do compositor: o editor monta antes da textarea, dentro dela.
+                const moldura = document.createElement('div');
+                moldura.className = 'ps-compositor-caixa';
+                moldura.appendChild(textarea);
+                moldura.appendChild(rodape);
 
                 // A edição ocupa o lugar do texto, dentro do cartão (ao lado do megafone).
                 const caixa = document.createElement('div');
                 caixa.className = 'ps-anotacao-texto ps-anotacao-edicao';
-                caixa.appendChild(textarea);
-                caixa.appendChild(acoesBtns);
+                caixa.appendChild(moldura);
                 conteudoDiv.replaceWith(caixa);
 
                 // Devolve o conteúdo à tela quando a edição termina (cancelar, salvar ou erro).
