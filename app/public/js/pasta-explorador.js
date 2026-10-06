@@ -1914,7 +1914,11 @@
     // substitui o anterior e leva o Desfazer dele junto — os itens continuam na lixeira.
     let toastTimer = null;
     let toastDesfazerAcao = null;
+    // Cada toast tem um número: a resposta de um pedido lento (o Desfazer) só fala se o toast da
+    // ação dela ainda é o que está na tela — não atropela o de uma ação mais nova.
+    let toastSeq = 0;
     function toast(texto, erro, desfazer) {
+        toastSeq++;
         if (!el.toast) { if (erro) alert(texto); return; }
         clearTimeout(toastTimer);
         el.toastTexto.textContent = texto;
@@ -2236,7 +2240,7 @@
             if (caminho.some(function (id) { return subarvore.indexOf(id) !== -1; })) voltarRaiz(); else renderizar();
             invalidarContagemDaLixeira();
             const texto = itens.length === 1 ? 'Excluído: ' + itens[0].nome : itens.length + ' itens excluídos';
-            const desfazer = desfazerDe(res.j, saiu);
+            const desfazer = desfazerDe(res.j, saiu, itens.length);
             toast(texto, false, desfazer);
         }).catch(function (err) { toastErro(err.message || 'Erro de comunicação.'); });
     }
@@ -2244,21 +2248,24 @@
     /* O "Desfazer" de UMA exclusão: os ids que o SERVIDOR devolveu (não os que a tela mandou) e
        o que saiu da memória. Sem `lixeira: true`/`ids` na resposta, sem rota ou com a Pasta
        inteira na lixeira, não há Desfazer — o toast fica só com o texto. */
-    function desfazerDe(resposta, saiu) {
+    function desfazerDe(resposta, saiu, nChaves) {
         if (cfg.pastaExcluida || !cfg.urlRestaurar || !resposta || resposta.lixeira !== true || !resposta.ids) return null;
         const ids = {
             documentos: Array.isArray(resposta.ids.documentos) ? resposta.ids.documentos.map(Number) : [],
             secoes:     Array.isArray(resposta.ids.secoes) ? resposta.ids.secoes.map(Number) : [],
         };
         if (!ids.documentos.length && !ids.secoes.length) return null;
-        return function () { desfazerExclusao(ids, saiu); };
+        return function () { desfazerExclusao(ids, saiu, nChaves); };
     }
-    function desfazerExclusao(ids, saiu) {
+    // `nChaves`: os itens que o usuário SELECIONOU (como o dc L4935 conta), não a subárvore.
+    function desfazerExclusao(ids, saiu, nChaves) {
+        // O clique veio do toast da exclusão: é ele que a resposta pode substituir, e só ele.
+        const meuToast = toastSeq;
+        const aindaEMeu = function () { return toastSeq === meuToast; };
         postJson(cfg.urlRestaurar, { _token: cfg.csrfLote, documentos: ids.documentos, secoes: ids.secoes }).then(function (res) {
             if (!res.ok || !res.j.ok) throw new Error((res.j && res.j.erro) || 'Não foi possível desfazer.');
             invalidarContagemDaLixeira();
             const r = res.j.restaurados || {};
-            const n = saiu.arquivos.length + saiu.pastas.length;
             // Confere com a resposta: o servidor diz quantos arquivos e pastas voltaram e quantos
             // foram para a raiz (pai sumiu nesse meio-tempo). Bateu com o que saiu daqui → volta
             // da memória; não bateu → o que está na tela já não é o que está no banco: recarrega.
@@ -2271,8 +2278,11 @@
             saiu.pastas.forEach(function (p) { pastas.push(p); });
             saiu.arquivos.forEach(function (a) { arquivos.push(a); totalArquivos++; });
             renderizar();
-            toast(n > 1 ? n + ' itens restaurados' : 'Restaurado');
-        }).catch(function (err) { toastErro(err.message || 'Erro de comunicação.'); });
+            if (aindaEMeu()) toast(nChaves > 1 ? nChaves + ' itens restaurados' : 'Restaurado');
+        }).catch(function (err) {
+            // O erro sempre aparece, mesmo sobre um toast mais novo: os itens ficaram na lixeira.
+            toastErro(err.message || 'Erro de comunicação.');
+        });
     }
     // A tela não tem como montar um item a partir da lixeira (faltam URLs e tokens): recarrega
     // a página na aba Documentos — a pasta aberta volta pelo sessionStorage.
@@ -2364,13 +2374,23 @@
             restaurarDaLixeira(Array.from(lixeiraMarcados));
         });
         raizModal.addEventListener('hidden.bs.modal', function () {
-            if (lixeiraRestaurou) { lixeiraRestaurou = false; recarregarDocumentos('Atualizando a lista de documentos…'); }
+            if (lixeiraRestaurou) { lixeiraRestaurou = false; recarregarDocumentos('Atualizando a lista de documentos…'); return; }
+            // O foco volta a quem abriu (o Bootstrap não devolve); o item de menu já sumiu.
+            const volta = lixeiraFocoDeVolta;
+            lixeiraFocoDeVolta = null;
+            if (volta && volta.isConnected && typeof volta.focus === 'function') volta.focus({ preventScroll: true });
         });
         return lixeiraModal;
     }
 
+    let lixeiraFocoDeVolta = null;
     function abrirLixeira() {
         if (!cfg.urlLixeira || !window.bootstrap) return;
+        // Quem abriu: do Organizar, o botão Organizar (o item fica num popover que fecha); do menu
+        // de contexto, a lista (o menu é refeito a cada abertura); senão, o que tinha o foco.
+        const ativo = document.activeElement;
+        lixeiraFocoDeVolta = el.menuOrganizar && el.menuOrganizar.contains(ativo) ? el.btnOrganizar
+            : (el.menu && el.menu.contains(ativo) ? el.lista : (ativo && ativo !== document.body ? ativo : el.lista));
         fecharPopovers();
         fecharMenu();
         const m = montarModalDaLixeira();

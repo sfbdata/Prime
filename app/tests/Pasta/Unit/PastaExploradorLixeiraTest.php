@@ -74,7 +74,14 @@ final class PastaExploradorLixeiraTest extends TestCase
         self::assertStringContainsString('Number(r.secoes) === saiu.pastas.length', $desfazer);
         self::assertStringContainsString('Number(res.j.paraARaiz || 0) === 0', $desfazer);
         self::assertStringContainsString("if (!bate) { recarregarDocumentos(", $desfazer);
-        self::assertStringContainsString("toast(n > 1 ? n + ' itens restaurados' : 'Restaurado');", $desfazer, 'textos do desenho (dc L4935)');
+        // Contagem do dc L4935: as CHAVES selecionadas, não a subárvore que voltou junto.
+        self::assertStringContainsString('const desfazer = desfazerDe(res.j, saiu, itens.length);', $excluir);
+        self::assertStringContainsString("if (aindaEMeu()) toast(nChaves > 1 ? nChaves + ' itens restaurados' : 'Restaurado');", $desfazer, 'textos do desenho (dc L4935)');
+        self::assertStringNotContainsString('saiu.arquivos.length + saiu.pastas.length', $desfazer);
+        // Corrida: a resposta de um Desfazer em voo não atropela o toast de uma exclusão mais nova.
+        self::assertStringContainsString('const meuToast = toastSeq;', $desfazer);
+        self::assertStringContainsString('const aindaEMeu = function () { return toastSeq === meuToast; };', $desfazer);
+        self::assertStringContainsString('toastSeq++;', $this->funcao('toast'));
     }
 
     #[TestDox('toast: Desfazer só com ação, some com o toast, um clique só; os mesmos 4,2 s do dc (L4772)')]
@@ -121,6 +128,9 @@ final class PastaExploradorLixeiraTest extends TestCase
         self::assertStringContainsString("fetch(cfg.urlLixeira, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })", $this->funcao('lerLixeira'));
         // Fechar depois de restaurar recarrega a lista (a lixeira não traz URL nem token dos itens).
         self::assertStringContainsString("if (lixeiraRestaurou) { lixeiraRestaurou = false; recarregarDocumentos(", $modal);
+        // Foco: volta a quem abriu (Organizar → o botão; menu de contexto → a lista).
+        self::assertStringContainsString('lixeiraFocoDeVolta = el.menuOrganizar && el.menuOrganizar.contains(ativo) ? el.btnOrganizar', $this->funcao('abrirLixeira'));
+        self::assertStringContainsString("if (volta && volta.isConnected && typeof volta.focus === 'function') volta.focus({ preventScroll: true });", $modal);
         // Acesso: menu do fundo e Organizar.
         self::assertStringContainsString("op(rotuloLixeira(), 'bi-trash3', abrirLixeira),", $this->funcao('opcoesDoMenu'));
         self::assertStringContainsString("el.btnLixeira.addEventListener('click', abrirLixeira);", $js);
