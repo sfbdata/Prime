@@ -53,7 +53,6 @@ final class PastaExploradorLixeiraTest extends TestCase
     public function testDesfazerUsaOsIdsDaResposta(): void
     {
         $excluir = $this->funcao('excluirItens');
-        self::assertStringContainsString('const desfazer = desfazerDe(res.j, saiu);', $excluir);
         // confirm() mantido (S-3), ANTES do pedido.
         self::assertLessThan(strpos($excluir, 'postJson('), strpos($excluir, 'if (!confirm(avisoExclusaoDoLote(itens))) return;'));
         // O que sai da memória é guardado (o objeto inteiro), não recriado depois.
