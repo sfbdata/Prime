@@ -488,8 +488,12 @@ explorador.
 - **Opção nova:** `app:documentos:calcular-hash --paginas` (backfill do nº de páginas; mesmo cuidado do D-HASH).
 - **Última suíte completa verde:** 7160 testes / 29905 asserções (após L8-backend).
 
+### 10.1b Modelos (instrução do dono, 06/10 noite)
+- **NÃO usar Fable** (limite de tokens). Tudo em Opus, inclusive o que o plano marca "com Fable" (arquitetura, segurança, revisão crítica): compensar com revisão Opus mais rigorosa e re-revisão.
+
 ### 10.2 Em andamento (worktrees de agentes; o orquestrador integra um commit por vez)
-L8-UI · P1 Metas · P6 CASE do PastaRepository · P8 Dashboard (fidelidade + som do calendário) · P9 desfazer da auditoria.
+L8-UI · P1 Metas · P5 notificar autor · P8 Dashboard (fidelidade + som do calendário) · P9 desfazer da auditoria (relançado em Opus).
+Integrados depois do handoff: P6 (e1c889b8), P7 (d922144e), P4 (d244e7bf — regra "Geram prazo" sem distinção de caixa, desvio consciente do dc; o canto de hora do Push ficou vazio porque o DJEN não dá hora).
 
 ### 10.3 Próximos (pela ordem do plano pós-Documentos)
 Onda 1 restante: P2 cabeçalho/modal (Cadastro + atalhos), P3 Processo (Administrativo sem recarregar + N4),
