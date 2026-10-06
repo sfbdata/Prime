@@ -6,6 +6,7 @@ namespace App\Shared\Armazenamento;
 
 use App\Shared\Armazenamento\Exception\ArquivoNaoEncontrado;
 use App\Shared\Armazenamento\Exception\FalhaDeArmazenamento;
+use Psr\Log\LoggerInterface;
 
 /**
  * SHA-256 de um conteúdo, sempre em streaming (INV-4): `hash_init` + `hash_update_stream` leem
@@ -85,6 +86,29 @@ final class Sha256DeArquivo
             if (is_resource($recurso)) {
                 fclose($recurso);
             }
+        }
+    }
+
+    /**
+     * O hash do que ficou no storage DEPOIS de uma compressão, quando ele é opcional: o arquivo já
+     * está gravado e o documento precisa ser registrado mesmo que esta leitura a mais falhe — senão
+     * um upload que funcionava vira 500 com arquivo órfão. Na falha devolve `null` (o comando
+     * `app:documentos:calcular-hash` preenche depois) e deixa um warning no log.
+     */
+    public static function deChaveOuNulo(
+        ArmazenamentoDeArquivos $armazenamento,
+        ChaveDeArquivo $chave,
+        LoggerInterface $logger,
+    ): ?string {
+        try {
+            return self::deChave($armazenamento, $chave);
+        } catch (\Exception $e) {
+            $logger->warning('Hash do arquivo comprimido não calculado; o documento fica sem sha256 até o app:documentos:calcular-hash.', [
+                'chave' => $chave->comoTexto(),
+                'erro'  => $e->getMessage(),
+            ]);
+
+            return null;
         }
     }
 

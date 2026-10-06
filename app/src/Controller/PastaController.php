@@ -30,6 +30,7 @@ use App\Repository\UserTenantRepository;
 use App\Expediente\Repository\MarcadorRepository;
 use App\Shared\Http\EntregaDeArquivo;
 use App\Shared\Armazenamento\Sha256DeArquivo;
+use Psr\Log\LoggerInterface;
 use App\Twig\ArquivoIconeExtension;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
@@ -186,6 +187,7 @@ class PastaController extends AbstractController
         private readonly DefinirClientePrincipalUseCase $definirClientePrincipalUseCase,
         private readonly SincronizacaoPastaDispatcher $syncDispatcher,
         private readonly PublicacaoDjenRepository $publicacaoDjenRepository,
+        private readonly LoggerInterface $logger,
     ) {}
 
     #[Route('', name: 'pasta_index', methods: ['GET'])]
@@ -1651,7 +1653,8 @@ class PastaController extends AbstractController
                 }
                 if ($compressao->comprimido) {
                     // A chave foi regravada com outro binário: o hash é do que FICOU no storage.
-                    $sha256 = Sha256DeArquivo::deChave($this->armazenamento, $armazenado->chave);
+                    // Opcional: se a leitura falhar fica null e o upload segue.
+                    $sha256 = Sha256DeArquivo::deChaveOuNulo($this->armazenamento, $armazenado->chave, $this->logger);
                 }
             }
 
@@ -1994,7 +1997,8 @@ class PastaController extends AbstractController
             $compressao   = $this->compressao->comprimir($armazenado->chave, $mimeType);
             $tamanhoFinal = $compressao->tamanhoFinal;
             if ($compressao->comprimido) {
-                $sha256 = Sha256DeArquivo::deChave($this->armazenamento, $armazenado->chave);
+                // Opcional: se a leitura falhar fica null e o upload segue.
+                $sha256 = Sha256DeArquivo::deChaveOuNulo($this->armazenamento, $armazenado->chave, $this->logger);
             }
         }
 

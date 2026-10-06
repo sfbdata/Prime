@@ -57,6 +57,7 @@ final class UploadPecaUseCaseTest extends TestCase
             $this->em,
             $this->armazenamento,
             new CompressaoDeArquivoArmazenado($this->armazenamento, $this->armazenamento, $this->compressor, new NullLogger()),
+            new NullLogger(),
         );
         $this->tenant        = $this->tenant(7);
         $this->pasta         = (new Pasta())->setTenant($this->tenant);
@@ -342,6 +343,27 @@ final class UploadPecaUseCaseTest extends TestCase
         self::assertSame($menor, $this->armazenamento->ler($this->armazenamento->ultimaGravada()));
         self::assertSame(hash('sha256', $menor), $resultado->documento->getSha256());
         self::assertNotSame(hash('sha256', self::PDF), $resultado->documento->getSha256(), 'o hash do upload não descreve mais o arquivo');
+    }
+
+    #[TestDox('sha256: falha ao reler o comprimido não derruba o upload — documento gravado com sha256 null')]
+    public function testFalhaAoRelerOComprimidoGravaSha256Nulo(): void
+    {
+        $this->compressor->method('comprimir')
+            ->willReturnCallback(static function (string $caminho): ResultadoCompressao {
+                file_put_contents($caminho, 'pdf menor');
+
+                return new ResultadoCompressao(5000, 1500, true, false);
+            });
+        // A compressão não usa abrir() (cópia gravável + gravar); só o hash pós-compressão usa.
+        $this->armazenamento->falhaAoAbrir = new FalhaDeArmazenamento('leitura indisponível');
+        $this->em->expects($this->once())->method('persist');
+        $this->em->expects($this->once())->method('flush');
+
+        $resultado = $this->useCase->executar($this->pasta, null, $this->upload('application/pdf', 5000, 'grande.pdf'), 'PECA', null, null, $this->tenant, true);
+
+        self::assertTrue($resultado->compressao->comprimido);
+        self::assertNull($resultado->documento->getSha256());
+        self::assertSame('pdf menor', $this->armazenamento->ler($this->armazenamento->ultimaGravada()));
     }
 
     #[TestDox('sha256: reduzir pedido mas nada comprimido — o original ficou, e o hash é o dele')]

@@ -90,6 +90,13 @@ final class ArmazenamentoEmMemoria implements ArmazenamentoDeArquivos, Armazenam
     public ?\Throwable $falhaDepoisDeGravar = null;
 
     /**
+     * Quando preenchida, `abrir()` lança esta exceção — a leitura por chave falha depois que o
+     * arquivo já está gravado (ex.: o hash pós-compressão, que é opcional e não pode derrubar o
+     * upload).
+     */
+    public ?\Throwable $falhaAoAbrir = null;
+
+    /**
      * Quando preenchidos, `gravar()` DEVOLVE estes metadados em vez dos reais (o conteúdo gravado
      * não muda). Serve para provar que o chamador persiste o que o storage mediu — e não a própria
      * conta (`strlen`, `filesize` da origem, metadado do Drive), que num teste comum coincidiria.
@@ -232,6 +239,10 @@ final class ArmazenamentoEmMemoria implements ArmazenamentoDeArquivos, Armazenam
 
     public function abrir(ChaveDeArquivo $chave): mixed
     {
+        if ($this->falhaAoAbrir !== null) {
+            throw $this->falhaAoAbrir;
+        }
+
         $conteudo = $this->ler($chave);
 
         $recurso = fopen('php://temp', 'w+b');

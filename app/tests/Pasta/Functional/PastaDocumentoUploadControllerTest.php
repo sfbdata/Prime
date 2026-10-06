@@ -313,6 +313,47 @@ final class PastaDocumentoUploadControllerTest extends JusPrimeWebTestCase
         }
     }
 
+    #[TestDox('hash pós-compressão: se a releitura falhar, nas duas rotas o upload segue com sha256 null')]
+    public function testFalhaAoRelerOComprimidoNaoDerrubaOUpload(): void
+    {
+        if (!GhostscriptDeTeste::disponivel()) {
+            self::markTestSkipped('Ghostscript indisponível neste ambiente.');
+        }
+
+        $client = static::createClient();
+        $client->disableReboot();
+        $this->instalarCsrfStorage();
+        $duble = ArmazenamentoEmMemoriaNoContainer::instalarEm(static::getContainer());
+        // A compressão usa cópia gravável + gravar(); só o hash pós-compressão passa por abrir().
+        $duble->memoria->falhaAoAbrir = new FalhaDeArmazenamento('leitura indisponível');
+        $tenant = $this->criarTenant();
+        $gestor = $this->criarGestor($tenant);
+        $pasta  = $this->criarPasta($tenant);
+        $id     = (int) $pasta->getId();
+        static::getContainer()->get(EntityManagerInterface::class)->clear();
+
+        $this->logarComTenant($client, $gestor, $tenant);
+
+        $gordo = $this->pdfGordo();
+        $this->enviar($client, $id, [['conteudo' => $gordo, 'nome' => 'peticao.pdf']], reduzirTamanho: true);
+        self::assertResponseRedirects();
+
+        $client->request(
+            'POST',
+            "/pasta/{$id}/financeiro/upload",
+            ['_token' => 'TOKEN_pasta_financeiro_upload_' . $id, 'reduzir_tamanho' => '1'],
+            ['arquivo' => $this->uploadDe($gordo, 'contrato.pdf')],
+        );
+        self::assertResponseStatusCodeSame(201);
+
+        $documentos = $this->documentosDaPasta($id);
+        self::assertCount(2, $documentos);
+        foreach ($documentos as $doc) {
+            self::assertNull($doc->getSha256(), $doc->getNomeOriginal() . ': sem hash legível, fica null');
+            self::assertLessThan(\strlen($gordo), $doc->getTamanhoBytes(), $doc->getNomeOriginal() . ': a compressão aconteceu');
+        }
+    }
+
     #[TestDox('falha do storage: nas duas rotas, nenhum documento é registrado')]
     public function testFalhaDoStorageNaoRegistraDocumento(): void
     {
