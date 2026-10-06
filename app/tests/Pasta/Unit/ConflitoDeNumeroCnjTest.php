@@ -76,6 +76,19 @@ final class ConflitoDeNumeroCnjTest extends TestCase
         self::assertFalse($semMascara->temConflito());
     }
 
+    #[TestDox('CNJ colado a sublinhado é visto (o \b do protótipo não via); número maior que contém um CNJ não é CNJ')]
+    public function testFronteiraDoNumero(): void
+    {
+        $colado = ConflitoDeNumeroCnj::procurar([self::DO_CADASTRO], '', [self::OUTRO . '_peticao.pdf']);
+        self::assertSame([['numero' => self::OUTRO, 'fonte' => 'arquivo ' . self::OUTRO . '_peticao.pdf']], $colado->conflitos);
+
+        $doCadastroColado = ConflitoDeNumeroCnj::procurar([self::DO_CADASTRO], '', [self::DO_CADASTRO . '_peticao.pdf']);
+        self::assertFalse($doCadastroColado->temConflito(), 'o próprio número colado ao _ continua sendo o do cadastro');
+
+        $maior = ConflitoDeNumeroCnj::procurar([self::DO_CADASTRO], '', ['1' . self::OUTRO . '.pdf', 'x ' . self::OUTRO . '9.pdf']);
+        self::assertFalse($maior->temConflito(), 'dígito antes ou depois: não é um CNJ');
+    }
+
     #[TestDox('muitos números: o texto lista 5 e resume o resto')]
     public function testTextoResumeMuitos(): void
     {

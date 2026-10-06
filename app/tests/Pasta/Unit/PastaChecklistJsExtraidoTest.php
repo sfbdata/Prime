@@ -76,6 +76,23 @@ final class PastaChecklistJsExtraidoTest extends TestCase
         self::assertStringContainsString("confirm('Excluir este item do checklist?')", $js);
     }
 
+    #[TestDox('renomear tem guarda de requisição em voo: Enter + blur não salvam duas vezes')]
+    public function testRenomearComGuardaEmVoo(): void
+    {
+        $js     = $this->js();
+        $inicio = strpos($js, 'function salvarEdicaoItem(input)');
+        $fim    = strpos($js, 'function cancelarEdicaoItem(input)');
+        self::assertNotFalse($inicio);
+        self::assertNotFalse($fim);
+        $corpo = substr($js, $inicio, $fim - $inicio);
+
+        $guarda = strpos($corpo, "if (input.dataset.salvando === '1') { return; }");
+        self::assertNotFalse($guarda, 'sem a guarda, o blur depois do Enter manda o segundo POST');
+        self::assertLessThan(strpos($corpo, 'fetch(URL_EDIT'), $guarda, 'a guarda vem antes do POST');
+        self::assertLessThan(strpos($corpo, 'fetch(URL_EDIT'), strpos($corpo, "input.dataset.salvando = '1';"), 'marca "em voo" antes de enviar');
+        self::assertStringContainsString('.finally(function () { delete input.dataset.salvando; });', $corpo, 'libera ao fim, com sucesso ou erro');
+    }
+
     #[TestDox('nada de innerHTML, nada de localStorage/sessionStorage: título de item é dado do usuário e o estado é do servidor')]
     public function testSemInnerHtmlNemStorage(): void
     {

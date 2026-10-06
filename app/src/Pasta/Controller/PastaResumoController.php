@@ -11,7 +11,9 @@ use App\Pasta\DTO\PastaPendenciasOutput;
 use App\Pasta\DTO\PastaPushOutput;
 use App\Pasta\DTO\PastaResumoImpressaoOutput;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Repository\PastaChecklistItemRepository;
 use App\Pasta\Repository\PastaPagamentoRepository;
+use App\Pasta\Service\ConferenciaDeAnexosDoChecklist;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -44,6 +46,7 @@ final class PastaResumoController extends AbstractController
         private readonly TenantContext $tenantContext,
         private readonly PublicacaoDjenRepository $publicacaoDjenRepository,
         private readonly PastaPagamentoRepository $pastaPagamentoRepository,
+        private readonly PastaChecklistItemRepository $checklistRepository,
     ) {
     }
 
@@ -79,9 +82,17 @@ final class PastaResumoController extends AbstractController
 
         $pagamentos = $this->pastaPagamentoRepository->findByPasta($pasta, $tenant);
 
+        // A mesma regra da pasta_show: item do checklist marcado sem arquivo correspondente
+        // acende a pendência de Documentos também na folha impressa.
+        $conferenciaChecklist = ConferenciaDeAnexosDoChecklist::daPasta(
+            $this->checklistRepository->findByPasta($pasta, $tenant),
+            $pasta->getDocumentos(),
+            $tenant,
+        );
+
         $resumo = PastaResumoImpressaoOutput::montar(
             $pasta,
-            PastaPendenciasOutput::montar($pasta, $push->naoLidas, $pagamentos),
+            PastaPendenciasOutput::montar($pasta, $push->naoLidas, $pagamentos, itensMarcadosSemAnexo: $conferenciaChecklist->totalMarcadosSemAnexo()),
             $push->itens,
             $pagamentos,
             incluirFinanceiro: $this->podeVerFinanceiro(),

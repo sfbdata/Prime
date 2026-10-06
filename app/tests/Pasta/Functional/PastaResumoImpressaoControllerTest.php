@@ -6,6 +6,8 @@ namespace App\Tests\Pasta\Functional;
 
 use App\Entity\Tarefa\Tarefa;
 use App\Pasta\Controller\PastaResumoController;
+use App\Pasta\Entity\PastaChecklistItem;
+use App\Pasta\Entity\PastaDocumento;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
@@ -148,5 +150,47 @@ final class PastaResumoImpressaoControllerTest extends JusPrimeWebTestCase
         $client->request('GET', $this->url((int) $pastaB->getId()));
 
         self::assertResponseIsSuccessful();
+    }
+
+    #[TestDox('Pendências da folha: item do checklist marcado sem anexo aparece, como na pasta_show; com o arquivo, some')]
+    public function testPendenciaDeChecklistSemAnexo(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $semArquivo      = $this->criarPasta($tenant);
+        $comArquivo      = $this->criarPasta($tenant);
+        foreach ([$semArquivo, $comArquivo] as $pasta) {
+            $item = (new PastaChecklistItem())
+                ->setPasta($pasta)
+                ->setTenant($tenant)
+                ->setTitulo('Contrato de honorários')
+                ->setConcluido(true);
+            $this->em()->persist($item);
+        }
+        $doc = (new PastaDocumento())
+            ->setTenant($tenant)
+            ->setPasta($comArquivo)
+            ->setTitulo('Contrato assinado')
+            ->setCategoria(PastaDocumento::CATEGORIA_DEMAIS)
+            ->setCaminhoArquivo(bin2hex(random_bytes(16)) . '.pdf')
+            ->setNomeOriginal('arquivo.pdf')
+            ->setMimeType('application/pdf')
+            ->setTamanhoBytes(10);
+        $this->em()->persist($doc);
+        $this->em()->flush();
+        $idSem = (int) $semArquivo->getId();
+        $idCom = (int) $comArquivo->getId();
+        $this->em()->clear();
+
+        $this->logarComTenant($client, $user, $tenant);
+
+        $crawler = $client->request('GET', $this->url($idSem));
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString('1 item do checklist marcado sem anexo', $crawler->filter('[data-secao="pendencias"]')->text());
+
+        $this->em()->clear();
+        $crawler = $client->request('GET', $this->url($idCom));
+        self::assertResponseIsSuccessful();
+        self::assertStringNotContainsString('marcado sem anexo', (string) $client->getResponse()->getContent(), 'o filtro removeu tudo: sem pendência de Documentos');
     }
 }

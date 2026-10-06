@@ -28,7 +28,13 @@ use App\Pasta\Entity\PastaDocumento;
  */
 final readonly class ConflitoDeNumeroCnj
 {
-    public const PADRAO = '/\b\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}\b/';
+    /**
+     * CORREÇÃO do `\b...\b` do protótipo (bj-docsug.js L10): `_` é caractere de palavra, então
+     * `\b` não separa "…0007_peticao.pdf" e o número colado ao sublinhado não era visto (12 de
+     * 100 nomes no dev). As guardas de dígito mantêm o que o `\b` tinha de útil: um número maior
+     * que contém um CNJ no meio não é CNJ.
+     */
+    public const PADRAO = '/(?<!\d)\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}(?!\d)/';
 
     /** Quantos números o texto do aviso lista antes de resumir em "e mais N". */
     private const LISTADOS_NO_TEXTO = 5;

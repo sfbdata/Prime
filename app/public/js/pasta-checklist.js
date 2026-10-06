@@ -222,10 +222,16 @@
     }, true);
 
     function salvarEdicaoItem(input) {
+        // Guarda de requisição em voo: Enter salva e, enquanto o POST não volta, o blur (clique
+        // fora, troca de foco) chamaria de novo — dois POSTs do mesmo renomear.
+        if (input.dataset.salvando === '1') { return; }
+
         var li     = input.closest('.checklist-item');
         var titulo = input.value.trim();
 
         if (titulo === '') { cancelarEdicaoItem(input); return; }
+
+        input.dataset.salvando = '1';
 
         var fd = new FormData();
         fd.append('titulo', titulo);
@@ -246,7 +252,8 @@
         .catch(function (err) {
             console.error('Erro ao editar item:', err);
             cancelarEdicaoItem(input);
-        });
+        })
+        .finally(function () { delete input.dataset.salvando; });
     }
 
     function cancelarEdicaoItem(input) {
