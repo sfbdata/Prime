@@ -206,7 +206,7 @@ final class PastaChecklistEstadoControllerTest extends JusPrimeWebTestCase
 
         // O enum entra pelo VALOR, não como {class, id, label} vazio.
         $changes = json_decode((string) $linha['changes'], true, 512, JSON_THROW_ON_ERROR);
-        $diff    = $changes['diff'] ?? $changes;
+        $diff    = $changes['diff']['changes'];
         self::assertSame(['from' => null, 'to' => 'encerrada'], $diff['checklistMotivo']);
     }
 
