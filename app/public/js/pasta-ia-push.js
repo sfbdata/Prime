@@ -3,9 +3,12 @@
 
      1. "Resumir com IA" / "Gerar nova análise": POST `inteligencia_push_solicitar`
         e mostra o retorno honesto (202 em andamento, 200 "nada novo", 409/429 motivo);
-     2. polling do status (GET `inteligencia_analise_status`) a cada 2 s enquanto
-        houver análise pendente/processando, e recarga do fragmento da lista
-        (GET `inteligencia_push_listar`) quando ela termina — sem F5;
+     2. polling do status (GET `inteligencia_analise_status`) enquanto houver
+        análise pendente/processando — 2 s, e backoff para 5 s depois de 30 s e
+        10 s depois de 2 min; PAUSA com a página oculta (`visibilitychange`) ou
+        com outra aba da pasta aberta (`hidden.bs.tab`) e retoma ao voltar —, e
+        recarga do fragmento da lista (GET `inteligencia_push_listar`) quando ela
+        termina, sem F5;
      3. ações da análise (lida · excluir · interna) por XHR, com recarga da lista;
      4. menu ⋮ do cartão;
      5. "Criar tarefa da providência": abre o `#modalCriarTarefa` da pasta
@@ -19,10 +22,19 @@
 (function () {
     'use strict';
 
-    var INTERVALO_MS = 2000;
-    // ~10 min: depois disso para de perguntar (o worker pode estar parado) e diz isso.
-    var MAX_TENTATIVAS = 300;
+    // Backoff do polling: 2 s nos primeiros 30 s, 5 s até 2 min, 10 s depois.
+    var BACKOFF = [[30000, 2000], [120000, 5000], [Infinity, 10000]];
+    // 10 min de acompanhamento ativo sem fim: para (o worker pode estar parado) e diz isso.
+    var LIMITE_MS = 600000;
     var EM_ANDAMENTO = ['pendente', 'processando'];
+
+    function intervaloPara(decorrido) {
+        for (var i = 0; i < BACKOFF.length; i++) {
+            if (decorrido < BACKOFF[i][0]) { return BACKOFF[i][1]; }
+        }
+
+        return BACKOFF[BACKOFF.length - 1][1];
+    }
 
     function iniciar() {
         var secao = document.querySelector('.ps-push');
@@ -31,7 +43,9 @@
         var botao = secao.querySelector('[data-ia-gerar]');
         var msg = secao.querySelector('[data-ia-msg]');
         var timer = null;
-        var tentativas = 0;
+        var consultando = false;
+        var inicio = Date.now();
+        var limiteAvisado = false;
 
         function lista() { return secao.querySelector('[data-ia-lista]'); }
 
@@ -137,17 +151,45 @@
             });
         }
 
+        // Só pergunta com a página visível E a aba Push da pasta aberta: ninguém está
+        // olhando o resultado nos outros casos, e cada pergunta é uma requisição.
+        function painelPush() { return secao.closest('.tab-pane'); }
+
+        function ativo() {
+            if (document.hidden) { return false; }
+            var painel = painelPush();
+
+            return !painel || painel.classList.contains('active');
+        }
+
+        function pausar() {
+            if (timer !== null) { clearTimeout(timer); }
+            timer = null;
+        }
+
+        // Ao voltar (aba do navegador ou aba Push), pergunta já e recomeça o backoff.
+        function retomar() {
+            if (!ativo() || timer !== null || consultando || emAndamento().length === 0) { return; }
+            inicio = Date.now();
+            limiteAvisado = false;
+            perguntar();
+        }
+
         function perguntar() {
             timer = null;
+            if (!ativo()) { return; }
             var cartoes = emAndamento();
             if (cartoes.length === 0) { return; }
 
-            tentativas++;
-            if (tentativas > MAX_TENTATIVAS) {
-                avisar('A análise está demorando mais que o normal. Recarregue a página mais tarde para ver o resultado.', true);
+            if (Date.now() - inicio > LIMITE_MS) {
+                if (!limiteAvisado) {
+                    limiteAvisado = true;
+                    avisar('A análise está demorando mais que o normal. Recarregue a página mais tarde para ver o resultado.', true);
+                }
                 return;
             }
 
+            consultando = true;
             Promise.all(cartoes.map(function (c) {
                 return fetch(c.getAttribute('data-ia-status-url'), {
                     headers: { 'X-Requested-With': 'XMLHttpRequest' },
@@ -160,6 +202,7 @@
                     })
                     .catch(function () { return false; });
             })).then(function (terminou) {
+                consultando = false;
                 if (terminou.indexOf(true) !== -1) {
                     recarregarLista();
                     return;
@@ -169,7 +212,9 @@
         }
 
         function agendar() {
-            if (timer === null) { timer = setTimeout(perguntar, INTERVALO_MS); }
+            // Pausado (página oculta ou outra aba da pasta): não agenda; `retomar` religa.
+            if (timer !== null || consultando || !ativo()) { return; }
+            timer = setTimeout(perguntar, intervaloPara(Date.now() - inicio));
         }
 
         function acompanhar() {
@@ -177,7 +222,25 @@
                 agendar();
                 return;
             }
-            tentativas = 0;
+            // Nada em andamento: o próximo pedido recomeça o relógio do backoff.
+            inicio = Date.now();
+            limiteAvisado = false;
+        }
+
+        document.addEventListener('visibilitychange', function () {
+            if (document.hidden) {
+                pausar();
+                return;
+            }
+            retomar();
+        });
+
+        // Troca de aba da pasta é do Bootstrap (pasta-show.js): os eventos saem do botão da aba.
+        var painel = painelPush();
+        var abaPush = painel && painel.id ? document.getElementById(painel.id + '-tab') : null;
+        if (abaPush) {
+            abaPush.addEventListener('hidden.bs.tab', pausar);
+            abaPush.addEventListener('shown.bs.tab', retomar);
         }
 
         /* ── 1. Pedir a análise ───────────────────────────────────────────── */
@@ -190,6 +253,9 @@
 
                 avisar('');
                 botaoCarregando(true);
+                // Pedido novo: o backoff recomeça em 2 s.
+                inicio = Date.now();
+                limiteAvisado = false;
 
                 fetch(botao.getAttribute('data-ia-solicitar-url'), {
                     method: 'POST',
