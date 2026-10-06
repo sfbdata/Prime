@@ -492,7 +492,9 @@ explorador.
 - **NÃO usar Fable** (limite de tokens). Tudo em Opus, inclusive o que o plano marca "com Fable" (arquitetura, segurança, revisão crítica): compensar com revisão Opus mais rigorosa e re-revisão.
 
 ### 10.2 Em andamento (worktrees de agentes; o orquestrador integra um commit por vez)
-L8-UI · P1 Metas · P5 notificar autor · P8 Dashboard (fidelidade + som do calendário) · P9 desfazer da auditoria (relançado em Opus).
+P1 Metas · P9 desfazer da auditoria (relançado em Opus) · P2 cabeçalho/modal · P3 Processo · P10 Financeiro · P12 contatos inline.
+Integrados: L8-UI (Documentos COMPLETO, só o L0 aguarda o Samuel), P5 (d90e7b01), P8 (ff5b40c4 + 989bb76b). Revisão em bloco de P4/P5/P7/P8 em andamento.
+Pendência pequena: a âncora `#pasta-msg-<id>` da notificação de resposta (P5) cai num registro escondido em "Ver anotações anteriores" — abrir o bloco quando o fragmento apontar para ele (P13).
 Integrados depois do handoff: P6 (e1c889b8), P7 (d922144e), P4 (d244e7bf — regra "Geram prazo" sem distinção de caixa, desvio consciente do dc; o canto de hora do Push ficou vazio porque o DJEN não dá hora).
 
 ### 10.3 Próximos (pela ordem do plano pós-Documentos)
