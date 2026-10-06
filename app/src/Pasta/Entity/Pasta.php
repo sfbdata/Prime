@@ -160,6 +160,27 @@ class Pasta implements Auditavel, TenantAware
     private bool $administrativa = false;
 
     /**
+     * Estado do checklist de documentação (DOC-73, desenho 1.2.3: interruptor "Ativo" no cabeçalho
+     * do checklist). Preenchido = desativado: quem desativou, quando e por quê (um dos quatro
+     * motivos do desenho). Nulo = ativo, que é o estado de toda pasta que nunca mexeu nisso.
+     *
+     * Os três andam juntos — só `desativarChecklist`/`reativarChecklist` os escrevem. Desativado,
+     * a conferência "sem anexo" deixa de contar como pendência da aba Documentos; os itens do
+     * checklist continuam no banco, intocados, e voltam ao reativar.
+     *
+     * `ON DELETE SET NULL` em quem desativou: apagar o usuário não reativa o checklist.
+     */
+    #[ORM\Column(name: 'checklist_desativado_em', type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $checklistDesativadoEm = null;
+
+    #[ORM\ManyToOne]
+    #[ORM\JoinColumn(name: 'checklist_desativado_por_id', nullable: true, onDelete: 'SET NULL')]
+    private ?User $checklistDesativadoPor = null;
+
+    #[ORM\Column(name: 'checklist_motivo', length: 40, nullable: true, enumType: MotivoDesativacaoChecklist::class)]
+    private ?MotivoDesativacaoChecklist $checklistMotivo = null;
+
+    /**
      * Valor da causa, em reais. Nulo significa "ninguém preencheu" — que é
      * diferente de R$ 0,00 (causa sem valor econômico). A tela e a média por CPF
      * dependem dessa distinção: nulo fica de fora da média, zero entra nela.
@@ -736,6 +757,60 @@ $this->documentos = new ArrayCollection();
     public function setAdministrativa(bool $administrativa): self
     {
         $this->administrativa = $administrativa;
+
+        return $this;
+    }
+
+    /** Checklist de documentação em uso (o padrão). Desativado só por `desativarChecklist`. */
+    public function isChecklistAtivo(): bool
+    {
+        return $this->checklistDesativadoEm === null;
+    }
+
+    public function getChecklistDesativadoEm(): ?\DateTimeImmutable
+    {
+        return $this->checklistDesativadoEm;
+    }
+
+    public function getChecklistDesativadoPor(): ?User
+    {
+        return $this->checklistDesativadoPor;
+    }
+
+    public function getChecklistMotivo(): ?MotivoDesativacaoChecklist
+    {
+        return $this->checklistMotivo;
+    }
+
+    /**
+     * Desativa o checklist guardando quem, quando e por quê.
+     *
+     * Recusa a segunda desativação: sobrescrever trocaria o autor, a data e o motivo de uma
+     * desativação que já existe — o registro que a tela mostra ("desativado por X em dd/mm").
+     */
+    public function desativarChecklist(MotivoDesativacaoChecklist $motivo, User $por, \DateTimeImmutable $em): self
+    {
+        if (!$this->isChecklistAtivo()) {
+            throw new \LogicException('O checklist desta pasta já está desativado.');
+        }
+
+        $this->checklistDesativadoEm  = $em;
+        $this->checklistDesativadoPor = $por;
+        $this->checklistMotivo        = $motivo;
+
+        return $this;
+    }
+
+    /** Reativa: limpa os três campos. Recusa reativar o que já está ativo. */
+    public function reativarChecklist(): self
+    {
+        if ($this->isChecklistAtivo()) {
+            throw new \LogicException('O checklist desta pasta já está ativo.');
+        }
+
+        $this->checklistDesativadoEm  = null;
+        $this->checklistDesativadoPor = null;
+        $this->checklistMotivo        = null;
 
         return $this;
     }

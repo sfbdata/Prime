@@ -321,3 +321,225 @@
     #pexChecklist .pex-ck-barra { width: 96px; }
     #pexChecklist .pex-ck-lista > .pex-ck-item { flex-basis: 100%; }
 }
+
+/* ── Interruptor "Ativo" do cabeçalho (dc L2093, `ckcVals.sw` L4049) ───────────────────── */
+#pexChecklist {
+    --ck-sw-txt:          #4f6878;
+    --ck-sw-hover:        #eef2f5;
+    --ck-sw-on:           #1f9d61;
+    --ck-sw-off:          #cfd9e0;
+    --ck-sw-bola:         #fff;
+    --ck-sw-bola-sombra:  0 1px 3px rgba(10, 40, 60, .3);
+    --ck-des-bg:          #faf8ff;
+    --ck-des-bd:          #ece5fb;
+    --ck-des-ico-bg:      #fff;
+    --ck-des-ico-anel:    #e1d7f8;
+    --ck-des-ico:         #6d4fd0;
+    --ck-des-texto:       #34265f;
+    --ck-des-rotulo:      #5f7684;
+    --ck-mot-bg:          #fff;
+    --ck-mot-txt:         #4f6878;
+    --ck-mot-anel:        #ddd3f5;
+    --ck-mot-on-bg:       #5b3fb0;
+    --ck-mot-on-txt:      #fff;
+    --ck-btn-azul:        #0a7aad;
+    --ck-btn-azul-hover:  #0b5f86;
+    --ck-btn-azul-txt:    #fff;
+    --ck-btn-des-bg:      #fbeceb;
+    --ck-btn-des-txt:     #b03a2e;
+    --ck-btn-off-bg:      #f1f4f6;
+    --ck-btn-off-txt:     #9aabb6;
+    --ck-off-bg:          #f6f8fa;
+    --ck-off-ico:         #8496a3;
+    --ck-off-txt:         #4f6878;
+    --ck-off-forte:       #243845;
+    --ck-off-nota:        #7b93a2;
+    --ck-reat-bg:         #e5f1f7;
+    --ck-reat-txt:        #0b5f86;
+    --ck-reat-hover:      #d6e9f4;
+}
+
+[data-bs-theme="dark"] #pexChecklist {
+    --ck-sw-txt:          var(--bs-secondary-color);
+    --ck-sw-hover:        rgba(255, 255, 255, .06);
+    --ck-sw-on:           #2fb877;
+    --ck-sw-off:          rgba(255, 255, 255, .22);
+    --ck-sw-bola:         #e9eef2;
+    --ck-sw-bola-sombra:  0 1px 3px rgba(0, 0, 0, .5);
+    --ck-des-bg:          rgba(155, 128, 230, .08);
+    --ck-des-bd:          rgba(155, 128, 230, .22);
+    --ck-des-ico-bg:      var(--bs-body-bg);
+    --ck-des-ico-anel:    rgba(155, 128, 230, .35);
+    --ck-des-ico:         #b9a6f2;
+    --ck-des-texto:       var(--bs-body-color);
+    --ck-des-rotulo:      var(--bs-secondary-color);
+    --ck-mot-bg:          var(--bs-body-bg);
+    --ck-mot-txt:         var(--bs-body-color);
+    --ck-mot-anel:        rgba(155, 128, 230, .35);
+    --ck-mot-on-bg:       #7a5fd6;
+    --ck-mot-on-txt:      #fff;
+    --ck-btn-azul:        #1b86b8;
+    --ck-btn-azul-hover:  #2a9bd0;
+    --ck-btn-azul-txt:    #fff;
+    --ck-btn-des-bg:      rgba(240, 138, 128, .14);
+    --ck-btn-des-txt:     #f08a80;
+    --ck-btn-off-bg:      rgba(255, 255, 255, .05);
+    --ck-btn-off-txt:     rgba(255, 255, 255, .35);
+    --ck-off-bg:          rgba(255, 255, 255, .03);
+    --ck-off-ico:         var(--bs-secondary-color);
+    --ck-off-txt:         var(--bs-secondary-color);
+    --ck-off-forte:       var(--bs-body-color);
+    --ck-off-nota:        var(--bs-secondary-color);
+    --ck-reat-bg:         rgba(69, 176, 214, .16);
+    --ck-reat-txt:        #74c6e3;
+    --ck-reat-hover:      rgba(69, 176, 214, .26);
+}
+
+#pexChecklist .pex-ck-interruptor {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    height: 28px;
+    padding: 0 4px 0 8px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--ck-sw-txt);
+    cursor: pointer;
+    white-space: nowrap;
+}
+#pexChecklist .pex-ck-interruptor:hover { background: var(--ck-sw-hover); }
+#pexChecklist .pex-ck-interruptor:disabled { cursor: progress; opacity: .7; }
+#pexChecklist .pex-ck-interruptor-trilho {
+    position: relative;
+    flex-shrink: 0;
+    width: 32px;
+    height: 18px;
+    border-radius: 999px;
+    background: var(--ck-sw-off);
+    transition: background .2s;
+}
+#pexChecklist .pex-ck-interruptor-bola {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--ck-sw-bola);
+    box-shadow: var(--ck-sw-bola-sombra);
+    transition: left .2s;
+}
+#pexChecklist .pex-ck-interruptor[aria-checked="true"] .pex-ck-interruptor-trilho { background: var(--ck-sw-on); }
+#pexChecklist .pex-ck-interruptor[aria-checked="true"] .pex-ck-interruptor-bola { left: 16px; }
+
+/* ── Confirmação de desativar (dc L2095-2110) ─────────────────────────────────────────── */
+#pexChecklist .pex-ck-desativar {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px 16px;
+    background: var(--ck-des-bg);
+    border-bottom: 1px solid var(--ck-des-bd);
+}
+#pexChecklist .pex-ck-desativar[hidden] { display: none; }
+#pexChecklist .pex-ck-desativar-aviso { display: flex; gap: 10px; align-items: flex-start; }
+#pexChecklist .pex-ck-desativar-ico {
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: var(--ck-des-ico-bg);
+    box-shadow: 0 0 0 1px var(--ck-des-ico-anel);
+    color: var(--ck-des-ico);
+    font-size: 13px;
+}
+#pexChecklist .pex-ck-desativar-texto {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--ck-des-texto);
+}
+#pexChecklist .pex-ck-desativar-rotulo { font-size: 11.5px; font-weight: 700; color: var(--ck-des-rotulo); }
+#pexChecklist .pex-ck-desativar-motivos { display: flex; gap: 6px; flex-wrap: wrap; }
+#pexChecklist .pex-ck-motivo {
+    height: 28px;
+    padding: 0 11px;
+    border: none;
+    border-radius: 999px;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    background: var(--ck-mot-bg);
+    color: var(--ck-mot-txt);
+    box-shadow: inset 0 0 0 1px var(--ck-mot-anel);
+}
+#pexChecklist .pex-ck-motivo[aria-pressed="true"] {
+    background: var(--ck-mot-on-bg);
+    color: var(--ck-mot-on-txt);
+    box-shadow: none;
+}
+#pexChecklist .pex-ck-desativar-acoes { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+#pexChecklist .pex-ck-desativar-atualizar,
+#pexChecklist .pex-ck-desativar-manter,
+#pexChecklist .pex-ck-desativar-confirmar {
+    height: 32px;
+    padding: 0 12px;
+    border: none;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 12.5px;
+    cursor: pointer;
+}
+#pexChecklist .pex-ck-desativar-atualizar { background: var(--ck-btn-azul); color: var(--ck-btn-azul-txt); font-weight: 700; }
+#pexChecklist .pex-ck-desativar-atualizar:hover { background: var(--ck-btn-azul-hover); }
+#pexChecklist .pex-ck-desativar-manter { background: transparent; color: var(--ck-sw-txt); font-weight: 600; }
+#pexChecklist .pex-ck-desativar-manter:hover { background: var(--ck-sw-hover); }
+#pexChecklist .pex-ck-desativar-confirmar { background: var(--ck-btn-des-bg); color: var(--ck-btn-des-txt); font-weight: 700; }
+#pexChecklist .pex-ck-desativar-confirmar:disabled { background: var(--ck-btn-off-bg); color: var(--ck-btn-off-txt); cursor: not-allowed; }
+#pexChecklist .pex-ck-desativar-erro { flex: 1 1 100%; font-size: 12px; color: var(--ck-erro); }
+#pexChecklist .pex-ck-desativar-erro[hidden] { display: none; }
+
+/* ── Estado desativado (dc L2112-2117) ────────────────────────────────────────────────── */
+#pexChecklist .pex-ck-desativado {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 12px 16px;
+    background: var(--ck-off-bg);
+}
+#pexChecklist .pex-ck-desativado-ico { font-size: 16px; color: var(--ck-off-ico); }
+#pexChecklist .pex-ck-desativado-texto {
+    min-width: 0;
+    flex: 1;
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--ck-off-txt);
+}
+#pexChecklist .pex-ck-desativado-texto > b { color: var(--ck-off-forte); }
+#pexChecklist .pex-ck-desativado-nota { font-size: 12px; color: var(--ck-off-nota); }
+#pexChecklist .pex-ck-reativar {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 30px;
+    padding: 0 12px;
+    border: none;
+    border-radius: 4px;
+    background: var(--ck-reat-bg);
+    color: var(--ck-reat-txt);
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 700;
+    cursor: pointer;
+}
+#pexChecklist .pex-ck-reativar:hover { background: var(--ck-reat-hover); }
+#pexChecklist .pex-ck-reativar:disabled { cursor: progress; opacity: .7; }

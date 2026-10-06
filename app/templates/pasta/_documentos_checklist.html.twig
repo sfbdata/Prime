@@ -4,19 +4,27 @@
    das subpastas e durante a busca).
 
    Cartão, de cima para baixo, como no desenho:
-     cabeçalho (ícone, título, selo "N/M itens", barra, Sugerir documentos, Modelos, ✎, +)
-     corpo: painel de documentos sugeridos (L2112) → modelos → faixa de adicionar (L2166) →
-            itens em grade (L2172: caixa de 19px, texto riscado quando concluído, selo
-            "sem anexo").
+     cabeçalho (ícone, título, selo "N/M itens", barra, Sugerir documentos, Modelos, ✎, +,
+                interruptor "Ativo" — L2093)
+     confirmação de desativar (L2095-2110: motivo obrigatório entre os quatro; só com o
+                checklist ativo, nasce escondida)
+     ATIVO:      corpo: painel de documentos sugeridos (L2112) → modelos → faixa de adicionar
+                 (L2166) → itens em grade (L2172: caixa de 19px, texto riscado quando
+                 concluído, selo "sem anexo").
+     DESATIVADO: faixa "Checklist desativado · motivo · X em dd/mm/aaaa" + Reativar
+                 (L2112-2117). Sem corpo e sem as ações do cabeçalho, como no desenho; os itens
+                 continuam no banco e voltam ao reativar.
 
    Os `id` são contrato com `public/js/pasta-checklist.js` (marcar, editar, excluir, reordenar,
    modelos, selo, barra), com `pasta-documentos-sugeridos.js` e com os testes. Classes `pex-ck-*`
    são de estilo (`public/css/pasta-checklist.css`).
 
    O que o desenho tem e NÃO está aqui, de propósito:
-     - o ✦ e o rótulo "BlueJus IA": as sugestões são regras sobre um catálogo fixo (S-4);
-     - o interruptor "Ativo"/desativar com motivo (DOC-73): é do lote L11 (estado na `pasta`);
-     - o selo "cobrado Nx" (DOC-75): não existe cobrança automática (S-6).
+     - o ✦ e o rótulo "BlueJus IA" (também no aviso de desativar e no "Atualizar o checklist"):
+       as sugestões são regras sobre um catálogo fixo (S-4);
+     - o selo "cobrado Nx" (DOC-75): não existe cobrança automática (S-6);
+     - ao desativar, "cobrança dos pendentes", "notifica a controladoria" e "lembra de revisar a
+       cada 30 dias": nada disso existe (S-6) e o texto não promete.
 
    Incluído por `pasta/_documentos_explorador.html.twig`; usa `pasta`, `checklistItens`,
    `totalChecklist`, `concluidosChecklist` e `conferenciaChecklist` do contexto.
@@ -25,9 +33,13 @@
 {% set checklistCompleto = totalChecklist > 0 and concluidosChecklist == totalChecklist %}
 {% set sugestao = documentos_sugeridos(pasta, checklistItens|default([])) %}
 {% set conferencia = conferenciaChecklist|default(null) %}
-<div class="pex-ck" id="pexChecklist"
+{% set checklistAtivo = pasta.checklistAtivo %}
+{% set pendentesChecklist = totalChecklist - concluidosChecklist %}
+<div class="pex-ck{{ checklistAtivo ? '' : ' pex-ck--desativado' }}" id="pexChecklist"
      data-pasta-id="{{ pasta.id }}"
-     data-csrf-pasta="{{ csrf_token('checklist_pasta_' ~ pasta.id) }}">
+     data-csrf-pasta="{{ csrf_token('checklist_pasta_' ~ pasta.id) }}"
+     data-url-estado="{{ path('pasta_checklist_estado', {id: pasta.id}) }}"
+     data-checklist-ativo="{{ checklistAtivo ? '1' : '0' }}">
     <div class="pex-ck-cab">
         <i class="bi bi-check2-square pex-ck-ico" aria-hidden="true"></i>
         <h6 class="pex-ck-titulo">Checklist de documentação</h6>
@@ -39,6 +51,7 @@
             <div id="checklistBarra" class="pex-ck-barra-fill {{ checklistCompleto ? 'completo' : 'incompleto' }}" style="width: {{ pctChecklist }}%"></div>
         </div>
         <span class="pex-ck-espaco"></span>
+        {% if checklistAtivo %}
         {% if sugestao is not null %}
             {# Rótulo neutro (S-4): o desenho tem ✦ aqui, mas o que roda é catálogo + regras. #}
             <button type="button" id="btnDocumentosSugeridos" class="pex-ck-sugerir"
@@ -59,6 +72,46 @@
                 aria-expanded="false" aria-controls="checklistFormAdicionar">
             <i class="bi bi-plus-lg"></i>
         </button>
+        {% endif %}
+        {# Interruptor do desenho (L2093): "Ativo" verde / "Desativado" cinza. Ligado, abre a
+           confirmação com o motivo; desligado, reativa direto (ckReativar, L4084). #}
+        <button type="button" id="btnChecklistEstado" class="pex-ck-interruptor"
+                role="switch" aria-checked="{{ checklistAtivo ? 'true' : 'false' }}"
+                {% if checklistAtivo %}aria-expanded="false" aria-controls="checklistDesativarPainel"{% endif %}
+                title="{{ checklistAtivo ? 'Desativar checklist desta pasta' : 'Reativar checklist' }}">
+            <span class="pex-ck-interruptor-txt">{{ checklistAtivo ? 'Ativo' : 'Desativado' }}</span>
+            <span class="pex-ck-interruptor-trilho" aria-hidden="true"><span class="pex-ck-interruptor-bola"></span></span>
+        </button>
+    </div>
+    {% if checklistAtivo %}
+    {# Confirmação de desativar (L2095-2110). O motivo é obrigatório: "Desativar" só habilita
+       depois de escolher um dos quatro. O texto do desenho é da "BlueJus IA" e promete cobrança
+       pausada; aqui diz só o que de fato para (S-4, S-6). #}
+    <div id="checklistDesativarPainel" class="pex-ck-desativar" hidden>
+        <div class="pex-ck-desativar-aviso">
+            <span class="pex-ck-desativar-ico" aria-hidden="true"><i class="bi bi-info-circle"></i></span>
+            <p class="pex-ck-desativar-texto">
+                O checklist é o que garante que a pasta tem os documentos para instruir o processo.
+                Com ele desativado, a conferência dos itens marcados sem anexo e o alerta da aba
+                Documentos ficam pausados.
+                {% if pendentesChecklist > 0 %}Hoje há {{ pendentesChecklist }} {{ pendentesChecklist == 1 ? 'documento pendente' : 'documentos pendentes' }} nesta pasta.{% endif %}
+                Prefira atualizar os itens em vez de desativar.
+            </p>
+        </div>
+        <div class="pex-ck-desativar-rotulo" id="checklistDesativarRotulo">Motivo da desativação</div>
+        <div class="pex-ck-desativar-motivos" role="group" aria-labelledby="checklistDesativarRotulo">
+            {% for motivo in enum_cases('App\\Pasta\\Entity\\MotivoDesativacaoChecklist') %}
+                <button type="button" class="pex-ck-motivo" data-motivo="{{ motivo.value }}" aria-pressed="false">{{ motivo.rotulo }}</button>
+            {% endfor %}
+        </div>
+        <div class="pex-ck-desativar-acoes">
+            {% if sugestao is not null %}
+                <button type="button" id="btnChecklistAtualizarEmVez" class="pex-ck-desativar-atualizar">Atualizar o checklist</button>
+            {% endif %}
+            <button type="button" id="btnChecklistManterAtivo" class="pex-ck-desativar-manter">Manter ativo</button>
+            <button type="button" id="btnChecklistDesativar" class="pex-ck-desativar-confirmar" disabled>Desativar</button>
+        </div>
+        <div id="checklistEstadoErro" class="pex-ck-desativar-erro" role="alert" hidden></div>
     </div>
     <div class="pex-ck-corpo">
         {# Painel de sugestões DENTRO do cartão do checklist, logo abaixo do cabeçalho (dc L2112). #}
@@ -151,5 +204,23 @@
             {% endfor %}
         </ul>
     </div>
+    {% else %}
+    {# Desativado (L2112-2117): quem, quando e por quê, e o Reativar. #}
+    {% set desativadoPor = pasta.checklistDesativadoPor %}
+    <div id="checklistDesativado" class="pex-ck-desativado">
+        <i class="bi bi-pause-circle pex-ck-desativado-ico" aria-hidden="true"></i>
+        <div class="pex-ck-desativado-texto">
+            <b>Checklist desativado</b>
+            {%- if pasta.checklistMotivo %} · {{ pasta.checklistMotivo.rotulo }}{% endif %}
+            · {{ desativadoPor ? (desativadoPor.fullName ?: desativadoPor.email) : 'usuário removido' }}
+            {%- if pasta.checklistDesativadoEm %} em {{ pasta.checklistDesativadoEm|date('d/m/Y') }}{% endif %}
+            <div class="pex-ck-desativado-nota">Conferência de anexos e alerta da aba Documentos pausados.</div>
+        </div>
+        <button type="button" id="btnChecklistReativar" class="pex-ck-reativar">
+            <i class="bi bi-play-circle" aria-hidden="true"></i>Reativar
+        </button>
+        <div id="checklistEstadoErro" class="pex-ck-desativar-erro" role="alert" hidden></div>
+    </div>
+    {% endif %}
     <link rel="stylesheet" href="{{ asset('css/pasta-checklist.css') }}">
 </div>

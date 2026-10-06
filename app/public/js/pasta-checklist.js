@@ -9,7 +9,9 @@
        (SortableJS, carregado antes deste arquivo);
      - adicionar (+): faixa com campo; Enter confirma, Esc cancela;
      - modelos do escritório: listar, aplicar, salvar, renomear, excluir;
-     - selo "N/M itens" e barra de progresso sempre juntos.
+     - selo "N/M itens" e barra de progresso sempre juntos;
+     - interruptor "Ativo" (desativar com motivo / reativar): bloco próprio no fim do
+       arquivo, porque com o checklist desativado não há #checklistLista.
 
    O que mudou na extração: o id da pasta e o token vêm de `data-*` de #pexChecklist (o
    arquivo é estático); toda linha nasce por createElement/textContent (título de item e
@@ -699,5 +701,140 @@
             modelosVazio.classList.toggle('d-none', listaModelos.children.length > 0);
         })
         .catch(function (err) { mostrarErroModelos(err.message || 'Erro ao excluir o modelo.'); });
+    }
+}());
+
+/* =============================================================================
+   Interruptor "Ativo" do checklist (DOC-73; dc L2093-2117, `ckcVals` L4047-4079).
+
+   Bloco separado de propósito: com o checklist DESATIVADO o corpo (e #checklistLista)
+   não é desenhado, e o bloco de cima sai cedo. Este só precisa de #pexChecklist.
+
+   - Ativo: o interruptor abre a confirmação (#checklistDesativarPainel). O motivo é
+     obrigatório: "Desativar" só habilita depois de escolher um dos quatro.
+     "Manter ativo" fecha; "Atualizar o checklist" fecha e abre as sugestões.
+   - Desativado: o interruptor e o "Reativar" reativam direto (ckReativar, L4084).
+   - Grava em POST /pasta/{id}/checklist/estado {_token, ativo, motivo} e recarrega na
+     aba Documentos: o estado (quem, quando, motivo) volta do servidor, sem montar a
+     faixa aqui.
+   ============================================================================= */
+(function () {
+    'use strict';
+
+    var raiz = document.getElementById('pexChecklist');
+    if (!raiz) { return; }
+
+    var url    = raiz.getAttribute('data-url-estado');
+    var token  = raiz.getAttribute('data-csrf-pasta');
+    var ativo  = raiz.getAttribute('data-checklist-ativo') === '1';
+    var botao  = document.getElementById('btnChecklistEstado');
+    var painel = document.getElementById('checklistDesativarPainel');
+    var erro   = document.getElementById('checklistEstadoErro');
+    var reativ = document.getElementById('btnChecklistReativar');
+    var conf   = document.getElementById('btnChecklistDesativar');
+    var manter = document.getElementById('btnChecklistManterAtivo');
+    var emVez  = document.getElementById('btnChecklistAtualizarEmVez');
+    var motivo = '';
+
+    if (!url || !botao) { return; }
+
+    function recarregarNaAbaDocumentos() {
+        if (window.location.hash !== '#documentos') {
+            window.location.hash = 'documentos';
+        }
+        window.location.reload();
+    }
+
+    function mostrarErro(texto) {
+        if (!erro) { return; }
+        erro.textContent = texto;
+        erro.hidden = false;
+    }
+
+    function gravar(ligado, gatilho) {
+        var fd = new FormData();
+        fd.append('_token', token);
+        fd.append('ativo', ligado ? '1' : '0');
+        if (!ligado) { fd.append('motivo', motivo); }
+
+        if (gatilho) { gatilho.disabled = true; }
+        if (erro) { erro.hidden = true; }
+
+        fetch(url, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: fd,
+            credentials: 'same-origin'
+        }).then(function (r) {
+            return r.json().catch(function () { return {}; }).then(function (dados) {
+                if (!r.ok || !dados.sucesso) {
+                    throw new Error(dados.erro || 'Não foi possível alterar o checklist.');
+                }
+                recarregarNaAbaDocumentos();
+            });
+        }).catch(function (e) {
+            mostrarErro(e.message);
+            if (gatilho) { gatilho.disabled = gatilho === conf ? motivo === '' : false; }
+        });
+    }
+
+    function abrirConfirmacao(abrir) {
+        if (!painel) { return; }
+        painel.hidden = !abrir;
+        botao.setAttribute('aria-expanded', abrir ? 'true' : 'false');
+        if (!abrir) {
+            motivo = '';
+            painel.querySelectorAll('.pex-ck-motivo').forEach(function (b) { b.setAttribute('aria-pressed', 'false'); });
+            if (conf) { conf.disabled = true; }
+            if (erro) { erro.hidden = true; }
+        }
+    }
+
+    botao.addEventListener('click', function () {
+        if (!ativo) {
+            gravar(true, botao);
+            return;
+        }
+        abrirConfirmacao(painel ? painel.hidden : false);
+    });
+
+    if (reativ) {
+        reativ.addEventListener('click', function () { gravar(true, reativ); });
+    }
+
+    if (painel) {
+        painel.addEventListener('click', function (ev) {
+            var escolha = ev.target.closest('.pex-ck-motivo');
+            if (!escolha || !painel.contains(escolha)) { return; }
+            motivo = escolha.getAttribute('data-motivo') || '';
+            painel.querySelectorAll('.pex-ck-motivo').forEach(function (b) {
+                b.setAttribute('aria-pressed', b === escolha ? 'true' : 'false');
+            });
+            if (conf) { conf.disabled = motivo === ''; }
+        });
+    }
+
+    if (manter) {
+        manter.addEventListener('click', function () {
+            abrirConfirmacao(false);
+            botao.focus();
+        });
+    }
+
+    if (emVez) {
+        emVez.addEventListener('click', function () {
+            abrirConfirmacao(false);
+            var sugerir = document.getElementById('btnDocumentosSugeridos');
+            var sugeridos = document.getElementById('documentosSugeridos');
+            if (sugerir && sugeridos && sugeridos.classList.contains('d-none')) { sugerir.click(); }
+            if (sugeridos) { sugeridos.scrollIntoView({ block: 'nearest' }); }
+        });
+    }
+
+    if (conf) {
+        conf.addEventListener('click', function () {
+            if (motivo === '') { return; }
+            gravar(false, conf);
+        });
     }
 }());

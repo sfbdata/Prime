@@ -11,6 +11,14 @@
    que a pasta já tem, mais duas regras (organização por fase, número de processo divergente). O
    rótulo da tela diz exatamente isso — nada de "IA analisou" (decisão S-4).
 
+   "Exigido pelo juízo" (🔴, DOC-79) é REGRA, não leitura inteligente: `DeterminacoesDoJuizo` procura
+   os verbos de determinação do desenho no teor das publicações do Push dos processos da pasta. Cada
+   item exigido leva "Origem: <tipo> de dd/mm/aaaa" que abre o teor na aba Push (o mesmo acordeão
+   de `_push_teor`). "Prazos em curso" e "Processo: …" (DOC-82) só aparecem quando a leitura achou
+   dado real: prazo escrito no teor ("prazo de N dias") que certamente ainda corre, e publicação
+   cujo tipo é o documento (ex.: "Sentença"). Sem publicação lida, a tela diz que o processo não foi
+   lido, como antes.
+
    "Adicionar ao checklist" usa o endpoint que já existe (`pasta_checklist_adicionar`, mesmo token
    `checklist_pasta_<id>`, mesma guarda de edição) — um POST por item, e a página recarrega na aba
    Documentos para o checklist e as sugestões saírem do servidor de novo. "Atualizar" é o mesmo
@@ -31,7 +39,8 @@
         <i class="bi bi-list-check ds-sug-icone" aria-hidden="true"></i>
         <div class="ds-sug-titulos">
             <h6 id="documentosSugeridosTitulo">Documentos sugeridos</h6>
-            <span class="ds-sug-sub">Sugestões pelo catálogo de documentos da fase e do tipo de ação · por regras</span>
+            <span class="ds-sug-sub">Sugestões pelo catálogo de documentos da fase e do tipo de ação
+                {%- if sugestao.leuOProcesso %} e pelas determinações lidas no Push Processual{% endif %} · por regras</span>
             {% if sugestao.temCatalogo %}
                 <span class="ds-sug-ident">
                     {% if sugestao.numeroProcesso %}
@@ -71,26 +80,42 @@
                 <div class="ds-sug-contexto-linha">
                     <span class="ds-sug-rotulo">Contexto da pasta</span>
                     <span class="ds-sug-fase">{{ sugestao.faseNome }}</span>
-                    <span class="ds-sug-conf" title="O processo não foi lido: a fase vem da classe processual e a lista, do catálogo">Confiança baixa</span>
+                    {% if sugestao.leuOProcesso %}
+                        <span class="ds-sug-conf ds-sug-conf--media" title="Só o teor das publicações do Push foi lido, por regras; o PDF do processo não">Confiança média</span>
+                    {% else %}
+                        <span class="ds-sug-conf" title="O processo não foi lido: a fase vem da classe processual e a lista, do catálogo">Confiança baixa</span>
+                    {% endif %}
                 </div>
                 <span class="ds-sug-resumo">
                     {%- if sugestao.acao %}Ação: {{ sugestao.acao|lower }}{% else %}Ação não cadastrada{% endif -%}
                     {%- if sugestao.classe %} ({{ sugestao.classe|lower }}){% endif -%}
                     . Fase: {{ sugestao.faseNome }} ({{ sugestao.base }}).
                 </span>
-                <span class="ds-sug-motivo">Catálogo fixo, sem leitura das decisões: nada aqui é exigência do juízo.</span>
+                {% if sugestao.prazosEmCurso is not empty %}
+                    {# DOC-82 (dc L2134): só prazo escrito no teor e que certamente ainda corre. #}
+                    <span class="ds-sug-prazos" id="documentosSugeridosPrazos"
+                          title="Prazo escrito no teor da publicação. Conta-se da publicação; confira o termo final no processo.">
+                        <i class="bi bi-hourglass-split" aria-hidden="true"></i> Prazos em curso: {{ sugestao.prazosEmCurso|join('; ') }}
+                    </span>
+                {% endif %}
+                {% if sugestao.leuOProcesso %}
+                    <span class="ds-sug-motivo">Lido por regras o teor de {{ sugestao.publicacoesLidas }} {{ sugestao.publicacoesLidas == 1 ? 'publicação' : 'publicações' }} do Push Processual; o PDF do processo não foi lido.</span>
+                {% else %}
+                    <span class="ds-sug-motivo">Catálogo fixo, sem leitura das decisões: nada aqui é exigência do juízo.</span>
+                {% endif %}
             </div>
 
             {% set grupos = [
+                {status: 'juizo',  ic: '🔴', titulo: 'Exigido pelo juízo', sub: 'determinação expressa em decisão ou despacho'},
                 {status: 'req',    ic: '🟠', titulo: 'Obrigatório',     sub: 'requisito legal para o próximo ato'},
                 {status: 'rec',    ic: '🟡', titulo: 'Recomendável',    sub: 'prática usual desta fase, não é exigência'},
                 {status: 'opc',    ic: '⚪', titulo: 'Opcional',        sub: 'só se a situação pedir'},
-                {status: 'existe', ic: '🟢', titulo: 'Já existente',    sub: 'localizado nos documentos da pasta'},
-                {status: 'na',     ic: '⚫', titulo: 'Não aplicável',   sub: 'depende da leitura do processo, que não foi feita'},
+                {status: 'existe', ic: '🟢', titulo: 'Já existente',    sub: sugestao.leuOProcesso ? 'localizado na pasta ou no processo' : 'localizado nos documentos da pasta'},
+                {status: 'na',     ic: '⚫', titulo: 'Não aplicável',   sub: sugestao.leuOProcesso ? 'depende de documento do processo que não apareceu nas publicações lidas' : 'depende da leitura do processo, que não foi feita'},
             ] %}
 
             <div class="ds-sug-chips">
-                {% for g in grupos|filter(g => g.status in ['req', 'rec', 'existe']) %}
+                {% for g in grupos|filter(g => g.status in ['juizo', 'req', 'rec', 'existe']) %}
                     {% set n = sugestao.comStatus(g.status)|length %}
                     {% if n > 0 %}
                         <span class="ds-sug-chip ds-sug-chip-{{ g.status }}" title="{{ g.sub }}">{{ g.ic }} {{ n }} {{ g.titulo|lower }}</span>
@@ -116,6 +141,15 @@
                                         <span class="ds-sug-item-loc"><i class="bi bi-check2-circle" aria-hidden="true"></i>
                                             {{ it.localizadoEm|slice(0, 3)|join(' | ') }}{% if it.localizadoEm|length > 3 %} +{{ it.localizadoEm|length - 3 }}{% endif %}
                                         </span>
+                                    {% endif %}
+                                    {% if it.origemPublicacaoId is not null %}
+                                        {# dc L2149 (`abrirOrigem`): abre o teor da publicação no acordeão da aba
+                                           Push. Sem JS, o link leva à aba Push da própria pasta. #}
+                                        <a class="ds-sug-origem" href="{{ path('pasta_show', {id: pasta.id}) }}#push"
+                                           data-push-id="{{ it.origemPublicacaoId }}"
+                                           title="Abrir o teor desta publicação na aba Push Processual">
+                                            <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i>{{ it.origemTexto }}
+                                        </a>
                                     {% endif %}
                                 </div>
                                 {% if it.podeIrAoChecklist %}
@@ -156,7 +190,11 @@
                         Adicionar {{ faltantes|length }} faltante(s) ao checklist
                     </button>
                 {% endif %}
-                <span class="ds-sug-nota">Obrigatório vem de lei; recomendável e opcional são prática da fase. Catálogo fixo de documentos: o conteúdo do processo não é lido.</span>
+                {% if sugestao.leuOProcesso %}
+                    <span class="ds-sug-nota">Exigido pelo juízo vem de regra sobre o teor das publicações (verbos de determinação): confira na origem. Obrigatório vem de lei; recomendável e opcional são prática da fase.</span>
+                {% else %}
+                    <span class="ds-sug-nota">Obrigatório vem de lei; recomendável e opcional são prática da fase. Catálogo fixo de documentos: o conteúdo do processo não é lido.</span>
+                {% endif %}
             </div>
             <div class="ds-sug-erro d-none" id="documentosSugeridosErro" role="alert"></div>
         {% endif %}

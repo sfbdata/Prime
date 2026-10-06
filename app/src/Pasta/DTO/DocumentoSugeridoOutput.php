@@ -7,11 +7,14 @@ namespace App\Pasta\DTO;
 /**
  * Um documento do catálogo, já julgado contra o que a pasta tem.
  *
- * `status` é uma das constantes abaixo. "Exigido pelo juízo" (🔴 do desenho) não existe aqui de
- * propósito: ele sai da leitura das decisões do processo, que este sugestor NÃO faz.
+ * `status` é uma das constantes abaixo. "Exigido pelo juízo" (🔴 do desenho) só aparece quando a
+ * leitura POR REGRAS do teor das publicações do Push (`DeterminacoesDoJuizo`) achou uma
+ * determinação que manda juntar o documento — e aí `origemPublicacaoId`/`origemTexto` dizem de
+ * qual publicação veio ("Origem: Decisão de 03/09/2026").
  */
 final class DocumentoSugeridoOutput
 {
+    public const EXIGIDO_PELO_JUIZO = 'juizo';
     public const OBRIGATORIO = 'req';
     public const RECOMENDAVEL = 'rec';
     public const OPCIONAL = 'opc';
@@ -29,6 +32,8 @@ final class DocumentoSugeridoOutput
         public readonly array $localizadoEm,
         public readonly bool $noChecklist,
         public readonly bool $conferidoNoChecklist,
+        public readonly ?int $origemPublicacaoId = null,
+        public readonly ?string $origemTexto = null,
     ) {
     }
 
@@ -39,10 +44,10 @@ final class DocumentoSugeridoOutput
             && !\in_array($this->status, [self::JA_EXISTE, self::NAO_APLICAVEL], true);
     }
 
-    /** Entra no "Adicionar faltantes": só obrigatório e recomendável (bj-docsug L4075, menos o juízo). */
+    /** Entra no "Adicionar faltantes": exigido pelo juízo, obrigatório e recomendável (dc L4075). */
     public function ehFaltante(): bool
     {
         return !$this->noChecklist
-            && \in_array($this->status, [self::OBRIGATORIO, self::RECOMENDAVEL], true);
+            && \in_array($this->status, [self::EXIGIDO_PELO_JUIZO, self::OBRIGATORIO, self::RECOMENDAVEL], true);
     }
 }

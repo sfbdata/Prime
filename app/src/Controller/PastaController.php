@@ -459,7 +459,8 @@ class PastaController extends AbstractController
             'push'                        => $push,
             'analisesIa'                  => $analisesIa,
             // Linha vermelha sob as abas (desenho 1.2.3): calculada aqui, a tela só mostra.
-            'pendencias'                  => PastaPendenciasOutput::montar($pasta, $push->naoLidas, $pagamentosDaPasta, itensMarcadosSemAnexo: $conferenciaChecklist->totalMarcadosSemAnexo()),
+            // Checklist desativado (DOC-73): a conferência "sem anexo" deixa de ser pendência da aba.
+            'pendencias'                  => PastaPendenciasOutput::montar($pasta, $push->naoLidas, $pagamentosDaPasta, itensMarcadosSemAnexo: $pasta->isChecklistAtivo() ? $conferenciaChecklist->totalMarcadosSemAnexo() : 0),
             'metasResumo'                 => PastaMetasResumoOutput::montar($pasta),
             // Atalho para a UNIDADE cobrada — só existe em pasta que veio de uma
             // judicialização (6 das 1.099 em produção). `null` nas demais, e o cabeçalho

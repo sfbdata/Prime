@@ -13,6 +13,7 @@
      e as sugestões voltam do servidor, sem duplicar aqui a montagem da lista.
    - Erro de um item para a fila e mostra a mensagem do servidor; o que já foi
      gravado fica gravado (e aparece no recarregamento).
+   - "Origem: …" de um item exigido pelo juízo abre o teor da publicação na aba Push.
    ============================================================================= */
 (function () {
     'use strict';
@@ -123,7 +124,38 @@
         });
     }
 
+    // "Origem: Decisão de dd/mm/aaaa" (dc L2149, `abrirOrigem`): vai para a aba Push e abre o teor
+    // daquela publicação no acordeão que já existe (o cabeçalho `.ps-push-cab` carrega o
+    // `_push_teor`). Sem o acordeão na página, segue o link (aba Push da pasta).
+    function abrirOrigem(link, ev) {
+        var id        = link.getAttribute('data-push-id');
+        var gatilho   = document.getElementById('push-tab');
+        var cabecalho = id ? document.querySelector('.ps-push-cab[aria-controls="push-teor-' + id + '"]') : null;
+        if (!gatilho || !cabecalho || !window.bootstrap) { return; }
+
+        ev.preventDefault();
+
+        function abrirTeor() {
+            if (cabecalho.getAttribute('aria-expanded') !== 'true') { cabecalho.click(); }
+            cabecalho.scrollIntoView({ block: 'start', behavior: 'smooth' });
+            cabecalho.focus({ preventScroll: true });
+        }
+
+        if (gatilho.classList.contains('active')) {
+            abrirTeor();
+            return;
+        }
+        gatilho.addEventListener('shown.bs.tab', abrirTeor, { once: true });
+        bootstrap.Tab.getOrCreateInstance(gatilho).show();
+    }
+
     painel.addEventListener('click', function (ev) {
+        var origem = ev.target.closest('.ds-sug-origem');
+        if (origem && painel.contains(origem)) {
+            abrirOrigem(origem, ev);
+            return;
+        }
+
         var um = ev.target.closest('.ds-sug-add-um');
         if (um && painel.contains(um)) {
             adicionarEmSerie([um.getAttribute('data-titulo')], um);

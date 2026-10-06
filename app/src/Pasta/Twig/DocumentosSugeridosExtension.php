@@ -8,8 +8,10 @@ use App\Pasta\DTO\SugestaoDeDocumentosOutput;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaChecklistItem;
 use App\Pasta\Entity\PastaDocumento;
+use App\Pasta\Service\DeterminacoesDoJuizo;
 use App\Pasta\Service\SugestorDeDocumentos;
 use App\Service\Tenant\TenantContext;
+use Psr\Clock\ClockInterface;
 use Twig\Extension\AbstractExtension;
 use Twig\TwigFunction;
 
@@ -23,12 +25,19 @@ use Twig\TwigFunction;
  * Isolamento: pasta de outro escritório que não o da sessão (ou sem escritório na sessão) não
  * recebe sugestão — devolve `null` e o parcial não desenha nada. Documentos e itens de checklist
  * de outro escritório também são descartados, ainda que cheguem pela coleção.
+ *
+ * "Exigido pelo juízo" (DOC-79): `DeterminacoesDoJuizo::daPasta` lê por regras o teor das
+ * publicações do Push dos processos DESTA pasta, do escritório da sessão — uma consulta, só quando
+ * o painel é desenhado. Com o checklist desativado (DOC-73) nada disso é calculado: o painel nem
+ * aparece.
  */
 final class DocumentosSugeridosExtension extends AbstractExtension
 {
     public function __construct(
         private readonly SugestorDeDocumentos $sugestor,
         private readonly TenantContext $tenantContext,
+        private readonly DeterminacoesDoJuizo $determinacoes,
+        private readonly ClockInterface $clock,
     ) {
     }
 
@@ -50,6 +59,11 @@ final class DocumentosSugeridosExtension extends AbstractExtension
 
         // Compara por id: proxy e entidade carregada por caminhos diferentes são o mesmo escritório.
         if ($tenantId === null || $pasta->getTenant()?->getId() !== $tenantId) {
+            return null;
+        }
+
+        // Checklist desativado: as sugestões são para alimentá-lo, e o desenho tira o botão (dc L2088).
+        if (!$pasta->isChecklistAtivo()) {
             return null;
         }
 
@@ -84,6 +98,8 @@ final class DocumentosSugeridosExtension extends AbstractExtension
             $processo?->getNumeroProcesso(),
             $arquivos,
             $checklist,
+            $this->determinacoes->daPasta($pasta, $tenant),
+            $this->clock->now(),
         );
     }
 }

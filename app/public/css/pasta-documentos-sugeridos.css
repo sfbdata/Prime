@@ -499,3 +499,63 @@
 .ds-sug-erro.d-none {
     display: none !important;
 }
+
+/* ── Exigido pelo juízo, origem, confiança média e prazos em curso (DOC-79/82) ──────────
+   Cores do desenho: grupo juízo #a3232b/#fdeceb (dsVals L4028), confiança Média
+   #8a5a00/#fff3dc (L4040), prazos #8a5a00 (L2134), origem #0a7aad (L2149). */
+.ds-sug {
+    --ds-juizo:       #a3232b;
+    --ds-juizo-bg:    #fdeceb;
+    --ds-media:       #8a5a00;
+    --ds-media-bg:    #fff3dc;
+    --ds-prazo:       #8a5a00;
+    --ds-link:        #0a7aad;
+    --ds-link-hover:  #0b5f86;
+}
+
+[data-bs-theme="dark"] .ds-sug {
+    --ds-juizo:       #f08a80;
+    --ds-juizo-bg:    rgba(240, 138, 128, .14);
+    --ds-media:       #f2c46b;
+    --ds-media-bg:    rgba(242, 196, 107, .14);
+    --ds-prazo:       #f2c46b;
+    --ds-link:        #74c6e3;
+    --ds-link-hover:  #9ad7ec;
+}
+
+.ds-sug-chip-juizo { color: var(--ds-juizo); background: var(--ds-juizo-bg); }
+.ds-sug-grupo[data-status="juizo"] { --ds-cor: var(--ds-juizo); }
+
+.ds-sug-conf.ds-sug-conf--media {
+    background: var(--ds-media-bg);
+    color: var(--ds-media);
+}
+
+.ds-sug-prazos {
+    font-size: 12px;
+    color: var(--ds-prazo);
+    overflow-wrap: anywhere;
+}
+
+.ds-sug-origem {
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--ds-link);
+    font-family: inherit;
+    font-size: 11.5px;
+    font-weight: 600;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.ds-sug-origem:hover,
+.ds-sug-origem:focus-visible {
+    color: var(--ds-link-hover);
+    text-decoration: underline;
+}
