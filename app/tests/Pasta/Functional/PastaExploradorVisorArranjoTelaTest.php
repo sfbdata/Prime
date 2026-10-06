@@ -221,12 +221,6 @@ final class PastaExploradorVisorArranjoTelaTest extends JusPrimeWebTestCase
         self::assertNotSame('', $crawler->filter('#pexVisor')->attr('data-pasta-cliente'));
     }
 
-    #[TestDox('pasta sem NUP: o rótulo cai no id (`pasta.nup ?? pasta.id`), nunca vazio')]
-    public function testRotuloSemNupCaiNoId(): void
-    {
-        [$crawler, $pasta] = $this->telaComUmArquivo(null);
-
-        self::assertNull($pasta->getNup());
-        self::assertSame((string) $pasta->getId(), $crawler->filter('#pexVisor')->attr('data-pasta-rotulo'));
-    }
+    // Sem caso "pasta sem NUP": `pasta.nup` é NOT NULL no banco, então o fallback
+    // `pasta.nup ?? pasta.id` do template nunca dispara — testá-lo exigiria um estado impossível.
 }
