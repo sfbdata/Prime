@@ -63,7 +63,7 @@
                 <div class="db-card-valor-linha">
                     <div class="db-stat-num" data-card="pastas" data-alvo="{{ dashboard.totalPastasCriadas }}">{{ dashboard.totalPastasCriadas }}</div>
                 </div>
-                <div class="db-card-legenda">abertas no período selecionado</div>
+                {# Sem legenda: o desenho mostra só o rótulo e o número neste card. #}
             </div>
         </div>
     </div>
@@ -256,6 +256,9 @@
                 {% set av = linha.userId % 9 %}
                 {% set partes = linha.nomeAdvogado|split(' ')|filter(p => p != '') %}
                 {% set iniciais = partes|slice(0, 2)|map(p => p|slice(0, 1))|join|upper %}
+                {# Abaixo de 1100px o desenho mostra "Samuel F." (primeiro nome + inicial do
+                   último); o CSS troca um pelo outro e o completo segue no title. #}
+                {% set nomeCurto = partes|length > 1 ? partes|first ~ ' ' ~ (partes|last)|slice(0, 1) ~ '.' : linha.nomeAdvogado %}
                 {# ícone do cargo: mapa visual do desenho; o nome do cargo é livre no sistema #}
                 {% set cargoLower = (linha.cargoNome ?? '')|lower %}
                 {% set cargoIcone = linha.cargoNome is null ? 'bi-dash-circle'
@@ -277,7 +280,7 @@
                             {% else %}
                                 <span class="collab-avatar-inicial db-avatar db-avatar--{{ av }}">{{ iniciais }}</span>
                             {% endif %}
-                            <span class="db-colab-nome" title="{{ linha.nomeAdvogado }}">{{ linha.nomeAdvogado }}</span>
+                            <span class="db-colab-nome" title="{{ linha.nomeAdvogado }}"><span class="db-nome-completo">{{ linha.nomeAdvogado }}</span><span class="db-nome-curto">{{ nomeCurto }}</span></span>
                         </div>
                     </td>
                     <td class="db-td-cargo">

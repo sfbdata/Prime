@@ -101,7 +101,10 @@
                     + '<button type="button" class="filtro-chip-remover js-filtro-chip-remover" data-campo="'
                     + escHtml(c.campo) + '" aria-label="Remover"><i class="bi bi-x"></i></button></span>';
             }).join('');
-            html += '<button type="button" class="filtro-limpar js-filtro-limpar">Limpar tudo</button>';
+            // Opt-in: `data-ft-rotulo-limpar` no root troca o texto do botão; sem o
+            // atributo, o comportamento é o de sempre ("Limpar tudo").
+            var rotuloLimpar = root.getAttribute('data-ft-rotulo-limpar') || 'Limpar tudo';
+            html += '<button type="button" class="filtro-limpar js-filtro-limpar">' + escHtml(rotuloLimpar) + '</button>';
             box.innerHTML = html;
         }
 

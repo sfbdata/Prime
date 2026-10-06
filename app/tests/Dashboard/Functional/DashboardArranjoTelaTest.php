@@ -173,6 +173,98 @@ final class DashboardArranjoTelaTest extends DashboardWebTestCase
         self::assertStringContainsString('conta para cada um deles', $crawler->filter('.db-table-card .db-nota')->text());
     }
 
+    #[TestDox('O card Pastas criadas não tem legenda; Metas e Urgentes mantêm a legenda do hover')]
+    public function testPastasCriadasSemLegenda(): void
+    {
+        $client = static::createClient();
+        $this->criarGestorLogado($client);
+
+        $crawler = $client->request('GET', '/dashboard');
+
+        self::assertResponseIsSuccessful();
+        $pastas = $crawler->filter('.db-cards-row > * > .db-stat-card--pastas');
+        self::assertCount(1, $pastas);
+        self::assertCount(0, $pastas->filter('.db-stat-card--pastas > .db-card-corpo > .db-card-legenda'), 'O desenho não tem legenda neste card');
+        self::assertCount(0, $pastas->filter('.db-card-legenda'));
+        self::assertStringNotContainsString('abertas no período selecionado', (string) $client->getResponse()->getContent());
+
+        // as outras legendas continuam (aparecem no hover/toque)
+        self::assertCount(1, $crawler->filter('.db-cards-row > * > .db-stat-card--metas > .db-card-corpo > .db-card-legenda--hover'));
+        self::assertCount(1, $crawler->filter('.db-cards-row > * > .db-stat-card--urgentes > .db-card-corpo > .db-card-legenda--hover'));
+    }
+
+    #[TestDox('O botão Exportar PDF é filho direto da casca, depois da região que recarrega')]
+    public function testBotaoExportarPdfNaCasca(): void
+    {
+        $client = static::createClient();
+        $this->criarGestorLogado($client);
+
+        $crawler = $client->request('GET', '/dashboard');
+
+        self::assertResponseIsSuccessful();
+        $btn = $crawler->filter('.db-page [data-filtro-root] > .db-acoes > button.db-btn-pdf.js-db-exportar-pdf');
+        self::assertCount(1, $btn, 'Um único botão, filho direto da faixa de ações da casca (sobrevive aos XHRs)');
+        self::assertSame('button', $btn->attr('type'), 'type=button: não pode submeter o form de filtro');
+        self::assertSame('Exportar PDF', trim($btn->text()));
+        self::assertCount(1, $btn->filter('i.bi-file-earmark-arrow-down'));
+        self::assertCount(0, $crawler->filter('[data-filtro-resultado] .db-btn-pdf'), 'Fora do fragmento trocável');
+
+        // o fragmento do XHR não traz o botão (ele mora na casca)
+        $xhr = $client->xmlHttpRequest('GET', '/dashboard');
+        self::assertCount(0, $xhr->filter('.db-btn-pdf'));
+    }
+
+    #[TestDox('O cabeçalho só-impressão é filho direto da casca, com período, filtros e quem gerou')]
+    public function testCabecalhoDeImpressao(): void
+    {
+        $client = static::createClient();
+        $this->criarGestorLogado($client);
+
+        $crawler = $client->request('GET', '/dashboard?data_de=2026-08-01&data_ate=2026-08-31');
+
+        self::assertResponseIsSuccessful();
+        $cab = $crawler->filter('.db-page [data-filtro-root] > .db-print-cabecalho');
+        self::assertCount(1, $cab);
+        self::assertSame('Relatório de desempenho', trim($cab->filter('.db-print-titulo')->text()));
+        self::assertSame('01/08/2026 a 31/08/2026', trim($cab->filter('.db-print-periodo')->text()));
+        self::assertSame('Todos os responsáveis · Todos os cargos', trim($cab->filter('.db-print-facetas')->text()));
+        self::assertStringContainsString('por Gestora da Tela', preg_replace('/\s+/', ' ', $cab->filter('.db-print-gerado')->text()));
+        self::assertMatchesRegularExpression('#^\d{2}/\d{2}/\d{4} às \d{2}:\d{2}$#', trim($cab->filter('.db-print-quando')->text()));
+        self::assertCount(1, $crawler->filter('.db-page [data-filtro-root] > .db-print-rodape'));
+
+        // sem datas: período aberto
+        $crawler = $client->request('GET', '/dashboard');
+        self::assertSame('início a hoje', trim($crawler->filter('.db-print-cabecalho .db-print-periodo')->text()));
+    }
+
+    #[TestDox('O nome vem completo e abreviado ("Gestora T."); o CSS escolhe pela largura e o title guarda o completo')]
+    public function testNomeAbreviadoParaTelaEstreita(): void
+    {
+        $client = static::createClient();
+        $this->criarGestorLogado($client);
+
+        $crawler = $client->request('GET', '/dashboard');
+
+        self::assertResponseIsSuccessful();
+        $nome = $crawler->filter('.db-table-card table > tbody > tr')->first()->filter('.db-colab > .db-colab-nome');
+        self::assertCount(1, $nome);
+        self::assertSame('Gestora da Tela', $nome->attr('title'));
+        self::assertSame('Gestora da Tela', trim($nome->filter('.db-colab-nome > .db-nome-completo')->text()));
+        self::assertSame('Gestora T.', trim($nome->filter('.db-colab-nome > .db-nome-curto')->text()));
+    }
+
+    #[TestDox('O root pede ao motor de filtro o rótulo "Limpar filtros" (opção opt-in do filtro-tabela.js)')]
+    public function testRotuloLimparFiltros(): void
+    {
+        $client = static::createClient();
+        $this->criarGestorLogado($client);
+
+        $crawler = $client->request('GET', '/dashboard');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('Limpar filtros', $crawler->filter('.db-page > [data-filtro-root]')->attr('data-ft-rotulo-limpar'));
+    }
+
     #[TestDox('O título vive na casca, antes da barra de filtro, e não traz mais o ícone de velocímetro')]
     public function testTituloNaCascaAntesDoFiltro(): void
     {

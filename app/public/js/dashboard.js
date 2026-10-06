@@ -17,7 +17,14 @@
  *    prontas do servidor nos atributos; aqui ninguém calcula calendário. O
  *    botão ativo é o que tem as duas datas iguais às dos campos — recalculado
  *    a cada mudança (digitação, chip removido, "Limpar tudo") — e o indicador
- *    branco desliza até ele.
+ *    branco desliza até ele;
+ *  - legendas dos cards em toque (`.db-card-legenda--hover`): com mouse elas
+ *    aparecem no hover (só CSS); no toque, tocar o card liga `is-tocado` nele
+ *    (e desliga nos outros) — tocar fora apaga;
+ *  - Exportar PDF (`.js-db-exportar-pdf`): window.print() com o document.title
+ *    trocado pelo nome do arquivo do desenho. No `beforeprint` (botão ou Ctrl+P)
+ *    o cabeçalho só-impressão é reescrito com o período/filtros do momento e o
+ *    tema escuro é trocado pelo claro até o `afterprint` (o papel é branco).
  */
 (function () {
     'use strict';
@@ -159,8 +166,104 @@
         marcarPeriodoAtivo(root);
     }
 
+    // ── legendas em toque ─────────────────────────────────────────────────
+
+    function ligarLegendasEmToque(root) {
+        root.addEventListener('pointerup', function (e) {
+            if (e.pointerType !== 'touch' && e.pointerType !== 'pen') {
+                return;
+            }
+            var card = e.target.closest('.db-stat-card');
+            root.querySelectorAll('.db-stat-card.is-tocado').forEach(function (c) {
+                if (c !== card) {
+                    c.classList.remove('is-tocado');
+                }
+            });
+            if (card) {
+                card.classList.toggle('is-tocado');
+            }
+        });
+    }
+
+    // ── Exportar PDF ──────────────────────────────────────────────────────
+
+    function p2(n) {
+        return String(n).padStart(2, '0');
+    }
+
+    function dataBr(v) {
+        var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v || '');
+
+        return m ? m[3] + '/' + m[2] + '/' + m[1] : '';
+    }
+
+    function textoDoSelect(form, nome, vazio) {
+        var el = form ? form.querySelector('select[name="' + nome + '"]') : null;
+        if (!el || el.value === '') {
+            return vazio;
+        }
+        var opt = el.options[el.selectedIndex];
+
+        return opt ? opt.textContent.trim() : vazio;
+    }
+
+    function atualizarCabecalhoImpressao(root) {
+        var form   = root.querySelector('[data-filtro-form]');
+        var campos = camposDeData(root);
+        var periodo = root.querySelector('.db-print-periodo');
+        var facetas = root.querySelector('.db-print-facetas');
+        var quando  = root.querySelector('.db-print-quando');
+
+        if (periodo && campos) {
+            periodo.textContent = (dataBr(campos.de.value) || 'início') + ' a ' + (dataBr(campos.ate.value) || 'hoje');
+        }
+        if (facetas) {
+            facetas.textContent = textoDoSelect(form, 'responsavel', 'Todos os responsáveis')
+                + ' · ' + textoDoSelect(form, 'cargo', 'Todos os cargos');
+        }
+        if (quando) {
+            var d = new Date();
+            quando.textContent = p2(d.getDate()) + '/' + p2(d.getMonth() + 1) + '/' + d.getFullYear()
+                + ' às ' + p2(d.getHours()) + ':' + p2(d.getMinutes());
+        }
+    }
+
+    function ligarExportarPdf(root) {
+        var html = document.documentElement;
+        var temaAntes = null;
+
+        window.addEventListener('beforeprint', function () {
+            atualizarCabecalhoImpressao(root);
+            if (html.getAttribute('data-bs-theme') === 'dark') {
+                temaAntes = 'dark';
+                html.setAttribute('data-bs-theme', 'light');
+            }
+        });
+        window.addEventListener('afterprint', function () {
+            if (temaAntes !== null) {
+                html.setAttribute('data-bs-theme', temaAntes);
+                temaAntes = null;
+            }
+        });
+
+        root.addEventListener('click', function (e) {
+            if (!e.target.closest('.js-db-exportar-pdf')) {
+                return;
+            }
+            var tituloAntes = document.title;
+            var d = new Date();
+            document.title = 'BlueJus Relatorio de desempenho ' + p2(d.getDate()) + '.' + p2(d.getMonth() + 1) + '.' + d.getFullYear();
+            window.setTimeout(function () {
+                window.print();
+                window.setTimeout(function () { document.title = tituloAntes; }, 400);
+            }, 60);
+        });
+    }
+
     function iniciar(root) {
         ligarSegmentado(root);
+        ligarLegendasEmToque(root);
+        ligarExportarPdf(root);
 
         var resultado = root.querySelector('[data-filtro-resultado]');
         if (!resultado) {

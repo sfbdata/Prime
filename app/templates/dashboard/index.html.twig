@@ -25,11 +25,34 @@
         {% set cargoOpcoes = cargoOpcoes|merge([{ valor: c, label: c }]) %}
     {% endfor %}
 
+    {# Cabeçalho do PDF (só na impressão): período e filtros do momento. O servidor
+       escreve o estado da carga; o dashboard.js reescreve no `beforeprint`, porque os
+       filtros mudam por XHR sem recarregar a casca. #}
+    {% set fmtDe  = filtros.data_de|default('') %}
+    {% set fmtAte = filtros.data_ate|default('') %}
+    {% set respNome = 'Todos os responsáveis' %}
+    {% for o in respOpcoes %}
+        {% if (o.valor ~ '') == filtros.responsavel|default('') %}{% set respNome = o.label %}{% endif %}
+    {% endfor %}
+    {% set cargoNome = filtros.cargo|default('') != '' ? filtros.cargo : 'Todos os cargos' %}
+
     {# Ordem do desenho: título → filtros → cards → tabela. O título fica DENTRO do
        root para dividir a primeira linha do flex com o "Atualizado às", que mora no
-       fragmento (renova a cada XHR); a posição de cada bloco é dada por `order` no CSS. #}
-    <div data-filtro-root data-filtro-endpoint="{{ path('dashboard_index') }}">
-        <h1 class="db-titulo">Dashboard</h1>
+       fragmento (renova a cada XHR); a posição de cada bloco é dada por `order` no CSS.
+       `data-ft-rotulo-limpar`: opção do filtro-tabela.js para o texto do botão (desenho). #}
+    <div data-filtro-root data-filtro-endpoint="{{ path('dashboard_index') }}" data-ft-rotulo-limpar="Limpar filtros">
+        <div class="db-print-cabecalho">
+            <div class="db-print-cabecalho-esq">
+                <div class="db-print-marca">BlueJus · Dashboard</div>
+                <div class="db-print-titulo">Relatório de desempenho</div>
+                <div class="db-print-filtros">Período <span class="db-print-periodo">{{ fmtDe != '' ? fmtDe|split('-')|reverse|join('/') : 'início' }} a {{ fmtAte != '' ? fmtAte|split('-')|reverse|join('/') : 'hoje' }}</span> · <span class="db-print-facetas">{{ respNome }} · {{ cargoNome }}</span></div>
+            </div>
+            <div class="db-print-gerado">Gerado em <span class="db-print-quando">{{ 'now'|date('d/m/Y') }} às {{ 'now'|date('H:i') }}</span><br>por {{ app.user.fullName }}</div>
+        </div>
+
+        {# O texto vive num <span>: a revelação (clip-path) e o brilho ficam nele, e o
+           símbolo que rola por cima pode sair da caixa do texto sem ser cortado. #}
+        <h1 class="db-titulo"><span class="db-titulo-texto">Dashboard</span><img class="db-titulo-simbolo" src="{{ asset('images/logo/bluejus_simbolo.svg') }}" alt="" aria-hidden="true"></h1>
 
         <div class="db-filtro-wrap">
         {# Segmentado de período (Este mês · 60 dias · 90 dias · Este ano). Preenche os
@@ -70,6 +93,14 @@
         <div data-filtro-resultado>
             {{ include('dashboard/_resultado.html.twig') }}
         </div>
+
+        {# Exportar PDF: impressão do navegador (A4 paisagem, @media print no CSS),
+           com o nome do arquivo sugerido pelo document.title (dashboard.js). #}
+        <div class="db-acoes">
+            <button type="button" class="db-btn-pdf js-db-exportar-pdf" title="Exportar relatório em PDF"><i class="bi bi-file-earmark-arrow-down"></i>Exportar PDF</button>
+        </div>
+
+        <div class="db-print-rodape">Documento gerado pelo BlueJus para uso interno do escritório.</div>
     </div>
 </section>
 {% endblock %}
