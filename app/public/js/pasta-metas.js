@@ -7,10 +7,12 @@
         `data-meta-estado`, calculado por `PastaMetasResumoOutput`);
      2. atalhos de prazo do modal (Hoje · Amanhã · +5 úteis · +15 úteis) e o
         texto do dia escolhido — só PREENCHEM o campo; nada fica obrigatório;
-     3. aviso de meta aberta com título parecido — alerta, não bloqueia.
+     3. aviso de meta aberta com título parecido — alerta, não bloqueia;
+     4. "Editar nome" no ⋮: mostra o formulário de renomear sobre o título da
+        linha (Enter salva, Esc ou "Cancelar" desiste).
 
-   "Concluir" na lista é um <form> comum (POST + CSRF ao `tarefa_concluir`); o
-   menu ⋮ que o contém é aberto pelo pasta-show.js (`data-ps-pop`).
+   Concluir, reabrir, renomear e o sino são <form> comuns (POST + CSRF); os menus
+   que os contêm são abertos pelo pasta-show.js (`data-ps-pop`).
    ============================================================================= */
 (function () {
     'use strict';
@@ -19,6 +21,7 @@
         filtrosDaLista();
         atalhosDePrazo();
         avisoDeTituloRepetido();
+        renomearNaLista();
     }
 
     if (document.readyState === 'loading') {
@@ -239,5 +242,89 @@
 
         var modal = document.getElementById('modalCriarTarefa');
         if (modal) { modal.addEventListener('show.bs.modal', verificar); }
+    }
+
+    /* ── 4. Renomear na lista ─────────────────────────────────────────────── */
+    /* O formulário é filho da linha (fora da âncora "abrir a meta"); aqui ele é
+       colocado exatamente sobre o título: mesma esquerda e largura do corpo da
+       linha, o título fica invisível e reserva a altura do campo. Quem grava é o
+       POST normal do formulário (Enter no campo submete). */
+    function posicionarEditor(linha, form) {
+        var corpo = linha.querySelector('.ps-meta-corpo');
+        var titulo = linha.querySelector('.ps-meta-titulo');
+        if (!corpo || !titulo) { return; }
+        var base = linha.getBoundingClientRect();
+        var c = corpo.getBoundingClientRect();
+        var t = titulo.getBoundingClientRect();
+        form.style.left = (c.left - base.left) + 'px';
+        form.style.width = c.width + 'px';
+        form.style.top = (t.top - base.top) + 'px';
+    }
+
+    function renomearNaLista() {
+        var cartao = document.querySelector('[data-ps-metas]');
+        if (!cartao) { return; }
+        var aberta = null;
+
+        function fechar() {
+            if (!aberta) { return; }
+            var form = aberta.querySelector('.ps-meta-renomear');
+            var campo = form.querySelector('.ps-meta-ren-campo');
+            campo.value = campo.defaultValue; // desistir devolve o nome de antes
+            form.hidden = true;
+            aberta.classList.remove('is-renomeando');
+            aberta = null;
+        }
+
+        function abrir(linha) {
+            fechar();
+            var form = linha.querySelector('.ps-meta-renomear');
+            if (!form) { return; }
+            aberta = linha;
+            linha.classList.add('is-renomeando');
+            form.hidden = false;
+            posicionarEditor(linha, form);
+            var campo = form.querySelector('.ps-meta-ren-campo');
+            campo.focus();
+            campo.select();
+        }
+
+        cartao.addEventListener('click', function (e) {
+            var item = e.target.closest('[data-ps-meta-renomear]');
+            if (item) {
+                var linha = item.closest('.ps-meta');
+                if (linha) { abrir(linha); }
+                return;
+            }
+            if (e.target.closest('.ps-meta-ren-cancelar')) { fechar(); }
+        });
+
+        cartao.addEventListener('keydown', function (e) {
+            if (e.key !== 'Escape' || !e.target.closest('.ps-meta-renomear')) { return; }
+            e.preventDefault();
+            fechar();
+        });
+
+        // O nome vazio não sai do navegador (`required`), mas espaço puro sim:
+        // o servidor recusa; aqui só se evita a ida e volta.
+        cartao.addEventListener('submit', function (e) {
+            var form = e.target.closest('.ps-meta-renomear');
+            if (!form) { return; }
+            var campo = form.querySelector('.ps-meta-ren-campo');
+            if (campo.value.trim() === '') {
+                e.preventDefault();
+                campo.value = '';
+                campo.reportValidity();
+            }
+        });
+
+        window.addEventListener('resize', function () {
+            if (aberta) { posicionarEditor(aberta, aberta.querySelector('.ps-meta-renomear')); }
+        });
+
+        // Trocar de filtro esconde linhas: o editor de uma linha escondida é largado.
+        cartao.addEventListener('click', function (e) {
+            if (e.target.closest('[data-ps-metas-filtro]') && aberta && aberta.hidden) { fechar(); }
+        });
     }
 }());

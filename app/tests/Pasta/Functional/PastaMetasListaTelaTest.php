@@ -236,7 +236,7 @@ final class PastaMetasListaTelaTest extends JusPrimeWebTestCase
     // Concluir na lista
     // =========================================================================
 
-    #[TestDox('meta aberta: o ⋮ traz "Marcar como concluída", um POST ao tarefa_concluir de sempre com o token concluir_tarefa_<id>; concluída não tem ⋮')]
+    #[TestDox('meta aberta: o ⋮ traz "Marcar como concluída", um POST ao tarefa_concluir de sempre com o token concluir_tarefa_<id>; na concluída o ⋮ não oferece concluir')]
     public function testMenuConcluirApontaParaOEndpointReal(): void
     {
         $client          = static::createClient();
@@ -261,7 +261,8 @@ final class PastaMetasListaTelaTest extends JusPrimeWebTestCase
         self::assertNotSame('', (string) $form->filter('input[type="hidden"][name="_token"]')->attr('value'));
         self::assertSame('Marcar como concluída', trim($form->filter('button[type="submit"].ps-pop-item')->text()));
 
-        self::assertCount(0, $crawler->filter('article.ps-meta[data-meta-id="' . $concluida->getId() . '"] .ps-meta-acoes'), 'reabrir é da onda 2: sem item real, sem ⋮');
+        // Concluída: o ⋮ existe (reabrir/editar nome, ver MetaNaListaTelaTest), mas sem concluir.
+        self::assertCount(0, $crawler->filter('article.ps-meta[data-meta-id="' . $concluida->getId() . '"] form.ps-meta-concluir'));
     }
 
     #[TestDox('submeter o form da lista conclui a meta (token REAL da sessão), volta para a aba Metas e a linha passa a "concluída no prazo"')]
@@ -289,7 +290,8 @@ final class PastaMetasListaTelaTest extends JusPrimeWebTestCase
         $linha = $crawler->filter('.ps-metas-lista > article.ps-meta[data-meta-id="' . $metaId . '"]');
         self::assertSame('concluida', $linha->attr('data-meta-estado'));
         self::assertSame('concluída no prazo ' . $prazo, trim($linha->filter('.ps-meta-linha > .ps-meta-prazo')->text()));
-        self::assertCount(0, $linha->filter('.ps-meta-acoes'));
+        self::assertCount(0, $linha->filter('.ps-meta-acoes form.ps-meta-concluir'), 'concluída não oferece concluir de novo');
+        self::assertCount(1, $linha->filter('.ps-meta-acoes form.ps-meta-reabrir'), 'oferece reabrir');
     }
 
     #[TestDox('POST com token inválido não conclui (o CSRF do endpoint continua valendo)')]

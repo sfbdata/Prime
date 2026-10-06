@@ -1,15 +1,18 @@
 {# Aba Metas da pasta — desenho 1.2.3 (padrão PJe): cartão com cabeçalho e os
    filtros Abertas · Atrasadas · Concluídas · Todas, lista sobre fundo cinza, uma
    linha por meta com a borda colorida pelo estado REAL (concluída · atrasada =
-   aberta com prazo no passado · aberta), numeração local e o menu ⋮ com
-   "Marcar como concluída" (POST ao `tarefa_concluir` de sempre, mesmo CSRF).
+   aberta com prazo no passado · aberta), numeração local, o sino "Alertar para
+   verificar" (meta aberta) e o menu ⋮ com "Marcar como concluída" / "Reabrir
+   meta" e "Editar nome". Tudo é POST de formulário com CSRF:
+   `tarefa_concluir` (de sempre), `tarefa_reabrir`, `tarefa_renomear` e
+   `tarefa_alertar` (MetaNaListaController), com a mesma guarda do concluir.
 
    Ordem, número, estado, dias até o prazo e rótulo do prazo concluído vêm de `metasResumo.linhas`
-   (`PastaMetasResumoOutput`) — nada é contado nem decidido aqui. O filtro roda
-   no navegador sobre a lista inteira (pasta-metas.js): a lista não é paginada.
+   (`PastaMetasResumoOutput`) — nada é contado nem decidido aqui. O filtro e a
+   edição do nome rodam no navegador (pasta-metas.js): a lista não é paginada.
 
-   O que é função nova NÃO aparece: número global, renomear, reabrir, sino,
-   encaminhar, drawer do relatório (onda 2). #}
+   O que não tem lastro NÃO aparece: número global, duplicar, encaminhar,
+   copiar link, drawer do relatório e o estado "Alertado às HH:MM" do sino. #}
 {% set statusLabelTarefa = {
     'pendente':   'Pendente',
     'em_revisao': 'Para Revisão',
@@ -91,23 +94,68 @@
                             </span>
                         </div>
                     </a>
-                    {# Só meta aberta tem ação no menu nesta onda (reabrir é da onda 2):
-                       sem item real, o ⋮ não é desenhado. #}
-                    {% if not concluida and podeConcluir %}
+                    {% if podeConcluir %}
+                        {# Sino do desenho (`sinoMeta`): só meta aberta; lista os
+                           responsáveis da meta, sem o próprio usuário. Sem ninguém a
+                           alertar, o sino não é desenhado. #}
+                        {% set alertaveis = tarefa.responsaveis.toArray|filter(r => app.user is null or r.id != app.user.id) %}
+                        {% if not concluida and alertaveis|length > 0 %}
+                            <div class="ps-pop-wrap ps-meta-sino-wrap">
+                                <button type="button" class="ps-meta-sino" title="Alertar para verificar" aria-label="Alertar para verificar"
+                                        data-ps-pop="psMetaSino{{ tarefa.id }}" aria-haspopup="menu" aria-expanded="false">
+                                    <i class="bi bi-bell"></i>
+                                </button>
+                                <div class="ps-pop ps-pop--meta ps-pop--sino" aria-label="Alertar para verificar a meta {{ linha.numero }}" id="psMetaSino{{ tarefa.id }}" role="menu">
+                                    <div class="ps-pop-secao">Alertar para verificar</div>
+                                    {% for r in alertaveis %}
+                                        <form method="post" action="{{ path('tarefa_alertar', {id: tarefa.id}) }}" class="ps-meta-alertar">
+                                            <input type="hidden" name="_token" value="{{ csrf_token('alertar_tarefa_' ~ tarefa.id) }}">
+                                            <input type="hidden" name="usuario" value="{{ r.id }}">
+                                            <button type="submit" class="ps-pop-item" role="menuitem">
+                                                <i class="bi bi-bell"></i><span>{{ r.fullName }} · responsável</span>
+                                            </button>
+                                        </form>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        {% endif %}
                         <div class="ps-pop-wrap ps-meta-acoes">
                             <button type="button" class="ps-meta-menu-btn" title="Mais ações da meta" aria-label="Mais ações da meta"
                                     data-ps-pop="psMetaMenu{{ tarefa.id }}" aria-haspopup="menu" aria-expanded="false">
                                 <i class="bi bi-three-dots-vertical"></i>
                             </button>
                             <div class="ps-pop ps-pop--meta" aria-label="Ações da meta {{ linha.numero }}" id="psMetaMenu{{ tarefa.id }}" role="menu">
-                                <form method="post" action="{{ path('tarefa_concluir', {id: tarefa.id}) }}" class="ps-meta-concluir">
-                                    <input type="hidden" name="_token" value="{{ csrf_token('concluir_tarefa_' ~ tarefa.id) }}">
-                                    <button type="submit" class="ps-pop-item" role="menuitem">
-                                        <i class="bi bi-check2-circle"></i><span>Marcar como concluída</span>
-                                    </button>
-                                </form>
+                                {% if concluida %}
+                                    <form method="post" action="{{ path('tarefa_reabrir', {id: tarefa.id}) }}" class="ps-meta-reabrir">
+                                        <input type="hidden" name="_token" value="{{ csrf_token('reabrir_tarefa_' ~ tarefa.id) }}">
+                                        <button type="submit" class="ps-pop-item" role="menuitem">
+                                            <i class="bi bi-arrow-counterclockwise"></i><span>Reabrir meta</span>
+                                        </button>
+                                    </form>
+                                {% else %}
+                                    <form method="post" action="{{ path('tarefa_concluir', {id: tarefa.id}) }}" class="ps-meta-concluir">
+                                        <input type="hidden" name="_token" value="{{ csrf_token('concluir_tarefa_' ~ tarefa.id) }}">
+                                        <button type="submit" class="ps-pop-item" role="menuitem">
+                                            <i class="bi bi-check2-circle"></i><span>Marcar como concluída</span>
+                                        </button>
+                                    </form>
+                                {% endif %}
+                                <button type="button" class="ps-pop-item" role="menuitem" data-ps-meta-renomear="{{ tarefa.id }}">
+                                    <i class="bi bi-pencil"></i><span>Editar nome</span>
+                                </button>
                             </div>
                         </div>
+                        {# Edição do nome no lugar do título (desenho: campo + Salvar +
+                           Cancelar; Enter salva, Esc cancela). Fica FORA da âncora —
+                           campo dentro de link não é HTML válido — e o pasta-metas.js o
+                           posiciona sobre o título. #}
+                        <form method="post" action="{{ path('tarefa_renomear', {id: tarefa.id}) }}" class="ps-meta-renomear" hidden>
+                            <input type="hidden" name="_token" value="{{ csrf_token('renomear_tarefa_' ~ tarefa.id) }}">
+                            <input type="text" name="titulo" class="ps-meta-ren-campo" value="{{ tarefa.titulo }}"
+                                   aria-label="Nome da meta" maxlength="160" required autocomplete="off">
+                            <button type="submit" class="ps-meta-ren-salvar">Salvar</button>
+                            <button type="button" class="ps-meta-ren-cancelar">Cancelar</button>
+                        </form>
                     {% endif %}
                 </article>
             {% endfor %}

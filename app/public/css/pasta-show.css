@@ -2943,6 +2943,67 @@ a.ps-push-doc-link:hover { color: var(--ps-push-doc); text-decoration: underline
 /* O menu aberto fica por cima das linhas seguintes (cada linha e posicionada). */
 .ps-meta:has(.ps-pop.is-aberto) { z-index: 5; }
 
+/* Sino "Alertar para verificar" (desenho `sinoMeta`: 30x30, cinza; hover laranja
+   claro). Fica antes do ⋮, so em meta aberta. */
+.ps-body { --ps-sino-hover-bg: #fff1e6; --ps-sino-hover: #e8590c; }
+[data-bs-theme="dark"] .ps-body { --ps-sino-hover-bg: rgba(232,89,12,.16); --ps-sino-hover: #ff8a4c; }
+.ps-meta-sino-wrap { flex-shrink: 0; }
+.ps-meta-sino {
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    color: var(--ps-faint);
+    font-size: 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background .15s, color .15s;
+}
+.ps-meta-sino:hover,
+.ps-meta-sino[aria-expanded="true"] { background: var(--ps-sino-hover-bg); color: var(--ps-sino-hover); }
+.ps-pop--sino { width: 230px; padding: 5px; }
+.ps-pop--sino .ps-pop-secao { padding: 6px 10px 4px; }
+
+/* "Editar nome": o formulario e filho da linha e o pasta-metas.js o poe sobre o
+   titulo (que fica invisivel reservando a altura do campo). Desenho: campo 32px
+   com borda e anel azuis, "Salvar" azul e "Cancelar" cinza. */
+.ps-meta.is-renomeando,
+.ps-meta.is-renomeando:hover { transform: none; transition: none; z-index: 4; }
+.ps-meta.is-renomeando .ps-meta-titulo { visibility: hidden; min-height: 32px; }
+.ps-meta-renomear { position: absolute; z-index: 2; display: flex; align-items: center; gap: 6px; margin: 0; }
+.ps-meta-renomear[hidden] { display: none; }
+.ps-meta-ren-campo {
+    flex: 1 1 260px;
+    min-width: 0;
+    height: 32px;
+    padding: 0 10px;
+    border: 1px solid var(--ps-accent);
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ps-text);
+    background: var(--ps-card);
+    outline: none;
+    box-shadow: 0 0 0 3px var(--ps-foco-anel);
+}
+.ps-meta-ren-salvar,
+.ps-meta-ren-cancelar {
+    height: 32px;
+    border: none;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 700;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+.ps-meta-ren-salvar { padding: 0 12px; background: var(--ps-accent); color: #fff; }
+.ps-meta-ren-cancelar { padding: 0 10px; background: var(--ps-trilho-cab-bg); color: var(--ps-forte-2); }
+
 /* "Abrir meta existente" (aviso do modal): a linha e destacada por 4s. */
 @keyframes psMetaDestaque {
     0%, 30% { box-shadow: 0 0 0 3px var(--ps-accent), var(--ps-shadow-meta-hv); }
