@@ -205,7 +205,9 @@ final class DashboardInteligenciaTelaTest extends DashboardWebTestCase
             'A equipe encerrou o período com 0 metas concluídas. 2 metas abertas no período, 0 concluídas e 2 ativas.',
             $this->textoLimpo($oQue),
         );
-        self::assertSame('dia 29 de 29', $this->textoLimpo($painel->filter('.db-ia-sub > .db-ia-dia')));
+        // "dia X de Y" no topo do bloco de ritmo, à direita (dc L1282-1286), não no subcabeçalho.
+        self::assertSame('dia 29 de 29', $this->textoLimpo($painel->filter('.db-ia-corpo > .db-ia-ritmo > .db-ia-ritmo-topo:first-child > .db-ia-dia')));
+        self::assertCount(0, $painel->filter('.db-ia-sub .db-ia-dia'));
 
         $acoes = $painel->filter('.db-ia-acoes > .db-ia-acao');
         self::assertGreaterThanOrEqual(2, $acoes->count());
@@ -288,7 +290,8 @@ final class DashboardInteligenciaTelaTest extends DashboardWebTestCase
 
         $painel = $this->painel($client->request('GET', '/dashboard'));
 
-        self::assertCount(0, $painel->filter('.db-ia-sub > .db-ia-dia'));
+        self::assertCount(0, $painel->filter('.db-ia-dia'));
+        self::assertCount(0, $painel->filter('.db-ia-ritmo-topo'));
         self::assertCount(0, $painel->filter('.db-ia-ritmo-grade'));
         self::assertCount(0, $painel->filter('.db-ia-q-texto[data-tipo="fase"]'));
         $limites = $painel->filter('.db-ia-limites > ul > li');

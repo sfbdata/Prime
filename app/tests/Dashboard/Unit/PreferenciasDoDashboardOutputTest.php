@@ -27,6 +27,7 @@ final class PreferenciasDoDashboardOutputTest extends TestCase
             'dashboard.animacoes'       => 'ligadas',
             'dashboard.setas'           => 'ligadas',
             'dashboard.colunas_ocultas' => [],
+            'dashboard.sons'            => 'ligados',
         ], $prefs->paraArray());
     }
 
@@ -38,10 +39,11 @@ final class PreferenciasDoDashboardOutputTest extends TestCase
             'dashboard.animacoes'       => 'reduzidas',
             'dashboard.setas'           => 'desligadas',
             'dashboard.colunas_ocultas' => ['cargo', 'prazos'],
+            'dashboard.sons'            => 'desligados',
         ]);
 
         self::assertSame(
-            'db-page--confortavel db-page--sem-anim db-page--sem-setas db-oculta--cargo db-oculta--prazos',
+            'db-page--confortavel db-page--sem-anim db-page--sem-setas db-page--sem-som db-oculta--cargo db-oculta--prazos',
             $prefs->classesCss(),
         );
     }
@@ -54,12 +56,14 @@ final class PreferenciasDoDashboardOutputTest extends TestCase
             'dashboard.animacoes'       => 'reduzidas',
             'dashboard.colunas_ocultas' => ['salario'],
             'dashboard.sons'            => true,
+            'dashboard.zerar'           => true,
         ]);
 
         self::assertSame('compacta', $prefs->densidade);
         self::assertSame('reduzidas', $prefs->animacoes);
         self::assertSame([], $prefs->colunasOcultas);
-        self::assertArrayNotHasKey('dashboard.sons', $prefs->paraArray());
+        self::assertSame('ligados', $prefs->sons, 'o booleano do protótipo cai no padrão (ligados)');
+        self::assertArrayNotHasKey('dashboard.zerar', $prefs->paraArray());
         self::assertSame('db-page--sem-anim', $prefs->classesCss());
     }
 }

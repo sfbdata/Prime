@@ -362,11 +362,11 @@ final class DashboardLote4TelaTest extends DashboardWebTestCase
         self::assertEquals(['/tarefas/equipe', ['status' => 'ativas', 'responsavel' => $id, 'data_de' => '2024-02-01', 'data_ate' => '2024-02-29']], $this->destino($ativas));
 
         // relativas a hoje: sem período (e a meta vencida do outro escritório não conta)
-        $venc = $tds->eq(4)->filter('td > a.db-pill.db-pill--venc.db-num-link');
+        $venc = $tds->eq(4)->filter('td > .db-cel > a.db-pill.db-pill--venc.db-num-link');
         self::assertSame('1', trim($venc->text()));
         self::assertEquals(['/tarefas/equipe', ['status' => 'vencidas', 'responsavel' => $id]], $this->destino($venc));
 
-        $praz = $tds->eq(5)->filter('td > a.db-pill.db-pill--praz.db-num-link');
+        $praz = $tds->eq(5)->filter('td > .db-cel > a.db-pill.db-pill--praz.db-num-link');
         self::assertSame('1', trim($praz->text()));
         self::assertEquals(['/tarefas/equipe', ['status' => 'prazo_proximo', 'responsavel' => $id]], $this->destino($praz));
     }

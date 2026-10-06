@@ -162,7 +162,7 @@ final class DashboardPreferenciasTelaTest extends DashboardWebTestCase
         self::assertStringContainsString((string) $user->getFullName(), $crawler->filter($menu . ' .db-pref-faixa')->text());
     }
 
-    #[TestDox('O menu não oferece o que o sistema não tem: sons, "Adicionar coluna", zerar')]
+    #[TestDox('O menu não oferece o que o sistema não tem: "Adicionar coluna", zerar')]
     public function testMenuSemOQueNaoExiste(): void
     {
         $client = static::createClient();
@@ -171,10 +171,74 @@ final class DashboardPreferenciasTelaTest extends DashboardWebTestCase
         $crawler = $client->request('GET', '/dashboard');
         $texto   = $crawler->filter('section.db-page > .db-pref')->text();
 
-        self::assertStringNotContainsString('Sons', $texto);
         self::assertStringNotContainsString('Adicionar coluna', $texto);
         self::assertStringNotContainsString('Zerar', $texto);
         self::assertSame(1, $crawler->filter('section.db-page > .db-pref [data-pref-mostrar-todas][hidden]')->count(), 'sem coluna oculta, "Mostrar todas" fica escondido');
+    }
+
+    #[TestDox('Sons: no "Meu estilo", entre Densidade e Animações, ligado por padrão e sem classe no .db-page')]
+    public function testSonsNoMeuEstiloLigadoPorPadrao(): void
+    {
+        $client = static::createClient();
+        $this->criarGestorLogado($client);
+
+        $crawler = $client->request('GET', '/dashboard');
+
+        self::assertResponseIsSuccessful();
+        $menu = 'section.db-page > .db-pref > .db-pref-menu[role="menu"]';
+        // filho direto do menu, logo depois da linha de Densidade e logo antes de Animações (dc L646-664)
+        self::assertSame(1, $crawler->filter($menu . ' > .db-pref-linha + button.db-pref-item[data-pref-chave="dashboard.sons"] + button.db-pref-item[data-pref-chave="dashboard.animacoes"]')->count());
+        $sons = $crawler->filter($menu . ' > button[data-pref-chave="dashboard.sons"]');
+        self::assertSame('menuitemcheckbox', $sons->attr('role'));
+        self::assertSame('true', $sons->attr('aria-checked'));
+        self::assertSame('ligados', $sons->attr('data-pref-liga'));
+        self::assertSame('desligados', $sons->attr('data-pref-desliga'));
+        self::assertSame(1, $sons->filter('button > i.bi-volume-up')->count());
+        self::assertSame('Sons', trim($sons->filter('button > .db-pref-rotulo')->text()));
+        self::assertSame('db-page', $crawler->filter('section.db-page')->attr('class'));
+    }
+
+    #[TestDox('Sons desligados gravados: o .db-page nasce com db-page--sem-som e o interruptor desligado')]
+    public function testSonsDesligadosGravados(): void
+    {
+        $client = static::createClient();
+        [$user, $tenant] = $this->criarGestorLogado($client);
+        $this->repo()->gravar($tenant, $user, 'dashboard.sons', 'desligados');
+
+        $crawler = $client->request('GET', '/dashboard');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('db-page db-page--sem-som', $crawler->filter('section.db-page')->attr('class'));
+        self::assertSame(1, $crawler->filter('section.db-page > .db-pref > .db-pref-menu > button[data-pref-chave="dashboard.sons"][aria-checked="false"]')->count());
+        $estado = json_decode((string) $crawler->filter('section.db-page')->attr('data-preferencias'), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame('desligados', $estado['dashboard.sons']);
+    }
+
+    #[TestDox('O som do calendário obedece à classe db-page--sem-som, a mesma que o menu liga (contrato entre os dois JS)')]
+    public function testCalendarioLeAClasseDoSom(): void
+    {
+        $dir     = static::getContainer()->getParameter('kernel.project_dir') . '/public/js/';
+        $filtros = (string) file_get_contents($dir . 'dashboard-filtros.js');
+        $prefs   = (string) file_get_contents($dir . 'dashboard-preferencias.js');
+
+        self::assertStringContainsString("'.db-page.db-page--sem-som'", $filtros);
+        self::assertStringContainsString("lista.push('db-page--sem-som')", $prefs);
+        self::assertStringNotContainsString('localStorage.setItem', $filtros, 'a preferência mora no servidor');
+        self::assertStringNotContainsString('localStorage.setItem', $prefs, 'a preferência mora no servidor');
+    }
+
+    #[TestDox('O estilo de um colega (inclusive sons desligados) não aparece na minha tela')]
+    public function testSonsDoColegaNaoVazam(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarGestorLogado($client);
+        $colega = $this->criarColaborador($tenant, 'Colega Mudo');
+        $this->repo()->gravar($tenant, $colega, 'dashboard.sons', 'desligados');
+
+        $crawler = $client->request('GET', '/dashboard');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('db-page', $crawler->filter('section.db-page')->attr('class'));
     }
 
     #[TestDox('A última numérica visível vem travada no menu (aria-disabled)')]

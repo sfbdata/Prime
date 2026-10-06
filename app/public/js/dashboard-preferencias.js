@@ -13,7 +13,11 @@
  * estado e os ouvintes sobrevivem. As classes moram no `.db-page`, que não é trocado.
  *
  * Classes (as mesmas de PreferenciasDoDashboardOutput::classesCss()):
- *   db-page--confortavel · db-page--sem-anim · db-page--sem-setas · db-oculta--<coluna>
+ *   db-page--confortavel · db-page--sem-anim · db-page--sem-setas · db-page--sem-som ·
+ *   db-oculta--<coluna>
+ *
+ * `db-page--sem-som` é lido pelo dashboard-filtros.js na hora de tocar o som do calendário: a
+ * escolha vale na hora, sem recarregar.
  */
 (function () {
     'use strict';
@@ -28,6 +32,7 @@
     var CH_ANIMACOES = 'dashboard.animacoes';
     var CH_SETAS = 'dashboard.setas';
     var CH_COLUNAS = 'dashboard.colunas_ocultas';
+    var CH_SONS = 'dashboard.sons';
     var OCULTAVEIS = ['cargo', 'metas', 'metas_ativas', 'metas_vencidas', 'prazos', 'demandas', 'demandas_ativas', 'pastas_criadas'];
     var NUMERICAS = OCULTAVEIS.slice(1);
     var PADRAO = {};
@@ -35,6 +40,7 @@
     PADRAO[CH_ANIMACOES] = 'ligadas';
     PADRAO[CH_SETAS] = 'ligadas';
     PADRAO[CH_COLUNAS] = [];
+    PADRAO[CH_SONS] = 'ligados';
 
     var endpoint = pagina.getAttribute('data-preferencias-endpoint');
     var botao = pref.querySelector('.db-pref-btn');
@@ -71,13 +77,14 @@
         if (e[CH_DENSIDADE] === 'confortavel') { lista.push('db-page--confortavel'); }
         if (e[CH_ANIMACOES] === 'reduzidas') { lista.push('db-page--sem-anim'); }
         if (e[CH_SETAS] === 'desligadas') { lista.push('db-page--sem-setas'); }
+        if (e[CH_SONS] === 'desligados') { lista.push('db-page--sem-som'); }
         ocultas(e).forEach(function (c) { lista.push('db-oculta--' + c); });
         return lista;
     }
 
     function aplicarClasses(lista) {
         Array.prototype.slice.call(pagina.classList).forEach(function (c) {
-            if (/^db-page--(confortavel|sem-anim|sem-setas)$/.test(c) || c.indexOf('db-oculta--') === 0) {
+            if (/^db-page--(confortavel|sem-anim|sem-setas|sem-som)$/.test(c) || c.indexOf('db-oculta--') === 0) {
                 pagina.classList.remove(c);
             }
         });

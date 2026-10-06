@@ -121,6 +121,7 @@
                     {%- else -%}
                         <span class="db-num db-num--zero">0</span>
                     {%- endif -%}
+                    {{- tend.tendencia(linha.metasVencidas, linha.metasVencidasAnterior, 'seta', 'baixa') -}}
                 </span>
             </div>
             <div class="db-cel-bloco db-cel-bloco--meta" data-coluna="prazos">
@@ -131,6 +132,7 @@
                     {%- else -%}
                         <span class="db-num db-num--zero">0</span>
                     {%- endif -%}
+                    {{- tend.tendencia(linha.prazosProximos, linha.prazosProximosAnterior, 'seta', 'baixa') -}}
                 </span>
             </div>
             <div class="db-cel-bloco db-cel-bloco--pasta" data-coluna="demandas">

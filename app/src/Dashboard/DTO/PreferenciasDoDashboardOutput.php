@@ -25,6 +25,7 @@ final class PreferenciasDoDashboardOutput
         public readonly string $animacoes,
         public readonly string $setas,
         public readonly array $colunasOcultas,
+        public readonly string $sons,
     ) {
     }
 
@@ -55,6 +56,7 @@ final class PreferenciasDoDashboardOutput
             $valor(Catalogo::ANIMACOES),
             $valor(Catalogo::SETAS),
             $valor(Catalogo::COLUNAS_OCULTAS),
+            $valor(Catalogo::SONS),
         );
     }
 
@@ -70,6 +72,7 @@ final class PreferenciasDoDashboardOutput
             Catalogo::ANIMACOES       => $this->animacoes,
             Catalogo::SETAS           => $this->setas,
             Catalogo::COLUNAS_OCULTAS => $this->colunasOcultas,
+            Catalogo::SONS            => $this->sons,
         ];
     }
 
@@ -89,6 +92,9 @@ final class PreferenciasDoDashboardOutput
         }
         if ($this->setas === Catalogo::SETAS_DESLIGADAS) {
             $classes[] = 'db-page--sem-setas';
+        }
+        if ($this->sons === Catalogo::SONS_DESLIGADOS) {
+            $classes[] = 'db-page--sem-som';
         }
         foreach ($this->colunasOcultas as $coluna) {
             $classes[] = 'db-oculta--' . $coluna;

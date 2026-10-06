@@ -18,11 +18,11 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(Catalogo::class)]
 final class CatalogoDePreferenciasDoDashboardTest extends TestCase
 {
-    #[TestDox('As chaves aceitas são exatamente as quatro do menu (sons, extras e zerar ficam de fora)')]
+    #[TestDox('As chaves aceitas são exatamente as cinco do menu (extras e zerar ficam de fora)')]
     public function testChavesFechadas(): void
     {
         self::assertSame(
-            ['dashboard.densidade', 'dashboard.animacoes', 'dashboard.setas', 'dashboard.colunas_ocultas'],
+            ['dashboard.densidade', 'dashboard.animacoes', 'dashboard.setas', 'dashboard.colunas_ocultas', 'dashboard.sons'],
             Catalogo::chaves(),
         );
     }
@@ -38,6 +38,8 @@ final class CatalogoDePreferenciasDoDashboardTest extends TestCase
         yield 'setas desligadas'      => [Catalogo::SETAS, 'desligadas'];
         yield 'nenhuma coluna oculta' => [Catalogo::COLUNAS_OCULTAS, []];
         yield 'cargo oculto'          => [Catalogo::COLUNAS_OCULTAS, ['cargo']];
+        yield 'sons ligados'          => [Catalogo::SONS, 'ligados'];
+        yield 'sons desligados'       => [Catalogo::SONS, 'desligados'];
     }
 
     #[DataProvider('valoresAceitos')]
@@ -50,7 +52,11 @@ final class CatalogoDePreferenciasDoDashboardTest extends TestCase
     /** @return iterable<string, array{string, mixed}> */
     public static function valoresRecusados(): iterable
     {
-        yield 'chave fora da lista'               => ['dashboard.sons', true];
+        yield 'chave fora da lista'               => ['dashboard.zerar', true];
+        yield 'som do campeão (D-DASH)'           => ['dashboard.som_campeao', 'ligados'];
+        yield 'sons booleano (protótipo)'         => [Catalogo::SONS, false];
+        yield 'sons no feminino'                  => [Catalogo::SONS, 'ligadas'];
+        yield 'sons em maiúsculas'                => [Catalogo::SONS, 'DESLIGADOS'];
         yield 'chave inventada'                   => ['qualquer.coisa', 'x'];
         yield 'chave sem prefixo'                 => ['densidade', 'compacta'];
         yield 'densidade fora da lista'           => [Catalogo::DENSIDADE, 'gigante'];
@@ -104,11 +110,17 @@ final class CatalogoDePreferenciasDoDashboardTest extends TestCase
         self::assertSame([], Catalogo::padrao(Catalogo::COLUNAS_OCULTAS));
     }
 
+    #[TestDox('Sons nascem ligados (desenho: "padrão ligado")')]
+    public function testSonsPadraoLigado(): void
+    {
+        self::assertSame('ligados', Catalogo::padrao(Catalogo::SONS));
+    }
+
     #[TestDox('Pedir o padrão de chave desconhecida é recusado')]
     public function testPadraoDeChaveDesconhecida(): void
     {
         $this->expectException(PreferenciaInvalidaException::class);
 
-        Catalogo::padrao('dashboard.sons');
+        Catalogo::padrao('dashboard.zerar');
     }
 }

@@ -334,20 +334,26 @@
                             <span class="db-num db-num--zero">0</span>
                         {%- endif -%}
                     </td>
-                    <td class="text-center db-td-num" data-coluna="metas_vencidas">
+                    {# Vencidas e Prazos: seta comparando com a foto de data_de − 1 desta pessoa
+                       (cair é bom: sentido 'baixa'). Sem foto dela naquele dia, sem seta. #}
+                    {% set comSetaVenc = linha.metasVencidasAnterior is not null %}
+                    {% set comSetaPraz = linha.prazosProximosAnterior is not null %}
+                    <td class="text-center db-td-num" data-coluna="metas_vencidas"><span class="db-cel{{ comSetaVenc ? ' db-cel--seta' : '' }}">
                         {%- if linha.metasVencidas > 0 -%}
                             <a class="db-pill db-pill--venc db-num-link" href="{{ path('tarefa_equipe', { status: 'vencidas' }|merge(qPessoa)) }}" title="Abrir: Metas vencidas de {{ quem }}" aria-label="Abrir: Metas vencidas de {{ quem }}"><span class="db-pill-dot"></span>{{ linha.metasVencidas }}</a>
                         {%- else -%}
                             <span class="db-num db-num--zero">0</span>
                         {%- endif -%}
-                    </td>
-                    <td class="text-center db-td-num" data-coluna="prazos">
+                        {{- tend.tendencia(linha.metasVencidas, linha.metasVencidasAnterior, 'seta', 'baixa') -}}
+                    </span></td>
+                    <td class="text-center db-td-num" data-coluna="prazos"><span class="db-cel{{ comSetaPraz ? ' db-cel--seta' : '' }}">
                         {%- if linha.prazosProximos > 0 -%}
                             <a class="db-pill db-pill--praz db-num-link" href="{{ path('tarefa_equipe', { status: 'prazo_proximo' }|merge(qPessoa)) }}" title="Abrir: Metas com prazo próximo de {{ quem }}" aria-label="Abrir: Metas com prazo próximo de {{ quem }}"><span class="db-pill-dot"></span>{{ linha.prazosProximos }}</a>
                         {%- else -%}
                             <span class="db-num db-num--zero">0</span>
                         {%- endif -%}
-                    </td>
+                        {{- tend.tendencia(linha.prazosProximos, linha.prazosProximosAnterior, 'seta', 'baixa') -}}
+                    </span></td>
                     <td class="text-center db-td-num" data-coluna="demandas"><span class="db-cel{{ comSeta ? ' db-cel--seta' : '' }}">
                         {%- if linha.totalDemandas > 0 -%}
                             <a class="db-num db-num-link" href="{{ path('expediente_index', { painel: 'acervo-geral' }|merge(qPessoa)|merge(periodoLink)) }}" title="Abrir: Expediente · pastas de {{ quem }}" aria-label="Abrir: Expediente · pastas de {{ quem }}">{{ linha.totalDemandas }}</a>

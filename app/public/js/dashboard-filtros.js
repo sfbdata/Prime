@@ -19,7 +19,14 @@
  * Acessibilidade: listbox/option com aria-activedescendant; teclado Enter/Espaço/↓
  * abre, ↑↓ Home End navegam, Enter escolhe, Esc fecha e devolve o foco ao botão,
  * Tab fecha. Calendário em diálogo não modal: setas movem o dia, PageUp/PageDown
- * trocam o mês, Enter escolhe, Esc fecha. Sem som (fica para as preferências, F18).
+ * trocam o mês, Enter escolhe, Esc fecha.
+ *
+ * Som (README "Calendário das datas"; dc L2104-2122, 2153, 2159): clique curto gerado no
+ * navegador ao passar o mouse num dia (seno ~1.3 kHz, um pouco mais agudo a cada dia da semana,
+ * fim de semana mais grave) e nas setas de mês (som próprio). 80ms, volume 0.045, passa-baixa,
+ * no máximo um a cada 28ms; nenhum arquivo de áudio. Desliga pela opção pessoal "Sons" do menu ⋮
+ * (preferência `dashboard.sons`, gravada no servidor): o `.db-page` ganha `db-page--sem-som`, e
+ * a classe é lida a cada toque — a escolha vale na hora.
  */
 (function () {
     'use strict';
@@ -41,6 +48,54 @@
     }
     function semAcento(s) {
         return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+    }
+
+    // ── Som do calendário ───────────────────────────────────────────────────
+
+    var somContexto = null;
+    var somUltimo = 0;
+
+    function somLigado() {
+        return !document.querySelector('.db-page.db-page--sem-som');
+    }
+
+    function tocarSom(freq) {
+        if (!somLigado()) { return; }
+        var agora = window.performance && performance.now ? performance.now() : Date.now();
+        if (somUltimo && agora - somUltimo < 28) { return; }
+        somUltimo = agora;
+        try {
+            var AC = window.AudioContext || window.webkitAudioContext;
+            if (!AC) { return; }
+            somContexto = somContexto || new AC();
+            var ac = somContexto;
+            if (ac.state === 'suspended') { ac.resume(); }
+            var t = ac.currentTime;
+            var o = ac.createOscillator();
+            var g = ac.createGain();
+            var f = ac.createBiquadFilter();
+            o.type = 'sine';
+            o.frequency.setValueAtTime(freq, t);
+            o.frequency.exponentialRampToValueAtTime(freq * 0.82, t + 0.07);
+            f.type = 'lowpass';
+            f.frequency.value = 2600;
+            g.gain.setValueAtTime(0.0001, t);
+            g.gain.exponentialRampToValueAtTime(0.045, t + 0.006);
+            g.gain.exponentialRampToValueAtTime(0.0001, t + 0.08);
+            o.connect(f);
+            f.connect(g);
+            g.connect(ac.destination);
+            o.start(t);
+            o.stop(t + 0.09);
+        } catch (e) { /* sem áudio no navegador: o calendário segue mudo */ }
+    }
+
+    /** Frequência do dia (dc L2153): fim de semana mais grave; nos úteis sobe com o dia da semana. */
+    function freqDoDia(v) {
+        var d = deIso(v);
+        if (!d) { return 0; }
+        var dow = d.getDay();
+        return (dow === 0 || dow === 6) ? 1180 : 1320 + dow * 22;
     }
 
     // ── Ponte com os nativos ────────────────────────────────────────────────
@@ -239,6 +294,7 @@
         this.painel = wrap.querySelector('.db-cal-painel');
         this.ref = null;     // 1º dia do mês exibido
         this.cursor = null;  // dia com o foco do teclado (ISO)
+        this.somDia = null;  // dia sob o mouse: o som toca só ao ENTRAR num dia novo
         this.ligar();
     }
 
@@ -371,6 +427,7 @@
             var nav = e.target.closest('[data-db-cal-mes]');
             if (nav) {
                 var sentido = nav.getAttribute('data-db-cal-mes');
+                tocarSom(parseInt(sentido, 10) > 0 ? 980 : 880);
                 self.mover(parseInt(sentido, 10));
                 // o painel foi redesenhado: devolve o foco à mesma seta
                 var nova = self.painel.querySelector('[data-db-cal-mes="' + sentido + '"]');
@@ -382,6 +439,16 @@
             var acao = e.target.closest('[data-db-cal-acao]');
             if (acao) { self.escolher(acao.getAttribute('data-db-cal-acao') === 'hoje' ? iso(new Date()) : ''); }
         });
+
+        // Som ao passar o mouse nas datas (só ao entrar num dia diferente).
+        this.painel.addEventListener('mouseover', function (e) {
+            var dia = e.target.closest('.db-cal-dia');
+            var k = dia ? dia.getAttribute('data-dia') : null;
+            if (!k || k === self.somDia) { return; }
+            self.somDia = k;
+            tocarSom(freqDoDia(k));
+        });
+        this.painel.addEventListener('mouseleave', function () { self.somDia = null; });
 
         this.painel.addEventListener('keydown', function (e) {
             if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); self.fechar(true); return; }

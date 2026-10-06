@@ -581,10 +581,13 @@
    entra no lugar. A ordem visual vem de `order`: segmentado → datas → divisor
    → Responsável → Cargo → "Limpar filtros" (chips do motor).
 
-   Cantos em 4px (padrão aprovado), não os 12/13 do README. Sem som (F12/F18). */
+   Cantos em 4px (padrão aprovado), não os 12/13 do README. O som do calendário
+   mora no dashboard-filtros.js e obedece à opção "Sons" (classe db-page--sem-som). */
 .db-body,
 .db-page {
     --db-fp-painel-borda:  #dde5eb;
+    /* borda do calendário e do menu ⋮ (dc L2174 e L3392): um tom mais claro que a do select */
+    --db-borda-flutuante:  #e3eaef;
     --db-fp-painel-sombra: 0 18px 40px -18px rgba(12,60,90,.35), 0 3px 10px -4px rgba(12,60,90,.12);
     --db-fp-op-foco:       #f3f7fa;
     --db-fp-op-sel:        #e8f3f8;
@@ -623,6 +626,7 @@
 [data-bs-theme="dark"] .db-body,
 [data-bs-theme="dark"] .db-page {
     --db-fp-painel-borda:  var(--bs-border-color);
+    --db-borda-flutuante:  var(--bs-border-color);
     --db-fp-painel-sombra: 0 18px 40px -18px rgba(0,0,0,.7), 0 3px 10px -4px rgba(0,0,0,.4);
     --db-fp-op-foco:       rgba(255,255,255,.06);
     --db-fp-op-sel:        rgba(79,179,212,.16);
@@ -808,6 +812,7 @@
 .db-page .db-dd-painel[hidden],
 .db-page .db-cal-painel[hidden] { display: none; }
 .db-page .db-dd-painel { width: 300px; padding: 6px; }
+.db-page .db-cal-painel { border-color: var(--db-borda-flutuante); }
 @keyframes dbFpIn { from { opacity: 0; transform: translate3d(0,-4px,0) scale(.98); } to { opacity: 1; transform: none; } }
 
 .db-page .db-dd-busca { position: relative; display: flex; align-items: center; padding: 4px 4px 6px; }
@@ -1459,7 +1464,7 @@
 .db-page .db-table tbody tr:hover > td:first-child { box-shadow: inset 3px 0 0 var(--db-accent); }
 /* Sombra externa da linha no hover (dc): o <tr> precisa de posicao para a sombra pintar. */
 .db-page .db-table tbody tr { position: relative; }
-.db-page .db-table tbody tr:hover { box-shadow: 0 10px 20px -16px rgba(12,60,90,.5); }
+.db-page .db-table tbody tr:hover { box-shadow: 0 10px 20px -16px rgba(12,60,90,.5); z-index: 2; }
 .db-page .db-td-colab { padding-left: 20px; }
 
 /* primeira coluna fixa para a rolagem horizontal (celular) */
@@ -2188,6 +2193,8 @@
     .db-page .db-busca,
     .db-page .db-card-ver,
     .db-page .db-dica { display: none !important; }
+    /* legendas que só aparecem no hover: fora do papel, sem reservar a linha (dc data-print="hide") */
+    .db-page .db-card-legenda--hover { display: none !important; }
     /* a lista de cards é só de tela: no papel a tabela sempre aparece */
     .db-page .db-cel-lista { display: none !important; }
     .db-page .db-table-scroll > .db-table { display: table !important; }
@@ -2229,7 +2236,7 @@
     border: none;
     border-radius: 4px;
     background: transparent;
-    color: var(--db-label-card);
+    color: var(--db-label);
     font-size: 15px;
     cursor: pointer;
     transition: background .2s, color .2s;
@@ -2246,14 +2253,16 @@
     box-sizing: border-box;
     width: 300px;
     min-width: 260px;
+    min-height: 220px;
     max-width: calc(100vw - 16px);
     max-height: min(70vh, 560px);
     overflow-y: auto;
     overflow-x: hidden;
+    resize: both;
     overscroll-behavior: contain;
     padding: 8px;
     background: var(--db-card);
-    border: 1px solid var(--db-border);
+    border: 1px solid var(--db-borda-flutuante);
     border-radius: 4px;
     box-shadow: 0 22px 44px -20px rgba(12,60,90,.38), 0 4px 12px -6px rgba(12,60,90,.12);
     transform-origin: top right;
@@ -2428,7 +2437,9 @@
 
 /* Densidade Normal: linhas de 9px (a Compacta, 7px, é o padrão da tabela). */
 @media screen {
-    .db-page.db-page--confortavel .db-table tbody td { padding-top: 9px; padding-bottom: 9px; }
+    .db-page.db-page--confortavel .db-table tbody td,
+    .db-page.db-page--confortavel .db-table tfoot th,
+    .db-page.db-page--confortavel .db-table tfoot td { padding-top: 9px; padding-bottom: 9px; }
 }
 
 /* Setas de tendência desligadas: somem as setas das células e as pílulas de

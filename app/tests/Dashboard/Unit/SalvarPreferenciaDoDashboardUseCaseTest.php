@@ -30,7 +30,7 @@ final class SalvarPreferenciaDoDashboardUseCaseTest extends TestCase
     private Tenant $tenant;
     private User $usuario;
 
-    private const CHAVES = ['dashboard.densidade', 'dashboard.animacoes', 'dashboard.setas', 'dashboard.colunas_ocultas'];
+    private const CHAVES = ['dashboard.densidade', 'dashboard.animacoes', 'dashboard.setas', 'dashboard.colunas_ocultas', 'dashboard.sons'];
 
     protected function setUp(): void
     {
@@ -80,7 +80,7 @@ final class SalvarPreferenciaDoDashboardUseCaseTest extends TestCase
         $this->expectException(PreferenciaInvalidaException::class);
 
         (new SalvarPreferenciaDoDashboardUseCase($this->repository))
-            ->executar($this->tenant, $this->usuario, 'dashboard.sons', true);
+            ->executar($this->tenant, $this->usuario, 'dashboard.zerar', true);
     }
 
     #[TestDox('Valor fora da lista é recusado e NADA é gravado')]

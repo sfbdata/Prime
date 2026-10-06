@@ -360,6 +360,8 @@
 .db-page .db-ia summary:focus-visible { outline: none; box-shadow: var(--db-focus); border-radius: 4px; }
 
 /* ── Leitura básica ──────────────────────────────────────────────────────── */
+/* topo do bloco de ritmo: "dia X de Y" à direita (dc L1282-1286; o selo de estado não existe aqui) */
+.db-page .db-ia-ritmo-topo { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-bottom: 10px; }
 .db-page .db-ia-ritmo-grade { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
 .db-page .db-ia-mini { padding: 9px 10px; border-radius: 4px; background: var(--db-ia-mini-bg); }
 .db-page .db-ia-mini-rotulo { font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--db-muted); }
@@ -521,7 +523,7 @@
     .db-page .db-ia { flex: 0 0 100%; margin: -6px 0 14px; padding-bottom: 0; }
     /* botão na largura natural, à esquerda (dc sem regra de celular); o balão acompanha */
     .db-page .db-ia-dica { right: auto; left: 0; }
-    .db-page .db-ia-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    /* os 4 números do ritmo seguem em 4 colunas também no celular (dc L1313: repeat(4) sempre) */
     .db-page .db-ia-gestor-linha { grid-template-columns: 1fr; gap: 2px; }
     .db-page .db-ia-kv { grid-template-columns: 1fr; gap: 1px; }
     .db-page .db-ia-alerta-corpo { padding-left: 12px; }

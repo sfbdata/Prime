@@ -134,6 +134,118 @@ final class DashboardFotoTendenciaTelaTest extends DashboardWebTestCase
         self::assertCount(3, $crawler->filter('table > tfoot .db-tend'), 'só as 3 reconstruíveis; a foto do vizinho não conta');
     }
 
+    // ── Seta por linha em Vencidas e Prazos (3ª passada, D1: dc L806-809) ─────────────
+
+    private function celula(Crawler $crawler, string $nome, string $coluna): Crawler
+    {
+        $linha = $crawler->filter('table.db-table > tbody > tr')->reduce(
+            static fn (Crawler $tr): bool => str_contains($tr->filter('.db-colab-nome')->attr('title') ?? '', $nome),
+        );
+        self::assertCount(1, $linha, 'linha de ' . $nome);
+
+        return $linha->filter('tr > td[data-coluna="' . $coluna . '"]');
+    }
+
+    private function blocoDoCard(Crawler $crawler, string $nome, string $coluna): Crawler
+    {
+        $card = $crawler->filter('.db-cel-lista > .db-cel-card')->reduce(
+            static fn (Crawler $c): bool => str_contains($c->text(), $nome),
+        );
+        self::assertCount(1, $card, 'card de ' . $nome);
+
+        return $card->filter('.db-cel-grade > .db-cel-bloco[data-coluna="' . $coluna . '"]');
+    }
+
+    #[TestDox('com a foto da pessoa, Vencidas e Prazos ganham seta NA LINHA e no card do celular; cair é bom')]
+    public function testSetaPorLinhaComFoto(): void
+    {
+        $client             = static::createClient();
+        [$gestora, $tenant] = $this->criarGestorLogado($client);
+        $ana                = $this->criarColaborador($tenant, 'Ana Estoque');
+        $this->fotografar($tenant, self::VESPERA, [(int) $gestora->getId(), (int) $ana->getId()]);
+
+        $crawler = $client->xmlHttpRequest('GET', '/dashboard?' . self::PERIODO);
+        self::assertResponseIsSuccessful();
+
+        // Vencidas: foto 5 → agora 0, caiu: seta para baixo, verde (sentido 'baixa').
+        $venc = $this->celula($crawler, 'Ana Estoque', 'metas_vencidas');
+        $seta = $venc->filter('td > .db-cel.db-cel--seta > .db-num + .db-seta');
+        self::assertCount(1, $seta, 'número e seta lado a lado, dentro da célula');
+        self::assertStringContainsString('db-seta--bom', (string) $seta->attr('class'));
+        self::assertSame('desce', $seta->attr('data-tendencia'));
+        self::assertStringContainsString('(5 → 0)', (string) $seta->attr('aria-label'));
+
+        // Prazos: 0 na foto e 0 agora → espaço reservado, sem seta (não desalinha a coluna).
+        $praz = $this->celula($crawler, 'Ana Estoque', 'prazos');
+        self::assertCount(1, $praz->filter('td > .db-cel.db-cel--seta > .db-num + .db-seta.db-seta--vazia'));
+
+        // Ativas seguem sem seta, mesmo com foto (bases diferentes).
+        self::assertCount(0, $this->celula($crawler, 'Ana Estoque', 'metas_ativas')->filter('.db-seta'));
+
+        // Celular: o mesmo bloco ganha a seta ao lado do número.
+        $bloco = $this->blocoDoCard($crawler, 'Ana Estoque', 'metas_vencidas');
+        self::assertCount(1, $bloco->filter('.db-cel-bloco > .db-cel-valor > .db-num + .db-seta.db-seta--bom'));
+        self::assertCount(1, $this->blocoDoCard($crawler, 'Ana Estoque', 'prazos')->filter('.db-cel-bloco > .db-cel-valor > .db-seta--vazia'));
+    }
+
+    #[TestDox('seta por linha em Prazos vem da coluna prazos_proximos da foto; a irmã 0 → 0 fica só com o espaço')]
+    public function testSetaPorLinhaEmPrazos(): void
+    {
+        $client             = static::createClient();
+        [$gestora, $tenant] = $this->criarGestorLogado($client);
+        static::getContainer()->get(DashboardFotoRepository::class)->gravar(
+            $tenant,
+            new \DateTimeImmutable(self::VESPERA),
+            [(int) $gestora->getId() => ['metas_ativas' => 0, 'demandas_ativas' => 0, 'metas_vencidas' => 0, 'prazos_proximos' => 3]],
+        );
+
+        $crawler = $client->xmlHttpRequest('GET', '/dashboard?' . self::PERIODO);
+        self::assertResponseIsSuccessful();
+
+        // Prazos: foto 3 → agora 0, caiu: bom. A irmã (Vencidas 0 → 0) fica vazia.
+        $praz = $this->celula($crawler, (string) $gestora->getFullName(), 'prazos')->filter('.db-seta');
+        self::assertStringContainsString('db-seta--bom', (string) $praz->attr('class'));
+        self::assertCount(1, $this->celula($crawler, (string) $gestora->getFullName(), 'metas_vencidas')->filter('.db-seta--vazia'));
+    }
+
+    #[TestDox('sem a foto daquela pessoa, a linha dela fica sem seta em Vencidas e Prazos; a de quem tem foto, não')]
+    public function testSetaPorLinhaSoParaQuemTemFoto(): void
+    {
+        $client             = static::createClient();
+        [$gestora, $tenant] = $this->criarGestorLogado($client);
+        $this->criarColaborador($tenant, 'Ana Sem Foto');
+        $this->fotografar($tenant, self::VESPERA, [(int) $gestora->getId()]);
+
+        $crawler = $client->xmlHttpRequest('GET', '/dashboard?' . self::PERIODO);
+        self::assertResponseIsSuccessful();
+
+        foreach (['metas_vencidas', 'prazos'] as $coluna) {
+            $semFoto = $this->celula($crawler, 'Ana Sem Foto', $coluna);
+            self::assertCount(0, $semFoto->filter('.db-seta'), 'sem foto, sem seta (' . $coluna . ')');
+            self::assertCount(0, $semFoto->filter('.db-cel--seta'), 'sem seta, sem o recuo que a equilibra (' . $coluna . ')');
+            self::assertCount(1, $this->celula($crawler, (string) $gestora->getFullName(), $coluna)->filter('td > .db-cel--seta > .db-seta'));
+        }
+    }
+
+    #[TestDox('foto da mesma pessoa em OUTRO escritório não acende seta na linha (isolamento)')]
+    public function testSetaPorLinhaNaoVazaDeOutroEscritorio(): void
+    {
+        $client             = static::createClient();
+        [$gestora, $tenant] = $this->criarGestorLogado($client);
+        $ana                = $this->criarColaborador($tenant, 'Ana Estoque');
+        $this->fotografar($this->criarTenant(), self::VESPERA, [(int) $gestora->getId(), (int) $ana->getId()]);
+
+        $crawler = $client->xmlHttpRequest('GET', '/dashboard?' . self::PERIODO);
+        self::assertResponseIsSuccessful();
+
+        foreach (['metas_vencidas', 'prazos'] as $coluna) {
+            self::assertCount(0, $crawler->filter('table.db-table > tbody > tr > td[data-coluna="' . $coluna . '"] .db-seta'), $coluna);
+            self::assertCount(0, $crawler->filter('.db-cel-grade > .db-cel-bloco[data-coluna="' . $coluna . '"] .db-seta'), $coluna . ' (celular)');
+        }
+        // A irmã prova que a tendência rodou: Total metas tem seta (vazia: 0 → 0) nas linhas.
+        self::assertGreaterThanOrEqual(1, $crawler->filter('table.db-table > tbody > tr > td[data-coluna="metas"] .db-seta')->count());
+    }
+
     #[TestDox('sem período não há pílula nenhuma, mesmo com foto')]
     public function testSemPeriodoSemPilula(): void
     {
@@ -146,5 +258,6 @@ final class DashboardFotoTendenciaTelaTest extends DashboardWebTestCase
 
         self::assertCount(0, $crawler->filter('table > tfoot .db-tend'));
         self::assertCount(0, $crawler->filter('.db-cel-card--total .db-tend'));
+        self::assertCount(0, $crawler->filter('table.db-table > tbody .db-seta'), 'nem seta nas linhas');
     }
 }

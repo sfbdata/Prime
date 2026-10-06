@@ -111,10 +111,40 @@ final class PreferenciaDoDashboardControllerTest extends DashboardWebTestCase
                 'dashboard.animacoes'       => 'ligadas',
                 'dashboard.setas'           => 'ligadas',
                 'dashboard.colunas_ocultas' => [],
+                'dashboard.sons'            => 'ligados',
             ],
             'classes' => 'db-page--confortavel',
         ], $this->resposta($client));
         self::assertSame(['dashboard.densidade' => 'confortavel'], $this->noBanco($tenant, $user));
+    }
+
+    #[TestDox('Sons desligados: grava a escolha e devolve a classe db-page--sem-som (o calendário fica mudo)')]
+    public function testSalvaSonsDesligados(): void
+    {
+        $client = static::createClient();
+        $this->instalarCsrfStorage();
+        [$user, $tenant] = $this->criarGestorLogado($client);
+
+        $this->postar($client, ['chave' => 'dashboard.sons', 'valor' => 'desligados']);
+
+        self::assertResponseIsSuccessful();
+        $resposta = $this->resposta($client);
+        self::assertSame('desligados', $resposta['preferencias']['dashboard.sons']);
+        self::assertSame('db-page--sem-som', $resposta['classes']);
+        self::assertSame(['dashboard.sons' => 'desligados'], $this->noBanco($tenant, $user));
+    }
+
+    #[TestDox('Sons com valor fora da lista (booleano do protótipo) dá 400 e não grava nada')]
+    public function testSonsValorForaDaLista(): void
+    {
+        $client = static::createClient();
+        $this->instalarCsrfStorage();
+        $this->criarGestorLogado($client);
+
+        $this->postar($client, ['chave' => 'dashboard.sons', 'valor' => false]);
+
+        self::assertResponseStatusCodeSame(400);
+        self::assertSame(0, $this->totalNoBanco());
     }
 
     #[TestDox('Colunas ocultas: grava normalizado e a escolha repetida não duplica a linha')]
@@ -187,7 +217,7 @@ final class PreferenciaDoDashboardControllerTest extends DashboardWebTestCase
         $this->instalarCsrfStorage();
         $this->criarGestorLogado($client);
 
-        $this->postar($client, ['chave' => 'dashboard.sons', 'valor' => true]);
+        $this->postar($client, ['chave' => 'dashboard.zerar', 'valor' => true]);
 
         self::assertResponseStatusCodeSame(400);
         self::assertSame(0, $this->totalNoBanco());

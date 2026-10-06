@@ -12,8 +12,10 @@ use App\Dashboard\Exception\PreferenciaInvalidaException;
  * chega ao banco: chave desconhecida, valor fora da lista ou tipo errado é recusado com
  * {@see PreferenciaInvalidaException} — o servidor nunca grava JSON que o cliente inventou.
  *
+ * "Sons" liga/desliga o som do calendário das datas (README do desenho, "Calendário das datas").
+ * O som do campeão não existe: depende do troféu, que espera decisão do dono (D-DASH).
+ *
  * O que NÃO está aqui, de propósito:
- *   - sons (calendário e campeão): o som não existe no sistema e depende de decisão do dono;
  *   - colunas extras ("Adicionar coluna"): o back-end não calcula essas métricas ainda;
  *   - zerar relatório e acesso restrito: decisão do dono pendente.
  *
@@ -26,6 +28,7 @@ final class CatalogoDePreferenciasDoDashboard
     public const ANIMACOES       = 'dashboard.animacoes';
     public const SETAS           = 'dashboard.setas';
     public const COLUNAS_OCULTAS = 'dashboard.colunas_ocultas';
+    public const SONS            = 'dashboard.sons';
 
     public const DENSIDADE_CONFORTAVEL = 'confortavel';
     public const DENSIDADE_COMPACTA    = 'compacta';
@@ -33,6 +36,8 @@ final class CatalogoDePreferenciasDoDashboard
     public const ANIMACOES_REDUZIDAS   = 'reduzidas';
     public const SETAS_LIGADAS         = 'ligadas';
     public const SETAS_DESLIGADAS      = 'desligadas';
+    public const SONS_LIGADOS          = 'ligados';
+    public const SONS_DESLIGADOS       = 'desligados';
 
     /** As sete numéricas, na ordem da tabela. Pelo menos uma tem de ficar visível. */
     public const COLUNAS_NUMERICAS = [
@@ -62,17 +67,20 @@ final class CatalogoDePreferenciasDoDashboard
         self::DENSIDADE => [self::DENSIDADE_CONFORTAVEL, self::DENSIDADE_COMPACTA],
         self::ANIMACOES => [self::ANIMACOES_LIGADAS, self::ANIMACOES_REDUZIDAS],
         self::SETAS     => [self::SETAS_LIGADAS, self::SETAS_DESLIGADAS],
+        self::SONS      => [self::SONS_LIGADOS, self::SONS_DESLIGADOS],
     ];
 
     /**
      * Padrão de cada chave — o que a tela já mostrava antes do menu existir: a tabela já era a
-     * compacta (7px), com animações e setas, sem coluna oculta.
+     * compacta (7px), com animações e setas, sem coluna oculta. Sons nascem ligados (desenho:
+     * "padrão ligado").
      */
     private const PADROES = [
         self::DENSIDADE       => self::DENSIDADE_COMPACTA,
         self::ANIMACOES       => self::ANIMACOES_LIGADAS,
         self::SETAS           => self::SETAS_LIGADAS,
         self::COLUNAS_OCULTAS => [],
+        self::SONS            => self::SONS_LIGADOS,
     ];
 
     /** @return list<string> */

@@ -306,8 +306,9 @@
        dashboard-preferencias.js o move para dentro do `.db-table-header` e o recoloca a cada
        recarga (o mesmo nó: o estado aberto/fechado e os ouvintes sobrevivem). Sem JS ele fica
        escondido: o estilo gravado continua valendo pelas classes do `.db-page`.
-       Só o que o sistema suporta de verdade: densidade, animações, setas e colunas visíveis.
-       Fora (decisão do dono ou sem back-end): sons, "Adicionar coluna", zerar relatório. #}
+       Só o que o sistema suporta de verdade: densidade, sons (do calendário), animações, setas e
+       colunas visíveis. Fora (decisão do dono ou sem back-end): som do campeão (depende do
+       troféu, D-DASH), "Adicionar coluna", zerar relatório. #}
     {% set prefColunas = [
         { chave: 'cargo',           rotulo: 'Cargo' },
         { chave: 'metas',           rotulo: 'Total metas' },
@@ -322,6 +323,7 @@
     {% set prefNumVisiveis = prefColunas|filter(c => c.chave != 'cargo' and c.chave not in prefOcultas)|length %}
     {% set animLigadas = preferencias.animacoes == 'ligadas' %}
     {% set setasLigadas = preferencias.setas == 'ligadas' %}
+    {% set sonsLigados = preferencias.sons == 'ligados' %}
     <div class="db-pref" data-db-pref hidden>
         <button type="button" class="db-pref-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="db-pref-menu"
                 title="Opções da tabela" aria-label="Opções da tabela"><i class="bi bi-three-dots-vertical" aria-hidden="true"></i></button>
@@ -343,6 +345,13 @@
                     {% endfor %}
                 </div>
             </div>
+            {# Sons: entre Densidade e Animações (dc L655-659). Liga/desliga o som do calendário. #}
+            <button type="button" class="db-pref-item" role="menuitemcheckbox" aria-checked="{{ sonsLigados ? 'true' : 'false' }}"
+                    data-pref-chave="dashboard.sons" data-pref-liga="ligados" data-pref-desliga="desligados">
+                <i class="bi bi-volume-up db-pref-ico" aria-hidden="true"></i>
+                <span class="db-pref-rotulo">Sons</span>
+                <span class="db-pref-sw" aria-hidden="true"><span class="db-pref-sw-bola"></span></span>
+            </button>
             <button type="button" class="db-pref-item" role="menuitemcheckbox" aria-checked="{{ animLigadas ? 'true' : 'false' }}"
                     data-pref-chave="dashboard.animacoes" data-pref-liga="ligadas" data-pref-desliga="reduzidas">
                 <i class="bi bi-stars db-pref-ico" aria-hidden="true"></i>

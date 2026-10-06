@@ -55,7 +55,6 @@
         </div>
         <div class="db-ia-sub">
             <span class="db-ia-titulo">Visão da equipe</span>
-            {% if ritmo.tempo %}<span class="db-ia-dia">dia {{ ritmo.tempo.passados }} de {{ ritmo.tempo.total }}</span>{% endif %}
         </div>
 
         <div class="db-ia-corpo">
@@ -204,6 +203,8 @@
                período; números do período e a taxa de conclusão. #}
             <section class="db-ia-bloco db-ia-ritmo">
                 {% if ritmo.tempo %}
+                    {# "dia X de Y" no topo do bloco de ritmo, à direita (dc L1282-1286). #}
+                    <div class="db-ia-ritmo-topo"><span class="db-ia-dia">dia {{ ritmo.tempo.passados }} de {{ ritmo.tempo.total }}</span></div>
                     <div class="db-ia-ritmo-grade">
                         <div class="db-ia-mini"><div class="db-ia-mini-rotulo">Entram por dia</div><div class="db-ia-mini-valor">{{ ui.fmt(ritmo.novasPorDia) }}<span class="db-ia-mini-un"> /dia</span></div></div>
                         <div class="db-ia-mini"><div class="db-ia-mini-rotulo">Concluídas por dia</div><div class="db-ia-mini-valor">{{ ui.fmt(ritmo.ritmoAtual) }}<span class="db-ia-mini-un"> /dia</span></div></div>
