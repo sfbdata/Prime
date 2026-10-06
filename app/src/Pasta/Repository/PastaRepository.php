@@ -24,6 +24,16 @@ use Doctrine\Persistence\ManagerRegistry;
  */
 class PastaRepository extends ServiceEntityRepository
 {
+    /**
+     * Chave de ordenação das setas ‹ › e do "N de M" (`vizinha()` e `posicaoNoAcervo()`),
+     * sobre o alias `p`: prefixo numérico do NUP com o NULL neutralizado em -1, e o NUP cru
+     * com o NULL neutralizado em ''. Fonte única: se as duas consultas divergissem, o
+     * contador e as setas discordariam. NÃO é a chave de `aplicarOrdenacao` — lá a variante
+     * `THEN 1 ELSE 0` é outra expressão, de propósito.
+     */
+    private const EXPR_PREFIXO_NUP = 'CASE WHEN CAST_INT_PREFIXO(p.nup) IS NULL THEN -1 ELSE CAST_INT_PREFIXO(p.nup) END';
+    private const EXPR_NUP_CRU     = "CASE WHEN p.nup IS NULL THEN '' ELSE p.nup END";
+
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, Pasta::class);
@@ -827,8 +837,8 @@ class PastaRepository extends ServiceEntityRepository
         // `CASE WHEN` e não `COALESCE`: o parser do DQL aceita COALESCE no WHERE mas o recusa no
         // ORDER BY ("Expected known function, got 'COALESCE'"), e as duas cláusulas têm de usar
         // exatamente a mesma expressão — é a mesma chave dos dois lados.
-        $prefixo = 'CASE WHEN CAST_INT_PREFIXO(p.nup) IS NULL THEN -1 ELSE CAST_INT_PREFIXO(p.nup) END';
-        $nupCru  = "CASE WHEN p.nup IS NULL THEN '' ELSE p.nup END";
+        $prefixo = self::EXPR_PREFIXO_NUP;
+        $nupCru  = self::EXPR_NUP_CRU;
 
         $linha = $qb
             ->select('p.id', 'p.nup', 'p.nomeCliente')
@@ -874,7 +884,7 @@ class PastaRepository extends ServiceEntityRepository
      * do NUP, NUP cru, id) DECRESCENTE. A posição é quantas pastas têm chave MAIOR (as que
      * ficam acima na lista) + 1; o total é o COUNT do mesmo conjunto. Se as expressões
      * divergissem das de `vizinha()`, o número diria "3 de 7" com a seta ‹ levando a uma
-     * pasta que não é a 2ª — por isso elas são copiadas literalmente de lá.
+     * pasta que não é a 2ª — por isso as duas leem as mesmas constantes da classe.
      *
      * Devolve nulo quando a pasta não tem tenant ou ainda não foi persistida: não há
      * acervo em que ela ocupe uma linha.
@@ -892,9 +902,9 @@ class PastaRepository extends ServiceEntityRepository
 
         $nup = (string) $pasta->getNup();
 
-        // As MESMAS expressões de `vizinha()` — ver o porquê do CASE lá.
-        $prefixo = 'CASE WHEN CAST_INT_PREFIXO(p.nup) IS NULL THEN -1 ELSE CAST_INT_PREFIXO(p.nup) END';
-        $nupCru  = "CASE WHEN p.nup IS NULL THEN '' ELSE p.nup END";
+        // As MESMAS expressões de `vizinha()` (constantes da classe) — ver o porquê do CASE lá.
+        $prefixo = self::EXPR_PREFIXO_NUP;
+        $nupCru  = self::EXPR_NUP_CRU;
 
         $qb = $this->createQueryBuilder('p');
 

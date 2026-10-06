@@ -161,6 +161,53 @@ final class PastaRepositoryPosicaoNoAcervoTest extends KernelTestCase
         self::assertSame([1, 2], $this->posicao($minha1003));
     }
 
+    /**
+     * Trava a equivalência entre o contador e as setas num acervo com todos os empates da
+     * chave (prefixo, NUP cru, id): mesmo NUP repetido, mesmo prefixo com sufixo diferente,
+     * vários NUPs sem número (prefixo -1 empatado) e NUP vazio. As duas consultas leem a
+     * mesma expressão; se uma delas mudar sozinha, a caminhada pelas setas sai da ordem do
+     * contador e este teste cai.
+     */
+    #[TestDox('com empates e NUPs sem número, caminhar pelas setas percorre as posições 1..M em ordem')]
+    public function testSetasEContadorConcordamComEmpatesENupsSemNumero(): void
+    {
+        $tenant = $this->criarTenant();
+        $velha  = $this->criarPasta($tenant, '1002');
+        $nove   = $this->criarPasta($tenant, '9');
+        $vazio  = $this->criarPasta($tenant, '');
+        $abc    = $this->criarPasta($tenant, 'ABC');
+        $dez    = $this->criarPasta($tenant, '10');
+        $nova   = $this->criarPasta($tenant, '1002');
+        $proc   = $this->criarPasta($tenant, 'PROC-7');
+        $dezA   = $this->criarPasta($tenant, '10A');
+
+        // Ruído de outro escritório com as mesmas chaves: não pode entrar em nada.
+        $alheio = $this->criarTenant();
+        foreach (['1002', '10A', 'ABC', ''] as $nup) {
+            $this->criarPasta($alheio, $nup);
+        }
+
+        // De cima para baixo: 1002(nova) · 1002(velha) · 10A · 10 · 9 · PROC-7 · ABC · ''
+        $esperada = [$nova, $velha, $dezA, $dez, $nove, $proc, $abc, $vazio];
+        $total    = \count($esperada);
+
+        foreach ($esperada as $i => $pasta) {
+            self::assertSame([$i + 1, $total], $this->posicao($pasta), 'posição da pasta de NUP "' . $pasta->getNup() . '"');
+
+            $vizinhas = $this->repo->vizinhasNoAcervo($pasta);
+            self::assertSame(
+                $i > 0 ? $esperada[$i - 1]->getId() : null,
+                $vizinhas['anterior']['id'] ?? null,
+                'seta ‹ da posição ' . ($i + 1),
+            );
+            self::assertSame(
+                $i < $total - 1 ? $esperada[$i + 1]->getId() : null,
+                $vizinhas['proxima']['id'] ?? null,
+                'seta › da posição ' . ($i + 1),
+            );
+        }
+    }
+
     #[TestDox('pasta ainda não persistida não tem posição')]
     public function testPastaNaoPersistidaNaoTemPosicao(): void
     {
