@@ -474,15 +474,15 @@ final class PastaExploradorArranjoTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $crawler->filter('.pex-corpo > #pexBuscaInfo + #pexSelecao[hidden] + #pexTrilha'));
         self::assertCount(1, $crawler->filter('#pexSelecao > #pexSelecaoLimpar[aria-label="Limpar seleção"] + #pexSelecaoTexto'));
         self::assertSame(
-            ['baixar', 'recortar', 'renomear', 'tudo', 'excluir'],
+            ['baixar', 'copiar', 'recortar', 'renomear', 'tudo', 'excluir'],
             $crawler->filter('#pexSelecao > .pex-selecao-acao[data-pex-sel]')->each(fn (Crawler $n) => $n->attr('data-pex-sel')),
-            'a barra é a do desenho, fechada: Copiar (duplicar) e .zip são do L8; "Mover para…" mora no menu de contexto'
+            'a barra é a do desenho (dc `barra` L4844), na ordem dele; "Mover para…" mora no menu de contexto'
         );
         self::assertCount(0, $crawler->filter('#pexSelecao [data-pex-sel="mover"]'));
-        self::assertNotNull($crawler->filter('#pexSelecao > [data-pex-sel="baixar"]')->attr('hidden'), 'Baixar só com um arquivo — o JS decide');
+        self::assertNotNull($crawler->filter('#pexSelecao > [data-pex-sel="baixar"]')->attr('hidden'), 'Baixar nasce oculto — o JS dá o rótulo (Baixar / Baixar (.zip) / Baixar N itens (.zip))');
         self::assertNotNull($crawler->filter('#pexSelecao > [data-pex-sel="renomear"]')->attr('hidden'), 'Renomear só com um item');
         self::assertCount(1, $crawler->filter('#pexSelecao > [data-pex-sel="excluir"].pex-selecao-acao--perigo'));
-        self::assertCount(0, $crawler->filter('#pexSelecao [data-pex-sel="copiar"]'));
+        self::assertNotNull($crawler->filter('#pexSelecao > [data-pex-sel="copiar"][title="Copiar (Ctrl+C)"]')->attr('hidden'), 'Copiar só com algum arquivo — o JS decide');
 
         // Menu de contexto (dc L2266): fundo + menu vazios e ocultos; o item vem do <template>.
         self::assertCount(1, $crawler->filter('.pex-corpo > #pexMenuFundo[hidden] + #pexMenu[role="menu"][hidden]'));

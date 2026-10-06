@@ -23,8 +23,8 @@
    Lote L5 (spec §5): a interação completa — barra de seleção (dc L2194-2199), laço (dc L2264),
    menu de contexto (dc L2266-2270, montado pelo JS a partir de `<template id="pexMenuItem">`),
    toast (dc L2272) e criar/renomear inline (dc L2234). O markup estático fica aqui para ser
-   testável por arranjo; o conteúdo variável é do JS. Os itens de menu que dependem de lotes
-   futuros (lixeira/Desfazer L7, zip/copiar L8) NÃO são renderizados.
+   testável por arranjo; o conteúdo variável é do JS. Desde o L8 (D5/D6) o menu e a barra
+   trazem "Baixar como .zip" e Copiar/Colar — o formulário do .zip nasce no JS, por DOM.
 
    Lote L6 (spec §5, D2): favoritos. A estrela de cada linha/cartão e o item "Marcar como
    favorito"/"Tirar dos favoritos" do menu nascem no JS, a partir de `favorito` de cada item e
@@ -188,14 +188,16 @@
         </div>
         <div class="pex-busca-info" id="pexBuscaInfo" hidden></div>
 
-        {# Barra de seleção (dc L2194-2199), fechada como o desenho: ✕ Limpar, "N selecionados ·
-           X KB" e as ações dele que têm rota hoje. Baixar só aparece com UM arquivo selecionado
-           (o .zip é do L8); Renomear só com um item; Copiar (duplicar) é do L8 e não entra.
+        {# Barra de seleção (dc L2194-2199, `barra` L4844), fechada como o desenho: ✕ Limpar,
+           "N selecionados · X KB" e as ações dele. Baixar muda de rótulo pelo JS: um arquivo
+           baixa direto; uma pasta ou vários itens viram um .zip (L8, D5). Copiar (L8, D6) só
+           aparece com algum arquivo na seleção — pastas não são copiadas. Renomear só com um item.
            "Mover para…" (modal de destino) mora no menu de contexto. O JS mostra/esconde por contagem. #}
         <div class="pex-selecao" id="pexSelecao" role="toolbar" aria-label="Ações da seleção" hidden>
             <button type="button" class="pex-selecao-limpar" id="pexSelecaoLimpar" title="Limpar seleção (Esc)" aria-label="Limpar seleção"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
             <span class="pex-selecao-txt" id="pexSelecaoTexto"></span>
             <button type="button" class="pex-selecao-acao" data-pex-sel="baixar" title="Baixar o arquivo" hidden><i class="bi bi-download" aria-hidden="true"></i><span>Baixar</span></button>
+            <button type="button" class="pex-selecao-acao" data-pex-sel="copiar" title="Copiar (Ctrl+C)" hidden><i class="bi bi-copy" aria-hidden="true"></i><span>Copiar</span></button>
             <button type="button" class="pex-selecao-acao" data-pex-sel="recortar" title="Recortar (Ctrl+X)"><i class="bi bi-scissors" aria-hidden="true"></i><span>Recortar</span></button>
             <button type="button" class="pex-selecao-acao" data-pex-sel="renomear" title="Renomear (F2)" hidden><i class="bi bi-input-cursor-text" aria-hidden="true"></i><span>Renomear</span></button>
             <button type="button" class="pex-selecao-acao" data-pex-sel="tudo" title="Selecionar tudo (Ctrl+A)"><i class="bi bi-check2-all" aria-hidden="true"></i><span>Selecionar tudo</span></button>

@@ -60,7 +60,9 @@ final class PastaExploradorContratoJsTest extends TestCase
             $js
         );
         self::assertStringContainsString("op('Baixar', 'bi-download', function () { baixar(a); })", $js, 'item do menu de contexto');
-        self::assertStringContainsString("case 'baixar':   if (sel.length === 1 && sel[0].tipo === 'arquivo') baixar(sel[0].dado); break;", $js, 'barra: só com UM arquivo (o .zip é do L8)');
+        // Barra (L8): um arquivo baixa direto pelo mesmo link; pasta ou vários viram .zip.
+        self::assertStringContainsString("case 'baixar':   baixarSelecao(sel); break;", $js);
+        self::assertStringContainsString("if (sel.length === 1 && ehArquivo(sel[0])) { baixar(sel[0].dado); return; }", $js);
     }
 
     #[TestDox('nada de innerHTML: toda linha nasce por createElement/textContent (nome de arquivo é dado do usuário)')]

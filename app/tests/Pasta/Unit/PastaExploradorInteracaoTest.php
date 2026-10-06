@@ -15,8 +15,8 @@ use PHPUnit\Framework\TestCase;
  * Teste de FOLHA (precedente: PastaExploradorContratoJsTest, PastaExploradorModosTest). Não há
  * harness de navegador na suíte; o que dá para travar é o texto das guardas, dos endpoints e
  * dos números do desenho (02 - EXPEDIENTES 1.2.3) — o bastante para um refactor que troque o
- * token do lote, deixe o Del disparar dentro do checklist ou renderize "Copiar" antes do L8
- * ficar vermelho aqui em vez de em produção.
+ * token do lote, deixe o Del disparar dentro do checklist ou tire o Copiar/zip do L8 do lugar
+ * ficar vermelho aqui em vez de em produção. O L8-UI em si é travado em PastaExploradorZipCopiarTest.
  */
 final class PastaExploradorInteracaoTest extends TestCase
 {
@@ -75,23 +75,23 @@ final class PastaExploradorInteracaoTest extends TestCase
         self::assertLessThan($primeiraAcao, $soNaLista);
         self::assertStringContainsString('function popoverAberto() { return popovers.some(function (p) { return !p.menu.hidden; }); }', $js);
 
-        // Os atalhos do desenho (DOC-32), menos Ctrl+C (Copiar é do L8).
+        // Os atalhos do desenho (DOC-32); Ctrl+C (Copiar) desde o L8.
         foreach ([
             "if (ctrl && baixa === 'a') { e.preventDefault(); selecionarTudo(); return; }",
             "if (k === 'Delete') { if (sel.length) { e.preventDefault(); excluirItens(sel); } return; }",
             "if (k === 'F2') { if (sel.length === 1) { e.preventDefault(); iniciarRenomear(sel[0]); } return; }",
             "if (ctrl && baixa === 'x') { if (sel.length) { e.preventDefault(); recortar(sel); } return; }",
+            "if (ctrl && baixa === 'c') { if (sel.length) { e.preventDefault(); copiar(sel); } return; }",
             "if (ctrl && baixa === 'v') { if (areaDeTransferencia) { e.preventDefault(); colarAqui(); } return; }",
             "if (/^Arrow(Up|Down|Left|Right)$/.test(k) || k === 'Home' || k === 'End') {",
         ] as $atalho) {
             self::assertStringContainsString($atalho, $js);
         }
-        self::assertStringNotContainsString("baixa === 'c'", $js, 'Ctrl+C (Copiar) é do L8');
         // Del sem seleção não faz nada — e o Delete do campo de busca não chega aqui.
         self::assertStringContainsString("if (k === 'Delete') { if (sel.length) {", $js);
     }
 
-    #[TestDox('menu de contexto: na ordem do desenho (favorito do L6 depois de Copiar caminho), SEM os itens dos lotes futuros (zip/Copiar L8, Desfazer L7) nem o Chat I.A (E)')]
+    #[TestDox('menu de contexto: na ordem do desenho (favorito do L6 depois de Copiar caminho; zip e Copiar do L8), SEM Desfazer no menu nem o Chat I.A (E)')]
     public function testItensDoMenuDeContexto(): void
     {
         $js    = $this->js();
@@ -99,11 +99,12 @@ final class PastaExploradorInteracaoTest extends TestCase
 
         // Fundo (dc L4826-4834).
         $fundo = ["op('Nova pasta', 'bi-folder-plus', novaPastaInline)", "op('Colar', 'bi-clipboard', colarAqui, { atalho: 'Ctrl+V', desabilitado: !areaDeTransferencia })", "op('Selecionar tudo', 'bi-check2-all', selecionarTudo, { atalho: 'Ctrl+A' })", "['nome', 'Classificar por nome'], ['data', 'Classificar por data'], ['tamanho', 'Classificar por tamanho'], ['tipo', 'Classificar por tipo']", "op(painel ? 'Ocultar painel de detalhes' : 'Mostrar painel de detalhes'"];
-        // Vários itens (dc L4797-4808), sem zip/Copiar.
+        // Vários itens (dc L4797-4808): "Baixar como .zip (N)" abre; Copiar logo depois de Recortar (L8).
         // "Mover para…" (modal de destino) é função do sistema (§16.7) e mora aqui, não na barra.
-        $multi = ["op('Copiar links'", "op('Recortar', 'bi-scissors', function () { recortar(sel); }, { atalho: 'Ctrl+X' })", "op('Mover para…', 'bi-folder-symlink', function () { escolherDestino(sel); })", "op('Copiar caminhos'", 'opFavorito(sel),', "op('Excluir ' + sel.length + ' itens', 'bi-trash3', function () { excluirItens(sel); }, { atalho: 'Del', perigo: true })", "op('Propriedades', 'bi-info-square', mostrarPainel)"];
-        // Um item (dc L4809-4826), sem zip/Copiar/Chat; o favorito (L6, dc L4820) logo depois de Copiar caminho.
-        $item = ["op('Abrir', ehPasta ? 'bi-folder2-open' : 'bi-box-arrow-up-right'", "op('Visualizar', 'bi-eye', function () { abrirPreviewDe(a); }, { atalho: 'Espaço' })", "op('Baixar', 'bi-download'", "op('Copiar link', 'bi-link-45deg'", "op('Recortar', 'bi-scissors', function () { recortar([alvo]); }, { atalho: 'Ctrl+X' })", "op('Colar', 'bi-clipboard', function () { colarEm(alvo.id); }, { atalho: 'Ctrl+V', desabilitado: !areaDeTransferencia })", "op('Mover para…', 'bi-folder-symlink', function () { escolherDestino([alvo]); })", "op('Copiar caminho', 'bi-signpost'", 'opFavorito([alvo]),', "op('Renomear', 'bi-input-cursor-text', function () { iniciarRenomear(alvo); }, { atalho: 'F2' })", "op('Editar…', 'bi-pencil'", "op('Excluir', 'bi-trash3', function () { excluirItens([alvo]); }, { atalho: 'Del', perigo: true })"];
+        $multi = ["op('Baixar como .zip (' + sel.length + ')', 'bi-file-earmark-zip', function () { baixarZip(sel); })", "op('Copiar links'", "op('Recortar', 'bi-scissors', function () { recortar(sel); }, { atalho: 'Ctrl+X' })", "op('Copiar', 'bi-copy', function () { copiar(sel); }, { atalho: 'Ctrl+C' })", "op('Mover para…', 'bi-folder-symlink', function () { escolherDestino(sel); })", "op('Copiar caminhos'", 'opFavorito(sel),', "op('Excluir ' + sel.length + ' itens', 'bi-trash3', function () { excluirItens(sel); }, { atalho: 'Del', perigo: true })", "op('Propriedades', 'bi-info-square', mostrarPainel)"];
+        // Um item (dc L4809-4826), sem Chat; o favorito (L6, dc L4820) logo depois de Copiar caminho.
+        // Pasta: "Baixar como .zip" no lugar do Baixar; arquivo: Copiar depois de Recortar (L8).
+        $item = ["op('Abrir', ehPasta ? 'bi-folder2-open' : 'bi-box-arrow-up-right'", "op('Baixar como .zip', 'bi-download', function () { baixarZip([alvo]); })", "op('Visualizar', 'bi-eye', function () { abrirPreviewDe(a); }, { atalho: 'Espaço' })", "op('Baixar', 'bi-download'", "op('Copiar link', 'bi-link-45deg'", "op('Recortar', 'bi-scissors', function () { recortar([alvo]); }, { atalho: 'Ctrl+X' })", "op('Copiar', 'bi-copy', function () { copiar([alvo]); }, { atalho: 'Ctrl+C' })", "op('Colar', 'bi-clipboard', function () { colarEm(alvo.id); }, { atalho: 'Ctrl+V', desabilitado: !areaDeTransferencia })", "op('Mover para…', 'bi-folder-symlink', function () { escolherDestino([alvo]); })", "op('Copiar caminho', 'bi-signpost'", 'opFavorito([alvo]),', "op('Renomear', 'bi-input-cursor-text', function () { iniciarRenomear(alvo); }, { atalho: 'F2' })", "op('Editar…', 'bi-pencil'", "op('Excluir', 'bi-trash3', function () { excluirItens([alvo]); }, { atalho: 'Del', perigo: true })"];
         $pos = -1;
         foreach (array_merge($fundo, $multi, $item) as $trecho) {
             $p = strpos($corpo, $trecho, $pos + 1);
@@ -111,8 +112,8 @@ final class PastaExploradorInteracaoTest extends TestCase
             $pos = $p;
         }
 
-        // Não renderizados até o lote deles / item E.
-        foreach (["op('Baixar como .zip", "op('Copiar',", "op('Encaminhar via Chat", "'Desfazer'", "op('Compartilhar"] as $proibido) {
+        // Não renderizados: item E, o Desfazer (é do toast) e o "Compartilhar" do protótipo (S-12).
+        foreach (["op('Encaminhar via Chat", "'Desfazer'", "op('Compartilhar"] as $proibido) {
             self::assertStringNotContainsString($proibido, $js, "{$proibido} é de outro lote");
         }
         // Botão direito num item fora da seleção: ele vira a seleção (dc L4759); dentro dela, o menu é o de vários.
@@ -171,9 +172,12 @@ final class PastaExploradorInteracaoTest extends TestCase
         self::assertStringContainsString("return true;\n        }).catch(function (err) { toastErro(err.message || 'Erro de comunicação.'); return false; });", $this->funcao('moverLote'));
         // Pasta→pasta (DOC-55): a tela barra o ciclo antes do pedido; o servidor confere de novo.
         self::assertStringContainsString("if (destinoId != null && lote.secoes.some(function (id) { return id === destinoId || descendentes(id).indexOf(destinoId) !== -1; })) {", $js);
-        // O caminho antigo (formulário POST + reload por documento) saiu.
+        // O caminho antigo (formulário POST + reload por documento) saiu. O único submit de
+        // formulário é o do .zip (L8), que baixa em outra aba e não recarrega nada.
         self::assertStringNotContainsString('urlExcluirDocTpl', $js);
         self::assertStringNotContainsString('form.submit()', $js);
+        self::assertSame(1, substr_count($js, '.submit()'), 'só o formZip.submit() do .zip');
+        self::assertStringContainsString('formZip.submit();', $this->funcao('baixarZip'));
         // Depois do sucesso a memória muda e a lista é refeita a partir dela — nunca otimista.
         $mover = $this->funcao('moverLote');
         self::assertLessThan(strpos($mover, 'a.secaoId = destinoId'), strpos($mover, "if (!res.ok || !res.j.ok) throw new Error"));
@@ -355,7 +359,7 @@ final class PastaExploradorInteracaoTest extends TestCase
         self::assertStringNotContainsString('innerHTML', $js);
         self::assertStringNotContainsString('insertAdjacentHTML', $js);
         self::assertStringNotContainsString('outerHTML', $js);
-        // A área de transferência (Recortar) vive em memória; nada vai para o storage.
+        // A área de transferência (Recortar/Copiar) vive em memória; nada vai para o storage.
         self::assertStringNotContainsString('areaDeTransferencia', implode("\n", preg_grep('/Storage\./', explode("\n", $js))));
         foreach (['pexSelecao', 'pexMenu', 'pexMenuFundo', 'pexMenuItem', 'pexToast', 'pexToastDesfazer', 'pexLixeiraAbrir', 'pexLaco'] as $id) {
             self::assertStringContainsString("document.getElementById('{$id}')", $js, "#{$id} é estático no template");

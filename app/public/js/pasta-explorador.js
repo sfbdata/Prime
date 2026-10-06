@@ -17,10 +17,9 @@
      Enter abre (pasta entra, arquivo pré-visualiza). No toque (celular ou ponteiro
      sem hover) tocar entra/abre, como antes, e o toque longo abre o menu;
    - laço (retângulo) a partir do espaço vazio da lista; Ctrl soma à seleção;
-   - teclado: setas/Home/End, Shift+setas, Ctrl+A, Esc, F2, Del, Ctrl+X/Ctrl+V;
+   - teclado: setas/Home/End, Shift+setas, Ctrl+A, Esc, F2, Del, Ctrl+X/Ctrl+C/Ctrl+V;
    - menu de contexto (botão direito, ⋮ no toque) por item, por vários e no fundo,
-     na ordem do desenho — SEM os itens que dependem de lotes futuros (zip/Copiar L8)
-     nem dos itens E (Chat I.A);
+     na ordem do desenho — SEM os itens E (Chat I.A);
    - barra de seleção, toast, criar/renomear inline, arraste nativo da SELEÇÃO
      para pasta (pasta→pasta inclusive), ações em lote por mover-lote/excluir-lote
      (um token por pasta: `csrfLote`), upload inserindo a linha sem recarregar.
@@ -59,7 +58,13 @@
    visita. A pasta aberta fica em sessionStorage (`pex:pasta:<id>:caminho`), e a faixa
    de limpeza dispensada também (`pex:limpeza:<id>`, L9). Nada
    de flag de aba: o retorno é pelo fragmento `#documentos`, que o pasta-show.js abre.
-   A área de transferência do Recortar vive só em memória.
+   A área de transferência do Recortar/Copiar vive só em memória.
+
+   L8 (D5/D6, dc `baixar`/`clip`/`colar`, L4793-4853): "Baixar como .zip" por um <form
+   target=_blank> montado por DOM com o csrfLote — os tetos (500 arquivos / 1 GB) são conferidos
+   AQUI antes de abrir a aba, porque o erro do servidor chegaria nela como JSON cru; Copiar
+   (Ctrl+C) guarda só ARQUIVOS (o servidor não copia pastas) e Colar distingue o recorte
+   (mover-lote) da cópia (copiar), que insere as linhas de `copiados` sem recarregar.
    ========================================================================== */
 (function () {
     'use strict';
@@ -97,6 +102,9 @@
         // Lixeira (L7, D7): restaurar usa o MESMO token do lote; a lista é um GET em JSON.
         urlRestaurar:        dados.urlRestaurar || '',
         urlLixeira:          dados.urlLixeira || '',
+        // Zip e cópia (L8, D5/D6): o MESMO token do lote, o mesmo corpo de ids.
+        urlZip:              dados.urlZip || '',
+        urlCopiar:           dados.urlCopiar || '',
         // Lápide da Pasta inteira: a lixeira dela só se olha — nada de Desfazer nem Restaurar.
         pastaExcluida:       raiz.dataset.pastaExcluida === '1',
     };
@@ -211,6 +219,10 @@
     const LACO_MARGEM_PX = 40;      // rola sozinho a 40px da borda (dc L4891)
     // Favoritar vários: no máximo 4 pedidos ao mesmo tempo (a rota é de um alvo por pedido).
     const FAVORITO_PARALELO = 4;
+    // L8: os tetos do servidor (MontarZipDeDocumentosUseCase / CopiarDocumentosDaPastaUseCase),
+    // pela soma de `tamanho` — conferidos na tela ANTES do pedido.
+    const TETO_ZIP_ARQUIVOS = 500;
+    const TETO_BYTES        = 1024 * 1024 * 1024;   // 1 GB, no .zip e na cópia
 
     let caminho = [];          // [] = raiz; senão a cadeia de ids (números) até a pasta aberta
     let busca   = '';
@@ -227,7 +239,7 @@
     const selecao = new Set();
     let ancora = null;
     let foco   = null;
-    let areaDeTransferencia = null;       // { op: 'recortar', chaves: [...] } — Copiar é do L8
+    let areaDeTransferencia = null;       // { op: 'recortar' | 'copiar', chaves: [...] }
     let suprimirCliqueAte = 0;            // o clique que segue um laço ou um toque longo não conta
     let lacoVazio = false;                // mousedown no espaço vazio: é laço, não arraste
     let renomeando = null;                // campo inline aberto (renomear ou nova pasta)
@@ -1314,8 +1326,18 @@
         const soma = somaDosArquivos(sel);
         el.selecaoTexto.textContent = (sel.length === 1 ? '1 selecionado' : sel.length + ' selecionados') + (soma ? ' · ' + formatarBytes(soma) : '');
         const baixar = el.selecao.querySelector('[data-pex-sel="baixar"]');
+        const copiar = el.selecao.querySelector('[data-pex-sel="copiar"]');
         const renomear = el.selecao.querySelector('[data-pex-sel="renomear"]');
-        if (baixar) baixar.hidden = !(sel.length === 1 && sel[0].tipo === 'arquivo');
+        // dc `barra` (L4845): um arquivo baixa direto; uma pasta ou vários itens viram .zip.
+        if (baixar) {
+            const direto = sel.length === 1 && sel[0].tipo === 'arquivo';
+            const rotulo = baixar.querySelector('span');
+            baixar.hidden = false;
+            if (rotulo) rotulo.textContent = sel.length > 1 ? 'Baixar ' + sel.length + ' itens (.zip)' : (direto ? 'Baixar' : 'Baixar (.zip)');
+            baixar.title = direto ? 'Baixar o arquivo' : 'Baixar tudo que está selecionado em um arquivo .zip';
+        }
+        // Copiar só com algum arquivo: pastas não são copiadas (D6).
+        if (copiar) copiar.hidden = !sel.some(ehArquivo);
         if (renomear) renomear.hidden = sel.length !== 1;
     }
     if (el.selecao) {
@@ -1325,7 +1347,8 @@
             if (!b) return;
             const sel = itensSelecionados();
             switch (b.dataset.pexSel) {
-                case 'baixar':   if (sel.length === 1 && sel[0].tipo === 'arquivo') baixar(sel[0].dado); break;
+                case 'baixar':   baixarSelecao(sel); break;
+                case 'copiar':   copiar(sel); break;
                 case 'recortar': recortar(sel); break;
                 case 'renomear': if (sel.length === 1) iniciarRenomear(sel[0]); break;
                 case 'tudo':     selecionarTudo(); break;
@@ -1481,8 +1504,8 @@
        no L2); os demais atalhos só com o foco NA LISTA ou numa linha — com o foco num botão da
        faixa, do Organizar, da barra ou de um popover, Enter/Espaço/setas são do navegador.
        Ctrl+A tudo; Del exclui; F2 renomeia; Enter abre; Espaço visualiza; Esc limpa (ou, com um
-       popover aberto, só o fecha); Ctrl+X/V recorta/cola; setas, Home e End movem a seleção
-       (Shift estende). Ctrl+C é do L8 (Copiar) e não faz nada aqui. */
+       popover aberto, só o fecha); Ctrl+X/Ctrl+C/Ctrl+V recortam/copiam/colam (o Colar segue o
+       modo do que está guardado); setas, Home e End movem a seleção (Shift estende). */
     raiz.addEventListener('keydown', function (e) {
         const tag = e.target && e.target.tagName;
         if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (e.target && e.target.isContentEditable)) return;
@@ -1536,6 +1559,7 @@
             return;
         }
         if (ctrl && baixa === 'x') { if (sel.length) { e.preventDefault(); recortar(sel); } return; }
+        if (ctrl && baixa === 'c') { if (sel.length) { e.preventDefault(); copiar(sel); } return; }
         if (ctrl && baixa === 'v') { if (areaDeTransferencia) { e.preventDefault(); colarAqui(); } return; }
         if (ctrl) return;
         if (/^Arrow(Up|Down|Left|Right)$/.test(k) || k === 'Home' || k === 'End') {
@@ -1736,8 +1760,10 @@
 
     // --------------------------------------------------- menu de contexto ---
     /* dc `ctxItens` (L4797-4834), na ordem do desenho, só com o que tem ação hoje:
-       - de lotes futuros, NÃO renderizados: "Baixar como .zip" e Copiar (L8), Desfazer (L7);
-         "Encaminhar via Chat I.A" é item E;
+       - "Encaminhar via Chat I.A" é item E e não é renderizado;
+       - "Baixar como .zip (N)" (vários) e "Baixar como .zip" (uma pasta) são do L8 (D5);
+       - Copiar (L8, D6) só entra com algum ARQUIVO no alvo: o servidor não copia pastas, então
+         no menu de UMA pasta o item do desenho fica de fora (seria um clique que não faz nada);
        - favorito (L6, dc L4820) logo depois de "Copiar caminho". No menu de VÁRIOS o desenho não
          tem o item; entra por função do sistema (marcar/tirar a seleção de uma vez);
        - "Compartilhar link" vira "Copiar link" INTERNO (S-12): a URL de visualização, absoluta;
@@ -1770,9 +1796,10 @@
         }
         if (multi) {
             const arqs = sel.filter(ehArquivo);
-            return (arqs.length ? [op('Copiar links' + (arqs.length < sel.length ? ' (' + arqs.length + ')' : ''), 'bi-link-45deg', function () { copiarLinks(arqs); })] : []).concat([
+            return [op('Baixar como .zip (' + sel.length + ')', 'bi-file-earmark-zip', function () { baixarZip(sel); })].concat(arqs.length ? [op('Copiar links' + (arqs.length < sel.length ? ' (' + arqs.length + ')' : ''), 'bi-link-45deg', function () { copiarLinks(arqs); })] : [], [
                 SEP,
                 op('Recortar', 'bi-scissors', function () { recortar(sel); }, { atalho: 'Ctrl+X' }),
+            ], arqs.length ? [op('Copiar', 'bi-copy', function () { copiar(sel); }, { atalho: 'Ctrl+C' })] : [], [
                 op('Mover para…', 'bi-folder-symlink', function () { escolherDestino(sel); }),
                 op('Copiar caminhos', 'bi-signpost', function () { copiarCaminhos(sel); }),
                 opFavorito(sel),
@@ -1785,7 +1812,9 @@
         const ehPasta = alvo.tipo === 'pasta';
         const a = alvo.dado;
         return [op('Abrir', ehPasta ? 'bi-folder2-open' : 'bi-box-arrow-up-right', function () { abrirItem(alvo); }, { atalho: 'Enter' })]
-            .concat(ehPasta ? [] : [
+            .concat(ehPasta ? [
+                op('Baixar como .zip', 'bi-download', function () { baixarZip([alvo]); }),
+            ] : [
                 op('Visualizar', 'bi-eye', function () { abrirPreviewDe(a); }, { atalho: 'Espaço' }),
                 op('Baixar', 'bi-download', function () { baixar(a); }),
                 op('Copiar link', 'bi-link-45deg', function () { copiarLinks([alvo]); }),
@@ -1794,6 +1823,7 @@
                 SEP,
                 op('Recortar', 'bi-scissors', function () { recortar([alvo]); }, { atalho: 'Ctrl+X' }),
             ])
+            .concat(ehPasta ? [] : [op('Copiar', 'bi-copy', function () { copiar([alvo]); }, { atalho: 'Ctrl+C' })])
             .concat(ehPasta ? [op('Colar', 'bi-clipboard', function () { colarEm(alvo.id); }, { atalho: 'Ctrl+V', desabilitado: !areaDeTransferencia })] : [])
             .concat([
                 // "Mover para…" (modal de destino) é função do sistema (§16.7); o desenho é omisso.
@@ -1978,11 +2008,21 @@
             if (ok) toast(itens.length === 1 ? 'Caminho copiado' : 'Caminhos copiados'); else toastErro('Não foi possível copiar.');
         });
     }
-    // Recortar (Ctrl+X): só memória; Colar move pelo mover-lote. Copiar/duplicar é do L8.
+    // Recortar (Ctrl+X): só memória; Colar move pelo mover-lote.
     function recortar(itens) {
         if (!itens.length) return;
         areaDeTransferencia = { op: 'recortar', chaves: itens.map(chaveDe) };
         toast('Recortado: ' + rotuloDe(itens));
+    }
+    /* Copiar (Ctrl+C, L8/D6; dc `clip('copiar')`): só memória, e só ARQUIVOS — o servidor não
+       copia pastas (422). Pasta na seleção fica de fora e o toast diz; sem arquivo nenhum, nada é
+       guardado e o que já estava na área de transferência continua. */
+    function copiar(itens) {
+        if (!itens.length) return;
+        const arqs = itens.filter(ehArquivo);
+        if (!arqs.length) { toast('Pastas não são copiadas: selecione arquivos.'); return; }
+        areaDeTransferencia = { op: 'copiar', chaves: arqs.map(chaveDe) };
+        toast('Copiado: ' + rotuloDe(arqs) + (arqs.length < itens.length ? ' (pastas não são copiadas)' : ''));
     }
     function chaveExiste(k) {
         const partes = k.split(':');
@@ -1995,11 +2035,13 @@
         if (!areaDeTransferencia.chaves.length) areaDeTransferencia = null;
     }
     // O recorte só é consumido quando o mover-lote dá certo: erro do servidor deixa o Ctrl+V
-    // para repetir; "já estão aqui" e ciclo também o preservam.
+    // para repetir; "já estão aqui" e ciclo também o preservam. A CÓPIA nunca é consumida: o
+    // mesmo Ctrl+C cola quantas vezes se quiser (dc `colar`), cada vez uma cópia nova.
     function colarEm(destinoId) {
         if (!areaDeTransferencia) return;
         const chaves = areaDeTransferencia.chaves.filter(function (k) { return k !== 'pasta:' + destinoId && chaveExiste(k); });
         if (!chaves.length) { areaDeTransferencia = null; toast('Nada para colar'); return; }
+        if (areaDeTransferencia.op === 'copiar') { copiarLote(chaves, destinoId); return; }
         moverLote(chaves, destinoId).then(function (ok) { if (ok) areaDeTransferencia = null; });
     }
     function colarAqui() { colarEm(pastaAtualId()); }
@@ -2067,6 +2109,101 @@
             toast((n === 1 ? '"' + (nomes[0] || '1 item') + '" movido' : n + ' itens movidos') + ' para ' + nomeDoLocal(destinoId));
             return true;
         }).catch(function (err) { toastErro(err.message || 'Erro de comunicação.'); return false; });
+    }
+
+    // Bytes legíveis no padrão da mensagem do servidor (SelecaoAcimaDoTetoException).
+    function bytesDoTeto(b) {
+        if (b >= 1024 * 1024 * 1024) return (b / (1024 * 1024 * 1024)).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' GB';
+        if (b >= 1024 * 1024) return Math.round(b / (1024 * 1024)).toLocaleString('pt-BR') + ' MB';
+        if (b >= 1024) return Math.round(b / 1024).toLocaleString('pt-BR') + ' KB';
+        return b + ' B';
+    }
+    function somaDeBytes(lista) { return lista.reduce(function (t, a) { return t + (Number(a.tamanho) || 0); }, 0); }
+    // O teto de bytes (1 GB) do .zip e da cópia, com a mensagem do servidor.
+    function acimaDoTetoDeBytes(bytes) {
+        if (bytes <= TETO_BYTES) return false;
+        toastErro('A seleção soma ' + bytesDoTeto(bytes) + '; o limite por ação é ' + bytesDoTeto(TETO_BYTES) + '.');
+        return true;
+    }
+
+    /* Copiar → Colar (L8, D6): UM pedido ao `copiar` com os ids dos arquivos e o destino. A
+       resposta traz `copiados` na forma do #pexDados (urls e tokens próprios): as linhas entram
+       na memória e a lista é refeita sem recarregar. Colado no nível aberto, as cópias ficam
+       selecionadas (dc `colar`); colado numa pasta da lista, só o toast. */
+    function copiarLote(chaves, destinoId) {
+        destinoId = destinoId == null ? null : Number(destinoId);
+        const ids = separarChaves(chaves).documentos;
+        const origem = ids.map(arquivoPorId).filter(Boolean);
+        if (!origem.length) { toast('Nada para colar'); return Promise.resolve(false); }
+        if (acimaDoTeto(origem.length) || acimaDoTetoDeBytes(somaDeBytes(origem))) return Promise.resolve(false);
+        if (!cfg.urlCopiar || !cfg.csrfLote) { toastErro('Copiar indisponível nesta pasta.'); return Promise.resolve(false); }
+        return postJson(cfg.urlCopiar, { _token: cfg.csrfLote, documentos: ids, destinoId: destinoId }).then(function (res) {
+            if (!res.ok || !res.j.ok || !Array.isArray(res.j.copiados)) throw new Error((res.j && res.j.erro) || 'Falha ao copiar.');
+            const novos = [];
+            res.j.copiados.forEach(function (d) {
+                if (inserirArquivoEnviado({ documento: d })) novos.push('arquivo:' + Number(d.id));
+            });
+            // Resposta fora da forma (servidor antigo): a lista é relida, como na lixeira.
+            if (novos.length < res.j.copiados.length) { recarregarDocumentos('Itens copiados. Atualizando a lista…'); return true; }
+            limparSelecao(true);
+            renderizar();
+            const rotulo = origem.length === 1 ? origem[0].nome : origem.length + ' itens';
+            if (destinoId === pastaAtualId()) {
+                definirSelecao(novos, { ancora: novos[0], foco: novos[novos.length - 1] });
+                toast('Colado: ' + rotulo);
+            } else {
+                toast(rotulo + (origem.length === 1 ? ' copiado' : ' copiados') + ' para ' + nomeDoLocal(destinoId));
+            }
+            return true;
+        }).catch(function (err) { toastErro(err.message || 'Erro de comunicação.'); return false; });
+    }
+
+    /* Baixar (dc `barra`/`baixar`, L4845): um arquivo baixa direto pelo link de sempre; uma pasta
+       ou vários itens viram um .zip (L8, D5). */
+    function baixarSelecao(sel) {
+        if (!sel.length) return;
+        if (sel.length === 1 && ehArquivo(sel[0])) { baixar(sel[0].dado); return; }
+        baixarZip(sel);
+    }
+    // Os arquivos que o .zip levaria: os selecionados e os da subárvore VIVA de cada pasta
+    // selecionada (a lixeira não está em memória), sem repetir.
+    function arquivosDoZip(lote) {
+        const pastasIds = [];
+        lote.secoes.forEach(function (id) { pastasIds.push(Number(id)); descendentes(id).forEach(function (d) { pastasIds.push(Number(d)); }); });
+        return arquivos.filter(function (a) {
+            return lote.documentos.indexOf(Number(a.id)) !== -1 || (a.secaoId != null && pastasIds.indexOf(Number(a.secaoId)) !== -1);
+        });
+    }
+    /* O .zip (D5) é um POST de formulário com target=_blank: o navegador baixa em stream na aba
+       nova. Em erro, o servidor responde JSON cru NESSA aba — por isso os tetos (500 arquivos /
+       1 GB pela soma de `tamanho`) e o "sem arquivos" são conferidos aqui, com toast, ANTES de
+       abrir. O formulário nasce por DOM (createElement/value), nunca por HTML em string. */
+    function baixarZip(itens) {
+        const lote = separarChaves(itens.map(chaveDe));
+        if (!lote.documentos.length && !lote.secoes.length) return false;
+        if (acimaDoTeto(lote.documentos.length + lote.secoes.length)) return false;
+        const lista = arquivosDoZip(lote);
+        if (!lista.length) { toastErro('A seleção não tem arquivos para baixar.'); return false; }
+        if (lista.length > TETO_ZIP_ARQUIVOS) {
+            toastErro('A seleção tem ' + formatarInteiro(lista.length) + ' arquivos; o limite por .zip é ' + formatarInteiro(TETO_ZIP_ARQUIVOS) + '.');
+            return false;
+        }
+        if (acimaDoTetoDeBytes(somaDeBytes(lista))) return false;
+        if (!cfg.urlZip || !cfg.csrfLote) { toastErro('Download em .zip indisponível nesta pasta.'); return false; }
+        const formZip = h('form', { method: 'post', action: cfg.urlZip, target: '_blank', hidden: true });
+        const campo = function (nome, valor) {
+            const input = h('input', { type: 'hidden', name: nome });
+            input.value = String(valor);
+            formZip.appendChild(input);
+        };
+        campo('_token', cfg.csrfLote);
+        lote.documentos.forEach(function (id) { campo('documentos[]', id); });
+        lote.secoes.forEach(function (id) { campo('secoes[]', id); });
+        document.body.appendChild(formZip);
+        formZip.submit();
+        formZip.remove();
+        toast('Preparando o .zip: ' + pluralizar(lista.length, 'arquivo', 'arquivos') + ' · ' + formatarBytes(somaDeBytes(lista)));
+        return true;
     }
 
     /* Favoritos (L6, D2, dc `expFavAlt` L4442). Otimista: a estrela e a posição mudam na hora,
