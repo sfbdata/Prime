@@ -14,7 +14,7 @@
    Copiar link, Arquivar/Desarquivar, Excluir) vivem no menu ⋮, com a tarja azul
    do desenho. O que o desenho mostra e o sistema ainda não tem (Duplicar, Mover
    carteira, Timeline inteligente, Link do Push, Imprimir, Acompanhar, Favoritos,
-   Cadeado, Cadastro, Intelligence, foto do cliente, "N de M") NÃO é renderizado:
+   Cadeado, Cadastro, Intelligence, foto do cliente) NÃO é renderizado:
    item inerte ensina o usuário a desconfiar do menu inteiro.
 
    Contexto: `pasta`, `fotosResponsaveis`, `vizinhas`, `push`, `unidadeCobrada`.
@@ -107,6 +107,12 @@
                       title="{{ vizinhas.rotuloAnterior }}" aria-label="{{ vizinhas.rotuloAnterior }}">
                     <i class="bi bi-chevron-left"></i>
                 </span>
+            {% endif %}
+            {# "N de M" (desenho 1.2.3): a linha da pasta na lista do Expediente, mesma ordem
+               e mesmo conjunto das setas. Aparece sempre que a posição é conhecida — inclusive
+               "1 de 1": as setas não somem na ponta, o contador também não. #}
+            {% if vizinhas.total %}
+                <span class="ps-cab-pos">{{ vizinhas.posicao }} de {{ vizinhas.total }}</span>
             {% endif %}
             {% if vizinhas.proximaId %}
                 <a href="{{ path('pasta_show', {id: vizinhas.proximaId}) }}"

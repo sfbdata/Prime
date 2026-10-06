@@ -391,7 +391,11 @@ class PastaController extends AbstractController
 
         // Setas ‹ › do cabeçalho: a pasta de cima e a de baixo na ordem da lista do Expediente.
         // Não dependem de filtro nem de sessão — quem chega por link direto navega igual.
-        $vizinhas = PastaVizinhasOutput::montar($this->pastaRepository->vizinhasNoAcervo($pasta));
+        // O "N de M" entre elas sai do mesmo conjunto e da mesma ordem.
+        $vizinhas = PastaVizinhasOutput::montar(
+            $this->pastaRepository->vizinhasNoAcervo($pasta),
+            $this->pastaRepository->posicaoNoAcervo($pasta),
+        );
 
         return $this->render('pasta/show.html.twig', [
             'pasta'                       => $pasta,

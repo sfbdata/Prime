@@ -850,6 +850,72 @@ class PastaRepository extends ServiceEntityRepository
     }
 
     /**
+     * O "N de M" entre as setas ‹ › do cabeçalho: em que linha da lista do Expediente a
+     * pasta está e quantas linhas a lista tem.
+     *
+     * Mesmo conjunto e mesma chave das setas (`vizinhasNoAcervo` / `vizinha`): todas as
+     * pastas do escritório — ativas, arquivadas e lápides —, ordenadas por (prefixo numérico
+     * do NUP, NUP cru, id) DECRESCENTE. A posição é quantas pastas têm chave MAIOR (as que
+     * ficam acima na lista) + 1; o total é o COUNT do mesmo conjunto. Se as expressões
+     * divergissem das de `vizinha()`, o número diria "3 de 7" com a seta ‹ levando a uma
+     * pasta que não é a 2ª — por isso elas são copiadas literalmente de lá.
+     *
+     * Devolve nulo quando a pasta não tem tenant ou ainda não foi persistida: não há
+     * acervo em que ela ocupe uma linha.
+     *
+     * @return ?array{posicao: int, total: int}
+     */
+    public function posicaoNoAcervo(Pasta $pasta): ?array
+    {
+        $tenant = $pasta->getTenant();
+        $id     = $pasta->getId();
+
+        if ($tenant === null || $id === null) {
+            return null;
+        }
+
+        $nup = (string) $pasta->getNup();
+
+        // As MESMAS expressões de `vizinha()` — ver o porquê do CASE lá.
+        $prefixo = 'CASE WHEN CAST_INT_PREFIXO(p.nup) IS NULL THEN -1 ELSE CAST_INT_PREFIXO(p.nup) END';
+        $nupCru  = "CASE WHEN p.nup IS NULL THEN '' ELSE p.nup END";
+
+        $qb = $this->createQueryBuilder('p');
+
+        $acima = (int) $qb
+            ->select('COUNT(p.id)')
+            ->andWhere('p.tenant = :tenant')
+            // `orX`/`andX` para o parêntese existir: um OR solto escaparia do filtro de tenant.
+            ->andWhere($qb->expr()->orX(
+                $qb->expr()->gt($prefixo, ':prefixo'),
+                $qb->expr()->andX(
+                    $qb->expr()->eq($prefixo, ':prefixo'),
+                    $qb->expr()->gt($nupCru, ':nup'),
+                ),
+                $qb->expr()->andX(
+                    $qb->expr()->eq($prefixo, ':prefixo'),
+                    $qb->expr()->eq($nupCru, ':nup'),
+                    $qb->expr()->gt('p.id', ':id'),
+                ),
+            ))
+            ->setParameter('tenant', $tenant)
+            ->setParameter('prefixo', self::prefixoNumerico($nup))
+            ->setParameter('nup', $nup)
+            ->setParameter('id', $id)
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        $total = (int) $this->createQueryBuilder('p')
+            ->select('COUNT(p.id)')
+            ->andWhere('p.tenant = :tenant')
+            ->setParameter('tenant', $tenant)
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        return ['posicao' => $acima + 1, 'total' => $total];
+    }
+
+    /**
      * Espelho em PHP do `CAST_INT_PREFIXO` do banco: o prefixo numérico do NUP ('10' → 10,
      * '10A' → 10), ou -1 quando não há prefixo. As duas leituras precisam concordar — é a
      * mesma chave dos dois lados da comparação. O limite de 18 dígitos é o do BIGINT, o

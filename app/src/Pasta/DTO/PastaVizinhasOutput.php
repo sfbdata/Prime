@@ -7,6 +7,9 @@ namespace App\Pasta\DTO;
 /**
  * As duas setas ‹ › do cabeçalho da pasta: para onde cada uma leva e o que diz o
  * rótulo (title/aria-label). Montado a partir de `PastaRepository::vizinhasNoAcervo()`.
+ *
+ * `posicao`/`total` são o "N de M" entre as setas (`PastaRepository::posicaoNoAcervo()`);
+ * nulos quando a posição não foi informada — aí o cabeçalho não mostra o contador.
  */
 final readonly class PastaVizinhasOutput
 {
@@ -15,6 +18,8 @@ final readonly class PastaVizinhasOutput
         public string $rotuloAnterior,
         public ?int $proximaId,
         public string $rotuloProxima,
+        public ?int $posicao = null,
+        public ?int $total = null,
     ) {}
 
     /**
@@ -22,8 +27,9 @@ final readonly class PastaVizinhasOutput
      *     anterior: ?array{id: int, nup: ?string, nomeCliente?: ?string},
      *     proxima:  ?array{id: int, nup: ?string, nomeCliente?: ?string},
      * } $vizinhas
+     * @param ?array{posicao: int, total: int} $posicao
      */
-    public static function montar(array $vizinhas): self
+    public static function montar(array $vizinhas, ?array $posicao = null): self
     {
         $anterior = $vizinhas['anterior'] ?? null;
         $proxima  = $vizinhas['proxima'] ?? null;
@@ -37,6 +43,8 @@ final readonly class PastaVizinhasOutput
             rotuloProxima: $proxima === null
                 ? 'Esta é a última pasta do acervo'
                 : self::rotulo('Próxima pasta', $proxima),
+            posicao: $posicao['posicao'] ?? null,
+            total: $posicao['total'] ?? null,
         );
     }
 

@@ -391,6 +391,10 @@
 .ps-btn--seta:focus-visible { border-color: transparent; background: var(--ps-accent-bg); color: var(--ps-accent); }
 .ps-btn--seta i { font-size: 14px; }
 
+/* "N de M" entre as setas (desenho 1.2.3): 11.5px, cinza apagado, algarismos tabulares
+   para o par de setas não mudar de largura entre "9 de 12" e "10 de 12". */
+.ps-cab-pos { font-size: 11.5px; color: var(--ps-faint); font-variant-numeric: tabular-nums; padding: 0 4px; white-space: nowrap; }
+
 /* Ponta do acervo: a seta continua no lugar, apagada e sem alvo de clique — sumir
    faria o par de botões mudar de largura de pasta para pasta. */
 .ps-btn--inerte { color: var(--ps-inerte); cursor: default; }
