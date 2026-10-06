@@ -43,6 +43,15 @@
     --db-ia-btn-sombra:     0 4px 12px -8px rgba(12,90,130,.35);
     --db-ia-btn-sombra-hover: 0 8px 20px -10px rgba(21,151,189,.6);
     --db-ia-alerta-ponto:   #d6921e;
+    /* balão da dica do botão (iaDicaStyle, dc L2707-2709) */
+    --db-ia-dica-bg:        #e9f5f9;
+    --db-ia-dica-texto:     #0b6a88;
+    --db-ia-dica-anel:      #cfe7ef;
+    --db-ia-dica-sombra:    0 8px 18px -10px rgba(12,90,130,.45);
+    --db-ia-dica-alerta-bg:     #fdf3e1;
+    --db-ia-dica-alerta-texto:  #7a4c05;
+    --db-ia-dica-alerta-anel:   #f0dcb4;
+    --db-ia-dica-alerta-sombra: 0 8px 18px -10px rgba(160,110,20,.45);
     /* interruptor do Modo avançado (dc L2575) */
     --db-ia-switch-off:     #cfd9e0;
     --db-ia-switch-on:      linear-gradient(90deg, #1597bd, #0c7a9c);
@@ -107,6 +116,14 @@
     --db-ia-btn-anel-hover: var(--db-accent);
     --db-ia-btn-sombra:     none;
     --db-ia-btn-sombra-hover: none;
+    --db-ia-dica-bg:        rgba(79,179,212,.16);
+    --db-ia-dica-texto:     var(--db-accent-text);
+    --db-ia-dica-anel:      rgba(79,179,212,.35);
+    --db-ia-dica-sombra:    0 8px 18px -10px rgba(0,0,0,.7);
+    --db-ia-dica-alerta-bg:     rgba(214,146,30,.18);
+    --db-ia-dica-alerta-texto:  #e9be6c;
+    --db-ia-dica-alerta-anel:   rgba(214,146,30,.4);
+    --db-ia-dica-alerta-sombra: 0 8px 18px -10px rgba(0,0,0,.7);
     --db-ia-switch-off:     rgba(255,255,255,.22);
     --db-ia-switch-pill-bg: rgba(79,179,212,.14);
     --db-ia-switch-pill-bg-hover: rgba(79,179,212,.22);
@@ -140,7 +157,6 @@
     order: 0;
     flex: 0 0 auto;
     margin: 0 0 18px auto;
-    padding-bottom: 6px;
     position: relative;
 }
 .db-page .db-ia-abrir {
@@ -169,17 +185,37 @@
 .db-page .db-ia-abrir-texto { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.1; }
 .db-page .db-ia-abrir-marca { font-size: 10px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--db-accent); }
 .db-page .db-ia-abrir-nome  { font-size: 12.5px; font-weight: 700; letter-spacing: .01em; color: var(--db-text-strong); }
-/* ponto âmbar: há alerta com pelo menos um risco (dc L2708) */
-.db-page .db-ia-abrir-ponto {
+/* balão da dica (dc L207 + L2707-2709): abaixo do botão, alinhado à direita; ponto
+   âmbar de 7px dentro dele quando há alerta. Só CSS: hover e foco do teclado. */
+.db-page .db-ia-dica {
     position: absolute;
-    top: -3px;
-    right: -3px;
-    width: 9px;
-    height: 9px;
-    border-radius: 50%;
-    background: var(--db-ia-alerta-ponto);
-    box-shadow: 0 0 0 2px var(--db-card);
+    top: calc(100% + 8px);
+    right: 0;
+    z-index: 40;
+    display: none;
+    align-items: center;
+    gap: 7px;
+    white-space: nowrap;
+    padding: 6px 11px 6px 9px;
+    border-radius: 4px;
+    font-size: 12.5px;
+    font-weight: 700;
+    line-height: 1.2;
+    pointer-events: none;
+    background: var(--db-ia-dica-bg);
+    color: var(--db-ia-dica-texto);
+    box-shadow: inset 0 0 0 1px var(--db-ia-dica-anel), var(--db-ia-dica-sombra);
+    animation: dbIaDicaEntra .16s ease both;
 }
+.db-page .db-ia-dica.is-alerta {
+    background: var(--db-ia-dica-alerta-bg);
+    color: var(--db-ia-dica-alerta-texto);
+    box-shadow: inset 0 0 0 1px var(--db-ia-dica-alerta-anel), var(--db-ia-dica-alerta-sombra);
+}
+.db-page .db-ia-abrir:hover + .db-ia-dica,
+.db-page .db-ia-abrir:focus-visible + .db-ia-dica { display: inline-flex; }
+.db-page .db-ia-dica-ponto { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; background: var(--db-ia-alerta-ponto); }
+@keyframes dbIaDicaEntra { from { opacity: 0; transform: translate3d(0,-4px,0); } to { opacity: 1; transform: none; } }
 
 /* estrela (SVG do desenho): órbita, pulso e pontos que piscam */
 .db-page .db-ia-estrela { display: flex; filter: drop-shadow(0 0 2px rgba(21,151,189,.3)); transition: transform .35s cubic-bezier(.34,1.56,.64,1), filter .35s ease; }
@@ -483,7 +519,8 @@
 /* ── Responsividade ──────────────────────────────────────────────────────── */
 @media (max-width: 719.98px) {
     .db-page .db-ia { flex: 0 0 100%; margin: -6px 0 14px; padding-bottom: 0; }
-    .db-page .db-ia-abrir { width: 100%; justify-content: center; }
+    /* botão na largura natural, à esquerda (dc sem regra de celular); o balão acompanha */
+    .db-page .db-ia-dica { right: auto; left: 0; }
     .db-page .db-ia-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .db-page .db-ia-gestor-linha { grid-template-columns: 1fr; gap: 2px; }
     .db-page .db-ia-kv { grid-template-columns: 1fr; gap: 1px; }

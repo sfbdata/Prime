@@ -91,6 +91,12 @@ final class DashboardInteligenciaTelaTest extends DashboardWebTestCase
         self::assertSame('dbIaPainel', $botao->attr('popovertarget'), 'abre o painel pelo Popover API nativo');
         self::assertSame('button', $botao->attr('type'));
         self::assertStringContainsString('Intelligence', $botao->text());
+        // sem alerta: balão neutro, sem ponto, com a leitura do período
+        $dica = $crawler->filter('[data-filtro-resultado] > .db-ia > button.db-ia-abrir + span.db-ia-dica[role="tooltip"]');
+        self::assertCount(1, $dica);
+        self::assertStringNotContainsString('is-alerta', (string) $dica->attr('class'));
+        self::assertCount(0, $dica->filter('.db-ia-dica-ponto'));
+        self::assertSame('Leitura do período', trim($dica->text()));
 
         $painel = $this->painel($crawler);
         self::assertSame('dbIaPainel', $painel->attr('id'));
@@ -233,12 +239,19 @@ final class DashboardInteligenciaTelaTest extends DashboardWebTestCase
         self::assertStringNotContainsString('%', $alerta->text());
         self::assertCount(0, $painel->filter('.db-ia-alertas > details.db-ia-alerta[data-alerta="entrada"]'), 'alerta de entrada × saída não existe');
 
-        // botão com o ponto de alerta e a contagem de riscos na dica
+        // botão sem ponto (dc L197-206); a contagem de riscos vai no balão irmão, com o
+        // ponto âmbar DENTRO dele, e não no title nativo
         $botao = $crawler->filter('[data-filtro-resultado] > .db-ia > button.db-ia-abrir');
         self::assertCount(1, $botao);
         self::assertStringContainsString('is-alerta', (string) $botao->attr('class'));
-        self::assertCount(1, $botao->filter('.db-ia-abrir-ponto'));
-        self::assertSame('1 ponto de atenção', $botao->attr('title'));
+        self::assertCount(0, $botao->filter('.db-ia-abrir-ponto, .db-ia-dica-ponto'), 'o botão não leva ponto');
+        self::assertNull($botao->attr('title'), 'a dica é o balão próprio, não o title nativo');
+        self::assertSame('dbIaDica', $botao->attr('aria-describedby'));
+        $dica = $crawler->filter('[data-filtro-resultado] > .db-ia > button.db-ia-abrir + span.db-ia-dica#dbIaDica[role="tooltip"]');
+        self::assertCount(1, $dica);
+        self::assertStringContainsString('is-alerta', (string) $dica->attr('class'));
+        self::assertCount(1, $dica->filter('.db-ia-dica > .db-ia-dica-ponto'));
+        self::assertSame('1 ponto de atenção', trim($dica->text()));
     }
 
     #[TestDox('O XHR devolve o painel junto com cards e tabela, recalculado para o filtro')]

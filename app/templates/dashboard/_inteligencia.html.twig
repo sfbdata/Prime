@@ -34,11 +34,13 @@
 {% set hora = inteligencia.geradaEm|date('H:i') %}
 
 <div class="db-ia">
-    <button type="button" class="db-ia-abrir{{ inteligencia.temAlerta ? ' is-alerta' : '' }}" popovertarget="dbIaPainel" title="{{ dica }}" aria-label="Abrir BlueJus Intelligence: {{ dica }}">
+    <button type="button" class="db-ia-abrir{{ inteligencia.temAlerta ? ' is-alerta' : '' }}" popovertarget="dbIaPainel" aria-label="Abrir BlueJus Intelligence" aria-describedby="dbIaDica">
         <span class="db-ia-estrela" aria-hidden="true">{{ ui.estrela(20) }}</span>
         <span class="db-ia-abrir-texto"><span class="db-ia-abrir-marca">BlueJus</span><span class="db-ia-abrir-nome">Intelligence</span></span>
-        {% if inteligencia.temAlerta %}<span class="db-ia-abrir-ponto" aria-hidden="true"></span>{% endif %}
     </button>
+    {# Balão da dica (dc L207, estilo L2707-2709): irmão do botão, aparece no hover/foco
+       só por CSS. O ponto âmbar mora DENTRO do balão quando há alerta, não no botão. #}
+    <span class="db-ia-dica{{ inteligencia.temAlerta ? ' is-alerta' : '' }}" id="dbIaDica" role="tooltip">{% if inteligencia.temAlerta %}<span class="db-ia-dica-ponto" aria-hidden="true"></span>{% endif %}{{ dica }}</span>
 
     <aside id="dbIaPainel" class="db-ia-painel" popover role="dialog" aria-labelledby="dbIaMarca" aria-describedby="dbIaLegenda">
         <div class="db-ia-cab">
