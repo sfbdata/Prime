@@ -143,7 +143,7 @@ final class PastaExploradorModosTest extends TestCase
         self::assertStringContainsString("if (/^XLSX?$|^CSV$|^ODS$/.test(e)) return 'excel';", $js);
         self::assertStringContainsString("if (/^(JPE?G|PNG|GIF|WEBP|HEIC|BMP)$/.test(e)) return 'img';", $js);
         self::assertStringContainsString("if (/^(ZIP|RAR|7Z)$/.test(e)) return 'zip';", $js);
-        self::assertStringContainsString("return v && FILTROS.indexOf(v) !== -1 ? v : 'todos';", $js, 'filtro salvo inválido cai em Todos');
+        self::assertStringContainsString('if (FILTROS.indexOf(id) === -1) return;', $js, 'grupo desconhecido não vira filtro');
 
         // A contagem é calculada antes de filtrar (senão todo grupo não escolhido viraria 0 e
         // ficaria desabilitado — o filtro se trancaria).
@@ -152,8 +152,53 @@ final class PastaExploradorModosTest extends TestCase
         self::assertNotFalse($posContagem);
         self::assertNotFalse($posFiltro);
         self::assertLessThan($posFiltro, $posContagem);
-        // Zero desabilita, menos "Todos" e o próprio filtro ativo (pasta sem nada do tipo salvo).
+        // Zero desabilita, menos "Todos" e o próprio filtro ativo (pasta sem nada do tipo, ao subir pela trilha).
         self::assertStringContainsString("b.disabled = n === 0 && id !== 'todos' && !on;", $js);
+    }
+
+    #[TestDox('reordenar (Sortable) só com o nível INTEIRO na tela: desligado com busca ou filtro por tipo — senão o /reordenar grava ordem parcial')]
+    public function testSortableDesligadoComBuscaOuFiltro(): void
+    {
+        $js = $this->js();
+
+        /* Sem a condição do filtro, o onEnd manda só os ids visíveis e o ReordenarDocumentosUseCase
+           grava uma ordem parcial: a ordem Manual dos escondidos se perde. */
+        self::assertStringContainsString(
+            "return !!window.Sortable && classificar.chave === 'manual' && normalizar(busca) === '' && filtroTipo === 'todos';",
+            $js
+        );
+        self::assertStringContainsString("if (!usaSortable()) return;", $js, 'ligarSortable obedece a mesma guarda');
+        // Sem Sortable, o arraste nativo (soltar em pasta) tem de continuar: o draggable das linhas
+        // usa a MESMA condição — nas duas linhas (pasta e arquivo), sem sobrar a versão antiga.
+        self::assertSame(2, substr_count($js, "draggable: usaSortable() ? null : 'true',"));
+        self::assertStringNotContainsString("draggable: classificar.chave === 'manual' ? null : 'true'", $js);
+        self::assertSame(1, substr_count($js, 'sortable = new Sortable('), 'um único ponto cria o Sortable');
+    }
+
+    #[TestDox('toque (< 768px ou hover:none): tocar em pasta entra nela mesmo com o painel ligado')]
+    public function testToqueEntraNaPastaComPainel(): void
+    {
+        $js = $this->js();
+
+        self::assertStringContainsString("window.matchMedia('(max-width: 767.98px), (hover: none)').matches", $js);
+        $toque = strpos($js, "if (painel && item.dataset.pexTipo === 'pasta' && ehToque()) { entrar(Number(item.dataset.pexId)); return; }");
+        $sel   = strpos($js, "if (painel) { selecionar(item.dataset.pexTipo + ':' + Number(item.dataset.pexId)); return; }");
+        self::assertNotFalse($toque);
+        self::assertNotFalse($sel);
+        self::assertLessThan($sel, $toque, 'o toque tem de ser decidido ANTES do selecionar');
+    }
+
+    #[TestDox('classificação salva por Categoria com a coluna desligada cai no padrão (Manual)')]
+    public function testClassificarCategoriaSemColunaCaiNoPadrao(): void
+    {
+        $js = $this->js();
+
+        self::assertStringContainsString("if (chave === 'categoria' && !colunas.categoria) return { chave: 'manual', desc: false };", $js);
+        // A leitura da classificação depende das colunas: `colunas` tem de ser lida ANTES.
+        self::assertLessThan(
+            strpos($js, 'let classificar = lerClassificar();'),
+            strpos($js, 'let colunas     = lerColunas();')
+        );
     }
 
     #[TestDox('painel de detalhes (dc L2271): 250px, sticky a 12px, #f7fafc, padding 18/16; ao lado da lista pela grade do corpo; abaixo dela no celular')]

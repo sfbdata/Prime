@@ -18,8 +18,9 @@
    Peticionar) e do `#previewDocModal` já ligado pelo visualizador-documento.js.
 
    Storage — SÓ preferência de visualização em localStorage (`pex:classificar`,
-   `pex:colunas`, `pex:modo`, `pex:painel`, `pex:filtroTipo`), sempre dentro de
-   try/catch; a pasta aberta em sessionStorage (`pex:pasta:<id>:caminho`). Nada
+   `pex:colunas`, `pex:modo`, `pex:painel`), sempre dentro de try/catch. O filtro
+   por tipo NÃO é persistido (o dc não persiste `expTipoF`): vale só para esta
+   visita. A pasta aberta fica em sessionStorage (`pex:pasta:<id>:caminho`). Nada
    de flag de aba: o retorno é pelo fragmento `#documentos`, que o pasta-show.js abre.
    ========================================================================== */
 (function () {
@@ -101,7 +102,6 @@
     const CHAVE_COLUNAS     = 'pex:colunas';
     const CHAVE_MODO        = 'pex:modo';
     const CHAVE_PAINEL      = 'pex:painel';
-    const CHAVE_FILTRO      = 'pex:filtroTipo';
     const CLASSIFICACOES    = ['manual', 'nome', 'tipo', 'tamanho', 'data', 'categoria'];
     // Primeiro clique de cada coluna: data e tamanho começam DECRESCENTES (mais recente / maior
     // primeiro), nome, tipo e categoria em A–Z — regra do desenho (dc L4862) e do fm antigo.
@@ -131,11 +131,11 @@
     let caminho = [];          // [] = raiz; senão a cadeia de ids (números) até a pasta aberta
     let busca   = '';
     let buscaTimer = null;     // debounce da digitação na busca
-    let classificar = lerClassificar();   // { chave, desc }
     let colunas     = lerColunas();       // { categoria: bool, ord: [...], w: {...} }
+    let classificar = lerClassificar();   // { chave, desc } — depois das colunas: depende da Categoria
     let modo        = lerModo();          // um dos ICONE_PX
     let painel      = lerPainel();        // bool — o desenho começa desligado (dc L2793)
-    let filtroTipo  = lerFiltro();        // um dos FILTROS
+    let filtroTipo  = 'todos';            // um dos FILTROS — só em memória (o dc não persiste)
     let selecionado = null;               // 'pasta:<id>' | 'arquivo:<id>' (seleção simples, só para o painel)
     let contagemTipos = {};               // { grupo: n } do conjunto na tela, antes do filtro
 
@@ -151,6 +151,8 @@
         if (!v) return { chave: 'manual', desc: false };
         const desc  = /_desc$/.test(v);
         const chave = v.replace(/_desc$/, '');
+        // Categoria só manda na ordem com a coluna ligada (mesma regra de desligar no Organizar).
+        if (chave === 'categoria' && !colunas.categoria) return { chave: 'manual', desc: false };
         return CLASSIFICACOES.indexOf(chave) !== -1 ? { chave: chave, desc: desc } : { chave: 'manual', desc: false };
     }
     function gravarClassificar() {
@@ -190,13 +192,6 @@
     function lerPainel() { return lerStorage(CHAVE_PAINEL) === '1'; }
     function gravarPainel() {
         try { localStorage.setItem(CHAVE_PAINEL, painel ? '1' : '0'); } catch (e) { /* silencioso */ }
-    }
-    function lerFiltro() {
-        const v = lerStorage(CHAVE_FILTRO);
-        return v && FILTROS.indexOf(v) !== -1 ? v : 'todos';
-    }
-    function gravarFiltro() {
-        try { localStorage.setItem(CHAVE_FILTRO, filtroTipo); } catch (e) { /* silencioso */ }
     }
     function gravarCaminho() {
         try { sessionStorage.setItem(CHAVE_CAMINHO, JSON.stringify(caminho)); } catch (e) { /* silencioso */ }
@@ -488,8 +483,8 @@
             el.vazioTexto.textContent = buscando
                 ? 'Nenhum arquivo ou pasta com esse nome.'
                 : (filtroTipo !== 'todos'
-                    // O desenho é omisso: com o filtro persistido, uma pasta sem nada do tipo
-                    // não pode parecer vazia — o chip "Mostrando somente" fica logo acima.
+                    // O desenho é omisso: subindo pela trilha com o filtro ativo, uma pasta sem
+                    // nada do tipo não pode parecer vazia — o chip "Mostrando somente" fica logo acima.
                     ? 'Nenhum item do tipo ' + rotuloFiltro(filtroTipo) + (caminho.length ? ' nesta pasta.' : ' aqui.')
                     : (caminho.length ? 'Pasta vazia. Arraste arquivos para cá ou clique em Anexar.' : 'Nenhum arquivo ainda. Arraste arquivos para cá ou clique em Anexar.'));
             el.vazio.hidden = false;
@@ -712,7 +707,7 @@
             tabindex: '0',
             title: p.nome + ' · ' + pluralizar(contagem.arquivos, 'arquivo', 'arquivos'),
             'aria-label': 'Abrir pasta ' + p.nome,
-            draggable: classificar.chave === 'manual' ? null : 'true',
+            draggable: usaSortable() ? null : 'true',
         }, true, h('span', { class: 'pex-nome' }, nomeComRealce(p.nome, buscando)), sub, null, {
             tipo: h('span', { class: 'pex-cel pex-cel-tipo', text: TIPO_PASTA[2] }),
             cat:  h('span', { class: 'pex-cel pex-cel-cat' }),
@@ -762,7 +757,7 @@
             'data-pex-tipo': 'arquivo',
             'data-pex-id': String(a.id),
             title: a.nome,
-            draggable: classificar.chave === 'manual' ? null : 'true',
+            draggable: usaSortable() ? null : 'true',
         }, false, nomeArquivo(a, buscando), sub, extras, {
             tipo: h('span', { class: 'pex-cel pex-cel-tipo', text: t[2], title: t[2] }),
             cat:  h('span', { class: 'pex-cel pex-cel-cat', text: a.categoriaRotulo || '', title: a.categoriaRotulo || '' }),
@@ -879,6 +874,9 @@
        LIGADO o clique seleciona — é o único jeito de ver os detalhes de uma pasta — e o duplo
        clique (ou Enter) entra, como o desenho (dc L4758). A semântica única "clique seleciona"
        em todos os casos é do L5 (DOC-14). */
+    function ehToque() {
+        try { return window.matchMedia('(max-width: 767.98px), (hover: none)').matches; } catch (e) { return false; }
+    }
     el.lista.addEventListener('click', function (e) {
         const prev = e.target.closest('.pex-arq-preview');
         if (prev) {
@@ -900,6 +898,10 @@
         }
         if (e.target.closest('.dropdown')) return;
         if (!item) { if (painel && selecionado) selecionar(null); return; }
+        /* Toque (abaixo de 768px ou ponteiro sem hover): pasta ENTRA mesmo com o painel ligado —
+           duplo toque não é gesto confiável e o painel desce para baixo da lista no celular.
+           Convenção do sistema; o desenho é omisso. */
+        if (painel && item.dataset.pexTipo === 'pasta' && ehToque()) { entrar(Number(item.dataset.pexId)); return; }
         if (painel) { selecionar(item.dataset.pexTipo + ':' + Number(item.dataset.pexId)); return; }
         if (item.dataset.pexTipo === 'pasta') entrar(Number(item.dataset.pexId));
     });
@@ -1136,7 +1138,6 @@
         if (FILTROS.indexOf(id) === -1) return;
         filtroTipo = id;
         selecionado = null;
-        gravarFiltro();
         renderizar();
     }
     el.menuOrganizar.addEventListener('click', function (e) {
@@ -1174,7 +1175,6 @@
             filtroTipo = 'todos';
             gravarClassificar();
             gravarColunas();
-            gravarFiltro();
             fecharPopovers();
             renderizar();
         });
@@ -1617,9 +1617,16 @@
         moverPasta(p, destinoId);
     }
 
+    /* O Sortable só reordena quando a lista na tela é o nível INTEIRO: com busca ou com filtro por
+       tipo ativo o onEnd mandaria só os ids visíveis, e o /reordenar gravaria uma ordem parcial —
+       corrompendo a ordem Manual dos que estão escondidos. Nesses casos fica o arraste nativo
+       (soltar em pasta), que por isso usa a MESMA condição para o `draggable` das linhas. */
+    function usaSortable() {
+        return !!window.Sortable && classificar.chave === 'manual' && normalizar(busca) === '' && filtroTipo === 'todos';
+    }
     function ligarSortable() {
         if (sortable) { sortable.destroy(); sortable = null; }
-        if (!window.Sortable || classificar.chave !== 'manual' || normalizar(busca) !== '') return;
+        if (!usaSortable()) return;
         sortable = new Sortable(el.lista, {
             draggable: '.pex-item',
             animation: 150,

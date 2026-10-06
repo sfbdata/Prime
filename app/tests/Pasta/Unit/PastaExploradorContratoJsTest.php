@@ -111,30 +111,33 @@ final class PastaExploradorContratoJsTest extends TestCase
         self::assertMatchesRegularExpression("/el\.buscaLimpar\.addEventListener\('click', function \(\) \{ aplicarBusca\(''\);/", $js);
     }
 
-    #[TestDox('storage: só as preferências listadas na spec (pex:classificar, pex:colunas, pex:modo, pex:painel, pex:filtroTipo) e a pasta aberta por sessão')]
+    #[TestDox('storage: só as preferências listadas na spec (pex:classificar, pex:colunas, pex:modo, pex:painel) e a pasta aberta por sessão; o filtro por tipo não persiste')]
     public function testChavesDeStorage(): void
     {
         $js = $this->js();
 
         preg_match_all("/localStorage\.setItem\(([^,]+),/", $js, $m);
         self::assertSame(
-            ['CHAVE_CLASSIFICAR', 'CHAVE_COLUNAS', 'CHAVE_MODO', 'CHAVE_PAINEL', 'CHAVE_FILTRO'],
+            ['CHAVE_CLASSIFICAR', 'CHAVE_COLUNAS', 'CHAVE_MODO', 'CHAVE_PAINEL'],
             array_values(array_unique($m[1])),
-            'toda gravação passa por uma das cinco constantes — chave nova exige passar pela spec'
+            'toda gravação passa por uma das quatro constantes — chave nova exige passar pela spec'
         );
         self::assertStringContainsString("const CHAVE_CLASSIFICAR = 'pex:classificar';", $js);
         self::assertStringContainsString("const CHAVE_COLUNAS     = 'pex:colunas';", $js);
         self::assertStringContainsString("const CHAVE_MODO        = 'pex:modo';", $js);
         self::assertStringContainsString("const CHAVE_PAINEL      = 'pex:painel';", $js);
-        self::assertStringContainsString("const CHAVE_FILTRO      = 'pex:filtroTipo';", $js);
         self::assertStringContainsString("const CHAVE_CAMINHO     = 'pex:pasta:' + pastaId + ':caminho';", $js);
 
-        // Nenhuma chave literal 'pex:…' além das seis constantes acima.
+        // Nenhuma chave literal 'pex:…' além das cinco constantes acima — e nada de filtro
+        // salvo: o desenho não persiste `expTipoF`, o filtro vale só para a visita.
         preg_match_all("/'(pex:[^']*)'/", $js, $literais);
         self::assertSame(
-            ['pex:pasta:', 'pex:classificar', 'pex:colunas', 'pex:modo', 'pex:painel', 'pex:filtroTipo'],
+            ['pex:pasta:', 'pex:classificar', 'pex:colunas', 'pex:modo', 'pex:painel'],
             array_values(array_unique($literais[1]))
         );
+        self::assertStringNotContainsString('pex:filtroTipo', $js, 'o filtro por tipo não vai para o storage');
+        self::assertSame([], preg_grep('/Storage\.(setItem|getItem)\([^)]*[Ff]iltro/', explode("\n", $js)), 'nenhuma leitura/gravação de storage do filtro');
+        self::assertStringContainsString("let filtroTipo  = 'todos';", $js, 'o filtro nasce em Todos a cada visita');
         self::assertStringNotContainsString('fmTab_', $js, 'o retorno à aba é pelo fragmento #documentos');
         self::assertStringNotContainsString('fmFolder_', $js);
         self::assertStringNotContainsString('bj-docs-', $js, 'as chaves do protótipo (bj-docs-colunas…) não vêm para o sistema');
