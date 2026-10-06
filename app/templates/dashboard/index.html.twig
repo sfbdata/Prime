@@ -24,6 +24,11 @@
     {% for c in cargos %}
         {% set cargoOpcoes = cargoOpcoes|merge([{ valor: c, label: c }]) %}
     {% endfor %}
+    {# "Sem cargo" por último, como no desenho, e só quando há colaborador ativo sem cargo
+       (o controller decide em `existeSemCargo`). O valor é a constante do UseCase. #}
+    {% if existeSemCargo|default(false) %}
+        {% set cargoOpcoes = cargoOpcoes|merge([{ valor: cargoSemValor, label: 'Sem cargo' }]) %}
+    {% endif %}
 
     {# Cabeçalho do PDF (só na impressão): período e filtros do momento. O servidor
        escreve o estado da carga; o dashboard.js reescreve no `beforeprint`, porque os
@@ -34,7 +39,8 @@
     {% for o in respOpcoes %}
         {% if (o.valor ~ '') == filtros.responsavel|default('') %}{% set respNome = o.label %}{% endif %}
     {% endfor %}
-    {% set cargoNome = filtros.cargo|default('') != '' ? filtros.cargo : 'Todos os cargos' %}
+    {% set cargoNome = filtros.cargo|default('') == '' ? 'Todos os cargos'
+        : (filtros.cargo == cargoSemValor|default('') ? 'Sem cargo' : filtros.cargo) %}
 
     {# Ordem do desenho: título → filtros → cards → tabela. O título fica DENTRO do
        root para dividir a primeira linha do flex com o "Atualizado às", que mora no
@@ -78,8 +84,13 @@
                         aria-pressed="{{ ativo ? 'true' : 'false' }}">{{ p.rotulo }}</button>
             {% endfor %}
         </div>
+        {# A busca de colaborador mora no cabeçalho da tabela (desenho), mas o campo que o
+           filtro-tabela.js lê (FormData, chip "Busca", "Limpar filtros") tem de estar DENTRO
+           do form: ele é renderizado aqui e escondido pelo CSS; o campo visível no cabeçalho
+           (.db-busca, no fragmento) só espelha o valor para ele — ver dashboard.js. #}
         {{ include('_partials/_filtro_barra.html.twig', {
-            mostrar_busca: false,
+            mostrar_busca: true,
+            busca_placeholder: 'Buscar colaborador',
             filtros: filtros,
             facetas: [
                 { name: 'data_de', rotulo: 'De', tipo: 'date' },

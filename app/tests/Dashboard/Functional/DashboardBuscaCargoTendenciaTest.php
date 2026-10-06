@@ -9,9 +9,12 @@ use App\Dashboard\DTO\LinhaAdvogadoDashboardOutput;
 use App\Dashboard\UseCase\ObterDadosDashboardUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
+use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Cargo;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Entity\Pasta;
 use App\Tests\Factory\Pasta\PastaFactory;
+use App\Tests\Factory\Tarefa\TarefaFactory;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
@@ -52,6 +55,15 @@ final class DashboardBuscaCargoTendenciaTest extends DashboardWebTestCase
         $em->flush();
 
         return $user;
+    }
+
+    /** Meta com `dataCriacao` forçada (a entidade não tem setter: nasce "agora"). */
+    private function criarMeta(Pasta $pasta, User $responsavel, string $criadaEm): void
+    {
+        $tarefa = TarefaFactory::createOne(['pasta' => $pasta, 'status' => Tarefa::STATUS_PENDENTE])->_real();
+        $tarefa->addResponsavel($responsavel);
+        (new \ReflectionProperty(Tarefa::class, 'dataCriacao'))->setValue($tarefa, new \DateTimeImmutable($criadaEm));
+        static::getContainer()->get(EntityManagerInterface::class)->flush();
     }
 
     /** @return string[] nomes nas linhas da tabela (só o tbody) */
@@ -175,6 +187,18 @@ final class DashboardBuscaCargoTendenciaTest extends DashboardWebTestCase
         $outro = $this->criarTenant();
         PastaFactory::createMany(4, ['tenant' => $outro, 'criadoPor' => $ana, 'responsavel' => $ana, 'dataAbertura' => new \DateTimeImmutable('2024-01-20 10:00')]);
 
+        // Metas (régua: dataCriacao). A pasta que as hospeda não tem responsável/criador e é
+        // de 2023: não mexe em nenhuma das contagens de pasta acima.
+        $hosp = PastaFactory::createOne(['tenant' => $tenant, 'dataAbertura' => new \DateTimeImmutable('2023-06-01 10:00')])->_real();
+        $this->criarMeta($hosp, $ana, '2024-02-05 09:00');
+        $this->criarMeta($hosp, $ana, '2024-02-20 09:00');
+        $this->criarMeta($hosp, $ana, '2024-01-10 09:00');
+        $this->criarMeta($hosp, $ana, '2024-01-02 09:00'); // antes da janela anterior
+        // Outro escritório, mesma responsável, dentro da janela anterior: não pode contar.
+        $hospOutro = PastaFactory::createOne(['tenant' => $outro, 'dataAbertura' => new \DateTimeImmutable('2023-06-01 10:00')])->_real();
+        $this->criarMeta($hospOutro, $ana, '2024-01-10 09:00');
+        $this->criarMeta($hospOutro, $ana, '2024-01-11 09:00');
+
         $useCase = static::getContainer()->get(ObterDadosDashboardUseCase::class);
         $output  = $useCase->executar($tenant, new \DateTimeImmutable(), ['data_de' => '2024-02-01', 'data_ate' => '2024-02-29']);
 
@@ -187,10 +211,11 @@ final class DashboardBuscaCargoTendenciaTest extends DashboardWebTestCase
         self::assertSame(2, $linhaAna->pastasCriadas);
         self::assertSame(3, $linhaAna->pastasCriadasAnterior);
         self::assertSame(3, $linhaAna->totalDemandasAnterior);
-        self::assertSame(0, $linhaAna->totalMetasAnterior);
+        self::assertSame(2, $linhaAna->totalMetas);
+        self::assertSame(1, $linhaAna->totalMetasAnterior, 'Só a meta de 10/01 do próprio escritório');
 
         self::assertSame(3, $output->totalPastasCriadasAnterior);
-        self::assertSame(['metas' => 0, 'demandas' => 3, 'pastas_criadas' => 3], $output->totaisAnteriores);
+        self::assertSame(['metas' => 1, 'demandas' => 3, 'pastas_criadas' => 3], $output->totaisAnteriores);
     }
 
     #[TestDox('sem período, a tendência é null e a tela abre normalmente')]

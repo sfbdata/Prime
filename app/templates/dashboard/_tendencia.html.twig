@@ -1,0 +1,54 @@
+{# ───────────────────────────────────────────────────────────────────────────
+   Tendência do Dashboard (README do desenho: "Tendência na linha de Total" e
+   "Tendência em cada célula"). Compara o número do período com o do período
+   anterior de mesma duração, que vem pronto do servidor (DashboardOutput /
+   LinhaAdvogadoDashboardOutput). Sem período, o anterior é null e NADA é
+   desenhado: o painel nunca inventa uma comparação.
+
+   Só é usada nas três métricas reconstruíveis por data de criação (Total metas,
+   Total demandas, Pastas criadas). Nas três, subir é bom: verde quando sobe,
+   vermelho quando cai, cinza quando estável (variação abaixo de 2%).
+
+   modo 'pilula' → linha de Total: seta + "+8%" / "−6%" / "0%" / "novo", title
+                   "Subiu 8% em relação ao período anterior (141 → 152)".
+   modo 'seta'   → célula de cada colaborador: só a seta; o percentual aparece num
+                   balão ao passar o cursor ou focar (Tab). Zero nos dois períodos:
+                   espaço reservado, sem seta, para não desalinhar a coluna.
+─────────────────────────────────────────────────────────────────────────── #}
+{% macro tendencia(atual, anterior, modo) %}
+{%- if anterior is not null -%}
+    {%- set vazio = false -%}
+    {%- if anterior == 0 and atual == 0 -%}
+        {%- set dir = 'igual' -%}
+        {%- set qual = 'igual' -%}
+        {%- set texto = '0%' -%}
+        {%- set titulo = 'Sem movimento nos dois períodos' -%}
+        {%- set de = 'sem movimento' -%}
+        {%- set vazio = true -%}
+    {%- elseif anterior == 0 -%}
+        {%- set dir = 'sobe' -%}
+        {%- set qual = 'bom' -%}
+        {%- set texto = 'novo' -%}
+        {%- set titulo = 'Período anterior: 0' -%}
+        {%- set de = 'antes: 0 → agora: ' ~ atual -%}
+    {%- else -%}
+        {%- set diff = atual - anterior -%}
+        {%- set pct = (diff|abs * 100 / anterior)|round -%}
+        {# estável = |variação| < 2%, em inteiros: |diff| × 50 < anterior #}
+        {%- set dir = (diff|abs * 50 < anterior) ? 'igual' : (diff > 0 ? 'sobe' : 'desce') -%}
+        {%- set qual = dir == 'igual' ? 'igual' : (dir == 'sobe' ? 'bom' : 'ruim') -%}
+        {%- set texto = pct == 0 ? '0%' : ((diff > 0 ? '+' : '−') ~ pct ~ '%') -%}
+        {%- set titulo = (dir == 'sobe' ? 'Subiu ' : (dir == 'desce' ? 'Caiu ' : 'Estável, ')) ~ pct ~ '% em relação ao período anterior (' ~ anterior ~ ' → ' ~ atual ~ ')' -%}
+        {%- set de = 'antes: ' ~ anterior ~ ' → agora: ' ~ atual -%}
+    {%- endif -%}
+    {%- set icone = dir == 'sobe' ? 'bi-arrow-up-right' : (dir == 'desce' ? 'bi-arrow-down-right' : 'bi-arrow-right') -%}
+    {%- if modo == 'pilula' -%}
+        <span class="db-tend db-tend--{{ qual }}" data-tendencia="{{ dir }}" title="{{ titulo }}" aria-label="{{ titulo }}"><i class="bi {{ icone }}" aria-hidden="true"></i>{{ texto }}</span>
+    {%- elseif vazio -%}
+        <span class="db-seta db-seta--vazia" aria-hidden="true"></span>
+    {%- else -%}
+        {%- set emoji = qual == 'bom' ? '😄' : (qual == 'ruim' ? '😟' : '😐') -%}
+        <span class="db-seta db-seta--{{ qual }}" data-tendencia="{{ dir }}" tabindex="0" role="img" aria-label="{{ titulo }}"><i class="bi {{ icone }}" aria-hidden="true"></i><span class="db-dica" role="tooltip"><span class="db-dica-linha"><span class="db-dica-emoji" aria-hidden="true">{{ emoji }}</span><b class="db-dica-pct">{{ texto }}</b></span><span class="db-dica-de">{{ de }}</span></span></span>
+    {%- endif -%}
+{%- endif -%}
+{% endmacro %}

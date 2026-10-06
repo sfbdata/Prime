@@ -88,6 +88,38 @@
     --db-shadow-btn:    0 8px 18px -12px rgba(12,60,90,.45);
     --db-focus:         0 0 0 3px rgba(12,122,156,.16);
     --db-ease:          cubic-bezier(.22,.8,.3,1);
+
+    /* busca de colaborador (cabeçalho da tabela) */
+    --db-busca-bg:      #f9fbfc;
+    --db-busca-hover:   #eef5f9;
+
+    /* tendência — cor pelo SIGNIFICADO (melhora/piora/estável), não pela direção */
+    --db-tend-bom:         #14784a;
+    --db-tend-bom-bg:      rgba(31,157,97,.12);
+    --db-tend-ruim:        #b0302a;
+    --db-tend-ruim-bg:     rgba(192,57,47,.1);
+    --db-tend-igual:       #5f7684;
+    --db-tend-igual-bg:    rgba(95,118,132,.1);
+    --db-seta-bom:         #1a8a55;
+    --db-seta-ruim:        #c0392f;
+    --db-seta-igual:       #95a6b2;
+    /* balão da seta: fundo, borda, percentual, linha "antes → agora" */
+    --db-dica-bom-bg:      #e6f6ee;
+    --db-dica-bom-borda:   #bfe6d1;
+    --db-dica-bom-forte:   #14784a;
+    --db-dica-bom-fraco:   #4f7d66;
+    --db-dica-ruim-bg:     #fdeceb;
+    --db-dica-ruim-borda:  #f5cdc9;
+    --db-dica-ruim-forte:  #b0302a;
+    --db-dica-ruim-fraco:  #8a5b57;
+    --db-dica-igual-bg:    #eef3f6;
+    --db-dica-igual-borda: #d9e3ea;
+    --db-dica-igual-forte: #34505f;
+    --db-dica-igual-fraco: #6b8494;
+    --db-dica-sombra:      0 10px 22px -12px rgba(12,60,90,.35);
+    /* link dos números da tabela */
+    --db-link-sombra:      0 4px 10px -6px rgba(12,90,130,.45);
+    --db-link-pill-sombra: 0 5px 12px -5px rgba(16,42,58,.35);
 }
 
 /* O escuro não inverte os hex do claro: cada token volta a apontar para o
@@ -158,6 +190,34 @@
     --db-shadow-ctl-hover: none;
     --db-shadow-btn:    none;
     --db-focus:         0 0 0 3px rgba(79,179,212,.25);
+
+    --db-busca-bg:      var(--bs-body-bg);
+    --db-busca-hover:   var(--db-accent-soft);
+
+    --db-tend-bom:         #6ddaa2;
+    --db-tend-bom-bg:      rgba(31,157,97,.2);
+    --db-tend-ruim:        #f08a84;
+    --db-tend-ruim-bg:     rgba(192,57,47,.22);
+    --db-tend-igual:       var(--bs-secondary-color);
+    --db-tend-igual-bg:    rgba(255,255,255,.08);
+    --db-seta-bom:         #6ddaa2;
+    --db-seta-ruim:        #f08a84;
+    --db-seta-igual:       rgba(255,255,255,.4);
+    --db-dica-bom-bg:      #173a2b;
+    --db-dica-bom-borda:   #2a6a4c;
+    --db-dica-bom-forte:   #6ddaa2;
+    --db-dica-bom-fraco:   #a6cdb9;
+    --db-dica-ruim-bg:     #3d2224;
+    --db-dica-ruim-borda:  #7a3a37;
+    --db-dica-ruim-forte:  #f08a84;
+    --db-dica-ruim-fraco:  #d3a7a4;
+    --db-dica-igual-bg:    #2b3238;
+    --db-dica-igual-borda: var(--bs-border-color);
+    --db-dica-igual-forte: var(--bs-body-color);
+    --db-dica-igual-fraco: var(--bs-secondary-color);
+    --db-dica-sombra:      0 10px 22px -12px rgba(0,0,0,.6);
+    --db-link-sombra:      none;
+    --db-link-pill-sombra: none;
 }
 
 /* ── Fundo da página ─────────────────────────────────────────────────────────
@@ -1143,6 +1203,220 @@
 [data-bs-theme="dark"] .db-page .db-table tfoot td { box-shadow: none; }
 [data-bs-theme="dark"] .db-page .db-total-icone { background: var(--db-accent-bg); box-shadow: inset 0 0 0 1px rgba(79,179,212,.3); }
 
+/* ── Busca de colaborador (cabeçalho da tabela) ───────────────────────────────
+   O campo que vai na query é o .js-filtro-busca do form da casca, escondido
+   aqui; o visível é o .db-busca do cabeçalho, espelhado pelo dashboard.js.
+   Recolhida: só a lupa (36px). Aberta: 260px em 0.35s (100% no celular).
+   Cantos de 4px (campo/botão, regra da trilha), não o 999px do dc. */
+.db-page .db-filtro-wrap .filtro-busca { display: none; }
+.db-page .db-busca {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    height: 36px;
+    width: 36px;
+    margin-left: auto;
+    transition: width .35s var(--db-ease);
+}
+.db-page .db-busca.is-aberta { width: 260px; }
+.db-page .db-busca-lupa {
+    position: absolute;
+    left: 0;
+    top: 0;
+    z-index: 2;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 1px solid var(--db-border-ctl);
+    border-radius: 4px;
+    background: var(--db-ctl-bg);
+    color: var(--db-label-card);
+    font-size: 14px;
+    cursor: pointer;
+    transition: background .2s, color .2s, border-color .2s;
+}
+.db-page .db-busca-lupa:hover { background: var(--db-busca-hover); color: var(--db-accent); }
+.db-page .db-busca-lupa:focus-visible { outline: none; border-color: var(--db-accent); box-shadow: var(--db-focus); }
+.db-page .db-busca.is-aberta .db-busca-lupa { border-color: transparent; background: transparent; color: var(--db-faint); }
+.db-page .db-busca-input {
+    width: 100%;
+    height: 36px;
+    border: 1px solid var(--db-border-ctl);
+    border-radius: 4px;
+    padding: 0 14px 0 34px;
+    font-size: 13.5px;
+    color: var(--db-text);
+    background: var(--db-busca-bg);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .25s ease, border-color .2s, box-shadow .2s, background .2s;
+}
+.db-page .db-busca-input::placeholder { color: var(--db-placeholder); }
+.db-page .db-busca.is-aberta .db-busca-input { opacity: 1; pointer-events: auto; }
+.db-page .db-busca-input:focus { outline: none; border-color: var(--db-accent); background: var(--db-ctl-bg); box-shadow: var(--db-focus); }
+
+/* ── Números clicáveis ────────────────────────────────────────────────────────
+   Todo número > 0 de metas e de pastas, por pessoa, é link para a lista que
+   ele conta. Hover: fundo petróleo claro; nas pílulas, sobe 1px com sombra. */
+.db-page .db-num-link {
+    text-decoration: none;
+    cursor: pointer;
+    transition: background .18s ease, box-shadow .2s ease, color .18s ease, transform .2s var(--db-ease);
+}
+.db-page .db-num.db-num-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 30px;
+    padding: 3px 7px;
+    border-radius: 4px;
+}
+.db-page .db-num.db-num-link:hover,
+.db-page .db-num.db-num-link:focus-visible {
+    background: var(--db-accent-bg);
+    color: var(--db-accent-text);
+    box-shadow: var(--db-link-sombra);
+    text-decoration: none;
+    outline: none;
+}
+.db-page .db-pill.db-num-link:hover,
+.db-page .db-pill.db-num-link:focus-visible {
+    transform: translateY(-1px);
+    box-shadow: var(--db-link-pill-sombra);
+    text-decoration: none;
+    outline: none;
+}
+.db-page .db-pill--venc.db-num-link:hover { color: var(--db-venc-text); }
+.db-page .db-pill--praz.db-num-link:hover { color: var(--db-praz-text); }
+
+/* "ver pastas" do card Demandas urgentes: link azul com seta que anda 3px */
+.db-page .db-card-ver {
+    position: relative;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--db-azul);
+    white-space: nowrap;
+    text-decoration: none;
+}
+.db-page .db-card-ver:hover { color: var(--db-azul-hover); text-decoration: none; }
+.db-page .db-card-ver i { font-size: 12px; transition: transform .3s var(--db-ease); }
+.db-page .db-stat-card:hover .db-card-ver i,
+.db-page .db-card-ver:focus-visible i { transform: translateX(3px); }
+
+/* ── Tendência ────────────────────────────────────────────────────────────────
+   Célula: número + seta (11px) num grupo centrado; com a seta, 18px de recuo à
+   esquerda para o número ficar no centro real da coluna. Total: número com a
+   pílula embaixo. */
+.db-page .db-cel { display: inline-flex; align-items: center; justify-content: center; gap: 2px; min-width: 0; }
+.db-page .db-cel--seta { padding-left: 18px; }
+.db-page .db-total-cel { display: inline-flex; flex-direction: column; align-items: center; gap: 3px; }
+
+.db-page .db-tend {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    height: 18px;
+    padding: 0 6px 0 5px;
+    border-radius: 999px;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 10.5px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+.db-page .db-tend i { font-size: 10px; line-height: 1; }
+.db-page .db-tend--bom   { color: var(--db-tend-bom);   background: var(--db-tend-bom-bg); }
+.db-page .db-tend--ruim  { color: var(--db-tend-ruim);  background: var(--db-tend-ruim-bg); }
+.db-page .db-tend--igual { color: var(--db-tend-igual); background: var(--db-tend-igual-bg); }
+
+.db-page .db-seta {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 20px;
+    flex-shrink: 0;
+    cursor: default;
+    outline: none;
+}
+.db-page .db-seta i {
+    width: 12px;
+    font-size: 11px;
+    line-height: 1;
+    text-align: center;
+    -webkit-text-stroke: .3px currentColor;
+}
+.db-page .db-seta--bom   { color: var(--db-seta-bom); }
+.db-page .db-seta--ruim  { color: var(--db-seta-ruim); }
+.db-page .db-seta--igual { color: var(--db-seta-igual); }
+.db-page .db-seta:focus-visible i { border-radius: 2px; box-shadow: var(--db-focus); }
+
+/* balão: aparece no hover ou no foco (Tab), 160ms; biquinho na mesma cor */
+.db-page .db-dica {
+    --dica-bg: var(--db-dica-igual-bg);
+    --dica-borda: var(--db-dica-igual-borda);
+    position: absolute;
+    bottom: calc(100% + 9px);
+    left: 50%;
+    z-index: 30;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 6px 10px;
+    border: 1px solid var(--dica-borda);
+    border-radius: 4px;
+    background: var(--dica-bg);
+    box-shadow: var(--db-dica-sombra);
+    transform: translateX(-50%);
+    pointer-events: none;
+    white-space: nowrap;
+}
+.db-page .db-dica::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    bottom: -5px;
+    width: 9px;
+    height: 9px;
+    border-radius: 1px;
+    background: var(--dica-bg);
+    border-right: 1px solid var(--dica-borda);
+    border-bottom: 1px solid var(--dica-borda);
+    transform: translateX(-50%) rotate(45deg);
+}
+.db-page .db-seta:hover > .db-dica,
+.db-page .db-seta:focus > .db-dica { display: flex; animation: dbDicaIn .16s var(--db-ease); }
+@keyframes dbDicaIn { from { opacity: 0; transform: translate(-50%, 3px); } to { opacity: 1; transform: translateX(-50%); } }
+/* na primeira linha o balão abre para baixo: para cima ele seria cortado pela rolagem da tabela */
+.db-page .db-table tbody tr:first-child .db-dica { bottom: auto; top: calc(100% + 9px); }
+.db-page .db-table tbody tr:first-child .db-dica::after { bottom: auto; top: -5px; transform: translateX(-50%) rotate(225deg); }
+.db-page .db-seta--bom .db-dica  { --dica-bg: var(--db-dica-bom-bg);  --dica-borda: var(--db-dica-bom-borda); }
+.db-page .db-seta--ruim .db-dica { --dica-bg: var(--db-dica-ruim-bg); --dica-borda: var(--db-dica-ruim-borda); }
+.db-page .db-dica-linha { display: flex; align-items: center; gap: 5px; }
+.db-page .db-dica-emoji { font-size: 14px; line-height: 1; }
+.db-page .db-dica-pct {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--db-dica-igual-forte);
+}
+.db-page .db-dica-de { font-size: 11px; color: var(--db-dica-igual-fraco); }
+.db-page .db-seta--bom .db-dica-pct  { color: var(--db-dica-bom-forte); }
+.db-page .db-seta--bom .db-dica-de   { color: var(--db-dica-bom-fraco); }
+.db-page .db-seta--ruim .db-dica-pct { color: var(--db-dica-ruim-forte); }
+.db-page .db-seta--ruim .db-dica-de  { color: var(--db-dica-ruim-fraco); }
+
 /* ── Responsividade ───────────────────────────────────────────────────────── */
 /* Abaixo de 1100px (dc): 8px entre colunas (4px de cada lado da célula), 14px
    nas bordas, mínimos 140/92/56 e o nome abreviado ("Samuel F."). */
@@ -1172,6 +1446,8 @@
     .db-page .db-seg { flex: 1 1 100%; min-width: 0; }
     .db-page .db-seg-btn { flex: 1 1 0; min-width: 0; padding: 0 4px; font-size: 12.5px; }
     .db-page .db-atualizado { flex: 0 0 100%; padding-bottom: 0; margin-top: -8px; }
+    /* busca aberta ocupa a linha inteira do cabeçalho (cel do dc) */
+    .db-page .db-busca.is-aberta { width: 100%; flex: 1 1 100%; }
 }
 @media (max-width: 575.98px) {
     .db-page .filtro-data-campo + .filtro-data-campo { margin-left: 0; }
@@ -1195,7 +1471,13 @@
     .db-page .db-pill-dot,
     .db-page .db-atualizado,
     .db-page .db-atualizado-anel,
-    .db-page .db-atualizado-nucleo { animation: none; }
+    .db-page .db-atualizado-nucleo,
+    .db-page .db-seta > .db-dica { animation: none; }
+    .db-page .db-busca,
+    .db-page .db-busca-input,
+    .db-page .db-num-link,
+    .db-page .db-card-ver i { transition: none; }
+    .db-page .db-pill.db-num-link:hover { transform: none; }
     .db-page .db-seg-ind { transition: none; }
     .db-page .db-stat-card,
     .db-page .db-stat-card *,
@@ -1275,6 +1557,10 @@
     .db-page .db-table th:first-child,
     .db-page .db-table td:first-child { position: static; }
     .db-page .sort-icon { display: none !important; }
+    /* no papel: sem busca, sem "ver pastas"; a pílula de tendência fica, a seta/balão não */
+    .db-page .db-busca,
+    .db-page .db-card-ver,
+    .db-page .db-dica { display: none !important; }
     /* a folha tem menos de 1100px, mas a 78% o nome completo cabe */
     .db-page .db-nome-completo { display: inline !important; }
     .db-page .db-nome-curto { display: none !important; }

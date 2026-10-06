@@ -19,8 +19,12 @@
    `db-g-*` (o estilo mora em public/css/dashboard.css).
    O número final já vem no HTML e em `data-alvo`: funciona sem JS; com JS,
    dashboard.js conta de 0 até ele (desligado em prefers-reduced-motion).
-   Sem links "ver pastas"/"ver metas": os destinos (Acervo geral filtrado por
-   criador, /tarefas/equipe) são função nova — nada fake. #}
+   Só o card Demandas urgentes traz "ver pastas" (Acervo geral do Expediente);
+   os "ver pastas"/"ver metas" dos outros cards ficam para outro lote. #}
+{% import 'dashboard/_tendencia.html.twig' as tend %}
+{# Período do painel para os links "ir para o serviço": some quando o painel está sem
+   período (o destino então lista sem recorte de data, como as contagens). #}
+{% set periodoLink = { data_de: filtros.data_de|default(''), data_ate: filtros.data_ate|default('') }|filter(v => v != '') %}
 {% set pct = dashboard.metaGlobalPercent %}
 {# arco do alvo: circunferência de r=22 (2π·22 = 138,23) × percentual #}
 {% set arco = (138.23 * pct / 100)|number_format(2, '.', '') %}
@@ -148,6 +152,13 @@
                 <div class="db-card-rotulo-wrap"><span class="db-card-rotulo db-card-rotulo--3">Demandas urgentes</span></div>
                 <div class="db-card-valor-linha">
                     <div class="db-stat-num db-stat-num--urgente" data-card="urgentes" data-alvo="{{ dashboard.demandasUrgentes }}">{{ dashboard.demandasUrgentes }}</div>
+                    {# "ver pastas": Acervo geral do Expediente com prioridade urgente. Leva o
+                       período (o card conta com período) e o responsável quando o painel está
+                       filtrado por ele, para a lista bater com o número. #}
+                    {% set urgQuery = { painel: 'acervo-geral', prioridade: 'urgente' }
+                        |merge(filtros.responsavel|default('') != '' ? { responsavel: filtros.responsavel } : {})
+                        |merge(periodoLink) %}
+                    <a class="db-card-ver" href="{{ path('expediente_index', urgQuery) }}" title="Abrir: Expediente · pastas urgentes">ver pastas<i class="bi bi-arrow-right" aria-hidden="true"></i></a>
                 </div>
                 <div class="db-card-legenda db-card-legenda--hover">pastas com prioridade Urgente</div>
             </div>
@@ -222,6 +233,17 @@
     <div class="db-table-header">
         <span class="db-table-titulo">Desempenho</span>
         <span class="db-contador" title="{{ qtd == 1 ? '1 colaborador' : qtd ~ ' colaboradores' }}" aria-label="{{ qtd == 1 ? '1 colaborador' : qtd ~ ' colaboradores' }}"><i class="bi bi-people-fill"></i><span class="db-contador-num">{{ qtd }}</span></span>
+        {# Busca de colaborador recolhida (desenho): só a lupa; ao clicar abre para 260px com
+           o campo focado; fecha ao sair se vazio; Esc limpa e fecha. Este campo NÃO tem
+           `name`: quem vai na query é o `.js-filtro-busca` escondido no form da casca, que o
+           dashboard.js mantém igual a este. O nó é reaproveitado entre recargas (o foco e
+           o cursor sobrevivem ao XHR). Fica fora do `if` de linhas vazias: sem resultado,
+           ainda dá para apagar a busca. #}
+        {% set buscaAtual = filtros.busca|default('') %}
+        <div class="db-busca{{ buscaAtual != '' ? ' is-aberta' : '' }}">
+            <button type="button" class="db-busca-lupa js-db-busca-abrir" title="Buscar colaborador" aria-label="Buscar colaborador"><i class="bi bi-search" aria-hidden="true"></i></button>
+            <input type="text" class="db-busca-input js-db-busca" placeholder="Buscar colaborador" aria-label="Buscar colaborador" autocomplete="off" value="{{ buscaAtual }}" tabindex="{{ buscaAtual != '' ? '0' : '-1' }}">
+        </div>
     </div>
     <div class="table-responsive db-table-scroll">
         {% if linhas is empty %}
@@ -286,25 +308,66 @@
                     <td class="db-td-cargo">
                         <span class="db-cargo{{ linha.cargoNome is null ? ' db-cargo--vazio' : '' }}"><i class="bi {{ cargoIcone }}"></i><span>{{ linha.cargoNome ?? 'Sem cargo' }}</span></span>
                     </td>
-                    <td class="text-center db-td-num"><span class="db-num{{ linha.totalMetas == 0 ? ' db-num--zero' : '' }}">{{ linha.totalMetas }}</span></td>
-                    <td class="text-center db-td-num"><span class="db-num{{ linha.metasAtivas == 0 ? ' db-num--zero' : '' }}">{{ linha.metasAtivas }}</span></td>
-                    <td class="text-center db-td-num">
-                        {% if linha.metasVencidas > 0 %}
-                            <span class="db-pill db-pill--venc"><span class="db-pill-dot"></span>{{ linha.metasVencidas }}</span>
-                        {% else %}
+                    {# Números de METAS e de PASTAS > 0 são links para a lista que eles contam,
+                       já filtrada pela pessoa (e pelo período, quando a métrica usa período).
+                       Zero não é link. Vencidas e prazos próximos são relativos a hoje: o link
+                       vai sem período, como a contagem. #}
+                    {% set quem = linha.nomeAdvogado %}
+                    {% set qPessoa = { responsavel: linha.userId } %}
+                    {% set comSeta = linha.totalMetasAnterior is not null %}
+                    <td class="text-center db-td-num"><span class="db-cel{{ comSeta ? ' db-cel--seta' : '' }}">
+                        {%- if linha.totalMetas > 0 -%}
+                            <a class="db-num db-num-link" href="{{ path('tarefa_equipe', { status: 'todas' }|merge(qPessoa)|merge(periodoLink)) }}" title="Abrir: Metas de {{ quem }}" aria-label="Abrir: Metas de {{ quem }}">{{ linha.totalMetas }}</a>
+                        {%- else -%}
                             <span class="db-num db-num--zero">0</span>
-                        {% endif %}
+                        {%- endif -%}
+                        {{- tend.tendencia(linha.totalMetas, linha.totalMetasAnterior, 'seta') -}}
+                    </span></td>
+                    <td class="text-center db-td-num">
+                        {%- if linha.metasAtivas > 0 -%}
+                            <a class="db-num db-num-link" href="{{ path('tarefa_equipe', { status: 'ativas' }|merge(qPessoa)|merge(periodoLink)) }}" title="Abrir: Metas ativas de {{ quem }}" aria-label="Abrir: Metas ativas de {{ quem }}">{{ linha.metasAtivas }}</a>
+                        {%- else -%}
+                            <span class="db-num db-num--zero">0</span>
+                        {%- endif -%}
                     </td>
                     <td class="text-center db-td-num">
-                        {% if linha.prazosProximos > 0 %}
-                            <span class="db-pill db-pill--praz"><span class="db-pill-dot"></span>{{ linha.prazosProximos }}</span>
-                        {% else %}
+                        {%- if linha.metasVencidas > 0 -%}
+                            <a class="db-pill db-pill--venc db-num-link" href="{{ path('tarefa_equipe', { status: 'vencidas' }|merge(qPessoa)) }}" title="Abrir: Metas vencidas de {{ quem }}" aria-label="Abrir: Metas vencidas de {{ quem }}"><span class="db-pill-dot"></span>{{ linha.metasVencidas }}</a>
+                        {%- else -%}
                             <span class="db-num db-num--zero">0</span>
-                        {% endif %}
+                        {%- endif -%}
                     </td>
-                    <td class="text-center db-td-num"><span class="db-num{{ linha.totalDemandas == 0 ? ' db-num--zero' : '' }}">{{ linha.totalDemandas }}</span></td>
-                    <td class="text-center db-td-num"><span class="db-num{{ linha.demandasAtivas == 0 ? ' db-num--zero' : '' }}">{{ linha.demandasAtivas }}</span></td>
-                    <td class="text-center db-td-num"><span class="db-num{{ linha.pastasCriadas == 0 ? ' db-num--zero' : '' }}">{{ linha.pastasCriadas }}</span></td>
+                    <td class="text-center db-td-num">
+                        {%- if linha.prazosProximos > 0 -%}
+                            <a class="db-pill db-pill--praz db-num-link" href="{{ path('tarefa_equipe', { status: 'prazo_proximo' }|merge(qPessoa)) }}" title="Abrir: Metas com prazo próximo de {{ quem }}" aria-label="Abrir: Metas com prazo próximo de {{ quem }}"><span class="db-pill-dot"></span>{{ linha.prazosProximos }}</a>
+                        {%- else -%}
+                            <span class="db-num db-num--zero">0</span>
+                        {%- endif -%}
+                    </td>
+                    <td class="text-center db-td-num"><span class="db-cel{{ comSeta ? ' db-cel--seta' : '' }}">
+                        {%- if linha.totalDemandas > 0 -%}
+                            <a class="db-num db-num-link" href="{{ path('expediente_index', { painel: 'acervo-geral' }|merge(qPessoa)|merge(periodoLink)) }}" title="Abrir: Expediente · pastas de {{ quem }}" aria-label="Abrir: Expediente · pastas de {{ quem }}">{{ linha.totalDemandas }}</a>
+                        {%- else -%}
+                            <span class="db-num db-num--zero">0</span>
+                        {%- endif -%}
+                        {{- tend.tendencia(linha.totalDemandas, linha.totalDemandasAnterior, 'seta') -}}
+                    </span></td>
+                    <td class="text-center db-td-num">
+                        {%- if linha.demandasAtivas > 0 -%}
+                            <a class="db-num db-num-link" href="{{ path('expediente_index', { painel: 'acervo-geral' }|merge(qPessoa)|merge({ status: 'ativo' })|merge(periodoLink)) }}" title="Abrir: Expediente · pastas ativas de {{ quem }}" aria-label="Abrir: Expediente · pastas ativas de {{ quem }}">{{ linha.demandasAtivas }}</a>
+                        {%- else -%}
+                            <span class="db-num db-num--zero">0</span>
+                        {%- endif -%}
+                    </td>
+                    {# Por quem ABRIU a pasta: o link filtra por criado_por, sem responsável. #}
+                    <td class="text-center db-td-num"><span class="db-cel{{ comSeta ? ' db-cel--seta' : '' }}">
+                        {%- if linha.pastasCriadas > 0 -%}
+                            <a class="db-num db-num-link" href="{{ path('expediente_index', { painel: 'acervo-geral', criado_por: linha.userId }|merge(periodoLink)) }}" title="Abrir: Expediente · pastas criadas por {{ quem }}" aria-label="Abrir: Expediente · pastas criadas por {{ quem }}">{{ linha.pastasCriadas }}</a>
+                        {%- else -%}
+                            <span class="db-num db-num--zero">0</span>
+                        {%- endif -%}
+                        {{- tend.tendencia(linha.pastasCriadas, linha.pastasCriadasAnterior, 'seta') -}}
+                    </span></td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -317,6 +380,10 @@
             {% set tDem     = linhas|reduce((c, l) => c + l.totalDemandas, 0) %}
             {% set tDemA    = linhas|reduce((c, l) => c + l.demandasAtivas, 0) %}
             {% set tCriadas = linhas|reduce((c, l) => c + l.pastasCriadas, 0) %}
+            {# Tendência do Total: anteriores somados das MESMAS linhas visíveis (servidor). Os
+               números do Total não são link: a soma conta duas vezes a meta com dois
+               responsáveis, e a lista de destino não. #}
+            {% set tAnt = dashboard.totaisAnteriores %}
             <tfoot>
                 <tr class="db-total-row">
                     <th scope="row" class="db-td-colab">
@@ -326,13 +393,13 @@
                         </div>
                     </th>
                     <td class="db-td-cargo"></td>
-                    <td class="text-center db-td-num"><span class="db-total-num">{{ tMetas }}</span></td>
+                    <td class="text-center db-td-num"><span class="db-total-cel"><span class="db-total-num">{{ tMetas }}</span>{{ tend.tendencia(tMetas, tAnt is null ? null : tAnt.metas, 'pilula') }}</span></td>
                     <td class="text-center db-td-num"><span class="db-total-num">{{ tAtivas }}</span></td>
                     <td class="text-center db-td-num"><span class="db-total-num db-total-num--venc">{{ tVenc }}</span></td>
                     <td class="text-center db-td-num"><span class="db-total-num db-total-num--praz">{{ tPraz }}</span></td>
-                    <td class="text-center db-td-num"><span class="db-total-num">{{ tDem }}</span></td>
+                    <td class="text-center db-td-num"><span class="db-total-cel"><span class="db-total-num">{{ tDem }}</span>{{ tend.tendencia(tDem, tAnt is null ? null : tAnt.demandas, 'pilula') }}</span></td>
                     <td class="text-center db-td-num"><span class="db-total-num">{{ tDemA }}</span></td>
-                    <td class="text-center db-td-num"><span class="db-total-num">{{ tCriadas }}</span></td>
+                    <td class="text-center db-td-num"><span class="db-total-cel"><span class="db-total-num">{{ tCriadas }}</span>{{ tend.tendencia(tCriadas, tAnt is null ? null : tAnt.pastas_criadas, 'pilula') }}</span></td>
                 </tr>
             </tfoot>
         </table>

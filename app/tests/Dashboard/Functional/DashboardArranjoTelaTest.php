@@ -92,8 +92,10 @@ final class DashboardArranjoTelaTest extends DashboardWebTestCase
         $rotulos = $cards->each(static fn ($c): string => trim($c->filter('.db-card-rotulo')->text()));
         self::assertSame(['Pastas criadas', 'Metas ativas', 'Demandas urgentes', 'Meta global batida'], $rotulos);
 
-        // Nada fake: os links "ver pastas"/"ver metas" do desenho dependem de função nova.
-        self::assertCount(0, $cards->filter('a'), 'Card não traz link enquanto o destino não existe');
+        // Nada fake: só o "ver pastas" de Demandas urgentes tem destino pronto (Acervo geral
+        // do Expediente); os dos outros cards seguem fora até o destino existir.
+        self::assertCount(1, $cards->filter('a'), 'Só um card traz link');
+        self::assertCount(1, $cards->filter('.db-stat-card--urgentes a.db-card-ver'));
     }
 
     #[TestDox('O card da meta global traz a legenda "X de Y metas concluídas" com os números reais')]

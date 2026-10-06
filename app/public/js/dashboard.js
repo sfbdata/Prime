@@ -21,6 +21,9 @@
  *  - legendas dos cards em toque (`.db-card-legenda--hover`): com mouse elas
  *    aparecem no hover (só CSS); no toque, tocar o card liga `is-tocado` nele
  *    (e desliga nos outros) — tocar fora apaga;
+ *  - busca de colaborador recolhida no cabeçalho da tabela (`.db-busca`): espelha
+ *    o `.js-filtro-busca` escondido no form (debounce e XHR são do motor) e é o
+ *    único nó reaproveitado entre recargas, para não perder foco nem cursor;
  *  - Exportar PDF (`.js-db-exportar-pdf`): window.print() com o document.title
  *    trocado pelo nome do arquivo do desenho. No `beforeprint` (botão ou Ctrl+P)
  *    o cabeçalho só-impressão é reescrito com o período/filtros do momento e o
@@ -185,6 +188,140 @@
         });
     }
 
+    // ── busca de colaborador ──────────────────────────────────────────────
+    //
+    // O campo VISÍVEL (.db-busca, no cabeçalho da tabela) mora no fragmento que o
+    // filtro-tabela.js troca por innerHTML; o que vai na query (FormData, chip
+    // "Busca", "Limpar filtros") é o `.js-filtro-busca` escondido no form da casca.
+    // Aqui: cada tecla copia o valor para o campo do form e dispara `input` nele —
+    // o motor faz o debounce e o XHR como faz em qualquer busca. Para o foco e o
+    // cursor não se perderem a cada recarga, o MESMO nó .db-busca é reposto no
+    // lugar do que veio no fragmento novo (`reporBusca`, chamado pelo observer).
+
+    var busca = null; // { widget, campo, real, focado, ini, fim }
+
+    function abrirBusca(focar) {
+        busca.widget.classList.add('is-aberta');
+        busca.campo.tabIndex = 0;
+        if (focar) {
+            window.setTimeout(function () { busca.campo.focus(); }, 60);
+        }
+    }
+
+    function fecharBusca() {
+        busca.widget.classList.remove('is-aberta');
+        busca.campo.tabIndex = -1;
+    }
+
+    function enviarBusca() {
+        busca.real.value = busca.campo.value;
+        busca.real.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    function guardarCursor() {
+        busca.ini = busca.campo.selectionStart;
+        busca.fim = busca.campo.selectionEnd;
+    }
+
+    // Chip removido / "Limpar filtros" / recarga: o form manda; o visível acompanha.
+    function sincronizarBusca() {
+        if (document.activeElement !== busca.campo && busca.campo.value !== busca.real.value) {
+            busca.campo.value = busca.real.value;
+        }
+        if (busca.campo.value.trim() === '' && !busca.focado) {
+            fecharBusca();
+        } else if (busca.campo.value.trim() !== '') {
+            abrirBusca(false);
+        }
+    }
+
+    function reporBusca(resultado) {
+        if (!busca) {
+            return;
+        }
+        var novo = resultado.querySelector('.db-busca');
+        if (novo && novo !== busca.widget) {
+            novo.replaceWith(busca.widget);
+        }
+        if (busca.focado && document.activeElement !== busca.campo) {
+            busca.campo.focus();
+            if (busca.ini !== null && busca.campo.setSelectionRange) {
+                busca.campo.setSelectionRange(busca.ini, busca.fim);
+            }
+        }
+        sincronizarBusca();
+    }
+
+    function ligarBusca(root) {
+        var form      = root.querySelector('[data-filtro-form]');
+        var real      = form ? form.querySelector('.js-filtro-busca') : null;
+        var resultado = root.querySelector('[data-filtro-resultado]');
+        var widget    = resultado ? resultado.querySelector('.db-busca') : null;
+        var campo     = widget ? widget.querySelector('.js-db-busca') : null;
+        if (!real || !widget || !campo) {
+            return;
+        }
+        busca = { widget: widget, campo: campo, real: real, focado: false, ini: null, fim: null };
+
+        // ouvintes no próprio nó: ele sobrevive às recargas (reporBusca)
+        widget.querySelector('.js-db-busca-abrir').addEventListener('click', function () {
+            if (widget.classList.contains('is-aberta')) {
+                campo.focus();
+
+                return;
+            }
+            abrirBusca(true);
+        });
+        campo.addEventListener('input', function () {
+            guardarCursor();
+            enviarBusca();
+        });
+        campo.addEventListener('keyup', guardarCursor);
+        campo.addEventListener('click', guardarCursor);
+        campo.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                var tinha = campo.value !== '';
+                campo.value = '';
+                busca.focado = false;
+                if (tinha) {
+                    enviarBusca();
+                }
+                fecharBusca();
+                campo.blur();
+            } else if (e.key === 'Enter') {
+                e.preventDefault(); // não há form em volta; o debounce já aplica
+            }
+        });
+        campo.addEventListener('focus', function () {
+            busca.focado = true;
+            abrirBusca(false);
+        });
+        campo.addEventListener('blur', function () {
+            // A troca do fragmento pode tirar o nó do documento por um instante (alguns
+            // navegadores disparam blur aí); o observer o repõe e devolve o foco antes
+            // deste timeout. Só fecha se o usuário saiu de verdade e o campo está vazio.
+            window.setTimeout(function () {
+                if (document.activeElement === campo || !campo.isConnected) {
+                    return;
+                }
+                busca.focado = false;
+                if (campo.value.trim() === '') {
+                    fecharBusca();
+                }
+            }, 0);
+        });
+
+        // depois do handler do filtro-tabela.js (registrado antes): o campo do form já mudou
+        root.addEventListener('click', function (e) {
+            if (e.target.closest('.js-filtro-chip-remover, .js-filtro-limpar')) {
+                sincronizarBusca();
+            }
+        });
+
+        sincronizarBusca();
+    }
+
     // ── Exportar PDF ──────────────────────────────────────────────────────
 
     function p2(n) {
@@ -264,6 +401,7 @@
         ligarSegmentado(root);
         ligarLegendasEmToque(root);
         ligarExportarPdf(root);
+        ligarBusca(root);
 
         var resultado = root.querySelector('[data-filtro-resultado]');
         if (!resultado) {
@@ -291,6 +429,7 @@
                 // Primeiro resultado novo: as animacoes de ENTRADA ja rodaram uma
                 // vez; a partir daqui so os numeros contam (ver CSS .db-pronto).
                 root.classList.add('db-pronto');
+                reporBusca(resultado);
                 contarCards(resultado, false);
             }).observe(resultado, { childList: true });
         }
