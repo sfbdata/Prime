@@ -305,6 +305,50 @@ final class PastaExploradorDadosTest extends JusPrimeWebTestCase
         );
     }
 
+    #[TestDox('D4: o JSON traz as URLs de mover-lote/excluir-lote e o token único pex_lote_<pastaId>')]
+    public function testJsonTrazAsAcoesEmLote(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+
+        $this->logarComTenant($client, $user, $tenant);
+        $dados = $this->dados($this->abrir($client, $pasta));
+
+        self::assertSame("/pasta/{$pasta->getId()}/documentos/mover-lote", $dados['urlMoverLote']);
+        self::assertSame("/pasta/{$pasta->getId()}/documentos/excluir-lote", $dados['urlExcluirLote']);
+        self::assertNotEmpty($dados['csrfLote'], 'um token por pasta para as ações em lote; os ids vão no corpo');
+    }
+
+    #[TestDox('D1: o arquivo traz quem enviou (nome), modificadoEm e paginas — NULL no acervo que não tem')]
+    public function testArquivoTrazOsMetadadosDaD1(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $em              = static::getContainer()->get(EntityManagerInterface::class);
+
+        $com = $this->criarDocumento($pasta, $tenant, null, 'com-metadados.pdf');
+        $com->setEnviadoPor($user);
+        $com->marcarModificadoEm(new \DateTimeImmutable('2026-10-06 14:30:00'));
+        $com->setPaginas(12);
+        $em->flush();
+        $this->criarDocumento($pasta, $tenant, null, 'acervo-antigo.pdf');
+
+        $this->logarComTenant($client, $user, $tenant);
+        $dados = $this->dados($this->abrir($client, $pasta));
+
+        $comMetadados = $this->arquivoChamado($dados, 'com-metadados.pdf');
+        self::assertSame('Admin Explorador', $comMetadados['enviadoPor'], 'o nome do usuário, não o e-mail');
+        self::assertSame('2026-10-06 14:30:00', $comMetadados['modificadoEm']);
+        self::assertSame(12, $comMetadados['paginas']);
+
+        $antigo = $this->arquivoChamado($dados, 'acervo-antigo.pdf');
+        self::assertNull($antigo['enviadoPor']);
+        self::assertNull($antigo['modificadoEm']);
+        self::assertNull($antigo['paginas']);
+    }
+
     #[TestDox('nome de arquivo com </script> não fecha o <script> dos dados (flags JSON_HEX_*)')]
     public function testJsonNaoDeixaNomeFecharOScript(): void
     {

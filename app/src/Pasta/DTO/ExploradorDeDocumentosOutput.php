@@ -22,9 +22,34 @@ use App\Pasta\Entity\PastaSecao;
  *
  * A montagem recebe dois geradores (URL e CSRF) em vez de depender do roteador e do gerenciador de
  * tokens: o DTO continua sem serviço do framework dentro, e a conversão fica testável sem kernel.
+ *
+ * A forma de UM arquivo ({@see arquivo()}) é pública e estática de propósito: a resposta do upload
+ * e a da edição devolvem o documento nessa MESMA forma, e o explorador insere/atualiza a linha
+ * sem recarregar (L5) — um só lugar decide o que é "um arquivo" para a tela.
+ *
+ * As ações em lote (D4) usam UM token por pasta (`pex_lote_<pastaId>`) com os ids no corpo, e a
+ * posse é provada no servidor — em vez de três tokens por documento.
  */
 final readonly class ExploradorDeDocumentosOutput
 {
+    /**
+     * As categorias que a aba Documentos exibe e edita, com o rótulo da tela — o mesmo mapa que o
+     * `PastaController::DOCUMENT_TYPES` (privado) passa ao `montar()`; `CONTRATO` fica de fora de
+     * propósito (é da aba Financeiro). Pública para o upload e a edição responderem com o mesmo
+     * rótulo que a listagem mostra. `CategoriasDaAbaDocumentosTest` prova que os dois mapas são
+     * iguais.
+     *
+     * @var array<string, string>
+     */
+    public const CATEGORIAS = [
+        PastaDocumento::CATEGORIA_PECA                   => 'Peça',
+        PastaDocumento::CATEGORIA_PROCURACAO             => 'Procuração',
+        PastaDocumento::CATEGORIA_IDENTIFICACAO          => 'Identificação',
+        PastaDocumento::CATEGORIA_COMPROVANTE_RESIDENCIA => 'Comprovante de residência',
+        PastaDocumento::CATEGORIA_GRATUIDADE_JUSTICA     => 'Gratuidade de justiça',
+        PastaDocumento::CATEGORIA_DEMAIS                 => 'Demais documentos',
+    ];
+
     private const FLAGS_JSON = JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
         | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR;
 
@@ -39,6 +64,9 @@ final readonly class ExploradorDeDocumentosOutput
         public array $categorias,
         public int $totalArquivos,
         public int $totalPastas,
+        public string $urlMoverLote,
+        public string $urlExcluirLote,
+        public string $csrfLote,
     ) {
     }
 
@@ -48,8 +76,9 @@ final readonly class ExploradorDeDocumentosOutput
      * @param array<string, string>                                     $rotulosCategoria chave => rótulo exibido
      * @param callable(string $rota, array<string, mixed> $params): string $url
      * @param callable(string $idDoToken): string                       $csrf
+     * @param int                                                       $pastaId          para as URLs e o token das ações em lote
      */
-    public static function montar(array $secoes, array $documentos, array $rotulosCategoria, callable $url, callable $csrf): self
+    public static function montar(array $secoes, array $documentos, array $rotulosCategoria, callable $url, callable $csrf, int $pastaId): self
     {
         $filhasPor = [];
         foreach ($secoes as $secao) {
@@ -87,31 +116,7 @@ final readonly class ExploradorDeDocumentosOutput
 
         $arquivos = [];
         foreach ($documentos as $documento) {
-            $id        = (int) $documento->getId();
-            $categoria = $documento->getCategoria();
-
-            $arquivos[] = [
-                'id'              => $id,
-                'secaoId'         => $documento->getSecao()?->getId(),
-                'nome'            => $documento->getNomeOriginal(),
-                'tamanho'         => $documento->getTamanhoBytes(),
-                'mime'            => $documento->getMimeType(),
-                'carregadoEm'     => $documento->getCarregadoEm()->format('Y-m-d H:i:s'),
-                'ordem'           => $documento->getOrdem(),
-                'categoria'       => $categoria,
-                // O RÓTULO, não a chave: ordenar pela chave agruparia certo e listaria numa
-                // ordem que a tela não exibe — o usuário veria o alfabeto errado.
-                'categoriaRotulo' => $rotulosCategoria[$categoria] ?? $categoria,
-                'numero'          => $documento->getNumero(),
-                'descricao'       => $documento->getDescricao(),
-                'sha256'          => $documento->getSha256(),
-                'viewUrl'         => $url('pasta_documento_view', ['id' => $id]),
-                'downloadUrl'     => $url('pasta_documento_download', ['id' => $id]),
-                'urlMover'        => $url('pasta_documento_mover_secao', ['docId' => $id]),
-                'csrfMover'       => $csrf('pasta_doc_mover_' . $id),
-                'csrfEditar'      => $csrf('edit_documento_' . $id),
-                'csrfExcluir'     => $csrf('delete_documento_' . $id),
-            ];
+            $arquivos[] = self::arquivo($documento, $rotulosCategoria, $url, $csrf);
         }
 
         return new self(
@@ -120,7 +125,60 @@ final readonly class ExploradorDeDocumentosOutput
             categorias: $rotulosCategoria,
             totalArquivos: count($arquivos),
             totalPastas: count($pastas),
+            urlMoverLote: $url('pasta_documentos_mover_lote', ['id' => $pastaId]),
+            urlExcluirLote: $url('pasta_documentos_excluir_lote', ['id' => $pastaId]),
+            csrfLote: $csrf(self::idDoTokenDeLote($pastaId)),
         );
+    }
+
+    /** O id do token CSRF das ações em lote de uma pasta (mover-lote / excluir-lote). */
+    public static function idDoTokenDeLote(int $pastaId): string
+    {
+        return 'pex_lote_' . $pastaId;
+    }
+
+    /**
+     * UM arquivo na forma que a tela consome — a mesma na listagem (`#pexDados`), no upload e na
+     * edição. Datas em `Y-m-d H:i:s` (a tela formata); `modificadoEm` NULL = nunca editado desde o
+     * upload; `enviadoPor` é o nome (nunca o e-mail) ou NULL no acervo anterior à coluna;
+     * `paginas` NULL = não é PDF ou não foi contado.
+     *
+     * @param array<string, string>                                     $rotulosCategoria chave => rótulo exibido
+     * @param callable(string $rota, array<string, mixed> $params): string $url
+     * @param callable(string $idDoToken): string                       $csrf
+     *
+     * @return array<string, mixed>
+     */
+    public static function arquivo(PastaDocumento $documento, array $rotulosCategoria, callable $url, callable $csrf): array
+    {
+        $id        = (int) $documento->getId();
+        $categoria = $documento->getCategoria();
+
+        return [
+            'id'              => $id,
+            'secaoId'         => $documento->getSecao()?->getId(),
+            'nome'            => $documento->getNomeOriginal(),
+            'tamanho'         => $documento->getTamanhoBytes(),
+            'mime'            => $documento->getMimeType(),
+            'carregadoEm'     => $documento->getCarregadoEm()->format('Y-m-d H:i:s'),
+            'modificadoEm'    => $documento->getModificadoEm()?->format('Y-m-d H:i:s'),
+            'enviadoPor'      => $documento->getEnviadoPor()?->getFullName(),
+            'paginas'         => $documento->getPaginas(),
+            'ordem'           => $documento->getOrdem(),
+            'categoria'       => $categoria,
+            // O RÓTULO, não a chave: ordenar pela chave agruparia certo e listaria numa
+            // ordem que a tela não exibe — o usuário veria o alfabeto errado.
+            'categoriaRotulo' => $rotulosCategoria[$categoria] ?? $categoria,
+            'numero'          => $documento->getNumero(),
+            'descricao'       => $documento->getDescricao(),
+            'sha256'          => $documento->getSha256(),
+            'viewUrl'         => $url('pasta_documento_view', ['id' => $id]),
+            'downloadUrl'     => $url('pasta_documento_download', ['id' => $id]),
+            'urlMover'        => $url('pasta_documento_mover_secao', ['docId' => $id]),
+            'csrfMover'       => $csrf('pasta_doc_mover_' . $id),
+            'csrfEditar'      => $csrf('edit_documento_' . $id),
+            'csrfExcluir'     => $csrf('delete_documento_' . $id),
+        ];
     }
 
     /**
@@ -131,11 +189,14 @@ final readonly class ExploradorDeDocumentosOutput
     public function json(): string
     {
         return json_encode([
-            'pastas'        => $this->pastas,
-            'arquivos'      => $this->arquivos,
-            'categorias'    => $this->categorias,
-            'totalArquivos' => $this->totalArquivos,
-            'totalPastas'   => $this->totalPastas,
+            'pastas'         => $this->pastas,
+            'arquivos'       => $this->arquivos,
+            'categorias'     => $this->categorias,
+            'totalArquivos'  => $this->totalArquivos,
+            'totalPastas'    => $this->totalPastas,
+            'urlMoverLote'   => $this->urlMoverLote,
+            'urlExcluirLote' => $this->urlExcluirLote,
+            'csrfLote'       => $this->csrfLote,
         ], self::FLAGS_JSON);
     }
 

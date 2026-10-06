@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Pasta\UseCase;
 
+use App\Entity\Auth\User;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaSecao;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Armazenamento\ChavesDePasta;
+use App\Pasta\Service\ContadorDePaginasDePdf;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Armazenamento\Sha256DeArquivo;
 use App\Shared\Http\FonteDeUploadHttp;
@@ -32,6 +34,13 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
  * leitura a mais só quando o conteúdo mudou. Se essa leitura falhar, o documento nasce com
  * `sha256 = null` (o `app:documentos:calcular-hash` preenche depois) em vez de derrubar o upload. É `comprimido` quem decide, e ele já cobre o caso
  * "publicou a versão comprimida mas falhou ao medir" (`CompressaoDeArquivoArmazenado`).
+ *
+ * ## Páginas e autor (D1)
+ *
+ * `paginas` é contado no MESMO ponto do hash do upload — no caminho temporário, antes de mover —
+ * e só para PDF; a compressão não muda a contagem (a validação dela exige as mesmas páginas).
+ * Falha na contagem → NULL, o upload segue (`app:documentos:calcular-hash --paginas` preenche).
+ * `enviadoPor` é quem está logado; NULL nos caminhos sem usuário (importação, Drive).
  */
 final class UploadPecaUseCase
 {
@@ -62,6 +71,7 @@ final class UploadPecaUseCase
         private readonly ArmazenamentoDeArquivos $armazenamento,
         private readonly CompressaoDeArquivoArmazenado $compressao,
         private readonly LoggerInterface $logger,
+        private readonly ContadorDePaginasDePdf $contadorDePaginas,
     ) {}
 
     public function executar(
@@ -73,6 +83,7 @@ final class UploadPecaUseCase
         ?string $numero,
         Tenant $tenant,
         bool $reduzirTamanho = false,
+        ?User $enviadoPor = null,
     ): ResultadoUploadPeca {
         if ($secao !== null && $secao->getTenant() !== $tenant) {
             throw new AccessDeniedException('Seção não pertence ao tenant do usuário.');
@@ -107,7 +118,8 @@ final class UploadPecaUseCase
         $upload = FonteDeUploadHttp::de($file);
 
         // Antes de mover: depois do `gravarEm()` o caminho do upload não existe mais.
-        $sha256 = Sha256DeArquivo::deArquivoLocal($file->getPathname());
+        $sha256  = Sha256DeArquivo::deArquivoLocal($file->getPathname());
+        $paginas = $mimeType === 'application/pdf' ? $this->contadorDePaginas->contar($file->getPathname()) : null;
 
         $armazenado = $upload->gravarEm($this->armazenamento, ChavesDePasta::novoDocumento($doc, $upload->extensao));
         $nomeUnico  = $armazenado->chave->nome;
@@ -135,6 +147,8 @@ final class UploadPecaUseCase
         $doc->setTamanhoBytes($compressao->tamanhoFinal);
         $doc->setSha256($sha256);
         $doc->setSecao($secao);
+        $doc->setPaginas($paginas);
+        $doc->setEnviadoPor($enviadoPor);
 
         $this->em->persist($doc);
         $this->em->flush();

@@ -10,11 +10,13 @@ use App\Pasta\Command\CalcularHashDosDocumentosCommand;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Repository\PastaDocumentoRepository;
+use App\Pasta\Service\ContadorDePaginasDePdf;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Armazenamento\ArquivoArmazenado;
 use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Shared\Armazenamento\Exception\FalhaDeArmazenamento;
 use App\Shared\Armazenamento\FonteDeConteudo;
+use App\Shared\Armazenamento\MaterializadorDeArquivo;
 use App\Shared\Armazenamento\MetadadosDeArquivo;
 use App\Shared\Armazenamento\NovoArquivo;
 use App\Tests\Shared\Doubles\ArmazenamentoEmMemoria;
@@ -169,7 +171,11 @@ final class CalcularHashDosDocumentosCommandTest extends KernelTestCase
 
     // ----------------------------------------------------------------- helpers
 
-    private function tester(ArmazenamentoDeArquivos $armazenamento): CommandTester
+    /**
+     * Sem `$materializador`, o próprio dublê em memória empresta os arquivos (ele implementa a
+     * interface); sem `$contador`, nada é contado (NULL).
+     */
+    private function tester(ArmazenamentoDeArquivos $armazenamento, ?MaterializadorDeArquivo $materializador = null, ?ContadorDePaginasDePdf $contador = null): CommandTester
     {
         $container = static::getContainer();
 
@@ -178,7 +184,115 @@ final class CalcularHashDosDocumentosCommandTest extends KernelTestCase
             $container->get(PastaDocumentoRepository::class),
             $armazenamento,
             new NullLogger(),
+            $materializador ?? ($armazenamento instanceof MaterializadorDeArquivo ? $armazenamento : new ArmazenamentoEmMemoria()),
+            $contador ?? $this->contadorPorConteudo(),
         ));
+    }
+
+    /**
+     * O contador de teste lê o arquivo EMPRESTADO: conteúdo `PAGINAS=N` devolve N; qualquer
+     * outro, NULL. Registra os caminhos recebidos para provar o que foi (e não foi) lido.
+     */
+    private function contadorPorConteudo(): ContadorDePaginasDePdf
+    {
+        return new class implements ContadorDePaginasDePdf {
+            /** @var list<string> */
+            public array $conteudosLidos = [];
+
+            public function contar(string $caminhoLocal): ?int
+            {
+                $conteudo = (string) file_get_contents($caminhoLocal);
+                $this->conteudosLidos[] = $conteudo;
+
+                return preg_match('/^PAGINAS=(\d+)$/', $conteudo, $m) === 1 ? (int) $m[1] : null;
+            }
+        };
+    }
+
+    // ----------------------------------------------------------------- --paginas
+
+    #[TestDox('--paginas: preenche só os PDFs sem contagem; não-PDF fica fora da fila; o que o gs não conta fica NULL sem ser pane')]
+    public function testPaginasPreencheSoOsPdfsSemContagem(): void
+    {
+        self::bootKernel();
+        $memoria  = new ArmazenamentoEmMemoria();
+        $tenant   = $this->criarTenant();
+        $pasta    = $this->criarPasta($tenant);
+        $pdfA     = $this->documento($pasta, $tenant, null, $memoria, 'PAGINAS=3');
+        $pdfB     = $this->documento($pasta, $tenant, null, $memoria, 'PAGINAS=12');
+        $jaTinha  = $this->documento($pasta, $tenant, null, $memoria, 'PAGINAS=99', paginas: 4);
+        $naoConta = $this->documento($pasta, $tenant, null, $memoria, 'corrompido');
+        $ausente  = $this->documento($pasta, $tenant, null, null, '');
+        $png      = $this->documento($pasta, $tenant, null, $memoria, 'PAGINAS=5', mime: 'image/png');
+
+        $contador = $this->contadorPorConteudo();
+        $tester   = $this->tester($memoria, null, $contador);
+        $tester->execute(['--paginas' => true, '--tenant' => (string) $tenant->getId()]);
+
+        self::assertSame(Command::SUCCESS, $tester->getStatusCode(), 'ausente e "não conta" não são pane: ' . $tester->getDisplay());
+        $saida = $this->saida($tester);
+        self::assertStringContainsString('modo=gravacao candidatos=4 calculados=2 ja_tinham=0 ausentes=1 invalidos=0 falhas=0', $saida);
+        self::assertStringContainsString('restantes=2 alvo=paginas sem_contagem=1', $saida, 'o ausente e o não contado voltam à fila');
+
+        self::assertSame(3, $this->paginasNoBanco($pdfA));
+        self::assertSame(12, $this->paginasNoBanco($pdfB));
+        self::assertSame(4, $this->paginasNoBanco($jaTinha), 'quem já tinha contagem não é tocado');
+        self::assertNull($this->paginasNoBanco($naoConta));
+        self::assertNull($this->paginasNoBanco($ausente));
+        self::assertNull($this->paginasNoBanco($png), 'não-PDF nem entra na fila');
+        self::assertEqualsCanonicalizing(['PAGINAS=3', 'PAGINAS=12', 'corrompido'], $contador->conteudosLidos, 'só a fila foi emprestada ao contador');
+        self::assertNull($this->shaNoBanco($pdfA), 'o modo --paginas não mexe no sha256');
+    }
+
+    #[TestDox('--paginas --dry-run conta e não grava; --limite recorta a fila')]
+    public function testPaginasDryRunELimite(): void
+    {
+        self::bootKernel();
+        $memoria = new ArmazenamentoEmMemoria();
+        $tenant  = $this->criarTenant();
+        $pasta   = $this->criarPasta($tenant);
+        $d1      = $this->documento($pasta, $tenant, null, $memoria, 'PAGINAS=1');
+        $d2      = $this->documento($pasta, $tenant, null, $memoria, 'PAGINAS=2');
+
+        $tester = $this->tester($memoria);
+        $tester->execute(['--paginas' => true, '--dry-run' => true, '--tenant' => (string) $tenant->getId()]);
+
+        self::assertSame(Command::SUCCESS, $tester->getStatusCode(), $tester->getDisplay());
+        self::assertStringContainsString('modo=simulacao candidatos=2 calculados=2', $this->saida($tester));
+        self::assertNull($this->paginasNoBanco($d1));
+        self::assertNull($this->paginasNoBanco($d2));
+
+        $tester->execute(['--paginas' => true, '--limite' => '1', '--tenant' => (string) $tenant->getId()]);
+
+        self::assertSame(1, $this->paginasNoBanco($d1), 'o menor id entra primeiro');
+        self::assertNull($this->paginasNoBanco($d2), 'fora do limite');
+    }
+
+    #[TestDox('o modo sha256 (sem --paginas) continua não tocando em paginas')]
+    public function testShaNaoMexeEmPaginas(): void
+    {
+        self::bootKernel();
+        $memoria = new ArmazenamentoEmMemoria();
+        $tenant  = $this->criarTenant();
+        $pasta   = $this->criarPasta($tenant);
+        $d1      = $this->documento($pasta, $tenant, null, $memoria, 'PAGINAS=3');
+
+        $tester = $this->tester($memoria);
+        $tester->execute(['--tenant' => (string) $tenant->getId()]);
+
+        self::assertSame(hash('sha256', 'PAGINAS=3'), $this->shaNoBanco($d1));
+        self::assertNull($this->paginasNoBanco($d1));
+        self::assertStringContainsString('alvo=sha256 sem_contagem=0', $this->saida($tester));
+    }
+
+    private function paginasNoBanco(PastaDocumento $doc): ?int
+    {
+        $valor = static::getContainer()->get(EntityManagerInterface::class)->getConnection()->fetchOne(
+            'SELECT paginas FROM pasta_documento WHERE id = :id',
+            ['id' => (int) $doc->getId()],
+        );
+
+        return $valor === false || $valor === null ? null : (int) $valor;
     }
 
     /** A saída com o espaço em branco normalizado (progress bar e tabela quebram linhas). */
@@ -214,7 +328,7 @@ final class CalcularHashDosDocumentosCommandTest extends KernelTestCase
      * Uma linha de documento; com `$memoria`, o arquivo é semeado na chave que a leitura monta.
      * Sem `$memoria`, a linha aponta para um arquivo que não existe.
      */
-    private function documento(Pasta $pasta, Tenant $tenant, ?string $sha256, ?ArmazenamentoEmMemoria $memoria, string $conteudo): PastaDocumento
+    private function documento(Pasta $pasta, Tenant $tenant, ?string $sha256, ?ArmazenamentoEmMemoria $memoria, string $conteudo, ?int $paginas = null, string $mime = 'application/pdf'): PastaDocumento
     {
         $em  = static::getContainer()->get(EntityManagerInterface::class);
         $doc = (new PastaDocumento())
@@ -224,9 +338,10 @@ final class CalcularHashDosDocumentosCommandTest extends KernelTestCase
             ->setCategoria(PastaDocumento::CATEGORIA_DEMAIS)
             ->setCaminhoArquivo(bin2hex(random_bytes(16)) . '.pdf')
             ->setNomeOriginal('doc.pdf')
-            ->setMimeType('application/pdf')
+            ->setMimeType($mime)
             ->setTamanhoBytes(\strlen($conteudo))
-            ->setSha256($sha256);
+            ->setSha256($sha256)
+            ->setPaginas($paginas);
         $em->persist($doc);
         $em->flush();
 

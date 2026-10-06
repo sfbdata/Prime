@@ -100,6 +100,36 @@ class PastaSecaoRepository extends ServiceEntityRepository
         return ['subpastas' => $subpastas, 'arquivos' => $arquivos];
     }
 
+    /**
+     * As seções de $ids que pertencem a ESTA pasta e a ESTE escritório — a prova de posse em lote
+     * (D4). Quem chama compara a contagem com a de ids pedidos: id que não voltou é de outra pasta
+     * ou não existe → 404 sem efeito parcial.
+     *
+     * @param list<int> $ids
+     *
+     * @return list<PastaSecao>
+     */
+    public function findTodasDaPasta(array $ids, Pasta $pasta, Tenant $tenant): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+
+        /** @var list<PastaSecao> $secoes */
+        $secoes = $this->createQueryBuilder('s')
+            ->andWhere('s.id IN (:ids)')
+            ->andWhere('s.pasta = :pasta')
+            ->andWhere('s.tenant = :tenant')
+            ->setParameter('ids', $ids)
+            ->setParameter('pasta', $pasta)
+            ->setParameter('tenant', $tenant)
+            ->orderBy('s.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+
+        return $secoes;
+    }
+
     public function findByIdAndPastaAndTenant(int $id, Pasta $pasta, Tenant $tenant): ?PastaSecao
     {
         return $this->createQueryBuilder('s')

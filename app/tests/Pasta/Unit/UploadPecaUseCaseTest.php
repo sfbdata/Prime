@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Tests\Pasta\Unit;
 
+use App\Entity\Auth\User;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaSecao;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Service\ContadorDePaginasDePdf;
 use App\Pasta\UseCase\ResultadoUploadPeca;
 use App\Pasta\UseCase\UploadPecaUseCase;
 use App\Shared\Armazenamento\CategoriaDeArquivo;
@@ -46,6 +48,9 @@ final class UploadPecaUseCaseTest extends TestCase
     private Tenant $tenant;
     private string $diretorio;
 
+    /** O contador de páginas de teste: devolve `$paginas` e anota com que caminho foi chamado. */
+    private ContadorDePaginasDePdf $contador;
+
     protected function setUp(): void
     {
         $this->em            = $this->createMock(EntityManagerInterface::class);
@@ -53,11 +58,24 @@ final class UploadPecaUseCaseTest extends TestCase
         // O serviço só materializa se o compressor disser que trata o MIME (E2.6C).
         $this->compressor->method('trata')->willReturn(true);
         $this->armazenamento = new ArmazenamentoEmMemoria();
+        $this->contador      = new class implements ContadorDePaginasDePdf {
+            public ?int $paginas = null;
+            /** @var list<array{string, bool}> caminho recebido e se o arquivo ainda existia naquele instante */
+            public array $chamadas = [];
+
+            public function contar(string $caminhoLocal): ?int
+            {
+                $this->chamadas[] = [$caminhoLocal, is_file($caminhoLocal)];
+
+                return $this->paginas;
+            }
+        };
         $this->useCase       = new UploadPecaUseCase(
             $this->em,
             $this->armazenamento,
             new CompressaoDeArquivoArmazenado($this->armazenamento, $this->armazenamento, $this->compressor, new NullLogger()),
             new NullLogger(),
+            $this->contador,
         );
         $this->tenant        = $this->tenant(7);
         $this->pasta         = (new Pasta())->setTenant($this->tenant);
@@ -390,6 +408,62 @@ final class UploadPecaUseCaseTest extends TestCase
         $resultado = $this->useCase->executar($this->pasta, null, $this->upload('application/pdf', 1024, 'peticao.pdf'), 'PECA', null, null, $this->tenant);
 
         self::assertSame(4242, $resultado->documento->getTamanhoBytes());
+    }
+
+    #[TestDox('D1: PDF recebe as páginas do contador, chamado no caminho do upload ANTES de mover')]
+    public function testPdfRecebeAsPaginasDoContador(): void
+    {
+        $this->contador->paginas = 7;
+        $this->em->method('persist');
+        $this->em->method('flush');
+        $file = $this->upload('application/pdf', 1024, 'peticao.pdf');
+        $caminhoDoUpload = $file->getPathname();
+
+        $resultado = $this->useCase->executar($this->pasta, null, $file, 'PECA', null, null, $this->tenant);
+
+        self::assertSame(7, $resultado->documento->getPaginas());
+        self::assertSame([[$caminhoDoUpload, true]], $this->contador->chamadas, 'contado no temporário do upload, com o arquivo ainda lá');
+    }
+
+    #[TestDox('D1: o que não é PDF não passa pelo contador e fica com paginas NULL')]
+    public function testNaoPdfNaoChamaOContador(): void
+    {
+        $this->contador->paginas = 7;
+        $this->em->method('persist');
+        $this->em->method('flush');
+
+        $resultado = $this->useCase->executar($this->pasta, null, $this->upload('text/plain', 100, 'nota.txt'), 'DEMAIS', null, null, $this->tenant);
+
+        self::assertNull($resultado->documento->getPaginas());
+        self::assertSame([], $this->contador->chamadas);
+    }
+
+    #[TestDox('D1: contador que não conta (NULL) não derruba o upload — paginas fica NULL')]
+    public function testContadorQueNaoContaDeixaNull(): void
+    {
+        $this->contador->paginas = null;
+        $this->em->expects($this->once())->method('persist');
+        $this->em->expects($this->once())->method('flush');
+
+        $resultado = $this->useCase->executar($this->pasta, null, $this->upload('application/pdf', 1024, 'peticao.pdf'), 'PECA', null, null, $this->tenant);
+
+        self::assertNull($resultado->documento->getPaginas());
+        self::assertCount(1, $this->contador->chamadas);
+    }
+
+    #[TestDox('D1: quem enviou fica no documento; sem usuário (importação, Drive) fica NULL')]
+    public function testEnviadoPor(): void
+    {
+        $this->em->method('persist');
+        $this->em->method('flush');
+        $quem = (new User())->setEmail('quem@test.com');
+
+        $comAutor = $this->useCase->executar($this->pasta, null, $this->upload('application/pdf', 1024, 'a.pdf'), 'PECA', null, null, $this->tenant, false, $quem);
+        $semAutor = $this->useCase->executar($this->pasta, null, $this->upload('application/pdf', 1024, 'b.pdf'), 'PECA', null, null, $this->tenant);
+
+        self::assertSame($quem, $comAutor->documento->getEnviadoPor());
+        self::assertNull($semAutor->documento->getEnviadoPor());
+        self::assertNull($comAutor->documento->getModificadoEm(), 'upload não é modificação');
     }
 
     /**

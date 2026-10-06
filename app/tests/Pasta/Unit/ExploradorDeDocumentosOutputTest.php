@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Pasta\Unit;
 
+use App\Entity\Auth\User;
 use App\Pasta\DTO\ExploradorDeDocumentosOutput;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
@@ -52,6 +53,8 @@ final class ExploradorDeDocumentosOutputTest extends TestCase
         return $d;
     }
 
+    private const PASTA_ID = 9;
+
     /** @param PastaSecao[] $secoes @param PastaDocumento[] $docs */
     private function montar(array $secoes, array $docs): ExploradorDeDocumentosOutput
     {
@@ -59,8 +62,69 @@ final class ExploradorDeDocumentosOutputTest extends TestCase
             $secoes,
             $docs,
             self::ROTULOS,
-            static fn (string $rota, array $params): string => '/' . $rota . '/' . implode(',', $params),
-            static fn (string $id): string => 'tok_' . $id,
+            self::url(...),
+            self::csrf(...),
+            self::PASTA_ID,
+        );
+    }
+
+    /** @param array<string, mixed> $params */
+    private static function url(string $rota, array $params): string
+    {
+        return '/' . $rota . '/' . implode(',', $params);
+    }
+
+    private static function csrf(string $id): string
+    {
+        return 'tok_' . $id;
+    }
+
+    #[TestDox('D4: o JSON leva as URLs e o token ÚNICO das ações em lote da pasta (pex_lote_<pastaId>)')]
+    public function testLote(): void
+    {
+        $out = $this->montar([], []);
+
+        self::assertSame('/pasta_documentos_mover_lote/9', $out->urlMoverLote);
+        self::assertSame('/pasta_documentos_excluir_lote/9', $out->urlExcluirLote);
+        self::assertSame('tok_pex_lote_9', $out->csrfLote);
+        self::assertSame('pex_lote_9', ExploradorDeDocumentosOutput::idDoTokenDeLote(9));
+
+        $json = json_decode($out->json(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame('tok_pex_lote_9', $json['csrfLote']);
+        self::assertSame('/pasta_documentos_mover_lote/9', $json['urlMoverLote']);
+        self::assertSame('/pasta_documentos_excluir_lote/9', $json['urlExcluirLote']);
+    }
+
+    #[TestDox('D1: o arquivo leva quem enviou (nome), quando foi modificado e as páginas — NULL quando não há')]
+    public function testMetadadosDaD1(): void
+    {
+        $com = $this->documento(1, 'com.pdf', null);
+        $com->setEnviadoPor((new User())->setEmail('ana@test.com')->setFullName('Ana Lima'));
+        $com->marcarModificadoEm(new \DateTimeImmutable('2026-10-06 14:30:00'));
+        $com->setPaginas(12);
+        $sem = $this->documento(2, 'sem.pdf', null);
+
+        $out = $this->montar([], [$com, $sem]);
+
+        self::assertSame('Ana Lima', $out->arquivos[0]['enviadoPor'], 'o nome, nunca o e-mail');
+        self::assertSame('2026-10-06 14:30:00', $out->arquivos[0]['modificadoEm']);
+        self::assertSame(12, $out->arquivos[0]['paginas']);
+        self::assertNull($out->arquivos[1]['enviadoPor']);
+        self::assertNull($out->arquivos[1]['modificadoEm']);
+        self::assertNull($out->arquivos[1]['paginas']);
+    }
+
+    #[TestDox('arquivo() estático é a MESMA forma da listagem — upload e edição respondem com ela')]
+    public function testArquivoEstaticoEhAFormaDaListagem(): void
+    {
+        $secao = $this->secao(7, 'Procurações');
+        $doc   = $this->documento(42, 'x.pdf', $secao, 3);
+
+        $out = $this->montar([$secao], [$doc]);
+
+        self::assertSame(
+            $out->arquivos[0],
+            ExploradorDeDocumentosOutput::arquivo($doc, self::ROTULOS, self::url(...), self::csrf(...)),
         );
     }
 

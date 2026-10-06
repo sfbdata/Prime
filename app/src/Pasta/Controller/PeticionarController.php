@@ -10,6 +10,7 @@ use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaSecao;
 use App\Pasta\Exception\TituloDePecaLongoDemaisException;
+use App\Pasta\DTO\ExploradorDeDocumentosOutput;
 use App\Pasta\DTO\UploadImagemEditorInput;
 use App\Pasta\Repository\PastaSecaoRepository;
 use App\Pasta\DTO\DocumentoDuplicadoOutput;
@@ -30,6 +31,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 
 #[Route('/pasta')]
 final class PeticionarController extends AbstractController
@@ -37,6 +39,7 @@ final class PeticionarController extends AbstractController
     public function __construct(
         private readonly PermissionChecker $permissionChecker,
         private readonly TenantContext $tenantContext,
+        private readonly CsrfTokenManagerInterface $csrfTokenManager,
         private readonly UploadPecaUseCase $uploadPecaUseCase,
         private readonly SalvarPecaTextoUseCase $salvarPecaTextoUseCase,
         private readonly EditarPecaTextoUseCase $editarPecaTextoUseCase,
@@ -204,7 +207,7 @@ final class PeticionarController extends AbstractController
         }
 
         try {
-            $resultado = $this->uploadPecaUseCase->executar($pasta, $secao, $arquivo, $categoria, $descricao, $numero, $tenant, $reduzirTamanho);
+            $resultado = $this->uploadPecaUseCase->executar($pasta, $secao, $arquivo, $categoria, $descricao, $numero, $tenant, $reduzirTamanho, $currentUser);
         } catch (\InvalidArgumentException $e) {
             return new JsonResponse(['success' => false, 'error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
         }
@@ -222,16 +225,22 @@ final class PeticionarController extends AbstractController
             $this->syncDispatcher->despachar($pasta, $currentUser, $tenant);
         }
 
+        // O bloco `documento` carrega os campos de sempre (quem já lia `titulo`/`uploadedAt`/
+        // `mimeType` continua lendo) MAIS a forma que o explorador da aba Documentos consome —
+        // nome, tamanho, seção, ordem, URLs e tokens —, para a linha nova entrar sem recarregar.
+        $arquivo = ExploradorDeDocumentosOutput::arquivo(
+            $doc,
+            ExploradorDeDocumentosOutput::CATEGORIAS,
+            fn (string $rota, array $params): string => $this->generateUrl($rota, $params),
+            fn (string $idDoToken): string => $this->csrfTokenManager->getToken($idDoToken)->getValue(),
+        );
+
         return new JsonResponse([
             'success'   => true,
-            'documento' => [
-                'id'          => $doc->getId(),
-                'titulo'      => $doc->getTitulo(),
-                'categoria'   => $doc->getCategoria(),
-                'uploadedAt'  => $doc->getCarregadoEm()->format('d/m/Y H:i'),
-                'viewUrl'     => $this->generateUrl('pasta_documento_view', ['id' => $doc->getId()]),
-                'downloadUrl' => $this->generateUrl('pasta_documento_download', ['id' => $doc->getId()]),
-                'mimeType'    => $doc->getMimeType(),
+            'documento' => $arquivo + [
+                'titulo'     => $doc->getTitulo(),
+                'uploadedAt' => $doc->getCarregadoEm()->format('d/m/Y H:i'),
+                'mimeType'   => $doc->getMimeType(),
             ],
             // Só enviamos o bloco quando a redução foi solicitada — assim o front
             // distingue "não pediu" de "pediu mas não reduziu".

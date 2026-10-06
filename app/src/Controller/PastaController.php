@@ -381,6 +381,7 @@ class PastaController extends AbstractController
             self::DOCUMENT_TYPES,
             fn (string $rota, array $params): string => $this->generateUrl($rota, $params),
             fn (string $idDoToken): string => $this->csrfTokenManager->getToken($idDoToken)->getValue(),
+            $pastaId,
         );
 
         // Faixa do topo da aba Financeiro. A média por CPF é do cliente PRINCIPAL da pasta —
@@ -1789,45 +1790,8 @@ class PastaController extends AbstractController
         return $this->entrega->resposta($chave, $doc->getNomeOriginal(), inline: false);
     }
 
-    #[Route('/documento/{id}/editar', name: 'pasta_documento_edit', methods: ['POST'])]
-    public function editDocumento(PastaDocumento $doc, Request $request): Response
-    {
-        /** @var \App\Entity\Auth\User $currentUser */
-        $currentUser = $this->getUser();
-        $pastaForCheck = $doc->getPasta();
-        if ($pastaForCheck !== null && !$this->permissionChecker->canAccessResource($currentUser, $this->tenantContext->getCurrentTenant(), 'pasta', (int) $pastaForCheck->getId(), 'edit')) {
-            throw $this->createAccessDeniedException('Você não tem permissão para editar documentos desta pasta.');
-        }
-
-        if (!$this->isCsrfTokenValid('edit_documento_'.$doc->getId(), (string) $request->request->get('_token'))) {
-            throw $this->createAccessDeniedException('Token CSRF inválido.');
-        }
-
-        $categoriaRaw = strtoupper(trim((string) $request->request->get('categoria', '')));
-        $categoria    = array_key_exists($categoriaRaw, self::DOCUMENT_TYPES) ? $categoriaRaw : $doc->getCategoria();
-
-        $descricao    = trim((string) $request->request->get('descricao', ''));
-        $numero       = trim((string) $request->request->get('numero', ''));
-        $nomeBase     = trim((string) $request->request->get('nomeBase', ''));
-
-        $categoriaAnterior = $doc->getCategoria();
-        $doc->setCategoria($categoria);
-        $doc->setDescricao($descricao !== '' ? $descricao : null);
-        $doc->setNumero($numero !== '' ? $numero : null);
-        if ($nomeBase !== '') {
-            $extensao = pathinfo($doc->getNomeOriginal(), PATHINFO_EXTENSION);
-            $nomeComExtensao = $nomeBase . ($extensao !== '' ? '.' . $extensao : '');
-            $doc->setNomeOriginal($nomeComExtensao);
-        }
-
-        $this->em->flush();
-
-        $this->addFlash('success', 'Documento atualizado com sucesso.');
-
-        // `#documentos`: o `pasta-show.js` abre a aba do fragmento — é o que devolve o usuário
-        // à lista de onde ele editou, sem depender de flag em sessionStorage.
-        return $this->redirectToRoute('pasta_show', ['id' => $doc->getPasta()?->getId(), '_fragment' => 'documentos']);
-    }
+    // `pasta_documento_edit` (POST /pasta/documento/{id}/editar) mora em
+    // App\Pasta\Controller\PastaDocumentoController::editar desde a aba Documentos (D3).
 
     #[Route('/documento/{id}/deletar', name: 'pasta_documento_delete', methods: ['POST'])]
     public function deleteDocumento(PastaDocumento $doc, Request $request): Response

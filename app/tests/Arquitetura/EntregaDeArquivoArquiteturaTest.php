@@ -83,6 +83,9 @@ final class EntregaDeArquivoArquiteturaTest extends TestCase
      * que o `chroot` do Dompdf pode ser um diretório que só tem o que este export colocou lá.
      */
     private const QUEM_PODE_MATERIALIZAR = [
+        // `--paginas` (D1 da aba Documentos): o Ghostscript só conta por caminho local; o arquivo
+        // é EMPRESTADO (`paraLeitura`, cópia zero, sem posse) — nada é apagado nem reescrito.
+        'src/Pasta/Command/CalcularHashDosDocumentosCommand.php',
         'src/Shared/Http/EntregaDeArquivo.php',
         'src/Shared/Service/CompressaoDeArquivoArmazenado.php',
         'src/Sync/Service/ReconciliadorDePasta.php',

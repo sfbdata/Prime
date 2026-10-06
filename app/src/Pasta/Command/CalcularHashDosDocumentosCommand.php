@@ -7,10 +7,13 @@ namespace App\Pasta\Command;
 use App\Pasta\Armazenamento\ChavesDePasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Repository\PastaDocumentoRepository;
+use App\Pasta\Service\ContadorDePaginasDePdf;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
+use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Shared\Armazenamento\Exception\ArquivoNaoEncontrado;
 use App\Shared\Armazenamento\Exception\ChaveDeArquivoInvalida;
 use App\Shared\Armazenamento\Exception\FalhaDeArmazenamento;
+use App\Shared\Armazenamento\MaterializadorDeArquivo;
 use App\Shared\Armazenamento\Sha256DeArquivo;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
@@ -23,12 +26,14 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 
 /**
  * Preenche `pasta_documento.sha256` no acervo anterior à coluna, lendo cada arquivo PELO
- * ARMAZENAMENTO (chave → `abrir()`), em streaming, em lotes.
+ * ARMAZENAMENTO (chave → `abrir()`), em streaming, em lotes. Com `--paginas`, preenche
+ * `pasta_documento.paginas` nos PDFs ainda sem contagem (D1), pelo mesmo caminho.
  *
  * ## Regras
  *
- *  - **idempotente**: só toca linha com `sha256 IS NULL`; o que já tem hash não é relido nem
- *    regravado. Rodar de novo custa só a fila que sobrou;
+ *  - **idempotente**: só toca linha com `sha256 IS NULL` (ou `paginas IS NULL`, no modo
+ *    `--paginas`); o que já tem valor não é relido nem regravado. Rodar de novo custa só a fila
+ *    que sobrou;
  *  - **nunca carrega um arquivo inteiro na memória**: o hash é de `hash_update_stream`, e cada
  *    lote hidrata no máximo `--lote` documentos antes do `flush()` + `clear()`;
  *  - **arquivo ausente não é pane**: conta como "ausente", fica NULL e o comando segue — é a
@@ -36,6 +41,14 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  *  - **pane de leitura** (`FalhaDeArmazenamento`) conta, vai ao log, deixa NULL e segue; no fim
  *    o código de saída é FAILURE para o operador olhar;
  *  - `--dry-run` LÊ os arquivos (é assim que se mede o custo real) mas não grava nada.
+ *
+ * ## `--paginas`
+ *
+ * A fila é "PDF com `paginas IS NULL`". O Ghostscript precisa de um caminho local, então o
+ * arquivo é EMPRESTADO ao contador (`MaterializadorDeArquivo::paraLeitura`, cópia zero no disco
+ * local — nada é apagado). Um PDF que o gs não consegue contar (corrompido, sem página) fica NULL
+ * e conta como "sem contagem": não é pane, e volta à fila na próxima execução — é o preço de não
+ * gravar zero num arquivo real.
  *
  * ## Custo
  *
@@ -47,7 +60,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  */
 #[AsCommand(
     name: 'app:documentos:calcular-hash',
-    description: 'Preenche pasta_documento.sha256 nos documentos ainda sem hash, lendo cada arquivo pelo armazenamento',
+    description: 'Preenche pasta_documento.sha256 (ou, com --paginas, as páginas dos PDFs) nos documentos ainda sem valor, lendo cada arquivo pelo armazenamento',
 )]
 final class CalcularHashDosDocumentosCommand extends Command
 {
@@ -58,6 +71,8 @@ final class CalcularHashDosDocumentosCommand extends Command
         private readonly PastaDocumentoRepository $documentos,
         private readonly ArmazenamentoDeArquivos $armazenamento,
         private readonly LoggerInterface $logger,
+        private readonly MaterializadorDeArquivo $materializador,
+        private readonly ContadorDePaginasDePdf $contadorDePaginas,
     ) {
         parent::__construct();
     }
@@ -66,6 +81,7 @@ final class CalcularHashDosDocumentosCommand extends Command
     {
         $this
             ->addOption('dry-run', null, InputOption::VALUE_NONE, 'Lê e calcula, mas não grava nada no banco')
+            ->addOption('paginas', null, InputOption::VALUE_NONE, 'Em vez do hash, conta as páginas dos PDFs ainda sem contagem (coluna paginas)')
             ->addOption('limite', null, InputOption::VALUE_REQUIRED, 'Processar no máximo N documentos nesta execução')
             ->addOption('tenant', null, InputOption::VALUE_REQUIRED, 'Só os documentos deste escritório (id do tenant)')
             ->addOption('lote', null, InputOption::VALUE_REQUIRED, 'Documentos por flush/clear', (string) self::LOTE_PADRAO);
@@ -73,8 +89,9 @@ final class CalcularHashDosDocumentosCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $io     = new SymfonyStyle($input, $output);
-        $dryRun = (bool) $input->getOption('dry-run');
+        $io      = new SymfonyStyle($input, $output);
+        $dryRun  = (bool) $input->getOption('dry-run');
+        $paginas = (bool) $input->getOption('paginas');
 
         $limite   = $this->inteiroPositivoOuNull($input->getOption('limite'), 'limite', $io);
         $tenantId = $this->inteiroPositivoOuNull($input->getOption('tenant'), 'tenant', $io);
@@ -86,26 +103,32 @@ final class CalcularHashDosDocumentosCommand extends Command
 
         $lote ??= self::LOTE_PADRAO;
 
-        $io->title('Hash (SHA-256) dos documentos de pasta');
+        $io->title($paginas ? 'Páginas dos PDFs de pasta' : 'Hash (SHA-256) dos documentos de pasta');
         if ($dryRun) {
-            $io->note('Modo simulação: os arquivos são lidos e o hash calculado, mas nada é gravado.');
+            $io->note($paginas
+                ? 'Modo simulação: os PDFs são lidos e as páginas contadas, mas nada é gravado.'
+                : 'Modo simulação: os arquivos são lidos e o hash calculado, mas nada é gravado.');
         }
 
-        $ids = $this->documentos->idsSemSha256($tenantId, $limite);
+        $ids = $paginas
+            ? $this->documentos->idsSemPaginas($tenantId, $limite)
+            : $this->documentos->idsSemSha256($tenantId, $limite);
         if ($ids === []) {
-            $io->success('Nenhum documento sem hash' . ($tenantId !== null ? sprintf(' no escritório %d', $tenantId) : '') . '.');
+            $io->success(($paginas ? 'Nenhum PDF sem contagem de páginas' : 'Nenhum documento sem hash')
+                . ($tenantId !== null ? sprintf(' no escritório %d', $tenantId) : '') . '.');
 
             return Command::SUCCESS;
         }
 
         $contadores = [
-            'candidatos' => \count($ids),
-            'calculados' => 0,
-            'jaTinham'   => 0,
-            'ausentes'   => 0,
-            'invalidos'  => 0,
-            'falhas'     => 0,
-            'bytes'      => 0,
+            'candidatos'  => \count($ids),
+            'calculados'  => 0,
+            'jaTinham'    => 0,
+            'ausentes'    => 0,
+            'invalidos'   => 0,
+            'falhas'      => 0,
+            'semContagem' => 0,
+            'bytes'       => 0,
         ];
         $inicio = hrtime(true);
 
@@ -117,7 +140,11 @@ final class CalcularHashDosDocumentosCommand extends Command
             $docs = $this->documentos->findBy(['id' => $idsDoLote]);
 
             foreach ($docs as $doc) {
-                $this->processar($doc, $dryRun, $contadores, $io);
+                if ($paginas) {
+                    $this->contarPaginas($doc, $dryRun, $contadores, $io);
+                } else {
+                    $this->processar($doc, $dryRun, $contadores, $io);
+                }
                 $io->progressAdvance();
             }
 
@@ -131,12 +158,16 @@ final class CalcularHashDosDocumentosCommand extends Command
         $io->progressFinish();
 
         $segundos  = (hrtime(true) - $inicio) / 1e9;
-        $restantes = $this->documentos->contarSemSha256($tenantId);
+        $restantes = $paginas
+            ? $this->documentos->contarSemPaginas($tenantId)
+            : $this->documentos->contarSemSha256($tenantId);
 
         $io->section($dryRun ? 'Resumo (simulado — nada gravado)' : 'Resumo');
         // Uma linha legível por máquina (cron/log), antes da tabela para humanos.
+        // `alvo` e `sem_contagem` entraram com o `--paginas`, no FIM da linha: quem já lia os
+        // campos de sempre (cron/log) continua lendo na mesma posição.
         $io->text(sprintf(
-            'resumo: modo=%s candidatos=%d calculados=%d ja_tinham=%d ausentes=%d invalidos=%d falhas=%d bytes=%d segundos=%.1f restantes=%d',
+            'resumo: modo=%s candidatos=%d calculados=%d ja_tinham=%d ausentes=%d invalidos=%d falhas=%d bytes=%d segundos=%.1f restantes=%d alvo=%s sem_contagem=%d',
             $dryRun ? 'simulacao' : 'gravacao',
             $contadores['candidatos'],
             $contadores['calculados'],
@@ -147,17 +178,21 @@ final class CalcularHashDosDocumentosCommand extends Command
             $contadores['bytes'],
             $segundos,
             $restantes,
+            $paginas ? 'paginas' : 'sha256',
+            $contadores['semContagem'],
         ));
+        $alvo = $paginas ? 'contagem' : 'hash';
         $io->table(['Métrica', 'Total'], [
-            ['Candidatos (sha256 NULL) nesta execução', $contadores['candidatos']],
-            [$dryRun ? 'Hash calculado (não gravado)' : 'Hash calculado e gravado', $contadores['calculados']],
-            ['Já tinham hash (pulados)', $contadores['jaTinham']],
+            [sprintf('Candidatos (%s NULL) nesta execução', $paginas ? 'paginas' : 'sha256'), $contadores['candidatos']],
+            [$dryRun ? ucfirst($alvo) . ' calculado (não gravado)' : ucfirst($alvo) . ' calculado e gravado', $contadores['calculados']],
+            ['Já tinham ' . $alvo . ' (pulados)', $contadores['jaTinham']],
             ['Arquivo ausente no armazenamento (ficam NULL)', $contadores['ausentes']],
             ['Chave inválida (ficam NULL)', $contadores['invalidos']],
             ['Falhas de leitura (ficam NULL)', $contadores['falhas']],
+            ['PDF que o Ghostscript não contou (ficam NULL)', $contadores['semContagem']],
             ['Bytes lidos', $this->formatarBytes($contadores['bytes'])],
             ['Duração', sprintf('%.1f s', $segundos)],
-            ['Restantes sem hash' . ($tenantId !== null ? ' (no escritório)' : ''), $restantes],
+            ['Restantes sem ' . $alvo . ($tenantId !== null ? ' (no escritório)' : ''), $restantes],
         ]);
 
         if ($contadores['falhas'] > 0) {
@@ -179,35 +214,19 @@ final class CalcularHashDosDocumentosCommand extends Command
             return;
         }
 
-        try {
-            $chave = ChavesDePasta::documento($doc);
-        } catch (ChaveDeArquivoInvalida $e) {
-            ++$contadores['invalidos'];
-            $io->newLine();
-            $io->text(sprintf('ERRO: documento #%d: %s', (int) $doc->getId(), $e->getMessage()));
-
+        $chave = $this->chaveOuNull($doc, $contadores, $io);
+        if ($chave === null) {
             return;
         }
 
         try {
             $sha256 = Sha256DeArquivo::deChave($this->armazenamento, $chave);
         } catch (ArquivoNaoEncontrado) {
-            ++$contadores['ausentes'];
-            if ($io->isVerbose()) {
-                $io->newLine();
-                $io->text(sprintf('ausente: documento #%d (%s)', (int) $doc->getId(), $chave->comoTexto()));
-            }
+            $this->registrarAusente($doc, $chave->comoTexto(), $contadores, $io);
 
             return;
         } catch (FalhaDeArmazenamento $e) {
-            ++$contadores['falhas'];
-            $io->newLine();
-            $io->text(sprintf('ERRO: documento #%d: %s', (int) $doc->getId(), $e->getMessage()));
-            $this->logger->error('calcular-hash: falha ao ler o arquivo do documento', [
-                'documento' => $doc->getId(),
-                'chave'     => $chave->comoTexto(),
-                'erro'      => $e->getMessage(),
-            ]);
+            $this->registrarFalha($doc, $chave->comoTexto(), $e, $contadores, $io);
 
             return;
         }
@@ -218,6 +237,94 @@ final class CalcularHashDosDocumentosCommand extends Command
         if (!$dryRun) {
             $doc->setSha256($sha256);
         }
+    }
+
+    /**
+     * O modo `--paginas`: empresta o arquivo ao contador (caminho local, só leitura) e grava o
+     * que ele devolver. NULL do contador não é pane — é PDF que não se conta; fica NULL.
+     *
+     * @param array<string, int> $contadores
+     */
+    private function contarPaginas(PastaDocumento $doc, bool $dryRun, array &$contadores, SymfonyStyle $io): void
+    {
+        if ($doc->getPaginas() !== null) {
+            ++$contadores['jaTinham'];
+
+            return;
+        }
+
+        $chave = $this->chaveOuNull($doc, $contadores, $io);
+        if ($chave === null) {
+            return;
+        }
+
+        try {
+            $emprestado = $this->materializador->paraLeitura($chave);
+        } catch (ArquivoNaoEncontrado) {
+            $this->registrarAusente($doc, $chave->comoTexto(), $contadores, $io);
+
+            return;
+        } catch (FalhaDeArmazenamento $e) {
+            $this->registrarFalha($doc, $chave->comoTexto(), $e, $contadores, $io);
+
+            return;
+        }
+
+        $paginas = $this->contadorDePaginas->contar($emprestado->caminho());
+        $contadores['bytes'] += $doc->getTamanhoBytes();
+
+        if ($paginas === null) {
+            ++$contadores['semContagem'];
+            if ($io->isVerbose()) {
+                $io->newLine();
+                $io->text(sprintf('sem contagem: documento #%d (%s)', (int) $doc->getId(), $chave->comoTexto()));
+            }
+
+            return;
+        }
+
+        ++$contadores['calculados'];
+
+        if (!$dryRun) {
+            $doc->setPaginas($paginas);
+        }
+    }
+
+    /** @param array<string, int> $contadores */
+    private function chaveOuNull(PastaDocumento $doc, array &$contadores, SymfonyStyle $io): ?ChaveDeArquivo
+    {
+        try {
+            return ChavesDePasta::documento($doc);
+        } catch (ChaveDeArquivoInvalida $e) {
+            ++$contadores['invalidos'];
+            $io->newLine();
+            $io->text(sprintf('ERRO: documento #%d: %s', (int) $doc->getId(), $e->getMessage()));
+
+            return null;
+        }
+    }
+
+    /** @param array<string, int> $contadores */
+    private function registrarAusente(PastaDocumento $doc, string $chave, array &$contadores, SymfonyStyle $io): void
+    {
+        ++$contadores['ausentes'];
+        if ($io->isVerbose()) {
+            $io->newLine();
+            $io->text(sprintf('ausente: documento #%d (%s)', (int) $doc->getId(), $chave));
+        }
+    }
+
+    /** @param array<string, int> $contadores */
+    private function registrarFalha(PastaDocumento $doc, string $chave, FalhaDeArmazenamento $e, array &$contadores, SymfonyStyle $io): void
+    {
+        ++$contadores['falhas'];
+        $io->newLine();
+        $io->text(sprintf('ERRO: documento #%d: %s', (int) $doc->getId(), $e->getMessage()));
+        $this->logger->error('calcular-hash: falha ao ler o arquivo do documento', [
+            'documento' => $doc->getId(),
+            'chave'     => $chave,
+            'erro'      => $e->getMessage(),
+        ]);
     }
 
     /**

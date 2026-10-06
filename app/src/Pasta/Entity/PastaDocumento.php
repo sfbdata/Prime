@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Pasta\Entity;
 
+use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Repository\PastaDocumentoRepository;
 use App\Shared\Contract\Auditavel;
@@ -72,6 +73,30 @@ class PastaDocumento implements Auditavel, TenantAware
      */
     #[ORM\Column(name: 'sha256', length: 64, nullable: true, options: ['fixed' => true])]
     private ?string $sha256 = null;
+
+    /**
+     * Quem enviou o arquivo (D1). NULL no acervo anterior à coluna e nos caminhos que não têm
+     * usuário (importação do acervo, reconciliação do Drive). `ON DELETE SET NULL`: o usuário sair
+     * do sistema não apaga o documento nem o registro de que ele existiu.
+     */
+    #[ORM\ManyToOne(targetEntity: User::class)]
+    #[ORM\JoinColumn(name: 'enviado_por_id', nullable: true, onDelete: 'SET NULL')]
+    private ?User $enviadoPor = null;
+
+    /**
+     * Última edição dos METADADOS (nome, categoria, número, descrição). NULL = nunca editado desde
+     * o upload; a tela mostra então `carregadoEm`. Mover de pasta não conta como modificação.
+     */
+    #[ORM\Column(name: 'modificado_em', type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $modificadoEm = null;
+
+    /**
+     * Páginas do PDF, contadas pelo Ghostscript no upload (D1). NULL = não é PDF, ou a contagem
+     * falhou/ainda não foi feita (`app:documentos:calcular-hash --paginas` preenche o acervo).
+     * Nunca "zero páginas": um PDF sem página não é contado, é NULL.
+     */
+    #[ORM\Column(type: 'integer', nullable: true)]
+    private ?int $paginas = null;
 
     #[ORM\ManyToOne(targetEntity: Pasta::class, inversedBy: 'documentos')]
     #[ORM\JoinColumn(nullable: false)]
@@ -262,6 +287,51 @@ class PastaDocumento implements Auditavel, TenantAware
         }
 
         $this->sha256 = $sha256;
+
+        return $this;
+    }
+
+    public function getEnviadoPor(): ?User
+    {
+        return $this->enviadoPor;
+    }
+
+    public function setEnviadoPor(?User $enviadoPor): self
+    {
+        $this->enviadoPor = $enviadoPor;
+
+        return $this;
+    }
+
+    public function getModificadoEm(): ?\DateTimeImmutable
+    {
+        return $this->modificadoEm;
+    }
+
+    /** Registra uma edição de metadados; quem chama decide o instante (relógio injetável). */
+    public function marcarModificadoEm(\DateTimeImmutable $instante): self
+    {
+        $this->modificadoEm = $instante;
+
+        return $this;
+    }
+
+    public function getPaginas(): ?int
+    {
+        return $this->paginas;
+    }
+
+    /**
+     * Só inteiro positivo ou NULL. Zero ou negativo é contagem que não aconteceu — e gravá-la
+     * faria a tela mostrar "0 páginas" num PDF de verdade. Recusado, não normalizado (como o sha256).
+     */
+    public function setPaginas(?int $paginas): self
+    {
+        if ($paginas !== null && $paginas < 1) {
+            throw new \InvalidArgumentException('paginas inválido: esperado inteiro positivo ou NULL.');
+        }
+
+        $this->paginas = $paginas;
 
         return $this;
     }
