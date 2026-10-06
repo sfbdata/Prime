@@ -55,6 +55,9 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // estilo de quem olha, sem efeito sobre dado nenhum do escritório. Auditar cada clique no
         // menu ⋮ encheria o audit_log de ruído sem valor de prova.
         \App\Dashboard\Entity\PreferenciaDoUsuario::class,
+        // Foto diária do estoque do Dashboard: dado DERIVADO de tarefa/pasta (contagens), regravado
+        // pelo cron. Não é ato de ninguém e não prova nada — auditar só duplicaria números.
+        \App\Dashboard\Entity\DashboardFoto::class,
 
         // Excluída por design: seria recursão infinita auditar o próprio log
         AuditLog::class,

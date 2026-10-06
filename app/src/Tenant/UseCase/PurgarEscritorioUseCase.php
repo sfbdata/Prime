@@ -169,6 +169,9 @@ final class PurgarEscritorioUseCase
         // Preferências pessoais de tela (menu ⋮ do Dashboard): a FK de usuário é CASCADE, mas o
         // usuário não é apagado na purga e a de tenant é NO ACTION — sai aqui, explicitamente.
         ['preferencia_usuario', 'tenant_id = :tenant'],
+        // Foto diária do estoque do Dashboard (dado derivado, por usuário): FK de tenant NO ACTION,
+        // nada a referencia — deleção explícita antes de apagar o tenant.
+        ['dashboard_foto', 'tenant_id = :tenant'],
 
         // Fase 2 — raízes de subsistema (a CASCADE do banco derruba os filhos estruturais).
         ['tarefa', 'tenant_id = :tenant'],
