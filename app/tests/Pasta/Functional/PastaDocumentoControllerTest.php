@@ -23,6 +23,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Event\OnFlushEventArgs;
 use Doctrine\ORM\Events;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
@@ -568,6 +569,186 @@ final class PastaDocumentoControllerTest extends JusPrimeWebTestCase
         self::assertTrue($this->existeSecao((int) $a->getId()));
         self::assertTrue($armazenamento->existe(ChavesDePasta::documentoPorNome((int) $tenant->getId(), $naRaiz->getCaminhoArquivo())));
         self::assertTrue($armazenamento->existe(ChavesDePasta::documentoPorNome((int) $tenant->getId(), $emA->getCaminhoArquivo())));
+    }
+
+    // ── forma do corpo do lote (ids, destinoId, teto) ──────────────────────────
+
+    /** @return iterable<string, array{array<string, mixed>}> */
+    public static function selecoesInvalidas(): iterable
+    {
+        yield 'texto em documentos'       => [['documentos' => ['abc']]];
+        yield 'aninhado em documentos'    => [['documentos' => [[1]]]];
+        yield 'zero em documentos'        => [['documentos' => ['0']]];
+        yield 'negativo em documentos'    => [['documentos' => ['-1']]];
+        yield 'decimal em documentos'     => [['documentos' => ['1.5']]];
+        yield 'documentos não é lista'    => [['documentos' => 'abc']];
+        yield 'texto em secoes'           => [['secoes' => ['abc']]];
+        yield 'aninhado em secoes'        => [['secoes' => [[1]]]];
+        yield 'zero em secoes'            => [['secoes' => ['0']]];
+        yield 'negativo em secoes'        => [['secoes' => ['-7']]];
+    }
+
+    /**
+     * Cada caso leva, além do valor inválido, um documento e uma subpasta VÁLIDOS da pasta: a
+     * resposta tem de ser 404 e os válidos têm de ficar onde estão — nada de efeito parcial.
+     *
+     * @param array<string, mixed> $invalidos
+     */
+    #[TestDox('lote com id que não é id ($_dataName): 404 em mover e em excluir, sem efeito')]
+    #[DataProvider('selecoesInvalidas')]
+    public function testLoteRecusaIdsInvalidos(array $invalidos): void
+    {
+        $client          = $this->cliente();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $destino         = $this->criarSecao($pasta, $tenant, 'DESTINO');
+        $minha           = $this->criarSecao($pasta, $tenant, 'MINHA');
+        $meu             = $this->criarDocumento($pasta, $tenant, null, 'meu.pdf');
+        $this->logarComTenant($client, $user, $tenant);
+        $this->limpar();
+
+        $documentos = $invalidos['documentos'] ?? [];
+        $secoes     = $invalidos['secoes'] ?? [];
+        if (is_array($documentos)) {
+            array_unshift($documentos, (string) $meu->getId());
+        }
+        if (is_array($secoes)) {
+            array_unshift($secoes, (string) $minha->getId());
+        }
+        $corpo = ['_token' => $this->csrf('pex_lote_' . $pasta->getId()), 'documentos' => $documentos, 'secoes' => $secoes];
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/documentos/mover-lote", $corpo + ['destinoId' => (string) $destino->getId()]);
+        self::assertResponseStatusCodeSame(404);
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/documentos/excluir-lote", $corpo);
+        self::assertResponseStatusCodeSame(404);
+
+        self::assertNull($this->secaoDoDocumento((int) $meu->getId()), 'o documento válido da seleção não se moveu');
+        self::assertNull($this->paiDaSecao((int) $minha->getId()), 'a subpasta válida da seleção não se moveu');
+        self::assertTrue($this->existeDocumento((int) $meu->getId()));
+        self::assertTrue($this->existeSecao((int) $minha->getId()));
+    }
+
+    #[TestDox('ids repetidos na seleção contam UMA vez; destinoId ausente é a raiz')]
+    public function testLoteComIdsRepetidos(): void
+    {
+        $client          = $this->cliente();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $destino         = $this->criarSecao($pasta, $tenant, 'DESTINO');
+        $b               = $this->criarSecao($pasta, $tenant, 'B');
+        $meu             = $this->criarDocumento($pasta, $tenant, null, 'meu.pdf');
+        $outro           = $this->criarDocumento($pasta, $tenant, null, 'outro.pdf');
+        $this->logarComTenant($client, $user, $tenant);
+        $this->limpar();
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/documentos/mover-lote", [
+            '_token'     => $this->csrf('pex_lote_' . $pasta->getId()),
+            'documentos' => [(string) $meu->getId(), (string) $meu->getId(), (string) $meu->getId()],
+            'secoes'     => [(string) $b->getId(), (string) $b->getId()],
+            'destinoId'  => (string) $destino->getId(),
+        ]);
+        self::assertResponseIsSuccessful((string) $client->getResponse()->getContent());
+        self::assertSame(['documentos' => 1, 'secoes' => 1], $this->json($client)['movidos']);
+        self::assertSame($destino->getId(), $this->secaoDoDocumento((int) $meu->getId()));
+        self::assertSame($destino->getId(), $this->paiDaSecao((int) $b->getId()));
+
+        // Sem a chave `destinoId` no corpo: raiz.
+        $client->request('POST', "/pasta/{$pasta->getId()}/documentos/mover-lote", [
+            '_token'     => $this->csrf('pex_lote_' . $pasta->getId()),
+            'documentos' => [(string) $meu->getId()],
+            'secoes'     => [(string) $b->getId()],
+        ]);
+        self::assertResponseIsSuccessful((string) $client->getResponse()->getContent());
+        self::assertNull($this->secaoDoDocumento((int) $meu->getId()));
+        self::assertNull($this->paiDaSecao((int) $b->getId()));
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/documentos/excluir-lote", [
+            '_token'     => $this->csrf('pex_lote_' . $pasta->getId()),
+            'documentos' => [(string) $outro->getId(), (string) $outro->getId()],
+        ]);
+        self::assertResponseIsSuccessful((string) $client->getResponse()->getContent());
+        self::assertSame(1, $this->json($client)['documentosRemovidos']);
+        self::assertFalse($this->existeDocumento((int) $outro->getId()));
+        self::assertTrue($this->existeDocumento((int) $meu->getId()));
+    }
+
+    /** @return iterable<string, array{mixed}> */
+    public static function destinosInvalidos(): iterable
+    {
+        yield 'texto'    => ['abc'];
+        yield 'zero'     => ['0'];
+        yield 'negativo' => ['-3'];
+        yield 'decimal'  => ['1.5'];
+        yield 'lista'    => [['1']];
+    }
+
+    #[TestDox('mover-lote com destinoId que não é id nem raiz ($_dataName): 404, sem efeito')]
+    #[DataProvider('destinosInvalidos')]
+    public function testMoverLoteDestinoInvalido(mixed $destinoId): void
+    {
+        $client          = $this->cliente();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $a               = $this->criarSecao($pasta, $tenant, 'A');
+        $meu             = $this->criarDocumento($pasta, $tenant, $a, 'meu.pdf');
+        $this->logarComTenant($client, $user, $tenant);
+        $this->limpar();
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/documentos/mover-lote", [
+            '_token'     => $this->csrf('pex_lote_' . $pasta->getId()),
+            'documentos' => [(string) $meu->getId()],
+            'secoes'     => [(string) $a->getId()],
+            'destinoId'  => $destinoId,
+        ]);
+
+        self::assertResponseStatusCodeSame(404);
+        self::assertSame($a->getId(), $this->secaoDoDocumento((int) $meu->getId()), 'um (int) cego mandaria tudo para a raiz');
+        self::assertNull($this->paiDaSecao((int) $a->getId()));
+    }
+
+    #[TestDox('lote com mais de 2.000 ids (documentos + subpastas somados): 422 em mover e em excluir, sem efeito')]
+    public function testLoteAcimaDoTeto(): void
+    {
+        $client          = $this->cliente();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $destino         = $this->criarSecao($pasta, $tenant, 'DESTINO');
+        $meu             = $this->criarDocumento($pasta, $tenant, null, 'meu.pdf');
+        $this->logarComTenant($client, $user, $tenant);
+        $this->limpar();
+
+        $teto     = PastaDocumentoController::TETO_DE_ITENS_POR_LOTE;
+        $forjados = array_map('strval', range(9_000_000, 9_000_000 + $teto - 2)); // teto − 1 ids
+        $token    = $this->csrf('pex_lote_' . $pasta->getId());
+
+        // teto + 1 no total, repartido entre as duas listas: é a SOMA que conta.
+        $client->request('POST', "/pasta/{$pasta->getId()}/documentos/mover-lote", [
+            '_token'     => $token,
+            'documentos' => array_merge([(string) $meu->getId()], $forjados),
+            'secoes'     => [(string) $destino->getId()],
+            'destinoId'  => (string) $destino->getId(),
+        ]);
+        self::assertResponseStatusCodeSame(422);
+        self::assertStringContainsString('limite', (string) $this->json($client)['erro']);
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/documentos/excluir-lote", [
+            '_token'     => $token,
+            'documentos' => array_merge([(string) $meu->getId()], $forjados),
+            'secoes'     => [(string) $destino->getId()],
+        ]);
+        self::assertResponseStatusCodeSame(422);
+
+        // Exatamente no teto não é recusado pelo teto: os forjados não são desta pasta → 404.
+        $client->request('POST', "/pasta/{$pasta->getId()}/documentos/excluir-lote", [
+            '_token'     => $token,
+            'documentos' => array_merge([(string) $meu->getId()], $forjados),
+        ]);
+        self::assertResponseStatusCodeSame(404);
+
+        self::assertNull($this->secaoDoDocumento((int) $meu->getId()));
+        self::assertTrue($this->existeDocumento((int) $meu->getId()));
+        self::assertTrue($this->existeSecao((int) $destino->getId()));
     }
 
     // ----------------------------------------------------------------- helpers

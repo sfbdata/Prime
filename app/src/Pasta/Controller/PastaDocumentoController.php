@@ -43,6 +43,9 @@ use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 #[Route('/pasta')]
 final class PastaDocumentoController extends AbstractController
 {
+    /** Ids (documentos + subpastas) aceitos numa ação em lote; acima disso é 422 sem consulta. */
+    public const TETO_DE_ITENS_POR_LOTE = 2000;
+
     public function __construct(
         private readonly PermissionChecker $permissionChecker,
         private readonly TenantContext $tenantContext,
@@ -121,9 +124,15 @@ final class PastaDocumentoController extends AbstractController
         }
         [$documentos, $secoes, $carga, $tenant] = $lote;
 
+        // `destinoId` ausente, null ou '' = raiz. Qualquer outro valor só vale se for um id
+        // (a mesma regra de `idsInteiros`): "0", negativo, texto ou array → 404, sem efeito —
+        // um `(int)` cego transformaria "abc" em raiz e moveria tudo para lá em silêncio.
         $destino   = null;
-        $destinoId = (int) ($carga['destinoId'] ?? 0);
-        if ($destinoId > 0) {
+        $destinoId = self::idDeDestino($carga['destinoId'] ?? null);
+        if ($destinoId === false) {
+            return $this->json(['erro' => 'Pasta de destino não encontrada.'], Response::HTTP_NOT_FOUND);
+        }
+        if ($destinoId !== null) {
             // Escopada por pasta + tenant: um id de subpasta de outra pasta (irmã ou de outro
             // escritório) não é encontrado — 404, sem dizer se existe.
             $destino = $this->secoes->findByIdAndPastaAndTenant($destinoId, $pasta, $tenant);
@@ -200,6 +209,15 @@ final class PastaDocumentoController extends AbstractController
             return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_BAD_REQUEST);
         }
 
+        // Teto ANTES de interpretar os ids e de qualquer consulta: a pasta de produção tem 1.128
+        // documentos; um corpo com dezenas de milhares de ids é pedido forjado, não seleção.
+        if (self::tamanhoBruto($carga['documentos'] ?? []) + self::tamanhoBruto($carga['secoes'] ?? []) > self::TETO_DE_ITENS_POR_LOTE) {
+            return $this->json(
+                ['erro' => sprintf('Seleção acima do limite de %d itens por ação.', self::TETO_DE_ITENS_POR_LOTE)],
+                Response::HTTP_UNPROCESSABLE_ENTITY,
+            );
+        }
+
         $idsDocumentos = self::idsInteiros($carga['documentos'] ?? []);
         $idsSecoes     = self::idsInteiros($carga['secoes'] ?? []);
         if ($idsDocumentos === null) {
@@ -256,17 +274,47 @@ final class PastaDocumentoController extends AbstractController
 
         $ids = [];
         foreach ($valores as $valor) {
-            if (!is_int($valor) && !(is_string($valor) && preg_match('/^[1-9]\d*$/', $valor) === 1)) {
-                return null;
-            }
-            $id = (int) $valor;
-            if ($id < 1) {
+            $id = self::idOuNull($valor);
+            if ($id === null) {
                 return null;
             }
             $ids[$id] = $id;
         }
 
         return array_values($ids);
+    }
+
+    /** Um id: inteiro positivo, ou string só de dígitos sem zero à esquerda. O resto não é id. */
+    private static function idOuNull(mixed $valor): ?int
+    {
+        if (is_int($valor)) {
+            return $valor >= 1 ? $valor : null;
+        }
+
+        if (is_string($valor) && preg_match('/^[1-9]\d*$/', $valor) === 1) {
+            return (int) $valor;
+        }
+
+        return null;
+    }
+
+    /**
+     * O destino de um mover-lote: NULL = raiz (ausente, null ou ''); int = id a provar; FALSE =
+     * valor que não é id nem raiz (array, "0", negativo, texto).
+     */
+    private static function idDeDestino(mixed $valor): int|null|false
+    {
+        if ($valor === null || $valor === '') {
+            return null;
+        }
+
+        return self::idOuNull($valor) ?? false;
+    }
+
+    /** Quantos valores vieram no corpo, antes de interpretá-los; o que não é lista conta zero. */
+    private static function tamanhoBruto(mixed $valores): int
+    {
+        return is_array($valores) ? count($valores) : 0;
     }
 
     private function textoOuNull(Request $request, string $chave): ?string
