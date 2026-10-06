@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Dashboard\Unit;
 
+use App\Dashboard\Repository\DashboardFotoRepository;
 use App\Dashboard\UseCase\ObterDadosDashboardUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
@@ -23,6 +24,7 @@ final class ObterDadosDashboardUseCaseTest extends TestCase
     private PastaRepository  $pastaRepo;
     private TarefaRepository $tarefaRepo;
     private UserRepository   $userRepo;
+    private DashboardFotoRepository $fotoRepo;
     private Tenant           $tenant;
     private \DateTimeImmutable $referencia;
     private ObterDadosDashboardUseCase $sut;
@@ -32,6 +34,7 @@ final class ObterDadosDashboardUseCaseTest extends TestCase
         $this->pastaRepo  = $this->createMock(PastaRepository::class);
         $this->tarefaRepo = $this->createMock(TarefaRepository::class);
         $this->userRepo   = $this->createMock(UserRepository::class);
+        $this->fotoRepo   = $this->createMock(DashboardFotoRepository::class);
         $this->tenant     = $this->createMock(Tenant::class);
         $this->referencia = new \DateTimeImmutable('2024-01-10 00:00:00');
 
@@ -39,6 +42,7 @@ final class ObterDadosDashboardUseCaseTest extends TestCase
             $this->pastaRepo,
             $this->tarefaRepo,
             $this->userRepo,
+            $this->fotoRepo,
         );
     }
 
@@ -807,7 +811,7 @@ final class ObterDadosDashboardUseCaseTest extends TestCase
         self::assertSame(10, $porId[1]->totalMetas);
         self::assertSame(6, $porId[1]->pastasCriadas);
 
-        self::assertSame(['metas' => 9, 'demandas' => 4, 'pastas_criadas' => 9], $output->totaisAnteriores);
+        self::assertSame(['metas' => 9, 'demandas' => 4, 'pastas_criadas' => 9, 'metas_ativas' => null, 'metas_vencidas' => null, 'prazos' => null, 'demandas_ativas' => null], $output->totaisAnteriores);
         self::assertSame(10, $output->totalPastasCriadas);
         self::assertSame(9, $output->totalPastasCriadasAnterior);
     }
@@ -901,7 +905,7 @@ final class ObterDadosDashboardUseCaseTest extends TestCase
         ]);
 
         self::assertSame([2], array_map(static fn ($l): int => $l->userId, $output->porAdvogado));
-        self::assertSame(['metas' => 1, 'demandas' => 0, 'pastas_criadas' => 9], $output->totaisAnteriores);
+        self::assertSame(['metas' => 1, 'demandas' => 0, 'pastas_criadas' => 9, 'metas_ativas' => null, 'metas_vencidas' => null, 'prazos' => null, 'demandas_ativas' => null], $output->totaisAnteriores);
         // Cards: antes da busca (Alice + Bruno).
         self::assertSame(10, $output->totalPastasCriadas);
         self::assertSame(9, $output->totalPastasCriadasAnterior);
@@ -920,7 +924,163 @@ final class ObterDadosDashboardUseCaseTest extends TestCase
         ]);
 
         self::assertSame([], $output->porAdvogado);
-        self::assertSame(['metas' => 0, 'demandas' => 0, 'pastas_criadas' => 0], $output->totaisAnteriores);
+        self::assertSame(['metas' => 0, 'demandas' => 0, 'pastas_criadas' => 0, 'metas_ativas' => null, 'metas_vencidas' => null, 'prazos' => null, 'demandas_ativas' => null], $output->totaisAnteriores);
         self::assertSame(0, $output->totalPastasCriadasAnterior);
+    }
+
+    // ─── TENDÊNCIA DO ESTOQUE (foto diária de data_de − 1) ───────────
+
+    /**
+     * Estoque de hoje: Alice (1) e Bruno (2). As fotos vêm de `$fotos` (userId => números) e
+     * cada consulta à foto é registrada em `$consultas` (dia pedido + ids).
+     *
+     * @param array<int, array{metas_ativas: int, demandas_ativas: int, metas_vencidas: int, prazos_proximos: int}> $fotos
+     * @param list<array{dia: string, ids: int[]}> $consultas
+     */
+    private function cenarioEstoque(array $fotos, array &$consultas): void
+    {
+        $this->tarefaRepo->method('countMetasAtivas')->willReturn(0);
+        $this->pastaRepo->method('countUrgentes')->willReturn(0);
+        $this->tarefaRepo->method('countMetasGlobal')->willReturn(['concluidas' => 0, 'total' => 0]);
+        $this->tarefaRepo->method('countPorResponsavel')->willReturn([]);
+        $this->tarefaRepo->method('countAtivasPorResponsavel')->willReturn([1 => 5, 2 => 3]);
+        $this->tarefaRepo->method('countVencidasPorResponsavel')->willReturn([1 => 2]);
+        $this->tarefaRepo->method('countPrazosProximosPorResponsavel')->willReturn([1 => 1, 2 => 4]);
+        $this->pastaRepo->method('countPorResponsavel')->willReturn([]);
+        $this->pastaRepo->method('countAtivasPorResponsavel')->willReturn([1 => 7, 2 => 2]);
+        $this->pastaRepo->method('countCriadasPorCriador')->willReturn([]);
+        $this->userRepo->method('findColaboradoresAtivosPorTenant')->willReturn([
+            $this->mockUser(1, 'Alice'),
+            $this->mockUser(2, 'Bruno'),
+        ]);
+        $this->userRepo->method('findCargoPorColaboradores')->willReturn([]);
+        $this->userRepo->method('findFotoPorColaboradores')->willReturn([]);
+
+        $this->fotoRepo->method('buscarPorReferencia')->willReturnCallback(
+            static function (Tenant $t, \DateTimeImmutable $dia, array $ids) use ($fotos, &$consultas): array {
+                $consultas[] = ['dia' => $dia->format('Y-m-d'), 'ids' => $ids];
+
+                return array_intersect_key($fotos, array_flip($ids));
+            },
+        );
+    }
+
+    /** @return array{metas_ativas: int, demandas_ativas: int, metas_vencidas: int, prazos_proximos: int} */
+    private static function foto(int $ativas, int $demandas, int $vencidas, int $prazos): array
+    {
+        return ['metas_ativas' => $ativas, 'demandas_ativas' => $demandas, 'metas_vencidas' => $vencidas, 'prazos_proximos' => $prazos];
+    }
+
+    #[TestDox('estoque: com foto de todos em data_de − 1, linhas e totais trazem os números da foto')]
+    public function testEstoqueComFotoPreencheLinhasETotais(): void
+    {
+        $consultas = [];
+        $this->cenarioEstoque([1 => self::foto(4, 6, 3, 2), 2 => self::foto(3, 1, 1, 0)], $consultas);
+
+        $output = $this->sut->executar($this->tenant, $this->referencia, ['data_de' => '2024-01-11', 'data_ate' => '2024-01-20']);
+
+        self::assertSame([['dia' => '2024-01-10', 'ids' => [1, 2]]], $consultas, 'uma consulta, na véspera de data_de, com as pessoas visíveis');
+
+        $porId = $this->porId($output);
+        self::assertSame(4, $porId[1]->metasAtivasAnterior);
+        self::assertSame(6, $porId[1]->demandasAtivasAnterior);
+        self::assertSame(3, $porId[1]->metasVencidasAnterior);
+        self::assertSame(2, $porId[1]->prazosProximosAnterior);
+        self::assertSame(1, $porId[2]->metasVencidasAnterior);
+        // O estoque de hoje segue intacto.
+        self::assertSame(5, $porId[1]->metasAtivas);
+        self::assertSame(2, $porId[1]->metasVencidas);
+
+        self::assertSame(7, $output->totaisAnteriores['metas_ativas']);
+        self::assertSame(4, $output->totaisAnteriores['metas_vencidas']);
+        self::assertSame(2, $output->totaisAnteriores['prazos']);
+        self::assertSame(7, $output->totaisAnteriores['demandas_ativas']);
+        // As três chaves de antes continuam lá, com o mesmo significado.
+        self::assertSame(0, $output->totaisAnteriores['metas']);
+        self::assertSame(0, $output->totaisAnteriores['demandas']);
+        self::assertSame(0, $output->totaisAnteriores['pastas_criadas']);
+    }
+
+    #[TestDox('estoque: sem foto naquele dia, as quatro métricas ficam null (nunca zero inventado)')]
+    public function testEstoqueSemFotoFicaNull(): void
+    {
+        $consultas = [];
+        $this->cenarioEstoque([], $consultas);
+
+        $output = $this->sut->executar($this->tenant, $this->referencia, ['data_de' => '2024-01-11', 'data_ate' => '2024-01-20']);
+
+        foreach ($output->porAdvogado as $linha) {
+            self::assertNull($linha->metasAtivasAnterior);
+            self::assertNull($linha->demandasAtivasAnterior);
+            self::assertNull($linha->metasVencidasAnterior);
+            self::assertNull($linha->prazosProximosAnterior);
+        }
+        self::assertNull($output->totaisAnteriores['metas_ativas']);
+        self::assertNull($output->totaisAnteriores['metas_vencidas']);
+        self::assertNull($output->totaisAnteriores['prazos']);
+        self::assertNull($output->totaisAnteriores['demandas_ativas']);
+        self::assertSame(0, $output->totaisAnteriores['metas'], 'as métricas reconstruíveis não dependem da foto');
+    }
+
+    #[TestDox('estoque: foto de só uma pessoa → a linha dela compara, o Total não (somaria grupos diferentes)')]
+    public function testEstoqueFotoParcialNaoFechaOTotal(): void
+    {
+        $consultas = [];
+        $this->cenarioEstoque([1 => self::foto(4, 6, 3, 2)], $consultas);
+
+        $output = $this->sut->executar($this->tenant, $this->referencia, ['data_de' => '2024-01-11', 'data_ate' => '2024-01-20']);
+
+        $porId = $this->porId($output);
+        self::assertSame(4, $porId[1]->metasAtivasAnterior);
+        self::assertNull($porId[2]->metasAtivasAnterior);
+        self::assertNull($output->totaisAnteriores['metas_ativas']);
+        self::assertNull($output->totaisAnteriores['prazos']);
+    }
+
+    #[TestDox('estoque: com a busca deixando só quem tem foto, o Total compara de novo')]
+    public function testEstoqueBuscaRecortaOTotal(): void
+    {
+        $consultas = [];
+        $this->cenarioEstoque([1 => self::foto(4, 6, 3, 2)], $consultas);
+
+        $output = $this->sut->executar($this->tenant, $this->referencia, ['data_de' => '2024-01-11', 'data_ate' => '2024-01-20', 'busca' => 'ali']);
+
+        self::assertSame(4, $output->totaisAnteriores['metas_ativas']);
+        self::assertSame(3, $output->totaisAnteriores['metas_vencidas']);
+        self::assertSame(2, $output->totaisAnteriores['prazos']);
+        self::assertSame(6, $output->totaisAnteriores['demandas_ativas']);
+    }
+
+    /** @return iterable<string, array{0: string, 1: string, 2: string}> */
+    public static function bordasDaVespera(): iterable
+    {
+        yield 'virada do ano'       => ['2025-01-01', '2025-01-31', '2024-12-31'];
+        yield 'março em bissexto'   => ['2024-03-01', '2024-03-31', '2024-02-29'];
+        yield 'período de um dia'   => ['2024-07-15', '2024-07-15', '2024-07-14'];
+    }
+
+    #[DataProvider('bordasDaVespera')]
+    #[TestDox('estoque: a foto consultada é sempre a de data_de − 1 dia, qualquer que seja a duração')]
+    public function testEstoqueConsultaAVesperaDeDataDe(string $de, string $ate, string $vespera): void
+    {
+        $consultas = [];
+        $this->cenarioEstoque([], $consultas);
+
+        $this->sut->executar($this->tenant, $this->referencia, ['data_de' => $de, 'data_ate' => $ate]);
+
+        self::assertSame($vespera, $consultas[0]['dia'] ?? null);
+    }
+
+    #[TestDox('estoque: sem período, a foto nem é consultada e tudo fica null')]
+    public function testEstoqueSemPeriodoNaoConsultaFoto(): void
+    {
+        $consultas = [];
+        $this->cenarioEstoque([1 => self::foto(4, 6, 3, 2)], $consultas);
+
+        $output = $this->sut->executar($this->tenant, $this->referencia, []);
+
+        self::assertSame([], $consultas);
+        self::assertNull($output->totaisAnteriores);
+        self::assertNull($this->porId($output)[1]->metasAtivasAnterior);
     }
 }

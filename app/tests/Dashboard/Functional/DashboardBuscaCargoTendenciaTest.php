@@ -215,7 +215,7 @@ final class DashboardBuscaCargoTendenciaTest extends DashboardWebTestCase
         self::assertSame(1, $linhaAna->totalMetasAnterior, 'Só a meta de 10/01 do próprio escritório');
 
         self::assertSame(3, $output->totalPastasCriadasAnterior);
-        self::assertSame(['metas' => 1, 'demandas' => 3, 'pastas_criadas' => 3], $output->totaisAnteriores);
+        self::assertSame(['metas' => 1, 'demandas' => 3, 'pastas_criadas' => 3, 'metas_ativas' => null, 'metas_vencidas' => null, 'prazos' => null, 'demandas_ativas' => null], $output->totaisAnteriores);
     }
 
     #[TestDox('sem período, a tendência é null e a tela abre normalmente')]

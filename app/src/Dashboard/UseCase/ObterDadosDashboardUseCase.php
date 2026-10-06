@@ -6,6 +6,7 @@ namespace App\Dashboard\UseCase;
 
 use App\Dashboard\DTO\DashboardOutput;
 use App\Dashboard\DTO\LinhaAdvogadoDashboardOutput;
+use App\Dashboard\Repository\DashboardFotoRepository;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Repository\PastaRepository;
 use App\Repository\UserRepository;
@@ -43,6 +44,7 @@ final class ObterDadosDashboardUseCase
         private readonly PastaRepository  $pastaRepository,
         private readonly TarefaRepository $tarefaRepository,
         private readonly UserRepository   $userRepository,
+        private readonly DashboardFotoRepository $dashboardFotoRepository,
     ) {}
 
     /**
@@ -103,12 +105,25 @@ final class ObterDadosDashboardUseCase
             $mAntCriadas       = $this->pastaRepository->countCriadasPorCriador($tenant, $filtrosAnteriores);
         }
 
+        // Estoque anterior (metas/demandas ativas, vencidas, prazos próximos): não se reconstrói
+        // do passado, então vem da foto diária do dia `data_de − 1` — que é exatamente o fim do
+        // período anterior. Quem não foi fotografado naquele dia fica sem tendência (null).
+        $mEstoqueAnterior = [];
+        if ($comAnterior && $colaboradores !== []) {
+            $mEstoqueAnterior = $this->dashboardFotoRepository->buscarPorReferencia(
+                $tenant,
+                new \DateTimeImmutable($periodoAnterior['data_ate']),
+                array_map(static fn ($u): int => (int) $u->getId(), $colaboradores),
+            );
+        }
+
         $mFoto = $colaboradores === [] ? [] : $this->userRepository->findFotoPorColaboradores($tenant);
 
         // Montar linhas — colaborador sem tarefa/pasta aparece com zeros
         $linhas = [];
         foreach ($colaboradores as $user) {
             $id       = $user->getId();
+            $estoque  = $mEstoqueAnterior[$id] ?? null;
             $linhas[] = new LinhaAdvogadoDashboardOutput(
                 userId:                $id,
                 nomeAdvogado:          $user->getFullName(),
@@ -124,6 +139,10 @@ final class ObterDadosDashboardUseCase
                 totalMetasAnterior:    $comAnterior ? ($mAntTarefa[$id]  ?? 0) : null,
                 totalDemandasAnterior: $comAnterior ? ($mAntPasta[$id]   ?? 0) : null,
                 pastasCriadasAnterior: $comAnterior ? ($mAntCriadas[$id] ?? 0) : null,
+                metasAtivasAnterior:    $estoque['metas_ativas']    ?? null,
+                metasVencidasAnterior:  $estoque['metas_vencidas']  ?? null,
+                prazosProximosAnterior: $estoque['prazos_proximos'] ?? null,
+                demandasAtivasAnterior: $estoque['demandas_ativas'] ?? null,
             );
         }
 
@@ -142,6 +161,11 @@ final class ObterDadosDashboardUseCase
                 'metas'          => $this->somar($linhas, 'totalMetasAnterior'),
                 'demandas'       => $this->somar($linhas, 'totalDemandasAnterior'),
                 'pastas_criadas' => $this->somar($linhas, 'pastasCriadasAnterior'),
+                // Estoque: só com foto de TODAS as linhas visíveis (ver DashboardOutput).
+                'metas_ativas'    => $this->somarSeTodos($linhas, 'metasAtivasAnterior'),
+                'metas_vencidas'  => $this->somarSeTodos($linhas, 'metasVencidasAnterior'),
+                'prazos'          => $this->somarSeTodos($linhas, 'prazosProximosAnterior'),
+                'demandas_ativas' => $this->somarSeTodos($linhas, 'demandasAtivasAnterior'),
             ]
             : null;
 
@@ -275,6 +299,30 @@ final class ObterDadosDashboardUseCase
             static fn (LinhaAdvogadoDashboardOutput $l): int => (int) $l->$campo,
             $linhas,
         ));
+    }
+
+    /**
+     * Soma do campo quando TODAS as linhas o têm; null se alguma não tem (ou se não há linha).
+     * É a regra do estoque anterior: o Total só compara quando a foto cobre o grupo inteiro
+     * que está na tela — somar parcial colocaria grupos diferentes lado a lado.
+     *
+     * @param LinhaAdvogadoDashboardOutput[] $linhas
+     */
+    private function somarSeTodos(array $linhas, string $campo): ?int
+    {
+        if ($linhas === []) {
+            return null;
+        }
+
+        $total = 0;
+        foreach ($linhas as $linha) {
+            if ($linha->$campo === null) {
+                return null;
+            }
+            $total += (int) $linha->$campo;
+        }
+
+        return $total;
     }
 
     /**

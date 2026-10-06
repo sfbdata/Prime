@@ -388,9 +388,14 @@
                números do Total não são link: a soma conta duas vezes a meta com dois
                responsáveis, e a lista de destino não. #}
             {% set tAnt = dashboard.totaisAnteriores %}
-            {# Toda célula do Total empilha número + pílula (desenho). Nas 4 colunas sem
-               tendência, com período ativo, um espaçador invisível do tamanho da pílula
-               deixa os 7 números na mesma altura. Sem período não há pílula nenhuma. #}
+            {# Toda célula do Total empilha número + pílula (desenho). As 4 colunas de estoque
+               (ativas, vencidas, prazos) só ganham pílula quando existe a foto de data_de − 1
+               (valor anterior não nulo); sem ela, com período ativo, um espaçador invisível do
+               tamanho da pílula deixa os 7 números na mesma altura. Sem período não há pílula. #}
+            {% set antAtivas  = tAnt is null ? null : tAnt.metas_ativas %}
+            {% set antVenc    = tAnt is null ? null : tAnt.metas_vencidas %}
+            {% set antPraz    = tAnt is null ? null : tAnt.prazos %}
+            {% set antDemA    = tAnt is null ? null : tAnt.demandas_ativas %}
             <tfoot>
                 <tr class="db-total-row">
                     <th scope="row" class="db-td-colab">
@@ -402,8 +407,8 @@
                     <td class="db-td-cargo" data-coluna="cargo"></td>
                     <td class="text-center db-td-num" data-coluna="metas"><span class="db-total-cel"><span class="db-total-num">{{ tMetas }}</span>{{ tend.tendencia(tMetas, tAnt is null ? null : tAnt.metas, 'pilula') }}</span></td>
                     <td class="text-center db-td-num" data-coluna="metas_ativas"><span class="db-total-cel"><span class="db-total-num">{{ tAtivas }}</span>{% if tAnt is not null %}<span class="db-total-espaco" aria-hidden="true"></span>{% endif %}</span></td>
-                    <td class="text-center db-td-num" data-coluna="metas_vencidas"><span class="db-total-cel"><span class="db-total-num db-total-num--venc">{{ tVenc }}</span>{% if tAnt is not null %}<span class="db-total-espaco" aria-hidden="true"></span>{% endif %}</span></td>
-                    <td class="text-center db-td-num" data-coluna="prazos"><span class="db-total-cel"><span class="db-total-num db-total-num--praz">{{ tPraz }}</span>{% if tAnt is not null %}<span class="db-total-espaco" aria-hidden="true"></span>{% endif %}</span></td>
+                    <td class="text-center db-td-num" data-coluna="metas_vencidas"><span class="db-total-cel"><span class="db-total-num db-total-num--venc">{{ tVenc }}</span>{% if antVenc is not null %}{{ tend.tendencia(tVenc, antVenc, 'pilula', 'baixa') }}{% elseif tAnt is not null %}<span class="db-total-espaco" aria-hidden="true"></span>{% endif %}</span></td>
+                    <td class="text-center db-td-num" data-coluna="prazos"><span class="db-total-cel"><span class="db-total-num db-total-num--praz">{{ tPraz }}</span>{% if antPraz is not null %}{{ tend.tendencia(tPraz, antPraz, 'pilula', 'baixa') }}{% elseif tAnt is not null %}<span class="db-total-espaco" aria-hidden="true"></span>{% endif %}</span></td>
                     <td class="text-center db-td-num" data-coluna="demandas"><span class="db-total-cel"><span class="db-total-num">{{ tDem }}</span>{{ tend.tendencia(tDem, tAnt is null ? null : tAnt.demandas, 'pilula') }}</span></td>
                     <td class="text-center db-td-num" data-coluna="demandas_ativas"><span class="db-total-cel"><span class="db-total-num">{{ tDemA }}</span>{% if tAnt is not null %}<span class="db-total-espaco" aria-hidden="true"></span>{% endif %}</span></td>
                     <td class="text-center db-td-num" data-coluna="pastas_criadas"><span class="db-total-cel"><span class="db-total-num">{{ tCriadas }}</span>{{ tend.tendencia(tCriadas, tAnt is null ? null : tAnt.pastas_criadas, 'pilula') }}</span></td>

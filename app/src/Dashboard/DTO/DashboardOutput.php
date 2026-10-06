@@ -26,11 +26,18 @@ final class DashboardOutput
         // completo (data_de E data_ate válidas): sem período não existe "anterior" e o painel
         // não inventa um.
         /**
-         * Totais do período anterior para a linha de Total da tabela, só das três métricas
-         * reconstruíveis por data de criação. Soma das linhas VISÍVEIS (respeita responsável,
-         * cargo e busca), como a própria linha de Total. Chaves = as de ordenação da coluna.
+         * Totais do período anterior para a linha de Total da tabela. Soma das linhas VISÍVEIS
+         * (respeita responsável, cargo e busca), como a própria linha de Total. Chaves = as de
+         * ordenação da coluna.
          *
-         * @var array{metas: int, demandas: int, pastas_criadas: int}|null
+         * - `metas`, `demandas`, `pastas_criadas`: reconstruídas por data de criação no período
+         *   anterior de mesma duração — sempre int quando há período.
+         * - `metas_ativas`, `metas_vencidas`, `prazos`, `demandas_ativas`: estoque lido da foto
+         *   diária do dia `data_de − 1`. Int só quando TODA linha visível tem foto naquele dia;
+         *   null se faltar a de alguém (ou não houver linha) — somar parcial compararia grupos
+         *   diferentes.
+         *
+         * @var array{metas: int, demandas: int, pastas_criadas: int, metas_ativas: int|null, metas_vencidas: int|null, prazos: int|null, demandas_ativas: int|null}|null
          */
         public readonly ?array $totaisAnteriores = null,
         /** `totalPastasCriadas` do período anterior, com o mesmo critério do card (antes da busca). */

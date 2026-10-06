@@ -5,9 +5,13 @@
    LinhaAdvogadoDashboardOutput). Sem período, o anterior é null e NADA é
    desenhado: o painel nunca inventa uma comparação.
 
-   Só é usada nas três métricas reconstruíveis por data de criação (Total metas,
-   Total demandas, Pastas criadas). Nas três, subir é bom: verde quando sobe,
-   vermelho quando cai, cinza quando estável (variação abaixo de 2%).
+   Cor pelo SIGNIFICADO, não pela direção (README), escolhida por `sentido`:
+     'alta' (padrão) → subir é bom: Total metas, Total demandas, Pastas criadas;
+     'baixa'         → cair é bom: Vencidas, Prazos próximos;
+     'fila'          → sempre cinza: Metas ativas, Demandas ativas (fila aberta:
+                       subir ou cair não é bom nem ruim sozinho).
+   Estável (variação abaixo de 2%) é cinza em qualquer sentido. As quatro de
+   estoque comparam com a foto diária de data_de − 1 (dashboard_foto).
 
    modo 'pilula' → linha de Total: seta + "+8%" / "−6%" / "0%" / "novo", title
                    "Subiu 8% em relação ao período anterior (141 → 152)".
@@ -15,7 +19,7 @@
                    balão ao passar o cursor ou focar (Tab). Zero nos dois períodos:
                    espaço reservado, sem seta, para não desalinhar a coluna.
 ─────────────────────────────────────────────────────────────────────────── #}
-{% macro tendencia(atual, anterior, modo) %}
+{% macro tendencia(atual, anterior, modo, sentido = 'alta') %}
 {%- if anterior is not null -%}
     {%- set vazio = false -%}
     {%- if anterior == 0 and atual == 0 -%}
@@ -27,7 +31,7 @@
         {%- set vazio = true -%}
     {%- elseif anterior == 0 -%}
         {%- set dir = 'sobe' -%}
-        {%- set qual = 'bom' -%}
+        {%- set qual = sentido == 'fila' ? 'igual' : (sentido == 'baixa' ? 'ruim' : 'bom') -%}
         {%- set texto = 'novo' -%}
         {%- set titulo = 'Período anterior: 0' -%}
         {%- set de = 'antes: 0 → agora: ' ~ atual -%}
@@ -36,7 +40,8 @@
         {%- set pct = (diff|abs * 100 / anterior)|round -%}
         {# estável = |variação| < 2%, em inteiros: |diff| × 50 < anterior #}
         {%- set dir = (diff|abs * 50 < anterior) ? 'igual' : (diff > 0 ? 'sobe' : 'desce') -%}
-        {%- set qual = dir == 'igual' ? 'igual' : (dir == 'sobe' ? 'bom' : 'ruim') -%}
+        {%- set melhorou = sentido == 'baixa' ? dir == 'desce' : dir == 'sobe' -%}
+        {%- set qual = (dir == 'igual' or sentido == 'fila') ? 'igual' : (melhorou ? 'bom' : 'ruim') -%}
         {%- set texto = pct == 0 ? '0%' : ((diff > 0 ? '+' : '−') ~ pct ~ '%') -%}
         {%- set titulo = (dir == 'sobe' ? 'Subiu ' : (dir == 'desce' ? 'Caiu ' : 'Estável, ')) ~ pct ~ '% em relação ao período anterior (' ~ anterior ~ ' → ' ~ atual ~ ')' -%}
         {%- set de = 'antes: ' ~ anterior ~ ' → agora: ' ~ atual -%}
