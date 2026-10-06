@@ -312,6 +312,7 @@
                                 {% set arquivosFm = [] %}
                                 {% for doc in pasta.documentos %}{% set arquivosFm = arquivosFm|merge([{'doc': doc, 'secao': doc.secao ? doc.secao.id : 'geral'}]) %}{% endfor %}
 
+                                {{ include('pasta/_documentos_sugeridos.html.twig') }}
                                 <div class="fm" id="fileManager"
                                      data-pasta-id="{{ pasta.id }}"
                                      data-url-upload="{{ path('pasta_peticionar_upload', {id: pasta.id}) }}"

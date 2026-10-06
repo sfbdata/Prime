@@ -1,0 +1,406 @@
+/* =============================================================================
+   Painel "Documentos sugeridos" da aba Documentos da pasta.
+
+   Valores do desenho 02 - EXPEDIENTES 1.2.3 (dc L2080-2167: cartão do checklist,
+   botão "Sugerir documentos", painel de sugestões; cores dos grupos em dsVals,
+   L4028). Tudo preso a `.ds-sug` — nada global, nada do `.fm` (compartilhado com
+   a Cobrança). Cores como token, redefinidas no tema escuro logo abaixo.
+   ============================================================================= */
+.ds-sug {
+    --ds-roxo:        #5b3fb0;
+    --ds-roxo-icone:  #6d4fd0;
+    --ds-roxo-bg:     #f1ecfc;
+    --ds-roxo-bg-2:   #efeafb;
+    --ds-roxo-hover:  #e4dcf8;
+    --ds-roxo-anel:   #ece5fb;
+    --ds-roxo-texto:  #34265f;
+    --ds-roxo-texto2: #5f5480;
+    --ds-roxo-texto3: #7b6fa3;
+    --ds-fase-bg:     #efe9fc;
+    --ds-corpo-bg:    #faf8ff;
+    --ds-cab-bg:      #fafcfd;
+    --ds-cab-bd:      #eef2f5;
+    --ds-cartao-bg:   #fff;
+    --ds-texto:       #243845;
+    --ds-item-nome:   #1f1a33;
+    --ds-neutro:      #4f6878;
+    --ds-neutro-bg:   #eef2f5;
+    --ds-req:         #a0480c;
+    --ds-req-bg:      #fff1e6;
+    --ds-rec:         #8a6400;
+    --ds-rec-bg:      #fdf5d8;
+    --ds-opc:         #4f6878;
+    --ds-opc-bg:      #eef2f5;
+    --ds-existe:      #186c47;
+    --ds-existe-bg:   #e2f4ea;
+    --ds-na:          #5f7684;
+    --ds-na-bg:       #f1f4f6;
+    --ds-erro:        #b03a2e;
+    --ds-erro-bg:     #fbeceb;
+
+    margin: 0 0 16px;
+    border-radius: 4px;
+    overflow: hidden;
+    background: var(--ds-cartao-bg);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .16);
+    color: var(--ds-texto);
+}
+
+[data-bs-theme="dark"] .ds-sug {
+    --ds-roxo:        #b9a6f2;
+    --ds-roxo-icone:  #b9a6f2;
+    --ds-roxo-bg:     rgba(155, 128, 230, .16);
+    --ds-roxo-bg-2:   rgba(155, 128, 230, .16);
+    --ds-roxo-hover:  rgba(155, 128, 230, .28);
+    --ds-roxo-anel:   rgba(155, 128, 230, .25);
+    --ds-roxo-texto:  #ded5fb;
+    --ds-roxo-texto2: #bfb4e0;
+    --ds-roxo-texto3: #a99bd0;
+    --ds-fase-bg:     rgba(155, 128, 230, .2);
+    --ds-corpo-bg:    rgba(155, 128, 230, .06);
+    --ds-cab-bg:      rgba(255, 255, 255, .03);
+    --ds-cab-bd:      rgba(255, 255, 255, .08);
+    --ds-cartao-bg:   var(--bs-body-bg, #1e252b);
+    --ds-texto:       #dfe7ec;
+    --ds-item-nome:   #eee9ff;
+    --ds-neutro:      #b6c4cd;
+    --ds-neutro-bg:   rgba(255, 255, 255, .08);
+    --ds-req:         #f0a46b;
+    --ds-req-bg:      rgba(240, 164, 107, .14);
+    --ds-rec:         #e3c25a;
+    --ds-rec-bg:      rgba(227, 194, 90, .14);
+    --ds-opc:         #b6c4cd;
+    --ds-opc-bg:      rgba(255, 255, 255, .08);
+    --ds-existe:      #6fd3a0;
+    --ds-existe-bg:   rgba(111, 211, 160, .14);
+    --ds-na:          #9aabb6;
+    --ds-na-bg:       rgba(255, 255, 255, .06);
+    --ds-erro:        #f08a80;
+    --ds-erro-bg:     rgba(240, 138, 128, .14);
+}
+
+/* Cabeçalho do cartão — mesma régua do cabeçalho do checklist no desenho (L2081). */
+.ds-sug-cab {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    flex-wrap: wrap;
+    padding: 13px 16px;
+    background: var(--ds-cab-bg);
+    border-bottom: 1px solid var(--ds-cab-bd);
+}
+
+.ds-sug-icone {
+    font-size: 14px;
+    color: #8496a3;
+}
+
+.ds-sug-titulos {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+}
+
+.ds-sug-titulos h6 {
+    margin: 0;
+    font-size: 13.5px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.ds-sug-sub {
+    font-size: 12px;
+    color: var(--ds-roxo-texto2);
+}
+
+/* Botão "Sugerir documentos" (L2089). */
+.ds-sug-alternar {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 28px;
+    padding: 0 10px;
+    border: none;
+    border-radius: 4px;
+    background: var(--ds-roxo-bg);
+    color: var(--ds-roxo);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.ds-sug-alternar:hover {
+    background: #e6defa;
+}
+
+[data-bs-theme="dark"] .ds-sug-alternar:hover {
+    background: var(--ds-roxo-hover);
+}
+
+/* Corpo do painel (L2113). */
+.ds-sug-corpo {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 14px 16px;
+    background: var(--ds-corpo-bg);
+}
+
+.ds-sug-corpo.d-none {
+    display: none !important;
+}
+
+.ds-sug-sem-catalogo {
+    display: flex;
+    gap: 8px;
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--ds-roxo-texto);
+}
+
+.ds-sug-ident {
+    font-size: 12px;
+    color: var(--ds-roxo-texto2);
+    overflow-wrap: anywhere;
+}
+
+/* "Contexto do processo" (L2124). */
+.ds-sug-contexto {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 12px;
+    border-radius: 4px;
+    background: var(--ds-cartao-bg);
+    box-shadow: inset 0 0 0 1px var(--ds-roxo-anel);
+}
+
+.ds-sug-contexto-linha {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.ds-sug-rotulo {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--ds-roxo-texto3);
+    white-space: nowrap;
+    line-height: 1.4;
+}
+
+.ds-sug-fase {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--ds-roxo);
+    background: var(--ds-fase-bg);
+    padding: 1px 8px;
+    border-radius: 999px;
+}
+
+.ds-sug-conf {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 1px 8px;
+    border-radius: 999px;
+    cursor: help;
+    background: var(--ds-neutro-bg);
+    color: var(--ds-neutro);
+}
+
+.ds-sug-resumo {
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--ds-roxo-texto);
+}
+
+.ds-sug-motivo {
+    font-size: 11.5px;
+    color: var(--ds-roxo-texto3);
+}
+
+/* Contagens (L2132). */
+.ds-sug-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.ds-sug-chip {
+    font-size: 11.5px;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 999px;
+    white-space: nowrap;
+    line-height: 1.4;
+}
+
+.ds-sug-chip-req    { color: var(--ds-req);    background: var(--ds-req-bg); }
+.ds-sug-chip-rec    { color: var(--ds-rec);    background: var(--ds-rec-bg); }
+.ds-sug-chip-existe { color: var(--ds-existe); background: var(--ds-existe-bg); }
+
+/* Grupos e itens (L2140-2156). */
+.ds-sug-grupo {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    --ds-cor: var(--ds-opc);
+}
+
+.ds-sug-grupo[data-status="req"]    { --ds-cor: var(--ds-req); }
+.ds-sug-grupo[data-status="rec"]    { --ds-cor: var(--ds-rec); }
+.ds-sug-grupo[data-status="opc"]    { --ds-cor: var(--ds-opc); }
+.ds-sug-grupo[data-status="existe"] { --ds-cor: var(--ds-existe); }
+.ds-sug-grupo[data-status="na"]     { --ds-cor: var(--ds-na); }
+
+.ds-sug-grupo-titulo {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    line-height: 1.4;
+    cursor: help;
+    font-size: 12px;
+}
+
+.ds-sug-grupo-nome {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--ds-cor);
+}
+
+.ds-sug-grupo-sub {
+    font-size: 11.5px;
+    color: var(--ds-roxo-texto3);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+}
+
+.ds-sug-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 9px 11px;
+    border-radius: 4px;
+    background: var(--ds-cartao-bg);
+    box-shadow: inset 3px 0 0 var(--ds-cor), inset 0 0 0 1px var(--ds-roxo-anel);
+}
+
+.ds-sug-item-texto {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.ds-sug-item-nome {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ds-item-nome);
+}
+
+.ds-sug-item-porque {
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--ds-roxo-texto2);
+    overflow-wrap: anywhere;
+}
+
+.ds-sug-item-loc {
+    font-size: 11.5px;
+    color: var(--ds-existe);
+    overflow-wrap: anywhere;
+}
+
+.ds-sug-add-um {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 28px;
+    padding: 0 10px;
+    border: none;
+    border-radius: 4px;
+    background: var(--ds-roxo-bg-2);
+    color: var(--ds-roxo);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.ds-sug-add-um:hover {
+    background: var(--ds-roxo-hover);
+}
+
+.ds-sug-no-ck {
+    flex-shrink: 0;
+    font-size: 10.5px;
+    font-weight: 700;
+    color: var(--ds-neutro);
+    background: var(--ds-neutro-bg);
+    padding: 2px 7px;
+    border-radius: 3px;
+    white-space: nowrap;
+}
+
+/* Rodapé: "Adicionar N faltante(s)" (L2162-2165). */
+.ds-sug-rodape {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.ds-sug-add-todos {
+    height: 32px;
+    padding: 0 14px;
+    border: none;
+    border-radius: 4px;
+    background: var(--ds-roxo);
+    color: #fff;
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+[data-bs-theme="dark"] .ds-sug-add-todos {
+    background: #6a4bc4;
+}
+
+.ds-sug-add-todos:disabled,
+.ds-sug-add-um:disabled {
+    opacity: .6;
+    cursor: progress;
+}
+
+.ds-sug-nota {
+    font-size: 11px;
+    color: var(--ds-roxo-texto3);
+}
+
+.ds-sug-erro {
+    font-size: 12px;
+    color: var(--ds-erro);
+    background: var(--ds-erro-bg);
+    border-radius: 4px;
+    padding: 8px 10px;
+}
+
+.ds-sug-erro.d-none {
+    display: none !important;
+}

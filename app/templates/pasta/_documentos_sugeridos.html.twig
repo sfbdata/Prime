@@ -1,0 +1,135 @@
+{#
+   Painel "Documentos sugeridos" da aba Documentos (desenho 02 - EXPEDIENTES 1.2.3, dc L2089 e
+   L2112-2167; regra em bj-docsug.js).
+
+   O desenho chama isto de inteligência. Não é: é o catálogo fixo de documentos por fase e por tipo
+   de ação (`App\Pasta\Service\CatalogoDeDocumentos`) casado com o que a pasta já tem. O rótulo da
+   tela diz exatamente isso — nada de "IA analisou".
+
+   No desenho o painel abre DENTRO do cartão do checklist. Aqui o checklist mora dentro do
+   gerenciador de arquivos (`.fm`), que é compartilhado com a Cobrança; o painel fica FORA dele,
+   logo acima, como cartão próprio.
+
+   "Adicionar ao checklist" usa o endpoint que já existe (`pasta_checklist_adicionar`, mesmo token
+   `checklist_pasta_<id>`, mesma guarda de edição) — um POST por item, e a página recarrega na aba
+   Documentos para o checklist e as sugestões saírem do servidor de novo.
+
+   Incluído pelo `pasta/show.html.twig`; usa `pasta` e `checklistItens` do contexto.
+#}
+{% set sugestao = documentos_sugeridos(pasta, checklistItens|default([])) %}
+{% if sugestao is not null %}
+<section class="ds-sug" id="documentosSugeridos"
+         aria-labelledby="documentosSugeridosTitulo"
+         data-url-adicionar="{{ path('pasta_checklist_adicionar', {id: pasta.id}) }}"
+         data-csrf="{{ csrf_token('checklist_pasta_' ~ pasta.id) }}">
+    <div class="ds-sug-cab">
+        <i class="bi bi-journal-check ds-sug-icone" aria-hidden="true"></i>
+        <div class="ds-sug-titulos">
+            <h6 id="documentosSugeridosTitulo">Documentos sugeridos</h6>
+            <span class="ds-sug-sub">Sugestões pelo catálogo de documentos da fase e do tipo de ação</span>
+        </div>
+        <button type="button" class="ds-sug-alternar" id="btnDocumentosSugeridos"
+                aria-expanded="false" aria-controls="documentosSugeridosCorpo"
+                title="Compara o catálogo de documentos da fase e do tipo de ação com o que a pasta já tem">
+            <i class="bi bi-list-check" aria-hidden="true"></i>Sugerir documentos
+        </button>
+    </div>
+
+    <div class="ds-sug-corpo d-none" id="documentosSugeridosCorpo">
+        {% if not sugestao.temCatalogo %}
+            <p class="ds-sug-sem-catalogo">
+                <i class="bi bi-info-circle" aria-hidden="true"></i>
+                Não há catálogo de documentos para esta pasta: ela não tem ação cadastrada nem processo
+                com classe processual. Cadastre a ação ou vincule o processo para ver as sugestões.
+            </p>
+        {% else %}
+            <span class="ds-sug-ident">
+                {% if sugestao.numeroProcesso %}
+                    Processo {{ sugestao.numeroProcesso }} · vinculado à pasta
+                {% else %}
+                    Processo não identificado: vincule um processo à pasta
+                {% endif %}
+            </span>
+
+            <div class="ds-sug-contexto">
+                <div class="ds-sug-contexto-linha">
+                    <span class="ds-sug-rotulo">Contexto da pasta</span>
+                    <span class="ds-sug-fase">{{ sugestao.faseNome }}</span>
+                    <span class="ds-sug-conf" title="O processo não foi lido: a fase vem da classe processual e a lista, do catálogo">Confiança baixa</span>
+                </div>
+                <span class="ds-sug-resumo">
+                    {%- if sugestao.acao %}Ação: {{ sugestao.acao|lower }}{% else %}Ação não cadastrada{% endif -%}
+                    {%- if sugestao.classe %} ({{ sugestao.classe|lower }}){% endif -%}
+                    . Fase: {{ sugestao.faseNome }} ({{ sugestao.base }}).
+                </span>
+                <span class="ds-sug-motivo">Catálogo fixo, sem leitura das decisões: nada aqui é exigência do juízo.</span>
+            </div>
+
+            {% set grupos = [
+                {status: 'req',    ic: '🟠', titulo: 'Obrigatório',     sub: 'requisito legal para o próximo ato'},
+                {status: 'rec',    ic: '🟡', titulo: 'Recomendável',    sub: 'prática usual desta fase, não é exigência'},
+                {status: 'opc',    ic: '⚪', titulo: 'Opcional',        sub: 'só se a situação pedir'},
+                {status: 'existe', ic: '🟢', titulo: 'Já existente',    sub: 'localizado nos documentos da pasta'},
+                {status: 'na',     ic: '⚫', titulo: 'Não aplicável',   sub: 'depende da leitura do processo, que não foi feita'},
+            ] %}
+
+            <div class="ds-sug-chips">
+                {% for g in grupos|filter(g => g.status in ['req', 'rec', 'existe']) %}
+                    {% set n = sugestao.comStatus(g.status)|length %}
+                    {% if n > 0 %}
+                        <span class="ds-sug-chip ds-sug-chip-{{ g.status }}" title="{{ g.sub }}">{{ g.ic }} {{ n }} {{ g.titulo|lower }}</span>
+                    {% endif %}
+                {% endfor %}
+            </div>
+
+            {% for g in grupos %}
+                {% set doGrupo = sugestao.comStatus(g.status) %}
+                {% if doGrupo is not empty %}
+                    <div class="ds-sug-grupo" data-status="{{ g.status }}">
+                        <div class="ds-sug-grupo-titulo" title="{{ g.sub }}">
+                            <span aria-hidden="true">{{ g.ic }}</span>
+                            <span class="ds-sug-grupo-nome">{{ g.titulo }}</span>
+                            <span class="ds-sug-grupo-sub">· {{ g.sub }}</span>
+                        </div>
+                        {% for it in doGrupo %}
+                            <div class="ds-sug-item" data-chave="{{ it.chave }}">
+                                <div class="ds-sug-item-texto">
+                                    <span class="ds-sug-item-nome">{{ it.nome }}</span>
+                                    <span class="ds-sug-item-porque">{{ it.porque }}</span>
+                                    {% if it.localizadoEm is not empty %}
+                                        <span class="ds-sug-item-loc"><i class="bi bi-check2-circle" aria-hidden="true"></i>
+                                            {{ it.localizadoEm|slice(0, 3)|join(' | ') }}{% if it.localizadoEm|length > 3 %} +{{ it.localizadoEm|length - 3 }}{% endif %}
+                                        </span>
+                                    {% endif %}
+                                </div>
+                                {% if it.podeIrAoChecklist %}
+                                    <button type="button" class="ds-sug-add-um" data-titulo="{{ it.nome }}" title="Adicionar ao checklist">
+                                        <i class="bi bi-plus-lg" aria-hidden="true"></i>Checklist
+                                    </button>
+                                {% elseif it.noChecklist %}
+                                    <span class="ds-sug-no-ck">{{ it.conferidoNoChecklist ? 'conferido no checklist' : 'já no checklist' }}</span>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endfor %}
+
+            {% set faltantes = sugestao.nomesDosFaltantes %}
+            <div class="ds-sug-rodape">
+                {% if faltantes is not empty %}
+                    <button type="button" class="ds-sug-add-todos" id="btnDocumentosSugeridosFaltantes"
+                            data-titulos="{{ faltantes|json_encode|e('html_attr') }}">
+                        Adicionar {{ faltantes|length }} faltante(s) ao checklist
+                    </button>
+                {% endif %}
+                <span class="ds-sug-nota">Obrigatório vem de lei; recomendável e opcional são prática da fase. Catálogo fixo de documentos: o conteúdo do processo não é lido.</span>
+            </div>
+            <div class="ds-sug-erro d-none" id="documentosSugeridosErro" role="alert"></div>
+        {% endif %}
+    </div>
+    {# Folha e script DENTRO do cartão: o painel tem de ser o irmão imediatamente anterior ao `.fm`. #}
+    <link rel="stylesheet" href="{{ asset('css/pasta-documentos-sugeridos.css') }}">
+    <script src="{{ asset('js/pasta-documentos-sugeridos.js') }}" defer></script>
+</section>
+{% endif %}

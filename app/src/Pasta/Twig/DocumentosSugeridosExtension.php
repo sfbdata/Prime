@@ -1,0 +1,89 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Pasta\Twig;
+
+use App\Pasta\DTO\SugestaoDeDocumentosOutput;
+use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PastaChecklistItem;
+use App\Pasta\Entity\PastaDocumento;
+use App\Pasta\Service\SugestorDeDocumentos;
+use App\Service\Tenant\TenantContext;
+use Twig\Extension\AbstractExtension;
+use Twig\TwigFunction;
+
+/**
+ * `documentos_sugeridos(pasta, checklistItens)` — o painel "Documentos sugeridos" da aba Documentos.
+ *
+ * Está aqui, e não no controller, pelo mesmo motivo do `PastaFavoritaExtension`: o painel é um
+ * parcial incluído por uma linha só, sem variável nova no `show`. A função só traduz as entidades
+ * para os dados simples que o `SugestorDeDocumentos` (puro) espera.
+ *
+ * Isolamento: pasta de outro escritório que não o da sessão (ou sem escritório na sessão) não
+ * recebe sugestão — devolve `null` e o parcial não desenha nada. Documentos e itens de checklist
+ * de outro escritório também são descartados, ainda que cheguem pela coleção.
+ */
+final class DocumentosSugeridosExtension extends AbstractExtension
+{
+    public function __construct(
+        private readonly SugestorDeDocumentos $sugestor,
+        private readonly TenantContext $tenantContext,
+    ) {
+    }
+
+    public function getFunctions(): array
+    {
+        return [
+            new TwigFunction('documentos_sugeridos', $this->documentosSugeridos(...)),
+        ];
+    }
+
+    /**
+     * @param iterable<PastaChecklistItem> $checklistItens
+     */
+    public function documentosSugeridos(Pasta $pasta, iterable $checklistItens = []): ?SugestaoDeDocumentosOutput
+    {
+        $tenant = $this->tenantContext->getCurrentTenant();
+
+        $tenantId = $tenant?->getId();
+
+        // Compara por id: proxy e entidade carregada por caminhos diferentes são o mesmo escritório.
+        if ($tenantId === null || $pasta->getTenant()?->getId() !== $tenantId) {
+            return null;
+        }
+
+        $arquivos = [];
+        foreach ($pasta->getDocumentos() as $documento) {
+            if (!$documento instanceof PastaDocumento || $documento->getTenant()?->getId() !== $tenantId) {
+                continue;
+            }
+
+            $arquivos[] = [
+                'titulo'       => $documento->getTitulo(),
+                'nomeOriginal' => $documento->getNomeOriginal(),
+                'categoria'    => $documento->getCategoria(),
+                'data'         => $documento->getCarregadoEm()->format('d/m/Y'),
+            ];
+        }
+
+        $checklist = [];
+        foreach ($checklistItens as $item) {
+            if (!$item instanceof PastaChecklistItem || $item->getTenant()?->getId() !== $tenantId || $item->getPasta()?->getId() !== $pasta->getId()) {
+                continue;
+            }
+
+            $checklist[] = ['titulo' => $item->getTitulo(), 'concluido' => $item->isConcluido()];
+        }
+
+        $processo = $pasta->getProcessoPrincipal();
+
+        return $this->sugestor->sugerir(
+            $pasta->getNomeAcao(),
+            $processo?->getClasseProcessual(),
+            $processo?->getNumeroProcesso(),
+            $arquivos,
+            $checklist,
+        );
+    }
+}
