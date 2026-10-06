@@ -24,7 +24,7 @@
    menu de contexto (dc L2266-2270, montado pelo JS a partir de `<template id="pexMenuItem">`),
    toast (dc L2272) e criar/renomear inline (dc L2234). O markup estático fica aqui para ser
    testável por arranjo; o conteúdo variável é do JS. Os itens de menu que dependem de lotes
-   futuros (favoritos L6, lixeira/Desfazer L7, zip/copiar L8, visor L10) NÃO são renderizados.
+   futuros (favoritos L6, lixeira/Desfazer L7, zip/copiar L8) NÃO são renderizados.
 #}
 <div class="pex" id="pexExplorador"
      data-pasta-id="{{ pasta.id }}"
@@ -243,6 +243,46 @@
             <span id="pexToastTexto"></span>
         </div>
 
+        {# ── Visor em tela cheia (L10, DOC-47..50; dc L299-329) ─────────────────────────────
+           Nasce aqui (testável por arranjo) e o pasta-explorador-visor.js o leva para o <body>
+           ao carregar: fora do explorador, as teclas do visor não viram atalho da lista. O
+           conteúdo é do VisualizadorDocumento.abrir dentro de #pexVisorAlvo — o mesmo módulo do
+           #previewDocModal, que continua existindo para as outras abas. A área de "soltar
+           arquivo no visor" (DOC-51) NÃO é renderizada (S-7): no desenho é um blob que nunca
+           chega ao servidor. Nada de cor inline: os tokens moram no pasta-explorador.css. #}
+        {% set visorCliente = pasta.clientePrincipal %}
+        <div class="pex-visor" id="pexVisor" role="dialog" aria-modal="true" aria-label="Visualizar arquivo" tabindex="-1" hidden
+             data-pasta-rotulo="{{ pasta.nup ?? pasta.id }}"
+             data-pasta-cliente="{{ visorCliente ? visorCliente.nomeExibicao : '' }}">
+            <div class="pex-visor-cab">
+                <i class="bi bi-file-earmark-fill pex-visor-ico" id="pexVisorIcone" aria-hidden="true"></i>
+                <div class="pex-visor-titulo">
+                    <span class="pex-visor-nome" id="pexVisorNome"></span>
+                    <span class="pex-visor-meta" id="pexVisorMeta"></span>
+                </div>
+                <div class="pex-visor-grupo pex-visor-nav">
+                    <button type="button" class="pex-visor-btn" id="pexVisorAnterior" title="Arquivo anterior (←)" aria-label="Arquivo anterior"><i class="bi bi-arrow-left" aria-hidden="true"></i></button>
+                    <span class="pex-visor-num pex-visor-pos" id="pexVisorPosicao" aria-live="polite"></span>
+                    <button type="button" class="pex-visor-btn" id="pexVisorProximo" title="Próximo arquivo (→)" aria-label="Próximo arquivo"><i class="bi bi-arrow-right" aria-hidden="true"></i></button>
+                </div>
+                <div class="pex-visor-grupo pex-visor-zoom" id="pexVisorZoom">
+                    <button type="button" class="pex-visor-btn" id="pexVisorMenos" title="Diminuir zoom (−)" aria-label="Diminuir zoom"><i class="bi bi-zoom-out" aria-hidden="true"></i></button>
+                    <button type="button" class="pex-visor-num pex-visor-zoom-txt" id="pexVisorZoomTxt" title="Voltar a 100%" aria-label="Zoom atual; clique para voltar a 100%">100%</button>
+                    <button type="button" class="pex-visor-btn" id="pexVisorMais" title="Aumentar zoom (+)" aria-label="Aumentar zoom"><i class="bi bi-zoom-in" aria-hidden="true"></i></button>
+                </div>
+                <div class="pex-visor-grupo pex-visor-acoes">
+                    <button type="button" class="pex-visor-btn" id="pexVisorBaixar" title="Baixar" aria-label="Baixar"><i class="bi bi-download" aria-hidden="true"></i></button>
+                    <button type="button" class="pex-visor-btn" id="pexVisorImprimir" title="Imprimir" aria-label="Imprimir" aria-disabled="false"><i class="bi bi-printer" aria-hidden="true"></i></button>
+                    <button type="button" class="pex-visor-btn" id="pexVisorNovaAba" title="Abrir em nova aba" aria-label="Abrir em nova aba"><i class="bi bi-box-arrow-up-right" aria-hidden="true"></i></button>
+                    <button type="button" class="pex-visor-btn pex-visor-fechar" id="pexVisorFechar" title="Fechar (Esc)" aria-label="Fechar"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+                </div>
+            </div>
+            <div class="pex-visor-area" id="pexVisorArea">
+                <div class="pex-visor-alvo" id="pexVisorAlvo"></div>
+            </div>
+            <div class="pex-visor-aviso" id="pexVisorAviso" role="status" aria-live="polite" hidden></div>
+        </div>
+
         {# Sem JS a lista ainda leva a cada arquivo (§16.10): degradação, não beco sem saída. #}
         <noscript>
             <ul class="pex-noscript">
@@ -257,6 +297,9 @@
         {# Os dados do explorador. JSON com HEX_TAG/AMP/APOS/QUOT (ExploradorDeDocumentosOutput::json):
            `<` vira <, então um nome de arquivo com `</script>` não fecha esta tag. #}
         <script type="application/json" id="pexDados">{{ explorador.json|raw }}</script>
+
+        {# O visor (L10). `defer`: roda depois do parse; o explorador só o procura no clique. #}
+        <script src="{{ asset('js/pasta-explorador-visor.js') }}" defer></script>
     </div>
 
     <div class="pex-rodape" id="pexRodape"></div>

@@ -20,7 +20,7 @@
    - teclado: setas/Home/End, Shift+setas, Ctrl+A, Esc, F2, Del, Ctrl+X/Ctrl+V;
    - menu de contexto (botão direito, ⋮ no toque) por item, por vários e no fundo,
      na ordem do desenho — SEM os itens que dependem de lotes futuros (favoritos L6,
-     Desfazer L7, zip/Copiar L8, visor L10) nem dos itens E (Chat I.A);
+     Desfazer L7, zip/Copiar L8) nem dos itens E (Chat I.A);
    - barra de seleção, toast, criar/renomear inline, arraste nativo da SELEÇÃO
      para pasta (pasta→pasta inclusive), ações em lote por mover-lote/excluir-lote
      (um token por pasta: `csrfLote`), upload inserindo a linha sem recarregar.
@@ -28,7 +28,8 @@
 
    Depende de: Bootstrap 5 (Modal), SortableJS (opcional, só no modo Manual),
    `window.enviarArquivoComProgresso` (helper do template, também do Peticionar)
-   e do `#previewDocModal` já ligado pelo visualizador-documento.js.
+   e do `#previewDocModal` já ligado pelo visualizador-documento.js — que, desde o L10,
+   só é usado quando o visor de tela cheia (`window.PexVisor`) não está na página.
 
    Storage — SÓ preferência de visualização em localStorage (`pex:classificar`,
    `pex:colunas`, `pex:modo`, `pex:painel`), sempre dentro de try/catch. O filtro
@@ -1092,6 +1093,7 @@
     });
 
     function abrirPreview(gatilho) {
+        if (abrirNoVisor(gatilho)) return;
         const modal = document.getElementById('previewDocModal');
         if (!modal || !window.bootstrap) { window.open(gatilho.dataset.url, '_blank', 'noopener'); return; }
         bootstrap.Modal.getOrCreateInstance(modal).show(gatilho);
@@ -1104,6 +1106,40 @@
         return g || h('span', { 'data-url': a.viewUrl, 'data-nome': a.nome, 'data-mime': a.mime || '' });
     }
     function abrirPreviewDe(a) { abrirPreview(gatilhoDe(a)); }
+    /* L10: na aba Documentos o arquivo abre no visor de tela cheia (pasta-explorador-visor.js),
+       que percorre os ARQUIVOS da lista visível — na ordem, com o filtro e a busca de agora. O
+       gatilho é o mesmo (`data-url` identifica o arquivo); sem o visor, o #previewDocModal de
+       sempre. Fechar devolve a seleção e o foco à linha do arquivo que estava na tela. */
+    function abrirNoVisor(gatilho) {
+        if (!window.PexVisor || typeof window.PexVisor.abrir !== 'function') return false;
+        const url = gatilho && gatilho.dataset ? gatilho.dataset.url : '';
+        let doNivel = itensRenderizados.filter(function (it) { return it.tipo === 'arquivo'; }).map(function (it) { return it.dado; });
+        let i = doNivel.findIndex(function (a) { return a.viewUrl === url; });
+        if (i === -1) {
+            const a = arquivos.find(function (x) { return x.viewUrl === url; });
+            if (!a) return false;
+            doNivel = [a];
+            i = 0;
+        }
+        return window.PexVisor.abrir({
+            arquivos: doNivel.map(function (a) {
+                const t = tipoDe(a.nome);
+                return {
+                    id: a.id, nome: a.nome, mime: a.mime || '', viewUrl: a.viewUrl, downloadUrl: a.downloadUrl,
+                    icone: t[0], tipo: t[2], tamanho: a.tamanho ? formatarBytes(a.tamanho) : '', data: formatarData(a.carregadoEm),
+                };
+            }),
+            indice: i,
+            // A lista é um listbox com `aria-activedescendant`: a linha "focada" é a selecionada.
+            aoFechar: function (v) {
+                const chave = 'arquivo:' + v.id;
+                const linha = linhaDe(chave);
+                if (linha) selecionar(chave);
+                el.lista.focus({ preventScroll: true });
+                if (linha && linha.scrollIntoView) linha.scrollIntoView({ block: 'nearest' });
+            },
+        }) !== false;
+    }
     function abrirItem(it) {
         if (!it) return;
         if (it.tipo === 'pasta') entrar(it.id); else abrirPreviewDe(it.dado);
@@ -1370,7 +1406,7 @@
     // --------------------------------------------------- menu de contexto ---
     /* dc `ctxItens` (L4797-4834), na ordem do desenho, só com o que tem ação hoje:
        - de lotes futuros, NÃO renderizados: "Baixar como .zip" e Copiar (L8), favoritos (L6),
-         Desfazer (L7), visor (L10); "Encaminhar via Chat I.A" é item E;
+         Desfazer (L7); "Encaminhar via Chat I.A" é item E;
        - "Compartilhar link" vira "Copiar link" INTERNO (S-12): a URL de visualização, absoluta;
        - "Editar…" (categoria, descrição, número) é função do sistema: o desenho é omisso. */
     const SEP = {};

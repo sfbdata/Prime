@@ -1398,3 +1398,281 @@ a.pex-nome:hover { text-decoration: underline; color: var(--pex-nome); }
 /* O JS liga esta classe quando o popover ancorado à direita sairia da janela
    (botão no começo de uma linha da faixa, em telas estreitas). */
 .pex-popover--esq { right: auto; left: 0; }
+
+/* ==========================================================================
+   Visor em tela cheia (L10, DOC-47..50) — dc L299-329, `visorVals` L4634-4673.
+   O JS leva `#pexVisor` para o <body> (fora do `.pex`): os tokens moram nele.
+   z-index: o dc usa 190 no protótipo, que não tem a barra do AdminLTE nem os
+   modais do Bootstrap (1050/1055); aqui o visor fica acima dos dois, ou a barra
+   do topo cobriria o cabeçalho dele.
+   ========================================================================== */
+.pex-visor {
+    --pex-visor-fundo:      #525659;
+    --pex-visor-cab-bg:     #0a7aad;
+    --pex-visor-cab-txt:    #fff;
+    --pex-visor-cab-sombra: 0 1px 3px rgba(0,0,0,.3);
+    --pex-visor-sep:        rgba(255,255,255,.25);
+    --pex-visor-hover:      rgba(255,255,255,.14);
+    --pex-visor-fechar-bg:  rgba(255,255,255,.12);
+    --pex-visor-fechar-hov: rgba(255,255,255,.24);
+    --pex-visor-anel:       rgba(255,255,255,.85);
+    --pex-visor-aviso-bg:   #12242f;
+    --pex-visor-aviso-txt:  #fff;
+    --pex-visor-folha-bg:   #fff;
+    --pex-visor-folha-txt:  #1d1d1d;
+    --pex-visor-nota:       #5f6b73;
+    --pex-visor-nota-bd:    #dfe3e6;
+    --pex-visor-slide-tit:  #1d3441;
+    --pex-visor-area-h:     calc(100vh - 56px);
+
+    position: fixed;
+    inset: 0;
+    z-index: 1060;
+    display: flex;
+    flex-direction: column;
+    background: var(--pex-visor-fundo);
+    outline: none;
+    animation: pexVisorIn .18s both;
+}
+.pex-visor[hidden] { display: none; }
+@keyframes pexVisorIn { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .pex-visor { animation: none; } }
+
+/* Escuro: a moldura escurece; a "folha" (PDF, DOCX, ODT…) segue clara, como no modal. */
+[data-bs-theme="dark"] .pex-visor {
+    --pex-visor-fundo:      #2b2e31;
+    --pex-visor-cab-bg:     #0b4f72;
+    --pex-visor-cab-txt:    #f1f5f8;
+    --pex-visor-cab-sombra: 0 1px 3px rgba(0,0,0,.6);
+    --pex-visor-sep:        rgba(255,255,255,.18);
+    --pex-visor-hover:      rgba(255,255,255,.12);
+    --pex-visor-fechar-bg:  rgba(255,255,255,.10);
+    --pex-visor-fechar-hov: rgba(255,255,255,.20);
+    --pex-visor-anel:       rgba(69,176,214,.9);
+    --pex-visor-aviso-bg:   #0b1820;
+    --pex-visor-aviso-txt:  #e6ecef;
+    --pex-visor-folha-bg:   #fff;
+    --pex-visor-folha-txt:  #1d1d1d;
+    --pex-visor-nota:       #5f6b73;
+    --pex-visor-nota-bd:    #dfe3e6;
+    --pex-visor-slide-tit:  #1d3441;
+}
+
+/* Cabeçalho: min-height 56, #0a7aad, branco; quebra de linha no celular (dc `flex-wrap`). */
+.pex-visor-cab {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    min-height: 56px;
+    padding: 0 10px 0 16px;
+    background: var(--pex-visor-cab-bg);
+    color: var(--pex-visor-cab-txt);
+    box-shadow: var(--pex-visor-cab-sombra);
+}
+.pex-visor-ico { font-size: 20px; color: var(--pex-visor-cab-txt); }
+.pex-visor-titulo {
+    flex: 1;
+    min-width: 180px;
+    display: flex;
+    flex-direction: column;
+    padding: 6px 0;
+}
+.pex-visor-nome,
+.pex-visor-meta { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pex-visor-nome { font-size: 15px; font-weight: 600; }
+.pex-visor-meta { font-size: 12px; opacity: .85; }
+
+.pex-visor-grupo { display: flex; align-items: center; gap: 2px; }
+.pex-visor-zoom { padding: 0 6px; border-left: 1px solid var(--pex-visor-sep); }
+.pex-visor-zoom[hidden] { display: none; }
+.pex-visor-acoes { padding-left: 6px; border-left: 1px solid var(--pex-visor-sep); }
+
+.pex-visor-btn {
+    width: 34px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: none;
+    border-radius: 3px;
+    background: transparent;
+    color: var(--pex-visor-cab-txt);
+    font-size: 16px;
+    cursor: pointer;
+    transition: background .15s;
+}
+.pex-visor-btn:hover { background: var(--pex-visor-hover); }
+.pex-visor-btn:disabled,
+.pex-visor-btn[aria-disabled="true"] { opacity: .4; cursor: default; }
+.pex-visor-btn:disabled:hover,
+.pex-visor-btn[aria-disabled="true"]:hover { background: transparent; }
+.pex-visor-fechar { margin-left: 4px; font-size: 15px; background: var(--pex-visor-fechar-bg); }
+.pex-visor-fechar:hover { background: var(--pex-visor-fechar-hov); }
+
+/* "n de N" e "100%": Arial 13px (dc), 56 e 44px de largura mínima. */
+.pex-visor-num {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 13px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+.pex-visor-pos { min-width: 56px; }
+.pex-visor-zoom-txt {
+    min-width: 44px;
+    height: 34px;
+    padding: 0 2px;
+    border: none;
+    border-radius: 3px;
+    background: transparent;
+    color: var(--pex-visor-cab-txt);
+    cursor: pointer;
+}
+.pex-visor-zoom-txt:hover { background: var(--pex-visor-hover); }
+.pex-visor-btn:focus-visible,
+.pex-visor-zoom-txt:focus-visible { outline: 2px solid var(--pex-visor-anel); outline-offset: -2px; }
+
+/* Área: rola nos dois sentidos; o alvo centraliza por margem automática (com zoom acima
+   de 100% ele fica mais largo que a área, e `justify-content: center` cortaria a esquerda). */
+.pex-visor-area {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    display: flex;
+    align-items: flex-start;
+    padding: 24px 16px;
+}
+/* Zoom = escala do CONTÊINER: `zoom` (entra no layout, então a área rola de verdade) e a
+   largura proporcional. O que é px aqui dentro sai multiplicado pelo zoom: a altura útil dos
+   quadros é dividida por ele para continuar cabendo na tela. */
+.pex-visor-alvo {
+    --pex-visor-zoom: 1;
+    --pex-visor-quadro-h: calc((var(--pex-visor-area-h) - 48px) / var(--pex-visor-zoom));
+    flex: none;
+    width: calc(100% * var(--pex-visor-zoom));
+    margin: 0 auto;
+    zoom: var(--pex-visor-zoom);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+/* O visualizador-documento.css é escopado a #previewDocModal (o modal das outras abas);
+   aqui vão as mesmas peças, com a altura da tela cheia no lugar do 75vh do modal. */
+.pex-visor-alvo > iframe { height: var(--pex-visor-quadro-h) !important; background: var(--pex-visor-folha-bg); }
+.pex-visor-alvo > img { max-height: calc(var(--pex-visor-area-h) - 48px) !important; padding: 0 !important; background: var(--pex-visor-folha-bg); box-shadow: 0 1px 3px rgba(0,0,0,.35); }
+.pex-visor-alvo > video { max-height: calc(var(--pex-visor-area-h) - 48px) !important; }
+.pex-visor-alvo > .p-4,
+.pex-visor-alvo > .p-5,
+.pex-visor-indisponivel {
+    width: min(560px, 100%) !important;
+    border-radius: 4px;
+    background: var(--bs-body-bg);
+    color: var(--bs-secondary-color);
+    box-shadow: 0 1px 3px rgba(0,0,0,.25);
+}
+.pex-visor-indisponivel { padding: 24px; text-align: center; }
+.pex-visor .vd-documento,
+.pex-visor .vd-planilha,
+.pex-visor .vd-texto-area,
+.pex-visor .vd-slides-area,
+.pex-visor .vd-email,
+.pex-visor .vd-zip { display: flex; flex-direction: column; min-width: 0; width: 100%; }
+.pex-visor .vd-quadro { display: block; height: var(--pex-visor-quadro-h); background: var(--pex-visor-folha-bg); }
+.pex-visor .vd-planilha .vd-quadro { height: calc(var(--pex-visor-quadro-h) - 40px); border-top: 1px solid var(--bs-border-color) !important; }
+.pex-visor .vd-email .vd-quadro { height: calc(var(--pex-visor-quadro-h) - 120px); }
+.pex-visor .vd-abas { display: flex; flex-wrap: wrap; gap: 2px; padding: 8px 8px 0; background: var(--bs-tertiary-bg); }
+.pex-visor .vd-aba {
+    height: 30px; max-width: 240px; padding: 0 12px;
+    border: 1px solid var(--bs-border-color); border-bottom: 0; border-radius: 4px 4px 0 0;
+    background: var(--bs-secondary-bg); color: var(--bs-secondary-color);
+    font-size: .8125rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer;
+}
+.pex-visor .vd-aba:hover { color: var(--bs-emphasis-color); }
+.pex-visor .vd-aba.ativa { background: var(--bs-body-bg); color: var(--bs-emphasis-color); }
+.pex-visor .vd-aba:focus-visible { outline: 2px solid var(--bs-primary); outline-offset: -2px; }
+.pex-visor .vd-aviso { padding: 6px 12px; font-size: .8125rem; color: var(--bs-secondary-color); background: var(--bs-body-bg); border-bottom: 1px solid var(--bs-border-color); }
+.pex-visor .vd-texto {
+    margin: 0; padding: 16px 20px; background: var(--bs-tertiary-bg); color: var(--bs-body-color);
+    font-family: var(--bs-font-monospace); font-size: .8125rem; line-height: 1.5;
+    white-space: pre-wrap; overflow-wrap: anywhere; text-align: left;
+}
+.pex-visor .vd-vazio { margin: 0; color: var(--bs-secondary-color); font-style: italic; }
+.pex-visor .vd-folha-fundo { padding: 0 0 12px; }
+.pex-visor .vd-folha {
+    max-width: 820px; margin: 0 auto; padding: 48px 56px; box-sizing: border-box;
+    background: var(--pex-visor-folha-bg); color: var(--pex-visor-folha-txt); box-shadow: 0 1px 3px rgba(0,0,0,.25);
+    font-family: Arial, Helvetica, sans-serif; font-size: 14px; line-height: 1.6; text-align: left; overflow-wrap: anywhere;
+}
+.pex-visor .vd-folha p { margin: 0 0 .6em; min-height: 1em; white-space: pre-wrap; }
+.pex-visor .vd-folha :is(h2, h3, h4, h5, h6) { margin: 1em 0 .5em; color: var(--pex-visor-folha-txt); font-weight: 700; white-space: pre-wrap; }
+.pex-visor .vd-folha h2 { font-size: 1.375rem; }
+.pex-visor .vd-folha h3 { font-size: 1.125rem; }
+.pex-visor .vd-folha :is(h4, h5, h6) { font-size: 1rem; }
+.pex-visor .vd-folha .vd-nota { font-size: 12px; color: var(--pex-visor-nota); padding-left: 12px; border-left: 2px solid var(--pex-visor-nota-bd); }
+.pex-visor .vd-folha .vd-vazio { color: var(--pex-visor-nota); }
+.pex-visor .vd-folha-pre { white-space: pre-wrap; }
+.pex-visor .vd-slides { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.pex-visor .vd-slide {
+    width: min(860px, 100%); min-height: 200px; padding: 28px 36px; box-sizing: border-box;
+    background: var(--pex-visor-folha-bg); color: var(--pex-visor-folha-txt); border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,.25);
+    font-family: Arial, Helvetica, sans-serif; text-align: left; overflow-wrap: anywhere;
+}
+.pex-visor .vd-slide-numero { margin-bottom: 10px; font-size: 11px; color: var(--pex-visor-nota); }
+.pex-visor .vd-slide-titulo { margin: 0 0 12px; font-size: 1.375rem; font-weight: 700; color: var(--pex-visor-slide-tit); white-space: pre-wrap; }
+.pex-visor .vd-slide p { margin: 0 0 8px; font-size: .9375rem; white-space: pre-wrap; }
+.pex-visor .vd-slide .vd-vazio { color: var(--pex-visor-nota); }
+.pex-visor .vd-email-cabecalho { padding: 14px 20px; border-bottom: 1px solid var(--bs-border-color); background: var(--bs-body-bg); text-align: left; }
+.pex-visor .vd-email-assunto { margin-bottom: 8px; font-size: 1rem; font-weight: 700; color: var(--bs-emphasis-color); overflow-wrap: anywhere; }
+.pex-visor .vd-email-campos { display: grid; grid-template-columns: max-content 1fr; gap: 2px 12px; margin: 0; font-size: .8125rem; }
+.pex-visor .vd-email-campos dt { font-weight: 600; color: var(--bs-secondary-color); }
+.pex-visor .vd-email-campos dd { margin: 0; color: var(--bs-body-color); overflow-wrap: anywhere; }
+.pex-visor .vd-email-corpo {
+    margin: 0; padding: 16px 20px; background: var(--bs-tertiary-bg); color: var(--bs-body-color);
+    font-family: Arial, Helvetica, sans-serif; font-size: .875rem; line-height: 1.5;
+    white-space: pre-wrap; overflow-wrap: anywhere; text-align: left;
+}
+.pex-visor .vd-zip-area { background: var(--bs-body-bg); }
+.pex-visor .vd-zip-tabela { width: 100%; border-collapse: collapse; font-size: .8125rem; text-align: left; }
+.pex-visor .vd-zip-tabela th { position: sticky; top: 0; padding: 6px 12px; background: var(--bs-tertiary-bg); color: var(--bs-secondary-color); font-weight: 600; border-bottom: 1px solid var(--bs-border-color); }
+.pex-visor .vd-zip-tabela td { padding: 5px 12px; border-bottom: 1px solid var(--bs-border-color-translucent); color: var(--bs-body-color); vertical-align: top; }
+.pex-visor .vd-zip-nome { overflow-wrap: anywhere; }
+.pex-visor .vd-zip-tamanho,
+.pex-visor .vd-zip-data { white-space: nowrap; color: var(--bs-secondary-color); }
+.pex-visor .vd-zip-tamanho { text-align: right; }
+.pex-visor .vd-zip-senha { color: var(--bs-secondary-color); font-style: italic; }
+
+/* Aviso do visor (dc L327): rodapé central, acima do visor. */
+.pex-visor-aviso {
+    position: fixed;
+    left: 50%;
+    bottom: 24px;
+    transform: translateX(-50%);
+    z-index: 1061;
+    max-width: calc(100vw - 32px);
+    padding: 10px 16px;
+    border-radius: 4px;
+    background: var(--pex-visor-aviso-bg);
+    color: var(--pex-visor-aviso-txt);
+    font-size: 13px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.4);
+}
+.pex-visor-aviso[hidden] { display: none; }
+
+/* Iframe da impressão: fora da tela, sem ocupar espaço (dc `BJImprimir`). */
+.pex-visor-impressao { position: fixed; right: 0; bottom: 0; width: 0; height: 0; border: 0; visibility: hidden; }
+
+/* 375px: o cabeçalho quebra — título numa linha e os grupos de botões nas de baixo, à
+   direita (os três grupos somam ~410px: não cabem numa linha só) — e a área perde o respiro
+   largo. O desenho é omisso aqui. */
+@media (max-width: 575.98px) {
+    .pex-visor-cab { gap: 4px 6px; padding: 4px 6px 6px 12px; justify-content: flex-end; }
+    .pex-visor-titulo { flex-basis: calc(100% - 40px); min-width: 0; }
+    .pex-visor-zoom { padding: 0 4px; }
+    .pex-visor-acoes { padding-left: 4px; }
+    .pex-visor-area { padding: 12px 8px; }
+    .pex-visor .vd-folha { padding: 24px 20px; }
+}
