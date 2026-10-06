@@ -90,7 +90,7 @@ final class PastaResumoImpressaoOutputTest extends TestCase
         self::assertSame('MARIA DA SILVA', $r->titulo);
         self::assertSame('12345678901', $r->documento);
         self::assertSame('Arquivado', $r->situacao);
-        self::assertSame('Procedimento Comum', $r->acao);
+        self::assertSame($processo->getClasseProcessual(), $r->acao, 'a ação vem da classe do processo (o setter normaliza para maiúsculas)');
         self::assertCount(1, $r->clientes);
         self::assertTrue($r->clientes[0]['principal']);
         self::assertCount(1, $r->processos);
