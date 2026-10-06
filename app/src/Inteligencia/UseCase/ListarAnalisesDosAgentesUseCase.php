@@ -15,8 +15,9 @@ use App\Inteligencia\Repository\AnaliseDeInteligenciaRepository;
 use App\Pasta\Entity\Pasta;
 
 /**
- * As análises dos agentes de uma pasta para o drawer: o painel inteiro (sete agentes numa
- * consulta, agrupada em PHP) ou a lista de UM agente (recarga do fragmento depois do polling).
+ * As análises dos agentes de uma pasta para o drawer: o painel inteiro (as N mais recentes de
+ * CADA agente — uma consulta por agente, para um agente com muitas análises não esconder os
+ * outros) ou a lista de UM agente (recarga do fragmento depois do polling).
  *
  * Recebe a Pasta já resolvida e conferida pelo chamador (tenant + `canAccessResource`), como o
  * `ListarAnalisesDaPastaUseCase` do Push.
@@ -32,27 +33,9 @@ final class ListarAnalisesDosAgentesUseCase
 
     public function executar(Pasta $pasta, Tenant $tenant): PainelDeAgentesOutput
     {
-        $entidades = $this->analises->listarPorAlvo(
-            $tenant,
-            AnaliseDeInteligencia::ALVO_PASTA,
-            (int) $pasta->getId(),
-            self::LIMITE_POR_AGENTE * count(Agente::cases()),
-            TipoDeAnalise::AnalisePasta,
-        );
-
-        /** @var array<string, list<AnaliseDeInteligencia>> $porAgente */
-        $porAgente = [];
-        foreach ($entidades as $entidade) {
-            $agente = $entidade->getAgente();
-            if ($agente === null) {
-                continue; // linha inconsistente: não é de agente nenhum
-            }
-            $porAgente[$agente->value][] = $entidade;
-        }
-
         $saidas = [];
         foreach (Agente::cases() as $agente) {
-            $saidas[$agente->value] = $this->saidaDoAgente($agente, array_slice($porAgente[$agente->value] ?? [], 0, self::LIMITE_POR_AGENTE));
+            $saidas[$agente->value] = $this->executarParaAgente($pasta, $tenant, $agente);
         }
 
         return new PainelDeAgentesOutput($saidas);

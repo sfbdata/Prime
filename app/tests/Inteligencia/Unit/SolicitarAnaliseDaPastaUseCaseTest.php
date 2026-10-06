@@ -44,6 +44,7 @@ use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
+use Symfony\Component\Clock\MockClock;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
@@ -158,6 +159,7 @@ final class SolicitarAnaliseDaPastaUseCaseTest extends TestCase
             new MontadorDeContextoDoPush($this->movimentacoes, $this->configuracoes, $mascarador),
             $this->configuracoes,
             $mascarador,
+            new MockClock(),
         );
 
         return new SolicitarAnaliseDaPastaUseCase(
@@ -314,10 +316,11 @@ final class SolicitarAnaliseDaPastaUseCaseTest extends TestCase
         $resumo = $gravada->getContextoResumo();
         self::assertSame('gestor', $resumo['agente']);
         self::assertTrue($resumo['financeiro']);
-        // 1 movimentação + a linha fixa do financeiro (contrato/pró-bono/valor da causa).
+        // 1 movimentação; o financeiro foi liberado mas a pasta não tem dado financeiro (contrato
+        // PENDENTE padrão não conta), então a seção fica vazia.
         self::assertSame(1, $resumo['secoes']['movimentacoes']);
-        self::assertSame(1, $resumo['secoes']['financeiro']);
-        self::assertSame(2, $resumo['total']);
+        self::assertSame(0, $resumo['secoes']['financeiro']);
+        self::assertSame(1, $resumo['total']);
         self::assertStringNotContainsString('réplica', (string) json_encode($resumo), 'nunca o texto (D5)');
 
         self::assertSame('pendente', $saida->status);

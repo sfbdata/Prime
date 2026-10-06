@@ -33,7 +33,14 @@ final readonly class ContextoDaPasta
     ) {
     }
 
+    /** Campos do cabeçalho que NÃO entram no hash: a equipe do escritório mudar não é dado novo da pasta. */
+    private const CABECALHO_FORA_DO_HASH = ['equipe'];
+
     /**
+     * Hash sobre a forma ESTÁVEL do contexto: cabeçalho sem a equipe, linhas dos processos e as
+     * assinaturas das seções (ids, datas absolutas, estado) — nunca o texto relativo do prompt
+     * ("vence em N dia(s)"), que mudaria todo dia e faria "nada novo" valer só no mesmo dia.
+     *
      * @param array<string, string> $cabecalho
      * @param list<string>          $processos
      * @param list<SecaoDeContexto> $secoes
@@ -42,10 +49,10 @@ final readonly class ContextoDaPasta
     {
         $base = [
             'agente' => $agente->value,
-            'cabecalho' => $cabecalho,
+            'cabecalho' => array_diff_key($cabecalho, array_flip(self::CABECALHO_FORA_DO_HASH)),
             'processos' => $processos,
             'secoes' => array_map(
-                static fn (SecaoDeContexto $s): array => [$s->secao->value, $s->linhas, $s->omitidas],
+                static fn (SecaoDeContexto $s): array => [$s->secao->value, $s->assinaturasParaHash(), $s->omitidas],
                 $secoes,
             ),
         ];

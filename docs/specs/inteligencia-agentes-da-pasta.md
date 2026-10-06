@@ -65,7 +65,14 @@ mascarada em todo texto livre quando `mascarar_dados_pessoais` (padrão ligado);
 `<financeiro>`, `<analise_anterior>`); limites por seção e orçamento total de 60.000 caracteres — o corte é
 **declarado** na própria seção ("(+N itens omitidos por limite de tamanho)") e em `contexto_resumo.omitidas`.
 Seção vazia vai como "• nenhum registro" (é INFORMAÇÃO AUSENTE, não omissão). Contexto sem nenhuma linha em
-nenhuma seção → `ContextoVazioException` ("sem_dados", 409), nada persistido.
+nenhuma seção → `ContextoVazioException` ("sem_dados", 409), nada persistido. A linha de cadastro do financeiro
+(contrato/pró-bono/valor da causa) só existe quando há valor da causa, pró-bono, pagamento ou observação
+financeira — o contrato `PENDENTE` padrão de toda pasta nova não conta como dado.
+
+**`contexto_hash` estável:** cada linha tem uma assinatura (id, data absoluta, estado, conteúdo) e o hash é
+calculado sobre as assinaturas, o cabeçalho **sem a equipe** e os processos; o texto relativo do prompt ("vence
+em N dia(s)", pelo relógio injetado) não entra. "Nada novo desde a última análise" vale enquanto o dado não muda,
+não só no mesmo dia.
 
 ### 2.2 O que NÃO entra
 
@@ -111,7 +118,8 @@ pelo código (nem o fecho "Necessita de conferência do advogado").
 - `Service/EnfileiradorDeAnalise` (dispatch + registro honesto da falha, compartilhado pelos dois UseCases) ·
   `Service/VisibilidadeDoFinanceiroDaPasta`.
 - `UseCase/SolicitarAnaliseDaPastaUseCase` (idempotência por agente: pendente → a mesma; hash igual ao da
-  última concluída do agente → a última com aviso) · `UseCase/ListarAnalisesDosAgentesUseCase`.
+  última concluída do agente → a última com aviso) · `UseCase/ListarAnalisesDosAgentesUseCase` (painel = as 10
+  mais recentes de CADA agente, uma consulta por agente).
 - `Controller/AnaliseDaPastaController` (`/pasta/{id}/ia/agentes`, mesmas guardas e CSRF da fatia 1):
   - `GET  …`                           `inteligencia_agentes_painel`   fragmento do drawer (7 agentes + análises)
   - `POST …/{agente}/analises`         `inteligencia_agente_solicitar` CSRF `inteligencia_agentes_{pastaId}`; 202/200/409/429/503 como o Push

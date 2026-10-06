@@ -18,6 +18,7 @@ use App\Inteligencia\Service\MascaradorDeDadosPessoais;
 use App\Inteligencia\Service\NeutralizadorDeConteudo;
 use App\Pasta\Entity\Pasta;
 use App\Processo\Entity\Processo;
+use Psr\Clock\ClockInterface;
 
 /**
  * Monta o contexto de UM agente para UMA pasta (spec `inteligencia-agentes-da-pasta.md` §2):
@@ -33,6 +34,15 @@ use App\Processo\Entity\Processo;
  *
  * As movimentações vêm do {@see MontadorDeContextoDoPush} — mesma leitura, mesma máscara, mesmo
  * tenant explícito —, só que limitadas a {@see LIMITE_MOVIMENTACOES} linhas aqui.
+ *
+ * Cada linha do prompt tem uma ASSINATURA estável (id, data absoluta, estado, conteúdo) que é o
+ * que entra no `contexto_hash`; o texto relativo ("vence em N dia(s)", calculado pelo relógio
+ * injetado) fica só no prompt. Assim "nada novo desde a última análise" vale enquanto o dado não
+ * muda, não só no mesmo dia.
+ *
+ * O cadastro do financeiro (contrato, pró-bono, valor da causa) só vira linha quando há valor da
+ * causa, pró-bono ou algum pagamento/observação: a pasta recém-criada tem contrato PENDENTE por
+ * padrão, e esse padrão sozinho não é dado para análise (spec §2.1: só cabeçalho não é análise).
  *
  * Tenant explícito em tudo: roda no worker.
  */
@@ -65,6 +75,7 @@ final class MontadorDeContextoDaPasta
         private readonly MontadorDeContextoDoPush $movimentacoes,
         private readonly ConfiguracaoDeInteligenciaRepository $configuracoes,
         private readonly MascaradorDeDadosPessoais $mascarador,
+        private readonly ClockInterface $relogio,
     ) {
     }
 
@@ -125,6 +136,7 @@ final class MontadorDeContextoDaPasta
     {
         $principal = $pasta->getClientePrincipal();
         $linhas = [];
+        $assinaturas = [];
         $todos = $this->dados->clientesDaPasta($tenant, $pasta);
         foreach (array_slice($todos, 0, self::LIMITE_CLIENTES) as $cliente) {
             // Só nome e natureza: CPF/CNPJ, e-mail, telefone e endereço NÃO saem (spec §2.1).
@@ -137,16 +149,18 @@ final class MontadorDeContextoDaPasta
             if ($cliente instanceof ClientePJ && $cliente->getNomeFantasia() !== null && trim($cliente->getNomeFantasia()) !== '') {
                 $nome .= ' (' . $this->rotulo($cliente->getNomeFantasia(), '', $mascarar) . ')';
             }
+            $ehPrincipal = $principal !== null && $principal === $cliente;
             $linhas[] = sprintf(
                 '%s · %s%s [nível %d, cadastro]',
                 $nome,
                 $tipo,
-                $principal !== null && $principal === $cliente ? ' · cliente principal' : '',
+                $ehPrincipal ? ' · cliente principal' : '',
                 SecaoDoContexto::Clientes->nivel(),
             );
+            $assinaturas[] = sprintf('cliente:%d:%s:%s:%d', (int) $cliente->getId(), $nome, $tipo, $ehPrincipal ? 1 : 0);
         }
 
-        return new SecaoDeContexto(SecaoDoContexto::Clientes, $linhas, max(0, count($todos) - self::LIMITE_CLIENTES));
+        return new SecaoDeContexto(SecaoDoContexto::Clientes, $linhas, max(0, count($todos) - self::LIMITE_CLIENTES), $assinaturas);
     }
 
     private function movimentacoes(Tenant $tenant, Pasta $pasta): SecaoDeContexto
@@ -154,17 +168,20 @@ final class MontadorDeContextoDaPasta
         // Já neutralizadas, mascaradas e truncadas pelo montador do Push (mesmo tenant explícito).
         $contexto = $this->movimentacoes->para($tenant, $pasta);
         $linhas = [];
+        $assinaturas = [];
         foreach (array_slice($contexto->itens, 0, self::LIMITE_MOVIMENTACOES) as $item) {
             $linhas[] = sprintf('%s [nível %d, %s]', $item->linha(), $item->ehPublicacao() ? 5 : 7, $item->ehPublicacao() ? 'publicação oficial' : 'movimentação oficial');
+            $assinaturas[] = $item->chave . ':' . $item->texto; // a mesma base do hash do Push
         }
 
-        return new SecaoDeContexto(SecaoDoContexto::Movimentacoes, $linhas, max(0, count($contexto->itens) - self::LIMITE_MOVIMENTACOES));
+        return new SecaoDeContexto(SecaoDoContexto::Movimentacoes, $linhas, max(0, count($contexto->itens) - self::LIMITE_MOVIMENTACOES), $assinaturas);
     }
 
     private function metas(Tenant $tenant, Pasta $pasta, bool $mascarar): SecaoDeContexto
     {
         $linhas = [];
-        $hoje = new \DateTimeImmutable('today');
+        $assinaturas = [];
+        $hoje = $this->relogio->now()->setTime(0, 0);
         $todas = $this->dados->tarefasDaPasta($tenant, $pasta, self::LIMITE_METAS + 1);
         foreach (array_slice($todas, 0, self::LIMITE_METAS) as $tarefa) {
             $responsaveis = [];
@@ -173,145 +190,193 @@ final class MontadorDeContextoDaPasta
             }
             $prazo = $tarefa->getPrazo();
             $situacao = Tarefa::STATUS_LABELS[$tarefa->getStatus()] ?? $tarefa->getStatus();
+            // Texto relativo (muda todo dia) só no prompt; a assinatura leva a data absoluta.
             if ($prazo !== null && $tarefa->getStatus() !== Tarefa::STATUS_CONCLUIDA) {
                 $dias = (int) $hoje->diff($prazo->setTime(0, 0))->format('%r%a');
                 $situacao .= $dias < 0
                     ? sprintf(', ATRASADA %d dia(s)', abs($dias))
                     : ($dias === 0 ? ', vence HOJE' : sprintf(', vence em %d dia(s)', $dias));
             }
+            $titulo = $this->rotulo($tarefa->getTitulo(), 'sem título', $mascarar);
             $descricao = $this->texto($tarefa->getDescricao(), self::TAMANHO_MAXIMO_DA_DESCRICAO, $mascarar);
             $linhas[] = sprintf(
                 'prazo %s · "%s" · responsáveis: %s · %s%s [nível %d, registro interno]',
                 $prazo?->format('d/m/Y') ?? 'sem prazo',
-                $this->rotulo($tarefa->getTitulo(), 'sem título', $mascarar),
+                $titulo,
                 $responsaveis === [] ? 'nenhum' : implode(', ', $responsaveis),
                 $situacao,
                 $descricao === '' ? '' : ' · ' . $descricao,
                 SecaoDoContexto::Metas->nivel(),
             );
+            $assinaturas[] = sprintf(
+                'meta:%d:%s:%s:%s:%s:%s',
+                (int) $tarefa->getId(),
+                $prazo?->format('Y-m-d') ?? '-',
+                $tarefa->getStatus(),
+                $titulo,
+                implode(',', $responsaveis),
+                $descricao,
+            );
         }
 
-        return new SecaoDeContexto(SecaoDoContexto::Metas, $linhas, $this->excedente($todas, self::LIMITE_METAS));
+        return new SecaoDeContexto(SecaoDoContexto::Metas, $linhas, $this->excedente($todas, self::LIMITE_METAS), $assinaturas);
     }
 
     private function anotacoes(Tenant $tenant, Pasta $pasta, bool $mascarar): SecaoDeContexto
     {
         $linhas = [];
+        $assinaturas = [];
         $todas = $this->dados->anotacoesDaPasta($tenant, $pasta, self::LIMITE_ANOTACOES + 1);
         foreach (array_slice($todas, 0, self::LIMITE_ANOTACOES) as $mensagem) {
             $conteudo = $this->texto($mensagem->getConteudo(), self::TAMANHO_MAXIMO_DA_ANOTACAO, $mascarar);
             if ($conteudo === '') {
                 continue;
             }
+            $autor = $this->rotulo($mensagem->getAutor()?->getFullName(), 'autor não informado', $mascarar);
             $linhas[] = sprintf(
                 '%s · %s: %s [nível %d, registro interno]',
                 $mensagem->getCriadaEm()->format('d/m/Y H:i'),
-                $this->rotulo($mensagem->getAutor()?->getFullName(), 'autor não informado', $mascarar),
+                $autor,
                 $conteudo,
                 SecaoDoContexto::Anotacoes->nivel(),
             );
+            $assinaturas[] = sprintf('anotacao:%d:%s:%s:%s', (int) $mensagem->getId(), $mensagem->getCriadaEm()->format('Y-m-d H:i'), $autor, $conteudo);
         }
 
-        return new SecaoDeContexto(SecaoDoContexto::Anotacoes, $linhas, $this->excedente($todas, self::LIMITE_ANOTACOES));
+        return new SecaoDeContexto(SecaoDoContexto::Anotacoes, $linhas, $this->excedente($todas, self::LIMITE_ANOTACOES), $assinaturas);
     }
 
     private function observacoes(Tenant $tenant, Pasta $pasta, bool $mascarar): SecaoDeContexto
     {
         $linhas = [];
+        $assinaturas = [];
         $todas = $this->dados->observacoesDaPasta($tenant, $pasta, self::LIMITE_OBSERVACOES + 1);
         foreach (array_slice($todas, 0, self::LIMITE_OBSERVACOES) as $observacao) {
             $conteudo = $this->texto($observacao->getConteudo(), self::TAMANHO_MAXIMO_DA_OBSERVACAO, $mascarar);
             if ($conteudo === '') {
                 continue;
             }
+            $autor = $this->rotulo($observacao->getAutor()?->getFullName(), 'autor não informado', $mascarar);
             $linhas[] = sprintf(
                 '%s · %s: %s [nível %d, anotação manual]',
                 $observacao->getCriadaEm()->format('d/m/Y'),
-                $this->rotulo($observacao->getAutor()?->getFullName(), 'autor não informado', $mascarar),
+                $autor,
                 $conteudo,
                 SecaoDoContexto::Observacoes->nivel(),
             );
+            $assinaturas[] = sprintf('observacao:%d:%s:%s:%s', (int) $observacao->getId(), $observacao->getCriadaEm()->format('Y-m-d'), $autor, $conteudo);
         }
 
-        return new SecaoDeContexto(SecaoDoContexto::Observacoes, $linhas, $this->excedente($todas, self::LIMITE_OBSERVACOES));
+        return new SecaoDeContexto(SecaoDoContexto::Observacoes, $linhas, $this->excedente($todas, self::LIMITE_OBSERVACOES), $assinaturas);
     }
 
     private function documentos(Tenant $tenant, Pasta $pasta, bool $mascarar): SecaoDeContexto
     {
         $linhas = [];
+        $assinaturas = [];
         $todos = $this->dados->documentosDaPasta($tenant, $pasta, self::LIMITE_DOCUMENTOS + 1);
         foreach (array_slice($todos, 0, self::LIMITE_DOCUMENTOS) as $documento) {
             // Só metadados: o conteúdo do arquivo não é lido nem enviado (spec §2.2).
+            $categoria = $this->rotulo($documento->getCategoria(), 'sem categoria', $mascarar);
+            $titulo = $this->rotulo($documento->getTitulo(), 'sem título', $mascarar);
+            $nome = $this->rotulo($documento->getNomeOriginal(), 'sem nome', $mascarar);
             $linhas[] = sprintf(
                 '%s · %s · "%s" (arquivo %s) · conteúdo não lido [nível %d, documento juntado]',
                 $documento->getCarregadoEm()->format('d/m/Y'),
-                $this->rotulo($documento->getCategoria(), 'sem categoria', $mascarar),
-                $this->rotulo($documento->getTitulo(), 'sem título', $mascarar),
-                $this->rotulo($documento->getNomeOriginal(), 'sem nome', $mascarar),
+                $categoria,
+                $titulo,
+                $nome,
                 SecaoDoContexto::Documentos->nivel(),
             );
+            $assinaturas[] = sprintf('documento:%d:%s:%s:%s:%s', (int) $documento->getId(), $documento->getCarregadoEm()->format('Y-m-d'), $categoria, $titulo, $nome);
         }
 
-        return new SecaoDeContexto(SecaoDoContexto::Documentos, $linhas, $this->excedente($todos, self::LIMITE_DOCUMENTOS));
+        return new SecaoDeContexto(SecaoDoContexto::Documentos, $linhas, $this->excedente($todos, self::LIMITE_DOCUMENTOS), $assinaturas);
     }
 
     private function checklist(Tenant $tenant, Pasta $pasta, bool $mascarar): SecaoDeContexto
     {
         $linhas = [];
+        $assinaturas = [];
         $todos = $this->dados->checklistDaPasta($tenant, $pasta, self::LIMITE_CHECKLIST + 1);
         foreach (array_slice($todos, 0, self::LIMITE_CHECKLIST) as $item) {
+            $titulo = $this->rotulo($item->getTitulo(), 'sem título', $mascarar);
             $linhas[] = sprintf(
                 '%s %s [nível %d, registro interno]',
                 $item->isConcluido() ? '[x] concluído:' : '[ ] pendente:',
-                $this->rotulo($item->getTitulo(), 'sem título', $mascarar),
+                $titulo,
                 SecaoDoContexto::Checklist->nivel(),
             );
+            $assinaturas[] = sprintf('checklist:%d:%d:%s', (int) $item->getId(), $item->isConcluido() ? 1 : 0, $titulo);
         }
 
-        return new SecaoDeContexto(SecaoDoContexto::Checklist, $linhas, $this->excedente($todos, self::LIMITE_CHECKLIST));
+        return new SecaoDeContexto(SecaoDoContexto::Checklist, $linhas, $this->excedente($todos, self::LIMITE_CHECKLIST), $assinaturas);
     }
 
     private function financeiro(Tenant $tenant, Pasta $pasta, bool $mascarar): SecaoDeContexto
     {
-        $linhas = [sprintf(
-            'situação do contrato: %s · pró-bono: %s · valor da causa: %s [nível %d, registro interno]',
-            $this->rotulo($pasta->getSituacaoContrato(), 'não informada', $mascarar),
-            $pasta->isProBono() ? 'sim' : 'não',
-            $pasta->getValorCausa() !== null && $pasta->getValorCausa() !== '' ? 'R$ ' . $this->rotulo($pasta->getValorCausa(), '', $mascarar) : 'não informado',
-            SecaoDoContexto::Financeiro->nivel(),
-        )];
-
+        $linhas = [];
+        $assinaturas = [];
         $omitidas = 0;
+
         $pagamentos = $this->dados->pagamentosDaPasta($tenant, $pasta, self::LIMITE_PAGAMENTOS + 1);
+        $observacoes = $this->dados->observacoesFinanceirasDaPasta($tenant, $pasta, self::LIMITE_OBSERVACOES_FINANCEIRAS + 1);
+        $valorCausa = $pasta->getValorCausa() !== null && $pasta->getValorCausa() !== '' ? $this->rotulo($pasta->getValorCausa(), '', $mascarar) : '';
+
+        // A linha de cadastro só existe quando há dado financeiro de verdade: o contrato nasce
+        // PENDENTE por padrão e, sozinho, não é dado para análise (M1 da revisão; spec §2.1).
+        if ($valorCausa !== '' || $pasta->isProBono() || $pagamentos !== [] || $observacoes !== []) {
+            $contrato = $this->rotulo($pasta->getSituacaoContrato(), 'não informada', $mascarar);
+            $linhas[] = sprintf(
+                'situação do contrato: %s · pró-bono: %s · valor da causa: %s [nível %d, registro interno]',
+                $contrato,
+                $pasta->isProBono() ? 'sim' : 'não',
+                $valorCausa !== '' ? 'R$ ' . $valorCausa : 'não informado',
+                SecaoDoContexto::Financeiro->nivel(),
+            );
+            $assinaturas[] = sprintf('financeiro:%s:%d:%s', $contrato, $pasta->isProBono() ? 1 : 0, $valorCausa);
+        }
+
         foreach (array_slice($pagamentos, 0, self::LIMITE_PAGAMENTOS) as $pagamento) {
+            $descricao = $this->rotulo($pagamento->getDescricao(), 'sem descrição', $mascarar);
+            $valor = $this->rotulo($pagamento->getValor(), '0', $mascarar);
             $linhas[] = sprintf(
                 'pagamento · %s · R$ %s · vencimento %s · %s [nível %d, registro interno]',
-                $this->rotulo($pagamento->getDescricao(), 'sem descrição', $mascarar),
-                $this->rotulo($pagamento->getValor(), '0', $mascarar),
+                $descricao,
+                $valor,
                 $pagamento->getVencimento()->format('d/m/Y'),
                 $pagamento->getPagoEm() !== null ? 'pago em ' . $pagamento->getPagoEm()->format('d/m/Y') : 'EM ABERTO',
                 SecaoDoContexto::Financeiro->nivel(),
             );
+            $assinaturas[] = sprintf(
+                'pagamento:%d:%s:%s:%s:%s',
+                (int) $pagamento->getId(),
+                $descricao,
+                $valor,
+                $pagamento->getVencimento()->format('Y-m-d'),
+                $pagamento->getPagoEm()?->format('Y-m-d') ?? '-',
+            );
         }
         $omitidas += $this->excedente($pagamentos, self::LIMITE_PAGAMENTOS);
 
-        $observacoes = $this->dados->observacoesFinanceirasDaPasta($tenant, $pasta, self::LIMITE_OBSERVACOES_FINANCEIRAS + 1);
         foreach (array_slice($observacoes, 0, self::LIMITE_OBSERVACOES_FINANCEIRAS) as $observacao) {
             $conteudo = $this->texto($observacao->getConteudo(), self::TAMANHO_MAXIMO_DA_OBSERVACAO, $mascarar);
             if ($conteudo === '') {
                 continue;
             }
+            $autor = $this->rotulo($observacao->getAutor()?->getFullName(), 'autor não informado', $mascarar);
             $linhas[] = sprintf(
                 'observação financeira · %s · %s: %s [nível %d, anotação manual]',
                 $observacao->getCriadaEm()->format('d/m/Y'),
-                $this->rotulo($observacao->getAutor()?->getFullName(), 'autor não informado', $mascarar),
+                $autor,
                 $conteudo,
                 SecaoDoContexto::Observacoes->nivel(),
             );
+            $assinaturas[] = sprintf('obsfin:%d:%s:%s:%s', (int) $observacao->getId(), $observacao->getCriadaEm()->format('Y-m-d'), $autor, $conteudo);
         }
         $omitidas += $this->excedente($observacoes, self::LIMITE_OBSERVACOES_FINANCEIRAS);
 
-        return new SecaoDeContexto(SecaoDoContexto::Financeiro, $linhas, $omitidas);
+        return new SecaoDeContexto(SecaoDoContexto::Financeiro, $linhas, $omitidas, $assinaturas);
     }
 
     // ---------------------------------------------------------------------------------------
@@ -437,17 +502,19 @@ final class MontadorDeContextoDaPasta
     private function caber(SecaoDeContexto $secao, int &$gasto): SecaoDeContexto
     {
         $linhas = [];
+        $assinaturas = [];
         $omitidas = $secao->omitidas;
-        foreach ($secao->linhas as $linha) {
+        foreach ($secao->linhas as $indice => $linha) {
             $tamanho = mb_strlen($linha);
             if ($linhas !== [] && $gasto + $tamanho > self::ORCAMENTO_TOTAL) {
                 ++$omitidas;
                 continue;
             }
             $linhas[] = $linha;
+            $assinaturas[] = $secao->assinaturas[$indice] ?? $linha;
             $gasto += $tamanho;
         }
 
-        return new SecaoDeContexto($secao->secao, $linhas, $omitidas);
+        return new SecaoDeContexto($secao->secao, $linhas, $omitidas, $assinaturas);
     }
 }

@@ -7,6 +7,7 @@ namespace App\Tests\Inteligencia\Functional;
 use App\Inteligencia\Controller\AnaliseDaPastaController;
 use App\Inteligencia\Enum\Agente;
 use App\Inteligencia\Message\ProcessarAnaliseDeInteligencia;
+use App\Inteligencia\UseCase\ListarAnalisesDosAgentesUseCase;
 use App\Tests\Auth\Doubles\RateLimiterFactoryEspiao;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use App\Tests\Inteligencia\Support\CriaFixturesInteligenciaTrait;
@@ -257,6 +258,24 @@ final class AnaliseDaPastaControllerTest extends JusPrimeWebTestCase
         self::assertSame(0, $this->linhasDaPasta((int) $pasta->getId()));
     }
 
+    #[TestDox('M1: pasta recém-criada (sem processo, cliente, meta ou dado financeiro) → 409 sem_dados para Gestor, Relatórios e Cliente')]
+    public function testPastaVaziaEhSemDadosParaQuemLeFinanceiro(): void
+    {
+        $client = $this->cliente();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta = $this->criarPasta($tenant);
+        $this->ligarIaNoTenant($tenant, $user);
+        $this->logarComTenant($client, $user, $tenant);
+
+        foreach (['gestor', 'relatorios', 'cliente'] as $agente) {
+            $this->solicitar($client, (int) $pasta->getId(), $agente);
+
+            self::assertResponseStatusCodeSame(409, $agente);
+            self::assertSame('sem_dados', $this->json($client)['motivo'], $agente);
+        }
+        self::assertSame(0, $this->linhasDaPasta((int) $pasta->getId()));
+    }
+
     #[TestDox('processo em segredo de justiça → 409 contexto_bloqueado, nada persistido')]
     public function testSigilo(): void
     {
@@ -407,6 +426,55 @@ final class AnaliseDaPastaControllerTest extends JusPrimeWebTestCase
         self::assertSame(1, $cartaoGestor->filter('.ia-menu [data-ia-criar-meta]')->count());
         self::assertSame(1, $cartaoGestor->filter('form[data-ia-acao="interna"]')->count());
         self::assertSame($prazos->getId(), (int) $crawler->filter('.ia-agente[data-ia-agente="prazos"] .ia-cartao')->attr('data-ia-analise'));
+    }
+
+    #[TestDox('M3: o painel traz as N mais recentes de CADA agente — um agente com muitas análises não esconde os outros')]
+    public function testPainelLimitaPorAgente(): void
+    {
+        $client = $this->cliente();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $this->ligarIaNoTenant($tenant, $user);
+        $limite = ListarAnalisesDosAgentesUseCase::LIMITE_POR_AGENTE;
+        $doGestor = [];
+        for ($i = 0; $i < $limite + 3; ++$i) {
+            $a = $this->criarAnaliseDoAgentePendente($tenant, $user, $pasta, Agente::Gestor);
+            $this->concluirAnalise($a, 'Gestor ' . $i);
+            $doGestor[] = $a;
+        }
+        $dePrazos = $this->criarAnaliseDoAgentePendente($tenant, $user, $pasta, Agente::Prazos);
+        $this->concluirAnalise($dePrazos, 'Prazos.');
+        $this->logarComTenant($client, $user, $tenant);
+
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}/ia/agentes");
+
+        self::assertResponseIsSuccessful();
+        self::assertSame($limite, $crawler->filter('.ia-agente[data-ia-agente="gestor"] .ia-cartao')->count());
+        self::assertSame(1, $crawler->filter('.ia-agente[data-ia-agente="prazos"] .ia-cartao')->count(), 'Prazos aparece mesmo com o Gestor lotado');
+        self::assertSame((string) $dePrazos->getId(), $crawler->filter('.ia-agente[data-ia-agente="prazos"] .ia-cartao')->attr('data-ia-analise'));
+        // As mais recentes ficam; a mais antiga do Gestor é a que sai.
+        self::assertSame(0, $crawler->filter('.ia-cartao[data-ia-analise="' . $doGestor[0]->getId() . '"]')->count());
+        self::assertSame(1, $crawler->filter('.ia-cartao[data-ia-analise="' . $doGestor[$limite + 2]->getId() . '"]')->count());
+    }
+
+    #[TestDox('M4: a lista do Push (inteligencia_push_listar) NÃO mostra análise de agente')]
+    public function testListaDoPushNaoMostraAnaliseDeAgente(): void
+    {
+        $client = $this->cliente();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $this->ligarIaNoTenant($tenant, $user);
+        $doAgente = $this->criarAnaliseDoAgentePendente($tenant, $user, $pasta, Agente::Gestor);
+        $this->concluirAnalise($doAgente, 'Resumo do Agente Gestor.');
+        $this->logarComTenant($client, $user, $tenant);
+
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}/ia/push/analises");
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(0, $crawler->filter('.ps-ia-cartao')->count());
+        self::assertSame('0', $crawler->filter('.ps-ia-lista')->attr('data-ia-tem-concluida'));
+        self::assertStringNotContainsString('Resumo do Agente Gestor.', (string) $client->getResponse()->getContent());
+        self::assertSame(1, $this->linhasDaPasta((int) $pasta->getId(), 'gestor'), 'a análise existe, só não é do Push');
     }
 
     #[TestDox('GET lista de UM agente só traz as dele, e a excluída some')]

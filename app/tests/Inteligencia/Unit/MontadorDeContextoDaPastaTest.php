@@ -31,9 +31,12 @@ use App\Tests\Inteligencia\Support\DefineId;
 use App\Tests\Inteligencia\Support\FonteDeDadosDaPastaFalsa;
 use App\Tests\Inteligencia\Support\FonteDeMovimentacoesFalsa;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Psr\Clock\ClockInterface;
+use Symfony\Component\Clock\MockClock;
 
 /**
  * O que sai do escritório quando um agente é acionado — e o que NÃO sai: documentos/contatos do
@@ -223,7 +226,8 @@ final class MontadorDeContextoDaPastaTest extends TestCase
         return $p;
     }
 
-    private function sut(): MontadorDeContextoDaPasta
+    /** Relógio fixo em "hoje" (os prazos das fixtures são relativos ao dia real). */
+    private function sut(?ClockInterface $relogio = null): MontadorDeContextoDaPasta
     {
         $mascarador = new MascaradorDeDadosPessoais();
 
@@ -233,6 +237,7 @@ final class MontadorDeContextoDaPastaTest extends TestCase
             new MontadorDeContextoDoPush($this->movimentacoes, $this->configuracoes, $mascarador),
             $this->configuracoes,
             $mascarador,
+            $relogio ?? new MockClock(new \DateTimeImmutable('today')),
         );
     }
 
@@ -504,6 +509,105 @@ final class MontadorDeContextoDaPastaTest extends TestCase
         self::assertTrue($contexto->vazio());
         self::assertSame(0, $contexto->totalDeItens());
         self::assertNotSame('', $contexto->cabecalho['pasta'], 'o cabeçalho existe mesmo assim');
+    }
+
+    /** @return iterable<string, array{Agente}> */
+    public static function agentesQueLeemFinanceiro(): iterable
+    {
+        yield 'gestor' => [Agente::Gestor];
+        yield 'relatorios' => [Agente::Relatorios];
+        yield 'cliente' => [Agente::Cliente];
+    }
+
+    #[DataProvider('agentesQueLeemFinanceiro')]
+    #[TestDox('M1: pasta vazia (contrato PENDENTE padrão, sem valor da causa, sem pagamento) é contexto VAZIO para $_dataName, mesmo com financeiro liberado')]
+    public function testPastaVaziaEhVaziaMesmoComFinanceiro(Agente $agente): void
+    {
+        $pasta = new Pasta();
+        $pasta->setTenant($this->tenant);
+        $pasta->setNup('77');
+        DefineId::em($pasta, 77);
+        $this->movimentacoes->publicacoes = [];
+        $this->dados = new FonteDeDadosDaPastaFalsa();
+
+        $contexto = $this->sut()->para($this->tenant, $pasta, $agente, true);
+
+        self::assertTrue($contexto->vazio(), 'o cadastro padrão do financeiro não é dado');
+        self::assertSame([], self::secao($contexto, SecaoDoContexto::Financeiro)->linhas);
+        self::assertSame(0, $contexto->resumo()['total']);
+    }
+
+    #[TestDox('valor da causa (ou pró-bono, ou pagamento) informado → a linha de cadastro do financeiro existe')]
+    public function testCadastroDoFinanceiroEntraQuandoHaDado(): void
+    {
+        $pasta = new Pasta();
+        $pasta->setTenant($this->tenant);
+        $pasta->setNup('78');
+        DefineId::em($pasta, 78);
+        $this->movimentacoes->publicacoes = [];
+        $this->dados = new FonteDeDadosDaPastaFalsa();
+
+        $pasta->setValorCausa('100.00');
+        $comValor = $this->sut()->para($this->tenant, $pasta, Agente::Gestor, true);
+        self::assertFalse($comValor->vazio());
+        self::assertStringContainsString('valor da causa: R$ 100.00', self::secao($comValor, SecaoDoContexto::Financeiro)->linhas[0]);
+
+        $pasta->setValorCausa(null);
+        $pasta->setProBono(true);
+        $proBono = $this->sut()->para($this->tenant, $pasta, Agente::Gestor, true);
+        self::assertStringContainsString('pró-bono: sim', self::secao($proBono, SecaoDoContexto::Financeiro)->linhas[0]);
+    }
+
+    #[TestDox('M2: o MESMO dado em dois dias diferentes dá o MESMO hash — só o texto relativo do prompt muda')]
+    public function testHashEstavelEntreDias(): void
+    {
+        $this->dados->tarefas = [$this->tarefa('Protocolar réplica', '2026-10-20'), $this->tarefa('Antiga', '2026-09-01')];
+
+        $dia1 = $this->sut(new MockClock(new \DateTimeImmutable('2026-10-05')))->para($this->tenant, $this->pasta, Agente::Gestor, true);
+        $dia2 = $this->sut(new MockClock(new \DateTimeImmutable('2026-10-12')))->para($this->tenant, $this->pasta, Agente::Gestor, true);
+
+        $metas1 = self::secao($dia1, SecaoDoContexto::Metas)->linhas;
+        $metas2 = self::secao($dia2, SecaoDoContexto::Metas)->linhas;
+        self::assertStringContainsString('vence em 15 dia(s)', $metas1[0]);
+        self::assertStringContainsString('vence em 8 dia(s)', $metas2[0]);
+        self::assertStringContainsString('ATRASADA 34 dia(s)', $metas1[1]);
+        self::assertStringContainsString('ATRASADA 41 dia(s)', $metas2[1]);
+        self::assertNotSame($metas1, $metas2, 'o prompt muda com o dia…');
+        self::assertSame($dia1->hash, $dia2->hash, '…o hash não');
+        self::assertSame(self::secao($dia1, SecaoDoContexto::Metas)->assinaturas, self::secao($dia2, SecaoDoContexto::Metas)->assinaturas);
+        self::assertStringContainsString(':2026-10-20:', self::secao($dia1, SecaoDoContexto::Metas)->assinaturas[0], 'a assinatura leva a data absoluta');
+    }
+
+    #[TestDox('M2: a equipe do escritório mudar não muda o hash; o responsável da pasta mudar, muda')]
+    public function testHashIgnoraEquipeMasNaoOResponsavel(): void
+    {
+        $antes = $this->sut()->para($this->tenant, $this->pasta, Agente::Gestor, true);
+
+        $this->movimentacoes->equipe = ['Dra. Ana', 'Dr. Bruno', 'Dra. Carla'];
+        $comEquipeNova = $this->sut()->para($this->tenant, $this->pasta, Agente::Gestor, true);
+        self::assertNotSame($antes->cabecalho['equipe'], $comEquipeNova->cabecalho['equipe']);
+        self::assertSame($antes->hash, $comEquipeNova->hash);
+
+        $this->pasta->setResponsavel(null);
+        $semResponsavel = $this->sut()->para($this->tenant, $this->pasta, Agente::Gestor, true);
+        self::assertNotSame($antes->hash, $semResponsavel->hash);
+    }
+
+    #[TestDox('M2: toda linha tem a sua assinatura (uma por linha, inclusive depois do corte de orçamento)')]
+    public function testAssinaturasUmaPorLinha(): void
+    {
+        $this->movimentacoes->publicacoes = [];
+        for ($i = 1; $i <= MontadorDeContextoDaPasta::LIMITE_MOVIMENTACOES; ++$i) {
+            $this->movimentacoes->publicacoes[] = $this->publicacao(100 + $i, str_repeat('x', MontadorDeContextoDoPush::TAMANHO_MAXIMO_DO_ITEM));
+        }
+
+        $contexto = $this->sut()->para($this->tenant, $this->pasta, Agente::Gestor, true);
+
+        foreach ($contexto->secoes as $secao) {
+            self::assertCount(count($secao->linhas), $secao->assinaturas, $secao->secao->value);
+        }
+        self::assertMatchesRegularExpression('/^pub:\d+:x/', self::secao($contexto, SecaoDoContexto::Movimentacoes)->assinaturas[0]);
+        self::assertStringStartsWith('cliente:5:', self::secao($contexto, SecaoDoContexto::Clientes)->assinaturas[0]);
     }
 
     #[TestDox('sem responsável e sem processo o cabeçalho diz isso em vez de inventar')]
