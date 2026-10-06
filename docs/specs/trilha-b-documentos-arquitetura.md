@@ -111,5 +111,5 @@ E (não implementar): DOC-39 (Chat I.A), DOC-52 (D-LIBRE), DOC-78 (rótulo ✦/"
 | L5 | ✅ integrado | 06b0743e + fba70be0 + 9fa007c1 + 690f3889 | revisão Fable em 3 rodadas (teclado fora da lista, arraste da seleção no Manual, supressão de clique pós-toque longo); "Mover para…" fora da barra (dc) e no menu de contexto; "Editar…" no menu; `#pexInputModal` removido (criar/renomear inline). Smoke do dono em 375px obrigatório |
 | L6-backend | ✅ integrado | 0514a281 | revisão Opus sem bloqueante; migration `Version20261007010000`; **exceção à auditoria**: favorito é preferência pessoal, não auditado (precedente `PastaFavorita`, `NAO_AUDITAVEIS`) |
 | L6-UI | ⏳ após L10 | — | estrela, sobem ao topo, toast |
-| L10 | ⏳ em andamento | — | |
+| L10 | ✅ integrado | 2fc2e6e8 + c695e8ba + (teste) | revisão Opus sem bloqueante; `visualizador-documento.css` com escopo `:is(#previewDocModal, .pex-visor)` e alturas em variável (o modal antigo não muda); impressão de PDF e zoom no Firefox SÓ provados no smoke do dono; imprimir em tipo não suportado usa `aria-disabled` com aviso (spec dizia desabilitado) |
 | L11 | ✅ integrado | 52ea12b6 + 81e258a0 + 6fff94ca | revisão Fable: 6 achados corrigidos e re-revisados; migration `Version20261007000000` aplicada em saas_ux e saas_test; enum de auditoria passa a gravar o `->value` (vale para os 36 enums auditados) |
