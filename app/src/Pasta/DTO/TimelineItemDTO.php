@@ -19,5 +19,12 @@ final readonly class TimelineItemDTO
         public ?int $usuarioId = null,
         public ?int $metaId = null,
         public ?string $metaTitulo = null,
+        // ── "Responder" (só mensagens da pasta) ──
+        /** @var TimelineItemDTO[] respostas penduradas nesta raiz, da mais antiga à mais nova */
+        public array $respostas = [],
+        public bool $ehResposta = false,
+        public ?int $respostaAId = null,
+        // Autor da raiz respondida; null numa resposta cuja original foi excluída.
+        public ?string $respostaANome = null,
     ) {}
 }

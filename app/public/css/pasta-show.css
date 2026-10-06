@@ -1322,6 +1322,87 @@ span.ps-situacao-pill { cursor: default; }
 .ps-registro .ps-anotacao-edicao { flex: 1; min-width: 0; }
 .ps-registro .ps-anotacao-edicao .ps-btn { height: 30px; }
 
+/* ── Responder (desenho 1.2.3) ──
+   A resposta fica recuada 36px sob a raiz (`.ps-respostas`), com a faixa
+   "Resposta a NOME" no topo do cartao e, no lugar do ponto, o "L" que a liga a
+   linha do tempo. O compositor de cima ganha a faixa "Respondendo a NOME". */
+.ps-anotacoes {
+    --ps-resp-faixa-bg: #e6f0f6;
+    --ps-resp-faixa-bd: #b9d2e2;
+    --ps-resp-faixa-tx: #0b5f86;
+    --ps-resp-elo:      #b9cfdc;
+    --ps-resp-botao:    #7fb3cf;
+    --ps-resp-botao-hv: #0a7aad;
+}
+[data-bs-theme="dark"] .ps-anotacoes {
+    --ps-resp-faixa-bg: rgba(10,122,173,.18);
+    --ps-resp-faixa-bd: rgba(10,122,173,.45);
+    --ps-resp-faixa-tx: #8cc6e3;
+    --ps-resp-elo:      rgba(140,198,227,.45);
+    --ps-resp-botao:    #7fb3cf;
+    --ps-resp-botao-hv: #0a7aad;
+}
+.ps-registro .ps-respostas { margin-left: 36px; }
+.ps-registro .ps-anotacao-resposta-rot {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin: -12px -16px 10px;
+    padding: 6px 16px;
+    background: var(--ps-resp-faixa-bg);
+    border: 1px solid var(--ps-resp-faixa-bd);
+    border-radius: 4px 4px 0 0;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--ps-resp-faixa-tx);
+}
+.ps-registro .ps-anotacao-resposta-rot .bi { font-size: 12px; }
+/* O elo da resposta: um "L" de 15x28 que sai da raiz, no lugar do ponto. */
+.ps-registro .ps-respostas > .ps-anotacao--resposta > .ps-anotacao-ponto {
+    left: -22px;
+    top: -10px;
+    width: 15px;
+    height: 28px;
+    border: none;
+    border-left: 2px solid var(--ps-resp-elo);
+    border-bottom: 2px solid var(--ps-resp-elo);
+    border-radius: 0 0 0 8px;
+    box-shadow: none;
+    background: transparent;
+}
+.ps-registro .ps-anotacao-acao--responder { color: var(--ps-resp-botao); font-size: 15px; }
+.ps-registro .ps-anotacao-acao--responder:hover,
+.ps-registro .ps-anotacao-acao--responder:focus-visible { background: var(--ps-resp-botao-hv); color: #fff; }
+
+.ps-compositor-respondendo {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+    padding: 6px 10px;
+    background: var(--ps-resp-faixa-bg);
+    border: 1px solid var(--ps-resp-faixa-bd);
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--ps-resp-faixa-tx);
+}
+.ps-compositor-respondendo-cancelar {
+    padding: 0;
+    border: none;
+    background: transparent;
+    font: inherit;
+    letter-spacing: inherit;
+    text-transform: inherit;
+    color: inherit;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
 /* Estrutura ANTIGA da anotacao (observacoes do Financeiro, Twig + JS): avatar a
    esquerda, corpo com topo (autor, data, acoes no hover) e texto. Fica como era
    antes da A4 — a aba Financeiro nao se reorganiza nesta trilha (A6). */

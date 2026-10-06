@@ -14,9 +14,14 @@
    novo é montado LÁ, em JS (`inserirMensagem`), com a MESMA estrutura daqui:
    mudou aqui, muda lá — senão o registro recém-enviado aparece com outra cara.
 
-   O que o desenho mostra e é função nova NÃO aparece: responder, encaminhar
-   via Chat I.A, destacar, etiqueta do registro, presença do autor, janela de
-   edição de 15 minutos — essa agora existe: `comentario_editavel` / "· N min".
+   O que o desenho mostra e é função nova NÃO aparece: encaminhar via Chat I.A,
+   destacar, etiqueta do registro, presença do autor. Já existem: a janela de
+   edição de 15 minutos (`comentario_editavel` / "· N min") e o RESPONDER — a
+   resposta fica recuada sob a raiz (`.ps-respostas[data-resposta-de]`), com a
+   faixa "Resposta a NOME"; um nível só (responder a uma resposta liga à raiz).
+   Os ids #timelineRespostaA, #timelineRespondendo, #timelineRespondendoNome,
+   #timelineRespondendoCancelar e a classe .btn-responder-msg-pasta também são
+   contrato com o JS do show.html.twig.
 
    Contexto: `pasta`, `anotacoes` (TimelineItemDTO do tipo MENSAGEM),
    `fotosResponsaveis` (mapa userId => url, herdado do show).
@@ -26,6 +31,8 @@
 <link rel="stylesheet" href="{{ asset('css/editor-rico.css') }}">
 <script src="{{ asset('js/quill/quill.js') }}"></script>
 <script src="{{ asset('js/editor-rico.js') }}" defer></script>
+
+{% import _self as registro %}
 
 {% set visiveis = 4 %}
 {# A pílula do dia é "5 out 2026" (desenho); o mês abreviado em português, que o
@@ -43,6 +50,14 @@
     <div class="ps-compositor">
         <form id="formTimelineMensagem">
             <input type="hidden" name="_token" value="{{ csrf_token('pasta_mensagem_' ~ pasta.id) }}">
+            {# "Responder" usa ESTE compositor: o botão do cartão preenche o id da raiz e acende a faixa. #}
+            <input type="hidden" name="resposta_a" id="timelineRespostaA" value="">
+            <div class="ps-compositor-respondendo d-none" id="timelineRespondendo">
+                <i class="bi bi-reply-fill" aria-hidden="true"></i>
+                <span>Respondendo a <span id="timelineRespondendoNome"></span></span>
+                <span aria-hidden="true">·</span>
+                <button type="button" class="ps-compositor-respondendo-cancelar" id="timelineRespondendoCancelar">cancelar</button>
+            </div>
             <div class="ps-compositor-caixa">
                 <textarea name="conteudo"
                           id="timelineConteudo"
@@ -74,20 +89,12 @@
         {% else %}
             {% set diaAnterior = null %}
             {% for item in anotacoes %}
-                {% set autor = item.autorNome ?? item.autorEmail ?? '' %}
-                {% set partes = autor|trim|split(' ')|filter(p => p is not empty) %}
-                {% set iniciais = partes|length > 0
-                    ? (partes|first|slice(0, 1) ~ (partes|length > 1 ? partes|last|slice(0, 1) : ''))|upper
-                    : '?' %}
-                {% set foto = item.usuarioId ? fotos[item.usuarioId]|default(null) : null %}
-                {# Autor, dentro da janela de 15 min: as mesmas condições do endpoint (o prazo vem
-                   do MESMO serviço que o UseCase usa — `JanelaDeEdicaoDeComentario`). #}
-                {% set podeGerenciar = item.mensagemId and app.user and item.usuarioId == app.user.id and comentario_editavel(item.dataHora) %}
                 {% set extra = loop.index0 >= visiveis %}
                 {% set dia = item.dataHora|date('Y-m-d') %}
 
                 {# A pílula do dia precede o primeiro registro daquele dia e some junto
-                   com ele quando ele está entre os "anteriores" (mesma classe `--extra`). #}
+                   com ele quando ele está entre os "anteriores" (mesma classe `--extra`).
+                   Respostas não abrem dia: a linha do tempo é datada só pelas raízes. #}
                 {% if dia != diaAnterior %}
                     <div class="ps-dia{{ extra ? ' ps-anotacao--extra d-none' : '' }}" data-dia="{{ dia }}">
                         <span class="ps-dia-pilula">{{ item.dataHora|date('j') }} {{ meses[item.dataHora|date('n') - 1] }} {{ item.dataHora|date('Y') }}</span>
@@ -95,51 +102,17 @@
                     {% set diaAnterior = dia %}
                 {% endif %}
 
-                <article class="ps-anotacao{{ extra ? ' ps-anotacao--extra d-none' : '' }}"
-                         {% if item.mensagemId %}id="pasta-msg-{{ item.mensagemId }}"{% endif %}>
-                    <span class="ps-anotacao-ponto" aria-hidden="true"></span>
-                    <span class="ps-anotacao-seta" aria-hidden="true"></span>
-                    <div class="ps-anotacao-topo">
-                        <span class="ps-avatar ps-avatar--24">{% if foto %}<img src="{{ foto }}" alt="">{% else %}{{ iniciais }}{% endif %}</span>
-                        <span class="ps-anotacao-autor">{{ autor ?: 'Autor desconhecido' }}</span>
-                        {% if item.editadoEm %}
-                            <span class="ps-anotacao-editado pasta-msg-editado" title="Editado em {{ item.editadoEm|date('d/m/Y H:i') }}">editado</span>
-                        {% endif %}
-                        <span class="ps-cab-espaco"></span>
-                        {% if podeGerenciar %}
-                            <span class="ps-anotacao-acoes">
-                                <button type="button"
-                                        class="ps-anotacao-acao btn-editar-msg-pasta"
-                                        title="Editar registro" aria-label="Editar registro"
-                                        data-msg-id="{{ item.mensagemId }}"
-                                        data-conteudo="{{ item.detalhe|e('html_attr') }}"
-                                        data-csrf="{{ csrf_token('pasta_mensagem_editar_' ~ item.mensagemId) }}"
-                                        data-url="{{ path('pasta_editar_mensagem', {id: pasta.id, msgId: item.mensagemId}) }}">
-                                    <i class="bi bi-pencil"></i>
-                                </button>
-                                <button type="button"
-                                        class="ps-anotacao-acao ps-anotacao-acao--perigo btn-excluir-msg-pasta"
-                                        title="Excluir registro" aria-label="Excluir registro"
-                                        data-msg-id="{{ item.mensagemId }}"
-                                        data-csrf="{{ csrf_token('pasta_mensagem_excluir_' ~ item.mensagemId) }}"
-                                        data-url="{{ path('pasta_excluir_mensagem', {id: pasta.id, msgId: item.mensagemId}) }}">
-                                    <i class="bi bi-trash3"></i>
-                                </button>
-                                {% set minRest = comentario_minutos_restantes(item.dataHora) %}
-                                <span class="ps-anotacao-janela small" style="color: var(--ps-label);" title="Edição e exclusão liberadas por mais {{ minRest }} min">· {{ minRest }} min</span>
-                            </span>
-                        {% endif %}
-                        {# Só a hora: o dia está na pílula acima. O title traz a data inteira. #}
-                        <span class="ps-anotacao-data ps-num" title="{{ item.dataHora|date('d/m/Y H:i') }}">{{ item.dataHora|date('H:i') }}</span>
+                {{ registro.cartao(item, null, pasta, fotos, extra) }}
+
+                {# As respostas, recuadas sob a raiz, da mais antiga à mais nova. Escondem e
+                   aparecem junto com a raiz (mesma classe `--extra`). #}
+                {% if item.respostas|length > 0 %}
+                    <div class="ps-respostas{{ extra ? ' ps-anotacao--extra d-none' : '' }}" data-resposta-de="{{ item.mensagemId }}">
+                        {% for resposta in item.respostas %}
+                            {{ registro.cartao(resposta, item, pasta, fotos, false) }}
+                        {% endfor %}
                     </div>
-                    <div class="ps-anotacao-corpo">
-                        <i class="bi bi-megaphone-fill ps-anotacao-icone" aria-hidden="true"></i>
-                        <div class="ps-anotacao-texto pasta-msg-conteudo">
-                            {# Escrito por uma pessoa no editor rico: HTML já sanitizado no servidor. #}
-                            <span class="editor-rico-conteudo"><span class="ql-editor">{{ item.detalhe|texto_rico }}</span></span>
-                        </div>
-                    </div>
-                </article>
+                {% endif %}
             {% endfor %}
         {% endif %}
     </div>
@@ -150,3 +123,90 @@
         </button>
     {% endif %}
 </section>
+
+{#
+   Um cartão do registro. `raiz` é o item respondido quando o cartão é uma
+   resposta pendurada nele (null para a raiz e para a resposta solta — a órfã,
+   cuja original foi excluída, ou a que responde a algo fora do limite).
+#}
+{% macro cartao(item, raiz, pasta, fotos, extra) %}
+    {% set autor = item.autorNome ?? item.autorEmail ?? '' %}
+    {% set partes = autor|trim|split(' ')|filter(p => p is not empty) %}
+    {% set iniciais = partes|length > 0
+        ? (partes|first|slice(0, 1) ~ (partes|length > 1 ? partes|last|slice(0, 1) : ''))|upper
+        : '?' %}
+    {% set foto = item.usuarioId ? fotos[item.usuarioId]|default(null) : null %}
+    {# Autor, dentro da janela de 15 min: as mesmas condições do endpoint (o prazo vem
+       do MESMO serviço que o UseCase usa — `JanelaDeEdicaoDeComentario`). Vale igual
+       para a resposta. #}
+    {% set podeGerenciar = item.mensagemId and app.user and item.usuarioId == app.user.id and comentario_editavel(item.dataHora) %}
+    {# Responder a uma resposta liga à RAIZ dela (um nível só), como no desenho. #}
+    {% set alvoId = raiz ? raiz.mensagemId : item.mensagemId %}
+    {% set alvoNome = raiz ? (raiz.autorNome ?? raiz.autorEmail ?? '') : autor %}
+    {# Resposta de outro dia que não o da raiz: a hora leva o dia junto ("06/10 · 09:12"). #}
+    {% set horaRotulo = (raiz and item.dataHora|date('Y-m-d') != raiz.dataHora|date('Y-m-d'))
+        ? item.dataHora|date('d/m') ~ ' · ' ~ item.dataHora|date('H:i')
+        : item.dataHora|date('H:i') %}
+
+    <article class="ps-anotacao{{ item.ehResposta ? ' ps-anotacao--resposta' : '' }}{{ extra ? ' ps-anotacao--extra d-none' : '' }}"
+             {% if item.mensagemId %}id="pasta-msg-{{ item.mensagemId }}"{% endif %}>
+        {% if item.ehResposta %}
+            {# O desenho grava o rótulo em caixa alta; quem põe em maiúsculas é o CSS. #}
+            <div class="ps-anotacao-resposta-rot">
+                <i class="bi bi-reply-fill" aria-hidden="true"></i>
+                <span>{% if item.respostaANome is not null %}Resposta a {{ item.respostaANome }}{% else %}Resposta a uma mensagem excluída{% endif %}</span>
+            </div>
+        {% endif %}
+        <span class="ps-anotacao-ponto" aria-hidden="true"></span>
+        <span class="ps-anotacao-seta" aria-hidden="true"></span>
+        <div class="ps-anotacao-topo">
+            <span class="ps-avatar ps-avatar--24">{% if foto %}<img src="{{ foto }}" alt="">{% else %}{{ iniciais }}{% endif %}</span>
+            <span class="ps-anotacao-autor">{{ autor ?: 'Autor desconhecido' }}</span>
+            {% if item.editadoEm %}
+                <span class="ps-anotacao-editado pasta-msg-editado" title="Editado em {{ item.editadoEm|date('d/m/Y H:i') }}">editado</span>
+            {% endif %}
+            <span class="ps-cab-espaco"></span>
+            {% if podeGerenciar %}
+                <span class="ps-anotacao-acoes">
+                    <button type="button"
+                            class="ps-anotacao-acao btn-editar-msg-pasta"
+                            title="Editar registro" aria-label="Editar registro"
+                            data-msg-id="{{ item.mensagemId }}"
+                            data-conteudo="{{ item.detalhe|e('html_attr') }}"
+                            data-csrf="{{ csrf_token('pasta_mensagem_editar_' ~ item.mensagemId) }}"
+                            data-url="{{ path('pasta_editar_mensagem', {id: pasta.id, msgId: item.mensagemId}) }}">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button type="button"
+                            class="ps-anotacao-acao ps-anotacao-acao--perigo btn-excluir-msg-pasta"
+                            title="Excluir registro" aria-label="Excluir registro"
+                            data-msg-id="{{ item.mensagemId }}"
+                            data-csrf="{{ csrf_token('pasta_mensagem_excluir_' ~ item.mensagemId) }}"
+                            data-url="{{ path('pasta_excluir_mensagem', {id: pasta.id, msgId: item.mensagemId}) }}">
+                        <i class="bi bi-trash3"></i>
+                    </button>
+                    {% set minRest = comentario_minutos_restantes(item.dataHora) %}
+                    <span class="ps-anotacao-janela small" style="color: var(--ps-label);" title="Edição e exclusão liberadas por mais {{ minRest }} min">· {{ minRest }} min</span>
+                </span>
+            {% endif %}
+            {% if alvoId %}
+                <button type="button"
+                        class="ps-anotacao-acao ps-anotacao-acao--responder btn-responder-msg-pasta"
+                        title="Responder" aria-label="Responder"
+                        data-resposta-a="{{ alvoId }}"
+                        data-resposta-nome="{{ alvoNome ?: 'Autor desconhecido' }}">
+                    <i class="bi bi-reply-fill"></i>
+                </button>
+            {% endif %}
+            {# Só a hora: o dia está na pílula acima. O title traz a data inteira. #}
+            <span class="ps-anotacao-data ps-num" title="{{ item.dataHora|date('d/m/Y H:i') }}">{{ horaRotulo }}</span>
+        </div>
+        <div class="ps-anotacao-corpo">
+            <i class="bi bi-megaphone-fill ps-anotacao-icone" aria-hidden="true"></i>
+            <div class="ps-anotacao-texto pasta-msg-conteudo">
+                {# Escrito por uma pessoa no editor rico: HTML já sanitizado no servidor. #}
+                <span class="editor-rico-conteudo"><span class="ql-editor">{{ item.detalhe|texto_rico }}</span></span>
+            </div>
+        </div>
+    </article>
+{% endmacro %}

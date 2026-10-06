@@ -16,6 +16,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ORM\Table(name: 'pasta_mensagem')]
 #[ORM\Index(name: 'idx_pasta_mensagem_pasta_id', columns: ['pasta_id'])]
 #[ORM\Index(name: 'idx_pasta_mensagem_tenant', columns: ['tenant_id'])]
+#[ORM\Index(name: 'idx_pasta_mensagem_resposta_a', columns: ['resposta_a_id'])]
 class PastaMensagem implements Auditavel, TenantAware
 {
     #[ORM\Id]
@@ -44,6 +45,25 @@ class PastaMensagem implements Auditavel, TenantAware
 
     #[ORM\Column(name: 'editada_em', type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $editadaEm = null;
+
+    /**
+     * O registro RAIZ que esta mensagem responde (desenho 1.2.3: "Resposta a X").
+     *
+     * A conversa tem UM nível só: responder a uma resposta aponta para a raiz dela
+     * (quem garante é o `EnviarMensagemPastaUseCase`). `SET NULL` porque excluir a
+     * original não apaga o que os outros responderam.
+     */
+    #[ORM\ManyToOne(targetEntity: self::class)]
+    #[ORM\JoinColumn(name: 'resposta_a_id', referencedColumnName: 'id', nullable: true, onDelete: 'SET NULL')]
+    private ?PastaMensagem $respostaA = null;
+
+    /**
+     * Marca que a mensagem NASCEU como resposta. Existe porque o `SET NULL` apaga o
+     * vínculo quando a original é excluída: sem esta marca, a resposta órfã viraria
+     * um registro comum e a tela não teria como dizer "Resposta a uma mensagem excluída".
+     */
+    #[ORM\Column(name: 'eh_resposta', type: 'boolean', options: ['default' => false])]
+    private bool $ehResposta = false;
 
     public function __construct()
     {
@@ -114,6 +134,36 @@ class PastaMensagem implements Auditavel, TenantAware
         $this->editadaEm = $editadaEm;
 
         return $this;
+    }
+
+    public function getRespostaA(): ?PastaMensagem
+    {
+        return $this->respostaA;
+    }
+
+    /**
+     * Liga a mensagem ao registro que ela responde. Uma vez resposta, sempre
+     * resposta: desligar (`null`) não desfaz a marca `ehResposta`.
+     */
+    public function setRespostaA(?PastaMensagem $respostaA): self
+    {
+        $this->respostaA = $respostaA;
+        if ($respostaA !== null) {
+            $this->ehResposta = true;
+        }
+
+        return $this;
+    }
+
+    public function isResposta(): bool
+    {
+        return $this->ehResposta;
+    }
+
+    /** Resposta cuja original foi excluída (o vínculo caiu pelo `SET NULL`). */
+    public function isRespostaOrfa(): bool
+    {
+        return $this->ehResposta && $this->respostaA === null;
     }
 
     /**

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Pasta\Service;
 
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PastaMensagem;
 use App\Pasta\Entity\PrioridadePasta;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Tenant;
@@ -63,20 +64,8 @@ class PastaTimelineAssembler
         $items = [];
 
         if ($tenant !== null) {
-            foreach ($this->mensagemRepository->findByPasta($pasta, $tenant, $limit) as $msg) {
-                $items[] = new TimelineItemDTO(
-                    tipo:       TimelineItemType::MENSAGEM,
-                    dataHora:   $msg->getCriadaEm(),
-                    titulo:     'Mensagem',
-                    detalhe:    $msg->getConteudo(),
-                    autorNome:  $msg->getAutor()?->getFullName(),
-                    autorEmail: $msg->getAutor()?->getEmail(),
-                    icone:      'bi-chat-left-text',
-                    badgeCss:   'text-bg-info',
-                    mensagemId: $msg->getId(),
-                    editadoEm:  $msg->getEditadaEm(),
-                    usuarioId:  $msg->getAutor()?->getId(),
-                );
+            foreach ($this->agruparRespostas($this->mensagemRepository->findByPasta($pasta, $tenant, $limit)) as $item) {
+                $items[] = $item;
             }
         }
 
@@ -97,6 +86,80 @@ class PastaTimelineAssembler
         usort($items, static fn(TimelineItemDTO $a, TimelineItemDTO $b) => $b->dataHora <=> $a->dataHora);
 
         return array_slice($items, 0, $limit);
+    }
+
+    /**
+     * "Responder" (desenho 1.2.3): a resposta não entra na linha do tempo por conta própria —
+     * ela vai para debaixo da raiz, em ordem de criação, e não reordena, não conta nem data a
+     * raiz. A ordem das raízes é a que o repositório entregou.
+     *
+     * Vira item de primeiro nível a resposta que não tem a raiz à mão: a órfã (original
+     * excluída) e a que responde a uma raiz que ficou fora do limite da consulta.
+     *
+     * @param PastaMensagem[] $mensagens
+     * @return TimelineItemDTO[]
+     */
+    private function agruparRespostas(array $mensagens): array
+    {
+        $carregadas = [];
+        foreach ($mensagens as $msg) {
+            if ($msg->getId() !== null) {
+                $carregadas[$msg->getId()] = true;
+            }
+        }
+
+        $raizes           = [];
+        $respostasPorRaiz = [];
+        foreach ($mensagens as $msg) {
+            $raizId = $msg->getRespostaA()?->getId();
+            if ($raizId !== null && isset($carregadas[$raizId])) {
+                $respostasPorRaiz[$raizId][] = $msg;
+                continue;
+            }
+            $raizes[] = $msg;
+        }
+
+        $itens = [];
+        foreach ($raizes as $msg) {
+            $respostas = $msg->getId() !== null ? ($respostasPorRaiz[$msg->getId()] ?? []) : [];
+            usort(
+                $respostas,
+                static fn (PastaMensagem $a, PastaMensagem $b) => [$a->getCriadaEm(), $a->getId()] <=> [$b->getCriadaEm(), $b->getId()],
+            );
+
+            $itens[] = $this->mensagemParaItem(
+                $msg,
+                array_map(fn (PastaMensagem $r) => $this->mensagemParaItem($r), $respostas),
+            );
+        }
+
+        return $itens;
+    }
+
+    /**
+     * @param TimelineItemDTO[] $respostas
+     */
+    private function mensagemParaItem(PastaMensagem $msg, array $respostas = []): TimelineItemDTO
+    {
+        $raiz = $msg->getRespostaA();
+
+        return new TimelineItemDTO(
+            tipo:          TimelineItemType::MENSAGEM,
+            dataHora:      $msg->getCriadaEm(),
+            titulo:        'Mensagem',
+            detalhe:       $msg->getConteudo(),
+            autorNome:     $msg->getAutor()?->getFullName(),
+            autorEmail:    $msg->getAutor()?->getEmail(),
+            icone:         'bi-chat-left-text',
+            badgeCss:      'text-bg-info',
+            mensagemId:    $msg->getId(),
+            editadoEm:     $msg->getEditadaEm(),
+            usuarioId:     $msg->getAutor()?->getId(),
+            respostas:     $respostas,
+            ehResposta:    $msg->isResposta(),
+            respostaAId:   $raiz?->getId(),
+            respostaANome: $raiz !== null ? ($raiz->getAutor()?->getFullName() ?? $raiz->getAutor()?->getEmail()) : null,
+        );
     }
 
     private function buildFromAuditRow(array $row): ?TimelineItemDTO

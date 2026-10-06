@@ -2960,10 +2960,39 @@ document.addEventListener('DOMContentLoaded', function () {
     const urlEnviar   = '{{ path("pasta_enviar_mensagem", {id: pasta.id}) }}';
     const urlEditarTpl  = '{{ path("pasta_editar_mensagem", {id: pasta.id, msgId: 0})|replace({"/0/": "/__ID__/"}) }}';
     const urlExcluirTpl = '{{ path("pasta_excluir_mensagem", {id: pasta.id, msgId: 0})|replace({"/0/": "/__ID__/"}) }}';
+    /* "Responder": o compositor de cima é o mesmo; a faixa "Respondendo a NOME · cancelar"
+       diz para quem vai, e o campo escondido leva o id da RAIZ ao servidor. */
+    const inputRespostaA   = document.getElementById('timelineRespostaA');
+    const faixaRespondendo = document.getElementById('timelineRespondendo');
+    const nomeRespondendo  = document.getElementById('timelineRespondendoNome');
+    const cancelarResposta = document.getElementById('timelineRespondendoCancelar');
+    const ROTULO_ORFA      = 'Resposta a uma mensagem excluída';
+
+    function responderA(id, nome) {
+        if (!inputRespostaA || !faixaRespondendo) { return; }
+        inputRespostaA.value = String(id);
+        if (nomeRespondendo) { nomeRespondendo.textContent = nome || 'Autor desconhecido'; }
+        faixaRespondendo.classList.remove('d-none');
+        const quill = window.EditorRico && EditorRico.instancia ? EditorRico.instancia(textarea) : null;
+        if (quill) { quill.focus(); } else if (textarea) { textarea.focus(); }
+        if (form) { form.scrollIntoView({ block: 'nearest' }); }
+    }
+
+    function pararDeResponder() {
+        if (inputRespostaA) { inputRespostaA.value = ''; }
+        if (faixaRespondendo) { faixaRespondendo.classList.add('d-none'); }
+        if (nomeRespondendo) { nomeRespondendo.textContent = ''; }
+    }
 
     {# Editar/excluir mensagem (autor, dentro da janela de 15 min — `JanelaDeEdicaoDeComentario`) — delegado na lista #}
     if (list) {
         list.addEventListener('click', async function (e) {
+            const btnResponder = e.target.closest('.btn-responder-msg-pasta');
+            if (btnResponder) {
+                responderA(btnResponder.dataset.respostaA, btnResponder.dataset.respostaNome);
+                return;
+            }
+
             const btnEditar = e.target.closest('.btn-editar-msg-pasta');
             if (btnEditar) {
                 const msgId = btnEditar.dataset.msgId;
@@ -3072,21 +3101,49 @@ document.addEventListener('DOMContentLoaded', function () {
                     });
                     if (resp.ok) {
                         const alvo = document.getElementById('pasta-msg-' + msgId);
+                        /* A contagem é só das raízes (as respostas não contam, como no desenho).
+                           Excluir a raiz: as respostas FICAM (o banco solta o vínculo) e passam a
+                           contar e a dizer "Resposta a uma mensagem excluída" — como ao recarregar. */
+                        let delta = 0;
                         if (alvo) {
+                            const thread = alvo.parentElement && alvo.parentElement.classList.contains('ps-respostas')
+                                ? alvo.parentElement : null;
+                            const ehRespostaPendurada = thread && !thread.classList.contains('ps-respostas--orfa');
+                            delta = ehRespostaPendurada ? 0 : -1;
+
+                            const minhas = !thread ? list.querySelector('.ps-respostas[data-resposta-de="' + msgId + '"]') : null;
+                            if (minhas) {
+                                minhas.classList.add('ps-respostas--orfa');
+                                minhas.removeAttribute('data-resposta-de');
+                                minhas.querySelectorAll(':scope > .ps-anotacao--resposta > .ps-anotacao-resposta-rot > span').forEach(function (rot) {
+                                    rot.textContent = ROTULO_ORFA;
+                                });
+                                /* Sem a raiz, responder a uma órfã liga a ela mesma (o servidor faz igual). */
+                                minhas.querySelectorAll(':scope > .ps-anotacao').forEach(function (orfa) {
+                                    const btn = orfa.querySelector('.btn-responder-msg-pasta');
+                                    if (!btn) { return; }
+                                    btn.dataset.respostaA    = orfa.id.replace('pasta-msg-', '');
+                                    btn.dataset.respostaNome = (orfa.querySelector('.ps-anotacao-autor') || {}).textContent || '';
+                                });
+                                delta += minhas.querySelectorAll(':scope > .ps-anotacao').length;
+                            }
+                            if (inputRespostaA && inputRespostaA.value === String(msgId)) { pararDeResponder(); }
+
                             /* A pílula do dia existe para o PRIMEIRO registro do dia: se ele era o
                                único, a pílula sai junto; sem registro nenhum, a lista volta ao
                                estado vazio (sem linha do tempo). */
                             const pilula  = alvo.previousElementSibling;
                             const seguinte = alvo.nextElementSibling;
                             alvo.remove();
-                            if (pilula && pilula.classList.contains('ps-dia') && (!seguinte || seguinte.classList.contains('ps-dia'))) {
+                            if (thread && !thread.querySelector('.ps-anotacao')) { thread.remove(); }
+                            if (!thread && pilula && pilula.classList.contains('ps-dia') && (!seguinte || seguinte.classList.contains('ps-dia'))) {
                                 pilula.remove();
                             }
                             const lista = document.getElementById('timelineList');
                             if (lista && !lista.querySelector('.ps-anotacao')) { lista.classList.add('ps-registro--vazio'); }
                         }
-                        if (countBadge) {
-                            countBadge.textContent = Math.max(0, parseInt(countBadge.textContent || '0', 10) - 1);
+                        if (countBadge && delta !== 0) {
+                            countBadge.textContent = Math.max(0, parseInt(countBadge.textContent || '0', 10) + delta);
                         }
                     } else {
                         const data = await resp.json();
@@ -3112,6 +3169,10 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     if (!form) { return; }
+
+    if (cancelarResposta) {
+        cancelarResposta.addEventListener('click', pararDeResponder);
+    }
 
     textarea.addEventListener('keydown', function (e) {
         if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
@@ -3146,11 +3207,13 @@ document.addEventListener('DOMContentLoaded', function () {
                 return;
             }
 
-            inserirMensagem(data);
+            const contaComoRegistro = inserirMensagem(data);
             // Limpa o editor (fonte da textarea); sem isso o texto enviado ficaria na tela.
             if (window.EditorRico) { EditorRico.limpar(textarea); } else { textarea.value = ''; }
+            pararDeResponder();
             if (vazioMsg) { vazioMsg.remove(); }
-            if (countBadge) {
+            // Resposta pendurada numa raiz não conta (desenho: a contagem é dos registros principais).
+            if (countBadge && contaComoRegistro) {
                 countBadge.textContent = parseInt(countBadge.textContent || '0', 10) + 1;
             }
         } catch (_) {
@@ -3173,21 +3236,44 @@ document.addEventListener('DOMContentLoaded', function () {
         const urlEditar  = urlEditarTpl.replace('__ID__', data.id);
         const urlExcluir = urlExcluirTpl.replace('__ID__', data.id);
 
+        /* Resposta (`data.respostaA` = id da RAIZ, já normalizado pelo servidor): vai para o
+           FIM da conversa recuada sob a raiz, sem pílula de dia e sem contar como registro.
+           Se a raiz não está na tela como raiz (ex.: excluída numa outra aba), entra no topo
+           como um registro, com a faixa — como ficaria ao recarregar. */
+        const ehResposta = data.respostaA !== null && data.respostaA !== undefined;
+        const raizEl     = ehResposta ? document.getElementById('pasta-msg-' + data.respostaA) : null;
+        const pendurada  = !!(raizEl && raizEl.parentElement === list);
+
         /* A pílula do dia (desenho: "5 out 2026") só entra se a primeira do topo
            não for a de hoje — o registro novo é sempre o mais recente. A chave do
            dia é a do servidor (`data-hoje`), a mesma que o Twig usa. */
         const MESES   = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
         const hoje    = list.dataset.hoje || '';
         const topoDia = list.querySelector('.ps-dia');
-        const pilula  = (!topoDia || topoDia.dataset.dia !== hoje)
+        const pilula  = (!pendurada && (!topoDia || topoDia.dataset.dia !== hoje))
             ? `<div class="ps-dia" data-dia="${esc(hoje)}"><span class="ps-dia-pilula">${dt.getDate()} ${MESES[dt.getMonth()]} ${dt.getFullYear()}</span></div>`
             : '';
+
+        /* Resposta de outro dia que não o da raiz: a hora leva o dia junto (mesma regra do Twig). */
+        let horaRotulo = hora;
+        if (pendurada) {
+            const dataRaiz = ((raizEl.querySelector('.ps-anotacao-data') || {}).title || '').slice(0, 10);
+            const diaMes   = String(dt.getDate()).padStart(2, '0') + '/' + String(dt.getMonth() + 1).padStart(2, '0');
+            if (dataRaiz && dataRaiz !== diaMes + '/' + dt.getFullYear()) { horaRotulo = diaMes + ' · ' + hora; }
+        }
+
+        const faixa = ehResposta
+            ? `<div class="ps-anotacao-resposta-rot"><i class="bi bi-reply-fill" aria-hidden="true"></i><span>${esc(data.respostaANome ? 'Resposta a ' + data.respostaANome : ROTULO_ORFA)}</span></div>`
+            : '';
+        const alvoId   = ehResposta ? data.respostaA : data.id;
+        const alvoNome = ehResposta ? (data.respostaANome ?? '') : (data.autorNome ?? '');
 
         /* Tem de sair a MESMA estrutura que o _dados_anotacoes.html.twig gera no
            servidor: se divergirem, o registro recém-enviado aparece com outra
            cara — defeito que só se vê depois de enviar, nunca ao abrir a tela. */
-        const html = pilula + `
-        <article class="ps-anotacao" id="pasta-msg-${data.id}">
+        const cartao = `
+        <article class="ps-anotacao${ehResposta ? ' ps-anotacao--resposta' : ''}" id="pasta-msg-${data.id}">
+            ${faixa}
             <span class="ps-anotacao-ponto" aria-hidden="true"></span>
             <span class="ps-anotacao-seta" aria-hidden="true"></span>
             <div class="ps-anotacao-topo">
@@ -3212,7 +3298,13 @@ document.addEventListener('DOMContentLoaded', function () {
                     </button>
                     <span class="ps-anotacao-janela small" style="color: var(--ps-label);" title="Edição e exclusão liberadas por mais {{ comentario_janela_minutos() }} min">· {{ comentario_janela_minutos() }} min</span>
                 </span>
-                <span class="ps-anotacao-data ps-num" title="${dataHora}">${hora}</span>
+                <button type="button" class="ps-anotacao-acao ps-anotacao-acao--responder btn-responder-msg-pasta"
+                        title="Responder" aria-label="Responder"
+                        data-resposta-a="${esc(alvoId)}"
+                        data-resposta-nome="${esc(alvoNome || 'Autor desconhecido')}">
+                    <i class="bi bi-reply-fill"></i>
+                </button>
+                <span class="ps-anotacao-data ps-num" title="${dataHora}">${horaRotulo}</span>
             </div>
             <div class="ps-anotacao-corpo">
                 <i class="bi bi-megaphone-fill ps-anotacao-icone" aria-hidden="true"></i>
@@ -3222,8 +3314,29 @@ document.addEventListener('DOMContentLoaded', function () {
 
         // O primeiro registro tira a lista do estado vazio: a linha do tempo aparece.
         list.classList.remove('ps-registro--vazio');
-        list.insertAdjacentHTML('afterbegin', html);
+
+        if (pendurada) {
+            /* A conversa da raiz é o irmão logo depois dela; a primeira resposta a cria.
+               Ela herda o "escondido entre os anteriores" da raiz. */
+            let conversa = raizEl.nextElementSibling;
+            if (!conversa || !conversa.classList.contains('ps-respostas') || conversa.dataset.respostaDe !== String(data.respostaA)) {
+                conversa = document.createElement('div');
+                conversa.className = 'ps-respostas' + (raizEl.classList.contains('ps-anotacao--extra') ? ' ps-anotacao--extra' : '')
+                    + (raizEl.classList.contains('d-none') ? ' d-none' : '');
+                conversa.dataset.respostaDe = String(data.respostaA);
+                raizEl.after(conversa);
+            }
+            conversa.insertAdjacentHTML('beforeend', cartao);
+            const novo = document.getElementById('pasta-msg-' + data.id);
+            if (novo) { novo.scrollIntoView({ block: 'nearest' }); }
+
+            return false;
+        }
+
+        list.insertAdjacentHTML('afterbegin', pilula + cartao);
         list.scrollTop = 0;
+
+        return true;
     }
 
     /* Iniciais do avatar: mesma regra do Twig (primeira letra do primeiro e do

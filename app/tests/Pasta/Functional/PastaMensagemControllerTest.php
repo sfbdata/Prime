@@ -344,4 +344,188 @@ final class PastaMensagemControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseStatusCodeSame(403);
     }
+
+    // ── Responder ────────────────────────────────────────────────────────────
+
+    /** @return array<string, mixed> */
+    private function responder(object $client, Pasta $pasta, int|string $respostaA, string $conteudo = 'Respondendo'): array
+    {
+        $client->request('POST', "/pasta/{$pasta->getId()}/mensagem", [
+            '_token'     => $this->gerarCsrf('pasta_mensagem_' . $pasta->getId()),
+            'conteudo'   => $conteudo,
+            'resposta_a' => (string) $respostaA,
+        ]);
+
+        return (array) json_decode((string) $client->getResponse()->getContent(), true);
+    }
+
+    private function contarMensagens(Pasta $pasta): int
+    {
+        return (int) static::getContainer()->get(EntityManagerInterface::class)
+            ->createQuery('SELECT COUNT(m.id) FROM ' . PastaMensagem::class . ' m WHERE m.pasta = :p')
+            ->setParameter('p', $pasta)
+            ->getSingleScalarResult();
+    }
+
+    #[TestDox('POST com resposta_a de um registro da mesma pasta cria a resposta (201) ligada à raiz')]
+    public function testResponderCriaRespostaLigadaARaiz(): void
+    {
+        $client   = static::createClient();
+        $tenant   = $this->criarTenant();
+        $autor    = $this->criarUsuario($tenant, 'autor');
+        $outro    = $this->criarUsuario($tenant, 'outro');
+        $pasta    = $this->criarPasta($tenant);
+        $original = $this->criarMensagem($pasta, $autor, $tenant);
+
+        $this->instalarCsrfStorage();
+        // Qualquer um da equipe responde — não só o autor da original.
+        $this->logarComTenant($client, $outro, $tenant);
+
+        $data = $this->responder($client, $pasta, (int) $original->getId());
+
+        self::assertResponseStatusCodeSame(201);
+        self::assertSame($original->getId(), $data['respostaA']);
+        self::assertSame($autor->getFullName(), $data['respostaANome']);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $gravada = $em->find(PastaMensagem::class, $data['id']);
+        self::assertNotNull($gravada);
+        self::assertSame($original->getId(), $gravada->getRespostaA()?->getId());
+        self::assertTrue($gravada->isResposta());
+    }
+
+    #[TestDox('POST sem resposta_a continua criando registro comum (respostaA null na resposta)')]
+    public function testEnviarSemRespostaContinuaComum(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $autor  = $this->criarUsuario($tenant, 'autor');
+        $pasta  = $this->criarPasta($tenant);
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $autor, $tenant);
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/mensagem", [
+            '_token'   => $this->gerarCsrf('pasta_mensagem_' . $pasta->getId()),
+            'conteudo' => 'Registro comum',
+            // O compositor sempre manda o campo escondido — vazio quando não está respondendo.
+            'resposta_a' => '',
+        ]);
+
+        self::assertResponseStatusCodeSame(201);
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertNull($data['respostaA']);
+        self::assertNull($data['respostaANome']);
+    }
+
+    #[TestDox('Responder a uma resposta grava a resposta ligada à RAIZ (um nível só)')]
+    public function testResponderARespostaLigaARaiz(): void
+    {
+        $client   = static::createClient();
+        $tenant   = $this->criarTenant();
+        $autor    = $this->criarUsuario($tenant, 'autor');
+        $pasta    = $this->criarPasta($tenant);
+        $raiz     = $this->criarMensagem($pasta, $autor, $tenant);
+        $resposta = $this->criarMensagem($pasta, $autor, $tenant);
+        $resposta->setRespostaA($raiz);
+        static::getContainer()->get(EntityManagerInterface::class)->flush();
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $autor, $tenant);
+
+        $data = $this->responder($client, $pasta, (int) $resposta->getId(), 'Tréplica');
+
+        self::assertResponseStatusCodeSame(201);
+        self::assertSame($raiz->getId(), $data['respostaA']);
+    }
+
+    #[TestDox('resposta_a de um registro de OUTRA pasta do mesmo escritório é recusado (422) e nada é gravado')]
+    public function testResponderMensagemDeOutraPastaRecusa(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $autor  = $this->criarUsuario($tenant, 'autor');
+        $pastaA = $this->criarPasta($tenant);
+        $pastaB = $this->criarPasta($tenant);
+        $deB    = $this->criarMensagem($pastaB, $autor, $tenant);
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $autor, $tenant);
+
+        $this->responder($client, $pastaA, (int) $deB->getId());
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(0, $this->contarMensagens($pastaA));
+    }
+
+    #[TestDox('resposta_a de um registro de OUTRO escritório é recusado (422) e nada é gravado (IDOR)')]
+    public function testResponderMensagemDeOutroTenantRecusa(): void
+    {
+        $client  = static::createClient();
+        $tenantA = $this->criarTenant();
+        $tenantB = $this->criarTenant();
+        $userA   = $this->criarUsuario($tenantA, 'usera');
+        $userB   = $this->criarUsuario($tenantB, 'userb');
+        $pastaA  = $this->criarPasta($tenantA);
+        $pastaB  = $this->criarPasta($tenantB);
+        $msgB    = $this->criarMensagem($pastaB, $userB, $tenantB);
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $userA, $tenantA);
+
+        $this->responder($client, $pastaA, (int) $msgB->getId());
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(0, $this->contarMensagens($pastaA));
+    }
+
+    #[TestDox('resposta_a inexistente é recusado (422)')]
+    public function testResponderMensagemInexistenteRecusa(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $autor  = $this->criarUsuario($tenant, 'autor');
+        $pasta  = $this->criarPasta($tenant);
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $autor, $tenant);
+
+        $this->responder($client, $pasta, 999999999);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(0, $this->contarMensagens($pasta));
+    }
+
+    #[TestDox('Excluir a original não apaga a resposta: o vínculo cai (SET NULL) e ela segue marcada como resposta')]
+    public function testExcluirOriginalMantemRespostaOrfa(): void
+    {
+        $client   = static::createClient();
+        $tenant   = $this->criarTenant();
+        $autor    = $this->criarUsuario($tenant, 'autor');
+        $pasta    = $this->criarPasta($tenant);
+        $original = $this->criarMensagem($pasta, $autor, $tenant);
+        $resposta = $this->criarMensagem($pasta, $autor, $tenant);
+        $resposta->setRespostaA($original);
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->flush();
+        $originalId = $original->getId();
+        $respostaId = $resposta->getId();
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $autor, $tenant);
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/mensagem/{$originalId}/excluir", [
+            '_token' => $this->gerarCsrf('pasta_mensagem_excluir_' . $originalId),
+        ]);
+        self::assertResponseIsSuccessful();
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        self::assertNull($em->find(PastaMensagem::class, $originalId));
+        $orfa = $em->find(PastaMensagem::class, $respostaId);
+        self::assertNotNull($orfa, 'a resposta continua');
+        self::assertNull($orfa->getRespostaA());
+        self::assertTrue($orfa->isRespostaOrfa());
+    }
 }

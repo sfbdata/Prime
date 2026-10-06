@@ -884,8 +884,19 @@ class PastaController extends AbstractController
             return $this->json(['erro' => 'A mensagem não pode ser vazia.'], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
+        // "Responder": o id do registro respondido vem do navegador. Aqui só se acha a
+        // mensagem; a posse (mesma pasta, mesmo escritório) é conferida no UseCase.
+        $respostaA   = null;
+        $respostaAId = (int) $request->request->get('resposta_a', 0);
+        if ($respostaAId > 0) {
+            $respostaA = $this->em->find(PastaMensagem::class, $respostaAId);
+            if ($respostaA === null) {
+                return $this->json(['erro' => 'O registro respondido não foi encontrado.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+        }
+
         try {
-            $mensagem = $this->enviarMensagemUseCase->executar($pasta, $currentUser, $conteudo, $tenant);
+            $mensagem = $this->enviarMensagemUseCase->executar($pasta, $currentUser, $conteudo, $tenant, $respostaA);
         } catch (\InvalidArgumentException $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
@@ -900,6 +911,9 @@ class PastaController extends AbstractController
             'criadaEmTs'  => $mensagem->getCriadaEm()->format(\DateTimeInterface::ATOM),
             'csrfEditar'  => $this->csrfTokenManager->getToken('pasta_mensagem_editar_' . $mensagem->getId())->getValue(),
             'csrfExcluir' => $this->csrfTokenManager->getToken('pasta_mensagem_excluir_' . $mensagem->getId())->getValue(),
+            // A RAIZ respondida (já normalizada pelo UseCase): é sob ela que o JS pendura a resposta.
+            'respostaA'     => $mensagem->getRespostaA()?->getId(),
+            'respostaANome' => $mensagem->getRespostaA()?->getAutor()?->getFullName(),
         ], Response::HTTP_CREATED);
     }
 
