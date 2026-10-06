@@ -29,6 +29,7 @@ Relatórios das investigações desta rodada: resumidos no §2; o detalhe ficou 
 | Quando | HEAD | Suíte | Observação |
 |---|---|---|---|
 | início | `beff02fd` | 5633/5633 (Trilha A) | árvore limpa; só o pacote do Designer untracked |
+| checkpoint 4 (final da rodada) | `e5b7aae5` | **6674/6674** (26.450 asserções, 03:43) · lint:twig 198 · lint:yaml 25 · lint:container OK · schema:validate OK | 85 commits sobre `beff02fd`, 9 migrations novas |
 | checkpoint 3 | `dda8a012` | **6413/6413** (24.814 asserções, 03:49) | `memory_limit` da suíte em 768M (`4b840a77`) |
 | checkpoint 1 | `b9236379` | 5817/5818 → a falha era real (purga sem `nota_tecnica`), corrigida | suíte 04:43 |
 
@@ -76,6 +77,12 @@ _(preenchido após as investigações)_
 | B31 | Duplicados de arquivo: `pasta_documento.sha256` (migration `Version20261006134500`), hash do binário FINAL armazenado em todos os caminhos de gravação, aviso `duplicadoDe` no upload (mesmo tenant + permissão por pasta), comando `app:documentos:calcular-hash` | `bj-visualizar.js`, dc 1.2.3 Documentos | sem hash | real; o comando de preenchimento é do dono (≈23 mil arquivos, 26 GB, ~5–15 min) | D | PastaDocumento, UploadPecaUseCase, PastaController, Reconciliador, CopiarArquivosAcervo, comando | 132 + 62 | `845ec3ad`, `bc437d5e`, (fixture), (legados) | rodar `app:documentos:calcular-hash --dry-run --limite=500` em prod (dono) |
 | B32 | Dashboard — 2ª auditoria (13 itens): Total alinhado, boneco pastel, destaque da ordenação padrão, ícone de sócio, "· Busca" no PDF, vazio com cabeçalho, balão do Intelligence | `auditoria-dashboard-2.md` | — | aplicado | A/B | dashboard/* | 217 | `7881b231`, `8fcbc5e3` | links "ver pastas/metas" dos cards ficam fora (o número não bate com a lista) |
 | B33 | Pasta — 2ª auditoria (86 itens; 22 A / 64 B): L0 CSS + L2 Dados (clientes todos visíveis), L3 Metas, L4 notas técnicas, L5 Financeiro (selo Vencida, ícone do tipo, 3 próximos), L6 edição em Detalhes, L7 Push (cartão, cor da pílula por tipo) | `auditoria-pasta-2.md` | — | aplicado; L1 (cabeçalho/modal Editar dados/drawer) pendente | A/B | pasta-show.css + parciais | Pasta 1188 | `3d8ba25a`, `1b86203a`, `835f70f4`, `f73e05b7`, `67f643ce`, `3cadacff`, `dda8a012` | L1 depois da IA fatia 2 (mesmo `_cabecalho`); 6 itens do dono (D-PASTA6) |
+| B34 | BlueJus IA — fatia 2: 7 agentes da pasta (gestor, processual, documental, prazos, relatórios, cliente, jurídico) no drawer "BlueJus Intelligence" do cabeçalho; cada um lê só o que a spec diz; financeiro só se a pessoa o vê NA SOLICITAÇÃO; clientes sem CPF/contatos; hash estável; limite por agente | spec `inteligencia-agentes-da-pasta.md` | — | real, sem provedor = indisponível honesto | D | src/Inteligencia, templates/inteligencia, _cabecalho (botão), migration `Version20261006150000` | Inteligencia 258 | `e9589edc`, `76a6c2fb`, `22a14391` | o 1º commit não passa sozinho no bisect (teste de tela entrou antes da UI) — história já integrada |
+| B35 | Pasta — L1 da 2ª auditoria: modal "Editar dados" com a moldura do desenho (campos e contrato intactos; Ação segue editável), PASTA/número como itens, interruptor de favoritos por token, drawer de histórico | `auditoria-pasta-2.md` C2/C5/C7/D4/D5 | — | aplicado; C4 (selo "0") revertido → D-PASTA6 | A/B | _cabecalho, _historico_drawer, show (modal) | Pasta OK | `93192ee4`, `5d4c53cf` | abas do modal = atalhos (função nova) |
+| B36 | "Administrativo sem processo" (interruptor na aba Processo, confirmação quando já há processo, vincular continua possível) | dc 1.2.3 l.1580, `admSPtoggle` l.6588 | — | `pasta.administrativa` (migration `Version20261006160000`) | D | Pasta, DefinirPastaAdministrativaUseCase, PastaAdministrativaController, _processos_vinculados | 21 | (cherry de ba33b6a5) | troca sem recarregar exige interceptar no show |
+| B37 | Sugerir documentos pelo catálogo (`bj-docsug`) — fase pela classe do processo, faltantes, "Adicionar N faltante(s)" ao checklist real; rótulo honesto | `bj-docsug.js` | — | real, por regras | A | Pasta/Service/SugestorDeDocumentos, parcial novo | 28 | `0ff6aca0`→master | CONTRATO mapeado para "honorários" |
+| B38 | Preferências pessoais (`preferencia_usuario`, migration `Version20261006161500`) + menu ⋮ da tabela Desempenho: densidade, animações, setas, colunas ocultas, restaurar | README dashboard (menu ⋮) | — | lista fechada validada no servidor; classes no `.db-page` | D | src/Dashboard/Entity/PreferenciaDoUsuario, index, dashboard-preferencias.js | Dashboard OK | `098e82c6`, `81fce914`, `738f600e` | sons, "Adicionar coluna", zerar (dono) |
+| B39 | Foto diária do estoque do Dashboard (`dashboard_foto`, migration `Version20261006171500`, `app:dashboard:fotografar`) e tendência de Vencidas/Prazos a partir da foto de `data_de − 1` | README "Tendência na linha de Total" | só 3 tendências | +2 tendências com lastro; ativas fora (bases diferentes) | D | src/Dashboard (entidade, comando), UseCase, _resultado, _desempenho_cards | Dashboard 306 | `413ea35f`, `1e6b7d89`, `e5b7aae5` | **cron do dono**: `55 2 * * * docker exec jusprime_php_prod php bin/console app:dashboard:fotografar` (02:55 UTC = 23:55 BRT) |
 
 ## 4. DECISÕES/BLOQUEIOS DO SAMUEL
 
@@ -103,9 +110,64 @@ _(preenchido após as investigações)_
 | D-PJE | Dados processuais automáticos (PJe/MNI, "Ler PDF") | DJEN + Datajud existentes | credencial MNI por tribunal / OCR no servidor | fonte | PJe/MNI × Datajud × terceiro | Datajud já cobre capa; MNI só com credencial | — |
 | D-PASTA6 | 6 itens da 2ª auditoria da Pasta | — | P1 faixa "Notas técnicas 0" sob todo processo; P14 rótulo "Distribuição"; F19 placeholder do Financeiro; T8 iniciais nas observações; U4 texto do vazio do Push; U9 rótulo "Lida"; **C4** selo "0" em Metas/Documentos (o desenho mostra; a revisão da Trilha A tratou como bug) | aceitar o desenho? | ver `auditoria-pasta-2.md` | seguir o desenho nos 6 | — |
 | D-PERM-META | Quem renomeia/reabre meta | guarda do "concluir" | inventário pedia confirmar | ok? | — | manter | — |
+| D-CRON | Foto diária do Dashboard (B39) | comando pronto | agendar o cron na VPS | quando | — | `55 2 * * *` (UTC) | sem foto, as tendências de Vencidas/Prazos não aparecem |
 | D-HASH | Rodar `app:documentos:calcular-hash` em produção | comando pronto, idempotente, `--dry-run` | execução em prod é do dono | quando | — | `--dry-run --limite=500` primeiro, depois fatias com `nice/ionice` fora de hora | duplicados antigos não são detectados |
 | D-LIBRE | DOC/PPT/MSG no visualizador | DOCX/XLSX/texto feitos | exige LibreOffice no container | instalar? | — | sim, na imagem de prod (custo ~300 MB) | — |
 
 ## 5. Handoff — próxima ação exata
 
-_(atualizado a cada checkpoint)_
+**Estado (06/10/2026, fim da rodada):** master local em `e5b7aae5`, 85 commits à frente de `origin/master`
+(`beff02fd`, que é o que está em produção). **Nada publicado, nenhum deploy.** Árvore limpa (só o pacote do
+Designer, não versionado). Suíte 6674/6674.
+
+**Migrations novas (9), todas aplicadas no dev e no `saas_test`:** `Version20261006002519` (nota_tecnica) ·
+`010231` (pasta_mensagem.resposta_a_id/eh_resposta) · `120000` (inteligencia_analise/configuracao + 2
+permissões) · `121500` (pasta_favorita) · `134500` (pasta_documento.sha256) · `150000`
+(inteligencia_analise.agente/texto_da_analise) · `160000` (pasta.administrativa) · `161500`
+(preferencia_usuario) · `171500` (dashboard_foto). Ordem dos timestamps ≠ ordem de integração: o
+`doctrine:migrations:migrate` de prod executa todas as pendentes; conferir `migrations:status` antes.
+
+**Para publicar (dono):**
+1. `git push` do master (ver bloco abaixo). 2. `scripts/deploy-prod-tls.sh` na VPS (rebuild; o entrypoint
+de prod roda as migrations com 512 MB). 3. Smoke em prod — lista do que olhar no §6. 4. Cron da foto
+(D-CRON). 5. `app:documentos:calcular-hash --dry-run --limite=500` (D-HASH). 6. Decisões do §4.
+
+```
+# Execute manualmente no terminal externo
+cd /home/prime/projetos/jusprime && git status && git log --oneline origin/master..master | wc -l
+git push origin master
+```
+
+**Próxima rodada (sem depender do dono):** terceira passada de fidelidade nas duas telas (as auditorias 2
+estão aplicadas, salvo C4 e os 6 itens do dono); "Alertado às HH:MM" no sino das metas; estrela de favorito
+no modo cartão do Expediente; troca sem recarregar do interruptor "Administrativo"; extrair a expressão CASE
+duplicada das setas/posição (`PastaRepository`). **Com o dono:** tudo do §4 — em especial D-IA (provedor),
+D-MASTER, D-SITUACAO, D-LINK.
+
+**Armadilhas medidas nesta rodada:** setters gravam texto em MAIÚSCULAS (4 lotes caíram nisso — memória
+`feedback_setters_gravam_maiusculas`); `MockClock('Y-m-d H:i')` assume UTC; o hook lê `sed -n`/`grep -n`
+como `--no-verify` quando há `git commit` no mesmo comando; rename de migration de outra worktree pode
+APAGAR a do master com o mesmo nome (aconteceu: `75fb38c0` → restaurada em `7279c012`); `cache:clear` e
+`lint:twig` do dev precisam de `-d memory_limit=512M` (o entrypoint de prod já usa 512M); a suíte precisa
+de 768M (`phpunit.dist.xml`).
+
+## 6. Smoke do dono (o que olhar na tela — suíte verde não diz nada sobre aparência)
+
+- **Pasta, cabeçalho:** "N de M" entre as setas; selo ARQUIVADO; ⋮ com Duplicar, Imprimir resumo, Fixar
+  nos favoritos; excluir pede o número; botão "BlueJus Intelligence" abre o drawer dos 7 agentes (sem
+  provedor: botão desabilitado com o motivo); modal Editar dados com a moldura nova.
+- **Dados:** clientes todos visíveis com ícone de cadastro, busca inline no cartão (CPF mascarado),
+  janela "Detalhes do cliente" (botão direito), ⋮ do prazo (.ics); Registro com Responder; "· N min".
+- **Metas:** filtros, numeração, concluir/renomear/reabrir/sino na lista, atalhos de prazo no modal.
+- **Processo:** dados do processo + "Ver todas", ⋮, notas técnicas, interruptor "Administrativo".
+- **Financeiro:** ⋮ por arquivo, Imprimir extrato, selo Vencida, ícone do tipo, 3 próximos.
+- **Detalhes:** "continuar lendo"; edição dentro da caixa.
+- **Push:** filtro Todas/Novas, cartão com cor por tipo, Copiar ID/Abrir no PJe, marcar lida, criar tarefa,
+  BlueJus IA (botão e lista).
+- **Documentos:** visualizador DOCX/planilha/texto/ODT/RTF/PPTX/EML/ZIP; aviso de duplicado no upload;
+  "Documentos sugeridos".
+- **Editor:** realce, desfazer, contagem, localizar (Ctrl+H), símbolos, data, revisão/autocorreção.
+- **Dashboard:** largura/números/legendas, PDF (Exportar), busca, "Sem cargo", tendências (com período),
+  números clicáveis → `/tarefas/equipe` e Acervo, painel BlueJus Intelligence (texto "por regras fixas"),
+  selects e calendário próprios, menu ⋮ (densidade/colunas), celular (cards), tema escuro.
+- **Demandas/Processos:** filtro de data (Firefox) por causa do `filtro-tabela.css`/`.js` (opção opt-in).
