@@ -85,6 +85,31 @@ final class PastaPosicaoNoAcervoTelaTest extends JusPrimeWebTestCase
         self::assertSame('proxima', $filhos->eq(2)->attr('data-nav'));
     }
 
+    #[TestDox('seguir a seta › leva a N+1 e a seta ‹ leva a N−1')]
+    public function testSentidoDasSetasBateComOContador(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $this->criarPasta($tenant, '3001');
+        $meio = $this->criarPasta($tenant, '3002');
+        $this->criarPasta($tenant, '3003');
+        $this->logarComTenant($client, $user, $tenant);
+
+        $crawler = $client->request('GET', "/pasta/{$meio->getId()}");
+        self::assertSame('2 de 3', trim($crawler->filter('.ps-cab-nav > .ps-cab-pos')->text()));
+
+        $proxima  = $crawler->filter('.ps-cab-nav > [data-nav="proxima"]')->attr('href');
+        $anterior = $crawler->filter('.ps-cab-nav > [data-nav="anterior"]')->attr('href');
+        self::assertNotNull($proxima, 'a seta › do meio do acervo devia ser link');
+        self::assertNotNull($anterior, 'a seta ‹ do meio do acervo devia ser link');
+
+        $crawler = $client->request('GET', $proxima);
+        self::assertSame('3 de 3', trim($crawler->filter('.ps-cab-nav > .ps-cab-pos')->text()));
+
+        $crawler = $client->request('GET', $anterior);
+        self::assertSame('1 de 3', trim($crawler->filter('.ps-cab-nav > .ps-cab-pos')->text()));
+    }
+
     #[TestDox('pasta sozinha mostra "1 de 1", como as setas inertes continuam no lugar')]
     public function testPastaSozinha(): void
     {

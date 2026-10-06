@@ -91,7 +91,7 @@
     }
 
     function rotulo(ocultos, aberto) {
-        return aberto ? 'mostrar menos' : 'continuar lendo (' + ocultos + ' parágrafos)';
+        return aberto ? 'mostrar menos' : 'continuar lendo (' + ocultos + (ocultos === 1 ? ' parágrafo)' : ' parágrafos)');
     }
 
     function preparar(texto) {
