@@ -315,7 +315,7 @@ final class PastaExploradorInteracaoTest extends TestCase
         self::assertStringContainsString("if (v === '' || (!r.criar && v === r.original)) { cancelarRenomear(); return; }", $js);
         // Arquivo: só o nome-base, pelo editar XHR (D3), levando os outros campos como estão.
         self::assertStringContainsString("_token: a.csrfEditar, nomeBase: v, categoria: a.categoria || '', descricao: a.descricao || '', numero: a.numero || '',", $js);
-        self::assertStringContainsString('Object.assign(a, res.j.documento);', $js, 'a linha é atualizada a partir do `documento` da resposta');
+        self::assertStringContainsString('mesclarDocumento(a, res.j.documento);', $js, 'a linha é atualizada a partir do `documento` da resposta');
         // Pasta: a rota de seção de sempre.
         self::assertStringContainsString("postForm(p.urlRenomear, { _token: p.csrfRenomear, nome: v })", $js);
         // Campo do desenho (dc L2234): 24px, anel de 1,5px, 12,5px.

@@ -105,7 +105,9 @@ final class PastaExploradorLimpezaTest extends TestCase
 
         // Toda escrita de sessionStorage é da pasta aberta ou da faixa dispensada — mais nada.
         preg_match_all("/sessionStorage\.setItem\(([^,]+),/", $js, $m);
-        self::assertSame(['CHAVE_CAMINHO', 'CHAVE_LIMPEZA'], array_values(array_unique($m[1])));
+        $chaves = array_values(array_unique($m[1]));
+        sort($chaves);
+        self::assertSame(['CHAVE_CAMINHO', 'CHAVE_LIMPEZA'], $chaves);
         foreach (preg_grep('/sessionStorage\./', explode("\n", $js)) ?: [] as $linha) {
             if (str_contains($linha, 'sessionStorage (')) {
                 continue; // comentário do cabeçalho

@@ -279,11 +279,11 @@ final class PastaExploradorArranjoTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $painel->filter('#pexPainel > #pexPainelVazio + #pexPainelSel[hidden]'));
         self::assertSame('', trim($painel->filter('#pexPainelSel')->html()), 'as propriedades do item selecionado são do JS, a partir de #pexDados');
 
-        // "Enviado por", "Modificado em" e "Páginas" só entram quando o modelo os tiver (L4):
-        // nem no markup, nem como rótulo/campo no JS que monta o painel.
+        // O L4 já põe enviadoPor/modificadoEm/paginas no #pexDados (o L9 usa `paginas`), mas o
+        // painel ainda não os mostra: os RÓTULOS continuam fora do JS até o lote do painel.
         $js = (string) file_get_contents(__DIR__ . '/../../../public/js/pasta-explorador.js');
-        foreach (["'Enviado por'", "'Modificado em'", "'Páginas'", '.enviadoPor', '.modificadoEm', '.paginas'] as $semLastro) {
-            self::assertStringNotContainsString($semLastro, $js, "{$semLastro} não tem lastro em #pexDados até o L4");
+        foreach (["'Enviado por'", "'Modificado em'", "'Páginas'"] as $semLastro) {
+            self::assertStringNotContainsString($semLastro, $js, "{$semLastro} ainda não é exibido no painel");
         }
         foreach (['Enviado por', 'Modificado em', 'Páginas'] as $rotulo) {
             self::assertStringNotContainsString($rotulo, $painel->html());
