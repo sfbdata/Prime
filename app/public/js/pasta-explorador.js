@@ -306,10 +306,15 @@
         if (b < 1024 * 1024 * 1024) return (b / 1024 / 1024).toFixed(1).replace('.', ',') + ' MB';
         return (b / 1024 / 1024 / 1024).toFixed(2).replace('.', ',') + ' GB';
     }
+    function formatarInteiro(n) { return Number(n).toLocaleString('pt-BR'); }
     function formatarData(s) {
         const m = String(s || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
         return m ? m[3] + '/' + m[2] + '/' + m[1] : '';
     }
+    /* "Modificado" (coluna, classificação, Conteúdo e painel — dc `COLS.data` L3080 e `pProps`
+       L4953): a data da última edição; NULL = nunca editado desde o upload, e aí a última
+       mudança É o upload (`carregadoEm`). */
+    function dataModificacao(a) { return a.modificadoEm || a.carregadoEm; }
     function formatarDataHora(s) {
         const m = String(s || '').match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
         return m ? m[3] + '/' + m[2] + '/' + m[1] + ' ' + m[4] + ':' + m[5] : formatarData(s);
@@ -503,7 +508,7 @@
             case 'nome':      f = cmpNome; break;
             case 'tipo':      f = function (a, b) { return rotuloTipo(a).localeCompare(rotuloTipo(b), 'pt-BR') || cmpNome(a, b); }; break;
             case 'tamanho':   f = function (a, b) { return ((a.tamanho || 0) - (b.tamanho || 0)) || cmpNome(a, b); }; break;
-            case 'data':      f = function (a, b) { return String(a.carregadoEm || '').localeCompare(String(b.carregadoEm || '')) || cmpNome(a, b); }; break;
+            case 'data':      f = function (a, b) { return String(dataModificacao(a) || '').localeCompare(String(dataModificacao(b) || '')) || cmpNome(a, b); }; break;
             case 'categoria': f = function (a, b) { return String(a.categoriaRotulo || '').localeCompare(String(b.categoriaRotulo || ''), 'pt-BR') || cmpNome(a, b); }; break;
             // Manual: `ordem` e, no empate, NOME — como o fm antigo. Em produção 20.909 dos 20.954
             // documentos têm ordem=0, então o padrão real é A–Z; desempatar por id seria
@@ -528,7 +533,7 @@
         }
         const cmp = comparador();
         ps = ps.map(function (p) { return { tipo: 'pasta', id: p.id, nome: p.nome, ordem: p.ordem, dado: p }; }).sort(cmp);
-        as = as.map(function (a) { return { tipo: 'arquivo', id: a.id, nome: a.nome, ordem: a.ordem, tamanho: a.tamanho, carregadoEm: a.carregadoEm, categoriaRotulo: a.categoriaRotulo, dado: a }; }).sort(cmp);
+        as = as.map(function (a) { return { tipo: 'arquivo', id: a.id, nome: a.nome, ordem: a.ordem, tamanho: a.tamanho, carregadoEm: a.carregadoEm, modificadoEm: a.modificadoEm, categoriaRotulo: a.categoriaRotulo, dado: a }; }).sort(cmp);
 
         // Filtro por tipo (dc L3141-3142): a contagem de cada grupo é do conjunto que está na
         // tela ANTES do filtro — o nível aberto, ou os resultados da busca.
@@ -925,7 +930,7 @@
         // "Nº · descrição" (§16.2, DOC-22): função só do sistema, mora no Conteúdo e no painel.
         const extras = modo === 'cont' ? [numeroDescricao(a)] : null;
         const lado = modo === 'cont'
-            ? h('span', { class: 'pex-lado' }, [h('span', { text: formatarData(a.carregadoEm) }), h('span', { text: formatarBytes(a.tamanho) })])
+            ? h('span', { class: 'pex-lado' }, [h('span', { text: formatarData(dataModificacao(a)) }), h('span', { text: formatarBytes(a.tamanho) })])
             : null;
         const r = montarItem({
             class: 'pex-item pex-item--arquivo',
@@ -937,7 +942,7 @@
             tipo: h('span', { class: 'pex-cel pex-cel-tipo', text: t[2], title: t[2] }),
             cat:  h('span', { class: 'pex-cel pex-cel-cat', text: a.categoriaRotulo || '', title: a.categoriaRotulo || '' }),
             tam:  h('span', { class: 'pex-cel pex-cel-tam', text: formatarBytes(a.tamanho) }),
-            data: h('span', { class: 'pex-cel pex-cel-data', text: formatarData(a.carregadoEm) }),
+            data: h('span', { class: 'pex-cel pex-cel-data', text: formatarData(dataModificacao(a)) }),
         }, lado, buscando, a.secaoId, !!a.favorito);
         r.ico.appendChild(iconeArquivo(a.nome, ICONE_PX[modo]));
         // L9 (dc L2251): os selos vêm depois do texto, na célula do nome; "Idêntico" vence o de
@@ -950,10 +955,14 @@
     }
 
     // ------------------------------------------------- painel de detalhes ---
-    /* dc L2271-2289 / `pProps` L4953. Só o que o #pexDados TEM: o desenho pede "Modificado",
-       mas o dado é a data em que o arquivo foi ADICIONADO (`carregadoEm`) — rotular de
-       "Modificado" seria afirmar o que o sistema não sabe. Com vários itens selecionados, o
-       resumo do desenho (dc L2278): pilha, "N itens selecionados", pastas/arquivos/tamanho. */
+    /* dc L2271-2289 / `pProps` L4953: Tipo, Categoria, Tamanho, Modificado — nessa ordem, à
+       frente de tudo. "Modificado" = `modificadoEm ?? carregadoEm` (o mesmo da coluna). O resto é
+       do sistema (o desenho é omisso) e vem depois: "Adicionado em" só quando houve edição (sem
+       ela, o Modificado já É o upload), Páginas, Enviado por, Nº/descrição, Local. Campo NULL no
+       #pexDados → a linha não aparece: nada inventado. Com vários itens selecionados, o resumo do
+       desenho (dc L2278): pilha, "N itens selecionados", pastas/arquivos/tamanho — e a soma de
+       Páginas só quando TODOS os selecionados são arquivos com páginas contadas (uma soma parcial
+       mentiria o total). */
     function itensSelecionados() {
         return itensRenderizados.filter(function (it) { return selecao.has(chaveDe(it)); });
     }
@@ -983,19 +992,29 @@
             ['Tipo', tipoDe(d.nome)[2]],
             ['Categoria', d.categoriaRotulo || ''],
             ['Tamanho', formatarBytes(d.tamanho)],
-            ['Adicionado em', formatarDataHora(d.carregadoEm)],
+            ['Modificado', formatarDataHora(dataModificacao(d))],
+            ['Adicionado em', d.modificadoEm ? formatarDataHora(d.carregadoEm) : ''],
+            ['Páginas', d.paginas != null ? formatarInteiro(d.paginas) : ''],
+            ['Enviado por', d.enviadoPor || ''],
             ['Número', d.numero || ''],
             ['Descrição', d.descricao || ''],
             ['Nome parecido', nomeParecidoTexto(d)],
             ['Local', caminhoLegivel(d.secaoId == null ? null : Number(d.secaoId))],
         ].filter(function (p) { return p[1] !== ''; });
     }
+    function somaDasPaginas(sel) {
+        const todos = sel.length > 0 && sel.every(function (it) { return ehArquivo(it) && it.dado.paginas != null; });
+        return todos ? sel.reduce(function (t, it) { return t + Number(it.dado.paginas); }, 0) : null;
+    }
     function propriedadesDaSelecao(sel) {
-        return [
+        const paginas = somaDasPaginas(sel);
+        const props = [
             ['Pastas', String(sel.filter(ehPastaItem).length)],
             ['Arquivos', String(sel.filter(ehArquivo).length)],
             ['Tamanho dos arquivos', formatarBytes(somaDosArquivos(sel))],
         ];
+        if (paginas !== null) props.push(['Páginas', formatarInteiro(paginas)]);
+        return props;
     }
     function renderizarPainel() {
         if (!el.painel) return;

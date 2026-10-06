@@ -261,7 +261,7 @@ final class PastaExploradorArranjoTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $crawler->filter('#pexFiltroInfo .pex-filtro-chip > #pexFiltroLimpar[aria-label="Remover filtro"]'));
     }
 
-    #[TestDox('painel de detalhes: nasce oculto, com o vazio do desenho, e sem propriedade que o sistema ainda não tem')]
+    #[TestDox('painel de detalhes: nasce oculto, com o vazio do desenho, e as propriedades reais (L2b) só no JS')]
     public function testPainelDeDetalhesEstatico(): void
     {
         $client          = static::createClient();
@@ -279,14 +279,14 @@ final class PastaExploradorArranjoTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $painel->filter('#pexPainel > #pexPainelVazio + #pexPainelSel[hidden]'));
         self::assertSame('', trim($painel->filter('#pexPainelSel')->html()), 'as propriedades do item selecionado são do JS, a partir de #pexDados');
 
-        // O L4 já põe enviadoPor/modificadoEm/paginas no #pexDados (o L9 usa `paginas`), mas o
-        // painel ainda não os mostra: os RÓTULOS continuam fora do JS até o lote do painel.
+        // L2b: o painel mostra enviadoPor/paginas/modificadoEm do #pexDados — os RÓTULOS moram
+        // no JS (o desenho, `pProps` L4953, rotula a data de "Modificado"), nunca no HTML estático.
         $js = (string) file_get_contents(__DIR__ . '/../../../public/js/pasta-explorador.js');
-        foreach (["'Enviado por'", "'Modificado em'", "'Páginas'"] as $semLastro) {
-            self::assertStringNotContainsString($semLastro, $js, "{$semLastro} ainda não é exibido no painel");
+        foreach (["'Enviado por'", "'Modificado'", "'Páginas'"] as $rotulo) {
+            self::assertStringContainsString($rotulo, $js, "{$rotulo} é linha do painel de detalhes");
         }
-        foreach (['Enviado por', 'Modificado em', 'Páginas'] as $rotulo) {
-            self::assertStringNotContainsString($rotulo, $painel->html());
+        foreach (['Enviado por', 'Modificado', 'Páginas'] as $rotulo) {
+            self::assertStringNotContainsString($rotulo, $painel->html(), 'as propriedades nascem do JS, não do Twig');
         }
     }
 

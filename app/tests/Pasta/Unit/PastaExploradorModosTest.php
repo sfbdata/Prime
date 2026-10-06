@@ -226,9 +226,9 @@ final class PastaExploradorModosTest extends TestCase
         self::assertMatchesRegularExpression('/--pex-sel-anel:\s+#9fc3e3;/', $this->bloco('.pex'));
         self::assertStringContainsString('.pex-item.pex-item--sel { background: var(--pex-sel-bg); box-shadow: inset 0 0 0 1px var(--pex-sel-anel); }', $css);
 
-        // Painel só com o que #pexDados tem; data rotulada pelo que ela é.
+        // Painel só com o que #pexDados tem (dc `pProps` L4953; detalhe no PastaExploradorPainelDetalhesTest).
         $js = $this->js();
-        self::assertStringContainsString("['Adicionado em', formatarDataHora(d.carregadoEm)],", $js);
+        self::assertStringContainsString("['Modificado', formatarDataHora(dataModificacao(d))],", $js);
         self::assertStringContainsString("['Conteúdo', partes.length ? partes.join(' · ') : 'Vazia'],", $js);
     }
 
