@@ -9,6 +9,8 @@
    .obs-conteudo-det · .btn-editar-obs-det · .btn-excluir-obs-det (+ data-conteudo,
    data-conteudo-html, data-csrf, data-url). O cartão de uma observação nova é montado
    em JS (`criarItem`) com a MESMA estrutura daqui: mudou aqui, muda lá.
+   `data-ler-mais` na lista: o pasta-ler-mais.js trata cada `.obs-conteudo-det` (texto
+   com mais de 3 parágrafos → "continuar lendo"). Só exibição; o conteúdo não muda.
 
    Contexto: `pasta`, `observacoesDetalhes`, `fotosResponsaveis` (mapa userId => url). #}
 {# Editor rico (barra de formatação). O Quill é auto-hospedado — sem CDN externo. #}
@@ -16,6 +18,10 @@
 <link rel="stylesheet" href="{{ asset('css/editor-rico.css') }}">
 <script src="{{ asset('js/quill/quill.js') }}"></script>
 <script src="{{ asset('js/editor-rico.js') }}" defer></script>
+{# "continuar lendo (N parágrafos)" / "mostrar menos" (desenho 1.2.3): a lista abaixo é
+   opt-in por `data-ler-mais`; o script observa a lista, então o cartão montado em JS
+   (`inserirItem`) e o texto devolvido depois de editar ganham o mesmo comportamento. #}
+<script src="{{ asset('js/pasta-ler-mais.js') }}" defer></script>
 
 {% set meses = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'] %}
 {% set fotos = fotosResponsaveis|default({}) %}
@@ -47,7 +53,7 @@
     </div>
     <div id="detalhesObsErro" class="ps-compositor-erro d-none"></div>
 
-    <div id="detalhesObsLista" class="ps-registro ps-detalhes-rolagem{{ observacoesDetalhes is empty ? ' ps-registro--vazio' : '' }}" data-hoje="{{ 'now'|date('Y-m-d') }}">
+    <div id="detalhesObsLista" class="ps-registro ps-detalhes-rolagem{{ observacoesDetalhes is empty ? ' ps-registro--vazio' : '' }}" data-hoje="{{ 'now'|date('Y-m-d') }}" data-ler-mais=".obs-conteudo-det">
         {% if observacoesDetalhes is empty %}
             <div class="ps-vazio" id="detalhesObsVazio">
                 <i class="bi bi-chat-left-text"></i>
