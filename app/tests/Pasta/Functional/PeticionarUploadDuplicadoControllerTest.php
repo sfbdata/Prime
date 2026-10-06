@@ -313,9 +313,11 @@ final class PeticionarUploadDuplicadoControllerTest extends JusPrimeWebTestCase
     {
         $em = static::getContainer()->get(EntityManagerInterface::class);
 
+        // Depois de uma requisição o identity map foi limpo: usuário e tenant chegam desanexados.
+        // Referências gerenciadas evitam o "new entity found through the relationship".
         $ra = new ResourceAccess();
-        $ra->setUser($user);
-        $ra->setTenant($tenant);
+        $ra->setUser($em->getReference(User::class, $user->getId()));
+        $ra->setTenant($em->getReference(Tenant::class, $tenant->getId()));
         $ra->setResourceType(ResourceAccess::RESOURCE_PASTA);
         $ra->setResourceId($pastaId);
         $ra->setCanView($view);
