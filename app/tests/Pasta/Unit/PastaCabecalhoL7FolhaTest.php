@@ -89,4 +89,26 @@ final class PastaCabecalhoL7FolhaTest extends TestCase
         $js = self::ler(__DIR__ . '/../../../public/js/pasta-timeline.js');
         self::assertStringContainsString("overlay.addEventListener('click', fecharPainel)", $js, 'o clique fora fecha');
     }
+
+    #[TestDox('PMC-025: abaixo de 768px, Vincular processo, Peticionar na pasta e Nova meta mantêm o rótulo e o cabeçalho quebra a linha')]
+    public function testRotulosDosBotoesDoCartaoNoCelular(): void
+    {
+        $css   = self::ler(self::CSS);
+        $movel = self::trecho($css, "   Responsivo\n", '   Peças herdadas que mudaram de lugar');
+
+        self::assertStringContainsString('.ps-btn span { display: none; }', $movel, 'a regra geral continua');
+        self::assertMatchesRegularExpression(
+            '/\.ps-processos > \.ps-card-cab \.ps-btn span,\s*\.ps-metas > \.ps-card-cab \.ps-btn span \{ display: inline; \}/',
+            $movel,
+        );
+        self::assertStringContainsString('flex-wrap: wrap;', self::regra($css, '.ps-processos > .ps-card-cab--painel'));
+        self::assertStringContainsString('flex-wrap: wrap;', self::regra($css, '.ps-metas > .ps-card-cab'));
+
+        // Os três botões ainda são .ps-btn com o rótulo num <span> filho, dentro do cabeçalho do cartão.
+        $proc = self::ler(__DIR__ . '/../../../templates/pasta/_processos_vinculados.html.twig');
+        self::assertStringContainsString('<i class="bi bi-link-45deg"></i><span>Vincular processo</span>', $proc);
+        self::assertStringContainsString('<i class="bi bi-file-earmark-text"></i><span>Peticionar na pasta</span>', $proc);
+        $metas = self::ler(__DIR__ . '/../../../templates/pasta/_metas.html.twig');
+        self::assertStringContainsString('<i class="bi bi-plus-lg"></i><span>Nova meta</span>', $metas);
+    }
 }

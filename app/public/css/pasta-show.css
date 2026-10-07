@@ -2007,6 +2007,13 @@ span.ps-situacao-pill { cursor: default; }
     .ps-btn--nota span,
     .ps-fin-btn-largo span,
     .ps-fin-btn-add span { display: inline; }
+    /* PMC-025: nem estes — o desenho (dc:1582-1583, 1425) mantém o rótulo de
+       "Vincular processo", "Peticionar na pasta" e "Nova meta" no celular; o
+       cabeçalho do cartão quebra a linha em vez de esconder o texto. */
+    .ps-processos > .ps-card-cab .ps-btn span,
+    .ps-metas > .ps-card-cab .ps-btn span { display: inline; }
+    .ps-processos > .ps-card-cab .ps-btn,
+    .ps-metas > .ps-card-cab .ps-btn { padding: 0 13px; }
     .ps-btn--largo { padding: 0 12px; }
     .ps-drawer { width: 100%; }
     /* Em tela estreita o trilho rola na horizontal; as abas param de dividir o
@@ -4207,7 +4214,9 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
 .ps-metas .ps-vazio { padding: 52px 24px; }
 
 /* ── Processo (P6, P7, P13) ── */
-.ps-processos > .ps-card-cab--painel { gap: 12px; }
+/* PMC-025: o cabeçalho do desenho (dc:1576) quebra a linha (`flex-wrap:wrap`) —
+   é o que deixa os rótulos caberem abaixo de 768px. */
+.ps-processos > .ps-card-cab--painel { gap: 12px; flex-wrap: wrap; }
 .ps-processos .ps-btn--primario.ps-btn--caps i { font-size: 13px; }
 .ps-processos .ps-btn--primario.ps-btn--caps:hover,
 .ps-processos .ps-btn--primario.ps-btn--caps:focus-visible { border-color: var(--ps-env-hv); background: var(--ps-env-hv); }
