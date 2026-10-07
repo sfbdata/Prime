@@ -165,8 +165,21 @@
                     {% else %}
                         {% set tipoPushMod = 'outro' %}
                     {% endif %}
+                    {# Cor do ponto por quem praticou o ato (dc L.5365 `COR`, L.5375; FPN-019). Juízo
+                       (decisão, despacho, sentença, mandado, acórdão) em azul; o resto é ato de
+                       cartório/servidor, em vermelho — no desenho, o que tem documento e não é do
+                       juízo cai em "cartório", e toda publicação do DJEN é um documento. Polo ativo
+                       (verde) e passivo (laranja) não se deduzem do tipo e ficam sem uso; o cinza
+                       ("movimentação sem documento") não existe no DJEN. #}
+                    {% if tipoPush starts with 'decis' or tipoPush starts with 'despacho' or tipoPush starts with 'senten' or tipoPush starts with 'mandado' or tipoPush starts with 'acordao' %}
+                        {% set pontoPushMod = 'juizo' %}
+                        {% set pontoPushDica = 'Ato do juízo (decisão, despacho, sentença, mandado)' %}
+                    {% else %}
+                        {% set pontoPushMod = 'cartorio' %}
+                        {% set pontoPushDica = 'Cartório / servidor (certidão, diligência, intimação)' %}
+                    {% endif %}
                     <div class="ps-push-cartao">
-                        <span class="ps-push-ponto" aria-hidden="true"></span>
+                        <span class="ps-push-ponto ps-push-ponto--{{ pontoPushMod }}" title="{{ pontoPushDica }}" aria-hidden="true"></span>
                         <button type="button" class="ps-push-cab"
                                 title="Clique com o botão direito para adicionar uma nota técnica"
                                 aria-expanded="false"
