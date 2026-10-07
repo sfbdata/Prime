@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Inteligencia\MessageHandler;
 
+use App\Entity\Tenant\Tenant;
 use App\Inteligencia\Entity\AnaliseDeInteligencia;
+use App\Inteligencia\Enum\Disponibilidade;
 use App\Inteligencia\Enum\StatusDaAnalise;
 use App\Inteligencia\Exception\ContextoBloqueadoException;
 use App\Inteligencia\Exception\FalhaDoProvedorException;
@@ -15,6 +17,7 @@ use App\Inteligencia\Fluxo\FluxoDeAnalise;
 use App\Inteligencia\Fluxo\FluxoDoResumoDoPush;
 use App\Inteligencia\Message\ProcessarAnaliseDeInteligencia;
 use App\Inteligencia\Repository\AnaliseDeInteligenciaRepository;
+use App\Inteligencia\Service\DisponibilidadeDeInteligencia;
 use App\Inteligencia\Service\ProvedorDeLinguagem;
 use App\Pasta\Entity\Pasta;
 use App\Service\NotificacaoService;
@@ -34,6 +37,8 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  * toda consulta daqui para baixo — o TenantFilter é inerte sem sessão.
  *
  * Destinos:
+ *   · IA desligada desde a solicitação (plataforma, escritório ou permissão de quem pediu) →
+ *     `indisponivel` (plataforma) ou `falhou` (os outros dois), com o motivo, SEM chamar o provedor;
  *   · sem provedor → `indisponivel` + Unrecoverable (sem retry; repetir não muda nada);
  *   · falha transitória do provedor com retentativa à frente → volta a `pendente` + re-lança (o
  *     Messenger retenta; a linha segue "em andamento" e um novo clique devolve a mesma, sem gasto
@@ -69,6 +74,7 @@ final class ProcessarAnaliseDeInteligenciaHandler
         private readonly ProvedorDeLinguagem $provedor,
         private readonly NotificacaoService $notificacoes,
         private readonly UrlGeneratorInterface $urls,
+        private readonly DisponibilidadeDeInteligencia $disponibilidade,
         #[Autowire(service: 'monolog.logger.inteligencia')]
         private readonly LoggerInterface $logger,
     ) {
@@ -106,6 +112,10 @@ final class ProcessarAnaliseDeInteligenciaHandler
 
         $analise->iniciarProcessamento();
         $this->em->flush();
+
+        if (!$this->aindaDisponivel($analise, $tenant)) {
+            return;
+        }
 
         $fluxo = $this->fluxos[$analise->getTipo()->value] ?? null;
         if ($fluxo === null) {
@@ -208,6 +218,41 @@ final class ProcessarAnaliseDeInteligenciaHandler
         ]);
 
         $this->notificar($analise, $pasta, $fluxo);
+    }
+
+    /**
+     * IA-034: desligar a IA (plataforma, escritório ou permissão de quem pediu) corta também o que
+     * já está na fila. A pergunta é a mesma da solicitação, sem a cota — esta análise já foi
+     * contada quando entrou na fila. Indisponível → a linha termina com o motivo e o provedor NÃO
+     * é chamado. Sem re-lançar: é um desfecho, não um erro; repetir a mensagem não muda nada.
+     */
+    private function aindaDisponivel(AnaliseDeInteligencia $analise, Tenant $tenant): bool
+    {
+        $solicitante = $analise->getSolicitante();
+        if ($solicitante === null) {
+            $this->falhar($analise, 'cancelada antes do provedor: quem pediu a análise não existe mais');
+
+            return false;
+        }
+
+        $disponibilidade = $this->disponibilidade->paraProcessamento($solicitante, $tenant);
+        if ($disponibilidade->estaDisponivel()) {
+            return true;
+        }
+
+        $motivo = 'cancelada antes do provedor: ' . $disponibilidade->mensagem();
+        if ($disponibilidade === Disponibilidade::NaoConfiguradaNaPlataforma) {
+            $analise->registrarProvedor($this->provedor->nome());
+            $analise->marcarIndisponivel($motivo);
+            $this->em->flush();
+            $this->logger->info('Análise {analise} cancelada: IA desligada na plataforma.', $this->contexto($analise));
+
+            return false;
+        }
+
+        $this->falhar($analise, $motivo);
+
+        return false;
     }
 
     private function falhar(AnaliseDeInteligencia $analise, string $motivo, ?string $textoBruto = null): void

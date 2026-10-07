@@ -6,6 +6,7 @@ namespace App\Inteligencia\Service;
 
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Inteligencia\Entity\ConfiguracaoDeInteligencia;
 use App\Inteligencia\Enum\Disponibilidade;
 use App\Inteligencia\Repository\AnaliseDeInteligenciaRepository;
 use App\Inteligencia\Repository\ConfiguracaoDeInteligenciaRepository;
@@ -43,19 +44,44 @@ final class DisponibilidadeDeInteligencia
         return $this->iaHabilitada && $this->provedor->estaConfigurado();
     }
 
-    public function para(User $user, Tenant $tenant): Disponibilidade
+    /**
+     * Os três primeiros níveis (plataforma → escritório → permissão), sem a cota. É a pergunta do
+     * worker antes de chamar o provedor (IA-034): desligar a IA tem de cortar também o que já está
+     * na fila. A cota fica de fora porque a análise que o worker vai processar já foi contada na
+     * solicitação — reconferir aqui a recusaria por ela mesma no limite exato.
+     */
+    public function paraProcessamento(User $user, Tenant $tenant): Disponibilidade
+    {
+        return $this->semCota($user, $tenant)[0];
+    }
+
+    /**
+     * @return array{0: Disponibilidade, 1: ?ConfiguracaoDeInteligencia} a configuração só vem
+     *                                                                   quando os três níveis passaram
+     */
+    private function semCota(User $user, Tenant $tenant): array
     {
         if (!$this->plataformaConfigurada()) {
-            return Disponibilidade::NaoConfiguradaNaPlataforma;
+            return [Disponibilidade::NaoConfiguradaNaPlataforma, null];
         }
 
         $configuracao = $this->configuracoes->findDoTenant($tenant);
         if ($configuracao === null || !$configuracao->isHabilitada()) {
-            return Disponibilidade::DesligadaNoEscritorio;
+            return [Disponibilidade::DesligadaNoEscritorio, null];
         }
 
         if (!$this->permissionChecker->canAccessModule($user, $tenant, self::MODULO)) {
-            return Disponibilidade::SemPermissao;
+            return [Disponibilidade::SemPermissao, null];
+        }
+
+        return [Disponibilidade::Disponivel, $configuracao];
+    }
+
+    public function para(User $user, Tenant $tenant): Disponibilidade
+    {
+        [$antesDaCota, $configuracao] = $this->semCota($user, $tenant);
+        if ($configuracao === null) {
+            return $antesDaCota;
         }
 
         $hoje = new \DateTimeImmutable('today');

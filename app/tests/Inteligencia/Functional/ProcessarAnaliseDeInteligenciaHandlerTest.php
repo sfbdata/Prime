@@ -20,9 +20,12 @@ use App\Inteligencia\Prompt\PromptResumoDoPush;
 use App\Inteligencia\Repository\AnaliseDeInteligenciaRepository;
 use App\Inteligencia\Service\InterpretadorDeRespostaDePush;
 use App\Inteligencia\Service\InterpretadorDeRespostaDoAgente;
+use App\Inteligencia\Repository\ConfiguracaoDeInteligenciaRepository;
+use App\Inteligencia\Service\DisponibilidadeDeInteligencia;
 use App\Inteligencia\Service\ProvedorDeLinguagem;
 use App\Inteligencia\Service\ProvedorNaoConfigurado;
 use App\Service\NotificacaoService;
+use App\Service\PermissionChecker;
 use App\Tests\Inteligencia\Support\CriaFixturesInteligenciaTrait;
 use App\Tests\Inteligencia\Support\ProvedorFalso;
 use App\Tests\Shared\Doubles\LoggerEmMemoria;
@@ -43,11 +46,18 @@ final class ProcessarAnaliseDeInteligenciaHandlerTest extends KernelTestCase
 {
     use CriaFixturesInteligenciaTrait;
 
-    private function handler(ProvedorDeLinguagem $provedor, ?LoggerInterface $logger = null): ProcessarAnaliseDeInteligenciaHandler
+    private function handler(ProvedorDeLinguagem $provedor, ?LoggerInterface $logger = null, bool $iaHabilitada = true): ProcessarAnaliseDeInteligenciaHandler
     {
         $c = static::getContainer();
 
         $repositorio = $c->get(AnaliseDeInteligenciaRepository::class);
+        $disponibilidade = new DisponibilidadeDeInteligencia(
+            $provedor,
+            $c->get(ConfiguracaoDeInteligenciaRepository::class),
+            $repositorio,
+            $c->get(PermissionChecker::class),
+            $iaHabilitada,
+        );
 
         return new ProcessarAnaliseDeInteligenciaHandler(
             $this->em(),
@@ -57,6 +67,7 @@ final class ProcessarAnaliseDeInteligenciaHandlerTest extends KernelTestCase
             $provedor,
             $c->get(NotificacaoService::class),
             $c->get('router'),
+            $disponibilidade,
             $logger ?? new NullLogger(),
         );
     }
@@ -97,7 +108,7 @@ final class ProcessarAnaliseDeInteligenciaHandlerTest extends KernelTestCase
         self::assertStringContainsString('ignorada', $logger->doNivel('warning')[0]['mensagem']);
     }
 
-    #[TestDox('ProvedorNaoConfigurado → indisponivel e UnrecoverableMessageHandlingException (sem retry)')]
+    #[TestDox('ProvedorNaoConfigurado → indisponivel antes do provedor, sem re-lançar (repetir não muda nada)')]
     public function testProvedorNaoConfigurado(): void
     {
         self::bootKernel();
@@ -106,17 +117,71 @@ final class ProcessarAnaliseDeInteligenciaHandlerTest extends KernelTestCase
         $this->ligarIaNoTenant($tenant, $user);
         $analise = $this->criarAnalisePendente($tenant, $user, $pasta);
 
-        try {
-            $this->handler(new ProvedorNaoConfigurado())($this->mensagem($analise));
-            self::fail('deveria lançar Unrecoverable');
-        } catch (UnrecoverableMessageHandlingException) {
-        }
+        $this->handler(new ProvedorNaoConfigurado())($this->mensagem($analise));
 
         $relida = $this->reler($analise);
         self::assertSame(StatusDaAnalise::Indisponivel, $relida->getStatus());
         self::assertSame('nao_configurado', $relida->getProvedor());
-        self::assertStringContainsString('não configurado', (string) $relida->getErroMotivo());
+        self::assertStringContainsString('não configurada', (string) $relida->getErroMotivo());
         self::assertSame(1, $relida->getTentativas());
+    }
+
+    #[TestDox('IA-034: IA_HABILITADA desligada com a análise na fila → indisponivel com o motivo e o provedor NÃO é chamado')]
+    public function testPlataformaDesligadaCortaAFila(): void
+    {
+        self::bootKernel();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $this->ligarIaNoTenant($tenant, $user);
+        $analise = $this->criarAnalisePendente($tenant, $user, $pasta);
+        $falso = new ProvedorFalso();
+        $falso->responderComResumo('não devia sair', []);
+
+        $this->handler($falso, iaHabilitada: false)($this->mensagem($analise));
+
+        self::assertFalse($falso->foiChamado());
+        $relida = $this->reler($analise);
+        self::assertSame(StatusDaAnalise::Indisponivel, $relida->getStatus());
+        self::assertSame('cancelada antes do provedor: IA não configurada nesta instalação', $relida->getErroMotivo());
+        self::assertNull($relida->getResumo());
+    }
+
+    #[TestDox('IA-034: escritório desligou a IA com a análise na fila → falhou com o motivo, provedor não chamado')]
+    public function testEscritorioDesligadoCortaAFila(): void
+    {
+        self::bootKernel();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $configuracao = $this->ligarIaNoTenant($tenant, $user);
+        $analise = $this->criarAnalisePendente($tenant, $user, $pasta);
+        $configuracao->atualizar(false, 50, 500, true, $user);
+        $this->em()->flush();
+        $falso = new ProvedorFalso();
+        $falso->responderComResumo('não devia sair', []);
+
+        $this->handler($falso)($this->mensagem($analise));
+
+        self::assertFalse($falso->foiChamado());
+        $relida = $this->reler($analise);
+        self::assertSame(StatusDaAnalise::Falhou, $relida->getStatus());
+        self::assertStringContainsString('desligada neste escritório', (string) $relida->getErroMotivo());
+    }
+
+    #[TestDox('IA-034: a cota NÃO é reconferida no worker — a análise no limite exato (contada na solicitação) conclui')]
+    public function testCotaNaoEhReconferidaNoWorker(): void
+    {
+        self::bootKernel();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $this->ligarIaNoTenant($tenant, $user, limiteDiario: 1);
+        $analise = $this->criarAnalisePendente($tenant, $user, $pasta);
+        $falso = new ProvedorFalso();
+        $falso->responderComResumo('Resumo no limite.', []);
+
+        $this->handler($falso)($this->mensagem($analise));
+
+        self::assertTrue($falso->foiChamado());
+        self::assertSame(StatusDaAnalise::Concluida, $this->reler($analise)->getStatus());
     }
 
     #[TestDox('ProvedorFalso com JSON válido → concluida com resumo, pontos, quem, tokens, modelo e notificação')]

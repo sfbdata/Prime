@@ -154,12 +154,19 @@ cd /opt/jusprime && sed -i '/^IA_API_KEY=/d' .env.prod && ./scripts/deploy-prod-
 
 Para desligar só **um** escritório, sem deploy: `/admin/inteligencia` daquele escritório → desligar.
 
-**Atenção à fila.** A flag é conferida na **solicitação**, não no worker: o
-`ProcessarAnaliseDeInteligenciaHandler` só marca `indisponivel` quando o provedor lança
-`ProvedorIndisponivelException`. Uma análise que já estava na fila quando a flag caiu **ainda é
-enviada** se o provedor continuar configurado. Para corte imediato (incidente, chave vazada), apague
-também a chave (comando acima), confira as pendentes no `app:inteligencia:status` e, se for o caso,
-pare o worker antes do deploy:
+**A fila também é cortada.** O `ProcessarAnaliseDeInteligenciaHandler` reconfere a disponibilidade
+**antes de chamar o provedor** (IA-034): plataforma (`IA_HABILITADA` + provedor), escritório e a
+permissão de módulo de quem pediu — a mesma pergunta da solicitação, sem a cota (a análise já foi
+contada quando entrou na fila). Uma análise que estava na fila quando a IA foi desligada termina sem
+sair para o provedor:
+
+- plataforma desligada → `indisponivel`, motivo `cancelada antes do provedor: IA não configurada nesta instalação`;
+- escritório desligado ou permissão retirada → `falhou`, motivo `cancelada antes do provedor: <motivo>`.
+
+O corte vale a partir do momento em que o worker roda com a flag nova — ou seja, **depois** do deploy
+que o recria com o `.env.prod` novo. Entre o `sed` e o fim do deploy o worker antigo ainda lê a flag
+antiga. Para corte imediato (incidente, chave vazada), apague também a chave (comando acima) e pare o
+worker antes do deploy; confira as pendentes no `app:inteligencia:status` depois:
 
 ```bash
 # Execute manualmente no terminal externo (na VPS)

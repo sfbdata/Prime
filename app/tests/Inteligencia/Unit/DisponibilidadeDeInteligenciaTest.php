@@ -171,4 +171,25 @@ final class DisponibilidadeDeInteligenciaTest extends TestCase
             self::assertSame($ehCota ? 'limite_atingido' : $motivo->value, $motivo->codigoDaRecusa(), $motivo->name);
         }
     }
+
+    #[TestDox('paraProcessamento (worker, IA-034): mesmos três níveis, mas a cota não é consultada')]
+    public function testParaProcessamentoIgnoraACota(): void
+    {
+        $this->configuracoes->method('findDoTenant')->willReturn($this->configuracao(true, diario: 0, mensal: 0));
+        $this->permissoes->method('canAccessModule')->willReturn(true);
+        $this->analises->expects($this->never())->method('contarDesde');
+
+        self::assertSame(Disponibilidade::Disponivel, $this->sut(new ProvedorFalso())->paraProcessamento($this->user, $this->tenant));
+    }
+
+    #[TestDox('paraProcessamento: plataforma, escritório e permissão continuam valendo, na mesma ordem')]
+    public function testParaProcessamentoRecusaOsTresNiveis(): void
+    {
+        $this->configuracoes->method('findDoTenant')->willReturnOnConsecutiveCalls($this->configuracao(false), $this->configuracao(true));
+        $this->permissoes->method('canAccessModule')->willReturn(false);
+
+        self::assertSame(Disponibilidade::NaoConfiguradaNaPlataforma, $this->sut(new ProvedorFalso(), flag: false)->paraProcessamento($this->user, $this->tenant));
+        self::assertSame(Disponibilidade::DesligadaNoEscritorio, $this->sut(new ProvedorFalso())->paraProcessamento($this->user, $this->tenant));
+        self::assertSame(Disponibilidade::SemPermissao, $this->sut(new ProvedorFalso())->paraProcessamento($this->user, $this->tenant));
+    }
 }
