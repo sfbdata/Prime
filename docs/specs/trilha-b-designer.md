@@ -497,7 +497,9 @@ explorador.
 - **NÃO usar Fable** (limite de tokens). Tudo em Opus, inclusive o que o plano marca "com Fable" (arquitetura, segurança, revisão crítica): compensar com revisão Opus mais rigorosa e re-revisão.
 
 ### 10.2 Em andamento (worktrees de agentes; o orquestrador integra um commit por vez)
-P11 vincular cliente · P14 D-DOC-RO · P15 ODP/ZIP64 · revisão do P10 · ajustes de P9/P12.
+P13 fidelidade restante da Pasta · P16a parcelamento · P17a Adicionar coluna · revisão de P11/P14/P15.
+Integrados na sequência: P11 (949d587d), P14 (ad689398 — atributo `#[PastaPelaFilha]` + teste de ARQUITETURA que barra rota `pasta_*` de escrita sem cobertura), P15 (16a6b558), ajustes P9 (3381f6c7), P12 (3584a2c1), P10 (0df5b2a0 — `valorAnterior` + 409). Suíte completa 7424/31418.
+Registrado: corrida residual na correção de valor (dois POST simultâneos) — fechar com lock pessimista/`#[Version]`; arquivo >4 GB no visualizador exige HTTP Range no backend; `PastaSecaoController` usa `em->find` sem tenant (o TenantFilter cobre, mas sem defesa em profundidade).
 Integrados também: P1 (cf21d836), P2 (43a70c9b), P3 (96d5272a), P9 (5a65f0d2+b89a4919), P10 (80534aa7+88fff98c), P12 (d1335dd5), ajustes P4/P5/P7 (881a933d, 4681b88c, 0a53bba0). Suíte completa 7314/30825 antes do P10.
 Integrados: L8-UI (Documentos COMPLETO, só o L0 aguarda o Samuel), P5 (d90e7b01), P8 (ff5b40c4 + 989bb76b). Revisão em bloco de P4/P5/P7/P8 em andamento.
 Pendência pequena: a âncora `#pasta-msg-<id>` da notificação de resposta (P5) cai num registro escondido em "Ver anotações anteriores" — abrir o bloco quando o fragmento apontar para ele (P13).
