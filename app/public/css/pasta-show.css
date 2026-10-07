@@ -4217,6 +4217,39 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
 /* PMC-025: o cabeçalho do desenho (dc:1576) quebra a linha (`flex-wrap:wrap`) —
    é o que deixa os rótulos caberem abaixo de 768px. */
 .ps-processos > .ps-card-cab--painel { gap: 12px; flex-wrap: wrap; }
+
+/* PMC-026: interruptor "Administrativo sem processo" (desenho `admSPtoggle`/`admSProt`,
+   dc:1580 e 6588). Saiu do <style> do _processos_vinculados para cá, com tokens e par
+   escuro: o laranja #b4460a no cartão escuro ficava sem contraste. */
+.ps-page {
+    --ps-adm-rotulo:        var(--ps-label);
+    --ps-adm-rotulo-on:     #b4460a;
+    --ps-adm-trilho:        #c5d0d8;
+    --ps-adm-trilho-on:     #e8873a;
+    --ps-adm-bola:          #fff;
+    --ps-adm-bola-sombra:   0 1px 2px rgba(0,0,0,.3);
+    --ps-adm-hover:         var(--ps-accent-bg);
+}
+[data-bs-theme="dark"] .ps-page {
+    --ps-adm-rotulo-on:     #ff9a55;
+    --ps-adm-trilho:        rgba(255,255,255,.2);
+    --ps-adm-trilho-on:     #d9782f;
+    --ps-adm-bola:          #f1f4f6;
+    --ps-adm-bola-sombra:   0 1px 2px rgba(0,0,0,.6);
+}
+.ps-adm-form { margin: 0; }
+.ps-adm-sw { display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 6px; border: none; background: transparent; font-family: inherit; cursor: pointer; border-radius: 4px; }
+.ps-adm-sw:hover, .ps-adm-sw:focus-visible { background: var(--ps-adm-hover); }
+.ps-adm-sw-rotulo { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--ps-adm-rotulo); }
+.ps-adm-sw-trilho { position: relative; width: 34px; height: 18px; border-radius: 9px; background: var(--ps-adm-trilho); transition: background .2s; flex-shrink: 0; }
+.ps-adm-sw-bola { position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--ps-adm-bola); box-shadow: var(--ps-adm-bola-sombra); transition: left .2s; }
+.ps-adm-sw.is-ligado .ps-adm-sw-rotulo { color: var(--ps-adm-rotulo-on); }
+.ps-adm-sw.is-ligado .ps-adm-sw-trilho { background: var(--ps-adm-trilho-on); }
+.ps-adm-sw.is-ligado .ps-adm-sw-bola { left: 18px; }
+.ps-adm-sw[aria-busy="true"] { cursor: progress; }
+/* PAS-049b: só leitura (sem EDIT ou lápide) — o mesmo interruptor, mesma aparência, sem clique. */
+.ps-adm-sw[aria-disabled="true"] { cursor: default; }
+.ps-adm-sw[aria-disabled="true"]:hover { background: transparent; }
 .ps-processos .ps-btn--primario.ps-btn--caps i { font-size: 13px; }
 .ps-processos .ps-btn--primario.ps-btn--caps:hover,
 .ps-processos .ps-btn--primario.ps-btn--caps:focus-visible { border-color: var(--ps-env-hv); background: var(--ps-env-hv); }

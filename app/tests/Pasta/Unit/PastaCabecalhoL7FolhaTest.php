@@ -111,4 +111,28 @@ final class PastaCabecalhoL7FolhaTest extends TestCase
         $metas = self::ler(__DIR__ . '/../../../templates/pasta/_metas.html.twig');
         self::assertStringContainsString('<i class="bi bi-plus-lg"></i><span>Nova meta</span>', $metas);
     }
+
+    #[TestDox('PMC-026: o interruptor Administrativo saiu do <style> do parcial e usa tokens com par escuro')]
+    public function testInterruptorAdministrativoComTokens(): void
+    {
+        $proc = self::ler(__DIR__ . '/../../../templates/pasta/_processos_vinculados.html.twig');
+        self::assertStringNotContainsString('<style>', $proc, 'sem CSS inline no parcial');
+
+        $css = self::ler(self::CSS);
+        self::assertStringContainsString('var(--ps-adm-rotulo-on)', self::regra($css, '.ps-adm-sw.is-ligado .ps-adm-sw-rotulo'));
+        self::assertStringContainsString('var(--ps-adm-trilho-on)', self::regra($css, '.ps-adm-sw.is-ligado .ps-adm-sw-trilho'));
+        self::assertStringContainsString('var(--ps-adm-trilho)', self::regra($css, '.ps-adm-sw-trilho'));
+
+        // Cada token de cor existe no claro e no escuro.
+        $bloco  = self::trecho($css, 'PMC-026: interruptor', '.ps-adm-form {');
+        $claro  = self::trecho($bloco, '.ps-page {', '[data-bs-theme="dark"] .ps-page {');
+        $escuro = self::trecho($bloco, '[data-bs-theme="dark"] .ps-page {');
+        foreach (['--ps-adm-rotulo-on:     #b4460a', '--ps-adm-trilho:        #c5d0d8', '--ps-adm-trilho-on:     #e8873a'] as $token) {
+            self::assertStringContainsString($token, $claro, 'o claro é o do desenho');
+        }
+        foreach (['--ps-adm-rotulo-on:', '--ps-adm-trilho:', '--ps-adm-trilho-on:', '--ps-adm-bola:'] as $token) {
+            self::assertStringContainsString($token, $escuro, "{$token} tem par escuro");
+        }
+        self::assertStringNotContainsString('#b4460a', $escuro);
+    }
 }

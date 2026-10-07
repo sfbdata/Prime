@@ -59,23 +59,9 @@
    Marcar com processo vinculado pede confirmação (texto do desenho, em `data-confirmar`, lido
    pelo JS); não impede. Vincular continua
    disponível com a pasta marcada. Medidas do desenho: rótulo 11px/700 caixa-alta, cinza
-   (#7b93a2) desligado e laranja (#b4460a) ligado; trilho 34×18 (#c5d0d8 / #e8873a), bola 14px. #}
+   (#7b93a2) desligado e laranja (#b4460a) ligado; trilho 34×18 (#c5d0d8 / #e8873a), bola 14px.
+   O CSS mora no pasta-show.css (seção Processo, PMC-026), com tokens `--ps-adm-*` e par escuro. #}
 {% set administrativa = pasta.administrativa %}
-<style>
-.ps-adm-form { margin: 0; }
-.ps-adm-sw { display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 6px; border: none; background: transparent; font-family: inherit; cursor: pointer; border-radius: 4px; }
-.ps-adm-sw:hover, .ps-adm-sw:focus-visible { background: var(--ps-accent-bg, #e5f1f7); }
-.ps-adm-sw-rotulo { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--ps-label, #7b93a2); }
-.ps-adm-sw-trilho { position: relative; width: 34px; height: 18px; border-radius: 9px; background: #c5d0d8; transition: background .2s; flex-shrink: 0; }
-.ps-adm-sw-bola { position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.3); transition: left .2s; }
-.ps-adm-sw.is-ligado .ps-adm-sw-rotulo { color: #b4460a; }
-.ps-adm-sw.is-ligado .ps-adm-sw-trilho { background: #e8873a; }
-.ps-adm-sw.is-ligado .ps-adm-sw-bola { left: 18px; }
-.ps-adm-sw[aria-busy="true"] { cursor: progress; }
-/* PAS-049b: só leitura (sem EDIT ou lápide) — o mesmo interruptor, mesma aparência, sem clique. */
-.ps-adm-sw[aria-disabled="true"] { cursor: default; }
-.ps-adm-sw[aria-disabled="true"]:hover { background: transparent; }
-</style>
 {% set vinculos = pasta.pastaProcessos %}
 <section class="ps-card ps-processos">
     <div class="ps-card-cab ps-card-cab--painel">
