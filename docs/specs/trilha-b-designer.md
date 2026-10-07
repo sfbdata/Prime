@@ -528,3 +528,36 @@ Onda 4: P16a/b parcelamento (b com migration), P17 Adicionar coluna, P18 timelin
 - Setters gravam MAIÚSCULAS também em `PastaSecao::setNome` (nomes de diretório do zip).
 - Queda de rede derruba agentes e pode parar os containers de dev
   (`docker start jusprime_db_dev jusprime_php_dev jusprime_nginx_dev`).
+
+### 10.5 FECHAMENTO DA SESSÃO 2 (07/10/2026, madrugada) — estado exato e próxima ação
+- **Git:** branch `master`, HEAD `dbb6e8cc`, **110 commits locais** à frente de `origin/master` (`3f199dfd` = produção).
+  Nada publicado. Árvore limpa (só o pacote do Designer untracked, de propósito). Worktrees `agent-*` desta sessão
+  ficaram no disco (todas integradas por cherry-pick; limpeza é do dono).
+- **Suíte completa:** 7741 testes / 34837 asserções, verde, em `dbb6e8cc`.
+- **Migrations novas (4, só em saas_ux/saas_test):** `Version20261006230000`, `Version20261007000000`,
+  `Version20261007010000`, `Version20261007020000`. No deploy: `doctrine:migrations:migrate --dry-run` antes.
+- **Entregue nesta sessão:**
+  - **Documentos COMPLETO** (L1–L11 + L2b; só o L0/Cobrança aguarda o Samuel): explorador próprio fiel ao dc 1.2.3,
+    8 modos, painel, seleção/laço/teclado/menus, favoritos, lixeira com Desfazer e purga, zip e copiar/colar,
+    duplicados e limpeza por nível, visor em tela cheia, checklist com estado e "exigido pelo juízo" por regras.
+  - **Pendências pós-Documentos:** P1 Metas (relatório + "Alertado às"), P2 Cadastro no cabeçalho + atalhos do modal,
+    P3 Administrativo sem recarregar, P4 "Geram prazo", P5 notificação de resposta, P6 refatoração do CASE,
+    P7 estrela no cartão, P8 fidelidade do Dashboard + som, P9 desfazer da auditoria por tipo (tudo-ou-nada),
+    P10 corrigir valor + mailto (com `valorAnterior`/409), P11 vincular cliente sem recarregar, P12 contatos inline,
+    P13 fidelidade restante da Pasta, P14/P14b pasta excluída somente leitura em TODAS as rotas (teste de arquitetura),
+    P15 ODP/ZIP64, P16a parcelamento Price, P17a colunas extras do Dashboard, P18 timeline por regras, P19 @menção.
+- **Revisões:** todo lote passou por revisor independente (Opus; Fable até o dono suspender o Fable). Nenhum
+  bloqueante ficou aberto.
+- **Pendências autônomas que SOBRARAM (próxima sessão, em Opus):**
+  1. P16b êxito/sucumbência no parcelamento (exige migration; dinheiro — revisão rigorosa).
+  2. P17b "Pastas concluídas" no Dashboard (precisa de lastro: data de conclusão da pasta).
+  3. D-FIN-CORRIDA (`#[Version]` em `PastaPagamento`) — se o dono aprovar.
+  4. "Enquanto você estava fora" da timeline — só com persistência por usuário no servidor.
+  5. Visualizador >4 GB (HTTP Range no backend).
+- **Decisões do Samuel acumuladas nesta sessão:** linhas D-DOC-*, D-CLI-*, D-CAD-MODAL, D-META-LINK, D-PUSH-HORA,
+  D-FIN-ENTRADA, D-FIN-CORRIDA, D-AUDIT-UNDO (feito), D-DOC-DRIVE, D-DOC-RET, D-DOC-VAZIO, D-DOC-IDENT no §4.
+- **Pronto para nova homologação?** Sim, como entrega intermediária 2 — depois do smoke do dono no dev (roteiros nos
+  relatórios dos lotes: Documentos em 375px, lixeira/Desfazer, zip, visor/impressão no Chrome e no Firefox,
+  parcelamento, correção de valor, @menção, timeline).
+- **Próxima ação exata:** o dono faz o smoke no dev (`saas_ux`, pastas 223 e 1025) e decide o §4; depois, push +
+  deploy-prod-tls (migrations + cron da purga). Em paralelo, uma sessão nova pode atacar os itens 1–2 acima.
