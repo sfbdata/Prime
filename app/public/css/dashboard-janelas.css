@@ -1,0 +1,129 @@
+/* =============================================================================
+   Janelas flutuantes do Dashboard (DASH-020) e janela "Histórico" dos cards (DASH-017).
+
+   Valores do desenho (dc 1.2.2, l.1431-1474 e script l.3096-3152): borda #e3eaef, sombra
+   dupla, cabeçalho 14/14/10, ícone 32px na cor do card, título 14px/700, subtítulo 12px,
+   X de 28px. A janela de histórico (330px, ano, barras, indicadores) vem abaixo.
+   Cantos de 4px (decisão "4px progressivo", como o resto do painel).
+
+   As janelas moram no <body> (fora da região que o XHR troca), então os tokens ficam na
+   própria `.db-janela` — o componente funciona em qualquer tela. O escuro aponta os tokens
+   para o sistema de cor do Bootstrap, como o dashboard.css.
+   ============================================================================= */
+
+.db-janela {
+    --db-jan-bg:           #fff;
+    --db-jan-borda:        #e3eaef;
+    --db-jan-sombra:       0 24px 50px -22px rgba(12,60,90,.45), 0 4px 12px -6px rgba(12,60,90,.12);
+    --db-jan-titulo:       #0e2533;
+    --db-jan-sub:          #6b8494;
+    --db-jan-grip:         #b3c1ca;
+    --db-jan-fechar:       #7b93a2;
+    --db-jan-fechar-hover-bg: #eef3f6;
+    --db-jan-fechar-hover: #0e2533;
+    --db-jan-foco:         0 0 0 3px rgba(12,122,156,.16);
+    --db-jan-ease:         cubic-bezier(.22,.8,.3,1);
+
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 320px;
+    max-width: calc(100vw - 20px);
+    background: var(--db-jan-bg);
+    border: 1px solid var(--db-jan-borda);
+    border-radius: 4px;
+    box-shadow: var(--db-jan-sombra);
+    color: var(--db-jan-titulo);
+    font-family: inherit;
+    transform-origin: top left;
+    animation: db-janela-entra .2s var(--db-jan-ease);
+}
+.db-janela:focus { outline: none; }
+.db-janela:focus-visible { box-shadow: var(--db-jan-sombra), var(--db-jan-foco); }
+
+[data-bs-theme="dark"] .db-janela {
+    --db-jan-bg:           var(--bs-tertiary-bg);
+    --db-jan-borda:        var(--bs-border-color);
+    --db-jan-sombra:       0 24px 50px -22px rgba(0,0,0,.75), 0 4px 12px -6px rgba(0,0,0,.45);
+    --db-jan-titulo:       var(--bs-body-color);
+    --db-jan-sub:          var(--bs-secondary-color);
+    --db-jan-grip:         var(--bs-secondary-color);
+    --db-jan-fechar:       var(--bs-secondary-color);
+    --db-jan-fechar-hover-bg: var(--bs-secondary-bg);
+    --db-jan-fechar-hover: var(--bs-body-color);
+    --db-jan-foco:         0 0 0 3px rgba(79,179,212,.28);
+}
+
+@keyframes db-janela-entra {
+    from { opacity: 0; transform: translate3d(0,-6px,0) scale(.97); }
+    to   { opacity: 1; transform: none; }
+}
+
+/* cabeçalho = alça de arraste */
+.db-janela-cab {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 14px 10px;
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+}
+.db-janela.is-arrastando .db-janela-cab { cursor: grabbing; }
+.db-janela-icone {
+    width: 32px;
+    height: 32px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--db-jan-cor, #0c7a9c);
+    background: rgba(var(--db-jan-rgb, 12,122,156), .1);
+    box-shadow: inset 0 0 0 1px rgba(var(--db-jan-rgb, 12,122,156), .16);
+}
+.db-janela-icone i { font-size: 15px; }
+.db-janela-textos { min-width: 0; flex: 1; }
+.db-janela-titulo {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--db-jan-titulo);
+    line-height: 1.25;
+}
+.db-janela-sub {
+    font-size: 12px;
+    color: var(--db-jan-sub);
+    margin-top: 1px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.db-janela-grip { font-size: 14px; color: var(--db-jan-grip); }
+.db-janela-fechar {
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--db-jan-fechar);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+.db-janela-fechar i { font-size: 12px; }
+.db-janela-fechar:hover { background: var(--db-jan-fechar-hover-bg); color: var(--db-jan-fechar-hover); }
+.db-janela-fechar:focus-visible { outline: none; box-shadow: var(--db-jan-foco); }
+
+@media (prefers-reduced-motion: reduce) {
+    .db-janela { animation: none; }
+}
+/* preferência pessoal "animações reduzidas" do painel vale como o prefers-reduced-motion */
+body:has(.db-page--sem-anim) .db-janela { animation: none; }
+
+/* não saem no PDF (desenho: data-print="hide") */
+@media print {
+    .db-janela { display: none !important; }
+}

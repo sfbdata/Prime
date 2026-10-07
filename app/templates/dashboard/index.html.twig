@@ -14,6 +14,8 @@
 <link rel="stylesheet" href="{{ asset('css/dashboard.css') }}">
 {# Painel BlueJus Intelligence (botão no cabeçalho + painel lateral), escopado em .db-page. #}
 <link rel="stylesheet" href="{{ asset('css/dashboard-inteligencia.css') }}">
+{# Janelas flutuantes (DASH-020): moram no <body>, fora da região que o XHR troca. #}
+<link rel="stylesheet" href="{{ asset('css/dashboard-janelas.css') }}">
 {% endblock %}
 
 {% block body %}
@@ -443,6 +445,8 @@
 {{ parent() }}
 <script src="{{ asset('js/filtro-tabela.js') }}"></script>
 {# Depois do motor de filtro: a contagem dos cards observa a região que ele recarrega. #}
+{# Janelas flutuantes (DASH-020): componente usado pelo histórico dos cards. #}
+<script src="{{ asset('js/dashboard-janelas.js') }}"></script>
 <script src="{{ asset('js/dashboard.js') }}"></script>
 {# Selects e calendário próprios da barra de filtros: escrevem nos nativos do parcial. #}
 <script src="{{ asset('js/dashboard-filtros.js') }}"></script>
