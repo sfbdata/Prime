@@ -10,6 +10,7 @@ use App\Entity\Permission\AccessRequest;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaMensagem;
+use App\Pasta\Entity\PastaObservacaoFinanceira;
 use App\Processo\Entity\NotaTecnica;
 use App\Repository\NotificacaoRepository;
 use App\Repository\UserRepository;
@@ -40,6 +41,11 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  * o link é o da mensagem, então quem já foi avisado por ela (no envio ou numa edição anterior)
  * não recebe de novo. Por último, a cota do autor ({@see CotaDeNotificacoesDoRegistro}, SEC-008):
  * estourada, o aviso é suprimido e a mensagem segue gravada — no envio e na edição.
+ *
+ * `notificarRespostaNaObservacao()` — o "respondeu seu comentário" do Relatório financeiro
+ * (FPN-005), com as MESMAS regras do Registro (`EnviarMensagemPastaUseCase`): nunca quem
+ * respondeu; só quem ainda tem vínculo ATIVO neste escritório e VÊ esta pasta; um aviso por
+ * resposta (o link é o da resposta); a mesma cota do autor.
  */
 final class ResolucaoDeMencoesDoRegistro
 {
@@ -51,6 +57,13 @@ final class ResolucaoDeMencoesDoRegistro
 
     /** Nota escrita sobre uma movimentação, no teor do Push — `menAbaRot.push` do desenho. */
     public const ABA_DO_PUSH = 'Push Processual';
+
+    /** Relatório financeiro — rótulo do desenho (`regsLinha(…, 'Financeiro', 'financeiro')`). */
+    public const ABA_DO_FINANCEIRO = 'Financeiro';
+
+    /** Texto do "respondeu seu comentário" — desenho `bluejus-central.js` `notificarResposta`. */
+    private const LIMITE_RESPOSTA = 140;
+    private const LIMITE_ORIGINAL = 80;
 
     /** Prévia da menção no sino — `menNotificar`: `prev.slice(0, 180) + '…'`. */
     private const LIMITE_PREVIA = 180;
@@ -170,6 +183,90 @@ final class ResolucaoDeMencoesDoRegistro
             $nota,
             null,
         );
+    }
+
+    /**
+     * "<Primeiro nome> respondeu seu comentário" para o autor da RAIZ de uma resposta do
+     * Relatório financeiro (FPN-005). Tipo `TIPO_PASTA_RESPOSTA_REGISTRO` — o mesmo do Registro:
+     * o sino não distingue a aba, e o texto já diz qual é ("· em Financeiro da Pasta N"). Link
+     * `pasta_show#financeiro-obs-<idDaResposta>`: cada resposta tem o seu.
+     *
+     * Chamar DEPOIS do flush (o link leva o id da resposta) e dentro da transação dela. A pasta,
+     * a raiz e a resposta têm de ser deste escritório e a raiz desta pasta — quem chama já
+     * conferiu; aqui a prova é repetida, porque um aviso com link para pasta alheia vazaria o
+     * nome dela.
+     */
+    public function notificarRespostaNaObservacao(PastaObservacaoFinanceira $raiz, PastaObservacaoFinanceira $resposta, Pasta $pasta, User $quemResponde, Tenant $tenant): void
+    {
+        $destinatario = $raiz->getAutor();
+        $pastaId      = $pasta->getId();
+        if ($destinatario === null || $pastaId === null || $resposta->getId() === null || self::mesmoUsuario($destinatario, $quemResponde)) {
+            return;
+        }
+
+        foreach ([$pasta->getTenant(), $raiz->getTenant(), $resposta->getTenant()] as $dono) {
+            if ($dono === null || !self::mesmoTenant($dono, $tenant)) {
+                return;
+            }
+        }
+        if ($raiz->getPasta() === null || $raiz->getPasta()->getId() !== $pastaId) {
+            return;
+        }
+
+        if (!$this->temVinculoAtivo($destinatario, $tenant)
+            || !$this->permissionChecker->canAccessResource($destinatario, $tenant, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_VIEW)) {
+            return;
+        }
+
+        $tipo = Notificacao::TIPO_PASTA_RESPOSTA_REGISTRO;
+        $url  = $this->urlGenerator->generate('pasta_show', ['id' => $pastaId]) . '#financeiro-obs-' . $resposta->getId();
+
+        // Idempotência da MESMA resposta: o link é único por resposta.
+        $jaExiste = $this->notificacaoRepository->findOneBy([
+            'usuario' => $destinatario,
+            'tenant'  => $tenant,
+            'tipo'    => $tipo,
+            'url'     => $url,
+        ]);
+        if ($jaExiste !== null) {
+            return;
+        }
+
+        // Depois dos filtros: só aviso que de fato sairia gasta a cota de quem respondeu.
+        if (!$this->cota->permite($quemResponde, $destinatario, $tipo, $resposta)) {
+            return;
+        }
+
+        $texto = sprintf(
+            '"%s" · em %s da Pasta %s · %s. Seu comentário: "%s"',
+            mb_substr($this->mencoes->textoDoSino($resposta->getConteudo()), 0, self::LIMITE_RESPOSTA),
+            self::ABA_DO_FINANCEIRO,
+            ($nup = $pasta->getNup()) !== null && $nup !== '' ? $nup : '#' . $pastaId,
+            $resposta->getCriadaEm()->format('d/m/Y H:i'),
+            mb_substr($this->mencoes->textoDoSino($raiz->getConteudo()), 0, self::LIMITE_ORIGINAL),
+        );
+
+        $this->notificacaoService
+            ->criar($destinatario, $tenant, $tipo, sprintf('%s respondeu seu comentário', self::primeiroNome($quemResponde)), $texto)
+            ->setUrl($url);
+    }
+
+    /**
+     * Vínculo ATIVO neste escritório e usuário ativo — o mesmo critério de quem é mencionável
+     * ({@see resolver()}), pela mesma consulta presa ao tenant.
+     */
+    private function temVinculoAtivo(User $pessoa, Tenant $tenant): bool
+    {
+        if (!$pessoa->isActive()) {
+            return false;
+        }
+        foreach ($this->userRepository->findColaboradoresAtivosPorTenant($tenant) as $colega) {
+            if (self::mesmoUsuario($colega, $pessoa)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

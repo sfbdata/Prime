@@ -10,6 +10,15 @@
    #formFinanceiroObservacao · #financeiroObsConteudo · #btnEnviarObsFinanceiro
    #financeiroObsErro · #financeiroObsLista · #financeiroObsVazio
    #financeiro-obs-<id> · .obs-conteudo · .btn-editar-obs · .btn-excluir-obs
+   .btn-responder-obs · .ps-respostas[data-resposta-de]
+
+   Responder (FPN-005; desenho 1.2.3, o mesmo `regsLinha` do Registro da aba Dados): a caixa
+   abre LOGO ABAIXO do registro respondido (a raiz: responder a uma resposta liga à raiz, um
+   nível só) — faixa "Respondendo a NOME", "Escreva a resposta…", Cancelar e Responder (apagado
+   sem texto); Ctrl+Enter envia, Esc fecha, uma caixa por vez. O envio é o MESMO
+   `pasta_financeiro_observacao_enviar`, com o CSRF do compositor e `resposta_a` = id da raiz; a
+   posse (mesma pasta, mesmo escritório) é conferida no servidor. A caixa usa as classes
+   `.ps-resp-caixa*` do Registro (estilo em `_dados_anotacoes`, escopo `.ps-anotacoes`).
    ============================================================================ #}
 <script>
 (function () {
@@ -39,12 +48,15 @@
     const obsContagem  = document.getElementById('financeiro-obs-count');
     const urlEnviarObs = '{{ path("pasta_financeiro_observacao_enviar", {id: pasta.id}) }}';
 
-    /** A contagem do cabeçalho conta o que está na lista, não um número à parte. */
+    /** A contagem do cabeçalho conta as RAÍZES que estão na lista (respostas não contam, como no
+        Registro); a resposta cuja raiz foi excluída agora há pouco passa a contar, como ao recarregar. */
     function atualizarContagem() {
         if (obsContagem && obsLista) {
-            obsContagem.textContent = String(obsLista.querySelectorAll('.ps-anotacao').length);
+            obsContagem.textContent = String(obsLista.querySelectorAll(':scope > .ps-anotacao, :scope > .ps-respostas--orfa > .ps-anotacao').length);
         }
     }
+
+    const ROTULO_ORFA = 'Resposta a uma mensagem excluída';
 
     function mostrarObsErro(msg) {
         obsErro.textContent = msg;
@@ -115,20 +127,34 @@
             + '". Ele some para toda a equipe e a exclusão fica registrada no histórico.';
     }
 
-    function inserirItemObs(data) {
+    /** "06/10 · 09:12" quando a resposta é de outro dia que não o da raiz (como no Twig). */
+    function horaDaResposta(criadaEm, raiz) {
+        const hora    = criadaEm.split(' ').pop();
+        const dataEl  = raiz ? raiz.querySelector(':scope > .ps-anotacao-topo .ps-anotacao-data') : null;
+        const diaRaiz = dataEl ? String(dataEl.getAttribute('title') || '').split(' ')[0] : '';
+        const dia     = criadaEm.split(' ')[0];
+
+        return (raiz && diaRaiz !== '' && dia !== diaRaiz) ? dia.slice(0, 5) + ' · ' + hora : hora;
+    }
+
+    /** O cartão de um registro recém-gravado — a MESMA marcação do macro `registro` do Twig. */
+    function htmlDoCartao(data, raiz) {
         const urlEditar  = '{{ path("pasta_financeiro_observacao_editar", {id: pasta.id, obsId: 0})|replace({"/0/": "/__ID__/"}) }}'.replace('__ID__', data.id);
         const urlExcluir = '{{ path("pasta_financeiro_observacao_excluir", {id: pasta.id, obsId: 0})|replace({"/0/": "/__ID__/"}) }}'.replace('__ID__', data.id);
-        const hoje       = obsLista.dataset.hoje || '';
-        const agora      = new Date();
-        const topoDia    = obsLista.querySelector('.ps-dia');
-        const pilula     = (!topoDia || topoDia.dataset.dia !== hoje)
-            ? `<div class="ps-dia" data-dia="${esc(hoje)}"><span class="ps-dia-pilula">${agora.getDate()} ${MESES[agora.getMonth()]} ${agora.getFullYear()}</span></div>`
+        const criadaEm   = String(data.criadaEm ?? '');
+        const ehResposta = !!data.respostaA;
+        const alvoId     = ehResposta ? data.respostaA : data.id;
+        const alvoNome   = ehResposta ? (data.respostaANome || 'Autor desconhecido') : (data.autorNome || 'Autor desconhecido');
+        const autorResp  = ehResposta && data.autorId
+            ? ` data-resposta-autor-id="${esc(data.autorId)}" data-resposta-autor-nome="${esc(data.autorNome ?? '')}"`
             : '';
-        const criadaEm = String(data.criadaEm ?? '');
-        const hora     = criadaEm.split(' ').pop();
+        const faixa = ehResposta
+            ? `<div class="ps-anotacao-resposta-rot"><i class="bi bi-reply-fill" aria-hidden="true"></i><span>${esc(data.respostaANome ? 'Resposta a ' + data.respostaANome : ROTULO_ORFA)}</span></div>`
+            : '';
 
-        const html = pilula + `
-            <article class="ps-anotacao" id="financeiro-obs-${data.id}">
+        return `
+            <article class="ps-anotacao${ehResposta ? ' ps-anotacao--resposta' : ''}" id="financeiro-obs-${data.id}" data-obs-do-autor="1">
+                ${faixa}
                 <span class="ps-anotacao-ponto" aria-hidden="true"></span>
                 <span class="ps-anotacao-seta" aria-hidden="true"></span>
                 <div class="ps-anotacao-topo">
@@ -156,26 +182,211 @@
                         </button>
                         <span class="ps-anotacao-janela small" style="color: var(--ps-label);" title="Edição e exclusão liberadas por mais {{ comentario_janela_minutos() }} min">· {{ comentario_janela_minutos() }} min</span>
                     </span>
-                    <span class="ps-anotacao-data ps-num" title="${esc(criadaEm)}">${esc(hora)}</span>
+                    <button type="button"
+                            class="ps-anotacao-acao ps-anotacao-acao--responder btn-responder-obs"
+                            title="Responder" aria-label="Responder"
+                            data-resposta-a="${esc(alvoId)}"
+                            data-resposta-nome="${esc(alvoNome)}"${autorResp}>
+                        <i class="bi bi-reply-fill"></i>
+                    </button>
+                    <span class="ps-anotacao-data ps-num" title="${esc(criadaEm)}">${esc(horaDaResposta(criadaEm, raiz))}</span>
                 </div>
                 <div class="ps-anotacao-corpo">
                     <i class="bi bi-megaphone-fill ps-anotacao-icone" aria-hidden="true"></i>
                     <div class="ps-anotacao-texto obs-conteudo"><span class="editor-rico-conteudo"><span class="ql-editor"></span></span></div>
                 </div>
             </article>`;
+    }
 
-        obsLista.classList.remove('ps-registro--vazio');
-        obsLista.insertAdjacentHTML('afterbegin', html);
-        // `conteudoHtml` vem SANITIZADO do servidor, então entra como HTML (é o que mostra a
-        // formatação). Os demais campos continuam escapados via esc() no template acima.
+    /** `conteudoHtml` vem SANITIZADO do servidor, então entra como HTML (é o que mostra a
+        formatação). Os demais campos continuam escapados via esc() no cartão. */
+    function preencherConteudo(data) {
         const novo = document.getElementById('financeiro-obs-' + data.id);
         if (novo) { novo.querySelector('.ql-editor').innerHTML = data.conteudoHtml ?? ''; }
+
+        return novo;
+    }
+
+    function inserirItemObs(data) {
+        // Resposta: vai para o fim da conversa da raiz (da mais antiga à mais nova).
+        const raiz = data.respostaA ? document.getElementById('financeiro-obs-' + data.respostaA) : null;
+        if (raiz) {
+            let conversa = obsLista.querySelector('.ps-respostas[data-resposta-de="' + data.respostaA + '"]');
+            if (!conversa) {
+                conversa = document.createElement('div');
+                conversa.className = 'ps-respostas';
+                conversa.setAttribute('data-resposta-de', String(data.respostaA));
+                raiz.after(conversa);
+            }
+            conversa.insertAdjacentHTML('beforeend', htmlDoCartao(data, raiz));
+            const nova = preencherConteudo(data);
+            if (nova) { nova.scrollIntoView({ block: 'nearest' }); }
+
+            return;
+        }
+
+        const hoje    = obsLista.dataset.hoje || '';
+        const agora   = new Date();
+        const topoDia = obsLista.querySelector('.ps-dia');
+        const pilula  = (!topoDia || topoDia.dataset.dia !== hoje)
+            ? `<div class="ps-dia" data-dia="${esc(hoje)}"><span class="ps-dia-pilula">${agora.getDate()} ${MESES[agora.getMonth()]} ${agora.getFullYear()}</span></div>`
+            : '';
+
+        obsLista.classList.remove('ps-registro--vazio');
+        obsLista.insertAdjacentHTML('afterbegin', pilula + htmlDoCartao(data, null));
+        preencherConteudo(data);
         obsLista.scrollTop = 0;
+    }
+
+    // ── Responder (FPN-005) ──────────────────────────────────────────────────
+    let caixaResp = null; // { el, raizId }
+
+    function fecharCaixaRespostaFin() {
+        if (!caixaResp) { return; }
+        caixaResp.el.remove();
+        caixaResp = null;
+    }
+
+    /** O texto vira parágrafos escapados aqui — o servidor sanitiza de novo. */
+    function paragrafosDe(texto) {
+        return String(texto).split(/\r?\n/).map(function (linha) {
+            const limpa = linha.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            return '<p>' + (limpa.trim() === '' ? '<br>' : limpa) + '</p>';
+        }).join('');
+    }
+
+    function abrirCaixaRespostaFin(botao) {
+        const raizId = String(botao.dataset.respostaA || '');
+        const raiz   = document.getElementById('financeiro-obs-' + raizId);
+        const token  = formObs ? formObs.querySelector('input[name="_token"]') : null;
+        if (!raiz || !token) { return; }
+        fecharCaixaRespostaFin();
+
+        const el = document.createElement('div');
+        el.className = 'ps-resp-caixa';
+        el.setAttribute('data-resp-caixa', raizId);
+
+        const faixa = document.createElement('div');
+        faixa.className = 'ps-resp-caixa-faixa';
+        const icone = document.createElement('i');
+        icone.className = 'bi bi-reply-fill';
+        icone.setAttribute('aria-hidden', 'true');
+        const para = document.createElement('span');
+        para.textContent = 'Respondendo a ' + (botao.dataset.respostaNome || 'Autor desconhecido');
+        faixa.appendChild(icone);
+        faixa.appendChild(para);
+
+        const campo = document.createElement('textarea');
+        campo.className = 'ps-resp-caixa-campo';
+        campo.rows = 2;
+        campo.maxLength = 5000;
+        campo.placeholder = 'Escreva a resposta…';
+        campo.setAttribute('aria-label', para.textContent);
+
+        const erro = document.createElement('div');
+        erro.className = 'ps-resp-caixa-erro';
+        erro.hidden = true;
+
+        const cancelar = document.createElement('button');
+        cancelar.type = 'button';
+        cancelar.className = 'ps-resp-caixa-cancelar';
+        cancelar.textContent = 'Cancelar';
+
+        const enviar = document.createElement('button');
+        enviar.type = 'button';
+        enviar.className = 'ps-resp-caixa-enviar';
+        enviar.disabled = true;
+        const iEnviar = document.createElement('i');
+        iEnviar.className = 'bi bi-send';
+        iEnviar.setAttribute('aria-hidden', 'true');
+        enviar.appendChild(iEnviar);
+        enviar.appendChild(document.createTextNode('Responder'));
+
+        const acoes = document.createElement('div');
+        acoes.className = 'ps-resp-caixa-acoes';
+        acoes.appendChild(cancelar);
+        acoes.appendChild(enviar);
+
+        el.appendChild(faixa);
+        el.appendChild(campo);
+        el.appendChild(erro);
+        el.appendChild(acoes);
+        raiz.after(el);
+        caixaResp = { el: el, raizId: raizId };
+
+        campo.addEventListener('input', function () { enviar.disabled = campo.value.trim() === ''; });
+        campo.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); enviar.click(); }
+            else if (e.key === 'Escape') { e.preventDefault(); fecharCaixaRespostaFin(); botao.focus(); }
+        });
+        cancelar.addEventListener('click', function () { fecharCaixaRespostaFin(); });
+        enviar.addEventListener('click', async function () {
+            const texto = campo.value.trim();
+            if (texto === '') { return; }
+            enviar.disabled = true;
+            erro.hidden = true;
+            const fd = new FormData();
+            fd.append('_token', token.value);
+            fd.append('resposta_a', raizId);
+            fd.append('conteudo', paragrafosDe(texto));
+            try {
+                const resp = await fetch(urlEnviarObs, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                const data = await resp.json();
+                if (!resp.ok) {
+                    erro.textContent = data.erro ?? 'Erro ao enviar a resposta.';
+                    erro.hidden = false;
+                    enviar.disabled = false;
+                    return;
+                }
+                fecharCaixaRespostaFin();
+                inserirItemObs(data);
+                atualizarContagem();
+            } catch (_) {
+                erro.textContent = 'Erro de rede. Tente novamente.';
+                erro.hidden = false;
+                enviar.disabled = false;
+            }
+        });
+
+        // Responder a uma resposta já começa com "@PrimeiroNome " do autor dela (desenho `respTxt`).
+        const primeiro = String(botao.dataset.respostaAutorNome || '').trim().split(/\s+/)[0] || '';
+        if (primeiro !== '') {
+            campo.value = '@' + primeiro + ' ';
+            enviar.disabled = false;
+        }
+
+        campo.focus();
+        campo.setSelectionRange(campo.value.length, campo.value.length);
+        el.scrollIntoView({ block: 'nearest' });
+    }
+
+    /* ── Âncora de um registro (`#financeiro-obs-<id>`) ─────────────────────
+       Destino do aviso "respondeu seu comentário": abre a aba Financeiro pelo
+       próprio gatilho do Bootstrap e rola até o cartão, depois do reflow. */
+    function registroDoFragmento() {
+        const hash = window.location.hash;
+        if (!/^#financeiro-obs-\d+$/.test(hash)) { return; }
+        const alvo = document.getElementById(hash.slice(1));
+        if (!alvo) { return; }
+        const painel  = alvo.closest('.tab-pane');
+        const gatilho = painel && painel.id ? document.getElementById(painel.id + '-tab') : null;
+        if (gatilho && !painel.classList.contains('active') && window.bootstrap) {
+            bootstrap.Tab.getOrCreateInstance(gatilho).show();
+        }
+        window.requestAnimationFrame(function () { alvo.scrollIntoView({ block: 'center' }); });
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', registroDoFragmento);
+    } else {
+        registroDoFragmento();
     }
 
     // ── Editar / Excluir ─────────────────────────────────────────────────────
     if (obsLista) {
         obsLista.addEventListener('click', async function (e) {
+            const btnResponder = e.target.closest('.btn-responder-obs');
+            if (btnResponder) { abrirCaixaRespostaFin(btnResponder); return; }
+
             const btnEditar = e.target.closest('.btn-editar-obs');
             if (btnEditar) {
                 const obsId         = btnEditar.dataset.obsId;
@@ -291,13 +502,37 @@
                     if (resp.ok) {
                         const alvo = document.getElementById('financeiro-obs-' + obsId);
                         if (alvo) {
+                            const conversa = alvo.parentElement && alvo.parentElement.classList.contains('ps-respostas')
+                                ? alvo.parentElement : null;
+                            /* Excluir a raiz: as respostas FICAM (o banco solta o vínculo) e passam a
+                               dizer "Resposta a uma mensagem excluída" — como ao recarregar. Sem a
+                               raiz, responder a uma órfã liga a ela mesma (o servidor faz igual). */
+                            const minhas = !conversa ? obsLista.querySelector('.ps-respostas[data-resposta-de="' + obsId + '"]') : null;
+                            if (minhas) {
+                                minhas.classList.add('ps-respostas--orfa');
+                                minhas.removeAttribute('data-resposta-de');
+                                minhas.querySelectorAll(':scope > .ps-anotacao--resposta > .ps-anotacao-resposta-rot > span').forEach(function (rot) {
+                                    rot.textContent = ROTULO_ORFA;
+                                });
+                                minhas.querySelectorAll(':scope > .ps-anotacao').forEach(function (orfa) {
+                                    const btn = orfa.querySelector('.btn-responder-obs');
+                                    if (!btn) { return; }
+                                    btn.dataset.respostaA    = orfa.id.replace('financeiro-obs-', '');
+                                    btn.dataset.respostaNome = (orfa.querySelector('.ps-anotacao-autor') || {}).textContent || '';
+                                    delete btn.dataset.respostaAutorId;
+                                    delete btn.dataset.respostaAutorNome;
+                                });
+                            }
+                            if (caixaResp && caixaResp.raizId === String(obsId)) { fecharCaixaRespostaFin(); }
+
                             /* A pílula do dia existe para o PRIMEIRO registro do dia: se ele era o
                                único, a pílula sai junto; sem registro nenhum, a lista volta ao
                                estado vazio (sem linha do tempo). */
                             const pilula   = alvo.previousElementSibling;
-                            const seguinte = alvo.nextElementSibling;
+                            const seguinte = minhas ? minhas.nextElementSibling : alvo.nextElementSibling;
                             alvo.remove();
-                            if (pilula && pilula.classList.contains('ps-dia') && (!seguinte || seguinte.classList.contains('ps-dia'))) {
+                            if (conversa && !conversa.querySelector('.ps-anotacao')) { conversa.remove(); }
+                            if (!conversa && !minhas && pilula && pilula.classList.contains('ps-dia') && (!seguinte || seguinte.classList.contains('ps-dia'))) {
                                 pilula.remove();
                             }
                         }

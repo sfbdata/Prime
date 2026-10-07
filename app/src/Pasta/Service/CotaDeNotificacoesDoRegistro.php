@@ -6,13 +6,15 @@ namespace App\Pasta\Service;
 
 use App\Entity\Auth\User;
 use App\Pasta\Entity\PastaMensagem;
+use App\Pasta\Entity\PastaObservacaoFinanceira;
 use App\Processo\Entity\NotaTecnica;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 
 /**
  * Teto de avisos no sino que UM autor pode disparar pelo Registro da pasta (SEC-008) — as
- * @menções e o "respondeu seu comentário" — e pelas @menções das notas técnicas (PMC-019).
+ * @menções e o "respondeu seu comentário" —, pelas @menções das notas técnicas (PMC-019) e pelo
+ * "respondeu seu comentário" do Relatório financeiro (FPN-005).
  *
  * Uma cota só para as duas origens, de propósito: o abuso que ela contém é no sino dos colegas,
  * e o sino não distingue de onde o aviso veio. Duas cotas dobrariam o teto de quem quer inundar.
@@ -44,7 +46,7 @@ final class CotaDeNotificacoesDoRegistro
      * Consome uma ficha da cota do autor. `false` = estourou: quem chama NÃO cria o aviso, e o
      * resto do envio segue.
      */
-    public function permite(User $autor, User $destinatario, string $tipo, PastaMensagem|NotaTecnica $origem): bool
+    public function permite(User $autor, User $destinatario, string $tipo, PastaMensagem|NotaTecnica|PastaObservacaoFinanceira $origem): bool
     {
         $aceito = $this->pastaRegistroNotificacaoLimiter
             ->create((string) $autor->getId())
@@ -57,9 +59,11 @@ final class CotaDeNotificacoesDoRegistro
                     'autor_id'        => $autor->getId(),
                     'destinatario_id' => $destinatario->getId(),
                     'tipo'            => $tipo,
-                ] + ($origem instanceof NotaTecnica
-                    ? ['nota_tecnica_id' => $origem->getId()]
-                    : ['mensagem_id' => $origem->getId()]));
+                ] + match (true) {
+                    $origem instanceof NotaTecnica               => ['nota_tecnica_id' => $origem->getId()],
+                    $origem instanceof PastaObservacaoFinanceira => ['observacao_financeira_id' => $origem->getId()],
+                    default                                      => ['mensagem_id' => $origem->getId()],
+                });
             } catch (\Throwable) {
                 // Registrar não pode derrubar o envio da mensagem.
             }

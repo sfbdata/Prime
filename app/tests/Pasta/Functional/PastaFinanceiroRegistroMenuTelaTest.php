@@ -85,7 +85,7 @@ final class PastaFinanceiroRegistroMenuTelaTest extends JusPrimeWebTestCase
         return $obs;
     }
 
-    #[TestDox('Arranjo: um menu só, filho direto do Relatório financeiro, escondido, com Copiar texto, Editar e Excluir')]
+    #[TestDox('Arranjo: um menu só, filho direto do Relatório financeiro, escondido, com Responder, Copiar texto, Editar e Excluir')]
     public function testMenuDoRegistro(): void
     {
         $client = static::createClient();
@@ -100,14 +100,16 @@ final class PastaFinanceiroRegistroMenuTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $menu->filter('#financeiroObsMenu > .ps-fin-menu-titulo'));
 
         $itens = $menu->filter('#financeiroObsMenu > button.ps-fin-menu-item[role="menuitem"]');
-        self::assertSame(['Copiar texto', 'Editar', 'Excluir comentário'], $itens->each(static fn ($b): string => trim($b->text())));
+        // Desenho (dc L.5958): Responder, Copiar texto, — , Editar, Excluir comentário (FPN-005).
+        self::assertSame(['Responder', 'Copiar texto', 'Editar', 'Excluir comentário'], $itens->each(static fn ($b): string => trim($b->text())));
         self::assertSame(
-            ['bi bi-clipboard', 'bi bi-pencil', 'bi bi-trash3'],
+            ['bi bi-reply-fill', 'bi bi-clipboard', 'bi bi-pencil', 'bi bi-trash3'],
             $itens->each(static fn ($b): ?string => $b->filter('i')->attr('class')),
         );
-        self::assertStringContainsString('js-fin-obs-copiar', (string) $itens->eq(0)->attr('class'));
-        self::assertStringContainsString('js-fin-obs-editar js-fin-obs-gerenciar', (string) $itens->eq(1)->attr('class'));
-        self::assertStringContainsString('ps-fin-menu-item--perigo js-fin-obs-excluir js-fin-obs-gerenciar', (string) $itens->eq(2)->attr('class'));
+        self::assertStringContainsString('js-fin-obs-responder', (string) $itens->eq(0)->attr('class'));
+        self::assertStringContainsString('js-fin-obs-copiar', (string) $itens->eq(1)->attr('class'));
+        self::assertStringContainsString('js-fin-obs-editar js-fin-obs-gerenciar', (string) $itens->eq(2)->attr('class'));
+        self::assertStringContainsString('ps-fin-menu-item--perigo js-fin-obs-excluir js-fin-obs-gerenciar', (string) $itens->eq(3)->attr('class'));
         // Desenho (dc L.6454-6466, `menuObs`/`extrasObs`): "Imprimir" mora só no ⋮ da observação
         // de Detalhes; o menu do Relatório financeiro não tem o item.
         self::assertCount(0, $menu->filter('#financeiroObsMenu .js-fin-obs-imprimir, #financeiroObsMenu .js-obs-imprimir, #financeiroObsMenu .bi-printer'));
@@ -117,8 +119,8 @@ final class PastaFinanceiroRegistroMenuTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $menu->filter('#financeiroObsMenu > .ps-fin-menu-sep'));
         self::assertCount(0, $menu->filter('#financeiroObsMenu > [hidden]'));
 
-        // Sem lastro no Financeiro: não aparecem (Responder depende do FPN-005).
-        foreach (['Responder', 'Encaminhar', 'Destacar'] as $fora) {
+        // Sem lastro no Financeiro: não aparecem.
+        foreach (['Encaminhar', 'Destacar'] as $fora) {
             self::assertStringNotContainsString($fora, $menu->text());
         }
     }
@@ -175,5 +177,80 @@ final class PastaFinanceiroRegistroMenuTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $cartao);
         self::assertCount(0, $cartao->filter('.btn-editar-obs, .btn-excluir-obs'));
         self::assertSame('1', $cartao->attr('data-obs-do-autor'), 'motivo do bloqueio: o prazo passou');
+    }
+
+    #[TestDox('FPN-005: a resposta fica recuada sob a raiz, com "Resposta a NOME"; a contagem é só das raízes')]
+    public function testRespostaRecuadaSobARaiz(): void
+    {
+        $client = static::createClient();
+        [$user, $tenant, $pasta] = $this->cenario();
+        $outro    = $this->criarUsuario($tenant, 'Bruno Lima');
+        $raiz     = $this->criarRegistro($pasta, $outro, $tenant, 'Honorário em 20%.', new \DateTimeImmutable('-30 minutes'));
+        $resposta = $this->criarRegistro($pasta, $user, $tenant, 'Combinado.');
+        $resposta->setRespostaA($raiz);
+        $this->em()->flush();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
+
+        // Filho DIRETO da lista: a raiz; a resposta, dentro da conversa logo depois dela.
+        self::assertCount(1, $crawler->filter('#financeiroObsLista > article.ps-anotacao#financeiro-obs-' . $raiz->getId()));
+        self::assertCount(0, $crawler->filter('#financeiroObsLista > #financeiro-obs-' . $resposta->getId()));
+        $cartao = $crawler->filter('#financeiroObsLista > .ps-respostas[data-resposta-de="' . $raiz->getId() . '"] > article.ps-anotacao.ps-anotacao--resposta#financeiro-obs-' . $resposta->getId());
+        self::assertCount(1, $cartao);
+        self::assertSame('Resposta a Bruno Lima', trim($cartao->filter('.ps-anotacao-resposta-rot > span')->text()));
+        self::assertSame('1', trim($crawler->filter('#financeiro-obs-count')->text()), 'respostas não contam');
+
+        // Responder: a raiz responde a si; a resposta responde à RAIZ, com o autor dela para o "@".
+        $naRaiz = $crawler->filter('#financeiro-obs-' . $raiz->getId() . ' > .ps-anotacao-topo > .btn-responder-obs');
+        self::assertCount(1, $naRaiz);
+        self::assertSame((string) $raiz->getId(), $naRaiz->attr('data-resposta-a'));
+        self::assertSame('Bruno Lima', $naRaiz->attr('data-resposta-nome'));
+        self::assertNull($naRaiz->attr('data-resposta-autor-id'));
+        $naResposta = $cartao->filter('.ps-anotacao-topo > .btn-responder-obs');
+        self::assertSame((string) $raiz->getId(), $naResposta->attr('data-resposta-a'));
+        self::assertSame((string) $user->getId(), $naResposta->attr('data-resposta-autor-id'));
+        self::assertSame('Autora do Registro', $naResposta->attr('data-resposta-autor-nome'));
+    }
+
+    #[TestDox('FPN-005: a resposta cuja original foi excluída fica solta, com "Resposta a uma mensagem excluída"')]
+    public function testRespostaOrfa(): void
+    {
+        $client = static::createClient();
+        [$user, $tenant, $pasta] = $this->cenario();
+        $raiz     = $this->criarRegistro($pasta, $user, $tenant, 'Original.');
+        $resposta = $this->criarRegistro($pasta, $user, $tenant, 'Resposta.');
+        $resposta->setRespostaA($raiz);
+        $this->em()->flush();
+        $this->em()->remove($raiz);
+        $this->em()->flush();
+        $this->em()->clear();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
+
+        $cartao = $crawler->filter('#financeiroObsLista > article.ps-anotacao--resposta#financeiro-obs-' . $resposta->getId());
+        self::assertCount(1, $cartao);
+        self::assertSame('Resposta a uma mensagem excluída', trim($cartao->filter('.ps-anotacao-resposta-rot > span')->text()));
+        // Sem a raiz, responder a uma órfã liga a ela mesma.
+        self::assertSame((string) $resposta->getId(), $cartao->filter('.btn-responder-obs')->attr('data-resposta-a'));
+    }
+
+    #[TestDox('FPN-005: na lápide não há Responder — nem no menu, nem no cartão')]
+    public function testLapideSemResponder(): void
+    {
+        $client = static::createClient();
+        [$user, $tenant, $pasta] = $this->cenario();
+        $obs = $this->criarRegistro($pasta, $user, $tenant, 'Registro.');
+        $pasta->marcarExcluida($user, new \DateTimeImmutable());
+        $this->em()->flush();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
+        self::assertResponseIsSuccessful();
+
+        self::assertCount(1, $crawler->filter('#financeiro-obs-' . $obs->getId()));
+        self::assertCount(0, $crawler->filter('#financeiroObsMenu .js-fin-obs-responder'));
+        self::assertCount(0, $crawler->filter('#financeiroObsLista .btn-responder-obs'));
     }
 }
